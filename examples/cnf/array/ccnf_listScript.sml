@@ -561,46 +561,80 @@ Theorem unit_prop_vb_list:
     unit_prop_vb_vec fml dm s i len = SOME (res,dm') ∧
     dm_rel dm' dml' b
 Proof
-  cheat
-  (*
   rpt GEN_TAC >>
   map_every qid_spec_tac $ List.rev [`fml`,`dm`,`s`,`i`,`len`,`dml`,`dml'`] >>
   ho_match_mp_tac unit_prop_vb_vec_ind >>
   rpt GEN_TAC >> strip_tac >>
-  rw[Once unit_prop_vb_vec_def,Once unit_prop_vb_list_def]>>
+  rw[Once unit_prop_vb_vec_def,Once unit_prop_vb_list_def,unit_prop_one_def]>>
   gvs[AllCaseEqs(),UNCURRY_EQ,PULL_EXISTS,fml_rel_def]>>
   drule_all delete_literals_sing_list>>rw[]>>
   simp[]>> fs[] >>
   first_x_assum drule >>
-  fs[] *)
+  fs[]
 QED
 
-(* TODO: *)
 Definition unit_prop_vb_list'_def:
   (unit_prop_vb_list' fmlls dml b s i1 len =
-    ARB:((num option # word8 list) option option))
+  let (m,i) = parse_vb_int s i1 len in
+  if m <= 0 then
+    SOME (SOME (SOME i1,dml))
+  else
+  OPTION_BIND (unit_prop_one' fmlls dml b (Num m))
+  (\res.
+  case res of
+    NONE => SOME NONE
+  | SOME (T,dml') => SOME (SOME (NONE,dml'))
+  | SOME (F,dml') => unit_prop_vb_list' fmlls dml' b s i len))
+Termination
+  WF_REL_TAC `measure (\(fmlls, dml, b, s, i, len). len - i)` >>
+  rw[] >> fs[syntax_helperTheory.parse_vb_int_def,
+   syntax_helperTheory.parse_vb_num_def,
+   AllCaseEqs(),UNCURRY_EQ] >> rveq >> fs[] >>
+  last_x_assum (assume_tac o GSYM) >>
+  drule_all syntax_helperTheory.parse_vb_num_aux_i >>
+  fs[]
 End
 
 Theorem unit_prop_vb_list':
   unit_prop_vb_list' fmlls dml b s i1 len = SOME res ⇒
   unit_prop_vb_list fmlls dml b s i1 len = res
 Proof
-  cheat
+  MAP_EVERY qid_spec_tac $ List.rev [`fmlls`, `dml`, `b`, `s`, `i1`, `len`,`res`] >>
+  ho_match_mp_tac unit_prop_vb_list'_ind >>
+  rpt GEN_TAC >> DISCH_TAC >>
+  simp[Once unit_prop_vb_list'_def,Once unit_prop_vb_list_def] >>
+  rw[AllCaseEqs(),UNCURRY_EQ] >>
+  drule unit_prop_one' >> fs[]
 QED
 
 Theorem unit_prop_vb_list'_SOME:
-  ∀is dml res.
   bnd_fml fmlls (LENGTH dml) ⇒
   IS_SOME (unit_prop_vb_list' fmlls dml b s i1 len)
 Proof
-  cheat
+  MAP_EVERY qid_spec_tac $ List.rev [`fmlls`, `dml`, `b`, `s`, `i1`, `len`,`res`] >>
+  ho_match_mp_tac unit_prop_vb_list'_ind >>
+  rpt GEN_TAC >> DISCH_TAC >>
+  simp[Once unit_prop_vb_list'_def] >>
+  pairarg_tac >> fs[] >>
+  rw[] >> fs[IS_SOME_OPTION_BIND] >>
+  CONJ_TAC >-(
+  irule unit_prop_one'_SOME >> fs[]) >>
+  rw[] >> rpt TOP_CASE_TAC >> fs[] >> fs[] >>
+  drule unit_prop_one'_LENGTH >>
+  rw[] >> fs[]
 QED
 
 Theorem unit_prop_vb_list'_LENGTH:
   unit_prop_vb_list' fmlls dml b s i1 len = SOME (SOME (res,dml')) ⇒
   LENGTH dml = LENGTH dml'
 Proof
-  cheat
+  MAP_EVERY qid_spec_tac $ List.rev [`fmlls`, `dml`, `b`, `s`, `i1`, `len`,`res`,`dml'`] >>
+  ho_match_mp_tac unit_prop_vb_list'_ind >>
+  rpt GEN_TAC >> DISCH_TAC >>
+  simp[Once unit_prop_vb_list'_def] >>
+  rw[AllCaseEqs(),UNCURRY_EQ] >>
+  drule unit_prop_one'_LENGTH >>
+  fs[]
 QED
 
 Definition init_lit_map_list_def:
@@ -945,13 +979,27 @@ Proof
   metis_tac[]
 QED
 
+Theorem bnd_clause_le:
+  bnd_clause c n ∧ n ≤ n' ⇒
+  bnd_clause c n'
+Proof
+  rw[bnd_clause_def]>>
+  first_x_assum drule>>simp[]
+QED
+
 Theorem bnd_clause_prepare_rup:
   prepare_rup dml b v = (dml',b') ⇒
   bnd_clause v (LENGTH dml')
 Proof
   rw[prepare_rup_def]>>
-  pairarg_tac>>gvs[]>>
-  cheat
+  gvs[AllCaseEqs(),UNCURRY_EQ] >>
+  irule bnd_clause_le >>
+  irule_at (Pos hd) LENGTH_init_lit_map_list >>
+  CONJ_TAC >-  fs[] >>
+  gvs[reset_dm_list_def,AllCaseEqs(),NOT_LESS ] >>
+  irule bnd_clause_le >>
+  irule_at (Pos last) sz_lit_map_bnd_clause >>
+  Q.EXISTS_TAC `0` >> fs[]
 QED
 
 Theorem bnd_clause_is_rup_list':
@@ -977,13 +1025,6 @@ Proof
   rw[]
 QED
 
-Theorem bnd_clause_le:
-  bnd_clause c n ∧ n ≤ n' ⇒
-  bnd_clause c n'
-Proof
-  rw[bnd_clause_def]>>
-  first_x_assum drule>>simp[]
-QED
 
 Theorem bnd_fml_le:
   bnd_fml fml n ∧ n ≤ n' ⇒
@@ -1026,7 +1067,21 @@ Theorem is_rup_vb_list:
   is_rup_vb fml v s ∧
   ∃dm'. dm_rel dm' dml' b'
 Proof
-  cheat
+  strip_tac >>
+  fs[is_rup_vb_list_def,is_rup_vb_def,
+     UNCURRY_EQ,AllCaseEqs(),AllCasePreds()] >>
+  gvs[prepare_rup_def,UNCURRY_EQ,PULL_EXISTS] >>
+  drule_at (Pos last) unit_prop_vb_list >>
+  disch_then drule >>
+  qmatch_goalsub_abbrev_tac `unit_prop_vb_vec _ dm'` >>
+  disch_then (qspec_then `dm'` mp_tac) >>
+  UNABBREV_ALL_TAC >>
+  impl_tac >-
+    (irule init_lit_map_list >>
+    drule_all  dm_rel_reset_dm_list >>
+    fs[]) >>
+  rw[] >> fs[] >>
+  metis_tac[]
 QED
 
 Definition is_rup_vb_list'_def:
@@ -1046,9 +1101,8 @@ Theorem is_rup_vb_list':
 Proof
   rw[is_rup_vb_list'_def,is_rup_vb_list_def]>>
   gvs[UNCURRY_EQ,AllCaseEqs()]>>
-  cheat (* not sure why drule fails
   drule unit_prop_vb_list'>>
-  rw[] *)
+  rw[]
 QED
 
 Theorem is_rup_vb_list'_SOME:

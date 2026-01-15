@@ -333,10 +333,8 @@ Theorem unit_prop_vb_vec:
   ?is.
   unit_prop_vec fml dm is = SOME (IS_NONE res,dm')
 Proof
-  cheat
-  (*
   MAP_EVERY qid_spec_tac $ List.rev [`fml`,`dm`,`s`,`i`,`len`,`i'`,`res`] >>
-: ho_match_mp_tac unit_prop_vb_vec_ind >>
+  ho_match_mp_tac unit_prop_vb_vec_ind >>
   rpt gen_tac >> disch_tac >>
   simp[Once unit_prop_vb_vec_def] >>
   rpt strip_tac >> gvs[AllCaseEqs(),UNCURRY_EQ]
@@ -352,7 +350,7 @@ Proof
   >- (
     simp[Once $ oneline unit_prop_vec_def] >>
     simp[AllCaseEqs(),SF DNF_ss] >>
-    metis_tac[]) *)
+    metis_tac[])
 QED
 
 Definition lit_map_def:
