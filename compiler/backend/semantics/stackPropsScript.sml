@@ -837,7 +837,8 @@ Definition arith_name_def:
     (c.two_reg_arith ⇒ r1 = r2) ∧ reg_name r1 c ∧ reg_name r2 c ∧
     (i = 0w ⇒ l = Lsl) ∧ w2n i < dimindex (:α)) ∧
   (arith_name (Shift l r1 r2 (Reg r3)) c ⇔
-    (c.two_reg_arith ⇒ r1 = r2) ∧ reg_name r1 c ∧ reg_name r2 c ∧ reg_name r3 c) ∧
+    (c.two_reg_arith ⇒ r1 = r2) ∧ reg_name r1 c ∧
+     reg_name r2 c ∧ reg_name r3 c ∧ (c.ISA = x86_64 ⇒ r3 = 1)) ∧
   (arith_name (Div r1 r2 r3) c ⇔
     (reg_name r1 c ∧ reg_name r2 c ∧ reg_name r3 c ∧
     c.ISA ∈ {ARMv8; MIPS; RISC_V})) ∧

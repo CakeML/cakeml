@@ -367,7 +367,7 @@ End
 (*** Conventions for args to instructions ***)
 Definition inst_arg_convention_def:
   (inst_arg_convention (Arith (AddCarry r1 r2 r3 r4)) ⇔ r4 = 0) ∧
-  (inst_arg_convention (Arith (Shift _ _ _ (Reg r))) ⇔ r = 1) ∧
+  (inst_arg_convention (Arith (Shift _ _ _ (Reg r))) ⇔ r = 8) ∧
   (* Note: these are not necessary *)
   (inst_arg_convention (Arith (AddOverflow r1 r2 r3 r4)) ⇔ r4 = 0) ∧
   (inst_arg_convention (Arith (SubOverflow r1 r2 r3 r4)) ⇔ r4 = 0) ∧
