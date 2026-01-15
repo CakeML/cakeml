@@ -292,9 +292,9 @@ Definition word_exp_def:
      case the_words (MAP (word_exp s) wexps) of
      | SOME ws => (OPTION_MAP Word (word_op op ws))
      | _ => NONE) /\
-  (word_exp s (Shift sh wexp n) =
-     case word_exp s wexp of
-     | SOME (Word w) => OPTION_MAP Word (word_sh sh w n)
+  (word_exp s (Shift sh wexp wexp1) =
+     case (word_exp s wexp, word_exp s wexp1) of
+     | (SOME (Word w), SOME (Word w1)) => OPTION_MAP Word (word_sh sh w (w2n w1))
      | _ => NONE)
 Termination
   WF_REL_TAC `measure (exp_size ARB o SND)`
@@ -663,9 +663,10 @@ Definition inst_def:
         assign r1
           (Op bop [Var r2; case ri of Reg r3 => Var r3
                                     | Imm w => Const w]) s
-    | Arith (Shift sh r1 r2 n) =>
+    | Arith (Shift sh r1 r2 ri) =>
         assign r1
-          (Shift sh (Var r2) n) s
+          (Shift sh (Var r2) (case ri of Reg r3 => Var r3
+                                       | Imm w => Const w)) s
     | Arith (Div r1 r2 r3) =>
        (let vs = get_vars[r3;r2] s in
        case vs of

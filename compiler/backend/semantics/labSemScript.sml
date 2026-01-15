@@ -106,9 +106,10 @@ Definition arith_upd_def[simp]:
      case (read_reg r2 s, reg_imm ri s) of
      | (Word w1, Word w2) => binop_upd r1 b w1 w2 s
      | (x,_) => if b = Or /\ ri = Reg r2 then upd_reg r1 x s else assert F s) /\
-  (arith_upd (Shift l r1 r2 n) s =
-     case read_reg r2 s of
-     | Word w1 => upd_reg r1 (Word (word_shift l w1 n)) s
+  (arith_upd (Shift l r1 r2 ri) s =
+     case (read_reg r2 s, reg_imm ri s) of
+     | (Word w1, Word w2) =>
+         assert (w2n w2 < dimword (:'a)) (upd_reg r1 (Word (word_shift l w1 (w2n w2))) s)
      | _ => assert F s) /\
   (arith_upd (Div r1 r2 r3) s =
      case (read_reg r3 s,read_reg r2 s) of
@@ -154,7 +155,6 @@ Definition arith_upd_def[simp]:
             (upd_reg r1 (Word (w2 - w3)) s)
      | _ => assert F s)
 End
-
 
 Definition upd_fp_reg_def:
   upd_fp_reg r v s = s with fp_regs := (r =+ v) s.fp_regs

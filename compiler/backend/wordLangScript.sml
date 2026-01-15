@@ -83,7 +83,7 @@ Definition every_var_exp_def:
   (every_var_exp P (Var num) = P num) ∧
   (every_var_exp P (Load exp) = every_var_exp P exp) ∧
   (every_var_exp P (Op wop ls) = EVERY (every_var_exp P) ls) ∧
-  (every_var_exp P (Shift sh exp n) = every_var_exp P exp) ∧
+  (every_var_exp P (Shift sh e1 e2) = (every_var_exp P e1 ∧ every_var_exp P e2)) ∧
   (every_var_exp P expr = T)
 End
 
@@ -96,7 +96,7 @@ Definition every_var_inst_def:
   (every_var_inst P (Const reg w) = P reg) ∧
   (every_var_inst P (Arith (Binop bop r1 r2 ri)) =
     (P r1 ∧ P r2 ∧ every_var_imm P ri)) ∧
-  (every_var_inst P (Arith (Shift shift r1 r2 n)) = (P r1 ∧ P r2)) ∧
+  (every_var_inst P (Arith (Shift shift r1 r2 ri)) = (P r1 ∧ P r2 ∧ every_var_imm P ri)) ∧
   (every_var_inst P (Arith (Div r1 r2 r3)) = (P r1 ∧ P r2 ∧ P r3)) ∧
   (every_var_inst P (Arith (AddCarry r1 r2 r3 r4)) = (P r1 ∧ P r2 ∧ P r3 ∧ P r4)) ∧
   (every_var_inst P (Arith (AddOverflow r1 r2 r3 r4)) = (P r1 ∧ P r2 ∧ P r3 ∧ P r4)) ∧

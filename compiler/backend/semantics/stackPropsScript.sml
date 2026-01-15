@@ -833,9 +833,11 @@ Definition arith_name_def:
   (arith_name (Binop b r1 r2 ri) (c:'a asm_config) ⇔
     (c.two_reg_arith ⇒ r1 = r2 ∨ b = Or ∧ ri = Reg r2) ∧ reg_name r1 c ∧
     reg_name r2 c ∧ reg_imm_name (INL b) ri c) ∧
-  (arith_name (Shift l r1 r2 n) c ⇔
+  (arith_name (Shift l r1 r2 (Imm i)) c ⇔
     (c.two_reg_arith ⇒ r1 = r2) ∧ reg_name r1 c ∧ reg_name r2 c ∧
-    (n = 0 ⇒ l = Lsl) ∧ n < dimindex (:α)) ∧
+    (i = 0w ⇒ l = Lsl) ∧ w2n i < dimindex (:α)) ∧
+  (arith_name (Shift l r1 r2 (Reg r3)) c ⇔
+    (c.two_reg_arith ⇒ r1 = r2) ∧ reg_name r1 c ∧ reg_name r2 c ∧ reg_name r3 c) ∧
   (arith_name (Div r1 r2 r3) c ⇔
     (reg_name r1 c ∧ reg_name r2 c ∧ reg_name r3 c ∧
     c.ISA ∈ {ARMv8; MIPS; RISC_V})) ∧
