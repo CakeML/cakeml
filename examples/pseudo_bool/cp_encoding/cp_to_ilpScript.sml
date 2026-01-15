@@ -362,43 +362,6 @@ Proof
     intLib.ARITH_TAC)
 QED
 
-(* encodes (sum of the bitlist Bs) = Y *)
-Definition encode_bitsum_def:
-  encode_bitsum Bs Y =
-  case Y of
-    INL vY => [
-      ([(-1i, vY)], MAP (λb. (1i, Pos b)) Bs, 0i);
-      ([(1i, vY)], MAP (λb. (-1i, Pos b)) Bs, 0i)]
-  | INR cY => [
-      ([], MAP (λb. (1i, Pos b)) Bs, cY);
-      ([], MAP (λb. (-1i, Pos b)) Bs, -cY)]
-End
-
-Theorem iSUM_MAP_lin:
-  ∀ls a f b. iSUM (MAP (λx. a * f x + b) ls) = a * iSUM (MAP (λx. f x) ls) + b * &LENGTH ls
-Proof
-  Induct>>
-  simp[iSUM_def,MAP,LENGTH]>>
-  rw[]>>
-  intLib.ARITH_TAC
-QED
-
-Theorem iSUM_MAP_lin_const = iSUM_MAP_lin |> CONV_RULE (RESORT_FORALL_CONV List.rev) |> Q.SPEC `0` |> SRULE [] |> SPEC_ALL;
-
-Theorem encode_bitsum_sem:
-  valid_assignment bnd wi ⇒
-  (EVERY (λx. iconstraint_sem x (wi,wb)) (encode_bitsum Bs Y) ⇔
-  iSUM $ MAP (b2i o wb) Bs = varc wi Y)
-Proof
-  rw[encode_bitsum_def]>>
-  CASE_TAC>>
-  simp[varc_def,iconstraint_sem_def,eval_ilin_term_def,eval_lin_term_def,
-    eval_iterm_def,eval_term_def,iSUM_def,MAP_MAP_o,combinTheory.o_ABS_R,
-    iSUM_MAP_lin_const]>>
-  simp[GSYM combinTheory.o_ABS_R,GSYM combinTheory.I_EQ_IDABS]>>
-  intLib.ARITH_TAC
-QED
-
 (*
   Helper functions for bit implications, but we
     specialize with annotations and only use a single bit
@@ -831,23 +794,6 @@ Definition mk_name_def:
   strlit"c[" ^ name ^ strlit "][" ^ tag ^ strlit"]"
 End
 
-(* at least one over literals *)
-Definition cat_least_one_def:
-  cat_least_one name ls =
-    List [
-      (SOME (mk_name name (strlit "al1")),
-        ([], MAP (λl. (1,l)) ls, 1))]
-End
-
-Theorem at_least_one_sem[simp]:
-  EVERY (λx. iconstraint_sem x (wi,wb))
-    (abstr (cat_least_one name ls)) ⇔
-  ∃l. MEM l ls ∧ lit wb l
-Proof
-  rw[iconstraint_sem_def,cat_least_one_def,eval_lin_term_def]>>
-  simp[MAP_MAP_o,o_DEF]
-QED
-
 Theorem enc_rel_List_refl_mul:
   set ls' = set $ (abstrl ls) ⇒
   enc_rel wi (List ls) ls' ec ec
@@ -864,5 +810,115 @@ Proof
   rw[enc_rel_def]>>
   fs[EVERY_MEM,EXTENSION,MEM_MAP]>>
   metis_tac[]
+QED
+
+(* at least one over literals.
+  We define the raw version and abstract over it. *)
+Definition at_least_one_def:
+  at_least_one ls = ([], MAP (λl. (1,l)) ls, 1)
+End
+
+Definition cat_least_one_def:
+  cat_least_one name ls =
+    List [
+      (SOME (mk_name name (strlit "al1")),
+        at_least_one ls)]
+End
+
+Theorem at_least_one_sem[simp]:
+  iconstraint_sem (at_least_one ls) (wi,wb) ⇔
+  ∃l. MEM l ls ∧ lit wb l
+Proof
+  rw[iconstraint_sem_def,at_least_one_def,eval_lin_term_def]>>
+  simp[MAP_MAP_o,o_DEF]
+QED
+
+Theorem abstr_cat_least_one[simp]:
+  abstr (cat_least_one name ls) = [at_least_one ls]
+Proof
+  rw[cat_least_one_def]
+QED
+
+(* encodes (sum of the bitlist Bs) = Y *)
+Definition encode_bitsum_def:
+  encode_bitsum Bs Y =
+  case Y of
+    INL vY => [
+      ([(-1i, vY)], MAP (λb. (1i, Pos b)) Bs, 0i);
+      ([(1i, vY)], MAP (λb. (-1i, Pos b)) Bs, 0i)]
+  | INR cY => [
+      ([], MAP (λb. (1i, Pos b)) Bs, cY);
+      ([], MAP (λb. (-1i, Pos b)) Bs, -cY)]
+End
+
+Theorem iSUM_MAP_lin:
+  ∀ls a f b. iSUM (MAP (λx. a * f x + b) ls) = a * iSUM (MAP (λx. f x) ls) + b * &LENGTH ls
+Proof
+  Induct>>
+  simp[iSUM_def,MAP,LENGTH]>>
+  rw[]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem iSUM_MAP_lin_const = iSUM_MAP_lin |> CONV_RULE (RESORT_FORALL_CONV List.rev) |> Q.SPEC `0` |> SRULE [] |> SPEC_ALL;
+
+Theorem encode_bitsum_sem:
+  valid_assignment bnd wi ⇒
+  (EVERY (λx. iconstraint_sem x (wi,wb)) (encode_bitsum Bs Y) ⇔
+  iSUM $ MAP (b2i o wb) Bs = varc wi Y)
+Proof
+  rw[encode_bitsum_def]>>
+  CASE_TAC>>
+  simp[varc_def,iconstraint_sem_def,eval_ilin_term_def,eval_lin_term_def,
+    eval_iterm_def,eval_term_def,iSUM_def,MAP_MAP_o,combinTheory.o_ABS_R,
+    iSUM_MAP_lin_const]>>
+  simp[GSYM combinTheory.o_ABS_R,GSYM combinTheory.I_EQ_IDABS]>>
+  intLib.ARITH_TAC
+QED
+
+Definition cencode_bitsum_def:
+  cencode_bitsum Bs Y name =
+  List
+    (mk_annotate
+      [mk_name name (strlit"ge"); mk_name name (strlit"le")]
+      (encode_bitsum Bs Y)
+    )
+End
+
+Theorem enc_rel_cencode_bitsum[simp]:
+  enc_rel wi (cencode_bitsum Bs Y name) (encode_bitsum Bs Y) ec ec
+Proof
+  rw[cencode_bitsum_def,encode_bitsum_def]>>
+  Cases_on ‘Y’>>
+  simp[enc_rel_List_mk_annotate]
+QED
+
+(* Flatten a list of app lists *)
+Definition flat_app_def:
+  flat_app ls = FOLDR Append Nil ls
+End
+
+Theorem abstr_flat_app[simp]:
+  abstr (flat_app ls) =
+    FLAT (MAP abstr ls)
+Proof
+  `∀acc. abstr (FOLDR Append acc ls) = FLAT (MAP abstr ls) ++ abstr acc` by
+    (Induct_on`ls`>>rw[flat_app_def])>>
+  simp[flat_app_def]
+QED
+
+Theorem abstrl_mk_annotate[simp]:
+  ∀ls ys.
+  abstrl (mk_annotate ls ys) = ys
+Proof
+  ho_match_mp_tac mk_annotate_ind>>
+  rw[mk_annotate_def]>>
+  simp[MAP_MAP_o,o_DEF]
+QED
+
+Theorem abstr_cencode_bitsum[simp]:
+  abstr (cencode_bitsum Bs Y name) = encode_bitsum Bs Y
+Proof
+  rw[cencode_bitsum_def]
 QED
 

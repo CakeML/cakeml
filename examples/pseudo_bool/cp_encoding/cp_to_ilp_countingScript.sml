@@ -479,34 +479,23 @@ Proof
   intLib.ARITH_TAC
 QED
 
-(* abstract encoding for at_least_one, which can be equivalently defined as
-   HD (abstr (cat_least_one name ls))
-
-   alternatively, cat_least_one can be redefined as
-   List [(SOME (mk_name name (strlit"al1")), at_least_one name ls)]
-*)
-Definition at_least_one_def:
-  at_least_one name ls = ([], MAP (λl. (1,l)) ls, 1)
-End
-
-Theorem at_least_one_sem_alt[simp]:
-  iconstraint_sem (at_least_one name ls) (wi,wb) ⇔
-    ∃l. MEM l ls ∧ lit wb l
-Proof
-  rw[iconstraint_sem_def,at_least_one_def,eval_lin_term_def]>>
-  simp[MAP_MAP_o,o_DEF]
-QED
-
-(* TODO: CHANGE THIS DEFINITION TO THAT OF encode_among_alt *)
 (* Among: Y equals the number of times values from iS appear in Xs
    Y = Sum_i [Xs[i] ∈ iS] *)
+Definition cencode_among_aux_def:
+  cencode_among_aux bnd Xs iS Y name =
+    Append
+      (flat_app (MAPi
+      (λi X.
+      cbimply_var bnd (eqi name i (strlit"al1"))
+        (at_least_one (MAP (λv. Pos (INL (Eq X v))) iS))) Xs))
+      (cencode_bitsum (GENLIST (λi. eqi name i (strlit"al1")) (LENGTH Xs)) Y name)
+End
+
 Definition encode_among_def:
   encode_among bnd Xs iS Y name =
-  FLAT (MAPi (λi X.
-    FLAT (MAP (λv. encode_full_eq bnd X v) iS) ++
-    bimply_bit bnd (Pos (eqi name i (strlit"al1")))
-      (at_least_one name (MAP (λv. Pos (INL (Eq X v))) iS))) Xs) ++
-  encode_bitsum (GENLIST (λi. eqi name i (strlit"al1")) (LENGTH Xs)) Y
+  FLAT (MAP (λX.
+    FLAT (MAP (λv. encode_full_eq bnd X v) iS)) Xs) ++
+  abstr (cencode_among_aux bnd Xs iS Y name)
 End
 
 Theorem encode_among_sem_1:
@@ -516,11 +505,14 @@ Theorem encode_among_sem_1:
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
     (encode_among bnd Xs iS Y name)
 Proof
-  rw[encode_among_def,among_sem_def]
+  rw[cencode_among_aux_def,encode_among_def,among_sem_def]
   >-(
-    rw[EVERY_FLAT,Once EVERY_MEM,MEM_MAPi]>>
-    simp[EVERY_APPEND,EVERY_FLAT,EVERY_MAP,reify_avar_def,reify_reif_def,reify_flag_def]>>
-    simp[at_least_one_sem_alt,MEM_MAP,PULL_EXISTS,SF DNF_ss,reify_avar_def,reify_reif_def])>>
+    simp[EVERY_FLAT,Once EVERY_MEM,MEM_MAP,PULL_EXISTS]>>
+    rw[Once EVERY_MEM,MEM_MAP]>>
+    simp[reify_avar_def,reify_reif_def])
+  >- (
+    simp[EVERY_FLAT,o_DEF,Once EVERY_MEM,MEM_MAPi,PULL_EXISTS,MEM_MAP]>>
+    simp[reify_avar_def,reify_flag_def,reify_reif_def])>>
   drule_then (fn thm => simp[thm]) encode_bitsum_sem>>
   cong_tac NONE>>
   simp[MAP_GENLIST,o_ABS_R,GENLIST_eq_MAP]>>
@@ -533,20 +525,21 @@ Theorem encode_among_sem_2:
     (encode_among bnd Xs iS Y name) ⇒
   among_sem Xs iS Y wi
 Proof
-  rw[encode_among_def,EVERY_FLAT,among_sem_def]>>
-  gs[Once EVERY_MEM,MEM_MAPi,SF DNF_ss,iconstraint_sem_def,EVERY_FLAT,EVERY_MAP]>>
+  rw[cencode_among_aux_def,encode_among_def,EVERY_FLAT,among_sem_def]>>
   drule_then (fn thm => gs[thm]) encode_bitsum_sem>>
   pop_assum (SUBST_ALL_TAC o SYM)>>
+  qpat_x_assum`EVERY _ _` mp_tac>>
+  simp[Once EVERY_MEM,MEM_MAPi,SF DNF_ss,iconstraint_sem_def,EVERY_FLAT,EVERY_MAP,MEM_MAP]>>
+  qpat_x_assum`EVERY _ _` mp_tac>>
+  simp[EVERY_MEM,MEM_MAPi,SF DNF_ss,iconstraint_sem_def,EVERY_FLAT,EVERY_MAP,MEM_MAP]>>
+  rw[]>>
   cong_tac NONE>>
   rw[MAP_GENLIST,o_ABS_R,GENLIST_eq_MAP]>>
   cong_tac NONE>>
   gs[EVERY_MEM]>>
-  last_x_assum kall_tac>>
-  last_x_assum $ drule_then assume_tac>>
   last_x_assum $ drule_then assume_tac>>
   pop_assum (SUBST_ALL_TAC o SYM)>>
-  simp[MEM_MAP,PULL_EXISTS,SF DNF_ss]>>
-  metis_tac[]
+  metis_tac[MEM_EL]
 QED
 
 (* (encode_full_eq_ilist bnd X iS) extends (encode_full_eq bnd X v) from a single int ‘v’
@@ -589,120 +582,31 @@ Proof
   metis_tac[]
 QED
 
-(* In encode_among_aux bnd n Xs iS Y name, the first element
-   in Xs (indexed 0) is associated with this flag: eqi name n (strlit"al1")
-
-   Likewise for cencode_among_aux bnd n Xs iS Y name ec
-*)
-Definition encode_among_aux_def:
-  encode_among_aux bnd _ [] iS Y name = [] ∧
-  encode_among_aux bnd n (X::Xs) iS Y name =
-    encode_full_eq_ilist bnd X iS ++
-    bimply_bit bnd (Pos (eqi name n (strlit"al1")))
-      (at_least_one name (MAP (λv. Pos (INL (Eq X v))) iS)) ++
-    encode_among_aux bnd (n + 1) Xs iS Y name
-End
-
-Definition cencode_among_aux_def:
-  cencode_among_aux bnd _ [] iS Y name ec = (Nil,ec) ∧
-  cencode_among_aux bnd n (X::Xs) iS Y name ec =
-  let
-    (x1,ec') = cencode_full_eq_ilist bnd X iS ec;
-    x2 = cbimply_var bnd (eqi name n (strlit"al1"))
-      (at_least_one name (MAP (λv. Pos (INL (Eq X v))) iS));
-    (x3,ec'') = cencode_among_aux bnd (n + 1) Xs iS Y name ec'
-  in
-    (Append (Append x1 x2) x3,ec'')
-End
-
-Theorem enc_rel_bimply:
-  enc_rel wi (cbimply_var bnd b cc) (bimply_bit bnd (Pos b) cc) ec ec
-Proof
-  irule enc_rel_abstr_cong>>
-  simp[abstr_cbimply_var]
-QED
-
-Theorem cencode_among_aux_sem:
-  ∀n es ec.
-    valid_assignment bnd wi ∧
-    cencode_among_aux bnd n Xs iS Y name ec = (es, ec') ⇒
-      enc_rel wi es (encode_among_aux bnd n Xs iS Y name) ec ec'
-Proof
-  Induct_on ‘Xs’>>
-  rw[cencode_among_aux_def,encode_among_aux_def]>>
-  rpt (pairarg_tac>>fs[])>>
-  ntac 2 (last_x_assum mp_tac)>>
-  last_x_assum (SUBST_ALL_TAC o SYM)>>
-  last_x_assum SUBST_ALL_TAC>>
-  rpt strip_tac>>
-  irule enc_rel_Append>>
-  rename1 ‘cencode_full_eq_ilist _ _ _ _ = (_,ec0)’>>
-  qexists ‘ec0’>>
-  CONJ_TAC
-  >-(
-    irule enc_rel_Append>>
-    qexists ‘ec0’>>
-    simp[cencode_full_eq_ilist_sem,enc_rel_bimply])>>
-  metis_tac[]
-QED
-
-Definition cencode_bitsum_def:
-  cencode_bitsum Bs Y name =
-  List
-    (mk_annotate
-      [mk_name name (strlit"ge"); mk_name name (strlit"le")]
-      (encode_bitsum Bs Y)
-    )
-End
-
-Theorem cencode_bitsum_sem:
-  valid_assignment bnd wi ⇒
-  enc_rel wi (cencode_bitsum Bs Y name) (encode_bitsum Bs Y) ec ec
-Proof
-  rw[cencode_bitsum_def,encode_bitsum_def]>>
-  Cases_on ‘Y’>>
-  simp[enc_rel_List_mk_annotate]
-QED
-
 Definition cencode_among_def:
   cencode_among bnd Xs iS Y name ec =
-  let
-    (x1,ec') = cencode_among_aux bnd 0 Xs iS Y name ec;
-    x2 = cencode_bitsum (GENLIST (λi. eqi name i (strlit"al1")) (LENGTH Xs)) Y name
-  in
-    (Append x1 x2,ec')
+  let (xs,ec') =
+    fold_cenc (λX ec.
+      fold_cenc (λv ec. cencode_full_eq bnd X v ec) iS ec) Xs ec in
+  (Append xs (cencode_among_aux bnd Xs iS Y name), ec')
 End
 
-(* ALTERNATIVE DEFINITION FOR encode_among *)
-Definition encode_among_alt_def:
-  encode_among_alt bnd Xs iS Y name =
-  encode_among_aux bnd 0 Xs iS Y name ++
-  encode_bitsum (GENLIST (λi. eqi name i (strlit"al1")) (LENGTH Xs)) Y
-End
-
-Triviality test:
-  encode_among bnd Xs iS Y name = encode_among_alt bnd Xs iS Y name
-Proof
-  Induct_on ‘Xs’>>
-  gs[encode_among_def,encode_among_alt_def,encode_among_aux_def]>>
-  cheat
-QED
-
-(* TODO: CHANGE encode_among_alt TO encode_among ONCE THE LATTER HAS BEEN
-   REDEFINED
- *)
 Theorem cencode_among_sem:
   valid_assignment bnd wi ∧
   cencode_among bnd Xs iS Y name ec = (es, ec') ⇒
-  enc_rel wi es (encode_among_alt bnd Xs iS Y name) ec ec'
+  enc_rel wi es (encode_among bnd Xs iS Y name) ec ec'
 Proof
-  rw[cencode_among_def,encode_among_alt_def]>>
+  rw[cencode_among_def,encode_among_def]>>
   gvs[AllCaseEqs(),UNCURRY_EQ]>>
   irule enc_rel_Append>>
-  qmatch_asmsub_abbrev_tac ‘(_,ec')’>>
-  qexists ‘ec'’>>
-  drule_then (fn thm => simp[thm]) cencode_bitsum_sem>>
-  simp[cencode_among_aux_def,encode_among_aux_def,cencode_among_aux_sem]
+  irule_at Any enc_rel_abstr>>
+  irule enc_rel_fold_cenc>>
+  first_x_assum $ irule_at Any>>
+  rw[]>>
+  irule enc_rel_fold_cenc>>
+  first_x_assum $ irule_at Any>>
+  rw[]>>
+  irule enc_rel_encode_full_eq>>
+  fs[]
 QED
 
 Definition encode_counting_constr_def:

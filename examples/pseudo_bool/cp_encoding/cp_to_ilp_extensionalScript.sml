@@ -289,7 +289,7 @@ Proof
   fs[encode_table_def,cencode_table_def]>>
   rw[]>>gvs[UNCURRY_EQ]>>
   irule enc_rel_Append>>
-  irule_at Any enc_rel_abstr>>
+  irule_at (Pos (el 2)) enc_rel_abstr_cong>>
   simp[MAPi_enumerate_MAP]>>
   irule_at Any enc_rel_fold_cenc>>
   fs[creify_tuple_eqs_def]>>
