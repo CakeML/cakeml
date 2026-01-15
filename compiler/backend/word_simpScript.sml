@@ -196,13 +196,15 @@ Definition const_fp_exp_def:
                         | SOME w => Const w
                         | _ => Op op (MAP Const ws))
          | _ => Op op const_fp_args) /\
-  (const_fp_exp (Shift sh e n) cs =
+  (const_fp_exp (Shift sh e e1) cs =
      let const_fp_exp_e = const_fp_exp e cs in
-       dtcase const_fp_exp_e of
-         | Const c => (dtcase word_sh sh c n of
-                        | SOME w => Const w
-                        | _ => Shift sh (Const c) n)
-         | _ => Shift sh e n) /\
+     let const_fp_exp_e1 = const_fp_exp e1 cs in
+       dtcase (const_fp_exp_e, const_fp_exp_e1) of
+         | (Const c, Const c1) =>
+             (dtcase word_sh sh c (w2n c1) of
+              | SOME w => Const w
+              | _ => Shift sh (Const c) (Const c1))
+         | _ => Shift sh const_fp_exp_e const_fp_exp_e1) /\
   (const_fp_exp e _ = e)
 End
 
@@ -484,4 +486,3 @@ Definition compile_exp_def:
     let e = push_out_if e in
       e
 End
-

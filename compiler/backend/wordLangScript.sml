@@ -17,8 +17,10 @@ Datatype:
       | Lookup store_name
       | Load exp
       | Op binop (exp list)
-      | Shift shift exp num
+      | Shift shift exp exp
 End
+
+Overload ShiftN = “λsh e n. Shift sh e (Const (n2w n))”;
 
 Theorem MEM_IMP_exp_size:
    !xs a. MEM a xs ==> (exp_size l a < exp1_size l xs)
@@ -316,4 +318,3 @@ Overload shift = “backend_common$word_shift”
 Datatype:
   word_loc = Word ('a word) | Loc num num
 End
-

@@ -142,10 +142,17 @@ Definition ssa_cc_trans_inst_def:
       let r2' = option_lookup ssa r2 in
       let (r1',ssa',na') = next_var_rename r1 ssa na in
         (Inst (Arith (Binop bop r1' r2' ri)),ssa',na')) ∧
-  (ssa_cc_trans_inst (Arith (Shift shift r1 r2 n)) ssa na =
-    let r2' = option_lookup ssa r2 in
-    let (r1',ssa',na') = next_var_rename r1 ssa na in
-      (Inst (Arith (Shift shift r1' r2' n)),ssa',na')) ∧
+  (ssa_cc_trans_inst (Arith (Shift shift r1 r2 ri)) ssa na =
+    dtcase ri of
+    | Reg r3 =>
+      let r3' = option_lookup ssa r3 in
+      let r2' = option_lookup ssa r2 in
+      let (r1',ssa',na') = next_var_rename r1 ssa na in
+        (Inst (Arith (Shift shift r1' r2' (Reg r3'))),ssa',na')
+    | _ =>
+      let r2' = option_lookup ssa r2 in
+      let (r1',ssa',na') = next_var_rename r1 ssa na in
+        (Inst (Arith (Shift shift r1' r2' ri)),ssa',na')) ∧
   (ssa_cc_trans_inst (Arith (Div r1 r2 r3)) ssa na =
     let r2' = option_lookup ssa r2 in
     let r3' = option_lookup ssa r3 in
@@ -266,7 +273,7 @@ Definition ssa_cc_trans_exp_def:
   (ssa_cc_trans_exp t (Op wop ls) =
     Op wop (MAP (ssa_cc_trans_exp t) ls)) ∧
   (ssa_cc_trans_exp t (Shift sh exp nexp) =
-    Shift sh (ssa_cc_trans_exp t exp) nexp) ∧
+    Shift sh (ssa_cc_trans_exp t exp) (ssa_cc_trans_exp t nexp)) ∧
   (ssa_cc_trans_exp t expr = expr)
 End
 
@@ -501,7 +508,7 @@ Definition apply_colour_exp_def[simp]:
   (apply_colour_exp f (Var num) = Var (f num)) /\
   (apply_colour_exp f (Load exp) = Load (apply_colour_exp f exp)) /\
   (apply_colour_exp f (Op wop ls) = Op wop (MAP (apply_colour_exp f) ls)) /\
-  (apply_colour_exp f (Shift sh exp nexp) = Shift sh (apply_colour_exp f exp) nexp) /\
+  (apply_colour_exp f (Shift sh exp nexp) = Shift sh (apply_colour_exp f exp) (apply_colour_exp f nexp)) /\
   (apply_colour_exp f expr = expr)
 End
 
@@ -515,8 +522,8 @@ Definition apply_colour_inst_def[simp]:
   (apply_colour_inst f (Const reg w) = Const (f reg) w) ∧
   (apply_colour_inst f (Arith (Binop bop r1 r2 ri)) =
     Arith (Binop bop (f r1) (f r2) (apply_colour_imm f ri))) ∧
-  (apply_colour_inst f (Arith (Shift shift r1 r2 n)) =
-    Arith (Shift shift (f r1) (f r2) n)) ∧
+  (apply_colour_inst f (Arith (Shift shift r1 r2 ri)) =
+    Arith (Shift shift (f r1) (f r2) (apply_colour_imm f ri))) ∧
   (apply_colour_inst f (Arith (Div r1 r2 r3)) =
     Arith (Div (f r1) (f r2) (f r3))) ∧
   (apply_colour_inst f (Arith (AddCarry r1 r2 r3 r4)) =
@@ -599,7 +606,7 @@ End
 Definition get_writes_inst_def:
   (get_writes_inst (Const reg w) = insert reg () LN) ∧
   (get_writes_inst (Arith (Binop bop r1 r2 ri)) = insert r1 () LN) ∧
-  (get_writes_inst (Arith (Shift shift r1 r2 n)) = insert r1 () LN) ∧
+  (get_writes_inst (Arith (Shift shift r1 r2 ri)) = insert r1 () LN) ∧
   (get_writes_inst (Arith (Div r1 r2 r3)) = insert r1 () LN) ∧
   (get_writes_inst (Arith (AddCarry r1 r2 r3 r4)) = insert r4 () (insert r1 () LN)) ∧
   (get_writes_inst (Arith (AddOverflow r1 r2 r3 r4)) = insert r4 () (insert r1 () LN)) ∧
@@ -627,8 +634,9 @@ Definition get_live_inst_def:
   (get_live_inst (Arith (Binop bop r1 r2 ri)) live =
     dtcase ri of Reg r3 => insert r2 () (insert r3 () (delete r1 live))
     | _ => insert r2 () (delete r1 live)) ∧
-  (get_live_inst (Arith (Shift shift r1 r2 n)) live =
-    insert r2 () (delete r1 live)) ∧
+  (get_live_inst (Arith (Shift shift r1 r2 ri)) live =
+    dtcase ri of Reg r3 => insert r2 () (insert r3 () (delete r1 live))
+    | _ => insert r2 () (delete r1 live)) ∧
   (get_live_inst (Arith (Div r1 r2 r3)) live =
     (insert r3 () (insert r2 () (delete r1 live)))) ∧
   (get_live_inst (Arith (AddCarry r1 r2 r3 r4)) live =
@@ -678,7 +686,7 @@ Definition get_live_exp_def:
   (get_live_exp (Load exp) = get_live_exp exp) ∧
   (get_live_exp (Op wop ls) =
     big_union (MAP get_live_exp ls)) ∧
-  (get_live_exp (Shift sh exp nexp) = get_live_exp exp) ∧
+  (get_live_exp (Shift sh exp nexp) = union (get_live_exp exp) (get_live_exp nexp)) ∧
   (get_live_exp expr = LN)
 End
 
@@ -944,7 +952,9 @@ Definition get_delta_inst_def:
   (get_delta_inst (Arith (Binop bop r1 r2 ri)) =
     dtcase ri of Reg r3 => Delta [r1] [r2;r3]
                   | _ => Delta [r1] [r2]) ∧
-  (get_delta_inst (Arith (Shift shift r1 r2 n)) = Delta [r1] [r2]) ∧
+  (get_delta_inst (Arith (Shift shift r1 r2 ri)) =
+    dtcase ri of Reg r3 => Delta [r1] [r2;r3]
+                  | _ => Delta [r1] [r2]) ∧
   (get_delta_inst (Arith (Div r1 r2 r3)) = Delta [r1] [r3;r2]) ∧
   (get_delta_inst (Arith (AddCarry r1 r2 r3 r4)) = Delta [r1;r4] [r4;r3;r2]) ∧
   (get_delta_inst (Arith (AddOverflow r1 r2 r3 r4)) = Delta [r1;r4] [r3;r2]) ∧
@@ -977,7 +987,7 @@ Definition get_reads_exp_def:
   (get_reads_exp (Load exp) = get_reads_exp exp) ∧
   (get_reads_exp (Op wop ls) =
       FLAT (MAP get_reads_exp ls)) ∧
-  (get_reads_exp (Shift sh exp nexp) = get_reads_exp exp) ∧
+  (get_reads_exp (Shift sh exp nexp) = get_reads_exp exp ++ get_reads_exp nexp) ∧
   (get_reads_exp expr = [])
 End
 
@@ -1150,9 +1160,14 @@ Definition get_heu_inst_def:
     | _ =>
         (add1_lhs_reg r1
         (add1_rhs_reg r2 lr)))) ∧
-  (get_heu_inst (Arith (Shift shift r1 r2 n)) lr =
-     (add1_lhs_reg r1
-     (add1_rhs_reg r2 lr))) ∧
+  (get_heu_inst (Arith (Shift shift r1 r2 ri)) lr =
+    (dtcase ri of
+      Reg r3 => (* r1 := r2 (shift) r3*)
+        (add1_lhs_reg r1
+        (add1_rhs_reg r3 (add1_rhs_reg r2 lr)))
+    | _ =>
+        (add1_lhs_reg r1
+        (add1_rhs_reg r2 lr)))) ∧
   (get_heu_inst (Arith (Div r1 r2 r3)) lr =
      (add1_lhs_reg r1
      (add1_rhs_reg r3 (add1_rhs_reg r2 lr)))) ∧

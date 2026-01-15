@@ -223,4 +223,3 @@ val x64_encode_rwts = Theory.save_thm("x64_encode_rwts",
      jump_cmp_imm_rwt, call_rwt, jump_reg_rwt, loc_rwt,
      fp_less, fp_leq, fp_eq, fp_mov, fp_abs, fp_neg, fp_sqrt, fp_add, fp_sub,
      fp_mul, fp_div, fp_fma, fp_to_reg, fp_from_reg, fp_to_int, fp_from_int])
-

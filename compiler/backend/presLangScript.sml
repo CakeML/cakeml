@@ -1403,11 +1403,11 @@ Definition word_exp_to_display_def:
   (word_exp_to_display (Op bop exs)
     = Item NONE (strlit "Op") (asm_binop_to_display bop
         :: word_exp_to_display_list exs)) /\
-  (word_exp_to_display (Shift sh exp num)
+  (word_exp_to_display (Shift sh exp exp1)
     = Item NONE (strlit "Shift") [
       shift_to_display sh;
       word_exp_to_display exp;
-      num_to_display num
+      word_exp_to_display exp1
     ]) ∧
   (word_exp_to_display_list [] = []) ∧
   (word_exp_to_display_list (x::xs) =
