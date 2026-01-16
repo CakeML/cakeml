@@ -811,8 +811,7 @@ Proof
     \\ conj_tac
     >- (
       simp[bytes_in_word_def]
-      \\ DEP_ONCE_REWRITE_TAC[GSYM MOD_PLUS]
-      \\ conj_tac >- rw[]
+      \\ PURE_REWRITE_TAC[Once (GSYM MOD_PLUS)]
       \\ rewrite_tac[LENGTH_FLAT, MAP_MAP_o]
       \\ DEP_ONCE_REWRITE_TAC[SUM_MOD]
       \\ conj_tac >- rw[]

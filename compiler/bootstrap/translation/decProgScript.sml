@@ -4,7 +4,7 @@
 Theory decProg
 Ancestors
   ast ml_translator ml_pmatch[qualified] semanticPrimitives
-  repl_init_envProg
+  repl_init_envProg ast_extras
 Libs
   preamble ml_translatorLib ml_progLib
 
@@ -13,8 +13,6 @@ open ml_translatorLib ml_translatorTheory ml_progLib;
 open repl_init_envProgTheory;
 
 val _ = translation_extends "repl_init_envProg";
-
-val _ = use_string_type true;
 
 (* this is a hack to make the translator avoid these names *)
 Datatype:
@@ -58,6 +56,7 @@ Proof
   \\ rpt (irule_at Any (fetch_v_fun “:word8” |> snd |> hd))
   \\ rpt (irule_at Any (fetch_v_fun “:word64” |> snd |> hd))
   \\ rpt (irule_at Any (fetch_v_fun “:string” |> snd |> hd))
+  \\ rpt (irule_at Any (fetch_v_fun “:mlstring” |> snd |> hd))
   \\ fs []
 QED
 

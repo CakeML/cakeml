@@ -699,7 +699,7 @@ Definition to_word_all_def:
               ((name_num,arg_count,
                remove_must_terminate
                  (case word_alloc_inlogic asm_conf prog col_opt of
-                  | NONE => FFI "reg alloc fail" 0 0 0 0 (LN,LN)
+                  | NONE => FFI «reg alloc fail» 0 0 0 0 (LN,LN)
                   | SOME x => x)))) (ZIP (p,n_oracles)) in
     let ps = ps ++ [(strlit "after word_alloc (and remove_must_terminate)",Word p names)] in
     let c = c with inc_word_to_word_conf updated_by (λc. c with col_oracle := col) in
@@ -754,4 +754,3 @@ Theorem exists_oracle:
 Proof
   metis_tac []
 QED
-

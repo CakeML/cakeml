@@ -166,28 +166,28 @@ QED
 (* A small IO model needed for IO examples *)
 
 Definition names_def:
-  names = ["put_char"; "get_char"]
+  names = [«put_char»; «get_char»]
 End
 
 Definition put_char_event_def:
-  put_char_event c = IO_event (ExtCall "put_char") [n2w (ORD c)] []
+  put_char_event c = IO_event (ExtCall «put_char») [n2w (ORD c)] []
 End
 
 Definition put_str_event_def:
-  put_str_event cs = IO_event (ExtCall "put_char") (MAP (n2w o ORD) cs) []
+  put_str_event cs = IO_event (ExtCall «put_char») (MAP (n2w o ORD) cs) []
 End
 
 Definition get_char_event_def:
-  get_char_event c = IO_event (ExtCall "get_char") [] [0w, 1w; 0w, n2w (ORD c)]
+  get_char_event c = IO_event (ExtCall «get_char») [] [0w, 1w; 0w, n2w (ORD c)]
 End
 
 Definition get_char_eof_event_def:
-  get_char_eof_event = IO_event (ExtCall "get_char") [] [0w, 0w; 0w, 0w]
+  get_char_eof_event = IO_event (ExtCall «get_char») [] [0w, 0w; 0w, 0w]
 End
 
 val update_def = PmatchHeuristics.with_classic_heuristic Define `
-  (update "put_char" cs [] s = SOME (FFIreturn [] s)) /\
-  (update "get_char" [] [0w; 0w] s = case destStream s of
+  (update «put_char» cs [] s = SOME (FFIreturn [] s)) /\
+  (update «get_char» [] [0w; 0w] s = case destStream s of
      | NONE    => NONE
      | SOME ll => if ll = [||] then
          SOME (FFIreturn [0w; 0w] s)
@@ -288,7 +288,7 @@ Proof
        `names`, `events`]
     \\ fs [update_def, put_str_event_def, names_def, SNOC_APPEND,
            STRING_TYPE_def, State_def, strlit_STRCAT, MAP_MAP_o, o_DEF,
-           CHR_ORD, ORD_BOUND]
+           CHR_ORD, ORD_BOUND, implode_def]
     \\ xsimpl)
   \\ xcon \\ xsimpl
 QED
@@ -325,10 +325,11 @@ Proof
     THEN1 (
       xffi \\ xsimpl \\ fs [SIO_def]
       \\ qpat_abbrev_tac `s = State _`
-      \\ MAP_EVERY qexists_tac [`emp`, `s`, `update`, `names`, `events`]
+      \\ MAP_EVERY qexists_tac [‘[]’, `emp`, `s`, `update`, `names`, `events`]
       \\ unabbrev_all_tac
       \\ fs [update_def, get_char_event_def, get_char_eof_event_def,
-             names_def, SNOC_APPEND, EVAL ``REPLICATE 2 0w``, State_def]
+             names_def, SNOC_APPEND, EVAL ``REPLICATE 2 0w``, State_def,
+             implode_def]
       \\ xsimpl)
     \\ rpt (xlet_auto THEN1 xsimpl)
     \\ assume_tac eq_v_WORD8_thm
@@ -1148,18 +1149,14 @@ Theorem highly_specific_MOD_lemma2[local]:
   = EL (i MOD LENGTH l) l
 Proof
   strip_tac >>
-Cases_on `1 < LENGTH l` >-
+  Cases_on `1 < LENGTH l` >-
   (Cases_on `i MOD LENGTH l = LENGTH l - 1` >-
-     (drule(GSYM MOD_PLUS) >>
-      disch_then(qspecl_then[`i`,`1`] mp_tac) >>
-      disch_then(fn thm => PURE_ONCE_REWRITE_TAC [thm]) >>
+     (PURE_ONCE_REWRITE_TAC[GSYM MOD_PLUS] >>
       pop_assum(fn thm => PURE_ONCE_REWRITE_TAC [thm]) >>
       simp[ONE_MOD] >>
       Q.ISPEC_THEN `l` assume_tac SNOC_CASES >>
       fs[] >> rveq >> fs[EL_APPEND2,SNOC_APPEND]) >>
-   drule(GSYM MOD_PLUS) >>
-   disch_then(qspecl_then[`i`,`1`] mp_tac) >>
-   disch_then(fn thm => PURE_ONCE_REWRITE_TAC [thm]) >>
+   PURE_ONCE_REWRITE_TAC[GSYM MOD_PLUS] >>
    drule ONE_MOD >>
    disch_then(fn thm => PURE_ONCE_REWRITE_TAC [thm]) >>
    `i MOD LENGTH l < LENGTH l - 1`

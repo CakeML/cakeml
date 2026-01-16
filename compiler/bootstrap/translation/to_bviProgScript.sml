@@ -14,7 +14,6 @@ val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 val _ = translation_extends "to_bvlProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "to_bviProg");
-val _ = ml_translatorLib.use_string_type true;
 
 (* ------------------------------------------------------------------------- *)
 (* Setup                                                                     *)

@@ -134,7 +134,7 @@ Proof
   (* help instantiate fill_arr_spec *)
   qmatch_asmsub_abbrev_tac`NUM (LENGTH fmlls) nv`>>
   `LIST_REL (OPTION_TYPE (LIST_TYPE INT)) (REPLICATE (2*(LENGTH fmlls)) NONE)
-        (REPLICATE (2 * (LENGTH fmlls)) (Conv (SOME (TypeStamp "None" 2)) []))` by
+        (REPLICATE (2 * (LENGTH fmlls)) (Conv (SOME (TypeStamp «None» 2)) []))` by
     simp[LIST_REL_REPLICATE_same,OPTION_TYPE_def]>>
   first_x_assum drule>>
   rpt (disch_then drule)>>
@@ -143,7 +143,7 @@ Proof
   (* help instantiate fill_earliest_spec *)
   qmatch_asmsub_abbrev_tac`NUM (2 * mv) _`>>
   `LIST_REL (OPTION_TYPE NUM) (REPLICATE (2 * mv + 3) NONE)
-          (REPLICATE (2 * mv + 3) (Conv (SOME (TypeStamp "None" 2)) []))` by
+          (REPLICATE (2 * mv + 3) (Conv (SOME (TypeStamp «None» 2)) []))` by
     simp[LIST_REL_REPLICATE_same,OPTION_TYPE_def]>>
   first_x_assum drule>>
   disch_then drule>>
