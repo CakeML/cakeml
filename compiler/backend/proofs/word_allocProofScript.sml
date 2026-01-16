@@ -3849,8 +3849,8 @@ Proof
   EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]>>
   (CONJ_TAC>-
     (full_simp_tac(srw_ss())[is_alloc_var_def]>>
-    (qspec_then `4` assume_tac arithmeticTheory.MOD_PLUS>>full_simp_tac(srw_ss())[]>>
-    pop_assum (qspecl_then [`r1`,`4`] assume_tac)>>
+    (assume_tac arithmeticTheory.MOD_PLUS>>full_simp_tac(srw_ss())[]>>
+    pop_assum (qspecl_then [`4`,`r1`,`4`] assume_tac)>>
     rev_full_simp_tac(srw_ss())[]))
   >>
   CONJ_TAC>-
@@ -4130,8 +4130,8 @@ Proof
   EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]>>
   (CONJ_TAC>-
     (full_simp_tac(srw_ss())[is_alloc_var_def]>>
-    (qspec_then `4` assume_tac arithmeticTheory.MOD_PLUS>>full_simp_tac(srw_ss())[]>>
-    pop_assum (qspecl_then [`r1`,`4`] assume_tac)>>
+    (assume_tac arithmeticTheory.MOD_PLUS>>full_simp_tac(srw_ss())[]>>
+    pop_assum (qspecl_then [`4`,`r1`,`4`] assume_tac)>>
     rev_full_simp_tac(srw_ss())[]))
   >>
   CONJ_TAC>-
@@ -4601,10 +4601,9 @@ Proof
     `is_stack_var na ∨ is_alloc_var na` by
       metis_tac[convention_partitions]>>
     `is_stack_var w ∨ is_alloc_var w` by
-      (qspec_then `4` mp_tac arithmeticTheory.MOD_PLUS >>
-      impl_tac>>
+      (mp_tac arithmeticTheory.MOD_PLUS >>
       full_simp_tac(srw_ss())[is_phy_var_def,is_alloc_var_def,is_stack_var_def]>>
-      disch_then(qspecl_then[`4*n`,`na`](SUBST1_TAC o SYM)) >>
+      disch_then(qspecl_then[`4`,`4*n`,`na`](SUBST1_TAC o SYM)) >>
       `(4*n) MOD 4 =0 ` by
         (`0<4:num` by DECIDE_TAC>>
         `∀k.(4:num)*k=k*4` by DECIDE_TAC>>
@@ -4833,8 +4832,8 @@ Theorem is_alloc_var_flip[local]:
 Proof
   full_simp_tac(srw_ss())[is_alloc_var_def,is_stack_var_def]>>
   ‘0 < 4:num’ by fs [] >>
-  drule arithmeticTheory.MOD_PLUS >>
-  disch_then $ qspecl_then [`na`,`2`] assume_tac >>
+  qspecl_then [`4`,`na`,`2`] assume_tac
+    arithmeticTheory.MOD_PLUS >>
   full_simp_tac std_ss [EVAL “2 MOD 4”] >>
   strip_tac >> fs []
 QED
@@ -4844,8 +4843,8 @@ Theorem is_stack_var_flip[local]:
 Proof
   full_simp_tac(srw_ss())[is_alloc_var_def,is_stack_var_def]>>
   ‘0 < 4:num’ by fs [] >>
-  drule arithmeticTheory.MOD_PLUS >>
-  disch_then $ qspecl_then [`na`,`2`] assume_tac >>
+  qspecl_then [`4`,`na`,`2`] assume_tac
+    arithmeticTheory.MOD_PLUS >>
   full_simp_tac std_ss [EVAL “2 MOD 4”] >>
   strip_tac >> fs []
 QED
@@ -4971,9 +4970,8 @@ Proof
   conj_tac >> (reverse EQ_TAC >-
     metis_tac[is_alloc_var_flip,is_stack_var_flip]) >>
   full_simp_tac(srw_ss())[is_alloc_var_def,is_stack_var_def]>>
-  qspec_then `4` mp_tac arithmeticTheory.MOD_PLUS >>
-  (impl_tac >- full_simp_tac(srw_ss())[]>>
-  disch_then(qspecl_then[`na`,`2`](SUBST1_TAC o SYM)) >>
+  mp_tac arithmeticTheory.MOD_PLUS >>
+  (disch_then(qspecl_then[`4`,`na`,`2`](SUBST1_TAC o SYM)) >>
   `na MOD 4 < 4` by full_simp_tac(srw_ss())[]>>
   imp_res_tac (DECIDE ``n:num<4⇒(n=0)∨(n=1)∨(n=2)∨(n=3)``)>>
   full_simp_tac(srw_ss())[])
@@ -7939,7 +7937,7 @@ Proof
     full_simp_tac(srw_ss())[Abbr`x'`]>>
     DECIDE_TAC)
   >>
-  qspec_then `4` assume_tac arithmeticTheory.MOD_PLUS>>
+  assume_tac arithmeticTheory.MOD_PLUS>>
   `(x + (4 - x MOD 4)) MOD 4 = 0` by
    (`x MOD 4 < 4` by full_simp_tac(srw_ss())[]>>
     `(x MOD 4 = 0) ∨ (x MOD 4 = 1) ∨ (x MOD 4 = 2) ∨ (x MOD 4 = 3)` by
@@ -7957,7 +7955,7 @@ Proof
     ((3+1)MOD 4 = 0)` by full_simp_tac(srw_ss())[]>>
     metis_tac[]) >>
   full_simp_tac std_ss [EVAL “0<4:num”]>>
-  first_x_assum(qspecl_then [`x+(4- x MOD 4)`,`1`] assume_tac)>>
+  first_x_assum(qspecl_then [`4`,`x+(4- x MOD 4)`,`1`] assume_tac)>>
   pop_assum sym_sub_tac>>
   full_simp_tac(srw_ss())[]
 QED
