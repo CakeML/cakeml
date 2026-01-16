@@ -120,8 +120,7 @@ Proof
   rw [fcpTheory.CART_EQ,word_ror_def,word_or_def,word_lsl_def,
       word_lsr_def,fcpTheory.FCP_BETA]
   \\ ‘0 < dimindex (:α)’ by fs []
-  \\ drule MOD_PLUS
-  \\ disch_then $ once_rewrite_tac o single o GSYM
+  \\ once_rewrite_tac[GSYM MOD_PLUS]
   \\ qabbrev_tac ‘k = n MOD dimindex (:α)’ \\ simp []
   \\ Cases_on ‘i + k < dimindex (:'a)’ \\ simp []
   \\ gvs [NOT_LESS]
