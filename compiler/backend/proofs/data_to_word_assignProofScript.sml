@@ -24,6 +24,8 @@ val _ = temp_delsimps ["fromAList_def", "domain_union",
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
 
+val _ = numLib.prefer_num ();
+
 fun drule0 th =
   first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))
 
@@ -11191,7 +11193,7 @@ Proof
       \\ simp [Once LESS_EQ_EXISTS] \\ strip_tac
       \\ rfs [] \\ rveq
       \\ `p < 8 /\ kk MOD 8 < 8` by fs []
-      \\ once_rewrite_tac [GSYM (MATCH_MP MOD_PLUS (DECIDE ``0<8n``))]
+      \\ once_rewrite_tac [GSYM MOD_PLUS]
       \\ drule0 (DECIDE ``n < 8n ==> n=0 \/ n=1 \/ n=2 \/ n=3 \/
                                     n=4 \/ n=5 \/ n=6 \/ n=7``)
       \\ strip_tac \\ fs []
@@ -11238,23 +11240,23 @@ Proof
     THEN1
      (Cases_on `i + n MOD 64 < 32` \\ fs [w2w,fcpTheory.FCP_BETA]
       \\ once_rewrite_tac [DECIDE ``i+(n+32)=(i+32)+n:num``]
-      \\ once_rewrite_tac [GSYM (MATCH_MP MOD_PLUS (DECIDE ``0<64n``))]
+      \\ once_rewrite_tac [GSYM MOD_PLUS]
       \\ qabbrev_tac `nn = n MOD 64` \\ fs []
       \\ simp [GSYM SUB_MOD])
     THEN1
      (Cases_on `i + n MOD 64 < 32` \\ fs [w2w,fcpTheory.FCP_BETA]
-      \\ once_rewrite_tac [GSYM (MATCH_MP MOD_PLUS (DECIDE ``0<64n``))]
+      \\ once_rewrite_tac [GSYM MOD_PLUS]
       \\ qabbrev_tac `nn = n MOD 64` \\ fs [])
     THEN1
      (Cases_on `i + n MOD 64 < 64` \\ fs [w2w,fcpTheory.FCP_BETA]
       \\ once_rewrite_tac [DECIDE ``i+(n+32)=(i+32)+n:num``]
-      \\ once_rewrite_tac [GSYM (MATCH_MP MOD_PLUS (DECIDE ``0<64n``))]
+      \\ once_rewrite_tac [GSYM MOD_PLUS]
       \\ `n MOD 64 < 64` by fs []
       \\ qabbrev_tac `nn = n MOD 64` \\ fs []
       \\ simp [GSYM SUB_MOD])
     THEN1
      (Cases_on `i + n MOD 64 < 64` \\ fs [w2w,fcpTheory.FCP_BETA]
-      \\ once_rewrite_tac [GSYM (MATCH_MP MOD_PLUS (DECIDE ``0<64n``))]
+      \\ once_rewrite_tac [GSYM MOD_PLUS]
       \\ `n MOD 64 < 64` by fs []
       \\ qabbrev_tac `nn = n MOD 64` \\ fs []
       \\ simp [GSYM SUB_MOD]))
@@ -13705,8 +13707,8 @@ Proof
   \\ qpat_x_assum `get_var _ _ = SOME (Word _)`
      (fn thm => rpt_drule0 get_var_get_real_addr_lemma >> assume_tac thm)
   \\ simp[]
-  \\ rename1`_ ∧ ffi_name = ""`
-  \\ Cases_on`¬c.call_empty_ffi ∧ ffi_name = ""`
+  \\ rename1`_ ∧ ffi_name = «»`
+  \\ Cases_on`¬c.call_empty_ffi ∧ ffi_name = «»`
   >- (
     fs[wordSemTheory.evaluate_def]
     \\ ntac 2 strip_tac
@@ -13743,8 +13745,8 @@ Proof
      (fn thm=> rpt_drule0 get_var_get_real_addr_lemma >> assume_tac thm)
   \\ `tt.store = t.store` by simp[Abbr`tt`]
   \\ simp[]
-  \\ qpat_abbrev_tac`ex1 = if ffi_name = "" then _ else _`
-  \\ qpat_abbrev_tac`ex2 = if ffi_name = "" then _ else _`
+  \\ qpat_abbrev_tac`ex1 = if ffi_name = «» then _ else _`
+  \\ qpat_abbrev_tac`ex2 = if ffi_name = «» then _ else _`
   \\ IF_CASES_TAC >- ( fs[shift_def] )
   \\ simp[wordSemTheory.get_var_def,lookup_insert]
   \\ qpat_x_assum`¬_`kall_tac
@@ -13768,7 +13770,7 @@ Proof
   \\ simp[]
   \\ qunabbrev_tac`ex1`
   \\ qunabbrev_tac`ex2`
-  \\ Cases_on`ffi_name = ""` \\ fs[]
+  \\ Cases_on`ffi_name = «»` \\ fs[]
   >- (
     eval_tac
     \\ fs[lookup_insert,wordSemTheory.word_exp_def,ffiTheory.call_FFI_def]
@@ -13932,8 +13934,8 @@ Proof
      (fn thm => rpt_drule0 get_var_get_real_addr_lemma >> assume_tac thm)
   \\ simp[assign_def,list_Seq_def] \\ eval_tac
   \\ simp[]
-  \\ rename1`_ ∧ ffi_name = ""`
-  \\ Cases_on`ffi_name = ""`
+  \\ rename1`_ ∧ ffi_name = «»`
+  \\ Cases_on`ffi_name = «»`
   >- (
     fs[wordSemTheory.evaluate_def]
     \\ ntac 2 strip_tac
@@ -14169,6 +14171,7 @@ Theorem TWO_POW_LEMMA[local]:
   (2 ** n ≤ 1 ⇒ n < 1)
 Proof
   Cases_on ‘n’ \\ fs [EXP]
+  \\ rename [‘SUC n'’]
   \\ Cases_on ‘n'’ \\ fs [EXP]
   \\ ‘0 < 2 ** n’ by fs [bitTheory.ZERO_LT_TWOEXP]
   \\ decide_tac

@@ -24,7 +24,7 @@ Definition int_to_display_def:
 End
 
 Definition string_imp_def:
-  string_imp s = String (implode s)
+  string_imp s = String s
 End
 
 Definition item_with_num_def:
@@ -206,10 +206,24 @@ End
 
 Definition test_to_display_def:
   test_to_display Equal = empty_item (strlit "Equal") ∧
-  test_to_display Less = empty_item (strlit "Less") ∧
-  test_to_display Less_alt = empty_item (strlit "Less_alt") ∧
-  test_to_display LessEq = empty_item (strlit "LessEq") ∧
-  test_to_display LessEq_alt = empty_item (strlit "LessEq_alt")
+  test_to_display (Compare cmp) = Item NONE (strlit "Compare") [opb_to_display cmp] ∧
+  test_to_display (AltCompare cmp) = Item NONE (strlit "AltCompare") [opb_to_display cmp]
+End
+
+Definition arith_to_display_def:
+  arith_to_display Add = empty_item (strlit "Add") ∧
+  arith_to_display Sub = empty_item (strlit "Sub") ∧
+  arith_to_display Mul = empty_item (strlit "Mul") ∧
+  arith_to_display Div = empty_item (strlit "Div") ∧
+  arith_to_display Mod = empty_item (strlit "Mod") ∧
+  arith_to_display And = empty_item (strlit "And") ∧
+  arith_to_display Xor = empty_item (strlit "Xor") ∧
+  arith_to_display Or  = empty_item (strlit "Or") ∧
+  arith_to_display Neg = empty_item (strlit "Neg") ∧
+  arith_to_display Not = empty_item (strlit "Not") ∧
+  arith_to_display Abs = empty_item (strlit "Abs") ∧
+  arith_to_display Sqrt = empty_item (strlit "Sqrt") ∧
+  arith_to_display FMA = empty_item (strlit "FMA")
 End
 
 Definition prim_type_to_display_def:
@@ -233,6 +247,12 @@ Definition op_to_display_def:
                             [word_size_to_display ws;
                              shift_to_display sh;
                              num_to_display num]
+  | Arith a ty => Item NONE (strlit "Arith")
+                         [arith_to_display a;
+                          prim_type_to_display ty]
+  | FromTo ty1 ty2 => Item NONE (strlit "FromTo")
+                         [prim_type_to_display ty1;
+                          prim_type_to_display ty2]
   | Test test ty => Item NONE (strlit "Test")
                          [test_to_display test;
                           prim_type_to_display ty]
@@ -298,15 +318,15 @@ End
 
 Definition id_to_display_def:
   id_to_display (Short n) =
-    Item NONE «Short» [String (implode n)] ∧
+    Item NONE «Short» [String n] ∧
   id_to_display (Long n i) =
-    Item NONE «Long» [String (implode n); id_to_display i]
+    Item NONE «Long» [String n; id_to_display i]
 End
 
 Definition ast_t_to_display_def:
   (ast_t_to_display c =
   case c of
-  | Atvar n => Item NONE «Atvar» [String (implode n)]
+  | Atvar n => Item NONE «Atvar» [String n]
   | Atfun t1 t2 => Item NONE «Atfun» [ast_t_to_display t1; ast_t_to_display t2]
   | Attup ts => Item NONE «Attup» [Tuple (ast_t_to_display_list ts)]
   | Atapp ts id => Item NONE «Attup» [Tuple (ast_t_to_display_list ts);
@@ -322,12 +342,12 @@ Definition pat_to_display_def:
   (pat_to_display (c:ast$pat) =
   case c of
   | Pany => Item NONE «Pany» []
-  | Pvar v => Item NONE «Pvar» [String (implode v)]
+  | Pvar v => Item NONE «Pvar» [String v]
   | Plit l => Item NONE «Plit» [lit_to_display l]
   | Pcon opt_id pats =>
       Item NONE «Pcon» [option_to_display id_to_display opt_id;
                         Tuple (pat_to_display_list pats)]
-  | Pas t v => Item NONE «Pas» [pat_to_display t; String (implode v)]
+  | Pas t v => Item NONE «Pas» [pat_to_display t; String v]
   | Pref t => Item NONE «Pref» [pat_to_display t]
   | Ptannot x y => Item NONE «Ptannot» [pat_to_display x; ast_t_to_display y])
   ∧
@@ -346,7 +366,7 @@ Definition exp_to_display_def:
   | Con opt_id es => Item NONE «Con» [option_to_display id_to_display opt_id;
                                       Tuple (exp_to_display_list es)]
   | Var id => Item NONE «Var» [id_to_display id]
-  | Fun n e => Item NONE «Fun» [String (implode n); exp_to_display e]
+  | Fun n e => Item NONE «Fun» [String n; exp_to_display e]
   | App op es => Item NONE «App» (op_to_display op ::
                                   exp_to_display_list es)
   | Log lop e1 e2 => Item NONE «Log» [lop_to_display lop;
@@ -356,7 +376,7 @@ Definition exp_to_display_def:
                                    exp_to_display e2;
                                    exp_to_display e3]
   | Let n_opt e1 e2 => Item NONE «Let»
-      [option_to_display (λn. String (implode n)) n_opt;
+      [option_to_display String n_opt;
        exp_to_display e1;
        exp_to_display e2]
   | Mat e pats =>
@@ -382,8 +402,8 @@ Definition exp_to_display_def:
     pat_exp_to_display_list xs) ∧
   (fun_to_display_list [] = []) ∧
   (fun_to_display_list ((m,n,e)::xs) =
-    Tuple [String (implode m);
-           String (implode n);
+    Tuple [String m;
+           String n;
            exp_to_display e] ::
     fun_to_display_list xs)
 End
@@ -393,25 +413,25 @@ Definition source_to_display_dec_def:
   case d of
   | Dlet _ pat e => Item NONE «Dlet» [pat_to_display pat; exp_to_display e]
   | Dletrec _ fns => Item NONE «Dletrec»
-                          (MAP (λ(m,n,e). Tuple [String (implode m);
-                                                 String (implode n);
+                          (MAP (λ(m,n,e). Tuple [String m;
+                                                 String n;
                                                  exp_to_display e]) fns)
   | Dtype _ ts => Item NONE «Dtype» (MAP (λ(ns,n,z).
-                    Tuple [Tuple (MAP (λn. String (implode n)) ns);
-                           String (implode n);
-                           Tuple (MAP (λ(n,tys). Tuple [String (implode n);
+                    Tuple [Tuple (MAP String ns);
+                           String n;
+                           Tuple (MAP (λ(n,tys). Tuple [String n;
                               Tuple (MAP ast_t_to_display tys)]) z)]) ts)
   | Dtabbrev _ ns n ty =>
-      Item NONE «Dtabbrev» [Tuple (MAP (λn. String (implode n)) ns);
-                            String (implode n);
+      Item NONE «Dtabbrev» [Tuple (MAP String ns);
+                            String n;
                             ast_t_to_display ty]
-  | Dexn _ n tys => Item NONE «Dexn» [String (implode n);
+  | Dexn _ n tys => Item NONE «Dexn» [String n;
                                       Tuple (MAP ast_t_to_display tys)]
-  | Dmod n ds => Item NONE «Dmod» [String (implode n);
+  | Dmod n ds => Item NONE «Dmod» [String n;
                                    Tuple (source_to_display_dec_list ds)]
   | Dlocal xs ys => Item NONE «Dlocal» [Tuple (source_to_display_dec_list xs);
                                         Tuple (source_to_display_dec_list ys)]
-  | Denv n => Item NONE «Denv» [String (implode n)])  ∧
+  | Denv n => Item NONE «Denv» [String n])  ∧
   (source_to_display_dec_list [] = []) ∧
   (source_to_display_dec_list (x::xs) =
     source_to_display_dec x :: source_to_display_dec_list xs)
@@ -462,6 +482,12 @@ Definition flat_op_to_display_def:
       word_size_to_display ws;
       shift_to_display sh;
       num_to_display num]
+    | Arith a ty => Item NONE (strlit "Arith")
+                         [arith_to_display a;
+                          prim_type_to_display ty]
+    | FromTo ty1 ty2 => Item NONE (strlit "FromTo")
+                             [prim_type_to_display ty1;
+                              prim_type_to_display ty2]
     | Test test ty => Item NONE (strlit "Test")
                            [test_to_display test;
                             prim_type_to_display ty]
@@ -566,7 +592,7 @@ Definition flat_to_display_def:
     Item (SOME tra) (strlit "var_local") [string_imp varN])
   /\
   (flat_to_display (Fun name_hint varN exp) =
-    Item (SOME None) (add_name_hint (strlit "fun") (implode name_hint))
+    Item (SOME None) (add_name_hint (strlit "fun") name_hint)
       [string_imp varN; flat_to_display exp])
   /\
   (flat_to_display (App tra op exps) =
@@ -585,7 +611,7 @@ Definition flat_to_display_def:
         flat_to_display exp1; flat_to_display exp2])
   /\
   (flat_to_display (Letrec name_hint funs exp) =
-    Item (SOME None) (add_name_hint (strlit "letrec") (implode name_hint))
+    Item (SOME None) (add_name_hint (strlit "letrec") name_hint)
         [Tuple (fun_flat_to_display_list funs); flat_to_display exp]
   )  ∧
   (flat_to_display_list [] = []) ∧
@@ -610,11 +636,16 @@ End
 
 (* clos to displayLang *)
 
-Definition num_to_varn_def:
-  num_to_varn n = if n < 26 then [CHR (97 + n)]
-                  else (num_to_varn ((n DIV 26)-1)) ++ ([CHR (97 + (n MOD 26))])
+Definition num_to_varn_aux_def:
+  num_to_varn_aux n =
+    if n < 26 then [CHR (97 + n)]
+    else (num_to_varn_aux ((n DIV 26)-1)) ++ ([CHR (97 + (n MOD 26))])
 Termination
   WF_REL_TAC `measure I` \\ rw [] \\ fs [DIV_LT_X]
+End
+
+Definition num_to_varn_def:
+  num_to_varn n = implode (num_to_varn_aux n)
 End
 
 Definition display_num_as_varn_def:

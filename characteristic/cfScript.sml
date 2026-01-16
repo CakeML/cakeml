@@ -44,7 +44,7 @@ QED
 
 (* An auxiliary definition *)
 Definition is_bound_Fun_def:
-  is_bound_Fun (SOME _: string option) (Fun _ _) = T /\
+  is_bound_Fun (SOME _: mlstring option) (Fun _ _) = T /\
   is_bound_Fun _ _ = F
 End
 
@@ -1428,10 +1428,10 @@ Definition app_copystraw8_def:
   app_copystraw8 s so l d do' H Q =
     ((?wd F.
         0 <= do' /\ 0 <= so /\ 0 <= l /\
-        (Num do' + Num l) <= LENGTH wd /\ (Num so + Num l) <= LENGTH s /\
+        (Num do' + Num l) <= LENGTH wd /\ (Num so + Num l) <= strlen s /\
         (H ==>> F * W8ARRAY d wd) /\
         (F * W8ARRAY d (TAKE (Num do') wd ⧺
-                        MAP (n2w o ORD) (TAKE (Num l) (DROP (Num so) s)) ⧺
+                        MAP (n2w o ORD) (TAKE (Num l) (DROP (Num so) (explode s))) ⧺
                         DROP (Num do' + Num l) wd)
             ==>> Q (Val (Conv NONE [])))) /\
      Q =~v> POST_F)
@@ -1444,16 +1444,16 @@ Definition app_copyaw8str_def:
         (Num so + Num l) <= LENGTH ws /\
         (H ==>> F * W8ARRAY s ws) /\
         (F * W8ARRAY s ws
-            ==>> Q (Val (Litv (StrLit (MAP (CHR o w2n) (TAKE (Num l) (DROP (Num so) ws)))))))) /\
+            ==>> Q (Val (Litv (StrLit (implode (MAP (CHR o w2n) (TAKE (Num l) (DROP (Num so) ws))))))))) /\
      Q =~v> POST_F)
 End
 
 Definition app_xoraw8str_def:
   app_xoraw8str s d H Q =
     ((?wd F.
-        LENGTH s ≤ LENGTH wd /\
+        strlen s ≤ LENGTH wd /\
         (H ==>> F * W8ARRAY d wd) /\
-        (F * W8ARRAY d (THE (xor_bytes (MAP (n2w o ORD) s) wd))
+        (F * W8ARRAY d (THE (xor_bytes (MAP (n2w o ORD) (explode s)) wd))
             ==>> Q (Val (Conv NONE [])))) /\
      Q =~v> POST_F)
 End
@@ -1492,9 +1492,9 @@ Definition app_opn_def:
      Q =~v> POST_F)
 End
 
-Definition app_opb_def:
-  app_opb opb i1 i2 H Q =
-    (H ==>> Q (Val (Boolv (opb_lookup opb i1 i2))) /\
+Definition app_int_cmp_def:
+  app_int_cmp cmp i1 i2 H Q =
+    (H ==>> Q (Val (Boolv (int_cmp cmp i1 i2))) /\
      Q =~v> POST_F)
 End
 
@@ -1544,12 +1544,12 @@ Definition cf_opn_def:
       app_opn opn i1 i2 H Q)
 End
 
-Definition cf_opb_def:
-  cf_opb opb x1 x2 = \env. local (\H Q.
+Definition cf_int_cmp_def:
+  cf_int_cmp cmp x1 x2 = \env. local (\H Q.
     ?i1 i2.
       exp2v env x1 = SOME (Litv (IntLit i1)) /\
       exp2v env x2 = SOME (Litv (IntLit i2)) /\
-      app_opb opb i1 i2 H Q)
+      app_int_cmp cmp i1 i2 H Q)
 End
 
 Definition cf_equality_def:
@@ -1596,7 +1596,7 @@ End
 
 Definition cf_fun_rec_def:
   cf_fun_rec (p:'ffi ffi_proj) fs_Fs F2 = \env. local (\H Q.
-    let fs = MAP (\ (f: (string # string list # exp), _). f) fs_Fs in
+    let fs = MAP (\ (f: (mlstring # mlstring list # exp), _). f) fs_Fs in
     let Fs = MAP (\ (_, F). F) fs_Fs in
     let f_names = MAP (\ (f,_,_). f) fs in
     let f_args = MAP (\ (_,ns,_). ns) fs in
@@ -1793,17 +1793,17 @@ Definition app_ffi_def:
   app_ffi ffi_index c a H Q =
     ((?conf ws frame s u ns events.
          MEM ffi_index ns /\
-         c = Litv(StrLit(MAP (CHR o w2n) conf)) /\
+         c = Litv(StrLit(implode (MAP (CHR o w2n) conf))) /\
          (H ==>> frame * W8ARRAY a ws * one (FFI_part s u ns events) *
-                 cond (~MEM "" ns)) /\
+                 cond (~MEM «» ns)) /\
          (case u ffi_index conf ws s of
             SOME(FFIreturn vs s') =>
              (frame * W8ARRAY a vs * one (FFI_part s' u ns
                  (events ++ [IO_event (ExtCall ffi_index) conf (ZIP (ws, vs))])) *
-              cond (~MEM "" ns)) ==>> Q (Val (Conv NONE []))
+              cond (~MEM «» ns)) ==>> Q (Val (Conv NONE []))
           | SOME(FFIdiverge) =>
              (frame * W8ARRAY a ws * one (FFI_part s u ns events) *
-              cond (~MEM "" ns)) ==>> Q (FFIDiv ffi_index conf ws)
+              cond (~MEM «» ns)) ==>> Q (FFIDiv ffi_index conf ws)
           | NONE => F)) /\
      Q ==e> POST_F /\ Q ==d> POST_F)
 End
@@ -1882,9 +1882,9 @@ Definition cf_def:
           (case args of
             | [x1; x2] => cf_opn opn x1 x2
             | _ => cf_bottom)
-        | Opb opb =>
+        | Test (Compare cmp) IntT =>
           (case args of
-            | [x1; x2] => cf_opb opb x1 x2
+            | [x1; x2] => cf_int_cmp cmp x1 x2
             | _ => cf_bottom)
         | Equality =>
           (case args of
@@ -2029,6 +2029,7 @@ Termination
       drule Fun_body_exp_size \\ strip_tac \\ fs [astTheory.exp_size_def]
     )
 End
+
 val cf_defs = [
   cf_def,
   cf_lit_def,
@@ -2037,7 +2038,7 @@ val cf_defs = [
   cf_fun_def,
   cf_let_def,
   cf_opn_def,
-  cf_opb_def,
+  cf_int_cmp_def,
   cf_equality_def,
   cf_aalloc_def,
   cf_aalloc_empty_def,
@@ -2070,7 +2071,7 @@ val cf_defs = [
   cf_ffi_def,
   cf_raise_def,
   cf_handle_def
-]
+];
 
 (*------------------------------------------------------------------*)
 (** Properties about [cf]. The main result is the proof of soundness,
@@ -2087,7 +2088,7 @@ Proof
     fs [Fun_body_def] \\ every_case_tac \\ fs [local_is_local]
   )
   THEN1 (
-    Cases_on `op` \\ fs [local_is_local] \\
+    Cases_on `op` \\ fs [local_is_local,cf_int_cmp_def] \\
     every_case_tac \\ fs [local_is_local]
   )
 QED
@@ -2447,7 +2448,7 @@ Proof
            (fn th => mp_tac th \\ assume_tac th) \\
      simp_tac std_ss [parts_ok_def] \\ strip_tac \\
      qpat_x_assum `!x. _ ==> _` kall_tac \\
-     `ffi_index ≠ ""` by (strip_tac \\ fs []) \\ fs [] \\
+     `ffi_index ≠ «»` by (strip_tac \\ fs []) \\ fs [] \\
      rpt(first_x_assum progress) \\
      fs[IMPLODE_EXPLODE_I,MAP_MAP_o,o_DEF,state_component_equality]
       ) \\
@@ -2488,7 +2489,7 @@ Proof
          (fn th => mp_tac th \\ assume_tac th) \\
    simp_tac std_ss [parts_ok_def] \\ strip_tac \\
    qpat_x_assum `!x. _ ==> _` kall_tac \\
-   `ffi_index ≠ ""` by (strip_tac \\ fs []) \\ fs [] \\
+   `ffi_index ≠ «»` by (strip_tac \\ fs []) \\ fs [] \\
    first_x_assum progress \\ fs [store_assign_def] \\
    imp_res_tac store2heap_IN_EL \\
    imp_res_tac store2heap_IN_LENGTH \\ fs [] \\
@@ -2684,27 +2685,27 @@ QED
 
 Theorem IMP_xor_bytes_SOME[local]:
   ∀s wd.
-    STRLEN s ≤ LENGTH wd ⇒
-    ∃xor_res. xor_bytes (MAP (n2w ∘ ORD) s) wd = SOME xor_res
+    strlen s ≤ LENGTH wd ⇒
+    ∃xor_res. xor_bytes (MAP (n2w ∘ ORD) (explode s)) wd = SOME xor_res
 Proof
+  Cases_on `s` \\ fs[] \\
+  qid_spec_tac `s'` \\
   Induct \\ Cases_on ‘wd’ \\ gvs [xor_bytes_def]
   \\ rw [] \\ res_tac \\ gvs []
 QED
 
 Theorem cf_sound:
-   !p e. sound (p:'ffi ffi_proj) e (cf (p:'ffi ffi_proj) e)
+  ∀p e. sound (p:'ffi ffi_proj) e (cf (p:'ffi ffi_proj) e)
 Proof
   recInduct cf_ind \\ rpt strip_tac \\
   rewrite_tac cf_defs \\ fs [sound_local, sound_false]
-  THEN1 (* Lit *) cf_base_case_tac
-  THEN1 (
-    (* Con *)
+  >~ [‘Lit’] >- cf_base_case_tac
+  >~ [‘Con’] >- (
     cf_base_case_tac \\ progress exp2v_list_REVERSE \\
     fs [with_clock_self_eq]
   )
-  THEN1 (* Var *) cf_base_case_tac
-  THEN1 (
-    (* Let *)
+  >~ [‘Var’] >- cf_base_case_tac
+  >~ [‘Let’] >- (
     Cases_on `is_bound_Fun opt e1` \\ fs []
     THEN1 (
       (* function declaration *)
@@ -2839,7 +2840,7 @@ Proof
       )
     )
   )
-  THEN1 (
+  >~ [‘Letrec’] >- (
     (* Letrec; the bulk of the proof is done in [cf_letrec_sound] *)
     HO_MATCH_MP_TAC sound_local \\ simp [MAP_MAP_o, o_DEF, LAMBDA_PROD] \\
     mp_tac (Q.SPECL [`funs`, `e`] cf_letrec_sound) \\
@@ -2852,14 +2853,12 @@ Proof
   )
   >~ [‘sound p (App op args)’] >- (
     (* App *)
-    Cases_on `?ffi_index. op = FFI ffi_index` THEN1 (
-      (* FFI *)
-      fs [] \\ rveq \\
+    Cases_on ‘∃ffi_index. op = FFI ffi_index’ >-
+     (fs [] \\ rveq \\
       (every_case_tac \\ TRY (MATCH_ACCEPT_TAC sound_local_false)) \\
-      irule cf_ffi_sound
-    ) \\
-    Cases_on `op = Eval` \\ fs [] THEN1
-      (fs [sound_def,local_def] \\ rw [] \\ fs [htriple_valid_def]) \\
+      irule cf_ffi_sound) \\
+    Cases_on `op = Eval` \\ fs []
+    >- (fs [sound_def,local_def] \\ rw [] \\ fs [htriple_valid_def]) \\
     Cases_on `op` \\ fs [] \\ TRY (MATCH_ACCEPT_TAC sound_local_false) \\
     (every_case_tac \\ TRY (MATCH_ACCEPT_TAC sound_local_false)) \\
     cf_strip_sound_tac
@@ -2885,15 +2884,24 @@ Proof
       qexists_tac`u` \\
       qexists_tac`{Mem ld (W8array xor_res)}` \\ fs[] \\
       SPLIT_TAC)
-    \\ TRY (
-      (* Opn & Opb *)
-      (rename1 `app_opn op` ORELSE rename1 `app_opb op`) \\
+    >~ [‘Opn’] >- (
+      rename1 `app_opn op` \\
       Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\ cf_evaluate_step_tac \\
-      fs [app_opn_def, app_opb_def, st2heap_def] \\
+      fs [app_opn_def, st2heap_def] \\
       progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\
       GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
       cf_exp2v_evaluate_tac `st` \\
       Cases_on `op` \\ fs [do_app_def] \\ fs [SEP_IMP_def] \\
+      fs [state_component_equality]
+    )
+    >~ [‘Test (Compare cmp) IntT’] >- (
+      Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\ cf_evaluate_step_tac \\
+      fs [app_int_cmp_def, st2heap_def, cf_int_cmp_def] \\
+      progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\
+      GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
+      cf_exp2v_evaluate_tac `st` \\
+      Cases_on `cmp` \\ fs [do_app_def, do_test_def, dest_Litv_def] \\
+      fs [SEP_IMP_def] \\
       fs [state_component_equality]
     )
     THEN1 (
@@ -3694,4 +3702,3 @@ Proof
   rpt strip_tac \\ irule app_rec_of_htriple_valid \\ fs [] \\
   progress (REWRITE_RULE [sound_def] cf_sound)
 QED
-

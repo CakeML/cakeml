@@ -499,7 +499,7 @@ val dummyarr_loc_def = fetch "-" "dummyarr_loc_def";
 
 val _ = ml_prog_update (add_Dlet eval_thm "dummyarr");
 
-val forward_matching_lines = process_topdecs`
+Quote add_cakeml:
 fun forward_loop inputarr =
     (#(accept_call) "" inputarr;
      let val ln = Word8Array.substring inputarr 0 256;
@@ -515,14 +515,13 @@ fun forward_matching_lines u =
     let val inputarr = Word8Array.array 256 (Word8.fromInt 0);
     in
       forward_loop inputarr
-    end`
-
-val _ = append_prog forward_matching_lines;
+    end
+End
 
 val st = get_ml_prog_state();
 
 val maincall =
-  ``Dlet unknown_loc (Pcon NONE []) (App Opapp [Var (Short "forward_matching_lines"); Con NONE []])``
+  ``Dlet unknown_loc (Pcon NONE []) (App Opapp [Var (Short «forward_matching_lines»); Con NONE []])``
 
 Datatype:
   filter_ffi =
@@ -532,13 +531,13 @@ End
 
 Definition filter_oracle:
   (filter_oracle:filter_ffi oracle) port st conf bytes =
-  if port = ExtCall "accept_call" then
+  if port = ExtCall «accept_call» then
     (if st.input = LNIL then Oracle_final FFI_diverged
      else if LENGTH bytes = 256 then
         Oracle_return (st with input := THE(LTL(st.input)))
                         (TAKE 256 (THE(LHD st.input)) ++ DROP (LENGTH(THE(LHD st.input))) bytes)
      else Oracle_final FFI_failed)
-  else if port = ExtCall "emit_string" then
+  else if port = ExtCall «emit_string» then
     Oracle_return st bytes
   else Oracle_final FFI_failed
 End
@@ -550,7 +549,7 @@ Definition encode_oracle_state_def:
             case ffi of
               iNum n =>
               (case LNTH n st.input of
-                 SOME l => Str(MAP (CHR o w2n) l)
+                 SOME l => Str(implode(MAP (CHR o w2n) l))
                | NONE => Num 0)
             | _ => ARB
          )
@@ -563,7 +562,7 @@ Definition decode_oracle_state_def:
   decode_oracle_state ffi =
      case destFun ffi of
        SOME instream =>
-       <|input:= LUNFOLD (λn. OPTION_MAP ($, (SUC n) o MAP (n2w o ORD))
+       <|input:= LUNFOLD (λn. OPTION_MAP ($, (SUC n) o MAP (n2w o ORD) o explode)
                               (destStr(instream (iNum n)))) 0|>
 End
 
@@ -581,7 +580,7 @@ Definition seL4_IO_def:
     FFI_part
       (encode_oracle_state (<|input:=input|>))
       filter_cf_oracle
-      ["accept_call"; "emit_string"]
+      [«accept_call»; «emit_string»]
       events)
 End
 
@@ -621,11 +620,11 @@ Proof
 QED
 
 Definition is_emit_def:
-  is_emit (IO_event s _ _) = (s = ExtCall "emit_string")
+  is_emit (IO_event s _ _) = (s = ExtCall «emit_string»)
 End
 
 Definition output_event_of_def:
-  output_event_of s = IO_event (ExtCall "emit_string") s []
+  output_event_of s = IO_event (ExtCall «emit_string») s []
 End
 
 Definition nth_arr_def:
@@ -704,9 +703,9 @@ Definition next_filter_events:
   next_filter_events filter_fun last_input input =
    let new_input = TAKE 256 input ++ DROP (LENGTH input) last_input
    in
-    [IO_event (ExtCall "accept_call") [] (ZIP (last_input,new_input))] ++
+    [IO_event (ExtCall «accept_call») [] (ZIP (last_input,new_input))] ++
     if filter_fun(cut_at_null_w input) then
-      [IO_event (ExtCall "emit_string") (cut_at_null_w new_input) []]
+      [IO_event (ExtCall «emit_string») (cut_at_null_w new_input) []]
     else
       []
 End
@@ -828,7 +827,7 @@ QED
 
 Theorem forward_matching_lines_div_spec:
   !input output rv.
-    limited_parts ["accept_call";"emit_string"] p /\
+    limited_parts [«accept_call»;«emit_string»] p /\
     LLENGTH input = NONE /\
     every (null_terminated_w) input /\
     every ($>= 256 o LENGTH) input
@@ -876,16 +875,16 @@ Proof
         (FFI_part
            (encode_oracle_state
               <|input := THE (LDROP (SUC i) input)|>) filter_cf_oracle
-           ["accept_call"; "emit_string"]
-           [IO_event (ExtCall "accept_call") [] (ZIP(inputbuff,
+           [«accept_call»; «emit_string»]
+           [IO_event (ExtCall «accept_call») [] (ZIP(inputbuff,
                                           ((TAKE 256 (THE (LHD (THE (LDROP i input)))) ++
                               DROP (LENGTH (THE (LHD (THE (LDROP i input))))) inputbuff))))]
            ))` >-
        (xffi >> xsimpl >>
         qmatch_goalsub_abbrev_tac `one(FFI_part s u ns events)` >>
-        MAP_EVERY qexists_tac [`W8ARRAY dummyarr_loc []`,`s`,`u`,`ns`,`events`] >>
+        MAP_EVERY qexists_tac [‘[]’, `W8ARRAY dummyarr_loc []`,`s`,`u`,`ns`,`events`] >>
         unabbrev_all_tac >> xsimpl >>
-        simp[filter_cf_oracle,decode_encode_oracle_state_11,filter_oracle] >>
+        simp[filter_cf_oracle,decode_encode_oracle_state_11,filter_oracle,implode_def] >>
         `?i1 input'. LDROP i input = SOME(i1:::input')`
           by(qpat_x_assum `LLENGTH input = NONE` mp_tac >>
              qid_spec_tac `input` >> rpt(pop_assum kall_tac) >>
@@ -900,7 +899,7 @@ Proof
         (FFI_part
            (encode_oracle_state
               <|input := THE (LDROP (SUC i) input)|>) filter_cf_oracle
-           ["accept_call"; "emit_string"]
+           [«accept_call»; «emit_string»]
            (next_filter_events (language o MAP (CHR o w2n)) inputbuff (THE(LNTH i input)))))` >-
        (xlet_auto >-
           (xsimpl >>
@@ -931,7 +930,7 @@ Proof
            fs[DROP_LENGTH_TOO_LONG] >>
            xsimpl) >-
           (xffi >>
-           fs[cut_at_null_thm,STRING_TYPE_def] >>
+           fs[cut_at_null_thm,STRING_TYPE_def,implode_def] >>
            qmatch_goalsub_abbrev_tac `MAP _ a1 = _` >>
            qexists_tac `a1` >> qunabbrev_tac `a1` >>
            simp[] >>
@@ -1122,15 +1121,9 @@ Proof
   simp[]
 QED
 
-Theorem STRING_TYPE_explode:
-  !s u. STRING_TYPE s u ==> u = Litv(StrLit(explode s))
-Proof
-  Cases >> rw[STRING_TYPE_def]
-QED
-
 Theorem forward_matching_lines_ffidiv_spec:
   !input rv.
-    limited_parts ["accept_call";"emit_string"] p /\
+    limited_parts [«accept_call»;«emit_string»] p /\
     LLENGTH input = SOME n /\
     every (null_terminated_w) input /\
     every ($>= 256 o LENGTH) input
@@ -1138,7 +1131,7 @@ Theorem forward_matching_lines_ffidiv_spec:
     app (p:'ffi ffi_proj) ^(fetch_v "forward_matching_lines" st) [rv]
       (seL4_IO input [] * W8ARRAY dummyarr_loc [])
       (POSTf s. λconf (bytes:word8 list).
-         &(s = "accept_call" /\ conf = []) *
+         &(s = «accept_call» /\ conf = []) *
          W8ARRAY dummyarr_loc [] *
          SEP_EXISTS loc init. W8ARRAY loc init *
          SEP_EXISTS events.
@@ -1168,7 +1161,7 @@ Proof
     (rw[] >>
      xcf "forward_loop" st >>
      xlet `(POSTf s. (λconf bytes.
-             &(s = "accept_call" ∧ conf = []) *
+             &(s = «accept_call» ∧ conf = []) *
                 seL4_IO [||] events * W8ARRAY v' init *
                  W8ARRAY dummyarr_loc []))` >-
        (simp[cf_ffi_def] >>
@@ -1179,9 +1172,9 @@ Proof
         xsimpl >>
         simp[seL4_IO_def] >>
         qmatch_goalsub_abbrev_tac `one(FFI_part s u ns events)` >>
-        MAP_EVERY qexists_tac [`W8ARRAY dummyarr_loc []`,`s`,`u`,`ns`,`events`] >>
+        MAP_EVERY qexists_tac [‘[]’, `W8ARRAY dummyarr_loc []`,`s`,`u`,`ns`,`events`] >>
         unabbrev_all_tac >> xsimpl >>
-        simp[filter_cf_oracle,decode_encode_oracle_state_11,filter_oracle] >>
+        simp[filter_cf_oracle,decode_encode_oracle_state_11,filter_oracle,implode_def] >>
         xsimpl) >>
      xsimpl >> rename1 `W8ARRAY loc init` >>
      MAP_EVERY qexists_tac [`loc`,`init`,`[]`] >>
@@ -1191,12 +1184,12 @@ Proof
   qabbrev_tac `newinit = TAKE 256 h ++ DROP (LENGTH h) init` >>
   xlet `POSTv v. &UNIT_TYPE () v *
         W8ARRAY v' newinit * W8ARRAY dummyarr_loc [] *
-        seL4_IO (fromList l) (SNOC (IO_event (ExtCall "accept_call") [] (ZIP(init,newinit))) events)` >-
+        seL4_IO (fromList l) (SNOC (IO_event (ExtCall «accept_call») [] (ZIP(init,newinit))) events)` >-
     (xffi >> xsimpl >>
      simp[seL4_IO_def,Abbr `newinit`] >>
      qmatch_goalsub_abbrev_tac `one(FFI_part s u ns events)` >>
-     MAP_EVERY qexists_tac [`W8ARRAY dummyarr_loc []`,`s`,`u`,`ns`,`events`] >>
-     unabbrev_all_tac >> simp[] >> xsimpl >>
+     MAP_EVERY qexists_tac [‘[]’, `W8ARRAY dummyarr_loc []`,`s`,`u`,`ns`,`events`] >>
+     unabbrev_all_tac >> simp[implode_def] >> xsimpl >>
      simp[filter_cf_oracle,decode_encode_oracle_state_11,filter_oracle] >>
      xsimpl >>
      simp[SNOC_APPEND,SEP_IMP_REFL]) >>
@@ -1230,7 +1223,6 @@ Proof
        ) >>
      xffi >> xsimpl >>
      simp[seL4_IO_def] >>
-     imp_res_tac STRING_TYPE_explode >>
      rveq >> fs[] >>
      simp[cut_at_null_thm] >>
      qmatch_goalsub_abbrev_tac `one(FFI_part s u ns newevents)` >>
@@ -1239,13 +1231,14 @@ Proof
      simp[filter_cf_oracle,decode_encode_oracle_state_11,filter_oracle] >>
      xsimpl >>
      fs[match_string_eq] >>
-     fs[cut_at_null_w_thm,MAP_MAP_o,CHR_w2n_n2w_ORD,implode_def] >>
+     fs[cut_at_null_w_thm,MAP_MAP_o,CHR_w2n_n2w_ORD] >>
      fs[null_terminated_w_thm,implode_def] >>
      rfs[null_terminated_cut_APPEND,TAKE_APPEND,TAKE_LENGTH_TOO_LONG] >>
      rfs[GSYM strlit_STRCAT,null_terminated_cut_APPEND] >>
      simp[toList_THM] >>
      PURE_REWRITE_TAC[GSYM APPEND_ASSOC,APPEND,SNOC_APPEND] >>
      xsimpl >>
+     fs[STRING_TYPE_def] >>
      qmatch_goalsub_abbrev_tac `events ++ x` >>
      qexists_tac `x` >> simp[Abbr `x`] >>
      simp[is_emit_def] >> xsimpl >>
@@ -1268,13 +1261,13 @@ QED
 Definition seL4_proj1_def:
   seL4_proj1 = (λffi.
     FEMPTY |++ (mk_proj1 (encode_oracle_state,decode_oracle_state,
-                          [("accept_call", filter_oracle (ExtCall "accept_call"));
-                           ("emit_string", filter_oracle (ExtCall "emit_string"))]) ffi))
+                          [(«accept_call», filter_oracle (ExtCall «accept_call»));
+                           («emit_string», filter_oracle (ExtCall «emit_string»))]) ffi))
 End
 
 Definition seL4_proj2:
   seL4_proj2 =
-  [(["accept_call";"emit_string"],filter_cf_oracle)]
+  [([«accept_call»;«emit_string»],filter_cf_oracle)]
 End
 
 Definition filter_ffi_state_def:
@@ -1283,7 +1276,7 @@ Definition filter_ffi_state_def:
 End
 
 Theorem limited_parts_proj:
-  limited_parts ["accept_call";"emit_string"] (seL4_proj1,seL4_proj2)
+  limited_parts [«accept_call»;«emit_string»] (seL4_proj1,seL4_proj2)
 Proof
   rw[limited_parts_def,seL4_proj2]
 QED
@@ -1308,12 +1301,12 @@ Theorem forward_matching_lines_semantics:
  ?events.
  semantics_prog (^(get_state st) with ffi := (filter_ffi <|input:=input|>)) ^(get_env st)
   [Dlet unknown_loc (Pcon NONE [])
-           (App Opapp [Var (Short "forward_matching_lines"); Con NONE []])]
+           (App Opapp [Var (Short «forward_matching_lines»); Con NONE []])]
   (Diverge events) /\
  LFILTER is_emit events = LMAP (output_event_of o cut_at_null_w) (LFILTER (language o MAP (CHR o w2n) o cut_at_null_w) input)
 Proof
   rpt strip_tac >>
-  `nsLookup ^(get_env st).v (Short "forward_matching_lines") = SOME forward_matching_lines_v`
+  `nsLookup ^(get_env st).v (Short «forward_matching_lines») = SOME forward_matching_lines_v`
     by(unabbrev_all_tac >> EVAL_TAC) >>
   assume_tac limited_parts_proj >>
   drule_all forward_matching_lines_div_spec >>
@@ -1328,10 +1321,10 @@ Proof
        fetch "-" "filterProg_st_def",parts_ok_filter] >>
   qmatch_goalsub_abbrev_tac `FFI_split INSERT FFIset` >>
   `FFIset = {FFI_part (encode_oracle_state <|input:= input|>) filter_cf_oracle
-                      ["accept_call"; "emit_string"] []}`
+                      [«accept_call»; «emit_string»] []}`
     by(unabbrev_all_tac >> rw[FUN_EQ_THM,EQ_IMP_THM] >-
         (pairarg_tac >> fs[seL4_proj2] >> rveq >>
-         first_x_assum(qspec_then `"accept_call"` mp_tac) >>
+         first_x_assum(qspec_then `«accept_call»` mp_tac) >>
          simp[seL4_proj1_def,mk_proj1_def] >>
          simp[FLOOKUP_UPDATE,FUPDATE_LIST_THM,filter_ffi_state_def]) >>
        Q.REFINE_EXISTS_TAC `(s,u,ns,ts)` >>
@@ -1414,13 +1407,13 @@ Theorem forward_matching_lines_ffidiv_semantics:
  ?bytes events.
  semantics_prog (^(get_state st) with ffi := (filter_ffi <|input:=input|>)) ^(get_env st)
   [Dlet unknown_loc (Pcon NONE [])
-           (App Opapp [Var (Short "forward_matching_lines"); Con NONE []])]
-  (Terminate (FFI_outcome(Final_event (ExtCall "accept_call") [] bytes FFI_diverged))
+           (App Opapp [Var (Short «forward_matching_lines»); Con NONE []])]
+  (Terminate (FFI_outcome(Final_event (ExtCall «accept_call») [] bytes FFI_diverged))
              events) /\
  LFILTER is_emit (fromList events) = LMAP (output_event_of o cut_at_null_w) (LFILTER (language o MAP (CHR o w2n) o cut_at_null_w) input)
 Proof
   rpt strip_tac >>
-  `nsLookup ^(get_env st).v (Short "forward_matching_lines") = SOME forward_matching_lines_v`
+  `nsLookup ^(get_env st).v (Short «forward_matching_lines») = SOME forward_matching_lines_v`
     by(unabbrev_all_tac >> EVAL_TAC) >>
   assume_tac limited_parts_proj >>
   drule_all forward_matching_lines_ffidiv_spec >>
@@ -1434,10 +1427,10 @@ Proof
        fetch "-" "filterProg_st_def",parts_ok_filter] >>
   qmatch_goalsub_abbrev_tac `FFI_split INSERT FFIset` >>
   `FFIset = {FFI_part (encode_oracle_state <|input:= input|>) filter_cf_oracle
-                      ["accept_call"; "emit_string"] []}`
+                      [«accept_call»; «emit_string»] []}`
     by(unabbrev_all_tac >> rw[FUN_EQ_THM,EQ_IMP_THM] >-
         (pairarg_tac >> fs[seL4_proj2] >> rveq >>
-         first_x_assum(qspec_then `"accept_call"` mp_tac) >>
+         first_x_assum(qspec_then `«accept_call»` mp_tac) >>
          simp[seL4_proj1_def,mk_proj1_def] >>
          simp[FLOOKUP_UPDATE,FUPDATE_LIST_THM,filter_ffi_state_def]) >>
        Q.REFINE_EXISTS_TAC `(s,u,ns,ts)` >>
@@ -1531,4 +1524,3 @@ QED
 (* S-expr generation handled by CMake build system
 val _ = astToSexprLib.write_ast_to_file "../program.sexp" prog;
 *)
-

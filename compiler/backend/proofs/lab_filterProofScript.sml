@@ -956,7 +956,8 @@ Proof
       `∀x.x + t1.clock -1 = x + (t1.clock -1)` by DECIDE_TAC>>rev_full_simp_tac(srw_ss())[]>>
       metis_tac[arithmeticTheory.ADD_COMM,arithmeticTheory.ADD_ASSOC])
     >-
-      (reverse(Cases_on`t1.regs t1.len_reg`>>full_simp_tac(srw_ss())[])>-same_inst_tac>>
+      (rename1 ‘ExtCall s’>>
+      reverse(Cases_on`t1.regs t1.len_reg`>>full_simp_tac(srw_ss())[])>-same_inst_tac>>
       reverse(Cases_on`t1.regs t1.ptr_reg`>>full_simp_tac(srw_ss())[])>-same_inst_tac>>
       reverse(Cases_on`t1.regs t1.len2_reg`>>full_simp_tac(srw_ss())[])>-same_inst_tac>>
       (Cases_on`t1.regs t1.link_reg`>>full_simp_tac(srw_ss())[])>-same_inst_tac>>
@@ -1174,4 +1175,3 @@ Proof
   \\ TOP_CASE_TAC \\ fs[]
   \\ fs[LAST_CONS_cond]
 QED
-

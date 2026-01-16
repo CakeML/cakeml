@@ -55,14 +55,15 @@ val inputAllTokensFile_specialize =
   |> SIMP_RULE std_ss [blanks_v_thm,tokenize_v_thm,blanks_def];
 
 (* parse_dimacs_toks with simple wrapper *)
-val parse_dimacs_full = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun parse_dimacs_full fname =
   case TextIO.inputAllTokensFile #"\n" fname blanks tokenize of
     None => Inl (notfound_string fname)
   | Some ls =>
     (case parse_ext_dimacs_toks ls of
       None => Inl (noparse_string fname "DIMACS")
-    | Some res => Inr res)`
+    | Some res => Inr res)
+End
 
 Definition get_prob_def:
   get_prob fs f =
@@ -156,11 +157,12 @@ End
 val r = translate mk_pc_def;
 val r = translate init_sc_def;
 
-val fill_arr = process_topdecs`
+Quote add_cakeml:
   fun fill_arr arr i ls =
     case ls of [] => arr
     | (v::vs) =>
-      fill_arr (Array.updateResize arr None i (Some (v,False))) (i+1) vs` |> append_prog
+      fill_arr (Array.updateResize arr None i (Some (v,False))) (i+1) vs
+End
 
 Theorem fill_arr_spec:
   ∀ls lsv arrv arrls arrlsv i iv.
@@ -197,7 +199,7 @@ End
 
 val r = translate print_result_def;
 
-val check_unsat_2 = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun check_unsat_2 f1 f2 =
   case parse_dimacs_full f1 of
     Inl err => TextIO.output TextIO.stdErr err
@@ -212,13 +214,15 @@ val check_unsat_2 = (append_prog o process_topdecs) `
       Inl err => TextIO.output TextIO.stdErr err
     | Inr res =>
       TextIO.print (print_result res)
-  end`
+  end
+End
 
-val main = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun main u =
   case CommandLine.arguments () of
     [f1,f2] => check_unsat_2 f1 f2
-  | _ => TextIO.output TextIO.stdErr usage_string`
+  | _ => TextIO.output TextIO.stdErr usage_string
+End
 
 (* We verify each argument type separately *)
 val inputAllTokensFile_spec_specialize =
@@ -361,7 +365,7 @@ Proof
   (drule_at (Pos (hd o tl))) fill_arr_spec>>
   (* help instantiate fill_arr_spec *)
   `LIST_REL (OPTION_TYPE (PAIR_TYPE (LIST_TYPE INT) BOOL)) (REPLICATE (2 * nc) NONE)
-        (REPLICATE (2 * nc) (Conv (SOME (TypeStamp "None" 2)) []))` by
+        (REPLICATE (2 * nc) (Conv (SOME (TypeStamp «None» 2)) []))` by
     simp[LIST_REL_REPLICATE_same,OPTION_TYPE_def]>>
   qpat_x_assum`NUM 1 _` assume_tac>>
   disch_then drule>>

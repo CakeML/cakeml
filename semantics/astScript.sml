@@ -3,15 +3,15 @@
 *)
 Theory ast
 Ancestors
-  integer[qualified] words[qualified] string[qualified] namespace
-  location[qualified]
+  integer[qualified] words[qualified] string[qualified] mlstring[qualified] namespace
+  location[qualified] ast_temp
 
 (* Literal constants *)
 Datatype:
   lit =
     IntLit int
   | Char char
-  | StrLit string
+  | StrLit mlstring
   | Word8 word8
   | Word64 word64
   | Float64 word64
@@ -51,19 +51,19 @@ Datatype:
 End
 
 (* Module names *)
-Type modN = “:string”
+Type modN = “:mlstring”
 
 (* Variable names *)
-Type varN = “:string”
+Type varN = “:mlstring”
 
 (* Constructor names (from datatype definitions) *)
-Type conN = ``: string``
+Type conN = ``: mlstring``
 
 (* Type names *)
-Type typeN = ``: string``
+Type typeN = ``: mlstring``
 
 (* Type variable names *)
-Type tvarN = ``: string``
+Type tvarN = ``: mlstring``
 
 Datatype:
   word_size = W8 | W64
@@ -81,7 +81,7 @@ Datatype:
 End
 
 Datatype:
-  test = Equal | Less | Less_alt | LessEq | LessEq_alt
+  test = Equal | Compare opb | AltCompare opb
 End
 
 Datatype:
@@ -95,8 +95,12 @@ End
 
 Datatype:
   op =
+  (* primitive operations for the primitive types: +, -, and, sqrt, etc. *)
+    Arith arith prim_type
+  (* conversions between primitive types: char<->int, word<->double, word<->int *)
+  | FromTo prim_type prim_type
   (* Operations on integers *)
-    Opn opn
+  | Opn opn
   | Opb opb
   (* Operations on words *)
   | Opw word_size opw
@@ -164,7 +168,7 @@ Datatype:
   (* Configure the GC *)
   | ConfigGC
   (* Call a given foreign function *)
-  | FFI string
+  | FFI mlstring
   (* Evaluate new code in a given env *)
   | Eval
   (* Get the identifier of an env object *)

@@ -20,7 +20,7 @@ val res = translate FOLDN_def;
 val res = translate full_encode_mcis_eq;
 
 (* parse input from f1 f2 and run encoder into pbc *)
-val parse_and_enc = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun parse_and_enc f1 f2 =
   case parse_lad f1 of
     Inl err => Inl err
@@ -28,7 +28,8 @@ val parse_and_enc = (append_prog o process_topdecs) `
   (case parse_lad f2 of
     Inl err => Inl err
   | Inr gt =>
-    Inr (fst gp, full_encode_mcis gp gt))`
+    Inr (fst gp, full_encode_mcis gp gt))
+End
 
 Theorem parse_and_enc_spec:
   STRING_TYPE f1 f1v ∧
@@ -153,7 +154,7 @@ End
 
 val res = translate mk_prob_def;
 
-val check_unsat_3 = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun check_unsat_3 f1 f2 f3 =
   case parse_and_enc f1 f2 of
     Inl err => TextIO.output TextIO.stdErr err
@@ -167,7 +168,8 @@ val check_unsat_3 = (append_prog o process_topdecs) `
         (check_unsat_top_norm False prob probt f3) of
         Inl err => TextIO.output TextIO.stdErr err
       | Inr s => TextIO.print s)
-    end`
+    end
+End
 
 Theorem check_unsat_3_spec:
   STRING_TYPE f1 f1v ∧ validArg f1 ∧
@@ -296,12 +298,13 @@ Definition check_unsat_2_sem_def:
       (mk_prob (full_encode_mcis gpp gtt)))
 End
 
-val check_unsat_2 = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun check_unsat_2 f1 f2 =
   case parse_and_enc f1 f2 of
     Inl err => TextIO.output TextIO.stdErr err
   | Inr (n,objf) =>
-    TextIO.print_list (print_annot_prob (mk_prob objf))`
+    TextIO.print_list (print_annot_prob (mk_prob objf))
+End
 
 Theorem check_unsat_2_spec:
   STRING_TYPE f1 f1v ∧ validArg f1 ∧
@@ -357,12 +360,13 @@ End
 
 val r = translate usage_string_def;
 
-val main = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun main u =
   case CommandLine.arguments () of
     [f1,f2] => check_unsat_2 f1 f2
   | [f1,f2,f3] => check_unsat_3 f1 f2 f3
-  | _ => TextIO.output TextIO.stdErr (mk_usage_string usage_string)`
+  | _ => TextIO.output TextIO.stdErr (mk_usage_string usage_string)
+End
 
 Definition main_sem_def:
   main_sem fs cl out =

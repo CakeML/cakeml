@@ -55,8 +55,6 @@ val _ = (find_def_for_const := def_of_const);
 
 val _ = use_long_names:=true;
 
-val _ = ml_translatorLib.use_string_type true;
-
 val r = translate typeDecToPPTheory.con_x_i_pat_def;
 val r = translate addTypePPTheory.add_pp_decs_def;
 

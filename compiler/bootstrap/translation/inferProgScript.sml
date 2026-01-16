@@ -16,7 +16,6 @@ open preamble parserProgTheory
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
 val _ = translation_extends "reg_allocProg";
-val _ = ml_translatorLib.use_string_type true;
 val _ = ml_translatorLib.use_sub_check true;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "inferProg");
@@ -278,7 +277,7 @@ val _ = translate rich_listTheory.COUNT_LIST_AUX_def
 val _ = translate rich_listTheory.COUNT_LIST_compute
 
 Theorem pair_abs_hack[local]:
-  (\(v2:string,v1:infer_t). (v2,0,v1)) =
+  (\(v2:mlstring,v1:infer_t). (v2,0,v1)) =
     (\v3. case v3 of (v2,v1) => (v2,0:num,v1))
 Proof
   SIMP_TAC (srw_ss()) [FUN_EQ_THM,FORALL_PROD]
@@ -402,7 +401,7 @@ val _ = translate infer_tTheory.get_tyname_def;
 
 Theorem ty_var_name_eq:
   ty_var_name n =
-    concat [strlit "'";
+    concat [«'»;
             if n < 28 then str (CHR (n + ORD #"a")) else mlint$toString (&n)]
 Proof
   rw [infer_tTheory.ty_var_name_def,mlstringTheory.implode_def]
@@ -602,21 +601,21 @@ Proof
          \\ imp_res_tac infer_e_wfs \\ fs[])
   THEN1 (metis_tac [infer_p_side_thm])
   THEN1 (fs [bool_case_eq] \\ rveq >>
-         PairCases_on `x26` >>
+         rename1 `SND x26` \\ PairCases_on `x26` >>
          imp_res_tac infer_p_wfs >>
          fs [])
   THEN1 (fs [bool_case_eq] \\ rveq >> fs [pair_abs_hack] >>
          first_x_assum match_mp_tac \\ fs [] >>
-         PairCases_on `x26` >> fs [] >>
+         rename1 `SND x26` \\ PairCases_on `x26` >> fs [] >>
          imp_res_tac infer_p_wfs >>
          imp_res_tac unifyTheory.t_unify_wfs >> fs [])
   THEN1 (fs [bool_case_eq] \\ rveq >> fs [pair_abs_hack] >>
-         PairCases_on `x26` >> fs [] >>
+         rename1 `SND x26` \\ PairCases_on `x26` >> fs [] >>
          imp_res_tac infer_p_wfs >>
          imp_res_tac infer_e_wfs >>
          imp_res_tac unifyTheory.t_unify_wfs >> fs [])
   THEN1 (fs [bool_case_eq] \\ rveq >> fs [pair_abs_hack] >>
-         PairCases_on `x26` >> fs [] >>
+         rename1 `SND x26` \\ PairCases_on `x26` >> fs [] >>
          imp_res_tac infer_p_wfs >>
          imp_res_tac infer_e_wfs >>
          imp_res_tac unifyTheory.t_unify_wfs >> fs [])

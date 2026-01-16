@@ -17,7 +17,6 @@ open to_word32ProgTheory std_preludeTheory;
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
 val _ = translation_extends "to_word32Prog";
-val _ = ml_translatorLib.use_string_type true;
 val _ = ml_translatorLib.use_sub_check true;
 
 val () = computeLib.set_skip computeLib.the_compset “COND” (SOME 1);

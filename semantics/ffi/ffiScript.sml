@@ -3,7 +3,7 @@
 *)
 Theory ffi
 Ancestors
-  misc
+  misc mlstring
 
 val _ = numLib.temp_prefer_num();
 
@@ -25,7 +25,7 @@ Datatype:
 End
 
 Datatype:
-  ffiname = ExtCall string | SharedMem shmem_op
+  ffiname = ExtCall mlstring | SharedMem shmem_op
 End
 
 Type oracle_function = “:'ffi -> word8 list -> word8 list -> 'ffi oracle_result”
@@ -63,7 +63,7 @@ End
 
 Definition call_FFI_def:
   call_FFI (st:'ffi ffi_state) s conf bytes =
-    if s ≠ ExtCall "" then
+    if s ≠ ExtCall «» then
       case st.oracle s st.ffi_state conf bytes of
         Oracle_return ffi' bytes' =>
           if LENGTH bytes' = LENGTH bytes then
@@ -113,4 +113,3 @@ Definition trace_oracle_def:
         Oracle_return (THE (LTL io_trace)) (MAP SND bytes2)
       else Oracle_final FFI_failed
 End
-

@@ -604,9 +604,19 @@ val r = hol2deep ``\c. STRING c ""``;
 
 (* more advanced test of HOL_STRING_TYPE *)
 
+Datatype:
+  oldlit =
+    IntLit int
+  | Char char
+  | StrLit string
+  | Word8 word8
+  | Word64 word64
+  | Float64 word64
+End
+
 (* step 1: reg a type with string inside, StrLit : string -> lit *)
 val _ = use_string_type true;
-val _ = register_type ``:lit``
+val _ = register_type ``:oldlit``
 
 (* step 2: translate a function that walks a char list producing datatype with strings *)
 val _ = use_string_type false;

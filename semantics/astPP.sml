@@ -437,7 +437,7 @@ fun contupPrint sys d t pg str brk blk=
     val (temp,r) = dest_comb t
     val [r] = #1(listSyntax.dest_list r)
     val (_,l) = dest_comb temp
-    val t = ``Let (SOME "x") ^(r) (^(temp) [Var (Short "x")])``
+    val t = ``Let (SOME «x») ^(r) (^(temp) [Var (Short «x»)])``
  in
    letvalPrint sys d t pg str brk blk
  end
@@ -448,9 +448,9 @@ val _=add_astPP ("contupprint", ``Con (SOME x) [Con NONE y]``,genPrint contupPri
 check_tail checks whether it is a fully specified list*)
 fun check_tail t =
   let val (x,y) = dest_comb t in
-    if aconv x ``Con (SOME (Short "nil"))`` then true
+    if aconv x ``Con (SOME (Short «nil»))`` then true
     else
-      if aconv x ``Con (SOME (Short "::"))`` then
+      if aconv x ``Con (SOME (Short «::»))`` then
            check_tail (hd (tl (#1(listSyntax.dest_list y))))
     else false
   end;
@@ -476,14 +476,14 @@ fun pconconsPrint check_tail sys d t pg str brk blk =
         (sys(Top,pg,pg) (d-1) hd >> str"::" >>sys(Prec(0,"non_list"),pg,pg)(d-1) tl)
   end;
 
-val _ = add_astPP("conconsprint",``Con (SOME (Short"::")) y``,genPrint (pconconsPrint check_tail));
-val _ = add_astPP("pconconsprint",``Pcon (SOME (Short"::")) y``,genPrint (pconconsPrint check_tail));
+val _ = add_astPP("conconsprint",``Con (SOME (Short «::»)) y``,genPrint (pconconsPrint check_tail));
+val _ = add_astPP("pconconsprint",``Pcon (SOME (Short «::»)) y``,genPrint (pconconsPrint check_tail));
 
 fun pconnilPrint sys d t pg str brk blk =
   case pg of Prec(0,"full_list") => str"]" | _ => str"[]";
 
-val _=add_astPP ("connilprint",``Con (SOME (Short "nil")) y``,genPrint pconnilPrint);
-val _=add_astPP ("pconnilprint",``Pcon (SOME (Short "nil")) y``,genPrint pconnilPrint);
+val _=add_astPP ("connilprint",``Con (SOME (Short «nil»)) y``,genPrint pconnilPrint);
+val _=add_astPP ("pconnilprint",``Pcon (SOME (Short «nil»)) y``,genPrint pconnilPrint);
 
 (*Literals*)
 (*Pattern lit*)
@@ -589,7 +589,7 @@ fun derefPrint sys d t pg str brk blk =
     | _ => m_brack str pg output
   end;
 
-val _=add_astPP ("derefprint", ``App Opapp [Var(Short"!"); x]``, genPrint derefPrint);
+val _=add_astPP ("derefprint", ``App Opapp [Var(Short «!»); x]``, genPrint derefPrint);
 
 
 (*Infix apply*)
@@ -611,17 +611,17 @@ fun infixrealPrint arithop sys d t pg str brk blk=
   end;
 
 (*Pattern match against lists*)
-val _=add_astPP ("assignappprint", ``App Opapp [Var (Short":="); x]``,genPrint (infixappPrint ":="));
-val _=add_astPP ("eqappprint", ``App Opapp [Var (Short"="); x]``,genPrint (infixappPrint "="));
-val _=add_astPP ("gteqappprint", ``App Opapp [Var (Short">="); x]``,genPrint (infixappPrint ">="));
-val _=add_astPP ("lteqappprint", ``App Opapp [Var (Short"<="); x]``,genPrint (infixappPrint "<="));
-val _=add_astPP ("gtappprint", ``App Opapp [Var (Short">"); x]``,genPrint (infixappPrint ">"));
-val _=add_astPP ("ltappprint", ``App Opapp [Var (Short"<"); x]``,genPrint (infixappPrint "<"));
-val _=add_astPP ("modappprint", ``App Opapp [Var (Short"mod"); x]``,genPrint (infixappPrint "mod"));
-val _=add_astPP ("divappprint", ``App Opapp [Var (Short"div"); x]``,genPrint (infixappPrint "div"));
-val _=add_astPP ("timesappprint", ``App Opapp [Var (Short"*"); x]``,genPrint (infixappPrint "*"));
-val _=add_astPP ("minusappprint", ``App Opapp [Var (Short"-"); x]``,genPrint (infixappPrint "-"));
-val _=add_astPP ("addappprint", ``App Opapp [Var (Short"+"); x]``,genPrint (infixappPrint "+"));
+val _=add_astPP ("assignappprint", ``App Opapp [Var (Short «:=»); x]``,genPrint (infixappPrint ":="));
+val _=add_astPP ("eqappprint", ``App Opapp [Var (Short «=»); x]``,genPrint (infixappPrint "="));
+val _=add_astPP ("gteqappprint", ``App Opapp [Var (Short «>=»); x]``,genPrint (infixappPrint ">="));
+val _=add_astPP ("lteqappprint", ``App Opapp [Var (Short «<=»); x]``,genPrint (infixappPrint "<="));
+val _=add_astPP ("gtappprint", ``App Opapp [Var (Short «>»); x]``,genPrint (infixappPrint ">"));
+val _=add_astPP ("ltappprint", ``App Opapp [Var (Short «<»); x]``,genPrint (infixappPrint "<"));
+val _=add_astPP ("modappprint", ``App Opapp [Var (Short «mod»); x]``,genPrint (infixappPrint "mod"));
+val _=add_astPP ("divappprint", ``App Opapp [Var (Short «div»); x]``,genPrint (infixappPrint "div"));
+val _=add_astPP ("timesappprint", ``App Opapp [Var (Short «*»); x]``,genPrint (infixappPrint "*"));
+val _=add_astPP ("minusappprint", ``App Opapp [Var (Short «-»); x]``,genPrint (infixappPrint "-"));
+val _=add_astPP ("addappprint", ``App Opapp [Var (Short «+»); x]``,genPrint (infixappPrint "+"));
 
 (*These are primitive ops that do not appear using the lexer/parser*)
 
@@ -817,8 +817,8 @@ val _ = add_astPP("stabbrevprint",``Stabbrev x y z``,genPrint (dtabbrevPrint));
 fun boolPrint b sys d t pg str brk blk =
   str b;
 
-val _=add_astPP("truelitprint",``Con (SOME (Short "true")) []``,genPrint (boolPrint "true"));
-val _=add_astPP("falselitprint",``Con (SOME (Short "false")) []``,genPrint (boolPrint "false"));
+val _=add_astPP("truelitprint",``Con (SOME (Short «true»)) []``,genPrint (boolPrint "true"));
+val _=add_astPP("falselitprint",``Con (SOME (Short «false»)) []``,genPrint (boolPrint "false"));
 *)
 
 (*Pretty printer for ast list form, pattern to terms*)

@@ -290,7 +290,7 @@ Termination
    \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
    \\ fs[exp_size_def]
    \\ TRY (DECIDE_TAC)
-End ;
+End
 
 Theorem inst_select_exp_pmatch:
   !c tar temp exp.

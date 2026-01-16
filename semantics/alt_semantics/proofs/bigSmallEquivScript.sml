@@ -924,14 +924,16 @@ Proof
     >- (every_case_tac >> gvs[] >> tac3)
     >- tac3
     >- (
-      FULL_CASE_TAC >> gvs[application_thm, do_opapp_def, do_app_def]
+      gvs[application_thm, do_opapp_def, do_app_def, CaseEq"list"]
       >- (
         gvs[AllCaseEqs(), store_alloc_def, return_def] >>
         simp[Once evaluate_state_cases] >> gvs[Once evaluate_state_cases, getOpClass_def] >>
         goal_assum $ dxrule_at Any >> ntac 2 $ simp[Once evaluate_cases, opClass_cases] >>
         gvs[AllCaseEqs(), thunk_op_def] >>
-        simp[do_app_def, store_alloc_def] >> irule_at Any EQ_REFL
-        ) >>
+        simp[do_app_def, store_alloc_def] >>
+        simp[Once evaluate_cases] >>
+        irule_at Any EQ_REFL
+      ) >>
       gvs[SWAP_REVERSE_SYM] >> metis_tac[evaluate_state_app_cons]
       ) >>
     every_case_tac >> gvs[] >> tac3
@@ -1296,7 +1298,8 @@ Proof
     )
   >- (
     gvs[EXISTS_PROD, SF DNF_ss] >>
-    Cases_on ‘declare_env s'.eval_state env’ >> gvs[] >> Cases_on ‘x’ >> gvs[]
+    Cases_on ‘declare_env s.eval_state env’ >> gvs[] >>
+    rename1 ‘_ = SOME x’ >> Cases_on ‘x’ >> gvs[]
     )
   >- (
     gvs[EXISTS_PROD, declare_env_def] >>
@@ -2465,5 +2468,3 @@ Proof
     imp_res_tac evaluate_dec_state_io_events_mono >> gvs[io_events_mono_def]
     )
 QED
-
-

@@ -121,7 +121,7 @@ End
 Definition peg_UQConstructorName_def:
   peg_UQConstructorName =
     tok (λt. do s <- destAlphaT t ;
-                assert (s ≠ "" ∧ isUpper (HD s))
+                assert (s ≠ «» ∧ isUpper (strsub s 0))
              od = SOME ())
         (bindNT nUQConstructorName o mktokLf)
 End
@@ -139,17 +139,17 @@ Definition peg_V_def:
   peg_V =
    choicel [tok (λt.
                   do s <- destAlphaT t;
-                     assert(s ∉ {"before"; "div"; "mod"; "o"} ∧
-                            s ≠ "" ∧ ¬isUpper (HD s))
+                     assert(s ∉ {«before»; «div»; «mod»; «o»} ∧
+                            s ≠ «» ∧ ¬isUpper (strsub s 0))
                   od = SOME ())
                 (bindNT nV o mktokLf);
-            pegf (tokSymP validPrefixSym) (bindNT nV)]
+            pegf (tokSymP (validPrefixSym ∘ explode)) (bindNT nV)]
 End
 
 Definition peg_longV_def:
   peg_longV = tok (λt. do
                         (str,s) <- destLongidT t;
-                        assert(s <> "" ∧ (isAlpha (HD s) ⇒ ¬isUpper (HD s)))
+                        assert(s <> «» ∧ (isAlpha (strsub s 0) ⇒ ¬isUpper (strsub s 0)))
                        od = SOME ())
                   (bindNT nFQV o mktokLf)
 End
@@ -186,10 +186,11 @@ Definition peg_EbaseParen_def:
                    seql [tokeq SemicolonT; pnt nEseq; tokeq RparT] I]]
          peg_EbaseParenFn
 End
+
 Definition peg_StructName_def:
   peg_StructName =
     tok (λt. do s <- destAlphaT t ;
-                assert (s ≠ "")
+                assert (s ≠ «»)
              od = SOME ())
         (bindNT nStructName o mktokLf)
 End
@@ -231,30 +232,30 @@ Definition cmlPEG_def[nocompute]:
               (mkNT nMultOps,
                pegf (
                  choicel (
-                   tokSymP validMultSym ::
-                   MAP tokeq [StarT; AlphaT "mod"; AlphaT "div"]
+                   tokSymP (validMultSym ∘ explode) ::
+                   MAP tokeq [StarT; AlphaT «mod»; AlphaT «div»]
                  )
                ) (bindNT nMultOps));
-              (mkNT nAddOps, pegf (tokSymP validAddSym) (bindNT nAddOps));
+              (mkNT nAddOps, pegf (tokSymP (validAddSym ∘ explode)) (bindNT nAddOps));
               (mkNT nRelOps,
-               pegf (choicel [tokeq EqualsT; tokSymP validRelSym])
+               pegf (choicel [tokeq EqualsT; tokSymP (validRelSym ∘ explode)])
                     (bindNT nRelOps));
-              (mkNT nListOps, pegf (tokSymP validListSym) (bindNT nListOps));
-              (mkNT nCompOps, pegf (choicel [tokeq (SymbolT ":=");
-                                             tokeq (AlphaT "o")])
+              (mkNT nListOps, pegf (tokSymP (validListSym ∘ explode)) (bindNT nListOps));
+              (mkNT nCompOps, pegf (choicel [tokeq (SymbolT «:=»);
+                                             tokeq (AlphaT «o»)])
                                    (bindNT nCompOps));
               (mkNT nOpID,
                choicel [tok (λt. do
                                    (str,s) <- destLongidT t;
-                                   assert(s ≠ "")
+                                   assert(s ≠ «»)
                                  od = SOME ()) (bindNT nOpID o mktokLf);
                         tok (λt. do
                                    s <- destSymbolT t;
-                                   assert (s ≠ "")
+                                   assert (s ≠ «»)
                                  od = SOME ()) (bindNT nOpID o mktokLf);
                         tok (λt. do
                                    s <- destAlphaT t;
-                                   assert (s ≠ "")
+                                   assert (s ≠ «»)
                                  od = SOME ()) (bindNT nOpID o mktokLf);
                         pegf (tokeq StarT) (bindNT nOpID);
                         pegf (tokeq EqualsT) (bindNT nOpID);
@@ -290,7 +291,7 @@ Definition cmlPEG_def[nocompute]:
               (mkNT nEcomp, peg_linfix (mkNT nEcomp) (pnt nErel)
                                        (pnt nCompOps));
               (mkNT nEbefore, peg_linfix (mkNT nEbefore) (pnt nEcomp)
-                                         (tokeq (AlphaT "before")));
+                                         (tokeq (AlphaT «before»)));
               (mkNT nEtyped, seql [pnt nEbefore;
                                    try (seql [tokeq ColonT; pnt nType] I)]
                                   (bindNT nEtyped));
@@ -404,7 +405,9 @@ Definition cmlPEG_def[nocompute]:
                  pegf (pnt nUQConstructorName) (bindNT nConstructorName);
                  tok (λt. do
                             (str,s) <- destLongidT t;
-                            assert(s <> "" ∧ isAlpha (HD s) ∧ isUpper (HD s))
+                            assert(s <> «» ∧
+                                   isAlpha (strsub s 0) ∧
+                                   isUpper (strsub s 0))
                           od = SOME ())
                      (bindNT nConstructorName o mktokLf)]);
               (mkNT nPbase,
@@ -430,7 +433,7 @@ Definition cmlPEG_def[nocompute]:
               ]);
               (mkNT nPcons,
                seql [pnt nPapp;
-                     try (seql [tokeq (SymbolT "::"); pnt nPcons] I)]
+                     try (seql [tokeq (SymbolT «::»); pnt nPcons] I)]
                     (bindNT nPcons));
               (mkNT nPas,
                seql [try (seql [pnt nV; tokeq AsT] I);
@@ -578,8 +581,8 @@ Theorem cmlPEG_exec_thm[compute] =
 
 val test1 = time EVAL
              “peg_exec cmlPEG (pnt nErel)
-              (map_loc [IntT 3; StarT; IntT 4; SymbolT "/"; IntT (-2);
-                        SymbolT ">"; AlphaT "x"] 0)
+              (map_loc [IntT 3; StarT; IntT 4; SymbolT «/»; IntT (-2);
+                        SymbolT «>»; AlphaT «x»] 0)
               [] NONE [] done failed”
 
 Theorem frange_image[local]:
