@@ -1149,18 +1149,14 @@ Theorem highly_specific_MOD_lemma2[local]:
   = EL (i MOD LENGTH l) l
 Proof
   strip_tac >>
-Cases_on `1 < LENGTH l` >-
+  Cases_on `1 < LENGTH l` >-
   (Cases_on `i MOD LENGTH l = LENGTH l - 1` >-
-     (drule(GSYM MOD_PLUS) >>
-      disch_then(qspecl_then[`i`,`1`] mp_tac) >>
-      disch_then(fn thm => PURE_ONCE_REWRITE_TAC [thm]) >>
+     (PURE_ONCE_REWRITE_TAC[GSYM MOD_PLUS] >>
       pop_assum(fn thm => PURE_ONCE_REWRITE_TAC [thm]) >>
       simp[ONE_MOD] >>
       Q.ISPEC_THEN `l` assume_tac SNOC_CASES >>
       fs[] >> rveq >> fs[EL_APPEND2,SNOC_APPEND]) >>
-   drule(GSYM MOD_PLUS) >>
-   disch_then(qspecl_then[`i`,`1`] mp_tac) >>
-   disch_then(fn thm => PURE_ONCE_REWRITE_TAC [thm]) >>
+   PURE_ONCE_REWRITE_TAC[GSYM MOD_PLUS] >>
    drule ONE_MOD >>
    disch_then(fn thm => PURE_ONCE_REWRITE_TAC [thm]) >>
    `i MOD LENGTH l < LENGTH l - 1`
