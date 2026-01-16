@@ -9,12 +9,11 @@ Libs
 
 val _ = translation_extends"basisProg";
 
-val helloErr = process_topdecs
-  `fun helloErr u =
+Quote add_cakeml:
+  fun helloErr u =
      (TextIO.output TextIO.stdErr "Well oH lord!\n";
-      Runtime.abort())`
-
-val () = append_prog helloErr;
+      Runtime.abort())
+End
 
 val st = get_ml_prog_state ()
 
@@ -22,7 +21,7 @@ Theorem helloErr_spec:
    app (p:'ffi ffi_proj) ^(fetch_v "helloErr" st)
         [Conv NONE []]
         (RUNTIME * STDIO fs)
-        (POSTf n. λ c b. RUNTIME * &(n = "exit" /\ c = [] /\ b = [1w]) *
+        (POSTf n. λ c b. RUNTIME * &(n = «exit» /\ c = [] /\ b = [1w]) *
                    STDIO (add_stderr fs (strlit "Well oH lord!\n")))
 Proof
   xcf "helloErr" st
@@ -37,7 +36,7 @@ QED
 
 Theorem helloErr_whole_prog_spec:
    whole_prog_ffidiv_spec ^(fetch_v "helloErr" st) cl fs
-    (λn c b fs'. n = "exit" /\ c = [] /\ b = [1w] /\ add_stderr fs (strlit "Well oH lord!\n") = fs')
+    (λn c b fs'. n = «exit» /\ c = [] /\ b = [1w] /\ add_stderr fs (strlit "Well oH lord!\n") = fs')
 Proof
   rw[basis_ffiTheory.whole_prog_ffidiv_spec_def]
   \\ qmatch_goalsub_abbrev_tac`fs1 = _ with numchars := _`

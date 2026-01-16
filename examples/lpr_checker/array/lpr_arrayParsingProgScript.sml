@@ -150,7 +150,7 @@ val parse_lprstep_side = Q.prove(
     fs[integerTheory.int_ge]) |> update_precondition;
 
 (* Uncompressed parsing *)
-val parse_one_u = process_topdecs`
+Quote add_cakeml:
 fun parse_one_u lno fd =
 case TextIO.inputLineTokens #"\n" fd blanks tokenize_fast of
   None => None
@@ -158,7 +158,8 @@ case TextIO.inputLineTokens #"\n" fd blanks tokenize_fast of
     case parse_lprstep l of
       None =>
         raise Fail (format_failure lno "failed to parse line (uncompressed format)")
-    | Some lpr => Some lpr` |> append_prog;
+    | Some lpr => Some lpr
+End
 
 val blanks_v_thm = theorem "blanks_v_thm";
 val tokenize_v_thm = theorem "tokenize_v_thm";
@@ -320,7 +321,7 @@ End
 
 val c0_v_thm = translate c0_def;
 
-val parse_one_c = process_topdecs`
+Quote add_cakeml:
 fun parse_one_c lno fd =
 case TextIO.inputLine c0 fd of
   None => None
@@ -336,7 +337,8 @@ case TextIO.inputLine c0 fd of
                  None => raise Fail (format_failure lno "failed to parse line (compressed format)")
                | Some p => Some p)
          )
-    )` |> append_prog;
+    )
+End
 
 Definition parse_one_c_def:
   parse_one_c lines =
@@ -443,11 +445,12 @@ Proof
              xsimpl
 QED
 
-val parse_one = process_topdecs`
+Quote add_cakeml:
 fun parse_one b lno fd =
 if b
 then parse_one_c lno fd
-else parse_one_u lno fd` |> append_prog;
+else parse_one_u lno fd
+End
 
 Definition parse_one_def:
   parse_one b lines =
@@ -489,15 +492,15 @@ Proof
   xapp>>metis_tac[]
 QED
 
-val check_unsat'' = process_topdecs `
+Quote add_cakeml:
 fun check_unsat'' b fd lno mindel fml ls carr earr =
 case parse_one b lno fd of
   None => (fml,ls)
 | Some lpr =>
     case check_lpr_step_arr lno mindel lpr fml ls carr earr of
       (fml',ls',carr',earr') =>
-        check_unsat'' b fd (lno+1) mindel fml' ls' carr' earr'`
-          |> append_prog;
+        check_unsat'' b fd (lno+1) mindel fml' ls' carr' earr'
+End
 
 Theorem parse_one_less:
   parse_one b lines = SOME (SOME (fml, rest)) ⇒
@@ -653,7 +656,7 @@ val res = translate good_char_opt_def;
   Returns: Inl (error string)
   Otherwise: Inr (true/false result of checking clause inclusion)
 *)
-val check_unsat' = process_topdecs `
+Quote add_cakeml:
   fun check_unsat' mindel fml ls earr fname n cls =
   let
     val fd = TextIO.openIn fname
@@ -669,7 +672,8 @@ val check_unsat' = process_topdecs `
       case res of (fml', ls') =>
       Inr (contains_clauses_arr fml' ls' cls)
   end
-  handle TextIO.BadFileName => Inl (notfound_string fname)` |> append_prog;
+  handle TextIO.BadFileName => Inl (notfound_string fname)
+End
 
 (* TODO: COPIED from readerProg, should be moved *)
 Theorem fastForwardFD_ADELKEY_same[simp]:
@@ -823,9 +827,9 @@ Proof
             case
               parse_and_run b lines mindel fmlls ls (REPLICATE n w8z) earliest
             of
-              NONE => resv = Conv (SOME (TypeStamp "Inl" 4)) [v0] ∧ ∃s. STRING_TYPE s v0
+              NONE => resv = Conv (SOME (TypeStamp «Inl» 4)) [v0] ∧ ∃s. STRING_TYPE s v0
             | SOME(fmlls',inds') =>
-              resv = Conv (SOME (TypeStamp "Inr" 4)) [Conv NONE [v1; v2]] ∧
+              resv = Conv (SOME (TypeStamp «Inr» 4)) [Conv NONE [v1; v2]] ∧
               v1 = fmlv' ∧
               LIST_REL (OPTION_TYPE (LIST_TYPE INT)) fmlls' fmllsv' ∧ LIST_TYPE NUM inds' v2
           )`
@@ -886,7 +890,7 @@ Proof
         SEP_EXISTS v1 v2 k rest.
          STDIO (forwardFD fsss fdd k) *
          INSTREAM_LINES (term_char b) fdd is rest (forwardFD fsss fdd k) *
-         &(v = Conv (SOME (TypeStamp "Inr" 4)) [Conv NONE [v1; v2]]) *
+         &(v = Conv (SOME (TypeStamp «Inr» 4)) [Conv NONE [v1; v2]]) *
          (SEP_EXISTS fmllsv'.
            ARRAY v1 fmllsv' *
            &(unwrap_TYPE
@@ -1006,11 +1010,12 @@ val print_dimacs_side = Q.prove(
   simp[])
   |> update_precondition;
 
-val fill_earliest = process_topdecs`
+Quote add_cakeml:
   fun fill_earliest earr n ls =
     case ls of [] => earr
     | (c::cs) =>
-      fill_earliest (update_earliest_arr earr n c) (n+1) cs` |> append_prog
+      fill_earliest (update_earliest_arr earr n c) (n+1) cs
+End
 
 Theorem fill_earliest_spec:
   ∀ls lsv earliest earliestv Earrv c cv.
@@ -1036,11 +1041,12 @@ Proof
   xsimpl
 QED
 
-val fill_arr = process_topdecs`
+Quote add_cakeml:
   fun fill_arr arr i ls =
     case ls of [] => arr
     | (v::vs) =>
-      fill_arr (Array.updateResize arr None i (Some v)) (i+1) vs` |> append_prog
+      fill_arr (Array.updateResize arr None i (Some v)) (i+1) vs
+End
 
 Theorem fill_arr_spec:
   ∀ls lsv arrv arrls arrlsv i iv.

@@ -9,10 +9,9 @@ Libs
 
 val _ = translation_extends"basisProg";
 
-val hello = process_topdecs
-  `fun hello u = TextIO.print "Hello World!\n"`
-
-val () = append_prog hello
+Quote add_cakeml:
+  fun hello u = TextIO.print "Hello World!\n"
+End
 
 val st = get_ml_prog_state ()
 

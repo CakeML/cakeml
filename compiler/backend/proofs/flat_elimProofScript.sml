@@ -98,7 +98,7 @@ QED
 
 Theorem SUM_MAP_v3_size:
   !xs. SUM (MAP v3_size xs) = LENGTH xs +
-    SUM (MAP (list_size char_size ∘ FST) xs) +
+    SUM (MAP (mlstring_size ∘ FST) xs) +
     SUM (MAP (v_size ∘ SND) xs)
 Proof
   Induct \\ simp [FORALL_PROD, v_size_def]
@@ -548,6 +548,7 @@ Proof
     fs [do_app_def]
     \\ gvs [AllCaseEqs()]
     \\ Cases_on ‘ty’
+    \\ TRY(rename1 `WordT w` \\ Cases_on`w`)
     \\ gvs [semanticPrimitivesTheory.do_arith_def, AllCaseEqs()]
     \\ simp [do_app_def, semanticPrimitivesTheory.do_arith_def,
               find_sem_prim_res_globals_def, find_result_globals_def,

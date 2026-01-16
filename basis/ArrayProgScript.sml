@@ -12,16 +12,16 @@ val _ = translation_extends"Word8ArrayProg"
 val () = ml_prog_update (open_module "Array");
 
 val _ = ml_prog_update (add_dec
-  ``Dtabbrev unknown_loc ["'a"] "array" (Atapp [Atvar "'a"] (Short "array"))`` I);
+  ``Dtabbrev unknown_loc [«'a»] «array» (Atapp [Atvar «'a»] (Short «array»))`` I);
 
 val () = append_decs
-   ``[mk_binop "array" Aalloc;
-      mk_unop "arrayEmpty" AallocEmpty;
-      mk_binop "sub" Asub;
-      mk_unop "length" Alength;
-      Dlet unknown_loc (Pvar "update")
-       (Fun "x" (Fun "y" (Fun "z"
-         (App Aupdate [Var (Short "x"); Var (Short "y"); Var (Short "z")])))) ]``;
+   ``[mk_binop «array» Aalloc;
+      mk_unop «arrayEmpty» AallocEmpty;
+      mk_binop «sub» Asub;
+      mk_unop «length» Alength;
+      Dlet unknown_loc (Pvar «update»)
+       (Fun «x» (Fun «y» (Fun «z»
+         (App Aupdate [Var (Short «x»); Var (Short «y»); Var (Short «z»)])))) ]``;
 
 Quote add_cakeml:
   fun fromList l =
@@ -233,50 +233,50 @@ val _ = ml_prog_update open_local_block;
 (* Parser bug, see Issue #25 *)
 val array_findi_aux =
 ``[(Dletrec unknown_loc
-[("findi_aux","f",
- Fun "arr"
-   (Fun "max"
-      (Fun "n"
-         (Let (SOME "a")
+[(«findi_aux»,«f»,
+ Fun «arr»
+   (Fun «max»
+      (Fun «n»
+         (Let (SOME «a»)
             (App Opapp
-               [App Opapp [Var (Short "="); Var (Short "n")];
-                Var (Short "max")])
-            (If (Var (Short "a")) (Con (SOME (Short "None")) [])
-               (Let (SOME "b")
+               [App Opapp [Var (Short «=»); Var (Short «n»)];
+                Var (Short «max»)])
+            (If (Var (Short «a»)) (Con (SOME (Short «None»)) [])
+               (Let (SOME «b»)
                   (App Opapp
                      [App Opapp
-                        [Var (Short "sub"); Var (Short "arr")];
-                      Var (Short "n")])
-                  (Let (SOME "c")
+                        [Var (Short «sub»); Var (Short «arr»)];
+                      Var (Short «n»)])
+                  (Let (SOME «c»)
                      (App Opapp
                         [App Opapp
-                           [Var (Short "f"); Var (Short "n")];
-                         Var (Short "b")])
-                     (If (Var (Short "c"))
-                        (Let (SOME "d")
+                           [Var (Short «f»); Var (Short «n»)];
+                         Var (Short «b»)])
+                     (If (Var (Short «c»))
+                        (Let (SOME «d»)
                            (App Opapp
                               [App Opapp
-                                 [Var (Short "sub");
-                                  Var (Short "arr")];
-                               Var (Short "n")])
-                           (Con (SOME (Short "Some"))
-                              [Con NONE [Var (Short "n");
-                               Var (Short "d")]]))
-                        (Let (SOME "e")
+                                 [Var (Short «sub»);
+                                  Var (Short «arr»)];
+                               Var (Short «n»)])
+                           (Con (SOME (Short «Some»))
+                              [Con NONE [Var (Short «n»);
+                               Var (Short «d»)]]))
+                        (Let (SOME «e»)
                            (App Opapp
                               [App Opapp
-                                 [Var (Short "+");
-                                  Var (Short "n")];
+                                 [Var (Short «+»);
+                                  Var (Short «n»)];
                                Lit (IntLit 1)])
                            (App Opapp
                               [App Opapp
                                  [App Opapp
                                     [App Opapp
-                                       [Var (Short "findi_aux");
-                                        Var (Short "f")];
-                                     Var (Short "arr")];
-                                  Var (Short "max")];
-                               Var (Short "e")]))))))))))])]``
+                                       [Var (Short «findi_aux»);
+                                        Var (Short «f»)];
+                                     Var (Short «arr»)];
+                                  Var (Short «max»)];
+                               Var (Short «e»)]))))))))))])]``
 
 val _ = append_prog array_findi_aux;
 
@@ -365,4 +365,3 @@ End
 val _ = ml_prog_update close_local_blocks;
 
 val _ = ml_prog_update (close_module NONE);
-

@@ -13,6 +13,8 @@ val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
 val () = wordsLib.guess_lengths ()
 
+val _ = numLib.prefer_num ();
+
 (* some lemmas ------------------------------------------------------------- *)
 
 fun cases_on_DecodeBitMasks (g as (asl, _)) =
@@ -758,4 +760,3 @@ Proof
       \\ state_tac [alignmentTheory.aligned_extract]
       \\ blastLib.FULL_BBLAST_TAC)
 QED
-

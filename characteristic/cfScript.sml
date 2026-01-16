@@ -44,7 +44,7 @@ QED
 
 (* An auxiliary definition *)
 Definition is_bound_Fun_def:
-  is_bound_Fun (SOME _: string option) (Fun _ _) = T /\
+  is_bound_Fun (SOME _: mlstring option) (Fun _ _) = T /\
   is_bound_Fun _ _ = F
 End
 
@@ -1428,10 +1428,10 @@ Definition app_copystraw8_def:
   app_copystraw8 s so l d do' H Q =
     ((?wd F.
         0 <= do' /\ 0 <= so /\ 0 <= l /\
-        (Num do' + Num l) <= LENGTH wd /\ (Num so + Num l) <= LENGTH s /\
+        (Num do' + Num l) <= LENGTH wd /\ (Num so + Num l) <= strlen s /\
         (H ==>> F * W8ARRAY d wd) /\
         (F * W8ARRAY d (TAKE (Num do') wd ⧺
-                        MAP (n2w o ORD) (TAKE (Num l) (DROP (Num so) s)) ⧺
+                        MAP (n2w o ORD) (TAKE (Num l) (DROP (Num so) (explode s))) ⧺
                         DROP (Num do' + Num l) wd)
             ==>> Q (Val (Conv NONE [])))) /\
      Q =~v> POST_F)
@@ -1444,16 +1444,16 @@ Definition app_copyaw8str_def:
         (Num so + Num l) <= LENGTH ws /\
         (H ==>> F * W8ARRAY s ws) /\
         (F * W8ARRAY s ws
-            ==>> Q (Val (Litv (StrLit (MAP (CHR o w2n) (TAKE (Num l) (DROP (Num so) ws)))))))) /\
+            ==>> Q (Val (Litv (StrLit (implode (MAP (CHR o w2n) (TAKE (Num l) (DROP (Num so) ws))))))))) /\
      Q =~v> POST_F)
 End
 
 Definition app_xoraw8str_def:
   app_xoraw8str s d H Q =
     ((?wd F.
-        LENGTH s ≤ LENGTH wd /\
+        strlen s ≤ LENGTH wd /\
         (H ==>> F * W8ARRAY d wd) /\
-        (F * W8ARRAY d (THE (xor_bytes (MAP (n2w o ORD) s) wd))
+        (F * W8ARRAY d (THE (xor_bytes (MAP (n2w o ORD) (explode s)) wd))
             ==>> Q (Val (Conv NONE [])))) /\
      Q =~v> POST_F)
 End
@@ -1596,7 +1596,7 @@ End
 
 Definition cf_fun_rec_def:
   cf_fun_rec (p:'ffi ffi_proj) fs_Fs F2 = \env. local (\H Q.
-    let fs = MAP (\ (f: (string # string list # exp), _). f) fs_Fs in
+    let fs = MAP (\ (f: (mlstring # mlstring list # exp), _). f) fs_Fs in
     let Fs = MAP (\ (_, F). F) fs_Fs in
     let f_names = MAP (\ (f,_,_). f) fs in
     let f_args = MAP (\ (_,ns,_). ns) fs in
@@ -1793,17 +1793,17 @@ Definition app_ffi_def:
   app_ffi ffi_index c a H Q =
     ((?conf ws frame s u ns events.
          MEM ffi_index ns /\
-         c = Litv(StrLit(MAP (CHR o w2n) conf)) /\
+         c = Litv(StrLit(implode (MAP (CHR o w2n) conf))) /\
          (H ==>> frame * W8ARRAY a ws * one (FFI_part s u ns events) *
-                 cond (~MEM "" ns)) /\
+                 cond (~MEM «» ns)) /\
          (case u ffi_index conf ws s of
             SOME(FFIreturn vs s') =>
              (frame * W8ARRAY a vs * one (FFI_part s' u ns
                  (events ++ [IO_event (ExtCall ffi_index) conf (ZIP (ws, vs))])) *
-              cond (~MEM "" ns)) ==>> Q (Val (Conv NONE []))
+              cond (~MEM «» ns)) ==>> Q (Val (Conv NONE []))
           | SOME(FFIdiverge) =>
              (frame * W8ARRAY a ws * one (FFI_part s u ns events) *
-              cond (~MEM "" ns)) ==>> Q (FFIDiv ffi_index conf ws)
+              cond (~MEM «» ns)) ==>> Q (FFIDiv ffi_index conf ws)
           | NONE => F)) /\
      Q ==e> POST_F /\ Q ==d> POST_F)
 End
@@ -2448,7 +2448,7 @@ Proof
            (fn th => mp_tac th \\ assume_tac th) \\
      simp_tac std_ss [parts_ok_def] \\ strip_tac \\
      qpat_x_assum `!x. _ ==> _` kall_tac \\
-     `ffi_index ≠ ""` by (strip_tac \\ fs []) \\ fs [] \\
+     `ffi_index ≠ «»` by (strip_tac \\ fs []) \\ fs [] \\
      rpt(first_x_assum progress) \\
      fs[IMPLODE_EXPLODE_I,MAP_MAP_o,o_DEF,state_component_equality]
       ) \\
@@ -2489,7 +2489,7 @@ Proof
          (fn th => mp_tac th \\ assume_tac th) \\
    simp_tac std_ss [parts_ok_def] \\ strip_tac \\
    qpat_x_assum `!x. _ ==> _` kall_tac \\
-   `ffi_index ≠ ""` by (strip_tac \\ fs []) \\ fs [] \\
+   `ffi_index ≠ «»` by (strip_tac \\ fs []) \\ fs [] \\
    first_x_assum progress \\ fs [store_assign_def] \\
    imp_res_tac store2heap_IN_EL \\
    imp_res_tac store2heap_IN_LENGTH \\ fs [] \\
@@ -2685,9 +2685,11 @@ QED
 
 Theorem IMP_xor_bytes_SOME[local]:
   ∀s wd.
-    STRLEN s ≤ LENGTH wd ⇒
-    ∃xor_res. xor_bytes (MAP (n2w ∘ ORD) s) wd = SOME xor_res
+    strlen s ≤ LENGTH wd ⇒
+    ∃xor_res. xor_bytes (MAP (n2w ∘ ORD) (explode s)) wd = SOME xor_res
 Proof
+  Cases_on `s` \\ fs[] \\
+  qid_spec_tac `s'` \\
   Induct \\ Cases_on ‘wd’ \\ gvs [xor_bytes_def]
   \\ rw [] \\ res_tac \\ gvs []
 QED

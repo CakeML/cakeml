@@ -336,13 +336,13 @@ Theorem all_distinct_alist_ctxt_max:
   ALL_DISTINCT (ns:num list) /\
   LENGTH ns = size_of_shape (Comb sh) ∧
   LENGTH vs = LENGTH sh ⇒
-   ctxt_max (list_max ns)
+   ctxt_max (MAX_LIST ns)
       (alist_to_fmap (ZIP (vs,ZIP (sh,with_shape sh ns))))
 Proof
   rw [] >> fs [ctxt_max_def] >>
   rw [] >>
   ‘MEM x ns’ suffices_by (
-             assume_tac list_max_max >>
+             assume_tac MAX_LIST_max >>
              pop_assum (qspec_then ‘ns’ assume_tac) >>
              fs [EVERY_MEM]) >>
   drule ALOOKUP_MEM >>

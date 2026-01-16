@@ -24,7 +24,7 @@ End
 Definition ctxt_fc_def:
   ctxt_fc cvs em vs shs ns =
     <|vars := FEMPTY |++ ZIP (vs, ZIP (shs, with_shape shs ns));
-      funcs := cvs; eids := em; vmax := list_max ns |>
+      funcs := cvs; eids := em; vmax := MAX_LIST ns |>
 End
 
 
@@ -1711,7 +1711,7 @@ Proof
       miscTheory.UNCURRY_eq_pair,PULL_EXISTS
      ] >>
   dep_rewrite.DEP_ONCE_REWRITE_TAC[update_locals_not_vars_eval_eq'] >>
-  simp[FOLDR_MAX_0_list_max,list_max_add_not_mem,FLOOKUP_UPDATE,
+  simp[FOLDR_MAX_0_MAX_LIST,MAX_LIST_add_not_mem,FLOOKUP_UPDATE,
        sh_mem_op_def,sh_mem_store_def] >>
   gvs[state_rel_def] >>
   gvs[locals_rel_def] >>
@@ -2149,7 +2149,7 @@ Proof
 QED
 
 Theorem ctxt_fc_vmax:
-    (ctxt_fc ctxt.funcs em vs shs ns).vmax = list_max ns
+    (ctxt_fc ctxt.funcs em vs shs ns).vmax = MAX_LIST ns
 Proof
   rw [ctxt_fc_def]
 QED
@@ -4371,17 +4371,17 @@ Proof
   gvs[panSemTheory.dec_clock_def]
 QED
 
-Theorem list_max_APPEND:
-  list_max(a ++ b) = MAX (list_max a) (list_max b)
+Theorem MAX_LIST_APPEND:
+  MAX_LIST(a ++ b) = MAX (MAX_LIST a) (MAX_LIST b)
 Proof
-  Induct_on ‘a’ \\ rw[list_max_def] \\
+  Induct_on ‘a’ \\ rw[MAX_LIST_def] \\
   intLib.COOPER_TAC
 QED
 
-Theorem list_max_NOT_MEM:
-  x > list_max l ⇒ ¬MEM x l
+Theorem MAX_LIST_NOT_MEM:
+  x > MAX_LIST l ⇒ ¬MEM x l
 Proof
-  Induct_on ‘l’ \\ gvs[list_max_def]
+  Induct_on ‘l’ \\ gvs[MAX_LIST_def,MAX_DEF]
 QED
 
 Theorem compile_ExtCall:
@@ -4402,38 +4402,38 @@ Proof
   qmatch_goalsub_abbrev_tac ‘Dec (freshv + 2)’ \\
   rename1 ‘var_cexp e1 ++ var_cexp e2 ++ var_cexp e3 ++ var_cexp e4’ \\
   ‘¬MEM (freshv + 1) (var_cexp e2)’
-    by(simp[Abbr ‘freshv’,FOLDR_MAX_0_list_max,list_max_APPEND] \\
+    by(simp[Abbr ‘freshv’,FOLDR_MAX_0_MAX_LIST,MAX_LIST_APPEND] \\
        rw[MAX_DEF] \\
-       match_mp_tac list_max_NOT_MEM \\
+       match_mp_tac MAX_LIST_NOT_MEM \\
        intLib.COOPER_TAC) \\
   simp[Once evaluate_def] \\
   simp[update_locals_not_vars_eval_eq'] \\
   ‘¬MEM (freshv + 1) (var_cexp e3)’
-    by(simp[Abbr ‘freshv’,FOLDR_MAX_0_list_max,list_max_APPEND] \\
+    by(simp[Abbr ‘freshv’,FOLDR_MAX_0_MAX_LIST,MAX_LIST_APPEND] \\
        rw[MAX_DEF] \\
-       match_mp_tac list_max_NOT_MEM \\
+       match_mp_tac MAX_LIST_NOT_MEM \\
        intLib.COOPER_TAC) \\
   ‘¬MEM (freshv + 2) (var_cexp e3)’
-    by(simp[Abbr ‘freshv’,FOLDR_MAX_0_list_max,list_max_APPEND] \\
+    by(simp[Abbr ‘freshv’,FOLDR_MAX_0_MAX_LIST,MAX_LIST_APPEND] \\
        rw[MAX_DEF] \\
-       match_mp_tac list_max_NOT_MEM \\
+       match_mp_tac MAX_LIST_NOT_MEM \\
        intLib.COOPER_TAC) \\
   simp[Once evaluate_def] \\
   simp[update_locals_not_vars_eval_eq',update_locals_not_vars_eval_eq''] \\
   ‘¬MEM (freshv + 1) (var_cexp e4)’
-    by(simp[Abbr ‘freshv’,FOLDR_MAX_0_list_max,list_max_APPEND] \\
+    by(simp[Abbr ‘freshv’,FOLDR_MAX_0_MAX_LIST,MAX_LIST_APPEND] \\
        rw[MAX_DEF] \\
-       match_mp_tac list_max_NOT_MEM \\
+       match_mp_tac MAX_LIST_NOT_MEM \\
        intLib.COOPER_TAC) \\
   ‘¬MEM (freshv + 2) (var_cexp e4)’
-    by(simp[Abbr ‘freshv’,FOLDR_MAX_0_list_max,list_max_APPEND] \\
+    by(simp[Abbr ‘freshv’,FOLDR_MAX_0_MAX_LIST,MAX_LIST_APPEND] \\
        rw[MAX_DEF] \\
-       match_mp_tac list_max_NOT_MEM \\
+       match_mp_tac MAX_LIST_NOT_MEM \\
        intLib.COOPER_TAC) \\
   ‘¬MEM (freshv + 3) (var_cexp e4)’
-    by(simp[Abbr ‘freshv’,FOLDR_MAX_0_list_max,list_max_APPEND] \\
+    by(simp[Abbr ‘freshv’,FOLDR_MAX_0_MAX_LIST,MAX_LIST_APPEND] \\
        rw[MAX_DEF] \\
-       match_mp_tac list_max_NOT_MEM \\
+       match_mp_tac MAX_LIST_NOT_MEM \\
        intLib.COOPER_TAC) \\
   simp[Once evaluate_def] \\
   simp[update_locals_not_vars_eval_eq',update_locals_not_vars_eval_eq''] \\
@@ -4518,7 +4518,7 @@ Proof
   gvs[make_funcs_def,MAP2_MAP,ZIP_MAP_MAP,MAP_MAP_o,o_DEF,
       SIMP_RULE std_ss [ELIM_UNCURRY] ALOOKUP_MAP,ELIM_UNCURRY,
       compile_prog_def,crep_vars_def,EVERY_MEM,comp_func_def,
-      mk_ctxt_def,ctxt_fc_def,make_vmap_def,list_max_i_genlist,EVERY_MEM] >>
+      mk_ctxt_def,ctxt_fc_def,make_vmap_def,MAX_LIST_i_genlist,EVERY_MEM] >>
   res_tac >> fs[]
 QED
 

@@ -55,7 +55,7 @@ Datatype:
                                                         exception-handler code,
                                                         normal-return handler code,
                                                         live vars after call *)
-       | FFI string num num num num num_set
+       | FFI mlstring num num num num num_set
          (* FFI name, conf_ptr, conf_len, array_ptr, array_len, cut-set *)
 End
 

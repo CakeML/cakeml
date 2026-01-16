@@ -60,7 +60,7 @@ Datatype:
                                       data buffer start, length of new data, cut-set *)
        | CodeBufferWrite num num (* code buffer address, byte to write *)
        | DataBufferWrite num num (* data buffer address, word to write *)
-       | FFI string num num num num cutsets (* FFI name, conf_ptr, conf_len, array_ptr, array_len, cut-set *)
+       | FFI mlstring num num num num cutsets (* FFI name, conf_ptr, conf_len, array_ptr, array_len, cut-set *)
        | ShareInst memop num ('a exp) (* memory operation, varname, expression for memory address *)
 End
 

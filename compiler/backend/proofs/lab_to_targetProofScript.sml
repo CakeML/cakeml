@@ -2771,8 +2771,7 @@ val pos_val_MOD_0 = Q.prove(
   \\ Cases_on `EVEN pos` \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[EVEN_ADD]
   \\ `0:num < 2 ** mc_conf.target.config.code_alignment` by full_simp_tac(srw_ss())[]
-  \\ imp_res_tac (GSYM MOD_PLUS)
-  \\ pop_assum (fn th => once_rewrite_tac [th])
+  \\ once_rewrite_tac [GSYM MOD_PLUS]
   \\ imp_res_tac line_length_MOD_0 \\ full_simp_tac(srw_ss())[])
   |> Q.SPECL [`x`,`0`,`y`] |> SIMP_RULE std_ss [GSYM AND_IMP_INTRO]
   |> SIMP_RULE std_ss [pos_val_MOD_0_lemma]
@@ -2793,8 +2792,8 @@ Proof
   PURE_REWRITE_TAC [addressTheory.n2w_and_1]>>
   FULL_SIMP_TAC std_ss [arithmeticTheory.EVEN_MOD2]>>
   `0 < 2n` by fs[]>>
-  old_drule (GSYM arithmeticTheory.MOD_PLUS)>>
-  disch_then(qspecl_then [`x`,`w2n p`] SUBST_ALL_TAC)>>
+  (qspecl_then [`2`,`x`,`w2n p`] SUBST_ALL_TAC)
+    (GSYM arithmeticTheory.MOD_PLUS)>>
   first_x_assum SUBST_ALL_TAC>>
   SIMP_TAC (std_ss++ARITH_ss) []>>
   PURE_REWRITE_TAC [GSYM addressTheory.n2w_and_1]>>
@@ -2916,6 +2915,7 @@ Proof
   \\ rw[has_io_name_def]
   \\ CASE_TAC \\ fs[]
   \\ CASE_TAC \\ fs[]
+  \\ rename1 ‘s = index ∨ _’
   \\ Cases_on`s = index` \\ fs[]
 QED
 

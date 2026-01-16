@@ -20,7 +20,6 @@ open basisProgTheory
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
 val _ = translation_extends "pancake_parseProg";
-val _ = ml_translatorLib.use_string_type true;
 val _ = ml_translatorLib.use_sub_check true;
 (*
 val _ = translation_extends "basisProg";
@@ -426,10 +425,9 @@ val explode = String.explode;
 open ml_progLib cfLib basis
 open astPP
 
-val main = process_topdecs`
-  fun main u = ()`
-
-val res = append_prog main;
+Quote add_cakeml:
+  fun main u = ()
+End
 
 val st =  get_ml_prog_state ();
 

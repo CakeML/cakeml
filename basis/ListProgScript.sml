@@ -14,7 +14,7 @@ val _ = ml_prog_update (open_module "List");
 val () = generate_sigs := true;
 
 val _ = ml_prog_update (add_dec
-  ``Dtabbrev unknown_loc ["'a"] "list" (Atapp [Atvar "'a"] (Short "list"))`` I);
+  ``Dtabbrev unknown_loc [«'a»] «list» (Atapp [Atvar «'a»] (Short «list»))`` I);
 
 val r = translate NULL;
 
@@ -375,6 +375,7 @@ Theorem mergesortn_tail_side[local]:
 Proof
   completeInduct_on `y`
   \\ once_rewrite_tac[(fetch "-" "mergesortn_tail_side_def")]
+  \\ rpt gen_tac \\ rename1 `SUC x1`
   \\ rw[DIV2_def]
      >- (
         first_x_assum match_mp_tac

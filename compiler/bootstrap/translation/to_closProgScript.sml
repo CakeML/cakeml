@@ -17,7 +17,6 @@ val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = translation_extends "to_flatProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "to_closProg");
-val _ = ml_translatorLib.use_string_type true;
 
 (* ------------------------------------------------------------------------- *)
 (* Setup                                                                     *)

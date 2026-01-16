@@ -39,15 +39,15 @@ val index_side = Q.prove(`
   simp[index_side_def]>>
   intLib.ARITH_TAC) |> update_precondition;
 
-val _ = process_topdecs `
+Quote add_cakeml:
   exception Fail string;
-` |> append_prog
+End
 
 fun get_exn_conv name =
   EVAL ``lookup_cons (Short ^name) ^(get_env (get_ml_prog_state ()))``
   |> concl |> rand |> rand |> rand
 
-val fail = get_exn_conv ``"Fail"``
+val fail = get_exn_conv ``«Fail»``
 
 Definition Fail_exn_def:
   Fail_exn v = (∃s sv. v = Conv (SOME ^fail) [sv] ∧ STRING_TYPE s sv)
@@ -59,12 +59,13 @@ End
 
 val _ = translate (eq_w8o_def |> SIMP_RULE std_ss [w8o_def]);
 
-val every_one_arr = process_topdecs`
+Quote add_cakeml:
   fun every_one_arr carr cs =
   case cs of [] => True
   | c::cs =>
     if eq_w8o (Unsafe.w8sub carr (index c)) then every_one_arr carr cs
-    else False` |> append_prog
+    else False
+End
 
 Definition format_failure_def:
   format_failure (lno:num) s =
@@ -78,7 +79,7 @@ Definition unwrap_TYPE_def:
   ∃z. x = SOME z ∧ P z y
 End
 
-val delete_literals_sing_arr_def = process_topdecs`
+Quote add_cakeml:
   fun delete_literals_sing_arr lno i carr cs =
   case cs of
     [] => 0
@@ -87,7 +88,8 @@ val delete_literals_sing_arr_def = process_topdecs`
       delete_literals_sing_arr lno i carr cs
     else
       if every_one_arr carr cs then ~c
-      else raise Fail (format_failure lno ("clause at index not empty or singleton after reduction: "  ^ Int.toString i))` |> append_prog
+      else raise Fail (format_failure lno ("clause at index not empty or singleton after reduction: "  ^ Int.toString i))
+End
 
 Theorem list_lookup_eq_EL[simp]:
   LENGTH Clist > index h ⇒
@@ -178,7 +180,7 @@ Proof
   metis_tac[NOT_EVERY]
 QED
 
-val is_rup_arr_aux = process_topdecs`
+Quote add_cakeml:
   fun is_rup_arr_aux lno fml ls c carr =
     case ls of
       [] =>
@@ -198,7 +200,8 @@ val is_rup_arr_aux = process_topdecs`
       else
         (Unsafe.w8update carr (index nl) w8o;
         is_rup_arr_aux lno fml is (nl::c) carr)
-      end` |> append_prog
+      end
+End
 
 (* For every literal in every clause and their negations,
   the index is bounded above by n *)
@@ -319,12 +322,13 @@ Proof
   metis_tac[]
 QED
 
-val set_array = process_topdecs`
+Quote add_cakeml:
   fun set_array carr v cs =
   case cs of [] => ()
   | (c::cs) =>
     (Unsafe.w8update carr (index c) v;
-    set_array carr v cs)` |> append_prog
+    set_array carr v cs)
+End
 
 Theorem set_array_spec:
   ∀c cv Carrv Clist.
@@ -351,12 +355,12 @@ Proof
   xsimpl
 QED
 
-val is_rup_arr = process_topdecs`
+Quote add_cakeml:
   fun is_rup_arr lno fml ls c carr =
     (set_array carr w8o c;
     set_array carr w8z (is_rup_arr_aux lno fml ls c carr);
-    carr)`
-    |> append_prog
+    carr)
+End
 
 Theorem LENGTH_set_list_bound[simp]:
   ∀c Clist.
@@ -484,7 +488,7 @@ QED
 
 val res = translate toByte_def;
 
-val strxor_aux_c_arr = process_topdecs`
+Quote add_cakeml:
   fun strxor_aux_c_arr cs ds n =
   if n = 0 then cs
   else
@@ -496,7 +500,8 @@ val strxor_aux_c_arr = process_topdecs`
     val u = Unsafe.w8update cs n1 x
   in
     strxor_aux_c_arr cs ds n1
-  end` |> append_prog;
+  end
+End
 
 Theorem strxor_aux_c_arr_spec:
   ∀n nv cs csv ds dsv.
@@ -525,7 +530,7 @@ Proof
   xapp>>xsimpl
 QED
 
-val strxor_c_arr = process_topdecs`
+Quote add_cakeml:
   fun strxor_c_arr s t =
   let
     val lt = String.size t
@@ -540,7 +545,8 @@ val strxor_c_arr = process_topdecs`
       in
         (Unsafe.w8xor_str ss t; ss)
       end
-  end` |> append_prog;
+  end
+End
 
 Theorem xor_bytes_eq[local]:
   ∀xs ys zs.
@@ -660,7 +666,7 @@ Proof
   Cases_on ‘ds’ >> gvs [w8z_def]
 QED
 
-val add_xors_aux_c_arr = process_topdecs`
+Quote add_cakeml:
   fun add_xors_aux_c_arr lno fml is s =
   case is of
     [] => s
@@ -671,7 +677,8 @@ val add_xors_aux_c_arr = process_topdecs`
     case Unsafe.sub fml i of
       None => raise Fail (format_failure lno ("no xor at index (maybe deleted): " ^ Int.toString i))
     | Some x =>
-      add_xors_aux_c_arr lno fml is (strxor_c_arr s x)` |> append_prog;
+      add_xors_aux_c_arr lno fml is (strxor_c_arr s x)
+End
 
 Theorem add_xors_aux_c_arr_spec:
   ∀ls lsv cs csv fmlv fmlls fmllsv lno lnov.
@@ -765,13 +772,14 @@ Proof
   fs[WORD_MUL_LSL |> Q.ISPEC`1w:word8` |> CONV_RULE (wordsLib.WORD_CONV) |> GSYM]
 QED
 
-val get_bit_arr = process_topdecs`
+Quote add_cakeml:
   fun get_bit_arr s n =
   let
     val q = n div 8
     val r = n mod 8 in
     get_bit_word' (Unsafe.w8sub s q) r
-  end` |> append_prog;
+  end
+End
 
 Theorem get_bit_arr_spec:
   NUM n nv ∧ n DIV 8 < LENGTH cs ⇒
@@ -793,14 +801,15 @@ Proof
   simp[]
 QED
 
-val set_bit_arr = process_topdecs`
+Quote add_cakeml:
   fun set_bit_arr s n b =
   let
     val q = n div 8
     val r = n mod 8
     val b = set_bit_word' (Unsafe.w8sub s q) r b in
     Unsafe.w8update s q b
-  end` |> append_prog;
+  end
+End
 
 Theorem set_bit_arr_spec:
   NUM n nv ∧ n DIV 8 < LENGTH cs ∧ BOOL b bv ⇒
@@ -849,14 +858,15 @@ Proof
   fs[WORD_MUL_LSL |> Q.ISPEC`1w:word8` |> CONV_RULE (wordsLib.WORD_CONV) |> GSYM]
 QED
 
-val flip_bit_arr = process_topdecs`
+Quote add_cakeml:
   fun flip_bit_arr s n =
   let
     val q = n div 8
     val r = n mod 8
     val b = flip_bit_word' (Unsafe.w8sub s q) r in
     Unsafe.w8update s q b
-  end` |> append_prog;
+  end
+End
 
 Theorem flip_bit_arr_spec:
   NUM n nv ∧ n DIV 8 < LENGTH cs ⇒
@@ -882,15 +892,15 @@ QED
 
 Theorem OPTION_TYPE_SPLIT:
   OPTION_TYPE a x v ⇔
-  (x = NONE ∧ v = Conv (SOME (TypeStamp "None" 2)) []) ∨
-  (∃y vv. x = SOME y ∧ v = Conv (SOME (TypeStamp "Some" 2)) [vv] ∧ a y vv)
+  (x = NONE ∧ v = Conv (SOME (TypeStamp «None» 2)) []) ∨
+  (∃y vv. x = SOME y ∧ v = Conv (SOME (TypeStamp «Some» 2)) [vv] ∧ a y vv)
 Proof
   Cases_on`x`>>rw[OPTION_TYPE_def]
 QED
 
 val res = translate lookup_def;
 
-val unit_prop_xor_arr = process_topdecs`
+Quote add_cakeml:
   fun unit_prop_xor_arr t s l =
   let
     val n = nabs l in
@@ -903,7 +913,8 @@ val unit_prop_xor_arr = process_topdecs`
         else ())
       else set_bit_arr s n False
     else ()
-  end` |> append_prog;
+  end
+End
 
 Theorem unit_prop_xor_arr_spec:
   INT l lv ∧
@@ -954,7 +965,7 @@ Proof
   EVAL_TAC
 QED
 
-val get_units_arr = process_topdecs`
+Quote add_cakeml:
   fun get_units_arr lno fml is s =
   case is of
     [] => s
@@ -967,7 +978,8 @@ val get_units_arr = process_topdecs`
     | Some x =>
       case x of [l] =>
         get_units_arr lno fml is (l::s)
-      | _ => raise Fail (format_failure lno ("clause at index not unit: " ^ Int.toString i))` |> append_prog;
+      | _ => raise Fail (format_failure lno ("clause at index not unit: " ^ Int.toString i))
+End
 
 Theorem get_units_arr_spec:
   ∀ls lsv cs csv fmlv fmlls fmllsv lno lnov.
@@ -1032,18 +1044,19 @@ Proof
     metis_tac[])
 QED
 
-val fold_unit_prop_xor_arr = process_topdecs`
+Quote add_cakeml:
   fun fold_unit_prop_xor_arr t s ls =
   case ls of [] => s
   | (x::xs) =>
     (unit_prop_xor_arr t s x;
-    fold_unit_prop_xor_arr t s xs)`
-  |> append_prog;
+    fold_unit_prop_xor_arr t s xs)
+End
 
-val unit_props_xor_arr = process_topdecs`
+Quote add_cakeml:
   fun unit_props_xor_arr lno fml t is s =
   fold_unit_prop_xor_arr t s
-    (get_units_arr lno fml is [])` |> append_prog;
+    (get_units_arr lno fml is [])
+End
 
 Theorem fold_unit_prop_xor_arr_spec:
   ∀ls lsv cs csv.
@@ -1148,10 +1161,11 @@ End
 val res = translate print_bits_aux_def;
 val res = translate print_xor_string_def;
 
-val xor_to_string = process_topdecs`
+Quote add_cakeml:
   fun xor_to_string r =
   print_xor_string
-    (Word8Array.substring r 0 (Word8Array.length r))` |> append_prog;
+    (Word8Array.substring r 0 (Word8Array.length r))
+End
 
 Theorem xor_to_string_spec:
   app (p : 'ffi ffi_proj)
@@ -1184,7 +1198,7 @@ val res = translate spts_to_alist_def;
 val res = translate toSortedAList_def;
 val res = translate tn_to_string_def;
 
-val is_emp_xor_arr_aux = process_topdecs`
+Quote add_cakeml:
   fun is_emp_xor_arr_aux lno tn arr n =
   if n > 0
   then
@@ -1200,7 +1214,8 @@ val is_emp_xor_arr_aux = process_topdecs`
       raise Fail (format_failure lno ("derived XOR not empty (=0), got (internal var): " ^ s ^ " variable map (input var -> internal var): " ^ tns))
       end
   end
-  else ()` |> append_prog;
+  else ()
+End
 
 Theorem is_emp_xor_arr_aux_spec:
   ∀n nv.
@@ -1240,7 +1255,7 @@ Proof
   metis_tac[]
 QED
 
-val is_xor_arr = process_topdecs`
+Quote add_cakeml:
   fun is_xor_arr lno tn def fml is cfml cis s =
   let
     val r = Word8Array.array def w8z
@@ -1249,7 +1264,8 @@ val is_xor_arr = process_topdecs`
     val r = unit_props_xor_arr lno cfml (fst tn) cis r
   in
     is_emp_xor_arr_aux lno tn r (Word8Array.length r)
-  end` |> append_prog;
+  end
+End
 
 Theorem is_xor_arr_spec:
   NUM lno lnov ∧
@@ -1284,14 +1300,15 @@ Proof
   first_x_assum (irule_at Any)>>simp[]
 QED
 
-val list_delete_arr = process_topdecs`
+Quote add_cakeml:
   fun list_delete_arr ls fml =
     case ls of
       [] => ()
     | (i::is) =>
       if Array.length fml <= i then list_delete_arr is fml
       else
-        (Unsafe.update fml i None; list_delete_arr is fml)` |> append_prog
+        (Unsafe.update fml i None; list_delete_arr is fml)
+End
 
 Theorem list_delete_arr_spec:
   ∀ls lsv fmlls fmllsv.
@@ -1329,7 +1346,7 @@ Proof
   match_mp_tac EVERY2_LUPDATE_same>> simp[OPTION_TYPE_def]
 QED
 
-val resize_update_arr = process_topdecs`
+Quote add_cakeml:
   fun resize_update_arr v n fml =
   if n < Array.length fml then
     (Unsafe.update fml n v ; fml)
@@ -1339,7 +1356,8 @@ val resize_update_arr = process_topdecs`
         val u = Unsafe.update fml' n v
     in
       fml'
-    end` |> append_prog
+    end
+End
 
 Theorem resize_update_arr_spec:
   OPTION_TYPE vty v vv ∧
@@ -1369,10 +1387,10 @@ Proof
   >>
   rpt (xlet_autop) >>
   xlet`POSTv uv. (* TODO: probably should be added to the basis spec for Array.copy: &UNIT_TYPE () uv * *)
-    ARRAY av (fmllsv ++ REPLICATE (2*n+1-LENGTH fmllsv) (Conv (SOME (TypeStamp "None" 2)) []))`
+    ARRAY av (fmllsv ++ REPLICATE (2*n+1-LENGTH fmllsv) (Conv (SOME (TypeStamp «None» 2)) []))`
   >- (
     xapp>>xsimpl>>
-    qexists_tac`REPLICATE (LENGTH fmllsv) (Conv (SOME (TypeStamp "None" 2)) [])`>>
+    qexists_tac`REPLICATE (LENGTH fmllsv) (Conv (SOME (TypeStamp «None» 2)) [])`>>
     simp[]>>
     simp[REPLICATE_APPEND])
   >>
@@ -1390,13 +1408,14 @@ val _ = translate MAX_LIST_def;
 val _ = translate list_max_index_def;
 
 (* bump up the length to a large number *)
-val resize_carr = process_topdecs`
+Quote add_cakeml:
   fun resize_carr c carr =
   let val lm = list_max_index c in
     if Word8Array.length carr <= lm
     then Word8Array.array (2*lm) w8z
     else carr
-  end` |> append_prog
+  end
+End
 
 Theorem resize_carr_spec:
   lit_list_TYPE c cv ⇒
@@ -1419,7 +1438,7 @@ Proof
   xsimpl
 QED
 
-val extend_s_arr = process_topdecs`
+Quote add_cakeml:
   fun extend_s_arr s n =
   let val ls = Word8Array.length s in
   if n < ls
@@ -1431,7 +1450,8 @@ val extend_s_arr = process_topdecs`
   in
     ss
   end
-  end` |> append_prog;
+  end
+End
 
 Theorem extend_s_arr_spec:
   NUM n nv
@@ -1458,7 +1478,7 @@ Proof
   EVAL_TAC
 QED
 
-val conv_xor_aux_arr = process_topdecs`
+Quote add_cakeml:
   fun conv_xor_aux_arr s xs =
   case xs of [] => s
   | x::xs =>
@@ -1471,7 +1491,8 @@ val conv_xor_aux_arr = process_topdecs`
     else
       (flip_bit_arr s 0;
       conv_xor_aux_arr s xs)
-  end` |> append_prog;
+  end
+End
 
 Theorem conv_xor_aux_arr_spec:
   ∀xs xsv cs csv.
@@ -1510,7 +1531,7 @@ Proof
   xapp>>xsimpl
 QED
 
-val conv_rawxor_arr = process_topdecs`
+Quote add_cakeml:
   fun conv_rawxor_arr mv x =
   let
     val r = Word8Array.array (max 1 mv) w8z
@@ -1518,7 +1539,8 @@ val conv_rawxor_arr = process_topdecs`
     val r = conv_xor_aux_arr r x
   in
     Word8Array.substring r 0 (Word8Array.length r)
-  end` |> append_prog;
+  end
+End
 
 Theorem conv_rawxor_arr_spec:
   NUM n nv ∧
@@ -1549,14 +1571,15 @@ Proof
   simp[]
 QED
 
-val strxor_imp_cclause_arr = process_topdecs`
+Quote add_cakeml:
   fun strxor_imp_cclause_arr lno tn mv s c =
   let
     val t = conv_rawxor_arr mv c
     val res = strxor_c_arr s t
   in
     is_emp_xor_arr_aux lno tn res (Word8Array.length res)
-  end` |> append_prog;
+  end
+End
 
 Theorem strxor_imp_cclause_arr_spec:
   NUM lno lnov ∧
@@ -1584,14 +1607,15 @@ Proof
   metis_tac[]
 QED
 
-val is_cfromx_arr = process_topdecs`
+Quote add_cakeml:
   fun is_cfromx_arr lno tn def fml is c =
   let
     val r = Word8Array.array def w8z
     val res = add_xors_aux_c_arr lno fml is r
   in
     strxor_imp_cclause_arr lno tn def res c
-  end` |> append_prog
+  end
+End
 
 Theorem is_cfromx_arr_spec:
   NUM lno lnov ∧
@@ -1625,7 +1649,7 @@ Proof
   metis_tac[]
 QED
 
-val get_constrs_arr = process_topdecs`
+Quote add_cakeml:
   fun get_constrs_arr lno fml ls =
     case ls of
       [] => []
@@ -1636,7 +1660,8 @@ val get_constrs_arr = process_topdecs`
         (case Unsafe.sub fml i of
           None => raise Fail (format_failure lno ("no clause/constraint at index (maybe deleted): " ^ Int.toString i))
         | Some ci =>
-          ci :: get_constrs_arr lno fml is)` |> append_prog;
+          ci :: get_constrs_arr lno fml is)
+End
 
 Theorem get_constrs_arr_spec:
   ∀ls lsv fmlv fmlls fml lno lnov.
@@ -1706,13 +1731,14 @@ val res = translate clauses_from_rawxor_def;
 val res = translate (imp_cclause_def |> SIMP_RULE std_ss [MEMBER_INTRO]);
 val res = translate check_rawxor_imp_def;
 
-val is_xfromc_arr = process_topdecs`
+Quote add_cakeml:
   fun is_xfromc_arr lno fml is rx =
   let val ds = get_constrs_arr lno fml is in
     if check_rawxor_imp ds rx then ()
     else raise Fail
       (format_failure lno ("clauses do not imply XOR"))
-  end` |> append_prog;
+  end
+End
 
 Theorem is_xfromc_arr_spec:
   NUM lno lnov ∧
@@ -1754,9 +1780,10 @@ End
 val r = translate conv_lit_def;
 val r = translate map_conv_lit_def;
 
-val conv_xor_mv_arr = process_topdecs`
+Quote add_cakeml:
   fun conv_xor_mv_arr mv x =
-  conv_rawxor_arr mv (map_conv_lit x)` |> append_prog;
+  conv_rawxor_arr mv (map_conv_lit x)
+End
 
 Theorem conv_xor_mv_arr_spec:
   NUM n nv ∧
@@ -1802,7 +1829,7 @@ val res = translate mk_strict_aux_def;
 val res = translate mk_strict_def;
 val res = translate do_check_ibnn_def;
 
-val is_cfromb_arr = process_topdecs`
+Quote add_cakeml:
   fun is_cfromb_arr lno c cfml bfml ib i0 =
   if Array.length bfml <= ib then
     raise Fail (format_failure lno
@@ -1818,7 +1845,8 @@ val is_cfromb_arr = process_topdecs`
       ()
     else
       raise Fail (format_failure lno
-        ("failed to derive conflict after propagation with units for BNN constraint: " ^ Int.toString ib))` |> append_prog;
+        ("failed to derive conflict after propagation with units for BNN constraint: " ^ Int.toString ib))
+End
 
 Theorem is_cfromb_arr_spec:
   NUM lno lnov ∧
@@ -1926,7 +1954,7 @@ val r = translate lit_le_def;
 val r = translate regexp_compilerTheory.fromList_def;
 val r = translate conv_bnn_alt;
 
-val check_xlrup_arr = process_topdecs`
+Quote add_cakeml:
   fun check_xlrup_arr lno xorig borig xlrup cfml xfml bfml
     tn def carr =
   case xlrup of
@@ -1995,7 +2023,7 @@ val check_xlrup_arr = process_topdecs`
         val u = is_cfromb_arr lno c cfml bfml ib i0 in
       (resize_update_arr (Some c) n cfml, xfml, bfml, tn, def, carr)
     end
-  ` |> append_prog;
+End
 
 val XLRUP_XLRUP_TYPE_def = fetch "-" "XLRUP_XLRUP_TYPE_def";
 
@@ -2409,7 +2437,7 @@ End
 
 val res = translate is_empty_def;
 
-val contains_emp_arr_aux = (append_prog o process_topdecs)`
+Quote add_cakeml:
   fun contains_emp_arr_aux cfml i =
   if i = 0 then False
   else
@@ -2419,7 +2447,8 @@ val contains_emp_arr_aux = (append_prog o process_topdecs)`
     | Some v =>
       is_empty v orelse
       contains_emp_arr_aux cfml i1
-    end`
+    end
+End
 
 Theorem contains_emp_arr_aux_spec:
   ∀cfmlls i iv cfmlv cfmllsv.
@@ -2466,9 +2495,10 @@ Proof
   fs[list_lookup_def]
 QED
 
-val contains_emp_arr = (append_prog o process_topdecs)`
+Quote add_cakeml:
   fun contains_emp_arr cfml =
-  contains_emp_arr_aux cfml (Array.length cfml)`
+  contains_emp_arr_aux cfml (Array.length cfml)
+End
 
 Theorem contains_emp_arr_spec:
   LIST_REL (OPTION_TYPE lit_list_TYPE) cfmlls cfmllsv
@@ -2635,12 +2665,13 @@ Definition parse_and_run_list_def:
     check_xlrup_list xorig borig xlrup cfml xfml bfml tn def Clist
 End
 
-val parse_and_run_arr = process_topdecs`
+Quote add_cakeml:
   fun parse_and_run_arr lno xorig borig cfml xfml bfml tn def carr l =
   case parse_xlrup l of
     None => raise Fail (format_failure lno "failed to parse line")
   | Some xlrup =>
-    check_xlrup_arr lno xorig borig xlrup cfml xfml bfml tn def carr` |> append_prog
+    check_xlrup_arr lno xorig borig xlrup cfml xfml bfml tn def carr
+End
 
 Theorem parse_and_run_arr_spec:
   NUM lno lnov ∧
@@ -2723,15 +2754,15 @@ val r = translate nocheck_string_def;
 *)
 
 (* TODO: possibly make this dump every 10000 lines or so *)
-val check_unsat'' = process_topdecs `
+Quote add_cakeml:
   fun check_unsat'' fd lno xorig borig cfml xfml bfml tn def carr =
     case TextIO.inputLineTokens #"\n" fd blanks tokenize_fast of
       None => (cfml, xfml, bfml)
     | Some l =>
     case parse_and_run_arr lno xorig borig cfml xfml bfml tn def carr l of
       (cfml',xfml',bfml',tn',def',carr') =>
-      check_unsat'' fd (lno+1) xorig borig cfml' xfml' bfml' tn' def' carr'`
-      |> append_prog;
+      check_unsat'' fd (lno+1) xorig borig cfml' xfml' bfml' tn' def' carr'
+End
 
 (* This says what happens to the STDIO *)
 Definition check_unsat''_def:
@@ -2971,7 +3002,7 @@ End
 
 val r = translate notfound_string_def;
 
-val check_unsat' = process_topdecs `
+Quote add_cakeml:
   fun check_unsat' xorig borig cfml xfml bfml tn def fname n =
   let
     val fd = TextIO.openIn fname
@@ -2986,7 +3017,8 @@ val check_unsat' = process_topdecs `
       (case res of (cfml', xfml', bfml') =>
       Inr (contains_emp_arr cfml'))
   end
-  handle TextIO.BadFileName => Inl (notfound_string fname)` |> append_prog;
+  handle TextIO.BadFileName => Inl (notfound_string fname)
+End
 
 (* TODO: COPIED from readerProg, should be moved *)
 Theorem fastForwardFD_ADELKEY_same[simp]:
@@ -3071,9 +3103,9 @@ Proof
           cfmlls xfmlls bfmlls tn def (REPLICATE n w8z)
       of
         NONE => resv =
-          Conv (SOME (TypeStamp "Inl" 4)) [v0] ∧ ∃s. STRING_TYPE s v0
+          Conv (SOME (TypeStamp «Inl» 4)) [v0] ∧ ∃s. STRING_TYPE s v0
       | SOME(cfmlls',xfmlls',bfmlls') =>
-        resv = Conv (SOME (TypeStamp "Inr" 4)) [Conv NONE [v1; v2; v3]] ∧
+        resv = Conv (SOME (TypeStamp «Inr» 4)) [Conv NONE [v1; v2; v3]] ∧
         v1 = cfmlv' ∧
         v2 = xfmlv' ∧
         v3 = bfmlv' ∧
@@ -3157,7 +3189,7 @@ Proof
         SEP_EXISTS v1 v2 v3 k rest.
          STDIO (forwardFD fss (nextFD fs) k) *
          INSTREAM_LINES #"\n" (nextFD fs) is rest (forwardFD fss (nextFD fs) k) *
-         &(v = Conv (SOME (TypeStamp "Inr" 4)) [Conv NONE [v1; v2; v3]]) *
+         &(v = Conv (SOME (TypeStamp «Inr» 4)) [Conv NONE [v1; v2; v3]]) *
          (SEP_EXISTS cfmllsv' xfmllsv' bfmllsv'.
            ARRAY v1 cfmllsv' *
            ARRAY v2 xfmllsv' *
@@ -3273,11 +3305,12 @@ Proof
   simp[SUM_TYPE_def] >> gvs[]
 QED
 
-val fill_arr = process_topdecs`
+Quote add_cakeml:
   fun fill_arr arr i ls =
     case ls of [] => arr
     | (v::vs) =>
-      fill_arr (resize_update_arr (Some v) i arr) (i+1) vs` |> append_prog
+      fill_arr (resize_update_arr (Some v) i arr) (i+1) vs
+End
 
 Theorem fill_arr_spec:
   ∀ls lsv arrv arrls arrlsv i iv.
