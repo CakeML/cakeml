@@ -147,6 +147,10 @@ Definition LOCAL_SET_def:
   LOCAL_SET i = Variable (LocalSet (n2w i))
 End
 
+Definition LOCAL_TEE_def:
+  LOCAL_TEE i = Variable (LocalTee (n2w i))
+End
+
 Definition RETURN_def:
   RETURN = wasmLang$Return
 End
@@ -165,6 +169,10 @@ End
 
 Definition RETURN_CALL_INDIRECT_def:
   RETURN_CALL_INDIRECT ft = ReturnCallIndirect 0w ft
+End
+
+Definition SELECT_def:
+  SELECT = Parametric Select
 End
 
 (* more wasm instructions go here *)
@@ -322,7 +330,7 @@ End
   arith = Binop binop reg reg ('a reg_imm)
         | Shift shift reg reg num
         | Div reg reg reg
-        | LongMul reg reg reg reg (* use multiword thy *)
+        | LongMul reg reg reg reg (* lo,hi,a,b *)
         | LongDiv reg reg reg reg reg
         | AddCarry reg reg reg reg
         | AddOverflow reg reg reg reg
@@ -357,7 +365,12 @@ Definition compile_arith_def:
     List [GLOBAL_GET s; I64_CONST (n2w n); wasm_op; GLOBAL_SET t]
   ) ∧
   compile_arith (asm$Div t s1 s2) = (* signed div *)
-    List [GLOBAL_GET s1; GLOBAL_GET s2; I64_DIV_S; GLOBAL_SET t]
+    List [GLOBAL_GET s1; GLOBAL_GET s2; I64_DIV_S; GLOBAL_SET t] ∧
+  compile_arith (asm$LongMul t_lo t_hi s1 s2) =
+    List [GLOBAL_GET s1; GLOBAL_GET s2; CALL wasm_long_mul_index; GLOBAL_SET t_hi; GLOBAL_SET t_lo] ∧
+  (* LongDiv is banned *)
+
+
 End
 
 Definition compile_inst_def:
