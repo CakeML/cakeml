@@ -4648,9 +4648,8 @@ Proof
   \\ strip_tac \\ fs []
   \\ qpat_x_assum `(p + num_stubs) MOD nss = 2` mp_tac
   \\ `(p MOD nss + num_stubs MOD nss) MOD nss = (p + num_stubs) MOD nss` by
-       (match_mp_tac MOD_PLUS \\ EVAL_TAC)
+       fs[MOD_PLUS]
   \\ fs [EVAL ``num_stubs MOD nss``]
-  \\ `0 < nss` by EVAL_TAC \\ fs []
 QED
 
 Theorem compile_semantics:

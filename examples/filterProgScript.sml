@@ -1168,7 +1168,6 @@ Proof
         match_mp_tac local_elim >>
         hnf >>
         simp[app_ffi_def] >> reduce_tac >>
-        reverse conj_tac >- (simp[SEP_IMPPOSTe_POSTf_left,SEP_IMPPOSTd_POSTf_left]) >>
         xsimpl >>
         simp[seL4_IO_def] >>
         qmatch_goalsub_abbrev_tac `one(FFI_part s u ns events)` >>

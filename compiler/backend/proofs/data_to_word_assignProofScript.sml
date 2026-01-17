@@ -11193,7 +11193,7 @@ Proof
       \\ simp [Once LESS_EQ_EXISTS] \\ strip_tac
       \\ rfs [] \\ rveq
       \\ `p < 8 /\ kk MOD 8 < 8` by fs []
-      \\ once_rewrite_tac [GSYM (MATCH_MP MOD_PLUS (DECIDE ``0<8n``))]
+      \\ once_rewrite_tac [GSYM MOD_PLUS]
       \\ drule0 (DECIDE ``n < 8n ==> n=0 \/ n=1 \/ n=2 \/ n=3 \/
                                     n=4 \/ n=5 \/ n=6 \/ n=7``)
       \\ strip_tac \\ fs []
@@ -11240,23 +11240,23 @@ Proof
     THEN1
      (Cases_on `i + n MOD 64 < 32` \\ fs [w2w,fcpTheory.FCP_BETA]
       \\ once_rewrite_tac [DECIDE ``i+(n+32)=(i+32)+n:num``]
-      \\ once_rewrite_tac [GSYM (MATCH_MP MOD_PLUS (DECIDE ``0<64n``))]
+      \\ once_rewrite_tac [GSYM MOD_PLUS]
       \\ qabbrev_tac `nn = n MOD 64` \\ fs []
       \\ simp [GSYM SUB_MOD])
     THEN1
      (Cases_on `i + n MOD 64 < 32` \\ fs [w2w,fcpTheory.FCP_BETA]
-      \\ once_rewrite_tac [GSYM (MATCH_MP MOD_PLUS (DECIDE ``0<64n``))]
+      \\ once_rewrite_tac [GSYM MOD_PLUS]
       \\ qabbrev_tac `nn = n MOD 64` \\ fs [])
     THEN1
      (Cases_on `i + n MOD 64 < 64` \\ fs [w2w,fcpTheory.FCP_BETA]
       \\ once_rewrite_tac [DECIDE ``i+(n+32)=(i+32)+n:num``]
-      \\ once_rewrite_tac [GSYM (MATCH_MP MOD_PLUS (DECIDE ``0<64n``))]
+      \\ once_rewrite_tac [GSYM MOD_PLUS]
       \\ `n MOD 64 < 64` by fs []
       \\ qabbrev_tac `nn = n MOD 64` \\ fs []
       \\ simp [GSYM SUB_MOD])
     THEN1
      (Cases_on `i + n MOD 64 < 64` \\ fs [w2w,fcpTheory.FCP_BETA]
-      \\ once_rewrite_tac [GSYM (MATCH_MP MOD_PLUS (DECIDE ``0<64n``))]
+      \\ once_rewrite_tac [GSYM MOD_PLUS]
       \\ `n MOD 64 < 64` by fs []
       \\ qabbrev_tac `nn = n MOD 64` \\ fs []
       \\ simp [GSYM SUB_MOD]))
