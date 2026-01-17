@@ -644,6 +644,121 @@ Proof
   intLib.ARITH_TAC
 QED
 
+(* domain of X given by bnd (as a list) *)
+Definition domlist_def:
+  domlist bnd (X:'a varc) =
+  case X of
+    INL vX =>
+      (let
+        (lb, ub) = bnd vX
+      in
+        if ub < lb
+        then []
+        else GENLIST (λn. &n + lb) (Num (ub - lb) + 1))
+  | INR cX => [cX]
+End
+
+Theorem MEM_domlist:
+  valid_assignment bnd wi ⇒
+  MEM (varc wi X) (domlist bnd X)
+Proof
+  Cases_on ‘X’>>
+  rw[domlist_def,valid_assignment_def,varc_def]>>
+  rename1 ‘bnd x’>>
+  Cases_on ‘bnd x’>>
+  rw[MEM_GENLIST]>>
+  res_tac
+  >-intLib.ARITH_TAC>>
+  qexists ‘Num (wi x - q)’>>
+  intLib.ARITH_TAC
+QED
+
+(* bijection 0, -1, 1, -2, 2,... ⇔ 0, 1, 2, 3, 4,... and its inverse next *)
+Definition intnum_def:
+  intnum (n: int) =
+  if n < 0 then 2 * Num (-n) - 1
+  else 2 * Num n
+End
+
+Definition numint_def:
+  numint (n: num): int =
+  if EVEN n then &((n + 1) DIV 2)
+  else -&((n + 1) DIV 2)
+End
+
+Theorem numint_inj:
+  numint m = numint n ⇒ m = n
+Proof
+  simp[numint_def]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem numint_intnum:
+  numint (intnum x) = x
+Proof
+  simp[intnum_def,numint_def]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem intnum_numint:
+  intnum (numint x) = x
+Proof
+  simp[intnum_def,numint_def]>>
+  intLib.ARITH_TAC
+QED
+
+Definition numset_to_intlist_def:
+  numset_to_intlist t = MAP (numint o FST) $ toSortedAList t
+End
+
+Theorem ALL_DISTINCT_numset_to_intlist:
+  ALL_DISTINCT $ numset_to_intlist t
+Proof
+  simp[numset_to_intlist_def,GSYM MAP_MAP_o]>>
+  irule ALL_DISTINCT_MAP_INJ>>
+  simp[ALL_DISTINCT_MAP_FST_toSortedAList,numint_inj]
+QED
+
+(* Union of all int values in domains of Xs *)
+Definition union_dom_def:
+  union_dom bnd Xs =
+  numset_to_intlist $ FOLDL union LN $
+    MAP (λX. list_to_num_set $ MAP intnum $ domlist bnd X) Xs
+End
+
+Theorem MEM_numset_to_intlist:
+  MEM x (numset_to_intlist ns) ⇔
+  intnum x ∈ domain ns
+Proof
+  rw[numset_to_intlist_def,GSYM MAP_MAP_o,MEM_MAP,EXISTS_PROD,
+    MEM_toSortedAList,domain_lookup]>>
+  metis_tac[intnum_numint,numint_intnum]
+QED
+
+Theorem domain_FOLDL_union:
+  ∀ls t.
+  x ∈ domain (FOLDL union t ls) ⇔
+  x ∈ domain t ∨ ∃ns. ns ∈ set ls ∧ x ∈ domain ns
+Proof
+  Induct>>rw[]>>
+  metis_tac[]
+QED
+
+Theorem EVERY_MEM_union_dom:
+  valid_assignment bnd wi ⇒
+  EVERY (λX. MEM (varc wi X) (union_dom bnd Xs)) Xs
+Proof
+  rw[EVERY_MEM,union_dom_def,MEM_numset_to_intlist,domain_FOLDL_union]>>
+  simp[MEM_MAP,PULL_EXISTS,domain_list_to_num_set]>>
+  metis_tac[MEM_domlist]
+QED
+
+Theorem ALL_DISTINCT_union_dom:
+  ALL_DISTINCT $ union_dom bnd Xs
+Proof
+  simp[union_dom_def,ALL_DISTINCT_numset_to_intlist]
+QED
+
 Definition false_constr_def:
   false_constr = (([], [], 1i):ciconstraint)
 End

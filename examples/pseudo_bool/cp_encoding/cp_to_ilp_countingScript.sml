@@ -14,16 +14,22 @@ End
 
 (* AllDifferent: All variables must take distinct values
    For n variables, this requires O(n^2) pairwise inequality constraints *)
-Definition encode_all_different_def:
-  encode_all_different bnd Xs name =
-  FLAT (MAPi (λi X.
-    FLAT (MAPi (λj Y.
+Definition cencode_all_different_def:
+  cencode_all_different bnd Xs name =
+  flat_app (MAPi (λi X.
+    flat_app (MAPi (λj Y.
       if i < j then
-        [
-          bits_imply bnd [Pos (neiv name i j)] (mk_gt X Y);
-          bits_imply bnd [Neg (neiv name i j)] (mk_gt Y X)
+        List [
+          (SOME $ mk_name name (strlit"gt"),
+            bits_imply bnd [Pos (neiv name i j)] (mk_gt X Y));
+          (SOME $ mk_name name (strlit"lt"),
+            bits_imply bnd [Neg (neiv name i j)] (mk_gt Y X))
         ]
-      else []) Xs)) Xs)
+      else Nil) Xs)) Xs)
+End
+
+Definition encode_all_different_def:
+  encode_all_different bnd Xs name = abstr $ cencode_all_different bnd Xs name
 End
 
 Theorem encode_all_different_sem_1:
@@ -33,8 +39,9 @@ Theorem encode_all_different_sem_1:
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
     (encode_all_different bnd Xs name)
 Proof
-  rw[encode_all_different_def,all_different_sem_def,EVERY_MEM]>>
-  gs[MEM_FLAT,MEM_MAPi]>>
+  rw[encode_all_different_def,cencode_all_different_def,all_different_sem_def,EVERY_MEM]>>
+  gvs[MEM_FLAT,MEM_MAPi]>>
+  rename1 ‘if i < j then _ else _’>>
   Cases_on ‘i < j’>>
   gs[reify_avar_def,reify_flag_def]
   >- intLib.ARITH_TAC>>
@@ -48,7 +55,7 @@ Theorem all_different_sem_aux:
   (∀i j. i < j ∧ j < LENGTH Xs ⇒
     let X = EL i Xs in
     let Y = EL j Xs in
-    if wb (neiv name i j)
+    if wb (neiv (name:mlstring) i j)
     then varc wi X > varc wi Y
     else varc wi Y > varc wi X) ⇒
   all_different_sem Xs wi
@@ -73,129 +80,16 @@ Theorem encode_all_different_sem_2:
 Proof
   strip_tac>>
   irule all_different_sem_aux>>
-  gs[EVERY_MEM,encode_all_different_def,MEM_FLAT,MEM_MAPi,PULL_EXISTS]>>
+  gs[EVERY_MEM,encode_all_different_def,cencode_all_different_def,
+    MEM_FLAT,MEM_MAPi,PULL_EXISTS]>>
   qexistsl [‘name’,‘wb’]>>
-  ntac 3 strip_tac>>
+  rpt strip_tac>>
+  rename1 ‘[i;j]’>>
   ‘i < LENGTH Xs’ by fs[]>>
   first_x_assum $ drule_then rev_drule>>
   simp[SF DNF_ss]>>
   rw[]>>
   intLib.ARITH_TAC
-QED
-
-(* domain of X given by bnd (as a list) *)
-Definition domlist_def:
-  domlist bnd (X:'a varc) =
-  case X of
-    INL vX =>
-      (let
-        (lb, ub) = bnd vX
-      in
-        if ub < lb
-        then []
-        else GENLIST (λn. &n + lb) (Num (ub - lb) + 1))
-  | INR cX => [cX]
-End
-
-Theorem MEM_domlist:
-  valid_assignment bnd wi ⇒
-  MEM (varc wi X) (domlist bnd X)
-Proof
-  Cases_on ‘X’>>
-  rw[domlist_def,valid_assignment_def,varc_def]>>
-  rename1 ‘bnd x’>>
-  Cases_on ‘bnd x’>>
-  rw[MEM_GENLIST]>>
-  res_tac
-  >-intLib.ARITH_TAC>>
-  qexists ‘Num (wi x - q)’>>
-  intLib.ARITH_TAC
-QED
-
-(* bijection 0, -1, 1, -2, 2,... ⇔ 0, 1, 2, 3, 4,... and its inverse next *)
-Definition intnum_def:
-  intnum (n: int) =
-  if n < 0 then 2 * Num (-n) - 1
-  else 2 * Num n
-End
-
-Definition numint_def:
-  numint (n: num): int =
-  if EVEN n then &((n + 1) DIV 2)
-  else -&((n + 1) DIV 2)
-End
-
-Theorem numint_inj:
-  numint m = numint n ⇒ m = n
-Proof
-  simp[numint_def]>>
-  intLib.ARITH_TAC
-QED
-
-Theorem numint_intnum:
-  numint (intnum x) = x
-Proof
-  simp[intnum_def,numint_def]>>
-  intLib.ARITH_TAC
-QED
-
-Theorem intnum_numint:
-  intnum (numint x) = x
-Proof
-  simp[intnum_def,numint_def]>>
-  intLib.ARITH_TAC
-QED
-
-Definition numset_to_intlist_def:
-  numset_to_intlist t = MAP (numint o FST) $ toSortedAList t
-End
-
-Theorem ALL_DISTINCT_numset_to_intlist:
-  ALL_DISTINCT $ numset_to_intlist t
-Proof
-  simp[numset_to_intlist_def,GSYM MAP_MAP_o]>>
-  irule ALL_DISTINCT_MAP_INJ>>
-  simp[ALL_DISTINCT_MAP_FST_toSortedAList,numint_inj]
-QED
-
-(* Union of all int values in domains of Xs *)
-Definition union_dom_def:
-  union_dom bnd Xs =
-  numset_to_intlist $ FOLDL union LN $
-    MAP (λX. list_to_num_set $ MAP intnum $ domlist bnd X) Xs
-End
-
-Theorem MEM_numset_to_intlist:
-  MEM x (numset_to_intlist ns) ⇔
-  intnum x ∈ domain ns
-Proof
-  rw[numset_to_intlist_def,GSYM MAP_MAP_o,MEM_MAP,EXISTS_PROD,
-    MEM_toSortedAList,domain_lookup]>>
-  metis_tac[intnum_numint,numint_intnum]
-QED
-
-Theorem domain_FOLDL_union:
-  ∀ls t.
-  x ∈ domain (FOLDL union t ls) ⇔
-  x ∈ domain t ∨ ∃ns. ns ∈ set ls ∧ x ∈ domain ns
-Proof
-  Induct>>rw[]>>
-  metis_tac[]
-QED
-
-Theorem EVERY_MEM_union_dom:
-  valid_assignment bnd wi ⇒
-  EVERY (λX. MEM (varc wi X) (union_dom bnd Xs)) Xs
-Proof
-  rw[EVERY_MEM,union_dom_def,MEM_numset_to_intlist,domain_FOLDL_union]>>
-  simp[MEM_MAP,PULL_EXISTS,domain_list_to_num_set]>>
-  metis_tac[MEM_domlist]
-QED
-
-Theorem ALL_DISTINCT_union_dom:
-  ALL_DISTINCT $ union_dom bnd Xs
-Proof
-  simp[union_dom_def,ALL_DISTINCT_numset_to_intlist]
 QED
 
 Definition elm_def[simp]:
@@ -255,11 +149,7 @@ QED
 
 Definition reify_some_eq_def:
   reify_some_eq bnd Xs v name =
-  let
-    ges = FLAT $ MAP (λX. encode_ge bnd X v ++ encode_ge bnd X (v + 1)) Xs;
-    eqs = FLAT $ MAP (λX. encode_eq bnd X v) Xs
-  in
-    ges ++ eqs ++ encode_some_eq bnd Xs v name
+    (FLAT $ MAP (λX. encode_full_eq bnd X v) Xs) ++ encode_some_eq bnd Xs v name
 End
 
 Theorem FORALL_IMP_EQ[local] = METIS_PROVE []
@@ -328,6 +218,7 @@ QED
 
 (* NValue: Y equals the number of distinct values in Xs
    This is very complex and requires auxiliary variables *)
+
 Definition encode_n_value_def:
   encode_n_value bnd Xs Y name =
   let
@@ -421,20 +312,28 @@ Definition eqi_def[simp]:
     INR (name, Indices [i] (SOME ann))
 End
 
+Definition cencode_count_def:
+  cencode_count bnd Xs Y Z name =
+  Append
+    (flat_app
+      (MAPi
+        (λi X.
+          let
+            ge = eqi name i (strlit"ge");
+            le = eqi name i (strlit"le");
+            eq = eqi name i (strlit"eq")
+          in
+            Append (cbimply_var bnd (ge) (mk_ge X Y))
+              (Append (cbimply_var bnd (le) (mk_le X Y))
+                (cbimply_var bnd (eq) ([],[(1i,Pos ge);(1i,Pos le)],2i)))
+        ) Xs
+      )
+    )
+    (cencode_bitsum (GENLIST (λi. eqi name i (strlit"eq")) (LENGTH Xs)) Z name)
+End
+
 Definition encode_count_def:
-  encode_count bnd Xs (Y:'a varc) (Z:'a varc) name =
-  FLAT (MAPi
-    (λi X.
-      let
-        ge = eqi name i (strlit"ge");
-        le = eqi name i (strlit"le");
-        eq = eqi name i (strlit"eq")
-      in
-        bimply_bit bnd (Pos ge) (mk_ge X Y) ++
-        bimply_bit bnd (Pos le) (mk_le X Y) ++
-        bimply_bit bnd (Pos eq) ([],[(1i,Pos ge);(1i,Pos le)],2i)
-    ) Xs) ++
-  encode_bitsum (GENLIST (λi. eqi name i (strlit"eq")) (LENGTH Xs)) Z
+  encode_count bnd Xs Y Z name = abstr $ cencode_count bnd Xs Y Z name
 End
 
 Theorem encode_count_sem_1:
@@ -444,7 +343,7 @@ Theorem encode_count_sem_1:
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
     (encode_count bnd Xs Y Z name)
 Proof
-  rw[encode_count_def,count_sem_def]
+  rw[cencode_count_def,encode_count_def,count_sem_def]
   >-(
   rw[EVERY_FLAT,Once EVERY_MEM,MEM_MAPi,EVERY_APPEND]>>
   simp[iconstraint_sem_def,reify_avar_def,reify_flag_def]>>
@@ -461,7 +360,7 @@ Theorem encode_count_sem_2:
     (encode_count bnd Xs Y Z name) ⇒
   count_sem Xs Y Z wi
 Proof
-  rw[encode_count_def,EVERY_FLAT]>>
+  rw[cencode_count_def,encode_count_def,EVERY_FLAT]>>
   gs[Once EVERY_MEM,MEM_MAPi,SF DNF_ss,iconstraint_sem_def]>>
   drule_then (fn thm => gs[thm]) encode_bitsum_sem>>
   gs[MAP_GENLIST,o_ABS_R,count_sem_def]>>
@@ -650,7 +549,11 @@ QED
 (* Concrete encodings - TODO *)
 Definition cencode_counting_constr_def:
   cencode_counting_constr bnd c name ec =
-  (List [], ec)
+  case c of
+    AllDifferent Xs => (cencode_all_different bnd Xs name, ec)
+  | Count Xs Y Z => (cencode_count bnd Xs Y Z name, ec)
+  | Among Xs iS Y => cencode_among bnd Xs iS Y name ec
+  | _ => (List [], ec)
 End
 
 Theorem cencode_counting_constr_sem:
@@ -658,5 +561,10 @@ Theorem cencode_counting_constr_sem:
   cencode_counting_constr bnd c name ec = (es, ec') ⇒
   enc_rel wi es (encode_counting_constr bnd c name) ec ec'
 Proof
-  cheat
+  Cases_on ‘c’>>
+  simp[cencode_counting_constr_def,encode_counting_constr_def]
+  >-simp[cencode_all_different_def,encode_all_different_def]
+  >-cheat
+  >-simp[cencode_count_def,encode_count_def]
+  >-simp[cencode_among_sem]
 QED
