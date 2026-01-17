@@ -1514,11 +1514,9 @@ Proof
       rpt xlet_autop>>
       xraise>>xsimpl>> simp[unwrap_TYPE_def,Fail_exn_def]>>
       fs[every_less_def]>>
-      CONJ_TAC >- (
-        qexists_tac`Earrv`>>
-        qexists_tac`earliestv`>>
-        xsimpl>>metis_tac[])>>
-      metis_tac[NOT_EVERY]) >>
+      qexists_tac`Earrv`>>
+      qexists_tac`earliestv`>>
+      xsimpl>>metis_tac[])>>
   xmatch>>
   xlet_autop>>
   reverse xif
