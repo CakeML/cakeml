@@ -550,7 +550,8 @@ Proof
   >- (
     rw [do_app_cases]
     \\ Cases_on ‘ty1’ using prim_type_cases
-    \\ Cases_on ‘ty2’ using prim_type_cases \\ gvs [do_conversion_def]
+    \\ Cases_on ‘ty2’ using prim_type_cases
+    \\ gvs [do_conversion_def,CaseEq"sum",CaseEq"bool"]
     \\ simp [Boolv_def]
     \\ rw [perms_ok_def])
   \\ Cases_on ‘op = Opderef’ \\ gs []
