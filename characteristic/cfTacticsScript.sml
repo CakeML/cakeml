@@ -30,6 +30,9 @@ Proof
   irule local_elim \\ fs [] \\ hsimpl
 QED
 
+Theorem xret_lemma1 =
+  xret_lemma |> Q.SPECL [‘H’,‘Q’,‘K T’] |> SRULE [] |> Q.GENL [‘H’,‘Q’];
+
 (* todo: does it even happen? *)
 Theorem xret_lemma_unify:
    !v H. local (\H' Q'. H' ==>> Q' v) H (\x. cond (x = v) * H)
@@ -154,4 +157,3 @@ Theorem BOOL_T =
 
 Theorem BOOL_F =
   EVAL ``BOOL F (Conv (SOME (TypeStamp «False» 0)) [])``
-

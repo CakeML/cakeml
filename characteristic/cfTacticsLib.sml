@@ -521,7 +521,8 @@ fun xapp_spec spec = xapp_core (SOME spec)
 
 val xret_irule_lemma =
   FIRST [(* irule xret_lemma_unify,*)
-         HO_MATCH_MP_TAC xret_lemma \\ conj_tac]
+         HO_MATCH_MP_TAC xret_lemma \\ conj_tac,
+         HO_MATCH_MP_TAC xret_lemma1]
 
 val xret_no_gc_core =
     FIRST [(*irule xret_lemma_unify,*)
@@ -675,14 +676,14 @@ val xffi =
   head_unfold cf_ffi_def \\
   irule local_elim \\ hnf \\
   simp [app_ffi_def] \\ reduce_tac \\
-  conj_tac \\ cleanup_exn_side_cond
+  cleanup_exn_side_cond
 
 (* [xraise] *)
 
 val xraise =
   xpull_check_not_needed \\
   head_unfold cf_raise_def \\ reduce_tac \\
-  HO_MATCH_MP_TAC xret_lemma \\
+  HO_MATCH_MP_TAC xret_lemma1 \\
   cleanup_exn_side_cond
 
 (* [xhandle] *)
