@@ -861,7 +861,7 @@ Proof
   \\ drule v_rel_IMP_check_type_eq
   \\ strip_tac
   \\ rw[OPTREL_def]
-  \\ Cases_on ‘a’ \\ Cases_on ‘ty’ using prim_type_cases
+  \\ Cases_on ‘a’ \\ Cases_on ‘ty’ using semanticPrimitivesPropsTheory.prim_type_cases
   \\ rw[do_arith_def]
   \\ gvs[check_type_def, CaseEq"list", PULL_EXISTS]
   \\ simp[Once v_rel_cases]
