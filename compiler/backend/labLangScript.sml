@@ -26,7 +26,7 @@ Datatype:
                | Call lab
                | LocValue reg lab
                (* following have no label, but have similar semantics *)
-               | CallFFI string
+               | CallFFI mlstring
                | Install
                | Halt
 End

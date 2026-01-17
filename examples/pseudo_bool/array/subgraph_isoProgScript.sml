@@ -9,8 +9,6 @@ Libs
 
 val _ = translation_extends "graphProg";
 
-val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
-
 (* The encoder *)
 
 (* Translate the string converter *)
@@ -20,7 +18,7 @@ val res = translate FOLDN_def;
 val res = translate full_encode_eq;
 
 (* parse input from f1 f2 and run encoder *)
-val parse_and_enc = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun parse_and_enc f1 f2 =
   case parse_lad f1 of
     Inl err => Inl err
@@ -28,7 +26,8 @@ val parse_and_enc = (append_prog o process_topdecs) `
   (case parse_lad f2 of
     Inl err => Inl err
   | Inr target =>
-    Inr (full_encode pattern target))`
+    Inr (full_encode pattern target))
+End
 
 Theorem parse_and_enc_spec:
   STRING_TYPE f1 f1v ∧
@@ -45,8 +44,10 @@ Theorem parse_and_enc_spec:
     & ∃res.
      SUM_TYPE STRING_TYPE
        (LIST_TYPE
-       (PAIR_TYPE PBC_PBOP_TYPE
-          (PAIR_TYPE (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE))) INT))) res v ∧
+        (PAIR_TYPE
+        (OPTION_TYPE STRING_TYPE)
+         (PAIR_TYPE PBC_PBOP_TYPE
+            (PAIR_TYPE (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE))) INT)))) res v ∧
       case res of
         INL err =>
         get_graph_lad fs f1 = NONE ∨ get_graph_lad fs f2 = NONE
@@ -110,22 +111,26 @@ val res = translate (res_to_string_def |> SIMP_RULE std_ss [UNSAT_string_def,SAT
 Definition mk_prob_def:
   mk_prob fml = (NONE,NONE,fml):mlstring list option #
     ((int # mlstring pbc$lit) list # int) option #
-    (pbop # (int # mlstring pbc$lit) list # int) list
+    (mlstring option #
+      (pbop # (int # mlstring pbc$lit) list # int)) list
 End
 
 val res = translate mk_prob_def;
 
-val check_unsat_3 = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun check_unsat_3 f1 f2 f3 =
   case parse_and_enc f1 f2 of
     Inl err => TextIO.output TextIO.stdErr err
   | Inr fml =>
-    let val probt = default_prob in
+    let val probt = default_prob
+        val prob = mk_prob fml
+        val prob = strip_annot_prob prob in
     (case
-      res_to_string (check_unsat_top_norm False (mk_prob fml) probt f3) of
+      res_to_string (check_unsat_top_norm False prob probt f3) of
       Inl err => TextIO.output TextIO.stdErr err
     | Inr s => TextIO.print s)
-    end`
+    end
+End
 
 Theorem check_unsat_3_spec:
   STRING_TYPE f1 f1v ∧ validArg f1 ∧
@@ -173,6 +178,7 @@ Proof
     &prob_TYPE default_prob v`
   >-
     (xvar>>xsimpl)>>
+  xlet_autop>>
   xlet_autop>>
   xlet`POSTv v. STDIO fs * &BOOL F v`
   >-
@@ -225,6 +231,7 @@ Proof
     qexists_tac`strlit ""`>>
     simp[STD_streams_stderr,add_stdo_nil]>>
     xsimpl>>
+    fs[pb_parseTheory.strip_annot_prob_def]>>
     (drule_at Any) full_encode_sem_concl>>
     fs[]>>
     impl_tac >-
@@ -239,6 +246,7 @@ Proof
     qexists_tac`strlit ""`>>
     simp[STD_streams_stderr,add_stdo_nil]>>
     xsimpl>>
+    fs[pb_parseTheory.strip_annot_prob_def]>>
     (drule_at Any) full_encode_sem_concl>>
     fs[]>>
     impl_tac >-
@@ -264,15 +272,16 @@ Definition check_unsat_2_sem_def:
   case get_graph_lad fs f2 of
     NONE => out = strlit ""
   | SOME gtt =>
-    out = concat (print_prob (mk_prob (full_encode gpp gtt)))
+    out = concat (print_annot_prob (mk_prob (full_encode gpp gtt)))
 End
 
-val check_unsat_2 = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun check_unsat_2 f1 f2 =
   case parse_and_enc f1 f2 of
     Inl err => TextIO.output TextIO.stdErr err
   | Inr fml =>
-    TextIO.print_list (print_prob (mk_prob fml))`
+    TextIO.print_list (print_annot_prob (mk_prob fml))
+End
 
 Theorem check_unsat_2_spec:
   STRING_TYPE f1 f1v ∧ validArg f1 ∧
@@ -327,12 +336,13 @@ End
 
 val r = translate usage_string_def;
 
-val main = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun main u =
   case CommandLine.arguments () of
     [f1,f2] => check_unsat_2 f1 f2
   | [f1,f2,f3] => check_unsat_3 f1 f2 f3
-  | _ => TextIO.output TextIO.stdErr usage_string`
+  | _ => TextIO.output TextIO.stdErr usage_string
+End
 
 Definition main_sem_def:
   main_sem fs cl out =

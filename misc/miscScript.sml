@@ -643,33 +643,16 @@ Proof
   full_simp_tac(srw_ss())[MAX_DEF,COND_RAND]
 QED
 
-(*TODO replace with MAX_LIST*)
-Definition list_max_def:
-  (list_max [] = 0:num) /\
-  (list_max (x::xs) =
-     let m = list_max xs in
-       if m < x then x else m)
-End
-
-Theorem list_max_max:
-   ∀ls.  EVERY (λx. x ≤ list_max ls) ls
+Theorem MAX_LIST_max:
+  ∀ls. EVERY (λx. x ≤ MAX_LIST ls) ls
 Proof
-  Induct>>full_simp_tac(srw_ss())[list_max_def,LET_THM]>>srw_tac[][]>>full_simp_tac(srw_ss())[EVERY_MEM]>>srw_tac[][]>>
-  res_tac >> decide_tac
+  rw[EVERY_MEM] >> irule MAX_LIST_PROPERTY >> fs[]
 QED
 
-Theorem list_max_intro:
-    ∀ls.
-  P 0 ∧ EVERY P ls ⇒ P (list_max ls)
+Theorem FOLDR_MAX_0_MAX_LIST:
+  ∀ls. FOLDR MAX 0 ls = MAX_LIST ls
 Proof
-  Induct>>full_simp_tac(srw_ss())[list_max_def]>>srw_tac[][]>>
-  IF_CASES_TAC>>full_simp_tac(srw_ss())[]
-QED
-
-Theorem FOLDR_MAX_0_list_max:
-   ∀ls. FOLDR MAX 0 ls = list_max ls
-Proof
-  Induct \\ rw[list_max_def] \\ rw[MAX_DEF]
+  Induct \\ rw[MAX_DEF]
 QED
 
 (* never used *)
@@ -2144,8 +2127,8 @@ Proof
   Cases_on `m <= n` \\ fs []
   \\ imp_res_tac LESS_EQ_EXISTS \\ rw []
   \\ qpat_x_assum `(m + _) MOD k = 0` mp_tac
-  \\ drule MOD_PLUS
-  \\ disch_then (fn th => once_rewrite_tac [GSYM th]) \\ fs []
+  \\ once_rewrite_tac[GSYM MOD_PLUS]
+  \\ fs[]
 QED
 
 Theorem FLAT_REPLICATE_NIL:

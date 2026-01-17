@@ -26,13 +26,18 @@ Libs
  * been added, also TagLenEq and El for pattern match compilation. *)
 Datatype:
  op =
+  (* primitive operations for the primitive types: +, -, and, sqrt, etc. *)
+    Arith arith prim_type
+  (* conversions between primitive types: char<->int, word<->double, word<->int *)
+  | FromTo prim_type prim_type
   (* Operations on integers *)
-    Opn opn
+  | Opn opn
   | Opb opb
   (* Operations on words *)
   | Opw word_size opw
   | Shift word_size shift num
   | Equality
+  | Test test prim_type
   (* FP operations *)
   | FP_cmp fp_cmp
   | FP_uop fp_uop
@@ -62,7 +67,6 @@ Datatype:
   (* Char operations *)
   | Ord
   | Chr
-  | Chopb opb
   (* String operations *)
   | Implode
   | Explode
@@ -91,7 +95,7 @@ Datatype:
   (* Configure the GC *)
   | ConfigGC
   (* Call a given foreign function *)
-  | FFI string
+  | FFI mlstring
   (* Allocate the given number of new global variables *)
   | GlobalVarAlloc num
   (* Initialise given global variable *)

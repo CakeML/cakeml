@@ -3,7 +3,7 @@
 *)
 Theory infer_cv[no_sig_docs]
 Ancestors
-  misc ast namespace infer inferProps basis_cv unify_cv
+  misc typeSystem ast namespace infer inferProps basis_cv unify_cv
 Libs
   preamble cv_transLib
 
@@ -116,7 +116,11 @@ Proof
 QED
 
 val _ = cv_trans word_tc_def
+val _ = cv_trans (supported_arith_def |> oneline |> SRULE [])
+val _ = cv_trans supported_conversion_def
+val _ = cv_trans (supported_test_def |> oneline |> SRULE [])
 val _ = cv_trans op_to_string_def
+val _ = cv_trans t_num_of_def
 val _ = cv_trans op_simple_constraints_def
 val _ = cv_trans op_n_args_msg_def
 val _ = cv_auto_trans extend_dec_ienv_def
@@ -409,4 +413,3 @@ val _ = cv_auto_trans (infertype_prog_inc_eq |> SRULE [extend_dec_ienv_def]);
 
 (* main results stored as: cv_infertype_prog_thm
                            cv_infertype_prog_inc_thm *)
-

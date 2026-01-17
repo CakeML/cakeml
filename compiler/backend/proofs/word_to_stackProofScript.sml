@@ -4058,8 +4058,8 @@ Proof
     \\ disch_then drule
     \\ impl_tac
     >- (
-      qmatch_asmsub_abbrev_tac`list_max ls`
-      \\ qspec_then`ls`mp_tac list_max_max
+      qmatch_asmsub_abbrev_tac`MAX_LIST ls`
+      \\ qspec_then`ls`mp_tac MAX_LIST_max
       \\ simp[EVERY_MEM,Abbr`ls`,EVERY_MAP]
       \\ disch_then drule
       \\ qspec_then`2`mp_tac DIV_LE_MONOTONE
@@ -4075,8 +4075,8 @@ Proof
     \\ first_x_assum old_drule \\ simp[]
     \\ impl_tac
     >- (
-      qmatch_asmsub_abbrev_tac`list_max ls`
-      \\ qspec_then`ls`mp_tac list_max_max
+      qmatch_asmsub_abbrev_tac`MAX_LIST ls`
+      \\ qspec_then`ls`mp_tac MAX_LIST_max
       \\ simp[EVERY_MEM,Abbr`ls`,EVERY_MAP]
       \\ disch_then drule
       \\ qspec_then`2`mp_tac DIV_LE_MONOTONE
@@ -4106,8 +4106,8 @@ Proof
   \\ simp[MAP_EQ_f,MAP_MAP_o]
   \\ rw[]
   \\ res_tac \\ simp[]
-  \\ qmatch_asmsub_abbrev_tac`list_max ls`
-  \\ qspec_then`ls`mp_tac list_max_max
+  \\ qmatch_asmsub_abbrev_tac`MAX_LIST ls`
+  \\ qspec_then`ls`mp_tac MAX_LIST_max
   \\ simp[EVERY_MEM,Abbr`ls`,EVERY_MAP]
   \\ disch_then drule
   \\ qspec_then`2`mp_tac DIV_LE_MONOTONE

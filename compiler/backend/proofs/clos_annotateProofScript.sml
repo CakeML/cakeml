@@ -237,12 +237,6 @@ Proof
   \\ fs [rich_listTheory.EL_APPEND2]
 QED
 
-Definition opt_rel_def[simp]:
-  opt_rel f NONE NONE = T /\
-  opt_rel f (SOME x) (SOME y) = f x y /\
-  opt_rel f _ _ = F
-End
-
 Definition state_rel_def:
   state_rel (s:('c,'ffi) closSem$state) (t:('c,'ffi) closSem$state) <=>
     (s.clock = t.clock) /\
@@ -388,20 +382,11 @@ Theorem do_app_err_thm[local]:
      ?w. do_app op ys t1 = Rerr w /\
           exc_rel v_rel err w
 Proof
-  srw_tac[][] >>
-  imp_res_tac do_app_err >> fsrw_tac[][] >>
-  Cases_on `?i. op = BlockOp (EqualConst i)`
-  THEN1 (rw [] \\ fsrw_tac[][do_app_def] \\ every_case_tac >> fs[])
-  \\ Cases_on `err` \\ fs []
-  \\ fs [do_app_cases_err]
-  \\ Cases_on `a` \\ fs []
-  \\ imp_res_tac do_app_ffi_error_IMP
-  \\ fs[do_app_def]
-  \\ rpt(PURE_TOP_CASE_TAC >> fs[] >> rveq >> fs[v_rel_simp]
-         \\ rveq >> fs[] >> fs[v_rel_simp])
-  \\ rpt(PURE_FULL_CASE_TAC \\ fs[])
-  \\ fs[state_rel_def] \\ first_x_assum drule \\ strip_tac \\ fs[]
-  \\ rveq \\ rfs[]
+  srw_tac[][]
+  \\ imp_res_tac do_app_err \\ fsrw_tac[][]
+  \\ gvs [oneline do_app_def, AllCaseEqs()]
+  \\ fs[v_rel_simp,state_rel_def]
+  \\ res_tac \\ gvs []
 QED
 
 Theorem v_to_bytes:
@@ -600,9 +585,9 @@ val code_tac =
 
 Theorem state_rel_opt_rel_refs[local]:
   (state_rel s1 s2 ∧ FLOOKUP s1.refs n = r1 ⇒
-     ∃r2. FLOOKUP s2.refs n = r2 ∧ opt_rel (ref_rel v_rel) r1 r2) ∧
+     ∃r2. FLOOKUP s2.refs n = r2 ∧ OPTREL (ref_rel v_rel) r1 r2) ∧
   (state_rel s1 s2 ∧ FLOOKUP s2.refs n = r2 ⇒
-     ∃r1. FLOOKUP s1.refs n = r1 ∧ opt_rel (ref_rel v_rel) r1 r2)
+     ∃r1. FLOOKUP s1.refs n = r1 ∧ OPTREL (ref_rel v_rel) r1 r2)
 Proof
   rw [] \\ gvs [state_rel_def, FLOOKUP_DEF] \\ rw []
 QED
@@ -627,7 +612,7 @@ Proof
     gvs [Once v_rel_cases, oneline store_thunk_def, AllCaseEqs(), PULL_EXISTS]
     \\ rpt (
       imp_res_tac state_rel_opt_rel_refs \\ rw []
-      \\ gvs [oneline opt_rel_def]
+      \\ gvs [oneline OPTREL_THM]
       \\ FULL_CASE_TAC \\ gvs [])
     \\ gvs [state_rel_def, FLOOKUP_UPDATE] \\ rw []
     \\ simp [ref_rel_def, Once v_rel_cases]
@@ -892,8 +877,8 @@ Proof
       gvs [oneline dest_thunk_def, AllCaseEqs(), PULL_EXISTS]
       \\ rgs [Once v_rel_cases]
       \\ imp_res_tac (cj 1 state_rel_opt_rel_refs)
-      \\ qpat_x_assum `opt_rel (ref_rel v_rel) _ _` mp_tac
-      \\ simp [oneline opt_rel_def] \\ CASE_TAC \\ gvs [PULL_EXISTS]
+      \\ qpat_x_assum `OPTREL (ref_rel v_rel) _ _` mp_tac
+      \\ simp [oneline OPTREL_THM] \\ CASE_TAC \\ gvs [PULL_EXISTS]
       \\ imp_res_tac state_rel_clocks_eqs \\ gvs [PULL_EXISTS]
       \\ last_x_assum $ qspecl_then [`[b]`, `t2`, `0`, `1`, `i`] mp_tac
       \\ (
@@ -1716,4 +1701,3 @@ Proof
   \\ fs [HD_annotate_SING]
   \\ match_mp_tac every_Fn_SOME_annotate \\ fs []
 QED
-

@@ -461,12 +461,6 @@ Proof
     rw [do_app_cases] \\ gs [SF SFY_ss]
     \\ first_assum (irule_at Any)
     \\ simp [v_ok_def])
-  \\ Cases_on ‘∃opb. op = Chopb opb’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs [SF SFY_ss]
-    \\ first_assum (irule_at Any)
-    \\ simp [Boolv_def]
-    \\ rw [v_ok_def])
   \\ Cases_on ‘op = Chr’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [SF SFY_ss]
@@ -603,6 +597,31 @@ Proof
     \\ first_assum (irule_at Any)
     \\ simp [Boolv_def]
     \\ rw [v_ok_def])
+  \\ Cases_on ‘∃test ty. op = Test test ty’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs [SF SFY_ss]
+    \\ first_assum (irule_at Any)
+    \\ simp [Boolv_def]
+    \\ rw [v_ok_def])
+  \\ Cases_on ‘∃ty1 ty2. op = FromTo ty1 ty2’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs [SF SFY_ss]
+    \\ first_assum (irule_at Any)
+    \\ Cases_on ‘ty1’ \\ Cases_on ‘ty2’ \\ gvs[do_conversion_def]
+    \\ Cases_on ‘w’ \\ gvs[do_conversion_def]
+    \\ simp [Boolv_def]
+    \\ rw [v_ok_def])
+  \\ Cases_on ‘∃a ty. op = Arith a ty’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs [SF SFY_ss]
+    \\ first_assum (irule_at Any)
+    \\ Cases_on ‘a’ \\ Cases_on ‘ty’
+    \\ TRY (rename1 ‘WordT w’ \\ Cases_on ‘w’)
+    \\ gvs[do_arith_def,CaseEq"list",CaseEq"bool"]
+    \\ simp [Boolv_def]
+    \\ rw [v_ok_def]
+    \\ first_x_assum irule
+    \\ goal_assum drule \\ rw[])
   \\ Cases_on ‘op = Opderef’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [SF SFY_ss]

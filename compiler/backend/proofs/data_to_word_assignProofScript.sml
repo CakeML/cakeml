@@ -24,6 +24,8 @@ val _ = temp_delsimps ["fromAList_def", "domain_union",
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
 
+val _ = numLib.prefer_num ();
+
 fun drule0 th =
   first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))
 
@@ -9072,6 +9074,96 @@ Proof
   \\ TRY (match_mp_tac memory_rel_Boolv_F \\ fs [])
 QED
 
+Theorem assign_BoolTest[allow_rebind]:
+  (∃test. op = BlockOp (BoolTest test)) ==> ^assign_thm_goal
+Proof
+  rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
+  \\ `t.termdep <> 0` by fs[]
+  \\ rpt_drule0 state_rel_cut_IMP
+  \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
+  \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
+  \\ fs [do_app]
+  \\ gvs[AllCaseEqs()]
+  \\ clean_tac \\ fs []
+  \\ imp_res_tac state_rel_get_vars_IMP
+  \\ fs [LENGTH_EQ_2] \\ clean_tac
+  \\ fs [get_var_def]
+  \\ fs [state_rel_thm] \\ eval_tac
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ rpt_drule0 (memory_rel_get_vars_IMP |> GEN_ALL)
+  \\ strip_tac
+  \\ gvs [oneline dest_Boolv_def,AllCaseEqs()]
+  \\ drule memory_rel_Block_IMP \\ simp [backend_commonTheory.bool_to_tag_def]
+  \\ drule memory_rel_tl \\ strip_tac
+  \\ drule memory_rel_Block_IMP \\ simp [backend_commonTheory.bool_to_tag_def]
+  \\ drule memory_rel_tl \\ strip_tac
+  \\ simp [allowed_op_def]
+  \\ rpt strip_tac \\ gvs []
+  \\ fs [get_vars_SOME_IFF_data,get_vars_SOME_IFF]
+  \\ simp [assign_def,wordSemTheory.evaluate_def,
+           wordSemTheory.get_var_imm_def,
+           asmTheory.word_cmp_def]
+  \\ ‘(16w * n2w tag = 16w * n2w tag' :α word) ⇔  (tag = 1 ⇔ tag' = 1)’ by
+    (‘tag = 0 ∨ tag = 1’ by decide_tac
+     \\ ‘tag' = 0 ∨ tag' = 1’ by decide_tac
+     \\ gvs [dimword_def,good_dimindex_def])
+  \\ simp []
+  \\ IF_CASES_TAC \\ gvs [wordSemTheory.word_exp_def,wordSemTheory.set_var_def]
+  \\ fs [] \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
+  \\ simp[inter_insert_ODD_adjust_set,GSYM Boolv_def,option_le_max_right]
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ match_mp_tac memory_rel_insert \\ fs []
+  \\ TRY (match_mp_tac memory_rel_Boolv_T \\ fs [])
+  \\ TRY (match_mp_tac memory_rel_Boolv_F \\ fs [])
+QED
+
+Theorem assign_WordTest[allow_rebind]:
+  (∃ws test. op = WordOp (WordTest ws test)) ==> ^assign_thm_goal
+Proof
+  rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
+  \\ `t.termdep <> 0` by fs[]
+  \\ rpt_drule0 state_rel_cut_IMP
+  \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
+  \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
+  \\ fs [do_app]
+  \\ gvs[AllCaseEqs()]
+  \\ clean_tac \\ fs []
+  \\ imp_res_tac state_rel_get_vars_IMP
+  \\ fs [LENGTH_EQ_2] \\ clean_tac
+  \\ fs [get_var_def]
+  \\ fs [state_rel_thm] \\ eval_tac
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ rpt_drule0 (memory_rel_get_vars_IMP |> GEN_ALL)
+  \\ strip_tac
+  \\ gvs [oneline do_word_app_def,AllCaseEqs(),allowed_op_def]
+  \\ fs [LENGTH_EQ_2] \\ clean_tac \\ fs [ZIP]
+  \\ fs [LENGTH_EQ_2] \\ clean_tac \\ fs [ZIP]
+  \\ drule_at (Pos last) memory_rel_Number_IMP \\ simp []
+  \\ (impl_tac >- (gvs [small_int_def,good_dimindex_def,dimword_def] \\ intLib.COOPER_TAC))
+  \\ drule memory_rel_tl \\ strip_tac
+  \\ drule_at (Pos last) memory_rel_Number_IMP \\ simp []
+  \\ (impl_tac >- (gvs [small_int_def,good_dimindex_def,dimword_def] \\ intLib.COOPER_TAC))
+  \\ rpt strip_tac \\ gvs []
+  \\ fs [get_vars_SOME_IFF_data,get_vars_SOME_IFF]
+  \\ simp [assign_def,wordSemTheory.evaluate_def,
+           wordSemTheory.get_var_imm_def,
+           asmTheory.word_cmp_def]
+  \\ ‘(Smallnum n1' = Smallnum n2' :α word) ⇔  (n1' = n2')’ by
+    gvs [Smallnum_def,INT_EQ_NUM_LEMMA,dimword_def,good_dimindex_def]
+  \\ ‘(Smallnum n1' <+ Smallnum n2' :α word) ⇔  (n1' < n2')’ by
+    gvs [Smallnum_def,INT_EQ_NUM_LEMMA,dimword_def,good_dimindex_def,WORD_LO]
+  \\ ‘(Smallnum n1' <=+ Smallnum n2' :α word) ⇔  (n1' <= n2')’ by
+    gvs [Smallnum_def,INT_EQ_NUM_LEMMA,dimword_def,good_dimindex_def,WORD_LS]
+  \\ simp [] \\ fs [GSYM WORD_NOT_LOWER]
+  \\ IF_CASES_TAC \\ gvs [wordSemTheory.word_exp_def,wordSemTheory.set_var_def]
+  \\ fs [] \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
+  \\ simp[inter_insert_ODD_adjust_set,GSYM Boolv_def,option_le_max_right]
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ match_mp_tac memory_rel_insert \\ fs []
+  \\ TRY (match_mp_tac memory_rel_Boolv_T \\ fs [])
+  \\ TRY (match_mp_tac memory_rel_Boolv_F \\ fs [])
+QED
+
 Theorem Compare1_code_thm:
    !l a1 a2 dm m res (t:('a,'c,'ffi) wordSem$state).
       word_cmp_loop l a1 a2 dm m = SOME res /\
@@ -11101,7 +11193,7 @@ Proof
       \\ simp [Once LESS_EQ_EXISTS] \\ strip_tac
       \\ rfs [] \\ rveq
       \\ `p < 8 /\ kk MOD 8 < 8` by fs []
-      \\ once_rewrite_tac [GSYM (MATCH_MP MOD_PLUS (DECIDE ``0<8n``))]
+      \\ once_rewrite_tac [GSYM MOD_PLUS]
       \\ drule0 (DECIDE ``n < 8n ==> n=0 \/ n=1 \/ n=2 \/ n=3 \/
                                     n=4 \/ n=5 \/ n=6 \/ n=7``)
       \\ strip_tac \\ fs []
@@ -11148,23 +11240,23 @@ Proof
     THEN1
      (Cases_on `i + n MOD 64 < 32` \\ fs [w2w,fcpTheory.FCP_BETA]
       \\ once_rewrite_tac [DECIDE ``i+(n+32)=(i+32)+n:num``]
-      \\ once_rewrite_tac [GSYM (MATCH_MP MOD_PLUS (DECIDE ``0<64n``))]
+      \\ once_rewrite_tac [GSYM MOD_PLUS]
       \\ qabbrev_tac `nn = n MOD 64` \\ fs []
       \\ simp [GSYM SUB_MOD])
     THEN1
      (Cases_on `i + n MOD 64 < 32` \\ fs [w2w,fcpTheory.FCP_BETA]
-      \\ once_rewrite_tac [GSYM (MATCH_MP MOD_PLUS (DECIDE ``0<64n``))]
+      \\ once_rewrite_tac [GSYM MOD_PLUS]
       \\ qabbrev_tac `nn = n MOD 64` \\ fs [])
     THEN1
      (Cases_on `i + n MOD 64 < 64` \\ fs [w2w,fcpTheory.FCP_BETA]
       \\ once_rewrite_tac [DECIDE ``i+(n+32)=(i+32)+n:num``]
-      \\ once_rewrite_tac [GSYM (MATCH_MP MOD_PLUS (DECIDE ``0<64n``))]
+      \\ once_rewrite_tac [GSYM MOD_PLUS]
       \\ `n MOD 64 < 64` by fs []
       \\ qabbrev_tac `nn = n MOD 64` \\ fs []
       \\ simp [GSYM SUB_MOD])
     THEN1
      (Cases_on `i + n MOD 64 < 64` \\ fs [w2w,fcpTheory.FCP_BETA]
-      \\ once_rewrite_tac [GSYM (MATCH_MP MOD_PLUS (DECIDE ``0<64n``))]
+      \\ once_rewrite_tac [GSYM MOD_PLUS]
       \\ `n MOD 64 < 64` by fs []
       \\ qabbrev_tac `nn = n MOD 64` \\ fs []
       \\ simp [GSYM SUB_MOD]))
@@ -13615,8 +13707,8 @@ Proof
   \\ qpat_x_assum `get_var _ _ = SOME (Word _)`
      (fn thm => rpt_drule0 get_var_get_real_addr_lemma >> assume_tac thm)
   \\ simp[]
-  \\ rename1`_ ∧ ffi_name = ""`
-  \\ Cases_on`¬c.call_empty_ffi ∧ ffi_name = ""`
+  \\ rename1`_ ∧ ffi_name = «»`
+  \\ Cases_on`¬c.call_empty_ffi ∧ ffi_name = «»`
   >- (
     fs[wordSemTheory.evaluate_def]
     \\ ntac 2 strip_tac
@@ -13653,8 +13745,8 @@ Proof
      (fn thm=> rpt_drule0 get_var_get_real_addr_lemma >> assume_tac thm)
   \\ `tt.store = t.store` by simp[Abbr`tt`]
   \\ simp[]
-  \\ qpat_abbrev_tac`ex1 = if ffi_name = "" then _ else _`
-  \\ qpat_abbrev_tac`ex2 = if ffi_name = "" then _ else _`
+  \\ qpat_abbrev_tac`ex1 = if ffi_name = «» then _ else _`
+  \\ qpat_abbrev_tac`ex2 = if ffi_name = «» then _ else _`
   \\ IF_CASES_TAC >- ( fs[shift_def] )
   \\ simp[wordSemTheory.get_var_def,lookup_insert]
   \\ qpat_x_assum`¬_`kall_tac
@@ -13678,7 +13770,7 @@ Proof
   \\ simp[]
   \\ qunabbrev_tac`ex1`
   \\ qunabbrev_tac`ex2`
-  \\ Cases_on`ffi_name = ""` \\ fs[]
+  \\ Cases_on`ffi_name = «»` \\ fs[]
   >- (
     eval_tac
     \\ fs[lookup_insert,wordSemTheory.word_exp_def,ffiTheory.call_FFI_def]
@@ -13842,8 +13934,8 @@ Proof
      (fn thm => rpt_drule0 get_var_get_real_addr_lemma >> assume_tac thm)
   \\ simp[assign_def,list_Seq_def] \\ eval_tac
   \\ simp[]
-  \\ rename1`_ ∧ ffi_name = ""`
-  \\ Cases_on`ffi_name = ""`
+  \\ rename1`_ ∧ ffi_name = «»`
+  \\ Cases_on`ffi_name = «»`
   >- (
     fs[wordSemTheory.evaluate_def]
     \\ ntac 2 strip_tac
@@ -14079,6 +14171,7 @@ Theorem TWO_POW_LEMMA[local]:
   (2 ** n ≤ 1 ⇒ n < 1)
 Proof
   Cases_on ‘n’ \\ fs [EXP]
+  \\ rename [‘SUC n'’]
   \\ Cases_on ‘n'’ \\ fs [EXP]
   \\ ‘0 < 2 ** n’ by fs [bitTheory.ZERO_LT_TWOEXP]
   \\ decide_tac

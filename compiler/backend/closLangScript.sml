@@ -44,6 +44,7 @@ Datatype:
   word_op
      = WordOpw word_size opw
      | WordShift word_size shift num
+     | WordTest word_size ast$test
      | WordFromInt
      | WordToInt
      | WordFromWord bool
@@ -61,6 +62,7 @@ Datatype:
      | LenEq num         (* check Block's length *)
      | TagEq num         (* check Block's tag *)
      | LengthBlock       (* get length of Block *)
+     | BoolTest ast$test (* tests for bools *)
      | BoundsCheckBlock  (* check that vector index is within bounds *)
      | ConsExtend num    (* construct a Block with given tag. The first three
                             arguments should be a block followed by two numbers
@@ -109,7 +111,7 @@ End
 
 Datatype:
   op = Label num     (* constructs a CodePtr *)
-     | FFI string    (* calls the FFI *)
+     | FFI mlstring    (* calls the FFI *)
      | IntOp int_op
      | WordOp word_op
      | BlockOp block_op
@@ -219,4 +221,3 @@ End
 Type clos_prog = ``: closLang$exp list # (num # num # closLang$exp) list``
 
 Type clos_cc = ``:'c -> clos_prog -> (word8 list # word64 list # 'c) option``
-

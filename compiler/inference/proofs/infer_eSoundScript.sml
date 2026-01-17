@@ -450,35 +450,52 @@ val binop_tac =
  metis_tac [MAP, infer_e_next_uvar_mono, check_env_more, word_size_nchotomy];
 
 Theorem constrain_op_sub_completion[local]:
-  sub_completion (num_tvs tenv) st.next_uvar st.subst extra_constraints s ∧
+ sub_completion (num_tvs tenv) st.next_uvar st.subst extra_constraints s ∧
  constrain_op l op ts st' = (Success t,st)
  ⇒
  ∃c. sub_completion (num_tvs tenv) st'.next_uvar st'.subst c s
 Proof
-  rw [] >>
+ rw [] >>
  fs [constrain_op_success] >>
  every_case_tac >>
  fs [success_eqns] >>
  TRY pairarg_tac >>
- fs [] >>
+ gvs [CaseEq"bool", success_eqns] >>
  rw [] >>
  fs [infer_st_rewrs, success_eqns] >>
- metis_tac [sub_completion_unify2, sub_completion_unify]
+ PROVE_TAC [sub_completion_unify2, sub_completion_unify,
+            sub_completion_add_constraints]
 QED
 
 Theorem constrain_op_sound[local]:
-  t_wfs st.subst ∧
+ t_wfs st.subst ∧
  sub_completion (num_tvs tenv) st'.next_uvar st'.subst c s ∧
  constrain_op l op ts st = (Success t,st')
  ⇒
  type_op op (MAP (convert_t o t_walkstar s) ts) (convert_t (t_walkstar s t))
 Proof
   fs[constrain_op_success] >>
- rw [] >>
- fs [fresh_uvar_def,infer_st_rewrs,Tchar_def,Tword64_def] >> rw[] >>
- TRY pairarg_tac >>
- fs [success_eqns] >>
- binop_tac
+  rw [] >>
+  fs [fresh_uvar_def,infer_st_rewrs,Tchar_def,Tword64_def] >> rw[] >>
+  TRY pairarg_tac >>
+  fs [success_eqns] >~
+  [‘Test t1 t2’] >-
+   (Cases_on ‘t1’ \\ Cases_on ‘t2’
+    \\ TRY (rename [‘WordT ww’] \\ Cases_on ‘ww’ \\ fs [])
+    \\ binop_tac)
+  >~ [‘FromTo p1 p2’] >- (
+    Cases_on`p1` \\ Cases_on`p2` \\ gvs[supported_conversion_def]
+    \\ Cases_on`w` \\ gvs[supported_conversion_def]
+    \\ binop_tac )
+  >~ [‘Arith a p’] >- (
+    gvs[CaseEq"option",CaseEq"bool",failwith_def,
+        st_ex_bind_def,st_ex_return_def,CaseEq"exc",CaseEq"prod"]
+    \\ Cases_on`a` \\ Cases_on`p` \\ TRY (rename1 `WordT w` \\ Cases_on`w`)
+    \\ gvs[supported_arith_def,LENGTH_EQ_NUM_compute, REPLICATE_compute,
+           add_constraints_def, st_ex_bind_def,CaseEq"prod",CaseEq"exc",
+           st_ex_return_def,add_constraint_def,CaseEq"option"]
+    \\ binop_tac )
+  \\ binop_tac
 QED
 
 Theorem infer_deBruijn_subst_walkstar:

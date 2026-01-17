@@ -5,7 +5,7 @@
 *)
 Theory sortProof
 Ancestors
-  semanticsProps backendProof ag32_configProof ag32_memory
+  mlstring semanticsProps backendProof ag32_configProof ag32_memory
   ag32_memoryProof ag32_ffi_codeProof ag32_machine_config
   ag32_basis_ffiProof sortProg sortCompile
 Libs
@@ -24,9 +24,12 @@ Proof
   \\ `stdin (stdin_fs input) input 0` by EVAL_TAC
   \\ drule TextIOProofTheory.stdin_get_file_content
   \\ rw[wfFS_stdin_fs, STD_streams_stdin_fs, CommandLineProofTheory.wfcl_def, clFFITheory.validArg_def]
+  \\ ‘stdin_content (stdin_fs input) = SOME input’ by
+    (simp [TextIOProofTheory.stdin_content_def, stdin_fs_def])
+  \\ fs []
   \\ asm_exists_tac \\ rw[]
-  \\ fs[valid_sort_result_def, fsFFIPropsTheory.all_lines_def]
-  \\ rfs[TextIOProofTheory.stdin_def]
+  \\ fs[valid_sort_result_def]
+  \\ rfs[TextIOProofTheory.stdin_def, good_args_def]
   \\ asm_exists_tac \\ simp[]
 QED
 
@@ -137,6 +140,7 @@ Proof
   \\ disch_then drule
   \\ strip_tac
   \\ simp[]
+  \\ conj_tac >- (EVAL_TAC)
   \\ conj_tac >- (simp[LENGTH_code] \\ EVAL_TAC)
   \\ conj_tac >- (simp[LENGTH_code, LENGTH_data] \\ EVAL_TAC)
   \\ conj_tac >- (EVAL_TAC)
@@ -167,7 +171,7 @@ Proof
   \\ simp[STD_streams_stdin_fs]
   \\ simp[TextIOProofTheory.add_stdo_def]
   \\ SELECT_ELIM_TAC
-  \\ simp[TextIOProofTheory.stdo_def]
+  \\ simp[TextIOProofTheory.stdo_def,implode_def]
   \\ conj_tac
   >- (
     simp[stdin_fs_def]
@@ -214,7 +218,7 @@ Proof
   \\ disch_then drule
   \\ strip_tac
   \\ irule ag32_next
-  \\ conj_tac >- simp[ffi_names,extcalls_def]
+  \\ conj_tac >- (simp[ffi_names,extcalls_def] \\ EVAL_TAC)
   \\ conj_tac >- (simp[ffi_names,extcalls_def, LENGTH_code, LENGTH_data] \\ EVAL_TAC)
   \\ conj_tac >- (simp[ffi_names,extcalls_def] \\ EVAL_TAC)
   \\ rpt $ goal_assum $ drule_at Any
@@ -227,4 +231,3 @@ Proof
   \\ qexists_tac`clk` \\ simp[]
   \\ EVAL_TAC
 QED
-

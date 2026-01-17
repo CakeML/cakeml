@@ -698,6 +698,7 @@ Theorem small_eval_app_err:
       ∀op env0 v1 v0.
         LENGTH es + LENGTH v0 > 2 ∧ op ≠ Opapp ∧ op ≠ AallocFixed
         ∧ op ≠ CopyStrStr ∧ op ≠ CopyStrAw8 ∧ op ≠ CopyAw8Str ∧ op ≠ CopyAw8Aw8
+        ∧ op ≠ Arith FMA Float64T
         ⇒
         ∃env' e' c'.
           e_step_reln^* (env0,s,Val v1,[Capp op v0 () es,env]) (env',s',e',c') ∧
@@ -705,15 +706,24 @@ Theorem small_eval_app_err:
 Proof
   ho_match_mp_tac small_eval_list_ind >> simp[] >> srw_tac[][] >>
   srw_tac[boolSimps.DNF_ss][Once RTC_CASES1,e_step_reln_def] >- (
-  srw_tac[][Once e_step_def,continue_def,application_thm,return_def] >>
-  BasicProvers.CASE_TAC >>
-  TRY BasicProvers.CASE_TAC >>
-  Cases_on`s` >> fs[do_app_cases] >> rw[] >> fs[] >>
-  rpt TOP_CASE_TAC >> gs[do_app_cases] >>
-  (* ThunkOp cases *)
-  namedCases_on ‘v0’ ["", "hd tl"] >> gvs[] >> Cases_on ‘tl’ >> gvs[] >>
-  gvs[oneline thunk_op_def, AllCaseEqs()]
-  ) >>
+    srw_tac[][Once e_step_def,continue_def,application_thm,return_def] >>
+    BasicProvers.CASE_TAC >>
+    TRY BasicProvers.CASE_TAC >>
+    Cases_on`s` >> fs[do_app_cases] >> rw[] >> fs[] >>
+    TRY(PairCases_on`x`) >>
+    gvs[CaseEq"prod",CaseEq"result",CaseEq"error_result",
+        do_app_cases,PULL_EXISTS]
+    >~ [`do_arith a p`] >- (
+      Cases_on`a` \\ Cases_on`p` \\ TRY (Cases_on ‘w’)
+      \\ gvs[do_arith_def, CaseEq"list"] ) >>
+    (* ThunkOp *)
+    namedCases_on ‘v0’ ["", "hd tl"] >> gvs[]
+    >- (Cases_on`v1` \\ simp[])
+    >> Cases_on ‘tl’ >> gvs[] >>
+    simp[do_app_def] >>
+    gvs[oneline thunk_op_def, AllCaseEqs()] >>
+    Cases_on`t` \\ gvs[]
+    >- (Cases_on`v1` \\ simp[]) ) >>
   disj2_tac >>
   srw_tac[][Once e_step_def,continue_def,push_def] >>
   imp_res_tac e_step_add_ctxt >>
@@ -738,15 +748,25 @@ Theorem small_eval_app_err_more:
 Proof
   ho_match_mp_tac small_eval_list_ind >> simp[] >> srw_tac[][] >>
   srw_tac[boolSimps.DNF_ss][Once RTC_CASES1,e_step_reln_def] >- (
-  srw_tac[][Once e_step_def,continue_def,application_thm] >>
-  BasicProvers.CASE_TAC >>
-  TRY BasicProvers.CASE_TAC >>
-  Cases_on`s` >> fs[do_app_cases] >> rw[] >> fs[] >>
-  rpt TOP_CASE_TAC >> gs[do_app_cases] >>
-  (* ThunkOp cases *)
-  namedCases_on ‘v0’ ["", "hd tl"] >> gvs[] >> Cases_on ‘tl’ >> gvs[] >>
-  gvs[oneline thunk_op_def, AllCaseEqs()]
-  ) >>
+    srw_tac[][Once e_step_def,continue_def,application_thm] >>
+    BasicProvers.CASE_TAC >>
+    TRY BasicProvers.CASE_TAC >>
+    Cases_on`s` >> fs[do_app_cases] >> rw[] >> fs[] >>
+    TRY(PairCases_on`x`) >>
+    gvs[CaseEq"prod",CaseEq"result",CaseEq"error_result",
+        do_app_cases,PULL_EXISTS]
+    >~ [`do_arith a p`] >- (
+      Cases_on`a` \\ Cases_on`p` \\ TRY (Cases_on ‘w’)
+      \\ gvs[do_arith_def, CaseEq"list"]
+      \\ Cases_on`v0` \\ gvs[] ) >>
+    (* ThunkOp *)
+    namedCases_on ‘v0’ ["", "hd tl"] >> gvs[]
+    >- (Cases_on`v1` \\ simp[])
+    >> Cases_on ‘tl’ >> gvs[] >>
+    simp[do_app_def] >>
+    gvs[oneline thunk_op_def, AllCaseEqs()] >>
+    Cases_on`t` \\ gvs[]
+    \\ Cases_on`v1` \\ simp[] ) >>
   disj2_tac >>
   srw_tac[][Once e_step_def,continue_def,push_def] >>
   imp_res_tac e_step_add_ctxt >>
@@ -1696,9 +1716,9 @@ Theorem e_step_ffi_changed:
     ev = Val (Litv (StrLit conf)) ∧
     cs = (Capp (FFI s) [Loc b lnum] () [], env') :: ccs ∧
     store_lookup lnum st = SOME (W8array ws) ∧
-    s ≠ "" ∧
+    s ≠ «» ∧
     ffi.oracle
-       (ExtCall s) ffi.ffi_state (MAP (λc. n2w $ ORD c) (EXPLODE conf)) ws =
+       (ExtCall s) ffi.ffi_state (MAP (λc. n2w $ ORD c) (explode conf)) ws =
        Oracle_return ffi_st ws' ∧
     LENGTH ws = LENGTH ws' ∧
     ev' = Val (Conv NONE []) ∧
@@ -1708,7 +1728,7 @@ Theorem e_step_ffi_changed:
     ffi'.ffi_state = ffi_st ∧
     ffi'.io_events =
       ffi.io_events ++
-        [IO_event (ExtCall s) (MAP (λc. n2w $ ORD c) (EXPLODE conf))
+        [IO_event (ExtCall s) (MAP (λc. n2w $ ORD c) (explode conf))
                   (ZIP (ws,ws'))]
 Proof
   rpt gen_tac >> simp[e_step_def] >>
@@ -1728,7 +1748,7 @@ Proof
     gvs[application_def, do_app_def, call_FFI_def, astTheory.getOpClass_def] >>
     every_case_tac >> gvs[return_def, store_lookup_def, store_assign_def]
   ) >>
-  fs[combinTheory.o_DEF, IMPLODE_EXPLODE_I]
+  fs[combinTheory.o_DEF]
 QED
 
 Theorem decl_step_ffi_changed:
@@ -1737,9 +1757,9 @@ Theorem decl_step_ffi_changed:
     dev = ExpVal env (Val (Litv (StrLit conf)))
             ((Capp (FFI s) [Loc b lnum] () [], env')::ccs) locs pat ∧
     store_lookup lnum st.refs = SOME (W8array ws) ∧
-    s ≠ "" ∧
+    s ≠ «» ∧
     st.ffi.oracle (ExtCall s) st.ffi.ffi_state
-      (MAP (λc. n2w $ ORD c) (EXPLODE conf)) ws =
+      (MAP (λc. n2w $ ORD c) (explode conf)) ws =
       Oracle_return ffi_st ws' ∧
     LENGTH ws = LENGTH ws' ∧
     dev' = ExpVal env' (Val (Conv NONE [])) ccs locs pat ∧
@@ -1748,7 +1768,7 @@ Theorem decl_step_ffi_changed:
             ffi := st.ffi with <|
               ffi_state := ffi_st;
               io_events := st.ffi.io_events ++
-                 [IO_event (ExtCall s) (MAP (λc. n2w $ ORD c) (EXPLODE conf))
+                 [IO_event (ExtCall s) (MAP (λc. n2w $ ORD c) (explode conf))
                            (ZIP (ws,ws'))] |>
             |> ∧
     dcs = dcs'
@@ -1768,7 +1788,7 @@ Proof
   every_case_tac >> gvs[Abbr `foo`, state_component_equality] >> rw[] >> gvs[] >>
   gvs[e_step_def, continue_def, application_thm, do_app_def, call_FFI_def,
       return_def, store_assign_def, store_lookup_def, store_v_same_type_def,
-      astTheory.getOpClass_def, IMPLODE_EXPLODE_I, combinTheory.o_DEF]
+      astTheory.getOpClass_def, combinTheory.o_DEF]
 QED
 
 Theorem io_events_mono_e_step:

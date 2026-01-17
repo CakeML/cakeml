@@ -37,7 +37,7 @@ Definition perms_ok_exp_def:
           (op = AallocFixed ⇒ RefAlloc ∈ ps) ∧
           (op = Aw8alloc ⇒ W8Alloc ∈ ps) ∧
           (op = Opassign ⇒ RefUpdate ∈ ps) ∧
-          (∀chn. op = FFI chn ⇒ FFIWrite chn ∈ ps ∧ DoFFI ∈ ps) ∧
+          (∀chn. op = FFI chn ⇒ FFIWrite (explode chn) ∈ ps ∧ DoFFI ∈ ps) ∧
           (∀m. op = ThunkOp (AllocThunk m) ⇒ RefAlloc ∈ ps) ∧
           (∀m. op = ThunkOp (UpdateThunk m) ⇒ RefUpdate ∈ ps)
       | _ => T
@@ -297,7 +297,7 @@ Theorem do_app_perms:
   (op = AallocFixed ⇒ RefAlloc ∈ ps) ∧
   (op = Aw8alloc ⇒ W8Alloc ∈ ps) ∧
   (op = Opassign ⇒ RefUpdate ∈ ps) ∧
-  (∀chn. op = FFI chn ⇒ FFIWrite chn ∈ ps ∧ DoFFI ∈ ps) ∧
+  (∀chn. op = FFI chn ⇒ FFIWrite (explode chn) ∈ ps ∧ DoFFI ∈ ps) ∧
   (∀m. op = ThunkOp (AllocThunk m) ⇒ RefAlloc ∈ ps) ∧
   (∀m. op = ThunkOp (UpdateThunk m) ⇒ RefUpdate ∈ ps) ∧
   op ≠ Opapp ⇒
@@ -306,7 +306,7 @@ Theorem do_app_perms:
     (DoFFI ∉ ps ⇒ ffi1 = ffi) ∧
     (∀ch out y.
        MEM (IO_event (ExtCall ch) out y) ffi1.io_events ⇒
-       MEM (IO_event (ExtCall ch) out y) ffi.io_events ∨ FFIWrite ch ∈ ps) ∧
+       MEM (IO_event (ExtCall ch) out y) ffi.io_events ∨ FFIWrite (explode ch) ∈ ps) ∧
     case list_result res of
       Rval vs => EVERY (perms_ok ps) vs
     | Rerr (Rraise v) => perms_ok ps v
@@ -436,11 +436,6 @@ Proof
   >- (
     rw [do_app_cases] \\ gs []
     \\ simp [perms_ok_def])
-  \\ Cases_on ‘∃opb. op = Chopb opb’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs []
-    \\ simp [Boolv_def]
-    \\ rw [perms_ok_def])
   \\ Cases_on ‘op = Chr’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
@@ -539,6 +534,25 @@ Proof
     rw [do_app_cases] \\ gs []
     \\ simp [Boolv_def]
     \\ rw [perms_ok_def])
+  \\ Cases_on ‘∃test ty. op = Test test ty’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [Boolv_def]
+    \\ rw [perms_ok_def])
+  \\ Cases_on ‘∃a ty. op = Arith a ty’ \\ gs []
+  >- (
+    rw [do_app_cases]
+    \\ Cases_on ‘a’ \\ Cases_on ‘ty’ \\ TRY(rename1 ‘WordT w’ \\ Cases_on ‘w’)
+    \\ gvs [do_arith_def, CaseEq"list",CaseEq"sum"]
+    \\ simp [Boolv_def]
+    \\ rw [perms_ok_def])
+  \\ Cases_on ‘∃ty1 ty2. op = FromTo ty1 ty2’ \\ gs []
+  >- (
+    rw [do_app_cases]
+    \\ Cases_on ‘ty1’ \\ Cases_on ‘ty2’ \\ gvs [do_conversion_def]
+    \\ Cases_on ‘w’ \\ gvs[do_conversion_def]
+    \\ simp [Boolv_def]
+    \\ rw [perms_ok_def])
   \\ Cases_on ‘op = Opderef’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
@@ -634,7 +648,7 @@ Theorem evaluate_perms_ok:
        perms_ok_state ps s' ∧
        (∀ffi out y.
           MEM (IO_event (ExtCall ffi) out y) s'.ffi.io_events ⇒
-          MEM (IO_event (ExtCall ffi) out y) s.ffi.io_events ∨ FFIWrite ffi ∈ ps) ∧
+          MEM (IO_event (ExtCall ffi) out y) s.ffi.io_events ∨ FFIWrite (explode ffi) ∈ ps) ∧
        case res of
          Rerr (Rraise v) => perms_ok ps v
        | Rval vs => EVERY (perms_ok ps) vs
@@ -657,7 +671,7 @@ Theorem evaluate_perms_ok:
        perms_ok_state ps s' ∧
        (∀ffi out y.
           MEM (IO_event (ExtCall ffi) out y) s'.ffi.io_events ⇒
-          MEM (IO_event (ExtCall ffi) out y) s.ffi.io_events ∨ FFIWrite ffi ∈ ps) ∧
+          MEM (IO_event (ExtCall ffi) out y) s.ffi.io_events ∨ FFIWrite (explode ffi) ∈ ps) ∧
        case res of
          Rerr (Rraise v) => perms_ok ps v
        | Rval vs => EVERY (perms_ok ps) vs
@@ -674,7 +688,7 @@ Theorem evaluate_perms_ok:
        perms_ok_state ps s' ∧
        (∀ffi out y.
           MEM (IO_event (ExtCall ffi) out y) s'.ffi.io_events ⇒
-          MEM (IO_event (ExtCall ffi) out y) s.ffi.io_events ∨ FFIWrite ffi ∈ ps) ∧
+          MEM (IO_event (ExtCall ffi) out y) s.ffi.io_events ∨ FFIWrite (explode ffi) ∈ ps) ∧
        case res of
          Rerr (Rraise v) => perms_ok ps v
        | Rval env1 => perms_ok_env ps UNIV env1

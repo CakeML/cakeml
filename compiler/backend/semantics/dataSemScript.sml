@@ -9,6 +9,8 @@ Ancestors
 Libs
   preamble
 
+val _ = numLib.prefer_num ();
+
 Datatype:
   v = Number int              (* integer *)
     | Word64 word64           (* 64-bit word *)
@@ -723,6 +725,14 @@ Definition do_word_app_def:
         | SOME (w1,w2) => SOME (Number &(w2n (opw_lookup opw w1 w2))))) /\
   do_word_app (WordOpw W64 opw) [Word64 w1; Word64 w2] =
         SOME (Word64 (opw_lookup opw w1 w2)) /\
+  do_word_app (WordTest W8 test) [Number n1; Number n2] =
+       (if 0 ≤ n1 ∧ n1 < 256 ∧ 0 ≤ n2 ∧ n2 < 256 then
+          (case test of
+           | Equal       => SOME (Boolv (n1 = n2))
+           | Compare Lt  => SOME (Boolv (n1 < n2))
+           | Compare Leq => SOME (Boolv (n1 <= n2))
+           | _           => NONE)
+        else NONE) /\
   do_word_app (WordShift W8 sh n) [Number i] =
        (case some (w:word8). i = &(w2n w) of
         | NONE => NONE
@@ -757,6 +767,12 @@ Definition do_word_app_def:
          | [Word64 w1; Word64 w2] => (SOME (Boolv (fp_cmp_comp cmp w1 w2)))
          | _ => NONE) /\
   do_word_app (op:closLang$word_op) (vs:dataSem$v list) = NONE
+End
+
+Definition dest_Boolv_def:
+  dest_Boolv (Block _ tag xs) =
+    (if xs = [] ∧ tag < 2 then SOME (tag = 1) else NONE) ∧
+  dest_Boolv _ = NONE
 End
 
 Definition do_app_aux_def:
@@ -867,6 +883,10 @@ Definition do_app_aux_def:
             (if n < LENGTH xs
              then Rval (EL n xs, s)
              else Error)
+         | _ => Error)
+    | (BlockOp (BoolTest test),[v1;v2]) =>
+        (case (dest_Boolv v1, dest_Boolv v2) of
+         | (SOME b1, SOME b2) => Rval (Boolv (b1 = b2), s)
          | _ => Error)
     | (BlockOp ListAppend,[x1;x2]) =>
         (case (v_to_list x1, v_to_list x2) of

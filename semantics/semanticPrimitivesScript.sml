@@ -4,7 +4,7 @@
 *)
 Theory semanticPrimitives
 Ancestors
-  misc ast namespace ffi fpSem
+  misc ast machine_ieee namespace ffi fpSem mlstring
 
 val _ = numLib.temp_prefer_num();
 
@@ -267,7 +267,7 @@ End
 (* Other primitives *)
 (* Check that a constructor is properly applied *)
 Definition do_con_check_def:
-  do_con_check (cenv:((string),(string),(num#stamp))namespace) n_opt l ⇔
+  do_con_check (cenv:((mlstring),(mlstring),(num#stamp))namespace) n_opt l ⇔
     case n_opt of
       NONE => T
     | SOME n => case nsLookup cenv n of NONE => F | SOME (l',v2) => l = l'
@@ -279,7 +279,7 @@ Definition one_con_check_def[simp]:
 End
 
 Definition build_conv_def:
-  build_conv (envC:((string),(string),(num#stamp))namespace) cn vs =
+  build_conv (envC:((mlstring),(mlstring),(num#stamp))namespace) cn vs =
   case cn of
     NONE => SOME (Conv NONE vs)
   | SOME id =>
@@ -327,8 +327,8 @@ End
 
 Definition Boolv_def:
   Boolv b =
-    if b then Conv (SOME (TypeStamp "True" bool_type_num)) []
-         else Conv (SOME (TypeStamp "False" bool_type_num)) []
+    if b then Conv (SOME (TypeStamp «True» bool_type_num)) []
+         else Conv (SOME (TypeStamp «False» bool_type_num)) []
 End
 
 (* A big-step pattern matcher.  If the value matches the pattern, return an
@@ -393,15 +393,15 @@ End
 
 (* Bind each function of a mutually recursive set of functions to its closure *)
 Definition build_rec_env_def:
-  (build_rec_env:(varN#varN#exp)list ->(v)sem_env ->((string),(string),(v))namespace
-                 ->((string),(string),(v))namespace) funs cl_env add_to_env =
+  (build_rec_env:(varN#varN#exp)list ->(v)sem_env ->((mlstring),(mlstring),(v))namespace
+                 ->((mlstring),(mlstring),(v))namespace) funs cl_env add_to_env =
   FOLDR (λ(f,x,e) env'. nsBind f (Recclosure cl_env funs f) env')
         add_to_env funs
 End
 
 (* Lookup in the list of mutually recursive functions *)
 Definition find_recfun_def:
-  (find_recfun:string ->(string#'a#'b)list ->('a#'b)option) n funs =
+  (find_recfun:mlstring ->(mlstring#'a#'b)list ->('a#'b)option) n funs =
   case funs of
     [] => NONE
   | (f,x,e)::funs' => if f = n then SOME (x,e) else find_recfun n funs'
@@ -462,48 +462,48 @@ End
 (* If a value represents a list, get that list. Otherwise return Nothing *)
 Definition v_to_list_def:
   v_to_list (Conv (SOME stamp) []) =
-    (if stamp = TypeStamp "[]" list_type_num then SOME [] else NONE) ∧
+    (if stamp = TypeStamp «[]» list_type_num then SOME [] else NONE) ∧
   v_to_list (Conv (SOME stamp) [v1; v2]) =
-    (if stamp = TypeStamp "::" list_type_num then
+    (if stamp = TypeStamp «::» list_type_num then
        case v_to_list v2 of NONE => NONE | SOME vs => SOME (v1::vs)
      else NONE) ∧
   v_to_list _ = NONE
 End
 
 Definition list_to_v_def:
-  list_to_v [] = Conv (SOME (TypeStamp "[]" list_type_num)) [] ∧
-  list_to_v (x::xs) = Conv (SOME (TypeStamp "::" list_type_num)) [x; list_to_v xs]
+  list_to_v [] = Conv (SOME (TypeStamp «[]» list_type_num)) [] ∧
+  list_to_v (x::xs) = Conv (SOME (TypeStamp «::» list_type_num)) [x; list_to_v xs]
 End
 
 Definition v_to_char_list_def:
   v_to_char_list (Conv (SOME stamp) []) =
-    (if stamp = TypeStamp "[]" list_type_num then SOME "" else NONE) ∧
+    (if stamp = TypeStamp «[]» list_type_num then SOME "" else NONE) ∧
   v_to_char_list (Conv (SOME stamp) [Litv (Char c); v]) =
-    (if stamp = TypeStamp "::" list_type_num then
+    (if stamp = TypeStamp «::» list_type_num then
        case v_to_char_list v of NONE => NONE | SOME cs => SOME (STRING c cs)
      else NONE) ∧
   v_to_char_list _ = NONE
 End
 
 Definition vs_to_string_def:
-  vs_to_string [] = SOME "" ∧
+  vs_to_string [] = SOME «»  ∧
   vs_to_string (Litv (StrLit s1)::vs) =
-    (case vs_to_string vs of NONE => NONE | SOME s2 => SOME (STRCAT s1 s2)) ∧
+    (case vs_to_string vs of NONE => NONE | SOME s2 => SOME (strcat s1 s2)) ∧
   vs_to_string (_::v1) = NONE
 End
 
 Definition maybe_to_v_def:
-  maybe_to_v NONE = Conv (SOME (TypeStamp "None" option_type_num)) [] ∧
-  maybe_to_v (SOME v) = Conv (SOME (TypeStamp "Some" option_type_num)) [v]
+  maybe_to_v NONE = Conv (SOME (TypeStamp «None» option_type_num)) [] ∧
+  maybe_to_v (SOME v) = Conv (SOME (TypeStamp «Some» option_type_num)) [v]
 End
 
 Definition v_to_id_def:
   v_to_id (Conv (SOME stamp) [Litv (StrLit s)]) =
-     (if stamp = TypeStamp "Short" id_type_num then
+     (if stamp = TypeStamp «Short» id_type_num then
         SOME (Short s)
       else NONE) ∧
   v_to_id (Conv (SOME stamp) [Litv (StrLit s); v]) =
-     (if stamp = TypeStamp "Long" id_type_num then
+     (if stamp = TypeStamp «Long» id_type_num then
         case v_to_id v of NONE => NONE | SOME id => SOME (Long s id)
       else NONE) ∧
   v_to_id _ = NONE
@@ -781,6 +781,115 @@ Definition thunk_op_def:
     | _ => NONE
 End
 
+Definition check_type_def:
+  check_type BoolT v = (v = Boolv T ∨ v = Boolv F) ∧
+  check_type IntT v = (∃i. v = Litv (IntLit i)) ∧
+  check_type CharT v = (∃c. v = Litv (Char c)) ∧
+  check_type StrT v = (∃s. v = Litv (StrLit s)) ∧
+  check_type (WordT W8) v = (∃w. v = Litv (Word8 w)) ∧
+  check_type (WordT W64) v = (∃w. v = Litv (Word64 w)) ∧
+  check_type Float64T v = (∃w. v = Litv (Float64 w))
+End
+
+Definition dest_Litv_def[simp]:
+  dest_Litv (Litv v) = SOME v ∧
+  dest_Litv _ = NONE
+End
+
+Definition the_Litv_IntLit_def[simp]:
+  the_Litv_IntLit (Litv (IntLit i)) = i
+End
+
+Definition the_Litv_Word8_def[simp]:
+  the_Litv_Word8 (Litv (Word8 w)) = w
+End
+
+Definition the_Litv_Word64_def[simp]:
+  the_Litv_Word64 (Litv (Word64 w)) = w
+End
+
+Definition the_Litv_Float64_def[simp]:
+  the_Litv_Float64 (Litv (Float64 w)) = w
+End
+
+Definition num_cmp_def[simp]:
+  num_cmp Lt  i j = (i <  j:num) ∧
+  num_cmp Leq i j = (i <= j) ∧
+  num_cmp Gt  i j = (i >  j) ∧
+  num_cmp Geq i j = (i >= j)
+End
+
+Definition int_cmp_def[simp]:
+  int_cmp Lt  i j = (i <  j:int) ∧
+  int_cmp Leq i j = (i <= j) ∧
+  int_cmp Gt  i j = (i >  j) ∧
+  int_cmp Geq i j = (i >= j)
+End
+
+Definition do_test_def: (* TODO: extend with more cases *)
+  do_test Equal ty v1 v2 =
+    (if check_type ty v1 ∧ check_type ty v2 then
+       (if ty = Float64T
+        then Eq_val (fp64_equal (the_Litv_Float64 v1) (the_Litv_Float64 v2))
+        else do_eq v1 v2)
+     else Eq_type_error) ∧
+  do_test (Compare cmp) ty v1 v2 =
+    (case (ty, dest_Litv v1, dest_Litv v2) of
+     | (IntT,     SOME (IntLit i),  SOME (IntLit j))  => Eq_val (int_cmp cmp i j)
+     | (CharT,    SOME (Char c),    SOME (Char d))    => Eq_val (num_cmp cmp (ORD c) (ORD d))
+     | (WordT W8, SOME (Word8 w),   SOME (Word8 v))   => Eq_val (num_cmp cmp (w2n w) (w2n v))
+     | (Float64T, SOME (Float64 w), SOME (Float64 v)) => Eq_val (fp_cmp cmp w v)
+     | _ => Eq_type_error) ∧
+  do_test _ ty v1 v2 = Eq_type_error
+End
+
+Definition do_arith_def:
+  (do_arith a Float64T vals =
+     case (a, MAP the_Litv_Float64 vals) of
+     | (Abs,  [v1])       => SOME (INR $ Litv $ Float64 $ fp64_abs v1)
+     | (Neg,  [v1])       => SOME (INR $ Litv $ Float64 $ fp64_negate v1)
+     | (Sqrt, [v1])       => SOME (INR $ Litv $ Float64 $ fp64_sqrt roundTiesToEven v1)
+     | (Add,  [v1;v2])    => SOME (INR $ Litv $ Float64 $ fp64_add roundTiesToEven v1 v2)
+     | (Sub,  [v1;v2])    => SOME (INR $ Litv $ Float64 $ fp64_sub roundTiesToEven v1 v2)
+     | (Mul,  [v1;v2])    => SOME (INR $ Litv $ Float64 $ fp64_mul roundTiesToEven v1 v2)
+     | (Div,  [v1;v2])    => SOME (INR $ Litv $ Float64 $ fp64_div roundTiesToEven v1 v2)
+     | (FMA,  [v1;v2;v3]) => SOME (INR $ Litv $ Float64 $ fp64_mul_add roundTiesToEven v2 v3 v1)
+     | _ => NONE) ∧
+  (do_arith a IntT vals =
+     case (a, MAP the_Litv_IntLit vals) of
+     | (Add,  [v1;v2]) => SOME (INR $ Litv $ IntLit $ v1 + v2)
+     | (Sub,  [v1;v2]) => SOME (INR $ Litv $ IntLit $ v1 - v2)
+     | (Mul,  [v1;v2]) => SOME (INR $ Litv $ IntLit $ v1 * v2)
+     | (Div,  [v1;v2]) => SOME (if v2 = 0 then INL div_exn_v else
+                                  INR (Litv $ IntLit $ v1 / v2))
+     | (Mod,  [v1;v2]) => SOME (if v2 = 0 then INL div_exn_v else
+                                  INR (Litv $ IntLit $ v1 % v2))
+     | _ => NONE) ∧
+  (do_arith a (WordT W8) vals =
+     case (a, MAP the_Litv_Word8 vals) of
+     | (Add, [v1;v2]) => SOME (INR $ Litv $ Word8 $ word_add v1 v2)
+     | (Sub, [v1;v2]) => SOME (INR $ Litv $ Word8 $ word_sub v1 v2)
+     | (And, [v1;v2]) => SOME (INR $ Litv $ Word8 $ word_and v1 v2)
+     | (Or,  [v1;v2]) => SOME (INR $ Litv $ Word8 $ word_or v1 v2)
+     | (Xor, [v1;v2]) => SOME (INR $ Litv $ Word8 $ word_xor v1 v2)
+     | _ => NONE) ∧
+  (do_arith a (WordT W64) vals =
+     case (a, MAP the_Litv_Word64 vals) of
+     | (Add, [v1;v2]) => SOME (INR $ Litv $ Word64 $ word_add v1 v2)
+     | (Sub, [v1;v2]) => SOME (INR $ Litv $ Word64 $ word_sub v1 v2)
+     | (And, [v1;v2]) => SOME (INR $ Litv $ Word64 $ word_and v1 v2)
+     | (Or,  [v1;v2]) => SOME (INR $ Litv $ Word64 $ word_or v1 v2)
+     | (Xor, [v1;v2]) => SOME (INR $ Litv $ Word64 $ word_xor v1 v2)
+     | _ => NONE) ∧
+  (do_arith a _ vals = NONE)
+End
+
+Definition do_conversion_def:
+  (do_conversion v (WordT W8) IntT =
+     SOME $ Litv $ IntLit $ & (w2n (the_Litv_Word8 v))) ∧
+  (do_conversion _ _ _ = NONE)
+End
+
 Definition do_app_def:
   do_app (s: v store_v list, t: 'ffi ffi_state) op vs =
     case (op, vs) of
@@ -913,17 +1022,17 @@ Definition do_app_def:
         SOME ((s,t), Rval (Litv (IntLit (int_of_num(w2n w)))))
     | (WordToInt W64, [Litv (Word64 w)]) =>
         SOME ((s,t), Rval (Litv (IntLit (int_of_num(w2n w)))))
-    | (CopyStrStr, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len)]) =>
+    | (CopyStrStr, [Litv(StrLit strng);Litv(IntLit off);Litv(IntLit len)]) =>
         SOME ((s,t),
-        (case copy_array (EXPLODE str,off) len NONE of
+        (case copy_array (explode strng,off) len NONE of
           NONE => Rerr (Rraise sub_exn_v)
-        | SOME cs => Rval (Litv(StrLit(IMPLODE(cs))))
+        | SOME cs => Rval (Litv(StrLit(implode(cs))))
         ))
-    | (CopyStrAw8, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len);
+    | (CopyStrAw8, [Litv(StrLit strng);Litv(IntLit off);Litv(IntLit len);
                     Loc _ dst;Litv(IntLit dstoff)]) =>
         (case store_lookup dst s of
           SOME (W8array ws) =>
-            (case copy_array (EXPLODE str,off) len (SOME(ws_to_chars ws,dstoff)) of
+            (case copy_array (explode strng,off) len (SOME(ws_to_chars ws,dstoff)) of
               NONE => SOME ((s,t), Rerr (Rraise sub_exn_v))
             | SOME cs =>
               (case store_assign dst (W8array (chars_to_ws cs)) s of
@@ -939,7 +1048,7 @@ Definition do_app_def:
         SOME ((s,t),
               (case copy_array (ws,off) len NONE of
                  NONE => Rerr (Rraise sub_exn_v)
-               | SOME ws => Rval (Litv(StrLit(IMPLODE(ws_to_chars ws))))
+               | SOME ws => Rval (Litv(StrLit(implode(ws_to_chars ws))))
               ))
        | _ => NONE
       )
@@ -960,7 +1069,7 @@ Definition do_app_def:
     | (XorAw8Str_unsafe, [Loc _ dst; Litv (StrLit str_arg)]) =>
         (case store_lookup dst s of
           SOME (W8array bs) =>
-            (case xor_bytes (MAP (n2w o ORD) str_arg) bs of
+            (case xor_bytes (MAP (n2w o ORD) (explode str_arg)) bs of
              | NONE => NONE
              | SOME new_bs =>
                 case store_assign dst (W8array new_bs) s of
@@ -976,37 +1085,35 @@ Definition do_app_def:
             Rerr (Rraise chr_exn_v)
           else
             Rval (Litv(Char(CHR(Num (ABS (I i))))))))
-    | (Chopb op, [Litv (Char c1); Litv (Char c2)]) =>
-        SOME ((s,t), Rval (Boolv (opb_lookup op (int_of_num(ORD c1)) (int_of_num(ORD c2)))))
     | (Implode, [v]) =>
           (case v_to_char_list v of
             SOME ls =>
-              SOME ((s,t), Rval (Litv (StrLit (IMPLODE ls))))
+              SOME ((s,t), Rval (Litv (StrLit (implode ls))))
           | NONE => NONE
           )
     | (Explode, [v]) =>
           (case v of
-            Litv (StrLit str) =>
-              SOME ((s,t), Rval (list_to_v (MAP (\ c .  Litv (Char c)) (EXPLODE str))))
+            Litv (StrLit strng) =>
+              SOME ((s,t), Rval (list_to_v (MAP (\ c .  Litv (Char c)) (explode strng))))
           | _ => NONE
           )
-    | (Strsub, [Litv (StrLit str); Litv (IntLit i)]) =>
+    | (Strsub, [Litv (StrLit strng); Litv (IntLit i)]) =>
         if i <( 0 : int) then
           SOME ((s,t), Rerr (Rraise sub_exn_v))
         else
           let n = (Num (ABS (I i))) in
-            if n >= STRLEN str then
+            if n >= strlen strng then
               SOME ((s,t), Rerr (Rraise sub_exn_v))
             else
-              SOME ((s,t), Rval (Litv (Char (EL n (EXPLODE str)))))
-    | (Strlen, [Litv (StrLit str)]) =>
-        SOME ((s,t), Rval (Litv(IntLit(int_of_num(STRLEN str)))))
+              SOME ((s,t), Rval (Litv (Char (EL n (explode strng)))))
+    | (Strlen, [Litv (StrLit strng)]) =>
+        SOME ((s,t), Rval (Litv(IntLit(int_of_num(strlen strng)))))
     | (Strcat, [v]) =>
         (case v_to_list v of
           SOME vs =>
             (case vs_to_string vs of
-              SOME str =>
-                SOME ((s,t), Rval (Litv(StrLit str)))
+              SOME strng =>
+                SOME ((s,t), Rval (Litv(StrLit strng)))
             | _ => NONE
             )
         | _ => NONE
@@ -1118,7 +1225,7 @@ Definition do_app_def:
     | (FFI n, [Litv(StrLit conf); Loc _ lnum]) =>
         (case store_lookup lnum s of
           SOME (W8array ws) =>
-            (case call_FFI t (ExtCall n) (MAP (n2w o ORD) conf) ws of
+            (case call_FFI t (ExtCall n) (MAP (n2w o ORD) (explode conf)) ws of
               FFI_return t' ws' =>
                (case store_assign lnum (W8array ws') s of
                  SOME s' => SOME ((s', t'), Rval (Conv NONE []))
@@ -1134,6 +1241,24 @@ Definition do_app_def:
     | (Env_id, [Conv NONE [gen; id]]) => SOME ((s, t),
             Rval (Conv NONE [gen; id]))
     | (ThunkOp th_op, vs) => thunk_op (s,t) th_op vs
+    | (Arith a ty, vs) =>
+        (if EVERY (check_type ty) vs then
+           (case do_arith a ty vs of
+            | SOME (INR res) => SOME ((s, t), Rval res)
+            | SOME (INL exn) => SOME ((s, t), Rerr (Rraise exn))
+            | NONE           => NONE)
+         else NONE)
+    | (FromTo ty1 ty2, [v]) =>
+        (if check_type ty1 v then
+           (case do_conversion v ty1 ty2 of
+            | SOME res => SOME ((s, t), Rval res)
+            | NONE     => NONE)
+         else NONE)
+    | (Test test test_ty, [v1; v2]) =>
+        (case do_test test test_ty v1 v2 of
+            Eq_type_error => NONE
+          | Eq_val b => SOME ((s,t), Rval (Boolv b))
+        )
     | _ => NONE
 End
 
@@ -1160,8 +1285,8 @@ End
 
 (* Build a constructor environment for the type definition tds *)
 Definition build_tdefs_def:
-  build_tdefs next_stamp ([]:(tvarN list # string # (string # ast_t list) list) list) =
-    ((alist_to_ns []):((string),(string),(num#stamp))namespace) ∧
+  build_tdefs next_stamp ([]:(tvarN list # mlstring # (mlstring # ast_t list) list) list) =
+    ((alist_to_ns []):((mlstring),(mlstring),(num#stamp))namespace) ∧
   build_tdefs next_stamp ((tvs,tn,condefs)::tds) =
     nsAppend (build_tdefs (next_stamp + 1) tds)
       (alist_to_ns (REVERSE (build_constrs next_stamp condefs)))
@@ -1169,7 +1294,7 @@ End
 
 (* Checks that no constructor is defined twice in a type *)
 Definition check_dup_ctors_def:
-  check_dup_ctors ((tvs,tn,condefs):(tvarN)list#string#(string#(ast_t)list)list) ⇔
+  check_dup_ctors ((tvs,tn,condefs):(tvarN)list#mlstring#(mlstring#(ast_t)list)list) ⇔
     ALL_DISTINCT
       (let x2 = [] in
          FOLDR (λ(n,ts) x2. if T then n::x2 else x2) x2 condefs)

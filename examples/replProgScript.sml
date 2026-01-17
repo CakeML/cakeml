@@ -220,10 +220,10 @@ fun repl_build_and_format_output inf_state pp_map env bindings =
               bindings)
 
 (* REP -- the L is to come later... *)
-val rep_ast = process_topdecs`
+Quote rep = cakeml:
   fun rep state =
     case state of (inf_state, env, pp_map) =>
-      case TextIO.inputLine TextIO.stdIn of
+      case TextIO.inputLine (TextIO.openStdIn ()) of
         None => None
       | Some line =>
           case lex_and_parse_TopLevel line of
@@ -275,9 +275,10 @@ val rep_ast = process_topdecs`
                                (envlookup pp_env repl_printer_name)))
               end
           | _ => (TextIO.print_err "Cannot understand input\n";
-                  Some state)`;
+                  Some state)
+End
 
-val main_ast = process_topdecs`
+Quote main_ast = cakeml:
   fun main u =
     let
       val u = TextIO.print welcome_banner

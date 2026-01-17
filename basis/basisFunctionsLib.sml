@@ -16,6 +16,11 @@ fun get_module_prefix () = let
     | (m :: ms) => m ^ "_"
   end
 
+fun get_exn_conv name =
+  EVAL “ml_prog$lookup_cons (namespace$Short ^name)
+          ^(get_env (get_ml_prog_state ()))”
+  |> concl |> rand |> rand |> rand
+
 fun trans ml_name rhs = let
   val prefix = get_module_prefix ()
   val hol_name = prefix ^ pick_name ml_name

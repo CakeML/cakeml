@@ -15,7 +15,7 @@ val _ = ml_prog_update (open_module "String");
 val () = generate_sigs := true;
 
 val _ = ml_prog_update (add_dec
-  ``Dtabbrev unknown_loc [] "string" (Atapp [] (Short "string"))`` I);
+  ``Dtabbrev unknown_loc [] «string» (Atapp [] (Short «string»))`` I);
 
 val _ = trans "sub" mlstringSyntax.strsub_tm;
 val _ = trans "implode" mlstringSyntax.implode_tm;
@@ -25,6 +25,7 @@ val _ = trans "concat" mlstringSyntax.concat_tm;
 val _ = trans "substring" mlstringSyntax.substring_tm;
 val result = translate strcat_def;
 val _ = trans "^" mlstringSyntax.strcat_tm;
+val _ = trans "=" “((=):mlstring -> mlstring -> bool)”;
 
 val result = translate (extract_def |> REWRITE_RULE [implode_def]);
 
@@ -227,4 +228,3 @@ val _ = translate escape_char_def;
 
 val _ = ml_prog_update close_local_blocks;
 val _ = ml_prog_update (close_module NONE);
-

@@ -17,7 +17,6 @@ val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = translation_extends "decodeProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "sexp_parserProg");
-val _ = ml_translatorLib.use_string_type true;
 val _ = ml_translatorLib.use_sub_check true;
 
 val monad_unitbind_assert = parserProgTheory.monad_unitbind_assert;
@@ -170,8 +169,6 @@ Proof
   rw[num_from_hex_string_alt_intro]
 QED
 
-val _ = ml_translatorLib.use_string_type false;
-
 val _ = add_preferred_thy "-";
 
 val r = fromSexpTheory.decode_control_def
@@ -201,6 +198,7 @@ val decode_control_side = Q.prove(
   rw[Once(theorem"decode_control_side_def")] \\ rfs[] \\
   rw[num_from_hex_string_alt_length_2] \\
   rfs [num_from_hex_string_alt_intro] \\
+  rename1 `decode_control_side x1` \\
   Cases_on`x1` \\ fs[] \\
   rw[Once(theorem"decode_control_side_def")] \\
   rw[Once(theorem"decode_control_side_def")])
@@ -214,8 +212,6 @@ Definition decode_control_wrapper_def:
 End
 
 val r = translate decode_control_wrapper_def
-
-val _ = ml_translatorLib.use_string_type true;
 
 Theorem decode_control_eq:
   decode_control s =
@@ -281,6 +277,10 @@ val r = translate sexppat_alt_def;
 val r = translate encode_thunk_mode_def;
 val r = translate decode_thunk_mode_def;
 
+val _ = fromSexpTheory.decode_test_def |> translate;
+val _ = fromSexpTheory.decode_prim_type_def |> translate;
+val _ = fromSexpTheory.decode_arith_def |> translate;
+
 val r = translate (fromSexpTheory.sexpop_def
                    |> REWRITE_RULE [decode_control_eq]);
 
@@ -305,24 +305,13 @@ val _ = translate strip_dot_alt
 
 val _ = translate simpleSexpParseTheory.print_space_separated_def;
 
-val _ = use_string_type false;
 val _ = translate simpleSexpParseTheory.escape_string_def;
-val _ = use_string_type true;
 
-Theorem num_to_dec_string_v_thm:
-  (NUM --> HOL_STRING_TYPE) toString ^(IntProgTheory.tostring_v_thm |> concl |> rand)
-Proof
-  assume_tac IntProgTheory.tostring_v_thm >>
-  fs[NUM_def,Arrow_def,HOL_STRING_TYPE_def,INT_def,AppReturns_def,
-     GSYM mlintTheory.num_to_str_thm,mlintTheory.num_to_str_def]
-QED
-
-val _ = add_user_proved_v_thm num_to_dec_string_v_thm;
 
 (* TODO: translator failed for some reason if I just prove these as equations on print_sexp *)
 Definition print_sexp_alt_def:
   (print_sexp_alt (SX_SYM s) = s) ∧
-  (print_sexp_alt (SX_NUM n) = toString n) ∧
+  (print_sexp_alt (SX_NUM n) = explode (toString n)) ∧
   (print_sexp_alt (SX_STR s) = "\"" ++ IMPLODE(escape_string s) ++ "\"") ∧
   (print_sexp_alt s =
    let (ls,n) = strip_dot s in
@@ -350,6 +339,12 @@ Proof
   Cases_on ‘s’ >> simp[AllCaseEqs()] >> pairarg_tac >> simp[]
 QED
 
+Theorem toString_toString_explode:
+  toString n = explode (toString (n:num))
+Proof
+  simp[mlintTheory.num_to_str_thm]
+QED
+
 Theorem print_sexp_alt_thm:
   print_sexp s = print_sexp_alt s
 Proof
@@ -359,7 +354,7 @@ Proof
   ho_match_mp_tac COMPLETE_INDUCTION >>
   rpt strip_tac >> Cases_on `s` >>
   fs[simpleSexpParseTheory.print_sexp_def,print_sexp_alt_def,IMPLODE_EXPLODE_I,
-     sexp_size_def, PULL_FORALL] >>
+     sexp_size_def, PULL_FORALL,toString_toString_explode] >>
   pairarg_tac >> fs[] >> every_case_tac >>
   gvs[STRCAT_11, LENGTH_EQ_NUM_compute, PULL_EXISTS] >>
   pairarg_tac >> gvs[]
@@ -394,8 +389,6 @@ QED
 val _ = translate listsexp_alt
 
 val _ = translate (locnsexp_def |> SIMP_RULE list_ss []);
-
-val _ = ml_translatorLib.use_string_type false;
 
 val _ = translate HEX_def
 
@@ -462,8 +455,6 @@ val _ = translate num_to_hex_string_alt_intro;
 
 val r = translate fromSexpTheory.encode_control_def
 
-val _ = use_string_type true;
-
 val _ = translate SEXSTR_def;
 
 val _ = translate litsexp_def;
@@ -476,6 +467,9 @@ val _ = translate optsexp_def;
 val _ = translate idsexp_def;
 val _ = translate typesexp_def;
 val _ = translate patsexp_def;
+val _ = translate prim_typesexp_def;
+val _ = translate testsexp_def;
+val _ = translate arithsexp_def;
 val _ = translate opsexp_def;
 val _ = translate lopsexp_def;
 val _ = translate locssexp_def;

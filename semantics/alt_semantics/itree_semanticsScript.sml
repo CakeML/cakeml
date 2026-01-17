@@ -65,6 +65,24 @@ Definition do_app_def:
             Eq_type_error => NONE
           | Eq_val b => SOME (s, Rval (Boolv b))
         )
+    | (Arith a ty, vs) =>
+        (if EVERY (check_type ty) vs then
+           (case do_arith a ty vs of
+            | SOME (INR res) => SOME (s, Rval res)
+            | SOME (INL exn) => SOME (s, Rraise exn)
+            | NONE           => NONE)
+         else NONE)
+    | (FromTo ty1 ty2, [v]) =>
+        (if check_type ty1 v then
+           (case do_conversion v ty1 ty2 of
+            | SOME res => SOME (s, Rval res)
+            | NONE     => NONE)
+         else NONE)
+    | (Test test test_ty, [v1; v2]) =>
+        (case do_test test test_ty v1 v2 of
+            Eq_type_error => NONE
+          | Eq_val b => SOME (s, Rval (Boolv b))
+        )
     | (Opassign, [Loc _ lnum; v]) =>
         (case store_assign lnum (Refv v) s of
             SOME s' => SOME (s', Rval (Conv NONE []))
@@ -158,17 +176,17 @@ Definition do_app_def:
         SOME (s, Rval (Litv (IntLit (int_of_num(w2n w)))))
     | (WordToInt W64, [Litv (Word64 w)]) =>
         SOME (s, Rval (Litv (IntLit (int_of_num(w2n w)))))
-    | (CopyStrStr, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len)]) =>
+    | (CopyStrStr, [Litv(StrLit strng);Litv(IntLit off);Litv(IntLit len)]) =>
         SOME (s,
-        (case copy_array (EXPLODE str,off) len NONE of
+        (case copy_array (explode strng,off) len NONE of
           NONE => Rraise sub_exn_v
-        | SOME cs => Rval (Litv(StrLit(IMPLODE(cs))))
+        | SOME cs => Rval (Litv(StrLit(implode (cs))))
         ))
-    | (CopyStrAw8, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len);
+    | (CopyStrAw8, [Litv(StrLit strng);Litv(IntLit off);Litv(IntLit len);
                     Loc _ dst;Litv(IntLit dstoff)]) =>
         (case store_lookup dst s of
           SOME (W8array ws) =>
-            (case copy_array (EXPLODE str,off) len (SOME(ws_to_chars ws,dstoff)) of
+            (case copy_array (explode strng,off) len (SOME(ws_to_chars ws,dstoff)) of
               NONE => SOME (s, Rraise sub_exn_v)
             | SOME cs =>
               (case store_assign dst (W8array (chars_to_ws cs)) s of
@@ -184,7 +202,7 @@ Definition do_app_def:
         SOME (s,
           (case copy_array (ws,off) len NONE of
             NONE => Rraise sub_exn_v
-          | SOME ws => Rval (Litv(StrLit(IMPLODE(ws_to_chars ws))))
+          | SOME ws => Rval (Litv(StrLit(implode(ws_to_chars ws))))
           ))
       | _ => NONE
       )
@@ -205,7 +223,7 @@ Definition do_app_def:
     | (XorAw8Str_unsafe, [Loc _ dst; Litv (StrLit str_arg)]) =>
         (case store_lookup dst s of
           SOME (W8array bs) =>
-            (case xor_bytes (MAP (n2w o ORD) str_arg) bs of
+            (case xor_bytes (MAP (n2w o ORD) (explode str_arg)) bs of
              | NONE => NONE
              | SOME new_bs =>
                 case store_assign dst (W8array new_bs) s of
@@ -221,37 +239,35 @@ Definition do_app_def:
             Rraise chr_exn_v
           else
             Rval (Litv(Char(CHR(Num (ABS (I i))))))))
-    | (Chopb op, [Litv (Char c1); Litv (Char c2)]) =>
-        SOME (s, Rval (Boolv (opb_lookup op (int_of_num(ORD c1)) (int_of_num(ORD c2)))))
     | (Implode, [v]) =>
           (case v_to_char_list v of
             SOME ls =>
-              SOME (s, Rval (Litv (StrLit (IMPLODE ls))))
+              SOME (s, Rval (Litv (StrLit (implode ls))))
           | NONE => NONE
           )
     | (Explode, [v]) =>
           (case v of
-            Litv (StrLit str) =>
-              SOME (s, Rval (list_to_v (MAP (\ c .  Litv (Char c)) (EXPLODE str))))
+            Litv (StrLit strng) =>
+              SOME (s, Rval (list_to_v (MAP (\ c .  Litv (Char c)) (explode strng))))
           | _ => NONE
           )
-    | (Strsub, [Litv (StrLit str); Litv (IntLit i)]) =>
+    | (Strsub, [Litv (StrLit strng); Litv (IntLit i)]) =>
         if i <( 0 : int) then
           SOME (s, Rraise sub_exn_v)
         else
           let n = (Num (ABS (I i))) in
-            if n >= STRLEN str then
+            if n >= strlen strng then
               SOME (s, Rraise sub_exn_v)
             else
-              SOME (s, Rval (Litv (Char (EL n (EXPLODE str)))))
-    | (Strlen, [Litv (StrLit str)]) =>
-        SOME (s, Rval (Litv(IntLit(int_of_num(STRLEN str)))))
+              SOME (s, Rval (Litv (Char (EL n (explode strng)))))
+    | (Strlen, [Litv (StrLit strng)]) =>
+        SOME (s, Rval (Litv(IntLit(int_of_num(strlen strng)))))
     | (Strcat, [v]) =>
         (case v_to_list v of
           SOME vs =>
             (case vs_to_string vs of
-              SOME str =>
-                SOME (s, Rval (Litv(StrLit str)))
+              SOME strng =>
+                SOME (s, Rval (Litv(StrLit strng)))
             | _ => NONE
             )
         | _ => NONE
@@ -431,9 +447,9 @@ Definition application_def:
            [Litv (StrLit conf); Loc _ lnum] => (
            case store_lookup lnum s of
              SOME (W8array ws) =>
-               if n = "" then Estep (env, s, Val $ Conv NONE [], c)
+               if n = «» then Estep (env, s, Val $ Conv NONE [], c)
                else Effi (ExtCall n)
-                         (MAP (λc. n2w $ ORD c) (EXPLODE conf))
+                         (MAP (λc. n2w $ ORD c) (explode conf))
                          ws lnum env s c
            | _ => Etype_error)
          | _ => Etype_error)
@@ -722,10 +738,10 @@ End
 Definition start_env_def:
   start_env : v sem_env =
   <|v := Bind [] [];
-    c := Bind [("::",2,TypeStamp "::" 1); ("[]",0,TypeStamp "[]" 1);
-               ("True",0,TypeStamp "True" 0); ("False",0,TypeStamp "False" 0);
-               ("Subscript",0,ExnStamp 3); ("Div",0,ExnStamp 2);
-               ("Chr",0,ExnStamp 1); ("Bind",0,ExnStamp 0)] []
+    c := Bind [(«::»,2,TypeStamp «::» 1); («[]»,0,TypeStamp «[]» 1);
+               («True»,0,TypeStamp «True» 0); («False»,0,TypeStamp «False» 0);
+               («Subscript»,0,ExnStamp 3); («Div»,0,ExnStamp 2);
+               («Chr»,0,ExnStamp 1); («Bind»,0,ExnStamp 0)] []
   |>
 End
 

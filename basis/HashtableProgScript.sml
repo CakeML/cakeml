@@ -52,7 +52,7 @@ Quote add_cakeml:
 End
 
 val hashtable_ty_env = get_env (get_ml_prog_state());
-val stamp_eval = EVAL ``nsLookup (^hashtable_ty_env).c (Short "Hashtable")``
+val stamp_eval = EVAL ``nsLookup (^hashtable_ty_env).c (Short «Hashtable»)``
 val hashtable_con_stamp = rhs (concl stamp_eval)
 
 Definition hashtable_con_stamp_def:
@@ -63,7 +63,7 @@ val _ = ml_prog_update open_local_in_block;
 
 (* provides the Hashtable.hashtable name for the hashtable type *)
 val _ = ml_prog_update (add_dec
-  ``Dtabbrev unknown_loc ["'a";"'b"] "hashtable" (Atapp [Atvar "'a"; Atvar "'b"] (Short "hashtable"))`` I);
+  ``Dtabbrev unknown_loc [«'a»;«'b»] «hashtable» (Atapp [Atvar «'a»; Atvar «'b»] (Short «hashtable»))`` I);
 
 Quote add_cakeml:
   fun delete ht k =
@@ -184,4 +184,3 @@ End
 val _ = ml_prog_update close_local_blocks;
 
 val _ = ml_prog_update (close_module NONE);
-

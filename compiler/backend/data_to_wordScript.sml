@@ -333,7 +333,7 @@ Definition SilentFFI_def:
       list_Seq [Assign n (Const 0w);
                 Assign 7 (Op Sub [Lookup NextFree; Lookup CurrHeap]);
                 Assign 9 (Lookup HeapLength);
-                FFI "" 7 n 9 n names]
+                FFI «» 7 n 9 n names]
     else Skip
 End
 
@@ -1610,6 +1610,28 @@ val def = assign_Define `
       : 'a wordLang$prog # num`;
 
 val def = assign_Define `
+  assign_BoolTest (l:num) (dest:num) (test: ast$test) v1 v2 =
+                 (If Equal (adjust_var v1) (Reg (adjust_var v2))
+                   (Assign (adjust_var dest) TRUE_CONST)
+                   (Assign (adjust_var dest) FALSE_CONST),l)
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_WordTest (l:num) (dest:num) (test: ast$test) v1 v2 =
+       ((dtcase test of
+         | Equal       => If Equal (adjust_var v1) (Reg (adjust_var v2))
+                             (Assign (adjust_var dest) TRUE_CONST)
+                             (Assign (adjust_var dest) FALSE_CONST)
+         | Compare Lt  => If Lower (adjust_var v1) (Reg (adjust_var v2))
+                             (Assign (adjust_var dest) TRUE_CONST)
+                             (Assign (adjust_var dest) FALSE_CONST)
+         | Compare Leq => If NotLower (adjust_var v2) (Reg (adjust_var v1))
+                             (Assign (adjust_var dest) TRUE_CONST)
+                             (Assign (adjust_var dest) FALSE_CONST)
+         | _           => Skip),l)
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
   assign_BoundsCheckByte (c:data_to_word$config) (secn:num)
              (l:num) (dest:num) (names:num_set option) leq v1 v2 =
                    (list_Seq [Assign 1
@@ -2142,7 +2164,7 @@ val def = assign_Define `
 val def = assign_Define `
   assign_FFI ffi_index (c:data_to_word$config) (secn:num)
              (l:num) (dest:num) (names:num_set option) v1 v2 =
-      if ¬c.call_empty_ffi ∧ ffi_index = "" then (Assign (adjust_var dest) Unit,l) else
+      if ¬c.call_empty_ffi ∧ ffi_index = «» then (Assign (adjust_var dest) Unit,l) else
         let addr1 = real_addr c (adjust_var v1) in
         let header1 = Load addr1 in
         let k = dimindex(:'a) - shift(:'a) - c.len_size in
@@ -2153,8 +2175,8 @@ val def = assign_Define `
         (list_Seq [
           Assign 1 (Op Add [addr1; Const bytes_in_word]);
           Assign 3 (Op Sub [fakelen1; Const bytes_in_word]);
-          Assign 5 (if ffi_index = "" then Const 0w else (Op Add [addr2; Const bytes_in_word]));
-          Assign 7 (if ffi_index = "" then Const 0w else (Op Sub [fakelen2; Const bytes_in_word]));
+          Assign 5 (if ffi_index = «» then Const 0w else (Op Add [addr2; Const bytes_in_word]));
+          Assign 7 (if ffi_index = «» then Const 0w else (Op Sub [fakelen2; Const bytes_in_word]));
           FFI ffi_index 1 3 5 7 (adjust_sets (dtcase names of SOME names => names | NONE => LN));
           Assign (adjust_var dest) Unit]
         , l)
@@ -2379,6 +2401,8 @@ Definition assign_def:
     | Label n => (LocValue (adjust_var dest) n,l)
     | MemOp (CopyByte alloc_new) => assign_CopyByte c secn l dest names args
     | MemOp RefArray => arg2 args (assign_RefArray c secn l dest names) (Skip,l)
+    | BlockOp (BoolTest test) => arg2 args (assign_BoolTest l dest test) (Skip,l)
+    | WordOp (WordTest ws test) => arg2 args (assign_WordTest l dest test) (Skip,l)
     | BlockOp (FromList tag) => arg2 args (assign_FromList c secn l dest names tag) (Skip,l)
     | IntOp (LessConstSmall i) => arg1 args (assign_LessConstSmall l dest i) (Skip,l)
     | MemOp (BoundsCheckByte leq) =>

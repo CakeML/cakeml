@@ -307,11 +307,11 @@ Theorem do_app_ffi_changed:
     op = FFI s ∧
     vs = [Litv (StrLit conf); Loc b lnum] ∧
     store_lookup lnum st = SOME (W8array ws) ∧
-    s ≠ "" ∧
+    s ≠ «» ∧
     ffi.oracle
        (ExtCall s)
        ffi.ffi_state
-       (MAP (λc. n2w $ ORD c) (EXPLODE conf))
+       (MAP (λc. n2w $ ORD c) (explode conf))
        ws =
     Oracle_return ffi_st ws' ∧
     LENGTH ws = LENGTH ws' ∧
@@ -320,7 +320,7 @@ Theorem do_app_ffi_changed:
     ffi'.ffi_state = ffi_st ∧
     ffi'.io_events =
       ffi.io_events ++
-        [IO_event (ExtCall s) (MAP (λc. n2w $ ORD c) (EXPLODE conf))
+        [IO_event (ExtCall s) (MAP (λc. n2w $ ORD c) (explode conf))
                   (ZIP (ws,ws'))]
 Proof
   simp[do_app_def,thunk_op_def] >>
@@ -328,7 +328,7 @@ Proof
   dsimp[AllCaseEqs(), PULL_EXISTS, UNCURRY_EQ] >>
   simp[call_FFI_def, AllCaseEqs(), SF CONJ_ss] >>
   rw[] >>
-  gvs[combinTheory.o_DEF, IMPLODE_EXPLODE_I, store_assign_def]
+  gvs[combinTheory.o_DEF, store_assign_def]
 QED
 
 Theorem do_app_not_timeout:
@@ -735,4 +735,35 @@ Theorem concrete_v_simps[simp]:
   (concrete_v (Recclosure e3 funs nm2) = F)
 Proof
   simp [concrete_v_def]
+QED
+
+Theorem prim_type_cases:
+  ∀ty.
+    ty = BoolT ∨
+    ty = IntT ∨
+    ty = CharT ∨
+    ty = StrT ∨
+    ty = WordT W8 ∨
+    ty = WordT W64 ∨
+    ty = Float64T
+Proof
+  Cases \\ fs [] \\ Cases_on ‘w’ \\ fs []
+QED
+
+Theorem do_conversion_check_type:
+  do_conversion v ty1 ty2 = SOME res ⇒
+  check_type ty2 res
+Proof
+  Cases_on ‘ty2’ using prim_type_cases
+  \\ rw [semanticPrimitivesTheory.check_type_def]
+  \\ gvs [oneline do_conversion_def,AllCaseEqs()]
+QED
+
+Theorem do_arith_check_type:
+  do_arith a ty vs = SOME (INR res) ⇒
+  check_type ty res
+Proof
+  Cases_on ‘ty’ using prim_type_cases
+  \\ gvs [oneline do_arith_def, AllCaseEqs()]
+  \\ rw [] \\ fs [semanticPrimitivesTheory.check_type_def]
 QED

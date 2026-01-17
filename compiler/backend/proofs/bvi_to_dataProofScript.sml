@@ -486,6 +486,13 @@ Proof
   \\ rw [FLOOKUP_UPDATE,data_to_bvi_ref_def,lookup_insert]
 QED
 
+Theorem data_to_bvi_v_Boolv_IMP[local]:
+  data_to_bvi_v x0 = Boolv b ⇒  dest_Boolv x0 = SOME b
+Proof
+  rw [bvlSemTheory.Boolv_def,dataSemTheory.dest_Boolv_def]
+  \\ Cases_on ‘b’ \\ simp [] \\ EVAL_TAC
+QED
+
 fun cases_on_op q = Cases_on q
   >>> TRY_LT (SELECT_LT_THEN (Q.RENAME_TAC [‘BlockOp b_’]) (Cases_on `b_`))
   >>> TRY_LT (SELECT_LT_THEN (Q.RENAME_TAC [‘GlobOp g_’]) (Cases_on `g_`))
@@ -493,7 +500,12 @@ fun cases_on_op q = Cases_on q
 
 Theorem data_to_bvi_do_app:
   ∀op t r z res s1.
-    op ≠ Install ∧ op ≠ IntOp Greater ∧ op ≠ IntOp GreaterEq ∧ (∀b. op ≠ MemOp (CopyByte b)) ∧
+    op ≠ Install ∧
+    op ≠ IntOp Greater ∧
+    op ≠ IntOp GreaterEq ∧
+    op ≠ WordOp (WordTest W8 (Compare Gt)) ∧
+    op ≠ WordOp (WordTest W8 (Compare Geq)) ∧
+    (∀b. op ≠ MemOp (CopyByte b)) ∧
     op ≠ ThunkOp ForceThunk ∧
     state_rel r t ∧
     do_app op (MAP data_to_bvi_v z) r = Rval (res,s1)
@@ -505,6 +517,15 @@ Proof
   strip_tac
   \\ ‘∃this_is_case. this_is_case op’ by (qexists_tac ‘K T’ \\ fs [])
   \\ cases_on_op `op`
+  >~ [`do_app (BlockOp (BoolTest test))`]
+  >- (fs[oneline bviSemTheory.do_app_def,
+      oneline bviSemTheory.do_app_aux_def,
+      bvlSemTheory.do_app_def,
+      oneline bvlSemTheory.do_word_app_def] >>
+      rw[AllCaseEqs()] >>
+      gvs[NULL_EQ_NIL,MAP_EQ_CONS]>>
+      simp[do_app_aux_def,do_word_app_def,bvl_to_bvi_id] >>
+      imp_res_tac data_to_bvi_v_Boolv_IMP >> fs [])
   >~ [`do_app (IntOp _)`]
   >- (fs[oneline bviSemTheory.do_app_def,
       oneline bviSemTheory.do_app_aux_def,
@@ -515,10 +536,11 @@ Proof
       simp[do_app_aux_def,do_int_app_def,bvl_to_bvi_id])
   >~ [`do_app (WordOp _)`]
   >- (fs[oneline bviSemTheory.do_app_def,
-      oneline bviSemTheory.do_app_aux_def,
-      bvlSemTheory.do_app_def,
-      oneline bvlSemTheory.do_word_app_def] >>
+         oneline bviSemTheory.do_app_aux_def,
+         bvlSemTheory.do_app_def,
+         oneline bvlSemTheory.do_word_app_def] >>
       rw[AllCaseEqs()] >>
+      TRY (rename [‘Compare cmp’] \\ Cases_on ‘cmp’ \\ gvs []) >>
       gvs[NULL_EQ_NIL,MAP_EQ_CONS]>>
       simp[do_app_aux_def,do_word_app_def,bvl_to_bvi_id])
   >~ [`do_app (MemOp XorByte)`]
@@ -590,7 +612,7 @@ Proof
      \\ pop_assum $ irule_at Any \\ fs [data_to_bvi_v_def])
   >- (rename1 `Label` \\ rfs [code_rel_def])
   >- (rename1 `FFI` \\ rw[])
-  >- (rename1 `FFI ""` \\ rw[])
+  >- (rename1 `FFI «»` \\ rw[])
   >~ [`ThunkOp (AllocThunk t)`]
   >- (rw [data_to_bvi_ref_def]
       \\ gvs [refs_rel_LEAST_eq, lookup_map, map_replicate])
@@ -1081,6 +1103,66 @@ Proof
           \\ rename [`dataSem$do_app _ [Number i';Number i]`]
           \\ fs [EVAL ``dataSem$do_app (IntOp Less) [Number i'; Number i] t``]
           \\ fs [EVAL ``dataSem$do_app (IntOp LessEq) [Number i'; Number i] t``]
+          \\ fs [set_var_def,lookup_insert,integerTheory.int_gt,integerTheory.int_ge]
+          \\ fs [state_rel_def]
+          \\ fs [EVAL ``(bvl_to_bvi (bvi_to_bvl r) r).refs``]
+          \\ fs [EVAL ``(bvl_to_bvi (bvi_to_bvl r) r).ffi``]
+          \\ fs [EVAL ``(bvl_to_bvi (bvi_to_bvl r) r).global``]
+          \\ fs [var_corr_def,get_var_def,lookup_insert,bvlSemTheory.Boolv_def,
+                 backend_commonTheory.bool_to_tag_def,
+                 backend_commonTheory.true_tag_def,
+                 backend_commonTheory.false_tag_def]
+          \\ rveq \\ fs [] \\ rveq \\ fs []
+          \\ unabbrev_all_tac
+          \\ fs [ lookup_inter_alt,map_insert,lookup_map
+                  , lookup_insert,data_to_bvi_v_def]
+          \\  conj_tac
+          >- ( fs[bvl_to_bvi_def] )
+          \\ rpt strip_tac
+          THEN1 (full_simp_tac(srw_ss())[LIST_REL_EL_EQN,var_corr_def,
+                                         get_var_def,lookup_insert]
+                 \\ REPEAT STRIP_TAC
+                 \\ Q.MATCH_ASSUM_RENAME_TAC `l < LENGTH env`
+                 \\ IF_CASES_TAC \\ fs []
+                 \\ res_tac THEN1 (qpat_assum `EL l corr = n1` assume_tac \\ fs [])
+                 \\ fs [domain_lookup,lookup_list_to_num_set]
+                 \\ METIS_TAC [MEM_EL])
+          THEN1 (Cases_on `k = n1` \\ full_simp_tac(srw_ss())[] \\ UNABBREV_ALL_TAC
+                 \\ full_simp_tac(srw_ss())[lookup_insert,lookup_inter_EQ,
+                                            lookup_list_to_num_set] \\ RES_TAC \\ DECIDE_TAC)
+          THEN1
+           (`k <> n1` by (REPEAT STRIP_TAC \\ RES_TAC
+                          \\ full_simp_tac(srw_ss())[] \\ NO_TAC)
+            \\ full_simp_tac(srw_ss())[] \\ UNABBREV_ALL_TAC
+            \\ full_simp_tac(srw_ss())[lookup_insert,lookup_inter_EQ,
+                                       lookup_list_to_num_set]
+            \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[]
+            \\ fs [lookup_list_to_num_set,domain_lookup])
+          THEN1 (POP_ASSUM MP_TAC \\ Cases_on `jump_exc t1` \\ full_simp_tac(srw_ss())[]
+                 \\ IMP_RES_TAC jump_exc_IMP
+                 \\ POP_ASSUM MP_TAC \\ POP_ASSUM MP_TAC
+                 \\ full_simp_tac(srw_ss())[jump_exc_def])))
+    \\ Cases_on `op = WordOp (WordTest W8 (Compare Gt)) ∨
+                 op = WordOp (WordTest W8 (Compare Geq))` THEN1
+     (fs []
+      \\ (fs [dataLangTheory.op_requires_names_def
+              ,dataLangTheory.op_space_reset_def
+              ,data_spaceTheory.op_space_req_def]
+          \\ fs [evaluate_def,cut_state_opt_def,
+                 dataLangTheory.op_requires_names_def,
+                 dataLangTheory.op_space_reset_def]
+          \\ fs [cut_state_def,cut_env_def,domain_map
+                 ,dataLangTheory.op_requires_names_def]
+          \\ imp_res_tac get_vars_reverse \\ fs []
+          \\ qpat_x_assum `bviSem$do_app _ _ _ = _` mp_tac
+          \\ simp [bviSemTheory.do_app_def,bviSemTheory.do_app_aux_def,
+                   oneline bvlSemTheory.do_word_app_def,AllCaseEqs(),PULL_EXISTS,
+                   bvlSemTheory.do_app_def,oneline bvlSemTheory.do_int_app_def]
+          \\ fs [SWAP_REVERSE_SYM,MAP_EQ_CONS]
+          \\ rpt strip_tac \\ rveq
+          \\ rename [`dataSem$do_app _ [Number i';Number i]`]
+          \\ fs [EVAL ``dataSem$do_app (WordOp (WordTest W8 (Compare Lt))) [Number i'; Number i] t``]
+          \\ fs [EVAL ``dataSem$do_app (WordOp (WordTest W8 (Compare Leq))) [Number i'; Number i] t``]
           \\ fs [set_var_def,lookup_insert,integerTheory.int_gt,integerTheory.int_ge]
           \\ fs [state_rel_def]
           \\ fs [EVAL ``(bvl_to_bvi (bvi_to_bvl r) r).refs``]
@@ -2371,4 +2453,3 @@ Proof
   \\ disch_then drule
   \\ simp[Abbr`e`]
 QED
-

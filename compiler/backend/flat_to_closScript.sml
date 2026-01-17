@@ -13,13 +13,13 @@ Libs
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
 Definition dest_pat_def:
-  dest_pat [(Pvar v, h)] = SOME (v:string,h) /\
+  dest_pat [(Pvar v, h)] = SOME (v:mlstring,h) /\
   dest_pat _ = NONE
 End
 
 Theorem dest_pat_pmatch:
   dest_pat x =
-    case x of [(Pvar v, h)] => SOME (v:string,h) | _ => NONE
+    case x of [(Pvar v, h)] => SOME (v:mlstring,h) | _ => NONE
 Proof
   CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
   \\ every_case_tac \\ fs [dest_pat_def]
@@ -40,7 +40,7 @@ Definition compile_lit_def:
      (dtcase l of
       | IntLit i => IntOp (Const i)
       | Char c => IntOp (Const (& (ORD c)))
-      | StrLit s => BlockOp (Constant (ConstStr (mlstring$implode s)))
+      | StrLit s => BlockOp (Constant (ConstStr s))
       | Word8 b => IntOp (Const (& (w2n b)))
       | Word64 w => BlockOp (Constant (ConstWord64 w))
       | Float64 w => BlockOp (Constant (ConstWord64 w))) []
@@ -97,6 +97,40 @@ Definition CopyByteAw8_def:
   CopyByteAw8 t = ^checkF
 End
 
+Definition compile_arith_def:
+  compile_arith t a ty xs =
+    dtcase ty of
+    | IntT => (dtcase a of
+               | Add => Op t (IntOp closLang$Add) xs
+               | Sub => Op t (IntOp closLang$Sub) xs
+               | Mul => Op t (IntOp Mult) xs
+               | ast_temp$Div => Let t xs (If t (Op t (BlockOp Equal) [Var t 0; Op t (IntOp (Const 0)) []])
+                                   (Raise t (Op t (BlockOp (Cons div_tag)) []))
+                                   (Op t (IntOp closLang$Div) [Var t 0; Var t 1]))
+               | Mod => Let t xs (If t (Op t (BlockOp Equal) [Var t 0; Op t (IntOp (Const 0)) []])
+                                   (Raise t (Op t (BlockOp (Cons div_tag)) []))
+                                   (Op t (IntOp closLang$Mod) [Var t 0; Var t 1]))
+               | _ => Let None xs (Var None 0))
+    | Float64T => (dtcase a of
+                   | Abs => Op t (WordOp (FP_uop FP_Abs)) xs
+                   | Neg => Op t (WordOp (FP_uop FP_Neg)) xs
+                   | Sqrt => Op t (WordOp (FP_uop FP_Sqrt)) xs
+                   | Add => Op t (WordOp (FP_bop FP_Add)) xs
+                   | Sub => Op t (WordOp (FP_bop FP_Sub)) xs
+                   | Mul => Op t (WordOp (FP_bop FP_Mul)) xs
+                   | ast_temp$Div => Op t (WordOp (FP_bop FP_Div)) xs
+                   | FMA => Op t (WordOp (FP_top FP_Fma)) xs
+                   | _ => Let None xs (Var None 0))
+    | WordT ws => (dtcase a of
+                   | Add => Op t (WordOp (WordOpw ws ast$Add)) xs
+                   | Sub => Op t (WordOp (WordOpw ws ast$Sub)) xs
+                   | And => Op t (WordOp (WordOpw ws Andw)) xs
+                   | Or => Op t (WordOp (WordOpw ws Orw)) xs
+                   | ast_temp$Xor => Op t (WordOp (WordOpw ws ast$Xor)) xs
+                   | _ => Let None xs (Var None 0))
+    | _ => Let None xs (Var None 0)
+End
+
 Definition compile_op_def:
   compile_op t op xs =
     dtcase op of
@@ -110,11 +144,6 @@ Definition compile_op_def:
                         (If t (Op t (IntOp Less) [Var t 0; Op None (IntOp (Const 255)) []])
                           (Raise t (Op t (BlockOp (Cons chr_tag)) []))
                           (Var t 0)))
-    | Chopb chop => Op t (IntOp (dtcase chop of
-                                 | Lt => Less
-                                 | Gt => Greater
-                                 | Leq => LessEq
-                                 | Geq => GreaterEq)) xs
     | Opassign => arg2 xs (\x y. Op t (MemOp Update) [x; Op None (IntOp (Const 0)) []; y])
     | Opref => Op t (MemOp Ref) xs
     | ConfigGC => Op t (MemOp ConfigGC) xs
@@ -150,6 +179,24 @@ Definition compile_op_def:
     | CopyAw8Aw8 => Let t xs (CopyByteAw8 t)
     | Aw8xor_unsafe => Op t (MemOp XorByte) xs
     | VfromList => Op t (BlockOp (FromList 0)) xs
+    | Test test test_ty =>
+         (dtcase test_ty of
+          | BoolT     => Op t (BlockOp (BoolTest test)) xs
+          | CharT     => Op t (WordOp (WordTest W8 test)) xs
+          | WordT W8  => Op t (WordOp (WordTest W8 test)) xs
+          | IntT      => (dtcase test of
+                          | Compare Lt  => Op t (IntOp Less) xs
+                          | Compare Leq => Op t (IntOp LessEq) xs
+                          | Compare Gt  => Op t (IntOp Greater) xs
+                          | Compare Geq => Op t (IntOp GreaterEq) xs
+                          | _           => Op t (BlockOp Equal) xs)
+          | Float64T  => (dtcase test of
+                          | Compare Lt  => Op t (WordOp (FP_cmp FP_Less)) xs
+                          | Compare Leq => Op t (WordOp (FP_cmp FP_LessEqual)) xs
+                          | Compare Gt  => Op t (WordOp (FP_cmp FP_Greater)) xs
+                          | Compare Geq => Op t (WordOp (FP_cmp FP_GreaterEqual)) xs
+                          | _           => Op t (WordOp (FP_cmp FP_Equal)) xs)
+          | _         => Op t (BlockOp Equal) xs)
     | WordFromInt W64 => Op t (WordOp WordFromInt) xs
     | WordToInt W64 => Op t (WordOp WordToInt) xs
     | WordFromInt W8 => arg1 xs (\x. Op t (IntOp Mod) [Op t (IntOp (Const 256)) []; x])
@@ -195,6 +242,8 @@ Definition compile_op_def:
     | FpFromWord => Let None xs (Var None 0)
     | FpToWord => Let None xs (Var None 0)
     | ThunkOp op => Op t (ThunkOp op) xs
+    | Arith a ty => compile_arith t a ty xs
+    | FromTo (WordT W8) IntT => arg1 xs (\x. x)
     | _ => Let None xs (Var None 0)
 End
 
@@ -271,7 +320,7 @@ Definition compile_def:
      | SOME e => compile m [e]
      | NONE => [compile_op t op (compile m (REVERSE es))]) /\
   (compile m [Fun t v e] =
-     [Fn (mlstring$implode t) NONE NONE 1 (HD (compile (SOME v::m) [e]))]) /\
+     [Fn t NONE NONE 1 (HD (compile (SOME v::m) [e]))]) /\
   (compile m [If t x1 x2 x3] =
      [If t (HD (compile m [x1]))
            (HD (compile m [x2]))
@@ -285,7 +334,7 @@ Definition compile_def:
      | _ => compile m [e]) /\
   (compile m [Letrec t funs e] =
      let new_m = MAP (\n. SOME (FST n)) funs ++ m in
-       [Letrec (MAP (\n. join_strings (mlstring$implode t) (mlstring$implode (FST n))) funs) NONE NONE
+       [Letrec (MAP (\n. join_strings t (FST n)) funs) NONE NONE
           (MAP ( \ (f,v,x). (1, HD (compile (SOME v :: new_m) [x]))) funs)
           (HD (compile new_m [e]))])
 Termination

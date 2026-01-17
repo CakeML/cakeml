@@ -69,14 +69,14 @@ val _ = Q.prove(
 
 val _ = translate parse_strlit_def
 
-val _ = (append_prog o process_topdecs) ‘
+Quote add_cakeml:
   fun parse_string cs =
     case parse_strlit cs of
       None => None
     | Some (str, cs) => Some (String.implode str, cs)
-  ’
+End
 
-val _ = (append_prog o process_topdecs) ‘
+Quote add_cakeml:
   fun parse_skip_space l =
     case l of
       [] => []
@@ -84,9 +84,9 @@ val _ = (append_prog o process_topdecs) ‘
       if Char.isSpace x then
         parse_skip_space cs
       else (x::cs);
-  ’
+End
 
-val _ = (append_prog o process_topdecs) ‘
+Quote add_cakeml:
   fun parse_token token cs =
     case cs of
       (c::cs) =>
@@ -97,9 +97,9 @@ val _ = (append_prog o process_topdecs) ‘
         else
           None
     | [] => None
-  ’
+End
 
-val _ = (append_prog o process_topdecs) ‘
+Quote add_cakeml:
   fun parse_list_innards is_ordered parse_elem cs one_more_elem acc =
     case cs of
       c::cs =>
@@ -133,9 +133,10 @@ val _ = (append_prog o process_topdecs) ‘
         if one_more_elem then None
         else if is_ordered then
           Some(List.rev acc, [])
-        else Some (acc, [])’
+        else Some (acc, [])
+End
 
-val _ = (append_prog o process_topdecs) ‘
+Quote add_cakeml:
   fun parse_list is_ordered parse_elem cs =
     case cs of
       c::cs =>
@@ -144,9 +145,10 @@ val _ = (append_prog o process_topdecs) ‘
         else if c = #"[" then
           parse_list_innards is_ordered parse_elem cs False []
         else None
-    | [] => None’
+    | [] => None
+End
 
-val _ = (append_prog o process_topdecs) ‘
+Quote add_cakeml:
   fun parse_type cs =
     case cs of
     (#"T" :: #"y" :: #"v" :: #"a" :: #"r" :: #" " :: cs) =>
@@ -160,9 +162,10 @@ val _ = (append_prog o process_topdecs) ‘
            (case parse_list True parse_type cs of
               None => None
             | Some (tylist, cs) => Some (Kernel.Tyapp name tylist, cs)))
-  | _ => None’
+  | _ => None
+End
 
-val _ = (append_prog o process_topdecs) ‘
+Quote add_cakeml:
   fun parse_pair parse_fst parse_snd cs =
     case parse_token #"(" cs of
       None => None
@@ -178,9 +181,10 @@ val _ = (append_prog o process_topdecs) ‘
           | Some (second, cs) =>
             (case parse_token #")" cs of
               None => None
-            | Some cs => Some ((first, second), cs)))))’
+            | Some cs => Some ((first, second), cs)))))
+End
 
-val _ = (append_prog o process_topdecs) ‘
+Quote add_cakeml:
   fun parse_sum parse_inl parse_inr cs =
     let val cs = parse_skip_space cs in
     case parse_inr cs of
@@ -189,21 +193,25 @@ val _ = (append_prog o process_topdecs) ‘
           None => None
         | Some (inl, cs) => Some (Inl inl, cs))
     | Some (inr, cs) => Some (Inr inr, cs)
-    end’
+    end
+End
 
-val _ = (append_prog o process_topdecs)
-  ‘fun parse_sum_hol_type x = parse_sum parse_type (parse_pair parse_string parse_type) x’
+Quote add_cakeml:
+  fun parse_sum_hol_type x = parse_sum parse_type (parse_pair parse_string parse_type) x
+End
 
-val _ = (append_prog o process_topdecs)
-  ‘fun hol_type_sum_pairs x = parse_pair parse_sum_hol_type parse_sum_hol_type x’
+Quote add_cakeml:
+  fun hol_type_sum_pairs x = parse_pair parse_sum_hol_type parse_sum_hol_type x
+End
 
-val _ = (append_prog o process_topdecs) ‘
+Quote add_cakeml:
   fun intersperse_commas l =
       case l of [] => []
              | [e] => [e]
-             | e::l => e:: "," :: intersperse_commas l’
+             | e::l => e:: "," :: intersperse_commas l
+End
 
-val _ = (append_prog o process_topdecs) ‘
+Quote add_cakeml:
   fun present_type ty =
       case ty of (Kernel.Tyvar s) => "'" ^ s
               | (Kernel.Tyapp s []) => s
@@ -213,16 +221,18 @@ val _ = (append_prog o process_topdecs) ‘
                     val ps = String.concat(intersperse_commas(List.map present_type l))
                   in
                     "(" ^ ps ^ ") " ^ s
-                  end’
+                  end
+End
 
-val _ = (append_prog o process_topdecs) ‘
+Quote add_cakeml:
   fun present_tot ty =
     case ty of (Inl ty) => present_type ty
-            | (Inr(Kernel.Const name ty)) => name ^ " : " ^ present_type ty’
+            | (Inr(Kernel.Const name ty)) => name ^ " : " ^ present_type ty
+End
 
-val _ = (append_prog o process_topdecs)
-  ‘fun main u =
-     let val cs = String.explode(TextIO.inputAll TextIO.stdIn);
+Quote add_cakeml:
+  fun main u =
+     let val cs = String.explode(TextIO.inputAll (TextIO.openStdIn ()));
      in
         (case parse_list False hol_type_sum_pairs cs of
           None => print "Parse error!\n"
@@ -263,11 +273,11 @@ val _ = (append_prog o process_topdecs)
             handle Kernel.Fail s => print s
                  | _ => print "Unhandled exception raised!\n"
      end
-  ’
+End
 
 val prog =
-  “SNOC (Dlet unknown_loc (Pcon NONE []) (App Opapp [Var (Short "main"); Con NONE []]))
+  “SNOC (Dlet unknown_loc (Pcon NONE []) (App Opapp [Var (Short «main»); Con NONE []]))
         ^(get_ml_prog_state() |> get_prog)
-  ” |> EVAL |> concl |> rhs
+  ” |> EVAL |> concl |> rhs;
 
 val _ = astToSexprLib.write_ast_to_file "cyclicity_checker.sexp" prog;
