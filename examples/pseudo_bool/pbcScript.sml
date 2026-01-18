@@ -27,13 +27,13 @@ End
 *)
 
 (* A linear term over variables *)
-Type lin_term = ``:(int # 'a lit) list``;
+Type lin_term[pp] = ``:(int # 'a lit) list``;
 
 Datatype:
   pbop = Equal | GreaterEqual | Greater | LessEqual | Less
 End
 
-Type pbc = ``:(pbop # 'a lin_term # int)``
+Type pbc[pp] = ``:(pbop # 'a lin_term # int)``
 
 (* 0-1 integer-valued semantics *)
 Definition b2i_def[simp]:
