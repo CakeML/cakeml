@@ -10,7 +10,6 @@ Libs
 val _ = translation_extends"graphProg";
 
 val res = translate enc_string_def;
-val res = translate pbcTheory.map_obj_def;
 val res = translate clique_obj_def;
 val res = translate FOLDN_def;
 val res = translate annot_string_def;

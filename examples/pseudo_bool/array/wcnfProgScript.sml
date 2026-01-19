@@ -283,7 +283,6 @@ val res = translate wfml_to_pbf_def;
 
 val res = translate enc_string_def;
 
-val _ = translate pbcTheory.map_obj_def;
 val _ = translate full_encode_def;
 
 (* parse input from f1 and run encoder into npbc *)

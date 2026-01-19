@@ -80,6 +80,7 @@ val r = translate parse_constraint_LHS_aux_def;
 val r = translate parse_constraint_LHS_def;
 
 val r = translate pbcTheory.map_pbc_def;
+val r = translate pbcTheory.map_obj_def;
 val r = translate map_f_ns_def;
 val r = translate parse_constraint_npbc_def;
 
@@ -3585,3 +3586,4 @@ Definition mk_usage_string_def:
 End
 
 val res = translate mk_usage_string_def;
+

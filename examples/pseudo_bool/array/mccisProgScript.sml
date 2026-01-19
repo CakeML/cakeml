@@ -12,7 +12,6 @@ val _ = translation_extends"graphProg";
 (* The encoder *)
 val res = translate enc_string_def;
 
-val res = translate pbcTheory.map_obj_def;
 val res = translate unmapped_obj_def;
 
 val res = translate log2_def;
