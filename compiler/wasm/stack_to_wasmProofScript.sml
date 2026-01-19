@@ -5,7 +5,7 @@ Theory stack_to_wasmProof
 Libs
   preamble helperLib shLib
 Ancestors
-  longmul misc wasmLang
+  longmul add_carry misc wasmLang
   wasmSem stackSem stackLang stackProps asm
 
 
@@ -26,51 +26,83 @@ QED
 Definition I64_EQ_def:
   I64_EQ = Numeric (N_compare (Eq Int W64))
 End
+Definition I32_EQ_def:
+  I32_EQ = Numeric (N_compare (Eq Int W32))
+End
 
 Definition I64_NE_def:
   I64_NE = Numeric (N_compare (Ne Int W64))
+End
+Definition I32_NE_def:
+  I32_NE = Numeric (N_compare (Ne Int W32))
 End
 
 Definition I64_LT_U_def:
   I64_LT_U = Numeric (N_compare (Lt_ Unsigned W64))
 End
+Definition I32_LT_U_def:
+  I32_LT_U = Numeric (N_compare (Lt_ Unsigned W32))
+End
 
 Definition I64_GT_U_def:
   I64_GT_U = Numeric (N_compare (Gt_ Unsigned W64))
+End
+Definition I32_GT_U_def:
+  I32_GT_U = Numeric (N_compare (Gt_ Unsigned W32))
 End
 
 Definition I64_LE_U_def:
   I64_LE_U = Numeric (N_compare (Le_ Unsigned W64))
 End
+Definition I32_LE_U_def:
+  I32_LE_U = Numeric (N_compare (Le_ Unsigned W32))
+End
 
 Definition I64_GE_U_def:
   I64_GE_U = Numeric (N_compare (Ge_ Unsigned W64))
+End
+Definition I32_GE_U_def:
+  I32_GE_U = Numeric (N_compare (Ge_ Unsigned W32))
 End
 
 Definition I64_LT_S_def:
   I64_LT_S = Numeric (N_compare (Lt_ Signed W64))
 End
+Definition I32_LT_S_def:
+  I32_LT_S = Numeric (N_compare (Lt_ Signed W32))
+End
 
 Definition I64_GT_S_def:
   I64_GT_S = Numeric (N_compare (Gt_ Signed W64))
+End
+Definition I32_GT_S_def:
+  I32_GT_S = Numeric (N_compare (Gt_ Signed W32))
 End
 
 Definition I64_LE_S_def:
   I64_LE_S = Numeric (N_compare (Le_ Signed W64))
 End
+Definition I32_LE_S_def:
+  I32_LE_S = Numeric (N_compare (Le_ Signed W32))
+End
 
 Definition I64_GE_S_def:
   I64_GE_S = Numeric (N_compare (Ge_ Signed W64))
+End
+Definition I32_GE_S_def:
+  I32_GE_S = Numeric (N_compare (Ge_ Signed W32))
 End
 
 Definition I64_EQZ_def:
   I64_EQZ = Numeric (N_eqz W64)
 End
+Definition I32_EQZ_def:
+  I32_EQZ = Numeric (N_eqz W32)
+End
 
 Definition I64_CONST_def:
   I64_CONST w = Numeric (N_const64 Int w)
 End
-
 Definition I32_CONST_def:
   I32_CONST w = Numeric (N_const32 Int w)
 End
@@ -78,39 +110,62 @@ End
 Definition I64_ADD_def:
   I64_ADD = Numeric (N_binary (Add Int W64))
 End
+Definition I32_ADD_def:
+  I32_ADD = Numeric (N_binary (Add Int W32))
+End
 
 Definition I64_SUB_def:
   I64_SUB = Numeric (N_binary (Sub Int W64))
+End
+Definition I32_SUB_def:
+  I32_SUB = Numeric (N_binary (Sub Int W32))
 End
 
 Definition I64_MUL_def:
   I64_MUL = Numeric (N_binary (Mul Int W64))
 End
+Definition I32_MUL_def:
+  I32_MUL = Numeric (N_binary (Mul Int W32))
+End
 
 Definition I64_AND_def:
   I64_AND = Numeric (N_binary (And W64))
+End
+Definition I32_AND_def:
+  I32_AND = Numeric (N_binary (And W32))
 End
 
 Definition I64_OR_def:
   I64_OR = Numeric (N_binary (Or W64))
 End
+Definition I32_OR_def:
+  I32_OR = Numeric (N_binary (Or W32))
+End
 
 Definition I64_XOR_def:
   I64_XOR = Numeric (N_binary (Xor W64))
+End
+Definition I32_XOR_def:
+  I32_XOR = Numeric (N_binary (Xor W32))
 End
 
 Definition I64_SHL_def:
   I64_SHL = Numeric (N_binary (Shl W64))
 End
+Definition I32_SHL_def:
+  I32_SHL = Numeric (N_binary (Shl W32))
+End
 
 Definition I64_SHR_S_def:
   I64_SHR_S = Numeric (N_binary (Shr_ Signed W64))
+End
+Definition I32_SHR_S_def:
+  I32_SHR_S = Numeric (N_binary (Shr_ Signed W32))
 End
 
 Definition I64_SHR_U_def:
   I64_SHR_U = Numeric (N_binary (Shr_ Unsigned W64))
 End
-
 Definition I32_SHR_U_def:
   I32_SHR_U = Numeric (N_binary (Shr_ Unsigned W32))
 End
@@ -118,13 +173,22 @@ End
 Definition I64_ROTR_def:
   I64_ROTR = Numeric (N_binary (Rotr W64))
 End
+Definition I32_ROTR_def:
+  I32_ROTR = Numeric (N_binary (Rotr W32))
+End
 
 Definition I64_DIV_S_def:
   I64_DIV_S = Numeric (N_binary (Div_ Signed W64))
 End
+Definition I32_DIV_S_def:
+  I32_DIV_S = Numeric (N_binary (Div_ Signed W32))
+End
 
 Definition I64_DIV_U_def:
   I64_DIV_U = Numeric (N_binary (Div_ Unsigned W64))
+End
+Definition I32_DIV_U_def:
+  I32_DIV_U = Numeric (N_binary (Div_ Unsigned W32))
 End
 
 Definition I32_WRAP_I64_def:
@@ -175,6 +239,10 @@ Definition SELECT_def:
   SELECT = Parametric Select
 End
 
+Definition I64_EXTEND32_U_def:
+  I64_EXTEND32_U = Numeric (N_unary (ExtendI32_ Unsigned))
+End
+
 (* more wasm instructions go here *)
 (* see wasmLangScript.sml *)
 
@@ -189,30 +257,6 @@ End
 (* compiler definition (TODO: move to another file when ready) *)
 
 (* Long multiplication *)
-
-(*
-Definition chop64_def:
-  chop64 (a:word64) = (a && 0xFFFFFFFFw, a >>> 32)
-End
-chop64 a = (lo,hi)
-
-Definition glue64_def:
-  glue64 (w1:word64) (w2:word64) = (w2 << 32) + w1
-End
-glue64 (lo,hi)
-
-Definition longmul64_def:
-  longmul64 (a:word64) (b:word64) =
-    let (a1,a2) = chop64 a in
-    let (b1,b2) = chop64 b in
-    let (a1b1,k1) = chop64 (a1 * b1) in
-    let (a1b2,k1) = chop64 (a1 * b2 + k1) in
-    let (a2b1,k2) = chop64 (a2 * b1 + a1b2) in
-    let lower = glue64 a1b1 a2b1 in (* or just a * b but that's one more mult *)
-    let upper = a2 * b2 + k2 + k1 in
-    ((lower:word64), (upper:word64))
-End
-*)
 
 Definition wasm_chop64_ftype_index_def:
   wasm_chop64_ftype_index = 1w:word32
@@ -245,6 +289,18 @@ End
 
 Definition wasm_long_mul_index_def:
   wasm_long_mul_index = 1:num
+End
+
+Definition wasm_add_carry_index_def:
+  wasm_add_carry_index = 2n
+End
+
+Definition wasm_add_overflow_index_def:
+  wasm_add_overflow_index = 3n
+End
+
+Definition wasm_sub_overflow_index_def:
+  wasm_sub_overflow_index = 4n
 End
 
 Definition wasm_long_mul_body_def:
@@ -295,6 +351,16 @@ Definition wasm_long_mul_body_def:
   ]
 End
 
+(* Definition add_carry_def:
+  add_carry (a:'a word) (b:'a word) (carry:'a word) =
+  let c:'a word = if carry = 0w then 0w else 1w in
+  let sum = a+b in
+  let t1:'a word = if sum <+ b then 1w else 0w in
+  let sum_c = sum+c in
+  let t2:'a word = if sum_c <+ c then 1w else 0w in
+  (sum_c, t1||t2)
+*)
+
 Definition wasm_long_mul_def:
   wasm_long_mul = <|
     ftype := wasm_long_mul_ftype_index;
@@ -303,7 +369,58 @@ Definition wasm_long_mul_def:
   |>
 End
 
+Definition wasm_add_carry_body_def:
+  wasm_add_carry_body = [
+    LOCAL_GET 2(*c*); I64_CONST 0w; I64_GT_U; I64_EXTEND32_U; LOCAL_SET 2(*c*);
+    (* [] *)
+    LOCAL_GET 0(*a*); LOCAL_GET 1(*b*); I64_ADD; LOCAL_TEE 0(*sum*);
+    (* [sum] *)
+    LOCAL_GET 1(*b*); I64_LT_S; LOCAL_SET 3(*t1*);
+    (* [] *)
+    LOCAL_GET 0(*sum*); LOCAL_GET 2(*c*); I64_ADD; (* sum_c *)
+    (* [sum_c] *)
+    LOCAL_GET 2(*c*); I64_LT_S; LOCAL_GET 3(*t1*); I32_OR; I64_EXTEND32_U
+  ]
+End
+
+Definition wasm_add_carry_ftype_index_def:
+  wasm_add_carry_ftype_index = 3w:word32
+End
+
+Definition wasm_add_carry_def:
+  wasm_add_carry = <|
+    ftype := wasm_add_carry_ftype_index;
+    locals := [i64;i64;i64;i32];
+    body := wasm_add_carry_body
+  |>
+End
+
+Definition wasm_add_overflow_ftype_index_def:
+  wasm_add_overflow_ftype_index = 2w:word32
+End
+
+Definition wasm_add_overflow_def:
+  wasm_add_overflow = <|
+    ftype := wasm_add_overflow_ftype_index;
+    locals := [](*XXX*);
+    body := [](*XXX*)
+  |>
+End
+
+Definition wasm_sub_overflow_ftype_index_def:
+  wasm_sub_overflow_ftype_index = 2w:word32
+End
+
+Definition wasm_sub_overflow_def:
+  wasm_sub_overflow = <|
+    ftype := wasm_add_overflow_ftype_index;
+    locals := [](*XXX*);
+    body := [](*XXX*)
+  |>
+End
+
 (* reg_imm = Reg reg | Imm ('a imm) *)
+
 Definition comp_ri_def:
   comp_ri (Reg r) = GLOBAL_GET r ∧
   comp_ri (Imm n) = I64_CONST n
@@ -332,12 +449,11 @@ End
         | Div reg reg reg
         | LongMul reg reg reg reg (* lo,hi,a,b *)
         | LongDiv reg reg reg reg reg
-        | AddCarry reg reg reg reg
+        | AddCarry reg reg reg reg (* result, a, b, carry(in&out) *)
         | AddOverflow reg reg reg reg
         | SubOverflow reg reg reg reg
 
   binop = Add | Sub | And | Or | Xor
-
   shift = Lsl | Lsr | Asr | Ror
 *)
 Definition compile_arith_def:
@@ -369,8 +485,12 @@ Definition compile_arith_def:
   compile_arith (asm$LongMul t_lo t_hi s1 s2) =
     List [GLOBAL_GET s1; GLOBAL_GET s2; CALL wasm_long_mul_index; GLOBAL_SET t_hi; GLOBAL_SET t_lo] ∧
   (* LongDiv is banned *)
-
-
+  compile_arith (asm$AddCarry t s1 s2 flag) =
+    List [GLOBAL_GET s1; GLOBAL_GET s2; GLOBAL_GET flag; CALL wasm_add_carry_index; GLOBAL_SET flag; GLOBAL_SET t] ∧
+  compile_arith (asm$AddOverflow t s1 s2 flag) =
+    List [GLOBAL_GET s1; GLOBAL_GET s2; CALL wasm_add_overflow_index; GLOBAL_SET flag; GLOBAL_SET t] ∧
+  compile_arith (asm$SubOverflow t s1 s2 flag) =
+    List [GLOBAL_GET s1; GLOBAL_GET s2; CALL wasm_sub_overflow_index; GLOBAL_SET flag; GLOBAL_SET t]
 End
 
 Definition compile_inst_def:
@@ -380,12 +500,13 @@ Definition compile_inst_def:
   compile_inst (asm$Arith a) = compile_arith a
 End
 
+(* the type of all cakeml functions *)
 Definition ftype_def:
   ftype = ([], [Tnum Int W32])
 End
 
 Definition wasm_support_function_list_def:
-  wasm_support_function_list = [wasm_chop64; wasm_long_mul]
+  wasm_support_function_list = [wasm_chop64; wasm_long_mul; wasm_add_carry; wasm_add_overflow; wasm_sub_overflow]
 End
 
 Definition tail_call_def:
@@ -494,6 +615,7 @@ Definition cakeml_ftype_index_def:
   cakeml_ftype_index = 0w:word32
 End
 
+(* TODO: explain why we need this *)
 Definition stack_wasm_ok_def:
   (stack_wasm_ok c (ShMemOp _ _ _) <=> F) ∧
   (stack_wasm_ok c (JumpLower _ _ _) ⇔ F) ∧
@@ -509,20 +631,21 @@ Definition stack_wasm_ok_def:
     | SOME (rp,lr,_,_) =>
       stack_wasm_ok c rp ∧ lr < c.reg_count ∧
       (case h of NONE=>T | SOME (hp,_,_) => stack_wasm_ok c hp)
-  )
+  ) ∧
+(*
+  (stack_wasm_ok c (Inst (Arith (LongDiv _ _ _ _ _))) <=> F) ∧
+*)
+  (stack_wasm_ok c p <=> stack_asm_ok c p)
 End
 
 (*
-Datatype: func =
-  <| ftype  : index
-   ; locals : valtype list
-   ; body   : expr
-   |>
-End
+  Datatype: func =
+    <| ftype  : index
+     ; locals : valtype list
+     ; body   : expr
+     |>
+  End
 *)
-
-(* TODO: code_rel: we can find long mul at const index i *)
-(* see HOL/examples/machine-code/multiword *)
 
 Definition code_rel_def:
   code_rel (s_code: 64 stackLang$prog sptree$num_map) (t_funcs: func list) =
@@ -544,9 +667,12 @@ Definition wasm_state_ok_def:
   (∀i. i < LENGTH wasm_support_function_list ==> oEL i t.funcs = SOME (EL i wasm_support_function_list)) ∧
   (* func type table *)
   (
-    oEL (w2n cakeml_ftype_index) t.types = SOME ([], [Tnum Int W32]) ∧
+    oEL (w2n cakeml_ftype_index) t.types = SOME ([],[i32]) ∧
     oEL (w2n wasm_chop64_ftype_index) t.types = SOME ([i64],[i64;i64]) ∧
-    oEL (w2n wasm_long_mul_ftype_index) t.types = SOME ([i64;i64],[i64;i64])
+    oEL (w2n wasm_long_mul_ftype_index) t.types = SOME ([i64;i64],[i64;i64]) ∧
+    oEL (w2n wasm_add_carry_ftype_index) t.types = SOME ([i64;i64;i64],[i64;i64]) ∧
+    oEL (w2n wasm_add_overflow_ftype_index) t.types = SOME ([i64;i64],[i64;i64]) ∧
+    oEL (w2n wasm_sub_overflow_ftype_index) t.types = SOME ([i64;i64],[i64;i64])
   ) ∧
   (* every wasm func is present in the func_table for indirect calls *)
   (∀i. i < LENGTH t.funcs ⇒ oEL i t.func_table = SOME (n2w (LENGTH wasm_support_function_list + i)))
@@ -948,6 +1074,12 @@ Proof
   fs[state_rel_def,wasm_state_ok_def]
 QED
 
+Theorem state_rel_push[simp]:
+  state_rel c s (push v t) = state_rel c s t
+Proof
+  fs[push_def]
+QED
+
 Theorem regs_rel_FEMPTY:
   regs_rel c s_regs t_globals ⇒
   regs_rel c FEMPTY t_globals
@@ -988,14 +1120,15 @@ QED
 
 Theorem exec_comp_ri:
   get_var_imm ri s = SOME w ∧
-  conf_ok c ∧ state_rel c s t ⇒
+  conf_ok c ∧
+  state_rel c s t ⇒
   exec (comp_ri ri) t = (RNormal, push (wl_value w) t)
 Proof
-rpt strip_tac
->>(Cases_on`ri`>>fs[get_var_imm_def,comp_ri_def])
+Cases_on‘ri’>>simp[get_var_imm_def,comp_ri_def]
 >-metis_tac[exec_GLOBAL_GET]
->>simp[exec_I64_CONST]
->>gvs[push_def,wl_value_def]
+>>rw[wl_value_def]
+>>simp[]
+>>irule exec_I64_CONST
 QED
 
 (* Overload b2v = “(λ b. if b then I32 1w else I32 0w) : bool -> value” *)
@@ -1166,11 +1299,25 @@ Proof
 simp[I64_OR_def,exec_def,num_stk_op_def,push_def,do_bin_eq]
 QED
 
+Theorem exec_I64_XOR:
+  exec I64_XOR (push (I64 b) (push (I64 a) t)) =
+  (RNormal, push (I64 (a⊕b)) t)
+Proof
+simp[I64_XOR_def,exec_def,num_stk_op_def,push_def,do_bin_eq]
+QED
+
 Theorem exec_I64_ADD:
   exec I64_ADD (push (I64 b) (push (I64 a) t)) =
   (RNormal, push (I64 (a+b)) t)
 Proof
 simp[I64_ADD_def,exec_def,num_stk_op_def,push_def,do_bin_eq]
+QED
+
+Theorem exec_I64_SUB:
+  exec I64_SUB (push (I64 b) (push (I64 a) t)) =
+  (RNormal, push (I64 (a-b)) t)
+Proof
+simp[I64_SUB_def,exec_def,num_stk_op_def,push_def,do_bin_eq]
 QED
 
 Theorem exec_I64_MUL:
@@ -1590,10 +1737,22 @@ rpt strip_tac
 >>simp[exec_list_append]
 QED
 
+Theorem LENGTH_globals_lt_4294967296:
+  conf_ok c ∧ state_rel c s t ⇒ LENGTH t.globals < 4294967296
+Proof
+  simp[state_rel_def,regs_rel_def,conf_ok_def]
+QED
+
+Theorem wasm_reg_ok_drule:
+  reg_ok r c ∧ conf_ok c ∧ state_rel c s t ⇒
+  r < LENGTH t.globals ∧ LENGTH t.globals < 4294967296
+Proof
+  simp[reg_ok_def,state_rel_def,regs_rel_def,conf_ok_def]
+QED
+
 Theorem compile_Inst:
   ^(get_goal "Inst")
-Proof cheat
-(*
+Proof
   rw[compile_def]
   >>qexists_tac`0`
   >>(Cases_on`i`>>fs[compile_inst_def])
@@ -1604,11 +1763,14 @@ Proof cheat
     fs[evaluate_def,inst_def,assign_def,CaseEq"option"]
     >>fs[exec_list_cons,exec_I64_CONST]
     >>rpt(pairarg_tac>>fs[])
-    >>drule exec_GLOBAL_SET_drule
-    >>simp[]
-    >>CONV_TAC(DEPTH_CONV record_canon_simp_conv)
-    >>impl_keep_tac
-    >-fs[stack_wasm_ok_def,inst_ok_def,reg_ok_def,conf_ok_def,state_rel_def,regs_rel_def]
+    >>`LENGTH t.globals <= 4294967296` by (drule_all LENGTH_globals_lt_4294967296 >> simp[])
+    >>subgoal`n < LENGTH t.globals`
+    >-(
+      qpat_x_assum‘stack_wasm_ok c (const_inst n _)’mp_tac
+      >>simp[stack_wasm_ok_def,stack_asm_ok_def,inst_ok_def,reg_ok_def]
+      >>fs[state_rel_def,regs_rel_def]
+    )
+    >>drule_all_then simp1 exec_GLOBAL_SET
     >>rw[]
     >-simp[res_rel_def]
     >>irule state_rel_set_var
@@ -1616,8 +1778,64 @@ Proof cheat
   )
   >~[`Arith`]
   >-(
-    rename1`Arith a`>>Cases_on`a`
-    >~[`Binop`] >- cheat
+    rename1`Arith a`
+    >>Cases_on`a`
+    >~[`Binop`]
+    >-(
+      rename1`evaluate (Inst (Arith (Binop op rt rs1 rs2)),s) = _`
+      >>Cases_on‘op’>>gvs[compile_arith_def,evaluate_def,inst_def,assign_def,option_case_eq]
+      >~[`Or`]
+      >-(
+        `∃w1. get_var rs1 s = SOME w1` by (Cases_on‘rs2 = Reg rs1’>>gvs[word_exp_def,option_case_eq,IS_SOME_EXISTS,get_var_def])
+        >>once_rewrite_tac[exec_list_cons]
+        >>drule_all_then simp1 exec_GLOBAL_GET
+        >>once_rewrite_tac[exec_list_cons]
+        >>`∃w2. get_var_imm rs2 s = SOME w2` by (Cases_on‘rs2 = Reg rs1’>>Cases_on‘rs2’>>gvs[word_exp_def,option_case_eq,IS_SOME_EXISTS,oneline get_var_imm_def,get_var_def])
+        >>`state_rel c s (push (wl_value w1) t)` by simp[push_def]
+        >>drule_all_then simp1 exec_comp_ri
+        >>once_rewrite_tac[exec_list_cons]
+        >>simp[wl_value_def,exec_I64_OR]
+        >>DEP_REWRITE_TAC[exec_GLOBAL_SET]
+        >>`reg_ok rt c` by fs[stack_wasm_ok_def,stack_asm_ok_def,inst_ok_def,arith_ok_def]
+        >>conj_tac
+        >-(
+          drule_all wasm_reg_ok_drule
+          >>simp[push_def]
+        )
+        >>rw[res_rel_def]
+        >>Cases_on‘rs2 = Reg rs1’
+        >>gvs[option_case_eq]
+        >>irule state_rel_set_var
+        >>(conj_tac>-metis_tac[wasm_reg_ok_drule])
+        >>(
+          gvs[word_exp_def, IS_SOME_EXISTS, wordLangTheory.word_op_def, get_var_def, oneline get_var_imm_def, wl_value_def, AllCaseEqs()]
+          >>Cases_on‘w’
+          >>gvs[]
+        )
+      )
+      >>(
+        `∃w1. get_var rs1 s = SOME w1` by gvs[word_exp_def,option_case_eq,IS_SOME_EXISTS,get_var_def]
+        >>once_rewrite_tac[exec_list_cons]
+        >>drule_all_then simp1 exec_GLOBAL_GET
+        >>once_rewrite_tac[exec_list_cons]
+        >>`∃w2. get_var_imm rs2 s = SOME w2` by (Cases_on‘rs2’>>gvs[word_exp_def,option_case_eq,IS_SOME_EXISTS,oneline get_var_imm_def,get_var_def])
+        >>`state_rel c s (push (wl_value w1) t)` by simp[push_def]
+        >>drule_all_then simp1 exec_comp_ri
+        >>once_rewrite_tac[exec_list_cons]
+        >>simp[wl_value_def,exec_I64_ADD,exec_I64_SUB,exec_I64_AND,exec_I64_XOR]
+        >>DEP_REWRITE_TAC[exec_GLOBAL_SET]
+        >>`reg_ok rt c` by fs[stack_wasm_ok_def,stack_asm_ok_def,inst_ok_def,arith_ok_def]
+        >>conj_tac
+        >-(
+          drule_all wasm_reg_ok_drule
+          >>simp[push_def]
+        )
+        >>rw[res_rel_def]
+        >>irule state_rel_set_var
+        >>conj_tac>-metis_tac[wasm_reg_ok_drule]
+        >>gvs[wasm_reg_ok_drule, word_exp_def, IS_SOME_EXISTS, wordLangTheory.word_op_def, get_var_def, oneline get_var_imm_def, wl_value_def, AllCaseEqs()]
+      )
+    )
     >~[`Shift`] >- cheat
     >~[`Div`] >- cheat
     >~[`LongMul`] >- cheat
@@ -1630,9 +1848,8 @@ Proof cheat
     cheat
   >~[`FP`] >-
     gvs[stack_wasm_ok_def,inst_ok_def,oneline fp_ok_def,AllCasePreds(),fp_reg_ok_def,conf_ok_def]
-*)
-QED
 
+QED
 
 Theorem res_rel_RBreak:
   res_rel res (RBreak n) stack_pair ⇒ F
