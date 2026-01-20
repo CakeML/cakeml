@@ -1901,25 +1901,18 @@ Proof
       >>once_rewrite_tac[exec_list_cons]
       >>drule_all_then simp1 exec_GLOBAL_GET
       >>once_rewrite_tac[exec_list_cons]
-      >>rename1`get_var rs1 s = SOME (Word w1)`
-      >>rename1`get_var rs2 s = SOME (Word w2)`
-      >>`state_rel c s (push (wl_value (Word w1)) t)` by simp[]
-      >>qspecl_then [`Word w2`,`push (wl_value (Word w1)) t`,`s`,`rs2`,`c`] (fn th=>DEP_REWRITE_TAC[th]) (GEN_ALL exec_GLOBAL_GET)
+      >>rev_drule_then (drule_then (fn th => DEP_REWRITE_TAC[th])) exec_GLOBAL_GET
       >>simp[]
       >>once_rewrite_tac[exec_list_cons]
       >>simp[wl_value_wl_word]
       >>DEP_REWRITE_TAC[exec_I64_DIV_S]
       >>conj_tac>-simp[wl_word_def]
       >>simp[]
-      >>`state_rel c s (push (I64 (wl_word (Word w1) / wl_word (Word w2))) t)` by simp[]
-      >>drule_all_then assume_tac wasm_reg_ok_drule
-      >>qspecl_then[`I64 (wl_word (Word w1) / wl_word (Word w2))`,`t`,`rt`] assume_tac $ GEN_ALL exec_GLOBAL_SET
-      >>pop_assum (fn th=>DEP_REWRITE_TAC[th])
-      >>conj_tac>-metis_tac[wasm_reg_ok_drule,LT_IMP_LE]
+      >>DEP_REWRITE_TAC[exec_GLOBAL_SET]
+      >>imp_res_tac wasm_reg_ok_drule
       >>rw[res_rel_def]
       >>irule state_rel_set_var
       >>simp[wl_value_wl_word,wl_word_def]
-      >>fs[push_def]
     )
     >~[`LongMul`] >- cheat
     >~[`LongDiv`] >- fs[stack_wasm_ok_def,inst_ok_def,arith_ok_def,conf_ok_def]
