@@ -219,7 +219,7 @@ Inductive b_op_rel:
   (∀ l r. b_op_rel (Mul Int W32) (I32 l) (I32 r) (I32 $ l * r) )
   ∧
   (∀ n d. d ≠ 0w ⇒ b_op_rel (Div_ Unsigned W32) (I32 n) (I32 d) (I32 $ n // d) )∧
-  (∀ n d. d ≠ 0w ⇒ b_op_rel (Rem_ Unsigned W32) (I32 n) (I32 d) (I32 $ n // d) )
+  (∀ n d. d ≠ 0w ⇒ b_op_rel (Rem_ Unsigned W32) (I32 n) (I32 d) (I32 $ word_mod n d) )
   ∧
   (∀ l r. b_op_rel (And W32) (I32 l) (I32 r) (I32 $ l && r) )∧
   (∀ l r. b_op_rel (Or  W32) (I32 l) (I32 r) (I32 $ l || r) )∧
@@ -236,7 +236,7 @@ Inductive b_op_rel:
   (∀ l r. b_op_rel (Mul Int W64) (I64 l) (I64 r) (I64 $ l * r) )
   ∧
   (∀ n d. d ≠ 0w ⇒ b_op_rel (Div_ Unsigned W64) (I64 n) (I64 d) (I64 $ n // d) )∧
-  (∀ n d. d ≠ 0w ⇒ b_op_rel (Rem_ Unsigned W64) (I64 n) (I64 d) (I64 $ n // d) )
+  (∀ n d. d ≠ 0w ⇒ b_op_rel (Rem_ Unsigned W64) (I64 n) (I64 d) (I64 $ word_mod n d) )
   ∧
   (∀ l r. b_op_rel (And W64) (I64 l) (I64 r) (I64 $ l && r) )∧
   (∀ l r. b_op_rel (Or  W64) (I64 l) (I64 r) (I64 $ l || r) )∧
@@ -249,10 +249,10 @@ Inductive b_op_rel:
   (∀ w n. b_op_rel (Shr_ Unsigned W64) (I64 w) (I64 n) (I64 $ w >>> (w2n (n && 63w))) )
   ∧
   (* integer_words$word_rem *)
-  (∀ n d. d ≠ 0w ⇒ b_op_rel (Div_   Signed W32) (I32 n) (I32 d) (I32 $ n // d) )∧
-  (∀ n d. d ≠ 0w ⇒ b_op_rel (Rem_   Signed W32) (I32 n) (I32 d) (I32 $ n // d) )∧
-  (∀ n d. d ≠ 0w ⇒ b_op_rel (Div_   Signed W64) (I64 n) (I64 d) (I64 $ n // d) )∧
-  (∀ n d. d ≠ 0w ⇒ b_op_rel (Rem_   Signed W64) (I64 n) (I64 d) (I64 $ n // d) )
+  (∀ n d. d ≠ 0w ⇒ b_op_rel (Div_   Signed W32) (I32 n) (I32 d) (I32 $ n / d) )∧
+  (∀ n d. d ≠ 0w ⇒ b_op_rel (Rem_   Signed W32) (I32 n) (I32 d) (I32 $ word_rem n d) )∧
+  (∀ n d. d ≠ 0w ⇒ b_op_rel (Div_   Signed W64) (I64 n) (I64 d) (I64 $ n / d) )∧
+  (∀ n d. d ≠ 0w ⇒ b_op_rel (Rem_   Signed W64) (I64 n) (I64 d) (I64 $ word_rem n d) )
 End
 
 Theorem b_op_rel_det:

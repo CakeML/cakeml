@@ -1327,6 +1327,22 @@ Proof
 simp[I64_MUL_def,exec_def,num_stk_op_def,push_def,do_bin_eq]
 QED
 
+Theorem exec_I64_DIV_U:
+  b≠0w ⇒
+  exec I64_DIV_U (push (I64 b) (push (I64 a) t)) =
+  (RNormal, push (I64 (a//b)) t)
+Proof
+simp[I64_DIV_U_def,exec_def,num_stk_op_def,push_def,do_bin_eq]
+QED
+
+Theorem exec_I64_DIV_S:
+  b≠0w ⇒
+  exec I64_DIV_S (push (I64 b) (push (I64 a) t)) =
+  (RNormal, push (I64 (a/b)) t)
+Proof
+simp[I64_DIV_S_def,exec_def,num_stk_op_def,push_def,do_bin_eq]
+QED
+
 Theorem exec_I64_EQZ:
   exec I64_EQZ (push (I64 a) t) =
   (RNormal, push (I32 (b2w (a=0w))) t)
@@ -1353,6 +1369,20 @@ Theorem exec_I64_SHR_U:
   (RNormal, push (I64 (a >>> w2n (b && 63w))) t)
 Proof
   simp[I64_SHR_U_def,exec_def,num_stk_op_def,push_def,do_bin_eq]
+QED
+
+Theorem exec_I64_SHR_S:
+  exec I64_SHR_S (push (I64 b) (push (I64 a) t)) =
+  (RNormal, push (I64 (a >> w2n (b && 63w))) t)
+Proof
+  simp[I64_SHR_S_def,exec_def,num_stk_op_def,push_def,do_bin_eq]
+QED
+
+Theorem exec_I64_ROTR:
+  exec I64_ROTR (push (I64 b) (push (I64 a) t)) =
+  (RNormal, push (I64 (a #>> w2n (b && 63w))) t)
+Proof
+  simp[I64_ROTR_def,exec_def,num_stk_op_def,push_def,do_bin_eq]
 QED
 
 Theorem exec_I64_SHL:
@@ -1750,6 +1780,18 @@ Proof
   simp[reg_ok_def,state_rel_def,regs_rel_def,conf_ok_def]
 QED
 
+Theorem shamt_simp[simp]:
+  n<64 ⇒ w2n (63w:64 word && n2w n) = n
+Proof cheat(*
+  rw[]>>
+  `n2w n <+ 64w:word64` by
+    fs[WORD_LO]>>
+  `(63w:word64) && n2w n = n2w n` by
+    (rename1`_ && w`>>
+    blastLib.FULL_BBLAST_TAC)>>
+  rw[]*)
+QED
+
 Theorem compile_Inst:
   ^(get_goal "Inst")
 Proof
@@ -1760,21 +1802,15 @@ Proof
   >-gvs[evaluate_def,exec_def,res_rel_def,inst_def]
   >~[`Const`]
   >-(
-    fs[evaluate_def,inst_def,assign_def,CaseEq"option"]
+    gvs[evaluate_def,inst_def,assign_def,option_case_eq,word_exp_def]
+    >>fs[stack_wasm_ok_def,stack_asm_ok_def,inst_ok_def]
+    >>drule_all_then assume_tac wasm_reg_ok_drule
     >>fs[exec_list_cons,exec_I64_CONST]
-    >>rpt(pairarg_tac>>fs[])
-    >>`LENGTH t.globals <= 4294967296` by (drule_all LENGTH_globals_lt_4294967296 >> simp[])
-    >>subgoal`n < LENGTH t.globals`
-    >-(
-      qpat_x_assum‘stack_wasm_ok c (const_inst n _)’mp_tac
-      >>simp[stack_wasm_ok_def,stack_asm_ok_def,inst_ok_def,reg_ok_def]
-      >>fs[state_rel_def,regs_rel_def]
-    )
-    >>drule_all_then simp1 exec_GLOBAL_SET
-    >>rw[]
-    >-simp[res_rel_def]
+    >>DEP_REWRITE_TAC[exec_GLOBAL_SET]
+    >>conj_tac>-decide_tac
+    >>simp[res_rel_def]
     >>irule state_rel_set_var
-    >>fs[word_exp_def,wl_value_def]
+    >>simp[wl_value_def]
   )
   >~[`Arith`]
   >-(
@@ -1836,8 +1872,55 @@ Proof
         >>gvs[wasm_reg_ok_drule, word_exp_def, IS_SOME_EXISTS, wordLangTheory.word_op_def, get_var_def, oneline get_var_imm_def, wl_value_def, AllCaseEqs()]
       )
     )
-    >~[`Shift`] >- cheat
-    >~[`Div`] >- cheat
+    >~[`Shift`]
+    >-(
+      rename1`evaluate (Inst (Arith (Shift op rt rs shamt)),s) = _`
+      >>gvs[compile_arith_def,evaluate_def,inst_def,assign_def,option_case_eq]
+      >>`reg_ok rs c ∧ reg_ok rt c` by fs[stack_wasm_ok_def,stack_asm_ok_def,inst_ok_def,arith_ok_def]
+      >>`∃w1. get_var rs s = SOME w1` by gvs[word_exp_def,option_case_eq,IS_SOME_EXISTS,get_var_def]
+      >>once_rewrite_tac[exec_list_cons]
+      >>drule_all_then simp1 exec_GLOBAL_GET
+      >>once_rewrite_tac[exec_list_cons]
+      >>simp[exec_I64_CONST]
+      >>drule_all_then assume_tac wasm_reg_ok_drule
+      >>once_rewrite_tac[exec_list_cons]
+      >>Cases_on‘op’
+      >>simp[wl_value_wl_word,exec_I64_SHL,exec_I64_SHR_U,exec_I64_SHR_S,exec_I64_ROTR]
+      >>DEP_REWRITE_TAC[exec_GLOBAL_SET]
+      >>conj_tac>-decide_tac
+      >>rw[res_rel_def]
+      >>irule state_rel_set_var
+      >>rw[]
+      >>gvs[word_exp_def,AllCaseEqs(),wordLangTheory.word_sh_def,get_var_def,wl_value_wl_word,wl_word_def]
+    )
+    >~[`Div`]
+    >-(
+      rename1`evaluate (Inst (Arith (Div rt rs1 rs2)),s) = _`
+      >>`reg_ok rs1 c ∧ reg_ok rs2 c ∧ reg_ok rt c` by fs[stack_wasm_ok_def,stack_asm_ok_def,inst_ok_def,arith_ok_def]
+      >>gvs[compile_arith_def,evaluate_def,inst_def,get_vars_def,AllCaseEqs()]
+      >>once_rewrite_tac[exec_list_cons]
+      >>drule_all_then simp1 exec_GLOBAL_GET
+      >>once_rewrite_tac[exec_list_cons]
+      >>rename1`get_var rs1 s = SOME (Word w1)`
+      >>rename1`get_var rs2 s = SOME (Word w2)`
+      >>`state_rel c s (push (wl_value (Word w1)) t)` by simp[]
+      >>qspecl_then [`Word w2`,`push (wl_value (Word w1)) t`,`s`,`rs2`,`c`] (fn th=>DEP_REWRITE_TAC[th]) (GEN_ALL exec_GLOBAL_GET)
+      >>simp[]
+      >>once_rewrite_tac[exec_list_cons]
+      >>simp[wl_value_wl_word]
+      >>DEP_REWRITE_TAC[exec_I64_DIV_S]
+      >>conj_tac>-simp[wl_word_def]
+      >>simp[]
+      >>`state_rel c s (push (I64 (wl_word (Word w1) / wl_word (Word w2))) t)` by simp[]
+      >>drule_all_then assume_tac wasm_reg_ok_drule
+      >>qspecl_then[`I64 (wl_word (Word w1) / wl_word (Word w2))`,`t`,`rt`] assume_tac $ GEN_ALL exec_GLOBAL_SET
+      >>pop_assum (fn th=>DEP_REWRITE_TAC[th])
+      >>conj_tac>-metis_tac[wasm_reg_ok_drule,LT_IMP_LE]
+      >>rw[res_rel_def]
+      >>irule state_rel_set_var
+      >>simp[wl_value_wl_word,wl_word_def]
+      >>fs[push_def]
+    )
     >~[`LongMul`] >- cheat
     >~[`LongDiv`] >- fs[stack_wasm_ok_def,inst_ok_def,arith_ok_def,conf_ok_def]
     >~[`AddCarry`] >- cheat
