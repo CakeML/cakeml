@@ -12579,7 +12579,7 @@ Proof
        \\ fs [] \\ rw [] \\ fs [])
   \\ drule0 (memory_rel_Deref' |> GEN_ALL) \\ fs []
   \\ disch_then drule \\ strip_tac \\ fs []
-  \\ drule memory_rel_RefPtr_IMP' \\ fs [] \\ strip_tac
+  \\ drule memory_rel_RefPtr_T_IMP \\ fs [] \\ strip_tac
   \\ gvs [get_real_simple_addr_def]
   \\ gvs[GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
   \\ gvs [FLOOKUP_DEF]
@@ -12611,21 +12611,21 @@ Proof
   \\ disch_then drule0 \\ fs []
   \\ imp_res_tac get_vars_1_IMP \\ fs []
   \\ fs [integerTheory.NUM_OF_INT,LENGTH_EQ_1] \\ clean_tac
-  \\ qmatch_goalsub_abbrev_tac ‘(_,_)::(xs1++[(RefPtr br ref_ptr,_)]++xs2)’
+  \\ qmatch_goalsub_abbrev_tac ‘(_,_)::(xs1++[(RefPtr T ref_ptr,_)]++xs2)’
   \\ strip_tac
   \\ ‘memory_rel c t.be (THE x.tstamps) x.refs x.space t.store t.memory t.mdomain
-        ((RefPtr br ref_ptr,t.store ' Globals)::(h,a1')::(xs1 ++ xs2))’ by
+        ((RefPtr T ref_ptr,t.store ' Globals)::(h,a1')::(xs1 ++ xs2))’ by
       (first_x_assum (fn th => mp_tac th \\ match_mp_tac memory_rel_rearrange)
        \\ fs [] \\ rw [] \\ fs [])
   \\ ‘∃curr.
         FLOOKUP t.store CurrHeap = SOME (Word curr) ∧
         glob_real_inv c curr (FLOOKUP t.store Globals) (FLOOKUP t.store GlobReal)’
           by fs [memory_rel_def,heap_in_memory_store_def,state_rel_def]
-  \\ drule memory_rel_RefPtr_IMP' \\ fs [] \\ strip_tac
+  \\ drule memory_rel_RefPtr_T_IMP \\ fs [] \\ strip_tac
   \\ fs [glob_real_inv_def]
   \\ fs [wordSemTheory.get_vars_def,AllCaseEqs()]
   \\ ‘memory_rel c t.be (THE x.tstamps) x.refs x.space t.store t.memory t.mdomain
-        ((h,a1')::(RefPtr br ref_ptr,t.store ' Globals)::(xs1 ++ xs2))’ by
+        ((h,a1')::(RefPtr T ref_ptr,t.store ' Globals)::(xs1 ++ xs2))’ by
       (first_x_assum (fn th => mp_tac th \\ match_mp_tac memory_rel_rearrange)
        \\ fs [] \\ rw [] \\ fs [])
   \\ drule0 (memory_rel_Update' |> GEN_ALL) \\ fs []
@@ -12679,7 +12679,7 @@ Proof
   \\ fs [wordSemTheory.get_vars_def,wordSemTheory.get_var_def]
   \\ rename [‘(real_addr c (adjust_var y))’]
   \\ strip_tac
-  \\ drule_all memory_rel_RefPtr_IMP' \\ strip_tac
+  \\ drule_all memory_rel_RefPtr_T_IMP \\ strip_tac
   \\ ‘word_exp (set_store Globals (Word www) t) (real_addr c (adjust_var y)) =
       word_exp t (real_addr c (adjust_var y))’ by
       (rw[wordSemTheory.set_store_def,wordSemTheory.word_exp_def,real_addr_def,

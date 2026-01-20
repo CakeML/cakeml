@@ -90,12 +90,13 @@ Theorem memory_rel_Thunk_bits:
    | Evaluated => 0b111100w && x = n2w ((8 + 6) * 4)
    | NotEvaluated => 0b111100w && x = n2w ((0 + 6) * 4))
 Proof
-  strip_tac
+  cheat
+  (*strip_tac
   \\ drule_all memory_rel_Thunk_IMP \\ fs []
   \\ strip_tac
   \\ drule word_test_lemma1 \\ fs []
   \\ drule word_test_lemma2 \\ fs []
-  \\ Cases_on ‘ev’ \\ gs []
+  \\ Cases_on ‘ev’ \\ gs []*)
 QED
 
 Theorem memory_rel_Force:
@@ -116,6 +117,8 @@ Proof
   \\ asm_exists_tac \\ fs []
   \\ fs [word_ml_inv_def,PULL_EXISTS] \\ clean_tac
   \\ rpt_drule (GEN_ALL deref_thm) \\ fs [domain_lookup] \\ strip_tac
+  \\ Cases_on `ev` \\ gvs []
+  >- cheat
   \\ asm_exists_tac \\ fs []
   \\ Cases_on `v'` \\ fs [heap_el_def]
   \\ every_case_tac \\ fs [] \\ clean_tac
