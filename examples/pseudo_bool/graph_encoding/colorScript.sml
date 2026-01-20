@@ -26,12 +26,38 @@ Definition min_color_size_def:
 End
 
 (* TODO: define an encoding, the annot and var types might not be correct *)
-Type annot = ``:(num # num)``;
-Type var = ``:num``;
+(* Type annot = ``:(num # num)``; *)
+(* Type var = ``:num``; *)
+Datatype:
+  annot = EdgeColor num (* vertex 1 *) num (* vertex 2 *) num (* color *)
+        | VertexHasColor num (* color constraint for specific color *)
+End
+Datatype:
+  var = X num (* vertex *) num (* color *)
+End
+
+Definition flat_genlist_def:
+  flat_genlist n f = FLAT (GENLIST f n)
+End
 
 (* TODO: define the encoding, assuming at most n colors are used *)
 Definition encode_def:
-  encode (n:num) ((v,e):graph) = []:(annot # var pbc) list
+  encode (n:num) ((v,e):graph) =
+    (* every vertex has at least one color *)
+    GENLIST (λvertex.
+      (VertexHasColor vertex,
+       (GreaterEqual, GENLIST (λcolor. (1i,Pos (X vertex color))) n, 1i))
+       ) v ++
+    (* for each color: at least one end of each edge does not have that color *)
+    flat_genlist n (λcolor.
+    flat_genlist v (λx.
+    flat_genlist v (λy.
+      if is_edge e x y then
+        [(EdgeColor x y color,
+          GreaterEqual, [(1i, Neg (X x color)); (1i, Neg (X y color))], 1i)]
+      else []
+    )))
+  :(annot # var pbc) list
 End
 
 (* TODO: define the objective function, on at most n colors *)
@@ -66,7 +92,7 @@ QED
 
 (* TODO: not sure if annotation is necessary *)
 Definition annot_string_def:
-  annot_string ((x,y):annot) = (SOME (strlit "TODO"):mlstring option)
+  annot_string (_:annot) = (SOME (strlit "TODO"):mlstring option)
 End
 
 Definition full_encode_def:
@@ -82,7 +108,7 @@ Type key = ``:annot``;
 (* TODO: The input OPB will give mlstring option annotations.
   We may want to map it back to a key (or key option) *)
 Definition mk_key_def:
-  mk_key (ann:mlstring option) = SOME (0,0):key option
+  mk_key (ann:mlstring option) = SOME ARB:key option
 End
 
 (*
@@ -173,4 +199,3 @@ Definition conv_concl_def:
   else NONE) ∧
   (conv_concl _ _ = NONE)
 End
-

@@ -4,7 +4,7 @@ Encoders for various graph problems
 Formalization of the max clique problem
 
 [colorScript.sml](colorScript.sml):
-Formalization of the max clique problem
+Formalization of the min coloring problem
 
 [graph_basicScript.sml](graph_basicScript.sml):
 Basic graph notions
