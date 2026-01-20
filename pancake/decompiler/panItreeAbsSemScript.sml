@@ -24,12 +24,13 @@ Overload ">>=" = “itree_bind”;
 
 Overload "case" = “itree_CASE”;
 
+val res = “res:(ffi_outcome + word8 list) + 'a result option # 'a bstate”
+
+val ret_func = “Ret:(ffi_outcome + word8 list) + 'a result option # 'a bstate -> 'a ptree”
 
 Definition itree_semantics_def:
-  itree_semantics = mrec h_prog o h_prog
+  itree_semantics:('a panLang$prog # 'a bstate -> 'a ptree) = mrec h_prog o h_prog
 End
-
-val res = “res:(ffi_outcome + word8 list) + 'a result option # 'a bstate”
 
 Definition itree_deccall_handler_def:
   itree_deccall_handler rt shape s ^res tree1 =
@@ -1132,4 +1133,270 @@ Theorem valid_exp_iff_vesp:
                   ((∃vs. eval s exp = SOME (Struct vs)) ⇔ EVERY (λx. x) (vesp s exp EqStruct))
 Proof
   metis_tac[vesp_valid_exp, valid_exp_vesp]
+QED
+
+(* well-formed rules*)
+Definition is_valid_value_wfp_def:
+  (is_valid_value_wfp s Local v value = [∃w. FLOOKUP s.locals v = SOME w ∧ shape_of value = shape_of w]) ∧
+  (is_valid_value_wfp s Global v value = [∃w. FLOOKUP s.globals v = SOME w ∧ shape_of value = shape_of w])
+End
+
+Theorem is_valid_value_wfp_T:
+  EVERY (λx. x) (is_valid_value_wfp s k v value) ⇔ is_valid_value s k v value = T
+Proof
+  Cases_on ‘k’
+  \\ rw[is_valid_value_wfp_def, is_valid_value_defs, lookup_kvar_defs]
+  \\ FULL_CASE_TAC \\ gvs[]
+QED
+
+Definition lookup_kvar_wfp_def:
+  (lookup_kvar_wfp Local v s = [∃x. FLOOKUP s.locals v = SOME x]) ∧
+  (lookup_kvar_wfp Global v s = [∃x. FLOOKUP s.globals v = SOME x])
+End
+
+Theorem lookup_kvar_wfp_some:
+  EVERY (λx. x) (lookup_kvar_wfp vk v s) ⇒ ∃x. lookup_kvar vk v s = SOME x
+Proof
+  Cases_on ‘vk’ \\ rw[lookup_kvar_wfp_def, lookup_kvar_defs]
+QED
+
+Definition lookup_kvar_valword_wfp_def:
+  (lookup_kvar_valword_wfp Local v s = [∃x. FLOOKUP s.locals v = SOME (ValWord x)]) ∧
+  (lookup_kvar_valword_wfp Global v s = [∃x. FLOOKUP s.globals v = SOME (ValWord x)])
+End
+
+Theorem lookup_kvar_valword_wfp_some:
+  EVERY (λx. x) (lookup_kvar_valword_wfp vk v s) ⇒ ∃x. lookup_kvar vk v s = SOME (ValWord x)
+Proof
+  Cases_on ‘vk’ \\ rw[lookup_kvar_valword_wfp_def, lookup_kvar_def]
+QED
+
+Definition mem_stores_wfp_def:
+  (mem_stores_wfp a [] dm m = []) ∧
+  (mem_stores_wfp a (w::ws) dm m = (a ∈ dm)::(mem_stores_wfp (a + bytes_in_word) ws dm m⦇a ↦ w⦈))
+End
+
+Theorem mem_stores_wfp_some:
+  EVERY (λx. x) (mem_stores_wfp a ws dm m) ⇒ ∃x. mem_stores a ws dm m = SOME x
+Proof
+  qid_spec_tac ‘m’
+  \\ qid_spec_tac ‘a’
+  \\ Induct_on ‘ws’ \\ rw[mem_store_def, mem_stores_def, mem_stores_wfp_def]
+QED
+
+Definition mem_store_32_wfp_def:
+  mem_store_32_wfp m dm be w hw = [aligned 2 w; ∃v. m (byte_align w) = Word v; byte_align w ∈ dm]
+End
+
+Theorem mem_store_32_wfp_some:
+  EVERY (λx. x) (mem_store_32_wfp m dm be w hw) ⇒ ∃x. mem_store_32 m dm be w hw = SOME x
+Proof
+  fs[mem_store_32_wfp_def, mem_store_32_def]
+  \\ rpt FULL_CASE_TAC \\ fs[]
+QED
+
+Definition mem_store_byte_wfp_def:
+  mem_store_byte_wfp m dm be w hw = [∃v. m (byte_align w) = Word v; byte_align w ∈ dm]
+End
+
+Theorem mem_store_byte_wfp_some:
+  EVERY (λx. x) (mem_store_byte_wfp m dm be w hw) ⇒ ∃x. mem_store_byte m dm be w hw = SOME x
+Proof
+  fs[mem_store_byte_wfp_def, mem_store_byte_def]
+  \\ rpt FULL_CASE_TAC \\ fs[]
+QED
+
+(* non-error one (level) program state pre-condition *)
+Definition pswfp_def:
+  (pswfp (Assign k vname e) s = (∃v. eval s e = SOME v ∧ EVERY (λx. x) (is_valid_value_wfp s k vname v))
+                                                 ::(vesp s e General)) ∧
+  (pswfp (Call calltyp fname argexps) s = (∃args vshapes prog. OPT_MMAP (eval s) argexps = SOME args ∧
+                                                               FLOOKUP s.code fname = SOME (vshapes,prog) ∧
+                                                               ALL_DISTINCT (MAP FST vshapes) ∧
+                                                               LIST_REL (λvshape arg. SND vshape = shape_of arg) vshapes args)
+                                          ::(FLAT (MAP (λx. vesp s x General) argexps))) ∧
+  (pswfp (If gexp p1 p2) s = vesp s gexp EqValWord) ∧
+  (pswfp (Dec vname sh e p) s = vesp s e General
+                                ++ [∃value. eval s e = SOME value ∧
+                                            EVERY (λx. x) (pswfp p (s with locals := s.locals |+ (vname,value)))]) ∧
+  (pswfp (DecCall rt shape fname argexps prog1) s = (∃args vshapes prog. OPT_MMAP (eval s) argexps = SOME args ∧
+                                                                         FLOOKUP s.code fname = SOME (vshapes,prog) ∧
+                                                                         ALL_DISTINCT (MAP FST vshapes) ∧
+                                                                         LIST_REL (λvshape arg. SND vshape = shape_of arg) vshapes args)
+                                                    ::(FLAT (MAP (λx. vesp s x General) argexps))) ∧
+  (pswfp (ExtCall ffi_name conf_ptr conf_len array_ptr array_len) s =
+   (FLAT (MAP (λx. vesp s x EqValWord) [conf_ptr; conf_len; array_ptr; array_len]))) ∧
+  (pswfp (Raise eid e) s = (∃sh val. FLOOKUP s.eshapes eid = SOME sh ∧ eval s e = SOME val ∧
+                                     shape_of val = sh ∧ size_of_shape (shape_of val) ≤ 32)::(vesp s e General)) ∧
+  (pswfp (Return e) s = (∃val. eval s e = SOME val ∧ size_of_shape (shape_of val) ≤ 32)::(vesp s e General)) ∧
+  (pswfp (ShMemLoad op vk v ad) s = vesp s ad EqValWord ++ lookup_kvar_valword_wfp vk v s
+                                    ++ [∃addr. eval s ad = SOME (ValWord addr) ∧
+                                               if nb_op op = 0
+                                               then addr ∈ s.sh_memaddrs
+                                               else byte_align addr ∈ s.sh_memaddrs]) ∧
+  (pswfp (ShMemStore op ad e) s = vesp s ad EqValWord ++ vesp s e EqValWord
+                                    ++ [∃addr. eval s ad = SOME (ValWord addr) ∧
+                                               if nb_op op = 0
+                                               then addr ∈ s.sh_memaddrs
+                                               else byte_align addr ∈ s.sh_memaddrs]) ∧
+  (pswfp (Store dst src) s = vesp s dst EqValWord ++ vesp s src General
+                             ++ [∃addr val. eval s dst = SOME (ValWord addr) ∧ eval s src = SOME val ∧
+                                            EVERY (λx. x) (mem_stores_wfp addr (flatten val) s.memaddrs s.memory)]) ∧
+  (pswfp (Store32 dst src) s = vesp s dst EqValWord ++ vesp s src EqValWord
+                               ++ [∃addr w. eval s dst = SOME (ValWord addr) ∧ eval s src = SOME (ValWord w) ∧
+                                            EVERY (λx. x) (mem_store_32_wfp s.memory s.memaddrs s.be addr ((w2w w):32 word))]) ∧
+  (pswfp (StoreByte dst src) s = vesp s dst EqValWord ++ vesp s src EqValWord
+                                 ++ [∃addr w. eval s dst = SOME (ValWord addr) ∧ eval s src = SOME (ValWord w) ∧
+                                              EVERY (λx. x) (mem_store_byte_wfp s.memory s.memaddrs s.be addr ((w2w w):8 word))]) ∧
+  (pswfp (While gexp p) s = vesp s gexp EqValWord) ∧
+  (pswfp _ _ = [])
+End
+
+Theorem ret_wbisim_ret_iff_sbisim:
+  Ret x ≈ Ret y ⇔ Ret x = Ret y
+Proof
+  iff_tac
+  >- (rpt strip_tac
+      \\ dxrule_then assume_tac itree_wbisim_Ret_FUNPOW
+      \\ fs[]
+     )
+  \\ rw[itree_wbisim_refl]
+QED
+
+Theorem flat_map_vesp_opt_mmap_eval_some:
+  (∃x. OPT_MMAP (eval s) argexps = SOME x) ⇔
+  EVERY (λx. x) (FLAT (MAP (λx. vesp s x General) argexps))
+Proof
+  Induct_on ‘argexps’ \\ fs[]
+  \\ rpt strip_tac
+  \\ iff_tac
+  >- (rpt strip_tac
+      \\ metis_tac[valid_exp_iff_vesp]
+     )
+  \\ rpt strip_tac
+  \\ metis_tac[valid_exp_iff_vesp]
+QED
+
+Theorem pswfp_iff_assign_non_error:
+  EVERY (λx. x) (pswfp (Assign k vname e) s) ⇔ ∀s'. ¬(itree_semantics (Assign k vname e, s) ≈ Ret (INR (SOME Error, s')))
+Proof
+  iff_tac
+  >- (rpt strip_tac
+      \\ gvs[itree_semantics_Assign, pswfp_def, is_valid_value_wfp_def,
+             is_valid_value_wfp_T]
+      \\ dxrule_then assume_tac $ iffLR ret_wbisim_ret_iff_sbisim
+      \\ fs[]
+     )
+  \\ rpt strip_tac
+  \\ gvs[itree_semantics_Assign, pswfp_def, is_valid_value_wfp_def,
+         is_valid_value_wfp_T]
+  \\ EVERY_CASE_TAC \\ fs[]
+  >- (pop_assum $ qspec_then ‘s’ assume_tac
+      \\ fs[ret_wbisim_ret_iff_sbisim]
+     )
+  >- metis_tac[valid_exp_iff_vesp]
+  \\ first_x_assum $ qspec_then ‘s’ assume_tac
+  \\ fs[ret_wbisim_ret_iff_sbisim]
+QED
+
+Theorem call_non_error_pswfp:
+  (∀s'. ¬(itree_semantics (Call calltyp fname argexps, s) ≈ Ret (INR (SOME Error, s')))) ⇒
+  EVERY (λx. x) (pswfp (Call calltyp fname argexps) s)
+Proof
+  rpt strip_tac
+  \\ gvs[itree_semantics_Call, pswfp_def, lookup_code_def]
+  \\ EVERY_CASE_TAC \\ fs[]
+  >- metis_tac[itree_wbisim_refl]
+  >- metis_tac[itree_wbisim_refl]
+  >- metis_tac[itree_wbisim_refl]
+  >- metis_tac[flat_map_vesp_opt_mmap_eval_some]
+  \\ metis_tac[itree_wbisim_refl]
+QED
+
+Theorem pswfp_inner_non_error_call_non_error:
+  EVERY (λx. x) (pswfp (Call calltyp fname argexps) s) ⇒
+  (∃args callee_prog new_locals.
+     OPT_MMAP (eval s) argexps = SOME args ∧
+     lookup_code s.code fname args = SOME (callee_prog, new_locals) ∧
+     (∀s'. ¬(itree_semantics (callee_prog,s with locals := new_locals) >>=
+                             (λres. itree_call_handler calltyp s res) ≈ ^ret_func (INR (SOME Error, s'))))
+     ⇒ (∀s'. ¬(itree_semantics (Call calltyp fname argexps, s) ≈ Ret (INR (SOME Error, s'))))
+  )
+Proof
+  rpt strip_tac
+  \\ fs[pswfp_def, lookup_code_def]
+  \\ qexistsl [‘args’, ‘prog’, ‘FEMPTY |++ ZIP (MAP FST vshapes,args) ’] \\ simp[]
+  \\ rpt strip_tac
+  \\ pop_assum $ assume_tac o SRULE [Once itree_semantics_Call]
+  \\ rfs[lookup_code_def]
+QED
+
+CoInductive ret_satisfy:
+  (P v ⇒ ret_satisfy P (Ret v)) ∧
+  (ret_satisfy P t ⇒ ret_satisfy P (Tau t)) ∧
+  ((∀r. ret_satisfy P (k r)) ⇒ ret_satisfy P (Vis e k))
+End
+
+Theorem ret_satisfy_bind:
+  ret_satisfy P t ∧ (∀r. ret_satisfy P (k r)) ⇒ ret_satisfy P (t >>= k)
+Proof
+  rpt strip_tac
+  \\ irule ret_satisfy_coind
+  \\ qexists ‘λt. ret_satisfy P t ∨ (∃t' k. t = t' >>= k ∧ ret_satisfy P t' ∧ ∀r. ret_satisfy P (k r))’
+  \\ rpt conj_tac
+  >- metis_tac[]
+  \\ rpt strip_tac
+  \\ Cases_on ‘a0’ \\ fs[]
+  >- (pop_assum $ assume_tac o SRULE [Once ret_satisfy_cases]
+      \\ simp[]
+     )
+  >- (Cases_on ‘t'’ \\ fs[]
+      \\ qpat_x_assum ‘Ret _ = _’ $ assume_tac o GSYM
+      \\ first_x_assum $ qspec_then ‘x'’ assume_tac
+      \\ pop_assum $ assume_tac o SRULE [Once ret_satisfy_cases]
+      \\ gvs[]
+     )
+  >- (pop_assum $ assume_tac o SRULE [Once ret_satisfy_cases]
+      \\ simp[]
+     )
+  >- (Cases_on ‘t'’ \\ fs[]
+      >- (qpat_x_assum ‘Tau _ = _’ $ assume_tac o GSYM
+          \\ first_x_assum $ qspec_then ‘x’ assume_tac
+          \\ pop_assum $ assume_tac o SRULE [Once ret_satisfy_cases]
+          \\ gvs[]
+         )
+      \\ qpat_x_assum ‘ret_satisfy _ (Tau _)’ $ assume_tac o SRULE [Once ret_satisfy_cases]
+      \\ metis_tac[]
+     )
+  >- (pop_assum $ assume_tac o SRULE [Once ret_satisfy_cases]
+      \\ simp[]
+     )
+  \\ Cases_on ‘t'’ \\ fs[]
+  >- (qpat_x_assum ‘Vis _ _ = _’ $ assume_tac o GSYM
+      \\ first_x_assum $ qspec_then ‘x’ assume_tac
+      \\ pop_assum $ assume_tac o SRULE [Once ret_satisfy_cases]
+      \\ gvs[]
+     )
+  \\ qpat_x_assum ‘ret_satisfy _ (Vis _ _)’ $ assume_tac o SRULE [Once ret_satisfy_cases]
+  \\ metis_tac[]
+QED
+
+Theorem pswfp_inner_ret_non_error_call_ret_non_error:
+  EVERY (λx. x) (pswfp (Call calltyp fname argexps) s) ⇒
+  (∃args callee_prog new_locals.
+     OPT_MMAP (eval s) argexps = SOME args ∧
+     lookup_code s.code fname args = SOME (callee_prog, new_locals) ∧
+     (ret_satisfy (λx. ¬∃s'. (x:(ffi_outcome + word8 list) + 'a result option # 'a bstate) = INR (SOME Error, s'))
+                  (itree_semantics (callee_prog,s with locals := new_locals) >>=
+                                   (λres. itree_call_handler calltyp s res)))
+     ⇒ (ret_satisfy (λx. ¬∃s'. x = INR (SOME Error, s'))
+                    (itree_semantics (Call calltyp fname argexps, s)))
+  )
+Proof
+  rpt strip_tac
+  \\ fs[pswfp_def, lookup_code_def]
+  \\ qexistsl [‘args’, ‘prog’, ‘FEMPTY |++ ZIP (MAP FST vshapes,args) ’] \\ simp[]
+  \\ rpt strip_tac
+  \\ fs[Once itree_semantics_Call]
+  \\ rfs[lookup_code_def, ret_satisfy_rules]
 QED
