@@ -98,10 +98,14 @@ Definition elm_def[simp]:
 End
 
 (* encodes fnvalue_v ⇔ some X = v *)
+Definition cencode_some_eq_def:
+  cencode_some_eq bnd Xs v name =
+  cbimply_var bnd (elm name v) (at_least_one $ MAP (λX. Pos (INL (Eq X v))) Xs)
+End
+
 Definition encode_some_eq_def:
-  encode_some_eq bnd Xs (v: int) name =
-    bimply_bits bnd [Pos (elm name v)]
-      ([], MAP (λX. (1i, Pos (INL (Eq X v)))) Xs, 1i)
+  encode_some_eq bnd Xs v name =
+  abstr $ cencode_some_eq bnd Xs v name
 End
 
 Theorem iSUM_ge_0:
@@ -143,7 +147,8 @@ Theorem encode_some_eq_sem:
   (EVERY (λx. iconstraint_sem x (wi,wb)) (encode_some_eq bnd Xs v name) =
   (wb (elm name v) ⇔ ∃X. MEM X Xs ∧ wb (INL (Eq X v))))
 Proof
-  rw[encode_some_eq_def,iconstraint_sem_def,eval_lin_term_ge_1]>>
+  rw[cencode_some_eq_def,encode_some_eq_def,MEM_MAP,
+    iconstraint_sem_def,eval_lin_term_ge_1,PULL_EXISTS]>>
   metis_tac[]
 QED
 
@@ -305,6 +310,44 @@ Proof
     drule_then assume_tac EVERY_MEM_union_dom>>
     gs[EVERY_MEM])>>
   metis_tac[]
+QED
+
+(*** HERE ***)
+Definition cencode_n_value_def:
+  cencode_n_value bnd Xs Y name ec =
+  let
+    vals = union_dom bnd Xs;
+    (xs,ec') =
+      fold_cenc (λv ec.
+        fold_cenc (λX ec. cencode_full_eq bnd X v ec) Xs ec) vals ec
+  in
+    (Append
+      (Append xs
+        (flat_app $ MAP (λv.
+          cencode_some_eq bnd Xs v name) vals))
+      (cencode_bitsum (MAP (elm name) vals) Y name), ec')
+End
+
+Theorem cencode_n_value_sem:
+  valid_assignment bnd wi ∧
+  cencode_n_value bnd Xs Y name ec = (es, ec') ⇒
+  enc_rel wi es (encode_n_value bnd Xs Y namae) ec ec'
+Proof
+  cheat
+  (* FOR REFERENCE ONLY
+  rw[cencode_among_def,encode_among_def]>>
+  gvs[AllCaseEqs(),UNCURRY_EQ]>>
+  irule enc_rel_Append>>
+  irule_at Any enc_rel_abstr>>
+  irule enc_rel_fold_cenc>>
+  first_x_assum $ irule_at Any>>
+  rw[]>>
+  irule enc_rel_fold_cenc>>
+  first_x_assum $ irule_at Any>>
+  rw[]>>
+  irule enc_rel_encode_full_eq>>
+  fs[]
+  *)
 QED
 
 Definition eqi_def[simp]:
