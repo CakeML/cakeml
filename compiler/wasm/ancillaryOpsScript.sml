@@ -304,12 +304,6 @@ QED
 Overload popcnt = “λ (w:α word). (n2w $ bit_count w): β word”
 Overload onehot = “λ (w:α word). (b2w ((popcnt w):γ word = 1w)): β word”
 
-(* sign extend *)
-Definition sext_def:
-  sext   Signed = sw2sw ∧
-  sext Unsigned = w2w
-End
-
 (* Conversions/truncates/extends *)
 Overload extend8s  = “λ (w:α word). sw2sw (w2w w:word8 ):β word”
 Overload extend16s = “λ (w:α word). sw2sw (w2w w:word16):β word”

@@ -162,6 +162,12 @@ End
 (*                                                                               *)
 (*********************************************************************************)
 
+(* sign extend *)
+Definition sext_def:
+  sext   Signed = sw2sw ∧
+  sext Unsigned = w2w
+End
+
 (* How a instr/op relates its operand and result *)
 Inductive u_op_rel:
   (∀w. u_op_rel (Popcnt W32) (I32 w) (I32 $ popcnt w)) ∧
