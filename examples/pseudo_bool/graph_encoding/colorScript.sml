@@ -36,6 +36,22 @@ Datatype:
   var = X num (* vertex *) num (* color *)
 End
 
+Definition gen_constraint_def:
+  gen_constraint (n:num) ((v,e):graph) (EdgeColor x y c) =
+    (if is_edge e x y then
+       SOME (GreaterEqual, [(1i, Neg (X x c)); (1i, Neg (X y c))], 1i)
+     else NONE) ∧
+  gen_constraint (n:num) ((v,e):graph) (VertexHasColor vertex) =
+    SOME (GreaterEqual, GENLIST (λcolor. (1i,Pos (X vertex color))) n, 1i)
+End
+
+Definition gen_named_constraint_def:
+  gen_named_constraint n (v,e) a =
+    case gen_constraint n (v,e) a of
+    | NONE => []
+    | SOME c => [(a,c)]
+End
+
 Definition flat_genlist_def:
   flat_genlist n f = FLAT (GENLIST f n)
 End
@@ -44,19 +60,13 @@ End
 Definition encode_def:
   encode (n:num) ((v,e):graph) =
     (* every vertex has at least one color *)
-    GENLIST (λvertex.
-      (VertexHasColor vertex,
-       (GreaterEqual, GENLIST (λcolor. (1i,Pos (X vertex color))) n, 1i))
-       ) v ++
+    flat_genlist v (λvertex.
+      gen_named_constraint n (v,e) (VertexHasColor vertex)) ++
     (* for each color: at least one end of each edge does not have that color *)
     flat_genlist n (λcolor.
-    flat_genlist v (λx.
-    flat_genlist v (λy.
-      if is_edge e x y then
-        [(EdgeColor x y color,
-          GreaterEqual, [(1i, Neg (X x color)); (1i, Neg (X y color))], 1i)]
-      else []
-    )))
+      flat_genlist v (λx.
+        flat_genlist v (λy.
+          gen_named_constraint n (v,e) (EdgeColor x y color))))
   :(annot # var pbc) list
 End
 
