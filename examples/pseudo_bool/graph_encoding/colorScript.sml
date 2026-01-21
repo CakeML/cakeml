@@ -75,6 +75,25 @@ Definition color_obj_def:
   color_obj (n:num) = SOME ([],0): ((var lin_term # int) option)
 End
 
+Theorem iSUM_GE_1[local]:
+  EVERY (λx. x = 0 ∨ x = 1) xs ⇒
+  (iSUM xs >= 1 ⇔ ∃x. MEM x xs ∧ x >= 1)
+Proof
+  Induct_on ‘xs’ \\ gvs [iSUM_def]
+  \\ rw [] \\ gvs [SF DNF_ss]
+  \\ qsuff_tac ‘iSUM xs >= 0’ >- intLib.COOPER_TAC
+  \\ pop_assum mp_tac \\ pop_assum kall_tac
+  \\ Induct_on ‘xs’ \\ gvs [iSUM_def]
+  \\ rw [] \\ res_tac \\ intLib.COOPER_TAC
+QED
+
+Theorem MEM_option[local]:
+  MEM x (case opt of NONE => [] | SOME y => [f y]) ⇔
+  ∃y. opt = SOME y ∧ x = f y
+Proof
+  Cases_on ‘opt’ \\ gvs [] \\ eq_tac \\ simp []
+QED
+
 (* TODO: something along the lines of:
   for all k ≤ n
     there exists a k-coloring of the graph iff
@@ -83,9 +102,58 @@ End
 Theorem encode_correct:
   good_graph (v,e) ∧
   encode n (v,e) = constraints ⇒
-  ARB
+  ((∃f. is_k_color n f (v,e)) ⇔
+   satisfiable (set (MAP SND (encode n (v,e)))))
 Proof
-  cheat
+  simp [satisfiable_def]
+  \\ rw [] \\ eq_tac \\ rw []
+  >-
+   (qexists_tac ‘λv. case v of X x c => (f x = c)’
+    \\ gvs [encode_def]
+    \\ simp [satisfies_def,MEM_MAP,EXISTS_PROD,flat_genlist_def,
+             MEM_FLAT,MEM_GENLIST,PULL_EXISTS,gen_named_constraint_def]
+    \\ simp [gen_constraint_def]
+    \\ rpt strip_tac
+    >-
+     (simp [satisfies_pbc_def,eval_lin_term_def,MAP_GENLIST]
+      \\ DEP_REWRITE_TAC [iSUM_GE_1]
+      \\ conj_tac
+      >- simp [EVERY_GENLIST,oneline b2i_def,AllCaseEqs(),EVERY_MAP]
+      \\ gvs [is_k_color_def,MEM_GENLIST,PULL_EXISTS]
+      \\ qexists_tac ‘f vertex’ \\ gvs [])
+    \\ Cases_on ‘is_edge e x y’ \\ gvs []
+    \\ simp [satisfies_pbc_def,eval_lin_term_def]
+    \\ gvs [is_k_color_def,MEM_GENLIST,PULL_EXISTS]
+    \\ gvs []
+    \\ first_x_assum drule_all
+    \\ Cases_on ‘f x = color’ >- gvs [iSUM_def]
+    \\ Cases_on ‘f y = color’ >- gvs [iSUM_def]
+    \\ gvs [iSUM_def])
+  \\ qexists_tac ‘λx. @c. w (X x c) ∧ c < n’
+  \\ gvs [encode_def,satisfies_def,MEM_MAP,EXISTS_PROD,flat_genlist_def,
+          MEM_FLAT,MEM_GENLIST,PULL_EXISTS,gen_named_constraint_def,SF DNF_ss]
+  \\ gvs [gen_constraint_def,MEM_option]
+  \\ ‘∀x. x < v ⇒ ∃c. w (X x c) ∧ c < n’ by
+   (rw [] \\ last_x_assum drule
+    \\ simp [satisfies_pbc_def,eval_lin_term_def]
+    \\ DEP_REWRITE_TAC [iSUM_GE_1]
+    \\ conj_tac
+    >- simp [EVERY_GENLIST,oneline b2i_def,AllCaseEqs(),EVERY_MAP]
+    \\ gvs [MEM_MAP,PULL_EXISTS,MEM_GENLIST]
+    \\ rw [] \\ qexists_tac ‘color’ \\ gvs []
+    \\ Cases_on ‘w (X x color)’ \\ gvs [])
+  \\ ‘∀x. x < v ⇒ (@c. w (X x c) ∧ c < n) < n ∧ w (X x (@c. w (X x c) ∧ c < n))’
+        by metis_tac []
+  \\ simp [is_k_color_def]
+  \\ rpt strip_tac
+  \\ rename [‘is_edge e x y’]
+  \\ first_x_assum (fn th => qspec_then ‘x’ mp_tac th \\ qspec_then ‘y’ mp_tac th)
+  \\ qabbrev_tac ‘c_x = (@c. w (X x c) ∧ c < n)’
+  \\ qabbrev_tac ‘c_y = (@c. w (X y c) ∧ c < n)’
+  \\ first_x_assum (fn th => qspec_then ‘x’ mp_tac th \\ qspec_then ‘y’ mp_tac th)
+  \\ simp [] \\ rpt strip_tac \\ gvs []
+  \\ first_x_assum $ qspecl_then [‘c_x’,‘x’,‘y’] mp_tac
+  \\ simp [satisfies_pbc_def,eval_lin_term_def,iSUM_def]
 QED
 
 (* TODO Encode the variables as strings *)
