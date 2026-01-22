@@ -26,23 +26,28 @@ Definition min_color_size_def:
 End
 
 (* TODO: define an encoding, the annot and var types might not be correct *)
-(* Type annot = ``:(num # num)``; *)
-(* Type var = ``:num``; *)
 Datatype:
-  annot = EdgeColor num (* vertex 1 *) num (* vertex 2 *) num (* color *)
-        | VertexHasColor num (* color constraint for specific color *)
+  annot = Edge num num num    (* v1,v2,c: vertices v1, v2 do not both have color c *)
+        | AtLeastOneColor num (* v: vertex v has at-least-one color                *)
+        | AtMostOneColor num  (* v: vertex v has at-most-one color                 *)
+        | VC_Imp_CU num       (* c: vertex-has-color implies color-used            *)
+        | CU_ImP_VC num       (* c: color-used implies vertex-has-color            *)
 End
+
 Datatype:
-  var = X num (* vertex *) num (* color *)
+  var = VertexHasColor num num (* v,c: vertex v has color c   *)
+      | ColorUsed num          (* c: some vertex uses color c *)
 End
 
 Definition gen_constraint_def:
-  gen_constraint (n:num) ((v,e):graph) (EdgeColor x y c) =
+  gen_constraint (n:num) ((v,e):graph) (Edge x y c) =
     (if is_edge e x y then
-       SOME (GreaterEqual, [(1i, Neg (X x c)); (1i, Neg (X y c))], 1i)
+       SOME (GreaterEqual, [(1i, Neg (VertexHasColor x c));
+                            (1i, Neg (VertexHasColor y c))], 1i)
      else NONE) ∧
-  gen_constraint (n:num) ((v,e):graph) (VertexHasColor vertex) =
-    SOME (GreaterEqual, GENLIST (λcolor. (1i,Pos (X vertex color))) n, 1i)
+  gen_constraint (n:num) ((v,e):graph) (AtLeastOneColor vertex) =
+    SOME (GreaterEqual,
+          GENLIST (λcolor. (1i,Pos (VertexHasColor vertex color))) n, 1i)
 End
 
 Definition gen_named_constraint_def:
@@ -61,12 +66,12 @@ Definition encode_def:
   encode (n:num) ((v,e):graph) =
     (* every vertex has at least one color *)
     flat_genlist v (λvertex.
-      gen_named_constraint n (v,e) (VertexHasColor vertex)) ++
+      gen_named_constraint n (v,e) (AtLeastOneColor vertex)) ++
     (* for each color: at least one end of each edge does not have that color *)
     flat_genlist n (λcolor.
       flat_genlist v (λx.
         flat_genlist v (λy.
-          gen_named_constraint n (v,e) (EdgeColor x y color))))
+          gen_named_constraint n (v,e) (Edge x y color))))
   :(annot # var pbc) list
 End
 
@@ -108,7 +113,7 @@ Proof
   simp [satisfiable_def]
   \\ rw [] \\ eq_tac \\ rw []
   >-
-   (qexists_tac ‘λv. case v of X x c => (f x = c)’
+   (qexists_tac ‘λv. case v of VertexHasColor x c => (f x = c)’
     \\ gvs [encode_def]
     \\ simp [satisfies_def,MEM_MAP,EXISTS_PROD,flat_genlist_def,
              MEM_FLAT,MEM_GENLIST,PULL_EXISTS,gen_named_constraint_def]
@@ -129,11 +134,11 @@ Proof
     \\ Cases_on ‘f x = color’ >- gvs [iSUM_def]
     \\ Cases_on ‘f y = color’ >- gvs [iSUM_def]
     \\ gvs [iSUM_def])
-  \\ qexists_tac ‘λx. @c. w (X x c) ∧ c < n’
+  \\ qexists_tac ‘λx. @c. w (VertexHasColor x c) ∧ c < n’
   \\ gvs [encode_def,satisfies_def,MEM_MAP,EXISTS_PROD,flat_genlist_def,
           MEM_FLAT,MEM_GENLIST,PULL_EXISTS,gen_named_constraint_def,SF DNF_ss]
   \\ gvs [gen_constraint_def,MEM_option]
-  \\ ‘∀x. x < v ⇒ ∃c. w (X x c) ∧ c < n’ by
+  \\ ‘∀x. x < v ⇒ ∃c. w (VertexHasColor x c) ∧ c < n’ by
    (rw [] \\ last_x_assum drule
     \\ simp [satisfies_pbc_def,eval_lin_term_def]
     \\ DEP_REWRITE_TAC [iSUM_GE_1]
@@ -141,15 +146,16 @@ Proof
     >- simp [EVERY_GENLIST,oneline b2i_def,AllCaseEqs(),EVERY_MAP]
     \\ gvs [MEM_MAP,PULL_EXISTS,MEM_GENLIST]
     \\ rw [] \\ qexists_tac ‘color’ \\ gvs []
-    \\ Cases_on ‘w (X x color)’ \\ gvs [])
-  \\ ‘∀x. x < v ⇒ (@c. w (X x c) ∧ c < n) < n ∧ w (X x (@c. w (X x c) ∧ c < n))’
+    \\ Cases_on ‘w (VertexHasColor x color)’ \\ gvs [])
+  \\ ‘∀x. x < v ⇒ (@c. w (VertexHasColor x c) ∧ c < n) < n ∧
+                  w (VertexHasColor x (@c. w (VertexHasColor x c) ∧ c < n))’
         by metis_tac []
   \\ simp [is_k_color_def]
   \\ rpt strip_tac
   \\ rename [‘is_edge e x y’]
   \\ first_x_assum (fn th => qspec_then ‘x’ mp_tac th \\ qspec_then ‘y’ mp_tac th)
-  \\ qabbrev_tac ‘c_x = (@c. w (X x c) ∧ c < n)’
-  \\ qabbrev_tac ‘c_y = (@c. w (X y c) ∧ c < n)’
+  \\ qabbrev_tac ‘c_x = (@c. w (VertexHasColor x c) ∧ c < n)’
+  \\ qabbrev_tac ‘c_y = (@c. w (VertexHasColor y c) ∧ c < n)’
   \\ first_x_assum (fn th => qspec_then ‘x’ mp_tac th \\ qspec_then ‘y’ mp_tac th)
   \\ simp [] \\ rpt strip_tac \\ gvs []
   \\ first_x_assum $ qspecl_then [‘c_x’,‘x’,‘y’] mp_tac
