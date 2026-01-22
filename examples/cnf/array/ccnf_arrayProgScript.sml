@@ -594,10 +594,15 @@ QED
 
 val res = translate parse_vb_num_aux_def;
 
+val parse_vb_num_aux_side_def = theorem "parse_vb_num_aux_side_def"
+
 Theorem parse_vb_num_aux_side[local]:
-  parse_vb_num_aux_side a b c d e ⇔ T
+ !a b c d e.
+ c <= strlen a ==> parse_vb_num_aux_side a b c d e
 Proof
-  cheat
+ ho_match_mp_tac parse_vb_num_aux_ind >>
+ rpt strip_tac >>
+ simp[Once $ parse_vb_num_aux_side_def]
 QED
 
 val _ = parse_vb_num_aux_side |> update_precondition;
@@ -618,13 +623,14 @@ Quote add_cakeml:
 End
 
 Theorem unit_prop_arr_vb_spec:
-  ∀ls lsv Carrv Clist b bv res.
+  ∀fmlls Clist b s i l iv bv res.
   NUM lno lnov ∧
   LIST_REL (OPTION_TYPE vcclause_TYPE) fmlls fmllsv ∧
   WORD8 b bv ∧
   STRING_TYPE s sv ∧
   NUM i iv ∧
   NUM l lv ∧
+  l <= strlen s /\
   unit_prop_vb_list' fmlls Clist b s i l = SOME res
   ⇒
   app (p : 'ffi ffi_proj)
@@ -644,28 +650,32 @@ Theorem unit_prop_arr_vb_spec:
         &(Fail_exn e ∧ res = NONE))
     )
 Proof
-  cheat
-  (*
-  Induct>>rw[]>>
+  ho_match_mp_tac unit_prop_vb_list'_ind >>
+  rpt strip_tac >>
   pop_assum mp_tac>>
-  simp[Once unit_prop_list'_def]>>
+  simp[Once unit_prop_vb_list'_def]>>
   strip_tac>>
-  xcf "unit_prop_arr" (get_ml_prog_state ())>>
-  gvs[LIST_TYPE_def]>>
-  xmatch
-  >- (
-    xcon>>xsimpl>>
-    EVAL_TAC)>>
-  xlet_autop
-  >- (
-    xsimpl>>
-    gvs[AllCaseEqs()])>>
-  xif>>gvs[]
-  >- (
-    xcon>>xsimpl>>
-    EVAL_TAC)>>
-  xapp>>xsimpl>>
-  first_x_assum $ irule_at Any>>xsimpl*)
+  xcf "unit_prop_vb_arr" (get_ml_prog_state ())>>
+  xlet_auto
+  >- (xsimpl >> fs[definition "parse_vb_int_side_def",
+                  definition "parse_vb_num_side_def"]
+     >> fs[parse_vb_num_aux_side]) >>
+  gvs[UNCURRY_EQ,PAIR_TYPE_def] >> xmatch >>
+  xlet_auto >- xsimpl >>
+  xif >- (
+      xcon >> xsimpl >>
+      gvs[AllCaseEqs(),OPTION_TYPE_def]) >>
+  gvs[TypeBase.case_eq_of ``:bool``] >>
+  xlet_auto
+     >- (xsimpl >> intLib.ARITH_TAC)
+     >- (xsimpl >> rpt strip_tac >> rveq >> fs[]) >>
+  xif >- (
+      xcon >> xsimpl >>
+      gvs[AllCaseEqs(),OPTION_TYPE_def]) >>
+  gvs[] >>
+  first_x_assum drule_all >>
+  strip_tac >> xapp >>
+  xsimpl
 QED
 
 Quote add_cakeml:
@@ -762,7 +772,98 @@ Proof
   rw[]
 QED
 
-(* TODO: define and prove is_rup_vb_arr_spec *)
+Quote add_cakeml:
+  fun is_rup_vb_arr lno fml carr b v s =
+  let val dmb = prepare_rup carr b v
+      val (carr',b') = dmb
+  in
+    case unit_prop_vb_arr lno fml carr' b' s 0 (String.size s) of
+      (Some i) => raise Fail (format_failure lno ("unit propagation did not prove RUP"))
+    | None => dmb
+  end
+End
+
+Theorem is_rup_vb_arr_spec':
+  NUM lno lnov ∧
+  LIST_REL (OPTION_TYPE vcclause_TYPE) fmlls fmllsv ∧
+  WORD8 b bv ∧
+  vcclause_TYPE v vv ∧
+  STRING_TYPE s sv ∧
+  is_rup_vb_list' fmlls Clist b v s = SOME res
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "is_rup_vb_arr" (get_ml_prog_state()))
+    [lnov; fmlv; Carrv; bv; vv; sv]
+    (ARRAY fmlv fmllsv * W8ARRAY Carrv Clist)
+    (POSTve
+      (λv.
+        ARRAY fmlv fmllsv *
+        SEP_EXISTS b' Carrv' Clist'.
+        W8ARRAY Carrv' Clist' *
+        &(PAIR_TYPE ($=) WORD8 (Carrv', b') v ∧
+          res = (T, (Clist',b'))))
+      (λe.
+        ARRAY fmlv fmllsv *
+        SEP_EXISTS Carrv' Clist'.
+        W8ARRAY Carrv' Clist' *
+        &(Fail_exn e ∧ FST res = F))
+    )
+Proof
+  rw[]>>
+  xcf "is_rup_vb_arr" (get_ml_prog_state ())>>
+  xlet_auto
+  >- (
+    xsimpl>>
+    metis_tac[W8ARRAY_refl])>>
+  gvs[PAIR_TYPE_def,is_rup_vb_list'_def]>>
+  xmatch>>
+  xlet_autop >>
+  xlet_autop >- (xsimpl >> metis_tac[W8ARRAY_refl]) >>
+  Cases_on `b''` >> fs[OPTION_TYPE_def] >>
+  xmatch
+  >- (xvar >>xsimpl)
+  >- (
+     rpt xlet_autop >>xraise >>
+     xsimpl >> simp[Fail_exn_def] >>
+     metis_tac[W8ARRAY_refl])
+QED
+
+Theorem is_rup_vb_arr_spec:
+  NUM lno lnov ∧
+  LIST_REL (OPTION_TYPE vcclause_TYPE) fmlls fmllsv ∧
+  WORD8 b bv ∧
+  vcclause_TYPE v vv ∧
+  STRING_TYPE s sv ∧
+  bnd_fml fmlls (LENGTH Clist)
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "is_rup_vb_arr" (get_ml_prog_state()))
+    [lnov; fmlv; Carrv; bv; vv; sv]
+    (ARRAY fmlv fmllsv * W8ARRAY Carrv Clist)
+    (POSTve
+      (λres.
+        ARRAY fmlv fmllsv *
+        SEP_EXISTS b' Carrv' Clist'.
+        W8ARRAY Carrv' Clist' *
+        &(PAIR_TYPE ($=) WORD8 (Carrv', b') res ∧
+          is_rup_vb_list fmlls Clist b v s = (T,(Clist',b'))))
+      (λe.
+        ARRAY fmlv fmllsv *
+        SEP_EXISTS Carrv' Clist'.
+        W8ARRAY Carrv' Clist' *
+        &(Fail_exn e ∧
+          FST (is_rup_vb_list fmlls Clist b v s) = F))
+    )
+Proof
+  rw[]>>
+  drule is_rup_vb_list'_SOME>>
+  disch_then (qspecl_then [`v`,`s`,`b`] assume_tac)>>
+  fs[IS_SOME_EXISTS]>>
+  drule_all is_rup_vb_arr_spec'>>
+  drule is_rup_vb_list'>>
+  rw[]
+QED
+
 
 Quote add_cakeml:
   fun delete_arr fml i =
