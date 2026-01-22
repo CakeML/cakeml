@@ -47,7 +47,12 @@ Definition gen_constraint_def:
      else NONE) ∧
   gen_constraint (n:num) ((v,e):graph) (AtLeastOneColor vertex) =
     SOME (GreaterEqual,
-          GENLIST (λcolor. (1i,Pos (VertexHasColor vertex color))) n, 1i)
+          GENLIST (λcolor. (1i,Pos (VertexHasColor vertex color))) n, 1i) ∧
+  gen_constraint (n:num) ((v,e):graph) (AtMostOneColor vertex) =
+    SOME (GreaterEqual,
+          GENLIST (λcolor. (1i,Neg (VertexHasColor vertex color))) n, & (n - 1)) ∧
+  gen_constraint (n:num) ((v,e):graph) (VC_Imp_CU c) = NONE ∧
+  gen_constraint (n:num) ((v,e):graph) (CU_ImP_VC c) = NONE
 End
 
 Definition gen_named_constraint_def:
@@ -67,6 +72,9 @@ Definition encode_def:
     (* every vertex has at least one color *)
     flat_genlist v (λvertex.
       gen_named_constraint n (v,e) (AtLeastOneColor vertex)) ++
+    (* every vertex has at most one color *)
+    flat_genlist v (λvertex.
+      gen_named_constraint n (v,e) (AtMostOneColor vertex)) ++
     (* for each color: at least one end of each edge does not have that color *)
     flat_genlist n (λcolor.
       flat_genlist v (λx.
@@ -90,6 +98,34 @@ Proof
   \\ pop_assum mp_tac \\ pop_assum kall_tac
   \\ Induct_on ‘xs’ \\ gvs [iSUM_def]
   \\ rw [] \\ res_tac \\ intLib.COOPER_TAC
+QED
+
+Theorem iSUM_append:
+  ∀xs ys. iSUM (xs ++ ys) = iSUM xs + iSUM ys
+Proof
+  Induct \\ gvs [iSUM_def,integerTheory.INT_ADD_ASSOC]
+QED
+
+Theorem iSUM_one_less:
+  ∀n t f.
+    f t = 0 ∧ t < n ∧ (∀k. k < n ∧ k ≠ t ⇒  f k = 1) ⇒
+    iSUM (GENLIST f n) ≥ &(n − 1)
+Proof
+  Induct \\ gvs [] \\ rw []
+  \\ Cases_on ‘n = t’ \\ gvs []
+  \\ simp [GENLIST,SNOC_APPEND,iSUM_append,iSUM_def]
+  >-
+   (‘∀k. k < n ⇒ f k = 1’ by gvs []
+    \\ pop_assum mp_tac
+    \\ qid_spec_tac ‘n’ \\ Induct
+    \\ gvs [iSUM_def] \\ rw []
+    \\ simp [GENLIST,SNOC_APPEND,iSUM_append,iSUM_def]
+    \\ gvs [GSYM integerTheory.INT_OF_NUM_ADD, integerTheory.int_ge, ADD1])
+  \\ last_x_assum $ qspecl_then [‘t’,‘f’] mp_tac
+  \\ impl_tac >- gvs []
+  \\ qabbrev_tac ‘k = iSUM (GENLIST f n)’
+  \\ Cases_on ‘n’ \\ gvs [ADD1]
+  \\ simp [GSYM integerTheory.INT_OF_NUM_ADD, integerTheory.int_ge]
 QED
 
 Theorem MEM_option[local]:
@@ -125,6 +161,12 @@ Proof
       \\ conj_tac
       >- simp [EVERY_GENLIST,oneline b2i_def,AllCaseEqs(),EVERY_MAP]
       \\ gvs [is_k_color_def,MEM_GENLIST,PULL_EXISTS]
+      \\ qexists_tac ‘f vertex’ \\ gvs [])
+    >-
+     (simp [satisfies_pbc_def,eval_lin_term_def,MAP_GENLIST,o_DEF]
+      \\ irule iSUM_one_less
+      \\ gvs [is_k_color_def]
+      \\ last_x_assum drule \\ rw []
       \\ qexists_tac ‘f vertex’ \\ gvs [])
     \\ Cases_on ‘is_edge e x y’ \\ gvs []
     \\ simp [satisfies_pbc_def,eval_lin_term_def]
