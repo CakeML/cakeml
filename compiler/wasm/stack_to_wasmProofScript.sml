@@ -5,7 +5,7 @@ Theory stack_to_wasmProof
 Libs
   preamble helperLib shLib
 Ancestors
-  longmul add_carry misc wasmLang
+  longmul word_lemmas add_carry misc wasmLang
   wasmSem stackSem stackLang stackProps asm
 
 
@@ -346,14 +346,14 @@ Definition wasm_long_mul_body_def:
     I64_ADD; (* add a1b2 *)
     CALL wasm_chop64_index;
     LOCAL_SET 7(*k2*);
-    LOCAL_SET 6(*a2b1*);
+    (*LOCAL_SET 6(*a2b1*);*)
+  (* lower = glue64 a1b1 a2b1 *)
+    (*LOCAL_GET 6(*a2b1*);*) I64_CONST 32w; I64_SHL; (* a2b1 <<= 32; *)
+    LOCAL_GET 4(*a1b1*); I64_ADD(*OR*);
   (* upper = a2 * b2 + k2 + k1 *)
     LOCAL_GET 2(*a2*); LOCAL_GET 3(*b2*); I64_MUL;
     LOCAL_GET 7(*k2*); I64_ADD;
-    LOCAL_GET 5(*k1*); I64_ADD;
-  (* lower = glue64 a1b1 a2b1 *)
-    LOCAL_GET 6(*a2b1*); I64_CONST 32w; I64_SHL; (* a2b1 <<= 32; *)
-    LOCAL_GET 4(*a1b1*); I64_ADD(*OR*)
+    LOCAL_GET 5(*k1*); I64_ADD
   ]
 End
 
@@ -455,7 +455,7 @@ End
   arith = Binop binop reg reg ('a reg_imm)
         | Shift shift reg reg num
         | Div reg reg reg
-        | LongMul reg reg reg reg (* lo,hi,a,b *)
+        | LongMul reg reg reg reg (* hi,lo,a,b *)
         | LongDiv reg reg reg reg reg
         | AddCarry reg reg reg reg (* result, a, b, carry(in&out) *)
         | AddOverflow reg reg reg reg
@@ -490,8 +490,8 @@ Definition compile_arith_def:
   ) ∧
   compile_arith (asm$Div t s1 s2) = (* signed div *)
     List [GLOBAL_GET s1; GLOBAL_GET s2; I64_DIV_S; GLOBAL_SET t] ∧
-  compile_arith (asm$LongMul t_lo t_hi s1 s2) =
-    List [GLOBAL_GET s1; GLOBAL_GET s2; CALL wasm_long_mul_index; GLOBAL_SET t_lo; GLOBAL_SET t_hi] ∧
+  compile_arith (asm$LongMul t_hi t_lo s1 s2) =
+    List [GLOBAL_GET s1; GLOBAL_GET s2; CALL wasm_long_mul_index; GLOBAL_SET t_hi; GLOBAL_SET t_lo] ∧
   (* LongDiv is banned *)
   compile_arith (asm$AddCarry t s1 s2 flag) =
     List [GLOBAL_GET s1; GLOBAL_GET s2; GLOBAL_GET flag; CALL wasm_add_carry_index; GLOBAL_SET flag; GLOBAL_SET t] ∧
@@ -1041,7 +1041,8 @@ Theorem exec_LOCAL_TEE:
   i < LENGTH t.locals ∧ i < 4294967296 ⇒
   exec (LOCAL_TEE i) (push v t) = (RNormal, push v (t with locals := LUPDATE v i t.locals))
 Proof
-simp[LOCAL_TEE_def,exec_def,set_local_def]
+simp[LOCAL_TEE_def,exec_def,set_local_def,option_case_eq]
+>>simp[push_def]
 QED
 
 Theorem exec_GLOBAL_GET:
@@ -1506,6 +1507,11 @@ Proof
   >>gvs[AllCaseEqs()]
 QED
 
+Definition set_global'_def:
+  set_global' i v ^t = t with globals := LUPDATE v i t.globals
+End
+
+(* safe for DEP_REWRITE_TAC *)
 Theorem exec_GLOBAL_SET:
   r < LENGTH t.globals ∧
   LENGTH t.globals <= 4294967296 ⇒
@@ -1530,13 +1536,10 @@ QED
 Theorem state_rel_set_var':
   state_rel c s t ∧
   wl_value v = w ∧
-  n < LENGTH t.globals ∧
-  globals = t.globals ⇒
-  state_rel c (set_var n v s) (t with globals := LUPDATE w n globals)
+  n < LENGTH t.globals ⇒
+  state_rel c (set_var n v s) (set_global' n w t)
 Proof
-  rw[state_rel_def,wasm_state_ok_def,regs_rel_def,EL_LUPDATE,set_var_def,FLOOKUP_UPDATE]
-  >>gvs[bool_case_eq]
-  >>metis_tac[]
+  simp[set_global'_def]>>metis_tac[state_rel_set_var]
 QED
 
 fun simp1 thm = simp[thm];
@@ -1620,7 +1623,7 @@ Theorem wasm_long_mul_thm_aux:
   t.clock>=5 ∧
   exec_list wasm_long_mul_body ^t = (res,t') ⇒
   res=RNormal ∧
-  (∃L. t' = t with <|clock:=t.clock-5; stack:=[I64 lo; I64 hi]; locals:=L|>)
+  (∃L. t' = t with <|clock:=t.clock-5; stack:=[I64 hi; I64 lo]; locals:=L|>)
 Proof
 simp[wasm_long_mul_body_def,longmul64_def]
 >>strip_tac
@@ -1653,17 +1656,15 @@ simp[wasm_long_mul_body_def,longmul64_def]
 >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_ADD])
 >>(once_rewrite_tac[exec_list_cons]>>dxrule_then (fn th=>DEP_REWRITE_TAC[th]) wasm_chop64_thm>>simp[])
 >>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_SET]>>simp[])
->>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_SET]>>simp[])
+>>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_CONST])
+>>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_SHL])
+>>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[EL_LUPDATE])
+>>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_ADD])
 >>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[EL_LUPDATE])
 >>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[EL_LUPDATE])
 >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_MUL])
 >>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[EL_LUPDATE])
 >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_ADD])
->>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[EL_LUPDATE])
->>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_ADD])
->>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[EL_LUPDATE])
->>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_CONST])
->>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_SHL])
 >>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[EL_LUPDATE])
 >>simp[exec_I64_ADD]
 (* finish up *)
@@ -1679,7 +1680,7 @@ Theorem wasm_long_mul_thm:
   LLOOKUP t.types (w2n wasm_long_mul.ftype) = SOME ([i64;i64],[i64;i64]) ∧
   t.clock>=6 ⇒
   exec (CALL wasm_long_mul_index) (push (I64 b) (push (I64 a) t)) =
-  (RNormal, push (I64 lo) (push (I64 hi) (t with clock:=t.clock-6)))
+  (RNormal, push (I64 hi) (push (I64 lo) (t with clock:=t.clock-6)))
 Proof
 rw[CALL_def,exec_def]
 >>fs[wasm_long_mul_index_def]
@@ -1809,6 +1810,7 @@ Proof
   simp[reg_ok_def,state_rel_def,regs_rel_def,conf_ok_def]
 QED
 
+(* UNSAFE for DEP_REWRITE_TAC *)
 Theorem exec_GLOBAL_SET':
   reg_ok r c ∧ conf_ok c ∧ state_rel c ^s ^t ⇒
   exec (GLOBAL_SET r) (push v t) = (RNormal, t with globals := LUPDATE v r t.globals)
@@ -1818,16 +1820,20 @@ strip_tac
 >>metis_tac[exec_GLOBAL_SET,LT_IMP_LE]
 QED
 
+(* safe for DEP_REWRITE_TAC *)
+Theorem exec_GLOBAL_SET'2:
+  r < LENGTH t.globals ∧
+  LENGTH t.globals <= 4294967296 ⇒
+  exec (GLOBAL_SET r) (push v t) = (RNormal, set_global' r v t)
+Proof
+  metis_tac[set_global'_def,exec_GLOBAL_SET]
+QED
+
 Theorem shamt_simp[simp]:
   n<64 ⇒ w2n (63w:64 word && n2w n) = n
-Proof cheat(*
-  rw[]>>
-  `n2w n <+ 64w:word64` by
-    fs[WORD_LO]>>
-  `(63w:word64) && n2w n = n2w n` by
-    (rename1`_ && w`>>
-    blastLib.FULL_BBLAST_TAC)>>
-  rw[]*)
+Proof
+mp_tac$INST_TYPE[“:'a”|->“:64”]$SPECL[“6n”,“n2w n”]$GEN_ALL word_and_pow2m1
+>>rw[word_lo_n2w]
 QED
 
 Theorem state_rel_clock_drule:
@@ -1835,7 +1841,31 @@ Theorem state_rel_clock_drule:
 Proof
 simp[state_rel_def]
 QED
-:
+
+Theorem set_global'_push[simp]:
+  set_global' i a (push b t) = push b (set_global' i a t)
+Proof
+simp[set_global'_def,push_def]
+QED
+
+Theorem push_globals[simp]:
+  (push v t).globals = t.globals
+Proof
+simp[push_def]
+QED
+
+Theorem LENGTH_set_global'_globals[simp]:
+  LENGTH (set_global' i v t).globals = LENGTH t.globals
+Proof
+simp[set_global'_def]
+QED
+
+Theorem set_global'_stack[simp]:
+  (set_global' i v t).stack = t.stack
+Proof
+simp[set_global'_def]
+QED
+
 Theorem compile_Inst:
   ^(get_goal "Inst")
 Proof
@@ -1988,33 +2018,23 @@ Proof
       >>simp[]
       >>once_rewrite_tac[exec_list_cons]
       >>qpat_x_assum‘state_rel c (s with clock := _) _’ kall_tac
-      >>DEP_REWRITE_TAC[exec_GLOBAL_SET']
+      >>DEP_REWRITE_TAC[exec_GLOBAL_SET'2]
       >>simp[]
-      >>Q.PAT_ASSUM `reg_ok rt1 c` assume_tac
-      >>dxrule_then (fn th=>DEP_REWRITE_TAC[th]) exec_GLOBAL_SET'
+      >>conj_tac>-metis_tac[wasm_reg_ok_drule,LT_IMP_LE]
+      >>DEP_REWRITE_TAC[exec_GLOBAL_SET'2]
       >>simp[]
-      >>conj_tac
-      >-(
-        simp[push_def]
-        >>qexists_tac‘set_var rt2 (Word hi) s’
-        >>irule state_rel_set_var
-        >>simp[wl_value_def]
-        >>metis_tac[wasm_reg_ok_drule]
-      )
+      >>conj_tac>-metis_tac[wasm_reg_ok_drule,LT_IMP_LE]
       >>rw[res_rel_def]
-      >>simp[push_def]
       >>dxrule_then assume_tac longmul64_thm
-      >>`lo = n2w(w2n w1*w2n w2)` by cheat
-      >>pop_assum (fn eq=>once_rewrite_tac[eq])
-      >>`hi = n2w (w2n w1 * w2n w2 DIV 18446744073709551616)` by cheat
-      >>pop_assum (fn eq=>once_rewrite_tac[eq])
-      >>DEP_ONCE_REWRITE_TAC[LUPDATE_commutes]
-
-
-
-
->>irule state_rel_set_var'
-
+      >>`lo = n2w(w2n w1*w2n w2) ∧ hi = n2w (w2n w1 * w2n w2 DIV 18446744073709551616)` by cheat
+      >>gvs[]
+      >>irule state_rel_set_var'
+      >>simp[]
+      >>conj_tac>-metis_tac[wasm_reg_ok_drule]
+      >>conj_tac>-simp[wl_value_def]
+      >>irule state_rel_set_var'
+      >>conj_tac>-metis_tac[wasm_reg_ok_drule]
+      >>simp[wl_value_def]
     )
     >~[`LongDiv`] >- fs[stack_wasm_ok_def,inst_ok_def,arith_ok_def,conf_ok_def]
 
