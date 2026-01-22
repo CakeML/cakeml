@@ -381,12 +381,12 @@ Definition wasm_add_carry_body_def:
     (* [] *)
     LOCAL_GET 0(*a*); LOCAL_GET 1(*b*); I64_ADD; LOCAL_TEE 0(*sum*);
     (* [sum] *)
-    LOCAL_GET 1(*b*); I64_LT_S; LOCAL_SET 3(*t1*);
+    LOCAL_GET 1(*b*); I64_LT_U; LOCAL_SET 3(*t1*);
     (* [] *)
     LOCAL_GET 0(*sum*); LOCAL_GET 2(*c*); I64_ADD; (* sum_c *)
     LOCAL_TEE 0;
     (* [sum_c] *)
-    LOCAL_GET 2(*c*); I64_LT_S; LOCAL_GET 3(*t1*); I32_OR; I64_EXTEND32_U;
+    LOCAL_GET 2(*c*); I64_LT_U; LOCAL_GET 3(*t1*); I32_OR; I64_EXTEND32_U;
     LOCAL_GET 0
   ]
 End
@@ -1259,6 +1259,13 @@ Proof
 simp[I64_LT_S_def,exec_def,option_case_eq,push_def,num_stk_op_def,do_cmp_eq,b2v_b2w]
 QED
 
+Theorem exec_I64_LT_U:
+  exec I64_LT_U (push (I64 b) (push (I64 a) t)) =
+  (RNormal, push (I32 (b2w (a<+b))) t)
+Proof
+simp[I64_LT_U_def,exec_def,option_case_eq,push_def,num_stk_op_def,do_cmp_eq,b2v_b2w]
+QED
+
 Theorem exec_I64_LT_S':
   labSem$word_cmp Less wa wb = SOME ☯ ⇒
   exec I64_LT_S (push (wl_value wb) (push (wl_value wa) t)) =
@@ -1712,23 +1719,21 @@ simp[wasm_add_carry_body_def,add_carry_def]
 >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_ADD])
 >>(once_rewrite_tac[exec_list_cons]>>simp[exec_LOCAL_TEE])
 >>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[EL_LUPDATE])
->>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_LT_S])
+>>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_LT_U])
 >>(once_rewrite_tac[exec_list_cons]>>simp[exec_LOCAL_SET])
 >>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[HD_LUPDATE])
 >>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[EL_LUPDATE])
 >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_ADD])
 >>(once_rewrite_tac[exec_list_cons]>>simp[exec_LOCAL_TEE])
 >>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[EL_LUPDATE])
->>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_LT_S])
+>>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_LT_U])
 >>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[EL_LUPDATE])
 >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I32_OR])
 >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_EXTEND32_U])
 >>(DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[HD_LUPDATE])
 (* finish up *)
->>gvs[push_def]
->>`(a + b + w2w (b2w (c_in >₊ 0w):word32)) = (a + b + if c_in = 0w then 0w else 1w)` by cheat
->>cheat
->>simp[wasmSemTheory.state_component_equality]
+>>gvs[push_def,word_hi_0,b2w_neq_0]
+>>metis_tac[wasmSemTheory.state_component_equality]
 QED
 
 (* a proof for each case *)
@@ -2025,8 +2030,12 @@ Proof
       >>simp[]
       >>conj_tac>-metis_tac[wasm_reg_ok_drule,LT_IMP_LE]
       >>rw[res_rel_def]
-      >>dxrule_then assume_tac longmul64_thm
-      >>`lo = n2w(w2n w1*w2n w2) ∧ hi = n2w (w2n w1 * w2n w2 DIV 18446744073709551616)` by cheat
+      >>drule_then assume_tac longmul64_thm
+
+      >>subgoal`lo = n2w(w2n w1*w2n w2)`
+>-cheat
+>>`hi = n2w (w2n w1 * w2n w2 DIV 18446744073709551616)` by cheat
+>>qpat_x_assum‘longmul64 w1 w2 = (lo,hi)’kall_tac
       >>gvs[]
       >>irule state_rel_set_var'
       >>simp[]

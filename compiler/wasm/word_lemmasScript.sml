@@ -51,3 +51,47 @@ Proof
 >>gvs[]
 >>metis_tac[EXP_BASE_LT_MONO,LESS_TRANS,prove(“1n<2”,simp[])]
 QED
+
+Theorem split_doubleword:
+  big = dimword(:'a) * w2n (hi:'a word) + w2n (lo:'a word) ⇒
+  lo = n2w big ∧ hi = n2w (big DIV dimword(:'a))
+Proof
+strip_tac
+>>conj_tac
+>-(‘w2n lo = big MOD dimword(:'a)’ by gvs[w2n_lt]>>metis_tac[n2w_w2n,n2w_mod])
+>>subgoal`big DIV dimword(:'a) = w2n hi`
+>-(
+  simp[]
+  >>`(w2n hi * dimword (:α) + w2n lo) DIV dimword (:α) = w2n hi` suffices_by simp[]
+  >>metis_tac[DIV_MULT,w2n_lt]
+)
+>>simp[]
+QED
+
+Theorem w2w_b2w[simp]:
+  w2w (b2w b) = b2w b
+Proof
+Cases_on‘b’
+>>simp[w2w_n2w]
+>>simp[bitTheory.BITS_ZERO3]
+QED
+
+Theorem b2w_bitwise_simp[simp]:
+  b2w a && b2w b = b2w(a∧b) ∧
+  b2w a || b2w b = b2w(a∨b)
+Proof
+Cases_on‘a’>>Cases_on‘b’>>simp[]
+QED
+
+Theorem word_hi_0:
+  a>+0w <=> a≠0w
+Proof
+`∃na. a = n2w na /\ na < dimword(:'a)` by metis_tac[n2w_w2n,w2n_lt]
+>>gvs[word_hi_n2w]
+QED
+
+Theorem b2w_neq_0:
+  b2w(a≠0w) = if a=0w then 0w else 1w
+Proof
+CASE_TAC>>fs[]
+QED
