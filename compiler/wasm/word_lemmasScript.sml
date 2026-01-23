@@ -1,6 +1,24 @@
+(*
+  Useful word lemmas
+*)
 Theory word_lemmas
-Ancestors words arithmetic integer_word
-Libs wordsLib
+Ancestors
+  words arithmetic integer_word multiword
+Libs
+  wordsLib
+
+Theorem b2w_thm:
+  b2w b = if b then 1w else 0w
+Proof
+  rw[b2w_def,b2n_def]
+QED
+
+Theorem b2w_compute[simp]:
+  (b2w T = 1w) ∧
+  (b2w F = 0w)
+Proof
+  rw[b2w_thm]
+QED
 
 Theorem word_bits_1bit:
   (i--i)a = if word_bit i a then 1w else 0w
@@ -71,27 +89,27 @@ QED
 Theorem w2w_b2w[simp]:
   w2w (b2w b) = b2w b
 Proof
-Cases_on‘b’
->>simp[w2w_n2w]
->>simp[bitTheory.BITS_ZERO3]
+  Cases_on‘b’
+  >>simp[w2w_n2w]
+  >>simp[bitTheory.BITS_ZERO3]
 QED
 
 Theorem b2w_bitwise_simp[simp]:
-  b2w a && b2w b = b2w(a∧b) ∧
-  b2w a || b2w b = b2w(a∨b)
+  b2w a && b2w b = b2w(a ∧ b) ∧
+  b2w a || b2w b = b2w(a ∨ b)
 Proof
-Cases_on‘a’>>Cases_on‘b’>>simp[]
+  Cases_on‘a’>>Cases_on‘b’>>simp[]
 QED
 
 Theorem word_hi_0:
-  a>+0w <=> a≠0w
+  a >+ 0w <=> a ≠ 0w
 Proof
-`∃na. a = n2w na /\ na < dimword(:'a)` by metis_tac[n2w_w2n,w2n_lt]
->>gvs[word_hi_n2w]
+  `∃na. a = n2w na /\ na < dimword(:'a)` by metis_tac[n2w_w2n,w2n_lt]
+  >>gvs[word_hi_n2w]
 QED
 
 Theorem b2w_neq_0:
-  b2w(a≠0w) = if a=0w then 0w else 1w
+  b2w (a ≠ 0w) = if a = 0w then 0w else 1w
 Proof
-CASE_TAC>>fs[]
+  CASE_TAC>>fs[]
 QED

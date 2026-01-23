@@ -3,7 +3,7 @@
 *)
 
 Theory      ancillaryOps
-Ancestors   byte words arithmetic list leb128
+Ancestors   byte words arithmetic list leb128 word_lemmas
 Libs        preamble wordsLib blastLib
 
 (*****************************)
@@ -14,8 +14,6 @@ Libs        preamble wordsLib blastLib
 
 Type byte[local]    = “:word8”
 Type byteSeq[local] = “:word8 list”
-
-Overload b2w = “(λ b. if b then 1w else 0w):bool -> α word”
 
 val _ = monadsyntax.enable_monadsyntax()
 val _ = monadsyntax.enable_monad "option"

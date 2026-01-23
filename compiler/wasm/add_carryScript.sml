@@ -1,3 +1,6 @@
+(*
+  Shallow versions of add/sub with flag
+*)
 Theory add_carry
 Ancestors words arithmetic integer_word word_lemmas
 Libs wordsLib

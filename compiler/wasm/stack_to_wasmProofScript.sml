@@ -8,7 +8,6 @@ Ancestors
   longmul word_lemmas add_carry misc wasmLang
   wasmSem stackSem stackLang stackProps asm
 
-
 (* TODO: move Irvin's simps *)
 Theorem option_CASE_OPTION_MAP[simp]:
   (option_CASE (OPTION_MAP f e) a b) = option_CASE e a (λx. b (f x))
@@ -1706,34 +1705,34 @@ Theorem wasm_add_carry_thm_aux:
   res=RNormal ∧
   (∃L. t' = t with <|stack:=[I64 sum_; I64 c_out]; locals:=L|>)
 Proof
-simp[wasm_add_carry_body_def,add_carry_def]
->>strip_tac
->>qpat_x_assum `exec_list _ _ = _` mp_tac
->>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[])
->>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_CONST])
->>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_GT_U])
->>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_EXTEND32_U])
->>(once_rewrite_tac[exec_list_cons]>>simp[exec_LOCAL_SET])
->>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[HD_LUPDATE])
->>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[EL_LUPDATE])
->>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_ADD])
->>(once_rewrite_tac[exec_list_cons]>>simp[exec_LOCAL_TEE])
->>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[EL_LUPDATE])
->>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_LT_U])
->>(once_rewrite_tac[exec_list_cons]>>simp[exec_LOCAL_SET])
->>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[HD_LUPDATE])
->>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[EL_LUPDATE])
->>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_ADD])
->>(once_rewrite_tac[exec_list_cons]>>simp[exec_LOCAL_TEE])
->>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[EL_LUPDATE])
->>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_LT_U])
->>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[EL_LUPDATE])
->>(once_rewrite_tac[exec_list_cons]>>simp[exec_I32_OR])
->>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_EXTEND32_U])
->>(DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[HD_LUPDATE])
-(* finish up *)
->>gvs[push_def,word_hi_0,b2w_neq_0]
->>metis_tac[wasmSemTheory.state_component_equality]
+  simp[wasm_add_carry_body_def,add_carry_def]
+  >>strip_tac
+  >>qpat_x_assum `exec_list _ _ = _` mp_tac
+  >>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[])
+  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_CONST])
+  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_GT_U])
+  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_EXTEND32_U])
+  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_LOCAL_SET])
+  >>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[HD_LUPDATE])
+  >>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[EL_LUPDATE])
+  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_ADD])
+  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_LOCAL_TEE])
+  >>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[EL_LUPDATE])
+  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_LT_U])
+  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_LOCAL_SET])
+  >>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[HD_LUPDATE])
+  >>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[EL_LUPDATE])
+  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_ADD])
+  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_LOCAL_TEE])
+  >>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[EL_LUPDATE])
+  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_LT_U])
+  >>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[EL_LUPDATE])
+  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I32_OR])
+  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_EXTEND32_U])
+  >>(DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[HD_LUPDATE])
+  (* finish up *)
+  >>gvs[push_def,word_hi_0,b2w_neq_0]
+  >>rw[wasmSemTheory.state_component_equality]
 QED
 
 (* a proof for each case *)
@@ -1897,15 +1896,21 @@ Proof
     >>Cases_on`a`
     >~[`Binop`]
     >-(
-      qexists_tac‘0’>>rename1`evaluate (Inst (Arith (Binop op rt rs1 rs2)),s) = _`
-      >>Cases_on‘op’>>gvs[compile_arith_def,evaluate_def,inst_def,assign_def,option_case_eq]
+      qexists_tac‘0’>>
+      rename1`evaluate (Inst (Arith (Binop op rt rs1 rs2)),s) = _`
+      >>Cases_on‘op’
+      >>gvs[compile_arith_def,evaluate_def,inst_def,assign_def,option_case_eq]
       >~[`Or`]
       >-(
-        `∃w1. get_var rs1 s = SOME w1` by (Cases_on‘rs2 = Reg rs1’>>gvs[word_exp_def,option_case_eq,IS_SOME_EXISTS,get_var_def])
+        `∃w1. get_var rs1 s = SOME w1` by (
+          Cases_on‘rs2 = Reg rs1’>>
+          gvs[word_exp_def,option_case_eq,IS_SOME_EXISTS,get_var_def])
         >>once_rewrite_tac[exec_list_cons]
         >>drule_all_then simp1 exec_GLOBAL_GET
         >>once_rewrite_tac[exec_list_cons]
-        >>`∃w2. get_var_imm rs2 s = SOME w2` by (Cases_on‘rs2 = Reg rs1’>>Cases_on‘rs2’>>gvs[word_exp_def,option_case_eq,IS_SOME_EXISTS,oneline get_var_imm_def,get_var_def])
+        >>`∃w2. get_var_imm rs2 s = SOME w2` by (
+          Cases_on‘rs2 = Reg rs1’>>Cases_on‘rs2’>>
+          gvs[word_exp_def,option_case_eq,IS_SOME_EXISTS,oneline get_var_imm_def,get_var_def])
         >>`state_rel c s (push (wl_value w1) t)` by simp[push_def]
         >>drule_all_then simp1 exec_comp_ri
         >>once_rewrite_tac[exec_list_cons]
@@ -1948,7 +1953,9 @@ Proof
         >>rw[res_rel_def]
         >>irule state_rel_set_var
         >>conj_tac>-metis_tac[wasm_reg_ok_drule]
-        >>gvs[wasm_reg_ok_drule, word_exp_def, IS_SOME_EXISTS, wordLangTheory.word_op_def, get_var_def, oneline get_var_imm_def, wl_value_def, AllCaseEqs()]
+        >>gvs[wasm_reg_ok_drule, word_exp_def, IS_SOME_EXISTS,
+          wordLangTheory.word_op_def, get_var_def, oneline get_var_imm_def,
+          wl_value_def, AllCaseEqs()]
       )
     )
     >~[`Shift`]
@@ -1975,7 +1982,8 @@ Proof
     >~[`Div`]
     >-(
       qexists_tac‘0’>>rename1`evaluate (Inst (Arith (Div rt rs1 rs2)),s) = _`
-      >>`reg_ok rs1 c ∧ reg_ok rs2 c ∧ reg_ok rt c` by fs[stack_wasm_ok_def,stack_asm_ok_def,inst_ok_def,arith_ok_def]
+      >>`reg_ok rs1 c ∧ reg_ok rs2 c ∧ reg_ok rt c` by
+        fs[stack_wasm_ok_def,stack_asm_ok_def,inst_ok_def,arith_ok_def]
       >>gvs[compile_arith_def,evaluate_def,inst_def,get_vars_def,AllCaseEqs()]
       >>once_rewrite_tac[exec_list_cons]
       >>drule_all_then simp1 exec_GLOBAL_GET
@@ -2045,8 +2053,8 @@ Proof
       >>conj_tac>-metis_tac[wasm_reg_ok_drule]
       >>simp[wl_value_def]
     )
-    >~[`LongDiv`] >- fs[stack_wasm_ok_def,inst_ok_def,arith_ok_def,conf_ok_def]
-
+    >~[`LongDiv`] >-
+      fs[stack_wasm_ok_def,stack_asm_ok_def,inst_ok_def,arith_ok_def,conf_ok_def]
     >~[`AddCarry`] >- cheat
 
     >~[`AddOverflow`] >- cheat
@@ -2056,8 +2064,7 @@ Proof
   >~[`Mem`] >-
     cheat
   >~[`FP`] >-
-    gvs[stack_wasm_ok_def,inst_ok_def,oneline fp_ok_def,AllCasePreds(),fp_reg_ok_def,conf_ok_def]
-
+    gvs[stack_wasm_ok_def,stack_asm_ok_def,inst_ok_def,oneline fp_ok_def,AllCasePreds(),fp_reg_ok_def,conf_ok_def]
 QED
 
 Theorem res_rel_RBreak:
@@ -2221,12 +2228,13 @@ QED
 
 Theorem wasm_state_ok_LLOOKUP_cakeml_ftype_index:
   wasm_state_ok t ⇒
-  LLOOKUP t.types (w2n cakeml_ftype_index) = SOME ([], [Tnum Int W32])
+  LLOOKUP t.types (w2n cakeml_ftype_index) =
+    SOME ([], [i32])
 Proof
   fs[wasm_state_ok_def]
 QED
 
-Theorem state_rel_with_clock':
+Theorem state_rel_with_clock'[simp]:
   state_rel c s (t with <|clock:=ck; stack:=_; locals:=_|>) ⇔
   state_rel c s (t with <|clock:=ck|>)
 Proof
@@ -2375,7 +2383,7 @@ rpt strip_tac
     >>(qpat_x_assum `state_rel c s t` mp_tac >> simp[state_rel_def,regs_rel_def])
   )
   >>dxrule_all state_rel_set_var
-  >>simp[state_rel_with_clock']
+  >>simp[]
 )
 >>first_x_assum dxrule_all (* apply IH *)
 >>strip_tac
@@ -2482,99 +2490,143 @@ QED
 Theorem compile_Call:
   ^(get_goal "Call")
 Proof
-rpt strip_tac
->>`wasm_state_ok t ∧ code_rel s.code t.funcs` by fs[state_rel_def]
->>(Cases_on`ret`>>gvs[]) (* tail-call or not? *)
->-(
-  (* tail-call case *)
-  Cases_on`handler`>>fs[evaluate_def,option_case_eq]
-  >>(Cases_on`dest`>>simp[])
+  rpt strip_tac
+  >>`wasm_state_ok t ∧ code_rel s.code t.funcs` by fs[state_rel_def]
+  >>(Cases_on`ret`>>gvs[]) (* tail-call or not? *)
   >-(
-    (* RETURN_CALL case *)
-    simp[compile_def,tail_call_def]
-    >>simp[RETURN_CALL_def,exec_def]
-    (* show `LLOOKUP t.funcs ((x + LENGTH wasm_support_function_list) MOD 4294967296) = SOME ...`
-       using `find_code (INL x) s.regs s.code = SOME prog` *)
-    >>fs[find_code_def]
-    >>rename1 `lookup prog_index s.code = SOME prog`
-    >>`LLOOKUP t.funcs (prog_index + LENGTH wasm_support_function_list) =
-       SOME
-         <|ftype := cakeml_ftype_index; locals := [];
-           body := flatten (compile prog)|>`
-      by fs[code_rel_def,find_code_def]
-    >>subgoal `LENGTH wasm_support_function_list + prog_index < 4294967296`
+    (* tail-call case *)
+    Cases_on`handler`>>fs[evaluate_def,option_case_eq]
+    >>(Cases_on`dest`>>simp[])
     >-(
-      `LENGTH t.funcs < 4294967296` by fs[state_rel_def,wasm_state_ok_def]
-      >>fs[LLOOKUP_EQ_EL]
-    )
-    (* done *)
-    >>pop_assum simp1
-    >>‘LLOOKUP t.types (w2n cakeml_ftype_index) = SOME ([], [Tnum Int W32])’ by fs[wasm_state_ok_def]
-    >>pop_assum simp1
-    >>simp[pop_n_def]
-    (* timeout or not? *)
-    >>`t.clock=s.clock` by fs[state_rel_def]
-    >>(Cases_on`s.clock=0`>>fs[])
-    >-(
-      (* timeout case *)
-      qexists_tac`0` (*∃ck*)
-      >>rw[] (* 2 goals: res_rel and state_rel *)
-      >-simp[res_rel_def]
-      >>`(t with clock:=0) = t` by metis_tac[wasm_state_useless_fupd]
+      (* RETURN_CALL case *)
+      simp[compile_def,tail_call_def]
+      >>simp[RETURN_CALL_def,exec_def]
+      (* show `LLOOKUP t.funcs ((x + LENGTH wasm_support_function_list) MOD 4294967296) = SOME ...`
+         using `find_code (INL x) s.regs s.code = SOME prog` *)
+      >>fs[find_code_def]
+      >>rename1 `lookup prog_index s.code = SOME prog`
+      >>`LLOOKUP t.funcs (prog_index + LENGTH wasm_support_function_list) =
+         SOME
+           <|ftype := cakeml_ftype_index; locals := [];
+             body := flatten (compile prog)|>`
+        by fs[code_rel_def,find_code_def]
+      >>subgoal `LENGTH wasm_support_function_list + prog_index < 4294967296`
+      >-(
+        `LENGTH t.funcs < 4294967296` by fs[state_rel_def,wasm_state_ok_def]
+        >>fs[LLOOKUP_EQ_EL]
+      )
+      (* done *)
       >>pop_assum simp1
-      >>metis_tac[state_rel_empty_env]
-    )
-    (* non-timeout case *)
-    >>gvs[pair_case_eq,option_case_eq] (* `evaluate (prog,dec_clock s)` does not result in Error *)
-    >>`stack_wasm_ok c prog` by (fs[state_rel_def]>>metis_tac[])
-    >>subgoal `state_rel c (dec_clock s) (t with <| clock := s.clock-1; stack:=[]; locals:=[] |>)`
+      >>‘LLOOKUP t.types (w2n cakeml_ftype_index) = SOME ([], [i32])’ by fs[wasm_state_ok_def]
+      >>pop_assum simp1
+      >>simp[pop_n_def]
+      (* timeout or not? *)
+      >>`t.clock=s.clock` by fs[state_rel_def]
+      >>(Cases_on`s.clock=0`>>fs[])
+      >-(
+        (* timeout case *)
+        qexists_tac`0` (*∃ck*)
+        >>rw[] (* 2 goals: res_rel and state_rel *)
+        >-simp[res_rel_def]
+        >>`(t with clock:=0) = t` by metis_tac[wasm_state_useless_fupd]
+        >>pop_assum simp1
+        >>metis_tac[state_rel_empty_env]
+      )
+      (* non-timeout case *)
+      >>gvs[pair_case_eq,option_case_eq] (* `evaluate (prog,dec_clock s)` does not result in Error *)
+      >>`stack_wasm_ok c prog` by (fs[state_rel_def]>>metis_tac[])
+      >>subgoal `state_rel c (dec_clock s) (t with <| clock := s.clock-1; stack:=[]; locals:=[] |>)`
+      >-(
+        simp[dec_clock_def]
+        >>metis_tac[state_rel_with_clock,state_rel_with_stack,state_rel_with_locals]
+      )
+      >>first_x_assum drule_all (* IH *)
+      >>strip_tac
+      >>fs[]
+      >>rename1 `res_rel (SOME s_res) callee_t_res ([], callee_t_fin.stack)`
+      >>qexists_tac`ck`
+      >>gvs[]
+      >>metis_tac[compile_Call_aux]
+    ) (* RETURN_CALL case done *)
     >-(
-      simp[dec_clock_def]
-      >>metis_tac[state_rel_with_clock,state_rel_with_stack,state_rel_with_locals]
-    )
-    >>first_x_assum drule_all (* IH *)
-    >>strip_tac
-    >>fs[]
-    >>rename1 `res_rel (SOME s_res) callee_t_res ([], callee_t_fin.stack)`
-    >>qexists_tac`ck`
-    >>gvs[]
-    >>metis_tac[compile_Call_aux]
-  ) (* RETURN_CALL case done *)
-  >-(
-    (* RETURN_CALL_INDIRECT case *)
-    qpat_x_assum `code_rel s.code t.funcs` mp_tac >> simp[code_rel_def]
-    >>subgoal `∃prog_index. get_var y s = SOME (Loc prog_index 0)`
-    >-(
-      fs[find_code_def,get_var_def]
-      >>gvs[AllCaseEqs()]
-    )
-    >>`lookup prog_index s.code = SOME prog` by fs[find_code_def,get_var_def]
-    >>(strip_tac >> pop_assum $ drule_then assume_tac)
-    >>`prog_index + LENGTH wasm_support_function_list < LENGTH t.funcs` by fs[LLOOKUP_EQ_EL]
-    >>`LENGTH t.funcs < 4294967296` by fs[wasm_state_ok_def]
-    >>`LLOOKUP t.func_table prog_index = SOME (n2w (LENGTH wasm_support_function_list + prog_index))` by fs[wasm_state_ok_def]
-    (* *)
-    >>simp[compile_def]
-    (* timeout or not? *)
-    >>`t.clock=s.clock` by fs[state_rel_def]
-    >>(Cases_on`s.clock=0`>>fs[])
-    >-(
-      (* timeout case *)
-      qexists_tac`0` (*ck*)
-      >>subgoal ‘exec (GLOBAL_GET y) t = (RNormal, push (wl_value (Loc prog_index 0)) t)’
-      >-metis_tac[exec_GLOBAL_GET,state_rel_with_clock]
+      (* RETURN_CALL_INDIRECT case *)
+      qpat_x_assum `code_rel s.code t.funcs` mp_tac >> simp[code_rel_def]
+      >>subgoal `∃prog_index. get_var y s = SOME (Loc prog_index 0)`
+      >-(
+        fs[find_code_def,get_var_def]
+        >>gvs[AllCaseEqs()]
+      )
+      >>`lookup prog_index s.code = SOME prog` by fs[find_code_def,get_var_def]
+      >>(strip_tac >> pop_assum $ drule_then assume_tac)
+      >>`prog_index + LENGTH wasm_support_function_list < LENGTH t.funcs` by fs[LLOOKUP_EQ_EL]
+      >>`LENGTH t.funcs < 4294967296` by fs[wasm_state_ok_def]
+      >>`LLOOKUP t.func_table prog_index = SOME (n2w (LENGTH wasm_support_function_list + prog_index))` by fs[wasm_state_ok_def]
+      (* *)
+      >>simp[compile_def]
+      (* timeout or not? *)
+      >>`t.clock=s.clock` by fs[state_rel_def]
+      >>(Cases_on`s.clock=0`>>fs[])
+      >-(
+        (* timeout case *)
+        qexists_tac`0` (*ck*)
+        >>subgoal ‘exec (GLOBAL_GET y) t = (RNormal, push (wl_value (Loc prog_index 0)) t)’
+        >-metis_tac[exec_GLOBAL_GET,state_rel_with_clock]
+        >>once_rewrite_tac[exec_list_cons]
+        >>`(t with clock:=0) = t` by metis_tac[wasm_state_useless_fupd]
+        >>pop_assum simp1
+        >>pop_assum simp1
+        >>simp[wl_value_def]
+        >>once_rewrite_tac[exec_list_cons]
+        >>simp[exec_I64_CONST]
+        >>once_rewrite_tac[exec_list_cons]
+        >>simp[exec_I64_SHR_U]
+        >>once_rewrite_tac[exec_list_cons]
+        >>simp[exec_I32_WRAP_I64]
+        >>simp[RETURN_CALL_INDIRECT_def,exec_def] (* gets ugly from here *)
+        >>simp[dest_i32_def]
+        >>simp[lookup_func_tables_def, prove(“LLOOKUP [^t.func_table] 0 = SOME t.func_table”, simp[LLOOKUP_def])]
+        (* from `prog_index < LENGTH t.funcs` and `wasm_state_ok t` have `prog_index < 2**32` *)
+        >>subgoal `w2n ((w2w:word64->word32) (n2w prog_index ≪ 1 ⋙ 1)) = prog_index`
+        >-(
+          `prog_index < 4294967296` by decide_tac
+          >>simp[lsl_lsr,w2w_n2w]
+        )
+        >>pop_assum simp1
+        >>`LLOOKUP t.func_table prog_index = SOME (n2w (LENGTH wasm_support_function_list + prog_index))` by fs[wasm_state_ok_def]
+        >>simp[]
+        >>`LLOOKUP t.types (w2n cakeml_ftype_index) = SOME ([], [i32])` by fs[wasm_state_ok_def]
+        >>simp[pop_n_def] (* get rid of all 'case's *)
+        (* res_rel and state_rel *)
+        >>(strip_tac>-simp[res_rel_RTimeout])
+        >>metis_tac[state_rel_empty_env]
+      )
+      (* non-timeout case *)
+      >>gvs[pair_case_eq,option_case_eq] (* `evaluate (prog,dec_clock s)` does not result in Error *)
+      >>`stack_wasm_ok c prog` by (fs[state_rel_def]>>metis_tac[])
+      >>subgoal `state_rel c (dec_clock s) (t with <| clock := s.clock-1; stack:=[]; locals:=[] |>)`
+      >-(
+        simp[dec_clock_def]
+        >>metis_tac[state_rel_with_clock,state_rel_with_stack,state_rel_with_locals]
+      )
+      >>first_x_assum drule_all (* IH *)
+      >>strip_tac
+      >>fs[]
+      >>rename1 `res_rel (SOME s_res) callee_t_res ([], callee_t_fin.stack)`
+      >>qexists_tac`ck`
+      >>subgoal ‘exec (GLOBAL_GET y) (t with clock := ck + s.clock) = (RNormal, push (wl_value (Loc prog_index 0)) (t with clock := ck + s.clock))’
+      >-(
+        `get_var y (s with clock:=ck+s.clock) = SOME (Loc prog_index 0)` by simp[]
+        >>metis_tac[exec_GLOBAL_GET,state_rel_with_clock]
+      )
       >>once_rewrite_tac[exec_list_cons]
-      >>`(t with clock:=0) = t` by metis_tac[wasm_state_useless_fupd]
       >>pop_assum simp1
-      >>pop_assum simp1
-      >>simp[wl_value_def]
       >>once_rewrite_tac[exec_list_cons]
       >>simp[exec_I64_CONST]
       >>once_rewrite_tac[exec_list_cons]
-      >>simp[exec_I64_SHR_U]
+      >>simp[wl_value_def,exec_I64_SHR_U]
       >>once_rewrite_tac[exec_list_cons]
       >>simp[exec_I32_WRAP_I64]
-      >>simp[RETURN_CALL_INDIRECT_def,exec_def] (* gets ugly from here *)
+      >>simp[RETURN_CALL_INDIRECT_def,exec_def] (* cases appear *)
       >>simp[dest_i32_def]
       >>simp[lookup_func_tables_def, prove(“LLOOKUP [^t.func_table] 0 = SOME t.func_table”, simp[LLOOKUP_def])]
       (* from `prog_index < LENGTH t.funcs` and `wasm_state_ok t` have `prog_index < 2**32` *)
@@ -2584,168 +2636,124 @@ rpt strip_tac
         >>simp[lsl_lsr,w2w_n2w]
       )
       >>pop_assum simp1
-      >>`LLOOKUP t.func_table prog_index = SOME (n2w (LENGTH wasm_support_function_list + prog_index))` by fs[wasm_state_ok_def]
-      >>simp[]
-      >>`LLOOKUP t.types (w2n cakeml_ftype_index) = SOME ([], [Tnum Int W32])` by fs[wasm_state_ok_def]
-      >>simp[pop_n_def] (* get rid of all 'case's *)
-      (* res_rel and state_rel *)
-      >>(strip_tac>-simp[res_rel_RTimeout])
-      >>metis_tac[state_rel_empty_env]
-    )
-    (* non-timeout case *)
-    >>gvs[pair_case_eq,option_case_eq] (* `evaluate (prog,dec_clock s)` does not result in Error *)
-    >>`stack_wasm_ok c prog` by (fs[state_rel_def]>>metis_tac[])
-    >>subgoal `state_rel c (dec_clock s) (t with <| clock := s.clock-1; stack:=[]; locals:=[] |>)`
-    >-(
-      simp[dec_clock_def]
-      >>metis_tac[state_rel_with_clock,state_rel_with_stack,state_rel_with_locals]
-    )
-    >>first_x_assum drule_all (* IH *)
-    >>strip_tac
-    >>fs[]
-    >>rename1 `res_rel (SOME s_res) callee_t_res ([], callee_t_fin.stack)`
-    >>qexists_tac`ck`
-    >>subgoal ‘exec (GLOBAL_GET y) (t with clock := ck + s.clock) = (RNormal, push (wl_value (Loc prog_index 0)) (t with clock := ck + s.clock))’
-    >-(
-      `get_var y (s with clock:=ck+s.clock) = SOME (Loc prog_index 0)` by simp[]
-      >>metis_tac[exec_GLOBAL_GET,state_rel_with_clock]
-    )
-    >>once_rewrite_tac[exec_list_cons]
-    >>pop_assum simp1
-    >>once_rewrite_tac[exec_list_cons]
-    >>simp[exec_I64_CONST]
-    >>once_rewrite_tac[exec_list_cons]
-    >>simp[wl_value_def,exec_I64_SHR_U]
-    >>once_rewrite_tac[exec_list_cons]
-    >>simp[exec_I32_WRAP_I64]
-    >>simp[RETURN_CALL_INDIRECT_def,exec_def] (* cases appear *)
-    >>simp[dest_i32_def]
-    >>simp[lookup_func_tables_def, prove(“LLOOKUP [^t.func_table] 0 = SOME t.func_table”, simp[LLOOKUP_def])]
-    (* from `prog_index < LENGTH t.funcs` and `wasm_state_ok t` have `prog_index < 2**32` *)
-    >>subgoal `w2n ((w2w:word64->word32) (n2w prog_index ≪ 1 ⋙ 1)) = prog_index`
-    >-(
-      `prog_index < 4294967296` by decide_tac
-      >>simp[lsl_lsr,w2w_n2w]
-    )
-    >>pop_assum simp1
-    >>`LLOOKUP t.types (w2n cakeml_ftype_index) = SOME ([], [Tnum Int W32])` by fs[wasm_state_ok_def]
-    >>simp[pop_n_def]
-    >>(qpat_x_assum `exec_list (flatten (compile prog)) _ = _` mp_tac >> simp[])
-    >>(strip_tac >> pop_assum kall_tac)
-    >>metis_tac[compile_Call_aux]
-  ) (* RETURN_CALL_INDIRECT case done *)
-) (* tail-call case done *)
->-(
-  (* non-tail-call case *)
-  `∃ret_handler link_reg l m. x = (ret_handler, link_reg, l, m)` by metis_tac[pair_CASES]
-  >>gvs[evaluate_def]
-  >>(Cases_on `find_code dest (s.regs \\ link_reg) s.code` >> fs[] (* have ‘find_code ... = SOME ...’ *))
-  >>(Cases_on`dest` >> fs[] (* direct call or indirect call? *))
+      >>`LLOOKUP t.types (w2n cakeml_ftype_index) = SOME ([], [i32])` by fs[wasm_state_ok_def]
+      >>simp[pop_n_def]
+      >>(qpat_x_assum `exec_list (flatten (compile prog)) _ = _` mp_tac >> simp[])
+      >>(strip_tac >> pop_assum kall_tac)
+      >>metis_tac[compile_Call_aux]
+    ) (* RETURN_CALL_INDIRECT case done *)
+  ) (* tail-call case done *)
   >-(
-    (* CALL case *)
-    fs[find_code_def]
-    >>rename1 ‘lookup prog_index s.code = SOME prog’
-    >>simp[compile_def]
-    >>once_rewrite_tac[exec_list_cons]
-    >>simp[exec_I64_CONST]
-    >>once_rewrite_tac[exec_list_cons]
-    >>subgoal `∀ck. exec (GLOBAL_SET link_reg) (push (I64 (n2w l ≪ 1)) (t with clock:=ck+t.clock)) =
-      (RNormal,t with <|clock:=ck+t.clock; globals := LUPDATE (I64 (n2w l ≪ 1)) link_reg t.globals|>)`
+    (* non-tail-call case *)
+    `∃ret_handler link_reg l m. x = (ret_handler, link_reg, l, m)` by metis_tac[pair_CASES]
+    >>gvs[evaluate_def]
+    >>(Cases_on `find_code dest (s.regs \\ link_reg) s.code` >> fs[] (* have ‘find_code ... = SOME ...’ *))
+    >>(Cases_on`dest` >> fs[] (* direct call or indirect call? *))
     >-(
-      strip_tac
-      >>`link_reg < LENGTH (t with clock:=ck+t.clock).globals ∧ LENGTH (t with clock:=ck+t.clock).globals ≤ 4294967296` by fs[state_rel_def,regs_rel_def,conf_ok_def,stack_wasm_ok_def]
-      >>dxrule_all exec_GLOBAL_SET
-      >>simp[]
-    )
-    >>pop_assum simp1
-    >>simp[CALL_def,exec_list_cons]
-    >>(dxrule_all compile_Call_aux2 >> rewrite_tac[] >> NO_TAC)
-  )
-  >-(
-    (* CALL_INDIRECT case *)
-    simp[compile_def]
-    >>once_rewrite_tac[exec_list_cons]
-    >>simp[exec_I64_CONST]
-    >>once_rewrite_tac[exec_list_cons]
-    >>subgoal `∀ck. exec (GLOBAL_SET link_reg) (push (I64 (n2w l << 1)) (t with clock := ck+t.clock)) =
-                    (RNormal, t with <|clock := ck+t.clock; globals := LUPDATE (I64 (n2w l << 1)) link_reg t.globals|>)`
-    >-((* by auto[exec_GLOBAL_SET] *)
-      strip_tac
-      >>`LENGTH (t with clock := ck+t.clock).globals <= 4294967296 /\ link_reg < LENGTH (t with clock:=ck+t.clock).globals` by fs[stack_wasm_ok_def,state_rel_def,regs_rel_def,conf_ok_def]
-      >>dxrule_all exec_GLOBAL_SET
-      >>simp[]
-    )
-    >>pop_assum simp1
-    >>fs[find_code_def]
-    >>`∃prog_index. FLOOKUP (s.regs\\link_reg) y = SOME (Loc prog_index 0)` by fs[AllCaseEqs()]
-    >>subgoal ‘∀ck. exec (GLOBAL_GET y) (t with <|clock:=ck+t.clock; globals:=LUPDATE (I64 (n2w l ≪ 1)) link_reg t.globals|>) =
-                    (RNormal, push (wl_value (Loc prog_index 0)) (t with <|clock:=ck+t.clock; globals:=LUPDATE (I64 (n2w l ≪ 1)) link_reg t.globals|>))’
-    (* y: register holding pointer to callee *)
-    >-(
-      strip_tac
-      >>subgoal `get_var y ((set_var link_reg (Loc l m) s) with clock:=ck+s.clock) = SOME (Loc prog_index 0)`
+      (* CALL case *)
+      fs[find_code_def]
+      >>rename1 ‘lookup prog_index s.code = SOME prog’
+      >>simp[compile_def]
+      >>once_rewrite_tac[exec_list_cons]
+      >>simp[exec_I64_CONST]
+      >>once_rewrite_tac[exec_list_cons]
+      >>subgoal `∀ck. exec (GLOBAL_SET link_reg) (push (I64 (n2w l ≪ 1)) (t with clock:=ck+t.clock)) =
+        (RNormal,t with <|clock:=ck+t.clock; globals := LUPDATE (I64 (n2w l ≪ 1)) link_reg t.globals|>)`
       >-(
-        subgoal `get_var y (set_var link_reg (Loc l m) s) = SOME (Loc prog_index 0)`
-        >-(
-          Cases_on`y=link_reg`>-fs[]
-          >>simp[get_var_def,set_var_def,FLOOKUP_SIMP]
-          >>metis_tac[DOMSUB_FLOOKUP_NEQ]
-        )
-        >>simp[get_var_def]
+        strip_tac
+        >>`link_reg < LENGTH (t with clock:=ck+t.clock).globals ∧ LENGTH (t with clock:=ck+t.clock).globals ≤ 4294967296` by fs[state_rel_def,regs_rel_def,conf_ok_def,stack_wasm_ok_def]
+        >>dxrule_all exec_GLOBAL_SET
+        >>simp[]
       )
-      >>`t.clock=s.clock` by fs[state_rel_def]
-      >>subgoal `state_rel c ((set_var link_reg (Loc l m) s) with clock:=ck+s.clock) (t with <|clock:=ck+t.clock; globals:=LUPDATE (I64 (n2w l<<1)) link_reg t.globals|>)`
+      >>pop_assum simp1
+      >>simp[CALL_def,exec_list_cons]
+      >>(dxrule_all compile_Call_aux2 >> rewrite_tac[] >> NO_TAC)
+    )
+    >-(
+      (* CALL_INDIRECT case *)
+      simp[compile_def]
+      >>once_rewrite_tac[exec_list_cons]
+      >>simp[exec_I64_CONST]
+      >>once_rewrite_tac[exec_list_cons]
+      >>subgoal `∀ck. exec (GLOBAL_SET link_reg) (push (I64 (n2w l << 1)) (t with clock := ck+t.clock)) =
+                      (RNormal, t with <|clock := ck+t.clock; globals := LUPDATE (I64 (n2w l << 1)) link_reg t.globals|>)`
+      >-((* by auto[exec_GLOBAL_SET] *)
+        strip_tac
+        >>`LENGTH (t with clock := ck+t.clock).globals <= 4294967296 /\ link_reg < LENGTH (t with clock:=ck+t.clock).globals` by fs[stack_wasm_ok_def,state_rel_def,regs_rel_def,conf_ok_def]
+        >>dxrule_all exec_GLOBAL_SET
+        >>simp[]
+      )
+      >>pop_assum simp1
+      >>fs[find_code_def]
+      >>`∃prog_index. FLOOKUP (s.regs\\link_reg) y = SOME (Loc prog_index 0)` by fs[AllCaseEqs()]
+      >>subgoal ‘∀ck. exec (GLOBAL_GET y) (t with <|clock:=ck+t.clock; globals:=LUPDATE (I64 (n2w l ≪ 1)) link_reg t.globals|>) =
+                      (RNormal, push (wl_value (Loc prog_index 0)) (t with <|clock:=ck+t.clock; globals:=LUPDATE (I64 (n2w l ≪ 1)) link_reg t.globals|>))’
+      (* y: register holding pointer to callee *)
       >-(
-        subgoal `state_rel c (set_var link_reg (Loc l m) s) (t with globals:=LUPDATE (I64 (n2w l<<1)) link_reg t.globals)`
+        strip_tac
+        >>subgoal `get_var y ((set_var link_reg (Loc l m) s) with clock:=ck+s.clock) = SOME (Loc prog_index 0)`
         >-(
-          irule state_rel_set_var
-          >>`link_reg < LENGTH t.globals` by fs[stack_wasm_ok_def,state_rel_def,regs_rel_def]
-          >>simp[wl_value_def]
+          subgoal `get_var y (set_var link_reg (Loc l m) s) = SOME (Loc prog_index 0)`
+          >-(
+            Cases_on`y=link_reg`>-fs[]
+            >>simp[get_var_def,set_var_def,FLOOKUP_SIMP]
+            >>metis_tac[DOMSUB_FLOOKUP_NEQ]
+          )
+          >>simp[get_var_def]
         )
-        >>metis_tac[state_rel_with_clock]
+        >>`t.clock=s.clock` by fs[state_rel_def]
+        >>subgoal `state_rel c ((set_var link_reg (Loc l m) s) with clock:=ck+s.clock) (t with <|clock:=ck+t.clock; globals:=LUPDATE (I64 (n2w l<<1)) link_reg t.globals|>)`
+        >-(
+          subgoal `state_rel c (set_var link_reg (Loc l m) s) (t with globals:=LUPDATE (I64 (n2w l<<1)) link_reg t.globals)`
+          >-(
+            irule state_rel_set_var
+            >>`link_reg < LENGTH t.globals` by fs[stack_wasm_ok_def,state_rel_def,regs_rel_def]
+            >>simp[wl_value_def]
+          )
+          >>metis_tac[state_rel_with_clock]
+        )
+        >>(dxrule_all exec_GLOBAL_GET >> simp[])
       )
-      >>(dxrule_all exec_GLOBAL_GET >> simp[])
+      >>once_rewrite_tac[exec_list_cons]
+      >>pop_assum simp1
+      >>once_rewrite_tac[exec_list_cons]
+      >>simp[exec_I64_CONST]
+      >>once_rewrite_tac[exec_list_cons]
+      >>simp[exec_I64_SHR_U,wl_value_def]
+      >>once_rewrite_tac[exec_list_cons]
+      >>simp[exec_I32_WRAP_I64]
+      >>once_rewrite_tac[exec_list_cons]
+      >>simp[CALL_INDIRECT_def, first (can (find_term (can (match_term“CallIndirect”))) o concl) (CONJUNCTS exec_def)] (* exec CALL_INDIRECT *)
+      >>simp[dest_i32_def]
+      >>simp[lookup_func_tables_def, LLOOKUP_def]
+      >>fs[]
+      >>rename1 `lookup prog_index s.code = SOME prog`
+      >>`LLOOKUP t.funcs (prog_index + LENGTH wasm_support_function_list) =
+         SOME
+           <|ftype := cakeml_ftype_index; locals := [];
+             body := flatten (compile prog)|>`
+        by fs[code_rel_def,find_code_def]
+      >>subgoal `LENGTH wasm_support_function_list + prog_index < 4294967296`
+      >-(
+        `LENGTH t.funcs < 4294967296` by fs[state_rel_def,wasm_state_ok_def]
+        >>fs[LLOOKUP_EQ_EL]
+      )
+      >>subgoal `w2n ((w2w:word64->word32) (n2w prog_index ≪ 1 ⋙ 1)) = prog_index`
+      >-(
+        `prog_index < 4294967296` by decide_tac
+        >>simp[lsl_lsr,w2w_n2w]
+      )
+      >>pop_assum simp1
+      >>subgoal `LLOOKUP t.func_table prog_index = SOME (n2w (LENGTH wasm_support_function_list + prog_index))`
+      >-(
+        `prog_index + LENGTH wasm_support_function_list < LENGTH t.funcs` by fs[LLOOKUP_EQ_EL]
+        >>`prog_index < LENGTH t.funcs` by decide_tac
+        >>fs[wasm_state_ok_def]
+      )
+      >>pop_assum simp1
+      >>(dxrule_all compile_Call_aux2 >> rewrite_tac[] >> NO_TAC)
     )
-    >>once_rewrite_tac[exec_list_cons]
-    >>pop_assum simp1
-    >>once_rewrite_tac[exec_list_cons]
-    >>simp[exec_I64_CONST]
-    >>once_rewrite_tac[exec_list_cons]
-    >>simp[exec_I64_SHR_U,wl_value_def]
-    >>once_rewrite_tac[exec_list_cons]
-    >>simp[exec_I32_WRAP_I64]
-    >>once_rewrite_tac[exec_list_cons]
-    >>simp[CALL_INDIRECT_def, first (can (find_term (can (match_term“CallIndirect”))) o concl) (CONJUNCTS exec_def)] (* exec CALL_INDIRECT *)
-    >>simp[dest_i32_def]
-    >>simp[lookup_func_tables_def, LLOOKUP_def]
-    >>fs[]
-    >>rename1 `lookup prog_index s.code = SOME prog`
-    >>`LLOOKUP t.funcs (prog_index + LENGTH wasm_support_function_list) =
-       SOME
-         <|ftype := cakeml_ftype_index; locals := [];
-           body := flatten (compile prog)|>`
-      by fs[code_rel_def,find_code_def]
-    >>subgoal `LENGTH wasm_support_function_list + prog_index < 4294967296`
-    >-(
-      `LENGTH t.funcs < 4294967296` by fs[state_rel_def,wasm_state_ok_def]
-      >>fs[LLOOKUP_EQ_EL]
-    )
-    >>subgoal `w2n ((w2w:word64->word32) (n2w prog_index ≪ 1 ⋙ 1)) = prog_index`
-    >-(
-      `prog_index < 4294967296` by decide_tac
-      >>simp[lsl_lsr,w2w_n2w]
-    )
-    >>pop_assum simp1
-    >>subgoal `LLOOKUP t.func_table prog_index = SOME (n2w (LENGTH wasm_support_function_list + prog_index))`
-    >-(
-      `prog_index + LENGTH wasm_support_function_list < LENGTH t.funcs` by fs[LLOOKUP_EQ_EL]
-      >>`prog_index < LENGTH t.funcs` by decide_tac
-      >>fs[wasm_state_ok_def]
-    )
-    >>pop_assum simp1
-    >>(dxrule_all compile_Call_aux2 >> rewrite_tac[] >> NO_TAC)
   )
-)
 QED
 
 Theorem compile_While:
