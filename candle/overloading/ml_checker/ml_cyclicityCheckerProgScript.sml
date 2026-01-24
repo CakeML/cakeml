@@ -71,14 +71,14 @@ val _ = translate parse_strlit_def
 
 Quote add_cakeml:
   fun parse_string cs =
-    pmatch parse_strlit cs of
+    case parse_strlit cs of
       None => None
     | Some (str, cs) => Some (String.implode str, cs)
 End
 
 Quote add_cakeml:
   fun parse_skip_space l =
-    pmatch l of
+    case l of
       [] => []
     | (x::cs) =>
       if Char.isSpace x then
@@ -88,7 +88,7 @@ End
 
 Quote add_cakeml:
   fun parse_token token cs =
-    pmatch cs of
+    case cs of
       (c::cs) =>
         if c = token then
           Some cs
@@ -101,7 +101,7 @@ End
 
 Quote add_cakeml:
   fun parse_list_innards is_ordered parse_elem cs one_more_elem acc =
-    pmatch cs of
+    case cs of
       c::cs =>
         if Char.isSpace c then
           parse_list_innards is_ordered parse_elem cs one_more_elem acc
@@ -113,13 +113,13 @@ Quote add_cakeml:
           else
             Some(acc,cs))
         else
-          (pmatch parse_elem (c::cs) of
+          (case parse_elem (c::cs) of
              None => None
            | Some (elem, cs) =>
-               (pmatch parse_token #";" cs of
+               (case parse_token #";" cs of
                   None =>
                     (* end of list *)
-                    (pmatch parse_token #"]" cs of
+                    (case parse_token #"]" cs of
                        None => None
                      | Some cs =>
                         if is_ordered then
@@ -138,7 +138,7 @@ End
 
 Quote add_cakeml:
   fun parse_list is_ordered parse_elem cs =
-    pmatch cs of
+    case cs of
       c::cs =>
         if Char.isSpace c then
           parse_list is_ordered parse_elem cs
@@ -150,16 +150,16 @@ End
 
 Quote add_cakeml:
   fun parse_type cs =
-    pmatch cs of
+    case cs of
     (#"T" :: #"y" :: #"v" :: #"a" :: #"r" :: #" " :: cs) =>
-      (pmatch parse_string (parse_skip_space cs) of
+      (case parse_string (parse_skip_space cs) of
          Some (name, cs) => Some (Kernel.Tyvar name, cs)
        | None => None)
   | (#"T" :: #"y" :: #"a" :: #"p" :: #"p" :: #" " :: cs) =>
-      (pmatch parse_string (parse_skip_space cs) of
+      (case parse_string (parse_skip_space cs) of
          None => None
        | Some (name, cs) =>
-           (pmatch parse_list True parse_type cs of
+           (case parse_list True parse_type cs of
               None => None
             | Some (tylist, cs) => Some (Kernel.Tyapp name tylist, cs)))
   | _ => None
@@ -167,19 +167,19 @@ End
 
 Quote add_cakeml:
   fun parse_pair parse_fst parse_snd cs =
-    pmatch parse_token #"(" cs of
+    case parse_token #"(" cs of
       None => None
     | Some cs =>
-      (pmatch parse_fst (parse_skip_space cs) of
+      (case parse_fst (parse_skip_space cs) of
         None => None
       | Some (first, cs) =>
-        (pmatch parse_token #"," cs of
+        (case parse_token #"," cs of
           None => None
         | Some cs =>
-          (pmatch parse_snd (parse_skip_space cs) of
+          (case parse_snd (parse_skip_space cs) of
             None => None
           | Some (second, cs) =>
-            (pmatch parse_token #")" cs of
+            (case parse_token #")" cs of
               None => None
             | Some cs => Some ((first, second), cs)))))
 End
@@ -187,9 +187,9 @@ End
 Quote add_cakeml:
   fun parse_sum parse_inl parse_inr cs =
     let val cs = parse_skip_space cs in
-    pmatch parse_inr cs of
+    case parse_inr cs of
       None =>
-        (pmatch parse_inl cs of
+        (case parse_inl cs of
           None => None
         | Some (inl, cs) => Some (Inl inl, cs))
     | Some (inr, cs) => Some (Inr inr, cs)
@@ -206,14 +206,14 @@ End
 
 Quote add_cakeml:
   fun intersperse_commas l =
-      pmatch l of [] => []
+      case l of [] => []
              | [e] => [e]
              | e::l => e:: "," :: intersperse_commas l
 End
 
 Quote add_cakeml:
   fun present_type ty =
-      pmatch ty of (Kernel.Tyvar s) => "'" ^ s
+      case ty of (Kernel.Tyvar s) => "'" ^ s
               | (Kernel.Tyapp s []) => s
               | (Kernel.Tyapp s [t]) => present_type t ^ " " ^ s
               | (Kernel.Tyapp s l) =>
@@ -226,7 +226,7 @@ End
 
 Quote add_cakeml:
   fun present_tot ty =
-    pmatch ty of (Inl ty) => present_type ty
+    case ty of (Inl ty) => present_type ty
             | (Inr(Kernel.Const name ty)) => name ^ " : " ^ present_type ty
 End
 
@@ -234,20 +234,20 @@ Quote add_cakeml:
   fun main u =
      let val cs = String.explode(TextIO.inputAll (TextIO.openStdIn ()));
      in
-        (pmatch parse_list False hol_type_sum_pairs cs of
+        (case parse_list False hol_type_sum_pairs cs of
           None => print "Parse error!\n"
         | Some(deps,_) =>
             (let
                 val new_deps =
                     List.map(fn (x,y) =>
-                              (pmatch x of Inl x => Inl x
+                              (case x of Inl x => Inl x
                                       | Inr(a,b) => Inr (Kernel.Const a b),
-                               pmatch y of Inl x => Inl x
+                               case y of Inl x => Inl x
                                        | Inr(a,b) => Inr(Kernel.Const a b))
                             ) deps ;
                 val max_depth = 32767 ;
              in
-               (pmatch Kernel.dep_steps_compute new_deps max_depth new_deps of
+               (case Kernel.dep_steps_compute new_deps max_depth new_deps of
                   Kernel.Maybe_cyclic =>
                     print "Cyclicity check timed out!\n"
                 | Kernel.Cyclic_step (tot1,(tot2,tot3)) =>

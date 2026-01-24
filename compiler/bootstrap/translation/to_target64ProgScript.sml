@@ -19,7 +19,7 @@ val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 val _ = translation_extends "to_word64Prog";
 val _ = ml_translatorLib.use_sub_check true;
 
-val _ = computeLib.set_skip computeLib.the_compset "COND" (SOME 1);
+val _ = (computeLib.the_compset := computeLib.set_skip (!computeLib.the_compset) "COND" (SOME 1));
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "to_target64Prog");
 

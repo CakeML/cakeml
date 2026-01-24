@@ -16,7 +16,7 @@ open inliningLib;
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
-val _ = computeLib.set_skip computeLib.the_compset "COND" (SOME 1);
+val _ = (computeLib.the_compset := computeLib.set_skip (!computeLib.the_compset) "COND" (SOME 1));
 
 val _ = translation_extends "x64Prog";
 val _ = ml_translatorLib.use_sub_check true;

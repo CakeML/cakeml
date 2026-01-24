@@ -129,7 +129,7 @@ fun nsLookup_conv tm = REPEATC (BETA_CONV ORELSEC FIRST_CONV
 
 val _ = computeLib.add_convs
     (map (fn t => (t, 2, QCHANGED_CONV nsLookup_conv)) nsLookup_pf_tms)
-val _ = computeLib.add_thms [nsLookup_eq] computeLib.the_compset
+val _ = (computeLib.the_compset := computeLib.add_thms [nsLookup_eq] (!computeLib.the_compset))
 
 (* helper functions *)
 
