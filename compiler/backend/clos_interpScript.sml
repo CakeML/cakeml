@@ -7,6 +7,8 @@ Ancestors
 Libs
   preamble
 
+val _ = patternMatchesSyntax.temp_enable_pmatch();
+
 (* fits in subset *)
 
 Definition can_interpret_op_def:
@@ -242,8 +244,6 @@ Definition insert_interp_def:
 End
 
 (* pmatch versions of the op-functions *)
-
-val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 Theorem can_interpret_op_pmatch:
   can_interpret_op p l =

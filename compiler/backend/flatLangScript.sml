@@ -21,6 +21,7 @@ Ancestors
 Libs
   preamble
 
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 (* Copied from the semantics, but with AallocEmpty missing. GlobalVar ops have
  * been added, also TagLenEq and El for pattern match compilation. *)
@@ -250,8 +251,6 @@ Definition SmartIf_def:
         else If t e p q
     | _ => If t e p q
 End
-
-val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 Theorem SmartIf_PMATCH:
   !t e p q.

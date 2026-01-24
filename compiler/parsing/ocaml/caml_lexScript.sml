@@ -10,6 +10,8 @@ Libs
 
 val _ = numLib.prefer_num ();
 
+val _ = patternMatchesSyntax.temp_enable_pmatch();
+
 (* -------------------------------------------------------------------------
  * Tokens
  * ------------------------------------------------------------------------- *)
@@ -900,7 +902,6 @@ EVAL “lexer_fun "4;;\n(*CML code *)"”
  * PMATCH
  * ------------------------------------------------------------------------- *)
 
-val _ = patternMatchesSyntax.temp_enable_pmatch();
 val PMCONV = patternMatchesLib.PMATCH_ELIM_CONV;
 
 Theorem isInt_PMATCH:

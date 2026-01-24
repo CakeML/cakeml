@@ -8,6 +8,8 @@ Ancestors
 Libs
   patternMatchesLib ml_translatorLib patternMatchesSyntax
 
+val _ = patternMatchesSyntax.temp_enable_pmatch();
+
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
 (* basic example *)
@@ -29,9 +31,6 @@ Datatype:
        | Red tree 'a tree
        | Black tree 'a tree
 End
-
-(* causes the normal case-of syntax to be parsed as PMATCH *)
-val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 Definition balance_black_def:
   balance_black a n b =

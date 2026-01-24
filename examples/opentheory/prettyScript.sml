@@ -8,6 +8,8 @@ Ancestors
 Libs
   preamble
 
+val _ = patternMatchesSyntax.temp_enable_pmatch();
+
 Datatype:
   t = Block (t list) num num
     | String mlstring
@@ -461,7 +463,6 @@ End
 (* PMATCH definitions.                                                       *)
 (* ------------------------------------------------------------------------- *)
 
-val _ = patternMatchesSyntax.temp_enable_pmatch();
 val PMATCH_ELIM_CONV = patternMatchesLib.PMATCH_ELIM_CONV;
 
 Theorem is_binop_PMATCH:

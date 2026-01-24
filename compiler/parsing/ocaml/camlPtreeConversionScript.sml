@@ -12,6 +12,8 @@ Ancestors
 val _ =
   temp_bring_to_front_overload "destResult" {Name="destResult", Thy="pegexec"};
 
+val _ = patternMatchesSyntax.temp_enable_pmatch();
+
 (* -------------------------------------------------------------------------
  * Sum monad syntax
  * ------------------------------------------------------------------------- *)
@@ -3395,8 +3397,6 @@ Definition ptree_Start_def:
     else
       fail (locs, «Expected the start non-terminal»)
 End
-
-val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 Theorem SmartMat_PMATCH:
   ∀mvar rows.

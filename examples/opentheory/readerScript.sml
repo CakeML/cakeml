@@ -8,6 +8,8 @@ Ancestors
 Libs
   preamble
 
+val _ = patternMatchesSyntax.temp_enable_pmatch();
+
 val st_ex_monadinfo : monadinfo = {
   bind = “st_ex_bind”,
   ignorebind = SOME “st_ex_ignore_bind”,
@@ -864,7 +866,6 @@ End
  * PMATCH definitions.
  * ------------------------------------------------------------------------- *)
 
-val _ = patternMatchesSyntax.temp_enable_pmatch();
 val PMATCH_ELIM_CONV = patternMatchesLib.PMATCH_ELIM_CONV;
 
 Theorem getNum_PMATCH:
