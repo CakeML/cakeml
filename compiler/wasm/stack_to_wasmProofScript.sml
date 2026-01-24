@@ -5,7 +5,7 @@ Theory stack_to_wasmProof
 Libs
   preamble helperLib shLib
 Ancestors
-  longmul word_lemmas add_carry misc wasmLang
+  sh_a11y longmul word_lemmas add_carry misc wasmLang
   wasmSem stackSem stackLang stackProps asm
 
 val _ = numLib.prefer_num ();
@@ -1963,151 +1963,151 @@ Proof
     >~[`LongDiv`]
     >-fs[stack_wasm_ok_def,stack_asm_ok_def,inst_ok_def,arith_ok_def,conf_ok_def]
     >~[`AddCarry`]
->-(
-qexists_tac‘1’
->>rename1`evaluate (Inst (Arith (AddCarry rt rs1 rs2 rflag)),s) = _`
->>`reg_ok rt c ∧ reg_ok rs1 c ∧ reg_ok rs2 c ∧ reg_ok rflag c` by fs[stack_wasm_ok_def,stack_asm_ok_def,inst_ok_def,arith_ok_def]
->>gvs[compile_arith_def,evaluate_def,inst_def,get_vars_def,AllCaseEqs()]
->>rename1`get_var rs1 s = SOME (Word w1)`
->>rename1`get_var rs2 s = SOME (Word w2)`
->>rename1`get_var rflag s = SOME (Word c_in)`
->>`get_var rflag (s with clock:=s.clock+1) = SOME (Word c_in) ∧ get_var rs2 (s with clock:=s.clock+1) = SOME (Word w2) ∧ get_var rs1 (s with clock:=s.clock+1) = SOME (Word w1)` by simp[get_var_def]
->>once_rewrite_tac[exec_list_cons]
->>dxrule_then (fn th=>DEP_REWRITE_TAC[th]) exec_GLOBAL_GET
->>conj_tac>-metis_tac[state_rel_clock_drule,state_rel_with_clock]
->>simp[]
->>once_rewrite_tac[exec_list_cons]
->>dxrule_then (fn th=>DEP_REWRITE_TAC[th]) exec_GLOBAL_GET
->>simp[]
->>conj_tac>-metis_tac[state_rel_clock_drule,state_rel_with_clock]
->>once_rewrite_tac[exec_list_cons]
->>dxrule_then (fn th=>DEP_REWRITE_TAC[th]) exec_GLOBAL_GET
->>simp[]
->>conj_tac>-metis_tac[state_rel_clock_drule,state_rel_with_clock]
->>once_rewrite_tac[exec_list_cons]
->>`∃sum_ c_out. add_carry w1 w2 c_in = (sum_,c_out)` by metis_tac[pair_CASES]
->>simp[wl_value_def]
->>drule_then (fn th=>DEP_REWRITE_TAC[th]) wasm_add_carry_thm
->>conj_tac
->-(
-`wasm_state_ok t` by fs[state_rel_def]
->>fs[wasm_state_ok_def,wasm_support_function_list_def,wasm_add_carry_index_def]
->>simp[wasm_add_carry_def]
-)
->>simp[]
->>once_rewrite_tac[exec_list_cons]
->>DEP_REWRITE_TAC[exec_GLOBAL_SET'2]
->>simp[]
->>conj_tac>-metis_tac[wasm_reg_ok_drule,LT_IMP_LE]
->>DEP_REWRITE_TAC[exec_GLOBAL_SET'2]
->>simp[]
->>conj_tac>-metis_tac[wasm_reg_ok_drule,LT_IMP_LE]
->>conj_tac>-simp[res_rel_def]
->>drule_then assume_tac add_carry_thm
->>irule state_rel_set_var'
->>simp[]
->>conj_tac>-metis_tac[wasm_reg_ok_drule]
->>simp[wl_value_def]
->>conj_tac
->-(
-simp[add_with_carry_def]
->>rewrite_tac[NOT_LESS, prove(“(if c ≠ 0w then 1n else 0) = (if c = 0w then 0 else 1)”, Cases_on‘c=0w’>>simp[])]
-)
->>irule state_rel_set_var'
->>conj_tac>-metis_tac[wasm_reg_ok_drule]
->>simp[wl_value_def,add_with_carry_def]
-)
->~[`AddOverflow`]
->-(
-qexists_tac‘1’
->>rename1`evaluate (Inst (Arith (AddOverflow rt rs1 rs2 rflag)),s) = _`
->>`reg_ok rt c ∧ reg_ok rs1 c ∧ reg_ok rs2 c ∧ reg_ok rflag c` by fs[stack_wasm_ok_def,stack_asm_ok_def,inst_ok_def,arith_ok_def]
->>gvs[compile_arith_def,evaluate_def,inst_def,get_vars_def,AllCaseEqs()]
->>rename1`get_var rs1 s = SOME (Word w1)`
->>rename1`get_var rs2 s = SOME (Word w2)`
->>`get_var rs2 (s with clock:=s.clock+1) = SOME (Word w2) ∧ get_var rs1 (s with clock:=s.clock+1) = SOME (Word w1)` by simp[get_var_def]
->>once_rewrite_tac[exec_list_cons]
->>dxrule_then (fn th=>DEP_REWRITE_TAC[th]) exec_GLOBAL_GET
->>conj_tac>-metis_tac[state_rel_clock_drule,state_rel_with_clock]
->>simp[]
->>once_rewrite_tac[exec_list_cons]
->>dxrule_then (fn th=>DEP_REWRITE_TAC[th]) exec_GLOBAL_GET
->>simp[]
->>conj_tac>-metis_tac[state_rel_clock_drule,state_rel_with_clock]
->>once_rewrite_tac[exec_list_cons]
->>`∃sum_ ov. add_overflow w1 w2 = (sum_,ov)` by metis_tac[pair_CASES]
->>simp[wl_value_def]
->>drule_then (fn th=>DEP_REWRITE_TAC[th]) wasm_add_overflow_thm
->>conj_tac
->-(
-`wasm_state_ok t` by fs[state_rel_def]
->>fs[wasm_state_ok_def,wasm_support_function_list_def,wasm_add_overflow_index_def]
->>simp[wasm_add_overflow_def]
-)
->>simp[]
->>once_rewrite_tac[exec_list_cons]
->>DEP_REWRITE_TAC[exec_GLOBAL_SET'2]
->>simp[]
->>conj_tac>-metis_tac[wasm_reg_ok_drule,LT_IMP_LE]
->>DEP_REWRITE_TAC[exec_GLOBAL_SET'2]
->>simp[]
->>conj_tac>-metis_tac[wasm_reg_ok_drule,LT_IMP_LE]
->>conj_tac>-simp[res_rel_def]
->>drule_then assume_tac add_overflow_thm
->>irule state_rel_set_var'
->>simp[]
->>conj_tac>-metis_tac[wasm_reg_ok_drule]
->>simp[wl_value_def]
->>irule state_rel_set_var'
->>conj_tac>-metis_tac[wasm_reg_ok_drule]
->>simp[wl_value_def]
-)
->~[`SubOverflow`]
->-(
-qexists_tac‘1’
->>rename1`evaluate (Inst (Arith (SubOverflow rt rs1 rs2 rflag)),s) = _`
->>`reg_ok rt c ∧ reg_ok rs1 c ∧ reg_ok rs2 c ∧ reg_ok rflag c` by fs[stack_wasm_ok_def,stack_asm_ok_def,inst_ok_def,arith_ok_def]
->>gvs[compile_arith_def,evaluate_def,inst_def,get_vars_def,AllCaseEqs()]
->>rename1`get_var rs1 s = SOME (Word w1)`
->>rename1`get_var rs2 s = SOME (Word w2)`
->>`get_var rs2 (s with clock:=s.clock+1) = SOME (Word w2) ∧ get_var rs1 (s with clock:=s.clock+1) = SOME (Word w1)` by simp[get_var_def]
->>once_rewrite_tac[exec_list_cons]
->>dxrule_then (fn th=>DEP_REWRITE_TAC[th]) exec_GLOBAL_GET
->>conj_tac>-metis_tac[state_rel_clock_drule,state_rel_with_clock]
->>simp[]
->>once_rewrite_tac[exec_list_cons]
->>dxrule_then (fn th=>DEP_REWRITE_TAC[th]) exec_GLOBAL_GET
->>simp[]
->>conj_tac>-metis_tac[state_rel_clock_drule,state_rel_with_clock]
->>once_rewrite_tac[exec_list_cons]
->>`∃sum_ ov. sub_overflow w1 w2 = (sum_,ov)` by metis_tac[pair_CASES]
->>simp[wl_value_def]
->>drule_then (fn th=>DEP_REWRITE_TAC[th]) wasm_sub_overflow_thm
->>conj_tac
->-(
-`wasm_state_ok t` by fs[state_rel_def]
->>fs[wasm_state_ok_def,wasm_support_function_list_def,wasm_sub_overflow_index_def]
->>simp[wasm_sub_overflow_def]
-)
->>simp[]
->>once_rewrite_tac[exec_list_cons]
->>DEP_REWRITE_TAC[exec_GLOBAL_SET'2]
->>simp[]
->>conj_tac>-metis_tac[wasm_reg_ok_drule,LT_IMP_LE]
->>DEP_REWRITE_TAC[exec_GLOBAL_SET'2]
->>simp[]
->>conj_tac>-metis_tac[wasm_reg_ok_drule,LT_IMP_LE]
->>conj_tac>-simp[res_rel_def]
->>drule_then assume_tac sub_overflow_thm
->>irule state_rel_set_var'
->>simp[]
->>conj_tac>-metis_tac[wasm_reg_ok_drule]
->>simp[wl_value_def]
->>irule state_rel_set_var'
->>conj_tac>-metis_tac[wasm_reg_ok_drule]
->>simp[wl_value_def]
-)
-
+    >-(
+      qexists_tac‘1’
+      >>rename1`evaluate (Inst (Arith (AddCarry rt rs1 rs2 rflag)),s) = _`
+      >>`reg_ok rt c ∧ reg_ok rs1 c ∧ reg_ok rs2 c ∧ reg_ok rflag c` by fs[stack_wasm_ok_def,stack_asm_ok_def,inst_ok_def,arith_ok_def]
+      >>gvs[compile_arith_def,evaluate_def,inst_def,get_vars_def,AllCaseEqs()]
+      >>rename1`get_var rs1 s = SOME (Word w1)`
+      >>rename1`get_var rs2 s = SOME (Word w2)`
+      >>rename1`get_var rflag s = SOME (Word c_in)`
+      >>`get_var rflag (s with clock:=s.clock+1) = SOME (Word c_in) ∧ get_var rs2 (s with clock:=s.clock+1) = SOME (Word w2) ∧ get_var rs1 (s with clock:=s.clock+1) = SOME (Word w1)` by simp[get_var_def]
+      >>once_rewrite_tac[exec_list_cons]
+      >>dxrule_then (fn th=>DEP_REWRITE_TAC[th]) exec_GLOBAL_GET
+      >>conj_tac>-metis_tac[state_rel_clock_drule,state_rel_with_clock]
+      >>simp[]
+      >>once_rewrite_tac[exec_list_cons]
+      >>dxrule_then (fn th=>DEP_REWRITE_TAC[th]) exec_GLOBAL_GET
+      >>simp[]
+      >>conj_tac>-metis_tac[state_rel_clock_drule,state_rel_with_clock]
+      >>once_rewrite_tac[exec_list_cons]
+      >>dxrule_then (fn th=>DEP_REWRITE_TAC[th]) exec_GLOBAL_GET
+      >>simp[]
+      >>conj_tac>-metis_tac[state_rel_clock_drule,state_rel_with_clock]
+      >>once_rewrite_tac[exec_list_cons]
+      >>`∃sum_ c_out. add_carry w1 w2 c_in = (sum_,c_out)` by metis_tac[pair_CASES]
+      >>simp[wl_value_def]
+      >>drule_then (fn th=>DEP_REWRITE_TAC[th]) wasm_add_carry_thm
+      >>conj_tac
+      >-(
+        `wasm_state_ok t` by fs[state_rel_def]
+        >>fs[wasm_state_ok_def,wasm_support_function_list_def,wasm_add_carry_index_def]
+        >>simp[wasm_add_carry_def]
+      )
+      >>simp[]
+      >>once_rewrite_tac[exec_list_cons]
+      >>DEP_REWRITE_TAC[exec_GLOBAL_SET'2]
+      >>simp[]
+      >>conj_tac>-metis_tac[wasm_reg_ok_drule,LT_IMP_LE]
+      >>DEP_REWRITE_TAC[exec_GLOBAL_SET'2]
+      >>simp[]
+      >>conj_tac>-metis_tac[wasm_reg_ok_drule,LT_IMP_LE]
+      >>conj_tac>-simp[res_rel_def]
+      >>drule_then assume_tac add_carry_thm
+      >>irule state_rel_set_var'
+      >>simp[]
+      >>conj_tac>-metis_tac[wasm_reg_ok_drule]
+      >>simp[wl_value_def]
+      >>conj_tac
+      >-(
+        simp[add_with_carry_def]
+        >>metis_tac[normalize_relop,NOT_IF]
+      )
+      >>irule state_rel_set_var'
+      >>conj_tac>-metis_tac[wasm_reg_ok_drule]
+      >>simp[wl_value_def,add_with_carry_def]
+    )
+    >~[`AddOverflow`]
+    >-(
+      qexists_tac‘1’
+      >>rename1`evaluate (Inst (Arith (AddOverflow rt rs1 rs2 rflag)),s) = _`
+      >>`reg_ok rt c ∧ reg_ok rs1 c ∧ reg_ok rs2 c ∧ reg_ok rflag c` by fs[stack_wasm_ok_def,stack_asm_ok_def,inst_ok_def,arith_ok_def]
+      >>gvs[compile_arith_def,evaluate_def,inst_def,get_vars_def,AllCaseEqs()]
+      >>rename1`get_var rs1 s = SOME (Word w1)`
+      >>rename1`get_var rs2 s = SOME (Word w2)`
+      >>`get_var rs2 (s with clock:=s.clock+1) = SOME (Word w2) ∧ get_var rs1 (s with clock:=s.clock+1) = SOME (Word w1)` by simp[get_var_def]
+      >>once_rewrite_tac[exec_list_cons]
+      >>dxrule_then (fn th=>DEP_REWRITE_TAC[th]) exec_GLOBAL_GET
+      >>conj_tac>-metis_tac[state_rel_clock_drule,state_rel_with_clock]
+      >>simp[]
+      >>once_rewrite_tac[exec_list_cons]
+      >>dxrule_then (fn th=>DEP_REWRITE_TAC[th]) exec_GLOBAL_GET
+      >>simp[]
+      >>conj_tac>-metis_tac[state_rel_clock_drule,state_rel_with_clock]
+      >>once_rewrite_tac[exec_list_cons]
+      >>`∃sum_ ov. add_overflow w1 w2 = (sum_,ov)` by metis_tac[pair_CASES]
+      >>simp[wl_value_def]
+      >>drule_then (fn th=>DEP_REWRITE_TAC[th]) wasm_add_overflow_thm
+      >>conj_tac
+      >-(
+        `wasm_state_ok t` by fs[state_rel_def]
+        >>fs[wasm_state_ok_def,wasm_support_function_list_def,wasm_add_overflow_index_def]
+        >>simp[wasm_add_overflow_def]
+      )
+      >>simp[]
+      >>once_rewrite_tac[exec_list_cons]
+      >>DEP_REWRITE_TAC[exec_GLOBAL_SET'2]
+      >>simp[]
+      >>conj_tac>-metis_tac[wasm_reg_ok_drule,LT_IMP_LE]
+      >>DEP_REWRITE_TAC[exec_GLOBAL_SET'2]
+      >>simp[]
+      >>conj_tac>-metis_tac[wasm_reg_ok_drule,LT_IMP_LE]
+      >>conj_tac>-simp[res_rel_def]
+      >>drule_then assume_tac add_overflow_thm
+      >>irule state_rel_set_var'
+      >>simp[]
+      >>conj_tac>-metis_tac[wasm_reg_ok_drule]
+      >>simp[wl_value_def]
+      >>irule state_rel_set_var'
+      >>conj_tac>-metis_tac[wasm_reg_ok_drule]
+      >>simp[wl_value_def]
+    )
+    >~[`SubOverflow`]
+    >-(
+      qexists_tac‘1’
+      >>rename1`evaluate (Inst (Arith (SubOverflow rt rs1 rs2 rflag)),s) = _`
+      >>`reg_ok rt c ∧ reg_ok rs1 c ∧ reg_ok rs2 c ∧ reg_ok rflag c` by fs[stack_wasm_ok_def,stack_asm_ok_def,inst_ok_def,arith_ok_def]
+      >>gvs[compile_arith_def,evaluate_def,inst_def,get_vars_def,AllCaseEqs()]
+      >>rename1`get_var rs1 s = SOME (Word w1)`
+      >>rename1`get_var rs2 s = SOME (Word w2)`
+      >>`get_var rs2 (s with clock:=s.clock+1) = SOME (Word w2) ∧ get_var rs1 (s with clock:=s.clock+1) = SOME (Word w1)` by simp[get_var_def]
+      >>once_rewrite_tac[exec_list_cons]
+      >>dxrule_then (fn th=>DEP_REWRITE_TAC[th]) exec_GLOBAL_GET
+      >>conj_tac>-metis_tac[state_rel_clock_drule,state_rel_with_clock]
+      >>simp[]
+      >>once_rewrite_tac[exec_list_cons]
+      >>dxrule_then (fn th=>DEP_REWRITE_TAC[th]) exec_GLOBAL_GET
+      >>simp[]
+      >>conj_tac>-metis_tac[state_rel_clock_drule,state_rel_with_clock]
+      >>once_rewrite_tac[exec_list_cons]
+      >>`∃sum_ ov. sub_overflow w1 w2 = (sum_,ov)` by metis_tac[pair_CASES]
+      >>simp[wl_value_def]
+      >>drule_then (fn th=>DEP_REWRITE_TAC[th]) wasm_sub_overflow_thm
+      >>conj_tac
+      >-(
+        `wasm_state_ok t` by fs[state_rel_def]
+        >>fs[wasm_state_ok_def,wasm_support_function_list_def,wasm_sub_overflow_index_def]
+        >>simp[wasm_sub_overflow_def]
+      )
+      >>simp[]
+      >>once_rewrite_tac[exec_list_cons]
+      >>DEP_REWRITE_TAC[exec_GLOBAL_SET'2]
+      >>simp[]
+      >>conj_tac>-metis_tac[wasm_reg_ok_drule,LT_IMP_LE]
+      >>DEP_REWRITE_TAC[exec_GLOBAL_SET'2]
+      >>simp[]
+      >>conj_tac>-metis_tac[wasm_reg_ok_drule,LT_IMP_LE]
+      >>conj_tac>-simp[res_rel_def]
+      >>drule_then assume_tac sub_overflow_thm
+      >>irule state_rel_set_var'
+      >>simp[]
+      >>conj_tac>-metis_tac[wasm_reg_ok_drule]
+      >>simp[wl_value_def]
+      >>irule state_rel_set_var'
+      >>conj_tac>-metis_tac[wasm_reg_ok_drule]
+      >>simp[wl_value_def]
+    )
+  )
   >~[`Mem`]
   >-cheat
   >~[`FP`]
