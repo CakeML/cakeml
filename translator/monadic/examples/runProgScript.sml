@@ -9,7 +9,7 @@ Ancestors
 
 val _ = set_up_monadic_translator ();
 
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 (* Create the data type to handle the references *)
 Datatype:

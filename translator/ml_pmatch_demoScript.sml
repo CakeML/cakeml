@@ -13,7 +13,7 @@ val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 (* basic example *)
 
 Definition foo_def:
-  foo f x k = case f x of ([t]::[y]::ys) => t + y + (3:num) + k | _ => 5
+  foo f x k = pmatch f x of ([t]::[y]::ys) => t + y + (3:num) + k | _ => 5
 End
 
 val c = (PMATCH_INTRO_CONV THENC PMATCH_SIMP_CONV)
@@ -31,11 +31,11 @@ Datatype:
 End
 
 (* causes the normal case-of syntax to be parsed as PMATCH *)
-val _ = patternMatchesSyntax.ENABLE_PMATCH_CASES();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 Definition balance_black_def:
   balance_black a n b =
-    case (a,b) of
+    pmatch (a,b) of
     | (Red (Red a x b) y c,d) => Red (Black a x b) y (Black c n d)
     | (Red a x (Red b y c),d) => Red (Black a x b) y (Black c n d)
     | (a,Red (Red b y c) z d) => Red (Black a n b) y (Black c z d)
@@ -45,7 +45,7 @@ End
 
 val res = translate balance_black_def;
 
-(* tricky case from BVL *)
+(* tricky pmatch from BVL *)
 
 Datatype:
   exp = Var num
@@ -65,7 +65,7 @@ val dest_Seq_def = PmatchHeuristics.with_classic_heuristic Define `
 Theorem dest_Seq_pmatch:
   ∀exp.
   dest_Seq exp =
-    case exp of
+    pmatch exp of
       Let [e1;e2] (Var 1) => SOME (e1,e2)
      | _ => NONE
 Proof
@@ -99,7 +99,7 @@ End
 
 Definition TRANS_def:
   TRANS c1 c2 =
-    case (c1,c2) of
+    pmatch (c1,c2) of
     | (Comb (Comb (Const (strlit "=") _) l) m1,
        Comb (Comb (Const (strlit "=") _) m2) r) => "yes"
     | _ => "no"
@@ -153,12 +153,12 @@ val tac =
     PMATCH_INCOMPLETE_def]
 
 Definition codomain_def:
-  codomain ty = dtcase ty of Tyapp n (y::x::xs) => x | _ => ty
+  codomain ty = case ty of Tyapp n (y::x::xs) => x | _ => ty
 End
 
 Theorem codomain_PMATCH[local]:
    ^(rhs(concl(SPEC_ALL codomain_def))) =
-    case ty of Tyapp n (y::x::xs) => x | _ => ty
+    pmatch ty of Tyapp n (y::x::xs) => x | _ => ty
 Proof
   rpt tac
 QED
@@ -166,14 +166,14 @@ val codomain_def = fix codomain_def "codomain_def" codomain_PMATCH
 
 Definition rev_assocd_def:
   rev_assocd a l d =
-    dtcase l of
+    case l of
       [] => d
     | ((x,y)::l) => if y = a then x else rev_assocd a l d
 End
 
 Theorem rev_assocd_PMATCH[local]:
    ^(rhs(concl(SPEC_ALL rev_assocd_def))) =
-    case l of
+    pmatch l of
        (x,y)::l1 => if y = a then x else rev_assocd a l1 d
      | _ => d
 Proof
@@ -183,7 +183,7 @@ val rev_assocd_def = fix rev_assocd_def "rev_assocd_def" rev_assocd_PMATCH
 
 Definition alphavars_def:
   alphavars env tm1 tm2 =
-    dtcase env of
+    case env of
       [] => (tm1 = tm2)
     | (t1,t2)::oenv =>
          ((t1 = tm1) /\ (t2 = tm2)) \/
@@ -192,12 +192,12 @@ End
 
 Definition raconv_def:
   raconv env tm1 tm2 =
-    dtcase (tm1,tm2) of
+    case (tm1,tm2) of
       (Var _ _, Var _ _) => alphavars env tm1 tm2
     | (Const _ _, Const _ _) => (tm1 = tm2)
     | (Comb s1 t1, Comb s2 t2) => raconv env s1 s2 /\ raconv env t1 t2
     | (Abs v1 t1, Abs v2 t2) =>
-       (dtcase (v1,v2) of
+       (case (v1,v2) of
           (Var n1 ty1, Var n2 ty2) => (ty1 = ty2) /\
                                       raconv ((v1,v2)::env) t1 t2
         | _ => F)
@@ -206,13 +206,13 @@ End
 
 Theorem raconv_PMATCH[local]:
   ^(rhs(concl(SPEC_ALL raconv_def))) =
-    case (tm1,tm2) of
+    pmatch (tm1,tm2) of
     | (Var _ _, Var _ _) => alphavars env tm1 tm2
     | (Const _ _, Const _ _) => (tm1 = tm2)
     | (Comb s1 t1, Comb s2 t2)
         => raconv env s1 s2 ∧ raconv env t1 t2
     | (Abs v1 t1, Abs v2 t2)
-        => (case (v1,v2) of
+        => (pmatch (v1,v2) of
             | (Var n1 ty1,Var n2 ty2)
                 => (ty1 = ty2) ∧ raconv ((v1,v2)::env) t1 t2
             | _ => F)
@@ -237,7 +237,7 @@ val res = translate variant_def
 
 Definition vfree_in_def:
   vfree_in v tm =
-    dtcase tm of
+    case tm of
       Abs bv bod => v <> bv /\ vfree_in v bod
     | Comb s t => vfree_in v s \/ vfree_in v t
     | _ => (tm = v)
@@ -247,7 +247,7 @@ val res = translate vfree_in_def
 
 Definition is_var_def:
   is_var tm =
-    dtcase tm of
+    case tm of
       Var bv bod => T
     | _ => F
 End
@@ -258,7 +258,7 @@ val res = translate listTheory.EXISTS_DEF
 
 Definition vsubst_aux_def:
   vsubst_aux ilist tm =
-    dtcase tm of
+    case tm of
       Var _ _ => rev_assocd tm ilist tm
     | Const _ _ => tm
     | Comb s t => let s' = vsubst_aux ilist s in

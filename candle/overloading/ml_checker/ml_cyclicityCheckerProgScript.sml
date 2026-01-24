@@ -21,14 +21,14 @@ val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
 val _ = translation_extends "ml_hol_kernelProg"
 
-val () = ENABLE_PMATCH_CASES();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 (* Can't do this with process_topdecs because the lexer doesn't support
    escape sequences for string literals.
  *)
 Definition parse_strlit_innards_def:
   parse_strlit_innards cs acc =
-  (case cs of
+  (pmatch cs of
            (#"\"" ::cs) => SOME (REVERSE acc,cs)
          | (x::cs) =>
              parse_strlit_innards cs (x::acc)
@@ -55,7 +55,7 @@ val _ = parse_strlit_innards_ind |> update_precondition;
 
 Definition parse_strlit_def:
   parse_strlit cs =
-  (case cs of
+  (pmatch cs of
     (#"\"" :: cs) => parse_strlit_innards cs []
    | _ => NONE)
 End
@@ -71,14 +71,14 @@ val _ = translate parse_strlit_def
 
 Quote add_cakeml:
   fun parse_string cs =
-    case parse_strlit cs of
+    pmatch parse_strlit cs of
       None => None
     | Some (str, cs) => Some (String.implode str, cs)
 End
 
 Quote add_cakeml:
   fun parse_skip_space l =
-    case l of
+    pmatch l of
       [] => []
     | (x::cs) =>
       if Char.isSpace x then
@@ -88,7 +88,7 @@ End
 
 Quote add_cakeml:
   fun parse_token token cs =
-    case cs of
+    pmatch cs of
       (c::cs) =>
         if c = token then
           Some cs
@@ -101,7 +101,7 @@ End
 
 Quote add_cakeml:
   fun parse_list_innards is_ordered parse_elem cs one_more_elem acc =
-    case cs of
+    pmatch cs of
       c::cs =>
         if Char.isSpace c then
           parse_list_innards is_ordered parse_elem cs one_more_elem acc
@@ -113,13 +113,13 @@ Quote add_cakeml:
           else
             Some(acc,cs))
         else
-          (case parse_elem (c::cs) of
+          (pmatch parse_elem (c::cs) of
              None => None
            | Some (elem, cs) =>
-               (case parse_token #";" cs of
+               (pmatch parse_token #";" cs of
                   None =>
                     (* end of list *)
-                    (case parse_token #"]" cs of
+                    (pmatch parse_token #"]" cs of
                        None => None
                      | Some cs =>
                         if is_ordered then
@@ -138,7 +138,7 @@ End
 
 Quote add_cakeml:
   fun parse_list is_ordered parse_elem cs =
-    case cs of
+    pmatch cs of
       c::cs =>
         if Char.isSpace c then
           parse_list is_ordered parse_elem cs
@@ -150,16 +150,16 @@ End
 
 Quote add_cakeml:
   fun parse_type cs =
-    case cs of
+    pmatch cs of
     (#"T" :: #"y" :: #"v" :: #"a" :: #"r" :: #" " :: cs) =>
-      (case parse_string (parse_skip_space cs) of
+      (pmatch parse_string (parse_skip_space cs) of
          Some (name, cs) => Some (Kernel.Tyvar name, cs)
        | None => None)
   | (#"T" :: #"y" :: #"a" :: #"p" :: #"p" :: #" " :: cs) =>
-      (case parse_string (parse_skip_space cs) of
+      (pmatch parse_string (parse_skip_space cs) of
          None => None
        | Some (name, cs) =>
-           (case parse_list True parse_type cs of
+           (pmatch parse_list True parse_type cs of
               None => None
             | Some (tylist, cs) => Some (Kernel.Tyapp name tylist, cs)))
   | _ => None
@@ -167,19 +167,19 @@ End
 
 Quote add_cakeml:
   fun parse_pair parse_fst parse_snd cs =
-    case parse_token #"(" cs of
+    pmatch parse_token #"(" cs of
       None => None
     | Some cs =>
-      (case parse_fst (parse_skip_space cs) of
+      (pmatch parse_fst (parse_skip_space cs) of
         None => None
       | Some (first, cs) =>
-        (case parse_token #"," cs of
+        (pmatch parse_token #"," cs of
           None => None
         | Some cs =>
-          (case parse_snd (parse_skip_space cs) of
+          (pmatch parse_snd (parse_skip_space cs) of
             None => None
           | Some (second, cs) =>
-            (case parse_token #")" cs of
+            (pmatch parse_token #")" cs of
               None => None
             | Some cs => Some ((first, second), cs)))))
 End
@@ -187,9 +187,9 @@ End
 Quote add_cakeml:
   fun parse_sum parse_inl parse_inr cs =
     let val cs = parse_skip_space cs in
-    case parse_inr cs of
+    pmatch parse_inr cs of
       None =>
-        (case parse_inl cs of
+        (pmatch parse_inl cs of
           None => None
         | Some (inl, cs) => Some (Inl inl, cs))
     | Some (inr, cs) => Some (Inr inr, cs)
@@ -206,14 +206,14 @@ End
 
 Quote add_cakeml:
   fun intersperse_commas l =
-      case l of [] => []
+      pmatch l of [] => []
              | [e] => [e]
              | e::l => e:: "," :: intersperse_commas l
 End
 
 Quote add_cakeml:
   fun present_type ty =
-      case ty of (Kernel.Tyvar s) => "'" ^ s
+      pmatch ty of (Kernel.Tyvar s) => "'" ^ s
               | (Kernel.Tyapp s []) => s
               | (Kernel.Tyapp s [t]) => present_type t ^ " " ^ s
               | (Kernel.Tyapp s l) =>
@@ -226,7 +226,7 @@ End
 
 Quote add_cakeml:
   fun present_tot ty =
-    case ty of (Inl ty) => present_type ty
+    pmatch ty of (Inl ty) => present_type ty
             | (Inr(Kernel.Const name ty)) => name ^ " : " ^ present_type ty
 End
 
@@ -234,20 +234,20 @@ Quote add_cakeml:
   fun main u =
      let val cs = String.explode(TextIO.inputAll (TextIO.openStdIn ()));
      in
-        (case parse_list False hol_type_sum_pairs cs of
+        (pmatch parse_list False hol_type_sum_pairs cs of
           None => print "Parse error!\n"
         | Some(deps,_) =>
             (let
                 val new_deps =
                     List.map(fn (x,y) =>
-                              (case x of Inl x => Inl x
+                              (pmatch x of Inl x => Inl x
                                       | Inr(a,b) => Inr (Kernel.Const a b),
-                               case y of Inl x => Inl x
+                               pmatch y of Inl x => Inl x
                                        | Inr(a,b) => Inr(Kernel.Const a b))
                             ) deps ;
                 val max_depth = 32767 ;
              in
-               (case Kernel.dep_steps_compute new_deps max_depth new_deps of
+               (pmatch Kernel.dep_steps_compute new_deps max_depth new_deps of
                   Kernel.Maybe_cyclic =>
                     print "Cyclicity check timed out!\n"
                 | Kernel.Cyclic_step (tot1,(tot2,tot3)) =>

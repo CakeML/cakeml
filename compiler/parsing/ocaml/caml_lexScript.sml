@@ -212,7 +212,7 @@ End
 
 Definition take_while_aux_def:
   take_while_aux acc p xs =
-    case xs of
+    pmatch xs of
       [] => (REVERSE acc, xs)
     | x::xs =>
         if p x then take_while_aux (x::acc) p xs
@@ -245,7 +245,7 @@ QED
 
 Definition skip_comment_def:
   skip_comment cs d loc =
-    case cs of
+    pmatch cs of
       x::y::xs =>
         if x = #"(" ∧ y = #"*" then
           skip_comment xs (d + 1) (next_loc 2 loc)
@@ -281,9 +281,9 @@ QED
 
 Definition scan_escseq_def:
   scan_escseq s loc =
-    case s of
+    pmatch s of
       #"\\" :: cs =>
-        (case cs of
+        (pmatch cs of
            #"\\" :: rest =>
              SOME (#"\\", rest, next_loc 2 loc)
          | #"\"" :: rest =>
@@ -335,14 +335,14 @@ QED
 
 Definition scan_strlit_def:
   scan_strlit acc cs loc =
-    case cs of
+    pmatch cs of
       [] => SOME (ErrorS, Locs loc loc, cs)
     | #"\""::cs =>
         SOME (StringS (REVERSE acc), Locs loc loc, cs)
     | #"\n"::cs =>
         SOME (ErrorS, Locs loc (next_line loc), cs)
     | #"\\"::_ =>
-        (case scan_escseq cs loc of
+        (pmatch scan_escseq cs loc of
            NONE => SOME (ErrorS, Locs loc loc, cs)
          | SOME (c, cs', loc') => scan_strlit (c::acc) cs' loc')
     | c::cs => scan_strlit (c::acc) cs (next_loc 1 loc)
@@ -368,7 +368,7 @@ Definition scan_charlit_def:
     if cs = "" then
       SOME (ErrorS, Locs loc loc, cs)
     else if HD cs = #"\\" then
-      case scan_escseq cs loc of
+      pmatch scan_escseq cs loc of
         SOME (c, cs', loc') =>
           if cs' ≠ "" ∧ HD cs' = #"'" then
             SOME (CharS c, Locs loc loc', TL cs')
@@ -377,7 +377,7 @@ Definition scan_charlit_def:
       | NONE =>
           SOME (ErrorS, Locs loc loc, cs)
     else
-      case cs of
+      pmatch cs of
         c :: #"'" :: rest =>
           SOME (CharS c, Locs loc (next_loc 1 loc), rest)
       | _ =>
@@ -436,7 +436,7 @@ End
 (* [eE] [+-]? *)
 Definition scan_float3_def:
   scan_float3 cs =
-    case cs of
+    pmatch cs of
       x :: y :: rest =>
         if ¬MEM x "eE" then NONE
         else if MEM y "+-" then
@@ -457,19 +457,19 @@ End
  *)
 Definition scan_float_or_int_def:
   scan_float_or_int cs loc =
-    case scan_float1 cs of
+    pmatch scan_float1 cs of
       NONE => SOME (ErrorS, Locs loc loc, cs)
     | SOME (s1, n1, cs1) =>
-        case scan_float2 cs1 of
+        pmatch scan_float2 cs1 of
           NONE =>
             (* try scan_float3 *)
-            (case scan_float3 cs1 of
+            (pmatch scan_float3 cs1 of
               NONE => scan_number isDigit (λs. &dec2num s) 0 cs loc
             | SOME (s2, n2, cs2) => SOME (FloatS (s1 ++ s2),
                                           Locs loc (next_loc (n1 + n2) loc),
                                           cs2))
         | SOME (s2, n2, cs2) =>
-            (case scan_float3 cs2 of
+            (pmatch scan_float3 cs2 of
               NONE => SOME (FloatS (s1 ++ s2),
                             Locs loc (next_loc (n1 + n2) loc),
                             cs2)
@@ -481,7 +481,7 @@ End
 
 Definition scan_pragma_def:
   scan_pragma (level: num) (n: num) cs loc =
-  case cs of
+  pmatch cs of
     x::y::xs =>
       if x = #"(" ∧ y = #"*" then
         scan_pragma (level + 1) (n + 2) xs (next_loc 2 loc)
@@ -560,7 +560,7 @@ Definition next_sym_def:
     else if c = #"\"" then
       scan_strlit [] cs (next_loc 1 loc)
     else if c = #"'" then
-      case scan_charlit cs (next_loc 1 loc) of
+      pmatch scan_charlit cs (next_loc 1 loc) of
       | NONE => SOME (OtherS [c], Locs loc loc, cs)
       | SOME res =>
           if FST res = ErrorS then SOME (OtherS [c], Locs loc loc, cs)
@@ -568,14 +568,14 @@ Definition next_sym_def:
     else if isPREFIX "*)" (c::cs) then
       SOME (ErrorS, Locs loc (next_loc 2 loc), TL cs)
     else if isPREFIX (#"(" :: #"*" :: "CML") (c::cs) then
-      case scan_pragma 0 0 (DROP 4 cs) loc of
+      pmatch scan_pragma 0 0 (DROP 4 cs) loc of
       | NONE => SOME (ErrorS, Locs loc loc, "")
       | SOME (n, loc', rest) =>
           SOME (PragmaS (TAKE n (DROP 4 cs)),
                 Locs loc loc',
                 rest)
     else if isPREFIX [#"("; #"*"] (c::cs) then
-      case skip_comment (TL cs) 0 (next_loc 2 loc) of
+      pmatch skip_comment (TL cs) 0 (next_loc 2 loc) of
       | NONE => SOME (ErrorS, Locs loc (next_loc 2 loc), "")
       | SOME (rest, loc') => next_sym rest loc'
     else if isDelim c then
@@ -833,7 +833,7 @@ End
 
 Definition sym2token_def:
   sym2token s =
-    case s of
+    pmatch s of
       NumberS i => IntT i
     | FloatS s => FloatT (implode s)
     | StringS s => StringT (implode s)
@@ -845,7 +845,7 @@ End
 
 Definition next_token_def:
   next_token inp loc =
-    case next_sym inp loc of
+    pmatch next_sym inp loc of
       NONE => NONE
     | SOME (sym, locs, rest) => SOME (sym2token sym, locs, rest)
 End
@@ -870,7 +870,7 @@ EVAL “next_token "(*CL (* foo bar *) baz\n\nasdf*)" loc” (* = NONE *)
 
 Definition lexer_fun_aux_def:
   lexer_fun_aux inp loc =
-    case next_token inp loc of
+    pmatch next_token inp loc of
       NONE => []
     | SOME (tok, Locs loc1 loc2, rest) =>
         (tok, Locs loc1 loc2) ::
@@ -900,12 +900,12 @@ EVAL “lexer_fun "4;;\n(*CML code *)"”
  * PMATCH
  * ------------------------------------------------------------------------- *)
 
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES ();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 val PMCONV = patternMatchesLib.PMATCH_ELIM_CONV;
 
 Theorem isInt_PMATCH:
   ∀x. isInt x =
-        case x of
+        pmatch x of
           IntT i => T
         | _ => F
 Proof
@@ -915,7 +915,7 @@ QED
 
 Theorem destInt_PMATCH:
   ∀x. destInt x =
-        case x of
+        pmatch x of
           IntT i => SOME i
         | _ => NONE
 Proof
@@ -925,7 +925,7 @@ QED
 
 Theorem isFloat_PMATCH:
   ∀x. isFloat x =
-        case x of
+        pmatch x of
           FloatT i => T
         | _ => F
 Proof
@@ -935,7 +935,7 @@ QED
 
 Theorem destFloat_PMATCH:
   ∀x. destFloat x =
-        case x of
+        pmatch x of
           FloatT i => SOME i
         | _ => NONE
 Proof
@@ -945,7 +945,7 @@ QED
 
 Theorem isChar_PMATCH:
   ∀x. isChar x =
-        case x of
+        pmatch x of
           CharT c => T
         | _ => F
 Proof
@@ -955,7 +955,7 @@ QED
 
 Theorem destChar_PMATCH:
   ∀x. destChar x =
-        case x of
+        pmatch x of
           CharT c => SOME c
         | _ => NONE
 Proof
@@ -965,7 +965,7 @@ QED
 
 Theorem isString_PMATCH:
   ∀x. isString x =
-        case x of
+        pmatch x of
           StringT s => T
         | _ => F
 Proof
@@ -975,7 +975,7 @@ QED
 
 Theorem destString_PMATCH:
   ∀x. destString x =
-        case x of
+        pmatch x of
           StringT s => SOME s
         | _ => NONE
 Proof
@@ -985,7 +985,7 @@ QED
 
 Theorem isSymbol_PMATCH:
   ∀x. isSymbol x =
-        case x of
+        pmatch x of
           SymbolT s => T
         | _ => F
 Proof
@@ -995,7 +995,7 @@ QED
 
 Theorem destSymbol_PMATCH:
   ∀x. destSymbol x =
-        case x of
+        pmatch x of
           SymbolT s => SOME s
         | _ => NONE
 Proof
@@ -1005,7 +1005,7 @@ QED
 
 Theorem isIdent_PMATCH:
   ∀x. isIdent x =
-        case x of
+        pmatch x of
           IdentT s => T
         | _ => F
 Proof
@@ -1015,7 +1015,7 @@ QED
 
 Theorem destIdent_PMATCH:
   ∀x. destIdent x =
-        case x of
+        pmatch x of
           IdentT s => SOME s
         | _ => NONE
 Proof
@@ -1025,7 +1025,7 @@ QED
 
 Theorem isPragma_PMATCH:
   ∀x. isPragma x =
-        case x of
+        pmatch x of
           PragmaT s => T
         | _ => F
 Proof
@@ -1035,7 +1035,7 @@ QED
 
 Theorem destPragma_PMATCH:
   ∀x. destPragma x =
-        case x of
+        pmatch x of
           PragmaT s => SOME s
         | _ => NONE
 Proof

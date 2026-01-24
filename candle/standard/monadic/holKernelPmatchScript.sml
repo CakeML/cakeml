@@ -1,8 +1,8 @@
 (*
   This file proves alternative definitions of those HOL kernel
   functions that have complex pattern matching. The new definitions
-  use PMATCH-based case expressions instead of HOL's standard
-  per-datatype case constants.
+  use PMATCH-based pmatch expressions instead of HOL's standard
+  per-datatype pmatch constants.
 *)
 Theory holKernelPmatch
 Ancestors
@@ -79,11 +79,11 @@ val tac =
   FULL_SIMP_TAC (rc_ss []) [PMATCH_EVAL, PMATCH_ROW_COND_def,
     PMATCH_INCOMPLETE_def]
 
-val () = ENABLE_PMATCH_CASES();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 Theorem codomain_PMATCH[local]:
    ^(rhs(concl(SPEC_ALL holSyntaxTheory.codomain_raw))) =
-    case ty of Tyapp n (y::x::xs) => x | _ => ty
+    pmatch ty of Tyapp n (y::x::xs) => x | _ => ty
 Proof
   rpt tac
 QED
@@ -91,7 +91,7 @@ val res = fix holSyntaxTheory.codomain_raw "codomain_def" codomain_PMATCH
 
 Theorem rev_assocd_PMATCH[local]:
    ^(rhs(concl(SPEC_ALL rev_assocd_def))) =
-    case l of
+    pmatch l of
        (x,y)::l1 => if y = a then x else rev_assocd a l1 d
      | _ => d
 Proof
@@ -101,13 +101,13 @@ val res = fix rev_assocd_def "rev_assocd_def" rev_assocd_PMATCH
 
 Theorem type_of_PMATCH[local]:
    ^(rhs(concl(SPEC_ALL type_of_def))) =
-    case tm of
+    pmatch tm of
     | Var _ ty => return ty
     | Const _ ty => return ty
     | Comb s _
         => do ty <- type_of s ;
               x <- dest_type ty ;
-              case x of | (_,_::ty1::_) => return ty1
+              pmatch x of | (_,_::ty1::_) => return ty1
                         | _ => failwith (strlit "match")
            od
     | Abs (Var _ ty) t
@@ -120,13 +120,13 @@ val res = fix type_of_def "type_of_def" type_of_PMATCH
 
 Theorem raconv_PMATCH[local]:
    ^(rhs(concl(SPEC_ALL raconv_def))) =
-    case (tm1,tm2) of
+    pmatch (tm1,tm2) of
     | (Var _ _, Var _ _) => alphavars env tm1 tm2
     | (Const _ _, Const _ _) => (tm1 = tm2)
     | (Comb s1 t1, Comb s2 t2)
         => raconv env s1 s2 ∧ raconv env t1 t2
     | (Abs v1 t1, Abs v2 t2)
-        => (case (v1,v2) of
+        => (pmatch (v1,v2) of
             | (Var n1 ty1,Var n2 ty2)
                 => (ty1 = ty2) ∧ raconv ((v1,v2)::env) t1 t2
             | _ => F)
@@ -138,7 +138,7 @@ val res = fix raconv_def "raconv_def" raconv_PMATCH
 
 Theorem is_var_PMATCH[local]:
    ^(rhs(concl(SPEC_ALL is_var_def))) =
-    case x of (Var _ _) => T | _ => F
+    pmatch x of (Var _ _) => T | _ => F
 Proof
   rpt tac
 QED
@@ -146,7 +146,7 @@ val res = fix is_var_def "is_var_def" is_var_PMATCH
 
 Theorem is_const_PMATCH[local]:
    ^(rhs(concl(SPEC_ALL is_const_def))) =
-    case x of (Const _ _) => T | _ => F
+    pmatch x of (Const _ _) => T | _ => F
 Proof
   rpt tac
 QED
@@ -154,7 +154,7 @@ val res = fix is_const_def "is_const_def" is_const_PMATCH
 
 Theorem is_abs_PMATCH[local]:
    ^(rhs(concl(SPEC_ALL is_abs_def))) =
-    case x of (Abs _ _) => T | _ => F
+    pmatch x of (Abs _ _) => T | _ => F
 Proof
   rpt tac
 QED
@@ -162,7 +162,7 @@ val res = fix is_abs_def "is_abs_def" is_abs_PMATCH
 
 Theorem is_comb_PMATCH[local]:
    ^(rhs(concl(SPEC_ALL is_comb_def))) =
-    case x of (Comb _ _) => T | _ => F
+    pmatch x of (Comb _ _) => T | _ => F
 Proof
   rpt tac
 QED
@@ -170,7 +170,7 @@ val res = fix is_comb_def "is_comb_def" is_comb_PMATCH
 
 Theorem mk_abs_PMATCH[local]:
    ^(rhs(concl(SPEC_ALL mk_abs_def))) =
-    case bvar of Var n ty => return (Abs bvar bod)
+    pmatch bvar of Var n ty => return (Abs bvar bod)
     | _ => failwith (strlit "mk_abs: not a variable")
 Proof
   rpt tac
@@ -181,7 +181,7 @@ Theorem mk_comb_PMATCH[local]:
    ^(rhs(concl(SPEC_ALL mk_comb_def))) =
     do tyf <- type_of f ;
        tya <- type_of a ;
-       case tyf of
+       pmatch tyf of
          Tyapp (strlit "fun") [ty;_] => if tya = ty then return (Comb f a) else
                                  failwith (strlit "mk_comb: types do not agree")
        | _ => failwith (strlit "mk_comb: types do not agree")
@@ -193,7 +193,7 @@ val res = fix mk_comb_def "mk_comb_def" mk_comb_PMATCH
 
 Theorem dest_var_PMATCH[local]:
    ^(rhs(concl(SPEC_ALL dest_var_def))) =
-    case tm of Var s ty => return (s,ty)
+    pmatch tm of Var s ty => return (s,ty)
             | _ => failwith (strlit "dest_var: not a variable")
 Proof
   rpt tac
@@ -202,7 +202,7 @@ val res = fix dest_var_def "dest_var_def" dest_var_PMATCH
 
 Theorem dest_const_PMATCH[local]:
    ^(rhs(concl(SPEC_ALL dest_const_def))) =
-    case tm of Const s ty => return (s,ty)
+    pmatch tm of Const s ty => return (s,ty)
             | _ => failwith (strlit "dest_const: not a constant")
 Proof
   rpt tac
@@ -211,7 +211,7 @@ val res = fix dest_const_def "dest_const_def" dest_const_PMATCH
 
 Theorem dest_comb_PMATCH[local]:
    ^(rhs(concl(SPEC_ALL dest_comb_def))) =
-    case tm of Comb f x => return (f,x)
+    pmatch tm of Comb f x => return (f,x)
             | _ => failwith (strlit "dest_comb: not a combination")
 Proof
   rpt tac
@@ -220,7 +220,7 @@ val res = fix dest_comb_def "dest_comb_def" dest_comb_PMATCH
 
 Theorem dest_abs_PMATCH[local]:
    ^(rhs(concl(SPEC_ALL dest_abs_def))) =
-    case tm of Abs v b => return (v,b)
+    pmatch tm of Abs v b => return (v,b)
             | _ => failwith (strlit "dest_abs: not an abstraction")
 Proof
   rpt tac
@@ -229,7 +229,7 @@ val res = fix dest_abs_def "dest_abs_def" dest_abs_PMATCH
 
 Theorem vfree_in_PMATCH[local]:
    ^(rhs(concl(SPEC_ALL holSyntaxExtraTheory.vfree_in_def))) =
-    case tm of
+    pmatch tm of
     | Abs bv bod => v <> bv ∧ vfree_in v bod
     | Comb s t => vfree_in v s ∨ vfree_in v t
     | _ => tm = v
@@ -240,7 +240,7 @@ val res = fix holSyntaxExtraTheory.vfree_in_def "vfree_in_def" vfree_in_PMATCH
 
 Theorem rator_PMATCH[local]:
    ^(rhs(concl(SPEC_ALL rator_def))) =
-    case tm of
+    pmatch tm of
       Comb l r => return l
     | _ => failwith (strlit "rator: Not a combination")
 Proof
@@ -250,7 +250,7 @@ val res = fix rator_def "rator_def" rator_PMATCH
 
 Theorem rand_PMATCH[local]:
    ^(rhs(concl(SPEC_ALL rand_def))) =
-    case tm of
+    pmatch tm of
       Comb l r => return r
     | _ => failwith (strlit "rand: Not a combination")
 Proof
@@ -260,7 +260,7 @@ val res = fix rand_def "rand_def" rand_PMATCH
 
 Theorem dest_eq_PMATCH[local]:
    ^(rhs(concl(SPEC_ALL dest_eq_def))) =
-    case tm of
+    pmatch tm of
       Comb (Comb (Const (strlit "=") _) l) r => return (l,r)
     | _ => failwith (strlit "dest_eq")
 Proof
@@ -270,7 +270,7 @@ val res = fix dest_eq_def "dest_eq_def" dest_eq_PMATCH
 
 Theorem is_eq_PMATCH[local]:
    ^(rhs(concl(SPEC_ALL is_eq_def))) =
-    case tm of
+    pmatch tm of
       Comb (Comb (Const (strlit "=") _) l) r => T
     | _ => F
 Proof
@@ -280,7 +280,7 @@ val res = fix is_eq_def "is_eq_def" is_eq_PMATCH
 
 Theorem TRANS_PMATCH[local]:
    ^(rhs(concl(SPEC_ALL TRANS_def))) =
-    case (c1,c2) of
+    pmatch (c1,c2) of
       (Comb (Comb (Const (strlit "=") _) l) m1, Comb (Comb (Const (strlit "=") _) m2) r) =>
         if aconv m1 m2 then do eq <- mk_eq(l,r);
                                return (Sequent (term_union asl1 asl2) eq) od
@@ -293,7 +293,7 @@ val res = fix TRANS_def "TRANS_def" TRANS_PMATCH
 
 Theorem MK_COMB_PMATCH[local]:
    ^(rhs(concl(SPEC_ALL MK_COMB_def))) =
-   case (c1,c2) of
+   pmatch (c1,c2) of
      (Comb (Comb (Const (strlit "=") _) l1) r1, Comb (Comb (Const (strlit "=") _) l2) r2) =>
        do x1 <- mk_comb(l1,l2) ;
           x2 <- mk_comb(r1,r2) ;
@@ -307,7 +307,7 @@ val res = fix MK_COMB_def "MK_COMB_def" MK_COMB_PMATCH
 
 Theorem ABS_PMATCH[local]:
    ^(rhs(concl(SPEC_ALL ABS_def))) =
-    case c of
+    pmatch c of
       Comb (Comb (Const (strlit "=") _) l) r =>
         if EXISTS (vfree_in v) asl
         then failwith (strlit "ABS: variable is free in assumptions")
@@ -323,7 +323,7 @@ val res = fix ABS_def "ABS_def" ABS_PMATCH
 
 Theorem BETA_PMATCH[local]:
    ^(rhs(concl(SPEC_ALL BETA_def))) =
-    case tm of
+    pmatch tm of
       Comb (Abs v bod) arg =>
         if arg = v then do eq <- mk_eq(tm,bod) ; return (Sequent [] eq) od
         else failwith (strlit "BETA: not a trivial beta-redex")
@@ -335,7 +335,7 @@ val res = fix BETA_def "BETA_def" BETA_PMATCH
 
 Theorem EQ_MP_PMATCH[local]:
    ^(rhs(concl(SPEC_ALL EQ_MP_def))) =
-    case eq of
+    pmatch eq of
       Comb (Comb (Const (strlit "=") _) l) r =>
         if aconv l c then return (Sequent (term_union asl1 asl2) r)
                      else failwith (strlit "EQ_MP")
@@ -347,7 +347,7 @@ val res = fix EQ_MP_def "EQ_MP_def" EQ_MP_PMATCH
 
 Theorem SYM_PMATCH[local]:
    ^(rhs(concl(SPEC_ALL SYM_def))) =
-    case eq of
+    pmatch eq of
       Comb (Comb (Const (strlit "=") t) l) r =>
         return (Sequent asl (Comb (Comb (Const (strlit "=") t) r) l))
     | _ => failwith (strlit "SYM")

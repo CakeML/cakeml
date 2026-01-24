@@ -19,7 +19,7 @@ End
 Definition breakdist_def:
   breakdist after [] = after ∧
   breakdist after (h::t) =
-    case h of
+    pmatch h of
       Block _ _ n => n + breakdist after t
     | String s => strlen s + breakdist after t
     | Break _ => 0
@@ -36,7 +36,7 @@ End
 Definition print_list_def:
   print_list bs af sp mr [] = (sp, Nil) ∧
   print_list bs af sp mr (h::t) =
-    case h of
+    pmatch h of
       Block bes ind ln =>
         let (s1,r1) = print_list (sp-ind) (breakdist af t) sp mr bes;
             (s2,r2) = print_list bs af s1 mr t
@@ -62,7 +62,7 @@ End
 
 Definition tlength_def:
   tlength t =
-    case t of
+    pmatch t of
       Block _ _ len => len
     | String s => strlen s
     | Break len => len
@@ -113,7 +113,7 @@ End
 
 Definition pp_type_def:
   pp_type (prec:num) ty =
-    case ty of
+    pmatch ty of
       Tyvar nm => mk_str nm
     | Tyapp nm [t1; t2] =>
         if nm = «fun» then
@@ -189,9 +189,9 @@ End
 
 Definition is_binop_def:
   is_binop tm =
-    case tm of
+    pmatch tm of
       Comb (Comb (Const con _) _) _ =>
-        (case fixity_of con of
+        (pmatch fixity_of con of
            right _ => T
          | _ => F)
     | _ => F
@@ -199,7 +199,7 @@ End
 
 Definition is_binder_def:
   is_binder tm =
-    case tm of
+    pmatch tm of
       Comb (Const nm _) (Abs (Var _ _) _) =>
         nm = «Data.Bool.?» ∨
         nm = «Data.Bool.!» ∨
@@ -210,7 +210,7 @@ End
 
 Definition is_cond_def:
   is_cond tm =
-    case tm of
+    pmatch tm of
       Comb (Comb (Comb (Const con _) _) _) _ =>
         con = «Data.Bool.cond»
     | _ => F
@@ -218,14 +218,14 @@ End
 
 Definition is_neg_def:
   is_neg tm =
-    case tm of
+    pmatch tm of
       Comb (Const nm _) _ => nm = «Data.Bool.~»
     | _ => F
 End
 
 Definition collect_vars_def:
   collect_vars tm =
-    case tm of
+    pmatch tm of
       Abs (Var v ty) r =>
         let (vs, b) = collect_vars r in
           (v::vs, b)
@@ -244,7 +244,7 @@ QED
 
 Definition dest_binary_def:
   dest_binary nm tm =
-    case tm of
+    pmatch tm of
       Comb (Comb (Const nm' _) l) r =>
         if nm ≠ nm' then
           ([], tm)
@@ -286,7 +286,7 @@ QED
 
 Definition dest_binder_def:
   dest_binder nm tm =
-    case tm of
+    pmatch tm of
       Comb (Const nm' _) (Abs (Var v _) b) =>
         if nm ≠ nm' then
           ([], tm)
@@ -324,7 +324,7 @@ End
 
 Definition pp_seq_def:
   pp_seq pf brk sep ts =
-    case ts of
+    pmatch ts of
       []    => []
     | [t]   => [pf t]
     | t::ts =>
@@ -336,7 +336,7 @@ End
 
 Definition interleave_def:
   interleave sep ts =
-    case ts of
+    pmatch ts of
       []    => []
     | [t]   => [t]
     | t::ts => t::mk_str sep::mk_brk 1::interleave sep ts
@@ -344,19 +344,19 @@ End
 
 Definition pp_term_def:
   (pp_term (prec: num) tm =
-    case tm of
+    pmatch tm of
       Comb l r =>
         if is_neg tm then
           pp_paren_blk 0 (prec = 1000) [pp_term 999 l; pp_term 1000 r]
         else if is_binop tm then
-          (case l of
+          (pmatch l of
              Comb (Const nm _) l =>
-               (case dest_binary nm tm of
+               (pmatch dest_binary nm tm of
                   ([], _) => mk_str «<pp_term: bogus BINOP>»
                | (tms, tmt) =>
                    let args = tms ++ [tmt] in
                    let sep  = space ^ name_of nm in
-                     (case fixity_of nm of
+                     (pmatch fixity_of nm of
                         left _ => mk_str «<pp_term: bogus BINOP>»
                       | right nprec =>
                           let ts = MAP (pp_term nprec) args in
@@ -371,7 +371,7 @@ Definition pp_term_def:
                   mk_brk 1;
                   pp_term 1000 r]))
         else if is_cond tm then
-          (case l of
+          (pmatch l of
             Comb (Comb c p) l =>
               pp_paren_blk 0 (0 < prec)
                 [mk_str «if »;
@@ -389,7 +389,7 @@ Definition pp_term_def:
                   mk_brk 1;
                   pp_term 1000 r])
         else if is_binder tm then
-          (case tm of
+          (pmatch tm of
             Comb (Const nm _) (Abs (Var v _) b) =>
               let (vs, b) = dest_binder nm tm in
               let ind = if prec = 0 then 4 else 5 in
@@ -444,7 +444,7 @@ End
 Definition pp_thm_def:
   pp_thm (Sequent asl c) =
     let ss = [mk_str «|- »; pp_term 0 c] in
-      case asl of
+      pmatch asl of
         [] => mk_blo 0 ss
       | _  => mk_blo 0 ((pp_seq (pp_term 0) T («,») asl) ++ ss)
 End
@@ -461,15 +461,15 @@ End
 (* PMATCH definitions.                                                       *)
 (* ------------------------------------------------------------------------- *)
 
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES ();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 val PMATCH_ELIM_CONV = patternMatchesLib.PMATCH_ELIM_CONV;
 
 Theorem is_binop_PMATCH:
    !tm.
      is_binop tm =
-       case tm of
+       pmatch tm of
          Comb (Comb (Const con _) _) _ =>
-           (case fixity_of con of
+           (pmatch fixity_of con of
               right _ => T
             | _ => F)
        | _ => F
@@ -481,7 +481,7 @@ QED
 Theorem is_binder_PMATCH:
    !tm.
      is_binder tm =
-       case tm of
+       pmatch tm of
          Comb (Const nm _) (Abs (Var _ _) _) =>
            nm = «Data.Bool.?» \/
            nm = «Data.Bool.!» \/
@@ -496,7 +496,7 @@ QED
 Theorem is_cond_PMATCH:
    !tm.
      is_cond tm =
-       case tm of
+       pmatch tm of
          Comb (Comb (Comb (Const con _) _) _) _ =>
            con = «Data.Bool.cond»
        | _ => F
@@ -508,7 +508,7 @@ QED
 Theorem is_neg_PMATCH:
    !tm.
      is_neg tm =
-       case tm of
+       pmatch tm of
          Comb (Const nm _) _ => nm = «Data.Bool.~»
        | _ => F
 Proof
@@ -519,7 +519,7 @@ QED
 Theorem collect_vars_PMATCH:
    !tm.
      collect_vars tm =
-       case tm of
+       pmatch tm of
          Abs (Var v ty) r =>
            let (vs, b) = collect_vars r in
              (v::vs, b)
@@ -532,7 +532,7 @@ QED
 Theorem dest_binary_PMATCH:
    !tm.
      dest_binary nm tm =
-       case tm of
+       pmatch tm of
          Comb (Comb (Const nm' _) l) r =>
            if nm <> nm' then
              ([], tm)
@@ -548,7 +548,7 @@ QED
 Theorem dest_binder_PMATCH:
    !tm.
      dest_binder nm tm =
-       case tm of
+       pmatch tm of
          Comb (Const nm' _) (Abs (Var v _) b) =>
            if nm <> nm' then
              ([], tm)

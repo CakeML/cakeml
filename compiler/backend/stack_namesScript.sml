@@ -9,7 +9,7 @@ Libs
   preamble
 
 
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 Overload find_name = ``tlookup``
 
@@ -20,7 +20,7 @@ End
 
 Definition inst_find_name_def:
   inst_find_name f i =
-    dtcase i of
+    case i of
     | Skip => Skip
     | Const r w => Const (find_name f r) w
     | Arith (Binop bop d r ri) =>
@@ -55,7 +55,7 @@ End
 
 local val comp_quotation = `
   comp f p =
-    dtcase p of
+    case p of
     | Halt r => Halt (find_name f r)
     | Raise r => Raise (find_name f r)
     | Return r => Return (find_name f r)
@@ -67,11 +67,11 @@ local val comp_quotation = `
     | While c r ri p1 =>
         While c (find_name f r) (ri_find_name f ri) (comp f p1)
     | Call ret dest exc =>
-        Call (dtcase ret of
+        Call (case ret of
               | NONE => NONE
               | SOME (p1,lr,l1,l2) => SOME (comp f p1,find_name f lr,l1,l2))
              (dest_find_name f dest)
-             (dtcase exc of
+             (case exc of
               | NONE => NONE
               | SOME (p2,l1,l2) => SOME (comp f p2,l1,l2))
     | Install r1 r2 r3 r4 r5 => Install (find_name f r1) (find_name f r2)
@@ -88,7 +88,7 @@ val comp_def = Define comp_quotation
 Theorem comp_pmatch = Q.prove(
   `∀f p.` @
     (comp_quotation |>
-     map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
+     map (fn QUOTE s => Portable.replace_string {from="case",to="case"} s |> QUOTE
          | aq => aq)),
    rpt(
     rpt strip_tac

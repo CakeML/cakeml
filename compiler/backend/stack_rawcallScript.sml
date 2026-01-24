@@ -11,18 +11,18 @@ Ancestors
 Libs
   preamble
 
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 (* collect stack allocation information *)
 
 Definition seq_stack_alloc_def:
   seq_stack_alloc (p: 'a stackLang$prog) =
-    dtcase p of Seq (StackAlloc k) _ => SOME k | _ => NONE
+    case p of Seq (StackAlloc k) _ => SOME k | _ => NONE
 End
 
 Theorem seq_stack_alloc_pmatch:
   seq_stack_alloc (p: 'a stackLang$prog) =
-    case p of Seq (StackAlloc k) _ => SOME k | _ => NONE
+    pmatch p of Seq (StackAlloc k) _ => SOME k | _ => NONE
 Proof
   CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true) \\ rw []
   \\ rw[Once seq_stack_alloc_def,pairTheory.ELIM_UNCURRY] \\ every_case_tac \\ fs[]
@@ -31,7 +31,7 @@ QED
 Definition collect_info_def:
   (collect_info [] f = f) /\
   (collect_info ((n,b:'a stackLang$prog)::xs) f =
-     collect_info xs (dtcase seq_stack_alloc b of
+     collect_info xs (case seq_stack_alloc b of
                       | NONE => f
                       | SOME k => insert n k f))
 End
@@ -40,15 +40,15 @@ End
 
 Definition dest_case_def:
   dest_case (p1: 'a stackLang$prog) (p2: 'a stackLang$prog) =
-    dtcase p1 of
-    | StackFree k => (dtcase p2 of Call NONE (INL d) NONE => SOME (k,d) | _ => NONE)
+    case p1 of
+    | StackFree k => (case p2 of Call NONE (INL d) NONE => SOME (k,d) | _ => NONE)
     | _ => NONE
 End
 
 Theorem dest_case_pmatch:
   dest_case (p1: 'a stackLang$prog) (p2: 'a stackLang$prog) =
-    case p1 of
-    | StackFree k => (case p2 of Call NONE (INL d) NONE => SOME (k,d) | _ => NONE)
+    pmatch p1 of
+    | StackFree k => (pmatch p2 of Call NONE (INL d) NONE => SOME (k,d) | _ => NONE)
     | _ => NONE
 Proof
   CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true) \\ rw []
@@ -57,9 +57,9 @@ QED
 
 Definition comp_seq_def:
   comp_seq (p1:'a stackLang$prog) (p2:'a stackLang$prog) i (default:'a stackLang$prog) =
-  dtcase dest_case p1 p2 of
+  case dest_case p1 p2 of
   | SOME (k,dest) =>
-      (dtcase lookup dest i of
+      (case lookup dest i of
        | NONE => default
        | SOME l =>
            if l = k then RawCall dest else
@@ -71,7 +71,7 @@ End
 local
 val q = `
   comp i (p:'a stackLang$prog) =
-    dtcase p of
+    case p of
     | Seq p1 p2 => comp_seq p1 p2 i (Seq (comp i p1) (comp i p2))
     | If c r ri p1 p2 => If c r ri (comp i p1) (comp i p2)
     | While c r ri p1 => While c r ri (comp i p1)
@@ -84,7 +84,7 @@ in
 val comp_def = Define q;
 Theorem comp_pmatch = Q.prove(
   `∀i p.` @
-    (map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
+    (map (fn QUOTE s => Portable.replace_string {from="case",to="case"} s |> QUOTE
          | aq => aq) q),
   rpt strip_tac
   \\ CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true) \\ rw []
@@ -94,12 +94,12 @@ end
 
 Definition comp_top_def:
   comp_top i (p: 'a stackLang$prog) =
-    dtcase p of Seq p1 p2 => Seq (comp i p1) (comp i p2) | _ => comp i p
+    case p of Seq p1 p2 => Seq (comp i p1) (comp i p2) | _ => comp i p
 End
 
 Theorem comp_top_pmatch:
   comp_top i (p: 'a stackLang$prog) =
-    case p of Seq p1 p2 => Seq (comp i p1) (comp i p2) | _ => comp i p
+    pmatch p of Seq p1 p2 => Seq (comp i p1) (comp i p2) | _ => comp i p
 Proof
   CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true) \\ rw []
   \\ rw[Once comp_top_def,pairTheory.ELIM_UNCURRY] \\ every_case_tac \\ fs[]

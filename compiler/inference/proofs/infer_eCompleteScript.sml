@@ -936,7 +936,7 @@ Proof
   imp_res_tac pure_add_constraints_wfs>>
   fs[type_op_cases]>>
   rfs [op_simple_constraints_def]>>
-  simp [constrain_op_dtcase_def, op_simple_constraints_def]>>
+  simp [constrain_op_case_def, op_simple_constraints_def]>>
   every_case_tac>>
   ntac 2 (fs[unconvert_t_def,MAP]>>rw[])>>
   fs[add_constraint_success2,success_eqns,sub_completion_def,Tword64_def,word_tc_def]>>

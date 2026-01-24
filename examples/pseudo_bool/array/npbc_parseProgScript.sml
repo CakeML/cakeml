@@ -9,7 +9,7 @@ Libs
 
 val _ = translation_extends"npbc_arrayProg";
 
-val () = computeLib.set_skip computeLib.the_compset “COND” (SOME 1);
+val _ = computeLib.set_skip computeLib.the_compset "COND" (SOME 1);
 
 val r = translate strip_numbers_aux_def;
 val strip_numbers_aux_side_def = theorem "strip_numbers_aux_side_def";

@@ -241,7 +241,7 @@ End
 
 Definition SmartIf_def:
   SmartIf t e p q =
-    case e of
+    pmatch e of
       Con _ (SOME (tag, SOME id)) [] =>
         if id = bool_id then
           if tag = backend_common$true_tag then p
@@ -251,12 +251,12 @@ Definition SmartIf_def:
     | _ => If t e p q
 End
 
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 Theorem SmartIf_PMATCH:
   !t e p q.
     SmartIf t e p q =
-      case e of
+      pmatch e of
         Con _ (SOME (tag, SOME id)) [] =>
           if id = bool_id then
             if tag = backend_common$true_tag then p

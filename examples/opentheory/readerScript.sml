@@ -98,7 +98,7 @@ Definition s2c_def:
         if c = #"#" then skipc
         else if c = #"\"" then strc (substring s 1 (strlen s - 2))
         else if isDigit c then
-          case fromString s of
+          pmatch fromString s of
             NONE => unknownc s
           | SOME i => intc i
         else
@@ -272,14 +272,14 @@ End
 
 Definition pop_def:
   pop s =
-    case s.stack of
+    pmatch s.stack of
       [] => failwith «pop»
     | h::t => return (h,s with stack := t)
 End
 
 Definition peek_def:
   peek s =
-    case s.stack of
+    pmatch s.stack of
       [] => failwith «peek»
     | h::_ => return h
 End
@@ -300,7 +300,7 @@ End
 
 Definition first_def:
   first p l =
-    case l of
+    pmatch l of
       [] => NONE
     | h::t => if p h then SOME h else first p t
 End
@@ -309,8 +309,8 @@ Definition find_axiom_def:
   find_axiom (ls, tm) =
     do
       axs <- axioms ();
-      case first (λth.
-        case th of
+      pmatch first (λth.
+        pmatch th of
         | Sequent h c =>
             EVERY (λx. EXISTS (aconv x) h) ls ∧
             aconv c tm) axs of
@@ -382,14 +382,14 @@ End
 
 Definition listof_def:
   listof xs =
-    case xs of
+    pmatch xs of
       [] => mk_str «[]»
     | x::xs => mk_blo 0 ([mk_str «[»; x] ++ commas xs ++ [mk_str «]»])
 End
 
 Definition obj_t_def:
   obj_t obj =
-    case obj of
+    pmatch obj of
       Num n => mk_str (toString n)
     | Name s => mk_str (name_of s)
     | List ls => listof (MAP obj_t ls)
@@ -436,7 +436,7 @@ End
 
 Definition pp_update_def:
   pp_update upd =
-    case upd of
+    pmatch upd of
       ConstSpec nts tm =>
         mk_blo 11
           ([mk_str «ConstSpec»; mk_brk 1; mk_str «[»] ++
@@ -479,7 +479,7 @@ End
 
 Definition readLine_def:
   readLine s c =
-    case c of
+    pmatch c of
       version =>
         do
           (obj, s) <- pop s;
@@ -555,7 +555,7 @@ Definition readLine_def:
           (obj,s) <- pop s; ty <- getType obj;
           (obj,s) <- pop s; nm <- getConst obj;
           ty0 <- get_const_type nm;
-          tm <- case match_type ty0 ty of
+          tm <- pmatch match_type ty0 ty of
                   NONE => failwith «constTerm»
                 | SOME theta => mk_const(nm,theta);
           return (push (Term tm) s)
@@ -626,7 +626,7 @@ Definition readLine_def:
     | hdTl =>
         do
           (obj,s) <- pop s; ls <- getList obj;
-          case ls of
+          pmatch ls of
           | [] => failwith «hdTl»
           | (h::t) => return (push (List t) (push h s))
         od
@@ -669,7 +669,7 @@ Definition readLine_def:
           if n < 0 then
             failwith «ref»
           else
-            case lookup (Num n) s.dict of
+            pmatch lookup (Num n) s.dict of
               NONE => failwith «ref»
             | SOME obj => return (push obj s)
         od
@@ -685,7 +685,7 @@ Definition readLine_def:
           if n < 0 then
             failwith «ref»
           else
-            case lookup (Num n) s.dict of
+            pmatch lookup (Num n) s.dict of
               NONE => failwith «remove»
             | SOME obj => return (push obj (delete_dict (Num n) s))
         od
@@ -773,7 +773,7 @@ End
 (* This is terrible: *)
 Definition unescape_def:
   unescape str =
-    case str of
+    pmatch str of
       #"\\":: #"\\" ::cs => #"\\"::unescape cs
     | c1::c::cs    => c1::unescape (c::cs)
     | cs           => cs
@@ -849,7 +849,7 @@ End
 
 Definition readLines_def:
   readLines s lls =
-    case lls of
+    pmatch lls of
       []    => return (s, lines_read s)
     | l::ls =>
         do
@@ -864,13 +864,13 @@ End
  * PMATCH definitions.
  * ------------------------------------------------------------------------- *)
 
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES ();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 val PMATCH_ELIM_CONV = patternMatchesLib.PMATCH_ELIM_CONV;
 
 Theorem getNum_PMATCH:
    ∀obj.
      getNum obj =
-       case obj of
+       pmatch obj of
          Num n => return n
        | _ => failwith «getNum»
 Proof
@@ -880,7 +880,7 @@ QED
 Theorem getName_PMATCH:
    ∀obj.
      getName obj =
-       case obj of
+       pmatch obj of
          Name n => return n
        | _ => failwith «getName»
 Proof
@@ -890,7 +890,7 @@ QED
 Theorem getList_PMATCH:
    ∀obj.
      getList obj =
-       case obj of
+       pmatch obj of
          List n => return n
        | _ => failwith «getList»
 Proof
@@ -900,7 +900,7 @@ QED
 Theorem getTypeOp_PMATCH:
    ∀obj.
      getTypeOp obj =
-       case obj of
+       pmatch obj of
          TypeOp n => return n
        | _ => failwith «getTypeOp»
 Proof
@@ -910,7 +910,7 @@ QED
 Theorem getType_PMATCH:
    ∀obj.
      getType obj =
-       case obj of
+       pmatch obj of
          Type n => return n
        | _ => failwith «getType»
 Proof
@@ -920,7 +920,7 @@ QED
 Theorem getConst_PMATCH:
    ∀obj.
      getConst obj =
-       case obj of
+       pmatch obj of
          Const n => return n
        | _ => failwith «getConst»
 Proof
@@ -930,7 +930,7 @@ QED
 Theorem getVar_PMATCH:
    ∀obj.
      getVar obj =
-       case obj of
+       pmatch obj of
          Var n => return n
        | _ => failwith «getVar»
 Proof
@@ -940,7 +940,7 @@ QED
 Theorem getTerm_PMATCH:
    ∀obj.
      getTerm obj =
-       case obj of
+       pmatch obj of
          Term n => return n
        | _ => failwith «getTerm»
 Proof
@@ -950,7 +950,7 @@ QED
 Theorem getThm_PMATCH:
    ∀obj.
      getThm obj =
-       case obj of
+       pmatch obj of
          Thm n => return n
        | _ => failwith «getThm»
 Proof
@@ -960,7 +960,7 @@ QED
 Theorem getPair_PMATCH:
    ∀obj.
      getPair obj =
-       case obj of
+       pmatch obj of
          List [x;y] => return (x,y)
        | _ => failwith «getPair»
 Proof
@@ -971,7 +971,7 @@ QED
 Theorem unescape_PMATCH:
    ∀str.
      unescape str =
-       case str of
+       pmatch str of
          #"\\":: #"\\" ::cs => #"\\"::unescape cs
        | c1::c::cs    => c1::unescape (c::cs)
        | cs           => cs

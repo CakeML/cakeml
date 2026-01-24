@@ -94,7 +94,7 @@ Definition to_constant_def:
   to_constant ((Var t n):closLang$exp) =
     ConstCons 0 [ConstInt (& n)] ∧
   to_constant (App _ _ e es) =
-    ConstCons 0 [to_constant e; case es of [] => ConstInt 0 | (e1::_) => to_constant e1] ∧
+    ConstCons 0 [to_constant e; pmatch es of [] => ConstInt 0 | (e1::_) => to_constant e1] ∧
   to_constant (If t e1 e2 e3) =
     ConstCons 0 [to_constant e1; to_constant e2; to_constant e3] ∧
   to_constant (Let t es e) = ConstCons 1 [to_constant_list es; to_constant e] ∧
@@ -108,7 +108,7 @@ Definition to_constant_def:
   to_constant_list [] = ConstCons 0 [] ∧
   to_constant_list (x::xs) = ConstCons 0 [to_constant x; to_constant_list xs]
 Termination
-  WF_REL_TAC ‘measure $ λx. case x of INL e => closLang$exp_size e
+  WF_REL_TAC ‘measure $ λx. pmatch x of INL e => closLang$exp_size e
                                     | INR es => list_size closLang$exp_size es’
 End
 
@@ -207,17 +207,17 @@ End
 
 Definition opt_interp1_def:
   opt_interp1 e =
-    case opt_interp e of
+    pmatch opt_interp e of
     | SOME x => x
     | NONE => e
 End
 
 Definition insert_interp1_def:
   insert_interp1 e =
-    case opt_interp e of
+    pmatch opt_interp e of
     | SOME x => x
     | NONE =>
-        case e of
+        pmatch e of
         | Let t ys y => Let None (MAP opt_interp1 ys) y
         | _ => e
 End
@@ -243,11 +243,11 @@ End
 
 (* pmatch versions of the op-functions *)
 
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 Theorem can_interpret_op_pmatch:
   can_interpret_op p l =
-    case p of
+    pmatch p of
     | BlockOp (Cons tag) => (l = 0n ∨ tag < 3n)
     | IntOp (Const i) => (l = 0)
     | GlobOp (Global n) => (l = 0)
@@ -260,7 +260,7 @@ QED
 
 Theorem check_size_op_pmatch:
   check_size_op k p l =
-    case p of
+    pmatch p of
     | BlockOp (Cons tag) => (if l = 0:num then k else k-1:num)
     | IntOp (Const i) => k
     | GlobOp (Global n) => k
@@ -272,7 +272,7 @@ QED
 
 Theorem to_constant_op_pmatch:
   to_constant_op p l cs =
-    case p of
+    pmatch p of
     | IntOp (Const i) => ConstCons 1 [ConstInt i]
     | BlockOp (Constant c) => ConstCons 1 [c]
     | GlobOp (Global n) => ConstCons 2 [ConstInt (& n)]
