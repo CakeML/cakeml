@@ -283,8 +283,8 @@ Theorem unlend_lend128[simp]:
 Proof
   simp[unlend_def]
   >> `16 = LENGTH (word_to_bytes w F)` by simp[LENGTH_word_to_bytes]
-  >> asm_rewrite_tac[TAKE_LENGTH_APPEND, DROP_LENGTH_APPEND]
-  >> cheat
+  >> pop_assum (fn eq => rewrite_tac[eq,TAKE_LENGTH_APPEND, DROP_LENGTH_APPEND])
+  >> irule word_of_bytes_word_to_bytes >> simp[dividesTheory.compute_divides]
 QED
 
 
@@ -401,4 +401,3 @@ Proof
   \\
   cheat
 QED
-

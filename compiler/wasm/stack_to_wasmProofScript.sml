@@ -8,6 +8,8 @@ Ancestors
   longmul word_lemmas add_carry misc wasmLang
   wasmSem stackSem stackLang stackProps asm
 
+val _ = numLib.prefer_num ();
+
 (* TODO: move Irvin's simps *)
 Theorem option_CASE_OPTION_MAP[simp]:
   (option_CASE (OPTION_MAP f e) a b) = option_CASE e a (λx. b (f x))
@@ -28,238 +30,6 @@ Proof
   Cases_on`e`>>simp[]
 QED
 
-(* shorthands for wasm instructions *)
-Definition I64_EQ_def:
-  I64_EQ = Numeric (N_compare (Eq Int W64))
-End
-Definition I32_EQ_def:
-  I32_EQ = Numeric (N_compare (Eq Int W32))
-End
-
-Definition I64_NE_def:
-  I64_NE = Numeric (N_compare (Ne Int W64))
-End
-Definition I32_NE_def:
-  I32_NE = Numeric (N_compare (Ne Int W32))
-End
-
-Definition I64_LT_U_def:
-  I64_LT_U = Numeric (N_compare (Lt_ Unsigned W64))
-End
-Definition I32_LT_U_def:
-  I32_LT_U = Numeric (N_compare (Lt_ Unsigned W32))
-End
-
-Definition I64_GT_U_def:
-  I64_GT_U = Numeric (N_compare (Gt_ Unsigned W64))
-End
-Definition I32_GT_U_def:
-  I32_GT_U = Numeric (N_compare (Gt_ Unsigned W32))
-End
-
-Definition I64_LE_U_def:
-  I64_LE_U = Numeric (N_compare (Le_ Unsigned W64))
-End
-Definition I32_LE_U_def:
-  I32_LE_U = Numeric (N_compare (Le_ Unsigned W32))
-End
-
-Definition I64_GE_U_def:
-  I64_GE_U = Numeric (N_compare (Ge_ Unsigned W64))
-End
-Definition I32_GE_U_def:
-  I32_GE_U = Numeric (N_compare (Ge_ Unsigned W32))
-End
-
-Definition I64_LT_S_def:
-  I64_LT_S = Numeric (N_compare (Lt_ Signed W64))
-End
-Definition I32_LT_S_def:
-  I32_LT_S = Numeric (N_compare (Lt_ Signed W32))
-End
-
-Definition I64_GT_S_def:
-  I64_GT_S = Numeric (N_compare (Gt_ Signed W64))
-End
-Definition I32_GT_S_def:
-  I32_GT_S = Numeric (N_compare (Gt_ Signed W32))
-End
-
-Definition I64_LE_S_def:
-  I64_LE_S = Numeric (N_compare (Le_ Signed W64))
-End
-Definition I32_LE_S_def:
-  I32_LE_S = Numeric (N_compare (Le_ Signed W32))
-End
-
-Definition I64_GE_S_def:
-  I64_GE_S = Numeric (N_compare (Ge_ Signed W64))
-End
-Definition I32_GE_S_def:
-  I32_GE_S = Numeric (N_compare (Ge_ Signed W32))
-End
-
-Definition I64_EQZ_def:
-  I64_EQZ = Numeric (N_eqz W64)
-End
-Definition I32_EQZ_def:
-  I32_EQZ = Numeric (N_eqz W32)
-End
-
-Definition I64_CONST_def:
-  I64_CONST w = Numeric (N_const64 Int w)
-End
-Definition I32_CONST_def:
-  I32_CONST w = Numeric (N_const32 Int w)
-End
-
-Definition I64_ADD_def:
-  I64_ADD = Numeric (N_binary (Add Int W64))
-End
-Definition I32_ADD_def:
-  I32_ADD = Numeric (N_binary (Add Int W32))
-End
-
-Definition I64_SUB_def:
-  I64_SUB = Numeric (N_binary (Sub Int W64))
-End
-Definition I32_SUB_def:
-  I32_SUB = Numeric (N_binary (Sub Int W32))
-End
-
-Definition I64_MUL_def:
-  I64_MUL = Numeric (N_binary (Mul Int W64))
-End
-Definition I32_MUL_def:
-  I32_MUL = Numeric (N_binary (Mul Int W32))
-End
-
-Definition I64_AND_def:
-  I64_AND = Numeric (N_binary (And W64))
-End
-Definition I32_AND_def:
-  I32_AND = Numeric (N_binary (And W32))
-End
-
-Definition I64_OR_def:
-  I64_OR = Numeric (N_binary (Or W64))
-End
-Definition I32_OR_def:
-  I32_OR = Numeric (N_binary (Or W32))
-End
-
-Definition I64_XOR_def:
-  I64_XOR = Numeric (N_binary (Xor W64))
-End
-Definition I32_XOR_def:
-  I32_XOR = Numeric (N_binary (Xor W32))
-End
-
-Definition I64_SHL_def:
-  I64_SHL = Numeric (N_binary (Shl W64))
-End
-Definition I32_SHL_def:
-  I32_SHL = Numeric (N_binary (Shl W32))
-End
-
-Definition I64_SHR_S_def:
-  I64_SHR_S = Numeric (N_binary (Shr_ Signed W64))
-End
-Definition I32_SHR_S_def:
-  I32_SHR_S = Numeric (N_binary (Shr_ Signed W32))
-End
-
-Definition I64_SHR_U_def:
-  I64_SHR_U = Numeric (N_binary (Shr_ Unsigned W64))
-End
-Definition I32_SHR_U_def:
-  I32_SHR_U = Numeric (N_binary (Shr_ Unsigned W32))
-End
-
-Definition I64_ROTR_def:
-  I64_ROTR = Numeric (N_binary (Rotr W64))
-End
-Definition I32_ROTR_def:
-  I32_ROTR = Numeric (N_binary (Rotr W32))
-End
-
-Definition I64_DIV_S_def:
-  I64_DIV_S = Numeric (N_binary (Div_ Signed W64))
-End
-Definition I32_DIV_S_def:
-  I32_DIV_S = Numeric (N_binary (Div_ Signed W32))
-End
-
-Definition I64_DIV_U_def:
-  I64_DIV_U = Numeric (N_binary (Div_ Unsigned W64))
-End
-Definition I32_DIV_U_def:
-  I32_DIV_U = Numeric (N_binary (Div_ Unsigned W32))
-End
-
-Definition I32_WRAP_I64_def:
-  I32_WRAP_I64 = Numeric (N_convert WrapI64)
-End
-
-Definition GLOBAL_GET_def:
-  GLOBAL_GET i = Variable (GlobalGet (n2w i))
-End
-
-Definition GLOBAL_SET_def:
-  GLOBAL_SET i = Variable (GlobalSet (n2w i))
-End
-
-Definition LOCAL_GET_def:
-  LOCAL_GET i = Variable (LocalGet (n2w i))
-End
-
-Definition LOCAL_SET_def:
-  LOCAL_SET i = Variable (LocalSet (n2w i))
-End
-
-Definition LOCAL_TEE_def:
-  LOCAL_TEE i = Variable (LocalTee (n2w i))
-End
-
-Definition RETURN_def:
-  RETURN = wasmLang$Return
-End
-
-Definition CALL_def:
-  CALL i = wasmLang$Call (n2w i)
-End
-
-Definition CALL_INDIRECT_def:
-  CALL_INDIRECT ft = CallIndirect 0w ft
-End
-
-Definition RETURN_CALL_def:
-  RETURN_CALL i = ReturnCall (n2w i)
-End
-
-Definition RETURN_CALL_INDIRECT_def:
-  RETURN_CALL_INDIRECT ft = ReturnCallIndirect 0w ft
-End
-
-Definition SELECT_def:
-  SELECT = Parametric Select
-End
-
-Definition I64_EXTEND32_U_def:
-  I64_EXTEND32_U = Numeric (N_unary (ExtendI32_ Unsigned))
-End
-
-(* more wasm instructions go here *)
-(* see wasmLangScript.sml *)
-
-Definition i32_def:
-  i32 = Tnum Int W32
-End
-
-Definition i64_def:
-  i64 = Tnum Int W64
-End
-
 (* compiler definition (TODO: move to another file when ready) *)
 
 (* Long multiplication *)
@@ -268,16 +38,6 @@ Definition wasm_chop64_ftype_index_def:
   wasm_chop64_ftype_index = 1w:word32
 End
 
-Definition wasm_chop64_index_def:
-  wasm_chop64_index = 0:num
-End
-
-(*
-  wasm_chop64 i = [
-    LOCAL_GET i; I64_CONST 0xffffffffw; I64_AND;
-    LOCAL_GET i; I64_CONST 32w; I64_SHR_U
-  ]
-*)
 Definition wasm_chop64_def:
   wasm_chop64 = <|
     ftype := wasm_chop64_ftype_index;
@@ -289,24 +49,12 @@ Definition wasm_chop64_def:
   |>
 End
 
+Definition wasm_chop64_index_def:
+  wasm_chop64_index = 0n
+End
+
 Definition wasm_long_mul_ftype_index_def:
   wasm_long_mul_ftype_index = 2w:word32
-End
-
-Definition wasm_long_mul_index_def:
-  wasm_long_mul_index = 1:num
-End
-
-Definition wasm_add_carry_index_def:
-  wasm_add_carry_index = 2n
-End
-
-Definition wasm_add_overflow_index_def:
-  wasm_add_overflow_index = 3n
-End
-
-Definition wasm_sub_overflow_index_def:
-  wasm_sub_overflow_index = 4n
 End
 
 Definition wasm_long_mul_body_def:
@@ -356,16 +104,6 @@ Definition wasm_long_mul_body_def:
   ]
 End
 
-(* Definition add_carry_def:
-  add_carry (a:'a word) (b:'a word) (carry:'a word) =
-  let c:'a word = if carry = 0w then 0w else 1w in
-  let sum = a+b in
-  let t1:'a word = if sum <+ b then 1w else 0w in
-  let sum_c = sum+c in
-  let t2:'a word = if sum_c <+ c then 1w else 0w in
-  (sum_c, t1||t2)
-*)
-
 Definition wasm_long_mul_def:
   wasm_long_mul = <|
     ftype := wasm_long_mul_ftype_index;
@@ -374,7 +112,9 @@ Definition wasm_long_mul_def:
   |>
 End
 
-Definition wasm_add_carry_body_def:
+(* add_carry *)
+
+Definition wasm_add_carry_body_def: (* 4 locals *)
   wasm_add_carry_body = [
     LOCAL_GET 2(*c*); I64_CONST 0w; I64_GT_U; I64_EXTEND32_U; LOCAL_SET 2(*c*);
     (* [] *)
@@ -397,9 +137,21 @@ End
 Definition wasm_add_carry_def:
   wasm_add_carry = <|
     ftype := wasm_add_carry_ftype_index;
-    locals := [i64;i64;i64;i32];
+    locals := [i32];
     body := wasm_add_carry_body
   |>
+End
+
+(* add_overflow *)
+
+Definition wasm_add_overflow_body_def: (* 3 locals *)
+  wasm_add_overflow_body = [
+    LOCAL_GET 0(*a*); LOCAL_GET 1(*b*); I64_ADD; LOCAL_SET 2(*sum*);
+    LOCAL_GET 0(*a*); LOCAL_GET 1(*b*); I64_XOR; I64_CONST 18446744073709551615w; I64_XOR;
+    LOCAL_GET 1(*b*); LOCAL_GET 2(*sum*); I64_XOR;
+    I64_AND; I64_CONST 63w; I64_SHR_U;
+    LOCAL_GET 2(*sum*)
+  ]
 End
 
 Definition wasm_add_overflow_ftype_index_def:
@@ -409,9 +161,21 @@ End
 Definition wasm_add_overflow_def:
   wasm_add_overflow = <|
     ftype := wasm_add_overflow_ftype_index;
-    locals := [](*XXX*);
-    body := [](*XXX*)
+    locals := [i64];
+    body := wasm_add_overflow_body
   |>
+End
+
+(* sub_overflow *)
+
+Definition wasm_sub_overflow_body_def:
+  wasm_sub_overflow_body = [
+    LOCAL_GET 0(*a*); LOCAL_GET 1(*b*); I64_SUB; LOCAL_SET 2(*diff*);
+    LOCAL_GET 0(*a*); LOCAL_GET 1(*b*); I64_XOR;
+    LOCAL_GET 1(*b*); LOCAL_GET 2(*diff*); I64_XOR; I64_CONST 18446744073709551615w; I64_XOR;
+    I64_AND; I64_CONST 63w; I64_SHR_U;
+    LOCAL_GET 2(*diff*)
+  ]
 End
 
 Definition wasm_sub_overflow_ftype_index_def:
@@ -421,9 +185,31 @@ End
 Definition wasm_sub_overflow_def:
   wasm_sub_overflow = <|
     ftype := wasm_add_overflow_ftype_index;
-    locals := [](*XXX*);
-    body := [](*XXX*)
+    locals := [i64];
+    body := wasm_sub_overflow_body
   |>
+End
+
+(* *)
+
+Definition wasm_long_mul_index_def:
+  wasm_long_mul_index = 1n
+End
+
+Definition wasm_add_carry_index_def:
+  wasm_add_carry_index = 2n
+End
+
+Definition wasm_add_overflow_index_def:
+  wasm_add_overflow_index = 3n
+End
+
+Definition wasm_sub_overflow_index_def:
+  wasm_sub_overflow_index = 4n
+End
+
+Definition wasm_support_function_list_def:
+  wasm_support_function_list = [wasm_chop64; wasm_long_mul; wasm_add_carry; wasm_add_overflow; wasm_sub_overflow]
 End
 
 (* reg_imm = Reg reg | Imm ('a imm) *)
@@ -493,11 +279,11 @@ Definition compile_arith_def:
     List [GLOBAL_GET s1; GLOBAL_GET s2; CALL wasm_long_mul_index; GLOBAL_SET t_hi; GLOBAL_SET t_lo] ∧
   (* LongDiv is banned *)
   compile_arith (asm$AddCarry t s1 s2 flag) =
-    List [GLOBAL_GET s1; GLOBAL_GET s2; GLOBAL_GET flag; CALL wasm_add_carry_index; GLOBAL_SET flag; GLOBAL_SET t] ∧
+    List [GLOBAL_GET s1; GLOBAL_GET s2; GLOBAL_GET flag; CALL wasm_add_carry_index; GLOBAL_SET t; GLOBAL_SET flag] ∧
   compile_arith (asm$AddOverflow t s1 s2 flag) =
-    List [GLOBAL_GET s1; GLOBAL_GET s2; CALL wasm_add_overflow_index; GLOBAL_SET flag; GLOBAL_SET t] ∧
+    List [GLOBAL_GET s1; GLOBAL_GET s2; CALL wasm_add_overflow_index; GLOBAL_SET t; GLOBAL_SET flag] ∧
   compile_arith (asm$SubOverflow t s1 s2 flag) =
-    List [GLOBAL_GET s1; GLOBAL_GET s2; CALL wasm_sub_overflow_index; GLOBAL_SET flag; GLOBAL_SET t]
+    List [GLOBAL_GET s1; GLOBAL_GET s2; CALL wasm_sub_overflow_index; GLOBAL_SET t; GLOBAL_SET flag]
 End
 
 Definition compile_inst_def:
@@ -510,10 +296,6 @@ End
 (* the type of all cakeml functions *)
 Definition ftype_def:
   ftype = ([], [Tnum Int W32])
-End
-
-Definition wasm_support_function_list_def:
-  wasm_support_function_list = [wasm_chop64; wasm_long_mul; wasm_add_carry; wasm_add_overflow; wasm_sub_overflow]
 End
 
 Definition tail_call_def:
@@ -1700,7 +1482,7 @@ QED
 
 Theorem wasm_add_carry_thm_aux:
   add_carry a b c_in = (sum_, c_out) ∧
-  t.locals=[I64 a; I64 b; I64 c_in; I64 0w] ∧ t.stack=[] ∧
+  t.locals=[I64 a; I64 b; I64 c_in; I32 0w] ∧ t.stack=[] ∧
   exec_list wasm_add_carry_body ^t = (res,t') ⇒
   res=RNormal ∧
   (∃L. t' = t with <|stack:=[I64 sum_; I64 c_out]; locals:=L|>)
@@ -1733,6 +1515,132 @@ Proof
   (* finish up *)
   >>gvs[push_def,word_hi_0,b2w_neq_0]
   >>rw[wasmSemTheory.state_component_equality]
+QED
+
+Theorem wasm_add_carry_thm:
+  add_carry a b c_in = (sum_, c_out) ∧
+  LLOOKUP t.funcs wasm_add_carry_index = SOME wasm_add_carry ∧
+  LLOOKUP t.types (w2n wasm_add_carry.ftype) = SOME ([i64;i64;i64],[i64;i64]) ⇒
+  t.clock>=1 ⇒
+  exec (CALL wasm_add_carry_index) (push (I64 c_in) (push (I64 b) (push (I64 a) t))) =
+  (RNormal, push (I64 sum_) (push (I64 c_out) (t with clock:=t.clock-1)))
+Proof
+rw[CALL_def,exec_def]
+>>fs[wasm_add_carry_index_def]
+>>simp[prove(“∀a b c t. pop_n 3 (push c (push b (push a t))) = SOME ([a;b;c], t)”, simp[push_def, pop_n_def])]
+>>simp[wasm_add_carry_def,oneline init_val_of_def,i64_def,i32_def]
+>>`∃res t'. exec_list wasm_add_carry_body
+             (t with
+              <|clock := t.clock − 1; stack := [];
+                locals := [I64 a; I64 b; I64 c_in; I32 0w]|>) = (res, t')` by metis_tac[pair_CASES]
+>>drule_at Any wasm_add_carry_thm_aux
+>>simp[]
+>>strip_tac
+>>simp[push_def]
+QED
+
+Theorem wasm_add_overflow_thm_aux:
+  add_overflow a b = (sum_, ov) ∧
+  t.locals=[I64 a; I64 b; I64 0w] ∧ t.stack=[] ∧
+  exec_list wasm_add_overflow_body ^t = (res,t') ⇒
+  res=RNormal ∧
+  (∃L. t' = t with <|stack:=[I64 sum_; I64 ov]; locals:=L|>)
+Proof
+  simp[wasm_add_overflow_body_def,add_overflow_def]
+  >>strip_tac
+  >>qpat_x_assum `exec_list _ _ = _` mp_tac
+  >>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[])
+  >>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[])
+  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_ADD])
+  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_LOCAL_SET])
+  >>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[HD_LUPDATE])
+  >>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[EL_LUPDATE])
+  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_XOR])
+  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_CONST])
+  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_XOR])
+  >>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[EL_LUPDATE])
+  >>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[EL_LUPDATE])
+  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_XOR])
+  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_AND])
+  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_CONST])
+  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_SHR_U])
+  >>(DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[EL_LUPDATE])
+  (* finish up *)
+  >>gvs[push_def]
+  >>rw[wasmSemTheory.state_component_equality]
+QED
+
+Theorem wasm_add_overflow_thm:
+  add_overflow a b = (sum_, ov) ∧
+  LLOOKUP t.funcs wasm_add_overflow_index = SOME wasm_add_overflow ∧
+  LLOOKUP t.types (w2n wasm_add_overflow.ftype) = SOME ([i64;i64],[i64;i64]) ⇒
+  t.clock>=1 ⇒
+  exec (CALL wasm_add_overflow_index) (push (I64 b) (push (I64 a) t)) =
+  (RNormal, push (I64 sum_) (push (I64 ov) (t with clock:=t.clock-1)))
+Proof
+rw[CALL_def,exec_def]
+>>fs[wasm_add_overflow_index_def]
+>>simp[wasm_add_overflow_def,oneline init_val_of_def,i64_def]
+>>`∃res t'. exec_list wasm_add_overflow_body
+             (t with
+              <|clock := t.clock − 1; stack := [];
+                locals := [I64 a; I64 b; I64 0w]|>) = (res, t')` by metis_tac[pair_CASES]
+>>drule_at Any wasm_add_overflow_thm_aux
+>>simp[]
+>>strip_tac
+>>simp[push_def]
+QED
+
+Theorem wasm_sub_overflow_thm_aux:
+  sub_overflow a b = (sum_, ov) ∧
+  t.locals=[I64 a; I64 b; I64 0w] ∧ t.stack=[] ∧
+  exec_list wasm_sub_overflow_body ^t = (res,t') ⇒
+  res=RNormal ∧
+  (∃L. t' = t with <|stack:=[I64 sum_; I64 ov]; locals:=L|>)
+Proof
+  simp[wasm_sub_overflow_body_def,sub_overflow_def]
+  >>strip_tac
+  >>qpat_x_assum `exec_list _ _ = _` mp_tac
+  >>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[])
+  >>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[])
+  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_SUB])
+  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_LOCAL_SET])
+  >>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[HD_LUPDATE])
+  >>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[EL_LUPDATE])
+  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_XOR])
+  >>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[EL_LUPDATE])
+  >>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[EL_LUPDATE])
+  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_XOR])
+  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_CONST])
+  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_XOR])
+  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_AND])
+  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_CONST])
+  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_SHR_U])
+  >>(DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[EL_LUPDATE])
+  (* finish up *)
+  >>gvs[push_def]
+  >>rw[wasmSemTheory.state_component_equality]
+QED
+
+Theorem wasm_sub_overflow_thm:
+  sub_overflow a b = (sum_, ov) ∧
+  LLOOKUP t.funcs wasm_sub_overflow_index = SOME wasm_sub_overflow ∧
+  LLOOKUP t.types (w2n wasm_sub_overflow.ftype) = SOME ([i64;i64],[i64;i64]) ⇒
+  t.clock>=1 ⇒
+  exec (CALL wasm_sub_overflow_index) (push (I64 b) (push (I64 a) t)) =
+  (RNormal, push (I64 sum_) (push (I64 ov) (t with clock:=t.clock-1)))
+Proof
+rw[CALL_def,exec_def]
+>>fs[wasm_sub_overflow_index_def]
+>>simp[wasm_sub_overflow_def,oneline init_val_of_def,i64_def]
+>>`∃res t'. exec_list wasm_sub_overflow_body
+             (t with
+              <|clock := t.clock − 1; stack := [];
+                locals := [I64 a; I64 b; I64 0w]|>) = (res, t')` by metis_tac[pair_CASES]
+>>drule_at Any wasm_sub_overflow_thm_aux
+>>simp[]
+>>strip_tac
+>>simp[push_def]
 QED
 
 (* a proof for each case *)
@@ -2039,11 +1947,10 @@ Proof
       >>conj_tac>-metis_tac[wasm_reg_ok_drule,LT_IMP_LE]
       >>rw[res_rel_def]
       >>drule_then assume_tac longmul64_thm
-
-      >>subgoal`lo = n2w(w2n w1*w2n w2)`
->-cheat
->>`hi = n2w (w2n w1 * w2n w2 DIV 18446744073709551616)` by cheat
->>qpat_x_assum‘longmul64 w1 w2 = (lo,hi)’kall_tac
+      >>`w2n w1 * w2n w2 = dimword(:64) * w2n hi + w2n lo` by simp[]
+      >>dxrule split_doubleword
+      >>strip_tac
+      >>qpat_x_assum‘longmul64 w1 w2 = (lo,hi)’kall_tac
       >>gvs[]
       >>irule state_rel_set_var'
       >>simp[]
@@ -2053,18 +1960,158 @@ Proof
       >>conj_tac>-metis_tac[wasm_reg_ok_drule]
       >>simp[wl_value_def]
     )
-    >~[`LongDiv`] >-
-      fs[stack_wasm_ok_def,stack_asm_ok_def,inst_ok_def,arith_ok_def,conf_ok_def]
-    >~[`AddCarry`] >- cheat
+    >~[`LongDiv`]
+    >-fs[stack_wasm_ok_def,stack_asm_ok_def,inst_ok_def,arith_ok_def,conf_ok_def]
+    >~[`AddCarry`]
+>-(
+qexists_tac‘1’
+>>rename1`evaluate (Inst (Arith (AddCarry rt rs1 rs2 rflag)),s) = _`
+>>`reg_ok rt c ∧ reg_ok rs1 c ∧ reg_ok rs2 c ∧ reg_ok rflag c` by fs[stack_wasm_ok_def,stack_asm_ok_def,inst_ok_def,arith_ok_def]
+>>gvs[compile_arith_def,evaluate_def,inst_def,get_vars_def,AllCaseEqs()]
+>>rename1`get_var rs1 s = SOME (Word w1)`
+>>rename1`get_var rs2 s = SOME (Word w2)`
+>>rename1`get_var rflag s = SOME (Word c_in)`
+>>`get_var rflag (s with clock:=s.clock+1) = SOME (Word c_in) ∧ get_var rs2 (s with clock:=s.clock+1) = SOME (Word w2) ∧ get_var rs1 (s with clock:=s.clock+1) = SOME (Word w1)` by simp[get_var_def]
+>>once_rewrite_tac[exec_list_cons]
+>>dxrule_then (fn th=>DEP_REWRITE_TAC[th]) exec_GLOBAL_GET
+>>conj_tac>-metis_tac[state_rel_clock_drule,state_rel_with_clock]
+>>simp[]
+>>once_rewrite_tac[exec_list_cons]
+>>dxrule_then (fn th=>DEP_REWRITE_TAC[th]) exec_GLOBAL_GET
+>>simp[]
+>>conj_tac>-metis_tac[state_rel_clock_drule,state_rel_with_clock]
+>>once_rewrite_tac[exec_list_cons]
+>>dxrule_then (fn th=>DEP_REWRITE_TAC[th]) exec_GLOBAL_GET
+>>simp[]
+>>conj_tac>-metis_tac[state_rel_clock_drule,state_rel_with_clock]
+>>once_rewrite_tac[exec_list_cons]
+>>`∃sum_ c_out. add_carry w1 w2 c_in = (sum_,c_out)` by metis_tac[pair_CASES]
+>>simp[wl_value_def]
+>>drule_then (fn th=>DEP_REWRITE_TAC[th]) wasm_add_carry_thm
+>>conj_tac
+>-(
+`wasm_state_ok t` by fs[state_rel_def]
+>>fs[wasm_state_ok_def,wasm_support_function_list_def,wasm_add_carry_index_def]
+>>simp[wasm_add_carry_def]
+)
+>>simp[]
+>>once_rewrite_tac[exec_list_cons]
+>>DEP_REWRITE_TAC[exec_GLOBAL_SET'2]
+>>simp[]
+>>conj_tac>-metis_tac[wasm_reg_ok_drule,LT_IMP_LE]
+>>DEP_REWRITE_TAC[exec_GLOBAL_SET'2]
+>>simp[]
+>>conj_tac>-metis_tac[wasm_reg_ok_drule,LT_IMP_LE]
+>>conj_tac>-simp[res_rel_def]
+>>drule_then assume_tac add_carry_thm
+>>irule state_rel_set_var'
+>>simp[]
+>>conj_tac>-metis_tac[wasm_reg_ok_drule]
+>>simp[wl_value_def]
+>>conj_tac
+>-(
+simp[add_with_carry_def]
+>>rewrite_tac[NOT_LESS, prove(“(if c ≠ 0w then 1n else 0) = (if c = 0w then 0 else 1)”, Cases_on‘c=0w’>>simp[])]
+)
+>>irule state_rel_set_var'
+>>conj_tac>-metis_tac[wasm_reg_ok_drule]
+>>simp[wl_value_def,add_with_carry_def]
+)
+>~[`AddOverflow`]
+>-(
+qexists_tac‘1’
+>>rename1`evaluate (Inst (Arith (AddOverflow rt rs1 rs2 rflag)),s) = _`
+>>`reg_ok rt c ∧ reg_ok rs1 c ∧ reg_ok rs2 c ∧ reg_ok rflag c` by fs[stack_wasm_ok_def,stack_asm_ok_def,inst_ok_def,arith_ok_def]
+>>gvs[compile_arith_def,evaluate_def,inst_def,get_vars_def,AllCaseEqs()]
+>>rename1`get_var rs1 s = SOME (Word w1)`
+>>rename1`get_var rs2 s = SOME (Word w2)`
+>>`get_var rs2 (s with clock:=s.clock+1) = SOME (Word w2) ∧ get_var rs1 (s with clock:=s.clock+1) = SOME (Word w1)` by simp[get_var_def]
+>>once_rewrite_tac[exec_list_cons]
+>>dxrule_then (fn th=>DEP_REWRITE_TAC[th]) exec_GLOBAL_GET
+>>conj_tac>-metis_tac[state_rel_clock_drule,state_rel_with_clock]
+>>simp[]
+>>once_rewrite_tac[exec_list_cons]
+>>dxrule_then (fn th=>DEP_REWRITE_TAC[th]) exec_GLOBAL_GET
+>>simp[]
+>>conj_tac>-metis_tac[state_rel_clock_drule,state_rel_with_clock]
+>>once_rewrite_tac[exec_list_cons]
+>>`∃sum_ ov. add_overflow w1 w2 = (sum_,ov)` by metis_tac[pair_CASES]
+>>simp[wl_value_def]
+>>drule_then (fn th=>DEP_REWRITE_TAC[th]) wasm_add_overflow_thm
+>>conj_tac
+>-(
+`wasm_state_ok t` by fs[state_rel_def]
+>>fs[wasm_state_ok_def,wasm_support_function_list_def,wasm_add_overflow_index_def]
+>>simp[wasm_add_overflow_def]
+)
+>>simp[]
+>>once_rewrite_tac[exec_list_cons]
+>>DEP_REWRITE_TAC[exec_GLOBAL_SET'2]
+>>simp[]
+>>conj_tac>-metis_tac[wasm_reg_ok_drule,LT_IMP_LE]
+>>DEP_REWRITE_TAC[exec_GLOBAL_SET'2]
+>>simp[]
+>>conj_tac>-metis_tac[wasm_reg_ok_drule,LT_IMP_LE]
+>>conj_tac>-simp[res_rel_def]
+>>drule_then assume_tac add_overflow_thm
+>>irule state_rel_set_var'
+>>simp[]
+>>conj_tac>-metis_tac[wasm_reg_ok_drule]
+>>simp[wl_value_def]
+>>irule state_rel_set_var'
+>>conj_tac>-metis_tac[wasm_reg_ok_drule]
+>>simp[wl_value_def]
+)
+>~[`SubOverflow`]
+>-(
+qexists_tac‘1’
+>>rename1`evaluate (Inst (Arith (SubOverflow rt rs1 rs2 rflag)),s) = _`
+>>`reg_ok rt c ∧ reg_ok rs1 c ∧ reg_ok rs2 c ∧ reg_ok rflag c` by fs[stack_wasm_ok_def,stack_asm_ok_def,inst_ok_def,arith_ok_def]
+>>gvs[compile_arith_def,evaluate_def,inst_def,get_vars_def,AllCaseEqs()]
+>>rename1`get_var rs1 s = SOME (Word w1)`
+>>rename1`get_var rs2 s = SOME (Word w2)`
+>>`get_var rs2 (s with clock:=s.clock+1) = SOME (Word w2) ∧ get_var rs1 (s with clock:=s.clock+1) = SOME (Word w1)` by simp[get_var_def]
+>>once_rewrite_tac[exec_list_cons]
+>>dxrule_then (fn th=>DEP_REWRITE_TAC[th]) exec_GLOBAL_GET
+>>conj_tac>-metis_tac[state_rel_clock_drule,state_rel_with_clock]
+>>simp[]
+>>once_rewrite_tac[exec_list_cons]
+>>dxrule_then (fn th=>DEP_REWRITE_TAC[th]) exec_GLOBAL_GET
+>>simp[]
+>>conj_tac>-metis_tac[state_rel_clock_drule,state_rel_with_clock]
+>>once_rewrite_tac[exec_list_cons]
+>>`∃sum_ ov. sub_overflow w1 w2 = (sum_,ov)` by metis_tac[pair_CASES]
+>>simp[wl_value_def]
+>>drule_then (fn th=>DEP_REWRITE_TAC[th]) wasm_sub_overflow_thm
+>>conj_tac
+>-(
+`wasm_state_ok t` by fs[state_rel_def]
+>>fs[wasm_state_ok_def,wasm_support_function_list_def,wasm_sub_overflow_index_def]
+>>simp[wasm_sub_overflow_def]
+)
+>>simp[]
+>>once_rewrite_tac[exec_list_cons]
+>>DEP_REWRITE_TAC[exec_GLOBAL_SET'2]
+>>simp[]
+>>conj_tac>-metis_tac[wasm_reg_ok_drule,LT_IMP_LE]
+>>DEP_REWRITE_TAC[exec_GLOBAL_SET'2]
+>>simp[]
+>>conj_tac>-metis_tac[wasm_reg_ok_drule,LT_IMP_LE]
+>>conj_tac>-simp[res_rel_def]
+>>drule_then assume_tac sub_overflow_thm
+>>irule state_rel_set_var'
+>>simp[]
+>>conj_tac>-metis_tac[wasm_reg_ok_drule]
+>>simp[wl_value_def]
+>>irule state_rel_set_var'
+>>conj_tac>-metis_tac[wasm_reg_ok_drule]
+>>simp[wl_value_def]
+)
 
-    >~[`AddOverflow`] >- cheat
-
-    >~[`SubOverflow`] >- cheat
-  )
-  >~[`Mem`] >-
-    cheat
-  >~[`FP`] >-
-    gvs[stack_wasm_ok_def,stack_asm_ok_def,inst_ok_def,oneline fp_ok_def,AllCasePreds(),fp_reg_ok_def,conf_ok_def]
+  >~[`Mem`]
+  >-cheat
+  >~[`FP`]
+  >-gvs[stack_wasm_ok_def,stack_asm_ok_def,inst_ok_def,oneline fp_ok_def,AllCasePreds(),fp_reg_ok_def,conf_ok_def]
 QED
 
 Theorem res_rel_RBreak:
