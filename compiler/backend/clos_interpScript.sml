@@ -96,7 +96,7 @@ Definition to_constant_def:
   to_constant ((Var t n):closLang$exp) =
     ConstCons 0 [ConstInt (& n)] ∧
   to_constant (App _ _ e es) =
-    ConstCons 0 [to_constant e; pmatch es of [] => ConstInt 0 | (e1::_) => to_constant e1] ∧
+    ConstCons 0 [to_constant e; case es of [] => ConstInt 0 | (e1::_) => to_constant e1] ∧
   to_constant (If t e1 e2 e3) =
     ConstCons 0 [to_constant e1; to_constant e2; to_constant e3] ∧
   to_constant (Let t es e) = ConstCons 1 [to_constant_list es; to_constant e] ∧
@@ -110,7 +110,7 @@ Definition to_constant_def:
   to_constant_list [] = ConstCons 0 [] ∧
   to_constant_list (x::xs) = ConstCons 0 [to_constant x; to_constant_list xs]
 Termination
-  WF_REL_TAC ‘measure $ λx. pmatch x of INL e => closLang$exp_size e
+  WF_REL_TAC ‘measure $ λx. case x of INL e => closLang$exp_size e
                                     | INR es => list_size closLang$exp_size es’
 End
 
@@ -209,17 +209,17 @@ End
 
 Definition opt_interp1_def:
   opt_interp1 e =
-    pmatch opt_interp e of
+    case opt_interp e of
     | SOME x => x
     | NONE => e
 End
 
 Definition insert_interp1_def:
   insert_interp1 e =
-    pmatch opt_interp e of
+    case opt_interp e of
     | SOME x => x
     | NONE =>
-        pmatch e of
+        case e of
         | Let t ys y => Let None (MAP opt_interp1 ys) y
         | _ => e
 End

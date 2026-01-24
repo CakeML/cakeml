@@ -1,7 +1,7 @@
 (*
   BVL transformation that introduces a Let into each Handle
   body. This is preparation for BVL --> BVI compilation.  This phase
-  also removes Handles in pmatch the body cannot raise an exception.
+  also removes Handles in case the body cannot raise an exception.
 *)
 Theory bvl_handle
 Ancestors

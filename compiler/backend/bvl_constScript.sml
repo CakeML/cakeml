@@ -192,8 +192,9 @@ local val SmartOp2_quotation = `
 in
 val SmartOp2_def = Define SmartOp2_quotation
 
+(* NOTE: the space after case and pmatch is important *)
 val tm = (SmartOp2_quotation |>
-   map (fn QUOTE s => Portable.replace_string {from="case",to="pmatch"} s |> QUOTE
+   map (fn QUOTE s => Portable.replace_string {from="case ",to="pmatch "} s |> QUOTE
        | aq => aq)) |> Term
 
 Theorem SmartOp2_pmatch:

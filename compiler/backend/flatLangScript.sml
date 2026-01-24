@@ -242,7 +242,7 @@ End
 
 Definition SmartIf_def:
   SmartIf t e p q =
-    pmatch e of
+    case e of
       Con _ (SOME (tag, SOME id)) [] =>
         if id = bool_id then
           if tag = backend_common$true_tag then p
