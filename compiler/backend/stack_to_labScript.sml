@@ -104,7 +104,7 @@ val flatten_def = Define flatten_quotation;
 Theorem flatten_pmatch = Q.prove(
   `∀p n m.` @
     (flatten_quotation |>
-     map (fn QUOTE s => Portable.replace_string {from="case",to="case"} s |> QUOTE
+     map (fn QUOTE s => Portable.replace_string {from="case",to="pmatch"} s |> QUOTE
          | aq => aq)),
    rpt strip_tac
    >> CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true)

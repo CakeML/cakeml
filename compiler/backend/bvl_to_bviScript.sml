@@ -308,7 +308,7 @@ val compile_op_def = Define compile_op_quotation;
 Theorem compile_op_pmatch = Q.prove(
   `∀op c1.` @
     (compile_op_quotation |>
-     map (fn QUOTE s => Portable.replace_string {from="case",to="case"} s |> QUOTE
+     map (fn QUOTE s => Portable.replace_string {from="case",to="pmatch"} s |> QUOTE
          | aq => aq)),
    rpt strip_tac
    >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)

@@ -88,7 +88,7 @@ val comp_def = Define comp_quotation
 Theorem comp_pmatch = Q.prove(
   `∀f p.` @
     (comp_quotation |>
-     map (fn QUOTE s => Portable.replace_string {from="case",to="case"} s |> QUOTE
+     map (fn QUOTE s => Portable.replace_string {from="case",to="pmatch"} s |> QUOTE
          | aq => aq)),
    rpt(
     rpt strip_tac

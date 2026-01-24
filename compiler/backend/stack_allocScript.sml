@@ -664,7 +664,7 @@ val next_lab_def = Define next_lab_quotation;
 Theorem next_lab_pmatch = Q.prove(
   `∀p aux.` @
     (next_lab_quotation |>
-     map (fn QUOTE s => Portable.replace_string {from="case",to="case"} s |> QUOTE
+     map (fn QUOTE s => Portable.replace_string {from="case",to="pmatch"} s |> QUOTE
          | aq => aq)),
    rpt strip_tac
    >> CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true)
@@ -705,7 +705,7 @@ val comp_def = Define comp_quotation
 Theorem comp_pmatch = Q.prove(
   `∀n m p.` @
     (comp_quotation |>
-     map (fn QUOTE s => Portable.replace_string {from="case",to="case"} s |> QUOTE
+     map (fn QUOTE s => Portable.replace_string {from="case",to="pmatch"} s |> QUOTE
          | aq => aq)),
    rpt strip_tac
    >> CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true)
