@@ -193,11 +193,11 @@ Definition print_of_val_opts_def:
     let idl = Lit (StrLit nm_str) in
     let tstr = Lit (StrLit (inf_t_to_s tn inf_t)) in
     let pp_hidden = Dlet unknown_loc Pany (App Opapp [Var (Short «print_pp»);
-        rpt_app (Var (Long «PrettyPrinter» (Short «val_hidden_type»))) [idl; tstr]]) in
+        Apps (Var (Long «PrettyPrinter» (Short «val_hidden_type»))) [idl; tstr]]) in
     let pp_val = case inf_t_to_ast_t_mono ienv tn inf_t of
           NONE => []
         | SOME ast_t => [Dlet unknown_loc Pany (App Opapp [Var (Short «print_pp»);
-            rpt_app (Var (Long «PrettyPrinter» (Short «val_eq»)))
+            Apps (Var (Long «PrettyPrinter» (Short «val_eq»)))
                 [idl; pp_of_ast_t tn.pp_fixes ast_t; Var nm; tstr]])] in
     (nm_str, pp_val ++ [pp_hidden])
 End
@@ -210,4 +210,3 @@ Definition val_prints_def:
         (MAP (I ## SND) (REVERSE (nsContents (ns_nub decs_ienv.inf_v)))) in
     (prints, tn2)
 End
-
