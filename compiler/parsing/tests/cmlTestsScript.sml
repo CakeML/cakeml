@@ -52,7 +52,7 @@ fun aconv_mod_locs t1 t2 =
   |  _ => false
 
 val _ = (
-  computeLib.del_consts ["list_CASE"];
+  computeLib.del_consts [“list_CASE”];
   computeLib.add_funs [listTheory.list_case_def];
   computeLib.the_compset := computeLib.set_skip (!computeLib.the_compset) “OPTION_CHOICE” (SOME 1);
   computeLib.the_compset := computeLib.set_skip (!computeLib.the_compset) “OPTION_BIND” (SOME 1);
