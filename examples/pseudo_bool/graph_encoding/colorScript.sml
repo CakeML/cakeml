@@ -31,7 +31,7 @@ Datatype:
         | AtLeastOneColor num (* v: vertex v has at-least-one color                *)
         | AtMostOneColor num  (* v: vertex v has at-most-one color                 *)
         | VC_Imp_CU num       (* c: vertex-has-color implies color-used            *)
-        | CU_ImP_VC num       (* c: color-used implies vertex-has-color            *)
+        | CU_Imp_VC num       (* c: color-used implies vertex-has-color            *)
 End
 
 Datatype:
@@ -51,8 +51,12 @@ Definition gen_constraint_def:
   gen_constraint (n:num) ((v,e):graph) (AtMostOneColor vertex) =
     SOME (GreaterEqual,
           GENLIST (λcolor. (1i,Neg (VertexHasColor vertex color))) n, & (n - 1)) ∧
-  gen_constraint (n:num) ((v,e):graph) (VC_Imp_CU c) = NONE ∧
-  gen_constraint (n:num) ((v,e):graph) (CU_ImP_VC c) = NONE
+  gen_constraint (n:num) ((v,e):graph) (VC_Imp_CU c) =
+    SOME (GreaterEqual,
+          (& v, Pos (ColorUsed c)) :: GENLIST (λu. (1i,Neg (VertexHasColor u c))) v, & v) ∧
+  gen_constraint (n:num) ((v,e):graph) (CU_Imp_VC c) =
+    SOME (GreaterEqual,
+          (1i, Neg (ColorUsed c)) :: GENLIST (λu. (1i,Pos (VertexHasColor u c))) v, 1i)
 End
 
 Definition gen_named_constraint_def:
@@ -75,6 +79,12 @@ Definition encode_def:
     (* every vertex has at most one color *)
     flat_genlist v (λvertex.
       gen_named_constraint n (v,e) (AtMostOneColor vertex)) ++
+    (* every color: VC_Imp_CU *)
+    flat_genlist n (λc.
+      gen_named_constraint n (v,e) (VC_Imp_CU c)) ++
+    (* every color: CU_Imp_VC *)
+    flat_genlist n (λc.
+      gen_named_constraint n (v,e) (CU_Imp_VC c)) ++
     (* for each color: at least one end of each edge does not have that color *)
     flat_genlist n (λcolor.
       flat_genlist v (λx.
@@ -135,6 +145,22 @@ Proof
   Cases_on ‘opt’ \\ gvs [] \\ eq_tac \\ simp []
 QED
 
+Theorem ZERO_LE_iSUM:
+  ∀xs. EVERY (λx. 0 ≤ x) xs ⇒ 0 ≤ iSUM xs
+Proof
+  Induct \\ gvs [iSUM_def]
+QED
+
+Theorem iSUM_EQ_LENGTH:
+  ∀xs. EVERY (λx. x = 1) xs ⇒ iSUM xs = & LENGTH xs
+Proof
+  Induct \\ gvs [iSUM_def, ADD1, integerTheory.INT_ADD]
+QED
+
+Definition color_used_def:
+  color_used (f:num -> num) v c = ∃x. f x = c ∧ x < v : num
+End
+
 (* TODO: something along the lines of:
   for all k ≤ n
     there exists a k-coloring of the graph iff
@@ -149,7 +175,9 @@ Proof
   simp [satisfiable_def]
   \\ rw [] \\ eq_tac \\ rw []
   >-
-   (qexists_tac ‘λv. case v of VertexHasColor x c => (f x = c)’
+   (qexists_tac ‘λa. case a of
+                     | VertexHasColor x c => (f x = c)
+                     | ColorUsed c => color_used f v c’
     \\ gvs [encode_def]
     \\ simp [satisfies_def,MEM_MAP,EXISTS_PROD,flat_genlist_def,
              MEM_FLAT,MEM_GENLIST,PULL_EXISTS,gen_named_constraint_def]
@@ -168,6 +196,27 @@ Proof
       \\ gvs [is_k_color_def]
       \\ last_x_assum drule \\ rw []
       \\ qexists_tac ‘f vertex’ \\ gvs [])
+    >-
+     (simp [satisfies_pbc_def,eval_lin_term_def,MAP_GENLIST,o_DEF,iSUM_def]
+      \\ rename [‘color_used f v c’]
+      \\ Cases_on ‘color_used f v c’ \\ gvs [integerTheory.INT_GE]
+      >-
+       (irule ZERO_LE_iSUM
+        \\ gvs [EVERY_GENLIST,oneline b2i_def] \\ rw [])
+      \\ DEP_REWRITE_TAC [iSUM_EQ_LENGTH]
+      \\ gvs [EVERY_GENLIST,color_used_def,oneline b2i_def] \\ rw [])
+    >-
+     (simp [satisfies_pbc_def,eval_lin_term_def,MAP_GENLIST,o_DEF,iSUM_def]
+      \\ rename [‘color_used f v c’]
+      \\ reverse $ Cases_on ‘color_used f v c’ \\ gvs [integerTheory.INT_GE]
+      >-
+       (DEP_REWRITE_TAC [ZERO_LE_iSUM]
+        \\ gvs [EVERY_GENLIST,color_used_def,oneline b2i_def] \\ rw [])
+      \\ gvs [GSYM integerTheory.INT_GE]
+      \\ DEP_REWRITE_TAC [iSUM_GE_1]
+      \\ gvs [MEM_GENLIST,EVERY_GENLIST, oneline b2i_def, AllCaseEqs()]
+      \\ gvs [SF DNF_ss, color_used_def]
+      \\ first_assum $ irule_at Any \\ gvs [])
     \\ Cases_on ‘is_edge e x y’ \\ gvs []
     \\ simp [satisfies_pbc_def,eval_lin_term_def]
     \\ gvs [is_k_color_def,MEM_GENLIST,PULL_EXISTS]
