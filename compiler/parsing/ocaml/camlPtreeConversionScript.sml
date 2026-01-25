@@ -1484,17 +1484,17 @@ End
  * reverse order.
  *)
 
-Definition build_case_def:
-  build_case mvar acc [] =
+Definition build_pmatch_def:
+  build_pmatch mvar acc [] =
     SmartMat mvar acc ∧
-  build_case mvar acc ((pat,exp,NONE)::ps) =
-    build_case mvar ((pat,exp)::acc) ps ∧
-  build_case mvar acc ((pat,exp,SOME guard)::ps) =
+  build_pmatch mvar acc ((pat,exp,NONE)::ps) =
+    build_pmatch mvar ((pat,exp)::acc) ps ∧
+  build_pmatch mvar acc ((pat,exp,SOME guard)::ps) =
     let mexp = SmartMat mvar acc in
     let clos = Let (SOME « p») (Fun « u» mexp) in
     let call = App Opapp [Var (Short « p»); Con NONE []] in
     let mat = SmartMat mvar [(pat,If guard exp call); (INR Pany,call)] in
-      build_case mvar [INR Pany,clos mat] ps
+      build_pmatch mvar [INR Pany,clos mat] ps
 End
 
 Definition build_match_def:
@@ -1502,7 +1502,7 @@ Definition build_match_def:
     let mvar = « m» in
     Let (SOME mvar) x
       (if EXISTS (λ(p,x,g). case g of SOME _ => T | _ => F) rows then
-         build_case mvar [] (REVERSE rows)
+         build_pmatch mvar [] (REVERSE rows)
        else
          (Mat (Var (Short mvar))
               (MAP (λ(p,x,g). build_match_row mvar (p,x)) rows)))
@@ -1518,19 +1518,19 @@ Definition build_handle_def:
      *)
     let mvar = « e» in
     let rows' = (INR Pany, Raise (Var (Short mvar)), NONE)::REVERSE rows in
-    Handle x [Pvar mvar, build_case mvar [] rows']
+    Handle x [Pvar mvar, build_pmatch mvar [] rows']
 End
 
 Definition build_function_def:
   build_function rows =
-    Fun «»  (build_case «» [] (REVERSE rows))
+    Fun «»  (build_pmatch «» [] (REVERSE rows))
 End
 
 (* Flatten the row-alternatives in a pattern-match.
  *)
 
-Definition flatten_case_def:
-  flatten_case pss = FLAT (MAP (λ(ps,x,w). MAP (λp. (p,x,w)) ps) pss)
+Definition flatten_pmatch_def:
+  flatten_pmatch pss = FLAT (MAP (λ(ps,x,w). MAP (λp. (p,x,w)) ps) pss)
 End
 
 Definition ptree_Expr_def:
@@ -1980,13 +1980,13 @@ Definition ptree_Expr_def:
       | _ => fail (locs, «Impossible: nELet»)
     else if nterm = INL nEMatch then
       case args of
-        [match; expr; witht; case] =>
+        [match; expr; witht; pm] =>
           do
             expect_tok match MatchT;
             expect_tok witht WithT;
             x <- ptree_Expr nExpr expr;
-            ps <- ptree_PatternMatch case;
-            return (build_match x (flatten_case ps))
+            ps <- ptree_PatternMatch pm;
+            return (build_match x (flatten_pmatch ps))
           od
       | _ => fail (locs, «Impossible: nEMatch»)
     else if nterm = INL nEFun then
@@ -2015,22 +2015,22 @@ Definition ptree_Expr_def:
       | _ => fail (locs, «Impossible: nEFun»)
     else if nterm = INL nEFunction then
       case args of
-        [funct; case] =>
+        [funct; pm] =>
           do
             expect_tok funct FunctionT;
-            ps <- ptree_PatternMatch case;
-            return (build_function (flatten_case ps))
+            ps <- ptree_PatternMatch pm;
+            return (build_function (flatten_pmatch ps))
           od
       | _ => fail (locs, «Impossible: nEFunction»)
     else if nterm = INL nETry then
       case args of
-        [tryt; expr; witht; case] =>
+        [tryt; expr; witht; pm] =>
           do
             expect_tok tryt TryT;
             expect_tok witht WithT;
             x <- ptree_Expr nExpr expr;
-            ps <- ptree_PatternMatch case;
-            return (build_handle x (flatten_case ps))
+            ps <- ptree_PatternMatch pm;
+            return (build_handle x (flatten_pmatch ps))
           od
       | _ => fail (locs, «Impossible: nETry»)
     else if nterm = INL nEWhile then
