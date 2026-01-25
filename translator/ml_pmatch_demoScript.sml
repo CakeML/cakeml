@@ -15,7 +15,7 @@ val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 (* basic example *)
 
 Definition foo_def:
-  foo f x k = pmatch f x of ([t]::[y]::ys) => t + y + (3:num) + k | _ => 5
+  foo f x k = case f x of ([t]::[y]::ys) => t + y + (3:num) + k | _ => 5
 End
 
 val c = (PMATCH_INTRO_CONV THENC PMATCH_SIMP_CONV)

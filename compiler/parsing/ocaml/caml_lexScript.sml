@@ -214,7 +214,7 @@ End
 
 Definition take_while_aux_def:
   take_while_aux acc p xs =
-    pmatch xs of
+    case xs of
       [] => (REVERSE acc, xs)
     | x::xs =>
         if p x then take_while_aux (x::acc) p xs
@@ -247,7 +247,7 @@ QED
 
 Definition skip_comment_def:
   skip_comment cs d loc =
-    pmatch cs of
+    case cs of
       x::y::xs =>
         if x = #"(" ∧ y = #"*" then
           skip_comment xs (d + 1) (next_loc 2 loc)
@@ -283,9 +283,9 @@ QED
 
 Definition scan_escseq_def:
   scan_escseq s loc =
-    pmatch s of
+    case s of
       #"\\" :: cs =>
-        (pmatch cs of
+        (case cs of
            #"\\" :: rest =>
              SOME (#"\\", rest, next_loc 2 loc)
          | #"\"" :: rest =>
@@ -337,14 +337,14 @@ QED
 
 Definition scan_strlit_def:
   scan_strlit acc cs loc =
-    pmatch cs of
+    case cs of
       [] => SOME (ErrorS, Locs loc loc, cs)
     | #"\""::cs =>
         SOME (StringS (REVERSE acc), Locs loc loc, cs)
     | #"\n"::cs =>
         SOME (ErrorS, Locs loc (next_line loc), cs)
     | #"\\"::_ =>
-        (pmatch scan_escseq cs loc of
+        (case scan_escseq cs loc of
            NONE => SOME (ErrorS, Locs loc loc, cs)
          | SOME (c, cs', loc') => scan_strlit (c::acc) cs' loc')
     | c::cs => scan_strlit (c::acc) cs (next_loc 1 loc)
@@ -370,7 +370,7 @@ Definition scan_charlit_def:
     if cs = "" then
       SOME (ErrorS, Locs loc loc, cs)
     else if HD cs = #"\\" then
-      pmatch scan_escseq cs loc of
+      case scan_escseq cs loc of
         SOME (c, cs', loc') =>
           if cs' ≠ "" ∧ HD cs' = #"'" then
             SOME (CharS c, Locs loc loc', TL cs')
@@ -379,7 +379,7 @@ Definition scan_charlit_def:
       | NONE =>
           SOME (ErrorS, Locs loc loc, cs)
     else
-      pmatch cs of
+      case cs of
         c :: #"'" :: rest =>
           SOME (CharS c, Locs loc (next_loc 1 loc), rest)
       | _ =>
@@ -438,7 +438,7 @@ End
 (* [eE] [+-]? *)
 Definition scan_float3_def:
   scan_float3 cs =
-    pmatch cs of
+    case cs of
       x :: y :: rest =>
         if ¬MEM x "eE" then NONE
         else if MEM y "+-" then
@@ -459,19 +459,19 @@ End
  *)
 Definition scan_float_or_int_def:
   scan_float_or_int cs loc =
-    pmatch scan_float1 cs of
+    case scan_float1 cs of
       NONE => SOME (ErrorS, Locs loc loc, cs)
     | SOME (s1, n1, cs1) =>
-        pmatch scan_float2 cs1 of
+        case scan_float2 cs1 of
           NONE =>
             (* try scan_float3 *)
-            (pmatch scan_float3 cs1 of
+            (case scan_float3 cs1 of
               NONE => scan_number isDigit (λs. &dec2num s) 0 cs loc
             | SOME (s2, n2, cs2) => SOME (FloatS (s1 ++ s2),
                                           Locs loc (next_loc (n1 + n2) loc),
                                           cs2))
         | SOME (s2, n2, cs2) =>
-            (pmatch scan_float3 cs2 of
+            (case scan_float3 cs2 of
               NONE => SOME (FloatS (s1 ++ s2),
                             Locs loc (next_loc (n1 + n2) loc),
                             cs2)
@@ -483,7 +483,7 @@ End
 
 Definition scan_pragma_def:
   scan_pragma (level: num) (n: num) cs loc =
-  pmatch cs of
+  case cs of
     x::y::xs =>
       if x = #"(" ∧ y = #"*" then
         scan_pragma (level + 1) (n + 2) xs (next_loc 2 loc)
@@ -562,7 +562,7 @@ Definition next_sym_def:
     else if c = #"\"" then
       scan_strlit [] cs (next_loc 1 loc)
     else if c = #"'" then
-      pmatch scan_charlit cs (next_loc 1 loc) of
+      case scan_charlit cs (next_loc 1 loc) of
       | NONE => SOME (OtherS [c], Locs loc loc, cs)
       | SOME res =>
           if FST res = ErrorS then SOME (OtherS [c], Locs loc loc, cs)
@@ -570,14 +570,14 @@ Definition next_sym_def:
     else if isPREFIX "*)" (c::cs) then
       SOME (ErrorS, Locs loc (next_loc 2 loc), TL cs)
     else if isPREFIX (#"(" :: #"*" :: "CML") (c::cs) then
-      pmatch scan_pragma 0 0 (DROP 4 cs) loc of
+      case scan_pragma 0 0 (DROP 4 cs) loc of
       | NONE => SOME (ErrorS, Locs loc loc, "")
       | SOME (n, loc', rest) =>
           SOME (PragmaS (TAKE n (DROP 4 cs)),
                 Locs loc loc',
                 rest)
     else if isPREFIX [#"("; #"*"] (c::cs) then
-      pmatch skip_comment (TL cs) 0 (next_loc 2 loc) of
+      case skip_comment (TL cs) 0 (next_loc 2 loc) of
       | NONE => SOME (ErrorS, Locs loc (next_loc 2 loc), "")
       | SOME (rest, loc') => next_sym rest loc'
     else if isDelim c then
@@ -835,7 +835,7 @@ End
 
 Definition sym2token_def:
   sym2token s =
-    pmatch s of
+    case s of
       NumberS i => IntT i
     | FloatS s => FloatT (implode s)
     | StringS s => StringT (implode s)
@@ -847,7 +847,7 @@ End
 
 Definition next_token_def:
   next_token inp loc =
-    pmatch next_sym inp loc of
+    case next_sym inp loc of
       NONE => NONE
     | SOME (sym, locs, rest) => SOME (sym2token sym, locs, rest)
 End
@@ -872,7 +872,7 @@ EVAL “next_token "(*CL (* foo bar *) baz\n\nasdf*)" loc” (* = NONE *)
 
 Definition lexer_fun_aux_def:
   lexer_fun_aux inp loc =
-    pmatch next_token inp loc of
+    case next_token inp loc of
       NONE => []
     | SOME (tok, Locs loc1 loc2, rest) =>
         (tok, Locs loc1 loc2) ::
