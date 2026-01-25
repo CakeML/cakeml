@@ -78,9 +78,9 @@ in
     ,(``t_oc``,3,t_oc_conv eval)
     ]
 
-    val _ = computeLib.add_thms funs compset
-    val () = List.app (Lib.C computeLib.add_conv compset) (convs (computeLib.CBV_CONV compset))
-    val _ = computeLib.extend_compset [computeLib.Tys [``:atom``]] compset
+    val compset = computeLib.add_thms funs compset
+    val compset = List.foldl (fn (c, cs) => computeLib.add_conv c cs) compset (convs (computeLib.CBV_CONV compset))
+    val compset = computeLib.extend_compset [computeLib.Tys [``:atom``]] compset
     in
       wfs_thms
     end
