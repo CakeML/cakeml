@@ -21,7 +21,7 @@ End
 Definition breakdist_def:
   breakdist after [] = after ∧
   breakdist after (h::t) =
-    pmatch h of
+    case h of
       Block _ _ n => n + breakdist after t
     | String s => strlen s + breakdist after t
     | Break _ => 0
@@ -38,7 +38,7 @@ End
 Definition print_list_def:
   print_list bs af sp mr [] = (sp, Nil) ∧
   print_list bs af sp mr (h::t) =
-    pmatch h of
+    case h of
       Block bes ind ln =>
         let (s1,r1) = print_list (sp-ind) (breakdist af t) sp mr bes;
             (s2,r2) = print_list bs af s1 mr t
@@ -64,7 +64,7 @@ End
 
 Definition tlength_def:
   tlength t =
-    pmatch t of
+    case t of
       Block _ _ len => len
     | String s => strlen s
     | Break len => len
@@ -115,7 +115,7 @@ End
 
 Definition pp_type_def:
   pp_type (prec:num) ty =
-    pmatch ty of
+    case ty of
       Tyvar nm => mk_str nm
     | Tyapp nm [t1; t2] =>
         if nm = «fun» then
@@ -191,9 +191,9 @@ End
 
 Definition is_binop_def:
   is_binop tm =
-    pmatch tm of
+    case tm of
       Comb (Comb (Const con _) _) _ =>
-        (pmatch fixity_of con of
+        (case fixity_of con of
            right _ => T
          | _ => F)
     | _ => F
@@ -201,7 +201,7 @@ End
 
 Definition is_binder_def:
   is_binder tm =
-    pmatch tm of
+    case tm of
       Comb (Const nm _) (Abs (Var _ _) _) =>
         nm = «Data.Bool.?» ∨
         nm = «Data.Bool.!» ∨
@@ -212,7 +212,7 @@ End
 
 Definition is_cond_def:
   is_cond tm =
-    pmatch tm of
+    case tm of
       Comb (Comb (Comb (Const con _) _) _) _ =>
         con = «Data.Bool.cond»
     | _ => F
@@ -220,14 +220,14 @@ End
 
 Definition is_neg_def:
   is_neg tm =
-    pmatch tm of
+    case tm of
       Comb (Const nm _) _ => nm = «Data.Bool.~»
     | _ => F
 End
 
 Definition collect_vars_def:
   collect_vars tm =
-    pmatch tm of
+    case tm of
       Abs (Var v ty) r =>
         let (vs, b) = collect_vars r in
           (v::vs, b)
@@ -246,7 +246,7 @@ QED
 
 Definition dest_binary_def:
   dest_binary nm tm =
-    pmatch tm of
+    case tm of
       Comb (Comb (Const nm' _) l) r =>
         if nm ≠ nm' then
           ([], tm)
@@ -288,7 +288,7 @@ QED
 
 Definition dest_binder_def:
   dest_binder nm tm =
-    pmatch tm of
+    case tm of
       Comb (Const nm' _) (Abs (Var v _) b) =>
         if nm ≠ nm' then
           ([], tm)
@@ -326,7 +326,7 @@ End
 
 Definition pp_seq_def:
   pp_seq pf brk sep ts =
-    pmatch ts of
+    case ts of
       []    => []
     | [t]   => [pf t]
     | t::ts =>
@@ -338,7 +338,7 @@ End
 
 Definition interleave_def:
   interleave sep ts =
-    pmatch ts of
+    case ts of
       []    => []
     | [t]   => [t]
     | t::ts => t::mk_str sep::mk_brk 1::interleave sep ts
@@ -346,19 +346,19 @@ End
 
 Definition pp_term_def:
   (pp_term (prec: num) tm =
-    pmatch tm of
+    case tm of
       Comb l r =>
         if is_neg tm then
           pp_paren_blk 0 (prec = 1000) [pp_term 999 l; pp_term 1000 r]
         else if is_binop tm then
-          (pmatch l of
+          (case l of
              Comb (Const nm _) l =>
-               (pmatch dest_binary nm tm of
+               (case dest_binary nm tm of
                   ([], _) => mk_str «<pp_term: bogus BINOP>»
                | (tms, tmt) =>
                    let args = tms ++ [tmt] in
                    let sep  = space ^ name_of nm in
-                     (pmatch fixity_of nm of
+                     (case fixity_of nm of
                         left _ => mk_str «<pp_term: bogus BINOP>»
                       | right nprec =>
                           let ts = MAP (pp_term nprec) args in
@@ -373,7 +373,7 @@ Definition pp_term_def:
                   mk_brk 1;
                   pp_term 1000 r]))
         else if is_cond tm then
-          (pmatch l of
+          (case l of
             Comb (Comb c p) l =>
               pp_paren_blk 0 (0 < prec)
                 [mk_str «if »;
@@ -391,7 +391,7 @@ Definition pp_term_def:
                   mk_brk 1;
                   pp_term 1000 r])
         else if is_binder tm then
-          (pmatch tm of
+          (case tm of
             Comb (Const nm _) (Abs (Var v _) b) =>
               let (vs, b) = dest_binder nm tm in
               let ind = if prec = 0 then 4 else 5 in
@@ -446,7 +446,7 @@ End
 Definition pp_thm_def:
   pp_thm (Sequent asl c) =
     let ss = [mk_str «|- »; pp_term 0 c] in
-      pmatch asl of
+      case asl of
         [] => mk_blo 0 ss
       | _  => mk_blo 0 ((pp_seq (pp_term 0) T («,») asl) ++ ss)
 End
