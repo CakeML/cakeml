@@ -95,7 +95,8 @@ End
 
 (* TODO: define the objective function, on at most n colors *)
 Definition color_obj_def:
-  color_obj (n:num) = SOME ([],0): ((var lin_term # int) option)
+  color_obj (n:num) =
+    SOME (GENLIST (λc. (1, Pos (ColorUsed c))) n,0): ((var lin_term # int) option)
 End
 
 Theorem iSUM_GE_1[local]:
@@ -114,6 +115,34 @@ Theorem iSUM_append:
   ∀xs ys. iSUM (xs ++ ys) = iSUM xs + iSUM ys
 Proof
   Induct \\ gvs [iSUM_def,integerTheory.INT_ADD_ASSOC]
+QED
+
+Theorem iSUM_EQ_LENGTH:
+  ∀xs. EVERY (λx. x = 1) xs ⇒ iSUM xs = & LENGTH xs
+Proof
+  Induct \\ gvs [iSUM_def, ADD1, integerTheory.INT_ADD]
+QED
+
+Theorem iSUM_LEQ_LENGTH:
+  ∀xs. EVERY (λx. x = 0 ∨ x = 1) xs ⇒ iSUM xs ≤ & LENGTH xs
+Proof
+  Induct \\ gvs [iSUM_def, ADD1, integerTheory.INT_ADD]
+  \\ rw [] \\ res_tac \\ gvs [] \\ intLib.COOPER_TAC
+QED
+
+Theorem iSUM_GENLIST_LEQ:
+  ∀xs. EVERY (λx. x = 0 ∨ x = 1) (GENLIST f n) ⇒ iSUM (GENLIST f n) ≤ & n
+Proof
+  rw [] \\ drule iSUM_LEQ_LENGTH \\ gvs []
+QED
+
+Theorem iSUM_NOT_GE_LENGTH:
+  ∀xs. EVERY (λx. x = 0 ∨ x = 1) xs ∧ MEM 0 xs ∧ LENGTH xs = v ⇒
+       ¬(iSUM xs ≥ &v)
+Proof
+  Induct \\ rw [] \\ gvs [iSUM_def,ADD1,GSYM integerTheory.INT_ADD]
+  \\ gvs [MEM_SPLIT,iSUM_append,iSUM_def]
+  \\ imp_res_tac iSUM_LEQ_LENGTH \\ intLib.COOPER_TAC
 QED
 
 Theorem iSUM_one_less:
@@ -151,33 +180,92 @@ Proof
   Induct \\ gvs [iSUM_def]
 QED
 
-Theorem iSUM_EQ_LENGTH:
-  ∀xs. EVERY (λx. x = 1) xs ⇒ iSUM xs = & LENGTH xs
+Theorem GENLIST_SPLIT_LESS:
+  ∀n m f. n < m ⇒
+          GENLIST f m = GENLIST f n ++ [f n] ++ GENLIST (\k. f (n + k + 1)) (m - n - 1)
 Proof
-  Induct \\ gvs [iSUM_def, ADD1, integerTheory.INT_ADD]
+  rpt strip_tac
+  \\ ‘n + 1 ≤ m’ by fs []
+  \\ gvs [LESS_EQ_EXISTS]
+  \\ ‘n + (p + 1) = p + (1 + n)’ by fs []
+  \\ asm_rewrite_tac []
+  \\ rewrite_tac [GENLIST_APPEND]
+  \\ gvs []
+  \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
+  \\ simp [FUN_EQ_THM]
 QED
 
-Definition color_used_def:
-  color_used (f:num -> num) v c = ∃x. f x = c ∧ x < v : num
+Theorem CARD_INTER_count:
+  CARD (s ∩ count (SUC k)) =
+  if k ∈ s then 1 + CARD (s ∩ count k) else CARD (s ∩ count k)
+Proof
+  fs [COUNT_SUC]
+  \\ once_rewrite_tac [INSERT_SING_UNION]
+  \\ rewrite_tac [UNION_OVER_INTER]
+  \\ DEP_REWRITE_TAC [CARD_UNION_DISJOINT]
+  \\ conj_tac
+  >-
+   (rw [] \\ rpt (irule FINITE_INTER) \\ gvs []
+    \\ gvs [IN_DISJOINT])
+  \\ qsuff_tac ‘s ∩ {k} = if k ∈ s then {k} else {}’ >- rw []
+  \\ rw []
+  \\ gvs [EXTENSION]
+  \\ rw [] \\ eq_tac \\ rw []
+QED
+
+Definition colors_used_def:
+  colors_used (f:num -> num) v = { c | ∃x. f x = c ∧ x < v }
 End
 
-(* TODO: something along the lines of:
-  for all k ≤ n
-    there exists a k-coloring of the graph iff
-    there exists a satisfying solution, with objective value k
-*)
+Theorem CARD_colors_used_lemma[local]:
+  ∀k n v.
+    is_k_color n f (v,e) ∧ k ≤ n ⇒
+    iSUM (GENLIST (λc. b2i (c ∈ colors_used f v)) k) =
+    & CARD (colors_used f v ∩ count k)
+Proof
+  Induct \\ gvs [iSUM_def,GENLIST,SNOC_APPEND,iSUM_append]
+  \\ rw [CARD_INTER_count,GSYM integerTheory.INT_ADD]
+  \\ last_x_assum irule
+  \\ first_x_assum $ irule_at Any \\ gvs []
+QED
+
+Theorem CARD_colors_used:
+  is_k_color n f (v,e) ⇒
+  iSUM (GENLIST (λc. b2i (c ∈ colors_used f v)) n) =
+  & CARD (colors_used f v)
+Proof
+  rw [] \\ ‘n ≤ n’ by fs []
+  \\ drule_all CARD_colors_used_lemma \\ rw []
+  \\ AP_TERM_TAC
+  \\ gvs [EXTENSION]
+  \\ rw [] \\ eq_tac \\ rw []
+  \\ gvs [colors_used_def,is_k_color_def]
+QED
+
 Theorem encode_correct:
   good_graph (v,e) ∧
   encode n (v,e) = constraints ⇒
-  ((∃f. is_k_color n f (v,e)) ⇔
-   satisfiable (set (MAP SND (encode n (v,e)))))
+  ((∃f.
+      is_k_color n f (v,e) ∧
+      CARD (colors_used f v) = k)
+   ⇔
+   (∃w.
+      satisfies w (set (MAP SND (encode n (v,e)))) ∧
+      eval_obj (color_obj n) w = & k))
 Proof
-  simp [satisfiable_def]
-  \\ rw [] \\ eq_tac \\ rw []
+  simp [satisfiable_def] \\ rw []
+  \\ irule EQ_TRANS
+  \\ qexists_tac
+     ‘(∃f. is_k_color n f (v,e) ∧ iSUM (GENLIST (λc. b2i (c ∈ colors_used f v)) n) = & k)’
+  \\ conj_tac
+  >-
+   (AP_TERM_TAC \\ simp [FUN_EQ_THM] \\ rw [] \\ eq_tac \\ rw []
+    \\ imp_res_tac CARD_colors_used \\ gvs [])
+  \\ eq_tac \\ rw []
   >-
    (qexists_tac ‘λa. case a of
                      | VertexHasColor x c => (f x = c)
-                     | ColorUsed c => color_used f v c’
+                     | ColorUsed c => c ∈ colors_used f v’
     \\ gvs [encode_def]
     \\ simp [satisfies_def,MEM_MAP,EXISTS_PROD,flat_genlist_def,
              MEM_FLAT,MEM_GENLIST,PULL_EXISTS,gen_named_constraint_def]
@@ -198,33 +286,35 @@ Proof
       \\ qexists_tac ‘f vertex’ \\ gvs [])
     >-
      (simp [satisfies_pbc_def,eval_lin_term_def,MAP_GENLIST,o_DEF,iSUM_def]
-      \\ rename [‘color_used f v c’]
-      \\ Cases_on ‘color_used f v c’ \\ gvs [integerTheory.INT_GE]
+      \\ rename [‘c ∈ colors_used f v’]
+      \\ Cases_on ‘c ∈ colors_used f v’ \\ gvs [integerTheory.INT_GE]
       >-
        (irule ZERO_LE_iSUM
         \\ gvs [EVERY_GENLIST,oneline b2i_def] \\ rw [])
       \\ DEP_REWRITE_TAC [iSUM_EQ_LENGTH]
-      \\ gvs [EVERY_GENLIST,color_used_def,oneline b2i_def] \\ rw [])
+      \\ gvs [EVERY_GENLIST,colors_used_def,IN_DEF,oneline b2i_def] \\ rw [])
     >-
      (simp [satisfies_pbc_def,eval_lin_term_def,MAP_GENLIST,o_DEF,iSUM_def]
-      \\ rename [‘color_used f v c’]
-      \\ reverse $ Cases_on ‘color_used f v c’ \\ gvs [integerTheory.INT_GE]
+      \\ rename [‘c ∈ colors_used f v’]
+      \\ reverse $ Cases_on ‘c ∈ colors_used f v’ \\ gvs [integerTheory.INT_GE]
       >-
        (DEP_REWRITE_TAC [ZERO_LE_iSUM]
-        \\ gvs [EVERY_GENLIST,color_used_def,oneline b2i_def] \\ rw [])
+        \\ gvs [EVERY_GENLIST,colors_used_def,oneline b2i_def,IN_DEF] \\ rw [])
       \\ gvs [GSYM integerTheory.INT_GE]
       \\ DEP_REWRITE_TAC [iSUM_GE_1]
       \\ gvs [MEM_GENLIST,EVERY_GENLIST, oneline b2i_def, AllCaseEqs()]
-      \\ gvs [SF DNF_ss, color_used_def]
+      \\ gvs [SF DNF_ss, colors_used_def, IN_DEF]
       \\ first_assum $ irule_at Any \\ gvs [])
-    \\ Cases_on ‘is_edge e x y’ \\ gvs []
-    \\ simp [satisfies_pbc_def,eval_lin_term_def]
-    \\ gvs [is_k_color_def,MEM_GENLIST,PULL_EXISTS]
-    \\ gvs []
-    \\ first_x_assum drule_all
-    \\ Cases_on ‘f x = color’ >- gvs [iSUM_def]
-    \\ Cases_on ‘f y = color’ >- gvs [iSUM_def]
-    \\ gvs [iSUM_def])
+    >-
+     (Cases_on ‘is_edge e x y’ \\ gvs []
+      \\ simp [satisfies_pbc_def,eval_lin_term_def]
+      \\ gvs [is_k_color_def,MEM_GENLIST,PULL_EXISTS]
+      \\ gvs []
+      \\ first_x_assum drule_all
+      \\ Cases_on ‘f x = color’ >- gvs [iSUM_def]
+      \\ Cases_on ‘f y = color’ >- gvs [iSUM_def]
+      \\ gvs [iSUM_def])
+    \\ gvs [color_obj_def,eval_obj_def,eval_lin_term_def,MAP_GENLIST,o_DEF,iSUM_def])
   \\ qexists_tac ‘λx. @c. w (VertexHasColor x c) ∧ c < n’
   \\ gvs [encode_def,satisfies_def,MEM_MAP,EXISTS_PROD,flat_genlist_def,
           MEM_FLAT,MEM_GENLIST,PULL_EXISTS,gen_named_constraint_def,SF DNF_ss]
@@ -240,17 +330,93 @@ Proof
     \\ Cases_on ‘w (VertexHasColor x color)’ \\ gvs [])
   \\ ‘∀x. x < v ⇒ (@c. w (VertexHasColor x c) ∧ c < n) < n ∧
                   w (VertexHasColor x (@c. w (VertexHasColor x c) ∧ c < n))’
-        by metis_tac []
+    by metis_tac []
   \\ simp [is_k_color_def]
   \\ rpt strip_tac
-  \\ rename [‘is_edge e x y’]
-  \\ first_x_assum (fn th => qspec_then ‘x’ mp_tac th \\ qspec_then ‘y’ mp_tac th)
-  \\ qabbrev_tac ‘c_x = (@c. w (VertexHasColor x c) ∧ c < n)’
-  \\ qabbrev_tac ‘c_y = (@c. w (VertexHasColor y c) ∧ c < n)’
-  \\ first_x_assum (fn th => qspec_then ‘x’ mp_tac th \\ qspec_then ‘y’ mp_tac th)
-  \\ simp [] \\ rpt strip_tac \\ gvs []
-  \\ first_x_assum $ qspecl_then [‘c_x’,‘x’,‘y’] mp_tac
-  \\ simp [satisfies_pbc_def,eval_lin_term_def,iSUM_def]
+  >-
+   (rename [‘is_edge e x y’]
+    \\ first_x_assum (fn th => qspec_then ‘x’ mp_tac th \\ qspec_then ‘y’ mp_tac th)
+    \\ qabbrev_tac ‘c_x = (@c. w (VertexHasColor x c) ∧ c < n)’
+    \\ qabbrev_tac ‘c_y = (@c. w (VertexHasColor y c) ∧ c < n)’
+    \\ first_x_assum (fn th => qspec_then ‘x’ mp_tac th \\ qspec_then ‘y’ mp_tac th)
+    \\ simp [] \\ rpt strip_tac \\ gvs []
+    \\ first_x_assum $ qspecl_then [‘c_x’,‘x’,‘y’] mp_tac
+    \\ simp [satisfies_pbc_def,eval_lin_term_def,iSUM_def])
+  \\ gvs [color_obj_def,eval_obj_def]
+  \\ rewrite_tac [GSYM integerTheory.INT_OF_NUM_EQ]
+  \\ rewrite_tac [GSYM CARD_colors_used]
+  \\ qpat_x_assum ‘_ = &k’ (assume_tac o GSYM)
+  \\ asm_rewrite_tac []
+  \\ simp [eval_lin_term_def,MAP_GENLIST,o_DEF]
+  \\ AP_TERM_TAC
+  \\ gvs [listTheory.GENLIST_FUN_EQ] \\ rw []
+  \\ AP_TERM_TAC
+  \\ simp [colors_used_def]
+  \\ reverse eq_tac
+  >-
+   (strip_tac
+    \\ gvs [satisfies_pbc_def,eval_lin_term_def,MAP_GENLIST,o_DEF]
+    \\ ntac 2 $ qpat_x_assum ‘∀d. d < n ⇒ _’ $ qspec_then ‘c’ mp_tac
+    \\ rw [iSUM_def]
+    \\ qpat_x_assum ‘iSUM _ >= 1i’ mp_tac
+    \\ DEP_REWRITE_TAC [iSUM_GE_1]
+    \\ conj_tac >- gvs [EVERY_GENLIST,oneline b2i_def,AllCaseEqs()]
+    \\ gvs [MEM_GENLIST] \\ rw []
+    \\ Cases_on ‘w (VertexHasColor u c)’ \\ gvs []
+    \\ qexists_tac ‘u’ \\ simp []
+    \\ qsuff_tac ‘∀d. w (VertexHasColor u d) ∧ d < n ⇔ d = c’ >- simp []
+    \\ rw [] \\ eq_tac \\ rw []
+    \\ CCONTR_TAC
+    \\ last_x_assum $ qspec_then ‘u’ kall_tac
+    \\ last_x_assum $ qspec_then ‘u’ mp_tac
+    \\ gvs [integerTheory.INT_GE,integerTheory.int_le]
+    \\ qabbrev_tac ‘ff = λcolor. 1 − b2i (w (VertexHasColor u color))’
+    \\ ‘c < d ∨ d < c’ by decide_tac
+    >-
+     (qspecl_then [‘d’,‘n’,‘ff’] mp_tac GENLIST_SPLIT_LESS \\ simp []
+      \\ qspecl_then [‘c’,‘d’,‘ff’] mp_tac GENLIST_SPLIT_LESS \\ simp []
+      \\ rw [Abbr ‘ff’,iSUM_append,iSUM_def]
+      \\ qmatch_goalsub_abbrev_tac
+           ‘iSUM (GENLIST f1 _) + iSUM (GENLIST f2 _) + iSUM (GENLIST f3 _)’
+      \\ ‘iSUM (GENLIST f1 c) ≤ & c’ by
+       (irule iSUM_GENLIST_LEQ
+        \\ unabbrev_all_tac \\ rw [EVERY_GENLIST,oneline b2i_def] \\ rw [])
+      \\ ‘iSUM (GENLIST f2 (d − (c + 1))) ≤ & (d − (c + 1))’ by
+       (irule iSUM_GENLIST_LEQ
+        \\ unabbrev_all_tac \\ rw [EVERY_GENLIST,oneline b2i_def] \\ rw [])
+      \\ ‘iSUM (GENLIST f3 (n − (d + 1))) ≤ & (n − (d + 1))’ by
+       (irule iSUM_GENLIST_LEQ
+        \\ unabbrev_all_tac \\ rw [EVERY_GENLIST,oneline b2i_def] \\ rw [])
+      \\ intLib.COOPER_TAC)
+    >-
+     (qspecl_then [‘c’,‘n’,‘ff’] mp_tac GENLIST_SPLIT_LESS \\ simp []
+      \\ qspecl_then [‘d’,‘c’,‘ff’] mp_tac GENLIST_SPLIT_LESS \\ simp []
+      \\ rw [Abbr ‘ff’,iSUM_append,iSUM_def]
+      \\ qmatch_goalsub_abbrev_tac
+           ‘iSUM (GENLIST f1 _) + iSUM (GENLIST f2 _) + iSUM (GENLIST f3 _)’
+      \\ ‘iSUM (GENLIST f1 d) ≤ & d’ by
+       (irule iSUM_GENLIST_LEQ
+        \\ unabbrev_all_tac \\ rw [EVERY_GENLIST,oneline b2i_def] \\ rw [])
+      \\ ‘iSUM (GENLIST f2 (c − (d + 1))) ≤ & (c − (d + 1))’ by
+       (irule iSUM_GENLIST_LEQ
+        \\ unabbrev_all_tac \\ rw [EVERY_GENLIST,oneline b2i_def] \\ rw [])
+      \\ ‘iSUM (GENLIST f3 (n − (c + 1))) ≤ & (n − (c + 1))’ by
+       (irule iSUM_GENLIST_LEQ
+        \\ unabbrev_all_tac \\ rw [EVERY_GENLIST,oneline b2i_def] \\ rw [])
+      \\ intLib.COOPER_TAC))
+  \\ rpt strip_tac
+  \\ qabbrev_tac ‘c1 = (@c. w (VertexHasColor x c) ∧ c < n)’
+  \\ gvs []
+  \\ first_x_assum $ qspec_then ‘x’ assume_tac \\ gvs []
+  \\ qpat_x_assum ‘∀c. c < n ⇒ _’ kall_tac
+  \\ qpat_x_assum ‘∀c. c < n ⇒ _’ $ qspec_then ‘c’ mp_tac
+  \\ simp [satisfies_pbc_def,eval_lin_term_def,MAP_GENLIST]
+  \\ gvs [iSUM_def,o_DEF]
+  \\ Cases_on ‘w (ColorUsed c)’ \\ gvs []
+  \\ irule iSUM_NOT_GE_LENGTH \\ gvs []
+  \\ gvs [MEM_GENLIST,EVERY_GENLIST,oneline b2i_def,AllCaseEqs()]
+  \\ rw []
+  \\ first_x_assum $ irule_at Any \\ gvs []
 QED
 
 (* TODO Encode the variables as strings *)
