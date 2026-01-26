@@ -152,67 +152,17 @@ Proof
   metis_tac[]
 QED
 
-Definition reify_some_eq_def:
-  reify_some_eq bnd Xs v name =
-    (FLAT $ MAP (λX. encode_full_eq bnd X v) Xs) ++ encode_some_eq bnd Xs v name
+Definition encode_n_value_def:
+  encode_n_value bnd Xs Y name =
+  let
+    vals = union_dom bnd Xs
+  in
+    FLAT (MAP (λv. FLAT (MAP (λX. encode_full_eq bnd X v) Xs)) vals) ++
+    FLAT (MAP (λv. encode_some_eq bnd Xs v name) vals) ++
+    encode_bitsum (MAP (elm name) vals) Y
 End
 
-Theorem FORALL_IMP_EQ[local] = METIS_PROVE []
-  ``(∀x. P x ⇒ (Q x ⇔ R x)) ⇒ ((∀x. P x ⇒ Q x) ⇔ (∀x. P x ⇒ R x))``;
-
-Theorem reify_some_eq_sem:
-  valid_assignment bnd wi ⇒ (
-  EVERY (λx. iconstraint_sem x (wi,wb)) (FLAT (MAP (λv. reify_some_eq bnd Xs v name)
-    (union_dom bnd Xs))) ⇔
-  ∀v. MEM v (union_dom bnd Xs) ⇒
-      EVERY (λX. wb (INL (Ge X v)) ⇔ varc wi X ≥ v) Xs ∧
-      EVERY (λX. wb (INL (Ge X (v + 1))) ⇔ varc wi X ≥ v + 1) Xs ∧
-      EVERY (λX. wb (INL (Eq X v)) ⇔ varc wi X = v) Xs ∧
-      (wb (elm name v) ⇔ ∃X. MEM X Xs ∧ wb (INL (Eq X v))))
-Proof
-  rw[reify_some_eq_def,EVERY_FLAT,EVERY_MAP]>>
-  simp[Once EVERY_MEM,Once $ GSYM CONJ_ASSOC]>>
-  ho_match_mp_tac FORALL_IMP_EQ>>
-  rw[EVERY_CONJ,GSYM CONJ_ASSOC]>>
-  match_mp_tac LEFT_AND_CONG>>
-  CONJ_TAC
-  >- (irule EVERY_CONG>>simp[encode_ge_sem])>>
-  strip_tac>>
-  match_mp_tac LEFT_AND_CONG>>
-  CONJ_TAC
-  >- (irule EVERY_CONG>>simp[encode_ge_sem])>>
-  strip_tac>>
-  match_mp_tac LEFT_AND_CONG>>
-  CONJ_TAC
-  >- (
-    irule EVERY_CONG>>
-    rw[]>>
-    irule encode_eq_sem>>
-    fs[EVERY_MEM])>>
-  simp[encode_some_eq_sem]
-QED
-
-Theorem encode_n_value_sem_aux:
-  valid_assignment bnd wi ∧
-  (∀v. MEM v (union_dom bnd Xs) ⇒
-    EVERY (λX. wb (INL (Eq X v)) ⇔ varc wi X = v) Xs ∧
-    (wb (elm name v) ⇔ ∃X. MEM X Xs ∧ wb (INL (Eq X v)))) ⇒
-  ∀v. MEM v (MAP (varc wi) Xs) ⇔ MEM v (FILTER (λv. wb (elm name v)) (union_dom bnd Xs))
-Proof
-  rw[MEM_FILTER,MEM_MAP]>>
-  iff_tac>>
-  strip_tac
-  >-(
-    CONJ_ASM2_TAC
-    >- (
-      gvs[EVERY_MEM]>>
-      metis_tac[])>>
-    drule_then assume_tac EVERY_MEM_union_dom>>
-    fs[EVERY_MEM])>>
-  gvs[EVERY_MEM]>>
-  metis_tac[]
-QED
-
+(* to deprecate *)
 Theorem list_set_eq:
   ∀ls1 ls2. (∀v. MEM v ls1 ⇔ MEM v ls2) ⇔ set ls1 = set ls2
 Proof
@@ -221,38 +171,48 @@ Proof
   metis_tac[]
 QED
 
-(* NValue: Y equals the number of distinct values in Xs
-   This is very complex and requires auxiliary variables *)
-
-Definition encode_n_value_def:
-  encode_n_value bnd Xs Y name =
-  let
-    vals = union_dom bnd Xs
-  in
-    (FLAT $ MAP (λv. reify_some_eq bnd Xs v name) vals) ++
-    encode_bitsum (MAP (elm name) vals) Y
-End
-
-Theorem subset_varc_union_dom:
-  valid_assignment bnd wi ⇒
-  set $ MAP (varc wi) Xs ⊆ set $ union_dom bnd Xs
-Proof
-  strip_tac>>
-  drule EVERY_MEM_union_dom>>
-  rw[EVERY_MEM,SUBSET_DEF]>>
-  gs[MEM_MAP]
-QED
-
 Theorem LENGTH_FILTER_subset:
   set ls1 ⊆ set ls2 ∧ ALL_DISTINCT ls2 ⇒
   LENGTH (FILTER (λv. MEM v ls1) ls2) = CARD (set ls1)
 Proof
   rw[SUBSET_DEF]>>
-  drule_then (qspec_then ‘(λv. MEM v ls1)’ assume_tac) FILTER_ALL_DISTINCT>>
-  drule_then (fn thm => simp[thm]) $ GSYM ALL_DISTINCT_CARD_LIST_TO_SET>>
-  irule $ METIS_PROVE[] “s1 = s2 ⇒ CARD s1 = CARD s2”>>
-  rw[GSYM list_set_eq,MEM_FILTER]>>
-  metis_tac[]
+  DEP_REWRITE_TAC[GSYM ALL_DISTINCT_CARD_LIST_TO_SET]>>
+  CONJ_TAC
+  >-(
+    irule FILTER_ALL_DISTINCT>>
+    simp[])>>
+  cong_tac (SOME 1)>>
+  rw[GSYM list_set_eq]>>
+  iff_tac>>
+  simp[MEM_FILTER]
+QED
+
+Theorem encode_n_value_aux:
+  valid_assignment bnd wi ⇒
+  (EVERY (λx. iconstraint_sem x (wi,wb)) (encode_n_value bnd Xs Y name) ⇔
+     (∀v. MEM v (union_dom bnd Xs) ⇒
+            (EVERY (λX. wb (INL (Ge X v)) ⇔ varc wi X ≥ v) Xs ∧
+             EVERY (λX. wb (INL (Ge X (v + 1))) ⇔ varc wi X ≥ v + 1) Xs ∧
+             EVERY (λX. wb (INL (Eq X v)) ⇔ varc wi X = v) Xs ∧
+             wb (INR (name,Values [v] NONE)) ⇔ MEM v (MAP (varc wi) Xs)
+             )) ∧
+  &LENGTH
+          (FILTER (λx. wb (INR (name,Values [x] NONE))) (union_dom bnd Xs)) =
+        varc wi Y)
+Proof
+  strip_tac>>
+  gs[encode_n_value_def,n_value_sem_def]>>
+  ntac 2 (simp[EVERY_FLAT,EVERY_MAP])>>
+    simp[GSYM EVERY_CONJ,Once EVERY_MEM]>>
+    simp[EVERY_CONJ,
+      Once $ METIS_PROVE[]
+        “(P1 ∧ P2 ∧ P3) ∧ P4 ⇔ (P1 ∧ P2 ∧ P3) ∧ (P3 ⇒ P4)”]>>
+  drule_then (fn thm => simp[thm]) encode_bitsum_sem>>
+  simp[MAP_MAP_o]>>
+  simp[iSUM_FILTER,o_DEF]>>
+  simp[encode_some_eq_sem]>>
+  simp[MEM_MAP,EVERY_MEM]>>
+  cheat
 QED
 
 Theorem encode_n_value_sem_1:
@@ -262,18 +222,19 @@ Theorem encode_n_value_sem_1:
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
     (encode_n_value bnd Xs Y name)
 Proof
-  rw[encode_n_value_def,n_value_sem_def]
-  >-(
-    rw[reify_some_eq_sem,reify_avar_def,reify_reif_def,reify_flag_def,MEM_MAP]>>
-    metis_tac[])>>
-  DEP_REWRITE_TAC[encode_bitsum_sem]>>
-  simp[MAP_MAP_o]>>
-  simp[o_DEF,iSUM_FILTER,reify_avar_def,reify_flag_def]>>
-  DEP_REWRITE_TAC[subset_varc_union_dom,LENGTH_FILTER_subset]>>
-  DEP_REWRITE_TAC[EVERY_MEM_union_dom,LENGTH_FILTER_subset]>>
-  simp[]>>
+  strip_tac>>
+  gs[encode_n_value_aux,n_value_sem_def]>>
   CONJ_TAC
-  >-simp[GSYM ALL_DISTINCT_CARD_LIST_TO_SET,ALL_DISTINCT_union_dom]>>
+  >-(
+    rw[reify_avar_def,reify_reif_def,reify_flag_def,MEM_MAP]>>
+    metis_tac[])>>
+  simp[reify_avar_def,reify_flag_def]>>
+  DEP_REWRITE_TAC[LENGTH_FILTER_subset]>>
+  simp[SUBSET_DEF]>>
+  simp[MEM_MAP]>>
+  simp[SF DNF_ss]>>
+  simp[GSYM EVERY_MEM]>>
+  simp[EVERY_MEM_union_dom,ALL_DISTINCT_union_dom]>>
   intLib.ARITH_TAC
 QED
 
@@ -285,34 +246,24 @@ Theorem encode_n_value_sem_2:
 Proof
   strip_tac>>
   pop_assum mp_tac>>
-  simp[encode_n_value_def,reify_some_eq_sem]>>
-  DEP_REWRITE_TAC[encode_bitsum_sem]>>
-  simp[MAP_MAP_o]>>
-  rw[iSUM_FILTER,EVERY_MEM,
-    METIS_PROVE[] “(∀x. P x ⇒ (Q x ∧ R x)) ⇔ (∀x. P x ⇒ Q x) ∧ (∀x. P x ⇒ R x)”]>>
-  simp[n_value_sem_def]>>
-  ‘LENGTH (FILTER (wb o elm name) (union_dom bnd Xs)) =
-   CARD (set (MAP (varc wi) Xs))’ suffices_by intLib.ARITH_TAC>>
+  simp[encode_n_value_aux,n_value_sem_def]>>
+  strip_tac>>
+  pop_assum (fn thm => simp[GSYM thm])>>
+  CONJ_TAC
+  >-intLib.ARITH_TAC>>
   DEP_REWRITE_TAC[GSYM ALL_DISTINCT_CARD_LIST_TO_SET]>>
   CONJ_TAC
   >-(
     irule FILTER_ALL_DISTINCT>>
     simp[ALL_DISTINCT_union_dom])>>
-  CONG_TAC (SOME 1)>>
-  simp[GSYM list_set_eq,MEM_FILTER,MEM_MAP]>>
+  cong_tac (SOME 1)>>
+  rw[GSYM list_set_eq]>>
+  gs[MEM_FILTER,MEM_MAP]>>
+  iff_tac>>
   strip_tac>>
-  iff_tac
-  >-metis_tac[]>>
-  strip_tac>>
-  pure_rewrite_tac[Once $ METIS_PROVE[] “Q ∧ P ⇔ P ∧ (P ⇒ Q)”]>>
-  CONJ_TAC
-  >-(
-    drule_then assume_tac EVERY_MEM_union_dom>>
-    gs[EVERY_MEM])>>
-  metis_tac[]
+  cheat
 QED
 
-(*** HERE ***)
 Definition cencode_n_value_def:
   cencode_n_value bnd Xs Y name ec =
   let
@@ -331,23 +282,25 @@ End
 Theorem cencode_n_value_sem:
   valid_assignment bnd wi ∧
   cencode_n_value bnd Xs Y name ec = (es, ec') ⇒
-  enc_rel wi es (encode_n_value bnd Xs Y namae) ec ec'
+  enc_rel wi es (encode_n_value bnd Xs Y name) ec ec'
 Proof
-  cheat
-  (* FOR REFERENCE ONLY
-  rw[cencode_among_def,encode_among_def]>>
+  rw[cencode_n_value_def,encode_n_value_def]>>
   gvs[AllCaseEqs(),UNCURRY_EQ]>>
   irule enc_rel_Append>>
-  irule_at Any enc_rel_abstr>>
-  irule enc_rel_fold_cenc>>
-  first_x_assum $ irule_at Any>>
-  rw[]>>
-  irule enc_rel_fold_cenc>>
-  first_x_assum $ irule_at Any>>
-  rw[]>>
-  irule enc_rel_encode_full_eq>>
-  fs[]
-  *)
+  qmatch_asmsub_abbrev_tac ‘(xs,ec')’>>
+  qexists ‘ec'’>>
+  CONJ_TAC
+  >-(
+    irule enc_rel_Append>>
+    qmatch_asmsub_abbrev_tac ‘(xs,ec')’>>
+    qexists ‘ec'’>>
+    CONJ_TAC
+    >-(
+      pop_assum mp_tac>>
+      cheat)>>
+    irule enc_rel_abstr_cong>>
+    simp[abstr_flat_app,encode_some_eq_def,MAP_MAP_o,o_DEF])>>
+  simp[cencode_bitsum_def]
 QED
 
 Definition eqi_def[simp]:
@@ -594,9 +547,9 @@ Definition cencode_counting_constr_def:
   cencode_counting_constr bnd c name ec =
   case c of
     AllDifferent Xs => (cencode_all_different bnd Xs name, ec)
+  | NValue Xs Y => cencode_n_value bnd Xs Y name ec
   | Count Xs Y Z => (cencode_count bnd Xs Y Z name, ec)
   | Among Xs iS Y => cencode_among bnd Xs iS Y name ec
-  | _ => (List [], ec)
 End
 
 Theorem cencode_counting_constr_sem:
@@ -607,7 +560,7 @@ Proof
   Cases_on ‘c’>>
   simp[cencode_counting_constr_def,encode_counting_constr_def]
   >-simp[cencode_all_different_def,encode_all_different_def]
-  >-cheat
+  >-simp[cencode_n_value_sem]
   >-simp[cencode_count_def,encode_count_def]
   >-simp[cencode_among_sem]
 QED
