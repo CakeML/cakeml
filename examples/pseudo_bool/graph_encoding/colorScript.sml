@@ -3,7 +3,7 @@
 *)
 Theory color
 Ancestors
-  pbc graph_basic pbc_normalise
+  pbc graph_basic pbc_normalise mlstring mlint
 Libs
   preamble
 
@@ -419,16 +419,30 @@ Proof
   \\ first_x_assum $ irule_at Any \\ gvs []
 QED
 
-(* TODO Encode the variables as strings *)
 Definition enc_string_def:
-  (enc_string (x:var) = strlit "TODO")
+  (enc_string (ColorUsed c) = concat [«cu_»; toString c]) ∧
+  (enc_string (VertexHasColor v c) = concat [«vc_»; toString v; «_»; toString c])
 End
 
-(* TODO *)
 Theorem enc_string_INJ:
   INJ enc_string UNIV UNIV
 Proof
-  cheat
+  gvs [INJ_DEF] \\ reverse Cases \\ Cases \\ simp [enc_string_def]
+  \\ gvs [concat_def]
+  \\ Cases_on ‘toString n’
+  \\ Cases_on ‘toString n'’
+  \\ simp []
+  >- metis_tac [num_to_str_11]
+  \\ rewrite_tac [GSYM APPEND_ASSOC,APPEND]
+  \\ rpt disch_tac
+  \\ drule num_to_str_APPEND_11
+  \\ simp []
+  \\ disch_then drule_all
+  \\ Cases_on ‘toString n0’
+  \\ Cases_on ‘toString n0'’
+  \\ gvs []
+  \\ rw [] \\ gvs []
+  \\ metis_tac [num_to_str_11]
 QED
 
 (* TODO: not sure if annotation is necessary *)
