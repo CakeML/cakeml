@@ -87,9 +87,6 @@ inferencer: both soundness and completeness proofs.
 This directory contains tests that evaluate the type inferencer inside
 the logic of HOL.
 
-[unifyLib.sml](unifyLib.sml):
-Code that makes evaluating the unification algorithm easy.
-
 [unifyScript.sml](unifyScript.sml):
 Defines a unification algorithm for use in the type inferencer.
 Based on the triangular unification algorithm in
