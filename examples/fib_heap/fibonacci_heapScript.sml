@@ -64,14 +64,6 @@ End
       dllseg b a xs s e)
 End*)
 
-Definition implicit_dll_seg_def:
-  (dllseg a p a p = emp * cond (p <> 0w) /\
-  (dllseg a p s e = SEP_EXISTS b.
-	one (a + previous, p) *
-	one (a + next, b) * 
-	dllseg b a s e)
-End
-
 (*
 Definition double_linked_list_def:
   (dll s [] = emp * cond (s = 0w)) /\
@@ -82,6 +74,14 @@ Definition double_linked_list_def:
 	dllseg a s xs s e )
 End
 *)
+
+Definition implicit_dll_seg_def:
+  (dllseg a p a p = emp * cond (p <> 0w) /\
+  (dllseg a p s e = SEP_EXISTS b.
+	one (a + previous, p) *
+	one (a + next, b) * 
+	dllseg b a s e)
+End
 
 Definition implicit_dll_def:
   (dll 0w = emp) /\
