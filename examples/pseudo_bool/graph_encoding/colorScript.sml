@@ -447,7 +447,13 @@ QED
 
 (* TODO: not sure if annotation is necessary *)
 Definition annot_string_def:
-  annot_string (_:annot) = (SOME (strlit "TODO"):mlstring option)
+  annot_string a =
+  case a of
+  | Edge u v c => SOME (concat [«e_»; toString u; «_»; toString v; «_»; toString c])
+  | AtLeastOneColor u => SOME (concat [«colgeq_»; toString u])
+  | AtMostOneColor u  => SOME (concat [«colleq_»; toString u])
+  | VC_Imp_CU c => SOME (concat [«vc_impl_cu_»; toString c])
+  | CU_Imp_VC c => SOME (concat [«cu_impl_vc_»; toString c])
 End
 
 Definition full_encode_def:
