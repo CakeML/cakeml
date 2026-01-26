@@ -90,7 +90,7 @@ End
 
 Datatype:
   term
-  = Var mlstring type
+  = Vart mlstring type
   | Const mlstring type
   | Comb term term
   | Abs term term
@@ -192,12 +192,12 @@ End
 Definition raconv_def:
   raconv env tm1 tm2 =
     case (tm1,tm2) of
-      (Var _ _, Var _ _) => alphavars env tm1 tm2
+      (Vart _ _, Vart _ _) => alphavars env tm1 tm2
     | (Const _ _, Const _ _) => (tm1 = tm2)
     | (Comb s1 t1, Comb s2 t2) => raconv env s1 s2 /\ raconv env t1 t2
     | (Abs v1 t1, Abs v2 t2) =>
        (case (v1,v2) of
-          (Var n1 ty1, Var n2 ty2) => (ty1 = ty2) /\
+          (Vart n1 ty1, Vart n2 ty2) => (ty1 = ty2) /\
                                       raconv ((v1,v2)::env) t1 t2
         | _ => F)
     | _ => F
@@ -206,13 +206,13 @@ End
 Theorem raconv_PMATCH[local]:
   ^(rhs(concl(SPEC_ALL raconv_def))) =
     pmatch (tm1,tm2) of
-    | (Var _ _, Var _ _) => alphavars env tm1 tm2
+    | (Vart _ _, Vart _ _) => alphavars env tm1 tm2
     | (Const _ _, Const _ _) => (tm1 = tm2)
     | (Comb s1 t1, Comb s2 t2)
         => raconv env s1 s2 ∧ raconv env t1 t2
     | (Abs v1 t1, Abs v2 t2)
         => (pmatch (v1,v2) of
-            | (Var n1 ty1,Var n2 ty2)
+            | (Vart n1 ty1,Vart n2 ty2)
                 => (ty1 = ty2) ∧ raconv ((v1,v2)::env) t1 t2
             | _ => F)
     | _ => F
@@ -247,7 +247,7 @@ val res = translate vfree_in_def
 Definition is_var_def:
   is_var tm =
     case tm of
-      Var bv bod => T
+      Vart bv bod => T
     | _ => F
 End
 
@@ -258,7 +258,7 @@ val res = translate listTheory.EXISTS_DEF
 Definition vsubst_aux_def:
   vsubst_aux ilist tm =
     case tm of
-      Var _ _ => rev_assocd tm ilist tm
+      Vart _ _ => rev_assocd tm ilist tm
     | Const _ _ => tm
     | Comb s t => let s' = vsubst_aux ilist s in
                   let t' = vsubst_aux ilist t in
