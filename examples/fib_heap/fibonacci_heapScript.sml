@@ -10,14 +10,14 @@ Libs
 (* The Fibtree is just a dll. Each key k holds its one tree.
  Key:
  k |-> v,b,n,e,f,p,c,rm where
- v = value                 0
- b = element before            1
- n = element next            2
- e = edges                3
- f = flag (inside tree)            4
- p = parent                5
+ v = value                          0
+ b = element before                 1
+ n = element next                   2
+ e = edges                          3
+ f = flag (inside tree)             4
+ p = parent                         5
  c = children -> again a Fibtree    6
- rm = rank + mark            7
+ rm = rank + mark                   7
 *)
 Definition value_def:
   value = 0w
