@@ -648,6 +648,18 @@ Proof
     Cases_on `v = Boolv F` THEN simp []])
 QED
 
+Inductive pmatch_stamps_ok:
+  ( (* exception constructors *)
+    pmatch_stamps_ok (SOME (cn, NONE)) (SOME (cn', NONE)) n_ps n_vs) ∧
+  ( (* constructors *)
+        ty_id = ty_id' ∧ MEM (cn, n_ps) ctor_set ∧ MEM (cn', n_vs) ctor_set
+  ==> pmatch_stamps_ok (SOME (cn, (SOME (ty_id, ctor_set))))
+    (SOME (cn', SOME ty_id')) n_ps n_vs) ∧
+  ( (* tuples *)
+    n_ps = n_vs
+  ==> pmatch_stamps_ok NONE NONE n_ps n_vs)
+End
+
 Definition pmatch_def:
   (pmatch s (Pvar x) v' bindings =
     (Match ((x,v') :: bindings))) ∧
@@ -660,7 +672,9 @@ Definition pmatch_def:
     else
       Match_type_error) ∧
   (pmatch s (Pcon stmp ps) (Conv stmp' vs) bindings =
-    if OPTION_MAP FST stmp = OPTION_MAP FST stmp' ∧
+    if ~ pmatch_stamps_ok stmp stmp' (LENGTH ps) (LENGTH vs) then
+      Match_type_error
+    else if OPTION_MAP FST stmp = OPTION_MAP FST stmp' ∧
        LENGTH ps = LENGTH vs then
       pmatch_list s ps vs bindings
     else
