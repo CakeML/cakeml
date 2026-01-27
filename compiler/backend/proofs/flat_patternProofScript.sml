@@ -1128,8 +1128,7 @@ QED
 
 Theorem decode_guard_simulation:
   !b. dt_eval_guard (encode_refs s) (encode_val y) gd = SOME b /\
-  pure_eval_to s env x y /\
-  initial_ctors ⊆ s.c
+  pure_eval_to s env x y
   ==>
   pure_eval_to s env (decode_guard tr x gd) (Boolv b)
 Proof
@@ -1163,8 +1162,7 @@ QED
 
 Theorem decode_dtree_simulation:
   pattern_semantics$dt_eval (encode_refs s) (encode_val y) dtree = SOME v /\
-  pure_eval_to s env x y /\
-  initial_ctors ⊆ s.c
+  pure_eval_to s env x y
   ==>
   evaluate env s [decode_dtree tr exps x default_x dtree] =
   evaluate env s [case v of MatchSuccess i => (case lookup i exps of
@@ -1272,8 +1270,7 @@ Theorem naive_pattern_match_correct:
   LIST_REL (pure_eval_to s env) (MAP SND mats) vs /\
   pmatch_list s (MAP FST mats) vs bindings = res /\
   res <> Match_type_error /\
-  naive_pattern_match t mats = exp /\
-  initial_ctors ⊆ s.c ==>
+  naive_pattern_match t mats = exp ==>
   pure_eval_to s env exp (Boolv (res <> No_match))
 Proof
   ho_match_mp_tac naive_pattern_match_ind
@@ -1352,8 +1349,7 @@ Theorem naive_pattern_matches_correct:
   naive_pattern_matches t x mats dflt = exp /\
   pure_eval_to s env x v /\
   pmatch_rows mats s v = res /\
-  res <> Match_type_error /\
-  initial_ctors ⊆ s.c ==>
+  res <> Match_type_error ==>
   evaluate env s [exp] = (case res of Match (_, _, exp) =>
       evaluate env s [exp]
     | _ => evaluate env s [dflt])
@@ -1366,7 +1362,10 @@ Proof
   \\ simp [flatSemTheory.pmatch_def]
   \\ simp [do_if_Boolv]
   \\ TOP_CASE_TAC \\ fs []
-  \\ every_case_tac \\ fs []
+  \\ gvs [AllCaseEqs(),EXISTS_PROD]
+  \\ gvs [SF DNF_ss]
+  \\ Cases_on ‘pmatch_rows mats s v’ \\ gvs []
+  \\ metis_tac [PAIR]
 QED
 
 Theorem pmatch_rows_same_FST:
@@ -1395,8 +1394,7 @@ Theorem comp_thm[local] = pattern_compTheory.comp_thm
 
 Theorem evaluate_compile_pats:
   pmatch_rows pats s v <> Match_type_error /\
-  pure_eval_to s env exp v /\
-  initial_ctors ⊆ s.c
+  pure_eval_to s env exp v
   ==>
   evaluate env s [compile_pats cfg naive t N exp default_x pats] =
   evaluate env s [case pmatch_rows pats s v of
@@ -1588,15 +1586,15 @@ Theorem compile_exps_evaluate:
       evaluate env2 s2 ys = (t2, r2)
   ) /\
   (!^s1 decs s2 t1 cfg decs' res.
-  evaluate_decs s1 decs = (t1, res) /\
-  decs' = MAP (compile_dec cfg) decs /\
-  state_rel s_cfg s1 s2 /\
-  res <> SOME (Rabort Rtype_error)
-  ==>
-  ?t2 res'.
-  evaluate_decs s2 decs' = (t2, res') /\
-  OPTREL (exc_rel v_rel) res res' /\
-  state_rel s_cfg t1 t2
+    evaluate_decs s1 decs = (t1, res) /\
+    decs' = MAP (compile_dec cfg) decs /\
+    state_rel s_cfg s1 s2 /\
+    res <> SOME (Rabort Rtype_error)
+    ==>
+    ?t2 res'.
+      evaluate_decs s2 decs' = (t2, res') /\
+      OPTREL (exc_rel v_rel) res res' /\
+      state_rel s_cfg t1 t2
   )
 Proof
   ho_match_mp_tac evaluate_ind2
@@ -1642,7 +1640,7 @@ Proof
     \\ fs [LENGTH_EQ_NUM_compute, listTheory.LENGTH_CONS]
     \\ rveq \\ fs []
   )
-  >- cheat (* (
+  >- (
     (* Handle *)
     simp [evaluate_def, pat_bindings_def, pmatch_rows_def,
         flatSemTheory.pmatch_def]
@@ -1679,7 +1677,7 @@ Proof
     \\ fs []
     \\ last_x_assum (drule_then (drule_then drule))
     \\ fs [LESS_MAX_ADD, SUBSET_DEF]
-  ) *)
+  )
   >- (
     (* Conv, no tag *)
     last_x_assum (drule_then (drule_then drule))
@@ -1842,10 +1840,14 @@ Proof
     \\ rw []
     \\ simp []
   )
-  >- cheat (* (
+  >- (
     (* Mat *)
     simp [evaluate_def, pat_bindings_def, flatSemTheory.pmatch_def]
     \\ last_x_assum drule
+    \\ disch_then drule
+    \\ disch_then drule
+    \\ impl_tac
+    >- (fs [MAX_DEF] \\ CCONTR_TAC \\ fs [])
     \\ rw []
     \\ fs [case_eq_thms] \\ rveq \\ fs [] \\ rveq \\ fs []
     \\ DEP_REWRITE_TAC [Q.GEN `v` evaluate_compile_pats |> Q.SPEC `HD v'`]
@@ -1881,7 +1883,7 @@ Proof
     \\ disch_tac \\ fs []
     \\ last_x_assum (drule_then (drule_then drule))
     \\ simp [LESS_MAX_ADD]
-  ) *)
+  )
   >- (
     (* Let *)
     last_x_assum (drule_then (drule_then drule))
