@@ -707,7 +707,6 @@ Definition state_rel_def:
     LIST_REL (sv_rel v_rel) s.refs t.refs /\
     t.ffi = s.ffi /\
     LIST_REL (OPTREL v_rel) s.globals t.globals /\
-    t.c = s.c /\
     install_conf_rel cfg s.eval_config t.eval_config
 End
 
@@ -724,19 +723,6 @@ Theorem state_rel_IMP_clock[local]:
   state_rel cfg s t ==> t.clock = s.clock
 Proof
   fs [state_rel_def]
-QED
-
-Theorem state_rel_IMP_c[local]:
-  state_rel cfg s t ==> t.c = s.c
-Proof
-  fs [state_rel_def]
-QED
-
-Theorem state_rel_c_update:
-  state_rel cfg s1 s2 /\ f s1.c = g s1.c ==>
-  state_rel cfg (s1 with c updated_by f) (s2 with c updated_by g)
-Proof
-  simp [state_rel_def]
 QED
 
 Overload nv_rel[local] =
@@ -900,7 +886,6 @@ Proof
   ho_match_mp_tac flatSemTheory.pmatch_ind
   \\ simp [flatSemTheory.pmatch_def, match_rel_def, v_rel_l_cases]
   \\ rw [match_rel_def]
-  \\ imp_res_tac state_rel_IMP_c
   \\ fs [flatSemTheory.pmatch_def]
   \\ rfs []
   \\ imp_res_tac LIST_REL_LENGTH \\ fs []
@@ -1086,21 +1071,10 @@ Proof
   EVAL_TAC \\ EVERY_CASE_TAC \\ fs []
 QED
 
-val init_in_c_imps1 = ASSUME ``initial_ctors ⊆ c``
-  |> SIMP_RULE (srw_ss()) [initial_ctors_def]
-  |> CONJUNCTS |> map DISCH_ALL
-
-Theorem init_in_c_bool_tag:
-  initial_ctors ⊆ c ==>
-  ((bool_to_tag bv,SOME bool_id),0) ∈ c
-Proof
-  rw [initial_ctors_def, backend_commonTheory.bool_to_tag_def]
-QED
-
 Theorem evaluate_Bool:
   evaluate env s [Bool t b] = (s, Rval [Boolv b])
 Proof
-  rw [evaluate_def, Boolv_def, Bool_def, initial_ctors_def,
+  rw [evaluate_def, Boolv_def, Bool_def,
       backend_commonTheory.bool_to_tag_def,
       backend_commonTheory.true_tag_def,
       backend_commonTheory.false_tag_def]
@@ -1136,7 +1110,6 @@ Proof
   \\ simp [decode_guard_def, FORALL_PROD, dt_eval_guard_def]
   \\ fs [pure_eval_to_def, evaluate_def, option_case_eq]
   \\ rw []
-  \\ imp_res_tac init_in_c_bool_tag
   \\ simp [evaluate_SmartIf]
   \\ fs [Bool_def, evaluate_def, fold_Boolv, do_app_def, do_eq_Boolv,
         do_if_Boolv, bool_case_eq]
@@ -1174,7 +1147,7 @@ Proof
   \\ fs [option_case_eq]
   \\ imp_res_tac simp_guard_thm
   \\ drule_then drule decode_guard_simulation
-  \\ rfs [dt_eval_guard_def, init_in_c_bool_tag]
+  \\ rfs [dt_eval_guard_def]
   \\ rw [pure_eval_to_def]
   \\ fs []
   \\ simp [do_if_Boolv]
@@ -1276,7 +1249,7 @@ Proof
   ho_match_mp_tac naive_pattern_match_ind
   \\ simp [naive_pattern_match_def]
   \\ rw []
-  \\ fs [pure_eval_to_def, evaluate_def, Bool_def, init_in_c_bool_tag,
+  \\ fs [pure_eval_to_def, evaluate_def, Bool_def,
         fold_Boolv, flatSemTheory.pmatch_def, evaluate_SmartIf]
   >- (
     (* lit eq *)
@@ -1285,7 +1258,7 @@ Proof
     \\ rw []
     \\ fs [lit_same_type_sym, do_if_Boolv]
     \\ EVERY_CASE_TAC \\ fs []
-    \\ simp [evaluate_def, Bool_def, fold_Boolv, init_in_c_bool_tag]
+    \\ simp [evaluate_def, Bool_def, fold_Boolv]
   )
   >- (
     (* cons no tag *)
@@ -1321,7 +1294,7 @@ Proof
     \\ rveq \\ fs []
     \\ simp [do_app_def]
     \\ simp [do_if_Boolv]
-    \\ rw [] \\ fs [] \\ simp [evaluate_def, fold_Boolv, init_in_c_bool_tag]
+    \\ rw [] \\ fs [] \\ simp [evaluate_def, fold_Boolv]
     \\ TRY (EVERY_CASE_TAC \\ fs [] \\ NO_TAC)
     \\ first_x_assum (qspecl_then [`l ++ ys`, `bindings`] mp_tac)
     \\ simp [flatPropsTheory.pmatch_list_append, o_DEF]
@@ -1697,7 +1670,6 @@ Proof
     \\ rveq \\ fs []
     \\ simp [PULL_EXISTS, v_rel_rules, EVERY_REVERSE]
     \\ imp_res_tac evaluate_length
-    \\ imp_res_tac state_rel_IMP_c
     \\ fs [env_rel_def]
     \\ rfs []
   )
@@ -1730,7 +1702,7 @@ Proof
       \\ last_x_assum drule
       \\ rpt (disch_then drule)
       \\ impl_tac
-      \\ simp [EVAL ``(dec_clock s).c``]
+      \\ simp []
       \\ metis_tac [EVERY_REVERSE]
     )
     \\ Cases_on `op = Eval`
@@ -1749,7 +1721,7 @@ Proof
       \\ fs []
       \\ drule_then assume_tac state_rel_dec_clock
       \\ last_x_assum drule
-      \\ simp [EVAL ``(dec_clock s).c``]
+      \\ simp []
       \\ rename [`MAP (compile_dec cfg2) _`]
       \\ disch_then (qspec_then `cfg2` mp_tac)
       \\ impl_tac >- (strip_tac \\ fs [])
@@ -1865,7 +1837,7 @@ Proof
       simp [PULL_EXISTS, evaluate_def]
       \\ rw [bind_exn_v_def, v_rel_l_cases]
       \\ fs [SUBSET_DEF]
-      \\ rfs [initial_ctors_def]
+      \\ rfs []
     )
     \\ rw [] \\ simp [] \\ TRY (fs [SUBSET_DEF] \\ NO_TAC)
     \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ]
