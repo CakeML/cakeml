@@ -799,7 +799,6 @@ Theorem evaluate_keep_flat_state_rel_eq_lemma:
         domain (find_sem_prim_res_globals result) ⊆ domain reachable ∧
         EVERY (($~) ∘ v_has_Eval) (result_vs result))
 Proof
-  cheat (*
   ho_match_mp_tac evaluate_exp_ind >> rpt CONJ_TAC >> rpt GEN_TAC >>
   TRY strip_tac >>
   TRY (simp [] >> NO_TAC)
@@ -902,7 +901,6 @@ Proof
     `state'.c = removed_state.c` by fs[flat_state_rel_def] >>
     fs[] >>
     Cases_on `evaluate env state' (REVERSE es)` >> fs[] >>
-    IF_CASES_TAC >> fs [] >>
     first_x_assum (
         qspecl_then [`reachable`, `removed_state`] mp_tac) >>
     simp[Once find_lookupsL_REVERSE] >> fs[] >>
@@ -1161,7 +1159,7 @@ Proof
     fs [ELIM_UNCURRY, o_DEF, v_has_Eval_def, EVERY_MAP] >>
     simp [find_v_globals_MAP_Recclosure] >>
     rw [o_DEF]
-  ) *)
+  )
 QED
 
 (******** EVALUATE SPECIALISATION ********)
