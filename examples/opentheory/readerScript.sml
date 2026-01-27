@@ -100,7 +100,7 @@ Definition s2c_def:
         if c = #"#" then skipc
         else if c = #"\"" then strc (substring s 1 (strlen s - 2))
         else if isDigit c then
-          pmatch fromString s of
+          case fromString s of
             NONE => unknownc s
           | SOME i => intc i
         else
@@ -274,14 +274,14 @@ End
 
 Definition pop_def:
   pop s =
-    pmatch s.stack of
+    case s.stack of
       [] => failwith «pop»
     | h::t => return (h,s with stack := t)
 End
 
 Definition peek_def:
   peek s =
-    pmatch s.stack of
+    case s.stack of
       [] => failwith «peek»
     | h::_ => return h
 End
@@ -302,7 +302,7 @@ End
 
 Definition first_def:
   first p l =
-    pmatch l of
+    case l of
       [] => NONE
     | h::t => if p h then SOME h else first p t
 End
@@ -311,8 +311,8 @@ Definition find_axiom_def:
   find_axiom (ls, tm) =
     do
       axs <- axioms ();
-      pmatch first (λth.
-        pmatch th of
+      case first (λth.
+        case th of
         | Sequent h c =>
             EVERY (λx. EXISTS (aconv x) h) ls ∧
             aconv c tm) axs of
@@ -384,14 +384,14 @@ End
 
 Definition listof_def:
   listof xs =
-    pmatch xs of
+    case xs of
       [] => mk_str «[]»
     | x::xs => mk_blo 0 ([mk_str «[»; x] ++ commas xs ++ [mk_str «]»])
 End
 
 Definition obj_t_def:
   obj_t obj =
-    pmatch obj of
+    case obj of
       Num n => mk_str (toString n)
     | Name s => mk_str (name_of s)
     | List ls => listof (MAP obj_t ls)
@@ -438,7 +438,7 @@ End
 
 Definition pp_update_def:
   pp_update upd =
-    pmatch upd of
+    case upd of
       ConstSpec nts tm =>
         mk_blo 11
           ([mk_str «ConstSpec»; mk_brk 1; mk_str «[»] ++
@@ -481,7 +481,7 @@ End
 
 Definition readLine_def:
   readLine s c =
-    pmatch c of
+    case c of
       version =>
         do
           (obj, s) <- pop s;
@@ -557,7 +557,7 @@ Definition readLine_def:
           (obj,s) <- pop s; ty <- getType obj;
           (obj,s) <- pop s; nm <- getConst obj;
           ty0 <- get_const_type nm;
-          tm <- pmatch match_type ty0 ty of
+          tm <- case match_type ty0 ty of
                   NONE => failwith «constTerm»
                 | SOME theta => mk_const(nm,theta);
           return (push (Term tm) s)
@@ -628,7 +628,7 @@ Definition readLine_def:
     | hdTl =>
         do
           (obj,s) <- pop s; ls <- getList obj;
-          pmatch ls of
+          case ls of
           | [] => failwith «hdTl»
           | (h::t) => return (push (List t) (push h s))
         od
@@ -671,7 +671,7 @@ Definition readLine_def:
           if n < 0 then
             failwith «ref»
           else
-            pmatch lookup (Num n) s.dict of
+            case lookup (Num n) s.dict of
               NONE => failwith «ref»
             | SOME obj => return (push obj s)
         od
@@ -687,7 +687,7 @@ Definition readLine_def:
           if n < 0 then
             failwith «ref»
           else
-            pmatch lookup (Num n) s.dict of
+            case lookup (Num n) s.dict of
               NONE => failwith «remove»
             | SOME obj => return (push obj (delete_dict (Num n) s))
         od
@@ -775,7 +775,7 @@ End
 (* This is terrible: *)
 Definition unescape_def:
   unescape str =
-    pmatch str of
+    case str of
       #"\\":: #"\\" ::cs => #"\\"::unescape cs
     | c1::c::cs    => c1::unescape (c::cs)
     | cs           => cs
@@ -851,7 +851,7 @@ End
 
 Definition readLines_def:
   readLines s lls =
-    pmatch lls of
+    case lls of
       []    => return (s, lines_read s)
     | l::ls =>
         do
