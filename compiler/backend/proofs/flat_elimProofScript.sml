@@ -392,7 +392,6 @@ Definition flat_state_rel_def:
     flat_state_rel reachable ^s ^t ⇔
       s.clock = t.clock ∧ s.refs = t.refs ∧
       s.ffi = t.ffi ∧ globals_rel reachable s.globals t.globals ∧
-      s.c = t.c ∧
       domain (find_refs_globals s.refs) ⊆ domain reachable ∧
       EVERY (EVERY ($~ ∘ v_has_Eval) ∘ store_v_vs) s.refs
 End
@@ -898,7 +897,6 @@ Proof
     rpt gen_tac >> strip_tac >>
     qpat_x_assum `evaluate _ _ _ = _` mp_tac >>
     simp[evaluate_def] >> fs[find_lookups_def, has_Eval_def, EVERY_REVERSE] >>
-    `state'.c = removed_state.c` by fs[flat_state_rel_def] >>
     fs[] >>
     Cases_on `evaluate env state' (REVERSE es)` >> fs[] >>
     first_x_assum (

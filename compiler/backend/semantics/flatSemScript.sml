@@ -58,8 +58,6 @@ Datatype:
     refs    : v store;
     ffi     : 'ffi ffi_state;
     globals : (v option) list;
-    (* The set of constructors that exist, according to their id, type and arity *)
-    c : ((ctor_id # type_id) # num) set;
     (* eval or install mode *)
     eval_config : 'c install_config
   |>
@@ -986,7 +984,7 @@ Theorem case_eq_thms =
   eqs
 
 Theorem do_app_const:
-  do_app s op vs = SOME (s',r) ⇒ s.clock = s'.clock ∧ s.c = s'.c
+  do_app s op vs = SOME (s',r) ⇒ s.clock = s'.clock
 Proof
   Cases_on ‘op’ \\ rw [do_app_def,AllCaseEqs()]
   \\ rpt (pairarg_tac \\ gvs []) \\ gvs []
@@ -1020,37 +1018,12 @@ Theorem evaluate_def[compute,allow_rebind] =
 Theorem evaluate_ind[allow_rebind] =
   REWRITE_RULE [fix_clock_evaluate] evaluate_ind;
 
-Definition bool_ctors_def[simp]:
-  bool_ctors =
-    { ((true_tag, SOME bool_id), 0n)
-    ; ((false_tag, SOME bool_id), 0n) }
-End
-
-Definition list_ctors_def[simp]:
-  list_ctors =
-    { ((cons_tag, SOME list_id), 2n)
-    ; ((nil_tag, SOME list_id), 0n) }
-End
-
-Definition exn_ctors_def[simp]:
-  exn_ctors =
-    { ((div_tag, NONE), 0n)
-    ; ((chr_tag, NONE), 0n)
-    ; ((subscript_tag, NONE), 0n)
-    ; ((bind_tag, NONE), 0n) }
-End
-
-Definition initial_ctors_def:
-   initial_ctors = bool_ctors UNION list_ctors UNION exn_ctors
-End
-
 Definition initial_state_def:
   initial_state ffi k ec =
     <| clock       := k
      ; refs        := []
      ; ffi         := ffi
      ; globals     := []
-     ; c           := initial_ctors
      ; eval_config := ec
      |> :('c,'ffi) flatSem$state
 End

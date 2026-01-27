@@ -3543,9 +3543,7 @@ Theorem alloc_tags_invariant:
   genv.tys ⊑ genv'.tys ∧
   genv'.v = genv.v ∧
   invariant interp g gen genv' (idx with tidx := idx.tidx + 1, end_idx, os)
-    (st with next_type_stamp := st.next_type_stamp + 1)
-    (st' with c updated_by $UNION {((idx',SOME idx.tidx),arity) |
-                       (∃max. lookup arity cids = SOME max ∧ idx' < max)}) ∧
+    (st with next_type_stamp := st.next_type_stamp + 1) st' ∧
   (let build_env = <| c := alist_to_ns
         (REVERSE (build_constrs st.next_type_stamp ctors)); v := nsEmpty |> in
    global_env_inv genv' <| c := ns; v := nsEmpty |> {} build_env ∧
@@ -4974,16 +4972,6 @@ Proof
   simp [GSYM extend_dec_env_v_empty, GSYM extend_env_v_empty] >>
   rw [] >> simp []
   >- (
-    fs [invariant_def] >>
-    rw [] >>
-    rfs [s_rel_cases, idx_range_rel_def, genv_allocated_idxs_def]
-  )
-  >- (
-    fs [invariant_def] >>
-    rw [] >>
-    rfs [s_rel_cases, idx_range_rel_def, genv_allocated_idxs_def]
-  )
-  >- (
     metis_tac [SUBMAP_TRANS]
   )
   >- (
@@ -5323,12 +5311,6 @@ Proof
   EVAL_TAC \\ rw []
 QED
 
-Theorem init_genv_FDOM:
-  FDOM init_genv.c = initial_ctors
-Proof
-  EVAL_TAC
-QED
-
 Definition init_genv_next:
   init_genv_next = <|
     vidx := 0;
@@ -5438,7 +5420,7 @@ Proof
   \\ imp_res_tac compile_decs_idx_prev
   \\ rw []
   >- (
-    fs [s_rel_cases, initial_state_def, init_genv_FDOM]
+    fs [s_rel_cases, initial_state_def]
   )
   >- (
     fs [idx_range_rel_def]
