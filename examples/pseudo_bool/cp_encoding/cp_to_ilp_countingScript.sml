@@ -162,57 +162,27 @@ Definition encode_n_value_def:
     encode_bitsum (MAP (elm name) vals) Y
 End
 
-(* to deprecate *)
-Theorem list_set_eq:
-  ∀ls1 ls2. (∀v. MEM v ls1 ⇔ MEM v ls2) ⇔ set ls1 = set ls2
-Proof
-  rw[SET_EQ_SUBSET]>>
-  simp[GSYM SUBSET_DIFF_EMPTY,list_to_set_diff,GSYM NULL_EQ,NULL_FILTER]>>
-  metis_tac[]
-QED
-
-Theorem LENGTH_FILTER_subset:
-  set ls1 ⊆ set ls2 ∧ ALL_DISTINCT ls2 ⇒
-  LENGTH (FILTER (λv. MEM v ls1) ls2) = CARD (set ls1)
-Proof
-  rw[SUBSET_DEF]>>
-  DEP_REWRITE_TAC[GSYM ALL_DISTINCT_CARD_LIST_TO_SET]>>
-  CONJ_TAC
-  >-(
-    irule FILTER_ALL_DISTINCT>>
-    simp[])>>
-  cong_tac (SOME 1)>>
-  rw[GSYM list_set_eq]>>
-  iff_tac>>
-  simp[MEM_FILTER]
-QED
-
 Theorem encode_n_value_aux:
   valid_assignment bnd wi ⇒
   (EVERY (λx. iconstraint_sem x (wi,wb)) (encode_n_value bnd Xs Y name) ⇔
-     (∀v. MEM v (union_dom bnd Xs) ⇒
-            (EVERY (λX. wb (INL (Ge X v)) ⇔ varc wi X ≥ v) Xs ∧
-             EVERY (λX. wb (INL (Ge X (v + 1))) ⇔ varc wi X ≥ v + 1) Xs ∧
-             EVERY (λX. wb (INL (Eq X v)) ⇔ varc wi X = v) Xs ∧
-             wb (INR (name,Values [v] NONE)) ⇔ MEM v (MAP (varc wi) Xs)
-             )) ∧
-  &LENGTH
-          (FILTER (λx. wb (INR (name,Values [x] NONE))) (union_dom bnd Xs)) =
-        varc wi Y)
+    (∀v. MEM v (union_dom bnd Xs) ⇒ (
+      EVERY (λX. wb (INL (Ge X v)) ⇔ varc wi X ≥ v) Xs ∧
+      EVERY (λX. wb (INL (Ge X (v + 1))) ⇔ varc wi X ≥ v + 1) Xs ∧
+      EVERY (λX. wb (INL (Eq X v)) ⇔ varc wi X = v) Xs ∧
+      (wb (INR (name,Values [v] NONE)) ⇔ MEM v (MAP (varc wi) Xs)))) ∧
+    &LENGTH (FILTER (λx. wb (INR (name,Values [x] NONE))) (union_dom bnd Xs)) =
+      varc wi Y)
 Proof
   strip_tac>>
-  gs[encode_n_value_def,n_value_sem_def]>>
+  simp[encode_n_value_def]>>
   ntac 2 (simp[EVERY_FLAT,EVERY_MAP])>>
-    simp[GSYM EVERY_CONJ,Once EVERY_MEM]>>
-    simp[EVERY_CONJ,
-      Once $ METIS_PROVE[]
-        “(P1 ∧ P2 ∧ P3) ∧ P4 ⇔ (P1 ∧ P2 ∧ P3) ∧ (P3 ⇒ P4)”]>>
+  simp[GSYM EVERY_CONJ,Once EVERY_MEM]>>
+  simp[EVERY_CONJ, Once $ METIS_PROVE[]
+    “(P1 ∧ P2 ∧ P3) ∧ P4 ⇔ (P1 ∧ P2 ∧ P3) ∧ (P3 ⇒ P4)”]>>
   drule_then (fn thm => simp[thm]) encode_bitsum_sem>>
   simp[MAP_MAP_o]>>
-  simp[iSUM_FILTER,o_DEF]>>
-  simp[encode_some_eq_sem]>>
-  simp[MEM_MAP,EVERY_MEM]>>
-  cheat
+  simp[iSUM_FILTER,o_DEF,encode_some_eq_sem,MEM_MAP,EVERY_MEM]>>
+  metis_tac[]
 QED
 
 Theorem encode_n_value_sem_1:
@@ -224,18 +194,21 @@ Theorem encode_n_value_sem_1:
 Proof
   strip_tac>>
   gs[encode_n_value_aux,n_value_sem_def]>>
+  CONJ_TAC>>
+  simp[reify_avar_def,reify_reif_def,reify_flag_def]>>
+  DEP_REWRITE_TAC[GSYM ALL_DISTINCT_CARD_LIST_TO_SET]>>
   CONJ_TAC
   >-(
-    rw[reify_avar_def,reify_reif_def,reify_flag_def,MEM_MAP]>>
-    metis_tac[])>>
-  simp[reify_avar_def,reify_flag_def]>>
-  DEP_REWRITE_TAC[LENGTH_FILTER_subset]>>
-  simp[SUBSET_DEF]>>
-  simp[MEM_MAP]>>
-  simp[SF DNF_ss]>>
-  simp[GSYM EVERY_MEM]>>
-  simp[EVERY_MEM_union_dom,ALL_DISTINCT_union_dom]>>
-  intLib.ARITH_TAC
+    irule FILTER_ALL_DISTINCT>>
+    simp[ALL_DISTINCT_union_dom])>>
+  qmatch_asmsub_abbrev_tac ‘Num _ = c1’>>
+  qmatch_goalsub_abbrev_tac ‘&c2 = _’>>
+  ‘c1 = c2’ suffices_by intLib.ARITH_TAC>>
+  gs[Abbr‘c1’,Abbr‘c2’]>>
+  cong_tac (SOME 1)>>
+  simp[SET_EQ_SUBSET,SUBSET_DEF,MEM_FILTER]>>
+  drule_then mp_tac EVERY_MEM_union_dom>>
+  simp[EVERY_MEM,MEM_MAP,SF DNF_ss]
 QED
 
 Theorem encode_n_value_sem_2:
@@ -244,8 +217,8 @@ Theorem encode_n_value_sem_2:
     (encode_n_value bnd Xs Y name) ⇒
   n_value_sem Xs Y wi
 Proof
+  simp[satTheory.AND_IMP]>>
   strip_tac>>
-  pop_assum mp_tac>>
   simp[encode_n_value_aux,n_value_sem_def]>>
   strip_tac>>
   pop_assum (fn thm => simp[GSYM thm])>>
@@ -257,11 +230,16 @@ Proof
     irule FILTER_ALL_DISTINCT>>
     simp[ALL_DISTINCT_union_dom])>>
   cong_tac (SOME 1)>>
-  rw[GSYM list_set_eq]>>
-  gs[MEM_FILTER,MEM_MAP]>>
-  iff_tac>>
-  strip_tac>>
-  cheat
+  gs[SET_EQ_SUBSET,SUBSET_DEF,MEM_FILTER,MEM_MAP]>>
+  CONJ_TAC>>
+  ntac 2 strip_tac
+  >-metis_tac[]>>
+  match_mp_tac $ METIS_PROVE[] “(Q ∧ (Q ⇒ P)) ⇒ P ∧ Q”>>
+  CONJ_TAC
+  >-(
+    drule_then mp_tac EVERY_MEM_union_dom>>
+    simp[EVERY_MEM])>>
+  metis_tac[]
 QED
 
 Definition cencode_n_value_def:
@@ -287,17 +265,31 @@ Proof
   rw[cencode_n_value_def,encode_n_value_def]>>
   gvs[AllCaseEqs(),UNCURRY_EQ]>>
   irule enc_rel_Append>>
-  qmatch_asmsub_abbrev_tac ‘(xs,ec')’>>
+  qmatch_asmsub_abbrev_tac ‘(xs,_)’>>
   qexists ‘ec'’>>
   CONJ_TAC
   >-(
     irule enc_rel_Append>>
-    qmatch_asmsub_abbrev_tac ‘(xs,ec')’>>
     qexists ‘ec'’>>
     CONJ_TAC
     >-(
       pop_assum mp_tac>>
-      cheat)>>
+      qmatch_goalsub_abbrev_tac
+        ‘fold_cenc cf _ _ = _ ⇒ enc_rel _ _ (FLAT (MAP f _)) _ _’>>
+      rename1 ‘fold_cenc _ ls _’>>
+      qid_spec_tac ‘ec'’>>
+      qid_spec_tac ‘xs’>>
+      qid_spec_tac ‘ec’>>
+      qid_spec_tac ‘ls’>>
+      ho_match_mp_tac enc_rel_fold_cenc>>
+      simp[Abbr‘cf’,Abbr‘f’]>>
+      strip_tac>>
+      qmatch_goalsub_abbrev_tac
+        ‘fold_cenc cf _ _ = _ ⇒ enc_rel _ _ (FLAT (MAP f _)) _ _’>>
+      qid_spec_tac ‘Xs’>>
+      ho_match_mp_tac enc_rel_fold_cenc>>
+      simp[Abbr‘cf’,Abbr‘f’]>>
+      metis_tac[enc_rel_encode_full_eq])>>
     irule enc_rel_abstr_cong>>
     simp[abstr_flat_app,encode_some_eq_def,MAP_MAP_o,o_DEF])>>
   simp[cencode_bitsum_def]
@@ -341,10 +333,9 @@ Theorem encode_count_sem_1:
 Proof
   rw[cencode_count_def,encode_count_def,count_sem_def]
   >-(
-  rw[EVERY_FLAT,Once EVERY_MEM,MEM_MAPi,EVERY_APPEND]>>
-  simp[iconstraint_sem_def,reify_avar_def,reify_flag_def]>>
-  intLib.ARITH_TAC
-  )>>
+    rw[EVERY_FLAT,Once EVERY_MEM,MEM_MAPi,EVERY_APPEND]>>
+    simp[iconstraint_sem_def,reify_avar_def,reify_flag_def]>>
+    intLib.ARITH_TAC)>>
   drule_then (fn thm => simp[thm]) encode_bitsum_sem>>
   cong_tac NONE>>
   simp[MAP_GENLIST,o_ABS_R,reify_avar_def,reify_flag_def,GENLIST_EL_MAP]
@@ -405,7 +396,7 @@ Proof
     simp[EVERY_FLAT,Once EVERY_MEM,MEM_MAP,PULL_EXISTS]>>
     rw[Once EVERY_MEM,MEM_MAP]>>
     simp[reify_avar_def,reify_reif_def])
-  >- (
+  >-(
     simp[EVERY_FLAT,o_DEF,Once EVERY_MEM,MEM_MAPi,PULL_EXISTS,MEM_MAP]>>
     simp[reify_avar_def,reify_flag_def,reify_reif_def])>>
   drule_then (fn thm => simp[thm]) encode_bitsum_sem>>
@@ -437,8 +428,8 @@ Proof
   metis_tac[MEM_EL]
 QED
 
-(* (encode_full_eq_ilist bnd X iS) extends (encode_full_eq bnd X v) from a single int ‘v’
-   to an int list ‘iS’ *)
+(* (encode_full_eq_ilist bnd X iS) extends (encode_full_eq bnd X v)
+   from a single int ‘v’ to an int list ‘iS’ *)
 Definition encode_full_eq_ilist_def:
   encode_full_eq_ilist bnd _ [] = [] ∧
   encode_full_eq_ilist bnd X (i::iS) =
@@ -542,7 +533,6 @@ Proof
   >- metis_tac[encode_among_sem_2]
 QED
 
-(* Concrete encodings - TODO *)
 Definition cencode_counting_constr_def:
   cencode_counting_constr bnd c name ec =
   case c of
