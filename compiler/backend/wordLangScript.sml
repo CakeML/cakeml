@@ -201,7 +201,7 @@ Definition max_var_exp_def:
   (max_var_exp (Var num) = num) ∧
   (max_var_exp (Load exp) = max_var_exp exp) ∧
   (max_var_exp (Op wop ls) = MAX_LIST (MAP (max_var_exp) ls))∧
-  (max_var_exp (Shift sh exp n) = max_var_exp exp) ∧
+  (max_var_exp (Shift sh exp1 exp2) = MAX (max_var_exp exp1) (max_var_exp exp2)) ∧
   (max_var_exp exp = 0:num)
 End
 
@@ -210,7 +210,8 @@ Definition max_var_inst_def:
   (max_var_inst (Const reg w) = reg) ∧
   (max_var_inst (Arith (Binop bop r1 r2 ri)) =
     case ri of Reg r => max3 r1 r2 r | _ => MAX r1 r2) ∧
-  (max_var_inst (Arith (Shift shift r1 r2 n)) = MAX r1 r2) ∧
+  (max_var_inst (Arith (Shift shift r1 r2 n)) =
+    case n  of Reg r => max3 r1 r2 r | _ => MAX r1 r2) ∧
   (max_var_inst (Arith (Div r1 r2 r3)) = max3 r1 r2 r3) ∧
   (max_var_inst (Arith (AddCarry r1 r2 r3 r4)) = MAX (MAX r1 r2) (MAX r3 r4)) ∧
   (max_var_inst (Arith (AddOverflow r1 r2 r3 r4)) = MAX (MAX r1 r2) (MAX r3 r4)) ∧

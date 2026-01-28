@@ -451,9 +451,9 @@ Theorem max_var_exp_IMP[local]:
   P (max_var_exp exp)
 Proof
   ho_match_mp_tac max_var_exp_ind>>fs[max_var_exp_def,every_var_exp_def]>>
-  srw_tac[][]>>
-  match_mp_tac MAX_LIST_intro>>
-  fs[EVERY_MAP,EVERY_MEM]
+  srw_tac[][]
+  >- (match_mp_tac MAX_LIST_intro>> fs[EVERY_MAP,EVERY_MEM])
+  >> metis_tac [MAX_CASES]
 QED
 
 Theorem max_var_intro:
