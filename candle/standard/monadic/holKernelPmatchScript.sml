@@ -2,7 +2,7 @@
   This file proves alternative definitions of those HOL kernel
   functions that have complex pattern matching. The new definitions
   use PMATCH-based pmatch expressions instead of HOL's standard
-  per-datatype pmatch constants.
+  per-datatype case constants.
 *)
 Theory holKernelPmatch
 Ancestors
