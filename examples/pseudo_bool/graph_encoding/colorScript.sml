@@ -503,7 +503,7 @@ Type key = ``:annot``;
 Definition mk_key_def:
   mk_key NONE = NONE ∧
   mk_key (SOME ann) =
-    let ts = tokens (λc. #"0" ≤ c ∧ c ≤ #"9") ann in
+    let ts = tokens (λc. ~ (#"0" ≤ c ∧ c ≤ #"9")) ann in
       if isPrefix (strlit "e_") ann then
         (case MAP fromNatString ts of
          | [SOME n1; SOME n2; SOME n3] => SOME (Edge n1 n2 n3)
@@ -519,6 +519,17 @@ Definition mk_key_def:
               NONE
       else NONE
 End
+
+Theorem mk_key_test[local]:
+  EVERY (λk. mk_key (annot_string k) = SOME k)
+    [Edge 21 34 48;
+     AtLeastOneColor 400;
+     AtMostOneColor 2;
+     VC_Imp_CU 34;
+     CU_Imp_VC 45]
+Proof
+  EVAL_TAC
+QED
 
 (*
   TODO: for initial simplicity, we may wish to compare the
