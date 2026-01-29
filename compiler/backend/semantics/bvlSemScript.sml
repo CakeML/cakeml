@@ -275,6 +275,9 @@ Definition do_app_def:
         (if (v1 ≠ Boolv T ∧ v1 ≠ Boolv F) then Error else
          if (v2 ≠ Boolv T ∧ v2 ≠ Boolv F) then Error else
            Rval (Boolv (v1 = v2), s))
+    | (BlockOp BoolNot,[v1]) =>
+        (if v1 = Boolv T then Rval (Boolv F, s) else
+         if v1 = Boolv F then Rval (Boolv T, s) else Error)
     | (BlockOp (Build parts),[]) =>
         (let (v,rs) = do_build_const parts s.refs in Rval (v, s with refs := rs))
     | (BlockOp (ConsExtend tag),Block _ xs'::Number lower::Number len::Number tot::xs) =>

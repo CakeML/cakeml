@@ -324,8 +324,9 @@ Definition do_app_def:
     (let v = flat_to_v v in
        if check_type ty1 v then
          (case do_conversion v ty1 ty2 of
-          | SOME res => SOME (s, Rval (v_to_flat res))
-          | NONE     => NONE)
+          | SOME (INR res) => SOME (s, Rval (v_to_flat res))
+          | SOME (INL exn) => SOME (s, Rerr (Rraise chr_exn_v))
+          | NONE           => NONE)
        else NONE)
   | (Opassign, [Loc _ lnum; v]) =>
     (case store_assign lnum (Refv v) s.refs of

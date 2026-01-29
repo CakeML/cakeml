@@ -1617,6 +1617,12 @@ val def = assign_Define `
       : 'a wordLang$prog # num`;
 
 val def = assign_Define `
+  assign_BoolNot (l:num) (dest:num) v1 =
+                 (Assign (adjust_var dest)
+                    (Op Xor [Var (adjust_var v1); Const 16w]),l)
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
   assign_WordTest (l:num) (dest:num) (test: ast$test) v1 v2 =
        ((dtcase test of
          | Equal       => If Equal (adjust_var v1) (Reg (adjust_var v2))
@@ -2402,6 +2408,7 @@ Definition assign_def:
     | MemOp (CopyByte alloc_new) => assign_CopyByte c secn l dest names args
     | MemOp RefArray => arg2 args (assign_RefArray c secn l dest names) (Skip,l)
     | BlockOp (BoolTest test) => arg2 args (assign_BoolTest l dest test) (Skip,l)
+    | BlockOp BoolNot => arg1 args (assign_BoolNot l dest) (Skip,l)
     | WordOp (WordTest ws test) => arg2 args (assign_WordTest l dest test) (Skip,l)
     | BlockOp (FromList tag) => arg2 args (assign_FromList c secn l dest names tag) (Skip,l)
     | IntOp (LessConstSmall i) => arg1 args (assign_LessConstSmall l dest i) (Skip,l)

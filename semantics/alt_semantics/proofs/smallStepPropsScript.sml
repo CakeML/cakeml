@@ -4,7 +4,7 @@
 Theory smallStepProps
 Ancestors
   semanticPrimitives ffi semanticPrimitivesProps evaluateProps
-  smallStep determ
+  smallStep determ ast
 Libs
   preamble
 
@@ -714,7 +714,7 @@ Proof
     gvs[CaseEq"prod",CaseEq"result",CaseEq"error_result",
         do_app_cases,PULL_EXISTS]
     >~ [`do_arith a p`] >- (
-      Cases_on`a` \\ Cases_on`p` \\ TRY (Cases_on ‘w’)
+      Cases_on`a` \\ Cases_on ‘p’ using prim_type_cases
       \\ gvs[do_arith_def, CaseEq"list"] ) >>
     (* ThunkOp *)
     namedCases_on ‘v0’ ["", "hd tl"] >> gvs[]
@@ -756,7 +756,7 @@ Proof
     gvs[CaseEq"prod",CaseEq"result",CaseEq"error_result",
         do_app_cases,PULL_EXISTS]
     >~ [`do_arith a p`] >- (
-      Cases_on`a` \\ Cases_on`p` \\ TRY (Cases_on ‘w’)
+      Cases_on`a` \\ Cases_on ‘p’ using prim_type_cases
       \\ gvs[do_arith_def, CaseEq"list"]
       \\ Cases_on`v0` \\ gvs[] ) >>
     (* ThunkOp *)

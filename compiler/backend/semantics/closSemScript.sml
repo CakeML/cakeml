@@ -285,6 +285,9 @@ Definition do_app_def:
         (if (v1 ≠ Boolv T ∧ v1 ≠ Boolv F) then Error else
          if (v2 ≠ Boolv T ∧ v2 ≠ Boolv F) then Error else
            Rval (Boolv (v1 = v2), s))
+    | (BlockOp BoolNot,[v1]) =>
+        (if v1 = Boolv T then Rval (Boolv F, s) else
+         if v1 = Boolv F then Rval (Boolv T, s) else Error)
     | (BlockOp (ElemAt n),[Block tag xs]) =>
         if n < LENGTH xs then Rval (EL n xs, s) else Error
     | (BlockOp ListAppend, [x1; x2]) =>

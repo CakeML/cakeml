@@ -812,6 +812,14 @@ Definition the_Litv_Float64_def[simp]:
   the_Litv_Float64 (Litv (Float64 w)) = w
 End
 
+Definition the_Litv_Char_def[simp]:
+  the_Litv_Char (Litv (Char c)) = c
+End
+
+Definition the_Boolv_def[simp]:
+  the_Boolv v = (v = Boolv T)
+End
+
 Definition num_cmp_def[simp]:
   num_cmp Lt  i j = (i <  j:num) ∧
   num_cmp Leq i j = (i <= j) ∧
@@ -881,12 +889,36 @@ Definition do_arith_def:
      | (Or,  [v1;v2]) => SOME (INR $ Litv $ Word64 $ word_or v1 v2)
      | (Xor, [v1;v2]) => SOME (INR $ Litv $ Word64 $ word_xor v1 v2)
      | _ => NONE) ∧
+  (do_arith a BoolT vals =
+     case (a, vals) of
+     | (Not, [v1]) => SOME (INR $ Boolv (¬ (the_Boolv v1)))
+     | _ => NONE) ∧
   (do_arith a _ vals = NONE)
 End
 
 Definition do_conversion_def:
+  (* Word to Int conversions *)
   (do_conversion v (WordT W8) IntT =
-     SOME $ Litv $ IntLit $ & (w2n (the_Litv_Word8 v))) ∧
+     SOME (INR $ Litv $ IntLit $ & (w2n (the_Litv_Word8 v)))) ∧
+  (do_conversion v (WordT W64) IntT =
+     SOME (INR $ Litv $ IntLit $ & (w2n (the_Litv_Word64 v)))) ∧
+  (* Int to Word conversions *)
+  (do_conversion v IntT (WordT W8) =
+     SOME (INR $ Litv $ Word8 $ i2w (the_Litv_IntLit v))) ∧
+  (do_conversion v IntT (WordT W64) =
+     SOME (INR $ Litv $ Word64 $ i2w (the_Litv_IntLit v))) ∧
+  (* Char/Int conversions *)
+  (do_conversion v CharT IntT =
+     SOME (INR $ Litv $ IntLit $ & (ORD (the_Litv_Char v)))) ∧
+  (do_conversion v IntT CharT =
+     let i = the_Litv_IntLit v in
+       if i < 0 ∨ i > 255 then SOME (INL chr_exn_v)
+       else SOME (INR $ Litv $ Char $ CHR (Num (ABS i)))) ∧
+  (* Float64/Word64 conversions (bit reinterpretation) *)
+  (do_conversion v Float64T (WordT W64) =
+     SOME (INR $ Litv $ Word64 $ the_Litv_Float64 v)) ∧
+  (do_conversion v (WordT W64) Float64T =
+     SOME (INR $ Litv $ Float64 $ the_Litv_Word64 v)) ∧
   (do_conversion _ _ _ = NONE)
 End
 
@@ -1251,8 +1283,9 @@ Definition do_app_def:
     | (FromTo ty1 ty2, [v]) =>
         (if check_type ty1 v then
            (case do_conversion v ty1 ty2 of
-            | SOME res => SOME ((s, t), Rval res)
-            | NONE     => NONE)
+            | SOME (INR res) => SOME ((s, t), Rval res)
+            | SOME (INL exn) => SOME ((s, t), Rerr (Rraise exn))
+            | NONE           => NONE)
          else NONE)
     | (Test test test_ty, [v1; v2]) =>
         (case do_test test test_ty v1 v2 of

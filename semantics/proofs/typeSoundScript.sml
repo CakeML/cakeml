@@ -736,6 +736,17 @@ Proof
   metis_tac [ctor_canonical_values_thm]
 QED
 
+Theorem prim_canonical_Boolv_cases[local]:
+  type_v tvs ctMap tenvS v (Tapp [] Tbool_num) ∧
+  ctMap_ok ctMap ∧
+  ctMap_has_bools ctMap ⇒
+  v = Boolv T ∨ v = Boolv F
+Proof
+  rewrite_tac [GSYM Tbool_def] \\ strip_tac
+  \\ drule_all prim_canonical_Boolv_thm
+  \\ strip_tac \\ Cases_on ‘b’ \\ gvs []
+QED
+
 Theorem op_type_sound:
  !ctMap tenvS vs op ts t store (ffi : 'ffi ffi_state).
    good_ctMap ctMap ∧
@@ -783,9 +794,15 @@ Proof
                  eq_result_nchotomy, eq_same_type]) >~
   [‘Arith a ty’]
   >- (rw [do_app_cases, PULL_EXISTS] >>
-      Cases_on ‘ty’ >> TRY (Cases_on ‘w’) >>
-      gvs[supported_arith_def, t_of_def]
-      >> gvs[LIST_REL_def,LENGTH_EQ_NUM_compute] >>
+      Cases_on ‘ty’ using prim_type_cases >>
+      gvs[supported_arith_def, t_of_def] >>
+      gvs[LIST_REL_def,LENGTH_EQ_NUM_compute]
+      >~ [‘do_arith Not’] >-
+       (drule_all prim_canonical_Boolv_cases >> gvs [] >>
+        rw [] >> gvs [Boolv_def, do_arith_def, check_type_def] >>
+        qexists_tac ‘tenvS’ >>
+        simp[store_type_extension_refl, Once type_v_cases] >>
+        gvs [ctMap_has_bools_def]) >>
       imp_res_tac prim_canonical_values_thm >> gvs[] >>
       res_tac >> gvs[check_type_def, the_Litv_IntLit_def, the_Litv_Word8_def,
                      the_Litv_Word64_def, do_arith_def] >>
@@ -799,16 +816,19 @@ Proof
       res_tac \\ rw[check_type_def]) >~
   [‘FromTo ty1 ty2’]
   >- (rw [do_app_cases, PULL_EXISTS] >>
-      Cases_on ‘ty1’ >> Cases_on ‘ty2’ >>
-      TRY (Cases_on ‘w’) >>
-      gvs[supported_conversion_def, do_conversion_def, check_type_def,
-          t_of_def, the_Litv_Word8_def] >>
-      imp_res_tac prim_canonical_values_thm >> gvs[] >> simp [Once type_v_cases] >>
-      qexists_tac ‘tenvS’ >> rw [store_type_extension_refl] >>
-      qpat_x_assum ‘∀_ _ _. _ ⇒ ∃n. _ = Litv (Word8 n)’
-        (qspec_then ‘x’ mp_tac) >> simp[] >> strip_tac >>
-      first_x_assum drule >> strip_tac >>
-      gvs[the_Litv_Word8_def] >> simp [Once type_v_cases]) >~
+      Cases_on ‘ty1’ using prim_type_cases >>
+      Cases_on ‘ty2’ using prim_type_cases >>
+      gvs[supported_conversion_def, t_of_def] >>
+      imp_res_tac prim_canonical_values_thm >> gvs[] >>
+      res_tac >> gvs[check_type_def, do_conversion_def,
+          the_Litv_Word8_def, the_Litv_Word64_def,
+          the_Litv_IntLit_def, the_Litv_Char_def, the_Litv_Float64_def] >>
+      rw[] >>
+      TRY (rename1 ‘i < 0 ∨ i > 255’ >> Cases_on ‘i < 0 ∨ i > 255’ >> gvs[]
+           >- (simp[chr_exn_v_def] >> fs[ctMap_has_exns_def])) >>
+      qexists_tac ‘tenvS’ >>
+      simp[store_type_extension_refl, Once type_v_cases] >>
+      simp[chr_exn_v_def] >> fs[ctMap_has_exns_def]) >~
   [‘Test’]
   >- (rw [do_app_cases, PULL_EXISTS] >>
       rename [‘do_test test ty x y’] >>
@@ -1132,7 +1152,6 @@ Proof
   simp[Boolv_def, AllCaseEqs(), SF DNF_ss] >>
   gvs[ctMap_has_bools_def]
 QED
-
 
 Theorem build_conv_type_sound:
  !envC cn vs tvs ts ctMap tenvS ts' tn tenvC tvs' tenvE l.

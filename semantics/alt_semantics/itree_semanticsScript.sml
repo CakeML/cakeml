@@ -75,8 +75,9 @@ Definition do_app_def:
     | (FromTo ty1 ty2, [v]) =>
         (if check_type ty1 v then
            (case do_conversion v ty1 ty2 of
-            | SOME res => SOME (s, Rval res)
-            | NONE     => NONE)
+            | SOME (INR res) => SOME (s, Rval res)
+            | SOME (INL exn) => SOME (s, Rraise exn)
+            | NONE           => NONE)
          else NONE)
     | (Test test test_ty, [v1; v2]) =>
         (case do_test test test_ty v1 v2 of
