@@ -85,12 +85,15 @@ val res = translate x_maps_def;
 val dlet_empty =
   ``Dlet unknown_loc (Pvar «x_app_list_empty») (Con (SOME (Short «Nil»)) [])``;
 
+val dtabbrev_fun = cakeml ‘type 'a foo = ('a->int) option’;
+
 val _ = ml_prog_update remove_snocs;
 
 val prog = get_prog (get_ml_prog_state ());
 
-val new_prog_eval = EVAL ``DROP (LENGTH basis) (^prog ++ [^dlet_empty])``;
-val test_prog = rhs (concl new_prog_eval)
+val new_prog_eval =
+  EVAL ``DROP (LENGTH basis) (^prog ++ [^dlet_empty] ++ ^dtabbrev_fun)``;
+val test_prog = rhs (concl new_prog_eval);
 
 Definition test_prog_def:
   test_prog = ^test_prog
@@ -182,4 +185,3 @@ val res = astToSexprLib.write_ast_to_file "example_print.sexp" full_prog;
 val _ = print "Success.\n";
 
 *)
-
