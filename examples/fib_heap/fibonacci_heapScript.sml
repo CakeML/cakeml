@@ -68,6 +68,11 @@ Definition FibTree_Mem_def:
     FibTreeMem(FibTree k v xs))
 End
 
+Definition FibTree_Min_def:
+  (FibTreeMin (FibTree(k:'a word) (v:'a word) list) = v)
+End
+
+
 Datatype:
   fh = FibHeap 'k (('k,'v) ft)
 End
@@ -84,6 +89,11 @@ Definition FibHeap_Mem_def:
   (FibHeapMem (p:'a word) (FibTree h m ys::xs) =
     cond(p = h) * one(h, m:'a word) * (FibTreeMem (FibTree h m ys)) *
     (FibHeapRoot (FibTree h m xs)))
+End
+
+Definition FibHeap_Min_def:
+  (FibHeapMin (p:'a word) [] = 0w) /\
+  (FibHeapMin (p:'a word) (x::xs) = FibTreeMin x)
 End
 
 (* Double Linked List:
