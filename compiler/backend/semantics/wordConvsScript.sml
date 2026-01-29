@@ -265,6 +265,8 @@ End
 Definition distinct_tar_reg_def:
   (distinct_tar_reg (Arith (Binop bop r1 r2 ri))
     ⇔ ri ≠ Reg r1) ∧
+  (distinct_tar_reg (Arith (Shift l r1 r2 ri))
+    ⇔ ri ≠ Reg r1) ∧
   (distinct_tar_reg (Arith (AddCarry r1 r2 r3 r4))
     ⇔ r1 ≠ r3 ∧ r1 ≠ r4) ∧
   (distinct_tar_reg (Arith (AddOverflow r1 r2 r3 r4))

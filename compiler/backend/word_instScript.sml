@@ -117,7 +117,7 @@ Definition pull_exp_def:
     let pull_ls = pull_ops op new_ls [] in
       optimize_consts op pull_ls) ∧
   (pull_exp (Load exp) = Load (pull_exp exp)) ∧
-  (pull_exp (Shift shift exp nexp) = Shift shift (pull_exp exp) nexp) ∧
+  (pull_exp (Shift shift exp nexp) = Shift shift (pull_exp exp) (pull_exp nexp)) ∧
   (pull_exp exp = exp)
 Termination
   WF_REL_TAC `measure (exp_size ARB)`
@@ -142,7 +142,7 @@ Theorem pull_exp_pmatch:
     let pull_ls = pull_ops op new_ls [] in
       optimize_consts op pull_ls)
   | Load exp => Load (pull_exp exp)
-  | Shift sh exp nexp => Shift sh (pull_exp exp) nexp
+  | Shift sh exp nexp => Shift sh (pull_exp exp) (pull_exp nexp)
   | exp => exp
 Proof
   rpt strip_tac
@@ -166,7 +166,7 @@ Definition flatten_exp_def:
   (flatten_exp (Op op [x]) = flatten_exp x) ∧
   (flatten_exp (Op op (x::xs)) = Op op [flatten_exp (Op op xs);flatten_exp x]) ∧
   (flatten_exp (Load exp) = Load (flatten_exp exp)) ∧
-  (flatten_exp (Shift shift exp nexp) = Shift shift (flatten_exp exp) nexp) ∧
+  (flatten_exp (Shift shift exp nexp) = Shift shift (flatten_exp exp) (flatten_exp nexp)) ∧
   (flatten_exp exp = exp)
 Termination
   WF_REL_TAC `measure (exp_size ARB)`
