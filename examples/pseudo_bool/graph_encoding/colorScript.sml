@@ -243,8 +243,7 @@ Proof
 QED
 
 Theorem encode_correct:
-  good_graph (v,e) ∧
-  encode n (v,e) = constraints ⇒
+  good_graph (v,e) ⇒
   ((∃f.
       is_k_color n f (v,e) ∧
       CARD (colors_used f v) = k)
@@ -419,6 +418,39 @@ Proof
   \\ first_x_assum $ irule_at Any \\ gvs []
 QED
 
+Theorem encode_correct_leq:
+  good_graph (v,e) ⇒
+  ((∃f.
+      is_k_color n f (v,e) ∧
+      CARD (colors_used f v) <= k)
+   ⇔
+   (∃w.
+      satisfies w (set (MAP SND (encode n (v,e)))) ∧
+      eval_obj (color_obj n) w <= & k))
+Proof
+  strip_tac
+  \\ drule encode_correct
+  \\ disch_then $ qspec_then ‘n’ assume_tac
+  \\ gvs [EQ_IMP_THM]
+  \\ gvs [SF DNF_ss] \\ rw []
+  >-
+   (last_x_assum drule
+    \\ strip_tac
+    \\ first_x_assum $ irule_at Any
+    \\ intLib.COOPER_TAC)
+  \\ ‘0 ≤ eval_obj (color_obj n) w’ by
+   (gvs [color_obj_def,eval_obj_def,eval_lin_term_def,MAP_GENLIST,o_DEF]
+    \\ irule ZERO_LE_iSUM
+    \\ gvs [EVERY_GENLIST]
+    \\ rw [oneline b2i_def])
+  \\ last_x_assum drule
+  \\ disch_then $ qspec_then ‘Num (eval_obj (color_obj n) w)’ mp_tac
+  \\ impl_tac >- intLib.COOPER_TAC
+  \\ strip_tac
+  \\ first_x_assum $ irule_at Any
+  \\ intLib.COOPER_TAC
+QED
+
 Definition enc_string_def:
   (enc_string (ColorUsed c) = concat [«cu_»; toString c]) ∧
   (enc_string (VertexHasColor v c) = concat [«vc_»; toString v; «_»; toString c])
@@ -469,7 +501,23 @@ Type key = ``:annot``;
 (* TODO: The input OPB will give mlstring option annotations.
   We may want to map it back to a key (or key option) *)
 Definition mk_key_def:
-  mk_key (ann:mlstring option) = SOME ARB:key option
+  mk_key NONE = NONE ∧
+  mk_key (SOME ann) =
+    let ts = tokens (λc. #"0" ≤ c ∧ c ≤ #"9") ann in
+      if isPrefix (strlit "e_") ann then
+        (case MAP fromNatString ts of
+         | [SOME n1; SOME n2; SOME n3] => SOME (Edge n1 n2 n3)
+         | _ => NONE)
+      else if LENGTH ts = 1 then
+        case fromNatString (HD ts) of
+        | NONE => NONE
+        | SOME n =>
+            if isPrefix (strlit "colgeq_") ann then SOME $ AtLeastOneColor n else
+            if isPrefix (strlit "colleq_") ann then SOME $ AtMostOneColor n else
+            if isPrefix (strlit "vc") ann then SOME $ VC_Imp_CU n else
+            if isPrefix (strlit "cu") ann then SOME $ CU_Imp_VC n else
+              NONE
+      else NONE
 End
 
 (*
