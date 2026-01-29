@@ -630,10 +630,9 @@ Proof
          store_lookup_def, copy_array_def, store_assign_def])
   \\ Cases_on ‘∃ty1 ty2. op = FromTo ty1 ty2’ \\ gs []
   >- (
-    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
-         store_lookup_def, copy_array_def, store_assign_def]
-    \\ Cases_on ‘ty1’ \\ Cases_on ‘ty2’ \\ gvs[do_conversion_def]
-    \\ Cases_on ‘w’ \\ gvs[do_conversion_def, v_ok_thm] )
+    gvs [do_app_def, AllCaseEqs(), oneline do_conversion_def, check_type_def, chr_exn_v_def]
+    \\ gvs [v_ok_thm, stamp_ok_def, chr_stamp_def, Once stamp_rel_cases]
+    \\ gvs [state_ok_def, state_rel_def])
   \\ Cases_on ‘∃a ty. op = Arith a ty’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,

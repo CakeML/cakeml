@@ -606,11 +606,11 @@ Proof
   \\ Cases_on ‘∃ty1 ty2. op = FromTo ty1 ty2’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [SF SFY_ss]
-    \\ first_assum (irule_at Any)
-    \\ Cases_on ‘ty1’ \\ Cases_on ‘ty2’ \\ gvs[do_conversion_def]
-    \\ Cases_on ‘w’ \\ gvs[do_conversion_def]
+    \\ gvs [do_conversion_def |> oneline, AllCaseEqs()]
+    \\ first_assum (irule_at $ Pos hd)
     \\ simp [Boolv_def]
-    \\ rw [v_ok_def])
+    \\ rw [v_ok_def]
+    \\ last_x_assum drule_all \\ simp [])
   \\ Cases_on ‘∃a ty. op = Arith a ty’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [SF SFY_ss]

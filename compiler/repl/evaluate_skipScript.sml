@@ -869,7 +869,7 @@ Proof
   \\ rpt (
     qmatch_assum_rename_tac‘LENGTH vs = LENGTH ws’
     \\ Cases_on ‘vs’ \\ Cases_on ‘ws’ \\ gvs[PULL_EXISTS])
-  \\ gvs[NUMERAL_LESS_THM, SF DNF_ss]
+  \\ gvs[NUMERAL_LESS_THM, SF DNF_ss, Boolv_def]
   \\ gvs[Once v_rel_cases]
   \\ gvs[Once v_rel_cases]
   \\ rw[]
@@ -877,6 +877,9 @@ Proof
     rw[Once v_rel_cases, div_exn_v_def, stamp_rel_cases, div_stamp_def]
     \\ gvs[state_rel_def] \\ NO_TAC )
   \\ gvs[Once v_rel_cases]
+  \\ gvs [optionTheory.OPTREL_SOME]
+  \\ gvs [stamp_rel_cases]
+  \\ gvs [state_rel_def]
 QED
 
 Theorem do_app_update:
@@ -924,12 +927,16 @@ Proof
     \\ reverse $ rw[]
     >- prove_tac[]
     >- prove_tac[]
-    \\ Cases_on‘ty1’ \\ Cases_on‘ty2’ \\ gvs[do_conversion_def]
-    \\ Cases_on‘w’ \\ gvs[do_conversion_def]
-    \\ simp[Once v_rel_cases]
+    \\ Cases_on‘ty1’ using semanticPrimitivesPropsTheory.prim_type_cases
+    \\ Cases_on‘ty2’ using semanticPrimitivesPropsTheory.prim_type_cases
+    \\ gvs[do_conversion_def] \\ rw []
     \\ gvs[check_type_def]
+    \\ last_assum $ irule_at Any \\ gvs []
+    \\ gvs [chr_exn_v_def, chr_stamp_def]
     \\ gvs[Once v_rel_cases]
-    \\ prove_tac[]  )
+    \\ simp [Once v_rel_cases]
+    \\ simp [Once stamp_rel_cases]
+    \\ gvs [state_rel_def])
   \\ Cases_on ‘∃test ty. op = Test test ty’ \\ gs []
   >- (
     Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,

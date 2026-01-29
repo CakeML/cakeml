@@ -229,13 +229,10 @@ Proof
     \\ rw [v_ok_def]
     >~ [`do_arith a ty`]
     >- (
-      Cases_on ‘a’ \\ Cases_on ‘ty’ using prim_type_cases
-      \\ gvs[do_arith_def, CaseEq"list", v_ok_def, CaseEq"bool"]
-    ) >~ [`do_conversion _ ty1 ty2`]
-    >- (
-      Cases_on ‘ty2’ \\ Cases_on ‘ty1’
-      \\ gvs[do_conversion_def, CaseEq"list", v_ok_def, CaseEq"bool"]
-      \\ Cases_on ‘w’ \\ gvs[do_conversion_def, v_ok_def] )
+      gvs[oneline do_arith_def, v_ok_def, AllCaseEqs()]
+      \\ rw [Boolv_def] \\ rw [v_ok_def])
+    >~ [`do_conversion _ ty1 ty2`]
+    >- (gvs[oneline do_conversion_def, v_ok_def, AllCaseEqs()])
     >- (
       gvs [store_alloc_def, post_state_ok_def]
       \\ strip_tac
