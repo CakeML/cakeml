@@ -665,7 +665,6 @@ Proof
     \\ metis_tac[])
   >-
     (qpat_x_assum`_ = SOME w`mp_tac
-    \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
     \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[] \\
     res_tac \\ simp[])
 QED
@@ -797,11 +796,13 @@ Proof
       \\ imp_res_tac state_rel_get_var \\ fs[]
       \\ rw[] \\ fs[] )
     >- (
-      Cases_on ‘r’ \\ gvs [] (* (case r of Reg _ => _ | Imm _ => _) *)
+      old_drule state_rel_word_exp
       \\ qpat_x_assum`_ = SOME _`mp_tac
-      \\ BasicProvers.TOP_CASE_TAC \\ strip_tac
-      \\ imp_res_tac state_rel_get_var
-      \\ gvs [word_exp_def, get_var_def])
+      \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
+      \\ strip_tac
+      \\ ONCE_REWRITE_TAC[CONJ_COMM]
+      \\ disch_then old_drule
+      \\ srw_tac[][] )
     \\ qpat_abbrev_tac`c ⇔ _ ∧ _`
     \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
     >- (
@@ -1526,9 +1527,8 @@ Proof
     \\ ‘FLOOKUP t1'.regs 3 = SOME (Word off') ∧
         FLOOKUP t1'.regs 2 = SOME (Word a) ∧
         FLOOKUP t1'.regs 1 = SOME (Word i)’ by (rpt strip_tac \\ fs [state_rel_def])
-    \\ ‘shift (:α) MOD dimword (:α) < dimindex (:α)’ by
-       fs [state_rel_def,good_dimindex_def,backend_commonTheory.word_shift_def,
-          dimword_def]
+    \\ ‘shift (:α) < dimindex (:α)’ by
+       fs [state_rel_def,good_dimindex_def,backend_commonTheory.word_shift_def]
     \\ fs [wordLangTheory.word_sh_def,FLOOKUP_UPDATE,wordLangTheory.word_op_def]
     \\ qpat_x_assum ‘state_rel jump off k s _’ mp_tac
     \\ rename [‘state_rel jump off k s t6’]
@@ -1536,7 +1536,7 @@ Proof
     \\ TOP_CASE_TAC \\ fs []
     \\ TOP_CASE_TAC \\ fs [the_SOME_Word_def]
     \\ strip_tac
-    \\ qabbrev_tac ‘r2 = t6.regs |+ (t2,Word (i ≪ (shift (:α) MOD dimword (:α)) + ww ≪ (shift (:α) MOD dimword (:α))))’
+    \\ qabbrev_tac ‘r2 = t6.regs |+ (t2,Word (i ≪ shift (:α) + ww ≪ shift (:α)))’
     \\ old_drule (GEN_ALL copy_loop_thm) \\ fs []
     \\ disch_then (qspecl_then [‘t2’,‘t1’] mp_tac) \\ fs []
     \\ fs [word_list_APPEND]
@@ -1548,10 +1548,9 @@ Proof
     \\ disch_then (qspecl_then [‘rest’,‘ww * bytes_in_word’,‘t6 with regs := r2’] mp_tac)
     \\ impl_tac THEN1
      (unabbrev_all_tac \\ fs [get_var_def,FLOOKUP_UPDATE]
+      \\ gvs [lsl_word_shift]
       \\ imp_res_tac memory_fun2set_SUBSET
-      \\ fs [AC STAR_COMM STAR_ASSOC]
-      \\ fs [WORD_MUL_LSL, word_shift_def, dimword_def, bytes_in_word_def,
-             good_dimindex_def])
+      \\ fs [AC STAR_COMM STAR_ASSOC])
     \\ strip_tac \\ qexists_tac ‘ck’ \\ gvs []
     \\ Cases_on ‘b’ \\ fs [FLOOKUP_UPDATE]
     \\ fs [state_rel_def,set_var_def,FLOOKUP_UPDATE,Abbr‘r2’,the_SOME_Word_def]
@@ -2306,7 +2305,7 @@ Proof
     >- (
       full_simp_tac(srw_ss())[word_shift_def]
       \\ rev_full_simp_tac(srw_ss())[state_rel_def,good_dimindex_def]
-      \\ rev_full_simp_tac(srw_ss())[dimword_def] )
+      \\ rev_full_simp_tac(srw_ss())[] )
     \\ simp[]
     \\ ONCE_REWRITE_TAC[GSYM set_var_with_const]
     \\ REWRITE_TAC[with_same_clock]
@@ -2320,8 +2319,6 @@ Proof
     by (
       `0 < dimword (:'a)` by simp[]
       \\ metis_tac[MOD_LESS_EQ,LESS_EQ_TRANS] )
-    \\ cheat
-(*
     \\ reverse CONJ_TAC>- metis_tac[]
     \\ qmatch_assum_abbrev_tac`(a:num) + b * d < dw`
     \\ qmatch_abbrev_tac`d * f < dw`
@@ -2331,9 +2328,7 @@ Proof
       match_mp_tac MOD_LESS_EQ>>
       fs[good_dimindex_def,dimword_def])
     \\ `d * f ≤ d * b ` by metis_tac[LESS_MONO_MULT,MULT_COMM]
-    \\ decide_tac
-*)
-                 )
+    \\ decide_tac)
   THEN1 (* StackSetSize *) (
     simp[comp_def]
     \\ qhdtm_x_assum`evaluate`mp_tac
@@ -2356,7 +2351,7 @@ Proof
     >- (
       full_simp_tac(srw_ss())[word_shift_def]
       \\ rev_full_simp_tac(srw_ss())[state_rel_def,good_dimindex_def]
-      \\ rev_full_simp_tac(srw_ss())[dimword_def])
+      \\ rev_full_simp_tac(srw_ss())[])
     \\ ONCE_REWRITE_TAC[GSYM set_var_with_const]
     \\ ONCE_REWRITE_TAC[GSYM set_var_with_const]
     \\ REWRITE_TAC[with_same_clock]
@@ -2366,7 +2361,7 @@ Proof
     \\ simp[set_var_def,FLOOKUP_UPDATE]
     \\ rev_full_simp_tac(srw_ss())[lsl_word_shift]
     \\ fs[]
-    \\ (* metis_tac[] *) cheat)
+    \\ metis_tac[])
   THEN1 (* BitmapLoad *)
    (full_simp_tac(srw_ss())[stackSemTheory.evaluate_def] \\ every_case_tac
     \\ full_simp_tac(srw_ss())[reg_bound_def,GSYM NOT_LESS] \\ srw_tac[][]
@@ -2406,10 +2401,7 @@ Proof
       \\ full_simp_tac(srw_ss())[mem_load_def]  \\ SEP_R_TAC \\ full_simp_tac(srw_ss())[])
     \\ `good_dimindex(:'a)` by full_simp_tac(srw_ss())[state_rel_def]
     \\ full_simp_tac(srw_ss())[good_dimindex_def,word_shift_def,FLOOKUP_UPDATE]
-    \\ full_simp_tac(srw_ss())[mem_load_def]
-    \\ full_simp_tac(srw_ss())[GSYM mem_load_def]
-    \\ full_simp_tac(srw_ss())[GSYM set_var_def]
-    \\ cheat)
+    \\ full_simp_tac(srw_ss())[mem_load_def] \\ full_simp_tac(srw_ss())[GSYM mem_load_def] \\ full_simp_tac(srw_ss())[GSYM set_var_def])
 QED
 
 Theorem compile_semantics:

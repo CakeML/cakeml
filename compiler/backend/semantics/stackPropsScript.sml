@@ -1007,7 +1007,7 @@ End
 Definition reg_bound_exp_def[simp]:
   (reg_bound_exp (Var n) k ⇔ n < k) ∧
   (reg_bound_exp (Load e) k ⇔ reg_bound_exp e k) ∧
-  (reg_bound_exp (Shift _ e₁ e₂) k ⇔ reg_bound_exp e₁ k ∧ reg_bound_exp e₂ k) ∧
+  (reg_bound_exp (Shift _ e _) k ⇔ reg_bound_exp e k) ∧
   (reg_bound_exp (Lookup _) _ ⇔ F) ∧
   (reg_bound_exp (Op _ es) k ⇔ EVERY (λe. reg_bound_exp e k) es) ∧
   (reg_bound_exp _ _ ⇔ T)
@@ -1020,7 +1020,7 @@ End
 Definition reg_bound_inst_def[simp]:
   (reg_bound_inst (Mem _ n (Addr a _)) k ⇔ n < k ∧ a < k) ∧
   (reg_bound_inst (Const n _) k ⇔ n < k) ∧
-  (reg_bound_inst (Arith (Shift _ n r2 ri)) k ⇔ r2 < k ∧ n < k ∧ (case ri of Reg r1 => r1 < k | _ => T)) ∧
+  (reg_bound_inst (Arith (Shift _ n r2 _)) k ⇔ r2 < k ∧ n < k) ∧
   (reg_bound_inst (Arith (Binop _ n r2 ri)) k ⇔ r2 < k ∧ n < k ∧ (case ri of Reg r1 => r1 < k | _ => T)) ∧
   (reg_bound_inst (Arith (Div r1 r2 r3)) k ⇔ r1 < k ∧ r2 < k ∧ r3 < k) ∧
   (reg_bound_inst (Arith (AddCarry r1 r2 r3 r4)) k ⇔ r1 < k ∧ r2 < k ∧ r3 < k ∧ r4 < k) ∧
