@@ -223,12 +223,6 @@ QED
 Datatype:
  dec =
     Dlet exp
-  (* The first number is the identity for the type. The sptree maps arities to
-   * how many constructors have that arity *)
-  | Dtype num (num spt)
-  (* The first number is the identity of the exception. The second number is the
-   * constructor's arity *)
-  | Dexn num num
 End
 
 Definition bool_id_def:

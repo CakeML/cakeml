@@ -320,7 +320,5 @@ Proof
 QED
 
 Definition compile_dec_def:
-  compile_dec cfg (Dlet exp) = Dlet (SND (SND (compile_exp cfg exp))) /\
-  compile_dec cfg (Dtype tid amap) = Dtype tid amap /\
-  compile_dec cfg (Dexn n n') = Dexn n n'
+  compile_dec cfg (Dlet exp) = Dlet (SND (SND (compile_exp cfg exp)))
 End
