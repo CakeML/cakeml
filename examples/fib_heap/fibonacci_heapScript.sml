@@ -68,8 +68,13 @@ Definition FibTree_Mem_def:
     FibTreeMem(FibTree k v xs))
 End
 
+(*Is there a way to make this definition not use equality with T?*)
 Definition FibTree_Min_def:
-  (FibTreeMin (FibTree(k:'a word) (v:'a word) list) = v)
+  (FibTreeMin (m:'a word) [] = T) /\
+  (FibTreeMin (m:'a word) (FibTree v k ys::xs) =
+    (m <= v) /\
+    (FibTreeMin m xs = T) /\
+    (FibTreeMin m ys = T))
 End
 
 
@@ -87,13 +92,9 @@ End
 Definition FibHeap_Mem_def:
   (FibHeapMem (p:'a word) [] = emp * cond (p = 0w)) /\
   (FibHeapMem (p:'a word) (FibTree h m ys::xs) =
-    cond(p = h) * one(h, m:'a word) * (FibTreeMem (FibTree h m ys)) *
-    (FibHeapRoot (FibTree h m xs)))
-End
-
-Definition FibHeap_Min_def:
-  (FibHeapMin (p:'a word) [] = 0w) /\
-  (FibHeapMin (p:'a word) (x::xs) = FibTreeMin x)
+    one(h, m:'a word) * (FibTreeMem (FibTree h m ys)) *
+    (FibHeapRoot (FibTree h m xs)) *
+    cond(p = h /\ (FibTreeMin m ys) /\ (FibTreeMin m xs)))
 End
 
 (* Double Linked List:
@@ -118,4 +119,12 @@ Definition dll_def:
     dllseg n s xs s b)
 End
 
+(* Need to proof termination, but how?*)
+(* s+next is not dereferenced -> so this is incorrect?*)
+Definition implicit_dll_to_list_def:
+  cdll s e = if s = e then
+    []
+    else
+    (s::(cdll (s+next) e))
+End
 
