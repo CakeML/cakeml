@@ -17,7 +17,7 @@ Ancestors
 Libs
   preamble
 
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 Definition dest_simple_def[simp]:
   (dest_simple (bvl$Op (IntOp (Const i)) xs) = if NULL xs then SOME i else NONE) /\
@@ -26,7 +26,7 @@ End
 
 Theorem dest_simple_pmatch:
     ∀op. dest_simple op =
-    case op of
+    pmatch op of
       bvl$Op (IntOp (Const i)) [] => SOME i
     | _ => NONE
 Proof
@@ -37,14 +37,14 @@ QED
 
 Definition case_op_const_def:
     case_op_const exp =
-        dtcase exp of
+        case exp of
         | (Op op [x1; Op (IntOp (Const n2)) l]) => if NULL l then SOME (op, x1, n2) else NONE
         | _ => NONE
 End
 
 Theorem case_op_const_pmatch:
     ∀exp. case_op_const exp =
-    case exp of
+    pmatch exp of
       | (Op op [x1; Op (IntOp (Const n2)) []]) => SOME (op, x1, n2)
       | _ => NONE
 Proof
@@ -55,7 +55,7 @@ QED
 
 Definition SmartOp_flip_def:
     SmartOp_flip op x1 x2 =
-      dtcase (dest_simple x1) of
+      case (dest_simple x1) of
       | (SOME i) =>
           if MEM op [IntOp Add; IntOp Mult] then (op, x2, x1)
           else if op = IntOp Sub then (IntOp Add, x2, Op (IntOp (Const (-i))) [])
@@ -65,7 +65,7 @@ End
 
 Theorem SmartOp_flip_pmatch:
   !op x1 x2. SmartOp_flip op x1 x2 =
-    case (dest_simple x1) of
+    pmatch (dest_simple x1) of
     | (SOME i) =>
         if MEM op [IntOp Add; IntOp Mult] then (op, x2, x1)
         else if op = IntOp Sub then (IntOp Add, x2, Op (IntOp (Const (-i))) [])
@@ -85,20 +85,20 @@ local val SmartOp2_quotation = `
     in
     let mk_add x1 x2 =
       let default = Op (IntOp Add) [x1; x2] in
-        dtcase (dest_simple x2) of
+        case (dest_simple x2) of
         | (SOME n2) => (
-            dtcase (case_op_const x1) of
+            case (case_op_const x1) of
             | SOME (op, x11, n12) =>
                 if op = IntOp Add then mk_add_const x11 (n2+n12)
                 else if op = IntOp Sub then Op (IntOp Sub) [x11; Op (IntOp (Const (n2+n12))) []]
                 else default
             | _ =>
-                dtcase (dest_simple x1) of
+                case (dest_simple x1) of
                 | SOME n1 => Op (IntOp (Const (n2+n1))) []
                 | _ => mk_add_const x1 n2
         )
         | _ =>
-            dtcase (case_op_const x1, case_op_const x2) of
+            case (case_op_const x1, case_op_const x2) of
             | (SOME (op1, x11, n12), SOME (op2, x21, n22)) =>
                 if op1 = IntOp Add /\ op2 = IntOp Add then
                   mk_add_const (Op (IntOp Add) [x11; x21]) (n22+n12)
@@ -111,20 +111,20 @@ local val SmartOp2_quotation = `
     in
     let mk_sub x1 x2 =
       let default = Op (IntOp Sub) [x1; x2] in
-        dtcase (dest_simple x2) of
+        case (dest_simple x2) of
         | (SOME n2) => (
-            dtcase (case_op_const x1) of
+            case (case_op_const x1) of
             | SOME (op, x11, n12) =>
                 if op = IntOp Add then Op (IntOp Sub) [x11; Op (IntOp (Const (n2-n12))) []]
                 else if op = IntOp Sub then mk_add_const x11 (n2-n12)
                 else default
             | _ =>
-                dtcase (dest_simple x1) of
+                case (dest_simple x1) of
                 | SOME n1 => Op (IntOp (Const (n2-n1))) []
                 | _ => default
         )
         | _ =>
-            dtcase (case_op_const x1, case_op_const x2) of
+            case (case_op_const x1, case_op_const x2) of
             | (SOME (op1, x11, n12), SOME (op2, x21, n22)) =>
                 if op1 = IntOp Add /\ op2 = IntOp Add then
                   Op (IntOp Add) [Op (IntOp Sub) [x11; x21]; Op (IntOp (Const (n22-n12))) []]
@@ -137,14 +137,14 @@ local val SmartOp2_quotation = `
     in
     let mk_mul x1 x2 =
       let default = Op (IntOp Mult) [x1; x2] in
-        dtcase (dest_simple x2) of
+        case (dest_simple x2) of
         | (SOME n2) => (
-            dtcase (case_op_const x1) of
+            case (case_op_const x1) of
             | SOME (op, x11, n12) =>
                 if op = IntOp Mult then Op (IntOp Mult) [x11; Op (IntOp (Const (n2*n12))) []]
                 else default
             | _ =>
-                dtcase (dest_simple x1) of
+                case (dest_simple x1) of
                 | SOME n1 => Op (IntOp (Const (n2*n1))) []
                 | _ =>
                     if n2 = 1 then x1
@@ -152,7 +152,7 @@ local val SmartOp2_quotation = `
                     else default
         )
         | _ =>
-            dtcase (case_op_const x1, case_op_const x2) of
+            case (case_op_const x1, case_op_const x2) of
             | (SOME (op1, x11, n12), SOME (op2, x21, n22)) =>
                 if op1 = IntOp Mult /\ op2 = IntOp Mult then
                   Op (IntOp Mult) [Op (IntOp (Const (n22*n12))) []; Op (IntOp Mult) [x11; x21]]
@@ -167,9 +167,9 @@ local val SmartOp2_quotation = `
     else if op = IntOp Mult then
       mk_mul x1 x2
     else if MEM op [IntOp Div; IntOp Mod; IntOp Less; IntOp LessEq; IntOp Greater; IntOp GreaterEq] then
-      dtcase (dest_simple x1, dest_simple x2) of
+      case (dest_simple x1, dest_simple x2) of
       | (SOME x1, SOME (x2:int)) =>
-          (dtcase op of
+          (case op of
            | IntOp Div => if x1 = 0 then default else Op (IntOp (Const (x2 / x1))) []
            | IntOp Mod => if x1 = 0 then default else Op (IntOp (Const (x2 % x1))) []
            | IntOp Less => Bool (x2 < x1)
@@ -179,21 +179,22 @@ local val SmartOp2_quotation = `
            | _ => default)
       | _ => default
     else if op = BlockOp Equal then
-      dtcase (dest_simple x1, dest_simple x2) of
+      case (dest_simple x1, dest_simple x2) of
       | (SOME i, SOME j) => Bool (j = i)
       | (SOME i, _) => Op (BlockOp (EqualConst (Int i))) [x2]
       | (_, SOME i) => Op (BlockOp (EqualConst (Int i))) [x1]
       | _ => default
     else if op = MemOp El then
-      dtcase dest_simple x1 of
+      case dest_simple x1 of
       | SOME i => if i < 0 then default else Op (BlockOp (ElemAt (Num i))) [x2]
       | _ => default
     else default`
 in
 val SmartOp2_def = Define SmartOp2_quotation
 
+(* NOTE: the space after case and pmatch is important *)
 val tm = (SmartOp2_quotation |>
-   map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
+   map (fn QUOTE s => Portable.replace_string {from="case ",to="pmatch "} s |> QUOTE
        | aq => aq)) |> Term
 
 Theorem SmartOp2_pmatch:
@@ -211,7 +212,7 @@ Definition dest_EqualInt_def:
 End
 
 Theorem dest_EqualInt_pmatch:
-  dest_EqualInt x = case x of BlockOp (EqualConst (Int i)) => SOME i | _ => NONE
+  dest_EqualInt x = pmatch x of BlockOp (EqualConst (Int i)) => SOME i | _ => NONE
 Proof
   CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
   \\ Cases_on ‘x’ \\ EVAL_TAC
@@ -221,10 +222,10 @@ QED
 
 Definition SmartOp1_def:
   SmartOp1 op x =
-    dtcase dest_EqualInt op of
+    case dest_EqualInt op of
     | NONE => Op op [x]
     | SOME i =>
-      dtcase dest_simple x of
+      case dest_simple x of
       | NONE => Op op [x]
       | SOME j => Bool (j = i)
 End
@@ -232,7 +233,7 @@ End
 
 Definition SmartOp_def:
   SmartOp op xs =
-    dtcase xs of
+    case xs of
     | [x1; x2] => SmartOp2 (SmartOp_flip op x1 x2)
     | [x] => SmartOp1 op x
     | _ => Op op xs
@@ -240,7 +241,7 @@ End
 
 Theorem SmartOp_pmatch:
       !op xs. SmartOp op xs =
-      case xs of
+      pmatch xs of
       | [x1;x2] => SmartOp2 (SmartOp_flip op x1 x2)
       | [x] => SmartOp1 op x
       | _ => Op op xs
@@ -260,7 +261,7 @@ End
 
 Theorem extract_pmatch:
     ∀op ys. extract op ys =
-    case op of
+    pmatch op of
       (Var n):bvl$exp => SOME ((Var (n + LENGTH ys + 1)):bvl$exp)
     | Op (IntOp (Const i)) xs => SOME (Op (IntOp (Const i)) [])
     | Op (BlockOp (Cons t)) [] => SOME (Op (BlockOp (Cons t)) [])
@@ -284,7 +285,7 @@ End
 Theorem delete_var_pmatch:
   !op.
   delete_var op =
-    case op of
+    pmatch op of
       Var n => Op (IntOp (Const 0)) []
     | x => x
 Proof
@@ -297,7 +298,7 @@ Definition compile_def:
   (compile env [] = []) /\
   (compile env (x::y::xs) = compile env [x] ++ compile env (y::xs)) /\
   (compile env [Var v] =
-     dtcase LLOOKUP env v of
+     case LLOOKUP env v of
      | NONE => [Var v]
      | SOME NONE => [Var v]
      | SOME (SOME (Var i)) => [Var (v + i)]
@@ -320,7 +321,7 @@ Definition compile_def:
   (compile env [Op op xs] = [SmartOp op (compile env xs)]) /\
   (compile env [Tick x] = [Tick (HD (compile env [x]))]) /\
   (compile env [Force loc v] =
-     dtcase LLOOKUP env v of
+     case LLOOKUP env v of
      | NONE => [Force loc v]
      | SOME NONE => [Force loc v]
      | SOME (SOME (Var i)) => [Force loc (v + i)]
@@ -330,7 +331,7 @@ End
 
 Definition compile_sing_def:
   (compile_sing env (Var v) =
-     dtcase LLOOKUP env v of
+     case LLOOKUP env v of
      | NONE => Var v
      | SOME NONE => Var v
      | SOME (SOME (Var i)) => Var (v + i)
@@ -353,7 +354,7 @@ Definition compile_sing_def:
   (compile_sing env (Op op xs) = SmartOp op (compile_list env xs)) /\
   (compile_sing env (Tick x) = Tick (compile_sing env x)) /\
   (compile_sing env (Force loc v) =
-     dtcase LLOOKUP env v of
+     case LLOOKUP env v of
      | NONE => Force loc v
      | SOME NONE => Force loc v
      | SOME (SOME (Var i)) => Force loc (v + i)
@@ -390,7 +391,7 @@ QED
 
 Definition compile_exp_def:
   compile_exp x =
-    dtcase compile [] [x] of (y::_) => y | _ => Var 0 (* impossible *)
+    case compile [] [x] of (y::_) => y | _ => Var 0 (* impossible *)
 End
 
 Theorem compile_exp_eq = compile_exp_def |> SRULE [compile_eq];
