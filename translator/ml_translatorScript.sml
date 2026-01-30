@@ -1091,9 +1091,7 @@ Theorem Eval_NUM_SUB =
   |> UNDISCH_ALL |> DISCH ``PRECONDITION ((m:num) <= n)``
   |> SIMP_RULE std_ss [GSYM NUM_def,INT_SUB,PRECONDITION_def]
   |> CONV_RULE ((RATOR_CONV o RAND_CONV) (ONCE_REWRITE_CONV [GSYM PRECONDITION_def]))
-  |> DISCH ``Eval env x2 (INT (&m))``
-  |> DISCH ``Eval env x1 (INT (&n))``
-  |> CONV_RULE (REWR_CONV AND_IMP_INTRO)
+  |> DISCH ``Eval env x1 (INT (&n)) /\ Eval env x2 (INT (&m))``
   |> SIMP_RULE std_ss [GSYM NUM_def]
 
 Theorem Eval_NUM_ADD =
@@ -1109,9 +1107,7 @@ Theorem Eval_NUM_DIV =
   |> UNDISCH_ALL |> DISCH ``PRECONDITION (&n2 <> 0:int)``
   |> SIMP_RULE std_ss [GSYM NUM_def,INT_DIV,PRECONDITION_def,INT_INJ]
   |> CONV_RULE ((RATOR_CONV o RAND_CONV) (ONCE_REWRITE_CONV [GSYM PRECONDITION_def]))
-  |> DISCH ``Eval env x2 (INT (&n2))``
-  |> DISCH ``Eval env x1 (INT (&n1))``
-  |> CONV_RULE (REWR_CONV AND_IMP_INTRO)
+  |> DISCH ``Eval env x1 (INT (&n1)) /\ Eval env x2 (INT (&n2))``
   |> SIMP_RULE std_ss [GSYM NUM_def,INT_DIV]
 
 Theorem Eval_NUM_MOD =
@@ -1119,9 +1115,7 @@ Theorem Eval_NUM_MOD =
   |> UNDISCH_ALL |> DISCH ``PRECONDITION (&n2 <> 0:int)``
   |> SIMP_RULE std_ss [GSYM NUM_def,INT_MOD,PRECONDITION_def,INT_INJ]
   |> CONV_RULE ((RATOR_CONV o RAND_CONV) (ONCE_REWRITE_CONV [GSYM PRECONDITION_def]))
-  |> DISCH ``Eval env x2 (INT (&n2))``
-  |> DISCH ``Eval env x1 (INT (&n1))``
-  |> CONV_RULE (REWR_CONV AND_IMP_INTRO)
+  |> DISCH ``Eval env x1 (INT (&n1)) /\ Eval env x2 (INT (&n2))``
   |> SIMP_RULE std_ss [GSYM NUM_def,INT_MOD]
 
 local
