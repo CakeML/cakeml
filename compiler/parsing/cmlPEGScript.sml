@@ -29,7 +29,7 @@ in
 end
 
 
-val _ = computeLib.add_thms distinct_ths computeLib.the_compset
+val _ = (computeLib.the_compset := computeLib.add_thms distinct_ths (!computeLib.the_compset))
 
 Definition sumID_def:
   sumID (INL x) = x ∧

@@ -77,36 +77,36 @@ val r = translate flat_to_closTheory.dest_pat_pmatch;
 val r = translate flat_to_closTheory.arg1_pmatch;
 val r = translate flat_to_closTheory.arg2_pmatch;
 
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 Definition dest_sing_list_def:
   dest_sing_list x =
-    dtcase x of [y] => SOME y | _ => NONE
+    case x of [y] => SOME y | _ => NONE
 End
 
 val r = translate dest_sing_list_def;
 
 Definition dest_App_Ord_pmatch:
   dest_App_Ord x =
-    case x of App _ Ord es => dest_sing_list es | _ => NONE
+    pmatch x of App _ Ord es => dest_sing_list es | _ => NONE
 End
 
 val r = translate dest_App_Ord_pmatch;
 
 Definition dest_App_WordToIntW8_pmatch:
   dest_App_WordToIntW8 x =
-    case x of App _ (WordToInt W8) es => dest_sing_list es | _ => NONE
+    pmatch x of App _ (WordToInt W8) es => dest_sing_list es | _ => NONE
 End
 
 val r = translate dest_App_WordToIntW8_pmatch;
 
 Theorem dest_nop_pmatch:
   dest_nop op e =
-    case op of
+    pmatch op of
     | WordFromInt W8 =>
-        (dtcase dest_sing_list e of NONE => NONE | SOME e => dest_App_Ord e)
+        (case dest_sing_list e of NONE => NONE | SOME e => dest_App_Ord e)
     | Chr =>
-        (dtcase dest_sing_list e of NONE => NONE | SOME e => dest_App_WordToIntW8 e)
+        (case dest_sing_list e of NONE => NONE | SOME e => dest_App_WordToIntW8 e)
     | _ => NONE
 Proof
   CONV_TAC(ONCE_DEPTH_CONV patternMatchesLib.PMATCH_ELIM_CONV)

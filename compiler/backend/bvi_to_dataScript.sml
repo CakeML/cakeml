@@ -8,14 +8,14 @@ Ancestors
 Libs
   preamble
 
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 (* compilation from BVI to dataLang *)
 
 Theorem op_space_reset_pmatch:
   ! op.
   op_space_reset op =
-    case op of
+    pmatch op of
       IntOp Add => T
     | IntOp Sub => T
     | IntOp Mult => T
@@ -43,7 +43,7 @@ QED
 
 Theorem op_requires_names_eqn:
    ∀op. op_requires_names op =
-    (op_space_reset op ∨ (dtcase op of
+    (op_space_reset op ∨ (case op of
                           | FFI n => T
                           | Install => T
                           | MemOp (CopyByte new_flag) => T
@@ -55,7 +55,7 @@ QED
 
 Theorem op_requires_names_pmatch:
    ∀op. op_requires_names op =
-  (op_space_reset op ∨ (case op of
+  (op_space_reset op ∨ (pmatch op of
                         | FFI n => T
                         | Install => T
                         | MemOp (CopyByte new_flag) => T
@@ -200,7 +200,7 @@ Definition compile_sing_def:
          let (c2,vs,n2) = compile_list n1 env (v1::live) xs in
            (Seq c1 c2, v1 :: vs, n2))
 Termination
-  WF_REL_TAC ‘measure $ λx. case x of
+  WF_REL_TAC ‘measure $ λx. pmatch x of
                             | INL (n,env,t,l,x) => exp_size x
                             | INR (n,env,l,xs) => list_size exp_size xs’
   \\ simp[]

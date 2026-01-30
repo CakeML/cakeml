@@ -13,7 +13,7 @@ val _ = set_up_monadic_translator ();
 
 fun allowing_rebind f = Feedback.trace ("Theory.allow_rebinds", 1) f
 
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 (* TODO still some problems with type variables - if 'a not used below,
    some translations fail *)
 
@@ -1048,7 +1048,7 @@ Definition run_quicksort_def:
 End
 
 Definition qsort_def:
-  qsort cmp l = case run_quicksort l cmp of M_success result => result
+  qsort cmp l = pmatch run_quicksort l cmp of M_success result => result
 End
 
 
