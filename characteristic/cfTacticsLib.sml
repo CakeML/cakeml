@@ -424,7 +424,7 @@ fun xspec_in_asl f asl : (spec_kind * term) option =
   asl
 
 fun xspec_in_db f : (string * string * spec_kind * thm) option =
-  case DB.matchp (fn thm => is_spec_for f (concl thm)) [] of
+  case DB.matchp (fn thm => can (find_term (same_const f)) (concl thm) andalso is_spec_for f (concl thm)) [] of
       ((thy, name), (thm, _, _)) :: _ =>
       (case spec_kind_for f (concl thm) of
            SOME k => SOME (thy, name, k, thm)
@@ -461,7 +461,7 @@ val unfolded_app_reduce_conv =
 let
   fun fail_if_F_conv msg tm =
     if Feq tm then raise ERR "xapp" msg
-    else REFL tm
+    else ALL_CONV tm
 
   val fname_lookup_reduce_conv =
     reduce_conv THENC
