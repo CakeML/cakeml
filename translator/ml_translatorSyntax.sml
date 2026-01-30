@@ -17,14 +17,15 @@ val (CONTAINER,mk_CONTAINER,dest_CONTAINER,is_CONTAINER) = monop "CONTAINER";
 val (PRECONDITION,mk_PRECONDITION,dest_PRECONDITION,is_PRECONDITION) = monop "PRECONDITION";
 val (IsTypeRep,mk_IsTypeRep,dest_IsTypeRep,is_IsTypeRep) = binop "IsTypeRep";
 
-val BOOL        = prim_mk_const{Thy="ml_translator",Name="BOOL"}
-val WORD        = prim_mk_const{Thy="ml_translator",Name="WORD"}
-val FLOAT64     = prim_mk_const{Thy="ml_translator",Name="FLOAT64"}
-val NUM         = prim_mk_const{Thy="ml_translator",Name="NUM"}
-val INT         = prim_mk_const{Thy="ml_translator",Name="INT"}
-val CHAR        = prim_mk_const{Thy="ml_translator",Name="CHAR"}
-val STRING_TYPE = prim_mk_const{Thy="ml_translator",Name="STRING_TYPE"}
-val UNIT_TYPE   = prim_mk_const{Thy="ml_translator",Name="UNIT_TYPE"}
+val BOOL            = prim_mk_const{Thy="ml_translator",Name="BOOL"}
+val WORD            = prim_mk_const{Thy="ml_translator",Name="WORD"}
+val FLOAT64         = prim_mk_const{Thy="ml_translator",Name="FLOAT64"}
+val NUM             = prim_mk_const{Thy="ml_translator",Name="NUM"}
+val INT             = prim_mk_const{Thy="ml_translator",Name="INT"}
+val CHAR            = prim_mk_const{Thy="ml_translator",Name="CHAR"}
+val STRING_TYPE     = prim_mk_const{Thy="ml_translator",Name="STRING_TYPE"}
+val HOL_STRING_TYPE = prim_mk_const{Thy="ml_translator",Name="HOL_STRING_TYPE"}
+val UNIT_TYPE       = prim_mk_const{Thy="ml_translator",Name="UNIT_TYPE"}
 
 val DUMMY_TYPE_REP_v = prim_mk_const{Thy="ml_translator",Name="DUMMY_TYPE_REP_v"}
 
