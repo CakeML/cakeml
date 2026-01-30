@@ -1093,6 +1093,7 @@ Theorem Eval_NUM_SUB =
   |> CONV_RULE ((RATOR_CONV o RAND_CONV) (ONCE_REWRITE_CONV [GSYM PRECONDITION_def]))
   |> DISCH ``Eval env x2 (INT (&m))``
   |> DISCH ``Eval env x1 (INT (&n))``
+  |> CONV_RULE (REWR_CONV AND_IMP_INTRO)
   |> SIMP_RULE std_ss [GSYM NUM_def]
 
 Theorem Eval_NUM_ADD =
@@ -1110,6 +1111,7 @@ Theorem Eval_NUM_DIV =
   |> CONV_RULE ((RATOR_CONV o RAND_CONV) (ONCE_REWRITE_CONV [GSYM PRECONDITION_def]))
   |> DISCH ``Eval env x2 (INT (&n2))``
   |> DISCH ``Eval env x1 (INT (&n1))``
+  |> CONV_RULE (REWR_CONV AND_IMP_INTRO)
   |> SIMP_RULE std_ss [GSYM NUM_def,INT_DIV]
 
 Theorem Eval_NUM_MOD =
@@ -1119,6 +1121,7 @@ Theorem Eval_NUM_MOD =
   |> CONV_RULE ((RATOR_CONV o RAND_CONV) (ONCE_REWRITE_CONV [GSYM PRECONDITION_def]))
   |> DISCH ``Eval env x2 (INT (&n2))``
   |> DISCH ``Eval env x1 (INT (&n1))``
+  |> CONV_RULE (REWR_CONV AND_IMP_INTRO)
   |> SIMP_RULE std_ss [GSYM NUM_def,INT_MOD]
 
 local
@@ -2224,7 +2227,6 @@ Proof
 QED
 
 Theorem Eval_strsub:
-   !env x1 x2 s n.
       Eval env x1 (STRING_TYPE s) /\
       Eval env x2 (NUM n) ==>
       n < strlen s ==>
@@ -2483,7 +2485,6 @@ Proof
 QED
 
 Theorem Eval_sub:
-  !env x1 x2 a n v.
      Eval env x1 (VECTOR_TYPE a v) /\
      Eval env x2 (NUM n) ==>
      n < length v ==>
@@ -2497,7 +2498,6 @@ Proof
 QED
 
 Theorem Eval_sub_unsafe:
-  !env x1 x2 a n v.
      Eval env x1 (VECTOR_TYPE a v) /\
      Eval env x2 (NUM n) ==>
      n < length v ==>
@@ -2560,7 +2560,6 @@ Proof
 QED
 
 Theorem Eval_ListAppend:
-   !env x1 x2 a l1 l2.
      Eval env x2 (LIST_TYPE a l1) /\
      Eval env x1 (LIST_TYPE a l2) ==>
      Eval env (App ListAppend [x2;x1]) (LIST_TYPE a (l1 ++ l2))
