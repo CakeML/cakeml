@@ -17,14 +17,16 @@ Definition scan_expr_def:
   (scan_expr ts loc [Tick x] = scan_expr ts loc [x]) ∧
   (scan_expr ts loc [Force _ n] = []) ∧
   (scan_expr ts loc [Call t d xs h] = []) ∧
-  (scan_expr ts loc [Op op xs] = [])
-    (* let opr = from_op op in
+  (scan_expr ts loc [Op op xs] =
+    let opr = from_op op in
     let opt = op_type opr in
-      dtcase opr of
+      case opr of
         Noop => (* Constants? *) []
       | BlockOp _ cons_args => (* Things we can optimize *)
         []
-      | _ => [])*)
+      | _ => [])
+Termination
+  cheat
 End
 
 (*Definition check_exp_def:
@@ -42,14 +44,14 @@ End*)
 
 Definition compile_exp_def:
   compile_exp (loc:num) (next:num) (arity:num) (exp:bvi$exp) =
-    SOME (exp, exp)
-    (*dtcase check_exp loc arity exp of
+    (*SOME (exp, exp)
+    case check_exp loc arity exp of
       NONE => NONE
     | SOME op =>
       let context = REPLICATE arity Any in
       let (r, opt) = rewrite loc next op arity context exp in
       let aux      = let_wrap arity (id_from_op op) opt in
-        SOME (aux, opt)*)
+        SOME (aux, opt)
 End
 
 Definition compile_prog_def:
@@ -77,15 +79,41 @@ val head = “Let [] (Op (BlockOp (ElemAt 0)) [Var 0])”;
 val head_prog = “[(123:num,1:num,^head)]”;
 val head_eval = EVAL “compile_prog 12 ^head_prog”;
 
+(*
 val append_exp = “Op (BlockOp (Cons 9)) []”; (* Cons x (append xs ys) (TODO) *)
 val append_prog = “[(3:num,2:num,^append_exp)]”;
 val append_eval = EVAL “compile_prog 6 ^append_prog”;
+*)
 
+val append_exp = “If (Op (BlockOp (TagLenEq 0 0)) [Var 0]) (Var 1) $
+                  Let [Op (BlockOp (ElemAt 0)) [Var 0];
+                       Op (BlockOp (ElemAt 1)) [Var 0]] $
+                  Op (BlockOp (Cons 0)) [Call 0 (SOME 4000) [Var 1] NONE; Var 3]”;
+val append_prog = “[(4000:num,2:num,^append_exp)]”;
+val append_eval = EVAL “compile_prog 6 ^append_prog”;
+
+(*
+(func my_append@465 (b a)
+   (let
+      (c <- (op (Const 0)))
+      (if (op (TagLenEq 0 0) (var a)) (var b)
+         (let
+            (d <- (op (ElemAt 0) (var a)))
+            (let
+               (e <- (op (ElemAt 1) (var a)))
+           (let
+                  (f <- (op (Const 0)))
+                  (let
+                     (g <- (op (Const 0)))
+                     (op (Cons 0) (call my_append@465 (var b) (var e)) (var d)))))))))
+
+*)
+    
 (*
   Questions:
     1. Let []?
     2. How is pattern matching represented in BVI?
     3. What about: Cons x (Cons x (append xs ys))
-    4. Easy way to compile CakeML -> BVI?
+    4. Easy way to compile CakeML -> BVI? ./cake --explore
     5. Args to BlockOps Cons(Extend)?
 *)
