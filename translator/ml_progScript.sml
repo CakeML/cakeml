@@ -834,7 +834,7 @@ Proof
   \\ irule (SIMP_RULE std_ss [LET_THM] ML_code_Dlet_var) \\ fs []
   \\ first_x_assum $ irule_at $ Pos hd
   \\ fs [eval_rel_def,evaluate_def,state_component_equality,AllCaseEqs(),
-         do_app_def,store_alloc_def, isFpBool_def, getOpClass_def]
+         do_app_def,store_alloc_def, getOpClass_def]
 QED
 
 (* appending an environment *)

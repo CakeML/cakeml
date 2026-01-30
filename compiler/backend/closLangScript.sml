@@ -5,7 +5,7 @@
 *)
 Theory closLang
 Ancestors
-  ast[qualified] backend_common mlstring
+  ast[qualified] backend_common mlstring fpSem
 Libs
   preamble
 

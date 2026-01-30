@@ -401,16 +401,6 @@ Definition type_op_def:
  (type_op:op -> t list -> t -> bool) op ts t=
    case (op,ts) of
       (Opapp, [t1; t2]) => t1 = Tfn t2 t
-    | (Opn _, [t1; t2]) => (t1 = Tint) /\ (t2 = Tint) /\ (t = Tint)
-    | (Opb _, [t1; t2]) => (t1 = Tint) /\ (t2 = Tint) /\ (t = Tbool)
-    | (Opw W8 _, [t1; t2]) => (t1 = Tword8) /\ (t2 = Tword8) /\ (t = Tword8)
-    | (Opw W64 _, [t1; t2]) => (t1 = Tword64) /\ (t2 = Tword64) /\ (t = Tword64)
-    | (FP_top _, [t1; t2; t3]) => (t1 = Tdouble) /\ (t2 = Tdouble) /\ (t3 = Tdouble) /\ (t = Tdouble)
-    | (FP_bop _, [t1; t2]) => (t1 = Tdouble) /\ (t2 = Tdouble) /\ (t = Tdouble)
-    | (FP_uop _, [t1]) =>  ((t1 = Tdouble) /\ (t = Tdouble))
-    | (FP_cmp _, [t1; t2]) =>  (t1 = Tdouble) /\ (t2 = Tdouble) /\ (t = Tbool)
-    | (FpToWord, [t1]) => (t1 = Tdouble) /\ (t = Tword64)
-    | (FpFromWord, [t1]) => (t1 = Tword64) /\ (t = Tdouble)
     | (Shift W8 _ _, [t1]) => (t1 = Tword8) /\ (t = Tword8)
     | (Shift W64 _ _, [t1]) => (t1 = Tword64) /\ (t = Tword64)
     | (Equality, [t1; t2]) => (t1 = t2) /\ (t = Tbool)
@@ -427,18 +417,12 @@ Definition type_op_def:
     | (Aw8sub, [t1; t2]) => (t1 = Tword8array) /\ (t2 = Tint) /\ (t = Tword8)
     | (Aw8length, [t1]) => (t1 = Tword8array) /\ (t = Tint)
     | (Aw8update, [t1; t2; t3]) => (t1 = Tword8array) /\ (t2 = Tint) /\ (t3 = Tword8) /\ (t = Ttup [])
-    | (WordFromInt W8, [t1]) => (t1 = Tint) /\ (t = Tword8)
-    | (WordToInt W8, [t1]) => (t1 = Tword8) /\ (t = Tint)
-    | (WordFromInt W64, [t1]) => (t1 = Tint) /\ (t = Tword64)
-    | (WordToInt W64, [t1]) => (t1 = Tword64) /\ (t = Tint)
     | (CopyStrStr, [t1; t2; t3]) => (t1 = Tstring) /\ (t2 = Tint) /\ (t3 = Tint) /\ (t = Tstring)
     | (CopyStrAw8, [t1; t2; t3; t4; t5]) =>
       (t1 = Tstring) /\ (t2 = Tint) /\ (t3 = Tint) /\ (t4 = Tword8array) /\ (t5 = Tint) /\ (t = Ttup [])
     | (CopyAw8Str, [t1; t2; t3]) => (t1 = Tword8array) /\ (t2 = Tint) /\ (t3 = Tint) /\ (t = Tstring)
     | (CopyAw8Aw8, [t1; t2; t3; t4; t5]) =>
       (t1 = Tword8array) /\ (t2 = Tint) /\ (t3 = Tint) /\ (t4 = Tword8array) /\ (t5 = Tint) /\ (t = Ttup [])
-    | (Chr, [t1]) => (t1 = Tint) /\ (t = Tchar)
-    | (Ord, [t1]) => (t1 = Tchar) /\ (t = Tint)
     | (Implode, [t1]) => (t1 = Tlist Tchar) /\ (t = Tstring)
     | (Explode, [t1]) => (t1 = Tstring) /\ (t = Tlist Tchar)
     | (Strsub, [t1; t2]) => (t1 = Tstring) /\ (t2 = Tint) /\ (t = Tchar)
@@ -705,7 +689,8 @@ type_e tenv tenvE (App op es) t)
 
 /\ (! tenv tenvE l e1 e2.
 (type_e tenv tenvE e1 Tbool /\
-type_e tenv tenvE e2 Tbool)
+type_e tenv tenvE e2 Tbool /\
+l ∈ {And; Or})
 ==>
 type_e tenv tenvE (Log l e1 e2) Tbool)
 

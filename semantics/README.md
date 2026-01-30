@@ -22,9 +22,6 @@ Definition of CakeML abstract syntax (AST).
 ML functions for manipulating HOL terms and types defined as part of the
 CakeML semantics, in particular CakeML abstract syntax.
 
-[ast_tempScript.sml](ast_tempScript.sml):
-Temporary file for extra AST definition
-
 [cmlPtreeConversionScript.sml](cmlPtreeConversionScript.sml):
 Specification of how to convert parse trees to abstract syntax.
 

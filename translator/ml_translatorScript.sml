@@ -1117,7 +1117,7 @@ Proof
   \\ first_x_assum (qspec_then `refs` strip_assume_tac)
   \\ qexists_tac `ck1`
   \\ fs [do_app_def,do_arith_def,check_type_def,
-         INT_def,state_component_equality,opn_lookup_def]
+         INT_def,state_component_equality]
 QED
 
 (* arithmetic for num *)
@@ -1386,8 +1386,8 @@ Theorem Eval_word_lo:
     (if dimindex (:'a) <= 8 then
        App (Test (Compare Lt) (WordT W8)) [x1;x2]
      else
-       App (Test (Compare Lt) IntT) [App (WordToInt W64) [x1];
-                                     App (WordToInt W64) [x2]])
+       App (Test (Compare Lt) IntT) [App (FromTo (WordT W64) IntT) [x1];
+                                     App (FromTo (WordT W64) IntT) [x2]])
     (BOOL (w1 <+ w2))
 Proof
   rw[Eval_rw] \\ Eval2_tac \\ fs [do_app_def,WORD_def,do_test_def,check_type_def]
@@ -1405,7 +1405,7 @@ Proof
     \\ asm_rewrite_tac [GSYM dimword_def]
     \\ rewrite_tac [w2n_lt])
   \\ fs [AllCaseEqs(),PULL_EXISTS,do_test_def,empty_state_def,
-         BOOL_def,w2w_def,word_lsl_n2w,dest_Litv_def]
+         BOOL_def,w2w_def,word_lsl_n2w,dest_Litv_def,do_conversion_def]
   \\ DEP_REWRITE_TAC [LESS_MOD] \\ fs [WORD_LO]
   \\ rpt strip_tac
   \\ irule LESS_LESS_EQ_TRANS
@@ -1422,8 +1422,8 @@ Theorem Eval_word_ls:
     (if dimindex (:'a) <= 8 then
        App (Test (Compare Leq) (WordT W8)) [x1;x2]
      else
-       App (Test (Compare Leq) IntT) [App (WordToInt W64) [x1];
-                                      App (WordToInt W64) [x2]])
+       App (Test (Compare Leq) IntT) [App (FromTo (WordT W64) IntT) [x1];
+                                      App (FromTo (WordT W64) IntT) [x2]])
     (BOOL (w1 <=+ w2))
 Proof
   rw[Eval_rw] \\ Eval2_tac \\ fs [do_app_def,WORD_def,do_test_def,check_type_def]
@@ -1441,7 +1441,7 @@ Proof
     \\ asm_rewrite_tac [GSYM dimword_def]
     \\ rewrite_tac [w2n_lt])
   \\ fs [AllCaseEqs(),PULL_EXISTS,do_test_def,empty_state_def,
-         BOOL_def,w2w_def,word_lsl_n2w,dest_Litv_def]
+         BOOL_def,w2w_def,word_lsl_n2w,dest_Litv_def,do_conversion_def]
   \\ DEP_REWRITE_TAC [LESS_MOD] \\ fs [WORD_LS]
   \\ rpt strip_tac
   \\ irule LESS_LESS_EQ_TRANS
@@ -1495,19 +1495,19 @@ Theorem Eval_w2n:
     Eval env x1 (WORD (w:'a word)) ==>
     Eval env
       (if dimindex (:'a) = 8 then
-         App (WordToInt W8) [x1]
+         App (FromTo (WordT W8) IntT) [x1]
        else if dimindex (:'a) = 64 then
-         App (WordToInt W64) [x1]
+         App (FromTo (WordT W64) IntT) [x1]
        else if dimindex (:'a) < 8 then
-         App (WordToInt W8) [App (Shift W8 Lsr (8 - dimindex (:'a))) [x1]]
+         App (FromTo (WordT W8) IntT) [App (Shift W8 Lsr (8 - dimindex (:'a))) [x1]]
        else
-         App (WordToInt W64) [App (Shift W64 Lsr (64 - dimindex (:'a))) [x1]])
+         App (FromTo (WordT W64) IntT) [App (Shift W64 Lsr (64 - dimindex (:'a))) [x1]])
       (NUM (w2n w))
 Proof
   rw[Eval_rw,WORD_def] \\ fs []
   \\ first_x_assum (qspec_then `refs` strip_assume_tac)
   \\ qexists_tac `ck1`
-  \\ fs [do_app_def,state_component_equality,NUM_def,INT_def]
+  \\ fs [do_app_def,state_component_equality,NUM_def,INT_def,do_conversion_def,check_type_def]
   \\ TRY (fs [w2w_def] \\ assume_tac w2n_lt \\ rfs [dimword_def] \\ NO_TAC)
   \\ EVAL_TAC \\ fs [w2n_w2w_64,w2n_w2w_8]
 QED
@@ -1547,13 +1547,13 @@ Theorem Eval_i2w:
     Eval env x1 (INT n) ==>
     Eval env
       (if dimindex (:'a) = 8 then
-         App (WordFromInt W8) [x1]
+         App (FromTo IntT (WordT W8)) [x1]
        else if dimindex (:'a) = 64 then
-         App (WordFromInt W64) [x1]
+         App (FromTo IntT (WordT W64)) [x1]
        else if dimindex (:'a) < 8 then
-         App (Shift W8 Lsl (8 - dimindex (:'a))) [App (WordFromInt W8) [x1]]
+         App (Shift W8 Lsl (8 - dimindex (:'a))) [App (FromTo IntT (WordT W8)) [x1]]
        else
-         App (Shift W64 Lsl (64 - dimindex (:'a))) [App (WordFromInt W64) [x1]])
+         App (Shift W64 Lsl (64 - dimindex (:'a))) [App (FromTo IntT (WordT W64)) [x1]])
       (WORD ((i2w n):'a word))
 Proof
   rw[Eval_rw,WORD_def] \\ fs [] \\ rfs []
@@ -1561,11 +1561,14 @@ Proof
   \\ qexists_tac `ck1` \\ fs [do_app_def,INT_def]
   \\ fs [state_component_equality]
   \\ TRY
-   (fs [do_app_def,NUM_def,INT_def,w2w_def,integer_wordTheory.i2w_def]
+   (fs [do_app_def,NUM_def,INT_def,w2w_def,integer_wordTheory.i2w_def,
+        check_type_def,do_conversion_def]
     \\ rw [] \\ fs [dimword_def]
-    \\ fs [wordsTheory.word_2comp_n2w,dimword_def] \\ NO_TAC)
-  \\ fs [shift8_lookup_def,shift64_lookup_def,
-         w2w_def,integer_wordTheory.i2w_def,WORD_MUL_LSL,word_mul_n2w]
+    \\ fs [wordsTheory.word_2comp_n2w,dimword_def]
+    \\ fs [empty_state_def]
+    \\ NO_TAC)
+  \\ fs [shift8_lookup_def,shift64_lookup_def,check_type_def,do_conversion_def,
+         w2w_def,integer_wordTheory.i2w_def,WORD_MUL_LSL,word_mul_n2w,empty_state_def]
   \\ rw []
   \\ fs [shift8_lookup_def,shift64_lookup_def,wordsTheory.word_2comp_n2w,
          w2w_def,integer_wordTheory.i2w_def,WORD_MUL_LSL,word_mul_n2w,dimword_def]
@@ -1585,13 +1588,13 @@ Theorem Eval_n2w:
     Eval env x1 (NUM n) ==>
     Eval env
       (if dimindex (:'a) = 8 then
-         App (WordFromInt W8) [x1]
+         App (FromTo IntT (WordT W8)) [x1]
        else if dimindex (:'a) = 64 then
-         App (WordFromInt W64) [x1]
+         App (FromTo IntT (WordT W64)) [x1]
        else if dimindex (:'a) < 8 then
-         App (Shift W8 Lsl (8 - dimindex (:'a))) [App (WordFromInt W8) [x1]]
+         App (Shift W8 Lsl (8 - dimindex (:'a))) [App (FromTo IntT (WordT W8)) [x1]]
        else
-         App (Shift W64 Lsl (64 - dimindex (:'a))) [App (WordFromInt W64) [x1]])
+         App (Shift W64 Lsl (64 - dimindex (:'a))) [App (FromTo IntT (WordT W64)) [x1]])
       (WORD ((n2w n):'a word))
 Proof
   qsuff_tac `n2w n = i2w (& n)` THEN1 fs [Eval_i2w,NUM_def]
@@ -1611,10 +1614,10 @@ Theorem Eval_w2w:
        else if dimindex (:'b) <= 8 then
          App (Shift W64 Lsl (64 - dimindex (:'a)))
            [App (Shift W64 Lsr (8 - dimindex (:'b)))
-              [App (WordFromInt W64) [App (WordToInt W8) [x1]]]]
+              [App (FromTo IntT (WordT W64)) [App (FromTo (WordT W8) IntT) [x1]]]]
        else
          App (Shift W8 Lsl (8 - dimindex (:'a)))
-           [App (WordFromInt W8) [App (WordToInt W64)
+           [App (FromTo IntT (WordT W8)) [App (FromTo (WordT W64) IntT)
               [App (Shift W64 Lsr (64 - dimindex (:'b))) [x1]]]])
       (WORD ((w2w w):'a word))
 Proof
@@ -1638,7 +1641,7 @@ Proof
     \\ fs [Eval_rw,WORD_def] \\ rpt strip_tac \\ rfs []
     \\ pop_assum (qspec_then `refs` mp_tac) \\ strip_tac
     \\ qexists_tac `ck1` \\ fs []
-    \\ simp [do_app_def,empty_state_def]
+    \\ simp [do_app_def,empty_state_def,do_conversion_def,check_type_def]
     \\ fs [shift64_lookup_def,shift8_lookup_def]
     \\ fs [fcpTheory.CART_EQ,w2w,fcpTheory.FCP_BETA,word_lsl_def,word_lsr_def]
     \\ rpt strip_tac
@@ -1653,7 +1656,7 @@ Proof
     \\ fs [Eval_rw,WORD_def] \\ rpt strip_tac \\ rfs []
     \\ pop_assum (qspec_then `refs` mp_tac) \\ strip_tac
     \\ qexists_tac `ck1` \\ fs []
-    \\ simp [do_app_def,empty_state_def]
+    \\ simp [do_app_def,empty_state_def,do_conversion_def,check_type_def]
     \\ fs [shift64_lookup_def,shift8_lookup_def]
     \\ fs [fcpTheory.CART_EQ,w2w,fcpTheory.FCP_BETA,word_lsl_def,word_lsr_def])
 QED
@@ -1788,7 +1791,7 @@ Proof
   \\ rpt (disch_then assume_tac)
   \\ pop_assum (qspec_then `ck1' + ck1''` strip_assume_tac)
   \\ fs[] \\ qexists_tac `ck1 + ck1' + ck1''` \\ fs[]
-  \\ fs[empty_state_def, do_app_def, state_component_equality, isFpBool_def]
+  \\ fs[empty_state_def, do_app_def, state_component_equality]
   \\ fs [check_type_def,do_arith_def]
   \\ fs [fpfma_def, lift_fp_top_def, GSYM float64_fma_def,
          fp64_to_float_float_to_fp64, fp64_mul_add_def]
@@ -1851,7 +1854,7 @@ Theorem Eval_FLOAT_ADD:
 Proof
   rw[Eval_rw,FLOAT64_def,lift_fp_bop_def]
   \\ Eval2_tac \\ fs [do_app_def] \\ rw []
-  \\ fs[empty_state_def, do_app_def, state_component_equality,isFpBool_def,
+  \\ fs[empty_state_def, do_app_def, state_component_equality,
         do_arith_def, fp_bop_comp_def,GSYM float64_add_def, check_type_def]
   \\ EVAL_TAC
 QED
@@ -1864,7 +1867,7 @@ Theorem Eval_FLOAT_SUB:
 Proof
   rw[Eval_rw,FLOAT64_def,lift_fp_bop_def]
   \\ Eval2_tac \\ fs [do_app_def] \\ rw []
-  \\ fs[empty_state_def, do_app_def, state_component_equality,isFpBool_def,
+  \\ fs[empty_state_def, do_app_def, state_component_equality,
         do_arith_def, fp_bop_comp_def,GSYM float64_add_def, check_type_def]
   \\ EVAL_TAC
 QED
@@ -1877,7 +1880,7 @@ Theorem Eval_FLOAT_MULT:
 Proof
   rw[Eval_rw,FLOAT64_def,lift_fp_bop_def]
   \\ Eval2_tac \\ fs [do_app_def] \\ rw []
-  \\ fs[empty_state_def, do_app_def, state_component_equality,isFpBool_def,
+  \\ fs[empty_state_def, do_app_def, state_component_equality,
         do_arith_def, fp_bop_comp_def,GSYM float64_add_def, check_type_def]
   \\ EVAL_TAC
 QED
@@ -1890,7 +1893,7 @@ Theorem Eval_FLOAT_DIV:
 Proof
   rw[Eval_rw,FLOAT64_def,lift_fp_bop_def]
   \\ Eval2_tac \\ fs [do_app_def] \\ rw []
-  \\ fs[empty_state_def, do_app_def, state_component_equality,isFpBool_def,
+  \\ fs[empty_state_def, do_app_def, state_component_equality,
         do_arith_def, fp_bop_comp_def,GSYM float64_add_def, check_type_def]
   \\ EVAL_TAC
 QED
@@ -1964,7 +1967,7 @@ Theorem Eval_FP_cmp[local]:
 Proof
   rw[Eval_rw,FLOAT64_def,BOOL_def,lift_fp_cmp_def]
   \\ Eval2_tac \\ fs [do_app_def,do_test_def,dest_Litv_def] \\ rw []
-  \\ fs[empty_state_def, isFpBool_def, Boolv_def]
+  \\ fs[empty_state_def, Boolv_def]
 QED
 
 local
@@ -1993,7 +1996,7 @@ Theorem Eval_FLOAT_EQ:
 Proof
   rw[Eval_rw,FLOAT64_def,BOOL_def,lift_fp_cmp_def]
   \\ Eval2_tac \\ fs [do_app_def,do_test_def,dest_Litv_def] \\ rw []
-  \\ fs[empty_state_def, isFpBool_def, Boolv_def, check_type_def,
+  \\ fs[empty_state_def, Boolv_def, check_type_def,
         the_Litv_Float64_def, float64_equal_def]
 QED
 
@@ -2043,8 +2046,7 @@ Proof
   \\ first_x_assum (qspec_then `refs` strip_assume_tac)
   \\ fs[empty_state_def]
   \\ qexists_tac `ck1`
-  \\ fs[do_app_def, state_component_equality, isFpBool_def, fp_uop_comp_def,
-        do_arith_def, check_type_def]
+  \\ fs[do_app_def, state_component_equality, fp_uop_comp_def, do_arith_def, check_type_def]
   \\ EVAL_TAC
 QED
 
@@ -2057,8 +2059,7 @@ Proof
   \\ first_x_assum (qspec_then `refs` strip_assume_tac)
   \\ fs[empty_state_def]
   \\ qexists_tac `ck1`
-  \\ fs[do_app_def, state_component_equality, isFpBool_def, fp_uop_comp_def,
-        do_arith_def, check_type_def]
+  \\ fs[do_app_def, state_component_equality, fp_uop_comp_def, do_arith_def, check_type_def]
   \\ EVAL_TAC
 QED
 
@@ -2071,8 +2072,7 @@ Proof
   \\ first_x_assum (qspec_then `refs` strip_assume_tac)
   \\ fs[empty_state_def]
   \\ qexists_tac `ck1`
-  \\ fs[do_app_def, state_component_equality, isFpBool_def, fp_uop_comp_def,
-        do_arith_def, check_type_def]
+  \\ fs[do_app_def, state_component_equality, fp_uop_comp_def, do_arith_def, check_type_def]
   \\ EVAL_TAC
 QED
 

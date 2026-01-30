@@ -1099,20 +1099,20 @@ Definition fp_cmp_inst_def:
 End
 
 Definition fp_top_inst_def:
-  fp_top_inst FP_Fma = FPFma 0 1 2
+  fp_top_inst fpSem$FP_Fma = FPFma 0 1 2
 End
 
 Definition fp_bop_inst_def:
-  fp_bop_inst ast$FP_Add = FPAdd 0 0 1 /\
-  fp_bop_inst ast$FP_Sub = FPSub 0 0 1 /\
-  fp_bop_inst ast$FP_Mul = FPMul 0 0 1 /\
-  fp_bop_inst ast$FP_Div = FPDiv 0 0 1
+  fp_bop_inst fpSem$FP_Add = FPAdd 0 0 1 /\
+  fp_bop_inst fpSem$FP_Sub = FPSub 0 0 1 /\
+  fp_bop_inst fpSem$FP_Mul = FPMul 0 0 1 /\
+  fp_bop_inst fpSem$FP_Div = FPDiv 0 0 1
 End
 
 Definition fp_uop_inst_def:
-  fp_uop_inst FP_Neg = FPNeg 1 0 /\
-  fp_uop_inst FP_Abs = FPAbs 1 0 /\
-  fp_uop_inst FP_Sqrt = FPSqrt 1 0
+  fp_uop_inst fpSem$FP_Neg = FPNeg 1 0 /\
+  fp_uop_inst fpSem$FP_Abs = FPAbs 1 0 /\
+  fp_uop_inst fpSem$FP_Sqrt = FPSqrt 1 0
 End
 
 Definition arg1_def:

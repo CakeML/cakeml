@@ -2252,18 +2252,18 @@ QED
 
 val repeat_clos = process_topdecs `
   fun repeat f x = repeat f (f x);
-  ` |> rator |> rand |> rand
+  ` |> rator |> rand |> rand;
 
 val repeat_body = repeat_clos |> rator |> rand |> rand |> rand |> rand
 
 Definition cause_type_error_def:
-  cause_type_error = App Ord [Lit(IntLit 0)]
+  cause_type_error = App (FromTo CharT IntT) [Lit(IntLit 0)]
 End
 
 Theorem evaluate[simp]:
   evaluate s env [cause_type_error] = (s,Rerr (Rabort Rtype_error))
 Proof
-  fs [evaluate_def,cause_type_error_def,
+  fs [evaluate_def,cause_type_error_def,check_type_def,
       semanticPrimitivesTheory.do_opapp_def,semanticPrimitivesTheory.do_app_def]
 QED
 

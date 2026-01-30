@@ -128,7 +128,7 @@ End
 
 Definition fp_bop_to_display_def:
   fp_bop_to_display op = case op of
-    | ast$FP_Add => empty_item (strlit "FP_Add")
+    | FP_Add => empty_item (strlit "FP_Add")
     | FP_Sub => empty_item (strlit "FP_Sub")
     | FP_Mul => empty_item (strlit "FP_Mul")
     | FP_Div => empty_item (strlit "FP_Div")
@@ -144,18 +144,6 @@ Definition word_size_to_display_def:
   (word_size_to_display W8 = empty_item (strlit "W8"))
   /\
   (word_size_to_display W64 = empty_item (strlit "W64"))
-End
-
-Definition opn_to_display_def:
-  (opn_to_display Plus = empty_item (strlit "Plus"))
-  /\
-  (opn_to_display Minus = empty_item (strlit "Minus"))
-  /\
-  (opn_to_display Times = empty_item (strlit "Times"))
-  /\
-  (opn_to_display Divide = empty_item (strlit "Divide"))
-  /\
-  (opn_to_display Modulo = empty_item (strlit "Modulo"))
 End
 
 Definition opb_to_display_def:
@@ -239,10 +227,6 @@ End
 Definition op_to_display_def:
   op_to_display (p:ast$op) =
   case p of
-  | Opn op => opn_to_display op
-  | Opb op => opb_to_display op
-  | Opw ws op =>
-      Item NONE (strlit "Opw") [ word_size_to_display ws; opw_to_display op ]
   | Shift ws sh num => Item NONE (strlit "Shift")
                             [word_size_to_display ws;
                              shift_to_display sh;
@@ -257,12 +241,6 @@ Definition op_to_display_def:
                          [test_to_display test;
                           prim_type_to_display ty]
   | Equality => empty_item (strlit "Equality")
-  | FP_cmp cmp => fp_cmp_to_display cmp
-  | FP_uop op => fp_uop_to_display op
-  | FP_bop op => fp_bop_to_display op
-  | FP_top op => fp_top_to_display op
-  | FpFromWord => empty_item (strlit "FpFromWord")
-  | FpToWord => empty_item (strlit "FpToWord")
   | Opapp => empty_item (strlit "Opapp")
   | Opassign => empty_item (strlit "Opassign")
   | Opref => empty_item (strlit "Opref")
@@ -271,16 +249,10 @@ Definition op_to_display_def:
   | Aw8sub => empty_item (strlit "Aw8sub")
   | Aw8length => empty_item (strlit "Aw8length")
   | Aw8update => empty_item (strlit "Aw8update")
-  | WordFromInt ws =>
-      Item NONE (strlit "WordFromInt") [word_size_to_display ws]
-  | WordToInt ws =>
-      Item NONE (strlit "WordToInt") [word_size_to_display ws]
   | CopyStrStr => empty_item (strlit "CopyStrStr")
   | CopyStrAw8 => empty_item (strlit "CopyStrAw8")
   | CopyAw8Str => empty_item (strlit "CopyAw8Str")
   | CopyAw8Aw8 => empty_item (strlit "CopyAw8Aw8")
-  | Ord => empty_item (strlit "Ord")
-  | Chr => empty_item (strlit "Chr")
   | Implode => empty_item (strlit "Implode")
   | Explode => empty_item (strlit "Explode")
   | Strsub => empty_item (strlit "Strsub")
@@ -305,15 +277,8 @@ Definition op_to_display_def:
   | ConfigGC => empty_item (strlit "ConfigGC")
   | FFI v35 => empty_item (strlit "FFI v35")
   | Eval => empty_item (strlit "Eval")
-  | Env_id => empty_item (strlit "Eval")
+  | Env_id => empty_item (strlit "Env_id")
   | ThunkOp t => thunk_op_to_display t
-End
-
-Definition lop_to_display_def:
-  lop_to_display (c:ast$lop) =
-  case c of
-  | And => empty_item «And»
-  | Or  => empty_item «Or»
 End
 
 Definition id_to_display_def:
@@ -369,7 +334,7 @@ Definition exp_to_display_def:
   | Fun n e => Item NONE «Fun» [String n; exp_to_display e]
   | App op es => Item NONE «App» (op_to_display op ::
                                   exp_to_display_list es)
-  | Log lop e1 e2 => Item NONE «Log» [lop_to_display lop;
+  | Log lop e1 e2 => Item NONE «Log» [arith_to_display lop;
                                       exp_to_display e1;
                                       exp_to_display e2]
   | If e1 e2 e3 => Item NONE «If» [exp_to_display e1;
@@ -474,10 +439,6 @@ End
 
 Definition flat_op_to_display_def:
   flat_op_to_display op = case op of
-    | Opn op => opn_to_display op
-    | Opb op => opb_to_display op
-    | Opw ws op =>
-        Item NONE (strlit "Opw") [ word_size_to_display ws; opw_to_display op ]
     | Shift ws sh num => Item NONE (strlit "Shift") [
       word_size_to_display ws;
       shift_to_display sh;
@@ -492,12 +453,6 @@ Definition flat_op_to_display_def:
                            [test_to_display test;
                             prim_type_to_display ty]
     | Equality => empty_item (strlit "Equality")
-    | FP_cmp cmp => fp_cmp_to_display cmp
-    | FP_uop op => fp_uop_to_display op
-    | FP_bop op => fp_bop_to_display op
-    | FP_top op => fp_top_to_display op
-    | FpFromWord => empty_item (strlit "FpFromWord")
-    | FpToWord => empty_item (strlit "FpToWord")
     | Opapp => empty_item (strlit "Opapp")
     | Opassign => empty_item (strlit "Opassign")
     | Opref => empty_item (strlit "Opref")
@@ -507,17 +462,11 @@ Definition flat_op_to_display_def:
     | Aw8length => empty_item (strlit "Aw8length")
     | Aw8update => empty_item (strlit "Aw8update")
     | Aw8update_unsafe => empty_item (strlit "Aw8update_unsafe")
-    | WordFromInt ws =>
-        Item NONE (strlit "WordFromInt") [word_size_to_display ws]
-    | WordToInt ws =>
-        Item NONE (strlit "WordToInt") [word_size_to_display ws]
     | CopyStrStr => empty_item (strlit "CopyStrStr")
     | CopyStrAw8 => empty_item (strlit "CopyStrAw8")
     | CopyAw8Str => empty_item (strlit "CopyAw8Str")
     | CopyAw8Aw8 => empty_item (strlit "CopyAw8Aw8")
     | Aw8xor_unsafe => empty_item (strlit "Aw8xor_unsafe")
-    | Ord => empty_item (strlit "Ord")
-    | Chr => empty_item (strlit "Chr")
     | Implode => empty_item (strlit "Implode")
     | Explode => empty_item (strlit "Explode")
     | Strsub => empty_item (strlit "Strsub")

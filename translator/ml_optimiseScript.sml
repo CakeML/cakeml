@@ -405,9 +405,9 @@ Proof
   \\ rveq \\ fs [] \\ rveq \\ fs []
   \\ fs [do_app_def,option_case_eq,v_case_eq,lit_case_eq,do_arith_def]
   \\ gvs [check_type_def |> oneline]
-  \\ fs [opn_lookup_def, dest_binop_def,
-       intLib.COOPER_PROVE ``i + i2 - i2 = i:int``,
-       intLib.COOPER_PROVE ``i - i2 + i2 = i:int``]
+  \\ fs [dest_binop_def,
+         intLib.COOPER_PROVE ``i + i2 - i2 = i:int``,
+         intLib.COOPER_PROVE ``i - i2 + i2 = i:int``]
 QED
 
 (* top-level optimiser *)
