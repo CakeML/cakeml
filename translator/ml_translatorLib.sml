@@ -650,8 +650,6 @@ in
          if name = "prod" then mk_Attup(listSyntax.mk_list(tt,astSyntax.ast_t_ty)) else
          if name = "list" then Atapp tt (astSyntax.mk_Short(name_tm))
                           else Atapp tt (full_id name_tm) end
-  val HOL_STRING_TYPE =
-    HOL_STRING_TYPE_def |> SPEC_ALL |> concl |> dest_eq |> fst |> repeat rator
   fun inst_type_inv (ty,inv) ty0 = let
     val i = match_type ty ty0
     val ii = map (fn {redex = x, residue = y} => (x,y)) i
@@ -681,9 +679,12 @@ in
     if ty = mlstringSyntax.mlstring_ty then STRING_TYPE else
     if ty = float64_ty then FLOAT64 else
     if is_vector_type ty then let
-      val inv = get_type_inv (dest_vector_type ty)
-      in VECTOR_TYPE_def |> ISPEC inv |> SPEC_ALL
-         |> concl |> dest_eq |> fst |> rator |> rator end
+      val a_ty = dest_vector_type ty
+      val inv = get_type_inv (a_ty)
+      val VECTOR_TYPE = prim_mk_const{Thy="ml_translator",Name="VECTOR_TYPE"}
+      in
+        mk_comb(inst[Type.alpha|->a_ty] VECTOR_TYPE,inv)
+      end
     else
       list_inst_type_inv ty (!other_types)
       handle HOL_ERR _ => raise UnsupportedType ty
@@ -3310,6 +3311,7 @@ fun MY_MATCH_MP th1 th2 = let
   in MP (INST s (INST_TYPE i th1)) th2 end;
 
 fun force_remove_fix thx = let
+  (* TODO lift out pat*)
   val pat = Eq_def |> SPEC_ALL |> concl |> dest_eq |> fst
   val xs = map rand (find_terms (can (match_term pat)) (concl thx))
   val s = SIMP_RULE std_ss [Eval_FUN_FORALL_EQ,FUN_QUANT_SIMP]
