@@ -994,9 +994,8 @@ Theorem Eval_NUM_EQ:
   Eval env (App (Test Equal IntT) [x1; x2]) (BOOL (n1 = n2))
 Proof
   rewrite_tac [NUM_def]
-  \\ strip_tac \\ drule Eval_INT_EQ
-  \\ rpt strip_tac
-  \\ first_x_assum dxrule \\ gvs []
+  \\ strip_tac \\ rev_dxrule_all Eval_INT_EQ
+  \\ simp []
 QED
 
 Theorem Eval_Num:
@@ -1010,11 +1009,11 @@ QED
 local
 
 val th0 = Q.SPEC `0` Eval_Val_INT
-val th_sub = MATCH_MP (MATCH_MP Eval_INT_SUB (Q.SPEC `0` Eval_Val_INT))
-            (ASSUME ``Eval env (Var (Short «k»)) (INT k)``)
+val th_sub = MATCH_MP Eval_INT_SUB (CONJ (Q.SPEC `0` Eval_Val_INT)
+            (ASSUME ``Eval env (Var (Short «k»)) (INT k)``))
 val th1 = ASSUME ``Eval env (Var (Short «k»)) (INT k)``
 val th2 = Eval_INT_LESS  |> Q.SPECL [`k`,`0`]
-          |> (fn th => MATCH_MP th th1) |> (fn th => MATCH_MP th th0)
+          |> (fn th => MATCH_MP th (CONJ th1 th0))
 val th = MATCH_MP Eval_If (LIST_CONJ (map (DISCH T) [th2,th_sub,th1]))
          |> REWRITE_RULE [CONTAINER_def]
 val code =
@@ -1127,7 +1126,7 @@ local
 val th0 = Q.SPEC `0` Eval_Val_INT
 val th1 = ASSUME ``Eval env (Var (Short «k»)) (INT k)``
 val th2 = Eval_INT_LESS  |> Q.SPECL [`k`,`0`]
-          |> (fn th => MATCH_MP th th1) |> (fn th => MATCH_MP th th0)
+          |> (fn th => MATCH_MP th (CONJ th1 th0))
 val th = MATCH_MP Eval_If (LIST_CONJ (map (DISCH T) [th2,th0,th1]))
          |> REWRITE_RULE [CONTAINER_def]
 val code =
