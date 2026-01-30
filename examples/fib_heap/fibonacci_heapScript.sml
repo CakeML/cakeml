@@ -7,6 +7,20 @@ Ancestors
 Libs
   wordsLib
 
+(*-------------------------------------------------------------------*
+   Heading here
+ *-------------------------------------------------------------------*)
+
+Datatype:
+  ft = FibTree 'k 'v (ft list)
+End
+
+(*
+Need to provide polymorphic types to ft.
+This does not crash with an exception, but there is also no output.
+*)
+Type fts = “:('k,'v) ft list”;
+
 (* The Fibtree is just a dll. Each key k holds its one tree.
  Key:
  k |-> v,b,n,e,f,p,c,rm where
@@ -19,6 +33,29 @@ Libs
  c = children -> again a Fibtree    6
  rm = rank + mark                   7
 *)
+
+Datatype:
+  node_data = <| value : 'a word ;
+                 edges : 'a word (* TODO: improve *) ;
+                 flag  : bool ;
+                 mark  : bool |>
+End
+
+Datatype:
+  annotated_node_data =
+    <| data       : 'a node_data ;
+       before_ptr : 'a word ;
+       next_ptr   : 'a word ;
+       parent_ptr : 'a word ;
+       child_ptr  : 'a word ;
+       rank       : num |>
+End
+
+Definition annotate_def:  (* TODO: needs helper functions *)
+  annotate ((FibTree k n ts)    : ('a word, 'a node_data) ft) =
+            (FibTree k ARB ARB) : ('a word, 'a annotated_node_data) ft
+End
+
 Definition value_def:
   value = 0w
 End
@@ -51,15 +88,34 @@ Definition rank_mark_def:
   rm = 7w * bytes_in_word
 End
 
-Datatype:
-  ft = FibTree 'k 'v (ft list)
+Definition ones_def:
+  ones a [] = emp ∧
+  ones (a:'a word) ((w:'a word)::ws) =
+    one (a,w) * ones (a + bytes_in_word) ws
 End
 
-(*
-Need to provide polymorphic types to ft.
-This does not crash with an exception, but there is also no output.
-*)
-Type fts = ``:('k,'v)ft list``;
+val test =
+  “ones 400w [x;y;z;e;r;t;y;u:word64]”
+  |> SCONV [ones_def,STAR_ASSOC,byteTheory.bytes_in_word_def];
+
+Definition b2w_def:
+  b2w b = if b then 1w else 0w : 'a word
+End
+
+Definition fts_in_mem_def:
+  fts_in_mem [] = emp ∧
+  fts_in_mem (((FibTree k v ts) : ('a word, 'a annotated_node_data) ft) :: rest) =
+    ones k [v.data.value;
+            v.data.edges;
+            b2w v.data.flag;
+            n2w v.rank] *
+    fts_in_mem ts *
+    fts_in_mem rest
+End
+
+Datatype:
+  fh = FibHeap 'k (('k,'v) ft)
+End
 
 Definition FibTree_Mem_def:
   (FibTreeMem (FibTree (k:'a word) (v:'a word) []) = one(k + child, 0w)) /\
@@ -72,14 +128,9 @@ End
 Definition FibTree_Min_def:
   (FibTreeMin (m:'a word) [] = T) /\
   (FibTreeMin (m:'a word) (FibTree v k ys::xs) =
-    (m <= v) /\
-    (FibTreeMin m xs = T) /\
-    (FibTreeMin m ys = T))
-End
-
-
-Datatype:
-  fh = FibHeap 'k (('k,'v) ft)
+    ((m <= v) /\
+     (FibTreeMin m xs) /\
+     (FibTreeMin m ys)))
 End
 
 Definition FibHeap_Root_def:
@@ -96,6 +147,16 @@ Definition FibHeap_Mem_def:
     (FibHeapRoot (FibTree h m xs)) *
     cond(p = h /\ (FibTreeMin m ys) /\ (FibTreeMin m xs)))
 End
+
+val ft_tm = “FibTree (60w:word64) (6w:word64)
+               [FibTree (70w:word64) (7w:word64) [];
+                FibTree (80w:word64) (8w:word64) []]”;
+
+val test =
+  “FibTreeMem ^ft_tm”
+  |> SCONV [FibTree_Min_def, FibTree_Mem_def];
+
+(*
 
 (* Double Linked List:
         s             e
@@ -128,3 +189,4 @@ Definition implicit_dll_to_list_def:
     (s::(cdll (s+next) e))
 End
 
+*)
