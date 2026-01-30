@@ -334,11 +334,11 @@ val _ = register_type ``:'a list``;
 val _ = register_type ``:('a # 'b)``;
 
 Datatype:
-  tt = A1
-     | B1 tt
-     | C1 (tt option)
-     | D1 (tt list)
-     | E1 (tt # tt)
+  tt = AA1
+     | BB1 tt
+     | CC1 (tt option)
+     | DD1 (tt list)
+     | EE1 (tt # tt)
 End
 
 val _ = register_type ``:tt``;
@@ -348,15 +348,15 @@ val _ = register_type ``:tt``;
 Definition test3_def:
   test3 x =
   (case x of
-   | A1 => [()]
-   | B1 x => test3 x ++ [()]
-   | C1 NONE => []
-   | C1 (SOME x) => test3 x ++ REVERSE (test3 x)
-   | D1 tts =>
+   | AA1 => [()]
+   | BB1 x => test3 x ++ [()]
+   | CC1 NONE => []
+   | CC1 (SOME x) => test3 x ++ REVERSE (test3 x)
+   | DD1 tts =>
        (case tts of
         | [] => [(); ()]
-        | (tt :: tts) => test3 (D1 tts) ++ test3 tt)
-   | E1 (x, y) => REVERSE (test3 x) ++ test3 y)
+        | (tt :: tts) => test3 (DD1 tts) ++ test3 tt)
+   | EE1 (x, y) => REVERSE (test3 x) ++ test3 y)
 End
 
 val r = translate_no_ind test3_def;

@@ -2011,16 +2011,6 @@ Proof
   \\ rveq \\ fs []
 QED
 
-Theorem compile_Dtype_Dexn:
-  ^(get_goal "Dtype") /\ ^(get_goal "Dexn")
-Proof
-  rw []
-  \\ fs [compile_decs_def, flatSemTheory.evaluate_def, evaluate_def]
-  \\ fs [case_eq_thms, bool_case_eq]
-  \\ rveq \\ fs []
-  \\ fs [state_rel_def]
-QED
-
 Theorem compile_decs_nil:
   ^(get_goal "evaluate_decs _ []")
 Proof
@@ -2064,7 +2054,7 @@ Proof
        compile_Lit, compile_Handle, compile_Raise, compile_Let,
        compile_Letrec, compile_Fun, compile_Con, compile_App,
        compile_If, compile_Mat, compile_Var_local, compile_Dlet,
-       compile_Dtype_Dexn, compile_decs_nil, compile_decs_cons])
+       compile_decs_nil, compile_decs_cons])
   \\ asm_rewrite_tac []
 QED
 

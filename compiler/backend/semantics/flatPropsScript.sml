@@ -47,13 +47,11 @@ val st' = ``st':('d,'ffi) state``
 Theorem pmatch_state:
   (∀ ^st p v l ^st' res .
     pmatch st p v l = res ∧
-    st.refs = st'.refs ∧
-    st.c = st'.c
+    st.refs = st'.refs
   ⇒ pmatch st' p v l = res) ∧
   (∀ ^st p vs l ^st' res .
     pmatch_list st p vs l = res ∧
-    st.refs = st'.refs ∧
-    st.c = st'.c
+    st.refs = st'.refs
   ⇒ pmatch_list st' p vs l = res)
 Proof
   ho_match_mp_tac pmatch_ind >>
@@ -331,7 +329,7 @@ QED
 
 Theorem do_app_state_unchanged:
   !c s op vs s' r. do_app s op vs = SOME (s', r) ⇒
-     s'.c = s.c ∧ s'.eval_config = s.eval_config
+     s'.eval_config = s.eval_config
 Proof
   rw [do_app_def,AllCaseEqs()] \\ gvs []
   \\ rpt (pairarg_tac \\ gvs []) \\ gvs []
@@ -1476,8 +1474,7 @@ End
 
 Definition no_Mat_decs_def[simp]:
   no_Mat_decs [] = T /\
-  no_Mat_decs ((Dlet e)::xs) = (no_Mat e /\ no_Mat_decs xs) /\
-  no_Mat_decs (_::xs) = no_Mat_decs xs
+  no_Mat_decs ((Dlet e)::xs) = (no_Mat e /\ no_Mat_decs xs)
 End
 
 Definition mk_flat_install_conf_def:

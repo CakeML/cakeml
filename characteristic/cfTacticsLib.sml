@@ -34,24 +34,25 @@ end
 
 (*------------------------------------------------------------------*)
 
-val cs = computeLib.the_compset
-val () = listLib.list_rws cs
-val () = basicComputeLib.add_basic_compset cs
-val () = semanticsComputeLib.add_semantics_compset cs
-val () = ml_progComputeLib.add_env_compset cs
-val () = cfComputeLib.add_cf_aux_compset cs
-val () = computeLib.extend_compset [
-  computeLib.Defs [
-(*  TS: it's quite unclear to me why CF does this, when ml_progScript is so
-    careful to ensure that these definitions aren't in the compset. I've tried
-    adjusting it, but it results in far too much work. *)
-    ml_progTheory.merge_env_def,
-    ml_progTheory.write_def,
-    ml_progTheory.write_mod_def,
-    ml_progTheory.write_cons_def,
-    ml_progTheory.empty_env_def
-    (*semanticPrimitivesTheory.merge_alist_mod_env_def*)
-  ]] cs
+val cs = !(computeLib.the_compset)
+  |> listLib.list_rws
+  |> basicComputeLib.add_basic_compset
+  |> semanticsComputeLib.add_semantics_compset
+  |> ml_progComputeLib.add_env_compset
+  |> cfComputeLib.add_cf_aux_compset
+  |> computeLib.extend_compset [
+       computeLib.Defs [
+       (*  TS: it's quite unclear to me why CF does this, when ml_progScript is so
+           careful to ensure that these definitions aren't in the compset. I've tried
+           adjusting it, but it results in far too much work. *)
+         ml_progTheory.merge_env_def,
+         ml_progTheory.write_def,
+         ml_progTheory.write_mod_def,
+         ml_progTheory.write_cons_def,
+         ml_progTheory.empty_env_def
+         (*semanticPrimitivesTheory.merge_alist_mod_env_def*)
+       ]
+     ]
 
 val _ = (max_print_depth := 15)
 
@@ -423,7 +424,7 @@ fun xspec_in_asl f asl : (spec_kind * term) option =
   asl
 
 fun xspec_in_db f : (string * string * spec_kind * thm) option =
-  case DB.matchp (fn thm => is_spec_for f (concl thm)) [] of
+  case DB.matchp (fn thm => can (find_term (same_const f)) (concl thm) andalso is_spec_for f (concl thm)) [] of
       ((thy, name), (thm, _, _)) :: _ =>
       (case spec_kind_for f (concl thm) of
            SOME k => SOME (thy, name, k, thm)
@@ -460,7 +461,7 @@ val unfolded_app_reduce_conv =
 let
   fun fail_if_F_conv msg tm =
     if Feq tm then raise ERR "xapp" msg
-    else REFL tm
+    else ALL_CONV tm
 
   val fname_lookup_reduce_conv =
     reduce_conv THENC

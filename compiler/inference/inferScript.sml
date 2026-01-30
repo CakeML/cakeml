@@ -9,7 +9,7 @@ Libs
   preamble
 
 val _ = monadsyntax.temp_add_monadsyntax()
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 (*  The inferencer uses a state monad internally to keep track of unifications at the expressions level *)
 
@@ -32,7 +32,7 @@ Type M = ``:'a -> ('b, 'c) exc # 'a``
 Definition st_ex_bind_def:
   (st_ex_bind : (α, β, γ) M -> (β -> (α, δ, γ) M) -> (α, δ, γ) M) x f =
   λs.
-    dtcase x s of
+    case x s of
       (Success y,s) => f y s
     | (Failure x,s) => (Failure x,s)
 End
@@ -68,7 +68,7 @@ End
 
 Definition lookup_st_ex_def:
   lookup_st_ex l err id ienv st =
-    dtcase nsLookup ienv id of
+    case nsLookup ienv id of
     | NONE => (Failure (l.loc, concat [«Undefined »; err; «: »; id_to_string id]), st)
     | SOME v => (Success v, st)
 End
@@ -116,7 +116,7 @@ End
 Definition add_constraint_def:
   add_constraint (l : loc_err_info) t1 t2 =
   \st.
-    dtcase t_unify st.subst t1 t2 of
+    case t_unify st.subst t1 t2 of
       | NONE =>
           (Failure (l.loc, concat [«Type mismatch between »;
                                    inf_type_to_string l.err
@@ -179,7 +179,7 @@ Definition generalise_def:
   let (num_gen, s', ts') = generalise_list m n s ts in
     (num_gen, s', Infer_Tapp ts' tc)) ∧
 (generalise m n s (Infer_Tuvar uv) =
-  dtcase FLOOKUP s uv of
+  case FLOOKUP s uv of
     | SOME n => (0, s, Infer_Tvar_db n)
     | NONE =>
         if m ≤ uv then
@@ -198,7 +198,7 @@ End
 
 Definition infer_type_subst_def:
 (infer_type_subst s (Tvar tv) =
-  dtcase ALOOKUP s tv of
+  case ALOOKUP s tv of
    | SOME t => t
    | NONE => Infer_Tvar_db 0) ∧ (* should not happen *)
 (infer_type_subst s (Tvar_db n) =
@@ -212,7 +212,7 @@ End
 
 Theorem infer_type_subst_alt:
 (infer_type_subst s (Tvar tv) =
-  dtcase ALOOKUP s tv of
+  case ALOOKUP s tv of
    | SOME t => t
    | NONE => Infer_Tvar_db 0) ∧ (* should not happen *)
 (infer_type_subst s (Tvar_db n) =
@@ -302,7 +302,7 @@ QED
 Theorem st_ex_bind_pair:
   monad_bind x f =
   (λs.
-     dtcase x s of
+     case x s of
      | (Success (y,z),s) => f (y,z) s
      | (Failure x,s) => (Failure x,s))
 Proof
@@ -314,7 +314,7 @@ QED
 Theorem st_ex_bind_triple:
   monad_bind x f =
   (λs.
-     dtcase x s of
+     case x s of
      | (Success (y,z,q),s) => f (y,z,q) s
      | (Failure x,s) => (Failure x,s))
 Proof
@@ -334,21 +334,21 @@ Definition type_name_check_sub_def:
         (λs. if MEM tv fvs then (Success (Tvar tv),s)
              else (Failure (l.loc,INR tv),s))) ∧
    (type_name_check_sub l tenvT fvs (Attup ts) =
-        (λs. dtcase type_name_check_sub_list l tenvT fvs ts s of
+        (λs. case type_name_check_sub_list l tenvT fvs ts s of
                (Success ts',s) => (Success (Ttup ts'),s)
              | (Failure x,s) => (Failure x,s))) ∧
    (type_name_check_sub l tenvT fvs (Atfun t1 t2) =
-        (λs. dtcase type_name_check_sub l tenvT fvs t1 s of
+        (λs. case type_name_check_sub l tenvT fvs t1 s of
                (Success t1',s) =>
-                 (dtcase type_name_check_sub l tenvT fvs t2 s of
+                 (case type_name_check_sub l tenvT fvs t2 s of
                     (Success t2',s) => (Success (Tfn t1' t2'),s)
                   | (Failure x,s) => (Failure x,s))
              | (Failure x,s) => (Failure x,s))) ∧
    (type_name_check_sub l tenvT fvs (Atapp ts tc) =
-        (λs. dtcase type_name_check_sub_list l tenvT fvs ts s of
+        (λs. case type_name_check_sub_list l tenvT fvs ts s of
                (Success ts',s) =>
-                 (dtcase
-                    dtcase nsLookup tenvT tc of
+                 (case
+                    case nsLookup tenvT tc of
                       NONE =>
                         (Failure
                            (l.loc, INL $
@@ -374,9 +374,9 @@ Definition type_name_check_sub_def:
              | (Failure x,s) => (Failure x,s))) ∧
    (type_name_check_sub_list l tenvT fvs [] = (λs. (Success [],s))) ∧
    (type_name_check_sub_list l tenvT fvs (t::ts) =
-       (λs. dtcase type_name_check_sub l tenvT fvs t s of
+       (λs. case type_name_check_sub l tenvT fvs t s of
               (Success t',s) =>
-                (dtcase type_name_check_sub_list l tenvT fvs ts s of
+                (case type_name_check_sub_list l tenvT fvs ts s of
                    (Success ts',s) => (Success (t'::ts'),s)
                  | (Failure x,s) => (Failure x,s))
             | (Failure x,s) => (Failure x,s)))
@@ -385,13 +385,13 @@ End
 Theorem to_type_name_check_sub:
   (∀t l f tenvT fvs.
      type_name_check_subst l f tenvT fvs t =
-     λs:'a. dtcase type_name_check_sub l tenvT fvs t s of
+     λs:'a. case type_name_check_sub l tenvT fvs t s of
          | (Failure (x,INR r),s) => (Failure (x,f r),s)
          | (Failure (x,INL r),s) => (Failure (x,r),s)
          | (Success y,s) => (Success y,s)) ∧
   (∀t l f tenvT fvs.
      type_name_check_subst_list l f tenvT fvs t =
-     λs:'a. dtcase type_name_check_sub_list l tenvT fvs t s of
+     λs:'a. case type_name_check_sub_list l tenvT fvs t s of
          | (Failure (x,INR r),s) => (Failure (x,f r),s)
          | (Failure (x,INL r),s) => (Failure (x,r),s)
          | (Success y,s) => (Success y,s))
@@ -420,12 +420,12 @@ QED
 
 Theorem bind_type_name_check_subst:
   (st_ex_bind (type_name_check_subst l f tenvT fvs t) g =
-   λs:'a. dtcase type_name_check_sub l tenvT fvs t s of
+   λs:'a. case type_name_check_sub l tenvT fvs t s of
           | (Failure (x,INR r),s) => (Failure (x,f r),s)
           | (Failure (x,INL r),s) => (Failure (x,r),s)
           | (Success y,s) => g y s) ∧
   (st_ex_bind (type_name_check_subst_list l f tenvT fvs ts) gs =
-   λs:'a. dtcase type_name_check_sub_list l tenvT fvs ts s of
+   λs:'a. case type_name_check_sub_list l tenvT fvs ts s of
           | (Failure (x,INR r),s) => (Failure (x,f r),s)
           | (Failure (x,INL r),s) => (Failure (x,r),s)
           | (Success y,s) => gs y s)
@@ -451,7 +451,7 @@ End
 Theorem check_dups_eq_find_dup:
   ∀xs.
     st_ex_bind (check_dups l f xs) g =
-    λs. dtcase find_dup xs of
+    λs. case find_dup xs of
         | NONE => g () s
         | SOME x => (Failure (l.loc, f x), s)
 Proof
@@ -533,7 +533,7 @@ Definition infer_p_def:
   (infer_p l ienv (Plit (Float64 f)) =
     failwith l «Floats cannot be used in patterns» ) ∧
   (infer_p l ienv (Pcon cn_opt ps) =
-    dtcase cn_opt of
+    case cn_opt of
       | NONE =>
           do (ts,tenv) <- infer_ps l ienv ps;
              return (Infer_Tapp ts Ttup_num, tenv)
@@ -576,8 +576,8 @@ Definition infer_p_def:
 End
 
 Theorem option_case_rand:
-  (dtcase x of NONE => y | SOME a => f a) s =
-  (dtcase x of NONE => y s | SOME a => f a s)
+  (case x of NONE => y | SOME a => f a) s =
+  (case x of NONE => y s | SOME a => f a s)
 Proof
   Cases_on ‘x’ \\ gvs []
 QED
@@ -608,7 +608,7 @@ Definition op_to_string_def:
   (op_to_string Equality = («Equality», 2)) ∧
   (op_to_string (Arith a ty) =
      («Arith»,
-      dtcase supported_arith a ty of SOME n => (n:num) | NONE => 0n)) ∧
+      case supported_arith a ty of SOME n => (n:num) | NONE => 0n)) ∧
   (op_to_string (FromTo _ _) = («FromTo», 1)) ∧
   (op_to_string (Test _ _) = («Test», 2)) ∧
   (op_to_string Opapp = («Opapp», 2)) ∧
@@ -671,11 +671,11 @@ End
 
 Definition op_simple_constraints_def:
 op_simple_constraints op =
-  dtcase op of
+  case op of
    | Opn _ => (T, [Tem Tint_num; Tem Tint_num], Tem Tint_num)
    | Opb _ => (T, [Tem Tint_num; Tem Tint_num], Tem Tbool_num)
    | Opw wz opw => (T, [Tem (word_tc wz); Tem (word_tc wz)], Tem (word_tc wz))
-   | Arith a ty => (dtcase supported_arith a ty of
+   | Arith a ty => (case supported_arith a ty of
                     | NONE => (F, [], Tem Tbool_num)
                     | SOME arity =>
                        (T, REPLICATE arity (Tem (t_num_of ty)), Tem (t_num_of ty)))
@@ -738,7 +738,7 @@ constrain_op l op ts s =
     else do () <- add_constraints l ts (MAP I op_arg_ts);
       return op_ret_t
     od s
-  else case (op,ts) of
+  else pmatch (op,ts) of
    | (Equality, [t1;t2]) =>
        do () <- add_constraint l t1 t2;
           return (Infer_Tapp [] Tbool_num)
@@ -821,10 +821,10 @@ constrain_op l op ts s =
    | _ => failwith l (op_n_args_msg op (LENGTH ts)) s
 End
 
-Theorem constrain_op_dtcase_def[compute] = CONV_RULE
+Theorem constrain_op_case_def[compute] = CONV_RULE
   (TOP_DEPTH_CONV patternMatchesLib.PMATCH_ELIM_CONV) constrain_op_def;
 
-Theorem constrain_op_expand = constrain_op_dtcase_def
+Theorem constrain_op_expand = constrain_op_case_def
   |> SRULE [st_ex_bind_def,st_ex_return_def];
 
 Theorem st_ex_bind_failure:
@@ -860,7 +860,7 @@ Proof
             st_ex_bind_failure, st_ex_return_def, option_case_eq]
     \\ unabbrev_all_tac \\ fs [mlstringTheory.concat_thm]) >>
   cases_on `op` >>
-  fs [op_to_string_def, constrain_op_dtcase_def, op_simple_constraints_def] >>
+  fs [op_to_string_def, constrain_op_case_def, op_simple_constraints_def] >>
   gvs [LENGTH_EQ_NUM_compute] >>
   rfs [] >>
   fs [add_constraints_def, add_constraint_def, fresh_uvar_def,
@@ -911,7 +911,7 @@ Definition infer_e_def:
        return (infer_deBruijn_subst uvs t)
     od) ∧
   (infer_e l ienv (Con cn_opt es) =
-    dtcase cn_opt of
+    case cn_opt of
         NONE =>
          do ts <- infer_es l ienv es;
             return (Infer_Tapp ts Ttup_num)
@@ -1042,7 +1042,7 @@ Definition infer_e_def:
        return (Infer_Tapp [uvar;t] Tfn_num::ts)
     od)
 Termination
-  WF_REL_TAC ‘measure (\x. dtcase x of
+  WF_REL_TAC ‘measure (\x. case x of
   | INL (_,_,e) => exp_size e
   | INR (INL (_,_,es)) => list_size exp_size es
   | INR (INR (INL (_,_,pes,_,_))) => list_size (pair_size pat_size exp_size) pes
@@ -1187,14 +1187,14 @@ End
 
 Definition infertype_prog_def:
   infertype_prog ienv prog =
-    dtcase FST (infer_ds ienv prog (init_infer_state <| next_uvar := 0; subst := FEMPTY; next_id := start_type_id |>)) of
+    case FST (infer_ds ienv prog (init_infer_state <| next_uvar := 0; subst := FEMPTY; next_id := start_type_id |>)) of
     | Success new_ienv => Success (extend_dec_ienv new_ienv ienv)
     | Failure x => Failure x
 End
 
 Definition infertype_prog_inc_def:
   infertype_prog_inc (ienv, next_id) prog =
-  dtcase infer_ds ienv prog (init_infer_state <| next_id := next_id |>) of
+  case infer_ds ienv prog (init_infer_state <| next_id := next_id |>) of
     (Success new_ienv, st) =>
     (Success (extend_dec_ienv new_ienv ienv, st.next_id))
   | (Failure x, _) => Failure x
@@ -1223,7 +1223,7 @@ Definition infer_subst_def:
   (infer_subst s (Infer_Tvar_db n) = Infer_Tvar_db n) ∧
   (infer_subst s (Infer_Tapp ts tc) = Infer_Tapp (MAP (infer_subst s) ts) tc) ∧
   (infer_subst s (Infer_Tuvar n) =
-    dtcase FLOOKUP s n of
+    case FLOOKUP s n of
         NONE => Infer_Tuvar n
       | SOME m => Infer_Tvar_db m)
 End

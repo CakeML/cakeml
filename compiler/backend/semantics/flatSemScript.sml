@@ -58,8 +58,6 @@ Datatype:
     refs    : v store;
     ffi     : 'ffi ffi_state;
     globals : (v option) list;
-    (* The set of constructors that exist, according to their id, type and arity *)
-    c : ((ctor_id # type_id) # num) set;
     (* eval or install mode *)
     eval_config : 'c install_config
   |>
@@ -651,16 +649,14 @@ QED
 
 Inductive pmatch_stamps_ok:
   ( (* exception constructors *)
-    ((cn, NONE), n_ps) ∈ c
-  ==> pmatch_stamps_ok c (SOME (cn, NONE)) (SOME (cn', NONE)) n_ps n_vs) ∧
+    pmatch_stamps_ok (SOME (cn, NONE)) (SOME (cn', NONE)) n_ps n_vs) ∧
   ( (* constructors *)
-    ((cn, SOME ty_id), n_ps) ∈ c ∧
         ty_id = ty_id' ∧ MEM (cn, n_ps) ctor_set ∧ MEM (cn', n_vs) ctor_set
-  ==> pmatch_stamps_ok c (SOME (cn, (SOME (ty_id, ctor_set))))
+  ==> pmatch_stamps_ok (SOME (cn, (SOME (ty_id, ctor_set))))
     (SOME (cn', SOME ty_id')) n_ps n_vs) ∧
   ( (* tuples *)
     n_ps = n_vs
-  ==> pmatch_stamps_ok c NONE NONE n_ps n_vs)
+  ==> pmatch_stamps_ok NONE NONE n_ps n_vs)
 End
 
 Definition pmatch_def:
@@ -675,10 +671,10 @@ Definition pmatch_def:
     else
       Match_type_error) ∧
   (pmatch s (Pcon stmp ps) (Conv stmp' vs) bindings =
-    if ~ pmatch_stamps_ok s.c stmp stmp' (LENGTH ps) (LENGTH vs) then
+    if ~ pmatch_stamps_ok stmp stmp' (LENGTH ps) (LENGTH vs) then
       Match_type_error
     else if OPTION_MAP FST stmp = OPTION_MAP FST stmp' ∧
-            LENGTH ps = LENGTH vs then
+       LENGTH ps = LENGTH vs then
       pmatch_list s ps vs bindings
     else
       No_match) ∧
@@ -731,15 +727,6 @@ Proof
   Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []
 QED
 
-Definition is_fresh_type_def:
-  is_fresh_type type_id ctors ⇔
-    !ctor. ctor ∈ ctors ⇒ !arity id. ctor ≠ ((id, SOME type_id), arity)
-End
-
-Definition is_fresh_exn_def:
-  is_fresh_exn exn_id ctors ⇔
-    !ctor. ctor ∈ ctors ⇒ !arity. ctor ≠ ((exn_id, NONE), arity)
-End
 
 Definition do_eval_def:
   do_eval (vs :v list) eval_config =
@@ -841,9 +828,7 @@ Proof
 QED
 
 Definition dec_alt_size_def[simp]:
-  dec_alt_size (Dlet a) = 1 + exp_alt_size a ∧
-  dec_alt_size (Dtype a0 a1) = 1 + (a0 + spt_size (λx. x) a1) ∧
-  dec_alt_size (Dexn a0 a1) = 1 + (a0 + a1)
+  dec_alt_size (Dlet a) = 1 + exp_alt_size a
 End
 
 Definition evaluate_def:
@@ -877,13 +862,9 @@ Definition evaluate_def:
       | (s, Rval vs) => (s,Rval [Conv NONE (REVERSE vs)])
       | res => res) ∧
   (evaluate env s [Con _ (SOME cn) es] =
-    if (cn, LENGTH es) ∈ s.c
-    then
-      (case evaluate env s (REVERSE es) of
+    case evaluate env s (REVERSE es) of
       | (s, Rval vs) => (s, Rval [Conv (SOME cn) (REVERSE vs)])
-      | res => res)
-    else
-      (s, Rerr (Rabort Rtype_error))) ∧
+      | res => res) ∧
   (evaluate env s [Var_local _ n] = (s,
    case ALOOKUP env.v n of
    | SOME v => Rval [v]
@@ -962,18 +943,6 @@ Definition evaluate_def:
      else
        (s, SOME (Rabort Rtype_error))
    | (s, Rerr e) => (s, SOME e)) ∧
-  (evaluate_dec s (Dtype id ctors) =
-    if is_fresh_type id s.c then
-      let new_c = { ((idx, SOME id), arity) |
-          ?max. lookup arity ctors = SOME max ∧ idx < max } in
-      (s with c updated_by $UNION new_c, NONE)
-    else
-      (s, SOME (Rabort Rtype_error))) ∧
-  (evaluate_dec s (Dexn id arity) =
-    if is_fresh_exn id s.c then
-      (s with c updated_by $UNION {((id, NONE), arity)}, NONE)
-    else
-      (s, SOME (Rabort Rtype_error))) ∧
   (evaluate_decs s [] = (s, NONE)) ∧
   (evaluate_decs s (d::ds) =
    case fix_clock s (evaluate_dec s d) of
@@ -1016,7 +985,7 @@ Theorem case_eq_thms =
   eqs
 
 Theorem do_app_const:
-  do_app s op vs = SOME (s',r) ⇒ s.clock = s'.clock ∧ s.c = s'.c
+  do_app s op vs = SOME (s',r) ⇒ s.clock = s'.clock
 Proof
   Cases_on ‘op’ \\ rw [do_app_def,AllCaseEqs()]
   \\ rpt (pairarg_tac \\ gvs []) \\ gvs []
@@ -1050,37 +1019,12 @@ Theorem evaluate_def[compute,allow_rebind] =
 Theorem evaluate_ind[allow_rebind] =
   REWRITE_RULE [fix_clock_evaluate] evaluate_ind;
 
-Definition bool_ctors_def[simp]:
-  bool_ctors =
-    { ((true_tag, SOME bool_id), 0n)
-    ; ((false_tag, SOME bool_id), 0n) }
-End
-
-Definition list_ctors_def[simp]:
-  list_ctors =
-    { ((cons_tag, SOME list_id), 2n)
-    ; ((nil_tag, SOME list_id), 0n) }
-End
-
-Definition exn_ctors_def[simp]:
-  exn_ctors =
-    { ((div_tag, NONE), 0n)
-    ; ((chr_tag, NONE), 0n)
-    ; ((subscript_tag, NONE), 0n)
-    ; ((bind_tag, NONE), 0n) }
-End
-
-Definition initial_ctors_def:
-   initial_ctors = bool_ctors UNION list_ctors UNION exn_ctors
-End
-
 Definition initial_state_def:
   initial_state ffi k ec =
     <| clock       := k
      ; refs        := []
      ; ffi         := ffi
      ; globals     := []
-     ; c           := initial_ctors
      ; eval_config := ec
      |> :('c,'ffi) flatSem$state
 End

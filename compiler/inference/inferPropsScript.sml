@@ -527,7 +527,7 @@ QED
 val constrain_op_success =
   ``(constrain_op l op ts st = (Success v, st'))``
   |> (REWRITE_CONV [Once constrain_op_op_case, op_case_eq]
-    THENC SIMP_CONV (srw_ss () ++ CONJ_ss) [constrain_op_dtcase_def,
+    THENC SIMP_CONV (srw_ss () ++ CONJ_ss) [constrain_op_case_def,
         op_simple_constraints_def, LET_THM, bool_case_eq,
         st_ex_bind_success,st_ex_return_success,
         add_constraint_success,failwith_success,
