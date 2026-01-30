@@ -43,9 +43,8 @@ Definition eval_exp_pre_def:
   (eval_exp_pre s (Const w) <=> T) /\
   (eval_exp_pre s (Var v) <=> v IN FDOM s.regs) /\
   (eval_exp_pre s (Op _ [x;y]) <=> eval_exp_pre s x /\ eval_exp_pre s y) /\
-  (eval_exp_pre (s: α state) (Shift sh x1 x2) <=>
-     eval_exp_pre s x1 /\ eval_exp_pre s x2 ∧
-     (w2n (eval_exp s x2) < dimindex (:α))) /\
+  (eval_exp_pre s (Shift sh x1 x2) <=>
+     eval_exp_pre s x1 /\ eval_exp_pre s x2 ∧ (w2n (eval_exp s x2) < 32)) /\
   (eval_exp_pre s _ <=> F)
 End
 
@@ -449,7 +448,7 @@ Proof
     \\ Cases_on `b` \\ fs [word_op_def,eval_exp_def])
   \\ simp [word_sh_def]
   \\ CASE_TAC
-  \\ simp [eval_exp_def]
+  \\ fs [eval_exp_def, good_dimindex_def]
 QED
 
 Theorem evaluate_SeqTemp[local]:
