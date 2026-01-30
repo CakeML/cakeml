@@ -4413,6 +4413,8 @@ val (fname,ml_fname,th,def) = hd thms
         |> SPEC (mlstringSyntax.mk_mlstring ml_fname)
         |> UNDISCH
       else th
+    (* clean up *)
+    val _ = (delete_const o fst o dest_const o fst o dest_eq o concl) code_def
     in
       (is_fun,[(fname,ml_fname,def,th,pre)])
     end
