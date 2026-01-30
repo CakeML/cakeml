@@ -63,6 +63,7 @@ Datatype:
      | TagEq num         (* check Block's tag *)
      | LengthBlock       (* get length of Block *)
      | BoolTest ast$test (* tests for bools *)
+     | BoolNot           (* boolean not *)
      | BoundsCheckBlock  (* check that vector index is within bounds *)
      | ConsExtend num    (* construct a Block with given tag. The first three
                             arguments should be a block followed by two numbers

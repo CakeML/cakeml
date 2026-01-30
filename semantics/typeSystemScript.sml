@@ -374,11 +374,24 @@ Definition supported_arith_def[simp]:
      if MEM a [FMA] then SOME 3 else NONE) ∧
   (supported_arith a (WordT _) =
      if MEM a [Add; Sub; And; Or; Xor] then SOME 2 else NONE) ∧
+  (supported_arith a BoolT =
+     if MEM a [Not] then SOME 1 else NONE) ∧
   (supported_arith a (ty:prim_type) = NONE)
 End
 
 Definition supported_conversion_def[simp]:
+  (* Word to Int conversions *)
   (supported_conversion (WordT W8) IntT = T) ∧
+  (supported_conversion (WordT W64) IntT = T) ∧
+  (* Int to Word conversions *)
+  (supported_conversion IntT (WordT W8) = T) ∧
+  (supported_conversion IntT (WordT W64) = T) ∧
+  (* Char/Int conversions *)
+  (supported_conversion CharT IntT = T) ∧
+  (supported_conversion IntT CharT = T) ∧
+  (* Float64/Word64 conversions *)
+  (supported_conversion Float64T (WordT W64) = T) ∧
+  (supported_conversion (WordT W64) Float64T = T) ∧
   (supported_conversion (from_ty:prim_type) (to_ty:prim_type) = F)
 End
 

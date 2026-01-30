@@ -1556,6 +1556,10 @@ Proof
   >-
    (gvs [closSemTheory.do_app_def,AllCaseEqs()] \\ rw []
     \\ gvs [bvlSemTheory.do_app_def])
+  \\ Cases_on `op = BlockOp BoolNot`
+  >-
+   (gvs [closSemTheory.do_app_def,AllCaseEqs()] \\ rw []
+    \\ gvs [bvlSemTheory.do_app_def])
   \\ Cases_on `∃ws test. op = WordOp (WordTest ws test)`
   >-
    (fs [] \\ Cases_on ‘ws’ \\ Cases_on ‘test’

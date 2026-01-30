@@ -18,15 +18,15 @@ Datatype:
 End
 
 (* Built-in binary operations *)
-Datatype:
+Datatype: (* to be deleted *)
   opn = Plus | Minus | Times | Divide | Modulo
 End
 
-Datatype:
+Datatype: (* to be deleted *)
   opb = Lt | Gt | Leq | Geq
 End
 
-Datatype:
+Datatype: (* to be deleted *)
   opw = Andw | Orw | Xor | Add | Sub
 End
 
@@ -34,19 +34,19 @@ Datatype:
   shift = Lsl | Lsr | Asr | Ror
 End
 
-Datatype:
+Datatype: (* to be deleted *)
   fp_cmp = FP_Less | FP_LessEqual | FP_Greater | FP_GreaterEqual | FP_Equal
 End
 
-Datatype:
+Datatype: (* to be deleted *)
   fp_uop = FP_Abs | FP_Neg | FP_Sqrt
 End
 
-Datatype:
+Datatype: (* to be deleted *)
   fp_bop = FP_Add | FP_Sub | FP_Mul | FP_Div
 End
 
-Datatype:
+Datatype: (* to be deleted *)
   fp_top = FP_Fma
 End
 
@@ -100,21 +100,21 @@ Datatype:
   (* conversions between primitive types: char<->int, word<->double, word<->int *)
   | FromTo prim_type prim_type
   (* Operations on integers *)
-  | Opn opn
-  | Opb opb
+  | Opn opn (* to be deleted *)
+  | Opb opb (* to be deleted *)
   (* Operations on words *)
-  | Opw word_size opw
+  | Opw word_size opw (* to be deleted *)
   | Shift word_size shift num
   | Equality
   | Test test prim_type
   (* FP operations *)
-  | FP_cmp fp_cmp
-  | FP_uop fp_uop
-  | FP_bop fp_bop
-  | FP_top fp_top
+  | FP_cmp fp_cmp (* to be deleted *)
+  | FP_uop fp_uop (* to be deleted *)
+  | FP_bop fp_bop (* to be deleted *)
+  | FP_top fp_top (* to be deleted *)
   (* Floating-point <-> word translations *)
-  | FpFromWord
-  | FpToWord
+  | FpFromWord (* to be deleted *)
+  | FpToWord (* to be deleted *)
   (* Function application *)
   | Opapp
   (* Reference operations *)
@@ -127,8 +127,8 @@ Datatype:
   | Aw8length
   | Aw8update
   (* Word/integer conversions *)
-  | WordFromInt word_size
-  | WordToInt word_size
+  | WordFromInt word_size (* to be deleted *)
+  | WordToInt word_size (* to be deleted *)
   (* string/bytearray conversions *)
   | CopyStrStr
   | CopyStrAw8
@@ -136,8 +136,8 @@ Datatype:
   | CopyAw8Aw8
   | XorAw8Str_unsafe
   (* Char operations *)
-  | Ord
-  | Chr
+  | Ord (* to be deleted *)
+  | Chr (* to be deleted *)
   (* String operations *)
   | Implode
   | Explode
