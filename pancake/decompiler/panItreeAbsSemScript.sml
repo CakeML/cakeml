@@ -1342,7 +1342,9 @@ Theorem ret_satisfy_bind:
 Proof
   rpt strip_tac
   \\ irule ret_satisfy_coind
-  \\ qexists ‘λt. ret_satisfy P t ∨ (∃t' k. t = t' >>= k ∧ ret_satisfy P t' ∧ ∀r. ret_satisfy P (k r))’
+  \\ qexists ‘λt. ret_satisfy P t ∨
+                  (∃t' k. t = t' >>= k ∧ ret_satisfy P t' ∧
+                          ∀r. ret_satisfy P (k r))’
   \\ rpt conj_tac
   >- metis_tac[]
   \\ rpt strip_tac
@@ -1379,6 +1381,148 @@ Proof
      )
   \\ qpat_x_assum ‘ret_satisfy _ (Vis _ _)’ $ assume_tac o SRULE [Once ret_satisfy_cases]
   \\ metis_tac[]
+QED
+
+Theorem ret_satisfy_prog_eq:
+  (∀r. P r ⇒ k r = k' r ) ⇒
+  ret_satisfy P t ⇒
+  t >>= k = t >>= k'
+Proof
+  rpt strip_tac
+  \\ irule $ iffRL itree_strong_bisimulation
+  \\ qexists ‘CURRY ({(t, t) | t | T } ∪ {(t >>= k, t >>= k') | t, k, k' | ret_satisfy P t ∧ (∀r. P r ⇒ k r = k' r ) })’
+  \\ rw[]
+  >- metis_tac[]
+  >- (Cases_on ‘t''’ \\ gvs[]
+      \\ qpat_x_assum ‘ret_satisfy _ (Ret _)’ $ assume_tac o SRULE [Once ret_satisfy_cases]
+      \\ rw[]
+     )
+  >- (Cases_on ‘t''’ \\ gvs[]
+      >- (qpat_x_assum ‘Tau _ = _’ $ assume_tac o GSYM
+          \\ qpat_x_assum ‘ret_satisfy _ (Ret _)’ $ assume_tac o SRULE [Once ret_satisfy_cases]
+          \\ first_x_assum $ qspec_then ‘x’ assume_tac
+          \\ gvs[]
+         )
+      \\ qpat_x_assum ‘ret_satisfy _ (Tau _)’ $ assume_tac o SRULE [Once ret_satisfy_cases]
+      \\ metis_tac[]
+     )
+  \\ Cases_on ‘t''’ \\ fs[]
+  >- (qpat_x_assum ‘Vis _ _ = _’ $ assume_tac o GSYM
+      \\ qpat_x_assum ‘ret_satisfy _ (Ret _)’ $ assume_tac o SRULE [Once ret_satisfy_cases]
+      \\ first_x_assum $ qspec_then ‘x’ assume_tac
+      \\ gvs[]
+     )
+  \\ qpat_x_assum ‘ret_satisfy _ (Vis _ _)’ $ assume_tac o SRULE [Once ret_satisfy_cases]
+  \\ metis_tac[]
+QED
+
+Theorem ret_satisfy_strengthen:
+  (∀r. P r ⇒ Q r) ⇒ ret_satisfy P t ⇒ ret_satisfy Q t
+Proof
+  rpt strip_tac
+  \\ irule ret_satisfy_coind
+  \\ qexists ‘ret_satisfy P’
+  \\ rpt conj_tac
+  >- pop_assum $ irule
+  \\ rpt strip_tac
+  \\ pop_assum $ assume_tac o SRULE[Once ret_satisfy_cases]
+  \\ fs[]
+QED
+
+Theorem ret_satisfy_F_spin:
+  ret_satisfy (λr. F) spin
+Proof
+  rpt strip_tac
+  \\ irule ret_satisfy_coind
+  \\ qexists ‘λx. x = spin’
+  \\ rpt conj_tac
+  >- simp[]
+  \\ rpt strip_tac
+  \\ fs[spin]
+QED
+
+CoInductive event_satisfy:
+  (event_satisfy P (Ret v)) ∧
+  (event_satisfy P t ⇒ event_satisfy P (Tau t)) ∧
+  (P e ∧ (∀r. event_satisfy P (k r)) ⇒ event_satisfy P (Vis e k))
+End
+
+Theorem event_satisfy_bind:
+  event_satisfy P t ∧ (∀r. event_satisfy P (k r)) ⇒ event_satisfy P (t >>= k)
+Proof
+  rpt strip_tac
+  \\ irule event_satisfy_coind
+  \\ qexists ‘λt. event_satisfy P t ∨
+                  (∃t' k. t = t' >>= k ∧ event_satisfy P t' ∧
+                          ∀r. event_satisfy P (k r))’
+  \\ rpt conj_tac
+  >- metis_tac[]
+  \\ rpt strip_tac
+  \\ Cases_on ‘a0’ \\ fs[]
+  >- (pop_assum $ assume_tac o SRULE [Once event_satisfy_cases]
+      \\ simp[]
+     )
+  >- (Cases_on ‘t'’ \\ fs[]
+      >- (qpat_x_assum ‘Tau _ = _’ $ assume_tac o GSYM
+          \\ first_x_assum $ qspec_then ‘x’ assume_tac
+          \\ pop_assum $ assume_tac o SRULE [Once event_satisfy_cases]
+          \\ gvs[]
+         )
+      \\ qpat_x_assum ‘event_satisfy _ (Tau _)’ $ assume_tac o SRULE [Once event_satisfy_cases]
+      \\ metis_tac[]
+     )
+  >- (pop_assum $ assume_tac o SRULE [Once event_satisfy_cases]
+      \\ simp[]
+     )
+  \\ Cases_on ‘t'’ \\ fs[]
+  >- (qpat_x_assum ‘Vis _ _ = _’ $ assume_tac o GSYM
+      \\ first_x_assum $ qspec_then ‘x’ assume_tac
+      \\ pop_assum $ assume_tac o SRULE [Once event_satisfy_cases]
+      \\ gvs[]
+     )
+  \\ qpat_x_assum ‘event_satisfy _ (Vis _ _)’ $ assume_tac o SRULE [Once event_satisfy_cases]
+  \\ metis_tac[]
+QED
+
+
+Theorem event_satisfy_strengthen:
+  (∀r. P r ⇒ Q r) ⇒ event_satisfy P t ⇒ event_satisfy Q t
+Proof
+  rpt strip_tac
+  \\ irule event_satisfy_coind
+  \\ qexists ‘event_satisfy P’
+  \\ rpt conj_tac
+  >- pop_assum $ irule
+  \\ rpt strip_tac
+  \\ pop_assum $ assume_tac o SRULE[Once event_satisfy_cases]
+  \\ fs[]
+QED
+
+Theorem event_satisfy_F_spin:
+  event_satisfy (λr. F) spin
+Proof
+  rpt strip_tac
+  \\ irule event_satisfy_coind
+  \\ qexists ‘λx. x = spin’
+  \\ rpt conj_tac
+  >- simp[]
+  \\ rpt strip_tac
+  \\ fs[spin]
+QED
+
+Theorem event_satisfy_F_non_vis:
+  t ≈ Ret v ⇒ event_satisfy (λr. F) t
+Proof
+  rpt strip_tac
+  \\ irule event_satisfy_coind
+  \\ qexists ‘λx. x ≈ Ret v’
+  \\ rpt conj_tac
+  >- simp[]
+  \\ rpt strip_tac
+  \\ fs[]
+  \\ Cases_on ‘a0’ \\ fs[]
+  \\ pop_assum $ assume_tac o SRULE[Once itree_wbisim_cases]
+  \\ fs[]
 QED
 
 Theorem pswfp_inner_ret_non_error_call_ret_non_error:

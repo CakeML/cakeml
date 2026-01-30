@@ -1,0 +1,25 @@
+fun initialise_array (1 base_addr, 1 len) {
+  var i = 0;
+  while (i < len) {
+    st base_addr + (i * 8), i;
+    i = i + 1;
+  }
+  return 0;
+}
+
+fun sum_array (1 base_addr, 1 len) {
+  var i = 0;
+  var tot = 0;
+  while (i < len) {
+    var x = lds 1 (base_addr + (i * 8));
+    tot = tot + x;
+    i = i + 1;
+  }
+  return tot;
+}
+
+fun call_both (1 base_addr, 1 len) {
+  initialise_array(base_addr, len);
+  var 1 r = sum_array(base_addr, len);
+  return r;
+}
