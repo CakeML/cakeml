@@ -2955,7 +2955,7 @@ val builtin_binops =
    Eval_Implies,
    Eval_pure_seq]
  |> map (fn th =>
-      let th = SPEC_ALL th in
+      let val th = SPEC_ALL th in
       (th |> UNDISCH_ALL |> concl |> rand |> rand |> rator |> rator, th) end)
 
 val builtin_monops =
@@ -2985,7 +2985,7 @@ val builtin_hol_string_binops =
   [Eval_HOL_STRING_EL,
    Eval_HOL_STRING_APPEND]
   |> map (fn th =>
-      let th = SPEC_ALL th in
+      let val th = SPEC_ALL th in
       (th |> UNDISCH_ALL |> concl |> rand |> rand |> rator |> rator, th) end)
 
 val builtin_hol_string_monops =
@@ -3002,7 +3002,7 @@ val builtin_hol_string_monops =
 val builtin_sub_check =
   [Eval_NUM_SUB_check']
  |> map (fn th =>
-      let th = SPEC_ALL th in
+      let val th = SPEC_ALL th in
       (th |> UNDISCH_ALL |> concl |> rand |> rand |> rator |> rator, th) end)
 
 val AUTO_ETA_EXPAND_CONV = let (* K ($=) --> K (\x y. x = y) *)
