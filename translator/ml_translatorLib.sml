@@ -2955,7 +2955,8 @@ val builtin_binops =
    Eval_Implies,
    Eval_pure_seq]
  |> map (fn th =>
-      (th |> SPEC_ALL |> UNDISCH_ALL |> concl |> rand |> rand |> rator |> rator, th))
+      let th = SPEC_ALL th in
+      (th |> UNDISCH_ALL |> concl |> rand |> rand |> rator |> rator, th) end)
 
 val builtin_monops =
   [Eval_implode,
@@ -2984,7 +2985,8 @@ val builtin_hol_string_binops =
   [Eval_HOL_STRING_EL,
    Eval_HOL_STRING_APPEND]
   |> map (fn th =>
-      (th |> SPEC_ALL |> UNDISCH_ALL |> concl |> rand |> rand |> rator |> rator, th))
+      let th = SPEC_ALL th in
+      (th |> UNDISCH_ALL |> concl |> rand |> rand |> rator |> rator, th) end)
 
 val builtin_hol_string_monops =
   [Eval_HOL_STRING_LENGTH,
@@ -3000,7 +3002,8 @@ val builtin_hol_string_monops =
 val builtin_sub_check =
   [Eval_NUM_SUB_check']
  |> map (fn th =>
-      (th |> SPEC_ALL |> UNDISCH_ALL |> concl |> rand |> rand |> rator |> rator, th))
+      let th = SPEC_ALL th in
+      (th |> UNDISCH_ALL |> concl |> rand |> rand |> rator |> rator, th) end)
 
 val AUTO_ETA_EXPAND_CONV = let (* K ($=) --> K (\x y. x = y) *)
   val must_eta_expand_ops =
@@ -3473,7 +3476,7 @@ fun hol2deep tm =
        val (x1,x2) = listSyntax.dest_cons tm
        val th1 = hol2deep x1
        val th2 = hol2deep x2
-       val result = MATCH_MP (MATCH_MP Eval_HOL_STRING_CONS th1) (UNDISCH_ALL th2)
+       val result = (MATCH_MP Eval_HOL_STRING_CONS (CONJ th1 th2))
                   |> UNDISCH_ALL
      in
        check_inv "HOL_STRING_CONS" tm result
@@ -3589,7 +3592,8 @@ fun hol2deep tm =
     val (p,x1,x2,lemma) = dest_builtin_binop tm
     val th1 = hol2deep x1
     val th2 = hol2deep x2
-    val result = MATCH_MP (MATCH_MP lemma th1) (UNDISCH_ALL th2) |> UNDISCH_ALL
+    val result = (MATCH_MP lemma (CONJ th1 th2))
+               |> UNDISCH_ALL
     in check_inv "binop" tm result end else
   (* built-in unary operations *)
   if can dest_builtin_monop tm then let

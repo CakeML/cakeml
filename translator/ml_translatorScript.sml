@@ -760,7 +760,7 @@ Proof
 QED
 
 Theorem Eval_Implies:
-  Eval env x1 (BOOL b1) ==>
+  Eval env x1 (BOOL b1) /\
   Eval env x2 (BOOL b2) ==>
   Eval env (If x1 x2 True_ast) (BOOL (b1 ==> b2))
 Proof
@@ -775,7 +775,7 @@ Proof
 QED
 
 Theorem Eval_BOOL_EQ:
-  Eval env x1 (BOOL b1) ==>
+  Eval env x1 (BOOL b1) /\
   Eval env x2 (BOOL b2) ==>
   Eval env (App (Test Equal BoolT) [x1; x2]) (BOOL (b1 = b2))
 Proof
@@ -938,7 +938,7 @@ QED
 
 Theorem Eval_Opn[local]:
   !f n1 n2.
-        Eval env x1 (INT n1) ==>
+        Eval env x1 (INT n1) /\
         Eval env x2 (INT n2) ==>
         PRECONDITION (((f = Divide) \/ (f = Modulo)) ==> ~(n2 = 0)) ==>
         Eval env (App (Opn f) [x1;x2]) (INT (opn_lookup f n1 n2))
@@ -962,7 +962,7 @@ end;
 
 Theorem Eval_INT_CMP[local]:
   ∀f n1 n2.
-    Eval env x1 (INT n1) ==>
+    Eval env x1 (INT n1) /\
     Eval env x2 (INT n2) ==>
     Eval env (App (Test (Compare f) IntT) [x1;x2]) (BOOL (int_cmp f n1 n2))
 Proof
@@ -977,7 +977,7 @@ Theorem Eval_INT_GREATER    = Eval_INT_CMP |> Q.SPEC ‘Gt’  |> SRULE [int_cmp
 Theorem Eval_INT_GREATER_EQ = Eval_INT_CMP |> Q.SPEC ‘Geq’ |> SRULE [int_cmp_def];
 
 Theorem Eval_INT_EQ:
-  Eval env x1 (INT i1) ==>
+  Eval env x1 (INT i1) /\
   Eval env x2 (INT i2) ==>
   Eval env (App (Test Equal IntT) [x1; x2]) (BOOL (i1 = i2))
 Proof
@@ -989,7 +989,7 @@ Proof
 QED
 
 Theorem Eval_NUM_EQ:
-  Eval env x1 (NUM n1) ==>
+  Eval env x1 (NUM n1) /\
   Eval env x2 (NUM n2) ==>
   Eval env (App (Test Equal IntT) [x1; x2]) (BOOL (n1 = n2))
 Proof
@@ -1122,10 +1122,6 @@ Theorem Eval_NUM_MOD =
   |> DISCH ``Eval env x1 (INT (&n1))``
   |> SIMP_RULE std_ss [GSYM NUM_def,INT_MOD]
 
-val Eval_NUM_MULT =
-  Eval_INT_MULT |> Q.SPECL [`&n1`,`&n2`]
-  |> REWRITE_RULE [GSYM NUM_def,INT_MUL]
-
 local
 
 val th0 = Q.SPEC `0` Eval_Val_INT
@@ -1146,7 +1142,7 @@ Definition sub_check_def:
 End
 
 Theorem Eval_NUM_SUB_check:
-  Eval env x1 (NUM m) ==>
+  Eval env x1 (NUM m) /\
   Eval env x2 (NUM n) ==>
   Eval env ^code (NUM (sub_check m n))
 Proof
@@ -1165,7 +1161,7 @@ Proof
 QED
 
 Theorem Eval_NUM_SUB_check':
-  Eval env x1 (NUM m) ==>
+  Eval env x1 (NUM m) /\
   Eval env x2 (NUM n) ==>
   Eval env ^code (NUM (m - n))
 Proof
@@ -1812,7 +1808,7 @@ QED
 
 Theorem Eval_FP_bop:
   !f f1 f2.
-        Eval env x1 (FLOAT64 f1) ==>
+        Eval env x1 (FLOAT64 f1) /\
         Eval env x2 (FLOAT64 f2) ==>
         Eval env (App (FP_bop f) [x1;x2]) (FLOAT64 (lift_fp_bop f f1 f2))
 Proof
@@ -1899,7 +1895,7 @@ QED
 
 Theorem Eval_FP_cmp[local]:
   !cmp f1 f2.
-    Eval env x1 (FLOAT64 f1) ==>
+    Eval env x1 (FLOAT64 f1) /\
     Eval env x2 (FLOAT64 f2) ==>
     Eval env (App (Test (Compare cmp) Float64T) [x1;x2]) (BOOL (lift_fp_cmp cmp f1 f2))
 Proof
@@ -1928,7 +1924,7 @@ in
 end;
 
 Theorem Eval_FLOAT_EQ:
-  Eval env x1 (FLOAT64 f1) ==>
+  Eval env x1 (FLOAT64 f1) /\
   Eval env x2 (FLOAT64 f2) ==>
   Eval env (App (Test Equal Float64T) [x1;x2]) (BOOL (float64_equal f1 f2))
 Proof
@@ -2132,7 +2128,7 @@ Proof
 QED
 
 Theorem Eval_char_lt:
-  Eval env x1 (CHAR c1) ==>
+  Eval env x1 (CHAR c1) /\
   Eval env x2 (CHAR c2) ==>
   Eval env (App (Test (Compare Lt) CharT) [x1;x2]) (BOOL (c1 < c2))
 Proof
@@ -2143,7 +2139,7 @@ Proof
 QED
 
 Theorem Eval_char_le:
-  Eval env x1 (CHAR c1) ==>
+  Eval env x1 (CHAR c1) /\
   Eval env x2 (CHAR c2) ==>
   Eval env (App (Test (Compare Leq) CharT) [x1;x2]) (BOOL (c1 <= c2))
 Proof
@@ -2154,19 +2150,17 @@ Proof
 QED
 
 Theorem Eval_char_gt = Eval_char_lt
-  |> REWRITE_RULE [GSYM char_gt_def,char_lt_def,GSYM GREATER_DEF,AND_IMP_INTRO]
+  |> REWRITE_RULE [GSYM char_gt_def,char_lt_def,GSYM GREATER_DEF]
   |> Q.INST [‘x1’|->‘x2’,‘x2’|->‘x1’,‘c1’|->‘c2’,‘c2’|->‘c1’]
-  |> ONCE_REWRITE_RULE [CONJ_COMM]
-  |> REWRITE_RULE [GSYM AND_IMP_INTRO];
+  |> ONCE_REWRITE_RULE [CONJ_COMM];
 
 Theorem Eval_char_ge = Eval_char_le
-  |> REWRITE_RULE [GSYM char_ge_def,char_le_def,GSYM GREATER_EQ,AND_IMP_INTRO]
+  |> REWRITE_RULE [GSYM char_ge_def,char_le_def,GSYM GREATER_EQ]
   |> Q.INST [‘x1’|->‘x2’,‘x2’|->‘x1’,‘c1’|->‘c2’,‘c2’|->‘c1’]
-  |> ONCE_REWRITE_RULE [CONJ_COMM]
-  |> REWRITE_RULE [GSYM AND_IMP_INTRO];
+  |> ONCE_REWRITE_RULE [CONJ_COMM];
 
 Theorem Eval_char_eq:
-  Eval env x1 (CHAR c1) ==>
+  Eval env x1 (CHAR c1) /\
   Eval env x2 (CHAR c2) ==>
   Eval env (App (Test Equal CharT) [x1; x2]) (BOOL (c1 = c2))
 Proof
@@ -2232,7 +2226,7 @@ QED
 
 Theorem Eval_strsub:
    !env x1 x2 s n.
-      Eval env x1 (STRING_TYPE s) ==>
+      Eval env x1 (STRING_TYPE s) /\
       Eval env x2 (NUM n) ==>
       n < strlen s ==>
       Eval env (App Strsub [x1; x2]) (CHAR (strsub s n))
@@ -2292,7 +2286,7 @@ Proof
 QED
 
 Theorem Eval_str_eq:
-  Eval env x1 (STRING_TYPE s1) ==>
+  Eval env x1 (STRING_TYPE s1) /\
   Eval env x2 (STRING_TYPE s2) ==>
   Eval env (App (Test Equal StrT) [x1; x2]) (BOOL (s1 = s2))
 Proof
@@ -2349,7 +2343,7 @@ QED
 
 Theorem Eval_HOL_STRING_EL:
    !env x1 x2 s n.
-      Eval env x2 (NUM n) ==>
+      Eval env x2 (NUM n) /\
       Eval env x1 (HOL_STRING_TYPE s) ==>
       n < LENGTH s ==>
       Eval env (App Strsub [x1; x2]) (CHAR (EL n s))
@@ -2372,7 +2366,7 @@ QED
 
 Theorem Eval_HOL_STRING_APPEND:
    !env x1 x2 s1 s2 n.
-      Eval env x1 (HOL_STRING_TYPE s1) ==>
+      Eval env x1 (HOL_STRING_TYPE s1) /\
       Eval env x2 (HOL_STRING_TYPE s2) ==>
       lookup_cons (Short «::») env = SOME (2,TypeStamp «::» 1) /\
       lookup_cons (Short «[]») env = SOME (0,TypeStamp «[]» 1) ==>
@@ -2400,8 +2394,7 @@ Proof
 QED
 
 Theorem Eval_HOL_STRING_CONS:
-   !env x1 x2 c s n.
-      Eval env x1 (CHAR c) ==>
+      Eval env x1 (CHAR c) /\
       Eval env x2 (HOL_STRING_TYPE s) ==>
       lookup_cons (Short «::») env = SOME (2,TypeStamp «::» 1) /\
       lookup_cons (Short «[]») env = SOME (0,TypeStamp «[]» 1) ==>
@@ -2492,7 +2485,7 @@ QED
 
 Theorem Eval_sub:
   !env x1 x2 a n v.
-     Eval env x1 (VECTOR_TYPE a v) ==>
+     Eval env x1 (VECTOR_TYPE a v) /\
      Eval env x2 (NUM n) ==>
      n < length v ==>
      Eval env (App Vsub [x1; x2]) (a (sub v n))
@@ -2506,7 +2499,7 @@ QED
 
 Theorem Eval_sub_unsafe:
   !env x1 x2 a n v.
-     Eval env x1 (VECTOR_TYPE a v) ==>
+     Eval env x1 (VECTOR_TYPE a v) /\
      Eval env x2 (NUM n) ==>
      n < length v ==>
      Eval env (App Vsub_unsafe [x1; x2]) (a (sub_unsafe v n))
@@ -2569,7 +2562,7 @@ QED
 
 Theorem Eval_ListAppend:
    !env x1 x2 a l1 l2.
-     Eval env x2 (LIST_TYPE a l1) ==>
+     Eval env x2 (LIST_TYPE a l1) /\
      Eval env x1 (LIST_TYPE a l2) ==>
      Eval env (App ListAppend [x2;x1]) (LIST_TYPE a (l1 ++ l2))
 Proof
@@ -2595,7 +2588,7 @@ Definition force_unit_type_def[simp,compute]:
 End
 
 Theorem Eval_force_unit_type:
-    Eval env x1 (UNIT_TYPE u) ==>
+    Eval env x1 (UNIT_TYPE u) /\
     Eval env x2 ((a:'a -> v -> bool) y) ==>
     Eval env (Mat x1 [(Pcon NONE [], x2)]) (a (force_unit_type u y))
 Proof
@@ -2619,7 +2612,7 @@ Definition force_gc_to_run_def:
 End
 
 Theorem Eval_force_gc_to_run:
-    Eval env x1 (INT i1) ==>
+    Eval env x1 (INT i1) /\
     Eval env x2 (INT i2) ==>
     Eval env (App ConfigGC [x1; x2]) (UNIT_TYPE (force_gc_to_run i1 i2))
 Proof
@@ -2667,7 +2660,7 @@ Definition pure_seq_def:
 End
 
 Theorem Eval_pure_seq:
-   Eval env x (a a1) ==>
+   Eval env x (a a1) /\
    Eval env y (b b1) ==>
    Eval env (Let NONE x y) (b (pure_seq a1 b1))
 Proof
