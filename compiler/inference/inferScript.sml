@@ -1273,8 +1273,9 @@ Termination
 End
 
 Definition ns_nub_def:
-  ns_nub (Bind xs ys) = Bind (alist_nub xs)
-                             (alist_nub (MAP (\(x,y). (x, ns_nub y)) ys))
+  ns_nub (Bind xs ys) = Bind (alist_nub xs) (alist_nub (inner_ns_nubs ys)) ∧
+  inner_ns_nubs [] = [] ∧
+  inner_ns_nubs ((x,y)::tl) = (x, ns_nub y)::inner_ns_nubs tl
 End
 
 Definition ns_to_alist_def:

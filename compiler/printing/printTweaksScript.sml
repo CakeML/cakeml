@@ -3,7 +3,7 @@
 *)
 Theory printTweaks
 Ancestors
-  addPrintVals addTypePP infer
+  addPrintVals typeDecToPP infer
 Libs
   BasicProvers dep_rewrite[qualified]
 
@@ -285,4 +285,3 @@ Proof
     \\ fs []
   )
 QED
-
