@@ -56,7 +56,7 @@ val _ = (find_def_for_const := def_of_const);
 val _ = use_long_names:=true;
 
 val r = translate typeDecToPPTheory.con_x_i_pat_def;
-val r = translate addTypePPTheory.add_pp_decs_def;
+val r = translate typeDecToPPTheory.add_pp_decs_def;
 
 Theorem OPT_MAP_I[local]:
   ∀g ls. OPT_MMAP I (MAP g ls) = OPT_MMAP g ls
