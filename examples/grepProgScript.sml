@@ -693,11 +693,6 @@ End
 
 val r = translate build_matcher_def;
 
-val build_matcher_side = Q.prove(
-  `∀r s. build_matcher_side r s = T`,
-  rw[definition"build_matcher_side_def"]
-  \\ Cases_on`s` \\ fs[LENGTH_NIL]) |> update_precondition;
-
 val build_matcher_v_thm = theorem"build_matcher_v_thm";
 
 Theorem build_matcher_partial_spec:
