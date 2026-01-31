@@ -21,14 +21,14 @@ val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
 val _ = translation_extends "ml_hol_kernelProg"
 
-val () = ENABLE_PMATCH_CASES();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 (* Can't do this with process_topdecs because the lexer doesn't support
    escape sequences for string literals.
  *)
 Definition parse_strlit_innards_def:
   parse_strlit_innards cs acc =
-  (case cs of
+  (pmatch cs of
            (#"\"" ::cs) => SOME (REVERSE acc,cs)
          | (x::cs) =>
              parse_strlit_innards cs (x::acc)
@@ -55,7 +55,7 @@ val _ = parse_strlit_innards_ind |> update_precondition;
 
 Definition parse_strlit_def:
   parse_strlit cs =
-  (case cs of
+  (pmatch cs of
     (#"\"" :: cs) => parse_strlit_innards cs []
    | _ => NONE)
 End

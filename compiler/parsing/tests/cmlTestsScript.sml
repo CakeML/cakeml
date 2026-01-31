@@ -54,13 +54,13 @@ fun aconv_mod_locs t1 t2 =
 val _ = (
   computeLib.del_consts [“list_CASE”];
   computeLib.add_funs [listTheory.list_case_def];
-  computeLib.set_skip computeLib.the_compset “OPTION_CHOICE” (SOME 1);
-  computeLib.set_skip computeLib.the_compset “OPTION_BIND” (SOME 1);
-  computeLib.set_skip computeLib.the_compset “OPTION_IGNORE_BIND” (SOME 1);
-  computeLib.set_skip computeLib.the_compset “option_CASE” (SOME 1);
-  computeLib.set_skip computeLib.the_compset “list_CASE” (SOME 1);
-  computeLib.set_skip computeLib.the_compset “pair_CASE” (SOME 1);
-  computeLib.set_skip computeLib.the_compset “COND” (SOME 1)
+  computeLib.the_compset := computeLib.set_skip (!computeLib.the_compset) “OPTION_CHOICE” (SOME 1);
+  computeLib.the_compset := computeLib.set_skip (!computeLib.the_compset) “OPTION_BIND” (SOME 1);
+  computeLib.the_compset := computeLib.set_skip (!computeLib.the_compset) “OPTION_IGNORE_BIND” (SOME 1);
+  computeLib.the_compset := computeLib.set_skip (!computeLib.the_compset) “option_CASE” (SOME 1);
+  computeLib.the_compset := computeLib.set_skip (!computeLib.the_compset) “list_CASE” (SOME 1);
+  computeLib.the_compset := computeLib.set_skip (!computeLib.the_compset) “pair_CASE” (SOME 1);
+  computeLib.the_compset := computeLib.set_skip (!computeLib.the_compset) “COND” (SOME 1)
 );
 
 val result_t = ``Result``
