@@ -3098,17 +3098,6 @@ Proof
   Cases_on `b1` \\ Cases_on `x1` \\ Cases_on `x2` \\ Cases_on `y` \\ EVAL_TAC
 QED
 
-Theorem IMP_EQ_F:
-  ~b ==> (b = F)
-Proof
-REWRITE_TAC []
-QED
-Theorem IMP_EQ_T:
-  b ==> (b = T)
-Proof
-REWRITE_TAC []
-QED
-
 Theorem IF_TAKEN:
    !b x y. b ==> ((if b then x else y) = x:'unlikely)
 Proof

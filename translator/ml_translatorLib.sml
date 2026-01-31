@@ -67,8 +67,6 @@ local
      ("PreImp_Eval",``PreImp _ (Eval _ _ _)``),
      ("nsLookup_pat",``nsLookup (env:(α,β,γ) namespace) name``),
      ("pmatch_eq_Match_type_error",``pmatch _ _ _ _ _ = Match_type_error``),
-     ("auto eq proof 1",``!x1:α x2:β x3:γ x4:δ. bbb``),
-     ("auto eq proof 2",``!x1:α x2:β. bbb ==> bbbb``),
      ("remove lookup_cons",``!x1 x2 x3. (lookup_cons x1 x2 = SOME x3) = T``),
      ("no_closure_pat",``!(x:α) v. p x v ==> no_closures v``),
      ("types_match_pat",``!x1:α v1 x2:α v2. p x1 v1 /\ p x2 v2 ==> types_match v1 v2``),
@@ -359,7 +357,7 @@ in
       val (new_pre,th1) =
         (if is_imp (concl (SPEC_ALL new_pre))
          then (* case: new_pre is an induction theorem *)
-           (((MATCH_MP IMP_EQ_T (MP (D new_pre) TRUTH)
+           (((EQT_INTRO (MP (D new_pre) TRUTH)
              handle HOL_ERR _ => new_pre)
              |> PURE_REWRITE_RULE [GSYM CONJ_ASSOC]),
             PURE_REWRITE_RULE [GSYM CONJ_ASSOC] th1)
@@ -552,9 +550,6 @@ fun word_ty_ok ty =
     end
   else false;
 
-val mlstring_ty = mlstringTheory.implode_def |> concl |> rand
-  |> type_of |> dest_type |> snd |> last;
-
 local
   val prim_exn_list = get_term "prim_exn_list"
   val xs = listSyntax.dest_list prim_exn_list |> fst
@@ -627,7 +622,7 @@ in
     if ty = stringSyntax.char_ty then char_ast_t else
     if ty = oneSyntax.one_ty then one_ast_t else
     if use_hol_string_type() andalso ty = stringSyntax.string_ty then string_ast_t else
-    if ty = mlstring_ty then string_ast_t else
+    if ty = mlstringSyntax.mlstring_ty then string_ast_t else
     if ty = float64_ty then double_ast_t else
     if can dest_vartype ty then
       astSyntax.mk_Atvar(mlstringSyntax.mk_mlstring (dest_vartype ty))
@@ -778,9 +773,8 @@ fun get_unique_name str = let
   val initial_name = if size initial_name = 0 then "f" else initial_name
   in find_new_name initial_name end
 
-fun dest_args tm =
-  let val (x,y) = dest_comb tm in dest_args x @ [y] end
-  handle HOL_ERR _ => []
+fun dest_args tm = strip_comb tm
+                 |> snd
 
 fun allowing_rebind f = Feedback.trace ("Theory.allow_rebinds", 1) f
 
@@ -2393,7 +2387,7 @@ fun prove_EvalPatBind goal hol2deep = let
   val vs = find_terms is_var_assum (concl th |> rator)
   val vs' = filter (is_var o rand o rand) vs
   fun delete_var tm =
-    if tmem tm vs' then MATCH_MP IMP_EQ_T (ASSUME tm) else NO_CONV tm
+    if tmem tm vs' then EQT_INTRO (ASSUME tm) else NO_CONV tm
   val th = CONV_RULE (RATOR_CONV (DEPTH_CONV delete_var)) th
   val th = CONV_RULE ((RATOR_CONV o RAND_CONV)
               (PairRules.UNPBETA_CONV vars)) th
@@ -3043,8 +3037,8 @@ val AUTO_ETA_EXPAND_CONV = let (* K ($=) --> K (\x y. x = y) *)
 
 fun force_eqns def = let
   fun f th = if is_eq (concl (SPEC_ALL th)) then th else
-               GEN_ALL (MATCH_MP IMP_EQ_F (SPEC_ALL th)) handle HOL_ERR _ =>
-               GEN_ALL (MATCH_MP IMP_EQ_T (SPEC_ALL th))
+               GEN_ALL (EQF_INTRO (SPEC_ALL th)) handle HOL_ERR _ =>
+               GEN_ALL (EQT_INTRO (SPEC_ALL th))
   in LIST_CONJ (map f (CONJUNCTS (SPEC_ALL def))) end
 
 val use_mem_intro = ref false;
@@ -3220,7 +3214,7 @@ fun move_Eval_conv tm =
     val tm2 = #2 (dest_imp tm1) handle HOL_ERR _ => tm1
   in
     if is_Eval tm2 then
-      MATCH_MP IMP_EQ_T (ASSUME tm)
+      EQT_INTRO (ASSUME tm)
     else NO_CONV tm
   end
 
