@@ -274,7 +274,7 @@ Definition inst_select_exp_def:
       let p2 = inst_select_exp c (temp+1) (temp+1) e2 in
       Seq p1 (Seq p2 (Inst (Arith (Binop op tar temp (Reg (temp+1))))))) ∧
   (inst_select_exp c tar temp (Shift sh exp e1) =
-    dtcase e1 of
+    case e1 of
     | Const shift_len =>
         let n = w2n shift_len in
           if (n < dimindex(:'a)) then
@@ -340,7 +340,7 @@ Theorem inst_select_exp_pmatch:
       let p2 = inst_select_exp c (temp+1) (temp+1) e2 in
       Seq (inst_select_exp c temp temp e1) (Seq p2 (Inst (Arith (Binop op tar temp (Reg (temp+1)))))))
   | Shift sh exp e1 =>
-   (dtcase e1 of
+   (case e1 of
     | Const shift_len =>
         let n = w2n shift_len in
           if (n < dimindex(:'a)) then

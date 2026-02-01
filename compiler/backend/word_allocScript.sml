@@ -143,7 +143,7 @@ Definition ssa_cc_trans_inst_def:
       let (r1',ssa',na') = next_var_rename r1 ssa na in
         (Inst (Arith (Binop bop r1' r2' ri)),ssa',na')) ∧
   (ssa_cc_trans_inst (Arith (Shift shift r1 r2 ri)) ssa na =
-    dtcase ri of
+    case ri of
     | Reg r3 =>
       let r3' = option_lookup ssa r3 in
       let r2' = option_lookup ssa r2 in
@@ -635,7 +635,7 @@ Definition get_live_inst_def:
     case ri of Reg r3 => insert r2 () (insert r3 () (delete r1 live))
     | _ => insert r2 () (delete r1 live)) ∧
   (get_live_inst (Arith (Shift shift r1 r2 ri)) live =
-    dtcase ri of Reg r3 => insert r2 () (insert r3 () (delete r1 live))
+    case ri of Reg r3 => insert r2 () (insert r3 () (delete r1 live))
     | _ => insert r2 () (delete r1 live)) ∧
   (get_live_inst (Arith (Div r1 r2 r3)) live =
     (insert r3 () (insert r2 () (delete r1 live)))) ∧
@@ -953,7 +953,7 @@ Definition get_delta_inst_def:
     case ri of Reg r3 => Delta [r1] [r2;r3]
                   | _ => Delta [r1] [r2]) ∧
   (get_delta_inst (Arith (Shift shift r1 r2 ri)) =
-    dtcase ri of Reg r3 => Delta [r1] [r2;r3]
+    case ri of Reg r3 => Delta [r1] [r2;r3]
                   | _ => Delta [r1] [r2]) ∧
   (get_delta_inst (Arith (Div r1 r2 r3)) = Delta [r1] [r3;r2]) ∧
   (get_delta_inst (Arith (AddCarry r1 r2 r3 r4)) = Delta [r1;r4] [r4;r3;r2]) ∧
@@ -1161,7 +1161,7 @@ Definition get_heu_inst_def:
         (add1_lhs_reg r1
         (add1_rhs_reg r2 lr)))) ∧
   (get_heu_inst (Arith (Shift shift r1 r2 ri)) lr =
-    (dtcase ri of
+    (case ri of
       Reg r3 => (* r1 := r2 (shift) r3*)
         (add1_lhs_reg r1
         (add1_rhs_reg r3 (add1_rhs_reg r2 lr)))
