@@ -3,7 +3,7 @@
 *)
 Theory infer_cv[no_sig_docs]
 Ancestors
-  misc typeSystem ast namespace infer inferProps basis_cv unify_cv
+  misc typeSystem ast namespace infer inferProps basis_cv unify_cv source_cv
 Libs
   preamble cv_transLib
 
