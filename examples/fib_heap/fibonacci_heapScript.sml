@@ -3,7 +3,7 @@
 *)
 Theory fibonacci_heap
 Ancestors
-  misc words arithmetic list set_sep
+  misc words arithmetic list set_sep pair
 Libs
   wordsLib
 
@@ -36,7 +36,7 @@ Type fts = “:('k,'v) ft list”;
 
 
 Datatype:
-  array = End ('a word) | Fields field;
+  array = End | Fields field;
   field = <| edge : 'a word;
              value: num;
              next: array; |>
@@ -44,7 +44,7 @@ End
 
 Datatype:
   node_data = <| value : 'a word ;
-                 edges : 'a array;
+                 edges : ('a word # num # 'a array);
                  flag  : bool ;
                  mark  : bool |>
 End
@@ -123,32 +123,33 @@ Definition value_def:
   value = 0w
 End
 
-Definition previous_def:
-  previous = bytes_in_word
-End
-
-Definition next_def:
-  next = 2w * bytes_in_word
-End
-
 Definition edges_def:
-  edges = 3w * bytes_in_word
+  edges = 1w * bytes_in_word
 End
 
 Definition flag_def:
-  flag = 4w * bytes_in_word
+  flag = 2w * bytes_in_word
+End
+
+
+Definition rank_mark_def:
+  rm = 3w * bytes_in_word
+End
+
+Definition previous_def:
+  previous = 4w * bytes_in_word
+End
+
+Definition next_def:
+  next = 5w * bytes_in_word
 End
 
 Definition parent_def:
-  parent = 5w * bytes_in_word
+  parent = 6w * bytes_in_word
 End
 
 Definition child_def:
-  child = 6w * bytes_in_word
-End
-
-Definition rank_mark_def:
-  rm = 7w * bytes_in_word
+  child = 7w * bytes_in_word
 End
 
 Definition ones_def:
@@ -157,14 +158,37 @@ Definition ones_def:
     one (a,w) * ones (a + bytes_in_word) ws
 End
 
+Definition b2w_def:
+  b2w b = if b then 1w else 0w : 'a word
+End
+
+Definition array_ones_def:
+  (array_ones off 0 End = emp) /\
+  (array_ones off (SUC n) (Fields f) =
+    (ones off [f.edge; (n2w f.value)]) * (array_ones (off + 2w * bytes_in_word) n f.next))
+End
+
+Definition edges_ones_def:
+  edges_ones (k:'a word) ((ptr, n, arr): ('a word # num # 'a array)) =
+        one(k + edges, ptr) * one(ptr, n2w n) * (array_ones (ptr + bytes_in_word) n arr)
+End
+
+Definition fib_node_def:
+  fib_node ((FibTree k n ts): ('a word, 'a annotated_node) ft) =
+    (ones k [n.data.value;
+            b2w n.data.flag;
+            b2w n.data.mark;
+            n.before_ptr;
+            n.next_ptr;
+            n.parent_ptr;
+            n.child_ptr]) * (edges_ones k n.data.edges)
+End
+
 val test =
     “ones 400w [x;y;z;e;r;t;y;u:word64]”
     |> SCONV [ones_def,STAR_ASSOC,byteTheory.bytes_in_word_def];
 
 
-Definition b2w_def:
-  b2w b = if b then 1w else 0w : 'a word
-End
 (*
 Definition fts_in_mem_def:
   fts_in_mem [] = emp ∧
