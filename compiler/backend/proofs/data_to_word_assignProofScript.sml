@@ -10724,8 +10724,7 @@ Theorem evaluate_WordOp64_on_32:
                     (insert 11 (Word ((63 >< 32) c')) l))))))))
 Proof
   Cases_on `opw`
-  \\ fs [WordOp64_on_32_def,semanticPrimitivesPropsTheory.opw_lookup_def,
-         list_Seq_def]
+  \\ fs [WordOp64_on_32_def,closSemTheory.opw_lookup_def,list_Seq_def]
   \\ eval_tac \\ fs [lookup_insert]
   \\ fs [wordSemTheory.state_component_equality]
   \\ fs [GSYM WORD_EXTRACT_OVER_BITWISE]
