@@ -3,7 +3,7 @@
 *)
 Theory color
 Ancestors
-  pbc graph_basic pbc_normalise mlstring mlint
+  pbc graph_basic pbc_normalise mlstring mlint spt_to_vec
 Libs
   preamble
 
@@ -25,7 +25,100 @@ Definition min_color_size_def:
   MIN_SET ({k | ∃f. is_k_color k f g})
 End
 
-(* TODO: define an encoding, the annot and var types might not be correct *)
+(* Color witness:
+  We are given a mapping from {0..<v} to color option
+  And we need to ensure that every vertex is assigned a color
+*)
+Definition parse_col_header_def:
+  (parse_col_header [INL p; _; INR k] =
+    if p = strlit"p"
+    then SOME k
+    else NONE) ∧
+  parse_col_header _ = NONE
+End
+
+(* To keep the internal representation with LAD,
+  we use 0-indexing *)
+Definition strip_num_def:
+  (strip_num [] acc = SOME (REVERSE acc)) ∧
+  (strip_num (INR n::ns) acc = strip_num ns (n::acc)) ∧
+  (strip_num (INL _::ns) acc = NONE)
+End
+
+Definition parse_col_line_def:
+  parse_col_line ls =
+    case ls of (INL s::rest) =>
+      if s = strlit"s"
+      then
+        strip_num rest []
+      else NONE
+    | _ => NONE
+End
+
+Definition parse_col_lines_def:
+  (parse_col_lines c [] acc = SOME (c,acc)) ∧
+  (parse_col_lines c (l::ls) acc =
+    case parse_col_line l of
+      NONE => NONE
+    | SOME vs =>
+      let acc' = FOLDL (λacc v. sptree$insert v c acc) acc vs in
+      parse_col_lines (c+1) ls acc')
+End
+
+(* For simplicity, set a default lookup *)
+Definition mk_col_def:
+  mk_col vec x =
+  case vec_lookup vec x of
+    NONE => 0
+  | SOME k => k
+End
+
+Definition parse_col_toks_def:
+  parse_col_toks lines =
+  case FILTER nocomment_line lines of
+    [] => NONE
+  | (h::xs) =>
+    (case parse_col_header h of NONE => NONE
+    | SOME k =>
+      (case parse_col_lines 0 xs LN of
+        NONE => NONE
+      | SOME (c,es) =>
+        if c = k
+        then
+          SOME (k,mk_col (spt_to_vec es))
+        else NONE))
+End
+
+Definition parse_col_def:
+  parse_col lines = parse_col_toks (MAP toks_num lines)
+End
+
+Definition check_k_color_aux_def:
+  check_k_color_aux k f e v ⇔
+  let c = f v in
+  c < k ∧
+  let vs = neighbours (e:edges) (v:num) in
+  EVERY (λy. f y ≠ c) vs
+End
+
+Definition check_k_color_def:
+  check_k_color k f (v,e) =
+  EVERY (check_k_color_aux k f e) (COUNT_LIST v)
+End
+
+Theorem check_k_color_is_k_color:
+  good_graph g ⇒
+  (check_k_color k f g ⇔
+  is_k_color k f g)
+Proof
+  `∃v e. g = (v,e)` by metis_tac[PAIR]>>
+  rw[check_k_color_def,is_k_color_def,good_graph_eq,SUBSET_DEF]>>
+  gvs[EVERY_MEM,MEM_COUNT_LIST,check_k_color_aux_def,MEM_neighbours]>>
+  eq_tac>>rw[]>>
+  gvs[is_edge_def,AllCasePreds()]>>
+  metis_tac[]
+QED
+
 Datatype:
   annot = Edge num num num    (* v1,v2,c: vertices v1, v2 do not both have color c *)
         | AtLeastOneColor num (* v: vertex v has at-least-one color                *)
@@ -41,22 +134,30 @@ End
 
 Definition gen_constraint_def:
   gen_constraint (n:num) ((v,e):graph) (Edge x y c) =
-    (if is_edge e x y then
+    (if c < n ∧ x < v ∧ y < v ∧ is_edge e x y then
        SOME (GreaterEqual, [(1i, Neg (VertexHasColor x c));
                             (1i, Neg (VertexHasColor y c))], 1i)
      else NONE) ∧
-  gen_constraint (n:num) ((v,e):graph) (AtLeastOneColor vertex) =
-    SOME (GreaterEqual,
-          GENLIST (λcolor. (1i,Pos (VertexHasColor vertex color))) n, 1i) ∧
-  gen_constraint (n:num) ((v,e):graph) (AtMostOneColor vertex) =
-    SOME (GreaterEqual,
-          GENLIST (λcolor. (1i,Neg (VertexHasColor vertex color))) n, & (n - 1)) ∧
-  gen_constraint (n:num) ((v,e):graph) (VC_Imp_CU c) =
-    SOME (GreaterEqual,
-          (& v, Pos (ColorUsed c)) :: GENLIST (λu. (1i,Neg (VertexHasColor u c))) v, & v) ∧
-  gen_constraint (n:num) ((v,e):graph) (CU_Imp_VC c) =
-    SOME (GreaterEqual,
-          (1i, Neg (ColorUsed c)) :: GENLIST (λu. (1i,Pos (VertexHasColor u c))) v, 1i)
+  (gen_constraint (n:num) ((v,e):graph) (AtLeastOneColor vertex) =
+    if vertex < v then
+      SOME (GreaterEqual,
+            GENLIST (λcolor. (1i,Pos (VertexHasColor vertex color))) n, 1i)
+    else NONE) ∧
+  (gen_constraint (n:num) ((v,e):graph) (AtMostOneColor vertex) =
+    if vertex < v then
+      SOME (GreaterEqual,
+            GENLIST (λcolor. (1i,Neg (VertexHasColor vertex color))) n, & (n - 1))
+    else NONE) ∧
+  (gen_constraint (n:num) ((v,e):graph) (VC_Imp_CU c) =
+    if c < n then
+      SOME (GreaterEqual,
+            (& v, Pos (ColorUsed c)) :: GENLIST (λu. (1i,Neg (VertexHasColor u c))) v, & v)
+    else NONE) ∧
+  (gen_constraint (n:num) ((v,e):graph) (CU_Imp_VC c) =
+    if c < n then
+      SOME (GreaterEqual,
+            (1i, Neg (ColorUsed c)) :: GENLIST (λu. (1i,Pos (VertexHasColor u c))) v, 1i)
+    else NONE)
 End
 
 Definition gen_named_constraint_def:
@@ -70,7 +171,6 @@ Definition flat_genlist_def:
   flat_genlist n f = FLAT (GENLIST f n)
 End
 
-(* TODO: define the encoding, assuming at most n colors are used *)
 Definition encode_def:
   encode (n:num) ((v,e):graph) =
     (* every vertex has at least one color *)
@@ -93,7 +193,6 @@ Definition encode_def:
   :(annot # var pbc) list
 End
 
-(* TODO: define the objective function, on at most n colors *)
 Definition color_obj_def:
   color_obj (n:num) =
     SOME (GENLIST (λc. (1, Pos (ColorUsed c))) n,0): ((var lin_term # int) option)
@@ -271,20 +370,20 @@ Proof
     \\ simp [gen_constraint_def]
     \\ rpt strip_tac
     >-
-     (simp [satisfies_pbc_def,eval_lin_term_def,MAP_GENLIST]
+     (gvs[satisfies_pbc_def,eval_lin_term_def,MAP_GENLIST]
       \\ DEP_REWRITE_TAC [iSUM_GE_1]
       \\ conj_tac
       >- simp [EVERY_GENLIST,oneline b2i_def,AllCaseEqs(),EVERY_MAP]
       \\ gvs [is_k_color_def,MEM_GENLIST,PULL_EXISTS]
       \\ qexists_tac ‘f vertex’ \\ gvs [])
     >-
-     (simp [satisfies_pbc_def,eval_lin_term_def,MAP_GENLIST,o_DEF]
+     (gvs[satisfies_pbc_def,eval_lin_term_def,MAP_GENLIST,o_DEF]
       \\ irule iSUM_one_less
       \\ gvs [is_k_color_def]
       \\ last_x_assum drule \\ rw []
       \\ qexists_tac ‘f vertex’ \\ gvs [])
     >-
-     (simp [satisfies_pbc_def,eval_lin_term_def,MAP_GENLIST,o_DEF,iSUM_def]
+     (gvs[satisfies_pbc_def,eval_lin_term_def,MAP_GENLIST,o_DEF,iSUM_def]
       \\ rename [‘c ∈ colors_used f v’]
       \\ Cases_on ‘c ∈ colors_used f v’ \\ gvs [integerTheory.INT_GE]
       >-
@@ -293,7 +392,7 @@ Proof
       \\ DEP_REWRITE_TAC [iSUM_EQ_LENGTH]
       \\ gvs [EVERY_GENLIST,colors_used_def,IN_DEF,oneline b2i_def] \\ rw [])
     >-
-     (simp [satisfies_pbc_def,eval_lin_term_def,MAP_GENLIST,o_DEF,iSUM_def]
+     (gvs[satisfies_pbc_def,eval_lin_term_def,MAP_GENLIST,o_DEF,iSUM_def]
       \\ rename [‘c ∈ colors_used f v’]
       \\ reverse $ Cases_on ‘c ∈ colors_used f v’ \\ gvs [integerTheory.INT_GE]
       >-
@@ -477,7 +576,6 @@ Proof
   \\ metis_tac [num_to_str_11]
 QED
 
-(* TODO: not sure if annotation is necessary *)
 Definition annot_string_def:
   annot_string a =
   case a of
@@ -494,12 +592,6 @@ Definition full_encode_def:
   MAP (annot_string ## map_pbc enc_string) (encode n g))
 End
 
-(* TODO: some kind of key to be used to lazily index clauses; could be the same
-  as the annot type *)
-Type key = ``:annot``;
-
-(* TODO: The input OPB will give mlstring option annotations.
-  We may want to map it back to a key (or key option) *)
 Definition mk_key_def:
   mk_key NONE = NONE ∧
   mk_key (SOME ann) =
@@ -539,10 +631,11 @@ QED
     allow for them to be equal up to normalization.
 *)
 
-(* TODO: return T iff
-  the input data keyed corresponds to c *)
 Definition lazy_constraint_aux_def:
-  lazy_constraint_aux n g (i:key) (c: mlstring pbc) ⇔ T
+  lazy_constraint_aux n g (i:annot) (c: mlstring pbc) ⇔
+    case gen_constraint n g i of NONE => F
+    | SOME cc =>
+      c = map_pbc enc_string cc
 End
 
 Definition lazy_constraint_def:
@@ -558,23 +651,44 @@ Definition lazy_encode_def:
     EVERY le fml
 End
 
+Theorem MEM_gen_named_constraint:
+  MEM (x,y) (gen_named_constraint n g a) ⇔
+  x = a ∧
+  gen_constraint n g a = SOME y
+Proof
+  Cases_on`g`>>rw[gen_named_constraint_def]>>
+  TOP_CASE_TAC>>simp[]>>
+  metis_tac[]
+QED
+
+(* could prove a stronger theorem (annotations also equal), but not needed *)
+Theorem lazy_encode_imp:
+  lazy_encode n g fml ⇒
+  set (MAP SND fml) ⊆
+  set (MAP (map_pbc enc_string o SND) (encode n g))
+Proof
+  rw[lazy_encode_def,SUBSET_DEF,EVERY_MEM,MEM_MAP]>>
+  first_x_assum drule>>rw[lazy_constraint_def]>>
+  gvs[AllCasePreds(),lazy_constraint_aux_def]>>
+  `∃ann c. y = (ann,c)` by metis_tac[PAIR]>>
+  gvs[]>>
+  Cases_on`g`>>
+  simp[encode_def,flat_genlist_def,MEM_FLAT,MEM_GENLIST,PULL_EXISTS]>>
+  qexists_tac`(i,cc)`>>
+  simp[MEM_gen_named_constraint]>>
+  Cases_on`i`>>
+  simp[]>>
+  gvs[gen_constraint_def]
+QED
+
 (* Check that the objective actually matches up,
   e.g.:
     map_obj enc_string (color_obj n) = SOME obj
 *)
 Definition lazy_color_obj_def:
-  lazy_color_obj n (obj: mlstring lin_term # int) ⇔ T
+  lazy_color_obj n (obj: mlstring lin_term # int) ⇔
+    map_obj enc_string (color_obj n) = SOME obj
 End
-
-(* TODO: a theorem for full_lazy_encode.
-  namely, every constraint it accepts is from full_encode *)
-
-(* TODO: a top-level theorem for full_lazy_encode.
-  namely, given a list of constraints cs, such that
-    every c \in cs is lazy_encoded.
-
-  If there is some PB conclusion about those constraints,
-    then what can we conclude about the graph? *)
 
 (* Attempt to guess the value of "n" based on the objective.
   The literals variables in the objective are all Pos literals *)
@@ -606,16 +720,74 @@ Definition lazy_full_encode_def:
   | _ => NONE
 End
 
+Theorem lazy_full_encode_thm:
+  lazy_full_encode g prob = SOME n ⇒
+  ∃obj fml fml'.
+    prob = (NONE,SOME obj,fml) ∧
+    full_encode n g = (SOME obj, fml') ∧
+    set (MAP SND fml) ⊆ set (MAP SND fml')
+Proof
+  rw[lazy_full_encode_def]>>
+  gvs[AllCaseEqs()]>>
+  simp[full_encode_def]>>
+  fs[lazy_color_obj_def]>>
+  drule lazy_encode_imp>>
+  simp[MAP_MAP_o]
+QED
+
 (* If the palette allowed is n, then we can claim a lower
   bound with at most n colors.
   No upper bound is to be used in the PB proof. *)
 Definition conv_concl_def:
-  (conv_concl n (OBounds lbi ubi) =
-  if ubi = NONE then
-    case lbi of NONE => SOME 0 (* Baseline bound *)
-    | SOME lb =>
+  (conv_concl n (OBounds (SOME lb) NONE) =
       if 0 ≤ lb ∧ Num lb ≤ n then SOME (Num lb)
-      else NONE
-  else NONE) ∧
+      else NONE) ∧
   (conv_concl _ _ = NONE)
 End
+
+Theorem lazy_full_encode_sem_concl:
+  good_graph g ∧
+  lazy_full_encode g (vs,obj,fml) = SOME n ∧
+  pbc$sem_concl (set (MAP SND fml)) obj concl ∧
+  conv_concl n concl = SOME lb ⇒
+  ∀k f.
+    is_k_color k f g ⇒ lb ≤ k
+Proof
+  rw[]>>
+  Cases_on`g`>>
+  drule encode_correct>>
+  simp[PULL_EXISTS, EQ_IMP_THM,SF DNF_ss]>>
+  rw[]>>
+  pop_assum kall_tac>>
+  first_x_assum drule>>rw[]>>
+  drule lazy_full_encode_thm >>rw[] >>
+  gvs[oneline conv_concl_def,AllCaseEqs()]>>
+  rename1`full_encode n (v,e) = (SOME obj,fmll)`>>
+  rename1`OBounds (SOME lb) NONE`>>
+  `sem_concl (set (MAP SND fmll)) (SOME obj) (OBounds (SOME lb) NONE)` by
+    (fs[sem_concl_def]>>
+    rw[]>>first_x_assum irule>>
+    fs[satisfies_def,SUBSET_DEF])>>
+  qpat_x_assum`sem_concl _ _ _` mp_tac>>
+  gvs[full_encode_def]>>
+  simp[LIST_TO_SET_MAP,IMAGE_IMAGE]>>
+  simp[GSYM IMAGE_IMAGE, GSYM (Once LIST_TO_SET_MAP)]>>
+  qpat_x_assum`_ = SOME obj` sym_sub_tac>>
+  DEP_REWRITE_TAC[GSYM concl_INJ_iff]>>
+  CONJ_TAC >- (
+    assume_tac enc_string_INJ>>
+    drule INJ_SUBSET>>
+    disch_then match_mp_tac>>
+    simp[])>>
+  rw[sem_concl_def]>>
+  cheat
+QED
+
+Theorem full_encode_eq =
+  full_encode_def
+  |> SIMP_RULE (srw_ss()) [FORALL_PROD,encode_def,flat_genlist_def]
+  |> SIMP_RULE (srw_ss()) [gen_named_constraint_def]
+  |> SIMP_RULE (srw_ss()) [MAP_FLAT,MAP_GENLIST,MAP_APPEND,o_DEF,MAP_MAP_o,pbc_ge_def,map_pbc_def,FLAT_FLAT,FLAT_MAP_SING,map_lit_def,MAP_if]
+  |> SIMP_RULE (srw_ss()) [FLAT_GENLIST_FOLDN,FOLDN_APPEND_op]
+  |> PURE_ONCE_REWRITE_RULE [APPEND_OP_DEF]
+  |> SIMP_RULE (srw_ss()) [if_APPEND];
