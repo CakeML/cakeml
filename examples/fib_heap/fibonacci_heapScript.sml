@@ -169,19 +169,20 @@ Definition array_ones_def:
 End
 
 Definition edges_ones_def:
-  edges_ones (k:'a word) ((ptr, n, arr): ('a word # num # 'a array)) =
-        one(k + edges, ptr) * one(ptr, n2w n) * (array_ones (ptr + bytes_in_word) n arr)
+  edges_ones ((ptr, n, arr): ('a word # num # 'a array)) =
+        one(ptr, n2w n) * (array_ones (ptr + bytes_in_word) n arr)
 End
 
 Definition fib_node_def:
   fib_node ((FibTree k n ts): ('a word, 'a annotated_node) ft) =
     (ones k [n.data.value;
+            FST n.data.edges;
             b2w n.data.flag;
             b2w n.data.mark;
             n.before_ptr;
             n.next_ptr;
             n.parent_ptr;
-            n.child_ptr]) * (edges_ones k n.data.edges)
+            n.child_ptr]) * (edges_ones n.data.edges)
 End
 
 val test =
