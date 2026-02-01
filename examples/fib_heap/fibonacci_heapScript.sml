@@ -173,8 +173,8 @@ Definition edges_ones_def:
         one(ptr, n2w n) * (array_ones (ptr + bytes_in_word) n arr)
 End
 
-Definition fib_node_def:
-  fib_node ((FibTree k n ts): ('a word, 'a annotated_node) ft) =
+Definition fib_seg_def:
+  fib_seg ((FibTree k n _): ('a word, 'a annotated_node) ft) =
     (ones k [n.data.value;
             FST n.data.edges;
             b2w n.data.flag;
@@ -183,6 +183,12 @@ Definition fib_node_def:
             n.next_ptr;
             n.parent_ptr;
             n.child_ptr]) * (edges_ones n.data.edges)
+End
+
+Definition fib_mem_def:
+  (fib_mem [] = emp ) /\
+  (fib_mem (FibTree k n ts::xs) =
+    (fib_seg $ FibTree k n ts) * (fib_mem ts) * (fib_mem xs))
 End
 
 val test =
