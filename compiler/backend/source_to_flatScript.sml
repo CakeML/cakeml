@@ -208,7 +208,8 @@ Definition compile_exp_def:
         If None
            (compile_exp t env e1)
            (Bool None T)
-           (compile_exp t env e2)) ∧
+           (compile_exp t env e2)
+      | _ => Bool None T) ∧
   (compile_exp t env (If e1 e2 e3) =
     If None
        (compile_exp t env e1)

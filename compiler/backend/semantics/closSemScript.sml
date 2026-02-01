@@ -4,7 +4,7 @@
 Theory closSem
 Ancestors
   backend_common closLang flatLang
-  semanticPrimitivesProps (* for opw_lookup and others *)
+  semanticPrimitivesProps (* for opw_lookup_def and others *)
 Libs
   preamble
 
@@ -191,6 +191,14 @@ Definition do_int_app_def:
         (if 0 <= i /\ i <= 1000000 /\ n < 1000000 then
           SOME (Boolv (i < &n)) else NONE) /\
   do_int_app (op:closLang$int_op) (vs:closSem$v list) = NONE
+End
+
+Definition opw_lookup_def[simp]:
+  (opw_lookup Andw = word_and) ∧
+  (opw_lookup Orw = word_or) ∧
+  (opw_lookup Xor = word_xor) ∧
+  (opw_lookup Add = word_add) ∧
+  (opw_lookup Sub = word_sub)
 End
 
 Definition do_word_app_def:

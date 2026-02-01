@@ -515,6 +515,50 @@ Proof
   >> simp [EL_MAP]
 QED
 
+val log_tac =
+ ( (* Log *)
+   imp_res_tac t_unify_wfs
+   >> imp_res_tac infer_e_wfs
+   >> imp_res_tac sub_completion_wfs
+   >> `t_wfs s` by metis_tac []
+   >> rw [t_walkstar_eqn1, convert_t_def]
+   >> NO_TAC)
+ ORELSE
+ ( (* Log *)
+   imp_res_tac (CONJUNCT1 infer_e_wfs)
+   >> fs []
+   >> imp_res_tac t_unify_wfs
+   >> fs []
+   >> first_x_assum drule
+   >> first_x_assum drule
+   >> rename1 `infer_e _ _ e _ = (Success t1, st1)`
+   >> rename1 `infer_e _ _ e1 st1 = (Success t2, st2)`
+   >> `ienv_ok (count st1.next_uvar) ienv` by metis_tac [ienv_ok_more, infer_e_next_uvar_mono]
+   >> simp []
+   >> disch_then drule
+   >> strip_tac
+   >> disch_then drule
+   >> strip_tac
+   >> rename1 `t_unify s1 _ _ = SOME s2`
+   >> `t_walkstar s1 t1 = t_walkstar s1 (Infer_Tapp [] Tbool_num)`
+     by (irule t_unify_apply >> metis_tac [])
+   >> `t_walkstar s2 t2 = t_walkstar s2 (Infer_Tapp [] Tbool_num)`
+     by (irule t_unify_apply >> metis_tac [])
+   >> fs []
+   >> drule sub_completion_unify2
+   >> disch_then drule
+   >> strip_tac
+   >> qpat_x_assum `t_unify _ _ _ = _` mp_tac
+   >> drule sub_completion_unify2
+   >> disch_then drule
+   >> rw []
+   >> imp_res_tac sub_completion_infer
+   >> first_x_assum drule
+   >> first_x_assum drule
+   >> imp_res_tac sub_completion_apply
+   >> `t_wfs s` by metis_tac [sub_completion_wfs]
+   >> simp [t_walkstar_eqn1, convert_t_def]);
+
 Theorem infer_e_sound:
  (!l ienv e st st' tenv tenvE t extra_constraints s.
     infer_e l ienv e st = (Success t, st') ∧
@@ -762,82 +806,13 @@ Proof
      qexists_tac `count st'.next_uvar` >>
      fs [sub_completion_def] >>
      metis_tac [check_t_more2, DECIDE ``!x. x + 0 = x:num``])
- >- ( (* Log *)
-   imp_res_tac t_unify_wfs
-   >> imp_res_tac infer_e_wfs
-   >> imp_res_tac sub_completion_wfs
-   >> `t_wfs s` by metis_tac []
-   >> rw [t_walkstar_eqn1, convert_t_def])
- >- ( (* Log *)
-   imp_res_tac (CONJUNCT1 infer_e_wfs)
-   >> fs []
-   >> imp_res_tac t_unify_wfs
-   >> fs []
-   >> first_x_assum drule
-   >> first_x_assum drule
-   >> rename1 `infer_e _ _ e _ = (Success t1, st1)`
-   >> rename1 `infer_e _ _ e1 st1 = (Success t2, st2)`
-   >> `ienv_ok (count st1.next_uvar) ienv` by metis_tac [ienv_ok_more, infer_e_next_uvar_mono]
-   >> simp []
-   >> disch_then drule
-   >> strip_tac
-   >> disch_then drule
-   >> strip_tac
-   >> rename1 `t_unify s1 _ _ = SOME s2`
-   >> `t_walkstar s1 t1 = t_walkstar s1 (Infer_Tapp [] Tbool_num)`
-     by (irule t_unify_apply >> metis_tac [])
-   >> `t_walkstar s2 t2 = t_walkstar s2 (Infer_Tapp [] Tbool_num)`
-     by (irule t_unify_apply >> metis_tac [])
-   >> fs []
-   >> drule sub_completion_unify2
-   >> disch_then drule
-   >> strip_tac
-   >> qpat_x_assum `t_unify _ _ _ = _` mp_tac
-   >> drule sub_completion_unify2
-   >> disch_then drule
-   >> rw []
-   >> imp_res_tac sub_completion_infer
-   >> first_x_assum drule
-   >> first_x_assum drule
-   >> imp_res_tac sub_completion_apply
-   >> `t_wfs s` by metis_tac [sub_completion_wfs]
-   >> simp [t_walkstar_eqn1, convert_t_def])
- >- ( (* If *)
-   imp_res_tac (CONJUNCT1 infer_e_wfs)
-   >> fs []
-   >> imp_res_tac t_unify_wfs
-   >> fs []
-   >> first_x_assum drule
-   >> first_x_assum drule
-   >> rename1 `infer_e _ _ e _ = (Success t1, st1)`
-   >> rename1 `infer_e _ _ e1 st1 = (Success t2, st2)`
-   >> `ienv_ok (count st1.next_uvar) ienv` by metis_tac [ienv_ok_more, infer_e_next_uvar_mono]
-   >> simp []
-   >> disch_then drule
-   >> strip_tac
-   >> disch_then drule
-   >> strip_tac
-   >> rename1 `t_unify s1 _ _ = SOME s2`
-   >> `t_walkstar s1 t1 = t_walkstar s1 (Infer_Tapp [] Tbool_num)`
-     by (irule t_unify_apply >> metis_tac [])
-   >> `t_walkstar s2 t2 = t_walkstar s2 (Infer_Tapp [] Tbool_num)`
-     by (irule t_unify_apply >> metis_tac [])
-   >> fs []
-   >> drule sub_completion_unify2
-   >> disch_then drule
-   >> strip_tac
-   >> qpat_x_assum `t_unify _ _ _ = _` mp_tac
-   >> drule sub_completion_unify2
-   >> disch_then drule
-   >> rw []
-   >> imp_res_tac sub_completion_infer
-   >> first_x_assum drule
-   >> first_x_assum drule
-   >> imp_res_tac sub_completion_apply
-   >> `t_wfs s` by metis_tac [sub_completion_wfs]
-   >> simp [t_walkstar_eqn1, convert_t_def])
- >-
- (* If *)
+ >- log_tac
+ >- log_tac
+ >- log_tac
+ >- log_tac
+ >- log_tac
+ >- log_tac
+ >- (* If *)
      (imp_res_tac sub_completion_unify2 >>
      imp_res_tac sub_completion_infer >>
      imp_res_tac sub_completion_infer >>

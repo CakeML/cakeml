@@ -1765,6 +1765,63 @@ Proof
   metis_tac[check_t_more4,check_t_more5]
 QED
 
+val log_tac =
+  (last_x_assum(qspecl_then
+      [`loc`, `s`,`ienv`,`st`,`constraints`] assume_tac)>>rfs[]>>
+    first_x_assum(qspecl_then
+      [`loc`, `s'`,`ienv`,`st'`,`constraints'`] mp_tac)>>
+    fs[ienv_ok_def]>>
+    impl_keep_tac
+    >-
+      (imp_res_tac infer_e_next_uvar_mono>>fs[]>>reverse(rw[])
+      >-
+        (match_mp_tac env_rel_complete_t_compat>>
+        fs[t_compat_def,SUBSET_DEF])
+      >>
+        metis_tac[ienv_val_ok_more,infer_e_wfs,sub_completion_wfs])
+    >>
+    rw[]>>simp[]>>
+    qexists_tac `Infer_Tapp [] Tbool_num`>>
+    fs[pure_add_constraints_combine]>>
+    qpat_abbrev_tac `ls = [(t,Infer_Tapp [] X);(t'',B)]`>>
+    Q.SPECL_THEN [`s''`,`ls`] mp_tac pure_add_constraints_ignore>>
+    impl_keep_tac
+    >-
+      (fs[Abbr`ls`,sub_completion_def,t_compat_def]>>
+      imp_res_tac infer_e_check_t>>CONJ_TAC
+      >-
+        (qpat_x_assum `Tapp [] TC_bool =A` (SUBST_ALL_TAC o SYM)>>
+        qpat_x_assum`convert_t A =B` (assume_tac o (Q.AP_TERM `unconvert_t`))>>
+        first_x_assum(qspec_then `t'` (SUBST1_TAC o SYM))>>
+        fs[]>>rfs[]>>
+        imp_res_tac sub_completion_completes>>
+        imp_res_tac check_t_empty_unconvert_convert_id>>
+        fs[unconvert_t_def])
+      >>
+        simp[Once t_walkstar_eqn,Once t_walk_eqn,SimpRHS]>>
+        imp_res_tac sub_completion_completes>>
+        qpat_x_assum `Tapp [] TC_bool = A`
+          (assume_tac o (Q.AP_TERM `unconvert_t`))>>
+        imp_res_tac check_t_empty_unconvert_convert_id>>
+        fs[unconvert_t_def]>>metis_tac[])>>
+   rw[]>>
+   fs[sub_completion_def]>>
+   pure_add_constraints_combine_tac [`st''`,`constraints''`,`s''`]>>
+   imp_res_tac infer_e_wfs>>
+   fs[pure_add_constraints_append]>>
+   Q.EXISTS_TAC `<|subst:=s2' ; next_uvar := st''.next_uvar;next_id:=st''.next_id |>` >>fs[]>>
+   Q.LIST_EXISTS_TAC [`si`,`constraints''`]>>fs[]>>
+   Q.SPECL_THEN [`num_tvs tenvE`,`si`,`s''`] assume_tac (GEN_ALL t_compat_bi_ground)>>
+   rfs[]>>
+   rw[]
+   >-
+     metis_tac[pure_add_constraints_success]
+   >-
+     metis_tac[t_compat_trans]
+   >>
+     AP_TERM_TAC>>
+     fs[Abbr`ls`])
+
 Theorem infer_e_complete:
   (!tenv tenvE e t.
    type_e tenv tenvE e t
@@ -2174,61 +2231,9 @@ Proof
     impl_keep_tac>- (fs[]>>metis_tac[infer_e_wfs])>>
     fs[]>>metis_tac[t_compat_trans])
   >- (*Log*)
-    (last_x_assum(qspecl_then
-      [`loc`, `s`,`ienv`,`st`,`constraints`] assume_tac)>>rfs[]>>
-    first_x_assum(qspecl_then
-      [`loc`, `s'`,`ienv`,`st'`,`constraints'`] mp_tac)>>
-    fs[ienv_ok_def]>>
-    impl_keep_tac
-    >-
-      (imp_res_tac infer_e_next_uvar_mono>>fs[]>>reverse(rw[])
-      >-
-        (match_mp_tac env_rel_complete_t_compat>>
-        fs[t_compat_def,SUBSET_DEF])
-      >>
-        metis_tac[ienv_val_ok_more,infer_e_wfs,sub_completion_wfs])
-    >>
-    rw[]>>simp[]>>
-    qexists_tac `Infer_Tapp [] Tbool_num`>>
-    fs[pure_add_constraints_combine]>>
-    qpat_abbrev_tac `ls = [(t,Infer_Tapp [] X);(t'',B)]`>>
-    Q.SPECL_THEN [`s''`,`ls`] mp_tac pure_add_constraints_ignore>>
-    impl_keep_tac
-    >-
-      (fs[Abbr`ls`,sub_completion_def,t_compat_def]>>
-      imp_res_tac infer_e_check_t>>CONJ_TAC
-      >-
-        (qpat_x_assum `Tapp [] TC_bool =A` (SUBST_ALL_TAC o SYM)>>
-        qpat_x_assum`convert_t A =B` (assume_tac o (Q.AP_TERM `unconvert_t`))>>
-        first_x_assum(qspec_then `t'` (SUBST1_TAC o SYM))>>
-        fs[]>>rfs[]>>
-        imp_res_tac sub_completion_completes>>
-        imp_res_tac check_t_empty_unconvert_convert_id>>
-        fs[unconvert_t_def])
-      >>
-        simp[Once t_walkstar_eqn,Once t_walk_eqn,SimpRHS]>>
-        imp_res_tac sub_completion_completes>>
-        qpat_x_assum `Tapp [] TC_bool = A`
-          (assume_tac o (Q.AP_TERM `unconvert_t`))>>
-        imp_res_tac check_t_empty_unconvert_convert_id>>
-        fs[unconvert_t_def]>>metis_tac[])>>
-   rw[]>>
-   fs[sub_completion_def]>>
-   pure_add_constraints_combine_tac [`st''`,`constraints''`,`s''`]>>
-   imp_res_tac infer_e_wfs>>
-   fs[pure_add_constraints_append]>>
-   Q.EXISTS_TAC `<|subst:=s2' ; next_uvar := st''.next_uvar;next_id:=st''.next_id |>` >>fs[]>>
-   Q.LIST_EXISTS_TAC [`si`,`constraints''`]>>fs[]>>
-   Q.SPECL_THEN [`num_tvs tenvE`,`si`,`s''`] assume_tac (GEN_ALL t_compat_bi_ground)>>
-   rfs[]>>
-   rw[]
-   >-
-     metis_tac[pure_add_constraints_success]
-   >-
-     metis_tac[t_compat_trans]
-   >>
-     AP_TERM_TAC>>
-     fs[Abbr`ls`])
+    log_tac
+  >- (*Log*)
+    log_tac
   >- (*If *)
     (last_x_assum (qspecl_then [`loc`, `s`,`ienv`,`st`,`constraints`] assume_tac)>>
     rfs[ienv_ok_def]>>
