@@ -750,8 +750,9 @@ Theorem lazy_full_encode_sem_concl:
   lazy_full_encode g (vs,obj,fml) = SOME n ∧
   pbc$sem_concl (set (MAP SND fml)) obj concl ∧
   conv_concl n concl = SOME lb ⇒
-  ∀k f.
-    is_k_color k f g ⇒ lb ≤ k
+  ∀f.
+    is_k_color n f g ⇒
+    lb ≤ & CARD (colors_used f (FST g))
 Proof
   rw[]>>
   Cases_on`g`>>
@@ -780,7 +781,10 @@ Proof
     disch_then match_mp_tac>>
     simp[])>>
   rw[sem_concl_def]>>
-  cheat
+  last_x_assum $ qspec_then ‘w’ mp_tac >>
+  impl_tac >- simp [] >>
+  simp [] >>
+  Cases_on ‘lb’ >> gvs []
 QED
 
 Theorem full_encode_eq =
