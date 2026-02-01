@@ -38,10 +38,15 @@ Definition empty_type_names_def:
   empty_type_names = <| id_map := sptree$LN; pp_fixes := nsEmpty |>
 End
 
+(* Only add new type names - otherwise, something like type foo = int list
+   would cause the list type number to be also mapped to foo (I think).
+   Hopefully no one tries to add a short and long name for the same type with
+   this... *)
 Definition add_type_name_def:
   add_type_name nm id id_map =
-    let prev = case sptree$lookup id id_map of NONE => [] | SOME nms => nms in
-    sptree$insert id (nm :: prev) id_map
+    case sptree$lookup id id_map of
+      NONE => sptree$insert id [nm] id_map
+    | _ => id_map
 End
 
 Definition t_info_id_def:

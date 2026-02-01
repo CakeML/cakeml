@@ -27,6 +27,5 @@ QED
 
 val res = cv_auto_trans mk_pps_for_type_def;
 val res = cv_auto_trans mk_pp_type_def;
-val res = cv_auto_trans mk_pp_tabbrev_def;
 val res = cv_trans pps_for_dec_def;
 val res = cv_trans add_pp_decs_def;
