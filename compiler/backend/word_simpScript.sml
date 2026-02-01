@@ -9,7 +9,7 @@ Ancestors
 Libs
   preamble
 
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 (* function that makes all Seq associate to the left *)
 
@@ -26,11 +26,11 @@ Definition Seq_assoc_def:
   (Seq_assoc p1 (MustTerminate q) =
      SmartSeq p1 (MustTerminate (Seq_assoc Skip q))) /\
   (Seq_assoc p1 (Call ret_prog dest args handler) =
-     SmartSeq p1 (Call (dtcase ret_prog of
+     SmartSeq p1 (Call (case ret_prog of
            | NONE => NONE
            | SOME (x1,x2,q1,x3,x4) => SOME (x1,x2,Seq_assoc Skip q1,x3,x4))
        dest args
-          (dtcase handler of
+          (case handler of
            | NONE => NONE
            | SOME (y1,q2,y2,y3) => SOME (y1,Seq_assoc Skip q2,y2,y3)))) /\
   (Seq_assoc p1 other = SmartSeq p1 other)
@@ -39,7 +39,7 @@ End
 Theorem Seq_assoc_pmatch:
   !p1 prog.
   Seq_assoc p1 prog =
-  case prog of
+  pmatch prog of
   | Skip => p1
   | (Seq q1 q2) => Seq_assoc (Seq_assoc p1 q1) q2
   | (If v n r q1 q2) =>
@@ -47,11 +47,11 @@ Theorem Seq_assoc_pmatch:
   | (MustTerminate q) =>
      SmartSeq p1 (MustTerminate (Seq_assoc Skip q))
   | (Call ret_prog dest args handler) =>
-     SmartSeq p1 (Call (dtcase ret_prog of
+     SmartSeq p1 (Call (case ret_prog of
            | NONE => NONE
            | SOME (x1,x2,q1,x3,x4) => SOME (x1,x2,Seq_assoc Skip q1,x3,x4))
        dest args
-          (dtcase handler of
+          (case handler of
            | NONE => NONE
            | SOME (y1,q2,y2,y3) => SOME (y1,Seq_assoc Skip q2,y2,y3)))
   | other => SmartSeq p1 other
@@ -82,7 +82,7 @@ End
 Theorem dest_Seq_pmatch:
   !p.
   dest_Seq p =
-  case p of
+  pmatch p of
     Seq p1 p2 => (p1,p2:'a wordLang$prog)
    | p => (Skip,p)
 Proof
@@ -100,7 +100,7 @@ End
 Theorem dest_If_pmatch:
   !p.
   dest_If p =
-  case p of
+  pmatch p of
     If x1 x2 x3 p1 p2 => SOME (x1,x2,x3,p1,p2:'a wordLang$prog)
    | _ => NONE
 Proof
@@ -112,7 +112,7 @@ QED
 
 Definition dest_If_Eq_Imm_def:
   dest_If_Eq_Imm p =
-    dtcase dest_If p of
+    case dest_If p of
     | SOME (Equal,n,Imm w,p1,p2) => SOME (n,w,p1,p2)
     | _ => NONE
 End
@@ -120,7 +120,7 @@ End
 Theorem dest_If_Eq_Imm_pmatch:
   !p.
   dest_If_Eq_Imm p =
-    case dest_If p of
+    pmatch dest_If p of
     | SOME (Equal,n,Imm w,p1,p2) => SOME (n,w,p1,p2)
     | _ => NONE
 Proof
@@ -133,7 +133,7 @@ QED
 Definition dest_Seq_Assign_Const_def:
   dest_Seq_Assign_Const n p =
     let (p1,p2) = dest_Seq p in
-      dtcase p2 of
+      case p2 of
       | Assign m (Const w) => if m = n then SOME (p1,w) else NONE
       | _ => NONE
 End
@@ -142,7 +142,7 @@ Theorem dest_Seq_Assign_Const_pmatch:
   !n p.
   dest_Seq_Assign_Const n p =
     let (p1,p2) = dest_Seq p in
-      case p2 of
+      pmatch p2 of
       | Assign m (Const w) => if m = n then SOME (p1,w) else NONE
       | _ => NONE
 Proof
@@ -178,7 +178,7 @@ QED
 Definition strip_const_def:
   (strip_const [] = SOME []) /\
   (strip_const (Const w::cs) =
-     dtcase strip_const cs of
+     case strip_const cs of
        | SOME ws => SOME (w::ws)
        | _ => NONE) /\
   (strip_const _ = NONE)
@@ -186,22 +186,22 @@ End
 
 Definition const_fp_exp_def:
   (const_fp_exp (Var v) cs =
-     dtcase lookup v cs of
+     case lookup v cs of
        | SOME x => Const x
        | NONE => Var v) /\
   (const_fp_exp (Op op args) cs =
      let const_fp_args = MAP (\a. const_fp_exp a cs) args in
-       dtcase strip_const const_fp_args of
-         | SOME ws => (dtcase word_op op ws of
+       case strip_const const_fp_args of
+         | SOME ws => (case word_op op ws of
                         | SOME w => Const w
                         | _ => Op op (MAP Const ws))
          | _ => Op op const_fp_args) /\
   (const_fp_exp (Shift sh e e1) cs =
      let const_fp_exp_e = const_fp_exp e cs in
      let const_fp_exp_e1 = const_fp_exp e1 cs in
-       dtcase (const_fp_exp_e, const_fp_exp_e1) of
+       case (const_fp_exp_e, const_fp_exp_e1) of
          | (Const c, Const c1) =>
-             (dtcase word_sh sh c (w2n c1) of
+             (case word_sh sh c (w2n c1) of
               | SOME w => Const w
               | _ => Shift sh (Const c) (Const c1))
          | _ => Shift sh const_fp_exp_e const_fp_exp_e1) /\
@@ -213,7 +213,7 @@ Definition const_fp_move_cs_def:
   (const_fp_move_cs (m::ms) ocs ncs =
     let v = FST m in
     let nncs =
-      (dtcase lookup (SND m) ocs of
+      (case lookup (SND m) ocs of
         | SOME c => insert v c ncs
         | _ => delete v ncs) in
         const_fp_move_cs ms ocs nncs)
@@ -261,7 +261,7 @@ Overload delete_all[local] = “λn l. FOLDR delete l n”
 Definition drop_consts_def:
   drop_consts cs [] = Skip ∧
   drop_consts cs (n::ns) =
-    dtcase lookup n cs of
+    case lookup n cs of
     | NONE => drop_consts cs ns
     | SOME w => SmartSeq (drop_consts cs ns) (Assign n (Const w))
 End
@@ -271,7 +271,7 @@ Definition const_fp_loop_def:
   (const_fp_loop (Inst i) cs = (Inst i, const_fp_inst_cs i cs)) /\
   (const_fp_loop (Assign v e) cs =
      let const_fp_e = const_fp_exp e cs in
-       dtcase const_fp_e of
+       case const_fp_e of
          | Const c => (Assign v const_fp_e, insert v c cs)
          | _ => (Assign v const_fp_e, delete v cs)) /\
   (const_fp_loop (Get v name) cs = (Get v name, delete v cs)) /\
@@ -284,14 +284,14 @@ Definition const_fp_loop_def:
     let (p2', cs'') = const_fp_loop p2 cs' in
       (Seq p1' p2', cs'')) /\
   (const_fp_loop (wordLang$If cmp lhs rhs p1 p2) cs =
-    dtcase (lookup lhs cs, get_var_imm_cs rhs cs) of
+    case (lookup lhs cs, get_var_imm_cs rhs cs) of
       | (SOME clhs, SOME crhs) =>
         (if word_cmp cmp clhs crhs then const_fp_loop p1 cs else const_fp_loop p2 cs)
       | _ => (let (p1', p1cs) = const_fp_loop p1 cs in
               let (p2', p2cs) = const_fp_loop p2 cs in
                (wordLang$If cmp lhs rhs p1' p2', inter_eq p1cs p2cs))) /\
   (const_fp_loop (Call ret dest args handler) cs =
-    dtcase ret of
+    case ret of
       | NONE => (SmartSeq (drop_consts cs args) (Call ret dest args handler),
                  filter_v is_gc_const cs)
       | SOME (n, names, ret_handler, l1, l2) =>
@@ -366,14 +366,14 @@ Definition rewrite_duplicate_if_max_reassoc_def:
 End
 
 Definition dest_Raise_num_pmatch_def[nocompute]:
-  dest_Raise_num p = case p of wordLang$Raise n => n | _ => 0n
+  dest_Raise_num p = pmatch p of wordLang$Raise n => n | _ => 0n
 End
 
 Theorem dest_Raise_num_def[compute] = dest_Raise_num_pmatch_def
   |> CONV_RULE (DEPTH_CONV patternMatchesLib.PMATCH_ELIM_CONV)
 
 Definition is_simple_pmatch_def[nocompute]:
-  is_simple p = case p of
+  is_simple p = pmatch p of
     | Tick => T
     | Skip => T
     | Move _ _ => T
@@ -386,7 +386,7 @@ Theorem is_simple_def[compute] = is_simple_pmatch_def
 
 Definition try_if_hoist2_def:
   try_if_hoist2 N p1 interm dummy p2 = if N = 0n then NONE
-  else dtcase p1 of
+  else case p1 of
     | wordLang$If cmp lhs rhs br1 br2 =>
       let res1 = dest_Raise_num (SND (dest_Seq (const_fp (Seq (Seq br1 interm) dummy)))) in
       if res1 = 0n then NONE
@@ -396,7 +396,7 @@ Definition try_if_hoist2_def:
       else SOME (const_fp (If cmp lhs rhs (Seq (Seq br1 interm) p2)
           (Seq (Seq br2 interm) p2)))
     | Seq p3 p4 => (
-      dtcase dest_If p4 of
+      case dest_If p4 of
       | SOME (cmp, lhs, rhs, br1, br2) =>
       let res1 = dest_Raise_num (SND (dest_Seq (const_fp (Seq (Seq br1 interm) dummy)))) in
       if res1 = 0n then NONE
@@ -414,7 +414,7 @@ Definition try_if_hoist2_def:
 End
 
 Definition try_if_hoist1_def:
-  try_if_hoist1 p1 p2 = (dtcase dest_If p2 of
+  try_if_hoist1 p1 p2 = (case dest_If p2 of
   | NONE => NONE
   | SOME (cmp, lhs, rhs, _, _) => (
     let dummy = wordLang$If cmp lhs rhs (Raise 1) (Raise 2) in
@@ -424,14 +424,14 @@ Definition try_if_hoist1_def:
 End
 
 Definition simp_duplicate_if_def:
-  simp_duplicate_if p = dtcase p of
+  simp_duplicate_if p = case p of
   | MustTerminate q => MustTerminate (simp_duplicate_if q)
   | Call ret_prog dest args handler =>
-     Call (dtcase ret_prog of
+     Call (case ret_prog of
            | NONE => NONE
            | SOME (x1,x2,q1,x3,x4) => SOME (x1,x2,simp_duplicate_if q1,x3,x4))
        dest args
-          (dtcase handler of
+          (case handler of
            | NONE => NONE
            | SOME (y1,q2,y2,y3) => SOME (y1,simp_duplicate_if q2,y2,y3))
   | If cmp lhs rhs br1 br2 =>
@@ -439,7 +439,7 @@ Definition simp_duplicate_if_def:
   | Seq p1 p2 => (
     let p1x = simp_duplicate_if p1;
         p2x = simp_duplicate_if p2 in
-    dtcase try_if_hoist1 p1x p2x of
+    case try_if_hoist1 p1x p2x of
     | NONE => Seq p1x p2x
     | SOME p3 => Seq_assoc Skip p3
   )
@@ -452,22 +452,22 @@ the flag is T when its known to halt and F otherwise
 *)
 Definition push_out_if_aux_def:
 (* all of them together *)
-  push_out_if_aux p = dtcase p of
+  push_out_if_aux p = case p of
   | MustTerminate q =>
-    (dtcase (push_out_if_aux q) of
+    (case (push_out_if_aux q) of
     | (c,b) => (MustTerminate c,b))
   | Return _ _ => (p,T)
   | Raise _ => (p,T)
   | Call NONE _ _ _ => (p, T)
-  | If cmp r1 ri c1 c2 => (dtcase (push_out_if_aux c1,push_out_if_aux c2) of
+  | If cmp r1 ri c1 c2 => (case (push_out_if_aux c1,push_out_if_aux c2) of
                             | ((c1',T),(c2',T)) => (If cmp r1 ri c1' c2', T)
                             | ((c1',F),(c2',T)) => (Seq (If cmp r1 ri Skip c2') c1', F)
                             | ((c1',T),(c2',F)) => (Seq (If cmp r1 ri c1' Skip) c2', F)
                             | ((c1',F),(c2',F)) => (If cmp r1 ri c1' c2', F))
-  | Seq c1 c2 => (dtcase (push_out_if_aux c1) of
+  | Seq c1 c2 => (case (push_out_if_aux c1) of
                    | (c1', T) => ((Seq c1' c2),T) (*Don't have to bother as DCE will get rid of it*)
                    | (c1', F) =>
-                      (dtcase (push_out_if_aux c2) of
+                      (case (push_out_if_aux c2) of
                       |  (c2',b) => (Seq c1' c2', b)))
   | _ => (p,F)
 End
@@ -486,3 +486,4 @@ Definition compile_exp_def:
     let e = push_out_if e in
       e
 End
+

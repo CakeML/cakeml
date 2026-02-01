@@ -630,8 +630,6 @@ Definition flat_to_display_dec_def:
   flat_to_display_dec (d:flatLang$dec) =
     case d of
        | Dlet exp => Item NONE (strlit "dlet") [flat_to_display exp]
-       | Dtype mods con_arities => item_with_num (strlit "dtype") mods
-       | Dexn n1 n2 => item_with_nums (strlit "dexn") [n1; n2]
 End
 
 (* clos to displayLang *)
