@@ -21,6 +21,7 @@ Ancestors
 Libs
   preamble
 
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 (* Copied from the semantics, but with AallocEmpty missing. GlobalVar ops have
  * been added, also TagLenEq and El for pattern match compilation. *)
@@ -223,12 +224,6 @@ QED
 Datatype:
  dec =
     Dlet exp
-  (* The first number is the identity for the type. The sptree maps arities to
-   * how many constructors have that arity *)
-  | Dtype num (num spt)
-  (* The first number is the identity of the exception. The second number is the
-   * constructor's arity *)
-  | Dexn num num
 End
 
 Definition bool_id_def:
@@ -251,12 +246,10 @@ Definition SmartIf_def:
     | _ => If t e p q
 End
 
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
-
 Theorem SmartIf_PMATCH:
   !t e p q.
     SmartIf t e p q =
-      case e of
+      pmatch e of
         Con _ (SOME (tag, SOME id)) [] =>
           if id = bool_id then
             if tag = backend_common$true_tag then p

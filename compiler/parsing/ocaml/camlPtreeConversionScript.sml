@@ -12,6 +12,8 @@ Ancestors
 val _ =
   temp_bring_to_front_overload "destResult" {Name="destResult", Thy="pegexec"};
 
+val _ = patternMatchesSyntax.temp_enable_pmatch();
+
 (* -------------------------------------------------------------------------
  * Sum monad syntax
  * ------------------------------------------------------------------------- *)
@@ -1978,12 +1980,12 @@ Definition ptree_Expr_def:
       | _ => fail (locs, «Impossible: nELet»)
     else if nterm = INL nEMatch then
       case args of
-        [match; expr; witht; pmatch] =>
+        [match; expr; witht; pm] =>
           do
             expect_tok match MatchT;
             expect_tok witht WithT;
             x <- ptree_Expr nExpr expr;
-            ps <- ptree_PatternMatch pmatch;
+            ps <- ptree_PatternMatch pm;
             return (build_match x (flatten_pmatch ps))
           od
       | _ => fail (locs, «Impossible: nEMatch»)
@@ -2013,21 +2015,21 @@ Definition ptree_Expr_def:
       | _ => fail (locs, «Impossible: nEFun»)
     else if nterm = INL nEFunction then
       case args of
-        [funct; pmatch] =>
+        [funct; pm] =>
           do
             expect_tok funct FunctionT;
-            ps <- ptree_PatternMatch pmatch;
+            ps <- ptree_PatternMatch pm;
             return (build_function (flatten_pmatch ps))
           od
       | _ => fail (locs, «Impossible: nEFunction»)
     else if nterm = INL nETry then
       case args of
-        [tryt; expr; witht; pmatch] =>
+        [tryt; expr; witht; pm] =>
           do
             expect_tok tryt TryT;
             expect_tok witht WithT;
             x <- ptree_Expr nExpr expr;
-            ps <- ptree_PatternMatch pmatch;
+            ps <- ptree_PatternMatch pm;
             return (build_handle x (flatten_pmatch ps))
           od
       | _ => fail (locs, «Impossible: nETry»)
@@ -3396,12 +3398,10 @@ Definition ptree_Start_def:
       fail (locs, «Expected the start non-terminal»)
 End
 
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES ();
-
 Theorem SmartMat_PMATCH:
   ∀mvar rows.
     SmartMat mvar rows =
-      case rows of
+      pmatch rows of
         [INR Pany, y] => y
       | _ => Mat (Var (Short mvar)) (MAP (build_match_row mvar) rows)
 Proof
@@ -3416,7 +3416,7 @@ Theorem ptree_Pattern_PMATCH:
     ptree_Pattern p =
       do
         pp <- ptree_PPattern p;
-        case pp of
+        pmatch pp of
           Pp_record id fs => return $ [INL (id, fs)] (* record *)
         | _ =>
           do

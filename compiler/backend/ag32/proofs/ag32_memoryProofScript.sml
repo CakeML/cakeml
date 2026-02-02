@@ -897,7 +897,7 @@ val (asm_ok_tm, mk_asm_ok, dest_asm_ok, is_asm_ok) = HolKernel.syntax_fns2 "asm"
 val (ag32_enc_tm, mk_ag32_enc, dest_ag32_enc, is_ag32_enc) = HolKernel.syntax_fns1 "ag32_target" "ag32_enc"
 
 val bare_asm_conv =
- (computeLib.compset_conv (wordsLib.words_compset())
+ (computeLib.compset_conv (wordsLib.words_compset)
    [computeLib.Extenders[
      asmLib.add_asm_compset,
      combinLib.add_combin_compset],
