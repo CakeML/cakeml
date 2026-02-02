@@ -24,9 +24,5 @@ ifdef POLY
 all: cake_compile_heap cake_to_wasm_heap
 
 cake_compile_heap: eval_cake_compile_x64Lib.uo eval_cake_compile_arm8Lib.uo
-	$(HOLDIR)/bin/buildheap -o $@ $<
-
-cake_to_wasm_heap: eval_cake_compile_wasmLib.uo
-	$(HOLDIR)/bin/buildheap -o $@ $<
-
+	$(HOLDIR)/bin/hol buildheap -o $@ $<
 endif

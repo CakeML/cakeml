@@ -30,7 +30,7 @@ in
   val ag32_encode_conv =
    Conv.memoize dst (Redblackmap.mkDict Term.compare) listSyntax.is_list
      (ERR "ag32_encode_conv" "")
-     (computeLib.compset_conv (wordsLib.words_compset())
+     (computeLib.compset_conv (wordsLib.words_compset)
       [computeLib.Defs
        [ag32_enc_def, ag32_constant_def, ag32_jump_constant_def, ag32_cmp_def, ag32_sh_def,
         ag32_encode, ag32_encode1_def, Encode_def, enc_def, ag32_bop_def,
@@ -48,7 +48,7 @@ val add_ag32_encode_compset = computeLib.extend_compset
   [computeLib.Convs [(``ag32_target$ag32_enc``, 1, ag32_encode_conv)],
    computeLib.Defs [ag32_targetTheory.ag32_config]]
 
-val ag32_encode_conv = computeLib.compset_conv (wordsLib.words_compset())
+val ag32_encode_conv = computeLib.compset_conv (wordsLib.words_compset)
   [computeLib.Extenders
     [utilsLib.add_base_datatypes, asmLib.add_asm_compset,
      add_ag32_encode_compset]]

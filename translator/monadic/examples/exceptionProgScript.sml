@@ -10,7 +10,7 @@ Ancestors
 
 val _ = set_up_monadic_translator ();
 
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 (* No references/arays, so use unit for the state type *)
 val state_type = ``:unit``;
@@ -34,7 +34,7 @@ Definition failwith_def:
   failwith x = \(state : state_refs). (M_failure (Fail1 x), state)
 End
 Definition handle_fail_def:
-  handle_fail x f = \(state : state_refs). dtcase x state of
+  handle_fail x f = \(state : state_refs). case x state of
     (M_success x, state) => (M_success x, state)
   | (M_failure (Fail1 e), state) => f e state
   | other => other

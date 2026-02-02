@@ -221,6 +221,13 @@ Proof
   rpt Cases \\ gvs [strcat_thm,implode_def]
 QED
 
+Theorem mlstring_common_char_prefix[simp]:
+  ∀c1 s1 s2 t2 t2. (strlit (c1 :: s1) ^ t1) = (strlit (c2 :: s2) ^ t2) ⇔
+    c1 = c2 ∧ strlit s1 ^ t1 = strlit s2 ^ t2
+Proof
+  rw [strcat_thm, implode_def]
+QED
+
 Theorem mlstring_common_suffix[simp]:
   ∀s t1 t2. t1 ^ s = t2 ^ s ⇔ t1 = t2
 Proof

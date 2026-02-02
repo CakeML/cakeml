@@ -1015,7 +1015,6 @@ Theorem raw_openIn_spec:
                   validFD (nextFD fs) (openFileFS s fs ReadMode 0) ∧
                   inFS_fname fs s) *
                 IOFS (openFileFS s fs ReadMode 0))
-
           (\e. &(BadFileName_exn e ∧ ~inFS_fname fs s) * IOFS fs))
 Proof
   rw [] >> qpat_abbrev_tac `Q = POSTve _ _` >>
@@ -1064,7 +1063,7 @@ Proof
     >> xif >>
     instantiate >>
     xlet_auto >- (xsimpl \\ fs [LENGTH_n2w8]) >>
-    reverse xcon >- xsimpl >>
+    xcon >>
     simp[INSTREAM_def] >> xsimpl >> fs [INSTREAM_TYPE_def] >>
     fs[EL_LUPDATE,Abbr`fd0`,LENGTH_explode,LENGTH_n2w8,TAKE_LENGTH_ID_rwt] >>
     imp_res_tac nextFD_ltX >>
@@ -5122,12 +5121,10 @@ Proof
   \\ `INT (&(w-r)) iv`
         by rfs[INT_OF_NUM_SUBS_2] \\ rfs[GSYM NUM_def]
   \\ xif
-  >-(xlet_auto >- (xcon >- xsimpl)
-    \\ xraise
-    \\ conj_tac
-    >- (xsimpl \\ map_every qexists_tac [`r`,`w`] \\
-        simp[IllegalArgument_exn_def])
-    >-xsimpl)
+  >-(xlet_auto >- (xcon >> xsimpl)
+     \\ xraise
+     \\ xsimpl \\ map_every qexists_tac [`r`,`w`]
+     \\ simp[IllegalArgument_exn_def])
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
@@ -5227,7 +5224,7 @@ Proof
     \\ rw[] \\ simp[MIN_DEF, MAX_DEF]
     \\ simp[fsupdate_unchanged] \\ xsimpl \\ fs []
     \\ `r - w = 0` by fs []
-     \\ asm_rewrite_tac [TAKE_0])
+    \\ asm_rewrite_tac [TAKE_0])
   >-(xapp \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)
     \\ map_every qexists_tac [`bactive`,`fd`, `req`, `off`, `buf`] \\ simp[]
     \\ fs[INSTREAM_BUFFERED_FD_def, REF_NUM_def, instream_buffered_inv_def] \\ xsimpl
