@@ -7,24 +7,30 @@ Ancestors
 Libs
   preamble
 
-Definition scan_expr_def:
-  (scan_expr ts loc [] = []) ∧
-  (scan_expr ts loc (x::y::xs) = []) /\
-  (scan_expr ts loc [Var n] = []) ∧
-  (scan_expr ts loc [If xi xt xe] = []) ∧
-  (scan_expr ts loc [Let xs x] = []) ∧
-  (scan_expr ts loc [Raise x] = []) ∧
-  (scan_expr ts loc [Tick x] = scan_expr ts loc [x]) ∧
-  (scan_expr ts loc [Force _ n] = []) ∧
-  (scan_expr ts loc [Call t d xs h] = []) ∧
-  (scan_expr ts loc [Op op xs] =
-    let opr = from_op op in
-    let opt = op_type opr in
-      case opr of
-        Noop => (* Constants? *) []
-      | BlockOp _ cons_args => (* Things we can optimize *)
-        []
-      | _ => [])
+Definition optimize_expr_def:
+  (optimize_expr ts loc loc_helper (Var n) = NONE) ∧
+  (optimize_expr ts loc loc_helper (If xi xt xe) =
+    let yt = case optimize_expr ts loc loc_helper xt of
+      NONE => xt
+    | SOME yt => yt in                
+    let ye = case optimize_expr ts loc loc_helper xe of
+      NONE => xe
+    | SOME ye => ye in
+    SOME $ If xi yt ye) ∧ (* TODO: if both are none this should be NONE *)
+  (optimize_expr ts loc loc_helper (Let xs x) =
+    case optimize_expr ts loc loc_helper x of
+      NONE => NONE
+    | SOME y => SOME $ Let xs y) ∧
+  (optimize_expr ts loc loc_helper (Raise x) = NONE) ∧
+  (optimize_expr ts loc loc_helper (Tick x) = optimize_expr ts loc loc_helper x) ∧
+  (optimize_expr ts loc loc_helper (Force _ n) = NONE) ∧
+  (optimize_expr ts loc loc_helper (Call t d args h) = NONE) ∧
+  (optimize_expr ts loc loc_helper (Op (BlockOp (Cons block_tag)) (Call t (SOME loc_rec) args h::op_args)) = (* TODO: tail call might not be first *)
+   if loc_rec=loc then NONE else (* TODO: figure out ~ *)
+     let alloc     = op_args in (*alloc(x, HOLE);*) (* TODO: properly filter out tail call from op_args *)
+     let tail_call = Call t (SOME loc_helper) args h in (*; append’ (p + 1) xs ys*) (* TODO: append HOLE pointer to args *)
+     SOME $ Let (op_args ++ [tail_call]) $ (* finalize (... *) Var 1) ∧
+  (optimize_expr ts loc loc_helper _ = NONE)
 Termination
   cheat
 End
@@ -44,14 +50,14 @@ End*)
 
 Definition compile_exp_def:
   compile_exp (loc:num) (next:num) (arity:num) (exp:bvi$exp) =
-    (*SOME (exp, exp)
-    case check_exp loc arity exp of
+    SOME (exp, exp, exp)
+    (*case check_exp loc arity exp of
       NONE => NONE
     | SOME op =>
       let context = REPLICATE arity Any in
       let (r, opt) = rewrite loc next op arity context exp in
       let aux      = let_wrap arity (id_from_op op) opt in
-        SOME (aux, opt)
+        SOME (aux, opt)*)
 End
 
 Definition compile_prog_def:
@@ -61,9 +67,12 @@ Definition compile_prog_def:
     | NONE =>
         let (n, ys) = compile_prog next xs in
           (n, (loc, arity, exp)::ys)
-    | SOME (exp_aux, exp_opt) =>
-        let (n, ys) = compile_prog (next + bvl_to_bvi_namespaces) xs in
-        (n, (loc, arity, exp_aux)::(next, arity + 1, exp_opt)::ys))
+    | SOME (exp_unopt, exp_opt, exp_helper) =>
+        let loc_opt      = next in
+        let loc_helper   = loc_opt + bvl_to_bvi_namespaces in
+        let next'        = loc_helper + bvl_to_bvi_namespaces in
+        let (next'', ys) = compile_prog next' xs in
+        (next'', (loc, arity, exp_unopt)::(loc_opt, arity, exp_opt)::(loc_helper, arity + 1, exp_helper)::ys))
 End
 
 (* testing *)
