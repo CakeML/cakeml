@@ -154,7 +154,7 @@ Definition edges_ones_def:
         one(ptr, n2w n) * (array_ones (ptr + bytes_in_word) n arr)
 End
 
-Definition fib_seg_def:
+Definition ft_seg_def:
   ft_seg ((FibTree k n _): ('a word, 'a annotated_node) ft) =
     (ones k [n.data.value;
             FST n.data.edges;
@@ -171,6 +171,17 @@ Definition fts_mem_def:
   (fts_mem (FibTree k n ts::xs) =
     (ft_seg $ FibTree k n ts) * (fts_mem ts) * (fts_mem xs))
 End
+
+val test = “fts_mem (annotate_list 0w 10w 50w [
+    FibTree 10w (
+    node_data 10w (1000w, 1, (Fields <|edge := 50w; value := 10; next := End|>)) true false) [];
+    FibTree 50w (
+    node_data 50w (2000w, 1, (Fields <|edge := 10w; value := 50; next := End|>)) true false) [
+        FibTree 100w
+        (node_data 100w (3000w, 0, End) true false) []
+    ]
+    ])”
+    |> SCONV [fts_mem_def,STAR_ASSOC,annotate_list_def,next_key_def,child_key_def,last_key_def,rev_list_def,ft_seg_def,ones_def,edges_ones_def]
 
 val test =
     “ones 400w [x;y;z;e;r;t;y;u:word64]”
