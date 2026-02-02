@@ -341,6 +341,19 @@ Proof
   \\ gvs [colors_used_def,is_k_color_def]
 QED
 
+Theorem is_k_color_IMP_CARD_colors_used_LEQ:
+  is_k_color k f (v,e) ⇒
+  CARD (colors_used f v) ≤ k
+Proof
+  strip_tac
+  \\ qsuff_tac ‘& CARD (colors_used f v) ≤ & k : int’ >- fs []
+  \\ drule CARD_colors_used
+  \\ disch_then $ rewrite_tac o single o GSYM
+  \\ irule iSUM_GENLIST_LEQ
+  \\ gvs [EVERY_GENLIST]
+  \\ gvs [oneline b2i_def] \\ rw []
+QED
+
 Theorem encode_correct:
   good_graph (v,e) ⇒
   ((∃f.
@@ -750,9 +763,8 @@ Theorem lazy_full_encode_sem_concl:
   lazy_full_encode g (vs,obj,fml) = SOME n ∧
   pbc$sem_concl (set (MAP SND fml)) obj concl ∧
   conv_concl n concl = SOME lb ⇒
-  ∀f.
-    is_k_color n f g ⇒
-    lb ≤ & CARD (colors_used f (FST g))
+  ∀f k.
+    is_k_color k f g ⇒ lb ≤ k
 Proof
   rw[]>>
   Cases_on`g`>>
@@ -760,6 +772,9 @@ Proof
   simp[PULL_EXISTS, EQ_IMP_THM,SF DNF_ss]>>
   rw[]>>
   pop_assum kall_tac>>
+  ‘~(n < k) ⇒ is_k_color n f (q,r)’ by
+    (gvs [is_k_color_def] >> rw [] >> res_tac >> fs [])>>
+  Cases_on ‘n < k’ >> gvs [] >>
   first_x_assum drule>>rw[]>>
   drule lazy_full_encode_thm >>rw[] >>
   gvs[oneline conv_concl_def,AllCaseEqs()]>>
@@ -784,14 +799,18 @@ Proof
   last_x_assum $ qspec_then ‘w’ mp_tac >>
   impl_tac >- simp [] >>
   simp [] >>
-  Cases_on ‘lb’ >> gvs []
+  ‘∃l. lb = & l’ by (Cases_on ‘lb’ >> gvs []) >>
+  gvs [] >>
+  rw [] >> irule LESS_EQ_TRANS >> pop_assum $ irule_at Any >>
+  imp_res_tac is_k_color_IMP_CARD_colors_used_LEQ >> fs []
 QED
 
 Theorem full_encode_eq =
   full_encode_def
   |> SIMP_RULE (srw_ss()) [FORALL_PROD,encode_def,flat_genlist_def]
   |> SIMP_RULE (srw_ss()) [gen_named_constraint_def]
-  |> SIMP_RULE (srw_ss()) [MAP_FLAT,MAP_GENLIST,MAP_APPEND,o_DEF,MAP_MAP_o,pbc_ge_def,map_pbc_def,FLAT_FLAT,FLAT_MAP_SING,map_lit_def,MAP_if]
+  |> SIMP_RULE (srw_ss()) [MAP_FLAT,MAP_GENLIST,MAP_APPEND,o_DEF,MAP_MAP_o,pbc_ge_def,
+                           map_pbc_def,FLAT_FLAT,FLAT_MAP_SING,map_lit_def,MAP_if]
   |> SIMP_RULE (srw_ss()) [FLAT_GENLIST_FOLDN,FOLDN_APPEND_op]
   |> PURE_ONCE_REWRITE_RULE [APPEND_OP_DEF]
   |> SIMP_RULE (srw_ss()) [if_APPEND];
