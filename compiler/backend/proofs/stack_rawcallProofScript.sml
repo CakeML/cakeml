@@ -46,7 +46,7 @@ End
 Theorem state_rel_thm =
   state_rel_def |> SIMP_RULE (srw_ss()) [state_component_equality];
 
-Triviality with_stack_space:
+Theorem with_stack_space[local]:
   t1 with stack_space := t1.stack_space = t1
 Proof
   fs [state_component_equality]

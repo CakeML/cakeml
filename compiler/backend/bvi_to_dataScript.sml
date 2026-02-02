@@ -8,14 +8,14 @@ Ancestors
 Libs
   preamble
 
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 (* compilation from BVI to dataLang *)
 
 Theorem op_space_reset_pmatch:
   ! op.
   op_space_reset op =
-    case op of
+    pmatch op of
       IntOp Add => T
     | IntOp Sub => T
     | IntOp Mult => T
@@ -43,7 +43,7 @@ QED
 
 Theorem op_requires_names_eqn:
    ∀op. op_requires_names op =
-    (op_space_reset op ∨ (dtcase op of
+    (op_space_reset op ∨ (case op of
                           | FFI n => T
                           | Install => T
                           | MemOp (CopyByte new_flag) => T
@@ -55,7 +55,7 @@ QED
 
 Theorem op_requires_names_pmatch:
    ∀op. op_requires_names op =
-  (op_space_reset op ∨ (case op of
+  (op_space_reset op ∨ (pmatch op of
                         | FFI n => T
                         | Install => T
                         | MemOp (CopyByte new_flag) => T
@@ -79,9 +79,15 @@ Definition iAssign_def:
           Assign n1 op vs xs
     else
       let k = op_space_req op (LENGTH vs) in
-        if k = 0 then Assign n1 op vs NONE
-          else Seq (MakeSpace k (list_to_num_set (vs++live++env)))
-                   (Assign n1 op vs NONE)
+        if k = 0 then
+          (if op = WordOp $ WordTest W8 (Compare Gt) then
+             Assign n1 (WordOp $ WordTest W8 (Compare Lt)) (REVERSE vs) NONE
+           else if op = WordOp $ WordTest W8 (Compare Geq) then
+             Assign n1 (WordOp $ WordTest W8 (Compare Leq)) (REVERSE vs) NONE
+           else
+             Assign n1 op vs NONE)
+        else Seq (MakeSpace k (list_to_num_set (vs++live++env)))
+                 (Assign n1 op vs NONE)
 End
 
 val _ = Parse.hide"tail";
@@ -194,7 +200,7 @@ Definition compile_sing_def:
          let (c2,vs,n2) = compile_list n1 env (v1::live) xs in
            (Seq c1 c2, v1 :: vs, n2))
 Termination
-  WF_REL_TAC ‘measure $ λx. case x of
+  WF_REL_TAC ‘measure $ λx. pmatch x of
                             | INL (n,env,t,l,x) => exp_size x
                             | INR (n,env,l,xs) => list_size exp_size xs’
   \\ simp[]
@@ -219,7 +225,7 @@ Proof
   \\ gvs [compile_def]
 QED
 
-Triviality compile_LESS_EQ_lemma:
+Theorem compile_LESS_EQ_lemma[local]:
   !n env tail live xs.
       n <= SND (SND (compile n env tail live xs))
 Proof
@@ -236,7 +242,7 @@ Proof
   \\ FULL_SIMP_TAC std_ss []
 QED
 
-Triviality compile_LENGTH_lemma:
+Theorem compile_LENGTH_lemma[local]:
   !n env tail live xs.
       (LENGTH (FST (SND (compile n env tail live xs))) = LENGTH xs)
 Proof
@@ -293,4 +299,3 @@ Proof
   \\ drule $ cj 1 compile_sing_eq
   \\ gvs [compile_exp_def]
 QED
-

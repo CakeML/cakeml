@@ -45,7 +45,7 @@ Ancestors
 Libs
   preamble
 
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 Theorem partial_app_tag_neq_closure_tag[simp] =
   EVAL``partial_app_tag = closure_tag`` |> EQF_ELIM
@@ -77,10 +77,10 @@ End
 Definition add_part_def:
   add_part n p aux acc =
     let h = part_hash p in
-      dtcase lookup h aux of
+      case lookup h aux of
       | NONE => (n+1n,n,insert h [(p,n)] aux,p::acc)
       | SOME bucket =>
-          dtcase ALOOKUP bucket p of
+          case ALOOKUP bucket p of
           | NONE => (n+1n,n,insert h ((p,n)::bucket) aux,p::acc)
           | SOME k => (n,k,aux,acc)
 End
@@ -119,7 +119,7 @@ Definition partial_app_label_table_loc_def:
   partial_app_label_table_loc = 0n
 End
 
-Definition compile_op_def:
+Definition compile_op_def[simp]:
   compile_op (BlockOp (Cons tag)) = BlockOp (Cons (clos_tag_shift tag)) ∧
   compile_op (BlockOp (ConsExtend tag)) = BlockOp (ConsExtend (clos_tag_shift tag)) ∧
   compile_op (BlockOp (TagEq tag)) = BlockOp (TagEq (clos_tag_shift tag)) ∧
@@ -132,12 +132,11 @@ Definition compile_op_def:
   compile_op (BlockOp (Constant c)) = compile_const c ∧
   compile_op x = x
 End
-val _ = export_rewrites["compile_op_def"];
 
 Theorem compile_op_pmatch:
   ∀op.
   compile_op op =
-    case op of
+    pmatch op of
         BlockOp (Cons tag) => BlockOp (Cons (clos_tag_shift tag))
       | BlockOp (ConsExtend tag) => BlockOp (ConsExtend (clos_tag_shift tag))
       | BlockOp (TagEq tag) => BlockOp (TagEq (clos_tag_shift tag))
@@ -434,15 +433,15 @@ Definition compile_exps_def:
   (compile_exps max_app [App t loc_opt x1 xs2] aux =
      let (c1,aux1) = compile_exps max_app [x1] aux in
      let (c2,aux2) = compile_exps max_app xs2 aux1 in
-       ([dtcase loc_opt of
+       ([case loc_opt of
          | NONE =>
              Let (c2++c1) (mk_cl_call (Var (LENGTH c2)) (GENLIST Var (LENGTH c2)))
          | SOME loc =>
              (Call (LENGTH c2 - 1) (SOME (loc + (num_stubs max_app))) (c2 ++ c1))],
         aux2)) /\
   (compile_exps max_app [Fn t loc_opt vs_opt num_args x1] aux =
-     let loc = dtcase loc_opt of NONE => 0 | SOME n => n in
-     let vs = dtcase vs_opt of NONE => [] | SOME vs => vs in
+     let loc = case loc_opt of NONE => 0 | SOME n => n in
+     let vs = case vs_opt of NONE => [] | SOME vs => vs in
      let (c1,aux1) = compile_exps max_app [x1] aux in
      let c2 =
        Let (GENLIST Var num_args ++ free_let (Var num_args) (LENGTH vs))
@@ -452,9 +451,9 @@ Definition compile_exps_def:
             (REVERSE (mk_label (loc + num_stubs max_app) :: mk_const (num_args - 1) :: MAP Var vs))],
         (loc + (num_stubs max_app),num_args+1,c2) :: aux1)) /\
   (compile_exps max_app [Letrec t loc_opt vsopt fns x1] aux =
-     let loc = dtcase loc_opt of NONE => 0 | SOME n => n in
-     let vs = dtcase vsopt of NONE => [] | SOME x => x in
-     dtcase fns of
+     let loc = case loc_opt of NONE => 0 | SOME n => n in
+     let vs = case vsopt of NONE => [] | SOME x => x in
+     case fns of
      | [] => compile_exps max_app [x1] aux
      | [(num_args, exp)] =>
          let (c1,aux1) = compile_exps max_app [exp] aux in
@@ -521,15 +520,15 @@ Definition compile_exp_sing_def:
   (compile_exp_sing max_app (App t loc_opt x1 xs2) aux =
      let (c1,aux1) = compile_exp_sing max_app x1 aux in
      let (c2,aux2) = compile_exp_list max_app xs2 aux1 in
-       ((dtcase loc_opt of
+       ((case loc_opt of
          | NONE =>
              Let (c2++[c1]) (mk_cl_call (Var (LENGTH c2)) (GENLIST Var (LENGTH c2)))
          | SOME loc =>
              (Call (LENGTH c2 - 1) (SOME (loc + (num_stubs max_app))) (c2 ++ [c1]))),
         aux2)) /\
   (compile_exp_sing max_app (Fn t loc_opt vs_opt num_args x1) aux =
-     let loc = dtcase loc_opt of NONE => 0 | SOME n => n in
-     let vs = dtcase vs_opt of NONE => [] | SOME vs => vs in
+     let loc = case loc_opt of NONE => 0 | SOME n => n in
+     let vs = case vs_opt of NONE => [] | SOME vs => vs in
      let (c1,aux1) = compile_exp_sing max_app x1 aux in
      let c2 =
        Let (GENLIST Var num_args ++ free_let (Var num_args) (LENGTH vs)) c1
@@ -538,9 +537,9 @@ Definition compile_exp_sing_def:
            (REVERSE (mk_label (loc + num_stubs max_app) :: mk_const (num_args - 1) :: MAP Var vs)),
         (loc + (num_stubs max_app),num_args+1,c2) :: aux1)) /\
   (compile_exp_sing max_app (Letrec t loc_opt vsopt fns x1) aux =
-     let loc = dtcase loc_opt of NONE => 0 | SOME n => n in
-     let vs = dtcase vsopt of NONE => [] | SOME x => x in
-     dtcase fns of
+     let loc = case loc_opt of NONE => 0 | SOME n => n in
+     let vs = case vsopt of NONE => [] | SOME x => x in
+     case fns of
      | [] => compile_exp_sing max_app x1 aux
      | [(num_args, exp)] =>
          let (c1,aux1) = compile_exp_sing max_app exp aux in
@@ -574,7 +573,7 @@ Definition compile_exp_sing_def:
      let (c2,aux2) = compile_exp_list max_app xs aux1 in
        (c1 :: c2, aux2))
 Termination
-  WF_REL_TAC `measure $ λx. case x of INL (_,e,_) => exp_size e
+  WF_REL_TAC `measure $ λx. pmatch x of INL (_,e,_) => exp_size e
                                     | INR (_,es,_) => exp3_size es` >>
   srw_tac [ARITH_ss] [closLangTheory.exp_size_def] >>
   `!l. closLang$exp3_size (MAP SND l) <= exp1_size l` by (
@@ -610,7 +609,7 @@ End
 
 Theorem compile_prog_eq = compile_prog_def |> SRULE [compile_exp_sing_eq];
 
-Triviality pair_lem1:
+Theorem pair_lem1[local]:
   !f x. (\(a,b). f a b) x = f (FST x) (SND x)
 Proof
   rw [] >>
@@ -618,7 +617,7 @@ Proof
   fs []
 QED
 
-Triviality pair_lem2:
+Theorem pair_lem2[local]:
   !x y z. (x,y) = z ⇔ x = FST z ∧ y = SND z
 Proof
   rw [] >>
@@ -714,7 +713,7 @@ End
 
 Definition code_merge_def:
   code_merge xs ys =
-    dtcase (xs,ys) of
+    case (xs,ys) of
     | ([],[]) => []
     | ([],_) => ys
     | (_,[]) => xs
@@ -803,12 +802,12 @@ Definition get_src_names_def:
   get_src_names [App _ _ x xs] l = get_src_names (x::xs) l ∧
   get_src_names [Fn name loc_opt _ _ x] l =
     (let l1 = get_src_names [x] l in
-       dtcase loc_opt of NONE => l1
+       case loc_opt of NONE => l1
                        | SOME n => add_src_names n [name] l1) ∧
   get_src_names [Letrec names loc_opt _ funs x] l =
     (let l0 = get_src_names (MAP SND funs) l in
      let l1 = get_src_names [x] l0 in
-       dtcase loc_opt of NONE => l1
+       case loc_opt of NONE => l1
                        | SOME n => add_src_names n names l1)
 Termination
   WF_REL_TAC ‘measure (closLang$exp3_size o FST)’ \\ rw []
@@ -832,18 +831,18 @@ Definition get_src_names_sing_def:
     get_src_names_list xs (get_src_names_sing x l) ∧
   get_src_names_sing (Fn name loc_opt _ _ x) l =
     (let l1 = get_src_names_sing x l in
-       dtcase loc_opt of NONE => l1
+       case loc_opt of NONE => l1
                        | SOME n => add_src_names n [name] l1) ∧
   get_src_names_sing (Letrec names loc_opt _ funs x) l =
     (let l0 = get_src_names_list (MAP SND funs) l in
      let l1 = get_src_names_sing x l0 in
-       dtcase loc_opt of NONE => l1
+       case loc_opt of NONE => l1
                        | SOME n => add_src_names n names l1) ∧
 
   get_src_names_list [] l = l ∧
   get_src_names_list (x::xs) l = get_src_names_list xs (get_src_names_sing x l)
 Termination
-  WF_REL_TAC ‘measure $ λx. case x of INL (e,_) => closLang$exp_size e
+  WF_REL_TAC ‘measure $ λx. pmatch x of INL (e,_) => closLang$exp_size e
                                     | INR (es,_) => closLang$exp3_size es’
   \\ rw [closLangTheory.exp_size_def]
   \\ qsuff_tac ‘exp3_size (MAP SND funs) <= exp1_size funs’ \\ fs []
@@ -870,7 +869,7 @@ Definition make_name_alist_def:
                            else let clos_name = n - nstubs in
                              if dec_start ≤ clos_name ∧ clos_name < dec_start + dec_length
                              then mlstring$strlit "dec" else
-                               dtcase lookup clos_name src_names of
+                               case lookup clos_name src_names of
                                | NONE => mlstring$strlit "unknown_clos_fun"
                                | SOME s => s)) nums)
         : mlstring$mlstring num_map
@@ -897,17 +896,17 @@ End
 Definition extract_name_def:
   extract_name [] = (0,[]) /\
   extract_name (x :: xs) =
-    dtcase (some n. ?t. x = Op t (IntOp (Const (& n))) []) of
+    case (some n. ?t. x = Op t (IntOp (Const (& n))) []) of
     | NONE => (0,x::xs)
     | SOME n => (n, if xs = [] then [x] else xs)
 End
 
 Theorem extract_name_pmatch:
   extract_name xs =
-    dtcase xs of
+    case xs of
     | [] => (0,xs)
     | (x::xs) =>
-      case x of
+      pmatch x of
         (Op t (IntOp (Const i)) []) =>
           (if i < 0 then (0,x::xs) else
             (Num (ABS i), if xs = [] then [x] else xs))

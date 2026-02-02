@@ -116,7 +116,7 @@ Proof
   \\ fs [hashChar_def]
 QED
 
-Triviality hashChar_bound:
+Theorem hashChar_bound[local]:
   ∀h. hashChar h < 71
 Proof
   rw [hashChar_def,hashNon_def,non_list_eq,lookup_fromAList]>>
@@ -124,7 +124,7 @@ Proof
   rw[]
 QED
 
-Triviality hashChar_11:
+Theorem hashChar_11[local]:
   hashChar h <> 0 /\ hashChar h' <> 0 ==>
   (hashChar h = hashChar h' <=> h = h')
 Proof
@@ -208,8 +208,7 @@ Proof
   >- fs [hashChar_11,goodChar_def]
   \\ ‘(hashChar h' + 71 * hashChars_alt s) MOD 71 =
       (hashChar h + 71 * hashChars_alt t) MOD 71’ by metis_tac []
-  \\ ‘0 < 71:num’ by fs []
-  \\ drule arithmeticTheory.MOD_TIMES
+  \\ mp_tac arithmeticTheory.MOD_TIMES
   \\ once_rewrite_tac [ADD_COMM]
   \\ once_rewrite_tac [MULT_COMM]
   \\ strip_tac \\ full_simp_tac std_ss []

@@ -23,7 +23,7 @@ End
 
 (* As a corollary, different classes have different representatives *)
 (* unused *)
-Triviality unique_rep:
+Theorem unique_rep[local]:
   CPstate_inv cs ⇒
   c ∈ domain cs.from_eq ∧
   c'∈ domain cs.from_eq ∧

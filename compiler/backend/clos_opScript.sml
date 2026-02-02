@@ -9,7 +9,7 @@ Ancestors
 Libs
   preamble
 
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 (* matchers *)
 
@@ -19,7 +19,7 @@ Definition dest_Const_def:
 End
 
 Theorem dest_Const_pmatch:
-  dest_Const x = case x of IntOp (Const i) => SOME i | _ => NONE
+  dest_Const x = pmatch x of IntOp (Const i) => SOME i | _ => NONE
 Proof
   CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
   \\ Cases_on ‘x’ \\ EVAL_TAC
@@ -34,7 +34,7 @@ Definition dest_Constant_def:
 End
 
 Theorem dest_Constant_pmatch:
-  dest_Constant x = case x of
+  dest_Constant x = pmatch x of
                     | BlockOp (Constant (ConstStr c)) => SOME (Str c)
                     | BlockOp (Constant (ConstInt c)) => SOME (Int c)
                     | BlockOp (Constant (ConstWord64 c)) => SOME (W64 c)
@@ -52,7 +52,7 @@ Definition dest_Cons_def:
 End
 
 Theorem dest_Cons_pmatch:
-  dest_Cons x = case x of BlockOp (Cons i) => SOME i | _ => NONE
+  dest_Cons x = pmatch x of BlockOp (Cons i) => SOME i | _ => NONE
 Proof
   CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
   \\ Cases_on ‘x’ \\ EVAL_TAC
@@ -65,7 +65,7 @@ Definition dest_ElemAt_def:
 End
 
 Theorem dest_ElemAt_pmatch:
-  dest_ElemAt x = case x of BlockOp (ElemAt i) => SOME i | _ => NONE
+  dest_ElemAt x = pmatch x of BlockOp (ElemAt i) => SOME i | _ => NONE
 Proof
   CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
   \\ Cases_on ‘x’ \\ EVAL_TAC
@@ -78,7 +78,7 @@ Definition dest_TagEq_def:
 End
 
 Theorem dest_TagEq_pmatch:
-  dest_TagEq x = case x of BlockOp (TagEq i) => SOME i | _ => NONE
+  dest_TagEq x = pmatch x of BlockOp (TagEq i) => SOME i | _ => NONE
 Proof
   CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
   \\ Cases_on ‘x’ \\ EVAL_TAC
@@ -91,7 +91,7 @@ Definition dest_LenEq_def:
 End
 
 Theorem dest_LenEq_pmatch:
-  dest_LenEq x = case x of BlockOp (LenEq i) => SOME i | _ => NONE
+  dest_LenEq x = pmatch x of BlockOp (LenEq i) => SOME i | _ => NONE
 Proof
   CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
   \\ Cases_on ‘x’ \\ EVAL_TAC
@@ -104,7 +104,7 @@ Definition dest_TagLenEq_def:
 End
 
 Theorem dest_TagLenEq_pmatch:
-  dest_TagLenEq x = case x of BlockOp (TagLenEq i j) => SOME (i,j) | _ => NONE
+  dest_TagLenEq x = pmatch x of BlockOp (TagLenEq i j) => SOME (i,j) | _ => NONE
 Proof
   CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
   \\ Cases_on ‘x’ \\ EVAL_TAC
@@ -113,7 +113,7 @@ QED
 
 Definition dest_Op_def:
   dest_Op f (Op t op xs) =
-    (dtcase f op of
+    (case f op of
      | NONE => NONE
      | SOME i => SOME (i,xs)) ∧
   dest_Op f _ = NONE
@@ -121,8 +121,8 @@ End
 
 Theorem dest_Op_pmatch:
   dest_Op f x =
-    case x of Op t op xs =>
-      (dtcase f op of
+    pmatch x of Op t op xs =>
+      (case f op of
        | NONE => NONE
        | SOME i => SOME (i,xs))
     | _ => NONE
@@ -133,7 +133,7 @@ QED
 
 Definition dest_Op_Nil_def:
   dest_Op_Nil f x =
-    dtcase dest_Op f x of
+    case dest_Op f x of
     | NONE => NONE
     | SOME (i,xs) => if NULL xs then SOME i else NONE
 End
@@ -145,10 +145,10 @@ Overload dest_Op_Constant[local]    = “dest_Op_Nil dest_Constant”
 
 Definition dest_Op_Consts_def:
   dest_Op_Consts x y =
-    dtcase dest_Op_Const x of
+    case dest_Op_Const x of
     | NONE => NONE
     | SOME i =>
-      dtcase dest_Op_Const y of
+      case dest_Op_Const y of
       | NONE => NONE
       | SOME j => SOME (i,j)
 End
@@ -177,18 +177,18 @@ End
 
 Definition cons_op_def:
   cons_op op t xs =
-    dtcase dest_ElemAt op of
+    case dest_ElemAt op of
     | SOME n => (if n < LENGTH xs then
                    SOME (Let None xs (Var None (LENGTH xs - (n + 1))))
                  else NONE)
     | NONE =>
-    dtcase dest_TagLenEq op of
+    case dest_TagLenEq op of
     | SOME (n,l) => SOME (Let None xs (MakeBool (n = t ∧ LENGTH xs = l)))
     | NONE =>
-    dtcase dest_TagEq op of
+    case dest_TagEq op of
     | SOME n => SOME (Let None xs (MakeBool (n = t)))
     | NONE =>
-    dtcase dest_LenEq op of
+    case dest_LenEq op of
     | SOME l => SOME (Let None xs (MakeBool (LENGTH xs = l)))
     | NONE => NONE
 End
@@ -199,7 +199,7 @@ Definition is_Var_def:
 End
 
 Theorem is_Var_pmatch:
-  is_Var x = case x of Var _ _ => T | _ => F
+  is_Var x = pmatch x of Var _ _ => T | _ => F
 Proof
   CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
   \\ Cases_on ‘x’ \\ EVAL_TAC
@@ -207,55 +207,55 @@ QED
 
 Definition eq_direct_nil_def:
   eq_direct_nil x y =
-    dtcase dest_Op_Cons_Nil x of
+    case dest_Op_Cons_Nil x of
     | SOME i =>
-        (dtcase dest_Op_Cons_Nil y of
+        (case dest_Op_Cons_Nil y of
          | SOME j => SOME (MakeBool (i = j))
          | NONE => SOME (Op None (BlockOp (TagLenEq i 0)) [y]))
     | NONE =>
-        (dtcase dest_Op_Cons_Nil y of
+        (case dest_Op_Cons_Nil y of
          | SOME i => SOME (Op None (BlockOp (TagLenEq i 0)) [x])
          | NONE => NONE)
 End
 
 Definition eq_direct_const_def:
   eq_direct_const x y =
-    dtcase dest_Op_Const x of
+    case dest_Op_Const x of
     | SOME i =>
-        (dtcase dest_Op_Const y of
+        (case dest_Op_Const y of
          | SOME j => SOME (MakeBool (i = j))
          | NONE => SOME (Op None (BlockOp (EqualConst (Int i))) [y]))
     | NONE =>
-        (dtcase dest_Op_Const y of
+        (case dest_Op_Const y of
          | SOME i => SOME (Op None (BlockOp (EqualConst (Int i))) [x])
          | NONE => NONE)
 End
 
 Definition eq_direct_constant_def:
   eq_direct_constant x y =
-    dtcase dest_Op_Constant x of
+    case dest_Op_Constant x of
     | SOME p =>
-        (dtcase dest_Op_Constant y of
+        (case dest_Op_Constant y of
          | SOME q => SOME (MakeBool (q = p))
          | NONE => SOME (Op None (BlockOp (EqualConst p)) [y]))
     | NONE =>
-        (dtcase dest_Op_Constant y of
+        (case dest_Op_Constant y of
          | SOME p => SOME (Op None (BlockOp (EqualConst p)) [x])
          | NONE => NONE)
 End
 
 Definition eq_direct_def:
   eq_direct x y =
-    dtcase eq_direct_const x y of
+    case eq_direct_const x y of
     | SOME res => SOME res
-    | NONE => dtcase eq_direct_constant x y of
+    | NONE => case eq_direct_constant x y of
               | SOME res => SOME res
               | NONE => eq_direct_nil x y
 End
 
 Definition cons_measure_def:
   cons_measure x =
-    case dest_Op_Cons x of
+    pmatch dest_Op_Cons x of
     | NONE => 0
     | SOME (_,xs) => SUM (MAP cons_measure xs) + LENGTH xs + 1
 Termination
@@ -278,10 +278,10 @@ QED
 Definition eq_pure_list_def:
   eq_pure_list [] = Nil ∧
   eq_pure_list [(x,y)] =
-   (dtcase eq_direct x y of
+   (case eq_direct x y of
     | SOME z => List [z]
     | NONE =>
-      dtcase dest_Op_Cons x, dest_Op_Cons y of
+      case dest_Op_Cons x, dest_Op_Cons y of
       | (NONE, NONE) => List [Op None (BlockOp Equal) [x;y]]
       | (SOME (t1,xs), SOME (t2,ys)) =>
            if t1 ≠ t2 ∨ LENGTH xs ≠ LENGTH ys then List [MakeBool F]
@@ -326,7 +326,7 @@ Definition eq_pure_def:
   eq_pure x y = ConjList (append (eq_pure_list [(x,y)]))
 End
 
-Triviality eq_pure_list_test:
+Theorem eq_pure_list_test[local]:
    append
        (eq_pure_list
           [(Var None 5,
@@ -340,13 +340,13 @@ QED
 
 Definition dont_lift_def:
   dont_lift x =
-    dtcase dest_Op_Const x of
+    case dest_Op_Const x of
     | SOME i => T
     | NONE =>
-      dtcase dest_Op_Cons_Nil x of
+      case dest_Op_Cons_Nil x of
       | SOME t => T
       | NONE =>
-        dtcase dest_Op_Constant x of
+        case dest_Op_Constant x of
         | SOME t => T
         | NONE => F
 End
@@ -357,7 +357,7 @@ Definition lift_exps_def:
     if dont_lift x then
       (let (xs,n,binds) = lift_exps xs n binds in
          (x::xs,n,binds))
-    else dtcase dest_Op_Cons x of
+    else case dest_Op_Cons x of
          | SOME (t,ys) =>
             (let (ys,n,binds) = lift_exps ys n binds in
              let (xs,n,binds) = lift_exps xs n binds in
@@ -374,7 +374,7 @@ End
 
 Definition eq_any_def:
   eq_any x y =
-    dtcase lift_exps [x;y] 0 [] of
+    case lift_exps [x;y] 0 [] of
     | (x::y::_, _, binds) => SOME (Let None binds (eq_pure x y))
     | _ => NONE
 End
@@ -382,7 +382,7 @@ End
 Definition eq_op_def:
   eq_op x y =
     if is_Var x ∧ is_Var y then NONE else
-      dtcase eq_direct x y of
+      case eq_direct x y of
       | NONE => eq_any x y
       | SOME res => SOME res
 End
@@ -391,13 +391,13 @@ End
 
 Definition SmartOp'_def:
   SmartOp' tra op xs =
-    dtcase xs of
+    case xs of
     | [x] =>
-      (dtcase dest_Op_Cons x of
+      (case dest_Op_Cons x of
        | SOME (t,xs) => cons_op op t xs
        | NONE => NONE)
     | [x;y] =>
-      (dtcase dest_Op_Consts x y of
+      (case dest_Op_Consts x y of
        | SOME (i,j) => int_op op i j
        | NONE => if op = BlockOp Equal then eq_op x y else NONE)
     | _ => NONE
@@ -405,7 +405,7 @@ End
 
 Definition SmartOp_def:
   SmartOp tra op xs =
-    dtcase SmartOp' tra op xs of
+    case SmartOp' tra op xs of
     | NONE => closLang$Op tra op xs
     | SOME x => x
 End

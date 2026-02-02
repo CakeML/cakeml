@@ -12,7 +12,7 @@ val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 val _ = temp_bring_to_front_overload"get_vars"{Name="get_vars",Thy="dataSem"};
 val _ = temp_bring_to_front_overload"cut_env"{Name="cut_env",Thy="dataSem"};
 
-Triviality SPLIT_PAIR:
+Theorem SPLIT_PAIR[local]:
   !x y z. (x = (y,z)) <=> (y = FST x) /\ (z = SND x)
 Proof
   Cases \\ SRW_TAC [] [] \\ METIS_TAC []
@@ -31,13 +31,13 @@ Definition state_rel_def:
     (!x. x IN domain live ==> (lookup x s1.locals = lookup x t1.locals))
 End
 
-Triviality state_rel_ID:
+Theorem state_rel_ID[local]:
   !s live. state_rel s s live
 Proof
   fs [state_rel_def]
 QED
 
-Triviality jump_exc_IMP_state_rel:
+Theorem jump_exc_IMP_state_rel[local]:
   !s1 t1 s2 t2.
       (jump_exc s1 = SOME s2) /\ (jump_exc t1 = SOME t2) /\
       state_rel s1 t1 LN /\ (LENGTH s2.stack = LENGTH t2.stack) ==>
@@ -53,7 +53,7 @@ QED
 fun cases_on_op q = Cases_on q >|
   map (MAP_EVERY Cases_on) [[], [], [], [], [`b`], [`g`], [`m`], [], [`t`]];
 
-Triviality state_rel_IMP_do_app_aux:
+Theorem state_rel_IMP_do_app_aux[local]:
   (do_app_aux op args s1 = Rval (v,s2)) /\
     state_rel s1 t1 anything ==>
     (s1.handler = s2.handler) /\ (s1.stack = s2.stack) /\
@@ -78,7 +78,7 @@ Proof
   \\ ASM_SIMP_TAC (srw_ss()) [dataSemTheory.state_component_equality]
 QED
 
-Triviality state_rel_IMP_do_app:
+Theorem state_rel_IMP_do_app[local]:
   (do_app op args s1 = Rval (v,s2)) /\
     state_rel s1 t1 anything ==>
     (s1.handler = s2.handler) /\ (s1.stack = s2.stack) /\
@@ -105,7 +105,7 @@ Proof
  \\ fs [Abbr `t1'`]
 QED
 
-Triviality state_rel_IMP_do_app_aux_err:
+Theorem state_rel_IMP_do_app_aux_err[local]:
   (do_app_aux op args s1 = Rerr e) /\ state_rel s1 t1 anything ==>
     (do_app_aux op args t1 = Rerr e)
 Proof
@@ -119,7 +119,7 @@ Proof
   \\ ASM_SIMP_TAC (srw_ss()) [dataSemTheory.state_component_equality]
 QED
 
-Triviality state_rel_IMP_do_app_err:
+Theorem state_rel_IMP_do_app_err[local]:
   (do_app op args s1 = Rerr e) /\ state_rel s1 t1 anything ==>
     (do_app op args t1 = Rerr e)
 Proof
@@ -134,7 +134,7 @@ Proof
   \\ fs [state_rel_def] \\ rfs []
 QED
 
-Triviality state_rel_IMP_get_vars:
+Theorem state_rel_IMP_get_vars[local]:
   !args s1 t1 t xs.
       state_rel s1 t1 (list_insert args t) /\
       (get_vars args s1.locals = SOME xs) ==>
@@ -149,7 +149,7 @@ Proof
   \\ RES_TAC \\ fs [] \\ SRW_TAC [] []
 QED
 
-Triviality is_pure_do_app_Rerr_IMP:
+Theorem is_pure_do_app_Rerr_IMP[local]:
   is_pure op /\ do_app op xs s = Rerr e ==>
     Rabort Rtype_error = e
 Proof
@@ -159,7 +159,7 @@ Proof
           case_eq_thms,do_install_def,UNCURRY] \\ rw[]
 QED
 
-Triviality is_pure_do_app_Rval_IMP:
+Theorem is_pure_do_app_Rval_IMP[local]:
   is_pure op /\ do_app op x s = Rval (q,r)
    ⇒  ∃safe smax. r = s with <| safe_for_space := safe;
                                 stack_max := smax |>
@@ -176,7 +176,7 @@ Proof
                 ,do_stack_def,AllCaseEqs()]
 QED
 
-Triviality evaluate_compile:
+Theorem evaluate_compile[local]:
   !c s1 res s2 l2 t1 l1 d.
       (evaluate (c,s1) = (res,s2)) /\ state_rel s1 t1 l1 /\
       (compile c l2 = (d,l1)) /\ (res <> SOME (Rerr (Rabort Rtype_error))) /\

@@ -563,14 +563,14 @@ Proof
      wordSemTheory.flush_state_def]>>gvs[]
 QED
 
-Triviality mem_upd_lemma:
+Theorem mem_upd_lemma[local]:
   ((s : ('a, 'b, 'c) wordSem$state) with memory := ARB) = (t with memory := ARB) ==>
   ?m. s = (t with memory := m)
 Proof
   simp [wordSemTheory.state_component_equality]
 QED
 
-Triviality push_env_mem_upd:
+Theorem push_env_mem_upd[local]:
   ! env params s.
   push_env env params (s with memory := m) =
   (push_env env params s with memory := m)
@@ -582,7 +582,7 @@ Proof
   \\ fs []
 QED
 
-Triviality push_env_mem_const:
+Theorem push_env_mem_const[local]:
   ! env params s.
   (push_env env params s).memory = s.memory /\
   (push_env env params s).mdomain = s.mdomain
@@ -595,7 +595,7 @@ Proof
 QED
 
 (* memory update lemma for evaluate *)
-Triviality memory_swap_lemma1:
+Theorem memory_swap_lemma1[local]:
   ∀prog st res rst m.
   wordSem$evaluate (prog, (st:(α,β,γ) wordSem$state)) = (res, rst) ∧
   fun2set (st.memory, st.mdomain) = fun2set (m, st.mdomain) ∧
@@ -689,7 +689,7 @@ Proof
 QED
 
 (* avoid changing subsequent proof by rephrasing back into earlier form *)
-Triviality memory_swap_lemma:
+Theorem memory_swap_lemma[local]:
   ∀prog st res rst m.
   wordSem$evaluate (prog, (st:(α,β,γ) wordSem$state)) = (res, rst) ∧
   fun2set (st.memory, st.mdomain) = fun2set (m, st.mdomain) ∧
@@ -1098,7 +1098,7 @@ Proof
   irule (SRULE[] $ stack_to_labProofTheory.stack_to_lab_compile_no_install)>>fs[]
 QED
 
-Triviality n2w_sub_alt:
+Theorem n2w_sub_alt[local]:
   ∀a b. b ≤ a ⇒ n2w (a - b) = n2w a + -1w * n2w b
 Proof
   rpt strip_tac >>
@@ -1108,7 +1108,7 @@ Proof
   metis_tac[WORD_NEG_MUL]
 QED
 
-Triviality aligned_n2w_IMP:
+Theorem aligned_n2w_IMP[local]:
   aligned k ((n2w n):'a word) ∧ n < dimword(:'a) ⇒ divides (2**k) n
 Proof
   rw[aligned_w2n,dimword_def] >>

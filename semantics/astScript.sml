@@ -3,15 +3,15 @@
 *)
 Theory ast
 Ancestors
-  integer[qualified] words[qualified] string[qualified] namespace
-  location[qualified]
+  integer[qualified] words[qualified] string[qualified] mlstring[qualified] namespace
+  location[qualified] ast_temp
 
 (* Literal constants *)
 Datatype:
   lit =
     IntLit int
   | Char char
-  | StrLit string
+  | StrLit mlstring
   | Word8 word8
   | Word64 word64
   | Float64 word64
@@ -51,19 +51,19 @@ Datatype:
 End
 
 (* Module names *)
-Type modN = “:string”
+Type modN = “:mlstring”
 
 (* Variable names *)
-Type varN = “:string”
+Type varN = “:mlstring”
 
 (* Constructor names (from datatype definitions) *)
-Type conN = ``: string``
+Type conN = ``: mlstring``
 
 (* Type names *)
-Type typeN = ``: string``
+Type typeN = ``: mlstring``
 
 (* Type variable names *)
-Type tvarN = ``: string``
+Type tvarN = ``: mlstring``
 
 Datatype:
   word_size = W8 | W64
@@ -81,14 +81,32 @@ Datatype:
 End
 
 Datatype:
+  test = Equal | Compare opb | AltCompare opb
+End
+
+Datatype:
+  prim_type = BoolT
+            | IntT
+            | CharT
+            | StrT
+            | WordT word_size
+            | Float64T
+End
+
+Datatype:
   op =
+  (* primitive operations for the primitive types: +, -, and, sqrt, etc. *)
+    Arith arith prim_type
+  (* conversions between primitive types: char<->int, word<->double, word<->int *)
+  | FromTo prim_type prim_type
   (* Operations on integers *)
-    Opn opn
+  | Opn opn
   | Opb opb
   (* Operations on words *)
   | Opw word_size opw
   | Shift word_size shift num
   | Equality
+  | Test test prim_type
   (* FP operations *)
   | FP_cmp fp_cmp
   | FP_uop fp_uop
@@ -120,7 +138,6 @@ Datatype:
   (* Char operations *)
   | Ord
   | Chr
-  | Chopb opb
   (* String operations *)
   | Implode
   | Explode
@@ -138,7 +155,8 @@ Datatype:
   | Asub
   | Alength
   | Aupdate
-  (* Unsafe array accesses *)
+  (* Unsafe vector/array accesses *)
+  | Vsub_unsafe
   | Asub_unsafe
   | Aupdate_unsafe
   | Aw8sub_unsafe
@@ -150,7 +168,7 @@ Datatype:
   (* Configure the GC *)
   | ConfigGC
   (* Call a given foreign function *)
-  | FFI string
+  | FFI mlstring
   (* Evaluate new code in a given env *)
   | Eval
   (* Get the identifier of an env object *)
@@ -183,7 +201,7 @@ Datatype:
  lop = And | Or
 End
 
-(* Types *)
+(* Types used in type annotations *)
 Datatype:
  ast_t =
   (* Type variables that the user writes down ('a, 'b, etc.) *)
@@ -331,4 +349,3 @@ Definition Funs_def:
   Funs [] e = e ∧
   Funs (x::xs) e = Fun x (Funs xs e)
 End
-

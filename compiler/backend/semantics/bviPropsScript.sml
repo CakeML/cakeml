@@ -107,9 +107,11 @@ val result_thms = { nchotomy = semanticPrimitivesTheory.result_nchotomy,
 val ffi_result_thms = { nchotomy = ffiTheory.ffi_result_nchotomy,
                         case_def = ffiTheory.ffi_result_case_def };
 
-val pair_case_elim = prove(
-  ``pair_CASE p f ⇔ ∃x y. p = (x,y) ∧ f x y``,
-  Cases_on`p` \\ rw[]);
+Theorem pair_case_elim[local]:
+    pair_CASE p f ⇔ ∃x y. p = (x,y) ∧ f x y
+Proof
+  Cases_on`p` \\ rw[]
+QED
 
 Theorem case_elim_thms =
   List.map prove_case_elim_thm
@@ -303,7 +305,7 @@ Proof
   simp [dec_clock_def, state_component_equality]
 QED
 
-Triviality do_app_inv_clock:
+Theorem do_app_inv_clock[local]:
   case do_app op (REVERSE a) s of
     | Rerr e => (do_app op (REVERSE a) (inc_clock n s) = Rerr e)
     | Rval (v,s1) => (do_app op (REVERSE a) (inc_clock n s) = Rval (v,inc_clock n s1))
@@ -440,7 +442,7 @@ Proof
   \\ rw[] \\ metis_tac[subspt_FOLDL_union]
 QED
 
-Triviality evaluate_global_mono_lemma:
+Theorem evaluate_global_mono_lemma[local]:
   ∀xs env s. IS_SOME s.global ⇒ IS_SOME((SND (evaluate (xs,env,s))).global)
 Proof
   recInduct evaluate_ind \\ rw[evaluate_def,case_eq_thms,pair_case_eq]
@@ -618,7 +620,7 @@ Proof
   metis_tac[IS_PREFIX_TRANS,do_app_io_events_mono]
 QED
 
-Triviality do_app_inc_clock:
+Theorem do_app_inc_clock[local]:
   do_app op vs (inc_clock x y) =
    map_result (λ(v,s). (v,s with clock := x + y.clock)) I (do_app op vs y)
 Proof
@@ -628,19 +630,19 @@ Proof
   full_simp_tac(srw_ss())[inc_clock_def] >> simp[]
 QED
 
-Triviality dec_clock_1_inc_clock:
+Theorem dec_clock_1_inc_clock[local]:
   x ≠ 0 ⇒ dec_clock 1 (inc_clock x s) = inc_clock (x-1) s
 Proof
   simp[state_component_equality,inc_clock_def,dec_clock_def]
 QED
 
-Triviality dec_clock_1_inc_clock2:
+Theorem dec_clock_1_inc_clock2[local]:
   s.clock ≠ 0 ⇒ dec_clock 1 (inc_clock x s) = inc_clock x (dec_clock 1 s)
 Proof
   simp[state_component_equality,inc_clock_def,dec_clock_def]
 QED
 
-Triviality dec_clock_inc_clock:
+Theorem dec_clock_inc_clock[local]:
   ¬(s.clock < n) ⇒ dec_clock n (inc_clock x s) = inc_clock x (dec_clock n s)
 Proof
   simp[state_component_equality,inc_clock_def,dec_clock_def]
@@ -680,7 +682,7 @@ Proof
             inc_clock_ffi,dec_clock_ffi]
 QED
 
-Triviality take_drop_lem:
+Theorem take_drop_lem[local]:
   !skip env.
     skip < LENGTH env ∧
     skip + SUC n ≤ LENGTH env ∧
@@ -758,4 +760,3 @@ Definition good_code_labels_def:
   good_code_labels p elabs ⇔
     BIGUNION (set (MAP (get_code_labels o SND o SND) p)) ⊆ set (MAP FST p) ∪ elabs
 End
-

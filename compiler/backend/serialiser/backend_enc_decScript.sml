@@ -27,7 +27,8 @@ val enc_dec_mapping =
         (“:num”,  “num_enc'”,  “num_dec'” ),
         (“:int”,  “int_enc'”,  “int_dec'” ),
         (“:char”, “chr_enc'”,  “chr_dec'” ),
-        (“:word64”, “word64_enc'”, “word64_dec'” )]);
+        (“:word64”, “word64_enc'”, “word64_dec'”),
+        (“:mlstring”, “mlstring_enc'”, “mlstring_dec'”)]);
 
 fun reg_enc_dec_only ty enc dec =
    (enc_dec_mapping := (ty,enc,dec) :: (!enc_dec_mapping));
@@ -161,6 +162,9 @@ val res = define_enc_dec “:word_size”
 val res = define_enc_dec “:mlstring”
 val res = define_enc_dec “:shmem_op”
 val res = define_enc_dec “:ffiname”
+val res = define_enc_dec “:ast$prim_type”
+val res = define_enc_dec “:ast$opb”
+val res = define_enc_dec “:ast$test”
 
 (* closLang_const *)
 
@@ -221,7 +225,7 @@ val res = define_enc_dec “:tap_config”;
 
 val (e,d) = enc_dec_for “:closLang$exp”
 
-Triviality MEM_exp_size:
+Theorem MEM_exp_size[local]:
   (∀xs x. MEM x xs ⇒ exp_size x ≤ closLang$exp3_size xs) ∧
   (∀xs x y. MEM (x,y) xs ⇒ exp_size y ≤ closLang$exp1_size xs)
 Proof
@@ -253,7 +257,7 @@ Termination
   \\ Cases_on ‘x’ \\ gvs [list_dec'_def]
 End
 
-Triviality bvl_MEM_exp_size:
+Theorem bvl_MEM_exp_size[local]:
   (∀xs x. MEM x xs ⇒ exp_size x ≤ bvl$exp1_size xs)
 Proof
   Induct \\ fs [] \\ rw [] \\ fs [bvlTheory.exp_size_def]

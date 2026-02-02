@@ -144,7 +144,7 @@ Proof
        realTheory.real_sub]
 QED
 
-Triviality inv_div:
+Theorem inv_div[local]:
   x ≠ 0r ∧ y ≠ 0 ⇒ (inv (x / y) = y / x)
 Proof
   simp[realTheory.real_div, realTheory.REAL_INV_MUL, realTheory.REAL_INV_EQ_0,

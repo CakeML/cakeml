@@ -35,7 +35,7 @@ fun list_mk_fun_type [ty] = ty
 val _ = add_preferred_thy "-";
 val _ = add_preferred_thy "termination";
 
-Triviality NOT_NIL_AND_LEMMA:
+Theorem NOT_NIL_AND_LEMMA[local]:
   (b <> [] /\ x) = if b = [] then F else x
 Proof
   Cases_on `b` THEN FULL_SIMP_TAC std_ss []
@@ -66,9 +66,6 @@ fun def_of_const tm = let
 val _ = (find_def_for_const := def_of_const);
 
 val _ = use_long_names:=true;
-
-(* use CakeML's string type for HOL's char list *)
-val _ = ml_translatorLib.use_string_type true;
 
 (* ------------------------------------------------------------------------- *)
 (* source_to_flat                                                            *)

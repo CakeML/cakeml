@@ -58,13 +58,13 @@ End
 
 val _ = cv_trans locationTheory.unknown_loc_def
 
-Triviality CommandLine_arguments_lemma =
+Theorem CommandLine_arguments_lemma[local] =
   “case infertype_prog_inc (init_config,start_type_id) repl_prog of
    | Failure _ => F
    | Success env => infertype_prog_inc env
     [Dlet unknown_loc Pany
       (App Opapp
-        [Var (Long "CommandLine" (Short "arguments"));
+        [Var (Long «CommandLine» (Short «arguments»));
          Con NONE []])] = Success env”
   |> cv_eval |> SRULE [repl_prog_types_thm];
 
@@ -72,28 +72,28 @@ Theorem infertype_prog_inc_CommandLine_arguments:
   infertype_prog_inc repl_prog_types
     [Dlet unknown_loc Pany
       (App Opapp
-        [Var (Long "CommandLine" (Short "arguments"));
+        [Var (Long «CommandLine» (Short «arguments»));
          Con NONE []])] = Success repl_prog_types
 Proof
   rewrite_tac [CommandLine_arguments_lemma]
 QED
 
-Triviality Repl_charsFrom_lemma =
+Theorem Repl_charsFrom_lemma[local] =
   “case infertype_prog_inc (init_config,start_type_id) repl_prog of
    | Failure _ => F
    | Success env => infertype_prog_inc env
     [Dlet unknown_loc Pany
       (App Opapp
-        [Var (Long "Repl" (Short "charsFrom"));
-         Lit (StrLit "config_enc_str.txt")])] = Success env”
+        [Var (Long «Repl» (Short «charsFrom»));
+         Lit (StrLit «config_enc_str.txt»)])] = Success env”
   |> cv_eval |> SRULE [repl_prog_types_thm];
 
 Theorem infertype_prog_inc_Repl_charsFrom:
   infertype_prog_inc repl_prog_types
     [Dlet unknown_loc Pany
       (App Opapp
-        [Var (Long "Repl" (Short "charsFrom"));
-         Lit (StrLit "config_enc_str.txt")])] = Success repl_prog_types
+        [Var (Long «Repl» (Short «charsFrom»));
+         Lit (StrLit «config_enc_str.txt»)])] = Success repl_prog_types
 Proof
   rewrite_tac [Repl_charsFrom_lemma]
 QED

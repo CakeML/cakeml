@@ -77,7 +77,7 @@ Definition terms_of_frag_def:
         /\ set(allTypes t) ⊆ tys /\ welltyped t}
 End
 
-Definition TYPE_SUBSTf_def:
+Definition TYPE_SUBSTf_def[simp]:
   (TYPE_SUBSTf i (Tyvar v) = i v) ∧
   (TYPE_SUBSTf i (Tyapp v tys) =
     Tyapp v (MAP (λa. TYPE_SUBSTf i a) tys))
@@ -87,7 +87,6 @@ Termination
    simp[] >> res_tac >> simp[]
 End
 
-val _ = export_rewrites["TYPE_SUBSTf_def"]
 
 Definition terms_of_frag_uninst_def:
   terms_of_frag_uninst (tys,consts) sigma =
@@ -123,7 +122,7 @@ Proof
   >> simp[Once builtin_closure_cases]
 QED
 
-Triviality allTypes_no_tyvars_and_ok:
+Theorem allTypes_no_tyvars_and_ok[local]:
   !ty. (∀x. x ∈ q ⇒ tyvars x = [] /\ type_ok (tysof sig) x)
         /\ (∀x. MEM x (allTypes' ty) ⇒ x ∈ q)
         /\ is_std_sig sig
@@ -149,7 +148,7 @@ Proof
   \\ fs[type_ok_def]
 QED
 
-Triviality allTypes_no_tyvars2:
+Theorem allTypes_no_tyvars2[local]:
   !tm ty1 ty2. tm has_type ty1 /\
            MEM ty2 (allTypes' ty1)
            ==> MEM ty2 (allTypes tm)
@@ -159,7 +158,7 @@ Proof
   >> rw[allTypes_def,allTypes'_defn] >> fs[]
 QED
 
-Triviality builtin_closure_tyvars:
+Theorem builtin_closure_tyvars[local]:
   ∀q x. x ∈ builtin_closure q /\ (∀x. x ∈ q ⇒ tyvars x = []) ==> tyvars x = []
 Proof
   simp [IN_DEF,GSYM AND_IMP_INTRO]
@@ -167,7 +166,7 @@ Proof
   >> rw[tyvars_def]
 QED
 
-Triviality builtin_closure_type_ok:
+Theorem builtin_closure_type_ok[local]:
   ∀q x. x ∈ builtin_closure q /\ (∀x. x ∈ q ⇒ type_ok (tysof sig) x)
    /\ is_std_sig sig
    ==> type_ok (tysof sig) x
@@ -241,7 +240,7 @@ Proof
     >> metis_tac[builtin_closure_rules,boolTheory.IN_DEF])
 QED
 
-Triviality allTypes'_builtin_closure:
+Theorem allTypes'_builtin_closure[local]:
   !q ty x. ty ∈ builtin_closure q /\ q ⊆ nonbuiltin_types /\ MEM x (allTypes' ty) ⇒ x ∈ q
 Proof
   simp[boolTheory.IN_DEF,GSYM AND_IMP_INTRO,GSYM PULL_FORALL]
@@ -255,7 +254,7 @@ Proof
   >- (fs[allTypes'_defn,boolTheory.IN_DEF] >> rpt(first_x_assum drule >> strip_tac))
 QED
 
-Triviality consts_of_free_const:
+Theorem consts_of_free_const[local]:
   !tm x v. x ∈ consts_of_term v /\ VFREE_IN v tm
             ==> v = Const (FST x) (SND x)
 Proof
@@ -265,7 +264,7 @@ Proof
   >> fs[consts_of_term_def]
 QED
 
-Triviality VFREEs_IN_consts:
+Theorem VFREEs_IN_consts[local]:
   !tm s ty. VFREE_IN (Const s ty) tm
             ==> (s,ty) ∈ consts_of_term tm
 Proof
@@ -275,7 +274,7 @@ Proof
   >> fs[consts_of_term_def]
 QED
 
-Triviality var_type_in_types:
+Theorem var_type_in_types[local]:
   !tm ty v. VFREE_IN v tm /\ MEM ty (allTypes v)
             ==> MEM ty (allTypes tm)
 Proof
@@ -286,7 +285,7 @@ Proof
   >> rpt(qpat_x_assum `!x. _` imp_res_tac) >> fs[]
 QED
 
-Triviality VFREE_type:
+Theorem VFREE_type[local]:
   !tm v. VFREE_IN v tm ==> v has_type typeof v
 Proof
   Induct >> rpt strip_tac
@@ -295,7 +294,7 @@ Proof
   >> fs[typeof_def,has_type_rules]
 QED
 
-Triviality RTC_lifts_invariants_inv:
+Theorem RTC_lifts_invariants_inv[local]:
   (∀x y. P x ∧ R y x ⇒ P y) ⇒ ∀x y. P x ∧ R^* y x ⇒ P y
 Proof
   rpt strip_tac
@@ -402,7 +401,7 @@ Proof
 QED
 
 (* TODO: unify these two lemmas *)
-Triviality consts_of_term_REV_ASSOCD:
+Theorem consts_of_term_REV_ASSOCD[local]:
   !x t ilist d. x ∈ consts_of_term (REV_ASSOCD t ilist d)
    ==> x ∈ consts_of_term d \/ EXISTS ($IN x) (MAP (consts_of_term o FST) ilist)
 Proof
@@ -411,7 +410,7 @@ Proof
   >> metis_tac[]
 QED
 
-Triviality allTypes_REV_ASSOCD:
+Theorem allTypes_REV_ASSOCD[local]:
   !x t ilist d. MEM x (allTypes (REV_ASSOCD t ilist d))
    ==> MEM x (allTypes d) \/ EXISTS ($MEM x) (MAP (allTypes o FST) ilist)
 Proof
@@ -420,7 +419,7 @@ Proof
   >> metis_tac[]
 QED
 
-Triviality consts_of_term_VSUBST:
+Theorem consts_of_term_VSUBST[local]:
   !x n ty tm1 ilist. x ∈ consts_of_term (VSUBST ilist tm1)
    ==> x ∈ consts_of_term tm1 \/ EXISTS ($IN x) (MAP (consts_of_term o FST) ilist)
 Proof
@@ -442,7 +441,7 @@ Proof
       >> metis_tac[])
 QED
 
-Triviality allTypes_VSUBST:
+Theorem allTypes_VSUBST[local]:
   !x tm1 ilist. MEM x (allTypes (VSUBST ilist tm1))
                       /\ welltyped tm1
                       ==> MEM x (allTypes tm1) \/ EXISTS ($MEM x) (MAP (allTypes o FST) ilist)
@@ -967,7 +966,7 @@ Definition fleq_def:
     /\ (!ty. ty ∈ tyfrag1 ==> δ1 ty = δ2 ty))
 End
 
-Triviality builtin_closure_mono_lemma:
+Theorem builtin_closure_mono_lemma[local]:
   !tys1 ty. builtin_closure tys1 ty ==> !tys2. tys1 ⊆ tys2 ==> builtin_closure tys2 ty
 Proof
   ho_match_mp_tac builtin_closure_ind
@@ -984,7 +983,7 @@ QED
 (* Lemma 9 from Kunčar and Popescu's ITP2015 paper *)
 
 (* 9(1) *)
-Triviality fleq_types_le:
+Theorem fleq_types_le[local]:
   !frag1 i1 frag2 i2. fleq (frag1,i1) (frag2,i2)
    ==> types_of_frag frag1 ⊆ types_of_frag frag2
 Proof

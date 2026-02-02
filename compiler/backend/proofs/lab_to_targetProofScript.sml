@@ -9,15 +9,13 @@ Ancestors
 Libs
   preamble BasicProvers
 
-val drule = old_drule
-
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
 
 fun say0 pfx s g = (print (pfx ^ ": " ^ s ^ "\n"); ALL_TAC g)
 
-Triviality evaluate_ignore_clocks:
+Theorem evaluate_ignore_clocks[local]:
   evaluate mc_conf ffi k ms = (r1,ms1,st1) /\ r1 <> TimeOut /\
     evaluate mc_conf ffi k' ms = (r2,ms2,st2) /\ r2 <> TimeOut ==>
     (r1,ms1,st1) = (r2,ms2,st2)
@@ -103,7 +101,7 @@ Definition enc_with_nop_def:
           bytes = init ++ FLAT (REPLICATE n step)
 End
 
-Triviality enc_with_nop_thm:
+Theorem enc_with_nop_thm[local]:
   enc_with_nop enc (b:'a asm) bytes =
       ?n. bytes = enc b ++ FLAT (REPLICATE n (enc (asm$Inst Skip)))
 Proof
@@ -131,14 +129,14 @@ val evaluate_nop_step =
     |> SIMP_RULE (srw_ss()) [asm_def,inst_def,asm_ok_def,inst_ok_def,
          Once upd_pc_def,GSYM CONJ_ASSOC]
 
-Triviality shift_interfer_0:
+Theorem shift_interfer_0[local]:
   shift_interfer 0 = I
 Proof
   full_simp_tac(srw_ss())[shift_interfer_def,FUN_EQ_THM,shift_seq_def,
       machine_config_component_equality]
 QED
 
-Triviality upd_pc_with_pc:
+Theorem upd_pc_with_pc[local]:
   upd_pc s1.pc s1 = s1:'a asm_state
 Proof
   full_simp_tac(srw_ss())[asm_state_component_equality,upd_pc_def]
@@ -151,7 +149,7 @@ Proof
   full_simp_tac(srw_ss())[shift_interfer_def,shift_seq_def,AC ADD_COMM ADD_ASSOC]
 QED
 
-Triviality evaluate_nop_steps:
+Theorem evaluate_nop_steps[local]:
   !n s1 ms1 c.
       encoder_correct c.target /\
       c.prog_addresses = s1.mem_domain /\
@@ -241,7 +239,7 @@ Proof
   disj2_tac >>
   strip_tac >>
   disch_then assume_tac >>
-  first_x_assum drule >>
+  first_x_assum old_drule >>
   rpt strip_tac >>
   fs[LE_LT1]
 QED
@@ -271,7 +269,7 @@ Proof
    (conj_tac
     >- (
       fs[LENGTH_APPEND]
-      \\ drule ffi_entry_pcs_disjoint_LENGTH_shorter
+      \\ old_drule ffi_entry_pcs_disjoint_LENGTH_shorter
       \\ disch_then $ qspec_then `LENGTH (c.target.config.encode i)` assume_tac
       \\ fs[])
     \\ fs[bytes_in_memory_APPEND]
@@ -312,7 +310,7 @@ Proof
       \\ fs[addressTheory.word_arith_lemma1]
       \\ disj2_tac
       \\ ntac 2 strip_tac
-      \\ first_x_assum drule
+      \\ first_x_assum old_drule
       \\ gvs[]
     )
     THEN1 (fs[interference_ok_def,shift_seq_def])
@@ -351,7 +349,7 @@ Definition lab_lookup_def:
     | SOME f => lookup k2 f
 End
 
-Triviality lab_lookup_IMP:
+Theorem lab_lookup_IMP[local]:
   (lab_lookup l1 l2 labs = SOME x) ==>
     (find_pos (Lab l1 l2) labs = x)
 Proof
@@ -437,7 +435,7 @@ Proof
   match_mp_tac EVERY2_refl >> simp[]
 QED
 
-Triviality line_similar_trans:
+Theorem line_similar_trans[local]:
   line_similar x y /\ line_similar y z ==> line_similar x z
 Proof
   Cases_on `x` \\ Cases_on `y` \\ Cases_on `z` \\ fs[line_similar_def]
@@ -641,7 +639,7 @@ Proof
   Induct_on`lines` \\ rw[sec_pos_val_def]
 QED
 
-Triviality pos_val_thm0:
+Theorem pos_val_thm0[local]:
   ∀i pos acc.
     pos_val i pos acc =
       case acc of [] => pos
@@ -960,7 +958,7 @@ Proof
 QED
 
 (* bytes_in_memory lemmas *)
-Triviality prog_to_bytes_lemma:
+Theorem prog_to_bytes_lemma[local]:
   !code2 code1 pc i pos.
       code_similar code1 code2 /\
       all_enc_ok (mc_conf:('a,'state,'b) machine_config).target.config
@@ -1019,7 +1017,7 @@ val prog_to_bytes_lemma = prog_to_bytes_lemma
   |> Q.SPECL [`code2`,`code1`,`pc`,`i`,`0`]
   |> SIMP_RULE std_ss [];
 
-Triviality bytes_in_mem_APPEND:
+Theorem bytes_in_mem_APPEND[local]:
   !xs ys a m md md1.
       bytes_in_mem a (xs ++ ys) m md md1 <=>
       bytes_in_mem a xs m md md1 /\
@@ -1047,7 +1045,7 @@ QED
 
 val s1 = ``s1:('a,'a lab_to_target$config,'ffi) labSem$state``;
 
-Triviality IMP_bytes_in_memory:
+Theorem IMP_bytes_in_memory[local]:
   code_similar code1 code2 /\
     all_enc_ok mc_conf.target.config labs ffi_names 0 code2 /\
     (asm_fetch_aux pc code1 = SOME i) /\
@@ -1065,7 +1063,7 @@ Proof
   \\ Q.EXISTS_TAC `j` \\ fs[] \\ decide_tac
 QED
 
-Triviality IMP_bytes_in_memory_JumpReg:
+Theorem IMP_bytes_in_memory_JumpReg[local]:
   code_similar s1.code code2 /\
     all_enc_ok mc_conf.target.config labs ffi_names 0 code2 /\
     bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
@@ -1094,7 +1092,7 @@ val bool_case_eq_thms = map (fn th =>
   let val v = th |> concl |> lhs |> rhs
   in th |> GEN v |> Q.ISPEC`T` |> SIMP_RULE bool_ss [] end) case_eq_thms0
 
-Triviality IMP_bytes_in_memory_Jump:
+Theorem IMP_bytes_in_memory_Jump[local]:
   code_similar ^s1.code code2 /\
     all_enc_ok mc_conf.target.config labs ffi_names 0 code2 /\
     bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
@@ -1122,7 +1120,7 @@ Proof
          bytes_in_memory_APPEND]
 QED
 
-Triviality IMP_bytes_in_memory_JumpCmp:
+Theorem IMP_bytes_in_memory_JumpCmp[local]:
   code_similar ^s1.code code2 /\
     all_enc_ok mc_conf.target.config labs ffi_names 0 code2 /\
     bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
@@ -1150,7 +1148,7 @@ Proof
          bytes_in_memory_APPEND]
 QED
 
-Triviality IMP_bytes_in_memory_JumpCmp_1:
+Theorem IMP_bytes_in_memory_JumpCmp_1[local]:
   code_similar ^s1.code code2 /\
     all_enc_ok mc_conf.target.config labs ffi_names 0 code2 /\
     bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
@@ -1179,7 +1177,7 @@ Proof
   \\ metis_tac[]
 QED
 
-Triviality IMP_bytes_in_memory_Call:
+Theorem IMP_bytes_in_memory_Call[local]:
   code_similar ^s1.code code2 /\
     all_enc_ok
       (mc_conf: ('a,'state,'b) machine_config).target.config labs ffi_names 0 code2 /\
@@ -1195,7 +1193,7 @@ Proof
   \\ full_simp_tac(srw_ss())[line_ok_def] \\ rev_full_simp_tac(srw_ss())[]
 QED
 
-Triviality IMP_bytes_in_memory_LocValue:
+Theorem IMP_bytes_in_memory_LocValue[local]:
   code_similar ^s1.code code2 /\
     all_enc_ok mc_conf.target.config labs ffi_names 0 code2 /\
     bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
@@ -1224,7 +1222,7 @@ Proof
          bytes_in_memory_APPEND] \\ srw_tac[][] \\ metis_tac[]
 QED
 
-Triviality IMP_bytes_in_memory_Inst:
+Theorem IMP_bytes_in_memory_Inst[local]:
   code_similar ^s1.code code2 /\
     all_enc_ok mc_conf.target.config labs ffi_names 0 code2 /\
     bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
@@ -1253,7 +1251,7 @@ Proof
          bytes_in_memory_APPEND] \\ srw_tac[][]
 QED
 
-Triviality IMP_bytes_in_memory_Cbw:
+Theorem IMP_bytes_in_memory_Cbw[local]:
   code_similar ^s1.code code2 /\
     all_enc_ok mc_conf.target.config labs ffi_names 0 code2 /\
     bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
@@ -1282,7 +1280,7 @@ Proof
          bytes_in_memory_APPEND] \\ srw_tac[][]
 QED
 
-Triviality IMP_bytes_in_memory_CallFFI:
+Theorem IMP_bytes_in_memory_CallFFI[local]:
   code_similar ^s1.code code2 /\
     all_enc_ok mc_conf.target.config labs ffi_names 0 code2 /\
     bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
@@ -1307,7 +1305,7 @@ Proof
          bytes_in_memory_APPEND]
 QED
 
-Triviality IMP_bytes_in_memory_Halt:
+Theorem IMP_bytes_in_memory_Halt[local]:
   code_similar ^s1.code code2 /\
     all_enc_ok mc_conf.target.config labs ffi_names 0 code2 /\
     bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
@@ -1332,7 +1330,7 @@ Proof
          bytes_in_memory_APPEND]
 QED
 
-Triviality IMP_bytes_in_memory_Install:
+Theorem IMP_bytes_in_memory_Install[local]:
   code_similar ^s1.code code2 /\
     all_enc_ok mc_conf.target.config labs ffi_names 0 code2 /\
     bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
@@ -1410,7 +1408,7 @@ Proof
     >- gvs[pos_val_def,all_enc_ok_def,asm_fetch_aux_def] >>
     Cases_on `pc` >>
     gvs[line_length_def,all_enc_ok_def,pos_val_def,line_ok_def,asm_fetch_aux_def] >>
-    drule pos_val_0 >>
+    old_drule pos_val_0 >>
     gvs[])
 QED
 
@@ -1453,7 +1451,7 @@ Proof
   \\ qabbrev_tac
      `bytes = mc_conf.target.config.encode (Inst (Mem mop r ad)) ++
         FLAT (REPLICATE n'' (mc_conf.target.config.encode (Inst Skip)))`
-  \\ drule $ GEN_ALL asm_fetch_aux_pos_val_LENGTH_EQ
+  \\ old_drule $ GEN_ALL asm_fetch_aux_pos_val_LENGTH_EQ
   \\ disch_then imp_res_tac
   \\ first_x_assum $ qspec_then `bytes` mp_tac
   \\ impl_tac
@@ -1463,7 +1461,7 @@ Proof
   \\ gvs[line_length_def,enc_with_nop_thm,FLAT_REPLICATE_NIL]
 QED
 
-Triviality bytes_in_mem_IMP_memory:
+Theorem bytes_in_mem_IMP_memory[local]:
   !xs a.
       (!a. ~(a IN dm1) ==> m a = m1 a) ==>
       bytes_in_mem a xs m dm dm1 ==>
@@ -1474,7 +1472,7 @@ QED
 
 (* read/write bytearrays for FFI *)
 
-Triviality read_bytearray_state_rel:
+Theorem read_bytearray_state_rel[local]:
   !n a x.
       state_rel (mc_conf,code2,labs,p) s1 t1 ms1 /\
       (read_bytearray a n (mem_load_byte_aux s1.mem s1.mem_domain s1.be) = SOME x) ==>
@@ -1494,7 +1492,7 @@ Proof
   \\ rev_full_simp_tac(srw_ss())[word_loc_val_byte_def,word_loc_val_def]
 QED
 
-Triviality IMP_has_io_name:
+Theorem IMP_has_io_name[local]:
   (asm_fetch s1 = SOME (LabAsm (CallFFI index) l bytes n)) ==>
     has_io_name index s1.code
 Proof
@@ -1508,7 +1506,7 @@ Proof
   \\ Cases_on `pc = 0` \\ full_simp_tac(srw_ss())[] \\ res_tac \\ full_simp_tac(srw_ss())[]
 QED
 
-Triviality bytes_in_mem_asm_write_bytearray_lemma:
+Theorem bytes_in_mem_asm_write_bytearray_lemma[local]:
   !xs p.
       (!a. ~(a IN k) ==> (m1 a = m2 a)) ==>
       bytes_in_mem p xs m1 d k ==>
@@ -1517,7 +1515,7 @@ Proof
   Induct \\ full_simp_tac(srw_ss())[bytes_in_mem_def]
 QED
 
-Triviality bytes_in_mem_asm_write_bytearray:
+Theorem bytes_in_mem_asm_write_bytearray[local]:
   (∀a. byte_align a ∈ s1.mem_domain ⇒ a ∈ s1.mem_domain) ∧
     (read_bytearray c1 (LENGTH new_bytes) (mem_load_byte_aux s1.mem s1.mem_domain s1.be) = SOME x) ==>
     bytes_in_mem p xs t1.mem t1.mem_domain s1.mem_domain ==>
@@ -1543,7 +1541,7 @@ Proof
   \\ full_simp_tac(srw_ss())[] \\ res_tac
 QED
 
-Triviality write_bytearray_NOT_Loc:
+Theorem write_bytearray_NOT_Loc[local]:
   !xs c1 s1 a c.
       (s1.mem a = Word c) ==>
       (write_bytearray c1 xs s1.mem s1.mem_domain s1.be) a <> Loc n n0
@@ -1555,7 +1553,7 @@ Proof
   \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[] \\ rev_full_simp_tac(srw_ss())[]
 QED
 
-Triviality CallFFI_bytearray_lemma:
+Theorem CallFFI_bytearray_lemma[local]:
   byte_align (a:'a word) IN s1.mem_domain /\ good_dimindex (:'a) /\
     a IN t1.mem_domain /\
     a IN s1.mem_domain /\
@@ -1594,7 +1592,7 @@ QED
 
 (* inst correct *)
 
-Triviality MULT_ADD_LESS_MULT:
+Theorem MULT_ADD_LESS_MULT[local]:
   !m n k l j. m < l /\ n < k /\ j <= k ==> m * j + n < l * k:num
 Proof
   rpt strip_tac
@@ -1604,7 +1602,7 @@ Proof
   \\ decide_tac
 QED
 
-Triviality aligned_IMP_ADD_LESS_dimword:
+Theorem aligned_IMP_ADD_LESS_dimword[local]:
   aligned k (x:'a word) /\ k <= dimindex (:'a) ==>
     w2n x + (2 ** k - 1) < dimword (:'a)
 Proof
@@ -1671,7 +1669,7 @@ Proof
     metis_tac[aligned_3_imp]
 QED
 
-Triviality dimword_eq_32_imp_or_bytes:
+Theorem dimword_eq_32_imp_or_bytes[local]:
   dimindex (:'a) = 32 ==>
     (w2w ((w2w (x:'a word)):word8) ||
      w2w ((w2w (x ⋙ 8)):word8) ≪ 8 ||
@@ -1681,7 +1679,7 @@ Proof
   srw_tac [wordsLib.WORD_BIT_EQ_ss, boolSimps.CONJ_ss] []
 QED
 
-Triviality dimword_eq_64_imp_or_bytes:
+Theorem dimword_eq_64_imp_or_bytes[local]:
   dimindex (:'a) = 64 ==>
     (w2w ((w2w (x:'a word)):word8) ||
      w2w ((w2w (x ⋙ 8)):word8) ≪ 8 ||
@@ -1695,7 +1693,7 @@ Proof
   srw_tac [wordsLib.WORD_BIT_EQ_ss, boolSimps.CONJ_ss] []
 QED
 
-Triviality byte_align_32_eq:
+Theorem byte_align_32_eq[local]:
   dimindex (:'a) = 32 ⇒
   byte_align (a:'a word) +n2w (w2n a MOD 4) = a
 Proof
@@ -1707,7 +1705,7 @@ Proof
   simp[]
 QED
 
-Triviality byte_align_64_eq:
+Theorem byte_align_64_eq[local]:
   dimindex (:'a) = 64 ⇒
   byte_align (a:'a word) +n2w (w2n a MOD 8) = a
 Proof
@@ -1719,7 +1717,7 @@ Proof
   simp[]
 QED
 
-Triviality byte_align_32_IMP:
+Theorem byte_align_32_IMP[local]:
   dimindex(:'a) = 32 ⇒
   (byte_align a = a ⇒ w2n a MOD 4 = 0) ∧
   (byte_align a + (1w:'a word) = a ⇒ w2n a MOD 4 = 1) ∧
@@ -1739,7 +1737,7 @@ Proof
   DECIDE_TAC
 QED
 
-Triviality MOD4_CASES:
+Theorem MOD4_CASES[local]:
   ∀n. n MOD 4 = 0 ∨ n MOD 4 = 1 ∨ n MOD 4 = 2 ∨ n MOD 4 = 3
 Proof
   rw[]>>`n MOD 4 < 4` by fs []
@@ -1748,7 +1746,7 @@ Proof
   \\ fs []
 QED
 
-Triviality byte_align_32_CASES:
+Theorem byte_align_32_CASES[local]:
   dimindex(:'a) = 32 ⇒
   byte_align a + (3w:'a word) = a ∨
   byte_align a + (2w:'a word) = a ∨
@@ -1761,7 +1759,7 @@ Proof
   fs[]
 QED
 
-Triviality MOD8_CASES:
+Theorem MOD8_CASES[local]:
   ∀n. n MOD 8 = 0 ∨ n MOD 8 = 1 ∨ n MOD 8 = 2 ∨ n MOD 8 = 3 ∨
       n MOD 8 = 4 ∨ n MOD 8 = 5 ∨ n MOD 8 = 6 ∨ n MOD 8 = 7
 Proof
@@ -1772,7 +1770,7 @@ Proof
   \\ fs []
 QED
 
-Triviality byte_align_64_CASES:
+Theorem byte_align_64_CASES[local]:
   dimindex(:'a) = 64 ⇒
   byte_align a + (7w:'a word) = a ∨
   byte_align a + (6w:'a word) = a ∨
@@ -1789,7 +1787,7 @@ Proof
   fs[]
 QED
 
-Triviality byte_align_64_IMP:
+Theorem byte_align_64_IMP[local]:
   dimindex(:'a) = 64 ⇒
   (byte_align a + (7w:'a word) = a ⇒ w2n a MOD 8 = 7) ∧
   (byte_align a + (6w:'a word) = a ⇒ w2n a MOD 8 = 6) ∧
@@ -1813,7 +1811,7 @@ Proof
   DECIDE_TAC
 QED
 
-Triviality arith_upd_lemma:
+Theorem arith_upd_lemma[local]:
   (∀r. word_loc_val p labs (read_reg r s1) = SOME (t1.regs r)) ∧ ¬(arith_upd a s1).failed ⇒
    ∀r. word_loc_val p labs (read_reg r (arith_upd a s1)) =
        SOME ((arith_upd a t1).regs r)
@@ -1871,7 +1869,7 @@ Proof
   fs[]
 QED
 
-Triviality fp_upd_lemma:
+Theorem fp_upd_lemma[local]:
   (∀r. word_loc_val p labs (read_reg r s1) = SOME (t1.regs r)) ∧
   (!r. s1.fp_regs r = t1.fp_regs r) /\
    ¬(fp_upd f s1).failed ⇒
@@ -1957,7 +1955,7 @@ Theorem align2_not_align3_4w:
   x + 3w = byte_align x + 7w
 Proof
   strip_tac>>
-  drule (Q.SPEC ‘x’ (GEN_ALL byte_align_64_CASES))>>
+  old_drule (Q.SPEC ‘x’ (GEN_ALL byte_align_64_CASES))>>
   strip_tac
   >~[‘byte_align x + 4w = x’]
   >- (rw[]>>pop_assum (fn h => simp[Once (GSYM h),SimpLHS]))>>
@@ -2062,7 +2060,7 @@ Proof
     fs[]
     >-
       (`aligned 2 x` by fs [aligned_w2n]>>
-       drule aligned_2_imp>>
+       old_drule aligned_2_imp>>
        disch_then (strip_assume_tac o UNDISCH)>>
       `byte_align (x+1w) ∈ s1.mem_domain ∧
        byte_align (x+2w) ∈ s1.mem_domain ∧
@@ -2083,7 +2081,7 @@ Proof
           rfs[get_byte_def,byte_index_def]>>rveq>>
           Cases_on `c + t1.regs n'`>>
           rename1 `k < dimword (:α)`>>
-          drule aligned_IMP_ADD_LESS_dimword >>
+          old_drule aligned_IMP_ADD_LESS_dimword >>
           full_simp_tac std_ss [] \\ fs [] >>
           strip_tac \\ fs [word_add_n2w] >>
           rfs [ADD_MOD_EQ_LEMMA] >>
@@ -2094,7 +2092,7 @@ Proof
         ))
     >>
       `aligned 3 x` by fs [aligned_w2n]>>
-       drule aligned_3_imp>>
+       old_drule aligned_3_imp>>
        disch_then (strip_assume_tac o UNDISCH)>>
       `byte_align (x+1w) ∈ s1.mem_domain ∧
        byte_align (x+2w) ∈ s1.mem_domain ∧
@@ -2119,7 +2117,7 @@ Proof
           rfs[get_byte_def,byte_index_def]>>rveq>>
           Cases_on `c + t1.regs n'`>>
           rename1 `k < dimword (:α)`>>
-          drule aligned_IMP_ADD_LESS_dimword >>
+          old_drule aligned_IMP_ADD_LESS_dimword >>
           full_simp_tac std_ss [] \\ fs [] >>
           strip_tac \\ fs [word_add_n2w] >>
           rfs [ADD_MOD_EQ_LEMMA] >>
@@ -2177,7 +2175,7 @@ Proof
     fs[]
     >- (* 32 word *)
      (`aligned 2 x` by fs[aligned_w2n] >>
-       drule aligned_2_imp>>
+       old_drule aligned_2_imp>>
        disch_then (strip_assume_tac o UNDISCH)>>
       `byte_align (x+1w) ∈ s1.mem_domain ∧
        byte_align (x+2w) ∈ s1.mem_domain ∧
@@ -2206,7 +2204,7 @@ Proof
 
     >> (* word64 *)
     Cases_on ‘aligned 3 x’>>fs[]
-     >- (drule aligned_3_imp>>
+     >- (old_drule aligned_3_imp>>
          disch_then (strip_assume_tac o UNDISCH)>>
          `byte_align (x+1w) ∈ s1.mem_domain ∧
          byte_align (x+2w) ∈ s1.mem_domain ∧
@@ -2233,7 +2231,7 @@ Proof
           metis_tac[]))
      >>
      ‘aligned 3 (byte_align x)’ by fs[byte_align_def,aligned_align]>>
-     drule aligned_3_imp>>
+     old_drule aligned_3_imp>>
      disch_then (strip_assume_tac o UNDISCH)>>
      `byte_align (byte_align x+4w) ∈ s1.mem_domain ∧
      byte_align (byte_align x+5w) ∈ s1.mem_domain ∧
@@ -2281,7 +2279,7 @@ Proof
     fs[]
     >-
       (`aligned 2 x` by fs [aligned_w2n]>>
-       drule aligned_2_imp>>
+       old_drule aligned_2_imp>>
        disch_then (strip_assume_tac o UNDISCH)>>
       `byte_align (x+1w) ∈ s1.mem_domain ∧
        byte_align (x+2w) ∈ s1.mem_domain ∧
@@ -2305,7 +2303,7 @@ Proof
          IF_CASES_TAC>>fs[]
          >-
            (fs[get_byte_def,byte_index_def]>>
-           drule byte_align_32_IMP>>
+           old_drule byte_align_32_IMP>>
            rpt IF_CASES_TAC>>fs[]>>
            metis_tac[byte_align_32_CASES])
          >>
@@ -2329,7 +2327,7 @@ Proof
           share_mem_state_rel_tac)))
      >>
        (`aligned 3 x` by fs [aligned_w2n]>>
-       drule aligned_3_imp>>
+       old_drule aligned_3_imp>>
        disch_then (strip_assume_tac o UNDISCH)>>
        `byte_align (x+1w) ∈ s1.mem_domain ∧
        byte_align (x+2w) ∈ s1.mem_domain ∧
@@ -2356,7 +2354,7 @@ Proof
          IF_CASES_TAC>>fs[]
          >-
            (fs[get_byte_def,byte_index_def]>>
-           drule byte_align_64_IMP>>
+           old_drule byte_align_64_IMP>>
            rpt IF_CASES_TAC>>fs[]>>
            metis_tac[byte_align_64_CASES])
          >>
@@ -2450,7 +2448,7 @@ Proof
     fs[word_loc_val_def]
     >- (* store32 - word32 *)
       (`aligned 2 x` by fs [aligned_w2n]>>
-       drule aligned_2_imp>>
+       old_drule aligned_2_imp>>
        disch_then (strip_assume_tac o UNDISCH)>>
       `byte_align (x+1w) ∈ s1.mem_domain ∧
        byte_align (x+2w) ∈ s1.mem_domain ∧
@@ -2487,7 +2485,7 @@ Proof
                        pop_assum $ assume_tac o SIMP_RULE std_ss [aligned_def]>>
                        rfs[align_add_aligned_gen]>>
                        rfs[align_w2n,dimword_def])>>
-                 drule aligned_2_imp>>
+                 old_drule aligned_2_imp>>
                  strip_tac>>rfs[aligned_def,byte_align_def,dimword_def])>>
               TRY (qpat_assum ‘_ = a’ (fn h => rewrite_tac[GSYM h]))>>
               simp[good_dimindex_get_byte_set_byte,
@@ -2522,7 +2520,7 @@ Proof
      >> (* store32 - word64 *)
      Cases_on ‘aligned 3 x’>>fs[]
     >-
-     (drule aligned_3_imp>>
+     (old_drule aligned_3_imp>>
       disch_then (strip_assume_tac o UNDISCH)>>
        `byte_align (x+1w) ∈ s1.mem_domain ∧
        byte_align (x+2w) ∈ s1.mem_domain ∧
@@ -2566,7 +2564,7 @@ Proof
                        pop_assum $ assume_tac o SIMP_RULE std_ss [aligned_def]>>
                        rfs[align_add_aligned_gen]>>
                        rfs[align_w2n,dimword_def])>>
-                 drule aligned_3_imp>>
+                 old_drule aligned_3_imp>>
                  strip_tac>>rfs[aligned_def,byte_align_def,dimword_def])>>
               TRY (qpat_assum ‘_ = a’ (fn h => rewrite_tac[GSYM h]))>>
               simp[good_dimindex_get_byte_set_byte,
@@ -2608,7 +2606,7 @@ Proof
 
        >> (* word64, off by 4w *)
      ‘aligned 3 (byte_align x)’ by fs[byte_align_def,aligned_align]>>
-     drule aligned_3_imp>>
+     old_drule aligned_3_imp>>
      disch_then (strip_assume_tac o UNDISCH)>>
      `byte_align (byte_align x+4w) ∈ s1.mem_domain ∧
      byte_align (byte_align x+5w) ∈ s1.mem_domain ∧
@@ -2654,7 +2652,7 @@ Proof
                         rpt (qpat_x_assum ‘_ = a’ kall_tac)>>
                         rfs[align_add_aligned_gen]>>
                         rfs[align_w2n,dimword_def])>>
-                  drule aligned_3_imp>>
+                  old_drule aligned_3_imp>>
                   strip_tac>>rfs[aligned_def,byte_align_def,dimword_def])>>
                TRY (qpat_assum ‘_ = a’ (fn h => rewrite_tac[GSYM h]))>>
                simp[good_dimindex_get_byte_set_byte,
@@ -2716,7 +2714,7 @@ Proof
   simp[GSYM word_add_n2w] >>
   fsrw_tac[ARITH_ss][] >>
   conj_tac >- metis_tac[] >>
-  conj_tac >- ( srw_tac[][] >> first_x_assum drule >> simp[] ) >>
+  conj_tac >- ( srw_tac[][] >> first_x_assum old_drule >> simp[] ) >>
   conj_tac >- metis_tac[] >>
   simp[CONJ_ASSOC] >>
   reverse conj_tac >-
@@ -2732,7 +2730,7 @@ QED
 
 (* compile correct *)
 
-Triviality line_length_MOD_0:
+Theorem line_length_MOD_0[local]:
   encoder_correct mc_conf.target /\
     (~EVEN p ==> (mc_conf.target.config.code_alignment = 0)) /\
     line_ok mc_conf.target.config labs ffi_names p h ==>
@@ -2747,7 +2745,7 @@ Proof
   \\ full_simp_tac(srw_ss())[LET_DEF,map_replicate,SUM_REPLICATE]
 QED
 
-Triviality pos_val_MOD_0_lemma:
+Theorem pos_val_MOD_0_lemma[local]:
   (0 MOD 2 ** mc_conf.target.config.code_alignment = 0)
 Proof
   full_simp_tac(srw_ss())[]
@@ -2773,8 +2771,7 @@ val pos_val_MOD_0 = Q.prove(
   \\ Cases_on `EVEN pos` \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[EVEN_ADD]
   \\ `0:num < 2 ** mc_conf.target.config.code_alignment` by full_simp_tac(srw_ss())[]
-  \\ imp_res_tac (GSYM MOD_PLUS)
-  \\ pop_assum (fn th => once_rewrite_tac [th])
+  \\ once_rewrite_tac [GSYM MOD_PLUS]
   \\ imp_res_tac line_length_MOD_0 \\ full_simp_tac(srw_ss())[])
   |> Q.SPECL [`x`,`0`,`y`] |> SIMP_RULE std_ss [GSYM AND_IMP_INTRO]
   |> SIMP_RULE std_ss [pos_val_MOD_0_lemma]
@@ -2795,15 +2792,15 @@ Proof
   PURE_REWRITE_TAC [addressTheory.n2w_and_1]>>
   FULL_SIMP_TAC std_ss [arithmeticTheory.EVEN_MOD2]>>
   `0 < 2n` by fs[]>>
-  drule (GSYM arithmeticTheory.MOD_PLUS)>>
-  disch_then(qspecl_then [`x`,`w2n p`] SUBST_ALL_TAC)>>
+  (qspecl_then [`2`,`x`,`w2n p`] SUBST_ALL_TAC)
+    (GSYM arithmeticTheory.MOD_PLUS)>>
   first_x_assum SUBST_ALL_TAC>>
   SIMP_TAC (std_ss++ARITH_ss) []>>
   PURE_REWRITE_TAC [GSYM addressTheory.n2w_and_1]>>
   simp[]
 QED
 
-Triviality word_cmp_lemma:
+Theorem word_cmp_lemma[local]:
   state_rel (mc_conf,code2,labs,p) s1 t1 ms1 /\
     (word_cmp cmp (read_reg rr s1) (reg_imm ri s1) = SOME x) ==>
     (x = word_cmp cmp (read_reg rr t1) (reg_imm ri t1))
@@ -2826,7 +2823,7 @@ Proof
   \\ metis_tac[EVEN_add_AND]
 QED
 
-Triviality list_add_if_fresh_simp:
+Theorem list_add_if_fresh_simp[local]:
   !n s. list_add_if_fresh s l =
     if find_index s l n = NONE then
       APPEND l [s]
@@ -2853,7 +2850,7 @@ QED
 
 val list_add_if_fresh_simp = Q.SPECL [`n`,`s`] list_add_if_fresh_simp
 
-Triviality find_index_append:
+Theorem find_index_append[local]:
   !n. find_index s (l++l') n =
   (case find_index s l n of NONE => find_index s l' (n + LENGTH l) | SOME i => SOME i)
 Proof
@@ -2867,7 +2864,7 @@ Proof
    >> fs [find_index_def,ADD1])
 QED
 
-Triviality has_io_name_find_index:
+Theorem has_io_name_find_index[local]:
   !l s. has_io_name s l
   ==> ?y. find_index (ExtCall s) (find_ffi_names l) 0 = SOME y
 Proof
@@ -2883,7 +2880,7 @@ Proof
       >> metis_tac [NOT_NONE_SOME])
 QED
 
-Triviality find_index_in_range:
+Theorem find_index_in_range[local]:
   !n. find_index s l n = SOME x ==> x < n + LENGTH l /\ x >= n
 Proof
   Induct_on `l`
@@ -2894,7 +2891,7 @@ Proof
   >> rfs [find_index_def]
 QED
 
-Triviality find_index_in_range0:
+Theorem find_index_in_range0[local]:
   find_index s l 0 = SOME x ==> x < LENGTH l /\ x >= 0
 Proof
   ASSUME_TAC (Q.SPEC `0` find_index_in_range) >> rfs []
@@ -2918,6 +2915,7 @@ Proof
   \\ rw[has_io_name_def]
   \\ CASE_TAC \\ fs[]
   \\ CASE_TAC \\ fs[]
+  \\ rename1 ‘s = index ∨ _’
   \\ Cases_on`s = index` \\ fs[]
 QED
 
@@ -2925,12 +2923,11 @@ QED
 
 (* annotated line length *)
 
-Definition line_len_def:
+Definition line_len_def[simp]:
   (line_len (Label _ _ l) = l) ∧
   (line_len (Asm _ _ l) = l) ∧
   (line_len (LabAsm _ _ _ l) = l)
 End
-val _ = export_rewrites["line_len_def"];
 
 (* annotated section length *)
 
@@ -2973,7 +2970,7 @@ End
 
 val enc_lines_again_simp_ind = theorem"enc_lines_again_simp_ind";
 
-Triviality enc_lines_again_simp_EQ:
+Theorem enc_lines_again_simp_EQ[local]:
   ∀labs ffis pos enc ls acc b.
   let (ls',flag) = enc_lines_again_simp labs ffis pos enc ls in
   enc_lines_again labs ffis pos enc ls (acc,b) = (REVERSE acc ++ ls',sec_length ls' pos,b ∧ flag)
@@ -3097,7 +3094,7 @@ QED
 
 (* code_similar preservation *)
 
-Triviality line_similar_add_nop:
+Theorem line_similar_add_nop[local]:
   ∀ls ls' h.
   LIST_REL line_similar ls ls' ⇒
   LIST_REL line_similar ls (add_nop h ls')
@@ -3124,7 +3121,7 @@ Proof
    first_x_assum (SUBST1_TAC o SYM) >>
    strip_tac>>
    match_mp_tac EVERY2_APPEND_suff >>
-   drule LIST_REL_APPEND_IMP >>
+   old_drule LIST_REL_APPEND_IMP >>
    rw[]
    >-
      (`LIST_REL line_similar aux (add_nop nop aux)` by
@@ -3152,7 +3149,7 @@ Proof
   simp[]
 QED
 
-Triviality LIST_REL_enc_line:
+Theorem LIST_REL_enc_line[local]:
   ∀ls ls'.
   LIST_REL line_similar ls ls' ⇔
   LIST_REL line_similar (MAP (enc_line enc len) ls) ls'
@@ -3175,7 +3172,7 @@ Proof
    metis_tac[LIST_REL_enc_line]
 QED
 
-Triviality enc_lines_again_IMP_similar:
+Theorem enc_lines_again_IMP_similar[local]:
   ∀labs ffis pos enc lines acc ok lines' ok' curr.
   enc_lines_again labs ffis pos enc lines (acc,ok) = (lines',ok') ⇒
   LIST_REL line_similar curr (REVERSE acc) ⇒
@@ -3209,7 +3206,7 @@ val lines_upd_lab_len_AUX = Q.prove(
   \\ Cases \\ simp_tac std_ss [lines_upd_lab_len_def,LET_DEF]
   \\ pop_assum (fn th => once_rewrite_tac [GSYM th]) \\ fs []) |> GSYM
 
-Triviality line_similar_lines_upd_lab_len:
+Theorem line_similar_lines_upd_lab_len[local]:
   !l aux pos l1.
       LIST_REL line_similar (FST (lines_upd_lab_len pos l [])) l1 =
       LIST_REL line_similar l l1
@@ -3323,7 +3320,7 @@ Proof
   \\ strip_tac \\ res_tac \\ fs[]
 QED
 
-Triviality enc_lines_again_sec_labels_ok:
+Theorem enc_lines_again_sec_labels_ok[local]:
   ∀labs ffis pos enc lines acc ok res ok' k.
     enc_lines_again labs ffis pos enc lines (acc,ok) = (res,ok') ∧
     EVERY (sec_label_ok k) acc ∧
@@ -3346,7 +3343,7 @@ Proof
   \\ asm_exists_tac \\ fs[]
 QED
 
-Triviality lines_upd_lab_len_sec_label_ok:
+Theorem lines_upd_lab_len_sec_label_ok[local]:
   ∀pos lines acc k.
      EVERY (sec_label_ok k) lines ∧
      EVERY (sec_label_ok k) acc ⇒
@@ -3367,7 +3364,7 @@ Proof
   \\ rw[]
 QED
 
-Triviality add_nop_sec_label_ok:
+Theorem add_nop_sec_label_ok[local]:
   ∀nop aux.
     EVERY (sec_label_ok k) aux ⇒
     EVERY (sec_label_ok k) (add_nop nop aux)
@@ -3376,7 +3373,7 @@ Proof
   \\ rw[add_nop_def]
 QED
 
-Triviality pad_section_sec_label_ok:
+Theorem pad_section_sec_label_ok[local]:
   ∀nop xs acc k.
     EVERY (sec_label_ok k) xs ∧
     EVERY (sec_label_ok k) acc ⇒
@@ -3423,10 +3420,9 @@ Definition line_encd0_def:
   (line_encd0 enc _ ⇔ T)
 End
 
-Definition sec_encd0_def:
+Definition sec_encd0_def[simp]:
   sec_encd0 enc (Section _ ls) = EVERY (line_encd0 enc) ls
 End
-val _ = export_rewrites["sec_encd0_def"];
 
 Overload all_encd0 = ``λenc l. EVERY (sec_encd0 enc) l``
 
@@ -3501,34 +3497,30 @@ QED
 (* invariant: annotated lengths are not too small *)
 (* this is a consequence of encd (below) and not treated separately much *)
 
-Definition line_length_leq_def:
+Definition line_length_leq_def[simp]:
   (line_length_leq (LabAsm _ _ bytes l) ⇔
     LENGTH bytes ≤ l) ∧
   (line_length_leq (Asm _ bytes l) ⇔
     LENGTH bytes ≤ l) ∧
   (line_length_leq _ ⇔ T)
 End
-val _ = export_rewrites["line_length_leq_def"];
 
-Definition sec_length_leq_def:
+Definition sec_length_leq_def[simp]:
   sec_length_leq (Section _ ls) = EVERY line_length_leq ls
 End
-val _ = export_rewrites["sec_length_leq_def"];
 
 Overload all_length_leq = ``λl. EVERY sec_length_leq l``
 
 (* invariant: label annotated lengths are 0 or 1 *)
 
-Definition label_one_def:
+Definition label_one_def[simp]:
   (label_one (Label _ _ n) ⇔ n ≤ 1) ∧
   (label_one _ ⇔ T)
 End
-val _ = export_rewrites["label_one_def"];
 
-Definition sec_label_one_def:
+Definition sec_label_one_def[simp]:
   sec_label_one (Section _ ls) = EVERY label_one ls
 End
-val _ = export_rewrites["sec_label_one_def"];
 
 (* establishing label_one *)
 
@@ -3745,11 +3737,10 @@ QED
 
 (* invariant: all labels annotated with length 0 *)
 
-Definition label_zero_def:
+Definition label_zero_def[simp]:
   (label_zero (Label _ _ n) ⇔ n = 0) ∧
   (label_zero _ ⇔ T)
 End
-val _ = export_rewrites["label_zero_def"];
 
 Definition sec_label_zero_def:
   sec_label_zero (Section _ ls) = EVERY label_zero ls
@@ -3757,7 +3748,7 @@ End
 
 (* label_zero preservation *)
 
-Triviality EVERY_label_zero_add_nop:
+Theorem EVERY_label_zero_add_nop[local]:
   !xs. EVERY label_zero (add_nop nop xs) = EVERY label_zero xs
 Proof
   Induct \\ fs [add_nop_def,EVERY_REVERSE]
@@ -3915,10 +3906,9 @@ Definition line_aligned_def:
     line_length l MOD m = 0
 End
 
-Definition sec_aligned_def:
+Definition sec_aligned_def[simp]:
   sec_aligned noplen (Section _ ls) = EVERY (line_aligned noplen) ls
 End
-val _ = export_rewrites["sec_aligned_def"];
 
 (* establishing aligned *)
 
@@ -3983,10 +3973,9 @@ Definition label_prefix_zero_def:
         ∀m. m ≤ n ⇒ line_len (EL m ls) = 0)
 End
 
-Definition sec_label_prefix_zero_def:
+Definition sec_label_prefix_zero_def[simp]:
   sec_label_prefix_zero (Section k ls) ⇔ label_prefix_zero ls
 End
-val _ = export_rewrites["sec_label_prefix_zero_def"];
 
 Theorem label_prefix_zero_cons:
    (label_prefix_zero (Label l1 l2 len::ls) ⇔ ((len = 0) ∧ label_prefix_zero ls)) ∧
@@ -4295,11 +4284,11 @@ Proof
   rw[enc_with_nop_thm,pad_bytes_def]
   >- (qexists_tac`0` \\ simp[REPLICATE])
   \\ simp[TAKE_APPEND2]
-  \\ drule (GEN_ALL MOD_EQ_0_DIVISOR)
-  \\ disch_then (drule o #1 o EQ_IMP_RULE o SPEC_ALL)
+  \\ old_drule (GEN_ALL MOD_EQ_0_DIVISOR)
+  \\ disch_then (old_drule o #1 o EQ_IMP_RULE o SPEC_ALL)
   \\ qpat_x_assum`LENGTH _ MOD _ = _`assume_tac
-  \\ drule (GEN_ALL MOD_EQ_0_DIVISOR)
-  \\ disch_then (drule o #1 o EQ_IMP_RULE o SPEC_ALL)
+  \\ old_drule (GEN_ALL MOD_EQ_0_DIVISOR)
+  \\ disch_then (old_drule o #1 o EQ_IMP_RULE o SPEC_ALL)
   \\ rw[] \\ rw[] \\ fs[]
   \\ fs[NOT_LESS_EQUAL]
   \\ fs[GSYM RIGHT_SUB_DISTRIB]
@@ -4799,7 +4788,7 @@ QED
 
 (* invariant: referenced labels exist *)
 
-Definition line_labs_exist_def:
+Definition line_labs_exist_def[simp]:
   (line_labs_exist labs (LabAsm a _ _ _) ⇔
     ∀n1 n2. (n1,n2) ∈ labs_of a ⇒ lab_lookup n1 n2 labs ≠ NONE) ∧
   (line_labs_exist _ _ ⇔ T)
@@ -4807,17 +4796,14 @@ End
 
 val line_labs_exist_ind = theorem "line_labs_exist_ind";
 
-val _ = export_rewrites["line_labs_exist_def"];
-
-Definition sec_labs_exist_def:
+Definition sec_labs_exist_def[simp]:
   sec_labs_exist labs (Section _ ls) ⇔ EVERY (line_labs_exist labs) ls
 End
-val _ = export_rewrites["sec_labs_exist_def"];
 
 Overload all_labs_exist = ``λlabs code. EVERY (sec_labs_exist labs) code``
 
 (* Remove tail recursion from zero_labs_acc_exist *)
-Triviality zero_labs_acc_of_eq_zero_labs_of:
+Theorem zero_labs_acc_of_eq_zero_labs_of[local]:
   domain (zero_labs_acc_of l acc) =
   IMAGE FST (restrict_zero (labs_of l)) ∪ domain acc
 Proof
@@ -4827,7 +4813,7 @@ Proof
   simp[EXTENSION]
 QED
 
-Triviality line_get_zero_labs_acc_eq_line_get_zero_labels:
+Theorem line_get_zero_labs_acc_eq_line_get_zero_labels[local]:
   domain (line_get_zero_labs_acc l acc) =
   IMAGE FST (restrict_zero (line_get_labels l)) ∪ domain acc
 Proof
@@ -4836,7 +4822,7 @@ Proof
   fs[zero_labs_acc_of_eq_zero_labs_of,backendPropsTheory.restrict_zero_def]
 QED
 
-Triviality sec_get_zero_labs_acc_eq_sec_get_zero_labels:
+Theorem sec_get_zero_labs_acc_eq_sec_get_zero_labels[local]:
   domain (sec_get_zero_labs_acc sec acc) =
   IMAGE FST (restrict_zero (sec_get_labels sec)) ∪ domain acc
 Proof
@@ -4847,7 +4833,7 @@ Proof
   metis_tac[]
 QED
 
-Triviality get_zero_labs_acc_eq_get_zero_labels:
+Theorem get_zero_labs_acc_eq_get_zero_labels[local]:
   domain (FOLDR sec_get_zero_labs_acc acc code) =
   IMAGE FST (restrict_zero (get_labels code)) ∪ domain acc
 Proof
@@ -4871,9 +4857,9 @@ Proof
   simp[SUBSET_DEF,EXISTS_PROD,FORALL_PROD]>>
   rw[EQ_IMP_THM]>>fs[backendPropsTheory.restrict_zero_def]>>
   rw[]>>
-  first_x_assum drule>>fs[]>>
+  first_x_assum old_drule>>fs[]>>
   every_case_tac>>fs[]
-QED;
+QED
 
 (* labs_exist preservation *)
 Theorem line_similar_line_labs_exist:
@@ -5118,7 +5104,7 @@ Proof
   \\ asm_exists_tac \\ fs[]
 QED
 
-Triviality all_enc_ok_split:
+Theorem all_enc_ok_split[local]:
   ∀c labs ffis pos k lines xs.
   all_enc_ok c labs ffis pos (Section k lines::xs) ⇒
   all_enc_ok c labs ffis pos [Section k lines] ∧
@@ -5132,7 +5118,7 @@ Proof
   metis_tac[ADD_ASSOC]
 QED
 
-Triviality all_enc_ok_even:
+Theorem all_enc_ok_even[local]:
   ∀lines pos.
   all_enc_ok c labs ffis pos [Section k lines] ⇒
   EVEN (sec_length lines pos)
@@ -5147,7 +5133,7 @@ Proof
   fs(bool_case_eq_thms) \\ imp_res_tac lab_lookup_IMP \\ rw[]
 QED
 
-Triviality all_enc_ok_lab_lookup_even:
+Theorem all_enc_ok_lab_lookup_even[local]:
   ∀c labs ffis pos sec_list l1 l2 acc x.
       all_enc_ok c labs ffis pos sec_list ∧
       lab_lookup l1 l2 (compute_labels_alt pos sec_list acc) = SOME x ∧
@@ -5316,8 +5302,8 @@ Proof
   \\ simp[Once loc_to_pc_thm]
   \\ pairarg_tac \\ fs[]
   \\ fs[all_enc_ok_cons]
-  \\ drule lines_ok_lines_enc_with_nop \\ strip_tac
-  \\ drule lines_enc_with_nop_length_ok \\ strip_tac
+  \\ old_drule lines_ok_lines_enc_with_nop \\ strip_tac
+  \\ old_drule lines_enc_with_nop_length_ok \\ strip_tac
   \\ IF_CASES_TAC \\ fs[]
   >- (
     rveq
@@ -5354,9 +5340,9 @@ Proof
       \\ imp_res_tac sec_pos_val_0
       \\ simp[] )
     \\ simp[lookup_fromAList]
-    \\ drule (GEN_ALL ALOOKUP_section_labels)
+    \\ old_drule (GEN_ALL ALOOKUP_section_labels)
     \\ fs[sec_label_zero_def]
-    \\ disch_then drule \\ simp[]
+    \\ disch_then old_drule \\ simp[]
     \\ disch_then(qspecl_then[`pos`,`[]`]strip_assume_tac) \\ rfs[]
     \\ match_mp_tac EQ_SYM
     \\ simp[lookup_insert, lookup_fromAList]
@@ -5617,7 +5603,7 @@ Proof
   \\ simp[]
 QED
 
-Triviality enc_lines_again_all_enc_ok_pre:
+Theorem enc_lines_again_all_enc_ok_pre[local]:
   ∀labs ffis pos enc lines acc ok res ok' c.
   enc_lines_again labs ffis pos enc lines (acc,ok) = (res,ok') ∧
   EVERY (line_ok_pre c) lines ∧ EVERY (line_ok_pre c) acc ⇒
@@ -5627,7 +5613,7 @@ Proof
   rw[EVERY_REVERSE]>>fs[line_ok_pre_def]
 QED
 
-Triviality enc_secs_again_all_enc_ok_pre:
+Theorem enc_secs_again_all_enc_ok_pre[local]:
   ∀pos labs ffis enc ls res ok c.
   enc_secs_again pos labs ffis enc ls = (res,ok) ∧ all_enc_ok_pre c ls ⇒
   all_enc_ok_pre c res
@@ -5639,14 +5625,14 @@ Proof
   match_mp_tac enc_lines_again_all_enc_ok_pre>>asm_exists_tac>>fs[]
 QED
 
-Triviality line_ok_pre_add_nop:
+Theorem line_ok_pre_add_nop[local]:
   EVERY (line_ok_pre c) xs ⇒
   EVERY (line_ok_pre c) (add_nop nop xs)
 Proof
   Induct_on`xs`>>EVAL_TAC>>Cases>>fs[]>>rw[]>>EVAL_TAC>>fs[line_ok_pre_def]
 QED
 
-Triviality line_ok_pre_pad_section:
+Theorem line_ok_pre_pad_section[local]:
   ∀nop xs acc c.
   EVERY (line_ok_pre c) xs ∧ EVERY (line_ok_pre c) acc ⇒
   EVERY (line_ok_pre c) (pad_section nop xs acc)
@@ -5657,7 +5643,7 @@ Proof
   metis_tac[line_ok_pre_add_nop]
 QED
 
-Triviality all_enc_ok_pre_pad_code:
+Theorem all_enc_ok_pre_pad_code[local]:
   ∀nop code c.
   all_enc_ok_pre c code ⇒
   all_enc_ok_pre c (pad_code nop code)
@@ -5667,7 +5653,7 @@ Proof
   match_mp_tac line_ok_pre_pad_section>>fs[]
 QED
 
-Triviality all_enc_ok_pre_lines_upd_lab_len:
+Theorem all_enc_ok_pre_lines_upd_lab_len[local]:
   ∀n lines acc.
   EVERY (line_ok_pre c) lines ∧
   EVERY (line_ok_pre c) acc ⇒
@@ -5677,7 +5663,7 @@ Proof
   fs[EVERY_REVERSE,line_ok_pre_def]
 QED
 
-Triviality all_enc_ok_pre_upd_lab_len:
+Theorem all_enc_ok_pre_upd_lab_len[local]:
   ∀n code.
   all_enc_ok_pre c code ⇒
   all_enc_ok_pre c (upd_lab_len n code)
@@ -5688,7 +5674,7 @@ Proof
   \\ rw[]
 QED
 
-Triviality EXP_IMP_ZERO_LT:
+Theorem EXP_IMP_ZERO_LT[local]:
   (2n ** y = x) ⇒ 0 < x
 Proof
   metis_tac[bitTheory.TWOEXP_NOT_ZERO,NOT_ZERO_LT_ZERO]
@@ -5732,7 +5718,7 @@ Proof
   \\ metis_tac[line_ok_alignment,ODD_EVEN]
 QED
 
-Triviality remove_labels_loop_thm:
+Theorem remove_labels_loop_thm[local]:
   ∀n c init_pos init_labs ffis code code2 labs.
     remove_labels_loop n c init_pos init_labs ffis code = SOME (code2,labs) ∧
     EVERY sec_ends_with_label code ∧
@@ -5784,7 +5770,7 @@ Proof
       >- (match_mp_tac enc_secs_again_all_enc_ok_pre>>metis_tac[])
       >- (match_mp_tac enc_secs_again_encd0 \\ metis_tac[] ))
     >> simp[] >> strip_tac >> fs []
-    >> drule enc_secs_again_IMP_similar
+    >> old_drule enc_secs_again_IMP_similar
     >> metis_tac [code_similar_trans,code_similar_loc_to_pc])
   \\ pairarg_tac \\ fs []
   \\ rpt var_eq_tac \\ fs []
@@ -5903,10 +5889,10 @@ Proof
     \\ match_mp_tac has_odd_inst_alignment
     \\ asm_exists_tac \\ srw_tac[][]
     \\ asm_exists_tac \\ srw_tac[][])
-  \\ drule pad_code_compute_labels
+  \\ old_drule pad_code_compute_labels
   \\ disch_then(qspecl_then[`init_pos`,`init_labs`]mp_tac)
   \\ impl_tac >- fs[]
-  \\ drule enc_secs_again_compute_labels \\ fs[]
+  \\ old_drule enc_secs_again_compute_labels \\ fs[]
   \\ rw [Abbr`labs`]
   \\ qhdtm_assum`compute_labels_alt`sym_sub_tac
   THEN1 (
@@ -5969,7 +5955,7 @@ Proof
   >> BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[])
 QED
 
-Triviality all_enc_ok_pre_enc_sec_list:
+Theorem all_enc_ok_pre_enc_sec_list[local]:
   ∀code enc c.
   all_enc_ok_pre c code ⇒
   all_enc_ok_pre c (enc_sec_list enc code)
@@ -6003,7 +5989,7 @@ Theorem remove_labels_thm:
 Proof
   simp[remove_labels_def]
   >> strip_tac
-  >> drule (GEN_ALL remove_labels_loop_thm)
+  >> old_drule (GEN_ALL remove_labels_loop_thm)
   >> impl_tac
   >- (
     simp[enc_sec_list_encd0,all_enc_ok_pre_enc_sec_list]
@@ -6137,7 +6123,7 @@ Proof
   Induct>>rw[lines_ok_def]>> metis_tac[line_ok_line_byte_length]
 QED
 
-Triviality all_enc_ok_prog_to_bytes_EVEN:
+Theorem all_enc_ok_prog_to_bytes_EVEN[local]:
   ∀code n c labs ffi pos.
    EVEN pos ∧
    all_enc_ok c labs ffi pos code ⇒
@@ -6154,7 +6140,7 @@ Proof
   metis_tac[EVEN_ADD]
 QED
 
-Triviality loc_to_pc_append:
+Theorem loc_to_pc_append[local]:
   ∀l1 l2 c1 c2 conf labs ffis pos.
   EVERY sec_labels_ok (c1++c2) ⇒
   loc_to_pc l1 l2 (c1++c2) =
@@ -6187,7 +6173,7 @@ Proof
   fs[all_enc_ok_cons]>>
   first_x_assum match_mp_tac>>
   fs[prog_to_bytes_MAP,LENGTH_FLAT]>>
-  drule lines_ok_MAP_line_byte_length>>
+  old_drule lines_ok_MAP_line_byte_length>>
   rw[]>>
   metis_tac[ADD_COMM]
 QED
@@ -6329,14 +6315,14 @@ Proof
   >-(
     TOP_CASE_TAC>>fs[]>>
     rw[]>>res_tac>>fs[]>>
-    drule sec_loc_to_pc_bound>>
+    old_drule sec_loc_to_pc_bound>>
     fs[])
   >>
     rw[]>>
     res_tac>>fs[]
 QED
 
-Triviality find_ffi_names_append:
+Theorem find_ffi_names_append[local]:
   ∀l1 l2.
   find_ffi_names (l1++l2) =
   (find_ffi_names l2) ++
@@ -6396,13 +6382,13 @@ Theorem IMP_ffi_entry_pcs_disjoint_Asm:
 Proof
   rpt strip_tac >>
   fs[ffi_entry_pcs_disjoint_def, addressTheory.word_arith_lemma1] >>
-  drule code_similar_IMP_asm_fetch_aux_line_similar >>
+  old_drule code_similar_IMP_asm_fetch_aux_line_similar >>
   disch_then $ qspec_then `s1.pc` (assume_tac o
     REWRITE_RULE[OPTREL_def]) >>
   gvs[] >>
   Cases_on `y0` >> gvs[line_similar_def] >>
   gvs[share_mem_domain_code_rel_def] >>
-  first_x_assum drule >>
+  first_x_assum old_drule >>
   gvs[addressTheory.word_arith_lemma1, line_length_def] >>
   `LENGTH l = LENGTH bytes'` suffices_by simp[] >>
   drule_all asm_fetch_aux_pos_val_LENGTH_EQ >>
@@ -6425,13 +6411,13 @@ Theorem IMP_ffi_entry_pcs_disjoint_LabAsm:
 Proof
   rpt strip_tac >>
   fs[ffi_entry_pcs_disjoint_def, addressTheory.word_arith_lemma1] >>
-  drule code_similar_IMP_asm_fetch_aux_line_similar >>
+  old_drule code_similar_IMP_asm_fetch_aux_line_similar >>
   disch_then $ qspec_then `s1.pc` (assume_tac o
     REWRITE_RULE[OPTREL_def]) >>
   gvs[] >>
   Cases_on `y0` >> gvs[line_similar_def] >>
   gvs[share_mem_domain_code_rel_def] >>
-  first_x_assum drule >>
+  first_x_assum old_drule >>
   gvs[addressTheory.word_arith_lemma1, line_length_def] >>
   `LENGTH l = LENGTH bytes'` suffices_by simp[] >>
   drule_all asm_fetch_aux_pos_val_LENGTH_EQ >>
@@ -6515,8 +6501,8 @@ Proof
     ) >>
     `LENGTH (FILTER P ffis) < x` by gvs[] >>
     gvs[] >>
-    last_x_assum drule >>
-    first_x_assum drule >>
+    last_x_assum old_drule >>
+    first_x_assum old_drule >>
     gvs[EVERY_EL,EL_APPEND_EQN,Abbr`P`] >>
     Cases_on ‘LENGTH l’>>fs[]>>
     last_x_assum $ qspec_then ‘0’ assume_tac>>fs[]
@@ -6608,7 +6594,7 @@ Proof
   gvs[] >>
   `j < i` by decide_tac >>
   gvs[] >>
-  drule_at_then (Pos $ el 2) drule pos_val_mono >>
+  drule_at_then (Pos $ el 2) old_drule pos_val_mono >>
   disch_then drule_all >>
   simp[] >>
   qexists `p` >>
@@ -6713,15 +6699,15 @@ Proof
   `p + pos_val pc 0 code2 = pos_val pc p code2` by irule pos_val_acc_0 >>
   `p + pos_val pc' 0 code2 = pos_val pc' p code2` by irule pos_val_acc_0 >>
   gvs[] >>
-  drule pos_val_bound >>
+  old_drule pos_val_bound >>
   disch_then $ qspecl_then [`pc`, `0`] assume_tac >>
-  drule pos_val_bound >>
+  old_drule pos_val_bound >>
   disch_then $ qspecl_then [`pc'`, `0`] assume_tac >>
-  drule asm_fetch_aux_pos_val_SUC >>
+  old_drule asm_fetch_aux_pos_val_SUC >>
   disch_then imp_res_tac >>
   first_x_assum $ qspec_then `0` assume_tac >>
   gvs[] >>
-  drule pos_val_bound >>
+  old_drule pos_val_bound >>
   disch_then $ qspecl_then [`pc + 1`, `0`] assume_tac >>
   gvs[] >>
   drule_then assume_tac asm_fetch_SOME_IMP_LESS_num_pcs >>
@@ -6736,7 +6722,7 @@ Proof
   ) >>
   Cases_on `num_pcs code2 <= pc'`
   >- (
-    drule pos_val_GE_num_pcs >>
+    old_drule pos_val_GE_num_pcs >>
     disch_then $ qspec_then `0` assume_tac >>
     gvs[]
   ) >>
@@ -6745,15 +6731,15 @@ Proof
   `pos_val pc p code2 < pos_val pc' p code2` by (
     Cases_on `a` >>
     gvs[] >>
-    drule pos_val_inj >>
+    old_drule pos_val_inj >>
     gvs[]
   ) >>
-  drule pos_val_mono_inv >>
+  old_drule pos_val_mono_inv >>
   disch_then imp_res_tac >>
   gvs[] >>
   `pc' < pc + 1` suffices_by gvs[] >>
   `pos_val pc' 0 code2 < pos_val (pc+1) 0 code2` by gvs[] >>
-  drule pos_val_mono_inv >>
+  old_drule pos_val_mono_inv >>
   disch_then imp_res_tac >>
   gvs[]
 QED
@@ -6846,7 +6832,7 @@ fun share_mem_load_compile_correct_tac ffi_name new_t1 nb new_ffi =
       \\ impl_tac
       >- (
         simp[target_state_rel_def]
-        \\ drule find_index_LESS_LENGTH
+        \\ old_drule find_index_LESS_LENGTH
         \\ simp[]
         \\ disch_then kall_tac
         \\ fs[find_index_INDEX_OF, INDEX_OF_eq_SOME] )
@@ -6854,7 +6840,7 @@ fun share_mem_load_compile_correct_tac ffi_name new_t1 nb new_ffi =
       >- (
         gvs[is_valid_mapped_write_def,is_valid_mapped_read_def,good_dimindex_def]
         \\ gvs[enc_with_nop_thm]
-        \\ drule $ cj 1 $ cj 1 $ PURE_REWRITE_RULE [EQ_IMP_THM] bytes_in_memory_APPEND
+        \\ old_drule $ cj 1 $ cj 1 $ PURE_REWRITE_RULE [EQ_IMP_THM] bytes_in_memory_APPEND
         \\ strip_tac
         \\ drule_all bytes_in_memory_eq_mem
         \\ simp[]
@@ -6943,7 +6929,7 @@ fun share_mem_store_compile_correct_tac ffi_name new_t1 (nb: term frag list) new
       \\ impl_tac
       >- (
         simp[target_state_rel_def]
-        \\ drule find_index_LESS_LENGTH
+        \\ old_drule find_index_LESS_LENGTH
         \\ simp[]
         \\ disch_then kall_tac
         \\ fs[find_index_INDEX_OF, INDEX_OF_eq_SOME] )
@@ -6951,7 +6937,7 @@ fun share_mem_store_compile_correct_tac ffi_name new_t1 (nb: term frag list) new
       >- (
         gvs[is_valid_mapped_write_def,is_valid_mapped_read_def,good_dimindex_def]
         \\ gvs[enc_with_nop_thm]
-        \\ drule $ cj 1 $ cj 1 $ PURE_REWRITE_RULE [EQ_IMP_THM] bytes_in_memory_APPEND
+        \\ old_drule $ cj 1 $ cj 1 $ PURE_REWRITE_RULE [EQ_IMP_THM] bytes_in_memory_APPEND
         \\ strip_tac
         \\ drule_all bytes_in_memory_eq_mem
         \\ simp[]
@@ -6991,14 +6977,14 @@ val share_mem_eval_expand_tac =
   \\ qpat_assum `!pc op re a inst len i. asm_fetch_aux _ _ = SOME _ /\
       mmio_pcs_min_index _ = SOME _ ==> _` drule_all
   \\ strip_tac
-  \\ drule find_index_is_MEM
+  \\ old_drule find_index_is_MEM
   \\ fs[target_state_rel_def]
   \\ disch_then kall_tac
   \\ fs[share_mem_state_rel_def]
   \\ qpat_assum `!index' i'. mmio_pcs_min_index _ = SOME i' /\ index' < _ /\
-      _ ==> _` $ qspec_then `index` drule
+      _ ==> _` $ qspec_then `index` old_drule
   \\ (
-    impl_tac >- (drule find_index_LESS_LENGTH >> fs[])
+    impl_tac >- (old_drule find_index_LESS_LENGTH >> fs[])
     \\ disch_then assume_tac
     \\ `mc_conf.target.get_pc ms1 <> mc_conf.ccache_pc /\
         mc_conf.target.get_pc ms1 <> mc_conf.halt_pc` by (
@@ -7060,7 +7046,7 @@ Theorem no_share_mem_lemma:
   i = LENGTH ffi_names
 Proof
   rpt strip_tac >>
-  drule mmio_pcs_min_index_is_SOME >>
+  old_drule mmio_pcs_min_index_is_SOME >>
   rpt strip_tac >>
   gvs[no_install_or_no_share_mem_def,no_install_def,no_share_mem_inst_def,EVERY_EL] >>
   spose_not_then assume_tac>>fs[LESS_OR_EQ]>>
@@ -7152,7 +7138,7 @@ Proof
   Cases_on `p < num_pcs code`
   >- metis_tac[asm_fetch_aux_APPEND1] >>
   `num_pcs code <= p` by decide_tac >>
-  drule LESS_EQUAL_ADD >>
+  old_drule LESS_EQUAL_ADD >>
   strip_tac >>
   gvs[] >>
   metis_tac[asm_fetch_aux_APPEND2]
@@ -7180,7 +7166,7 @@ Theorem code_similar_IMP_both_no_share_mem:
   no_share_mem_inst sec_list
 Proof
   rpt strip_tac >>
-  drule code_similar_IMP_asm_fetch_aux_line_similar >>
+  old_drule code_similar_IMP_asm_fetch_aux_line_similar >>
   gvs[no_share_mem_inst_def,OPTREL_def,line_similar_def] >>
   rw[] >>
   first_x_assum $ qspec_then `p` assume_tac >>
@@ -7196,7 +7182,7 @@ Theorem code_similar_IMP_both_no_install_or_no_share_mem:
   no_install_or_no_share_mem sec_list ffi_names
 Proof
   rpt strip_tac >>
-  drule code_similar_IMP_asm_fetch_aux_line_similar >>
+  old_drule code_similar_IMP_asm_fetch_aux_line_similar >>
   gvs[OPTREL_def,no_install_or_no_share_mem_def] >>
   rw[]
   >- (
@@ -7322,7 +7308,7 @@ Proof
          THEN1 (full_simp_tac(srw_ss())[shift_interfer_def])
          \\ full_simp_tac(srw_ss())[GSYM PULL_FORALL]
          \\ match_mp_tac state_rel_shift_interfer
-         \\ drule Inst_lemma \\ fs[])
+         \\ old_drule Inst_lemma \\ fs[])
        \\ rpt strip_tac \\ full_simp_tac(srw_ss())[inc_pc_def,dec_clock_def,labSemTheory.upd_reg_def]
        \\ FIRST_X_ASSUM (Q.SPEC_THEN `s1.clock - 1 + k` mp_tac)
        \\ rpt strip_tac
@@ -7377,7 +7363,7 @@ Proof
           \\ irule LESS_EQ_LESS_TRANS
           \\ qexists_tac`LENGTH (prog_to_bytes code2)`
           \\ simp[]
-          \\ drule pos_val_bound
+          \\ old_drule pos_val_bound
           \\ disch_then(qspec_then`0`mp_tac o CONV_RULE SWAP_FORALL_CONV)
           \\ simp[] )
         \\ simp[]
@@ -7416,7 +7402,7 @@ Proof
             \\ irule LESS_EQ_LESS_TRANS
             \\ qexists_tac`LENGTH (prog_to_bytes code2)`
             \\ simp[]
-            \\ drule pos_val_bound
+            \\ old_drule pos_val_bound
             \\ disch_then(qspec_then`0`mp_tac o CONV_RULE SWAP_FORALL_CONV)
             \\ simp[] )
           \\ simp[]
@@ -7457,7 +7443,7 @@ Proof
       simp[inst_def,mem_op_def,mem_store_def,alignmentTheory.aligned_0]>>
       EVAL_TAC>> simp[asm_state_component_equality]>>
       fs[state_rel_def]>>rw[]>>
-      first_x_assum drule>>simp[])
+      first_x_assum old_drule>>simp[])
     \\ impl_tac>-
       (fs[state_rel_def]>>
       conj_tac >- (
@@ -7479,7 +7465,7 @@ Proof
         PURE_REWRITE_TAC [GSYM WORD_ADD_ASSOC]>>
         `LENGTH bytes' + pos_val s1.pc 0 code2 <= LENGTH (prog_to_bytes code2)` by
           (qpat_x_assum`pos_val _ _ _ = _` sym_sub_tac>>
-          drule pos_val_bound>>
+          old_drule pos_val_bound>>
           disch_then(qspecl_then [`s1.pc+1`,`0`] assume_tac)>>
           fs[])>>
         rw[]>>
@@ -7502,7 +7488,7 @@ Proof
       conj_tac>- metis_tac[]>>
       conj_tac>-
         (rw[APPLY_UPDATE_THM]>>
-        first_x_assum drule>>
+        first_x_assum old_drule>>
         fs[])
       \\ conj_tac>-
         (strip_tac>>
@@ -7521,7 +7507,7 @@ Proof
         (match_mp_tac bytes_in_mem_UPDATE>>
           rw[])
       \\ simp[bytes_in_mem_def,APPLY_UPDATE_THM]>>
-         first_x_assum drule>>fs[])
+         first_x_assum old_drule>>fs[])
       \\ simp[GSYM word_add_n2w]
        >> fs[upd_pc_def, inc_pc_def, share_mem_state_rel_def] >>
         share_mem_state_rel_tac)
@@ -7542,7 +7528,7 @@ Proof
     qpat_assum `!pc op re a inst len i. asm_fetch_aux _ _ = SOME _ /\
     mmio_pcs_min_index _ = SOME _ ==> _` drule_all>>strip_tac>>
     fs[get_memop_info_def]>>
-    drule find_index_is_MEM>>strip_tac>>
+    old_drule find_index_is_MEM>>strip_tac>>
     simp[Once targetSemTheory.evaluate_def]>>
     qpat_x_assum ‘target_state_rel _ _ _’ assume_tac>>
     fs[target_state_rel_def]>>
@@ -7550,9 +7536,9 @@ Proof
     qpat_assum ‘share_mem_state_rel _ _ _ _ ’ assume_tac>>
     fs[share_mem_state_rel_def]>>
     qpat_assum `!index' i'. mmio_pcs_min_index _ = SOME i' /\ index' < _ /\
-    _ ==> _` $ qspecl_then [`index`, `i`] drule>>
+    _ ==> _` $ qspecl_then [`index`, `i`] old_drule>>
 
-    (impl_tac>-(drule find_index_LESS_LENGTH >> fs[]))>>
+    (impl_tac>-(old_drule find_index_LESS_LENGTH >> fs[]))>>
     strip_tac>>
     `mc_conf.target.get_pc ms1 <> mc_conf.ccache_pc /\
     mc_conf.target.get_pc ms1 <> mc_conf.halt_pc` by (
@@ -7631,8 +7617,8 @@ Proof
     fs[apply_oracle_def,shift_seq_def]>>
     qpat_x_assum ‘_ = ms1'’ $ assume_tac o GSYM>>fs[]>>
     qpat_x_assum ‘∀a b c d e f g h i j k l. _ ⇒ _’ mp_tac>>
-    disch_then $ drule>>fs[]>>
-    drule find_index_LESS_LENGTH>>strip_tac>>
+    disch_then $ old_drule>>fs[]>>
+    old_drule find_index_LESS_LENGTH>>strip_tac>>
     strip_tac>>
     (conj_tac >-
       (pop_assum mp_tac>>
@@ -7700,7 +7686,7 @@ Proof
       \\ fs[]
       \\ Cases_on `lab_lookup n'' n0 labs`
       \\ gvs[lab_inst_def,enc_with_nop_thm, LENGTH_APPEND]
-      \\ drule lab_lookup_IMP
+      \\ old_drule lab_lookup_IMP
       \\ fs[]
     )
     \\ rpt strip_tac
@@ -7779,7 +7765,7 @@ Proof
         \\ fs[]
         \\ Cases_on `lab_lookup n'' n0 labs`
         \\ gvs[lab_inst_def,enc_with_nop_thm, LENGTH_APPEND]
-        \\ drule lab_lookup_IMP
+        \\ old_drule lab_lookup_IMP
         \\ fs[]
       )
       \\ rpt strip_tac
@@ -8037,7 +8023,7 @@ Proof
            SOME (get_ffi_index mc_conf.ffi_names (ExtCall s))) /\
         get_ffi_index mc_conf.ffi_names (ExtCall s) = get_ffi_index ffi_names (ExtCall s)` by (
        full_simp_tac(srw_ss())[state_rel_def]>>
-       first_x_assum $ qspecl_then [`ExtCall s`, `i`] drule >>
+       first_x_assum $ qspecl_then [`ExtCall s`, `i`] old_drule >>
        gvs[] >>
        impl_keep_tac
        >- (irule ffi_name_NOT_Mapped >> fs[]) >>
@@ -8050,7 +8036,7 @@ Proof
        fs[CaseEq"option"]>>irule OR_INTRO_THM2>>
        Cases_on ‘i ≤ LENGTH mc_conf.ffi_names’>>fs[]>-
         (
-        drule LENGTH_TAKE>>strip_tac>>
+        old_drule LENGTH_TAKE>>strip_tac>>
         irule find_index_APPEND1>>fs[]>>
         qexists_tac `DROP i mc_conf.ffi_names` >>
         fs[TAKE_DROP])>>
@@ -8118,11 +8104,11 @@ Proof
 
      fs[shift_interfer_def]>>
      fs[state_rel_def]>>
-     drule mmio_pcs_min_index_is_SOME>>
+     old_drule mmio_pcs_min_index_is_SOME>>
      strip_tac>>fs[]>>
      last_x_assum $ qspec_then ‘x''’ assume_tac>>fs[]>>
      Cases_on ‘x'' < i’>>fs[NOT_LESS]>>
-     drule find_index_LESS_LENGTH>>strip_tac>>fs[]>>
+     old_drule find_index_LESS_LENGTH>>strip_tac>>fs[]>>
      first_x_assum $ qspec_then ‘x''’ assume_tac>>gvs[])
     (* FFI_return *)
     \\ full_simp_tac(srw_ss())[]
@@ -8173,7 +8159,7 @@ Proof
         first_x_assum $ qspec_then `i'` assume_tac >>gvs[]
       )
       \\ `index < LENGTH mc_conf.ffi_names` by (
-        drule mmio_pcs_min_index_is_SOME >> gvs[]
+        old_drule mmio_pcs_min_index_is_SOME >> gvs[]
         )
       \\ qunabbrev_tac`index`
       \\ conj_tac
@@ -8186,7 +8172,7 @@ Proof
         \\ `aligned mc_conf.target.config.code_alignment p` by fs [alignmentTheory.aligned_bitwise_and]
         \\ qpat_x_assum `_ = t1.regs s1.link_reg` (fn th => rewrite_tac [GSYM th])
         \\ simp [ONCE_REWRITE_RULE [WORD_ADD_COMM] alignmentTheory.aligned_add_sub]
-        \\ drule all_enc_ok_aligned_pos_val \\ simp []
+        \\ old_drule all_enc_ok_aligned_pos_val \\ simp []
         \\ fs[read_ffi_bytearrays_def,read_ffi_bytearray_def]
         \\ disch_then (qspec_then`new_pc`mp_tac)
         \\ impl_tac >- metis_tac[has_odd_inst_alignment]
@@ -8262,11 +8248,11 @@ Proof
         fs[apply_oracle_def])>>
     qabbrev_tac ‘j = get_ffi_index ffi_names (ExtCall s)’>>
     fs[state_rel_def]>>
-    drule mmio_pcs_min_index_is_SOME>>
+    old_drule mmio_pcs_min_index_is_SOME>>
     strip_tac>>fs[]>>
     last_x_assum $ qspec_then ‘j’ assume_tac>>fs[]>>
     Cases_on ‘j < i’>>fs[NOT_LESS]>>
-    drule find_index_LESS_LENGTH>>strip_tac>>fs[]>>
+    old_drule find_index_LESS_LENGTH>>strip_tac>>fs[]>>
     first_x_assum $ qspec_then ‘j’ assume_tac>>gvs[])
   THEN1 (* Install *)
     (say "Install" >>
@@ -8361,7 +8347,7 @@ Proof
              fs [alignmentTheory.aligned_bitwise_and]
       \\ qpat_x_assum `_ = t1.regs r1` (fn th => rewrite_tac [GSYM th])
       \\ simp [ONCE_REWRITE_RULE [WORD_ADD_COMM] alignmentTheory.aligned_add_sub]
-      \\ drule all_enc_ok_aligned_pos_val \\ simp []
+      \\ old_drule all_enc_ok_aligned_pos_val \\ simp []
       \\ disch_then match_mp_tac \\ fs []
       \\ metis_tac[has_odd_inst_alignment])
     \\ qmatch_assum_abbrev_tac`target_state_rel _ t2 ms12`
@@ -8386,7 +8372,7 @@ Proof
        \\ reverse $ rfs[no_install_or_no_share_mem_def]
        >- (
          fs[no_install_def,asm_fetch_def] >>
-         drule code_similar_IMP_asm_fetch_aux_line_similar >>
+         old_drule code_similar_IMP_asm_fetch_aux_line_similar >>
          disch_then $ qspec_then `s1.pc` assume_tac >>
          gvs[DefnBase.one_line_ify NONE line_similar_def,OPTREL_def] >>
          pop_assum mp_tac >>
@@ -8398,7 +8384,7 @@ Proof
        qpat_assum`s1.compile_oracle 0 = _` SUBST1_TAC>>
        SIMP_TAC (srw_ss()) [] >>
        strip_tac>>
-       drule remove_labels_thm >> impl_tac>-
+       old_drule remove_labels_thm >> impl_tac>-
          (fs[good_code_def]>>
          rw[]>>fs[]>>
          Cases_on`lab_lookup l1' l2 cfg.labels`>>
@@ -8471,15 +8457,15 @@ Proof
         ntac 3 strip_tac>>
         reverse (TOP_CASE_TAC >> fs[])
         >-
-          (rw[]>> first_x_assum drule>>
+          (rw[]>> first_x_assum old_drule>>
           strip_tac>>
-          first_x_assum drule>>
+          first_x_assum old_drule>>
           simp[pos_val_append]>>
           rw[]>>
           metis_tac[code_similar_loc_to_pc,loc_to_pc_bound])
         >>
           TOP_CASE_TAC>>fs[]>>
-          first_x_assum drule>>rw[]>>
+          first_x_assum old_drule>>rw[]>>
           simp[pos_val_append]>>
           rw[]
           >-
@@ -8511,7 +8497,7 @@ Proof
             >- (
               rpt(first_x_assum(qspec_then`reg`mp_tac))
               \\ simp[word_loc_val_def] )
-            \\ first_x_assum drule
+            \\ first_x_assum old_drule
             \\ simp[])
           \\ simp[get_reg_value_def]
           \\ simp[word_loc_val_def] )
@@ -8537,7 +8523,7 @@ Proof
         \\ ntac 4 (pop_assum mp_tac)
         \\ TOP_CASE_TAC \\ simp[]
         \\ ntac 4 strip_tac
-        \\ first_x_assum drule \\ simp[])
+        \\ first_x_assum old_drule \\ simp[])
       \\ conj_tac >- (
         strip_tac \\
         qhdtm_x_assum`buffer_flush`mp_tac \\
@@ -8602,10 +8588,10 @@ Proof
         TOP_CASE_TAC >>
         strip_tac >>
         var_eq_tac >>
-        drule $ GEN_ALL no_share_mem_lemma >>
+        old_drule $ GEN_ALL no_share_mem_lemma >>
         rpt strip_tac >>
         gvs[Abbr`ffi_names`] >>
-        pop_assum drule >>
+        pop_assum old_drule >>
         impl_tac >-
         simp[no_install_or_no_share_mem_def] >>
         metis_tac[TAKE_LENGTH_ID] )
@@ -8637,7 +8623,7 @@ Proof
            pos_val_APPEND2 >>
          gvs[] >>
          pop_assum kall_tac >>
-         drule_then drule $ GEN_ALL no_share_mem_lemma >>
+         drule_then old_drule $ GEN_ALL no_share_mem_lemma >>
          impl_tac >- (
            irule code_similar_IMP_both_no_install_or_no_share_mem >>
            irule_at (Pos hd) code_similar_sym >>
@@ -8768,24 +8754,24 @@ Proof
   conj_tac
   >- (
     qx_gen_tac`ffi`>>strip_tac>> full_simp_tac(srw_ss())[]
-    \\ drule compile_correct \\ full_simp_tac(srw_ss())[]
-    \\ disch_then drule
+    \\ old_drule compile_correct \\ full_simp_tac(srw_ss())[]
+    \\ disch_then old_drule
     \\ imp_res_tac state_rel_clock
     \\ pop_assum (qspec_then `k` assume_tac)
-    \\ disch_then drule \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
+    \\ disch_then old_drule \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[machine_sem_def,EXTENSION] \\ full_simp_tac(srw_ss())[IN_DEF]
     \\ Cases \\ full_simp_tac(srw_ss())[machine_sem_def]
     THEN1 (disj1_tac \\ qexists_tac `k+k'` \\ full_simp_tac(srw_ss())[] \\ every_case_tac \\ full_simp_tac(srw_ss())[])
     THEN1
      (eq_tac THEN1
        (srw_tac[][] \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
-        \\ drule (GEN_ALL evaluate_ignore_clocks) \\ full_simp_tac(srw_ss())[]
+        \\ old_drule (GEN_ALL evaluate_ignore_clocks) \\ full_simp_tac(srw_ss())[]
         \\ pop_assum (K all_tac)
-        \\ disch_then drule \\ full_simp_tac(srw_ss())[])
+        \\ disch_then old_drule \\ full_simp_tac(srw_ss())[])
       \\ srw_tac[][] \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ asm_exists_tac \\ full_simp_tac(srw_ss())[])
     \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[FST_EQ_EQUIV]
     \\ PairCases_on `y`
-    \\ drule (GEN_ALL evaluate_ignore_clocks) \\ full_simp_tac(srw_ss())[]
+    \\ old_drule (GEN_ALL evaluate_ignore_clocks) \\ full_simp_tac(srw_ss())[]
     \\ every_case_tac \\ full_simp_tac(srw_ss())[]
     \\ pop_assum (K all_tac)
     \\ asm_exists_tac \\ full_simp_tac(srw_ss())[])
@@ -8802,9 +8788,9 @@ Proof
       last_assum(qspec_then`k`mp_tac)>>
       pop_assum mp_tac >> simp_tac(srw_ss())[] >>
       ntac 2 strip_tac >>
-      disch_then drule >>
+      disch_then old_drule >>
       first_x_assum(qspec_then`k`strip_assume_tac) >>
-      disch_then drule >> strip_tac >>
+      disch_then old_drule >> strip_tac >>
       first_x_assum(qspec_then`k`mp_tac)>>simp[]>>
       strip_tac >>
       spose_not_then strip_assume_tac >>
@@ -8812,7 +8798,7 @@ Proof
       `∃x y z. evaluate mc_conf s1.ffi k ms = (x,y,z)` by metis_tac[PAIR] >>
       `x = TimeOut` by (
         spose_not_then strip_assume_tac >>
-        drule (GEN_ALL evaluate_add_clock) >>
+        old_drule (GEN_ALL evaluate_add_clock) >>
         simp[] >> qexists_tac`k'`>>simp[] ) >>
       full_simp_tac(srw_ss())[] >>
       metis_tac[evaluate_add_clock_io_events_mono,SND,option_CASES,
@@ -8846,8 +8832,8 @@ Proof
       last_assum(qspec_then`k`mp_tac)>>
       pop_assum mp_tac >> simp_tac(srw_ss())[] >>
       ntac 2 strip_tac >>
-      disch_then drule >>
-      first_x_assum(qspec_then`k`(fn th => assume_tac th >> disch_then drule)) >>
+      disch_then old_drule >>
+      first_x_assum(qspec_then`k`(fn th => assume_tac th >> disch_then old_drule)) >>
       strip_tac >>
       reverse conj_tac >> strip_tac >- (
         qexists_tac`k+k'`>>simp[] ) >>
@@ -8871,19 +8857,19 @@ Proof
     first_x_assum(qspec_then`k`strip_assume_tac) >>
     asm_exists_tac >> simp[] >>
     rpt gen_tac >>
-    drule (GEN_ALL evaluate_add_clock) >> simp[] >>
+    old_drule (GEN_ALL evaluate_add_clock) >> simp[] >>
     disch_then kall_tac >>
     first_x_assum(qspec_then`k`mp_tac) >> simp[])
   \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[FST_EQ_EQUIV]
   \\ last_x_assum (qspec_then `k` mp_tac) \\ full_simp_tac(srw_ss())[]
   \\ Cases_on `evaluate (s1 with clock := k)` \\ full_simp_tac(srw_ss())[]
-  \\ drule compile_correct
+  \\ old_drule compile_correct
   \\ Cases_on `q = Error` \\ full_simp_tac(srw_ss())[]
   \\ asm_exists_tac \\ full_simp_tac(srw_ss())[]
   \\ first_x_assum (qspec_then `k` assume_tac)
   \\ asm_exists_tac \\ full_simp_tac(srw_ss())[] \\ gen_tac
   \\ PairCases_on `y`
-  \\ drule (GEN_ALL evaluate_add_clock) \\ full_simp_tac(srw_ss())[]
+  \\ old_drule (GEN_ALL evaluate_add_clock) \\ full_simp_tac(srw_ss())[]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[]
 QED
 
@@ -9095,7 +9081,7 @@ Proof
   gvs[]
 QED
 
-Triviality FILTER_NOT_MEM_Mapped:
+Theorem FILTER_NOT_MEM_Mapped[local]:
   ~MEM "MappedRead" (FILTER (\x. x <> "MappedRead" /\ x <> "MappedWrite") l) /\
   ~MEM "MappedWrite" (FILTER (\x. x <> "MappedRead" /\ x <> "MappedWrite") l)
 Proof
@@ -9144,7 +9130,7 @@ Theorem MEM_get_shmem_info:
     (ZIP (get_shmem_info code2 p [] []))
 Proof
   rw[] >>
-  drule $ get_shmem_info_thm >>
+  old_drule $ get_shmem_info_thm >>
   disch_then $ qspecl_then [`p`,`[]`,`[]`] assume_tac >>
   gvs[UNZIP_MAP,MAP_GENLIST,combinTheory.o_DEF,ZIP_MAP_FST_SND_EQ] >>
   rw[MEM_FLAT,MEM_GENLIST,line_to_info_def] >>
@@ -9166,7 +9152,7 @@ Theorem get_shmem_info_ALL_DISTINCT:
   ALL_DISTINCT (MAP (\rec. rec.entry_pc) $ SND $ get_shmem_info code2 p [] [])
 Proof
   rw[] >>
-  drule get_shmem_info_thm >>
+  old_drule get_shmem_info_thm >>
   disch_then $ qspecl_then [`p`,`[]`,`[]`] assume_tac >>
   gvs[UNZIP_MAP,MAP_GENLIST,combinTheory.o_DEF,MAP_MAP_o,MAP_FLAT,
     ALL_DISTINCT_FLAT,MEM_GENLIST] >>
@@ -9259,7 +9245,7 @@ Theorem mmio_pcs_min_index_get_shmem_info_ok:
   mmio_pcs_min_index new_ffi_names = SOME $ LENGTH ffis
 Proof
   rpt strip_tac >>
-  drule get_shmem_info_PREPEND >>
+  old_drule get_shmem_info_PREPEND >>
   drule_then assume_tac get_shmem_info_MappedRead_or_MappedWrite >>
   gvs[Sh_not_Ext] >>
   rpt strip_tac >>
@@ -9297,7 +9283,7 @@ Theorem get_shmem_info_ok_lemma:
 Proof
   rw[] >>
   drule_all mmio_pcs_min_index_get_shmem_info_ok >>
-  drule get_shmem_info_PREPEND >>
+  old_drule get_shmem_info_PREPEND >>
   drule_then assume_tac get_shmem_info_MappedRead_or_MappedWrite >>
   gvs[] >>
   rpt strip_tac >>
@@ -9308,13 +9294,13 @@ Proof
     strip_tac >>
     first_x_assum $ qspec_then `p` assume_tac >>
     gvs[] >>
-    drule $ GEN_ALL get_shmem_info_ALL_DISTINCT >>
+    old_drule $ GEN_ALL get_shmem_info_ALL_DISTINCT >>
     gvs[] >>
     disch_then imp_res_tac >>
     gvs[find_index_ALL_DISTINCT_EL_eq,MEM_EL] >>
     `LENGTH (SND (get_shmem_info code2 p [] [])) =
       LENGTH (ZIP (get_shmem_info code2 p [] []))` by (
-      drule get_shmem_info_EMPTY_LENGTH_EQ >>
+      old_drule get_shmem_info_EMPTY_LENGTH_EQ >>
       Cases_on `get_shmem_info code2 p [] []` >>
       gvs[LENGTH_ZIP,AllCaseEqs()]
     ) >>
@@ -9323,7 +9309,7 @@ Proof
     gvs[EL_ZIP,get_shmem_info_EMPTY_LENGTH_EQ] >>
     gvs[EL_MAP] >>
     simp[pos_val_acc_0] >>
-    drule get_shmem_info_EMPTY_LENGTH_EQ >>
+    old_drule get_shmem_info_EMPTY_LENGTH_EQ >>
     strip_tac >>
     Cases_on `get_shmem_info code2 p [] []` >>
     gvs[EL_ZIP] >>
@@ -9338,7 +9324,7 @@ Proof
   ) >>
   gvs[pos_val_acc_0] >>
   rw[] >>
-  drule get_shmem_info_thm >>
+  old_drule get_shmem_info_thm >>
   disch_then $ qspecl_then [`p`,`[]`,`[]`] assume_tac >>
   gvs[UNZIP_MAP,MAP_FLAT,MAP_GENLIST,combinTheory.o_DEF,MAP_MAP_o] >>
   gvs[IN_DISJOINT,MEM_FLAT,MEM_GENLIST,MEM_MAP] >>
@@ -9354,7 +9340,7 @@ Proof
   imp_res_tac asm_fetch_SOME_IMP_LESS_num_pcs >>
   `pc = x'` suffices_by (rpt strip_tac >> gvs[]) >>
   spose_not_then assume_tac >>
-  drule $ GEN_ALL pos_val_asm_fetch_aux_distinct >>
+  old_drule $ GEN_ALL pos_val_asm_fetch_aux_distinct >>
   disch_then imp_res_tac >>
   gvs[]
 QED
@@ -9394,17 +9380,17 @@ Proof
   gvs[EL_TAKE] >>
   drule_then (qspec_then `0` assume_tac) pos_val_num_pcs >>
   gvs[] >>
-  last_x_assum drule >>
+  last_x_assum old_drule >>
   gvs[] >>
   strip_tac >>
-  drule find_index_is_MEM >>
+  old_drule find_index_is_MEM >>
   rpt strip_tac >>
-  drule find_index_MEM >>
+  old_drule find_index_MEM >>
   disch_then $ qspec_then `0` assume_tac >>
   gvs[] >>
   imp_res_tac asm_fetch_aux_pos_val_SUC >>
   pop_assum $ qspec_then `0` assume_tac >>
-  drule pos_val_bound >>
+  old_drule pos_val_bound >>
   disch_then $ qspecl_then [`pos+1`,`0`] assume_tac >>
   gvs[] >>
   qpat_x_assum `!k. _ < LENGTH (prog_to_bytes code2) ==> _` $
@@ -9476,7 +9462,7 @@ Proof
 QED
 
 (* This is set up for the very first compile call *)
-Triviality IMP_state_rel_make_init:
+Theorem IMP_state_rel_make_init[local]:
   good_code mc_conf.target.config LN (code: 'a sec list) ∧
    mc_conf_ok mc_conf ∧
    (no_share_mem_inst code ==>
@@ -9508,7 +9494,7 @@ Triviality IMP_state_rel_make_init:
      (make_init mc_conf (ffi:'ffi ffi_state) io_regs cc_regs t m dm sdm ms code
       compile_lab (mc_conf.target.get_pc ms+n2w(LENGTH(prog_to_bytes code2))) cbspace coracle) t ms
 Proof
-  rw[] \\ drule $ GEN_ALL remove_labels_thm
+  rw[] \\ old_drule $ GEN_ALL remove_labels_thm
   \\ impl_tac >- (
     fs[good_code_def,mc_conf_ok_def]
     \\ rw[lab_lookup_def]>>
@@ -9553,7 +9539,7 @@ Proof
     first_x_assum $ map_first_cj >>
     simp[] >>
     gvs[call_FFI_def, AllCaseEqs()] >>
-    drule mmio_pcs_min_index_is_SOME >>
+    old_drule mmio_pcs_min_index_is_SOME >>
     rpt strip_tac >>
     drule_all LESS_LESS_EQ_TRANS >>
     gvs[]
@@ -9591,7 +9577,7 @@ Proof
     >- gvs[EL_TAKE] >>
     `i <= n` by decide_tac >>
     gvs[] >>
-    drule get_shmem_info_thm >>
+    old_drule get_shmem_info_thm >>
     disch_then $ qspecl_then [`0`,`[]`,`[]`] assume_tac >>
     gvs[UNZIP_MAP,MAP_GENLIST,combinTheory.o_DEF,ZIP_MAP_FST_SND_EQ,MAP_MAP_o,
       Abbr`new_shmem_info`,EL_MAP] >>
@@ -9618,7 +9604,7 @@ Proof
       GEN_ALL pos_val_num_pcs
   )
   \\ conj_tac>-
-    (drule pos_val_0 \\ simp[])
+    (old_drule pos_val_0 \\ simp[])
   \\ conj_tac >- metis_tac[code_similar_sec_labels_ok]
   \\ conj_tac >- (
     gvs[share_mem_state_rel_def]
@@ -9626,30 +9612,30 @@ Proof
     \\ gvs[IMP_CONJ_THM, AND_IMP_INTRO]
     \\ first_x_assum $ qspecl_then [`ms2`, `k`, `index`, `new_bytes`, `t1`, `B`, `C`] mp_tac
     \\ gvs[] >> strip_tac>>fs[]>>
-    drule mmio_pcs_min_index_is_SOME>>
+    old_drule mmio_pcs_min_index_is_SOME>>
     strip_tac>>fs[]>>
     first_x_assum $ qspec_then ‘index’ assume_tac>>gvs[]>>
     TOP_CASE_TAC>>fs[])
   \\ simp[share_mem_domain_code_rel_def]
   \\ fs[MAP_MAP_o,o_DEF,ELIM_UNCURRY]
-  \\ drule $ GEN_ALL get_shmem_info_ok_lemma
+  \\ old_drule $ GEN_ALL get_shmem_info_ok_lemma
   \\ disch_then $ qspecl_then [
       `w2n (mc_conf.target.get_pc ms)`,`new_shmem_info`,`mc_conf.ffi_names`,
       `TAKE i mc_conf.ffi_names`] mp_tac
   \\ gvs[]
   \\ impl_tac
   >- (
-    drule mmio_pcs_min_index_is_SOME >>
+    old_drule mmio_pcs_min_index_is_SOME >>
     strip_tac >>
     reverse $ rw[EVERY_EL]
    >- (
       qpat_abbrev_tac `info = get_shmem_info _ _ _ _` >>
       first_x_assum $ assume_tac o GSYM o ONCE_REWRITE_RULE[markerTheory.Abbrev_def] >>
       Cases_on `info` >>
-      drule $ GEN_ALL get_shmem_info_PREPEND >>
+      old_drule $ GEN_ALL get_shmem_info_PREPEND >>
       gvs[] >>
       strip_tac >>
-      drule $ GEN_ALL get_shmem_info_init_pc_offset >>
+      old_drule $ GEN_ALL get_shmem_info_init_pc_offset >>
       disch_then $ qspec_then `w2n (mc_conf.target.get_pc ms)` mp_tac >>
       strip_tac >>
       gvs[markerTheory.Abbrev_def] >>
@@ -9663,7 +9649,7 @@ Proof
   >- (
     qpat_x_assum `!pc op re a inst len. asm_fetch_aux _ _ = _ ==> ?i._` $ imp_res_tac
     \\ qexists `index + i`
-    \\ drule find_index_LESS_LENGTH
+    \\ old_drule find_index_LESS_LENGTH
     \\ `LENGTH (MAP (\rec. rec.entry_pc) new_shmem_info) =
         LENGTH mc_conf.ffi_entry_pcs - i`
           by metis_tac[LENGTH_DROP]
@@ -9676,7 +9662,7 @@ Proof
     \\ gvs[AllCaseEqs()]
     \\ Cases_on `get_memop_info op`
     >- (
-      drule find_index_shift
+      old_drule find_index_shift
       \\ fs[]
       \\ disch_then $ qspec_then `i` assume_tac
       \\ gvs[ELIM_UNCURRY,shmem_rec_component_equality]>>
@@ -9697,12 +9683,12 @@ Proof
       \\ gvs[ELIM_UNCURRY,shmem_rec_component_equality,LENGTH_TAKE]
     )
     \\ `LENGTH (prog_to_bytes code2) < dimword (:α)` by gvs[]
-    \\ drule $ GEN_ALL asm_fetch_NOT_ffi_entry_pcs
+    \\ old_drule $ GEN_ALL asm_fetch_NOT_ffi_entry_pcs
     \\ rpt $ disch_then $ drule_at Any
     \\ disch_then $ qspec_then `0` $ mp_tac o PURE_REWRITE_RULE[WORD_ADD_0]
     \\ impl_tac
     >- (
-      drule $ GEN_ALL enc_ok_LENGTH_GT_0
+      old_drule $ GEN_ALL enc_ok_LENGTH_GT_0
       \\ drule_all $ GEN_ALL all_enc_ok_asm_fetch_aux_IMP_line_ok
       \\ gvs[line_ok_def,line_length_def,enc_with_nop_thm]
       \\ rpt strip_tac
@@ -9719,7 +9705,7 @@ Proof
     \\ gvs[]
     \\ spose_not_then assume_tac
     \\ `LENGTH (prog_to_bytes code2) < dimword (:α)` by gvs[]
-    \\ drule $ GEN_ALL asm_fetch_NOT_ffi_entry_pcs
+    \\ old_drule $ GEN_ALL asm_fetch_NOT_ffi_entry_pcs
     \\ rpt $ disch_then $ drule_at Any
     \\ rw[]
     \\ qexists_tac `a`
@@ -9776,7 +9762,7 @@ Proof
   \\ fs [lab_filterTheory.not_skip_def,find_ffi_names_def]
 QED
 
-Triviality all_enc_ok_pre_filter_skip:
+Theorem all_enc_ok_pre_filter_skip[local]:
   ∀code c.
   all_enc_ok_pre c code ⇒
   all_enc_ok_pre c (filter_skip code)
@@ -9849,7 +9835,7 @@ Proof
   IF_CASES_TAC>>fs[ALL_DISTINCT_APPEND]
 QED
 
-Triviality not_not_skip_IMP_Skip:
+Theorem not_not_skip_IMP_Skip[local]:
   ~not_skip inst' ==> ?l n. inst' = Asm (Asmi (Inst Skip)) l n
 Proof
   gvs[DefnBase.one_line_ify NONE lab_filterTheory.not_skip_def] >>
@@ -9927,7 +9913,7 @@ Proof
     rw[] >>
     last_x_assum mp_tac >>
     simp[] >>
-    drule IMP_asm_fetch_aux_filter_skip >>
+    old_drule IMP_asm_fetch_aux_filter_skip >>
     simp[lab_filterTheory.not_skip_def] >>
     metis_tac[]) >>
   gvs[no_share_mem_inst_def] >>
@@ -9935,7 +9921,7 @@ Proof
   spose_not_then assume_tac >>
   last_x_assum mp_tac >>
   fs[] >>
-  drule asm_fetch_aux_filter_skip >>
+  old_drule asm_fetch_aux_filter_skip >>
   gvs[lab_filterTheory.not_skip_def] >>
   metis_tac[]
 QED
@@ -10054,7 +10040,7 @@ Proof
   irule_at (Pos hd) EQ_TRANS
   >- (
     irule_at (Pos last) asm_fetch_aux_APPEND1 >>
-    drule asm_fetch_SOME_IMP_LESS_num_pcs >>
+    old_drule asm_fetch_SOME_IMP_LESS_num_pcs >>
     metis_tac[]
   ) >>
   irule_at (Pos last) asm_fetch_aux_APPEND2 >>
@@ -10099,7 +10085,7 @@ Proof
         Q.prove (`(x::y) = [x] ++ y`,simp[])] >>
     reverse conj_tac
     >- (
-      drule no_share_mem_inst_APPEND_IMP >>
+      old_drule no_share_mem_inst_APPEND_IMP >>
       simp[]) >>
     dxrule $ cj 1 no_share_mem_inst_APPEND_IMP >>
     pop_assum kall_tac >>
@@ -10115,7 +10101,7 @@ Proof
     gvs[is_Label_def]
     >- (qexists `0` >>simp[]) >>
     TOP_CASE_TAC >>
-    drule asm_fetch_aux_MEM >>
+    old_drule asm_fetch_aux_MEM >>
     simp[is_Label_def] >>
     strip_tac >>
     irule_at (Pos hd) EQ_TRANS >>
@@ -10187,7 +10173,7 @@ Proof
   first_assum (fn thm => CONV_TAC (LHS_CONV $ REWRITE_CONV[Once $ GSYM thm])) >>
   first_assum (fn thm => CONV_TAC (RHS_CONV $ REWRITE_CONV[Once $ GSYM thm])) >>
   irule FILTER_mmio_pcs_min_index >>
-  drule get_shmem_info_MappedRead_or_MappedWrite >>
+  old_drule get_shmem_info_MappedRead_or_MappedWrite >>
   simp[]
 QED
 
@@ -10305,20 +10291,20 @@ val semantics_compile_lemma = Q.prove(
     Cases_on`c.ffi_names`
     >- (
       gvs[] >>
-      drule get_shmem_info_MappedRead_or_MappedWrite >>
+      old_drule get_shmem_info_MappedRead_or_MappedWrite >>
       simp[Sh_not_Ext] >>
       strip_tac >>
-      drule $ GEN_ALL mmio_pcs_min_index_APPEND_thm >>
+      old_drule $ GEN_ALL mmio_pcs_min_index_APPEND_thm >>
       qmatch_assum_abbrev_tac`mmio_pcs_min_index (ffi' ++ _) = SOME _` >>
       disch_then $ qspec_then ‘ffi'’ mp_tac>>impl_tac >-
        (irule find_ffi_names_EVERY>> gvs[Abbr`ffi'`]>>metis_tac[])>>
       strip_tac>>fs[]
     ) >>
       gvs[] >>
-      drule get_shmem_info_MappedRead_or_MappedWrite >>
+      old_drule get_shmem_info_MappedRead_or_MappedWrite >>
       simp[Sh_not_Ext] >>
       strip_tac >>
-      drule $ GEN_ALL mmio_pcs_min_index_APPEND_thm >>
+      old_drule $ GEN_ALL mmio_pcs_min_index_APPEND_thm >>
       disch_then $ qspec_then ‘ffis’ mp_tac>>fs[]
   ) >>
   gvs[] >>
@@ -10358,7 +10344,7 @@ val semantics_compile_lemma = Q.prove(
   first_x_assum $ assume_tac o GSYM >>
   gvs[addressTheory.word_arith_lemma1,EL_TAKE] >>
   qpat_x_assum `n2w _ = -n2w _ ` $ assume_tac >>
-  drule $ iffLR o GSYM $ cj 1 addressTheory.WORD_EQ_ADD_CANCEL >>
+  old_drule $ iffLR o GSYM $ cj 1 addressTheory.WORD_EQ_ADD_CANCEL >>
   disch_then $ qspec_then `n2w (ffi_offset * (n + 3))` mp_tac >>
   first_x_assum kall_tac >>
   PURE_REWRITE_TAC[cj 1 addressTheory.word_arith_lemma1,WORD_LITERAL_ADD,WORD_ADD_COMM] >>
@@ -10509,4 +10495,3 @@ Proof
   match_mp_tac semantics_compile_lemma \\
   fs[good_code_def]
 QED
-

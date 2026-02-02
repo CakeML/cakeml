@@ -14,7 +14,7 @@ Ancestors
 Libs
   preamble
 
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 Definition destLet_def:
   (destLet ((Let xs b):bvl$exp) = (xs,b)) /\
@@ -24,7 +24,7 @@ End
 Theorem destLet_pmatch:
   ∀exp.
   destLet exp =
-    case exp of
+    pmatch exp of
       Let xs b => (xs,b)
     | _ => ([],Var 0)
 Proof
@@ -85,7 +85,7 @@ Definition global_count_sing_def:
   (global_count_list (x::xs) =
      global_count_sing x + global_count_list xs)
 Termination
-  WF_REL_TAC ‘measure $ λx. case x of
+  WF_REL_TAC ‘measure $ λx. pmatch x of
                             | INL e => bvl$exp_size e
                             | INR es => bvl$exp1_size es’
   \\ rpt strip_tac \\ simp [bvlTheory.exp_size_def]
@@ -243,9 +243,9 @@ Overload num_stubs[local] = ``backend_common$bvl_num_stubs``
 
 local val compile_op_quotation = `
   compile_op op c1 =
-    dtcase op of
+    case op of
     | IntOp (Const i) =>
-      (dtcase c1 of [] => compile_int i
+      (case c1 of [] => compile_int i
       | _ => Let [Op (IntOp (Const 0)) c1] (compile_int i))
     | GlobOp (Global n) =>
       (if NULL c1 then Op (GlobOp (Global (n+1))) []
@@ -308,7 +308,7 @@ val compile_op_def = Define compile_op_quotation;
 Theorem compile_op_pmatch = Q.prove(
   `∀op c1.` @
     (compile_op_quotation |>
-     map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
+     map (fn QUOTE s => Portable.replace_string {from="case",to="pmatch"} s |> QUOTE
          | aq => aq)),
    rpt strip_tac
    >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
@@ -370,7 +370,7 @@ Definition compile_exps_def:
   (compile_exps n [Call ticks dest xs] =
      let (c1,aux1,n1) = compile_exps n xs in
        ([Call ticks
-              (dtcase dest of
+              (case dest of
                | NONE => NONE
                | SOME n => SOME (num_stubs + nss * n)) c1 NONE],aux1,n1))
 Termination
@@ -423,7 +423,7 @@ Definition compile_exps_sing_def:
   (compile_exps_sing n (Call ticks dest xs) =
      let (c1,aux1,n1) = compile_exps_list n xs in
        ((Call ticks
-              (dtcase dest of
+              (case dest of
                | NONE => NONE
                | SOME n => SOME (num_stubs + nss * n)) c1 NONE),aux1,n1)) /\
   (compile_exps_list n [] = ([],Nil,n)) /\
@@ -432,7 +432,7 @@ Definition compile_exps_sing_def:
      let (c2,aux2,n2) = compile_exps_list n1 xs in
        (c1::c2, aux1 ++ aux2, n2))
 Termination
-  WF_REL_TAC ‘measure $ λx. case x of INL (n,e) => exp_size e
+  WF_REL_TAC ‘measure $ λx. pmatch x of INL (n,e) => exp_size e
                                     | INR (n,es) => exp1_size es’
   \\ rpt strip_tac
   \\ rpt $ qpat_x_assum ‘(_,_,_) = _’ kall_tac
@@ -453,7 +453,7 @@ Proof
   \\ gvs [compile_exps_def,compile_exps_sing_def,SmartAppend_Nil]
 QED
 
-Triviality compile_exps_LENGTH_lemma:
+Theorem compile_exps_LENGTH_lemma[local]:
   !n xs. (LENGTH (FST (compile_exps n xs)) = LENGTH xs)
 Proof
   HO_MATCH_MP_TAC compile_exps_ind \\ REPEAT STRIP_TAC
@@ -551,7 +551,7 @@ Definition get_names_def:
         let k = n - num_stubs in
         let kd = k DIV nss in
         let km = k MOD nss in
-        let n = (dtcase lookup kd old_names of
+        let n = (case lookup kd old_names of
           | NONE => mlstring$strlit "bvi_unmapped"
           | SOME name => name) in
         let aux = (if km = 0 then mlstring$strlit "" else mlstring$strlit "_bvi_aux") in

@@ -13,9 +13,9 @@ val _ = translation_extends "basisProg";
 
 (* A simple pure non-terminating loop *)
 
-val _ = process_topdecs `
+Quote add_cakeml:
   fun pureLoop x = pureLoop x;
-  ` |> append_prog;
+End
 
 val st = ml_translatorLib.get_ml_prog_state();
 
@@ -33,7 +33,7 @@ QED
 
 (* Lemma needed for examples with integers *)
 
-Triviality eq_v_INT_thm:
+Theorem eq_v_INT_thm[local]:
   (INT --> INT --> BOOL) $= eq_v
 Proof
   metis_tac[DISCH_ALL mlbasicsProgTheory.eq_v_thm,EqualityType_NUM_BOOL]
@@ -41,9 +41,9 @@ QED
 
 (* A conditionally terminating loop *)
 
-val _ = process_topdecs `
+Quote add_cakeml:
   fun condLoop x = if x = 0 then 0 else condLoop (x - 1);
-  ` |> append_prog;
+End
 
 val st = ml_translatorLib.get_ml_prog_state();
 
@@ -92,9 +92,9 @@ QED
 
 (* Another conditionally terminating loop, using FFI_full *)
 
-val _ = process_topdecs `
+Quote add_cakeml:
   fun oddLoop x = if x = 0 then () else oddLoop(x-2);
-  ` |> append_prog;
+End
 
 val st = ml_translatorLib.get_ml_prog_state();
 
@@ -126,9 +126,9 @@ QED
 
 (* A loop containing a divergent function *)
 
-val _ = process_topdecs `
+Quote add_cakeml:
   fun outerLoop x = if x = 5000 then pureLoop () else outerLoop (x + 1);
-  ` |> append_prog;
+End
 
 val st = ml_translatorLib.get_ml_prog_state();
 
@@ -166,28 +166,28 @@ QED
 (* A small IO model needed for IO examples *)
 
 Definition names_def:
-  names = ["put_char"; "get_char"]
+  names = [«put_char»; «get_char»]
 End
 
 Definition put_char_event_def:
-  put_char_event c = IO_event (ExtCall "put_char") [n2w (ORD c)] []
+  put_char_event c = IO_event (ExtCall «put_char») [n2w (ORD c)] []
 End
 
 Definition put_str_event_def:
-  put_str_event cs = IO_event (ExtCall "put_char") (MAP (n2w o ORD) cs) []
+  put_str_event cs = IO_event (ExtCall «put_char») (MAP (n2w o ORD) cs) []
 End
 
 Definition get_char_event_def:
-  get_char_event c = IO_event (ExtCall "get_char") [] [0w, 1w; 0w, n2w (ORD c)]
+  get_char_event c = IO_event (ExtCall «get_char») [] [0w, 1w; 0w, n2w (ORD c)]
 End
 
 Definition get_char_eof_event_def:
-  get_char_eof_event = IO_event (ExtCall "get_char") [] [0w, 0w; 0w, 0w]
+  get_char_eof_event = IO_event (ExtCall «get_char») [] [0w, 0w; 0w, 0w]
 End
 
 val update_def = PmatchHeuristics.with_classic_heuristic Define `
-  (update "put_char" cs [] s = SOME (FFIreturn [] s)) /\
-  (update "get_char" [] [0w; 0w] s = case destStream s of
+  (update «put_char» cs [] s = SOME (FFIreturn [] s)) /\
+  (update «get_char» [] [0w; 0w] s = case destStream s of
      | NONE    => NONE
      | SOME ll => if ll = [||] then
          SOME (FFIreturn [0w; 0w] s)
@@ -204,23 +204,23 @@ Definition SIO_def:
     one (FFI_part (State input) update names events)
 End
 
-val _ = process_topdecs `
+Quote add_cakeml:
   fun put_char c = let
       val s = String.implode [c]
       val a = Word8Array.array 0 (Word8.fromInt 0)
       val _ = #(put_char) s a
     in () end
-  ` |> append_prog;
+End
 
-val _ = process_topdecs `
+Quote add_cakeml:
   fun put_line l = let
       val s = l ^ "\n"
       val a = Word8Array.array 0 (Word8.fromInt 0)
       val _ = #(put_char) s a
     in () end
-  ` |> append_prog;
+End
 
-val _ = process_topdecs `
+Quote add_cakeml:
   fun get_char (u:unit) = let
       val a = Word8Array.array 2 (Word8.fromInt 0)
       val _ = #(get_char) "" a
@@ -229,7 +229,7 @@ val _ = process_topdecs `
       else
         None
     end
-  ` |> append_prog;
+End
 
 val st = ml_translatorLib.get_ml_prog_state();
 
@@ -288,12 +288,12 @@ Proof
        `names`, `events`]
     \\ fs [update_def, put_str_event_def, names_def, SNOC_APPEND,
            STRING_TYPE_def, State_def, strlit_STRCAT, MAP_MAP_o, o_DEF,
-           CHR_ORD, ORD_BOUND]
+           CHR_ORD, ORD_BOUND, implode_def]
     \\ xsimpl)
   \\ xcon \\ xsimpl
 QED
 
-Triviality eq_v_WORD8_thm:
+Theorem eq_v_WORD8_thm[local]:
   (WORD8 --> WORD8 --> BOOL) $= eq_v
 Proof
   metis_tac[DISCH_ALL mlbasicsProgTheory.eq_v_thm,EqualityType_NUM_BOOL]
@@ -325,10 +325,11 @@ Proof
     THEN1 (
       xffi \\ xsimpl \\ fs [SIO_def]
       \\ qpat_abbrev_tac `s = State _`
-      \\ MAP_EVERY qexists_tac [`emp`, `s`, `update`, `names`, `events`]
+      \\ MAP_EVERY qexists_tac [‘[]’, `emp`, `s`, `update`, `names`, `events`]
       \\ unabbrev_all_tac
       \\ fs [update_def, get_char_event_def, get_char_eof_event_def,
-             names_def, SNOC_APPEND, EVAL ``REPLICATE 2 0w``, State_def]
+             names_def, SNOC_APPEND, EVAL ``REPLICATE 2 0w``, State_def,
+             implode_def]
       \\ xsimpl)
     \\ rpt (xlet_auto THEN1 xsimpl)
     \\ assume_tac eq_v_WORD8_thm
@@ -467,9 +468,9 @@ QED
 
 (* A non-terminating loop with side effects *)
 
-val _ = process_topdecs `
+Quote add_cakeml:
   fun printLoop c = (put_char c; printLoop c);
-  ` |> append_prog;
+End
 
 val st = ml_translatorLib.get_ml_prog_state();
 
@@ -498,9 +499,9 @@ QED
 
 (* The Unix yes program *)
 
-val _ = process_topdecs `
+Quote add_cakeml:
   fun yes u = (put_line "y"; yes u);
-  ` |> append_prog;
+End
 
 val st = ml_translatorLib.get_ml_prog_state();
 
@@ -545,11 +546,11 @@ Theorem yes_spec =
 
 (* An IO-conditional loop with side effects *)
 
-val _ = process_topdecs `
+Quote add_cakeml:
   fun catLoop u = case get_char () of
       None   => ()
     | Some c => (put_char c; catLoop u);
-  ` |> append_prog;
+End
 
 val st = ml_translatorLib.get_ml_prog_state();
 
@@ -908,7 +909,7 @@ Proof
   rw[FUN_EQ_THM,cell_def,REF_def,SEP_EXISTS,cond_STAR]
 QED
 
-Triviality LTAKE_LNTH_EQ:
+Theorem LTAKE_LNTH_EQ[local]:
   !x ll y. LTAKE (LENGTH x) ll = SOME x
    /\ y < LENGTH x
    ==> LNTH y ll = SOME(EL y x)
@@ -1008,7 +1009,7 @@ Proof
   metis_tac[]
 QED
 
-Triviality push_cond:
+Theorem push_cond[local]:
   m ~~>> v * (&C * B) = cond C * (m ~~>> v * B)
 /\ m ~~>> v * &C = &C * m ~~>> v
 /\ REF_LIST rv rvs A l * (&C * B) = cond C * (REF_LIST rv rvs A l * B)
@@ -1017,14 +1018,14 @@ Proof
   simp[AC STAR_COMM STAR_ASSOC]
 QED
 
-Triviality EL_LENGTH_TAKE:
+Theorem EL_LENGTH_TAKE[local]:
   !h e. EL (LENGTH l) (h::TAKE (LENGTH l) (e::l))
    = EL(LENGTH l) (h::e::l)
 Proof
   Induct_on `l` >> fs[]
 QED
 
-Triviality EL_LENGTH_TAKE2:
+Theorem EL_LENGTH_TAKE2[local]:
   !h e l. n < LENGTH l ==>
    EL n (h::TAKE n (e::l))
    = EL n (h::e::l)
@@ -1033,7 +1034,7 @@ Proof
  Cases_on `l` >> fs[]
 QED
 
-Triviality PRE_SUB:
+Theorem PRE_SUB[local]:
   !n. n <> 0 ==> PRE n = n - 1
 Proof
   Cases >> simp[]
@@ -1133,7 +1134,7 @@ Proof
   simp[]
 QED
 
-Triviality highly_specific_MOD_lemma:
+Theorem highly_specific_MOD_lemma[local]:
   !n a. n < a
    ==> (n + 2) MOD (a + 1)
     = if n + 1 = a then 0 else (n + 1) MOD a + 1
@@ -1141,25 +1142,21 @@ Proof
   rw[] >> rw[]
 QED
 
-Triviality highly_specific_MOD_lemma2:
+Theorem highly_specific_MOD_lemma2[local]:
   0 < LENGTH l
   ==>
   EL ((i+1) MOD LENGTH l) (CONS (LAST l) (FRONT l))
   = EL (i MOD LENGTH l) l
 Proof
   strip_tac >>
-Cases_on `1 < LENGTH l` >-
+  Cases_on `1 < LENGTH l` >-
   (Cases_on `i MOD LENGTH l = LENGTH l - 1` >-
-     (drule(GSYM MOD_PLUS) >>
-      disch_then(qspecl_then[`i`,`1`] mp_tac) >>
-      disch_then(fn thm => PURE_ONCE_REWRITE_TAC [thm]) >>
+     (PURE_ONCE_REWRITE_TAC[GSYM MOD_PLUS] >>
       pop_assum(fn thm => PURE_ONCE_REWRITE_TAC [thm]) >>
       simp[ONE_MOD] >>
       Q.ISPEC_THEN `l` assume_tac SNOC_CASES >>
       fs[] >> rveq >> fs[EL_APPEND2,SNOC_APPEND]) >>
-   drule(GSYM MOD_PLUS) >>
-   disch_then(qspecl_then[`i`,`1`] mp_tac) >>
-   disch_then(fn thm => PURE_ONCE_REWRITE_TAC [thm]) >>
+   PURE_ONCE_REWRITE_TAC[GSYM MOD_PLUS] >>
    drule ONE_MOD >>
    disch_then(fn thm => PURE_ONCE_REWRITE_TAC [thm]) >>
    `i MOD LENGTH l < LENGTH l - 1`
@@ -1198,7 +1195,7 @@ Proof
   >> Cases_on `t` >> fs[]
 QED
 
-Triviality LNTH_LREPEAT_ub:
+Theorem LNTH_LREPEAT_ub[local]:
   !n l.
     (l <> []
     /\
@@ -1254,7 +1251,7 @@ Proof
   simp[SUB_MOD]
 QED
 
-Triviality LPREFIX_ub_LAPPEND:
+Theorem LPREFIX_ub_LAPPEND[local]:
   l <> [] /\
    (∀x.
     LPREFIX
@@ -1270,11 +1267,11 @@ Proof
   metis_tac[LNTH_LREPEAT_ub]
 QED
 
-val _ = process_topdecs `
+Quote add_cakeml:
   fun pointerLoop c = (
     case !c of
      (a,b) => (put_char a; pointerLoop b));
-  ` |> append_prog;
+End
 
 val st = ml_translatorLib.get_ml_prog_state();
 
@@ -1403,8 +1400,9 @@ QED
 
 (* Meta-example: using the repeat transformation to verify repeat *)
 
-val _ = (append_prog o process_topdecs)
-  `fun myRepeat (f,x) = myRepeat (f,f x)`
+Quote add_cakeml:
+  fun myRepeat (f,x) = myRepeat (f,f x)
+End
 
 val st = get_ml_prog_state()
 

@@ -3,14 +3,13 @@
 *)
 Theory dafny_compilerProg
 Ancestors
-  dafny_freshenProg dafny_compiler
+  dafny_remove_assertProg dafny_compiler
   fromSexp (* listsexp *)
   string numposrep simpleSexp ml_translator simpleSexpParse
 Libs
-  preamble ml_translatorLib
-  cfTacticsLib (* process_topdecs *)
+  preamble ml_translatorLib basisFunctionsLib
 
-val _ = translation_extends "dafny_freshenProg";
+val _ = translation_extends "dafny_remove_assertProg";
 
 (* First, we translate the functions for converting the output of the compiler
    (CakeML AST) into an S-expression string, namely decsexp, listsexp, and
@@ -116,7 +115,7 @@ QED
 
 val r = translate EL;
 
-Triviality el_side_thm:
+Theorem el_side_thm[local]:
   ∀n xs. el_side n xs = (n < LENGTH xs)
 Proof
   Induct THEN Cases_on ‘xs’ THEN ONCE_REWRITE_TAC [fetch "-" "el_side_def"]
@@ -131,7 +130,7 @@ val r = translate print_sexp_alt_thm;
 
 val _ = use_string_type false;
 
-Triviality listsexp_alt:
+Theorem listsexp_alt[local]:
   listsexp = FOLDR (λs1 s2. SX_CONS s1 s2) nil
 Proof
   rpt(CHANGED_TAC(CONV_TAC (DEPTH_CONV ETA_CONV))) >> simp[listsexp_def]
@@ -150,7 +149,7 @@ End
 
 val r = translate hex_alt_def;
 
-Triviality hex_alt_side_thm:
+Theorem hex_alt_side_thm[local]:
   ∀n. hex_alt_side n ⇔ T
 Proof
   PURE_REWRITE_TAC [fetch "-" "hex_alt_side_def",fetch "-" "hex_side_def"]
@@ -175,7 +174,7 @@ QED
 
 val r = translate numposrepTheory.n2l_def;
 
-Triviality n2l_side_thm:
+Theorem n2l_side_thm[local]:
   ∀n m. n2l_side n m ⇔ n ≠ 0
 Proof
   strip_tac >>
@@ -190,7 +189,7 @@ val _ = n2l_side_thm |> update_precondition;
 
 val r = translate ASCIInumbersTheory.n2s_def;
 
-Triviality n2s_side_thm:
+Theorem n2s_side_thm[local]:
   ∀n f m. n2s_side n f m ⇔ n ≠ 0
 Proof
   rpt strip_tac >>
@@ -214,7 +213,7 @@ val _ = ml_translatorLib.use_string_type false;
 
 val r = translate fromSexpTheory.litsexp_def;
 
-Triviality litsexp_side_thm:
+Theorem litsexp_side_thm[local]:
   ∀v. litsexp_side v ⇔ T
 Proof
   PURE_ONCE_REWRITE_TAC[fetch "-" "litsexp_side_def"] >> rw[]
@@ -229,6 +228,9 @@ val r = translate fromSexpTheory.typesexp_def;
 val r = translate fromSexpTheory.patsexp_def;
 val r = translate fromSexpTheory.encode_thunk_mode_def;
 (* TODO 101 automatically added string IMPLODEs *)
+val r = translate fromSexpTheory.prim_typesexp_def;
+val r = translate fromSexpTheory.testsexp_def;
+val r = translate fromSexpTheory.arithsexp_def;
 val r = translate fromSexpTheory.opsexp_def;
 val r = translate fromSexpTheory.lopsexp_def;
 (* TODO 24 automatically added string IMPLODEs *)
@@ -239,7 +241,6 @@ val r = translate fromSexpTheory.decsexp_def;
 
 (* Translating dafny_compilerTheory *)
 
-val r = translate dafny_compilerTheory.frontend_def;
 val r = translate dafny_compilerTheory.compile_def;
 val r = translate dafny_compilerTheory.dfy_to_cml_def;
 val r = translate dafny_compilerTheory.unpack_def;
@@ -251,15 +252,16 @@ val r = translate dafny_compilerTheory.main_function_def;
 
 (* Sanity checks + Finalizing *)
 
-val _ = type_of “main_function” = “:mlstring -> mlstring”
+val _ = type_of “main_function” = “:mlsexp$sexp -> mlstring”
         orelse failwith "The main_function has the wrong type.";
 
 val _ = r |> hyp |> null orelse
         failwith ("Unproved side condition in the translation of \
                   \dafny_compilerTheory.main_function_def");
 
-val main = process_topdecs
-           ‘print (main_function (TextIO.inputAll TextIO.stdIn));’;
+Quote main = cakeml:
+  print (main_function (Sexp.parse (TextIO.openStdIn ())));
+End
 
 val prog =
   get_ml_prog_state ()

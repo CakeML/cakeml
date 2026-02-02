@@ -9,6 +9,8 @@ Ancestors
 Libs
   preamble
 
+val _ = numLib.prefer_num ();
+
 Datatype:
   v = Number int              (* integer *)
     | Word64 word64           (* 64-bit word *)
@@ -139,7 +141,7 @@ Termination
   \\ imp_res_tac check_res_IMP \\ fs []
 End
 
-Triviality check_res_size_of:
+Theorem check_res_size_of[local]:
   check_res refs (size_of lims vs refs seen) = size_of lims vs refs seen
 Proof
   qsuff_tac
@@ -723,6 +725,14 @@ Definition do_word_app_def:
         | SOME (w1,w2) => SOME (Number &(w2n (opw_lookup opw w1 w2))))) /\
   do_word_app (WordOpw W64 opw) [Word64 w1; Word64 w2] =
         SOME (Word64 (opw_lookup opw w1 w2)) /\
+  do_word_app (WordTest W8 test) [Number n1; Number n2] =
+       (if 0 ≤ n1 ∧ n1 < 256 ∧ 0 ≤ n2 ∧ n2 < 256 then
+          (case test of
+           | Equal       => SOME (Boolv (n1 = n2))
+           | Compare Lt  => SOME (Boolv (n1 < n2))
+           | Compare Leq => SOME (Boolv (n1 <= n2))
+           | _           => NONE)
+        else NONE) /\
   do_word_app (WordShift W8 sh n) [Number i] =
        (case some (w:word8). i = &(w2n w) of
         | NONE => NONE
@@ -757,6 +767,12 @@ Definition do_word_app_def:
          | [Word64 w1; Word64 w2] => (SOME (Boolv (fp_cmp_comp cmp w1 w2)))
          | _ => NONE) /\
   do_word_app (op:closLang$word_op) (vs:dataSem$v list) = NONE
+End
+
+Definition dest_Boolv_def:
+  dest_Boolv (Block _ tag xs) =
+    (if xs = [] ∧ tag < 2 then SOME (tag = 1) else NONE) ∧
+  dest_Boolv _ = NONE
 End
 
 Definition do_app_aux_def:
@@ -867,6 +883,10 @@ Definition do_app_aux_def:
             (if n < LENGTH xs
              then Rval (EL n xs, s)
              else Error)
+         | _ => Error)
+    | (BlockOp (BoolTest test),[v1;v2]) =>
+        (case (dest_Boolv v1, dest_Boolv v2) of
+         | (SOME b1, SOME b2) => Rval (Boolv (b1 = b2), s)
          | _ => Error)
     | (BlockOp ListAppend,[x1;x2]) =>
         (case (v_to_list x1, v_to_list x2) of
@@ -1062,13 +1082,13 @@ Definition fix_clock_def:
   fix_clock s (res,s1) = (res,s1 with clock := MIN s.clock s1.clock)
 End
 
-Triviality fix_clock_IMP:
+Theorem fix_clock_IMP[local]:
   fix_clock s x = (res,s1) ==> s1.clock <= s.clock
 Proof
   Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []
 QED
 
-Triviality LESS_EQ_dec_clock:
+Theorem LESS_EQ_dec_clock[local]:
   r.clock <= (dec_clock s).clock ==> r.clock <= s.clock
 Proof
   SRW_TAC [] [dec_clock_def] \\ DECIDE_TAC
@@ -1162,7 +1182,7 @@ Definition cut_state_opt_def:
     | SOME names => cut_state names s
 End
 
-Triviality pop_env_clock:
+Theorem pop_env_clock[local]:
   (pop_env s = SOME s1) ==> (s1.clock = s.clock)
 Proof
   full_simp_tac(srw_ss())[pop_env_def]
@@ -1170,7 +1190,7 @@ Proof
   \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
 QED
 
-Triviality push_env_clock:
+Theorem push_env_clock[local]:
   (push_env env b s).clock = s.clock
 Proof
   Cases_on `b` \\ full_simp_tac(srw_ss())[push_env_def]

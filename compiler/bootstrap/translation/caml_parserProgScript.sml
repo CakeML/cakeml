@@ -72,11 +72,7 @@ fun def_of_const tm = let
 
 val _ = (find_def_for_const := def_of_const);
 
-val _ = ml_translatorLib.use_string_type false;
-
 val r = translate string_lt_def;
-
-val _ = ml_translatorLib.use_string_type true;
 
 (* -------------------------------------------------------------------------
  * Ptree conversion
@@ -263,7 +259,7 @@ val r = preprocess ptree_Start_def |> translate;
 
 val _ = extra_preprocessing := [MEMBER_INTRO,MAP]
 
-Triviality and_or_imp_lemma:
+Theorem and_or_imp_lemma[local]:
   (b ∨ c ⇔ if b then T else c) ∧
   (b ∧ c ⇔ if b then c else F) ∧
   ((b ⇒ c) ⇔ if b then c else T) ∧

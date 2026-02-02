@@ -153,7 +153,7 @@ Proof
   rw[] >> metis_tac[EL_MEM]
 QED
 
-Triviality update_locals_not_vars_eval_eq':
+Theorem update_locals_not_vars_eval_eq'[local]:
   ∀s e v n w res.
   ~MEM n (var_cexp e) ∧
    eval s e = res

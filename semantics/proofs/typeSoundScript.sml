@@ -41,7 +41,7 @@ Proof
   >> rw []
 QED
 
-Triviality fst_triple:
+Theorem fst_triple[local]:
   (\ (x,y,z). x) = FST
 Proof
   rw [FUN_EQ_THM]
@@ -56,7 +56,7 @@ Proof
   >> metis_tac []
 QED
 
-Triviality sing_list:
+Theorem sing_list[local]:
   !l. LENGTH l = 1 ⇔ ?x. l = [x]
 Proof
   Cases
@@ -65,7 +65,7 @@ Proof
   >> rw []
 QED
 
-Triviality EVERY_LIST_REL:
+Theorem EVERY_LIST_REL[local]:
   EVERY (\x. f x y) l = LIST_REL (\x y. f x y) l (REPLICATE (LENGTH l) y)
 Proof
   induct_on `l` >>
@@ -135,7 +135,7 @@ Proof
   fs [type_sv_def]
 QED
 
-Triviality has_lists_v_to_list:
+Theorem has_lists_v_to_list[local]:
   !ctMap tvs tenvS t3.
     ctMap_ok ctMap ∧
     ctMap_has_lists ctMap ∧
@@ -160,7 +160,7 @@ Proof
     metis_tac [same_type_def, stamp_nchotomy]) >>
   rw [] >>
   full_simp_tac(srw_ss())[ctMap_has_lists_def] >>
-  `cn = "::" ∨ cn = "[]"` by metis_tac [NOT_SOME_NONE] >>
+  `cn = «::» ∨ cn = «[]»` by metis_tac [NOT_SOME_NONE] >>
   srw_tac[][] >>
   full_simp_tac(srw_ss())[] >>
   srw_tac[][] >>
@@ -202,7 +202,7 @@ Proof
   full_simp_tac std_ss [ctMap_has_bools_def, Boolv_def, type_num_defs, ctMap_ok_def] >>
   imp_res_tac type_funs_Tfn
   >- (
-    `stamp = TypeStamp "True" bool_type_num ∨ stamp = TypeStamp "False" bool_type_num`
+    `stamp = TypeStamp «True» bool_type_num ∨ stamp = TypeStamp «False» bool_type_num`
        by metis_tac [NOT_SOME_NONE, same_type_def, stamp_nchotomy] >>
     var_eq_tac >>
     rpt (qpat_x_assum `LIST_REL _ _ _` mp_tac) >>
@@ -229,14 +229,14 @@ Proof
   fs [])
 QED
 
-Triviality same_type_refl:
+Theorem same_type_refl[local]:
   !t. same_type t t
 Proof
   Cases_on `t` >>
   rw [same_type_def]
 QED
 
-Triviality eq_same_type:
+Theorem eq_same_type[local]:
   (!v1 v2 tvs ctMap cns tenvS t.
      ctMap_ok ctMap ∧
      type_v tvs ctMap tenvS v1 t ∧
@@ -311,7 +311,7 @@ Proof
       \\ metis_tac[])
 QED
 
-Triviality type_env_conv_thm:
+Theorem type_env_conv_thm[local]:
   ∀ctMap envC tenvC.
     nsAll2 (type_ctor ctMap) envC tenvC ⇒
     ∀cn tvs ts tn ti.
@@ -329,7 +329,7 @@ Proof
   metis_tac [nsAll2_nsLookup_none]
 QED
 
-Triviality type_funs_fst:
+Theorem type_funs_fst[local]:
   !tenv tenvE funs tenv'.
     type_funs tenv tenvE funs tenv'
     ⇒
@@ -343,7 +343,7 @@ Proof
   metis_tac []
 QED
 
-Triviality type_recfun_env_help:
+Theorem type_recfun_env_help[local]:
   ∀fn funs funs' ctMap tenv bindings tenvE env tenvS tvs bindings'.
     ALL_DISTINCT (MAP FST funs') ∧
     tenv_ok tenv ∧
@@ -392,7 +392,7 @@ Proof
   >> metis_tac [SOME_11, NOT_SOME_NONE])
 QED
 
-Triviality type_recfun_env:
+Theorem type_recfun_env[local]:
   ∀funs ctMap tenvS tvs tenv tenvE env bindings.
     tenv_ok tenv ∧
     type_all_env ctMap tenvS env (tenv with v := add_tenvE tenvE tenv.v) ∧
@@ -420,12 +420,12 @@ val type_v_exn = SIMP_RULE (srw_ss()) [] (Q.prove (
                                            metis_tac [type_v_rules]));
 
 (*
-Triviality v_to_list_type:
+Theorem v_to_list_type[local]:
   !v vs.
   ctMap_ok ctMap ∧
   ctMap_has_lists ctMap ∧
   v_to_list v = SOME vs ∧
-  type_v 0 ctMap tenvS v (Tapp [t] (TC_name (Short "list")))
+  type_v 0 ctMap tenvS v (Tapp [t] (TC_name (Short «list»)))
   ⇒
   type_v tvs ctMap tenvS (Vectorv vs) (Tapp [t] TC_vector)
 Proof
@@ -450,11 +450,11 @@ Proof
  srw_tac[][]
 QED
 
-Triviality v_to_char_list_type:
+Theorem v_to_char_list_type[local]:
   !v vs.
   ctMap_has_lists ctMap ∧
   v_to_char_list v = SOME vs ∧
-  type_v 0 ctMap tenvS v (Tapp [t] (TC_name (Short "list")))
+  type_v 0 ctMap tenvS v (Tapp [t] (TC_name (Short «list»)))
   ⇒
   type_v tvs ctMap tenvS (Litv (StrLit (IMPLODE vs))) (Tstring)
 Proof
@@ -471,7 +471,7 @@ QED
 
 *)
 
-Triviality type_v_Boolv:
+Theorem type_v_Boolv[local]:
   ctMap_has_bools ctMap ⇒ type_v tvs ctMap tenvS (Boolv b) Tbool
 Proof
   srw_tac[][Boolv_def] >>
@@ -480,7 +480,7 @@ Proof
   srw_tac[][Once type_v_cases]
 QED
 
-Triviality remove_lambda_prod:
+Theorem remove_lambda_prod[local]:
   (\ (x,y). P x y) = (\xy. P (FST xy) (SND xy))
 Proof
   rw [FUN_EQ_THM]
@@ -722,6 +722,20 @@ Proof
   \\ EVAL_TAC \\ metis_tac [Tlist_num_def]
 QED
 
+Theorem do_eq_Boolv:
+  do_eq (Boolv b) (Boolv b') = Eq_val (b = b')
+Proof
+  Cases_on ‘b’ >> Cases_on ‘b'’ >>
+  gvs [do_eq_def,Boolv_def,ctor_same_type_def,same_type_def]
+QED
+
+Theorem prim_canonical_Boolv_thm:
+  (type_v tvs ctMap tenvS v Tbool ∧ ctMap_ok ctMap ∧ ctMap_has_bools ctMap ⇒
+  (∃b. v = Boolv b))
+Proof
+  metis_tac [ctor_canonical_values_thm]
+QED
+
 Theorem op_type_sound:
  !ctMap tenvS vs op ts t store (ffi : 'ffi ffi_state).
    good_ctMap ctMap ∧
@@ -767,6 +781,47 @@ Proof
   >- (rw [do_app_cases, PULL_EXISTS] >>
       metis_tac [Tbool_def, type_v_Boolv, store_type_extension_refl,
                  eq_result_nchotomy, eq_same_type]) >~
+  [‘Arith a ty’]
+  >- (rw [do_app_cases, PULL_EXISTS] >>
+      Cases_on ‘ty’ >> TRY (Cases_on ‘w’) >>
+      gvs[supported_arith_def, t_of_def]
+      >> gvs[LIST_REL_def,LENGTH_EQ_NUM_compute] >>
+      imp_res_tac prim_canonical_values_thm >> gvs[] >>
+      res_tac >> gvs[check_type_def, the_Litv_IntLit_def, the_Litv_Word8_def,
+                     the_Litv_Word64_def, do_arith_def] >>
+      rw[] >>
+      TRY (rename1 ‘divisor = 0’ >> Cases_on ‘divisor = 0’ >> gvs[]
+           >- (simp[div_exn_v_def] >> fs[ctMap_has_exns_def])) >>
+      qexists_tac ‘tenvS’ >>
+      simp[store_type_extension_refl, Once type_v_cases]
+      >> simp[div_exn_v_def] >> fs[ctMap_has_exns_def] >>
+      gvs[LENGTH_EQ_NUM_compute,CaseEq"bool"] >>
+      res_tac \\ rw[check_type_def]) >~
+  [‘FromTo ty1 ty2’]
+  >- (rw [do_app_cases, PULL_EXISTS] >>
+      Cases_on ‘ty1’ >> Cases_on ‘ty2’ >>
+      TRY (Cases_on ‘w’) >>
+      gvs[supported_conversion_def, do_conversion_def, check_type_def,
+          t_of_def, the_Litv_Word8_def] >>
+      imp_res_tac prim_canonical_values_thm >> gvs[] >> simp [Once type_v_cases] >>
+      qexists_tac ‘tenvS’ >> rw [store_type_extension_refl] >>
+      qpat_x_assum ‘∀_ _ _. _ ⇒ ∃n. _ = Litv (Word8 n)’
+        (qspec_then ‘x’ mp_tac) >> simp[] >> strip_tac >>
+      first_x_assum drule >> strip_tac >>
+      gvs[the_Litv_Word8_def] >> simp [Once type_v_cases]) >~
+  [‘Test’]
+  >- (rw [do_app_cases, PULL_EXISTS] >>
+      rename [‘do_test test ty x y’] >>
+      qsuff_tac ‘∃b. do_test test ty x y = Eq_val b’
+      >- (metis_tac [Tbool_def, type_v_Boolv, store_type_extension_refl,
+                     eq_result_nchotomy, eq_same_type]) >>
+      Cases_on ‘ty’ \\ rpt (Cases_on ‘w’) \\ fs [t_of_def] >>
+      imp_res_tac prim_canonical_values_thm >>
+      imp_res_tac prim_canonical_Boolv_thm >>
+      fs [] \\ res_tac >>
+      Cases_on ‘test’ >>
+      gvs [do_test_def,check_type_def,do_eq_def,lit_same_type_def,
+           dest_Litv_def,supported_test_def,do_eq_Boolv]) >~
   [‘Opassign’]
   >- (res_tac >>
       rw [do_app_cases, PULL_EXISTS] >>
@@ -897,10 +952,6 @@ Proof
       >> fs []
       >> simp [Once type_v_cases]
       >> metis_tac [store_type_extension_refl]) >~
-  [‘Chopb’]
-  >- ((* character boolean ops *)
-      rw [do_app_cases, PULL_EXISTS] >>
-      metis_tac [type_v_Boolv, store_type_extension_refl, Tbool_def]) >~
   [‘Implode’]
   >- (rw [do_app_cases, PULL_EXISTS] >>
       MAP_EVERY (TRY o drule o SIMP_RULE (srw_ss()) [] o GEN_ALL)
@@ -916,8 +967,8 @@ Proof
    rw [] >>
    goal_assum (first_assum o mp_then Any mp_tac) >>
    simp [store_type_extension_refl] >>
-   qspec_tac (`s`,`s`) >> Induct >>
-   fs [IMPLODE_EXPLODE_I,list_to_v_def,ctMap_has_lists_def] >>
+   qspec_tac (`explode s`,`s'`) >> Induct >>
+   fs [list_to_v_def,ctMap_has_lists_def,mlstringTheory.explode_def] >>
    once_rewrite_tac [type_v_cases] >> simp [] >>
    simp [type_subst_def,FLOOKUP_UPDATE,FUPDATE_LIST,check_freevars_def] >>
    once_rewrite_tac [type_v_cases] >> simp []) >~
@@ -928,7 +979,7 @@ Proof
    Cases_on `n < 0`
    >> rw [type_v_exn, sub_exn_v_def]
    >- metis_tac [store_type_extension_refl]
-   >> Cases_on `Num (ABS n) ≥ LENGTH s`
+   >> Cases_on `Num (ABS n) ≥ strlen s`
    >> rw [type_v_exn]
    >- metis_tac [store_type_extension_refl]
    >> simp [Once type_v_cases, EVERY_EL]
@@ -1971,7 +2022,7 @@ val let_tac =
       >> metis_tac [weakCT_refl, type_v_weakening, store_type_extension_weakS])
     >- metis_tac [DIFF_EQ_EMPTY, weakCT_refl]);
 
-Triviality build_tdefs_build_tenv:
+Theorem build_tdefs_build_tenv[local]:
   !tenvT (tds : type_def) (tids : type_ident list) next (ctMap : ctMap).
     EVERY (λ(_, _, ctors). ALL_DISTINCT (MAP FST ctors)) tds ∧
     LENGTH tds = LENGTH tids ⇒
@@ -2045,7 +2096,7 @@ Proof
       rw []))
 QED
 
-Triviality type_sound_invariant_union:
+Theorem type_sound_invariant_union[local]:
   type_sound_invariant st env ctMap tenvS (tids1 ∪ tids2) tenv
    ⇒
    type_sound_invariant st env ctMap tenvS tids1 tenv
@@ -2054,7 +2105,7 @@ Proof
   metis_tac []
 QED
 
-Triviality check_ctor_tenv_dups:
+Theorem check_ctor_tenv_dups[local]:
   !tenvT tds. check_ctor_tenv tenvT tds ⇒ EVERY check_dup_ctors tds
 Proof
   ho_match_mp_tac check_ctor_tenv_ind >>
@@ -2680,7 +2731,7 @@ type_sound_invariant st env tdecs ctMap tenvS tenv ⇔
     st.defined_mods ⊆ tdecs_no_sig.defined_mods
 End
 
-Triviality tscheme_inst2_lemma:
+Theorem tscheme_inst2_lemma[local]:
   (λid. tscheme_inst2 (Long mn id)) = tscheme_inst2
 Proof
   rw [FUN_EQ_THM]

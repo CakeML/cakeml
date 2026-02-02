@@ -190,7 +190,7 @@ fun Lets [] body = body
 
 fun Let_NONE e1 e2 =
   mk_Let (
-    optionLib.mk_none stringSyntax.string_ty,
+    optionLib.mk_none mlstringSyntax.mlstring_ty,
     e1,
     e2
   )
@@ -201,11 +201,11 @@ fun is_App_Opapp e =
 fun norm_exp gen e = let
   val (fresh, record_name) = gen
   fun record_var v =
-    record_name (stringLib.fromHOLstring v)
+    record_name (mlstringSyntax.dest_mlstring v)
 
   fun wrap_if_needed needs_wrapping e b =
     if needs_wrapping then (
-      let val x = fresh () |> stringSyntax.fromMLstring in
+      let val x = fresh () |> mlstringSyntax.mk_mlstring in
       (mk_Var (mk_Short x), b @ [(x, e)])
       end
     ) else (e, b)
@@ -401,7 +401,7 @@ fun normalise_decl d =
     val (locs, l_tm) = dest_Dletrec d
     val (l, l_ty) = listSyntax.dest_list l_tm
     val gen = mk_names_generator ()
-    fun record_var v = snd gen (stringLib.fromHOLstring v)
+    fun record_var v = snd gen (mlstringSyntax.dest_mlstring v)
     val l' = List.map (fn fdecl => let
       val (f, x, body) = dest_triple fdecl
       val _ = (record_var f; record_var x)

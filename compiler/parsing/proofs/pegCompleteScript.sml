@@ -24,7 +24,7 @@ val skths = [GSYM RIGHT_EXISTS_IMP_THM, SKOLEM_THM]
 val SKRULE = SRULE skths
 val SKTAC = gs skths
 
-Triviality option_case_eq:
+Theorem option_case_eq[local]:
   (option_CASE optv n sf = v) ⇔
      optv = NONE ∧ n = v ∨ ∃v0. optv = SOME v0 ∧ sf v0 = v
 Proof
@@ -183,7 +183,7 @@ Proof
   rename [‘hdi = (_,_)’] >> Cases_on ‘hdi’ >> simp[] >> metis_tac[]
 QED
 
-Triviality disjImpI:
+Theorem disjImpI[local]:
   ~p \/ q ⇔ p ⇒ q
 Proof
   DECIDE_TAC
@@ -313,7 +313,7 @@ Proof
   drule_all not_peg0_LENGTH_decreases >> simp[]
 QED
 
-Triviality list_case_lemma:
+Theorem list_case_lemma[local]:
   ([x] = case a of [] => [] | h::t => f h t) ⇔
     (a ≠ [] ∧ [x] = f (HD a) (TL a))
 Proof
@@ -675,8 +675,12 @@ Proof
   rw[] >> simp[mk_linfix_def, left_insert_def]
 QED
 
-val elim_disjineq = Q.prove( `p \/ x ≠ y ⇔ (x = y ⇒ p)`, DECIDE_TAC)
-Triviality elim_det:
+Theorem elim_disjineq[local]:
+   p \/ x ≠ y ⇔ (x = y ⇒ p)
+Proof DECIDE_TAC
+QED
+
+Theorem elim_det[local]:
   (!x. P x ⇔ (x = y)) ==> P y
 Proof
   METIS_TAC[]
@@ -735,7 +739,7 @@ fun qpat_dxrule pat th =
 Definition nestoppers_def:
   nestoppers =
      UNIV DIFF ({AndalsoT; ArrowT; BarT; ColonT; HandleT; OrelseT;
-                 AlphaT "before"} ∪
+                 AlphaT «before»} ∪
                 firstSet cmlG [NN nMultOps] ∪
                 firstSet cmlG [NN nRelOps] ∪
                 firstSet cmlG [NN nListOps] ∪
@@ -772,7 +776,7 @@ Definition stoppers_def:
                 firstSet cmlG [NN nEbase])) ∧
   (stoppers nEapp = UNIV DIFF firstSet cmlG [NN nEbase]) ∧
   (stoppers nEbefore =
-     UNIV DIFF ({AlphaT "before"} ∪
+     UNIV DIFF ({AlphaT «before»} ∪
                 firstSet cmlG [NN nCompOps] ∪
                 firstSet cmlG [NN nRelOps] ∪
                 firstSet cmlG [NN nListOps] ∪
@@ -794,7 +798,7 @@ Definition stoppers_def:
                                   firstSet cmlG [NN nListOps] ∪
                                   firstSet cmlG [NN nEbase])) ∧
   (stoppers nElogicAND =
-     UNIV DIFF ({AndalsoT; ColonT; ArrowT; AlphaT "before"} ∪
+     UNIV DIFF ({AndalsoT; ColonT; ArrowT; AlphaT «before»} ∪
                 firstSet cmlG [NN nCompOps] ∪
                 firstSet cmlG [NN nRelOps] ∪
                 firstSet cmlG [NN nListOps] ∪
@@ -802,7 +806,7 @@ Definition stoppers_def:
                 firstSet cmlG [NN nAddOps] ∪
                 firstSet cmlG [NN nEbase]∪ firstSet cmlG [NN nTyOp])) ∧
   (stoppers nElogicOR =
-     UNIV DIFF ({AndalsoT; ColonT; ArrowT; OrelseT; AlphaT "before"} ∪
+     UNIV DIFF ({AndalsoT; ColonT; ArrowT; OrelseT; AlphaT «before»} ∪
                 firstSet cmlG [NN nCompOps] ∪
                 firstSet cmlG [NN nRelOps] ∪
                 firstSet cmlG [NN nListOps] ∪
@@ -820,7 +824,7 @@ Definition stoppers_def:
                 firstSet cmlG [NN nEbase])) ∧
   (stoppers nEseq = nestoppers DELETE SemicolonT) ∧
   (stoppers nEtyped =
-     UNIV DIFF ({ColonT; ArrowT; AlphaT "before"} ∪
+     UNIV DIFF ({ColonT; ArrowT; AlphaT «before»} ∪
                 firstSet cmlG [NN nCompOps] ∪
                 firstSet cmlG [NN nListOps] ∪
                 firstSet cmlG [NN nRelOps] ∪
@@ -834,11 +838,11 @@ Definition stoppers_def:
   (stoppers nOptTypEqn =
      UNIV DIFF ({ArrowT; StarT; EqualsT} ∪ firstSet cmlG [NN nTyOp])) ∧
   (stoppers nPcons =
-     UNIV DIFF ({LparT; UnderbarT; LbrackT; SymbolT "::"; OpT} ∪
+     UNIV DIFF ({LparT; UnderbarT; LbrackT; SymbolT «::»; OpT} ∪
                 { IntT i | T } ∪ { StringT s | T } ∪ { CharT c | T } ∪
                 firstSet cmlG [NN nV] ∪ firstSet cmlG [NN nConstructorName])) ∧
   (stoppers nPas =
-     UNIV DIFF ({LparT; UnderbarT; LbrackT; SymbolT "::"; AsT; OpT} ∪
+     UNIV DIFF ({LparT; UnderbarT; LbrackT; SymbolT «::»; AsT; OpT} ∪
                 { IntT i | T } ∪ { StringT s | T} ∪ { CharT c | T} ∪
                 firstSet cmlG [NN nV] ∪ firstSet cmlG [NN nConstructorName])) ∧
   (stoppers nPConApp =
@@ -1124,7 +1128,7 @@ Proof
   first_x_assum irule >> metis_tac[]
 QED
 
-Triviality peg_eval_TyOp_LparT[simp]:
+Theorem peg_eval_TyOp_LparT[local,simp]:
   peg_eval cmlPEG ((LparT, loc)::i0, nt (mkNT nTyOp) I) (Success i r eo) ⇔ F
 Proof
   simp[] >> strip_tac >> dxrule peg_respects_firstSets' >> simp[]
@@ -1611,11 +1615,11 @@ Proof
       ‘NT_rank (mkNT nPapp) < NT_rank (mkNT nPcons)’ by simp[NT_rank_def] >>
       first_x_assum dxrule >> simp[] >> disch_then $ irule_at Any >>
       first_assum $ irule_at Any >> gvs[choicel_cons, seql_cons] >~
-      [‘peg_eval _ (_, tok ($= (SymbolT "::")) _) (Failure _ _)’]
+      [‘peg_eval _ (_, tok ($= (SymbolT «::»)) _) (Failure _ _)’]
       >- (gvs[peg_eval_tok] >- gvs[stoppers_def] >>
           Cases_on ‘sfx’ >> gvs[] >> rename [‘FST h ∈ stoppers _’] >>
           Cases_on ‘h’ >> gvs[stoppers_def]) >~
-      [‘SymbolT "::" ∈ stoppers nPcons’] >- gvs[stoppers_def] >>
+      [‘SymbolT «::» ∈ stoppers nPcons’] >- gvs[stoppers_def] >>
       simp[peg_eval_tok, EXISTS_result, stoppers_def] >>
       first_x_assum $ irule_at Any >> simp[] >> first_assum $ irule_at Any >>
       rpt (dxrule_at (Pos last) not_peg0_LENGTH_decreases) >> simp[]) >~
@@ -3204,7 +3208,7 @@ Proof
       simp[peg_eval_NT_SOME, cmlpeg_rules_applied] >>
       match_mp_tac (peg_linfix_complete
                       |> Q.INST [‘P’ |-> ‘nEbefore’,
-                                 ‘SEP’ |-> ‘TK (AlphaT "before")’,
+                                 ‘SEP’ |-> ‘TK (AlphaT «before»)’,
                                  ‘C’ |-> ‘NN nEcomp’, ‘master’ |-> ‘pfx’]
                       |> SIMP_RULE (srw_ss() ++ DNF_ss)
                            [sym2peg_def, cmlG_applied, MAP_EQ_CONS,

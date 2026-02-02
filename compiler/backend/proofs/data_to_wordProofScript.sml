@@ -50,7 +50,7 @@ Proof
   \\ gvs[do_space_def,AllCaseEqs(),consume_space_def]
 QED
 
-Triviality word_test_lemma1:
+Theorem word_test_lemma1[local]:
   good_dimindex (:α) ⇒
   (0b111100w && x = n2w ((8 + 6) * 4):'a word ⇔
    ~ word_bit 2 x ∧ word_bit 3 x ∧ word_bit 4 x ∧ word_bit 5 x)
@@ -61,7 +61,7 @@ Proof
   \\ gvs [SF DNF_ss,SF CONJ_ss]
 QED
 
-Triviality word_test_lemma2:
+Theorem word_test_lemma2[local]:
   good_dimindex (:α) ⇒
   (0b111100w && x = n2w ((0 + 6) * 4):'a word ⇔
    ~ word_bit 2 x ∧ word_bit 3 x ∧ word_bit 4 x ∧ ~ word_bit 5 x)
@@ -1006,7 +1006,7 @@ Proof
   \\ fs [] \\ every_case_tac \\ fs [] \\ rw[] \\ fs []
 QED
 
-Triviality state_rel_ext_with_clock:
+Theorem state_rel_ext_with_clock[local]:
   state_rel_ext a b c s1 s2 ==>
     state_rel_ext a b c (s1 with clock := k) (s2 with clock := k)
 Proof
@@ -1661,14 +1661,14 @@ Proof
 QED
 
 (* TODO: goes away on inlineenc branch *)
-Triviality extract_labels_WordOp64_on_32:
+Theorem extract_labels_WordOp64_on_32[local]:
   extract_labels (WordOp64_on_32 f) = []
 Proof
   simp[WordOp64_on_32_def]>>Cases_on`f`>>simp[]>>
   EVAL_TAC
 QED
 
-Triviality extract_labels_WordShift64_on_32:
+Theorem extract_labels_WordShift64_on_32[local]:
   extract_labels (WordShift64_on_32 f g) = []
 Proof
   simp[WordShift64_on_32_def]>>
@@ -1676,7 +1676,7 @@ Proof
   IF_CASES_TAC>>EVAL_TAC
 QED
 
-Triviality extract_labels_assignWordOp:
+Theorem extract_labels_assignWordOp[local]:
   assign a b c d (WordOp (WordOpw e f)) g h = (i,j) ⇒
   extract_labels i = [] ∧ c ≤ j
 Proof
@@ -1689,7 +1689,7 @@ Proof
     EVAL_TAC
 QED
 
-Triviality extract_labels_assignWordShift:
+Theorem extract_labels_assignWordShift[local]:
   assign a b c d (WordOp (WordShift e f k)) g h = (i,j) ⇒
   extract_labels i = [] ∧ c ≤ j
 Proof
@@ -1704,7 +1704,7 @@ QED
 
 fun cases_on_op q = Cases_on q >|
   map (MAP_EVERY Cases_on)
-      [[`n`], [`s`], [`i`], [`w`], [`b`], [`g`], [`m`], [], [`t`]];
+      [[`n`], [`m`], [`i`], [`w`], [`b`], [`g`], [`m`], [], [`t`]];
 
 Theorem data_to_word_lab_pres_lem:
   ∀c n l p.
@@ -1756,7 +1756,7 @@ Proof
        SilentFFI_def,list_Seq_def])
 QED
 
-Triviality labels_rel_emp:
+Theorem labels_rel_emp[local]:
   labels_rel [] ls ⇒ ls = []
 Proof
   fs[wordConvsTheory.labels_rel_def]
@@ -1888,7 +1888,7 @@ Proof
   >> gvs[comp_def,no_share_inst_def] (* Raise | Return | Tick *)
 QED
 
-Triviality MAP_FST_ZIP:
+Theorem MAP_FST_ZIP[local]:
   !xs ys. MAP FST (ZIP (xs, ys)) = TAKE (LENGTH ys) xs
 Proof
   Induct \\ simp [ZIP_def]
@@ -1985,14 +1985,14 @@ Proof
   disch_then(qspec_then`n` assume_tac)>>rfs[]
 QED
 
-Triviality StoreEach_no_inst:
+Theorem StoreEach_no_inst[local]:
   ∀a ls off.
   every_inst (inst_ok_less ac) (StoreEach a ls off)
 Proof
   Induct_on`ls`>>rw[StoreEach_def,every_inst_def]
 QED
 
-Triviality MemEqList_no_inst:
+Theorem MemEqList_no_inst[local]:
   ∀a x.
   every_inst (inst_ok_less ac) (MemEqList a x)
 Proof
@@ -2010,7 +2010,7 @@ QED
 
 fun cases_on_op q = Cases_on q >|
   map (MAP_EVERY Cases_on)
-      [[`n`], [`s`], [`i`], [`w`], [`b`], [`g`], [`m`], [], [`t`]];
+      [[`n`], [`m`], [`i`], [`w`], [`b`], [`g`], [`m`], [], [`t`]];
 
 Theorem assign_no_inst[local]:
   ((a.has_longdiv ⇒ (ac.ISA = x86_64)) ∧
@@ -2057,7 +2057,7 @@ Proof
   IF_CASES_TAC >> EVAL_TAC >> fs []
 QED
 
-Triviality bounds_lem:
+Theorem bounds_lem[local]:
   (dimindex(:'a) = 32 ∨ dimindex(:'a) = 64) ∧
   (w:'a word = -3w ∨
   w = -2w ∨
@@ -2200,21 +2200,21 @@ QED
 Overload data_get_code_labels = ``dataProps$get_code_labels``
 Overload data_good_code_labels = ``dataProps$good_code_labels``
 
-Triviality word_get_code_labels_StoreEach:
+Theorem word_get_code_labels_StoreEach[local]:
   ∀ls off.
   word_get_code_labels (StoreEach v ls off) = {}
 Proof
   Induct>>fs[StoreEach_def]
 QED
 
-Triviality word_get_code_labels_MemEqList:
+Theorem word_get_code_labels_MemEqList[local]:
   ∀x b.
   word_get_code_labels (MemEqList b x) = {}
 Proof
   Induct>>fs[MemEqList_def]
 QED
 
-Triviality part_to_words_isWord:
+Theorem part_to_words_isWord[local]:
   ∀h c m i w ws.
     part_to_words c m h i = SOME (w,ws) ∧
     (∀n v. sptree$lookup n m = SOME v ⇒ isWord (SND v)) ⇒
@@ -2231,7 +2231,7 @@ Proof
   \\ res_tac \\ fs []
 QED
 
-Triviality parts_to_words_isWord:
+Theorem parts_to_words_isWord[local]:
   ∀ps c w ws m n i.
     parts_to_words c m n ps i = SOME (w,ws) ∧
     (∀n v. sptree$lookup n m = SOME v ⇒ isWord (SND v)) ⇒
@@ -2276,7 +2276,7 @@ Proof
   \\ rw [] \\ gvs []
 QED
 
-Triviality getWords_good_loc:
+Theorem getWords_good_loc[local]:
   ∀xs ys ws vs1 s.
     getWords xs ys = (ws,vs1) ∧
     EVERY (good_loc s ∘ SND) xs ⇒
@@ -2340,14 +2340,14 @@ Proof
   EVAL_TAC>>rw[]>>fs[]
 QED
 
-Triviality word_good_handlers_StoreEach:
+Theorem word_good_handlers_StoreEach[local]:
   ∀ls off.
   word_good_handlers secn (StoreEach v ls off)
 Proof
   Induct>>fs[StoreEach_def]
 QED
 
-Triviality word_good_handlers_MemEqList:
+Theorem word_good_handlers_MemEqList[local]:
   ∀x b.
   word_good_handlers secn (MemEqList b x)
 Proof
@@ -2375,7 +2375,7 @@ Proof
   rw[]>>EVAL_TAC)
 QED
 
-Triviality data_to_word_comp_good_handlers:
+Theorem data_to_word_comp_good_handlers[local]:
   ∀c secn l p.
   word_good_handlers secn ((FST (comp c secn l p)):'a wordLang$prog)
 Proof
@@ -2398,7 +2398,7 @@ Proof
     EVAL_TAC>>rw[]>>fs[]
 QED
 
-Triviality stubs_labels:
+Theorem stubs_labels[local]:
   BIGUNION (set (MAP (λ(n,m,pp). word_get_code_labels pp)  (stubs (:'a) dc)))
   ⊆ set (MAP FST (stubs (:'a) dc))
 Proof
@@ -2478,7 +2478,7 @@ Proof
     metis_tac[]
   >>
     fs[stubs_fst_eq]
-QED;
+QED
 
 Theorem data_to_word_good_handlers:
   (data_to_word$compile data_conf word_conf asm_conf prog) = (xx,prog') ⇒

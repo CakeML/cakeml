@@ -337,7 +337,7 @@ Definition evaluate_def:
        (case (read_bytearray w2 (w2n w) (mem_load_byte s.memory s.memaddrs s.be),
               read_bytearray w4 (w2n w3) (mem_load_byte s.memory s.memaddrs s.be)) of
         | SOME bytes,SOME bytes2 =>
-            (case call_FFI s.ffi (ExtCall (explode ffi_index)) bytes bytes2 of
+            (case call_FFI s.ffi (ExtCall ffi_index) bytes bytes2 of
              | FFI_final outcome => (SOME (FinalFFI outcome),s)
              | FFI_return new_ffi new_bytes =>
                  let nmem = write_bytearray w4 new_bytes s.memory s.memaddrs s.be in
@@ -375,7 +375,7 @@ Proof
   rpt (res_tac >> fs [])
 QED
 
-Triviality fix_clock_evaluate:
+Theorem fix_clock_evaluate[local]:
   fix_clock s (evaluate (prog,s)) = evaluate (prog,s)
 Proof
   Cases_on `evaluate (prog,s)` \\ fs [fix_clock_def]

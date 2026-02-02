@@ -17,10 +17,9 @@ open to_word32ProgTheory std_preludeTheory;
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
 val _ = translation_extends "to_word32Prog";
-val _ = ml_translatorLib.use_string_type true;
 val _ = ml_translatorLib.use_sub_check true;
 
-val () = computeLib.set_skip computeLib.the_compset “COND” (SOME 1);
+val _ = (computeLib.the_compset := computeLib.set_skip (!computeLib.the_compset) “COND” (SOME 1));
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "to_target32Prog");
 
@@ -28,7 +27,7 @@ val RW = REWRITE_RULE
 
 val _ = add_preferred_thy "-";
 
-Triviality NOT_NIL_AND_LEMMA:
+Theorem NOT_NIL_AND_LEMMA[local]:
   (b <> [] /\ x) = if b = [] then F else x
 Proof
   Cases_on `b` THEN FULL_SIMP_TAC std_ss []
@@ -290,7 +289,7 @@ val _ = m_translate_run enc_secs_32_aux_def;
 
 val _ = translate enc_secs_32_def;
 
-Triviality monadic_enc32_enc_line_hash_32_ls_side_def:
+Theorem monadic_enc32_enc_line_hash_32_ls_side_def[local]:
   ∀a b c d e.
   d ≠ 0 ⇒
   monadic_enc32_enc_line_hash_32_ls_side a b c d e ⇔ T
@@ -300,7 +299,7 @@ Proof
   EVAL_TAC>>rw[]>>fs[]
 QED
 
-Triviality monadic_enc32_enc_sec_hash_32_ls_side_def:
+Theorem monadic_enc32_enc_sec_hash_32_ls_side_def[local]:
   ∀a b c d e.
   d ≠ 0 ⇒
   monadic_enc32_enc_sec_hash_32_ls_side a b c d e ⇔ T
@@ -321,9 +320,11 @@ val _ = translate (spec32 filter_skip_def)
 
 val _ = translate (get_jump_offset_def |>INST_TYPE [alpha|->``:32``,beta |-> ``:32``])
 
-val word_2compl_eq = prove(
-  ``!w:'a word. -w = 0w - w``,
-  fs []);
+Theorem word_2compl_eq[local]:
+    !w:'a word. -w = 0w - w
+Proof
+  fs []
+QED
 
 val _ = translate (conv32 reg_imm_ok_def |> SIMP_RULE std_ss [IN_INSERT,NOT_IN_EMPTY,
                                                word_2compl_eq])
@@ -349,7 +350,7 @@ Definition remove_labels_hash_def:
     remove_labels_loop init_clock c pos labs ffis (enc_secs_32 c.encode hash_size sec_list)
 End
 
-Triviality remove_labels_hash_correct:
+Theorem remove_labels_hash_correct[local]:
   remove_labels_hash c.init_clock c.asm_conf c.pos c.labels ffis c.hash_size sec_list =
   remove_labels c.init_clock c.asm_conf c.pos c.labels ffis sec_list
 Proof

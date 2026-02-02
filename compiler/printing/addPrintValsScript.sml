@@ -7,10 +7,7 @@
 Theory addPrintVals
 Ancestors
   ast infer namespace[qualified] typeDecToPP[qualified]
-  sptree[qualified] mlprettyprinter[qualified] string[qualified]
-Libs
-  stringSyntax[qualified]
-
+  sptree[qualified] mlprettyprinter[qualified] mlstring[qualified]
 
 Definition nsContents_def:
   nsContents (Bind locs mods) = MAP (Short ## I) locs ++
@@ -47,7 +44,7 @@ Definition add_type_name_def:
 End
 
 Definition t_info_id_def:
-  t_info_id (xs : string list, Tapp ts id) = SOME id /\
+  t_info_id (xs : mlstring list, Tapp ts id) = SOME id /\
   t_info_id _ = NONE
 End
 
@@ -125,9 +122,9 @@ End
    any type variables to PrettyPrinter.default_type *)
 Definition inf_t_to_ast_t_mono_def:
   inf_t_to_ast_t_mono ienv tn (Infer_Tuvar _) =
-    SOME (Atapp [] (Long "PrettyPrinter" (Short "default_type"))) /\
+    SOME (Atapp [] (Long «PrettyPrinter» (Short «default_type»))) /\
   inf_t_to_ast_t_mono ienv tn (Infer_Tvar_db _) =
-    SOME (Atapp [] (Long "PrettyPrinter" (Short "default_type"))) /\
+    SOME (Atapp [] (Long «PrettyPrinter» (Short «default_type»))) /\
   inf_t_to_ast_t_mono ienv tn (Infer_Tapp ts ti) =
     OPTION_BIND (OPT_MMAP (inf_t_to_ast_t_mono ienv tn) ts) (\ts.
     if ti = Tfn_num then
@@ -142,41 +139,41 @@ End
 Definition type_con_name_def:
   type_con_name tn ti =
   (case sptree$lookup ti tn.id_map of
-      NONE => strlit "<undeclared>"
-    | SOME [] => strlit "<undeclared>"
-    | SOME nms => implode (id_to_n (LAST nms))
+      NONE => «undeclared»
+    | SOME [] => «undeclared»
+    | SOME nms => id_to_n (LAST nms)
   )
 End
 
 Definition inf_type_to_string_rec_gen_def:
   (inf_type_to_string_rec_gen f (Infer_Tuvar n) =
-    (concat [strlit "_"; mlint$toString (&n)],0)) ∧
+    (concat [« »; mlint$toString (&n)],0)) ∧
   (inf_type_to_string_rec_gen f (Infer_Tvar_db n) =
     (concat [ty_var_name n],0n)) ∧
   (inf_type_to_string_rec_gen f (Infer_Tapp ts ti) =
     if ti = Tfn_num then
      (case ts of
       | [t1; t2] =>
-        (concat [add_parens 2 (inf_type_to_string_rec_gen f t1); strlit " -> ";
+        (concat [add_parens 2 (inf_type_to_string_rec_gen f t1); « -> »;
                  add_parens 3 (inf_type_to_string_rec_gen f t2)],3)
-      | _ => (implode "<bad function type>",0))
+      | _ => («<bad function type>»,0))
     else if ti = Ttup_num then
      (case ts of
-      | [] => (strlit "unit",0)
+      | [] => («unit»,0)
       | [t] => inf_type_to_string_rec_gen f t
-      | _ => (concat (commas (strlit " * ")
+      | _ => (concat (commas (« * »)
                (MAP (add_parens 1) (inf_type_to_string_rec_gen_list f ts))),2n))
     else
       case ts of
       | [] => (f ti,0)
       | [t] =>
-        (concat [add_parens 1 (inf_type_to_string_rec_gen f t); strlit " ";
+        (concat [add_parens 1 (inf_type_to_string_rec_gen f t); « »;
                  f ti],1)
       | _ =>
-        (concat ([strlit "("] ++
-                 commas (strlit ", ")
+        (concat ([«(»] ++
+                 commas («,»)
                    (MAP (add_parens 5) (inf_type_to_string_rec_gen_list f ts)) ++
-                 [strlit ") "; f ti]),1)) ∧
+                 [«) »; f ti]),1)) ∧
   inf_type_to_string_rec_gen_list f [] = [] ∧
   inf_type_to_string_rec_gen_list f (t::ts) =
     inf_type_to_string_rec_gen f t ::
@@ -194,13 +191,13 @@ Definition print_of_val_opts_def:
   print_of_val_opts ienv tn (nm, inf_t) =
     let nm_str = id_to_str nm in
     let idl = Lit (StrLit nm_str) in
-    let tstr = Lit (StrLit (explode (inf_t_to_s tn inf_t))) in
-    let pp_hidden = Dlet unknown_loc Pany (App Opapp [Var (Short "print_pp");
-        rpt_app (Var (Long "PrettyPrinter" (Short "val_hidden_type"))) [idl; tstr]]) in
+    let tstr = Lit (StrLit (inf_t_to_s tn inf_t)) in
+    let pp_hidden = Dlet unknown_loc Pany (App Opapp [Var (Short «print_pp»);
+        rpt_app (Var (Long «PrettyPrinter» (Short «val_hidden_type»))) [idl; tstr]]) in
     let pp_val = case inf_t_to_ast_t_mono ienv tn inf_t of
           NONE => []
-        | SOME ast_t => [Dlet unknown_loc Pany (App Opapp [Var (Short "print_pp");
-            rpt_app (Var (Long "PrettyPrinter" (Short "val_eq")))
+        | SOME ast_t => [Dlet unknown_loc Pany (App Opapp [Var (Short «print_pp»);
+            rpt_app (Var (Long «PrettyPrinter» (Short «val_eq»)))
                 [idl; pp_of_ast_t tn.pp_fixes ast_t; Var nm; tstr]])] in
     (nm_str, pp_val ++ [pp_hidden])
 End

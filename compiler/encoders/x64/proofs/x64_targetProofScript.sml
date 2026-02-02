@@ -25,7 +25,7 @@ val const_lem1 =
      ``!c: word64. ((63 >< 31) c = 0w: 33 word) ==>
                    0xFFFFFFFF80000000w <= c /\ c <= 0x7FFFFFFFw``
 
-Triviality const_lem2:
+Theorem const_lem2[local]:
   !c: word64.
        [(7 >< 0) c; (15 >< 8) c; (23 >< 16) c; (31 >< 24) c]: word8 list =
        [( 7 ><  0) (w2w c : word32); (15 ><  8) (w2w c : word32);
@@ -111,13 +111,13 @@ val loc_lem4 =
           0xFFFFFFFF80000007w <= c /\ c <= 0x80000006w ==>
           (sw2sw (w2w (c + 0xFFFFFFFFFFFFFFF9w): word32) = c - 7w)``
 
-Triviality binop_lem1:
+Theorem binop_lem1[local]:
   ((if b then [x] else []) <> []) = b
 Proof
   rw []
 QED
 
-Triviality binop_lem5:
+Theorem binop_lem5[local]:
   !c: word64. [(7 >< 0) c]: word8 list = [I (w2w c : word8)]
 Proof
   simp [] \\ blastLib.BBLAST_TAC
@@ -135,7 +135,7 @@ val binop_lem7 =
           0xFFFFFFFF80000000w <= c /\ c <= 0x7FFFFFFFw ==>
           (sw2sw (w2w c: word32) = c)``
 
-Triviality binop_lem9b:
+Theorem binop_lem9b[local]:
   !n. n < 64 ==>
         (0xFFFFFFFFFFFFFF80w: word64) <= n2w n /\ n2w n <= (0x7Fw: word64)
 Proof
@@ -144,7 +144,7 @@ Proof
    \\ simp [bitTheory.NOT_BIT_GT_TWOEXP]
 QED
 
-Triviality binop_lem9:
+Theorem binop_lem9[local]:
   !i: word64 n.
        n < 64 /\ Abbrev (i = n2w n) ==>
        0xFFFFFFFFFFFFFF80w <= i /\ i <= 0x7Fw /\ i <+ 64w /\
@@ -173,7 +173,7 @@ val binop_lem10b =
        [wordsTheory.word_lo_n2w, arithmeticTheory.LESS_MOD,
         blastLib.BBLAST_PROVE ``(w2w a : word8) = (7 >< 0) (a : word64)``]
 
-Triviality mem_lem1:
+Theorem mem_lem1[local]:
   !a n s state.
        target_state_rel x64_target s state /\ n < 16 /\ n <> 4 /\ n <> 5 /\
        s.regs n + a IN s.mem_domain ==>
@@ -182,7 +182,7 @@ Proof
   rw [asmPropsTheory.target_state_rel_def, x64_target_def, x64_config_def]
 QED
 
-Triviality mem_lem2:
+Theorem mem_lem2[local]:
   !a n s state.
     target_state_rel x64_target s state /\ n < 16 /\ n <> 4 /\ n <> 5 /\
     s.regs n + a IN s.mem_domain /\
@@ -197,7 +197,7 @@ Proof
        x64_stepTheory.read_mem32_def]
 QED
 
-Triviality mem_lem2b:
+Theorem mem_lem2b[local]:
   !a n s state.
     target_state_rel x64_target s state /\ n < 16 /\ n <> 4 /\ n <> 5 /\
     s.regs n + a IN s.mem_domain /\
@@ -209,7 +209,7 @@ Proof
        x64_stepTheory.read_mem16_def]
 QED
 
-Triviality mem_lem3:
+Theorem mem_lem3[local]:
   !a n s state.
     target_state_rel x64_target s state /\ n < 16 /\ n <> 4 /\ n <> 5 /\
     s.regs n + a IN s.mem_domain /\
@@ -240,20 +240,20 @@ val mem_lem5 =
           0xFFFFFFFFFFFFFF80w <= c /\ c <= 0x7Fw ==>
           (sw2sw (w2w c: word8) = c)``
 
-Triviality mem_lem6:
+Theorem mem_lem6[local]:
   !r. (2 >< 0) r <> (4w: word3) /\ (2 >< 0) r <> (5w: word3) ==>
         (r = RegNot4or5 r)
 Proof
   rw [x64_stepTheory.RegNot4or5_def]
 QED
 
-Triviality mem_lem7:
+Theorem mem_lem7[local]:
   !r. (2 >< 0) r <> (4w: word3) ==> (r = RegNot4 r)
 Proof
   rw [x64_stepTheory.RegNot4_def]
 QED
 
-Triviality mem_lem8:
+Theorem mem_lem8[local]:
   !r:word4 n.
        ~(3 < n) /\ Abbrev (r = n2w n) ==>
        num2Zreg (w2n r) <> RSP /\
@@ -268,7 +268,7 @@ Proof
 QED
 
 (*
-Triviality mem_lem9:
+Theorem mem_lem9[local]:
   !n r: word4.
       n < 16 /\ n <> 4 /\ Abbrev (r = n2w n) /\ ((2 >< 0) r = 4w: word3) ==>
       (zR12 = num2Zreg n)
@@ -303,7 +303,7 @@ val mem_lem13 =
    blastLib.BBLAST_PROVE
       ``!a: word4. v2w [a ' 2; a ' 1; a ' 0] = (2 >< 0) a : word3``
 
-Triviality mem_lem14:
+Theorem mem_lem14[local]:
   !w m :word64 -> word8.
    (w + 7w =+ b7)
      ((w + 6w =+ b6)
@@ -327,7 +327,7 @@ Proof
    \\ full_simp_tac (srw_ss()++wordsLib.WORD_CANCEL_ss) []
 QED
 
-Triviality mem_lem15:
+Theorem mem_lem15[local]:
   !w v:word64 m :word64 -> word8.
    (w + 3w =+ b3) ((w + 2w =+ b2) ((w + 1w =+ b1) ((w =+ b0) m))) =
    (w =+ b0) ((w + 1w =+ b1) ((w + 2w =+ b2) ((w + 3w =+ b3) m)))
@@ -338,7 +338,7 @@ Proof
    \\ full_simp_tac (srw_ss()++wordsLib.WORD_CANCEL_ss) []
 QED
 
-Triviality mem_lem15b:
+Theorem mem_lem15b[local]:
   !w v:word64 m :word64 -> word8.
   (w + 1w =+ b1) ((w =+ b0) m) = (w =+ b0) ((w + 1w =+ b1) m)
 Proof
@@ -369,14 +369,14 @@ val cmp_lem3 = Thm.CONJ
        ((a + -1w * b) ' 63 <=/=>
         (a ' 63 <=/=> b ' 63) /\ ((a + -1w * b) ' 63 <=/=> a ' 63)) <=> a < b``)
 
-Triviality cmp_lem4:
+Theorem cmp_lem4[local]:
   !w: word64 a b.
       (7 >< 0) w :: a :: b : word8 list = I (w2w w : word8) :: a :: b
 Proof
   simp [] \\ blastLib.BBLAST_TAC
 QED
 
-Triviality cmp_lem5:
+Theorem cmp_lem5[local]:
   !c: word64.
        0xFFFFFFFFFFFFFF80w <= c /\ c <= 0x7Fw ==>
        (((if (7 >< 7) c = 1w: word8 then 0xFFFFFFFFFFFFFF00w else 0w) ||
@@ -386,7 +386,7 @@ Proof
    \\ blastLib.FULL_BBLAST_TAC
 QED
 
-Triviality cmp_lem6:
+Theorem cmp_lem6[local]:
   !c: word64.
        0xFFFFFFFF80000000w <= c /\ c <= 0x7FFFFFFFw ==>
        (((if (31 >< 31) c = 1w: word32 then 0xFFFFFFFF00000000w else 0w) ||
@@ -396,7 +396,7 @@ Proof
    \\ blastLib.FULL_BBLAST_TAC
 QED
 
-Triviality cmp_lem7:
+Theorem cmp_lem7[local]:
   !rm. is_rax rm = (Zr RAX = rm)
 Proof
   Cases \\ rw [x64Theory.is_rax_def]
@@ -465,19 +465,19 @@ val adc_lem2 = blastLib.BBLAST_PROVE ``a <+ 1w : word64 <=> (a = 0w)``
 val overflow_lem =
   blastLib.BBLAST_PROVE ``!a: word64. word_bit 63 a = word_msb a``
 
-Triviality is_rax:
+Theorem is_rax[local]:
   !n. n < 16 ==> ((RAX = num2Zreg n) = (n = 0))
 Proof
   rw [] \\ fs [wordsTheory.NUMERAL_LESS_THM]
 QED
 
-Triviality is_rdx:
+Theorem is_rdx[local]:
   !n. n < 16 ==> ((RDX = num2Zreg n) = (n = 2))
 Proof
   rw [] \\ fs [wordsTheory.NUMERAL_LESS_THM]
 QED
 
-Triviality xmm_reg:
+Theorem xmm_reg[local]:
   (!n. n < 8 ==> ((3 >< 3) (n2w n : word4) = 0w : word1)) /\
    (!n. n < 8 ==> ((3 >< 3) (w2w (n2w n : word3) : word4) = 0w : word1)) /\
    (!n. n < 8 ==> ~word_bit 3 (n2w n : word4)) /\
@@ -499,7 +499,7 @@ val Zreg2num_num2Zreg_8 =
   |> SIMP_RULE arith_ss []
   |> Drule.GEN_ALL
 
-Triviality xmm_reg2:
+Theorem xmm_reg2[local]:
   (!n r : word4.
       n < 8 /\ Abbrev (r = n2w n) ==>
       (RexReg (F, v2w [r ' 2; r ' 1; r ' 0]) = num2Zreg n)) /\
@@ -513,7 +513,7 @@ Proof
    \\ fs []
 QED
 
-Triviality xmm_reg3:
+Theorem xmm_reg3[local]:
   !n. n < 8 ==> (w2w (n2w n : word3) = n2w n : word4)
 Proof
   rpt strip_tac \\ fs [wordsTheory.NUMERAL_LESS_THM]
@@ -529,7 +529,7 @@ val extract_double =
        w2w w2 : word64) /\
      !w: word128. (31 >< 0) ((63 >< 0) w : word64) = (31 >< 0) w : word32``
 
-Triviality fp_abs:
+Theorem fp_abs[local]:
   !w. fp64_abs w = (0x7FFFFFFFFFFFFFFFw && w)
 Proof
   simp [machine_ieeeTheory.fp64_abs_def, machine_ieeeTheory.fp64_to_float_def,
@@ -537,7 +537,7 @@ Proof
   \\ blastLib.BBLAST_TAC
 QED
 
-Triviality fp_neg:
+Theorem fp_neg[local]:
   !w. fp64_negate w = (0x8000000000000000w ?? w)
 Proof
   simp [machine_ieeeTheory.fp64_negate_def,
@@ -547,7 +547,7 @@ Proof
   \\ blastLib.BBLAST_TAC
 QED
 
-Triviality fp_compare:
+Theorem fp_compare[local]:
   (!a b. fp64_equal a b = (fp64_compare a b = EQ)) /\
    (!a b. fp64_lessThan a b = (fp64_compare a b = LT)) /\
    (!a b. fp64_lessEqual a b =
@@ -564,7 +564,7 @@ Proof
   \\ CASE_TAC
 QED
 
-Triviality fp_to_int_lem:
+Theorem fp_to_int_lem[local]:
   !i w : word32.
       (w2i w = i) ==> -0x80000000 <= i /\ i <= 0x7FFFFFFF
 Proof
@@ -907,7 +907,7 @@ val fp_cmp_tac =
    x64 target_ok
    ------------------------------------------------------------------------- *)
 
-Triviality x64_encoding:
+Theorem x64_encoding[local]:
   !i. x64_enc i <> []
 Proof
   strip_tac
@@ -915,13 +915,13 @@ Proof
    \\ simp [x64_enc_def, x64_dec_fail_def]
 QED
 
-Triviality x64_cmp_neq_p:
+Theorem x64_cmp_neq_p[local]:
   !cmp. x64_cmp cmp <> Z_P
 Proof
   Cases \\ simp [x64_cmp_def]
 QED
 
-Triviality x64_target_ok:
+Theorem x64_target_ok[local]:
   target_ok x64_target
 Proof
   rw [asmPropsTheory.target_ok_def, asmPropsTheory.target_state_rel_def,
@@ -974,6 +974,15 @@ Proof
              Const
            --------------*)
          print_tac "Const"
+         \\ Cases_on `c = 0w`
+         >- (
+           Cases_on `word_bit 3 (n2w n : word4)`
+           >- (`(3 >< 3) (n2w n : word4) = 1w : word1`
+                by (pop_assum mp_tac \\ blastLib.BBLAST_TAC)
+              \\ next_tac[])
+           \\ `(3 >< 3) (n2w n : word4) = 0w : word1`
+              by (pop_assum mp_tac \\ blastLib.BBLAST_TAC)
+            \\ next_tac[])
          \\ Cases_on `(63 >< 31) c = 0w : 33 word`
          >| [Cases_on `word_bit 3 (n2w n : word4)`, all_tac]
          \\ next_tac []
@@ -1337,4 +1346,3 @@ Proof
       \\ next_tac []
       )
 QED
-

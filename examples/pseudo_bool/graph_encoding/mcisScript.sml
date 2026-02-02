@@ -114,24 +114,36 @@ End
 
 (* For each a in vp, either a is unassigned or a is assigned to exactly one vertex
   v in vt *)
-Definition has_mapping_def:
-  has_mapping a vt =
-  (Equal,
+Definition has_mapping_al1_def:
+  has_mapping_al1 (a:num) vt =
+  ((strlit"al1" ^ toString a)
+  ,(GreaterEqual,
     (1, Pos (Unmapped a)) ::
     GENLIST (λv. (1, Pos (Mapped a v))) vt,
-    1): enc pbc
+    1): enc pbc)
+End
+
+Definition has_mapping_am1_def:
+  has_mapping_am1 (a:num) vt =
+  ((strlit"am1" ^ toString a)
+  ,(LessEqual,
+    (1, Pos (Unmapped a)) ::
+    GENLIST (λv. (1, Pos (Mapped a v))) vt,
+    1): enc pbc)
 End
 
 Definition all_has_mapping_def:
   all_has_mapping vp vt =
-  GENLIST (λa. has_mapping a vt) vp
+  GENLIST (λa. has_mapping_al1 a vt) vp ++
+  GENLIST (λa. has_mapping_am1 a vt) vp
 End
 
 Definition one_one_def:
   one_one u vp =
-  (GreaterEqual,
+  ((strlit"inj" ^ toString u)
+  ,(GreaterEqual,
     (GENLIST (λb. (1, Neg (Mapped b u))) vp),
-    (&vp-1)): enc pbc
+    (&vp-1)): enc pbc)
 End
 
 Definition all_one_one_def:
@@ -142,22 +154,26 @@ End
 Definition edge_map_def:
   edge_map (a,b) u et =
   if a = b then [] else
-  [(GreaterEqual,
+  [
+  (concat [strlit"adj"; toString a; strlit"_"; toString u; strlit"_"; toString b]
+  ,(GreaterEqual,
     (1,Neg (Mapped a u)) ::
     (1,Pos (Unmapped b)) ::
     MAP (λv. (1,Pos (Mapped b v))) (neighbours et u),
-    1):enc pbc]
+    1):enc pbc)]
 End
 
 Definition not_edge_map_def:
   not_edge_map (a,b) u vt et =
   if a = b then []
   else
-  [(GreaterEqual,
+  [
+  (concat [strlit"adj"; toString a; strlit"_"; toString u; strlit"_"; toString b]
+  ,(GreaterEqual,
     (1,Neg (Mapped a u)) ::
     (1,Pos (Unmapped b)) ::
     MAP (λv. (1,Pos (Mapped b v))) (not_neighbours (vt,et) u),
-    1):enc pbc]
+    1):enc pbc)]
 End
 
 Definition all_full_edge_map_def:
@@ -166,7 +182,9 @@ Definition all_full_edge_map_def:
     FLAT (GENLIST (λa.
       (* Check that a,u have same self-loop *)
       if is_edge ep a a ⇎ is_edge et u u
-      then [(GreaterEqual, [(1,Neg (Mapped a u))], 1):enc pbc]
+      then [
+        (concat [strlit"adj"; toString a; strlit"_"; toString u; strlit"_SELF"],
+        (GreaterEqual, [(1,Neg (Mapped a u))], 1):enc pbc)]
       else
         FLAT (MAP (λb. edge_map (a,b) u et) (neighbours ep a)) ++
         FLAT (MAP (λb. not_edge_map (a,b) u vt et) (not_neighbours (vp,ep) a) )) vp)) vt)
@@ -476,7 +494,7 @@ Theorem encode_base_correct:
       injective_partial_map f vs (vp,ep) (vt,et) ∧
       CARD vs = k) ⇔
     (∃w.
-      satisfies w (set constraints) ∧
+      satisfies w (set (MAP SND constraints)) ∧
       eval_obj (unmapped_obj vp) w = &vp - &k)
   )
 Proof
@@ -492,21 +510,22 @@ Proof
     rw[encode_base_def]
     >- (
       rename1`all_has_mapping`>>
-      simp[all_has_mapping_def,satisfies_def,MEM_GENLIST,has_mapping_def]>>
-      rw[]>>
-      simp[satisfies_pbc_def,MAP_GENLIST,o_DEF,eval_lin_term_def]>>
-      simp[iSUM_def]>>
-      Cases_on`a ∈ vs`>>simp[]
-      >- ( (* a ∈ vs *)
-        DEP_REWRITE_TAC[iSUM_eq_1]>>
+      simp[all_has_mapping_def,satisfies_def,MEM_GENLIST,MEM_MAP]>>
+      `∀a. a < vp ∧ a ∈ vs ⇒
+        iSUM (GENLIST (λv. b2i (f a = v)) vt) = 1` by (
+        rw[]>>
+        DEP_REWRITE_TAC[iSUM_eq_1,eval_lin_term_def]>>
         CONJ_TAC>-
           (simp[MEM_GENLIST]>>metis_tac[])>>
         qexists_tac`f a`>>
-        CONJ_ASM1_TAC>>fs[EL_GENLIST,INJ_DEF]) >>
-      simp[iSUM_GENLIST_const])
+        CONJ_ASM1_TAC>>fs[EL_GENLIST,INJ_DEF])>>
+      rw[]>>
+      simp[satisfies_pbc_def,MAP_GENLIST,o_DEF,eval_lin_term_def,
+        has_mapping_al1_def,has_mapping_am1_def]>>
+      Cases_on`a ∈ vs`>>simp[iSUM_def,iSUM_GENLIST_const])
     >- (
       rename1`all_one_one`>>
-      simp[all_one_one_def,satisfies_def,MEM_GENLIST,one_one_def]>>
+      simp[all_one_one_def,satisfies_def,MEM_GENLIST,one_one_def,MEM_MAP,PULL_EXISTS]>>
       rw[]>>
       simp[satisfies_pbc_def,MAP_GENLIST,o_DEF,eval_lin_term_def]>>
       fs[INJ_DEF]>>
@@ -628,11 +647,16 @@ Proof
   `∀n. n < vp ∧ ¬w (Unmapped n) ⇒
    ∃m. m < vt ∧ w (Mapped n m) ∧
    ∀m'. m' < vt ∧ w (Mapped n m') ⇔ m = m'` by (
-     fs[all_has_mapping_def,MEM_GENLIST,has_mapping_def,PULL_EXISTS]>>
+     fs[all_has_mapping_def,MEM_GENLIST,has_mapping_al1_def,
+      has_mapping_am1_def,PULL_EXISTS,MEM_MAP,PULL_EXISTS,SF DNF_ss]>>
      rw[]>>
+     first_x_assum drule>>
      first_x_assum drule>>
      simp[satisfies_pbc_def,MAP_GENLIST,o_DEF,eval_lin_term_def]>>
      simp[iSUM_def]>>
+     rw[]>>
+     `iSUM (GENLIST (λv. b2i (w (Mapped n v))) vt) = 1` by intLib.ARITH_TAC>>
+     pop_assum mp_tac>>
      DEP_REWRITE_TAC[iSUM_eq_1]>>
      CONJ_TAC>-
        (simp[MEM_GENLIST]>>metis_tac[])>>
@@ -649,7 +673,7 @@ Proof
     >- (
       first_x_assum drule>>strip_tac>>
       rfs[])>>
-    fs[all_one_one_def,MEM_GENLIST,PULL_EXISTS,one_one_def]>>
+    fs[all_one_one_def,MEM_GENLIST,PULL_EXISTS,one_one_def,MEM_MAP]>>
     res_tac>>
     gvs[]>>
     last_x_assum drule>>
@@ -1303,8 +1327,8 @@ End
 
 Definition encode_def:
   encode (vp,ep) (vt,et) =
-  encode_base (vp,ep) (vt,et) ++
-  encode_connected (vp,ep) vt
+  MAP (SOME ## I) (encode_base (vp,ep) (vt,et)) ++
+  MAP (λc. (NONE,c)) (encode_connected (vp,ep) vt)
 End
 
 Theorem walk_k_free:
@@ -1468,7 +1492,7 @@ Theorem encode_correct:
       injective_partial_map f vs (vp,ep) (vt,et) ∧
       connected_subgraph vs ep ∧
       CARD vs = k) ⇔
-    (∃w. satisfies w (set constraints) ∧
+    (∃w. satisfies w (set (MAP SND constraints)) ∧
       eval_obj (unmapped_obj vp) w = &vp - &k)
   )
 Proof
@@ -1488,21 +1512,22 @@ Proof
     rw[]
     >- (
       rename1`all_has_mapping`>>
-      simp[all_has_mapping_def,satisfies_def,MEM_GENLIST,has_mapping_def]>>
-      rw[]>>
-      simp[satisfies_pbc_def,MAP_GENLIST,o_DEF,eval_lin_term_def]>>
-      simp[iSUM_def]>>
-      Cases_on`a ∈ vs`>>simp[]
-      >- ( (* a ∈ vs *)
-        DEP_REWRITE_TAC[iSUM_eq_1]>>
+      simp[all_has_mapping_def,satisfies_def,MEM_GENLIST,MEM_MAP]>>
+      `∀a. a < vp ∧ a ∈ vs ⇒
+        iSUM (GENLIST (λv. b2i (f a = v)) vt) = 1` by (
+        rw[]>>
+        DEP_REWRITE_TAC[iSUM_eq_1,eval_lin_term_def]>>
         CONJ_TAC>-
           (simp[MEM_GENLIST]>>metis_tac[])>>
         qexists_tac`f a`>>
-        CONJ_ASM1_TAC>>fs[EL_GENLIST,INJ_DEF]) >>
-      simp[iSUM_GENLIST_const])
+        CONJ_ASM1_TAC>>fs[EL_GENLIST,INJ_DEF])>>
+      rw[]>>
+      simp[satisfies_pbc_def,MAP_GENLIST,o_DEF,eval_lin_term_def,
+        has_mapping_al1_def,has_mapping_am1_def]>>
+      Cases_on`a ∈ vs`>>simp[iSUM_def,iSUM_GENLIST_const])
     >- (
       rename1`all_one_one`>>
-      simp[all_one_one_def,satisfies_def,MEM_GENLIST,one_one_def]>>
+      simp[all_one_one_def,satisfies_def,MEM_GENLIST,one_one_def,MEM_MAP,PULL_EXISTS]>>
       rw[]>>
       simp[satisfies_pbc_def,MAP_GENLIST,o_DEF,eval_lin_term_def]>>
       fs[INJ_DEF]>>
@@ -1597,8 +1622,10 @@ Proof
         simp[]))
     >- (
       (* connectedness *)
-      rw[encode_connected_def]>>
-      simp[satisfies_def,MEM_FLAT,MEM_GENLIST,PULL_EXISTS,satisfies_pbc_def,eval_lin_term_def]>>
+      reverse(rw[encode_connected_def])>>
+      simp[satisfies_def,MEM_FLAT,MEM_GENLIST,PULL_EXISTS,satisfies_pbc_def,
+        eval_lin_term_def,MEM_MAP]
+      >- fs[satisfies_def]>>
       rw[]>>
       simp[satisfies_pbc_def,eval_lin_term_def]>>
       reverse (Cases_on`f' ∈ vs`)>>simp[iSUM_def]
@@ -1670,7 +1697,7 @@ Proof
     >- (
       fs[]>>
       simp[connected_subgraph_def])>>
-    fs[SF DNF_ss,MEM_FLAT,MEM_GENLIST,PULL_EXISTS,satisfies_pbc_def,eval_lin_term_def]>>
+    fs[SF DNF_ss,MEM_FLAT,MEM_GENLIST,PULL_EXISTS,satisfies_pbc_def,eval_lin_term_def,MEM_MAP]>>
     rw[connected_subgraph_def,Abbr`dom`]>>
     match_mp_tac is_walk_is_connected>>
     qpat_x_assum`good_graph (vp,ep)` assume_tac>>
@@ -1703,11 +1730,16 @@ Proof
   `∀n. n < vp ∧ ¬w (Unmapped n) ⇒
    ∃m. m < vt ∧ w (Mapped n m) ∧
    ∀m'. m' < vt ∧ w (Mapped n m') ⇔ m = m'` by (
-     fs[all_has_mapping_def,MEM_GENLIST,has_mapping_def,PULL_EXISTS]>>
+     fs[all_has_mapping_def,MEM_GENLIST,has_mapping_al1_def,
+      has_mapping_am1_def,PULL_EXISTS,MEM_MAP,PULL_EXISTS,SF DNF_ss]>>
      rw[]>>
+     first_x_assum drule>>
      first_x_assum drule>>
      simp[satisfies_pbc_def,MAP_GENLIST,o_DEF,eval_lin_term_def]>>
      simp[iSUM_def]>>
+     rw[]>>
+     `iSUM (GENLIST (λv. b2i (w (Mapped n v))) vt) = 1` by intLib.ARITH_TAC>>
+     pop_assum mp_tac>>
      DEP_REWRITE_TAC[iSUM_eq_1]>>
      CONJ_TAC>-
        (simp[MEM_GENLIST]>>metis_tac[])>>
@@ -1724,7 +1756,7 @@ Proof
     >- (
       first_x_assum drule>>strip_tac>>
       rfs[])>>
-    fs[all_one_one_def,MEM_GENLIST,PULL_EXISTS,one_one_def]>>
+    fs[all_one_one_def,MEM_GENLIST,PULL_EXISTS,one_one_def,MEM_MAP]>>
     res_tac>>
     gvs[]>>
     last_x_assum drule>>
@@ -1866,7 +1898,7 @@ Definition full_encode_mccis_def:
   full_encode_mccis gp gt =
   (map_obj enc_string
     (unmapped_obj (FST gp)),
-  MAP (map_pbc enc_string) (encode gp gt))
+  MAP (I ## map_pbc enc_string) (encode gp gt))
 End
 
 (* Convert minimization to maximization *)
@@ -1951,7 +1983,7 @@ Theorem full_encode_mccis_sem_concl:
   good_graph gp ∧
   good_graph gt ∧
   full_encode_mccis gp gt = (obj,pbf) ∧
-  sem_concl (set pbf) obj concl ∧
+  sem_concl (set (MAP SND pbf)) obj concl ∧
   conv_concl (FST gp) concl = SOME (lbg, ubg) ⇒
   (lbg = ubg ⇒ max_ccis_size gp gt = lbg) ∧
   (∀vs. is_ccis vs gp gt ⇒ CARD vs ≤ ubg) ∧
@@ -1960,7 +1992,8 @@ Proof
   strip_tac>>
   gvs[full_encode_mccis_def]>>
   qpat_x_assum`sem_concl _ _ _` mp_tac>>
-  simp[LIST_TO_SET_MAP]>>
+  simp[LIST_TO_SET_MAP,IMAGE_IMAGE]>>
+  simp[Once (GSYM IMAGE_IMAGE)]>>
   DEP_REWRITE_TAC[GSYM concl_INJ_iff]>>
   CONJ_TAC >- (
     assume_tac enc_string_INJ>>
@@ -1997,7 +2030,7 @@ Proof
     metis_tac[])>>
   rw[]
   >- ( (* Lower bound optimization *)
-    Cases_on`lbi`>>fs[unsatisfiable_def,satisfiable_def]
+    Cases_on`lbi`>>fs[unsatisfiable_def,satisfiable_def,LIST_TO_SET_MAP]
     >- (
       (* the formula is always satisfiable, so INF lower bound
          is impossible *)
@@ -2011,7 +2044,7 @@ Proof
     intLib.ARITH_TAC)>>
   (* Upper bound optimization *)
   Cases_on`ubi`>>
-  fs[SF DNF_ss,EQ_IMP_THM,is_ccis_def,is_cis_def]
+  fs[SF DNF_ss,EQ_IMP_THM,is_ccis_def,is_cis_def,LIST_TO_SET_MAP]
   >-
     metis_tac[injective_partial_map_exists,SND]>>
   `eval_obj (unmapped_obj q) w ≥ 0` by
@@ -2034,14 +2067,14 @@ Definition full_encode_mcis_def:
   full_encode_mcis gp gt =
   (map_obj enc_string
     (unmapped_obj (FST gp)),
-  MAP (map_pbc enc_string) (encode_base gp gt))
+  MAP (SOME ## map_pbc enc_string) (encode_base gp gt))
 End
 
 Theorem full_encode_mcis_sem_concl:
   good_graph gp ∧
   good_graph gt ∧
   full_encode_mcis gp gt = (obj,pbf) ∧
-  sem_concl (set pbf) obj concl ∧
+  sem_concl (set (MAP SND pbf)) obj concl ∧
   conv_concl (FST gp) concl = SOME (lbg, ubg) ⇒
   (lbg = ubg ⇒ max_cis_size gp gt = lbg) ∧
   (∀vs. is_cis vs gp gt ⇒ CARD vs ≤ ubg) ∧
@@ -2050,7 +2083,8 @@ Proof
   strip_tac>>
   gvs[full_encode_mcis_def]>>
   qpat_x_assum`sem_concl _ _ _` mp_tac>>
-  simp[LIST_TO_SET_MAP]>>
+  simp[LIST_TO_SET_MAP,IMAGE_IMAGE]>>
+  simp[Once (GSYM IMAGE_IMAGE)]>>
   DEP_REWRITE_TAC[GSYM concl_INJ_iff]>>
   CONJ_TAC >- (
     assume_tac enc_string_INJ>>
@@ -2086,7 +2120,8 @@ Proof
     metis_tac[])>>
   rw[]
   >- ( (* Lower bound optimization *)
-    Cases_on`lbi`>>fs[unsatisfiable_def,satisfiable_def,is_cis_def]
+    Cases_on`lbi`>>
+    fs[unsatisfiable_def,satisfiable_def,is_cis_def,LIST_TO_SET_MAP]
     >- (
       (* the formula is always satisfiable, so INF lower bound
          is impossible *)
@@ -2099,7 +2134,7 @@ Proof
     intLib.ARITH_TAC)>>
   (* Upper bound optimization *)
   Cases_on`ubi`>>
-  fs[SF DNF_ss,EQ_IMP_THM,is_cis_def]
+  fs[SF DNF_ss,EQ_IMP_THM,is_cis_def,LIST_TO_SET_MAP]
   >-
     metis_tac[injective_partial_map_exists]>>
   `eval_obj (unmapped_obj q) w ≥ 0` by
@@ -2120,8 +2155,10 @@ QED
 Theorem full_encode_mcis_eq =
   full_encode_mcis_def
   |> SIMP_RULE (srw_ss()) [FORALL_PROD,encode_base_def]
-  |> SIMP_RULE (srw_ss()) [all_has_mapping_def,all_one_one_def,all_full_edge_map_def,has_mapping_def,one_one_def,edge_map_def,not_edge_map_def]
-  |> SIMP_RULE (srw_ss()) [MAP_FLAT,MAP_GENLIST,MAP_APPEND,o_DEF,MAP_MAP_o,pbc_ge_def,map_pbc_def,FLAT_FLAT,FLAT_MAP_SING,map_lit_def,MAP_if]
+  |> SIMP_RULE (srw_ss()) [all_has_mapping_def,all_one_one_def,all_full_edge_map_def,
+    has_mapping_al1_def,has_mapping_am1_def,one_one_def,edge_map_def,not_edge_map_def]
+  |> SIMP_RULE (srw_ss()) [MAP_FLAT,MAP_GENLIST,MAP_APPEND,o_DEF,MAP_MAP_o,pbc_ge_def,
+    map_pbc_def,FLAT_FLAT,FLAT_MAP_SING,map_lit_def,MAP_if]
   |> SIMP_RULE (srw_ss()) [FLAT_GENLIST_FOLDN,FOLDN_APPEND,FOLDN_APPEND_op]
   |> PURE_ONCE_REWRITE_RULE [APPEND_OP_DEF]
   |> SIMP_RULE (srw_ss()) [];
@@ -2176,9 +2213,10 @@ Theorem walk_k_eq =
   |> SIMP_RULE (srw_ss()) [if_APPEND];
 
 val enc_encode_connected =
-  ``MAP (map_pbc enc_string) (encode_connected (p_1,p_2) vt)``
+  ``MAP (\c. (NONE:mlstring option,(map_pbc enc_string c))) (encode_connected (p_1,p_2) vt)``
   |> SIMP_CONV (srw_ss()) [encode_connected_thm]
-  |> SIMP_RULE (srw_ss()) [MAP_FLAT,MAP_GENLIST,MAP_APPEND,o_DEF,MAP_MAP_o,pbc_ge_def,map_pbc_def,FLAT_FLAT,FLAT_MAP_SING,map_lit_def,LET_DEF,MAP_if]
+  |> SIMP_RULE (srw_ss()) [MAP_FLAT,MAP_GENLIST,MAP_APPEND,o_DEF,MAP_MAP_o,
+    pbc_ge_def,map_pbc_def,FLAT_FLAT,FLAT_MAP_SING,map_lit_def,LET_DEF,MAP_if]
   |> SIMP_RULE (srw_ss()) [FLAT_GENLIST_FOLDN]
   |> PURE_REWRITE_RULE[GSYM APPEND_ASSOC]
   |> SIMP_RULE std_ss [FOLDN_APPEND]
@@ -2188,8 +2226,10 @@ val enc_encode_connected =
 Theorem full_encode_mccis_eq =
   full_encode_mccis_def
   |> SIMP_RULE (srw_ss()) [FORALL_PROD,encode_def,encode_base_def]
-  |> SIMP_RULE (srw_ss()) [all_has_mapping_def,all_one_one_def,all_full_edge_map_def,has_mapping_def,one_one_def,edge_map_def,not_edge_map_def]
-  |> SIMP_RULE (srw_ss()) [MAP_FLAT,MAP_GENLIST,MAP_APPEND,o_DEF,MAP_MAP_o,pbc_ge_def,map_pbc_def,FLAT_FLAT,FLAT_MAP_SING,map_lit_def,LET_DEF,MAP_if]
+  |> SIMP_RULE (srw_ss()) [all_has_mapping_def,all_one_one_def,all_full_edge_map_def,
+    has_mapping_al1_def,has_mapping_am1_def,one_one_def,edge_map_def,not_edge_map_def]
+  |> SIMP_RULE (srw_ss()) [MAP_FLAT,MAP_GENLIST,MAP_APPEND,o_DEF,MAP_MAP_o,pbc_ge_def,
+    map_pbc_def,FLAT_FLAT,FLAT_MAP_SING,map_lit_def,LET_DEF,MAP_if]
   |> SIMP_RULE (srw_ss()) [FLAT_GENLIST_FOLDN]
   |> PURE_REWRITE_RULE[GSYM APPEND_ASSOC]
   |> SIMP_RULE std_ss [FOLDN_APPEND]

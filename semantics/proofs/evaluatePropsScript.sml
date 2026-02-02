@@ -38,10 +38,9 @@ Proof
   \\ rw[call_FFI_rel_consts]
 QED
 
-Definition dest_IO_event_def:
+Definition dest_IO_event_def[simp]:
   dest_IO_event (IO_event s c b) = (s,c,b)
 End
-val _ = export_rewrites["dest_IO_event_def"];
 
 Definition io_events_mono_def:
   io_events_mono s1 s2 ⇔
@@ -126,7 +125,7 @@ Proof
   metis_tac[PAIR,FST,evaluate_call_FFI_rel]
 QED
 
-Triviality evaluate_decs_call_FFI_rel:
+Theorem evaluate_decs_call_FFI_rel[local]:
   ∀s e d.
      RTC call_FFI_rel s.ffi (FST (evaluate_decs s e d)).ffi
 Proof
@@ -599,13 +598,13 @@ Proof
   simp_tac bool_ss evaluate_decs_lemmas
 QED
 
-Triviality add_lemma:
+Theorem add_lemma[local]:
   !(k:num) k'. ?extra. k = k' + extra ∨ k' = k + extra
 Proof
   intLib.ARITH_TAC
 QED
 
-Triviality with_clock_ffi:
+Theorem with_clock_ffi[local]:
   (s with clock := k).ffi = s.ffi
 Proof
   EVAL_TAC
@@ -816,7 +815,7 @@ QED
 
 Theorem call_FFI_return_unchanged:
   call_FFI ffi s conf bytes = FFI_return ffi bytes' <=>
-  (s = ExtCall "" /\ bytes' = bytes)
+  (s = ExtCall «» /\ bytes' = bytes)
 Proof
   simp [ffiTheory.call_FFI_def]
   \\ every_case_tac
@@ -835,7 +834,7 @@ Proof
   >- metis_tac[]
   >- (pairarg_tac \\ gvs [])
   \\ gvs [call_FFI_return_unchanged,
-          Q.SPECL [`x`, `ExtCall ""`] ffiTheory.call_FFI_def]
+          Q.SPECL [`x`, `ExtCall «»`] ffiTheory.call_FFI_def]
 QED
 
 Theorem evaluate_ffi_intro:

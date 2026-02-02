@@ -38,7 +38,7 @@ Proof
   >> fs[SWAP_def]
 QED
 
-Triviality EVERY_MEM_SWAP_eq:
+Theorem EVERY_MEM_SWAP_eq[local]:
   !s. EVERY (λx. MEM (SWAP x) s) s ⇔  set (MAP SWAP s) = set s
 Proof
   rw[EQ_IMP_THM,EVERY_MEM,pred_setTheory.EXTENSION,FORALL_AND_THM]
@@ -696,7 +696,7 @@ Proof
 QED
 
 (* TODO remove unused theorem *)
-Triviality var_renaming_compose_set:
+Theorem var_renaming_compose_set[local]:
   !r s. var_renaming r ∧ var_renaming s⇒
   set (MAP FST (MAP (TYPE_SUBST s ## I) r))
   = ({ FST x | MEM x s ∧ MEM (SND x) (MAP FST r) }
@@ -750,7 +750,7 @@ Proof
 QED
 
 (* TODO remove unused theorem *)
-Triviality var_renaming_compose_props:
+Theorem var_renaming_compose_props[local]:
   ∀r s. var_renaming s ∧ var_renaming r
   ⇒ let s = MAP (TYPE_SUBST s ## I) r ++ s
   in
@@ -780,7 +780,7 @@ Proof
   >> fs[UNION_DIFF_EQ,UNION_IDEMPOT,AC UNION_ASSOC UNION_COMM,SUBSET_UNION_ABSORPTION]
 QED
 
-Triviality var_renaming_compose_set_FST_FILTER:
+Theorem var_renaming_compose_set_FST_FILTER[local]:
   !r s.  var_renaming s ∧ var_renaming r
   ⇒ set (MAP FST (FILTER (λ(x,y). x ≠ y) (MAP (TYPE_SUBST s ## I) r)))
   = ({ FST x | ∃a. MEM x s ∧ MEM (SND x,a) r ∧ a ≠ FST x}
@@ -839,7 +839,7 @@ Proof
   >> fs[ELIM_UNCURRY]
 QED
 
-Triviality var_renaming_compose_set_SND_FILTER:
+Theorem var_renaming_compose_set_SND_FILTER[local]:
   !r s.  var_renaming s ∧ var_renaming r
   ⇒ set (MAP SND (FILTER (λ(x,y). x ≠ y) (MAP (TYPE_SUBST s ## I) r)))
   = { SND x | MEM x r ∧ ¬MEM (SWAP x) s}
@@ -1505,7 +1505,7 @@ Termination
   >> rgs[Abbr`f`,o_DEF]
 End
 
-Triviality SUBSET_UNION_DISJ:
+Theorem SUBSET_UNION_DISJ[local]:
   (!a b (c:'a set). a ⊆ b ∪ c /\ (a ∩ b) = EMPTY ==> a ⊆ c)
   /\ (!a b (c:'a set). a ⊆ b ∪ c /\ (a ∩ c) = EMPTY ==> a ⊆ b)
 Proof
@@ -1866,7 +1866,7 @@ Proof
 QED
 
 Theorem ren_strlen_FST:
-  !r c. EVERY (λa. ?x. a = Tyvar x /\ list_max (MAP strlen (r++c)) < strlen x) (MAP FST (ren r c))
+  !r c. EVERY (λa. ?x. a = Tyvar x /\ MAX_LIST (MAP strlen (r++c)) < strlen x) (MAP FST (ren r c))
 Proof
   rw[EVERY_MEM,MEM_MAP]
   >> imp_res_tac (REWRITE_RULE[EVERY_MEM] ren_Tyvars)

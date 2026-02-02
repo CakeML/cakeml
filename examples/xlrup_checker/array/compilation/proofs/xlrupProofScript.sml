@@ -73,7 +73,7 @@ Theorem machine_code_sound:
   if LENGTH cl = 2 then
     if inFS_fname fs (EL 1 cl)
     then
-      case parse_cnf_ext (all_lines fs (EL 1 cl)) of
+      case parse_cnf_ext (all_lines_file fs (EL 1 cl)) of
         NONE => out = strlit ""
       | SOME fml => out = concat (print_cnf_ext fml)
     else out = strlit ""
@@ -81,7 +81,7 @@ Theorem machine_code_sound:
     if out = strlit "s VERIFIED UNSAT\n" then
       inFS_fname fs (EL 1 cl) ∧
       ∃f.
-        parse_cnf_ext (all_lines fs (EL 1 cl)) = SOME f ∧
+        parse_cnf_ext (all_lines_file fs (EL 1 cl)) = SOME f ∧
         sols f = {}
     else out = strlit ""
   else

@@ -98,7 +98,7 @@ QED
 
 Theorem SUM_MAP_v3_size:
   !xs. SUM (MAP v3_size xs) = LENGTH xs +
-    SUM (MAP (list_size char_size ∘ FST) xs) +
+    SUM (MAP (mlstring_size ∘ FST) xs) +
     SUM (MAP (v_size ∘ SND) xs)
 Proof
   Induct \\ simp [FORALL_PROD, v_size_def]
@@ -158,7 +158,7 @@ Proof
     Cases_on `n = 0` >> fs[] >>  fs[EXTENSION, SUBSET_DEF]
 QED
 
-Triviality find_v_globalsL_EL_trans:
+Theorem find_v_globalsL_EL_trans[local]:
     n < LENGTH vs ∧ domain(find_v_globalsL vs) ⊆ R ⇒
     domain (find_v_globals (EL n vs)) ⊆ R
 Proof
@@ -392,7 +392,6 @@ Definition flat_state_rel_def:
     flat_state_rel reachable ^s ^t ⇔
       s.clock = t.clock ∧ s.refs = t.refs ∧
       s.ffi = t.ffi ∧ globals_rel reachable s.globals t.globals ∧
-      s.c = t.c ∧
       domain (find_refs_globals s.refs) ⊆ domain reachable ∧
       EVERY (EVERY ($~ ∘ v_has_Eval) ∘ store_v_vs) s.refs
 End
@@ -454,7 +453,7 @@ Proof
   simp [EVERY_EL]
 QED
 
-Triviality not_v_has_Eval_EVERY_EL:
+Theorem not_v_has_Eval_EVERY_EL[local]:
   EVERY ($~ ∘ v_has_Eval) xs /\ i < LENGTH xs ==> ~ v_has_Eval (EL i xs)
 Proof
   simp [EVERY_EL]
@@ -483,19 +482,19 @@ fun qif_pat_tac qpat (tac : tactic) goal = if can (rename [qpat]) goal
 
 fun conseq xs = ConseqConv.CONSEQ_REWRITE_TAC (xs, [], [])
 
-Triviality fvg_map_char_empty:
+Theorem fvg_map_char_empty[local]:
   find_v_globals (list_to_v (MAP (λc. Litv (Char c)) ss)) = LN
 Proof
   Induct_on `ss` \\ simp [find_v_globals_def, list_to_v_def]
 QED
 
-Triviality not_LE_LESS_IMP:
+Theorem not_LE_LESS_IMP[local]:
   (~ (x >= y)) ==> ((x : num) < y)
 Proof
   simp []
 QED
 
-Triviality EL_REP_NONE_SOME_trivia:
+Theorem EL_REP_NONE_SOME_trivia[local]:
   n < LENGTH xs + i ==>
   (EL n (xs ++ REPLICATE i NONE) = SOME y <=>
     n < LENGTH xs /\ EL n xs = SOME y)
@@ -503,6 +502,26 @@ Proof
   rw [EL_APPEND_EQN]
   \\ simp [EL_REPLICATE]
 QED
+
+Theorem pair_case_eq[local]:
+  pair_CASE x f = v ⇔ ?x1 x2. x = (x1,x2) ∧ f x1 x2 = v
+Proof
+  Cases_on `x` >>
+ srw_tac[][]
+QED
+
+Theorem pair_lam_lem[local]:
+  !f v z. (let (x,y) = z in f x y) = v ⇔ ∃x1 x2. z = (x1,x2) ∧ (f x1 x2 = v)
+Proof
+  srw_tac[][]
+QED
+
+val eqs = flatSemTheory.case_eq_thms;
+
+Theorem do_app_cases =
+  ``do_app st op vs = SOME (st',v)`` |>
+  (SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, eqs, pair_case_eq, pair_lam_lem, CaseEq "thunk_op"] THENC
+   SIMP_CONV (srw_ss()++COND_elim_ss) [LET_THM, eqs])
 
 Theorem do_app_SOME_flat_state_rel:
      ∀ reachable state removed_state op l new_state result new_removed_state.
@@ -524,6 +543,24 @@ Proof
   \\ qpat_assum `flat_state_rel _ _ _` (mp_tac o REWRITE_RULE [flat_state_rel_def])
   \\ rw []
   \\ `∃ this_case . this_case op` by (qexists_tac `K T` >> simp[])
+  \\ Cases_on ‘∃a ty. op = Arith a ty’ >- (
+    fs [do_app_def]
+    \\ gvs [AllCaseEqs()]
+    \\ Cases_on ‘ty’
+    \\ TRY(rename1 `WordT w` \\ Cases_on`w`)
+    \\ gvs [semanticPrimitivesTheory.do_arith_def, AllCaseEqs()]
+    \\ simp [do_app_def, semanticPrimitivesTheory.do_arith_def,
+              find_sem_prim_res_globals_def, find_result_globals_def,
+              find_v_globals_def, v_has_Eval_def, div_exn_v_def, v_to_flat_def])
+  \\ Cases_on ‘∃ty1 ty2. op = FromTo ty1 ty2’ >- (
+    fs [do_app_def]
+    \\ gvs [AllCaseEqs()]
+    \\ Cases_on ‘ty1’ \\ Cases_on ‘ty2’
+    \\ gvs [semanticPrimitivesTheory.do_conversion_def, AllCaseEqs()]
+    \\ TRY (Cases_on ‘w’) \\ gvs [semanticPrimitivesTheory.do_conversion_def]
+    \\ simp [do_app_def, semanticPrimitivesTheory.do_conversion_def,
+              find_sem_prim_res_globals_def, find_result_globals_def,
+              find_v_globals_def, v_has_Eval_def, v_to_flat_def])
   \\ qpat_x_assum `do_app _ _ _ = SOME _`
       (strip_assume_tac o REWRITE_RULE [do_app_cases])
   \\ rw []
@@ -571,6 +608,11 @@ Proof
   )
   >- (
     qpat_assum `this_case Vsub` kall_tac
+    \\ simp [find_v_globalsL_EL_trans]
+    \\ fs [EVERY_EL]
+  )
+  >- (
+    qpat_assum `this_case Vsub_unsafe` kall_tac
     \\ simp [find_v_globalsL_EL_trans]
     \\ fs [EVERY_EL]
   )
@@ -855,10 +897,8 @@ Proof
     rpt gen_tac >> strip_tac >>
     qpat_x_assum `evaluate _ _ _ = _` mp_tac >>
     simp[evaluate_def] >> fs[find_lookups_def, has_Eval_def, EVERY_REVERSE] >>
-    `state'.c = removed_state.c` by fs[flat_state_rel_def] >>
     fs[] >>
     Cases_on `evaluate env state' (REVERSE es)` >> fs[] >>
-    IF_CASES_TAC >> fs [] >>
     first_x_assum (
         qspecl_then [`reachable`, `removed_state`] mp_tac) >>
     simp[Once find_lookupsL_REVERSE] >> fs[] >>
@@ -1164,21 +1204,7 @@ Proof
   rw[] >> qpat_x_assum `evaluate_dec _ _ = _` mp_tac >>
   reverse(Induct_on `dec`) >> fs[evaluate_def] >> strip_tac >>
   strip_tac >>
-  fs[keep_def]
-  >- (
-    fs[flat_state_rel_def] >>
-    fs[is_fresh_exn_def] >>
-    rw[] >> fs[find_result_globals_def] >>
-    fs[globals_rel_def] >>
-    metis_tac[]
-    )
-  >- (
-    fs[flat_state_rel_def] >>
-    fs[is_fresh_exn_def] >>
-    rw[] >> fs[find_result_globals_def] >>
-    fs[globals_rel_def] >>
-    metis_tac[]
-    ) >>
+  fs[keep_def] >>
   rpt strip_tac >>
   fs [pair_case_eq] >>
   drule_then drule evaluate_sing_keep_flat_state_rel_eq >>
@@ -1665,7 +1691,7 @@ Theorem flat_remove_semantics =
 
 (* syntactic results *)
 
-Triviality elist_globals_filter:
+Theorem elist_globals_filter[local]:
   elist_globals (MAP dest_Dlet (FILTER is_Dlet ds)) = {||}
    ==>
    elist_globals (MAP dest_Dlet (FILTER is_Dlet (FILTER P ds))) = {||}
@@ -1673,7 +1699,7 @@ Proof
   Induct_on `ds` \\ rw [] \\ fs [SUB_BAG_UNION]
 QED
 
-Triviality esgc_free_filter:
+Theorem esgc_free_filter[local]:
   EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet ds))
    ==>
    EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet (FILTER P ds)))
@@ -1681,7 +1707,7 @@ Proof
   Induct_on `ds` \\ rw []
 QED
 
-Triviality elist_globals_filter_SUB_BAG:
+Theorem elist_globals_filter_SUB_BAG[local]:
   elist_globals (MAP dest_Dlet (FILTER is_Dlet (FILTER P ds))) <=
    elist_globals (MAP dest_Dlet (FILTER is_Dlet ds))
 Proof
@@ -1723,4 +1749,3 @@ Theorem remove_flat_prog_distinct_globals:
 Proof
   metis_tac [remove_flat_prog_sub_bag, BAG_ALL_DISTINCT_SUB_BAG]
 QED
-

@@ -708,7 +708,7 @@ val value_ind =
    |> SIMP_RULE (srw_ss()) []
    |> UNDISCH |> CONJUNCT1 |> DISCH_ALL |> Q.GEN `P`;
 
-Triviality not_less_zero_imp:
+Theorem not_less_zero_imp[local]:
   ~(i < 0:int) ⇒ ∃k. i = & k
 Proof
   Cases_on ‘i’ \\ fs []
@@ -863,7 +863,7 @@ Proof
    THEN1 (irule EVERY_DROP \\ simp [EVERY_REVERSE])
 QED
 
-Triviality update_thunk_ssgc_free:
+Theorem update_thunk_ssgc_free[local]:
   ssgc_free s ∧
   EVERY vsgc_free vs ∧
   update_thunk [RefPtr v ptr] s.refs vs = SOME refs ⇒
@@ -881,7 +881,7 @@ QED
 val say = say0 "evaluate_changed_globals_0";
 
 (* Evaluate  *)
-Triviality evaluate_changed_globals_0:
+Theorem evaluate_changed_globals_0[local]:
   (!es env (s0:('c,'ffi) closSem$state) res s.
       evaluate (es, env, s0) = (res, s) /\
       ssgc_free s0 /\ EVERY esgc_free es /\
@@ -1497,7 +1497,7 @@ Proof
   simp[o_DEF,ADD1]
 QED
 
-Triviality letrec_case_eq:
+Theorem letrec_case_eq[local]:
   !limit loc fns.
   (case loc of
     NONE => REPLICATE (LENGTH fns) Other
@@ -2703,39 +2703,47 @@ Proof
   simp[Unit_def] >> Cases_on `v` >> simp[] >> metis_tac[]
 QED
 
-val v_rel_IMP_v_to_bytes_lemma = prove(
-  ``!x y c g.
+Theorem v_rel_IMP_v_to_bytes_lemma[local]:
+    !x y c g.
       v_rel c g x y ==>
       !ns. (v_to_list x = SOME (MAP (Number o $& o (w2n:word8->num)) ns)) <=>
-           (v_to_list y = SOME (MAP (Number o $& o (w2n:word8->num)) ns))``,
+           (v_to_list y = SOME (MAP (Number o $& o (w2n:word8->num)) ns))
+Proof
   ho_match_mp_tac v_to_list_ind \\ rw []
   \\ fs [v_to_list_def]
   \\ Cases_on `tag = backend_common$cons_tag` \\ fs []
   \\ res_tac \\ fs [case_eq_thms]
   \\ Cases_on `ns` \\ fs []
   \\ eq_tac \\ rw [] \\ fs []
-  \\ Cases_on `h` \\ fs []);
+  \\ Cases_on `h` \\ fs []
+QED
 
-val v_rel_IMP_v_to_bytes = prove(
-  ``v_rel c g x y ==> v_to_bytes y = v_to_bytes x``,
-  rw [v_to_bytes_def] \\ drule v_rel_IMP_v_to_bytes_lemma \\ fs []);
+Theorem v_rel_IMP_v_to_bytes[local]:
+    v_rel c g x y ==> v_to_bytes y = v_to_bytes x
+Proof
+  rw [v_to_bytes_def] \\ drule v_rel_IMP_v_to_bytes_lemma \\ fs []
+QED
 
-val v_rel_IMP_v_to_words_lemma = prove(
-  ``!x y c g.
+Theorem v_rel_IMP_v_to_words_lemma[local]:
+    !x y c g.
       v_rel c g x y ==>
       !ns. (v_to_list x = SOME (MAP Word64 ns)) <=>
-           (v_to_list y = SOME (MAP Word64 ns))``,
+           (v_to_list y = SOME (MAP Word64 ns))
+Proof
   ho_match_mp_tac v_to_list_ind \\ rw []
   \\ fs [v_to_list_def]
   \\ Cases_on `tag = backend_common$cons_tag` \\ fs []
   \\ res_tac \\ fs [case_eq_thms]
   \\ Cases_on `ns` \\ fs []
   \\ eq_tac \\ rw [] \\ fs []
-  \\ Cases_on `h` \\ fs []);
+  \\ Cases_on `h` \\ fs []
+QED
 
-val v_rel_IMP_v_to_words = prove(
-  ``v_rel c g x y ==> v_to_words y = v_to_words x``,
-  rw [v_to_words_def] \\ drule v_rel_IMP_v_to_words_lemma \\ fs []);
+Theorem v_rel_IMP_v_to_words[local]:
+    v_rel c g x y ==> v_to_words y = v_to_words x
+Proof
+  rw [v_to_words_def] \\ drule v_rel_IMP_v_to_words_lemma \\ fs []
+QED
 
 (* state relation *)
 
@@ -2773,7 +2781,7 @@ Definition state_rel_def:
     t.compile_oracle = state_co (compile_inc c) s.compile_oracle
 End
 
-Triviality compile_inc_upd_inline_factor:
+Theorem compile_inc_upd_inline_factor[local]:
   compile_inc (c with inline_factor := k) = compile_inc c
 Proof
   simp [compile_inc_def, FUN_EQ_THM, FORALL_PROD, reset_inline_factor_def]
@@ -2907,7 +2915,7 @@ Proof
   \\ metis_tac [OPTREL_SOME]
 QED
 
-Triviality do_app_lemma:
+Theorem do_app_lemma[local]:
   !c g s t xs ys opp. state_rel c g s t /\ LIST_REL (v_rel c g) xs ys ==>
     case do_app opp xs s of
       | Rerr err1 => ?err2. do_app opp ys t = Rerr err2 /\
@@ -3137,7 +3145,7 @@ Proof
     \\ rw[] \\ metis_tac[])
 QED
 
-Triviality state_rel_opt_rel_refs:
+Theorem state_rel_opt_rel_refs[local]:
   (state_rel c g s1 s2 ∧ FLOOKUP s1.refs n = r1 ⇒
      ∃r2. FLOOKUP s2.refs n = r2 ∧ OPTREL (ref_rel c g) r1 r2) ∧
   (state_rel c g s1 s2 ∧ FLOOKUP s2.refs n = r2 ⇒
@@ -3146,7 +3154,7 @@ Proof
   rw [] \\ gvs [state_rel_def, fmap_rel_def, FLOOKUP_DEF] \\ rw []
 QED
 
-Triviality rel_update_thunk:
+Theorem rel_update_thunk[local]:
   state_rel c g s1 s2 ∧
   LIST_REL (v_rel c g) vs ys ⇒
     (update_thunk [RefPtr v ptr] s1.refs vs = SOME refs1 ⇒
@@ -5247,7 +5255,7 @@ Proof
   \\ rw[Once mk_Ticks_def]
 QED
 
-Definition val_approx_every_Fn_SOME_def:
+Definition val_approx_every_Fn_SOME_def[simp]:
   (val_approx_every_Fn_SOME (Tuple _ vs) ⇔ EVERY val_approx_every_Fn_SOME vs) ∧
   (val_approx_every_Fn_SOME (Clos _ _ b _) ⇔ every_Fn_SOME [b]) ∧
   (val_approx_every_Fn_SOME _ ⇔ T)
@@ -5256,7 +5264,6 @@ Termination
  \\ gen_tac \\ Induct \\ EVAL_TAC
  \\ rw[] \\ res_tac \\ rw[]
 End
-val _ = export_rewrites["val_approx_every_Fn_SOME_def"];
 
 Theorem val_approx_every_Fn_SOME_merge:
    ∀a b. val_approx_every_Fn_SOME a ∧ val_approx_every_Fn_SOME b ⇒
@@ -5367,7 +5374,7 @@ Proof
   \\ imp_res_tac known_sing_EQ_E \\ fs []
 QED
 
-Definition val_approx_every_Fn_vs_NONE_def:
+Definition val_approx_every_Fn_vs_NONE_def[simp]:
   (val_approx_every_Fn_vs_NONE (Tuple _ vs) ⇔ EVERY val_approx_every_Fn_vs_NONE vs) ∧
   (val_approx_every_Fn_vs_NONE (Clos _ _ b _) ⇔ every_Fn_vs_NONE [b]) ∧
   (val_approx_every_Fn_vs_NONE _ ⇔ T)
@@ -5376,7 +5383,6 @@ Termination
  \\ gen_tac \\ Induct \\ EVAL_TAC
  \\ rw[] \\ res_tac \\ rw[]
 End
-val _ = export_rewrites["val_approx_every_Fn_vs_NONE_def"];
 
 Theorem val_approx_every_Fn_vs_NONE_merge:
    ∀a b. val_approx_every_Fn_vs_NONE a ∧ val_approx_every_Fn_vs_NONE b ⇒
@@ -5513,7 +5519,7 @@ fun trivial x = x
               |> snd
               |> aconv T
 
-Triviality val_approx_no_Labels_simp[simp] = (val_approx_no_Labels_def
+Theorem val_approx_no_Labels_simp[local,simp] = (val_approx_no_Labels_def
                                             |> CONJUNCTS
                                             |> (filter trivial)
                                             |> LIST_CONJ)

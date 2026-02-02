@@ -12,7 +12,7 @@ Ancestors
 Libs
   preamble
 
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 Overload Asm[local] = ``λa. Asm (Asmi a)``
 
@@ -21,7 +21,7 @@ Definition compile_jump_def:
   (compile_jump (INR r) = Asm (JumpReg r) [] 0)
 End
 
-Definition negate_def:
+Definition negate_def[simp]:
   (negate Less = NotLess) /\
   (negate Equal = NotEqual) /\
   (negate Lower = NotLower) /\
@@ -32,13 +32,12 @@ Definition negate_def:
   (negate NotTest = Test)
 End
 
-val _ = export_rewrites ["negate_def"];
 
 Overload "++"[local] = ``misc$Append``
 
 local val flatten_quotation = `
   flatten t p n m =
-    dtcase p of
+    case p of
     | Tick => (List [Asm (Inst (Skip)) [] 0],F,m)
     | Inst a => (List [Asm (Inst a) [] 0],F,m)
     | Halt _ => (List [LabAsm Halt 0w [] 0],T,m)
@@ -79,7 +78,7 @@ local val flatten_quotation = `
         let (xs,nr1,m) = flatten F p1 n m in
         let prefix = List [LabAsm (LocValue lr (Lab l1 l2)) 0w [] 0;
                  compile_jump dest; Label l1 l2 0] ++ xs in
-        (dtcase handler of
+        (case handler of
         | NONE => (prefix, nr1, m)
         | SOME (p2,k1,k2) =>
             let (ys,nr2,m) = flatten F p2 n m in
@@ -105,7 +104,7 @@ val flatten_def = Define flatten_quotation;
 Theorem flatten_pmatch = Q.prove(
   `∀p n m.` @
     (flatten_quotation |>
-     map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
+     map (fn QUOTE s => Portable.replace_string {from="case",to="pmatch"} s |> QUOTE
          | aq => aq)),
    rpt strip_tac
    >> CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true)

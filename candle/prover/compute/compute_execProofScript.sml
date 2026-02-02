@@ -105,7 +105,7 @@ Proof
   Induct \\ fs [cexp_value_def]
 QED
 
-Triviality cexp_vars_def[simp] = compute_syntaxProofTheory.cexp_vars_def;
+Theorem cexp_vars_def[local,simp] = compute_syntaxProofTheory.cexp_vars_def;
 
 Definition eqs_ok_def:
   eqs_ok eqs ⇔
@@ -370,7 +370,7 @@ Theorem exec_lemma =
   |> Q.SPECL [‘ck’,‘eqs’,‘e’,‘res’,‘[]’,‘to_ce eqs [] e’,‘s’,‘s1’]
   |> SIMP_RULE std_ss [MAP,subst_empty,listTheory.LIST_TO_SET];
 
-Triviality LIST_REL_MAP_lemma:
+Theorem LIST_REL_MAP_lemma[local]:
   ∀xs. LIST_REL R xs (MAP f xs) = EVERY (λx. R x (f x)) xs
 Proof
   Induct \\ fs []

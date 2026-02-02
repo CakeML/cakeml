@@ -50,7 +50,7 @@ Definition eval_stmt_def:
   eval_stmt st env body st' ret =
     ∃ck1 ck2.
       evaluate_stmt (st with clock := ck1) env body =
-        (st' with clock := ck2, ret) ∧ ret ≠ Rstop (Serr Rtimeout_error)
+        (st' with clock := ck2, ret) ∧ ret ≠ Rstop (Serr Rtimeout)
 End
 
 Definition eval_true_def:
@@ -261,11 +261,10 @@ Theorem eval_stmt_Assert:
   eval_stmt st env (Assert e) st Rcont
 Proof
   strip_tac
-  \\ gvs [eval_stmt_def, evaluate_stmt_def]
-  \\ Cases_on ‘env.is_running’ \\ simp []
-  >- (gvs [state_component_equality])
-  \\ gvs [eval_true_def, eval_exp_def, AllCaseEqs()]
+  \\ gvs [eval_stmt_def, evaluate_stmt_def, eval_true_def, eval_exp_def,
+          AllCaseEqs()]
   \\ last_assum $ irule_at (Pos hd)
+  \\ simp [state_component_equality]
 QED
 
 Theorem eval_stmt_Return:
@@ -426,16 +425,16 @@ Proof
   \\ simp [state_component_equality]
 QED
 
-Theorem eval_stmt_Rcont_const:
-  eval_stmt st env stmt st' Rcont ⇒
+Theorem eval_stmt_const:
+  eval_stmt st env stmt st' r ⇒
   st'.locals_old = st.locals_old ∧ st'.heap_old = st.heap_old ∧
   st'.locals_prev = st.locals_prev ∧ st'.heap_prev = st.heap_prev
 Proof
   simp [eval_stmt_def] \\ strip_tac
-  \\ imp_res_tac evaluate_stmt_Rcont_const \\ gvs []
+  \\ imp_res_tac evaluate_stmt_const \\ gvs []
 QED
 
-Triviality eval_exp_old_eq:
+Theorem eval_exp_old_eq[local]:
   st₁.locals_old = st.locals_old ∧ st₁.heap_old = st.heap_old ∧
   st₁.locals_prev = st.locals_prev ∧ st₁.heap_prev = st.heap_prev ∧
   eval_exp st₁ env (Old e) v ⇒
@@ -460,7 +459,7 @@ Proof
 QED
 
 Theorem eval_exp_old_eq_not_old:
-  st.locals_old = st.locals ∧ st.heap_old = st.heap ∧ ¬env.is_running ⇒
+  st.locals_old = st.locals ∧ st.heap_old = st.heap ⇒
   eval_exp st env (Old e) v = eval_exp st env e v
 Proof
   rpt strip_tac
@@ -477,4 +476,13 @@ Proof
       st with clock := ck’ by
     (gvs [state_component_equality])
   \\ gvs []
+QED
+
+Theorem LIST_REL_eval_exp_MAP_Var:
+  ∀ns vs.
+    LIST_REL (eval_exp st env) (MAP Var ns) vs ⇒
+    OPT_MMAP (read_local st.locals) ns = SOME vs
+Proof
+  Induct \\ Cases_on ‘vs’ \\ gvs []
+  \\ gvs [eval_exp_def,evaluate_exp_def,AllCaseEqs(),PULL_EXISTS]
 QED

@@ -199,6 +199,13 @@ Definition do_word_app_def:
         | SOME (w1,w2) => SOME (Number &(w2n (opw_lookup opw w1 w2))))) /\
   do_word_app (WordOpw W64 opw) [Word64 w1; Word64 w2] =
         SOME (Word64 (opw_lookup opw w1 w2)) /\
+  do_word_app (WordTest W8 test) [Number n1; Number n2] =
+       (if 0 ≤ n1 ∧ n1 < 256 ∧ 0 ≤ n2 ∧ n2 < 256 then
+          (case test of
+           | Equal       => SOME (Boolv (n1 = n2))
+           | Compare cmp => SOME (Boolv (int_cmp cmp n1 n2))
+           | _           => NONE)
+        else NONE) /\
   do_word_app (WordShift W8 sh n) [Number i] =
        (case some (w:word8). i = &(w2n w) of
         | NONE => NONE
@@ -264,6 +271,10 @@ Definition do_app_def:
          else Rval (Unit, s with globals := s.globals ++ REPLICATE (Num i) NONE))
     | (Install,vs) => do_install vs s
     | (BlockOp (Cons tag),xs) => Rval (Block tag xs, s)
+    | (BlockOp (BoolTest test),[v1;v2]) =>
+        (if (v1 ≠ Boolv T ∧ v1 ≠ Boolv F) then Error else
+         if (v2 ≠ Boolv T ∧ v2 ≠ Boolv F) then Error else
+           Rval (Boolv (v1 = v2), s))
     | (BlockOp (Build parts),[]) =>
         (let (v,rs) = do_build_const parts s.refs in Rval (v, s with refs := rs))
     | (BlockOp (ConsExtend tag),Block _ xs'::Number lower::Number len::Number tot::xs) =>
@@ -527,7 +538,7 @@ Definition fix_clock_def:
   fix_clock s (res,s1) = (res,s1 with clock := MIN s.clock s1.clock)
 End
 
-Triviality fix_clock_IMP:
+Theorem fix_clock_IMP[local]:
   fix_clock s x = (res,s1) ==> s1.clock <= s.clock
 Proof
   Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []

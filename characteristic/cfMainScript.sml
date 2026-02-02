@@ -18,7 +18,7 @@ Libs
 fun mk_main_call s =
 (* TODO: don't use the parser so much here? *)
   ``Dlet unknown_loc (Pcon NONE []) (App Opapp [Var (Short ^s); Con NONE []])``;
-val fname = mk_var("fname",``:string``);
+val fname = mk_var("fname",``:mlstring``);
 val main_call = mk_main_call fname;
 
 Theorem call_main_thm1:
@@ -65,7 +65,7 @@ Proof
   \\ asm_exists_tac \\ fs []
 QED
 
-Triviality prog_to_semantics_dec_list:
+Theorem prog_to_semantics_dec_list[local]:
   !init_env inp prog st c r env2 s2.
      Decls init_env inp prog env2 s2 ==>
      (semantics_dec_list inp init_env prog (Terminate Success s2.ffi.io_events))
@@ -76,14 +76,14 @@ Proof
   \\ qexists_tac `ck1` \\ fs []
 QED
 
-Triviality clock_eq_lemma:
+Theorem clock_eq_lemma[local]:
   ∀c. st with clock := a = st2 with clock := b ==>
       st with clock := c = st2 with clock := c
 Proof
   simp[state_component_equality]
 QED
 
-Triviality state_eq_semantics_dec_list:
+Theorem state_eq_semantics_dec_list[local]:
   st with clock := a = st2 with clock := b ==>
    semantics_dec_list st env prog r = semantics_dec_list st2 env prog r
 Proof
@@ -93,7 +93,7 @@ Proof
   \\ fs[]
 QED
 
-Triviality prog_SNOC_semantics_dec_list:
+Theorem prog_SNOC_semantics_dec_list[local]:
   ∀prog1 init_env decl st1 c outcome events env2 st2.
     Decls init_env st1 prog1 env2 st2 ∧
     semantics_dec_list st2 (merge_env env2 init_env) [decl] (Terminate outcome events)
@@ -217,4 +217,3 @@ Proof
       \\ fs[] \\ metis_tac[RTC_RTC])
   >- (fs[cond_def])
 QED
-

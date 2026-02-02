@@ -6,7 +6,7 @@ Ancestors
   ml_prog repl_types basis_ffi repl_init_envProg repl_moduleProg
   repl_init_types
 Libs
-  preamble ml_progLib
+  preamble ml_progLib helperLib
 
 val _ = Parse.hide "types"
 
@@ -36,10 +36,10 @@ Definition the_Loc_def:
 End
 
 Definition repl_rs_def:
-  repl_rs = [(Long "Repl" (Short "isEOF"),        Bool, the_Loc isEOF_loc);
-             (Long "Repl" (Short "nextString"),   Str,  the_Loc nextString_loc);
-             (Long "Repl" (Short "errorMessage"), Str,  the_Loc errorMessage_loc);
-             (Long "Repl" (Short "exn"),          Exn,  the_Loc exn)]
+  repl_rs = [(Long «Repl» (Short «isEOF»),        Bool, the_Loc isEOF_loc);
+             (Long «Repl» (Short «nextString»),   Str,  the_Loc nextString_loc);
+             (Long «Repl» (Short «errorMessage»), Str,  the_Loc errorMessage_loc);
+             (Long «Repl» (Short «exn»),          Exn,  the_Loc exn)]
 End
 
 Overload repl_init_env =
@@ -79,7 +79,7 @@ Proof
   \\ CASE_TAC \\ fs []
 QED
 
-Triviality app_frame:
+Theorem app_frame[local]:
   app p f xs P Q ⇒ ∀H. app p f xs (P * H) (Q *+ H)
 Proof
   rw []
@@ -95,7 +95,7 @@ Proof
   \\ qexists_tac ‘K T’ \\ fs []
 QED
 
-Triviality app_frame_POSTv:
+Theorem app_frame_POSTv[local]:
   app p f xs P ($POSTv Q) ⇒ ∀H. app p f xs (P * H) (POSTv v. Q v * H)
 Proof
   rw [] \\ drule_then (qspec_then ‘H’ mp_tac) app_frame
@@ -131,7 +131,7 @@ Theorem Repl_charsFrom_lemma[local] =
   |> SIMP_RULE std_ss [AC set_sepTheory.STAR_ASSOC set_sepTheory.STAR_COMM]
   |> Q.GEN ‘p’ |> Q.ISPEC ‘(basis_proj1, basis_proj2)’ |> SPEC_ALL
   |> DISCH_ALL |> REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC]
-  |> Q.GEN ‘fname’ |> Q.SPEC ‘strlit "config_enc_str.txt"’
+  |> Q.GEN ‘fname’ |> Q.SPEC ‘«config_enc_str.txt»’
   |> REWRITE_RULE [GSYM AND_IMP_INTRO]
   |> UNDISCH |> UNDISCH
   |> Q.GEN ‘fnamev’ |> SIMP_RULE std_ss [EVAL “FILENAME «config_enc_str.txt» fnamev”]
@@ -252,7 +252,7 @@ Theorem repl_types_repl_prog:
      ∃cl_v.
        LIST_TYPE STRING_TYPE (TL cl) cl_v ∧ res_cl = Rval [cl_v] ∧
        ∀ck junk. ∃env_pr e_pr res_pr s_pr.
-         do_opapp [Repl_charsFrom_v; Litv (StrLit "config_enc_str.txt")] =
+         do_opapp [Repl_charsFrom_v; Litv (StrLit «config_enc_str.txt»)] =
          SOME (env_pr,e_pr) ∧
          evaluate
            (s_cl with

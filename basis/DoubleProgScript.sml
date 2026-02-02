@@ -13,8 +13,6 @@ Libs
 
 val _ = translation_extends "CommandLineProg";
 
-val cakeml = append_prog o process_topdecs;
-
 (* Double module -- translated *)
 
 val _ = ml_prog_update (open_module "Double");
@@ -22,7 +20,7 @@ val _ = ml_prog_update (open_module "Double");
 val () = generate_sigs := true;
 
 val _ = ml_prog_update (add_dec
-  ``Dtabbrev unknown_loc [] "double" (Atapp [] (Short "double"))`` I);
+  ``Dtabbrev unknown_loc [] «double» (Atapp [] (Short «double»))`` I);
 
 val _ = ml_prog_update open_local_block;
 
@@ -101,7 +99,7 @@ End
 
 val _ = translate is_0_byte_def;
 
-Quote cakeml:
+Quote add_cakeml:
   fun read_bytes offset =
     let
       val a = Word8Array.sub bytes offset;
@@ -117,7 +115,7 @@ Quote cakeml:
     end
 End
 
-Quote cakeml:
+Quote add_cakeml:
   fun write_bytes offset d =
     let
       val _ = Word8Array.update bytes offset (byte_0 d);
@@ -141,19 +139,19 @@ val _ = translate prepareString_def;
 val _ = ml_prog_update open_local_in_block;
 
 val _ = append_prog
-  “[Dlet unknown_loc (Pvar "fromWord")
-                     (Fun "x" (App FpFromWord [Var (Short "x")]))]”
+  “[Dlet unknown_loc (Pvar «fromWord»)
+                     (Fun «x» (App FpFromWord [Var (Short «x»)]))]”
 
 val _ = append_prog
-  “[Dlet unknown_loc (Pvar "toWord")
-                     (Fun "x" (App FpToWord [Var (Short "x")]))]”
+  “[Dlet unknown_loc (Pvar «toWord»)
+                     (Fun «x» (App FpToWord [Var (Short «x»)]))]”
 
 (* --------------------------------------------------------------------------
  * Functions that use the FFI
  * ------------------------------------------------------------------------- *)
 
 (* 0: Double.fromString *)
-Quote cakeml:
+Quote add_cakeml:
   fun fromString s =
     let
       val _ = #(double_fromString) (preparestring s) bytes;
@@ -167,7 +165,7 @@ Quote cakeml:
 End
 
 (* 1: Double.toString *)
-Quote cakeml:
+Quote add_cakeml:
   fun toString d =
     let
       val _ = write_bytes 0 (toWord d)
@@ -179,7 +177,7 @@ Quote cakeml:
 End
 
 (* 2: Double.fromInt *)
-Quote cakeml:
+Quote add_cakeml:
   fun fromInt n =
     let
       val _ = write_bytes 0 (Word64.fromInt n)
@@ -190,7 +188,7 @@ Quote cakeml:
 End
 
 (* 3: Double.toInt *)
-Quote cakeml:
+Quote add_cakeml:
   fun toInt d =
     let
       val _ = write_bytes 0 (toWord d)
@@ -201,7 +199,7 @@ Quote cakeml:
 End
 
 (* 4: Double.pow *)
-Quote cakeml:
+Quote add_cakeml:
   fun pow x y =
     let
       val _ = write_bytes 0 (toWord x)
@@ -213,7 +211,7 @@ Quote cakeml:
 End
 
 (* 5: Double.ln *)
-Quote cakeml:
+Quote add_cakeml:
   fun ln d =
     let
       val _ = write_bytes 0 (toWord d)
@@ -224,7 +222,7 @@ Quote cakeml:
 End
 
 (* 6: Double.exp *)
-Quote cakeml:
+Quote add_cakeml:
   fun exp d =
     let
       val _ = write_bytes 0 (toWord d)
@@ -235,7 +233,7 @@ Quote cakeml:
 End
 
 (* 7: Double.floor *)
-Quote cakeml:
+Quote add_cakeml:
   fun floor d =
     let
       val _ = write_bytes 0 (toWord d)
@@ -250,43 +248,34 @@ End
  * ------------------------------------------------------------------------- *)
 
 val _ = append_prog
-  “[Dlet unknown_loc (Pvar "fma") (Fun "x" (Fun "y" (Fun "z"
-    (App (FP_top FP_Fma) [Var (Short "z"); Var (Short "x");
-    Var (Short "y")]))))]”
+  “[Dlet unknown_loc (Pvar «fma») (Fun «x» (Fun «y» (Fun «z»
+    (App (FP_top FP_Fma) [Var (Short «z»); Var (Short «x»);
+    Var (Short «y»)]))))]”
 
 (* --------------------------------------------------------------------------
  * Binary operations
  * ------------------------------------------------------------------------- *)
 
-fun binop s b = “[Dlet unknown_loc (Pvar ^s)
-  (Fun "x" (Fun "y" (App (FP_bop ^b) [Var (Short
-  "x"); Var (Short "y")])))]”
+fun c nm = prim_mk_const {Thy = "ml_translator", Name = nm}
+fun transc nm cnm = trans nm (c cnm)
+val _ = transc "+" "float64_add"
+val _ = transc "-" "float64_sub"
+val _ = transc "*" "float64_mul"
+val _ = transc "/" "float64_div"
 
-fun cmp s b = “[Dlet unknown_loc (Pvar ^s)
-  (Fun "x" (Fun "y" (App (FP_cmp ^b) [Var (Short
-  "x"); Var (Short "y")])))]”
-
-val _ = append_prog $ binop “"+"” “FP_Add”;
-val _ = append_prog $ binop “"-"” “FP_Sub”;
-val _ = append_prog $ binop “"*"” “FP_Mul”;
-val _ = append_prog $ binop “"/"” “FP_Div”;
-
-val _ = append_prog $ cmp “"<"” “FP_Less”;
-val _ = append_prog $ cmp “"<="” “FP_LessEqual”;
-val _ = append_prog $ cmp “">"” “FP_Greater”;
-val _ = append_prog $ cmp “">="” “FP_GreaterEqual”;
-val _ = append_prog $ cmp “"="” “FP_Equal”;
+val _ = transc "<"  "float64_less"
+val _ = transc "<=" "float64_less_equal"
+val _ = transc ">"  "float64_greater"
+val _ = transc ">=" "float64_greater_equal"
+val _ = transc "="  "float64_equal"
 
 (* --------------------------------------------------------------------------
  * Unary operations
  * ------------------------------------------------------------------------- *)
 
-fun monop s b = “[Dlet unknown_loc (Pvar ^s)
-  (Fun "x" (App (FP_uop ^b) [Var (Short "x")]))]”
-
-val _ = append_prog $ monop “"abs"” “FP_Abs”;
-val _ = append_prog $ monop “"sqrt"” “FP_Sqrt”;
-val _ = append_prog $ monop “"~"” “FP_Neg”;
+val _ = transc "abs" "float64_abs"
+val _ = transc "sqrt" "float64_sqrt"
+val _ = transc "~" "float64_neg"
 
 (* ----------------------------------------------------------------------
     Taking floats apart
@@ -765,11 +754,10 @@ QED
 
 val _ = append_prog “
   [Dlet unknown_loc
-     (Pvar "pp_double")
-     (Fun "x" (App Opapp [
-        Var (Long "PrettyPrinter" (Short "token"));
-        App Opapp [Var (Short "toString"); Var (Short "x")]]))]”;
+     (Pvar «pp_double»)
+     (Fun «x» (App Opapp [
+        Var (Long «PrettyPrinter» (Short «token»));
+        App Opapp [Var (Short «toString»); Var (Short «x»)]]))]”;
 
 val _ = ml_prog_update close_local_blocks;
 val _ = ml_prog_update (close_module NONE);
-

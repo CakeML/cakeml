@@ -265,7 +265,7 @@ Proof
 QED
 
 Definition ref_lookup_ok_def:
-  ref_lookup_ok refs (name:(string,string) id,ty,loc) =
+  ref_lookup_ok refs (name:(mlstring,mlstring) id,ty,loc) =
     ∃v:semanticPrimitives$v.
       store_lookup loc refs = SOME (Refv v) ∧
       (ty = Bool ⇒ v = Boolv T ∨ v = Boolv F) ∧
@@ -433,7 +433,7 @@ val ref_ok_tac =
     \\ rveq
     \\ ntac 2 (pop_assum mp_tac)
     \\ `Boolv b = Conv
-          (SOME (TypeStamp (if b then "True" else "False")
+          (SOME (TypeStamp (if b then «True» else «False»)
                  bool_type_num)) []` by rw[Boolv_def]
     \\ pop_assum SUBST_ALL_TAC
     \\ simp[Once type_v_cases]
@@ -453,12 +453,12 @@ val ref_ok_tac =
     \\ reverse(Cases_on`stamp`)
     >- ( res_tac \\ pop_assum mp_tac \\ EVAL_TAC )
     \\ qmatch_asmsub_rename_tac`TypeStamp cn n`
-    \\ `same_type (TypeStamp "True" bool_type_num) (TypeStamp cn n)`
+    \\ `same_type (TypeStamp «True» bool_type_num) (TypeStamp cn n)`
     by ( first_x_assum irule \\ simp[] )
     \\ pop_assum mp_tac
     \\ simp[same_type_def]
     \\ strip_tac \\ rveq
-    \\ `cn = "True" ∨ cn = "False"` by metis_tac[NOT_SOME_NONE]
+    \\ `cn = «True» ∨ cn = «False»` by metis_tac[NOT_SOME_NONE]
     \\ rveq
     \\ rpt(qhdtm_x_assum`FLOOKUP`mp_tac)
     \\ simp_tac(srw_ss())[]
@@ -569,12 +569,12 @@ Proof
         \\ reverse(Cases_on`stamp`)
         >- ( res_tac \\ pop_assum mp_tac \\ EVAL_TAC )
         \\ qmatch_asmsub_rename_tac`TypeStamp cn n`
-        \\ `same_type (TypeStamp "True" bool_type_num) (TypeStamp cn n)`
+        \\ `same_type (TypeStamp «True» bool_type_num) (TypeStamp cn n)`
         by ( first_x_assum irule \\ simp[] )
         \\ pop_assum mp_tac
         \\ simp[same_type_def]
         \\ strip_tac \\ rw[]
-        \\ `cn = "True" ∨ cn = "False"` by metis_tac[NOT_SOME_NONE]
+        \\ `cn = «True» ∨ cn = «False»` by metis_tac[NOT_SOME_NONE]
         \\ rveq
         \\ EVAL_TAC
         \\ qhdtm_x_assum`FLOOKUP`mp_tac
@@ -1029,7 +1029,7 @@ Proof
   \\ rpt (first_assum $ irule_at Any)
 QED
 
-Triviality INJ_count_ADD:
+Theorem INJ_count_ADD[local]:
   INJ f a (count k) ⇒ INJ f a (count (t + k))
 Proof
   fs [INJ_DEF] \\ rw [] \\ res_tac \\ fs []

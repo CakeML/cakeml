@@ -216,13 +216,13 @@ Proof
   full_simp_tac(srw_ss())[consume_space_def,add_space_def,state_component_equality] \\ DECIDE_TAC
 QED
 
-Triviality consume_space_with_stack:
+Theorem consume_space_with_stack[local]:
   consume_space x (y with stack := z) = OPTION_MAP (λs. s with stack := z) (consume_space x y)
 Proof
   EVAL_TAC >> srw_tac[][]
 QED
 
-Triviality consume_space_with_locals:
+Theorem consume_space_with_locals[local]:
   consume_space x (y with locals := z) = OPTION_MAP (λs. s with locals := z) (consume_space x y)
 Proof
   EVAL_TAC >> srw_tac[][]
@@ -1496,7 +1496,7 @@ Proof
   \\ SRW_TAC [] []
 QED
 
-Triviality evaluate_locals_LN_lemma:
+Theorem evaluate_locals_LN_lemma[local]:
   !c ^s.
       FST (evaluate (c,s)) <> NONE /\
       FST (evaluate (c,s)) <> SOME (Rerr(Rabort Rtype_error)) ==>
@@ -2161,7 +2161,7 @@ Proof
   \\ imp_res_tac semantics_Term_IMP_PREFIX \\ fs []
 QED
 
-Definition get_code_labels_def:
+Definition get_code_labels_def[simp]:
   (get_code_labels (Call r d a h) =
     (case d of SOME x => {x} | _ => {}) ∪
     (case h of SOME (n,p) => get_code_labels p | _ => {})) ∧
@@ -2171,7 +2171,6 @@ Definition get_code_labels_def:
   (get_code_labels (Assign _ op _ _) = closLang$assign_get_code_label op) ∧
   (get_code_labels _ = {})
 End
-val _ = export_rewrites["get_code_labels_def"];
 
 Definition good_code_labels_def:
   good_code_labels p elabs ⇔

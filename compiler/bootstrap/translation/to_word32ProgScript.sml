@@ -16,14 +16,13 @@ val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 val _ = translation_extends "basis_defProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "to_word32Prog");
-val _ = ml_translatorLib.use_string_type true;
 val _ = ml_translatorLib.use_sub_check true;
 
 val RW = REWRITE_RULE
 
 val _ = add_preferred_thy "-";
 
-Triviality NOT_NIL_AND_LEMMA:
+Theorem NOT_NIL_AND_LEMMA[local]:
   (b <> [] /\ x) = if b = [] then F else x
 Proof
   Cases_on `b` THEN FULL_SIMP_TAC std_ss []
@@ -86,9 +85,11 @@ val _ = translate (make_header_def |> SIMP_RULE std_ss [word_lsl_n2w]|> conv32_R
 val _ = translate (shift_left_def |> conv32)
 val _ = translate (shift_right_def |> spec32 |> CONV_RULE fcpLib.INDEX_CONV)
 
-val i2w_eq_n2w_lemma = prove(
-  ``i2w (& (k * n)) = n2w (k * n)``,
-  fs [integer_wordTheory.i2w_def]);
+Theorem i2w_eq_n2w_lemma[local]:
+    i2w (& (k * n)) = n2w (k * n)
+Proof
+  fs [integer_wordTheory.i2w_def]
+QED
 
 val lemma2 = prove(
   ``4 * x < (2**32) <=> x < (2**32) DIV 4``,
@@ -127,7 +128,7 @@ val _ = translate (GiveUp_def |> wcomp_simp |> conv32)
 
 val _ = matches:= [``foo:'a wordLang$prog``,``foo:'a wordLang$exp``]
 
-Triviality assign_rw:
+Theorem assign_rw[local]:
   (i < 0 ⇒ n2w (Num (4 * (0 -i))) = n2w (Num (ABS (4*(0-i))))) ∧
   (¬(i < 0) ⇒ n2w (Num (4 * i)) = n2w (Num (ABS (4*i))))
 Proof
@@ -152,11 +153,13 @@ val _ = translate (ShiftVar_def |> inline_simp |> conv32);
 val _ = translate (WordShift64_on_32_def |> inline_simp |> conv32)
 val _ = translate (LoadBignum_def |> inline_simp |> conv32)
 
-val Smallnum_alt = prove(
-  ``Smallnum i =
+Theorem Smallnum_alt[local]:
+    Smallnum i =
     if i < 0 then 0w − n2w (Num (ABS (4 * (0 − i))))
-             else n2w (Num (ABS (4 * i)))``,
-  fs [Smallnum_def] \\ Cases_on `i` \\ fs [integerTheory.INT_ABS_NUM]);
+             else n2w (Num (ABS (4 * i)))
+Proof
+  fs [Smallnum_def] \\ Cases_on `i` \\ fs [integerTheory.INT_ABS_NUM]
+QED
 
 val _ = translate (Smallnum_alt |> inline_simp |> conv32)
 val _ = translate (MemEqList_def |> inline_simp |> conv32)
@@ -238,9 +241,7 @@ Definition bytes_of_string_def:
   bytes_of_string cs = MAP (λc. n2w (ORD c) :word8) (explode cs)
 End
 
-val _ = ml_translatorLib.use_string_type false;
 val _ = translate bytes_of_string_def;
-val _ = ml_translatorLib.use_string_type true;
 
 val r = int_to_words_def
      |> REWRITE_RULE [data_to_wordTheory.small_int_def,
@@ -289,7 +290,7 @@ fun tweak_assign_def th =
 val res = all_assign_defs |> CONJUNCTS |> map tweak_assign_def |> map translate;
 val res = translate (assign_def |> tweak_assign_def);
 
-Triviality lemma:
+Theorem lemma[local]:
   !A B. A = B ==> B ≠ A ==> F
 Proof
   metis_tac[]
@@ -345,7 +346,7 @@ val res = translate (word_copyTheory.copy_prop_def |> spec32);
 
 val res = translate_no_ind miscTheory.anub_def;
 
-Triviality misc_anub_ind:
+Theorem misc_anub_ind[local]:
   misc_anub_ind (:'a) (:'b)
 Proof
   once_rewrite_tac [fetch "-" "misc_anub_ind_def"]
@@ -364,7 +365,7 @@ val res = translate (spec32 word_unreachTheory.remove_unreach_def);
 
 val _ = translate (const_fp_inst_cs_def |> spec32 |> econv)
 
-Triviality rws:
+Theorem rws[local]:
   ($+ = λx y. x + y) ∧
   ($&& = λx y. x && y) ∧
   ($|| = λx y. x || y) ∧
@@ -375,7 +376,7 @@ QED
 
 val _ = translate (wordLangTheory.word_op_def |> ONCE_REWRITE_RULE [rws,WORD_NOT_0] |> spec32 |> gconv)
 
-Triviality word_msb_rw:
+Theorem word_msb_rw[local]:
   word_msb (a:word32) ⇔ (a>>>31) <> 0w
 Proof
   rw[word_msb_def,fcpTheory.CART_EQ,word_index,word_lsr_def,fcpTheory.FCP_BETA]
@@ -424,7 +425,7 @@ val _ = translate (asmTheory.offset_ok_def |> SIMP_RULE std_ss [alignmentTheory.
 val _ = translate (is_Lookup_CurrHeap_pmatch |> conv32)
 val res = translate_no_ind (inst_select_exp_pmatch |> conv32 |> SIMP_RULE std_ss [word_mul_def,word_2comp_def] |> conv32)
 
-Triviality inst_select_exp_ind:
+Theorem inst_select_exp_ind[local]:
   word_inst_inst_select_exp_ind
 Proof
   rewrite_tac [fetch "-" "word_inst_inst_select_exp_ind_def"]
@@ -478,7 +479,7 @@ val _ = translate (conv32 remove_dead_inst_def)
 val _ = translate (conv32 get_live_inst_def)
 val _ = translate (spec32 remove_dead_prog_def)
 
-Triviality lem:
+Theorem lem[local]:
   dimindex(:64) = 64 ∧
   dimindex(:32) = 32
 Proof
@@ -496,7 +497,7 @@ val _ = translate (INST_TYPE [alpha|->``:32``,beta|->``:32``]  word_alloc_def)
 (* BROKEN
 val res = translate_no_ind (spec32 three_to_two_reg_pmatch);
 
-Triviality three_to_two_reg_ind:
+Theorem three_to_two_reg_ind[local]:
   word_inst_three_to_two_reg_ind
 Proof
   rewrite_tac [fetch "-" "word_inst_three_to_two_reg_ind_def"]
@@ -539,7 +540,7 @@ val res = translate (spec32 three_to_two_reg_prog_def);
 (* BROKEN
 val res = translate_no_ind (spec32 word_removeTheory.remove_must_terminate_pmatch);
 
-Triviality remove_must_terminate_ind:
+Theorem remove_must_terminate_ind[local]:
   word_remove_remove_must_terminate_ind
 Proof
   rewrite_tac [fetch "-" "word_remove_remove_must_terminate_ind_def"]
@@ -690,7 +691,6 @@ val res = translate (data_to_wordTheory.compile_def
 
 (* explorer specific functions *)
 
-val _ = ml_translatorLib.use_string_type false;
 val r = presLangTheory.num_to_hex_def |> translate;
 val r = presLangTheory.word_to_display_def |> conv32 |> translate;
 val r = presLangTheory.item_with_word_def |> conv32 |> translate;
@@ -705,7 +705,6 @@ val r = presLangTheory.asm_inst_to_display_def |> conv32 |> translate;
 val r = presLangTheory.ws_to_display_def |> conv32 |> translate
 val r = presLangTheory.word_seqs_def |> conv32 |> translate
 
-val _ = ml_translatorLib.use_string_type true;
 val r = presLangTheory.word_prog_to_display_def
           |> conv32
           |> REWRITE_RULE [presLangTheory.string_imp_def]

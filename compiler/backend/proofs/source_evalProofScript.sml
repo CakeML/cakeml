@@ -181,7 +181,7 @@ Proof
   \\ fs []
 QED
 
-Triviality env_rel_nsLookup_c:
+Theorem env_rel_nsLookup_c[local]:
   env_rel R env env' /\ nsLookup env.c id = r ==>
   env'.c = env.c
 Proof
@@ -191,15 +191,15 @@ QED
 
 (* various trivia *)
 
-Triviality alist_to_ns_to_bind2 = GEN_ALL nsAppend_to_nsBindList
+Theorem alist_to_ns_to_bind2[local] = GEN_ALL nsAppend_to_nsBindList
     |> Q.SPEC `nsEmpty`
     |> REWRITE_RULE [namespacePropsTheory.nsAppend_nsEmpty]
 
-Triviality nsSing_eq_bind = namespaceTheory.nsSing_def
+Theorem nsSing_eq_bind[local] = namespaceTheory.nsSing_def
   |> REWRITE_RULE [GSYM namespaceTheory.nsBind_def,
     GSYM namespaceTheory.nsEmpty_def]
 
-Triviality pair_CASE_eq_pairarg:
+Theorem pair_CASE_eq_pairarg[local]:
   pair_CASE p f = (\ (x, y). f x y) p
 Proof
   Cases_on `p` \\ simp []
@@ -452,7 +452,7 @@ Proof
   )
 QED
 
-Triviality pmatch_drule_form:
+Theorem pmatch_drule_form[local]:
   pmatch env.c s.refs p x [] = res ∧
   s_rel ^ci s t ∧ env_rel (v_rel (orac_s t.eval_state)) env env' ∧
   v_rel (orac_s t.eval_state) x y ⇒
@@ -603,6 +603,26 @@ Theorem sv_rel_l_cases =
   |> map (SIMP_CONV (srw_ss ()) [sv_rel_cases])
   |> map GEN_ALL |> LIST_CONJ
 
+Theorem v_rel_check_type[local]:
+  v_rel x v1 v2 ⇒
+  (check_type ty v1 = check_type ty v2) ∧
+  (dest_Litv v1 = dest_Litv v2)
+Proof
+  simp [Once v_rel_cases]
+  \\ rw [] \\ gvs [check_type_def,dest_Litv_def, oneline v_to_env_id_def,AllCaseEqs()]
+  \\ gvs [oneline check_type_def,Boolv_def]
+  \\ Cases_on ‘ty’ \\ gvs []
+  \\ eq_tac \\ rw [] \\ gvs []
+QED
+
+Theorem LIST_REL_v_rel_check_type[local]:
+  LIST_REL (v_rel x) vs1 vs2 ⇒
+  (EVERY (check_type ty) vs1 ⇔ EVERY (check_type ty) vs2)
+Proof
+  rw[LIST_REL_EL_EQN, EVERY_EL]
+  \\ PROVE_TAC[v_rel_check_type]
+QED
+
 Theorem do_app_sim:
   do_app (s.refs, s.ffi) op (REVERSE xs) = SOME ((refs, ffi), r) /\
   s_rel ^ci s t /\
@@ -621,6 +641,33 @@ Proof
   \\ simp [Once do_app_cases] \\ rw [listTheory.SWAP_REVERSE_SYM]
   \\ fs [CaseEq "ffi_result", option_case_eq] \\ rveq \\ fs []
   \\ simp [do_app_def]
+  >~ [`do_test`] >- (
+    imp_res_tac v_rel_check_type
+    \\ Cases_on ‘test’ \\ gvs [do_test_def,AllCaseEqs()]
+    >- (Cases_on ‘y’ \\ Cases_on ‘y'’ \\ gvs [check_type_def]
+        \\ gvs [dest_Litv_def]
+        \\ gvs [oneline dest_Litv_def,AllCaseEqs()])
+    \\ res_tac
+    \\ Cases_on ‘test_ty’ \\ gvs [check_type_def]
+    \\ res_tac
+    \\ rename [‘WordT wt’] \\ Cases_on ‘wt’ \\ gvs [check_type_def])
+  >~ [‘do_arith’] >- (
+    drule_then(qspec_then`ty`strip_assume_tac) LIST_REL_v_rel_check_type
+    \\ `refs = s.refs` by gvs[CaseEq"sum"]
+    \\ gvs[]
+    \\ first_assum $ irule_at Any
+    \\ Cases_on`a` \\ Cases_on`ty` \\ Cases_on`xs`
+    \\ TRY(rename1 `WordT w` \\ Cases_on `w`)
+    \\ gvs[do_arith_def, CaseEq"list", check_type_def, CaseEq"bool"]
+    >- (EVAL_TAC \\ rw[])
+    >- (EVAL_TAC \\ rw[])
+    \\ Cases_on`t` \\ gvs[check_type_def])
+  >~ [‘do_conversion’] >- (
+    imp_res_tac v_rel_check_type \\ rw[]
+    \\ first_assum $ irule_at Any
+    \\ Cases_on`ty1` \\ Cases_on`ty2` \\ gvs[do_conversion_def]
+    \\ Cases_on`w` \\ gvs[do_conversion_def]
+    \\ gvs[check_type_def])
   >~ [`thunk_op`]
   >- (
     gvs [AllCaseEqs(), PULL_EXISTS, thunk_op_def]
@@ -863,7 +910,7 @@ Proof
   simp [abort_def]
 QED
 
-Triviality abort_imp_intro:
+Theorem abort_imp_intro[local]:
   (!v. x = Rval v ==> P) /\ (!e. x = Rerr (Rraise e) ==> P) ==>
   (~ abort x ==> P)
 Proof
@@ -1146,7 +1193,7 @@ Proof
   \\ rw [] \\ fs []
 QED
 
-Triviality eval_simulation_Denv:
+Theorem eval_simulation_Denv[local]:
   ^(#get_goal eval_simulation_setup `Case (Dlet, [Denv _])`)
 Proof
   rw []
@@ -1180,7 +1227,7 @@ Proof
   )
 QED
 
-Triviality eval_simulation_Con:
+Theorem eval_simulation_Con[local]:
   ^(#get_goal eval_simulation_setup `Case ([Con _ _])`)
 Proof
   rpt disch_tac
@@ -1192,7 +1239,7 @@ Proof
   \\ insts_tac
 QED
 
-Triviality eval_simulation_Let:
+Theorem eval_simulation_Let[local]:
   ^(#get_goal eval_simulation_setup `Case ([Let _ _ _])`)
 Proof
   rpt disch_tac
@@ -1208,7 +1255,7 @@ Proof
   \\ insts_tac
 QED
 
-Triviality eval_simulation_Letrec:
+Theorem eval_simulation_Letrec[local]:
   ^(#get_goal eval_simulation_setup `Case ([Letrec _ _])`)
 Proof
   rpt disch_tac
@@ -1225,7 +1272,7 @@ Proof
   \\ simp [GSYM pairarg_to_pair_map, ELIM_UNCURRY, EVERY2_refl]
 QED
 
-Triviality eval_simulation_match:
+Theorem eval_simulation_match[local]:
   ^(#get_goal eval_simulation_setup `Case ((_, _) :: _)`)
 Proof
   rpt disch_tac
@@ -1241,7 +1288,7 @@ Proof
   \\ simp [nsAppend_to_nsBindList]
 QED
 
-Triviality eval_simulation_cons_decs:
+Theorem eval_simulation_cons_decs[local]:
   ^(#get_goal eval_simulation_setup `Case (Dlet, _ :: _ :: _)`)
 Proof
   rpt disch_tac
@@ -1260,13 +1307,13 @@ Proof
   \\ insts_tac
 QED
 
-Triviality env_rel_imp_c:
+Theorem env_rel_imp_c[local]:
   env_rel x env env' ⇒ env'.c = env.c
 Proof
   fs [env_rel_def]
 QED
 
-Triviality eval_simulation_Dletrec:
+Theorem eval_simulation_Dletrec[local]:
   ^(#get_goal eval_simulation_setup `Case (_, [Dletrec _ _])`)
 Proof
   rpt disch_tac
@@ -1298,7 +1345,7 @@ Proof
   fs []
 QED
 
-Triviality eval_simulation_Dtype:
+Theorem eval_simulation_Dtype[local]:
   ^(#get_goal eval_simulation_setup `Case (_, [Dtype _ _])`)
 Proof
   rpt disch_tac
@@ -1310,7 +1357,7 @@ Proof
   \\ simp []
 QED
 
-Triviality eval_simulation_Dexn:
+Theorem eval_simulation_Dexn[local]:
   ^(#get_goal eval_simulation_setup `Case (_, [Dexn _ _ _])`)
 Proof
   rpt disch_tac
@@ -1319,7 +1366,7 @@ Proof
   \\ insts_tac
 QED
 
-Triviality eval_simulation_Dlocal:
+Theorem eval_simulation_Dlocal[local]:
   ^(#get_goal eval_simulation_setup `Case (_, [Dlocal _ _])`)
 Proof
   rpt disch_tac
@@ -1524,7 +1571,7 @@ Proof
   \\ simp [record_forward_def, orac_agrees_def]
 QED
 
-Triviality record_forward_trans_sym
+Theorem record_forward_trans_sym[local]
   = REWRITE_RULE [Once CONJ_COMM] record_forward_trans
 
 Theorem evaluate_is_record_forward:
@@ -1664,7 +1711,7 @@ val insert_oracle_correct_setup = setup (
   \\ rveq \\ fs []
   );
 
-Triviality insert_oracle_correct_App:
+Theorem insert_oracle_correct_App[local]:
   ^(#get_goal insert_oracle_correct_setup `Case (_, [App _ _])`)
 Proof
   rw []
@@ -1714,7 +1761,7 @@ Proof
   \\ gs[]
 QED
 
-Triviality insert_oracle_correct_Denv:
+Theorem insert_oracle_correct_Denv[local]:
   ^(#get_goal insert_oracle_correct_setup `Case (_, [Denv _])`)
 Proof
   rw []
@@ -1760,13 +1807,13 @@ Proof
   \\ fs [v_rel_concrete_v]
 QED
 
-Triviality neq_IMP_to_cases:
+Theorem neq_IMP_to_cases[local]:
   !y. (x <> y ==> P) ==> (x = y) \/ (x <> y)
 Proof
   simp []
 QED
 
-Triviality less_sub_1_cases:
+Theorem less_sub_1_cases[local]:
   k <= clock /\ (k <= clock - 1 ==> P) ==>
   (k = clock \/ k <= clock - (1 : num))
 Proof
@@ -1912,7 +1959,7 @@ Proof
   )
 QED
 
-Triviality recorded_orac_wf_defined:
+Theorem recorded_orac_wf_defined[local]:
   recorded_orac_wf compiler orac /\
   i <= FST (FST (orac 0)) /\
   0 < i ==>
@@ -1985,7 +2032,7 @@ Proof
   \\ Cases_on `e` \\ simp []
 QED
 
-Triviality s_rel_clock2:
+Theorem s_rel_clock2[local]:
   !k. s_rel ci s t ==> s_rel ci (s with clock := k) (t with clock := k)
 Proof
   rw [s_rel_def]
@@ -2004,7 +2051,7 @@ Definition precond_eval_state_def:
   )
 End
 
-Triviality extract_oracle_SOME_SUC:
+Theorem extract_oracle_SOME_SUC[local]:
   IS_SOME (extract_oracle s env decs (SUC i)) ==>
   IS_SOME (extract_oracle s env decs i)
 Proof
@@ -2017,7 +2064,7 @@ Proof
   \\ simp []
 QED
 
-Triviality extract_oracle_0_st:
+Theorem extract_oracle_0_st[local]:
   extract_oracle t env decs 0 = SOME r /\
   ~ semantics_prog s env decs Fail /\
   s_rel ci s t /\
@@ -2041,7 +2088,7 @@ Proof
   \\ fs []
 QED
 
-Triviality orac_agrees_s_rel_IMP:
+Theorem orac_agrees_s_rel_IMP[local]:
   orac_agrees orac t.eval_state ==>
   s_rel ci s t ==>
   i < FST (FST ((orac_s t.eval_state).oracle 0)) ==>
@@ -2051,7 +2098,7 @@ Proof
   \\ fs []
 QED
 
-Triviality extract_oracle_SUC_st:
+Theorem extract_oracle_SUC_st[local]:
   IS_SOME (extract_oracle t env decs (SUC i)) /\
   s_rel ci s t /\
   nsAll (K concrete_v) env.v /\
@@ -2237,7 +2284,7 @@ Definition is_insert_oracle_def:
   is_insert_oracle ci f es = (?es' shift_f orac. es = insert_gen_oracle ci f shift_f orac es')
 End
 
-Triviality is_insert_decs:
+Theorem is_insert_decs[local]:
   is_insert_oracle ci f (SOME (EvalDecs eds))
 Proof
   simp [is_insert_oracle_def, insert_gen_oracle_def,
@@ -2245,7 +2292,7 @@ Proof
   \\ dsimp []
 QED
 
-Triviality do_eval_adjust:
+Theorem do_eval_adjust[local]:
   do_eval vs es = SOME (env1, decs, es1) ∧
   is_insert_oracle ci f es ==>
   (do_eval vs (adjust_oracle ci (g o f) es) = SOME (env1, g decs, adjust_oracle ci (g o f) es1)
@@ -2278,7 +2325,7 @@ Proof
   )
 QED
 
-Triviality declare_env_adjust:
+Theorem declare_env_adjust[local]:
   declare_env (adjust_oracle ci f es) env = (case declare_env es env of
     NONE => NONE
   | SOME (x, es2) => SOME (x, adjust_oracle ci f es2))
@@ -2288,7 +2335,7 @@ Proof
   \\ fs []
 QED
 
-Triviality adjust_oracle_reset:
+Theorem adjust_oracle_reset[local]:
   adjust_oracle ci f (reset_env_generation es1 es2) =
     reset_env_generation (adjust_oracle ci f es1) (adjust_oracle ci f es2)
 Proof
@@ -2297,7 +2344,7 @@ Proof
   \\ fs []
 QED
 
-Triviality is_insert_related:
+Theorem is_insert_related[local]:
   is_insert_oracle ci f (SOME (EvalOracle es)) ==>
   (es2.custom_do_eval = es.custom_do_eval /\ es2.oracle = es.oracle) ==>
   is_insert_oracle ci f (SOME (EvalOracle es2))
@@ -2312,7 +2359,7 @@ Proof
   \\ simp []
 QED
 
-Triviality is_insert_reset:
+Theorem is_insert_reset[local]:
   is_insert_oracle ci f (reset_env_generation es1 es2) = is_insert_oracle ci f es2
 Proof
   simp [reset_env_generation_def]
@@ -2323,7 +2370,7 @@ Proof
   \\ fs []
 QED
 
-Triviality declare_env_is_insert:
+Theorem declare_env_is_insert[local]:
   declare_env es env = SOME (x, es2) /\
   is_insert_oracle ci f es ==>
   is_insert_oracle ci f es2
@@ -2413,7 +2460,7 @@ Proof
   \\ fs [declare_env_adjust]
 QED
 
-Triviality adjust_oracle_ev_decs =
+Theorem adjust_oracle_ev_decs[local] =
   adjust_oracle_evaluate |> UNDISCH |> CONJUNCTS |> List.last |> DISCH_ALL
     |> SIMP_RULE bool_ss [PULL_FORALL]
     |> Q.SPEC `s with clock := k`
@@ -2459,4 +2506,3 @@ Proof
     \\ simp []
   )
 QED
-

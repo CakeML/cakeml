@@ -42,56 +42,49 @@ Proof
  rw [extend_dec_env_def]
 QED
 
-Definition opw_lookup_def:
+Definition opw_lookup_def[simp]:
   (opw_lookup Andw = word_and) ∧
   (opw_lookup Orw = word_or) ∧
   (opw_lookup Xor = word_xor) ∧
   (opw_lookup Add = word_add) ∧
   (opw_lookup Sub = word_sub)
 End
-val _ = export_rewrites["opw_lookup_def"];
 
-Definition shift_lookup_def:
+Definition shift_lookup_def[simp]:
   (shift_lookup Lsl = word_lsl) ∧
   (shift_lookup Lsr = word_lsr) ∧
   (shift_lookup Asr = word_asr) ∧
   (shift_lookup Ror = word_ror)
 End
-val _ = export_rewrites["shift_lookup_def"];
 
-Definition do_word_op_def:
+Definition do_word_op_def[simp]:
   (do_word_op op W8 (Word8 w1) (Word8 w2) = SOME (Word8 (opw_lookup op w1 w2))) ∧
   (do_word_op op W64 (Word64 w1) (Word64 w2) = SOME (Word64 (opw_lookup op w1 w2))) ∧
   (do_word_op op _ _ _ = NONE)
 End
-val _ = export_rewrites["do_word_op_def"];
 
-Definition do_shift_def:
+Definition do_shift_def[simp]:
   (do_shift sh n W8 (Word8 w) = SOME (Word8 (shift_lookup sh w n))) ∧
   (do_shift sh n W64 (Word64 w) = SOME (Word64 (shift_lookup sh w n))) ∧
   (do_shift _ _ _ _ = NONE)
 End
-val _ = export_rewrites["do_shift_def"];
 
-Definition do_word_to_int_def:
+Definition do_word_to_int_def[simp]:
   (do_word_to_int W8 (Word8 w) = SOME(int_of_num(w2n w))) ∧
   (do_word_to_int W64 (Word64 w) = SOME(int_of_num(w2n w))) ∧
   (do_word_to_int _ _ = NONE)
 End
-val _ = export_rewrites["do_word_to_int_def"];
 
-Definition do_word_from_int_def:
+Definition do_word_from_int_def[simp]:
   (do_word_from_int W8 i = Word8 (i2w i)) ∧
   (do_word_from_int W64 i = Word64 (i2w i))
 End
-val _ = export_rewrites["do_word_from_int_def"];
 
-Theorem lit_same_type_refl:
+Theorem lit_same_type_refl[simp]:
    ∀l. lit_same_type l l
 Proof
   Cases >> simp[semanticPrimitivesTheory.lit_same_type_def]
 QED
-val _ = export_rewrites["lit_same_type_refl"]
 
 Theorem lit_same_type_sym:
    ∀l1 l2. lit_same_type l1 l2 ⇒ lit_same_type l2 l1
@@ -232,14 +225,14 @@ val wz_thms = { nchotomy = word_size_nchotomy, case_def = word_size_case_def}
 val eqs = LIST_CONJ (map prove_case_eq_thm
   [op_thms, list_thms, option_thms, v_thms, store_v_thms, lit_thms, eq_v_thms, wz_thms])
 
-Triviality pair_case_eq:
+Theorem pair_case_eq[local]:
   pair_CASE x f = v ⇔ ?x1 x2. x = (x1,x2) ∧ f x1 x2 = v
 Proof
   Cases_on `x` >>
  srw_tac[][]
 QED
 
-Triviality pair_lam_lem:
+Theorem pair_lam_lem[local]:
   !f v z. (let (x,y) = z in f x y) = v ⇔ ∃x1 x2. z = (x1,x2) ∧ (f x1 x2 = v)
 Proof
   srw_tac[][]
@@ -314,11 +307,11 @@ Theorem do_app_ffi_changed:
     op = FFI s ∧
     vs = [Litv (StrLit conf); Loc b lnum] ∧
     store_lookup lnum st = SOME (W8array ws) ∧
-    s ≠ "" ∧
+    s ≠ «» ∧
     ffi.oracle
        (ExtCall s)
        ffi.ffi_state
-       (MAP (λc. n2w $ ORD c) (EXPLODE conf))
+       (MAP (λc. n2w $ ORD c) (explode conf))
        ws =
     Oracle_return ffi_st ws' ∧
     LENGTH ws = LENGTH ws' ∧
@@ -327,7 +320,7 @@ Theorem do_app_ffi_changed:
     ffi'.ffi_state = ffi_st ∧
     ffi'.io_events =
       ffi.io_events ++
-        [IO_event (ExtCall s) (MAP (λc. n2w $ ORD c) (EXPLODE conf))
+        [IO_event (ExtCall s) (MAP (λc. n2w $ ORD c) (explode conf))
                   (ZIP (ws,ws'))]
 Proof
   simp[do_app_def,thunk_op_def] >>
@@ -335,7 +328,7 @@ Proof
   dsimp[AllCaseEqs(), PULL_EXISTS, UNCURRY_EQ] >>
   simp[call_FFI_def, AllCaseEqs(), SF CONJ_ss] >>
   rw[] >>
-  gvs[combinTheory.o_DEF, IMPLODE_EXPLODE_I, store_assign_def]
+  gvs[combinTheory.o_DEF, store_assign_def]
 QED
 
 Theorem do_app_not_timeout:
@@ -357,7 +350,7 @@ Proof
   dsimp[AllCaseEqs(), PULL_EXISTS, UNCURRY_EQ]
 QED
 
-Triviality build_rec_env_help_lem:
+Theorem build_rec_env_help_lem[local]:
   ∀funs env funs'.
     FOLDR (λ(f,x,e) env'. nsBind f (Recclosure env funs' f) env') env' funs =
     nsAppend (alist_to_ns (MAP (λ(f,n,e). (f, Recclosure env funs' f)) funs)) env'
@@ -386,18 +379,16 @@ every_case_tac >>
 full_simp_tac(srw_ss())[]
 QED
 
-Definition map_error_result_def:
+Definition map_error_result_def[simp]:
   (map_error_result f (Rraise e) = Rraise (f e)) ∧
   (map_error_result f (Rabort a) = Rabort a)
 End
-val _ = export_rewrites["map_error_result_def"]
 
-Theorem map_error_result_Rtype_error:
+Theorem map_error_result_Rtype_error[simp]:
    map_error_result f e = (Rabort a) ⇔ e = Rabort a
 Proof
   Cases_on`e`>>simp[]
 QED
-val _ = export_rewrites["map_error_result_Rtype_error"]
 
 Theorem map_error_result_I[simp]:
    map_error_result I e = e
@@ -405,11 +396,10 @@ Proof
   Cases_on`e`>>EVAL_TAC
 QED
 
-Definition map_result_def:
+Definition map_result_def[simp]:
   (map_result f1 f2 (Rval v) = Rval (f1 v)) ∧
   (map_result f1 f2 (Rerr e) = Rerr (map_error_result f2 e))
 End
-val _ = export_rewrites["map_result_def"]
 
 Theorem map_result_Rval[simp]:
    map_result f1 f2 e = Rval x ⇔ ∃y. e = Rval y ∧ x = f1 y
@@ -417,48 +407,44 @@ Proof
   Cases_on`e`>>simp[EQ_IMP_THM]
 QED
 
-Theorem map_result_Rerr:
+Theorem map_result_Rerr[simp]:
    map_result f1 f2 e = Rerr e' ⇔ ∃a. e = Rerr a ∧ map_error_result f2 a = e'
 Proof
   Cases_on`e`>>simp[EQ_IMP_THM]
 QED
-val _ = export_rewrites["map_result_Rerr"]
 
-Definition exc_rel_def:
+Definition exc_rel_def[simp]:
   (exc_rel R (Rraise v1) (Rraise v2) = R v1 v2) ∧
   (exc_rel _ (Rabort a1) (Rabort a2) ⇔ a1 = a2) ∧
   (exc_rel _ _ _ = F)
 End
-val _ = export_rewrites["exc_rel_def"]
 
-Theorem exc_rel_raise1:
+Theorem exc_rel_raise1[simp]:
    exc_rel R (Rraise v) e = ∃v'. (e = Rraise v') ∧ R v v'
 Proof
   Cases_on`e`>>srw_tac[][]
 QED
-Theorem exc_rel_raise2:
+Theorem exc_rel_raise2[simp]:
    exc_rel R e (Rraise v) = ∃v'. (e = Rraise v') ∧ R v' v
 Proof
   Cases_on`e`>>srw_tac[][]
 QED
-Theorem exc_rel_type_error1:
+Theorem exc_rel_type_error1[simp]:
    (exc_rel R (Rabort a) e = (e = Rabort a))
 Proof
   Cases_on`e`>>srw_tac[][]>>metis_tac []
 QED
-Theorem exc_rel_type_error2:
+Theorem exc_rel_type_error2[simp]:
    (exc_rel R e (Rabort a) = (e = Rabort a))
 Proof
   Cases_on`e`>>srw_tac[][]>>metis_tac []
 QED
-val _ = export_rewrites["exc_rel_raise1","exc_rel_raise2","exc_rel_type_error1","exc_rel_type_error2"]
 
-Theorem exc_rel_refl:
+Theorem exc_rel_refl[simp]:
    (∀x. R x x) ⇒ ∀x. exc_rel R x x
 Proof
 strip_tac >> Cases >> srw_tac[][]
 QED
-val _ = export_rewrites["exc_rel_refl"];
 
 Theorem exc_rel_trans:
  (∀x y z. R x y ∧ R y z ⇒ R x z) ⇒ (∀x y z. exc_rel R x y ∧ exc_rel R y z ⇒ exc_rel R x z)
@@ -467,36 +453,33 @@ srw_tac[][] >>
 Cases_on `x` >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >> PROVE_TAC[]
 QED
 
-Definition result_rel_def:
+Definition result_rel_def[simp]:
 (result_rel R1 _ (Rval v1) (Rval v2) = R1 v1 v2) ∧
 (result_rel _ R2 (Rerr e1) (Rerr e2) = exc_rel R2 e1 e2) ∧
 (result_rel _ _ _ _ = F)
 End
-val _ = export_rewrites["result_rel_def"]
 
-Theorem result_rel_Rval:
+Theorem result_rel_Rval[simp]:
  result_rel R1 R2 (Rval v) r = ∃v'. (r = Rval v') ∧ R1 v v'
 Proof
 Cases_on `r` >> srw_tac[][]
 QED
-Theorem result_rel_Rerr1:
+Theorem result_rel_Rerr1[simp]:
  result_rel R1 R2 (Rerr e) r = ∃e'. (r = Rerr e') ∧ exc_rel R2 e e'
 Proof
 Cases_on `r` >> srw_tac[][EQ_IMP_THM]
 QED
-Theorem result_rel_Rerr2:
+Theorem result_rel_Rerr2[simp]:
  result_rel R1 R2 r (Rerr e) = ∃e'. (r = Rerr e') ∧ exc_rel R2 e' e
 Proof
 Cases_on `r` >> srw_tac[][EQ_IMP_THM]
 QED
-val _ = export_rewrites["result_rel_Rval","result_rel_Rerr1","result_rel_Rerr2"]
 
-Theorem result_rel_refl:
+Theorem result_rel_refl[simp]:
  (∀x. R1 x x) ∧ (∀x. R2 x x) ⇒ ∀x. result_rel R1 R2 x x
 Proof
 strip_tac >> Cases >> srw_tac[][]
 QED
-val _ = export_rewrites["result_rel_refl"]
 
 Theorem result_rel_trans:
  (∀x y z. R1 x y ∧ R1 y z ⇒ R1 x z) ∧ (∀x y z. R2 x y ∧ R2 y z ⇒ R2 x z) ⇒ (∀x y z. result_rel R1 R2 x y ∧ result_rel R1 R2 y z ⇒ result_rel R1 R2 x z)
@@ -505,60 +488,53 @@ srw_tac[][] >>
 Cases_on `x` >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >> PROVE_TAC[exc_rel_trans]
 QED
 
-Definition every_error_result_def:
+Definition every_error_result_def[simp]:
   (every_error_result P (Rraise e) = P e) ∧
   (every_error_result P (Rabort a) = T)
 End
-val _ = export_rewrites["every_error_result_def"]
 
-Definition every_result_def:
+Definition every_result_def[simp]:
   (every_result P1 P2 (Rval v) = (P1 v)) ∧
   (every_result P1 P2 (Rerr e) = (every_error_result P2 e))
 End
-val _ = export_rewrites["every_result_def"]
 
-Definition map_sv_def:
+Definition map_sv_def[simp]:
   map_sv f (Refv v) = Refv (f v) ∧
   map_sv _ (W8array w) = (W8array w) ∧
   map_sv f (Varray vs) = (Varray (MAP f vs)) ∧
   map_sv f (Thunk m v) = (Thunk m (f v))
 End
-val _ = export_rewrites["map_sv_def"]
 
-Definition dest_Refv_def:
+Definition dest_Refv_def[simp]:
   dest_Refv (Refv v) = v
 End
-Definition is_Refv_def:
+Definition is_Refv_def[simp]:
   is_Refv (Refv _) = T ∧
   is_Refv _ = F
 End
-val _ = export_rewrites["dest_Refv_def","is_Refv_def"]
 
-Definition sv_every_def:
+Definition sv_every_def[simp]:
   sv_every P (Refv v) = P v ∧
   sv_every P (Varray vs) = EVERY P vs ∧
   sv_every P (Thunk m v) = P v ∧
   sv_every P _ = T
 End
-val _ = export_rewrites["sv_every_def"]
 
-Definition sv_rel_def:
+Definition sv_rel_def[simp]:
   sv_rel R (Refv v1) (Refv v2) = R v1 v2 ∧
   sv_rel R (W8array w1) (W8array w2) = (w1 = w2) ∧
   sv_rel R (Varray vs1) (Varray vs2) = LIST_REL R vs1 vs2 ∧
   sv_rel R (Thunk m1 v1) (Thunk m2 v2) = (m1 = m2 ∧ R v1 v2) ∧
   sv_rel R _ _ = F
 End
-val _ = export_rewrites["sv_rel_def"]
 
-Theorem sv_rel_refl:
+Theorem sv_rel_refl[simp]:
    ∀R x. (∀x. R x x) ⇒ sv_rel R x x
 Proof
   gen_tac >> Cases >> srw_tac[][sv_rel_def] >>
   induct_on `l` >>
   srw_tac[][]
 QED
-val _ = export_rewrites["sv_rel_refl"]
 
 Theorem sv_rel_trans:
    ∀R. (∀x y z. R x y ∧ R y z ⇒ R x z) ⇒ ∀x y z. sv_rel R x y ∧ sv_rel R y z ⇒ sv_rel R x z
@@ -590,13 +566,12 @@ Proof
   srw_tac[][sv_rel_cases] >> metis_tac [LIST_REL_mono]
 QED
 
-Definition store_v_vs_def:
+Definition store_v_vs_def[simp]:
   store_v_vs (Refv v) = [v] ∧
   store_v_vs (Varray vs) = vs ∧
   store_v_vs (W8array _) = [] ∧
   store_v_vs (Thunk _ v) = [v]
 End
-val _ = export_rewrites["store_v_vs_def"]
 
 Definition store_vs_def:
   store_vs s = FLAT (MAP store_v_vs s)
@@ -643,11 +618,10 @@ Proof
   Cases_on`x`>>simp[MAP_MAP_o]
 QED
 
-Definition map_match_def:
+Definition map_match_def[simp]:
   (map_match f (Match env) = Match (f env)) ∧
   (map_match f x = x)
 End
-val _ = export_rewrites["map_match_def"]
 
 Theorem find_recfun_ALOOKUP:
  ∀funs n. find_recfun n funs = ALOOKUP funs n
@@ -679,17 +653,15 @@ Proof
   metis_tac []
 QED
 
-Definition ctors_of_tdef_def:
+Definition ctors_of_tdef_def[simp]:
   ctors_of_tdef (_,_,condefs) = MAP FST condefs
 End
-val _ = export_rewrites["ctors_of_tdef_def"]
 
-Definition ctors_of_dec_def:
+Definition ctors_of_dec_def[simp]:
   ctors_of_dec (Dtype locs tds) = FLAT (MAP ctors_of_tdef tds) ∧
   ctors_of_dec (Dexn locs s _) = [s] ∧
   ctors_of_dec _ = []
 End
-val _ = export_rewrites["ctors_of_dec_def"]
 
 (* free vars *)
 
@@ -733,14 +705,13 @@ Proof
   Induct_on`ls`>>simp[FORALL_PROD]
 QED
 
-Definition FV_dec_def:
+Definition FV_dec_def[simp]:
   (FV_dec (Dlet locs p e) = FV (Mat e [(p,Lit ARB)])) ∧
   (FV_dec (Dletrec locs defs) = FV (Letrec defs (Lit ARB)))∧
   (FV_dec (Dtype _ _) = {}) ∧
   (FV_dec (Dtabbrev _ _ _ _) = {}) ∧
   (FV_dec (Dexn _ _ _) = {})
 End
-val _ = export_rewrites["FV_dec_def"]
 
 Theorem nat_to_v_11[simp]:
   !i j. nat_to_v i = nat_to_v j <=> i = j
@@ -766,3 +737,33 @@ Proof
   simp [concrete_v_def]
 QED
 
+Theorem prim_type_cases:
+  ∀ty.
+    ty = BoolT ∨
+    ty = IntT ∨
+    ty = CharT ∨
+    ty = StrT ∨
+    ty = WordT W8 ∨
+    ty = WordT W64 ∨
+    ty = Float64T
+Proof
+  Cases \\ fs [] \\ Cases_on ‘w’ \\ fs []
+QED
+
+Theorem do_conversion_check_type:
+  do_conversion v ty1 ty2 = SOME res ⇒
+  check_type ty2 res
+Proof
+  Cases_on ‘ty2’ using prim_type_cases
+  \\ rw [semanticPrimitivesTheory.check_type_def]
+  \\ gvs [oneline do_conversion_def,AllCaseEqs()]
+QED
+
+Theorem do_arith_check_type:
+  do_arith a ty vs = SOME (INR res) ⇒
+  check_type ty res
+Proof
+  Cases_on ‘ty’ using prim_type_cases
+  \\ gvs [oneline do_arith_def, AllCaseEqs()]
+  \\ rw [] \\ fs [semanticPrimitivesTheory.check_type_def]
+QED

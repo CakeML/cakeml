@@ -31,11 +31,6 @@ Compose the hello semantics theorem and the compiler correctness
 theorem with the compiler evaluation theorem to produce end-to-end
 correctness theorem that reaches final machine code.
 
-[iocatProofScript.sml](iocatProofScript.sml):
-Compose the iocat semantics theorem and the compiler correctness
-theorem with the compiler evaluation theorem to produce end-to-end
-correctness theorem that reaches final machine code.
-
 [patchProofScript.sml](patchProofScript.sml):
 Compose the patch semantics theorem and the compiler correctness
 theorem with the compiler evaluation theorem to produce end-to-end

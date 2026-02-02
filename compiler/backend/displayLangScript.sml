@@ -6,7 +6,7 @@
 *)
 Theory displayLang
 Ancestors
-  jsonLang mlint backend_common str_tree
+  jsonLang mlint backend_common mlsexp (* for str_tree *)
 Libs
   preamble
 
@@ -68,16 +68,15 @@ End
 
 Definition display_to_str_tree_def:
   (display_to_str_tree (Item tra name es) =
-     mk_list (Str name :: display_to_str_tree_list es)) ∧
+     Trees (Str name :: display_to_str_tree_list es)) ∧
   (display_to_str_tree (String s : sExp) = Str s) /\
   (display_to_str_tree (Tuple es) =
      if NULL es then Str (strlit "()")
-     else mk_list (display_to_str_tree_list es)) ∧
+     else Trees (display_to_str_tree_list es)) ∧
   (display_to_str_tree (List es) =
      if NULL es then Str (strlit "()")
-     else mk_list (MAP GrabLine (display_to_str_tree_list es))) ∧
+     else Trees (MAP GrabLine (display_to_str_tree_list es))) ∧
   (display_to_str_tree_list [] = []) ∧
   (display_to_str_tree_list (x::xs) =
     display_to_str_tree x :: display_to_str_tree_list xs)
 End
-

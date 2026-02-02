@@ -20,7 +20,7 @@ val RW = REWRITE_RULE
 
 val _ = add_preferred_thy "-";
 
-Triviality NOT_NIL_AND_LEMMA:
+Theorem NOT_NIL_AND_LEMMA[local]:
   (b <> [] /\ x) = if b = [] then F else x
 Proof
   Cases_on `b` THEN FULL_SIMP_TAC std_ss []
@@ -55,12 +55,10 @@ val _ = (find_def_for_const := def_of_const);
 
 val _ = use_long_names:=true;
 
-val _ = ml_translatorLib.use_string_type true;
-
 val r = translate typeDecToPPTheory.con_x_i_pat_def;
 val r = translate addTypePPTheory.add_pp_decs_def;
 
-Triviality OPT_MAP_I:
+Theorem OPT_MAP_I[local]:
   ∀g ls. OPT_MMAP I (MAP g ls) = OPT_MMAP g ls
 Proof
   Induct_on ‘ls’ \\ fs [listTheory.OPT_MMAP_def]
@@ -80,7 +78,7 @@ val r = translate
 
 (* handle many preconditions to do with inference st invariants t_wfs *)
 
-Triviality t_wfs_inv = print_features_infer_st_invs
+Theorem t_wfs_inv[local] = print_features_infer_st_invs
   |> Q.GEN `P` |> Q.ISPEC `\st. t_wfs st.subst`
   |> SIMP_RULE (std_ss ++ SATISFY_ss) [inferPropsTheory.infer_d_wfs]
 

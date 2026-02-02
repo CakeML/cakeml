@@ -8,7 +8,6 @@ Ancestors
 Libs
   ml_translatorLib ml_progLib blastLib
 
-
 val _ = register_type “:'a list”;
 val _ = register_type “:'a option”;
 
@@ -260,7 +259,7 @@ val _ = (print_asts := true);
 
 (* test no_ind *)
 
-Triviality word64_msb_thm:
+Theorem word64_msb_thm[local]:
   !w. word_msb (w:word64) =
          ((w && 0x8000000000000000w) = 0x8000000000000000w)
 Proof
@@ -274,7 +273,7 @@ val res = translate (miscTheory.arith_shift_right_def
                      |> PURE_REWRITE_RULE [wordsTheory.dimindex_64]
                      |> CONV_RULE (DEPTH_CONV wordsLib.WORD_GROUND_CONV));
 
-Triviality arith_shift_right_ind:
+Theorem arith_shift_right_ind[local]:
   arith_shift_right_ind
 Proof
   once_rewrite_tac [fetch "-" "arith_shift_right_ind_def"]
@@ -335,11 +334,11 @@ val _ = register_type ``:'a list``;
 val _ = register_type ``:('a # 'b)``;
 
 Datatype:
-  tt = A1
-     | B1 tt
-     | C1 (tt option)
-     | D1 (tt list)
-     | E1 (tt # tt)
+  tt = AA1
+     | BB1 tt
+     | CC1 (tt option)
+     | DD1 (tt list)
+     | EE1 (tt # tt)
 End
 
 val _ = register_type ``:tt``;
@@ -349,15 +348,15 @@ val _ = register_type ``:tt``;
 Definition test3_def:
   test3 x =
   (case x of
-   | A1 => [()]
-   | B1 x => test3 x ++ [()]
-   | C1 NONE => []
-   | C1 (SOME x) => test3 x ++ REVERSE (test3 x)
-   | D1 tts =>
+   | AA1 => [()]
+   | BB1 x => test3 x ++ [()]
+   | CC1 NONE => []
+   | CC1 (SOME x) => test3 x ++ REVERSE (test3 x)
+   | DD1 tts =>
        (case tts of
         | [] => [(); ()]
-        | (tt :: tts) => test3 (D1 tts) ++ test3 tt)
-   | E1 (x, y) => REVERSE (test3 x) ++ test3 y)
+        | (tt :: tts) => test3 (DD1 tts) ++ test3 tt)
+   | EE1 (x, y) => REVERSE (test3 x) ++ test3 y)
 End
 
 val r = translate_no_ind test3_def;
@@ -605,9 +604,19 @@ val r = hol2deep ``\c. STRING c ""``;
 
 (* more advanced test of HOL_STRING_TYPE *)
 
+Datatype:
+  oldlit =
+    IntLit int
+  | Char char
+  | StrLit string
+  | Word8 word8
+  | Word64 word64
+  | Float64 word64
+End
+
 (* step 1: reg a type with string inside, StrLit : string -> lit *)
 val _ = use_string_type true;
-val _ = register_type ``:lit``
+val _ = register_type ``:oldlit``
 
 (* step 2: translate a function that walks a char list producing datatype with strings *)
 val _ = use_string_type false;
@@ -632,4 +641,3 @@ val _ = use_sub_check true;
 
 (* no precondition *)
 val res = translate foo_sub_def;
-

@@ -80,6 +80,8 @@ OPTIONS:
 
   --pancake     takes a pancake program as input
 
+  --no_warn     silences pancake warning output
+
   --main_return=B   here B can be either true or false; the default is
                 false; setting this to true causes the main function to
                 return to caller instead of exit; this option is
@@ -256,7 +258,7 @@ Definition compile_def:
          else infertype_prog c.inferencer_config full_prog
        of
        | Failure (locs, msg) =>
-           (Failure (TypeError (concat [msg; implode " at ";
+           (Failure (TypeError (concat [msg; strlit " at ";
                locs_to_string (implode input) locs])), Nil)
        | Success ic =>
           let _ = empty_ffi (strlit "finished: type inference") in
@@ -265,7 +267,8 @@ Definition compile_def:
                                          inf_env_to_types_string ic ++
                                          [strlit "\n"]))), Nil)
           else if c.only_print_sexp then
-            (Failure (TypeError (implode(print_sexp (listsexp (MAP decsexp full_prog))))),Nil)
+            (Failure (TypeError (implode
+               ("\n" ++ print_sexp (listsexp (MAP decsexp full_prog))))),Nil)
           else
           case backend_passes$compile_tap c.backend_config full_prog of
           | (NONE, td) => (Failure AssembleError, td)
@@ -628,10 +631,11 @@ Definition parse_top_config_def:
   let typeinference = find_bool (strlit"--skip_type_inference=") ls F in
   let sexpprint = MEMBER (strlit"--print_sexp") ls in
   let onlyprinttypes = MEMBER (strlit"--types") ls in
+  let nowarnings = MEMBER (strlit"--no_warn") ls in
   let mainreturn = find_bool (strlit"--main_return=") ls F in
   case (sexp,prelude,typeinference,mainreturn) of
     (INL sexp,INL prelude,INL typeinference,INL mainreturn) =>
-      INL (sexp,prelude,typeinference,onlyprinttypes,sexpprint,mainreturn)
+      INL (sexp,prelude,typeinference,onlyprinttypes,sexpprint,mainreturn,nowarnings)
   | _ => INR (concat [
                get_err_str sexp;
                get_err_str prelude;
@@ -677,7 +681,7 @@ Definition compile_64_def:
   let confexp = parse_target_64 cl in
   let topconf = parse_top_config cl in
   case (confexp,topconf) of
-    (INL (conf,export), INL(sexp,prelude,typeinfer,onlyprinttypes,sexpprint,mainret)) =>
+    (INL (conf,export), INL(sexp,prelude,typeinfer,onlyprinttypes,sexpprint,mainret,nowarn)) =>
     (let ext_conf = extend_conf cl conf in
     case ext_conf of
       INL ext_conf =>
@@ -713,7 +717,7 @@ Definition compile_pancake_64_def:
       let topconf = parse_top_config cl in
       case (topconf) of
       | INR err => (List[], error_to_str (ConfigError err))
-      | INL (sexp,prelude,typeinfer,onlyprinttypes,sexpprint,mainret) =>
+      | INL (sexp,prelude,typeinfer,onlyprinttypes,sexpprint,mainret,nowarn) =>
           let ext_conf = extend_conf cl conf in
           case ext_conf of
           | INR err =>
@@ -721,13 +725,13 @@ Definition compile_pancake_64_def:
           | INL ext_conf =>
               case compiler$compile_pancake ext_conf input of
               | (Failure err, td, warns) =>
-                  (List[], concat (MAP error_to_str (err::warns)))
+                  (List[], concat (MAP error_to_str (err::(if nowarn then [] else warns))))
               | (Success (bytes, data, c), td, warns) =>
                   (add_tap_output td
                     (export (ffinames_to_string_list $
                       the [] c.lab_conf.ffi_names) bytes data c.symbols
                       c.exported mainret T),
-                   concat (MAP error_to_str warns))
+                   concat (MAP error_to_str (if nowarn then [] else warns)))
 End
 
 Definition full_compile_64_def:
@@ -751,7 +755,7 @@ Definition compile_32_def:
   let confexp = parse_target_32 cl in
   let topconf = parse_top_config cl in
   case (confexp,topconf) of
-    (INL (conf,export), INL(sexp,prelude,typeinfer,onlyprinttypes,sexpprint,mainret)) =>
+    (INL (conf,export), INL(sexp,prelude,typeinfer,onlyprinttypes,sexpprint,mainret,nowarn)) =>
     (let ext_conf = extend_conf cl conf in
     case ext_conf of
       INL ext_conf =>
@@ -787,7 +791,7 @@ Definition compile_pancake_32_def:
       let topconf = parse_top_config cl in
       case (topconf) of
       | INR err => (List[], error_to_str (ConfigError err))
-      | INL (sexp,prelude,typeinfer,onlyprinttypes,sexpprint,mainret) =>
+      | INL (sexp,prelude,typeinfer,onlyprinttypes,sexpprint,mainret,nowarn) =>
           let ext_conf = extend_conf cl conf in
           case ext_conf of
           | INR err =>
@@ -795,13 +799,13 @@ Definition compile_pancake_32_def:
           | INL ext_conf =>
               case compiler$compile_pancake ext_conf input of
               | (Failure err, td, warns) =>
-                  (List[], concat (MAP error_to_str (err::warns)))
+                  (List[], concat (MAP error_to_str (err::(if nowarn then [] else warns))))
               | (Success (bytes, data, c), td, warns) =>
                   (add_tap_output td
                     (export (ffinames_to_string_list $
                       the [] c.lab_conf.ffi_names) bytes data c.symbols
                       c.exported mainret T),
-                   concat (MAP error_to_str warns))
+                   concat (MAP error_to_str (if nowarn then [] else warns)))
 End
 
 Definition full_compile_32_def:
@@ -819,4 +823,3 @@ Definition full_compile_32_def:
     in
       add_stderr (add_stdout (fastForwardFD fs 0) (concat (append out))) err
 End
-

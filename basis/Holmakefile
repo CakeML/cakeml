@@ -21,7 +21,7 @@ ifdef POLY
 all: basis-heap
 
 basis-heap: basis.uo
-	$(HOLDIR)/bin/buildheap -o $@ $<
+	$(HOLDIR)/bin/hol buildheap -o $@ $<
 endif
 
 ifndef CC
