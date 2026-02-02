@@ -15,25 +15,7 @@ Datatype:
   ft = FibTree 'k 'v (ft list)
 End
 
-(*
-Need to provide polymorphic types to ft.
-This does not crash with an exception, but there is also no output.
-*)
 Type fts = “:('k,'v) ft list”;
-
-(* The Fibtree is just a dll. Each key k holds its one tree.
- Key:
- k |-> v,b,n,e,f,p,c,rm where
- v = value                          0
- b = element before                 1
- n = element next                   2
- e = edges                          3
- f = flag (inside tree)             4
- p = parent                         5
- c = children -> again a Fibtree    6
- rm = rank + mark                   7
-*)
-
 
 Datatype:
   array = End | Fields field;
@@ -131,7 +113,6 @@ Definition flag_def:
   flag = 2w * bytes_in_word
 End
 
-
 Definition rank_mark_def:
   rm = 3w * bytes_in_word
 End
@@ -174,7 +155,7 @@ Definition edges_ones_def:
 End
 
 Definition fib_seg_def:
-  fib_seg ((FibTree k n _): ('a word, 'a annotated_node) ft) =
+  ft_seg ((FibTree k n _): ('a word, 'a annotated_node) ft) =
     (ones k [n.data.value;
             FST n.data.edges;
             b2w n.data.flag;
@@ -185,10 +166,10 @@ Definition fib_seg_def:
             n.child_ptr]) * (edges_ones n.data.edges)
 End
 
-Definition fib_mem_def:
-  (fib_mem [] = emp ) /\
-  (fib_mem (FibTree k n ts::xs) =
-    (fib_seg $ FibTree k n ts) * (fib_mem ts) * (fib_mem xs))
+Definition fts_mem_def:
+  (fts_mem [] = emp ) /\
+  (fts_mem (FibTree k n ts::xs) =
+    (ft_seg $ FibTree k n ts) * (fts_mem ts) * (fts_mem xs))
 End
 
 val test =
@@ -208,80 +189,4 @@ Definition fts_in_mem_def:
     fts_in_mem rest
 End
 *)
-Datatype:
-  fh = FibHeap 'k (('k,'v) ft)
-End
 
-Definition FibTree_Mem_def:
-  (FibTreeMem (FibTree (k:'a word) (v:'a word) []) = one(k + child, 0w)) /\
-  (FibTreeMem (FibTree (k:'a word) (v:'a word) (FibTree h w ys::xs)) =
-    one(h + parent, k) * FibTreeMem(FibTree h w ys) *
-    FibTreeMem(FibTree k v xs))
-End
-
-(*Is there a way to make this definition not use equality with T?*)
-Definition FibTree_Min_def:
-  (FibTreeMin (m:'a word) [] = T) /\
-  (FibTreeMin (m:'a word) (FibTree v k ys::xs) =
-    ((m <= v) /\
-     (FibTreeMin m xs) /\
-     (FibTreeMin m ys)))
-End
-
-Definition FibHeap_Root_def:
-  (FibHeapRoot (FibTree (k:'a word) (v:'a word) []) = emp) /\
-  (FibHeapRoot (FibTree (k:'a word) (v:'a word) (FibTree h w ys::xs)) =
-    one(k + next, h) * (FibTreeMem (FibTree h w ys)) *
-    (FibHeapRoot (FibTree h w xs)))
-End
-
-Definition FibHeap_Mem_def:
-  (FibHeapMem (p:'a word) [] = emp * cond (p = 0w)) /\
-  (FibHeapMem (p:'a word) (FibTree h m ys::xs) =
-    one(h, m:'a word) * (FibTreeMem (FibTree h m ys)) *
-    (FibHeapRoot (FibTree h m xs)) *
-    cond(p = h /\ (FibTreeMin m ys) /\ (FibTreeMin m xs)))
-End
-
-val ft_tm = “FibTree (60w:word64) (6w:word64)
-               [FibTree (70w:word64) (7w:word64) [];
-                FibTree (80w:word64) (8w:word64) []]”;
-
-val test =
-  “FibTreeMem ^ft_tm”
-  |> SCONV [FibTree_Min_def, FibTree_Mem_def];
-
-(*
-
-(* Double Linked List:
-        s             e
-  a -> | | -> ... -> | | -> s
-  p <- | | <- ... <- | | <- e *)
-Definition dll_seg_def:
-  (dllseg a p [] s e = emp * cond (p <> 0w /\ a = s /\ e = p)) /\
-  (dllseg a p (x::xs) s e = SEP_EXISTS b.
-    one (a + value, x) *
-    one (a + previous, p) *
-    one (a + next, b) *
-    dllseg b a xs s e)
-End
-
-Definition dll_def:
-  (dll s []  = emp * cond (s = 0w)) /\
-  (dll s (x::xs) = SEP_EXISTS b n.
-    one (s + value, x)
-    one (s + previous, b) *
-    one (s + next, n) *
-    dllseg n s xs s b)
-End
-
-(* Need to proof termination, but how?*)
-(* s+next is not dereferenced -> so this is incorrect?*)
-Definition implicit_dll_to_list_def:
-  cdll s e = if s = e then
-    []
-    else
-    (s::(cdll (s+next) e))
-End
-
-*)
