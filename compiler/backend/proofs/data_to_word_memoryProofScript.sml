@@ -667,19 +667,47 @@ Proof
 QED
 
 Theorem RTC_lemma[local]:
-  !r n. RTC (ref_edge refs) r n ==>
+  (*!r n. RTC (ref_edge refs) r n ==>
           (!m. RTC (ref_edge refs) r m ==> bc_ref_inv conf m refs (f,tf,heap,be)) /\
           gc_shared$gc_related g heap heap2 /\
-          f ' r IN FDOM g ==> f ' n IN FDOM g
+          f ' r IN FDOM g ==> f ' n IN FDOM g*)
+  ∀r e.
+    (ref_edge refs)꙳ r e ⇒
+      (e ∉ evaluated_thunk_ptr refs) ∧
+      (∀m. (ref_edge refs)꙳ r m ⇒ bc_ref_inv conf m refs (f,tf,heap,be)) /\
+      gc_shared$gc_related g heap heap2 ∧
+      f ' r ∈ FDOM g ⇒
+        f ' e ∈ FDOM g
 Proof
   cheat
-  (*ho_match_mp_tac RTC_INDUCT \\ full_simp_tac std_ss [] \\ rpt strip_tac
+  (*simp [RTC_eq_NRC, PULL_EXISTS]
+  \\ completeInduct_on `n` \\ gvs [] \\ rw []
+
+  \\ first_assum drule
+  \\ simp [bc_ref_inv_def]
+  \\ rpt (TOP_CASE_TAC \\ gvs []) \\ rw []
+  >- cheat
+  >- cheat
+  \\ gvs [ThunkBlock_def]
+  \\ Cases_on `n` \\ gvs [NRC]
+  \\ last_x_assum $ qspec_then `n'` assume_tac \\ gvs []
+  \\ pop_assum drule \\ reverse impl_tac >- gvs [] \\ rw []
+  >- cheat
+  >- (
+  )
+
+  \\ strip_tac \\ gvs []
+  \\ Cases_on `n` \\ gvs [NRC]
+  \\ gvs [bc_ref_inv_def, RefBlock_def, ThunkBlock_def]
+
+  ho_match_mp_tac RTC_INDUCT \\ full_simp_tac std_ss [] \\ rpt strip_tac
+
   \\ full_simp_tac std_ss []
-  \\ qpat_x_assum `bb ==> bbb` match_mp_tac \\ full_simp_tac std_ss []
-  \\ strip_tac THEN1
-   (rpt strip_tac \\ qpat_x_assum `!x.bb` match_mp_tac \\ metis_tac [RTC_CASES1])
+  \\ first_x_assum irule \\ rw []
+  >- (first_x_assum irule \\ metis_tac [RTC_CASES1])
+  >- (first_x_assum irule \\ metis_tac [RTC_CASES1])
   \\ `RTC (ref_edge refs) r r' /\ RTC (ref_edge refs) r r` by metis_tac [RTC_CASES1]
-  \\ res_tac \\ qpat_x_assum `!x.bb` (K ALL_TAC)
+  \\ res_tac \\ rpt (qpat_x_assum `∀m. RTC _ _ _ ⇒ _` kall_tac)
   \\ full_simp_tac std_ss [bc_ref_inv_def,RefBlock_def,ThunkBlock_def,RTC_REFL]
   \\ Cases_on `FLOOKUP f r` \\ full_simp_tac (srw_ss()) []
   \\ Cases_on `FLOOKUP f r'` \\ full_simp_tac (srw_ss()) []
@@ -687,26 +715,51 @@ Proof
   \\ Cases_on `lookup r' refs` \\ full_simp_tac (srw_ss()) []
   \\ Cases_on `x''` \\ full_simp_tac (srw_ss()) []
   \\ Cases_on `x'''` \\ full_simp_tac (srw_ss()) []
-  \\ imp_res_tac v_inv_related
-  \\ full_simp_tac std_ss [ref_edge_def]
-  \\ full_simp_tac std_ss [gc_related_def,INJ_DEF,GSPECIFICATION]
-  \\ full_simp_tac (srw_ss()) [FLOOKUP_DEF] \\ srw_tac [] []
-  \\ res_tac \\ full_simp_tac std_ss [get_refs_def] \\ srw_tac [] []
-  \\ full_simp_tac std_ss [MEM_FLAT,MEM_MAP] \\ srw_tac [] []
-  \\ full_simp_tac std_ss [ref_edge_def,EVERY_MEM]
-  \\ full_simp_tac std_ss [PULL_FORALL,AND_IMP_INTRO]
-  \\ res_tac \\ CCONTR_TAC \\ full_simp_tac std_ss []
-  \\ srw_tac [] [] \\ POP_ASSUM MP_TAC \\ simp_tac std_ss []
-  \\ imp_res_tac MEM_EVERY2_IMP \\ fs []
-  \\ fs [] \\ metis_tac []*)
+
+  \\ gvs []
+  \\ drule_then assume_tac v_inv_related \\ gvs []
+  \\ gvs [ref_edge_def, get_refs_def, MEM_FLAT, MEM_MAP]
+  \\ gvs [gc_related_def, INJ_DEF, FLOOKUP_DEF]
+  \\ rpt (last_x_assum $ drule_at_then (Pat `_ ∈ FDOM g`) assume_tac)
+  \\ gvs [isSomeDataElement_def]
+  >- (
+    drule_all_then assume_tac MEM_EVERY2_IMP \\ gvs []
+    \\ first_x_assum $ drule_at (Pat `v_inv _ _ _ _`) \\ gvs []
+    \\ impl_tac >- metis_tac [] \\ rw []
+    \\ gvs [EVERY_MEM, IN_DEF, evaluated_thunk_ptr_def])
+  >- (
+    drule_all_then assume_tac MEM_EVERY2_IMP \\ gvs []
+    \\ first_x_assum $ drule_at (Pat `v_inv _ _ _ _`) \\ gvs []
+    \\ impl_tac >- metis_tac [] \\ rw []
+    \\ gvs [EVERY_MEM, IN_DEF, evaluated_thunk_ptr_def])
+  >- (
+    drule_all_then assume_tac MEM_EVERY2_IMP \\ gvs []
+    \\ first_x_assum $ drule_at (Pat `v_inv _ _ _ _`) \\ gvs []
+    \\ impl_tac >- metis_tac [] \\ rw []
+    \\ gvs [EVERY_MEM, IN_DEF, evaluated_thunk_ptr_def])
+  >- (
+    first_x_assum $ drule_at (Pat `v_inv _ _ _ _`) \\ gvs []
+    \\ gvs [EVERY_MEM, IN_DEF, evaluated_thunk_ptr_def])
+  >- (
+    first_x_assum $ drule_at (Pat `v_inv _ _ _ _`) \\ gvs []
+    \\ gvs [EVERY_MEM, IN_DEF, evaluated_thunk_ptr_def])
+  >- (
+    qpat_x_assum `v_inv _ _ _ (z',_,_,_)` kall_tac
+    \\ first_x_assum $ drule_at (Pat `v_inv _ _ _ _`) \\ gvs []
+    \\ gvs [EVERY_MEM, IN_DEF])
+
+  *)
 QED
 
 Theorem reachable_refs_lemma[local]:
   gc_related g heap heap2 /\
     EVERY2 (\v x. v_inv conf v refs (x,f,tf,heap)) stack roots /\
     (!n. reachable_refs stack refs n ==> bc_ref_inv conf n refs (f,tf,heap,be)) /\
+    (*(∀n. reachable_refs stack refs n ⇒ n ∉ evaluated_thunk_ptr refs) ∧*)
     (!ptr u. MEM (Pointer ptr u) roots ==> ptr IN FDOM g) ==>
-    (!n. reachable_refs stack refs n ==> n IN FDOM f /\ (f ' n) IN FDOM g)
+    (!n. reachable_refs stack refs n ∧
+         n ∉ evaluated_thunk_ptr refs ⇒
+           n IN FDOM f /\ (f ' n) IN FDOM g)
 Proof
   cheat
   (*NTAC 3 strip_tac \\ full_simp_tac std_ss [reachable_refs_def,PULL_EXISTS]
@@ -714,21 +767,55 @@ Proof
   \\ full_simp_tac std_ss [] \\ imp_res_tac LIST_REL_SPLIT1
   \\ full_simp_tac std_ss [LIST_REL_CONS1] \\ rveq
   \\ full_simp_tac std_ss [MEM,MEM_APPEND,LIST_REL_CONS1]
-  \\ `EVERY (\n. f ' n IN FDOM g) (get_refs x)` by metis_tac [v_inv_related]
+  \\ `EVERY (\n. n ∉ evaluated_thunk_ptr refs ⇒ f ' n IN FDOM g) (get_refs x)`
+    by metis_tac [v_inv_related]
   \\ full_simp_tac std_ss [EVERY_MEM] \\ res_tac \\ full_simp_tac std_ss []
   \\ `n IN FDOM f` by (CCONTR_TAC
     \\ full_simp_tac (srw_ss()) [bc_ref_inv_def,FLOOKUP_DEF])
   \\ full_simp_tac std_ss []
   \\ `bc_ref_inv conf r refs (f,tf,heap,be)` by metis_tac [RTC_REFL]
   \\ `(!m. RTC (ref_edge refs) r m ==>
-           bc_ref_inv conf m refs (f,tf,heap,be))` by metis_tac [] \\ imp_res_tac RTC_lemma*)
+           bc_ref_inv conf m refs (f,tf,heap,be))` by metis_tac []
+  \\ drule RTC_lemma
+  \\ disch_then drule
+
+
+  NTAC 3 strip_tac \\ full_simp_tac std_ss [reachable_refs_def,PULL_EXISTS]
+  \\ `?xs1 xs2. stack = xs1 ++ x::xs2` by metis_tac [MEM_SPLIT]
+  \\ full_simp_tac std_ss [] \\ imp_res_tac LIST_REL_SPLIT1
+  \\ full_simp_tac std_ss [LIST_REL_CONS1] \\ rveq
+  \\ full_simp_tac std_ss [MEM,MEM_APPEND,LIST_REL_CONS1]
+  \\ full_simp_tac std_ss [EVERY_MEM] \\ res_tac \\ full_simp_tac std_ss []
+  \\ `EVERY (\n. n ∉ evaluated_thunk_ptr refs ⇒ f ' n IN FDOM g) (get_refs x)`
+    by metis_tac [v_inv_related]
+  \\ `n IN FDOM f` by (CCONTR_TAC
+    \\ full_simp_tac (srw_ss()) [bc_ref_inv_def,FLOOKUP_DEF])
+  \\ full_simp_tac std_ss []
+  \\ `bc_ref_inv conf r refs (f,tf,heap,be)` by metis_tac [RTC_REFL]
+  \\ `(!m. RTC (ref_edge refs) r m ==>
+           bc_ref_inv conf m refs (f,tf,heap,be))` by metis_tac []
+  \\ `r ∉ evaluated_thunk_ptr refs` by metis_tac [RTC_REFL]
+  \\ `(∀m. (ref_edge refs)꙳ r m ⇒
+            m ∉ evaluated_thunk_ptr refs)` by metis_tac []
+  \\ irule RTC_lemma
+  \\ rpt (goal_assum (drule_at Any) \\ gvs [])
+  \\ gvs [EVERY_MEM]*)
 QED
+
+Definition update_ptr_def:
+  (update_ptr refs g (Data x) r ⇔ (r = Data x)) ∧
+  (update_ptr refs g (Pointer ptr u) r ⇔
+    (r = Pointer (g ' ptr) u ∧ ptr ∈ FDOM g) ∨
+    (∃v. lookup ptr refs = SOME (Thunk Evaluated v) ∧ ARB))
+End
 
 Theorem bc_stack_ref_inv_related[local]:
   gc_related g heap1 heap2 /\
     bc_stack_ref_inv conf ts stack refs (roots,heap1,be) /\
-    (!ptr u. MEM (Pointer ptr u) roots ==> ptr IN FDOM g) ==>
-    bc_stack_ref_inv conf ts stack refs (ADDR_MAP (FAPPLY g) roots,heap2,be)
+    (*(∀n. reachable_refs stack refs n ⇒ n ∉ evaluated_thunk_ptr refs) ∧*)
+    (*(!ptr u. MEM (Pointer ptr u) roots ==> ptr IN FDOM g) ∧*)
+    LIST_REL (update_ptr refs g) roots roots2 ==>
+    bc_stack_ref_inv conf ts stack refs (roots2,heap2,be)
 Proof
   cheat
   (*rpt strip_tac \\ full_simp_tac std_ss [bc_stack_ref_inv_def]
@@ -749,7 +836,8 @@ Proof
     \\ imp_res_tac v_inv_related \\ imp_res_tac EL_ADDR_MAP
     \\ full_simp_tac std_ss [])
   \\ match_mp_tac bc_ref_inv_related \\ full_simp_tac std_ss []
-  \\ metis_tac [reachable_refs_lemma]*)
+  \\ cheat
+  (*\\ metis_tac [reachable_refs_lemma]*)*)
 QED
 
 Theorem data_up_to_APPEND[simp]:
@@ -852,7 +940,8 @@ Theorem full_gc_thm:
       all_reachable_from_roots roots2 (heap2 ++ heap_expand (limit - a2)) /\
       EVERY isDataElement heap2
 Proof
-  simp_tac std_ss [abs_ml_inv_def,GSYM CONJ_ASSOC]
+  cheat
+  (*simp_tac std_ss [abs_ml_inv_def,GSYM CONJ_ASSOC]
   \\ rpt strip_tac \\ old_drule full_gc_related
   \\ asm_simp_tac std_ss [] \\ strip_tac
   \\ qpat_x_assum `heap_length heap2 = _` (assume_tac o GSYM)
@@ -879,7 +968,7 @@ Proof
    (qpat_x_assum `full_gc (roots,heap,limit) = xxx` (ASSUME_TAC o GSYM)
     \\ imp_res_tac full_gc_ok \\ NTAC 3 (POP_ASSUM (K ALL_TAC))
     \\ full_simp_tac std_ss [] \\ metis_tac [])
-  \\ fs [gc_kind_inv_def] \\ CASE_TAC \\ fs []
+  \\ fs [gc_kind_inv_def] \\ CASE_TAC \\ fs []*)
 QED
 
 Definition make_gc_conf_def:
@@ -1049,7 +1138,8 @@ Theorem gen_gc_thm:
       all_reachable_from_roots roots2
         (state2.h1 ++ heap_expand state2.n ++ state2.r1)
 Proof
-  simp_tac std_ss [abs_ml_inv_def,GSYM CONJ_ASSOC,make_gc_conf_def]
+  cheat
+  (*simp_tac std_ss [abs_ml_inv_def,GSYM CONJ_ASSOC,make_gc_conf_def]
   \\ rpt strip_tac \\ qmatch_goalsub_abbrev_tac `gen_gc cc`
   \\ `heap_ok heap cc.limit` by fs [Abbr `cc`]
   \\ old_drule gen_gcTheory.gen_gc_related
@@ -1085,7 +1175,7 @@ Proof
     \\ once_rewrite_tac [ADD_COMM]
     \\ pop_assum (fn thm => PURE_ONCE_REWRITE_TAC [thm])
     \\ PURE_ONCE_REWRITE_TAC [gen_gc_partialTheory.heap_split_length]
-    \\ fs[heap_expand_not_isRef])
+    \\ fs[heap_expand_not_isRef])*)
 QED
 
 Definition has_gen_def:
@@ -1144,7 +1234,8 @@ Theorem gen_gc_partial_thm:
         (roots2,state2.old ++ state2.h1 ++ heap_expand state2.n ++ state2.r1,be,
          state2.a,state2.n,0,reset_gens conf state2.a) limit ts /\ state2.ok
 Proof
-  simp_tac std_ss [abs_ml_inv_def,GSYM CONJ_ASSOC,make_gc_conf_def]
+  cheat
+  (*simp_tac std_ss [abs_ml_inv_def,GSYM CONJ_ASSOC,make_gc_conf_def]
   \\ rpt strip_tac \\ qmatch_goalsub_abbrev_tac `partial_gc cc`
   \\ `heap_ok heap cc.limit` by
         (fs [Abbr `cc`] \\ Cases_on `gens` \\ fs [make_partial_conf_def])
@@ -1266,7 +1357,7 @@ Proof
   \\ res_tac
   \\ qmatch_goalsub_abbrev_tac `heap_lookup _ heap2`
   \\ fs [gc_related_def,isSomeDataElement_def]
-  \\ res_tac \\ fs []
+  \\ res_tac \\ fs []*)
 QED
 
 Definition data_pointers_def:

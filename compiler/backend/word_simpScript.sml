@@ -284,7 +284,7 @@ Definition const_fp_loop_def:
   (const_fp_loop (wordLang$If cmp lhs rhs p1 p2) cs =
     dtcase (lookup lhs cs, get_var_imm_cs rhs cs) of
       | (SOME clhs, SOME crhs) =>
-        (if word_cmp cmp clhs crhs then const_fp_loop p1 cs else const_fp_loop p2 cs)
+        (if asm$word_cmp cmp clhs crhs then const_fp_loop p1 cs else const_fp_loop p2 cs)
       | _ => (let (p1', p1cs) = const_fp_loop p1 cs in
               let (p2', p2cs) = const_fp_loop p2 cs in
                (wordLang$If cmp lhs rhs p1' p2', inter_eq p1cs p2cs))) /\

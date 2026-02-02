@@ -1856,6 +1856,7 @@ Proof
     \\ eval_tac \\ fs [wordSemTheory.get_var_imm_def,asmTheory.word_cmp_def,
          wordSemTheory.get_vars_def,wordSemTheory.get_var_def,lookup_insert]
     \\ rpt_drule0 memory_rel_Block_IMP \\ strip_tac \\ rveq \\ fs []
+    \\ simp [asmTheory.word_cmp_def]
     \\ fs [wordSemTheory.bad_dest_args_def,wordSemTheory.find_code_def,
            wordSemTheory.add_ret_loc_def,wordSemTheory.dec_clock_def,
            wordSemTheory.call_env_def]
@@ -1980,6 +1981,7 @@ Proof
     \\ eval_tac \\ fs [wordSemTheory.get_var_imm_def,asmTheory.word_cmp_def,
          wordSemTheory.get_vars_def,wordSemTheory.get_var_def,lookup_insert]
     \\ rpt_drule0 memory_rel_Block_IMP \\ strip_tac \\ rveq \\ fs []
+    \\ simp [asmTheory.word_cmp_def]
     \\ fs [wordSemTheory.bad_dest_args_def,wordSemTheory.find_code_def,
            wordSemTheory.add_ret_loc_def,wordSemTheory.dec_clock_def,
            wordSemTheory.call_env_def]

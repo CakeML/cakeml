@@ -29,7 +29,7 @@ val _ = numLib.temp_prefer_num();
 val get_labels_def = stackSemTheory.get_labels_def;
 val extract_labels_def = stackPropsTheory.extract_labels_def
 Type state[pp] = “:(α,β,γ)wordSem$state”
-Overload word_cmp[local] = “labSem$word_cmp”;
+Overload word_cmp[local] = “wordSem$word_cmp”;
 val _ = Parse.hide "B"
 
 val nn = ``(NONE:(num # 'a wordLang$prog # num # num) option)``
@@ -5492,13 +5492,6 @@ Proof
   EVERY_CASE_TAC>>fs[]
 QED
 
-Theorem word_cmp_Word_Word[local]:
-  word_cmp cmp (Word c) (Word c') = SOME (word_cmp cmp c c')
-Proof
-  Cases_on `cmp`
-  \\ rw [labSemTheory.word_cmp_def,asmTheory.word_cmp_def]
-QED
-
 Theorem ALL_DISTINCT_MEM_toAList_fromAList[local]:
   ALL_DISTINCT (MAP FST ls) ⇒
   (MEM x (toAList (fromAList ls)) ⇔
@@ -6723,8 +6716,8 @@ Proof
     strip_tac >>
     simp[Once stackSemTheory.evaluate_def,evaluate_wStackLoad_clock]>>
     simp[stackSemTheory.evaluate_def,evaluate_wStackLoad_clock] >>
-    simp[stackSemTheory.get_var_imm_def,word_cmp_Word_Word]>>
-    gvs[markerTheory.Abbrev_def,word_cmp_Word_Word,convs_def,wordLangTheory.max_var_def] >>
+    simp[stackSemTheory.get_var_imm_def]>>
+    gvs[markerTheory.Abbrev_def,convs_def,wordLangTheory.max_var_def] >>
     `!a b c. max3 a b c = MAX a (MAX b c)`
        by simp[max3_def,MAX_DEF] >>
     fs[]
@@ -6759,7 +6752,6 @@ Proof
     rw[]>>
     simp[Once stackSemTheory.evaluate_def,evaluate_wStackLoad_clock]>>
     simp[stackSemTheory.evaluate_def,evaluate_wStackLoad_clock,stackSemTheory.get_var_imm_def]>>
-    simp[word_cmp_Word_Word] >>
     gvs[markerTheory.Abbrev_def,convs_def,wordLangTheory.max_var_def] >>
     `!a b c. max3 a b c = MAX a (MAX b c)`
        by simp[max3_def,MAX_DEF] >>
@@ -6799,7 +6791,7 @@ Proof
     rw[]>>
     simp[Once stackSemTheory.evaluate_def,evaluate_wStackLoad_clock]>>
     simp[stackSemTheory.evaluate_def,evaluate_wStackLoad_clock]>>
-    simp[stackSemTheory.get_var_imm_def,word_cmp_Word_Word] >>
+    simp[stackSemTheory.get_var_imm_def] >>
     gvs[markerTheory.Abbrev_def,convs_def,wordLangTheory.max_var_def] >>
     `!a b c. max3 a b c = MAX a (MAX b c)`
        by simp[max3_def,MAX_DEF] >>

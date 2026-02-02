@@ -78,25 +78,40 @@ Proof
   \\ fs []
 QED
 
+Theorem memory_rel_Thunk_inlined_bits:
+  memory_rel c be ts refs sp st m dm ((RefPtr F p,(w:'a word_loc))::vars) ∧
+  ((∃l1 l2. w = Loc l1 l2) ∨ (∃w1. w = Word w1 ∧ ¬(w1 ' 0))) ∧
+  lookup p refs = SOME (Thunk ev z) ∧ good_dimindex (:α) ⇒
+  ev = Evaluated ∧
+  memory_rel c be ts refs sp st m dm ((z,w1)::vars)
+Proof
+  rw []
+  >- (drule_all memory_rel_Thunk_IMP \\ gvs [])
+  >- cheat
+  >- (drule_all memory_rel_Thunk_IMP \\ gvs [])
+  >- cheat
+QED
+
 Theorem memory_rel_Thunk_bits:
   memory_rel c be ts refs sp st m dm ((RefPtr bl p,Word (w:'a word))::vars) ∧
   lookup p refs = SOME (Thunk ev z) ∧ good_dimindex (:α) ∧
   get_real_addr c st w = SOME a ∧
-  (* m a = Word x iff we have a pointer *)
-  m a = Word x
-  (* TODO (ev = NotEvaluated) ⇔ 2nd bit pattern *)
-  ⇒
+  m a = Word x ∧
+  w ' 0 ⇒
+  (¬bl ∧ ev = Evaluated ∧ (0b111100w && x) ≠ n2w ((0 + 6) * 4) ∧
+   memory_rel c be ts refs sp st m dm ((z,Word w)::vars)) ∨
   (case ev of
-   | Evaluated => 0b111100w && x = n2w ((8 + 6) * 4)
-   | NotEvaluated => 0b111100w && x = n2w ((0 + 6) * 4))
+   | NotEvaluated => 0b111100w && x = n2w ((0 + 6) * 4)
+   | Evaluated =>
+    0b111100w && x = n2w ((8 + 6) * 4) ∧
+    (a + bytes_in_word) IN dm ∧
+    memory_rel c be ts refs sp st m dm ((z,m (a + bytes_in_word))::vars))
 Proof
-  cheat
-  (*strip_tac
-  \\ drule_all memory_rel_Thunk_IMP \\ fs []
-  \\ strip_tac
+  rw []
+  \\ drule_all memory_rel_Thunk_IMP \\ gvs [] \\ rw []
   \\ drule word_test_lemma1 \\ fs []
   \\ drule word_test_lemma2 \\ fs []
-  \\ Cases_on ‘ev’ \\ gs []*)
+  \\ Cases_on ‘ev’ \\ gs []
 QED
 
 Theorem memory_rel_Force:
@@ -258,7 +273,11 @@ Proof
     \\ Cases_on `x'` \\ gvs []
     \\ `IsThunk t' v = IsThunk t'' a` by (Cases_on `t''` \\ gvs []) \\ gvs []
     \\ qpat_x_assum `_ = IsThunk t' a` kall_tac
-    \\ drule_all state_rel_get_var_RefPtr \\ rw [] \\ gvs []
+    (*\\ drule_all state_rel_get_var_RefPtr \\ rw [] \\ gvs []*)
+
+    (* Cases on if it's a loc *)
+    (* then cases on w ' 0 *)
+
     \\ simp [wordSemTheory.get_var_imm_def, word_cmp_Test_1, word_bit_def,
              get_addr_0]
     \\ simp [Once list_Seq_def, wordSemTheory.evaluate_def]
@@ -266,7 +285,10 @@ Proof
     \\ pure_rewrite_tac [Once state_rel_thm] \\ rw []
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ drule_all memory_rel_get_var_IMP \\ rw [] \\ gvs []
+
+    (* Have to swap memory_rel_Thunk_bits and this *)
     \\ drule_all memory_rel_Force \\ rw [] \\ gvs []
+
     \\ `word_exp t (real_addr c (adjust_var src)) = SOME (Word x')`
       by metis_tac [get_real_addr_lemma] \\ gvs []
     \\ simp [Once list_Seq_def, wordSemTheory.evaluate_def]
