@@ -3,19 +3,29 @@
 
   Bit of an experiment, may move to ListProg if useful.
 *)
+
 Theory heap_sort_monadic
 Ancestors
   heap_sort_in_fun ml_translator ml_monad_translator
 Libs
-  preamble ml_monad_translator_interfaceLib
+  preamble ml_translatorLib ml_monad_translator_interfaceLib
 
+(* Part 1. Translator Setup. *)
+
+(* Set up translator to not check subtractions never underflow. *)
+val _ = ml_translatorLib.use_sub_check true;
 
 val _ = set_up_monadic_translator ();
+
+(* The type variable used as parameter to the state type. It seems very
+   important that this is used consistently. Strangely `'a` seems to work (for
+   the current code) though it created problems in a previous iteration. *)
+val tvar = ``: 'a``;
 
 (* Create the data type to handle the references *)
 Datatype:
   state_refs = <|
-                 heap_array : 'a list;
+                 heap_array : ( ^tvar ) list;
                 |>
 End
 
@@ -24,16 +34,18 @@ Datatype:
   state_exn = Fail string | Subscript
 End
 
-val state_type = ``:'el state_refs``;
+val state_type = ``: ( ^tvar ) state_refs``;
 
 val config = local_state_config |>
               with_state state_type |>
               with_exception ``:state_exn`` |>
               with_resizeable_arrays [
-                ("heap_array", ``[] : 'el list``, ``Subscript``, ``Subscript``)
+                ("heap_array", listSyntax.mk_list ([], tvar), ``Subscript``, ``Subscript``)
               ];
 
 val _ = start_translation config;
+
+(* Part 2. Define monadic variants of functions from heap_sort_in_fun theory. *)
 
 Definition heap_insert_larger_monadic_def:
   heap_insert_larger_monadic R sz i x = (if (i = 0n) \/ i * 2 > sz
@@ -270,6 +282,19 @@ Definition heap_pop_all_monadic_def:
     od)
 End
 
+Theorem heap_pop_all_monadic_if_def:
+  heap_pop_all_monadic R sz xs = (if sz = 0n
+    then return xs
+    else do
+      el <- heap_pop_monadic R (sz - 1);
+      heap_pop_all_monadic R (sz - 1) (el :: xs)
+    od
+  )
+Proof
+  Cases_on `sz`
+  \\ simp [heap_pop_all_monadic_def]
+QED
+
 Theorem heap_pop_all_monadic_eq:
   sz <= arr_sz ==>
   ?hp2. (heap_pop_all_monadic R sz xs (st_embed arr_sz hp) =
@@ -287,21 +312,34 @@ Proof
   \\ simp [heap_pop_monadic_eq]
 QED
 
-val run_state_monad_def = 
-  define_run ``: 'a state_refs`` [] "state_monad"
 
-Definition heap_sort_via_monad_def:
-  heap_sort_via_monad R xs = (case xs of
-    [] => []
-  | (x :: _) => (case run_state_monad (do
+(* Part 3. Translation into CakeML AST. *)
+
+val run_init_state_def = define_run state_type [] "init_state";
+
+Definition heap_sort_via_monad_aux1_def:
+  heap_sort_via_monad_aux1 R x xs =
+  (do
       sz <- return (LENGTH xs);
       R2 <- return (\x y. R y x);
       alloc_heap_array sz x;
       heap_add_all_monadic R2 0 xs;
       heap_pop_all_monadic R2 sz [];
-    od) (state_monad [])
-    of (M_success ys) => ys
-      | _ => []
+    od)
+End
+
+Definition heap_sort_via_monad_aux2_def:
+  heap_sort_via_monad_aux2 R x xs =
+  run_init_state (heap_sort_via_monad_aux1 R x xs)
+    (init_state [])
+End
+
+Definition heap_sort_via_monad_def:
+  heap_sort_via_monad R xs = (case xs of
+    [] => []
+  | (x :: _) => (case heap_sort_via_monad_aux2 R x xs of
+    M_success ys => ys
+  | _ => []
   ))
 End
 
@@ -315,32 +353,58 @@ Proof
 QED
 
 Theorem heap_sort_eq:
-  heap_sort R xs = heap_list_sort$heap_sort R xs
+  heap_sort_via_monad R xs = heap_sort R xs
 Proof
-  simp [heap_sort_def, heap_list_sortTheory.heap_sort_def]
+  simp [heap_sort_via_monad_def, heap_sort_def, heap_sort_via_monad_aux2_def,
+    run_init_state_def, heap_sort_via_monad_aux1_def]
   \\ Cases_on `xs` \\ simp []
-  \\ simp [run_state_monad_def, ml_monadBaseTheory.run_def]
+  \\ simp [ml_monadBaseTheory.run_def]
   \\ simp [ml_monadBaseTheory.exc_case_eq, pairTheory.FST_EQ_EQUIV]
   \\ simp [monad_simps, alloc_heap_array_eq]
   \\ simp [heap_add_all_monadic_eq, heap_pop_all_monadic_eq]
 QED
 
-(* Attempt translation of these functions. *)
-
-
-(* Works if the diverging "metis" call is interrupted ??? *)
+fun fix_state_type thm = let
+    val types_in_thm = thm |> concl |> all_atoms
+      |> HOLset.listItems |> map type_of
+      |> map (fn t => fst (strip_fun t) @ [snd (strip_fun t)])
+      |> List.concat
+    val state_matching_types = types_in_thm
+      |> filter (can (match_type state_type))
+      |> HOLset.fromList Type.compare |> HOLset.listItems
+    val substs = map (fn t => match_type t state_type) state_matching_types
+  in case substs of
+    [] => thm
+  | [s] => INST_TYPE s thm
+  | _ => failwith "fix_state_type: multiple!"
+  end
 
 val heap_insert_larger_v_thm = heap_insert_larger_monadic_def
-  |> m_translate;
-
-(* Works if arithmetic is tweaked to avoid "_ - 1" *)
+  |> fix_state_type |> m_translate;
 
 val heap_pop_v_thm = heap_pop_monadic_def
-  |> m_translate;
-
-(* Doesn't work, and other issues prevent definition another way. *)
+  |> fix_state_type |> m_translate;
 
 val heap_pop_all_v_thm = heap_pop_all_monadic_def
-  |> m_translate;
+  |> fix_state_type |> m_translate;
+
+val heap_insert_smaller_v_thm = heap_insert_smaller_monadic_def
+  |> fix_state_type |> m_translate;
+
+val heap_add_v_thm = heap_add_monadic_def
+  |> fix_state_type |> m_translate;
+
+val heap_add_all_v_thm = heap_add_all_monadic_def
+  |> fix_state_type |> m_translate;
+
+val length_v_thm = LENGTH |> translate;
+
+val heap_sort_via_monad_aux1_v_thm = heap_sort_via_monad_aux1_def
+  |> fix_state_type |> m_translate;
+
+val heap_sort_via_monad_aux2_v_thm = heap_sort_via_monad_aux2_def
+  |> fix_state_type |> m_translate_run;
+
+val heap_sort_via_monad_v_thm = heap_sort_via_monad_def |> translate;
 
 
