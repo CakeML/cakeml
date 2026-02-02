@@ -38,7 +38,7 @@ Datatype:
        next_ptr   : 'a word ;
        parent_ptr : 'a word ;
        child_ptr  : 'a word ;
-       (*rank       : num *) (*Calculate at the end recursively*) |>
+       rank       : num |>
 End
 
 (*-------------------------------------------------------------------*
@@ -70,6 +70,14 @@ Definition last_key_def:
   last_key i xs = next_key i (rev xs)
 End
 
+Definition rank_def:
+  (rank [] = 0:num) /\
+  (rank (FibTree _ _ ts::xs) = if (1 + rank ts) > (rank xs) then
+    1 + rank ts
+    else
+    rank xs)
+End
+
 (*
 Annotates a list of FibTrees. The function does two recursive calls for a list of fts = (t:ts).
 First, it calls itself for all cs where cs are the child trees of t.
@@ -79,21 +87,21 @@ p = parent
 s = first element of the list
 b = previous element
 *)
-Definition annotate_list_def:
-  (annotate_list p s b [] = []) /\
-  (annotate_list p s b ((FibTree k n ys)::xs) =
-    ((FibTree k (annotated_node n b (next_key s xs) p (child_key ys))
-        (annotate_list k (next_key 0w ys) (last_key 0w ys) ys))
-    ::(annotate_list p s k xs)))
+Definition annotate_fts_def:
+  (annotate_fts p s b [] = []) /\
+  (annotate_fts p s b ((FibTree k n ys)::xs) =
+    ((FibTree k (annotated_node n b (next_key s xs) p (child_key ys) (rank ys))
+        (annotate_fts k (next_key 0w ys) (last_key 0w ys) ys))
+    ::(annotate_fts p s k xs)))
 End
 
 (*
 Annotates a single tree that is not part of any list and does not have a parent.
 *)
-Definition annotate_def:
-  annotate (FibTree k n xs) =
-    FibTree k (annotated_node n 0w 0w 0w (next_key 0w xs))
-        (annotate_list k (next_key 0w xs) (last_key (next_key 0w xs) xs) xs)
+Definition annotate_ft_def:
+  annotate_ft (FibTree k n xs) =
+    FibTree k (annotated_node n 0w 0w 0w (next_key 0w xs) (rank xs))
+        (annotate_fts k (next_key 0w xs) (last_key (next_key 0w xs) xs) xs)
 End
 
 (*-------------------------------------------------------------------*
@@ -163,7 +171,8 @@ Definition ft_seg_def:
             n.before_ptr;
             n.next_ptr;
             n.parent_ptr;
-            n.child_ptr]) * (edges_ones n.data.edges)
+            n.child_ptr;
+            n2w n.rank]) * (edges_ones n.data.edges)
 End
 
 Definition fts_mem_def:
@@ -172,7 +181,7 @@ Definition fts_mem_def:
     (ft_seg $ FibTree k n ts) * (fts_mem ts) * (fts_mem xs))
 End
 
-val test = “fts_mem (annotate_list 0w 10w 50w [
+val test_fts_mem = “fts_mem (annotate_fts 0w 10w 50w [
     FibTree 10w (
     node_data 10w (1000w, 1, (Fields <|edge := 50w; value := 10; next := End|>)) true false) [];
     FibTree 50w (
@@ -181,7 +190,7 @@ val test = “fts_mem (annotate_list 0w 10w 50w [
         (node_data 100w (3000w, 0, End) true false) []
     ]
     ])”
-    |> SCONV [fts_mem_def,STAR_ASSOC,annotate_list_def,next_key_def,child_key_def,last_key_def,rev_list_def,ft_seg_def,ones_def,edges_ones_def]
+    |> SCONV [fts_mem_def,STAR_ASSOC,annotate_fts_def,next_key_def,child_key_def,last_key_def,rev_list_def,ft_seg_def,ones_def,edges_ones_def,rank_def]
 
 val test =
     “ones 400w [x;y;z;e;r;t;y;u:word64]”
