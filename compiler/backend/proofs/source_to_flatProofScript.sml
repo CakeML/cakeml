@@ -728,8 +728,7 @@ Inductive s_rel:
     ~ NULL s'.refs ∧
     LIST_REL (sv_rel genv) s.refs (TL s'.refs) ∧
     s.clock = s'.clock ∧
-    s.ffi = s'.ffi ∧
-    s'.c = FDOM genv.c
+    s.ffi = s'.ffi
     ⇒
     s_rel genv s s')
 End
@@ -1791,7 +1790,7 @@ Theorem genv_c_ok_pmatch_stamps_ok:
   (!ty_id ctors. ty_gp = SOME (ty_id, ctors) ==>
     FLOOKUP genv.tys ty_id = SOME ctors)
   ==>
-  pmatch_stamps_ok t.c (SOME (flat_cn, ty_gp)) (SOME flat_stamp') l l'
+  pmatch_stamps_ok (SOME (flat_cn, ty_gp)) (SOME flat_stamp') l l'
 Proof
   rw [genv_c_ok_def]
   \\ `ctor_same_type (SOME src_stamp) (SOME src_stamp')`
@@ -3544,9 +3543,7 @@ Theorem alloc_tags_invariant:
   genv.tys ⊑ genv'.tys ∧
   genv'.v = genv.v ∧
   invariant interp g gen genv' (idx with tidx := idx.tidx + 1, end_idx, os)
-    (st with next_type_stamp := st.next_type_stamp + 1)
-    (st' with c updated_by $UNION {((idx',SOME idx.tidx),arity) |
-                       (∃max. lookup arity cids = SOME max ∧ idx' < max)}) ∧
+    (st with next_type_stamp := st.next_type_stamp + 1) st' ∧
   (let build_env = <| c := alist_to_ns
         (REVERSE (build_constrs st.next_type_stamp ctors)); v := nsEmpty |> in
    global_env_inv genv' <| c := ns; v := nsEmpty |> {} build_env ∧
@@ -3618,10 +3615,6 @@ Proof
   >- (
     drule_then irule LIST_REL_sv_rel_weak
     \\ simp [subglobals_refl, SUBMAP_FUNION_ID]
-  )
-  >- (
-    fs [EXTENSION, FORALL_PROD, MEM_MAP, EXISTS_PROD]
-    \\ metis_tac []
   )
   >- (
     fs [idx_range_rel_def, genv_allocated_idxs_def]
@@ -3711,12 +3704,12 @@ Proof
 QED
 
 val extend_env_v_empty =
-``extend_env <| c := c; v := nsEmpty |> <| c := c'; v := nsEmpty |>``
-  |> SIMP_CONV (srw_ss ()) [extend_env_def]
+  ``extend_env <| c := c; v := nsEmpty |> <| c := c'; v := nsEmpty |>``
+  |> SIMP_CONV (srw_ss ()) [extend_env_def];
 
 val extend_dec_env_v_empty =
-``extend_dec_env <| c := c; v := nsEmpty |> <| c := c'; v := nsEmpty |>``
-  |> SIMP_CONV (srw_ss ()) [extend_dec_env_def]
+  ``extend_dec_env <| c := c; v := nsEmpty |> <| c := c'; v := nsEmpty |>``
+  |> SIMP_CONV (srw_ss ()) [extend_dec_env_def];
 
 Theorem nsLookup_nsBind_If:
   nsLookup (nsBind n v e) nm = (if nm = Short n then SOME v else nsLookup e nm)
@@ -3963,12 +3956,6 @@ Proof
   \\ first_x_assum drule
   \\ rw [EXISTS_PROD]
   \\ simp [type_group_id_type_MAP, evaluate_def]
-  \\ DEP_REWRITE_TAC [flat_patternProofTheory.COND_true]
-  \\ conj_tac >-
-  (
-    fs [invariant_def, s_rel_cases, FDOM_FLOOKUP, compile_exps_length]
-    \\ rfs []
-  )
   \\ imp_res_tac result_rel_imp \\ fs [] \\ rveq \\ fs [result_rel_eqns]
   \\ fs [option_case_eq, pair_case_eq] \\ rveq \\ fs []
   \\ goal_assum (qsubterm_then `s_rel _ _ _` mp_tac)
@@ -4971,17 +4958,7 @@ Proof
     fs [check_dup_ctors_thm] >>
     fs [idx_prev_def]
   ) >>
-  reverse (rw [])
-  >- (
-    fs [is_fresh_type_def, invariant_def] >>
-    rw [] >>
-    rfs [s_rel_cases, idx_range_rel_def, genv_allocated_idxs_def] >>
-    qspecl_then [`(i,Idx_Type)`, `0`] drule ALL_DISJOINT_elem >>
-    simp [idx_block_def] >>
-    disch_then (qspec_then `idx.tidx` assume_tac) >>
-    rfs [idx_prev_def] >>
-    fs []
-  ) >>
+  rw [] >>
   drule_then drule global_env_inv_weak >>
   rw [subglobals_refl] >>
   first_x_assum (drule_then drule) >>
@@ -4989,7 +4966,8 @@ Proof
   fs [ADD1] >>
   rw [] >>
   simp [o_DEF, ADD1] >>
-  goal_assum (first_assum o mp_then (Pat `invariant`) mp_tac) >>
+  qexists_tac ‘genv''’ >>
+  (* goal_assum (first_assum o mp_then (Pat `invariant`) mp_tac) >> *)
   simp [build_tdefs_def, Once nsAppend_foldl] >>
   simp [GSYM extend_dec_env_v_empty, GSYM extend_env_v_empty] >>
   rw [] >> simp []
@@ -5133,18 +5111,7 @@ Theorem compile_correct_Dexn[local]:
   ^(#get_goal compile_correct_setup `Case [Dexn _ _ _]`)
 Proof
   reverse (rw [evaluate_def]) >>
-  fs [v_rel_eqns, invariant_def, s_rel_cases, is_fresh_exn_def]
-  >- (
-    rfs [] >>
-    rveq >> fs [] >>
-    fs [idx_range_rel_def, ALL_DISJOINT_DEF, genv_allocated_idxs_def] >>
-    first_x_assum (qspecl_then [`0`, `3`] mp_tac) >>
-    simp [EXTENSION] >>
-    qexists_tac `(idx.eidx, Idx_Exn)` >>
-    fs [idx_block_def, idx_prev_def] >>
-    asm_exists_tac >>
-    simp []
-  ) >>
+  fs [v_rel_eqns, invariant_def, s_rel_cases] >>
   qexists_tac `genv with c := FUNION genv.c
       (FEMPTY |+ (((idx.eidx,NONE),LENGTH ts), ExnStamp s.next_exn_stamp))` >>
   rfs [SUBMAP_FUNION_ID, subglobals_refl, env_domain_eq_def, UNION_COMM] >>
@@ -5185,12 +5152,22 @@ Proof
     \\ simp [subglobals_refl, SUBMAP_FUNION_ID]
   )
   >- (
-    rw [v_rel_global_eqn]
+    gvs [v_rel_global_eqn]
     \\ simp [FLOOKUP_FUNION, option_case_eq, FLOOKUP_UPDATE]
     \\ CCONTR_TAC
     \\ fs [GSYM quantHeuristicsTheory.IS_SOME_EQ_NOT_NONE, IS_SOME_EXISTS]
     \\ rfs [FDOM_FLOOKUP]
-    \\ res_tac \\ fs []
+    \\ res_tac >>
+    rfs [] >>
+    rveq >> fs [] >>
+    fs [idx_range_rel_def, ALL_DISJOINT_DEF, genv_allocated_idxs_def] >>
+    first_x_assum (qspecl_then [`0`, `3`] mp_tac) >>
+    simp [EXTENSION] >>
+    qexists_tac `(idx.eidx, Idx_Exn)` >>
+    fs [idx_block_def, idx_prev_def] >>
+    fs [FLOOKUP_DEF] >>
+    asm_exists_tac >>
+    simp []
   )
 QED
 
@@ -5334,12 +5311,6 @@ Proof
   EVAL_TAC \\ rw []
 QED
 
-Theorem init_genv_FDOM:
-  FDOM init_genv.c = initial_ctors
-Proof
-  EVAL_TAC
-QED
-
 Definition init_genv_next:
   init_genv_next = <|
     vidx := 0;
@@ -5449,7 +5420,7 @@ Proof
   \\ imp_res_tac compile_decs_idx_prev
   \\ rw []
   >- (
-    fs [s_rel_cases, initial_state_def, init_genv_FDOM]
+    fs [s_rel_cases, initial_state_def]
   )
   >- (
     fs [idx_range_rel_def]
@@ -5904,9 +5875,6 @@ Proof
   \\ rw[compile_exp_esgc_free, EVAL ``COUNT_LIST 0``]
   \\ fs [FILTER_APPEND, Q.ISPEC `num_bindings` ETA_THM]
   \\ simp [op_gbag_def, env_id_tuple_def, EVAL ``COUNT_LIST 1``]
-  >- (
-    simp [miscTheory.MAPi_enumerate_MAP, FILTER_MAP, o_DEF, ELIM_UNCURRY]
-  )
   >- (
     simp [flatPropsTheory.elist_globals_append, FILTER_APPEND]
     \\ drule compile_decs_esgc_free

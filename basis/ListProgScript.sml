@@ -306,12 +306,6 @@ QED
 val _ = next_ml_names := ["split"];
 val result = translate SPLITP_alt
 
-val front_side_def = Q.prove(
-  `!xs. front_side xs = ~(xs = [])`,
-  Induct THEN ONCE_REWRITE_TAC [fetch "-" "front_side_def"]
-  THEN FULL_SIMP_TAC (srw_ss()) [CONTAINER_def])
-  |> update_precondition;
-
 val last_side_def = Q.prove(
   `!xs. last_side xs = ~(xs = [])`,
   Induct THEN ONCE_REWRITE_TAC [fetch "-" "last_side_def"]
