@@ -61,10 +61,12 @@ Termination
   cheat
 End
 
-(* Assumes that the function can and should be optimised - has been checked by rewrite_aux_def *)
+(* Assumes that the function can and should be optimised - has been checked by rewrite_aux_def. Also assumes De Bruijn indices have been shifted. *)
 Definition rewrite_opt_def:
-  (rewrite_opt ts loc loc_opt arity (Var n) = Var (n + 1)) ∧
-  (rewrite_opt ts loc loc_opt arity (If xi xt xe) = Var 0 (* TODO *)) ∧
+  (rewrite_opt ts loc loc_opt arity (If xi xt xe) =
+    let yt = rewrite_opt ts loc loc_opt arity xt in
+    let ye = rewrite_opt ts loc loc_opt arity xe in
+    If xi yt ye) ∧
   (rewrite_opt ts loc loc_opt arity (Let xs x) = Let xs $ rewrite_opt ts loc loc_opt arity x) ∧
   (rewrite_opt ts loc loc_opt arity (Raise x) = Raise x) ∧
   (rewrite_opt ts loc loc_opt arity (Op (BlockOp (Cons block_tag)) op_args) =
@@ -75,9 +77,7 @@ Definition rewrite_opt_def:
         let assign_exp = alloc_var in (* heap[k] = p *) (* assign(Var 0, alloc_var) *)
         bvi$Let [alloc_exp; assign_exp] $ Call t (SOME loc_opt) args h (* TODO: append HOLE pointer to args *)
     | _ => Op (BlockOp (Cons block_tag)) op_args) ∧
-  (rewrite_opt ts loc loc_opt arity expr = (* Fill hole *)
-    (* TODO. Considerations - recursive rewrite? need to inc vars, but does it make sense to further apply optimization? Maybe inc should be separate *)
-    expr)
+  (rewrite_opt ts loc loc_opt arity expr = (* TODO: Fill hole *) expr)
 Termination
   cheat
 End
