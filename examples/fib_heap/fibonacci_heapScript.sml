@@ -84,6 +84,7 @@ Definition annotate_fts_def:
 End
 
 (*
+Currently, unused definition.
 Annotates a single tree that is not part of any list and does not have a parent.
 *)
 Definition annotate_ft_def:
@@ -95,39 +96,6 @@ End
 (*-------------------------------------------------------------------*
    Heap Mappings (Separation Logic)
  *-------------------------------------------------------------------*)
-
-
-Definition value_def:
-  value = 0w
-End
-
-Definition edges_def:
-  edges = 1w * bytes_in_word
-End
-
-Definition flag_def:
-  flag = 2w * bytes_in_word
-End
-
-Definition rank_mark_def:
-  rm = 3w * bytes_in_word
-End
-
-Definition previous_def:
-  previous = 4w * bytes_in_word
-End
-
-Definition next_def:
-  next = 5w * bytes_in_word
-End
-
-Definition parent_def:
-  parent = 6w * bytes_in_word
-End
-
-Definition child_def:
-  child = 7w * bytes_in_word
-End
 
 Definition ones_def:
   ones a [] = emp ∧
@@ -242,26 +210,6 @@ End
 *)
 
 
-
-
-
-
 (*-------------------------------------------------------------------*
    Correctness of Heap Operations
  *-------------------------------------------------------------------*)
-
-
-
-(*
-Definition fts_in_mem_def:
-  fts_in_mem [] = emp ∧
-  fts_in_mem (((FibTree k v ts) : ('a word, 'a annotated_node_data) ft) :: rest) =
-    ones k [v.data.value;
-            v.data.edges;
-            b2w v.data.flag;
-            n2w v.rank] *
-    fts_in_mem ts *
-    fts_in_mem rest
-End
-*)
-
