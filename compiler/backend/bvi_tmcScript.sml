@@ -65,15 +65,14 @@ Definition rewrite_opt_def:
   (rewrite_opt ts loc loc_opt arity (If xi xt xe) = Var 0 (* TODO *)) ∧
   (rewrite_opt ts loc loc_opt arity (Let xs x) = Let xs $ rewrite_opt ts loc loc_opt arity x) ∧
   (rewrite_opt ts loc loc_opt arity (Raise x) = Raise x) ∧
-  (rewrite_opt ts loc loc_opt arity (Op (BlockOp (Cons block_tag)) (Call t (SOME loc_rec) args h::op_args)) = (* TODO: tail call might not be first *)
-    let opt = () op_args
-    if ~(loc_rec=loc) then
-      Var 0 (* TODO *)
-    else
-      let alloc_var  = Var arity in
-      let alloc_exp  = Var 0 in (*alloc(x, HOLE);*) (* TODO: properly filter out tail call from op_args, and apply alloc to all *)
-      let assign_exp = alloc_var in (* heap[k] = p *) (* assign(Var 0, alloc_var) *)
-      bvi$Let [alloc_exp; assign_exp] $ Call t (SOME loc_opt) args h (* TODO: append HOLE pointer to args *)) ∧
+  (rewrite_opt ts loc loc_opt arity (Op (BlockOp (Cons block_tag)) op_args) =
+    case extract_tail_call loc op_args of
+      SOME (SOME (l, tail_call), r) =>
+        let alloc_var = Var arity in
+        let alloc_exp  = Var 0 in (*alloc(x, HOLE);*) (* TODO: properly filter out tail call from op_args, and apply alloc to all *)
+        let assign_exp = alloc_var in (* heap[k] = p *) (* assign(Var 0, alloc_var) *)
+        bvi$Let [alloc_exp; assign_exp] tail_call (* TODO: append HOLE pointer to args *)
+    | _ => Op (BlockOp (Cons block_tag)) op_args) ∧
   (rewrite_opt ts loc loc_opt arity expr = (* Fill hole *)
     (* TODO. Considerations - recursive rewrite? need to inc vars, but does it make sense to further apply optimization? Maybe inc should be separate *)
     expr)
