@@ -26,7 +26,7 @@ Definition rewrite_aux_def:
   (rewrite_aux ts loc loc_opt arity (Force _ n) = NONE) ∧
   (rewrite_aux ts loc loc_opt arity (Call t d args h) = NONE) ∧
   (rewrite_aux ts loc loc_opt arity (Op (BlockOp (Cons block_tag)) (Call t (SOME loc_rec) args h::op_args)) = (* TODO: tail call might not be first *)
-   if loc_rec=loc then NONE else (* TODO: figure out ~ *)
+   if ~(loc_rec=loc) then NONE else
      let alloc_var = Var arity in
      let alloc_exps = (* alloc(... *) op_args in (*alloc(x, HOLE);*) (* TODO: properly filter out tail call from op_args, and apply alloc to all *)
      let tail_exp  = Call t (SOME loc_opt) args h in (*; append’ (p + 1) xs ys*) (* TODO: append HOLE pointer to args *)
@@ -36,6 +36,29 @@ Termination
   cheat
 End
 
+Definition extract_tail_call_def:
+  (extract_tail_call loc [] = SOME (NONE, [])) ∧
+  (extract_tail_call loc ((Call t (SOME loc') args h)::op_args) =
+    let call = Call t (SOME loc') args h in
+    let rest = extract_tail_call loc op_args in
+    if loc=loc' then
+      (* found the recursive call *)
+      case rest of
+        SOME (NONE, r) => SOME (SOME ([], call), r)
+      | _ => NONE
+    else
+      (* found a different call *)
+      case rest of
+        SOME (SOME (l, rec), r) => SOME (SOME (call::l, rec), r)
+      | SOME (NONE, r) => SOME (NONE, call::r)
+      | NONE => NONE) ∧
+  (extract_tail_call loc (op_arg::op_args) =
+    case extract_tail_call loc op_args of
+      SOME (SOME (l, rec), r) => SOME (SOME (op_arg::l, rec), r)
+    | SOME (NONE, r) => SOME (NONE, op_arg::r)
+    | NONE => NONE)
+End
+
 (* Assumes that the function can and should be optimised - has been checked by rewrite_aux_def *)
 Definition rewrite_opt_def:
   (rewrite_opt ts loc loc_opt arity (Var n) = Var (n + 1)) ∧
@@ -43,9 +66,10 @@ Definition rewrite_opt_def:
   (rewrite_opt ts loc loc_opt arity (Let xs x) = Let xs $ rewrite_opt ts loc loc_opt arity x) ∧
   (rewrite_opt ts loc loc_opt arity (Raise x) = Raise x) ∧
   (rewrite_opt ts loc loc_opt arity (Op (BlockOp (Cons block_tag)) (Call t (SOME loc_rec) args h::op_args)) = (* TODO: tail call might not be first *)
-    if loc_rec=loc then
+    let opt = () op_args
+    if ~(loc_rec=loc) then
       Var 0 (* TODO *)
-    else (* TODO: figure out ~ *)
+    else
       let alloc_var  = Var arity in
       let alloc_exp  = Var 0 in (*alloc(x, HOLE);*) (* TODO: properly filter out tail call from op_args, and apply alloc to all *)
       let assign_exp = alloc_var in (* heap[k] = p *) (* assign(Var 0, alloc_var) *)
