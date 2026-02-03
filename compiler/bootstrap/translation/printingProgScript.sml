@@ -70,7 +70,7 @@ val r = translate
 
 val r = translate addPrintValsTheory.print_of_val_opts_def;
 
-val r = translate (DefnBase.one_line_ify NONE addPrintValsTheory.nsContents_def);
+val r = translate (oneline addPrintValsTheory.nsContents_def);
 
 val r = translate
   (printTweaksTheory.add_print_features_def
