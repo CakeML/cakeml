@@ -75,12 +75,19 @@ p = parent
 s = first element of the list
 b = previous element
 *)
-Definition annotate_fts_def:
-  (annotate_fts p s b [] = []) /\
-  (annotate_fts p s b ((FibTree k n ys)::xs) =
+Definition annotate_fts_seg_def:
+  (annotate_fts_seg p s b [] = []) /\
+  (annotate_fts_seg p s b ((FibTree k n ys)::xs) =
     ((FibTree k (annotated_node n b (next_key s xs) p (child_key ys) (rank ys))
-        (annotate_fts k (next_key 0w ys) (last_key 0w ys) ys))
-    ::(annotate_fts p s k xs)))
+        (annotate_fts_seg k (next_key 0w ys) (last_key 0w ys) ys))
+    ::(annotate_fts_seg p s k xs)))
+End
+
+
+Definition annotate_fts_def:
+  (annotate_fts ([]:('a word, 'a node_data) fts) = []) /\
+  (annotate_fts (FibTree k n ts::xs) =
+    annotate_fts_seg 0w k (last_key k xs) (FibTree k n ts::xs))
 End
 
 (*
@@ -90,7 +97,7 @@ Annotates a single tree that is not part of any list and does not have a parent.
 Definition annotate_ft_def:
   annotate_ft (FibTree k n xs) =
     FibTree k (annotated_node n 0w 0w 0w (next_key 0w xs) (rank xs))
-        (annotate_fts k (next_key 0w xs) (last_key (next_key 0w xs) xs) xs)
+        (annotate_fts_seg k (next_key 0w xs) (last_key (next_key 0w xs) xs) xs)
 End
 
 (*-------------------------------------------------------------------*
@@ -136,7 +143,7 @@ End
    Memory Tests
  *-------------------------------------------------------------------*)
 
-val test_fts_mem = “fts_mem (annotate_fts 0w 10w 50w [
+val test_fts_mem = “fts_mem (annotate_fts [
     FibTree 10w (
     node_data 10w (1000w, [(50w,10)]) true false) [];
     FibTree 50w (
@@ -145,7 +152,7 @@ val test_fts_mem = “fts_mem (annotate_fts 0w 10w 50w [
         (node_data 100w (3000w, []) true false) []
     ]
     ])”
-    |> SCONV [fts_mem_def,STAR_ASSOC,annotate_fts_def,next_key_def,child_key_def,last_key_def,REVERSE_DEF,ft_seg_def,ones_def,edges_ones_def,rank_def]
+    |> SCONV [fts_mem_def,STAR_ASSOC,annotate_fts_def,annotate_fts_seg_def,next_key_def,child_key_def,last_key_def,REVERSE_DEF,ft_seg_def,ones_def,edges_ones_def,rank_def,b2w_def]
 
 val test =
     “ones 400w [x;y;z;e;r;t;y;u:word64]”
