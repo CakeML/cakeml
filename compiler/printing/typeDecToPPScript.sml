@@ -80,8 +80,16 @@ Definition mk_pp_type_def:
   mk_pp_type fixes (funs : type_def) = Dletrec unknown_loc (MAP (mk_pps_for_type fixes) funs)
 End
 
+Definition mk_pp_tabbrev_def:
+  mk_pp_tabbrev fixes tvars nm ast_t =
+  let body = FOLDR (\nm exp. Fun (pppre nm) exp) (pp_of_ast_t fixes ast_t) tvars in
+    (* eta-expansion to avoid value restriction violations *)
+    Dlet unknown_loc (Pvar (pppre nm)) (Fun «x» (App Opapp [body; Var (Short «x»)]))
+End
+
 Definition pps_for_dec_def:
   pps_for_dec fixes (Dtype locs type_def) = [mk_pp_type fixes type_def] /\
+  pps_for_dec fixes (Dtabbrev locs tvars nm ast_t) = [mk_pp_tabbrev fixes tvars nm ast_t] /\
   pps_for_dec _ dec = []
 End
 
