@@ -18,15 +18,8 @@ End
 Type fts = “:('k,'v) ft list”;
 
 Datatype:
-  array = End | Fields field;
-  field = <| edge : 'a word;
-             value: num;
-             next: array; |>
-End
-
-Datatype:
   node_data = <| value : 'a word ;
-                 edges : ('a word # num # 'a array);
+                 edges : ('a word # ('a word # num) list);
                  flag  : bool ;
                  mark  : bool |>
 End
@@ -51,11 +44,6 @@ Definition annotate_def:  (* TODO: needs helper functions *)
             (FibTree k ARB ARB) : ('a word, 'a annotated_node_data) ft
 End
 *)
-Definition rev_list_def:
-  (rev [] = []) /\
-  (rev (x::xs) = ((rev xs) ++ [x]))
-End
-
 Definition child_key_def:
   (child_key [] = 0w) /\
   (child_key ((FibTree k _ _)::xs) = k)
@@ -67,7 +55,7 @@ Definition next_key_def:
 End
 
 Definition last_key_def:
-  last_key i xs = next_key i (rev xs)
+  last_key i xs = next_key i (REVERSE xs)
 End
 
 Definition rank_def:
@@ -151,15 +139,10 @@ Definition b2w_def:
   b2w b = if b then 1w else 0w : 'a word
 End
 
-Definition array_ones_def:
-  (array_ones off 0 End = emp) /\
-  (array_ones off (SUC n) (Fields f) =
-    (ones off [f.edge; (n2w f.value)]) * (array_ones (off + 2w * bytes_in_word) n f.next))
-End
-
 Definition edges_ones_def:
-  edges_ones ((ptr, n, arr): ('a word # num # 'a array)) =
-        one(ptr, n2w n) * (array_ones (ptr + bytes_in_word) n arr)
+  (edges_ones off [] = one(off,0w)) /\
+  (edges_ones off ((ptr,value)::xs) =
+    one(off,ptr) * one(off + bytes_in_word,n2w value) * (edges_ones (off + 2w * bytes_in_word) xs))
 End
 
 Definition ft_seg_def:
@@ -172,7 +155,7 @@ Definition ft_seg_def:
             n.next_ptr;
             n.parent_ptr;
             n.child_ptr;
-            n2w n.rank]) * (edges_ones n.data.edges)
+            n2w n.rank]) *  (edges_ones (FST n.data.edges) (SND n.data.edges))
 End
 
 Definition fts_mem_def:
@@ -181,20 +164,92 @@ Definition fts_mem_def:
     (ft_seg $ FibTree k n ts) * (fts_mem ts) * (fts_mem xs))
 End
 
+(*-------------------------------------------------------------------*
+   Memory Tests
+ *-------------------------------------------------------------------*)
+
 val test_fts_mem = “fts_mem (annotate_fts 0w 10w 50w [
     FibTree 10w (
-    node_data 10w (1000w, 1, (Fields <|edge := 50w; value := 10; next := End|>)) true false) [];
+    node_data 10w (1000w, [(50w,10)]) true false) [];
     FibTree 50w (
-    node_data 50w (2000w, 1, (Fields <|edge := 10w; value := 50; next := End|>)) true false) [
+    node_data 50w (2000w, [(10w,50)]) true false) [
         FibTree 100w
-        (node_data 100w (3000w, 0, End) true false) []
+        (node_data 100w (3000w, []) true false) []
     ]
     ])”
-    |> SCONV [fts_mem_def,STAR_ASSOC,annotate_fts_def,next_key_def,child_key_def,last_key_def,rev_list_def,ft_seg_def,ones_def,edges_ones_def,rank_def]
+    |> SCONV [fts_mem_def,STAR_ASSOC,annotate_fts_def,next_key_def,child_key_def,last_key_def,REVERSE_DEF,ft_seg_def,ones_def,edges_ones_def,rank_def]
 
 val test =
     “ones 400w [x;y;z;e;r;t;y;u:word64]”
     |> SCONV [ones_def,STAR_ASSOC,byteTheory.bytes_in_word_def];
+
+
+(*-------------------------------------------------------------------*
+   Example Operation: Insert Element
+ *-------------------------------------------------------------------*)
+
+Definition head_def:
+  (head s [] = s) /\
+  (head s xs = HD xs)
+End
+
+(* Updates a node k with new siblings where
+    b = node before k
+    n = next node
+ *)
+Definition upd_sib_def:
+  upd_sib b n (FibTree k a ts) = FibTree k (annotated_node a.data b n a.parent_ptr a.child_ptr a.rank) ts
+End
+
+(* Inserts a ft new_k between k1 and k2.*)
+Definition dll_insert_def:
+  dll_insert (FibTree k1 n1 ts1)
+             (FibTree new_k new_n new_ts)
+             (FibTree k2 n2 ts2)  = (
+    upd_sib n1.before_ptr new_k (FibTree k1 n1 ts1), (*next = new*)
+    upd_sib k1 k2 (FibTree new_k new_n new_ts), (*insert new*)
+    upd_sib new_k n2.next_ptr (FibTree k2 n2 ts2)) (*before = new*)
+End
+
+Definition new_min_def:
+  new_min (t1, new, t2) tl = [new;t1] ++ tl ++ [t2]
+End
+
+Definition old_min_def:
+  old_min (FibTree k1 n1 t1, new, FibTree k2 n2 t2) tl =
+    if k1 = k2 then
+        [FibTree k1 n1 t1;new]
+    else
+        [FibTree k1 n1 t1;new; FibTree k2 n2 t2] ++ tl
+End
+
+(*
+Some type error
+Definition insert_tree_def:
+  (meld (new_t:('a word, 'a annotated_node) ft) ([]:('a word, 'a annotated_node) fts) = [new_t]) /\
+  (meld (FibTree new_k new_n new_ts) (FibTree k n ts::xs) =
+    if new_n.value < n.value then
+        new_min (dll_insert (LAST (FibTree k n ts::xs))
+                            (FibTree new_k new_n new_ts)
+                            (FibTree k n ts))
+                (REVERSE (TL (REVERSE xs)))
+    else
+        old_min (dll_insert (FibTree k n ts)
+                            (FibTree new_k new_n new_ts)
+                            (head (FibTree k n ts) xs))
+                (TL xs))
+End
+*)
+
+
+
+
+
+
+(*-------------------------------------------------------------------*
+   Correctness of Heap Operations
+ *-------------------------------------------------------------------*)
+
 
 
 (*
