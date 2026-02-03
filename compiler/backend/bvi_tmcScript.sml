@@ -7,35 +7,6 @@ Ancestors
 Libs
   preamble
 
-Definition rewrite_aux_def:
-  (rewrite_aux ts loc loc_opt arity (Var n) = NONE) ∧
-  (rewrite_aux ts loc loc_opt arity (If xi xt xe) =
-    let yt = case rewrite_aux ts loc loc_opt arity xt of
-      NONE => xt
-    | SOME yt => yt in                
-    let ye = case rewrite_aux ts loc loc_opt arity xe of
-      NONE => xe
-    | SOME ye => ye in
-    SOME $ If xi yt ye) ∧ (* TODO: if both are none this should be NONE *)
-  (rewrite_aux ts loc loc_opt arity (Let xs x) =
-    case rewrite_aux ts loc loc_opt arity x of
-      NONE => NONE
-    | SOME y => SOME $ Let xs y) ∧
-  (rewrite_aux ts loc loc_opt arity (Raise x) = NONE) ∧
-  (rewrite_aux ts loc loc_opt arity (Tick x) = rewrite_aux ts loc loc_opt arity x) ∧ (* TODO: wrap in Tick *)
-  (rewrite_aux ts loc loc_opt arity (Force _ n) = NONE) ∧
-  (rewrite_aux ts loc loc_opt arity (Call t d args h) = NONE) ∧
-  (rewrite_aux ts loc loc_opt arity (Op (BlockOp (Cons block_tag)) (Call t (SOME loc_rec) args h::op_args)) = (* TODO: tail call might not be first *)
-   if ~(loc_rec=loc) then NONE else
-     let alloc_var = Var arity in
-     let alloc_exps = (* alloc(... *) op_args in (*alloc(x, HOLE);*) (* TODO: properly filter out tail call from op_args, and apply alloc to all *)
-     let tail_exp  = Call t (SOME loc_opt) args h in (*; append’ (p + 1) xs ys*) (* TODO: append HOLE pointer to args *)
-     SOME $ Let (op_args ++ [tail_exp]) $ (* finalize (... *) alloc_var) ∧
-  (rewrite_aux ts loc loc_opt arity _ = NONE)
-Termination
-  cheat
-End
-
 Definition extract_tail_call_def:
   (extract_tail_call loc [] = SOME (NONE, [])) ∧
   (extract_tail_call loc ((Call t (SOME loc') args h)::op_args) =
@@ -44,19 +15,50 @@ Definition extract_tail_call_def:
     if loc=loc' then
       (* found the recursive call *)
       case rest of
-        SOME (NONE, r) => SOME (SOME ([], call), r)
+      | SOME (NONE, r) => SOME (SOME ([], call), r)
       | _ => NONE
     else
       (* found a different call *)
       case rest of
-        SOME (SOME (l, rec), r) => SOME (SOME (call::l, rec), r)
+      | SOME (SOME (l, rec), r) => SOME (SOME (call::l, rec), r)
       | SOME (NONE, r) => SOME (NONE, call::r)
       | NONE => NONE) ∧
   (extract_tail_call loc (op_arg::op_args) =
     case extract_tail_call loc op_args of
-      SOME (SOME (l, rec), r) => SOME (SOME (op_arg::l, rec), r)
+    | SOME (SOME (l, rec), r) => SOME (SOME (op_arg::l, rec), r)
     | SOME (NONE, r) => SOME (NONE, op_arg::r)
     | NONE => NONE)
+End
+
+Definition rewrite_aux_def:
+  (rewrite_aux ts loc loc_opt arity (Var n) = NONE) ∧
+  (rewrite_aux ts loc loc_opt arity (If xi xt xe) =
+    let opt_t = rewrite_aux ts loc loc_opt arity xt in
+    let opt_e = rewrite_aux ts loc loc_opt arity xe in
+    case (opt_t, opt_e) of
+    | (NONE, NONE) => SOME $ If xi xt xe
+    | (SOME yt, NONE) => SOME $ If xi yt xe
+    | (NONE, SOME ye) => SOME $ If xi xt ye
+    | (SOME yt, SOME ye) => SOME $ If xi yt ye) ∧
+  (rewrite_aux ts loc loc_opt arity (Let xs x) =
+    case rewrite_aux ts loc loc_opt arity x of
+    | NONE => NONE
+    | SOME y => SOME $ Let xs y) ∧
+  (rewrite_aux ts loc loc_opt arity (Raise x) = NONE) ∧
+  (rewrite_aux ts loc loc_opt arity (Tick x) = rewrite_aux ts loc loc_opt arity x) ∧ (* TODO: wrap in Tick *)
+  (rewrite_aux ts loc loc_opt arity (Force _ n) = NONE) ∧
+  (rewrite_aux ts loc loc_opt arity (Call t d args h) = NONE) ∧
+  (rewrite_aux ts loc loc_opt arity (Op (BlockOp (Cons block_tag)) op_args) = (* TODO: tail call might not be first *)
+    case extract_tail_call loc op_args of
+    | SOME (SOME (l, Call t _ args h), r) =>
+        let alloc_var = Var arity in
+        let alloc_exp  = Var 0 in (*alloc(x, HOLE);*) (* hole needs to be constructed using l and r *)
+        let tail_exp  = Call t (SOME loc_opt) args h in (*; append’ (p + 1) xs ys*) (* TODO: append HOLE pointer to args *)
+        SOME $ Let [alloc_exp; tail_exp] (* finalize (... *) alloc_var
+    | _ => NONE) ∧
+  (rewrite_aux ts loc loc_opt arity _ = NONE)
+Termination
+  cheat
 End
 
 (* Assumes that the function can and should be optimised - has been checked by rewrite_aux_def *)
@@ -67,11 +69,11 @@ Definition rewrite_opt_def:
   (rewrite_opt ts loc loc_opt arity (Raise x) = Raise x) ∧
   (rewrite_opt ts loc loc_opt arity (Op (BlockOp (Cons block_tag)) op_args) =
     case extract_tail_call loc op_args of
-      SOME (SOME (l, tail_call), r) =>
+    | SOME (SOME (l, Call t _ args h), r) =>
         let alloc_var = Var arity in
-        let alloc_exp  = Var 0 in (*alloc(x, HOLE);*) (* TODO: properly filter out tail call from op_args, and apply alloc to all *)
+        let alloc_exp  = Var 0 in (*alloc(x, HOLE);*) (* hole needs to be constructed using l and r *)
         let assign_exp = alloc_var in (* heap[k] = p *) (* assign(Var 0, alloc_var) *)
-        bvi$Let [alloc_exp; assign_exp] tail_call (* TODO: append HOLE pointer to args *)
+        bvi$Let [alloc_exp; assign_exp] $ Call t (SOME loc_opt) args h (* TODO: append HOLE pointer to args *)
     | _ => Op (BlockOp (Cons block_tag)) op_args) ∧
   (rewrite_opt ts loc loc_opt arity expr = (* Fill hole *)
     (* TODO. Considerations - recursive rewrite? need to inc vars, but does it make sense to further apply optimization? Maybe inc should be separate *)
@@ -83,11 +85,11 @@ End
 Definition compile_exp_def:
   compile_exp (loc:num) (next:num) (arity:num) (exp:bvi$exp) =
     case rewrite_aux 0 (* TODO *) loc next arity exp of
-      NONE => NONE
+    | NONE => NONE
     | SOME exp_aux => SOME (exp_aux, rewrite_opt 0 (* TODO *) loc next arity exp) (* TODO: Let wrap exp_opt *)
     (*SOME (exp, exp)*)
     (*case check_exp loc arity exp of
-      NONE => NONE
+    | NONE => NONE
     | SOME op =>
       let context = REPLICATE arity Any in
       let (r, opt) = rewrite loc next op arity context exp in
