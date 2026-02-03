@@ -1264,8 +1264,8 @@ End
 (* Do a logical operation *)
 Definition do_log_def:
   do_log l v e =
-    if l = And ∧ v = Boolv T ∨ l = Or ∧ v = Boolv F then SOME (Exp e)
-    else if l = And ∧ v = Boolv F ∨ l = Or ∧ v = Boolv T then SOME (Val v)
+    if l = Andalso ∧ v = Boolv T ∨ l = Orelse ∧ v = Boolv F then SOME (Exp e)
+    else if l = Andalso ∧ v = Boolv F ∨ l = Orelse ∧ v = Boolv T then SOME (Val v)
     else NONE
 End
 

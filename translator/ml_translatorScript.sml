@@ -694,7 +694,7 @@ Theorem Eval_Or:
    (a2 ==> Eval env x2 (BOOL b2))
    ==>
    (a1 /\ (~CONTAINER b1 ==> a2) ==>
-    Eval env (Log Or x1 x2) (BOOL (b1 \/ b2)))
+    Eval env (Log Orelse x1 x2) (BOOL (b1 \/ b2)))
 Proof
   Cases_on `b1`
   \\ rw[Eval_rw,BOOL_def,CONTAINER_def] \\ fs []
@@ -702,11 +702,11 @@ Proof
    (pop_assum kall_tac
     \\ pop_assum (qspec_then `refs` strip_assume_tac)
     \\ qexists_tac `ck1`
-    \\ fs [EVAL``do_log Or (Boolv T) x``]
+    \\ fs [EVAL``do_log Orelse (Boolv T) x``]
     \\ fs [EVAL``Boolv T``,state_component_equality])
   \\ last_x_assum assume_tac
   \\ Eval2_tac
-  \\ fs [EVAL``do_log Or (Boolv F) x``]
+  \\ fs [EVAL``do_log Orelse (Boolv F) x``]
   \\ fs [EVAL``Boolv F``,state_component_equality]
 QED
 
@@ -715,7 +715,7 @@ Theorem Eval_And:
    (a2 ==> Eval env x2 (BOOL b2))
    ==>
    (a1 /\ (CONTAINER b1 ==> a2) ==>
-    Eval env (Log And x1 x2) (BOOL (b1 /\ b2)))
+    Eval env (Log Andalso x1 x2) (BOOL (b1 /\ b2)))
 Proof
   reverse (Cases_on `b1`)
   \\ rw[Eval_rw,BOOL_def,CONTAINER_def] \\ fs []
@@ -723,11 +723,11 @@ Proof
    (pop_assum kall_tac
     \\ pop_assum (qspec_then `refs` strip_assume_tac)
     \\ qexists_tac `ck1`
-    \\ fs [EVAL``do_log And (Boolv F) x``]
+    \\ fs [EVAL``do_log Andalso (Boolv F) x``]
     \\ fs [EVAL``Boolv F``,state_component_equality])
   \\ last_x_assum assume_tac
   \\ Eval2_tac
-  \\ fs [EVAL``do_log And (Boolv T) x``]
+  \\ fs [EVAL``do_log Andalso (Boolv T) x``]
   \\ fs [EVAL``Boolv F``,state_component_equality]
 QED
 

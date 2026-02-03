@@ -2078,34 +2078,6 @@ Proof
      >> metis_tac [check_t_more4, check_t_more2, DECIDE ``0n ≤ x ∧ y + 0n = y``])
    >> metis_tac [ienv_ok_more, ienv_ok_def, check_t_more4, check_t_more2, DECIDE ``0n ≤ x ∧ y + 0n = y``])
  >- (
-   gvs []
-   >> first_x_assum old_drule
-   >> rw []
-   >> first_x_assum old_drule
-   >> rw []
-   >> old_drule t_unify_check_s
-   >> qpat_x_assum `t_unify _ _ _ = _` mp_tac
-   >> old_drule t_unify_check_s
-   >> old_drule (CONJUNCT1 infer_e_next_uvar_mono)
-   >> old_drule (CONJUNCT1 infer_e_check_t)
-   >> old_drule (CONJUNCT1 infer_e_wfs)
-   >> qpat_x_assum `infer_e _ _ _ _ = _` mp_tac
-   >> old_drule (CONJUNCT1 infer_e_next_uvar_mono)
-   >> old_drule (CONJUNCT1 infer_e_wfs)
-   >> old_drule (CONJUNCT1 infer_e_check_t)
-   >> fs [ienv_ok_def]
-   >> rw [check_t_def]
-   >> first_x_assum irule
-   >> conj_tac >- metis_tac [t_unify_wfs]
-   >> conj_tac >- (
-     first_x_assum irule
-     >> conj_tac >- (
-       first_x_assum irule
-       >> rw []
-       >> metis_tac [ienv_ok_more, ienv_ok_def])
-     >> metis_tac [check_t_more4, check_t_more2, DECIDE ``0n ≤ x ∧ y + 0n = y``])
-   >> metis_tac [ienv_ok_more, ienv_ok_def, check_t_more4, check_t_more2, DECIDE ``0n ≤ x ∧ y + 0n = y``])
- >- (
    first_x_assum old_drule
    >> rw []
    >> first_x_assum old_drule
@@ -3763,7 +3735,7 @@ Proof
 QED
 
 Theorem infer_e_inf_set_tids:
-    (!l cenv p st t st'.
+  (!l cenv p st t st'.
     (infer_e l cenv p st = (Success t, st'))
     ⇒
     prim_tids T tids ∧ inf_set_tids_ienv tids cenv ∧ inf_set_tids_subst tids st.subst
@@ -3865,20 +3837,6 @@ Proof
   >- (
     old_drule constrain_op_set_tids
     \\ simp[inf_set_tids_subset_def] )
-  >- (
-    irule (CONJUNCT1 t_unify_set_tids)
-    \\ rw[inf_set_tids_subset_def]
-    \\ goal_assum(first_assum o mp_then(Pat`t_unify`)mp_tac)
-    \\ simp[]
-    \\ simp[inf_set_tids_def]
-    \\ fs [inf_set_tids_subset_def]
-    \\ conj_tac >- (fs[prim_tids_def,prim_type_nums_def] \\ NO_TAC)
-    \\ irule (CONJUNCT1 t_unify_set_tids)
-    \\ rw[inf_set_tids_subset_def]
-    \\ goal_assum(first_assum o mp_then(Pat`t_unify`)mp_tac)
-    \\ simp[]
-    \\ simp[inf_set_tids_def]
-    \\ fs[prim_tids_def,prim_type_nums_def] \\ NO_TAC )
   >- (
     irule (CONJUNCT1 t_unify_set_tids)
     \\ rw[inf_set_tids_subset_def]

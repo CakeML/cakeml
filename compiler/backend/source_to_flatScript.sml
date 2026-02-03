@@ -199,17 +199,16 @@ Definition compile_exp_def:
       flatLang$App None (astOp_to_flatOp op) (compile_exps t env es)) ∧
   (compile_exp t env (Log lop e1 e2) =
       case lop of
-      | And =>
+      | Andalso =>
         If None
            (compile_exp t env e1)
            (compile_exp t env e2)
            (Bool None F)
-      | Or =>
+      | Orelse =>
         If None
            (compile_exp t env e1)
            (Bool None T)
-           (compile_exp t env e2)
-      | _ => Bool None T) ∧
+           (compile_exp t env e2)) ∧
   (compile_exp t env (If e1 e2 e3) =
     If None
        (compile_exp t env e1)

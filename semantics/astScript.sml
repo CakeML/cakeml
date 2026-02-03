@@ -183,6 +183,11 @@ Datatype:
   | Ptannot pat ast_t
 End
 
+(* Short circuiting logical operations *)
+Datatype:
+  lop = Andalso | Orelse
+End
+
 (* Expressions *)
 Datatype:
  exp =
@@ -198,7 +203,7 @@ Datatype:
      Includes function application. *)
   | App op (exp list)
   (* Logical operations (and, or) *)
-  | Log arith exp exp
+  | Log lop exp exp
   | If exp exp exp
   (* Pattern matching *)
   | Mat exp ((pat # exp) list)

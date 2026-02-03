@@ -2230,7 +2230,7 @@ Proof
 QED
 
 Theorem evaluate_ctxt_T_total:
-  ∀env s c v. ∃r.  evaluate_ctxt T env s c v r
+  ∀env s c v. ∃r. evaluate_ctxt T env s c v r
 Proof
   rw[] >> simp[Once evaluate_ctxt_cases] >> Cases_on ‘c’ >> gvs[SF DNF_ss]
   >- (
@@ -2271,7 +2271,7 @@ Proof
     Cases_on ‘store_assign n (Thunk Evaluated v) s.refs’ >> gvs[]
     )
   >- (
-    Cases_on ‘do_log a v e’ >> gvs[] >> Cases_on ‘x’ >> gvs[] >>
+    Cases_on ‘do_log l v e’ >> gvs[] >> Cases_on ‘x’ >> gvs[] >>
     metis_tac[big_clocked_total]
     )
   >- (Cases_on ‘do_if v e e0’ >> gvs[] >> metis_tac[big_clocked_total])

@@ -236,16 +236,21 @@ End
 
 Definition dest_nop_def:
   dest_nop op e =
-    case op of
-    | FromTo (WordT W8) IntT => (case e of [App _ (FromTo CharT IntT) [x]] => SOME x | _ => NONE)
-    | FromTo IntT CharT => (case e of [App _ (FromTo IntT (WordT W8)) [x]] => SOME x | _ => NONE)
-    | _ => NONE
+    if op = FromTo IntT (WordT W8) then
+      (case e of
+       | [App _ op1 [x]] => (if op1 = FromTo CharT IntT then SOME x else NONE)
+       | _ => NONE)
+    else if op = FromTo IntT CharT then
+      (case e of
+       | [App _ op1 [x]] => (if op1 = FromTo (WordT W8) IntT then SOME x else NONE)
+       | _ => NONE)
+    else NONE
 End
 
 Theorem dest_nop_thm:
   dest_nop op es = SOME x ⇔
-    (∃t. op = FromTo (WordT W8) IntT ∧ es = [App t (FromTo CharT IntT) [x]]) ∨
-    (∃t. op = FromTo IntT CharT ∧ es = [App t (FromTo IntT (WordT W8)) [x]])
+    (∃t. op = FromTo IntT (WordT W8) ∧ es = [App t (FromTo CharT IntT) [x]]) ∨
+    (∃t. op = FromTo IntT CharT ∧ es = [App t (FromTo (WordT W8) IntT) [x]])
 Proof
   Cases_on ‘op’ \\ gvs [dest_nop_def]
   \\ fs [dest_nop_def] \\ every_case_tac \\ fs []

@@ -689,8 +689,7 @@ type_e tenv tenvE (App op es) t)
 
 /\ (! tenv tenvE l e1 e2.
 (type_e tenv tenvE e1 Tbool /\
-type_e tenv tenvE e2 Tbool /\
-l ∈ {And; Or})
+type_e tenv tenvE e2 Tbool)
 ==>
 type_e tenv tenvE (Log l e1 e2) Tbool)
 

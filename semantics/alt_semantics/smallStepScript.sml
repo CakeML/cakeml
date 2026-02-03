@@ -22,7 +22,7 @@ Datatype:
   | Chandle unit ((pat # exp) list)
   | Capp op (v list) unit (exp list)
   | Cforce num
-  | Clog arith unit exp
+  | Clog lop unit exp
   | Cif unit exp exp
   (* The value is raised if none of the patterns match *)
   | Cmat_check unit ((pat # exp) list) v

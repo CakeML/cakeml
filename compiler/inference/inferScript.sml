@@ -911,15 +911,12 @@ Definition infer_e_def:
        return t
     od) ∧
   (infer_e l ienv (Log log e1 e2) =
-    if log = And ∨ log = Or then
-      do t1 <- infer_e l ienv e1;
-         t2 <- infer_e l ienv e2;
-         () <- add_constraint l t1 (Infer_Tapp [] Tbool_num);
-         () <- add_constraint l t2 (Infer_Tapp [] Tbool_num);
-         return (Infer_Tapp [] Tbool_num)
-      od
-    else
-      failwith l («Unsupported log operator»)) ∧
+    do t1 <- infer_e l ienv e1;
+       t2 <- infer_e l ienv e2;
+       () <- add_constraint l t1 (Infer_Tapp [] Tbool_num);
+       () <- add_constraint l t2 (Infer_Tapp [] Tbool_num);
+       return (Infer_Tapp [] Tbool_num)
+    od) ∧
   (infer_e l ienv (If e1 e2 e3) =
     do t1 <- infer_e l ienv e1;
        () <- add_constraint l t1 (Infer_Tapp [] Tbool_num);

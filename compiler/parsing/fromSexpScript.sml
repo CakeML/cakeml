@@ -713,6 +713,13 @@ Definition sexparith_def:
   sexparith _ = NONE
 End
 
+Definition sexplog_def:
+  sexplog (SX_SYM s) =
+    (if s = "Andalso" then SOME Andalso else
+     if s = "Orelse" then SOME Orelse else NONE) ∧
+  sexplog _ = NONE
+End
+
 Definition sexpop_def:
   (sexpop (SX_SYM s) =
   if s = "Equality" then SOME Equality else
@@ -837,7 +844,7 @@ Definition sexpexp_def:
       guard (nm = "App" ∧ LENGTH args = 2)
             (lift2 App (sexpop (EL 0 args)) (sexplist sexpexp (EL 1 args))) ++
       guard (nm = "Log" ∧ LENGTH args = 3)
-            (lift Log (sexparith (EL 0 args)) <*>
+            (lift Log (sexplog (EL 0 args)) <*>
                       (sexpexp (EL 1 args)) <*>
                       (sexpexp (EL 2 args))) ++
       guard (nm = "If" ∧ LENGTH args = 3)
@@ -903,7 +910,7 @@ Definition sexpexp_alt_def:
                (sexpexp_list  (EL 1 args))
            else
           if nm = "Log" ∧ LENGTH args = 3 then
-             lift Log (sexparith (EL 0 args)) <*> sexpexp_alt (EL 1 args) <*>
+             lift Log (sexplog (EL 0 args)) <*> sexpexp_alt (EL 1 args) <*>
              sexpexp_alt (EL 2 args)
            else
           if nm = "If" ∧ LENGTH args = 3 then
@@ -1618,6 +1625,17 @@ Proof
   rw[EQ_IMP_THM] >> pop_assum (mp_tac o AP_TERM “sexpop”) >> simp[]
 QED
 
+Definition logsexp_def:
+  logsexp Andalso = SX_SYM "Andalso" ∧
+  logsexp Orelse = SX_SYM "Orelse"
+End
+
+Theorem logsexp_11[simp]:
+   ∀l1 l2. logsexp l1 = logsexp l2 ⇔ l1 = l2
+Proof
+  Cases \\ Cases \\ simp[logsexp_def]
+QED
+
 Definition locnsexp_def:
   locnsexp (POSN n1 n2) = listsexp (MAP SX_NUM [n1;n2]) ∧
   locnsexp UNKNOWNpt = SX_SYM "unk" ∧
@@ -1653,7 +1671,7 @@ Definition expsexp_def:
   expsexp (Fun x e) = listsexp [SX_SYM "Fun"; SEXSTR (explode x); expsexp e] ∧
   expsexp (App op es) =
     listsexp [SX_SYM "App"; opsexp op; listsexp (MAP expsexp es)] ∧
-  expsexp (Log lop e1 e2) = ⟪SX_SYM "Log";arithsexp lop; expsexp e1; expsexp e2⟫ ∧
+  expsexp (Log lop e1 e2) = ⟪SX_SYM "Log"; logsexp lop; expsexp e1; expsexp e2⟫ ∧
   expsexp (If e1 e2 e3) = ⟪SX_SYM "If"; expsexp e1; expsexp e2; expsexp e3⟫ ∧
   expsexp (Mat e pes) =
     ⟪SX_SYM "Mat"; expsexp e;
@@ -1819,6 +1837,12 @@ Theorem sexplocn_locnsexp[simp]:
    sexplocn (locssexp l) = SOME l
 Proof
   Cases_on `l` >> rw[sexplocn_def,locssexp_def]
+QED
+
+Theorem sexplog_logsexp[simp]:
+   sexplog (logsexp l) = SOME l
+Proof
+  Cases_on `l` >> rw[sexplog_def,logsexp_def]
 QED
 
 Theorem sexpexp_expsexp[simp]:
@@ -2036,6 +2060,15 @@ Proof
        PULL_EXISTS] >> metis_tac[]
 QED
 
+Theorem logsexp_sexplog:
+   (sexplog s = SOME z ⇔ logsexp z = s) ∧
+   (SOME z = sexplog s ⇔ logsexp z = s)
+Proof
+  Cases_on`z` >>
+  simp[oneline sexplog_def, logsexp_def, listsexp_def, LENGTH_EQ_NUM_compute,
+       PULL_EXISTS, AllCaseEqs()]
+QED
+
 Theorem expsexp_sexpexp:
   (sexpexp s = SOME e ⇔ expsexp e = s) ∧
   (SOME e = sexpexp s ⇔ expsexp e = s)
@@ -2059,7 +2092,7 @@ Proof
   \\ gvs[LENGTH_EQ_NUM_compute, listsexp_thm, litsexp_sexplit, opsexp_sexpop,
          idsexp_sexpid_odestSEXSTR, typesexp_sexptype, locnsexp_sexplocn,
          OPTION_APPLY_MAP3, expsexp_def, arithsexp_sexparith, sexpopt_SOME,
-         optsexp_def,sexparith_arithsexp] >>
+         optsexp_def,sexparith_arithsexp, logsexp_sexplog] >>
   gvs[sexplist_SOME, sxMEM_def, EL_MAP, LIST_EQ_REWRITE, MEM_EL, PULL_EXISTS] >>
   rw[] >> pairarg_tac >> first_x_assum drule >>
   simp[sexppair_SOME, PULL_EXISTS, patsexp_sexppat] >> metis_tac[]
@@ -2183,6 +2216,12 @@ QED
 
 Theorem valid_sexp_arithsexp[local,simp]:
   valid_sexp (arithsexp a)
+Proof
+  Cases_on ‘a’ \\ EVAL_TAC
+QED
+
+Theorem valid_sexp_logsexp[local,simp]:
+  valid_sexp (logsexp a)
 Proof
   Cases_on ‘a’ \\ EVAL_TAC
 QED

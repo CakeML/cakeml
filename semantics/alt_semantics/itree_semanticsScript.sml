@@ -356,7 +356,7 @@ Datatype:
              | Chandle ((pat # exp) list)
              | Capp op (v list) (exp list)
              | Cforce num
-             | Clog arith exp
+             | Clog lop exp
              | Cif exp exp
              | Cmat_check ((pat # exp) list) v
              | Cmat ((pat # exp) list) v

@@ -1888,19 +1888,18 @@ Proof
   \\ fs [flatSemTheory.evaluate_def,AllCaseEqs(),PULL_EXISTS]
   \\ fs [flatSemTheory.do_app_def,AllCaseEqs(),PULL_EXISTS,check_type_def,
          do_conversion_def,v_to_flat_def,flat_to_v_def]
-  \\ cheat
-  (*
   THEN1
    (rw [] \\ fs [] \\ gvs []
     \\ qpat_x_assum ‘v_rel _ _’ mp_tac
     \\ once_rewrite_tac [v_rel_cases] \\ fs []
     \\ rw [] \\ gvs [integer_wordTheory.i2w_pos,ORD_BOUND])
-  \\ Cases \\ fs [do_word_to_int_def] \\ strip_tac \\ gvs []
-  \\ ‘w2n c < dimword (:8)’ by fs [w2n_lt] \\ fs []
-  \\ ‘¬(&w2n c > 255i)’ by intLib.COOPER_TAC \\ fs[]
+  \\ Cases \\ fs [check_type_def] \\ strip_tac \\ gvs []
+  \\ gvs [semanticPrimitivesTheory.check_type_def]
+  \\ ‘w2n w < dimword (:8)’ by fs [w2n_lt] \\ fs []
+  \\ ‘¬(&w2n w > 255i)’ by intLib.COOPER_TAC \\ fs[]
   \\ rw [] \\ fs [] \\ gvs []
   \\ qpat_x_assum ‘v_rel _ _’ mp_tac
-  \\ once_rewrite_tac [v_rel_cases] \\ fs [] *)
+  \\ once_rewrite_tac [v_rel_cases] \\ fs [v_to_flat_def]
 QED
 
 Theorem compile_Dlet:
@@ -2250,22 +2249,15 @@ Proof
 QED
 
 Theorem compile_set_globals:
-  ∀m e.
-    EVERY no_Mat e ==>
-    closProps$elist_globals (compile m e) = BAG_IMAGE SUC (flatProps$elist_globals e)
+  ∀m e. EVERY no_Mat e ==>
+  closProps$elist_globals (compile m e) = BAG_IMAGE SUC (flatProps$elist_globals e)
 Proof
   ho_match_mp_tac flat_to_closTheory.compile_ind
   \\ simp [compile_def, elist_globals_REVERSE]
   \\ rw []
   \\ fs [EVERY_REVERSE, Q.ISPEC `no_Mat` ETA_THM]
   \\ gvs [dest_nop_thm]
-  \\ TRY
-    (rename [‘dest_nop op es’] \\ reverse (Cases_on ‘dest_nop op es’) \\ fs []
-     THEN1 (gvs [dest_nop_thm] \\ fs [flatPropsTheory.op_gbag_def])
-     \\ last_x_assum kall_tac)
-  \\ TRY (qmatch_goalsub_abbrev_tac `compile_lit _ lit` \\ Cases_on `lit`
-    \\ simp [compile_lit_def,op_gbag_def])
-  >~ [‘compile_op’] >-
+  >~ [‘dest_nop op es’] >-
    (qmatch_goalsub_abbrev_tac `compile_op _ op` \\ Cases_on `op`
     \\ simp ([compile_op_def, compile_arith_def] @ props_defs)
     \\ rpt (CASE_TAC \\ simp props_defs)
@@ -2281,14 +2273,27 @@ Proof
              \\ fs [Q.ISPEC `{||}` EQ_SYM_EQ, COMM_BAG_UNION, dest_pat_def]
              \\ rpt (DEEP_INTRO_TAC compile_single_DEEP_INTRO
                      \\ rw [] \\ fs [])))
-  \\ cheat (*
+  \\ TRY (qmatch_goalsub_abbrev_tac `compile_lit _ lit` \\ Cases_on `lit`
+    \\ simp [compile_lit_def,op_gbag_def])
+  \\ TRY (qmatch_goalsub_abbrev_tac `compile_op _ op` \\ Cases_on `op`
+    \\ simp ([compile_op_def, compile_arith_def] @ props_defs)
+    \\ rpt (CASE_TAC \\ simp props_defs))
   \\ simp [compile_def, closPropsTheory.op_gbag_def,set_globals_SmartCons,
     flatPropsTheory.op_gbag_def, closPropsTheory.elist_globals_append]
   \\ rpt (
     DEEP_INTRO_TAC compile_single_DEEP_INTRO
     \\ rw [] \\ fs []
   )
-  \\ fs [dest_pat_def, AC bagTheory.COMM_BAG_UNION bagTheory.ASSOC_BAG_UNION]
+  \\ fs [dest_nop_def]
+  \\ simp ([CopyByteAw8_def, CopyByteStr_def] @ props_defs)
+  \\ simp [arg1_def, arg2_def]
+  \\ gvs [AllCaseEqs()]
+  \\ EVERY_CASE_TAC
+  \\ simp [flatPropsTheory.op_gbag_def, closPropsTheory.op_gbag_def]
+  \\ fs [Q.ISPEC `{||}` EQ_SYM_EQ, COMM_BAG_UNION, dest_pat_def]
+  \\ rpt (DEEP_INTRO_TAC compile_single_DEEP_INTRO
+          \\ rw [] \\ fs [])
+  \\ fs [dest_pat_def]
   \\ simp [flatPropsTheory.elist_globals_FOLDR,
            closPropsTheory.elist_globals_FOLDR]
   \\ pop_assum kall_tac
@@ -2303,7 +2308,7 @@ Proof
   \\ res_tac
   \\ fs []
   \\ rpt (DEEP_INTRO_TAC compile_single_DEEP_INTRO
-          \\ rw [] \\ fs []) *)
+          \\ rw [] \\ fs [])
 QED
 
 Theorem compile_eq_set_globals:

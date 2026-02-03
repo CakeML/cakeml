@@ -224,6 +224,11 @@ Definition prim_type_to_display_def:
   prim_type_to_display (WordT W64) = empty_item (strlit "WordT_W64")
 End
 
+Definition lop_to_display_def:
+  lop_to_display Andalso = empty_item (strlit "Andalso") ∧
+  lop_to_display Orelse = empty_item (strlit "Orelse")
+End
+
 Definition op_to_display_def:
   op_to_display (p:ast$op) =
   case p of
@@ -334,7 +339,7 @@ Definition exp_to_display_def:
   | Fun n e => Item NONE «Fun» [String n; exp_to_display e]
   | App op es => Item NONE «App» (op_to_display op ::
                                   exp_to_display_list es)
-  | Log lop e1 e2 => Item NONE «Log» [arith_to_display lop;
+  | Log lop e1 e2 => Item NONE «Log» [lop_to_display lop;
                                       exp_to_display e1;
                                       exp_to_display e2]
   | If e1 e2 e3 => Item NONE «If» [exp_to_display e1;

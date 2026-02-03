@@ -4486,7 +4486,6 @@ QED
 Theorem compile_correct_Log[local]:
   ^(#get_goal compile_correct_setup `Case [Log _ _ _]`)
 Proof
-  cheat (*
   rw [] >>
   fs [pair_case_eq] >> fs [] >>
   first_x_assum (drule_then (drule_then drule)) >>
@@ -4520,7 +4519,7 @@ Proof
   goal_assum (qsubterm_then `invariant _ _ _ _` mp_tac) >>
   fs [evaluate_def, do_if_def, do_log_def, bool_case_eq] >> rveq >> fs [] >>
   fs [invariant_def, v_rel_Bool_eqn, Boolv_11] >>
-  metis_tac trans_thms *)
+  metis_tac trans_thms
 QED
 
 Theorem compile_correct_If[local]:

@@ -809,9 +809,6 @@ Proof
  >- log_tac
  >- log_tac
  >- log_tac
- >- log_tac
- >- log_tac
- >- log_tac
  >- (* If *)
      (imp_res_tac sub_completion_unify2 >>
      imp_res_tac sub_completion_infer >>
