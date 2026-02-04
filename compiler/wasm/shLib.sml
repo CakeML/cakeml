@@ -1,8 +1,11 @@
 (*
-  Shuhan's lib for misc utilities
+  Shuhan's misc utilities
 *)
 structure shLib = struct
 local open HolKernel boolLib bossLib in
+
+val ERR = mk_HOL_ERR "shLib"
+
 (*
 fun component_equality_of ty = let
   val accfn_terms = map (fn (_, rcd) => #accessor rcd) (TypeBase.fields_of ty)
@@ -172,5 +175,110 @@ fun record_canon_simp_conv tm = let
   val eq2 = prove (mk_eq (inner_tm', inner_tm), REWRITE_TAC[trivial_simps ty])
   in TRANS eq1 (PURE_REWRITE_CONV [eq2] tm1) end
 
+(* the rw1 tactic *)
+
+fun term_set tms = HOLset.addList (empty_tmset, tms)
+
+fun try_match_term M N =
+  SOME (match_term M N) handle HOL_ERR _ => NONE
+
+fun print_thm' name thm =
+  (print name; print": "; print_thm thm; print"\n")
+
+fun print_term' name tm =
+  (print name; print": "; print_term tm; print"\n")
+
+(*
+fun disch_as_conj (a, thm) = let
+  val (p,q) = dest_imp $ concl thm
+  in EQ_MP (SPECL [a,p,q] boolTheory.AND_IMP_INTRO) (DISCH a thm) end
+*)
+
+fun dest_imp_n n tm = let
+  fun f n a tm =
+    if n>0 then let
+      val (p,q) = dest_imp tm
+      in f (n-1) (p::a) q end
+    else (rev a, tm)
+  in f n [] tm end
+
+(* thm: Γ |- P ==> Q *)
+fun simple_irule n_prem thm (asl,c) = let
+  val (pp, q) = dest_imp_n n_prem $ concl thm
+  val _ = if aconv q c then () else raise ERR "simple_irule" "concl of thm is not aconv to goal"
+  val new_goals = map (fn p => (asl, p)) pp
+  val vldn = foldl (fn(th,imp)=> MP imp th) thm
+(*
+  val vldn = fn thms => let
+    val goal_thm = foldl (fn(th,imp)=> MP imp th) thm thms
+    val extra_assums = HOLset.difference (HOLset.addList (empty_tmset, hyp goal_thm), HOLset.addList (empty_tmset, asl))
+    in
+      if HOLset.isEmpty extra_assums
+      then () else (print"EXTRA ASSUMPTIONS!\n"; HOLset.listItems extra_assums |> app (print_term'"o"));
+      goal_thm
+    end
+*)
+  in (new_goals, vldn(*K(mk_thm(asl,c))*)) end
+
+(*
+  in UNDISCH $ prove_goal ((hyp thm, mk_imp (list_mk_exists (yy, p), q)), rw[]) end
+*)
+
+fun undisch_ex_all concl_fv thm = let
+  val excluded_fv = HOLset.union (concl_fv, FVL (hyp thm) empty_tmset)
+  fun undisch_ex thm = let
+    val (p,q) = dest_imp $ concl thm
+    val yy = HOLset.listItems $ HOLset.difference (FVL [p] empty_tmset, excluded_fv)
+    val thm' = foldr (fn(y,thm) => CONV_RULE FORALL_IMP_CONV $ GEN y thm) thm yy
+    val (p',_) = dest_imp $ concl thm'
+    in (UNDISCH thm', p') end
+  fun f a thm =
+    if is_imp $ concl thm then let
+      val (thm',p) = undisch_ex thm
+      in f (p::a) thm' end
+    else (thm, a)
+  in f [] thm end
+
+(* thm: Γ, R y ==> P x = Q x *)
+fun rw1 thm = fn (asl,c) => let
+  val spec_thm = SPEC_ALL $ GEN_ALL thm
+  val (lhs, rhs) = dest_eq $ snd $ strip_imp $ concl spec_thm
+  fun f ctx tm =
+    case try_match_term lhs tm of
+      SOME m => SOME (tm, ctx, m)
+    | NONE =>
+      case dest_term tm of
+        VAR _ => NONE | CONST _ => NONE
+      | COMB (tm1,tm2) =>
+        (
+          case f (fn tm => ctx $ mk_comb (tm,tm2)) tm1 of SOME x => SOME x | NONE =>
+          f (fn tm => ctx $ mk_comb (tm1,tm)) tm2
+        )
+      | LAMB (x,tm1) =>
+        f (fn tm => ctx $ mk_abs (x,tm)) tm1
+  in
+    case f I c of
+      SOME (lhs', ctx, (sub, tysub)) => let
+      val rhs' = subst sub $ inst tysub rhs
+      val eq_fv = FVL [lhs',rhs'] empty_tmset
+      val x(*placeholder*) = genvar (type_of lhs')
+      val inst_spec_thm = INST sub $ INST_TYPE tysub spec_thm
+      (* Γ, ∃y. R y |- P x = Q x *)
+      val (eq, eq_assums) = undisch_ex_all eq_fv inst_spec_thm
+      (* Γ, ∃y. R y |- C (Q x) ==> C (P x) *)
+      val th1 = SUBST [x|->eq] (mk_imp (ctx x, c)) (DISCH c $ ASSUME c)
+      val n_eq_assums = length eq_assums
+      (* irule: Γ |- ∃y. R y ==> C (Q x) ==> C (P x) *)
+      (* note that “C (P x)” itself may be an implication *)
+      val th2 = foldl (uncurry DISCH) th1 eq_assums
+(*
+      val _ = print_thm' "irule" th2
+*)
+      in simple_irule (n_eq_assums+1) th2 (asl,c) end
+
+    | NONE => raise ERR "rw1" "no match"
+  end
+
 end (*local*)
+
 end (*struct*)

@@ -554,6 +554,50 @@ Definition I64_EXTEND32_U_def:
   I64_EXTEND32_U = Numeric (N_unary (ExtendI32_ Unsigned))
 End
 
+Definition I64_LOAD_def:
+  I64_LOAD ofs = MemRead (Load Int W64 ofs 8w)
+End
+
+Definition I64_LOAD8_S_def:
+  I64_LOAD8_S ofs = MemRead (LoadNarrow I8x16 Signed W32 ofs 1w)
+End
+
+Definition I64_LOAD8_U_def:
+  I64_LOAD8_U ofs = MemRead (LoadNarrow I8x16 Unsigned W32 ofs 1w)
+End
+
+Definition I64_LOAD16_S_def:
+  I64_LOAD16_S ofs = MemRead (LoadNarrow I16x8 Signed W32 ofs 2w)
+End
+
+Definition I64_LOAD16_U_def:
+  I64_LOAD16_U ofs = MemRead (LoadNarrow I16x8 Unsigned W32 ofs 2w)
+End
+
+Definition I64_LOAD32_S_def:
+  I64_LOAD32_S ofs = MemRead (LoadNarrow32 Signed ofs 4w)
+End
+
+Definition I64_LOAD32_U_def:
+  I64_LOAD32_U ofs = MemRead (LoadNarrow32 Unsigned ofs 4w)
+End
+
+Definition I64_STORE_def:
+  I64_STORE ofs = MemWrite (Store Int W64 ofs 8w)
+End
+
+Definition I64_STORE8_def:
+  I64_STORE8 ofs = MemWrite (StoreNarrow I8x16 W32 ofs 1w)
+End
+
+Definition I64_STORE16_def:
+  I64_STORE16 ofs = MemWrite (StoreNarrow I16x8 W32 ofs 2w)
+End
+
+Definition I64_STORE32_def:
+  I64_STORE32 ofs = MemWrite (StoreNarrow32 ofs 4w)
+End
+
 Definition i32_def:
   i32 = Tnum Int W32
 End

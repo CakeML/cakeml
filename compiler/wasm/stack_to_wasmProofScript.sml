@@ -286,11 +286,41 @@ Definition compile_arith_def:
     List [GLOBAL_GET s1; GLOBAL_GET s2; CALL wasm_sub_overflow_index; GLOBAL_SET t; GLOBAL_SET flag]
 End
 
+(* Mem: memop -> num -> α addr -> α inst *)
+(* TypeBase.constructors_of``:memop`` *)
+(* [“Load”, “Load8”, “Load16”, “Load32”, “Store”, “Store8”, “Store16”, “Store32”] *)
+(* Addr: num -> α word -> α addr *)
+
+(*
+s.mem_domain
+asm$Store
+*)
+
+Definition compile_memop_def:
+  compile_memop asm$Load t (asm$Addr s ofs) =
+    List [GLOBAL_GET s; I32_WRAP_I64; I64_LOAD (w2w ofs); GLOBAL_SET t] ∧
+  compile_memop asm$Load8 t (asm$Addr s ofs) =
+    List [GLOBAL_GET s; I32_WRAP_I64; I64_LOAD8_U (w2w ofs); GLOBAL_SET t] ∧
+  compile_memop asm$Load16 t (asm$Addr s ofs) =
+    List [GLOBAL_GET s; I32_WRAP_I64; I64_LOAD16_U (w2w ofs); GLOBAL_SET t] ∧
+  compile_memop asm$Load32 t (asm$Addr s ofs) =
+    List [GLOBAL_GET s; I32_WRAP_I64; I64_LOAD32_U (w2w ofs); GLOBAL_SET t] ∧
+  compile_memop asm$Store s' (asm$Addr s ofs) =
+    List [GLOBAL_GET s; I32_WRAP_I64; GLOBAL_GET s'; I64_STORE (w2w ofs)] ∧
+  compile_memop asm$Store8 s' (asm$Addr s ofs) =
+    List [GLOBAL_GET s; I32_WRAP_I64; GLOBAL_GET s'; I64_STORE8 (w2w ofs)] ∧
+  compile_memop asm$Store16 s' (asm$Addr s ofs) =
+    List [GLOBAL_GET s; I32_WRAP_I64; GLOBAL_GET s'; I64_STORE16 (w2w ofs)] ∧
+  compile_memop asm$Store32 s' (asm$Addr s ofs) =
+    List [GLOBAL_GET s; I32_WRAP_I64; GLOBAL_GET s'; I64_STORE32 (w2w ofs)]
+End
+
 Definition compile_inst_def:
   compile_inst (asm$Skip) = List [] ∧
   compile_inst (asm$Const (r:reg) (v:64 word)) =
     List [I64_CONST v; GLOBAL_SET r] ∧
-  compile_inst (asm$Arith a) = compile_arith a
+  compile_inst (asm$Arith op) = compile_arith op ∧
+  compile_inst (asm$Mem op r addr) = compile_memop op r addr
 End
 
 (* the type of all cakeml functions *)
@@ -409,8 +439,6 @@ Definition stack_wasm_ok_def:
   (stack_wasm_ok c (ShMemOp _ _ _) <=> F) ∧
   (stack_wasm_ok c (JumpLower _ _ _) ⇔ F) ∧
   (stack_wasm_ok c (Install _ _ _ _ _) ⇔ F) ∧
-  (stack_wasm_ok c (CodeBufferWrite _ _) ⇔ F) ∧
-  (stack_wasm_ok c (DataBufferWrite _ _) ⇔ F) ∧
   (stack_wasm_ok c (RawCall _) ⇔ F) ∧
   (stack_wasm_ok c (Seq p1 p2) ⇔ stack_wasm_ok c p1 ∧ stack_wasm_ok c p2) ∧
   (stack_wasm_ok c (If cmp n r p1 p2) ⇔ stack_wasm_ok c p1 ∧ stack_wasm_ok c p2) ∧
@@ -421,9 +449,6 @@ Definition stack_wasm_ok_def:
       stack_wasm_ok c rp ∧ lr < c.reg_count ∧
       (case h of NONE=>T | SOME (hp,_,_) => stack_wasm_ok c hp)
   ) ∧
-(*
-  (stack_wasm_ok c (Inst (Arith (LongDiv _ _ _ _ _))) <=> F) ∧
-*)
   (stack_wasm_ok c p <=> stack_asm_ok c p)
 End
 
@@ -1353,17 +1378,17 @@ Theorem wasm_chop64_thm_aux:
 Proof
 simp[wasm_chop64_def]
 >>strip_tac
->>once_rewrite_tac[exec_list_cons]
+>>rw1 exec_list_cons
 >>`exec (LOCAL_GET 0) t = (RNormal, push (I64 a) t)` by simp[exec_LOCAL_GET,LLOOKUP_def]
 >>pop_assum simp1
->>once_rewrite_tac[exec_list_cons]
+>>rw1 exec_list_cons
 >>simp[exec_I64_CONST]
->>once_rewrite_tac[exec_list_cons]
+>>rw1 exec_list_cons
 >>simp[exec_I64_AND]
->>once_rewrite_tac[exec_list_cons]
+>>rw1 exec_list_cons
 >>`exec (LOCAL_GET 0) (push (I64 (0xFFFFFFFFw && a)) t) = (RNormal, push (I64 a) (push (I64 (0xFFFFFFFFw && a)) t))` by simp[exec_LOCAL_GET,LLOOKUP_def,push_def]
 >>pop_assum simp1
->>once_rewrite_tac[exec_list_cons]
+>>rw1 exec_list_cons
 >>simp[exec_I64_CONST]
 >>simp[exec_I64_SHR_U]
 >>fs[chop64_def]
@@ -1399,7 +1424,7 @@ rw[CALL_def,wasm_chop64_index_def,exec_def]
 >>`wasm_chop64.locals=[]` by simp[wasm_chop64_def]
 >>pop_assum simp1
 >>drule wasm_chop64_thm_aux
->>DISCH_THEN (fn th=>DEP_REWRITE_TAC[th])
+>>DISCH_THEN rw1
 >>simp[push_def]
 QED
 
@@ -1417,43 +1442,43 @@ simp[wasm_long_mul_body_def,longmul64_def]
 >>strip_tac
 >>rpt(pairarg_tac>>fs[])
 >>qpat_x_assum `exec_list _ _ = _` mp_tac
->>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[])
->>(once_rewrite_tac[exec_list_cons]>>qpat_x_assum `chop64 a = _` assume_tac>>dxrule_then (fn th=>DEP_REWRITE_TAC[th]) wasm_chop64_thm>>simp[])
->>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_SET]>>simp[])
->>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_SET]>>simp[])
->>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[EL_LUPDATE])
->>(once_rewrite_tac[exec_list_cons]>>qpat_x_assum `chop64 b = _` assume_tac>>dxrule_then (fn th=>DEP_REWRITE_TAC[th]) wasm_chop64_thm>>simp[])
->>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_SET]>>simp[])
->>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_SET]>>simp[])
->>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[HD_LUPDATE])
->>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[EL_LUPDATE])
->>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_MUL])
->>(once_rewrite_tac[exec_list_cons]>>qpat_x_assum `chop64 (a1*b1) = _` assume_tac>>dxrule_then (fn th=>DEP_REWRITE_TAC[th]) wasm_chop64_thm>>simp[])
->>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_SET]>>simp[])
->>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_SET]>>simp[])
->>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[HD_LUPDATE])
->>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[EL_LUPDATE])
->>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_MUL])
->>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[EL_LUPDATE])
->>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_ADD])
->>(once_rewrite_tac[exec_list_cons]>>qpat_x_assum `chop64 (k1+_) = _` assume_tac>>dxrule_then (fn th=>DEP_REWRITE_TAC[th]) wasm_chop64_thm>>simp[])
->>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_SET]>>simp[])
->>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[EL_LUPDATE])
->>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[EL_LUPDATE])
->>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_MUL])
->>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_ADD])
->>(once_rewrite_tac[exec_list_cons]>>dxrule_then (fn th=>DEP_REWRITE_TAC[th]) wasm_chop64_thm>>simp[])
->>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_SET]>>simp[])
->>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_CONST])
->>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_SHL])
->>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[EL_LUPDATE])
->>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_ADD])
->>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[EL_LUPDATE])
->>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[EL_LUPDATE])
->>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_MUL])
->>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[EL_LUPDATE])
->>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_ADD])
->>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[EL_LUPDATE])
+>>(rw1 exec_list_cons>>rw1 exec_LOCAL_GET'>>simp[])
+>>(rw1 exec_list_cons>>qpat_x_assum `chop64 a = _` assume_tac>>dxrule_then rw1 wasm_chop64_thm>>simp[])
+>>(rw1 exec_list_cons>>rw1 exec_LOCAL_SET>>simp[])
+>>(rw1 exec_list_cons>>rw1 exec_LOCAL_SET>>simp[])
+>>(rw1 exec_list_cons>>rw1 exec_LOCAL_GET'>>simp[EL_LUPDATE])
+>>(rw1 exec_list_cons>>qpat_x_assum `chop64 b = _` assume_tac>>dxrule_then rw1 wasm_chop64_thm>>simp[])
+>>(rw1 exec_list_cons>>rw1 exec_LOCAL_SET>>simp[])
+>>(rw1 exec_list_cons>>rw1 exec_LOCAL_SET>>simp[])
+>>(rw1 exec_list_cons>>rw1 exec_LOCAL_GET'>>simp[HD_LUPDATE])
+>>(rw1 exec_list_cons>>rw1 exec_LOCAL_GET'>>simp[EL_LUPDATE])
+>>(rw1 exec_list_cons>>simp[exec_I64_MUL])
+>>(rw1 exec_list_cons>>qpat_x_assum `chop64 (a1*b1) = _` assume_tac>>dxrule_then rw1 wasm_chop64_thm>>simp[])
+>>(rw1 exec_list_cons>>rw1 exec_LOCAL_SET>>simp[])
+>>(rw1 exec_list_cons>>rw1 exec_LOCAL_SET>>simp[])
+>>(rw1 exec_list_cons>>rw1 exec_LOCAL_GET'>>simp[HD_LUPDATE])
+>>(rw1 exec_list_cons>>rw1 exec_LOCAL_GET'>>simp[EL_LUPDATE])
+>>(rw1 exec_list_cons>>simp[exec_I64_MUL])
+>>(rw1 exec_list_cons>>rw1 exec_LOCAL_GET'>>simp[EL_LUPDATE])
+>>(rw1 exec_list_cons>>simp[exec_I64_ADD])
+>>(rw1 exec_list_cons>>qpat_x_assum `chop64 (k1+_) = _` assume_tac>>dxrule_then rw1 wasm_chop64_thm>>simp[])
+>>(rw1 exec_list_cons>>rw1 exec_LOCAL_SET>>simp[])
+>>(rw1 exec_list_cons>>rw1 exec_LOCAL_GET'>>simp[EL_LUPDATE])
+>>(rw1 exec_list_cons>>rw1 exec_LOCAL_GET'>>simp[EL_LUPDATE])
+>>(rw1 exec_list_cons>>simp[exec_I64_MUL])
+>>(rw1 exec_list_cons>>simp[exec_I64_ADD])
+>>(rw1 exec_list_cons>>dxrule_then rw1 wasm_chop64_thm>>simp[])
+>>(rw1 exec_list_cons>>rw1 exec_LOCAL_SET>>simp[])
+>>(rw1 exec_list_cons>>simp[exec_I64_CONST])
+>>(rw1 exec_list_cons>>simp[exec_I64_SHL])
+>>(rw1 exec_list_cons>>rw1 exec_LOCAL_GET'>>simp[EL_LUPDATE])
+>>(rw1 exec_list_cons>>simp[exec_I64_ADD])
+>>(rw1 exec_list_cons>>rw1 exec_LOCAL_GET'>>simp[EL_LUPDATE])
+>>(rw1 exec_list_cons>>rw1 exec_LOCAL_GET'>>simp[EL_LUPDATE])
+>>(rw1 exec_list_cons>>simp[exec_I64_MUL])
+>>(rw1 exec_list_cons>>rw1 exec_LOCAL_GET'>>simp[EL_LUPDATE])
+>>(rw1 exec_list_cons>>simp[exec_I64_ADD])
+>>(rw1 exec_list_cons>>rw1 exec_LOCAL_GET'>>simp[EL_LUPDATE])
 >>simp[exec_I64_ADD]
 (* finish up *)
 >>rw[push_def,glue64_def]
@@ -1490,28 +1515,28 @@ Proof
   simp[wasm_add_carry_body_def,add_carry_def]
   >>strip_tac
   >>qpat_x_assum `exec_list _ _ = _` mp_tac
-  >>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[])
-  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_CONST])
-  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_GT_U])
-  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_EXTEND32_U])
-  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_LOCAL_SET])
-  >>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[HD_LUPDATE])
-  >>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[EL_LUPDATE])
-  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_ADD])
-  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_LOCAL_TEE])
-  >>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[EL_LUPDATE])
-  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_LT_U])
-  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_LOCAL_SET])
-  >>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[HD_LUPDATE])
-  >>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[EL_LUPDATE])
-  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_ADD])
-  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_LOCAL_TEE])
-  >>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[EL_LUPDATE])
-  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_LT_U])
-  >>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[EL_LUPDATE])
-  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I32_OR])
-  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_EXTEND32_U])
-  >>(DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[HD_LUPDATE])
+  >>(rw1 exec_list_cons>>rw1 exec_LOCAL_GET'>>simp[])
+  >>(rw1 exec_list_cons>>simp[exec_I64_CONST])
+  >>(rw1 exec_list_cons>>simp[exec_I64_GT_U])
+  >>(rw1 exec_list_cons>>simp[exec_I64_EXTEND32_U])
+  >>(rw1 exec_list_cons>>simp[exec_LOCAL_SET])
+  >>(rw1 exec_list_cons>>rw1 exec_LOCAL_GET'>>simp[HD_LUPDATE])
+  >>(rw1 exec_list_cons>>rw1 exec_LOCAL_GET'>>simp[EL_LUPDATE])
+  >>(rw1 exec_list_cons>>simp[exec_I64_ADD])
+  >>(rw1 exec_list_cons>>simp[exec_LOCAL_TEE])
+  >>(rw1 exec_list_cons>>rw1 exec_LOCAL_GET'>>simp[EL_LUPDATE])
+  >>(rw1 exec_list_cons>>simp[exec_I64_LT_U])
+  >>(rw1 exec_list_cons>>simp[exec_LOCAL_SET])
+  >>(rw1 exec_list_cons>>rw1 exec_LOCAL_GET'>>simp[HD_LUPDATE])
+  >>(rw1 exec_list_cons>>rw1 exec_LOCAL_GET'>>simp[EL_LUPDATE])
+  >>(rw1 exec_list_cons>>simp[exec_I64_ADD])
+  >>(rw1 exec_list_cons>>simp[exec_LOCAL_TEE])
+  >>(rw1 exec_list_cons>>rw1 exec_LOCAL_GET'>>simp[EL_LUPDATE])
+  >>(rw1 exec_list_cons>>simp[exec_I64_LT_U])
+  >>(rw1 exec_list_cons>>rw1 exec_LOCAL_GET'>>simp[EL_LUPDATE])
+  >>(rw1 exec_list_cons>>simp[exec_I32_OR])
+  >>(rw1 exec_list_cons>>simp[exec_I64_EXTEND32_U])
+  >>(rw1 exec_LOCAL_GET'>>simp[HD_LUPDATE])
   (* finish up *)
   >>gvs[push_def,word_hi_0,b2w_neq_0]
   >>rw[wasmSemTheory.state_component_equality]
@@ -1549,22 +1574,22 @@ Proof
   simp[wasm_add_overflow_body_def,add_overflow_def]
   >>strip_tac
   >>qpat_x_assum `exec_list _ _ = _` mp_tac
-  >>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[])
-  >>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[])
-  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_ADD])
-  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_LOCAL_SET])
-  >>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[HD_LUPDATE])
-  >>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[EL_LUPDATE])
-  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_XOR])
-  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_CONST])
-  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_XOR])
-  >>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[EL_LUPDATE])
-  >>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[EL_LUPDATE])
-  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_XOR])
-  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_AND])
-  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_CONST])
-  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_SHR_U])
-  >>(DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[EL_LUPDATE])
+  >>(rw1 exec_list_cons>>rw1 exec_LOCAL_GET'>>simp[])
+  >>(rw1 exec_list_cons>>rw1 exec_LOCAL_GET'>>simp[])
+  >>(rw1 exec_list_cons>>simp[exec_I64_ADD])
+  >>(rw1 exec_list_cons>>simp[exec_LOCAL_SET])
+  >>(rw1 exec_list_cons>>rw1 exec_LOCAL_GET'>>simp[HD_LUPDATE])
+  >>(rw1 exec_list_cons>>rw1 exec_LOCAL_GET'>>simp[EL_LUPDATE])
+  >>(rw1 exec_list_cons>>simp[exec_I64_XOR])
+  >>(rw1 exec_list_cons>>simp[exec_I64_CONST])
+  >>(rw1 exec_list_cons>>simp[exec_I64_XOR])
+  >>(rw1 exec_list_cons>>rw1 exec_LOCAL_GET'>>simp[EL_LUPDATE])
+  >>(rw1 exec_list_cons>>rw1 exec_LOCAL_GET'>>simp[EL_LUPDATE])
+  >>(rw1 exec_list_cons>>simp[exec_I64_XOR])
+  >>(rw1 exec_list_cons>>simp[exec_I64_AND])
+  >>(rw1 exec_list_cons>>simp[exec_I64_CONST])
+  >>(rw1 exec_list_cons>>simp[exec_I64_SHR_U])
+  >>(rw1 exec_LOCAL_GET'>>simp[EL_LUPDATE])
   (* finish up *)
   >>gvs[push_def]
   >>rw[wasmSemTheory.state_component_equality]
@@ -1601,22 +1626,22 @@ Proof
   simp[wasm_sub_overflow_body_def,sub_overflow_def]
   >>strip_tac
   >>qpat_x_assum `exec_list _ _ = _` mp_tac
-  >>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[])
-  >>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[])
-  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_SUB])
-  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_LOCAL_SET])
-  >>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[HD_LUPDATE])
-  >>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[EL_LUPDATE])
-  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_XOR])
-  >>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[EL_LUPDATE])
-  >>(once_rewrite_tac[exec_list_cons]>>DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[EL_LUPDATE])
-  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_XOR])
-  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_CONST])
-  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_XOR])
-  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_AND])
-  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_CONST])
-  >>(once_rewrite_tac[exec_list_cons]>>simp[exec_I64_SHR_U])
-  >>(DEP_REWRITE_TAC[exec_LOCAL_GET']>>simp[EL_LUPDATE])
+  >>(rw1 exec_list_cons>>rw1 exec_LOCAL_GET'>>simp[])
+  >>(rw1 exec_list_cons>>rw1 exec_LOCAL_GET'>>simp[])
+  >>(rw1 exec_list_cons>>simp[exec_I64_SUB])
+  >>(rw1 exec_list_cons>>simp[exec_LOCAL_SET])
+  >>(rw1 exec_list_cons>>rw1 exec_LOCAL_GET'>>simp[HD_LUPDATE])
+  >>(rw1 exec_list_cons>>rw1 exec_LOCAL_GET'>>simp[EL_LUPDATE])
+  >>(rw1 exec_list_cons>>simp[exec_I64_XOR])
+  >>(rw1 exec_list_cons>>rw1 exec_LOCAL_GET'>>simp[EL_LUPDATE])
+  >>(rw1 exec_list_cons>>rw1 exec_LOCAL_GET'>>simp[EL_LUPDATE])
+  >>(rw1 exec_list_cons>>simp[exec_I64_XOR])
+  >>(rw1 exec_list_cons>>simp[exec_I64_CONST])
+  >>(rw1 exec_list_cons>>simp[exec_I64_XOR])
+  >>(rw1 exec_list_cons>>simp[exec_I64_AND])
+  >>(rw1 exec_list_cons>>simp[exec_I64_CONST])
+  >>(rw1 exec_list_cons>>simp[exec_I64_SHR_U])
+  >>(rw1 exec_LOCAL_GET'>>simp[EL_LUPDATE])
   (* finish up *)
   >>gvs[push_def]
   >>rw[wasmSemTheory.state_component_equality]
@@ -1792,8 +1817,7 @@ Proof
     >>fs[stack_wasm_ok_def,stack_asm_ok_def,inst_ok_def]
     >>drule_all_then assume_tac wasm_reg_ok_drule
     >>fs[exec_list_cons,exec_I64_CONST]
-    >>DEP_REWRITE_TAC[exec_GLOBAL_SET]
-    >>conj_tac>-decide_tac
+    >>rw1 exec_GLOBAL_SET>-decide_tac
     >>simp[res_rel_def]
     >>irule state_rel_set_var
     >>simp[wl_value_def]
@@ -1813,23 +1837,19 @@ Proof
         `∃w1. get_var rs1 s = SOME w1` by (
           Cases_on‘rs2 = Reg rs1’>>
           gvs[word_exp_def,option_case_eq,IS_SOME_EXISTS,get_var_def])
-        >>once_rewrite_tac[exec_list_cons]
+        >>rw1 exec_list_cons
         >>drule_all_then simp1 exec_GLOBAL_GET
-        >>once_rewrite_tac[exec_list_cons]
+        >>rw1 exec_list_cons
         >>`∃w2. get_var_imm rs2 s = SOME w2` by (
           Cases_on‘rs2 = Reg rs1’>>Cases_on‘rs2’>>
           gvs[word_exp_def,option_case_eq,IS_SOME_EXISTS,oneline get_var_imm_def,get_var_def])
         >>`state_rel c s (push (wl_value w1) t)` by simp[push_def]
         >>drule_all_then simp1 exec_comp_ri
-        >>once_rewrite_tac[exec_list_cons]
+        >>rw1 exec_list_cons
         >>simp[wl_value_def,exec_I64_OR]
-        >>DEP_REWRITE_TAC[exec_GLOBAL_SET]
         >>`reg_ok rt c` by fs[stack_wasm_ok_def,stack_asm_ok_def,inst_ok_def,arith_ok_def]
-        >>conj_tac
-        >-(
-          drule_all wasm_reg_ok_drule
-          >>simp[push_def]
-        )
+        >>rw1 exec_GLOBAL_SET
+        >-(drule_all wasm_reg_ok_drule>>simp[push_def])
         >>rw[res_rel_def]
         >>Cases_on‘rs2 = Reg rs1’
         >>gvs[option_case_eq]
@@ -1843,17 +1863,16 @@ Proof
       )
       >>(
         `∃w1. get_var rs1 s = SOME w1` by gvs[word_exp_def,option_case_eq,IS_SOME_EXISTS,get_var_def]
-        >>once_rewrite_tac[exec_list_cons]
+        >>rw1 exec_list_cons
         >>drule_all_then simp1 exec_GLOBAL_GET
-        >>once_rewrite_tac[exec_list_cons]
+        >>rw1 exec_list_cons
         >>`∃w2. get_var_imm rs2 s = SOME w2` by (Cases_on‘rs2’>>gvs[word_exp_def,option_case_eq,IS_SOME_EXISTS,oneline get_var_imm_def,get_var_def])
         >>`state_rel c s (push (wl_value w1) t)` by simp[push_def]
         >>drule_all_then simp1 exec_comp_ri
-        >>once_rewrite_tac[exec_list_cons]
+        >>rw1 exec_list_cons
         >>simp[wl_value_def,exec_I64_ADD,exec_I64_SUB,exec_I64_AND,exec_I64_XOR]
-        >>DEP_REWRITE_TAC[exec_GLOBAL_SET]
         >>`reg_ok rt c` by fs[stack_wasm_ok_def,stack_asm_ok_def,inst_ok_def,arith_ok_def]
-        >>conj_tac
+        >>rw1 exec_GLOBAL_SET
         >-(
           drule_all wasm_reg_ok_drule
           >>simp[push_def]
@@ -1872,16 +1891,15 @@ Proof
       >>gvs[compile_arith_def,evaluate_def,inst_def,assign_def,option_case_eq]
       >>`reg_ok rs c ∧ reg_ok rt c` by fs[stack_wasm_ok_def,stack_asm_ok_def,inst_ok_def,arith_ok_def]
       >>`∃w1. get_var rs s = SOME w1` by gvs[word_exp_def,option_case_eq,IS_SOME_EXISTS,get_var_def]
-      >>once_rewrite_tac[exec_list_cons]
+      >>rw1 exec_list_cons
       >>drule_all_then simp1 exec_GLOBAL_GET
-      >>once_rewrite_tac[exec_list_cons]
+      >>rw1 exec_list_cons
       >>simp[exec_I64_CONST]
       >>drule_all_then assume_tac wasm_reg_ok_drule
-      >>once_rewrite_tac[exec_list_cons]
+      >>rw1 exec_list_cons
       >>Cases_on‘op’
       >>simp[wl_value_wl_word,exec_I64_SHL,exec_I64_SHR_U,exec_I64_SHR_S,exec_I64_ROTR]
-      >>DEP_REWRITE_TAC[exec_GLOBAL_SET]
-      >>conj_tac>-decide_tac
+      >>rw1 exec_GLOBAL_SET>-decide_tac
       >>rw[res_rel_def]
       >>irule state_rel_set_var
       >>rw[]
@@ -1893,18 +1911,18 @@ Proof
       >>`reg_ok rs1 c ∧ reg_ok rs2 c ∧ reg_ok rt c` by
         fs[stack_wasm_ok_def,stack_asm_ok_def,inst_ok_def,arith_ok_def]
       >>gvs[compile_arith_def,evaluate_def,inst_def,get_vars_def,AllCaseEqs()]
-      >>once_rewrite_tac[exec_list_cons]
+      >>rw1 exec_list_cons
       >>drule_all_then simp1 exec_GLOBAL_GET
-      >>once_rewrite_tac[exec_list_cons]
+      >>rw1 exec_list_cons
       >>Q.PAT_ASSUM `get_var rs2 s = _` assume_tac
       >>dxrule_then (fn th => DEP_REWRITE_TAC[th]) exec_GLOBAL_GET
       >>rw[]>-metis_tac[]
-      >>once_rewrite_tac[exec_list_cons]
+      >>rw1 exec_list_cons
       >>simp[wl_value_wl_word]
-      >>DEP_REWRITE_TAC[exec_I64_DIV_S]
-      >>conj_tac>-simp[wl_word_def]
+      >>rw1 exec_I64_DIV_S
+      >-simp[wl_word_def]
       >>simp[]
-      >>DEP_REWRITE_TAC[exec_GLOBAL_SET]
+      >>rw1 exec_GLOBAL_SET
       >>imp_res_tac wasm_reg_ok_drule
       >>rw[res_rel_def]
       >>irule state_rel_set_var
@@ -1919,32 +1937,32 @@ Proof
       >>rename1`get_var rs2 s = SOME (Word w2)`
       >>`get_var rs1 (s with clock:=s.clock+6) = SOME (Word w1)` by simp[get_var_def]
       >>`state_rel c (s with clock:=s.clock+6) (t with clock:=s.clock+6)` by simp[state_rel_with_clock]
-      >>once_rewrite_tac[exec_list_cons]
-      >>dxrule_then (fn th=>DEP_REWRITE_TAC[th]) exec_GLOBAL_GET
-      >>rw[]>-metis_tac[state_rel_clock_drule]
-      >>once_rewrite_tac[exec_list_cons]
+      >>rw1 exec_list_cons
+      >>drule_then rw1 exec_GLOBAL_GET
+      >-metis_tac[state_rel_clock_drule]
+      >>simp[]
+      >>rw1 exec_list_cons
       >>`get_var rs2 (s with clock:=s.clock+6) = SOME (Word w2)` by simp[get_var_def]
-      >>dxrule_then (fn th=>DEP_REWRITE_TAC[th]) exec_GLOBAL_GET
-      >>rw[]>-metis_tac[state_rel_clock_drule]
+      >>dxrule_then rw1 exec_GLOBAL_GET
       >>simp[wl_value_def]
-      >>once_rewrite_tac[exec_list_cons]
+      >-metis_tac[state_rel_clock_drule]
+      >>rw1 exec_list_cons
       >>`∃lo hi. longmul64 w1 w2 = (lo,hi)` by metis_tac[pair_CASES]
-      >>drule_then (fn th=>DEP_REWRITE_TAC[th]) wasm_long_mul_thm
-      >>conj_tac
+      >>drule_then rw1 wasm_long_mul_thm
       >-(
         `wasm_state_ok t` by fs[state_rel_def]
         >>fs[wasm_state_ok_def,wasm_support_function_list_def,wasm_chop64_index_def,wasm_long_mul_index_def]
         >>simp[wasm_chop64_def,wasm_long_mul_def]
       )
       >>simp[]
-      >>once_rewrite_tac[exec_list_cons]
+      >>rw1 exec_list_cons
       >>qpat_x_assum‘state_rel c (s with clock := _) _’ kall_tac
-      >>DEP_REWRITE_TAC[exec_GLOBAL_SET'2]
+      >>rw1 exec_GLOBAL_SET'2
       >>simp[]
-      >>conj_tac>-metis_tac[wasm_reg_ok_drule,LT_IMP_LE]
-      >>DEP_REWRITE_TAC[exec_GLOBAL_SET'2]
+      >-metis_tac[wasm_reg_ok_drule,LT_IMP_LE]
+      >>rw1 exec_GLOBAL_SET'2
       >>simp[]
-      >>conj_tac>-metis_tac[wasm_reg_ok_drule,LT_IMP_LE]
+      >-metis_tac[wasm_reg_ok_drule,LT_IMP_LE]
       >>rw[res_rel_def]
       >>drule_then assume_tac longmul64_thm
       >>`w2n w1 * w2n w2 = dimword(:64) * w2n hi + w2n lo` by simp[]
@@ -1972,36 +1990,35 @@ Proof
       >>rename1`get_var rs2 s = SOME (Word w2)`
       >>rename1`get_var rflag s = SOME (Word c_in)`
       >>`get_var rflag (s with clock:=s.clock+1) = SOME (Word c_in) ∧ get_var rs2 (s with clock:=s.clock+1) = SOME (Word w2) ∧ get_var rs1 (s with clock:=s.clock+1) = SOME (Word w1)` by simp[get_var_def]
-      >>once_rewrite_tac[exec_list_cons]
-      >>dxrule_then (fn th=>DEP_REWRITE_TAC[th]) exec_GLOBAL_GET
-      >>conj_tac>-metis_tac[state_rel_clock_drule,state_rel_with_clock]
+      >>rw1 exec_list_cons
+      >>dxrule_then rw1 exec_GLOBAL_GET
+      >-metis_tac[state_rel_clock_drule,state_rel_with_clock]
       >>simp[]
-      >>once_rewrite_tac[exec_list_cons]
-      >>dxrule_then (fn th=>DEP_REWRITE_TAC[th]) exec_GLOBAL_GET
+      >>rw1 exec_list_cons
+      >>dxrule_then rw1 exec_GLOBAL_GET
       >>simp[]
-      >>conj_tac>-metis_tac[state_rel_clock_drule,state_rel_with_clock]
-      >>once_rewrite_tac[exec_list_cons]
-      >>dxrule_then (fn th=>DEP_REWRITE_TAC[th]) exec_GLOBAL_GET
+      >-metis_tac[state_rel_clock_drule,state_rel_with_clock]
+      >>rw1 exec_list_cons
+      >>dxrule_then rw1 exec_GLOBAL_GET
       >>simp[]
-      >>conj_tac>-metis_tac[state_rel_clock_drule,state_rel_with_clock]
-      >>once_rewrite_tac[exec_list_cons]
+      >-metis_tac[state_rel_clock_drule,state_rel_with_clock]
+      >>rw1 exec_list_cons
       >>`∃sum_ c_out. add_carry w1 w2 c_in = (sum_,c_out)` by metis_tac[pair_CASES]
       >>simp[wl_value_def]
-      >>drule_then (fn th=>DEP_REWRITE_TAC[th]) wasm_add_carry_thm
-      >>conj_tac
+      >>drule_then rw1 wasm_add_carry_thm
       >-(
         `wasm_state_ok t` by fs[state_rel_def]
         >>fs[wasm_state_ok_def,wasm_support_function_list_def,wasm_add_carry_index_def]
         >>simp[wasm_add_carry_def]
       )
       >>simp[]
-      >>once_rewrite_tac[exec_list_cons]
-      >>DEP_REWRITE_TAC[exec_GLOBAL_SET'2]
+      >>rw1 exec_list_cons
+      >>rw1 exec_GLOBAL_SET'2
       >>simp[]
-      >>conj_tac>-metis_tac[wasm_reg_ok_drule,LT_IMP_LE]
-      >>DEP_REWRITE_TAC[exec_GLOBAL_SET'2]
+      >-metis_tac[wasm_reg_ok_drule,LT_IMP_LE]
+      >>rw1 exec_GLOBAL_SET'2
       >>simp[]
-      >>conj_tac>-metis_tac[wasm_reg_ok_drule,LT_IMP_LE]
+      >-metis_tac[wasm_reg_ok_drule,LT_IMP_LE]
       >>conj_tac>-simp[res_rel_def]
       >>drule_then assume_tac add_carry_thm
       >>irule state_rel_set_var'
@@ -2026,32 +2043,31 @@ Proof
       >>rename1`get_var rs1 s = SOME (Word w1)`
       >>rename1`get_var rs2 s = SOME (Word w2)`
       >>`get_var rs2 (s with clock:=s.clock+1) = SOME (Word w2) ∧ get_var rs1 (s with clock:=s.clock+1) = SOME (Word w1)` by simp[get_var_def]
-      >>once_rewrite_tac[exec_list_cons]
-      >>dxrule_then (fn th=>DEP_REWRITE_TAC[th]) exec_GLOBAL_GET
-      >>conj_tac>-metis_tac[state_rel_clock_drule,state_rel_with_clock]
+      >>rw1 exec_list_cons
+      >>dxrule_then rw1 exec_GLOBAL_GET
+      >-metis_tac[state_rel_clock_drule,state_rel_with_clock]
       >>simp[]
-      >>once_rewrite_tac[exec_list_cons]
-      >>dxrule_then (fn th=>DEP_REWRITE_TAC[th]) exec_GLOBAL_GET
+      >>rw1 exec_list_cons
+      >>dxrule_then rw1 exec_GLOBAL_GET
       >>simp[]
-      >>conj_tac>-metis_tac[state_rel_clock_drule,state_rel_with_clock]
-      >>once_rewrite_tac[exec_list_cons]
+      >-metis_tac[state_rel_clock_drule,state_rel_with_clock]
+      >>rw1 exec_list_cons
       >>`∃sum_ ov. add_overflow w1 w2 = (sum_,ov)` by metis_tac[pair_CASES]
       >>simp[wl_value_def]
-      >>drule_then (fn th=>DEP_REWRITE_TAC[th]) wasm_add_overflow_thm
-      >>conj_tac
+      >>drule_then rw1 wasm_add_overflow_thm
       >-(
         `wasm_state_ok t` by fs[state_rel_def]
         >>fs[wasm_state_ok_def,wasm_support_function_list_def,wasm_add_overflow_index_def]
         >>simp[wasm_add_overflow_def]
       )
       >>simp[]
-      >>once_rewrite_tac[exec_list_cons]
-      >>DEP_REWRITE_TAC[exec_GLOBAL_SET'2]
+      >>rw1 exec_list_cons
+      >>rw1 exec_GLOBAL_SET'2
       >>simp[]
-      >>conj_tac>-metis_tac[wasm_reg_ok_drule,LT_IMP_LE]
-      >>DEP_REWRITE_TAC[exec_GLOBAL_SET'2]
+      >-metis_tac[wasm_reg_ok_drule,LT_IMP_LE]
+      >>rw1 exec_GLOBAL_SET'2
       >>simp[]
-      >>conj_tac>-metis_tac[wasm_reg_ok_drule,LT_IMP_LE]
+      >-metis_tac[wasm_reg_ok_drule,LT_IMP_LE]
       >>conj_tac>-simp[res_rel_def]
       >>drule_then assume_tac add_overflow_thm
       >>irule state_rel_set_var'
@@ -2071,32 +2087,31 @@ Proof
       >>rename1`get_var rs1 s = SOME (Word w1)`
       >>rename1`get_var rs2 s = SOME (Word w2)`
       >>`get_var rs2 (s with clock:=s.clock+1) = SOME (Word w2) ∧ get_var rs1 (s with clock:=s.clock+1) = SOME (Word w1)` by simp[get_var_def]
-      >>once_rewrite_tac[exec_list_cons]
-      >>dxrule_then (fn th=>DEP_REWRITE_TAC[th]) exec_GLOBAL_GET
-      >>conj_tac>-metis_tac[state_rel_clock_drule,state_rel_with_clock]
+      >>rw1 exec_list_cons
+      >>dxrule_then rw1 exec_GLOBAL_GET
+      >-metis_tac[state_rel_clock_drule,state_rel_with_clock]
       >>simp[]
-      >>once_rewrite_tac[exec_list_cons]
-      >>dxrule_then (fn th=>DEP_REWRITE_TAC[th]) exec_GLOBAL_GET
+      >>rw1 exec_list_cons
+      >>dxrule_then rw1 exec_GLOBAL_GET
       >>simp[]
-      >>conj_tac>-metis_tac[state_rel_clock_drule,state_rel_with_clock]
-      >>once_rewrite_tac[exec_list_cons]
+      >-metis_tac[state_rel_clock_drule,state_rel_with_clock]
+      >>rw1 exec_list_cons
       >>`∃sum_ ov. sub_overflow w1 w2 = (sum_,ov)` by metis_tac[pair_CASES]
       >>simp[wl_value_def]
-      >>drule_then (fn th=>DEP_REWRITE_TAC[th]) wasm_sub_overflow_thm
-      >>conj_tac
+      >>drule_then rw1 wasm_sub_overflow_thm
       >-(
         `wasm_state_ok t` by fs[state_rel_def]
         >>fs[wasm_state_ok_def,wasm_support_function_list_def,wasm_sub_overflow_index_def]
         >>simp[wasm_sub_overflow_def]
       )
       >>simp[]
-      >>once_rewrite_tac[exec_list_cons]
-      >>DEP_REWRITE_TAC[exec_GLOBAL_SET'2]
+      >>rw1 exec_list_cons
+      >>rw1 exec_GLOBAL_SET'2
       >>simp[]
-      >>conj_tac>-metis_tac[wasm_reg_ok_drule,LT_IMP_LE]
-      >>DEP_REWRITE_TAC[exec_GLOBAL_SET'2]
+      >-metis_tac[wasm_reg_ok_drule,LT_IMP_LE]
+      >>rw1 exec_GLOBAL_SET'2
       >>simp[]
-      >>conj_tac>-metis_tac[wasm_reg_ok_drule,LT_IMP_LE]
+      >-metis_tac[wasm_reg_ok_drule,LT_IMP_LE]
       >>conj_tac>-simp[res_rel_def]
       >>drule_then assume_tac sub_overflow_thm
       >>irule state_rel_set_var'
@@ -2113,6 +2128,7 @@ Proof
   >~[`FP`]
   >-gvs[stack_wasm_ok_def,stack_asm_ok_def,inst_ok_def,oneline fp_ok_def,AllCasePreds(),fp_reg_ok_def,conf_ok_def]
 QED
+
 
 Theorem res_rel_RBreak:
   res_rel res (RBreak n) stack_pair ⇒ F
@@ -2876,22 +2892,22 @@ Proof
   cheat
 QED
 
-Theorem compile_Install: (* will be banned *)
+Theorem compile_Install:
   ^(get_goal "Install")
 Proof
-  cheat
+  fs[stack_wasm_ok_def]
 QED
 
-Theorem compile_ShMemOp: (* will be banned *)
+Theorem compile_ShMemOp:
   ^(get_goal "ShMemOp")
 Proof
-  cheat
+  fs[stack_wasm_ok_def]
 QED
 
-Theorem compile_RawCall: (* will be banned *)
+Theorem compile_RawCall:
   ^(get_goal "RawCall")
 Proof
-  cheat
+  fs[stack_wasm_ok_def]
 QED
 
 Theorem compile_CodeBufferWrite:
@@ -2924,9 +2940,3 @@ Proof
   \\ rpt $ pop_assum kall_tac
   \\ rw [evaluate_def,state_rel_def]
 QED
-
-(*
-  TypeBase.constructors_of “:'a stackLang$prog”
-  |> map term_to_string
-  |> map (fn s => print ("\n    compile_" ^ s ^ ","))
-*)
