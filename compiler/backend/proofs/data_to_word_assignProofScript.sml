@@ -9442,8 +9442,7 @@ QED
 Theorem assign_Less:
    op = IntOp Less ==> ^assign_thm_goal
 Proof
-  cheat
-  (*rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
+  rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ ‘names_opt ≠ NONE’ by (first_x_assum irule \\ EVAL_TAC \\ simp [])
   \\ gvs [GSYM IS_SOME_EQ_NOT_NONE,IS_SOME_EXISTS]
@@ -9519,7 +9518,7 @@ Proof
     \\ imp_res_tac env_to_list_lookup_equiv
     \\ fs [domain_lookup,EXTENSION,lookup_fromAList, AC DISJ_COMM DISJ_ASSOC])
   \\ fs []
-  \\ fs [lookup_insert,word_cmp_Less_word_cmp_res]
+  \\ fs [lookup_insert]
   \\ rw [] \\ fs []
   \\ unabbrev_all_tac
   \\ fs [wordSemTheory.pop_env_def,wordSemTheory.call_env_def,
@@ -9528,6 +9527,7 @@ Proof
   \\ fs[CaseEq "bool",CaseEq"prod",CaseEq"option",CaseEq"list",CaseEq"stack_frame",
         FST_EQ_EQUIV,ELIM_UNCURRY] >> rveq >> fs[lookup_insert]
   \\ rfs[wordSemTheory.set_vars_def,alist_insert_def]
+  \\ simp [word_cmp_Less_word_cmp_res]
   \\ rewrite_tac [push_if] \\ simp []
   \\ simp [state_rel_thm]
   \\ fs [lookup_insert,adjust_var_11]
@@ -9543,39 +9543,40 @@ Proof
   \\ qpat_x_assum ‘state_rel c l1 l2 x t [] locs’ $ ASSUME_NAMED_TAC "state_rel_t"
   \\ LABEL_X_ASSUM "with_locals" assume_tac
   \\ gvs [state_rel_thm]
-  \\ conj_tac >- rw []
-  \\ conj_tac >-
-      (rfs[option_le_max_right,option_le_max,stack_size_eq2,wordSemTheory.stack_size_frame_def,
-           AC option_add_comm option_add_assoc])
-  \\ conj_tac >-
-      (match_mp_tac option_le_trans \\ goal_assum drule \\
-       rpt(qpat_x_assum `option_le _.stack_max _.stack_max` mp_tac) \\
-       simp[] \\
-       imp_res_tac stack_rel_IMP_size_of_stack \\ pop_assum mp_tac \\
-       rpt(pop_assum kall_tac) \\
-       rw[option_le_max_right,option_le_max,stack_size_eq2,
-          wordSemTheory.stack_size_frame_def,
-          AC option_add_comm option_add_assoc,state_rel_def,
-          option_map2_max_add,option_le_eq_eqns,
-          option_le_add])
-  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
-  \\ match_mp_tac memory_rel_insert \\ fs [inter_insert_ODD_adjust_set_alt]
-  \\ match_mp_tac (GEN_ALL memory_rel_zero_space)
-  \\ qexists_tac `x.space`
-  \\ imp_res_tac word_cmp_Less_word_cmp_res
-  \\ imp_res_tac not_word_cmp_Less_word_cmp_res
-  \\ simp[]
-  \\ fs[WORD_LESS_REFL]
-  \\ IF_CASES_TAC \\ simp []
-  \\ rpt (match_mp_tac memory_rel_Boolv_T)
-  \\ rpt (match_mp_tac memory_rel_Boolv_F) \\ fs []*)
+  \\ qmatch_goalsub_abbrev_tac ‘Boolv (n1 < n2)’
+  \\ Cases_on ‘n1 < n2’ \\ gvs [lookup_insert, inter_insert_ODD_adjust_set]
+  \\ (
+    conj_tac >- rw []
+    \\ conj_tac >-
+        (rfs[option_le_max_right,option_le_max,stack_size_eq2,wordSemTheory.stack_size_frame_def,
+             AC option_add_comm option_add_assoc])
+    \\ conj_tac >-
+        (match_mp_tac option_le_trans \\ goal_assum drule \\
+         rpt(qpat_x_assum `option_le _.stack_max _.stack_max` mp_tac) \\
+         simp[] \\
+         imp_res_tac stack_rel_IMP_size_of_stack \\ pop_assum mp_tac \\
+         rpt(pop_assum kall_tac) \\
+         rw[option_le_max_right,option_le_max,stack_size_eq2,
+            wordSemTheory.stack_size_frame_def,
+            AC option_add_comm option_add_assoc,state_rel_def,
+            option_map2_max_add,option_le_eq_eqns,
+            option_le_add])
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ match_mp_tac memory_rel_insert \\ fs [inter_insert_ODD_adjust_set_alt]
+    \\ match_mp_tac (GEN_ALL memory_rel_zero_space)
+    \\ qexists_tac `x.space`
+    \\ imp_res_tac word_cmp_Less_word_cmp_res
+    \\ imp_res_tac not_word_cmp_Less_word_cmp_res
+    \\ simp[]
+    \\ fs[WORD_LESS_REFL]
+    \\ rpt (match_mp_tac memory_rel_Boolv_T)
+    \\ rpt (match_mp_tac memory_rel_Boolv_F) \\ fs [])
 QED
 
 Theorem assign_LessEq:
    op = IntOp LessEq ==> ^assign_thm_goal
 Proof
-  cheat
-  (*rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
+  rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ ‘names_opt ≠ NONE’ by (first_x_assum irule \\ EVAL_TAC \\ simp [])
   \\ gvs [GSYM IS_SOME_EQ_NOT_NONE,IS_SOME_EXISTS]
@@ -9653,7 +9654,7 @@ Proof
     \\ imp_res_tac env_to_list_lookup_equiv
     \\ fs [domain_lookup,EXTENSION,lookup_fromAList, AC DISJ_COMM DISJ_ASSOC])
   \\ fs []
-  \\ fs [lookup_insert,word_cmp_Less_word_cmp_res]
+  \\ fs [lookup_insert]
   \\ rw [] \\ fs []
   \\ unabbrev_all_tac
   \\ fs [wordSemTheory.pop_env_def,wordSemTheory.call_env_def,
@@ -9662,6 +9663,7 @@ Proof
   \\ fs[CaseEq "bool",CaseEq"prod",CaseEq"option",CaseEq"list",CaseEq"stack_frame",
         FST_EQ_EQUIV,ELIM_UNCURRY] >> rveq >> fs[lookup_insert]
   \\ rfs[wordSemTheory.set_vars_def,alist_insert_def]
+  \\ simp [word_cmp_NotLess_word_cmp_res]
   \\ rewrite_tac [push_if] \\ simp []
   \\ simp [state_rel_thm]
   \\ fs [lookup_insert,adjust_var_11]
@@ -9677,32 +9679,34 @@ Proof
   \\ qpat_x_assum ‘state_rel c l1 l2 x t [] locs’ $ ASSUME_NAMED_TAC "state_rel_t"
   \\ LABEL_X_ASSUM "with_locals" assume_tac
   \\ gvs [state_rel_thm]
-  \\ conj_tac >- rw []
-  \\ conj_tac >-
-      (rfs[option_le_max_right,option_le_max,stack_size_eq2,wordSemTheory.stack_size_frame_def,
-           AC option_add_comm option_add_assoc])
-  \\ conj_tac >-
-      (match_mp_tac option_le_trans \\ goal_assum drule \\
-       rpt(qpat_x_assum `option_le _.stack_max _.stack_max` mp_tac) \\
-       simp[] \\
-       imp_res_tac stack_rel_IMP_size_of_stack \\ pop_assum mp_tac \\
-       rpt(pop_assum kall_tac) \\
-       rw[option_le_max_right,option_le_max,stack_size_eq2,
-          wordSemTheory.stack_size_frame_def,
-          AC option_add_comm option_add_assoc,state_rel_def,
-          option_map2_max_add,option_le_eq_eqns,
-          option_le_add])
-  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
-  \\ match_mp_tac memory_rel_insert \\ fs [inter_insert_ODD_adjust_set_alt]
-  \\ match_mp_tac (GEN_ALL memory_rel_zero_space)
-  \\ qexists_tac `x.space`
-  \\ imp_res_tac word_cmp_NotLess_word_cmp_res
-  \\ imp_res_tac word_cmp_not_NotLess_word_cmp_res
-  \\ simp[]
-  \\ fs[WORD_LESS_REFL]
-  \\ IF_CASES_TAC \\ simp []
-  \\ rpt (match_mp_tac memory_rel_Boolv_T)
-  \\ rpt (match_mp_tac memory_rel_Boolv_F) \\ fs []*)
+  \\ qmatch_goalsub_abbrev_tac ‘Boolv (n1 ≤ n2)’
+  \\ Cases_on ‘n1 ≤ n2’ \\ gvs [lookup_insert, inter_insert_ODD_adjust_set]
+  \\ (
+    conj_tac >- rw []
+    \\ conj_tac >-
+        (rfs[option_le_max_right,option_le_max,stack_size_eq2,wordSemTheory.stack_size_frame_def,
+             AC option_add_comm option_add_assoc])
+    \\ conj_tac >-
+        (match_mp_tac option_le_trans \\ goal_assum drule \\
+         rpt(qpat_x_assum `option_le _.stack_max _.stack_max` mp_tac) \\
+         simp[] \\
+         imp_res_tac stack_rel_IMP_size_of_stack \\ pop_assum mp_tac \\
+         rpt(pop_assum kall_tac) \\
+         rw[option_le_max_right,option_le_max,stack_size_eq2,
+            wordSemTheory.stack_size_frame_def,
+            AC option_add_comm option_add_assoc,state_rel_def,
+            option_map2_max_add,option_le_eq_eqns,
+            option_le_add])
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ match_mp_tac memory_rel_insert \\ fs [inter_insert_ODD_adjust_set_alt]
+    \\ match_mp_tac (GEN_ALL memory_rel_zero_space)
+    \\ qexists_tac `x.space`
+    \\ imp_res_tac word_cmp_NotLess_word_cmp_res
+    \\ imp_res_tac word_cmp_not_NotLess_word_cmp_res
+    \\ simp[]
+    \\ fs[WORD_LESS_REFL]
+    \\ rpt (match_mp_tac memory_rel_Boolv_T)
+    \\ rpt (match_mp_tac memory_rel_Boolv_F) \\ fs [])
 QED
 
 Theorem word_exp_set_var_ShiftVar:
