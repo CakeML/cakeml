@@ -717,7 +717,7 @@ Proof
         TRY(Cases_on`r`>>Cases_on`b`)>>full_simp_tac(srw_ss())[]>>
         EVERY_CASE_TAC>>full_simp_tac(srw_ss())[binop_upd_def,LET_THM]>>
         fs[upd_reg_def,inc_pc_def,dec_clock_def,assert_def]>>
-        rw[]>> fs[]>>
+        rw[]>> gvs[oneline reg_imm_def, CaseEq "reg_imm"]>>
         (* Error cases *)
         TRY(first_x_assum(qspec_then`0` mp_tac)>>
           srw_tac[][]>>
