@@ -6,6 +6,7 @@ Libs
   preamble
 Ancestors
   data_to_word_gcProof[qualified] word_to_stackProof[qualified]
+  wordSem[qualified] wordProps
   stack_namesProof stack_rawcallProof[qualified]
   stack_allocProof stack_removeProof stack_to_lab
   stackSem stackProps stack_alloc  labSem labProps semanticsProps
@@ -18,8 +19,12 @@ open stackSemTheory stackPropsTheory
      stack_allocProofTheory
      stack_namesProofTheory
      semanticsPropsTheory
-local open word_to_stackProofTheory data_to_word_gcProofTheory stack_rawcallProofTheory in end
-
+     wordPropsTheory
+local open word_to_stackProofTheory
+           data_to_word_gcProofTheory
+           stack_rawcallProofTheory
+           wordSemTheory
+in end
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
@@ -50,13 +55,6 @@ Theorem assert_T[simp]:
    assert T s = s
 Proof
   srw_tac[][assert_def,state_component_equality]
-QED
-
-Theorem word_cmp_word_cmp:
-   (word_cmp cmp (Word w1) (Word w2) = SOME T) ⇔ word_cmp cmp w1 w2
-Proof
-  Cases_on`cmp`>>srw_tac[][labSemTheory.word_cmp_def]>>
-  srw_tac[][asmTheory.word_cmp_def]
 QED
 
 Theorem asm_fetch_aux_no_label:
@@ -95,7 +93,7 @@ QED
 Theorem word_cmp_not_NONE[simp]:
    word_cmp cmp (Word w1) (Word w2) ≠ NONE
 Proof
-  Cases_on`cmp`>>srw_tac[][labSemTheory.word_cmp_def]
+  Cases_on`cmp`>>srw_tac[][wordSemTheory.word_cmp_def]
 QED
 
 Theorem word_cmp_negate_alt[simp]:
@@ -105,13 +103,13 @@ Proof
 QED
 
 Theorem word_cmp_negate[simp]:
-   labSem$word_cmp (negate cmp) (w1) (w2) =
-   OPTION_MAP $~ (labSem$word_cmp cmp (w1) (w2))
+   wordSem$word_cmp (negate cmp) (w1) (w2) =
+   OPTION_MAP $~ (wordSem$word_cmp cmp (w1) (w2))
 Proof
   Cases_on`word_cmp cmp (w1) (w2)`>>fs[]>>
   Cases_on`word_cmp (negate cmp) (w1) (w2)`>>fs[] >>
-  Cases_on`w1`>>Cases_on`w2`>>fs[word_cmp_def]>>
-  Cases_on`cmp`>>fs[word_cmp_def]>>rw[]
+  Cases_on`w1`>>Cases_on`w2`>>fs[wordSemTheory.word_cmp_def]>>
+  Cases_on`cmp`>>fs[wordSemTheory.word_cmp_def]>>rw[]
 QED
 
 (* -- Lemmas about code_installed, loc_to_pc and asm_fetch_aux -- *)
@@ -1743,9 +1741,6 @@ Proof
       \\ imp_res_tac state_rel_read_reg_FLOOKUP_regs
       \\ imp_res_tac state_rel_get_var_imm
       \\ qpat_x_assum`_ = read_reg _  _`(assume_tac o SYM)
-      \\ simp[]
-      \\ full_simp_tac(srw_ss())[GSYM word_cmp_word_cmp]
-      \\ CASE_TAC \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[]
       \\ simp[get_pc_value_def]
       \\ imp_res_tac code_installed_append_imp
       \\ full_simp_tac(srw_ss())[code_installed_def]
@@ -1784,7 +1779,6 @@ Proof
       \\ imp_res_tac asm_fetch_aux_SOME_isPREFIX
       \\ imp_res_tac loc_to_pc_isPREFIX
       \\ simp[Once labSemTheory.evaluate_def,asm_fetch_def]
-      \\ imp_res_tac word_cmp_word_cmp \\ full_simp_tac(srw_ss())[]
       \\ fsrw_tac[ARITH_ss][dec_clock_def,inc_pc_def,upd_pc_def]
       \\ qexists_tac`t2` \\ simp[] )
     \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
@@ -1800,9 +1794,7 @@ Proof
       \\ full_simp_tac(srw_ss())[get_var_def]
       \\ imp_res_tac state_rel_read_reg_FLOOKUP_regs
       \\ imp_res_tac state_rel_get_var_imm
-      \\ qpat_x_assum`_ = read_reg _  _`(assume_tac o SYM)
-      \\ simp[]
-      \\ full_simp_tac(srw_ss())[GSYM word_cmp_word_cmp]
+      \\ qpat_x_assum`_ = read_reg _  _`(assume_tac o SYM) \\ simp[]
       \\ first_x_assum(qspecl_then[`F`,`n`,`l`,`inc_pc t1`]mp_tac)
       \\ simp[] \\ full_simp_tac(srw_ss())[call_args_def]
       \\ impl_tac
@@ -1850,7 +1842,7 @@ Proof
     \\ imp_res_tac state_rel_get_var_imm
     \\ qpat_x_assum`_ = read_reg _  _`(assume_tac o SYM)
     \\ fs[upd_pc_def,dec_clock_def]
-    \\ fs[inc_pc_def,GSYM word_cmp_word_cmp,get_pc_value_def]
+    \\ fs[inc_pc_def,get_pc_value_def]
     \\ reverse TOP_CASE_TAC \\ fs[]
     >- (
       imp_res_tac asm_fetch_aux_SOME_isPREFIX>>
@@ -1887,8 +1879,6 @@ Proof
       srw_tac[][] >> simp[] >>
       qexists_tac`1`>>simp[]>>
       simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
-      full_simp_tac(srw_ss())[GSYM word_cmp_word_cmp] >>
-      CASE_TAC >> full_simp_tac(srw_ss())[] >>
       qexists_tac`inc_pc t1` >>
       simp[dec_clock_def,inc_pc_def]>>
       full_simp_tac(srw_ss())[state_rel_def] >>
@@ -1912,8 +1902,7 @@ Proof
     strip_tac >>
     CASE_TAC >> full_simp_tac(srw_ss())[] >>
     TRY CASE_TAC >> full_simp_tac(srw_ss())[] >>
-    simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
-    full_simp_tac(srw_ss())[GSYM word_cmp_word_cmp,get_pc_value_def] >>
+    simp[Once labSemTheory.evaluate_def,asm_fetch_def,get_pc_value_def] >>
     `t1.clock ≠ 0` by full_simp_tac(srw_ss())[state_rel_def] >> simp[] >>
     full_simp_tac(srw_ss())[dec_clock_def,upd_pc_def] >>
     qexists_tac`ck`>>

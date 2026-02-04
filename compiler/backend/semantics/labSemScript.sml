@@ -87,20 +87,6 @@ Definition binop_upd_def:
   (binop_upd r Xor w1 w2 = upd_reg r (Word (word_xor w1 w2)))
 End
 
-Definition word_cmp_def:
-  (word_cmp Equal    (Word w1) (Word w2) = SOME (w1 = w2)) /\
-  (word_cmp Less     (Word w1) (Word w2) = SOME (w1 < w2)) /\
-  (word_cmp Lower    (Word w1) (Word w2) = SOME (w1 <+ w2)) /\
-  (word_cmp Test     (Word w1) (Word w2) = SOME ((w1 && w2) = 0w)) /\
-  (word_cmp Test     (Loc _ n) (Word w2) = if n ≠ 0 then NONE else if w2 = 1w then SOME T else NONE) /\
-  (word_cmp NotEqual (Word w1) (Word w2) = SOME (w1 <> w2)) /\
-  (word_cmp NotLess  (Word w1) (Word w2) = SOME (~(w1 < w2))) /\
-  (word_cmp NotLower (Word w1) (Word w2) = SOME (~(w1 <+ w2))) /\
-  (word_cmp NotTest  (Word w1) (Word w2) = SOME ((w1 && w2) <> 0w)) /\
-  (word_cmp NotTest  (Loc _ n) (Word w2) = if n ≠ 0 then NONE else if w2 = 1w then SOME F else NONE) /\
-  (word_cmp _ _ _ = NONE)
-End
-
 Definition arith_upd_def[simp]:
   (arith_upd (Binop b r1 r2 (ri:'a reg_imm)) s =
      case (read_reg r2 s, reg_imm ri s) of

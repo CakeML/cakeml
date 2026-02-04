@@ -365,14 +365,14 @@ val tac = simp [list_Seq_def,evaluate_def,inst_def,word_exp_def,get_var_def,
        wordLangTheory.word_op_def,mem_load_def,assign_def,set_var_def,
        FLOOKUP_UPDATE,mem_store_def,dec_clock_def,get_var_imm_def,
        asmTheory.word_cmp_def,
-       labSemTheory.word_cmp_def,GREATER_EQ,GSYM NOT_LESS,FUPDATE_LIST,
+       wordSemTheory.word_cmp_def,GREATER_EQ,GSYM NOT_LESS,FUPDATE_LIST,
        wordLangTheory.word_sh_def,word_shift_not_0,FLOOKUP_UPDATE]
 
 val tac1 = simp [Once list_Seq_def, evaluate_def,inst_def,word_exp_def,get_var_def,
        wordLangTheory.word_op_def,mem_load_def,assign_def,set_var_def,
        FLOOKUP_UPDATE,mem_store_def,dec_clock_def,get_var_imm_def,
        asmTheory.word_cmp_def,set_store_def,
-       labSemTheory.word_cmp_def,GREATER_EQ,GSYM NOT_LESS,FUPDATE_LIST,
+       wordSemTheory.word_cmp_def,GREATER_EQ,GSYM NOT_LESS,FUPDATE_LIST,
        wordLangTheory.word_sh_def,word_shift_not_0,FLOOKUP_UPDATE]
 
 
@@ -412,7 +412,7 @@ Proof
   \\ full_simp_tac(srw_ss())[ADD1,GSYM word_add_n2w]
   \\ pairarg_tac \\ full_simp_tac(srw_ss())[] \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
   \\ simp [memcpy_code_def,evaluate_def,get_var_def,get_var_imm_def]
-  \\ full_simp_tac(srw_ss())[labSemTheory.word_cmp_def,asmTheory.word_cmp_def,word_add_n2w,get_var_def]
+  \\ full_simp_tac(srw_ss())[wordSemTheory.word_cmp_def,asmTheory.word_cmp_def,word_add_n2w,get_var_def]
   \\ tac
   \\ qpat_abbrev_tac `s3 = s with <| regs := _ ; memory := _; clock := _ |>`
   \\ `memcpy ((n2w n):'a word) (a + bytes_in_word) (b + bytes_in_word)
@@ -1692,7 +1692,7 @@ Proof
   \\ qexists_tac `ck+ck'+ck''` \\ fs []
   \\ unabbrev_all_tac \\ fs [] \\ tac
   \\ fs [FAPPLY_FUPDATE_THM,FUPDATE_LIST]
-  \\ fs [labSemTheory.word_cmp_def]
+  \\ fs [asmTheory.word_cmp_def]
   \\ IF_CASES_TAC \\ fs [WORD_LO,GSYM NOT_LESS]
   \\ fs [empty_env_def,state_component_equality]
   \\ rpt var_eq_tac \\ fs []
@@ -4433,7 +4433,7 @@ Proof
     \\ simp [Once word_gen_gc_move_loop_code_def,get_var_def]
     \\ tac1 \\ fs [get_var_def]
     \\ full_simp_tac std_ss [GSYM word_gen_gc_move_loop_code_def]
-    \\ fs [labSemTheory.word_cmp_def]
+    \\ fs [wordSemTheory.word_cmp_def]
     \\ ntac 18 tac1
     \\ qunabbrev_tac `s2` \\ fs [] \\ tac1
     \\ qunabbrev_tac `s3`
@@ -4808,7 +4808,7 @@ Proof
     \\ fs [FAPPLY_FUPDATE_THM,FLOOKUP_DEF,FUPDATE_LIST]
     \\ tac \\ rfs [] \\ tac
     \\ fs [FAPPLY_FUPDATE_THM,FLOOKUP_DEF,FUPDATE_LIST]
-    \\ fs [labSemTheory.word_cmp_def,set_store_def]
+    \\ fs [wordSemTheory.word_cmp_def,set_store_def]
     \\ rpt (qpat_x_assum `evaluate _ = _` kall_tac)
     \\ `w2n w ≤ w2n (-1w * b1 + endh)` by rfs [WORD_LS] \\ fs []
     \\ `¬(w2n (new_trig (-1w * b1 + endh) w gen_sizes) < w2n w)` by
@@ -4958,7 +4958,7 @@ Proof
   \\ qunabbrev_tac `s5` \\ fs [FLOOKUP_DEF,FAPPLY_FUPDATE_THM]
   \\ strip_tac \\ rveq
   \\ fs [FAPPLY_FUPDATE_THM,FUPDATE_LIST,FLOOKUP_DEF,set_store_def] \\ tac
-  \\ fs [labSemTheory.word_cmp_def,set_store_def]
+  \\ fs [wordSemTheory.word_cmp_def,set_store_def]
   \\ IF_CASES_TAC \\ fs [WORD_LO,GSYM NOT_LESS,set_store_def] \\ tac
   \\ fs [FAPPLY_FUPDATE_THM,FUPDATE_LIST,FLOOKUP_DEF] \\ tac
   \\ fs [empty_env_def,state_component_equality]
@@ -5050,9 +5050,9 @@ Proof
        wordLangTheory.word_op_def,mem_load_def,assign_def,set_var_def,
        FLOOKUP_UPDATE,mem_store_def,dec_clock_def,get_var_imm_def,
        asmTheory.word_cmp_def,FAPPLY_FUPDATE_THM,
-       labSemTheory.word_cmp_def,GREATER_EQ,GSYM NOT_LESS,FUPDATE_LIST,
+       wordSemTheory.word_cmp_def,GREATER_EQ,GSYM NOT_LESS,FUPDATE_LIST,
        wordLangTheory.word_sh_def,word_shift_not_0,FLOOKUP_UPDATE]
-  \\ fs [labSemTheory.word_cmp_def,FAPPLY_FUPDATE_THM,FLOOKUP_DEF,set_store_def]
+  \\ fs [wordSemTheory.word_cmp_def,FAPPLY_FUPDATE_THM,FLOOKUP_DEF,set_store_def]
   \\ fs [state_component_equality,FAPPLY_FUPDATE_THM]
   \\ Cases_on `s.store ' CurrHeap` \\ fs [isWord_def,theWord_def]
   \\ Cases_on `s.store ' NextFree` \\ fs [isWord_def,theWord_def]
