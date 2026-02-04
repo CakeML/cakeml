@@ -6,6 +6,9 @@ Compiles the max clique + PB checker
 [cnfCompileScript.sml](cnfCompileScript.sml):
 Compiles the CNF + PB checker
 
+[colorCompileScript.sml](colorCompileScript.sml):
+Compiles the min color + PB checker
+
 [mccisCompileScript.sml](mccisCompileScript.sml):
 Compiles the MCCIS + PB checker
 

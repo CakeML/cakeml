@@ -6,6 +6,9 @@ Clique encode and checker
 [cnfProgScript.sml](cnfProgScript.sml):
 CNF encoder and checker
 
+[colorProgScript.sml](colorProgScript.sml):
+Color encode and checker
+
 [compilation](compilation):
 Compiling the pseudo-boolean constraints checker
 

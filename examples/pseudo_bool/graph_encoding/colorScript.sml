@@ -25,6 +25,16 @@ Definition min_color_size_def:
   MIN_SET ({k | ∃f. is_k_color k f g})
 End
 
+Theorem min_color_size_eq:
+  (∀f k'. is_k_color k' f g ⇒ k ≤ k') ∧
+  is_k_color k f g ⇒
+  min_color_size g = k
+Proof
+  rw[min_color_size_def]>>
+  DEP_REWRITE_TAC[MIN_SET_TEST_IFF]>>simp[EXTENSION]>>
+  metis_tac[]
+QED
+
 (* Color witness:
   We are given a mapping from {0..<v} to color option
   And we need to ensure that every vertex is assigned a color
@@ -725,7 +735,7 @@ End
 Definition lazy_full_encode_def:
   lazy_full_encode (g:graph) prob =
   case prob of
-    (NONE:mlstring option,SOME obj, fml) =>
+    (NONE:mlstring list option,SOME obj, fml) =>
     let n = guess_n obj in
       if lazy_encode n g fml ∧ lazy_color_obj n obj
       then SOME n
