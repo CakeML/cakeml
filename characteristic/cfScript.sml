@@ -1794,13 +1794,12 @@ Definition cf_log_def:
   cf_log lop e1 cf2 = \env. local (\H Q.
     ?v b.
       exp2v env e1 = SOME v /\
-      (lop ≠ And ⇒ lop = Or) ∧
       BOOL b v /\
       (case (lop, b) of
-           (And, T) => cf2 env H Q
-         | (Or, F) => cf2 env H Q
-         | (Or, T) => (H ==>> Q (Val v))
-         | (And, F) => (H ==>> Q (Val v))))
+           (Andalso, T) => cf2 env H Q
+         | (Orelse,  F) => cf2 env H Q
+         | (Orelse,  T) => (H ==>> Q (Val v))
+         | (Andalso, F) => (H ==>> Q (Val v))))
 End
 
 Definition cf_if_def:
@@ -3375,7 +3374,6 @@ Proof
     (* Log *)
     cf_strip_sound_full_tac \\
     fs [sound_def, htriple_valid_def, evaluate_to_heap_def, evaluate_ck_def] \\
-    qpat_x_assum ‘lop ≠ _ ⇒ lop = _’ mp_tac \\
     Cases_on `lop` \\ Cases_on `b` \\ fs [BOOL_def, Boolv_def] \\ rw [] \\
     fs [SEP_IMP_def] \\ first_x_assum progress \\ instantiate \\
     try_finally (

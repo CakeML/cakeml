@@ -29,7 +29,6 @@ Definition simple_exp_def:
       | Test _ _ => T
       | Arith _ _ => T
       | FromTo _ _ => T
-      | Opb _ => T
       | _ => F)
     | Lit lit => T
     | Var v => T

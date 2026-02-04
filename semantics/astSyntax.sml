@@ -26,6 +26,7 @@ structure astSyntax = struct
   val Add = prim_mk_const{Thy="ast",Name="Add"};
   val Alength = prim_mk_const{Thy="ast",Name="Alength"};
   val And = prim_mk_const{Thy="ast",Name="And"};
+  val Andalso = prim_mk_const{Thy="ast",Name="Andalso"};
   val Asr = prim_mk_const{Thy="ast",Name="Asr"};
   val Asub = prim_mk_const{Thy="ast",Name="Asub"};
   val Aupdate = prim_mk_const{Thy="ast",Name="Aupdate"};
@@ -51,6 +52,7 @@ structure astSyntax = struct
   val Opderef = prim_mk_const{Thy="ast",Name="Opderef"};
   val Opref = prim_mk_const{Thy="ast",Name="Opref"};
   val Or = prim_mk_const{Thy="ast",Name="Or"};
+  val Orelse = prim_mk_const{Thy="ast",Name="Orelse"};
   val Pany = prim_mk_const{Thy="ast",Name="Pany"};
   val Ror = prim_mk_const{Thy="ast",Name="Ror"};
   val Strcat = prim_mk_const{Thy="ast",Name="Strcat"};

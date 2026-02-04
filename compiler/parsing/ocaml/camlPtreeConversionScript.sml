@@ -1256,9 +1256,9 @@ End
 Definition build_binop_def:
   build_binop symb x y =
     if symb = «&&» then
-      Log And x y
+      Log Andalso x y
     else if symb = «||» then
-      Log Or x y
+      Log Orelse x y
     else
       App Opapp [App Opapp [Var (Short symb); x]; y]
 End

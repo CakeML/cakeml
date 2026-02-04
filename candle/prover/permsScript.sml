@@ -436,14 +436,6 @@ Proof
   >- (
     rw [do_app_cases] \\ gs []
     \\ simp [perms_ok_def])
-  \\ Cases_on ‘op = Chr’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs []
-    \\ simp [perms_ok_def])
-  \\ Cases_on ‘op = Ord’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs []
-    \\ simp [perms_ok_def])
   \\ Cases_on ‘op = XorAw8Str_unsafe’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [perms_ok_def]
@@ -468,14 +460,6 @@ Proof
   >- (
     rw [do_app_cases] \\ gs []
     \\ simp [perms_ok_def])
-  \\ Cases_on ‘∃n. op = WordToInt n’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs []
-    \\ simp [perms_ok_def])
-  \\ Cases_on ‘∃n. op = WordFromInt n’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs []
-    \\ simp [perms_ok_def])
   \\ Cases_on ‘op = Aw8update’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [SUBSET_DEF, PULL_EXISTS, perms_ok_def]
@@ -495,36 +479,6 @@ Proof
     \\ gvs [store_alloc_def, perms_ok_def, SUBSET_DEF, PULL_EXISTS]
     \\ rw [EL_APPEND_EQN]
     \\ gs [NOT_LESS, LESS_OR_EQ, perms_ok_ref_def])
-  \\ Cases_on ‘∃top. op = FP_top top’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs []
-    \\ simp [perms_ok_def])
-  \\ Cases_on ‘∃bop. op = FP_bop bop’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs []
-    \\ simp [perms_ok_def])
-  \\ Cases_on ‘∃uop. op = FP_uop uop’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs []
-    \\ rw [perms_ok_def])
-  \\ Cases_on ‘∃cmp. op = FP_cmp cmp’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs []
-    \\ simp [Boolv_def]
-    \\ rw [perms_ok_def])
-  \\ Cases_on ‘∃opn. op = Opn opn’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs []
-    \\ simp [div_exn_v_def, perms_ok_def])
-  \\ Cases_on ‘∃opb. op = Opb opb’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs []
-    \\ simp [Boolv_def]
-    \\ rw [perms_ok_def])
-  \\ Cases_on ‘∃sz opw. op = Opw sz opw’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs []
-    \\ simp [perms_ok_def])
   \\ Cases_on ‘∃sz sh n. op = Shift sz sh n’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
@@ -571,14 +525,6 @@ Proof
     \\ simp [EL_APPEND_EQN]
     \\ rw [] \\ gs []
     \\ gvs [NOT_LESS, LESS_OR_EQ, perms_ok_ref_def])
-  \\ Cases_on ‘op = FpFromWord’ \\ gs[]
-  >- (
-    rw [do_app_cases] \\ gs[]
-    \\ rw [perms_ok_def])
-  \\ Cases_on ‘op = FpToWord’ \\ gs[]
-  >- (
-    rw [do_app_cases] \\ gs[]
-    \\ rw [perms_ok_def])
   \\ Cases_on ‘∃m. op = ThunkOp (AllocThunk m)’ \\ gs[]
   >- (
     rw [do_app_cases] \\ gs [thunk_op_def, AllCaseEqs()] \\ pairarg_tac \\ gs []

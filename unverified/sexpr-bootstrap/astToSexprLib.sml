@@ -75,9 +75,9 @@ fun lit_to_exp t =
   end
 
 val shift_op = ``ast$Shift``;
-val to_int_op = ``ast$WordToInt``;
 val test_op = ``ast$Test``;
-val from_int_op = ``ast$WordFromInt``;
+val arith_op = ``ast$Arith``;
+val from_to_op = ``ast$FromTo``;
 val ffi_op = ``ast$FFI``;
 val wordT_W8 = ``WordT W8``;
 val wordT_W64 = ``WordT W64``;
@@ -119,6 +119,12 @@ fun op_to_exp arg =
     fun test xs = exp_tuple [exp_str "Test",
                              test_name (hd xs),
                              test_ty (hd (tl xs))]
+    fun from_to xs = exp_tuple [exp_str "FromTo",
+                                test_ty (hd xs),
+                                test_ty (hd (tl xs))]
+    fun arith xs = exp_tuple [exp_str "Arith",
+                              exp_str (hd xs |> dest_const |> fst),
+                              test_ty (hd (tl xs))]
     fun shift xs =
       let
         val consts = List.take (xs, 2)
@@ -129,10 +135,10 @@ fun op_to_exp arg =
     val (x, xs) = strip_comb arg
   in
     if same_const x shift_op then shift xs
-    else if same_const x to_int_op then wordInt xs "toInt"
-    else if same_const x from_int_op then wordInt xs "fromInt"
     else if same_const x ffi_op then ffi xs
     else if same_const x test_op then test xs
+    else if same_const x arith_op then arith xs
+    else if same_const x from_to_op then from_to xs
     else exp_str (String.concat (map filtered_string (x::xs)))
   end
 
