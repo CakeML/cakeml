@@ -573,9 +573,12 @@ Proof
   \\ intLib.COOPER_TAC
 QED
 
+Overload toString1 = “λx. toString (x+1n)”
+
+(* NOTE: color is 1-index, vertex is 0-indexed *)
 Definition enc_string_def:
-  (enc_string (ColorUsed c) = concat [«cu_»; toString c]) ∧
-  (enc_string (VertexHasColor v c) = concat [«vc_»; toString v; «_»; toString c])
+  (enc_string (ColorUsed c) = concat [«cu_»; toString1 c]) ∧
+  (enc_string (VertexHasColor v c) = concat [«vc_»; toString v; «_»; toString1 c])
 End
 
 Theorem enc_string_INJ:
@@ -583,30 +586,33 @@ Theorem enc_string_INJ:
 Proof
   gvs [INJ_DEF] \\ reverse Cases \\ Cases \\ simp [enc_string_def]
   \\ gvs [concat_def]
+  >- (
+    Cases_on ‘toString1 n’
+    \\ Cases_on ‘toString1 n'’
+    \\ simp []
+    >- metis_tac [num_to_str_11,prim_recTheory.INV_SUC_EQ,ADD1])
   \\ Cases_on ‘toString n’
   \\ Cases_on ‘toString n'’
-  \\ simp []
-  >- metis_tac [num_to_str_11]
   \\ rewrite_tac [GSYM APPEND_ASSOC,APPEND]
   \\ rpt disch_tac
   \\ drule num_to_str_APPEND_11
   \\ simp []
   \\ disch_then drule_all
-  \\ Cases_on ‘toString n0’
-  \\ Cases_on ‘toString n0'’
+  \\ Cases_on ‘toString1 n0’
+  \\ Cases_on ‘toString1 n0'’
   \\ gvs []
   \\ rw [] \\ gvs []
-  \\ metis_tac [num_to_str_11]
+  \\ metis_tac [num_to_str_11,prim_recTheory.INV_SUC_EQ,ADD1]
 QED
 
 Definition annot_string_def:
   annot_string a =
   case a of
-  | Edge u v c => SOME (concat [«e_»; toString u; «_»; toString v; «_»; toString c])
+  | Edge u v c => SOME (concat [«e_»; toString u; «_»; toString v; «_c»; toString1 c])
   | AtLeastOneColor u => SOME (concat [«colgeq_»; toString u])
   | AtMostOneColor u  => SOME (concat [«colleq_»; toString u])
-  | VC_Imp_CU c => SOME (concat [«vc_impl_cu_»; toString c])
-  | CU_Imp_VC c => SOME (concat [«cu_impl_vc_»; toString c])
+  | VC_Imp_CU c => SOME (concat [«vc_impl_cu_»; toString1 c])
+  | CU_Imp_VC c => SOME (concat [«cu_impl_vc_»; toString1 c])
 End
 
 Definition full_encode_def:
@@ -621,7 +627,7 @@ Definition mk_key_def:
     let ts = tokens (λc. ~ (#"0" ≤ c ∧ c ≤ #"9")) ann in
       if isPrefix (strlit "e_") ann then
         (case MAP fromNatString ts of
-         | [SOME n1; SOME n2; SOME n3] => SOME (Edge n1 n2 n3)
+         | [SOME n1; SOME n2; SOME n3] => SOME (Edge n1 n2 (n3-1))
          | _ => NONE)
       else if LENGTH ts = 1 then
         case fromNatString (HD ts) of
@@ -629,8 +635,8 @@ Definition mk_key_def:
         | SOME n =>
             if isPrefix (strlit "colgeq_") ann then SOME $ AtLeastOneColor n else
             if isPrefix (strlit "colleq_") ann then SOME $ AtMostOneColor n else
-            if isPrefix (strlit "vc") ann then SOME $ VC_Imp_CU n else
-            if isPrefix (strlit "cu") ann then SOME $ CU_Imp_VC n else
+            if isPrefix (strlit "vc") ann then SOME $ VC_Imp_CU (n-1) else
+            if isPrefix (strlit "cu") ann then SOME $ CU_Imp_VC (n-1) else
               NONE
       else NONE
 End
@@ -762,7 +768,7 @@ QED
   bound with at most n colors.
   No upper bound is to be used in the PB proof. *)
 Definition conv_concl_def:
-  (conv_concl n (OBounds (SOME lb) NONE) =
+  (conv_concl n (OBounds (SOME lb) _) =
       if 0 ≤ lb ∧ Num lb ≤ n then SOME (Num lb)
       else NONE) ∧
   (conv_concl _ _ = NONE)
@@ -789,9 +795,9 @@ Proof
   drule lazy_full_encode_thm >>rw[] >>
   gvs[oneline conv_concl_def,AllCaseEqs()]>>
   rename1`full_encode n (v,e) = (SOME obj,fmll)`>>
-  rename1`OBounds (SOME lb) NONE`>>
-  `sem_concl (set (MAP SND fmll)) (SOME obj) (OBounds (SOME lb) NONE)` by
-    (fs[sem_concl_def]>>
+  rename1`OBounds (SOME lb) ub`>>
+  `sem_concl (set (MAP SND fmll)) (SOME obj) (OBounds (SOME lb) NONE)` by (
+    fs[sem_concl_def]>>
     rw[]>>first_x_assum irule>>
     fs[satisfies_def,SUBSET_DEF])>>
   qpat_x_assum`sem_concl _ _ _` mp_tac>>

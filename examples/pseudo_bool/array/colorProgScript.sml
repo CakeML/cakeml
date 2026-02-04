@@ -375,7 +375,12 @@ val _ = translate check_k_color_def;
 val _ = translate MAX_LIST_def;
 val _ = translate parse_cu_def;
 val _ = translate guess_n_def;
+
+val _ = use_sub_check true;
+
 val _ = translate mk_key_def;
+
+val _ = use_sub_check false;
 
 Theorem mk_key_side[local]:
   mk_key_side x
@@ -409,10 +414,10 @@ Quote add_cakeml:
     | Inr prob =>
       case lazy_full_encode g prob of
         None =>
-        Inl "Input OPB not subset of encoding"
+        Inl "Input OPB not subset of encoding\n"
       | Some n => Inr (k, (n, prob))
   else
-    Inl "Invalid coloring"
+    Inl "Invalid coloring\n"
 End
 
 Definition parse_and_check_sem_def:
@@ -470,7 +475,7 @@ Proof
   reverse xif
   >- (
     xcon>>xsimpl>>
-    qexists_tac`INL «Invalid coloring»`>>
+    qexists_tac`INL «Invalid coloring\n»`>>
     simp[SUM_TYPE_def])>>
   xlet_autop>>
   Cases_on`get_annot_fml fs f2`>>
@@ -485,7 +490,7 @@ Proof
   xmatch
   >- (
     xcon>>xsimpl>>
-    qexists_tac`INL «Input OPB not subset of encoding»`>>
+    qexists_tac`INL «Input OPB not subset of encoding\n»`>>
     simp[SUM_TYPE_def])>>
   xlet_autop>>
   xlet_autop>>
