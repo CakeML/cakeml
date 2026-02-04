@@ -648,6 +648,9 @@ Proof
         Cases_on`r`>>
         fs[reg_imm_name_def,asmTheory.reg_imm_ok_def,ri_find_name_def]>>
         metis_tac[names_ok_imp])
+    >-
+     (Cases_on`r`>>fs[fixed_names_def,arith_name_def,ri_find_name_def]>>
+      metis_tac[names_ok_imp,names_ok_imp2])
     >>
       rw[]>>
       fs[fixed_names_def]>>

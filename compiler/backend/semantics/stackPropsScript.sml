@@ -838,7 +838,7 @@ Definition arith_name_def:
     (i = 0w ⇒ l = Lsl) ∧ w2n i < dimindex (:α)) ∧
   (arith_name (Shift l r1 r2 (Reg r3)) c ⇔
     (c.two_reg_arith ⇒ r1 = r2) ∧ reg_name r1 c ∧
-     reg_name r2 c ∧ reg_name r3 c ∧ (c.ISA = x86_64 ⇒ r3 = 1)) ∧
+     reg_name r2 c ∧ reg_name r3 c ∧ (c.ISA = x86_64 ⇒ r3 = 4)) ∧
   (arith_name (Div r1 r2 r3) c ⇔
     (reg_name r1 c ∧ reg_name r2 c ∧ reg_name r3 c ∧
     c.ISA ∈ {ARMv8; MIPS; RISC_V})) ∧
@@ -950,6 +950,7 @@ Definition fixed_names_def:
   fixed_names names c =
   if c.ISA = x86_64 then
     find_name names 3 = 2 ∧
+    find_name names 4 = 1 ∧
     find_name names 0 = 0
   else T
 End
