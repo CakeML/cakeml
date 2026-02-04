@@ -160,7 +160,7 @@ val test =
 
 
 (*-------------------------------------------------------------------*
-   Example Operation: Insert Element
+   FTs Operation: Insert Element
  *-------------------------------------------------------------------*)
 
 Definition head_def:
@@ -178,9 +178,9 @@ End
 
 (* Inserts a ft new_k between k1 and k2.*)
 Definition dll_insert_def:
-  dll_insert (FibTree k1 n1 ts1)
-             (FibTree new_k new_n new_ts)
-             (FibTree k2 n2 ts2)  = (
+  dll_insert ((FibTree k1 n1 ts1): ('a word, 'a annotated_node) ft)
+             ((FibTree new_k new_n new_ts): ('a word, 'a annotated_node) ft)
+             ((FibTree k2 n2 ts2): ('a word, 'a annotated_node) ft)  = (
     upd_sib n1.before_ptr new_k (FibTree k1 n1 ts1), (*next = new*)
     upd_sib k1 k2 (FibTree new_k new_n new_ts), (*insert new*)
     upd_sib new_k n2.next_ptr (FibTree k2 n2 ts2)) (*before = new*)
@@ -190,31 +190,38 @@ Definition new_min_def:
   new_min (t1, new, t2) tl = [new;t1] ++ tl ++ [t2]
 End
 
-Definition old_min_def:
-  old_min (FibTree k1 n1 t1, new, FibTree k2 n2 t2) tl =
-    if k1 = k2 then
-        [FibTree k1 n1 t1;new]
-    else
-        [FibTree k1 n1 t1;new; FibTree k2 n2 t2] ++ tl
+Definition get_key_def:
+  get_key (FibTree k1 n1 t1) = k1
 End
 
-(*
-Some type error
-Definition insert_tree_def:
-  (meld (new_t:('a word, 'a annotated_node) ft) ([]:('a word, 'a annotated_node) fts) = [new_t]) /\
-  (meld (FibTree new_k new_n new_ts) (FibTree k n ts::xs) =
-    if new_n.value < n.value then
-        new_min (dll_insert (LAST (FibTree k n ts::xs))
-                            (FibTree new_k new_n new_ts)
-                            (FibTree k n ts))
-                (REVERSE (TL (REVERSE xs)))
-    else
-        old_min (dll_insert (FibTree k n ts)
-                            (FibTree new_k new_n new_ts)
-                            (head (FibTree k n ts) xs))
-                (TL xs))
+Definition less_than_def:
+  less_than (FibTree k1 n1 ts1) (FibTree k2 n2 ts2) = (n1.data.value < n2.data.value)
 End
+
+Definition old_min_def:
+  old_min (min, new, next) tl =
+    if (get_key min) = (get_key next) then
+        [min;new]
+    else
+        [min;new;next] ++ tl
+End
+
+(*Some type error
 *)
+Definition add_tree_def:
+  (add_tree (new_t:('a word, 'a annotated_node) ft) [] = [new_t]) /\
+  (add_tree new_t (t::ts) =
+    if less_than new_t t then
+        new_min (dll_insert (LAST (t::ts)) new_t t) (REVERSE (TL (REVERSE xs)))
+    else
+        old_min (dll_insert t new_t (head (FibTree k n ts) xs)) (TL xs))
+End
+
+
+(*-------------------------------------------------------------------*
+   FTs Operation: Update Element
+ *-------------------------------------------------------------------*)
+
 
 
 (*-------------------------------------------------------------------*
