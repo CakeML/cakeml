@@ -58,14 +58,6 @@ Definition last_key_def:
   last_key i xs = next_key i (REVERSE xs)
 End
 
-Definition rank_def:
-  (rank [] = 0:num) /\
-  (rank (FibTree _ _ ts::xs) = if (1 + rank ts) > (rank xs) then
-    1 + rank ts
-    else
-    rank xs)
-End
-
 (*
 Annotates a list of FibTrees. The function does two recursive calls for a list of fts = (t:ts).
 First, it calls itself for all cs where cs are the child trees of t.
@@ -78,7 +70,7 @@ b = previous element
 Definition annotate_fts_seg_def:
   (annotate_fts_seg p s b [] = []) /\
   (annotate_fts_seg p s b ((FibTree k n ys)::xs) =
-    ((FibTree k (annotated_node n b (next_key s xs) p (child_key ys) (rank ys))
+    ((FibTree k (annotated_node n b (next_key s xs) p (child_key ys) (LENGTH ys))
         (annotate_fts_seg k (next_key 0w ys) (last_key 0w ys) ys))
     ::(annotate_fts_seg p s k xs)))
 End
@@ -96,7 +88,7 @@ Annotates a single tree that is not part of any list and does not have a parent.
 *)
 Definition annotate_ft_def:
   annotate_ft (FibTree k n xs) =
-    FibTree k (annotated_node n 0w 0w 0w (next_key 0w xs) (rank xs))
+    FibTree k (annotated_node n 0w 0w 0w (next_key 0w xs) (LENGTH xs))
         (annotate_fts_seg k (next_key 0w xs) (last_key (next_key 0w xs) xs) xs)
 End
 
@@ -152,7 +144,7 @@ val test_fts_mem = “fts_mem (annotate_fts [
         (node_data 100w (3000w, []) true false) []
     ]
     ])”
-    |> SCONV [fts_mem_def,STAR_ASSOC,annotate_fts_def,annotate_fts_seg_def,next_key_def,child_key_def,last_key_def,REVERSE_DEF,ft_seg_def,ones_def,edges_ones_def,rank_def,b2w_def]
+    |> SCONV [fts_mem_def,STAR_ASSOC,annotate_fts_def,annotate_fts_seg_def,next_key_def,child_key_def,last_key_def,REVERSE_DEF,ft_seg_def,ones_def,edges_ones_def,LENGTH,b2w_def]
 
 val test =
     “ones 400w [x;y;z;e;r;t;y;u:word64]”
@@ -239,3 +231,41 @@ End
 (*-------------------------------------------------------------------*
    Correctness of Heap Operations
  *-------------------------------------------------------------------*)
+
+
+(*
+What we need to prove for 'insert node':
+{P} code {Q}
+P = heap before operation
+
+- new element
+- maybe new heap pointer -> case distinction
+- besides that heap unchangeched
+
+Q = heap after operation
+
+*)
+
+(*
+What we need to prove for 'update node':
+{P} code {Q}
+P = heap before operation
+
+- modify node
+- cascading cut for nodes -> case distinction
+- Induction on the cascading cut operation?
+
+Q = heap after operation
+*)
+
+(*
+What we need to prove for 'extract minimum':
+{P} code {Q}
+P = heap before operation
+
+- root list only holds trees with different ranks
+- new minimum is the heap pointer
+
+Q = heap after operation
+*)
+
