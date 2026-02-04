@@ -163,9 +163,9 @@ val test =
    FTs Operation: Insert Element
  *-------------------------------------------------------------------*)
 
-Definition head_def:
-  (head s [] = s) /\
-  (head s xs = HD xs)
+Definition tail_head_def:
+  (tail_head s [] = s) /\
+  (tail_head s xs = HD xs)
 End
 
 (* Updates a node k with new siblings where
@@ -206,17 +206,29 @@ Definition old_min_def:
         [min;new;next] ++ tl
 End
 
-(*Some type error
-*)
 Definition add_tree_def:
   (add_tree (new_t:('a word, 'a annotated_node) ft) [] = [new_t]) /\
   (add_tree new_t (t::ts) =
     if less_than new_t t then
-        new_min (dll_insert (LAST (t::ts)) new_t t) (REVERSE (TL (REVERSE xs)))
+        new_min (dll_insert (LAST (t::ts)) new_t t) (REVERSE (TL (REVERSE ts)))
     else
-        old_min (dll_insert t new_t (head (FibTree k n ts) xs)) (TL xs))
+        old_min (dll_insert t new_t (tail_head t ts)) (TL ts))
 End
 
+Definition new_node_def:
+  new_node v e = (node_data v e T F)
+End
+
+(*
+Inserts a new node of the graph into the fts.
+k = identifier (a pointer)
+v = current min value
+e = edges (so, a pair of a pointer and a list of the edges of k)
+*)
+Definition insert_node_def:
+  insert_node k v e (heap: ('a word, 'a annotated_node) fts) =
+    (add_tree (annotate_ft (FibTree k (new_node v e) [])) heap)
+End
 
 (*-------------------------------------------------------------------*
    FTs Operation: Update Element
