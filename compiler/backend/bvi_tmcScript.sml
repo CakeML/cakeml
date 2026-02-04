@@ -11,7 +11,7 @@ Libs
    Extracts the recursive tail call from the list of args, and returns the args to the left and to the right of the tail call.
    Returns:
      * NONE                       if multiple recursive tail calls are found.
-     * SOME (NONE, args)          if no recursive tail call is found
+     * SOME (NONE, args)          if no recursive tail call is found.
      * SOME (SOME l tail_call, r) if a single recursive tail call is found. In this case,
                                   ‘l’ are the args left of hole, ‘r’ are the args right of the hole,
                                   and the optimised version of ‘tail_call’ will be used to fill the hole. *)
