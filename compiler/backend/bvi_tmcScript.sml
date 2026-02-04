@@ -7,6 +7,14 @@ Ancestors
 Libs
   preamble
 
+(* Primes Block args to be used as HoleBlock args.
+   Extracts the recursive tail call from the list of args, and returns the args to the left and to the right of the tail call.
+   Returns:
+     * NONE                       if multiple recursive tail calls are found.
+     * SOME (NONE, args)          if no recursive tail call is found
+     * SOME (SOME l tail_call, r) if a single recursive tail call is found. In this case,
+                                  ‘l’ are the args left of hole, ‘r’ are the args right of the hole,
+                                  and the optimised version of ‘tail_call’ will be used to fill the hole. *)
 Definition extract_tail_call_def:
   (extract_tail_call loc [] = SOME (NONE, [])) ∧
   (extract_tail_call loc ((Call t (SOME loc') args h)::op_args) =
@@ -86,15 +94,9 @@ Definition compile_exp_def:
   compile_exp (loc:num) (next:num) (arity:num) (exp:bvi$exp) =
     case rewrite_aux 0 (* TODO *) loc next arity exp of
     | NONE => NONE
-    | SOME exp_aux => SOME (exp_aux, rewrite_opt 0 (* TODO *) loc next arity exp) (* TODO: Let wrap exp_opt *)
-    (*SOME (exp, exp)*)
-    (*case check_exp loc arity exp of
-    | NONE => NONE
-    | SOME op =>
-      let context = REPLICATE arity Any in
-      let (r, opt) = rewrite loc next op arity context exp in
-      let aux      = let_wrap arity (id_from_op op) opt in
-        SOME (aux, opt)*)
+    | SOME exp_aux =>
+      let exp_opt = rewrite_opt 0 (* TODO *) loc next arity exp in
+      SOME (exp_aux, exp_opt)
 End
 
 Definition compile_prog_def:
