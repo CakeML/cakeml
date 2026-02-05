@@ -7,6 +7,8 @@ Ancestors
 Libs
   preamble
 
+val _ = patternMatchesSyntax.temp_enable_pmatch();
+
 (* fits in subset *)
 
 Definition can_interpret_op_def:
@@ -243,11 +245,9 @@ End
 
 (* pmatch versions of the op-functions *)
 
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
-
 Theorem can_interpret_op_pmatch:
   can_interpret_op p l =
-    case p of
+    pmatch p of
     | BlockOp (Cons tag) => (l = 0n ∨ tag < 3n)
     | IntOp (Const i) => (l = 0)
     | GlobOp (Global n) => (l = 0)
@@ -260,7 +260,7 @@ QED
 
 Theorem check_size_op_pmatch:
   check_size_op k p l =
-    case p of
+    pmatch p of
     | BlockOp (Cons tag) => (if l = 0:num then k else k-1:num)
     | IntOp (Const i) => k
     | GlobOp (Global n) => k
@@ -272,7 +272,7 @@ QED
 
 Theorem to_constant_op_pmatch:
   to_constant_op p l cs =
-    case p of
+    pmatch p of
     | IntOp (Const i) => ConstCons 1 [ConstInt i]
     | BlockOp (Constant c) => ConstCons 1 [c]
     | GlobOp (Global n) => ConstCons 2 [ConstInt (& n)]
