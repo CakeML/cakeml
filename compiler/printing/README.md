@@ -26,13 +26,22 @@ the AST and adds code to print "val x = ..." for every
 variable "x" bound in a declaration. This requires type
 checking to know the type of "x".
 
-[addTypePPScript.sml](addTypePPScript.sml):
-The first pass of adding print functions to source AST.
-Runs prior to type inference, and defines a pretty-print
-function per datatype definition.
+[addPrintVals_cvScript.sml](addPrintVals_cvScript.sml):
+cv_compute version of addPrintVals_cv.
 
 [printTweaksScript.sml](printTweaksScript.sml):
 The top-level printing adjustment, as called by the REPL.
 
+[printTweaks_cvScript.sml](printTweaks_cvScript.sml):
+cv_compute version of printTweaks
+
 [test](test):
 Tests for the pretty-printer apparatus.
+
+[typeDecToPPScript.sml](typeDecToPPScript.sml):
+Maps a Dtype or Dtabbrev declaration (the ast syntax) to
+the default pretty-printer function definition for it
+(also as ast syntax).
+
+[typeDecToPP_cvScript.sml](typeDecToPP_cvScript.sml):
+cv_compute version of typeDecToPP.
