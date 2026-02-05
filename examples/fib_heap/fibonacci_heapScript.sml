@@ -70,11 +70,16 @@ b = previous element
 Definition annotate_fts_seg_def:
   (annotate_fts_seg p s b [] = []) /\
   (annotate_fts_seg p s b ((FibTree k n ys)::xs) =
-    ((FibTree k (annotated_node n b (next_key s xs) p (child_key ys) (LENGTH ys))
+    ((FibTree k
+        (<| data       := n ;
+            before_ptr := b ;
+            next_ptr   := next_key s xs ;
+            parent_ptr := p ;
+            child_ptr  := child_key ys ;
+            rank       := LENGTH ys |>)
         (annotate_fts_seg k (next_key 0w ys) (last_key 0w ys) ys))
     ::(annotate_fts_seg p s k xs)))
 End
-
 
 Definition annotate_fts_def:
   (annotate_fts ([]:('a word, 'a node_data) fts) = []) /\
@@ -268,4 +273,3 @@ P = heap before operation
 
 Q = heap after operation
 *)
-
