@@ -2,7 +2,7 @@
   Types and pure functions for pretty printing
 
   Most of these functions are translated in the first phase of the basis
-  setup so that default pretty-printing (c.f. the addTypePP system) will
+  setup so that default pretty-printing (c.f. typeDecToPP) will
   work from then on.
 *)
 Theory mlprettyprinter
@@ -251,4 +251,3 @@ Definition fromOption_def:
       NONE => List [strlit "NONE"]
     | SOME x => Append (List [strlit "SOME "]) (f x)
 End
-
