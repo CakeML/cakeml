@@ -118,8 +118,8 @@ Proof
   \\ disch_then $ qspec_then ‘1’ assume_tac \\ gvs []
   \\ simp [evaluate_def, cml_dec_to_string_clos_def, do_opapp_def,
            evaluateTheory.dec_clock_def]
-  \\ simp [cml_dec_to_string_body_def, cml_list_def, evaluate_def,
-           do_con_check_def, build_conv_def, do_app_def, opn_lookup_def]
+  \\ simp [cml_dec_to_string_body_def, cml_list_def, evaluate_def, do_conversion_def,
+           do_con_check_def, build_conv_def, do_app_def, do_arith_def, check_type_def]
   \\ ‘¬((48: int) + &n < 0 ∨ (48: int) + &n > 255)’ by (intLib.COOPER_TAC)
   \\ simp [v_to_char_list_def]
   \\ gvs [dec_to_string_def, str_def]
@@ -176,7 +176,7 @@ Proof
   \\ dxrule_then assume_tac evaluate_add_to_clock \\ gvs []
   \\ simp [cml_nat_to_string_clos_def, Once find_recfun_def, build_rec_env_def]
   \\ qrefine ‘ck + 1’ \\ simp [evaluateTheory.dec_clock_def]
-  \\ simp [evaluate_def, do_app_def, do_if_def, opb_lookup_def,
+  \\ simp [evaluate_def, do_app_def, do_if_def, do_test_def,
            cml_nat_to_string_body_def]
   \\ IF_CASES_TAC \\ gvs []
   >- (* n < 10 *)
@@ -194,7 +194,7 @@ Proof
         mp_tac cml_dec_to_string_correct
   \\ impl_tac >-
    (unabbrev_all_tac
-    \\ simp [evaluate_def, do_app_def, opn_lookup_def])
+    \\ simp [evaluate_def, do_app_def, do_arith_def, check_type_def])
   \\ disch_then $ qx_choose_then ‘ck’ assume_tac
   \\ last_x_assum $
        qspecl_then
@@ -203,7 +203,7 @@ Proof
    (unabbrev_all_tac
     \\ simp [cml_nat_to_string_clos_def, cml_nat_to_string_body_def]
     \\ simp [has_list_cons_def]
-    \\ simp [evaluate_def, do_app_def, opn_lookup_def])
+    \\ simp [evaluate_def, do_app_def, do_arith_def, check_type_def])
   \\ disch_then $ qx_choose_then ‘ck₁’ assume_tac
   \\ rev_drule evaluate_add_to_clock
   \\ disch_then $ qspec_then ‘ck₁’ assume_tac \\ gvs []
@@ -259,7 +259,7 @@ Proof
   \\ simp [evaluate_def, cml_int_to_string_clos_def, do_opapp_def,
            evaluateTheory.dec_clock_def]
   \\ simp [cml_int_to_string_body_def, evaluate_def, do_app_def, do_if_def,
-           opb_lookup_def]
+           do_test_def]
   \\ simp [int_to_string_def]
   \\ reverse IF_CASES_TAC \\ gvs []
   >-
@@ -276,7 +276,7 @@ Proof
      [‘Num (-i)’, ‘s₁’, ‘call_env’, ‘arg’, ‘s₁’, ‘clos_env₁’, ‘clos_env₂’] mp_tac
        cml_nat_to_string_correct
   \\ impl_tac >-
-   (unabbrev_all_tac \\ simp [evaluate_def, do_app_def, opn_lookup_def])
+   (unabbrev_all_tac \\ simp [evaluate_def, do_app_def, do_arith_def, check_type_def])
   \\ disch_then $ qx_choose_then ‘ck’ assume_tac
   \\ qexists ‘ck’
   \\ irule evaluate_Strcat \\ gvs []
@@ -1733,10 +1733,8 @@ Proof
     \\ qexists ‘ck’
     \\ Cases_on ‘uop’ \\ gvs [from_un_op_def, evaluate_def]
     \\ reverse $ namedCases_on ‘r’ ["v", "err"] \\ gvs []
-    \\ gvs [do_uop_def, CaseEqs ["value", "option"]]
-    \\ rename [‘Boolv b’] \\ Cases_on ‘b’ \\ gvs []
-    \\ gvs [do_if_def, evaluate_def, do_con_check_def, build_conv_def,
-            env_rel_def, has_cons_def, Boolv_def, bool_type_num_def])
+    \\ gvs [do_uop_def, CaseEqs ["value", "option"], do_app_def,check_type_def]
+    \\ rename [‘Boolv b’] \\ Cases_on ‘b’ \\ gvs [do_arith_def])
   >~ [‘BinOp bop e₀ e₁’] >-
    (gvs [evaluate_exp_def, from_exp_def, oneline bind_def, CaseEq "sum"]
     \\ namedCases_on ‘evaluate_exp s env_dfy e₀’ ["s₁ r"] \\ gvs []
@@ -1783,16 +1781,16 @@ Proof
     \\ Cases_on ‘bop = Div’ \\ gvs [] >-
      (gvs [do_bop_def, AllCaseEqs()]
       \\ gvs [from_bin_op_def, EDIV_DEF]
-      \\ gvs [evaluate_def, do_app_def, do_if_def, opb_lookup_def]
+      \\ gvs [evaluate_def, do_app_def, do_if_def, do_test_def]
       \\ Cases_on ‘0 < i₁’
-      \\ gvs [evaluate_def, do_app_def, opn_lookup_def, Boolv_def]
+      \\ gvs [evaluate_def, do_app_def, do_arith_def, check_type_def, Boolv_def]
       \\ gvs [cml_state_preserved_def, state_rel_def])
     \\ Cases_on ‘bop = Mod’ \\ gvs [] >-
      (gvs [do_bop_def, CaseEq "value"]
       \\ gvs [from_bin_op_def, EMOD_DEF]
-      \\ gvs [evaluate_def, do_app_def, do_if_def, opb_lookup_def]
+      \\ gvs [evaluate_def, do_app_def, do_if_def, do_test_def]
       \\ Cases_on ‘i₁ < 0’
-      \\ gvs [evaluate_def, do_app_def, opn_lookup_def, INT_ABS]
+      \\ gvs [evaluate_def, do_app_def, do_arith_def, check_type_def, INT_ABS]
       \\ gvs [cml_state_preserved_def])
     \\ Cases_on ‘bop = Eq’ \\ gvs [] >-
      (gvs [do_bop_def]
@@ -1857,7 +1855,7 @@ Proof
         \\ gvs [cml_state_preserved_def]))
     \\ gvs [oneline do_bop_def, do_sc_def, AllCaseEqs()]
     \\ gvs [from_bin_op_def]
-    \\ gvs [evaluate_def, do_app_def, opb_lookup_def, opn_lookup_def,
+    \\ gvs [evaluate_def, do_app_def, do_test_def, do_arith_def, check_type_def,
               do_log_def, do_if_def]
     \\ gvs [cml_state_preserved_def])
   >~ [‘ArrLen arr’] >-
