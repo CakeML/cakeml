@@ -644,23 +644,27 @@ Proof
       Cases_on`x`>>fs[]>>
       Cases_on`t'`>>fs[the_words_def]>>
       EVERY_CASE_TAC>>fs[]))
->>cheat
-(*
-  >-
-    (rename [‘Shift’]>>
-    simp[inst_select_exp_def]>>last_x_assum mp_tac>>simp[Once PULL_FORALL]>>disch_then (qspec_then`e`mp_tac)>>impl_tac>-(full_simp_tac(srw_ss())[exp_size_def]>>DECIDE_TAC)>>
-    full_simp_tac(srw_ss())[LET_THM,word_exp_def]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]
-    >-
-      (`word_sh s' c' n = SOME c'` by
-        (full_simp_tac(srw_ss())[word_sh_def]>>EVERY_CASE_TAC>>
-        fs[])>>
-      srw_tac[][]>>res_tac>>
-      first_assum(qspecl_then[`temp`,`c`] assume_tac)>>
-      full_simp_tac(srw_ss())[evaluate_def,LET_THM,get_vars_def,get_var_def]>>
-      `lookup temp loc'' = SOME (Word c')` by metis_tac[]>>
-      full_simp_tac(srw_ss())[set_vars_def,alist_insert_def,state_component_equality,lookup_insert]>>
-      srw_tac[][]>>rev_full_simp_tac(srw_ss())[]>>
-      Cases_on `x = temp`>>fs[]>>metis_tac[])
+  >~[`Shift`]
+  >- (
+    rename1`Shift ss e e0`>>
+    Cases_on`∃l. e0 = Const l`
+    >- (
+      fs[Once inst_select_exp_def]>>
+      last_x_assum mp_tac>>
+      simp[Once PULL_FORALL]>>disch_then (qspec_then`e`mp_tac)>>
+      impl_tac>-(full_simp_tac(srw_ss())[exp_size_def]>>DECIDE_TAC)>>
+      gvs[word_exp_def]>>every_case_tac>>gvs[]
+      >-
+        (`word_sh ss c' 0 = SOME c'` by
+          (full_simp_tac(srw_ss())[word_sh_def]>>EVERY_CASE_TAC>>
+          fs[])>>
+        srw_tac[][]>>res_tac>>
+        first_assum(qspecl_then[`temp`,`c`] assume_tac)>>
+        full_simp_tac(srw_ss())[evaluate_def,LET_THM,get_vars_def,get_var_def]>>
+        `lookup temp loc'' = SOME (Word c')` by metis_tac[]>>
+        full_simp_tac(srw_ss())[set_vars_def,alist_insert_def,state_component_equality,lookup_insert]>>
+        srw_tac[][]>>rev_full_simp_tac(srw_ss())[]>>
+        Cases_on `x = temp`>>fs[]>>metis_tac[])
     >-
       (srw_tac[][]>>res_tac>>
       first_assum(qspecl_then[`temp`,`c`] assume_tac)>>
@@ -670,9 +674,41 @@ Proof
       srw_tac[][]>>DISJ2_TAC>>strip_tac>>`x ≠ temp` by DECIDE_TAC>>
       metis_tac[])
     >-
-      (`n ≥ dimindex(:'a)` by DECIDE_TAC>>
-      full_simp_tac(srw_ss())[word_sh_def]))
-*)
+      (`w2n l ≥ dimindex(:'a)` by DECIDE_TAC>>
+      full_simp_tac(srw_ss())[word_sh_def]))>>
+    `inst_select_exp c tar temp (Shift ss e e0) =
+      let p = inst_select_exp c temp temp e in
+      let p1 = inst_select_exp c (temp+1) (temp+1) e0 in
+      Seq p (Seq p1 (Inst (Arith (Shift ss tar temp (Reg (temp+1))))))` by
+      (fs[inst_select_exp_def]>>
+      every_case_tac>>gvs[])>>
+    pop_assum SUBST_ALL_TAC>>
+    fs[PULL_FORALL]>>
+    first_assum (qspec_then `e0` mp_tac)>>
+    first_x_assum (qspec_then `e` mp_tac)>>
+    gvs[word_exp_def,AllCaseEqs()]>>
+    simp[evaluate_def]>>
+    rpt (disch_then $ drule_at Any)>>
+    disch_then (qspecl_then [`c`,`temp`] assume_tac)>>fs[]>>
+    rename1`s with locals := loc''`>>
+    disch_then(qspecl_then [`c`,`temp+1`,`temp+1`,`s with locals:=loc''`,`Word w1`,`loc''`] mp_tac)>>
+    impl_tac>- (
+      rw[locals_rel_def]
+      >- (
+        irule every_var_exp_mono>>
+        first_x_assum (irule_at Any)>>
+        simp[])
+      >>
+        (*word_exp invariant under extra locals*)
+        irule locals_rel_word_exp>>
+        fs[locals_rel_def]>>
+        first_x_assum (irule_at Any)>>
+        rw[]>>
+        gvs[COND_EXPAND_IMP,SF DNF_ss])>>
+    strip_tac>>full_simp_tac(srw_ss())[word_exp_def]>>
+    gvs[COND_EXPAND_IMP,SF DNF_ss]>>
+    simp[inst_def,assign_def,word_exp_def,LET_THM,state_component_equality,
+    get_var_def,set_var_def,lookup_insert,the_words_def])
 QED
 
 Theorem locals_rm[local]:

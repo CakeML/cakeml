@@ -147,8 +147,9 @@ Definition ssa_cc_trans_inst_def:
     | Reg r3 =>
       let r3' = option_lookup ssa r3 in
       let r2' = option_lookup ssa r2 in
+      let mov_in = Move1 [(8,r3')] in
       let (r1',ssa',na') = next_var_rename r1 ssa na in
-        (Inst (Arith (Shift shift r1' r2' (Reg r3'))),ssa',na')
+        (Seq mov_in (Inst (Arith (Shift shift r1' r2' (Reg 8)))),ssa',na')
     | _ =>
       let r2' = option_lookup ssa r2 in
       let (r1',ssa',na') = next_var_rename r1 ssa na in

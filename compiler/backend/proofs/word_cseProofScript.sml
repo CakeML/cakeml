@@ -114,6 +114,7 @@ Theorem is_complex_canonical[simp]:
   ∀data a. is_complex (canonicalArith data a) = is_complex a
 Proof
   Cases_on ‘a’ \\ gvs [canonicalArith_def, is_complex_def]
+  \\ Cases_on`r` \\ EVAL_TAC \\rw[]
 QED
 
 Theorem wordToNum_unique[simp]:
@@ -924,16 +925,15 @@ Proof
                       regImmToNumList_def, lookup_any_def]
               \\ gvs [is_complex_def, are_reads_seen_def, is_seen_def]
               \\ Cases_on ‘lookup n0 data.map’ \\ gvs []
-              \\ cheat
-              (* >- (Cases_on ‘n0=n’ \\ gvs [lookup_insert] *)
-              (*     \\ gvs [get_var_def, set_var_def, lookup_insert] *)
-              (*     \\ gvs [evaluate_def, inst_def, assign_def, word_exp_def] *)
-              (*     \\ gvs [get_var_def, set_var_def, firstRegOfArith_def, lookup_insert]) *)
-              (* \\ first_x_assum drule \\ strip_tac *)
-              (* \\ Cases_on ‘x=n’ \\ gvs [lookup_insert, domain_lookup] *)
-              (* \\ gvs [get_var_def, set_var_def, lookup_insert] *)
-              (* \\ gvs [evaluate_def, inst_def, assign_def, word_exp_def] *)
-              (* \\ gvs [lookup_insert, get_var_def, set_var_def, firstRegOfArith_def] *))
+              >- (Cases_on ‘n0=n’ \\ gvs [lookup_insert]
+                  \\ gvs [get_var_def, set_var_def, lookup_insert]
+                  \\ gvs [evaluate_def, inst_def, assign_def, word_exp_def]
+                  \\ gvs [get_var_def, set_var_def, firstRegOfArith_def, lookup_insert])
+              \\ first_x_assum drule \\ strip_tac
+              \\ Cases_on ‘x=n’ \\ gvs [lookup_insert, domain_lookup]
+              \\ gvs [get_var_def, set_var_def, lookup_insert]
+              \\ gvs [evaluate_def, inst_def, assign_def, word_exp_def]
+              \\ gvs [lookup_insert, get_var_def, set_var_def, firstRegOfArith_def])
           \\ first_x_assum drule \\ pop_assum kall_tac \\ strip_tac
           \\ drule_all evaluate_arith_insert \\ rw []
           \\ Cases_on ‘v=n’ \\ gvs [get_var_def, set_var_def, lookup_insert, domain_lookup, is_seen_def])
@@ -1911,8 +1911,7 @@ Proof
   \\ Cases_on ‘a’ \\ gvs [is_complex_def]
   >- (gvs [canonicalArith_def, inst_arg_convention_def]) (* Binop *)
   >- (rename1 ‘Shift _ _ _ r’ \\ Cases_on ‘r’
-      \\ gvs [canonicalArith_def, canonicalImmReg'_def, inst_arg_convention_def]
-      \\ cheat (* data_conventions data ⇒ canonicalRegs' n data n' = 8 ? *))
+      \\ gvs [canonicalArith_def, canonicalImmReg'_def, inst_arg_convention_def,is_complex_def])
   >- (gvs [canonicalArith_def, inst_arg_convention_def]) (* Div *)
 QED
 
@@ -1935,8 +1934,7 @@ Proof
           \\ Cases_on ‘a’
           \\ gvs [is_complex_def, canonicalArith_def, inst_arg_convention_def]
           \\ rename [‘canonicalImmReg' _ _ r’] \\ Cases_on ‘r’
-          \\ gvs [canonicalImmReg'_def, inst_arg_convention_def]
-          \\ cheat (* canonicalRegs' n data 8 = 8 *))
+          \\ gvs [canonicalImmReg'_def, inst_arg_convention_def,is_complex_def])
       \\ Cases_on ‘a’ \\ gvs [word_cseInst_def]
       \\ Cases_on ‘m’
       \\ gvs [is_store_def, every_stack_var_def, call_arg_convention_def,

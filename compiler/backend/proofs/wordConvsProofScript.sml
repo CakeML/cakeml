@@ -1790,6 +1790,7 @@ Proof
     >> rpt conj_tac >> rpt (gen_tac ORELSE disch_tac)
     >> fs[copy_prop_inst_def,wordLangTheory.every_stack_var_def,
        inst_arg_convention_def, call_arg_convention_def]
+    >- (Cases_on`n`>>fs[inst_arg_convention_def])
     >- fs[reg_allocTheory.is_alloc_var_def,lookup_eq_def]
     >> rpt(pairarg_tac>>fs[]) >> rw[]
     >> fs[copy_prop_inst_def,wordLangTheory.every_stack_var_def,
@@ -1843,6 +1844,8 @@ Proof
       Cases_on‘ri’
       >>fs[inst_ok_less_def,lookup_eq_imm_def]
     )
+    >- (Cases_on`n`>>
+       fs[inst_ok_less_def,lookup_eq_imm_def])
     >>metis_tac[]
   )
   >-(TOP_CASE_TAC>>rw[full_inst_ok_less_def])
@@ -1964,7 +1967,7 @@ Proof
   simp[three_to_two_reg_prog_def]>>
   ho_match_mp_tac three_to_two_reg_ind>>
   rw[]>>
-  fs[every_stack_var_def,pre_alloc_conventions_def,every_inst_def,three_to_two_reg_def,call_arg_convention_def,inst_arg_convention_def,two_reg_inst_def]>>
+  fs[every_stack_var_def,pre_alloc_conventions_def,every_inst_def,three_to_two_reg_def,call_arg_convention_def,oneline inst_arg_convention_def,two_reg_inst_def]>>
   FULL_CASE_TAC>>fs[]>>
   PairCases_on`x`>>fs[]>>
   FULL_CASE_TAC>>fs[]>>

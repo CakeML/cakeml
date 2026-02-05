@@ -358,7 +358,7 @@ End
 Definition is_complex_def:
   is_complex (Binop _ _ _ _) = F ∧
   is_complex (Div _ _ _) = F ∧
-  is_complex (Shift _ _ _ _) = F ∧
+  is_complex (Shift _ _ _ (Imm _)) = F ∧
   is_complex _ = T
 End
 

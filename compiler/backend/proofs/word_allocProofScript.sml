@@ -4726,10 +4726,10 @@ Proof
 QED
 
 Theorem ssa_locals_rel_set_var[local]:
-  ssa_locals_rel na ssa st.locals cst.locals ∧
+  ssa_locals_rel na ssa stl cstl ∧
   ssa_map_ok na ssa ∧
   n < na ⇒
-  ssa_locals_rel (na+4) (insert n na ssa) (insert n w st.locals) (insert na w cst.locals)
+  ssa_locals_rel (na+4) (insert n na ssa) (insert n w stl) (insert na w cstl)
 Proof
   srw_tac[][ssa_locals_rel_def]>>
   full_simp_tac(srw_ss())[lookup_insert]>>Cases_on`x=n`>>full_simp_tac(srw_ss())[]
@@ -5703,11 +5703,45 @@ Proof
       match_mp_tac ssa_locals_rel_set_var>>
       full_simp_tac(srw_ss())[every_var_inst_def,every_var_def])
     >~[`Shift`]
-    >- (* ( *) cheat
-      (* qpat_abbrev_tac`expr = (Shift s (Var n0) Z)`>> *)
-      (* setup_tac>> *)
-      (* match_mp_tac ssa_locals_rel_set_var>> *)
-      (* fs[every_var_inst_def,every_var_def]) *)
+    >- (
+      rename1`Shift _ n n0 r`>>
+      Cases_on`r`>>
+      fs[evaluate_def,inst_def,assign_def,get_vars_def]
+      >- (
+        fs[word_exp_def]>>
+        rename1`Reg n'`>>
+        Cases_on`get_var n0 st`>>fs[]>>
+        rename1`get_var _ _ = SOME x`>>
+        Cases_on`x`>>simp[]>>
+        Cases_on`get_var n' st`>>fs[]>>
+        rename1`get_var _ _ = SOME x`>>
+        Cases_on`x`>>simp[]>>
+        imp_res_tac ssa_locals_rel_get_var>>
+        fs[set_vars_def,get_var_def,lookup_alist_insert]>>
+        `option_lookup ssa n0 ≠ 8` by (
+          fs[ssa_locals_rel_def]>>
+          qpat_x_assum`lookup n' _ = _` kall_tac>>
+          first_x_assum drule>>
+          rfs[domain_lookup,ssa_map_ok_def]>>
+          strip_tac>>
+          first_x_assum drule>>
+          rw[]>>
+          fs[is_phy_var_def,option_lookup_def]>>
+          CCONTR_TAC>>
+          fs[])>>
+        fs[]>>
+        every_case_tac>>
+        simp[set_var_def,alist_insert_def]>>
+        match_mp_tac ssa_locals_rel_set_var>>
+        fs[every_var_def,every_var_inst_def]>>
+        irule ssa_locals_rel_ignore_insert>>
+        simp[is_phy_var_def])
+     >- (
+        qpat_abbrev_tac`expr = (Shift s (Var n0) Z)`>>
+        setup_tac>>
+        match_mp_tac ssa_locals_rel_set_var>>
+        fs[every_var_inst_def,every_var_def])
+    )
     >- ( (*Div*)
       fs[]>>
       Cases_on`get_vars [n1;n0] st`>>fs[get_vars_def]>>
@@ -8086,9 +8120,9 @@ Proof
   TRY (
   fs[ssa_cc_trans_def,UNCURRY_EQ] >> rveq >>
   fs[pre_alloc_conventions_def,every_stack_var_def,call_arg_convention_def] >> NO_TAC)
-  >- (* ( (*Inst*) *) cheat
-    (* fs[ssa_cc_trans_def,oneline ssa_cc_trans_inst_def,AllCaseEqs(),UNCURRY_EQ] >> rveq >> *)
-    (* simp[pre_alloc_conventions_def,every_stack_var_def,call_arg_convention_def,inst_arg_convention_def]) *)
+  >- ( (*Inst*)
+    fs[ssa_cc_trans_def,oneline ssa_cc_trans_inst_def,AllCaseEqs(),UNCURRY_EQ] >> rveq >>
+    simp[pre_alloc_conventions_def,every_stack_var_def,call_arg_convention_def,inst_arg_convention_def])
   >- ( (*Seq*)
      fs[ssa_cc_trans_def,UNCURRY_EQ] >> rveq >>
      fs[] >>
@@ -8329,8 +8363,8 @@ Proof
   ho_match_mp_tac ssa_cc_trans_ind>>full_simp_tac(srw_ss())[ssa_cc_trans_def]>>srw_tac[][]>>
   unabbrev_all_tac>>
   full_simp_tac(srw_ss())[every_inst_def]>>imp_res_tac ssa_cc_trans_props>>full_simp_tac(srw_ss())[]
-  >-
-    (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`m`)>>TRY(Cases_on`r`)>>
+  >- (
+    Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`m`)>>TRY(Cases_on`r`)>>
     TRY(Cases_on`f`)>>
     full_simp_tac(srw_ss())[ssa_cc_trans_inst_def,LET_THM,next_var_rename_def]>>
     every_case_tac>>
@@ -8338,7 +8372,7 @@ Proof
     fs[every_var_def,every_var_inst_def,every_var_imm_def,every_inst_def]>>
     full_simp_tac(srw_ss())[distinct_tar_reg_def,ssa_map_ok_def,option_lookup_def]>>
     EVERY_CASE_TAC>>srw_tac[][]>>res_tac>>full_simp_tac(srw_ss())[]>>
-    fs[is_alloc_var_def]>>CCONTR_TAC>>fs[])
+    fs[is_alloc_var_def]>>CCONTR_TAC>>gvs[])
   >-
     (full_simp_tac(srw_ss())[every_var_def]>>
     first_x_assum match_mp_tac>>
@@ -8655,10 +8689,10 @@ Proof
   srw_tac[][call_arg_convention_def,every_var_def]>>
   EVERY_CASE_TAC>>unabbrev_all_tac>>
   full_simp_tac(srw_ss())[call_arg_convention_def]
-  >- cheat
-    (* (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`r`)>>TRY(Cases_on`m`)>> *)
-    (* TRY(Cases_on`f'`>>every_case_tac)>> *)
-    (* fs[inst_arg_convention_def,every_var_inst_def,is_phy_var_def]) *) >>
+  >- (
+    Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`r`)>>TRY(Cases_on`m`)>>
+    TRY(Cases_on`f'`>>every_case_tac)>>
+    fs[inst_arg_convention_def,every_var_inst_def,is_phy_var_def,every_var_imm_def])>>
   TRY(is_phy_var_tac>>NO_TAC)>>
   rpt conj_tac >>
   TRY (qpat_abbrev_tac `ysl = LENGTH _` >> gvs[]) >>

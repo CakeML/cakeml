@@ -285,7 +285,10 @@ Definition inst_select_exp_def:
                  Seq prog (Inst (Arith (Shift sh tar temp (Imm (n2w n))))))
           else
             Inst (Const tar 0w)
-    | _ => Inst (Const tar 0w) (* FIXME *)) ∧
+    | _ =>
+      let p = inst_select_exp c temp temp exp in
+      let p1 = inst_select_exp c (temp+1) (temp+1) e1 in
+      Seq p (Seq p1 (Inst (Arith (Shift sh tar temp (Reg (temp+1))))))) ∧
   (*Make it total*)
   (inst_select_exp _ _ _ _ = Skip)
 Termination
@@ -351,7 +354,10 @@ Theorem inst_select_exp_pmatch:
                  Seq prog (Inst (Arith (Shift sh tar temp (Imm (n2w n))))))
           else
             Inst (Const tar 0w)
-    | _ => Inst (Const tar 0w) (* FIXME *))
+    | _ =>
+      let p = inst_select_exp c temp temp exp in
+      let p1 = inst_select_exp c (temp+1) (temp+1) e1 in
+      Seq p (Seq p1 (Inst (Arith (Shift sh tar temp (Reg (temp+1)))))))
   (*Make it total*)
   | _ => Skip
 Proof
