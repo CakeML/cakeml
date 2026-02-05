@@ -76,57 +76,11 @@ val _ = use_long_names:=true;
 val r = translate flat_to_closTheory.dest_pat_pmatch;
 val r = translate flat_to_closTheory.arg1_pmatch;
 val r = translate flat_to_closTheory.arg2_pmatch;
+val r = translate flat_to_closTheory.dest_nop_def;
+
 
 val _ = patternMatchesSyntax.temp_enable_pmatch();
 
-Definition dest_sing_list_def:
-  dest_sing_list x =
-    case x of [y] => SOME y | _ => NONE
-End
-
-val r = translate dest_sing_list_def;
-
-Definition dest_App_Ord_pmatch:
-  dest_App_Ord x =
-    pmatch x of App _ Ord es => dest_sing_list es | _ => NONE
-End
-
-val r = translate dest_App_Ord_pmatch;
-
-Definition dest_App_WordToIntW8_pmatch:
-  dest_App_WordToIntW8 x =
-    pmatch x of App _ (WordToInt W8) es => dest_sing_list es | _ => NONE
-End
-
-val r = translate dest_App_WordToIntW8_pmatch;
-
-Theorem dest_nop_pmatch:
-  dest_nop op e =
-    pmatch op of
-    | WordFromInt W8 =>
-        (case dest_sing_list e of NONE => NONE | SOME e => dest_App_Ord e)
-    | Chr =>
-        (case dest_sing_list e of NONE => NONE | SOME e => dest_App_WordToIntW8 e)
-    | _ => NONE
-Proof
-  CONV_TAC(ONCE_DEPTH_CONV patternMatchesLib.PMATCH_ELIM_CONV)
-  \\ Cases_on ‘op’ \\ fs [flat_to_closTheory.dest_nop_def]
-  THEN1
-   (Cases_on ‘w’ \\ fs []
-    \\ Cases_on ‘e’ \\ fs [dest_sing_list_def]
-    \\ Cases_on ‘t’ \\ fs [dest_sing_list_def]
-    \\ fs [dest_App_Ord_pmatch,dest_App_WordToIntW8_pmatch]
-    \\ CONV_TAC(ONCE_DEPTH_CONV patternMatchesLib.PMATCH_ELIM_CONV)
-    \\ every_case_tac \\ fs [flat_to_closTheory.dest_nop_def,dest_sing_list_def])
-  \\ fs [dest_App_Ord_pmatch,dest_App_WordToIntW8_pmatch]
-  \\ CONV_TAC(ONCE_DEPTH_CONV patternMatchesLib.PMATCH_ELIM_CONV)
-  \\ Cases_on ‘e’ \\ fs [dest_sing_list_def]
-  \\ Cases_on ‘t’ \\ fs [dest_sing_list_def]
-  \\ Cases_on ‘h’ \\ fs [dest_sing_list_def]
-  \\ every_case_tac \\ fs [flat_to_closTheory.dest_nop_def,dest_sing_list_def]
-QED
-
-val r = translate dest_nop_pmatch;
 val r = translate flat_to_closTheory.compile_def;
 
 val r = translate flat_to_closTheory.compile_decs_def;
