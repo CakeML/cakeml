@@ -320,7 +320,7 @@ Proof
           gvs[bytes_in_word_def,word_mul_n2w,word_add_n2w,good_dimindex_def,dimword_def]) >>
       simp[mem_load_def] >>
       drule $ cj 2 mem_stores_load_disjoint >>
-      disch_then $ qspecl_then [‘shapes’,‘addr'’] mp_tac >>
+      disch_then $ qspecl_then [‘shapes’,‘addr’] mp_tac >>
       reverse impl_tac >- pop_assum $ simp o single >>
       gvs[shape_of_def,ETA_THM,LENGTH_FLAT,
           MAP_MAP_o,o_DEF,length_flatten_eq_size_of_shape,
@@ -418,17 +418,17 @@ Proof
   rw[mem_stores_def,mem_store_def,AllCaseEqs()] >>
   first_x_assum drule >>
   simp[] >>
-  disch_then $ qspec_then ‘addr''’ mp_tac >>
+  disch_then $ qspec_then ‘addr'’ mp_tac >>
   simp[] >>
   impl_keep_tac
   >- (irule byte_aligned_add >>
       simp[] >>
       gvs[good_dimindex_def,bytes_in_word_def,byte_aligned_def,aligned_def,align_def] >>
       EVAL_TAC >> simp[dimword_def] >> EVAL_TAC >> simp[dimword_def] >> EVAL_TAC) >>
-  Cases_on ‘addr' = addr''’ >> gvs[] >>
+  Cases_on ‘addr = addr'’ >> gvs[] >>
   simp[ADD1,LEFT_ADD_DISTRIB,WORD_LEFT_ADD_DISTRIB] >>
   strip_tac >>
-  Cases_on ‘-1w * addr' + addr'' + -1w * bytes_in_word = -1w * bytes_in_word’
+  Cases_on ‘-1w * addr + addr' + -1w * bytes_in_word = -1w * bytes_in_word’
   >- gvs[WORD_SUM_ZERO] >>
   dxrule $ iffRL ADD_MONO_LESS_EQ >>
   disch_then $ qspec_then ‘w2n(bytes_in_word:'a word)’ mp_tac >>
@@ -592,14 +592,14 @@ Proof
   rpt $ qpat_x_assum ‘eval _ _ = _’ kall_tac >>
   rename1 ‘mem_stores _ v’ >>
   rpt $ pop_assum mp_tac >>
-  MAP_EVERY qid_spec_tac [‘v’,‘s’,‘t’,‘addr'’,‘m’] >>
+  MAP_EVERY qid_spec_tac [‘v’,‘s’,‘t’,‘addr’,‘m’] >>
   Induct_on ‘v’
   >- (rw[mem_stores_def] >>
       ‘s with memory := s.memory = s’ by simp[state_component_equality] >>
       ‘t with memory := t.memory = t’ by simp[state_component_equality] >>
       simp[]) >>
   rw[mem_stores_def,AllCaseEqs(),mem_store_def] >>
-  ‘addr' ∈ t.memaddrs’ by(gvs[state_rel_def,SUBSET_DEF]) >>
+  ‘addr ∈ t.memaddrs’ by(gvs[state_rel_def,SUBSET_DEF]) >>
   simp[] >>
   drule_all state_rel_memory_update >>
   strip_tac >>
