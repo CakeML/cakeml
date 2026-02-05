@@ -155,6 +155,68 @@ val test =
     “ones 400w [x;y;z;e;r;t;y;u:word64]”
     |> SCONV [ones_def,STAR_ASSOC,byteTheory.bytes_in_word_def];
 
+(*-------------------------------------------------------------------*
+   FibHeap assertion
+ *-------------------------------------------------------------------*)
+
+Type fib_heap = “: 'a word |-> 'a word # ('a word # ('a word # num) list) ”;
+
+Inductive fts_has:
+[~first:]
+  fts_has k v (FibTree k v ts :: rest)
+[~rest:]
+  fts_has k v rest ⇒
+  fts_has k v (FibTree k1 v1 ts :: rest)
+[~child:]
+  fts_has k v ts ⇒
+  fts_has k v (FibTree k1 v1 ts :: rest)
+End
+
+Definition fib_heap_inv_def:
+  fib_heap_inv fh fts ⇔
+    (∀k v. FLOOKUP fh k = SOME v ⇔ fts_has k v fts)
+    (* TODO: more *)
+End
+
+Definition fib_heap_def:
+  fib_heap a fh =
+    SEP_EXISTS fts.
+      fts_mem fts *
+      cond (fib_heap_inv fh fts /\ a = child_key fts)
+End
+
+Definition fib_heap_append_def:
+  fib_heap_append
+    (k1:'a word, k2:'a word, m:'a word -> 'a word, dm :'a word set)
+  =
+    (k1, m, T)
+End
+
+Definition fib_heap_insert_def:
+  fib_heap_insert
+    (a:'a word, k:'a word, m:'a word -> 'a word, dm :'a word set)
+  =
+    (* load value at k *)
+    let c = (k ∈ dm) in
+    let v_of_k = m k in
+    (* load value at a *)
+    let c = (a ∈ dm ∧ c) in
+    let v_of_a = m a in
+      (* check whether k goes first *)
+      if v_of_k <=+ v_of_a then
+        fib_heap_append (k, a, m, dm)
+      else
+        fib_heap_append (a, k, m, dm)
+End
+
+Theorem fib_heap_insert:
+  ∀frame k v fh.
+    (empty_node k v * fib_heap a fh * frame) (fun2set (m,dm)) ∧
+    fib_heap_insert (a, k, m, dm) = (a', m', b) ⇒
+    (fib_heap a' (fh |+ (k,v)) * frame) (fun2set (m',dm)) ∧ b
+Proof
+  cheat
+QED
 
 (*-------------------------------------------------------------------*
    FTs Operation: Insert Element
