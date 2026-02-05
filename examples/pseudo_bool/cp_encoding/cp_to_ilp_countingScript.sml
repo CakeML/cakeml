@@ -18,14 +18,17 @@ Definition cencode_all_different_def:
   cencode_all_different bnd Xs name =
   flat_app (MAPi (λi X.
     flat_app (MAPi (λj Y.
-      if i < j then
+      if i < j
+      then
         List [
-          (SOME $ mk_name name (strlit"gt"),
+          (SOME $ mk_name name
+            (int_to_string #"-" (&i) ^ strlit"gt" ^ int_to_string #"-" (&j)),
             bits_imply bnd [Pos (neiv name i j)] (mk_gt X Y));
-          (SOME $ mk_name name (strlit"lt"),
-            bits_imply bnd [Neg (neiv name i j)] (mk_gt Y X))
-        ]
-      else Nil) Xs)) Xs)
+          (SOME $ mk_name name
+            (int_to_string #"-" (&i) ^ strlit"lt" ^ int_to_string #"-" (&j)),
+            bits_imply bnd [Neg (neiv name i j)] (mk_gt Y X))]
+      else
+        Nil) Xs)) Xs)
 End
 
 Definition encode_all_different_def:
@@ -370,10 +373,12 @@ QED
 Definition cencode_among_aux_def:
   cencode_among_aux bnd Xs iS Y name =
     Append
-      (flat_app (MAPi
-      (λi X.
-      cbimply_var bnd (eqi name i (strlit"al1"))
-        (at_least_one (MAP (λv. Pos (INL (Eq X v))) iS))) Xs))
+      (flat_app
+        (MAPi
+          (λi X.
+            cbimply_var bnd (eqi name i (strlit"al1"))
+              (at_least_one (MAP (λv. Pos (INL (Eq X v))) iS)))
+          Xs))
       (cencode_bitsum (GENLIST (λi. eqi name i (strlit"al1")) (LENGTH Xs)) Y name)
 End
 
