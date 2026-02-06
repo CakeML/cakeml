@@ -180,7 +180,7 @@ Proof
 QED
 
 
-Triviality state_rel_IMP:
+Theorem state_rel_IMP[local]:
   state_rel s t ⇒ t.clock = s.clock
 Proof
   fs [state_rel_def] >> metis_tac[]
@@ -217,7 +217,7 @@ Proof
   >> metis_tac []
 QED
 
-Triviality make_ctxt_APPEND:
+Theorem make_ctxt_APPEND[local]:
   ∀xs ys n l.
     make_ctxt n (xs ++ ys) l =
     make_ctxt (n + 2 * LENGTH xs) ys (make_ctxt n xs l)
@@ -225,7 +225,7 @@ Proof
   Induct >> fs [make_ctxt_def,MULT_CLAUSES]
 QED
 
-Triviality make_ctxt_NOT_MEM:
+Theorem make_ctxt_NOT_MEM[local]:
   ∀xs n l x. ~MEM x xs ⇒ lookup x (make_ctxt n xs l) = lookup x l
 Proof
   Induct >> fs [make_ctxt_def,lookup_insert]
@@ -337,7 +337,7 @@ Proof
   >> fs [lookup_inter_alt]
 QED
 
-Triviality LASTN_ADD_CONS:
+Theorem LASTN_ADD_CONS[local]:
   ~(LENGTH xs <= n) ⇒ LASTN (n + 1) (x::xs) = LASTN (n + 1) xs
 Proof
   fs [LASTN_CONS]
@@ -1614,7 +1614,7 @@ Proof
   strip_tac>>pairarg_tac>>gs[loop_to_word_comp_func_not_created]
 QED
 
-Triviality loop_to_word_compile_not_created_MEM:
+Theorem loop_to_word_compile_not_created_MEM[local]:
   MEM (a, b, p) (compile_prog pan_prog) ==>
   (!x. (case x of ShareInst _ _ _ => T | Call _ _ _ _ => T
         | LocValue _ _ => T | _ => F) ==>
@@ -2028,13 +2028,13 @@ Proof
   simp[]
 QED
 
-Triviality comp_with_loop_alt_ind =
+Theorem comp_with_loop_alt_ind[local] =
   loop_removeTheory.comp_with_loop_ind
     |> PURE_REWRITE_RULE [METIS_PROVE [] “(a,b) = comp_with_loop x y z w ⇔ comp_with_loop x y z w = (a,b)”,
                           METIS_PROVE [] “(a,b) = store_cont x y z ⇔ store_cont x y z = (a,b)”];
 
 
-Triviality eq_forall_elim:
+Theorem eq_forall_elim[local]:
   (∀x. y = x ⇒ P x) = P y
 Proof
   metis_tac[]

@@ -34,17 +34,22 @@ Definition list_result_def[simp]:
   list_result (Rerr e) = Rerr e
 End
 
-Triviality fix_clock_IMP:
+Theorem fix_clock_IMP[local]:
   fix_clock s x = (s1,res) ==> s1.clock <= s.clock
 Proof
   Cases_on ‘x’ \\ fs [fix_clock_def] \\ rw [] \\ fs []
 QED
 
-Triviality list_size_REVERSE:
+Theorem list_size_REVERSE[local]:
   ∀xs. list_size f (REVERSE xs) = list_size f xs
 Proof
   Induct \\ fs [listTheory.list_size_def,listTheory.list_size_append]
 QED
+
+Definition sing_env_def:
+  sing_env n v =
+    <| v := nsBind n v nsEmpty; c := nsEmpty |> : v sem_env
+End
 
 Definition evaluate_def[nocompute]:
   evaluate st env [] = ((st:'ffi state),Rval [])
@@ -97,13 +102,29 @@ Definition evaluate_def[nocompute]:
       FunApp =>
         (case do_opapp (REVERSE vs) of
           SOME (env',e) =>
-            if st'.clock =( 0 : num) then
+            if st'.clock = 0 then
               (st', Rerr (Rabort Rtimeout_error))
             else
               evaluate (dec_clock st') env'  [e]
         | NONE => (st', Rerr (Rabort Rtype_error))
         )
-     |EvalOp =>
+     | Force =>
+        (case dest_thunk (REVERSE vs) st'.refs of
+         | BadRef => (st', Rerr (Rabort Rtype_error))
+         | NotThunk => (st', Rerr (Rabort Rtype_error))
+         | IsThunk Evaluated v => (st', Rval [v])
+         | IsThunk NotEvaluated f =>
+            (case do_opapp [f; Conv NONE []] of
+             | SOME (env',e) =>
+                 if st'.clock = 0 then (st', Rerr (Rabort Rtimeout_error)) else
+                   (case evaluate (dec_clock st') env' [e] of
+                    | (st2, Rval vs2) =>
+                        (case update_thunk (REVERSE vs) st2.refs vs2 of
+                         | NONE => (st2, Rerr (Rabort Rtype_error))
+                         | SOME refs => (st2 with refs := refs, Rval vs2))
+                    | (st2, Rerr e) => (st2, Rerr e))
+             | NONE => (st', Rerr (Rabort Rtype_error))))
+     | EvalOp =>
         (case fix_clock st' (do_eval_res (REVERSE vs) st') of
           (st1, Rval (env1, decs)) =>
             if st1.clock = 0 then

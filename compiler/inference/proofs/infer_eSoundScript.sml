@@ -3,7 +3,7 @@
 *)
 Theory infer_eSound
 Ancestors
-  typeSystem ast semanticPrimitives infer unify infer_t astProps
+  typeSystem ast semanticPrimitives infer unify infer_t
   inferProps envRel typeSysProps namespaceProps
   typeSoundInvariants[qualified]
 Libs
@@ -13,7 +13,7 @@ val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
 (* ---------- sub_completion ---------- *)
 
-Triviality sub_completion_unify:
+Theorem sub_completion_unify[local]:
   !st t1 t2 s1 n ts s2 n.
   (t_unify st.subst t1 t2 = SOME s1) ∧
   sub_completion n (st.next_uvar + 1) s1 ts s2
@@ -34,7 +34,7 @@ Proof
 rw [sub_completion_def, pure_add_constraints_def]
 QED
 
-Triviality sub_completion_infer:
+Theorem sub_completion_infer[local]:
   !l ienv e st1 t st2 n ts2 s.
   infer_e l ienv e st1 = (Success t, st2) ∧
   sub_completion n st2.next_uvar st2.subst ts2 s
@@ -69,7 +69,7 @@ fs [pure_add_constraints_def, pure_add_constraints_append] >>
 metis_tac []
 QED
 
-Triviality sub_completion_more_vars:
+Theorem sub_completion_more_vars[local]:
   !m n1 n2 s1 ts s2.
   sub_completion m (n1 + n2) s1 ts s2 ⇒ sub_completion m n1 s1 ts s2
 Proof
@@ -78,7 +78,7 @@ rw [] >>
 full_simp_tac (srw_ss()++ARITH_ss) [SUBSET_DEF]
 QED
 
-Triviality sub_completion_infer_es:
+Theorem sub_completion_infer_es[local]:
   !l cenv es st1 t st2 n ts2 s.
   infer_es l cenv es st1 = (Success t, st2) ∧
   sub_completion n st2.next_uvar st2.subst ts2 s
@@ -140,7 +140,7 @@ Proof
       metis_tac [APPEND_ASSOC])
 QED
 
-Triviality sub_completion_infer_pes:
+Theorem sub_completion_infer_pes[local]:
   !l ienv pes t1 t2 st1 t st2 n ts2 s.
   infer_pes l ienv pes t1 t2 st1 = (Success (), st2) ∧
   sub_completion n st2.next_uvar st2.subst ts2 s
@@ -166,7 +166,7 @@ fs [] >>
 metis_tac [APPEND, APPEND_ASSOC]
 QED
 
-Triviality sub_completion_infer_funs:
+Theorem sub_completion_infer_funs[local]:
   !l ienv funs st1 t st2 n ts2 s.
   infer_funs l ienv funs st1 = (Success t, st2) ∧
   sub_completion n st2.next_uvar st2.subst ts2 s
@@ -208,7 +208,7 @@ fs [] >>
 metis_tac [t_unify_apply2, t_unify_wfs]
 QED
 
-Triviality sub_completion_apply_list:
+Theorem sub_completion_apply_list[local]:
   !n uvars s1 ts s2 ts1 ts2.
   t_wfs s1 ∧
   (MAP (t_walkstar s1) ts1 = MAP (t_walkstar s1) ts2) ∧
@@ -223,7 +223,7 @@ fs [] >>
 metis_tac [sub_completion_apply]
 QED
 
-Triviality sub_completion_check:
+Theorem sub_completion_check[local]:
   !tvs m s uvar s' extra_constraints.
 sub_completion m (uvar + tvs) s' extra_constraints s
 ⇒
@@ -389,7 +389,7 @@ Proof
       metis_tac [])
 QED
 
-Triviality letrec_lemma:
+Theorem letrec_lemma[local]:
   !funs funs_ts s st.
   (MAP (λn. convert_t (t_walkstar s (Infer_Tuvar (st.next_uvar + n)))) (COUNT_LIST (LENGTH funs)) =
    MAP (\t. convert_t (t_walkstar s t)) funs_ts)
@@ -409,7 +409,7 @@ srw_tac[] [] >|
      fsrw_tac[] [MAP_MAP_o, combinTheory.o_DEF, DECIDE ``x + SUC y = x + 1 + y``]]
 QED
 
-Triviality map_zip_lem:
+Theorem map_zip_lem[local]:
   !funs ts.
   (LENGTH funs = LENGTH ts)
   ⇒
@@ -449,36 +449,53 @@ val binop_tac =
  srw_tac[] [type_op_cases, Tint_def, Tstring_def, Tref_def, Tfn_def, Texn_def, Tchar_def,word_tc_cases] >>
  metis_tac [MAP, infer_e_next_uvar_mono, check_env_more, word_size_nchotomy];
 
-Triviality constrain_op_sub_completion:
-  sub_completion (num_tvs tenv) st.next_uvar st.subst extra_constraints s ∧
+Theorem constrain_op_sub_completion[local]:
+ sub_completion (num_tvs tenv) st.next_uvar st.subst extra_constraints s ∧
  constrain_op l op ts st' = (Success t,st)
  ⇒
  ∃c. sub_completion (num_tvs tenv) st'.next_uvar st'.subst c s
 Proof
-  rw [] >>
+ rw [] >>
  fs [constrain_op_success] >>
  every_case_tac >>
  fs [success_eqns] >>
  TRY pairarg_tac >>
- fs [] >>
+ gvs [CaseEq"bool", success_eqns] >>
  rw [] >>
  fs [infer_st_rewrs, success_eqns] >>
- metis_tac [sub_completion_unify2, sub_completion_unify]
+ PROVE_TAC [sub_completion_unify2, sub_completion_unify,
+            sub_completion_add_constraints]
 QED
 
-Triviality constrain_op_sound:
-  t_wfs st.subst ∧
+Theorem constrain_op_sound[local]:
+ t_wfs st.subst ∧
  sub_completion (num_tvs tenv) st'.next_uvar st'.subst c s ∧
  constrain_op l op ts st = (Success t,st')
  ⇒
  type_op op (MAP (convert_t o t_walkstar s) ts) (convert_t (t_walkstar s t))
 Proof
   fs[constrain_op_success] >>
- rw [] >>
- fs [fresh_uvar_def,infer_st_rewrs,Tchar_def,Tword64_def] >> rw[] >>
- TRY pairarg_tac >>
- fs [success_eqns] >>
- binop_tac
+  rw [] >>
+  fs [fresh_uvar_def,infer_st_rewrs,Tchar_def,Tword64_def] >> rw[] >>
+  TRY pairarg_tac >>
+  fs [success_eqns] >~
+  [‘Test t1 t2’] >-
+   (Cases_on ‘t1’ \\ Cases_on ‘t2’
+    \\ TRY (rename [‘WordT ww’] \\ Cases_on ‘ww’ \\ fs [])
+    \\ binop_tac)
+  >~ [‘FromTo p1 p2’] >- (
+    Cases_on`p1` \\ Cases_on`p2` \\ gvs[supported_conversion_def]
+    \\ Cases_on`w` \\ gvs[supported_conversion_def]
+    \\ binop_tac )
+  >~ [‘Arith a p’] >- (
+    gvs[CaseEq"option",CaseEq"bool",failwith_def,
+        st_ex_bind_def,st_ex_return_def,CaseEq"exc",CaseEq"prod"]
+    \\ Cases_on`a` \\ Cases_on`p` \\ TRY (rename1 `WordT w` \\ Cases_on`w`)
+    \\ gvs[supported_arith_def,LENGTH_EQ_NUM_compute, REPLICATE_compute,
+           add_constraints_def, st_ex_bind_def,CaseEq"prod",CaseEq"exc",
+           st_ex_return_def,add_constraint_def,CaseEq"option"]
+    \\ binop_tac )
+  \\ binop_tac
 QED
 
 Theorem infer_deBruijn_subst_walkstar:
@@ -1227,4 +1244,3 @@ Proof
           fs [MEM_MAP, MEM_EL] >>
           metis_tac [FST]])
 QED
-

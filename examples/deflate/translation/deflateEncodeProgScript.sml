@@ -82,7 +82,7 @@ val res = translate encode_rle_def;
 val res = translate decode_repeating_def;
 val res = translate (decode_rle_aux_def |> REWRITE_RULE [GSYM sub_check_def]);
 
-Triviality decode_rle_aux_ind:
+Theorem decode_rle_aux_ind[local]:
   decode_rle_aux_ind
 Proof
   once_rewrite_tac [fetch "-" "decode_rle_aux_ind_def"]
@@ -105,7 +105,7 @@ val res = translate getMatch_def;
 val res = translate (LZmatch_def |> REWRITE_RULE [GSYM sub_check_def]);
 val res = translate (LZcomp_def |> REWRITE_RULE [GSYM sub_check_def]);
 
-Triviality lzcomp_ind:
+Theorem lzcomp_ind[local]:
   lzcomp_ind (:'a)
 Proof
   once_rewrite_tac [fetch "-" "lzcomp_ind_def"]
@@ -174,8 +174,9 @@ val _ = type_of “main_function” = “:mlstring -> mlstring app_list”
 val _ = res |> DISCH_ALL |> concl |> can $ find_term $ can $ match_term “PRECONDITION” |> not
         orelse failwith "The main_function has an unproved pre/side-condition.\n";
 
-val main = process_topdecs
-  `print_app_list (main_function (TextIO.inputAll TextIO.stdIn));`;
+Quote main = cakeml:
+  print_app_list (main_function (TextIO.inputAll (TextIO.openStdIn ())));
+End
 
 val prog =
   get_ml_prog_state ()

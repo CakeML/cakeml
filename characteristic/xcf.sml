@@ -7,18 +7,11 @@ struct
 
   open preamble;
   open alistTheory cfAppTheory cfHeapsTheory cfTheory cfAppTheory cfHeapsTheory
-       cfTheory cfTacticsTheory cfNormaliseTheory stringTheory xcfTheory;
-  open astSyntax cfAppSyntax semanticPrimitivesSyntax stringSyntax;
+       cfTheory cfTacticsTheory cfNormaliseTheory stringTheory mlstringTheory xcfTheory;
+  open astSyntax cfAppSyntax semanticPrimitivesSyntax stringSyntax mlstringSyntax;
 
   fun THENCC (l, r) = ConseqConv.THEN_CONSEQ_CONV l r;
   infix THENCC
-
-  (*
-  load "stringLib";
-  load "cfHeapsBaseSyntax";
-  load "cfSyntax";
-  load "cfTacticsBaseLib";
-  *)
 
   val ERR = mk_HOL_ERR "xcf" "xcf";
 
@@ -104,7 +97,7 @@ struct
 
   val cf_cleanup_conv =
     ONCE_REWRITE_CONV [cf_STOP_thm] THENC
-    computeLib.compset_conv (listLib.list_compset ()) [
+    computeLib.compset_conv (listLib.list_compset) [
       computeLib.Defs [
         is_bound_Fun_def,
         Fun_body_def,
@@ -132,7 +125,7 @@ struct
   LIST_EVAL_CONV tm;
   *)
   val LIST_EVAL_CONV =
-    EQT_ELIM o computeLib.compset_conv (listLib.list_compset ()) [];
+    EQT_ELIM o computeLib.compset_conv (listLib.list_compset) [];
 
   (*
   val tm = ``app p (naryClosure env [n1;n2;] bod) [a1;a2] H Q``;
@@ -156,10 +149,10 @@ struct
     fun mk_naryFun ns bod = list_mk_comb (naryFun_tm, [ns, bod]);
     fun build acc tm =
       case total dest_Fun tm of
-        NONE => mk_naryFun (listSyntax.mk_list (List.rev acc, string_ty)) tm
+        NONE => mk_naryFun (listSyntax.mk_list (List.rev acc, mlstring_ty)) tm
       | SOME (n, e) => build (n::acc) e;
     val cnv =
-      computeLib.compset_conv (listLib.list_compset()) [
+      computeLib.compset_conv (listLib.list_compset) [
         computeLib.Defs [naryFun_def]
         ];
   in
@@ -186,7 +179,7 @@ struct
   find_recfun_conv tm
   *)
   val find_recfun_conv =
-    computeLib.compset_conv (listLib.list_compset ()) [
+    computeLib.compset_conv (listLib.list_compset) [
       computeLib.Defs [
         ALOOKUP_def, Fun_body_def, Fun_params_def, letrec_pull_params_def,
         semanticPrimitivesPropsTheory.find_recfun_ALOOKUP
@@ -195,7 +188,8 @@ struct
         optionSyntax.mk_option alpha
       ],
       computeLib.Extenders [
-        stringLib.add_string_compset
+        stringLib.add_string_compset,
+        mlstringLib.add_mlstring_compset
       ]
     ];
 
@@ -204,7 +198,7 @@ struct
   LIST_EVAL_CONV2 tm
   *)
   val LIST_EVAL_CONV2 =
-    computeLib.compset_conv (reduceLib.num_compset ()) [
+    computeLib.compset_conv (reduceLib.num_compset) [
       computeLib.Defs [
         listTheory.ALL_DISTINCT, listTheory.MEM, listTheory.MAP
       ],
@@ -213,6 +207,7 @@ struct
       ],
       computeLib.Extenders [
         stringLib.add_string_compset,
+        mlstringLib.add_mlstring_compset,
         pairLib.add_pair_compset
       ]
     ];

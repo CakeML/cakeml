@@ -205,7 +205,8 @@ Theorem kernel_vals_ind = v_ok_ind
 Definition ref_ok_def:
   ref_ok ctxt (Varray vs) = EVERY (v_ok ctxt) vs ∧
   ref_ok ctxt (Refv v) = v_ok ctxt v ∧
-  ref_ok ctxt (W8array vs) = T
+  ref_ok ctxt (W8array vs) = T ∧
+  ref_ok ctxt (Thunk m v) = v_ok ctxt v
 End
 
 Definition kernel_loc_ok_def:
@@ -368,7 +369,7 @@ Proof
 QED
 
 Theorem v_ok_Cons:
-  v_ok ctxt (Conv (SOME (TypeStamp "::" 1)) [x; y]) ⇔ v_ok ctxt x ∧ v_ok ctxt y
+  v_ok ctxt (Conv (SOME (TypeStamp «::» 1)) [x; y]) ⇔ v_ok ctxt x ∧ v_ok ctxt y
 Proof
   simp [Once v_ok_cases] \\ fs [kernel_types_def]
   \\ eq_tac \\ rw [] \\ rw []
@@ -852,4 +853,3 @@ Proof
   \\ disch_then (C (resolve_then Any irule) sub_conv_ok)
   \\ first_assum $ irule_at Any
 QED
-

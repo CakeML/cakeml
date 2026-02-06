@@ -194,14 +194,13 @@ Proof
   \\ Cases \\ rw[REV_ASSOCD,REV_ASSOCD_drop]
 QED
 
-Theorem TYPE_SUBST_NIL:
+Theorem TYPE_SUBST_NIL[simp]:
    ∀ty. TYPE_SUBST [] ty = ty
 Proof
   ho_match_mp_tac type_ind >>
   rw[REV_ASSOCD,MAP_EQ_ID] >>
   fs[EVERY_MEM]
 QED
-val _ = export_rewrites["TYPE_SUBST_NIL"]
 
 Theorem TYPE_SUBST_Bool:
   ∀tyin. TYPE_SUBST tyin Bool = Bool
@@ -209,12 +208,11 @@ Proof
 rw[TYPE_SUBST_def]
 QED
 
-Theorem is_instance_refl:
+Theorem is_instance_refl[simp]:
   ∀ty. is_instance ty ty
 Proof
   rw[] >> qexists_tac`[]` >> rw[]
 QED
-val _ = export_rewrites["is_instance_refl"]
 
 Theorem is_instance_simps:
   (!t i. is_instance t (TYPE_SUBST i t))
@@ -551,7 +549,7 @@ Proof
   simp[welltyped_def] >> metis_tac[WELLTYPED_LEMMA]
 QED
 
-Theorem WELLTYPED_CLAUSES:
+Theorem WELLTYPED_CLAUSES[simp]:
   (!n ty. welltyped(Var n ty)) /\
    (!n ty. welltyped(Const n ty)) /\
    (!s t. welltyped (Comb s t) <=>
@@ -563,7 +561,6 @@ Proof
   rw[Once has_type_cases] >>
   metis_tac[WELLTYPED,WELLTYPED_LEMMA]
 QED
-val _ = export_rewrites["WELLTYPED_CLAUSES"]
 
 (* wellformed_compute actually also checks the syntax (through the has_type relation) *)
 Theorem WELLFORMED_COMPUTE_EQUIV:
@@ -618,12 +615,11 @@ Proof
   Induct >> simp[RACONV,ALPHAVARS_REFL]
 QED
 
-Theorem ACONV_REFL:
+Theorem ACONV_REFL[simp]:
    ∀t. ACONV t t
 Proof
   simp[ACONV_def,RACONV_REFL]
 QED
-val _ = export_rewrites["ACONV_REFL"]
 
 Theorem RACONV_TRANS:
    ∀env tp. RACONV env tp ⇒ ∀vs t. LENGTH vs = LENGTH env ∧ RACONV (ZIP(MAP SND env,vs)) (SND tp,t) ⇒ RACONV (ZIP(MAP FST env,vs)) (FST tp, t)
@@ -703,11 +699,10 @@ End
 
 val _ = Parse.add_infix("subtype",401,Parse.NONASSOC)
 Overload subtype =``RTC subtype1``
-Theorem subtype_Tyvar =
+Theorem subtype_Tyvar[simp] =
   ``ty subtype (Tyvar x)``
   |> SIMP_CONV(srw_ss()++boolSimps.DNF_ss)
       [Once relationTheory.RTC_CASES2,subtype1_cases]
-val _ = export_rewrites["subtype_Tyvar"]
 Theorem subtype_Tyapp =
   ``ty subtype (Tyapp name args)``
   |> SIMP_CONV(srw_ss()++boolSimps.DNF_ss)
@@ -871,15 +866,14 @@ End
 
 val _ = Parse.add_infix("subterm",401,Parse.NONASSOC)
 Overload subterm = ``RTC subterm1``
-Theorem subterm_Var =
+Theorem subterm_Var[simp] =
   ``tm subterm (Var x ty)``
   |> SIMP_CONV(srw_ss()++boolSimps.DNF_ss)
       [Once relationTheory.RTC_CASES2,subterm1_cases]
-Theorem subterm_Const =
+Theorem subterm_Const[simp] =
   ``tm subterm (Const x ty)``
   |> SIMP_CONV(srw_ss()++boolSimps.DNF_ss)
       [Once relationTheory.RTC_CASES2,subterm1_cases]
-val _ = export_rewrites["subterm_Var","subterm_Const"]
 Theorem subterm_Comb =
   ``tm subterm (Comb t1 t2)``
   |> SIMP_CONV(srw_ss()++boolSimps.DNF_ss)
@@ -889,7 +883,7 @@ Theorem subterm_Abs =
   |> SIMP_CONV(srw_ss()++boolSimps.DNF_ss)
       [Once relationTheory.RTC_CASES2,subterm1_cases]
 
-Triviality subterm_welltyped_helper:
+Theorem subterm_welltyped_helper[local]:
   ∀tm ty. tm has_type ty ⇒ ∀t. t subterm tm ⇒ welltyped t
 Proof
   ho_match_mp_tac has_type_strongind >>
@@ -2149,7 +2143,7 @@ QED
 
 (* tyvars and tvars *)
 
-Theorem tyvars_ALL_DISTINCT:
+Theorem tyvars_ALL_DISTINCT[simp]:
   ∀ty. ALL_DISTINCT (tyvars ty)
 Proof
   ho_match_mp_tac type_ind >>
@@ -2157,14 +2151,12 @@ Proof
   Induct_on`l` >> simp[] >>
   rw[ALL_DISTINCT_LIST_UNION]
 QED
-val _ = export_rewrites["tyvars_ALL_DISTINCT"]
 
-Theorem tvars_ALL_DISTINCT:
+Theorem tvars_ALL_DISTINCT[simp]:
   ∀tm. ALL_DISTINCT (tvars tm)
 Proof
   Induct >> simp[tvars_def,ALL_DISTINCT_LIST_UNION]
 QED
-val _ = export_rewrites["tvars_ALL_DISTINCT"]
 
 Theorem tyvars_TYPE_SUBST:
   ∀ty tyin. set (tyvars (TYPE_SUBST tyin ty)) =
@@ -2468,44 +2460,40 @@ End
 
 (* bind a variable above a de Bruijn term *)
 
-Definition bind_def:
+Definition bind_def[simp]:
   (bind v n (dbVar x ty) = if v = (x,ty) then dbBound n else dbVar x ty) ∧
   bind v n (dbBound m) = dbBound m ∧
   bind v n (dbConst x ty) = dbConst x ty ∧
   bind v n (dbComb t1 t2) = dbComb (bind v n t1) (bind v n t2) ∧
   bind v n (dbAbs ty tm) = dbAbs ty (bind v (n+1) tm)
 End
-val _ = export_rewrites["bind_def"]
 
 (* conversion into de Bruijn *)
 
-Definition db_def:
+Definition db_def[simp]:
   db (Var x ty) = dbVar x ty ∧
   db (Const x ty) = dbConst x ty ∧
   db (Comb t1 t2) = dbComb (db t1) (db t2) ∧
   db (Abs v tm) = dbAbs (typeof v) (bind (dest_var v) 0 (db tm))
 End
-val _ = export_rewrites["db_def"]
 
 (* de Bruijn versions of VSUBST and VFREE_IN *)
 
-Definition dbVSUBST_def:
+Definition dbVSUBST_def[simp]:
   dbVSUBST ilist (dbVar x ty) = REV_ASSOCD (dbVar x ty) ilist (dbVar x ty) ∧
   dbVSUBST ilist (dbBound m) = dbBound m ∧
   dbVSUBST ilist (dbConst x ty) = dbConst x ty ∧
   dbVSUBST ilist (dbComb t1 t2) = dbComb (dbVSUBST ilist t1) (dbVSUBST ilist t2) ∧
   dbVSUBST ilist (dbAbs ty t) = dbAbs ty (dbVSUBST ilist t)
 End
-val _ = export_rewrites["dbVSUBST_def"]
 
-Definition dbVFREE_IN_def:
+Definition dbVFREE_IN_def[simp]:
   (dbVFREE_IN v (dbVar x ty) ⇔ dbVar x ty = v) ∧
   (dbVFREE_IN v (dbBound n) ⇔ F) ∧
   (dbVFREE_IN v (dbConst x ty) ⇔ dbConst x ty = v) ∧
   (dbVFREE_IN v (dbComb t1 t2) ⇔ (dbVFREE_IN v t1 ∨ dbVFREE_IN v t2)) ∧
   (dbVFREE_IN v (dbAbs ty t) ⇔ dbVFREE_IN v t)
 End
-val _ = export_rewrites["dbVFREE_IN_def"]
 
 Theorem bind_not_free:
    ∀t n v. ¬dbVFREE_IN (UNCURRY dbVar v) t ⇒ bind v n t = t
@@ -2726,14 +2714,13 @@ QED
 
 (* de Bruijn version of INST *)
 
-Definition dbINST_def:
+Definition dbINST_def[simp]:
   dbINST tyin (dbVar x ty) = dbVar x (TYPE_SUBST tyin ty) ∧
   dbINST tyin (dbBound n) = dbBound n ∧
   dbINST tyin (dbConst x ty) = dbConst x (TYPE_SUBST tyin ty) ∧
   dbINST tyin (dbComb t1 t2) = dbComb (dbINST tyin t1) (dbINST tyin t2) ∧
   dbINST tyin (dbAbs ty t) = dbAbs (TYPE_SUBST tyin ty) (dbINST tyin t)
 End
-val _ = export_rewrites["dbINST_def"]
 
 Theorem dbINST_bind:
    ∀tm v n ls.
@@ -2747,12 +2734,11 @@ Proof
   BasicProvers.CASE_TAC >> fs[]
 QED
 
-Theorem dbVSUBST_nil:
+Theorem dbVSUBST_nil[simp]:
    ∀tm. dbVSUBST [] tm = tm
 Proof
   Induct >> simp[REV_ASSOCD]
 QED
-val _ = export_rewrites["dbVSUBST_nil"]
 
 Theorem INST_CORE_dbINST:
    ∀tm tyin env tmi.
@@ -2889,20 +2875,18 @@ QED
 
 (* conversion into de Bruijn given an environment of already bound variables *)
 
-Definition dbterm_def:
+Definition dbterm_def[simp]:
   (dbterm env (Var s ty) =
      case find_index (s,ty) env 0 of SOME n => dbBound n | NONE => dbVar s ty) ∧
   (dbterm env (Const s ty) = dbConst s ty) ∧
   (dbterm env (Comb t1 t2) = dbComb (dbterm env t1) (dbterm env t2)) ∧
   (dbterm env (Abs v t) = dbAbs (typeof v) (dbterm ((dest_var v)::env) t))
 End
-val _ = export_rewrites["dbterm_def"]
 
-Definition bind_list_aux_def:
+Definition bind_list_aux_def[simp]:
   bind_list_aux n [] tm = tm ∧
   bind_list_aux n (v::vs) tm = bind_list_aux (n+1) vs (bind v n tm)
 End
-val _ = export_rewrites["bind_list_aux_def"]
 
 Theorem bind_list_aux_clauses:
    (∀env m. bind_list_aux m env (dbBound n) = dbBound n) ∧
@@ -3025,35 +3009,32 @@ QED
 
 (* list of bound variable names in a term *)
 
-Definition bv_names_def:
+Definition bv_names_def[simp]:
   bv_names (Var _ _) = [] ∧
   bv_names (Const _ _) = [] ∧
   bv_names (Comb s t) = bv_names s ++ bv_names t ∧
   bv_names (Abs v t) = (FST(dest_var v))::bv_names t
 End
-val _ = export_rewrites["bv_names_def"]
 
 (* Simpler versions (non-capture-avoiding) of substitution and instantiation.
    We do the semantics proofs on these and then use the fact that it is
    alpha-equivalence respecting, and suitable equivalent term always exists
    (see below). *)
 
-Definition simple_subst_def:
+Definition simple_subst_def[simp]:
   (simple_subst ilist (Var x ty) = REV_ASSOCD (Var x ty) ilist (Var x ty)) ∧
   (simple_subst ilist (Const x ty) = Const x ty) ∧
   (simple_subst ilist (Comb t1 t2) = Comb (simple_subst ilist t1) (simple_subst ilist t2)) ∧
   (simple_subst ilist (Abs v tm) =
     Abs v (simple_subst (FILTER (λ(s',s). (s ≠ v)) ilist) tm))
 End
-val _ = export_rewrites["simple_subst_def"]
 
-Definition simple_inst_def:
+Definition simple_inst_def[simp]:
   simple_inst tyin (Var x ty) = Var x (TYPE_SUBST tyin ty) ∧
   simple_inst tyin (Const x ty) = Const x (TYPE_SUBST tyin ty) ∧
   simple_inst tyin (Comb s t) = Comb (simple_inst tyin s) (simple_inst tyin t) ∧
   simple_inst tyin (Abs v t) = Abs (simple_inst tyin v) (simple_inst tyin t)
 End
-val _ = export_rewrites["simple_inst_def"]
 
 Theorem VSUBST_simple_subst:
    ∀tm ilist. DISJOINT (set (bv_names tm)) {y | ∃ty u. VFREE_IN (Var y ty) u ∧ MEM u (MAP FST ilist)} ∧
@@ -3339,7 +3320,7 @@ QED
 
 (* various rewrites for FINITE sets to make this go through *)
 
-Theorem FINITE_VFREE_IN:
+Theorem FINITE_VFREE_IN[simp]:
    ∀tm. FINITE {x | ∃ty. VFREE_IN (Var x ty) tm}
 Proof
   Induct >> simp[] >- (
@@ -3357,9 +3338,8 @@ Proof
   unabbrev_all_tac >> simp[SUBSET_DEF] >>
   metis_tac[]
 QED
-val _ = export_rewrites["FINITE_VFREE_IN"]
 
-Theorem FINITE_VFREE_IN_2:
+Theorem FINITE_VFREE_IN_2[simp]:
    ∀tm. FINITE {(x,ty) | VFREE_IN (Var x ty) tm}
 Proof
   Induct >> simp[] >- (
@@ -3383,9 +3363,8 @@ Proof
   unabbrev_all_tac >> simp[SUBSET_DEF] >>
   metis_tac[]
 QED
-val _ = export_rewrites["FINITE_VFREE_IN_2"]
 
-Theorem FINITE_VFREE_IN_list:
+Theorem FINITE_VFREE_IN_list[simp]:
    ∀ls. FINITE {x | ∃ty u. VFREE_IN (Var x ty) u ∧ MEM u ls}
 Proof
   Induct >> simp[] >> rw[] >>
@@ -3397,9 +3376,8 @@ Proof
   pop_assum SUBST1_TAC >>
   simp[FINITE_UNION]
 QED
-val _ = export_rewrites["FINITE_VFREE_IN_list"]
 
-Theorem FINITE_MEM_Var:
+Theorem FINITE_MEM_Var[simp]:
    ∀ls. FINITE {(x,ty) | MEM (Var x ty) ls}
 Proof
   Induct >> simp[] >>
@@ -3412,7 +3390,6 @@ Proof
   pop_assum SUBST1_TAC >>
   simp[FINITE_INSERT]
 QED
-val _ = export_rewrites["FINITE_MEM_Var"]
 
 val fresh_term_def = new_specification("fresh_term_def",["fresh_term"],
   Q.prove(`∃f. ∀s tm. FINITE s ⇒
@@ -4656,30 +4633,14 @@ Proof
   rw[NULL_FILTER,list_inter_def]
 QED
 
-Theorem list_max_MEM[local]:
-  !l x. (MEM x l) ==> (x <= list_max l)
+Theorem MAX_LIST_MEM_local[local]:
+  !l x. (MEM x l) ==> (x <= MAX_LIST l)
 Proof
   Induct
-  >> rw[list_max_def]
-  >> fs[list_max_def]
+  >> rw[MAX_LIST_def]
+  >> fs[MAX_LIST_def]
   >> last_x_assum drule
   >> simp[]
-QED
-
-Theorem list_max_APPEND[local]:
-  !l x y. list_max l <= list_max (x ++ l ++ y)
-Proof
-  Induct
-  >- rw[list_max_def]
-  >> rw[list_max_def]
-  >- (
-    match_mp_tac list_max_MEM
-    >> fs[]
-  )
-  >> first_x_assum (qspecl_then [`x ++ [h]`,`y`] mp_tac)
-  >> `h::l = [h] ⧺ l` by rw[]
-  >> asm_rewrite_tac[]
-  >> fs[]
 QED
 
 Definition renaming_def:
@@ -4740,7 +4701,7 @@ End
 
 Definition normalise_tyvars_rec_def:
   normalise_tyvars_rec ty chr =
-    (let n0 = SUC (list_max (MAP $strlen (tyvars ty))) in
+    (let n0 = SUC (MAX_LIST (MAP $strlen (tyvars ty))) in
     let subst = SND (normalise_tyvars_subst ty n0 n0 [] chr)
     in (TYPE_SUBST subst ty, subst))
 End
@@ -4752,12 +4713,12 @@ Proof
 QED
 
 Theorem distinct_varnames[local]:
-  !ty chr n n0. n > n0 /\ n0 = list_max (MAP $strlen (tyvars ty))
+  !ty chr n n0. n > n0 /\ n0 = MAX_LIST (MAP $strlen (tyvars ty))
   ==> ~MEM (strlit (REPLICATE n chr)) (tyvars ty)
 Proof
   rpt strip_tac
   >> rw[tyvars_def]
-  >> ASSUME_TAC (Q.SPECL [`(MAP $strlen (tyvars ty))`] list_max_max)
+  >> ASSUME_TAC (Q.SPECL [`(MAP $strlen (tyvars ty))`] MAX_LIST_max)
   >> fs[EVERY_MEM]
   >> imp_res_tac (INST_TYPE [beta |-> ``:num``] (GSYM MEM_MAP))
   >> rw[]
@@ -4855,7 +4816,7 @@ Proof
 QED
 
 Theorem normalise_tyvars_rec_ineq2[local]:
-  !ty chr. EVERY (λ(x,_). ?a. Tyvar a = x /\ strlen a > list_max(MAP strlen (tyvars ty))) (SND (normalise_tyvars_rec ty chr))
+  !ty chr. EVERY (λ(x,_). ?a. Tyvar a = x /\ strlen a > MAX_LIST(MAP strlen (tyvars ty))) (SND (normalise_tyvars_rec ty chr))
 Proof
   rw[normalise_tyvars_rec_def]
   >> qmatch_goalsub_abbrev_tac `n0:num`
@@ -5024,41 +4985,6 @@ Proof
   >> rw[list_subset_def,tyvars_def]
 QED
 
-(* All type variables within a substitution from normalise_tyvars_subst are
- * shorter than a certain number n *)
-Theorem normalise_tyvars_subst_max[local]:
-  !ty n_subst n0 chr.
-    let max = λ(n,subst). ~NULL subst ==> n = (SUC o list_max o FLAT)  (MAP (MAP strlen o tyvars o FST) subst)
-    in max n_subst
-    ==>  max (normalise_tyvars_subst ty (FST n_subst) n0 (SND n_subst) chr)
-Proof
-  ho_match_mp_tac type_ind
-  >> strip_tac
-  >- (
-    rw[normalise_tyvars_subst_def,ELIM_UNCURRY]
-    >> Cases_on `n_subst`
-    >> Cases_on `r`
-    >> fs[MAP,tyvars_def,list_max_def]
-  )
-  >> Induct
-  >- rw[normalise_tyvars_subst_def,ELIM_UNCURRY]
-  >> strip_tac
-  >> fs[EVERY_DEF]
-  >> strip_tac
-  >> first_x_assum drule
-  >> strip_tac
-  >> rw[normalise_tyvars_subst_def]
-  >> match_mp_tac FOLDL_invariant
-  >> strip_tac
-  >> last_x_assum drule
-  >> strip_tac
-  >> first_x_assum (qspecl_then [`n0`,`chr`] mp_tac)
-  >> NTAC 2 strip_tac
-  >> fs[ELIM_UNCURRY]
-  >> NTAC 3 strip_tac
-  >> fs[EVERY_MEM]
-QED
-
 Theorem normalise_tyvars_subst_len_inv[local]:
   !ty n_subst n0 chr.
     let inv = λ(n,subst). (LENGTH subst) + n0 = n /\ ALL_DISTINCT (MAP SND subst)
@@ -5165,7 +5091,7 @@ Proof
   >> (Q.ISPEC_THEN `strlen:mlstring->num` assume_tac) MEM_MAP_f
   >> first_x_assum drule
   >> strip_tac
-  >> imp_res_tac list_max_MEM
+  >> imp_res_tac MAX_LIST_MEM_local
   >> rw[]
 QED
 
@@ -7184,13 +7110,13 @@ Proof
   >> fs[]
 QED
 
-Triviality subtype_subtype_at_Tyvar:
+Theorem subtype_subtype_at_Tyvar[local]:
   !x a. x subtype (Tyvar a) <=> subtype_at (Tyvar a) [] = SOME x
 Proof
   fs[subtype_Tyvar,subtype_at_def,EQ_SYM_EQ]
 QED
 
-Triviality subtype1_subtype_at:
+Theorem subtype1_subtype_at[local]:
   !l x m. subtype1 x (Tyapp m l) <=> ?n. subtype_at (Tyapp m l) [(m,n)] = SOME x
 Proof
   fs[subtype1_cases,subtype_at_def,MEM_EL,EQ_SYM_EQ]
@@ -12996,7 +12922,7 @@ Proof
   rw[] >>
   last_x_assum(qspec_then `f` mp_tac) >>
   disch_then assume_tac >>
-  pop_assum(mp_tac o Ho_Rewrite.REWRITE_RULE[whileTheory.LEAST_EXISTS]) >>
+  pop_assum(mp_tac o Ho_Rewrite.REWRITE_RULE[WhileTheory.LEAST_EXISTS]) >>
   rename1 `f n` >>
   rpt strip_tac >>
   reverse(Cases_on `R' (f n) (f (SUC n))`) >- goal_assum drule >>
@@ -13032,8 +12958,8 @@ Definition tydepth_def:
   (tydepth n (Tyvar _) = 0) /\
   (tydepth n (Tyapp ty tys) =
   if MEM ty n then
-    1 + list_max (MAP (tydepth n) tys)
-  else list_max (MAP (tydepth n) tys))
+    1 + MAX_LIST (MAP (tydepth n) tys)
+  else MAX_LIST (MAP (tydepth n) tys))
 Termination
   WF_REL_TAC `measure(type_size o SND)` >>
   rw[type_size_def] >>
@@ -13054,7 +12980,7 @@ End
 
 (* A kingdom for higher-order unification.... *)
 
-Triviality mk_witness1:
+Theorem mk_witness1[local]:
   (dependency ctxt (h a2) (i b2))
   ==>
   (?a1 b1 c1.
@@ -13065,7 +12991,7 @@ Proof
   metis_tac[]
 QED
 
-Triviality mk_witness2:
+Theorem mk_witness2[local]:
   (dependency ctxt (h b2) (i a2))
   ==>
   (?a1 b1 c1.
@@ -13076,11 +13002,11 @@ Proof
   metis_tac[]
 QED
 
-Theorem list_max_eq_0:
-  list_max l = 0 <=> EVERY (combin$C $= 0) l
+Theorem MAX_LIST_eq_0:
+  MAX_LIST l = 0 <=> EVERY (combin$C $= 0) l
 Proof
   simp[EQ_IMP_THM,C_DEF] >> conj_tac >>
-  Induct_on `l`  >> rw[list_max_def]
+  Induct_on `l`  >> rw[MAX_LIST_def]
 QED
 
 Theorem type_ok_tydepth:
@@ -13092,36 +13018,17 @@ Proof
   ho_match_mp_tac type_ind >>
   rw[tydepth_def,EVERY_MEM,MEM_MAP,type_ok_def,GSYM IMP_DISJ_THM] >>
   rw[] >- metis_tac[ALOOKUP_MEM,FST] >>
-  rw[list_max_eq_0,EVERY_MEM,MEM_MAP] >>
+  rw[MAX_LIST_eq_0,EVERY_MEM,MEM_MAP] >>
   first_x_assum(match_mp_tac o MP_CANON) >>
   metis_tac[]
 QED
 
-Theorem list_max_IMP:
- !l1 n.
-  list_max l1 = n ==> n = 0 \/ MEM n l1
+Theorem MAX_LIST_MAX_SET:
+ MAX_LIST l1 = MAX_SET(set l1)
 Proof
-  Induct_on `l1` >> rw[list_max_def] >> fs[]
-QED
-
-Theorem list_max_MAX_SET:
- list_max l1 = MAX_SET(set l1)
-Proof
- Induct_on `l1` >> rw[list_max_def] >>
+ Induct_on `l1` >> rw[MAX_LIST_def] >>
  dep_rewrite.DEP_ONCE_REWRITE_TAC[MAX_SET_THM] >>
  rw[MAX_DEF]
-QED
-
-Theorem list_max_MEM_EQ:
- !l1 l2.
-  (!x. MEM x l1 = MEM x l2)
-  ==>
-  list_max l1 = list_max l2
-Proof
-  rw[list_max_MAX_SET,EQ_IMP_THM] >>
-  match_mp_tac LESS_EQUAL_ANTISYM >>
-  conj_tac >> match_mp_tac SUBSET_MAX_SET >>
-  rw[SUBSET_DEF]
 QED
 
 Theorem set_foldr_list_union:
@@ -13156,17 +13063,16 @@ QED
 Theorem tydepth_TYPE_SUBST:
   tydepth c ty = 0 ==>
   tydepth c (TYPE_SUBST sigma ty) =
-  list_max (MAP (tydepth c)
+  MAX_LIST (MAP (tydepth c)
                 (MAP (TYPE_SUBST sigma)
                      (MAP Tyvar (tyvars ty))))
 Proof
   qid_spec_tac `ty` >>
   ho_match_mp_tac type_ind >>
-  rw[tydepth_def,EVERY_MEM,MEM_MAP,type_ok_def,GSYM IMP_DISJ_THM,tyvars_def] >-
-   (rw[list_max_def]) >>
-  rw[] >> fs[] >>
-  fs[list_max_eq_0,EVERY_MEM,MEM_MAP,PULL_EXISTS] >>
-  fs[list_max_MAX_SET] >>
+  rw[tydepth_def,EVERY_MEM,MEM_MAP,type_ok_def,GSYM IMP_DISJ_THM,tyvars_def]
+  >> rw[] >> fs[] >>
+  fs[MAX_LIST_eq_0,EVERY_MEM,MEM_MAP,PULL_EXISTS] >>
+  fs[MAX_LIST_MAX_SET] >>
   pred_setLib.MAX_SET_elim_tac >>
   rw[] >>
   fs[MEM_MAP] >> rveq >> fs[] >>
@@ -13480,7 +13386,7 @@ Proof
      fs[] >> imp_res_tac type_ok_tydepth >>
      simp[tydepth_TYPE_SUBST] >>
      simp[tydepth_def] >>
-     rw[list_max_MAX_SET] >>
+     rw[MAX_LIST_MAX_SET] >>
      match_mp_tac SUBSET_MAX_SET >>
      rw[SUBSET_DEF,MEM_MAP,PULL_EXISTS] >>
      drule_all MEM_tyvars_allTypes >>
@@ -13488,7 +13394,7 @@ Proof
   >-
     (disj2_tac >>
      rw[tydepth_def,MAP_MAP_o] >>
-     rw[list_max_MAX_SET] >>
+     rw[MAX_LIST_MAX_SET] >>
      simp[GSYM LE_LT1] >>
      match_mp_tac(MP_CANON in_max_set) >>
      rw[SUBSET_DEF,MEM_MAP,PULL_EXISTS] >>
@@ -13501,7 +13407,7 @@ Proof
      conj_tac >-
        (rw[dependency_cases] >> metis_tac[]) >>
      rw[tydepth_def,MAP_MAP_o] >>
-     rw[list_max_MAX_SET] >>
+     rw[MAX_LIST_MAX_SET] >>
      simp[GSYM LE_LT1] >>
      match_mp_tac(MP_CANON in_max_set) >>
      rw[SUBSET_DEF,MEM_MAP,PULL_EXISTS] >>
@@ -13523,7 +13429,7 @@ Proof
      imp_res_tac type_ok_tydepth >>
      simp[tydepth_TYPE_SUBST] >>
      simp[tydepth_def] >>
-     rw[list_max_MAX_SET] >>
+     rw[MAX_LIST_MAX_SET] >>
      match_mp_tac SUBSET_MAX_SET >>
      rw[SUBSET_DEF,MEM_MAP,PULL_EXISTS] >>
      imp_res_tac allCInsts_tyvars >>
@@ -13539,7 +13445,7 @@ Proof
      fs[] >> imp_res_tac type_ok_tydepth >>
      simp[tydepth_def,tydepth'_def,tydepth_TYPE_SUBST,INST_def,INST_CORE_def] >>
      simp[] >>
-     rw[list_max_MAX_SET] >>
+     rw[MAX_LIST_MAX_SET] >>
      match_mp_tac(SUBSET_MAX_SET) >>
      rw[SUBSET_DEF,MEM_MAP,PULL_EXISTS] >>
      imp_res_tac MEM_tyvars_allTypes >>
@@ -13555,7 +13461,7 @@ Proof
      fs[] >> imp_res_tac type_ok_tydepth >>
      simp[tydepth_def,tydepth'_def,tydepth_TYPE_SUBST,INST_def,INST_CORE_def] >>
      simp[] >>
-     rw[list_max_MAX_SET] >>
+     rw[MAX_LIST_MAX_SET] >>
      match_mp_tac(SUBSET_MAX_SET) >>
      rw[SUBSET_DEF,MEM_MAP,PULL_EXISTS] >>
      imp_res_tac MEM_tyvars_allTypes' >>
@@ -13571,7 +13477,7 @@ Proof
                             CCONTR_TAC >> fs[MEM_MAP,PULL_EXISTS] >>
                             metis_tac[FST]) >>
      rw[tydepth'_def,INST_def,INST_CORE_def] >>
-     rw[tydepth_def,list_max_def])
+     rw[tydepth_def,MAX_LIST_def])
   >-
     (disj1_tac >>
      conj_tac >-
@@ -13583,7 +13489,7 @@ Proof
                             CCONTR_TAC >> fs[MEM_MAP,PULL_EXISTS] >>
                             metis_tac[FST]) >>
      rw[tydepth'_def,INST_def,INST_CORE_def] >>
-     rw[tydepth_def,list_max_MAX_SET] >>
+     rw[tydepth_def,MAX_LIST_MAX_SET] >>
      match_mp_tac LESS_EQ_TRANS >>
      qexists_tac `tydepth [c] (TYPE_SUBST sigma (domain (typeof pred)))` >>
      reverse conj_tac >-
@@ -13593,7 +13499,7 @@ Proof
      imp_res_tac type_ok_tydepth >>
      simp[tydepth_def,tydepth'_def,tydepth_TYPE_SUBST,INST_def,INST_CORE_def] >>
      simp[] >>
-     rw[list_max_MAX_SET] >>
+     rw[MAX_LIST_MAX_SET] >>
      match_mp_tac(SUBSET_MAX_SET) >>
      rw[SUBSET_DEF,MEM_MAP,PULL_EXISTS] >>
      imp_res_tac MEM_tyvars_allTypes' >>
@@ -13609,7 +13515,7 @@ Proof
                             CCONTR_TAC >> fs[MEM_MAP,PULL_EXISTS] >>
                             metis_tac[FST]) >>
      rw[tydepth'_def,INST_def,INST_CORE_def] >>
-     rw[tydepth_def,list_max_MAX_SET] >>
+     rw[tydepth_def,MAX_LIST_MAX_SET] >>
      rw[MAX_SET_THM])
   >-
     (disj1_tac >>
@@ -13622,9 +13528,9 @@ Proof
                             CCONTR_TAC >> fs[MEM_MAP,PULL_EXISTS] >>
                             metis_tac[FST]) >>
      rw[tydepth'_def,INST_def,INST_CORE_def] >>
-     rw[tydepth_def,list_max_MAX_SET] >>
+     rw[tydepth_def,MAX_LIST_MAX_SET] >>
      rw[tydepth'_def,INST_def,INST_CORE_def] >>
-     rw[tydepth_def,list_max_MAX_SET] >>
+     rw[tydepth_def,MAX_LIST_MAX_SET] >>
      match_mp_tac LESS_EQ_TRANS >>
      qexists_tac `tydepth [c] (TYPE_SUBST sigma (domain (typeof pred)))` >>
      reverse conj_tac >-
@@ -13634,7 +13540,7 @@ Proof
      imp_res_tac type_ok_tydepth >>
      simp[tydepth_def,tydepth'_def,tydepth_TYPE_SUBST,INST_def,INST_CORE_def] >>
      simp[] >>
-     rw[list_max_MAX_SET] >>
+     rw[MAX_LIST_MAX_SET] >>
      match_mp_tac(SUBSET_MAX_SET) >>
      rw[SUBSET_DEF,MEM_MAP,PULL_EXISTS] >>
      imp_res_tac MEM_tyvars_allTypes' >>
@@ -13652,7 +13558,7 @@ Proof
      imp_res_tac type_ok_tydepth >>
      simp[tydepth_def,tydepth'_def,tydepth_TYPE_SUBST,INST_def,INST_CORE_def] >>
      simp[] >>
-     rw[list_max_MAX_SET] >>
+     rw[MAX_LIST_MAX_SET] >>
      match_mp_tac(SUBSET_MAX_SET) >>
      rw[SUBSET_DEF,MEM_MAP,PULL_EXISTS] >>
      imp_res_tac allCInsts_tyvars >>
@@ -13665,7 +13571,7 @@ Theorem tydepth_nil[simp]:
   !ty. tydepth [] ty = 0
 Proof
   ho_match_mp_tac type_ind >>
-  rw[tydepth_def,list_max_eq_0,C_DEF,EVERY_MAP]
+  rw[tydepth_def,MAX_LIST_eq_0,C_DEF,EVERY_MAP]
 QED
 
 Theorem terminating_updates_NewConst[local]:
@@ -13843,7 +13749,7 @@ Proof
      drule_all type_ok_tydepth >>
      rw[tydepth_TYPE_SUBST] >>
      rw[tydepth_def,GSYM LE_LT1] >>
-     rw[list_max_MAX_SET] >>
+     rw[MAX_LIST_MAX_SET] >>
      match_mp_tac SUBSET_MAX_SET >>
      rw[SUBSET_DEF,MEM_MAP,PULL_EXISTS] >>
      imp_res_tac MEM_tyvars_allTypes >>
@@ -13859,7 +13765,7 @@ Proof
      fs[] >> imp_res_tac type_ok_tydepth >>
      simp[tydepth_TYPE_SUBST] >>
      simp[tydepth_def] >>
-     rw[list_max_MAX_SET] >>
+     rw[MAX_LIST_MAX_SET] >>
      match_mp_tac SUBSET_MAX_SET >>
      rw[SUBSET_DEF,MEM_MAP,PULL_EXISTS] >>
      drule_all MEM_tyvars_allTypes >>
@@ -13872,7 +13778,7 @@ Proof
        by(qpat_x_assum `MEM _ ctxt` (strip_assume_tac o REWRITE_RULE [MEM_SPLIT]) >>
           rveq >> fs[]) >>
      rw[tydepth_def,MAP_MAP_o] >>
-     rw[list_max_MAX_SET] >>
+     rw[MAX_LIST_MAX_SET] >>
      simp[GSYM LE_LT1] >>
      match_mp_tac(MP_CANON in_max_set) >>
      rw[SUBSET_DEF,MEM_MAP,PULL_EXISTS] >>
@@ -13894,7 +13800,7 @@ Proof
      imp_res_tac term_ok_type_ok >> fs[type_ok_def] >>
      imp_res_tac type_ok_tydepth >>
      simp[tydepth_TYPE_SUBST] >>
-     simp[list_max_MAX_SET] >>
+     simp[MAX_LIST_MAX_SET] >>
      match_mp_tac SUBSET_MAX_SET >>
      rw[SUBSET_DEF,MEM_MAP,PULL_EXISTS] >>
      imp_res_tac allCInsts_tyvars >>
@@ -13919,7 +13825,7 @@ Proof
      imp_res_tac term_ok_type_ok >> fs[type_ok_def] >>
      imp_res_tac type_ok_tydepth >>
      simp[tydepth_TYPE_SUBST] >>
-     simp[list_max_MAX_SET] >>
+     simp[MAX_LIST_MAX_SET] >>
      match_mp_tac SUBSET_MAX_SET >>
      rw[SUBSET_DEF,MEM_MAP,PULL_EXISTS] >>
      imp_res_tac allCInsts_tyvars >>
@@ -13937,7 +13843,7 @@ Proof
        by(imp_res_tac MEM_ConstSpec_const_list >> metis_tac[]) >>
      simp[tydepth_def,tydepth'_def,tydepth_TYPE_SUBST,INST_def,INST_CORE_def] >>
      simp[] >>
-     rw[list_max_MAX_SET] >>
+     rw[MAX_LIST_MAX_SET] >>
      match_mp_tac(SUBSET_MAX_SET) >>
      rw[SUBSET_DEF,MEM_MAP,PULL_EXISTS] >>
      imp_res_tac MEM_tyvars_allTypes >>
@@ -13956,7 +13862,7 @@ Proof
        by(qpat_x_assum `MEM _ _` (strip_assume_tac o REWRITE_RULE[MEM_SPLIT]) >> rveq >> fs[]) >>
      simp[tydepth_def,tydepth'_def,tydepth_TYPE_SUBST,INST_def,INST_CORE_def] >>
      simp[] >>
-     rw[list_max_MAX_SET] >>
+     rw[MAX_LIST_MAX_SET] >>
      match_mp_tac(SUBSET_MAX_SET) >>
      rw[SUBSET_DEF,MEM_MAP,PULL_EXISTS] >>
      imp_res_tac MEM_tyvars_allTypes' >>
@@ -13965,7 +13871,7 @@ Proof
     (disj2_tac >>
      `«fun» <> name` by(fs[is_std_sig_def] >> metis_tac[ALOOKUP_MEM,MEM_MAP,FST]) >>
      simp[INST_def,INST_CORE_def,tydepth_def,tydepth'_def] >>
-     simp[list_max_def])
+     simp[MAX_LIST_def])
   >-
     (disj2_tac >>
      `«fun» <> name` by(fs[is_std_sig_def] >> metis_tac[ALOOKUP_MEM,MEM_MAP,FST]) >>
@@ -13977,7 +13883,7 @@ Proof
      drule_all allTypes'_type_ok >> strip_tac >>
      imp_res_tac type_ok_tydepth >>
      simp[tydepth_TYPE_SUBST] >>
-     simp[list_max_MAX_SET] >>
+     simp[MAX_LIST_MAX_SET] >>
      simp[MAX_SET_THM] >>
      disj1_tac >>
      match_mp_tac(SUBSET_MAX_SET) >>
@@ -13989,7 +13895,7 @@ Proof
      conj_tac >-
        (rw[dependency_cases] >> metis_tac[]) >>
      simp[tydepth'_def,tydepth_def,INST_def,INST_CORE_def] >>
-     rw[list_max_def])
+     rw[MAX_LIST_def,MAX_DEF])
   >-
     (disj1_tac >>
      conj_tac >-
@@ -14006,7 +13912,7 @@ Proof
        by(qpat_x_assum `MEM _ ctxt` (strip_assume_tac o REWRITE_RULE[MEM_SPLIT]) >> rveq >> fs[]) >>
      `«fun» <> name` by(fs[is_std_sig_def] >> metis_tac[ALOOKUP_MEM,MEM_MAP,FST]) >>
      simp[tydepth_def,tydepth'_def,INST_def,INST_CORE_def] >>
-     simp[list_max_MAX_SET] >>
+     simp[MAX_LIST_MAX_SET] >>
      simp[MAX_SET_THM] >>
      disj2_tac >>
      match_mp_tac(SUBSET_MAX_SET) >>
@@ -14018,12 +13924,12 @@ Proof
     (disj2_tac >>
      `«fun» <> name` by(fs[is_std_sig_def] >> metis_tac[ALOOKUP_MEM,MEM_MAP,FST]) >>
      simp[INST_def,INST_CORE_def,tydepth_def,tydepth'_def] >>
-     simp[list_max_def])
+     simp[MAX_LIST_def])
   >-
     (disj2_tac >>
      `«fun» <> name` by(fs[is_std_sig_def] >> metis_tac[ALOOKUP_MEM,MEM_MAP,FST]) >>
      simp[INST_def,INST_CORE_def,tydepth_def,tydepth'_def] >>
-     simp[list_max_MAX_SET] >>
+     simp[MAX_LIST_MAX_SET] >>
      simp[MAX_SET_THM] >>
      simp[GSYM LE_LT1] >>
      disj2_tac >>
@@ -14033,7 +13939,7 @@ Proof
      drule_all allTypes'_type_ok >> strip_tac >>
      imp_res_tac type_ok_tydepth >>
      simp[tydepth_TYPE_SUBST] >>
-     simp[list_max_MAX_SET] >>
+     simp[MAX_LIST_MAX_SET] >>
      simp[MAX_SET_THM] >>
      match_mp_tac(SUBSET_MAX_SET) >>
      rw[SUBSET_DEF,MEM_MAP,PULL_EXISTS] >>
@@ -14044,7 +13950,7 @@ Proof
      conj_tac >-
        (rw[dependency_cases] >> metis_tac[]) >>
      simp[INST_def,INST_CORE_def,tydepth_def,tydepth'_def] >>
-     simp[list_max_def] >> rw[])
+     simp[MAX_LIST_def,MAX_DEF] >> rw[])
   >-
     (disj1_tac >>
      conj_tac >-
@@ -14061,7 +13967,7 @@ Proof
        by(qpat_x_assum `MEM _ ctxt` (strip_assume_tac o REWRITE_RULE[MEM_SPLIT]) >> rveq >> fs[]) >>
      `«fun» <> name` by(fs[is_std_sig_def] >> metis_tac[ALOOKUP_MEM,MEM_MAP,FST]) >>
      simp[tydepth_def,tydepth'_def,INST_def,INST_CORE_def] >>
-     simp[list_max_MAX_SET] >>
+     simp[MAX_LIST_MAX_SET] >>
      simp[MAX_SET_THM] >>
      disj1_tac >>
      match_mp_tac(SUBSET_MAX_SET) >>
@@ -14090,7 +13996,7 @@ Proof
        by(fs[term_ok_def] >> metis_tac[ALOOKUP_MEM,MEM_MAP,FST]) >>
      simp[tydepth_def,tydepth'_def,tydepth_TYPE_SUBST,INST_def,INST_CORE_def] >>
      simp[] >>
-     rw[list_max_MAX_SET] >>
+     rw[MAX_LIST_MAX_SET] >>
      match_mp_tac(SUBSET_MAX_SET) >>
      rw[SUBSET_DEF,MEM_MAP,PULL_EXISTS] >>
      imp_res_tac allCInsts_tyvars >>
@@ -14441,13 +14347,12 @@ QED
 
 (* types occurring in a term *)
 
-Definition types_in_def:
+Definition types_in_def[simp]:
   types_in (Var x ty) = {ty} ∧
   types_in (Const c ty) = {ty} ∧
   types_in (Comb t1 t2) = types_in t1 ∪ types_in t2 ∧
   types_in (Abs v t) = types_in v ∪ types_in t
 End
-val _ = export_rewrites["types_in_def"]
 
 Theorem type_ok_types_in:
    ∀sig. is_std_sig sig ⇒ ∀tm ty. term_ok sig tm ∧ ty ∈ types_in tm ⇒ type_ok (tysof sig) ty

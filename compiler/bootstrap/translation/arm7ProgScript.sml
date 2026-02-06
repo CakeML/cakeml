@@ -1,7 +1,7 @@
 (*
   Translate the ARMv7 instruction encoder and ARMv7-specific config.
 *)
-Theory arm7Prog
+Theory arm7Prog[no_sig_docs]
 Ancestors
   evaluate ml_translator from_pancake32Prog arm7_target arm
   to_target32Prog[qualified]
@@ -18,7 +18,6 @@ open inliningLib;
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
 val _ = translation_extends "from_pancake32Prog";
-val _ = ml_translatorLib.use_string_type true;
 val _ = ml_translatorLib.use_sub_check true;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "arm7Prog");
@@ -26,7 +25,7 @@ val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "arm7Prog");
 val _ = add_preferred_thy "-";
 val _ = add_preferred_thy "termination";
 
-Triviality NOT_NIL_AND_LEMMA:
+Theorem NOT_NIL_AND_LEMMA[local]:
   (b <> [] /\ x) = if b = [] then F else x
 Proof
   Cases_on `b` THEN FULL_SIMP_TAC std_ss []
@@ -57,19 +56,19 @@ fun def_of_const tm = let
 
 val _ = (find_def_for_const := def_of_const);
 
-Triviality v2w_rw:
+Theorem v2w_rw[local]:
   v2w [P] = if P then 1w else 0w
 Proof
   rw[]>>EVAL_TAC
 QED
 
-Triviality notw:
+Theorem notw[local]:
   !a. ~a = (-1w ?? a)
 Proof
   srw_tac[wordsLib.WORD_BIT_EQ_ss][]
 QED
 
-Triviality if_ARM_BadCode:
+Theorem if_ARM_BadCode[local]:
   (case
   (if P then
      ARM c
@@ -95,7 +94,7 @@ QED
 
 (* TODO? more Manual rewrites to get rid of MachineCode type, which probably isn't that expensive *)
 
-Triviality exh_machine_code:
+Theorem exh_machine_code[local]:
   ∀v f.
 (case
   case v of
@@ -110,21 +109,21 @@ Proof
   rw[]>>PairCases_on`v`>>rw[]
 QED
 
-Triviality LIST_BIND_option:
+Theorem LIST_BIND_option[local]:
   LIST_BIND (case P of NONE => A | SOME v => B v) f =
   case P of NONE => LIST_BIND A f | SOME v => LIST_BIND (B v) f
 Proof
   Cases_on`P`>>rw[]
 QED
 
-Triviality LIST_BIND_pair:
+Theorem LIST_BIND_pair[local]:
   LIST_BIND (case P of (l,r) => A l r) f =
   case P of (l,r) => LIST_BIND (A l r) f
 Proof
   Cases_on`P`>>rw[]
 QED
 
-Triviality notw:
+Theorem notw[local]:
   !a. ~a = (-1w ?? a)
 Proof
   srw_tac[wordsLib.WORD_BIT_EQ_ss][]
@@ -485,7 +484,6 @@ val res = translate def;
 
 val res = translate (arm7_config_def |> SIMP_RULE std_ss[valid_immediate_def] |> gconv)
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 

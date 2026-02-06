@@ -1,7 +1,7 @@
 (*
   Translate the ag32 instruction encoder and ag32-specific config.
 *)
-Theory ag32Prog
+Theory ag32Prog[no_sig_docs]
 Ancestors
   evaluate ml_translator ag32_target ag32 arm7Prog[qualified]
 Libs
@@ -16,42 +16,49 @@ open inliningLib;
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
 val _ = translation_extends "arm7Prog";
-val _ = ml_translatorLib.use_string_type true;
 val _ = ml_translatorLib.use_sub_check true;
 
-val ri2bits_eq = prove(
-  ``ri2bits ri = case ri of Imm v => (64w:word7 || w2w v) | Reg i => w2w i``,
-  Cases_on `ri` \\ fs [ri2bits_def] \\ blastLib.BBLAST_TAC);
+Theorem ri2bits_eq[local]:
+    ri2bits ri = case ri of Imm v => (64w:word7 || w2w v) | Reg i => w2w i
+Proof
+  Cases_on `ri` \\ fs [ri2bits_def] \\ blastLib.BBLAST_TAC
+QED
 
 val r = translate ri2bits_eq;
 val r = translate ag32Theory.funcT2num_thm;
 val r = translate ag32Theory.shiftT2num_thm;
 
-val enc_eq = prove(
-  ``ag32$enc (func,w,a,b,opc') =
+Theorem enc_eq[local]:
+    ag32$enc (func,w,a,b,opc') =
         (w2w (ri2bits w) << 25 ||
          w2w (ri2bits a) << 17 ||
          w2w (ri2bits b) << 10 ||
          w2w ((n2w (funcT2num func)):word4) << 6 ||
-         w2w opc')``,
-  fs [enc_def] \\ blastLib.BBLAST_TAC);
+         w2w opc')
+Proof
+  fs [enc_def] \\ blastLib.BBLAST_TAC
+QED
 
 val r = translate enc_eq;
 
-val encShift_eq = prove(
-  ``encShift (sh,w,a,b,opc') =
+Theorem encShift_eq[local]:
+    encShift (sh,w,a,b,opc') =
         (w2w (ri2bits w) << 25 ||
          w2w (ri2bits a) << 17 ||
          w2w (ri2bits b) << 10 ||
          w2w ((n2w (shiftT2num sh)):word4) << 6 ||
-         w2w opc')``,
-  fs [encShift_def] \\ blastLib.BBLAST_TAC);
+         w2w opc')
+Proof
+  fs [encShift_def] \\ blastLib.BBLAST_TAC
+QED
 
 val r = translate encShift_eq;
 
-val v2w_sing = prove(
-  ``v2w [b] = if b then 1w else 0w:word1``,
-  Cases_on `b` \\ EVAL_TAC);
+Theorem v2w_sing[local]:
+    v2w [b] = if b then 1w else 0w:word1
+Proof
+  Cases_on `b` \\ EVAL_TAC
+QED
 
 val Encode_eq = Encode_def
   |> SIMP_RULE (srw_ss()) [wordsTheory.word_concat_def,v2w_sing,
@@ -65,18 +72,25 @@ val def = ag32_encode1_def
 
 val r = translate def;
 
-val ag32_encode_eq = prove(
-  ``ag32_encode [] = [] /\
-    ag32_encode (x::xs) = ag32_encode1 x ++ ag32_encode xs``,
-  fs [ag32_encode_def]);
+Theorem ag32_encode_eq[local]:
+    ag32_encode [] = [] /\
+    ag32_encode (x::xs) = ag32_encode1 x ++ ag32_encode xs
+Proof
+  fs [ag32_encode_def]
+QED
 
 val r = translate ag32_encode_eq;
 
-val word_msb_word_bit = prove(
-  ``word_msb w = word_bit (dimindex (:'a) - 1) (w:'a word)``,
-  fs [wordsTheory.word_msb_def,wordsTheory.word_bit_def]);
+Theorem word_msb_word_bit[local]:
+    word_msb w = word_bit (dimindex (:'a) - 1) (w:'a word)
+Proof
+  fs [wordsTheory.word_msb_def,wordsTheory.word_bit_def]
+QED
 
-val word_neg = prove(``-w = 0w - w``,rw []);
+Theorem word_neg[local]:
+   -w = 0w - w
+Proofrw []
+QED
 
 val r = translate ag32_bop_def;
 val r = translate ag32_sh_def;
@@ -143,6 +157,5 @@ val res = translate def;
 
 val r = translate (format_def ag32_config_def);
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
 val _ = (ml_translatorLib.clean_on_exit := true);

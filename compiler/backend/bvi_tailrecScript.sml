@@ -11,7 +11,7 @@ Libs
 
 val _ = temp_tight_equality();
 
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES ();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 val PMATCH_ELIM_CONV = patternMatchesLib.PMATCH_ELIM_CONV;
 
 Definition dummy_def:
@@ -31,7 +31,7 @@ End
 
 Theorem is_rec_PMATCH:
    !expr. is_rec name expr =
-    case expr of
+    pmatch expr of
       Call _ d _ NONE => d = SOME name
     | _               => F
 Proof
@@ -41,22 +41,20 @@ Proof
   \\ Cases_on `hdl` \\ fs [is_rec_def]
 QED
 
-Definition is_const_def:
+Definition is_const_def[simp]:
   (is_const (IntOp (Const i)) <=> small_enough_int i) /\
   (is_const _                 <=> F)
 End
 
 Theorem is_const_PMATCH:
    !op. is_const op =
-    case op of
+    pmatch op of
       IntOp (Const i) => small_enough_int i
     | _               => F
 Proof
   CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV)
   \\ Cases \\ rpt CASE_TAC \\ rw [is_const_def]
 QED
-
-val _ = export_rewrites ["is_const_def"];
 
 Datatype:
   assoc_op = Plus
@@ -93,7 +91,7 @@ End
 Theorem from_op_PMATCH:
    !op.
     from_op op =
-      case op of
+      pmatch op of
         IntOp Add          => Plus
       | IntOp Mult         => Times
       | BlockOp ListAppend => Append
@@ -118,9 +116,9 @@ End
 Theorem op_eq_PMATCH:
    !a expr.
      op_eq a expr =
-       case expr of
+       pmatch expr of
          Op op xs =>
-           (case a of
+           (pmatch a of
              Plus   => op = IntOp Add
            | Times  => op = IntOp Mult
            | Append => op = BlockOp ListAppend
@@ -158,7 +156,7 @@ End
 Theorem index_of_PMATCH:
    !expr.
      index_of expr =
-       case expr of
+       pmatch expr of
          Var i => SOME i
        | _     => NONE
 Proof
@@ -173,7 +171,7 @@ End
 Theorem args_from_PMATCH:
    !expr.
      args_from expr =
-       case expr of
+       pmatch expr of
          Call t (SOME d) as hdl => SOME (t,d,as,hdl)
        | _                      => NONE
 Proof
@@ -184,7 +182,7 @@ QED
 
 Definition get_bin_args_def:
   get_bin_args op =
-    dtcase op of
+    case op of
     | bvi$Op _ [e1; e2] => SOME (e1, e2)
     | _ => NONE
 End
@@ -192,7 +190,7 @@ End
 Theorem get_bin_args_PMATCH:
    !op.
      get_bin_args op =
-       case op of
+       pmatch op of
          Op _ [e1; e2] => SOME (e1,e2)
        | _             => NONE
 Proof
@@ -228,7 +226,7 @@ End
 
 Definition is_arith_def:
   is_arith op =
-    dtcase op of
+    case op of
       IntOp Add  => T
     | IntOp Sub  => T
     | IntOp Mult => T
@@ -238,7 +236,7 @@ End
 Theorem is_arith_PMATCH:
    !op.
      is_arith op =
-       case op of
+       pmatch op of
          IntOp Add  => T
        | IntOp Sub  => T
        | IntOp Mult => T
@@ -249,7 +247,7 @@ QED
 
 Definition is_rel_def:
   is_rel op =
-    dtcase op of
+    case op of
       IntOp Less      => T
     | IntOp LessEq    => T
     | IntOp Greater   => T
@@ -260,7 +258,7 @@ End
 Theorem is_rel_PMATCH:
    !op.
      is_rel op =
-       case op of
+       pmatch op of
          IntOp Less      => T
        | IntOp LessEq    => T
        | IntOp Greater   => T
@@ -272,10 +270,10 @@ QED
 
 Definition term_ok_int_def:
   term_ok_int ts expr =
-    dtcase expr of
+    case expr of
       Var i => if i < LENGTH ts then EL i ts = Int else F
     | Op op xs =>
-        (dtcase get_bin_args expr of
+        (case get_bin_args expr of
           NONE       => xs = [] /\ is_const op
         | SOME (x,y) => is_arith op /\ term_ok_int ts x /\ term_ok_int ts y)
     | _ => F
@@ -293,7 +291,7 @@ Definition term_ok_any_def:
     else if i < LENGTH ts then EL i ts = List
     else F) /\
   (term_ok_any ts list (Op op xs) <=>
-    dtcase get_bin_args (Op op xs) of
+    case get_bin_args (Op op xs) of
       NONE       => xs = [] /\ if list then op = BlockOp (Cons 0) else is_const op
     | SOME (x,y) =>
         if op = BlockOp ListAppend then term_ok_any ts T x /\ term_ok_any ts T y
@@ -328,12 +326,12 @@ Theorem term_ok_any_ind[allow_rebind] = term_ok_any_ind |> SRULE[is_op_thms]
 
 Theorem term_ok_any_PMATCH:
    term_ok_any ts list expr =
-     case expr of
+     pmatch expr of
        Var i => if ~list then i < LENGTH ts
                 else if i < LENGTH ts then EL i ts = List
                 else F
      | Op op xs =>
-          (dtcase get_bin_args (Op op xs) of
+          (case get_bin_args (Op op xs) of
             NONE       => xs = [] /\ if list then op = Cons 0 else is_const op
           | SOME (x,y) =>
               if op = ListAppend then term_ok_any ts T x /\ term_ok_any ts T y
@@ -349,7 +347,7 @@ QED
 
 Definition term_ok_def:
   term_ok ts ty expr =
-    dtcase ty of
+    case ty of
       Any  => term_ok_any ts F expr
     | Int  => term_ok_int ts expr
     | List => term_ok_any ts T expr
@@ -361,7 +359,7 @@ End
 Definition try_swap_def:
   (try_swap loc Append exp = exp) /\
   (try_swap loc opr    exp =
-    dtcase opbinargs opr exp of
+    case opbinargs opr exp of
       NONE => exp
     | SOME (l, r) =>
         if is_rec loc l then apply_op opr r l else exp)
@@ -370,7 +368,7 @@ End
 (* Check if ok to lift xs into accumulator *)
 Definition check_op_def:
   check_op ts opr loc exp =
-    dtcase opbinargs opr (try_swap loc opr exp) of
+    case opbinargs opr (try_swap loc opr exp) of
       NONE => NONE
     | SOME (xs, f) =>
         if is_rec loc f /\ term_ok ts (op_type opr) xs then
@@ -381,7 +379,7 @@ End
 
 (* --- Type analysis --- *)
 
-Definition decide_ty_def:
+Definition decide_ty_def[simp]:
   (decide_ty Int  Int  = Int)  /\
   (decide_ty List List = List) /\
   (decide_ty _    _    = Any)
@@ -390,15 +388,13 @@ End
 Theorem decide_ty_PMATCH:
    !ty1 ty2.
      decide_ty ty1 ty2 =
-       case (ty1,ty2) of
+       pmatch (ty1,ty2) of
          (Int, Int)   => Int
        | (List, List) => List
        | _            => Any
 Proof
-  CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ Cases \\ rw [decide_ty_def]
+  CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ Cases \\ rw []
 QED
-
-val _ = export_rewrites ["decide_ty_def"]
 
 Definition LAST1_def:
   LAST1 []      = NONE   /\
@@ -429,7 +425,7 @@ End
 Theorem arg_ty_PMATCH:
    !op.
      arg_ty op =
-       case op of
+       pmatch op of
          IntOp Add          => Int
        | IntOp Sub          => Int
        | IntOp Mult         => Int
@@ -461,7 +457,7 @@ End
 Theorem op_ty_PMATCH:
    !op.
      op_ty op =
-       case op of
+       pmatch op of
          IntOp Add          => Int
        | IntOp Sub          => Int
        | IntOp Mult         => Int
@@ -498,27 +494,30 @@ Definition scan_expr_def:
     let (ti, tyi, _, oi) = HD (scan_expr ts loc [xi]) in
     let (tt, ty1, _, ot) = HD (scan_expr ti loc [xt]) in
     let (te, ty2, _, oe) = HD (scan_expr ti loc [xe]) in
-    let op = dtcase ot of NONE => oe | _ => ot in
-    let ty = dtcase op of
+    let op = case ot of NONE => oe | _ => ot in
+    let ty = case op of
                NONE => decide_ty ty1 ty2
              | SOME opr => decide_ty ty1 (decide_ty ty2 (op_type opr)) in
       [(MAP2 decide_ty tt te, ty, IS_SOME oe, op)]) ∧
   (scan_expr ts loc [Let xs x] =
     let ys = scan_expr ts loc xs in
     let tt = MAP (FST o SND) ys in
-    let tr = (dtcase LAST1 ys of SOME c => FST c | NONE => ts) in
+    let tr = (case LAST1 ys of SOME c => FST c | NONE => ts) in
     let (tu, ty, _, op) = HD (scan_expr (tt ++ tr) loc [x]) in
       [(DROP (LENGTH ys) tu, ty, F, op)]) ∧
   (scan_expr ts loc [Raise x] = [(ts, Any, F, NONE)]) ∧
   (scan_expr ts loc [Tick x] = scan_expr ts loc [x]) ∧
+  (scan_expr ts loc [Force _ n] =
+    let ty = if n < LENGTH ts then EL n ts else Any in
+      [(ts, ty, F, NONE)]) ∧
   (scan_expr ts loc [Call t d xs h] = [(ts, Any, F, NONE)]) ∧
   (scan_expr ts loc [Op op xs] =
     let opr = from_op op in
     let opt = op_type opr in
-      dtcase opr of
+      case opr of
         Noop => (* Constants? *)
           if arg_ty op = Int then
-            dtcase get_bin_args (Op op xs) of
+            case get_bin_args (Op op xs) of
               NONE =>
                 if is_const op then
                   [(ts, Int, F, NONE)]
@@ -537,7 +536,7 @@ Definition scan_expr_def:
           if IS_SOME (check_op ts opr loc (Op op xs)) then
             [(ts, opt, F, SOME opr)]
           else if term_ok ts opt (Op op xs) then
-            dtcase get_bin_args (Op op xs) of
+            case get_bin_args (Op op xs) of
               NONE => [(ts, Any, F, NONE)]
             | SOME (x, y) =>
                 [(update_context opt ts x y, opt, F, NONE)]
@@ -553,27 +552,30 @@ Definition scan_expr_sing_def:
     let (ti, tyi, _, oi) = scan_expr_sing ts loc xi in
     let (tt, ty1, _, ot) = scan_expr_sing ti loc xt in
     let (te, ty2, _, oe) = scan_expr_sing ti loc xe in
-    let op = dtcase ot of NONE => oe | _ => ot in
-    let ty = dtcase op of
+    let op = case ot of NONE => oe | _ => ot in
+    let ty = case op of
                NONE => decide_ty ty1 ty2
              | SOME opr => decide_ty ty1 (decide_ty ty2 (op_type opr)) in
       (MAP2 decide_ty tt te, ty, IS_SOME oe, op)) ∧
   (scan_expr_sing ts loc (Let xs x) =
     let ys = scan_expr_list ts loc xs in
     let tt = MAP (FST o SND) ys in
-    let tr = (dtcase LAST1 ys of SOME c => FST c | NONE => ts) in
+    let tr = (case LAST1 ys of SOME c => FST c | NONE => ts) in
     let (tu, ty, _, op) = scan_expr_sing (tt ++ tr) loc x in
       (DROP (LENGTH ys) tu, ty, F, op)) ∧
   (scan_expr_sing ts loc (Raise x) = (ts, Any, F, NONE)) ∧
   (scan_expr_sing ts loc (Tick x) = scan_expr_sing ts loc x) ∧
+  (scan_expr_sing ts loc (Force _ n) =
+    let ty = if n < LENGTH ts then EL n ts else Any in
+      (ts, ty, F, NONE)) ∧
   (scan_expr_sing ts loc (Call t d xs h) = (ts, Any, F, NONE)) ∧
   (scan_expr_sing ts loc (Op op xs) =
     let opr = from_op op in
     let opt = op_type opr in
-      dtcase opr of
+      case opr of
         Noop => (* Constants? *)
           if arg_ty op = Int then
-            dtcase get_bin_args (Op op xs) of
+            case get_bin_args (Op op xs) of
               NONE =>
                 if is_const op then
                   (ts, Int, F, NONE)
@@ -592,7 +594,7 @@ Definition scan_expr_sing_def:
           if IS_SOME (check_op ts opr loc (Op op xs)) then
             (ts, opt, F, SOME opr)
           else if term_ok ts opt (Op op xs) then
-            dtcase get_bin_args (Op op xs) of
+            case get_bin_args (Op op xs) of
               NONE => (ts, Any, F, NONE)
             | SOME (x, y) =>
                 (update_context opt ts x y, opt, F, NONE)
@@ -633,17 +635,18 @@ Definition rewrite_def:
   (rewrite loc next opr acc ts (Let xs x) =
     let ys = scan_expr ts loc xs in
     let tt = MAP (FST o SND) ys in
-    let tr = dtcase LAST1 ys of NONE => ts | SOME c => FST c in
+    let tr = case LAST1 ys of NONE => ts | SOME c => FST c in
     let (r, y) = rewrite loc next opr (acc + LENGTH xs) (tt ++ tr) x in
       (r, Let xs y)) /\
   (rewrite loc next opr acc ts (Tick x) =
     let (r, y) = rewrite loc next opr acc ts x in
       (r, Tick y)) /\
+  (rewrite loc next opr acc ts (Force l v) = (F, Force l v)) /\
   (rewrite loc next opr acc ts exp =
-    dtcase check_op ts opr loc exp of
+    case check_op ts opr loc exp of
       NONE => (F, apply_op opr (Var acc) exp)
     | SOME exp =>
-        dtcase opbinargs opr exp of
+        case opbinargs opr exp of
           NONE => (F, apply_op opr (Var acc) exp)
         | SOME (xs, f) => (T, push_call next opr acc xs (args_from f)))
 End
@@ -651,7 +654,7 @@ End
 Theorem rewrite_PMATCH:
    !loc next opr acc ts expr.
      rewrite loc next opr acc ts expr =
-       case expr of
+       pmatch expr of
          Var n => (F, Var n)
        | If x1 x2 x3 =>
            let t1 = FST (HD (scan_expr ts loc [x1])) in
@@ -663,23 +666,23 @@ Theorem rewrite_PMATCH:
        | Let xs x =>
            let ys = scan_expr ts loc xs in
            let tt = MAP (FST o SND) ys in
-           let tr = dtcase LAST1 ys of NONE => ts | SOME c => FST c in
+           let tr = case LAST1 ys of NONE => ts | SOME c => FST c in
            let (r, y) = rewrite loc next opr (acc + LENGTH xs) (tt ++ tr) x in
              (r, Let xs y)
        | Tick x =>
            let (r, y) = rewrite loc next opr acc ts x in (r, Tick y)
+       | Force l v => (F, Force l v)
        | _ =>
-           dtcase check_op ts opr loc expr of
+           case check_op ts opr loc expr of
              NONE => (F, apply_op opr (Var acc) expr)
            | SOME expr2 =>
-             dtcase opbinargs opr expr2 of
+             case opbinargs opr expr2 of
                NONE => (F, apply_op opr (Var acc) expr2)
              | SOME (xs, f) => (T, push_call next opr acc xs (args_from f))
 Proof
   CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV)
   \\ recInduct (theorem "rewrite_ind") \\ rw [rewrite_def]
 QED
-
 
 Theorem rewrite_eq = rewrite_def |> SRULE [scan_expr_eq];
 
@@ -749,10 +752,10 @@ Definition check_exp_def:
   check_exp loc arity exp =
     if ~has_rec1 loc exp then NONE else
       let context = REPLICATE arity Any in
-        dtcase scan_expr context loc [exp] of
+        case scan_expr context loc [exp] of
           [] => NONE
         | (ts,ty,r,opr)::_ =>
-            dtcase opr of
+            case opr of
               NONE => NONE
             | SOME op =>
                 if ty <> op_type op then NONE else opr
@@ -773,7 +776,7 @@ End
 
 Definition compile_exp_def:
   compile_exp loc next arity exp =
-    dtcase check_exp loc arity exp of
+    case check_exp loc arity exp of
       NONE => NONE
     | SOME op =>
       let context = REPLICATE arity Any in
@@ -785,7 +788,7 @@ End
 Definition compile_prog_def:
   (compile_prog next [] = (next, [])) ∧
   (compile_prog next ((loc, arity, exp)::xs) =
-    dtcase compile_exp loc next arity exp of
+    case compile_exp loc next arity exp of
     | NONE =>
         let (n, ys) = compile_prog next xs in
           (n, (loc, arity, exp)::ys)
@@ -857,16 +860,16 @@ val opt_tm = ``
               NONE)))``
 val aux_tm = ``Let [Var 0; Op (IntOp (Const 1)) []] ^opt_tm``
 
-Theorem fac_check_exp:
+Theorem fac_check_exp[local]:
    check_exp 0 1 ^fac_tm = SOME Times
 Proof
-EVAL_TAC
+  EVAL_TAC
 QED
 
 Theorem fac_compile_exp:
    compile_exp 0 1 1 ^fac_tm = SOME (^aux_tm, ^opt_tm)
 Proof
-EVAL_TAC
+  EVAL_TAC
 QED
 
 val rev_tm = ``
@@ -892,15 +895,14 @@ val opt_tm = ``
 
 val aux_tm = ``Let [Var 0; Op (BlockOp (Cons 0)) []] ^opt_tm``
 
-Theorem rev_check_exp:
-   check_exp 444 1 ^rev_tm = SOME Append
+Theorem rev_check_exp[local]:
+  check_exp 444 1 ^rev_tm = SOME Append
 Proof
-EVAL_TAC
+  EVAL_TAC
 QED
 
-Theorem rev_compile_exp:
-   compile_exp 444 445 1 ^rev_tm = SOME (^aux_tm, ^opt_tm)
+Theorem rev_compile_exp[local]:
+  compile_exp 444 445 1 ^rev_tm = SOME (^aux_tm, ^opt_tm)
 Proof
-EVAL_TAC
+  EVAL_TAC
 QED
-

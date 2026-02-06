@@ -38,7 +38,6 @@ Proof
   res_tac >>
   fs [] >>
   rw [] >>
-  ‘s with fp_state := s.fp_state = s’ by gs[state_component_equality] >>
   gs[] >> res_tac >> gs[] >>
   metis_tac []
 QED
@@ -134,7 +133,7 @@ Proof
   metis_tac[TC_functional_deterministic]
 QED
 
-Triviality decl_step_reln_functional:
+Theorem decl_step_reln_functional[local]:
   ∀env a b1 b2. decl_step_reln env a b1 ∧ decl_step_reln env a b2 ⇒ b1 = b2
 Proof
   rw[decl_step_reln_def] >> gvs[]

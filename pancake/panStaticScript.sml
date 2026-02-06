@@ -288,13 +288,13 @@ End
 Definition last_to_str_def:
   last_to_str l =
     case l of
-    | RetLast      => implode "return"
-    | RaiseLast    => implode "raise"
-    | TailLast     => implode "tail call"
-    | BreakLast    => implode "break"
-    | ContLast     => implode "continue"
-    | CondExitLast => implode "exiting conditional"
-    | _            => implode ""
+    | RetLast      => strlit "return"
+    | RaiseLast    => strlit "raise"
+    | TailLast     => strlit "tail call"
+    | BreakLast    => strlit "break"
+    | ContLast     => strlit "continue"
+    | CondExitLast => strlit "exiting conditional"
+    | _            => strlit ""
 End
 
 (*
@@ -473,18 +473,18 @@ End
 Definition binop_to_str_def:
   binop_to_str op =
     case op of
-    | Add => implode "Add"
-    | Sub => implode "Sub"
-    | And => implode "And"
-    | Or  => implode "Or"
-    | Xor => implode "Xor"
+    | Add => strlit "Add"
+    | Sub => strlit "Sub"
+    | And => strlit "And"
+    | Or  => strlit "Or"
+    | Xor => strlit "Xor"
 End
 
 (* Get string name for Pancake ops *)
 Definition panop_to_str_def:
   panop_to_str op =
     case op of
-    | Mul => implode "Mul"
+    | Mul => strlit "Mul"
 End
 
 
@@ -940,7 +940,7 @@ Definition static_check_prog_def:
         then error (ShapeErr $ get_shape_mismatch_msg (strlit "call result to return") ctxt.loc ctxt.scope)
       else return ();
       (* check arg num and shapes *)
-      check_func_args ctxt trgt finf.params esret.sh_bds;
+      check_func_args ctxt trgt finf'.params esret.sh_bds;
       (* return prog info *)
       return <| exits_fun  := T
               ; exits_loop := F

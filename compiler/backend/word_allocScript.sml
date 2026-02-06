@@ -14,13 +14,13 @@ Ancestors
   asm[qualified] (* for arity-2 Const *)
   reg_alloc misc[qualified] wordLang linear_scan
 
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 Overload Move0[inferior] = ``Move 0n``;
 Overload Move1[inferior] = ``Move 1n``;
 
 (*SSA form*)
-Definition apply_nummap_key_def:
+Definition apply_nummap_key_def[simp]:
   apply_nummap_key f names =
   fromAList (MAP (λx,y.f x,y) (toAList names))
 End
@@ -32,7 +32,7 @@ Definition apply_nummaps_key_def:
 End
 
 Definition option_lookup_def:
-  option_lookup t v = dtcase lookup v t of NONE => 0n | SOME x => x
+  option_lookup t v = case lookup v t of NONE => 0n | SOME x => x
 End
 
 Definition even_list_def:
@@ -65,7 +65,7 @@ Definition merge_moves_def:
       merge_moves xs ssa_L ssa_R na in
     let optLx = lookup x ssa_L' in
     let optLy = lookup x ssa_R' in
-    dtcase (optLx,optLy) of
+    case (optLx,optLy) of
       (SOME Lx,SOME Ly) =>
       if Lx = Ly then
         (seqL,seqR,na',ssa_L',ssa_R')
@@ -101,7 +101,7 @@ Definition fake_moves_def:
       fake_moves prio xs ssa_L ssa_R na in
     let optLx = lookup x ssa_L' in
     let optLy = lookup x ssa_R' in
-    dtcase (optLx,optLy) of
+    case (optLx,optLy) of
       (NONE,SOME Ly) =>
         let Lmove = Seq seqL (fake_move na') in
         let Rmove = Seq seqR (Move (priority prio F) [(na',Ly)]) in
@@ -132,7 +132,7 @@ Definition ssa_cc_trans_inst_def:
     let (reg',ssa',na') = next_var_rename reg ssa na in
       (Inst (Const reg' w),ssa',na')) ∧
   (ssa_cc_trans_inst (Arith (Binop bop r1 r2 ri)) ssa na =
-    dtcase ri of
+    case ri of
       Reg r3 =>
       let r3' = option_lookup ssa r3 in
       let r2' = option_lookup ssa r2 in
@@ -337,12 +337,12 @@ Definition ssa_cc_trans_def:
   (ssa_cc_trans (MustTerminate s1) ssa na =
     let (s1',ssa',na') = ssa_cc_trans s1 ssa na in
       (MustTerminate s1',ssa',na')) ∧
-  (*Tricky case 1: we need to merge the ssa results from both branches by
+  (*Tricky pmatch 1: we need to merge the ssa results from both branches by
     unSSA-ing the phi functions
   *)
   (ssa_cc_trans (If cmp r1 ri e2 e3) ssa na =
     let r1' = option_lookup ssa r1 in
-    let ri' = dtcase ri of Reg r => Reg (option_lookup ssa r)
+    let ri' = case ri of Reg r => Reg (option_lookup ssa r)
                       |  Imm v => Imm v in
     (*ssa is the copy for both branches,
       however, we can use new na2 and ns2*)
@@ -462,7 +462,7 @@ Definition ssa_cc_trans_def:
     let regs = GENLIST (\x.2*(x+1)) (LENGTH ret) in
     let mov_ret_handler =
         (Seq ret_mov (Seq (Move1 (ZIP (ret',regs))) (ren_ret_handler))) in
-    (dtcase h of
+    (case h of
       NONE =>
         let prog =
           (Seq stack_mov (Seq move_args
@@ -497,7 +497,7 @@ End
 
 (*Recursively applying colours to a program*)
 
-Definition apply_colour_exp_def:
+Definition apply_colour_exp_def[simp]:
   (apply_colour_exp f (Var num) = Var (f num)) /\
   (apply_colour_exp f (Load exp) = Load (apply_colour_exp f exp)) /\
   (apply_colour_exp f (Op wop ls) = Op wop (MAP (apply_colour_exp f) ls)) /\
@@ -505,12 +505,12 @@ Definition apply_colour_exp_def:
   (apply_colour_exp f expr = expr)
 End
 
-Definition apply_colour_imm_def:
+Definition apply_colour_imm_def[simp]:
   (apply_colour_imm f (Reg n) = Reg (f n)) ∧
   (apply_colour_imm f x = x)
 End
 
-Definition apply_colour_inst_def:
+Definition apply_colour_inst_def[simp]:
   (apply_colour_inst f Skip = Skip) ∧
   (apply_colour_inst f (Const reg w) = Const (f reg) w) ∧
   (apply_colour_inst f (Arith (Binop bop r1 r2 ri)) =
@@ -549,7 +549,7 @@ Definition apply_colour_inst_def:
   (apply_colour_inst f x = x)
 End (*Catchall -- for future instructions to be added*)
 
-Definition apply_colour_def:
+Definition apply_colour_def[simp]:
   (apply_colour f Skip = Skip) ∧
   (apply_colour f (Move pri ls) =
     Move pri (ZIP (MAP (f o FST) ls, MAP (f o SND) ls))) ∧
@@ -558,11 +558,11 @@ Definition apply_colour_def:
   (apply_colour f (Get num store) = Get (f num) store) ∧
   (apply_colour f (Store exp num) = Store (apply_colour_exp f exp) (f num)) ∧
   (apply_colour f (Call ret dest args h) =
-    let ret = dtcase ret of NONE => NONE
+    let ret = case ret of NONE => NONE
                         | SOME (vs,cutset,ret_handler,l1,l2) =>
                           SOME (MAP f vs,apply_nummaps_key f cutset,apply_colour f ret_handler,l1,l2) in
     let args = MAP f args in
-    let h = dtcase h of NONE => NONE
+    let h = case h of NONE => NONE
                      | SOME (v,prog,l1,l2) => SOME (f v, apply_colour f prog,l1,l2) in
       Call ret dest args h) ∧
   (apply_colour f (Seq s1 s2) = Seq (apply_colour f s1) (apply_colour f s2)) ∧
@@ -592,9 +592,6 @@ Definition apply_colour_def:
   (apply_colour f p = p )
 End
 
-val _ = export_rewrites ["apply_nummap_key_def", "apply_nummap_key_def",
-                        "apply_colour_exp_def","apply_colour_inst_def",
-                        "apply_colour_imm_def","apply_colour_def"];
 
 (* Liveness Analysis*)
 
@@ -628,7 +625,7 @@ Definition get_live_inst_def:
   (get_live_inst Skip live:num_set = live) ∧
   (get_live_inst (Const reg w) live = delete reg live) ∧
   (get_live_inst (Arith (Binop bop r1 r2 ri)) live =
-    dtcase ri of Reg r3 => insert r2 () (insert r3 () (delete r1 live))
+    case ri of Reg r3 => insert r2 () (insert r3 () (delete r1 live))
     | _ => insert r2 () (delete r1 live)) ∧
   (get_live_inst (Arith (Shift shift r1 r2 n)) live =
     insert r2 () (delete r1 live)) ∧
@@ -710,7 +707,7 @@ Definition get_live_def:
     get_live s1 (get_live s2 live)) ∧
   (get_live (MustTerminate s1) live =
     get_live s1 live) ∧
-  (*First case where branching appears:
+  (*First pmatch where branching appears:
     We get the livesets for e2 and e3, union them, add the if variable
     then pass the resulting liveset upwards
   *)
@@ -718,7 +715,7 @@ Definition get_live_def:
     let e2_live = get_live e2 live in
     let e3_live = get_live e3 live in
     let union_live = union e2_live e3_live in
-       dtcase ri of Reg r2 => insert r2 () (insert r1 () union_live)
+       case ri of Reg r2 => insert r2 () (insert r1 () union_live)
       | _ => insert r1 () union_live) ∧
   (get_live (Alloc num numset) live = insert num () (union (FST numset) (SND numset))) ∧
   (get_live (StoreConsts a b c d ws) live =
@@ -835,7 +832,7 @@ Definition remove_dead_def:
     let (e3,e3_live) = remove_dead e3 live in
     let union_live = union e2_live e3_live in
     let liveset =
-       dtcase ri of Reg r2 => insert r2 () (insert r1 () union_live)
+       case ri of Reg r2 => insert r2 () (insert r1 () union_live)
       | _ => insert r1 () union_live in
     let prog =
       if e2 = Skip ∧ e3 = Skip then Skip
@@ -848,7 +845,7 @@ Definition remove_dead_def:
     let live_set = union cutset args_set in
     let (ret_handler,_) = remove_dead ret_handler live in
     let h =
-      (dtcase h of
+      (case h of
         NONE => NONE
       | SOME(v',prog,l1,l2) =>
         SOME(v',FST (remove_dead prog live),l1,l2)) in
@@ -883,7 +880,7 @@ End
 Theorem get_writes_pmatch:
   !inst.
   get_writes inst =
-    case inst of
+    pmatch inst of
     | Move pri ls => numset_list_insert (MAP FST ls) LN
     | Inst i => get_writes_inst i
     | Assign num exp => insert num () LN
@@ -915,7 +912,7 @@ QED
     let (h2,ls2) = get_clash_sets e2 live in
     let (h3,ls3) = get_clash_sets e3 live in
     let union_live = union h2 h3 in
-    let merged = dtcase ri of Reg r2 => insert r2 () (insert r1 () union_live)
+    let merged = case ri of Reg r2 => insert r2 () (insert r1 () union_live)
                       | _ => insert r1 () union_live in
       (merged,ls2++ls3)) ∧
   (get_clash_sets (Call(SOME(v,cutset,ret_handler,l1,l2))dest args h) live =
@@ -926,7 +923,7 @@ QED
     let live_set = union cutset args_set in
     (*Returning clash set*)
     let ret_clash = insert v () cutset in
-    (dtcase h of
+    (case h of
       NONE => (live_set,ret_clash::hd::ls)
     | SOME(v',prog,l1,l2) =>
         let (hd',ls') = get_clash_sets prog live in
@@ -945,7 +942,7 @@ Definition get_delta_inst_def:
   (get_delta_inst Skip = Delta [] []) ∧
   (get_delta_inst (Const reg w) = Delta [reg] []) ∧
   (get_delta_inst (Arith (Binop bop r1 r2 ri)) =
-    dtcase ri of Reg r3 => Delta [r1] [r2;r3]
+    case ri of Reg r3 => Delta [r1] [r2;r3]
                   | _ => Delta [r1] [r2]) ∧
   (get_delta_inst (Arith (Shift shift r1 r2 n)) = Delta [r1] [r2]) ∧
   (get_delta_inst (Arith (Div r1 r2 r3)) = Delta [r1] [r3;r2]) ∧
@@ -996,7 +993,7 @@ Definition get_clash_tree_def:
   (get_clash_tree (If cmp r1 ri e2 e3) =
     let e2t = get_clash_tree e2 in
     let e3t = get_clash_tree e3 in
-    dtcase ri of
+    case ri of
       Reg r2 => Seq (Delta [] [r1;r2]) (Branch NONE e2t e3t)
     | _      => Seq (Delta [] [r1]) (Branch NONE e2t e3t)) ∧
   (get_clash_tree (MustTerminate s) =
@@ -1023,14 +1020,14 @@ Definition get_clash_tree_def:
     else Delta [v] $ get_reads_exp exp) ∧
   (get_clash_tree (Call ret dest args h) =
     let args_set = numset_list_insert args LN in
-    dtcase ret of
+    case ret of
       NONE => Set args_set
     | SOME (vs,cutsets,ret_handler,_,_) =>
       let cutset = union (FST cutsets) (SND cutsets) in
       let live_set = union cutset args_set in
       (*Might be inefficient..*)
       let ret_tree = Seq (Set (numset_list_insert vs cutset)) (get_clash_tree ret_handler) in
-      dtcase h of
+      case h of
         NONE => Seq (Set live_set) ret_tree
       | SOME (v',prog,_,_) =>
         let handler_tree =
@@ -1050,7 +1047,7 @@ Definition get_prefs_def:
   (get_prefs (If cmp num rimm e2 e3) acc =
     get_prefs e2 (get_prefs e3 acc)) ∧
   (get_prefs (Call (SOME (v,cutset,ret_handler,l1,l2)) dest args h) acc =
-    dtcase h of
+    case h of
       NONE => get_prefs ret_handler acc
     | SOME (v,prog,l1,l2) => get_prefs prog (get_prefs ret_handler acc)) ∧
   (get_prefs prog acc = acc)
@@ -1059,7 +1056,7 @@ End
 Theorem get_prefs_pmatch:
   !s acc.
   get_prefs s acc =
-    case s of
+    pmatch s of
     | (Move pri ls) => (MAP (λx,y. (pri,x,y)) ls) ++ acc
     | (MustTerminate s1) =>
     get_prefs s1 acc
@@ -1103,7 +1100,7 @@ val _ = Parse.hide"mem";
 
 Definition add1_lhs_const_def:
   add1_lhs_const x (t: (heu_data num_map)) =
-  dtcase lookup x t of NONE =>
+  case lookup x t of NONE =>
     insert x (1,0,0,0,0) t
   | SOME (const,reg,mem,rreg,rmem) =>
     insert x (const+1n,reg,mem,rreg,rmem) t
@@ -1111,7 +1108,7 @@ End
 
 Definition add1_lhs_reg_def:
   add1_lhs_reg x (t: (heu_data num_map)) =
-  dtcase lookup x t of NONE =>
+  case lookup x t of NONE =>
     insert x (0,1,0,0,0) t
   | SOME (const,reg,mem,rreg,rmem) =>
     insert x (const,reg+1,mem,rreg,rmem) t
@@ -1119,7 +1116,7 @@ End
 
 Definition add1_lhs_mem_def:
   add1_lhs_mem x (t: (heu_data num_map)) =
-  dtcase lookup x t of NONE =>
+  case lookup x t of NONE =>
     insert x (0,0,1,0,0) t
   | SOME (const,reg,mem,rreg,rmem) =>
     insert x (const,reg,mem+1,rreg,rmem) t
@@ -1127,7 +1124,7 @@ End
 
 Definition add1_rhs_reg_def:
   add1_rhs_reg x (t: (heu_data num_map)) =
-  dtcase lookup x t of NONE =>
+  case lookup x t of NONE =>
     insert x (0,0,0,1,0) t
   | SOME (const,reg,mem,rreg,rmem) =>
     insert x (const,reg,mem,rreg+1,rmem) t
@@ -1135,7 +1132,7 @@ End
 
 Definition add1_rhs_mem_def:
   add1_rhs_mem x (t: (heu_data num_map)) =
-  dtcase lookup x t of NONE =>
+  case lookup x t of NONE =>
     insert x (0,0,0,0,1) t
   | SOME (const,reg,mem,rreg,rmem) =>
     insert x (const,reg,mem,rreg,rmem+1) t
@@ -1146,7 +1143,7 @@ Definition get_heu_inst_def:
   (get_heu_inst (Const reg w) lr =
     (add1_lhs_const reg lr)) ∧
   (get_heu_inst (Arith (Binop bop r1 r2 ri)) lr =
-    (dtcase ri of
+    (case ri of
       Reg r3 => (* r1 := r2 op r3*)
         (add1_lhs_reg r1
         (add1_rhs_reg r3 (add1_rhs_reg r2 lr)))
@@ -1217,7 +1214,7 @@ Definition heu_max_all_def:
   union
   t1r
   (mapi (λk v.
-    dtcase lookup k t1 of
+    case lookup k t1 of
       NONE => v
     | SOME v' => heu_max v v') t2)
 End
@@ -1242,7 +1239,7 @@ Definition get_heu_def:
   (get_heu fc (Get num store) (lr,calls) =
     (add1_lhs_mem num lr,calls)) ∧
   (get_heu fc (Set _ exp) (lr,calls) =
-    (dtcase exp of (Var r) =>
+    (case exp of (Var r) =>
        (add1_rhs_mem r lr,calls)
     | _ => (lr,calls))) ∧ (* General Set exp ignored *)
   (get_heu fc (OpCurrHeap b dst src) (lr,calls) =
@@ -1256,12 +1253,12 @@ Definition get_heu_def:
     let (lr3,calls3) = get_heu fc e3 lr in
     let lr = heu_max_all lr2 lr3 in
     let calls = heu_merge_call (calls2:num_set) calls3 in
-    ((dtcase ri of
+    ((case ri of
       Reg r2 => add1_rhs_reg r1 (add1_rhs_reg r2 lr)
     | _ =>
       add1_rhs_reg r1 lr),calls)) ∧
   (get_heu fc (Call NONE dest args h) (lr,calls) =
-    dtcase dest of
+    case dest of
       NONE => (lr,calls)
     | SOME p =>
       if p = fc then (lr,add_call lr calls)
@@ -1269,12 +1266,12 @@ Definition get_heu_def:
     ) ∧
   (get_heu fc (Call (SOME (_,_,e2,_,_)) dest args h) (lr,calls) =
     let calls =
-      dtcase dest of NONE => calls
+      case dest of NONE => calls
       | SOME p =>
         if p = fc then (add_call lr calls)
         else calls in
     let (lr2,calls2) = (get_heu fc e2 (lr,calls)) in
-    dtcase h of
+    case h of
       NONE => (lr2,calls)
     | SOME (_,e3,_,_) =>
       let (lr3,calls3) = get_heu fc e3 (lr,calls) in
@@ -1297,7 +1294,7 @@ End
 (* Forced edges for certain instructions *)
 Definition get_forced_def:
   (get_forced (c:'a asm_config) ((Inst i):'a prog) acc =
-    dtcase i of
+    case i of
       Arith (AddCarry r1 r2 r3 r4) =>
        if (c.ISA = MIPS ∨ c.ISA = RISC_V) then
           (if r1=r3 then [] else [(r1,r3)]) ++
@@ -1337,7 +1334,7 @@ Definition get_forced_def:
   (get_forced c (If cmp num rimm e2 e3) acc =
     get_forced c e2 (get_forced c e3 acc)) ∧
   (get_forced c (Call (SOME (v,cutset,ret_handler,l1,l2)) dest args h) acc =
-    dtcase h of
+    case h of
       NONE => get_forced c ret_handler acc
     | SOME (v,prog,l1,l2) => get_forced c prog (get_forced c ret_handler acc)) ∧
   (get_forced c prog acc = acc)
@@ -1346,7 +1343,7 @@ End
 Theorem get_forced_pmatch:
   !c prog acc.
   (get_forced (c:'a asm_config) prog acc =
-    case prog of
+    pmatch prog of
       Inst(Arith (AddCarry r1 r2 r3 r4)) =>
        if (c.ISA = MIPS ∨ c.ISA = RISC_V) then
           (if r1=r3 then [] else [(r1,r3)]) ++
@@ -1420,7 +1417,7 @@ End
 (*Extract a colouring function from the generated sptree*)
 Definition total_colour_def:
   total_colour col x =
-    dtcase lookup x col of NONE => if is_phy_var x then x else 2*x | SOME x => 2*x
+    case lookup x col of NONE => if is_phy_var x then x else 0 | SOME x => 2*x
 End
 
 Theorem total_colour_alt:
@@ -1435,7 +1432,7 @@ QED
 (*Check that the oracle provided colour (if it exists) is okay*)
 Definition oracle_colour_ok_def:
   oracle_colour_ok k col_opt tree prog ls ⇔
-  dtcase col_opt of
+  case col_opt of
     NONE => NONE
   | SOME col =>
      let tcol = total_colour col in
@@ -1486,7 +1483,7 @@ Definition canonize_moves_def:
           p1 < p2
         else y1 < y2
       else x1 < x2) can1 in
-  dtcase can2 of [] => []
+  case can2 of [] => []
   | ((p,m)::xs) => canonize_moves_aux p m 1 xs []
 End
 
@@ -1576,25 +1573,25 @@ Definition get_stack_only_aux_def:
     let tfsL = get_stack_only_aux tfs e2 in
     let tfsR = get_stack_only_aux tfs e3 in
     let tfsM = merge_stack_sets tfs tfsL tfsR in
-      dtcase ri of
+      case ri of
         Reg r2 => remove_temp_stack [r1;r2] tfsM
       | _ => remove_temp_stack [r1] tfsM
   ) ∧
   (get_stack_only_aux tfs (MustTerminate s) =
     get_stack_only_aux tfs s) ∧
   (get_stack_only_aux tfs (Call ret dest args h) =
-    (dtcase ret of
+    (case ret of
       NONE => tfs
     | SOME (v,cutset,ret_handler,_,_) =>
       let rettfs = get_stack_only_aux tfs ret_handler in
-      dtcase h of
+      case h of
         NONE => rettfs
       | SOME (v',handler,_,_) =>
         let handlertfs =
           get_stack_only_aux tfs handler in
         merge_stack_sets tfs rettfs handlertfs)) ∧
   (get_stack_only_aux tfs prog =
-    dtcase get_clash_tree prog of
+    case get_clash_tree prog of
       Delta ws rs => remove_temp_stack (ws++rs) tfs
     | _ => tfs)
 End
@@ -1621,10 +1618,10 @@ Definition word_alloc_def:
   let fs = get_stack_only prog in
   (*let moves = get_prefs_sp prog [] in*)
   let forced = get_forced c prog [] in
-  dtcase oracle_colour_ok k col_opt tree prog forced of
+  case oracle_colour_ok k col_opt tree prog forced of
     NONE =>
       let (heu_moves,spillcosts) = get_heuristics alg fc prog in
-      (dtcase select_reg_alloc alg spillcosts k heu_moves tree forced fs of
+      (case select_reg_alloc alg spillcosts k heu_moves tree forced fs of
         M_success col =>
           apply_colour (total_colour col) prog
       | M_failure _ => prog (*cannot happen*))

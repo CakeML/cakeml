@@ -9,7 +9,7 @@ Ancestors
 
 val _ = set_up_monadic_translator ();
 
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 (* Create the data type to handle the references *)
 Datatype:
@@ -21,7 +21,7 @@ Definition STATE_PINV_def:
   STATE_PINV = \state. EVEN state.the_num /\ (state.the_string = "")
 End
 
-Triviality STATE_PINV_VALID:
+Theorem STATE_PINV_VALID[local]:
   (state.the_num = 0) /\ (state.the_string = "") ==> STATE_PINV state
 Proof
   rw[STATE_PINV_def]
@@ -84,14 +84,14 @@ End
 val mf5_v_thm = m_translate mf5_def;
 
 Definition mf6_def:
-  mf6 l = dtcase l of []   => return (0:num)
+  mf6 l = case l of []   => return (0:num)
                     | x::l => return (1:num)
 End
 val mf6_v_thm = m_translate mf6_def;
 
 val length_v_thm = translate listTheory.LENGTH;
-Triviality ZIP_def2:
-  ZIP x = dtcase x of
+Theorem ZIP_def2[local]:
+  ZIP x = case x of
       (x::l1, y::l2) => (x, y) :: ( ZIP (l1,l2) )
     | ([], [])       => []
     | _              => []

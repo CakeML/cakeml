@@ -447,7 +447,7 @@ End
 
 (** Properties for proving well-formedness of the Pancake grammar. *)
 
-Triviality frange_image:
+Theorem frange_image[local]:
   FRANGE fm = IMAGE (FAPPLY fm) (FDOM fm)
 Proof
   simp[finite_mapTheory.FRANGE_DEF, pred_setTheory.EXTENSION]
@@ -718,7 +718,7 @@ Theorem pancake_wfpeg_thm =
 Theorem pancake_wfpeg_FunNT_thm =
   LIST_CONJ (List.foldl (wfnt “pancake_peg with start := mknt FunNT”) [] (topo_nts @ [“ProgNT”]))
 
-Triviality subexprs_mknt:
+Theorem subexprs_mknt[local]:
   subexprs (mknt n) = {mknt n}
 Proof
   simp[subexprs_def, mknt_def]

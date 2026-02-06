@@ -66,6 +66,7 @@ Inductive ctxt_frame_rel:
   ctxt_frame_rel Craise (Craise ()) ∧
   ctxt_frame_rel (Chandle pes) (Chandle () pes) ∧
   ctxt_frame_rel (Capp op vs es) (Capp op vs () es) ∧
+  ctxt_frame_rel (Cforce n) (Cforce n) ∧
   ctxt_frame_rel (Clog lop e) (Clog lop () e) ∧
   ctxt_frame_rel (Cif e1 e2) (Cif () e1 e2) ∧
   ctxt_frame_rel (Cmat_check pes v) (Cmat_check () pes v) ∧
@@ -532,28 +533,42 @@ Theorem application_thm:
           [Litv (StrLit conf); Loc b lnum] => (
             case store_lookup lnum s of
               SOME (W8array ws) =>
-                if n = "" then Estep (env, s, Val $ Conv NONE [], c)
+                if n = «» then Estep (env, s, Val $ Conv NONE [], c)
                 else Effi (ExtCall n)
-                          (MAP (λc. n2w $ ORD c) (EXPLODE conf))
+                          (MAP (λc. n2w $ ORD c) (explode conf))
                           ws lnum env s c
             | _ => Etype_error)
         | _ => Etype_error)
       | _ => ARB)
-    else
+    else (case getOpClass op of
+    | Force =>
+      (case vs of
+         [Loc b n] => (
+            case dest_thunk [Loc b n] s of
+            | BadRef => Etype_error
+            | NotThunk => Etype_error
+            | IsThunk Evaluated v => return env s v c
+            | IsThunk NotEvaluated f =>
+                return env s f
+                  ((Capp Opapp [Conv NONE []] [], env)::(Cforce n, env)::c))
+        | _ => Etype_error)
+    | _ =>
       case do_app s op vs of
       | NONE => Etype_error
       | SOME (v1,Rval v') => return env v1 v' c
-      | SOME (v1,Rraise v) => Estep (env,v1,Exn v,c)
+      | SOME (v1,Rraise v) => Estep (env,v1,Exn v,c))
 Proof
   rpt strip_tac >> Cases_on ‘getOpClass op’ >> gs[] >>
   TOP_CASE_TAC >> gs[application_def]
   >- (
-    Cases_on ‘op’ >> gs[application_def] >> every_case_tac >> gs[do_app_def] >>
-    every_case_tac >> gs[])
-  >- (
-  Cases_on ‘op’ >> gs[application_def] >> every_case_tac >> gs[do_app_def] >>
+    Cases_on ‘op’ >> gs[application_def] >> every_case_tac >>
+    gs[itree_semanticsTheory.do_app_def] >>
+    every_case_tac >> gs[]) >>
+  Cases_on ‘op’ >> gs[application_def] >> every_case_tac >>
+  gs[itree_semanticsTheory.do_app_def, thunk_op_def] >>
   pop_assum $ mp_tac >>
-  rpt (TOP_CASE_TAC >> gvs[SF itree_ss]) >> gs[store_alloc_def])
+  rpt (TOP_CASE_TAC >> gvs[SF itree_ss]) >> gs[store_alloc_def] >>
+  rpt (FULL_CASE_TAC >> gvs[store_alloc_def, store_assign_def])
 QED
 
 Theorem application_FFI_results:
@@ -571,7 +586,7 @@ Theorem application_eq_Effi_fields:
   op = FFI s ∧ env = env' ∧ st = st' ∧ cs' = cs ∧
   ∃conf' b.
     vs = [Litv $ StrLit conf'; Loc b lnum] ∧
-    conf = MAP (λc. n2w $ ORD c) (EXPLODE conf')
+    conf = MAP (λc. n2w $ ORD c) (explode conf')
 Proof
   Cases_on `op` >> simp[application_def, SF itree_ss] >>
   every_case_tac >> gvs[] >> rw[]
@@ -750,4 +765,3 @@ QED
 
 
 (****************************************)
-

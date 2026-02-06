@@ -1,7 +1,7 @@
 (*
   Translate the compiler's lexer.
 *)
-Theory lexerProg
+Theory lexerProg[no_sig_docs]
 Ancestors
   lexer_fun lexer_impl to_dataProg ml_translator
 Libs
@@ -17,12 +17,7 @@ val _ = translation_extends "to_dataProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "lexerProg");
 
-(* the tokens are to use the string type in CakeML ... *)
-val _ = ml_translatorLib.use_string_type true;
 val _ = register_type ``:tokens$token``;
-
-(* ... but the lexer is to treat char list in HOL as char list in CakeML *)
-val _ = ml_translatorLib.use_string_type false;
 
 val RW = REWRITE_RULE
 val RW1 = ONCE_REWRITE_RULE
@@ -113,7 +108,7 @@ val num_from_hex_string_alt_side = Q.prove(`
     strip_tac>>
     fs[]) |> update_precondition;
 
-Triviality next_sym_alt_side:
+Theorem next_sym_alt_side[local]:
   ∀x l. next_sym_alt_side x l ⇔ T
 Proof
   ho_match_mp_tac next_sym_alt_ind>>rw[]>>
@@ -133,7 +128,6 @@ val lexer_fun_side = Q.prove(`
   ∀x. lexer_fun_side x ⇔ T`,
   EVAL_TAC>>fs[lexer_fun_aux_side]) |> update_precondition
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 

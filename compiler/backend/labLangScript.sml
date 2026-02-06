@@ -26,7 +26,7 @@ Datatype:
                | Call lab
                | LocValue reg lab
                (* following have no label, but have similar semantics *)
-               | CallFFI string
+               | CallFFI mlstring
                | Install
                | Halt
 End
@@ -49,15 +49,13 @@ Datatype:
   sec = Section num (('a line) list)
 End
 
-Definition Section_num_def:
+Definition Section_num_def[simp]:
   Section_num (Section k _) = k
 End
-Definition Section_lines_def:
+Definition Section_lines_def[simp]:
   Section_lines (Section _ lines) = lines
 End
-val _ = export_rewrites["Section_num_def","Section_lines_def"];
 
 (* A full assembly program consists of a list of sections. *)
 
 Type prog = ``:('a sec) list``
-

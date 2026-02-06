@@ -125,13 +125,14 @@ End
 val r = translate (usage_message_def |> CONV_RULE (RAND_CONV EVAL));
 val r = translate oHD_def;
 
-val _ = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun main u =
     let
       val cl = CommandLine.arguments ()
       val r = TextIO.foldLines #"\n" checker_step init_state (ohd cl)
     in print (print_outcome (Option.valOf r)) end
-    handle e => TextIO.output TextIO.stdErr usage_message`;
+    handle e => TextIO.output TextIO.stdErr usage_message
+End
 
 val main_v_def = fetch "-" "main_v_def";
 
@@ -309,7 +310,7 @@ Definition vipr_prog_def:
   vipr_prog = ^prog_tm
 End
 
-Triviality clean_up:
+Theorem clean_up[local]:
   (b' ⇒ c) ⇒ ∀b. (b ⇒ b') ⇒ b ⇒ c
 Proof
   fs []

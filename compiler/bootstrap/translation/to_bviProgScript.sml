@@ -1,7 +1,7 @@
 (*
   Translate the backend phase from BVL to BVI.
 *)
-Theory to_bviProg
+Theory to_bviProg[no_sig_docs]
 Ancestors
   ml_translator to_bvlProg
 Libs
@@ -14,7 +14,6 @@ val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 val _ = translation_extends "to_bvlProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "to_bviProg");
-val _ = ml_translatorLib.use_string_type true;
 
 (* ------------------------------------------------------------------------- *)
 (* Setup                                                                     *)
@@ -35,7 +34,7 @@ fun list_mk_fun_type [ty] = ty
 val _ = add_preferred_thy "-";
 val _ = add_preferred_thy "termination";
 
-Triviality NOT_NIL_AND_LEMMA:
+Theorem NOT_NIL_AND_LEMMA[local]:
   (b <> [] /\ x) = if b = [] then F else x
 Proof
   Cases_on `b` THEN FULL_SIMP_TAC std_ss []
@@ -153,6 +152,5 @@ val r = translate bvl_to_bviTheory.bvl_to_bvi_compile_inc_all_def;
 
 (* ------------------------------------------------------------------------- *)
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 val _ = ml_translatorLib.clean_on_exit := true;

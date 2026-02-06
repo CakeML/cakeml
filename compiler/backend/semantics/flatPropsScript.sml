@@ -47,13 +47,11 @@ val st' = ``st':('d,'ffi) state``
 Theorem pmatch_state:
   (∀ ^st p v l ^st' res .
     pmatch st p v l = res ∧
-    st.refs = st'.refs ∧
-    st.c = st'.c
+    st.refs = st'.refs
   ⇒ pmatch st' p v l = res) ∧
   (∀ ^st p vs l ^st' res .
     pmatch_list st p vs l = res ∧
-    st.refs = st'.refs ∧
-    st.c = st'.c
+    st.refs = st'.refs
   ⇒ pmatch_list st' p vs l = res)
 Proof
   ho_match_mp_tac pmatch_ind >>
@@ -152,7 +150,7 @@ Proof
   srw_tac[][] >> qmatch_abbrev_tac`X = Y` >> Cases_on`X` >> full_simp_tac(srw_ss())[markerTheory.Abbrev_def] >>
   metis_tac[semanticPrimitivesTheory.match_result_distinct
            ,pmatch_any_no_match,pmatch_any_match]
-QED;
+QED
 
 Theorem pmatch_list_pairwise:
   ∀ps vs ^s env env'.
@@ -163,7 +161,7 @@ Proof
   rpt gen_tac >> BasicProvers.CASE_TAC >> strip_tac >>
   fs [CaseEq"match_result"] >>
   res_tac >> simp[] >> metis_tac[pmatch_any_match]
-QED;
+QED
 
 Theorem pmatch_list_snoc_nil[simp]:
   ∀p ps v vs ^s env.
@@ -171,7 +169,7 @@ Theorem pmatch_list_snoc_nil[simp]:
       (pmatch_list s (SNOC p ps) [] env = Match_type_error)
 Proof
   Cases_on`ps`>>Cases_on`vs`>>simp[pmatch_def]
-QED;
+QED
 
 Theorem pmatch_list_append:
    ∀ps vs ps' vs' s env. LENGTH ps = LENGTH vs ⇒
@@ -207,7 +205,7 @@ Proof
   \\ fs [pmatch_def] \\ rw []
   \\ Cases_on `pmatch s p v env` \\ fs []
   \\ every_case_tac \\ fs []
-QED;
+QED
 
 Theorem map_match_eq_case:
   map_match f v = (case v of Match m => Match (f m) | _ => v)
@@ -258,7 +256,7 @@ Proof
   \\ rw [] \\ fs []
 QED
 
-Triviality build_rec_env_help_lem:
+Theorem build_rec_env_help_lem[local]:
   ∀funs env funs'.
   FOLDR (λ(f,x,e) env'. (f, flatSem$Recclosure env funs' f)::env') env' funs =
   MAP (λ(fn,n,e). (fn, Recclosure env funs' fn)) funs ++ env'
@@ -331,11 +329,10 @@ QED
 
 Theorem do_app_state_unchanged:
   !c s op vs s' r. do_app s op vs = SOME (s', r) ⇒
-     s'.c = s.c ∧ s'.eval_config = s.eval_config
+     s'.eval_config = s.eval_config
 Proof
-  rw [do_app_cases] >>
-  fs [semanticPrimitivesTheory.store_assign_def] >>
-  rfs []
+  rw [do_app_def,AllCaseEqs()] \\ gvs []
+  \\ rpt (pairarg_tac \\ gvs []) \\ gvs []
 QED
 
 Theorem evaluate_decs_append:
@@ -351,27 +348,25 @@ Proof
   fs []
 QED
 
-Triviality do_app_add_to_clock:
+Theorem do_app_add_to_clock[local]:
   do_app ^s op es = SOME (t, r)
    ==>
    do_app (s with clock := s.clock + k) op es =
      SOME (t with clock := t.clock + k, r)
 Proof
-  rw [do_app_cases] \\ fs []
+  rw [Once do_app_def,AllCaseEqs(),semanticPrimitivesTheory.store_alloc_def] \\ gvs []
+  \\ simp [do_app_def,semanticPrimitivesTheory.store_alloc_def]
 QED
 
-Triviality do_app_add_to_clock_NONE:
+Theorem do_app_add_to_clock_NONE[local]:
   do_app ^s op es = NONE
    ==>
    do_app (s with clock := s.clock + k) op es = NONE
 Proof
-  Cases_on `op`
-  \\ disch_then (mp_tac o SIMP_RULE (srw_ss()) [do_app_def, case_eq_thms])
-  \\ rw []
-  \\ rw [do_app_def]
-  \\ fs [case_eq_thms, pair_case_eq] \\ rw [] \\ fs []
-  \\ rpt (pairarg_tac \\ fs [])
-  \\ fs [bool_case_eq, case_eq_thms]
+  strip_tac
+  \\ Cases_on ‘op’
+  \\ gvs [do_app_def,AllCaseEqs(),semanticPrimitivesTheory.store_alloc_def]
+  \\ rw [] \\ gvs []
   \\ fs [IS_SOME_EXISTS,CaseEq"option",CaseEq"store_v"]
 QED
 
@@ -397,6 +392,11 @@ Proof
   \\ rw [] \\ fs [pmatch_ignore_clock]
   \\ fs [case_eq_thms, pair_case_eq, bool_case_eq, CaseEq"match_result"] \\ rw []
   \\ fs [dec_clock_def]
+  >-
+   (gvs [CaseEq "sum",CaseEq"bool"]
+    \\ gvs [CaseEq"prod"]
+    \\ Cases_on ‘v1 = Rerr (Rabort Rtimeout_error)’ \\ gvs []
+    \\ gvs [AllCaseEqs()])
   \\ map_every imp_res_tac
       [do_app_add_to_clock_NONE,
        do_app_add_to_clock] \\ fs []
@@ -417,13 +417,10 @@ Theorem do_app_io_events_mono:
    do_app ^s op vs = SOME (t, r) ⇒
    s.ffi.io_events ≼ t.ffi.io_events
 Proof
-  rw [do_app_def] \\ fs [case_eq_thms, pair_case_eq, bool_case_eq]
-  \\ rw [] \\ fs []
-  \\ rpt (pairarg_tac \\ fs []) \\ rw []
-  \\ fs [semanticPrimitivesTheory.store_assign_def,
-         semanticPrimitivesTheory.store_lookup_def,
-         ffiTheory.call_FFI_def]
-  \\ rw [] \\ every_case_tac \\ fs [] \\ rw []
+  rw [do_app_def] \\ gvs [AllCaseEqs()]
+  \\ gvs [semanticPrimitivesTheory.store_alloc_def,
+          ffiTheory.call_FFI_def]
+  \\ gvs [AllCaseEqs()]
 QED
 
 Theorem evaluate_io_events_mono:
@@ -481,6 +478,7 @@ Proof
   \\ rw [] \\ fs [] \\ rw [] \\ fs []
   \\ rfs []
   \\ fsrw_tac [SATISFY_ss] [IS_PREFIX_TRANS]
+  \\ gvs [AppUnit_def]
   \\ metis_tac [IS_PREFIX_TRANS, FST, PAIR,
                 evaluate_io_events_mono,
                 with_clock_ffi,
@@ -493,7 +491,7 @@ Theorem evaluate_dec_io_events_mono:
 Proof
   Cases \\ rw [evaluate_def] \\ every_case_tac \\ fs [] \\ rw []
   \\ metis_tac [evaluate_io_events_mono, FST]
-QED;
+QED
 
 Theorem evaluate_dec_add_to_clock_io_events_mono:
   ∀prog ^s extra.
@@ -518,7 +516,7 @@ Theorem evaluate_decs_add_to_clock_io_events_mono:
      (FST (evaluate_decs (s with clock := s.clock + extra) ds)).ffi.io_events
 Proof
   metis_tac [evaluate_add_to_clock_io_events_mono]
-QED;
+QED
 
 Theorem evaluate_MAP_Var_local:
   MAP (ALOOKUP env.v) xs = MAP SOME vs ⇒
@@ -631,7 +629,7 @@ Proof
   \\ rw[Once pmatch_nil]
 QED
 
-Triviality evaluate_decs_add_to_clock_initial_state:
+Theorem evaluate_decs_add_to_clock_initial_state[local]:
   r ≠ SOME (Rabort Rtimeout_error) ∧
    evaluate_decs (initial_state ffi k ec) decs = (s',r) ⇒
    evaluate_decs (initial_state ffi (ck + k) ec) decs =
@@ -641,7 +639,7 @@ Proof
   \\ imp_res_tac evaluate_decs_add_to_clock \\ fs []
 QED
 
-Triviality evaluate_decs_add_to_clock_initial_state_io_events_mono:
+Theorem evaluate_decs_add_to_clock_initial_state_io_events_mono[local]:
   evaluate_decs (initial_state ffi k ec) prog = (s',r) ==>
    s'.ffi.io_events ≼
    (FST (evaluate_decs (initial_state ffi (k+ck) ec) prog)).ffi.io_events
@@ -654,16 +652,18 @@ Proof
   \\ fs [Abbr`s1`]
 QED
 
-Triviality initial_state_with_clock:
+Theorem initial_state_with_clock[local]:
   (initial_state ffi k ec with clock := (initial_state ffi k ec).clock + ck) =
    initial_state ffi (k + ck) ec
 Proof
   rw [initial_state_def]
 QED
 
-val SND_SND_lemma = prove(
-  ``(SND x) = y <=> ?y1. x = (y1, y)``,
-  PairCases_on `x` \\ fs []);
+Theorem SND_SND_lemma[local]:
+    (SND x) = y <=> ?y1. x = (y1, y)
+Proof
+  PairCases_on `x` \\ fs []
+QED
 
 Definition eval_sim_def:
   eval_sim ffi ds1 ds2 ec ec2 rel allow_fail =
@@ -815,7 +815,7 @@ Definition op_gbag_def:
   op_gbag _ = {||}
 End
 
-Definition set_globals_def:
+Definition set_globals_def[simp]:
   (set_globals (Raise t e) = set_globals e) /\
   (set_globals (Handle t e pes) = set_globals e ⊎ elist_globals (MAP SND pes)) /\
   (set_globals (Con t id es) = elist_globals es) /\
@@ -838,15 +838,14 @@ Termination
   >-
    (irule LESS_EQ_LESS_TRANS
     \\ qexists_tac ‘list_size
-           (pair_size (list_size char_size)
-              (pair_size (list_size char_size) exp_size)) fs’
+           (pair_size mlstring_size
+              (pair_size mlstring_size exp_size)) fs’
     \\ gvs [] \\ Induct_on ‘fs’ \\ gvs [FORALL_PROD])
   \\ irule LESS_EQ_LESS_TRANS
   \\ qexists_tac ‘list_size (pair_size pat_size exp_size) pes’ \\ gvs []
   \\ Induct_on ‘pes’ \\ gvs [FORALL_PROD]
 End
 
-val _ = export_rewrites ["set_globals_def"];
 
 Definition esgc_free_def:
   (esgc_free (Raise t e) <=> esgc_free e) /\
@@ -897,16 +896,15 @@ Proof
   Induct_on `es` \\ simp [elist_globals_append, COMM_BAG_UNION]
 QED
 
-Definition is_Dlet_def:
+Definition is_Dlet_def[simp]:
   (is_Dlet (Dlet _) <=> T) /\
   (is_Dlet _ <=> F)
 End
 
-Definition dest_Dlet_def:
+Definition dest_Dlet_def[simp]:
   dest_Dlet (Dlet e) = e
 End
 
-val _ = export_rewrites ["is_Dlet_def", "dest_Dlet_def"];
 
 Theorem initial_state_clock:
   (initial_state ffi k ec).clock = k /\
@@ -1163,8 +1161,25 @@ Proof
   \\ rfs [EL_MAP]
 QED
 
+Theorem check_type_LIST_REL_same[local]:
+  LIST_REL vr vs1 vs2 ∧
+  EVERY (check_type ty) (MAP flat_to_v vs1) ∧
+  simple_val_rel vr ⇒
+  vs2 = vs1
+Proof
+  rw[LIST_REL_EL_EQN, EVERY_MAP, EVERY_EL]
+  \\ rw[LIST_EQ_REWRITE]
+  \\ gs[] \\ first_x_assum drule
+  \\ first_x_assum drule
+  \\ Cases_on`ty`
+  \\ TRY(qmatch_goalsub_rename_tac`WordT w` \\ Cases_on`w`)
+  \\ rw[semanticPrimitivesTheory.check_type_def]
+  \\ Cases_on`EL x vs1`
+  \\ gvs[flat_to_v_def,CaseEq"bool",semanticPrimitivesTheory.Boolv_def]
+  \\ gvs[flatSemTheory.Boolv_def]
+QED
 
-val sv_rel_cases = semanticPrimitivesPropsTheory.sv_rel_cases
+val sv_rel_cases = semanticPrimitivesPropsTheory.sv_rel_cases;
 
 Theorem simple_do_app_thm:
   simple_val_rel vr /\
@@ -1181,6 +1196,45 @@ Proof
   \\ simp [Once do_app_def]
   \\ simp [case_eq_thms, bool_case_eq, pair_case_eq]
   \\ simp_tac bool_ss [PULL_EXISTS, DISJ_IMP_THM, FORALL_AND_THM]
+  \\ Cases_on ‘∃a ty. op = Arith a ty’ >-
+   (gvs [do_app_def,AllCaseEqs(),SF DNF_ss] \\ rw []
+    \\ imp_res_tac check_type_LIST_REL_same \\ gvs []
+    >- (EVAL_TAC \\ fs [simple_val_rel_def])
+    \\ imp_res_tac semanticPrimitivesPropsTheory.do_arith_check_type
+    \\ Cases_on`ty` \\ TRY (Cases_on ‘w’)
+    \\ gvs[semanticPrimitivesTheory.do_arith_def,CaseEq"list",CaseEq"arith"]
+    \\ gvs[simple_val_rel_simps,v_to_flat_def])
+  \\ Cases_on ‘∃ty1 ty2. op = FromTo ty1 ty2’ >- (
+    gvs[do_app_def,AllCaseEqs(),SF DNF_ss] \\ rw[]
+    \\ imp_res_tac check_type_LIST_REL_same \\ gvs []
+    \\ first_x_assum(qspecl_then[`[v]`,`ty1`]mp_tac)
+    \\ rw[PULL_EXISTS]
+    \\ Cases_on`ty1` \\ Cases_on`ty2`
+    \\ gvs[semanticPrimitivesTheory.do_conversion_def]
+    \\ Cases_on`w`
+    \\ gvs[semanticPrimitivesTheory.do_conversion_def]
+    \\ gvs[v_to_flat_def] )
+  \\ Cases_on ‘∃test ty. op = Test test ty’
+  >-
+   (gvs [PULL_EXISTS,do_app_def,AllCaseEqs()] \\ rw []
+    \\ qexists_tac ‘b’ \\ conj_tac >- gvs [Boolv_def]
+    \\ Cases_on ‘ty’ \\ TRY (rename [‘WordT ws’] \\ Cases_on ‘ws’)
+    \\ Cases_on ‘test’
+    \\ gvs [AllCaseEqs(),flatSemTheory.do_test_def,PULL_EXISTS]
+    \\ gvs [oneline dest_Litv_def, AllCaseEqs()]
+    \\ gvs [check_type_def,Boolv_def])
+  \\ Cases_on ‘∃t. op = ThunkOp t’
+  >-
+   (gvs [] \\ gvs [AllCaseEqs()] \\ rw [] \\ gvs [do_app_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    >-
+     (drule_then (drule_then drule) simple_state_rel_store_alloc
+      \\ simp [Once sv_rel_cases,PULL_EXISTS]
+      \\ disch_then drule \\ strip_tac \\ gvs [])
+    >-
+     (drule_then (drule_then drule) simple_state_rel_store_assign
+      \\ simp [Once sv_rel_cases,PULL_EXISTS]
+      \\ disch_then drule \\ strip_tac \\ gvs []))
   \\ Cases_on `?x. op = FFI x`
   >- (
     fs [GSYM AND_IMP_INTRO]
@@ -1379,6 +1433,7 @@ Theorem flat_evaluate_def = flat_evaluate_def
 Definition store_v_vs_def[simp]:
   store_v_vs (Varray vs) = vs /\
   store_v_vs (Refv v) = [v] /\
+  store_v_vs (Thunk m v) = [v] /\
   store_v_vs (W8array xs) = []
 End
 
@@ -1418,12 +1473,10 @@ End
 
 Definition no_Mat_decs_def[simp]:
   no_Mat_decs [] = T /\
-  no_Mat_decs ((Dlet e)::xs) = (no_Mat e /\ no_Mat_decs xs) /\
-  no_Mat_decs (_::xs) = no_Mat_decs xs
+  no_Mat_decs ((Dlet e)::xs) = (no_Mat e /\ no_Mat_decs xs)
 End
 
 Definition mk_flat_install_conf_def:
   mk_flat_install_conf cc co =
     <| compile := cc ; compile_oracle := co |> : 'c flatSem$install_config
 End
-

@@ -5,14 +5,14 @@
 *)
 Theory inferComplete
 Ancestors
-  semanticPrimitives namespaceProps ast astProps typeSystem
+  semanticPrimitives namespaceProps ast typeSystem
   typeSysProps unify infer infer_t inferProps envRel infer_eSound
   infer_eComplete type_eDeterm type_dCanon
 Libs
   preamble
 
 
-Triviality generalise_no_uvars:
+Theorem generalise_no_uvars[local]:
   (!t m n s dbvars.
   check_t dbvars {} t
   ⇒
@@ -241,7 +241,7 @@ Proof
       metis_tac [MEM_EL]) >>
     simp [] >>
     disch_then kall_tac >>
-    `MAP (\(x,y). (x:string, unconvert_t y)) = MAP (\p. (FST p, unconvert_t (SND p)))`
+    `MAP (\(x,y). (x:mlstring, unconvert_t y)) = MAP (\p. (FST p, unconvert_t (SND p)))`
       by (AP_TERM_TAC >> rw [LAMBDA_PROD]) >>
     simp [GSYM ZIP_MAP, LENGTH_GENLIST, MAP_GENLIST, combinTheory.o_DEF, unconvert_t_def] >>
     EXISTS_TAC ``GENLIST (\n. case find_index (EL n (fvs:tvarN list)) (nub fvs') 0
@@ -279,7 +279,7 @@ Proof
       metis_tac [MEM_EL]) >>
     simp [] >>
     disch_then kall_tac >>
-    `MAP (\(x,y). (x:string, unconvert_t y)) = MAP (\p. (FST p, unconvert_t (SND p)))`
+    `MAP (\(x,y). (x:mlstring, unconvert_t y)) = MAP (\p. (FST p, unconvert_t (SND p)))`
       by (AP_TERM_TAC >> rw [LAMBDA_PROD]) >>
     simp [GSYM ZIP_MAP, LENGTH_GENLIST, MAP_GENLIST, combinTheory.o_DEF, unconvert_t_def] >>
     EXISTS_TAC ``GENLIST (\n. case find_index (EL n (nub fvs':tvarN list)) fvs 0
@@ -297,7 +297,7 @@ Proof
     metis_tac [check_freevars_more, nub_set, SUBSET_DEF])
 QED
 
-Triviality env_rel_complete_bind:
+Theorem env_rel_complete_bind[local]:
   env_rel_complete FEMPTY ienv tenv Empty ⇒
   env_rel_complete FEMPTY ienv tenv (bind_tvar tvs Empty)
 Proof
@@ -569,7 +569,7 @@ QED
 fun str_assums strs = ConseqConv.DISCH_ASM_CONSEQ_CONV_TAC
         (ConseqConv.CONSEQ_REWRITE_CONV ([], strs, []));
 
-Triviality ap_lemma:
+Theorem ap_lemma[local]:
   !f. x = y ==> f x = f y
 Proof
   fs []
@@ -1158,8 +1158,8 @@ Proof
       pairarg_tac>>fs[]>>
       `t_walkstar last_sub (Infer_Tuvar n) = t_walkstar last_sub t'` by
         (fs[Once LIST_EQ_REWRITE]>>
-        first_x_assum(qspec_then`n` kall_tac)>>
-        first_x_assum(qspec_then`n` assume_tac)>>
+         qpat_x_assum ‘∀_. _ ⇒ EL _ (MAP (t_walkstar _) _) = _’ $
+           qspec_then`n` assume_tac>>
         rfs[EL_MAP,EL_COUNT_LIST,EL_ZIP]>>fs[])>>
       imp_res_tac ALOOKUP_ALL_DISTINCT_EL >>res_tac>>fs[]>>
       Cases_on`EL n bindings`>>fs[]>>
@@ -1640,7 +1640,7 @@ Proof
       simp_tac std_ss [nsAppend_nsSing, GSYM nsAppend_assoc]))
 QED
 
-Triviality n_fresh_uvar_rw:
+Theorem n_fresh_uvar_rw[local]:
   ∀n st.n_fresh_uvar n st = (Success (GENLIST (λi.Infer_Tuvar(i+st.next_uvar)) n), st with next_uvar := st.next_uvar + n)
 Proof
   Induct>>simp[Once n_fresh_uvar_def]
@@ -1653,7 +1653,7 @@ Proof
     fs[FUN_EQ_THM]
 QED
 
-Triviality t_walkstar_infer_deBruijn_subst:
+Theorem t_walkstar_infer_deBruijn_subst[local]:
   t_wfs s ∧
  LENGTH ls = tvs ∧
  EVERY (check_t y {}) ls ∧
@@ -1679,7 +1679,7 @@ Proof
     fs[t_walkstar_eqn1,MAP_MAP_o,MAP_EQ_f]
 QED
 
-Triviality infer_deBruijn_subst_check_t:
+Theorem infer_deBruijn_subst_check_t[local]:
   EVERY (check_t tvs {}) ls
   ⇒
   (∀t.
@@ -1788,4 +1788,3 @@ Proof
   fs [EVERY_MEM]
 QED
 *)
-

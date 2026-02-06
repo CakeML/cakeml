@@ -9,7 +9,7 @@ Ancestors
 Libs
   preamble
 
-Triviality with_clos_conf_simp:
+Theorem with_clos_conf_simp[local]:
     (mc_init_ok (ag32_backend_config with <| clos_conf := z ; bvl_conf updated_by
                     (λc. c with <|inline_size_limit := t1; exp_cut := t2|>) |>) =
      mc_init_ok ag32_backend_config) /\
@@ -33,7 +33,7 @@ Definition compiler_instance_def:
        decs_v := LIST_v AST_DEC_v |>
 End
 
-Triviality compiler_instance_lemma:
+Theorem compiler_instance_lemma[local]:
   INJ compiler_instance.config_v 𝕌(:inc_config) 𝕌(:semanticPrimitives$v) ∧
   compiler_instance.init_state = config_to_inc_config cake_config ∧
   compiler_instance.compiler_fun =
@@ -174,8 +174,7 @@ Proof
   \\ disch_then drule
   \\ strip_tac
   \\ simp[ag32_memoryTheory.ffi_exitpcs_def]
-  \\ conj_tac >- (simp[LENGTH_code] \\ EVAL_TAC)
-  \\ conj_tac >- (simp[LENGTH_code, LENGTH_data] \\ EVAL_TAC)
+  \\ rpt (conj_tac >- (simp[LENGTH_code, LENGTH_data] \\ EVAL_TAC))
   \\ asm_exists_tac \\ simp[]
   \\ last_x_assum $ irule_at Any \\ fs []
 QED
@@ -273,7 +272,7 @@ Proof
   \\ simp[AFUPDKEY_ALOOKUP]
   \\ TOP_CASE_TAC
   \\ TOP_CASE_TAC
-  \\ fs[]
+  \\ fs[mlstringTheory.implode_def]
 QED
 
 Theorem ALOOKUP_add_stderr_inode_tbl:
@@ -296,7 +295,7 @@ Proof
   \\ simp[AFUPDKEY_ALOOKUP]
   \\ TOP_CASE_TAC
   \\ TOP_CASE_TAC
-  \\ fs[]
+  \\ fs[mlstringTheory.implode_def]
 QED
 
 Theorem ALOOKUP_add_stdout_infds:
@@ -382,7 +381,7 @@ Proof
     >- (
       simp[stdin_fs_def]
       \\ qexists_tac`implode""`
-      \\ simp[] )
+      \\ simp[mlstringTheory.implode_def] )
     \\ simp[Once stdin_fs_def, AFUPDKEY_def]
     \\ Cases \\ simp[] \\ strip_tac \\ rveq
     \\ pop_assum mp_tac
@@ -395,6 +394,7 @@ Proof
       \\ simp[AFUPDKEY_ALOOKUP]
       \\ disch_then match_mp_tac
       \\ rw[fsFFIPropsTheory.inFS_fname_def]
+      \\ fs[mlstringTheory.implode_def]
       >- (
         fs[CaseEq"option",CaseEq"bool",FORALL_PROD]
         \\ rw[] \\ CCONTR_TAC \\ fs[]
@@ -402,7 +402,8 @@ Proof
       >- (
         pop_assum mp_tac
         \\ rw[] \\ fs[] \\ rw[]
-        \\ pop_assum mp_tac \\ rw[])
+        \\ pop_assum mp_tac \\ rw[]
+        \\ fs[mlstringTheory.implode_def])
       >- ( rw[] \\ rw[OPTREL_def]))))>>
   IF_CASES_TAC>>fs[]
   \\ (simp[TextIOProofTheory.add_stdout_fastForwardFD, STD_streams_stdin_fs]
@@ -546,9 +547,7 @@ Proof
   \\ impl_tac >- fs[STD_streams_stdin_fs, wfFS_stdin_fs]
   \\ strip_tac
   \\ irule ag32_next
-  \\ conj_tac >- simp[ffi_names,extcalls_def]
-  \\ conj_tac >- (simp[ffi_names,extcalls_def, LENGTH_code, LENGTH_data] \\ EVAL_TAC)
-  \\ conj_tac >- (simp[ffi_names,extcalls_def] \\ EVAL_TAC)
+  \\ rpt (conj_tac >- (simp[ffi_names,extcalls_def, LENGTH_code, LENGTH_data] \\ EVAL_TAC))
   \\ goal_assum(first_assum o mp_then Any mp_tac)
   \\ goal_assum(first_assum o mp_then Any mp_tac)
   \\ goal_assum(first_assum o mp_then Any mp_tac)

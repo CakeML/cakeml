@@ -15,7 +15,7 @@ val _ = translation_extends"basisProg";
 
 (* TODO: move *)
 
-Triviality list_rel_perm_help:
+Theorem list_rel_perm_help[local]:
   !l1 l2.
     PERM l1 l2
     ⇒
@@ -42,7 +42,7 @@ Proof
   rw [MAP_ZIP]
 QED
 
-Triviality split_list:
+Theorem split_list[local]:
   !l x. x < LENGTH l ⇒ ?l1 l2. x = LENGTH l1 ∧ l = l1++[EL x l]++l2
 Proof
   induct_on `l` >>
@@ -52,7 +52,7 @@ Proof
   metis_tac [APPEND, LENGTH]
 QED
 
-Triviality split_list2:
+Theorem split_list2[local]:
   !l1 l2 l3 l4.
     LENGTH l1 < LENGTH l3 ∧ l1++l2 = l3++l4
     ⇒
@@ -65,7 +65,7 @@ Proof
   metis_tac []
 QED
 
-Triviality perm_swap_help:
+Theorem perm_swap_help[local]:
   !l x y.
     x < LENGTH l ∧ y < LENGTH l ∧ y < x
     ⇒
@@ -120,7 +120,7 @@ Proof
   fs [LUPDATE_def]
 QED
 
-Triviality el_append_length1:
+Theorem el_append_length1[local]:
   !n l1 l2. EL (n + LENGTH l1) (l1 ++ l2) = EL n l2
 Proof
   Induct_on `l1` >>
@@ -181,7 +181,7 @@ QED
 
 fun basis_st () = get_ml_prog_state ()
 
-val partition = process_topdecs `
+Quote add_cakeml:
 fun partition cmp a pivot lower upper =
 let
   fun scan_lower lower =
@@ -223,8 +223,7 @@ let
 in
   part_loop (lower - 1) (upper + 1)
 end;
-`;
-val _ = append_prog partition;
+End
 
 Definition partition_pred_def:
   partition_pred cmp offset p_v pivot elems elem_vs part1 part2 ⇔
@@ -245,7 +244,7 @@ Definition partition_pred_def:
       EVERY (\e. ¬cmp e pivot) elems2
 End
 
-Triviality perm_helper:
+Theorem perm_helper[local]:
   !a b c. PERM b c ∧ PERM a b ⇒ PERM a c
 Proof
   metis_tac [PERM_SYM, PERM_TRANS]
@@ -366,7 +365,7 @@ Proof
       xapp >>
       xsimpl >>
       rw [BOOL_def] >>
-      metis_tac []) >>
+      gvs [] >> metis_tac []) >>
     xif
     >- (
       (* Set up the invariant for the recursive call.
@@ -471,7 +470,7 @@ Proof
       xapp >>
       xsimpl >>
       rw [BOOL_def] >>
-      metis_tac []) >>
+      gvs [] >> metis_tac []) >>
     xif
     >- (
       first_x_assum (qspecl_then [`i-1`] mp_tac) >>
@@ -786,9 +785,10 @@ Proof
         `cmp pivot (EL (n + new_upper − LENGTH lower_part) elems2')`
         suffices_by metis_tac [strict_weak_order_def] >>
         fs [EL_APPEND_EQN]) >>
+      conj_tac >- fs [] >>
       conj_tac
       (* We got the lower index value right in the above exists_tac *)
-      >- simp [integerTheory.INT_SUB] >>
+      >- gvs [integerTheory.INT_SUB] >>
       conj_tac
       (* There is a stopping element in the new lower partition, plus new
        * middle. The one we just swapped in will do. *)
@@ -994,7 +994,7 @@ Proof
   >- metis_tac []
 QED
 
-val quicksort = process_topdecs `
+Quote add_cakeml:
 fun quicksort cmp a =
 let
   fun quicksort_help lower upper =
@@ -1012,8 +1012,7 @@ in
     if l = 0 then () else quicksort_help 0 (l - 1)
   end
 end;
-`;
-val _ = append_prog quicksort;
+End
 
 val eq_int_v_thm =
   MATCH_MP
@@ -1218,4 +1217,3 @@ Proof
   rw [] >>
   metis_tac [PERM_SYM]
 QED
-

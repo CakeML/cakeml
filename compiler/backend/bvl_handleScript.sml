@@ -9,7 +9,7 @@ Ancestors
 Libs
   preamble
 
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 Definition can_raise_def:
   (can_raise (Var v) = F) ∧
@@ -17,8 +17,9 @@ Definition can_raise_def:
   (can_raise (Let xs x2) = (can_raise x2 ∨ can_raise1 xs)) ∧
   (can_raise (Handle x1 x2) = can_raise x2) ∧
   (can_raise (Raise x1) = T) ∧
-  (can_raise (Op op xs) = can_raise1 xs) ∧
+  (can_raise (Op op xs) = (op = ThunkOp ForceThunk ∨ can_raise1 xs)) ∧
   (can_raise (Tick x) = can_raise x) ∧
+  (can_raise (Force m n) = T) ∧
   (can_raise (Call t dest xs) = T) ∧
   (can_raise1 [] = F) ∧
   (can_raise1 (x::xs) = (can_raise x ∨ can_raise1 xs))
@@ -54,6 +55,7 @@ Definition handle_adj_vars_def:
   (handle_adj_vars l d (Raise x1) = Raise (handle_adj_vars l d x1)) ∧
   (handle_adj_vars l d (Op op xs) = Op op (handle_adj_vars1 l d xs)) ∧
   (handle_adj_vars l d (Tick x) = Tick (handle_adj_vars l d x)) ∧
+  (handle_adj_vars l d (Force m v) = Force m (if v < l then v else v+d)) ∧
   (handle_adj_vars l d (Call t dest xs) =
      Call t dest (handle_adj_vars1 l d xs)) ∧
   (handle_adj_vars1 l d [] = []) ∧
@@ -68,12 +70,13 @@ Definition handle_size_def:
   (handle_size (Raise x1) = 1 + handle_size x1) ∧
   (handle_size (Op op xs) = 1 + handle_size1 xs) ∧
   (handle_size (Tick x) = 1 + handle_size x) ∧
+  (handle_size (Force m n) = 1) ∧
   (handle_size (Call t dest xs) = 1 + handle_size1 xs) ∧
   (handle_size1 [] = 1:num) ∧
   (handle_size1 (x::xs) = 1 + handle_size x + handle_size1 xs)
 End
 
-Triviality handle_size_non_zero:
+Theorem handle_size_non_zero[local]:
   0 < handle_size x
 Proof
   Cases_on ‘x’ \\ fs [handle_size_def]
@@ -87,17 +90,18 @@ Definition handle_simp_def:
   (handle_simp (Raise x1) = Raise (handle_simp x1)) /\
   (handle_simp (Op op xs) = Op op (handle_simp_list xs)) /\
   (handle_simp (Tick x) = Tick (handle_simp x)) /\
+  (handle_simp (Force m n) = Force m n) /\
   (handle_simp (Call t dest xs) = Call t dest (handle_simp_list xs)) /\
   (handle_simp_list [] = ([]:bvl$exp list)) /\
   (handle_simp_list (x::xs) = handle_simp x :: handle_simp_list xs) /\
   (make_handle x1 x2 l =
-     dtcase dest_handle_Raise x1 of
+     case dest_handle_Raise x1 of
      | SOME r => Let [r] (handle_adj_vars 1 l (handle_simp x2))
      | NONE =>
-     dtcase dest_handle_Let x1 of
+     case dest_handle_Let x1 of
      | SOME (xs,x) => Let (handle_simp_list xs) (make_handle x x2 (l + LENGTH xs))
      | NONE =>
-     dtcase dest_handle_If x1 of
+     case dest_handle_If x1 of
      | SOME (INR (b1,b2,b3)) => If (handle_simp b1)
                                    (handle_simp b2)
                                    (make_handle b3 x2 l)
@@ -106,7 +110,7 @@ Definition handle_simp_def:
                                    (handle_simp b3)
      | NONE => (Handle (handle_simp x1) (handle_adj_vars 1 l (handle_simp x2))))
 Termination
-  WF_REL_TAC ‘measure $ λx. case x of INL a => handle_size a
+  WF_REL_TAC ‘measure $ λx. pmatch x of INL a => handle_size a
                                     | INR (INL a) => handle_size1 a
                                     | INR (INR (a,b,_)) => handle_size a + handle_size b’
   \\ rpt conj_tac \\ rpt gen_tac
@@ -127,7 +131,7 @@ Definition LetLet_def:
     let xs = GENLIST I env_length in
     let zs = FILTER (\n. IS_SOME (lookup n fvs)) xs in
     let ys = MAPi (\i x. (x,i)) zs in
-    let long_list = GENLIST (\n. dtcase ALOOKUP ys n of
+    let long_list = GENLIST (\n. case ALOOKUP ys n of
                                  | NONE => Op (IntOp (Const 0)) []
                                  | SOME k => Var k) env_length in
       Let (MAP Var zs) (SmartLet long_list body)
@@ -193,10 +197,15 @@ Definition compile_def:
        OptionalLetLet (Raise (HD dx)) n lx (s1+1) l F) /\
   (compile l n [Op op xs] =
      let (ys,lx,s1,nr1) = compile l n xs in
-       OptionalLetLet (Op op ys) n lx (s1+1) l nr1) /\
+       if op = ThunkOp ForceThunk then
+         ([Op op ys],lx,s1+1,F)
+       else
+         OptionalLetLet (Op op ys) n lx (s1+1) l nr1) /\
   (compile l n [Tick x] =
      let (y,lx,s1,nr1) = compile l n [x] in
        ([Tick (HD y)],lx,s1,nr1)) /\
+  (compile l n [Force m v] = if v < n then ([Force m v],Var v,1,F)
+                             else ([Op (IntOp (Const 0)) []],Empty,1,T)) /\
   (compile l n [Call t dest xs] =
      let (ys,lx,s1,nr1) = compile l n xs in
        OptionalLetLet (Call t dest ys) n lx (s1+1) l F)
@@ -236,10 +245,15 @@ Definition compile_sing_def:
        OptionalLetLet_sing (Raise dx) n lx (s1+1) l F) /\
   (compile_sing l n (Op op xs) =
      let (ys,lx,s1,nr1) = compile_list l n xs in
-       OptionalLetLet_sing (Op op ys) n lx (s1+1) l nr1) /\
+       if op = ThunkOp ForceThunk then
+         (Op op ys,lx,s1+1,F)
+       else
+         OptionalLetLet_sing (Op op ys) n lx (s1+1) l nr1) /\
   (compile_sing l n (Tick x) =
      let (y,lx,s1,nr1) = compile_sing l n x in
        (Tick y,lx,s1,nr1)) /\
+  (compile_sing l n (Force m v) = if v < n then (Force m v,Var v,1,F)
+                                  else (Op (IntOp (Const 0)) [],Empty,1,T)) /\
   (compile_sing l n (Call t dest xs) =
      let (ys,lx,s1,nr1) = compile_list l n xs in
        OptionalLetLet_sing (Call t dest ys) n lx (s1+1) l F) ∧
@@ -280,7 +294,7 @@ val dest_Seq_def = PmatchHeuristics.with_classic_heuristic Define `
 Theorem dest_Seq_pmatch:
   ∀exp.
   dest_Seq exp =
-    case exp of
+    pmatch exp of
       Let [e1;e2] (Var 1) => SOME (e1,e2)
      | _ => NONE
 Proof
@@ -291,9 +305,9 @@ QED
 
 Definition compile_seqs_def:
   compile_seqs cut_size e acc =
-    dtcase dest_Seq e of
+    case dest_Seq e of
     | NONE => (let new_e = compile_exp cut_size 0 e in
-                 dtcase acc of
+                 case acc of
                  | NONE => new_e
                  | SOME rest => Let [new_e] (Let [] (Let [] rest)))
     | SOME (e1,e2) =>

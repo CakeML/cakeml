@@ -59,11 +59,15 @@ Proof
   rw[] >> reverse $ Cases_on `do_app (st,ffi) op vs` >> gvs[]
   >- (
     PairCases_on `x` >> gvs[semanticPrimitivesPropsTheory.do_app_cases] >>
-    simp[do_app_def, result_rel_cases] >> every_case_tac >> gvs[]
+    simp[do_app_def, result_rel_cases] >> every_case_tac >> gvs[] >>
+    gvs[semanticPrimitivesTheory.thunk_op_def, itree_semanticsTheory.thunk_op_def] >>
+    gvs[AllCaseEqs(), store_alloc_def]
     ) >>
   Cases_on `do_app st op vs` >> gvs[] >> PairCases_on `x` >>
   gvs[do_app_cases, semanticPrimitivesTheory.do_app_def, store_alloc_def] >>
-  every_case_tac >> gvs[]
+  every_case_tac >> gvs[] >>
+  gvs[semanticPrimitivesTheory.thunk_op_def, itree_semanticsTheory.thunk_op_def] >>
+  gvs[AllCaseEqs(), store_alloc_def, NOT_LESS]
 QED
 
 Theorem application_rel:
@@ -77,19 +81,28 @@ Proof
   drule do_app_rel >> disch_then $ qspecl_then [`vs`,`st`,`ffi`] assume_tac >>
   Cases_on ‘getOpClass op’
   >- (
-    Cases_on ‘op’ >> gs[getOpClass_def, application_def, cml_application_thm] >>
+    Cases_on ‘op’ >> gs[getOpClass_def, application_def, cml_application_thm]
+    >- gvs[AllCaseEqs()] >>
     simp[step_result_rel_cases, AllCaseEqs(), PULL_EXISTS] >>
     Cases_on ‘do_app (st,ffi) Eval vs’ >> gvs[] >>
     Cases_on ‘do_app st Eval vs’ >> gvs[] >>
     PairCases_on ‘x’ >> PairCases_on ‘x'’ >>
     gvs[result_rel_cases, SF smallstep_ss, SF itree_ss] >>
     gs[do_app_def, semanticPrimitivesTheory.do_app_def] >> every_case_tac >>
-    gs[])
+    gs[]
+    )
   >- (
     rw[application_def, cml_application_thm] >>
     simp[step_result_rel_cases, AllCaseEqs(), PULL_EXISTS] >>
     Cases_on `do_opapp vs` >> simp[] >>
     PairCases_on `x` >> simp[]
+    )
+  >- (
+    gvs[oneline getOpClass_def, AllCaseEqs()] >>
+    simp[application_thm, cml_application_thm] >>
+    rpt (TOP_CASE_TAC >> gvs[step_result_rel_cases]) >>
+    simp[return_def] >> gvs[ctxt_rel_def] >>
+    simp[ctxt_frame_rel_cases]
     )
   >- (
     rw[application_def, cml_application_thm] >>
@@ -102,7 +115,8 @@ Proof
     gvs[result_rel_cases, SF smallstep_ss, SF itree_ss] >>
     gvs[step_result_rel_cases, AllCaseEqs(), ctxt_rel_def] >>
     simp[ctxt_frame_rel_cases] >>
-    gvs[do_app_def, AllCaseEqs(), store_alloc_def])
+    gvs[do_app_def, thunk_op_def, AllCaseEqs(), store_alloc_def]
+    )
 QED
 
 Theorem application_rel_FFI_type_error:
@@ -157,7 +171,7 @@ QED
 
 (******************** Relating non-FFI steps ********************)
 
-Triviality FST_THM:
+Theorem FST_THM[local]:
   FST = λ(x,y,z). x
 Proof
   rw[FUN_EQ_THM, UNCURRY]
@@ -185,7 +199,7 @@ Proof
     gvs[estep_def, step_result_rel_cases] >> strip_tac >>
     gvs[SF smallstep_ss, SF itree_ss, ctxt_rel_def, ctxt_frame_rel_cases, get_ffi_def] >>
     gvs[GSYM ctxt_frame_rel_cases, GSYM step_result_rel_cases] >>
-    CASE_TAC >- gvs[continue_def, get_ffi_def] >>
+    TOP_CASE_TAC >- gvs[continue_def, get_ffi_def] >>
     PairCases_on `h` >> gvs[] >> PairCases_on `x` >> gvs[] >>
     rename1 `ctxt_frame_rel c1 c2` >> rename1 `(c1,env)` >>
     rename1 `LIST_REL _ rest1 rest2` >>
@@ -216,6 +230,7 @@ Proof
       >- metis_tac[application_rel_FFI_type_error] >>
       imp_res_tac application_rel_FFI_step >> gvs[get_ffi_def]
       )
+    >- (EVERY_CASE_TAC >> gvs[get_ffi_def, ctxt_frame_rel_cases])
     >- (EVERY_CASE_TAC >> gvs[get_ffi_def, ctxt_frame_rel_cases])
     >- (EVERY_CASE_TAC >> gvs[get_ffi_def, ctxt_frame_rel_cases])
     >- (EVERY_CASE_TAC >> gvs[get_ffi_def, ctxt_frame_rel_cases])
@@ -362,10 +377,10 @@ QED
 Theorem estep_to_Effi:
   estep ea = Effi (ExtCall s) conf ws lnum env st cs ⇔
   ∃env' conf' b.
-    conf = MAP (λc. n2w (ORD c)) (EXPLODE conf') ∧
+    conf = MAP (λc. n2w (ORD c)) (explode conf') ∧
     ea = (env',st,Val (Litv (StrLit conf')),
             (Capp (FFI s) [Loc b lnum] [],env)::cs) ∧
-    store_lookup lnum st = SOME (W8array ws) ∧ s ≠ ""
+    store_lookup lnum st = SOME (W8array ws) ∧ s ≠ «»
 Proof
   PairCases_on `ea` >>
   rename [‘(ea0,ea1,ea2,ea3) = (_, st, Val _, (Capp _ _ _, env)::cs)’] >>
@@ -401,8 +416,8 @@ Theorem dstep_to_Dffi:
     dst = dst' ∧ dcs = dcs' ∧
     dev = ExpVal env'' (Val (Litv (StrLit conf)))
             ((Capp (FFI s) [Loc b lnum] [],env')::cs) locs pat ∧
-    ws1 = MAP (λc. n2w (ORD c)) (EXPLODE conf) ∧
-    store_lookup lnum dst.refs = SOME (W8array ws2) ∧ s ≠ ""
+    ws1 = MAP (λc. n2w (ORD c)) (explode conf) ∧
+    store_lookup lnum dst.refs = SOME (W8array ws2) ∧ s ≠ «»
 Proof
   Cases_on `∃d. dev = Decl d` >> gvs[dstep_def]
   >- (Cases_on `d` >> gvs[dstep_def] >> every_case_tac >> gvs[]) >>
@@ -428,7 +443,7 @@ Theorem decl_step_ffi_changed_dstep_to_Dffi:
             ((Capp (FFI s) [Loc b lnum] [], env'') :: ccs) locs pat ∧
     store_lookup lnum dst1.refs = SOME (W8array ws) ∧
     dstep env dst1 dev1 dcs = Dffi dst1
-      (ExtCall s,MAP (λc. n2w $ ORD c) (EXPLODE conf),ws,lnum,env'',ccs)
+      (ExtCall s,MAP (λc. n2w $ ORD c) (explode conf),ws,lnum,env'',ccs)
       locs pat dcs'
 Proof
   rw[] >> drule_all decl_step_ffi_changed >> rw[] >>
@@ -462,7 +477,7 @@ Proof
   every_case_tac >> gvs[dget_ffi_def] >>
   gvs[store_lookup_def, store_assign_def, store_v_same_type_def, dstate_rel_def] >>
   rw[ffi_state_component_equality] >>
-  simp[combinTheory.o_DEF, stringTheory.IMPLODE_EXPLODE_I]
+  simp[combinTheory.o_DEF]
 QED
 
 Theorem step_result_rel_single_FFI_error:
@@ -473,12 +488,13 @@ Theorem step_result_rel_single_FFI_error:
     Effi s conf ws lnum env (FST $ SND ea) (TL $ SND $ SND $ SND $ ea)
 Proof
   rpt $ PairCases >> rw[e_step_def] >> gvs[AllCaseEqs(), SF smallstep_ss] >>
-  gvs[cml_application_thm, AllCaseEqs(), SF smallstep_ss] >>
-  gvs[semanticPrimitivesPropsTheory.do_app_cases, AllCaseEqs()] >>
+  gvs[cml_application_thm, AllCaseEqs(), SF smallstep_ss, thunk_op_def] >>
+  gvs[semanticPrimitivesPropsTheory.do_app_cases,
+      semanticPrimitivesTheory.thunk_op_def, AllCaseEqs()] >>
   gvs[step_result_rel_cases, ctxt_rel_def] >>
   gvs[GSYM ctxt_rel_def, ctxt_frame_rel_cases] >> pairarg_tac >> gvs[] >>
   simp[SF itree_ss, application_def] >> gvs[call_FFI_def, AllCaseEqs()] >>
-  simp[combinTheory.o_DEF, stringTheory.IMPLODE_EXPLODE_I]
+  simp[combinTheory.o_DEF]
 QED
 
 Theorem dstep_result_rel_single_FFI_strong:
@@ -488,12 +504,12 @@ Theorem dstep_result_rel_single_FFI_strong:
     dstep env dsta deva dcsa =
     Dffi dsta' (ExtCall s,conf,ws,lnum,eenv,cs1) locs pat dcsa'
   ⇒ ∃env' ffi conf' cs2 b.
-      conf = MAP (λc. n2w (ORD c)) (EXPLODE conf') ∧
+      conf = MAP (λc. n2w (ORD c)) (explode conf') ∧
       deva = ExpVal env' (Val (Litv $ StrLit conf'))
               ((Capp (FFI s) [Loc b lnum] [], eenv)::cs1) locs pat ∧
       devb = ExpVal env' (Val (Litv $ StrLit conf'))
               ((Capp (FFI s) [Loc b lnum] () [], eenv)::cs2) locs pat ∧
-      store_lookup lnum dsta.refs = SOME (W8array ws) ∧ s ≠ "" ∧
+      store_lookup lnum dsta.refs = SOME (W8array ws) ∧ s ≠ «» ∧
       dget_ffi (Dstep (dstb, devb, dcsb)) = SOME ffi ∧
       decl_step env (dstb, devb, dcsb) =
         case ffi.oracle (ExtCall s) ffi.ffi_state conf ws of
@@ -521,7 +537,7 @@ Proof
   gvs[dstate_rel_def] >> every_case_tac >> gvs[] >>
   gvs[store_assign_def, store_lookup_def, store_v_same_type_def,
       semanticPrimitivesTheory.state_component_equality] >>
-  gvs[combinTheory.o_DEF, stringTheory.IMPLODE_EXPLODE_I]
+  gvs[combinTheory.o_DEF]
 QED
 
 Theorem dstep_result_rel_single_FFI_error:
@@ -790,7 +806,8 @@ Theorem do_app_not_SharedMem:
 Proof
   rpt strip_tac >>
   gvs[DefnBase.one_line_ify NONE semanticPrimitivesTheory.do_app_def,
-    AllCaseEqs(),call_FFI_def] >>
+    AllCaseEqs(),call_FFI_def,store_alloc_def,
+    semanticPrimitivesTheory.thunk_op_def] >>
   rw[] >>
   pairarg_tac >> fs[]
 QED
@@ -1568,7 +1585,7 @@ Proof
   >- (goal_assum drule >> unabbrev_all_tac >>
     gvs[ffi_state_component_equality])
   >- (
-    gvs[trace_prefix_interp,stringTheory.IMPLODE_EXPLODE_I] >>
+    gvs[trace_prefix_interp] >>
     `step_n_cml env (SUC l') (Dstep (st0,devb,dcs)) = decl_step env (st',dev2,l'')` by
       simp[step_n_cml_alt_def] >>
     qpat_x_assum `deval_rel _ _` mp_tac >>
@@ -1585,7 +1602,7 @@ Proof
   )
   >- (goal_assum drule >> unabbrev_all_tac >> gvs[ffi_state_component_equality])
   >- (
-    pairarg_tac >> gvs[stringTheory.IMPLODE_EXPLODE_I] >>
+    pairarg_tac >> gvs[] >>
     `step_n_cml env (SUC l') (Dstep (st0,devb,dcs)) = decl_step env (st',dev2,l'')` by
       simp[step_n_cml_alt_def] >>
     qpat_x_assum `deval_rel _ _` mp_tac >>
@@ -1640,7 +1657,7 @@ End
 
 Overload itree_ffi = `` λst. (st.ffi.oracle,st.ffi.ffi_state)``;
 
-Triviality evaluate_decs_NIL[simp]:
+Theorem evaluate_decs_NIL[local,simp]:
   evaluate_decs ck env st [] res ⇔ res = (st, Rval empty_dec_env)
 Proof
   simp[Once bigStepTheory.evaluate_dec_cases, empty_dec_env_def]
@@ -1863,4 +1880,3 @@ QED
 
 
 (****************************************)
-

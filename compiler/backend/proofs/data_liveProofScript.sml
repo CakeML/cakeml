@@ -12,7 +12,7 @@ val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 val _ = temp_bring_to_front_overload"get_vars"{Name="get_vars",Thy="dataSem"};
 val _ = temp_bring_to_front_overload"cut_env"{Name="cut_env",Thy="dataSem"};
 
-Triviality SPLIT_PAIR:
+Theorem SPLIT_PAIR[local]:
   !x y z. (x = (y,z)) <=> (y = FST x) /\ (z = SND x)
 Proof
   Cases \\ SRW_TAC [] [] \\ METIS_TAC []
@@ -31,13 +31,13 @@ Definition state_rel_def:
     (!x. x IN domain live ==> (lookup x s1.locals = lookup x t1.locals))
 End
 
-Triviality state_rel_ID:
+Theorem state_rel_ID[local]:
   !s live. state_rel s s live
 Proof
   fs [state_rel_def]
 QED
 
-Triviality jump_exc_IMP_state_rel:
+Theorem jump_exc_IMP_state_rel[local]:
   !s1 t1 s2 t2.
       (jump_exc s1 = SOME s2) /\ (jump_exc t1 = SOME t2) /\
       state_rel s1 t1 LN /\ (LENGTH s2.stack = LENGTH t2.stack) ==>
@@ -51,9 +51,9 @@ Proof
 QED
 
 fun cases_on_op q = Cases_on q >|
-  map (MAP_EVERY Cases_on) [[], [], [], [], [`b`], [`g`], [`m`], []];
+  map (MAP_EVERY Cases_on) [[], [], [], [], [`b`], [`g`], [`m`], [], [`t`]];
 
-Triviality state_rel_IMP_do_app_aux:
+Theorem state_rel_IMP_do_app_aux[local]:
   (do_app_aux op args s1 = Rval (v,s2)) /\
     state_rel s1 t1 anything ==>
     (s1.handler = s2.handler) /\ (s1.stack = s2.stack) /\
@@ -74,9 +74,11 @@ Proof
   \\ fs [state_rel_def,consume_space_def,case_eq_thms,do_install_def,UNCURRY]
   \\ ASM_SIMP_TAC (srw_ss()) [dataSemTheory.state_component_equality]
   \\ SRW_TAC [] [] \\ fs[]
+  \\ gvs [AllCaseEqs()]
+  \\ ASM_SIMP_TAC (srw_ss()) [dataSemTheory.state_component_equality]
 QED
 
-Triviality state_rel_IMP_do_app:
+Theorem state_rel_IMP_do_app[local]:
   (do_app op args s1 = Rval (v,s2)) /\
     state_rel s1 t1 anything ==>
     (s1.handler = s2.handler) /\ (s1.stack = s2.stack) /\
@@ -103,7 +105,7 @@ Proof
  \\ fs [Abbr `t1'`]
 QED
 
-Triviality state_rel_IMP_do_app_aux_err:
+Theorem state_rel_IMP_do_app_aux_err[local]:
   (do_app_aux op args s1 = Rerr e) /\ state_rel s1 t1 anything ==>
     (do_app_aux op args t1 = Rerr e)
 Proof
@@ -113,9 +115,11 @@ Proof
   \\ fs [state_rel_def,consume_space_def,case_eq_thms,do_install_def,UNCURRY]
   \\ ASM_SIMP_TAC (srw_ss()) [dataSemTheory.state_component_equality]
   \\ SRW_TAC [] [] \\ fs[]
+  \\ gvs [AllCaseEqs()]
+  \\ ASM_SIMP_TAC (srw_ss()) [dataSemTheory.state_component_equality]
 QED
 
-Triviality state_rel_IMP_do_app_err:
+Theorem state_rel_IMP_do_app_err[local]:
   (do_app op args s1 = Rerr e) /\ state_rel s1 t1 anything ==>
     (do_app op args t1 = Rerr e)
 Proof
@@ -130,7 +134,7 @@ Proof
   \\ fs [state_rel_def] \\ rfs []
 QED
 
-Triviality state_rel_IMP_get_vars:
+Theorem state_rel_IMP_get_vars[local]:
   !args s1 t1 t xs.
       state_rel s1 t1 (list_insert args t) /\
       (get_vars args s1.locals = SOME xs) ==>
@@ -145,7 +149,7 @@ Proof
   \\ RES_TAC \\ fs [] \\ SRW_TAC [] []
 QED
 
-Triviality is_pure_do_app_Rerr_IMP:
+Theorem is_pure_do_app_Rerr_IMP[local]:
   is_pure op /\ do_app op xs s = Rerr e ==>
     Rabort Rtype_error = e
 Proof
@@ -155,7 +159,7 @@ Proof
           case_eq_thms,do_install_def,UNCURRY] \\ rw[]
 QED
 
-Triviality is_pure_do_app_Rval_IMP:
+Theorem is_pure_do_app_Rval_IMP[local]:
   is_pure op /\ do_app op x s = Rval (q,r)
    ⇒  ∃safe smax. r = s with <| safe_for_space := safe;
                                 stack_max := smax |>
@@ -172,7 +176,7 @@ Proof
                 ,do_stack_def,AllCaseEqs()]
 QED
 
-Triviality evaluate_compile:
+Theorem evaluate_compile[local]:
   !c s1 res s2 l2 t1 l1 d.
       (evaluate (c,s1) = (res,s2)) /\ state_rel s1 t1 l1 /\
       (compile c l2 = (d,l1)) /\ (res <> SOME (Rerr (Rabort Rtype_error))) /\
@@ -318,6 +322,233 @@ Proof
       \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC
       \\ ONCE_REWRITE_TAC [EQ_SYM_EQ] \\ REPEAT STRIP_TAC \\ fs []
       \\ fs [state_rel_def,domain_union]))
+  THEN1 ( (* Force *)
+    Cases_on ‘ret’ \\ gvs [evaluate_def, compile_def]
+    >- (
+      Cases_on ‘get_var src s.locals’ \\ gvs []
+      \\ ‘get_var src t1.locals = get_var src s.locals’
+        by gvs [state_rel_def, get_var_def] \\ gvs []
+      \\ ‘t1.refs = s.refs’ by gvs [state_rel_def] \\ gvs []
+      \\ Cases_on ‘dest_thunk x s.refs’ \\ gvs []
+      \\ Cases_on ‘t’ \\ gvs []
+      >- gvs [state_rel_def, flush_state_def]
+      \\ ‘t1.code = s.code ∧ t1.stack_frame_sizes = s.stack_frame_sizes’
+        by gvs [state_rel_def] \\ gvs []
+      \\ Cases_on ‘find_code (SOME loc) [x; v] s.code s.stack_frame_sizes’
+      \\ gvs []
+      \\ Cases_on ‘x'’ \\ gvs []
+      \\ Cases_on ‘r’ \\ gvs []
+      \\ ‘t1.clock = s.clock’ by gvs [state_rel_def] \\ gvs []
+      \\ Cases_on ‘s.clock = 0’ \\ gvs []
+      >- gvs [state_rel_def, flush_state_def]
+      \\ Cases_on ‘evaluate (q',call_env q r' (dec_clock s))’ \\ gvs []
+      \\ Cases_on ‘q''’ \\ gvs []
+      \\ fs []
+      \\ rename1 ‘evaluate (q',call_env q r' (dec_clock s)) = (SOME res2,s2)’
+      \\ qspecl_then [‘q'’,‘call_env q r' (dec_clock s)’] mp_tac
+                     evaluate_stack_swap
+      \\ fs []
+      \\ `∃sm sfs. call_env q r' (dec_clock t1) = call_env q r' (dec_clock s)
+            with <| stack := t1.stack; stack_max := sm; safe_for_space := sfs;
+                    peak_heap_length := t1.peak_heap_length |>`
+        by fs [call_env_def, dec_clock_def, state_rel_def,
+               state_component_equality, flush_state_def]
+      \\ Cases_on ‘res2’ \\ fs []
+      >- (
+        fs [call_env_def,dec_clock_def] \\ rpt strip_tac
+        \\ ‘LENGTH s.stack = LENGTH t1.stack’ by fs [state_rel_def]
+        \\ first_x_assum $ qspec_then ‘t1.stack’ mp_tac \\ fs []
+        \\ strip_tac
+        \\ drule_all_then (qspecl_then
+                             [‘sm’,‘sfs’,‘t1.peak_heap_length’]
+                             strip_assume_tac)
+             evaluate_smx_safe_peak_swap
+        \\ fs [state_rel_def])
+      \\ Cases_on ‘e’ \\ fs []
+      >- (
+        rpt strip_tac
+        \\ pop_assum $ qspec_then ‘t1.stack’ mp_tac
+        \\ qpat_x_assum ‘!x.bbb’ (mp_tac o GSYM)
+        \\ rename1
+             ‘jump_exc (call_env q r' (dec_clock s)) = SOME s3’
+        \\ qpat_x_assum ‘jump_exc (call_env q r' (dec_clock s)) = SOME s3’
+              (mp_tac o GSYM)
+        \\ simp [call_env_def, dec_clock_def, Once jump_exc_def, LET_THM]
+        \\ ntac 2 CASE_TAC \\ strip_tac
+        \\ pop_assum (fn th => full_simp_tac std_ss [GSYM th])
+        \\ asm_simp_tac (srw_ss()) [Once jump_exc_def]
+        \\ simp [Once jump_exc_def]
+        \\ ntac 2 CASE_TAC \\ fs [] \\ strip_tac
+        \\ `s.handler = t1.handler /\
+            LENGTH s.stack = LENGTH t1.stack` by fs [state_rel_def]
+        \\ asm_simp_tac (srw_ss()) [Once jump_exc_def]
+        \\ rpt strip_tac \\ fs []
+        \\ drule_all_then (qspecl_then
+                             [‘sm’,‘sfs’,‘t1.peak_heap_length’]
+                             strip_assume_tac)
+             evaluate_smx_safe_peak_swap
+        \\ fs[state_rel_def])
+      \\ Cases_on ‘a’ \\ fs []
+      \\ (
+        fs [call_env_def,dec_clock_def] \\ rpt strip_tac
+        \\ ‘LENGTH s.stack = LENGTH t1.stack’ by fs [state_rel_def]
+        \\ first_x_assum $ qspec_then ‘t1.stack’ mp_tac \\ fs []
+        \\ rw [state_rel_def]
+        \\ drule_all_then (qspecl_then
+                             [‘sm’,‘sfs’,‘t1.peak_heap_length’]
+                             strip_assume_tac)
+            evaluate_smx_safe_peak_swap
+        \\ fs[state_rel_def]))
+    \\ Cases_on ‘x’
+    \\ rename1 ‘(d,l1) = compile (Force (SOME (v,names)) loc src) l2’
+    \\ fs [compile_def, LET_DEF, evaluate_def]
+    \\ ‘get_var src t1.locals = get_var src s.locals’
+      by gvs [state_rel_def, get_var_def] \\ gvs []
+    \\ Cases_on ‘get_var src s.locals’ \\ gvs []
+    \\ ‘t1.refs = s.refs’ by gvs [state_rel_def] \\ gvs []
+    \\ Cases_on ‘dest_thunk x s.refs’ \\ gvs []
+    \\ Cases_on ‘t’ \\ gvs []
+    >- (
+      gvs [AllCaseEqs(), PULL_EXISTS, cut_env_def, state_rel_def, set_var_def]
+      \\ gvs [SF DNF_ss, lookup_insert, lookup_inter_alt]
+      \\ gvs [SUBSET_DEF, domain_lookup] \\ rw []
+      \\ ntac 2 (first_x_assum drule_all \\ rw []))
+    \\ ‘t1.code = s.code ∧ t1.stack_frame_sizes = s.stack_frame_sizes ∧
+        t1.clock = s.clock’
+      by gvs [state_rel_def] \\ gvs []
+    \\ Cases_on ‘find_code (SOME loc) [x; v'] s.code s.stack_frame_sizes’
+    \\ gvs []
+    \\ Cases_on ‘x'’ \\ gvs []
+    \\ Cases_on ‘r’ \\ gvs []
+    \\ Cases_on ‘cut_env names s.locals’ \\ fs []
+    \\ fs [cut_env_def] \\ reverse (srw_tac [] [])
+    >- (
+      pop_assum mp_tac \\ fs []
+      \\ fs [SUBSET_DEF,domain_list_insert,domain_inter,
+             domain_delete,state_rel_def]
+      \\ rpt strip_tac \\ imp_res_tac get_vars_IMP_domain
+      \\ fs [domain_lookup] \\ metis_tac [])
+    \\ Cases_on ‘s.clock = 0’ \\ gvs []
+    >- gvs [state_rel_def, call_env_def, push_env_def, dec_clock_def,
+            flush_state_def]
+    \\ qabbrev_tac `t5 = call_env q r' (push_env
+             ((inter t1.locals (inter names (delete v l2)))) F (dec_clock t1))`
+    \\ `?sfsp smax lss. (call_env q r' (push_env ((inter s.locals names)) F
+                                                 (dec_clock s))
+          with <| locals_size := lss;
+                  safe_for_space := sfsp;
+                  peak_heap_length := t5.peak_heap_length;
+                  stack := t5.stack;
+                  stack_max := smax |>) = t5` by
+     (unabbrev_all_tac
+      \\ fs [call_env_def,push_env_def,dec_clock_def,state_rel_def,
+             state_component_equality]) \\ fs []
+    \\ qabbrev_tac `t4 =
+         call_env q r' (push_env ((inter s.locals names)) F (dec_clock s))`
+    \\ ‘LENGTH t4.stack = LENGTH t5.stack’ by
+     (unabbrev_all_tac \\ fs [call_env_def, push_env_def, dec_clock_def]
+      \\ fs [state_rel_def])
+    \\ qspecl_then [‘q'’,‘t4’] mp_tac evaluate_stack_swap
+    \\ Cases_on ‘evaluate (q',t4)’ \\ fs []
+    \\ Cases_on ‘q''’ \\ fs [] \\ Cases_on ‘x'’ \\ fs []
+    >- (
+      rpt strip_tac
+      \\ first_x_assum $ qspec_then ‘t5.stack’ mp_tac \\ fs []
+      \\ rpt strip_tac \\ fs [] \\ simp [pop_env_def]
+      \\ unabbrev_all_tac \\ fs [call_env_def, push_env_def]
+      \\ fs [pop_env_def] \\ fs [state_rel_def, set_var_def]
+      \\ qmatch_asmsub_abbrev_tac  ‘evaluate (q',p) = (SOME _, ss)’
+      \\ qmatch_goalsub_abbrev_tac ‘evaluate (q', ss')’
+      \\ drule_all_then (qspecl_then [‘ss'.stack_max’
+                                     ,‘ss'.safe_for_space’
+                                     ,‘ss'.peak_heap_length’] assume_tac)
+                        evaluate_smx_safe_peak_swap
+      \\ fs []
+      \\ `ss' = p with <| stack_max := ss'.stack_max;
+                          safe_for_space := ss'.safe_for_space;
+                          peak_heap_length := ss'.peak_heap_length |>`
+         by (unabbrev_all_tac \\ rveq \\ fs [state_component_equality])
+      \\ pop_assum (fn t => once_rewrite_tac [t]) \\ fs []
+      \\ unabbrev_all_tac
+      \\ once_asm_rewrite_tac []
+      \\ fs []
+      \\ fs [lookup_insert, lookup_inter_alt, domain_list_insert,
+             domain_inter, domain_delete] \\ rpt strip_tac)
+    \\ Cases_on ‘e’ \\ fs []
+    >- (
+      rpt strip_tac
+      \\ pop_assum $ qspec_then ‘t5.stack’ mp_tac
+      \\ qpat_x_assum ‘!x.bbb’ (mp_tac o GSYM)
+      \\ rename1 ‘jump_exc t4 = SOME s3’
+      \\ qpat_x_assum ‘jump_exc t4 = SOME s3’ (mp_tac o GSYM)
+      \\ unabbrev_all_tac
+      \\ simp_tac (srw_ss()) [call_env_def, push_env_def, dec_clock_def,
+                              Once jump_exc_def]
+      \\ ntac 2 CASE_TAC \\ strip_tac
+      \\ ‘s.handler < LENGTH s.stack’ by
+       (Cases_on ‘s.handler = LENGTH s.stack’
+        \\ fs [LASTN_LEMMA] \\ decide_tac)
+      \\ imp_res_tac LASTN_TL \\ fs []
+      \\ asm_simp_tac (srw_ss()) [Once jump_exc_def]
+      \\ SIMP_TAC std_ss [Once jump_exc_def]
+      \\ ntac 2 CASE_TAC \\ fs [] \\ strip_tac
+      \\ `s.handler = t1.handler ∧
+          LENGTH s.stack = LENGTH t1.stack` by fs [state_rel_def]
+      \\ asm_simp_tac (srw_ss()) [Once jump_exc_def]
+      \\ ‘t1.handler < LENGTH t1.stack’ by fs []
+      \\ imp_res_tac LASTN_TL \\ fs [] \\ rpt strip_tac
+      \\ qabbrev_tac `env = Env t1.locals_size
+                                 ((inter t1.locals
+                                   (inter names (delete v l2))))`
+      \\ `t1 with <| locals := fromList q; stack := env::t1.stack;
+                     clock := s.clock - 1|> =
+          s with <| safe_for_space := t1.safe_for_space;
+                    peak_heap_length := t1.peak_heap_length;
+                    locals_size := t1.locals_size;
+                    stack_max := t1.stack_max;
+                    locals := fromList q; stack := env::t1.stack;
+                    clock := s.clock - 1|>` by
+                fs [state_component_equality, state_rel_def]
+      \\ qmatch_asmsub_abbrev_tac  ‘evaluate (q',p) = (SOME _, ss)’
+      \\ qmatch_goalsub_abbrev_tac ‘evaluate (q', ss')’
+      \\ drule_all_then (qspecl_then [‘ss'.stack_max’
+                                     ,‘ss'.safe_for_space’
+                                     ,‘ss'.peak_heap_length’] assume_tac)
+                        evaluate_smx_safe_peak_swap
+      \\ fs []
+      \\ `ss' = p with <| stack_max := ss'.stack_max;
+                          safe_for_space := ss'.safe_for_space;
+                          peak_heap_length := ss'.peak_heap_length |>`
+          by (
+            unabbrev_all_tac \\ rveq
+            \\ fs [state_component_equality, state_rel_def])
+      \\ pop_assum (fn t => once_rewrite_tac [t])
+      \\ unabbrev_all_tac
+      \\ once_asm_rewrite_tac []
+      \\ fs []
+      \\ rev_full_simp_tac std_ss []
+      \\ fs [state_rel_def] \\ srw_tac [] [] \\ fs [])
+    \\ Cases_on ‘a’ \\ fs []
+    \\ (
+      rpt strip_tac
+      \\ first_x_assum (qspec_then ‘t5.stack’ mp_tac) \\ fs []
+      \\ rpt strip_tac
+      \\ qmatch_asmsub_abbrev_tac  ‘evaluate (q',p) = (SOME _, ss)’
+      \\ qmatch_goalsub_abbrev_tac ‘evaluate (q', ss')’
+      \\ drule_all_then (qspecl_then [‘ss'.stack_max’
+                                     ,‘ss'.safe_for_space’
+                                     ,‘ss'.peak_heap_length’] assume_tac)
+                        evaluate_smx_safe_peak_swap
+      \\ fs []
+      \\ `ss' = p with <| stack_max := ss'.stack_max;
+                          safe_for_space := ss'.safe_for_space;
+                          peak_heap_length := ss'.peak_heap_length |>`
+          by (unabbrev_all_tac \\ rveq \\ fs [state_component_equality]
+             \\ fs [call_env_def,push_env_def])
+     \\ pop_assum (fn t => once_rewrite_tac [t])
+     \\ unabbrev_all_tac
+     \\ once_asm_rewrite_tac []
+     \\ fs [state_rel_def]))
   (* Call from here onwards *)
   \\ Cases_on `ret` \\ fs [evaluate_def,compile_def]
   THEN1 (* Call with ret = NONE *)

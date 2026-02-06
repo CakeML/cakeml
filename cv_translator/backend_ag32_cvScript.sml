@@ -1,7 +1,7 @@
 (*
   Translate ag32-specialised functions to cv equations.
 *)
-Theory backend_ag32_cv
+Theory backend_ag32_cv[no_sig_docs]
 Ancestors
   cv_std backend_cv backend_32_cv backend_ag32 ag32 ag32_target
   to_data_cv export_ag32 ag32_config
@@ -61,7 +61,7 @@ Proof
   \\ rw [] \\ simp [Once pre]
 QED
 
-Triviality fp_ok_false:
+Theorem fp_ok_false[local]:
   fp_ok_ag32 v = F
 Proof
   Cases_on ‘v’ \\ gvs [fp_ok_ag32_def |> SRULE [fp_reg_ok_ag32_def]]
@@ -189,4 +189,3 @@ Proof
   irule backendTheory.set_asm_conf_id \\ EVAL_TAC
 QED
 
-val _ = Feedback.set_trace "TheoryPP.include_docs" 0;

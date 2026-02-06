@@ -9,14 +9,12 @@ Libs
 
 val _ = translation_extends "OptionProg"
 
-val cakeml = append_prog o process_topdecs;
-
 val _ = ml_prog_update (open_module "List");
 
 val () = generate_sigs := true;
 
 val _ = ml_prog_update (add_dec
-  ``Dtabbrev unknown_loc ["'a"] "list" (Atapp [Atvar "'a"] (Short "list"))`` I);
+  ``Dtabbrev unknown_loc [«'a»] «list» (Atapp [Atvar «'a»] (Short «list»))`` I);
 
 val r = translate NULL;
 
@@ -65,7 +63,7 @@ val result = translate LAST_DEF;
 val _ = next_ml_names := ["getItem"];
 val result = translate mllistTheory.getItem_def;
 
-Triviality nth_thm:
+Theorem nth_thm[local]:
   mllist$nth l 0 = HD l ∧
   mllist$nth l (SUC n) = mllist$nth (TL l) n
 Proof
@@ -89,12 +87,14 @@ val result = next_ml_names := ["concat"];
 val result = translate FLAT;
 
 (* the let is introduced to produce slight better code (smaller stack frames) *)
-val MAP_let = prove(
-  ``MAP f xs =
+Theorem MAP_let[local]:
+    MAP f xs =
     case xs of
     | [] => []
-    | (y::ys) => let z = f y in z :: MAP f ys``,
-  Cases_on `xs` \\ fs []);
+    | (y::ys) => let z = f y in z :: MAP f ys
+Proof
+  Cases_on `xs` \\ fs []
+QED
 
 Theorem MAP_ind:
    ∀P. (∀f xs. (∀y ys z. xs = y::ys ∧ z = f y ⇒ P f ys) ⇒ P f xs) ⇒
@@ -116,7 +116,7 @@ val result = next_ml_names := ["mapi","mapPartial"];
 val result = translate MAPI_thm;
 val result = translate mapPartial_def;
 
-Quote cakeml:
+Quote add_cakeml:
   fun app f ls = case ls of [] => ()
     | (x::xs) => (f x; app f xs)
 End
@@ -181,18 +181,18 @@ Proof
   \\ Induct_on`m-n`
   >- (
     rw[]
-    \\ xcf "tabulate" st
+    \\ xcf "tabulate" st \\ simp []
     \\ xlet `POSTv boolv. &BOOL (n >= m) boolv * heap_inv`
-      >-(xopb \\ xsimpl \\ fs[NUM_def, INT_def] \\ intLib.COOPER_TAC)
-    \\ xif \\ asm_exists_tac \\ simp[]
+    >- (xint_cmp \\ xsimpl \\ fs[NUM_def, INT_def] \\ intLib.COOPER_TAC)
+    \\ xif \\ gvs[]
     \\ xapp
     \\ instantiate \\ xsimpl
     \\ `m - n = 0` by simp[] \\ simp[])
   \\ rw[]
-  \\ xcf "tabulate" st
+  \\ xcf "tabulate" st \\ simp []
   \\ xlet `POSTv boolv. &BOOL (n >= m) boolv * heap_inv`
-    >-(xopb \\ xsimpl \\ fs[NUM_def, INT_def] \\ intLib.COOPER_TAC)
-  \\ xif \\ asm_exists_tac \\ simp[]
+  >- (xint_cmp \\ xsimpl \\ fs[NUM_def, INT_def] \\ intLib.COOPER_TAC)
+  \\ xif \\ gvs []
   \\ Cases_on`m` \\ fs[]
   \\ rename1`SUC v = SUC m - n`
   \\ `v = m - n` by decide_tac
@@ -294,7 +294,7 @@ val result = translate FRONT_DEF;
 val _ = next_ml_names := ["splitAtPki"];
 val result = translate (splitAtPki_def |> REWRITE_RULE [SUC_LEMMA])
 
-Triviality SPLITP_alt:
+Theorem SPLITP_alt[local]:
   SPLITP P [] = ([],[]) ∧
   SPLITP P (x::l) =
   if P x then ([],x::l) else
@@ -305,12 +305,6 @@ Proof
 QED
 val _ = next_ml_names := ["split"];
 val result = translate SPLITP_alt
-
-val front_side_def = Q.prove(
-  `!xs. front_side xs = ~(xs = [])`,
-  Induct THEN ONCE_REWRITE_TAC [fetch "-" "front_side_def"]
-  THEN FULL_SIMP_TAC (srw_ss()) [CONTAINER_def])
-  |> update_precondition;
 
 val last_side_def = Q.prove(
   `!xs. last_side xs = ~(xs = [])`,
@@ -355,7 +349,7 @@ val result = translate DIV2_def;
 val result = translate DROP_def;
 val result = translate_no_ind mergesortN_tail_def;
 
-Triviality mergesortn_tail_ind:
+Theorem mergesortn_tail_ind[local]:
   mergesortn_tail_ind (:'a)
 Proof
   once_rewrite_tac [fetch "-" "mergesortn_tail_ind_def"]
@@ -370,11 +364,12 @@ QED
 
 val result = mergesortn_tail_ind |> update_precondition;
 
-Triviality mergesortn_tail_side:
+Theorem mergesortn_tail_side[local]:
   !w x y z. mergesortn_tail_side w x y z
 Proof
   completeInduct_on `y`
   \\ once_rewrite_tac[(fetch "-" "mergesortn_tail_side_def")]
+  \\ rpt gen_tac \\ rename1 `SUC x1`
   \\ rw[DIV2_def]
      >- (
         first_x_assum match_mp_tac
@@ -437,7 +432,7 @@ Definition AUPDATE_def:
 End
 val AUPDATE_eval = translate AUPDATE_def;
 
-Triviality FMAP_EQ_ALIST_UPDATE:
+Theorem FMAP_EQ_ALIST_UPDATE[local]:
   FMAP_EQ_ALIST f l ==> FMAP_EQ_ALIST (FUPDATE f (x,y)) (AUPDATE l (x,y))
 Proof
   SIMP_TAC (srw_ss()) [FMAP_EQ_ALIST_def,AUPDATE_def,ALOOKUP_def,FUN_EQ_THM,
@@ -481,7 +476,7 @@ val _ = next_ml_names := ["every","every"];
 val _ = translate AEVERY_AUX_def;
 val AEVERY_eval = translate AEVERY_def;
 
-Triviality AEVERY_AUX_THM:
+Theorem AEVERY_AUX_THM[local]:
   !l aux P. AEVERY_AUX aux P l <=>
               !x y. (ALOOKUP l x = SOME y) /\ ~(MEM x aux) ==> P (x,y)
 Proof
@@ -491,13 +486,13 @@ Proof
   THEN SRW_TAC [] [] THEN METIS_TAC [SOME_11]
 QED
 
-Triviality AEVERY_THM:
+Theorem AEVERY_THM[local]:
   AEVERY P l <=> !x y. (ALOOKUP l x = SOME y) ==> P (x,y)
 Proof
   SIMP_TAC (srw_ss()) [AEVERY_def,AEVERY_AUX_THM]
 QED
 
-Triviality AEVERY_EQ_FEVERY:
+Theorem AEVERY_EQ_FEVERY[local]:
   FMAP_EQ_ALIST f l ==> (AEVERY P l <=> FEVERY P f)
 Proof
   FULL_SIMP_TAC std_ss [FMAP_EQ_ALIST_def,FEVERY_DEF,AEVERY_THM]
@@ -523,7 +518,7 @@ Definition AMAP_def:
 End
 val AMAP_eval = translate AMAP_def;
 
-Triviality ALOOKUP_AMAP:
+Theorem ALOOKUP_AMAP[local]:
   !l. ALOOKUP (AMAP f l) a =
         case ALOOKUP l a of NONE => NONE | SOME x => SOME (f x)
 Proof
@@ -531,7 +526,7 @@ Proof
   THEN SRW_TAC [] []
 QED
 
-Triviality FMAP_EQ_ALIST_o_f:
+Theorem FMAP_EQ_ALIST_o_f[local]:
   FMAP_EQ_ALIST m l ==> FMAP_EQ_ALIST (x o_f m) (AMAP x l)
 Proof
   SIMP_TAC std_ss [FMAP_EQ_ALIST_def,FUN_EQ_THM,FLOOKUP_DEF,
@@ -585,14 +580,14 @@ Definition ADEL_def:
 End
 val ADEL_eval = translate ADEL_def;
 
-Triviality ALOOKUP_ADEL:
+Theorem ALOOKUP_ADEL[local]:
   !l a x. ALOOKUP (ADEL l a) x = if x = a then NONE else ALOOKUP l x
 Proof
   Induct THEN SRW_TAC [] [ALOOKUP_def,ADEL_def] THEN Cases_on `h`
   THEN SRW_TAC [] [ALOOKUP_def,ADEL_def]
 QED
 
-Triviality FMAP_EQ_ALIST_ADEL:
+Theorem FMAP_EQ_ALIST_ADEL[local]:
   !x l. FMAP_EQ_ALIST x l ==>
           FMAP_EQ_ALIST (x \\ a) (ADEL l a)
 Proof

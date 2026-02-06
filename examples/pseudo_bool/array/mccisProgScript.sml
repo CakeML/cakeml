@@ -9,8 +9,6 @@ Libs
 
 val _ = translation_extends"graphProg";
 
-val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
-
 (* The encoder *)
 val res = translate enc_string_def;
 
@@ -33,7 +31,7 @@ val res = translate walk_k_eq;
 val res = translate (full_encode_mccis_eq |> REWRITE_RULE[GSYM sub_check_def])
 
 (* parse input from f1 f2 and run encoder into pbc *)
-val parse_and_enc = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun parse_and_enc f1 f2 =
   case parse_lad f1 of
     Inl err => Inl err
@@ -41,7 +39,8 @@ val parse_and_enc = (append_prog o process_topdecs) `
   (case parse_lad f2 of
     Inl err => Inl err
   | Inr gt =>
-    Inr (fst gp, full_encode_mccis gp gt))`
+    Inr (fst gp, full_encode_mccis gp gt))
+End
 
 Theorem parse_and_enc_spec:
   STRING_TYPE f1 f1v ∧
@@ -61,7 +60,10 @@ Theorem parse_and_enc_spec:
             (OPTION_TYPE (PAIR_TYPE
               (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE)))
             INT))
-            (LIST_TYPE (PAIR_TYPE PBC_PBOP_TYPE (PAIR_TYPE (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE))) INT)))
+            (LIST_TYPE
+              (PAIR_TYPE
+              (OPTION_TYPE STRING_TYPE)
+              (PAIR_TYPE PBC_PBOP_TYPE (PAIR_TYPE (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE))) INT))))
             )) res v ∧
        case res of
         INL err =>
@@ -157,23 +159,28 @@ val res = translate map_concl_to_string_def;
 Definition mk_prob_def:
   mk_prob objf = (NONE,objf):mlstring list option #
     ((int # mlstring pbc$lit) list # int) option #
-    (pbop # (int # mlstring pbc$lit) list # int) list
+    (mlstring option #
+      (pbop # (int # mlstring pbc$lit) list # int)) list
 End
 
 val res = translate mk_prob_def;
 
-val check_unsat_3 = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun check_unsat_3 f1 f2 f3 =
   case parse_and_enc f1 f2 of
     Inl err => TextIO.output TextIO.stdErr err
   | Inr (n,objf) =>
-    let val probt = default_prob in
+    let val probt = default_prob
+        val prob = mk_prob objf
+        val prob = strip_annot_prob prob
+    in
       (case
         map_concl_to_string n
-        (check_unsat_top_norm False (mk_prob objf) probt f3) of
+        (check_unsat_top_norm False prob probt f3) of
         Inl err => TextIO.output TextIO.stdErr err
       | Inr s => TextIO.print s)
-    end`
+    end
+End
 
 Theorem check_unsat_3_spec:
   STRING_TYPE f1 f1v ∧ validArg f1 ∧
@@ -223,11 +230,12 @@ Proof
   >-
     (xvar>>xsimpl)>>
   xlet_autop>>
+  xlet_autop>>
   xlet`POSTv v. STDIO fs * &BOOL F v`
   >-
     (xcon>>xsimpl)>>
   drule npbc_parseProgTheory.check_unsat_top_norm_spec>>
-  qpat_x_assum`prob_TYPE (mk_prob _) _`assume_tac>>
+  qpat_x_assum`prob_TYPE (strip_annot_prob _) _`assume_tac>>
   disch_then drule>>
   qpat_x_assum`prob_TYPE default_prob _`assume_tac>>
   disch_then drule>>
@@ -274,6 +282,8 @@ Proof
     qexists_tac`strlit ""`>>
     simp[STD_streams_stderr,add_stdo_nil]>>
     xsimpl>>
+    fs[oneline pb_parseTheory.strip_annot_prob_def]>>
+    every_case_tac>>gvs[]>>
     (drule_at Any) full_encode_mccis_sem_concl>>
     fs[]>>
     Cases_on`x`>> disch_then (drule_at Any)>>
@@ -281,7 +291,8 @@ Proof
     impl_tac>-
       fs[get_graph_lad_def,AllCaseEqs(),mk_prob_def]>>
     rw[]>>
-    qexists_tac`(q,r)`>>
+    rename1`(qq,rr)`>>
+    qexists_tac`(qq,rr)`>>
     simp[mccis_sem_def]>>
     metis_tac[])
 QED
@@ -294,16 +305,17 @@ Definition check_unsat_2_sem_def:
   case get_graph_lad fs f2 of
     NONE => out = strlit ""
   | SOME gtt =>
-    out = concat (print_prob
+    out = concat (print_annot_prob
       (mk_prob (full_encode_mccis gpp gtt)))
 End
 
-val check_unsat_2 = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun check_unsat_2 f1 f2 =
   case parse_and_enc f1 f2 of
     Inl err => TextIO.output TextIO.stdErr err
   | Inr (n,objf) =>
-    TextIO.print_list (print_prob (mk_prob objf))`
+    TextIO.print_list (print_annot_prob (mk_prob objf))
+End
 
 Theorem check_unsat_2_spec:
   STRING_TYPE f1 f1v ∧ validArg f1 ∧
@@ -359,12 +371,13 @@ End
 
 val r = translate usage_string_def;
 
-val main = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun main u =
   case CommandLine.arguments () of
     [f1,f2] => check_unsat_2 f1 f2
   | [f1,f2,f3] => check_unsat_3 f1 f2 f3
-  | _ => TextIO.output TextIO.stdErr usage_string`
+  | _ => TextIO.output TextIO.stdErr usage_string
+End
 
 Definition main_sem_def:
   main_sem fs cl out =

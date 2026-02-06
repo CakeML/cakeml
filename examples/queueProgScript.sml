@@ -17,8 +17,8 @@ Datatype:
 End
 val _ = register_exn_type ``:exn_type``;
 
-val queue_decls = process_topdecs
-   ‘fun empty_queue sz err = Ref (Array.array sz err, 0, 0, 0)
+Quote add_cakeml:
+   fun empty_queue sz err = Ref (Array.array sz err, 0, 0, 0)
 
     fun full q =
       case !q of (a,f,r,c) => c = Array.length a
@@ -39,9 +39,8 @@ val queue_decls = process_topdecs
                 in
                   q := (a, (f + 1) mod Array.length a, r, c - 1);
                   e
-                end’;
-
-val _ = append_prog queue_decls;
+                end
+End
 
 Definition EmptyQueue_exn_def:
   EmptyQueue_exn v = QUEUEPROG_EXN_TYPE_TYPE EmptyQueue v
@@ -149,7 +148,10 @@ Proof
     simp[lqueue_def, LIST_REL_REPLICATE_same]
 QED
 
-val EqualityType_INT = prove(``EqualityType INT``, simp[EqualityType_NUM_BOOL])
+Theorem EqualityType_INT[local]:
+   EqualityType INT
+Proof simp[EqualityType_NUM_BOOL]
+QED
 
 val eq_int_thm = mlbasicsProgTheory.eq_v_thm
                    |> INST_TYPE [alpha |-> “:int”]
@@ -181,7 +183,7 @@ Proof
     xlet ‘POSTv bv. QUEUE A mx vs qv * &(BOOL (LENGTH vs = mx) bv)’
     >- (xapp >> xsimpl >> qexists_tac `emp` >> xsimpl >>
         map_every qexists_tac [`vs`, `mx`, `A`] >> xsimpl) >>
-    xs_auto_tac >> qexists_tac `F` >> simp[] >>
+    gvs [] >> xs_auto_tac >> qexists_tac `F` >> simp[] >>
     simp[QUEUE_def] >> xpull >> xs_auto_tac >> reverse (rw[])
     >- EVAL_TAC >>
     xs_auto_tac
@@ -210,7 +212,7 @@ Proof
   simp[EL_APPEND1, EL_APPEND2]
 QED
 
-Triviality dequeue_spec_noexn:
+Theorem dequeue_spec_noexn[local]:
   !qv xv vs x. app (p:'ffi ffi_proj) ^(fetch_v "dequeue" st) [qv]
           (QUEUE A mx vs qv * &(vs ≠ []))
           (POSTv v. &(A (HD vs) v) * QUEUE A mx (TL vs) qv)

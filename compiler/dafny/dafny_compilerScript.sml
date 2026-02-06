@@ -3,32 +3,22 @@
 *)
 Theory dafny_compiler
 Ancestors
-  result_monad dafny_sexp sexp_to_dafny dafny_to_cakeml
-  dafny_freshen fromSexp simpleSexpParse
+  result_monad sexp_to_dafny dafny_to_cakeml
+  dafny_freshen dafny_remove_assert fromSexp simpleSexpParse
 Libs
   preamble
 
 
-(* Trusted frontend *)
-Definition frontend_def:
-  frontend (dfy_sexp: string) =
-  do
-    dfy_sexp <- lex dfy_sexp;
-    dfy_sexp <- parse dfy_sexp;
-    to_program dfy_sexp
-  od
-End
-
+(* TODO First do freshen, then remove assert
+   Both compile and vcg require freshen, but only compile removing asserts;
+   if we start with freshen, there is more overlap in the path a program takes *)
 Definition compile_def:
-  compile dfy = from_program (freshen_program dfy)
+  compile dfy = from_program $ freshen_program $ remove_assert dfy
 End
 
 Definition dfy_to_cml_def:
-  dfy_to_cml (dfy_sexp: string) =
-  do
-    dfy <- frontend dfy_sexp;
-    compile dfy
-  od
+  dfy_to_cml dfy_sexp =
+    do dfy <- to_program dfy_sexp; compile dfy od
 End
 
 (* If compilation failed, outputs a program that prints the error message in
@@ -38,7 +28,7 @@ Definition unpack_def:
   (case m of
    | INR d => d
    | INL s =>
-     [Dlet unknown_loc Pany (cml_fapp [] "print" [Lit (StrLit (explode s))])])
+     [Dlet unknown_loc Pany (cml_fapp [] «print» [Lit (StrLit s)])])
 End
 
 (* Converts the monad with the CakeML AST into a string with its S-Expression.
@@ -53,12 +43,10 @@ Definition cmlm_to_str_def:
 End
 
 Definition main_function_def:
-  main_function (input: mlstring): mlstring =
+  main_function (sexp: mlsexp$sexp): mlstring =
   let
-    input = explode input;
-    cmlm = dfy_to_cml input;
+    cmlm = dfy_to_cml sexp;
     cml_str = cmlm_to_str cmlm;
   in
     implode cml_str
 End
-

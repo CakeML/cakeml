@@ -1,7 +1,7 @@
 (*
   Translation of the OCaml lexer.
  *)
-Theory caml_lexProg
+Theory caml_lexProg[no_sig_docs]
 Ancestors
   caml_lex parserProg ml_translator
 Libs
@@ -57,13 +57,6 @@ fun def_of_const tm = let
 
 val _ = (find_def_for_const := def_of_const);
 
-(* The token type takes a while. These types are to be used with functions
- * that are translated using HOL_STRING_TYPE, so we need to set
- * use_string_type.
- *)
-
-val _ = ml_translatorLib.use_string_type true;
-
 val r = register_type “:caml_lex$token”;
 
 val r = translate isInt_PMATCH;
@@ -78,11 +71,6 @@ val r = translate isIdent_PMATCH;
 val r = translate destIdent_PMATCH;
 val r = translate isPragma_PMATCH;
 val r = translate destPragma_PMATCH;
-
-(* The rest of the lexer works on character lists.
- *)
-
-val _ = ml_translatorLib.use_string_type false;
 
 val r = translate hex2num_def;
 val r = translate dec2num_def;
@@ -170,6 +158,5 @@ val r = translate (caml_lexTheory.next_sym_def |> REWRITE_RULE [GSYM sub_check_d
 
 val r = translate caml_lexTheory.lexer_fun_def;
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
 val () = ml_translatorLib.clean_on_exit := true;

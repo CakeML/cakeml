@@ -3,9 +3,6 @@ HOL definitions of the pure functions used in the CakeML basis.
 The CakeML code for the pure parts of the basis is produced
 from these by the translator.
 
-[basisComputeLib.sml](basisComputeLib.sml):
-compset for the pure basis functions.
-
 [basis_cvScript.sml](basis_cvScript.sml):
 Translation of basis types and functions for use with cv_compute.
 
@@ -35,6 +32,10 @@ Pure functions for the Rat module.
 Pure functions for the Set module.
 This file defines a wrapper around the balanced_map type.
 
+[mlsexpScript.sml](mlsexpScript.sml):
+Definition of a simple mlstring-based s-expression, includes
+parsing and pretty printing for these s-expressions.
+
 [mlstringLib.sml](mlstringLib.sml):
 More ML functions for manipulating HOL terms involving mlstrings.
 
@@ -49,8 +50,3 @@ Pure functions for the Vector module.
 
 [mlvectorSyntax.sml](mlvectorSyntax.sml):
 ML functions for manipulating HOL terms and types involving vectors.
-
-[typeDecToPPScript.sml](typeDecToPPScript.sml):
-Maps a Dtype or Dtabbrev declaration (the ast syntax) to
-the default pretty-printer function definition for it
-(also as ast syntax).

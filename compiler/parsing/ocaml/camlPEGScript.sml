@@ -276,7 +276,7 @@ Definition camlPEG_def[nocompute]:
             (bindNT nHolInfixOp));
       (* -- Names and paths ------------------------------------------------ *)
       (INL nValueName,
-       choicel [pegf (tokIdP identMixed) (bindNT nValueName);
+       choicel [pegf (tokIdP (identMixed ∘ explode)) (bindNT nValueName);
                 seql [tokeq LparT; pnt nOperatorName; tokeq RparT]
                      (bindNT nValueName)]);
       (INL nOperatorName,
@@ -292,13 +292,13 @@ Definition camlPEG_def[nocompute]:
                       pnt nAssignOp ])
             (bindNT nOperatorName));
       (INL nConstrName,
-       pegf (tokIdP identUpperLower) (bindNT nConstrName));
+       pegf (tokIdP (identUpperLower ∘ explode)) (bindNT nConstrName));
       (INL nTypeConstrName,
-       pegf (tokIdP identLower) (bindNT nTypeConstrName));
+       pegf (tokIdP (identLower ∘ explode)) (bindNT nTypeConstrName));
       (INL nModuleName,
-       pegf (tokIdP identUpperLower) (bindNT nModuleName));
+       pegf (tokIdP (identUpperLower ∘ explode)) (bindNT nModuleName));
       (INL nFieldName,
-       pegf (tokIdP identLower) (bindNT nFieldName));
+       pegf (tokIdP (identLower ∘ explode)) (bindNT nFieldName));
       (INL nValuePath,
        seql [try (seql [pnt nModulePath; tokeq DotT] I); pnt nValueName]
             (bindNT nValuePath));
@@ -558,7 +558,7 @@ Definition camlPEG_def[nocompute]:
        ]);
       (* -- Expr15 --------------------------------------------------------- *)
       (INL nPrefixOp,
-       pegf (tokSymP validPrefixSym)
+       pegf (tokSymP (validPrefixSym ∘ explode))
             (bindNT nPrefixOp));
       (INL nEPrefix,
        seql [try (pnt nPrefixOp); pnt nEBase] (bindNT nEPrefix));
@@ -642,7 +642,7 @@ Definition camlPEG_def[nocompute]:
             (bindNT nENeg));
       (* -- Expr11 --------------------------------------------------------- *)
       (INL nShiftOp,
-       pegf (choicel [tokSymP validShiftOp; tokeq LslT; tokeq LsrT; tokeq AsrT])
+       pegf (choicel [tokSymP (validShiftOp ∘ explode); tokeq LslT; tokeq LsrT; tokeq AsrT])
             (bindNT nShiftOp));
       (INL nEShift,
        seql [pnt nENeg; try (seql [pnt nShiftOp; pnt nEShift] I)]
@@ -650,14 +650,14 @@ Definition camlPEG_def[nocompute]:
       (* -- Expr10 --------------------------------------------------------- *)
       (INL nMultOp,
        pegf (choicel [tokeq StarT; tokeq ModT; tokeq LandT; tokeq LorT;
-                      tokeq LxorT; tokSymP validMultOp])
+                      tokeq LxorT; tokSymP (validMultOp ∘ explode)])
             (bindNT nMultOp));
       (INL nEMult,
        peg_linfix (INL nEMult) (pnt nEShift) (pnt nMultOp));
       (* -- Expr9 ---------------------------------------------------------- *)
       (INL nAddOp,
        pegf (choicel [tokeq PlusT; tokeq MinusT; tokeq MinusFT;
-                      tokSymP validAddOp])
+                      tokSymP (validAddOp ∘ explode)])
             (bindNT nAddOp));
       (INL nEAdd,
        peg_linfix (INL nEAdd) (pnt nEMult) (pnt nAddOp));
@@ -667,7 +667,7 @@ Definition camlPEG_def[nocompute]:
             (bindNT nECons));
       (* -- Expr7 ---------------------------------------------------------- *)
       (INL nCatOp,
-       pegf (tokSymP validCatOp)
+       pegf (tokSymP (validCatOp ∘ explode))
             (bindNT nCatOp));
       (INL nECat,
        seql [pnt nECons; try (seql [pnt nCatOp; pnt nECat] I)]
@@ -675,7 +675,7 @@ Definition camlPEG_def[nocompute]:
       (* -- Expr6 ---------------------------------------------------------- *)
       (INL nRelOp,
        pegf (choicel [tokeq EqualT; tokeq LessT; tokeq GreaterT; tokeq NeqT;
-                      tokSymP validRelOp])
+                      tokSymP (validRelOp ∘ explode)])
             (bindNT nRelOp));
       (INL nERel,
        peg_linfix (INL nERel) (pnt nECat) (pnt nRelOp));
@@ -1073,7 +1073,7 @@ val topo_nts =
 Theorem cml_wfpeg_thm =
   LIST_CONJ (List.foldl wfnt [] topo_nts)
 
-Triviality subexprs_pnt:
+Theorem subexprs_pnt[local]:
   subexprs (pnt n) = {pnt n}
 Proof
   simp [pegTheory.subexprs_def, pnt_def]
@@ -1109,4 +1109,3 @@ Theorem coreloop_Start_total =
 
 Theorem owhile_Start_total =
   SIMP_RULE (srw_ss()) [pegexecTheory.coreloop_def] coreloop_Start_total;
-

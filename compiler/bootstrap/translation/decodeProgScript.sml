@@ -1,7 +1,7 @@
 (*
   Translate the compiler's state decoder.
 *)
-Theory decodeProg
+Theory decodeProg[no_sig_docs]
 Ancestors
   num_list_enc_dec num_tree_enc_dec backend_enc_dec explorerProg
   ml_translator
@@ -64,10 +64,8 @@ val _ = (find_def_for_const := def_of_const);
 
 (* --- *)
 
-val _ = ml_translatorLib.use_string_type true;
 val _ = register_type “:lab_to_target$shmem_info_num”
 val _ = register_type “:lab_to_target$inc_config”
-val _ = ml_translatorLib.use_string_type false;
 
 val _ = register_type “:backend$inc_config”
 
@@ -168,11 +166,9 @@ val res = translate option_dec'_def;
 
 (* --- *)
 
-val _ = ml_translatorLib.use_string_type false;
 val res = translate (backend_common_tra_dec'_def |> DefnBase.one_line_ify NONE);
 val res = translate safe_chr_list_def;
 val res = translate list_chr_dec'_def;
-val _ = ml_translatorLib.use_string_type true;
 val res = translate string_dec_def;
 val res = translate source_to_flat_next_indices_dec_def;
 val res = translate flat_pattern_config_dec_def;
@@ -183,7 +179,6 @@ val res = translate source_to_flat_var_name_dec_def;
 val res = translate source_to_flat_environment_dec_def;
 val res = translate source_to_flat_environment_store_dec_def;
 val res = translate source_to_flat_config_dec_def;
-val _ = ml_translatorLib.use_string_type false;
 
 val res = translate data_to_word_config_dec_def;
 val res = translate word_to_word_config_dec_def;
@@ -214,7 +209,7 @@ val def = closLang_exp_dec'_def |> DefnBase.one_line_ify NONE
           |> CONV_RULE (DEPTH_CONV BETA_CONV)
 val res = translate_no_ind def;
 
-Triviality closlang_exp_dec'_ind:
+Theorem closlang_exp_dec'_ind[local]:
   closlang_exp_dec'_ind
 Proof
   rewrite_tac [fetch "-" "closlang_exp_dec'_ind_def"]
@@ -227,6 +222,7 @@ Proof
   \\ rpt gen_tac \\ strip_tac
   \\ rpt var_eq_tac
   \\ gen_tac \\ disch_then (assume_tac o SYM)
+  \\ rename1 ‘SUC x6’
   \\ Cases_on ‘x6 = 0’ \\ asm_rewrite_tac [] THEN1 (gvs [ADD1])
   \\ ‘n ≠ 1 ∧ n ≠ 0’ by decide_tac
   \\ Cases_on ‘x6 = 1’ \\ asm_rewrite_tac [] THEN1 (gvs [ADD1])
@@ -250,17 +246,13 @@ val res = translate def;
 val def = clos_to_bvl_config_dec_def
 val res = translate def;
 
-val _ = ml_translatorLib.use_string_type true;
 val def = lab_to_target_inc_config_dec_def
           |> REWRITE_RULE [GSYM string_dec_thm]
 val res = translate def;
-val _ = ml_translatorLib.use_string_type false;
-
 val res = translate backend_inc_config_dec_def;
 
 val res = translate decode_backend_config_def;
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 

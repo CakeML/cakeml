@@ -87,7 +87,7 @@ Proof
   \\ disch_then drule \\ fs [] \\ strip_tac \\ fs [evaluate_def]
 QED
 
-Triviality subspt_IMP_domain:
+Theorem subspt_IMP_domain[local]:
   subspt l1 l2 ⇒ domain l1 SUBSET domain l2
 Proof
   fs [subspt_def,SUBSET_DEF]

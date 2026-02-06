@@ -40,8 +40,8 @@ Datatype:
        | StoreConsts num num (num option) (* reg, reg, stub name to call *)
        | Raise num
        | Return num
-       | FFI string num num num num num (* FFI index, conf_ptr, conf_len,
-                                           array_ptr, array_len, ret_addr *)
+       | FFI mlstring num num num num num (* FFI index, conf_ptr, conf_len,
+                                             array_ptr, array_len, ret_addr *)
        | Tick
        | LocValue num num num   (* assign v1 := Loc v2 v3 *)
        | Install num num num num num (* code buffer start, length of new code,
@@ -63,22 +63,21 @@ Datatype:
        | Halt num
 End
 
-val _ = map overload_on
-  [("move",``\dest src. Inst (Arith (Binop Or dest src (Reg src)))``),
-   ("sub_1_inst",``\r1. Inst (Arith (Binop Sub r1 r1 (Imm 1w)))``),
-   ("sub_inst",``\r1 r2. Inst (Arith (Binop Sub r1 r1 (Reg r2)))``),
-   ("add_inst",``\r1 r2. Inst (Arith (Binop Add r1 r1 (Reg r2)))``),
-   ("and_inst",``\r1 r2. Inst (Arith (Binop And r1 r1 (Reg r2)))``),
-   ("xor_inst",``\r1 r2. Inst (Arith (Binop Xor r1 r1 (Reg r2)))``),
-   ("add_1_inst",``\r1. Inst (Arith (Binop Add r1 r1 (Imm 1w)))``),
-   ("or_inst",``\r1 r2. Inst (Arith (Binop Or r1 r1 (Reg r2)))``),
-   ("add_bytes_in_word_inst",``\r1. Inst (Arith (Binop Add r1 r1 (Imm (bytes_in_word))))``),
-   ("div2_inst",``\r. Inst (Arith (Shift Lsr r r 1))``),
-   ("left_shift_inst",``\r v. Inst (Arith (Shift Lsl r r v))``),
-   ("right_shift_inst",``\r v. Inst (Arith (Shift Lsr r r v))``),
-   ("const_inst",``\r w. Inst (Const r w)``),
-   ("load_inst",``\r a. Inst (Mem Load r (Addr a 0w))``),
-   ("store_inst",``\r a. Inst (Mem Store r (Addr a 0w))``)]
+Overload move = “λdest src. Inst (Arith (Binop Or dest src (Reg src)))”
+Overload sub_1_inst = “λr1. Inst (Arith (Binop Sub r1 r1 (Imm 1w)))”
+Overload sub_inst = “λr1 r2. Inst (Arith (Binop Sub r1 r1 (Reg r2)))”
+Overload add_inst = “λr1 r2. Inst (Arith (Binop Add r1 r1 (Reg r2)))”
+Overload and_inst = “λr1 r2. Inst (Arith (Binop And r1 r1 (Reg r2)))”
+Overload xor_inst = “λr1 r2. Inst (Arith (Binop Xor r1 r1 (Reg r2)))”
+Overload add_1_inst = “λr1. Inst (Arith (Binop Add r1 r1 (Imm 1w)))”
+Overload or_inst = “λr1 r2. Inst (Arith (Binop Or r1 r1 (Reg r2)))”
+Overload add_bytes_in_word_inst = “λr1. Inst (Arith (Binop Add r1 r1 (Imm (bytes_in_word))))”
+Overload div2_inst = “λr. Inst (Arith (Shift Lsr r r 1))”
+Overload left_shift_inst = “λr v. Inst (Arith (Shift Lsl r r v))”
+Overload right_shift_inst = “λr v. Inst (Arith (Shift Lsr r r v))”
+Overload const_inst = “λr w. Inst (Const r w)”
+Overload load_inst = “λr a. Inst (Mem Load r (Addr a 0w))”
+Overload store_inst = “λr a. Inst (Mem Store r (Addr a 0w))”
 
 Definition list_Seq_def:
   (list_Seq [] = Skip) /\

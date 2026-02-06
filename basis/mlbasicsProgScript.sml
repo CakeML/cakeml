@@ -1,6 +1,8 @@
 (*
-  Bind various built-in functions to function names that the parser
-  expects, e.g. the parser generates a call to a function called "+"
+  Translates a variety of basic constructs.
+
+  In particular, we vind various built-in functions to function names that
+  the parser expects, e.g. the parser generates a call to a function called "+"
   when it parses 1+2.
 *)
 Theory mlbasicsProg
@@ -13,12 +15,12 @@ val _ = translation_extends"StringProg"
 
 Definition mk_binop_def:
   mk_binop name prim = Dlet unknown_loc (Pvar name)
-    (Fun "x" (Fun "y" (App prim [Var (Short "x"); Var (Short "y")])))
+    (Fun «x» (Fun «y» (App prim [Var (Short «x»); Var (Short «y»)])))
 End
 
 Definition mk_unop_def:
   mk_unop name prim = Dlet unknown_loc (Pvar name)
-    (Fun "x" (App prim [Var (Short "x")]))
+    (Fun «x» (App prim [Var (Short «x»)]))
 End
 
 (* no longer necessary
@@ -57,9 +59,9 @@ val _ = trans "<>" ``\x1 x2. x1 <> (x2:'a)``;
 val _ = trans "^" mlstringSyntax.strcat_tm;
 
 val _ = append_prog
-  ``[mk_binop ":=" Opassign;
-     mk_unop "!" Opderef
-  (* mk_unop "ref" Opref *)]``
+  ``[mk_binop «:=» Opassign;
+     mk_unop «!» Opderef
+  (* mk_unop «ref» Opref *)]``
 
 fun prove_ref_spec op_name =
   rpt strip_tac \\
@@ -105,6 +107,7 @@ End
 val _ = ml_prog_update (open_module "Bool");
 val _ = (next_ml_names := ["not"]);
 val _ = trans "not" ``\x. ~x:bool``;
+val _ = trans "=" “(=):bool->bool->bool”;
 val _ = (next_ml_names := ["toString"]);
 val _ = translate bool_toString_def;
 val _ = (next_ml_names := ["fromString"]);
@@ -131,3 +134,13 @@ val _ = (next_ml_names := ["compare"]);
 val _ = translate comparisonTheory.pair_cmp_def;
 val _ = ml_prog_update (close_module NONE);
 
+
+Quote add_cakeml:
+  exception Fail string
+End
+
+val Fail_ = get_exn_conv “«Fail»”;
+
+Definition Fail_exn_def:
+  Fail_exn s v = (∃sv. v = Conv (SOME ^Fail_) [sv] ∧ STRING_TYPE s sv)
+End

@@ -40,7 +40,7 @@ val res = translate (nub_def |> REWRITE_RULE [MEMBER_INTRO]);
 val res = translate find_match_def;
 val res = translate (tab_sub_def |> SIMP_RULE std_ss [GSYM mllistTheory.drop_def]);
 
-Triviality tab_sub_ind:
+Theorem tab_sub_ind[local]:
   tab_sub_ind
 Proof
   once_rewrite_tac [fetch "-" "tab_sub_ind_def"]
@@ -80,8 +80,9 @@ val res = translate main_function_def;
 val _ = type_of “main_function” = “:mlstring -> mlstring app_list”
         orelse failwith "The main_function has the wrong type.";
 
-val main = process_topdecs
-  `print_app_list (main_function (TextIO.inputAll TextIO.stdIn));`;
+Quote main = cakeml:
+  print_app_list (main_function (TextIO.inputAll (TextIO.openStdIn ())));
+End
 
 val prog =
   get_ml_prog_state ()

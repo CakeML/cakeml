@@ -1,7 +1,7 @@
 (*
   Translate x64-specialised functions to cv equations.
 *)
-Theory backend_x64_cv
+Theory backend_x64_cv[no_sig_docs]
 Ancestors
   cv_std backend_cv backend_64_cv backend_x64 x64 x64_target
   to_data_cv export_x64 x64_config
@@ -17,7 +17,7 @@ Theorem NOT_IN_EMPTY[cv_inline,local] = NOT_IN_EMPTY;
 
 val _ = cv_trans asmSemTheory.is_test_def;
 
-Triviality total_num2Zreg:
+Theorem total_num2Zreg[local]:
   total_num2Zreg n =
       if n = 1 then RCX else
       if n = 2 then RDX else
@@ -64,7 +64,7 @@ val _ = cv_trans x64Theory.e_imm64_def;
 val _ = cv_trans x64Theory.e_imm_8_32_def;
 val _ = cv_trans x64Theory.Zreg2num_thm;
 
-Triviality fix_num_case:
+Theorem fix_num_case[local]:
   (case (n:num) of 0 => x | 1 => y | v => z) =
   if n = 0 then x else if n = 1 then y else z
 Proof
@@ -108,7 +108,7 @@ End
 
 val _ = cv_trans znop_def;
 
-Triviality to_znop:
+Theorem to_znop[local]:
  (case n of
   | 1 => [144w]
   | 2 => [102w; 144w]
@@ -158,7 +158,7 @@ Proof
   \\ rw [] \\ simp [Once pre]
 QED
 
-Triviality fp_reg_ok_x64_def[cv_inline] = fp_reg_ok_x64_def;
+Theorem fp_reg_ok_x64_def[local,cv_inline] = fp_reg_ok_x64_def;
 
 val _ = cv_auto_trans inst_ok_x64_def;
 val _ = cv_auto_trans asm_ok_x64_def;
@@ -304,4 +304,3 @@ Proof
   irule backendTheory.set_asm_conf_id \\ EVAL_TAC
 QED
 
-val _ = Feedback.set_trace "TheoryPP.include_docs" 0;

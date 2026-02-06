@@ -29,10 +29,10 @@ Theorem Arrow1:
           B (f a) rv)
 Proof
   strip_tac
-  \\ qabbrev_tac ‘env' = write "a" av (write "f" fv ARB)’
-  \\ ‘Eval env' (Var (Short "a")) (A a)’
+  \\ qabbrev_tac ‘env' = write «a» av (write «f» fv ARB)’
+  \\ ‘Eval env' (Var (Short «a»)) (A a)’
     by simp [Abbr ‘env'’, ml_translatorTheory.Eval_Var_SIMP]
-  \\ ‘Eval env' (Var (Short "f")) ((A --> B) f)’
+  \\ ‘Eval env' (Var (Short «f»)) ((A --> B) f)’
     by simp [Abbr ‘env'’, ml_translatorTheory.Eval_Var_SIMP]
   \\ qpat_x_assum ‘(_ --> _) _ _’ kall_tac
   \\ qpat_x_assum ‘A _ _’ kall_tac
@@ -88,12 +88,12 @@ Proof
         \\ rw [] \\ gs []
         \\ first_x_assum irule
         \\ first_assum (irule_at (Pos last)) \\ gs [])
-  \\ qabbrev_tac ‘env' = write "a" av (write "b" bv (write "f" fv ARB))’
-  \\ ‘Eval env' (Var (Short "a")) (A a)’
+  \\ qabbrev_tac ‘env' = write «a» av (write «b» bv (write «f» fv ARB))’
+  \\ ‘Eval env' (Var (Short «a»)) (A a)’
     by simp [Abbr ‘env'’, ml_translatorTheory.Eval_Var_SIMP]
-  \\ ‘Eval env' (Var (Short "b")) (B b)’
+  \\ ‘Eval env' (Var (Short «b»)) (B b)’
     by simp [Abbr ‘env'’, ml_translatorTheory.Eval_Var_SIMP]
-  \\ ‘Eval env' (Var (Short "f")) ((A --> B --> C) f)’
+  \\ ‘Eval env' (Var (Short «f»)) ((A --> B --> C) f)’
     by simp [Abbr ‘env'’, ml_translatorTheory.Eval_Var_SIMP]
   \\ qpat_x_assum ‘(_ --> _) _ _’ kall_tac
   \\ qpat_x_assum ‘A _ _’ kall_tac
@@ -123,7 +123,7 @@ Proof
   \\ gs [io_events_mono_antisym]
 QED
 
-Triviality GC_T:
+Theorem GC_T[local]:
   GC s = T
 Proof
   fs [cfHeapsBaseTheory.GC_def,set_sepTheory.SEP_EXISTS_THM]
@@ -195,7 +195,7 @@ Proof
          the_context_def]
 QED
 
-Triviality IMP_perms_ok_lemma:
+Theorem IMP_perms_ok_lemma[local]:
   (LIST_TYPE (PAIR_TYPE STRING_TYPE NUM) x1 v ⇒ perms_ok ps v) ∧
   (LIST_TYPE (PAIR_TYPE STRING_TYPE TYPE_TYPE) x2 v ⇒ perms_ok ps v) ∧
   (LIST_TYPE THM_TYPE x3 v ⇒ perms_ok ps v) ∧
@@ -214,8 +214,8 @@ Proof
   \\ imp_res_tac UPDATE_TYPE_perms_ok \\ fs []
 QED
 
-val p = “p:('a -> (string |-> ffi)) # (string list #
-           (string -> word8 list -> word8 list -> ffi -> ffi ffi_result option)) list”
+val p = “p:('a -> (mlstring |-> ffi)) # (mlstring list #
+           (mlstring -> word8 list -> word8 list -> ffi -> ffi ffi_result option)) list”
 
 Theorem ArrowM1:
   ArrowP F (HOL_STORE,^p) (PURE A) (MONAD B D) f fv ∧
@@ -1520,19 +1520,19 @@ Proof
     \\ imp_res_tac THM_TYPE_def
     \\ rveq
     \\ simp[pmatch_def]
-    \\ qmatch_goalsub_abbrev_tac`TypeStamp "Sequent" sn`
-    \\ `nsLookup cenv.c (Short"Sequent") = SOME (2, TypeStamp "Sequent" sn)`
+    \\ qmatch_goalsub_abbrev_tac`TypeStamp «Sequent» sn`
+    \\ `nsLookup cenv.c (Short«Sequent») = SOME (2, TypeStamp «Sequent» sn)`
     by (
       unabbrev_all_tac
       \\ CONV_TAC ml_progLib.nsLookup_conv \\ simp[]
       \\ CONV_TAC ml_progLib.nsLookup_conv )
     \\ simp[]
-    \\ `nsLookup cenv.v (Short"the_context") = SOME the_context`
+    \\ `nsLookup cenv.v (Short«the_context») = SOME the_context`
     by (
       unabbrev_all_tac
       \\ CONV_TAC ml_progLib.nsLookup_conv \\ simp[]
       \\ CONV_TAC ml_progLib.nsLookup_conv )
-    \\ `nsLookup cenv.v (Short"!") = SOME deref_v`
+    \\ `nsLookup cenv.v (Short«!») = SOME deref_v`
     by (
       unabbrev_all_tac
       \\ CONV_TAC ml_progLib.nsLookup_conv \\ simp[]
@@ -1566,7 +1566,7 @@ Proof
     \\ strip_tac \\ simp[]
     \\ simp[Ntimes evaluate_def 8]
     \\ simp[namespaceTheory.nsOptBind_def]
-    \\ `nsLookup cenv.v (Short"thm_to_string") = SOME thm_to_string_v`
+    \\ `nsLookup cenv.v (Short«thm_to_string») = SOME thm_to_string_v`
     by (
       unabbrev_all_tac
       \\ CONV_TAC ml_progLib.nsLookup_conv \\ simp[]

@@ -18,7 +18,7 @@ fun basis_st () = get_ml_prog_state ()
 
 (**********)
 
-val linear_search = process_topdecs `
+Quote add_cakeml:
 fun linear_search array value =
     let
         fun search_aux start =
@@ -32,8 +32,7 @@ fun linear_search array value =
     in
         search_aux 0
     end;
-`;
-val _ = append_prog linear_search;
+End
 
 Theorem EL_HD_DROP:
      ∀ n l . n < LENGTH l ⇒ EL n l = HD (DROP n l)
@@ -183,7 +182,7 @@ QED
 
 (**********)
 
-val binary_search = process_topdecs `
+Quote add_cakeml:
 fun binary_search cmp array value =
     let
         fun search_aux start finish =
@@ -200,9 +199,7 @@ fun binary_search cmp array value =
     in
         search_aux 0 (Array.length array)
     end;
-`;
-
-val _ = append_prog binary_search;
+End
 
 Theorem drop_take_partition:
      ∀ l n m . n ≤ m ∧ m ≤ LENGTH l ⇒
@@ -464,6 +461,7 @@ Proof
       fs[] >>
       `start ≤ ((finish + start) DIV 2)` by fs[X_LE_DIV] >>
       imp_res_tac LIST_REL_EL_EQN >> fs[]) >>
+
   xlet `POSTv bv . ARRAY arr_v elem_vs * &BOOL F bv` (* d *)
   >- (xapp >> xsimpl >>
       qexists_tac `EL ((finish + start) DIV 2) elems` >>
@@ -498,6 +496,7 @@ Proof
       fs[DIV_LT_X]) >>
   qabbrev_tac `mid = (finish + start) DIV 2` >> fs[] >>
   qabbrev_tac `sub_list = DROP start (TAKE finish elems)` >>
+
   xif
   >- ( (* LOWER CASE - value in left half of sub_list *)
   qabbrev_tac `rec_len = mid - start` >>
@@ -618,6 +617,7 @@ Proof
   >- (qsuff_tac `mid < finish` >> fs[] >>
       UNABBREV_TAC "mid" >> fs[] >>
       fs[DIV_LT_X])
+  >- gvs []
   >-  fs[EVERY2_DROP]
   >- (
     qexists_tac `u` >> fs[] >>
@@ -655,4 +655,3 @@ Proof
     )
   )
 QED
-

@@ -336,13 +336,13 @@ Theorem all_distinct_alist_ctxt_max:
   ALL_DISTINCT (ns:num list) /\
   LENGTH ns = size_of_shape (Comb sh) ∧
   LENGTH vs = LENGTH sh ⇒
-   ctxt_max (list_max ns)
+   ctxt_max (MAX_LIST ns)
       (alist_to_fmap (ZIP (vs,ZIP (sh,with_shape sh ns))))
 Proof
   rw [] >> fs [ctxt_max_def] >>
   rw [] >>
   ‘MEM x ns’ suffices_by (
-             assume_tac list_max_max >>
+             assume_tac MAX_LIST_max >>
              pop_assum (qspec_then ‘ns’ assume_tac) >>
              fs [EVERY_MEM]) >>
   drule ALOOKUP_MEM >>
@@ -549,13 +549,10 @@ Proof
   gvs[oneline nb_op_def,AllCaseEqs(),
       oneline sh_mem_load_def,
       oneline sh_mem_store_def,
-      set_var_def,
-      set_global_def,
-      empty_locals_def,
+            empty_locals_def,
       dec_clock_def,
       opt_mmap_eval_upd_clock_eq,
-      lookup_kvar_def,
-      set_kvar_def
+      kvar_defs
      ] >>
   PURE_TOP_CASE_TAC >> gvs[]
 QED
@@ -616,7 +613,7 @@ Proof
       gvs[state_component_equality])
   >~ [‘Call’]
   >- (gvs[evaluate_def,AllCaseEqs(),eval_upd_clock_eq,opt_mmap_eval_upd_clock_eq1,dec_clock_def,
-         empty_locals_def,set_var_def,set_kvar_def,set_global_def] >>
+          empty_locals_def,kvar_defs] >>
       imp_res_tac evaluate_clock >>
       gvs[empty_locals_def] >>
       TRY $ first_x_assum $ irule_at $ Pat ‘evaluate _ = _’ >>
@@ -651,9 +648,8 @@ Proof
       metis_tac[]) >>
   gvs[evaluate_def,state_component_equality,AllCaseEqs(),eval_upd_clock_eq,
       oneline nb_op_def,oneline sh_mem_load_def,
-      oneline sh_mem_store_def, set_var_def, empty_locals_def,
-      dec_clock_def,opt_mmap_eval_upd_clock_eq1,
-      set_global_def, lookup_kvar_def, set_kvar_def
+      oneline sh_mem_store_def, empty_locals_def,
+      dec_clock_def,opt_mmap_eval_upd_clock_eq1,kvar_defs
      ] >>
   rpt(pairarg_tac >> gvs[]) >>
   gvs[state_component_equality]
@@ -669,6 +665,28 @@ Proof
   pop_assum (fn h => rewrite_tac[Once h])>>strip_tac>>
   drule_all evaluate_clock_sub>>
   strip_tac>>fs[]>>metis_tac[]
+QED
+
+Theorem evaluate_add_clock_or_timeout:
+  evaluate (p,s) = (q,t with clock := 0) ∧ q ≠ SOME TimeOut ⇒
+  evaluate (p,s with clock := k) = (q', t') ⇒
+      (q' = SOME TimeOut ∧ k < s.clock ∨
+       q' = q ∧ s.clock ≤ k ∧ t' = t with clock := k - s.clock)
+Proof
+  rw[]>>
+  rev_drule evaluate_add_clock_eq>>rw[]>>
+  Cases_on ‘q' = SOME TimeOut’>>fs[]
+  >- (CCONTR_TAC>>fs[NOT_LESS]>>
+      imp_res_tac LESS_EQUAL_ADD>>
+      first_x_assum $ qspec_then ‘p'’ assume_tac>>gvs[])>>
+  Cases_on ‘s.clock ≤ k’>>fs[NOT_LESS_EQUAL]
+  >- (imp_res_tac LESS_EQUAL_ADD>>
+      first_x_assum $ qspec_then ‘p'’ assume_tac>>gvs[])>>
+  drule evaluate_add_clock_eq>>strip_tac>>
+  imp_res_tac LESS_ADD>>
+  first_x_assum $ qspec_then ‘p'’ assume_tac>>rfs[]>>
+  ‘s with clock := s.clock = s’ by simp[state_component_equality]>>fs[]>>
+  fs[state_component_equality]
 QED
 
 Theorem evaluate_io_events_mono:
@@ -688,8 +706,7 @@ Proof
       imp_res_tac IS_PREFIX_TRANS) >>
   gvs[evaluate_def,AllCaseEqs(),
       oneline nb_op_def,oneline sh_mem_load_def,
-      oneline sh_mem_store_def, set_var_def, empty_locals_def,
-      set_global_def,lookup_kvar_def,set_kvar_def,
+      oneline sh_mem_store_def,empty_locals_def,kvar_defs,
       dec_clock_def,opt_mmap_eval_upd_clock_eq1,
       ffiTheory.call_FFI_def] >>
   rpt(pairarg_tac >> gvs[]) >>
@@ -747,8 +764,7 @@ Proof
   >~ [‘Call’]
   >- (gvs[evaluate_def,AllCaseEqs(),
           oneline nb_op_def,oneline sh_mem_load_def,
-          oneline sh_mem_store_def, set_var_def, empty_locals_def,
-          set_kvar_def, set_global_def,
+          oneline sh_mem_store_def, kvar_defs, empty_locals_def,
           dec_clock_def,opt_mmap_eval_upd_clock_eq1,
           eval_upd_clock_eq,ffiTheory.call_FFI_def] >>
       rpt(pairarg_tac >> gvs[]) >>
@@ -765,6 +781,7 @@ Proof
   >- (gvs[evaluate_def,AllCaseEqs(),
           oneline nb_op_def,oneline sh_mem_load_def,
           oneline sh_mem_store_def, set_var_def, empty_locals_def,
+          oneline is_valid_value_def,
           dec_clock_def,opt_mmap_eval_upd_clock_eq1,
           eval_upd_clock_eq,ffiTheory.call_FFI_def] >>
       rpt(pairarg_tac >> gvs[]) >>
@@ -781,14 +798,74 @@ Proof
      ) >>
   gvs[evaluate_def,AllCaseEqs(),
       oneline nb_op_def,oneline sh_mem_load_def,
-      oneline sh_mem_store_def, set_var_def, empty_locals_def,
-      set_global_def,lookup_kvar_def,set_kvar_def,
+      oneline sh_mem_store_def, empty_locals_def,kvar_defs,
       dec_clock_def,opt_mmap_eval_upd_clock_eq1,
       eval_upd_clock_eq,ffiTheory.call_FFI_def] >>
   rpt(pairarg_tac >> gvs[]) >>
   rw[] >>
   gvs[AllCaseEqs()] >>
   metis_tac[FST,SND,PAIR,IS_PREFIX_TRANS]
+QED
+
+Theorem io_events_eq_imp_ffi_eq:
+  evaluate (p, s) = (res, t) ∧ s.ffi.io_events = t.ffi.io_events ⇒
+  t.ffi = s.ffi
+Proof
+  map_every qid_spec_tac [‘res’,‘t’,‘s’,‘p’]>>
+  recInduct evaluate_ind>>rw[]>>
+  qpat_x_assum ‘_ = (res,t)’ mp_tac
+  >~ [‘ShMemLoad’] >-
+   (simp[Once evaluate_def]>>
+    fs[sh_mem_load_def,sh_mem_store_def,ffiTheory.call_FFI_def]>>
+    gvs[AllCaseEqs(),empty_locals_def,dec_clock_def]>>
+    rw[]>>gvs[]>>
+    gvs[state_component_equality,ffiTheory.ffi_state_component_equality])
+  >~ [‘ShMemStore’] >-
+   (simp[Once evaluate_def]>>
+    fs[sh_mem_load_def,sh_mem_store_def,ffiTheory.call_FFI_def]>>
+    gvs[AllCaseEqs(),empty_locals_def,dec_clock_def]>>
+    rw[]>>gvs[]>>
+    gvs[state_component_equality,ffiTheory.ffi_state_component_equality])
+  >~ [‘Call’] >-
+   (simp[Once evaluate_def]>>
+    fs[ffiTheory.call_FFI_def,kvar_defs]>>
+    gvs[AllCaseEqs(),empty_locals_def,dec_clock_def]>>
+    rw[]>>gvs[]>>
+    imp_res_tac evaluate_io_events_mono>>
+    gvs[IS_PREFIX_ANTISYM])
+  >~ [‘DecCall’] >-
+   (simp[Once evaluate_def]>>
+    fs[ffiTheory.call_FFI_def]>>
+    gvs[empty_locals_def,dec_clock_def,set_var_def]>>
+    rpt (TOP_CASE_TAC>>fs[])>>
+    TRY (pairarg_tac>>fs[])>>
+    rw[]>>gvs[]>>
+    imp_res_tac evaluate_io_events_mono>>
+    gvs[IS_PREFIX_ANTISYM])
+  >~ [‘Seq’] >-
+   (simp[Once evaluate_def]>>
+    gvs[AllCaseEqs(),empty_locals_def,dec_clock_def]>>
+    rpt (pairarg_tac>>fs[])>>
+    rw[]>>gvs[]>>
+    imp_res_tac evaluate_io_events_mono>>
+    gvs[IS_PREFIX_ANTISYM,dec_clock_def])
+  >~ [‘ExtCall’] >-
+   (simp[Once evaluate_def]>>
+    fs[ffiTheory.call_FFI_def]>>
+    gvs[AllCaseEqs(),empty_locals_def,dec_clock_def]>>
+    rw[]>>gvs[]>>
+    gvs[state_component_equality,ffiTheory.ffi_state_component_equality])
+  >~ [‘While’] >-
+   (simp[Once evaluate_def]>>
+    rpt (pairarg_tac>>fs[])>>
+    gvs[AllCaseEqs()]>>rw[]>>
+    gvs[dec_clock_def,empty_locals_def]>>
+    imp_res_tac evaluate_io_events_mono>>
+    gvs[IS_PREFIX_ANTISYM,IS_PREFIX_TRANS])>>
+  simp[Once evaluate_def,kvar_defs]>>
+  gvs[AllCaseEqs()]>>rw[]>>
+  rpt (pairarg_tac>>fs[])>>
+  gvs[empty_locals_def,dec_clock_def]
 QED
 
 Theorem update_locals_not_vars_eval_eq:
@@ -944,7 +1021,7 @@ Theorem evaluate_invariants:
   evaluate (p,t) = (res,st) ⇒
   st.memaddrs = t.memaddrs ∧ st.sh_memaddrs = t.sh_memaddrs ∧
   st.be = t.be ∧ st.eshapes = t.eshapes ∧ st.base_addr = t.base_addr ∧
-  st.code = t.code
+  st.code = t.code ∧ st.ffi.oracle = t.ffi.oracle
 Proof
   Ho_Rewrite.PURE_REWRITE_TAC[FORALL_AND_THM,IMP_CONJ_THM] >> rpt conj_tac >>
   recInduct evaluate_ind >>
@@ -955,17 +1032,17 @@ Proof
          metis_tac[PAIR,FST,SND])
      >~[‘ShMemLoad’]
      >- (Cases_on ‘op’>>
-         gvs[Once evaluate_def,AllCaseEqs(),ELIM_UNCURRY,empty_locals_def,
-             dec_clock_def,set_kvar_def,nb_op_def,sh_mem_store_def,
-             set_var_def, set_global_def,sh_mem_load_def,lookup_kvar_def] >>
+         gvs[Once evaluate_def,AllCaseEqs(),ELIM_UNCURRY,empty_locals_def,ffiTheory.call_FFI_def,
+             dec_clock_def,kvar_defs,nb_op_def,sh_mem_store_def,sh_mem_load_def] >>
          metis_tac[PAIR,FST,SND])
      >~[‘ShMemStore’]
      >- (Cases_on ‘op’>>
          gvs[Once evaluate_def,AllCaseEqs(),ELIM_UNCURRY,empty_locals_def,
-             dec_clock_def,set_var_def,nb_op_def,sh_mem_store_def,
+             dec_clock_def,set_var_def,nb_op_def,sh_mem_store_def,ffiTheory.call_FFI_def,
              sh_mem_load_def] >>
          metis_tac[PAIR,FST,SND])>>
-     gvs[Once evaluate_def,AllCaseEqs(),ELIM_UNCURRY,empty_locals_def,dec_clock_def,set_var_def,set_kvar_def,set_global_def] >>
+     gvs[Once evaluate_def,AllCaseEqs(),ELIM_UNCURRY,empty_locals_def,
+         ffiTheory.call_FFI_def,dec_clock_def,kvar_defs] >>
      metis_tac[PAIR,FST,SND])
 QED
 
@@ -983,19 +1060,16 @@ Proof
       gvs[dec_clock_def] >>
       metis_tac[])
   >~ [‘ShMemLoad’]
-  >- (rw[Once evaluate_def,AllCaseEqs(),UNCURRY_EQ,is_valid_value_def,
-         sh_mem_load_def,oneline set_kvar_def,empty_locals_def,set_var_def,
-         set_global_def,sh_mem_store_def,dec_clock_def] >>
+  >- (rw[Once evaluate_def,AllCaseEqs(),UNCURRY_EQ,kvar_defs,
+         sh_mem_load_def,empty_locals_def,sh_mem_store_def,dec_clock_def] >>
       rw[] >>
-      PURE_TOP_CASE_TAC >>
       rw[FLOOKUP_UPDATE] >> gvs[] >>
       gvs[lookup_kvar_def] >>
       simp[oneline shape_of_def] >>
       PURE_TOP_CASE_TAC >> simp[]) >>
-  rw[Once evaluate_def,AllCaseEqs(),UNCURRY_EQ,is_valid_value_def,
-     oneline set_kvar_def,empty_locals_def,set_var_def,
-     sh_mem_store_def,dec_clock_def,set_global_def
-    ] >> rw[FLOOKUP_UPDATE] >> gvs[] >>
+  rw[Once evaluate_def,AllCaseEqs(),UNCURRY_EQ,empty_locals_def,
+     sh_mem_store_def,dec_clock_def,kvar_defs] >>
+  rw[FLOOKUP_UPDATE] >> gvs[] >> res_tac >>
   metis_tac[]
 QED
 
@@ -1367,4 +1441,38 @@ Proof
   simp[] >>
   drule eval_swap_memaddrs >>
   simp[]
+QED
+
+(**** divergence ****)
+
+Theorem evaluate_io_events_lprefix_chain:
+  lprefix_chain
+  (IMAGE
+   (λk. fromList (SND (evaluate (p,s with clock := k))).ffi.io_events)
+   𝕌(:num))
+Proof
+  ‘∀x. x ∈ UNIV ⇒ (λk. llist$fromList (SND (evaluate (p,s with clock := k))).ffi.io_events) x =
+                  (fromList o (λk. (SND (evaluate (p,s with clock := k))).ffi.io_events)) x’
+    by simp[o_DEF]>>
+  ‘(UNIV:num->bool)=UNIV’ by simp[]>>
+  drule_then drule IMAGE_CONG>>strip_tac>>
+  pop_assum (fn h => pure_rewrite_tac[h])>>
+  simp[IMAGE_COMPOSE]>>
+  irule prefix_chain_lprefix_chain>>
+  simp[prefix_chain_def]>>
+  rpt (pop_assum kall_tac)>>
+  rw[]>>
+  Cases_on ‘k < k'’>>fs[NOT_LESS]
+  >- (imp_res_tac (GSYM LESS_ADD)>>
+      simp[]>>
+      irule OR_INTRO_THM1>>
+      irule IS_PREFIX_TRANS>>
+      irule_at Any evaluate_add_clock_io_events_mono>>
+      qexists ‘p'’>>simp[])>>
+  imp_res_tac LESS_EQUAL_ADD>>
+  simp[]>>
+  irule OR_INTRO_THM2>>
+  irule IS_PREFIX_TRANS>>
+  irule_at Any evaluate_add_clock_io_events_mono>>
+  qexists ‘p'’>>simp[]
 QED

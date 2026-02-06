@@ -341,16 +341,16 @@ End
 Definition FFI_codes_def:
   FFI_codes =
     [
-    ("", 0n)
-    ;("get_arg_count", 1n)
-    ;("get_arg_length", 2n)
-    ;("get_arg", 3n)
-    ;("read", 4n)
-    ;("write", 5n)
-    ;("open_in", 6n)
-    ;("open_out", 7n)
-    ;("close", 8n)
-    (*;("exit", 9n)*)
+    («», 0n)
+    ;(«get_arg_count», 1n)
+    ;(«get_arg_length», 2n)
+    ;(«get_arg», 3n)
+    ;(«read», 4n)
+    ;(«write», 5n)
+    ;(«open_in», 6n)
+    ;(«open_out», 7n)
+    ;(«close», 8n)
+    (*;(«exit», 9n)*)
     ]
 End
 
@@ -649,7 +649,7 @@ End
 Definition ag32_ffi_get_arg_count_main_code_def:
   ag32_ffi_get_arg_count_main_code =
     [LoadConstant(5w, F, n2w (ffi_code_start_offset - 1));
-     StoreMEMByte(Imm (n2w(THE(ALOOKUP FFI_codes "get_arg_count"))), Reg 5w);
+     StoreMEMByte(Imm (n2w(THE(ALOOKUP FFI_codes «get_arg_count»))), Reg 5w);
      LoadConstant(5w, F, n2w startup_code_size);
      LoadMEM(5w, Reg 5w);
      StoreMEMByte (Reg 5w, Reg 3w);
@@ -667,7 +667,7 @@ End
 Definition ag32_ffi_get_arg_count_main_def:
   ag32_ffi_get_arg_count_main s =
   let s = dfn'LoadConstant(5w, F, n2w (ffi_code_start_offset - 1)) s in
-  let s = dfn'StoreMEMByte(Imm (n2w(THE(ALOOKUP FFI_codes "get_arg_count"))), Reg 5w) s in
+  let s = dfn'StoreMEMByte(Imm (n2w(THE(ALOOKUP FFI_codes «get_arg_count»))), Reg 5w) s in
   let s = dfn'LoadConstant(5w, F, n2w startup_code_size) s in
   let s = dfn'LoadMEM(5w, Reg 5w) s in
   let s = dfn'StoreMEMByte (Reg 5w, Reg 3w) s in
@@ -685,7 +685,7 @@ Theorem ag32_ffi_get_arg_count_main_thm:
      s with <| PC := s.PC + n2w (4 * (LENGTH ag32_ffi_get_arg_count_main_code));
                MEM :=
                  asm_write_bytearray (s.R 3w) [n2w len; n2w (len DIV 256)]
-                   (((n2w (ffi_code_start_offset - 1)) =+ n2w (THE (ALOOKUP FFI_codes "get_arg_count"))) s.MEM);
+                   (((n2w (ffi_code_start_offset - 1)) =+ n2w (THE (ALOOKUP FFI_codes «get_arg_count»))) s.MEM);
                R := ((3w =+ r3) ((5w =+ r5) s.R)) |>)
 Proof
   rw[ag32_ffi_get_arg_count_main_def]
@@ -737,7 +737,7 @@ End
 Definition ag32_ffi_get_arg_length_setup_code_def:
   ag32_ffi_get_arg_length_setup_code =
     [LoadConstant(5w, F, n2w (ffi_code_start_offset - 1));
-     StoreMEMByte(Imm (n2w(THE(ALOOKUP FFI_codes "get_arg_length"))), Reg 5w);
+     StoreMEMByte(Imm (n2w(THE(ALOOKUP FFI_codes «get_arg_length»))), Reg 5w);
      LoadConstant(5w, F, (n2w (startup_code_size + 4))); (* r5 contains pointer *)
      LoadMEMByte(6w, Reg 3w);
      Normal(fInc, 3w, Reg 3w, Imm 1w);
@@ -791,7 +791,7 @@ End
 Definition ag32_ffi_get_arg_length_setup_def:
   ag32_ffi_get_arg_length_setup s =
   let s = dfn'LoadConstant(5w, F, n2w (ffi_code_start_offset - 1)) s in
-  let s = dfn'StoreMEMByte(Imm (n2w(THE(ALOOKUP FFI_codes "get_arg_length"))), Reg 5w) s in
+  let s = dfn'StoreMEMByte(Imm (n2w(THE(ALOOKUP FFI_codes «get_arg_length»))), Reg 5w) s in
   let s = dfn'LoadConstant(5w, F, (n2w (startup_code_size + 4))) s in
   let s = dfn'LoadMEMByte(6w, Reg 3w) s in
   let s = dfn'Normal(fInc, 3w, Reg 3w, Imm 1w) s in
@@ -810,7 +810,7 @@ Theorem ag32_ffi_get_arg_length_setup_thm:
    ∃ov cf.
    (ag32_ffi_get_arg_length_setup s =
     s with <|
-      MEM := ((n2w (ffi_code_start_offset - 1)) =+ n2w(THE(ALOOKUP FFI_codes "get_arg_length"))) s.MEM;
+      MEM := ((n2w (ffi_code_start_offset - 1)) =+ n2w(THE(ALOOKUP FFI_codes «get_arg_length»))) s.MEM;
       PC := s.PC + n2w (4 * LENGTH ag32_ffi_get_arg_length_setup_code);
       R := ((5w =+ n2w (startup_code_size + 4))
            ((6w =+ n2w (256 * w2n l1 + w2n l0 + 1))
@@ -876,7 +876,7 @@ Theorem ag32_ffi_get_arg_length_loop1_thm:
                     ((4w =+ s.R 4w + n2w (n+1))
                     ((5w =+ s.R 5w + n2w (n+1)) s.R))) |>
 Proof
-  reverse(rw[whileTheory.OLEAST_def])
+  reverse(rw[WhileTheory.OLEAST_def])
   >- (
     rw[Once ag32_ffi_get_arg_length_loop1_def]
     \\ fs[] \\ metis_tac[] )
@@ -987,7 +987,7 @@ Proof
   \\ simp[Once get_next_mem_arg_def]
   \\ Cases_on`m a = 0w` \\ fs[]
   >- (
-    simp[whileTheory.OLEAST_def]
+    simp[WhileTheory.OLEAST_def]
     \\ IF_CASES_TAC \\ fs[]
     \\ numLib.LEAST_ELIM_TAC
     \\ conj_tac >- metis_tac[]
@@ -996,9 +996,9 @@ Proof
     \\ first_x_assum(qspec_then`0`mp_tac)
     \\ simp[] )
   \\ IF_CASES_TAC
-  >- ( simp[whileTheory.OLEAST_def] )
+  >- ( simp[WhileTheory.OLEAST_def] )
   \\ fs[]
-  \\ simp[whileTheory.OLEAST_def]
+  \\ simp[WhileTheory.OLEAST_def]
   \\ reverse IF_CASES_TAC \\ fs[]
   >- (
     Cases_on`n` \\ fs[]
@@ -1053,7 +1053,7 @@ Proof
             ag32Theory.dfn'JumpIfNotZero_def, ag32_ffi_get_arg_length_loop1_thm,
             APPLY_UPDATE_THM]
     \\ CASE_TAC \\ simp[APPLY_UPDATE_THM]
-    \\ fs[whileTheory.OLEAST_def]
+    \\ fs[WhileTheory.OLEAST_def]
     \\ simp[Once ag32_ffi_get_arg_length_loop_def, APPLY_UPDATE_THM]
     \\ simp[ag32Theory.dfn'JumpIfZero_def, ag32Theory.incPC_def,
             ag32Theory.ri2word_def, ag32Theory.ALU_def, APPLY_UPDATE_THM]
@@ -1068,7 +1068,7 @@ Proof
     \\ rw[] \\ fs[]
     \\ AP_THM_TAC \\ AP_TERM_TAC
     \\ AP_THM_TAC \\ AP_TERM_TAC
-    \\ simp[get_next_mem_arg_LEAST, whileTheory.OLEAST_def]
+    \\ simp[get_next_mem_arg_LEAST, WhileTheory.OLEAST_def]
     \\ IF_CASES_TAC \\ fs[])
   \\ rw[]
   \\ simp[Once ag32_ffi_get_arg_length_loop_def]
@@ -1078,7 +1078,7 @@ Proof
           ag32Theory.dfn'JumpIfNotZero_def, ag32_ffi_get_arg_length_loop1_thm,
           APPLY_UPDATE_THM]
   \\ CASE_TAC \\ simp[APPLY_UPDATE_THM]
-  \\ fs[whileTheory.OLEAST_def]
+  \\ fs[WhileTheory.OLEAST_def]
   \\ qmatch_goalsub_abbrev_tac`ag32_ffi_get_arg_length_loop s'`
   \\ first_x_assum(qspec_then`s'`mp_tac)
   \\ simp[Abbr`s'`, APPLY_UPDATE_THM, ADD1, GSYM word_add_n2w]
@@ -1106,7 +1106,7 @@ Proof
   \\ simp[get_mem_arg_def, GSYM ADD1, UNCURRY]
   \\ AP_TERM_TAC
   \\ AP_TERM_TAC
-  \\ simp[get_next_mem_arg_LEAST, whileTheory.OLEAST_def]
+  \\ simp[get_next_mem_arg_LEAST, WhileTheory.OLEAST_def]
   \\ IF_CASES_TAC \\ fs[]
 QED
 
@@ -1170,7 +1170,7 @@ End
 Definition ag32_ffi_get_arg_setup_code_def:
   ag32_ffi_get_arg_setup_code =
     [LoadConstant(5w, F, n2w (ffi_code_start_offset - 1));
-     StoreMEMByte(Imm (n2w(THE(ALOOKUP FFI_codes "get_arg"))), Reg 5w);
+     StoreMEMByte(Imm (n2w(THE(ALOOKUP FFI_codes «get_arg»))), Reg 5w);
      LoadConstant(5w, F, (n2w (startup_code_size + 4))); (* r5 contains pointer *)
      LoadMEMByte(6w, Reg 3w);
      Normal(fInc, 3w, Reg 3w, Imm 1w);
@@ -1211,7 +1211,7 @@ End
 Definition ag32_ffi_get_arg_setup_def:
   ag32_ffi_get_arg_setup s =
   let s = dfn'LoadConstant(5w, F, n2w (ffi_code_start_offset - 1)) s in
-  let s = dfn'StoreMEMByte(Imm (n2w(THE(ALOOKUP FFI_codes "get_arg"))), Reg 5w) s in
+  let s = dfn'StoreMEMByte(Imm (n2w(THE(ALOOKUP FFI_codes «get_arg»))), Reg 5w) s in
   let s = dfn'LoadConstant(5w, F, (n2w (startup_code_size + 4))) s in
   let s = dfn'LoadMEMByte(6w, Reg 3w) s in
   let s = dfn'Normal(fInc, 3w, Reg 3w, Imm 1w) s in
@@ -1228,7 +1228,7 @@ Theorem ag32_ffi_get_arg_setup_thm:
    ∃r7 ov cf.
    (ag32_ffi_get_arg_setup s =
     s with <|
-      MEM := ((n2w (ffi_code_start_offset - 1)) =+ n2w(THE(ALOOKUP FFI_codes "get_arg"))) s.MEM;
+      MEM := ((n2w (ffi_code_start_offset - 1)) =+ n2w(THE(ALOOKUP FFI_codes «get_arg»))) s.MEM;
       PC := s.PC + n2w (4 * LENGTH ag32_ffi_get_arg_setup_code);
       R := ((5w =+ n2w (startup_code_size + 4))
            ((6w =+ n2w (256 * w2n l1 + w2n l0))
@@ -1294,7 +1294,7 @@ Theorem ag32_ffi_get_arg_find1_thm:
                R := ((8w =+ 0w)
                     ((5w =+ s.R 5w + n2w (n+1)) s.R)) |>
 Proof
-  reverse(rw[whileTheory.OLEAST_def])
+  reverse(rw[WhileTheory.OLEAST_def])
   >- (
     rw[Once ag32_ffi_get_arg_find1_def]
     \\ fs[] \\ metis_tac[] )
@@ -1400,7 +1400,7 @@ Proof
           ag32Theory.incPC_def, ag32Theory.ALU_def, ag32Theory.dfn'JumpIfZero_def,
           ag32Theory.dfn'JumpIfNotZero_def, ag32_ffi_get_arg_find1_thm,
           APPLY_UPDATE_THM]
-  \\ CASE_TAC \\ simp[APPLY_UPDATE_THM] \\ fs[whileTheory.OLEAST_def]
+  \\ CASE_TAC \\ simp[APPLY_UPDATE_THM] \\ fs[WhileTheory.OLEAST_def]
   \\ qmatch_goalsub_abbrev_tac`ag32_ffi_get_arg_find s'`
   \\ first_x_assum(qspec_then`s'`mp_tac)
   \\ simp[Abbr`s'`, APPLY_UPDATE_THM, ADD1, GSYM word_add_n2w]
@@ -1430,12 +1430,12 @@ Proof
     rw[]
     \\ rw[get_mem_arg_def]
     \\ rw[get_next_mem_arg_LEAST]
-    \\ rw[whileTheory.OLEAST_def]
+    \\ rw[WhileTheory.OLEAST_def]
     \\ fs[] )
   \\ rw[] \\ fs[]
   \\ Cases_on`index` \\ fs[get_mem_arg_def]
   \\ simp[UNCURRY]
-  \\ simp[get_next_mem_arg_LEAST, whileTheory.OLEAST_def]
+  \\ simp[get_next_mem_arg_LEAST, WhileTheory.OLEAST_def]
   \\ IF_CASES_TAC \\ fs[]
 QED
 
@@ -1511,7 +1511,7 @@ Proof
   \\ Induct_on`n` \\ rw[]
   >- (
     simp[Once ag32_ffi_get_arg_store_def]
-    \\ fs[whileTheory.OLEAST_def]
+    \\ fs[WhileTheory.OLEAST_def]
     \\ qpat_x_assum`_ = 0n`mp_tac
     \\ numLib.LEAST_ELIM_TAC
     \\ conj_tac >- metis_tac[]
@@ -1537,7 +1537,7 @@ Proof
   \\ simp[Once ag32_ffi_get_arg_store_def]
   \\ IF_CASES_TAC
   >- (
-    fs[whileTheory.OLEAST_def]
+    fs[WhileTheory.OLEAST_def]
     \\ first_assum(qspec_then`n'`mp_tac)
     \\ simp_tac(srw_ss())[DISJ_EQ_IMP]
     \\ impl_tac >- fs[] \\ strip_tac
@@ -1571,7 +1571,7 @@ Proof
     \\ disch_then(qspec_then`n'`mp_tac)
     \\ strip_tac \\ fs[]
     \\ fs[bitTheory.BITS_ZERO3, NOT_LESS_EQUAL, DISJ_EQ_IMP] \\ rw[]
-    \\ fs[whileTheory.OLEAST_def]
+    \\ fs[WhileTheory.OLEAST_def]
     \\ qpat_x_assum`_ = SUC _`mp_tac
     \\ numLib.LEAST_ELIM_TAC
     \\ conj_tac >- metis_tac[]
@@ -1580,7 +1580,7 @@ Proof
     \\ simp[] )
   \\ qmatch_goalsub_abbrev_tac`ag32_ffi_get_arg_store s'`
   \\ last_x_assum(qspec_then`s'`mp_tac)
-  \\ fs[whileTheory.OLEAST_def]
+  \\ fs[WhileTheory.OLEAST_def]
   \\ qpat_x_assum`_ = SUC _`mp_tac
   \\ numLib.LEAST_ELIM_TAC
   \\ conj_tac >- metis_tac[]
@@ -1683,7 +1683,7 @@ End
 Definition ag32_ffi_read_set_id_code_def:
   ag32_ffi_read_set_id_code =
     [LoadConstant(5w, F, n2w (ffi_code_start_offset - 1));
-     StoreMEMByte(Imm (n2w(THE(ALOOKUP FFI_codes "read"))), Reg 5w)]
+     StoreMEMByte(Imm (n2w(THE(ALOOKUP FFI_codes «read»))), Reg 5w)]
 End
 
 (* TODO: this would be shorter and maybe simpler using LoadMEM rather than LoadMEMByte *)
@@ -1786,7 +1786,7 @@ End
 Definition ag32_ffi_read_set_id_def:
   ag32_ffi_read_set_id s =
     let s = dfn'LoadConstant (5w, F, n2w (ffi_code_start_offset - 1)) s in
-    let s = dfn'StoreMEMByte (Imm (n2w(THE(ALOOKUP FFI_codes "read"))), Reg 5w) s in
+    let s = dfn'StoreMEMByte (Imm (n2w(THE(ALOOKUP FFI_codes «read»))), Reg 5w) s in
     s
 End
 
@@ -1794,7 +1794,7 @@ Theorem ag32_ffi_read_set_id_thm:
      (ag32_ffi_read_set_id s =
       s with <| PC := s.PC + 8w;
                 R := ((5w =+ n2w (ffi_code_start_offset - 1)) s.R);
-                MEM := ((n2w (ffi_code_start_offset - 1)) =+ n2w (THE (ALOOKUP FFI_codes "read"))) s.MEM |>)
+                MEM := ((n2w (ffi_code_start_offset - 1)) =+ n2w (THE (ALOOKUP FFI_codes «read»))) s.MEM |>)
 Proof
   rw[ag32_ffi_read_set_id_def]
   \\ rw[ag32Theory.dfn'LoadConstant_def, ag32Theory.incPC_def]
@@ -2369,7 +2369,7 @@ End
    r3 contains pointer to byte array n1::n0::off1::off0::tll
    r4 contains LENGTH tll + 4
    postconditions:
-     * written (THE (ALOOKUP FFI_codes "write")) at (n2w (ffi_code_start_offset - 1))
+     * written (THE (ALOOKUP FFI_codes «write»)) at (n2w (ffi_code_start_offset - 1))
      * if the following conditions hold
          - r2 contains 8
          - w82n conf ≤ 2
@@ -2398,7 +2398,7 @@ Definition ag32_ffi_write_set_id_code_def:
      LoadConstant(6w, F, n2w (ag32_ffi_write_entrypoint + 4));
      Normal (fSub, 5w, Reg 5w, Reg 6w);   (* r5 = ffi_code_start_offset *)
      Normal (fDec, 5w, Reg 5w, Imm 0w);
-     StoreMEMByte(Imm (n2w(THE(ALOOKUP FFI_codes "write"))), Reg 5w)]
+     StoreMEMByte(Imm (n2w(THE(ALOOKUP FFI_codes «write»))), Reg 5w)]
 End
 
 Definition ag32_ffi_write_check_conf_code_def:
@@ -2527,7 +2527,7 @@ Definition ag32_ffi_write_set_id_def:
     let s = dfn'LoadConstant (6w, F, n2w (ag32_ffi_write_entrypoint + 4)) s in
     let s = dfn'Normal (fSub, 5w, Reg 5w, Reg 6w) s in
     let s = dfn'Normal (fDec, 5w, Reg 5w, Imm 0w) s in
-    let s = dfn'StoreMEMByte (Imm (n2w(THE(ALOOKUP FFI_codes "write"))), Reg 5w) s in
+    let s = dfn'StoreMEMByte (Imm (n2w(THE(ALOOKUP FFI_codes «write»))), Reg 5w) s in
     s
 End
 
@@ -2540,7 +2540,7 @@ Theorem ag32_ffi_write_set_id_thm:
                 R := ((6w =+ r6) ((5w =+ (n2w (ffi_code_start_offset - 1))) s.R));
                 CarryFlag := cf;
                 OverflowFlag := ov;
-                MEM := ((n2w (ffi_code_start_offset - 1)) =+ n2w (THE (ALOOKUP FFI_codes "write"))) s.MEM |>)
+                MEM := ((n2w (ffi_code_start_offset - 1)) =+ n2w (THE (ALOOKUP FFI_codes «write»))) s.MEM |>)
 Proof
   rw[ag32_ffi_write_set_id_def]
   \\ rw[ag32Theory.dfn'Jump_def, ag32Theory.ALU_def, ag32Theory.ri2word_def]
@@ -3451,12 +3451,12 @@ End
 
 Definition ag32_ffi_open_in_def:
   ag32_ffi_open_in s =
- let s = ag32_ffi_fail "open_in" s in
+ let s = ag32_ffi_fail «open_in» s in
   ag32_ffi_return s
 End
 
 Definition ag32_ffi_open_in_code_def:
-  ag32_ffi_open_in_code = ag32_ffi_fail_code "open_in" ++ ag32_ffi_return_code
+  ag32_ffi_open_in_code = ag32_ffi_fail_code «open_in» ++ ag32_ffi_return_code
 End
 
 (* open_out *)
@@ -3468,12 +3468,12 @@ End
 
 Definition ag32_ffi_open_out_def:
   ag32_ffi_open_out s =
- let s = ag32_ffi_fail "open_out" s in
+ let s = ag32_ffi_fail «open_out» s in
   ag32_ffi_return s
 End
 
 Definition ag32_ffi_open_out_code_def:
-  ag32_ffi_open_out_code = ag32_ffi_fail_code "open_out" ++ ag32_ffi_return_code
+  ag32_ffi_open_out_code = ag32_ffi_fail_code «open_out» ++ ag32_ffi_return_code
 End
 
 (* close *)
@@ -3485,12 +3485,12 @@ End
 
 Definition ag32_ffi_close_def:
   ag32_ffi_close s =
- let s = ag32_ffi_fail "close" s in
+ let s = ag32_ffi_fail «close» s in
   ag32_ffi_return s
 End
 
 Definition ag32_ffi_close_code_def:
-  ag32_ffi_close_code = ag32_ffi_fail_code "close" ++ ag32_ffi_return_code
+  ag32_ffi_close_code = ag32_ffi_fail_code «close» ++ ag32_ffi_return_code
 End
 
 (* FFI jumps
@@ -3505,34 +3505,34 @@ End
 
 Definition ffi_entrypoints_def:
   ffi_entrypoints = [
-    ("", ag32_ffi__entrypoint);
-    ("get_arg_count", ag32_ffi_get_arg_count_entrypoint);
-    ("get_arg_length", ag32_ffi_get_arg_length_entrypoint);
-    ("get_arg", ag32_ffi_get_arg_entrypoint);
-    ("read", ag32_ffi_read_entrypoint);
-    ("write", ag32_ffi_write_entrypoint);
-    ("open_in", ag32_ffi_open_in_entrypoint);
-    ("open_out", ag32_ffi_open_out_entrypoint);
-    ("close", ag32_ffi_close_entrypoint)
+    («», ag32_ffi__entrypoint);
+    («get_arg_count», ag32_ffi_get_arg_count_entrypoint);
+    («get_arg_length», ag32_ffi_get_arg_length_entrypoint);
+    («get_arg», ag32_ffi_get_arg_entrypoint);
+    («read», ag32_ffi_read_entrypoint);
+    («write», ag32_ffi_write_entrypoint);
+    («open_in», ag32_ffi_open_in_entrypoint);
+    («open_out», ag32_ffi_open_out_entrypoint);
+    («close», ag32_ffi_close_entrypoint)
     (*
-    ("exit", ag32_ffi_exit_entrypoint);
+    («exit», ag32_ffi_exit_entrypoint);
     *)
     ]
 End
 
 Definition ffi_exitpcs_def:
   ffi_exitpcs = [
-    ("", ffi_code_start_offset + ag32_ffi_get_arg_count_entrypoint);
-    ("get_arg_count", ffi_code_start_offset + ag32_ffi_get_arg_length_entrypoint);
-    ("get_arg_length", ffi_code_start_offset + ag32_ffi_get_arg_entrypoint);
-    ("get_arg", ffi_code_start_offset + ag32_ffi_read_entrypoint);
-    ("read", ffi_code_start_offset + ag32_ffi_write_entrypoint);
-    ("write", ffi_code_start_offset + ag32_ffi_open_in_entrypoint);
-    ("open_in", ffi_code_start_offset + ag32_ffi_open_out_entrypoint);
-    ("open_out", ffi_code_start_offset + ag32_ffi_close_entrypoint);
-    ("close", heap_start_offset)
+    («», ffi_code_start_offset + ag32_ffi_get_arg_count_entrypoint);
+    («get_arg_count», ffi_code_start_offset + ag32_ffi_get_arg_length_entrypoint);
+    («get_arg_length», ffi_code_start_offset + ag32_ffi_get_arg_entrypoint);
+    («get_arg», ffi_code_start_offset + ag32_ffi_read_entrypoint);
+    («read», ffi_code_start_offset + ag32_ffi_write_entrypoint);
+    («write», ffi_code_start_offset + ag32_ffi_open_in_entrypoint);
+    («open_in», ffi_code_start_offset + ag32_ffi_open_out_entrypoint);
+    («open_out», ffi_code_start_offset + ag32_ffi_close_entrypoint);
+    («close», heap_start_offset)
     (*
-    ("exit", ffi_code_start_offset + ag32_ffi_get_arg_count_entrypoint);
+    («exit», ffi_code_start_offset + ag32_ffi_get_arg_count_entrypoint);
     *)
     ]
 End
@@ -3719,4 +3719,3 @@ Definition init_memory_def:
   init_memory code data ffis (cl,stdin) k =
   get_byte k (EL (w2n (byte_align k) DIV 4) (init_memory_words code data ffis cl stdin)) F
 End
-

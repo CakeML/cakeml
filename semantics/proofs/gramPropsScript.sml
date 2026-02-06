@@ -133,13 +133,13 @@ end
 Theorem cmlG_FDOM =
   SIMP_CONV (srw_ss()) [cmlG_def] ``FDOM cmlG.rules``
 
-Triviality paireq:
+Theorem paireq[local]:
   (x,y) = z ⇔ x = FST z ∧ y = SND z
 Proof
   Cases_on `z` >> simp[]
 QED
 
-Triviality GSPEC_INTER:
+Theorem GSPEC_INTER[local]:
   GSPEC f ∩ Q =
     GSPEC (S ($, o FST o f) (S ($/\ o SND o f) (Q o FST o f)))
 Proof
@@ -147,13 +147,13 @@ Proof
   simp[paireq] >> metis_tac[]
 QED
 
-Triviality RIGHT_INTER_OVER_UNION:
+Theorem RIGHT_INTER_OVER_UNION[local]:
   (a ∪ b) ∩ c = (a ∩ c) ∪ (b ∩ c)
 Proof
   simp[EXTENSION] >> metis_tac[]
 QED
 
-Triviality GSPEC_applied:
+Theorem GSPEC_applied[local]:
   GSPEC f x ⇔ x IN GSPEC f
 Proof
   simp[SPECIFICATION]
@@ -178,13 +178,13 @@ val safenml = LIST_CONJ (List.take(CONJUNCTS nullableML_def, 2))
 
 val nullML_t = prim_mk_const {Thy = "NTproperties", Name = "nullableML"}
 
-Triviality nullloop_th:
+Theorem nullloop_th[local]:
   nullableML G (N INSERT sn) (NT N :: rest) = F
 Proof
   simp[Once nullableML_def]
 QED
 
-Triviality null2:
+Theorem null2[local]:
   nullableML G sn (x :: y :: z) <=>
       nullableML G sn [x] ∧ nullableML G sn [y] ∧
       nullableML G sn z
@@ -319,13 +319,12 @@ Proof
   fs[NTpropertiesTheory.nullable_def]
 QED
 
-Theorem derives_singleTOK:
+Theorem derives_singleTOK[simp]:
    derives G [TOK t] l ⇔ (l = [TOK t])
 Proof
   simp[Once relationTheory.RTC_CASES1, grammarTheory.derive_def] >>
   metis_tac[]
 QED
-val _ = export_rewrites ["derives_singleTOK"]
 
 Theorem fringe_lengths_V:
    fringe_lengths cmlG [NT (mkNT nV)] = {1}
@@ -334,7 +333,7 @@ Proof
   simp[Once relationTheory.RTC_CASES1, MAP_EQ_SING, cmlG_FDOM] >>
   dsimp[MAP_EQ_SING,cmlG_applied] >>
   simp[EXTENSION, EQ_IMP_THM] >> qx_gen_tac `t` >> rpt strip_tac >>
-  fs[] >> qexists_tac `[AlphaT "foo"]` >>
+  fs[] >> qexists_tac `[AlphaT «foo»]` >>
   simp[stringTheory.isUpper_def]
 QED
 
@@ -349,4 +348,3 @@ Theorem parsing_ind =
     |> SIMP_RULE (srw_ss()) [pairTheory.WF_LEX, relationTheory.WF_inv_image]
     |> SIMP_RULE (srw_ss()) [relationTheory.inv_image_def,
                              pairTheory.LEX_DEF]
-

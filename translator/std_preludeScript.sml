@@ -4,7 +4,7 @@
 *)
 Theory std_prelude
 Ancestors
-  ast semanticPrimitives while evaluate ml_translator
+  ast semanticPrimitives While evaluate ml_translator
 Libs
   preamble ml_translatorLib ml_progLib
 
@@ -70,7 +70,7 @@ val res = translate (DECIDE ``PRE n = n-1`` |> REWRITE_RULE [GSYM sub_check_def]
 
 (* while, owhile and least *)
 
-Triviality IS_SOME_OWHILE_THM:
+Theorem IS_SOME_OWHILE_THM[local]:
   !g f x. (IS_SOME (OWHILE g f x)) =
             ?n. ~ g (FUNPOW f n x) /\ !m. m < n ==> g (FUNPOW f m x)
 Proof
@@ -113,7 +113,7 @@ Proof
 SIMP_TAC std_ss [FUN_EQ_THM,ADD1]
 QED
 
-Triviality LEAST_LEMMA:
+Theorem LEAST_LEMMA[local]:
   $LEAST P = WHILE (\x. ~(P x)) (\x. x + 1) 0
 Proof
   SIMP_TAC std_ss [LEAST_DEF,o_DEF,SUC_LEMMA]
@@ -121,7 +121,7 @@ QED
 
 val res = translate LEAST_LEMMA;
 
-Triviality FUNPOW_LEMMA:
+Theorem FUNPOW_LEMMA[local]:
   !n m. FUNPOW (\x. x + 1) n m = n + m
 Proof
   Induct THEN FULL_SIMP_TAC std_ss [FUNPOW,ADD1,AC ADD_COMM ADD_ASSOC]

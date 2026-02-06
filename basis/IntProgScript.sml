@@ -13,7 +13,7 @@ val _ = translation_extends "mlbasicsProg";
 val _ = ml_prog_update (open_module "Int");
 
 val _ = ml_prog_update (add_dec
-  ``Dtabbrev unknown_loc [] "int" (Atapp [] (Short "int"))`` I);
+  ``Dtabbrev unknown_loc [] «int» (Atapp [] (Short «int»))`` I);
 
 val _ = trans "+" intSyntax.plus_tm;
 val _ = trans "-" intSyntax.minus_tm;
@@ -33,13 +33,13 @@ val res = translate toChar_def;
 
 val res = translate num_to_chars_def;
 
-Triviality tochar_side_dec:
+Theorem tochar_side_dec[local]:
   i < 10 ==> tochar_side i
 Proof
   EVAL_TAC \\ simp []
 QED
 
-Triviality num_to_chars_side:
+Theorem num_to_chars_side[local]:
   !i j k acc. num_to_chars_side i j k acc
 Proof
   ho_match_mp_tac mlintTheory.num_to_chars_ind
@@ -185,4 +185,3 @@ val _ = translate mlintTheory.int_cmp_def;
 val _ = ml_prog_update close_local_blocks;
 
 val _ = ml_prog_update (close_module NONE);
-

@@ -15,7 +15,7 @@ Libs
 
 (* val _ = set_grammar_ancestry ["closLang", "sptree", "misc", "backend_common"] *)
 
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 (* This definition is written to short-circuit,
    i.e. exit as soon as possible. *)
@@ -174,7 +174,7 @@ End
 
 (*
 val free_LENGTH_LEMMA = Q.prove(
-  `!xs. (case free xs of (ys,s1) => (LENGTH xs = LENGTH ys))`,
+  `!xs. (pmatch free xs of (ys,s1) => (LENGTH xs = LENGTH ys))`,
   recInduct free_ind \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC (srw_ss()) [free_def]
   \\ SRW_TAC [] [] \\ SRW_TAC [] []
@@ -324,7 +324,7 @@ End
 Theorem merge_tup_pmatch:
   !tup.
   merge_tup tup =
-    case tup of
+    pmatch tup of
       (Impossible,y) => y
     | (x,Impossible) => x
     | (Tuple tg1 xs,Tuple tg2 ys) =>
@@ -352,21 +352,21 @@ QED
 Definition known_op_def:
   (known_op (GlobOp (Global n)) as g =
    if NULL as then
-     dtcase lookup n g of
+     case lookup n g of
        | NONE => (Other,g)
        | SOME x => (x,g)
    else (Other,g)) /\
   (known_op (GlobOp (SetGlobal n)) as g =
-     dtcase as of
+     case as of
      | [] => (Other,g)
      | (a::xs) =>
-       dtcase lookup n g of
+       case lookup n g of
        | NONE => (Other, insert n a g)
        | SOME other => (Other, insert n (merge other a) g)) /\
   (known_op (BlockOp (Cons tg)) as g = (Tuple tg as,g)) /\
   (known_op (IntOp (Const i)) as g = (Int i,g)) /\
   (known_op (MemOp El) as g =
-     dtcase as of
+     case as of
      | [Tuple _ xs; Int i] =>
          if 0 <= i /\ i < &LENGTH xs
          then (EL (Num i) xs,g)
@@ -380,24 +380,24 @@ End
 Theorem known_op_pmatch:
   !op as g.
 known_op op as g =
-  case op of
+  pmatch op of
     GlobOp (Global n) =>
      if NULL as then
-       case lookup n g of
+       pmatch lookup n g of
          | NONE => (Other,g)
          | SOME x => (x,g)
      else (Other,g)
   | GlobOp (SetGlobal n) =>
-    (case as of
+    (pmatch as of
      | [] => (Other,g)
      | (a::xs) =>
-       dtcase lookup n g of
+       case lookup n g of
        | NONE => (Other, insert n a g)
        | SOME other => (Other, insert n (merge other a) g))
   | BlockOp (Cons tg) => (Tuple tg as,g)
   | IntOp (Const i) => (Int i,g)
   | MemOp El =>
-    (case as of
+    (pmatch as of
      | [Tuple _ xs; Int i] =>
          if 0 <= i /\ i < &LENGTH xs
          then (EL (Num i) xs,g)
@@ -412,7 +412,7 @@ Proof
   >> fs[known_op_def]
 QED
 
-Triviality EL_MEM_LEMMA:
+Theorem EL_MEM_LEMMA[local]:
   !xs i x. i < LENGTH xs /\ (x = EL i xs) ==> MEM x xs
 Proof
   Induct \\ fs [] \\ REPEAT STRIP_TAC \\ Cases_on `i` \\ fs []
@@ -420,7 +420,7 @@ QED
 
 Definition clos_approx_def:
   clos_approx max_size loc num_args body =
-    dtcase get_size_sc max_size body of
+    case get_size_sc max_size body of
       | NONE => ClosNoInline loc num_args
       | SOME body_size => Clos loc num_args body body_size
 End
@@ -443,7 +443,7 @@ End
 Theorem isGlobal_pmatch:
   ∀op.
     isGlobal op =
-    case op of
+    pmatch op of
       GlobOp (Global _) => T
     | _ => F
 Proof
@@ -510,7 +510,7 @@ End
 
 Definition decide_inline_def:
   decide_inline c fapx app_lopt app_arity =
-    dtcase fapx of
+    case fapx of
       | ClosNoInline loc arity =>
           if app_lopt = NONE /\ app_arity = arity
             then inlD_Annotate loc
@@ -580,7 +580,7 @@ Definition known_def:
      let (a,g) = known_op op (REVERSE (MAP SND ea1)) g in
      let e =
          (if isGlobal op then
-           dtcase gO_destApx a of
+           case gO_destApx a of
              | gO_None => SmartOp t op
              | gO_Int i => Op t (IntOp (Const i))
              | gO_NullTuple tag => Op t (BlockOp (Cons tag))
@@ -592,7 +592,7 @@ Definition known_def:
      let (ea1,g) = known c [x] vs g in
      let (e1,a1) = HD ea1
      in
-       dtcase decide_inline c a1 loc_opt (LENGTH xs) of
+       case decide_inline c a1 loc_opt (LENGTH xs) of
          | inlD_Nothing => ([(App t loc_opt e1 (MAP FST ea2), Other)], g)
          | inlD_Annotate new_loc => ([(App t (SOME new_loc) e1 (MAP FST ea2), Other)], g)
          | inlD_LetInline body =>
@@ -611,11 +611,11 @@ Definition known_def:
      let (ea1,g) = known c [x1] (REPLICATE num_args Other ++ vs) g in
      let (body,a1) = HD ea1 in
        ([(Fn t loc_opt NONE num_args body,
-          dtcase loc_opt of
+          case loc_opt of
             | SOME loc => clos_approx c.inline_max_body_size loc num_args x1
             | NONE => Other)], g)) /\
   (known c [Letrec t loc_opt _ fns x1] vs g =
-     let clos = dtcase loc_opt of
+     let clos = case loc_opt of
                    NONE => REPLICATE (LENGTH fns) Other
                 |  SOME loc => clos_gen_noinline loc 0 fns in
      (* The following ignores SetGlobal within fns, but it shouldn't
@@ -684,7 +684,7 @@ Definition compile_inc_def:
 End
 
 Definition known_static_conf_def:
-  known_static_conf kc = (dtcase kc of NONE => NONE
+  known_static_conf kc = (case kc of NONE => NONE
     | SOME kc => SOME (reset_inline_factor kc with val_approx_spt := LN))
 End
 
@@ -699,7 +699,7 @@ Definition known_compile_inc_def:
 End
 
 Definition option_val_approx_spt_def:
-  option_val_approx_spt kc = (dtcase kc of NONE => LN
+  option_val_approx_spt kc = (case kc of NONE => LN
     | SOME kcfg => kcfg.val_approx_spt)
 End
 

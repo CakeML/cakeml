@@ -28,9 +28,11 @@ Definition decode_def:
   decode = (K(SOME ())):ffi -> unit option
 End
 
-val encode_11 = prove(
-  ``!x y. encode x = encode y <=> x = y``,
-  rw [encode_def]);
+Theorem encode_11[local]:
+    !x y. encode x = encode y <=> x = y
+Proof
+  rw [encode_def]
+QED
 
 Theorem decode_encode:
    decode(encode cls) = SOME cls
@@ -40,6 +42,5 @@ QED
 
 Definition runtime_ffi_part_def:
   runtime_ffi_part = (encode,decode,
-    [("exit",ffi_exit)])
+    [(«exit»,ffi_exit)])
 End
-

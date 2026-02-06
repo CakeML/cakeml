@@ -24,7 +24,7 @@ End
 Definition ctxt_fc_def:
   ctxt_fc cvs em vs shs ns =
     <|vars := FEMPTY |++ ZIP (vs, ZIP (shs, with_shape shs ns));
-      funcs := cvs; eids := em; vmax := list_max ns |>
+      funcs := cvs; eids := em; vmax := MAX_LIST ns |>
 End
 
 
@@ -469,12 +469,11 @@ end
 
 
 
-Theorem compile_Skip_Break_Continue_Annot_Global:
+Theorem compile_Skip_Break_Continue_Annot:
   ^(get_goal "compile _ panLang$Skip") /\
   ^(get_goal "compile _ panLang$Break") /\
   ^(get_goal "compile _ panLang$Continue") /\
-  ^(get_goal "compile _ (panLang$Annot _ _)") ∧
-  ^(get_goal "compile _ (panLang$Assign Global _ _)")
+  ^(get_goal "compile _ (panLang$Annot _ _)")
 Proof
   rpt strip_tac >>
   fs [panSemTheory.evaluate_def, evaluate_def,
@@ -826,13 +825,13 @@ QED
 
 
 Theorem compile_Assign:
-  ^(get_goal "compile _ (panLang$Assign Local _ _)")
+  ^(get_goal "compile _ (panLang$Assign _ _ _)")
 Proof
   rpt gen_tac >>
   rpt strip_tac >>
-  rename [‘Assign _ vr e’] >>
-  fs [panSemTheory.evaluate_def, is_valid_value_def, localised_prog_def] >>
-  fs [CaseEq "option", CaseEq "bool"] >> rveq >> fs [] >>
+  rename [‘Assign vk vr e’] >> Cases_on ‘vk’>>
+  fs [panSemTheory.evaluate_def, oneline is_valid_value_def, localised_prog_def] >>
+  fs [CaseEq "option", CaseEq "bool",panSemTheory.set_var_def] >> rveq >> fs [] >>
   rename [‘eval _ e = SOME ev’] >>
   rename [‘FLOOKUP _ vr = SOME v’] >>
   (* open compiler def *)
@@ -853,7 +852,7 @@ Proof
    disch_then drule >>
    strip_tac >> fs [] >>
    conj_tac
-   >- fs [state_rel_def] >>
+   >- fs [state_rel_def,set_var_def] >>
    fs [locals_rel_def] >>
    rpt gen_tac >> strip_tac >> fs [] >>
    cases_on ‘vr = vname’ >> fs [] >> rveq
@@ -1712,7 +1711,7 @@ Proof
       miscTheory.UNCURRY_eq_pair,PULL_EXISTS
      ] >>
   dep_rewrite.DEP_ONCE_REWRITE_TAC[update_locals_not_vars_eval_eq'] >>
-  simp[FOLDR_MAX_0_list_max,list_max_add_not_mem,FLOOKUP_UPDATE,
+  simp[FOLDR_MAX_0_MAX_LIST,MAX_LIST_add_not_mem,FLOOKUP_UPDATE,
        sh_mem_op_def,sh_mem_store_def] >>
   gvs[state_rel_def] >>
   gvs[locals_rel_def] >>
@@ -2150,7 +2149,7 @@ Proof
 QED
 
 Theorem ctxt_fc_vmax:
-    (ctxt_fc ctxt.funcs em vs shs ns).vmax = list_max ns
+    (ctxt_fc ctxt.funcs em vs shs ns).vmax = MAX_LIST ns
 Proof
   rw [ctxt_fc_def]
 QED
@@ -2802,6 +2801,7 @@ val ret_call_excp_handler_tac =
     rename [‘FLOOKUP ctxt.eids eid = SOME ed’] >>
    fs [] >> rveq >> fs [] >>
     fs [is_valid_value_def] >>
+    rename1 ‘FLOOKUP s.locals m''’ >>
     cases_on ‘FLOOKUP s.locals m''’ >> fs [] >>
     drule locals_rel_lookup_ctxt >>
     disch_then drule_all >>
@@ -2816,13 +2816,13 @@ val ret_call_excp_handler_tac =
                               t.locals’, ‘0w’] mp_tac) >>
     impl_tac
     >- (
-     conj_tac
+     (conj_tac
      >- (
       fs [word_0_n2w] >>
       imp_res_tac locals_rel_lookup_ctxt >> rveq >>
       fs [length_flatten_eq_size_of_shape] >> rfs [] >>
-      cases_on ‘size_of_shape (shape_of ex)’ >> fs []) >>
-     conj_tac
+      cases_on ‘size_of_shape (shape_of ex)’ >> fs [])) >>
+     (conj_tac
      >- (
       rw [] >> CCONTR_TAC >>
       drule locals_rel_lookup_ctxt >>
@@ -2841,7 +2841,7 @@ val ret_call_excp_handler_tac =
      fs [GSYM length_flatten_eq_size_of_shape] >>
      qpat_x_assum ‘OPT_MMAP (FLOOKUP t1.globals) _ = _’  assume_tac >>
      drule opt_mmap_mem_func >>
-     disch_then drule >> strip_tac >> fs []) >>
+     disch_then drule >> strip_tac >> fs [])) >>
     strip_tac >> fs [] >>
     rfs [] >> rveq >>
     qmatch_goalsub_abbrev_tac ‘evaluate (compile ctxt p,tt)’ >>
@@ -2890,7 +2890,7 @@ val ret_call_excp_handler_tac =
      fs []) >>
     strip_tac >> fs [])
 
-Triviality flatten_nil_no_size:
+Theorem flatten_nil_no_size[local]:
   flatten x = [] ⇔ size_of_shape(shape_of x) = 0
 Proof
   rw[EQ_IMP_THM,GSYM length_flatten_eq_size_of_shape]
@@ -3033,9 +3033,10 @@ Proof
       PURE_TOP_CASE_TAC >>
       rename1 ‘(xk:varkind,x)’ >>
       Cases_on ‘xk’ >> fs[] >>
-      rename1 ‘is_valid_value s.locals q v’ >>
-      cases_on ‘is_valid_value s.locals q v’ >> fs [] >> rveq >>
+      qmatch_asmsub_abbrev_tac ‘(if X then _ else _) = (res,s1)’ >>
+      cases_on ‘X’ >> fs [] >> rveq >>
       fs [is_valid_value_def] >>
+      rename1 ‘ FLOOKUP s.locals q’>>
       cases_on ‘FLOOKUP s.locals q’ >> fs [] >>
       fs [wrap_rt_def] >>
       TOP_CASE_TAC >> fs []
@@ -3216,14 +3217,15 @@ Proof
       rename [‘geid = eid’] >>
       cases_on ‘FLOOKUP s.eshapes eid’ >> fs [] >> rveq >>
       cases_on ‘shape_of v = x’ >> fs [] >>
-      rename1 ‘is_valid_value s.locals m'' v’ >>
-      cases_on ‘is_valid_value s.locals m'' v’ >> fs [] >>
+      qmatch_asmsub_abbrev_tac ‘(if X then _ else _) = (res,s1)’ >>
+      cases_on ‘X’ >> fs [] >>
       cases_on ‘FLOOKUP ctxt.eids eid’ >> fs []
       >- (fs [excp_rel_def] >>
           imp_res_tac fdoms_eq_flookup_some_none >> fs []) >>
       rename1 ‘FLOOKUP ctxt.eids eid = SOME x'’>>
       cases_on ‘x'’ >> fs [] >> rveq >>
-      TOP_CASE_TAC >> fs []
+      TOP_CASE_TAC >> fs []>>
+      rename1 ‘exp_hdl _ m''’
       >- ret_call_excp_handler_tac >>
       TOP_CASE_TAC >> fs [] >>
       ret_call_excp_handler_tac) >>
@@ -3235,7 +3237,7 @@ Proof
   TRY (rpt TOP_CASE_TAC) >> fs [] >> call_tail_ret_impl_tac
 QED
 
-Triviality locals_id_update:
+Theorem locals_id_update[local]:
   t with locals := t.locals = t
 Proof
   rw[state_component_equality]
@@ -4369,17 +4371,17 @@ Proof
   gvs[panSemTheory.dec_clock_def]
 QED
 
-Theorem list_max_APPEND:
-  list_max(a ++ b) = MAX (list_max a) (list_max b)
+Theorem MAX_LIST_APPEND:
+  MAX_LIST(a ++ b) = MAX (MAX_LIST a) (MAX_LIST b)
 Proof
-  Induct_on ‘a’ \\ rw[list_max_def] \\
+  Induct_on ‘a’ \\ rw[MAX_LIST_def] \\
   intLib.COOPER_TAC
 QED
 
-Theorem list_max_NOT_MEM:
-  x > list_max l ⇒ ¬MEM x l
+Theorem MAX_LIST_NOT_MEM:
+  x > MAX_LIST l ⇒ ¬MEM x l
 Proof
-  Induct_on ‘l’ \\ gvs[list_max_def]
+  Induct_on ‘l’ \\ gvs[MAX_LIST_def,MAX_DEF]
 QED
 
 Theorem compile_ExtCall:
@@ -4400,38 +4402,38 @@ Proof
   qmatch_goalsub_abbrev_tac ‘Dec (freshv + 2)’ \\
   rename1 ‘var_cexp e1 ++ var_cexp e2 ++ var_cexp e3 ++ var_cexp e4’ \\
   ‘¬MEM (freshv + 1) (var_cexp e2)’
-    by(simp[Abbr ‘freshv’,FOLDR_MAX_0_list_max,list_max_APPEND] \\
+    by(simp[Abbr ‘freshv’,FOLDR_MAX_0_MAX_LIST,MAX_LIST_APPEND] \\
        rw[MAX_DEF] \\
-       match_mp_tac list_max_NOT_MEM \\
+       match_mp_tac MAX_LIST_NOT_MEM \\
        intLib.COOPER_TAC) \\
   simp[Once evaluate_def] \\
   simp[update_locals_not_vars_eval_eq'] \\
   ‘¬MEM (freshv + 1) (var_cexp e3)’
-    by(simp[Abbr ‘freshv’,FOLDR_MAX_0_list_max,list_max_APPEND] \\
+    by(simp[Abbr ‘freshv’,FOLDR_MAX_0_MAX_LIST,MAX_LIST_APPEND] \\
        rw[MAX_DEF] \\
-       match_mp_tac list_max_NOT_MEM \\
+       match_mp_tac MAX_LIST_NOT_MEM \\
        intLib.COOPER_TAC) \\
   ‘¬MEM (freshv + 2) (var_cexp e3)’
-    by(simp[Abbr ‘freshv’,FOLDR_MAX_0_list_max,list_max_APPEND] \\
+    by(simp[Abbr ‘freshv’,FOLDR_MAX_0_MAX_LIST,MAX_LIST_APPEND] \\
        rw[MAX_DEF] \\
-       match_mp_tac list_max_NOT_MEM \\
+       match_mp_tac MAX_LIST_NOT_MEM \\
        intLib.COOPER_TAC) \\
   simp[Once evaluate_def] \\
   simp[update_locals_not_vars_eval_eq',update_locals_not_vars_eval_eq''] \\
   ‘¬MEM (freshv + 1) (var_cexp e4)’
-    by(simp[Abbr ‘freshv’,FOLDR_MAX_0_list_max,list_max_APPEND] \\
+    by(simp[Abbr ‘freshv’,FOLDR_MAX_0_MAX_LIST,MAX_LIST_APPEND] \\
        rw[MAX_DEF] \\
-       match_mp_tac list_max_NOT_MEM \\
+       match_mp_tac MAX_LIST_NOT_MEM \\
        intLib.COOPER_TAC) \\
   ‘¬MEM (freshv + 2) (var_cexp e4)’
-    by(simp[Abbr ‘freshv’,FOLDR_MAX_0_list_max,list_max_APPEND] \\
+    by(simp[Abbr ‘freshv’,FOLDR_MAX_0_MAX_LIST,MAX_LIST_APPEND] \\
        rw[MAX_DEF] \\
-       match_mp_tac list_max_NOT_MEM \\
+       match_mp_tac MAX_LIST_NOT_MEM \\
        intLib.COOPER_TAC) \\
   ‘¬MEM (freshv + 3) (var_cexp e4)’
-    by(simp[Abbr ‘freshv’,FOLDR_MAX_0_list_max,list_max_APPEND] \\
+    by(simp[Abbr ‘freshv’,FOLDR_MAX_0_MAX_LIST,MAX_LIST_APPEND] \\
        rw[MAX_DEF] \\
-       match_mp_tac list_max_NOT_MEM \\
+       match_mp_tac MAX_LIST_NOT_MEM \\
        intLib.COOPER_TAC) \\
   simp[Once evaluate_def] \\
   simp[update_locals_not_vars_eval_eq',update_locals_not_vars_eval_eq''] \\
@@ -4459,7 +4461,7 @@ Theorem pc_compile_correct:
 Proof
   match_mp_tac (the_ind_thm()) >>
   EVERY (map strip_assume_tac
-         [compile_Skip_Break_Continue_Annot_Global,compile_Store32,
+         [compile_Skip_Break_Continue_Annot,compile_Store32,
           compile_Dec, compile_ShMemLoad, compile_ShMemStore,
           compile_Assign, compile_Store, compile_StoreByte, compile_Seq,
           compile_If, compile_While, compile_Call, compile_ExtCall,
@@ -4516,7 +4518,7 @@ Proof
   gvs[make_funcs_def,MAP2_MAP,ZIP_MAP_MAP,MAP_MAP_o,o_DEF,
       SIMP_RULE std_ss [ELIM_UNCURRY] ALOOKUP_MAP,ELIM_UNCURRY,
       compile_prog_def,crep_vars_def,EVERY_MEM,comp_func_def,
-      mk_ctxt_def,ctxt_fc_def,make_vmap_def,list_max_i_genlist,EVERY_MEM] >>
+      mk_ctxt_def,ctxt_fc_def,make_vmap_def,MAX_LIST_i_genlist,EVERY_MEM] >>
   res_tac >> fs[]
 QED
 
@@ -4529,7 +4531,7 @@ Proof
   rfs [arithmeticTheory.LESS_MOD]
 QED
 
-Triviality pair_map_I:
+Theorem pair_map_I[local]:
   (λ(x,y). (x,y)) = I
 Proof
   rw[FUN_EQ_THM,ELIM_UNCURRY]

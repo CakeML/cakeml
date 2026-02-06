@@ -13,48 +13,46 @@ open xcf;
 
 val ERR = mk_HOL_ERR "cfTacticsLib";
 
-fun constant_printer s _ _ _ (ppfns:term_pp_types.ppstream_funs) _ _ _ =
-  let
+local
+  fun constant_printer s _ _ _ (ppfns:term_pp_types.ppstream_funs) _ _ _ = let
     open Portable term_pp_types smpp
     val str = #add_string ppfns
   in str s end
-
-val ellipsis_pp = constant_printer "(…)"
-
-val printers = [
-  ("extend_env_ellipsis", ``extend_env _ _ _``, ellipsis_pp),
-  ("extend_env_rec_ellipsis", ``extend_env_rec _ _ _ _ _``, ellipsis_pp),
-  ("extend_env_with_ellipsis", ``extend_env _ _ _ with v := _``, ellipsis_pp),
-  ("extend_env_rec_with_ellipsis", ``extend_env_rec _ _ _ _ _ with v := _``,
-   ellipsis_pp)
-]
-
+  val ellipsis_pp = constant_printer "(…)"
+  val printers = [
+    ("extend_env_ellipsis", ``extend_env _ _ _``, ellipsis_pp),
+    ("extend_env_rec_ellipsis", ``extend_env_rec _ _ _ _ _``, ellipsis_pp),
+    ("extend_env_with_ellipsis", ``extend_env _ _ _ with v := _``, ellipsis_pp),
+    ("extend_env_rec_with_ellipsis",
+     ``extend_env_rec _ _ _ _ _ with v := _``, ellipsis_pp)
+  ]
+in
 fun hide_environments b =
   if b then app temp_add_user_printer printers
   else app (ignore o temp_remove_user_printer) (map #1 printers)
-
-val _ = hide_environments true
+end
 
 (*------------------------------------------------------------------*)
 
-val cs = computeLib.the_compset
-val () = listLib.list_rws cs
-val () = basicComputeLib.add_basic_compset cs
-val () = semanticsComputeLib.add_semantics_compset cs
-val () = ml_progComputeLib.add_env_compset cs
-val () = cfComputeLib.add_cf_aux_compset cs
-val () = computeLib.extend_compset [
-  computeLib.Defs [
-(*  TS: it's quite unclear to me why CF does this, when ml_progScript is so
-    careful to ensure that these definitions aren't in the compset. I've tried
-    adjusting it, but it results in far too much work. *)
-    ml_progTheory.merge_env_def,
-    ml_progTheory.write_def,
-    ml_progTheory.write_mod_def,
-    ml_progTheory.write_cons_def,
-    ml_progTheory.empty_env_def
-    (*semanticPrimitivesTheory.merge_alist_mod_env_def*)
-  ]] cs
+val cs = !(computeLib.the_compset)
+  |> listLib.list_rws
+  |> basicComputeLib.add_basic_compset
+  |> semanticsComputeLib.add_semantics_compset
+  |> ml_progComputeLib.add_env_compset
+  |> cfComputeLib.add_cf_aux_compset
+  |> computeLib.extend_compset [
+       computeLib.Defs [
+       (*  TS: it's quite unclear to me why CF does this, when ml_progScript is so
+           careful to ensure that these definitions aren't in the compset. I've tried
+           adjusting it, but it results in far too much work. *)
+         ml_progTheory.merge_env_def,
+         ml_progTheory.write_def,
+         ml_progTheory.write_mod_def,
+         ml_progTheory.write_cons_def,
+         ml_progTheory.empty_env_def
+         (*semanticPrimitivesTheory.merge_alist_mod_env_def*)
+       ]
+     ]
 
 val _ = (max_print_depth := 15)
 
@@ -107,20 +105,20 @@ val reducible_pats = [
   ``Fun_body _``
 ]
 
-val old_reduce_conv =
-    DEPTH_CONV (
-      List.foldl (fn (pat, conv) => (eval_pat pat) ORELSEC conv)
-                 ALL_CONV reducible_pats
-    ) THENC
-    (simp_conv [])
-
 val reduce_conv =
     (DEPTH_CONV (
       List.foldl (fn (pat, conv) => (eval_pat pat) ORELSEC conv)
-                 ALL_CONV reducible_pats
-    )) THENC
-    (STRIP_QUANT_CONV (simp_conv []))
-    THENC (SIMP_CONV (list_ss) [])
+                 ALL_CONV reducible_pats))
+    (* It seems that the next line makes npbc_arrayProg around 29s faster; it would
+       be good to confirm this, though. Maybe doing basic simplifications first
+       results in a smaller term, meaning less work is done in the following
+       SIMP_CONV? *)
+    THENC (STRIP_QUANT_CONV (SIMP_CONV pure_ss []))
+    (* We probably do not use all of srw_ss, so there may be potential for a
+       smaller simpset. Some of the things we use, though:
+       - simpLib.type_ssfrag for at least ast$op
+       - pair_CASE_def *)
+    THENC (SIMP_CONV (srw_ss()) [])
 
 val reduce_tac = CONV_TAC reduce_conv
 
@@ -134,7 +132,8 @@ fun cf_get_precondition t = rand (rator t)
 
 (* xx *)
 val cf_defs =
-  [cf_lit_def, cf_con_def, cf_var_def, cf_let_def, cf_opn_def, cf_opb_def,
+  [cf_lit_def, cf_con_def, cf_var_def, cf_let_def, cf_opn_def,
+   cf_int_cmp_def,
    cf_app_def, cf_fun_def, cf_fun_rec_def, cf_ref_def, cf_assign_def,
    cf_deref_def, cf_aalloc_def, cf_asub_def, cf_alength_def, cf_aupdate_def,
    cf_aw8alloc_def, cf_aw8sub_def, cf_aw8length_def, cf_aw8update_def,
@@ -169,7 +168,11 @@ val xlocal =
     first_assum MATCH_ACCEPT_TAC,
     (HO_MATCH_MP_TAC app_local \\ fs [] \\ NO_TAC),
     (HO_MATCH_ACCEPT_TAC cf_cases_local \\ NO_TAC),
-    (fs (local_is_local :: cf_defs) \\ NO_TAC)
+    (asm_rewrite_tac (cf_defs) \\
+     CONV_TAC (ONCE_DEPTH_CONV BETA_CONV) \\
+     rewrite_tac [local_is_local])
+    (* Note the lack of NO_TAC in the final attempt -
+       unsolved goals will be returned *)
   ] (* todo: is_local_pred *)
 
 fun xpull_check_not_needed (g as (_, w)) =
@@ -183,7 +186,7 @@ fun xpull_core (g as (_, w)) =
     hclean g
 
 val xpull =
-  xpull_core \\ rpt strip_tac THEN1 (TRY xlocal)
+  xpull_core \\ rpt strip_tac THEN_LT (NTH_GOAL xlocal 1)
 
 (* [xsimpl] *)
 
@@ -202,16 +205,16 @@ val xsimpl =
 
 (* [xlet] *)
 
-fun xlet_core cont0 cont1 cont2 =
+fun xlet_core Q qname =
   xpull_check_not_needed \\
   head_unfold cf_let_def \\
   irule local_elim \\ hnf \\
-  simp [namespaceTheory.nsOptBind_def] \\
-  cont0 \\
+  rewrite_tac [namespaceTheory.nsOptBind_def] \\
+  qexists_tac Q \\
   rpt CONJ_TAC THENL [
     all_tac,
     TRY (MATCH_ACCEPT_TAC cfHeapsBaseTheory.SEP_IMPPOSTv_inv_POSTv_left),
-    cont1 \\ cont2
+    qx_gen_tac qname \\ simp_tac (srw_ss()) [] \\ TRY xpull
   ]
 
 val res_CASE_tm =
@@ -259,13 +262,8 @@ fun xlet Q (g as (asl, w)) = let
   val ctx = free_varsl (w :: asl)
   val name = vname_of_post "v" (Term Q)
   val name' = prim_variant ctx (mk_var (name, v_ty)) |> dest_var |> fst
-  val qname = [QUOTE name']
 in
-  xlet_core
-    (qexists_tac Q)
-    (qx_gen_tac qname \\ simp [])
-    (TRY xpull)
-    g
+  xlet_core Q [QUOTE name'] g
 end
 
 (* [xfun] *)
@@ -426,7 +424,7 @@ fun xspec_in_asl f asl : (spec_kind * term) option =
   asl
 
 fun xspec_in_db f : (string * string * spec_kind * thm) option =
-  case DB.matchp (fn thm => is_spec_for f (concl thm)) [] of
+  case DB.matchp (fn thm => can (find_term (same_const f)) (concl thm) andalso is_spec_for f (concl thm)) [] of
       ((thy, name), (thm, _, _)) :: _ =>
       (case spec_kind_for f (concl thm) of
            SOME k => SOME (thy, name, k, thm)
@@ -463,7 +461,7 @@ val unfolded_app_reduce_conv =
 let
   fun fail_if_F_conv msg tm =
     if Feq tm then raise ERR "xapp" msg
-    else REFL tm
+    else ALL_CONV tm
 
   val fname_lookup_reduce_conv =
     reduce_conv THENC
@@ -524,7 +522,8 @@ fun xapp_spec spec = xapp_core (SOME spec)
 
 val xret_irule_lemma =
   FIRST [(* irule xret_lemma_unify,*)
-         HO_MATCH_MP_TAC xret_lemma \\ conj_tac]
+         HO_MATCH_MP_TAC xret_lemma \\ conj_tac,
+         HO_MATCH_MP_TAC xret_lemma1]
 
 val xret_no_gc_core =
     FIRST [(*irule xret_lemma_unify,*)
@@ -576,7 +575,9 @@ val xif_base =
   head_unfold cf_if_def \\
   irule local_elim \\ hnf \\
   reduce_tac \\
-  TRY (asm_exists_tac \\ simp [] \\ conj_tac \\ DISCH_TAC)
+  TRY (asm_exists_tac
+       \\ full_simp_tac std_ss []
+       \\ conj_tac \\ DISCH_TAC)
 
 val xif = xif_base
 
@@ -608,10 +609,16 @@ in
 end
 
 val unfold_cases =
-  simp [cf_cases_def] \\
-  CONSEQ_CONV_TAC (CONSEQ_HO_REWRITE_CONV ([local_elim], [], [])) \\
+  (* using the "once" variant does not work *)
+  pure_rewrite_tac [cf_cases_def] \\
+  CONSEQ_HO_REWRITE_TAC ([local_elim], [], []) \\
   CONV_TAC (LAND_CONV clean_cases_conv) \\
-  simp []
+  (* srw_ss() can potentially be weakened much more; bool_ss fails because
+     it does not simplify something like
+       Conv (SOME (TypeStamp "Some" 2)) [Conv NONE [v1_1; v1_2]] =
+          Conv (SOME (TypeStamp "None" 2)) []
+     to F *)
+  asm_simp_tac (srw_ss()) []
 
 fun validate_pat_conv tm = let
   val conv =
@@ -670,14 +677,14 @@ val xffi =
   head_unfold cf_ffi_def \\
   irule local_elim \\ hnf \\
   simp [app_ffi_def] \\ reduce_tac \\
-  conj_tac \\ cleanup_exn_side_cond
+  cleanup_exn_side_cond
 
 (* [xraise] *)
 
 val xraise =
   xpull_check_not_needed \\
   head_unfold cf_raise_def \\ reduce_tac \\
-  HO_MATCH_MP_TAC xret_lemma \\
+  HO_MATCH_MP_TAC xret_lemma1 \\
   cleanup_exn_side_cond
 
 (* [xhandle] *)
@@ -708,13 +715,13 @@ in
     g
 end
 
-(* [xopb] *)
-val xopb =
+(* [xint_cmp] *)
+val xint_cmp =
   xpull_check_not_needed \\
-  head_unfold cf_opb_def \\
+  head_unfold cf_int_cmp_def \\
   reduce_tac \\
   irule local_elim \\ hnf \\
-  simp[app_opb_def, semanticPrimitivesTheory.opb_lookup_def] \\
+  simp[app_int_cmp_def, semanticPrimitivesTheory.int_cmp_def] \\
   cleanup_exn_side_cond
 
 (* [xopn] *)

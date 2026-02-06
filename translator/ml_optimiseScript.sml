@@ -53,18 +53,24 @@ End
 Theorem BOTTOM_UP_OPT_def[allow_rebind,compute] =
   BOTTOM_UP_OPT_def |> SIMP_RULE std_ss [LET_THM];
 
-val LENGTH_BOTTOM_UP_OPT_LIST = prove(
-  ``!xs. LENGTH (BOTTOM_UP_OPT_LIST f xs) = LENGTH xs``,
-  Induct \\ fs [BOTTOM_UP_OPT_def]);
+Theorem LENGTH_BOTTOM_UP_OPT_LIST[local]:
+    !xs. LENGTH (BOTTOM_UP_OPT_LIST f xs) = LENGTH xs
+Proof
+  Induct \\ fs [BOTTOM_UP_OPT_def]
+QED
 
-val BOTTOM_UP_OPT_LIST_APPEND = prove(
-  ``!xs ys. BOTTOM_UP_OPT_LIST f (xs++ys) =
-            BOTTOM_UP_OPT_LIST f xs ++ BOTTOM_UP_OPT_LIST f ys``,
-  Induct \\ fs [BOTTOM_UP_OPT_def]);
+Theorem BOTTOM_UP_OPT_LIST_APPEND[local]:
+    !xs ys. BOTTOM_UP_OPT_LIST f (xs++ys) =
+            BOTTOM_UP_OPT_LIST f xs ++ BOTTOM_UP_OPT_LIST f ys
+Proof
+  Induct \\ fs [BOTTOM_UP_OPT_def]
+QED
 
-val REVERSE_BOTTOM_UP_OPT_LIST = prove(
-  ``!xs. REVERSE (BOTTOM_UP_OPT_LIST f xs) = BOTTOM_UP_OPT_LIST f (REVERSE xs)``,
-  Induct \\ fs [BOTTOM_UP_OPT_def,BOTTOM_UP_OPT_LIST_APPEND]);
+Theorem REVERSE_BOTTOM_UP_OPT_LIST[local]:
+    !xs. REVERSE (BOTTOM_UP_OPT_LIST f xs) = BOTTOM_UP_OPT_LIST f (REVERSE xs)
+Proof
+  Induct \\ fs [BOTTOM_UP_OPT_def,BOTTOM_UP_OPT_LIST_APPEND]
+QED
 
 Theorem dec_clock_with_clock[simp]:
    (dec_clock st1 with clock := c) = st1 with clock := c
@@ -108,7 +114,7 @@ Proof
   \\ metis_tac []
 QED
 
-Triviality BOTTOM_UP_OPT_THM1:
+Theorem BOTTOM_UP_OPT_THM1[local]:
   (!x ^s env s1 r. eval_rel ^s env x s1 r ==> eval_rel ^s env (f x) s1 r) ==>
   (!g x s s1 r env. g = f /\ eval_rel ^s env x s1 r ==> eval_rel ^s env (BOTTOM_UP_OPT f x) s1 r) /\
   (!g xs s s1 r env. g = f /\ eval_list_rel ^s env xs s1 r ==>
@@ -160,12 +166,9 @@ Proof
     \\ asm_exists_tac
     \\ simp []
     \\ dxrule_then (qspec_then `ck2` mp_tac) evaluate_decs_add_to_clock
-    \\ rw [evaluateTheory.dec_clock_def]
-   )
+    \\ rw [evaluateTheory.dec_clock_def])
   THEN1
-   (
-   fs [error_result_case_eq]
-   )
+   (fs [error_result_case_eq])
   THEN1 (* App Opapp *)
    (rename1 `_ = (st1,Rval vs)`
     \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
@@ -182,6 +185,19 @@ Proof
     \\ disch_then (qspec_then `st1.clock+1` assume_tac)
     \\ asm_exists_tac \\ fs []
     \\ fs [evaluateTheory.dec_clock_def,state_component_equality])
+  THEN1 (* App Force *)
+   (rename1 `_ = (st1,Rval vs)`
+    \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
+          ((st1 with clock := s1.clock) with clock := st1.clock,Rval vs)`
+             by fs [state_component_equality]
+    \\ first_x_assum drule \\ simp [] \\ strip_tac
+    \\ drule evaluate_add_to_clock \\ fs []
+    \\ disch_then (qspec_then `st1.clock` assume_tac)
+    \\ asm_exists_tac \\ fs []
+    \\ gvs [AllCaseEqs(), dec_clock_def, PULL_EXISTS] >- metis_tac []
+    \\ qpat_x_assum `evaluate _ env' _ = _` assume_tac
+    \\ drule evaluate_add_to_clock \\ rw []
+    \\ metis_tac [])
   THEN1 (* App Simple *)
    (rename1 `_ = (st1,Rval vs)`
     \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
@@ -289,7 +305,7 @@ Definition abs2let_def:
              | rest => rest
 End
 
-Triviality abs2let_thm:
+Theorem abs2let_thm[local]:
   !env s exp t res. eval_rel s env exp t res ==>
                      eval_rel s env (abs2let exp) t res
 Proof
@@ -317,7 +333,7 @@ Definition let_id_def:
   (let_id rest = rest)
 End
 
-Triviality let_id_thm:
+Theorem let_id_thm[local]:
   !env s exp t res. eval_rel s env exp t res ==>
                      eval_rel s env (let_id exp) t res
 Proof
@@ -356,14 +372,14 @@ Definition opt_sub_add_def:
          | _ => x
 End
 
-Triviality dest_binop_thm:
+Theorem dest_binop_thm[local]:
   !x. (dest_binop x = SOME (x1,x2,x3)) <=> (x = App (Opn x1) [x2; x3])
 Proof
   HO_MATCH_MP_TAC (fetch "-" "dest_binop_ind")
   \\ FULL_SIMP_TAC (srw_ss()) [dest_binop_def]
 QED
 
-Triviality opt_sub_add_thm:
+Theorem opt_sub_add_thm[local]:
   !env s exp t res. eval_rel s env exp t res ==>
                      eval_rel s env (opt_sub_add exp) t res
 Proof

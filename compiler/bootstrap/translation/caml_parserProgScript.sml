@@ -1,7 +1,7 @@
 (*
   Translation of the functions in caml_parserScript.sml
  *)
-Theory caml_parserProg
+Theory caml_parserProg[no_sig_docs]
 Ancestors
   misc[qualified] camlPEG camlPtreeConversion caml_parser
   ml_translator caml_lexProg
@@ -72,11 +72,7 @@ fun def_of_const tm = let
 
 val _ = (find_def_for_const := def_of_const);
 
-val _ = ml_translatorLib.use_string_type false;
-
 val r = translate string_lt_def;
-
-val _ = ml_translatorLib.use_string_type true;
 
 (* -------------------------------------------------------------------------
  * Ptree conversion
@@ -263,7 +259,7 @@ val r = preprocess ptree_Start_def |> translate;
 
 val _ = extra_preprocessing := [MEMBER_INTRO,MAP]
 
-Triviality and_or_imp_lemma:
+Theorem and_or_imp_lemma[local]:
   (b ∨ c ⇔ if b then T else c) ∧
   (b ∧ c ⇔ if b then c else F) ∧
   ((b ⇒ c) ⇔ if b then c else T) ∧
@@ -300,6 +296,5 @@ QED
 
 val _ = update_precondition run_side;
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 val () = ml_translatorLib.clean_on_exit := true;
 

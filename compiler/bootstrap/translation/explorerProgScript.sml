@@ -1,7 +1,7 @@
 (*
   Translate the compiler explorer parts of the compiler.
 *)
-Theory explorerProg
+Theory explorerProg[no_sig_docs]
 Ancestors
   inferProg
 Libs
@@ -16,7 +16,6 @@ val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = translation_extends "inferProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "explorerProg");
-val _ = ml_translatorLib.use_string_type false;
 val _ = ml_translatorLib.use_sub_check true;
 
 (* TODO: this is copied in many bootstrap translation files - should be in a lib? *)
@@ -44,7 +43,7 @@ val res = translate jsonLangTheory.concat_with_def;
 
 val res = translate_no_ind jsonLangTheory.json_to_mlstring_def;
 
-Triviality json_to_mlstring_ind:
+Theorem json_to_mlstring_ind[local]:
   json_to_mlstring_ind
 Proof
   rewrite_tac [fetch "-" "json_to_mlstring_ind_def"]
@@ -56,9 +55,8 @@ QED
 
 val _ = json_to_mlstring_ind |> update_precondition;
 
-(* str_tree and displayLang *)
+(* displayLang *)
 
-val r = translate str_treeTheory.v2strs_def;
 val r = translate displayLangTheory.display_to_str_tree_def;
 
 (* presLang *)
@@ -67,22 +65,21 @@ val res = translate presLangTheory.num_to_hex_def;
 val res = translate (presLangTheory.word_to_display_def |> INST_TYPE [``:'a``|->``:8``]);
 val res = translate (presLangTheory.word_to_display_def |> INST_TYPE [``:'a``|->``:64``]);
 
-val _ = ml_translatorLib.use_string_type true;
 val res = translate presLangTheory.source_to_strs_def;
-val _ = ml_translatorLib.use_string_type false;
 
-val _ = ml_translatorLib.use_string_type true;
 val res = translate presLangTheory.flat_to_strs_def;
 val res = translate presLangTheory.clos_op_to_display_def;
-val _ = ml_translatorLib.use_string_type false;
 
-val r = translate presLangTheory.num_to_varn_def
-val num_to_varn_side = Q.prove(`
-  ∀n. num_to_varn_side n ⇔ T`,
-  recInduct presLangTheory.num_to_varn_ind \\ rw[] \\
-  rw[Once (theorem"num_to_varn_side_def")] \\
+val r = translate presLangTheory.num_to_varn_aux_def
+
+val num_to_varn_aux_side = Q.prove(`
+  ∀n. num_to_varn_aux_side n ⇔ T`,
+  recInduct presLangTheory.num_to_varn_aux_ind \\ rw[] \\
+  rw[Once (theorem"num_to_varn_aux_side_def")] \\
   `n MOD 26 < 26` by simp[] \\ decide_tac)
   |> update_precondition;
+
+val r = translate presLangTheory.num_to_varn_def
 
 val r = presLangTheory.display_num_as_varn_def
           |> REWRITE_RULE [presLangTheory.string_imp_def]
@@ -100,13 +97,12 @@ val r = translate presLangTheory.bvi_to_display_def;
 val r = translate presLangTheory.bvi_fun_to_display_def;
 val r = translate presLangTheory.bvi_to_strs_def;
 
-Triviality string_imp_thm:
-  string_imp = λs. String (implode s)
+Theorem string_imp_thm[local]:
+  string_imp = λs. String s
 Proof
   fs [FUN_EQ_THM,presLangTheory.string_imp_def]
 QED
 
-val _ = ml_translatorLib.use_string_type true;
 val r = presLangTheory.clos_to_display_def
           |> REWRITE_RULE [string_imp_thm]
           |> translate
@@ -114,7 +110,6 @@ val r = presLangTheory.clos_to_display_def
 val r = translate presLangTheory.clos_dec_to_display_def;
 val r = translate presLangTheory.clos_to_strs_def;
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 

@@ -10,7 +10,7 @@ Ancestors
   mlstring mllist holSyntaxExtra ml_monadBase
 
 val _ = ParseExtras.temp_loose_equality();
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 val _ = monadsyntax.temp_add_monadsyntax()
 
 Overload monad_bind[local] = ``st_ex_bind``
@@ -83,14 +83,14 @@ End
 
 Definition assoc_def:
   assoc s l =
-    dtcase l of
+    case l of
       [] => failwith (strlit "not in list")
     | ((x:'a,y:'b)::xs) => if s = x then do return y od else assoc s xs
 End
 
 Definition map_def:
   map f l =
-    dtcase l of
+    case l of
       [] => return []
     | (h::t) => do h <- f h ;
                    t <- map f t ;
@@ -100,14 +100,14 @@ End
 (*
 Definition app_def:
   app f l =
-    case l of
+    pmatch l of
       [] => return ()
     | (h::t) => do f h ; app f t od
 End
 
 Definition first_def:
   first p l =
-    case l of
+    pmatch l of
       [] => NONE
     | (h::t) => if p h then SOME h else first p t
 End
@@ -115,7 +115,7 @@ End
 
 Definition forall_def:
   forall p l =
-    dtcase l of
+    case l of
       [] => return T
     | (h::t) => do ok <- p h ;
                    if ok then forall p t else return F od
@@ -204,7 +204,7 @@ End
 
 Definition dest_type_def:
   dest_type t =
-    dtcase t of
+    case t of
       Tyapp s ty => do return (s,ty) od
     | Tyvar _ => do failwith (strlit"dest_type: type variable not a constructor") od
 End
@@ -218,7 +218,7 @@ End
 
 Definition dest_vartype_def:
   dest_vartype t =
-    dtcase t of
+    case t of
       Tyapp _ _ => do failwith (strlit "dest_vartype: type constructor not a variable") od
     | Tyvar s => do return s od
 End
@@ -228,7 +228,7 @@ End
 *)
 
 Definition is_type_def:
-  is_type t = dtcase t of Tyapp s ty => T | _ => F
+  is_type t = case t of Tyapp s ty => T | _ => F
 End
 
 (*
@@ -238,7 +238,7 @@ End
 *)
 
 Definition is_vartype_def:
-  is_vartype t = dtcase t of Tyvar _ => T | _ => F
+  is_vartype t = case t of Tyvar _ => T | _ => F
 End
 
 (*
@@ -250,7 +250,7 @@ End
 
 Definition tyvars_def:
   tyvars x =
-    dtcase x of (Tyapp _ args) => itlist union (MAP tyvars args) []
+    case x of (Tyapp _ args) => itlist union (MAP tyvars args) []
             | (Tyvar tv) => [tv]
 Termination
   WF_REL_TAC `measure (type_size)` THEN Induct_on `args`
@@ -272,14 +272,14 @@ End
 
 Definition rev_assocd_def:
   rev_assocd a l d =
-    dtcase l of
+    case l of
       [] => d
     | ((x,y)::l) => if y = a then x else rev_assocd a l d
 End
 
 Definition type_subst_def:
   type_subst i ty =
-    dtcase ty of
+    case ty of
       Tyapp tycon args =>
          let args' = MAP (type_subst i) args in
          if args' = args then ty else Tyapp tycon args'
@@ -335,12 +335,12 @@ End
 
 Definition type_of_def:
   type_of tm =
-    dtcase tm of
+    case tm of
       Var _ ty => return ty
     | Const _ ty => return ty
     | Comb s _ => do ty <- type_of s ;
                      x <- dest_type ty ;
-                     dtcase x of (_,_::ty1::_) => return ty1
+                     case x of (_,_::ty1::_) => return ty1
                              | _ => failwith (strlit "match")
                   od
     | Abs (Var _ ty) t => do x <- type_of t; mk_fun_ty ty x od
@@ -369,7 +369,7 @@ End
 
 Definition alphavars_def:
   alphavars env tm1 tm2 =
-    dtcase env of
+    case env of
       [] => (tm1 = tm2)
     | (t1,t2)::oenv =>
          ((t1 = tm1) /\ (t2 = tm2)) \/
@@ -378,12 +378,12 @@ End
 
 Definition raconv_def:
   raconv env tm1 tm2 =
-    dtcase (tm1,tm2) of
+    case (tm1,tm2) of
       (Var _ _, Var _ _) => alphavars env tm1 tm2
     | (Const _ _, Const _ _) => (tm1 = tm2)
     | (Comb s1 t1, Comb s2 t2) => raconv env s1 s2 /\ raconv env t1 t2
     | (Abs v1 t1, Abs v2 t2) =>
-       (dtcase (v1,v2) of
+       (case (v1,v2) of
           (Var n1 ty1, Var n2 ty2) => (ty1 = ty2) /\
                                       raconv ((v1,v2)::env) t1 t2
         | _ => F)
@@ -402,16 +402,16 @@ End
 *)
 
 Definition is_var_def:
-  is_var x = dtcase x of (Var _ _) => T | _ => F
+  is_var x = case x of (Var _ _) => T | _ => F
 End
 Definition is_const_def:
-  is_const x = dtcase x of (Const _ _) => T | _ => F
+  is_const x = case x of (Const _ _) => T | _ => F
 End
 Definition is_abs_def:
-  is_abs x = dtcase x of (Abs _ _) => T | _ => F
+  is_abs x = case x of (Abs _ _) => T | _ => F
 End
 Definition is_comb_def:
-  is_comb x = dtcase x of (Comb _ _) => T | _ => F
+  is_comb x = case x of (Comb _ _) => T | _ => F
 End
 
 (*
@@ -446,7 +446,7 @@ End
 
 Definition mk_abs_def:
   mk_abs(bvar,bod) =
-    dtcase bvar of
+    case bvar of
       Var n ty => return (Abs bvar bod)
     | _ => failwith (strlit "mk_abs: not a variable")
 End
@@ -462,7 +462,7 @@ Definition mk_comb_def:
   mk_comb(f,a) =
     do tyf <- type_of f ;
        tya <- type_of a ;
-       dtcase tyf of
+       case tyf of
          Tyapp (strlit "fun") [ty;_] => if tya = ty then return (Comb f a) else
                                  failwith (strlit "mk_comb: types do not agree")
        | _ => failwith (strlit "mk_comb: types do not agree")
@@ -484,22 +484,22 @@ End
 *)
 
 Definition dest_var_def:
-  dest_var tm = dtcase tm of Var s ty => return (s,ty)
+  dest_var tm = case tm of Var s ty => return (s,ty)
                          | _ => failwith (strlit "dest_var: not a variable")
 End
 
 Definition dest_const_def:
-  dest_const tm = dtcase tm of Const s ty => return (s,ty)
+  dest_const tm = case tm of Const s ty => return (s,ty)
                            | _ => failwith (strlit "dest_const: not a constant")
 End
 
 Definition dest_comb_def:
-  dest_comb tm = dtcase tm of Comb f x => return (f,x)
+  dest_comb tm = case tm of Comb f x => return (f,x)
                           | _ => failwith (strlit "dest_comb: not a combination")
 End
 
 Definition dest_abs_def:
-  dest_abs tm = dtcase tm of Abs v b => return (v,b)
+  dest_abs tm = case tm of Abs v b => return (v,b)
                          | _ => failwith (strlit "dest_abs: not an abstraction")
 End
 
@@ -531,7 +531,7 @@ End
 
 Definition freesin_def:
   freesin acc tm =
-    dtcase tm of
+    case tm of
       Var _ _ => MEM tm acc
     | Const _ _ => T
     | Abs bv bod => freesin (bv::acc) bod
@@ -554,12 +554,12 @@ End
     | Comb(s,t)        -> union (type_vars_in_term s) (type_vars_in_term t)
     | Abs(Var(_,ty),t) -> union (tyvars ty) (type_vars_in_term t)
 
-  The Abs case is modified slightly.
+  The Abs pmatch is modified slightly.
 *)
 
 Definition type_vars_in_term_def:
   type_vars_in_term tm =
-    dtcase tm of
+    case tm of
       Var _ ty   => tyvars ty
     | Const _ ty => tyvars ty
     | Comb s t   => union (type_vars_in_term s) (type_vars_in_term t)
@@ -577,19 +577,19 @@ End
   this a non-failing function to make it pure.
 *)
 
-Triviality EXISTS_IMP:
+Theorem EXISTS_IMP[local]:
   !xs p. EXISTS p xs ==> ?x. MEM x xs /\ p x
 Proof
   Induct THEN SIMP_TAC (srw_ss()) [EXISTS_DEF] THEN METIS_TAC []
 QED
 
-Triviality MEM_subtract:
+Theorem MEM_subtract[local]:
   !y z x. MEM x (subtract y z) = (MEM x y /\ ~MEM x z)
 Proof
   FULL_SIMP_TAC std_ss [subtract_def,MEM_FILTER] THEN METIS_TAC []
 QED
 
-Triviality vfree_in_IMP:
+Theorem vfree_in_IMP[local]:
   !(t:term) x v. vfree_in (Var v ty) x ==> MEM (Var v ty) (frees x)
 Proof
   HO_MATCH_MP_TAC (SIMP_RULE std_ss [] (vfree_in_ind))
@@ -624,7 +624,7 @@ QED
 
 Definition vsubst_aux_def:
   vsubst_aux ilist tm =
-    dtcase tm of
+    case tm of
       Var _ _ => rev_assocd tm ilist tm
     | Const _ _ => tm
     | Comb s t => let s' = vsubst_aux ilist s in
@@ -685,7 +685,7 @@ Definition my_term_size_def:
   (my_term_size (Abs s1 s2) = 1 + my_term_size s1 + my_term_size s2)
 End
 
-Triviality my_term_size_variant:
+Theorem my_term_size_variant[local]:
   !avoid t. my_term_size (variant avoid t) = my_term_size t
 Proof
   HO_MATCH_MP_TAC (variant_ind) THEN REPEAT STRIP_TAC
@@ -695,7 +695,7 @@ Proof
   THEN FULL_SIMP_TAC std_ss [my_term_size_def]
 QED
 
-Triviality is_var_variant:
+Theorem is_var_variant[local]:
   !avoid t. is_var (variant avoid t) = is_var t
 Proof
   HO_MATCH_MP_TAC (variant_ind) THEN REPEAT STRIP_TAC
@@ -727,7 +727,7 @@ val my_term_size_vsubst_aux = Q.prove(
   |> Q.SPECL [`t`,`[(Var v ty,x)]`]
   |> SIMP_RULE (srw_ss()) [EVERY_DEF,fetch "-" "is_var_def"]
 
-Triviality ZERO_LT_term_size:
+Theorem ZERO_LT_term_size[local]:
   !t. 0 < my_term_size t
 Proof
   Cases THEN EVAL_TAC THEN DECIDE_TAC
@@ -735,7 +735,7 @@ QED
 
 Definition inst_aux_def:
   (inst_aux (env:(term # term) list) tyin tm) =
-    dtcase tm of
+    case tm of
       Var n ty   => let ty' = type_subst tyin ty in
                     let tm' = if ty' = ty then tm else Var n ty' in
                     if rev_assocd tm' env tm = tm then return tm'
@@ -789,14 +789,14 @@ End
 
 Definition rator_def:
   rator tm =
-    dtcase tm of
+    case tm of
       Comb l r => return l
     | _ => failwith (strlit "rator: Not a combination")
 End
 
 Definition rand_def:
   rand tm =
-    dtcase tm of
+    case tm of
       Comb l r => return r
     | _ => failwith (strlit "rand: Not a combination")
 End
@@ -837,14 +837,14 @@ End
 
 Definition dest_eq_def:
   dest_eq tm =
-    dtcase tm of
+    case tm of
       Comb (Comb (Const (strlit "=") _) l) r => return (l,r)
     | _ => failwith (strlit "dest_eq")
 End
 
 Definition is_eq_def:
   is_eq tm =
-    dtcase tm of
+    case tm of
       Comb (Comb (Const (strlit "=") _) l) r => T
     | _ => F
 End
@@ -886,7 +886,7 @@ End
 
 val _ = PmatchHeuristics.with_classic_heuristic Define `
   TRANS (Sequent asl1 c1) (Sequent asl2 c2) =
-    dtcase (c1,c2) of
+    case (c1,c2) of
       (Comb (Comb (Const (strlit "=") _) l) m1, Comb (Comb (Const (strlit "=") _) m2) r) =>
         if aconv m1 m2 then do eq <- mk_eq(l,r);
                                return (Sequent (term_union asl1 asl2) eq) od
@@ -897,7 +897,7 @@ val _ = PmatchHeuristics.with_classic_heuristic Define `
 
 Definition SYM_def:
   SYM (Sequent asl eq) =
-    dtcase eq of
+    case eq of
       Comb (Comb (Const (strlit "=") t) l) r =>
         return (Sequent asl (Comb (Comb (Const (strlit "=") t) r) l))
     | _ => failwith (strlit "SYM")
@@ -942,7 +942,7 @@ End
 
 val _ = PmatchHeuristics.with_classic_heuristic Define `
   MK_COMB (Sequent asl1 c1,Sequent asl2 c2) =
-   dtcase (c1,c2) of
+   case (c1,c2) of
      (Comb (Comb (Const (strlit "=") _) l1) r1, Comb (Comb (Const (strlit "=") _) l2) r2) =>
        do x1 <- mk_comb(l1,l2) ;
           x2 <- mk_comb(r1,r2) ;
@@ -962,7 +962,7 @@ val _ = PmatchHeuristics.with_classic_heuristic Define `
 
 Definition ABS_def:
   ABS v (Sequent asl c) =
-    dtcase c of
+    case c of
       Comb (Comb (Const (strlit "=") _) l) r =>
         if EXISTS (vfree_in v) asl
         then failwith (strlit "ABS: variable is free in assumptions")
@@ -982,7 +982,7 @@ End
 
 Definition BETA_def:
   BETA tm =
-    dtcase tm of
+    case tm of
       Comb (Abs v bod) arg =>
         if arg = v then do eq <- mk_eq(tm,bod) ; return (Sequent [] eq) od
         else failwith (strlit "BETA: not a trivial beta-redex")
@@ -1013,7 +1013,7 @@ End
 
 Definition EQ_MP_def:
   EQ_MP (Sequent asl1 eq) (Sequent asl2 c) =
-    dtcase eq of
+    case eq of
       Comb (Comb (Const (strlit "=") _) l) r =>
         if aconv l c then return (Sequent (term_union asl1 asl2) r)
                      else failwith (strlit "EQ_MP")
@@ -1036,7 +1036,7 @@ End
 
 Definition image_def:
   image f l =
-  dtcase l of
+  case l of
     [] => return l
   | (h::t) => do h' <- f h ;
                  t' <- image f t ;
@@ -1105,7 +1105,7 @@ End
 
 Definition first_dup_def:
   first_dup ls acc =
-  dtcase ls of
+  case ls of
   | [] => NONE
   | (h::t) =>
     if MEM h acc then SOME h else first_dup t (h::acc)
@@ -1114,7 +1114,7 @@ End
 Definition add_constants_def:
   add_constants ls =
     do cs <- get_the_term_constants ;
-       dtcase first_dup (MAP FST ls) (MAP FST cs) of
+       case first_dup (MAP FST ls) (MAP FST cs) of
        | SOME name => failwith ((strlit "add_constants: ") ^ name ^ (strlit " appears twice or has already been declared"))
        | NONE => set_the_term_constants (ls++cs) od
 End
@@ -1214,7 +1214,7 @@ End
 
 Definition new_basic_type_definition_def:
   new_basic_type_definition (tyname, absname, repname, thm) =
-    dtcase thm of (Sequent asl c) =>
+    case thm of (Sequent asl c) =>
     do ok0 <- can get_type_arity tyname ;
        ok1 <- can get_const_type absname ;
        ok2 <- can get_const_type repname ;

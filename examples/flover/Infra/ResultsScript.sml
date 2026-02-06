@@ -16,19 +16,16 @@ Definition injectResult_def:
   injectResult _ = F
 End
 
-Definition result_bind_def:
+Definition result_bind_def[simp]:
   result_bind (Fail s) f = Fail s /\
   result_bind (FailDet s x) f = FailDet s x /\
   result_bind (Succes x) f = f x
 End
 
-Definition result_ignore_bind_def:
+Definition result_ignore_bind_def[simp]:
   result_ignore_bind m1 m2 = result_bind m1 (K m2)
 End
 
-Definition result_return_def:
+Definition result_return_def[simp]:
   result_return x = Succes x
 End
-
-val _ = export_rewrites ["result_return_def", "result_bind_def", "result_ignore_bind_def"]
-

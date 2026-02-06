@@ -12,8 +12,6 @@ val _ = diminish_srw_ss ["ABBREV"]
 
 val _ = translation_extends"scpog_arrayProg";
 
-val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
-
 val res = translate opt_union_def;
 val res = translate parse_show_def;
 
@@ -47,29 +45,30 @@ End
 
 val _ = translate format_dimacs_failure_def;
 
-val b_inputLineTokens_specialize =
-  b_inputLineTokens_spec_lines
+val inputAllTokensFile_specialize =
+  inputAllTokensFile_spec
   |> Q.GEN `f` |> Q.SPEC`blanks`
   |> Q.GEN `fv` |> Q.SPEC`blanks_v`
   |> Q.GEN `g` |> Q.ISPEC`tokenize`
   |> Q.GEN `gv` |> Q.ISPEC`tokenize_v`
   |> Q.GEN `a` |> Q.ISPEC`SUM_TYPE STRING_TYPE INT`
-  |> SIMP_RULE std_ss [blanks_v_thm,tokenize_v_thm,blanks_def] ;
+  |> SIMP_RULE std_ss [blanks_v_thm,tokenize_v_thm,blanks_def];
 
 (* parse_dimacs_toks with simple wrapper *)
-val parse_dimacs_full = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun parse_dimacs_full fname =
-  case TextIO.b_inputAllTokensFrom #"\n" fname blanks tokenize of
+  case TextIO.inputAllTokensFile #"\n" fname blanks tokenize of
     None => Inl (notfound_string fname)
   | Some ls =>
     (case parse_ext_dimacs_toks ls of
       None => Inl (noparse_string fname "DIMACS")
-    | Some res => Inr res)`
+    | Some res => Inr res)
+End
 
 Definition get_prob_def:
   get_prob fs f =
   if inFS_fname fs f then
-    parse_ext_dimacs_toks (MAP toks (all_lines fs f))
+    parse_ext_dimacs_toks (MAP toks (all_lines_file fs f))
   else NONE
 End
 
@@ -100,13 +99,16 @@ Proof
   xlet`(POSTv sv.
           &OPTION_TYPE (LIST_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)))
             (if inFS_fname fs f then
-               SOME (MAP (MAP tokenize ∘ tokens blanks) (all_lines_gen #"\n" fs f))
+               SOME (MAP (MAP tokenize ∘ tokens blanks) (all_lines_file_gen #"\n" fs f))
              else NONE) sv * STDIO fs)`
   >- (
-    xapp_spec b_inputAllTokensFrom_spec>>
-    simp[blanks_v_thm,tokenize_v_thm]>>
-    CONJ_TAC >- EVAL_TAC>>
-    gvs[FILENAME_def])>>
+    xapp_spec inputAllTokensFile_specialize>>
+    xsimpl>>
+    first_x_assum (irule_at Any)>>
+    first_x_assum (irule_at Any)>>
+    gvs[FILENAME_def]>>
+    first_x_assum (irule_at Any)>>
+    xsimpl)>>
   gvs[OPTION_TYPE_SPLIT]>>xmatch
   >- (
     xlet_autop>>
@@ -155,11 +157,12 @@ End
 val r = translate mk_pc_def;
 val r = translate init_sc_def;
 
-val fill_arr = process_topdecs`
+Quote add_cakeml:
   fun fill_arr arr i ls =
     case ls of [] => arr
     | (v::vs) =>
-      fill_arr (Array.updateResize arr None i (Some (v,False))) (i+1) vs` |> append_prog
+      fill_arr (Array.updateResize arr None i (Some (v,False))) (i+1) vs
+End
 
 Theorem fill_arr_spec:
   ∀ls lsv arrv arrls arrlsv i iv.
@@ -196,7 +199,7 @@ End
 
 val r = translate print_result_def;
 
-val check_unsat_2 = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun check_unsat_2 f1 f2 =
   case parse_dimacs_full f1 of
     Inl err => TextIO.output TextIO.stdErr err
@@ -211,17 +214,19 @@ val check_unsat_2 = (append_prog o process_topdecs) `
       Inl err => TextIO.output TextIO.stdErr err
     | Inr res =>
       TextIO.print (print_result res)
-  end`
+  end
+End
 
-val main = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun main u =
   case CommandLine.arguments () of
     [f1,f2] => check_unsat_2 f1 f2
-  | _ => TextIO.output TextIO.stdErr usage_string`
+  | _ => TextIO.output TextIO.stdErr usage_string
+End
 
 (* We verify each argument type separately *)
-val b_inputAllTokensFrom_spec_specialize =
-  b_inputAllTokensFrom_spec
+val inputAllTokensFile_spec_specialize =
+  inputAllTokensFile_spec
   |> Q.GEN `f` |> Q.SPEC`blanks`
   |> Q.GEN `fv` |> Q.SPEC`blanks_v`
   |> Q.GEN `g` |> Q.ISPEC`tokenize`
@@ -232,7 +237,7 @@ val b_inputAllTokensFrom_spec_specialize =
 Definition get_scpog_def:
   get_scpog fs f =
   if inFS_fname fs f then
-    parse_scpsteps (all_lines fs f)
+    parse_scpsteps (all_lines_file fs f)
   else NONE
 End
 
@@ -360,7 +365,7 @@ Proof
   (drule_at (Pos (hd o tl))) fill_arr_spec>>
   (* help instantiate fill_arr_spec *)
   `LIST_REL (OPTION_TYPE (PAIR_TYPE (LIST_TYPE INT) BOOL)) (REPLICATE (2 * nc) NONE)
-        (REPLICATE (2 * nc) (Conv (SOME (TypeStamp "None" 2)) []))` by
+        (REPLICATE (2 * nc) (Conv (SOME (TypeStamp «None» 2)) []))` by
     simp[LIST_REL_REPLICATE_same,OPTION_TYPE_def]>>
   qpat_x_assum`NUM 1 _` assume_tac>>
   disch_then drule>>

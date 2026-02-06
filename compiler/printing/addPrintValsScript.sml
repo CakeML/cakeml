@@ -7,16 +7,14 @@
 Theory addPrintVals
 Ancestors
   ast infer namespace[qualified] typeDecToPP[qualified]
-  sptree[qualified] mlprettyprinter[qualified] string[qualified]
-Libs
-  stringSyntax[qualified]
-
+  sptree[qualified] mlprettyprinter[qualified] mlstring[qualified]
 
 Definition nsContents_def:
-  nsContents (Bind locs mods) = MAP (Short ## I) locs ++
-    FLAT (MAP (\(mn, ns). MAP (Long mn ## I) (nsContents ns)) mods)
-Termination
-  WF_REL_TAC `measure (namespace_size (K 0) (K 0) (K 0))`
+  nsContents (Bind locs mods) =
+    (MAP (λ(x,y). (Short x, y)) locs) ++ nssContents mods ∧
+  nssContents [] = [] ∧
+  nssContents ((mn, ns)::rest) =
+    (MAP (λ(x,y). (Long mn x, y)) (nsContents ns)) ++ nssContents rest
 End
 
 (* The inferencer builds a mapping from type names to its internal
@@ -47,13 +45,14 @@ Definition add_type_name_def:
 End
 
 Definition t_info_id_def:
-  t_info_id (xs : string list, Tapp ts id) = SOME id /\
+  t_info_id (xs : mlstring list, Tapp ts id) =
+    (if ts = MAP Tvar xs then SOME id else NONE) /\
   t_info_id _ = NONE
 End
 
 Definition update_type_names_def:
   update_type_names ienv tn =
-    let new = MAP (I ## t_info_id) (nsContents ienv.inf_t) in
+    let new = MAP (λ(x,y). (x, t_info_id y)) (nsContents ienv.inf_t) in
     tn with <| id_map := FOLDR (\(nm, opt_id) id_map. case opt_id of NONE => id_map
         | SOME id => add_type_name nm id id_map) tn.id_map new |>
 End
@@ -86,8 +85,19 @@ Definition add_to_namespace_def:
     nsAppend (nsLift mnm (add_to_namespace id x m)) ns)
 End
 
+(* FOLDR, which the cv translator does not like in this instance. *)
+Definition mk_namespace_aux_def:
+  mk_namespace_aux e [] = e ∧
+  mk_namespace_aux e ((id, x)::l) =
+    add_to_namespace id x (mk_namespace_aux e l)
+End
+
 Definition mk_namespace_def:
-  mk_namespace xs = FOLDR (\(id, x). add_to_namespace id x) nsEmpty xs
+  mk_namespace xs = mk_namespace_aux nsEmpty xs
+End
+
+Definition FIND_SND_def:
+  FIND_SND = OPTION_MAP SND ∘ INDEX_FIND 0 SND
 End
 
 Definition tn_setup_fixes_def:
@@ -98,7 +108,7 @@ Definition tn_setup_fixes_def:
         let not_ok = MAP FST (FILTER ($~ o SND) ns) in
         if NULL not_ok then []
         else
-        let fst_ok = OPTION_MAP FST (FIND SND ns) in
+        let fst_ok = OPTION_MAP FST (FIND_SND ns) in
         MAP (\nm. (nm, fst_ok)) not_ok)
      info) in
     tn with <| pp_fixes := mk_namespace fixes |>
@@ -109,9 +119,13 @@ Definition init_type_names_def:
     (update_type_names ienv empty_type_names)
 End
 
+Definition FIND_tn_current_def:
+  FIND_tn_current ienv id = OPTION_MAP SND ∘ INDEX_FIND 0 (tn_current ienv id)
+End
+
 Definition get_tn_ok_def:
   get_tn_ok ienv tn id = OPTION_BIND (sptree$lookup id tn.id_map)
-    (\ids. case (ids, FIND (tn_current ienv id) ids) of
+    (\ids. case (ids, (FIND_tn_current ienv id) ids) of
         (_, SOME current_id) => SOME current_id
       | ([], NONE) => NONE
       | (id :: _, NONE) => (case nsLookup tn.pp_fixes id of
@@ -125,82 +139,89 @@ End
    any type variables to PrettyPrinter.default_type *)
 Definition inf_t_to_ast_t_mono_def:
   inf_t_to_ast_t_mono ienv tn (Infer_Tuvar _) =
-    SOME (Atapp [] (Long "PrettyPrinter" (Short "default_type"))) /\
+    SOME (Atapp [] (Long «PrettyPrinter» (Short «default_type»))) /\
   inf_t_to_ast_t_mono ienv tn (Infer_Tvar_db _) =
-    SOME (Atapp [] (Long "PrettyPrinter" (Short "default_type"))) /\
+    SOME (Atapp [] (Long «PrettyPrinter» (Short «default_type»))) /\
   inf_t_to_ast_t_mono ienv tn (Infer_Tapp ts ti) =
-    OPTION_BIND (OPT_MMAP (inf_t_to_ast_t_mono ienv tn) ts) (\ts.
+    OPTION_BIND (inf_t_to_ast_t_mono_map ienv tn ts) (\ts.
     if ti = Tfn_num then
       (case ts of [t1; t2] => SOME (Atfun t1 t2) | _ => NONE)
     else if ti = Ttup_num then SOME (Attup ts)
     else
-    OPTION_BIND (get_tn_ok ienv tn ti) (\nm. SOME (Atapp ts nm)))
-Termination
-  WF_REL_TAC `measure (infer_t_size o SND o SND)`
+    OPTION_BIND (get_tn_ok ienv tn ti) (\nm. SOME (Atapp ts nm))) ∧
+  inf_t_to_ast_t_mono_map ienv tn [] = SOME [] ∧
+  inf_t_to_ast_t_mono_map ienv tn (h::tl) =
+    case inf_t_to_ast_t_mono ienv tn h of
+    | NONE => NONE
+    | SOME h =>
+      case inf_t_to_ast_t_mono_map ienv tn tl of
+      | NONE => NONE
+      | SOME tl => SOME (h::tl)
 End
 
 Definition type_con_name_def:
   type_con_name tn ti =
   (case sptree$lookup ti tn.id_map of
-      NONE => strlit "<undeclared>"
-    | SOME [] => strlit "<undeclared>"
-    | SOME nms => implode (id_to_n (LAST nms))
+      NONE => «undeclared»
+    | SOME [] => «undeclared»
+    | SOME nms => id_to_n (LAST nms)
   )
 End
 
-Definition inf_type_to_string_rec_gen_def:
-  (inf_type_to_string_rec_gen f (Infer_Tuvar n) =
-    (concat [strlit "_"; mlint$toString (&n)],0)) ∧
-  (inf_type_to_string_rec_gen f (Infer_Tvar_db n) =
+(* This function used to be called inf_type_to_string_rec_gen and took a
+   function f as an argument. Since inf_t_to_s was its only user, and only used
+   it with (type_con_name tn) for some type_names tn, I have inlined it,
+   allowing us to cv_trans it. *)
+Definition inf_type_to_string_def:
+  (inf_type_to_string tn (Infer_Tuvar n) =
+    (concat [« »; mlint$toString (&n)],0)) ∧
+  (inf_type_to_string tn (Infer_Tvar_db n) =
     (concat [ty_var_name n],0n)) ∧
-  (inf_type_to_string_rec_gen f (Infer_Tapp ts ti) =
+  (inf_type_to_string tn (Infer_Tapp ts ti) =
     if ti = Tfn_num then
      (case ts of
       | [t1; t2] =>
-        (concat [add_parens 2 (inf_type_to_string_rec_gen f t1); strlit " -> ";
-                 add_parens 3 (inf_type_to_string_rec_gen f t2)],3)
-      | _ => (implode "<bad function type>",0))
+        (concat [add_parens 2 (inf_type_to_string tn t1); « -> »;
+                 add_parens 3 (inf_type_to_string tn t2)],3)
+      | _ => («<bad function type>»,0))
     else if ti = Ttup_num then
      (case ts of
-      | [] => (strlit "unit",0)
-      | [t] => inf_type_to_string_rec_gen f t
-      | _ => (concat (commas (strlit " * ")
-               (MAP (add_parens 1) (inf_type_to_string_rec_gen_list f ts))),2n))
+      | [] => («unit»,0)
+      | [t] => inf_type_to_string tn t
+      | _ => (concat (commas (« * »)
+               (MAP (add_parens 1) (inf_type_to_string_list tn ts))),2n))
     else
       case ts of
-      | [] => (f ti,0)
+      | [] => (type_con_name tn ti,0)
       | [t] =>
-        (concat [add_parens 1 (inf_type_to_string_rec_gen f t); strlit " ";
-                 f ti],1)
+        (concat [add_parens 1 (inf_type_to_string tn t); « »;
+                 type_con_name tn ti],1)
       | _ =>
-        (concat ([strlit "("] ++
-                 commas (strlit ", ")
-                   (MAP (add_parens 5) (inf_type_to_string_rec_gen_list f ts)) ++
-                 [strlit ") "; f ti]),1)) ∧
-  inf_type_to_string_rec_gen_list f [] = [] ∧
-  inf_type_to_string_rec_gen_list f (t::ts) =
-    inf_type_to_string_rec_gen f t ::
-    inf_type_to_string_rec_gen_list f ts
-Termination
-  WF_REL_TAC ‘measure $ λx. case x of INL (_,t) => infer_t_size t
-                                    | INR (_,ts) => list_size infer_t_size ts’
+        (concat ([«(»] ++
+                 commas («,»)
+                   (MAP (add_parens 5) (inf_type_to_string_list tn ts)) ++
+                 [«) »; type_con_name tn ti]),1)) ∧
+  inf_type_to_string_list tn [] = [] ∧
+  inf_type_to_string_list tn (t::ts) =
+    inf_type_to_string tn t ::
+    inf_type_to_string_list tn ts
 End
 
 Definition inf_t_to_s_def:
-  inf_t_to_s tn t = FST (inf_type_to_string_rec_gen (type_con_name tn) t)
+  inf_t_to_s tn t = FST (inf_type_to_string tn t)
 End
 
 Definition print_of_val_opts_def:
   print_of_val_opts ienv tn (nm, inf_t) =
     let nm_str = id_to_str nm in
     let idl = Lit (StrLit nm_str) in
-    let tstr = Lit (StrLit (explode (inf_t_to_s tn inf_t))) in
-    let pp_hidden = Dlet unknown_loc Pany (App Opapp [Var (Short "print_pp");
-        rpt_app (Var (Long "PrettyPrinter" (Short "val_hidden_type"))) [idl; tstr]]) in
+    let tstr = Lit (StrLit (inf_t_to_s tn inf_t)) in
+    let pp_hidden = Dlet unknown_loc Pany (App Opapp [Var (Short «print_pp»);
+        Apps (Var (Long «PrettyPrinter» (Short «val_hidden_type»))) [idl; tstr]]) in
     let pp_val = case inf_t_to_ast_t_mono ienv tn inf_t of
           NONE => []
-        | SOME ast_t => [Dlet unknown_loc Pany (App Opapp [Var (Short "print_pp");
-            rpt_app (Var (Long "PrettyPrinter" (Short "val_eq")))
+        | SOME ast_t => [Dlet unknown_loc Pany (App Opapp [Var (Short «print_pp»);
+            Apps (Var (Long «PrettyPrinter» (Short «val_eq»)))
                 [idl; pp_of_ast_t tn.pp_fixes ast_t; Var nm; tstr]])] in
     (nm_str, pp_val ++ [pp_hidden])
 End
@@ -210,7 +231,6 @@ Definition val_prints_def:
     let tn2 = update_type_names decs_ienv tn in
     let full_ienv = extend_dec_ienv decs_ienv prev_ienv in
     let prints = MAP (print_of_val_opts full_ienv tn2)
-        (MAP (I ## SND) (REVERSE (nsContents (ns_nub decs_ienv.inf_v)))) in
+        (MAP (λ(x,y). (x, SND y)) (REVERSE (nsContents (ns_nub decs_ienv.inf_v)))) in
     (prints, tn2)
 End
-

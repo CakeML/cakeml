@@ -68,7 +68,7 @@ Definition remove_unreach_def:
     Seq_assoc_right e Skip
 End
 
-Triviality remove_unreach_test:
+Theorem remove_unreach_test[local]:
   remove_unreach (Seq (Move 1 [(1,11);(2,22);(3,33)])
                       (Move 1 [(3,1);(2,99)]))
   =

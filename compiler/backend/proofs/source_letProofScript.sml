@@ -10,7 +10,7 @@ Libs
   preamble
 
 
-Triviality env_c_lemma:
+Theorem env_c_lemma[local]:
   (<|v := build_rec_env q env env1; c := nsEmpty|> +++ env).c = env.c
 Proof
   fs [extend_dec_env_def]

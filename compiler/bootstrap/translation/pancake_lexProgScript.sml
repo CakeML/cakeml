@@ -1,7 +1,7 @@
 (*
   Translate pancake's lexer
 *)
-Theory pancake_lexProg
+Theory pancake_lexProg[no_sig_docs]
 Ancestors
   panLexer location caml_parserProg ml_translator
 Libs
@@ -59,10 +59,7 @@ fun def_of_const tm = let
 
 val _ = (find_def_for_const := def_of_const);
 
-val _ = ml_translatorLib.use_string_type true;
 val _ = register_type “:panLexer$token”;
-
-val _ = ml_translatorLib.use_string_type false;
 
 val _ = translate (next_atom_def |> REWRITE_RULE [GSYM sub_check_def]);
 
@@ -135,7 +132,6 @@ QED
 
 val _ = update_precondition pancake_lex_side;
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 val _ = ml_translatorLib.clean_on_exit := true;

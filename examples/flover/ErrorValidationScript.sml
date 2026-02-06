@@ -166,17 +166,16 @@ End
 Theorem validErrorboundCmd_eq =
   SIMP_CONV flover_ss [Once validErrorboundCmd_def] (Parse.Term ‘validErrorboundCmd f Gamma A dVars’)
 
-Definition eval_Real_def:
+Definition eval_Real_def[simp]:
   eval_Real E1 Gamma e nR =
     eval_expr E1 (toRTMap (toRExpMap Gamma)) (toREval e) nR REAL
 End
 
-Definition eval_Fin_def:
+Definition eval_Fin_def[simp]:
   eval_Fin E2 Gamma e nF m =
     eval_expr E2 (toRExpMap Gamma) e nF m
 End
 
-val _ = export_rewrites ["eval_Real_def", "eval_Fin_def"]
 
 Theorem err_always_positive:
   ∀ (e:real expr) (A:analysisResult) (iv:interval) (err:real) dVars tmap.
@@ -2865,4 +2864,3 @@ Proof
       \\ first_x_assum irule \\ fs[]
       \\ find_exists_tac \\ fs[])
 QED
-

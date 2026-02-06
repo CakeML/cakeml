@@ -7,6 +7,7 @@ Ancestors
 Libs
   preamble BasicProvers
 
+val _ = temp_delsimps ["misc.max3_def"];
 (*** Mono and conj lemmas for every_var/every_stack_var ***)
 Theorem every_var_inst_mono:
   ∀P inst Q.
@@ -445,14 +446,14 @@ Definition extract_labels_def:
 End
 
 (*** Property on max_var ***)
-Triviality max_var_exp_IMP:
+Theorem max_var_exp_IMP[local]:
   ∀exp.
   P 0 ∧ every_var_exp P exp ⇒
   P (max_var_exp exp)
 Proof
   ho_match_mp_tac max_var_exp_ind>>fs[max_var_exp_def,every_var_exp_def]>>
   srw_tac[][]>>
-  match_mp_tac list_max_intro>>
+  match_mp_tac MAX_LIST_intro>>
   fs[EVERY_MAP,EVERY_MEM]
 QED
 
@@ -461,22 +462,21 @@ Theorem max_var_intro:
   P 0 ∧ every_var P prog ⇒
   P (max_var prog)
 Proof
-  ho_match_mp_tac max_var_ind>>
-  fs[every_var_def,max_var_def,max_var_exp_IMP,MAX_DEF]>>srw_tac[][]>>
-  TRY(metis_tac[max_var_exp_IMP])>>
-  TRY (match_mp_tac list_max_intro>>fs[EVERY_APPEND,every_name_def])
-  >-
-    (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`m`)>>
-    TRY(Cases_on`f`)>>
-    fs[max_var_inst_def,every_var_inst_def,every_var_imm_def,MAX_DEF]>>
-    EVERY_CASE_TAC>>fs[every_var_imm_def])
-  >- (
-    TOP_CASE_TAC>>unabbrev_all_tac>>fs[list_max_intro]>>
-    EVERY_CASE_TAC>>fs[LET_THM]>>srw_tac[][]>>
-    match_mp_tac list_max_intro>>fs[EVERY_APPEND,every_name_def])
-  >> (
-    unabbrev_all_tac>>EVERY_CASE_TAC>>
-    fs[every_var_imm_def]>>metis_tac[list_max_intro])
+  ho_match_mp_tac max_var_ind >> rpt strip_tac
+  >~ [`Inst`]
+  >- (fs[every_var_def,max_var_def,max_var_exp_IMP] >>
+      rpt $ pop_assum mp_tac >>
+      MAP_EVERY qid_spec_tac $ List.rev [`P`,`i`] >>
+      ho_match_mp_tac every_var_inst_ind >> rpt strip_tac >>
+      fs[every_var_inst_def,max_var_inst_def] >>
+      simp_tac(pure_ss)[MAX_DEF,max3_def] >>
+      rpt TOP_CASE_TAC >> fs[] >> fs[every_var_imm_def])
+  (*Remaining cases*)
+  >> fs[every_var_def,max_var_def,max_var_exp_IMP] >>
+  simp_tac(pure_ss)[MAX_DEF,max3_def] >>
+  rpt TOP_CASE_TAC >> fs[] >>
+  TRY (MAP_FIRST irule [MAX_LIST_intro,max_var_exp_IMP]) >>
+  fs[] >> fs[every_name_def,every_var_imm_def]
 QED
 
 (*** code_labels ***)
@@ -495,7 +495,7 @@ End
 (*** TODO: This seems like it must have been established before
   handler labels point only within the current table entry
 ***)
-Definition good_handlers_def:
+Definition good_handlers_def[simp]:
   (good_handlers n (Call r d a h) <=>
     case r of
       NONE => T
@@ -506,7 +506,6 @@ Definition good_handlers_def:
   (good_handlers n (MustTerminate p) <=> good_handlers n p) ∧
   (good_handlers n _ <=> T)
 End
-val _ = export_rewrites["good_handlers_def"];
 
 Definition good_code_labels_def:
   good_code_labels p elabs ⇔

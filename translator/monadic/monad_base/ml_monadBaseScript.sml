@@ -28,13 +28,13 @@ End
 
 (* Definitions using monadic syntax *)
 val _ = ParseExtras.temp_loose_equality ();
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES ();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 val _ = monadsyntax.temp_add_monadsyntax ();
 
 Definition st_ex_bind_def:
   (st_ex_bind : (α, β, γ) M -> (β -> (α, δ, γ) M) -> (α, δ, γ) M) x f =
     λs.
-      dtcase x s of
+      case x s of
         (M_success y,s) => f y s
       | (M_failure x,s) => (M_failure x,s)
 End
@@ -42,7 +42,7 @@ End
 Definition st_ex_ignore_bind_def:
   (st_ex_ignore_bind : (α, β, γ) M -> (α, δ, γ) M -> (α, δ, γ) M) x f =
     λ s .
-      dtcase x s of
+      case x s of
         (M_success y, s) => f s
       | (M_failure x, s) => (M_failure x, s)
 End
@@ -97,7 +97,7 @@ val _ = add_infix ("otherwise", 400, HOLgrammars.RIGHT);
 
 Definition otherwise_def:
   x otherwise y =
-    λs. dtcase ((x : ('a, 'b, 'c) M) s) of
+    λs. case ((x : ('a, 'b, 'c) M) s) of
           (M_success y, s) => (M_success y, s)
         | (M_failure e, s) => (y : ('a, 'b, 'c) M) s
 End
@@ -117,7 +117,7 @@ End
 (* Msub *)
 Definition Msub_def:
   Msub e (n : num) l =
-    dtcase l of
+    case l of
       [] => M_failure e
     | x::l' => if n = 0 then M_success x else Msub e (n-1) l'
 End
@@ -143,13 +143,13 @@ QED
 (* Mupdate *)
 Definition Mupdate_def:
   Mupdate e x (n : num) l =
-    dtcase l of
+    case l of
       [] => M_failure e
     | x'::l' =>
         if n = 0 then
           M_success (x::l')
         else
-          (dtcase Mupdate e x (n-1) l' of
+          (case Mupdate e x (n-1) l' of
              M_success l'' => M_success (x'::l'')
            | other => other)
 End
@@ -178,7 +178,7 @@ Definition array_resize_def:
     if n = 0 then
       []
     else
-      dtcase a of
+      case a of
         [] => x::array_resize (n-1) x a
       | x'::a' => x'::array_resize (n-1) x a'
 End
@@ -202,7 +202,7 @@ End
 
 Definition Marray_update_def:
   Marray_update get_arr set_arr e n x =
-    \s. dtcase Mupdate e x n (get_arr s) of
+    \s. case Mupdate e x n (get_arr s) of
           M_success a => (M_success(), set_arr a s)
         | M_failure e => (M_failure e, s)
 End
@@ -228,7 +228,7 @@ End
 
 Definition Mdref_aux_def:
   Mdref_aux e (n:num) =
-    \s. dtcase s of
+    \s. case s of
           [] => M_failure e
         | x::s => if n = 0 then M_success x else Mdref_aux e (n-1) s
 End
@@ -240,19 +240,19 @@ End
 
 Definition Mpop_ref_def:
   Mpop_ref e =
-    \(r, s). dtcase s of
+    \(r, s). case s of
                x::s => (r, s)
              | [] => (M_failure e, s)
 End
 
 Definition Mref_assign_aux_def:
   Mref_assign_aux e (n:num) x =
-    \s. dtcase s of
+    \s. case s of
           x'::s =>
             if n = 0 then
               M_success (x::s)
             else
-              (dtcase Mref_assign_aux e (n-1) x s of
+              (case Mref_assign_aux e (n-1) x s of
                  M_success s => M_success (x'::s)
                | other => other)
         | [] => M_failure e
@@ -260,7 +260,7 @@ End
 
 Definition Mref_assign_def:
   Mref_assign e (StoreRef n) x =
-    \s. dtcase Mref_assign_aux e (LENGTH s - n - 1) x s of
+    \s. case Mref_assign_aux e (LENGTH s - n - 1) x s of
           M_success s => (M_success (), s)
         | M_failure e => (M_failure e, s)
 End
@@ -343,7 +343,7 @@ QED
 
 Definition ref_bind_def:
   ref_bind create f pop =
-    \s. dtcase create s of
+    \s. case create s of
           (M_success x, s) => pop (f x s)
         | (M_failure x, s) => (M_failure x, s)
 End
@@ -360,7 +360,7 @@ End
 val _ = ParseExtras.temp_tight_equality ();
 
 (* Rules to deal with the monads *)
-Triviality st_ex_return_success:
+Theorem st_ex_return_success[local]:
   !v st r st'.
      st_ex_return v st = (r, st')
      <=>
@@ -369,7 +369,7 @@ Proof
   rw [st_ex_return_def] \\ metis_tac[]
 QED
 
-Triviality st_ex_bind_success:
+Theorem st_ex_bind_success[local]:
   !f g st st' v.
      st_ex_bind f g st = (M_success v, st')
      <=>
@@ -384,7 +384,7 @@ Proof
   rw []
 QED
 
-Triviality otherwise_success:
+Theorem otherwise_success[local]:
   (x otherwise y) s = (M_success v, s')
    <=>
    x s = (M_success v, s') \/
@@ -398,7 +398,7 @@ Proof
   >> fs[]
 QED
 
-Triviality otherwise_failure:
+Theorem otherwise_failure[local]:
   (x otherwise y) s = (M_failure e, s')
    <=>
    ?e' s''. x s = (M_failure e', s'') /\ y s'' = (M_failure e, s')
@@ -411,7 +411,7 @@ Proof
   >> fs[]
 QED
 
-Triviality otherwise_eq:
+Theorem otherwise_eq[local]:
   (x otherwise y) s = (r, s')
    <=>
    (?v. ((x s = (M_success v, s') /\ r = M_success v) \/
@@ -429,7 +429,7 @@ Proof
   \\ metis_tac[]
 QED
 
-Triviality can_success:
+Theorem can_success[local]:
   can f x s = (M_failure e, s') <=> F
 Proof
   rw[can_def, otherwise_def, st_ex_ignore_bind_def]
@@ -438,7 +438,7 @@ Proof
   \\ fs[st_ex_return_def]
 QED
 
-Triviality Marray_length_success:
+Theorem Marray_length_success[local]:
   !get_arr s r s'.
      Marray_length get_arr s = (r, s')
      <=>
@@ -448,7 +448,7 @@ Proof
   rw[Marray_length_def] \\ metis_tac[]
 QED
 
-Triviality Marray_sub_success:
+Theorem Marray_sub_success[local]:
   !get_arr e n s v s'.
      Marray_sub get_arr e n s = (M_success v, s')
      <=>
@@ -463,7 +463,7 @@ Proof
   \\ fs [Msub_eq, Msub_exn_eq]
 QED
 
-Triviality Marray_sub_failure:
+Theorem Marray_sub_failure[local]:
   !get_arr e n s e' s'.
      Marray_sub get_arr e n s = (M_failure e', s')
      <=>
@@ -478,7 +478,7 @@ Proof
   \\ fs [Msub_eq, Msub_exn_eq]
 QED
 
-Triviality Marray_sub_eq:
+Theorem Marray_sub_eq[local]:
   Marray_sub get_arr e n s = (r, s')
    <=>
    (n < LENGTH (get_arr s) /\ s' = s /\ r = M_success (EL n (get_arr s))) \/
@@ -489,7 +489,7 @@ Proof
   >> metis_tac[]
 QED
 
-Triviality Marray_update_success:
+Theorem Marray_update_success[local]:
   !get_arr set_arr e n x s s'.
      Marray_update get_arr set_arr e n x s = (M_success v, s')
      <=>
@@ -505,7 +505,7 @@ Proof
   \\ fs [Mupdate_eq, Mupdate_exn_eq]
 QED
 
-Triviality Marray_update_failure:
+Theorem Marray_update_failure[local]:
   !get_arr set_arr e e' n x s s'.
      Marray_update get_arr set_arr e n x s = (M_failure e', s')
      <=>
@@ -521,7 +521,7 @@ Proof
   \\ fs [Mupdate_eq, Mupdate_exn_eq]
 QED
 
-Triviality Marray_update_eq:
+Theorem Marray_update_eq[local]:
   Marray_update get_arr set_arr e n x s = (r, s')
    <=>
    (n < LENGTH (get_arr s) /\
@@ -537,7 +537,7 @@ Proof
   >> metis_tac[]
 QED
 
-Triviality Marray_alloc_success:
+Theorem Marray_alloc_success[local]:
   Marray_alloc set_arr n x s = (r, s')
    <=>
    r = M_success () /\

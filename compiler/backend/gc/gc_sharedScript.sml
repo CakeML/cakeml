@@ -691,15 +691,17 @@ Proof
   \\ Induct_on `heap` \\ fs [heap_filter_aux_def]
 QED
 
-val heap_length_heap_filter_INSERT = prove(
-  ``!heap.
+Theorem heap_length_heap_filter_INSERT[local]:
+    !heap.
       ~(e IN s) ==>
       (heap_length (heap_filter (e INSERT s) heap) =
-       heap_length (heap_filter {e} heap) + heap_length (heap_filter s heap))``,
+       heap_length (heap_filter {e} heap) + heap_length (heap_filter s heap))
+Proof
   fs [heap_filter_def]
   \\ qspec_tac (`0n`,`n:num`)
   \\ Induct_on `heap` \\ fs [heap_filter_aux_def,heap_length_def]
-  \\ rpt strip_tac \\ fs [SUM_APPEND] \\ rw [] \\ fs []);
+  \\ rpt strip_tac \\ fs [SUM_APPEND] \\ rw [] \\ fs []
+QED
 
 val heap_filter_aux_ADD_SING = prove(
   ``!k n e heap.
@@ -709,12 +711,15 @@ val heap_filter_aux_ADD_SING = prove(
   \\ first_x_assum (qspecl_then [`k+el_length h`,`n`,`e`] mp_tac)
   \\ fs []) |> Q.SPEC `0` |> SIMP_RULE std_ss [];
 
-val heap_filter_aux_SING_ZERO = prove(
-  ``!heap n. 0 < n ==> (heap_filter_aux n {0} heap = [])``,
-  Induct \\ fs [heap_filter_aux_def]);
+Theorem heap_filter_aux_SING_ZERO[local]:
+    !heap n. 0 < n ==> (heap_filter_aux n {0} heap = [])
+Proof
+  Induct \\ fs [heap_filter_aux_def]
+QED
 
-val heap_lookup_IMP_heap_filter = prove(
-  ``!heap e x. (heap_lookup e heap = SOME x) ==> (heap_filter {e} heap = [x])``,
+Theorem heap_lookup_IMP_heap_filter[local]:
+    !heap e x. (heap_lookup e heap = SOME x) ==> (heap_filter {e} heap = [x])
+Proof
   Induct \\ fs [heap_lookup_def] \\ rw []
   \\ fs [heap_filter_def,heap_filter_aux_def]
   \\ fs [NOT_LESS]
@@ -722,7 +727,8 @@ val heap_lookup_IMP_heap_filter = prove(
    (match_mp_tac heap_filter_aux_SING_ZERO
     \\ Cases_on `h` \\ EVAL_TAC \\ fs [])
   \\ fs [LESS_EQ_EXISTS] \\ rveq \\ fs []
-  \\ fs [heap_filter_aux_ADD_SING]);
+  \\ fs [heap_filter_aux_ADD_SING]
+QED
 
 Theorem heap_length_heap_filter_eq:
    !s t f heap heap2.
@@ -756,17 +762,19 @@ Proof
   \\ fs [] \\ EVAL_TAC
 QED
 
-val heap_length_heap_filter_aux = prove(
-  ``!n heap x.
+Theorem heap_length_heap_filter_aux[local]:
+    !n heap x.
        heap_length (heap_filter_aux n (x UNION heap_addresses n heap) heap) =
-       heap_length heap``,
+       heap_length heap
+Proof
   Induct_on `heap`
   \\ fs [heap_length_def,heap_filter_aux_def]
   \\ fs [heap_addresses_def] \\ rw []
   \\ first_x_assum (qspecl_then [`n + el_length h`,`n INSERT x`] (assume_tac o GSYM))
   \\ fs []
   \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
-  \\ rw [EXTENSION] \\ eq_tac \\ rw [] \\ fs []);
+  \\ rw [EXTENSION] \\ eq_tac \\ rw [] \\ fs []
+QED
 
 Theorem heap_length_heap_filter:
    !heap.

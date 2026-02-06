@@ -11,7 +11,7 @@ Ancestors
 Libs
   preamble
 
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 Definition memcpy_code_def:
   memcpy_code =
@@ -150,9 +150,9 @@ Definition word_gen_gc_move_code_def:
                       (* get len+1w *)
                       right_shift_inst 1 (dimindex (:'a) - conf.len_size);
                       add_1_inst 1;
-                      const_inst 2 28w;
+                      const_inst 2 0b1100w;
                       and_inst 6 2;
-                      If Equal 6 (Imm 8w)
+                      If Equal 6 (Imm 8w) (* is_ref_header *)
                         (list_Seq [
                           Set (Temp 0w) 3;
                           Set (Temp 1w) 4;
@@ -428,7 +428,7 @@ End
 
 Definition word_gc_partial_or_full_def:
   word_gc_partial_or_full gen_sizes partial_code full_code =
-    dtcase gen_sizes of
+    case gen_sizes of
     | [] => list_Seq ([Get 8 TriggerGC; Get 7 EndOfHeap; sub_inst 7 8] ++ full_code)
     | _ => list_Seq
              [Get 8 TriggerGC;
@@ -458,7 +458,7 @@ End
 
 Definition word_gc_code_def:
   word_gc_code conf =
-    dtcase conf.gc_kind of
+    case conf.gc_kind of
     | None =>
         (list_Seq
               [Set AllocSize 1;
@@ -648,7 +648,7 @@ End
 local
 val next_lab_quotation = `
   next_lab (p:'a stackLang$prog) aux =
-    dtcase p of
+    case p of
     | Seq p1 p2 => next_lab p1 (next_lab p2 aux)
     | If _ _ _ p1 p2 => next_lab p1 (next_lab p2 aux)
     | While _ _ _ p => next_lab p aux
@@ -664,7 +664,7 @@ val next_lab_def = Define next_lab_quotation;
 Theorem next_lab_pmatch = Q.prove(
   `∀p aux.` @
     (next_lab_quotation |>
-     map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
+     map (fn QUOTE s => Portable.replace_string {from="case",to="pmatch"} s |> QUOTE
          | aq => aq)),
    rpt strip_tac
    >> CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true)
@@ -676,7 +676,7 @@ end;
 local
 val comp_quotation = `
   comp n m p =
-    dtcase p of
+    case p of
     | Seq p1 p2 =>
         let (q1,m) = comp n m p1 in
         let (q2,m) = comp n m p2 in
@@ -691,7 +691,7 @@ val comp_quotation = `
     | Call NONE dest exc => (Call NONE dest NONE,m)
     | Call (SOME (p1,lr,l1,l2)) dest exc =>
         let (q1,m) = comp n m p1 in
-         (dtcase exc of
+         (case exc of
           | NONE => (Call (SOME (q1,lr,l1,l2)) dest NONE,m)
           | SOME (p2,k1,k2) =>
               let (q2,m) = comp n m p2 in
@@ -705,7 +705,7 @@ val comp_def = Define comp_quotation
 Theorem comp_pmatch = Q.prove(
   `∀n m p.` @
     (comp_quotation |>
-     map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
+     map (fn QUOTE s => Portable.replace_string {from="case",to="pmatch"} s |> QUOTE
          | aq => aq)),
    rpt strip_tac
    >> CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true)

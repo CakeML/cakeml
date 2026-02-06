@@ -75,6 +75,7 @@ Datatype:
        | Raise num
        | Return num
        | Tick
+       | Force ((num # num_set) option) num num
 End
 
 Definition mk_ticks_def:

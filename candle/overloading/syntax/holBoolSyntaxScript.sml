@@ -226,7 +226,7 @@ Proof
   rw[MEM_MAP] >> imp_res_tac ALOOKUP_MEM >> metis_tac[FST]
 QED
 
-Triviality not_mem_mem_distinct:
+Theorem not_mem_mem_distinct[local]:
   !P x y l. ~MEM x l /\ MEM y l ==> x <> y
 Proof
   metis_tac[]

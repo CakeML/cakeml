@@ -16,39 +16,39 @@ val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 Definition basis_ffi_oracle_def:
   basis_ffi_oracle =
     \name (cls,fs) conf bytes.
-     if name = ExtCall "write" then
+     if name = ExtCall «write» then
        case ffi_write conf bytes fs of
        | SOME(FFIreturn bytes fs) => Oracle_return (cls,fs) bytes
        | _ => Oracle_final FFI_failed else
-     if name = ExtCall "read" then
+     if name = ExtCall «read» then
        case ffi_read conf bytes fs of
        | SOME(FFIreturn bytes fs) => Oracle_return (cls,fs) bytes
        | _ => Oracle_final FFI_failed else
-     if name = ExtCall "get_arg_count" then
+     if name = ExtCall «get_arg_count» then
        case ffi_get_arg_count conf bytes cls of
        | SOME(FFIreturn bytes cls) => Oracle_return (cls,fs) bytes
        | _ => Oracle_final FFI_failed else
-     if name = ExtCall "get_arg_length" then
+     if name = ExtCall «get_arg_length» then
        case ffi_get_arg_length conf bytes cls of
        | SOME(FFIreturn bytes cls) => Oracle_return (cls,fs) bytes
        | _ => Oracle_final FFI_failed else
-     if name = ExtCall "get_arg" then
+     if name = ExtCall «get_arg» then
        case ffi_get_arg conf bytes cls of
        | SOME(FFIreturn bytes cls) => Oracle_return (cls,fs) bytes
        | _ => Oracle_final FFI_failed else
-     if name = ExtCall "open_in" then
+     if name = ExtCall «open_in» then
        case ffi_open_in conf bytes fs of
        | SOME(FFIreturn bytes fs) => Oracle_return (cls,fs) bytes
        | _ => Oracle_final FFI_failed else
-     if name = ExtCall "open_out" then
+     if name = ExtCall «open_out» then
        case ffi_open_out conf bytes fs of
        | SOME(FFIreturn bytes fs) => Oracle_return (cls,fs) bytes
        | _ => Oracle_final FFI_failed else
-     if name = ExtCall "close" then
+     if name = ExtCall «close» then
        case ffi_close conf bytes fs of
        | SOME(FFIreturn bytes fs) => Oracle_return (cls,fs) bytes
        | _ => Oracle_final FFI_failed else
-     if name = ExtCall "exit" then
+     if name = ExtCall «exit» then
        case ffi_exit conf bytes () of
        | SOME(FFIreturn bytes ()) => Oracle_return (cls,fs) bytes
        | SOME(FFIdiverge) => Oracle_final FFI_diverged
@@ -80,7 +80,7 @@ Definition basis_proj2_def:
 End
 
 Theorem basis_proj1_write:
-   basis_proj1 ffi ' "write" = encode(SND ffi)
+   basis_proj1 ffi ' «write» = encode(SND ffi)
 Proof
   PairCases_on`ffi` \\ EVAL_TAC
 QED
@@ -287,16 +287,14 @@ Theorem extract_stdo_extract_fs
   \\ rw[] \\ fs[]
   stdo_def
 
-Definition is_write_def:
+Definition is_write_def[simp]:
   (is_write fd (IO_event name _ ((fd',st)::_)) ⇔ name="write" ∧ fd' = fd ∧ st = 0w) ∧
   (is_write _ _ ⇔ F)
 End
-val _ = export_rewrites["is_write_def"];
 
-Definition extract_write_def:
+Definition extract_write_def[simp]:
   extract_write (IO_event _ _ (_::(_,nw)::bytes)) = TAKE (w2n nw) (MAP FST bytes)
 End
-val _ = export_rewrites["extract_write_def"];
 
 Definition extract_writes_def:
   extract_writes fd io_events =
@@ -372,16 +370,16 @@ QED *)
 Theorem RTC_call_FFI_rel_IMP_basis_events:
    !fs st st'. call_FFI_rel^* st st' ==> st.oracle = basis_ffi_oracle ==>
   (extract_fs_with_numchars fs st.io_events
-     = fsFFI$decode (basis_proj1 st.ffi_state ' "write") ==>
+     = fsFFI$decode (basis_proj1 st.ffi_state ' «write») ==>
    extract_fs_with_numchars fs st'.io_events
-     = fsFFI$decode (basis_proj1 st'.ffi_state ' "write"))
+     = fsFFI$decode (basis_proj1 st'.ffi_state ' «write»))
 Proof
   strip_tac
   \\ HO_MATCH_MP_TAC RTC_INDUCT \\ rw [] \\ fs []
   \\ fs [evaluatePropsTheory.call_FFI_rel_def]
   \\ fs [ffiTheory.call_FFI_def]
 (*  \\ Cases_on `st.final_event = NONE` \\ fs [] \\ rw []*)
-  \\ Cases_on `n = ExtCall ""` \\ fs [] THEN1 (rveq \\ fs [])
+  \\ Cases_on `n = ExtCall «»` \\ fs [] THEN1 (rveq \\ fs [])
   \\ FULL_CASE_TAC \\ fs [] \\ rw [] \\ fs []
   \\ FULL_CASE_TAC \\ fs [] \\ rw [] \\ fs []
   \\ Cases_on `f` \\ fs []
@@ -401,7 +399,7 @@ QED
   init_state ffi  *)
 Theorem extract_fs_basis_ffi:
    !ll. extract_fs fs (basis_ffi cls fs).io_events =
-   decode (basis_proj1 (basis_ffi cls fs).ffi_state ' "write")
+   decode (basis_proj1 (basis_ffi cls fs).ffi_state ' «write»)
 Proof
   rw[ml_progTheory.init_state_def,extract_fs_def,extract_fs_with_numchars_def,
      basis_ffi_def,basis_proj1_write,IO_fs_component_equality]
@@ -459,7 +457,7 @@ QED
 
 fun mk_main_call s =
   ``(Dlet unknown_loc (Pcon NONE []) (App Opapp [Var (Short ^s); Con NONE []]))``;
-val fname = mk_var("fname",``:string``);
+val fname = mk_var("fname",``:mlstring``);
 val main_call = mk_main_call fname;
 
 Definition whole_prog_spec_def:
@@ -538,7 +536,7 @@ Proof
          Abbr`ffip`,cfStoreTheory.ffi2heap_def]
   \\ Cases_on `parts_ok st3.ffi (basis_proj1, basis_proj2)`
   \\ fs[FLOOKUP_DEF, MAP_MAP_o, n2w_ORD_CHR_w2n, basis_proj1_write]
-  \\ FIRST_X_ASSUM(ASSUME_TAC o Q.SPEC`"write"`)
+  \\ FIRST_X_ASSUM(ASSUME_TAC o Q.SPEC`«write»`)
   \\ fs[basis_proj1_write,STAR_def,cond_def]
   \\ metis_tac[]
 QED
@@ -617,7 +615,7 @@ Proof
          Abbr`ffip`,cfStoreTheory.ffi2heap_def]
   \\ Cases_on `parts_ok st3.ffi (basis_proj1, basis_proj2)`
   \\ fs[FLOOKUP_DEF, MAP_MAP_o, n2w_ORD_CHR_w2n, basis_proj1_write]
-  \\ FIRST_X_ASSUM(ASSUME_TAC o Q.SPEC`"write"`)
+  \\ FIRST_X_ASSUM(ASSUME_TAC o Q.SPEC`«write»`)
   \\ fs[basis_proj1_write,STAR_def,cond_def]
   \\ metis_tac[]
 QED
@@ -749,4 +747,3 @@ Theorem same_eval_state:
 Proof
   fs [semanticPrimitivesTheory.state_component_equality]
 QED
-
