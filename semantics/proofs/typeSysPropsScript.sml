@@ -1326,6 +1326,23 @@ Proof
      TRY(cases_on`wz`\\CHANGED_TAC(fs[])) >>
      TRY (Cases_on ‘v31’ >> fs[]) >>
      full_simp_tac(srw_ss())[deBruijn_subst_def]
+     >~ [‘supported_arith’] >-
+      (qexists_tac ‘REPLICATE (LENGTH ts) (t_of ty)’
+       \\ Cases_on ‘ty’
+       >> gvs [t_of_def, deBruijn_subst_def, EVERY_REPLICATE,
+               LENGTH_EQ_NUM_compute, REPLICATE_compute]
+       >> TRY (Cases_on ‘w’)
+       >> gvs [t_of_def, deBruijn_subst_def, EVERY_REPLICATE,
+               LENGTH_EQ_NUM_compute, REPLICATE_compute]
+       >> TRY (Cases_on ‘a’)
+       >> gvs [t_of_def, deBruijn_subst_def, EVERY_REPLICATE,
+               LENGTH_EQ_NUM_compute, REPLICATE_compute])
+     >~ [‘supported_conversion ty1 ty2’] >-
+      (Cases_on ‘ty1’ >> gvs [t_of_def,deBruijn_subst_def] >>
+       Cases_on ‘w’ >> gvs [t_of_def,deBruijn_subst_def])
+     >~ [‘supported_conversion ty1 ty2’] >-
+      (Cases_on ‘ty2’ >> gvs [t_of_def,deBruijn_subst_def] >>
+       Cases_on ‘w’ >> gvs [t_of_def,deBruijn_subst_def])
      >~ [‘t_of ty’] >-
       (Cases_on ‘ty’ >> gvs [t_of_def,deBruijn_subst_def] >>
        Cases_on ‘w’ >> gvs [t_of_def,deBruijn_subst_def]) >>

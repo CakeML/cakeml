@@ -12,8 +12,12 @@ Definition of the Dafny to CakeML compiler.
 [dafny_freshenScript.sml](dafny_freshenScript.sml):
 Implements the freshen pass, where names are updated to be unique.
 
-[dafny_sexpScript.sml](dafny_sexpScript.sml):
-Definitions to lex and parse S-expressions.
+[dafny_miscScript.sml](dafny_miscScript.sml):
+Various definitions that are used by multiple files, but don't quite fit in
+any of them.
+
+[dafny_remove_assertScript.sml](dafny_remove_assertScript.sml):
+Replaces assert with skip to ignore the former during compilation.
 
 [dafny_to_cakemlScript.sml](dafny_to_cakemlScript.sml):
 Defines the translation of Dafny's to CakeML's AST.

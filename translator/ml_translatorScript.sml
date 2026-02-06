@@ -16,6 +16,12 @@ infix \\ val op \\ = op THEN;
 
 Type state = ``:'ffi semanticPrimitives$state``
 
+Overload True_ast[local] =
+  “App (Test (Compare Leq) IntT) [Lit (IntLit 0); Lit (IntLit 0)]”;
+
+Overload False_ast[local] =
+  “App (Test (Compare Lt) IntT) [Lit (IntLit 0); Lit (IntLit 0)]”;
+
 (* Definitions *)
 Definition empty_state_def:
   empty_state = <|
@@ -97,14 +103,8 @@ Definition CHAR_def:
 End
 
 Definition STRING_TYPE_def:
-  STRING_TYPE (strlit s) = \v:v. (v = Litv (StrLit s))
+  STRING_TYPE s = \v:v. (v = Litv (StrLit s))
 End
-
-Theorem STRING_TYPE_explode:
-  STRING_TYPE s = \v. (v = Litv (StrLit (explode s)))
-Proof
-  Cases_on`s` \\ rw[STRING_TYPE_def]
-QED
 
 Theorem explode_eq:
   explode s = l <=> s = strlit l
@@ -348,17 +348,17 @@ Proof
 QED
 
 Theorem Eval_Val_BOOL_T:
-   Eval env (App (Opb Leq) [Lit (IntLit 0); Lit (IntLit 0)]) (BOOL T)
+   Eval env True_ast (BOOL T)
 Proof
-  fs [Eval_rw,do_app_def,empty_state_def,state_component_equality]
-  \\ EVAL_TAC
+  fs [Eval_rw,do_app_def,empty_state_def,state_component_equality,
+      do_test_def,dest_Litv_def,BOOL_def]
 QED
 
 Theorem Eval_Val_BOOL_F:
-   Eval env (App (Opb Lt) [Lit (IntLit 0); Lit (IntLit 0)]) (BOOL F)
+   Eval env False_ast (BOOL F)
 Proof
-  fs [Eval_rw,do_app_def,empty_state_def,state_component_equality]
-  \\ EVAL_TAC
+  fs [Eval_rw,do_app_def,empty_state_def,state_component_equality,
+      do_test_def,dest_Litv_def,BOOL_def]
 QED
 
 Theorem Eval_Val_CHAR:
@@ -368,7 +368,7 @@ Proof
 QED
 
 Theorem Eval_Val_STRING:
-   !s. Eval env (Lit (StrLit s)) (STRING_TYPE (strlit s))
+   !s. Eval env (Lit (StrLit s)) (STRING_TYPE s)
 Proof
   fs [Eval_rw,empty_state_def,state_component_equality,STRING_TYPE_def]
 QED
@@ -564,7 +564,7 @@ Definition CHAR_v_def:
 End
 
 Definition STRING_v_def:
-  STRING_v (strlit s) = Litv (StrLit s)
+  STRING_v s = Litv (StrLit s)
 End
 
 Definition HOL_STRING_v_def:
@@ -748,29 +748,28 @@ Proof
 QED
 
 Theorem Eval_Bool_Not:
-    Eval env x1 (BOOL b1) ==>
-    Eval env (App (Test Equal BoolT)
-      [x1; App (Opb Lt) [Lit (IntLit 0); Lit (IntLit 0)]]) (BOOL (~b1))
+  Eval env x1 (BOOL b1) ==>
+  Eval env (App (Test Equal BoolT) [x1; False_ast]) (BOOL (~b1))
 Proof
-  rw[Eval_rw,BOOL_def,do_app_def,opb_lookup_def,do_test_def]
+  rw[Eval_rw,BOOL_def,do_app_def,do_test_def]
   \\ pop_assum (qspec_then `refs` strip_assume_tac)
   \\ qexists_tac `ck1` \\ fs [empty_state_def]
-  \\ Cases_on `b1` \\ fs [check_type_def]
-  \\ fs [EVAL``do_eq (Boolv T) (Boolv F)``,EVAL``do_eq (Boolv F) (Boolv F)``]
+  \\ Cases_on `b1`
+  \\ fs [check_type_def,dest_Litv_def,check_type_def,do_eq_def,Boolv_def,
+         ctor_same_type_def,same_type_def]
 QED
 
 Theorem Eval_Implies:
-    Eval env x1 (BOOL b1) ==>
-    Eval env x2 (BOOL b2) ==>
-    Eval env (If x1 x2 (App (Opb Leq) [Lit (IntLit 0); Lit (IntLit 0)]))
-      (BOOL (b1 ==> b2))
+  Eval env x1 (BOOL b1) ==>
+  Eval env x2 (BOOL b2) ==>
+  Eval env (If x1 x2 True_ast) (BOOL (b1 ==> b2))
 Proof
   reverse (Cases_on `b1`)
   \\ rw[Eval_rw,BOOL_def,CONTAINER_def] \\ fs []
-  THEN1
+  >-
    (last_assum (qspec_then `refs` strip_assume_tac)
     \\ qexists_tac `ck1` \\ fs [EVAL ``do_if (Boolv F) x2 x1``]
-    \\ fs [Eval_rw,do_app_def,state_component_equality] \\ EVAL_TAC)
+    \\ fs [Eval_rw,do_app_def,state_component_equality,do_test_def,dest_Litv_def])
   \\ last_x_assum assume_tac \\ Eval2_tac
   \\ fs [EVAL ``do_if (Boolv T) x2 x1``,state_component_equality]
 QED
@@ -961,28 +960,21 @@ in
   val Eval_INT_MOD  = f "INT_MOD" `Modulo`
 end;
 
-Theorem Eval_Opb[local]:
-  !f n1 n2.
-        Eval env x1 (INT n1) ==>
-        Eval env x2 (INT n2) ==>
-        Eval env (App (Opb f) [x1;x2]) (BOOL (opb_lookup f n1 n2))
+Theorem Eval_INT_CMP[local]:
+  ∀f n1 n2.
+    Eval env x1 (INT n1) ==>
+    Eval env x2 (INT n2) ==>
+    Eval env (App (Test (Compare f) IntT) [x1;x2]) (BOOL (int_cmp f n1 n2))
 Proof
   rw[Eval_rw,INT_def,PRECONDITION_def,BOOL_def]
   \\ Eval2_tac \\ fs [do_app_def] \\ rw []
-  \\ fs [state_component_equality]
+  \\ fs [state_component_equality,do_test_def,dest_Litv_def]
 QED
 
-local
-  fun f name q = let
-    val th = SIMP_RULE (srw_ss()) [opb_lookup_def] (Q.SPEC q Eval_Opb)
-    val _ = save_thm("Eval_" ^ name,SPEC_ALL th)
-   in th end
-in
-  val Eval_INT_LESS = f "INT_LESS" `Lt`
-  val Eval_INT_LESS_EQ = f "INT_LESS_EQ" `Leq`
-  val Eval_INT_GREATER = f "INT_GREATER" `Gt`
-  val Eval_INT_GREATER_EQ = f "INT_GREATER_EQ" `Geq`
-end;
+Theorem Eval_INT_LESS       = Eval_INT_CMP |> Q.SPEC ‘Lt’  |> SRULE [int_cmp_def];
+Theorem Eval_INT_LESS_EQ    = Eval_INT_CMP |> Q.SPEC ‘Leq’ |> SRULE [int_cmp_def];
+Theorem Eval_INT_GREATER    = Eval_INT_CMP |> Q.SPEC ‘Gt’  |> SRULE [int_cmp_def];
+Theorem Eval_INT_GREATER_EQ = Eval_INT_CMP |> Q.SPEC ‘Geq’ |> SRULE [int_cmp_def];
 
 Theorem Eval_INT_EQ:
   Eval env x1 (INT i1) ==>
@@ -1019,17 +1011,17 @@ local
 
 val th0 = Q.SPEC `0` Eval_Val_INT
 val th_sub = MATCH_MP (MATCH_MP Eval_INT_SUB (Q.SPEC `0` Eval_Val_INT))
-            (ASSUME ``Eval env (Var (Short "k")) (INT k)``)
-val th1 = ASSUME ``Eval env (Var (Short "k")) (INT k)``
+            (ASSUME ``Eval env (Var (Short «k»)) (INT k)``)
+val th1 = ASSUME ``Eval env (Var (Short «k»)) (INT k)``
 val th2 = Eval_INT_LESS  |> Q.SPECL [`k`,`0`]
           |> (fn th => MATCH_MP th th1) |> (fn th => MATCH_MP th th0)
 val th = MATCH_MP Eval_If (LIST_CONJ (map (DISCH T) [th2,th_sub,th1]))
          |> REWRITE_RULE [CONTAINER_def]
 val code =
-  ``Let (SOME "k") x1
-       (If (App (Opb Lt) [Var (Short "k"); Lit (IntLit 0)])
-          (App (Opn Minus) [Lit (IntLit 0); Var (Short "k")])
-          (Var (Short "k")))``
+  ``Let (SOME «k») x1
+       (If (App (Test (Compare Lt) IntT) [Var (Short «k»); Lit (IntLit 0)])
+          (App (Opn Minus) [Lit (IntLit 0); Var (Short «k»)])
+          (Var (Short «k»)))``
 
 in
 
@@ -1137,15 +1129,15 @@ val Eval_NUM_MULT =
 local
 
 val th0 = Q.SPEC `0` Eval_Val_INT
-val th1 = ASSUME ``Eval env (Var (Short "k")) (INT k)``
+val th1 = ASSUME ``Eval env (Var (Short «k»)) (INT k)``
 val th2 = Eval_INT_LESS  |> Q.SPECL [`k`,`0`]
           |> (fn th => MATCH_MP th th1) |> (fn th => MATCH_MP th th0)
 val th = MATCH_MP Eval_If (LIST_CONJ (map (DISCH T) [th2,th0,th1]))
          |> REWRITE_RULE [CONTAINER_def]
 val code =
-  ``Let (SOME "k") (App (Opn Minus) [x1; x2])
-      (If (App (Opb Lt) [Var (Short "k"); Lit (IntLit 0)])
-          (Lit (IntLit 0)) (Var (Short "k"))): exp``
+  ``Let (SOME «k») (App (Opn Minus) [x1; x2])
+      (If (App (Test (Compare Lt) IntT) [Var (Short «k»); Lit (IntLit 0)])
+          (Lit (IntLit 0)) (Var (Short «k»))): exp``
 
 in
 
@@ -1349,10 +1341,10 @@ Theorem Eval_word_lo:
   Eval env x2 (WORD (w2:'a word)) ==>
   Eval env
     (if dimindex (:'a) <= 8 then
-       App (Test Less (WordT W8)) [x1;x2]
+       App (Test (Compare Lt) (WordT W8)) [x1;x2]
      else
-       App (Opb Lt) [App (WordToInt W64) [x1];
-                     App (WordToInt W64) [x2]])
+       App (Test (Compare Lt) IntT) [App (WordToInt W64) [x1];
+                                     App (WordToInt W64) [x2]])
     (BOOL (w1 <+ w2))
 Proof
   rw[Eval_rw] \\ Eval2_tac \\ fs [do_app_def,WORD_def,do_test_def,check_type_def]
@@ -1369,8 +1361,8 @@ Proof
     \\ irule less_two_pow_lemma
     \\ asm_rewrite_tac [GSYM dimword_def]
     \\ rewrite_tac [w2n_lt])
-  \\ fs [AllCaseEqs(),PULL_EXISTS,opb_lookup_def,empty_state_def,
-         BOOL_def,w2w_def,word_lsl_n2w]
+  \\ fs [AllCaseEqs(),PULL_EXISTS,do_test_def,empty_state_def,
+         BOOL_def,w2w_def,word_lsl_n2w,dest_Litv_def]
   \\ DEP_REWRITE_TAC [LESS_MOD] \\ fs [WORD_LO]
   \\ rpt strip_tac
   \\ irule LESS_LESS_EQ_TRANS
@@ -1385,10 +1377,10 @@ Theorem Eval_word_ls:
   Eval env x2 (WORD (w2:'a word)) ==>
   Eval env
     (if dimindex (:'a) <= 8 then
-       App (Test LessEq (WordT W8)) [x1;x2]
+       App (Test (Compare Leq) (WordT W8)) [x1;x2]
      else
-       App (Opb Leq) [App (WordToInt W64) [x1];
-                     App (WordToInt W64) [x2]])
+       App (Test (Compare Leq) IntT) [App (WordToInt W64) [x1];
+                                      App (WordToInt W64) [x2]])
     (BOOL (w1 <=+ w2))
 Proof
   rw[Eval_rw] \\ Eval2_tac \\ fs [do_app_def,WORD_def,do_test_def,check_type_def]
@@ -1405,8 +1397,8 @@ Proof
     \\ irule less_two_pow_lemma
     \\ asm_rewrite_tac [GSYM dimword_def]
     \\ rewrite_tac [w2n_lt])
-  \\ fs [AllCaseEqs(),PULL_EXISTS,opb_lookup_def,empty_state_def,
-         BOOL_def,w2w_def,word_lsl_n2w]
+  \\ fs [AllCaseEqs(),PULL_EXISTS,do_test_def,empty_state_def,
+         BOOL_def,w2w_def,word_lsl_n2w,dest_Litv_def]
   \\ DEP_REWRITE_TAC [LESS_MOD] \\ fs [WORD_LS]
   \\ rpt strip_tac
   \\ irule LESS_LESS_EQ_TRANS
@@ -1479,10 +1471,10 @@ QED
 
 local
   val lemma = Q.prove(
-    `(∀v. NUM (w2n w) v ⇒ Eval (write "x" v env)
-                 (If (App (Opb Lt) [Var (Short "x"); Lit (IntLit (& k))])
-                    (Var (Short "x"))
-                    (App (Opn Minus) [Var (Short "x"); Lit (IntLit (& d))]))
+    `(∀v. NUM (w2n w) v ⇒ Eval (write «x» v env)
+                 (If (App (Test (Compare Lt) IntT) [Var (Short «x»); Lit (IntLit (& k))])
+                    (Var (Short «x»))
+                    (App (Opn Minus) [Var (Short «x»); Lit (IntLit (& d))]))
         (INT ((\n. if n < k then &n else &n - &d) (w2n w))))`,
     fs [] \\ rpt strip_tac
     \\ match_mp_tac (MP_CANON Eval_If |> GEN_ALL)
@@ -1845,74 +1837,74 @@ in
 end;
 
 Definition lift_fp_cmp_def:
-  lift_fp_cmp f f1 f2 = fp_cmp_comp f (float_to_fp64 f1) (float_to_fp64 f2)
+  lift_fp_cmp f f1 f2 = fp_cmp f (float_to_fp64 f1) (float_to_fp64 f2)
 End
 
 Definition float64_less_def:
-  float64_less = lift_fp_cmp FP_Less
+  float64_less = lift_fp_cmp Lt
 End
 
 Theorem float64_less_thm:
   float64_less f1 f2 = float_less_than f1 f2
 Proof
-  simp[float64_less_def, lift_fp_cmp_def, fp_cmp_comp_def, fp64_lessThan_def,
+  simp[float64_less_def, lift_fp_cmp_def, fp_cmp_def, fp64_lessThan_def,
        fp64_to_float_float_to_fp64, float_to_fp64_fp64_to_float]
 QED
 
 Definition float64_less_equal_def:
-  float64_less_equal = lift_fp_cmp FP_LessEqual
+  float64_less_equal = lift_fp_cmp Leq
 End
 
 Theorem float64_less_equal_thm:
   float64_less_equal f1 f2 = float_less_equal f1 f2
 Proof
-  simp[float64_less_equal_def, lift_fp_cmp_def, fp_cmp_comp_def,
+  simp[float64_less_equal_def, lift_fp_cmp_def, fp_cmp_def,
        fp64_lessEqual_def,
        fp64_to_float_float_to_fp64, float_to_fp64_fp64_to_float]
 QED
 
 Definition float64_greater_def:
-  float64_greater = lift_fp_cmp FP_Greater
+  float64_greater = lift_fp_cmp Gt
 End
 
 Theorem float64_greater_thm:
   float64_greater f1 f2 = float_greater_than f1 f2
 Proof
-  simp[float64_greater_def, lift_fp_cmp_def, fp_cmp_comp_def, fp64_greaterThan_def,
+  simp[float64_greater_def, lift_fp_cmp_def, fp_cmp_def, fp64_greaterThan_def,
        fp64_to_float_float_to_fp64, float_to_fp64_fp64_to_float]
 QED
 
 Definition float64_greater_equal_def:
-  float64_greater_equal = lift_fp_cmp FP_GreaterEqual
+  float64_greater_equal = lift_fp_cmp Geq
 End
 
 Theorem float64_greater_equal_thm:
   float64_greater_equal f1 f2 = float_greater_equal f1 f2
 Proof
-  simp[float64_greater_equal_def, lift_fp_cmp_def, fp_cmp_comp_def,
+  simp[float64_greater_equal_def, lift_fp_cmp_def, fp_cmp_def,
        fp64_greaterEqual_def,
        fp64_to_float_float_to_fp64, float_to_fp64_fp64_to_float]
 QED
 
 Definition float64_equal_def:
-  float64_equal = lift_fp_cmp FP_Equal
+  float64_equal f1 f2 = fp64_equal (float_to_fp64 f1) (float_to_fp64 f2)
 End
 
 Theorem float64_equal_thm:
   float64_equal f1 f2 = float_equal f1 f2
 Proof
-  simp[float64_equal_def, lift_fp_cmp_def, fp_cmp_comp_def, fp64_equal_def,
+  simp[float64_equal_def, lift_fp_cmp_def, fp64_equal_def,
        fp64_to_float_float_to_fp64, float_to_fp64_fp64_to_float]
 QED
 
-Theorem Eval_FP_cmp:
-  !f f1 f2.
+Theorem Eval_FP_cmp[local]:
+  !cmp f1 f2.
     Eval env x1 (FLOAT64 f1) ==>
     Eval env x2 (FLOAT64 f2) ==>
-    Eval env (App (FP_cmp f) [x1;x2]) (BOOL (lift_fp_cmp f f1 f2))
+    Eval env (App (Test (Compare cmp) Float64T) [x1;x2]) (BOOL (lift_fp_cmp cmp f1 f2))
 Proof
   rw[Eval_rw,FLOAT64_def,BOOL_def,lift_fp_cmp_def]
-  \\ Eval2_tac \\ fs [do_app_def] \\ rw []
+  \\ Eval2_tac \\ fs [do_app_def,do_test_def,dest_Litv_def] \\ rw []
   \\ fs[empty_state_def, isFpBool_def, Boolv_def]
 QED
 
@@ -1929,12 +1921,22 @@ local
     val _ = save_thm("Eval_" ^ name,SPEC_ALL th)
    in th end
 in
-  val Eval_FLOAT_LESS = f "FLOAT_LESS" `FP_Less`
-  val Eval_FLOAT_LESS_EQ = f "FLOAT_LESS_EQ" `FP_LessEqual`
-  val Eval_FLOAT_GREATER = f "FLOAT_GREATER" `FP_Greater`
-  val Eval_FLOAT_GREATER_EQ = f "FLOAT_GREATER_EQ" `FP_GreaterEqual`
-  val Eval_FLOAT_EQ = f "FLOAT_EQ" `FP_Equal`
+  val Eval_FLOAT_LESS = f "FLOAT_LESS" `Lt`
+  val Eval_FLOAT_LESS_EQ = f "FLOAT_LESS_EQ" `Leq`
+  val Eval_FLOAT_GREATER = f "FLOAT_GREATER" `Gt`
+  val Eval_FLOAT_GREATER_EQ = f "FLOAT_GREATER_EQ" `Geq`
 end;
+
+Theorem Eval_FLOAT_EQ:
+  Eval env x1 (FLOAT64 f1) ==>
+  Eval env x2 (FLOAT64 f2) ==>
+  Eval env (App (Test Equal Float64T) [x1;x2]) (BOOL (float64_equal f1 f2))
+Proof
+  rw[Eval_rw,FLOAT64_def,BOOL_def,lift_fp_cmp_def]
+  \\ Eval2_tac \\ fs [do_app_def,do_test_def,dest_Litv_def] \\ rw []
+  \\ fs[empty_state_def, isFpBool_def, Boolv_def, check_type_def,
+        the_Litv_Float64_def, float64_equal_def]
+QED
 
 Definition lift_fp_uop_def:
   lift_fp_uop f f1 = fp64_to_float (fp_uop_comp f (float_to_fp64 f1))
@@ -2028,10 +2030,10 @@ QED
 Definition LIST_TYPE_def:
   (LIST_TYPE a (x_2::x_1) v <=>
      ?v2_1 v2_2.
-       v = Conv (SOME (TypeStamp "::" 1)) [v2_1; v2_2] /\
+       v = Conv (SOME (TypeStamp «::» 1)) [v2_1; v2_2] /\
        a x_2 v2_1 /\ LIST_TYPE a x_1 v2_2) /\
   (LIST_TYPE a [] v <=>
-     v = Conv (SOME (TypeStamp "[]" 1)) [])
+     v = Conv (SOME (TypeStamp «[]» 1)) [])
 End
 
 Theorem LIST_TYPE_SIMP' = Q.prove(
@@ -2063,8 +2065,8 @@ Proof
 QED
 
 Definition LIST_v_def:
-  LIST_v a_v [] = Conv (SOME (TypeStamp "[]" 1)) [] /\
-  LIST_v a_v (x :: xs) = Conv (SOME (TypeStamp "::" 1)) [a_v x; LIST_v a_v xs]
+  LIST_v a_v [] = Conv (SOME (TypeStamp «[]» 1)) [] /\
+  LIST_v a_v (x :: xs) = Conv (SOME (TypeStamp «::» 1)) [a_v x; LIST_v a_v xs]
 End
 
 Theorem IsTypeRep_LIST:
@@ -2132,22 +2134,22 @@ QED
 Theorem Eval_char_lt:
   Eval env x1 (CHAR c1) ==>
   Eval env x2 (CHAR c2) ==>
-  Eval env (App (Test Less CharT) [x1;x2]) (BOOL (c1 < c2))
+  Eval env (App (Test (Compare Lt) CharT) [x1;x2]) (BOOL (c1 < c2))
 Proof
   rw[Eval_rw,CHAR_def,NUM_def,INT_def]
   \\ Eval2_tac \\ fs [do_app_def,empty_state_def]
-  \\ rw[BOOL_def,opb_lookup_def,Boolv_11,do_test_def,dest_Litv_def]
+  \\ rw[BOOL_def,Boolv_11,do_test_def,dest_Litv_def]
   \\ rw[stringTheory.char_lt_def]
 QED
 
 Theorem Eval_char_le:
   Eval env x1 (CHAR c1) ==>
   Eval env x2 (CHAR c2) ==>
-  Eval env (App (Test LessEq CharT) [x1;x2]) (BOOL (c1 <= c2))
+  Eval env (App (Test (Compare Leq) CharT) [x1;x2]) (BOOL (c1 <= c2))
 Proof
   rw[Eval_rw,CHAR_def,NUM_def,INT_def]
   \\ Eval2_tac \\ fs [do_app_def,empty_state_def]
-  \\ rw[BOOL_def,opb_lookup_def,Boolv_11,do_test_def,dest_Litv_def]
+  \\ rw[BOOL_def,Boolv_11,do_test_def,dest_Litv_def]
   \\ rw[stringTheory.char_le_def]
 QED
 
@@ -2189,14 +2191,12 @@ val tac1 =
   rw[Eval_rw,WORD_def]
   \\ first_x_assum (qspec_then `refs` mp_tac) \\ strip_tac
   \\ qexists_tac `ck1` \\ fs [do_app_def,empty_state_def]
-  \\ rw[BOOL_def,opb_lookup_def,Boolv_11]
-  \\ fs[STRING_TYPE_def,mlstringTheory.implode_def]
+  \\ rw[BOOL_def,Boolv_11] \\ fs[STRING_TYPE_def,mlstringTheory.implode_def]
 
 val tac2 =
   rw[Eval_rw,CHAR_def,NUM_def,INT_def]
   \\ Eval2_tac \\ fs [do_app_def,empty_state_def]
-  \\ rw[BOOL_def,opb_lookup_def,Boolv_11]
-  \\ fs[STRING_TYPE_def,mlstringTheory.implode_def]
+  \\ rw[BOOL_def,Boolv_11] \\ fs[STRING_TYPE_def,mlstringTheory.implode_def]
 
 Theorem Eval_implode:
    !env x1 l.
@@ -2287,7 +2287,8 @@ Proof
   \\ Cases_on`st` \\ fs[STRING_TYPE_def,empty_state_def]
   \\ fs[NUM_def,INT_def,IMPLODE_EXPLODE_I]
   \\ rw[copy_array_def,INT_ABS_NUM,INT_ADD,
-        substring_def,SEG_TAKE_DROP,STRING_TYPE_def]
+        substring_def,SEG_TAKE_DROP,STRING_TYPE_def,
+        implode_def]
 QED
 
 Theorem Eval_str_eq:
@@ -2373,12 +2374,12 @@ Theorem Eval_HOL_STRING_APPEND:
    !env x1 x2 s1 s2 n.
       Eval env x1 (HOL_STRING_TYPE s1) ==>
       Eval env x2 (HOL_STRING_TYPE s2) ==>
-      lookup_cons (Short "::") env = SOME (2,TypeStamp "::" 1) /\
-      lookup_cons (Short "[]") env = SOME (0,TypeStamp "[]" 1) ==>
+      lookup_cons (Short «::») env = SOME (2,TypeStamp «::» 1) /\
+      lookup_cons (Short «[]») env = SOME (0,TypeStamp «[]» 1) ==>
       Eval env
-        (App Strcat [Con (SOME (Short "::"))
-                    [x1; Con (SOME (Short "::"))
-                         [x2; Con (SOME (Short "[]")) []]]])
+        (App Strcat [Con (SOME (Short «::»))
+                    [x1; Con (SOME (Short «::»))
+                         [x2; Con (SOME (Short «[]»)) []]]])
         (HOL_STRING_TYPE (s1++s2))
 Proof
   rw [HOL_STRING_TYPE_def] \\ fs [implode_def,lookup_cons_def]
@@ -2402,14 +2403,14 @@ Theorem Eval_HOL_STRING_CONS:
    !env x1 x2 c s n.
       Eval env x1 (CHAR c) ==>
       Eval env x2 (HOL_STRING_TYPE s) ==>
-      lookup_cons (Short "::") env = SOME (2,TypeStamp "::" 1) /\
-      lookup_cons (Short "[]") env = SOME (0,TypeStamp "[]" 1) ==>
+      lookup_cons (Short «::») env = SOME (2,TypeStamp «::» 1) /\
+      lookup_cons (Short «[]») env = SOME (0,TypeStamp «[]» 1) ==>
       Eval env
-        (App Strcat [Con (SOME (Short "::"))
-                    [App Implode [Con (SOME (Short "::"))
-                                    [x1; Con (SOME (Short "[]")) []]];
-                     Con (SOME (Short "::"))
-                       [x2; Con (SOME (Short "[]")) []]]])
+        (App Strcat [Con (SOME (Short «::»))
+                    [App Implode [Con (SOME (Short «::»))
+                                    [x1; Con (SOME (Short «[]»)) []]];
+                     Con (SOME (Short «::»))
+                       [x2; Con (SOME (Short «[]»)) []]]])
         (HOL_STRING_TYPE (STRING c s))
 Proof
   rw[] \\ `STRING c s = [c] ++ s` by fs []
@@ -2441,7 +2442,7 @@ Proof
   \\ fs[v_to_list_def,LIST_TYPE_def,EVAL ``list_type_num``]
   \\ first_x_assum drule \\ rw[]
   \\ fs [] \\ fs [HOL_STRING_TYPE_def,STRING_TYPE_def,implode_def]
-  \\ rveq \\ rw[vs_to_string_def]
+  \\ rveq \\ rw[vs_to_string_def, strcat_def, concat_def]
 QED
 
 Theorem Eval_HOL_STRING_IMPLODE:
@@ -2463,11 +2464,11 @@ Proof
 QED
 
 Theorem Eval_HOL_STRING_LITERAL:
-  !s. Eval env (Lit (StrLit s)) (HOL_STRING_TYPE s)
+  !s. Eval env (Lit (StrLit (strlit s))) (HOL_STRING_TYPE s)
 Proof
-  rw []
-  \\ qspec_then `s` mp_tac Eval_Val_STRING
-  \\ fs [HOL_STRING_TYPE_def,mlstringTheory.implode_def]
+  rpt strip_tac
+  \\ qspec_then `strlit s` mp_tac Eval_Val_STRING
+  \\ fs[HOL_STRING_TYPE_def,mlstringTheory.implode_def]
 QED
 
 (* vectors *)
@@ -2633,10 +2634,10 @@ val two_pow_64 = EVAL ``2i**64`` |> concl |> rand
 
 Theorem Eval_force_out_of_memory_error:
     Eval env x (a i) ==>
-    Eval env (Let (SOME "a") x
-             (Let (SOME "n") (Lit (IntLit ^two_pow_64))
-             (Let NONE (App Aalloc [Var (Short "n"); Var (Short "n")])
-               (Var (Short "a"))))) (a (force_out_of_memory_error i))
+    Eval env (Let (SOME «a») x
+             (Let (SOME «n») (Lit (IntLit ^two_pow_64))
+             (Let NONE (App Aalloc [Var (Short «n»); Var (Short «n»)])
+               (Var (Short «a»))))) (a (force_out_of_memory_error i))
 Proof
   tac1 \\ fs [namespaceTheory.nsOptBind_def,store_alloc_def,
                force_out_of_memory_error_def]
@@ -2644,7 +2645,7 @@ QED
 
 Theorem Eval_empty_ffi:
    Eval env x (STRING_TYPE s) ==>
-   Eval env (App (FFI "") [x; App Aw8alloc [Lit (IntLit 0); Lit (Word8 0w)]])
+   Eval env (App (FFI «») [x; App Aw8alloc [Lit (IntLit 0); Lit (Word8 0w)]])
      (UNIT_TYPE (empty_ffi s))
 Proof
   rw[Eval_rw,WORD_def] \\ fs [store_alloc_def,do_app_def]
@@ -2744,13 +2745,13 @@ Definition TRUE_def:
 End
 
 Theorem Eval_Val_BOOL_FALSE:
-   Eval env (App (Opb Lt) [Lit (IntLit 0); Lit (IntLit 0)]) (BOOL FALSE)
+  Eval env False_ast (BOOL FALSE)
 Proof
   SIMP_TAC (srw_ss()) [Eval_Val_BOOL_F,FALSE_def]
 QED
 
 Theorem Eval_Val_BOOL_TRUE:
-   Eval env (App (Opb Leq) [Lit (IntLit 0); Lit (IntLit 0)]) (BOOL TRUE)
+  Eval env True_ast (BOOL TRUE)
 Proof
   SIMP_TAC (srw_ss()) [Eval_Val_BOOL_T,TRUE_def]
 QED

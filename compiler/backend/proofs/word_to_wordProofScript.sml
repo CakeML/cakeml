@@ -22,8 +22,6 @@ val is_phy_var_tac =
     `∀k.(2:num)*k=k*2` by DECIDE_TAC>>
     metis_tac[arithmeticTheory.MOD_EQ_0];
 
-val drule = old_drule
-
 Theorem FST_compile_single[simp]:
    FST (compile_single a b c d e) = FST (FST e)
 Proof
@@ -83,7 +81,7 @@ Proof
   (* inst select *)
   Q.ISPECL_THEN [`c`,`max_var p0 +1`,`p0`,`st with permute:=perm''`,`res`,`rst`,`st.locals`] mp_tac inst_select_thm>>
   impl_tac >- (
-    drule (GEN_ALL word_simpProofTheory.compile_exp_thm) \\ fs [] \\ strip_tac \\
+    old_drule (GEN_ALL word_simpProofTheory.compile_exp_thm) \\ fs [] \\ strip_tac \\
     simp[locals_rel_def]>>
     Q.SPEC_THEN `p0` assume_tac max_var_max>>
     irule every_var_mono>>
@@ -109,7 +107,7 @@ Proof
   rw[]>>
 
   (* word cse *)
-  drule word_common_subexp_elim_correct >>
+  old_drule word_common_subexp_elim_correct >>
   impl_keep_tac >- (
     fs [] >>
     (* requires flat_exp_conventions up to p3 *)
@@ -122,7 +120,7 @@ Proof
   simp[Once (GSYM evaluate_copy_prop)]>>
   strip_tac >>
   (* three_to_two_reg_prog *)
-  drule evaluate_three_to_two_reg_prog>>
+  old_drule evaluate_three_to_two_reg_prog>>
   simp[]>>
   impl_tac >- (
     (* requires every_inst distinct_tar_reg up to p4 *)
@@ -227,7 +225,7 @@ Proof
     simp[ALOOKUP_MAP_2]>>
     metis_tac[])
   >>
-    first_x_assum drule>>rw[]>>
+    first_x_assum old_drule>>rw[]>>
     simp[]>>metis_tac[]
 QED
 
@@ -266,7 +264,7 @@ Proof
   >- (fs[evaluate_def] >> rpt (TOP_CASE_TAC >> simp[]) >>
       simp[state_component_equality])
   >- (fs[evaluate_def] >> rpt (TOP_CASE_TAC >> simp[]) >>
-      drule inst_const_full >> simp[state_component_equality])
+      old_drule inst_const_full >> simp[state_component_equality])
   >- (fs[evaluate_def] >> rpt (TOP_CASE_TAC >> simp[]) >>
       simp[state_component_equality])
   >- (fs[evaluate_def] >> rpt (TOP_CASE_TAC >> simp[]) >>
@@ -274,7 +272,7 @@ Proof
   >- (fs[evaluate_def] >> rpt (TOP_CASE_TAC >> simp[]) >>
       simp[state_component_equality])
   >- (fs[evaluate_def] >> rpt (TOP_CASE_TAC >> simp[]) >>
-      drule mem_store_const >> simp[state_component_equality])
+      old_drule mem_store_const >> simp[state_component_equality])
   >- (
     (* Must_Terminate *)
     fs[evaluate_def,AND_IMP_INTRO]>>
@@ -416,9 +414,9 @@ Proof
           full_simp_tac(srw_ss())[call_env_def,flush_state_def,dec_clock_def]>>
           DECIDE_TAC)>>
        (*Why are there 3 different lemmas*)
-        drule pop_env_const >> fs[] >> disch_then kall_tac >>
-        drule pop_env_termdep>> fs[] >> disch_then kall_tac >>
-        drule pop_env_code_gc_fun_clock >>
+        old_drule pop_env_const >> fs[] >> disch_then kall_tac >>
+        old_drule pop_env_termdep>> fs[] >> disch_then kall_tac >>
+        old_drule pop_env_code_gc_fun_clock >>
         disch_then (mp_tac o LIST_CONJ o (map SYM) o CONJUNCTS) >>
         fs[] >> disch_then kall_tac >>
         (*Yet another duplication*)
@@ -627,7 +625,7 @@ Proof
     PairCases_on`h`>>fs[compile_single_def,shift_seq_def]>>
     TOP_CASE_TAC>>fs[]>>
     conj_tac>-
-      (drule (GEN_ALL code_rel_union_fromAList)>>
+      (old_drule (GEN_ALL code_rel_union_fromAList)>>
       simp[]>>
       disch_then(qspecl_then[`tt`,`kk`,`co`,`aa`,`(h0,h1,h2)::t`] assume_tac)>>
       fs[compile_single_def])>>
@@ -682,7 +680,7 @@ Theorem compile_word_to_word_thm:
 Proof
   simp[]>>rw[]>>
   qpat_abbrev_tac`prog = Call _ _ _ _`>>
-  drule compile_single_correct>>fs[]>>
+  old_drule compile_single_correct>>fs[]>>
   disch_then(qspecl_then[`prog`,`λconf. cc conf o ((MAP (I ## I ## remove_must_terminate)))`] mp_tac)>>
   impl_tac>-(
     simp[FUN_EQ_THM,full_compile_single_def,LAMBDA_PROD,MAP_MAP_o,o_DEF]>>
@@ -693,7 +691,7 @@ Proof
   qexists_tac`perm'`>>pairarg_tac>>fs[]>>
   pairarg_tac>>fs[]>>
   Cases_on`res=SOME Error`>>fs[]>>
-  drule (GEN_ALL word_remove_correct)>>fs[]>>
+  old_drule (GEN_ALL word_remove_correct)>>fs[]>>
   disch_then(qspec_then`cc` assume_tac)>>rfs[]>>
   qexists_tac`clk`>>
   fs[Abbr`prog`,word_removeTheory.remove_must_terminate_def,compile_state_def]>>
@@ -926,7 +924,7 @@ Proof
   >- (fs[evaluate_def] >> rpt (TOP_CASE_TAC >> simp[]) >>
       simp[state_component_equality])
   >- (fs[evaluate_def] >> rpt (TOP_CASE_TAC >> simp[]) >>
-      drule inst_const_full >> simp[state_component_equality])
+      old_drule inst_const_full >> simp[state_component_equality])
   >- (fs[evaluate_def] >> rpt (TOP_CASE_TAC >> simp[]) >>
       simp[state_component_equality])
   >- (fs[evaluate_def] >> rpt (TOP_CASE_TAC >> simp[]) >>
@@ -934,7 +932,7 @@ Proof
   >- (fs[evaluate_def] >> rpt (TOP_CASE_TAC >> simp[]) >>
       simp[state_component_equality])
   >- (fs[evaluate_def] >> rpt (TOP_CASE_TAC >> simp[]) >>
-      drule mem_store_const >> simp[state_component_equality])
+      old_drule mem_store_const >> simp[state_component_equality])
    (* Must_Terminate *)
   >- (fs[evaluate_def,no_install_def,no_alloc_def] >>
      rpt (TOP_CASE_TAC >> simp[]) >>
@@ -976,14 +974,14 @@ Proof
         flush_state_def]>>
        conj_tac>-DECIDE_TAC>>
        qpat_x_assum ‘find_code _ _ st.code _ = _’ assume_tac>>
-       drule (GEN_ALL code_rel_no_install)>>
-       disch_then drule>>gs[]>>
+       old_drule (GEN_ALL code_rel_no_install)>>
+       disch_then old_drule>>gs[]>>
        impl_tac
        >-(drule_all (INST_TYPE [beta|->alpha, gamma|->“:num”]
                      no_install_find_code)>>gs[])>>
        rw[]>>
-       drule (GEN_ALL code_rel_no_alloc)>>
-       disch_then drule>>gs[]>>
+       old_drule (GEN_ALL code_rel_no_alloc)>>
+       disch_then old_drule>>gs[]>>
        impl_tac
        >-(drule_all (INST_TYPE [beta|->alpha, gamma|->“:num”]
                      no_alloc_find_code)>>gs[])>>
@@ -1038,14 +1036,14 @@ Proof
     (
      fs[Abbr`stt`,dec_clock_def] >>
      qpat_x_assum ‘find_code _ _ st.code _ = _’ assume_tac>>
-     drule (GEN_ALL code_rel_no_install)>>
-     disch_then drule>>gs[]>>
+     old_drule (GEN_ALL code_rel_no_install)>>
+     disch_then old_drule>>gs[]>>
      impl_tac
      >-(drule_all (INST_TYPE [beta|->alpha, gamma|->“:num”]
                    no_install_find_code)>>gs[])>>
      rw[]>>
-     drule (GEN_ALL code_rel_no_alloc)>>
-     disch_then drule>>gs[]>>
+     old_drule (GEN_ALL code_rel_no_alloc)>>
+     disch_then old_drule>>gs[]>>
      impl_tac
      >-(drule_all (INST_TYPE [beta|->alpha, gamma|->“:num”]
                    no_alloc_find_code)>>gs[])>>
@@ -1114,9 +1112,9 @@ Proof
           full_simp_tac(srw_ss())[call_env_def,flush_state_def,dec_clock_def]>>
           DECIDE_TAC)>>
        (*Why are there 3 different lemmas*)
-       drule pop_env_const >> fs[] >> disch_then kall_tac >>
-       drule pop_env_termdep>> fs[] >> disch_then kall_tac >>
-       drule pop_env_code_gc_fun_clock >>
+       old_drule pop_env_const >> fs[] >> disch_then kall_tac >>
+       old_drule pop_env_termdep>> fs[] >> disch_then kall_tac >>
+       old_drule pop_env_code_gc_fun_clock >>
        disch_then (mp_tac o LIST_CONJ o (map SYM) o CONJUNCTS) >>
        fs[] >> disch_then kall_tac >>
        (*Yet another duplication*)
@@ -1252,7 +1250,7 @@ Proof
        gs[no_install_def, no_alloc_def]>>
        ‘no_install_code rst.code ∧ no_alloc_code rst.code’
          by (qpat_assum ‘_ = (_, rst)’ assume_tac>>
-             drule no_install_evaluate_const_code>>
+             old_drule no_install_evaluate_const_code>>
              strip_tac>>gs[call_env_def,
                            push_env_def]>>
              qpat_x_assum ‘find_code _ _ st.code _ = _’ assume_tac>>
@@ -1277,7 +1275,7 @@ Proof
      imp_res_tac wordPropsTheory.evaluate_consts>>
      fs[]>>
      qpat_assum ‘_ = (_, rst)’ assume_tac>>
-     drule no_install_evaluate_const_code>>
+     old_drule no_install_evaluate_const_code>>
      strip_tac>>gs[call_env_def,
                    push_env_def]>>
      qpat_x_assum ‘find_code _ _ st.code _ = _’ assume_tac>>
@@ -1421,7 +1419,7 @@ Proof
   pop_assum (assume_tac o GSYM)>>gs[]>>
   qmatch_asmsub_abbrev_tac ‘full_compile_single _ _ _ _ x’>>
   ‘r = SND (SND (FST x))’ by gs[Abbr ‘x’]>>gs[]>>
-  drule (GEN_ALL no_mt_full_compile_single)>>gs[]>>metis_tac[]
+  old_drule (GEN_ALL no_mt_full_compile_single)>>gs[]>>metis_tac[]
 QED
 
 (**** more on no_share_inst ****)
@@ -1473,10 +1471,10 @@ Proof
         fs[no_mt_subprogs_def, no_install_subprogs_def, no_alloc_subprogs_def]>>
         gvs[PAIR_FST_SND_EQ]>>
         irule compile_single_not_created_subprogs >> res_tac >> gs [])>>
-  drule no_install_no_alloc_compile_single_correct>>
+  old_drule no_install_no_alloc_compile_single_correct>>
   fs[]>>
   disch_then(qspec_then`prog`mp_tac)>>
-  rpt (disch_then drule)>>
+  rpt (disch_then old_drule)>>
   rw[]>>
   qexists_tac`perm'`>>pairarg_tac>>fs[]>>
   pairarg_tac>>fs[]>>
@@ -1507,7 +1505,7 @@ Theorem word_to_word_compile_semantics:
   wordSem$semantics (t:(α,β,'ffi) wordSem$state) start
 Proof
   strip_tac>>pop_assum mp_tac>>
-  drule code_rel_ext_word_to_word>>
+  old_drule code_rel_ext_word_to_word>>
   strip_tac>>
   drule_all no_mt_code_rel_ext>>strip_tac>>
   gs[word_to_wordTheory.compile_def]>>
@@ -1546,7 +1544,7 @@ Proof
       (MAP (compile_single tt kk aa acomf)
        (ZIP (wprog0,n_oracles))))’ by
       gs[wordSemTheory.state_component_equality]>>
-    drule (GEN_ALL panLang_compile_word_to_word_thm)>>
+    old_drule (GEN_ALL panLang_compile_word_to_word_thm)>>
     full_simp_tac(srw_ss())[] >>
     disch_then (qspec_then ‘start’ mp_tac)>>gs[]>>
     strip_tac>>
@@ -1573,7 +1571,7 @@ Proof
       (MAP (compile_single tt kk aa acomf)
        (ZIP (wprog0,n_oracles))))’ by
       gs[wordSemTheory.state_component_equality]>>
-    drule (GEN_ALL panLang_compile_word_to_word_thm)>>
+    old_drule (GEN_ALL panLang_compile_word_to_word_thm)>>
     full_simp_tac(srw_ss())[] >>
     disch_then (qspec_then ‘start’ mp_tac)>>gs[]>>
     strip_tac>>
@@ -1587,13 +1585,13 @@ Proof
     strip_tac>>
     pairarg_tac>>gs[]>>
     qpat_x_assum ‘_ = (q, r''')’ assume_tac>>
-    drule (GEN_ALL wordPropsTheory.evaluate_add_clock) >>
+    old_drule (GEN_ALL wordPropsTheory.evaluate_add_clock) >>
     simp[RIGHT_FORALL_IMP_THM] >>
     impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
     disch_then(qspec_then`k`mp_tac) >>
     strip_tac>>
     qpat_x_assum ‘_ = (r', t')’ assume_tac>>
-    drule (GEN_ALL wordPropsTheory.evaluate_add_clock) >>
+    old_drule (GEN_ALL wordPropsTheory.evaluate_add_clock) >>
     simp[RIGHT_FORALL_IMP_THM] >>
     impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
     disch_then(qspec_then`k'`mp_tac) >>
@@ -1607,7 +1605,7 @@ Proof
     (MAP (compile_single tt kk aa acomf)
      (ZIP (wprog0,n_oracles))))’ by
     gs[wordSemTheory.state_component_equality]>>
-  drule (GEN_ALL panLang_compile_word_to_word_thm)>>
+  old_drule (GEN_ALL panLang_compile_word_to_word_thm)>>
   full_simp_tac(srw_ss())[] >>
   disch_then (qspec_then ‘start’ mp_tac)>>gs[]>>
 
@@ -1638,7 +1636,7 @@ Proof
       (MAP (compile_single tt kk aa acomf)
        (ZIP (wprog0,n_oracles))))’ by
        gs[wordSemTheory.state_component_equality]>>
-    drule (GEN_ALL panLang_compile_word_to_word_thm)>>
+    old_drule (GEN_ALL panLang_compile_word_to_word_thm)>>
     full_simp_tac(srw_ss())[] >>
     disch_then (qspec_then ‘start’ mp_tac)>>gs[]>>
     strip_tac>>
@@ -1665,7 +1663,7 @@ Proof
       (MAP (compile_single tt kk aa acomf)
        (ZIP (wprog0,n_oracles))))’ by
        gs[wordSemTheory.state_component_equality]>>
-    drule (GEN_ALL panLang_compile_word_to_word_thm)>>
+    old_drule (GEN_ALL panLang_compile_word_to_word_thm)>>
     full_simp_tac(srw_ss())[] >>
     disch_then (qspec_then ‘start’ mp_tac)>>gs[]>>
     strip_tac>>
@@ -1699,7 +1697,7 @@ Proof
      (ZIP (wprog0,n_oracles))))’ by
     gs[wordSemTheory.state_component_equality]>>
 
-  drule (GEN_ALL panLang_compile_word_to_word_thm)>>
+  old_drule (GEN_ALL panLang_compile_word_to_word_thm)>>
   full_simp_tac(srw_ss())[] >>
   disch_then (qspec_then ‘start’ mp_tac)>>gs[]>>
   strip_tac>>gs[]>>

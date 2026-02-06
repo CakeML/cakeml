@@ -4,10 +4,10 @@
 *)
 Theory tokens
 Ancestors[qualified]
-  integer string
+  integer mlstring
 
 Datatype:
-  path = Mod string path | End
+  path = Mod mlstring path | End
 End
 
 Datatype:
@@ -21,16 +21,15 @@ Datatype:
   | OpenT | OrelseT | RaiseT | RecT | SharingT | SigT | SignatureT | StructT
   | StructureT | ThenT | TypeT | ValT | WhereT | WhileT | WithT | WithtypeT
   | IntT int
-  | HexintT string
+  | HexintT mlstring
   | WordT num
-  | RealT string
-  | StringT string
+  | RealT mlstring
+  | StringT mlstring
   | CharT char
-  | TyvarT string
-  | AlphaT string
-  | SymbolT string
-  | LongidT path string
-  | FFIT string
-  | REPLIDT string
+  | TyvarT mlstring
+  | AlphaT mlstring
+  | SymbolT mlstring
+  | LongidT path mlstring
+  | FFIT mlstring
+  | REPLIDT mlstring
 End
-

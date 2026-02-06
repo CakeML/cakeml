@@ -8,13 +8,13 @@ Libs
   preamble
 
 
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 (* handling constructor arities gets very complicated when "open" is
    implemented *)
 Datatype:
-  PCstate0 = <| fixities : string |-> num option ;
-                ctr_arities : (string, string) id |-> num |>
+  PCstate0 = <| fixities : mlstring |-> num option ;
+                ctr_arities : (mlstring, mlstring) id |-> num |>
 End
 (* recording a fixity of NONE is what you have to do to represent an
    explicit nonfix declaration *)
@@ -31,18 +31,18 @@ End
 
 Definition fixity_lookup_def:
   fixity_lookup nm pcs =
-    dtcase pcs of
+    case pcs of
         [] => NONE
       | pc0 :: rest =>
-          dtcase FLOOKUP pc0.fixities nm of
+          case FLOOKUP pc0.fixities nm of
               NONE => fixity_lookup nm rest
             | SOME NONE => NONE
             | SOME r => r
 End
 
-(* mfixity_lookup : string -> num M
-    'fails' if the string has no fixity, even though it is perfectly
-    reasonable for a string to be nonfix.
+(* mfixity_lookup : mlstring -> num M
+    'fails' if the mlstring has no fixity, even though it is perfectly
+    reasonable for a mlstring to be nonfix.
 *)
 Definition mfixity_lookup_def:
   mfixity_lookup nm : num M =
@@ -51,12 +51,12 @@ End
 
 Definition mFUPD_HD_def:
   mFUPD_HD f pcs =
-    dtcase pcs of
+    case pcs of
         [] => NONE
       | h :: t => SOME((), f h :: t)
 End
 
-(* msetfix : string -> num option -> unit M *)
+(* msetfix : mlstring -> num option -> unit M *)
 Definition msetfix_def:
   msetfix nm fix : unit M =
     mFUPD_HD (λs0. s0 with fixities updated_by (λfm. fm |+ (nm, fix)))
@@ -65,14 +65,14 @@ End
 (* mpop_anonscope : unit M *)
 Definition mpop_anonscope_def:
   mpopscope : unit M = λpcs.
-    dtcase pcs of
+    case pcs of
       [] => NONE
     | _ :: t => SOME((), t)
 End
 
 Definition mpop_namedscope_def:
-  mpop_namedscope (s : string) : unit M = λpcs.
-    dtcase pcs of
+  mpop_namedscope (s : mlstring) : unit M = λpcs.
+    case pcs of
       [] => NONE
     | [_] => NONE
     | curr :: next :: rest => SOME((), next :: rest)
@@ -103,7 +103,7 @@ End
 
 Definition mk_binop_def:
   mk_binop a_op a1 a2 =
-    if a_op = Short "::" then Con (SOME (Short "::")) [a1; a2]
+    if a_op = Short «::» then Con (SOME (Short «::»)) [a1; a2]
     else App Opapp [App Opapp [Var a_op; a1]; a2]
 End
 
@@ -118,7 +118,7 @@ Definition ptree_UQTyop_def:
   ptree_UQTyop (Nd nt args) =
     if FST nt <> mkNT nUQTyOp then NONE
     else
-      dtcase args of
+      case args of
           [pt] =>
           do
             lf <- destLf pt;
@@ -133,14 +133,14 @@ Definition ptree_TyvarN_def:
   ptree_TyvarN (Nd nt args) =
     if FST nt <> mkNT nTyvarN then NONE
     else
-      dtcase args of
+      case args of
           [tyv] => destTyvarPT tyv
         | _ => NONE
 End
 
 Definition Long_Short_def:
-  Long_Short End s = Short (s:string) ∧
-  Long_Short (Mod x xs) s = Long (x:string) (Long_Short xs s)
+  Long_Short End (s: mlstring) = Short s ∧
+  Long_Short (Mod x xs) s = Long x (Long_Short xs s)
 End
 
 Definition ptree_Tyop_def:
@@ -148,7 +148,7 @@ Definition ptree_Tyop_def:
   ptree_Tyop (Nd nt args) =
     if FST nt <> mkNT nTyOp then NONE
     else
-      dtcase args of
+      case args of
           [pt] =>
           do
             (xs,s) <- destLongidT ' (destTOK ' (destLf pt));
@@ -163,7 +163,7 @@ End
 
 Definition tokcheckl_def:
   tokcheckl pts toks <=>
-    dtcase (pts,toks) of
+    case (pts,toks) of
       ([],[]) => T
     | (pt::prest, tok::tokrest) => tokcheck pt tok ∧ tokcheckl prest tokrest
     | _ => F
@@ -171,11 +171,11 @@ End
 
 Definition ptree_linfix_def:
   ptree_linfix topnt opn elnt (pt : mlptree) =
-    dtcase pt of
+    case pt of
         Lf _ => NONE
       | Nd nt args =>
         if FST nt = mkNT topnt then
-          dtcase args of
+          case args of
               [pt] => do e <- elnt pt; SOME [e] od
             | [x; op_pt; pt] => do
                 assert(tokcheck op_pt opn);
@@ -198,7 +198,7 @@ Definition ptree_Type_def:
   (ptree_Type nm (Nd nt args) =
      if FST nt <> mkNT nm then NONE
      else if nm = nType then
-       dtcase args of
+       case args of
           [dt] =>
           do
             tys <- ptree_PType dt;
@@ -214,7 +214,7 @@ Definition ptree_Type_def:
               od
             | _ => NONE
      else if nm = nDType then
-       dtcase args of
+       case args of
            [pt] => ptree_Type nTbase pt
          | [dt; opn] => do
                           dty <- ptree_Type nDType dt;
@@ -223,7 +223,7 @@ Definition ptree_Type_def:
                         od
          | _ => NONE
      else if nm = nTbase then
-       dtcase args of
+       case args of
            [pt] =>
                 OPTION_MAP Atvar (destTyvarPT pt) ++
                 OPTION_MAP (Atapp []) (ptree_Tyop pt)
@@ -242,12 +242,12 @@ Definition ptree_Type_def:
          | _ => NONE
      else NONE) ∧
   (ptree_Typelist2 ptree : ast_t list option =
-     dtcase ptree of
+     case ptree of
        Lf _ => NONE
      | Nd nt args =>
        if FST nt <> mkNT nTypeList2 then NONE
        else
-         dtcase args of
+         case args of
            | [dt; commat; tl'] =>
              do
                assert(tokcheck commat CommaT);
@@ -257,12 +257,12 @@ Definition ptree_Type_def:
              od
            | _ => NONE) ∧
   (ptree_TypeList1 ptree : ast_t list option =
-    dtcase ptree of
+    case ptree of
         Lf _ => NONE
       | Nd nt args =>
         if FST nt <> mkNT nTypeList1 then NONE
         else
-          dtcase args of
+          case args of
               [dt] =>
               do
                 ty <- ptree_Type nType dt;
@@ -277,12 +277,12 @@ Definition ptree_Type_def:
               od
             | _ => NONE) ∧
   (ptree_PType ptree : ast_t list option =
-     dtcase ptree of
+     case ptree of
          Lf _ => NONE
        | Nd nt args =>
          if FST nt <> mkNT nPType then NONE
          else
-           dtcase args of
+           case args of
                [dty_pt] =>
                do
                  dty <- ptree_Type nDType dty_pt;
@@ -300,11 +300,11 @@ End
 
 Definition ptree_TypeName_def:
   ptree_TypeName ptree : (tvarN list # typeN) option =
-    dtcase ptree of
+    case ptree of
       Lf _ => NONE
     | Nd nt args =>
       if FST nt = mkNT nTypeName then
-        dtcase args of
+        case args of
           [opt] => do opn <- ptree_UQTyop opt ; SOME([], opn) od
         | [sym; opt] => do tyvn <- destTyvarPT sym ;
                            opn <- ptree_UQTyop opt ;
@@ -326,19 +326,19 @@ Definition ptree_UQConstructorName_def:
   ptree_UQConstructorName (Nd nm args) =
     if FST nm <> mkNT nUQConstructorName then NONE
     else
-      dtcase args of
+      case args of
           [pt] => destAlphaT ' (destTOK ' (destLf pt))
         | _ => NONE
 End
 
 Definition ptree_ConstructorName_def:
   ptree_ConstructorName ast =
-    dtcase ast of
+    case ast of
         Lf _ => NONE
       | Nd nt args =>
         if FST nt <> mkNT nConstructorName then NONE
         else
-          dtcase args of
+          case args of
               [pt] =>
               do
                 s <- ptree_UQConstructorName pt;
@@ -359,7 +359,7 @@ End
 Theorem detuplify_pmatch:
   ∀ty.
     detuplify ty =
-    case ty of
+    pmatch ty of
       Attup args => args
     | ty => [ty]
 Proof
@@ -369,11 +369,11 @@ QED
 
 Definition ptree_PTbase_def:
   ptree_PTbase ast =
-    dtcase ast of
+    case ast of
         Lf _ => fail
       | Nd nt args =>
         if FST nt = mkNT nPTbase then
-          dtcase args of
+          case args of
               [pt] =>
                 OPTION_MAP Atvar (destTyvarPT pt) ++
                 OPTION_MAP (Atapp []) (ptree_Tyop pt)
@@ -388,11 +388,11 @@ End
 
 Definition ptree_TbaseList_def:
   ptree_TbaseList ast =
-    dtcase ast of
+    case ast of
         Lf _ => fail
       | Nd nt args =>
         if FST nt = mkNT nTbaseList then
-          dtcase args of
+          case args of
               [] => return []
             | [ptb_pt;rest_pt] => do
                 b <- ptree_PTbase ptb_pt ;
@@ -405,16 +405,16 @@ End
 
 Definition ptree_Dconstructor_def:
   ptree_Dconstructor ast =
-    dtcase ast of
+    case ast of
         Lf x => NONE
       | Nd nt args =>
         if FST nt = mkNT nDconstructor then
-          dtcase args of
+          case args of
               [] => NONE
             | t::ts =>
               do
                  cname <- ptree_UQConstructorName t;
-                 types <- dtcase ts of
+                 types <- case ts of
                                [blist] =>
                                do
                                  args <- ptree_TbaseList blist ;
@@ -428,11 +428,11 @@ End
 
 Definition ptree_DtypeDecl_def:
   ptree_DtypeDecl (pt : mlptree) =
-    dtcase pt of
+    case pt of
         Lf _ => NONE
       | Nd nt args =>
         if FST nt = mkNT nDtypeDecl then
-          dtcase args of
+          case args of
               [tynm_pt; eqt; dtc_pt] => do
                 assert(tokcheck eqt EqualsT);
                 tynm <- ptree_TypeName tynm_pt;
@@ -445,11 +445,11 @@ End
 
 Definition ptree_TypeDec_def:
   ptree_TypeDec ptree : type_def option =
-    dtcase ptree of
+    case ptree of
       Lf _ => NONE
     | Nd nt args =>
       if FST nt = mkNT nTypeDec then
-        dtcase args of
+        case args of
             [datatype_pt; pt] => do
               assert(tokcheck datatype_pt DatatypeT);
               ptree_linfix nDtypeDecls AndT ptree_DtypeDecl pt
@@ -460,11 +460,11 @@ End
 
 Definition ptree_TypeAbbrevDec_def:
   ptree_TypeAbbrevDec ptree : dec option =
-    dtcase ptree of
+    case ptree of
       Lf _ => NONE
     | Nd nt args =>
       if FST nt = mkNT nTypeAbbrevDec then
-        dtcase args of
+        case args of
           [typetok; tynm ; eqtok ; typ_pt] => do
             assert(tokcheck typetok TypeT ∧ tokcheck eqtok EqualsT) ;
             (vars, nm) <- ptree_TypeName tynm;
@@ -487,18 +487,18 @@ Definition ptree_Op_def:
   ptree_Op (Lf _) = NONE ∧
   ptree_Op (Nd nt subs) =
     if FST nt = mkNT nMultOps then
-      if tokcheckl subs [StarT] then SOME (Short "*")
-      else if tokcheckl subs [AlphaT "mod"] then SOME (Short "mod")
-      else if tokcheckl subs [AlphaT "div"] then SOME (Short "div")
-      else singleSymP validMultSym subs
-    else if FST nt = mkNT nAddOps then singleSymP validAddSym subs
-    else if FST nt = mkNT nListOps then singleSymP validListSym subs
+      if tokcheckl subs [StarT] then SOME (Short «*»)
+      else if tokcheckl subs [AlphaT «mod»] then SOME (Short «mod»)
+      else if tokcheckl subs [AlphaT «div»] then SOME (Short «div»)
+      else singleSymP (validMultSym ∘ explode) subs
+    else if FST nt = mkNT nAddOps then singleSymP (validAddSym ∘ explode) subs
+    else if FST nt = mkNT nListOps then singleSymP (validListSym ∘ explode) subs
     else if FST nt = mkNT nRelOps then
-      singleSymP validRelSym subs ++
-      do assert(tokcheckl subs [EqualsT]); return(Short "=") od
+      singleSymP (validRelSym ∘ explode) subs ++
+      do assert(tokcheckl subs [EqualsT]); return(Short «=») od
     else if FST nt = mkNT nCompOps then
-      if tokcheckl subs [SymbolT ":="] then SOME (Short ":=")
-      else if tokcheckl subs [AlphaT "o"] then SOME (Short "o")
+      if tokcheckl subs [SymbolT «:=»] then SOME (Short «:=»)
+      else if tokcheckl subs [AlphaT «o»] then SOME (Short «o»)
       else NONE
     else NONE
 End
@@ -508,7 +508,7 @@ Definition ptree_V_def:
   ptree_V (Nd nt subs) =
        do
          assert (FST nt = mkNT nV) ;
-         dtcase subs of
+         case subs of
             [pt] => do t <- destTOK ' (destLf pt) ;
                        destAlphaT t ++ destSymbolT t
                     od
@@ -521,7 +521,7 @@ Definition ptree_FQV_def:
   ptree_FQV (Nd nt args) =
     if FST nt <> mkNT nFQV then NONE
     else
-      dtcase args of
+      case args of
           [pt] => OPTION_MAP Short (ptree_V pt) ++
                   do
                     (xs,s) <- destLongidT ' (destTOK ' (destLf pt));
@@ -540,7 +540,7 @@ Definition isConstructor_def:
     do
       ifM (isSymbolicConstructor s)
         (return T)
-        (return (dtcase oHD s of NONE => F | SOME c => isAlpha c ∧ isUpper c))
+        (return (case oHD s of NONE => F | SOME c => isAlpha c ∧ isUpper c))
     od
 End
 
@@ -560,44 +560,44 @@ Definition ptree_OpID_def:
   ptree_OpID (Nd nt subs) =
     if FST nt ≠ mkNT nOpID then NONE
     else
-      dtcase subs of
+      case subs of
           [Lf (TK tk, _)] =>
           do
               s <- destAlphaT tk ;
-              ifM (isConstructor s)
+              ifM (isConstructor (explode s))
                   (return (Con (SOME (Short s)) []))
                   (return (Var (Short s)))
           od ++
           do
               s <- destSymbolT tk ;
-              ifM (isSymbolicConstructor s)
+              ifM (isSymbolicConstructor (explode s))
                   (return (Con (SOME (Short s)) []))
                   (return (Var (Short s)))
           od ++
           do
               (path,s) <- destLongidT tk ;
-              ifM (isConstructor s)
+              ifM (isConstructor (explode s))
                   (return (Con (SOME (Long_Short path s)) []))
                   (return (Var (Long_Short path s)))
           od ++
           (if tk = StarT then
              ifM (isSymbolicConstructor "*")
-                 (return (Con (SOME (Short "*")) []))
-                 (return (Var (Short "*")))
-           else if tk = EqualsT then return (Var (Short "="))
+                 (return (Con (SOME (Short «*»)) []))
+                 (return (Var (Short «*»)))
+           else if tk = EqualsT then return (Var (Short «=»))
            else NONE)
         | _ => NONE
 End
 
 Definition Papply_def:
   Papply pat arg =
-    dtcase pat of
+    case pat of
       Pcon cn args => Pcon cn (args ++ [arg])
     | _ => pat
 End
 
 val maybe_handleRef_def = PmatchHeuristics.with_classic_heuristic Define ‘
-  maybe_handleRef (Pcon (SOME (Short "Ref")) [pat]) = Pref pat ∧
+  maybe_handleRef (Pcon (SOME (Short «Ref»)) [pat]) = Pref pat ∧
   maybe_handleRef p = p’
 
 Definition ptree_Pattern_def[nocompute]:
@@ -605,7 +605,7 @@ Definition ptree_Pattern_def[nocompute]:
   (ptree_Pattern nt (Nd nm args) =
     if mkNT nt <> FST nm then NONE
     else if FST nm = mkNT nPbase then
-      dtcase args of
+      case args of
           [vic] =>
           ptree_Pattern nPtuple vic ++
           do
@@ -623,7 +623,7 @@ Definition ptree_Pattern_def[nocompute]:
           do assert(tokcheck vic UnderbarT) ; return Pany od
         | [lb; rb] =>
           if tokcheckl args [LbrackT; RbrackT] then
-            SOME(Pcon (SOME (Short "[]")) [])
+            SOME(Pcon (SOME (Short «[]»)) [])
           else if tokcheckl [lb] [OpT] then
             do e <- ptree_OpID rb ; EtoPat e od
           else NONE
@@ -631,13 +631,13 @@ Definition ptree_Pattern_def[nocompute]:
           do
             assert (tokcheckl [lb;rb] [LbrackT; RbrackT]);
             plist <- ptree_Plist plistpt;
-            SOME (FOLDR (λp a. Pcon (SOME (Short "::")) [p; a])
-                        (Pcon (SOME (Short "[]")) [])
+            SOME (FOLDR (λp a. Pcon (SOME (Short «::»)) [p; a])
+                        (Pcon (SOME (Short «[]»)) [])
                         plist)
           od
         | _ => NONE
     else if FST nm = mkNT nPConApp then
-      dtcase args of
+      case args of
         [cn] =>
         do
           cname <- ptree_ConstructorName cn ;
@@ -651,7 +651,7 @@ Definition ptree_Pattern_def[nocompute]:
         od
       | _ => fail
     else if FST nm = mkNT nPapp then
-      dtcase args of
+      case args of
           [pb] => ptree_Pattern nPbase pb
         | [capp_pt; ppt] =>
           do
@@ -661,18 +661,18 @@ Definition ptree_Pattern_def[nocompute]:
           od
         | _ => NONE
     else if FST nm = mkNT nPcons then
-      dtcase args of
+      case args of
           [papt] => ptree_Pattern nPapp papt
         | [papt; cons_t; pcons_pt] =>
           do
-            assert (tokcheck cons_t (SymbolT "::"));
+            assert (tokcheck cons_t (SymbolT «::»));
             pa <- ptree_Pattern nPapp papt;
             patt <- ptree_Pattern nPcons pcons_pt;
-            SOME(Pcon (SOME (Short "::")) [pa; patt])
+            SOME(Pcon (SOME (Short «::»)) [pa; patt])
           od
         | _ => NONE
     else if FST nm = mkNT nPas then
-      dtcase args of
+      case args of
           [papt] => ptree_Pattern nPcons papt
         | [vt; as_t; papt] =>
           do
@@ -683,7 +683,7 @@ Definition ptree_Pattern_def[nocompute]:
           od
         | _ => fail
     else if FST nm = mkNT nPattern then
-      dtcase args of
+      case args of
           [pas] => ptree_Pattern nPas pas
         | [pas_pt; colon_t; type_pt] =>
           do
@@ -694,7 +694,7 @@ Definition ptree_Pattern_def[nocompute]:
           od
         | _ => fail
     else if FST nm = mkNT nPtuple then
-      dtcase args of
+      case args of
           [lp; rp] => do assert (tokcheckl [lp;rp] [LparT; RparT]);
                          return (Pcon NONE [])
                       od
@@ -702,7 +702,7 @@ Definition ptree_Pattern_def[nocompute]:
           do
             assert (tokcheckl [lp;rp] [LparT; RparT]);
             pl <- ptree_Plist pl_pt;
-            dtcase pl of
+            case pl of
                 [] => NONE
               | [p] => SOME p
               | _ => SOME (Pcon NONE pl)
@@ -714,7 +714,7 @@ Definition ptree_Pattern_def[nocompute]:
   (ptree_Plist (Nd nm args) =
      if FST nm <> mkNT nPatternList then NONE
      else
-       dtcase args of
+       case args of
            [p_pt] =>
            do
              p <- ptree_Pattern nPattern p_pt;
@@ -752,7 +752,7 @@ Definition ptree_PbaseList1_def:
   (ptree_PbaseList1 (Nd nm args) =
      if FST nm <> mkNT nPbaseList1 then NONE
      else
-       dtcase args of
+       case args of
            [p_pt] => lift SINGL (ptree_Pattern nPbase p_pt)
          | [p_pt; pl_pt] =>
                lift2 CONS
@@ -783,7 +783,7 @@ End
 
 Definition strip_loc_expr_def:
  (strip_loc_expr (Lannot e l) =
-    dtcase (strip_loc_expr e) of
+    case (strip_loc_expr e) of
       (e0, _) => (e0, SOME l)) ∧
  (strip_loc_expr e = (e, NONE))
 End
@@ -804,14 +804,14 @@ Definition mkAst_App_def:
     in
       dest_Conk a10
         (λnm_opt args.
-          if nm_opt = SOME (Short "Ref") ∧ NULL args then App Opref [a2]
+          if nm_opt = SOME (Short «Ref») ∧ NULL args then App Opref [a2]
           else
             let (a2', loc2) = strip_loc_expr a2
             in
               optLannot (merge_locsopt loc1 loc2) (Con nm_opt (args ++ [a2'])))
-        (dtcase a10 of
+        (case a10 of
            App opn args =>
-             (dtcase (destFFIop opn) of
+             (case (destFFIop opn) of
                 NONE => App Opapp [a1;a2]
               | SOME s => App opn (args ++ [a2]))
          | _ => App Opapp [a1;a2])
@@ -819,7 +819,7 @@ End
 
 Definition dePat_def:
   (dePat (Pvar v) b = (v, b)) ∧
-  (dePat p b = ("", Mat (Var (Short "")) [(p, b)]))
+  (dePat p b = («», Mat (Var (Short «»)) [(p, b)]))
 End
 
 Definition mkFun_def:
@@ -848,7 +848,7 @@ End
 
 Definition letFromPat_def:
   letFromPat p rhs body =
-    dtcase p of
+    case p of
       Pany => Let NONE rhs body
     | Pvar v => Let (SOME v) rhs body
     | _ => Mat rhs [(p,body)]
@@ -860,7 +860,7 @@ Definition ptree_Expr_def[nocompute]:
   do
   e <- (if mkNT ent = nt then
       if nt = mkNT nEbase then
-        dtcase subs of
+        case subs of
             [lpart; pt; rpart] =>
               if tokcheck lpart LparT then
                 do
@@ -872,8 +872,8 @@ Definition ptree_Expr_def[nocompute]:
                 do
                   assert(tokcheckl [lpart;rpart][LbrackT; RbrackT]);
                   elist <- ptree_Exprlist nElist1 pt;
-                  SOME(FOLDR (λe acc. Con (SOME (Short "::")) [e; acc])
-                             (Con (SOME (Short "[]")) [])
+                  SOME(FOLDR (λe acc. Con (SOME (Short «::»)) [e; acc])
+                             (Con (SOME (Short «[]»)) [])
                          elist)
                 od
           | [single] =>
@@ -889,7 +889,7 @@ Definition ptree_Expr_def[nocompute]:
           | [lp;rp] => if tokcheckl [lp;rp][LparT;RparT] then
                          SOME (Con NONE [])
                        else if tokcheckl [lp;rp] [LbrackT; RbrackT] then
-                         SOME (Con (SOME (Short "[]")) [])
+                         SOME (Con (SOME (Short «[]»)) [])
                        else if tokcheck lp OpT then
                          ptree_OpID rp
                        else
@@ -900,7 +900,7 @@ Definition ptree_Expr_def[nocompute]:
               letdecs <- ptree_LetDecs letdecs_pt;
               eseq <- ptree_Eseq ept;
               e <- Eseq_encode eseq;
-              SOME(FOLDR (λdf acc. dtcase df of
+              SOME(FOLDR (λdf acc. case df of
                                        INL (p,e0) => letFromPat p e0 acc
                                      | INR fds => Letrec fds acc)
                          e
@@ -908,7 +908,7 @@ Definition ptree_Expr_def[nocompute]:
             od
           | _ => NONE
       else if nt = mkNT nEapp then
-        dtcase subs of
+        case subs of
             [t1; t2] => do
                           a1 <- ptree_Expr nEapp t1;
                           a2 <- ptree_Expr nEbase t2;
@@ -917,7 +917,7 @@ Definition ptree_Expr_def[nocompute]:
           | [t] => ptree_Expr nEbase t
           | _ => NONE
       else if nt = mkNT nEtuple then
-        dtcase subs of
+        case subs of
             [lpart; el2; rpart] =>
             do
               assert (tokcheckl [lpart; rpart] [LparT; RparT]);
@@ -926,7 +926,7 @@ Definition ptree_Expr_def[nocompute]:
             od
           | _ => NONE
       else if nt = mkNT nEmult then
-        dtcase subs of
+        case subs of
           [t1; opt; t2] => do (* s will be *, /, div, or mod *)
             a1 <- ptree_Expr nEmult t1;
             a_op <- ptree_Op opt;
@@ -936,7 +936,7 @@ Definition ptree_Expr_def[nocompute]:
         | [t] => ptree_Expr nEapp t
         | _ => NONE
       else if nt = mkNT nEadd then
-        dtcase subs of
+        case subs of
             [t1;opt;t2] => do
               a1 <- ptree_Expr nEadd t1;
               a_op <- ptree_Op opt;
@@ -946,7 +946,7 @@ Definition ptree_Expr_def[nocompute]:
           | [t] => ptree_Expr nEmult t
           | _ => NONE
       else if nt = mkNT nElistop then
-        dtcase subs of
+        case subs of
             [t1;opt;t2] => do
               a1 <- ptree_Expr nEadd t1;
               a_op <- ptree_Op opt;
@@ -956,7 +956,7 @@ Definition ptree_Expr_def[nocompute]:
           | [t] => ptree_Expr nEadd t
           | _ => NONE
       else if nt = mkNT nErel then
-        dtcase subs of
+        case subs of
             [t1;opt;t2] => do
               a1 <- ptree_Expr nErel t1;
               a_op <- ptree_Op opt;
@@ -966,7 +966,7 @@ Definition ptree_Expr_def[nocompute]:
           | [t] => ptree_Expr nElistop t
           | _ => NONE
       else if nt = mkNT nEcomp then
-        dtcase subs of
+        case subs of
             [t1;opt;t2] => do
               a1 <- ptree_Expr nEcomp t1;
               a_op <- ptree_Op opt;
@@ -976,17 +976,17 @@ Definition ptree_Expr_def[nocompute]:
           | [t] => ptree_Expr nErel t
           | _ => NONE
       else if nt = mkNT nEbefore then
-        dtcase subs of
+        case subs of
           [t1;opt;t2] => do
-            assert(tokcheck opt (AlphaT "before"));
+            assert(tokcheck opt (AlphaT «before»));
             a1 <- ptree_Expr nEbefore t1;
             a2 <- ptree_Expr nEcomp t2;
-            return (mk_binop (Short "before") a1 a2)
+            return (mk_binop (Short «before») a1 a2)
           od
         | [t] => ptree_Expr nEcomp t
         | _ => NONE
       else if nt = mkNT nEtyped then
-        dtcase subs of
+        case subs of
           [e_pt; colon; ty_pt] => do
             assert(tokcheck colon ColonT);
             e <- ptree_Expr nEbefore e_pt;
@@ -996,7 +996,7 @@ Definition ptree_Expr_def[nocompute]:
         | [t] => ptree_Expr nEbefore t
         | _ => NONE
       else if nt = mkNT nElogicAND then
-        dtcase subs of
+        case subs of
             [t1;andt;t2] => do
               assert(tokcheck andt AndalsoT);
               a1 <- ptree_Expr nElogicAND t1;
@@ -1006,7 +1006,7 @@ Definition ptree_Expr_def[nocompute]:
           | [t] => ptree_Expr nEtyped t
           | _ => NONE
       else if nt = mkNT nElogicOR then
-        dtcase subs of
+        case subs of
             [t1;ort;t2] => do
               assert(tokcheck ort OrelseT);
               a1 <- ptree_Expr nElogicOR t1;
@@ -1016,7 +1016,7 @@ Definition ptree_Expr_def[nocompute]:
           | [t] => ptree_Expr nElogicAND t
           | _ => NONE
       else if nt = mkNT nEhandle then
-        dtcase subs of
+        case subs of
             [pt] => ptree_Expr nElogicOR pt
           | [e1pt; handlet; ent] =>
             do
@@ -1027,7 +1027,7 @@ Definition ptree_Expr_def[nocompute]:
             od
           | _ => NONE
       else if nt = mkNT nE then
-        dtcase subs of
+        case subs of
           | [t] => ptree_Expr nEhandle t
           | [raiset; ept] =>
             do
@@ -1060,11 +1060,11 @@ Definition ptree_Expr_def[nocompute]:
     SOME(bind_loc e loc)
   od  ∧
   (ptree_Exprlist nm ast =
-     dtcase ast of
+     case ast of
          Lf _ => NONE
        | Nd (nt,_) subs =>
          if nt = mkNT nElist1 then
-           dtcase subs of
+           case subs of
                [sing] => do e <- ptree_Expr nE sing; SOME [e] od
              | [e;ct;el1] =>
                do
@@ -1075,7 +1075,7 @@ Definition ptree_Expr_def[nocompute]:
                od
              | _ => NONE
          else if nt = mkNT nElist2 then
-           dtcase subs of
+           case subs of
                [e;ct;el1] =>
                do
                  assert(tokcheck ct CommaT);
@@ -1086,11 +1086,11 @@ Definition ptree_Expr_def[nocompute]:
              | _ => NONE
          else NONE) ∧
   ptree_AndFDecls ast =
-    (dtcase ast of
+    (case ast of
         Lf _ => NONE
       | Nd (nt,_) subs =>
         if nt = mkNT nAndFDecls then
-          dtcase subs of
+          case subs of
               [single] => do fdec <- ptree_FDecl single; SOME ([fdec]) od
             | [fdecspt;andt;fdecpt] =>
               do
@@ -1102,11 +1102,11 @@ Definition ptree_Expr_def[nocompute]:
             | _ => NONE
         else NONE) ∧
   (ptree_FDecl ast =
-    dtcase ast of
+    case ast of
         Lf _ => NONE
       | Nd (nt,_) subs =>
         if nt = mkNT nFDecl then
-          dtcase subs of
+          case subs of
               [fname_pt; pats_pt; eqt; body_pt] =>
               do
                 assert(tokcheck eqt EqualsT);
@@ -1119,12 +1119,12 @@ Definition ptree_Expr_def[nocompute]:
             | _ => NONE
         else NONE) ∧
   (ptree_LetDecs ptree =
-    dtcase ptree of
+    case ptree of
         Lf _ => NONE
       | Nd (nt,_) args =>
         if nt <> mkNT nLetDecs then NONE
         else
-          dtcase args of
+          case args of
               [] => SOME []
             | [ld_pt; lds_pt] =>
               if tokcheck ld_pt SemicolonT then ptree_LetDecs lds_pt
@@ -1136,12 +1136,12 @@ Definition ptree_Expr_def[nocompute]:
                 od
             | _ => NONE) ∧
   (ptree_LetDec ptree =
-    dtcase ptree of
+    case ptree of
         Lf _ => NONE
       | Nd (nt,_) args =>
         if nt <> mkNT nLetDec then NONE
         else
-          dtcase args of
+          case args of
               [funtok; andfdecls_pt] =>
               do
                 assert (tokcheck funtok FunT);
@@ -1160,7 +1160,7 @@ Definition ptree_Expr_def[nocompute]:
   (ptree_PEs (Nd (nt,_) args) =
     if nt <> mkNT nPEs then NONE
     else
-      dtcase args of
+      case args of
           [pattern_pt; arrow_pt; pe_pt] =>
           do
             assert(tokcheck arrow_pt DarrowT);
@@ -1173,7 +1173,7 @@ Definition ptree_Expr_def[nocompute]:
   (ptree_PE (Nd (nt,_) args) =
      if nt <> mkNT nPE then NONE
      else
-       dtcase args of
+       case args of
            [eorraise_pt; pesfx_pt] =>
            do
              assert (tokcheck eorraise_pt RaiseT);
@@ -1212,7 +1212,7 @@ Definition ptree_Expr_def[nocompute]:
   (ptree_PEsfx (Nd (nt,_) args) =
      if nt <> mkNT nPEsfx then NONE
      else
-       dtcase args of
+       case args of
            [] => SOME (F, [])
          | [handlebar_tok; pes_pt] =>
            do
@@ -1230,7 +1230,7 @@ Definition ptree_Expr_def[nocompute]:
   (ptree_Eseq (Nd (nt,_) args) =
     if nt <> mkNT nEseq then NONE
     else
-      dtcase args of
+      case args of
           [single] =>
           do
             e <- ptree_Expr nE single;
@@ -1278,7 +1278,7 @@ Definition ptree_StructName_def:
   ptree_StructName (Nd nm args) =
     if FST nm <> mkNT nStructName then NONE
     else
-      dtcase args of
+      case args of
           [pt] => destAlphaT ' (destTOK ' (destLf pt))
         | _ => NONE
 End
@@ -1288,7 +1288,7 @@ Definition ptree_OptTypEqn_def:
   ptree_OptTypEqn (Nd nt args) =
     if FST nt <> mkNT nOptTypEqn then NONE
     else
-      dtcase args of
+      case args of
           [] => SOME NONE
         | [eqtok; typ_pt] =>
           do
@@ -1304,7 +1304,7 @@ Definition ptree_SpecLine_def:
   ptree_SpecLine (Nd nt args) =
     if FST nt <> mkNT nSpecLine then NONE
     else
-      dtcase args of
+      case args of
           [td_pt] =>
           do
             td <- ptree_TypeDec td_pt;
@@ -1321,7 +1321,7 @@ Definition ptree_SpecLine_def:
             assert(tokcheck typetok TypeT);
             (vs,nm) <- ptree_TypeName tynm_pt;
             opteqn <- ptree_OptTypEqn opteqn_pt;
-            SOME() (* (dtcase opteqn of
+            SOME() (* (case opteqn of
                      NONE => Stype_opq vs nm
                    | SOME ty => Stabbrev vs nm ty) *)
           od
@@ -1340,7 +1340,7 @@ Definition ptree_SpeclineList_def:
   ptree_SpeclineList (Nd nt args) =
     if FST nt <> mkNT nSpecLineList then NONE
     else
-      dtcase args of
+      case args of
           [] => SOME () (* [] *)
         | [sl_pt; sll_pt] =>
           if tokcheck sl_pt SemicolonT then ptree_SpeclineList sll_pt
@@ -1358,7 +1358,7 @@ Definition ptree_SignatureValue_def:
   ptree_SignatureValue (Nd nt args) =
     if FST nt <> mkNT nSignatureValue then NONE
     else
-      dtcase args of
+      case args of
           [sigtok; sll_pt; endtok] =>
           do
             assert(tokcheckl [sigtok; endtok] [SigT; EndT]);
@@ -1369,12 +1369,12 @@ End
 
 Definition ptree_Decl_def:
   (ptree_Decl pt : dec option =
-    dtcase pt of
+    case pt of
        Lf _ => NONE
      | Nd (nt,locs) args =>
        if nt <> mkNT nDecl then NONE
        else
-         dtcase args of
+         case args of
              [dt] =>
              do
                tydec <- ptree_TypeDec dt;
@@ -1410,7 +1410,7 @@ Definition ptree_Decl_def:
   (ptree_Decls (Nd (nt,_) args) =
     if nt <> mkNT nDecls then NONE
     else
-      dtcase args of
+      case args of
           [] => SOME []
         | [d_pt; ds_pt] =>
           if tokcheck d_pt SemicolonT then ptree_Decls ds_pt
@@ -1425,19 +1425,19 @@ Definition ptree_Decl_def:
   ptree_Structure (Nd nt args) =
     if FST nt <> mkNT nStructure then NONE
     else
-      dtcase args of
+      case args of
           [structuretok; sname_pt; asc_opt; eqtok; structtok; ds_pt; endtok] =>
           do
             assert(tokcheckl [structtok; structuretok; eqtok;   endtok]
                              [StructT;   StructureT;   EqualsT; EndT]);
             sname <- ptree_StructName sname_pt;
-            asc <- dtcase asc_opt of
+            asc <- case asc_opt of
                        Lf _ => NONE
                      | Nd nt args =>
                          if FST nt <> mkNT nOptionalSignatureAscription then
                            NONE
                          else
-                           dtcase args of
+                           case args of
                                [] => SOME NONE
                              | [sealtok; sig_pt] =>
                                do
@@ -1450,7 +1450,6 @@ Definition ptree_Decl_def:
             SOME(Dmod sname (*asc*) ds)
           od
         | _ => NONE
-
 End
 
 Definition ptree_TopLevelDecs_def:
@@ -1458,7 +1457,7 @@ Definition ptree_TopLevelDecs_def:
   (ptree_TopLevelDecs (Nd nt args) =
      if FST nt <> mkNT nTopLevelDecs then fail
      else
-       dtcase args of
+       case args of
            [] => return []
          | [td_pt; tds_pt] =>
            if tokcheck td_pt SemicolonT then ptree_TopLevelDecs tds_pt
@@ -1473,14 +1472,14 @@ Definition ptree_TopLevelDecs_def:
              assert (tokcheck semitok SemicolonT);
              e <- ptree_Expr nE e_pt;
              tds <- ptree_TopLevelDecs tds_pt;
-             return (Dlet (SND nt) (Pvar "it") e :: tds)
+             return (Dlet (SND nt) (Pvar «it») e :: tds)
            od
          | _ => NONE) ∧
   (ptree_NonETopLevelDecs (Lf _) = fail) ∧
   (ptree_NonETopLevelDecs (Nd nt args) =
      if FST nt <> mkNT nNonETopLevelDecs then fail
      else
-       dtcase args of
+       case args of
          [] => return []
        | [pt1 ; pt2] =>
          if tokcheck pt1 SemicolonT then ptree_TopLevelDecs pt2
@@ -1492,4 +1491,3 @@ Definition ptree_TopLevelDecs_def:
            od
        | _ => fail)
 End
-

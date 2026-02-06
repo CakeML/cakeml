@@ -98,7 +98,7 @@ QED
 
 Theorem SUM_MAP_v3_size:
   !xs. SUM (MAP v3_size xs) = LENGTH xs +
-    SUM (MAP (list_size char_size ∘ FST) xs) +
+    SUM (MAP (mlstring_size ∘ FST) xs) +
     SUM (MAP (v_size ∘ SND) xs)
 Proof
   Induct \\ simp [FORALL_PROD, v_size_def]
@@ -392,7 +392,6 @@ Definition flat_state_rel_def:
     flat_state_rel reachable ^s ^t ⇔
       s.clock = t.clock ∧ s.refs = t.refs ∧
       s.ffi = t.ffi ∧ globals_rel reachable s.globals t.globals ∧
-      s.c = t.c ∧
       domain (find_refs_globals s.refs) ⊆ domain reachable ∧
       EVERY (EVERY ($~ ∘ v_has_Eval) ∘ store_v_vs) s.refs
 End
@@ -504,6 +503,26 @@ Proof
   \\ simp [EL_REPLICATE]
 QED
 
+Theorem pair_case_eq[local]:
+  pair_CASE x f = v ⇔ ?x1 x2. x = (x1,x2) ∧ f x1 x2 = v
+Proof
+  Cases_on `x` >>
+ srw_tac[][]
+QED
+
+Theorem pair_lam_lem[local]:
+  !f v z. (let (x,y) = z in f x y) = v ⇔ ∃x1 x2. z = (x1,x2) ∧ (f x1 x2 = v)
+Proof
+  srw_tac[][]
+QED
+
+val eqs = flatSemTheory.case_eq_thms;
+
+Theorem do_app_cases =
+  ``do_app st op vs = SOME (st',v)`` |>
+  (SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, eqs, pair_case_eq, pair_lam_lem, CaseEq "thunk_op"] THENC
+   SIMP_CONV (srw_ss()++COND_elim_ss) [LET_THM, eqs])
+
 Theorem do_app_SOME_flat_state_rel:
      ∀ reachable state removed_state op l new_state result new_removed_state.
         flat_state_rel reachable state removed_state ∧ op ≠ Opapp ∧
@@ -524,6 +543,24 @@ Proof
   \\ qpat_assum `flat_state_rel _ _ _` (mp_tac o REWRITE_RULE [flat_state_rel_def])
   \\ rw []
   \\ `∃ this_case . this_case op` by (qexists_tac `K T` >> simp[])
+  \\ Cases_on ‘∃a ty. op = Arith a ty’ >- (
+    fs [do_app_def]
+    \\ gvs [AllCaseEqs()]
+    \\ Cases_on ‘ty’
+    \\ TRY(rename1 `WordT w` \\ Cases_on`w`)
+    \\ gvs [semanticPrimitivesTheory.do_arith_def, AllCaseEqs()]
+    \\ simp [do_app_def, semanticPrimitivesTheory.do_arith_def,
+              find_sem_prim_res_globals_def, find_result_globals_def,
+              find_v_globals_def, v_has_Eval_def, div_exn_v_def, v_to_flat_def])
+  \\ Cases_on ‘∃ty1 ty2. op = FromTo ty1 ty2’ >- (
+    fs [do_app_def]
+    \\ gvs [AllCaseEqs()]
+    \\ Cases_on ‘ty1’ \\ Cases_on ‘ty2’
+    \\ gvs [semanticPrimitivesTheory.do_conversion_def, AllCaseEqs()]
+    \\ TRY (Cases_on ‘w’) \\ gvs [semanticPrimitivesTheory.do_conversion_def]
+    \\ simp [do_app_def, semanticPrimitivesTheory.do_conversion_def,
+              find_sem_prim_res_globals_def, find_result_globals_def,
+              find_v_globals_def, v_has_Eval_def, v_to_flat_def])
   \\ qpat_x_assum `do_app _ _ _ = SOME _`
       (strip_assume_tac o REWRITE_RULE [do_app_cases])
   \\ rw []
@@ -860,10 +897,8 @@ Proof
     rpt gen_tac >> strip_tac >>
     qpat_x_assum `evaluate _ _ _ = _` mp_tac >>
     simp[evaluate_def] >> fs[find_lookups_def, has_Eval_def, EVERY_REVERSE] >>
-    `state'.c = removed_state.c` by fs[flat_state_rel_def] >>
     fs[] >>
     Cases_on `evaluate env state' (REVERSE es)` >> fs[] >>
-    IF_CASES_TAC >> fs [] >>
     first_x_assum (
         qspecl_then [`reachable`, `removed_state`] mp_tac) >>
     simp[Once find_lookupsL_REVERSE] >> fs[] >>
@@ -1169,21 +1204,7 @@ Proof
   rw[] >> qpat_x_assum `evaluate_dec _ _ = _` mp_tac >>
   reverse(Induct_on `dec`) >> fs[evaluate_def] >> strip_tac >>
   strip_tac >>
-  fs[keep_def]
-  >- (
-    fs[flat_state_rel_def] >>
-    fs[is_fresh_exn_def] >>
-    rw[] >> fs[find_result_globals_def] >>
-    fs[globals_rel_def] >>
-    metis_tac[]
-    )
-  >- (
-    fs[flat_state_rel_def] >>
-    fs[is_fresh_exn_def] >>
-    rw[] >> fs[find_result_globals_def] >>
-    fs[globals_rel_def] >>
-    metis_tac[]
-    ) >>
+  fs[keep_def] >>
   rpt strip_tac >>
   fs [pair_case_eq] >>
   drule_then drule evaluate_sing_keep_flat_state_rel_eq >>

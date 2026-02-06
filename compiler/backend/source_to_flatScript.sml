@@ -21,7 +21,7 @@ val _ = numLib.temp_prefer_num();
 val _ = temp_tight_equality ();
 
 Datatype:
-  var_name = Glob tra num | Local tra string
+  var_name = Glob tra num | Local tra mlstring
 End
 
 Datatype:
@@ -92,6 +92,8 @@ Definition astOp_to_flatOp_def:
   | FpFromWord => flatLang$FpFromWord
   | FpToWord => flatLang$FpToWord
   | Equality => flatLang$Equality
+  | Arith a test_ty => flatLang$Arith a test_ty
+  | FromTo ty1 ty2 => flatLang$FromTo ty1 ty2
   | Test test test_ty => flatLang$Test test test_ty
   | Opapp => flatLang$Opapp
   | Opassign => flatLang$Opassign
@@ -152,7 +154,7 @@ Proof
 QED
 
 Definition str_sep_def:
-  str_sep = "_"
+  str_sep = «_»
 End
 
 Definition join_all_names_aux_def:
@@ -166,11 +168,11 @@ Definition join_all_names_def:
   join_all_names xs =
     case xs of
     | [x] => x
-    | _ => FLAT (join_all_names_aux xs [])
+    | _ => concat (join_all_names_aux xs [])
 End
 
 Definition compile_exp_def:
-  (compile_exp (t:string list) (env:environment) (Raise e) =
+  (compile_exp (t:mlstring list) (env:environment) (Raise e) =
     Raise None (compile_exp t env e)) ∧
   (compile_exp t env (Handle e pes) =
     Handle None (compile_exp t env e) (compile_pes t env pes)) ∧
@@ -180,7 +182,7 @@ Definition compile_exp_def:
           (compile_exps t env es)) ∧
   (compile_exp t env (Var x) =
     case nsLookup env.v x of
-    | NONE => Var_local None "" (* Can't happen *)
+    | NONE => Var_local None «» (* Can't happen *)
     | SOME x => compile_var None x) ∧
   (compile_exp t env (Fun x e) =
     Fun (join_all_names t) x
@@ -193,16 +195,16 @@ Definition compile_exp_def:
     else
     if op = Eval then
       flatLang$Mat None (Con None NONE (compile_exps t env es))
-        [(Pcon NONE [Pany; Pany; Pany; Pany; Pvar "bytes"; Pvar "words"],
+        [(Pcon NONE [Pany; Pany; Pany; Pany; Pvar «bytes»; Pvar «words»],
             flatLang$Let None NONE (flatLang$App None Eval
-                    (MAP (Var_local None) ["bytes"; "words"]))
-                (Let None (SOME "r") (App None (GlobalVarLookup 0) [])
-                    (flatLang$App None (El 0) [Var_local None "r"])))]
+                    (MAP (Var_local None) [«bytes»; «words»]))
+                (Let None (SOME «r») (App None (GlobalVarLookup 0) [])
+                    (flatLang$App None (El 0) [Var_local None «r»])))]
     else
     if op = Env_id then (case es of
       | [_] => (case compile_exps t env es of
                 | x::xs => x
-                | _ => Var_local None "" (* Can't happen *))
+                | _ => Var_local None «» (* Can't happen *))
       (* possible only if one of es raises an exception *)
       | _ => App None (El 0) (compile_exps t env es)
       )
@@ -259,8 +261,8 @@ Termination
    | INR (INR (INL (t,x,pes))) =>
        list_size (pair_size pat_size exp_size) pes
    | INR (INR (INR (t,x,funs))) =>
-       list_size (pair_size (list_size char_size)
-                  (pair_size (list_size char_size) exp_size)) funs)`
+       list_size (pair_size mlstring_size
+                  (pair_size mlstring_size exp_size)) funs)`
 End
 
 Theorem compile_exps_append:
@@ -385,7 +387,7 @@ Definition env_id_tuple_def:
 End
 
 Definition compile_decs_def:
-  (compile_decs (t:string list) n next env envs [ast$Dlet locs p e] =
+  (compile_decs (t:mlstring list) n next env envs [ast$Dlet locs p e] =
      let n' = n + 4 in
      let xs = REVERSE (pat_bindings p []) in
      let e' = compile_exp (xs++t) env e in
@@ -413,14 +415,14 @@ Definition compile_decs_def:
       <| v := nsEmpty;
          c := FOLDL (\ns (l,cids). nsAppend l ns) nsEmpty new_env |>,
       envs,
-      MAPi (λi (ns,cids). flatLang$Dtype (next.tidx + i) cids) new_env)) ∧
+      [])) ∧
   (compile_decs _ n next env envs [Dtabbrev locs tvs tn t] =
      (n, next, empty_env, envs, [])) ∧
   (compile_decs t n next env envs [Dexn locs cn ts] =
      (n, (next with eidx := next.eidx + 1),
       <| v := nsEmpty; c := nsSing cn (next.eidx, NONE) |>,
       envs,
-      [Dexn next.eidx (LENGTH ts)])) ∧
+      [])) ∧
   (compile_decs t n next env envs [Dmod mn ds] =
      let (n', next', new_env, envs', ds') = compile_decs (mn::t) n next env envs ds in
        (n', next', (lift_env mn new_env), envs', ds')) ∧
@@ -506,8 +508,8 @@ End
 
 Definition store_env_id_def:
   store_env_id gen id =
-    Dlet (Let None (SOME "r") (flatLang$App None (GlobalVarLookup 0) [])
-        (App None Opassign [Var_local None "r"; env_id_tuple gen id]))
+    Dlet (Let None (SOME «r») (flatLang$App None (GlobalVarLookup 0) [])
+        (App None Opassign [Var_local None «r»; env_id_tuple gen id]))
 End
 
 Definition inc_compile_prog_def:

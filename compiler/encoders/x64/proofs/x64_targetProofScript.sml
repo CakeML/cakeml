@@ -974,6 +974,15 @@ Proof
              Const
            --------------*)
          print_tac "Const"
+         \\ Cases_on `c = 0w`
+         >- (
+           Cases_on `word_bit 3 (n2w n : word4)`
+           >- (`(3 >< 3) (n2w n : word4) = 1w : word1`
+                by (pop_assum mp_tac \\ blastLib.BBLAST_TAC)
+              \\ next_tac[])
+           \\ `(3 >< 3) (n2w n : word4) = 0w : word1`
+              by (pop_assum mp_tac \\ blastLib.BBLAST_TAC)
+            \\ next_tac[])
          \\ Cases_on `(63 >< 31) c = 0w : 33 word`
          >| [Cases_on `word_bit 3 (n2w n : word4)`, all_tac]
          \\ next_tac []

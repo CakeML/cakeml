@@ -11,6 +11,8 @@ Ancestors
 Libs
   preamble
 
+val _ = numLib.prefer_num ();
+
 val reader_io_events_def =
   new_specification ("reader_io_events_def", ["reader_io_events"],
   reader_semantics |> Q.GENL [`cl`,`fs`]
@@ -85,7 +87,7 @@ val compile_correct_applied =
   |> DISCH(#1(dest_imp(concl ag32_init_ok)))
   |> C MATCH_MP is_ag32_machine_config_ag32_machine_config
   |> Q.GEN`cbspace` |> Q.SPEC`0`
-  |> Q.GEN`data_sp` |> Q.SPEC`0`
+  |> Q.GEN`data_sp` |> Q.SPEC`0`;
 
 Theorem reader_installed:
    SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
@@ -117,6 +119,7 @@ Proof
   \\ disch_then drule
   \\ strip_tac
   \\ simp[]
+  \\ conj_tac >- (EVAL_TAC)
   \\ conj_tac >- (simp[LENGTH_code] \\ EVAL_TAC)
   \\ conj_tac >- (simp[LENGTH_code, LENGTH_data] \\ EVAL_TAC)
   \\ conj_tac >- (EVAL_TAC)
@@ -135,9 +138,7 @@ val mem = ``mem:'U->'U-> bool``;
 Overload reader[local] = ``\inp r. readLines init_state inp r``
 
 Theorem all_lines_stdin_fs[local]:
-  all_lines_inode (stdin_fs inp) (UStream «stdin»)
-   =
-   lines_of (implode inp)
+  all_lines_stdin (stdin_fs inp) = lines_of (implode inp)
 Proof
   EVAL_TAC
 QED
@@ -149,7 +150,8 @@ Theorem reader_extract_writes:
          out = extract_writes 1 events;
          err = extract_writes 2 events;
          refs = SND (init_reader () init_refs) in
-     case reader (MAP (tokenize o str_prefix) (lines_of (implode inp))) refs of
+       case reader (FLAT (MAP (MAP tokenize ∘ tokens is_newline)
+                              (lines_of (implode inp)))) refs of
        (M_failure (Failure e), refs) =>
          (out = "") ∧
          (err = explode e)
@@ -182,15 +184,16 @@ Proof
     \\ goal_assum (first_assum o mp_then Any mp_tac)
     \\ simp [RIGHT_EXISTS_AND_THM]
     \\ simp [readerProofTheory.reader_main_def,
-             readerProofTheory.read_stdin_def]
-(*  \\ qpat_x_assum ‘_ = init_reader _ _’ (assume_tac o SYM) *)
-    \\ simp [all_lines_stdin_fs]
-    \\ (conj_tac >- simp [fsFFIPropsTheory.inFS_fname_def, stdin_fs_def])
+             readerProofTheory.read_from_def]
+    \\ simp [fsFFIPropsTheory.all_lines_from_def, all_lines_stdin_fs]
+    \\ (conj_tac >- simp [fsFFIPropsTheory.inFS_fname_def,
+                          TextIOProofTheory.add_stdo_def, stdin_fs_def])
     \\ (conj_tac >- simp [stdin_fs_def])
     \\ conj_tac
     \\ simp [stdin_fs_def, fsFFIPropsTheory.fastForwardFD_def,
             miscTheory.the_def, TextIOProofTheory.add_stdo_def,
             TextIOProofTheory.up_stdo_def, TextIOProofTheory.stdo_def,
+            mlstringTheory.implode_def,
             fsFFITheory.fsupdate_def, AFUPDKEY_ALOOKUP]
     \\ SELECT_ELIM_TAC
     \\ (conj_asm1_tac >- (qexists_tac ‘«»’ \\ simp []))
@@ -218,15 +221,16 @@ Proof
   \\ goal_assum (first_assum o mp_then Any mp_tac)
   \\ simp [RIGHT_EXISTS_AND_THM]
   \\ simp [readerProofTheory.reader_main_def,
-           readerProofTheory.read_stdin_def]
-(*\\ qpat_x_assum ‘_ = init_reader _ _’ (assume_tac o SYM) *)
-  \\ simp [all_lines_stdin_fs]
-  \\ (conj_tac >- simp [fsFFIPropsTheory.inFS_fname_def, stdin_fs_def])
+           readerProofTheory.read_from_def]
+  \\ simp [fsFFIPropsTheory.all_lines_from_def, all_lines_stdin_fs]
+  \\ (conj_tac >- simp [fsFFIPropsTheory.inFS_fname_def,
+                        TextIOProofTheory.add_stdo_def, stdin_fs_def])
   \\ (conj_tac >- simp [stdin_fs_def])
   \\ conj_tac
   \\ simp [stdin_fs_def, fsFFIPropsTheory.fastForwardFD_def,
           miscTheory.the_def, TextIOProofTheory.add_stdo_def,
           TextIOProofTheory.up_stdo_def, TextIOProofTheory.stdo_def,
+          mlstringTheory.implode_def,
           fsFFITheory.fsupdate_def, AFUPDKEY_ALOOKUP]
   \\ SELECT_ELIM_TAC
   \\ (conj_asm1_tac >- (qexists_tac ‘«»’ \\ simp []))
@@ -266,7 +270,7 @@ Proof
     \\ simp [stdin_fs_def, TextIOProofTheory.stdin_def])
   \\ strip_tac
   \\ irule ag32_next
-  \\ conj_tac >- simp [ffi_names, extcalls_def]
+  \\ conj_tac >- (simp [ffi_names, extcalls_def] \\ EVAL_TAC)
   \\ conj_tac >- (simp [ffi_names, extcalls_def, LENGTH_code, LENGTH_data] \\ EVAL_TAC)
   \\ conj_tac >- (simp [ffi_names, extcalls_def] \\ EVAL_TAC)
   \\ goal_assum (first_assum o mp_then Any mp_tac)
@@ -280,4 +284,3 @@ Proof
   \\ goal_assum (first_assum o mp_then Any mp_tac)
   \\ metis_tac []
 QED
-

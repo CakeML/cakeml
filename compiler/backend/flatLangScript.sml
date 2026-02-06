@@ -21,13 +21,18 @@ Ancestors
 Libs
   preamble
 
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 (* Copied from the semantics, but with AallocEmpty missing. GlobalVar ops have
  * been added, also TagLenEq and El for pattern match compilation. *)
 Datatype:
  op =
+  (* primitive operations for the primitive types: +, -, and, sqrt, etc. *)
+    Arith arith prim_type
+  (* conversions between primitive types: char<->int, word<->double, word<->int *)
+  | FromTo prim_type prim_type
   (* Operations on integers *)
-    Opn opn
+  | Opn opn
   | Opb opb
   (* Operations on words *)
   | Opw word_size opw
@@ -91,7 +96,7 @@ Datatype:
   (* Configure the GC *)
   | ConfigGC
   (* Call a given foreign function *)
-  | FFI string
+  | FFI mlstring
   (* Allocate the given number of new global variables *)
   | GlobalVarAlloc num
   (* Initialise given global variable *)
@@ -219,12 +224,6 @@ QED
 Datatype:
  dec =
     Dlet exp
-  (* The first number is the identity for the type. The sptree maps arities to
-   * how many constructors have that arity *)
-  | Dtype num (num spt)
-  (* The first number is the identity of the exception. The second number is the
-   * constructor's arity *)
-  | Dexn num num
 End
 
 Definition bool_id_def:
@@ -247,12 +246,10 @@ Definition SmartIf_def:
     | _ => If t e p q
 End
 
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
-
 Theorem SmartIf_PMATCH:
   !t e p q.
     SmartIf t e p q =
-      case e of
+      pmatch e of
         Con _ (SOME (tag, SOME id)) [] =>
           if id = bool_id then
             if tag = backend_common$true_tag then p

@@ -3,7 +3,7 @@
 *)
 Theory basis_cv[no_sig_docs]
 Ancestors
-  cv_std
+  mlsexp cv_std
 Libs
   preamble cv_transLib
 
@@ -16,12 +16,22 @@ val _ = cv_trans miscTheory.SmartAppend_def;
 val _ = cv_trans miscTheory.append_aux_def;
 val _ = cv_trans miscTheory.append_def;
 val _ = cv_trans miscTheory.tlookup_def;
+
 val _ = cv_trans mlstringTheory.implode_def;
 val _ = cv_trans mlstringTheory.explode_thm;
 val _ = cv_trans mlstringTheory.strcat_thm;
 val _ = cv_trans mlstringTheory.str_def;
 val _ = cv_auto_trans mlstringTheory.concat_def;
-val _ = cv_trans miscTheory.list_max_def;
+
+val res = cv_trans_pre "strsub_pre" mlstringTheory.strsub_def;
+
+Theorem strsub_pre[cv_pre]:
+  ∀v n. strsub_pre v n ⇔ n < strlen v
+Proof
+  Cases \\ simp [Once res, mlstringTheory.strlen_def]
+QED
+
+val _ = cv_trans rich_listTheory.MAX_LIST_def;
 val _ = cv_trans (miscTheory.max3_def |> PURE_REWRITE_RULE [GREATER_DEF]);
 
 val toChar_pre = cv_trans_pre "mlint_toChar_pre" mlintTheory.toChar_def
@@ -51,3 +61,6 @@ QED
 val _ = cv_trans (mlintTheory.toString_def |> SRULE [Num_ABS]);
 val _ = cv_trans mlintTheory.num_to_str_def;
 
+val _ = cv_auto_trans (mlsexpTheory.smart_remove_def |> SRULE [GSYM GREATER_DEF]);
+val _ = cv_auto_trans mlsexpTheory.v2pretty_def;
+val _ = cv_auto_trans mlsexpTheory.str_tree_to_strs_def;

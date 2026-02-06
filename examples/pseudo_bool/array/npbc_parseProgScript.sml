@@ -9,9 +9,7 @@ Libs
 
 val _ = translation_extends"npbc_arrayProg";
 
-val () = computeLib.set_skip computeLib.the_compset “COND” (SOME 1);
-
-val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
+val _ = (computeLib.the_compset := computeLib.set_skip (!computeLib.the_compset) “COND” (SOME 1));
 
 val r = translate strip_numbers_aux_def;
 val strip_numbers_aux_side_def = theorem "strip_numbers_aux_side_def";
@@ -235,9 +233,9 @@ Definition sub_one_def:
 End
 val r = translate sub_one_def;
 
-val parse_lsteps_aux = process_topdecs`
+Quote add_cakeml:
   fun parse_lsteps_aux f_ns fd lno acc =
-    case TextIO.b_inputLineTokens #"\n" fd blanks tokenize_fast of
+    case TextIO.inputLineTokens #"\n" fd blanks tokenize_fast of
       None => raise Fail (format_failure lno "reached EOF while reading PBP steps")
     | Some s =>
     case parse_lstep_aux f_ns s of
@@ -250,14 +248,14 @@ val parse_lsteps_aux = process_topdecs`
           case check_mark_qed_id_pbc s of
             None => raise Fail (format_failure (sub_one lno') "subproof not terminated with contradiction id")
           | Some id =>
-            parse_lsteps_aux f_ns'' fd (lno') (Con c pf id::acc))`
-    |> append_prog;
+            parse_lsteps_aux f_ns'' fd (lno') (Con c pf id::acc))
+End
 
 val blanks_v_thm = theorem "blanks_v_thm";
 val tokenize_fast_v_thm = theorem "tokenize_fast_v_thm";
 
-val b_inputLineTokens_specialize =
-  b_inputLineTokens_spec_lines
+val inputLineTokens_specialize =
+  inputLineTokens_spec_lines
   |> Q.GEN `f` |> Q.SPEC`blanks`
   |> Q.GEN `fv` |> Q.SPEC`blanks_v`
   |> Q.GEN `g` |> Q.ISPEC`tokenize_fast`
@@ -354,7 +352,7 @@ Proof
             INSTREAM_LINES #"\n" fd fdv [] (forwardFD fs fd k) *
             &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NONE v)’
     THEN1 (
-      xapp_spec b_inputLineTokens_specialize
+      xapp_spec inputLineTokens_specialize
       \\ qexists_tac ‘emp’
       \\ qexists_tac ‘[]’
       \\ xsimpl
@@ -379,7 +377,7 @@ Proof
             INSTREAM_LINES #"\n" fd fdv ls (forwardFD fs fd k) *
             & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (SOME (toks_fast l)) v)’
     THEN1 (
-      xapp_spec b_inputLineTokens_specialize
+      xapp_spec inputLineTokens_specialize
       \\ qexists_tac ‘emp’
       \\ qexists_tac ‘l::ls’
       \\ qexists_tac ‘fs’
@@ -500,9 +498,10 @@ Proof
     metis_tac[STDIO_INSTREAM_LINES_refl_gc])
 QED
 
-val parse_lsteps = process_topdecs`
+Quote add_cakeml:
   fun parse_lsteps f_ns fd lno =
-    parse_lsteps_aux f_ns fd lno []` |> append_prog;
+    parse_lsteps_aux f_ns fd lno []
+End
 
 Theorem parse_lsteps_spec:
   fns_TYPE a fns fnsv ∧
@@ -563,7 +562,7 @@ val r = translate mk_acc_def;
 
 val r = translate mk_proofgoal_mark_def;
 
-val parse_subproof_aux = process_topdecs`
+Quote add_cakeml:
   fun parse_subproof_aux f_ns fd lno acc =
     case parse_lsteps f_ns fd lno of
       (pf,(f_ns',(s,lno'))) =>
@@ -578,7 +577,8 @@ val parse_subproof_aux = process_topdecs`
             | Some id =>
               parse_subproof_aux f_ns'' fd lno'' ((Some (ind,id),pf)::acc')
               )
-      end` |> append_prog
+      end
+End
 
 Theorem parse_subproof_aux_spec:
   ∀fns ss acc fd fdv lines lno lnov accv fs fnsv.
@@ -719,9 +719,10 @@ Proof
   metis_tac[STDIO_INSTREAM_LINES_refl_gc]
 QED
 
-val parse_subproof_imp = process_topdecs`
+Quote add_cakeml:
   fun parse_subproof_imp f_ns fd lno =
-    parse_subproof_aux f_ns fd lno []` |> append_prog
+    parse_subproof_aux f_ns fd lno []
+End
 
 Theorem parse_subproof_imp_spec:
   fns_TYPE a fns fnsv ∧
@@ -763,7 +764,7 @@ val r = translate parse_scopetext_def;
 val r = translate parse_scopehead_def;
 val r = translate mk_scope_mark_def;
 
-val parse_scope_aux = process_topdecs`
+Quote add_cakeml:
   fun parse_scope_aux f_ns fd lno acc =
     case parse_subproof_imp f_ns fd lno of
       (pf,(f_ns',(s,lno'))) =>
@@ -778,7 +779,8 @@ val parse_scope_aux = process_topdecs`
               parse_scope_aux f_ns'' fd lno'' ((Some ind,pf)::acc')
             else
               raise Fail (format_failure (sub_one lno'') "scope not terminated with end (no id allowed)"))
-      end` |> append_prog
+      end
+End
 
 val mk_scope_mark_v_thm = fetch "-" "mk_scope_mark_v_thm"
   |> Q.GEN `a` |> Q.ISPEC`INT`;
@@ -932,9 +934,10 @@ Proof
   metis_tac[STDIO_INSTREAM_LINES_refl_gc]
 QED
 
-val parse_scope_imp = process_topdecs`
+Quote add_cakeml:
   fun parse_scope_imp f_ns fd lno =
-    parse_scope_aux f_ns fd lno []` |> append_prog
+    parse_scope_aux f_ns fd lno []
+End
 
 Theorem parse_scope_imp_spec:
   fns_TYPE a fns fnsv ∧
@@ -980,9 +983,9 @@ End
 
 val r = translate check_mark_qed_id_opt_red_def;
 
-val parse_sstep_imp = process_topdecs`
+Quote add_cakeml:
   fun parse_sstep_imp fns fd lno =
-    case TextIO.b_inputLineTokens #"\n" fd blanks tokenize_fast of
+    case TextIO.inputLineTokens #"\n" fd blanks tokenize_fast of
       None =>
       raise Fail (format_failure lno "Unexpected EOF when parsing proof steps")
     | Some s =>
@@ -1006,7 +1009,8 @@ val parse_sstep_imp = process_topdecs`
             None => raise Fail (format_failure (sub_one lno') "subproof not terminated with contradiction id")
           | Some n =>
             (Inr (Lstep (Con c pf n)), (fns'', lno')))
-        )` |> append_prog
+        )
+End
 
 Theorem parse_sstep_imp_spec:
   !ss fd fdv lines lno lnov fs fns fnsv.
@@ -1049,7 +1053,7 @@ Proof
             INSTREAM_LINES #"\n" fd fdv [] (forwardFD fs fd k) *
             &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NONE v)’
     >- (
-      xapp_spec b_inputLineTokens_specialize
+      xapp_spec inputLineTokens_specialize
       \\ qexists_tac ‘emp’
       \\ qexists_tac ‘lines’
       \\ qexists_tac ‘fs’
@@ -1072,7 +1076,7 @@ Proof
       INSTREAM_LINES #"\n" fd fdv ls (forwardFD fs fd k) *
       & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (SOME (toks_fast l)) v)’
   THEN1 (
-    xapp_spec b_inputLineTokens_specialize
+    xapp_spec inputLineTokens_specialize
     \\ qexists_tac ‘emp’
     \\ qexists_tac ‘l::ls’
     \\ qexists_tac ‘fs’
@@ -1217,15 +1221,16 @@ val res = translate check_open_def;
 val res = translate check_end_full_def;
 val res = translate pre_order_symbols_def;
 
-val read_open = process_topdecs`
+Quote add_cakeml:
   fun read_open lno h fd acc =
-    let val l = TextIO.b_inputLineTokens #"\n" fd blanks tokenize_fast in
+    let val l = TextIO.inputLineTokens #"\n" fd blanks tokenize_fast in
     case l of None =>
       raise Fail (format_failure lno ("reached EOF while looking for def_order opening line:" ^ h))
     | Some x =>
       if check_open h x then (x::acc,lno+1)
       else read_open (lno+1) h fd (x::acc)
-    end` |> append_prog;
+    end
+End
 
 Theorem read_open_spec:
   !h ss acc lines lno lnov hv accv fs.
@@ -1269,7 +1274,7 @@ Proof
             INSTREAM_LINES #"\n" fd fdv [] (forwardFD fs fd k) *
             &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NONE v)’
     >- (
-      xapp_spec b_inputLineTokens_specialize
+      xapp_spec inputLineTokens_specialize
       \\ qexists_tac ‘emp’
       \\ qexists_tac ‘[]’
       \\ qexists_tac ‘fs’
@@ -1290,7 +1295,7 @@ Proof
       INSTREAM_LINES #"\n" fd fdv ls (forwardFD fs fd k) *
       & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (SOME (toks_fast l)) v)’
   THEN1 (
-    xapp_spec b_inputLineTokens_specialize
+    xapp_spec inputLineTokens_specialize
     \\ qexists_tac ‘emp’
     \\ qexists_tac ‘l::ls’
     \\ qexists_tac ‘fs’
@@ -1318,15 +1323,16 @@ Proof
   metis_tac[STDIO_INSTREAM_LINES_refl_gc]
 QED
 
-val read_end = process_topdecs`
+Quote add_cakeml:
   fun read_end lno h fd acc =
-    let val l = TextIO.b_inputLineTokens #"\n" fd blanks tokenize_fast in
+    let val l = TextIO.inputLineTokens #"\n" fd blanks tokenize_fast in
     case l of None =>
       raise Fail (format_failure lno ("reached EOF while looking for def_order ending line:" ^ h))
     | Some x =>
       if check_end_full h x then (x::acc,lno+1)
       else read_end (lno+1) h fd (x::acc)
-    end` |> append_prog;
+    end
+End
 
 Theorem read_end_spec:
   !h ss acc lines lno lnov hv accv fs.
@@ -1370,7 +1376,7 @@ Proof
             INSTREAM_LINES #"\n" fd fdv [] (forwardFD fs fd k) *
             &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NONE v)’
     >- (
-      xapp_spec b_inputLineTokens_specialize
+      xapp_spec inputLineTokens_specialize
       \\ qexists_tac ‘emp’
       \\ qexists_tac ‘[]’
       \\ qexists_tac ‘fs’
@@ -1391,7 +1397,7 @@ Proof
       INSTREAM_LINES #"\n" fd fdv ls (forwardFD fs fd k) *
       & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (SOME (toks_fast l)) v)’
   THEN1 (
-    xapp_spec b_inputLineTokens_specialize
+    xapp_spec inputLineTokens_specialize
     \\ qexists_tac ‘emp’
     \\ qexists_tac ‘l::ls’
     \\ qexists_tac ‘fs’
@@ -1419,7 +1425,7 @@ Proof
   metis_tac[STDIO_INSTREAM_LINES_refl_gc]
 QED
 
-val read_while = process_topdecs`
+Quote add_cakeml:
   fun read_while lno hs fd acc =
     case hs of
       [] => (List.rev acc,lno)
@@ -1430,7 +1436,8 @@ val read_while = process_topdecs`
             read_while lno' hs fd acc')
       | Inr h =>
           (case read_end lno h fd acc of (acc',lno') =>
-            read_while lno' hs fd acc')` |> append_prog;
+            read_while lno' hs fd acc')
+End
 
 Theorem read_while_spec:
   !hs ss acc lines lno lnov hsv accv fs.
@@ -1574,7 +1581,7 @@ val res = translate parse_trans_refl_block_def;
 
 val res = translate parse_pre_order_pure_def;
 
-val parse_pre_order = process_topdecs`
+Quote add_cakeml:
   fun parse_pre_order fns fd lno =
   case read_while lno pre_order_symbols fd [] of
     (preord,lno') =>
@@ -1582,7 +1589,8 @@ val parse_pre_order = process_topdecs`
     None =>
       raise Fail (format_failure lno ("failed to parse order definition starting at line."))
   | Some (vars,(gspec,(f,(pfr,(pft,fns))))) =>
-    (vars,(gspec,(f,(pfr,(pft,(fns,lno'))))))` |> append_prog;
+    (vars,(gspec,(f,(pfr,(pft,(fns,lno'))))))
+End
 
 Theorem parse_pre_order_spec:
   NUM lno lnov ∧
@@ -1732,7 +1740,7 @@ End
 
 val r = translate check_mark_qed_id_opt_obju_def;
 
-val parse_cstep = process_topdecs`
+Quote add_cakeml:
   fun parse_cstep fns fd lno =
     case parse_sstep_imp fns fd lno of
       (Inr sstep, (fns',lno')) =>
@@ -1772,7 +1780,7 @@ val parse_cstep = process_topdecs`
     | Some (Changeprespar b x c, fns'') =>
         raise Fail (format_failure lno "Parsing change proj set not yet supported")
     )
-  `|> append_prog;
+End
 
 Theorem parse_cstep_spec:
   !ss fd fdv lines lno lnov fs fns fnsv.
@@ -2054,7 +2062,7 @@ QED
 
 (* returns the necessary information to check the
   output and conclusion sections *)
-val check_unsat'' = process_topdecs `
+Quote add_cakeml:
   fun check_unsat'' fns fd lno fml zeros inds vimap vomap pc =
     case parse_cstep fns fd lno of
       (Inl s, (fns', lno')) =>
@@ -2063,7 +2071,8 @@ val check_unsat'' = process_topdecs `
     | (Inr cstep, (fns', lno')) =>
       (case check_cstep_arr lno cstep fml zeros inds vimap vomap pc of
         (fml', (zeros', (inds', (vimap', (vomap', pc'))))) =>
-        check_unsat'' fns' fd lno' fml' zeros' inds' vimap' vomap' pc')` |> append_prog
+        check_unsat'' fns' fd lno' fml' zeros' inds' vimap' vomap' pc')
+End
 
 Theorem read_open_LENGTH:
   ∀h ss acc.
@@ -2343,11 +2352,12 @@ Proof
   qexists_tac`A`>>qexists_tac`B`>>xsimpl
 QED
 
-val fill_arr = process_topdecs`
+Quote add_cakeml:
   fun fill_arr arr i ls =
     case ls of [] => arr
     | (v::vs) =>
-      fill_arr (Array.updateResize arr None i (Some (v,True))) (i+1) vs` |> append_prog
+      fill_arr (Array.updateResize arr None i (Some (v,True))) (i+1) vs
+End
 
 Theorem fill_arr_spec:
   ∀ls lsv arrv arrls arrlsv i iv.
@@ -2509,7 +2519,7 @@ End
 
 val res = translate format_err_def;
 
-val check_output_hconcl_arr = process_topdecs`
+Quote add_cakeml:
   fun check_output_hconcl_arr
     fml obj
     fml' inds' pres' obj' bound' dbound' chk'
@@ -2518,8 +2528,8 @@ val check_output_hconcl_arr = process_topdecs`
   format_err
   (check_output_arr fml' inds'
     pres' obj' bound' dbound' chk' fmlt prest objt output)
-  (check_hconcl_arr fml obj fml' obj' bound' dbound' hconcl)`
-  |> append_prog;
+  (check_hconcl_arr fml obj fml' obj' bound' dbound' hconcl)
+End
 
 Theorem check_output_hconcl_arr_spec:
   LIST_TYPE constraint_TYPE fml fmlv ∧
@@ -2568,13 +2578,13 @@ QED
 (* Translation for parsing an OPB file *)
 
 (* Parse the conclusion from the rest of the file and check it *)
-val run_concl_file = process_topdecs`
+Quote add_cakeml:
   fun run_concl_file fd f_ns lno s
     fml obj
     fml' inds' pres' obj' bound' dbound' chk'
     fmlt prest objt =
   let
-    val ls = TextIO.b_inputAllTokens #"\n" fd blanks tokenize
+    val ls = TextIO.inputAllTokens #"\n" fd blanks tokenize
   in
     case parse_output_concl s f_ns ls of
       None => Inl (format_failure (sub_one lno) (mk_parse_err s))
@@ -2587,12 +2597,13 @@ val run_concl_file = process_topdecs`
         output hconcl of
         None => Inr (output,hconcl)
       | Some s => Inl (format_failure lno s)
-  end` |> append_prog;
+  end
+End
 
 val tokenize_v_thm = theorem "tokenize_v_thm";
 
-val b_inputAllTokens_specialize =
-  b_inputAllTokens_spec
+val inputAllTokens_specialize =
+  inputAllTokens_spec
   |> Q.GEN `f` |> Q.SPEC`blanks`
   |> Q.GEN `fv` |> Q.SPEC`blanks_v`
   |> Q.GEN `g` |> Q.ISPEC`tokenize`
@@ -2654,7 +2665,7 @@ Proof
             (MAP (MAP tokenize o tokens blanks) lines) v
           )’
   >- (
-    xapp_spec b_inputAllTokens_specialize
+    xapp_spec inputAllTokens_specialize
     \\ qexists_tac ‘ARRAY fml1v fmllsv’
     \\ xsimpl
     \\ metis_tac[STDIO_INSTREAM_LINES_refl,STDIO_INSTREAM_LINES_refl_gc]) >>
@@ -2703,11 +2714,12 @@ val res = translate init_conf_def;
 val res = translate hconcl_concl_def;
 val res = translate conv_boutput_hconcl_def;
 
-val mk_vomap_opt_arr = process_topdecs`
+Quote add_cakeml:
   fun mk_vomap_opt_arr obj =
   case obj of None => ""
   | Some fc =>
-    mk_vomap_arr (List.length (fst fc)) fc` |> append_prog;
+    mk_vomap_arr (List.length (fst fc)) fc
+End
 
 Theorem mk_vomap_opt_arr_spec:
   obj_TYPE obj objv
@@ -2728,12 +2740,13 @@ Proof
   xapp>>xsimpl
 QED
 
-val fold_update_vimap_enum_arr = process_topdecs `
+Quote add_cakeml:
   fun fold_update_vimap_enum_arr k ls acc =
   case ls of [] => acc
   | (x::xs) =>
     fold_update_vimap_enum_arr (k+1)
-      xs (update_vimap_arr acc k (fst x))` |> append_prog;
+      xs (update_vimap_arr acc k (fst x))
+End
 
 Theorem fold_update_vimap_enum_arr_spec:
   ∀ls lsv vimap vimapv vimaplsv k kv.
@@ -2766,7 +2779,7 @@ Proof
 QED
 
 (* NOTE: 100000 just a random number *)
-val check_unsat' = process_topdecs `
+Quote add_cakeml:
   fun check_unsat' b fns fd lno fml pres obj fmlt prest objt =
   let
     val id = List.length fml + 1
@@ -2789,7 +2802,8 @@ val check_unsat' = process_topdecs `
     (get_pres pc') (get_obj pc') (get_bound pc') (get_dbound pc') (get_chk pc')
     fmlt prest objt))
     handle Fail s => Inl s
-  end` |> append_prog;
+  end
+End
 
 Theorem parse_and_run_check_csteps_list:
   ∀fns ss fml zeros inds vimap vomap pc rest s fns' fml' inds' pc'.
@@ -2901,7 +2915,7 @@ Proof
     first_x_assum (irule_at Any)>>
     simp[])>>
   rpt xlet_autop>>
-  `BOOL T (Conv (SOME (TypeStamp "True" 0)) [])` by EVAL_TAC>>
+  `BOOL T (Conv (SOME (TypeStamp «True» 0)) [])` by EVAL_TAC>>
   xlet_autop>>
   qmatch_asmsub_abbrev_tac`LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv`>>
   qmatch_asmsub_abbrev_tac`LIST_TYPE _ inds indsv`>>
@@ -3099,17 +3113,18 @@ End
 
 val r = translate check_header_full_def;
 
-val check_header = process_topdecs`
+Quote add_cakeml:
   fun check_header fd =
   let
-    val s1 = TextIO.b_inputLineTokens #"\n" fd blanks tokenize_fast
-    val s2 = TextIO.b_inputLineTokens #"\n" fd blanks tokenize_fast
+    val s1 = TextIO.inputLineTokens #"\n" fd blanks tokenize_fast
+    val s2 = TextIO.inputLineTokens #"\n" fd blanks tokenize_fast
   in
   check_header_full s1 s2
-  end` |> append_prog;
+  end
+End
 
-val b_inputLineTokens_specialize =
-  b_inputLineTokens_spec_lines
+val inputLineTokens_specialize =
+  inputLineTokens_spec_lines
   |> Q.GEN `f` |> Q.SPEC`blanks`
   |> Q.GEN `fv` |> Q.SPEC`blanks_v`
   |> Q.GEN `g` |> Q.ISPEC`tokenize_fast`
@@ -3139,7 +3154,7 @@ Proof
           &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT))
             (OPTION_MAP (MAP tokenize_fast ∘ tokens blanks) (oHD lines)) v)’
   >- (
-    xapp_spec b_inputLineTokens_specialize
+    xapp_spec inputLineTokens_specialize
     \\ EVAL_TAC)>>
   xlet ‘(POSTv v.
       SEP_EXISTS k.
@@ -3148,7 +3163,7 @@ Proof
           &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT))
             (OPTION_MAP (MAP tokenize_fast ∘ tokens blanks) (oHD (TL lines))) v)’
   >- (
-    xapp_spec b_inputLineTokens_specialize
+    xapp_spec inputLineTokens_specialize
     \\ qexists_tac ‘emp’
     \\ xsimpl
     \\ metis_tac[forwardFD_o,STDIO_INSTREAM_LINES_refl,STDIO_INSTREAM_LINES_refl_gc]
@@ -3164,24 +3179,25 @@ End
 
 val r = translate notfound_string_def;
 
-val check_unsat_top = process_topdecs `
+Quote add_cakeml:
   fun check_unsat_top b fns fml pres obj fmlt prest objt fname =
   let
-    val fd = TextIO.b_openIn fname
+    val fd = TextIO.openIn fname
   in
     case check_header fd of
       Some n =>
-      (TextIO.b_closeIn fd;
+      (TextIO.closeIn fd;
       Inl (format_failure n "Unable to parse header"))
     | None =>
       let val res =
         (check_unsat' b fns fd 3 fml pres obj fmlt prest objt)
-        val close = TextIO.b_closeIn fd;
+        val close = TextIO.closeIn fd;
       in
         res
       end
   end
-  handle TextIO.BadFileName => Inl (notfound_string fname)` |> append_prog;
+  handle TextIO.BadFileName => Inl (notfound_string fname)
+End
 
 Theorem STDIO_INSTREAM_LINES_refl_more_gc:
   STDIO A *
@@ -3234,7 +3250,7 @@ Proof
       &(~inFS_fname fs f) *
       STDIO fs`
     >-
-      (xlet_auto_spec (SOME b_openIn_STDIO_spec) \\ xsimpl)
+      (xlet_auto_spec (SOME openIn_STDIO_spec) \\ xsimpl)
     >>
       fs[BadFileName_exn_def]>>
       xcases>>rw[]>>
@@ -3245,7 +3261,7 @@ Proof
   qmatch_goalsub_abbrev_tac`$POSTv Qval`>>
   xhandle`$POSTv Qval` \\ xsimpl >>
   qunabbrev_tac`Qval`>>
-  xlet_auto_spec (SOME (b_openIn_spec_lines |> Q.GEN `c0` |> Q.SPEC `#"\n"`)) \\ xsimpl >>
+  xlet_auto_spec (SOME (openIn_spec_lines |> Q.GEN `c0` |> Q.SPEC `#"\n"`)) \\ xsimpl >>
   qmatch_goalsub_abbrev_tac`INSTREAM_LINES #"\n" fd fdv lines fss`>>
   xlet`POSTv v.
     SEP_EXISTS k lines' res.
@@ -3262,7 +3278,7 @@ Proof
   >- (
     xlet `POSTv v. STDIO fs`
     >- (
-      xapp_spec b_closeIn_spec_lines >>
+      xapp_spec closeIn_spec_lines >>
       xsimpl>>
       qexists_tac `emp`>>
       qexists_tac `lines'` >>
@@ -3310,7 +3326,7 @@ Proof
     metis_tac[STDIO_INSTREAM_LINES_refl_more_gc,STDIO_INSTREAM_LINES_refl,STDIO_INSTREAM_LINES_refl_gc])>>
   xlet `POSTv v. STDIO fs`
   >- (
-    xapp_spec b_closeIn_spec_lines >>
+    xapp_spec closeIn_spec_lines >>
     xsimpl>>
     qexists_tac `emp`>>
     qexists_tac `lines'` >>
@@ -3397,12 +3413,12 @@ End
 
 val res = translate name_to_num_var_nf_def;
 
-val check_unsat_top_norm = process_topdecs `
+Quote add_cakeml:
   fun check_unsat_top_norm b prob probt fname =
   case normalise_full_2 prob probt of
     ((pres,(obj,fml)),((prest,(objt,fmlt)),t)) =>
     check_unsat_top b (name_to_num_var_nf,t) fml pres obj fmlt prest objt fname
-    `|> append_prog
+End
 
 Overload "prob_TYPE" = ``
   PAIR_TYPE
@@ -3528,10 +3544,3 @@ Definition default_prob_def:
 End
 
 val res = translate default_prob_def;
-
-Theorem all_lines_gen_all_lines[simp]:
-  all_lines_gen #"\n" fs f =
-  all_lines fs f
-Proof
-  rw[all_lines_def,all_lines_gen_def,lines_of_def,lines_of_gen_def,splitlines_at_def,splitlines_def,str_def]
-QED

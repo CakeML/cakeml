@@ -7,10 +7,11 @@ Ancestors
 Libs
   preamble basis
 
-
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
 val _ = translation_extends"quicksortProg";
+
+val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
 
 (* TODO: move *)
 Theorem perm_zip:
@@ -40,7 +41,7 @@ QED
 
 Theorem string_list_uniq:
    !l1 l2.
-    LIST_REL STRING_TYPE l1 l2 ⇒ l2 = MAP (λs. Litv (StrLit (explode s))) l1
+    LIST_REL STRING_TYPE l1 l2 ⇒ l2 = MAP (λs. Litv (StrLit s)) l1
 Proof
   Induct_on `l1` >>
   rw [] >>
@@ -101,7 +102,7 @@ Definition v_to_string_def:
 End
 
 Theorem LIST_REL_STRING_TYPE:
-   LIST_REL STRING_TYPE ls vs ⇒ ls = MAP (implode o v_to_string) vs
+   LIST_REL STRING_TYPE ls vs ⇒ ls = MAP v_to_string vs
 Proof
   rw[LIST_REL_EL_EQN,LIST_EQ_REWRITE,EL_MAP] \\ rfs[] \\ res_tac \\
   Cases_on`EL x ls` \\ fs[STRING_TYPE_def,v_to_string_def,implode_def]
@@ -116,168 +117,161 @@ val r = translate usage_string_def;
 
 val usage_string_v_thm = theorem"usage_string_v_thm";
 
-val get_file_contents = process_topdecs `
-  (* Note: this is an accumulating version of TextIO.inputLines *)
-  fun get_file_contents fd acc =
-    case TextIO.inputLine fd of
-      None => acc
-    | Some l => get_file_contents fd (l::acc);
-
+Quote add_cakeml:
   fun get_files_contents files acc =
     case files of
-      [] => acc
+      [] => Some acc
     | file::files =>
-      let
-        val fd = TextIO.openIn file
-        val res = get_file_contents fd acc
-      in
-        (TextIO.closeIn fd;
-         get_files_contents files res)
-      end;`
-val _ = append_prog get_file_contents;
-
-(* TODO: these functions are generic, and should probably be moved *)
-Theorem get_file_contents_spec:
-   !fs fd fd_v acc_v acc.
-    INSTREAM fd fd_v ∧
-    IS_SOME (get_file_content fs fd) ∧ get_mode fs fd = SOME ReadMode ∧
-    LIST_TYPE STRING_TYPE (MAP implode acc) acc_v
-    ⇒
-    app (p : 'ffi ffi_proj)
-      ^(fetch_v "get_file_contents" (get_ml_prog_state()))
-      [fd_v; acc_v]
-      (STDIO fs)
-      (POSTv strings_v.
-        STDIO (fastForwardFD fs fd) *
-        &(LIST_TYPE STRING_TYPE
-            (MAP implode (REVERSE (linesFD fs fd) ++ acc))
-            strings_v))
-Proof
-  ntac 2 strip_tac >>
-  completeInduct_on `LENGTH (linesFD fs fd)` >>
-  rw [] >>
-  xcf "get_file_contents" (get_ml_prog_state ()) >>
-  `validFD fd fs` by metis_tac[get_file_content_validFD,IS_SOME_EXISTS,PAIR] \\
-  xlet_auto >- xsimpl \\
-  Cases_on `lineFD fs fd` >>
-  fs [OPTION_TYPE_def] >>
-  xmatch
-  >- (
-    xvar >>
-    xsimpl >>
-    drule lineFD_NONE_lineForwardFD_fastForwardFD >>
-    fs [GSYM linesFD_nil_lineFD_NONE] >>
-    xsimpl)
-  >- (
-    xlet_auto
-    >- (
-      xret >>
-      xsimpl) >>
-    xapp >>
-    xsimpl >>
-    qexists_tac `emp` >>
-    qexists_tac `lineForwardFD fs fd` >>
-    qexists_tac `fd` >>
-    qexists_tac `x::acc` >>
-    xsimpl >>
-    `?l1 lines. linesFD fs fd = l1::lines`
-    by (
-      Cases_on `linesFD fs fd` >>
-      fs [linesFD_nil_lineFD_NONE]) >>
-    drule linesFD_cons_imp >>
-    rw [LIST_TYPE_def] >> xsimpl >>
-    metis_tac [APPEND, APPEND_ASSOC])
-QED
+      case TextIO.inputLinesFile #"\n" file of
+        None => None
+      | Some res => get_files_contents files (res @ acc);
+End
 
 Theorem get_files_contents_spec:
    !fnames_v fnames acc_v acc fs.
     hasFreeFD fs ∧
     LIST_TYPE FILENAME fnames fnames_v ∧
-    LIST_TYPE STRING_TYPE (MAP implode acc) acc_v
+    LIST_TYPE STRING_TYPE acc acc_v
     ⇒
     app (p : 'ffi ffi_proj)
       ^(fetch_v "get_files_contents" (get_ml_prog_state ()))
       [fnames_v; acc_v]
       (STDIO fs)
-      (POSTve
-        (\strings_v.
-          STDIO fs *
-          &(LIST_TYPE STRING_TYPE
-            (REVERSE (FLAT (MAP (all_lines fs) fnames))
-              ++ (MAP implode acc))
-             strings_v ∧
-            EVERY (inFS_fname fs) fnames))
-        (\e.
-          STDIO fs *
-          &(BadFileName_exn e ∧
-          ¬EVERY (inFS_fname fs) fnames)))
+      (POSTv v.
+        STDIO fs *
+        &(
+        OPTION_TYPE (LIST_TYPE STRING_TYPE)
+          if EVERY (inFS_fname fs) fnames
+          then
+            SOME (FLAT (REVERSE (MAP (all_lines_file fs) fnames))
+              ++ acc)
+          else
+             NONE) v)
 Proof
   Induct_on `fnames` >>
-  rw [] >>
-  xcf "get_files_contents" (get_ml_prog_state ()) >>
-  (reverse(Cases_on`consistentFS fs`)
-  >-(fs[STDIO_def,IOFS_def] >> xpull >> fs[wfFS_def,consistentFS_def] >> res_tac))
-  \\ fs [LIST_TYPE_def] >>
-  xmatch >>
-  rw []
+  rpt gen_tac>> strip_tac>>
+  xcf "get_files_contents" (get_ml_prog_state ())
+  \\ fs [LIST_TYPE_def]
+  \\ xmatch
   >- (
-    xvar >>
-    xsimpl) >>
-  qmatch_assum_rename_tac `FILENAME fname fname_v` >>
-  reverse(Cases_on`STD_streams fs`)>-(fs[STDIO_def] \\ xpull) \\
-  xlet_auto_spec(SOME (SPEC_ALL openIn_STDIO_spec))
-  >- xsimpl
-  >- xsimpl >>
-  qmatch_assum_abbrev_tac `validFD fd fs'` >>
-  imp_res_tac nextFD_ltX \\
-  progress inFS_fname_ALOOKUP_EXISTS\\
-  progress IS_SOME_get_file_content_openFileFS_nextFD \\ rfs[] \\
-  pop_assum(qspecl_then[`0`,`ReadMode`]strip_assume_tac) \\ rfs[] \\
-  xlet_auto >- (
-    fs[Abbr`fs'`]
-    \\ simp[get_mode_def, Abbr`fd`]
-    \\ DEP_REWRITE_TAC[ALOOKUP_inFS_fname_openFileFS_nextFD]
-    \\ simp[] ) \\
-  imp_res_tac STD_streams_nextFD \\ rfs[] \\
-  (* TODO: Update xlet_auto so that it can try different specs -
-     xlet_auto works with close_STDIO_spec but not close_spec *)
-  xlet_auto_spec(SOME (Q.SPECL[`fd`,`fastForwardFD fs' fd`] closeIn_STDIO_spec))
-  >- (xsimpl \\ simp[Abbr`fs'`])
-  >- (xsimpl  \\
-    simp[Abbr`fs'`, validFileFD_def]
-    \\ imp_res_tac ALOOKUP_inFS_fname_openFileFS_nextFD
-    \\ rfs[] ) >>
-  xapp >>
-  xsimpl >>
-  simp[Abbr`fs'`,Abbr`fd`,openFileFS_ADELKEY_nextFD] >>
-  full_simp_tac std_ss [GSYM MAP_APPEND] >>
-  instantiate >> xsimpl >>
-  simp[REVERSE_APPEND,MAP_REVERSE,linesFD_openFileFS_nextFD,MAP_MAP_o,o_DEF]
+    xcon>>xsimpl>>
+    simp[OPTION_TYPE_def])>>
+  xlet_autop>>
+  pop_assum mp_tac>>
+  IF_CASES_TAC>>
+  simp[OPTION_TYPE_def]>>
+  strip_tac>>
+  xmatch
+  >- (
+    xlet_autop>>
+    xapp>>
+    simp[]>>
+    first_x_assum (irule_at Any)>>
+    simp[]>>
+    first_x_assum (irule_at Any)>>
+    qexists_tac`emp`>>xsimpl>>rw[])>>
+  xcon>>xsimpl
 QED
-(* -- *)
 
-val _ = (append_prog o process_topdecs) `
+Quote add_cakeml:
+  fun get_contents args =
+    case args of
+      [] => Some (TextIO.inputLinesStdIn #"\n")
+    | files => get_files_contents files []
+End
+
+Definition good_args_def:
+  good_args fs fnames ⇔
+  fnames = [] ∨
+  EVERY (inFS_fname fs) fnames
+End
+
+Theorem get_contents_spec:
+  (if fnames = [] then
+    ∃text. stdin_content fs = SOME text
+  else
+    hasFreeFD fs) ∧
+  LIST_TYPE FILENAME fnames fnames_v
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "get_contents" (get_ml_prog_state ()))
+    [fnames_v]
+    (STDIO fs)
+    (POSTv v.
+      SEP_EXISTS fss.
+      STDIO fss *
+      &(
+        OPTION_TYPE (LIST_TYPE STRING_TYPE)
+          (
+            if good_args fs fnames
+            then
+              SOME
+                (
+                  if fnames = []
+                  then
+                    (lines_of (implode (THE (stdin_content fs ))))
+                  else
+                    (FLAT (REVERSE (MAP (all_lines_file fs) fnames)))
+                )
+            else
+              NONE
+          ) v ∧
+          if fnames = []
+          then fss = fastForwardFD fs 0
+          else fss = fs
+        ))
+Proof
+  strip_tac>>
+  xcf "get_contents" (get_ml_prog_state ())
+  \\ Cases_on`fnames`>>gvs[LIST_TYPE_def]
+  \\ xmatch
+  >- (
+    xlet_autop>>
+    xcon>>xsimpl>>
+    rw[good_args_def]>>
+    fs[OPTION_TYPE_def,lines_of_gen_lines_of])>>
+  reverse(rw[good_args_def])
+  >- (
+    xlet_autop>>xapp>>
+    xsimpl>>
+    qexists_tac`emp`>>
+    qexists_tac`fs`>>
+    qexists_tac`h::t`>>
+    qexists_tac`[]`>>xsimpl>>
+    rw[LIST_TYPE_def,good_args_def,OPTION_TYPE_def])>>
+  xlet_autop>>
+  xapp>>xsimpl>>
+  qexists_tac`emp`>>
+  qexists_tac`fs`>>
+  qexists_tac`h::t`>>
+  qexists_tac`[]`>>xsimpl>>
+  rw[LIST_TYPE_def,good_args_def,OPTION_TYPE_def]
+QED
+
+Quote add_cakeml:
   fun sort () =
-    let val contents_list =
-      case CommandLine.arguments () of
-        [] => get_file_contents TextIO.stdIn []
-      | files => get_files_contents files []
-    val contents_array = Array.fromList contents_list
+    case
+      get_contents (CommandLine.arguments ()) of
+      None =>
+        TextIO.output TextIO.stdErr "Cannot open file"
+    | Some contents_list =>
+    let
+      val contents_array = Array.fromList contents_list
     in
       (quicksort String.< contents_array;
        Array.app TextIO.print contents_array)
     end
-    handle TextIO.BadFileName => TextIO.output TextIO.stdErr "Cannot open file"`;
+End
 
 Definition valid_sort_result_def:
   valid_sort_result cl init_fs result_fs ⇔
-    if LENGTH cl ≤ 1 ∨ EVERY (inFS_fname init_fs) (TL cl) then
+    if good_args init_fs (TL cl) then
       let (lines, fs) =
-        if LENGTH cl ≤ 1 then
-          (lines_of (implode (THE(ALOOKUP init_fs.inode_tbl (UStream(strlit"stdin"))))),
+        if TL cl = [] then
+          (lines_of (implode (THE (stdin_content init_fs))),
            fastForwardFD init_fs 0)
         else
-          (FLAT (MAP (all_lines init_fs) (TL cl)), init_fs)
+          (FLAT (MAP (all_lines_file init_fs) (TL cl)), init_fs)
       in
         ∃output.
         PERM output lines ∧
@@ -344,7 +338,9 @@ Proof
 QED
 
 Theorem sort_spec:
-   (if LENGTH cl ≤ 1 then (∃input. get_file_content fs 0 = SOME (input,0)) else hasFreeFD fs)
+   (if LENGTH cl ≤ 1
+    then ∃text. stdin_content fs = SOME text
+    else hasFreeFD fs)
     ⇒
     app (p : 'ffi ffi_proj) ^(fetch_v "sort" (get_ml_prog_state ()))
       [Conv NONE []]
@@ -356,118 +352,45 @@ Proof
   strip_tac >>
   xcf "sort" (get_ml_prog_state ()) >>
   xmatch >>
-  qabbrev_tac `fnames = TL cl` >>
-  qabbrev_tac `lines = if LENGTH cl ≤ 1 then
-    lines_of (implode (THE (ALOOKUP fs.inode_tbl (UStream (strlit "stdin")))))
-    else FLAT (MAP (all_lines fs) fnames)` >>
+  rpt xlet_autop>>
+  reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull) >>
   reverse(Cases_on`wfcl cl`) >- (fs[COMMANDLINE_def] \\ xpull) >>
   fs[wfcl_def] >>
-  reverse(Cases_on`MEM (UStream(strlit"stdin")) (MAP FST fs.inode_tbl)`)
+  qabbrev_tac `fnames = TL cl` >>
+  `(if fnames = [] then
+    ∃text. stdin_content fs = SOME text
+  else
+    hasFreeFD fs)` by (
+      Cases_on`cl`>>gvs[]>>
+      every_case_tac>>gvs[ADD1,NOT_NIL_EQ_LENGTH_NOT_0])>>
+  `LIST_TYPE FILENAME fnames argv` by (
+    drule_then irule LIST_TYPE_mono>>
+    rw[FILENAME_def]>>
+    fs[Abbr`fnames`,EVERY_MEM]>>
+    Cases_on`cl`>>fs[validArg_def])>>
+  drule_all get_contents_spec>>
+  strip_tac>>
+  xlet_auto
+  >- (xsimpl>>rw[]>>xsimpl)>>
+  gvs[]>>
+  reverse (Cases_on`good_args fs fnames`)>>
+  gvs[OPTION_TYPE_def]>>xmatch
   >- (
-    fs[STDIO_def,IOFS_def,wfFS_def] \\ xpull
-    \\ fs[MEM_MAP,PULL_EXISTS,EXISTS_PROD]
-    \\ `F` suffices_by simp[]
-    \\ fs[STD_streams_def]
-    \\ last_assum(qspecl_then[`0`,`ReadMode`,`inp`]mp_tac)
-    \\ rewrite_tac[] \\ strip_tac
-    \\ imp_res_tac ALOOKUP_MEM \\ res_tac \\ fs[]
-    \\ rw[] \\ fs[]
-    \\ metis_tac[] ) \\
-  reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull) >>
-  reverse (xhandle
-    `POSTve
-      (\uv. &(UNIT_TYPE () uv ∧
-              EVERY (inFS_fname fs) fnames) *
-            STDIO (sort_sem cl fs) * COMMANDLINE cl)
-      (\e.  &(BadFileName_exn e ∧
-              ¬EVERY (inFS_fname fs) fnames) *
-            STDIO fs * COMMANDLINE cl)`) >>
-  xsimpl
-  >- (
-    fs [BadFileName_exn_def] >>
-    xcases >>
     xapp_spec output_stderr_spec >>
     xsimpl >>
     DEEP_INTRO_TAC sort_sem_intro >>
     simp[valid_sort_result_def] \\
-    Cases_on`LENGTH cl > 1` \\ fs[]
-    >- (
-      TOP_CASE_TAC \\ fs[EVERY_MEM,EXISTS_MEM]
-      >- metis_tac[] \\
-      CONV_TAC SWAP_EXISTS_CONV \\
-      qexists_tac`fs` \\
-      xsimpl ) \\
-    fs[inFS_fname_def,MEM_MAP,EXISTS_PROD,Abbr`fnames`] >>
-    Cases_on`cl` >> fs[] >> Cases_on`t` >> fs[]) >>
-  xlet_auto
-  >- (xret >> xsimpl) >>
-  xlet_auto >- xsimpl >>
-  xlet
-    `POSTve
-       (\strings_v.
-          COMMANDLINE cl * STDIO (if LENGTH cl ≤ 1 then fastForwardFD fs 0 else fs) *
-          &(LIST_TYPE STRING_TYPE
-             (REVERSE lines) strings_v ∧
-            EVERY (inFS_fname fs) fnames))
-       (\e.
-          COMMANDLINE cl * STDIO fs *
-          &(BadFileName_exn e ∧
-          ¬EVERY (inFS_fname fs) fnames))` >>
-  xsimpl
-  >- (
-    `?command args. cl = command::args`
-    by (
-      Cases_on `cl` >>
-      fs [] >>
-      metis_tac []) >>
-    fs [LIST_TYPE_def, Abbr `fnames`] >>
-    Cases_on`args` >- (
-      fs[LIST_TYPE_def] \\ rveq \\ fs[] \\
-      xmatch \\
-      xlet_auto >- (xcon \\ xsimpl) \\
-      xapp \\
-      simp[IS_SOME_EXISTS,PULL_EXISTS,EXISTS_PROD] \\
-      instantiate \\
-      CONV_TAC(RESORT_EXISTS_CONV List.rev) \\ qexists_tac`[]` \\
-      simp[LIST_TYPE_def] \\
-      xsimpl \\
-      simp[linesFD_def,inFS_fname_def,INSTREAM_def,
-           FD_def,stdin_v_thm,GSYM stdIn_def] \\
-      rw[STD_streams_get_mode] \\
-      fs[get_file_content_def,all_lines_def,lines_of_def,Abbr`lines`] \\
-      pairarg_tac \\ fs[] \\
-      `ino = UStream(strlit"stdin")` by metis_tac[STD_streams_def,PAIR_EQ,SOME_11] \\
-      rw[] \\
-      fs[mlstringTheory.strcat_thm,MAP_MAP_o,MAP_REVERSE,o_DEF]
-      )
-    \\ fs[LIST_TYPE_def]
-    \\ xmatch
-    \\ xlet_auto >- (xcon \\ xsimpl)
-    \\ xapp
-    \\ simp[LIST_TYPE_def]
-    \\ qpat_assum`_ = _::_`(mp_tac o Q.AP_TERM`LENGTH`)
-    \\ simp_tac(srw_ss())[] \\ strip_tac \\ fs[]
-    \\ instantiate \\ xsimpl
-    \\ qmatch_asmsub_abbrev_tac`command::args`
-    \\ qexists_tac`args`
-    \\ qexists_tac`[]` \\ fs[LIST_TYPE_def]
-    \\ conj_tac
-    >- (
-      fs[Abbr`args`,LIST_TYPE_def] \\
-      fs[quantHeuristicsTheory.LIST_LENGTH_COMPARE_SUC] \\
-      rveq \\ fs[] \\ rveq \\
-      fs[FILENAME_def,validArg_def,EVERY_MEM] \\
-      match_mp_tac LIST_TYPE_mono \\
-      asm_exists_tac \\
-      fs[FILENAME_def,MEM_MAP,PULL_EXISTS] )
-    \\ simp[Abbr`args`]
- ) >>
+    gvs[good_args_def]>>
+    xsimpl>>
+    CONV_TAC SWAP_EXISTS_CONV \\
+    qexists_tac`fs` \\
+    xsimpl ) \\
   qmatch_assum_abbrev_tac `LIST_TYPE STRING_TYPE strings strings_v` >>
   imp_res_tac list_type_v_to_list \\
   (* TODO: This let should be solvable by xlet_auto *)
   xlet
     `POSTv v. ARRAY v l' * COMMANDLINE cl *
-              STDIO (if LENGTH cl ≤ 1 then fastForwardFD fs 0 else fs)`
+              STDIO fss`
   >- (
     drule array_fromList_spec
     \\ disch_then drule \\ strip_tac
@@ -482,14 +405,13 @@ Proof
   xsimpl >>
   qexists_tac `COMMANDLINE cl` >>
   xsimpl >>
-  qmatch_goalsub_abbrev_tac`STDIO fs0` >>
-  qexists_tac `\l n. STDIO (add_stdout fs0 (implode (CONCAT (MAP v_to_string (TAKE n l)))))` >>
+  qexists_tac `\l n. STDIO (add_stdout fss (concat (MAP v_to_string (TAKE n l))))` >>
   xsimpl >>
   simp [implode_def] >>
   DEP_REWRITE_TAC[GEN_ALL add_stdo_nil] >>
   conj_asm1_tac
   >- (
-    simp[Abbr`fs0`]
+    Cases_on`fnames = []` \\ gvs[]
     \\ imp_res_tac STD_streams_stdout
     \\ rw[stdo_fastForwardFD]
     \\ asm_exists_tac \\ rw[] ) >>
@@ -520,7 +442,7 @@ Proof
     DEEP_INTRO_TAC sort_sem_intro \\
     rw[valid_sort_result_def] \\
     qmatch_abbrev_tac`STDIO (add_stdout _ s1) * _ ==>> STDIO (add_stdout _ s2) *_` \\
-    fs[add_stdo_def] >>
+    gvs[add_stdo_def] >>
     `s1 = s2` suffices_by xsimpl \\
     simp[Abbr`s1`,Abbr`s2`] \\
     simp [concat_def] \\
@@ -530,8 +452,8 @@ Proof
     disch_then(last_assum o mp_then (Pos (el 3)) mp_tac) \\ simp[] \\
     disch_then(first_assum o mp_then (Pos (el 2)) mp_tac) \\ simp[] \\
     qmatch_assum_abbrev_tac`PERM output orig` \\
-    `orig = REVERSE strings`
-      by simp[Abbr`orig`,Abbr`strings`,MAP_REVERSE] \\
+    `PERM orig strings` by
+      simp[Abbr`orig`,Abbr`strings`,PERM_FLAT] \\
     fs[Abbr`orig`] \\ strip_tac \\
     match_mp_tac (MP_CANON SORTED_PERM_EQ) \\
     qexists_tac `string_le` \\
@@ -542,6 +464,8 @@ Proof
     fs[MAP_MAP_o,o_DEF,ETA_AX] \\
     `(λs. case s of strlit x => x) = explode` by
           (fs [FUN_EQ_THM] \\ Cases \\ fs []) \\ fs [] \\
+    ‘(λx. case v_to_string x of strlit x => x) =
+     (λx. explode (v_to_string x))’ by (fs [FUN_EQ_THM]) \\
     fs [SORTED_mlstring_le] \\
     drule (Q.ISPEC `explode `PERM_MAP) \\
     fs [MAP_MAP_o,o_DEF] \\
@@ -554,7 +478,12 @@ Proof
     drule (Q.ISPEC `explode `PERM_MAP) \\
     fs [MAP_MAP_o,o_DEF] \\
     CONV_TAC (DEPTH_CONV ETA_CONV) \\
-    fs [])
+    fs [] \\
+    qpat_x_assum `PERM (FLAT _) (MAP _ _)` assume_tac \\
+    drule (Q.ISPEC `explode `PERM_MAP) \\
+    fs [MAP_MAP_o,o_DEF] \\
+    metis_tac[PERM_TRANS]
+    )
 QED
 
 Theorem sort_whole_prog_spec:

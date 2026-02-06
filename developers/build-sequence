@@ -94,7 +94,6 @@ candle/standard/syntax
 candle/standard/semantics
 candle/standard/monadic
 candle/standard/ml_kernel
-candle/standard/ml_kernel/lisp
 candle/overloading
 candle/overloading/syntax
 candle/overloading/semantics
@@ -118,6 +117,7 @@ compiler/dafny/compilation
 compiler/dafny/semantics
 compiler/dafny/proofs
 compiler/dafny/vcg
+compiler/dafny/vcg/examples
 
 # Scheme compiler
 compiler/scheme
@@ -176,6 +176,10 @@ examples/deflate/translation
 examples/deflate/translation/compilation
 examples/vipr
 examples/vipr/compilation
+
+examples/template
+examples/template/translation
+examples/template/compilation
 
 translator/okasaki-examples
 translator/other-examples

@@ -16,10 +16,9 @@ open inliningLib;
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
-val () = computeLib.set_skip computeLib.the_compset “COND” (SOME 1);
+val _ = (computeLib.the_compset := computeLib.set_skip (!computeLib.the_compset) “COND” (SOME 1));
 
 val _ = translation_extends "x64Prog";
-val _ = ml_translatorLib.use_string_type true;
 val _ = ml_translatorLib.use_sub_check true;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "arm8Prog");

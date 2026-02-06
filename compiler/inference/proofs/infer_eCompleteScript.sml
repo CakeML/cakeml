@@ -845,25 +845,24 @@ fun TRY1 tac = TRY (tac >> NO_TAC)
 
 Theorem constrain_op_complete_simple_helper[local]:
   !n.
-sub_completion n st.next_uvar st.subst constraints s ∧
-type_op op ts t ∧
-MAP (convert_t o (t_walkstar s)) ts' = ts ∧
-FST (op_simple_constraints op) ∧
-FDOM st.subst ⊆ count st.next_uvar ∧
-FDOM s = count st.next_uvar ∧
-t_wfs st.subst ∧
-EVERY (check_t n {}) (MAP (t_walkstar s) ts') ∧
-check_freevars n [] t
-⇒
-?st' xs t'.
-t = convert_t (t_walkstar s t') ∧
-pure_add_constraints s xs s ∧
-(!l st'.
-st'.next_uvar = st.next_uvar ∧
-st'.next_id = st.next_id ∧
-pure_add_constraints st.subst xs st'.subst ==>
-constrain_op l op ts' st = (Success t',st')
-)
+    sub_completion n st.next_uvar st.subst constraints s ∧
+    type_op op ts t ∧
+    MAP (convert_t o (t_walkstar s)) ts' = ts ∧
+    FST (op_simple_constraints op) ∧
+    FDOM st.subst ⊆ count st.next_uvar ∧
+    FDOM s = count st.next_uvar ∧
+    t_wfs st.subst ∧
+    EVERY (check_t n {}) (MAP (t_walkstar s) ts') ∧
+    check_freevars n [] t
+    ⇒
+    ?st' xs t'.
+    t = convert_t (t_walkstar s t') ∧
+    pure_add_constraints s xs s ∧
+    (!l st'.
+      st'.next_uvar = st.next_uvar ∧
+      st'.next_id = st.next_id ∧
+      pure_add_constraints st.subst xs st'.subst ==>
+      constrain_op l op ts' st = (Success t',st'))
 Proof
   rw []
   \\ imp_res_tac sub_completion_wfs
@@ -878,11 +877,15 @@ Proof
   \\ qexists_tac `xs`
   \\ qexists_tac `t'`
   \\ fs [markerTheory.Abbrev_def, t_walkstar_eqn1, convert_t_def, word_tc_def]
-  \\ irule pure_add_constraints_ignore
+  \\ rpt conj_tac
+  \\ TRY $ irule pure_add_constraints_ignore
   \\ simp [t_walkstar_eqn1]
   \\ TRY (rename [‘t_num_of ty’] \\ Cases_on ‘ty’
           \\ TRY (rename [‘WordT ww’] \\ Cases_on ‘ww’) \\ gvs [])
   \\ unconversion_tac
+  \\ gvs[LENGTH_EQ_NUM_compute, REPLICATE_compute,CaseEq"bool"]
+  \\ unconversion_tac
+  \\ gvs[t_walkstar_eqn1]
 QED
 
 Theorem constrain_op_complete[local]:
@@ -933,7 +936,7 @@ Proof
   imp_res_tac pure_add_constraints_wfs>>
   fs[type_op_cases]>>
   rfs [op_simple_constraints_def]>>
-  simp [constrain_op_dtcase_def, op_simple_constraints_def]>>
+  simp [constrain_op_case_def, op_simple_constraints_def]>>
   every_case_tac>>
   ntac 2 (fs[unconvert_t_def,MAP]>>rw[])>>
   fs[add_constraint_success2,success_eqns,sub_completion_def,Tword64_def,word_tc_def]>>
@@ -1157,7 +1160,8 @@ Proof
   strip_tac>>
   Induct>>rw[]
   >-
-    (fs[check_freevars_def,infer_type_subst_alt]>>
+    (rename1 ‘Tvar s’>>
+     fs[check_freevars_def,infer_type_subst_alt]>>
     `?x. ALOOKUP (ZIP(tvs,ls)) s = SOME x` by
       (SPOSE_NOT_THEN assume_tac>>
       imp_res_tac NOT_SOME_NONE>>
