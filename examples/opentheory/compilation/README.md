@@ -5,7 +5,7 @@ the OpenTheory article checker.
 Compilation of the OpenTheory article checker to the Silver ISA.
 
 [proofs](proofs):
-The directory contains end-to-end correctness theorems for the
+This directory contains end-to-end correctness theorems for the
 OpenTheory article checker.
 
 [readerCompileScript.sml](readerCompileScript.sml):

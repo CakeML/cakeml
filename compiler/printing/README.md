@@ -32,9 +32,6 @@ cv_compute version of addPrintVals_cv.
 [printTweaksScript.sml](printTweaksScript.sml):
 The top-level printing adjustment, as called by the REPL.
 
-[printTweaks_cvScript.sml](printTweaks_cvScript.sml):
-cv_compute version of printTweaks
-
 [test](test):
 Tests for the pretty-printer apparatus.
 

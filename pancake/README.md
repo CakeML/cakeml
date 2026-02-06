@@ -7,7 +7,7 @@ documented here when they are merged into `master`.
 
 [crepLangScript.sml](crepLangScript.sml):
 Abstract syntax of Crepe language
-Crepe: instrctuons are similar to that of
+Crepe: instructions are similar to that of
 Pancake, but we flatten locals from
 struct-layout to word-layout
 
@@ -24,13 +24,13 @@ loopLang intermediate language
 Call optimisation for loopLang
 
 [loop_liveScript.sml](loop_liveScript.sml):
-Correctness proof for loop to loop_remove
+Liveness analysis for loopLang.
 
 [loop_removeScript.sml](loop_removeScript.sml):
-Correctness proof for loop_remove
+Loop removal pass for loopLang.
 
 [loop_to_wordScript.sml](loop_to_wordScript.sml):
-Compilation from looLang to wordLang.
+Compilation from loopLang to wordLang.
 
 [panLangScript.sml](panLangScript.sml):
 Abstract syntax for Pancake language.
@@ -68,13 +68,13 @@ Compiler from pan to word
 The Pancake parser.
 
 [proofs](proofs):
-Proofs files for compiling Pancake.
+Proof files for compiling Pancake.
 
 [semantics](semantics):
 Semantics for Pancake and its intermediate languages.
 
 [static_checker](static_checker):
-Support files for Pancake static checker
+Support files for Pancake static checker.
 
 [temp](temp):
 Temporary files
