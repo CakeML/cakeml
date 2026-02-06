@@ -6,7 +6,7 @@ See the [Pancake how-to](/pancake/how-to.md) for a guide on how to use Pancake.
 
 | Feature | Syntax | Notes |
 | --- | --- | --- |
-| Function declaration | `fun RETSHAPE FNAME ( ARGS ) { BODY }` | `ARGS` may be empty. Each argument expects both a shape and an identifier, and are comma separated, eg `1 x, {1,2} y`. `BODY` must include a function return in all execution branches. Optionally, add `export` keyword before `fun` for multiple entry points feature. All functions are callable from function bodies |
+| Function declaration | `fun RETSHAPE FNAME ( ARGS ) { BODY }` | `ARGS` may be empty. Each argument expects both a shape and an identifier, and are comma separated, eg `1 x, {1,2} y`. `BODY` must include a function return in all execution branches. All functions are callable (ie. in-scope) from all function bodies. Optionally, add `inline` keyword before `fun` for function inline feature (no effect on functions with recursion or returns within loops) and/or `export` keyword before `fun` for multiple entry points feature, in that order |
 | Global variable declaration | `var SHAPE VNAME = EXP;` | Globals cannot be initialised with a function call. Globals are usable from all function bodies and to any globals declared after them. Beware of shadowing |
 
 ## Structures
