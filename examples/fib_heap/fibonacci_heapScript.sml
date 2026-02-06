@@ -44,9 +44,9 @@ Definition annotate_def:  (* TODO: needs helper functions *)
             (FibTree k ARB ARB) : ('a word, 'a annotated_node_data) ft
 End
 *)
-Definition child_key_def:
-  (child_key [] = 0w) /\
-  (child_key ((FibTree k _ _)::xs) = k)
+Definition head_key_def:
+  (head_key [] = 0w) /\
+  (head_key ((FibTree k _ _)::xs) = k)
 End
 
 Definition next_key_def:
@@ -75,7 +75,7 @@ Definition annotate_fts_seg_def:
             before_ptr := b ;
             next_ptr   := next_key s xs ;
             parent_ptr := p ;
-            child_ptr  := child_key ys ;
+            child_ptr  := head_key ys ;
             rank       := LENGTH ys |>)
         (annotate_fts_seg k (next_key 0w ys) (last_key 0w ys) ys))
     ::(annotate_fts_seg p s k xs)))
@@ -149,7 +149,7 @@ val test_fts_mem = “fts_mem (annotate_fts [
         (node_data 100w (3000w, []) true false) []
     ]
     ])”
-    |> SCONV [fts_mem_def,STAR_ASSOC,annotate_fts_def,annotate_fts_seg_def,next_key_def,child_key_def,last_key_def,REVERSE_DEF,ft_seg_def,ones_def,edges_ones_def,LENGTH,b2w_def]
+    |> SCONV [fts_mem_def,STAR_ASSOC,annotate_fts_def,annotate_fts_seg_def,next_key_def,head_key_def,last_key_def,REVERSE_DEF,ft_seg_def,ones_def,edges_ones_def,LENGTH,b2w_def]
 
 val test =
     “ones 400w [x;y;z;e;r;t;y;u:word64]”
@@ -182,7 +182,7 @@ Definition fib_heap_def:
   fib_heap a fh =
     SEP_EXISTS fts.
       fts_mem fts *
-      cond (fib_heap_inv fh fts /\ a = child_key fts)
+      cond (fib_heap_inv fh fts /\ a = head_key fts)
 End
 
 Definition fib_heap_append_def:
