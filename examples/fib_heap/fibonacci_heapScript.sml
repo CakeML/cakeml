@@ -85,18 +85,18 @@ p = parent
 s = first element of the list
 b = previous element
 *)
-Definition annotate_fts_seg_def:
-  (annotate_fts_seg p s b [] = []) /\
-  (annotate_fts_seg p s b ((FibTree k n ys)::xs) =
+Definition ann_fts_seg_def:
+  (ann_fts_seg p s b [] = []) /\
+  (ann_fts_seg p s b ((FibTree k n ys)::xs) =
     (FibTree k
         (fill_anode n b (next_key s xs) p (head_key ys) (LENGTH ys))
-        (annotate_fts_seg k (head_key ys) (last_key ys) ys)
-    ::(annotate_fts_seg p s k xs)))
+        (ann_fts_seg k (head_key ys) (last_key ys) ys)
+    ::(ann_fts_seg p s k xs)))
 End
 
-Definition annotate_fts_def:
-  annotate_fts fts =
-    annotate_fts_seg 0w (head_key fts) (last_key fts) fts
+Definition ann_fts_def:
+  ann_fts fts =
+    ann_fts_seg 0w (head_key fts) (last_key fts) fts
 End
 
 (*
@@ -106,7 +106,7 @@ Annotates a single tree that is not part of any list and does not have a parent.
 Definition annotate_ft_def:
   annotate_ft (FibTree k n xs) =
     FibTree k (fill_anode n 0w 0w 0w (head_key xs) (LENGTH xs))
-        (annotate_fts_seg k (head_key xs) (last_key xs) xs)
+        (ann_fts_seg k (head_key xs) (last_key xs) xs)
 End
 
 (*-------------------------------------------------------------------*
@@ -154,7 +154,7 @@ End
    Memory Tests
  *-------------------------------------------------------------------*)
 
-val test_fts_mem = “fts_mem (annotate_fts [
+val test_fts_mem = “fts_mem (ann_fts [
     FibTree 10w (
     fill_dnode 11w (1000w, [(50w,10)]) true false) [];
     FibTree 50w (
@@ -163,7 +163,7 @@ val test_fts_mem = “fts_mem (annotate_fts [
         (fill_dnode 101w (3000w, []) true false) []
     ]
     ])”
-    |> SCONV [fts_mem_def,STAR_ASSOC,annotate_fts_def,annotate_fts_seg_def,next_key_def,head_key_def,last_key_def,REVERSE_DEF,ft_seg_def,ones_def,edges_ones_def,LENGTH,b2w_def]
+    |> SCONV [fts_mem_def,STAR_ASSOC,ann_fts_def,ann_fts_seg_def,next_key_def,head_key_def,last_key_def,REVERSE_DEF,ft_seg_def,ones_def,edges_ones_def,LENGTH,b2w_def]
 
 val test =
     “ones 400w [x;y;z;e;r;t;y;u:word64]”
