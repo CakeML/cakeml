@@ -7,7 +7,6 @@ Libs
 Ancestors
   sh_a11y longmul word_lemmas add_carry misc wasmLang
   wasmSem stackSem stackLang stackProps asm
-
 val _ = numLib.prefer_num ();
 
 (* TODO: move Irvin's simps *)
@@ -291,28 +290,24 @@ End
 (* [“Load”, “Load8”, “Load16”, “Load32”, “Store”, “Store8”, “Store16”, “Store32”] *)
 (* Addr: num -> α word -> α addr *)
 
-(*
-s.mem_domain
-asm$Store
-*)
-
 Definition compile_memop_def:
   compile_memop asm$Load t (asm$Addr s ofs) =
-    List [GLOBAL_GET s; I32_WRAP_I64; I64_LOAD (w2w ofs); GLOBAL_SET t] ∧
+    List [GLOBAL_GET s; I64_CONST ofs; I64_ADD; I32_WRAP_I64; I64_LOAD 0w; GLOBAL_SET t] ∧
+    (*if ofs>=+0w then List [GLOBAL_GET s; I32_WRAP_I64; I64_LOAD (w2w ofs); GLOBAL_SET t]*)
   compile_memop asm$Load8 t (asm$Addr s ofs) =
-    List [GLOBAL_GET s; I32_WRAP_I64; I64_LOAD8_U (w2w ofs); GLOBAL_SET t] ∧
+    List [GLOBAL_GET s; I64_CONST ofs; I64_ADD; I32_WRAP_I64; I64_LOAD8_U 0w; GLOBAL_SET t] ∧
   compile_memop asm$Load16 t (asm$Addr s ofs) =
-    List [GLOBAL_GET s; I32_WRAP_I64; I64_LOAD16_U (w2w ofs); GLOBAL_SET t] ∧
+    List [GLOBAL_GET s; I64_CONST ofs; I64_ADD; I32_WRAP_I64; I64_LOAD16_U 0w; GLOBAL_SET t] ∧
   compile_memop asm$Load32 t (asm$Addr s ofs) =
-    List [GLOBAL_GET s; I32_WRAP_I64; I64_LOAD32_U (w2w ofs); GLOBAL_SET t] ∧
+    List [GLOBAL_GET s; I64_CONST ofs; I64_ADD; I32_WRAP_I64; I64_LOAD32_U 0w; GLOBAL_SET t] ∧
   compile_memop asm$Store s' (asm$Addr s ofs) =
-    List [GLOBAL_GET s; I32_WRAP_I64; GLOBAL_GET s'; I64_STORE (w2w ofs)] ∧
+    List [GLOBAL_GET s; I64_CONST ofs; I64_ADD; I32_WRAP_I64; GLOBAL_GET s'; I64_STORE 0w] ∧
   compile_memop asm$Store8 s' (asm$Addr s ofs) =
-    List [GLOBAL_GET s; I32_WRAP_I64; GLOBAL_GET s'; I64_STORE8 (w2w ofs)] ∧
+    List [GLOBAL_GET s; I64_CONST ofs; I64_ADD; I32_WRAP_I64; GLOBAL_GET s'; I64_STORE8 0w] ∧
   compile_memop asm$Store16 s' (asm$Addr s ofs) =
-    List [GLOBAL_GET s; I32_WRAP_I64; GLOBAL_GET s'; I64_STORE16 (w2w ofs)] ∧
+    List [GLOBAL_GET s; I64_CONST ofs; I64_ADD; I32_WRAP_I64; GLOBAL_GET s'; I64_STORE16 0w] ∧
   compile_memop asm$Store32 s' (asm$Addr s ofs) =
-    List [GLOBAL_GET s; I32_WRAP_I64; GLOBAL_GET s'; I64_STORE32 (w2w ofs)]
+    List [GLOBAL_GET s; I64_CONST ofs; I64_ADD; I32_WRAP_I64; GLOBAL_GET s'; I64_STORE32 0w]
 End
 
 Definition compile_inst_def:
@@ -492,6 +487,19 @@ Definition wasm_state_ok_def:
   (∀i. i < LENGTH t.funcs ⇒ oEL i t.func_table = SOME (n2w (LENGTH wasm_support_function_list + i)))
 End
 
+(*mem_load: :α word -> (α, β, γ) state -> α word_loc option*)
+(* mem_load addr s =
+       if addr ∈ s.mdomain then SOME (s.memory addr) else NONE: thm
+ *)
+Definition mem_rel_def:
+  mem_rel s_mdomain s_memory t_memory <=>
+  ( ∀ad. ad ∈ s_mdomain ⇒
+    ad <+ 0x100000000w ∧ (* 32-bit addressable *)
+    w2n ad + 8 <= LENGTH t_memory ∧
+    word_of_bytes F 0w (TAKE 8 (DROP (w2n ad) t_memory)) = wl_word (s_memory ad)
+  )
+End
+
 Definition state_rel_def:
   state_rel c ^s ^t ⇔
     (* s only *)
@@ -503,7 +511,8 @@ Definition state_rel_def:
     (* actually relate s and t *)
     regs_rel c s.regs t.globals ∧
     s.clock = t.clock ∧
-    code_rel s.code t.funcs
+    code_rel s.code t.funcs ∧
+    mem_rel s.mdomain s.memory t.memory
 End
 
 Definition res_rel_def:
@@ -696,6 +705,12 @@ Theorem pop_push[simp]:
   pop (push v t) = SOME (v,t)
 Proof
   rw[push_def,pop_def,wasmSemTheory.state_component_equality]
+QED
+
+Theorem pop_i32_push[simp]:
+  pop_i32 (push (I32 a) t) = SOME (a,t)
+Proof
+  rw[push_def,pop_i32_def,wasmSemTheory.state_component_equality]
 QED
 
 Theorem exec_If:
@@ -1243,6 +1258,48 @@ Theorem exec_I64_EXTEND32_U:
   (RNormal, push (I64 (w2w a)) t)
 Proof
   simp[I64_EXTEND32_U_def,exec_def,num_stk_op_def,push_def,do_una_eq,sext_def]
+QED
+
+(* drule *)
+Theorem exec_I64_LOAD:
+  state_rel c s t ∧
+  mem_load ad64 s = SOME wl ∧
+  ad64 = w2w(ad32+ofs) ∧
+  w2n ad32 + w2n ofs < 0x100000000 ⇒
+  exec (I64_LOAD ofs) (push (I32 ad32) t) = (RNormal, push (wl_value wl) t)
+Proof
+strip_tac
+>>simp[I64_LOAD_def,exec_def]
+>>subgoal‘do_ld ad32 (Load Int W64 ofs 8w) t.memory = SOME (wl_value wl)’
+>-(
+rw1 do_ld_thm
+>>simp[load_op_rel_cases]
+>>qexists_tac‘wl_word wl’
+>>conj_tac>-simp[wl_value_wl_word]
+>>simp[ancillaryOpsTheory.load_def]
+>>`mem_rel s.mdomain s.memory t.memory` by fs[state_rel_def]
+>>fs[mem_rel_def,mem_load_def]
+>>pop_assum (drule_then assume_tac)
+>>drule_then assume_tac $ CONV_RULE (SIMP_CONV arith_ss [dimword_def,dimindex_32]) $ INST_TYPE[“:α”|->“:32”]w2n_add_2
+>>gvs[w2n_w2w]
+)
+>>simp[push_def]
+(*mem_load_def:
+   ⊢ ∀addr s.
+       mem_load addr s =
+       if addr ∈ s.mdomain then SOME (s.memory addr) else NONE
+*)
+(*     (("wordSem", "mem_load_byte_aux_def"),
+     (⊢ ∀m dm be w.
+          mem_load_byte_aux m dm be w =
+          case m (byte_align w) of
+            Word v =>
+              if byte_align w ∈ dm then SOME (get_byte w v be) else NONE
+          | Loc v2 v3 => NONE
+*)
+(* byte_align w = align (LOG2 (dimindex (:α) DIV 8)) w *)
+(* align p w = (dimindex (:α) − 1 '' p) w *)
+(*EVAL``byte_align (63w:word64)``;*)
 QED
 
 Theorem push_inj[simp]:
@@ -1803,6 +1860,12 @@ Proof
 simp[set_global'_def]
 QED
 
+Theorem w2w_w2w_lt_dimword:
+  w2n a < dimword(:'a) ⇒ w2w(w2w a:'a word) = a
+Proof
+simp[w2w_def]
+QED
+
 Theorem compile_Inst:
   ^(get_goal "Inst")
 Proof
@@ -2124,11 +2187,55 @@ Proof
     )
   )
   >~[`Mem`]
-  >-cheat
+>-(
+qexists_tac‘0’
+>>rename1`evaluate (Inst (Mem mop r ad),s) = (s_res,s_fin)`
+>>Cases_on‘ad’
+>>rename1`evaluate (Inst (Mem mop r (Addr r_addr ofs)),s) = (s_res,s_fin)`
+>>`reg_ok r c` by fs[stack_wasm_ok_def,stack_asm_ok_def,inst_ok_def,arith_ok_def]
+>>Cases_on‘mop’
+>>gvs[compile_memop_def,evaluate_def,inst_def,AllCaseEqs()]
+>>`mem_rel s.mdomain s.memory t.memory` by fs[state_rel_def]
+>-(
+gvs[word_exp_def,wordLangTheory.word_op_def,IS_SOME_EXISTS,option_case_eq,CaseEq"word_loc"]
+>>rename1`FLOOKUP _ r_addr = SOME (Word ad)`
+>>`get_var r_addr s = SOME (Word ad)` by simp[get_var_def]
+>>rw1 exec_list_cons
+>>drule_then rw1 exec_GLOBAL_GET
+>-metis_tac[]
+>>simp[]
+>>rw1 exec_list_cons
+>>simp[exec_I64_CONST]
+>>rw1 exec_list_cons
+>>simp[wl_value_wl_word,exec_I64_ADD]
+>>rw1 exec_list_cons
+>>simp[wl_value_wl_word,exec_I32_WRAP_I64]
+>>rw1 exec_list_cons
+>>drule_then (drule_then rw1) exec_I64_LOAD
+>-(
+simp[wl_word_def]
+>>`ofs+ad∈s.mdomain` by fs[mem_load_def]
+>>qpat_x_assum‘mem_rel _ _ _’(drule_then assume_tac o PURE_ONCE_REWRITE_RULE[mem_rel_def])
+>>`w2n (ofs + ad) < w2n(0x100000000w:word64)` by (rw1$GSYM WORD_LO>>metis_tac[WORD_ADD_COMM])
+>>rw1 w2w_w2w_lt_dimword>-(fs[]>>metis_tac[WORD_ADD_COMM])
+>>simp[]
+>>rw1$SYM dimword_32
+>>MATCH_ACCEPT_TAC w2n_lt
+)
+>>simp[]
+>>rw1 exec_GLOBAL_SET
+>-(`reg_ok r c` by fs[stack_wasm_ok_def,stack_asm_ok_def,inst_ok_def,arith_ok_def]>>metis_tac[wasm_reg_ok_drule,LT_IMP_LE])
+>>simp[res_rel_def]
+>>irule state_rel_set_var
+>>metis_tac[wasm_reg_ok_drule]
+)
+
+
+>>cheat
+  )
   >~[`FP`]
   >-gvs[stack_wasm_ok_def,stack_asm_ok_def,inst_ok_def,oneline fp_ok_def,AllCasePreds(),fp_reg_ok_def,conf_ok_def]
 QED
-
 
 Theorem res_rel_RBreak:
   res_rel res (RBreak n) stack_pair ⇒ F
