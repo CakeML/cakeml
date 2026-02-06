@@ -1266,7 +1266,7 @@ Proof
         `get_var_imm ri removed_state = get_var_imm ri s` by (
             Cases_on `ri` >> fs[get_var_imm_def, get_var_def]) >>
         simp[wordSemTheory.evaluate_def] >>
-        ntac 5 (TOP_CASE_TAC >> fs[]) >>
+        rpt (TOP_CASE_TAC >> fs[]) >>
         rw[] >>
         fs[find_word_ref_def, domain_union, no_install_def]
         )
