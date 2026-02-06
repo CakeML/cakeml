@@ -156,14 +156,14 @@ End
 
 val test_fts_mem = “fts_mem (ann_fts [
     FibTree 10w (
-    fill_dnode 11w (1000w, [(50w,10)]) true false) [];
+    fill_dnode 11w (1000w, [(50w,10)]) T F) [];
     FibTree 50w (
-    fill_dnode 51w (2000w, [(10w,50)]) true false) [
+    fill_dnode 51w (2000w, [(10w,50)]) T F) [
         FibTree 100w
-        (fill_dnode 101w (3000w, []) true false) []
+        (fill_dnode 101w (3000w, []) T F) []
     ]
     ])”
-    |> SCONV [fts_mem_def,STAR_ASSOC,ann_fts_def,ann_fts_seg_def,next_key_def,head_key_def,last_key_def,REVERSE_DEF,ft_seg_def,ones_def,edges_ones_def,LENGTH,b2w_def]
+    |> SCONV [fts_mem_def,STAR_ASSOC,ann_fts_def,ann_fts_seg_def,next_key_def,head_key_def,last_key_def,REVERSE_DEF,ft_seg_def,ones_def,edges_ones_def,LENGTH,b2w_def,fill_anode_def,fill_dnode_def];
 
 val test =
     “ones 400w [x;y;z;e;r;t;y;u:word64]”
