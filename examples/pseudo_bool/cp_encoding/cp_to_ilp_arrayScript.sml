@@ -55,52 +55,171 @@ Proof
   cheat
 QED
 
+Definition arri_def[simp]:
+  arri name (i:num) =
+    INR (name, Indices [i] NONE)
+End
+
 (* ArrayMax: Y = max(Xs) *)
+Definition cencode_array_max_def:
+  cencode_array_max bnd Xs Y name =
+  if NULL Xs
+  then cfalse_constr
+  else
+    Append
+      (flat_app (MAPi (λi X. cvar_imply bnd (arri name i) (mk_ge X Y)) Xs)) $
+      Append
+        (flat_app (MAPi (λi X. List $
+          mk_annotate
+            [mk_name name $ int_to_string #"-" (&i) ^ strlit"le"]
+            [mk_le X Y]) Xs)) $
+        cat_least_one name $ GENLIST (λi. Pos $ arri name i) (LENGTH Xs)
+End
+
 Definition encode_array_max_def:
-  encode_array_max bnd Xs Y =
-  [false_constr]
+  encode_array_max bnd Xs Y name =
+  abstr $ cencode_array_max bnd Xs Y name
 End
 
 Theorem encode_array_max_sem_1:
   valid_assignment bnd wi ∧
+  ALOOKUP cs name = SOME (Array (ArrayMax Xs Y)) ∧
   array_max_sem Xs Y wi ⇒
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
-    (encode_array_max bnd Xs Y)
+    (encode_array_max bnd Xs Y name)
 Proof
-  cheat
+  Cases_on ‘NULL Xs’>>
+  rw[cencode_array_max_def,encode_array_max_def,array_max_sem_def]>>
+  gvs[NULL_EQ]>>
+  rw[EVERY_FLAT,Once EVERY_MEM]>>
+  gvs[MEM_FLAT,MEM_MAPi]
+  >-(
+    simp[reify_avar_def,reify_flag_def]>>
+    intLib.ARITH_TAC)
+  >-(
+    gs[EVERY_MEM,MEM_MAP,SF DNF_ss]>>
+    drule EL_MEM>>
+    strip_tac>>
+    first_x_assum drule>>
+    intLib.ARITH_TAC)>>
+  gs[MEM_EL,SF DNF_ss,MEM_MAP]>>
+  rename1 ‘n < LENGTH _’>>
+  qexists ‘n’>>
+  simp[reify_avar_def,reify_flag_def,EL_MAP]>>
+  intLib.ARITH_TAC
 QED
 
 Theorem encode_array_max_sem_2:
   valid_assignment bnd wi ∧
   EVERY (λx. iconstraint_sem x (wi,wb))
-    (encode_array_max bnd Xs Y) ⇒
+    (encode_array_max bnd Xs Y name) ⇒
   array_max_sem Xs Y wi
 Proof
-  cheat
+  simp[encode_array_max_def,cencode_array_max_def,array_max_sem_def]>>
+  Cases_on ‘NULL Xs’>>
+  gs[NULL_EQ]
+  >-simp[cfalse_constr_def]>>
+  simp[EVERY_FLAT]>>
+  qmatch_goalsub_abbrev_tac ‘EVERY P (MAPi _ _)’>>
+  rw[EVERY_MEM,MEM_MAPi,SF DNF_ss]>>
+  unabbrev_all_tac>>
+  gs[MEM_EL]
+  >-(
+    rename1 ‘n < LENGTH Xs’>>
+    qexists ‘n’>>
+    ntac 3 (first_x_assum $ drule_then assume_tac)>>
+    simp[EL_MAP]>>
+    intLib.ARITH_TAC)>>
+  gs[EL_MAP]>>
+  first_x_assum $ drule_then assume_tac>>
+  intLib.ARITH_TAC
+QED
+
+Theorem cencode_array_max_sem:
+  enc_rel wi (cencode_array_max bnd Xs Y name) (encode_array_max bnd Xs Y name) ec ec
+Proof
+  simp[encode_array_max_def]
 QED
 
 (* ArrayMin: Y = min(Xs) *)
+Definition cencode_array_min_def:
+  cencode_array_min bnd Xs Y name =
+  if NULL Xs
+  then cfalse_constr
+  else
+    Append
+      (flat_app (MAPi (λi X. cvar_imply bnd (arri name i) (mk_le X Y)) Xs)) $
+      Append
+        (flat_app (MAPi (λi X. List $
+          mk_annotate
+            [mk_name name $ int_to_string #"-" (&i) ^ strlit"ge"]
+            [mk_ge X Y]) Xs)) $
+        cat_least_one name $ GENLIST (λi. Pos $ arri name i) (LENGTH Xs)
+End
+
 Definition encode_array_min_def:
-  encode_array_min bnd Xs Y =
-  [false_constr]
+  encode_array_min bnd Xs Y name =
+  abstr $ cencode_array_min bnd Xs Y name
 End
 
 Theorem encode_array_min_sem_1:
   valid_assignment bnd wi ∧
+  ALOOKUP cs name = SOME (Array (ArrayMin Xs Y)) ∧
   array_min_sem Xs Y wi ⇒
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
-    (encode_array_min bnd Xs Y)
+    (encode_array_min bnd Xs Y name)
 Proof
-  cheat
+  Cases_on ‘NULL Xs’>>
+  rw[cencode_array_min_def,encode_array_min_def,array_min_sem_def]>>
+  gvs[NULL_EQ]>>
+  rw[EVERY_FLAT,Once EVERY_MEM]>>
+  gvs[MEM_FLAT,MEM_MAPi]
+  >-(
+    simp[reify_avar_def,reify_flag_def]>>
+    intLib.ARITH_TAC)
+  >-(
+    gs[EVERY_MEM,MEM_MAP,SF DNF_ss]>>
+    drule EL_MEM>>
+    strip_tac>>
+    first_x_assum drule>>
+    intLib.ARITH_TAC)>>
+  gs[MEM_EL,SF DNF_ss,MEM_MAP]>>
+  rename1 ‘n < LENGTH _’>>
+  qexists ‘n’>>
+  simp[reify_avar_def,reify_flag_def,EL_MAP]>>
+  intLib.ARITH_TAC
 QED
 
 Theorem encode_array_min_sem_2:
   valid_assignment bnd wi ∧
   EVERY (λx. iconstraint_sem x (wi,wb))
-    (encode_array_min bnd Xs Y) ⇒
+    (encode_array_min bnd Xs Y name) ⇒
   array_min_sem Xs Y wi
 Proof
-  cheat
+  simp[encode_array_min_def,cencode_array_min_def,array_min_sem_def]>>
+  Cases_on ‘NULL Xs’>>
+  gs[NULL_EQ]
+  >-simp[cfalse_constr_def]>>
+  simp[EVERY_FLAT]>>
+  qmatch_goalsub_abbrev_tac ‘EVERY P (MAPi _ _)’>>
+  rw[EVERY_MEM,MEM_MAPi,SF DNF_ss]>>
+  unabbrev_all_tac>>
+  gs[MEM_EL]
+  >-(
+    rename1 ‘n < LENGTH Xs’>>
+    qexists ‘n’>>
+    ntac 3 (first_x_assum $ drule_then assume_tac)>>
+    simp[EL_MAP]>>
+    intLib.ARITH_TAC)>>
+  gs[EL_MAP]>>
+  first_x_assum $ drule_then assume_tac>>
+  intLib.ARITH_TAC
+QED
+
+Theorem cencode_array_min_sem:
+  enc_rel wi (cencode_array_min bnd Xs Y name) (encode_array_min bnd Xs Y name) ec ec
+Proof
+  simp[encode_array_min_def]
 QED
 
 Definition encode_array_constr_def:
@@ -108,8 +227,8 @@ Definition encode_array_constr_def:
   case c of
     Element Xs Yi Z => encode_element bnd Xs Yi Z
   | Element2D Xss Y1i Y2i Z => encode_element2d bnd Xss Y1i Y2i Z
-  | ArrayMax Xs Y => encode_array_max bnd Xs Y
-  | ArrayMin Xs Y => encode_array_min bnd Xs Y
+  | ArrayMax Xs Y => encode_array_max bnd Xs Y name
+  | ArrayMin Xs Y => encode_array_min bnd Xs Y name
 End
 
 Theorem encode_array_constr_sem_1:
@@ -144,7 +263,11 @@ QED
 (* Concrete encodings *)
 Definition cencode_array_constr_def:
   cencode_array_constr bnd c name ec =
-  (List [], ec)
+  case c of
+    Element Xs Yi Z => (List [], ec)
+  | Element2D Xss Y1i Y2i Z => (List [], ec)
+  | ArrayMax Xs Y => (cencode_array_max bnd Xs Y name,ec)
+  | ArrayMin Xs Y => (cencode_array_min bnd Xs Y name,ec)
 End
 
 Theorem cencode_array_constr_sem:
@@ -152,5 +275,10 @@ Theorem cencode_array_constr_sem:
   cencode_array_constr bnd c name ec = (es, ec') ⇒
   enc_rel wi es (encode_array_constr bnd c name) ec ec'
 Proof
-  cheat
+  Cases_on‘c’>>
+  rw[cencode_array_constr_def,encode_array_constr_def]
+  >- cheat
+  >- cheat
+  >- metis_tac[cencode_array_max_sem]
+  >- metis_tac[cencode_array_min_sem]
 QED
