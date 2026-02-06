@@ -1673,10 +1673,10 @@ Definition ptree_Expr_def:
             idx_expr <- ptree_Index idx;
             case idx_expr of
               INL str_idx =>
-                return $ build_funapp (Var (Long «String» (Short «sub»)))
+                return $ build_funapp (Var (Long «String» (Short «get»)))
                                       [pfx; str_idx]
             | INR arr_idx =>
-                return $ build_funapp (Var (Long «Array» (Short «sub»)))
+                return $ build_funapp (Var (Long «Array» (Short «get»)))
                                       [pfx; arr_idx]
           od
       | _ => fail (locs, «Impossible: nEIndex»)
