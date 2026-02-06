@@ -7,7 +7,7 @@ Ancestors
   pan_simp loopLang loop_remove loop_to_word pan_to_crep
   loop_call loop_live crep_arith crep_to_loop pan_to_word
   word_to_word backend pan_to_target panPtreeConversion
-  pan_globals
+  pan_globals crep_inline
 Libs
   preamble ml_translatorLib
 
@@ -233,6 +233,50 @@ val _ = translate $ spec64 compile_prog_def;
 
 val _ = translate $ spec64 compile_def;
 
+open crep_inlineTheory;
+
+val _ = translate $ spec64 panLangTheory.inlinable_def;
+
+val _ = translate $ spec64 var_prog_def;
+
+val _ = translate $ spec64 vmax_prog_def;
+
+val _ = translate $ spec64 has_return_def;
+
+val _ = translate $ spec64 return_in_loop_def;
+
+val _ = translate $ spec64 transform_rec_def;
+
+val _ = translate $ spec64 arg_load_def;
+
+val _ = translate $ spec64 not_branch_ret_def;
+
+val _ = translate $ spec64 unreach_elim_def;
+
+val _ = translate $ spec64 standalone_eoc_def;
+
+val _ = translate $ spec64 assign_eoc_def;
+
+val _ = translate $ spec64 standalone_branch_def;
+
+val _ = translate $ spec64 assign_branch_def;
+
+val _ = translate $ spec64 inline_tail_def;
+
+val _ = translate $ spec64 inline_standalone_eoc_def;
+
+val _ = translate $ spec64 inline_assign_eoc_def;
+
+val _ = translate $ spec64 inline_standalone_branch_def;
+
+val _ = translate $ spec64 inline_assign_branch_def;
+
+val _ = translate $ spec64 inline_prog_def;
+
+val _ = translate $ INST_TYPE[alpha|->``:num list``,beta|->``:64``] compile_inl_prog_def;
+
+val _ = translate $ spec64 compile_inl_top_def;
+
 open pan_to_crepTheory;
 
 val _ = translate $ spec64 ret_hdl_def;
@@ -275,6 +319,8 @@ val _ = translate $ INST_TYPE[alpha|->“:64”,
                               beta|->“:mlstring”,
                               gamma|->“:(mlstring # shape) list”,
                               delta|->“:64”] get_eids_def;
+
+val _ = translate $ spec64 compile_to_crep_def;
 
 val _ = translate $ spec64 compile_prog_def;
 
@@ -778,6 +824,8 @@ Proof
 QED
 
 val _ = conv_Prog_ind  |> update_precondition;
+
+val res = translate $ conv_inline_def;
 
 val res  = translate $ conv_export_def;
 
