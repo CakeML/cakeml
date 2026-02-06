@@ -1,12 +1,16 @@
 (*
-   This SML program generates a `README.md` summary for the files
-   given as command-line arguments to this script. The contents of the
-   summaries are read from a specific style of comment that needs to
-   appear at the top of each file.
+   This SML program generates a `README.md` summary for a directory.
+   The contents of the summaries are read from a specific style of
+   comment that needs to appear at the top of each source file.
+   Source files are auto-discovered based on AUTO_INCLUDE_SUFFIXES.
 
-   This program accepts a command-line option --check which performs a
-   recursive check of all of the subdirectories. The global check
-   checks that:
+   Usage:
+    readme_gen                    generate README.md for current directory
+    readme_gen file1 file2 ...    generate with extra files (backward compat)
+    readme_gen --all [path]       recursively generate READMEs
+    readme_gen --check [path]     structural validation (no linting)
+
+   The --check option performs a recursive check that:
     - there is a README.md target in every Holmakefile
     - in dirs without a Holmakefile,
        - there must be a README.md
@@ -15,17 +19,17 @@
        - there must be a readmePrefix file
        - the first target in the Holmakefile must have the following
          as a prefix "all: $(DEFAULT_TARGETS) README.md"
-       - create_summary must work in the dir (doesn't writing output)
+       - create_summary must work in the dir (without writing output)
 *)
 
 (* Constants *)
 
 val MAX_CHAR_COUNT_PER_LINE = 80
 val MAX_LINE_COUNT = 10
-val MAX_CODE_LINE_LENGTH = 200
 val PREFIX_FILENAME = "readmePrefix"
 val OUTPUT_FILENAME = "README.md"
 val CHECK_OPT = "--check"
+val ALL_OPT = "--all"
 val AUTO_INCLUDE_SUFFIXES = ["Script.sml","Syntax.sml","Lib.sml",".lem",".c",".cml"]
 val FIRST_TARGET_PREFIX = "all: $(DEFAULT_TARGETS) README.md"
 val PHONY_SUGGESTION = ".PHONY: all"
@@ -34,32 +38,11 @@ val HOLMAKEFILE_SUGGESTION =
 concat ["INCLUDES =\n\n",
         FIRST_TARGET_PREFIX ^ "\n",
         PHONY_SUGGESTION ^ "\n\n",
-        "README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) ",
-        "$(wildcard *Syntax.sml)\n",
-        "DIRS = $(wildcard */)\n",
-        "README.md: $(CAKEMLDIR)/developers/readme_gen",
-        " readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)\n",
-        "\t$(CAKEMLDIR)/developers/readme_gen $(README_SOURCES)\n"]
-
-val ILLEGAL_STRINGS =
-  [("store_thm(\"", "The Theorem syntax is to be used instead of store_thm."),
-   ("type_abbrev(\"", "The Type syntax is to be used instead of type_abbrev."),
-   ("overload_on(\"", "Use Overload ... = ``...`` instead of overload_on."),
-   (* Bans constructs such as `map overload_on ...` where ... is a list literal *)
-   ("overload_on"^"[", "Use Overload ... = ``...`` instead of overload_on."),
-   ("Hol_datatype"^"`", "Use Datatype: ... End syntax instead of Hol_datatype."),
-   ("Datatype"^"`", "Use Datatype: ... End syntax instead of Datatype with `"),
-   (* \226\128\152 corresponds to ‘ *)
-   ("Datatype"^"\226\128\152", "Use Datatype: ... End syntax instead of Datatype\226\128\152."),
-   ("Hol_rel"^"n`","Use Inductive ... End instead of old Hol_reln."),
-   ("Hol_rel"^"n\"","Use Inductive ... End instead of old Hol_reln."),
-   ("Hol_corel"^"n`","Use CoInductive ... End instead of old Hol_coreln."),
-   (* HACK Stop readme_gen from flagging itself by using \ \ in strings *)
-   ("new_\ \theory","Use Theory syntax instead of old new_\ \theory"),
-   ("export_\ \theory","Use Theory sytnax instead of old export_\ \theory"),
-   ("TheoryPP.include_\ \docs","Add the no_sig_docs tag to the theory name instead of TheoryPP.include_\ \docs."),
-   ("Trivialit\ \y", "Trivialit\ \y has been deprecated. Please use Theorem with a local tag instead.")
-  ]
+        "README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix",
+        " $(wildcard *Script.sml *Lib.sml *Syntax.sml *.lem *.c *.cml",
+        " */readmePrefix)\n",
+        "\t$(protect $(CAKEMLDIR)/developers/lint_source) .",
+        " && $(protect $(CAKEMLDIR)/developers/readme_gen)\n"]
 
 (* Helper functions *)
 
@@ -105,17 +88,6 @@ fun check_width all_lines = let
           fail ("one or more lines exceed the line length limit of " ^ Int.toString MAX_CHAR_COUNT_PER_LINE ^ " characters")
   in () end
 
-fun check_for_illegal_strings filename NONE = ()
-  | check_for_illegal_strings filename (SOME all_lines) =
-  if String.isSuffix "Lib.sml" filename then () else let
-  val spaces = explode " \n\t"
-  fun remove_spaces c = if mem c spaces then "" else implode [c]
-  val entire_file_as_str = String.translate remove_spaces (concat all_lines)
-  fun check_each (ill_str, err_msg) =
-    if String.isSubstring ill_str entire_file_as_str
-    then fail err_msg else ()
-  in List.app check_each ILLEGAL_STRINGS end
-
 fun check_length_and_width all_lines =
   (check_length all_lines; check_width all_lines);
 
@@ -157,38 +129,9 @@ fun read_all_lines filename =
   in SOME all_lines end
   handle e => NONE;
 
-fun every_line_in_file filename p =
-  let
-    val f = TextIO.openIn(filename)
-    fun every_line n =
-      case TextIO.inputLine(f) of
-        NONE => []
-      | SOME line => (p n line; every_line (n+1))
-    val _ = every_line 1
-    val _ = TextIO.closeIn f
-  in () end;
-
 (* Reading a block comment (from an SML or C file) *)
 
 fun read_block_comment start_comment end_comment filename = let
-  fun assert_no_trailing_whitespace n line =
-    if String.isSuffix " \n" line orelse String.isSuffix " " line
-    then fail "trailing white-space is not allowed (adjust your editor setting)"
-    else ()
-  fun assert_no_tabs_in_line n line =
-    if String.isSubstring "\t" line
-    then fail "tab characters (#\"\\t\") are not allowed"
-    else ()
-  fun assert_line_length_OK n line =
-    if MAX_CODE_LINE_LENGTH < size line
-    then fail ("line " ^ Int.toString n ^ " is longer than " ^
-               Int.toString MAX_CODE_LINE_LENGTH)
-    else ()
-  val _ = every_line_in_file filename
-            (fn n => fn line => ( assert_no_trailing_whitespace n line ;
-                                  assert_no_tabs_in_line n line ;
-                                  assert_line_length_OK n line ))
-  val _ = check_for_illegal_strings filename (read_all_lines filename)
   val f = open_textfile filename
   in let
     (* check that first line is comment *)
@@ -411,13 +354,6 @@ fun check_Holmakefile filename =
               orelse err (concat
                 ["ERROR! The first target line must have\n\n",
                  FIRST_TARGET_PREFIX,"\n\nas a prefix in ", filename, "\n"])
-           (* let
-                val lines = List.filter (fn s => s <> "all: README.md\n") lines
-                val xs = take_while (String.isSubstring "=") lines
-                val ys = drop_while (String.isSubstring "=") lines
-                val all_lines = xs @ ["\nall: $(DEFAULT_TARGETS) README.md\n"] @ ys
-                val _ = write_file filename (concat all_lines)
-              in true end *)
       in true end
 
 (* Main functions: processing a list of files / paths *)
@@ -493,6 +429,92 @@ fun create_summary write_output path extra_files = let
             in () end
   in () end;
 
+(* Recursive generation of READMEs in all dirs *)
+
+(* Expand simple $(wildcard *.ext ...) patterns in a directory.
+   Only handles *.ext suffix patterns (e.g. *.sml *.sh). *)
+fun expand_wildcard_tokens dir tokens = let
+  fun expand_pattern pat =
+    if String.isPrefix "*" pat then let
+      val suffix = String.extract(pat, 1, NONE)
+      val names = all_filenames_from_path dir
+      val names = List.filter (fn n => String.isSuffix suffix n) names
+      val names = List.filter (fn n => not (is_dir (dir ^ "/" ^ n))) names
+    in names end
+    else [pat]
+  fun process [] = []
+    | process (tok::rest) =
+        if tok = "$(wildcard" then expand_group [] rest
+        else tok :: process rest
+  and expand_group pats [] =
+        List.concat (map expand_pattern pats)
+    | expand_group pats (tok::rest) =
+        if String.isSuffix ")" tok then let
+          val pat = String.substring(tok, 0, String.size tok - 1)
+          val all_pats = pats @ (if pat = "" then [] else [pat])
+        in List.concat (map expand_pattern all_pats) @ process rest end
+        else expand_group (pats @ [tok]) rest
+  in process tokens end
+
+(* Parse extra files from the readme_gen recipe line in a Holmakefile.
+   The recipe line looks like:
+     \t$(protect $(CAKEMLDIR)/developers/readme_gen) extra1 extra2
+   or \treadme_gen $(wildcard *.sml *.sh) extra1
+   We find the line containing "readme_gen" that is a recipe (starts with tab),
+   skip the --check invocation, and extract tokens after "readme_gen" or
+   "readme_gen)". Handles $(wildcard ...) expansion. *)
+fun extra_files_from_holmakefile filename = let
+  val dir = OS.Path.dir filename
+  val dir = if dir = "" then "." else dir
+  in
+  case read_all_lines filename of
+    NONE => []
+  | SOME lines => let
+      fun is_recipe_line s =
+        String.isPrefix "\t" s andalso
+        String.isSubstring "readme_gen" s andalso
+        not (String.isSubstring "--check" s)
+      val recipe_lines = List.filter is_recipe_line lines
+      in case recipe_lines of
+           [] => []
+         | (line::_) => let
+             (* Find the position after "readme_gen" or "readme_gen)" *)
+             val s = Substring.full line
+             val (_, rest) = Substring.position "readme_gen" s
+             val rest = Substring.triml (String.size "readme_gen") rest
+             (* skip a closing paren if present *)
+             val rest = if Substring.size rest > 0 andalso
+                           Substring.sub(rest,0) = #")"
+                        then Substring.triml 1 rest
+                        else rest
+             val rest_str = Substring.string rest
+             (* remove trailing newline *)
+             val rest_str = if String.isSuffix "\n" rest_str
+                            then String.substring(rest_str, 0,
+                                   String.size rest_str - 1)
+                            else rest_str
+             val tokens = String.tokens Char.isSpace rest_str
+             in expand_wildcard_tokens dir tokens end
+      end
+  end
+
+fun generate_all path = let
+  fun generate_dir p =
+    if file_exists (p ^ "/Holmakefile") andalso
+       file_exists (p ^ "/" ^ PREFIX_FILENAME)
+    then let
+      val extra_files = extra_files_from_holmakefile (p ^ "/Holmakefile")
+      val saved_dir = OS.FileSys.getDir()
+      val _ = OS.FileSys.chDir p
+      val _ = print ("Generating: " ^ p ^ "\n")
+      val _ = create_summary true "." extra_files
+              handle ReadmeExn msg =>
+                print ("WARNING in " ^ p ^ ": " ^ msg ^ "\n")
+      val _ = OS.FileSys.chDir saved_dir
+      in () end
+    else ()
+  in apply_in_all_dirs generate_dir path end;
+
 (* Recursive check of all dirs *)
 
 fun assert_for_lines_of filename pred err_msg =
@@ -515,10 +537,6 @@ fun run_full_check path = let
         if String.isPrefix "ifdef" l orelse String.isPrefix "ifndef" l then
           [HOLMAKEFILE_SUGGESTION,"\n"] @ l::ls
         else l :: inject_readme_target p ls
-(*
-  val p = path
-  val SOME lines = read_all_lines (p ^ "/Holmakefile")
-*)
   fun check_dir p =
     case read_all_lines (p ^ "/Holmakefile") of
       NONE => (* case: Holmake file does not exist *)
@@ -559,11 +577,19 @@ fun run_full_check path = let
 fun main () =
   let
     val args = CommandLine.arguments ()
-    val extra_files = args
     val path = OS.FileSys.getDir()
-    val write_output = true
   in
-    if List.length args <> 0 andalso List.nth(args,0) = CHECK_OPT
-    then run_full_check (if length args > 1 then List.nth(args,1) else path)
-    else create_summary write_output path extra_files
+    case args of
+      [] => create_summary true path []
+    | [x] =>
+        if x = CHECK_OPT then run_full_check path
+        else if x = ALL_OPT then generate_all path
+        else create_summary true path args
+    | (x :: rest) =>
+        if x = CHECK_OPT then
+          run_full_check (hd rest)
+        else if x = ALL_OPT then
+          generate_all (hd rest)
+        else
+          create_summary true path args
   end;

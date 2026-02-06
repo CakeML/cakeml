@@ -3,7 +3,5 @@ INCLUDES = $(CAKEMLDIR)/misc $(CAKEMLDIR)/basis/pure .. ../../encoders/x64
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
 
-README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)
-DIRS = $(wildcard */)
-README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
-	$(protect $(CAKEMLDIR)/developers/readme_gen) $(README_SOURCES)
+README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(wildcard *Script.sml *Lib.sml *Syntax.sml *.lem *.c *.cml */readmePrefix)
+	$(protect $(CAKEMLDIR)/developers/lint_source) . && $(protect $(CAKEMLDIR)/developers/readme_gen)

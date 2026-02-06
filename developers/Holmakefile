@@ -1,14 +1,17 @@
-all: $(DEFAULT_TARGETS) README.md readme_gen lint
-.PHONY: all
+all: $(DEFAULT_TARGETS) README.md readme_gen lint lint_source_check
+.PHONY: all lint lint_source_check
 
-README_SOURCES = $(wildcard *.sml) $(wildcard *.sh) build-sequence
-DIRS = $(wildcard */)
-README.md: $(README_SOURCES) readmePrefix readme_gen $(patsubst %,%readmePrefix,$(DIRS))
-	./readme_gen --check $(CAKEMLDIR)
-	./readme_gen $(README_SOURCES)
+README.md: readme_gen lint_source readmePrefix $(wildcard *.sml *.sh */readmePrefix) build-sequence
+	./lint_source . && ./readme_gen --check $(CAKEMLDIR) && ./readme_gen $(wildcard *.sml *.sh) build-sequence
 
 lint: lint_build_dirs
 	./lint_build_dirs $(CAKEMLDIR)
+
+lint_source_check: lint_source
+	./lint_source --all $(CAKEMLDIR)
+
+lint_source: lint_source.sml
+	$(POLYC) lint_source.sml -o lint_source
 
 readme_gen: readme_gen.sml
 	$(POLYC) readme_gen.sml -o readme_gen
@@ -16,4 +19,4 @@ readme_gen: readme_gen.sml
 lint_build_dirs: lint_build_dirs.sml
 	$(POLYC) lint_build_dirs.sml -o lint_build_dirs
 
-EXTRA_CLEANS = lint_build_dirs readme_gen
+EXTRA_CLEANS = lint_build_dirs readme_gen lint_source
