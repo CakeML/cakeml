@@ -59,11 +59,11 @@ Definition last_key_def:
 End
 
 Definition fill_dnode_def:
-  fill_dnode v e =
+  fill_dnode v e f m =
     <|  value := v;
         edges := e;
-        flag  := T;
-        mark  := F |>
+        flag  := f;
+        mark  := m |>
 End
 
 Definition fill_anode_def:
@@ -186,9 +186,25 @@ Inductive fts_has:
   fts_has k v (FibTree k1 v1 ts :: rest)
 End
 
+Definition fts_min_def:
+  fts_min_value fts = head_key fts
+End
+
+Definition fts_is_min_def:
+  (fts_is_min _ [] = T) /\
+  (fts_is_min v (FibTree _ n ts::rest) =
+    ((v <= n.data.value) /\ (fts_is_min v ts) /\ (fts_is_min v rest)))
+End
+
 Definition fib_heap_inv_def:
   fib_heap_inv fh fts ⇔
-    (∀k v. FLOOKUP fh k = SOME v ⇔ fts_has k v fts)
+    (!k v. FLOOKUP fh k = SOME v ==> k <> 0w) /\ (*k is null*)
+    (∀k v. FLOOKUP fh k = SOME v ⇔ ?b n p c r m. fts_has k
+        (fill_anode (fill_dnode (FST v) (SND v) T m) b n p c r) fts) /\
+        (*sem. equiv. of fh and fts*)
+    (!k. FLOOKUP fh k = NONE <=> fts = []) /\ (*empty heap*)
+    (!k v. (FLOOKUP fh k = SOME v) /\ k = head_key fts
+        ==> fts_is_min (FST v) fts) (*min element*)
     (* TODO: more *)
 End
 
