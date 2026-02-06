@@ -1791,9 +1791,9 @@ Definition ptree_Expr_def:
             tk <- option $ destTOK lf;
             x <- ptree_Expr nEUnclosed expr;
             if tk = MinusT then
-              return (App Opapp [Var (Long «Int» (Short «~»)); x])
+              return (App Opapp [Var (Short «~-»); x])
             else if tk = MinusFT then
-              return (App Opapp [Var (Long «Double» (Short «~»)); x])
+              return (App Opapp [Var (Short «~-.»); x])
             else if isSymbol tk then
               let s = THE (destSymbol tk) in
                 return (App Opapp [Var (Short s); x])
