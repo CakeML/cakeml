@@ -55,7 +55,25 @@ Definition next_key_def:
 End
 
 Definition last_key_def:
-  last_key i xs = next_key i (REVERSE xs)
+  last_key xs = head_key (REVERSE xs)
+End
+
+Definition fill_dnode_def:
+  fill_dnode v e =
+    <|  value := v;
+        edges := e;
+        flag  := T;
+        mark  := F |>
+End
+
+Definition fill_anode_def:
+  fill_anode d b n p c r =
+    <|  data        := d;
+        before_ptr  := b;
+        next_ptr    := n;
+        parent_ptr  := p;
+        child_ptr   := c;
+        rank        := r |>
 End
 
 (*
@@ -70,21 +88,15 @@ b = previous element
 Definition annotate_fts_seg_def:
   (annotate_fts_seg p s b [] = []) /\
   (annotate_fts_seg p s b ((FibTree k n ys)::xs) =
-    ((FibTree k
-        (<| data       := n ;
-            before_ptr := b ;
-            next_ptr   := next_key s xs ;
-            parent_ptr := p ;
-            child_ptr  := head_key ys ;
-            rank       := LENGTH ys |>)
-        (annotate_fts_seg k (next_key 0w ys) (last_key 0w ys) ys))
+    (FibTree k
+        (fill_anode n b (next_key s xs) p (head_key ys) (LENGTH ys))
+        (annotate_fts_seg k (head_key ys) (last_key ys) ys)
     ::(annotate_fts_seg p s k xs)))
 End
 
 Definition annotate_fts_def:
-  (annotate_fts ([]:('a word, 'a node_data) fts) = []) /\
-  (annotate_fts (FibTree k n ts::xs) =
-    annotate_fts_seg 0w k (last_key k xs) (FibTree k n ts::xs))
+  annotate_fts fts =
+    annotate_fts_seg 0w (head_key fts) (last_key fts) fts
 End
 
 (*
@@ -93,8 +105,8 @@ Annotates a single tree that is not part of any list and does not have a parent.
 *)
 Definition annotate_ft_def:
   annotate_ft (FibTree k n xs) =
-    FibTree k (annotated_node n 0w 0w 0w (next_key 0w xs) (LENGTH xs))
-        (annotate_fts_seg k (next_key 0w xs) (last_key (next_key 0w xs) xs) xs)
+    FibTree k (fill_anode n 0w 0w 0w (head_key xs) (LENGTH xs))
+        (annotate_fts_seg k (head_key xs) (last_key xs) xs)
 End
 
 (*-------------------------------------------------------------------*
