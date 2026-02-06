@@ -488,10 +488,10 @@ Proof
 QED
 
 val op_data = {nchotomy = op_nchotomy, case_def = op_case_def};
-val op_case_eq = prove_case_eq_thm op_data;
+val op_case_eq = TypeBase.case_eq_of ``:op``;
 val op_case_rand = prove_case_rand_thm op_data;
 val list_data = {nchotomy = list_nchotomy, case_def = list_case_def}
-val list_case_eq = prove_case_eq_thm list_data;
+val list_case_eq = TypeBase.case_eq_of ``:'a list``;
 val list_case_rand = prove_case_rand_thm list_data;
 
 val bool_data = {nchotomy = TypeBase.nchotomy_of bool,

@@ -962,23 +962,10 @@ Termination
   \\ simp [MAP_REVERSE, SUM_REVERSE, exp6_alt_size, AppUnit_def, char_size_def]
 End
 
-val op_thms = { nchotomy = op_nchotomy, case_def = op_case_def};
-val list_thms = { nchotomy = list_nchotomy, case_def = list_case_def};
-val option_thms = { nchotomy = option_nchotomy, case_def = option_case_def};
-val v_thms = { nchotomy = theorem "v_nchotomy", case_def = fetch "-" "v_case_def"};
-
-val store_v_thms = { nchotomy = semanticPrimitivesTheory.store_v_nchotomy, case_def = semanticPrimitivesTheory.store_v_case_def};
-val lit_thms = { nchotomy = astTheory.lit_nchotomy, case_def = astTheory.lit_case_def};
-val eq_v_thms = { nchotomy = semanticPrimitivesTheory.eq_result_nchotomy, case_def = semanticPrimitivesTheory.eq_result_case_def};
-val wz_thms = { nchotomy = astTheory.word_size_nchotomy, case_def = astTheory.word_size_case_def};
-
-val result_thms = { nchotomy = semanticPrimitivesTheory.result_nchotomy, case_def = semanticPrimitivesTheory.result_case_def };
-val ffi_result_thms = { nchotomy = ffiTheory.ffi_result_nchotomy, case_def = ffiTheory.ffi_result_case_def };
-val err_thms = { nchotomy = semanticPrimitivesTheory.error_result_nchotomy, case_def = semanticPrimitivesTheory.error_result_case_def }
-
-val eqs = LIST_CONJ (map prove_case_eq_thm
-  [op_thms, list_thms, option_thms, v_thms, store_v_thms, lit_thms,
-   eq_v_thms, wz_thms, result_thms, ffi_result_thms, err_thms])
+val eqs = LIST_CONJ (map TypeBase.case_eq_of
+  [``:op``, ``:'a list``, ``:'a option``, ``:v``, ``:'a store_v``, ``:lit``,
+   ``:eq_result``, ``:word_size``, ``:('a,'b) result``, ``:'a ffi_result``,
+   ``:'a error_result``])
 
 Theorem case_eq_thms =
   eqs
