@@ -260,11 +260,10 @@ Proof
   Cases \\ fs [is_Label_def,line_bytes_def,line_length_def] \\ rw []
 QED
 
-fun get_thms ty = { case_def = TypeBase.case_def_of ty, nchotomy = TypeBase.nchotomy_of ty }
 Theorem case_eq_thms =
   (pair_case_eq::
    bool_case_eq::
-   map (prove_case_eq_thm o get_thms)
+   map TypeBase.case_eq_of
        [``:'a line``,``:'a option``,``:'a asm_with_lab``,``:'a asm_or_cbw``,
         ``:'a asm``, ``:'a word_loc``,``:'a list``,``:'a sec``,``:'a ffi_result``])
   |> LIST_CONJ

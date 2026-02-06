@@ -156,7 +156,7 @@ Overload res_list = ``map_result (λv. [v]) I``
 Overload isException = ``λx. ∃v. x = Rerr(Rraise v)``
 Overload isResult = ``λx. ∃v. x = Rval v``
 
-val stack_case_eq_thm = prove_case_eq_thm { nchotomy = stack_nchotomy, case_def = stack_case_def };
+val stack_case_eq_thm = TypeBase.case_eq_of ``:stack``;
 
 val RW = REWRITE_RULE;
 

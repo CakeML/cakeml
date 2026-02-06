@@ -912,7 +912,8 @@ val t_thms = { nchotomy = t_nchotomy, case_def = t_case_def };
 val word_size_thms = { nchotomy = word_size_nchotomy, case_def = word_size_case_def };
 val id_thms = { nchotomy = id_nchotomy, case_def = id_case_def };
 val thms = [ op_thms, list_thms, t_thms, word_size_thms, id_thms ];
-val eqs = ([pair_case_eq,bool_case_eq]@(List.map prove_case_eq_thm thms));
+val eqs = ([pair_case_eq,bool_case_eq]@(List.map TypeBase.case_eq_of
+  [``:op``, ``:'a list``, ``:t``, ``:word_size``, ``:'a id``]));
 val elims = List.map prove_case_elim_thm thms;
 
 Theorem type_op_cases =
