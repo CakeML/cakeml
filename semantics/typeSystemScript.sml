@@ -361,8 +361,8 @@ End
 
 Definition supported_test_def[simp]:
   supported_test Equal       ty = T ∧
-  supported_test (Compare _) ty = MEM ty [IntT; CharT; WordT W8; Float64T] ∧
-  supported_test _           ty = F
+  supported_test (Compare _) ty = MEM ty [IntT; CharT; WordT W8; Float64T; StrT] ∧
+  supported_test _           ty = (ty = StrT)
 End
 
 Definition supported_arith_def[simp]:
