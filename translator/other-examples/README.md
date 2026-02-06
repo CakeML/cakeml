@@ -2,7 +2,7 @@ A few other examples of HOL functions that can be translated into CakeML.
 
 [auxiliary](auxiliary):
 This directory contains definitions used for miscellaneous translator
-examples from used in the original ICFP paper about the translator.
+examples used in the original ICFP paper about the translator.
 
 [example_91Script.sml](example_91Script.sml):
 This is a simple example of applying the translator to
@@ -22,7 +22,7 @@ parser generator.
 
 [example_primality_testScript.sml](example_primality_testScript.sml):
 This is a simple example of applying the translator to an
-efficient primaliy tester formalised by Joe Hurd.
+efficient primality tester formalised by Joe Hurd.
 
 [example_qsortScript.sml](example_qsortScript.sml):
 This is a simple example of applying the translator to a

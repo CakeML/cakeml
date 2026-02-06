@@ -1,4 +1,4 @@
-Encoders for various graph problems
+Encoders for various graph problems.
 
 [cliqueScript.sml](cliqueScript.sml):
 Formalization of the max clique problem

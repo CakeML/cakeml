@@ -1,4 +1,4 @@
-This diretory contains benchmark programs from the MLton benchmark
+This directory contains benchmark programs from the MLton benchmark
 suite adapted for CakeML.
 
 [basis_ffi.c](basis_ffi.c):

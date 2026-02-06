@@ -1,4 +1,4 @@
-A verified VCG and verified compiler for Dafny
+A verified VCG and verified compiler for Dafny.
 
 [compilation](compilation):
 Compilation scripts for the Dafny to CakeML backend.

@@ -27,7 +27,7 @@ definition for the 64-bit version of the compiler.
 
 [test-hello.cml](test-hello.cml):
 A hello world program used for testing that the bootstrapped
-compiler was built succesfully.
+compiler was built successfully.
 
 [x64BootstrapScript.sml](x64BootstrapScript.sml):
 Evaluate the 64-bit version of the compiler into x64 machine code.

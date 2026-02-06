@@ -29,11 +29,19 @@ This SML program performs sanity checks on `build-sequence` and
 `build-exludes`, and makes sure all directories that contain a Holmakefile
 are either built or explicitly excluded.
 
+[lint_source.sml](lint_source.sml):
+This SML program performs source linting on CakeML source files.
+It checks for:
+ - trailing whitespace
+ - tab characters
+ - lines exceeding the maximum length
+ - banned HOL4 constructs (e.g. store_thm, Hol_datatype)
+
 [readme_gen.sml](readme_gen.sml):
-This SML program generates a `README.md` summary for the files
-given as command-line arguments to this script. The contents of the
-summaries are read from a specific style of comment that needs to
-appear at the top of each file.
+This SML program generates a `README.md` summary for a directory.
+The contents of the summaries are read from a specific style of
+comment that needs to appear at the top of each source file.
+Source files are auto-discovered based on AUTO_INCLUDE_SUFFIXES.
 
 [wc.sh](wc.sh):
 A script that counts non-blank lines.
