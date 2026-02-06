@@ -1,9 +1,9 @@
 (*
-  A compiler phases that transforms BVL programs into BVI programs. As
+  A compiler phase that transforms BVL programs into BVI programs. As
   part of this phase, certain primitive operations map to "stubs" code
   implemented in BVI; numeric constants are split into smaller ones to
   ease code generation later; Handle is fused with Call; and very
-  large expressions are split into samller ones (in order to protect
+  large expressions are split into smaller ones (in order to protect
   the register allocator from overly large inputs).
 *)
 Theory bvl_to_bvi

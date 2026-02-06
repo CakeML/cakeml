@@ -1,5 +1,5 @@
 (*
-  Correctness proof for ---
+  Correctness proof for crep_to_loop
 *)
 Theory crep_to_loopProof
 Ancestors

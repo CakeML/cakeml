@@ -1,5 +1,5 @@
 (*
-  Encoding of n-queeens problem to cnf
+  Encoding of n-queens problem to cnf
 *)
 Theory nqueens
 Ancestors

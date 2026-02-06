@@ -1,5 +1,5 @@
 (*
-  This is the compiler's regsiter allocator. It supports different modes:
+  This is the compiler's register allocator. It supports different modes:
       0) simple allocator, no spill heuristics;
       1) simple allocator + spill heuristics;
       2) IRC allocator, no spill heuristics (default);

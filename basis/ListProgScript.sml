@@ -1,5 +1,5 @@
 (*
-  Module about the built-in list tyoe.
+  Module about the built-in list type.
 *)
 Theory ListProg
 Ancestors

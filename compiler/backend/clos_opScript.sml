@@ -1,5 +1,5 @@
 (*
-  This is file implements a "smart" version of ClosLang's Op
+  This file implements a "smart" version of ClosLang's Op
   constructor. When possible, this smart constructor breaks
   the operation into faster separate operators.
 *)
