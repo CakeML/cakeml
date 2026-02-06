@@ -3,7 +3,7 @@
 *)
 Theory source_cv[no_sig_docs]
 Ancestors
-  location namespace ast ast_temp
+  location namespace ast
   cv_std basis_cv
 Libs
   preamble cv_typeLib
