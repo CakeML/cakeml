@@ -126,12 +126,13 @@ End
 Definition edges_ones_def:
   (edges_ones off [] = one(off,0w)) /\
   (edges_ones off ((ptr,value)::xs) =
-    one(off,ptr) * one(off + bytes_in_word,n2w value) * (edges_ones (off + 2w * bytes_in_word) xs))
+    ones off [ptr; n2w value] *
+    edges_ones (off + 2w * bytes_in_word) xs)
 End
 
 Definition ft_seg_def:
   ft_seg ((FibTree k n _): ('a word, 'a annotated_node) ft) =
-    (ones k [n.data.value;
+    ones k [n.data.value;
             FST n.data.edges;
             b2w n.data.flag;
             b2w n.data.mark;
@@ -139,7 +140,8 @@ Definition ft_seg_def:
             n.next_ptr;
             n.parent_ptr;
             n.child_ptr;
-            n2w n.rank]) *  (edges_ones (FST n.data.edges) (SND n.data.edges))
+            n2w n.rank] *
+    edges_ones (FST n.data.edges) (SND n.data.edges)
 End
 
 Definition fts_mem_def:
@@ -154,11 +156,11 @@ End
 
 val test_fts_mem = “fts_mem (annotate_fts [
     FibTree 10w (
-    node_data 10w (1000w, [(50w,10)]) true false) [];
+    fill_dnode 11w (1000w, [(50w,10)]) true false) [];
     FibTree 50w (
-    node_data 50w (2000w, [(10w,50)]) true false) [
+    fill_dnode 51w (2000w, [(10w,50)]) true false) [
         FibTree 100w
-        (node_data 100w (3000w, []) true false) []
+        (fill_dnode 101w (3000w, []) true false) []
     ]
     ])”
     |> SCONV [fts_mem_def,STAR_ASSOC,annotate_fts_def,annotate_fts_seg_def,next_key_def,head_key_def,last_key_def,REVERSE_DEF,ft_seg_def,ones_def,edges_ones_def,LENGTH,b2w_def]
