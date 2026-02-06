@@ -43,28 +43,26 @@ Definition mod_pp_def:
   mod_pp nm = Long «PrettyPrinter» nm
 End
 
-Definition rpt_app_def:
-  rpt_app f [] = f /\
-  rpt_app f (x :: xs) = rpt_app (App Opapp [f; x]) xs
-End
-
 Definition id_to_str_def:
   id_to_str (Short s) = s /\
   id_to_str (Long mnm id) = (mnm ^ «.» ^ id_to_str id)
 End
 
+(* Avoids MAP (pp_of_ast_t fixes) so it is possible to use cv_trans *)
 Definition pp_of_ast_t_def:
   pp_of_ast_t fixes (Atvar nm) = (Var (pp_prefix (Short nm))) /\
   pp_of_ast_t fixes (Atfun _ _) = (Fun «x» (Var (Short «pp_fun»))) /\
   pp_of_ast_t fixes (Atapp xs nm) = (case nsLookup fixes nm of
-      NONE => rpt_app (Var (pp_prefix nm)) (MAP (pp_of_ast_t fixes) xs)
+      NONE => Apps (Var (pp_prefix nm)) (pp_of_ast_ts fixes xs)
     | SOME NONE => (Fun «x» (App Opapp
             [Var (mod_pp (Short «unprintable»)); Lit (StrLit (id_to_str nm))]))
-    | SOME (SOME nm2) => rpt_app (Var (pp_prefix nm2)) (MAP (pp_of_ast_t fixes) xs)
+    | SOME (SOME nm2) => Apps (Var (pp_prefix nm2)) (pp_of_ast_ts fixes xs)
   ) /\
   pp_of_ast_t fixes (Attup ts) = (Fun «x» (App Opapp
     [Var (mod_pp (Short «tuple»)); Mat (Var (Short «x»))
-        [(con_x_i_pat NONE (LENGTH ts), x_i_list_f_apps (MAP (pp_of_ast_t fixes) ts))]]))
+        [(con_x_i_pat NONE (LENGTH ts), x_i_list_f_apps (pp_of_ast_ts fixes ts))]])) ∧
+  pp_of_ast_ts fixes [] = [] ∧
+  pp_of_ast_ts fixes (h::tl) = pp_of_ast_t fixes h::pp_of_ast_ts fixes tl
 End
 
 Definition mk_pps_for_type_def:
@@ -72,7 +70,7 @@ Definition mk_pps_for_type_def:
     let (v, exp) = FOLDR (\nm (v, exp). (pppre nm, Fun v exp))
         («x», Mat (Var (Short «x»))
             (MAP (\(conN, ts). (con_x_i_pat (SOME (Short conN)) (LENGTH ts),
-                rpt_app (Var (mod_pp (Short «app_block»))) [Lit (StrLit conN);
+                Apps (Var (mod_pp (Short «app_block»))) [Lit (StrLit conN);
                     (x_i_list_f_apps (MAP (pp_of_ast_t fixes) ts))])) conss)) tvars
     in
     (pppre nm, v, exp)
@@ -83,12 +81,25 @@ Definition mk_pp_type_def:
 End
 
 Definition mk_pp_tabbrev_def:
-  mk_pp_tabbrev fixes tvars nm ast_t = Dlet unknown_loc (Pvar (pppre nm))
-    (FOLDR (\nm exp. Fun (pppre nm) exp) (pp_of_ast_t fixes ast_t) tvars)
+  mk_pp_tabbrev fixes tvars nm ast_t =
+  let body = FOLDR (\nm exp. Fun (pppre nm) exp) (pp_of_ast_t fixes ast_t) tvars in
+    (* eta-expansion to avoid value restriction violations *)
+    Dlet unknown_loc (Pvar (pppre nm)) (Fun «x» (App Opapp [body; Var (Short «x»)]))
 End
 
 Definition pps_for_dec_def:
   pps_for_dec fixes (Dtype locs type_def) = [mk_pp_type fixes type_def] /\
   pps_for_dec fixes (Dtabbrev locs tvars nm ast_t) = [mk_pp_tabbrev fixes tvars nm ast_t] /\
   pps_for_dec _ dec = []
+End
+
+Definition add_pp_decs_def:
+  add_pp_decs fixes [] = [] /\
+  (add_pp_decs fixes (Dmod modN decs :: decs2) =
+    Dmod modN (add_pp_decs fixes decs) :: add_pp_decs fixes decs2) /\
+  (add_pp_decs fixes (Dlocal ldecs decs :: decs2) =
+    Dlocal (add_pp_decs fixes ldecs) (add_pp_decs fixes decs) :: add_pp_decs fixes decs2) /\
+  (add_pp_decs fixes (d :: decs) = d :: pps_for_dec fixes d ++ add_pp_decs fixes decs)
+Termination
+  WF_REL_TAC `measure (list_size dec_size o SND)`
 End
