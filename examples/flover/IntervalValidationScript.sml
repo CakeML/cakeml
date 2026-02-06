@@ -1,9 +1,9 @@
 (**
     Interval arithmetic checker and its soundness proof.
-    The function validIntervalbounds checks wether the given analysis result is
-    a valid range arithmetic for each sub term of the given exprression e.
+    The function validIntervalbounds checks whether the given analysis result is
+    a valid range arithmetic for each sub term of the given expression e.
     The computation is done using our formalized interval arithmetic.
-    The function is used in CertificateChecker.v to build the full checker.
+    The function is used in CertificateCheckerScript.sml to build the full checker.
 **)
 Theory IntervalValidation
 Ancestors

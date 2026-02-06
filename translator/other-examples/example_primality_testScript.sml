@@ -1,6 +1,6 @@
 (*
   This is a simple example of applying the translator to an
-  efficient primaliy tester formalised by Joe Hurd.
+  efficient primality tester formalised by Joe Hurd.
 *)
 Theory example_primality_test
 Ancestors

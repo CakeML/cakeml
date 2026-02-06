@@ -1,6 +1,6 @@
 (*
   The wordLang intermediate language consists of structured programs
-  that overate over machine words, a list-like stack and a flat memory.
+  that operate over machine words, a list-like stack and a flat memory.
   This is the language where register allocation is performed.
 *)
 Theory wordLang

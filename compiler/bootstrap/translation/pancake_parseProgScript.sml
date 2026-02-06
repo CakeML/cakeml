@@ -1,5 +1,5 @@
 (*
-  Translate pancake's lexer
+  Translate pancake's parser
 *)
 Theory pancake_parseProg
 Ancestors
