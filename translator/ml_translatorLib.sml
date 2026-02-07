@@ -11,6 +11,7 @@ open astTheory semanticPrimitivesTheory namespaceTheory;
 open evaluateTheory astSyntax semanticPrimitivesSyntax;
 local open stringLib in end
 open ml_translatorTheory ml_translatorSyntax intLib;
+open ml_translatorTrace
 open arithmeticTheory listTheory combinTheory pairTheory pairLib;
 open integerTheory intLib ml_optimiseTheory ml_pmatchTheory;
 open mlstringLib mlstringSyntax mlvectorSyntax packLib ml_progTheory ml_progLib
@@ -3425,6 +3426,9 @@ fun is_float_literal tm =
     end handle HOL_ERR _ => false
 
 fun hol2deep tm =
+  let
+    val _ = trace(4, LZ_TEXT (fn () => "hol2deep: " ^ Parse.term_to_string tm))
+  in
   (* variables *)
   if is_var tm then let
     val (name,ty) = dest_var tm
@@ -3785,6 +3789,7 @@ fun hol2deep tm =
     val result = auto_prove"hol2deep"(goal,SIMP_TAC std_ss [PRECONDITION_def]) |> UNDISCH
     in check_inv "arb" tm result end
   else raise (UnableToTranslate tm)
+  end
 
 fun hol2val tm = let
   val th_rhs = hol2deep tm
