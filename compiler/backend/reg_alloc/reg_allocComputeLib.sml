@@ -262,7 +262,7 @@ let
   val u = mk_graph (sp_default ta) ct []
   val f = sp_default fa in
   Array.appi (fn(i,x) =>
-    (pr (Int.toString (f i)); pr ": {"; pr (int_list_to_string (map f (rev x))); pr"}\n")) adj_ls
+    (pr (Int.toString (f i)); pr ": {"; pr (int_list_to_string (sort (fn a => fn b => a <= b) (map f x))); pr"}\n")) adj_ls
 end;
 
 val dump_to_file = ref NONE : string option ref;
@@ -321,10 +321,10 @@ fun dump_clash_tree_sol n k ctp moves force fs s =
 
 (* --- direct version --- *)
 
-fun alloc_aux alg k [] n = (print"\n"; [])
+fun alloc_aux alg k [] n = (if !verbose then print"\n" else (); [])
   | alloc_aux alg k ((clash_tree,(moves,(sc,(force,fs))))::xs) n =
       let
-        val () = print (strcat (Int.toString n) " ")
+        val () = if !verbose then print (strcat (Int.toString n) " ") else ()
         val clash_tree_poly = clash_tree
         val moves_poly = moves
         val force_poly = force
@@ -355,7 +355,7 @@ fun alg_to_str Simple = "Simple"
 fun alloc_all_raw alg graphs_raw =
   let
     val (k,datals) = cv_of_term (rand graphs_raw) |> to_fun;
-    val _ = print ("Num regs: "^Int.toString k ^" Alg: "^alg_to_str alg^ "\n")
+    val _ = if !verbose then print ("Num regs: "^Int.toString k ^" Alg: "^alg_to_str alg^ "\n") else ()
   in
     alloc_aux alg k datals 0
   end
@@ -535,9 +535,9 @@ fun dest_forced tm =
 
 fun dest_fs tm = dest_unit_sptree tm
 
-fun alloc_aux alg k [] n = (print"\n";[])
+fun alloc_aux alg k [] n = (if !verbose then print"\n" else ();[])
 |   alloc_aux alg k ([clash_tree,moves,sc,force,fs]::xs) n =
-  let val () = print (strcat (Int.toString n) " ")
+  let val () = if !verbose then print (strcat (Int.toString n) " ") else ()
       val clash_tree_poly = dest_clash_tree clash_tree
       val moves_poly = dest_moves moves
       val force_poly = dest_forced force
@@ -560,7 +560,7 @@ fun alg_to_str Simple = "Simple" |
 
 fun alloc_all alg t =
   let val (k,ls) = pairSyntax.dest_pair t
-      val _ = print ("Num regs: "^Int.toString (int_of_term k) ^" Alg: "^alg_to_str alg^ "\n")
+      val _ = if !verbose then print ("Num regs: "^Int.toString (int_of_term k) ^" Alg: "^alg_to_str alg^ "\n") else ()
     val datals = map pairSyntax.strip_pair (fst(listSyntax.dest_list ls)) in
     alloc_aux alg (int_of_term k) datals 0
   end
