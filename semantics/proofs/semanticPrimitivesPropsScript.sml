@@ -42,14 +42,6 @@ Proof
  rw [extend_dec_env_def]
 QED
 
-Definition opw_lookup_def[simp]:
-  (opw_lookup Andw = word_and) ∧
-  (opw_lookup Orw = word_or) ∧
-  (opw_lookup Xor = word_xor) ∧
-  (opw_lookup Add = word_add) ∧
-  (opw_lookup Sub = word_sub)
-End
-
 Definition shift_lookup_def[simp]:
   (shift_lookup Lsl = word_lsl) ∧
   (shift_lookup Lsr = word_lsr) ∧
@@ -57,16 +49,17 @@ Definition shift_lookup_def[simp]:
   (shift_lookup Ror = word_ror)
 End
 
-Definition do_word_op_def[simp]:
-  (do_word_op op W8 (Word8 w1) (Word8 w2) = SOME (Word8 (opw_lookup op w1 w2))) ∧
-  (do_word_op op W64 (Word64 w1) (Word64 w2) = SOME (Word64 (opw_lookup op w1 w2))) ∧
-  (do_word_op op _ _ _ = NONE)
-End
-
 Definition do_shift_def[simp]:
   (do_shift sh n W8 (Word8 w) = SOME (Word8 (shift_lookup sh w n))) ∧
   (do_shift sh n W64 (Word64 w) = SOME (Word64 (shift_lookup sh w n))) ∧
   (do_shift _ _ _ _ = NONE)
+End
+
+(*
+Definition do_word_op_def[simp]:
+  (do_word_op op W8 (Word8 w1) (Word8 w2) = SOME (Word8 (opw_lookup op w1 w2))) ∧
+  (do_word_op op W64 (Word64 w1) (Word64 w2) = SOME (Word64 (opw_lookup op w1 w2))) ∧
+  (do_word_op op _ _ _ = NONE)
 End
 
 Definition do_word_to_int_def[simp]:
@@ -79,6 +72,7 @@ Definition do_word_from_int_def[simp]:
   (do_word_from_int W8 i = Word8 (i2w i)) ∧
   (do_word_from_int W64 i = Word64 (i2w i))
 End
+*)
 
 Theorem lit_same_type_refl[simp]:
    ∀l. lit_same_type l l
@@ -751,12 +745,12 @@ Proof
 QED
 
 Theorem do_conversion_check_type:
-  do_conversion v ty1 ty2 = SOME res ⇒
+  do_conversion v ty1 ty2 = SOME (INR res) ⇒
   check_type ty2 res
 Proof
   Cases_on ‘ty2’ using prim_type_cases
-  \\ rw [semanticPrimitivesTheory.check_type_def]
-  \\ gvs [oneline do_conversion_def,AllCaseEqs()]
+  \\ gvs [oneline do_conversion_def, AllCaseEqs()]
+  \\ rw [] \\ fs [semanticPrimitivesTheory.check_type_def]
 QED
 
 Theorem do_arith_check_type:

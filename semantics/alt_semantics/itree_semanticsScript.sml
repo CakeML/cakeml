@@ -35,27 +35,6 @@ Definition do_app_def:
           (SOME xs, SOME ys) => SOME (s, Rval (list_to_v (xs ++ ys)))
         | _ => NONE
       )
-    | (Opn op, [Litv (IntLit n1); Litv (IntLit n2)]) =>
-        if (op = Divide ∨ op = Modulo) ∧ n2 = 0 then
-          SOME (s, Rraise div_exn_v)
-        else
-          SOME (s, Rval (Litv (IntLit (opn_lookup op n1 n2))))
-    | (Opb op, [Litv (IntLit n1); Litv (IntLit n2)]) =>
-        SOME (s, Rval (Boolv (opb_lookup op n1 n2)))
-    | (Opw W8 op, [Litv (Word8 w1); Litv (Word8 w2)]) =>
-        SOME (s, Rval (Litv (Word8 (opw8_lookup op w1 w2))))
-    | (Opw W64 op, [Litv (Word64 w1); Litv (Word64 w2)]) =>
-        SOME (s, Rval (Litv (Word64 (opw64_lookup op w1 w2))))
-    | (FP_top t_op, [flit w1; flit w2; flit w3]) =>
-        SOME (s, Rval (flit (fp_top_comp t_op w1 w2 w3)))
-    | (FP_bop bop, [flit w1; flit w2]) =>
-        SOME (s,Rval (flit (fp_bop_comp bop w1 w2)))
-    | (FP_uop uop, [flit w1]) =>
-          SOME (s,Rval (flit (fp_uop_comp uop w1)))
-    | (FP_cmp cmp, [flit w1; flit w2]) =>
-        SOME (s,Rval (Boolv (fp_cmp_comp cmp w1 w2)))
-    | (FpToWord, [flit w1]) => SOME (s, Rval (Litv (Word64 w1)))
-    | (FpFromWord, [Litv (Word64 v1)]) => SOME (s, Rval (flit v1))
     | (Shift W8 op n, [Litv (Word8 w)]) =>
         SOME (s, Rval (Litv (Word8 (shift8_lookup op w n))))
     | (Shift W64 op n, [Litv (Word64 w)]) =>
@@ -75,8 +54,9 @@ Definition do_app_def:
     | (FromTo ty1 ty2, [v]) =>
         (if check_type ty1 v then
            (case do_conversion v ty1 ty2 of
-            | SOME res => SOME (s, Rval res)
-            | NONE     => NONE)
+            | SOME (INR res) => SOME (s, Rval res)
+            | SOME (INL exn) => SOME (s, Rraise exn)
+            | NONE           => NONE)
          else NONE)
     | (Test test test_ty, [v1; v2]) =>
         (case do_test test test_ty v1 v2 of
@@ -168,14 +148,6 @@ Definition do_app_def:
                   )
         | _ => NONE
       )
-    | (WordFromInt W8, [Litv(IntLit i)]) =>
-        SOME (s, Rval (Litv (Word8 (i2w i))))
-    | (WordFromInt W64, [Litv(IntLit i)]) =>
-        SOME (s, Rval (Litv (Word64 (i2w i))))
-    | (WordToInt W8, [Litv (Word8 w)]) =>
-        SOME (s, Rval (Litv (IntLit (int_of_num(w2n w)))))
-    | (WordToInt W64, [Litv (Word64 w)]) =>
-        SOME (s, Rval (Litv (IntLit (int_of_num(w2n w)))))
     | (CopyStrStr, [Litv(StrLit strng);Litv(IntLit off);Litv(IntLit len)]) =>
         SOME (s,
         (case copy_array (explode strng,off) len NONE of
@@ -231,14 +203,6 @@ Definition do_app_def:
                 | SOME s' => SOME (s', Rval (Conv NONE [])))
         | _ => NONE
         )
-    | (Ord, [Litv (Char c)]) =>
-          SOME (s, Rval (Litv(IntLit(int_of_num(ORD c)))))
-    | (Chr, [Litv (IntLit i)]) =>
-        SOME (s,
-          (if (i <( 0 : int)) \/ (i >( 255 : int)) then
-            Rraise chr_exn_v
-          else
-            Rval (Litv(Char(CHR(Num (ABS (I i))))))))
     | (Implode, [v]) =>
           (case v_to_char_list v of
             SOME ls =>

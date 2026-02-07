@@ -2050,7 +2050,8 @@ Proof
    >> simp []
    >> metis_tac [infer_e_check_t, ienv_ok_def])
  >- (
-   first_x_assum old_drule
+   gvs []
+   >> first_x_assum old_drule
    >> rw []
    >> first_x_assum old_drule
    >> rw []
@@ -3166,24 +3167,6 @@ rw [check_freevars_def] >>
 metis_tac []
 QED
 
-(*
-Theorem t_to_freevars_check:
- (!t st fvs st'.
-   (t_to_freevars t (st:'a) = (Success fvs, st'))
-   ⇒
-   check_freevars 0 fvs t) ∧
- (!ts st fvs st'.
-   (ts_to_freevars ts (st:'a) = (Success fvs, st'))
-   ⇒
-   EVERY (check_freevars 0 fvs) ts)
-Proof
-Induct >>
-rw [t_to_freevars_def, success_eqns, check_freevars_def] >>
-rw [] >>
-metis_tac [check_freevars_more_append]
-QED
-*)
-
 Theorem check_freevars_more:
    ∀a b c. check_freevars a b c ⇒ ∀b'. set b ⊆ set b' ⇒ check_freevars a b' c
 Proof
@@ -3192,18 +3175,6 @@ Proof
     fs[SUBSET_DEF] >>
   fs[EVERY_MEM]
 QED
-
-(*
-Theorem check_freevars_t_to_freevars:
-   (∀t fvs (st:'a). check_freevars 0 fvs t ⇒
-      ∃fvs' st'. t_to_freevars t st = (Success fvs', st') ∧ set fvs' ⊆ set fvs) ∧
-    (∀ts fvs (st:'a). EVERY (check_freevars 0 fvs) ts ⇒
-      ∃fvs' st'. ts_to_freevars ts st = (Success fvs', st') ∧ set fvs' ⊆ set fvs)
-Proof
-  Induct >> simp[check_freevars_def,t_to_freevars_def,PULL_EXISTS,success_eqns] >>
-  simp_tac(srw_ss()++boolSimps.ETA_ss)[] >> simp[] >> metis_tac[]
-QED
-*)
 
 Theorem check_t_infer_type_subst_dbs:
    ∀m w t n u ls.
@@ -3245,157 +3216,12 @@ Proof
   Cases_on`ls`>>fs[]
 QED
 
-(*
-Theorem check_specs_check:
- !mn orig_tenvT idecls ienv specs st decls' ienv' st'.
-  check_specs mn orig_tenvT idecls ienv specs st = (Success (decls',ienv'), st') ∧
-  tenv_abbrev_ok orig_tenvT ∧
-  ienv_ok {} ienv
-  ⇒
-  ienv_ok {} ienv'
-Proof
- ho_match_mp_tac check_specs_ind >>
- STRIP_TAC >>
- REPEAT GEN_TAC >-
- (rw [check_specs_def, success_eqns] >>
-  metis_tac []) >>
- REPEAT CONJ_TAC >>
- REPEAT GEN_TAC >>
- STRIP_TAC >>
- fs [check_specs_def, success_eqns]
- >-
-   (rpt gen_tac>>strip_tac>>
-   FIRST_X_ASSUM match_mp_tac >>
-   fs[check_specs_def]>>
-   qexists_tac`nub fvs`>>fs[GSYM PULL_EXISTS]>>
-   CONJ_TAC>- metis_tac []
-   >> imp_res_tac t_to_freevars_check>>
-     imp_res_tac check_freevars_type_name_subst>>
-     Cases_on`fvs = []`>-
-       (fs[nub_def,COUNT_LIST_def]>>
-       fs [ienv_ok_def, ienv_val_ok_def]
-       >> irule nsAll_nsBind
-       >> simp []
-       >> metis_tac[infer_type_subst_empty_check])
-     >>
-     fs [ienv_ok_def, ienv_val_ok_def] >>
-     irule nsAll_nsBind >>
-     simp [] >>
-     match_mp_tac check_t_infer_type_subst_dbs>>
-     qexists_tac`0`>>
-     qexists_tac`fvs`>>
-     fs[nub_eq_nil])
- >- (rpt gen_tac >>
-     strip_tac >>
-     FIRST_X_ASSUM match_mp_tac >>
-     rw [] >>
-     qmatch_assum_abbrev_tac `check_ctor_tenv (nsAppend new_tenvT orig_tenvT) _`
-     >> qexists_tac `nsAppend new_tenvT orig_tenvT`
-     >> qexists_tac `MAP (λ(tvs,tn,ctors). mk_id mn tn) tdefs`
-     >> qexists_tac `new_tenvT`
-     >> qexists_tac `st`
-     >> simp []
-     >> `tenv_abbrev_ok new_tenvT`
-       by (
-         simp [Abbr `new_tenvT`, typeSoundInvariantsTheory.tenv_abbrev_ok_def]
-         >> irule nsAll_alist_to_ns
-         >> rw [EVERY_MEM, MEM_MAP]
-         >> rpt (pairarg_tac >> fs [])
-         >> rw [check_freevars_def, EVERY_MAP, EVERY_MEM])
-     >> conj_asm1_tac
-     >- (
-       fs [typeSoundInvariantsTheory.tenv_abbrev_ok_def]
-       >> irule nsAll_nsAppend
-       >> simp [])
-     >> fs [ienv_ok_def]
-     >> conj_tac
-     >- (
-       fs [typeSoundInvariantsTheory.tenv_ctor_ok_def]
-       >> irule nsAll_nsAppend
-       >> simp []
-       >> irule (SIMP_RULE (srw_ss()) [typeSoundInvariantsTheory.tenv_ctor_ok_def] check_ctor_tenv_ok)
-       >> simp [])
-     >- metis_tac [typeSoundInvariantsTheory.tenv_abbrev_ok_def, nsAll_nsAppend])
- >- (
-   rw []
-   >> first_x_assum match_mp_tac
-   >> fs [ienv_ok_def]
-   >> `tenv_abbrev_ok (nsSing tn (tvs, type_name_subst orig_tenvT t):tenv_abbrev)`
-     by (
-       rw [typeSoundInvariantsTheory.tenv_abbrev_ok_def]
-       >> irule check_freevars_type_name_subst
-       >> simp [])
-   >> metis_tac [typeSoundInvariantsTheory.tenv_abbrev_ok_def, nsAll_nsAppend, nsAppend_nsSing])
- >- (
-   rw []
-   >> first_x_assum irule
-   >> simp []
-   >> conj_tac >- metis_tac []
-   >> fs [ienv_ok_def, check_exn_tenv_def, typeSoundInvariantsTheory.tenv_ctor_ok_def]
-   >> irule nsAll_nsBind
-   >> fs [EVERY_MAP, EVERY_MEM]
-   >> rw []
-   >> fs [MEM_MAP]
-   >> metis_tac [check_freevars_type_name_subst])
- >- (
-   rw []
-   >> first_x_assum irule
-   >> `tenv_abbrev_ok ((nsSing tn (tvs,Tapp (MAP Tvar tvs) (TC_name (mk_id mn tn)))):tenv_abbrev)`
-     by rw [typeSoundInvariantsTheory.tenv_abbrev_ok_def, check_freevars_def, EVERY_MAP, EVERY_MEM]
-   >> qmatch_assum_abbrev_tac `tenv_abbrev_ok new_tenvT`
-   >> qexists_tac `decls'`
-   >> qexists_tac `new_tenvT`
-   >> qexists_tac `st`
-   >> fs [ienv_ok_def, typeSoundInvariantsTheory.tenv_abbrev_ok_def]
-   >> rw [Abbr `new_tenvT`]
-   >> irule nsAll_nsBind
-   >> rw [check_freevars_def, EVERY_MAP, EVERY_MEM])
-QED
-
-*)
-
 Theorem ienv_ok_lift:
    !mn ienv n. ienv_ok n ienv ⇒ ienv_ok n (lift_ienv mn ienv)
 Proof
  rw [lift_ienv_def, ienv_ok_def, ienv_val_ok_def, typeSoundInvariantsTheory.tenv_ctor_ok_def,
      typeSoundInvariantsTheory.tenv_abbrev_ok_def]
 QED
-
-(*
-Theorem infer_top_invariant:
- !decls1 ienv t_op st1 decls' ienv' st2.
-  infer_top decls1 ienv t_op st1 = (Success (decls', ienv'), st2) ∧
-  ienv_ok {} ienv
-  ⇒
-  ienv_ok {} ienv'
-Proof
- rw []
- >> Cases_on `t_op`
- >> fs [infer_top_def, success_eqns]
- >> rpt (pairarg_tac >> fs [])
- >> fs [success_eqns]
- >> rpt (pairarg_tac >> fs [])
- >> fs [success_eqns]
- >> rw []
- >- (
-   old_drule infer_ds_check
-   >> rw []
-   >> rename1 `check_signature [mn] _ _ _ _ si st2 = _`
-   >> Cases_on `si`
-   >> fs [check_signature_def, success_eqns]
-   >> rw []
-   >> irule ienv_ok_lift
-   >> simp []
-   >> rpt (pairarg_tac >> fs [])
-   >> rw []
-   >> fs [success_eqns]
-   >> rw []
-   >> old_drule check_specs_check
-   >> disch_then irule
-   >> fs [ienv_ok_def, ienv_val_ok_def])
- >> metis_tac [infer_d_check]
-QED
-*)
 
 Theorem sub_completion_wfs:
  !n uvars s1 ts s2.
@@ -3896,21 +3722,20 @@ Proof
          st_ex_bind_success,st_ex_return_success,inf_set_tids_def,
          add_constraints_success]
   \\ TRY(rename1`supported_arith a p` \\ Cases_on`a`
-         \\ Cases_on`p` \\ TRY (Cases_on`w`) \\ gvs[supported_arith_def]
+         \\ Cases_on ‘p’ using semanticPrimitivesPropsTheory.prim_type_cases \\ gvs[supported_arith_def]
          \\ irule pure_add_constraints_set_tids
          \\ first_x_assum $ irule_at (Pat`pure_add_constraints`)
          \\ gvs[LENGTH_EQ_NUM_compute,REPLICATE_compute]
          \\ gvs[inf_set_tids_subset_def, inf_set_tids_def])
-  \\ TRY(rename1`supported_conversion c x` \\ Cases_on`c`
-         \\ Cases_on`x` \\ gvs[supported_conversion_def]
-         \\ Cases_on`w` \\ gvs[supported_conversion_def])
+  \\ TRY(rename1`supported_conversion c x`
+         \\ Cases_on ‘c’ using semanticPrimitivesPropsTheory.prim_type_cases
+         \\ Cases_on ‘x’ using semanticPrimitivesPropsTheory.prim_type_cases \\ gvs[supported_conversion_def])
   \\ rename1`supported_test x p`
-  \\ Cases_on`x` \\ Cases_on`p` \\ gvs[supported_test_def]
-  \\ Cases_on`w` \\ gvs[supported_test_def]
+  \\ Cases_on`x` \\ Cases_on ‘p’ using semanticPrimitivesPropsTheory.prim_type_cases \\ gvs[supported_test_def]
 QED
 
 Theorem infer_e_inf_set_tids:
-    (!l cenv p st t st'.
+  (!l cenv p st t st'.
     (infer_e l cenv p st = (Success t, st'))
     ⇒
     prim_tids T tids ∧ inf_set_tids_ienv tids cenv ∧ inf_set_tids_subst tids st.subst
@@ -4018,6 +3843,7 @@ Proof
     \\ goal_assum(first_assum o mp_then(Pat`t_unify`)mp_tac)
     \\ simp[]
     \\ simp[inf_set_tids_def]
+    \\ fs [inf_set_tids_subset_def]
     \\ conj_tac >- (fs[prim_tids_def,prim_type_nums_def] \\ NO_TAC)
     \\ irule (CONJUNCT1 t_unify_set_tids)
     \\ rw[inf_set_tids_subset_def]

@@ -1458,10 +1458,18 @@ Definition app_wordToInt_def:
     (H ==>> Q (Val (Litv (IntLit (& w2n w)))))
 End
 
-Definition app_opn_def:
-  app_opn opn i1 i2 H Q <=>
-    (if opn = Divide \/ opn = Modulo then i2 <> 0 else T) /\
-     H ==>> Q (Val (Litv (IntLit (opn_lookup opn i1 i2))))
+Definition app_arith_def:
+  app_arith arith i1 i2 H Q =
+    ((if arith = Div \/ arith = Mod then i2 <> 0 else T) /\
+     MEM arith [Add; Sub; Mul; Div; Mod] /\
+     H ==>> Q (Val (Litv (IntLit (case arith of
+                                  | Add => i1 + i2
+                                  | Sub => i1 - i2
+                                  | Mul => i1 * i2
+                                  | Div => i1 / i2
+                                  | Mod => i1 % i2
+                                  | _   => 0)))) /\
+     Q =~v> POST_F)
 End
 
 Definition app_int_cmp_def:
@@ -1503,12 +1511,12 @@ Definition cf_let_def:
          (!xv. F2 (env with <| v := nsOptBind n xv env.v |>) (Q' (Val xv)) Q))
 End
 
-Definition cf_opn_def:
-  cf_opn opn x1 x2 = \env. local (\H Q.
+Definition cf_arith_def:
+  cf_arith arith x1 x2 = \env. local (\H Q.
     ?i1 i2.
       exp2v env x1 = SOME (Litv (IntLit i1)) /\
       exp2v env x2 = SOME (Litv (IntLit i2)) /\
-      app_opn opn i1 i2 H Q)
+      app_arith arith i1 i2 H Q)
 End
 
 Definition cf_int_cmp_def:
@@ -1788,10 +1796,10 @@ Definition cf_log_def:
       exp2v env e1 = SOME v /\
       BOOL b v /\
       (case (lop, b) of
-           (And, T) => cf2 env H Q
-         | (Or, F) => cf2 env H Q
-         | (Or, T) => (H ==>> Q (Val v))
-         | (And, F) => (H ==>> Q (Val v))))
+           (Andalso, T) => cf2 env H Q
+         | (Orelse,  F) => cf2 env H Q
+         | (Orelse,  T) => (H ==>> Q (Val v))
+         | (Andalso, F) => (H ==>> Q (Val v))))
 End
 
 Definition cf_if_def:
@@ -1843,9 +1851,9 @@ Definition cf_def:
        (cf (p:'ffi ffi_proj) e)) /\
   cf (p:'ffi ffi_proj) (App op args) =
     (case op of
-        | Opn opn =>
+        | Arith arith IntT =>
           (case args of
-            | [x1; x2] => cf_opn opn x1 x2
+            | [x1; x2] => cf_arith arith x1 x2
             | _ => cf_bottom)
         | Test (Compare cmp) IntT =>
           (case args of
@@ -1939,19 +1947,19 @@ Definition cf_def:
           (case args of
              | [d; s] => cf_xoraw8str s d
              | _ => cf_bottom)
-        | WordFromInt W8 =>
+        | FromTo IntT (WordT W8) =>
           (case args of
              | [i] => cf_wordFromInt_W8 i
              | _ => cf_bottom)
-        | WordFromInt W64 =>
+        | FromTo IntT (WordT W64) =>
           (case args of
              | [i] => cf_wordFromInt_W64 i
              | _ => cf_bottom)
-        | WordToInt W8 =>
+        | FromTo (WordT W8) IntT =>
           (case args of
              | [w] => cf_wordToInt_W8 w
              | _ => cf_bottom)
-        | WordToInt W64 =>
+        | FromTo (WordT W64) IntT =>
           (case args of
              | [w] => cf_wordToInt_W64 w
              | _ => cf_bottom)
@@ -1959,11 +1967,11 @@ Definition cf_def:
           (case args of
              | [c;w] => cf_ffi ffi_index c w
              | _ => cf_bottom)
-        | FpFromWord =>
+        | FromTo (WordT W64) Float64T =>
           (case args of
              | [w] => cf_fpfromword w
              | _ => cf_bottom)
-        | FpToWord =>
+        | FromTo Float64T (WordT W64) =>
           (case args of
              | [w] => cf_fptoword w
              | _ => cf_bottom)
@@ -2002,7 +2010,7 @@ val cf_defs = [
   cf_var_def,
   cf_fun_def,
   cf_let_def,
-  cf_opn_def,
+  cf_arith_def,
   cf_int_cmp_def,
   cf_equality_def,
   cf_aalloc_def,
@@ -2849,14 +2857,13 @@ Proof
       qexists_tac`u` \\
       qexists_tac`{Mem ld (W8array xor_res)}` \\ fs[] \\
       SPLIT_TAC)
-    >~ [‘Opn’] >- (
-      rename1 `app_opn op` \\
+    >~ [‘Arith a IntT’] >- (
       Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\ cf_evaluate_step_tac \\
-      fs [app_opn_def, st2heap_def] \\
+      fs [app_arith_def, st2heap_def] \\
       progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\
       GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
       cf_exp2v_evaluate_tac `st` \\
-      Cases_on `op` \\ fs [do_app_def] \\ fs [SEP_IMP_def] \\
+      fs [do_app_def,do_arith_def,check_type_def] \\ fs [SEP_IMP_def] \\
       fs [state_component_equality]
     )
     >~ [‘Test (Compare cmp) IntT’] >- (
@@ -2869,6 +2876,56 @@ Proof
       fs [SEP_IMP_def] \\
       fs [state_component_equality]
     )
+    >~ [‘FromTo IntT (WordT W8)’] >- (
+      Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\ cf_evaluate_step_tac \\
+      GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
+      cf_exp2v_evaluate_tac `st` \\ fs [do_app_def,check_type_def,do_conversion_def] \\
+      fs [app_wordFromInt_W8_def, app_wordFromInt_W64_def, app_wordToInt_def] \\
+      fs [SEP_IMP_def, st2heap_def] \\ res_tac \\
+      progress SPLIT3_of_SPLIT_emp3 \\ instantiate
+    )
+    >~ [‘FromTo IntT (WordT W64)’] >- (
+      Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\ cf_evaluate_step_tac \\
+      GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
+      cf_exp2v_evaluate_tac `st` \\ fs [do_app_def,check_type_def,do_conversion_def] \\
+      fs [app_wordFromInt_W8_def, app_wordFromInt_W64_def, app_wordToInt_def] \\
+      fs [SEP_IMP_def, st2heap_def] \\ res_tac \\
+      progress SPLIT3_of_SPLIT_emp3 \\ instantiate
+    )
+    >~ [‘FromTo (WordT W8) IntT’] >- (
+      Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\ cf_evaluate_step_tac \\
+      GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
+      cf_exp2v_evaluate_tac `st` \\ fs [do_app_def,check_type_def,do_conversion_def] \\
+      fs [app_wordFromInt_W8_def, app_wordFromInt_W64_def, app_wordToInt_def] \\
+      fs [SEP_IMP_def, st2heap_def] \\ res_tac \\
+      progress SPLIT3_of_SPLIT_emp3 \\ instantiate
+    )
+    >~ [‘FromTo (WordT W64) IntT’] >- (
+      Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\ cf_evaluate_step_tac \\
+      GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
+      cf_exp2v_evaluate_tac `st` \\ fs [do_app_def,check_type_def,do_conversion_def] \\
+      fs [app_wordFromInt_W8_def, app_wordFromInt_W64_def, app_wordToInt_def] \\
+      fs [SEP_IMP_def, st2heap_def] \\ res_tac \\
+      progress SPLIT3_of_SPLIT_emp3 \\ instantiate
+    )
+    >~ [‘FromTo (WordT W64) Float64T’] >- (
+     Q.REFINE_EXISTS_TAC ‘Val v’ \\ simp[] \\ cf_evaluate_step_tac
+     \\ simp[]
+     \\ progress SPLIT3_of_SPLIT_emp3 \\ instantiate
+     \\ GEN_EXISTS_TAC "ck" ‘st.clock’ \\ fs[with_clock_self]
+     \\ cf_exp2v_evaluate_tac ‘st’
+     \\ fs [do_app_def, app_fpfromword_def, check_type_def, do_conversion_def]
+     \\ fs [SEP_IMP_def]
+     \\ fs [state_component_equality])
+    >~ [‘FromTo Float64T (WordT W64)’] >- (
+     Q.REFINE_EXISTS_TAC ‘Val v’ \\ simp[] \\ cf_evaluate_step_tac
+     \\ simp[]
+     \\ progress SPLIT3_of_SPLIT_emp3 \\ instantiate
+     \\ GEN_EXISTS_TAC "ck" ‘st.clock’ \\ fs[with_clock_self]
+     \\ cf_exp2v_evaluate_tac ‘st’
+     \\ fs [do_app_def, app_fptoword_def, check_type_def, do_conversion_def]
+     \\ fs [SEP_IMP_def]
+     \\ fs [state_component_equality])
     THEN1 (
       rename [`Equality`] \\
       Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\ cf_evaluate_step_tac \\
@@ -2878,24 +2935,6 @@ Proof
       fs [SEP_IMP_def] \\ first_assum progress \\ instantiate \\
       qexists_tac `{}` \\ fs [st2heap_def] \\ SPLIT_TAC
     )
-    THEN1 (
-     (* FpFromWord *)
-     Q.REFINE_EXISTS_TAC ‘Val v’ \\ simp[] \\ cf_evaluate_step_tac
-     \\ simp[]
-     \\ progress SPLIT3_of_SPLIT_emp3 \\ instantiate
-     \\ GEN_EXISTS_TAC "ck" ‘st.clock’ \\ fs[with_clock_self]
-     \\ cf_exp2v_evaluate_tac ‘st’ \\ fs [do_app_def, app_fpfromword_def]
-     \\ fs [SEP_IMP_def]
-     \\ fs [state_component_equality])
-    THEN1 (
-     (* FpToWord *)
-     Q.REFINE_EXISTS_TAC ‘Val v’ \\ simp[] \\ cf_evaluate_step_tac
-     \\ simp[]
-     \\ progress SPLIT3_of_SPLIT_emp3 \\ instantiate
-     \\ GEN_EXISTS_TAC "ck" ‘st.clock’ \\ fs[with_clock_self]
-     \\ cf_exp2v_evaluate_tac ‘st’ \\ fs [do_app_def, app_fptoword_def]
-     \\ fs [SEP_IMP_def]
-     \\ fs [state_component_equality])
     THEN1 (
       (* Opapp *)
       rename1 `dest_opapp _ = SOME (f, xs)` \\
@@ -3236,15 +3275,6 @@ Proof
       qexists_tac `{}` \\ mp_tac store2heap_IN_unique_key \\ rpt strip_tac
       THEN1 (progress_then (fs o sing) store2heap_LUPDATE \\ SPLIT_TAC)
       THEN1 (first_assum irule \\ instantiate \\ SPLIT_TAC)
-    ) \\
-    try_finally (
-      (* WordFromInt W8, WordFromInt W64, WordToInt W8, WordToInt W64 *)
-      Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\ cf_evaluate_step_tac \\
-      GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
-      cf_exp2v_evaluate_tac `st` \\ fs [do_app_def] \\
-      fs [app_wordFromInt_W8_def, app_wordFromInt_W64_def, app_wordToInt_def] \\
-      fs [SEP_IMP_def, st2heap_def] \\ res_tac \\
-      progress SPLIT3_of_SPLIT_emp3 \\ instantiate
     ) \\
     try_finally (
       (* CopyStrAw8 *)

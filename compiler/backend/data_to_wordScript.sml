@@ -1099,20 +1099,20 @@ Definition fp_cmp_inst_def:
 End
 
 Definition fp_top_inst_def:
-  fp_top_inst FP_Fma = FPFma 0 1 2
+  fp_top_inst fpSem$FP_Fma = FPFma 0 1 2
 End
 
 Definition fp_bop_inst_def:
-  fp_bop_inst ast$FP_Add = FPAdd 0 0 1 /\
-  fp_bop_inst ast$FP_Sub = FPSub 0 0 1 /\
-  fp_bop_inst ast$FP_Mul = FPMul 0 0 1 /\
-  fp_bop_inst ast$FP_Div = FPDiv 0 0 1
+  fp_bop_inst fpSem$FP_Add = FPAdd 0 0 1 /\
+  fp_bop_inst fpSem$FP_Sub = FPSub 0 0 1 /\
+  fp_bop_inst fpSem$FP_Mul = FPMul 0 0 1 /\
+  fp_bop_inst fpSem$FP_Div = FPDiv 0 0 1
 End
 
 Definition fp_uop_inst_def:
-  fp_uop_inst FP_Neg = FPNeg 1 0 /\
-  fp_uop_inst FP_Abs = FPAbs 1 0 /\
-  fp_uop_inst FP_Sqrt = FPSqrt 1 0
+  fp_uop_inst fpSem$FP_Neg = FPNeg 1 0 /\
+  fp_uop_inst fpSem$FP_Abs = FPAbs 1 0 /\
+  fp_uop_inst fpSem$FP_Sqrt = FPSqrt 1 0
 End
 
 Definition arg1_def:
@@ -1614,6 +1614,12 @@ val def = assign_Define `
                  (If Equal (adjust_var v1) (Reg (adjust_var v2))
                    (Assign (adjust_var dest) TRUE_CONST)
                    (Assign (adjust_var dest) FALSE_CONST),l)
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_BoolNot (l:num) (dest:num) v1 =
+                 (Assign (adjust_var dest)
+                    (Op Xor [Var (adjust_var v1); Const 16w]),l)
       : 'a wordLang$prog # num`;
 
 val def = assign_Define `
@@ -2402,6 +2408,7 @@ Definition assign_def:
     | MemOp (CopyByte alloc_new) => assign_CopyByte c secn l dest names args
     | MemOp RefArray => arg2 args (assign_RefArray c secn l dest names) (Skip,l)
     | BlockOp (BoolTest test) => arg2 args (assign_BoolTest l dest test) (Skip,l)
+    | BlockOp BoolNot => arg1 args (assign_BoolNot l dest) (Skip,l)
     | WordOp (WordTest ws test) => arg2 args (assign_WordTest l dest test) (Skip,l)
     | BlockOp (FromList tag) => arg2 args (assign_FromList c secn l dest names tag) (Skip,l)
     | IntOp (LessConstSmall i) => arg1 args (assign_LessConstSmall l dest i) (Skip,l)

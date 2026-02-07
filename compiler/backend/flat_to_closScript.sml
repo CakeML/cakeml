@@ -98,13 +98,13 @@ Definition CopyByteAw8_def:
 End
 
 Definition compile_arith_def:
-  compile_arith t a ty xs =
+  compile_arith t (a: ast$arith) ty xs =
     case ty of
     | IntT => (case a of
-               | Add => Op t (IntOp closLang$Add) xs
-               | Sub => Op t (IntOp closLang$Sub) xs
+               | Add => Op t (IntOp Add) xs
+               | Sub => Op t (IntOp Sub) xs
                | Mul => Op t (IntOp Mult) xs
-               | ast_temp$Div => Let t xs (If t (Op t (BlockOp Equal) [Var t 0; Op t (IntOp (Const 0)) []])
+               | Div => Let t xs (If t (Op t (BlockOp Equal) [Var t 0; Op t (IntOp (Const 0)) []])
                                    (Raise t (Op t (BlockOp (Cons div_tag)) []))
                                    (Op t (IntOp closLang$Div) [Var t 0; Var t 1]))
                | Mod => Let t xs (If t (Op t (BlockOp Equal) [Var t 0; Op t (IntOp (Const 0)) []])
@@ -118,16 +118,17 @@ Definition compile_arith_def:
                    | Add => Op t (WordOp (FP_bop FP_Add)) xs
                    | Sub => Op t (WordOp (FP_bop FP_Sub)) xs
                    | Mul => Op t (WordOp (FP_bop FP_Mul)) xs
-                   | ast_temp$Div => Op t (WordOp (FP_bop FP_Div)) xs
+                   | Div => Op t (WordOp (FP_bop FP_Div)) xs
                    | FMA => Op t (WordOp (FP_top FP_Fma)) xs
-                   | _ => Let None xs (Var None 0))
+                   | _   => Let None xs (Var None 0))
     | WordT ws => (case a of
-                   | Add => Op t (WordOp (WordOpw ws ast$Add)) xs
-                   | Sub => Op t (WordOp (WordOpw ws ast$Sub)) xs
+                   | Add => Op t (WordOp (WordOpw ws Add)) xs
+                   | Sub => Op t (WordOp (WordOpw ws Sub)) xs
                    | And => Op t (WordOp (WordOpw ws Andw)) xs
-                   | Or => Op t (WordOp (WordOpw ws Orw)) xs
-                   | ast_temp$Xor => Op t (WordOp (WordOpw ws ast$Xor)) xs
-                   | _ => Let None xs (Var None 0))
+                   | Or  => Op t (WordOp (WordOpw ws Orw)) xs
+                   | Xor => Op t (WordOp (WordOpw ws Xor)) xs
+                   | _   => Let None xs (Var None 0))
+    | BoolT => Op t (BlockOp BoolNot) xs
     | _ => Let None xs (Var None 0)
 End
 
@@ -138,29 +139,9 @@ Definition compile_op_def:
     | TagLenEq tag n => closLang$Op t (BlockOp (TagLenEq tag n)) xs
     | LenEq n => closLang$Op t (BlockOp (LenEq n)) xs
     | El n => arg1 xs (\x. Op t (MemOp El) [Op None (IntOp (Const (& n))) []; x])
-    | Ord => arg1 xs (\x. x)
-    | Chr => Let t xs (If t (Op t (IntOp Less) [Op None (IntOp (Const 0)) []; Var t 0])
-                        (Raise t (Op t (BlockOp (Cons chr_tag)) []))
-                        (If t (Op t (IntOp Less) [Var t 0; Op None (IntOp (Const 255)) []])
-                          (Raise t (Op t (BlockOp (Cons chr_tag)) []))
-                          (Var t 0)))
     | Opassign => arg2 xs (\x y. Op t (MemOp Update) [x; Op None (IntOp (Const 0)) []; y])
     | Opref => Op t (MemOp Ref) xs
     | ConfigGC => Op t (MemOp ConfigGC) xs
-    | Opb l => Op t (IntOp (case l of
-                            | Lt => Less
-                            | Gt => Greater
-                            | Leq => LessEq
-                            | Geq => GreaterEq)) xs
-    | Opn Plus => Op t (IntOp Add) xs
-    | Opn Minus => Op t (IntOp Sub) xs
-    | Opn Times => Op t (IntOp Mult) xs
-    | Opn Divide => Let t xs (If t (Op t (BlockOp Equal) [Var t 0; Op t (IntOp (Const 0)) []])
-                                    (Raise t (Op t (BlockOp (Cons div_tag)) []))
-                                    (Op t (IntOp Div) [Var t 0; Var t 1]))
-    | Opn Modulus => Let t xs (If t (Op t (BlockOp Equal) [Var t 0; Op t (IntOp (Const 0)) []])
-                                    (Raise t (Op t (BlockOp (Cons div_tag)) []))
-                                    (Op t (IntOp Mod) [Var t 0; Var t 1]))
     | GlobalVarAlloc n => Let t xs (Op t (GlobOp AllocGlobal) [Op t (IntOp (Const (&n))) []])
     | GlobalVarInit n => Op t (GlobOp (SetGlobal (n+1))) xs
     | GlobalVarLookup n => Op t (GlobOp (Global (n+1))) xs
@@ -197,10 +178,6 @@ Definition compile_op_def:
                           | Compare Geq => Op t (WordOp (FP_cmp FP_GreaterEqual)) xs
                           | _           => Op t (WordOp (FP_cmp FP_Equal)) xs)
           | _         => Op t (BlockOp Equal) xs)
-    | WordFromInt W64 => Op t (WordOp WordFromInt) xs
-    | WordToInt W64 => Op t (WordOp WordToInt) xs
-    | WordFromInt W8 => arg1 xs (\x. Op t (IntOp Mod) [Op t (IntOp (Const 256)) []; x])
-    | WordToInt W8 => arg1 xs (\x. x)
     | Aw8length => Op t (MemOp LengthByte) xs
     | AallocFixed => Op t (MemOp Ref) xs
     | Aalloc => Let t xs (If t (Op t (IntOp Less) [Op t (IntOp (Const 0)) []; Var t 1])
@@ -232,18 +209,22 @@ Definition compile_op_def:
     | Strsub => Let t xs (If t (Op t (MemOp (BoundsCheckByte F)) [Var t 0; Var t 1])
                                (Op t (MemOp DerefByteVec) [Var t 0; Var t 1])
                                (Raise t (Op t (BlockOp (Cons subscript_tag)) [])))
-    | FP_cmp c => Op t (WordOp (FP_cmp c)) xs
-    | FP_uop c => Op t (WordOp (FP_uop c)) xs
-    | FP_bop c => Op t (WordOp (FP_bop c)) xs
-    | FP_top c => Op t (WordOp (FP_top c)) xs
     | Shift x1 x2 x3 => Op t (WordOp (WordShift x1 x2 x3)) xs
-    | Opw x1 x2 => Op t (WordOp (WordOpw x1 x2)) xs
     | Eval => Op t Install xs (* if need to flip:  Let t xs (Op t Install [Var t 1; Var t 0]) *)
-    | FpFromWord => Let None xs (Var None 0)
-    | FpToWord => Let None xs (Var None 0)
     | ThunkOp op => Op t (ThunkOp op) xs
     | Arith a ty => compile_arith t a ty xs
     | FromTo (WordT W8) IntT => arg1 xs (\x. x)
+    | FromTo (WordT W64) IntT => Op t (WordOp WordToInt) xs
+    | FromTo IntT (WordT W8) => arg1 xs (\x. Op t (IntOp Mod) [Op t (IntOp (Const 256)) []; x])
+    | FromTo IntT (WordT W64) => Op t (WordOp WordFromInt) xs
+    | FromTo CharT IntT => arg1 xs (\x. x)
+    | FromTo IntT CharT => Let t xs (If t (Op t (IntOp Less) [Op None (IntOp (Const 0)) []; Var t 0])
+                        (Raise t (Op t (BlockOp (Cons chr_tag)) []))
+                        (If t (Op t (IntOp Less) [Var t 0; Op None (IntOp (Const 255)) []])
+                          (Raise t (Op t (BlockOp (Cons chr_tag)) []))
+                          (Var t 0)))
+    | FromTo Float64T (WordT W64) => Let None xs (Var None 0)
+    | FromTo (WordT W64) Float64T => Let None xs (Var None 0)
     | _ => Let None xs (Var None 0)
 End
 
@@ -255,18 +236,24 @@ End
 
 Definition dest_nop_def:
   dest_nop op e =
-    case op of
-    | WordFromInt W8 => (case e of [App _ Ord [x]] => SOME x | _ => NONE)
-    | Chr => (case e of [App _ (WordToInt W8) [x]] => SOME x | _ => NONE)
-    | _ => NONE
+    if op = FromTo IntT (WordT W8) then
+      (case e of
+       | [App _ op1 [x]] => (if op1 = FromTo CharT IntT then SOME x else NONE)
+       | _ => NONE)
+    else if op = FromTo IntT CharT then
+      (case e of
+       | [App _ op1 [x]] => (if op1 = FromTo (WordT W8) IntT then SOME x else NONE)
+       | _ => NONE)
+    else NONE
 End
 
 Theorem dest_nop_thm:
   dest_nop op es = SOME x ⇔
-    (∃t. op = WordFromInt W8 ∧ es = [App t Ord [x]]) ∨
-    (∃t. op = Chr ∧ es = [App t (WordToInt W8) [x]])
+    (∃t. op = FromTo IntT (WordT W8) ∧ es = [App t (FromTo CharT IntT) [x]]) ∨
+    (∃t. op = FromTo IntT CharT ∧ es = [App t (FromTo (WordT W8) IntT) [x]])
 Proof
-  Cases_on ‘op’ \\ fs [dest_nop_def] \\ every_case_tac \\ fs []
+  Cases_on ‘op’ \\ gvs [dest_nop_def]
+  \\ fs [dest_nop_def] \\ every_case_tac \\ fs []
 QED
 
 Definition dest_Constant_def:

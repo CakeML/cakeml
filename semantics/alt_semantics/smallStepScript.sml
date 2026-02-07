@@ -471,5 +471,3 @@ Definition small_decl_diverges_def:
     ==>
   (? c.  decl_step_reln env b c)))
 End
-
-

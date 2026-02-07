@@ -15,8 +15,8 @@ fun bring_fwd_ctors ty =
     end)
 
 val _ = bring_fwd_ctors ``:ast$lit``
-val _ = bring_fwd_ctors ``:ast$opn``
-val _ = bring_fwd_ctors ``:ast$opb``
+val _ = bring_fwd_ctors ``:ast$arith``
+val _ = bring_fwd_ctors ``:ast$prim_type``
 val _ = bring_fwd_ctors ``:('a,'b) namespace$id``
 val _ = bring_fwd_ctors ``:ast$op``
 val _ = bring_fwd_ctors ``:ast$lop``
@@ -759,8 +759,8 @@ fun logPrint logop sys d t pg str brk blk =
    m_brack str pg (sys (Prec(0,"lop"),pg,pg) (d-1) x >> str logop >> sys (Prec(0,"lop"),pg,pg) (d-1) y)
   end;
 
-val _=add_astPP ("andprint", ``Log And y z``, genPrint (logPrint " andalso "));
-val _=add_astPP ("orprint", ``Log Or y z``, genPrint (logPrint " orelse "));
+val _=add_astPP ("andprint", ``Log Andalso y z``, genPrint (logPrint " andalso "));
+val _=add_astPP ("orprint", ``Log Orelse y z``, genPrint (logPrint " orelse "));
 
 (*If-then-else*)
 fun ifthenelsePrint sys d t pg str brk blk =

@@ -1001,7 +1001,7 @@ Definition ptree_Expr_def[nocompute]:
               assert(tokcheck andt AndalsoT);
               a1 <- ptree_Expr nElogicAND t1;
               a2 <- ptree_Expr nEtyped t2;
-              SOME(Log And a1 a2)
+              SOME(Log Andalso a1 a2)
             od
           | [t] => ptree_Expr nEtyped t
           | _ => NONE
@@ -1011,7 +1011,7 @@ Definition ptree_Expr_def[nocompute]:
               assert(tokcheck ort OrelseT);
               a1 <- ptree_Expr nElogicOR t1;
               a2 <- ptree_Expr nElogicAND t2;
-              SOME (Log Or a1 a2)
+              SOME (Log Orelse a1 a2)
             od
           | [t] => ptree_Expr nElogicAND t
           | _ => NONE

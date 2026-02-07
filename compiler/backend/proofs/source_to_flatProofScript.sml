@@ -1030,6 +1030,37 @@ Proof
   \\ simp []
 QED
 
+Theorem do_conversion_INL[local]:
+  check_type ty1 v ∧ genv_c_ok genv.c ∧
+  v_rel genv v v_i1 ∧
+  do_conversion v ty1 ty2 = SOME (INL exn) ⇒
+  exn = chr_exn_v ∧
+  check_type ty1 (flat_to_v v_i1) ∧
+  ∃e. do_conversion (flat_to_v v_i1) ty1 ty2 = SOME (INL e)
+Proof
+  strip_tac
+  \\ drule_all check_type_v_rel_flat_to_v
+  \\ strip_tac \\ fs []
+  \\ gvs [oneline do_conversion_def,AllCaseEqs()]
+QED
+
+Theorem do_conversion_INR[local]:
+  check_type ty1 v ∧ genv_c_ok genv.c ∧
+  v_rel genv v v_i1 ∧
+  do_conversion v ty1 ty2 = SOME (INR r) ⇒
+  check_type ty1 (flat_to_v v_i1) ∧
+  ∃r'. do_conversion (flat_to_v v_i1) ty1 ty2 = SOME (INR r') ∧
+       v_rel genv r (v_to_flat r')
+Proof
+  strip_tac
+  \\ drule_all check_type_v_rel_flat_to_v
+  \\ strip_tac \\ fs []
+  \\ drule_all do_conversion_check_type
+  \\ rpt strip_tac
+  \\ drule_all check_type_IMP_v_rel
+  \\ simp []
+QED
+
 val s_i1 = ``s_i1 : ('f_orac_st, 'ffi) flatSem$state``;
 val s1_i1 = mk_var ("s1_i1", type_of s_i1);
 
@@ -1064,17 +1095,6 @@ Proof
   pop_assum mp_tac >>
   Cases_on `op` >>
   simp [astOp_to_flatOp_def, astTheory.getOpClass_def]
-  >~ [‘Opn’] >- (
-      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
-      full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
-      fs [AllCaseEqs()] \\ CCONTR_TAC \\ fs [] \\ gvs [])
-  >~ [‘Opb’] >- (
-      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
-      full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems])
-  >~ [‘Opw’] >- (
-      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
-      full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases,v_rel_lems]
-      \\ Cases_on`o'` \\ fs[opw8_lookup_def,opw64_lookup_def])
   >~ [‘Shift’] >- (
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases] >>
       full_simp_tac(srw_ss())[v_rel_eqns] >>
@@ -1103,35 +1123,17 @@ Proof
   >~ [‘FromTo ty1 ty2’] >- (
       gvs [oneline semanticPrimitivesTheory.do_app_def,AllCaseEqs()]
       \\ gvs [oneline flatSemTheory.do_app_def,AllCaseEqs()]
-      \\ rw [] \\ gvs [PULL_EXISTS]
+      \\ reverse (rw []) \\ fs []
       \\ simp [result_rel_cases,PULL_EXISTS]
-      \\ drule_all check_type_v_rel_flat_to_v \\ simp []
-      \\ drule_all do_conversion_check_type \\ rpt strip_tac
-      \\ drule_all check_type_IMP_v_rel \\ simp [])
+      >- (drule_all do_conversion_INR \\ strip_tac \\ simp [])
+      \\ drule_all do_conversion_INL \\ strip_tac \\ gvs []
+      \\ imp_res_tac v_rel_lems \\ gvs [])
   >~ [‘Test test ty’] >- (
       gvs [oneline semanticPrimitivesTheory.do_app_def,AllCaseEqs()]
       \\ gvs [oneline flatSemTheory.do_app_def,AllCaseEqs()]
       \\ rw [PULL_EXISTS] \\ gvs []
       \\ drule_all do_test_lemma \\ fs []
       \\ full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems])
-  >~ [‘FP_cmp’] >- (
-      rw[semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
-      gvs[v_rel_eqns, result_rel_cases, v_rel_lems])
-  >~ [‘FP_uop’] >- (
-      rw[semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
-      gvs[v_rel_eqns, result_rel_cases, v_rel_lems])
-  >~ [‘FP_bop’] >- (
-      rw[semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
-      gvs[v_rel_eqns, result_rel_cases, v_rel_lems])
-  >~ [‘FP_top’] >- (
-      rw[semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
-      gvs[v_rel_eqns, result_rel_cases, v_rel_lems])
-  >~ [‘FpFromWord’] >- (
-      rw[semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
-      gvs[v_rel_eqns, result_rel_cases, v_rel_lems])
-  >~ [‘FpToWord’] >- (
-      rw[semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
-      fs[v_rel_eqns, result_rel_cases, v_rel_lems])
   >~ [‘Opapp’] >- (
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems])
@@ -1208,12 +1210,6 @@ Proof
       fsrw_tac[][] >>
       srw_tac[][markerTheory.Abbrev_def, EL_LUPDATE] >>
       srw_tac[][v_rel_lems])
-  >~ [‘WordFromInt’] >- (
-    srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def]
-    \\ fsrw_tac[][v_rel_eqns] \\ srw_tac[][result_rel_cases,v_rel_eqns] )
-  >~ [‘WordToInt’] >- (
-    srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def]
-    \\ fsrw_tac[][v_rel_eqns] \\ srw_tac[][result_rel_cases,v_rel_eqns] )
   >~ [‘CopyStrStr’] >- (
     rw[semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def]
     \\ fs[v_rel_eqns,IMPLODE_EXPLODE_I,result_rel_cases]
@@ -1261,12 +1257,6 @@ Proof
     \\ simp[store_v_same_type_def, REWRITE_RULE [ADD1] LUPDATE_def]
     \\ match_mp_tac EVERY2_LUPDATE_same
     \\ simp[sv_rel_cases])
-  >~ [‘Ord’] >- (
-      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
-      full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases,v_rel_lems])
-  >~ [‘Chr’] >- (
-      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
-      full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems])
   >~ [‘Implode’] >- (
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>

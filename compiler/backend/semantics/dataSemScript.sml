@@ -888,6 +888,10 @@ Definition do_app_aux_def:
         (case (dest_Boolv v1, dest_Boolv v2) of
          | (SOME b1, SOME b2) => Rval (Boolv (b1 = b2), s)
          | _ => Error)
+    | (BlockOp BoolNot,[v1]) =>
+        (case dest_Boolv v1 of
+         | SOME b1 => Rval (Boolv (~b1), s)
+         | _ => Error)
     | (BlockOp ListAppend,[x1;x2]) =>
         (case (v_to_list x1, v_to_list x2) of
          | (SOME xs, SOME ys) =>

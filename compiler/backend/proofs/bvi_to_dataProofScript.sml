@@ -526,6 +526,15 @@ Proof
       gvs[NULL_EQ_NIL,MAP_EQ_CONS]>>
       simp[do_app_aux_def,do_word_app_def,bvl_to_bvi_id] >>
       imp_res_tac data_to_bvi_v_Boolv_IMP >> fs [])
+  >~ [`do_app (BlockOp BoolNot)`]
+  >- (fs[oneline bviSemTheory.do_app_def,
+      oneline bviSemTheory.do_app_aux_def,
+      bvlSemTheory.do_app_def,
+      oneline bvlSemTheory.do_word_app_def] >>
+      rw[AllCaseEqs()] >>
+      gvs[NULL_EQ_NIL,MAP_EQ_CONS]>>
+      simp[do_app_aux_def,do_word_app_def,bvl_to_bvi_id] >>
+      imp_res_tac data_to_bvi_v_Boolv_IMP >> fs [])
   >~ [`do_app (IntOp _)`]
   >- (fs[oneline bviSemTheory.do_app_def,
       oneline bviSemTheory.do_app_aux_def,
