@@ -376,16 +376,16 @@ Proof
     >- (Cases_on `w`
         \\ gvs [wordSemTheory.word_cmp_def]
         \\ drule_all state_rel_get_var_RefPtr_Loc \\ gvs [])
+    \\ qpat_assum `state_rel _ _ _ _ _ _ _` mp_tac
+    \\ pure_rewrite_tac [Once state_rel_thm] \\ strip_tac \\ gvs []
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ drule memory_rel_lookup
+    \\ gvs [get_var_def, wordSemTheory.get_var_def]
+    \\ disch_then drule \\ gvs []
+    \\ strip_tac \\ gvs []
     \\ TOP_CASE_TAC \\ gvs []
     >- (
-      qpat_x_assum `state_rel _ _ _ _ _ _ _` mp_tac
-      \\ simp [Once state_rel_thm] \\ strip_tac
-      \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
-      \\ drule memory_rel_lookup
-      \\ gvs [get_var_def, wordSemTheory.get_var_def]
-      \\ disch_then drule \\ gvs []
-      \\ strip_tac \\ gvs []
-      \\ drule memory_rel_Thunk_inlined_bits \\ gvs []
+      drule memory_rel_Thunk_inlined_bits \\ gvs []
       \\ impl_tac \\ gvs []
       >- (
         Cases_on `w` \\ gvs [asmTheory.word_cmp_def]
@@ -423,27 +423,16 @@ Proof
       \\ simp [SF DNF_ss]
       \\ rpt strip_tac
       \\ drule_all MEM_join_env_cut_env \\ fs [])
-    \\ `∃w1. w = Word w1 ∧ w1 ' 0` by (
-      Cases_on `w` \\ gvs [asmTheory.word_cmp_def, wordSemTheory.word_cmp_def]
-      \\ full_simp_tac std_ss [WORD_AND_COMM]
-      \\ gvs [word_and_one_eq_0_iff]) \\ gvs []
+    \\ Cases_on `w` \\ gvs [asmTheory.word_cmp_def, wordSemTheory.word_cmp_def]
+    \\ full_simp_tac std_ss [WORD_AND_COMM]
+    \\ gvs [word_and_one_eq_0_iff]
     \\ simp [Once list_Seq_def, wordSemTheory.evaluate_def]
-    \\ qpat_assum `state_rel _ _ _ _ _ _ _` mp_tac
-    \\ pure_rewrite_tac [Once state_rel_thm] \\ rw []
-    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
-    \\ drule_all memory_rel_get_var_IMP \\ rw [] \\ gvs []
-    \\ `∃x' w.
-          get_real_addr c t.store w1 = SOME x' ∧ x' ∈ t.mdomain ∧
-          t.memory x' = Word w ∧ x' + bytes_in_word ∈ t.mdomain ∧
-          memory_rel c t.be (THE s.tstamps) s.refs s.space t.store t.memory
-             t.mdomain
-             ((a,t.memory (x' + bytes_in_word))::(RefPtr b n',Word w1)::
-                (join_env s.locals
-                   (toAList (inter t.locals (adjust_set s.locals))) ++
-                 [(the_global s.global,t.store ' Globals)] ++
-                 flat s.stack t.stack))` by cheat \\ gvs []
+    \\ `∃x' w. get_real_addr c t.store c' = SOME x' ∧
+               x' ∈ t.mdomain ∧
+               t.memory x' = Word w` by (
+      drule_all memory_rel_Thunk_IMP \\ rw [] \\ metis_tac []) \\ gvs []
     \\ `word_exp t (real_addr c (adjust_var src)) = SOME (Word x')`
-      by metis_tac [get_real_addr_lemma] \\ gvs []
+      by metis_tac [get_real_addr_lemma, wordSemTheory.get_var_def] \\ gvs []
     \\ simp [Once list_Seq_def, wordSemTheory.evaluate_def]
     \\ simp [wordSemTheory.set_var_def, wordSemTheory.word_exp_def,
              wordSemTheory.get_var_def, wordSemTheory.the_words_def,
@@ -456,7 +445,16 @@ Proof
     >- (
       IF_CASES_TAC \\ gvs []
       >- (
-        TOP_CASE_TAC \\ gvs []
+        `x' + bytes_in_word ∈ t.mdomain ∧
+            ∃w'. t.memory (x' + bytes_in_word) = Word w' ∧
+           memory_rel c t.be (THE s.tstamps) s.refs s.space t.store t.memory
+           t.mdomain
+           ((a,t.memory (x' + bytes_in_word))::(RefPtr b n',Word w1)::
+              (join_env s.locals
+                 (toAList (inter t.locals (adjust_set s.locals))) ++
+               [(the_global s.global,t.store ' Globals)] ++
+               flat s.stack t.stack))` by cheat \\ gvs []
+        \\ TOP_CASE_TAC \\ gvs []
         >- (
           simp [wordSemTheory.evaluate_def, wordSemTheory.word_exp_def,
                 wordSemTheory.get_var_def, lookup_insert,
