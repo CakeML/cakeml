@@ -782,82 +782,112 @@ Definition remove_dead_inst_def:
   (remove_dead_inst x live = F)
 End
 
-(*Delete dead code, w.r.t. a set of live variables*)
+(* Delete dead code, w.r.t. a set of live variables.
+  The liveset is a tuple (live,nlive):
+  - live is an sptree of live variables
+  - nlive is a list of globals which are NOT live
+
+  This code is written assuming flat_exp_conventions,
+    so many trivial cases are omitted.
+*)
 Definition remove_dead_def:
-  (remove_dead Skip live = (Skip,live)) ∧
-  (remove_dead (Move pri ls) live =
+  (remove_dead (Move pri ls) live nlive =
     let ls = FILTER (λx,y. lookup x live = SOME ()) ls in
-    if ls = [] then (Skip,live)
+    if ls = [] then (Skip,live,nlive)
     else
     let killed = FOLDR delete live (MAP FST ls) in
-      (Move pri ls,numset_list_insert (MAP SND ls) killed)) ∧
-  (remove_dead (Inst i) live =
-    if remove_dead_inst i live then (Skip,live)
-                               else (Inst i,get_live_inst i live)) ∧
-  (remove_dead (Assign num exp) live =
-    (if lookup num live = NONE then
-      (Skip,live)
-    else
-      (Assign num exp, get_live (Assign num exp) live))) ∧
-  (remove_dead (Get num store) live =
+      (Move pri ls, numset_list_insert (MAP SND ls) killed,nlive)) ∧
+  (remove_dead (Inst i) live nlive =
+    if remove_dead_inst i live
+    then (Skip,live,nlive)
+    else (Inst i, get_live_inst i live,nlive)) ∧
+  (remove_dead (Get num store) live nlive =
     if lookup num live = NONE then
-      (Skip,live)
-    else (Get num store,delete num live)) ∧
-  (remove_dead (OpCurrHeap b num src) live =
+      (Skip,live,nlive)
+    else (Get num store, delete num live, FILTER (λs. store ≠ s) nlive)) ∧
+  (remove_dead (OpCurrHeap b num src) live nlive =
     if lookup num live = NONE then
-      (Skip,live)
-    else (OpCurrHeap b num src,insert src () (delete num live))) ∧
-  (remove_dead (LocValue r l1) live =
+      (Skip,live,nlive)
+    else (
+      OpCurrHeap b num src,
+        insert src () (delete num live), FILTER (λs. CurrHeap ≠ s) nlive)) ∧
+  (remove_dead (LocValue r l1) live nlive =
     if lookup r live = NONE then
-      (Skip,live)
-    else (LocValue r l1,delete r live)) ∧
-  (remove_dead (Seq s1 s2) live =
-    let (s2,s2live) = remove_dead s2 live in
-    let (s1,s1live) = remove_dead s1 s2live in
+      (Skip, live,nlive)
+    else (LocValue r l1, delete r live,nlive)) ∧
+  (remove_dead (Set store_name exp) live nlive =
+    case exp of
+      Var r =>
+      if MEM store_name nlive then
+        (Skip, live, nlive)
+      else
+        (Set store_name (Var r), insert r () live, store_name::nlive)
+    | _ =>
+      let prog = Set store_name exp in
+        (prog,get_live prog live,[])
+  ) ∧
+  (remove_dead (Seq s1 s2) live nlive =
+    let (s2,s2live,s2nlive) = remove_dead s2 live nlive in
+    let (s1,s1live,s1nlive) = remove_dead s1 s2live s2nlive in
     let prog =
       if s1 = Skip then
         s2
       else
         if s2 = Skip then s1
         else Seq s1 s2
-    in (prog,s1live)) ∧
-  (remove_dead (MustTerminate s1) live =
+    in (prog,s1live,s1nlive)) ∧
+  (remove_dead (MustTerminate s1) live nlive =
     (* This can technically be optimized away if it was a Skip,
        but we should never use MustTerminate to wrap completely dead code
     *)
-    let (s1,s1live) = remove_dead s1 live in
-      (MustTerminate s1,s1live)) ∧
-  (remove_dead (If cmp r1 ri e2 e3) live =
-    let (e2,e2_live) = remove_dead e2 live in
-    let (e3,e3_live) = remove_dead e3 live in
+    let (s1,s1live,s1nlive) = remove_dead s1 live nlive in
+      (MustTerminate s1,s1live,s1nlive)) ∧
+  (remove_dead (If cmp r1 ri e2 e3) live nlive =
+    let (e2,e2_live,e2_nlive) = remove_dead e2 live nlive in
+    let (e3,e3_live,e3_nlive) = remove_dead e3 live nlive in
     let union_live = union e2_live e3_live in
     let liveset =
        case ri of Reg r2 => insert r2 () (insert r1 () union_live)
       | _ => insert r1 () union_live in
+    let nliveset = FILTER (λs. MEM s e3_nlive) e2_nlive in
     let prog =
       if e2 = Skip ∧ e3 = Skip then Skip
       else If cmp r1 ri e2 e3 in
-    (prog,liveset)) ∧
-  (remove_dead (Call(SOME(v,cutsets,ret_handler,l1,l2))dest args h) live =
+    (prog,liveset,nliveset)) ∧
+  (remove_dead (Call(SOME(v,cutsets,ret_handler,l1,l2))dest args h) live nlive =
     (*top level*)
     let args_set = numset_list_insert args LN in
     let cutset = union (FST cutsets) (SND cutsets) in
     let live_set = union cutset args_set in
-    let (ret_handler,_) = remove_dead ret_handler live in
+    let (ret_handler,_) = remove_dead ret_handler live nlive in
     let h =
       (case h of
         NONE => NONE
       | SOME(v',prog,l1,l2) =>
-        SOME(v',FST (remove_dead prog live),l1,l2)) in
-    (Call (SOME (v,cutsets,ret_handler,l1,l2)) dest args h,live_set)) ∧
+        SOME(v',FST (remove_dead prog live nlive),l1,l2)) in
+    (Call (SOME (v,cutsets,ret_handler,l1,l2)) dest args h,(live_set,[]))) ∧
   (* we should not remove the ShareInst Load instructions.
-  * It produces a ffi event even if the variable is not in
-  * the live set *)
-  (remove_dead prog live = (prog,get_live prog live))
+    * It produces a ffi event even if the variable is not in
+    * the live set *)
+  (* In the cases below, we either return nlive unchanged
+    or we return [] because of control flow *)
+  (remove_dead (Call NONE a b c) live nlive =
+    let prog = Call NONE a b c in
+      (prog, get_live prog live, [])) ∧
+  (remove_dead (Alloc a b) live nlive =
+    let prog = Alloc a b in
+      (prog, get_live prog live, [])) ∧
+  (remove_dead (Raise a) live nlive =
+    let prog = Raise a in
+      (prog, get_live prog live, [])) ∧
+  (remove_dead (Return a b) live nlive =
+    let prog = Return a b in
+      (prog, get_live prog live, [])) ∧
+  (remove_dead prog live nlive = (prog,get_live prog live,nlive))
 End
 
 Definition remove_dead_prog_def:
-  remove_dead_prog prog = FST (remove_dead prog LN)
+  remove_dead_prog prog = FST (remove_dead prog LN [])
 End
 
 (*Single step immediate writes by a prog*)
