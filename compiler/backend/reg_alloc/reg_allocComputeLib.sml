@@ -173,7 +173,108 @@ fun pr_fs pr fs =
 fun pr_sol pr s =
   pr ("sol: {" ^ int_spt_to_string s ^ "}\n");
 
+fun pr_clash_graph pr ct =
+let
+  val (ta,(fa,n)) = mk_bij ct;
+  val adj_ls = Array.array (n, ([]:int list));
+
+  val insert_edge =
+    (fn  v4 =>
+      (fn  v5 =>
+        let val  v3 = Array.sub ( adj_ls, v4)
+            val  v2 = Array.sub ( adj_ls, v5)
+            val  v1 =
+          Array.update ( adj_ls, v4, (sorted_insert v5 [] v3))
+        in
+          Array.update ( adj_ls, v5, (sorted_insert v4 [] v2))
+        end));
+
+  fun list_insert_edge v5 v4 =
+    case  v4
+    of  []  =>  ()
+    |   v3::v2 =>  (let val  v1 = insert_edge v5 v3
+     in
+      list_insert_edge v5 v2
+     end);
+
+  fun clique_insert_edge v4 =
+    case  v4
+    of  []  =>  ()
+    |   v3::v2 =>  (let val  v1 = list_insert_edge v3 v2
+     in
+      clique_insert_edge v2
+     end)
+        fun  extend_clique v5 v4 =
+    case  v5
+    of  []  =>  v4
+    |   v3::v2 =>  (if  (member v3 v4)
+    then  (extend_clique v2 v4)
+    else  (let val  v1 = list_insert_edge v3 v4
+     in
+      extend_clique v2 (v3::v4)
+    end));
+
+  fun mk_graph v26 v25 v24 =
+    case  v25
+    of  Delta(v8,v7) =>  (let val  v6 = map v26 v8
+        val  v5 = map v26 v7
+        val  v4 = extend_clique v6 v24
+        val  v3 =
+      filter (fn  v1 => ((member v1 v6) = (0 < 0))) v4
+        val  v2 = extend_clique v5 v3
+     in
+      v2
+     end)
+    |   Set(v11) =>  (let val  v10 =
+      map v26 (map fst (toalist v11))
+        val  v9 = clique_insert_edge v10
+     in
+      v10
+     end)
+    |   Branch(v20,v19,v18) =>  (let val  v17 =
+      mk_graph v26 v19 v24
+        val  v16 = mk_graph v26 v18 v24
+     in
+      case  v20
+    of  NONE =>  (let val  v12 = extend_clique v17 v16
+     in
+      v12
+     end)
+    |   SOME(v15) =>  (let val  v14 =
+      map v26 (map fst (toalist v15))
+        val  v13 = clique_insert_edge v14
+     in
+      v14
+     end)
+    end)
+    |   Seq(v23,v22) =>  (let val  v21 = mk_graph v26 v22 v24
+     in
+      mk_graph v26 v23 v21
+     end)
+        fun  extend_graph v6 v7 =
+    case  v7
+    of  []  =>  ()
+    |   v5::v4 =>  (case  v5
+    of  (v3,v2) =>  (let val  v1 = insert_edge (v6 v3) (v6 v2)
+    in
+      extend_graph v6 v4
+     end))
+  val u = mk_graph (sp_default ta) ct []
+  val f = sp_default fa in
+  Array.appi (fn(i,x) =>
+    (pr (Int.toString (f i)); pr ": {"; pr (int_list_to_string (map f (rev x))); pr"}\n")) adj_ls
+end;
+
 val dump_to_file = ref NONE : string option ref;
+
+
+fun dump_clash_graph_raw path ctp =
+    let
+      val fd = TextIO.openOut path
+      val _ = pr_clash_graph (fn s => TextIO.output(fd,s)) ctp
+    in
+      TextIO.closeOut fd
+    end;
 
 fun dump_clash_tree_raw path n k ctp moves force fs s =
     let
@@ -192,8 +293,9 @@ fun dump_clash_tree n k ctp moves force fs =
   case !dump_to_file of
     NONE => ()
   | SOME prefix =>
-    dump_clash_tree_raw (prefix ^ Int.toString n ^".txt")
+    (dump_clash_tree_raw (prefix ^ Int.toString n ^".txt")
       n k ctp moves force fs Ln;
+     dump_clash_graph_raw (prefix ^ Int.toString n ^".graph") ctp);
 
 fun apply_moves f moves =
   map (fn (p,(x,y)) => (p,(f x, f y))) moves;
@@ -212,8 +314,9 @@ fun dump_clash_tree_sol n k ctp moves force fs s =
       val force_s = apply_force f force
       val fs_s = apply_spt f fs
     in
-      dump_clash_tree_raw (prefix ^ Int.toString n ^"_allocated.txt")
-        n k ctp_s moves_s force_s fs_s s
+      (dump_clash_tree_raw (prefix ^ Int.toString n ^"_allocated.txt")
+        n k ctp_s moves_s force_s fs_s s;
+       dump_clash_graph_raw (prefix ^ Int.toString n ^"_allocated.graph") ctp_s)
     end;
 
 (* --- direct version --- *)
@@ -478,7 +581,8 @@ fun get_oracle alg t =
         (Seq (Delta [1;2;3][4;5;6]) (Set (fromList [();();();()])))
         (Seq (Delta [1;2;3][4;5;6]) (Set (fromList [();();();()]))))
       (Seq (Seq (Delta [][]) (Branch NONE (Set LN) (Set LN))) (Seq (Set LN) (Delta [][])))``));
-  val clash_tree_poly = pr_clash_tree print "" (dest_clash_tree tr)
+  val clash_tree_poly = pr_clash_tree print ""
+  pr_clash_graph ct;
 *)
 
 end
