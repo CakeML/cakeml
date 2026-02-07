@@ -11,6 +11,7 @@ open preamble caml_lexTheory;
 open parserProgTheory ml_translatorLib ml_translatorTheory;
 
 val _ = translation_extends "parserProg";
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "caml_lexProg");
 
 (* -------------------------------------------------------------------------
  * Translator setup
@@ -157,6 +158,6 @@ val r = translate scan_float_or_int_def;
 val r = translate (caml_lexTheory.next_sym_def |> REWRITE_RULE [GSYM sub_check_def]);
 
 val r = translate caml_lexTheory.lexer_fun_def;
-
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
 val () = ml_translatorLib.clean_on_exit := true;

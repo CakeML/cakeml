@@ -3561,12 +3561,6 @@ Proof
 SIMP_TAC std_ss []
 QED
 
-Theorem IMP_EQ_T:
-  a ==> (a <=> T)
-Proof
-fs []
-QED
-
 Theorem BETA_PAIR_THM:
   (\(x, y). f x y) (x, y) = (\x y. f x y) x y
 Proof

@@ -20,6 +20,8 @@ open basisProgTheory
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
 val _ = translation_extends "pancake_parseProg";
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "reg_allocProg");
+
 val _ = ml_translatorLib.use_sub_check true;
 (*
 val _ = translation_extends "basisProg";
@@ -450,4 +452,5 @@ val _ = disable_astPP()
 
 *)
 
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 val _ = (ml_translatorLib.clean_on_exit := true);

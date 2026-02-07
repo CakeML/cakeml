@@ -46,15 +46,16 @@ sig
   val TRUE  : term
   val FALSE : term
 
-  val BOOL        : term
-  val WORD        : term
-  val FLOAT64     : term
-  val NUM         : term
-  val INT         : term
-  val CHAR        : term
-  val STRING_TYPE : term
-  val UNIT_TYPE   : term
-  val LIST_TYPE   : term
+  val BOOL            : term
+  val WORD            : term
+  val FLOAT64         : term
+  val NUM             : term
+  val INT             : term
+  val CHAR            : term
+  val STRING_TYPE     : term
+  val HOL_STRING_TYPE : term
+  val UNIT_TYPE       : term
+  val LIST_TYPE       : term
 
   val DUMMY_TYPE_REP_v  : term
 
