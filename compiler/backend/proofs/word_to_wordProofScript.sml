@@ -117,8 +117,9 @@ Proof
   gvs [] >>
 
   (* word_copy *)
-  simp[Once (GSYM evaluate_copy_prop)]>>
   strip_tac >>
+  `evaluate (p4, st with permute := perm') = (res, rcst with locals := t')` by
+    (simp[Abbr `p4`] >> simp[Once evaluate_copy_prop] >> gvs[]) >>
   (* three_to_two_reg_prog *)
   old_drule evaluate_three_to_two_reg_prog>>
   simp[]>>
