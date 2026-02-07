@@ -1084,10 +1084,7 @@ Proof
          bytes_in_memory_APPEND]
 QED
 
-fun get_thms ty = { case_def = TypeBase.case_def_of ty, nchotomy = TypeBase.nchotomy_of ty }
-val lab_thms = get_thms ``:lab``
-val option_thms = get_thms ``:'a option``
-val case_eq_thms0 = map prove_case_eq_thm [lab_thms, option_thms]
+val case_eq_thms0 = map TypeBase.case_eq_of [``:lab``, ``:'a option``]
 val bool_case_eq_thms = map (fn th =>
   let val v = th |> concl |> lhs |> rhs
   in th |> GEN v |> Q.ISPEC`T` |> SIMP_RULE bool_ss [] end) case_eq_thms0

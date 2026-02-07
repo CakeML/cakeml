@@ -208,16 +208,9 @@ Proof
  >> metis_tac [match_result_distinct, match_result_11]
 QED
 
-val op_thms = { nchotomy = op_nchotomy, case_def = op_case_def}
-val list_thms = { nchotomy = list_nchotomy, case_def = list_case_def}
-val option_thms = { nchotomy = option_nchotomy, case_def = option_case_def}
-val v_thms = { nchotomy = v_nchotomy, case_def = v_case_def}
-val store_v_thms = { nchotomy = store_v_nchotomy, case_def = store_v_case_def}
-val lit_thms = { nchotomy = lit_nchotomy, case_def = lit_case_def}
-val eq_v_thms = { nchotomy = eq_result_nchotomy, case_def = eq_result_case_def}
-val wz_thms = { nchotomy = word_size_nchotomy, case_def = word_size_case_def}
-val eqs = LIST_CONJ (map prove_case_eq_thm
-  [op_thms, list_thms, option_thms, v_thms, store_v_thms, lit_thms, eq_v_thms, wz_thms])
+val eqs = LIST_CONJ (map TypeBase.case_eq_of
+  [``:op``, ``:'a list``, ``:'a option``, ``:v``, ``:'a store_v``, ``:lit``,
+   ``:eq_result``, ``:word_size``])
 
 Theorem pair_case_eq[local]:
   pair_CASE x f = v ⇔ ?x1 x2. x = (x1,x2) ∧ f x1 x2 = v
