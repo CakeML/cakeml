@@ -432,11 +432,16 @@ Proof
     \\ pure_rewrite_tac [Once state_rel_thm] \\ rw []
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ drule_all memory_rel_get_var_IMP \\ rw [] \\ gvs []
-    (* This is what we previously got from `memory_rel_Force` but we have
-       to get it another way now *)
-    \\ `∃x x'. get_real_addr c t.store w1 = SOME x ∧
-            t.memory x = Word x' ∧
-            x ∈ t.mdomain` by cheat \\ gvs []
+    \\ `∃x' w.
+          get_real_addr c t.store w1 = SOME x' ∧ x' ∈ t.mdomain ∧
+          t.memory x' = Word w ∧ x' + bytes_in_word ∈ t.mdomain ∧
+          memory_rel c t.be (THE s.tstamps) s.refs s.space t.store t.memory
+             t.mdomain
+             ((a,t.memory (x' + bytes_in_word))::(RefPtr b n',Word w1)::
+                (join_env s.locals
+                   (toAList (inter t.locals (adjust_set s.locals))) ++
+                 [(the_global s.global,t.store ' Globals)] ++
+                 flat s.stack t.stack))` by cheat \\ gvs []
     \\ `word_exp t (real_addr c (adjust_var src)) = SOME (Word x')`
       by metis_tac [get_real_addr_lemma] \\ gvs []
     \\ simp [Once list_Seq_def, wordSemTheory.evaluate_def]
@@ -450,7 +455,45 @@ Proof
     \\ Cases_on `has_been_eval` \\ gvs []
     >- (
       IF_CASES_TAC \\ gvs []
-      >- cheat
+      >- (
+        TOP_CASE_TAC \\ gvs []
+        >- (
+          simp [wordSemTheory.evaluate_def, wordSemTheory.word_exp_def,
+                wordSemTheory.get_var_def, lookup_insert,
+                wordSemTheory.the_words_def, word_op_def,
+                wordSemTheory.mem_load_def, wordSemTheory.set_var_def,
+                wordSemTheory.get_vars_def]
+          \\ simp [flush_state_def, wordSemTheory.flush_state_def]
+          \\ gvs [state_rel_thm]
+          \\ conj_tac
+          >-
+           (irule backendPropsTheory.option_le_trans
+            \\ first_x_assum $ irule_at Any
+            \\ Cases_on ‘s.locals_size’ \\ fs []
+            \\ Cases_on ‘stack_size t.stack’ \\ fs [])
+          \\ qpat_x_assum ‘_ t.mdomain _’ mp_tac
+          \\ match_mp_tac memory_rel_rearrange
+          \\ simp [SF DNF_ss, join_env_def])
+        \\ TOP_CASE_TAC \\ gvs []
+        \\ simp [wordSemTheory.evaluate_def, wordSemTheory.word_exp_def,
+                 wordSemTheory.get_var_def, lookup_insert,
+                 wordSemTheory.the_words_def, word_op_def,
+                 wordSemTheory.mem_load_def]
+        \\ gvs [wordSemTheory.get_var_def, wordSemTheory.set_var_def]
+        \\ Cases_on `cut_env r s.locals` \\ gvs []
+        \\ conj_tac >- (simp [set_var_def])
+        \\ simp [wordSemTheory.set_var_def, set_var_def]
+        \\ fs [state_rel_thm,lookup_insert,adjust_var_11]
+        \\ conj_tac >- (rw [] \\ gvs [cut_env_def,lookup_inter_alt]
+                        \\ pop_assum mp_tac \\ rw [] \\ fs [])
+        \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+        \\ match_mp_tac memory_rel_insert
+        \\ fs[inter_insert_ODD_adjust_set_alt]
+        \\ qpat_x_assum ‘_ t.mdomain _’ mp_tac
+        \\ match_mp_tac memory_rel_rearrange
+        \\ simp [SF DNF_ss]
+        \\ rpt strip_tac
+        \\ drule_all MEM_join_env_cut_env \\ fs [])
       \\ drule_all memory_rel_Thunk_bits
       \\ strip_tac \\ gvs []
       \\ TOP_CASE_TAC \\ gvs []
@@ -502,7 +545,7 @@ Proof
              wordSemTheory.mem_load_def, wordSemTheory.set_var_def]
     \\ Cases_on `find_code (SOME loc) [RefPtr b n'; a] s.code
                            s.stack_frame_sizes` \\ gvs []
-    \\ Cases_on `x'''` \\ gvs []
+    \\ Cases_on `x''` \\ gvs []
     \\ Cases_on `r` \\ gvs []
     \\ Cases_on `ret` \\ gvs []
     >- (
@@ -512,7 +555,7 @@ Proof
       \\ simp [wordSemTheory.bad_dest_args_def]
       \\ gvs [find_code_def]
       \\ Cases_on `lookup loc s.code` \\ gvs []
-      \\ Cases_on `x'''` \\ gvs []
+      \\ Cases_on `x''` \\ gvs []
       \\ simp [wordSemTheory.find_code_def]
       \\ qpat_x_assum `code_rel _ _ _` assume_tac
       \\ gvs [code_rel_def]
@@ -567,7 +610,7 @@ Proof
     \\ simp [wordSemTheory.bad_dest_args_def]
     \\ gvs [find_code_def]
     \\ Cases_on `lookup loc s.code` \\ gvs []
-    \\ Cases_on `x'''` \\ gvs []
+    \\ Cases_on `x''` \\ gvs []
     \\ simp [wordSemTheory.find_code_def]
     \\ qpat_x_assum `code_rel _ _ _` assume_tac
     \\ gvs [code_rel_def]
