@@ -260,8 +260,14 @@ End
 Definition XorLoop_location_def:
   XorLoop_location = AppendLenLoop_location+1
 End
+Definition StringCmpF_location_def:
+  StringCmpF_location = XorLoop_location+1
+End
+Definition StringCmpT_location_def:
+  StringCmpT_location = StringCmpF_location+1
+End
 Definition Bignum_location_def:
-  Bignum_location = XorLoop_location+1
+  Bignum_location = StringCmpT_location+1
 End
 
 Theorem FromList_location_eq =
@@ -326,6 +332,10 @@ Theorem AppendLenLoop_location_eq =
   ``AppendLenLoop_location`` |> EVAL
 Theorem XorLoop_location_eq =
   ``XorLoop_location`` |> EVAL
+Theorem StringCmpF_location_eq =
+  ``StringCmpF_location`` |> EVAL
+Theorem StringCmpT_location_eq =
+  ``StringCmpT_location`` |> EVAL
 
 Definition SilentFFI_def:
   SilentFFI c n names =
@@ -921,6 +931,58 @@ End
 
 Definition XorLoop_code_def:
   XorLoop_code =
+    If Lower 6 (Imm 2w)
+      (If Equal 6 (Imm 0w)
+         (list_Seq [Assign 1 (Const 2w);
+                    Return 0 [1]])
+         (list_Seq [Assign 5 (Load (Var 4));
+                    Assign 3 (Load (Var 2));
+                    Assign 7 (Op Xor [Var 5; Var 3]);
+                    Store (Var 2) 7;
+                    Assign 1 (Const 2w);
+                    Return 0 [1]]))
+      (list_Seq [Assign 5 (Load (Var 4));
+                 Assign 3 (Load (Var 2));
+                 Assign 9 (Load (Op Add [Var 4; Const bytes_in_word]));
+                 Assign 7 (Load (Op Add [Var 2; Const bytes_in_word]));
+                 Assign 6 (Op Sub [Var 6; Const 2w]);
+                 Assign 5 (Op Xor [Var 5; Var 3]);
+                 Assign 9 (Op Xor [Var 9; Var 7]);
+                 Store (Var 2) 5;
+                 Store (Op Add [Var 2; Const bytes_in_word]) 9;
+                 Assign 4 (Op Add [Var 4; Const (2w * bytes_in_word)]);
+                 Assign 2 (Op Add [Var 2; Const (2w * bytes_in_word)]);
+                 Call NONE (SOME XorLoop_location) [0;2;4;6] NONE]) :'a wordLang$prog
+End
+
+Definition StringCmpT_code_def:
+  StringCmpT_code =
+    If Lower 6 (Imm 2w)
+      (If Equal 6 (Imm 0w)
+         (list_Seq [Assign 1 (Const 2w);
+                    Return 0 [1]])
+         (list_Seq [Assign 5 (Load (Var 4));
+                    Assign 3 (Load (Var 2));
+                    Assign 7 (Op Xor [Var 5; Var 3]);
+                    Store (Var 2) 7;
+                    Assign 1 (Const 2w);
+                    Return 0 [1]]))
+      (list_Seq [Assign 5 (Load (Var 4));
+                 Assign 3 (Load (Var 2));
+                 Assign 9 (Load (Op Add [Var 4; Const bytes_in_word]));
+                 Assign 7 (Load (Op Add [Var 2; Const bytes_in_word]));
+                 Assign 6 (Op Sub [Var 6; Const 2w]);
+                 Assign 5 (Op Xor [Var 5; Var 3]);
+                 Assign 9 (Op Xor [Var 9; Var 7]);
+                 Store (Var 2) 5;
+                 Store (Op Add [Var 2; Const bytes_in_word]) 9;
+                 Assign 4 (Op Add [Var 4; Const (2w * bytes_in_word)]);
+                 Assign 2 (Op Add [Var 2; Const (2w * bytes_in_word)]);
+                 Call NONE (SOME XorLoop_location) [0;2;4;6] NONE]) :'a wordLang$prog
+End
+
+Definition StringCmpF_code_def:
+  StringCmpF_code =
     If Lower 6 (Imm 2w)
       (If Equal 6 (Imm 0w)
          (list_Seq [Assign 1 (Const 2w);
@@ -1543,6 +1605,21 @@ val def = assign_Define `
 val def = assign_Define `
   assign_XorByte (c:data_to_word$config) (secn:num)
              (l:num) (dest:num) (names:num_set option) v1 v2 =
+    (list_Seq [
+        Assign 1 (real_addr c (adjust_var v1));
+        Assign 3 (real_addr c (adjust_var v2));
+        Assign 5 (SmallLsr (Load (Var 3)) (dimindex (:'a) - c.len_size));
+        Assign 1 (Op Add [Var 1; Const bytes_in_word]);
+        Assign 3 (Op Add [Var 3; Const (bytes_in_word:'a word)]);
+        MustTerminate
+          (Call
+            (SOME ([adjust_var dest],adjust_sets (get_names names),Skip,secn,l))
+            (SOME XorLoop_location) [1;3;5] NONE)],l + 1)
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_StringCmp (c:data_to_word$config) (secn:num)
+             (l:num) (dest:num) (names:num_set option) (b:bool) (cmp:ast$opb) v1 v2 =
     (list_Seq [
         Assign 1 (real_addr c (adjust_var v1));
         Assign 3 (real_addr c (adjust_var v2));
@@ -2404,6 +2481,7 @@ Definition assign_def:
     | ThunkOp (UpdateThunk ev) => arg2 args (assign_UpdateThunk ev c l dest) (Skip,l)
     | MemOp (RefByte imm) => arg2 args (assign_RefByte c secn l dest names imm) (Skip,l)
     | MemOp XorByte => arg2 args (assign_XorByte c secn l dest names) (Skip,l)
+    | MemOp (StringCmp b cmp) => arg2 args (assign_StringCmp c secn l dest names b cmp) (Skip,l)
     | Label n => (LocValue (adjust_var dest) n,l)
     | MemOp (CopyByte alloc_new) => assign_CopyByte c secn l dest names args
     | MemOp RefArray => arg2 args (assign_RefArray c secn l dest names) (Skip,l)
@@ -2687,6 +2765,8 @@ Definition stubs_def:
     (AppendMainLoop_location,6n,AppendMainLoop_code data_conf);
     (AppendLenLoop_location,3n,AppendLenLoop_code data_conf);
     (XorLoop_location,4n,XorLoop_code);
+    (StringCmpF_location,6n,StringCmpF_code);
+    (StringCmpT_location,4n,StringCmpT_code);
     (MemCopy_location,5n,MemCopy_code);
     (ByteCopy_location,6n,ByteCopy_code data_conf);
     (ByteCopyAdd_location,5n,ByteCopyAdd_code);
@@ -2722,6 +2802,8 @@ Definition stub_names_def:
     (AppendMainLoop_location,«_AppendMainLoop»);
     (AppendLenLoop_location,«_AppendLenLoop»);
     (XorLoop_location,«_XorLoop»);
+    (StringCmpF_location,«_StringCmpF»);
+    (StringCmpT_location,«_StringCmpT»);
     (MemCopy_location,«_MemCopy»);
     (ByteCopy_location,«_ByteCopy»);
     (ByteCopyAdd_location,«_ByteCopyAdd»);

@@ -3483,6 +3483,12 @@ Proof
   \\ simp [wordSemTheory.state_component_equality]
 QED
 
+Theorem assign_StringCmp:
+  (∃b cmp. op = MemOp (StringCmp b cmp)) ==> ^assign_thm_goal
+Proof
+  cheat
+QED
+
 Theorem assign_XorByte:
   op = MemOp XorByte ==> ^assign_thm_goal
 Proof

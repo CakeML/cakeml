@@ -301,6 +301,9 @@ Definition stack_consumed_def:
      (lookup Replicate_location sfs)) /\
   (stack_consumed sfs lims (MemOp XorByte) vs =
     lookup XorLoop_location sfs) /\
+  (stack_consumed sfs lims (MemOp (StringCmp b cmp)) vs =
+    if b then lookup StringCmpF_location sfs
+         else lookup StringCmpT_location sfs) /\
   (stack_consumed sfs lims (BlockOp (ConsExtend _)) vs =
     lookup MemCopy_location sfs) /\
     (* MemCopy looks not always necessary. Could be refined for more precise bounds. *)
@@ -940,6 +943,13 @@ Definition do_app_aux_def:
            (case xor_bytes ws ds of
             | SOME ds1 => Rval (Unit, s with refs := insert dst (ByteArray f ds1) s.refs)
             | NONE => Error)
+         | _ => Error)
+    | (MemOp (StringCmp b cmp),[RefPtr _ s1; RefPtr _ s2]) =>
+        (case (lookup s1 s.refs, lookup s2 s.refs) of
+         | (SOME (ByteArray _ ws1),SOME (ByteArray _ ws2)) =>
+             (let s1 = implode (MAP (CHR o w2n) ws1) in
+              let s2 = implode (MAP (CHR o w2n) ws2) in
+                Rval (Boolv (semanticPrimitives$str_cmp b cmp s1 s2), s))
          | _ => Error)
     | (MemOp (CopyByte F),[RefPtr _ src; Number srcoff; Number len; RefPtr _ dst; Number dstoff]) =>
         (case (lookup src s.refs, lookup dst s.refs) of

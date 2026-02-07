@@ -88,6 +88,14 @@ Vector.find: ('a -> bool) -> 'a Vector.vector -> 'a option
 Vector.exists: ('a -> bool) -> 'a Vector.vector -> bool
 Vector.all: ('a -> bool) -> 'a Vector.vector -> bool
 Vector.collate: ('a -> 'b -> ordering) -> 'a Vector.vector -> 'b Vector.vector -> ordering
+String.Fast.<: string -> string -> bool
+String.Fast.<=: string -> string -> bool
+String.Fast.>: string -> string -> bool
+String.Fast.>=: string -> string -> bool
+String.<: string -> string -> bool
+String.<=: string -> string -> bool
+String.>: string -> string -> bool
+String.>=: string -> string -> bool
 String.sub: string -> int -> char
 String.implode: char list -> string
 String.explode: string -> char list
@@ -109,10 +117,6 @@ String.isSubstring: string -> string -> bool
 String.isSuffix: string -> string -> bool
 String.isPrefix: string -> string -> bool
 String.compare: string -> string -> ordering
-String.<: string -> string -> bool
-String.<=: string -> string -> bool
-String.>=: string -> string -> bool
-String.>: string -> string -> bool
 String.collate: (char -> char -> ordering) -> string -> string -> ordering
 String.char_escape_seq: char -> string option
 String.escape_str: string -> string
