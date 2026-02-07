@@ -209,6 +209,7 @@ Word64.~>>: Word64.word -> int -> Word64.word
 Word64.ror: Word64.word -> int -> Word64.word
 Word64.concatAll: Word8.word -> Word8.word -> Word8.word -> Word8.word -> Word8.word -> Word8.word -> Word8.word -> Word8.word -> Word64.word
 Word8.fromInt: int -> Word8.word
+Word8.fromChar: char -> Word8.word
 Word8.toInt: Word8.word -> int
 Word8.toIntSigned: Word8.word -> int
 Word8.andb: Word8.word -> Word8.word -> Word8.word
