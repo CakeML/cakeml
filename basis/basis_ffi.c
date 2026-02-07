@@ -5,24 +5,34 @@
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <sys/time.h>
 #include <unistd.h>
 #ifdef EVAL
 #include <signal.h>
 #include <sys/mman.h>
-#include <sys/stat.h>
-#include <sys/time.h>
 #endif
+
+_Static_assert(CHAR_BIT == 8, "CakeML FFI requires CHAR_BIT == 8");
+_Static_assert(sizeof(double) == 8, "CakeML FFI requires 64-bit doubles");
 
 /* This flag is on by default. It catches CakeML's out-of-memory exit codes
  * and prints a helpful message to stderr.
  * Note that this is not specified by the basis library.
  * */
 #define STDERR_MEM_EXHAUST
+
+/* Named constants for heap/stack configuration */
+#define BYTES_PER_MB       (1024UL * 1024UL)
+#define DEFAULT_HEAP_MB    1024UL
+#define DEFAULT_STACK_MB   1024UL
+#define MIN_COMBINED_BYTES 8192UL
 
 /* clFFI (command line) */
 
@@ -44,9 +54,9 @@ extern char cake_codebuffer_end;
 /* Signal handler for SIGINT */
 
 /* This is set to 1 when the runtime traps a SIGINT */
-volatile sig_atomic_t caught_sigint = 0;
+static volatile sig_atomic_t caught_sigint = 0;
 
-void do_sigint(int sig_num)
+static void do_sigint(int sig_num)
 {
     signal(SIGINT, do_sigint);
     caught_sigint = 1;
@@ -97,20 +107,19 @@ void ffiget_arg (unsigned char *c, long clen, unsigned char *a, long alen) {
   }
 }
 
-void int_to_byte2(int i, unsigned char *b){
+static void int_to_byte2(int i, unsigned char *b) {
     /* i is encoded on 2 bytes */
     b[0] = (i >> 8) & 0xFF;
     b[1] = i & 0xFF;
 }
 
-int byte2_to_int(unsigned char *b){
+static int byte2_to_int(unsigned char *b) {
     return ((b[0] << 8) | b[1]);
 }
 
-void int_to_byte8(int i, unsigned char *b){
+/* Note: the int parameter is widened to long long to fill all 8 bytes */
+static void int_to_byte8(int i, unsigned char *b) {
     /* i is encoded on 8 bytes */
-    /* i is cast to long long to ensure having 64 bits */
-    /* assumes CHAR_BIT = 8. use static assertion checks? */
     b[0] = ((long long) i >> 56) & 0xFF;
     b[1] = ((long long) i >> 48) & 0xFF;
     b[2] = ((long long) i >> 40) & 0xFF;
@@ -121,7 +130,8 @@ void int_to_byte8(int i, unsigned char *b){
     b[7] =  (long long) i & 0xFF;
 }
 
-int byte8_to_int(unsigned char *b){
+/* Note: returns int but reconstructs from 8 bytes via long long */
+static int byte8_to_int(unsigned char *b) {
     return (((long long) b[0] << 56) | ((long long) b[1] << 48) |
              ((long long) b[2] << 40) | ((long long) b[3] << 32) |
              (b[4] << 24) | (b[5] << 16) | (b[6] << 8) | b[7]);
@@ -133,27 +143,23 @@ int byte8_to_int(unsigned char *b){
 void ffiopen_in (unsigned char *c, long clen, unsigned char *a, long alen) {
   assert(9 <= alen);
   int fd = open((const char *) c, O_RDONLY);
-  if (0 <= fd){
+  if (0 <= fd) {
     a[0] = 0;
     int_to_byte8(fd, &a[1]);
-  }
-  else
+  } else {
     a[0] = 1;
+  }
 }
 
 void ffiopen_out (unsigned char *c, long clen, unsigned char *a, long alen) {
   assert(9 <= alen);
-  #ifdef EVAL
   int fd = open((const char *) c, O_RDWR|O_CREAT|O_TRUNC, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
-  #else
-  int fd = open((const char *) c, O_RDWR|O_CREAT|O_TRUNC, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
-  #endif
-  if (0 <= fd){
+  if (0 <= fd) {
     a[0] = 0;
     int_to_byte8(fd, &a[1]);
-  }
-  else
+  } else {
     a[0] = 1;
+  }
 }
 
 void ffiread (unsigned char *c, long clen, unsigned char *a, long alen) {
@@ -162,28 +168,26 @@ void ffiread (unsigned char *c, long clen, unsigned char *a, long alen) {
   int n = byte2_to_int(a);
   assert(alen >= n + 4);
   int nread = read(fd, &a[4], n);
-  if(nread < 0){
+  if (nread < 0) {
     a[0] = 1;
-  }
-  else{
+  } else {
     a[0] = 0;
-    int_to_byte2(nread,&a[1]);
+    int_to_byte2(nread, &a[1]);
   }
 }
 
-void ffiwrite (unsigned char *c, long clen, unsigned char *a, long alen){
+void ffiwrite (unsigned char *c, long clen, unsigned char *a, long alen) {
   assert(clen == 8);
   int fd = byte8_to_int(c);
   int n = byte2_to_int(a);
   int off = byte2_to_int(&a[2]);
   assert(alen >= n + off + 4);
   int nw = write(fd, &a[4 + off], n);
-  if(nw < 0){
+  if (nw < 0) {
       a[0] = 1;
-  }
-  else{
+  } else {
     a[0] = 0;
-    int_to_byte2(nw,&a[1]);
+    int_to_byte2(nw, &a[1]);
   }
 }
 
@@ -196,32 +200,33 @@ void fficlose (unsigned char *c, long clen, unsigned char *a, long alen) {
 }
 
 /* GC FFI */
-int inGC = 0;
-struct timeval t1,t2,lastT;
-long microsecs = 0;
-int numGC = 0;
-int hasT = 0;
-long prevOcc = 0;
-long numAllocBytes = 0;
+#ifdef DEBUG_FFI
+static int inGC = 0;
+static struct timeval t1, t2, lastT;
+static long microsecs = 0;
+static int numGC = 0;
+static int hasT = 0;
+static long prevOcc = 0;
+static long numAllocBytes = 0;
+#endif
 
 void cml_exit(int arg) {
 
   #ifdef STDERR_MEM_EXHAUST
   if (arg != 0) {
-    fprintf(stderr,"Program exited with nonzero exit code.\n");
+    fprintf(stderr, "Program exited with nonzero exit code.\n");
   }
   #endif
 
   #ifdef DEBUG_FFI
   {
-    if(arg == 1) {
-      fprintf(stderr,"CakeML heap space exhausted.\n");
+    if (arg == 1) {
+      fprintf(stderr, "CakeML heap space exhausted.\n");
+    } else if (arg == 2) {
+      fprintf(stderr, "CakeML stack space exhausted.\n");
     }
-    else if(arg == 2) {
-      fprintf(stderr,"CakeML stack space exhausted.\n");
-    }
-    fprintf(stderr,"GCNum: %d, GCTime(us): %ld\n",numGC,microsecs);
-    fprintf(stderr,"Total allocated heap data: %ld bytes\n",numAllocBytes);
+    fprintf(stderr, "GCNum: %d, GCTime(us): %ld\n", numGC, microsecs);
+    fprintf(stderr, "Total allocated heap data: %ld bytes\n", numAllocBytes);
   }
   #endif
 
@@ -230,7 +235,7 @@ void cml_exit(int arg) {
 
 void cml_err(int arg) {
   if (arg == 3) {
-    fprintf(stderr,"Memory not ready for entry. You may have not run the init code yet, or be trying to enter during an FFI call.\n");
+    fprintf(stderr, "Memory not ready for entry. You may have not run the init code yet, or be trying to enter during an FFI call.\n");
   }
 
   cml_exit(arg);
@@ -246,56 +251,48 @@ void ffiexit (unsigned char *c, long clen, unsigned char *a, long alen) {
 void ffi (unsigned char *c, long clen, unsigned char *a, long alen) {
   #ifdef DEBUG_FFI
   {
-    if (clen == 0)
-    {
-      if(inGC==1)
-      {
+    #define DEBUG_FFI_INDENT 30
+    if (clen == 0) {
+      if (inGC == 1) {
         gettimeofday(&t2, NULL);
-        microsecs += (t2.tv_usec - t1.tv_usec) + (t2.tv_sec - t1.tv_sec)*1e6;
+        microsecs += (t2.tv_usec - t1.tv_usec) + (t2.tv_sec - t1.tv_sec) * 1000000L;
         numGC++;
         inGC = 0;
-        long occ = (long)c; // number of bytes in occupied in heap (all live after standard GC)
-        // long len = (long)a;
-        // fprintf(stderr,"GC stops  %ld %ld \n",occ,len);
+        long occ = (long)c;
         prevOcc = occ;
-      }
-      else
-      {
+      } else {
         inGC = 1;
         gettimeofday(&t1, NULL);
         long occ = (long)c;
-        // long len = (long)a;
-        // fprintf(stderr,"GC starts %ld %ld \n",occ,len);
         numAllocBytes += (occ - prevOcc);
       }
     } else {
-      int indent = 30;
-      for (int i=0; i<clen; i++) {
-        putc(c[i],stderr);
+      int indent = DEBUG_FFI_INDENT;
+      for (int i = 0; i < clen; i++) {
+        putc(c[i], stderr);
         indent--;
       }
-      for (int i=0; i<indent; i++) {
-        putc(' ',stderr);
+      for (int i = 0; i < indent; i++) {
+        putc(' ', stderr);
       }
       struct timeval nowT;
       gettimeofday(&nowT, NULL);
       if (hasT) {
         long usecs = (nowT.tv_usec - lastT.tv_usec) +
-                     (nowT.tv_sec - lastT.tv_sec)*1e6;
-        fprintf(stderr," --- %ld milliseconds\n",usecs / (long)1000);
+                     (nowT.tv_sec - lastT.tv_sec) * 1000000L;
+        fprintf(stderr, " --- %ld milliseconds\n", usecs / 1000L);
       } else {
-        fprintf(stderr,"\n");
+        fprintf(stderr, "\n");
       }
       gettimeofday(&lastT, NULL);
       hasT = 1;
     }
+    #undef DEBUG_FFI_INDENT
   }
   #endif
 }
 
-// ---------------------------------------------------------------------------
-// Functions on doubles for the Double module
-// ---------------------------------------------------------------------------
+/* Functions on doubles for the Double module */
 
 typedef union {
     double num;
@@ -312,7 +309,7 @@ void ffidouble_fromString(char *c, long clen, char *a, long alen) {
     char *endp;
     errno = 0;
     d.num = strtod(c, &endp);
-    if (errno == ERANGE || endp && *endp != '\0') {
+    if (errno == ERANGE || (endp && *endp != '\0')) {
         a[0] = 1;
     } else {
         a[0] = 0;
@@ -382,38 +379,34 @@ int main (int local_argc, char **local_argv) {
 
   char *heap_env = getenv("CML_HEAP_SIZE");
   char *stack_env = getenv("CML_STACK_SIZE");
-  char *temp; //used to store remainder of strtoul parse
+  char *temp; /* used to store remainder of strtoul parse */
 
-  unsigned long sz = 1024*1024; // 1 MB unit
-  unsigned long cml_heap_sz = 1024 * sz;    // Default: 1 GB heap
-  unsigned long cml_stack_sz = 1024 * sz;   // Default: 1 GB stack
+  unsigned long sz = BYTES_PER_MB;
+  unsigned long cml_heap_sz = DEFAULT_HEAP_MB * sz;    /* Default: 1 GB heap */
+  unsigned long cml_stack_sz = DEFAULT_STACK_MB * sz;   /* Default: 1 GB stack */
 
-  // Read CML_HEAP_SIZE env variable (if present)
-  // Warning: strtoul may overflow!
-  if(heap_env != NULL)
-  {
+  /* Read CML_HEAP_SIZE env variable (if present)
+   * Warning: strtoul may overflow! */
+  if (heap_env != NULL) {
     cml_heap_sz = strtoul(heap_env, &temp, 10);
-    cml_heap_sz *= sz; //heap size is read in units of MBs
+    cml_heap_sz *= sz; /* heap size is read in units of MBs */
   }
 
-  if(stack_env != NULL)
-  {
+  if (stack_env != NULL) {
     cml_stack_sz = strtoul(stack_env, &temp, 10);
-    cml_stack_sz *= sz; //stack size is read in units of MBs
+    cml_stack_sz *= sz; /* stack size is read in units of MBs */
   }
 
-  if(cml_heap_sz < sz || cml_stack_sz < sz) //At least 1MB heap and stack size
-  {
+  if (cml_heap_sz < sz || cml_stack_sz < sz) { /* At least 1MB heap and stack size */
     #ifdef STDERR_MEM_EXHAUST
-    fprintf(stderr,"Too small requested heap (%lu) or stack (%lu) size in bytes.\n",cml_heap_sz, cml_stack_sz);
+    fprintf(stderr, "Too small requested heap (%lu) or stack (%lu) size in bytes.\n", cml_heap_sz, cml_stack_sz);
     #endif
     exit(3);
   }
 
-  if(cml_heap_sz + cml_stack_sz < 8192) // Global minimum heap/stack for CakeML. 4096 for 32-bit architectures
-  {
+  if (cml_heap_sz + cml_stack_sz < MIN_COMBINED_BYTES) { /* Global minimum heap/stack for CakeML. 4096 for 32-bit architectures */
     #ifdef STDERR_MEM_EXHAUST
-    fprintf(stderr,"Too small requested heap (%lu) + stack (%lu) size in bytes.\n",cml_heap_sz, cml_stack_sz);
+    fprintf(stderr, "Too small requested heap (%lu) + stack (%lu) size in bytes.\n", cml_heap_sz, cml_stack_sz);
     #endif
     exit(3);
   }
@@ -436,12 +429,11 @@ int main (int local_argc, char **local_argv) {
    *  see `get_stack_heap_limit` in stack_removeProof
    **/
 
-  cml_heap = malloc(cml_heap_sz + cml_stack_sz); // allocate both heap and stack at once
+  cml_heap = malloc(cml_heap_sz + cml_stack_sz); /* allocate both heap and stack at once */
 
-  if(cml_heap == NULL)
-  {
+  if (cml_heap == NULL) {
     #ifdef STDERR_MEM_EXHAUST
-    fprintf(stderr,"failed to allocate sufficient CakeML heap and stack space.\n");
+    fprintf(stderr, "failed to allocate sufficient CakeML heap and stack space.\n");
     perror("malloc");
     #endif
     exit(3);
@@ -453,11 +445,10 @@ int main (int local_argc, char **local_argv) {
   #ifdef EVAL
 
   /** Set up the "eval" code buffer to be read-write-execute. **/
-  if(mprotect(&cake_text_begin, &cake_codebuffer_end - &cake_text_begin,
-              PROT_READ | PROT_WRITE | PROT_EXEC))
-  {
+  if (mprotect(&cake_text_begin, &cake_codebuffer_end - &cake_text_begin,
+              PROT_READ | PROT_WRITE | PROT_EXEC)) {
     #ifdef STDERR_MEM_EXHAUST
-    fprintf(stderr,"failed to set permissions for CakeML code buffer.\n");
+    fprintf(stderr, "failed to set permissions for CakeML code buffer.\n");
     perror("mprotect");
     #endif
     exit(3);
@@ -474,7 +465,7 @@ int main (int local_argc, char **local_argv) {
 
   #endif
 
-  cml_main(); // Passing control to CakeML
+  cml_main(); /* Passing control to CakeML */
 
   return 0;
 }
