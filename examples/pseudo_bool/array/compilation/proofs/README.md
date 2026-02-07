@@ -1,4 +1,4 @@
-Prove end-to-end correctness theorem for PB checker with arrays
+Prove end-to-end correctness theorem for PB checker with arrays.
 
 [cliqueProofScript.sml](cliqueProofScript.sml):
 Compose the semantics theorem and the compiler correctness

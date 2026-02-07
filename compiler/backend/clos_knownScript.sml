@@ -5,7 +5,7 @@
   code in clos_to_bvl). If the code for the applied closure is
   statically known and small enough, then this compiler phase can
   inline the body of the called closure. The function inlining is
-  recurisve and controlled using configurable parameters.
+  recursive and controlled using configurable parameters.
 *)
 Theory clos_known
 Ancestors

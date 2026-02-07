@@ -1,5 +1,5 @@
 (*
-  This compiler phase maps stackLang programs, which has structure
+  This compiler phase maps stackLang programs, which have structure
   such as If, While, Return etc, to labLang programs that are a soup
   of goto-like jumps.
 *)

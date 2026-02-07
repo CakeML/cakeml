@@ -1,5 +1,5 @@
 (*
-  Define new version of CakeML complier where asm_conf is lifted out to
+  Define new version of CakeML compiler where asm_conf is lifted out to
   be a separate argument and where inc_config is used instead of config.
 *)
 Theory backend_asm

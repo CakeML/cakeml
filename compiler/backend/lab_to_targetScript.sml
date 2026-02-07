@@ -1,7 +1,7 @@
 (*
   This compiler phase generates concrete (ARM, x64, ag32, RISC-V,
-  MIPS) machine code from labLang assmebly programs. This phase is the
-  CakeML compiler's assmebler: it computes label offsets and encodes
+  MIPS) machine code from labLang assembly programs. This phase is the
+  CakeML compiler's assembler: it computes label offsets and encodes
   all instructions according to the instruction encoder stored in the
   compiler configuration.
 *)

@@ -1,4 +1,4 @@
-Proofs for Scheme to CakeML compiler
+Proofs for the Scheme-to-CakeML compiler.
 
 [scheme_compileCorrectScript.sml](scheme_compileCorrectScript.sml):
 Top-level semantic preservation proof for Scheme

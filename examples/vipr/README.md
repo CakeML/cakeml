@@ -2,7 +2,7 @@ Formalisation of VIPR: Verifying Integer Programming Results
 https://github.com/ambros-gleixner/VIPR
 
 [compilation](compilation):
-Compilation of VIPR proof checker
+Compilation of VIPR proof checker.
 
 [milpScript.sml](milpScript.sml):
 Formalisation of a syntax and semantics for MILP

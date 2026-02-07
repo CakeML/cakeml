@@ -71,11 +71,11 @@ clos_known.
 A function for generating efficient switch-like jumps in BVL.
 
 [bvl_to_bviScript.sml](bvl_to_bviScript.sml):
-A compiler phases that transforms BVL programs into BVI programs. As
+A compiler phase that transforms BVL programs into BVI programs. As
 part of this phase, certain primitive operations map to "stubs" code
 implemented in BVI; numeric constants are split into smaller ones to
 ease code generation later; Handle is fused with Call; and very
-large expressions are split into samller ones (in order to protect
+large expressions are split into smaller ones (in order to protect
 the register allocator from overly large inputs).
 
 [closLangScript.sml](closLangScript.sml):
@@ -107,7 +107,7 @@ in a program. It attempts to annotate function applications with the
 code in clos_to_bvl). If the code for the applied closure is
 statically known and small enough, then this compiler phase can
 inline the body of the called closure. The function inlining is
-recurisve and controlled using configurable parameters.
+recursive and controlled using configurable parameters.
 
 [clos_letopScript.sml](clos_letopScript.sml):
 This simple compiler phase tidies up after function inlining, in
@@ -126,14 +126,14 @@ This simple compiler phase walks the program and gives each closure
 a unique numeric name.
 
 [clos_opScript.sml](clos_opScript.sml):
-This is file implements a "smart" version of ClosLang's Op
+This file implements a "smart" version of ClosLang's Op
 constructor. When possible, this smart constructor breaks
 the operation into faster separate operators.
 
 [clos_ticksScript.sml](clos_ticksScript.sml):
 This simple compiler phase removes all Tick operations. Tick
 operations appear as a side effect of function inlining, and can be
-removed because they have no observable behaviour. It is good idea
+removed because they have no observable behaviour. It is a good idea
 to remove them because they get in the way of pattern matching done
 by several optimisations.
 
@@ -147,7 +147,7 @@ Files that prepare the compiler backend for computation using HOL4's
 cv_compute mechanism.
 
 [dataLangScript.sml](dataLangScript.sml):
-The dataLang intermediate lannguage is the last language with a
+The dataLang intermediate language is the last language with a
 functional-programming-style data abstraction.
 
 [data_liveScript.sml](data_liveScript.sml):
@@ -178,7 +178,7 @@ Defines a datatype that is handy when keeping track of which dB vars
 are live when traversing a language using dB vars.
 
 [displayLangScript.sml](displayLangScript.sml):
-displayLang is a stepping stone when before pretty printing any of
+displayLang is a stepping stone before pretty printing any of
 the compiler's intermediate languages for inspection by humans. The
 design of displayLang is intentionally very simple. The language
 supports Tuples, Items (e.g. datatype constructors), and Lists.
@@ -223,7 +223,7 @@ in {}, in which case it can be viewed as a key-value store of names
 
 [labLangScript.sml](labLangScript.sml):
 The labLang intermediate language is a target-neutral assembly
-language at the bottom end of the compielr backend.
+language at the bottom end of the compiler backend.
 
 [lab_filterScript.sml](lab_filterScript.sml):
 This compiler phase removes all Skip instructions (generated from
@@ -231,16 +231,16 @@ Tick in stackLang).
 
 [lab_to_targetScript.sml](lab_to_targetScript.sml):
 This compiler phase generates concrete (ARM, x64, ag32, RISC-V,
-MIPS) machine code from labLang assmebly programs. This phase is the
-CakeML compiler's assmebler: it computes label offsets and encodes
+MIPS) machine code from labLang assembly programs. This phase is the
+CakeML compiler's assembler: it computes label offsets and encodes
 all instructions according to the instruction encoder stored in the
 compiler configuration.
 
 [mips](mips):
-This directory contains the mips-specific part of the compiler backend.
+This directory contains the MIPS-specific part of the compiler backend.
 
 [pattern_matching](pattern_matching):
-The CakeML pattern matching expressions compiler
+The CakeML pattern matching expressions compiler.
 
 [presLangLib.sml](presLangLib.sml):
 Library that helps pretty print code
@@ -310,20 +310,20 @@ This compiler phase implements all stack operations as normal memory
 load/store operations.
 
 [stack_to_labScript.sml](stack_to_labScript.sml):
-This compiler phase maps stackLang programs, which has structure
+This compiler phase maps stackLang programs, which have structure
 such as If, While, Return etc, to labLang programs that are a soup
 of goto-like jumps.
 
 [wordLangScript.sml](wordLangScript.sml):
 The wordLang intermediate language consists of structured programs
-that overate over machine words, a list-like stack and a flat memory.
+that operate over machine words, a list-like stack and a flat memory.
 This is the language where register allocation is performed.
 
 [wordLangSyntax.sml](wordLangSyntax.sml):
 ML functions for dealing with the syntax of wordLang programs.
 
 [word_allocScript.sml](word_allocScript.sml):
-This is the compiler's regsiter allocator. It supports different modes:
+This is the compiler's register allocator. It supports different modes:
     0) simple allocator, no spill heuristics;
     1) simple allocator + spill heuristics;
     2) IRC allocator, no spill heuristics (default);
@@ -341,7 +341,7 @@ NOTE: Copy propagation may be incomplete if input is not in SSA form.
 
 [word_cseScript.sml](word_cseScript.sml):
 Defines a common sub-expression elimination pass on a wordLang program.
-This pass is to run immeidately atfer the SSA-like renaming.
+This pass is to run immediately after the SSA-like renaming.
 
 [word_depthScript.sml](word_depthScript.sml):
 Computes the call graph for wordLang program with an acyclic call

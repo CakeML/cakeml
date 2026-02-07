@@ -1,5 +1,5 @@
 (*
-  Syntactic properties proofs for word_to_word.
+  Syntactic properties proofs for wordConvs.
 *)
 Theory wordConvsProof
 Ancestors
