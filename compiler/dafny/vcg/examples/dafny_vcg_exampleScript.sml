@@ -12,6 +12,7 @@ Ancestors
   evaluate
   dafny_to_cakemlProof
   namespace
+  mlstring
   (* -- *)
   dafny_semanticPrimitives
   dafny_evaluate
@@ -513,7 +514,7 @@ Definition clos_env_ok_def:
   clos_env_ok clos_env ⇔
     has_cons clos_env.c ∧
     (∃clos_env'.
-       nsLookup clos_env.v (Short "int_to_string") =
+       nsLookup clos_env.v (Short «int_to_string») =
          SOME (cml_int_to_string_clos clos_env') ∧
        int_to_string_env clos_env')
 End
@@ -529,7 +530,7 @@ Theorem mccarthy_appreturns:
   compile_member mccarthy = INR mccarthy_cml ∧
   clos_env_ok clos_env
   ⇒
-  AppReturns (INT n) (Recclosure clos_env [mccarthy_cml] "dfy_M")
+  AppReturns (INT n) (Recclosure clos_env [mccarthy_cml] «dfy_M»)
     (INT (if n <= 100 then 91 else n - 10))
 Proof
   rpt strip_tac
@@ -568,6 +569,7 @@ Proof
        \\ unabbrev_all_tac
        \\ gvs [nsOptBind_def, build_rec_env_def, mccarthy_env_def]
        \\ drule callable_rel_rules \\ simp []
+       \\ gvs [strcat_def, concat_def]
        \\ disch_then irule \\ gvs []
        \\ gvs [clos_env_ok_def]
        \\ conj_tac

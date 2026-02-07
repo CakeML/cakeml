@@ -5,7 +5,7 @@
 *)
 Theory closLang
 Ancestors
-  ast[qualified] backend_common mlstring
+  ast[qualified] backend_common mlstring fpSem
 Libs
   preamble
 
@@ -63,6 +63,7 @@ Datatype:
      | TagEq num         (* check Block's tag *)
      | LengthBlock       (* get length of Block *)
      | BoolTest ast$test (* tests for bools *)
+     | BoolNot           (* boolean not *)
      | BoundsCheckBlock  (* check that vector index is within bounds *)
      | ConsExtend num    (* construct a Block with given tag. The first three
                             arguments should be a block followed by two numbers
@@ -111,7 +112,7 @@ End
 
 Datatype:
   op = Label num     (* constructs a CodePtr *)
-     | FFI string    (* calls the FFI *)
+     | FFI mlstring    (* calls the FFI *)
      | IntOp int_op
      | WordOp word_op
      | BlockOp block_op

@@ -7,8 +7,7 @@ Ancestors
   fromSexp (* listsexp *)
   string numposrep simpleSexp ml_translator simpleSexpParse
 Libs
-  preamble ml_translatorLib
-  cfTacticsLib (* process_topdecs *)
+  preamble ml_translatorLib basisFunctionsLib
 
 val _ = translation_extends "dafny_remove_assertProg";
 
@@ -233,7 +232,7 @@ val r = translate fromSexpTheory.prim_typesexp_def;
 val r = translate fromSexpTheory.testsexp_def;
 val r = translate fromSexpTheory.arithsexp_def;
 val r = translate fromSexpTheory.opsexp_def;
-val r = translate fromSexpTheory.lopsexp_def;
+val r = translate fromSexpTheory.logsexp_def;
 (* TODO 24 automatically added string IMPLODEs *)
 val r = translate fromSexpTheory.expsexp_def;
 val r = translate fromSexpTheory.type_defsexp_def;
@@ -260,8 +259,9 @@ val _ = r |> hyp |> null orelse
         failwith ("Unproved side condition in the translation of \
                   \dafny_compilerTheory.main_function_def");
 
-val main = process_topdecs
-           ‘print (main_function (Sexp.parse (TextIO.openStdIn ())));’;
+Quote main = cakeml:
+  print (main_function (Sexp.parse (TextIO.openStdIn ())));
+End
 
 val prog =
   get_ml_prog_state ()

@@ -80,7 +80,7 @@ Proof
   ho_match_mp_tac evaluate_ind >>
   rw [] >>
   rw [Once evaluate_cases]>>
-  fs [opClass_cases, isFpBool_def] >>
+  fs [opClass_cases] >>
   rw [] >> fs[] >>
   TRY (disj1_tac >>
        qexists_tac `vs` >>
@@ -619,6 +619,7 @@ Proof
       ‘opClass o' EvalOp’ by (Cases_on ‘o'’ >> TRY (gs[opClass_cases] >> NO_TAC)) >>
       cases_on ‘o'’ >> gs[opClass_cases, do_app_def] >> every_case_tac >> gs[])
   >- ((* Log *)
+      rename [‘do_log l’]  >>
       `exp_size e' < exp_size (Log l e' e0) ∧
        exp_size e0 < exp_size (Log l e' e0)`
              by srw_tac [ARITH_ss] [exp_size_def] >>

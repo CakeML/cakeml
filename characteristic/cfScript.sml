@@ -44,7 +44,7 @@ QED
 
 (* An auxiliary definition *)
 Definition is_bound_Fun_def:
-  is_bound_Fun (SOME _: string option) (Fun _ _) = T /\
+  is_bound_Fun (SOME _: mlstring option) (Fun _ _) = T /\
   is_bound_Fun _ _ = F
 End
 
@@ -1013,7 +1013,7 @@ QED
 
 Definition cf_cases_def:
   cf_cases v nomatch_exn [] env H Q =
-    local (\H Q. H ==>> Q (Exn nomatch_exn) /\ Q =~e> POST_F) H Q /\
+    local (\H Q. H ==>> Q (Exn nomatch_exn)) H Q /\
   cf_cases v nomatch_exn ((pat, row_cf)::rows) env H Q =
     local (\H Q.
       ((if (?insts wildcards. v_of_pat_norest env.c pat insts wildcards = SOME v) then
@@ -1322,194 +1322,171 @@ QED
 
 Definition app_ref_def:
   app_ref (x: v) H Q =
-    ((!r. H * r ~~> x ==>> Q (Val r)) /\
-     Q =~v> POST_F)
+    (∀r. H * r ~~> x ==>> Q (Val r))
 End
 
 Definition app_assign_def:
   app_assign r (x: v) H Q =
-    ((?x' F.
-        (H ==>> F * r ~~> x') /\
-        (F * r ~~> x ==>> Q (Val (Conv NONE [])))) /\
-     Q =~v> POST_F)
+    (∃x' F.
+       (H ==>> F * r ~~> x') /\
+       (F * r ~~> x ==>> Q (Val (Conv NONE []))))
 End
 
 Definition app_deref_def:
   app_deref r H Q =
-    ((?x F.
-        (H ==>> F * r ~~> x) /\
-        (H ==>> Q (Val x))) /\
-     Q =~v> POST_F)
+    (∃x F.
+       (H ==>> F * r ~~> x) /\
+       (H ==>> Q (Val x)))
 End
 
 Definition app_aalloc_def:
   app_aalloc (n: int) v H Q =
-    ((!a.
-        n >= 0 /\
-        (H * ARRAY a (REPLICATE (Num n) v) ==>> Q (Val a))) /\
-     Q =~v> POST_F)
+    (∀a.
+       n >= 0 /\
+       (H * ARRAY a (REPLICATE (Num n) v) ==>> Q (Val a)))
 End
 
 Definition app_asub_def:
   app_asub a (i: int) H Q =
-    ((?vs F.
-        0 <= i /\ (Num i) < LENGTH vs /\
-        (H ==>> F * ARRAY a vs) /\
-        (H ==>> Q (Val (EL (Num i) vs)))) /\
-     Q =~v> POST_F)
+    (∃vs F.
+       0 <= i /\ (Num i) < LENGTH vs /\
+       (H ==>> F * ARRAY a vs) /\
+       (H ==>> Q (Val (EL (Num i) vs))))
 End
 
 Definition app_alength_def:
   app_alength a H Q =
-    ((?vs F.
-        (H ==>> F * ARRAY a vs) /\
-        (H ==>> Q (Val (Litv (IntLit (& LENGTH vs)))))) /\
-     Q =~v> POST_F)
+    (∃vs F.
+       (H ==>> F * ARRAY a vs) /\
+       (H ==>> Q (Val (Litv (IntLit (& LENGTH vs))))))
 End
 
 Definition app_aupdate_def:
   app_aupdate a (i: int) v H Q =
-    ((?vs F.
-        0 <= i /\ (Num i) < LENGTH vs /\
-        (H ==>> F * ARRAY a vs) /\
-        (F * ARRAY a (LUPDATE v (Num i) vs) ==>> Q (Val (Conv NONE [])))) /\
-     Q =~v> POST_F)
+    (∃vs F.
+       0 <= i /\ (Num i) < LENGTH vs /\
+       (H ==>> F * ARRAY a vs) /\
+       (F * ARRAY a (LUPDATE v (Num i) vs) ==>> Q (Val (Conv NONE []))))
 End
 
 Definition app_aw8alloc_def:
   app_aw8alloc (n: int) w H Q =
-    ((!a.
-        n >= 0 /\
-        (H * W8ARRAY a (REPLICATE (Num n) w) ==>> Q (Val a))) /\
-     Q =~v> POST_F)
+    (∀a.
+       n >= 0 /\
+       (H * W8ARRAY a (REPLICATE (Num n) w) ==>> Q (Val a)))
 End
 
 Definition app_aw8sub_def:
   app_aw8sub a (i: int) H Q =
-    ((?ws F.
-        0 <= i /\ (Num i) < LENGTH ws /\
-        (H ==>> F * W8ARRAY a ws) /\
-        (H ==>> Q (Val (Litv (Word8 (EL (Num i) ws)))))) /\
-     Q =~v> POST_F)
+    (∃ws F.
+       0 <= i /\ (Num i) < LENGTH ws /\
+       (H ==>> F * W8ARRAY a ws) /\
+       (H ==>> Q (Val (Litv (Word8 (EL (Num i) ws))))))
 End
 
 Definition app_aw8length_def:
   app_aw8length a H Q =
-    ((?ws F.
-        (H ==>> F * W8ARRAY a ws) /\
-        (H ==>> Q (Val (Litv (IntLit (& LENGTH ws)))))) /\
-     Q =~v> POST_F)
+    (∃ws F.
+       (H ==>> F * W8ARRAY a ws) /\
+       (H ==>> Q (Val (Litv (IntLit (& LENGTH ws))))))
 End
 
 Definition app_aw8update_def:
   app_aw8update a (i: int) w H Q =
-    ((?ws F.
-        0 <= i /\ (Num i) < LENGTH ws /\
-        (H ==>> F * W8ARRAY a ws) /\
-        (F * W8ARRAY a (LUPDATE w (Num i) ws) ==>> Q (Val (Conv NONE [])))) /\
-     Q =~v> POST_F)
+    (∃ws F.
+       0 <= i /\ (Num i) < LENGTH ws /\
+       (H ==>> F * W8ARRAY a ws) /\
+       (F * W8ARRAY a (LUPDATE w (Num i) ws) ==>> Q (Val (Conv NONE []))))
 End
 
 Definition app_copyaw8aw8_def:
   app_copyaw8aw8 s so l d do' H Q =
-    ((?ws wd F.
-        0 <= do' /\ 0 <= so /\ 0 <= l /\
-        (Num do' + Num l) <= LENGTH wd /\ (Num so + Num l) <= LENGTH ws /\
-        (H ==>> F * W8ARRAY s ws * W8ARRAY d wd) /\
-        (F * W8ARRAY s ws *
-             W8ARRAY d (TAKE (Num do') wd ⧺
-                        TAKE (Num l) (DROP (Num so) ws) ⧺
-                        DROP (Num do' + Num l) wd)
-            ==>> Q (Val (Conv NONE [])))) /\
-     Q =~v> POST_F)
+    (∃ws wd F.
+       0 <= do' /\ 0 <= so /\ 0 <= l /\
+       (Num do' + Num l) <= LENGTH wd /\ (Num so + Num l) <= LENGTH ws /\
+       (H ==>> F * W8ARRAY s ws * W8ARRAY d wd) /\
+       (F * W8ARRAY s ws *
+            W8ARRAY d (TAKE (Num do') wd ⧺
+                       TAKE (Num l) (DROP (Num so) ws) ⧺
+                       DROP (Num do' + Num l) wd)
+        ==>> Q (Val (Conv NONE []))))
 End
 
 Definition app_copystraw8_def:
   app_copystraw8 s so l d do' H Q =
-    ((?wd F.
-        0 <= do' /\ 0 <= so /\ 0 <= l /\
-        (Num do' + Num l) <= LENGTH wd /\ (Num so + Num l) <= LENGTH s /\
-        (H ==>> F * W8ARRAY d wd) /\
-        (F * W8ARRAY d (TAKE (Num do') wd ⧺
-                        MAP (n2w o ORD) (TAKE (Num l) (DROP (Num so) s)) ⧺
-                        DROP (Num do' + Num l) wd)
-            ==>> Q (Val (Conv NONE [])))) /\
-     Q =~v> POST_F)
+    (∃wd F.
+       0 <= do' /\ 0 <= so /\ 0 <= l /\
+       (Num do' + Num l) <= LENGTH wd /\ (Num so + Num l) <= strlen s /\
+       (H ==>> F * W8ARRAY d wd) /\
+       (F * W8ARRAY d (TAKE (Num do') wd ⧺
+                       MAP (n2w o ORD) (TAKE (Num l) (DROP (Num so) (explode s))) ⧺
+                       DROP (Num do' + Num l) wd)
+            ==>> Q (Val (Conv NONE []))))
 End
 
 Definition app_copyaw8str_def:
   app_copyaw8str s so l H Q =
-    ((?ws F.
-        0 <= so /\ 0 <= l /\
-        (Num so + Num l) <= LENGTH ws /\
-        (H ==>> F * W8ARRAY s ws) /\
-        (F * W8ARRAY s ws
-            ==>> Q (Val (Litv (StrLit (MAP (CHR o w2n) (TAKE (Num l) (DROP (Num so) ws)))))))) /\
-     Q =~v> POST_F)
+    (∃ws F.
+       0 <= so /\ 0 <= l /\
+       (Num so + Num l) <= LENGTH ws /\
+       (H ==>> F * W8ARRAY s ws) /\
+       (F * W8ARRAY s ws
+        ==>> Q (Val (Litv (StrLit (implode (MAP (CHR o w2n) (TAKE (Num l) (DROP (Num so) ws)))))))))
 End
 
 Definition app_xoraw8str_def:
   app_xoraw8str s d H Q =
-    ((?wd F.
-        LENGTH s ≤ LENGTH wd /\
-        (H ==>> F * W8ARRAY d wd) /\
-        (F * W8ARRAY d (THE (xor_bytes (MAP (n2w o ORD) s) wd))
-            ==>> Q (Val (Conv NONE [])))) /\
-     Q =~v> POST_F)
+    (∃wd F.
+       strlen s ≤ LENGTH wd /\
+       (H ==>> F * W8ARRAY d wd) /\
+       (F * W8ARRAY d (THE (xor_bytes (MAP (n2w o ORD) (explode s)) wd))
+              ==>> Q (Val (Conv NONE []))))
 End
 
 Definition app_wordFromInt_W8_def:
   app_wordFromInt_W8 (i: int) H Q =
-    (H ==>> Q (Val (Litv (Word8 (i2w i)))) /\
-     Q =~v> POST_F)
+    (H ==>> Q (Val (Litv (Word8 (i2w i)))))
 End
 
 Definition app_wordFromInt_W64_def:
   app_wordFromInt_W64 (i: int) H Q =
-    (H ==>> Q (Val (Litv (Word64 (i2w i)))) /\
-     Q =~v> POST_F)
+    (H ==>> Q (Val (Litv (Word64 (i2w i)))))
 End
 
 Definition app_wordToInt_def:
   app_wordToInt w H Q =
-    (H ==>> Q (Val (Litv (IntLit (& w2n w)))) /\
-     Q =~v> POST_F)
+    (H ==>> Q (Val (Litv (IntLit (& w2n w)))))
 End
 
-(*
-Definition app_opn_def:
-  app_opn opn i1 i2 H Q =
-    if (opn = Divide \/ opn = Modulo) /\ i2 = 0 then
-      H ==>> Q (Exn (prim_exn "Div"))
-    else
-      H ==>> Q (Val (Litv (IntLit (opn_lookup opn i1 i2))))
-*)
-
-Definition app_opn_def:
-  app_opn opn i1 i2 H Q =
-    ((if opn = Divide \/ opn = Modulo then i2 <> 0 else T) /\
-     H ==>> Q (Val (Litv (IntLit (opn_lookup opn i1 i2)))) /\
+Definition app_arith_def:
+  app_arith arith i1 i2 H Q =
+    ((if arith = Div \/ arith = Mod then i2 <> 0 else T) /\
+     MEM arith [Add; Sub; Mul; Div; Mod] /\
+     H ==>> Q (Val (Litv (IntLit (case arith of
+                                  | Add => i1 + i2
+                                  | Sub => i1 - i2
+                                  | Mul => i1 * i2
+                                  | Div => i1 / i2
+                                  | Mod => i1 % i2
+                                  | _   => 0)))) /\
      Q =~v> POST_F)
 End
 
 Definition app_int_cmp_def:
   app_int_cmp cmp i1 i2 H Q =
-    (H ==>> Q (Val (Boolv (int_cmp cmp i1 i2))) /\
-     Q =~v> POST_F)
+    (H ==>> Q (Val (Boolv (int_cmp cmp i1 i2))))
 End
 
 Definition app_equality_def:
   app_equality v1 v2 H Q =
     (no_closures v1 /\ no_closures v2 /\
      types_match v1 v2 /\
-     H ==>> Q (Val (Boolv (v1 = v2))) /\
-     Q =~v> POST_F)
+     H ==>> Q (Val (Boolv (v1 = v2))))
 End
 
 Definition cf_lit_def:
   cf_lit l = \env: v sem_env. local (\H Q.
-    H ==>> Q (Val (Litv l)) /\
-    Q =~v> POST_F)
+    H ==>> Q (Val (Litv l)))
 End
 
 Definition cf_con_def:
@@ -1518,16 +1495,14 @@ Definition cf_con_def:
        do_con_check env.c cn (LENGTH args) /\
        (build_conv env.c cn argsv = SOME cv) /\
        (exp2v_list env args = SOME argsv) /\
-       H ==>> Q (Val cv)) /\
-    Q =~v> POST_F)
+       H ==>> Q (Val cv)))
 End
 
 Definition cf_var_def:
   cf_var name = \env. local (\H Q.
     (?v.
        nsLookup env.v name = SOME v /\
-       H ==>> Q (Val v)) /\
-    Q =~v> POST_F)
+       H ==>> Q (Val v)))
 End
 
 Definition cf_let_def:
@@ -1536,12 +1511,12 @@ Definition cf_let_def:
          (!xv. F2 (env with <| v := nsOptBind n xv env.v |>) (Q' (Val xv)) Q))
 End
 
-Definition cf_opn_def:
-  cf_opn opn x1 x2 = \env. local (\H Q.
+Definition cf_arith_def:
+  cf_arith arith x1 x2 = \env. local (\H Q.
     ?i1 i2.
       exp2v env x1 = SOME (Litv (IntLit i1)) /\
       exp2v env x2 = SOME (Litv (IntLit i2)) /\
-      app_opn opn i1 i2 H Q)
+      app_arith arith i1 i2 H Q)
 End
 
 Definition cf_int_cmp_def:
@@ -1596,7 +1571,7 @@ End
 
 Definition cf_fun_rec_def:
   cf_fun_rec (p:'ffi ffi_proj) fs_Fs F2 = \env. local (\H Q.
-    let fs = MAP (\ (f: (string # string list # exp), _). f) fs_Fs in
+    let fs = MAP (\ (f: (mlstring # mlstring list # exp), _). f) fs_Fs in
     let Fs = MAP (\ (_, F). F) fs_Fs in
     let f_names = MAP (\ (f,_,_). f) fs in
     let f_args = MAP (\ (_,ns,_). ns) fs in
@@ -1767,7 +1742,7 @@ End
 
 Definition app_fptoword_def:
    app_fptoword fp H Q =
-   (H ==>> Q (Val (Litv (Word64 fp))) ∧ Q =~v> POST_F)
+   (H ==>> Q (Val (Litv (Word64 fp))))
 End
 
 Definition cf_fptoword_def:
@@ -1779,7 +1754,7 @@ End
 
 Definition app_fpfromword_def:
  app_fpfromword w H Q =
- (H ==>> Q (Val (Litv (Float64 w))) ∧ Q =~v> POST_F)
+ (H ==>> Q (Val (Litv (Float64 w))))
 End
 
 Definition cf_fpfromword_def:
@@ -1793,19 +1768,18 @@ Definition app_ffi_def:
   app_ffi ffi_index c a H Q =
     ((?conf ws frame s u ns events.
          MEM ffi_index ns /\
-         c = Litv(StrLit(MAP (CHR o w2n) conf)) /\
+         c = Litv(StrLit(implode (MAP (CHR o w2n) conf))) /\
          (H ==>> frame * W8ARRAY a ws * one (FFI_part s u ns events) *
-                 cond (~MEM "" ns)) /\
+                 cond (~MEM «» ns)) /\
          (case u ffi_index conf ws s of
             SOME(FFIreturn vs s') =>
              (frame * W8ARRAY a vs * one (FFI_part s' u ns
                  (events ++ [IO_event (ExtCall ffi_index) conf (ZIP (ws, vs))])) *
-              cond (~MEM "" ns)) ==>> Q (Val (Conv NONE []))
+              cond (~MEM «» ns)) ==>> Q (Val (Conv NONE []))
           | SOME(FFIdiverge) =>
              (frame * W8ARRAY a ws * one (FFI_part s u ns events) *
-              cond (~MEM "" ns)) ==>> Q (FFIDiv ffi_index conf ws)
-          | NONE => F)) /\
-     Q ==e> POST_F /\ Q ==d> POST_F)
+              cond (~MEM «» ns)) ==>> Q (FFIDiv ffi_index conf ws)
+          | NONE => F)))
 End
 
 Definition cf_ffi_def:
@@ -1822,10 +1796,10 @@ Definition cf_log_def:
       exp2v env e1 = SOME v /\
       BOOL b v /\
       (case (lop, b) of
-           (And, T) => cf2 env H Q
-         | (Or, F) => cf2 env H Q
-         | (Or, T) => (H ==>> Q (Val v) /\ Q =~v> POST_F)
-         | (And, F) => (H ==>> Q (Val v) /\ Q =~v> POST_F)))
+           (Andalso, T) => cf2 env H Q
+         | (Orelse,  F) => cf2 env H Q
+         | (Orelse,  T) => (H ==>> Q (Val v))
+         | (Andalso, F) => (H ==>> Q (Val v))))
 End
 
 Definition cf_if_def:
@@ -1848,8 +1822,7 @@ Definition cf_raise_def:
   cf_raise e = \env. local (\H Q.
     ?v.
       exp2v env e = SOME v /\
-      H ==>> Q (Exn v) /\
-      Q =~e> POST_F)
+      H ==>> Q (Exn v))
 End
 
 Definition cf_handle_def:
@@ -1878,9 +1851,9 @@ Definition cf_def:
        (cf (p:'ffi ffi_proj) e)) /\
   cf (p:'ffi ffi_proj) (App op args) =
     (case op of
-        | Opn opn =>
+        | Arith arith IntT =>
           (case args of
-            | [x1; x2] => cf_opn opn x1 x2
+            | [x1; x2] => cf_arith arith x1 x2
             | _ => cf_bottom)
         | Test (Compare cmp) IntT =>
           (case args of
@@ -1974,19 +1947,19 @@ Definition cf_def:
           (case args of
              | [d; s] => cf_xoraw8str s d
              | _ => cf_bottom)
-        | WordFromInt W8 =>
+        | FromTo IntT (WordT W8) =>
           (case args of
              | [i] => cf_wordFromInt_W8 i
              | _ => cf_bottom)
-        | WordFromInt W64 =>
+        | FromTo IntT (WordT W64) =>
           (case args of
              | [i] => cf_wordFromInt_W64 i
              | _ => cf_bottom)
-        | WordToInt W8 =>
+        | FromTo (WordT W8) IntT =>
           (case args of
              | [w] => cf_wordToInt_W8 w
              | _ => cf_bottom)
-        | WordToInt W64 =>
+        | FromTo (WordT W64) IntT =>
           (case args of
              | [w] => cf_wordToInt_W64 w
              | _ => cf_bottom)
@@ -1994,11 +1967,11 @@ Definition cf_def:
           (case args of
              | [c;w] => cf_ffi ffi_index c w
              | _ => cf_bottom)
-        | FpFromWord =>
+        | FromTo (WordT W64) Float64T =>
           (case args of
              | [w] => cf_fpfromword w
              | _ => cf_bottom)
-        | FpToWord =>
+        | FromTo Float64T (WordT W64) =>
           (case args of
              | [w] => cf_fptoword w
              | _ => cf_bottom)
@@ -2037,7 +2010,7 @@ val cf_defs = [
   cf_var_def,
   cf_fun_def,
   cf_let_def,
-  cf_opn_def,
+  cf_arith_def,
   cf_int_cmp_def,
   cf_equality_def,
   cf_aalloc_def,
@@ -2448,7 +2421,7 @@ Proof
            (fn th => mp_tac th \\ assume_tac th) \\
      simp_tac std_ss [parts_ok_def] \\ strip_tac \\
      qpat_x_assum `!x. _ ==> _` kall_tac \\
-     `ffi_index ≠ ""` by (strip_tac \\ fs []) \\ fs [] \\
+     `ffi_index ≠ «»` by (strip_tac \\ fs []) \\ fs [] \\
      rpt(first_x_assum progress) \\
      fs[IMPLODE_EXPLODE_I,MAP_MAP_o,o_DEF,state_component_equality]
       ) \\
@@ -2489,7 +2462,7 @@ Proof
          (fn th => mp_tac th \\ assume_tac th) \\
    simp_tac std_ss [parts_ok_def] \\ strip_tac \\
    qpat_x_assum `!x. _ ==> _` kall_tac \\
-   `ffi_index ≠ ""` by (strip_tac \\ fs []) \\ fs [] \\
+   `ffi_index ≠ «»` by (strip_tac \\ fs []) \\ fs [] \\
    first_x_assum progress \\ fs [store_assign_def] \\
    imp_res_tac store2heap_IN_EL \\
    imp_res_tac store2heap_IN_LENGTH \\ fs [] \\
@@ -2685,9 +2658,11 @@ QED
 
 Theorem IMP_xor_bytes_SOME[local]:
   ∀s wd.
-    STRLEN s ≤ LENGTH wd ⇒
-    ∃xor_res. xor_bytes (MAP (n2w ∘ ORD) s) wd = SOME xor_res
+    strlen s ≤ LENGTH wd ⇒
+    ∃xor_res. xor_bytes (MAP (n2w ∘ ORD) (explode s)) wd = SOME xor_res
 Proof
+  Cases_on `s` \\ fs[] \\
+  qid_spec_tac `s'` \\
   Induct \\ Cases_on ‘wd’ \\ gvs [xor_bytes_def]
   \\ rw [] \\ res_tac \\ gvs []
 QED
@@ -2882,14 +2857,13 @@ Proof
       qexists_tac`u` \\
       qexists_tac`{Mem ld (W8array xor_res)}` \\ fs[] \\
       SPLIT_TAC)
-    >~ [‘Opn’] >- (
-      rename1 `app_opn op` \\
+    >~ [‘Arith a IntT’] >- (
       Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\ cf_evaluate_step_tac \\
-      fs [app_opn_def, st2heap_def] \\
+      fs [app_arith_def, st2heap_def] \\
       progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\
       GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
       cf_exp2v_evaluate_tac `st` \\
-      Cases_on `op` \\ fs [do_app_def] \\ fs [SEP_IMP_def] \\
+      fs [do_app_def,do_arith_def,check_type_def] \\ fs [SEP_IMP_def] \\
       fs [state_component_equality]
     )
     >~ [‘Test (Compare cmp) IntT’] >- (
@@ -2902,6 +2876,56 @@ Proof
       fs [SEP_IMP_def] \\
       fs [state_component_equality]
     )
+    >~ [‘FromTo IntT (WordT W8)’] >- (
+      Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\ cf_evaluate_step_tac \\
+      GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
+      cf_exp2v_evaluate_tac `st` \\ fs [do_app_def,check_type_def,do_conversion_def] \\
+      fs [app_wordFromInt_W8_def, app_wordFromInt_W64_def, app_wordToInt_def] \\
+      fs [SEP_IMP_def, st2heap_def] \\ res_tac \\
+      progress SPLIT3_of_SPLIT_emp3 \\ instantiate
+    )
+    >~ [‘FromTo IntT (WordT W64)’] >- (
+      Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\ cf_evaluate_step_tac \\
+      GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
+      cf_exp2v_evaluate_tac `st` \\ fs [do_app_def,check_type_def,do_conversion_def] \\
+      fs [app_wordFromInt_W8_def, app_wordFromInt_W64_def, app_wordToInt_def] \\
+      fs [SEP_IMP_def, st2heap_def] \\ res_tac \\
+      progress SPLIT3_of_SPLIT_emp3 \\ instantiate
+    )
+    >~ [‘FromTo (WordT W8) IntT’] >- (
+      Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\ cf_evaluate_step_tac \\
+      GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
+      cf_exp2v_evaluate_tac `st` \\ fs [do_app_def,check_type_def,do_conversion_def] \\
+      fs [app_wordFromInt_W8_def, app_wordFromInt_W64_def, app_wordToInt_def] \\
+      fs [SEP_IMP_def, st2heap_def] \\ res_tac \\
+      progress SPLIT3_of_SPLIT_emp3 \\ instantiate
+    )
+    >~ [‘FromTo (WordT W64) IntT’] >- (
+      Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\ cf_evaluate_step_tac \\
+      GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
+      cf_exp2v_evaluate_tac `st` \\ fs [do_app_def,check_type_def,do_conversion_def] \\
+      fs [app_wordFromInt_W8_def, app_wordFromInt_W64_def, app_wordToInt_def] \\
+      fs [SEP_IMP_def, st2heap_def] \\ res_tac \\
+      progress SPLIT3_of_SPLIT_emp3 \\ instantiate
+    )
+    >~ [‘FromTo (WordT W64) Float64T’] >- (
+     Q.REFINE_EXISTS_TAC ‘Val v’ \\ simp[] \\ cf_evaluate_step_tac
+     \\ simp[]
+     \\ progress SPLIT3_of_SPLIT_emp3 \\ instantiate
+     \\ GEN_EXISTS_TAC "ck" ‘st.clock’ \\ fs[with_clock_self]
+     \\ cf_exp2v_evaluate_tac ‘st’
+     \\ fs [do_app_def, app_fpfromword_def, check_type_def, do_conversion_def]
+     \\ fs [SEP_IMP_def]
+     \\ fs [state_component_equality])
+    >~ [‘FromTo Float64T (WordT W64)’] >- (
+     Q.REFINE_EXISTS_TAC ‘Val v’ \\ simp[] \\ cf_evaluate_step_tac
+     \\ simp[]
+     \\ progress SPLIT3_of_SPLIT_emp3 \\ instantiate
+     \\ GEN_EXISTS_TAC "ck" ‘st.clock’ \\ fs[with_clock_self]
+     \\ cf_exp2v_evaluate_tac ‘st’
+     \\ fs [do_app_def, app_fptoword_def, check_type_def, do_conversion_def]
+     \\ fs [SEP_IMP_def]
+     \\ fs [state_component_equality])
     THEN1 (
       rename [`Equality`] \\
       Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\ cf_evaluate_step_tac \\
@@ -2911,24 +2935,6 @@ Proof
       fs [SEP_IMP_def] \\ first_assum progress \\ instantiate \\
       qexists_tac `{}` \\ fs [st2heap_def] \\ SPLIT_TAC
     )
-    THEN1 (
-     (* FpFromWord *)
-     Q.REFINE_EXISTS_TAC ‘Val v’ \\ simp[] \\ cf_evaluate_step_tac
-     \\ simp[]
-     \\ progress SPLIT3_of_SPLIT_emp3 \\ instantiate
-     \\ GEN_EXISTS_TAC "ck" ‘st.clock’ \\ fs[with_clock_self]
-     \\ cf_exp2v_evaluate_tac ‘st’ \\ fs [do_app_def, app_fpfromword_def]
-     \\ fs [SEP_IMP_def]
-     \\ fs [state_component_equality])
-    THEN1 (
-     (* FpToWord *)
-     Q.REFINE_EXISTS_TAC ‘Val v’ \\ simp[] \\ cf_evaluate_step_tac
-     \\ simp[]
-     \\ progress SPLIT3_of_SPLIT_emp3 \\ instantiate
-     \\ GEN_EXISTS_TAC "ck" ‘st.clock’ \\ fs[with_clock_self]
-     \\ cf_exp2v_evaluate_tac ‘st’ \\ fs [do_app_def, app_fptoword_def]
-     \\ fs [SEP_IMP_def]
-     \\ fs [state_component_equality])
     THEN1 (
       (* Opapp *)
       rename1 `dest_opapp _ = SOME (f, xs)` \\
@@ -3269,15 +3275,6 @@ Proof
       qexists_tac `{}` \\ mp_tac store2heap_IN_unique_key \\ rpt strip_tac
       THEN1 (progress_then (fs o sing) store2heap_LUPDATE \\ SPLIT_TAC)
       THEN1 (first_assum irule \\ instantiate \\ SPLIT_TAC)
-    ) \\
-    try_finally (
-      (* WordFromInt W8, WordFromInt W64, WordToInt W8, WordToInt W64 *)
-      Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\ cf_evaluate_step_tac \\
-      GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
-      cf_exp2v_evaluate_tac `st` \\ fs [do_app_def] \\
-      fs [app_wordFromInt_W8_def, app_wordFromInt_W64_def, app_wordToInt_def] \\
-      fs [SEP_IMP_def, st2heap_def] \\ res_tac \\
-      progress SPLIT3_of_SPLIT_emp3 \\ instantiate
     ) \\
     try_finally (
       (* CopyStrAw8 *)

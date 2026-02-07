@@ -24,7 +24,7 @@ Definition int_to_display_def:
 End
 
 Definition string_imp_def:
-  string_imp s = String (implode s)
+  string_imp s = String s
 End
 
 Definition item_with_num_def:
@@ -128,7 +128,7 @@ End
 
 Definition fp_bop_to_display_def:
   fp_bop_to_display op = case op of
-    | ast$FP_Add => empty_item (strlit "FP_Add")
+    | FP_Add => empty_item (strlit "FP_Add")
     | FP_Sub => empty_item (strlit "FP_Sub")
     | FP_Mul => empty_item (strlit "FP_Mul")
     | FP_Div => empty_item (strlit "FP_Div")
@@ -144,18 +144,6 @@ Definition word_size_to_display_def:
   (word_size_to_display W8 = empty_item (strlit "W8"))
   /\
   (word_size_to_display W64 = empty_item (strlit "W64"))
-End
-
-Definition opn_to_display_def:
-  (opn_to_display Plus = empty_item (strlit "Plus"))
-  /\
-  (opn_to_display Minus = empty_item (strlit "Minus"))
-  /\
-  (opn_to_display Times = empty_item (strlit "Times"))
-  /\
-  (opn_to_display Divide = empty_item (strlit "Divide"))
-  /\
-  (opn_to_display Modulo = empty_item (strlit "Modulo"))
 End
 
 Definition opb_to_display_def:
@@ -236,13 +224,14 @@ Definition prim_type_to_display_def:
   prim_type_to_display (WordT W64) = empty_item (strlit "WordT_W64")
 End
 
+Definition lop_to_display_def:
+  lop_to_display Andalso = empty_item (strlit "Andalso") ∧
+  lop_to_display Orelse = empty_item (strlit "Orelse")
+End
+
 Definition op_to_display_def:
   op_to_display (p:ast$op) =
   case p of
-  | Opn op => opn_to_display op
-  | Opb op => opb_to_display op
-  | Opw ws op =>
-      Item NONE (strlit "Opw") [ word_size_to_display ws; opw_to_display op ]
   | Shift ws sh num => Item NONE (strlit "Shift")
                             [word_size_to_display ws;
                              shift_to_display sh;
@@ -257,12 +246,6 @@ Definition op_to_display_def:
                          [test_to_display test;
                           prim_type_to_display ty]
   | Equality => empty_item (strlit "Equality")
-  | FP_cmp cmp => fp_cmp_to_display cmp
-  | FP_uop op => fp_uop_to_display op
-  | FP_bop op => fp_bop_to_display op
-  | FP_top op => fp_top_to_display op
-  | FpFromWord => empty_item (strlit "FpFromWord")
-  | FpToWord => empty_item (strlit "FpToWord")
   | Opapp => empty_item (strlit "Opapp")
   | Opassign => empty_item (strlit "Opassign")
   | Opref => empty_item (strlit "Opref")
@@ -271,16 +254,10 @@ Definition op_to_display_def:
   | Aw8sub => empty_item (strlit "Aw8sub")
   | Aw8length => empty_item (strlit "Aw8length")
   | Aw8update => empty_item (strlit "Aw8update")
-  | WordFromInt ws =>
-      Item NONE (strlit "WordFromInt") [word_size_to_display ws]
-  | WordToInt ws =>
-      Item NONE (strlit "WordToInt") [word_size_to_display ws]
   | CopyStrStr => empty_item (strlit "CopyStrStr")
   | CopyStrAw8 => empty_item (strlit "CopyStrAw8")
   | CopyAw8Str => empty_item (strlit "CopyAw8Str")
   | CopyAw8Aw8 => empty_item (strlit "CopyAw8Aw8")
-  | Ord => empty_item (strlit "Ord")
-  | Chr => empty_item (strlit "Chr")
   | Implode => empty_item (strlit "Implode")
   | Explode => empty_item (strlit "Explode")
   | Strsub => empty_item (strlit "Strsub")
@@ -305,28 +282,21 @@ Definition op_to_display_def:
   | ConfigGC => empty_item (strlit "ConfigGC")
   | FFI v35 => empty_item (strlit "FFI v35")
   | Eval => empty_item (strlit "Eval")
-  | Env_id => empty_item (strlit "Eval")
+  | Env_id => empty_item (strlit "Env_id")
   | ThunkOp t => thunk_op_to_display t
-End
-
-Definition lop_to_display_def:
-  lop_to_display (c:ast$lop) =
-  case c of
-  | And => empty_item «And»
-  | Or  => empty_item «Or»
 End
 
 Definition id_to_display_def:
   id_to_display (Short n) =
-    Item NONE «Short» [String (implode n)] ∧
+    Item NONE «Short» [String n] ∧
   id_to_display (Long n i) =
-    Item NONE «Long» [String (implode n); id_to_display i]
+    Item NONE «Long» [String n; id_to_display i]
 End
 
 Definition ast_t_to_display_def:
   (ast_t_to_display c =
   case c of
-  | Atvar n => Item NONE «Atvar» [String (implode n)]
+  | Atvar n => Item NONE «Atvar» [String n]
   | Atfun t1 t2 => Item NONE «Atfun» [ast_t_to_display t1; ast_t_to_display t2]
   | Attup ts => Item NONE «Attup» [Tuple (ast_t_to_display_list ts)]
   | Atapp ts id => Item NONE «Attup» [Tuple (ast_t_to_display_list ts);
@@ -342,12 +312,12 @@ Definition pat_to_display_def:
   (pat_to_display (c:ast$pat) =
   case c of
   | Pany => Item NONE «Pany» []
-  | Pvar v => Item NONE «Pvar» [String (implode v)]
+  | Pvar v => Item NONE «Pvar» [String v]
   | Plit l => Item NONE «Plit» [lit_to_display l]
   | Pcon opt_id pats =>
       Item NONE «Pcon» [option_to_display id_to_display opt_id;
                         Tuple (pat_to_display_list pats)]
-  | Pas t v => Item NONE «Pas» [pat_to_display t; String (implode v)]
+  | Pas t v => Item NONE «Pas» [pat_to_display t; String v]
   | Pref t => Item NONE «Pref» [pat_to_display t]
   | Ptannot x y => Item NONE «Ptannot» [pat_to_display x; ast_t_to_display y])
   ∧
@@ -366,7 +336,7 @@ Definition exp_to_display_def:
   | Con opt_id es => Item NONE «Con» [option_to_display id_to_display opt_id;
                                       Tuple (exp_to_display_list es)]
   | Var id => Item NONE «Var» [id_to_display id]
-  | Fun n e => Item NONE «Fun» [String (implode n); exp_to_display e]
+  | Fun n e => Item NONE «Fun» [String n; exp_to_display e]
   | App op es => Item NONE «App» (op_to_display op ::
                                   exp_to_display_list es)
   | Log lop e1 e2 => Item NONE «Log» [lop_to_display lop;
@@ -376,7 +346,7 @@ Definition exp_to_display_def:
                                    exp_to_display e2;
                                    exp_to_display e3]
   | Let n_opt e1 e2 => Item NONE «Let»
-      [option_to_display (λn. String (implode n)) n_opt;
+      [option_to_display String n_opt;
        exp_to_display e1;
        exp_to_display e2]
   | Mat e pats =>
@@ -402,8 +372,8 @@ Definition exp_to_display_def:
     pat_exp_to_display_list xs) ∧
   (fun_to_display_list [] = []) ∧
   (fun_to_display_list ((m,n,e)::xs) =
-    Tuple [String (implode m);
-           String (implode n);
+    Tuple [String m;
+           String n;
            exp_to_display e] ::
     fun_to_display_list xs)
 End
@@ -413,25 +383,25 @@ Definition source_to_display_dec_def:
   case d of
   | Dlet _ pat e => Item NONE «Dlet» [pat_to_display pat; exp_to_display e]
   | Dletrec _ fns => Item NONE «Dletrec»
-                          (MAP (λ(m,n,e). Tuple [String (implode m);
-                                                 String (implode n);
+                          (MAP (λ(m,n,e). Tuple [String m;
+                                                 String n;
                                                  exp_to_display e]) fns)
   | Dtype _ ts => Item NONE «Dtype» (MAP (λ(ns,n,z).
-                    Tuple [Tuple (MAP (λn. String (implode n)) ns);
-                           String (implode n);
-                           Tuple (MAP (λ(n,tys). Tuple [String (implode n);
+                    Tuple [Tuple (MAP String ns);
+                           String n;
+                           Tuple (MAP (λ(n,tys). Tuple [String n;
                               Tuple (MAP ast_t_to_display tys)]) z)]) ts)
   | Dtabbrev _ ns n ty =>
-      Item NONE «Dtabbrev» [Tuple (MAP (λn. String (implode n)) ns);
-                            String (implode n);
+      Item NONE «Dtabbrev» [Tuple (MAP String ns);
+                            String n;
                             ast_t_to_display ty]
-  | Dexn _ n tys => Item NONE «Dexn» [String (implode n);
+  | Dexn _ n tys => Item NONE «Dexn» [String n;
                                       Tuple (MAP ast_t_to_display tys)]
-  | Dmod n ds => Item NONE «Dmod» [String (implode n);
+  | Dmod n ds => Item NONE «Dmod» [String n;
                                    Tuple (source_to_display_dec_list ds)]
   | Dlocal xs ys => Item NONE «Dlocal» [Tuple (source_to_display_dec_list xs);
                                         Tuple (source_to_display_dec_list ys)]
-  | Denv n => Item NONE «Denv» [String (implode n)])  ∧
+  | Denv n => Item NONE «Denv» [String n])  ∧
   (source_to_display_dec_list [] = []) ∧
   (source_to_display_dec_list (x::xs) =
     source_to_display_dec x :: source_to_display_dec_list xs)
@@ -474,10 +444,6 @@ End
 
 Definition flat_op_to_display_def:
   flat_op_to_display op = case op of
-    | Opn op => opn_to_display op
-    | Opb op => opb_to_display op
-    | Opw ws op =>
-        Item NONE (strlit "Opw") [ word_size_to_display ws; opw_to_display op ]
     | Shift ws sh num => Item NONE (strlit "Shift") [
       word_size_to_display ws;
       shift_to_display sh;
@@ -492,12 +458,6 @@ Definition flat_op_to_display_def:
                            [test_to_display test;
                             prim_type_to_display ty]
     | Equality => empty_item (strlit "Equality")
-    | FP_cmp cmp => fp_cmp_to_display cmp
-    | FP_uop op => fp_uop_to_display op
-    | FP_bop op => fp_bop_to_display op
-    | FP_top op => fp_top_to_display op
-    | FpFromWord => empty_item (strlit "FpFromWord")
-    | FpToWord => empty_item (strlit "FpToWord")
     | Opapp => empty_item (strlit "Opapp")
     | Opassign => empty_item (strlit "Opassign")
     | Opref => empty_item (strlit "Opref")
@@ -507,17 +467,11 @@ Definition flat_op_to_display_def:
     | Aw8length => empty_item (strlit "Aw8length")
     | Aw8update => empty_item (strlit "Aw8update")
     | Aw8update_unsafe => empty_item (strlit "Aw8update_unsafe")
-    | WordFromInt ws =>
-        Item NONE (strlit "WordFromInt") [word_size_to_display ws]
-    | WordToInt ws =>
-        Item NONE (strlit "WordToInt") [word_size_to_display ws]
     | CopyStrStr => empty_item (strlit "CopyStrStr")
     | CopyStrAw8 => empty_item (strlit "CopyStrAw8")
     | CopyAw8Str => empty_item (strlit "CopyAw8Str")
     | CopyAw8Aw8 => empty_item (strlit "CopyAw8Aw8")
     | Aw8xor_unsafe => empty_item (strlit "Aw8xor_unsafe")
-    | Ord => empty_item (strlit "Ord")
-    | Chr => empty_item (strlit "Chr")
     | Implode => empty_item (strlit "Implode")
     | Explode => empty_item (strlit "Explode")
     | Strsub => empty_item (strlit "Strsub")
@@ -592,7 +546,7 @@ Definition flat_to_display_def:
     Item (SOME tra) (strlit "var_local") [string_imp varN])
   /\
   (flat_to_display (Fun name_hint varN exp) =
-    Item (SOME None) (add_name_hint (strlit "fun") (implode name_hint))
+    Item (SOME None) (add_name_hint (strlit "fun") name_hint)
       [string_imp varN; flat_to_display exp])
   /\
   (flat_to_display (App tra op exps) =
@@ -611,7 +565,7 @@ Definition flat_to_display_def:
         flat_to_display exp1; flat_to_display exp2])
   /\
   (flat_to_display (Letrec name_hint funs exp) =
-    Item (SOME None) (add_name_hint (strlit "letrec") (implode name_hint))
+    Item (SOME None) (add_name_hint (strlit "letrec") name_hint)
         [Tuple (fun_flat_to_display_list funs); flat_to_display exp]
   )  ∧
   (flat_to_display_list [] = []) ∧
@@ -630,17 +584,20 @@ Definition flat_to_display_dec_def:
   flat_to_display_dec (d:flatLang$dec) =
     case d of
        | Dlet exp => Item NONE (strlit "dlet") [flat_to_display exp]
-       | Dtype mods con_arities => item_with_num (strlit "dtype") mods
-       | Dexn n1 n2 => item_with_nums (strlit "dexn") [n1; n2]
 End
 
 (* clos to displayLang *)
 
-Definition num_to_varn_def:
-  num_to_varn n = if n < 26 then [CHR (97 + n)]
-                  else (num_to_varn ((n DIV 26)-1)) ++ ([CHR (97 + (n MOD 26))])
+Definition num_to_varn_aux_def:
+  num_to_varn_aux n =
+    if n < 26 then [CHR (97 + n)]
+    else (num_to_varn_aux ((n DIV 26)-1)) ++ ([CHR (97 + (n MOD 26))])
 Termination
   WF_REL_TAC `measure I` \\ rw [] \\ fs [DIV_LT_X]
+End
+
+Definition num_to_varn_def:
+  num_to_varn n = implode (num_to_varn_aux n)
 End
 
 Definition display_num_as_varn_def:
@@ -699,6 +656,7 @@ Definition clos_op_to_display_def:
     | BlockOp (ElemAt num) => item_with_num (strlit "ElemAt") num
     | BlockOp (TagLenEq n1 n2) => item_with_nums (strlit "TagLenEq") [n1; n2]
     | BlockOp (BoolTest test) => Item NONE (strlit "BoolTest") [test_to_display test]
+    | BlockOp BoolNot => String (strlit "BoolNot")
     | BlockOp (LenEq num) => item_with_num (strlit "LenEq") num
     | BlockOp (TagEq num) => item_with_num (strlit "TagEq") num
     | BlockOp LengthBlock => String (strlit "LengthBlock")

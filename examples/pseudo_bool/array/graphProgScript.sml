@@ -48,7 +48,7 @@ End
 
 val r = translate noparse_string_def;
 
-val parse_lad = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun parse_lad f =
   (case TextIO.inputAllTokensFile #"\n" f blanks tokenize_num of
     None => Inl (notfound_string f)
@@ -58,7 +58,8 @@ val parse_lad = (append_prog o process_topdecs) `
   | Some x =>
     if check_good_graph x then
       Inr x
-    else Inl ("c Input graph " ^ f ^ " fails undirectedness check\n")))`
+    else Inl ("c Input graph " ^ f ^ " fails undirectedness check\n")))
+End
 
 Theorem blanks_eq[simp]:
   graph_basic$blanks = pb_parse$blanks
@@ -151,7 +152,7 @@ val _ = translate parse_dimacs_edges_def;
 val _ = translate nocomment_line_def;
 val _ = translate parse_dimacs_toks_def;
 
-val parse_dimacs = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun parse_dimacs f =
   (case TextIO.inputAllTokensFile #"\n" f blanks tokenize_num of
     None => Inl (notfound_string f)
@@ -160,7 +161,8 @@ val parse_dimacs = (append_prog o process_topdecs) `
     None => Inl (noparse_string f "DIMACS")
   | Some x =>
       Inr x
-    ))`
+    ))
+End
 
 (* get_graph_dimacs *)
 Definition get_graph_dimacs_def:

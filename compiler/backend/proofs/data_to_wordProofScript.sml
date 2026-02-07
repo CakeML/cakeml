@@ -641,18 +641,19 @@ Proof
     \\ fs [dataSemTheory.evaluate_def,wordSemTheory.evaluate_def]
     \\ Cases_on `get_var n s.locals` \\ fs []
     \\ fs [] \\ imp_res_tac state_rel_get_var_IMP
-    \\ fs [wordSemTheory.get_var_imm_def,
-          asmTheory.word_cmp_def]
+    \\ fs [wordSemTheory.get_var_imm_def]
     \\ imp_res_tac get_var_isT_OR_isF
     \\ fs[GSYM AND_IMP_INTRO]
     \\ Cases_on `isBool T x` \\ fs [] THEN1
-     (qpat_x_assum `state_rel c l1 l2 s t [] locs` (fn th =>
-               first_x_assum (fn th1 => mp_tac (MATCH_MP th1 th)))
+     (simp [asmTheory.word_cmp_def]
+      \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` (fn th =>
+                 first_x_assum (fn th1 => mp_tac (MATCH_MP th1 th)))
       \\ strip_tac \\ pop_assum (qspecl_then [`n4`,`l`] mp_tac)
       \\ rpt strip_tac \\ rfs [])
     \\ Cases_on `isBool F x` \\ fs [] THEN1
-     (qpat_x_assum `state_rel c l1 l2 s t [] locs` (fn th =>
-               first_x_assum (fn th1 => mp_tac (MATCH_MP th1 th)))
+     (simp [asmTheory.word_cmp_def]
+      \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` (fn th =>
+                 first_x_assum (fn th1 => mp_tac (MATCH_MP th1 th)))
       \\ strip_tac \\ pop_assum (qspecl_then [`n4`,`l4`] mp_tac)
       \\ rpt strip_tac \\ rfs []))
   \\ rename [‘evaluate (Call ret dest args handler,s)’]
@@ -1704,7 +1705,7 @@ QED
 
 fun cases_on_op q = Cases_on q >|
   map (MAP_EVERY Cases_on)
-      [[`n`], [`s`], [`i`], [`w`], [`b`], [`g`], [`m`], [], [`t`]];
+      [[`n`], [`m`], [`i`], [`w`], [`b`], [`g`], [`m`], [], [`t`]];
 
 Theorem data_to_word_lab_pres_lem:
   ∀c n l p.
@@ -2010,7 +2011,7 @@ QED
 
 fun cases_on_op q = Cases_on q >|
   map (MAP_EVERY Cases_on)
-      [[`n`], [`s`], [`i`], [`w`], [`b`], [`g`], [`m`], [], [`t`]];
+      [[`n`], [`m`], [`i`], [`w`], [`b`], [`g`], [`m`], [], [`t`]];
 
 Theorem assign_no_inst[local]:
   ((a.has_longdiv ⇒ (ac.ISA = x86_64)) ∧

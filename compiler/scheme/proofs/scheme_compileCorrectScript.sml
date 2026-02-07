@@ -29,13 +29,13 @@ Proof
 QED
 
 Definition v_to_string_def:
-  v_to_string (SNum _) = IO_event (ExtCall "scheme_out") (MAP (n2w o ORD) "num") [] /\
-  v_to_string (SBool F) = IO_event (ExtCall "scheme_out") (MAP (n2w o ORD) "#f") [] /\
-  v_to_string (SBool T) = IO_event (ExtCall "scheme_out") (MAP (n2w o ORD) "#t") [] /\
-  v_to_string (Wrong _) = IO_event (ExtCall "scheme_out") (MAP (n2w o ORD) "unspecified") [] /\
-  v_to_string (PairP _) = IO_event (ExtCall "scheme_out") (MAP (n2w o ORD) "pair") [] /\
-  v_to_string Null = IO_event (ExtCall "scheme_out") (MAP (n2w o ORD) "null") [] /\
-  v_to_string _ = IO_event (ExtCall "scheme_out") (MAP (n2w o ORD) "proc") []
+  v_to_string (SNum _) = IO_event (ExtCall «scheme_out») (MAP (n2w o ORD) "num") [] /\
+  v_to_string (SBool F) = IO_event (ExtCall «scheme_out») (MAP (n2w o ORD) "#f") [] /\
+  v_to_string (SBool T) = IO_event (ExtCall «scheme_out») (MAP (n2w o ORD) "#t") [] /\
+  v_to_string (Wrong _) = IO_event (ExtCall «scheme_out») (MAP (n2w o ORD) "unspecified") [] /\
+  v_to_string (PairP _) = IO_event (ExtCall «scheme_out») (MAP (n2w o ORD) "pair") [] /\
+  v_to_string Null = IO_event (ExtCall «scheme_out») (MAP (n2w o ORD) "null") [] /\
+  v_to_string _ = IO_event (ExtCall «scheme_out») (MAP (n2w o ORD) "proc") []
 End
 
 Theorem every_one_con_check:
@@ -108,7 +108,7 @@ Definition scheme_out_oracle_def:
   scheme_out_oracle =
     <| oracle      := (λffi_name _ _ _.
                          (* accepts calls to scheme_out *)
-                         if ffi_name = ExtCall "scheme_out"
+                         if ffi_name = ExtCall «scheme_out»
                          then Oracle_return () [] (* returns empty *)
                          else Oracle_final FFI_failed)
      ; ffi_state   := ()
@@ -226,7 +226,7 @@ Theorem scheme_semantics_preservation_exception_terminates:
     codegen prog = INR cml_prog
     ==>
     semantics_prog (init_state scheme_out_oracle) init_env cml_prog
-                   (Terminate Success [IO_event (ExtCall "scheme_out") (MAP (n2w o ORD) (explode s)) []])
+                   (Terminate Success [IO_event (ExtCall «scheme_out») (MAP (n2w o ORD) (explode s)) []])
 Proof
   simp[semantics_prog_def, scheme_semantics_prog_def]
   >> simp[static_scope_check_def]

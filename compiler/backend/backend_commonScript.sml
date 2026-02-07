@@ -7,6 +7,9 @@ Ancestors[qualified]
 Libs
   preamble
 
+Datatype:
+  opw = Andw | Orw | Xor | Add | Sub
+End
 
 (* Small general definition *)
 Definition small_enough_int_def:

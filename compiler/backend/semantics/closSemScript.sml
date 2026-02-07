@@ -4,7 +4,7 @@
 Theory closSem
 Ancestors
   backend_common closLang flatLang
-  semanticPrimitivesProps (* for opw_lookup and others *)
+  semanticPrimitivesProps (* for opw_lookup_def and others *)
 Libs
   preamble
 
@@ -193,6 +193,14 @@ Definition do_int_app_def:
   do_int_app (op:closLang$int_op) (vs:closSem$v list) = NONE
 End
 
+Definition opw_lookup_def[simp]:
+  (opw_lookup Andw = word_and) ∧
+  (opw_lookup Orw = word_or) ∧
+  (opw_lookup Xor = word_xor) ∧
+  (opw_lookup Add = word_add) ∧
+  (opw_lookup Sub = word_sub)
+End
+
 Definition do_word_app_def:
   (do_word_app (WordOpw W8 opw) [Number n1; Number n2] =
        (case some (w1:word8,w2:word8). n1 = &(w2n w1) ∧ n2 = &(w2n w2) of
@@ -285,6 +293,9 @@ Definition do_app_def:
         (if (v1 ≠ Boolv T ∧ v1 ≠ Boolv F) then Error else
          if (v2 ≠ Boolv T ∧ v2 ≠ Boolv F) then Error else
            Rval (Boolv (v1 = v2), s))
+    | (BlockOp BoolNot,[v1]) =>
+        (if v1 = Boolv T then Rval (Boolv F, s) else
+         if v1 = Boolv F then Rval (Boolv T, s) else Error)
     | (BlockOp (ElemAt n),[Block tag xs]) =>
         if n < LENGTH xs then Rval (EL n xs, s) else Error
     | (BlockOp ListAppend, [x1; x2]) =>

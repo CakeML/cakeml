@@ -58,8 +58,6 @@ Datatype:
     refs    : v store;
     ffi     : 'ffi ffi_state;
     globals : (v option) list;
-    (* The set of constructors that exist, according to their id, type and arity *)
-    c : ((ctor_id # type_id) # num) set;
     (* eval or install mode *)
     eval_config : 'c install_config
   |>
@@ -208,10 +206,10 @@ Definition v_to_char_list_def:
 End
 
 Definition vs_to_string_def:
-  (vs_to_string [] = SOME "") ∧
+  (vs_to_string [] = SOME «») ∧
   (vs_to_string (Litv(StrLit s1)::vs) =
    case vs_to_string vs of
-   | SOME s2 => SOME (s1++s2)
+   | SOME s2 => SOME (s1 ^ s2)
    | _ => NONE) ∧
   (vs_to_string _ = NONE)
 End
@@ -279,27 +277,6 @@ End
 Definition do_app_def:
   do_app s op (vs:flatSem$v list) =
   case (op, vs) of
-  | (Opn op, [Litv (IntLit n1); Litv (IntLit n2)]) =>
-    if ((op = Divide) ∨ (op = Modulo)) ∧ (n2 = 0) then
-      SOME (s, Rerr (Rraise div_exn_v))
-    else
-      SOME (s, Rval (Litv (IntLit (opn_lookup op n1 n2))))
-  | (Opb op, [Litv (IntLit n1); Litv (IntLit n2)]) =>
-    SOME (s, Rval (Boolv (opb_lookup op n1 n2)))
-  | (FP_top t_op, [Litv (Float64 w1); Litv (Float64 w2); Litv (Float64 w3)] =>
-      SOME (s,Rval (Litv (Float64 (fp_top_comp t_op w1 w2 w3)))))
-  | (FP_bop bop, [Litv (Float64 w1); Litv (Float64 w2)]) =>
-      SOME (s,Rval (Litv (Float64 (fp_bop_comp bop w1 w2))))
-  | (FP_uop uop, [Litv (Float64 w)]) =>
-      SOME (s,Rval (Litv (Float64 (fp_uop_comp uop w))))
-  | (FP_cmp cmp, [Litv (Float64 w1); Litv (Float64 w2)]) =>
-      SOME (s,Rval (Boolv (fp_cmp_comp cmp w1 w2)))
-  | (FpFromWord, [Litv (Word64 w)]) => SOME (s,Rval (Litv (Float64 w)))
-  | (FpToWord, [Litv (Float64 w)]) => SOME (s,Rval (Litv (Word64 w)))
-  | (Opw wz op, [Litv w1; Litv w2]) =>
-     (case do_word_op op wz w1 w2 of
-          | NONE => NONE
-          | SOME w => SOME (s, Rval (Litv w)))
   | (Shift wz sh n, [Litv w]) =>
       (case do_shift sh n wz w of
          | NONE => NONE
@@ -324,8 +301,9 @@ Definition do_app_def:
     (let v = flat_to_v v in
        if check_type ty1 v then
          (case do_conversion v ty1 ty2 of
-          | SOME res => SOME (s, Rval (v_to_flat res))
-          | NONE     => NONE)
+          | SOME (INR res) => SOME (s, Rval (v_to_flat res))
+          | SOME (INL exn) => SOME (s, Rerr (Rraise chr_exn_v))
+          | NONE           => NONE)
        else NONE)
   | (Opassign, [Loc _ lnum; v]) =>
     (case store_assign lnum (Refv v) s.refs of
@@ -399,22 +377,16 @@ Definition do_app_def:
               | NONE => NONE
               | SOME s' => SOME (s with refs := s', Rval Unitv))
      | _ => NONE)
-  | (WordFromInt wz, [Litv (IntLit i)]) =>
-    SOME (s, Rval (Litv (do_word_from_int wz i)))
-  | (WordToInt wz, [Litv w]) =>
-    (case do_word_to_int wz w of
-      | NONE => NONE
-      | SOME i => SOME (s, Rval (Litv (IntLit i))))
-  | (CopyStrStr, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len)]) =>
+  | (CopyStrStr, [Litv(StrLit strng);Litv(IntLit off);Litv(IntLit len)]) =>
       SOME (s,
-      (case copy_array (str,off) len NONE of
+      (case copy_array (explode strng,off) len NONE of
         NONE => Rerr (Rraise subscript_exn_v)
-      | SOME cs => Rval (Litv(StrLit(cs)))))
-  | (CopyStrAw8, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len);
+      | SOME cs => Rval (Litv(StrLit(implode cs)))))
+  | (CopyStrAw8, [Litv(StrLit strng);Litv(IntLit off);Litv(IntLit len);
                   Loc _ dst;Litv(IntLit dstoff)]) =>
       (case store_lookup dst s.refs of
         SOME (W8array ws) =>
-          (case copy_array (str,off) len (SOME(ws_to_chars ws,dstoff)) of
+          (case copy_array (explode strng,off) len (SOME(ws_to_chars ws,dstoff)) of
             NONE => SOME (s, Rerr (Rraise subscript_exn_v))
           | SOME cs =>
             (case store_assign dst (W8array (chars_to_ws cs)) s.refs of
@@ -427,7 +399,7 @@ Definition do_app_def:
       SOME (s,
         (case copy_array (ws,off) len NONE of
           NONE => Rerr (Rraise subscript_exn_v)
-        | SOME ws => Rval (Litv(StrLit(ws_to_chars ws)))))
+        | SOME ws => Rval (Litv(StrLit(implode (ws_to_chars ws))))))
     | _ => NONE)
   | (CopyAw8Aw8, [Loc _ src;Litv(IntLit off);Litv(IntLit len);
                   Loc _ dst;Litv(IntLit dstoff)]) =>
@@ -443,45 +415,37 @@ Definition do_app_def:
   | (Aw8xor_unsafe, [Loc _ dst; Litv (StrLit str_arg)]) =>
     (case store_lookup dst s.refs of
      | SOME (W8array ds) =>
-         (case xor_bytes (MAP (n2w o ORD) str_arg) ds of
+         (case xor_bytes (MAP (n2w o ORD) (explode str_arg)) ds of
           | NONE => NONE
           | SOME new_bs =>
               (case store_assign dst (W8array new_bs) s.refs of
                | NONE => NONE
                | SOME s' => SOME (s with refs := s', Rval Unitv)))
      | _ => NONE)
-  | (Ord, [Litv (Char c)]) =>
-    SOME (s, Rval (Litv(IntLit(int_of_num(ORD c)))))
-  | (Chr, [Litv (IntLit i)]) =>
-    SOME (s,
-          if (i < 0) ∨ (i > 255) then
-            Rerr (Rraise chr_exn_v)
-          else
-            Rval (Litv(Char(CHR(Num(ABS i))))))
   | (Implode, [v]) =>
     (case v_to_char_list v of
      | SOME ls =>
-       SOME (s, Rval (Litv (StrLit (IMPLODE ls))))
+       SOME (s, Rval (Litv (StrLit (implode ls))))
      | NONE => NONE)
-  | (Explode, [Litv (StrLit str)]) =>
-    (SOME (s, Rval (list_to_v (MAP (\c. Litv (Char c)) str))))
-  | (Strsub, [Litv (StrLit str); Litv (IntLit i)]) =>
+  | (Explode, [Litv (StrLit strng)]) =>
+    (SOME (s, Rval (list_to_v (MAP (\c. Litv (Char c)) (explode strng)))))
+  | (Strsub, [Litv (StrLit strng); Litv (IntLit i)]) =>
     if i < 0 then
       SOME (s, Rerr (Rraise subscript_exn_v))
     else
       let n = (Num (ABS i)) in
-        if n >= LENGTH str then
+        if n >= strlen strng then
           SOME (s, Rerr (Rraise subscript_exn_v))
         else
-          SOME (s, Rval (Litv (Char (EL n str))))
-  | (Strlen, [Litv (StrLit str)]) =>
-    SOME (s, Rval (Litv(IntLit(int_of_num(STRLEN str)))))
+          SOME (s, Rval (Litv (Char (strsub strng n))))
+  | (Strlen, [Litv (StrLit strng)]) =>
+    SOME (s, Rval (Litv(IntLit(int_of_num(strlen strng)))))
   | (Strcat, [v]) =>
       (case v_to_list v of
         SOME vs =>
           (case vs_to_string vs of
-            SOME str =>
-              SOME (s, Rval (Litv(StrLit str)))
+            SOME strng =>
+              SOME (s, Rval (Litv(StrLit strng)))
           | _ => NONE)
       | _ => NONE)
   | (VfromList, [v]) =>
@@ -584,7 +548,7 @@ Definition do_app_def:
   | (FFI n, [Litv(StrLit conf); Loc _ lnum]) =>
     (case store_lookup lnum s.refs of
      | SOME (W8array ws) =>
-       (case call_FFI s.ffi (ExtCall n) (MAP (λc. n2w(ORD c)) conf) ws of
+       (case call_FFI s.ffi (ExtCall n) (MAP (λc. n2w(ORD c)) (explode conf)) ws of
         | FFI_final outcome => SOME(s, Rerr (Rabort (Rffi_error outcome)))
         | FFI_return t' ws' =>
           (case store_assign lnum (W8array ws') s.refs of
@@ -650,16 +614,14 @@ QED
 
 Inductive pmatch_stamps_ok:
   ( (* exception constructors *)
-    ((cn, NONE), n_ps) ∈ c
-  ==> pmatch_stamps_ok c (SOME (cn, NONE)) (SOME (cn', NONE)) n_ps n_vs) ∧
+    pmatch_stamps_ok (SOME (cn, NONE)) (SOME (cn', NONE)) n_ps n_vs) ∧
   ( (* constructors *)
-    ((cn, SOME ty_id), n_ps) ∈ c ∧
         ty_id = ty_id' ∧ MEM (cn, n_ps) ctor_set ∧ MEM (cn', n_vs) ctor_set
-  ==> pmatch_stamps_ok c (SOME (cn, (SOME (ty_id, ctor_set))))
+  ==> pmatch_stamps_ok (SOME (cn, (SOME (ty_id, ctor_set))))
     (SOME (cn', SOME ty_id')) n_ps n_vs) ∧
   ( (* tuples *)
     n_ps = n_vs
-  ==> pmatch_stamps_ok c NONE NONE n_ps n_vs)
+  ==> pmatch_stamps_ok NONE NONE n_ps n_vs)
 End
 
 Definition pmatch_def:
@@ -674,10 +636,10 @@ Definition pmatch_def:
     else
       Match_type_error) ∧
   (pmatch s (Pcon stmp ps) (Conv stmp' vs) bindings =
-    if ~ pmatch_stamps_ok s.c stmp stmp' (LENGTH ps) (LENGTH vs) then
+    if ~ pmatch_stamps_ok stmp stmp' (LENGTH ps) (LENGTH vs) then
       Match_type_error
     else if OPTION_MAP FST stmp = OPTION_MAP FST stmp' ∧
-            LENGTH ps = LENGTH vs then
+       LENGTH ps = LENGTH vs then
       pmatch_list s ps vs bindings
     else
       No_match) ∧
@@ -730,15 +692,6 @@ Proof
   Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []
 QED
 
-Definition is_fresh_type_def:
-  is_fresh_type type_id ctors ⇔
-    !ctor. ctor ∈ ctors ⇒ !arity id. ctor ≠ ((id, SOME type_id), arity)
-End
-
-Definition is_fresh_exn_def:
-  is_fresh_exn exn_id ctors ⇔
-    !ctor. ctor ∈ ctors ⇒ !arity. ctor ≠ ((exn_id, NONE), arity)
-End
 
 Definition do_eval_def:
   do_eval (vs :v list) eval_config =
@@ -798,9 +751,9 @@ Definition exp_alt_size_def[simp]:
   (tra_size a0 +
    (option_size (pair_size (λx. x) (option_size (λx. x))) a1 +
     exp6_alt_size a2)) ∧
-  exp_alt_size (Var_local a0 a1) = 1 + (tra_size a0 + list_size char_size a1) ∧
+  exp_alt_size (Var_local a0 a1) = 1 + (tra_size a0 + mlstring_size a1) ∧
   exp_alt_size (Fun a0 a1 a2) =
-  1 + (list_size char_size a0 + (list_size char_size a1 + exp_alt_size a2)) ∧
+  1 + (mlstring_size a0 + (mlstring_size a1 + exp_alt_size a2)) ∧
   exp_alt_size (App a0 a1 a2) =
   1 + (tra_size a0 + (op_size a1 + exp6_alt_size a2))
     + (if a1 = ThunkOp ForceThunk then 100 else 0) ∧
@@ -811,15 +764,15 @@ Definition exp_alt_size_def[simp]:
   exp_alt_size (Let a0 a1 a2 a3) =
   1 +
   (tra_size a0 +
-   (option_size (list_size char_size) a1 + (exp_alt_size a2 + exp_alt_size a3))) ∧
+   (option_size mlstring_size a1 + (exp_alt_size a2 + exp_alt_size a3))) ∧
   exp_alt_size (Letrec a0 a1 a2) =
-  1 + (list_size char_size a0 + (exp1_alt_size a1 + exp_alt_size a2)) ∧
+  1 + (mlstring_size a0 + (exp1_alt_size a1 + exp_alt_size a2)) ∧
   exp1_alt_size [] = 0 ∧
   exp1_alt_size (a0::a1) = 1 + (exp2_alt_size a0 + exp1_alt_size a1) ∧
-  exp2_alt_size (a0,a1) = 1 + (list_size char_size a0 + exp4_alt_size a1) ∧
+  exp2_alt_size (a0,a1) = 1 + (mlstring_size a0 + exp4_alt_size a1) ∧
   exp3_alt_size [] = 0 ∧
   exp3_alt_size (a0::a1) = 1 + (exp5_alt_size a0 + exp3_alt_size a1) ∧
-  exp4_alt_size (a0,a1) = 1 + (list_size char_size a0 + exp_alt_size a1) ∧
+  exp4_alt_size (a0,a1) = 1 + (mlstring_size a0 + exp_alt_size a1) ∧
   exp5_alt_size (a0,a1) = 1 + (pat_size a0 + exp_alt_size a1) ∧ exp6_alt_size [] = 0 ∧
   exp6_alt_size (a0::a1) = 1 + (exp_alt_size a0 + exp6_alt_size a1)
 End
@@ -840,9 +793,7 @@ Proof
 QED
 
 Definition dec_alt_size_def[simp]:
-  dec_alt_size (Dlet a) = 1 + exp_alt_size a ∧
-  dec_alt_size (Dtype a0 a1) = 1 + (a0 + spt_size (λx. x) a1) ∧
-  dec_alt_size (Dexn a0 a1) = 1 + (a0 + a1)
+  dec_alt_size (Dlet a) = 1 + exp_alt_size a
 End
 
 Definition evaluate_def:
@@ -876,13 +827,9 @@ Definition evaluate_def:
       | (s, Rval vs) => (s,Rval [Conv NONE (REVERSE vs)])
       | res => res) ∧
   (evaluate env s [Con _ (SOME cn) es] =
-    if (cn, LENGTH es) ∈ s.c
-    then
-      (case evaluate env s (REVERSE es) of
+    case evaluate env s (REVERSE es) of
       | (s, Rval vs) => (s, Rval [Conv (SOME cn) (REVERSE vs)])
-      | res => res)
-    else
-      (s, Rerr (Rabort Rtype_error))) ∧
+      | res => res) ∧
   (evaluate env s [Var_local _ n] = (s,
    case ALOOKUP env.v n of
    | SOME v => Rval [v]
@@ -915,8 +862,8 @@ Definition evaluate_def:
           | NotThunk => (s, Rerr (Rabort Rtype_error))
           | IsThunk Evaluated v => (s, Rval [v])
           | IsThunk NotEvaluated f =>
-             (case evaluate <| v := [("f",f)] |> s
-                    [AppUnit (Var_local None "f")] of
+             (case evaluate <| v := [(«f»,f)] |> s
+                    [AppUnit (Var_local None «f»)] of
               | (s, Rval vs2) =>
                   (case update_thunk vs s.refs vs2 of
                    | NONE => (s, Rerr (Rabort Rtype_error))
@@ -961,18 +908,6 @@ Definition evaluate_def:
      else
        (s, SOME (Rabort Rtype_error))
    | (s, Rerr e) => (s, SOME e)) ∧
-  (evaluate_dec s (Dtype id ctors) =
-    if is_fresh_type id s.c then
-      let new_c = { ((idx, SOME id), arity) |
-          ?max. lookup arity ctors = SOME max ∧ idx < max } in
-      (s with c updated_by $UNION new_c, NONE)
-    else
-      (s, SOME (Rabort Rtype_error))) ∧
-  (evaluate_dec s (Dexn id arity) =
-    if is_fresh_exn id s.c then
-      (s with c updated_by $UNION {((id, NONE), arity)}, NONE)
-    else
-      (s, SOME (Rabort Rtype_error))) ∧
   (evaluate_decs s [] = (s, NONE)) ∧
   (evaluate_decs s (d::ds) =
    case fix_clock s (evaluate_dec s d) of
@@ -993,29 +928,16 @@ Termination
   \\ simp [MAP_REVERSE, SUM_REVERSE, exp6_alt_size, AppUnit_def, char_size_def]
 End
 
-val op_thms = { nchotomy = op_nchotomy, case_def = op_case_def};
-val list_thms = { nchotomy = list_nchotomy, case_def = list_case_def};
-val option_thms = { nchotomy = option_nchotomy, case_def = option_case_def};
-val v_thms = { nchotomy = theorem "v_nchotomy", case_def = fetch "-" "v_case_def"};
-
-val store_v_thms = { nchotomy = semanticPrimitivesTheory.store_v_nchotomy, case_def = semanticPrimitivesTheory.store_v_case_def};
-val lit_thms = { nchotomy = astTheory.lit_nchotomy, case_def = astTheory.lit_case_def};
-val eq_v_thms = { nchotomy = semanticPrimitivesTheory.eq_result_nchotomy, case_def = semanticPrimitivesTheory.eq_result_case_def};
-val wz_thms = { nchotomy = astTheory.word_size_nchotomy, case_def = astTheory.word_size_case_def};
-
-val result_thms = { nchotomy = semanticPrimitivesTheory.result_nchotomy, case_def = semanticPrimitivesTheory.result_case_def };
-val ffi_result_thms = { nchotomy = ffiTheory.ffi_result_nchotomy, case_def = ffiTheory.ffi_result_case_def };
-val err_thms = { nchotomy = semanticPrimitivesTheory.error_result_nchotomy, case_def = semanticPrimitivesTheory.error_result_case_def }
-
-val eqs = LIST_CONJ (map prove_case_eq_thm
-  [op_thms, list_thms, option_thms, v_thms, store_v_thms, lit_thms,
-   eq_v_thms, wz_thms, result_thms, ffi_result_thms, err_thms])
+val eqs = LIST_CONJ (map TypeBase.case_eq_of
+  [``:op``, ``:'a list``, ``:'a option``, ``:v``, ``:'a store_v``, ``:lit``,
+   ``:eq_result``, ``:word_size``, ``:('a,'b) result``, ``:'a ffi_result``,
+   ``:'a error_result``])
 
 Theorem case_eq_thms =
   eqs
 
 Theorem do_app_const:
-  do_app s op vs = SOME (s',r) ⇒ s.clock = s'.clock ∧ s.c = s'.c
+  do_app s op vs = SOME (s',r) ⇒ s.clock = s'.clock
 Proof
   Cases_on ‘op’ \\ rw [do_app_def,AllCaseEqs()]
   \\ rpt (pairarg_tac \\ gvs []) \\ gvs []
@@ -1049,37 +971,12 @@ Theorem evaluate_def[compute,allow_rebind] =
 Theorem evaluate_ind[allow_rebind] =
   REWRITE_RULE [fix_clock_evaluate] evaluate_ind;
 
-Definition bool_ctors_def[simp]:
-  bool_ctors =
-    { ((true_tag, SOME bool_id), 0n)
-    ; ((false_tag, SOME bool_id), 0n) }
-End
-
-Definition list_ctors_def[simp]:
-  list_ctors =
-    { ((cons_tag, SOME list_id), 2n)
-    ; ((nil_tag, SOME list_id), 0n) }
-End
-
-Definition exn_ctors_def[simp]:
-  exn_ctors =
-    { ((div_tag, NONE), 0n)
-    ; ((chr_tag, NONE), 0n)
-    ; ((subscript_tag, NONE), 0n)
-    ; ((bind_tag, NONE), 0n) }
-End
-
-Definition initial_ctors_def:
-   initial_ctors = bool_ctors UNION list_ctors UNION exn_ctors
-End
-
 Definition initial_state_def:
   initial_state ffi k ec =
     <| clock       := k
      ; refs        := []
      ; ffi         := ffi
      ; globals     := []
-     ; c           := initial_ctors
      ; eval_config := ec
      |> :('c,'ffi) flatSem$state
 End

@@ -1083,10 +1083,7 @@ Proof
          bytes_in_memory_APPEND]
 QED
 
-fun get_thms ty = { case_def = TypeBase.case_def_of ty, nchotomy = TypeBase.nchotomy_of ty }
-val lab_thms = get_thms ``:lab``
-val option_thms = get_thms ``:'a option``
-val case_eq_thms0 = map prove_case_eq_thm [lab_thms, option_thms]
+val case_eq_thms0 = map TypeBase.case_eq_of [``:lab``, ``:'a option``]
 val bool_case_eq_thms = map (fn th =>
   let val v = th |> concl |> lhs |> rhs
   in th |> GEN v |> Q.ISPEC`T` |> SIMP_RULE bool_ss [] end) case_eq_thms0
@@ -2770,8 +2767,7 @@ val pos_val_MOD_0 = Q.prove(
   \\ Cases_on `EVEN pos` \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[EVEN_ADD]
   \\ `0:num < 2 ** mc_conf.target.config.code_alignment` by full_simp_tac(srw_ss())[]
-  \\ imp_res_tac (GSYM MOD_PLUS)
-  \\ pop_assum (fn th => once_rewrite_tac [th])
+  \\ once_rewrite_tac [GSYM MOD_PLUS]
   \\ imp_res_tac line_length_MOD_0 \\ full_simp_tac(srw_ss())[])
   |> Q.SPECL [`x`,`0`,`y`] |> SIMP_RULE std_ss [GSYM AND_IMP_INTRO]
   |> SIMP_RULE std_ss [pos_val_MOD_0_lemma]
@@ -2792,8 +2788,8 @@ Proof
   PURE_REWRITE_TAC [addressTheory.n2w_and_1]>>
   FULL_SIMP_TAC std_ss [arithmeticTheory.EVEN_MOD2]>>
   `0 < 2n` by fs[]>>
-  old_drule (GSYM arithmeticTheory.MOD_PLUS)>>
-  disch_then(qspecl_then [`x`,`w2n p`] SUBST_ALL_TAC)>>
+  (qspecl_then [`2`,`x`,`w2n p`] SUBST_ALL_TAC)
+    (GSYM arithmeticTheory.MOD_PLUS)>>
   first_x_assum SUBST_ALL_TAC>>
   SIMP_TAC (std_ss++ARITH_ss) []>>
   PURE_REWRITE_TAC [GSYM addressTheory.n2w_and_1]>>
@@ -2809,7 +2805,7 @@ Proof
   \\ full_simp_tac(srw_ss())[asmSemTheory.read_reg_def]
   \\ Cases_on `s1.regs rr` \\ full_simp_tac(srw_ss())[]
   \\ TRY (Cases_on `s1.regs n`) \\ full_simp_tac(srw_ss())[] \\ Cases_on `cmp`
-  \\ full_simp_tac(srw_ss())[labSemTheory.word_cmp_def,asmTheory.word_cmp_def]
+  \\ full_simp_tac(srw_ss())[wordSemTheory.word_cmp_def,asmTheory.word_cmp_def]
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[state_rel_def]
   \\ qpat_x_assum `!bn. bn < _ ==> ~(MEM _ _)` kall_tac
   \\ first_x_assum (kall_tac o Q.SPEC `rr:num`)
@@ -2915,6 +2911,7 @@ Proof
   \\ rw[has_io_name_def]
   \\ CASE_TAC \\ fs[]
   \\ CASE_TAC \\ fs[]
+  \\ rename1 ‘s = index ∨ _’
   \\ Cases_on`s = index` \\ fs[]
 QED
 

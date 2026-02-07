@@ -24,6 +24,7 @@ Definition compile_prog_def:
                   ([],ys) => ys
                 | (xs,[]) => Function
                                 <| name := «main»
+                                 ; inline := F
                                  ; export := F
                                  ; params := []
                                  ; body := Return (Const 0w)
@@ -60,6 +61,7 @@ Theorem compile_prog_eq:
                   ([],ys) => ys
                 | (xs,[]) => Function
                                 <| name := «main»
+                                 ; inline := F
                                  ; export := F
                                  ; params := []
                                  ; body := Return (Const 0w)

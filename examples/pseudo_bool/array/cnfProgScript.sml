@@ -52,7 +52,7 @@ val inputLineTokens_specialize =
   |> Q.GEN `a` |> Q.ISPEC`SUM_TYPE STRING_TYPE INT`
   |> SIMP_RULE std_ss [blanks_1_v_thm,tokenize_1_v_thm,blanks_def] ;
 
-val parse_dimacs_body_arr = process_topdecs`
+Quote add_cakeml:
   fun parse_dimacs_body_arr lno maxvar fd acc =
   case TextIO.inputLineTokens #"\n" fd blanks_1 tokenize_1 of
     None => Inr (List.rev acc)
@@ -61,7 +61,8 @@ val parse_dimacs_body_arr = process_topdecs`
       (case parse_clause maxvar l of
         None => Inl (format_dimacs_failure lno "failed to parse line")
       | Some cl => parse_dimacs_body_arr (lno+1) maxvar fd (cl::acc))
-    else parse_dimacs_body_arr (lno+1) maxvar fd acc` |> append_prog;
+    else parse_dimacs_body_arr (lno+1) maxvar fd acc
+End
 
 Theorem parse_dimacs_body_arr_spec:
   !lines fd fdv fs maxvar maxvarv acc accv lno lnov.
@@ -169,7 +170,7 @@ Proof
   metis_tac[]
 QED
 
-val parse_dimacs_toks_arr = process_topdecs`
+Quote add_cakeml:
   fun parse_dimacs_toks_arr lno fd =
   case TextIO.inputLineTokens #"\n" fd blanks_1 tokenize_1 of
     None => Inl (format_dimacs_failure lno "failed to find header")
@@ -185,7 +186,8 @@ val parse_dimacs_toks_arr = process_topdecs`
             Inr (vars,(clauses,acc))
           else
             Inl (format_dimacs_failure lno "incorrect number of clauses")))
-    else parse_dimacs_toks_arr (lno+1) fd` |> append_prog;
+    else parse_dimacs_toks_arr (lno+1) fd
+End
 
 Theorem parse_dimacs_toks_arr_spec:
   !lines fd fdv fs lno lnov.
@@ -330,7 +332,7 @@ Proof
 QED
 
 (* parse_dimacs_toks with simple wrapper *)
-val parse_dimacs_full = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun parse_dimacs_full fname =
   let
     val fd = TextIO.openIn fname
@@ -339,7 +341,8 @@ val parse_dimacs_full = (append_prog o process_topdecs) `
   in
     res
   end
-  handle TextIO.BadFileName => Inl (notfound_string fname)`;
+  handle TextIO.BadFileName => Inl (notfound_string fname)
+End
 
 Theorem parse_dimacs_full_spec:
   STRING_TYPE f fv ∧
@@ -431,12 +434,13 @@ val res = translate clause_to_pbc_def;
 val res = translate fml_to_pbf_def;
 
 (* parse input from f1 and run encoder into npbc *)
-val parse_and_enc = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun parse_and_enc f1 =
   case parse_dimacs_full f1 of
     Inl err => Inl err
   | Inr (a,(b,fml)) =>
-    Inr (fml_to_pbf fml,(a,b))`
+    Inr (fml_to_pbf fml,(a,b))
+End
 
 Definition get_fml_def:
   get_fml fs f =
@@ -569,7 +573,7 @@ End
 
 val res = translate (ores_to_string_def |> SIMP_RULE std_ss [UNSAT_string_def,SAT_string_def,NO_CONCLUSION_string_def]);
 
-val check_unsat_2 = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun check_unsat_2 f1 f2 =
   case parse_and_enc f1 of
     Inl err => TextIO.output TextIO.stdErr err
@@ -580,7 +584,8 @@ val check_unsat_2 = (append_prog o process_topdecs) `
         check_unsat_top False (plainlim_ns nv) fml n n [] n n f2) of
       Inl err => TextIO.output TextIO.stdErr err
     | Inr s => TextIO.print s)
-    end`
+    end
+End
 
 Definition check_unsat_2_sem_def:
   check_unsat_2_sem fs f1 out ⇔
@@ -727,12 +732,13 @@ val res = translate num_lhs_string_def;
 val res = translate npbc_string_def;
 val res = translate print_npbf_def;
 
-val check_unsat_1 = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun check_unsat_1 f1 =
   case parse_and_enc f1 of
     Inl err => TextIO.output TextIO.stdErr err
   | Inr (fml,(nv,nc)) =>
-    TextIO.print_list (print_npbf fml)`
+    TextIO.print_list (print_npbf fml)
+End
 
 Definition check_unsat_1_sem_def:
   check_unsat_1_sem fs f1 out ⇔
@@ -787,12 +793,13 @@ End
 
 val r = translate usage_string_def;
 
-val main = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun main u =
   case CommandLine.arguments () of
     [f1] => check_unsat_1 f1
   | [f1,f2] => check_unsat_2 f1 f2
-  | _ => TextIO.output TextIO.stdErr usage_string`
+  | _ => TextIO.output TextIO.stdErr usage_string
+End
 
 Definition main_sem_def:
   main_sem fs cl out =

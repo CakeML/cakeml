@@ -8,7 +8,7 @@
 Theory fromSexp
 Ancestors
   simpleSexp ast location[qualified] fpSem
-  quantHeuristics ASCIInumbers numposrep
+  quantHeuristics ASCIInumbers numposrep mlstring
 Libs
   preamble match_goal
 
@@ -293,7 +293,7 @@ Proof
 QED
 
 Definition odestSEXSTR_def[simp]:
-  (odestSEXSTR (SX_STR s) = decode_control s) ∧
+  (odestSEXSTR (SX_STR s) = OPTION_MAP implode (decode_control s)) ∧
   (odestSEXSTR _ = NONE)
 End
 
@@ -310,12 +310,12 @@ Proof
 QED
 
 Definition odestSXSTR_def[simp]:
-  (odestSXSTR (SX_STR s) = SOME s) ∧
+  (odestSXSTR (SX_STR s) = SOME (implode s)) ∧
   (odestSXSTR _ = NONE)
 End
 
 Definition odestSXSYM_def[simp]:
-  (odestSXSYM (SX_SYM s) = SOME s) ∧
+  (odestSXSYM (SX_SYM s) = SOME (implode s)) ∧
   (odestSXSYM _ = NONE)
 End
 
@@ -325,7 +325,7 @@ Definition odestSXNUM_def[simp]:
 End
 
 Theorem odestSXNUM_SEXSTR[simp]:
-  odestSXNUM (SEXSTR str) = NONE
+  odestSXNUM (SEXSTR strng) = NONE
 Proof
   simp[SEXSTR_def]
 QED
@@ -334,7 +334,7 @@ Definition sexpopt_def:
   sexpopt p s =
     do
        nm <- odestSXSYM s ;
-       assert(nm = "NONE");
+       assert(nm = «NONE»);
        return NONE
     od ++
     do
@@ -362,7 +362,7 @@ Theorem sexplist_thm[simp]:
     do ph <- p h ; pt <- sexplist p t; return (ph::pt) od ∧
   (sexplist p (SX_SYM s) = if s = "nil" then return [] else fail) ∧
   sexplist p (&n) = fail ∧
-  sexplist p (SX_STR str) = fail
+  sexplist p (SX_STR strng) = fail
 Proof
   rpt strip_tac >> simp[Once sexplist_def]
 QED
@@ -411,7 +411,7 @@ QED
 Theorem strip_sxcons_thm[simp]:
   strip_sxcons ⟪ h • t ⟫ = lift (CONS h) (strip_sxcons t) ∧
   strip_sxcons (&n) = NONE ∧
-  strip_sxcons (SX_STR str) = NONE ∧
+  strip_sxcons (SX_STR strng) = NONE ∧
   strip_sxcons (SX_SYM s) = if s = "nil" then SOME [] else NONE
 Proof
   rpt strip_tac >> simp[]
@@ -534,8 +534,8 @@ Definition sexplit_def:
       guard (nm = "char")
             do
               cs <- odestSEXSTR (HD args);
-              assert(LENGTH cs = 1);
-              return (Char (HD cs))
+              assert(strlen cs = 1);
+              return (Char (strsub cs 0))
             od ++
       guard (nm = "word8")
             do
@@ -695,8 +695,8 @@ Definition decode_prim_type_def:
   decode_prim_type _ = NONE
 End
 
-Definition decode_arith_def:
-  decode_arith (SX_SYM s) =
+Definition sexparith_def:
+  sexparith (SX_SYM s) =
     (if s = "Add" then SOME Add else
      if s = "Sub" then SOME Sub else
      if s = "Mul" then SOME Mul else
@@ -710,46 +710,19 @@ Definition decode_arith_def:
      if s = "Not" then SOME Not else
      if s = "Sqrt" then SOME Sqrt else
      if s = "FMA" then SOME FMA else NONE) ∧
-  decode_arith _ = NONE
+  sexparith _ = NONE
+End
+
+Definition sexplog_def:
+  sexplog (SX_SYM s) =
+    (if s = "Andalso" then SOME Andalso else
+     if s = "Orelse" then SOME Orelse else NONE) ∧
+  sexplog _ = NONE
 End
 
 Definition sexpop_def:
   (sexpop (SX_SYM s) =
-  if s = "OpnPlus" then SOME (Opn Plus) else
-  if s = "OpnMinus" then SOME (Opn Minus) else
-  if s = "OpnTimes" then SOME (Opn Times) else
-  if s = "OpnDivide" then SOME (Opn Divide) else
-  if s = "OpnModulo" then SOME (Opn Modulo) else
-  if s = "OpbLt" then SOME (Opb Lt) else
-  if s = "OpbGt" then SOME (Opb Gt) else
-  if s = "OpbLeq" then SOME (Opb Leq) else
-  if s = "OpbGeq" then SOME (Opb Geq) else
-  if s = "Opw8Andw" then SOME (Opw W8 Andw) else
-  if s = "Opw8Orw" then SOME (Opw W8 Orw) else
-  if s = "Opw8Xor" then SOME (Opw W8 Xor) else
-  if s = "Opw8Add" then SOME (Opw W8 Add) else
-  if s = "Opw8Sub" then SOME (Opw W8 Sub) else
-  if s = "Opw64Andw" then SOME (Opw W64 Andw) else
-  if s = "Opw64Orw" then SOME (Opw W64 Orw) else
-  if s = "Opw64Xor" then SOME (Opw W64 Xor) else
-  if s = "Opw64Add" then SOME (Opw W64 Add) else
-  if s = "Opw64Sub" then SOME (Opw W64 Sub) else
   if s = "Equality" then SOME Equality else
-  if s = "FPcmpFPLess" then SOME (FP_cmp FP_Less) else
-  if s = "FPcmpFPLessEqual" then SOME (FP_cmp FP_LessEqual) else
-  if s = "FPcmpFPGreater" then SOME (FP_cmp FP_Greater) else
-  if s = "FPcmpFPGreaterEqual" then SOME (FP_cmp FP_GreaterEqual) else
-  if s = "FPcmpFPEqual" then SOME (FP_cmp FP_Equal) else
-  if s = "FPuopFPAbs" then SOME (FP_uop FP_Abs) else
-  if s = "FPuopFPNeg" then SOME (FP_uop FP_Neg) else
-  if s = "FPuopFPSqrt" then SOME (FP_uop FP_Sqrt) else
-  if s = "FPbopFPAdd" then SOME (FP_bop FP_Add) else
-  if s = "FPbopFPSub" then SOME (FP_bop FP_Sub) else
-  if s = "FPbopFPMul" then SOME (FP_bop FP_Mul) else
-  if s = "FPbopFPDiv" then SOME (FP_bop FP_Div) else
-  if s = "FPtopFPFma" then SOME (FP_top FP_Fma) else
-  if s = "FpToWord" then SOME (FpToWord) else
-  if s = "FpFromWord" then SOME (FpFromWord) else
   if s = "Opapp" then SOME Opapp else
   if s = "Opassign" then SOME Opassign else
   if s = "Opref" then SOME Opref else
@@ -765,12 +738,6 @@ Definition sexpop_def:
   if s = "CopyAw8Str" then SOME CopyAw8Str else
   if s = "CopyAw8Aw8" then SOME CopyAw8Aw8 else
   if s = "XorAw8Strunsafe" then SOME XorAw8Str_unsafe else
-  if s = "Ord" then SOME Ord else
-  if s = "Chr" then SOME Chr else
-  if s = "W8fromInt" then SOME (WordFromInt W8) else
-  if s = "W8toInt" then SOME (WordToInt W8) else
-  if s = "W64fromInt" then SOME (WordFromInt W64) else
-  if s = "W64toInt" then SOME (WordToInt W64) else
   if s = "Implode" then SOME Implode else
   if s = "Explode" then SOME Explode else
   if s = "Strsub" then SOME Strsub else
@@ -794,7 +761,7 @@ Definition sexpop_def:
   if s = "Eval" then SOME Eval else
   if s = "Envid" then SOME Env_id else NONE) ∧
   (sexpop (SX_CONS (SX_SYM s) (SX_STR s')) =
-     if s = "FFI" then OPTION_MAP FFI (decode_control s') else NONE
+     if s = "FFI" then OPTION_MAP (FFI ∘ implode) (decode_control s') else NONE
    ) ∧
   (sexpop (SX_CONS (SX_SYM s) (SX_SYM t)) =
      case decode_thunk_mode t of
@@ -814,7 +781,7 @@ Definition sexpop_def:
     if s = "Shift64Ror" then SOME (Shift W64 Ror n) else NONE) ∧
   (sexpop (SX_CONS (SX_SYM s) (SX_CONS x y)) =
     if s = "Arith" then
-      (case (decode_arith x, decode_prim_type y) of
+      (case (sexparith x, decode_prim_type y) of
        | (SOME a, SOME prim_type) => SOME (Arith a prim_type)
        | _ => NONE)
     else if s = "FromTo" then
@@ -827,13 +794,6 @@ Definition sexpop_def:
        | _ => NONE)
     else NONE) ∧
   (sexpop _ = NONE)
-End
-
-Definition sexplop_def:
-  (sexplop (SX_SYM s) =
-   if s = "And" then SOME And else
-   if s = "Or" then SOME Or else NONE) ∧
-  (sexplop _ = NONE)
 End
 
 Definition sexplocpt_def:
@@ -884,7 +844,7 @@ Definition sexpexp_def:
       guard (nm = "App" ∧ LENGTH args = 2)
             (lift2 App (sexpop (EL 0 args)) (sexplist sexpexp (EL 1 args))) ++
       guard (nm = "Log" ∧ LENGTH args = 3)
-            (lift Log (sexplop (EL 0 args)) <*>
+            (lift Log (sexplog (EL 0 args)) <*>
                       (sexpexp (EL 1 args)) <*>
                       (sexpexp (EL 2 args))) ++
       guard (nm = "If" ∧ LENGTH args = 3)
@@ -950,7 +910,7 @@ Definition sexpexp_alt_def:
                (sexpexp_list  (EL 1 args))
            else
           if nm = "Log" ∧ LENGTH args = 3 then
-             lift Log (sexplop (EL 0 args)) <*> sexpexp_alt (EL 1 args) <*>
+             lift Log (sexplog (EL 0 args)) <*> sexpexp_alt (EL 1 args) <*>
              sexpexp_alt (EL 2 args)
            else
           if nm = "If" ∧ LENGTH args = 3 then
@@ -1042,7 +1002,7 @@ Termination
 End
 
 Theorem sexpexp_alt_intro:
-   (∀s. sexpexp s = sexpexp_alt s) ∧
+  (∀s. sexpexp s = sexpexp_alt s) ∧
   (∀s. sexplist sexpexp s = sexpexp_list s) ∧
   (∀s. sexplist (sexppair sexppat sexpexp) s = sexppes s) ∧
   (∀s. sexplist (sexppair odestSEXSTR (sexppair odestSEXSTR sexpexp)) s = sexpfuns s) ∧
@@ -1255,8 +1215,8 @@ Proof
 QED
 
 Definition idsexp_def:
-  (idsexp (Short n) = listsexp [SX_SYM"Short"; SEXSTR n]) ∧
-  (idsexp (Long ns n) = listsexp [SX_SYM"Long"; SEXSTR ns; idsexp n])
+  (idsexp (Short n) = listsexp [SX_SYM"Short"; SEXSTR (explode n)]) ∧
+  (idsexp (Long ns n) = listsexp [SX_SYM"Long"; SEXSTR (explode ns); idsexp n])
 End
 
 Theorem idsexp_11[simp]:
@@ -1266,7 +1226,7 @@ Proof
 QED
 
 Definition typesexp_def:
-  (typesexp (Atvar s) = listsexp [SX_SYM "Atvar"; SEXSTR s]) ∧
+  (typesexp (Atvar s) = listsexp [SX_SYM "Atvar"; SEXSTR (explode s)]) ∧
   (typesexp (Atfun t1 t2) = listsexp [SX_SYM "Atfun"; typesexp t1; typesexp t2]) ∧
   (typesexp (Attup ts) = listsexp [SX_SYM "Attup"; listsexp (MAP typesexp ts)]) ∧
   (typesexp (Atapp ts tc) = listsexp [SX_SYM "Atapp"; listsexp (MAP typesexp ts); idsexp tc])
@@ -1293,7 +1253,7 @@ Definition litsexp_def:
    if i < 0 then listsexp [SX_SYM "-"; SX_NUM (Num(-i))]
             else SX_NUM (Num i)) ∧
   (litsexp (Char c) = listsexp [SX_SYM "char"; SEXSTR [c]]) ∧
-  (litsexp (StrLit s) = SEXSTR s) ∧
+  (litsexp (StrLit s) = SEXSTR (explode s)) ∧
   (litsexp (Word8 w) = listsexp [SX_SYM "word8"; SX_NUM (w2n w)]) ∧
   (litsexp (Word64 w) = listsexp [SX_SYM "word64"; SX_NUM (w2n w)]) ∧
   (litsexp (Float64 w) = listsexp [SX_SYM "float64"; SX_NUM (w2n w)])
@@ -1308,10 +1268,10 @@ QED
 
 Definition patsexp_def:
   (patsexp Pany = listsexp [SX_SYM "Pany"]) ∧
-  (patsexp (Pvar s) = SEXSTR s) ∧
+  (patsexp (Pvar s) = SEXSTR (explode s)) ∧
   (patsexp (Plit l) = listsexp [SX_SYM "Plit"; litsexp l]) ∧
   (patsexp (Pcon cn ps) = listsexp [SX_SYM "Pcon"; optsexp (OPTION_MAP idsexp cn); listsexp (MAP patsexp ps)]) ∧
-  (patsexp (Pas p i) = listsexp [SX_SYM "Pas"; patsexp p; SEXSTR i]) ∧
+  (patsexp (Pas p i) = listsexp [SX_SYM "Pas"; patsexp p; SEXSTR (explode i)]) ∧
   (patsexp (Pref p) = listsexp [SX_SYM "Pref"; patsexp p]) ∧
   (patsexp (Ptannot p t) = listsexp [SX_SYM "Ptannot" ; patsexp p; typesexp t])
 Termination
@@ -1336,17 +1296,6 @@ Proof
   \\ imp_res_tac (REWRITE_RULE[AND_IMP_INTRO] MAP_EQ_MAP_IMP)
   \\ first_x_assum match_mp_tac
   \\ simp[] \\ metis_tac[]
-QED
-
-Definition lopsexp_def:
-  (lopsexp And = SX_SYM "And") ∧
-  (lopsexp Or = SX_SYM "Or")
-End
-
-Theorem lopsexp_11[simp]:
-   ∀l1 l2. lopsexp l1 = lopsexp l2 ⇔ l1 = l2
-Proof
-  Cases \\ Cases \\ simp[lopsexp_def]
 QED
 
 Definition testsexp_def:
@@ -1402,10 +1351,10 @@ Proof
   \\ every_case_tac \\ fs []
 QED
 
-Theorem sexparith_arithsexp[simp]:
-  ∀x. decode_arith (arithsexp x) = SOME x
+Theorem arithsexp_sexparith[simp]:
+  ∀x. sexparith (arithsexp x) = SOME x
 Proof
-  Cases \\ fs [decode_arith_def,arithsexp_def]
+  Cases \\ fs [sexparith_def,arithsexp_def]
 QED
 
 Definition prim_typesexp_def:
@@ -1439,18 +1388,20 @@ Proof
 QED
 
 Theorem odestSXSTR_SOME[simp]:
-   (odestSXSTR s = SOME y ⇔ s = SX_STR y) ∧
-   (SOME y = odestSXSTR s ⇔ s = SX_STR y)
+   (odestSXSTR s = SOME y ⇔ s = SX_STR (explode y)) ∧
+   (SOME y = odestSXSTR s ⇔ s = SX_STR (explode y))
 Proof
-  Cases_on`s`>>simp[odestSXSTR_def] >> simp[EQ_SYM_EQ]
+  Cases_on`s`>>simp[odestSXSTR_def] >> simp[EQ_SYM_EQ] >>
+  iff_tac >> strip_tac >> simp []
 QED
 
 Theorem odestSEXSTR_SOME[simp]:
-   (odestSEXSTR s = SOME y ⇔ s = SEXSTR y) ∧
-   (SOME y = odestSEXSTR s ⇔ s = SEXSTR y)
+   (odestSEXSTR s = SOME y ⇔ s = SEXSTR (explode y)) ∧
+   (SOME y = odestSEXSTR s ⇔ s = SEXSTR (explode y))
 Proof
   Cases_on`s`\\simp[odestSEXSTR_def,SEXSTR_def]
-  \\ metis_tac[decode_encode_control,encode_decode_control]
+  \\ metis_tac[decode_encode_control,encode_decode_control,
+               explode_implode,implode_explode]
 QED
 
 Theorem odestSXNUM_SOME[simp]:
@@ -1461,13 +1412,13 @@ Proof
 QED
 
 Theorem odestSXSTR_SX_STR[simp]:
-   odestSXSTR (SX_STR s) = SOME s
+  (odestSXSTR (SX_STR s) = SOME (implode s))
 Proof
   simp[]
 QED
 
 Theorem odestSEXSTR_SEXSTR[simp]:
-   odestSEXSTR (SEXSTR s) = SOME s
+   odestSEXSTR (SEXSTR s) = SOME (implode s)
 Proof simp[]
 QED
 
@@ -1477,7 +1428,7 @@ Proof simp[]
 QED
 
 Theorem odestSXSYM_SX_SYM[simp]:
-   odestSXSYM (SX_SYM s) = SOME s
+   odestSXSYM (SX_SYM s) = SOME (implode s)
 Proof
   simp[]
 QED
@@ -1545,11 +1496,11 @@ QED
 Theorem dstrip_sexp_thm[simp]:
   dstrip_sexp ⟪SX_SYM s • args⟫ = lift (λt. (s,t)) (strip_sxcons args) ∧
   dstrip_sexp ⟪ &n • args⟫ = NONE ∧
-  dstrip_sexp ⟪SX_STR str • args⟫ = NONE ∧
+  dstrip_sexp ⟪SX_STR strng • args⟫ = NONE ∧
   dstrip_sexp ⟪ ⟪s1 • s2⟫ • args⟫ = NONE ∧
   dstrip_sexp (&n) = NONE ∧
   dstrip_sexp (SX_SYM s) = NONE ∧
-  dstrip_sexp (SX_STR str) = NONE
+  dstrip_sexp (SX_STR strng) = NONE
 Proof
   simp[dstrip_sexp_def]
 QED
@@ -1588,25 +1539,6 @@ Proof
 QED
 
 Definition opsexp_def:
-  (opsexp (Opn Plus) = SX_SYM "OpnPlus") ∧
-  (opsexp (Opn Minus) = SX_SYM "OpnMinus") ∧
-  (opsexp (Opn Times) = SX_SYM "OpnTimes") ∧
-  (opsexp (Opn Divide) = SX_SYM "OpnDivide") ∧
-  (opsexp (Opn Modulo) = SX_SYM "OpnModulo") ∧
-  (opsexp (Opb Lt) = SX_SYM "OpbLt") ∧
-  (opsexp (Opb Gt) = SX_SYM "OpbGt") ∧
-  (opsexp (Opb Leq) = SX_SYM "OpbLeq") ∧
-  (opsexp (Opb Geq) = SX_SYM "OpbGeq") ∧
-  (opsexp (Opw W8 Andw) = SX_SYM "Opw8Andw") ∧
-  (opsexp (Opw W8 Orw) = SX_SYM "Opw8Orw") ∧
-  (opsexp (Opw W8 Xor) = SX_SYM "Opw8Xor") ∧
-  (opsexp (Opw W8 Add) = SX_SYM "Opw8Add") ∧
-  (opsexp (Opw W8 Sub) = SX_SYM "Opw8Sub") ∧
-  (opsexp (Opw W64 Andw) = SX_SYM "Opw64Andw") ∧
-  (opsexp (Opw W64 Orw) = SX_SYM "Opw64Orw") ∧
-  (opsexp (Opw W64 Xor) = SX_SYM "Opw64Xor") ∧
-  (opsexp (Opw W64 Add) = SX_SYM "Opw64Add") ∧
-  (opsexp (Opw W64 Sub) = SX_SYM "Opw64Sub") ∧
   (opsexp (Shift W8 Lsl n) = SX_CONS (SX_SYM "Shift8Lsl") (SX_NUM n)) ∧
   (opsexp (Shift W8 Lsr n) = SX_CONS (SX_SYM "Shift8Lsr") (SX_NUM n)) ∧
   (opsexp (Shift W8 Asr n) = SX_CONS (SX_SYM "Shift8Asr") (SX_NUM n)) ∧
@@ -1616,21 +1548,6 @@ Definition opsexp_def:
   (opsexp (Shift W64 Asr n) = SX_CONS (SX_SYM "Shift64Asr") (SX_NUM n)) ∧
   (opsexp (Shift W64 Ror n) = SX_CONS (SX_SYM "Shift64Ror") (SX_NUM n)) ∧
   (opsexp Equality = SX_SYM "Equality") ∧
-  (opsexp (FP_cmp FP_Less) = SX_SYM "FPcmpFPLess") ∧
-  (opsexp (FP_cmp FP_LessEqual) = SX_SYM "FPcmpFPLessEqual") ∧
-  (opsexp (FP_cmp FP_Greater) = SX_SYM "FPcmpFPGreater") ∧
-  (opsexp (FP_cmp FP_GreaterEqual) = SX_SYM "FPcmpFPGreaterEqual") ∧
-  (opsexp (FP_cmp FP_Equal) = SX_SYM "FPcmpFPEqual") ∧
-  (opsexp (FP_uop FP_Abs) = SX_SYM "FPuopFPAbs") ∧
-  (opsexp (FP_uop FP_Neg) = SX_SYM "FPuopFPNeg") ∧
-  (opsexp (FP_uop FP_Sqrt) = SX_SYM "FPuopFPSqrt") ∧
-  (opsexp (FP_bop FP_Add) = SX_SYM "FPbopFPAdd") ∧
-  (opsexp (FP_bop FP_Sub) = SX_SYM "FPbopFPSub") ∧
-  (opsexp (FP_bop FP_Mul) = SX_SYM "FPbopFPMul") ∧
-  (opsexp (FP_bop FP_Div) = SX_SYM "FPbopFPDiv") ∧
-  (opsexp (FP_top FP_Fma) = SX_SYM "FPtopFPFma") ∧
-  (opsexp (FpToWord) = SX_SYM "FpToWord") /\
-  (opsexp (FpFromWord) = SX_SYM "FpFromWord") /\
   (opsexp Opapp = SX_SYM "Opapp") ∧
   (opsexp Opassign = SX_SYM "Opassign") ∧
   (opsexp Opref = SX_SYM "Opref") ∧
@@ -1646,12 +1563,6 @@ Definition opsexp_def:
   (opsexp CopyAw8Str = SX_SYM "CopyAw8Str") ∧
   (opsexp CopyAw8Aw8 = SX_SYM "CopyAw8Aw8") ∧
   (opsexp XorAw8Str_unsafe = SX_SYM "XorAw8Strunsafe") ∧
-  (opsexp Ord = SX_SYM "Ord") ∧
-  (opsexp Chr = SX_SYM "Chr") ∧
-  (opsexp (WordFromInt W8) = SX_SYM "W8fromInt") ∧
-  (opsexp (WordToInt W8) = SX_SYM "W8toInt") ∧
-  (opsexp (WordFromInt W64) = SX_SYM "W64fromInt") ∧
-  (opsexp (WordToInt W64) = SX_SYM "W64toInt") ∧
   (opsexp Implode = SX_SYM "Implode") ∧
   (opsexp Explode = SX_SYM "Explode") ∧
   (opsexp Strsub = SX_SYM "Strsub") ∧
@@ -1673,7 +1584,7 @@ Definition opsexp_def:
   (opsexp ConfigGC = SX_SYM "ConfigGC") ∧
   (opsexp Eval = SX_SYM "Eval") ∧
   (opsexp Env_id = SX_SYM "Envid") ∧
-  (opsexp (FFI s) = SX_CONS (SX_SYM "FFI") (SEXSTR s)) ∧
+  (opsexp (FFI s) = SX_CONS (SX_SYM "FFI") (SEXSTR (explode s))) ∧
   (opsexp (ThunkOp ForceThunk) = SX_SYM "ForceThunk")  ∧
   (opsexp (ThunkOp (AllocThunk m)) =
     SX_CONS (SX_SYM "AllocThunk") (SX_SYM (encode_thunk_mode m))) ∧
@@ -1694,7 +1605,7 @@ Definition opsexp_def:
 End
 
 Theorem sexpop_opsexp[simp]:
-   sexpop (opsexp op) = SOME op
+  sexpop (opsexp op) = SOME op
 Proof
   Cases_on ‘∃t. op = ThunkOp t’
   >- (gvs [] \\ Cases_on ‘t’
@@ -1702,20 +1613,27 @@ Proof
       \\ rw [] \\ gvs [AllCaseEqs()]
       \\ Cases_on ‘t'’ \\ gvs [encode_thunk_mode_def,decode_thunk_mode_def]) >>
   Cases_on`op`>>fs []>>rw[sexpop_def,opsexp_def] >>
-  TRY(MAP_FIRST rename1 [
-        ‘Opn c1’, ‘Opb c1’, ‘Opw c2 c1’, ‘Shift c1 c2 _’,
-        ‘FP_cmp c1’, ‘FP_uop c1’, ‘FP_bop c1’, ‘FP_top c1’,
-        ‘WordFromInt c1’, ‘WordToInt c1’
-      ] >>
-      Cases_on`c1` >> rw[sexpop_def,opsexp_def] >>
-      Cases_on`c2` >> rw[sexpop_def,opsexp_def]) >>
-  rw[sexpop_def,opsexp_def,SEXSTR_def]
+  rw[sexpop_def,opsexp_def,SEXSTR_def] >>
+  rename [‘Shift c1 c2 _’] >>
+  Cases_on`c1` >> rw[sexpop_def,opsexp_def] >>
+  Cases_on`c2` >> rw[sexpop_def,opsexp_def]
 QED
 
 Theorem opsexp_11[simp]:
    ∀o1 o2. opsexp o1 = opsexp o2 ⇔ o1 = o2
 Proof
   rw[EQ_IMP_THM] >> pop_assum (mp_tac o AP_TERM “sexpop”) >> simp[]
+QED
+
+Definition logsexp_def:
+  logsexp Andalso = SX_SYM "Andalso" ∧
+  logsexp Orelse = SX_SYM "Orelse"
+End
+
+Theorem logsexp_11[simp]:
+   ∀l1 l2. logsexp l1 = logsexp l2 ⇔ l1 = l2
+Proof
+  Cases \\ Cases \\ simp[logsexp_def]
 QED
 
 Definition locnsexp_def:
@@ -1750,24 +1668,30 @@ Definition expsexp_def:
     listsexp [SX_SYM "Con"; optsexp (OPTION_MAP idsexp cn);
               listsexp (MAP expsexp es)] ∧
   expsexp (Var id) = listsexp [SX_SYM "Var"; idsexp id] ∧
-  expsexp (Fun x e) = listsexp [SX_SYM "Fun"; SEXSTR x; expsexp e] ∧
+  expsexp (Fun x e) = listsexp [SX_SYM "Fun"; SEXSTR (explode x); expsexp e] ∧
   expsexp (App op es) =
     listsexp [SX_SYM "App"; opsexp op; listsexp (MAP expsexp es)] ∧
-  expsexp (Log lop e1 e2) = ⟪SX_SYM "Log";lopsexp lop; expsexp e1; expsexp e2⟫ ∧
+  expsexp (Log lop e1 e2) = ⟪SX_SYM "Log"; logsexp lop; expsexp e1; expsexp e2⟫ ∧
   expsexp (If e1 e2 e3) = ⟪SX_SYM "If"; expsexp e1; expsexp e2; expsexp e3⟫ ∧
   expsexp (Mat e pes) =
     ⟪SX_SYM "Mat"; expsexp e;
      listsexp (MAP (λ(p,e). SX_CONS (patsexp p) (expsexp e)) pes)⟫ ∧
   expsexp (Let so e1 e2) =
-    ⟪SX_SYM "Let"; optsexp (OPTION_MAP SEXSTR so); expsexp e1; expsexp e2⟫ ∧
+    ⟪SX_SYM "Let"; optsexp (OPTION_MAP (SEXSTR ∘ explode) so); expsexp e1; expsexp e2⟫ ∧
   expsexp (Letrec funs e) =
   ⟪SX_SYM "Letrec";
-   listsexp (MAP (λ(x,y,z). SX_CONS (SEXSTR x)
-                                     (SX_CONS (SEXSTR y) (expsexp z))) funs);
+   listsexp (MAP (λ(x,y,z). SX_CONS (SEXSTR (explode x))
+                                     (SX_CONS (SEXSTR (explode y)) (expsexp z))) funs);
    expsexp e⟫ ∧
   expsexp (Tannot e t) = ⟪SX_SYM "Tannot"; expsexp e; typesexp t⟫ ∧
   expsexp (Lannot e loc) = ⟪SX_SYM "Lannot"; expsexp e; locssexp loc⟫
 End
+
+Theorem SEXSTR_explode_11[local]:
+  (SEXSTR ∘ explode) s1 = (SEXSTR ∘ explode) s2 ⇒ s1 = s2
+Proof
+  simp []
+QED
 
 Theorem expsexp_11[simp]:
    ∀e1 e2. expsexp e1 = expsexp e2 ⇒ e1 = e2
@@ -1779,15 +1703,15 @@ Proof
   \\ imp_res_tac (REWRITE_RULE[AND_IMP_INTRO] MAP_EQ_MAP_IMP)
   \\ TRY(first_x_assum match_mp_tac \\ rw[FORALL_PROD])
   \\ rpt(pairarg_tac \\ fs[])
-  \\ metis_tac[OPTION_MAP_INJ,idsexp_11,simpleSexpTheory.sexp_11,SEXSTR_11]
+  \\ metis_tac[OPTION_MAP_INJ,idsexp_11,simpleSexpTheory.sexp_11,SEXSTR_11,SEXSTR_explode_11]
 QED
 
 Definition type_defsexp_def:
   type_defsexp = listsexp o
     MAP (λ(xs,x,ls).
-      SX_CONS (listsexp (MAP SEXSTR xs))
-        (SX_CONS (SEXSTR x)
-          (listsexp (MAP (λ(y,ts). SX_CONS (SEXSTR y) (listsexp (MAP typesexp ts))) ls))))
+      SX_CONS (listsexp (MAP (SEXSTR ∘ explode) xs))
+        (SX_CONS (SEXSTR (explode x))
+          (listsexp (MAP (λ(y,ts). SX_CONS (SEXSTR (explode y)) (listsexp (MAP typesexp ts))) ls))))
 End
 
 Theorem type_defsexp_11[simp]:
@@ -1800,7 +1724,7 @@ Proof
   \\ rpt (pairarg_tac \\ fs[]) \\ rveq
   \\ conj_tac
   >- (
-    Q.ISPEC_THEN`SEXSTR`match_mp_tac INJ_MAP_EQ
+    Q.ISPEC_THEN`SEXSTR ∘ explode`match_mp_tac INJ_MAP_EQ
     \\ simp[INJ_DEF] )
   \\ imp_res_tac (REWRITE_RULE[AND_IMP_INTRO] MAP_EQ_MAP_IMP)
   \\ first_x_assum match_mp_tac
@@ -1830,15 +1754,15 @@ Definition decsexp_def:
          SX_SYM "Dletrec";
          locssexp locs;
          listsexp
-           (MAP (λ(f,x,e). SX_CONS (SEXSTR f) (SX_CONS (SEXSTR x) (expsexp e)))
+           (MAP (λ(f,x,e). SX_CONS (SEXSTR (explode f)) (SX_CONS (SEXSTR (explode x)) (expsexp e)))
             funs)] ∧
   decsexp (Dtype locs td) = ⟪SX_SYM "Dtype"; locssexp locs; type_defsexp td⟫ ∧
-  decsexp (Dtabbrev locs ns x t) = ⟪SX_SYM "Dtabbrev"; locssexp locs; listsexp (MAP SEXSTR ns); SEXSTR x; typesexp t⟫ ∧
-  decsexp (Denv name) = ⟪SX_SYM "Denv"; SEXSTR name⟫ ∧
+  decsexp (Dtabbrev locs ns x t) = ⟪SX_SYM "Dtabbrev"; locssexp locs; listsexp (MAP (SEXSTR ∘ explode) ns); SEXSTR (explode x); typesexp t⟫ ∧
+  decsexp (Denv name) = ⟪SX_SYM "Denv"; SEXSTR (explode name)⟫ ∧
   decsexp (Dexn locs x ts) =
-    ⟪SX_SYM "Dexn"; locssexp locs; SEXSTR x; listsexp (MAP typesexp ts)⟫ ∧
+    ⟪SX_SYM "Dexn"; locssexp locs; SEXSTR (explode x); listsexp (MAP typesexp ts)⟫ ∧
   decsexp (Dmod name decs) =
-    ⟪SX_SYM "Dmod"; SEXSTR name; listsexp (MAP decsexp decs)⟫ ∧
+    ⟪SX_SYM "Dmod"; SEXSTR (explode name); listsexp (MAP decsexp decs)⟫ ∧
   decsexp (Dlocal ldecs decs) =
     listsexp [SX_SYM "Dlocal"; listsexp (MAP decsexp ldecs);
               listsexp (MAP decsexp decs)]
@@ -1876,7 +1800,8 @@ Theorem sexplit_litsexp[simp]:
    sexplit (litsexp l) = SOME l
 Proof
   Cases_on`l`>>simp[sexplit_def,litsexp_def]
-  >- (rw[] >> intLib.ARITH_TAC ) >>
+  >- (rw[] >> intLib.ARITH_TAC )
+  >- EVAL_TAC >>
   ONCE_REWRITE_TAC[GSYM wordsTheory.dimword_8] >>
   ONCE_REWRITE_TAC[GSYM wordsTheory.dimword_64] >>
   ONCE_REWRITE_TAC[wordsTheory.w2n_lt]
@@ -1901,12 +1826,6 @@ Proof
   rw[] >> simp[patsexp_def,Once sexppat_def]
 QED
 
-Theorem sexplop_lopsexp[simp]:
-   sexplop (lopsexp l) = SOME l
-Proof
-  Cases_on`l`>>EVAL_TAC
-QED
-
 Theorem sexplocpt_locnsexp[simp]:
   sexplocpt (locnsexp p) = SOME p
 Proof
@@ -1918,6 +1837,12 @@ Theorem sexplocn_locnsexp[simp]:
    sexplocn (locssexp l) = SOME l
 Proof
   Cases_on `l` >> rw[sexplocn_def,locssexp_def]
+QED
+
+Theorem sexplog_logsexp[simp]:
+   sexplog (logsexp l) = SOME l
+Proof
+  Cases_on `l` >> rw[sexplog_def,logsexp_def]
 QED
 
 Theorem sexpexp_expsexp[simp]:
@@ -1947,10 +1872,11 @@ Proof
 QED
 
 Theorem odestSXSYM_EQ_SOME[simp]:
-  (odestSXSYM s = SOME str ⇔ s = SX_SYM str) ∧
-  (SOME str = odestSXSYM s ⇔ s = SX_SYM str)
+  (odestSXSYM s = SOME strng ⇔ s = SX_SYM (explode strng)) ∧
+  (SOME strng = odestSXSYM s ⇔ s = SX_SYM (explode strng))
 Proof
-  Cases_on‘s’ >> simp[odestSXSYM_def] >> metis_tac[]
+  Cases_on‘s’ >> simp[odestSXSYM_def] >>
+  metis_tac[implode_explode,explode_implode]
 QED
 
 Theorem sexpopt_SOME:
@@ -2004,15 +1930,21 @@ Proof
   simp[sexplit_def, OPTION_CHOICE_EQUALS_OPTION, dstrip_sexp_SOME, PULL_EXISTS,
        OPTION_CHOICE_EQ_NONE, LENGTH_EQ_NUM_compute, SF CONJ_ss, odestSXNUM_def,
        odestSEXSTR_def] >>
-  rpt gen_tac >> eq_tac >> rpt strip_tac >> gvs[litsexp_def, listsexp_def] >>
-  simp[SF CONJ_ss, litsexp_def] >>
-  Cases_on‘l’ >>
-  simp[litsexp_def, listsexp_def, PULL_EXISTS, AllCaseEqs(), SF CONJ_ss] >~
-  [‘i < 0i’] >- (Cases_on ‘i’ >> simp[]) >~
-  [‘w2n (c : word8)’]
-  >- (Cases_on ‘c’ using ranged_word_nchotomy >> gs[dimword_def]) >>~-
-  ([‘w2n (w : word64)’],
-   Cases_on ‘w’ using ranged_word_nchotomy >> gs[dimword_def])
+  rpt gen_tac >> eq_tac >> rpt strip_tac >> gvs[litsexp_def, listsexp_def]
+  >- (
+    simp[SF CONJ_ss, litsexp_def] >>
+    Cases_on‘l’ >>
+    simp[litsexp_def, listsexp_def, PULL_EXISTS, AllCaseEqs(), SF CONJ_ss] >~
+    [‘i < 0i’] >- (Cases_on ‘i’ >> simp[]) >~
+    [‘STRING c ""’] >- (
+      qexists_tac ‘str c’ >> simp []>>
+      EVAL_TAC) >~
+    [‘w2n (c : word8)’]
+    >- (Cases_on ‘c’ using ranged_word_nchotomy >> gs[dimword_def]) >>~-
+    ([‘w2n (w : word64)’],
+     Cases_on ‘w’ using ranged_word_nchotomy >> gs[dimword_def])) >>
+  Cases_on`cs`>>
+  Cases_on`s`>>fs[]
 QED
 
 Theorem idsexp_sexpid_odestSEXSTR:
@@ -2076,10 +2008,10 @@ Proof
   \\ simp [testsexp_def]
 QED
 
-Theorem decode_arith_arithsexp:
-  decode_arith s = SOME arith ⇒ arithsexp arith = s
+Theorem sexparith_arithsexp:
+  sexparith s = SOME arith ⇒ arithsexp arith = s
 Proof
-  rw [oneline decode_arith_def, AllCaseEqs()]
+  rw [oneline sexparith_def, AllCaseEqs()]
   \\ simp [arithsexp_def]
 QED
 
@@ -2101,13 +2033,7 @@ Proof
   \\ gvs[sexpop_def, AllCaseEqs(), opsexp_def, encode_decode_control]
   \\ gvs [encode_thunk_mode_def,decode_thunk_mode_def,AllCaseEqs(),
           decode_test_testsexp,decode_prim_type_prim_typesexp,
-          decode_arith_arithsexp]
-QED
-
-Theorem lopsexp_sexplop:
-   sexplop s = SOME z ⇒ lopsexp z = s
-Proof
-  Cases_on`s` \\ rw[sexplop_def] \\ rw[lopsexp_def]
+          sexparith_arithsexp]
 QED
 
 Theorem locnsexp_sexplocpt0:
@@ -2134,6 +2060,15 @@ Proof
        PULL_EXISTS] >> metis_tac[]
 QED
 
+Theorem logsexp_sexplog:
+   (sexplog s = SOME z ⇔ logsexp z = s) ∧
+   (SOME z = sexplog s ⇔ logsexp z = s)
+Proof
+  Cases_on`z` >>
+  simp[oneline sexplog_def, logsexp_def, listsexp_def, LENGTH_EQ_NUM_compute,
+       PULL_EXISTS, AllCaseEqs()]
+QED
+
 Theorem expsexp_sexpexp:
   (sexpexp s = SOME e ⇔ expsexp e = s) ∧
   (SOME e = sexpexp s ⇔ expsexp e = s)
@@ -2156,8 +2091,8 @@ Proof
   \\ simp[expsexp_def]
   \\ gvs[LENGTH_EQ_NUM_compute, listsexp_thm, litsexp_sexplit, opsexp_sexpop,
          idsexp_sexpid_odestSEXSTR, typesexp_sexptype, locnsexp_sexplocn,
-         OPTION_APPLY_MAP3, expsexp_def, lopsexp_sexplop, sexpopt_SOME,
-         optsexp_def] >>
+         OPTION_APPLY_MAP3, expsexp_def, arithsexp_sexparith, sexpopt_SOME,
+         optsexp_def,sexparith_arithsexp, logsexp_sexplog] >>
   gvs[sexplist_SOME, sxMEM_def, EL_MAP, LIST_EQ_REWRITE, MEM_EL, PULL_EXISTS] >>
   rw[] >> pairarg_tac >> first_x_assum drule >>
   simp[sexppair_SOME, PULL_EXISTS, patsexp_sexppat] >> metis_tac[]
@@ -2285,6 +2220,12 @@ Proof
   Cases_on ‘a’ \\ EVAL_TAC
 QED
 
+Theorem valid_sexp_logsexp[local,simp]:
+  valid_sexp (logsexp a)
+Proof
+  Cases_on ‘a’ \\ EVAL_TAC
+QED
+
 Theorem opsexp_valid[simp]:
    ∀op. valid_sexp (opsexp op)
 Proof
@@ -2301,13 +2242,6 @@ Proof
   \\ EVAL_TAC
   \\ TRY (rename [‘Compare oo’] \\ Cases_on ‘oo’ \\ EVAL_TAC)
   \\ TRY (rename [‘AltCompare oo’] \\ Cases_on ‘oo’ \\ EVAL_TAC)
-QED
-
-Theorem lopsexp_valid[simp]:
-   ∀l. valid_sexp (lopsexp l)
-Proof
-  Cases \\ simp[lopsexp_def]
-  \\ EVAL_TAC
 QED
 
 Theorem locnsexp_valid[simp]:

@@ -156,41 +156,41 @@ End
  * variable must be smaller than the first argument. So if it is 0, no deBruijn
  * indices are permitted. *)
 Definition check_freevars_def:
-((check_freevars:num ->(string)list -> t -> bool) dbmax tvs (Tvar tv)=
+((check_freevars:num ->(mlstring)list -> t -> bool) dbmax tvs (Tvar tv)=
    (MEM tv tvs))
 /\
-((check_freevars:num ->(string)list -> t -> bool) dbmax tvs (Tapp ts tn)=
+((check_freevars:num ->(mlstring)list -> t -> bool) dbmax tvs (Tapp ts tn)=
    (EVERY (check_freevars dbmax tvs) ts))
 /\
-((check_freevars:num ->(string)list -> t -> bool) dbmax tvs (Tvar_db n)=  (n < dbmax))
+((check_freevars:num ->(mlstring)list -> t -> bool) dbmax tvs (Tvar_db n)=  (n < dbmax))
 End
 
 Definition check_freevars_ast_def:
-((check_freevars_ast:(string)list -> ast_t -> bool) tvs (Atvar tv)=
+((check_freevars_ast:(mlstring)list -> ast_t -> bool) tvs (Atvar tv)=
    (MEM tv tvs))
 /\
-((check_freevars_ast:(string)list -> ast_t -> bool) tvs (Attup ts)=
+((check_freevars_ast:(mlstring)list -> ast_t -> bool) tvs (Attup ts)=
    (EVERY (check_freevars_ast tvs) ts))
 /\
-((check_freevars_ast:(string)list -> ast_t -> bool) tvs (Atfun t1 t2)=
+((check_freevars_ast:(mlstring)list -> ast_t -> bool) tvs (Atfun t1 t2)=
    (check_freevars_ast tvs t1 /\ check_freevars_ast tvs t2))
 /\
-((check_freevars_ast:(string)list -> ast_t -> bool) tvs (Atapp ts tn)=
+((check_freevars_ast:(mlstring)list -> ast_t -> bool) tvs (Atapp ts tn)=
    (EVERY (check_freevars_ast tvs) ts))
 End
 
 (* Simultaneous substitution of types for type variables in a type *)
 Definition type_subst_def:
-((type_subst:((string),(t))fmap -> t -> t) s (Tvar tv)=
+((type_subst:((mlstring),(t))fmap -> t -> t) s (Tvar tv)=
    ((case FLOOKUP s tv of
       NONE => Tvar tv
     | SOME(t) => t
   )))
 /\
-((type_subst:((string),(t))fmap -> t -> t) s (Tapp ts tn)=
+((type_subst:((mlstring),(t))fmap -> t -> t) s (Tapp ts tn)=
    (Tapp (MAP (type_subst s) ts) tn))
 /\
-((type_subst:((string),(t))fmap -> t -> t) s (Tvar_db n)=  (Tvar_db n))
+((type_subst:((mlstring),(t))fmap -> t -> t) s (Tvar_db n)=  (Tvar_db n))
 End
 
 (* Increment the deBruijn indices in a type by n levels, skipping all levels
@@ -242,7 +242,7 @@ End
 
 (*val opt_bind_name : maybe varN -> nat -> t -> tenv_val_exp -> tenv_val_exp*)
 Definition opt_bind_name_def:
- ((opt_bind_name:(string)option -> num -> t -> tenv_val_exp -> tenv_val_exp) n tvs t tenvE=
+ ((opt_bind_name:(mlstring)option -> num -> t -> tenv_val_exp -> tenv_val_exp) n tvs t tenvE=
    ((case n of
       NONE => tenvE
     | SOME n' => Bind_name n' tvs t tenvE
@@ -252,11 +252,11 @@ End
 
 (*val tveLookup : varN -> nat -> tenv_val_exp -> maybe (nat * t)*)
 Definition tveLookup_def:
-((tveLookup:string -> num -> tenv_val_exp ->(num#t)option) n inc Empty=  NONE)
+((tveLookup:mlstring -> num -> tenv_val_exp ->(num#t)option) n inc Empty=  NONE)
 /\
-((tveLookup:string -> num -> tenv_val_exp ->(num#t)option) n inc (Bind_tvar tvs tenvE)=  (tveLookup n (inc + tvs) tenvE))
+((tveLookup:mlstring -> num -> tenv_val_exp ->(num#t)option) n inc (Bind_tvar tvs tenvE)=  (tveLookup n (inc + tvs) tenvE))
 /\
-((tveLookup:string -> num -> tenv_val_exp ->(num#t)option) n inc (Bind_name n' tvs t tenvE)=
+((tveLookup:mlstring -> num -> tenv_val_exp ->(num#t)option) n inc (Bind_name n' tvs t tenvE)=
    (if n' = n then
     SOME (tvs, deBruijn_inc tvs inc t)
   else
@@ -288,7 +288,7 @@ End
 
 (*val lookup_varE : id modN varN -> tenv_val_exp -> maybe (nat * t)*)
 Definition lookup_varE_def:
- ((lookup_varE:((string),(string))id -> tenv_val_exp ->(num#t)option) id tenvE=
+ ((lookup_varE:((mlstring),(mlstring))id -> tenv_val_exp ->(num#t)option) id tenvE=
    ((case id of
     Short x => tveLookup x(( 0 : num)) tenvE
   | _ => NONE
@@ -318,9 +318,9 @@ End
 
 (*val bind_var_list : nat -> list (varN * t) -> tenv_val_exp -> tenv_val_exp*)
 Definition bind_var_list_def:
-((bind_var_list:num ->(string#t)list -> tenv_val_exp -> tenv_val_exp) tvs [] tenvE=  tenvE)
+((bind_var_list:num ->(mlstring#t)list -> tenv_val_exp -> tenv_val_exp) tvs [] tenvE=  tenvE)
 /\
-((bind_var_list:num ->(string#t)list -> tenv_val_exp -> tenv_val_exp) tvs ((n,t)::binds) tenvE=
+((bind_var_list:num ->(mlstring#t)list -> tenv_val_exp -> tenv_val_exp) tvs ((n,t)::binds) tenvE=
  (Bind_name n tvs t (bind_var_list tvs binds tenvE)))
 End
 
@@ -372,11 +372,26 @@ Definition supported_arith_def[simp]:
      if MEM a [Abs; Neg; Sqrt] then SOME 1 else
      if MEM a [Add; Sub; Mul; Div] then SOME 2 else
      if MEM a [FMA] then SOME 3 else NONE) ∧
+  (supported_arith a (WordT _) =
+     if MEM a [Add; Sub; And; Or; Xor] then SOME 2 else NONE) ∧
+  (supported_arith a BoolT =
+     if MEM a [Not] then SOME 1 else NONE) ∧
   (supported_arith a (ty:prim_type) = NONE)
 End
 
 Definition supported_conversion_def[simp]:
+  (* Word to Int conversions *)
   (supported_conversion (WordT W8) IntT = T) ∧
+  (supported_conversion (WordT W64) IntT = T) ∧
+  (* Int to Word conversions *)
+  (supported_conversion IntT (WordT W8) = T) ∧
+  (supported_conversion IntT (WordT W64) = T) ∧
+  (* Char/Int conversions *)
+  (supported_conversion CharT IntT = T) ∧
+  (supported_conversion IntT CharT = T) ∧
+  (* Float64/Word64 conversions *)
+  (supported_conversion Float64T (WordT W64) = T) ∧
+  (supported_conversion (WordT W64) Float64T = T) ∧
   (supported_conversion (from_ty:prim_type) (to_ty:prim_type) = F)
 End
 
@@ -386,16 +401,6 @@ Definition type_op_def:
  (type_op:op -> t list -> t -> bool) op ts t=
    case (op,ts) of
       (Opapp, [t1; t2]) => t1 = Tfn t2 t
-    | (Opn _, [t1; t2]) => (t1 = Tint) /\ (t2 = Tint) /\ (t = Tint)
-    | (Opb _, [t1; t2]) => (t1 = Tint) /\ (t2 = Tint) /\ (t = Tbool)
-    | (Opw W8 _, [t1; t2]) => (t1 = Tword8) /\ (t2 = Tword8) /\ (t = Tword8)
-    | (Opw W64 _, [t1; t2]) => (t1 = Tword64) /\ (t2 = Tword64) /\ (t = Tword64)
-    | (FP_top _, [t1; t2; t3]) => (t1 = Tdouble) /\ (t2 = Tdouble) /\ (t3 = Tdouble) /\ (t = Tdouble)
-    | (FP_bop _, [t1; t2]) => (t1 = Tdouble) /\ (t2 = Tdouble) /\ (t = Tdouble)
-    | (FP_uop _, [t1]) =>  ((t1 = Tdouble) /\ (t = Tdouble))
-    | (FP_cmp _, [t1; t2]) =>  (t1 = Tdouble) /\ (t2 = Tdouble) /\ (t = Tbool)
-    | (FpToWord, [t1]) => (t1 = Tdouble) /\ (t = Tword64)
-    | (FpFromWord, [t1]) => (t1 = Tword64) /\ (t = Tdouble)
     | (Shift W8 _ _, [t1]) => (t1 = Tword8) /\ (t = Tword8)
     | (Shift W64 _ _, [t1]) => (t1 = Tword64) /\ (t = Tword64)
     | (Equality, [t1; t2]) => (t1 = t2) /\ (t = Tbool)
@@ -412,18 +417,12 @@ Definition type_op_def:
     | (Aw8sub, [t1; t2]) => (t1 = Tword8array) /\ (t2 = Tint) /\ (t = Tword8)
     | (Aw8length, [t1]) => (t1 = Tword8array) /\ (t = Tint)
     | (Aw8update, [t1; t2; t3]) => (t1 = Tword8array) /\ (t2 = Tint) /\ (t3 = Tword8) /\ (t = Ttup [])
-    | (WordFromInt W8, [t1]) => (t1 = Tint) /\ (t = Tword8)
-    | (WordToInt W8, [t1]) => (t1 = Tword8) /\ (t = Tint)
-    | (WordFromInt W64, [t1]) => (t1 = Tint) /\ (t = Tword64)
-    | (WordToInt W64, [t1]) => (t1 = Tword64) /\ (t = Tint)
     | (CopyStrStr, [t1; t2; t3]) => (t1 = Tstring) /\ (t2 = Tint) /\ (t3 = Tint) /\ (t = Tstring)
     | (CopyStrAw8, [t1; t2; t3; t4; t5]) =>
       (t1 = Tstring) /\ (t2 = Tint) /\ (t3 = Tint) /\ (t4 = Tword8array) /\ (t5 = Tint) /\ (t = Ttup [])
     | (CopyAw8Str, [t1; t2; t3]) => (t1 = Tword8array) /\ (t2 = Tint) /\ (t3 = Tint) /\ (t = Tstring)
     | (CopyAw8Aw8, [t1; t2; t3; t4; t5]) =>
       (t1 = Tword8array) /\ (t2 = Tint) /\ (t3 = Tint) /\ (t4 = Tword8array) /\ (t5 = Tint) /\ (t = Ttup [])
-    | (Chr, [t1]) => (t1 = Tint) /\ (t = Tchar)
-    | (Ord, [t1]) => (t1 = Tchar) /\ (t = Tint)
     | (Implode, [t1]) => (t1 = Tlist Tchar) /\ (t = Tstring)
     | (Explode, [t1]) => (t1 = Tstring) /\ (t = Tlist Tchar)
     | (Strsub, [t1; t2]) => (t1 = Tstring) /\ (t2 = Tint) /\ (t = Tchar)
@@ -444,16 +443,16 @@ Definition type_op_def:
 End
 
 Definition check_type_names_def:
-((check_type_names:((string),(string),((string)list#t))namespace -> ast_t -> bool) tenvT (Atvar tv)=
+((check_type_names:((mlstring),(mlstring),((mlstring)list#t))namespace -> ast_t -> bool) tenvT (Atvar tv)=
    T)
 /\
-((check_type_names:((string),(string),((string)list#t))namespace -> ast_t -> bool) tenvT (Attup ts)=
+((check_type_names:((mlstring),(mlstring),((mlstring)list#t))namespace -> ast_t -> bool) tenvT (Attup ts)=
    (EVERY (check_type_names tenvT) ts))
 /\
-((check_type_names:((string),(string),((string)list#t))namespace -> ast_t -> bool) tenvT (Atfun t1 t2)=
+((check_type_names:((mlstring),(mlstring),((mlstring)list#t))namespace -> ast_t -> bool) tenvT (Atfun t1 t2)=
    (check_type_names tenvT t1 /\ check_type_names tenvT t2))
 /\
-((check_type_names:((string),(string),((string)list#t))namespace -> ast_t -> bool) tenvT (Atapp ts tn)=
+((check_type_names:((mlstring),(mlstring),((mlstring)list#t))namespace -> ast_t -> bool) tenvT (Atapp ts tn)=
    ((case nsLookup tenvT tn of
     SOME (tvs, _) => LENGTH tvs = LENGTH ts
   | NONE => F
@@ -463,15 +462,15 @@ End
 
 (* Substitution of type names for the type they abbreviate *)
 Definition type_name_subst_def:
-((type_name_subst:((string),(string),((string)list#t))namespace -> ast_t -> t) tenvT (Atvar tv)=  (Tvar tv))
+((type_name_subst:((mlstring),(mlstring),((mlstring)list#t))namespace -> ast_t -> t) tenvT (Atvar tv)=  (Tvar tv))
 /\
-((type_name_subst:((string),(string),((string)list#t))namespace -> ast_t -> t) tenvT (Attup ts)=
+((type_name_subst:((mlstring),(mlstring),((mlstring)list#t))namespace -> ast_t -> t) tenvT (Attup ts)=
    (Ttup (MAP (type_name_subst tenvT) ts)))
 /\
-((type_name_subst:((string),(string),((string)list#t))namespace -> ast_t -> t) tenvT (Atfun t1 t2)=
+((type_name_subst:((mlstring),(mlstring),((mlstring)list#t))namespace -> ast_t -> t) tenvT (Atfun t1 t2)=
    (Tfn (type_name_subst tenvT t1) (type_name_subst tenvT t2)))
 /\
-((type_name_subst:((string),(string),((string)list#t))namespace -> ast_t -> t) tenvT (Atapp ts tc)=
+((type_name_subst:((mlstring),(mlstring),((mlstring)list#t))namespace -> ast_t -> t) tenvT (Atapp ts tc)=
    (let args = (MAP (type_name_subst tenvT) ts) in
   (case nsLookup tenvT tc of
     SOME (tvs, t) => type_subst (alist_to_fmap (ZIP (tvs, args))) t
@@ -485,8 +484,8 @@ End
  * types mentioned are in scope. *)
 (*val check_ctor_tenv : tenv_abbrev -> list (list tvarN * typeN * list (conN * list ast_t)) -> bool*)
 Definition check_ctor_tenv_def:
- ((check_ctor_tenv:((modN),(typeN),((tvarN)list#t))namespace ->((tvarN)list#string#(conN#(ast_t)list)list)list -> bool) tenvT []=  T)
-/\ ((check_ctor_tenv:((modN),(typeN),((tvarN)list#t))namespace ->((tvarN)list#string#(conN#(ast_t)list)list)list -> bool) tenvT ((tvs,tn,ctors)::tds)=
+ ((check_ctor_tenv:((modN),(typeN),((tvarN)list#t))namespace ->((tvarN)list#mlstring#(conN#(ast_t)list)list)list -> bool) tenvT []=  T)
+/\ ((check_ctor_tenv:((modN),(typeN),((tvarN)list#t))namespace ->((tvarN)list#mlstring#(conN#(ast_t)list)list)list -> bool) tenvT ((tvs,tn,ctors)::tds)=
    (check_dup_ctors (tvs,tn,ctors) /\
   ALL_DISTINCT tvs /\
   EVERY
@@ -771,7 +770,7 @@ End
 
 (*val tenv_add_tvs : nat -> alist varN t -> alist varN (nat * t)*)
 Definition tenv_add_tvs_def:
- ((tenv_add_tvs:num ->(string#t)list ->(string#(num#t))list) tvs bindings=
+ ((tenv_add_tvs:num ->(mlstring#t)list ->(mlstring#(num#t))list) tvs bindings=
    (MAP (\ (n,t) .  (n,(tvs,t))) bindings))
 End
 
@@ -799,7 +798,7 @@ End
 
 
 Definition tenvLift_def:
- ((tenvLift:string -> type_env -> type_env) mn tenv=
+ ((tenvLift:mlstring -> type_env -> type_env) mn tenv=
    (<| v := (nsLift mn tenv.v); c := (nsLift mn tenv.c); t := (nsLift mn tenv.t)  |>))
 End
 

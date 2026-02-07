@@ -275,6 +275,9 @@ Definition do_app_def:
         (if (v1 ≠ Boolv T ∧ v1 ≠ Boolv F) then Error else
          if (v2 ≠ Boolv T ∧ v2 ≠ Boolv F) then Error else
            Rval (Boolv (v1 = v2), s))
+    | (BlockOp BoolNot,[v1]) =>
+        (if v1 = Boolv T then Rval (Boolv F, s) else
+         if v1 = Boolv F then Rval (Boolv T, s) else Error)
     | (BlockOp (Build parts),[]) =>
         (let (v,rs) = do_build_const parts s.refs in Rval (v, s with refs := rs))
     | (BlockOp (ConsExtend tag),Block _ xs'::Number lower::Number len::Number tot::xs) =>
@@ -626,25 +629,13 @@ val evaluate_ind = theorem"evaluate_ind";
 
 (* We prove that the clock never increases. *)
 
-val list_thms = { nchotomy = list_nchotomy, case_def = list_case_def };
-val option_thms = { nchotomy = option_nchotomy, case_def = option_case_def };
-val op_thms = { nchotomy = closLangTheory.op_nchotomy, case_def = closLangTheory.op_case_def };
-val word_op_thms = { nchotomy = closLangTheory.word_op_nchotomy, case_def = closLangTheory.word_op_case_def };
-val block_op_thms = { nchotomy = closLangTheory.block_op_nchotomy, case_def = closLangTheory.block_op_case_def };
-val glob_op_thms = { nchotomy = closLangTheory.glob_op_nchotomy, case_def = closLangTheory.glob_op_case_def };
-val mem_op_thms = { nchotomy = closLangTheory.mem_op_nchotomy, case_def = closLangTheory.mem_op_case_def };
-val v_thms = { nchotomy = theorem"v_nchotomy", case_def = definition"v_case_def" };
-val ref_thms = { nchotomy = ref_nchotomy, case_def = ref_case_def };
-val ffi_result_thms = { nchotomy = ffiTheory.ffi_result_nchotomy, case_def = ffiTheory.ffi_result_case_def };
-val word_size_thms = { nchotomy = astTheory.word_size_nchotomy, case_def = astTheory.word_size_case_def };
-val eq_result_thms = { nchotomy = semanticPrimitivesTheory.eq_result_nchotomy, case_def = semanticPrimitivesTheory.eq_result_case_def };
 Theorem case_eq_thms =
   (pair_case_eq::
    bool_case_eq::
-   (List.map prove_case_eq_thm
-             [list_thms, option_thms, op_thms, v_thms, ref_thms,
-              word_op_thms, block_op_thms, glob_op_thms, mem_op_thms,
-              word_size_thms, eq_result_thms, ffi_result_thms]))
+   (List.map TypeBase.case_eq_of
+             [``:'a list``, ``:'a option``, ``:closLang$op``, ``:v``, ``:'a ref``,
+              ``:closLang$word_op``, ``:closLang$block_op``, ``:closLang$glob_op``,
+              ``:closLang$mem_op``, ``:word_size``, ``:eq_result``, ``:'a ffi_result``]))
   |> LIST_CONJ;
 
 Theorem do_app_const:

@@ -9,7 +9,7 @@ Libs
   preamble
 
 val _ = monadsyntax.temp_add_monadsyntax()
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 (*  The inferencer uses a state monad internally to keep track of unifications at the expressions level *)
 
@@ -32,7 +32,7 @@ Type M = ``:'a -> ('b, 'c) exc # 'a``
 Definition st_ex_bind_def:
   (st_ex_bind : (α, β, γ) M -> (β -> (α, δ, γ) M) -> (α, δ, γ) M) x f =
   λs.
-    dtcase x s of
+    case x s of
       (Success y,s) => f y s
     | (Failure x,s) => (Failure x,s)
 End
@@ -68,8 +68,8 @@ End
 
 Definition lookup_st_ex_def:
   lookup_st_ex l err id ienv st =
-    dtcase nsLookup ienv id of
-    | NONE => (Failure (l.loc, concat [implode "Undefined "; implode err; implode ": "; id_to_string id]), st)
+    case nsLookup ienv id of
+    | NONE => (Failure (l.loc, concat [«Undefined »; err; «: »; id_to_string id]), st)
     | SOME v => (Success v, st)
 End
 
@@ -116,12 +116,12 @@ End
 Definition add_constraint_def:
   add_constraint (l : loc_err_info) t1 t2 =
   \st.
-    dtcase t_unify st.subst t1 t2 of
+    case t_unify st.subst t1 t2 of
       | NONE =>
-          (Failure (l.loc, concat [implode "Type mismatch between ";
+          (Failure (l.loc, concat [«Type mismatch between »;
                                    inf_type_to_string l.err
                                          (t_walkstar st.subst t1);
-                                   implode " and ";
+                                   « and »;
                                    inf_type_to_string l.err
                                          (t_walkstar st.subst t2)]), st)
       | SOME s =>
@@ -137,7 +137,7 @@ Definition add_constraints_def:
      return ()
   od) ∧
 (add_constraints l _ _ =
-  failwith l (implode "Internal error: Bad call to add_constraints"))
+  failwith l («Internal error: Bad call to add_constraints»))
 End
 
 Definition get_next_uvar_def:
@@ -179,7 +179,7 @@ Definition generalise_def:
   let (num_gen, s', ts') = generalise_list m n s ts in
     (num_gen, s', Infer_Tapp ts' tc)) ∧
 (generalise m n s (Infer_Tuvar uv) =
-  dtcase FLOOKUP s uv of
+  case FLOOKUP s uv of
     | SOME n => (0, s, Infer_Tvar_db n)
     | NONE =>
         if m ≤ uv then
@@ -198,7 +198,7 @@ End
 
 Definition infer_type_subst_def:
 (infer_type_subst s (Tvar tv) =
-  dtcase ALOOKUP s tv of
+  case ALOOKUP s tv of
    | SOME t => t
    | NONE => Infer_Tvar_db 0) ∧ (* should not happen *)
 (infer_type_subst s (Tvar_db n) =
@@ -212,7 +212,7 @@ End
 
 Theorem infer_type_subst_alt:
 (infer_type_subst s (Tvar tv) =
-  dtcase ALOOKUP s tv of
+  case ALOOKUP s tv of
    | SOME t => t
    | NONE => Infer_Tvar_db 0) ∧ (* should not happen *)
 (infer_type_subst s (Tvar_db n) =
@@ -276,10 +276,10 @@ Definition type_name_check_subst_def:
   (type_name_check_subst l f tenvT fvs (Atapp ts tc) =
     do
       ts' <- type_name_check_subst_list l f tenvT fvs ts;
-      (tvs', t') <- lookup_st_ex l "type constructor" tc tenvT;
+      (tvs', t') <- lookup_st_ex l «type constructor» tc tenvT;
       guard (LENGTH tvs' = LENGTH ts) l
-                 (concat [implode "Type constructor "; id_to_string tc; implode " given ";
-                          toString (&LENGTH ts); implode " arguments, but expected ";
+                 (concat [«Type constructor »; id_to_string tc; « given »;
+                          toString (&LENGTH ts); « arguments, but expected »;
                           toString (&LENGTH tvs')]);
       return (type_subst (alist_to_fmap (ZIP (tvs', ts'))) t');
     od) ∧
@@ -302,7 +302,7 @@ QED
 Theorem st_ex_bind_pair:
   monad_bind x f =
   (λs.
-     dtcase x s of
+     case x s of
      | (Success (y,z),s) => f (y,z) s
      | (Failure x,s) => (Failure x,s))
 Proof
@@ -314,7 +314,7 @@ QED
 Theorem st_ex_bind_triple:
   monad_bind x f =
   (λs.
-     dtcase x s of
+     case x s of
      | (Success (y,z,q),s) => f (y,z,q) s
      | (Failure x,s) => (Failure x,s))
 Proof
@@ -334,27 +334,27 @@ Definition type_name_check_sub_def:
         (λs. if MEM tv fvs then (Success (Tvar tv),s)
              else (Failure (l.loc,INR tv),s))) ∧
    (type_name_check_sub l tenvT fvs (Attup ts) =
-        (λs. dtcase type_name_check_sub_list l tenvT fvs ts s of
+        (λs. case type_name_check_sub_list l tenvT fvs ts s of
                (Success ts',s) => (Success (Ttup ts'),s)
              | (Failure x,s) => (Failure x,s))) ∧
    (type_name_check_sub l tenvT fvs (Atfun t1 t2) =
-        (λs. dtcase type_name_check_sub l tenvT fvs t1 s of
+        (λs. case type_name_check_sub l tenvT fvs t1 s of
                (Success t1',s) =>
-                 (dtcase type_name_check_sub l tenvT fvs t2 s of
+                 (case type_name_check_sub l tenvT fvs t2 s of
                     (Success t2',s) => (Success (Tfn t1' t2'),s)
                   | (Failure x,s) => (Failure x,s))
              | (Failure x,s) => (Failure x,s))) ∧
    (type_name_check_sub l tenvT fvs (Atapp ts tc) =
-        (λs. dtcase type_name_check_sub_list l tenvT fvs ts s of
+        (λs. case type_name_check_sub_list l tenvT fvs ts s of
                (Success ts',s) =>
-                 (dtcase
-                    dtcase nsLookup tenvT tc of
+                 (case
+                    case nsLookup tenvT tc of
                       NONE =>
                         (Failure
                            (l.loc, INL $
                             concat
-                              [implode "Undefined ";
-                               implode "type constructor"; implode ": ";
+                              [«Undefined »;
+                               «type constructor»; «: »;
                                id_to_string tc]),s)
                     | SOME v => (Success v,s)
                   of
@@ -366,17 +366,17 @@ Definition type_name_check_sub_def:
                         (Failure
                            (l.loc, INL $
                             concat
-                              [implode "Type constructor "; id_to_string tc;
-                               implode " given "; toString (LENGTH ts);
-                               implode " arguments, but expected ";
+                              [«Type constructor »; id_to_string tc;
+                               « given »; toString (LENGTH ts);
+                               « arguments, but expected »;
                                toString (LENGTH y)]),s)
                   | (Failure x,s) => (Failure x,s))
              | (Failure x,s) => (Failure x,s))) ∧
    (type_name_check_sub_list l tenvT fvs [] = (λs. (Success [],s))) ∧
    (type_name_check_sub_list l tenvT fvs (t::ts) =
-       (λs. dtcase type_name_check_sub l tenvT fvs t s of
+       (λs. case type_name_check_sub l tenvT fvs t s of
               (Success t',s) =>
-                (dtcase type_name_check_sub_list l tenvT fvs ts s of
+                (case type_name_check_sub_list l tenvT fvs ts s of
                    (Success ts',s) => (Success (t'::ts'),s)
                  | (Failure x,s) => (Failure x,s))
             | (Failure x,s) => (Failure x,s)))
@@ -385,13 +385,13 @@ End
 Theorem to_type_name_check_sub:
   (∀t l f tenvT fvs.
      type_name_check_subst l f tenvT fvs t =
-     λs:'a. dtcase type_name_check_sub l tenvT fvs t s of
+     λs:'a. case type_name_check_sub l tenvT fvs t s of
          | (Failure (x,INR r),s) => (Failure (x,f r),s)
          | (Failure (x,INL r),s) => (Failure (x,r),s)
          | (Success y,s) => (Success y,s)) ∧
   (∀t l f tenvT fvs.
      type_name_check_subst_list l f tenvT fvs t =
-     λs:'a. dtcase type_name_check_sub_list l tenvT fvs t s of
+     λs:'a. case type_name_check_sub_list l tenvT fvs t s of
          | (Failure (x,INR r),s) => (Failure (x,f r),s)
          | (Failure (x,INL r),s) => (Failure (x,r),s)
          | (Success y,s) => (Success y,s))
@@ -420,12 +420,12 @@ QED
 
 Theorem bind_type_name_check_subst:
   (st_ex_bind (type_name_check_subst l f tenvT fvs t) g =
-   λs:'a. dtcase type_name_check_sub l tenvT fvs t s of
+   λs:'a. case type_name_check_sub l tenvT fvs t s of
           | (Failure (x,INR r),s) => (Failure (x,f r),s)
           | (Failure (x,INL r),s) => (Failure (x,r),s)
           | (Success y,s) => g y s) ∧
   (st_ex_bind (type_name_check_subst_list l f tenvT fvs ts) gs =
-   λs:'a. dtcase type_name_check_sub_list l tenvT fvs ts s of
+   λs:'a. case type_name_check_sub_list l tenvT fvs ts s of
           | (Failure (x,INR r),s) => (Failure (x,f r),s)
           | (Failure (x,INL r),s) => (Failure (x,r),s)
           | (Success y,s) => gs y s)
@@ -451,7 +451,7 @@ End
 Theorem check_dups_eq_find_dup:
   ∀xs.
     st_ex_bind (check_dups l f xs) g =
-    λs. dtcase find_dup xs of
+    λs. case find_dup xs of
         | NONE => g () s
         | SOME x => (Failure (l.loc, f x), s)
 Proof
@@ -467,9 +467,8 @@ Definition check_ctor_types_def:
   (check_ctor_types l tenvT tvs ((cn,ts)::ctors) =
     do
       type_name_check_subst_list l
-            (\tv. concat [implode "Unbound type variable "; implode tv;
-                          implode " in type definition with constructor ";
-                          implode cn])
+            (\tv. concat [«Unbound type variable »; tv;
+                          « in type definition with constructor »; cn])
             tenvT tvs ts;
       check_ctor_types l tenvT tvs ctors
     od)
@@ -483,14 +482,12 @@ Definition check_ctors_def:
   (check_ctors l tenvT ((tvs,tn,ctors)::tds) =
     do
       check_dups l
-                 (\n. concat [implode "Duplicate constructor "; implode n;
-                              implode " in the definition of type ";
-                              implode tn])
+                 (\n. concat [«Duplicate constructor »; n;
+                              « in the definition of type »; tn])
                  (MAP FST ctors);
       check_dups l
-                 (\n. concat [implode "Duplicate type variable binding "; implode n;
-                              implode " in the definition of type ";
-                              implode tn])
+                 (\n. concat [«Duplicate type variable binding »; n;
+                              « in the definition of type »; tn])
                  tvs;
       check_ctor_types l tenvT tvs ctors;
       check_ctors l tenvT tds;
@@ -504,8 +501,8 @@ Definition check_type_definition_def:
   check_type_definition l tenvT tds =
     do
       check_dups l
-                 (\n. concat [implode "Duplicate type constructor "; implode n;
-                              implode " in a mutually recursive type definition"])
+                 (\n. concat [«Duplicate type constructor »; n;
+                              « in a mutually recursive type definition»])
                  (MAP (FST o SND) tds);
       check_ctors l tenvT tds;
     od
@@ -536,18 +533,18 @@ Definition infer_p_def:
   (infer_p l ienv (Plit (Float64 f)) =
     failwith l «Floats cannot be used in patterns» ) ∧
   (infer_p l ienv (Pcon cn_opt ps) =
-    dtcase cn_opt of
+    case cn_opt of
       | NONE =>
           do (ts,tenv) <- infer_ps l ienv ps;
              return (Infer_Tapp ts Ttup_num, tenv)
           od
       | SOME cn =>
-          do (tvs',ts,tn) <- lookup_st_ex l "constructor" cn ienv.inf_c;
+          do (tvs',ts,tn) <- lookup_st_ex l «constructor» cn ienv.inf_c;
              (ts'',tenv) <- infer_ps l ienv ps;
              ts' <- n_fresh_uvar (LENGTH tvs');
              guard (LENGTH ts'' = LENGTH ts) l
-                   (concat [implode "Constructor "; id_to_string cn; implode " given ";
-                            toString (&LENGTH ts''); implode " arguments, but expected ";
+                   (concat [«Constructor »; id_to_string cn; « given »;
+                            toString (&LENGTH ts''); « arguments, but expected »;
                             toString (&LENGTH ts)]);
              () <- add_constraints l ts'' (MAP (infer_type_subst (ZIP(tvs',ts'))) ts);
              return (Infer_Tapp ts' tn, tenv)
@@ -563,8 +560,8 @@ Definition infer_p_def:
   (infer_p l ienv (Ptannot p t) =
    do (t',tenv) <- infer_p l ienv p;
       t'' <- type_name_check_subst l
-              (\tv. concat [implode "Type variable "; implode tv; implode " found in type annotation. ";
-                            implode "Type variables are not supported in type annotations."])
+              (\tv. concat [«Type variable »; tv; « found in type annotation. »;
+                            «Type variables are not supported in type annotations.»])
               ienv.inf_t [] t;
       () <- add_constraint l t' (infer_type_subst [] t'');
       return (t', tenv)
@@ -579,8 +576,8 @@ Definition infer_p_def:
 End
 
 Theorem option_case_rand:
-  (dtcase x of NONE => y | SOME a => f a) s =
-  (dtcase x of NONE => y s | SOME a => f a s)
+  (case x of NONE => y | SOME a => f a) s =
+  (case x of NONE => y s | SOME a => f a s)
 Proof
   Cases_on ‘x’ \\ gvs []
 QED
@@ -598,66 +595,53 @@ Definition word_tc_def:
 End
 
 Definition op_to_string_def:
-  (op_to_string (Opn _) = (implode "Opn", 2n)) ∧
-  (op_to_string (Opb _) = (implode "Opb", 2)) ∧
-  (op_to_string (Opw _ _) = (implode "Opw", 2)) ∧
-  (op_to_string (FP_top _) = (implode "FP_top", 3)) ∧
-  (op_to_string (FP_bop _) = (implode "FP_bop", 2)) ∧
-  (op_to_string (FP_uop _) = (implode "FP_uop", 1)) ∧
-  (op_to_string (FP_cmp _) = (implode "FP_cmp", 2)) ∧
-  (op_to_string (FpToWord) = (implode "FpToWord", 1)) /\
-  (op_to_string (FpFromWord) = (implode "FpFromWord", 1)) /\
-  (op_to_string (Shift _ _ _) = (implode "Shift", 1)) ∧
-  (op_to_string Equality = (implode "Equality", 2)) ∧
+  (op_to_string (Shift _ _ _) = («Shift», 1)) ∧
+  (op_to_string Equality = («Equality», 2)) ∧
   (op_to_string (Arith a ty) =
-     (implode "Arith",
-      dtcase supported_arith a ty of SOME n => (n:num) | NONE => 0n)) ∧
-  (op_to_string (FromTo _ _) = (implode "FromTo", 1)) ∧
-  (op_to_string (Test _ _) = (implode "Test", 2)) ∧
-  (op_to_string Opapp = (implode "Opapp", 2)) ∧
-  (op_to_string Opassign = (implode "Opassign", 2)) ∧
-  (op_to_string Opref = (implode "Opref", 1)) ∧
-  (op_to_string Opderef = (implode "Opderef", 1)) ∧
-  (op_to_string Aw8alloc = (implode "Aw8alloc", 2)) ∧
-  (op_to_string Aw8sub = (implode "Aw8sub", 2)) ∧
-  (op_to_string Aw8length = (implode "Aw8length", 1)) ∧
-  (op_to_string Aw8update = (implode "Aw8update", 3)) ∧
-  (op_to_string Aw8sub_unsafe = (implode "Aw8sub_unsafe", 2)) ∧
-  (op_to_string Aw8update_unsafe = (implode "Aw8update_unsafe", 3)) ∧
-  (op_to_string (WordFromInt _) = (implode "WordFromInt", 1)) ∧
-  (op_to_string (WordToInt _) = (implode "WordToInt", 1)) ∧
-  (op_to_string XorAw8Str_unsafe = (implode "XorAw8Str_unsafe", 2)) ∧
-  (op_to_string CopyStrStr = (implode "CopyStrStr", 3)) ∧
-  (op_to_string CopyStrAw8 = (implode "CopyStrAw8", 5)) ∧
-  (op_to_string CopyAw8Str = (implode "CopyAw8Str", 3)) ∧
-  (op_to_string CopyAw8Aw8 = (implode "CopyAw8Aw8", 5)) ∧
-  (op_to_string Chr = (implode "Chr", 1)) ∧
-  (op_to_string Ord = (implode "Ord", 1)) ∧
-  (op_to_string Strsub = (implode "Strsub", 2)) ∧
-  (op_to_string Implode = (implode "Implode", 1)) ∧
-  (op_to_string Explode = (implode "Explode", 1)) ∧
-  (op_to_string Strlen = (implode "Strlen", 1)) ∧
-  (op_to_string Strcat = (implode "Strcat", 1)) ∧
-  (op_to_string VfromList = (implode "VfromList", 1)) ∧
-  (op_to_string Vsub = (implode "Vsub", 2)) ∧
-  (op_to_string Vsub_unsafe = (implode "Vsub_unsafe", 2)) ∧
-  (op_to_string Vlength = (implode "Vlength", 1)) ∧
-  (op_to_string Aalloc = (implode "Aalloc", 2)) ∧
-  (op_to_string AallocEmpty = (implode "AallocEmpty", 1)) ∧
-  (op_to_string AallocFixed = (implode "AallocFixed", 1)) ∧
-  (op_to_string Asub = (implode "Asub", 2)) ∧
-  (op_to_string Alength = (implode "Alength", 1)) ∧
-  (op_to_string Aupdate = (implode "Aupdate", 3)) ∧
-  (op_to_string Asub_unsafe = (implode "Asub_unsafe", 2)) ∧
-  (op_to_string Aupdate_unsafe = (implode "Aupdate_unsafe", 3)) ∧
-  (op_to_string ConfigGC = (implode "ConfigGC", 2)) ∧
-  (op_to_string Eval = (implode "Eval", 6)) ∧
-  (op_to_string Env_id = (implode "Env_id", 1)) ∧
-  (op_to_string ListAppend = (implode "ListAppend", 2)) ∧
-  (op_to_string (FFI _) = (implode "FFI", 2)) ∧
-  (op_to_string (ThunkOp ForceThunk) = (implode "ForceThunk", 1)) ∧
-  (op_to_string (ThunkOp (AllocThunk _)) = (implode "AllocThunk", 1)) ∧
-  (op_to_string (ThunkOp (UpdateThunk _)) = (implode "UpdateThunk", 2))
+     («Arith»,
+      case supported_arith a ty of SOME n => (n:num) | NONE => 0n)) ∧
+  (op_to_string (FromTo _ _) = («FromTo», 1)) ∧
+  (op_to_string (Test _ _) = («Test», 2)) ∧
+  (op_to_string Opapp = («Opapp», 2)) ∧
+  (op_to_string Opassign = («Opassign», 2)) ∧
+  (op_to_string Opref = («Opref», 1)) ∧
+  (op_to_string Opderef = («Opderef», 1)) ∧
+  (op_to_string Aw8alloc = («Aw8alloc», 2)) ∧
+  (op_to_string Aw8sub = («Aw8sub», 2)) ∧
+  (op_to_string Aw8length = («Aw8length», 1)) ∧
+  (op_to_string Aw8update = («Aw8update», 3)) ∧
+  (op_to_string Aw8sub_unsafe = («Aw8sub_unsafe», 2)) ∧
+  (op_to_string Aw8update_unsafe = («Aw8update_unsafe», 3)) ∧
+  (op_to_string XorAw8Str_unsafe = («XorAw8Str_unsafe», 2)) ∧
+  (op_to_string CopyStrStr = («CopyStrStr», 3)) ∧
+  (op_to_string CopyStrAw8 = («CopyStrAw8», 5)) ∧
+  (op_to_string CopyAw8Str = («CopyAw8Str», 3)) ∧
+  (op_to_string CopyAw8Aw8 = («CopyAw8Aw8», 5)) ∧
+  (op_to_string Strsub = («Strsub», 2)) ∧
+  (op_to_string Implode = («Implode», 1)) ∧
+  (op_to_string Explode = («Explode», 1)) ∧
+  (op_to_string Strlen = («Strlen», 1)) ∧
+  (op_to_string Strcat = («Strcat», 1)) ∧
+  (op_to_string VfromList = («VfromList», 1)) ∧
+  (op_to_string Vsub = («Vsub», 2)) ∧
+  (op_to_string Vsub_unsafe = («Vsub_unsafe», 2)) ∧
+  (op_to_string Vlength = («Vlength», 1)) ∧
+  (op_to_string Aalloc = («Aalloc», 2)) ∧
+  (op_to_string AallocEmpty = («AallocEmpty», 1)) ∧
+  (op_to_string AallocFixed = («AallocFixed», 1)) ∧
+  (op_to_string Asub = («Asub», 2)) ∧
+  (op_to_string Alength = («Alength», 1)) ∧
+  (op_to_string Aupdate = («Aupdate», 3)) ∧
+  (op_to_string Asub_unsafe = («Asub_unsafe», 2)) ∧
+  (op_to_string Aupdate_unsafe = («Aupdate_unsafe», 3)) ∧
+  (op_to_string ConfigGC = («ConfigGC», 2)) ∧
+  (op_to_string Eval = («Eval», 6)) ∧
+  (op_to_string Env_id = («Env_id», 1)) ∧
+  (op_to_string ListAppend = («ListAppend», 2)) ∧
+  (op_to_string (FFI _) = («FFI», 2)) ∧
+  (op_to_string (ThunkOp ForceThunk) = («ForceThunk», 1)) ∧
+  (op_to_string (ThunkOp (AllocThunk _)) = («AllocThunk», 1)) ∧
+  (op_to_string (ThunkOp (UpdateThunk _)) = («UpdateThunk», 2))
 End
 
 Overload Tem[local,inferior] = ``Infer_Tapp []``
@@ -674,11 +658,8 @@ End
 
 Definition op_simple_constraints_def:
 op_simple_constraints op =
-  dtcase op of
-   | Opn _ => (T, [Tem Tint_num; Tem Tint_num], Tem Tint_num)
-   | Opb _ => (T, [Tem Tint_num; Tem Tint_num], Tem Tbool_num)
-   | Opw wz opw => (T, [Tem (word_tc wz); Tem (word_tc wz)], Tem (word_tc wz))
-   | Arith a ty => (dtcase supported_arith a ty of
+  case op of
+   | Arith a ty => (case supported_arith a ty of
                     | NONE => (F, [], Tem Tbool_num)
                     | SOME arity =>
                        (T, REPLICATE arity (Tem (t_num_of ty)), Tem (t_num_of ty)))
@@ -688,21 +669,12 @@ op_simple_constraints op =
    | Test test ty => (supported_test test ty,
                       [Tem (t_num_of ty); Tem (t_num_of ty)],
                       Tem Tbool_num)
-   | FP_top _ => (T, [Tem Tdouble_num; Tem Tdouble_num; Tem Tdouble_num],
-        Tem Tdouble_num)
-   | FP_bop _ => (T, [Tem Tdouble_num; Tem Tdouble_num], Tem Tdouble_num)
-   | FP_uop _ => (T, [Tem Tdouble_num], Tem Tdouble_num)
-   | FP_cmp _ => (T, [Tem Tdouble_num; Tem Tdouble_num], Tem Tbool_num)
-   | FpFromWord => (T, [Tem Tword64_num], Tem Tdouble_num)
-   | FpToWord => (T, [Tem Tdouble_num], Tem Tword64_num)
    | Shift wz _ _ => (T, [Tem (word_tc wz)], Tem (word_tc wz))
    | Aw8alloc => (T, [Tem Tint_num; Tem Tword8_num], Tem Tword8array_num)
    | Aw8sub => (T, [Tem Tword8array_num; Tem Tint_num], Tem Tword8_num)
    | Aw8length => (T, [Tem Tword8array_num], Tem Tint_num)
    | Aw8update => (T, [Tem Tword8array_num; Tem Tint_num; Tem Tword8_num],
         Tem Ttup_num)
-   | WordFromInt wz => (T, [Tem Tint_num], Tem (word_tc wz))
-   | WordToInt wz => (T, [Tem (word_tc wz)], Tem Tint_num)
    | CopyStrStr => (T, [Tem Tstring_num; Tem Tint_num; Tem Tint_num],
         Tem Tstring_num)
    | CopyStrAw8 => (T, [Tem Tstring_num; Tem Tint_num; Tem Tint_num;
@@ -711,8 +683,6 @@ op_simple_constraints op =
         Tem Tstring_num)
    | CopyAw8Aw8 => (T, [Tem Tword8array_num; Tem Tint_num; Tem Tint_num;
             Tem Tword8array_num; Tem Tint_num], Tem Ttup_num)
-   | Chr => (T, [Tem Tint_num], Tem Tchar_num)
-   | Ord => (T, [Tem Tchar_num], Tem Tint_num)
    | Strsub => (T, [Tem Tstring_num; Tem Tint_num], Tem Tchar_num)
    | Strlen => (T, [Tem Tstring_num], Tem Tint_num)
    | ConfigGC => (T, [Tem Tint_num; Tem Tint_num], Tem Ttup_num)
@@ -727,8 +697,8 @@ End
 Definition op_n_args_msg_def:
   op_n_args_msg op n =
     let (ops, args) = op_to_string op in
-    concat [implode "Primitive "; ops; implode " given ";
-        toString (& n); implode " arguments, but expects ";
+    concat [«Primitive »; ops; « given »;
+        toString (& n); « arguments, but expects »;
         toString (& args)]
 End
 
@@ -741,7 +711,7 @@ constrain_op l op ts s =
     else do () <- add_constraints l ts (MAP I op_arg_ts);
       return op_ret_t
     od s
-  else case (op,ts) of
+  else pmatch (op,ts) of
    | (Equality, [t1;t2]) =>
        do () <- add_constraint l t1 t2;
           return (Infer_Tapp [] Tbool_num)
@@ -808,26 +778,26 @@ constrain_op l op ts s =
           () <- add_constraint l t2 (Infer_Tapp [uvar] Tlist_num);
           return (Infer_Tapp [uvar] Tlist_num)
        od s
-   | (Vsub_unsafe, _) => failwith l (implode "Unsafe ops do not have a type") s
-   | (Asub_unsafe, _) => failwith l (implode "Unsafe ops do not have a type") s
-   | (Aupdate_unsafe, _) => failwith l (implode "Unsafe ops do not have a type") s
-   | (Aw8sub_unsafe, _) => failwith l (implode "Unsafe ops do not have a type") s
-   | (Aw8update_unsafe, _) => failwith l (implode "Unsafe ops do not have a type") s
-   | (XorAw8Str_unsafe, _) => failwith l (implode "Unsafe ops do not have a type") s
-   | (AallocFixed, _) => failwith l (implode "Unsafe ops do not have a type")  s(* not actually unsafe *)
-   | (Eval, _) => failwith l (implode "Unsafe ops do not have a type") s
-   | (Env_id, _) => failwith l (implode "Unsafe ops do not have a type") s
-   | (ThunkOp _, _) => failwith l (implode "Thunk ops do not have a type") s
-   | (Arith _ _, _) => failwith l (implode "Type mismatch") s
-   | (FromTo _ _, _) => failwith l (implode "Type mismatch") s
-   | (Test _ _, _) => failwith l (implode "Type mismatch") s
+   | (Vsub_unsafe, _) => failwith l («Unsafe ops do not have a type») s
+   | (Asub_unsafe, _) => failwith l («Unsafe ops do not have a type») s
+   | (Aupdate_unsafe, _) => failwith l («Unsafe ops do not have a type») s
+   | (Aw8sub_unsafe, _) => failwith l («Unsafe ops do not have a type») s
+   | (Aw8update_unsafe, _) => failwith l («Unsafe ops do not have a type») s
+   | (XorAw8Str_unsafe, _) => failwith l («Unsafe ops do not have a type») s
+   | (AallocFixed, _) => failwith l («Unsafe ops do not have a type»)  s(* not actually unsafe *)
+   | (Eval, _) => failwith l («Unsafe ops do not have a type») s
+   | (Env_id, _) => failwith l («Unsafe ops do not have a type») s
+   | (ThunkOp _, _) => failwith l («Thunk ops do not have a type») s
+   | (Arith _ _, _) => failwith l («Type mismatch») s
+   | (FromTo _ _, _) => failwith l («Type mismatch») s
+   | (Test _ _, _) => failwith l («Type mismatch») s
    | _ => failwith l (op_n_args_msg op (LENGTH ts)) s
 End
 
-Theorem constrain_op_dtcase_def[compute] = CONV_RULE
+Theorem constrain_op_case_def[compute] = CONV_RULE
   (TOP_DEPTH_CONV patternMatchesLib.PMATCH_ELIM_CONV) constrain_op_def;
 
-Theorem constrain_op_expand = constrain_op_dtcase_def
+Theorem constrain_op_expand = constrain_op_case_def
   |> SRULE [st_ex_bind_def,st_ex_return_def];
 
 Theorem st_ex_bind_failure:
@@ -863,7 +833,7 @@ Proof
             st_ex_bind_failure, st_ex_return_def, option_case_eq]
     \\ unabbrev_all_tac \\ fs [mlstringTheory.concat_thm]) >>
   cases_on `op` >>
-  fs [op_to_string_def, constrain_op_dtcase_def, op_simple_constraints_def] >>
+  fs [op_to_string_def, constrain_op_case_def, op_simple_constraints_def] >>
   gvs [LENGTH_EQ_NUM_compute] >>
   rfs [] >>
   fs [add_constraints_def, add_constraint_def, fresh_uvar_def,
@@ -890,7 +860,7 @@ Definition infer_e_def:
     od) ∧
   (infer_e l ienv (Handle e pes) =
     if pes = [] then
-      failwith l (implode "No patterns in handle")
+      failwith l («No patterns in handle»)
     else
       do t1 <- infer_e l ienv e;
          () <- infer_pes l ienv pes (Infer_Tapp [] Texn_num) t1;
@@ -909,23 +879,23 @@ Definition infer_e_def:
   (infer_e l ienv (Lit (Float64 _)) =
     return (Infer_Tapp [] Tdouble_num)) ∧
   (infer_e l ienv (Var id) =
-    do (tvs,t) <- lookup_st_ex l "variable" id ienv.inf_v;
+    do (tvs,t) <- lookup_st_ex l «variable» id ienv.inf_v;
        uvs <- n_fresh_uvar tvs;
        return (infer_deBruijn_subst uvs t)
     od) ∧
   (infer_e l ienv (Con cn_opt es) =
-    dtcase cn_opt of
+    case cn_opt of
         NONE =>
          do ts <- infer_es l ienv es;
             return (Infer_Tapp ts Ttup_num)
          od
       | SOME cn =>
-         do (tvs',ts,tn) <- lookup_st_ex l "constructor" cn ienv.inf_c;
+         do (tvs',ts,tn) <- lookup_st_ex l «constructor» cn ienv.inf_c;
             ts'' <- infer_es l ienv es;
             ts' <- n_fresh_uvar (LENGTH tvs');
              guard (LENGTH ts'' = LENGTH ts) l
-                   (concat [implode "Constructor "; id_to_string cn; implode " given ";
-                            toString (&LENGTH ts''); implode " arguments, but expected ";
+                   (concat [«Constructor »; id_to_string cn; « given »;
+                            toString (&LENGTH ts''); « arguments, but expected »;
                             toString (&LENGTH ts)]);
             () <- add_constraints l ts'' (MAP (infer_type_subst (ZIP(tvs',ts'))) ts);
             return (Infer_Tapp ts' tn)
@@ -957,7 +927,7 @@ Definition infer_e_def:
     od) ∧
   (infer_e l ienv (Mat e pes) =
     if pes = [] then
-      failwith l (implode "No patterns in case")
+      failwith l («No patterns in case»)
     else
       do t1 <- infer_e l ienv e;
          t2 <- fresh_uvar;
@@ -997,8 +967,8 @@ Definition infer_e_def:
     *)
   (infer_e l ienv (Letrec funs e) =
     do
-      check_dups l (\n. concat [implode "Duplicate function name "; implode n;
-                                implode " in mutually recursive function definition"])
+      check_dups l (\n. concat [«Duplicate function name »; n;
+                                « in mutually recursive function definition»])
                    (MAP FST funs);
        uvars <- n_fresh_uvar (LENGTH funs);
        env' <- return (nsAppend (alist_to_ns (list$MAP2 (\(f,x,e) uvar. (f,(0,uvar))) funs uvars)) ienv.inf_v);
@@ -1010,8 +980,8 @@ Definition infer_e_def:
   (infer_e l ienv (Tannot e t) =
     do t' <- infer_e l ienv e ;
        t'' <- type_name_check_subst l
-              (\tv. concat [implode "Type variable "; implode tv; implode " found in type annotation. ";
-                            implode "Type variables are not supported in type annotations."])
+              (\tv. concat [«Type variable »; tv; « found in type annotation. »;
+                            «Type variables are not supported in type annotations.»])
               ienv.inf_t [] t;
        () <- add_constraint l t' (infer_type_subst [] t'');
        return t'
@@ -1029,8 +999,7 @@ Definition infer_e_def:
      return ()) ∧
   (infer_pes l ienv ((p,e)::pes) t1 t2 =
     do (t1', env') <- infer_p l ienv p;
-      check_dups l (\n. concat [implode "Duplicate variable "; implode n;
-                                implode " in pattern"])
+      check_dups l (\n. concat [«Duplicate variable »; n; « in pattern»])
                 (MAP FST env');
        () <- add_constraint l t1 t1' ;
        t2' <- infer_e l (ienv with inf_v := nsAppend (alist_to_ns (MAP (\(n,t). (n,(0,t))) env')) ienv.inf_v) e;
@@ -1046,13 +1015,13 @@ Definition infer_e_def:
        return (Infer_Tapp [uvar;t] Tfn_num::ts)
     od)
 Termination
-  WF_REL_TAC `measure (\x. dtcase x of
+  WF_REL_TAC ‘measure (\x. case x of
   | INL (_,_,e) => exp_size e
   | INR (INL (_,_,es)) => list_size exp_size es
   | INR (INR (INL (_,_,pes,_,_))) => list_size (pair_size pat_size exp_size) pes
   | INR (INR (INR (_,_,funs))) =>
-    list_size (pair_size (list_size char_size)
-         (pair_size (list_size char_size) exp_size))  funs)` >>
+    list_size (pair_size mlstring_size
+         (pair_size mlstring_size exp_size)) funs)’ >>
   rw []
 End
 
@@ -1090,14 +1059,14 @@ Definition infer_d_def:
      t1 <- infer_e <| loc := SOME locs; err := ienv.inf_t |> ienv e;
      (t2,env') <- infer_p <| loc := SOME locs; err := ienv.inf_t |> ienv p;
      check_dups <| loc := SOME locs; err := ienv.inf_t |>
-                   (\n. concat [implode "Duplicate variable "; implode n;
-                                implode " in the left-hand side of a definition"])
+                   (\n. concat [«Duplicate variable »; n;
+                                « in the left-hand side of a definition»])
                 (MAP FST env');
      () <- add_constraint <| loc := SOME locs; err := ienv.inf_t |> t1 t2;
      ts <- apply_subst_list (MAP SND env');
      (num_tvs, s, ts') <- return (generalise_list n 0 FEMPTY ts);
      () <- guard (num_tvs = 0 ∨ is_value e) <| loc := SOME locs; err := ienv.inf_t |>
-                 (implode "Value restriction violated");
+                 («Value restriction violated»);
      return <| inf_v := alist_to_ns (ZIP (MAP FST env', MAP (\t. (num_tvs, t)) ts'));
                inf_c := nsEmpty;
                inf_t := nsEmpty |>
@@ -1105,8 +1074,8 @@ Definition infer_d_def:
 (infer_d ienv (Dletrec locs funs) =
   do
     check_dups <| loc := SOME locs; err := ienv.inf_t |>
-       (\n. concat [implode "Duplicate function name "; implode n;
-            implode " a mutually recursive function definition"])
+       (\n. concat [«Duplicate function name »; n;
+            « a mutually recursive function definition»])
                (MAP FST funs);
      () <- init_state;
      next <- get_next_uvar;
@@ -1134,13 +1103,12 @@ Definition infer_d_def:
 (infer_d ienv (Dtabbrev locs tvs tn t) =
   do
     check_dups <| loc := SOME locs; err := ienv.inf_t |>
-       (\n. concat [implode "Duplicate type variable bindings for ";
-                    implode n; implode " in type abbreviation ";
-                    implode tn])
+       (\n. concat [«Duplicate type variable bindings for »;
+                    n; « in type abbreviation »;
+                    tn])
               tvs;
      t' <- type_name_check_subst <| loc := SOME locs; err := ienv.inf_t |>
-            (\tv. concat [implode "Unbound type variable "; implode tv; implode " in type abbreviation ";
-                          implode tn])
+            (\tv. concat [«Unbound type variable »; tv; « in type abbreviation »; tn])
             ienv.inf_t tvs t;
      return <| inf_v := nsEmpty;
                inf_c := nsEmpty;
@@ -1149,8 +1117,8 @@ Definition infer_d_def:
 (infer_d ienv (Dexn locs cn ts) =
   do
     ts' <- type_name_check_subst_list <| loc := SOME locs; err := ienv.inf_t |>
-            (\tv. concat [implode "Type variable "; implode tv; implode " found in declaration of exception "; implode cn;
-                          implode ". Type variables are not allowed in exception declarations."])
+            (\tv. concat [«Type variable »; tv; « found in declaration of exception »; cn;
+                          «. Type variables are not allowed in exception declarations.»])
             ienv.inf_t [] ts;
     return <| inf_v := nsEmpty;
               inf_c := nsSing cn ([], ts', Texn_num);
@@ -1158,7 +1126,7 @@ Definition infer_d_def:
   od) ∧
 (infer_d ienv (Denv n) =
   failwith <| loc := NONE; err := ienv.inf_t |>
-    (strlit "Env declaration (Denv) is not supported.")) ∧
+    («Env declaration (Denv) is not supported.»)) ∧
 (infer_d ienv (Dmod mn ds) =
   do ienv' <- infer_ds ienv ds;
      return (lift_ienv mn ienv')
@@ -1192,14 +1160,14 @@ End
 
 Definition infertype_prog_def:
   infertype_prog ienv prog =
-    dtcase FST (infer_ds ienv prog (init_infer_state <| next_uvar := 0; subst := FEMPTY; next_id := start_type_id |>)) of
+    case FST (infer_ds ienv prog (init_infer_state <| next_uvar := 0; subst := FEMPTY; next_id := start_type_id |>)) of
     | Success new_ienv => Success (extend_dec_ienv new_ienv ienv)
     | Failure x => Failure x
 End
 
 Definition infertype_prog_inc_def:
   infertype_prog_inc (ienv, next_id) prog =
-  dtcase infer_ds ienv prog (init_infer_state <| next_id := next_id |>) of
+  case infer_ds ienv prog (init_infer_state <| next_id := next_id |>) of
     (Success new_ienv, st) =>
     (Success (extend_dec_ienv new_ienv ienv, st.next_id))
   | (Failure x, _) => Failure x
@@ -1228,7 +1196,7 @@ Definition infer_subst_def:
   (infer_subst s (Infer_Tvar_db n) = Infer_Tvar_db n) ∧
   (infer_subst s (Infer_Tapp ts tc) = Infer_Tapp (MAP (infer_subst s) ts) tc) ∧
   (infer_subst s (Infer_Tuvar n) =
-    dtcase FLOOKUP s n of
+    case FLOOKUP s n of
         NONE => Infer_Tuvar n
       | SOME m => Infer_Tvar_db m)
 End
@@ -1278,14 +1246,15 @@ Termination
 End
 
 Definition ns_nub_def:
-  ns_nub (Bind xs ys) = Bind (alist_nub xs)
-                             (alist_nub (MAP (\(x,y). (x, ns_nub y)) ys))
+  ns_nub (Bind xs ys) = Bind (alist_nub xs) (alist_nub (inner_ns_nubs ys)) ∧
+  inner_ns_nubs [] = [] ∧
+  inner_ns_nubs ((x,y)::tl) = (x, ns_nub y)::inner_ns_nubs tl
 End
 
 Definition ns_to_alist_def:
   (ns_to_alist (Bind [] []) = []) /\
   (ns_to_alist (Bind [] ((n,x)::ms)) =
-    MAP (\(x,y). (n++"."++x,y)) (ns_to_alist x) ++
+    MAP (\(x,y). (n ^ «.» ^ x,y)) (ns_to_alist x) ++
     ns_to_alist (Bind [] ms)) /\
   (ns_to_alist (Bind ((s,x)::xs) m) = (s,x) :: ns_to_alist (Bind xs m))
 End
@@ -1293,8 +1262,8 @@ End
 Definition inf_env_to_types_string_def:
   inf_env_to_types_string s =
     let l = ns_to_alist (ns_nub s.inf_v) in
-    let xs = MAP (\(n,_,t). concat [implode n; strlit ": ";
+    let xs = MAP (\(n,_,t). concat [n; «: »;
                                     inf_type_to_string s.inf_t t;
-                                    strlit "\n";]) l in
+                                    «\n»;]) l in
       (* sort mlstring_le *) REVERSE xs
 End

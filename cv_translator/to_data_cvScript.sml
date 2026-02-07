@@ -3,7 +3,7 @@
 *)
 Theory to_data_cv[no_sig_docs]
 Ancestors
-  cv_std basis_cv backend backend_asm unify_cv infer_cv
+  cv_std basis_cv source_cv backend backend_asm
 Libs
   preamble cv_transLib
 
@@ -129,7 +129,7 @@ val _ = cv_auto_trans (source_to_flatTheory.alloc_tags_def
                          |> PURE_ONCE_REWRITE_RULE[GSYM nsMap_alt_thm])
 
 Definition compile_decs_alt_def:
-  (compile_dec_alt (t:string list) n next env envs (ast$Dlet locs p e) =
+  (compile_dec_alt (t:mlstring list) n next env envs (ast$Dlet locs p e) =
      let n' = n + 4 in
      let xs = REVERSE (pat_bindings p []) in
      let e' = compile_exp (xs++t) env e in
@@ -156,15 +156,13 @@ Definition compile_decs_alt_def:
      (n, (next with tidx := next.tidx + LENGTH type_def),
       <| v := nsEmpty;
          c := FOLDL (\ns (l,cids). nsAppend l ns) nsEmpty new_env |>,
-      envs,
-      MAPi (λi (ns,cids). flatLang$Dtype (next.tidx + i) cids) new_env)) ∧
+      envs,[])) ∧
   (compile_dec_alt _ n next env envs (Dtabbrev locs tvs tn t) =
      (n, next, empty_env, envs, [])) ∧
   (compile_dec_alt t n next env envs (Dexn locs cn ts) =
      (n, (next with eidx := next.eidx + 1),
       <| v := nsEmpty; c := nsSing cn (next.eidx, NONE) |>,
-      envs,
-      [Dexn next.eidx (LENGTH ts)])) ∧
+      envs,[])) ∧
   (compile_dec_alt t n next env envs (Dmod mn ds) =
      let (n', next', new_env, envs', ds') = compile_decs_alt (mn::t) n next env envs ds in
        (n', next', (lift_env mn new_env), envs', ds')) ∧
@@ -245,7 +243,7 @@ Definition compile_pat_bindings_clocked_def:
     compile_pat_bindings_clocked ck t i m exp /\
   compile_pat_bindings_clocked (SUC ck) t i ((Pcon _ ps, k, x) :: m) exp = (
     let j_nms = MAP (\(j, p). let k = i + 1 + j in
-        let nm = enc_num_to_name k [] in
+        let nm = enc_num_to_name k in
         ((j, nm), (p, k, Var_local t nm))) (enumerate 0 ps) in
     let (spt, exp2) = compile_pat_bindings_clocked ck t (i + 2 + LENGTH ps)
         (MAP SND j_nms ++ m) exp in
@@ -255,13 +253,13 @@ Definition compile_pat_bindings_clocked_def:
     let spt2 = if NULL j_nms_used then spt else insert k () spt in
     (spt2, exp3)) /\
   compile_pat_bindings_clocked (SUC ck) t i ((Pas p v, k, x) :: m) exp = (
-    let nm = enc_num_to_name (i + 1) [] in
+    let nm = enc_num_to_name (i + 1) in
     let (spt, exp2) = compile_pat_bindings_clocked ck t (i + 2)
                       ((p, i + 1, Var_local t nm) :: m) exp in
     (insert k () spt, Let t (SOME v) x
                             (Let t (SOME nm) (Var_local t v) exp2))) /\
   compile_pat_bindings_clocked (SUC ck) t i ((Pref p, k, x) :: m) exp = (
-    let nm = enc_num_to_name (i + 1) [] in
+    let nm = enc_num_to_name (i + 1) in
     let (spt, exp2) = compile_pat_bindings_clocked ck t (i + 2)
         ((p, i + 1, Var_local t nm) :: m) exp in
     (insert k () spt, Let t (SOME nm) (App t (El 0) [x]) exp2))
@@ -457,7 +455,7 @@ val _ = cv_auto_trans pattern_compTheory.pat_to_guard_def
 val _ = cv_auto_trans flat_patternTheory.compile_pats_def
 
 val _ = cv_trans_rec flat_patternTheory.sum_string_ords_def
-  (wf_rel_tac ‘measure $ λ(x,y). cv_size(cv_LENGTH y) - cv_size x’ >>
+  (wf_rel_tac ‘measure $ λ(x,y). cv_size(cv_mlstring_strlen y) - cv_size x’ >>
    cv_termination_tac >>
    gvs[cvTheory.c2b_def,oneline cvTheory.cv_lt_def0,AllCaseEqs(),
        oneline cvTheory.b2c_def])
@@ -481,7 +479,7 @@ Definition compile_exp_alt_def:
     let (i, sgx, y) = compile_exp_alt cfg x in
     let (j, sgp, ps2) = compile_match_alt cfg ps in
     let k = MAX i j + 2 in
-    let nm = enc_num_to_name k [] in
+    let nm = enc_num_to_name k in
     let v = Var_local t nm in
     let r = Raise t v in
     let exp = compile_pats cfg sgp t k v r ps2 in
@@ -499,7 +497,7 @@ Definition compile_exp_alt_def:
     let (i, sgx, y) = compile_exp_alt cfg x in
     let (j, sgp, ps2) = compile_match_alt cfg ps in
     let k = MAX i j + 2 in
-    let nm = enc_num_to_name k [] in
+    let nm = enc_num_to_name k in
     let v = Var_local t nm in
     let r = Raise t (Con t (SOME (bind_tag, NONE)) []) in
     let exp = compile_pats cfg sgp t k v r ps2 in
@@ -819,7 +817,7 @@ Definition flat_to_clos_compile_alt_def:
      | SOME e => flat_to_clos_compile_alt m e
      | NONE => (compile_op t op (flat_to_clos_compile_alts m (REVERSE es)))) /\
   (flat_to_clos_compile_alt m (Fun t v e) =
-     (Fn (mlstring$implode t) NONE NONE 1 (flat_to_clos_compile_alt (SOME v::m) (e)))) /\
+     (Fn t NONE NONE 1 (flat_to_clos_compile_alt (SOME v::m) (e)))) /\
   (flat_to_clos_compile_alt m (If t x1 x2 x3) =
      (If t (flat_to_clos_compile_alt m (x1))
            (flat_to_clos_compile_alt m (x2))
@@ -833,7 +831,7 @@ Definition flat_to_clos_compile_alt_def:
      | _ => flat_to_clos_compile_alt m (e)) /\
   (flat_to_clos_compile_alt m (Letrec t funs e) =
      let new_m = MAP (\n. SOME (FST n)) funs ++ m in
-       (Letrec (MAP (\n. join_strings (mlstring$implode t) (mlstring$implode (FST n))) funs) NONE NONE
+       (Letrec (MAP (\n. join_strings t (FST n)) funs) NONE NONE
           (flat_to_clos_compile_lets_alt new_m funs)
           (flat_to_clos_compile_alt new_m (e)))) ∧
   (flat_to_clos_compile_lets_alt m [] = []) /\
@@ -2784,15 +2782,15 @@ QED
 
 val _ = cv_auto_trans displayLangTheory.display_to_str_tree_def;
 
-val pre = cv_trans_pre_rec "" presLangTheory.num_to_varn_def
+val pre = cv_trans_pre_rec "" presLangTheory.num_to_varn_aux_def
   (WF_REL_TAC ‘measure cv_size’
    \\ cv_termination_tac
    \\ Cases_on`cv_n`
    \\ gvs[cvTheory.cv_div_def,cvTheory.c2b_def]
    \\ intLib.ARITH_TAC);
 
-Theorem presLang_num_to_varn_pre[cv_pre]:
-  ∀n. presLang_num_to_varn_pre n
+Theorem presLang_num_to_varn_aux_pre[cv_pre]:
+  ∀n. presLang_num_to_varn_aux_pre n
 Proof
   completeInduct_on`n`>>
   rw[Once pre]
@@ -2801,6 +2799,8 @@ Proof
     intLib.ARITH_TAC)>>
   intLib.ARITH_TAC
 QED
+
+val _ = cv_auto_trans presLangTheory.num_to_varn_def;
 
 val pre = cv_trans_pre_rec "" presLangTheory.num_to_varn_list_def
   (WF_REL_TAC ‘measure (cv_size o SND)’

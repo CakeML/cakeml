@@ -880,8 +880,7 @@ Proof
   \\ rpt conj_tac
   \\ TRY $ irule pure_add_constraints_ignore
   \\ simp [t_walkstar_eqn1]
-  \\ TRY (rename [‘t_num_of ty’] \\ Cases_on ‘ty’
-          \\ TRY (rename [‘WordT ww’] \\ Cases_on ‘ww’) \\ gvs [])
+  \\ TRY (rename [‘t_num_of ty’] \\ Cases_on ‘ty’ using semanticPrimitivesPropsTheory.prim_type_cases \\ gvs [])
   \\ unconversion_tac
   \\ gvs[LENGTH_EQ_NUM_compute, REPLICATE_compute,CaseEq"bool"]
   \\ unconversion_tac
@@ -936,7 +935,7 @@ Proof
   imp_res_tac pure_add_constraints_wfs>>
   fs[type_op_cases]>>
   rfs [op_simple_constraints_def]>>
-  simp [constrain_op_dtcase_def, op_simple_constraints_def]>>
+  simp [constrain_op_case_def, op_simple_constraints_def]>>
   every_case_tac>>
   ntac 2 (fs[unconvert_t_def,MAP]>>rw[])>>
   fs[add_constraint_success2,success_eqns,sub_completion_def,Tword64_def,word_tc_def]>>
@@ -1160,7 +1159,8 @@ Proof
   strip_tac>>
   Induct>>rw[]
   >-
-    (fs[check_freevars_def,infer_type_subst_alt]>>
+    (rename1 ‘Tvar s’>>
+     fs[check_freevars_def,infer_type_subst_alt]>>
     `?x. ALOOKUP (ZIP(tvs,ls)) s = SOME x` by
       (SPOSE_NOT_THEN assume_tac>>
       imp_res_tac NOT_SOME_NONE>>
@@ -2174,7 +2174,7 @@ Proof
     impl_keep_tac>- (fs[]>>metis_tac[infer_e_wfs])>>
     fs[]>>metis_tac[t_compat_trans])
   >- (*Log*)
-    (last_x_assum(qspecl_then
+   (last_x_assum(qspecl_then
       [`loc`, `s`,`ienv`,`st`,`constraints`] assume_tac)>>rfs[]>>
     first_x_assum(qspecl_then
       [`loc`, `s'`,`ienv`,`st'`,`constraints'`] mp_tac)>>

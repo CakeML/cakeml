@@ -14,7 +14,7 @@ val _ = ml_prog_update (open_module "List");
 val () = generate_sigs := true;
 
 val _ = ml_prog_update (add_dec
-  ``Dtabbrev unknown_loc ["'a"] "list" (Atapp [Atvar "'a"] (Short "list"))`` I);
+  ``Dtabbrev unknown_loc [«'a»] «list» (Atapp [Atvar «'a»] (Short «list»))`` I);
 
 val r = translate NULL;
 
@@ -201,7 +201,7 @@ Proof
   \\ xlet `POSTv v. &(A (f n) v) * heap_inv`
   >- ( xapp \\ xsimpl )
   \\ xlet `POSTv nv. &NUM (n+1) nv * heap_inv`
-  >-( xopn \\  xsimpl \\ fs[NUM_def,INT_def] \\ intLib.COOPER_TAC)
+  >-( xarith \\  xsimpl \\ fs[NUM_def,INT_def] \\ intLib.COOPER_TAC)
   \\ xlet `POSTv av. &LIST_TYPE A (f n::acc) av * heap_inv`
   >-( xcon \\ xsimpl \\ fs[LIST_TYPE_def] )
   \\ xapp
@@ -306,12 +306,6 @@ QED
 val _ = next_ml_names := ["split"];
 val result = translate SPLITP_alt
 
-val front_side_def = Q.prove(
-  `!xs. front_side xs = ~(xs = [])`,
-  Induct THEN ONCE_REWRITE_TAC [fetch "-" "front_side_def"]
-  THEN FULL_SIMP_TAC (srw_ss()) [CONTAINER_def])
-  |> update_precondition;
-
 val last_side_def = Q.prove(
   `!xs. last_side xs = ~(xs = [])`,
   Induct THEN ONCE_REWRITE_TAC [fetch "-" "last_side_def"]
@@ -375,6 +369,7 @@ Theorem mergesortn_tail_side[local]:
 Proof
   completeInduct_on `y`
   \\ once_rewrite_tac[(fetch "-" "mergesortn_tail_side_def")]
+  \\ rpt gen_tac \\ rename1 `SUC x1`
   \\ rw[DIV2_def]
      >- (
         first_x_assum match_mp_tac

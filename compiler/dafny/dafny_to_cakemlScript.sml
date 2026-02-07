@@ -13,15 +13,15 @@ Libs
 (* TODO Remove mk_id; unnecessary *)
 
 Overload Unit = “Con NONE []”
-Overload False = “Con (SOME (Short "False")) []”
-Overload True = “Con (SOME (Short "True")) []”
+Overload False = “Con (SOME (Short «False»)) []”
+Overload True = “Con (SOME (Short «True»)) []”
 Overload Tuple = “λes. Con NONE es”
 
 (* Converts a HOL list of CakeML expressions into a CakeML list. *)
 Definition cml_list_def:
-  (cml_list [] = Con (SOME (Short "[]")) []) ∧
+  (cml_list [] = Con (SOME (Short «[]»)) []) ∧
   (cml_list (x::rest) =
-   Con (SOME (Short "::")) [x; cml_list rest])
+   Con (SOME (Short «::»)) [x; cml_list rest])
 End
 
 (* Creates new references initialized with 0. *)
@@ -38,13 +38,13 @@ End
 Definition cml_fun_def:
   cml_fun ins body =
   (case ins of
-   | [] => ("", body)
+   | [] => («», body)
    | (i::ins) => (i, Funs ins body))
 End
 
 (* Generates strings of the form  0,  1, etc., to be used for matching tuples *)
 Definition cml_tup_vname_def:
-  cml_tup_vname (idx : num) = explode (« » ^ (num_to_str idx))
+  cml_tup_vname (idx : num) = « » ^ (num_to_str idx)
 End
 
 (* S = "Smart" in the sense that it doesn't create singleton tuples. *)
@@ -79,7 +79,7 @@ End
 
 Definition cml_alloc_arr_def:
   cml_alloc_arr len init =
-  let len_n = " len" in
+  let len_n = « len» in
     Let (SOME len_n) len
         (Tuple [Var (Short len_n); App Aalloc [Var (Short len_n); init]])
 End
@@ -117,54 +117,54 @@ Definition cml_read_var_def:
 End
 
 Definition from_un_op_def:
-  from_un_op dafny_ast$Not cml_e = If cml_e False True
+  from_un_op dafny_ast$Not cml_e = App (Arith Not BoolT) [cml_e]
 End
 
 Definition from_bin_op_def:
   from_bin_op Lt cml_e₀ cml_e₁ =
-    App (Opb Lt) [cml_e₀; cml_e₁] ∧
+    App (Test (Compare Lt) IntT) [cml_e₀; cml_e₁] ∧
   from_bin_op Le cml_e₀ cml_e₁ =
-    App (Opb Leq) [cml_e₀; cml_e₁] ∧
+    App (Test (Compare Leq) IntT) [cml_e₀; cml_e₁] ∧
   from_bin_op Ge cml_e₀ cml_e₁ =
-    App (Opb Geq) [cml_e₀; cml_e₁] ∧
+    App (Test (Compare Geq) IntT) [cml_e₀; cml_e₁] ∧
   from_bin_op Eq cml_e₀ cml_e₁ =
     App Equality [cml_e₀; cml_e₁] ∧
   from_bin_op Neq cml_e₀ cml_e₁ =
   (* Make sure that cml_e₁ is evaluated before the rest of the computation as
      the semantics demand *)
-  (let n_e₁ = " r" in
+  (let n_e₁ = « r» in
      Let (SOME n_e₁) cml_e₁
          (If (App Equality [cml_e₀; Var (Short n_e₁)]) False True)) ∧
   from_bin_op Sub cml_e₀ cml_e₁ =
-    App (Opn Minus) [cml_e₀; cml_e₁] ∧
+    App (Arith Sub IntT) [cml_e₀; cml_e₁] ∧
   from_bin_op Add cml_e₀ cml_e₁ =
-    App (Opn Plus) [cml_e₀; cml_e₁] ∧
+    App (Arith Add IntT) [cml_e₀; cml_e₁] ∧
   from_bin_op Mul cml_e₀ cml_e₁ =
-    App (Opn Times) [cml_e₀; cml_e₁] ∧
+    App (Arith Mul IntT) [cml_e₀; cml_e₁] ∧
   from_bin_op And cml_e₀ cml_e₁ =
-    Log And cml_e₀ cml_e₁ ∧
+    Log Andalso cml_e₀ cml_e₁ ∧
   from_bin_op Or cml_e₀ cml_e₁ =
-    Log Or cml_e₀ cml_e₁ ∧
+    Log Orelse cml_e₀ cml_e₁ ∧
   from_bin_op Imp cml_e₀ cml_e₁ =
     If cml_e₀ cml_e₁ True ∧
   from_bin_op Mod cml_e₀ cml_e₁ =
-   (let n_e₁ = " r" in
+   (let n_e₁ = « r» in
     (* See HOL's EMOD_DEF: i % ABS j, INT_ABS: if n < 0 then ~n else n *)
-    let neg_cml_e₁ = App (Opn Minus) [Lit (IntLit 0); Var (Short n_e₁)] in
-    let cml_e₁_abs = If (App (Opb Lt) [Var (Short n_e₁); Lit (IntLit 0)])
+    let neg_cml_e₁ = App (Arith Sub IntT) [Lit (IntLit 0); Var (Short n_e₁)] in
+    let cml_e₁_abs = If (App (Test (Compare Lt) IntT) [Var (Short n_e₁); Lit (IntLit 0)])
                         (neg_cml_e₁) (Var (Short n_e₁)) in
-      Let (SOME n_e₁) cml_e₁ (App (Opn Modulo) [cml_e₀; cml_e₁_abs])) ∧
+      Let (SOME n_e₁) cml_e₁ (App (Arith Mod IntT) [cml_e₀; cml_e₁_abs])) ∧
   from_bin_op Div cml_e₀ cml_e₁ =
   (* Make sure that cml_e₁ is evaluated before the rest of the computation as
      the semantics demand *)
-  let n_e₁ = " r" in
+  let n_e₁ = « r» in
   (* See HOL's EDIV_DEF: if 0 < j then i div j else ~(i div ~j) *)
-  let neg_cml_e₁ = App (Opn Minus) [Lit (IntLit 0); Var (Short n_e₁)] in
+  let neg_cml_e₁ = App (Arith Sub IntT) [Lit (IntLit 0); Var (Short n_e₁)] in
     Let (SOME n_e₁) cml_e₁
-        (If (App (Opb Lt) [Lit (IntLit 0); Var (Short n_e₁)])
-            (App (Opn Divide) [cml_e₀; Var (Short n_e₁)])
-            (App (Opn Minus)
-                 [Lit (IntLit 0); App (Opn Divide) [cml_e₀; neg_cml_e₁]]))
+        (If (App (Test (Compare Lt) IntT) [Lit (IntLit 0); Var (Short n_e₁)])
+            (App (Arith Div IntT) [cml_e₀; Var (Short n_e₁)])
+            (App (Arith Sub IntT)
+                 [Lit (IntLit 0); App (Arith Div IntT) [cml_e₀; neg_cml_e₁]]))
 Termination
   wf_rel_tac ‘measure (λx. case x of
                            | (Neq, _, _) => bin_op_size Neq + 1
@@ -175,17 +175,17 @@ End
 Definition from_lit_def:
   from_lit (BoolL b) = (if b then True else False) ∧
   from_lit (IntL i) = Lit (IntLit i) ∧
-  from_lit (StrL s) = Lit (StrLit (explode s))
+  from_lit (StrL s) = Lit (StrLit s)
 End
 
 Definition gen_arg_names_def:
   gen_arg_names args =
-    GENLIST (λn. "a" ++ (explode (num_to_str n))) (LENGTH args)
+    GENLIST (λn. «a» ^ (num_to_str n)) (LENGTH args)
 End
 
 Definition from_exp_def:
   from_exp (Lit l) = return (from_lit l) ∧
-  from_exp (Var v) = return (cml_read_var (explode v)) ∧
+  from_exp (Var v) = return (cml_read_var v) ∧
   from_exp (If tst thn els) =
   do
     cml_tst <- from_exp tst;
@@ -203,7 +203,7 @@ Definition from_exp_def:
     cml_e₀ <- from_exp e₀;
     cml_e₁ <- from_exp e₁;
     (* Force left-to-right evaluation order *)
-    n_e₀ <<- " l";
+    n_e₀ <<- « l»;
     return (Let (SOME n_e₀) cml_e₀
              (from_bin_op bop (Var (Short n_e₀)) cml_e₁))
   od ∧
@@ -217,7 +217,7 @@ Definition from_exp_def:
     cml_arr <- from_exp arr;
     cml_idx <- from_exp idx;
     (* Force left-to-right evaluation order *)
-    n_arr <<- " arr";
+    n_arr <<- « arr»;
     return (Let (SOME n_arr) cml_arr
                 (App Asub [cml_get_arr_data (Var (Short n_arr)); cml_idx]))
   od ∧
@@ -228,7 +228,7 @@ Definition from_exp_def:
        left-to-right evaluation order (since CakeML evaluate right to left).
        This shouldn't be a problem, as Dafny does not support partial
        application without defining a new function/lambda. *)
-    return (cml_fapp [] ("dfy_" ++ (explode n)) (REVERSE cml_args))
+    return (cml_fapp [] («dfy_» ^ n) (REVERSE cml_args))
   od ∧
   from_exp _ = fail «from_exp: Unsupported expression» ∧
   map_from_exp [] = return [] ∧
@@ -265,18 +265,18 @@ Definition from_rhs_exp_def:
 End
 
 Definition cml_tmp_vname_def:
-  cml_tmp_vname idx = explode («_tmp» ^ (num_to_str idx))
+  cml_tmp_vname idx = «_tmp» ^ (num_to_str idx)
 End
 
 Definition assign_single_def:
   (assign_single (VarLhs v) cml_rhs =
-     return (App Opassign [Var (Short (explode v)); cml_rhs])) ∧
+     return (App Opassign [Var (Short v); cml_rhs])) ∧
   (assign_single (ArrSelLhs arr idx) cml_rhs =
    do
      cml_arr <- from_exp arr;
      cml_idx <- from_exp idx;
      (* Force left-to-right evaluation order *)
-     n_arr <<- " arr";
+     n_arr <<- « arr»;
      return (Let (SOME n_arr) cml_arr
                  (App Aupdate [cml_get_arr_data (Var (Short n_arr));
                                cml_idx; cml_rhs]))
@@ -297,17 +297,17 @@ End
 
 
 Definition cml_dec_to_string_name_def[simp]:
-  cml_dec_to_string_name = "dec_to_string"
+  cml_dec_to_string_name = «dec_to_string»
 End
 
 Definition cml_dec_to_string_param_def[simp]:
-  cml_dec_to_string_param = "n"
+  cml_dec_to_string_param = «n»
 End
 
 Definition cml_dec_to_string_body_def:
   cml_dec_to_string_body =
   let arg = Var (Short cml_dec_to_string_param) in
-  let char = App Chr [App (Opn Plus) [Lit (IntLit 48); arg]] in
+  let char = App (FromTo IntT CharT) [App (Arith Add IntT) [Lit (IntLit 48); arg]] in
     App Implode [cml_list [char]]
 End
 
@@ -318,22 +318,22 @@ Definition cml_dec_to_string_dlet_def:
 End
 
 Definition cml_nat_to_string_name_def[simp]:
-  cml_nat_to_string_name = "nat_to_string"
+  cml_nat_to_string_name = «nat_to_string»
 End
 
 Definition cml_nat_to_string_param_def[simp]:
-  cml_nat_to_string_param = "n"
+  cml_nat_to_string_param = «n»
 End
 
 Definition cml_nat_to_string_body_def:
   cml_nat_to_string_body =
   let arg = Var (Short cml_nat_to_string_param) in
-  let n_lt_10 = App (Opb Lt) [arg; Lit (IntLit 10)] in
+  let n_lt_10 = App (Test (Compare Lt) IntT) [arg; Lit (IntLit 10)] in
   let arg_to_string = App Opapp [Var (Short cml_dec_to_string_name); arg] in
-  let n_div_10 = App (Opn Divide) [arg; Lit (IntLit 10)] in
+  let n_div_10 = App (Arith Div IntT) [arg; Lit (IntLit 10)] in
   let n_div_10_to_string =
     App Opapp [Var (Short cml_nat_to_string_name); n_div_10] in
-  let n_mod_10 = App (Opn Modulo) [arg; Lit (IntLit 10)] in
+  let n_mod_10 = App (Arith Mod IntT) [arg; Lit (IntLit 10)] in
   let n_mod_10_to_string =
     App Opapp [Var (Short cml_dec_to_string_name); n_mod_10] in
     If n_lt_10
@@ -349,24 +349,24 @@ Definition cml_nat_to_string_dletrec_def:
 End
 
 Definition cml_int_to_string_name_def[simp]:
-  cml_int_to_string_name = "int_to_string"
+  cml_int_to_string_name = «int_to_string»
 End
 
 Definition cml_int_to_string_param_def[simp]:
-  cml_int_to_string_param = "i"
+  cml_int_to_string_param = «i»
 End
 
 Definition cml_int_to_string_body_def:
   cml_int_to_string_body =
   let arg = Var (Short cml_int_to_string_param) in
-  let i_lt_0 = App (Opb Lt) [arg; Lit (IntLit 0)] in
-  let neg_arg = App (Opn Minus) [Lit (IntLit 0); arg] in
+  let i_lt_0 = App (Test (Compare Lt) IntT) [arg; Lit (IntLit 0)] in
+  let neg_arg = App (Arith Sub IntT) [Lit (IntLit 0); arg] in
   let neg_arg_to_string =
     App Opapp [Var (Short cml_nat_to_string_name); neg_arg] in
   let arg_to_string =
     App Opapp [Var (Short cml_nat_to_string_name); arg] in
     If i_lt_0
-       (App Strcat [cml_list [Lit (StrLit "-"); neg_arg_to_string]])
+       (App Strcat [cml_list [Lit (StrLit «-»); neg_arg_to_string]])
        arg_to_string
 End
 
@@ -378,7 +378,7 @@ End
 
 Definition to_string_def:
   (to_string cml_e dafny_ast$BoolT =
-     return (If cml_e (Lit (StrLit "true")) (Lit (StrLit "false")))) ∧
+     return (If cml_e (Lit (StrLit «true»)) (Lit (StrLit «false»)))) ∧
   (to_string cml_e IntT =
      return (cml_fapp [] cml_int_to_string_name [cml_e])) ∧
   (to_string cml_e StrT = return cml_e) ∧
@@ -386,7 +386,7 @@ Definition to_string_def:
 End
 
 Definition loop_name_def:
-  loop_name lvl = explode (« w» ^ (num_to_str lvl))
+  loop_name lvl = « w» ^ (num_to_str lvl)
 End
 
 Definition from_stmt_def:
@@ -409,7 +409,7 @@ Definition from_stmt_def:
   from_stmt (Dec (n, _) scope) lvl =
   do
     cml_scope <- from_stmt scope lvl;
-    return (cml_new_refs [explode n] cml_scope)
+    return (cml_new_refs [n] cml_scope)
   od ∧
   from_stmt (Assign ass) _ =
   do
@@ -427,7 +427,7 @@ Definition from_stmt_def:
         in
           w0()
         end *)
-    return (Letrec [(loop_name lvl, "",
+    return (Letrec [(loop_name lvl, «»,
                      If cml_grd (Let NONE cml_body run_loop) Unit)]
                    run_loop)
   od ∧
@@ -436,17 +436,17 @@ Definition from_stmt_def:
     cml_e <- from_exp e;
     cml_str <- to_string cml_e t;
     (* Force left-to-right evaluation order *)
-    n_e <<- " l";
+    n_e <<- « l»;
     (* no-op in semantics, but prints if compiler flag is passed *)
     pseudo_print <<-
-      (App (FFI "")
+      (App (FFI «»)
            [Var (Short n_e); App Aw8alloc [Lit (IntLit 0); Lit (Word8 0w)]]);
     return (Let (SOME n_e) cml_str pseudo_print)
   od ∧
   from_stmt (MetCall lhss n args) _ =
   do
     cml_args <- map_from_exp args;
-    cml_call <<- cml_fapp [] ("dfy_" ++ (explode n)) (REVERSE cml_args);
+    cml_call <<- cml_fapp [] («dfy_» ^ n) (REVERSE cml_args);
     (* Method returns a tuple of size outs_len, so we use case and assign
        each component to the corresponding left-hand side. *)
     outs_len <<- LENGTH lhss;
@@ -455,7 +455,7 @@ Definition from_stmt_def:
     return (cml_tup_case outs_len cml_call cml_assign);
   od ∧
   from_stmt Return _ =
-    return (Raise (Con (SOME (mk_id [] "Return")) []))
+    return (Raise (Con (SOME (mk_id [] «Return»)) []))
 End
 
 (* Shadows the parameters with references with the same name (and value). *)
@@ -468,28 +468,28 @@ End
 (* Sets up the in parameters. *)
 Definition set_up_cml_fun_def:
   set_up_cml_fun n ins cml_body =
-    let in_ns = MAP (explode ∘ FST) ins in
+    let in_ns = MAP FST ins in
     let cml_body = set_up_in_refs in_ns cml_body in
     (* Reversing the parameters is an easy way to get left-to-right evaluation
        on them *)
     let (cml_param, cml_body) = cml_fun (REVERSE in_ns) cml_body in
-      (* Prepending functions with "dfy_" avoids naming issues. *)
-      ("dfy_" ++ (explode n), cml_param, cml_body)
+      (* Prepending functions with «dfy_» avoids naming issues. *)
+      («dfy_» ^ n, cml_param, cml_body)
 End
 
 Definition from_member_decl_def:
-  from_member_decl mem : (string # string # ast$exp) result =
+  from_member_decl mem : (mlstring # mlstring # ast$exp) result =
   case mem of
   (* Constructing methods and functions from bottom to top *)
   | Method n ins _ _ _ _ outs _ body =>
     do
       cml_body <- from_stmt body 0;
       (* Method returns a tuple containing the value of the out variables *)
-      out_ns <<- MAP (explode ∘ FST) outs;
+      out_ns <<- MAP FST outs;
       cml_tup <<- Stuple (MAP cml_read_var out_ns);
       cml_body <<-
         Handle cml_body
-          [(Pcon (SOME (mk_id [] "Return")) [], cml_tup)];
+          [(Pcon (SOME (mk_id [] «Return»)) [], cml_tup)];
       cml_body <<- cml_new_refs out_ns cml_body;
       return (set_up_cml_fun n ins cml_body)
     od
@@ -503,12 +503,12 @@ End
 Definition from_program_def:
   from_program (Program mems) : (dec list) result =
   do
-    return_exn <<- Dexn unknown_loc "Return" [];
+    return_exn <<- Dexn unknown_loc «Return» [];
     cml_funs <- result_mmap from_member_decl mems;
     (* TODO Optimize: Only put mutually recursive functions together *)
     cml_funs <<- Dletrec unknown_loc cml_funs;
-    main_call <<- Handle (cml_fapp [] "dfy_Main" [Unit])
-              [(Pcon (SOME (mk_id [] "Return")) [], Unit)];
+    main_call <<- Handle (cml_fapp [] «dfy_Main» [Unit])
+              [(Pcon (SOME (mk_id [] «Return»)) [], Unit)];
     cml_main <<- Dlet unknown_loc Pany main_call;
     return ([return_exn;
              cml_dec_to_string_dlet;

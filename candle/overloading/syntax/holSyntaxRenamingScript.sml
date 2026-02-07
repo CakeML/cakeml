@@ -36,11 +36,11 @@ Proof
   >> res_tac
 QED
 
-Theorem list_max_APPEND:
-  !xs ys. list_max (xs ++ ys) = MAX (list_max xs) (list_max ys)
+Theorem MAX_LIST_APPEND:
+  !xs ys. MAX_LIST (xs ++ ys) = MAX (MAX_LIST xs) (MAX_LIST ys)
 Proof
   Induct
-  >> fs[list_max_def,MAX_DEF]
+  >> fs[MAX_LIST_def,MAX_DEF]
 QED
 
 Theorem list_inter_set_comm:
@@ -89,7 +89,7 @@ QED
 Definition rename_apart_by_def:
   rename_apart_by chr r c =
     let inter = nub(list_inter c r) in
-    let m = SUC (list_max (MAP strlen c ++ MAP strlen r)) in
+    let m = SUC (MAX_LIST (MAP strlen c ++ MAP strlen r)) in
     ZIP (MAP (λn. implode $ REPLICATE (m+n) chr) (COUNT_LIST (LENGTH inter)), inter)
 End
 
@@ -125,8 +125,8 @@ Proof
     >> gs[MEM_ZIP,MEM_MAP,EL_MAP,EL_COUNT_LIST,implode_def]
     >> drule_then (qspec_then `strlen` assume_tac) MEM_MAP_f
     >> fs[STRLEN_DEF]
-    >> dxrule_then assume_tac $ REWRITE_RULE[EVERY_MEM] list_max_max
-    >> fs[list_max_APPEND,SUC_MAX]
+    >> dxrule_then assume_tac $ REWRITE_RULE[EVERY_MEM] MAX_LIST_max
+    >> fs[MAX_LIST_APPEND,SUC_MAX]
     >> dxrule $ Q.prove(`!a b c. (a:num) + b <= c ==> b <= c /\ a <= c`,rw[])
     >> fs[MAX_LE]
   )
@@ -146,7 +146,7 @@ Proof
 QED
 
 Theorem rename_apart_by_strlen_FST:
-  !chr r c. EVERY (λx. list_max (MAP strlen (r++c)) < strlen x) (MAP FST (rename_apart_by chr r c))
+  !chr r c. EVERY (λx. MAX_LIST (MAP strlen (r++c)) < strlen x) (MAP FST (rename_apart_by chr r c))
 Proof
   CONV_TAC SWAP_FORALL_CONV
   >> Induct
@@ -155,7 +155,7 @@ Proof
   >> fs[MAP_ZIP,EVERY_MEM,LENGTH_COUNT_LIST,LENGTH_MAP]
   >> rw[MEM_MAP,MEM_COUNT_LIST,strlen_def]
   >> ONCE_REWRITE_TAC[CONS_APPEND]
-  >> rw[list_max_APPEND,MAX_DEF]
+  >> rw[MAX_LIST_APPEND,MAX_DEF]
 QED
 
 (* dom(f) = r ∩ c *)
@@ -212,18 +212,18 @@ Proof
   >> rveq
   >> fs[strlen_def]
   >> pop_assum (assume_tac o REWRITE_RULE[MEM_EL])
-  >> fs[EL_COUNT_LIST,LENGTH_COUNT_LIST,list_max_APPEND,MAX_DEF]
+  >> fs[EL_COUNT_LIST,LENGTH_COUNT_LIST,MAX_LIST_APPEND,MAX_DEF]
   >> fs[MEM_MAP,list_inter_set]
   >> FULL_CASE_TAC
   >> rveq
   >> fs[strlen_def,STRLEN_DEF,EL_COUNT_LIST]
-  >> `list_max (MAP strlen r) < strlen y` by (
+  >> `MAX_LIST (MAP strlen r) < strlen y` by (
     fs[]
   )
   >> assume_tac (INST_TYPE [alpha |-> ``:mlstring``,beta|->``:num``] MEM_MAP_f)
   >> first_x_assum (qspec_then `strlen` assume_tac)
   >> res_tac
-  >> imp_res_tac (REWRITE_RULE[EVERY_MEM] list_max_max)
+  >> imp_res_tac (REWRITE_RULE[EVERY_MEM] MAX_LIST_max)
   >> fs[]
 QED
 
@@ -248,11 +248,11 @@ Proof
   >> CCONTR_TAC
   >> fs[]
   >> imp_res_tac (REWRITE_RULE[EVERY_MEM] rename_apart_by_strlen_FST)
-  >> fs[list_max_APPEND,MAX_DEF]
+  >> fs[MAX_LIST_APPEND,MAX_DEF]
   >> assume_tac (INST_TYPE [alpha |-> ``:mlstring``,beta|->``:num``] MEM_MAP_f)
   >> first_x_assum (qspec_then `strlen` assume_tac)
   >> res_tac
-  >> imp_res_tac (REWRITE_RULE[EVERY_MEM] list_max_max)
+  >> imp_res_tac (REWRITE_RULE[EVERY_MEM] MAX_LIST_max)
   >> fs[]
 QED
 
@@ -271,11 +271,11 @@ Proof
   >> CCONTR_TAC
   >> fs[]
   >> imp_res_tac (REWRITE_RULE[EVERY_MEM] rename_apart_by_strlen_FST)
-  >> fs[list_max_APPEND,MAX_DEF]
+  >> fs[MAX_LIST_APPEND,MAX_DEF]
   >> assume_tac (INST_TYPE [alpha |-> ``:mlstring``,beta|->``:num``] MEM_MAP_f)
   >> first_x_assum (qspec_then `strlen` assume_tac)
   >> res_tac
-  >> imp_res_tac (REWRITE_RULE[EVERY_MEM] list_max_max)
+  >> imp_res_tac (REWRITE_RULE[EVERY_MEM] MAX_LIST_max)
   >> fs[]
 QED
 

@@ -12,7 +12,7 @@ Ancestors
 Libs
   preamble
 
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 Datatype:
   (* this configuration is used in data_to_wordProof and stack_alloc *)
@@ -333,7 +333,7 @@ Definition SilentFFI_def:
       list_Seq [Assign n (Const 0w);
                 Assign 7 (Op Sub [Lookup NextFree; Lookup CurrHeap]);
                 Assign 9 (Lookup HeapLength);
-                FFI "" 7 n 9 n names]
+                FFI «» 7 n 9 n names]
     else Skip
 End
 
@@ -857,7 +857,7 @@ End
 
 Definition Append_code_def:
   Append_code c =
-    (dtcase encode_header c 0 2 of
+    (case encode_header c 0 2 of
      | NONE => Skip  :'a wordLang$prog
      | SOME (header:'a word) =>
         If Test 4 (Imm 1w) (Return 0 [2])
@@ -895,7 +895,7 @@ Definition AppendMainLoop_code_def:
             Store (Op Add [Var 2; Const (2w * bytes_in_word)]) 10;
             Assign 2 (Op Add [Var 2; Const (3w * bytes_in_word)]);
             Call NONE (SOME AppendMainLoop_location) [0; 2; 5; 6; 8; 10] NONE]);
-       (* nil case *)
+       (* nil pmatch *)
        Assign 1 (Lookup (Temp 0w)); (* arg 2 to append *)
        Assign 3 (Lookup (Temp 2w)); (* ret value *)
        Store (Op Add [Var 2; Const (2w * bytes_in_word)]) 1;
@@ -1006,7 +1006,7 @@ End
 
 Definition WordOp64_on_32_def:
   WordOp64_on_32 (opw:opw) =
-    dtcase opw of
+    case opw of
     | Andw => list_Seq [Assign 29 (Const 0w);
                         Assign 27 (Const 0w);
                         Assign 33 (Op And [Var 13; Var 23]);
@@ -1047,7 +1047,7 @@ Definition WordShift64_on_32_def:
                               ShiftVar Lsr 13 (n - 32)])]))
     else
       if n < 32 then
-        (dtcase sh of
+        (case sh of
          | Lsl => [Assign 33 (ShiftVar sh 13 n);
                    Assign 31 (Op Or [ShiftVar Lsr 13 (32 - n);
                                      ShiftVar sh 11 n])]
@@ -1059,7 +1059,7 @@ Definition WordShift64_on_32_def:
                    Assign 31 (ShiftVar sh 11 n)]
          | Ror => [])
       else
-        (dtcase sh of
+        (case sh of
          | Lsl => [Assign 33 (Const 0w); Assign 31 (ShiftVar sh 13 (n - 32))]
          | Lsr => [Assign 33 (ShiftVar sh 11 (n - 32)); Assign 31 (Const 0w)]
          | Asr => [Assign 33 (ShiftVar sh 11 (n - 32));
@@ -1099,52 +1099,52 @@ Definition fp_cmp_inst_def:
 End
 
 Definition fp_top_inst_def:
-  fp_top_inst FP_Fma = FPFma 0 1 2
+  fp_top_inst fpSem$FP_Fma = FPFma 0 1 2
 End
 
 Definition fp_bop_inst_def:
-  fp_bop_inst ast$FP_Add = FPAdd 0 0 1 /\
-  fp_bop_inst ast$FP_Sub = FPSub 0 0 1 /\
-  fp_bop_inst ast$FP_Mul = FPMul 0 0 1 /\
-  fp_bop_inst ast$FP_Div = FPDiv 0 0 1
+  fp_bop_inst fpSem$FP_Add = FPAdd 0 0 1 /\
+  fp_bop_inst fpSem$FP_Sub = FPSub 0 0 1 /\
+  fp_bop_inst fpSem$FP_Mul = FPMul 0 0 1 /\
+  fp_bop_inst fpSem$FP_Div = FPDiv 0 0 1
 End
 
 Definition fp_uop_inst_def:
-  fp_uop_inst FP_Neg = FPNeg 1 0 /\
-  fp_uop_inst FP_Abs = FPAbs 1 0 /\
-  fp_uop_inst FP_Sqrt = FPSqrt 1 0
+  fp_uop_inst fpSem$FP_Neg = FPNeg 1 0 /\
+  fp_uop_inst fpSem$FP_Abs = FPAbs 1 0 /\
+  fp_uop_inst fpSem$FP_Sqrt = FPSqrt 1 0
 End
 
 Definition arg1_def:
-  arg1 vs f x = dtcase vs of | [v1] => f v1 | _ => x
+  arg1 vs f x = case vs of | [v1] => f v1 | _ => x
 End
 
 Definition arg2_def:
-  arg2 vs f x = dtcase vs of | [v1;v2] => f v1 v2 | _ => x
+  arg2 vs f x = case vs of | [v1;v2] => f v1 v2 | _ => x
 End
 
 Definition arg3_def:
-  arg3 vs f x = dtcase vs of | [v1;v2;v3] => f v1 v2 v3 | _ => x
+  arg3 vs f x = case vs of | [v1;v2;v3] => f v1 v2 v3 | _ => x
 End
 
 Definition arg4_def:
-  arg4 vs f x = dtcase vs of | [v1;v2;v3;v4] => f v1 v2 v3 v4 | _ => x
+  arg4 vs f x = case vs of | [v1;v2;v3;v4] => f v1 v2 v3 v4 | _ => x
 End
 
 Theorem arg2_pmatch:
-   arg2 vs f x = case vs of | [v1;v2] => f v1 v2 | _ => x
+   arg2 vs f x = pmatch vs of | [v1;v2] => f v1 v2 | _ => x
 Proof
   CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) \\ fs [arg2_def]
 QED
 
 Theorem arg3_pmatch:
-   arg3 vs f x = case vs of | [v1;v2;v3] => f v1 v2 v3 | _ => x
+   arg3 vs f x = pmatch vs of | [v1;v2;v3] => f v1 v2 v3 | _ => x
 Proof
   CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) \\ fs [arg3_def]
 QED
 
 Theorem arg4_pmatch:
-   arg4 vs f x = case vs of | [v1;v2;v3;v4] => f v1 v2 v3 v4 | _ => x
+   arg4 vs f x = pmatch vs of | [v1;v2;v3;v4] => f v1 v2 v3 v4 | _ => x
 Proof
   CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) \\ fs [arg4_def]
 QED
@@ -1219,14 +1219,14 @@ val def = assign_Define `
 
 val def = assign_Define `
   assign_UpdateThunk ev (c:data_to_word$config) (l:num) (dest:num) v1 v2 =
-      (dtcase ev of
+      (case ev of
        | NotEvaluated =>
            (Seq (Store (Op Add [real_addr c (adjust_var v1);
                                 Const bytes_in_word])
                        (adjust_var v2))
                 (Assign (adjust_var dest) Unit),l)
        | Evaluated =>
-           (dtcase encode_header c (8 + 6) 1 of
+           (case encode_header c (8 + 6) 1 of
             | NONE => (GiveUp,l)
             | SOME (header:'a word) => (list_Seq
                 [Assign 1 (real_addr c (adjust_var v1));
@@ -1249,7 +1249,7 @@ val def = assign_Define `
 val def = assign_Define `
   assign_ListAppend (c:data_to_word$config)
             (secn:num) (l:num) (dest:num) (names:num_set option) v1 v2 =
-         (dtcase encode_header c 0 2 of
+         (case encode_header c 0 2 of
           | NONE => (GiveUp,l)
           | SOME (header:'a word) =>
            (MustTerminate
@@ -1265,7 +1265,7 @@ val def = assign_Define `
                       (Assign (adjust_var dest) (Const (n2w (16 * tag + 2))),l)
                     else (GiveUp,l) (* tag is too big to be represented *)
                   else
-                    (dtcase encode_header c (4 * tag) (LENGTH args) of
+                    (case encode_header c (4 * tag) (LENGTH args) of
                      | NONE => (GiveUp,l)
                      | SOME (header:'a word) => (list_Seq
                         [Assign 1 (Lookup NextFree);
@@ -1294,7 +1294,7 @@ val def = assign_Define `
 Definition getWords_def:
   getWords [] aux = (REVERSE aux,[]) ∧
   getWords (c::cs) aux =
-    dtcase c of
+    case c of
     | (b,Word w) => getWords cs ((b,w)::aux)
     | _          => (REVERSE aux,c::cs)
 End
@@ -1302,12 +1302,12 @@ End
 Definition StoreAnyConsts_def:
   StoreAnyConsts r1 r2 r3 [] v =
     Seq (Set NextFree (Var r2))
-        (dtcase SND v of
+        (case SND v of
          | Loc n _ => LocValue r1 n
          | Word w => Assign r1 (if FST v then Op Add [Const w; Var r3]
                                          else (Const w))) ∧
   StoreAnyConsts r1 r2 r3 (v::vs) w =
-    dtcase ((SND v):'a word_loc) of
+    case ((SND v):'a word_loc) of
     | Loc n _ => list_Seq [LocValue r1 n;
                            Store (Var r2) r1;
                            Assign r2 (Op Add [Var r2; Const bytes_in_word]);
@@ -1328,7 +1328,7 @@ End
 
 Definition lookup_mem_def:
   lookup_mem m a =
-    dtcase sptree$lookup a m of
+    case sptree$lookup a m of
     | NONE => (F,Word (0w:'a word))
     | SOME x => x
 End
@@ -1381,7 +1381,7 @@ Definition part_to_words_def:
   part_to_words c m (Int i) offset =
     (if small_int (:'a) i then SOME ((F,Word (Smallnum i)),[])
      else let (sign,ws) = i2mw i in
-            dtcase encode_header c (if sign then 7 else 3) (LENGTH ws) of
+            case encode_header c (if sign then 7 else 3) (LENGTH ws) of
             | NONE => NONE
             | SOME hd => SOME ((T,(make_ptr c offset (0w:'a word) (LENGTH ws))),
                                MAP (λw. (F,Word w)) (hd::ws))) ∧
@@ -1390,7 +1390,7 @@ Definition part_to_words_def:
        if t < dimword (:'a) DIV 16
        then SOME ((F,Word (n2w (16 * t + 2))),[]) else NONE
      else
-       dtcase encode_header c (4 * t) (LENGTH ns) of
+       case encode_header c (4 * t) (LENGTH ns) of
        | NONE => NONE
        | SOME hd => SOME ((T,Word
                               (offset ≪ (shift_length c − shift (:α)) +
@@ -1400,7 +1400,7 @@ Definition part_to_words_def:
     (let ws = (if dimindex (:α) < 64
                then [((63 >< 32) w); ((31 >< 0) w)]
                else [((63 >< 0) w):'a word]) in
-       dtcase encode_header c 3 (LENGTH ws) of
+       case encode_header c 3 (LENGTH ws) of
        | NONE => NONE
        | SOME hd => SOME ((T,(make_ptr c offset (0w:'a word) (LENGTH ws))),
                           MAP (λw. (F,Word w)) (hd::ws))) ∧
@@ -1419,10 +1419,10 @@ End
 Definition parts_to_words_def:
   parts_to_words c m i [] off = SOME (lookup_mem m (i - 1:num), []) ∧
   parts_to_words c m i (x::parts) (off:'a word) =
-    dtcase part_to_words c m x off of
+    case part_to_words c m x off of
     | NONE => NONE
     | SOME (w,xs) =>
-      dtcase parts_to_words c (insert i w m) (i+1) parts
+      case parts_to_words c (insert i w m) (i+1) parts
                (off + bytes_in_word * n2w (LENGTH xs)) of
       | NONE => NONE
       | SOME (r,ys) => SOME (r,xs ++ ys)
@@ -1441,7 +1441,7 @@ End
 val def = assign_Define `
   assign_Build (c:data_to_word$config)
             (secn:num) (l:num) (dest:num) (names:num_set option) ps =
-    dtcase const_parts_to_words c ps of
+    case const_parts_to_words c ps of
     | NONE => (GiveUp,l)
     | SOME (w,ws) =>
       (list_Seq
@@ -1454,9 +1454,9 @@ val def = assign_Define `
 val def = assign_Define `
   assign_ConsExtend (c:data_to_word$config)
             (secn:num) (l:num) (dest:num) (names:num_set option) tag args =
-        (dtcase args of
+        (case args of
          | (old::start::len::tot::rest) =>
-          (dtcase encode_header c (4 * tag) 0 of
+          (case encode_header c (4 * tag) 0 of
              NONE => (GiveUp,l)
            | SOME header =>
               let limit = MIN (2 ** c.len_size) (dimword (:'a) DIV 16) in
@@ -1491,7 +1491,7 @@ val def = assign_Define `
 val def = assign_Define `
   assign_Ref (c:data_to_word$config) (secn:num)
              (l:num) (dest:num) (names:num_set option) args =
-          (dtcase encode_header c 2 (LENGTH args) of
+          (case encode_header c 2 (LENGTH args) of
               | NONE => (GiveUp,l)
               | SOME (header:'a word) => (list_Seq
                  [Set TriggerGC (Op Sub [Lookup TriggerGC;
@@ -1510,10 +1510,10 @@ val def = assign_Define `
 val def = assign_Define `
   assign_AllocThunk (ev : thunk_mode) (c:data_to_word$config) (secn:num)
              (l:num) (dest:num) (names:num_set option) arg =
-          (let tag = (dtcase ev of
+          (let tag = (case ev of
                          | Evaluated => 8 + 6
                          | NotEvaluated => 0 + 6) in
-           dtcase encode_header c tag 1 of
+           case encode_header c tag 1 of
               | NONE => (GiveUp,l)
               | SOME (header:'a word) => (list_Seq
                  [Set TriggerGC (Op Sub [Lookup TriggerGC;
@@ -1558,7 +1558,7 @@ val def = assign_Define `
 val def = assign_Define `
   assign_CopyByte (c:data_to_word$config) (secn:num)
              (l:num) (dest:num) (names:num_set option) args =
-      (dtcase args of
+      (case args of
        | [v1;v2;v3;v4;v5] (* alloc_new is F *) =>
            (MustTerminate
              (Call (SOME ([adjust_var dest],adjust_sets (get_names names),Skip,secn,l))
@@ -1617,8 +1617,14 @@ val def = assign_Define `
       : 'a wordLang$prog # num`;
 
 val def = assign_Define `
+  assign_BoolNot (l:num) (dest:num) v1 =
+                 (Assign (adjust_var dest)
+                    (Op Xor [Var (adjust_var v1); Const 16w]),l)
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
   assign_WordTest (l:num) (dest:num) (test: ast$test) v1 v2 =
-       ((dtcase test of
+       ((case test of
          | Equal       => If Equal (adjust_var v1) (Reg (adjust_var v2))
                              (Assign (adjust_var dest) TRUE_CONST)
                              (Assign (adjust_var dest) FALSE_CONST)
@@ -1781,7 +1787,7 @@ val def = assign_Define `
                                 (Assign (adjust_var dest) TRUE_CONST)
                                 (Assign (adjust_var dest) FALSE_CONST)),l)
                          else
-                           dtcase encode_header c (4 * tag) len of
+                           case encode_header c (4 * tag) len of
                            | NONE => (Assign (adjust_var dest) FALSE_CONST,l)
                            | SOME h =>
                              (list_Seq
@@ -1953,7 +1959,7 @@ val def = assign_Define `
   assign_WordOpW8 opw (c:data_to_word$config) (secn:num)
              (l:num) (dest:num) (names:num_set option) v1 v2 =
            (Assign (adjust_var dest)
-            (dtcase lookup_word_op opw of
+            (case lookup_word_op opw of
              | Bitwise op => Op op [Var (adjust_var v1); Var (adjust_var v2)]
              | Carried op => let k = dimindex(:'a)-10 in
                Shift Lsr (Shift Lsl
@@ -1964,11 +1970,11 @@ val def = assign_Define `
   assign_WordOpW64 opw (c:data_to_word$config) (secn:num)
              (l:num) (dest:num) (names:num_set option) v1 v2 =
        (if dimindex(:'a) = 64 then
-         (dtcase encode_header c 3 1 of
+         (case encode_header c 3 1 of
           | NONE => (GiveUp,l)
           | SOME (header:'a word) =>
                 (Seq (Assign 3
-                  (Op (dtcase opw of
+                  (Op (case opw of
                           Andw => And
                         | Orw => Or
                         | Xor => Xor
@@ -1984,7 +1990,7 @@ val def = assign_Define `
                                 Const bytes_in_word])]))
                    (WriteWord64 c header dest 3),l))
         else
-         (dtcase encode_header c 3 2 of
+         (case encode_header c 3 2 of
           | NONE => (GiveUp,l)
           | SOME header =>
             (list_Seq [
@@ -2002,7 +2008,7 @@ val def = assign_Define `
   assign_WordShiftW8 sh n (c:data_to_word$config) (secn:num)
              (l:num) (dest:num) (names:num_set option) v1 =
         (Assign (adjust_var dest)
-           (dtcase sh of
+           (case sh of
             | Lsl =>
               Shift Lsr
                 (Shift Lsl (Var (adjust_var v1)) (dimindex(:'a)-10+(MIN n 8)))
@@ -2029,7 +2035,7 @@ val def = assign_Define `
   assign_WordShiftW64 sh n (c:data_to_word$config) (secn:num)
              (l:num) (dest:num) (names:num_set option) v1 =
          let len = if dimindex(:'a) < 64 then 2 else 1 in
-         (dtcase encode_header c 3 len of
+         (case encode_header c 3 len of
           | NONE => (GiveUp,l)
           | SOME (header:'a word) =>
             (if len = 1 then
@@ -2060,7 +2066,7 @@ val def = assign_Define `
           (let
              len = if dimindex (:α) < 64 then 2 else 1
            in
-             dtcase encode_header c 3 len of
+             case encode_header c 3 len of
                NONE => (GiveUp,l)
              | SOME header =>
                 (if len = 1 then
@@ -2076,16 +2082,16 @@ val def = assign_Define `
   assign_WordFromInt (c:data_to_word$config) (secn:num)
              (l:num) (dest:num) (names:num_set option) v1 =
         let len = if dimindex(:'a) < 64 then 2 else 1 in
-        (dtcase encode_header c 3 len of
+        (case encode_header c 3 len of
          | NONE => (GiveUp,l)
          | SOME (header:'a word) =>
            (if len = 1 then
              Seq
                (* put the word value into 3 *)
                (If Test (adjust_var v1) (Imm 1w)
-                   (* smallnum case *)
+                   (* smallnum pmatch *)
                     (Assign 3 (Shift Asr (Var (adjust_var v1)) 2))
-                   (* bignum case *)
+                   (* bignum pmatch *)
                    (Seq
                      (LoadBignum c 1 3 (adjust_var v1))
                      (If Test 1 (Imm 16w) Skip
@@ -2105,20 +2111,20 @@ val def = assign_Define `
                 If Equal 7 (Imm 1w)
                   (* bignum of length 1 *)
                   (If Test 3 (Imm 16w)
-                    (* positive case *)
+                    (* positive pmatch *)
                     (Seq (Assign 9 (Const 0w))
                          (WriteWord64_on_32 c header dest 5 9))
-                    (* negative case *)
+                    (* negative pmatch *)
                     (Seq (Assign 9 (Const ~0w))
                     (Seq (Assign 5 (Op Sub [Const 0w; Var 5]))
                          (WriteWord64_on_32 c header dest 5 9))))
                   (* longer bignum *)
                   (If Test 3 (Imm 16w)
-                    (* positive case *)
+                    (* positive pmatch *)
                     (Seq (Assign 9 (Load
                            (Op Add [Var 1; Const (2w * bytes_in_word)])))
                          (WriteWord64_on_32 c header dest 5 9))
-                    (* negative case -- messy *)
+                    (* negative pmatch -- messy *)
                     (list_Seq
                       [Assign 11 (Const 0w);
                        Assign 13 (Const 1w);
@@ -2135,7 +2141,7 @@ val def = assign_Define `
   assign_WordToInt (c:data_to_word$config) (secn:num)
              (l:num) (dest:num) (names:num_set option) v =
         let len = if dimindex(:'a) < 64 then 2 else 1 in
-        (dtcase encode_header c 3 len of
+        (case encode_header c 3 len of
            | NONE => (GiveUp,l)
            | SOME header =>
              if len = 1 then
@@ -2145,7 +2151,7 @@ val def = assign_Define `
                             (Assign (adjust_var dest) (Shift Lsl (Var 3) 2))
                             (WriteWord64 c header dest 3)], l)
              else
-              (dtcase encode_header c 3 1 of
+              (case encode_header c 3 1 of
                | NONE => (GiveUp,l)
                | SOME header1 =>
                  (list_Seq [
@@ -2164,7 +2170,7 @@ val def = assign_Define `
 val def = assign_Define `
   assign_FFI ffi_index (c:data_to_word$config) (secn:num)
              (l:num) (dest:num) (names:num_set option) v1 v2 =
-      if ¬c.call_empty_ffi ∧ ffi_index = "" then (Assign (adjust_var dest) Unit,l) else
+      if ¬c.call_empty_ffi ∧ ffi_index = «» then (Assign (adjust_var dest) Unit,l) else
         let addr1 = real_addr c (adjust_var v1) in
         let header1 = Load addr1 in
         let k = dimindex(:'a) - shift(:'a) - c.len_size in
@@ -2175,9 +2181,9 @@ val def = assign_Define `
         (list_Seq [
           Assign 1 (Op Add [addr1; Const bytes_in_word]);
           Assign 3 (Op Sub [fakelen1; Const bytes_in_word]);
-          Assign 5 (if ffi_index = "" then Const 0w else (Op Add [addr2; Const bytes_in_word]));
-          Assign 7 (if ffi_index = "" then Const 0w else (Op Sub [fakelen2; Const bytes_in_word]));
-          FFI ffi_index 1 3 5 7 (adjust_sets (dtcase names of SOME names => names | NONE => LN));
+          Assign 5 (if ffi_index = «» then Const 0w else (Op Add [addr2; Const bytes_in_word]));
+          Assign 7 (if ffi_index = «» then Const 0w else (Op Sub [fakelen2; Const bytes_in_word]));
+          FFI ffi_index 1 3 5 7 (adjust_sets (case names of SOME names => names | NONE => LN));
           Assign (adjust_var dest) Unit]
         , l)
       : 'a wordLang$prog # num`;
@@ -2185,13 +2191,13 @@ val def = assign_Define `
 val def = assign_Define `
   assign_EqualConst p (c:data_to_word$config) (secn:num)
              (l:num) (dest:num) (names:num_set option) v =
-    dtcase part_to_words c LN p 0w of
+    case part_to_words c LN p 0w of
     | SOME ((F,w),_) =>
         (If Equal (adjust_var v) (Imm (get_Word w))
                     (Assign (adjust_var dest) TRUE_CONST)
                     (Assign (adjust_var dest) FALSE_CONST),l)
     | SOME (_,words) =>
-        ((dtcase p of
+        ((case p of
           | Int _ => If Test (adjust_var v) (Imm 1w)
                        (Assign (adjust_var dest) FALSE_CONST)
                        (list_Seq
@@ -2268,7 +2274,7 @@ val def = assign_Define `
               (l:num) (dest:num) (names:num_set option) v1 v2 v3 =
        (if ~c.has_fp_ops \/ ~c.has_fp_tern then (GiveUp,l) else
         if dimindex(:'a) = 64 then
-         (dtcase encode_header c 3 1 of
+         (case encode_header c 3 1 of
           | NONE => (GiveUp,l)
           | SOME (header:'a word) =>
             (list_Seq [
@@ -2285,7 +2291,7 @@ val def = assign_Define `
                Inst (FP (FPMovToReg 3 5 0));
                WriteWord64 c header dest 3],l))
         else
-         (dtcase encode_header c 3 2 of
+         (case encode_header c 3 2 of
           | NONE => (GiveUp,l)
           | SOME header =>
             (list_Seq [
@@ -2311,7 +2317,7 @@ val def = assign_Define `
              (l:num) (dest:num) (names:num_set option) v1 v2 =
        (if ~c.has_fp_ops then (GiveUp,l) else
         if dimindex(:'a) = 64 then
-         (dtcase encode_header c 3 1 of
+         (case encode_header c 3 1 of
           | NONE => (GiveUp,l)
           | SOME (header:'a word) =>
             (list_Seq [
@@ -2325,7 +2331,7 @@ val def = assign_Define `
                Inst (FP (FPMovToReg 3 5 0));
                WriteWord64 c header dest 3],l))
         else
-         (dtcase encode_header c 3 2 of
+         (case encode_header c 3 2 of
           | NONE => (GiveUp,l)
           | SOME header =>
             (list_Seq [
@@ -2347,7 +2353,7 @@ val def = assign_Define `
              (l:num) (dest:num) (names:num_set option) v1 =
        (if ~c.has_fp_ops then (GiveUp,l) else
         if dimindex(:'a) = 64 then
-         (dtcase encode_header c 3 1 of
+         (case encode_header c 3 1 of
           | NONE => (GiveUp,l)
           | SOME (header:'a word) =>
             (list_Seq [
@@ -2358,7 +2364,7 @@ val def = assign_Define `
                Inst (FP (FPMovToReg 3 5 1));
                WriteWord64 c header dest 3],l))
         else
-         (dtcase encode_header c 3 2 of
+         (case encode_header c 3 2 of
           | NONE => (GiveUp,l)
           | SOME header =>
             (list_Seq [
@@ -2377,7 +2383,7 @@ Theorem all_assign_defs =
 Definition assign_def:
   assign (c:data_to_word$config) (secn:num) (l:num) (dest:num) (op:closLang$op)
     (args:num list) (names:num_set option) =
-    dtcase op of
+    case op of
     | IntOp (Const i) => assign_Const i l dest
     | GlobOp GlobalsPtr => (Assign (adjust_var dest) (Lookup Globals),l)
     | GlobOp SetGlobalsPtr => arg1 args (assign_SetGlobalsPtr c l dest) (Skip,l)
@@ -2402,6 +2408,7 @@ Definition assign_def:
     | MemOp (CopyByte alloc_new) => assign_CopyByte c secn l dest names args
     | MemOp RefArray => arg2 args (assign_RefArray c secn l dest names) (Skip,l)
     | BlockOp (BoolTest test) => arg2 args (assign_BoolTest l dest test) (Skip,l)
+    | BlockOp BoolNot => arg1 args (assign_BoolNot l dest) (Skip,l)
     | WordOp (WordTest ws test) => arg2 args (assign_WordTest l dest test) (Skip,l)
     | BlockOp (FromList tag) => arg2 args (assign_FromList c secn l dest names tag) (Skip,l)
     | IntOp (LessConstSmall i) => arg1 args (assign_LessConstSmall l dest i) (Skip,l)
@@ -2445,18 +2452,18 @@ End
 
 Definition force_thunk_def:
   force_thunk (c:data_to_word$config) secn (l:num) ret loc v1 =
-    (dtcase encode_header c (8 + 6) 1 of
+    (case encode_header c (8 + 6) 1 of
      | NONE => (GiveUp,l)
      | SOME (header:'a word) =>
      If Test (adjust_var v1) (Imm 1w)
-       (dtcase ret of
+       (case ret of
         | NONE => Return 0 [adjust_var v1]
         | SOME (dest,_) => Assign (adjust_var dest) (Var (adjust_var v1)))
        (list_Seq
           [Assign 1 (real_addr c (adjust_var v1));
            Assign 3 (Op And [Load (Var 1); Const 0b111100w]);
            If Equal 3 (Imm (n2w ((8 + 6) * 4)))
-             (dtcase ret of
+             (case ret of
               | NONE =>
                  list_Seq
                    [Assign 1 (Load (Op Add [Var 1; Const bytes_in_word]));
@@ -2465,12 +2472,12 @@ Definition force_thunk_def:
                   Assign (adjust_var dest)
                          (Load (Op Add [Var 1; Const bytes_in_word]))) $
            If NotEqual 3 (Imm (n2w ((0 + 6) * 4)))
-             (dtcase ret of
+             (case ret of
               | NONE => Return 0 [adjust_var v1]
               | SOME (dest,_) => Assign (adjust_var dest) (Var (adjust_var v1)))
              (list_Seq
                 [Assign 5 (Load (Op Add [Var 1; Const bytes_in_word]));
-                 (dtcase ret of
+                 (case ret of
                   | NONE => Call NONE (SOME loc) [0; adjust_var v1; 5] NONE
                   | SOME (r,ns) => Call (SOME ([adjust_var r],adjust_sets ns,Skip,secn,l))
                                      (SOME loc) [adjust_var v1; 5] NONE)])]),l+1)
@@ -2479,7 +2486,7 @@ End
 
 Definition comp_def:
   comp c (secn:num) (l:num) (p:dataLang$prog) =
-    dtcase p of
+    case p of
     | Skip => (Skip:'a wordLang$prog,l)
     | Tick => (Tick,l)
     | Raise n => (Raise (adjust_var n),l)
@@ -2507,11 +2514,11 @@ Definition comp_def:
     | Assign dest op args names => assign c secn l dest op args names
     | Force ret loc v => force_thunk c secn l ret loc v
     | Call ret target args handler =>
-        dtcase ret of
+        case ret of
         | NONE => (Call NONE target (0::MAP adjust_var args) NONE,l)
         | SOME (n,names) =>
             let ret = SOME ([adjust_var n], adjust_sets names, Skip, secn, l) in
-              dtcase handler of
+              case handler of
               | NONE => (Call ret target (MAP adjust_var args) NONE, l+1)
               | SOME (n,p) =>
                   let (q1,l1) = comp c secn (l+2) p in

@@ -11,7 +11,7 @@ val _ = translation_extends"ArrayProg";
 
 fun basis_st () = get_ml_prog_state ()
 
-val insertsort = process_topdecs `
+Quote add_cakeml:
 fun insertsort cmp a =
 let
   fun outer_loop prefix =
@@ -37,8 +37,8 @@ let
 in
   if Array.length a = 0 then () else outer_loop 0
 end;
-`;
-val insertsort_st = ml_progLib.add_prog insertsort ml_progLib.pick_name (basis_st());
+End
+val insertsort_st = basis_st();
 
 Theorem list_rel_perm_help[local]:
   !l1 l2.

@@ -20,7 +20,7 @@ val _ = ml_prog_update (open_module "Double");
 val () = generate_sigs := true;
 
 val _ = ml_prog_update (add_dec
-  ``Dtabbrev unknown_loc [] "double" (Atapp [] (Short "double"))`` I);
+  ``Dtabbrev unknown_loc [] «double» (Atapp [] (Short «double»))`` I);
 
 val _ = ml_prog_update open_local_block;
 
@@ -139,12 +139,12 @@ val _ = translate prepareString_def;
 val _ = ml_prog_update open_local_in_block;
 
 val _ = append_prog
-  “[Dlet unknown_loc (Pvar "fromWord")
-                     (Fun "x" (App FpFromWord [Var (Short "x")]))]”
+  “[Dlet unknown_loc (Pvar «fromWord»)
+                     (Fun «x» (App (FromTo (WordT W64) Float64T) [Var (Short «x»)]))]”
 
 val _ = append_prog
-  “[Dlet unknown_loc (Pvar "toWord")
-                     (Fun "x" (App FpToWord [Var (Short "x")]))]”
+  “[Dlet unknown_loc (Pvar «toWord»)
+                     (Fun «x» (App (FromTo Float64T (WordT W64)) [Var (Short «x»)]))]”
 
 (* --------------------------------------------------------------------------
  * Functions that use the FFI
@@ -248,9 +248,9 @@ End
  * ------------------------------------------------------------------------- *)
 
 val _ = append_prog
-  “[Dlet unknown_loc (Pvar "fma") (Fun "x" (Fun "y" (Fun "z"
-    (App (FP_top FP_Fma) [Var (Short "z"); Var (Short "x");
-    Var (Short "y")]))))]”
+  “[Dlet unknown_loc (Pvar «fma») (Fun «x» (Fun «y» (Fun «z»
+    (App (Arith FMA Float64T) [Var (Short «z»); Var (Short «x»);
+    Var (Short «y»)]))))]”
 
 (* --------------------------------------------------------------------------
  * Binary operations
@@ -754,11 +754,10 @@ QED
 
 val _ = append_prog “
   [Dlet unknown_loc
-     (Pvar "pp_double")
-     (Fun "x" (App Opapp [
-        Var (Long "PrettyPrinter" (Short "token"));
-        App Opapp [Var (Short "toString"); Var (Short "x")]]))]”;
+     (Pvar «pp_double»)
+     (Fun «x» (App Opapp [
+        Var (Long «PrettyPrinter» (Short «token»));
+        App Opapp [Var (Short «toString»); Var (Short «x»)]]))]”;
 
 val _ = ml_prog_update close_local_blocks;
 val _ = ml_prog_update (close_module NONE);
-
