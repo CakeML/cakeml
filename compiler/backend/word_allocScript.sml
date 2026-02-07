@@ -816,7 +816,7 @@ Definition remove_dead_def:
       (Skip, live,nlive)
     else (LocValue r l1, delete r live,nlive)) ∧
   (remove_dead (Set store_name exp) live nlive =
-    dtcase exp of
+    case exp of
       Var r =>
       if MEM store_name nlive then
         (Skip, live, nlive)
