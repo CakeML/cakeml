@@ -3578,7 +3578,7 @@ Proof
       gvs[AllCaseEqs(),domain_insert,domain_union,get_var_imm_def] >>
       gvs[Once INSERT_COMM] >>
       imp_res_tac strong_locals_rel_I_get_var >> gvs[] >>
-      `get_var n (st with <|locals := t; store := tstore|>) = SOME (Word y)` by (
+      `get_var n (st with <|locals := t; store := tstore|>) = SOME y` by (
         first_x_assum (qspecl_then [`t`,`r1 INSERT domain e2_live ∪ domain e3_live`]
           mp_tac) >>
         impl_tac >- gvs[Once INSERT_COMM] >> simp[]) >>
