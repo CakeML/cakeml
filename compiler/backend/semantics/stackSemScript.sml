@@ -4,8 +4,7 @@
 Theory stackSem
 Ancestors
   stackLang
-  wordSem[qualified] (* for word_loc *)
-  labSem[qualified]
+  wordSem[qualified] (* for word_loc and word_cmp *)
 Libs
   preamble
 
@@ -800,7 +799,7 @@ Definition evaluate_def:
   (evaluate (If cmp r1 ri c1 c2,s) =
     (case (get_var r1 s,get_var_imm ri s)of
     | SOME x,SOME y =>
-     (case labSem$word_cmp cmp x y of
+     (case wordSem$word_cmp cmp x y of
       | SOME T => evaluate (c1,s)
       | SOME F => evaluate (c2,s)
       | NONE => (SOME Error,s))

@@ -72,7 +72,8 @@ Proof
 QED
 
 Theorem with_same_clock[simp]:
-   x with clock := x.clock = x
+  ∀(x :('a,'c,'ffi) stackSem$state).
+    x with clock := x.clock = x
 Proof
   srw_tac[][state_component_equality]
 QED
@@ -436,7 +437,7 @@ Proof
   \\ simp[get_var_imm_def,get_var_def]
   \\ full_simp_tac(srw_ss())[get_var_def,set_var_def,FLOOKUP_UPDATE]
   \\ simp[]
-  \\ simp[labSemTheory.word_cmp_def,asmTheory.word_cmp_def]
+  \\ simp[wordSemTheory.word_cmp_def,asmTheory.word_cmp_def]
   \\ qpat_abbrev_tac`cc = c + _ + _`
   \\ `cc <+ c ⇔ s.stack_space < n`
   by (
@@ -978,7 +979,7 @@ Proof
   \\ simp[]
   \\ full_simp_tac(srw_ss())[get_var_def,set_var_def,FLOOKUP_UPDATE]
   \\ simp[]
-  \\ simp[labSemTheory.word_cmp_def,asmTheory.word_cmp_def]
+  \\ simp[wordSemTheory.word_cmp_def,asmTheory.word_cmp_def]
   \\ full_simp_tac(srw_ss())[state_rel_def]
   \\ simp[FLOOKUP_UPDATE]
   \\ rw[] >> TRY (metis_tac[])
@@ -1292,7 +1293,7 @@ Proof
   \\ once_rewrite_tac [list_Seq_def]
   \\ fs [evaluate_def,get_var_def,get_var_imm_def,asmTheory.word_cmp_def,inst_def,
          word_exp_def,get_var_def,wordLangTheory.word_op_def,mem_load_def,assign_def,
-         set_var_def,FLOOKUP_UPDATE,labSemTheory.word_cmp_def]
+         set_var_def,FLOOKUP_UPDATE,wordSemTheory.word_cmp_def]
   \\ qspec_then ‘pattern’ assume_tac (word_bit_test |> Q.INST [‘n’|->‘0’] |> GEN_ALL)
   \\ fs [word_bit_def]
   \\ Cases_on ‘1w && pattern = 0w’ \\ fs []
@@ -1300,7 +1301,7 @@ Proof
   \\ fs [SUBSET_DEF] \\ res_tac \\ fs []
   \\ fs [evaluate_def,get_var_def,get_var_imm_def,asmTheory.word_cmp_def,inst_def,
          word_exp_def,get_var_def,wordLangTheory.word_op_def,mem_load_def,assign_def,
-         set_var_def,FLOOKUP_UPDATE,labSemTheory.word_cmp_def,list_Seq_def,
+         set_var_def,FLOOKUP_UPDATE,wordSemTheory.word_cmp_def,list_Seq_def,
          wordLangTheory.word_sh_def,mem_store_def,dec_clock_def]
   \\ rewrite_tac [STOP_def]
   \\ fs [copy_each_def,list_Seq_def]
@@ -2607,14 +2608,14 @@ val tac = simp [list_Seq_def,evaluate_def,inst_def,word_exp_def,get_var_def,
        wordLangTheory.word_op_def,mem_load_def,assign_def,set_var_def,
        FLOOKUP_UPDATE,mem_store_def,dec_clock_def,get_var_imm_def,
        asmTheory.word_cmp_def,
-       labSemTheory.word_cmp_def,GREATER_EQ,GSYM NOT_LESS,FUPDATE_LIST,
+       wordSemTheory.word_cmp_def,GREATER_EQ,GSYM NOT_LESS,FUPDATE_LIST,
        wordLangTheory.word_sh_def,halt_inst_def]
 
 val tac1 = simp [Once list_Seq_def,evaluate_def,inst_def,word_exp_def,get_var_def,
        wordLangTheory.word_op_def,mem_load_def,assign_def,set_var_def,
        FLOOKUP_UPDATE,mem_store_def,dec_clock_def,get_var_imm_def,
        asmTheory.word_cmp_def,
-       labSemTheory.word_cmp_def,GREATER_EQ,GSYM NOT_LESS,FUPDATE_LIST,
+       wordSemTheory.word_cmp_def,GREATER_EQ,GSYM NOT_LESS,FUPDATE_LIST,
        wordLangTheory.word_sh_def,halt_inst_def]
 
 Definition mem_val_def:

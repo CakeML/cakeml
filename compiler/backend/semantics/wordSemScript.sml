@@ -52,6 +52,20 @@ Proof
   Cases_on`x` \\ rw[isWord_def]
 QED
 
+Definition word_cmp_def:
+  (word_cmp Equal    (Word w1) (Word w2) = SOME (w1 = w2)) /\
+  (word_cmp Less     (Word w1) (Word w2) = SOME (w1 < w2)) /\
+  (word_cmp Lower    (Word w1) (Word w2) = SOME (w1 <+ w2)) /\
+  (word_cmp Test     (Word w1) (Word w2) = SOME ((w1 && w2) = 0w)) /\
+  (word_cmp Test     (Loc _ n) (Word w2) = if n ≠ 0 then NONE else if w2 = 1w then SOME T else NONE) /\
+  (word_cmp NotEqual (Word w1) (Word w2) = SOME (w1 <> w2)) /\
+  (word_cmp NotLess  (Word w1) (Word w2) = SOME (~(w1 < w2))) /\
+  (word_cmp NotLower (Word w1) (Word w2) = SOME (~(w1 <+ w2))) /\
+  (word_cmp NotTest  (Word w1) (Word w2) = SOME ((w1 && w2) <> 0w)) /\
+  (word_cmp NotTest  (Loc _ n) (Word w2) = if n ≠ 0 then NONE else if w2 = 1w then SOME F else NONE) /\
+  (word_cmp _ _ _ = NONE)
+End
+
 Definition mem_load_32_def:
   mem_load_32 m dm be (w:'a word) =
   if aligned 2 w
@@ -1008,10 +1022,12 @@ Definition evaluate_def:
         | NONE => (SOME Error,s)
         | SOME (s,l1,l2) => (SOME (Exception (Loc l1 l2) w)),s)) /\
   (evaluate (If cmp r1 ri c1 c2,s) =
-    (case (get_var r1 s,get_var_imm ri s)of
-    | SOME (Word x),SOME (Word y) =>
-      if word_cmp cmp x y then evaluate (c1,s)
-                          else evaluate (c2,s)
+    (case (get_var r1 s,get_var_imm ri s) of
+    | SOME x,SOME y =>
+     (case word_cmp cmp x y of
+      | SOME T => evaluate (c1,s)
+      | SOME F => evaluate (c2,s)
+      | NONE => (SOME Error,s))
     | _ => (SOME Error,s))) /\
   (evaluate (LocValue r l1,s) =
      if l1 ∈ domain s.code then

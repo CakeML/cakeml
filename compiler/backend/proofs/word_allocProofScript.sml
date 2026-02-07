@@ -1576,29 +1576,40 @@ Proof
     pop_assum kall_tac>>pop_assum mp_tac>>impl_tac>-
       (Cases_on`r`>>full_simp_tac(srw_ss())[])>>
     Cases_on`x`>>srw_tac[][]>>full_simp_tac(srw_ss())[]
-    >-
-     (first_assum(qspecl_then[`p`,`st`,`cst`,`f`,`live`] mp_tac)>>
+    >- (
+      qmatch_goalsub_abbrev_tac `evaluate (w,st with permute := _)` >>
+      first_assum(qspecl_then[`w`,`st`,`cst`,`f`,`live`] mp_tac)>>
       impl_tac>- size_tac>>
       impl_tac>-
         (Cases_on`r`>>
         full_simp_tac(srw_ss())[domain_insert,domain_union]>>
         metis_tac[SUBSET_OF_INSERT,SUBSET_UNION,strong_locals_rel_subset])>>
-      srw_tac[][]>>
-      Q.ISPECL_THEN[`w`,`st with permute:=perm'`,`perm''`]
-        assume_tac permute_swap_lemma>>
-      rev_full_simp_tac(srw_ss())[LET_THM]>>
-      qexists_tac`perm'''`>>srw_tac[][]>>full_simp_tac(srw_ss())[])
-    >>
-      (first_assum(qspecl_then[`p0`,`st`,`cst`,`f`,`live`] mp_tac)>>
+      srw_tac[][])
+    >- (
+      qmatch_goalsub_abbrev_tac `evaluate (w,st with permute := _)` >>
+      first_assum(qspecl_then[`w`,`st`,`cst`,`f`,`live`] mp_tac)>>
       impl_tac>- size_tac>>
       impl_tac>-
-        (Cases_on`r`>>full_simp_tac(srw_ss())[domain_insert,domain_union]>>
+        (Cases_on`r`>>
+        full_simp_tac(srw_ss())[domain_insert,domain_union]>>
         metis_tac[SUBSET_OF_INSERT,SUBSET_UNION,strong_locals_rel_subset])>>
-      srw_tac[][]>>
-      Q.ISPECL_THEN[`p`,`st with permute:=perm'`,`perm''`]
-        assume_tac permute_swap_lemma>>
-      rev_full_simp_tac(srw_ss())[LET_THM]>>
-      qexists_tac`perm'''`>>srw_tac[][]>>full_simp_tac(srw_ss())[]))
+      srw_tac[][])
+    >- simp [word_cmp_def]
+    >- (TOP_CASE_TAC >> gvs [])
+    >- (TOP_CASE_TAC >> gvs [])
+    >- (
+      Cases_on `c` >> simp [word_cmp_def] >>
+      rpt (IF_CASES_TAC >> gvs []) >>
+      pairarg_tac >> gvs [] >> (
+        qmatch_goalsub_abbrev_tac `evaluate (w,_)` >>
+        first_assum(qspecl_then[`w`,`st`,`cst`,`f`,`live`] mp_tac)>>
+        impl_tac>- size_tac>>
+        impl_tac>-
+          (Cases_on`r`>>
+          full_simp_tac(srw_ss())[domain_insert,domain_union]>>
+          metis_tac[SUBSET_OF_INSERT,SUBSET_UNION,strong_locals_rel_subset])>>
+        srw_tac[][]))
+    >- simp [word_cmp_def])
   >- ( (*Alloc*)
     last_x_assum kall_tac>>
     fs[evaluate_def,colouring_ok_def,get_live_def,get_writes_def]>>
@@ -7158,10 +7169,57 @@ Proof
     full_simp_tac(srw_ss())[evaluate_def,ssa_cc_trans_def]>>
     LET_ELIM_TAC>>fs[]>>
     qpat_x_assum`B = A0` sym_sub_tac>>full_simp_tac(srw_ss())[evaluate_def]>>
-    Cases_on`get_var n st`>>full_simp_tac(srw_ss())[]>>
-    Cases_on`x`>>full_simp_tac(srw_ss())[]>>
+    Cases_on ‘get_var n st’ >> gvs [] >>
+    reverse $ Cases_on ‘x’ >> gvs []
+    >- (
+      rpt (pairarg_tac >> gvs []) >>
+      rpt (TOP_CASE_TAC >> gvs []) >>
+      imp_res_tac ssa_locals_rel_get_var >> gvs [Abbr ‘r1'’] >>
+      ‘x = Word 1w’ by gvs [oneline word_cmp_def, AllCaseEqs()] >> gvs [] >>
+      ‘get_var_imm ri' cst = SOME (Word 1w)’ by (
+        Cases_on ‘r’ >> gvs [Abbr ‘ri'’, get_var_imm_def] >>
+        metis_tac [ssa_locals_rel_get_var]) >> gvs [] >>
+      Cases_on ‘c’ >> gvs [word_cmp_def]
+      >- (
+        last_x_assum $ qspec_then ‘p’ mp_tac >> gvs [] >>
+        rpt (disch_then drule >> gvs []) >>
+        impl_tac >- gvs [every_var_def] >> rw [] >>
+        qexists ‘perm'’ >> rpt (pairarg_tac >> gvs []) >>
+        TOP_CASE_TAC >> gvs [] >>
+        qspecl_then [‘na3’,‘ssa2’,‘ssa3’] mp_tac fix_inconsistencies_correctL >>
+        impl_tac >> gvs []
+        >- (imp_res_tac ssa_cc_trans_props >> metis_tac [ssa_map_ok_more]) >>
+        gvs [LET_THM] >>
+        disch_then $ qspecl_then [‘rst’, ‘s1’] mp_tac >>
+        impl_tac >- (
+          imp_res_tac ssa_cc_trans_props >>
+          metis_tac [ssa_locals_rel_more,ssa_map_ok_more]) >>
+        pairarg_tac >> gvs [] >>
+        rw [] >> gvs [word_state_eq_rel_def])
+      >- (
+        last_x_assum $ qspec_then ‘p0’ mp_tac >> gvs [] >>
+        disch_then drule >>
+        disch_then $ qspecl_then [‘ssa’, ‘na2’] mp_tac >> gvs [] >>
+        impl_tac >> gvs []
+        >- (
+          imp_res_tac ssa_cc_trans_props >> rw []
+          >- metis_tac [ssa_locals_rel_more]
+          >- (
+            gvs [every_var_def] >> match_mp_tac every_var_mono >>
+            qexists ‘λx. x < na’ >> gvs [])
+          >- metis_tac[ssa_map_ok_more]) >>
+        rw [] >>
+        rpt (pairarg_tac >> gvs []) >>
+        qexists ‘perm'’ >> gvs [] >>
+        TOP_CASE_TAC >> gvs [] >>
+        qspecl_then [‘na3’,‘ssa2’,‘ssa3’, ‘prio’] mp_tac
+          fix_inconsistencies_correctR >>
+        impl_tac >> gvs []
+        >- (imp_res_tac ssa_cc_trans_props >> metis_tac [ssa_map_ok_more]) >>
+        disch_then $ qspecl_then [‘rst’,‘s1'’] mp_tac >>
+        impl_tac >> gvs [word_state_eq_rel_def])) >>
     Cases_on`get_var_imm r st`>>full_simp_tac(srw_ss())[]>>
-    Cases_on`x`>>full_simp_tac(srw_ss())[]>>
+    Cases_on`x`>>full_simp_tac(srw_ss())[] >> simp [word_cmp_def] >>
     imp_res_tac ssa_locals_rel_get_var>>full_simp_tac(srw_ss())[Abbr`r1'`]>>
     `get_var_imm ri' cst = SOME(Word c'')` by
       (Cases_on`r`>>full_simp_tac(srw_ss())[Abbr`ri'`,get_var_imm_def]>>
@@ -7169,7 +7227,8 @@ Proof
     fs[] >>
     Cases_on`word_cmp c c' c''`>>full_simp_tac(srw_ss())[]
     >-
-      (first_assum(qspecl_then[`p`,`st`,`cst`,`ssa`,`na`] mp_tac)>>
+      (pairarg_tac >> gvs [] >>
+      first_assum(qspecl_then[`p`,`st`,`cst`,`ssa`,`na`] mp_tac)>>
       size_tac2>>
       impl_tac>-
         (rev_full_simp_tac(srw_ss())[]>>imp_res_tac ssa_cc_trans_props>>
@@ -7178,14 +7237,14 @@ Proof
       qexists_tac`perm'`>>full_simp_tac(srw_ss())[LET_THM]>>
       Cases_on`evaluate(p,st with permute := perm')`>>
       Cases_on`evaluate(e2',cst)`>>full_simp_tac(srw_ss())[]>>
-      Cases_on`q'`>>full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]>>
+      gvs[] >>
+      Cases_on`q`>>full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]>>
       Q.SPECL_THEN [`na3`,`ssa2`,`ssa3`] mp_tac fix_inconsistencies_correctL>>
       impl_tac>-
         (imp_res_tac ssa_cc_trans_props>>
         metis_tac[ssa_map_ok_more])>>
       rev_full_simp_tac(srw_ss())[LET_THM]>>
-      srw_tac[][]>>
-      pop_assum (qspecl_then[`r'`,`r''`] mp_tac)>>
+      disch_then (qspecl_then[`r'`,`r''`] mp_tac)>>
       impl_tac>-
         (imp_res_tac ssa_cc_trans_props>>
         metis_tac[ssa_locals_rel_more,ssa_map_ok_more])>>
@@ -7595,8 +7654,9 @@ Proof
     pairarg_tac>>fs[case_eq_thms]>>
     pop_assum mp_tac>>pairarg_tac>>fs[]>>
     strip_tac>>
-    qabbrev_tac`rstt =rst`>>
-    fs[case_eq_thms]>>rw[]>>
+    pop_assum mp_tac >>
+    rpt (TOP_CASE_TAC >> gvs []) >>
+    qmatch_goalsub_abbrev_tac ‘rstt = rst ⇒ _’ >> rw [] >>
     pairarg_tac>>fs[]>>
     pop_assum mp_tac>>
     pairarg_tac>>fs[]>>
@@ -7676,9 +7736,9 @@ Proof
       fs[SUBSET_DEF,toAList_domain,ssa_locals_rel_def]>>
       metis_tac[domain_lookup])>>
     `ssa_locals_rel na''' ssa''' rst.locals rcstt.locals ∧ word_state_eq_rel rst rcstt` by
-      (qpat_x_assum`Abbrev(_=rst)` mp_tac>>
+      (qpat_x_assum`Abbrev(rst=_)` mp_tac>>
       simp[markerTheory.Abbrev_def]>>
-      disch_then (SUBST_ALL_TAC o SYM)>>
+      disch_then (SUBST_ALL_TAC)>>
       fs[next_var_rename_def]>>
       fs[Abbr`rcstt`,ssa_locals_rel_def,word_state_eq_rel_def]>>
       rveq>>fs[]>>
@@ -7723,7 +7783,7 @@ Proof
     disch_then(qspecl_then[`MAP FST (toAList s)`] mp_tac)>>
     simp[]>>
     impl_tac>-
-      (fs[Abbr`s`,next_var_rename_def,SUBSET_DEF,toAList_domain,domain_union]>>rw[]>>
+      (fs[Abbr`s`,Abbr `rst`, next_var_rename_def,SUBSET_DEF,toAList_domain,domain_union]>>rw[]>>
       `na''+6 = na''+2+4` by fs[]>>
       pop_assum SUBST1_TAC>>
       match_mp_tac ssa_map_ok_extend>>

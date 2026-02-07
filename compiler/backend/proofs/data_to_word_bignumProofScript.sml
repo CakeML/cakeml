@@ -1897,7 +1897,7 @@ Proof
   THEN1
    (qunabbrev_tac `if_stmt` \\ fs [eq_eval]
     \\ IF_CASES_TAC THEN1
-     (fs [word_sh_def,lookup_insert]
+     (fs [word_sh_def,lookup_insert,asmTheory.word_cmp_def]
       \\ `v1 >>> (dimindex (:α) - 3) = 0w /\
           v1 << 2 = Smallnum v` by
        (ntac 2 (pop_assum mp_tac)
@@ -1922,7 +1922,7 @@ Proof
       \\ strip_tac \\ qexists_tac `new_c`
       \\ fs [wordSemTheory.flush_state_def])
     \\ IF_CASES_TAC THEN1
-     (fs [word_sh_def,lookup_insert]
+     (fs [word_sh_def,lookup_insert,asmTheory.word_cmp_def]
       \\ `(v1 + -1w) >>> (dimindex (:α) - 3) = 0w /\
           -1w * v1 << 2 = Smallnum v` by
        (ntac 3 (pop_assum mp_tac)
