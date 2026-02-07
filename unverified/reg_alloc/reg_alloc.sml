@@ -1,4 +1,5 @@
 structure reg_alloc = struct
+  val verbose = ref false;
   datatype reg_alloc_tag =  Stemp
   |  Atemp
   |  Fixed of  int;
@@ -1440,7 +1441,7 @@ structure reg_alloc = struct
                                     val  () = assign_stemps v24 (neg_biased_pref v24 mvs)
                                     val  v6 = extract_color v16
                                     val  cols = apply_col (fn x => lookup_1 x v6) v30
-                                    val _ = print ("moves: "^Int.toString (length v30)^"\tcoalesceable: "^Int.toString (length v10) ^"\tcoalesced: "^Int.toString (length cols)^"\n")
+                                    val _ = if !verbose then print ("moves: "^Int.toString (length v30)^"\tcoalesceable: "^Int.toString (length v10) ^"\tcoalesced: "^Int.toString (length cols)^"\n") else ()
                                  in
                                   v6
                                  end)))))))))))))))
