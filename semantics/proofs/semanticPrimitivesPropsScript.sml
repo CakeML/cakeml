@@ -42,14 +42,6 @@ Proof
  rw [extend_dec_env_def]
 QED
 
-Definition opw_lookup_def[simp]:
-  (opw_lookup Andw = word_and) ∧
-  (opw_lookup Orw = word_or) ∧
-  (opw_lookup Xor = word_xor) ∧
-  (opw_lookup Add = word_add) ∧
-  (opw_lookup Sub = word_sub)
-End
-
 Definition shift_lookup_def[simp]:
   (shift_lookup Lsl = word_lsl) ∧
   (shift_lookup Lsr = word_lsr) ∧
@@ -57,16 +49,17 @@ Definition shift_lookup_def[simp]:
   (shift_lookup Ror = word_ror)
 End
 
-Definition do_word_op_def[simp]:
-  (do_word_op op W8 (Word8 w1) (Word8 w2) = SOME (Word8 (opw_lookup op w1 w2))) ∧
-  (do_word_op op W64 (Word64 w1) (Word64 w2) = SOME (Word64 (opw_lookup op w1 w2))) ∧
-  (do_word_op op _ _ _ = NONE)
-End
-
 Definition do_shift_def[simp]:
   (do_shift sh n W8 (Word8 w) = SOME (Word8 (shift_lookup sh w n))) ∧
   (do_shift sh n W64 (Word64 w) = SOME (Word64 (shift_lookup sh w n))) ∧
   (do_shift _ _ _ _ = NONE)
+End
+
+(*
+Definition do_word_op_def[simp]:
+  (do_word_op op W8 (Word8 w1) (Word8 w2) = SOME (Word8 (opw_lookup op w1 w2))) ∧
+  (do_word_op op W64 (Word64 w1) (Word64 w2) = SOME (Word64 (opw_lookup op w1 w2))) ∧
+  (do_word_op op _ _ _ = NONE)
 End
 
 Definition do_word_to_int_def[simp]:
@@ -79,6 +72,7 @@ Definition do_word_from_int_def[simp]:
   (do_word_from_int W8 i = Word8 (i2w i)) ∧
   (do_word_from_int W64 i = Word64 (i2w i))
 End
+*)
 
 Theorem lit_same_type_refl[simp]:
    ∀l. lit_same_type l l
@@ -214,16 +208,9 @@ Proof
  >> metis_tac [match_result_distinct, match_result_11]
 QED
 
-val op_thms = { nchotomy = op_nchotomy, case_def = op_case_def}
-val list_thms = { nchotomy = list_nchotomy, case_def = list_case_def}
-val option_thms = { nchotomy = option_nchotomy, case_def = option_case_def}
-val v_thms = { nchotomy = v_nchotomy, case_def = v_case_def}
-val store_v_thms = { nchotomy = store_v_nchotomy, case_def = store_v_case_def}
-val lit_thms = { nchotomy = lit_nchotomy, case_def = lit_case_def}
-val eq_v_thms = { nchotomy = eq_result_nchotomy, case_def = eq_result_case_def}
-val wz_thms = { nchotomy = word_size_nchotomy, case_def = word_size_case_def}
-val eqs = LIST_CONJ (map prove_case_eq_thm
-  [op_thms, list_thms, option_thms, v_thms, store_v_thms, lit_thms, eq_v_thms, wz_thms])
+val eqs = LIST_CONJ (map TypeBase.case_eq_of
+  [``:op``, ``:'a list``, ``:'a option``, ``:v``, ``:'a store_v``, ``:lit``,
+   ``:eq_result``, ``:word_size``])
 
 Theorem pair_case_eq[local]:
   pair_CASE x f = v ⇔ ?x1 x2. x = (x1,x2) ∧ f x1 x2 = v
@@ -751,12 +738,12 @@ Proof
 QED
 
 Theorem do_conversion_check_type:
-  do_conversion v ty1 ty2 = SOME res ⇒
+  do_conversion v ty1 ty2 = SOME (INR res) ⇒
   check_type ty2 res
 Proof
   Cases_on ‘ty2’ using prim_type_cases
-  \\ rw [semanticPrimitivesTheory.check_type_def]
-  \\ gvs [oneline do_conversion_def,AllCaseEqs()]
+  \\ gvs [oneline do_conversion_def, AllCaseEqs()]
+  \\ rw [] \\ fs [semanticPrimitivesTheory.check_type_def]
 QED
 
 Theorem do_arith_check_type:

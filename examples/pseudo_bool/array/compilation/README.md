@@ -1,4 +1,4 @@
-Compiling the pseudo-boolean constraints checker
+Compiling the pseudo-boolean constraints checker.
 
 [cliqueCompileScript.sml](cliqueCompileScript.sml):
 Compiles the max clique + PB checker
@@ -16,10 +16,11 @@ Compiles the MCIS + PB checker
 Compiles the PB checker example by evaluation inside the logic of HOL
 
 [proofs](proofs):
-Prove end-to-end correctness theorem for PB checker with arrays
+Prove end-to-end correctness theorem for PB checker with arrays.
 
 [proofsARM8](proofsARM8):
 Prove end-to-end correctness theorem for PB checker with arrays
+against the ARMv8 model.
 
 [subgraph_isoCompileScript.sml](subgraph_isoCompileScript.sml):
 Compiles the encoder

@@ -1,5 +1,5 @@
 (*
-  Module about the built-in list tyoe.
+  Module about the built-in list type.
 *)
 Theory ListProg
 Ancestors
@@ -201,7 +201,7 @@ Proof
   \\ xlet `POSTv v. &(A (f n) v) * heap_inv`
   >- ( xapp \\ xsimpl )
   \\ xlet `POSTv nv. &NUM (n+1) nv * heap_inv`
-  >-( xopn \\  xsimpl \\ fs[NUM_def,INT_def] \\ intLib.COOPER_TAC)
+  >-( xarith \\  xsimpl \\ fs[NUM_def,INT_def] \\ intLib.COOPER_TAC)
   \\ xlet `POSTv av. &LIST_TYPE A (f n::acc) av * heap_inv`
   >-( xcon \\ xsimpl \\ fs[LIST_TYPE_def] )
   \\ xapp

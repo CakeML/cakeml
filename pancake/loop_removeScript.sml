@@ -1,5 +1,5 @@
 (*
-  Correctness proof for loop_remove
+  Loop removal pass for loopLang.
 *)
 Theory loop_remove
 Ancestors

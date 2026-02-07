@@ -936,7 +936,7 @@ Proof
     >- (
       qrefine ‘ck+3’
       >> simp[evaluate_def]
-      >> simp[do_opapp_def, do_app_def, dec_clock_def, opn_lookup_def]
+      >> simp[do_opapp_def, do_app_def, dec_clock_def, do_arith_def, check_type_def]
       >> simp[Ntimes find_recfun_def 2, Ntimes build_rec_env_def 2]
       >> simp[Ntimes evaluate_def 2]
       >> simp[sadd_def]
@@ -1005,7 +1005,7 @@ Proof
     >- (
       qrefine ‘ck+3’
       >> simp[evaluate_def]
-      >> simp[do_opapp_def, do_app_def, dec_clock_def, opn_lookup_def]
+      >> simp[do_opapp_def, do_app_def, dec_clock_def, do_arith_def, check_type_def]
       >> simp[Ntimes find_recfun_def 2, Ntimes build_rec_env_def 2]
       >> simp[Ntimes evaluate_def 2]
       >> simp[smul_def]
@@ -1054,15 +1054,15 @@ Proof
           >> pop_assum $ simp_tac bool_ss o single
           >> simp[Ntimes evaluate_def 2, can_pmatch_all_def, pmatch_def, nsLookup_def,
             same_type_def, same_ctor_def, evaluate_match_def,
-            pat_bindings_def, opn_lookup_def]
+            pat_bindings_def, do_arith_def, check_type_def]
           >> simp[Ntimes evaluate_def 2, can_pmatch_all_def, pmatch_def, nsLookup_def,
             same_type_def, same_ctor_def, evaluate_match_def,
-            pat_bindings_def, opn_lookup_def]
+            pat_bindings_def, do_arith_def, check_type_def]
           >> simp[Ntimes evaluate_def 3]
           >> pop_assum $ simp_tac bool_ss o single o (fn x => Ntimes x 2) o GSYM
           >> simp[evaluate_match_def, can_pmatch_all_def, pmatch_def, nsLookup_def,
             same_type_def, same_ctor_def, evaluate_match_def,
-            pat_bindings_def, opn_lookup_def, vcons_list_def]
+            pat_bindings_def, do_arith_def, check_type_def, vcons_list_def]
           >> pop_assum kall_tac
           >> qrefine `ck+3`
           >> simp[Ntimes evaluate_def 3, can_pmatch_all_def, pmatch_def, nsLookup_def,
@@ -1096,12 +1096,12 @@ Proof
             >> simp[Once evaluate_def]
             >> reduce_to_cps 1 [can_pmatch_all_def, pmatch_def, nsLookup_def,
               same_type_def, same_ctor_def, evaluate_match_def,
-              pat_bindings_def, opn_lookup_def]
+              pat_bindings_def, do_arith_def, check_type_def]
             >> simp[GSYM eval_eq_def]
             >> irule_at (Pos hd) eval_eq_trivial
             >> simp[Once cps_rel_cases, Once ml_v_vals_cases]
             >> simp[evaluate_def, build_conv_def, do_con_check_def,
-              nsLookup_def, do_app_def, opn_lookup_def]
+              nsLookup_def, do_app_def, do_arith_def, check_type_def]
           )
           >> rename1 `sadd (v::vs) _`
           >> Cases_on `? i . v = SNum i`
@@ -1117,7 +1117,7 @@ Proof
             gvs[Once ml_v_vals_cases]
             >> simp[sadd_def, vcons_list_def]
             >> simp[evaluate_def, do_opapp_def, do_app_def,
-              opn_lookup_def, can_pmatch_all_def, pmatch_def, nsLookup_def,
+              do_arith_def, check_type_def, can_pmatch_all_def, pmatch_def, nsLookup_def,
               same_type_def, same_ctor_def, evaluate_match_def,
               pat_bindings_def, do_con_check_def, build_conv_def, dec_clock_def]
             >> simp[Ntimes find_recfun_def 2, Ntimes build_rec_env_def 2]
@@ -1131,7 +1131,7 @@ Proof
     )
     >> reduce_to_cps 0 [can_pmatch_all_def, pmatch_def, nsLookup_def,
       same_type_def, same_ctor_def, evaluate_match_def,
-      pat_bindings_def, opn_lookup_def]
+      pat_bindings_def, do_arith_def, check_type_def]
     >> simp[sminus_not_num_exception, sadd_not_num_exception]
     >> simp[sminus_def, sadd_def]
     >> simp[GSYM eval_eq_def]
@@ -1139,7 +1139,7 @@ Proof
     >> simp[Once cps_rel_cases, Once ml_v_vals_cases]
     >> TRY $ first_assum $ irule_at $ Pos hd
     >> simp[evaluate_def, build_conv_def, do_con_check_def,
-      nsLookup_def, do_app_def, opn_lookup_def]
+      nsLookup_def, do_app_def, do_arith_def, check_type_def]
   )
   >~ [`Prim SEqv`] >- (
     drule $ cj 4 $ iffLR scheme_env_app_def
@@ -1156,7 +1156,7 @@ Proof
       >> rename1 `LIST_REL ml_v_vals vs mlvs`
       >> simp[Ntimes evaluate_def 2, can_pmatch_all_def, pmatch_def, nsLookup_def,
         same_type_def, same_ctor_def, evaluate_match_def,
-        pat_bindings_def, opn_lookup_def]
+        pat_bindings_def, do_arith_def, check_type_def]
       >> Cases_on `mlvs`
       >> Cases_on `vs`
       >> gvs[vcons_list_def] >>> LASTGOAL (
@@ -1165,13 +1165,13 @@ Proof
         >> rename1 `seqv (v::v'::_)`
         >> simp[Ntimes evaluate_def 2, can_pmatch_all_def, pmatch_def, nsLookup_def,
           same_type_def, same_ctor_def, evaluate_match_def,
-          pat_bindings_def, opn_lookup_def]
+          pat_bindings_def, do_arith_def, check_type_def]
         >> Cases_on `mlvs`
         >> Cases_on `vs`
         >> gvs[vcons_list_def] >- (
           reduce_to_cps 0 [can_pmatch_all_def, pmatch_def, nsLookup_def,
             same_type_def, same_ctor_def, evaluate_match_def,
-            pat_bindings_def, opn_lookup_def]
+            pat_bindings_def, do_arith_def, check_type_def]
           >> Cases_on `? n . v = SNum n` >- (
             gvs[Once ml_v_vals_cases]
             >> Cases_on `? m . v' = SNum m` >- (
@@ -1372,7 +1372,7 @@ Proof
       >> rename1 `LIST_REL ml_v_vals vs mlvs`
       >> simp[Ntimes evaluate_def 2, can_pmatch_all_def, pmatch_def, nsLookup_def,
         same_type_def, same_ctor_def, evaluate_match_def,
-        pat_bindings_def, opn_lookup_def]
+        pat_bindings_def, do_arith_def, check_type_def]
       >> Cases_on `mlvs`
       >> Cases_on `vs`
       >> gvs[vcons_list_def] >- (
@@ -1411,7 +1411,7 @@ Proof
       >> rename1 `LIST_REL ml_v_vals vs mlvs`
       >> simp[Ntimes evaluate_def 2, can_pmatch_all_def, pmatch_def, nsLookup_def,
         same_type_def, same_ctor_def, evaluate_match_def,
-        pat_bindings_def, opn_lookup_def]
+        pat_bindings_def, do_arith_def, check_type_def]
       >> Cases_on `mlvs`
       >> Cases_on `vs`
       >> gvs[vcons_list_def]
@@ -1440,7 +1440,7 @@ Proof
       >> rename1 `LIST_REL ml_v_vals vs mlvs`
       >> simp[Ntimes evaluate_def 2, can_pmatch_all_def, pmatch_def, nsLookup_def,
         same_type_def, same_ctor_def, evaluate_match_def,
-        pat_bindings_def, opn_lookup_def]
+        pat_bindings_def, do_arith_def, check_type_def]
       >> Cases_on `mlvs`
       >> Cases_on `vs`
       >> gvs[vcons_list_def] >>> LASTGOAL (
@@ -1448,7 +1448,7 @@ Proof
         >> rename1 `LIST_REL ml_v_vals vs mlvs`
         >> simp[Ntimes evaluate_def 2, can_pmatch_all_def, pmatch_def, nsLookup_def,
           same_type_def, same_ctor_def, evaluate_match_def,
-          pat_bindings_def, opn_lookup_def]
+          pat_bindings_def, do_arith_def, check_type_def]
         >> Cases_on `mlvs`
         >> Cases_on `vs`
         >> gvs[vcons_list_def] >- (
@@ -1487,7 +1487,7 @@ Proof
       >> rename1 `LIST_REL ml_v_vals vs mlvs`
       >> simp[Ntimes evaluate_def 2, can_pmatch_all_def, pmatch_def, nsLookup_def,
         same_type_def, same_ctor_def, evaluate_match_def,
-        pat_bindings_def, opn_lookup_def]
+        pat_bindings_def, do_arith_def, check_type_def]
       >> Cases_on `mlvs`
       >> Cases_on `vs`
       >> gvs[vcons_list_def] >>> HEADGOAL (
@@ -1533,7 +1533,7 @@ Proof
       >> rename1 `LIST_REL ml_v_vals vs mlvs`
       >> simp[Ntimes evaluate_def 2, can_pmatch_all_def, pmatch_def, nsLookup_def,
         same_type_def, same_ctor_def, evaluate_match_def,
-        pat_bindings_def, opn_lookup_def]
+        pat_bindings_def, do_arith_def, check_type_def]
       >> Cases_on `mlvs`
       >> Cases_on `vs`
       >> gvs[vcons_list_def] >>> HEADGOAL (
@@ -1579,7 +1579,7 @@ Proof
       >> rename1 `LIST_REL ml_v_vals vs mlvs`
       >> simp[Ntimes evaluate_def 2, can_pmatch_all_def, pmatch_def, nsLookup_def,
         same_type_def, same_ctor_def, evaluate_match_def,
-        pat_bindings_def, opn_lookup_def]
+        pat_bindings_def, do_arith_def, check_type_def]
       >> Cases_on `mlvs`
       >> Cases_on `vs`
       >> gvs[vcons_list_def] >>> HEADGOAL (
@@ -1616,7 +1616,7 @@ Proof
       >> rename1 `LIST_REL ml_v_vals vs mlvs`
       >> simp[Ntimes evaluate_def 2, can_pmatch_all_def, pmatch_def, nsLookup_def,
         same_type_def, same_ctor_def, evaluate_match_def,
-        pat_bindings_def, opn_lookup_def]
+        pat_bindings_def, do_arith_def, check_type_def]
       >> Cases_on `mlvs`
       >> Cases_on `vs`
       >> gvs[vcons_list_def] >>> HEADGOAL (

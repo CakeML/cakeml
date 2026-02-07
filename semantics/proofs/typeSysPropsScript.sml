@@ -912,7 +912,8 @@ val t_thms = { nchotomy = t_nchotomy, case_def = t_case_def };
 val word_size_thms = { nchotomy = word_size_nchotomy, case_def = word_size_case_def };
 val id_thms = { nchotomy = id_nchotomy, case_def = id_case_def };
 val thms = [ op_thms, list_thms, t_thms, word_size_thms, id_thms ];
-val eqs = ([pair_case_eq,bool_case_eq]@(List.map prove_case_eq_thm thms));
+val eqs = ([pair_case_eq,bool_case_eq]@(List.map TypeBase.case_eq_of
+  [``:op``, ``:'a list``, ``:t``, ``:word_size``, ``:('a,'b) id``]));
 val elims = List.map prove_case_elim_thm thms;
 
 Theorem type_op_cases =
@@ -1328,24 +1329,18 @@ Proof
      full_simp_tac(srw_ss())[deBruijn_subst_def]
      >~ [‘supported_arith’] >-
       (qexists_tac ‘REPLICATE (LENGTH ts) (t_of ty)’
-       \\ Cases_on ‘ty’
-       >> gvs [t_of_def, deBruijn_subst_def, EVERY_REPLICATE,
-               LENGTH_EQ_NUM_compute, REPLICATE_compute]
-       >> TRY (Cases_on ‘w’)
+       \\ Cases_on ‘ty’ using semanticPrimitivesPropsTheory.prim_type_cases
        >> gvs [t_of_def, deBruijn_subst_def, EVERY_REPLICATE,
                LENGTH_EQ_NUM_compute, REPLICATE_compute]
        >> TRY (Cases_on ‘a’)
        >> gvs [t_of_def, deBruijn_subst_def, EVERY_REPLICATE,
                LENGTH_EQ_NUM_compute, REPLICATE_compute])
      >~ [‘supported_conversion ty1 ty2’] >-
-      (Cases_on ‘ty1’ >> gvs [t_of_def,deBruijn_subst_def] >>
-       Cases_on ‘w’ >> gvs [t_of_def,deBruijn_subst_def])
+      (Cases_on ‘ty1’ using semanticPrimitivesPropsTheory.prim_type_cases >> gvs [t_of_def,deBruijn_subst_def])
      >~ [‘supported_conversion ty1 ty2’] >-
-      (Cases_on ‘ty2’ >> gvs [t_of_def,deBruijn_subst_def] >>
-       Cases_on ‘w’ >> gvs [t_of_def,deBruijn_subst_def])
+      (Cases_on ‘ty2’ using semanticPrimitivesPropsTheory.prim_type_cases >> gvs [t_of_def,deBruijn_subst_def])
      >~ [‘t_of ty’] >-
-      (Cases_on ‘ty’ >> gvs [t_of_def,deBruijn_subst_def] >>
-       Cases_on ‘w’ >> gvs [t_of_def,deBruijn_subst_def]) >>
+      (Cases_on ‘ty’ using semanticPrimitivesPropsTheory.prim_type_cases >> gvs [t_of_def,deBruijn_subst_def]) >>
      metis_tac [])
    >- metis_tac [SIMP_RULE (srw_ss()) [PULL_FORALL] type_e_subst_lem3, ADD_COMM])
  >- (full_simp_tac(srw_ss())[RES_FORALL] >>

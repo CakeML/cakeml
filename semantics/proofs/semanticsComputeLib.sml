@@ -94,11 +94,8 @@ val add_ast_compset = computeLib.extend_compset
     ,``:ast$exp``
     ,``:stamp``
     ,``:ast$op``
-    ,``:ast$lop``
     ,``:ast$lit``
     ,``:opb``
-    ,``:opn``
-    ,``:opw``
     ,``:ast$shift``
     ,``:ast$word_size``
     ,``:eq_result``

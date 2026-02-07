@@ -513,12 +513,6 @@ Proof
   \\ Cases_on ‘op = Implode’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi])
-  \\ Cases_on ‘op = Chr’ \\ gs []
-  >- (
-    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi])
-  \\ Cases_on ‘op = Ord’ \\ gs []
-  >- (
-    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi])
   \\ Cases_on ‘op = XorAw8Str_unsafe’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
@@ -542,14 +536,6 @@ Proof
     \\ gs [state_ok_def, state_rel_def, EL_LUPDATE, FLOOKUP_FUN_FMAP]
     \\ rw [] \\ gs [ref_rel_def])
   \\ Cases_on ‘op = CopyStrStr’ \\ gs []
-  >- (
-    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
-         store_lookup_def, copy_array_def, store_assign_def])
-  \\ Cases_on ‘∃n. op = WordToInt n’ \\ gs []
-  >- (
-    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
-         store_lookup_def, copy_array_def, store_assign_def])
-  \\ Cases_on ‘∃n. op = WordFromInt n’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
          store_lookup_def, copy_array_def, store_assign_def])
@@ -581,41 +567,6 @@ Proof
     \\ irule v_rel_update
     \\ first_assum (irule_at Any)
     \\ gs [FUN_FMAP_SUBMAP_SUBSET, COUNT_MONO])
-  \\ Cases_on ‘∃top. op = FP_top top’ \\ gs []
-  >- (
-    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
-         store_lookup_def, copy_array_def, store_assign_def,
-         v_ok_def, v_rel_def])
-  \\ Cases_on ‘∃bop. op = FP_bop bop’ \\ gs []
-  >- (
-    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
-         store_lookup_def, copy_array_def, store_assign_def,
-         v_ok_def, v_rel_def])
-  \\ Cases_on ‘∃uop. op = FP_uop uop’ \\ gs []
-  >- (
-    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
-         store_lookup_def, copy_array_def, store_assign_def,
-         v_ok_def, v_rel_def])
-  \\ Cases_on ‘∃cmp. op = FP_cmp cmp’ \\ gs []
-  >- (
-    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
-         store_lookup_def, copy_array_def, store_assign_def,
-         v_ok_def, v_rel_def, Boolv_def]
-    \\ rw []  \\ fs [v_rel_def, stamp_rel_cases]
-    \\ fs [Boolv_def, state_ok_def, v_ok_thm, stamp_ok_def, stamp_rel_cases,
-           FLOOKUP_FUN_FMAP, state_rel_def])
-  \\ Cases_on ‘∃opn. op = Opn opn’ \\ gs []
-  >- (
-    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
-         store_lookup_def, copy_array_def, store_assign_def])
-  \\ Cases_on ‘∃opb. op = Opb opb’ \\ gs []
-  >- (
-    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
-         store_lookup_def, copy_array_def, store_assign_def])
-  \\ Cases_on ‘∃sz opw. op = Opw sz opw’ \\ gs []
-  >- (
-    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
-         store_lookup_def, copy_array_def, store_assign_def])
   \\ Cases_on ‘∃sz sh n. op = Shift sz sh n’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
@@ -630,17 +581,15 @@ Proof
          store_lookup_def, copy_array_def, store_assign_def])
   \\ Cases_on ‘∃ty1 ty2. op = FromTo ty1 ty2’ \\ gs []
   >- (
-    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
-         store_lookup_def, copy_array_def, store_assign_def]
-    \\ Cases_on ‘ty1’ \\ Cases_on ‘ty2’ \\ gvs[do_conversion_def]
-    \\ Cases_on ‘w’ \\ gvs[do_conversion_def, v_ok_thm] )
+    gvs [do_app_def, AllCaseEqs(), oneline do_conversion_def, check_type_def, chr_exn_v_def]
+    \\ gvs [v_ok_thm, stamp_ok_def, chr_stamp_def, Once stamp_rel_cases]
+    \\ gvs [state_ok_def, state_rel_def])
   \\ Cases_on ‘∃a ty. op = Arith a ty’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
          store_lookup_def, copy_array_def, store_assign_def,
          CaseEq"sum"]
-    \\ Cases_on ‘a’ \\ Cases_on ‘ty’
-    \\ TRY(rename1 ‘WordT w’ \\ Cases_on ‘w’)
+    \\ Cases_on ‘a’ \\ Cases_on ‘ty’ using semanticPrimitivesPropsTheory.prim_type_cases
     \\ gvs[do_arith_def,CaseEq"list",v_ok_thm] )
   \\ Cases_on ‘op = Opderef’ \\ gs []
   >- (
@@ -670,16 +619,6 @@ Proof
     \\ irule v_rel_update
     \\ first_assum (irule_at Any)
     \\ gs [FUN_FMAP_SUBMAP_SUBSET, COUNT_MONO])
-  \\ Cases_on ‘op = FpFromWord’ \\ gs[]
-  >- (
-    gvs[do_app_cases, v_ok_thm]
-    \\ ‘s with <| refs := s.refs; ffi := s.ffi |> = s’ suffices_by gs[]
-    \\ gs[state_component_equality])
-  \\ Cases_on ‘op = FpToWord’ \\ gs[]
-  >- (
-    gvs[do_app_cases, v_ok_thm]
-    \\ ‘s with <| refs := s.refs; ffi := s.ffi |> = s’ suffices_by gs[]
-    \\ gs[state_component_equality])
   \\ Cases_on ‘∃m. op = ThunkOp (AllocThunk m)’ \\ gs[]
   >- (
     gvs [do_app_cases, v_ok_thm, thunk_op_def, AllCaseEqs()]

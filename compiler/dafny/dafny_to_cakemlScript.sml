@@ -117,16 +117,16 @@ Definition cml_read_var_def:
 End
 
 Definition from_un_op_def:
-  from_un_op dafny_ast$Not cml_e = If cml_e False True
+  from_un_op dafny_ast$Not cml_e = App (Arith Not BoolT) [cml_e]
 End
 
 Definition from_bin_op_def:
   from_bin_op Lt cml_e₀ cml_e₁ =
-    App (Opb Lt) [cml_e₀; cml_e₁] ∧
+    App (Test (Compare Lt) IntT) [cml_e₀; cml_e₁] ∧
   from_bin_op Le cml_e₀ cml_e₁ =
-    App (Opb Leq) [cml_e₀; cml_e₁] ∧
+    App (Test (Compare Leq) IntT) [cml_e₀; cml_e₁] ∧
   from_bin_op Ge cml_e₀ cml_e₁ =
-    App (Opb Geq) [cml_e₀; cml_e₁] ∧
+    App (Test (Compare Geq) IntT) [cml_e₀; cml_e₁] ∧
   from_bin_op Eq cml_e₀ cml_e₁ =
     App Equality [cml_e₀; cml_e₁] ∧
   from_bin_op Neq cml_e₀ cml_e₁ =
@@ -136,35 +136,35 @@ Definition from_bin_op_def:
      Let (SOME n_e₁) cml_e₁
          (If (App Equality [cml_e₀; Var (Short n_e₁)]) False True)) ∧
   from_bin_op Sub cml_e₀ cml_e₁ =
-    App (Opn Minus) [cml_e₀; cml_e₁] ∧
+    App (Arith Sub IntT) [cml_e₀; cml_e₁] ∧
   from_bin_op Add cml_e₀ cml_e₁ =
-    App (Opn Plus) [cml_e₀; cml_e₁] ∧
+    App (Arith Add IntT) [cml_e₀; cml_e₁] ∧
   from_bin_op Mul cml_e₀ cml_e₁ =
-    App (Opn Times) [cml_e₀; cml_e₁] ∧
+    App (Arith Mul IntT) [cml_e₀; cml_e₁] ∧
   from_bin_op And cml_e₀ cml_e₁ =
-    Log And cml_e₀ cml_e₁ ∧
+    Log Andalso cml_e₀ cml_e₁ ∧
   from_bin_op Or cml_e₀ cml_e₁ =
-    Log Or cml_e₀ cml_e₁ ∧
+    Log Orelse cml_e₀ cml_e₁ ∧
   from_bin_op Imp cml_e₀ cml_e₁ =
     If cml_e₀ cml_e₁ True ∧
   from_bin_op Mod cml_e₀ cml_e₁ =
    (let n_e₁ = « r» in
     (* See HOL's EMOD_DEF: i % ABS j, INT_ABS: if n < 0 then ~n else n *)
-    let neg_cml_e₁ = App (Opn Minus) [Lit (IntLit 0); Var (Short n_e₁)] in
-    let cml_e₁_abs = If (App (Opb Lt) [Var (Short n_e₁); Lit (IntLit 0)])
+    let neg_cml_e₁ = App (Arith Sub IntT) [Lit (IntLit 0); Var (Short n_e₁)] in
+    let cml_e₁_abs = If (App (Test (Compare Lt) IntT) [Var (Short n_e₁); Lit (IntLit 0)])
                         (neg_cml_e₁) (Var (Short n_e₁)) in
-      Let (SOME n_e₁) cml_e₁ (App (Opn Modulo) [cml_e₀; cml_e₁_abs])) ∧
+      Let (SOME n_e₁) cml_e₁ (App (Arith Mod IntT) [cml_e₀; cml_e₁_abs])) ∧
   from_bin_op Div cml_e₀ cml_e₁ =
   (* Make sure that cml_e₁ is evaluated before the rest of the computation as
      the semantics demand *)
   let n_e₁ = « r» in
   (* See HOL's EDIV_DEF: if 0 < j then i div j else ~(i div ~j) *)
-  let neg_cml_e₁ = App (Opn Minus) [Lit (IntLit 0); Var (Short n_e₁)] in
+  let neg_cml_e₁ = App (Arith Sub IntT) [Lit (IntLit 0); Var (Short n_e₁)] in
     Let (SOME n_e₁) cml_e₁
-        (If (App (Opb Lt) [Lit (IntLit 0); Var (Short n_e₁)])
-            (App (Opn Divide) [cml_e₀; Var (Short n_e₁)])
-            (App (Opn Minus)
-                 [Lit (IntLit 0); App (Opn Divide) [cml_e₀; neg_cml_e₁]]))
+        (If (App (Test (Compare Lt) IntT) [Lit (IntLit 0); Var (Short n_e₁)])
+            (App (Arith Div IntT) [cml_e₀; Var (Short n_e₁)])
+            (App (Arith Sub IntT)
+                 [Lit (IntLit 0); App (Arith Div IntT) [cml_e₀; neg_cml_e₁]]))
 Termination
   wf_rel_tac ‘measure (λx. case x of
                            | (Neq, _, _) => bin_op_size Neq + 1
@@ -307,7 +307,7 @@ End
 Definition cml_dec_to_string_body_def:
   cml_dec_to_string_body =
   let arg = Var (Short cml_dec_to_string_param) in
-  let char = App Chr [App (Opn Plus) [Lit (IntLit 48); arg]] in
+  let char = App (FromTo IntT CharT) [App (Arith Add IntT) [Lit (IntLit 48); arg]] in
     App Implode [cml_list [char]]
 End
 
@@ -328,12 +328,12 @@ End
 Definition cml_nat_to_string_body_def:
   cml_nat_to_string_body =
   let arg = Var (Short cml_nat_to_string_param) in
-  let n_lt_10 = App (Opb Lt) [arg; Lit (IntLit 10)] in
+  let n_lt_10 = App (Test (Compare Lt) IntT) [arg; Lit (IntLit 10)] in
   let arg_to_string = App Opapp [Var (Short cml_dec_to_string_name); arg] in
-  let n_div_10 = App (Opn Divide) [arg; Lit (IntLit 10)] in
+  let n_div_10 = App (Arith Div IntT) [arg; Lit (IntLit 10)] in
   let n_div_10_to_string =
     App Opapp [Var (Short cml_nat_to_string_name); n_div_10] in
-  let n_mod_10 = App (Opn Modulo) [arg; Lit (IntLit 10)] in
+  let n_mod_10 = App (Arith Mod IntT) [arg; Lit (IntLit 10)] in
   let n_mod_10_to_string =
     App Opapp [Var (Short cml_dec_to_string_name); n_mod_10] in
     If n_lt_10
@@ -359,8 +359,8 @@ End
 Definition cml_int_to_string_body_def:
   cml_int_to_string_body =
   let arg = Var (Short cml_int_to_string_param) in
-  let i_lt_0 = App (Opb Lt) [arg; Lit (IntLit 0)] in
-  let neg_arg = App (Opn Minus) [Lit (IntLit 0); arg] in
+  let i_lt_0 = App (Test (Compare Lt) IntT) [arg; Lit (IntLit 0)] in
+  let neg_arg = App (Arith Sub IntT) [Lit (IntLit 0); arg] in
   let neg_arg_to_string =
     App Opapp [Var (Short cml_nat_to_string_name); neg_arg] in
   let arg_to_string =

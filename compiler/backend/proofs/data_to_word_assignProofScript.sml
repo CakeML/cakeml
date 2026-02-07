@@ -9098,6 +9098,44 @@ Proof
   \\ TRY (match_mp_tac memory_rel_Boolv_F \\ fs [])
 QED
 
+Theorem assign_BoolNot[allow_rebind]:
+  op = BlockOp BoolNot ==> ^assign_thm_goal
+Proof
+  rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
+  \\ `t.termdep <> 0` by fs[]
+  \\ rpt_drule0 state_rel_cut_IMP
+  \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
+  \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
+  \\ fs [do_app]
+  \\ gvs[AllCaseEqs()]
+  \\ clean_tac \\ fs []
+  \\ imp_res_tac state_rel_get_vars_IMP
+  \\ fs [LENGTH_EQ_1] \\ clean_tac
+  \\ fs [get_var_def]
+  \\ fs [state_rel_thm] \\ eval_tac
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ rpt_drule0 (memory_rel_get_vars_IMP |> GEN_ALL)
+  \\ strip_tac
+  \\ gvs [oneline dest_Boolv_def,AllCaseEqs()]
+  \\ drule memory_rel_Block_IMP \\ simp [backend_commonTheory.bool_to_tag_def]
+  \\ drule memory_rel_tl \\ strip_tac
+  \\ simp [allowed_op_def]
+  \\ rpt strip_tac \\ gvs []
+  \\ fs [get_vars_SOME_IFF_data,get_vars_SOME_IFF]
+  \\ simp [assign_def,wordSemTheory.evaluate_def,
+           wordSemTheory.get_var_imm_def,
+           asmTheory.word_cmp_def,
+           wordSemTheory.word_exp_def, wordSemTheory.the_words_def,
+           word_op_def, wordSemTheory.set_var_def, lookup_insert]
+  \\ fs [] \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
+  \\ simp[inter_insert_ODD_adjust_set,GSYM Boolv_def,option_le_max_right]
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ match_mp_tac memory_rel_insert \\ fs []
+  \\ ‘tag = 0 ∨ tag = 1’ by decide_tac \\ gvs []
+  \\ TRY (match_mp_tac memory_rel_Boolv_T \\ fs [])
+  \\ TRY (match_mp_tac memory_rel_Boolv_F \\ fs [])
+QED
+
 Theorem assign_BoolTest[allow_rebind]:
   (∃test. op = BlockOp (BoolTest test)) ==> ^assign_thm_goal
 Proof
@@ -10716,8 +10754,7 @@ Theorem evaluate_WordOp64_on_32:
                     (insert 11 (Word ((63 >< 32) c')) l))))))))
 Proof
   Cases_on `opw`
-  \\ fs [WordOp64_on_32_def,semanticPrimitivesPropsTheory.opw_lookup_def,
-         list_Seq_def]
+  \\ fs [WordOp64_on_32_def,closSemTheory.opw_lookup_def,list_Seq_def]
   \\ eval_tac \\ fs [lookup_insert]
   \\ fs [wordSemTheory.state_component_equality]
   \\ fs [GSYM WORD_EXTRACT_OVER_BITWISE]

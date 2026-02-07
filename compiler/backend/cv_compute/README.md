@@ -14,7 +14,7 @@ Define arm8 specialised backend functions.
 Simple automation for instantiating asm_conf in backend definitions.
 
 [backend_asmScript.sml](backend_asmScript.sml):
-Define new version of CakeML complier where asm_conf is lifted out to
+Define new version of CakeML compiler where asm_conf is lifted out to
 be a separate argument and where inc_config is used instead of config.
 
 [backend_mipsScript.sml](backend_mipsScript.sml):

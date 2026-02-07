@@ -436,14 +436,6 @@ Proof
   >- (
     rw [do_app_cases] \\ gs []
     \\ simp [perms_ok_def])
-  \\ Cases_on ‘op = Chr’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs []
-    \\ simp [perms_ok_def])
-  \\ Cases_on ‘op = Ord’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs []
-    \\ simp [perms_ok_def])
   \\ Cases_on ‘op = XorAw8Str_unsafe’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [perms_ok_def]
@@ -468,14 +460,6 @@ Proof
   >- (
     rw [do_app_cases] \\ gs []
     \\ simp [perms_ok_def])
-  \\ Cases_on ‘∃n. op = WordToInt n’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs []
-    \\ simp [perms_ok_def])
-  \\ Cases_on ‘∃n. op = WordFromInt n’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs []
-    \\ simp [perms_ok_def])
   \\ Cases_on ‘op = Aw8update’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [SUBSET_DEF, PULL_EXISTS, perms_ok_def]
@@ -495,36 +479,6 @@ Proof
     \\ gvs [store_alloc_def, perms_ok_def, SUBSET_DEF, PULL_EXISTS]
     \\ rw [EL_APPEND_EQN]
     \\ gs [NOT_LESS, LESS_OR_EQ, perms_ok_ref_def])
-  \\ Cases_on ‘∃top. op = FP_top top’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs []
-    \\ simp [perms_ok_def])
-  \\ Cases_on ‘∃bop. op = FP_bop bop’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs []
-    \\ simp [perms_ok_def])
-  \\ Cases_on ‘∃uop. op = FP_uop uop’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs []
-    \\ rw [perms_ok_def])
-  \\ Cases_on ‘∃cmp. op = FP_cmp cmp’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs []
-    \\ simp [Boolv_def]
-    \\ rw [perms_ok_def])
-  \\ Cases_on ‘∃opn. op = Opn opn’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs []
-    \\ simp [div_exn_v_def, perms_ok_def])
-  \\ Cases_on ‘∃opb. op = Opb opb’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs []
-    \\ simp [Boolv_def]
-    \\ rw [perms_ok_def])
-  \\ Cases_on ‘∃sz opw. op = Opw sz opw’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs []
-    \\ simp [perms_ok_def])
   \\ Cases_on ‘∃sz sh n. op = Shift sz sh n’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
@@ -542,15 +496,16 @@ Proof
   \\ Cases_on ‘∃a ty. op = Arith a ty’ \\ gs []
   >- (
     rw [do_app_cases]
-    \\ Cases_on ‘a’ \\ Cases_on ‘ty’ \\ TRY(rename1 ‘WordT w’ \\ Cases_on ‘w’)
+    \\ Cases_on ‘a’ \\ Cases_on ‘ty’ using prim_type_cases
     \\ gvs [do_arith_def, CaseEq"list",CaseEq"sum"]
     \\ simp [Boolv_def]
     \\ rw [perms_ok_def])
   \\ Cases_on ‘∃ty1 ty2. op = FromTo ty1 ty2’ \\ gs []
   >- (
     rw [do_app_cases]
-    \\ Cases_on ‘ty1’ \\ Cases_on ‘ty2’ \\ gvs [do_conversion_def]
-    \\ Cases_on ‘w’ \\ gvs[do_conversion_def]
+    \\ Cases_on ‘ty1’ using prim_type_cases
+    \\ Cases_on ‘ty2’ using prim_type_cases
+    \\ gvs [do_conversion_def,CaseEq"sum",CaseEq"bool"]
     \\ simp [Boolv_def]
     \\ rw [perms_ok_def])
   \\ Cases_on ‘op = Opderef’ \\ gs []
@@ -570,14 +525,6 @@ Proof
     \\ simp [EL_APPEND_EQN]
     \\ rw [] \\ gs []
     \\ gvs [NOT_LESS, LESS_OR_EQ, perms_ok_ref_def])
-  \\ Cases_on ‘op = FpFromWord’ \\ gs[]
-  >- (
-    rw [do_app_cases] \\ gs[]
-    \\ rw [perms_ok_def])
-  \\ Cases_on ‘op = FpToWord’ \\ gs[]
-  >- (
-    rw [do_app_cases] \\ gs[]
-    \\ rw [perms_ok_def])
   \\ Cases_on ‘∃m. op = ThunkOp (AllocThunk m)’ \\ gs[]
   >- (
     rw [do_app_cases] \\ gs [thunk_op_def, AllCaseEqs()] \\ pairarg_tac \\ gs []

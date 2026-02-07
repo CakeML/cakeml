@@ -11,13 +11,9 @@ structure astSyntax = struct
   val ml_str_id_ty = id_ty mlstringSyntax.mlstring_ty mlstringSyntax.mlstring_ty;
   (* types *)
   val lit_ty = mk_thy_type{Thy="ast",Tyop="lit",Args=[]};
-  val opn_ty = mk_thy_type{Thy="ast",Tyop="opn",Args=[]};
-  val opb_ty = mk_thy_type{Thy="ast",Tyop="opb",Args=[]};
-  val opw_ty = mk_thy_type{Thy="ast",Tyop="opw",Args=[]};
   val shift_ty = mk_thy_type{Thy="ast",Tyop="shift",Args=[]};
   val word_size_ty = mk_thy_type{Thy="ast",Tyop="word_size",Args=[]};
   val op_ty = mk_thy_type{Thy="ast",Tyop="op",Args=[]};
-  val lop = mk_thy_type{Thy="ast",Tyop="lop",Args=[]};
   val ast_t_ty = mk_thy_type{Thy="ast",Tyop="ast_t",Args=[]};
   val pat_ty = mk_thy_type{Thy="ast",Tyop="pat",Args=[]};
   val exp_ty = mk_thy_type{Thy="ast",Tyop="exp",Args=[]};
@@ -30,7 +26,7 @@ structure astSyntax = struct
   val Add = prim_mk_const{Thy="ast",Name="Add"};
   val Alength = prim_mk_const{Thy="ast",Name="Alength"};
   val And = prim_mk_const{Thy="ast",Name="And"};
-  val Andw = prim_mk_const{Thy="ast",Name="Andw"};
+  val Andalso = prim_mk_const{Thy="ast",Name="Andalso"};
   val Asr = prim_mk_const{Thy="ast",Name="Asr"};
   val Asub = prim_mk_const{Thy="ast",Name="Asub"};
   val Aupdate = prim_mk_const{Thy="ast",Name="Aupdate"};
@@ -43,7 +39,6 @@ structure astSyntax = struct
   val CopyAw8Str = prim_mk_const{Thy="ast",Name="CopyAw8Str"};
   val CopyStrAw8 = prim_mk_const{Thy="ast",Name="CopyStrAw8"};
   val CopyStrStr = prim_mk_const{Thy="ast",Name="CopyStrStr"};
-  val Divide = prim_mk_const{Thy="ast",Name="Divide"};
   val Equality = prim_mk_const{Thy="ast",Name="Equality"};
   val Geq = prim_mk_const{Thy="ast",Name="Geq"};
   val Gt = prim_mk_const{Thy="ast",Name="Gt"};
@@ -52,23 +47,18 @@ structure astSyntax = struct
   val Lsl = prim_mk_const{Thy="ast",Name="Lsl"};
   val Lsr = prim_mk_const{Thy="ast",Name="Lsr"};
   val Lt = prim_mk_const{Thy="ast",Name="Lt"};
-  val Minus = prim_mk_const{Thy="ast",Name="Minus"};
-  val Modulo = prim_mk_const{Thy="ast",Name="Modulo"};
   val Opapp = prim_mk_const{Thy="ast",Name="Opapp"};
   val Opassign = prim_mk_const{Thy="ast",Name="Opassign"};
   val Opderef = prim_mk_const{Thy="ast",Name="Opderef"};
   val Opref = prim_mk_const{Thy="ast",Name="Opref"};
   val Or = prim_mk_const{Thy="ast",Name="Or"};
-  val Ord = prim_mk_const{Thy="ast",Name="Ord"};
-  val Orw = prim_mk_const{Thy="ast",Name="Orw"};
+  val Orelse = prim_mk_const{Thy="ast",Name="Orelse"};
   val Pany = prim_mk_const{Thy="ast",Name="Pany"};
-  val Plus = prim_mk_const{Thy="ast",Name="Plus"};
   val Ror = prim_mk_const{Thy="ast",Name="Ror"};
   val Strcat = prim_mk_const{Thy="ast",Name="Strcat"};
   val Strlen = prim_mk_const{Thy="ast",Name="Strlen"};
   val Strsub = prim_mk_const{Thy="ast",Name="Strsub"};
   val Sub = prim_mk_const{Thy="ast",Name="Sub"};
-  val Times = prim_mk_const{Thy="ast",Name="Times"};
   val VfromList = prim_mk_const{Thy="ast",Name="VfromList"};
   val Vlength = prim_mk_const{Thy="ast",Name="Vlength"};
   val Vsub = prim_mk_const{Thy="ast",Name="Vsub"};
@@ -89,13 +79,8 @@ structure astSyntax = struct
   val (Atvar_tm,mk_Atvar,dest_Atvar,is_Atvar) = s "Atvar";
   val (Char_tm,mk_Char,dest_Char,is_Char) = s "Char";
   val (FFI_tm,mk_FFI,dest_FFI,is_FFI) = s "FFI";
-  val (FP_bop_tm,mk_FP_bop,dest_FP_bop,is_FP_bop) = s "FP_bop";
-  val (FP_cmp_tm,mk_FP_cmp,dest_FP_cmp,is_FP_cmp) = s "FP_cmp";
-  val (FP_uop_tm,mk_FP_uop,dest_FP_uop,is_FP_uop) = s "FP_uop";
   val (IntLit_tm,mk_IntLit,dest_IntLit,is_IntLit) = s "IntLit";
   val (Lit_tm,mk_Lit,dest_Lit,is_Lit) = s "Lit";
-  val (Opb_tm,mk_Opb,dest_Opb,is_Opb) = s "Opb";
-  val (Opn_tm,mk_Opn,dest_Opn,is_Opn) = s "Opn";
   val (Plit_tm,mk_Plit,dest_Plit,is_Plit) = s "Plit";
   val (Pref_tm,mk_Pref,dest_Pref,is_Pref) = s "Pref";
   val (Pvar_tm,mk_Pvar,dest_Pvar,is_Pvar) = s "Pvar";
@@ -104,8 +89,6 @@ structure astSyntax = struct
   val (Var_tm,mk_Var,dest_Var,is_Var) = s "Var";
   val (Word64_tm,mk_Word64,dest_Word64,is_Word64) = s "Word64";
   val (Word8_tm,mk_Word8,dest_Word8,is_Word8) = s "Word8";
-  val (WordFromInt_tm,mk_WordFromInt,dest_WordFromInt,is_WordFromInt) = s "WordFromInt";
-  val (WordToInt_tm,mk_WordToInt,dest_WordToInt,is_WordToInt) = s "WordToInt";
   end
   local val s = HolKernel.syntax_fns2 "ast" in
   (* two-argument functions *)
@@ -122,7 +105,6 @@ structure astSyntax = struct
   val (Lannot_tm,mk_Lannot,dest_Lannot,is_Lannot) = s "Lannot";
   val (Letrec_tm,mk_Letrec,dest_Letrec,is_Letrec) = s "Letrec";
   val (Mat_tm,mk_Mat,dest_Mat,is_Mat) = s "Mat";
-  val (Opw_tm,mk_Opw,dest_Opw,is_Opw) = s "Opw";
   val (Pcon_tm,mk_Pcon,dest_Pcon,is_Pcon) = s "Pcon";
   val (Ptannot_tm,mk_Ptannot,dest_Ptannot,is_Ptannot) = s "Ptannot";
   val (Tannot_tm,mk_Tannot,dest_Tannot,is_Tannot) = s "Tannot";

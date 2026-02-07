@@ -426,7 +426,7 @@ Theorem ffi_read_length:
    ffi_read conf bytes fs = SOME (FFIreturn bytes' fs') ==> LENGTH bytes' = LENGTH bytes
 Proof
   rw[ffi_read_def]
-  \\ fs[option_case_eq,prove_case_eq_thm{nchotomy=list_nchotomy,case_def=list_case_def}]
+  \\ fs[option_case_eq,TypeBase.case_eq_of ``:'a list``]
   \\ fs[option_eq_some]
   \\ TRY(pairarg_tac) \\ rveq \\ fs[] \\ rveq \\ fs[n2w2_def]
   \\ imp_res_tac read_length \\ fs[]

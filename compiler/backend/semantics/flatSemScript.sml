@@ -277,27 +277,6 @@ End
 Definition do_app_def:
   do_app s op (vs:flatSem$v list) =
   case (op, vs) of
-  | (Opn op, [Litv (IntLit n1); Litv (IntLit n2)]) =>
-    if ((op = Divide) ∨ (op = Modulo)) ∧ (n2 = 0) then
-      SOME (s, Rerr (Rraise div_exn_v))
-    else
-      SOME (s, Rval (Litv (IntLit (opn_lookup op n1 n2))))
-  | (Opb op, [Litv (IntLit n1); Litv (IntLit n2)]) =>
-    SOME (s, Rval (Boolv (opb_lookup op n1 n2)))
-  | (FP_top t_op, [Litv (Float64 w1); Litv (Float64 w2); Litv (Float64 w3)] =>
-      SOME (s,Rval (Litv (Float64 (fp_top_comp t_op w1 w2 w3)))))
-  | (FP_bop bop, [Litv (Float64 w1); Litv (Float64 w2)]) =>
-      SOME (s,Rval (Litv (Float64 (fp_bop_comp bop w1 w2))))
-  | (FP_uop uop, [Litv (Float64 w)]) =>
-      SOME (s,Rval (Litv (Float64 (fp_uop_comp uop w))))
-  | (FP_cmp cmp, [Litv (Float64 w1); Litv (Float64 w2)]) =>
-      SOME (s,Rval (Boolv (fp_cmp_comp cmp w1 w2)))
-  | (FpFromWord, [Litv (Word64 w)]) => SOME (s,Rval (Litv (Float64 w)))
-  | (FpToWord, [Litv (Float64 w)]) => SOME (s,Rval (Litv (Word64 w)))
-  | (Opw wz op, [Litv w1; Litv w2]) =>
-     (case do_word_op op wz w1 w2 of
-          | NONE => NONE
-          | SOME w => SOME (s, Rval (Litv w)))
   | (Shift wz sh n, [Litv w]) =>
       (case do_shift sh n wz w of
          | NONE => NONE
@@ -322,8 +301,9 @@ Definition do_app_def:
     (let v = flat_to_v v in
        if check_type ty1 v then
          (case do_conversion v ty1 ty2 of
-          | SOME res => SOME (s, Rval (v_to_flat res))
-          | NONE     => NONE)
+          | SOME (INR res) => SOME (s, Rval (v_to_flat res))
+          | SOME (INL exn) => SOME (s, Rerr (Rraise chr_exn_v))
+          | NONE           => NONE)
        else NONE)
   | (Opassign, [Loc _ lnum; v]) =>
     (case store_assign lnum (Refv v) s.refs of
@@ -397,12 +377,6 @@ Definition do_app_def:
               | NONE => NONE
               | SOME s' => SOME (s with refs := s', Rval Unitv))
      | _ => NONE)
-  | (WordFromInt wz, [Litv (IntLit i)]) =>
-    SOME (s, Rval (Litv (do_word_from_int wz i)))
-  | (WordToInt wz, [Litv w]) =>
-    (case do_word_to_int wz w of
-      | NONE => NONE
-      | SOME i => SOME (s, Rval (Litv (IntLit i))))
   | (CopyStrStr, [Litv(StrLit strng);Litv(IntLit off);Litv(IntLit len)]) =>
       SOME (s,
       (case copy_array (explode strng,off) len NONE of
@@ -448,14 +422,6 @@ Definition do_app_def:
                | NONE => NONE
                | SOME s' => SOME (s with refs := s', Rval Unitv)))
      | _ => NONE)
-  | (Ord, [Litv (Char c)]) =>
-    SOME (s, Rval (Litv(IntLit(int_of_num(ORD c)))))
-  | (Chr, [Litv (IntLit i)]) =>
-    SOME (s,
-          if (i < 0) ∨ (i > 255) then
-            Rerr (Rraise chr_exn_v)
-          else
-            Rval (Litv(Char(CHR(Num(ABS i))))))
   | (Implode, [v]) =>
     (case v_to_char_list v of
      | SOME ls =>
@@ -962,23 +928,10 @@ Termination
   \\ simp [MAP_REVERSE, SUM_REVERSE, exp6_alt_size, AppUnit_def, char_size_def]
 End
 
-val op_thms = { nchotomy = op_nchotomy, case_def = op_case_def};
-val list_thms = { nchotomy = list_nchotomy, case_def = list_case_def};
-val option_thms = { nchotomy = option_nchotomy, case_def = option_case_def};
-val v_thms = { nchotomy = theorem "v_nchotomy", case_def = fetch "-" "v_case_def"};
-
-val store_v_thms = { nchotomy = semanticPrimitivesTheory.store_v_nchotomy, case_def = semanticPrimitivesTheory.store_v_case_def};
-val lit_thms = { nchotomy = astTheory.lit_nchotomy, case_def = astTheory.lit_case_def};
-val eq_v_thms = { nchotomy = semanticPrimitivesTheory.eq_result_nchotomy, case_def = semanticPrimitivesTheory.eq_result_case_def};
-val wz_thms = { nchotomy = astTheory.word_size_nchotomy, case_def = astTheory.word_size_case_def};
-
-val result_thms = { nchotomy = semanticPrimitivesTheory.result_nchotomy, case_def = semanticPrimitivesTheory.result_case_def };
-val ffi_result_thms = { nchotomy = ffiTheory.ffi_result_nchotomy, case_def = ffiTheory.ffi_result_case_def };
-val err_thms = { nchotomy = semanticPrimitivesTheory.error_result_nchotomy, case_def = semanticPrimitivesTheory.error_result_case_def }
-
-val eqs = LIST_CONJ (map prove_case_eq_thm
-  [op_thms, list_thms, option_thms, v_thms, store_v_thms, lit_thms,
-   eq_v_thms, wz_thms, result_thms, ffi_result_thms, err_thms])
+val eqs = LIST_CONJ (map TypeBase.case_eq_of
+  [``:op``, ``:'a list``, ``:'a option``, ``:v``, ``:'a store_v``, ``:lit``,
+   ``:eq_result``, ``:word_size``, ``:('a,'b) result``, ``:'a ffi_result``,
+   ``:'a error_result``])
 
 Theorem case_eq_thms =
   eqs

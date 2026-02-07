@@ -156,7 +156,7 @@ Overload res_list = ``map_result (λv. [v]) I``
 Overload isException = ``λx. ∃v. x = Rerr(Rraise v)``
 Overload isResult = ``λx. ∃v. x = Rval v``
 
-val stack_case_eq_thm = prove_case_eq_thm { nchotomy = stack_nchotomy, case_def = stack_case_def };
+val stack_case_eq_thm = TypeBase.case_eq_of ``:stack``;
 
 val RW = REWRITE_RULE;
 
@@ -518,6 +518,15 @@ Proof
   \\ ‘∃this_is_case. this_is_case op’ by (qexists_tac ‘K T’ \\ fs [])
   \\ cases_on_op `op`
   >~ [`do_app (BlockOp (BoolTest test))`]
+  >- (fs[oneline bviSemTheory.do_app_def,
+      oneline bviSemTheory.do_app_aux_def,
+      bvlSemTheory.do_app_def,
+      oneline bvlSemTheory.do_word_app_def] >>
+      rw[AllCaseEqs()] >>
+      gvs[NULL_EQ_NIL,MAP_EQ_CONS]>>
+      simp[do_app_aux_def,do_word_app_def,bvl_to_bvi_id] >>
+      imp_res_tac data_to_bvi_v_Boolv_IMP >> fs [])
+  >~ [`do_app (BlockOp BoolNot)`]
   >- (fs[oneline bviSemTheory.do_app_def,
       oneline bviSemTheory.do_app_aux_def,
       bvlSemTheory.do_app_def,

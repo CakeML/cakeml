@@ -13,21 +13,12 @@ val _ = numLib.temp_prefer_num();
 
 (* getOpClass as a inductive to make the proofs potentially easier *)
 Inductive opClass:
-(∀ op. opClass (Opn op) Simple) ∧
-(∀ op. opClass (Opb op) Simple) ∧
 (∀ op. opClass (FFI op) Simple) ∧
-(∀ op. opClass (WordFromInt op) Simple) ∧
-(∀ op. opClass (WordToInt op) Simple) ∧
-(∀ op. opClass (FP_cmp op) Simple) ∧
-(∀ op. opClass (FP_uop op) Simple) ∧
-(∀ op. opClass (FP_bop op) Simple) ∧
-(∀ op. opClass (FP_top op) Simple) ∧
-(∀ op1 op2. opClass (Opw op1 op2) Simple) ∧
 (∀ op1 op2 op3. opClass (Shift op1 op2 op3) Simple) ∧
-(∀ op. op = Equality ∨ op = FpFromWord ∨ op = FpToWord ∨ op = Opassign ∨
+(∀ op. op = Equality ∨ op = Opassign ∨
        op = Opref ∨ op = Aw8alloc ∨ op = Aw8sub ∨ op = Aw8length ∨
        op = Aw8update ∨ op = CopyStrStr ∨ op = CopyStrAw8 ∨
-       op = CopyAw8Str ∨ op = CopyAw8Aw8 ∨ op = Chr ∨ op = Ord ∨
+       op = CopyAw8Str ∨ op = CopyAw8Aw8 ∨
        op = Implode ∨ op = Explode ∨ op = Strsub ∨ op = Strlen ∨
        op = Strcat ∨ op = VfromList ∨ op = Vsub ∨ op = Vsub_unsafe ∨
        op = XorAw8Str_unsafe ∨ (∃test ty. op = Test test ty) ∨

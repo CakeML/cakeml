@@ -3,7 +3,7 @@
 *)
 Theory flat_elimProof
 Ancestors
-  flat_elim flatSem flatLang flatProps spt_closure
+  flat_elim flatSem flatLang flatProps spt_closure ast
   misc[qualified] ffi[qualified] sptree
 Libs
   preamble
@@ -546,21 +546,22 @@ Proof
   \\ Cases_on ‘∃a ty. op = Arith a ty’ >- (
     fs [do_app_def]
     \\ gvs [AllCaseEqs()]
-    \\ Cases_on ‘ty’
-    \\ TRY(rename1 `WordT w` \\ Cases_on`w`)
+    \\ Cases_on ‘ty’ using semanticPrimitivesPropsTheory.prim_type_cases
     \\ gvs [semanticPrimitivesTheory.do_arith_def, AllCaseEqs()]
     \\ simp [do_app_def, semanticPrimitivesTheory.do_arith_def,
               find_sem_prim_res_globals_def, find_result_globals_def,
-              find_v_globals_def, v_has_Eval_def, div_exn_v_def, v_to_flat_def])
+              find_v_globals_def, v_has_Eval_def, div_exn_v_def, v_to_flat_def]
+    \\ rw [find_v_globals_def, v_has_Eval_def,
+           semanticPrimitivesTheory.Boolv_def, v_to_flat_def, Boolv_def])
   \\ Cases_on ‘∃ty1 ty2. op = FromTo ty1 ty2’ >- (
     fs [do_app_def]
     \\ gvs [AllCaseEqs()]
-    \\ Cases_on ‘ty1’ \\ Cases_on ‘ty2’
+    \\ Cases_on ‘ty1’ using semanticPrimitivesPropsTheory.prim_type_cases
+    \\ Cases_on ‘ty2’ using semanticPrimitivesPropsTheory.prim_type_cases
     \\ gvs [semanticPrimitivesTheory.do_conversion_def, AllCaseEqs()]
-    \\ TRY (Cases_on ‘w’) \\ gvs [semanticPrimitivesTheory.do_conversion_def]
     \\ simp [do_app_def, semanticPrimitivesTheory.do_conversion_def,
               find_sem_prim_res_globals_def, find_result_globals_def,
-              find_v_globals_def, v_has_Eval_def, v_to_flat_def])
+              find_v_globals_def, v_has_Eval_def, v_to_flat_def, chr_exn_v_def])
   \\ qpat_x_assum `do_app _ _ _ = SOME _`
       (strip_assume_tac o REWRITE_RULE [do_app_cases])
   \\ rw []

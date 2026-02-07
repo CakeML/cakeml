@@ -81,16 +81,7 @@ End
 Definition astOp_to_flatOp_def:
   astOp_to_flatOp (op : ast$op) : flatLang$op =
   case op of
-    Opn opn => flatLang$Opn opn
-  | Opb opb => flatLang$Opb opb
-  | Opw word_size opw => flatLang$Opw word_size opw
   | Shift word_size shift num => flatLang$Shift word_size shift num
-  | FP_cmp cmp => flatLang$FP_cmp cmp
-  | FP_uop uop => flatLang$FP_uop uop
-  | FP_bop bop => flatLang$FP_bop bop
-  | FP_top t_op => flatLang$FP_top t_op
-  | FpFromWord => flatLang$FpFromWord
-  | FpToWord => flatLang$FpToWord
   | Equality => flatLang$Equality
   | Arith a test_ty => flatLang$Arith a test_ty
   | FromTo ty1 ty2 => flatLang$FromTo ty1 ty2
@@ -103,15 +94,11 @@ Definition astOp_to_flatOp_def:
   | Aw8sub => flatLang$Aw8sub
   | Aw8length => flatLang$Aw8length
   | Aw8update => flatLang$Aw8update
-  | WordFromInt word_size => flatLang$WordFromInt word_size
-  | WordToInt word_size => flatLang$WordToInt word_size
   | CopyStrStr => flatLang$CopyStrStr
   | CopyStrAw8 => flatLang$CopyStrAw8
   | CopyAw8Str => flatLang$CopyAw8Str
   | CopyAw8Aw8 => flatLang$CopyAw8Aw8
   | XorAw8Str_unsafe => flatLang$Aw8xor_unsafe
-  | Ord => flatLang$Ord
-  | Chr => flatLang$Chr
   | Implode => flatLang$Implode
   | Explode => flatLang$Explode
   | Strsub => flatLang$Strsub
@@ -212,12 +199,12 @@ Definition compile_exp_def:
       flatLang$App None (astOp_to_flatOp op) (compile_exps t env es)) ∧
   (compile_exp t env (Log lop e1 e2) =
       case lop of
-      | And =>
+      | Andalso =>
         If None
            (compile_exp t env e1)
            (compile_exp t env e2)
            (Bool None F)
-      | Or =>
+      | Orelse =>
         If None
            (compile_exp t env e1)
            (Bool None T)
