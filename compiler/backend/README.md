@@ -45,7 +45,7 @@ A compiler phase that turns some non-tail-recursive functions into
 tail-recursive functions.
 
 [bvi_tmcScript.sml](bvi_tmcScript.sml):
-Perform tailrec module cons optimitaion to make more functions tail-recursive.
+Perform tailrec modulo cons optimisation to make more functions tail-recursive.
 
 [bvi_to_dataScript.sml](bvi_to_dataScript.sml):
 A compiler phase that turns programs of the functional language BVI

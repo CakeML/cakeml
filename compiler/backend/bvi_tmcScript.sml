@@ -44,7 +44,7 @@ Definition rewrite_aux_def:
     let opt_t = rewrite_aux ts loc loc_opt arity xt in
     let opt_e = rewrite_aux ts loc loc_opt arity xe in
     case (opt_t, opt_e) of
-    | (NONE, NONE) => SOME $ If xi xt xe
+    | (NONE, NONE) => NONE
     | (SOME yt, NONE) => SOME $ If xi yt xe
     | (NONE, SOME ye) => SOME $ If xi xt ye
     | (SOME yt, SOME ye) => SOME $ If xi yt ye) ∧
@@ -53,9 +53,10 @@ Definition rewrite_aux_def:
     | NONE => NONE
     | SOME y => SOME $ Let xs y) ∧
   (rewrite_aux ts loc loc_opt arity (Raise x) = NONE) ∧
-  (rewrite_aux ts loc loc_opt arity (Tick x) = rewrite_aux ts loc loc_opt arity x) ∧ (* TODO: wrap in Tick *)
+  (rewrite_aux ts loc loc_opt arity (Tick x) = OPTMAP Tick $ rewrite_aux ts loc loc_opt arity x) ∧
   (rewrite_aux ts loc loc_opt arity (Force _ n) = NONE) ∧
   (rewrite_aux ts loc loc_opt arity (Call t d args h) = NONE) ∧
+  (* just pattern match on op, write dest_BlockOp_Cons *)
   (rewrite_aux ts loc loc_opt arity (Op (BlockOp (Cons block_tag)) op_args) = (* TODO: tail call might not be first *)
     case extract_tail_call loc op_args of
     | SOME (SOME (l, Call t _ args h), r) =>
@@ -69,7 +70,7 @@ Termination
   cheat
 End
 
-(* Assumes that the function can and should be optimised - has been checked by rewrite_aux_def. Also assumes De Bruijn indices have been shifted. *)
+(* Assumes that the function can and should be optimised - has been checked by rewrite_aux_def. Also assumes De Bruijn indices have been shifted (or add new arg to end). *)
 Definition rewrite_opt_def:
   (rewrite_opt ts loc loc_opt arity (If xi xt xe) =
     let yt = rewrite_opt ts loc loc_opt arity xt in
@@ -130,13 +131,6 @@ val append_prog = “[(3:num,2:num,^append_exp)]”;
 val append_eval = EVAL “compile_prog 6 ^append_prog”;
 *)
 
-val append_exp = “If (Op (BlockOp (TagLenEq 0 0)) [Var 0]) (Var 1) $
-                  Let [Op (BlockOp (ElemAt 0)) [Var 0];
-                       Op (BlockOp (ElemAt 1)) [Var 0]] $
-                  Op (BlockOp (Cons 0)) [Call 0 (SOME 4000) [Var 1] NONE; Var 3]”;
-val append_prog = “[(4000:num,2:num,^append_exp)]”;
-val append_eval = EVAL “compile_prog 6 ^append_prog”;
-
 (*
 (func my_append@465 (b a)
    (let
@@ -153,12 +147,11 @@ val append_eval = EVAL “compile_prog 6 ^append_prog”;
                      (op (Cons 0) (call my_append@465 (var b) (var e)) (var d)))))))))
 
 *)
-    
-(*
-  Questions:
-    1. Let []?
-    2. How is pattern matching represented in BVI?
-    3. What about: Cons x (Cons x (append xs ys))
-    4. Easy way to compile CakeML -> BVI? ./cake --explore
-    5. Args to BlockOps Cons(Extend)?
-*)
+
+val append_exp = “If (Op (BlockOp (TagLenEq 0 0)) [Var 0]) (Var 1) $
+                  Let [Op (BlockOp (ElemAt 0)) [Var 0];
+                       Op (BlockOp (ElemAt 1)) [Var 0]] $
+                  Op (BlockOp (Cons 0)) [Call 0 (SOME 4000) [Var 1] NONE; Var 3]”;
+val append_prog = “[(4000:num,2:num,^append_exp)]”;
+val append_eval = EVAL “compile_prog 6 ^append_prog”;
+
