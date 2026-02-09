@@ -65,17 +65,18 @@ val goal =
       domain (acc_vars prog LN) ⊆ domain ctxt ⇒
       ∃t1 res1.
          evaluate (FST (comp ctxt prog l),t) = (res1,t1) ∧
-         state_rel s1 t1 ∧
+         t1.ffi = s1.ffi ∧
          case res of
-         | NONE => res1 = NONE ∧ lookup 0 t1.locals = SOME retv ∧
+         | NONE => state_rel s1 t1 ∧ res1 = NONE ∧ lookup 0 t1.locals = SOME retv ∧
                    (* always return to the label stored in Var 0 for wordLang's prog *)
                    locals_rel ctxt s1.locals t1.locals ∧
                    t1.stack = t.stack ∧ t1.handler = t.handler
-         | SOME (Result v) => res1 = SOME (Result retv [v]) ∧
+         | SOME (Result v) => state_rel s1 t1 ∧ res1 = SOME (Result retv [v]) ∧
                                      t1.stack = t.stack ∧ t1.handler = t.handler
          | SOME TimeOut => res1 = SOME TimeOut
          | SOME (FinalFFI f) => res1 = SOME (FinalFFI f)
          | SOME (Exception v) =>
+            state_rel s1 t1 ∧
             (res1 ≠ SOME Error ⇒ ∃u1 u2. res1 = SOME (Exception u1 u2)) ∧
             ∀r l1 l2. jump_exc (t1 with <| stack := t.stack;
                                            handler := t.handler |>) = SOME (r,l1,l2) ⇒
@@ -399,12 +400,13 @@ Proof
   rpt strip_tac >>
   fs [loopSemTheory.evaluate_def, comp_def,
       evaluate_def] >>
-  rveq >> fs [] >>
-  TOP_CASE_TAC >>
-  fs [flush_state_def, state_rel_def,
-      loopSemTheory.dec_clock_def, dec_clock_def] >> rveq >>
-  fs [] >>
-  rw[]
+  rveq >> fs []
+  >- fs [state_rel_def]
+  >- (TOP_CASE_TAC >>
+      fs [flush_state_def, state_rel_def,
+          loopSemTheory.dec_clock_def, dec_clock_def] >> rveq >>
+      fs [] >>
+      rw[])
 QED
 
 Theorem compile_Loop:
@@ -512,6 +514,7 @@ Proof
    imp_res_tac comp_exp_preserves_eval >>
    fs [loopSemTheory.set_var_def, set_var_def] >>
    conj_tac >- fs [state_rel_def] >>
+   conj_tac >- fs [state_rel_def] >>
    conj_tac
    >- (
     fs [lookup_insert, CaseEq "bool", loopLangTheory.acc_vars_def] >>
@@ -525,6 +528,7 @@ Proof
    fs [state_rel_def,
        code_rel_def,domain_lookup,EXISTS_PROD] >>
    metis_tac []) >>
+  conj_tac >- fs [state_rel_def] >>
   conj_tac >- fs [state_rel_def] >>
   conj_tac
   >- (

@@ -31,21 +31,10 @@ Datatype:
     Arith arith prim_type
   (* conversions between primitive types: char<->int, word<->double, word<->int *)
   | FromTo prim_type prim_type
-  (* Operations on integers *)
-  | Opn opn
-  | Opb opb
   (* Operations on words *)
-  | Opw word_size opw
   | Shift word_size shift num
   | Equality
   | Test test prim_type
-  (* FP operations *)
-  | FP_cmp fp_cmp
-  | FP_uop fp_uop
-  | FP_bop fp_bop
-  | FP_top fp_top
-  | FpFromWord
-  | FpToWord
   (* Function application *)
   | Opapp
   (* Reference operations *)
@@ -57,17 +46,11 @@ Datatype:
   | Aw8sub
   | Aw8length
   | Aw8update
-  (* Word/integer conversions *)
-  | WordFromInt word_size
-  | WordToInt word_size
   (* string/bytearray conversions *)
   | CopyStrStr
   | CopyStrAw8
   | CopyAw8Str
   | CopyAw8Aw8
-  (* Char operations *)
-  | Ord
-  | Chr
   (* String operations *)
   | Implode
   | Explode

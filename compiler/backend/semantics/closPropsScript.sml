@@ -1509,8 +1509,7 @@ Proof
   EVAL_TAC
 QED
 
-fun get_thms ty = { case_def = TypeBase.case_def_of ty, nchotomy = TypeBase.nchotomy_of ty };
-val case_eq_thms = pair_case_eq::bool_case_eq::list_case_eq::option_case_eq::map (prove_case_eq_thm o get_thms)
+val case_eq_thms = pair_case_eq::bool_case_eq::list_case_eq::option_case_eq::map TypeBase.case_eq_of
   [``:'a ffi_result``, ``:v``, ``:'a ref``, ``:closLang$op``, ``:closLang$mem_op``,
    ``:closLang$int_op``, ``:closLang$word_op``, ``:closLang$block_op``, ``:closLang$glob_op``,
    ``:word_size``, ``:eq_result``, ``:('a,'b) result``, ``:'a error_result``, ``:app_kind``]
@@ -2356,6 +2355,16 @@ Proof
     \\ rpt (IF_CASES_TAC \\ gvs [] \\ res_tac)
     \\ gvs []
     \\ gvs [simple_val_rel_def,Boolv_def])
+  \\ Cases_on `∃test. opp = BlockOp BoolNot`
+  >-
+   (gvs [do_app_def] \\ rw []
+    \\ gvs [simple_val_rel_def,Boolv_def]
+    \\ rename [‘LIST_REL _ xs ys’] \\ Cases_on ‘xs’ \\ gvs []
+    \\ rename [‘LIST_REL _ xs ys’] \\ Cases_on ‘xs’ \\ gvs []
+    \\ rw []
+    \\ gvs [backend_commonTheory.true_tag_def,
+            backend_commonTheory.false_tag_def] \\ rfs []
+    \\ Cases_on ‘y’ \\ gvs [] \\ res_tac \\ fs [isClos_def])
   \\ Cases_on `∃ws test. opp = WordOp (WordTest ws test)`
   >-
    (gvs []

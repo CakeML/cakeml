@@ -888,6 +888,10 @@ Definition do_app_aux_def:
         (case (dest_Boolv v1, dest_Boolv v2) of
          | (SOME b1, SOME b2) => Rval (Boolv (b1 = b2), s)
          | _ => Error)
+    | (BlockOp BoolNot,[v1]) =>
+        (case dest_Boolv v1 of
+         | SOME b1 => Rval (Boolv (~b1), s)
+         | _ => Error)
     | (BlockOp ListAppend,[x1;x2]) =>
         (case (v_to_list x1, v_to_list x2) of
          | (SOME xs, SOME ys) =>
@@ -1397,20 +1401,12 @@ End
 
 (* We prove that the clock never increases. *)
 
-val list_thms = { nchotomy = list_nchotomy, case_def = list_case_def };
-val option_thms = { nchotomy = option_nchotomy, case_def = option_case_def };
-val op_thms = { nchotomy = closLangTheory.op_nchotomy, case_def = closLangTheory.op_case_def };
-val v_thms = { nchotomy = theorem"v_nchotomy", case_def = definition"v_case_def" };
-val ref_thms = { nchotomy = bvlSemTheory.ref_nchotomy, case_def = bvlSemTheory.ref_case_def };
-val ffi_result_thms = { nchotomy = ffiTheory.ffi_result_nchotomy, case_def = ffiTheory.ffi_result_case_def };
-val word_size_thms = { nchotomy = astTheory.word_size_nchotomy, case_def = astTheory.word_size_case_def };
-val eq_result_thms = { nchotomy = semanticPrimitivesTheory.eq_result_nchotomy, case_def = semanticPrimitivesTheory.eq_result_case_def };
 Theorem case_eq_thms =
   (pair_case_eq::
    bool_case_eq::
-   (List.map prove_case_eq_thm
-             [list_thms, option_thms, op_thms, v_thms, ref_thms,
-              word_size_thms, eq_result_thms, ffi_result_thms]))
+   (List.map TypeBase.case_eq_of
+             [``:'a list``, ``:'a option``, ``:closLang$op``, ``:v``, ``:'a ref``,
+              ``:word_size``, ``:eq_result``, ``:'a ffi_result``]))
   |> LIST_CONJ
 
 Theorem do_stack_clock:

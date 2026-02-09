@@ -1,5 +1,5 @@
 (*
-  Correctness proof for bvi_inline
+  Correctness proof for bvl_inline
 *)
 Theory bvl_inlineProof
 Ancestors
