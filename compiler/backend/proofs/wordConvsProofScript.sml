@@ -1351,10 +1351,10 @@ QED
 val convs = [flat_exp_conventions_def,full_inst_ok_less_def,every_inst_def,pre_alloc_conventions_def,call_arg_convention_def,every_stack_var_def,every_var_def,extract_labels_def,wf_cutsets_def];
 
 Theorem remove_dead_not_created_subprogs[local]:
+  ∀prog q r.
   not_created_subprogs P prog ⇒
-  not_created_subprogs P (FST (remove_dead prog q))
+  not_created_subprogs P (FST (remove_dead prog q r))
 Proof
-  MAP_EVERY qid_spec_tac [‘q’, ‘prog’]>>
   recInduct word_allocTheory.remove_dead_ind>>
   rw[word_allocTheory.remove_dead_def,
      not_created_subprogs_def]>>gs[]>>
@@ -1375,8 +1375,8 @@ Proof
 QED
 
 Theorem remove_dead_conventions[local]:
-  ∀p live c k.
-    let comp = FST (remove_dead p live) in
+  ∀p live nlive c k.
+    let comp = FST (remove_dead p live nlive) in
     (flat_exp_conventions p ⇒ flat_exp_conventions comp) ∧
     (full_inst_ok_less c p ⇒ full_inst_ok_less c comp) ∧
     (pre_alloc_conventions p ⇒ pre_alloc_conventions comp) ∧
@@ -1393,12 +1393,12 @@ Proof
 QED
 
 Theorem remove_dead_prog_conventions =
-  (remove_dead_conventions |> Q.SPEC`p` |> Q.SPEC`LN` |> SPEC_ALL |>
+  (remove_dead_conventions |> Q.SPEC`p` |> Q.SPEC`LN` |> Q.SPEC`[]` |> SPEC_ALL |>
     SIMP_RULE std_ss [LET_THM,FORALL_AND_THM,GSYM remove_dead_prog_def]);
 
 Theorem word_get_code_labels_remove_dead[local]:
-  ∀ps live.
-  word_get_code_labels (FST (remove_dead ps live)) ⊆
+  ∀ps live nlive.
+  word_get_code_labels (FST (remove_dead ps live nlive)) ⊆
   word_get_code_labels ps
 Proof
   ho_match_mp_tac remove_dead_ind>>rw[]>>
@@ -1416,8 +1416,8 @@ Proof
 QED
 
 Theorem word_good_handlers_remove_dead[local]:
-  ∀ps live.
-  word_good_handlers n (FST (remove_dead ps live)) ⇔
+  ∀ps live nlive.
+  word_good_handlers n (FST (remove_dead ps live nlive)) ⇔
   word_good_handlers n ps
 Proof
   ho_match_mp_tac remove_dead_ind>>rw[]>>
@@ -1626,6 +1626,10 @@ fun boring_tac def =
   )
   >-(
     TOP_CASE_TAC>>rw[def]
+  )
+  >- (
+    every_case_tac>>simp[def]>>
+    pairarg_tac>>simp[def]
   );
 
 Theorem wf_cutsets_copy_prop_aux[local]:
@@ -1658,7 +1662,10 @@ Proof
     >>rw[copy_prop_inst_def,every_inst_def,distinct_tar_reg_def]
   )
   >-fs[distinct_tar_reg_def]
-  >-(TOP_CASE_TAC>>rw[every_inst_def,distinct_tar_reg_def])
+  >- (TOP_CASE_TAC>>rw[every_inst_def,distinct_tar_reg_def])
+  >- (
+    every_case_tac>>fs[every_inst_def]>>
+    pairarg_tac>>simp[every_inst_def])
 QED
 
 Theorem every_inst_distinct_tar_reg_copy_prop:
@@ -1768,7 +1775,19 @@ Proof
     >>metis_tac[copy_prop_prog_not_alloc_var_aux1,copy_prop_prog_not_alloc_var_aux2]
   )
   >-rw[merge_eqs_def,lookup_inter_eq]
-  >-(TOP_CASE_TAC>>rw[])
+  >- (
+    TOP_CASE_TAC>>rw[]>>
+    simp[set_store_eq_def]>>
+    every_case_tac>>gvs[lookup_insert]
+    >- metis_tac[]
+    >- simp[empty_eq_def]
+    >- metis_tac[]
+  )
+  >- (
+    gvs[remove_eq_def]>>every_case_tac>>simp[empty_eq_def]>>
+    pairarg_tac>>gvs[copy_prop_move_def,set_eq_def,remove_eq_def]>>
+    every_case_tac>>rw[lookup_insert,empty_eq_def]>>
+    metis_tac[])
 QED
 
 Theorem pre_alloc_conventions_copy_prop_aux[local]:
@@ -1810,6 +1829,10 @@ Proof
   >-(TOP_CASE_TAC>>
     rw[wordLangTheory.every_stack_var_def,
     call_arg_convention_def])
+  >- (
+    every_case_tac>>
+    TRY(pairarg_tac)>>
+    simp[every_stack_var_def,call_arg_convention_def])
 QED
 
 Theorem pre_alloc_conventions_copy_prop:
@@ -1826,10 +1849,10 @@ Theorem full_inst_ok_less_copy_prop_aux[local]:
   full_inst_ok_less ac (FST (copy_prop_prog p cs))
 Proof
   ho_match_mp_tac copy_prop_prog_ind
-  >>rw[copy_prop_prog_def,full_inst_ok_less_def]
-  >>rpt(pairarg_tac>>fs[])
-  >>rw[full_inst_ok_less_def]
-  >-(
+  >> rw[copy_prop_prog_def,full_inst_ok_less_def]
+  >> rpt(pairarg_tac>>fs[])
+  >> rw[full_inst_ok_less_def]
+  >- (
     pop_assum mp_tac
     >>qid_spec_tac‘cs’>>qid_spec_tac‘i’
     >>ho_match_mp_tac copy_prop_inst_ind
@@ -1845,8 +1868,11 @@ Proof
     )
     >>metis_tac[]
   )
-  >-(TOP_CASE_TAC>>rw[full_inst_ok_less_def])
-  >-(
+  >- (TOP_CASE_TAC>>rw[full_inst_ok_less_def])
+  >- (
+    every_case_tac>>TRY(pairarg_tac)>>fs[full_inst_ok_less_def]
+    )
+  >- (
     rw[copy_prop_share_def]>>every_case_tac
     >>gvs[wordLangTheory.exp_to_addr_def]
   )
@@ -1873,8 +1899,9 @@ Proof
   \\ gvs [AllCaseEqs()]
   \\ res_tac \\ fs []
   >-
-  (simp[oneline copy_prop_inst_def] \\ every_case_tac \\ fs[])
-  >-(every_case_tac \\ fs[])
+    (simp[oneline copy_prop_inst_def] \\ every_case_tac \\ fs[])
+  >- (every_case_tac \\ fs[])
+  >- (every_case_tac \\ TRY (pairarg_tac) \\ fs[])
 QED
 
 Theorem word_good_handlers_copy_prop[local]:
@@ -1891,8 +1918,9 @@ Proof
   \\ gvs [AllCaseEqs()]
   \\ res_tac \\ fs []
   >-
-  (simp[oneline copy_prop_inst_def] \\ every_case_tac \\ fs[])
-  >-(every_case_tac \\ fs[])
+    (simp[oneline copy_prop_inst_def] \\ every_case_tac \\ fs[])
+  >- (every_case_tac \\ fs[])
+  >- (every_case_tac \\ TRY (pairarg_tac) \\ fs[])
 QED
 
 Theorem copy_prop_not_created_subprogs[local]:
@@ -1909,7 +1937,8 @@ Proof
   \\ fs[not_created_subprogs_def]
   >- (simp[oneline copy_prop_inst_def] \\ every_case_tac \\
     fs[not_created_subprogs_def])
-  >-(every_case_tac \\ fs[not_created_subprogs_def])
+  >- (every_case_tac \\ fs[not_created_subprogs_def])
+  >- (every_case_tac \\ TRY pairarg_tac \\ fs[not_created_subprogs_def])
 QED
 
 (*** three_to_to_reg_prog ***)

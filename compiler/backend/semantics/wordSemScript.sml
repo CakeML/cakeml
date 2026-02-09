@@ -317,10 +317,11 @@ Termination
    \\ DECIDE_TAC
 End
 
-(* Flushes the locals and (optionally) the stack *)
+(* Flushes the locals and (optionally) the store *)
 Definition flush_state_def:
    flush_state T ^s = s with <| locals := LN
                               ; stack := []
+                              ; store := FEMPTY
                               ; locals_size := SOME 0 |>
 /\ flush_state F ^s = s with <| locals := LN
                               ; locals_size := SOME 0 |>

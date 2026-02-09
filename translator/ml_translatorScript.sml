@@ -2203,6 +2203,26 @@ Proof
   \\ intLib.COOPER_TAC
 QED
 
+Theorem Eval_char_to_word8:
+    Eval env x (CHAR c) ==>
+    Eval env (App (FromTo CharT (WordT W8)) [x]) (WORD (char_to_word8 c))
+Proof
+  rw[Eval_rw,CHAR_def,NUM_def,INT_def,WORD_def]
+  \\ first_x_assum (qspec_then `refs` mp_tac) \\ strip_tac
+  \\ qexists_tac `ck1`
+  \\ fs [do_app_def,empty_state_def,check_type_def,do_conversion_def]
+QED
+
+Theorem Eval_word8_to_char:
+    Eval env x (WORD c) ==>
+    Eval env (App (FromTo (WordT W8) CharT) [x]) (CHAR (word8_to_char c))
+Proof
+  rw[Eval_rw,CHAR_def,NUM_def,INT_def,WORD_def]
+  \\ first_x_assum (qspec_then `refs` mp_tac) \\ strip_tac
+  \\ qexists_tac `ck1`
+  \\ fs [do_app_def,empty_state_def,check_type_def,do_conversion_def]
+QED
+
 Theorem Boolv_11:
    (Boolv b1 = Boolv b2) <=> (b1 = b2)
 Proof

@@ -918,6 +918,11 @@ Definition do_conversion_def:
      let i = the_Litv_IntLit v in
        if i < 0 ∨ i > 255 then SOME (INL chr_exn_v)
        else SOME (INR $ Litv $ Char $ CHR (Num (ABS i)))) ∧
+  (* Char/Word8 conversions *)
+  (do_conversion v CharT (WordT W8) =
+     SOME (INR $ Litv $ Word8 $ char_to_word8 (the_Litv_Char v))) ∧
+  (do_conversion v (WordT W8) CharT =
+     SOME (INR $ Litv $ Char $ word8_to_char (the_Litv_Word8 v))) ∧
   (* Float64/Word64 conversions (bit reinterpretation) *)
   (do_conversion v Float64T (WordT W64) =
      SOME (INR $ Litv $ Word64 $ the_Litv_Float64 v)) ∧

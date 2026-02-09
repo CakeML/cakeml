@@ -70,12 +70,14 @@ Proof
     irule (remove_dead_prog_conventions |> CONJUNCTS |> el 5)>>
     fs[full_ssa_cc_trans_wf_cutsets])>>
   rw[]>>
+
   (* SSA *)
   Q.ISPECL_THEN [`p1`,`st with permute:= perm'`,`n`] assume_tac full_ssa_cc_trans_correct>>
   gvs[]>>
   qexists_tac`perm''`>>
   pairarg_tac>>fs[]>>
   Cases_on`res=SOME Error`>>gs[]>>
+
   (* inst select *)
   Q.ISPECL_THEN [`c`,`max_var p0 +1`,`p0`,`st with permute:=perm''`,`res`,`rst`,`st.locals`] mp_tac inst_select_thm>>
   impl_tac >- (
@@ -93,22 +95,31 @@ Proof
   pairarg_tac>>fs[]>>
   strip_tac>>
   rw[]>>
+
   (* first remove_dead *)
-  drule_all evaluate_remove_dead_prog>>
+  drule_at (Pos (el 2)) evaluate_remove_dead_prog>>
+  simp[]>>
+  impl_keep_tac >- (
+    (* requires flat_exp_conventions up to p2 *)
+    unabbrev_all_tac >>
+    irule full_ssa_cc_trans_flat_exp_conventions >>
+    fs [inst_select_flat_exp_conventions])>>
   rw[]>>
+
   (* word cse *)
   old_drule word_common_subexp_elim_correct >>
-  impl_tac >- (
+  impl_keep_tac >- (
     fs [] >>
     (* requires flat_exp_conventions up to p3 *)
     unabbrev_all_tac >>
     irule (remove_dead_prog_conventions |> CONJUNCTS |> el 1)>>
-    irule full_ssa_cc_trans_flat_exp_conventions >>
-    fs [inst_select_flat_exp_conventions]) >>
+    fs[])>>
   gvs [] >>
+
   (* word_copy *)
-  simp[Once (GSYM evaluate_copy_prop)]>>
   strip_tac >>
+  `evaluate (p4, st with permute := perm') = (res, rcst with locals := t')` by
+    (simp[Abbr `p4`] >> simp[Once evaluate_copy_prop] >> gvs[]) >>
   (* three_to_two_reg_prog *)
   old_drule evaluate_three_to_two_reg_prog>>
   simp[]>>
@@ -121,12 +132,22 @@ Proof
     irule (remove_dead_prog_conventions |> CONJUNCTS |> el 4)>>
     fs [full_ssa_cc_trans_distinct_tar_reg])>>
   rw[]>>
+
   (* word_unreach *)
   `evaluate (p6,st with permute := perm') = (res,rcst with locals:=t')` by (
     rw[Abbr`p6`]>>
     simp[evaluate_remove_unreach])>>
+
+  (* second remove_dead *)
   drule_at (Pos (el 2)) evaluate_remove_dead_prog>>
-  disch_then (drule_at Any)>>
+  simp[]>>
+  impl_tac >- (
+    unabbrev_all_tac >>
+    irule flat_exp_conventions_remove_unreach>>
+    irule three_to_two_reg_prog_flat_exp_conventions>>
+    irule flat_exp_conventions_copy_prop>>
+    irule flat_exp_conventions_word_common_subexp_elim>>
+    fs[])>>
   simp[]>>
   strip_tac>>
   pairarg_tac>>gvs[word_state_eq_rel_def]>>

@@ -389,6 +389,9 @@ Definition supported_conversion_def[simp]:
   (* Char/Int conversions *)
   (supported_conversion CharT IntT = T) ∧
   (supported_conversion IntT CharT = T) ∧
+  (* Char/Word8 conversions *)
+  (supported_conversion CharT (WordT W8) = T) ∧
+  (supported_conversion (WordT W8) CharT = T) ∧
   (* Float64/Word64 conversions *)
   (supported_conversion Float64T (WordT W64) = T) ∧
   (supported_conversion (WordT W64) Float64T = T) ∧

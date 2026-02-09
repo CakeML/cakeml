@@ -894,7 +894,7 @@ Proof
         fs[has_space_def] >>
         rpt (TOP_CASE_TAC >> fs[]) >>
         strip_tac >> rveq >> fs[flush_state_def, dest_result_loc_def, word_state_rel_def] >>
-        fs[domain_find_loc_state,get_locals_def,get_stack_def]
+        fs[domain_find_loc_state,get_locals_def,get_stack_def,get_store_def]
 QED
 
 Theorem const_writes_eq_Loc:
@@ -984,7 +984,7 @@ Proof
            >- (
                strip_tac >> rveq >>
                simp[dest_result_loc_def,word_state_rel_def,flush_state_def] >>
-               fs[domain_find_loc_state,get_locals_def,get_stack_def]) >>
+               fs[domain_find_loc_state,get_locals_def,get_stack_def,get_store_def]) >>
            ntac 2 (TOP_CASE_TAC >> fs[]) >>
            strip_tac >> rveq >>
            qmatch_asmsub_abbrev_tac `evaluate (q',A)` >>
@@ -1041,7 +1041,7 @@ Proof
                simp[dest_result_loc_def] >>
                simp[flush_state_def,word_state_rel_def,call_env_def] >>
                fs[domain_find_loc_state] >>
-               simp[get_locals_def,get_stack_def] >>
+               simp[get_locals_def,get_stack_def,get_store_def] >>
                simp[oneline push_env_def,env_to_list_def] >>
                rpt (TOP_CASE_TAC >> fs[])) >>
             fs[add_ret_loc_def] >>
@@ -1209,7 +1209,7 @@ Proof
         SUBSET_DEF] >>
       rpt strip_tac >>
       gvs[domain_lookup,lookup_insert,
-        PULL_EXISTS,AllCaseEqs(),get_stack_def,get_var_def] >>
+        PULL_EXISTS,AllCaseEqs(),get_stack_def,get_var_def,get_store_def] >>
       first_x_assum $ drule_then irule )
     >- ( (* FFI *)
         fs[wordSemTheory.evaluate_def,flush_state_def] >>
@@ -1217,7 +1217,7 @@ Proof
         strip_tac >> rveq >>
         fs[word_state_rel_def] >>
         fs[domain_find_loc_state] >>
-        simp[dest_result_loc_def,get_stack_def,get_locals_def] >>
+        simp[dest_result_loc_def,get_stack_def,get_locals_def,get_store_def] >>
         fs[get_memory_write_bytearray_lemma] >>
         gvs[cut_env_def,cut_envs_def,cut_names_def,AllCaseEqs()] >>
         irule SUBSET_TRANS >> irule_at (Pos hd) get_locals_union_subset
@@ -1335,7 +1335,7 @@ Proof
         >- (fs[call_env_def, flush_state_def, fromList2_def] >>
             rw[word_state_rel_def] >>
             rw[find_loc_state_def, domain_union,
-                get_locals_def, get_stack_def] >>
+                get_locals_def, get_stack_def, get_store_def] >>
             fs[domain_find_loc_state, SUBSET_DEF, dest_result_loc_def])
         >- (rw[] >> fs[dec_clock_def, word_state_rel_def, domain_find_loc_state,
             dest_result_loc_def])
