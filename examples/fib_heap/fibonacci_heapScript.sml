@@ -173,6 +173,40 @@ val test =
    FibHeap assertion
  *-------------------------------------------------------------------*)
 
+Definition edges_off_def:
+  edges_off = 1w * bytes_in_word
+End
+
+Definition flag_off_def:
+  edges_off = 2w * bytes_in_word
+End
+
+Definition mark_off_def:
+  mark_off = 3w * bytes_in_word
+End
+
+Definition before_off_def:
+  before_off = 4w * bytes_in_word
+End
+
+Definition next_off_def:
+  next_off = 5w * bytes_in_word
+End
+
+Definition parent_off_def:
+  parent_off = 6w * bytes_in_word
+End
+
+Definition child_off_def:
+  child_off = 7w * bytes_in_word
+End
+
+Definition rank_off_def:
+  rank_off = 8w * bytes_in_word
+End
+
+
+
 Type fib_heap = “: 'a word |-> 'a word # ('a word # ('a word # num) list) ”;
 
 Inductive fts_has:
@@ -205,7 +239,8 @@ Definition fib_heap_inv_def:
     (!k. FLOOKUP fh k = NONE <=> fts = []) /\ (*empty heap*)
     (!k v. (FLOOKUP fh k = SOME v) /\ k = head_key fts
         ==> fts_is_min (FST v) fts) (*min element*)
-    (* TODO: more *)
+    (* Childs have their parents as pointers ?*)
+    (* The min size of a tree is fib r with r being the rank*)
 End
 
 Definition fib_heap_def:
@@ -215,11 +250,35 @@ Definition fib_heap_def:
       cond (fib_heap_inv fh fts /\ a = head_key fts)
 End
 
+
+(*
+Theorem write_fun2set:
+    !y a x p f. (one (a,x) * p) (fun2set (f,d)) ==> (p * one (a,y)) (fun2set ((a =+ y) f,d))
+*)
+
+Definition fib_heap_empty_append_def:
+    fib_heap_empty_append (k:'a word, m:'a word -> 'a word, dm:'a word set,c: bool) =
+    let m = ((k + next_off) =+ k) m in
+    let m = ((k + before_off) =+ k)m in
+        (k,m,c)
+End
+
 Definition fib_heap_append_def:
   fib_heap_append
-    (k1:'a word, k2:'a word, m:'a word -> 'a word, dm :'a word set)
+    (k1:'a word, k2:'a word, last:'a word, sec:'a word, m:'a word -> 'a word, dm :'a word set, c: bool)
   =
-    (k1, m, T)
+    (*Is c necessary? Already asserted in previous function.*)
+    let c = (k1 IN dm /\ c) in
+    let c = (k2 IN dm /\ c) in
+    let c = (last IN dm /\ c) in
+    let c = (sec IN dm /\ c) in
+    let m = ((last + next_off) =+ k2) m in
+    let m = ((k2 + before_off) =+ last) m in
+    let m = ((sec + before_off) =+ k1) m in
+    let m = ((k2 + next_off) =+ k1) m in
+    let m = ((k1 + before_off) =+ k2) m in
+    let m = ((k1 + next_off) =+ sec) m in
+        (k1, m, c)
 End
 
 Definition fib_heap_insert_def:
@@ -229,14 +288,23 @@ Definition fib_heap_insert_def:
     (* load value at k *)
     let c = (k ∈ dm) in
     let v_of_k = m k in
-    (* load value at a *)
-    let c = (a ∈ dm ∧ c) in
-    let v_of_a = m a in
-      (* check whether k goes first *)
-      if v_of_k <=+ v_of_a then
-        fib_heap_append (k, a, m, dm)
-      else
-        fib_heap_append (a, k, m, dm)
+    if a = 0w then
+        fib_heap_empty_append (k, m, dm, c)
+    else
+        (* load value at a *)
+        let c = (a ∈ dm ∧ c) in
+        let v_of_a = m a in
+        (* load last element *)
+        let c = (v_of_a + before_off IN dm /\ c) in
+        let last = m (v_of_a + before_off) in
+        (* load sec element *)
+        let c = (v_of_a + next_off IN dm /\ c) in
+        let sec = m (v_of_a + next_off) in
+        (* check whether k goes first *)
+        if v_of_k <=+ v_of_a then
+            fib_heap_append (k, a, last, sec, m, dm, c)
+        else
+            fib_heap_append (a, k, last, sec, m, dm, c)
 End
 
 Theorem fib_heap_insert:
