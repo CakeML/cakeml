@@ -777,7 +777,7 @@ End
 Theorem lazy_full_encode_sem_concl:
   good_graph g ∧
   lazy_full_encode g (vs,obj,fml) = SOME n ∧
-  pbc$sem_concl (set (MAP SND fml)) obj concl ∧
+  pbc$sem_concl (set (MAP SND fml)) obj {} concl ∧
   conv_concl n concl = SOME lb ⇒
   ∀f k.
     is_k_color k f g ⇒ lb ≤ k
@@ -796,17 +796,20 @@ Proof
   gvs[oneline conv_concl_def,AllCaseEqs()]>>
   rename1`full_encode n (v,e) = (SOME obj,fmll)`>>
   rename1`OBounds (SOME lb) ub`>>
-  `sem_concl (set (MAP SND fmll)) (SOME obj) (OBounds (SOME lb) NONE)` by (
+  `sem_concl (set (MAP SND fmll)) (SOME obj) {} (OBounds (SOME lb) NONE)` by (
     fs[sem_concl_def]>>
     rw[]>>first_x_assum irule>>
     fs[satisfies_def,SUBSET_DEF])>>
-  qpat_x_assum`sem_concl _ _ _` mp_tac>>
+  qpat_x_assum`sem_concl _ _ _ _` mp_tac>>
   gvs[full_encode_def]>>
   simp[LIST_TO_SET_MAP,IMAGE_IMAGE]>>
   simp[GSYM IMAGE_IMAGE, GSYM (Once LIST_TO_SET_MAP)]>>
   qpat_x_assum`_ = SOME obj` sym_sub_tac>>
+  `{} = IMAGE enc_string {}` by fs[]>>
+  pop_assum SUBST1_TAC>>
   DEP_REWRITE_TAC[GSYM concl_INJ_iff]>>
   CONJ_TAC >- (
+    simp[]>>
     assume_tac enc_string_INJ>>
     drule INJ_SUBSET>>
     disch_then match_mp_tac>>
