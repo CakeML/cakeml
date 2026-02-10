@@ -218,25 +218,7 @@ Proof
   fs [LIST_RELi_EL_EQN,env_rel_def]
 QED
 
-Theorem IMP_EL_SING:
-   k = LENGTH xs ==> EL k (xs ++ [x] ++ ys) = x
-Proof
-  rw [] \\ fs [] \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
-  \\ fs [EL_APPEND2]
-QED
-
-Theorem ALOOKUP_MAPi_SWAP = Q.prove(`
-  !z n k xs.
-      n <> k ==>
-      ALOOKUP (MAPi (λi x. (x,i+z)) (xs ++ [k])) n =
-      ALOOKUP (MAPi (λi x. (x,i+z)) xs) n`,
-  Induct_on `xs` \\ fs [o_DEF,ADD1]) |> Q.SPEC `0` |> SIMP_RULE std_ss [];
-
-Theorem ALOOKUP_MAPi_APPEND2 = Q.prove(`
-  !z xs k.
-      ~MEM k xs ==>
-      ALOOKUP (MAPi (λi x. (x,i+z)) (xs ++ [k])) k = SOME (LENGTH xs + z)`,
-  Induct_on `xs` \\ fs [o_DEF,ADD1]) |> Q.SPEC `0` |> SIMP_RULE std_ss [];
+(* IMP_EL_SING, ALOOKUP_MAPi_SWAP, ALOOKUP_MAPi_APPEND2 moved to listLemmasTheory *)
 
 Theorem IS_SOME_lookup_db_to_set:
    !n. IS_SOME (lookup n (db_to_set l)) = has_var n l

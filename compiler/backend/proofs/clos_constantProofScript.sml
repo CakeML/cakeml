@@ -125,11 +125,7 @@ Proof
   Induct \\ fs [build_map_def,ADD1]
 QED
 
-Theorem LIST_REL_eq[local]:
-  ∀l rs. LIST_REL (λc r. f r = c) l rs ⇔ l = MAP f rs
-Proof
-  Induct \\ Cases_on ‘rs’ \\ fs [] \\ metis_tac []
-QED
+(* LIST_REL_eq moved to listLemmasTheory *)
 
 Theorem build_map_ignore:
   ∀xs m n k. k < n ⇒ build_map m n xs k = m k

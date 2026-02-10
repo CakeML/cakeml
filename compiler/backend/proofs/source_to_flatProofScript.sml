@@ -31,12 +31,7 @@ Proof
   rw [compile_exp_def]
 QED
 
-Theorem mapi_map:
-   !f g l. MAPi f (MAP g l) = MAPi (\i x. f i (g x)) l
-Proof
-  Induct_on `l` >>
-  rw [combinTheory.o_DEF]
-QED
+(* mapi_map moved to listLemmasTheory *)
 
 Theorem fst_lem[local]:
   (λ(p1,p1',p2). p1) = FST

@@ -447,11 +447,7 @@ Proof
   EVAL_TAC
 QED
 
-Theorem EVERY_EL_IMP:
-  EVERY P xs /\ n < LENGTH xs ==> P (EL n xs)
-Proof
-  simp [EVERY_EL]
-QED
+(* EVERY_EL_IMP moved to listLemmasTheory *)
 
 Theorem not_v_has_Eval_EVERY_EL[local]:
   EVERY ($~ ∘ v_has_Eval) xs /\ i < LENGTH xs ==> ~ v_has_Eval (EL i xs)

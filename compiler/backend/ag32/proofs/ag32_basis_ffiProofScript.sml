@@ -6349,7 +6349,7 @@ Proof
       \\ simp[IS_SOME_EXISTS] )
     \\ `IS_SOME(ALOOKUP ffi_exitpcs (EL index ffi_names))`
     by (
-      simp[data_to_word_gcProofTheory.IS_SOME_ALOOKUP_EQ]
+      simp[IS_SOME_ALOOKUP_EQ]
       \\ fs[SUBSET_DEF]
       \\ first_x_assum irule
       \\ simp[MEM_EL]

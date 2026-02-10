@@ -55,14 +55,7 @@ Proof
   \\ full_simp_tac(srw_ss())[WORD_LEFT_ADD_DISTRIB]
 QED
 
-Theorem LESS_LENGTH_IMP_APPEND:
-   !xs n. n < LENGTH xs ==> ?ys zs. xs = ys ++ zs /\ LENGTH ys = n
-Proof
-  Induct \\ full_simp_tac(srw_ss())[] \\ Cases_on `n` \\ full_simp_tac(srw_ss())[LENGTH_NIL]
-  \\ srw_tac[][] \\ res_tac \\ srw_tac[][]
-  \\ pop_assum (fn th => simp [Once th])
-  \\ qexists_tac `h::ys` \\ full_simp_tac(srw_ss())[]
-QED
+(* LESS_LENGTH_IMP_APPEND moved to listLemmasTheory *)
 
 Theorem call_FFI_LENGTH:
    (call_FFI s i conf xs = FFI_return n ys) ==> (LENGTH ys = LENGTH xs)

@@ -2427,21 +2427,7 @@ Proof
   \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs [] \\ rveq \\ rfs [] \\ rveq
 QED
 
-(* TODO: MOVE *)
-Theorem PERM_toAList_fromAList:
-  ∀p. ALL_DISTINCT (MAP FST p) ⇒ PERM (toAList (fromAList p)) p
-Proof
-  rw []
-  \\ ho_match_mp_tac PERM_ALL_DISTINCT
-  \\ conj_tac
-  >- (qspec_then `FST` ho_match_mp_tac ALL_DISTINCT_MAP
-     \\ rw [ALL_DISTINCT_MAP_FST_toAList])
-  \\ conj_tac
-  >- (drule ALL_DISTINCT_MAP \\ fs [])
-  \\ rw [] \\ PairCases_on `x`
-  \\ rw [MEM_toAList,lookup_fromAList]
-  \\ drule MEM_ALOOKUP \\ rw []
-QED
+(* PERM_toAList_fromAList moved to sptreeLemmasTheory *)
 
 Theorem compile_word_to_stack_sfs_aux:
 ∀ac k p bm progs' fs' bitmaps.

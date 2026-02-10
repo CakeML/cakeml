@@ -8,12 +8,7 @@ Libs
   preamble
 
 
-Theorem list_split3[local]:
-  ∀P. P [] ∧ (∀x y z zs. P (x::y::z::zs)) ∧ (∀x. P [x]) ∧ (∀x y. P [x; y]) ⇒
-      ∀xs. P xs
-Proof
-  rw[] \\ Cases_on ‘xs’ \\ fs [] \\ Cases_on ‘t’ \\ fs [] \\ Cases_on ‘t'’ \\ fs []
-QED
+(* list_split3 moved to listLemmasTheory *)
 
 Theorem evaluate_MakeBool[local]:
   ∀b. evaluate ([MakeBool b],vs,s) = (Rval [Boolv b],s)

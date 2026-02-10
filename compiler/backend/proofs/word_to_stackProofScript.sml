@@ -114,42 +114,11 @@ QED
 
 (* delete END *)
 
-Theorem MAX_LIST_GENLIST_evens:
-    ∀n. MAX_LIST (GENLIST (λx. 2*x) n) = 2*(n-1)
-Proof
-  Induct>> fs[GENLIST]>>
-  fs[MAX_DEF]
-QED
-
-Theorem MAX_LIST_GENLIST_evens2:
-    ∀n. MAX_LIST (GENLIST (λx. 2*(x+1)) n) = 2*n
-Proof
-  Induct>> fs[GENLIST]>>
-  fs[MAX_DEF]
-QED
+(* MAX_LIST_GENLIST_evens, MAX_LIST_GENLIST_evens2 moved to listLemmasTheory *)
 
 (* word_or_eq_0, shift_shift_lemma moved to wordLemmasTheory *)
 
-Theorem word_shift_or_1:
-  (n ≪ 1) ‖ 1w = (n ≪ 1) + 1w
-Proof
-  `?x. n = bitstring$v2w x`
-    by METIS_TAC[ bitstringTheory.v2w_w2v]
-  >> `1w = bitstring$v2w [T]`
-   by fs[GSYM bitstringTheory.n2w_v2n,bitstringTheory.v2n]
-  >> fs[bitstringTheory.word_lsl_v2w,bitstringTheory.word_or_v2w]
-  >> fs[bitstringTheory.shiftl_def,listTheory.PAD_RIGHT]
-  >> fs[bitstringTheory.bor_def,bitstringTheory.bitwise_def,MAX_DEF]
-  >> fs[bitstringTheory.fixwidth_def]
-  >> reverse $ rw[]
-  >- fs[GSYM bitstringTheory.n2w_v2n,bitstringTheory.v2n]
-  >> fs[bitstringTheory.zero_extend_def,listTheory.PAD_LEFT]
-  >> pop_assum kall_tac >> Induct_on `x`
-  >> fs[GSYM bitstringTheory.n2w_v2n,bitstringTheory.v2n,
-     rich_listTheory.GENLIST_K_CONS]
-  >> fs[COND_RAND,COND_RATOR]
-  >> fs[GSYM wordsTheory.word_add_n2w]
-QED
+(* word_shift_or_1 moved to wordLemmasTheory *)
 (*misc word_stuff end*)
 
 (* TODO figure a normal form.

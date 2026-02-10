@@ -39,11 +39,7 @@ fun rpt_drule th = old_drule (th |> GEN_ALL) \\ rpt (disch_then old_drule \\ fs 
    lsr_lsl, word_index_test, word_and_one_eq_0_iff, word_index_0
    moved to wordLemmasTheory *)
 
-Theorem ABS_w2n[simp]:
-   ABS (&w2n w) = &w2n w
-Proof
-  rw[integerTheory.INT_ABS_EQ_ID]
-QED
+(* ABS_w2n moved to wordLemmasTheory *)
 
 Theorem n2mw_w2n:
    ∀w. n2mw (w2n w) = if w = 0w then [] else [w]
@@ -67,11 +63,7 @@ Proof
       insert_shadow]
 QED
 
-Theorem toAList_LN[simp]:
-   toAList LN = []
-Proof
-  EVAL_TAC
-QED
+(* toAList_LN moved to sptreeLemmasTheory *)
 
 Theorem adjust_set_LN[simp]:
    adjust_set LN = LN
@@ -87,97 +79,32 @@ Proof
   \\ pairarg_tac \\ fs []
 QED
 
-Theorem ALOOKUP_SKIP_LEMMA:
-   ¬MEM n (MAP FST xs) /\ d = e ==>
-    ALOOKUP (xs ++ [(n,d)] ++ ys) n = SOME e
-Proof
-  full_simp_tac(srw_ss())[ALOOKUP_APPEND] \\ fs[GSYM ALOOKUP_NONE]
-QED
+(* ALOOKUP_SKIP_LEMMA moved to listLemmasTheory *)
 
-Theorem LAST_EQ:
-   (LAST (x::xs) = if xs = [] then x else LAST xs) /\
-    (FRONT (x::xs) = if xs = [] then [] else x::FRONT xs)
-Proof
-  Cases_on `xs` \\ full_simp_tac(srw_ss())[]
-QED
+(* LAST_EQ moved to listLemmasTheory *)
 
-Theorem LASTN_LIST_REL_LEMMA:
-   !xs1 ys1 xs n y ys x P.
-      LASTN n xs1 = x::xs /\ LIST_REL P xs1 ys1 ==>
-      ?y ys. LASTN n ys1 = y::ys /\ P x y /\ LIST_REL P xs ys
-Proof
-  Induct \\ Cases_on `ys1` \\ full_simp_tac(srw_ss())[LASTN_ALT] \\ rpt strip_tac
-  \\ imp_res_tac LIST_REL_LENGTH \\ full_simp_tac(srw_ss())[]
-  \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
-  \\ full_simp_tac(srw_ss())[]
-  \\ every_case_tac \\ full_simp_tac(srw_ss())[]
-  \\ srw_tac[][] \\ `F` by decide_tac
-QED
+(* LASTN_LIST_REL_LEMMA moved to listLemmasTheory *)
 
 (* LASTN_CONS_IMP_LENGTH, LASTN_IMP_APPEND, NOT_NIL_IMP_LAST
    moved to listLemmasTheory *)
 
-Theorem IS_SOME_IF:
-   IS_SOME (if b then x else y) = if b then IS_SOME x else IS_SOME y
-Proof
-  Cases_on `b` \\ full_simp_tac(srw_ss())[]
-QED
+(* IS_SOME_IF moved to optionLemmasTheory *)
 
-Theorem IS_SOME_ALOOKUP_EQ:
-   !l x. IS_SOME (ALOOKUP l x) = MEM x (MAP FST l)
-Proof
-  Induct \\ full_simp_tac(srw_ss())[]
-  \\ Cases \\ full_simp_tac(srw_ss())[ALOOKUP_def] \\ srw_tac[][]
-QED
+(* IS_SOME_ALOOKUP_EQ moved to listLemmasTheory *)
 
-Theorem MEM_IMP_IS_SOME_ALOOKUP:
-   !l x y. MEM (x,y) l ==> IS_SOME (ALOOKUP l x)
-Proof
-  full_simp_tac(srw_ss())[IS_SOME_ALOOKUP_EQ,MEM_MAP,EXISTS_PROD] \\ metis_tac []
-QED
+(* MEM_IMP_IS_SOME_ALOOKUP moved to listLemmasTheory *)
 
-Theorem SUBSET_INSERT_EQ_SUBSET:
-   ~(x IN s) ==> (s SUBSET (x INSERT t) <=> s SUBSET t)
-Proof
-  full_simp_tac(srw_ss())[EXTENSION]
-QED
+(* SUBSET_INSERT_EQ_SUBSET moved to setLemmasTheory *)
 
-Theorem EVERY2_IMP_EL:
-   !xs ys P n. EVERY2 P xs ys /\ n < LENGTH ys ==> P (EL n xs) (EL n ys)
-Proof
-  Induct \\ Cases_on `ys` \\ full_simp_tac(srw_ss())[]
-  \\ srw_tac[][] \\ Cases_on `n` \\ full_simp_tac(srw_ss())[]
-QED
+(* EVERY2_IMP_EL moved to listLemmasTheory *)
 
-Theorem FST_PAIR_EQ:
-   !x v. (FST x,v) = x <=> v = SND x
-Proof
-  Cases \\ full_simp_tac(srw_ss())[]
-QED
+(* FST_PAIR_EQ moved to miscTheory *)
 
-Theorem EVERY2_APPEND_IMP:
-   !xs1 xs2 zs P.
-      EVERY2 P (xs1 ++ xs2) zs ==>
-      ?zs1 zs2. zs = zs1 ++ zs2 /\ EVERY2 P xs1 zs1 /\ EVERY2 P xs2 zs2
-Proof
-  Induct \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
-  \\ res_tac \\ full_simp_tac(srw_ss())[]
-  \\ Q.LIST_EXISTS_TAC [`y::zs1`,`zs2`] \\ full_simp_tac(srw_ss())[]
-QED
+(* EVERY2_APPEND_IMP moved to listLemmasTheory *)
 
-Theorem ZIP_ID:
-   !xs. ZIP (MAP FST xs, MAP SND xs) = xs
-Proof
-  Induct \\ full_simp_tac(srw_ss())[]
-QED
+(* ZIP_ID moved to listLemmasTheory *)
 
-Theorem FOLDL_LENGTH_LEMMA:
-   !xs k l d q r.
-      FOLDL (λ(i,t) a. (i + d,insert i a t)) (k,l) xs = (q,r) ==>
-      q = LENGTH xs * d + k
-Proof
-  Induct \\ fs [FOLDL] \\ rw [] \\ res_tac \\ fs [MULT_CLAUSES]
-QED
+(* FOLDL_LENGTH_LEMMA moved to sptreeLemmasTheory *)
 
 Theorem fromList_SNOC:
   !xs y. fromList (SNOC y xs) = insert (LENGTH xs) y (fromList xs)
@@ -6870,7 +6797,7 @@ Proof
     \\ qpat_x_assum `PERM _ _` mp_tac
     \\ once_rewrite_tac [sortingTheory.PERM_CONS_EQ_APPEND]
     \\ strip_tac \\ rveq \\ fs [PULL_EXISTS]
-    \\ imp_res_tac data_to_word_memoryProofTheory.EVERY2_APPEND_CONS
+    \\ imp_res_tac EVERY2_APPEND_CONS
     \\ fs [] \\ rveq \\ fs []
     \\ last_x_assum assume_tac
     \\ last_x_assum (qspecl_then [`M++N`,`t1++t2`,`p1`,`refs`] mp_tac)

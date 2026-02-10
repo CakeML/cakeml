@@ -34,19 +34,8 @@ val LESS_8 = DECIDE ``i < 8 <=> (i = 0) \/ (i = 1) \/ (i = 2) \/ (i = 3n) \/
 (* word_eq moved to wordLemmasTheory *)
 (* ZIP_REPLICATE moved to listLemmasTheory *)
 
-Theorem MAX_LIST_sum_bound:
-   SUM ls <= MAX_LIST ls * LENGTH ls
-Proof
-  Induct_on`ls` \\ rw[MAX_DEF,ADD1,LEFT_ADD_DISTRIB]
-  \\ match_mp_tac LESS_EQ_TRANS
-  \\ asm_exists_tac \\ simp[]
-QED
-
-Theorem MAX_LIST_bounded_elements:
-   !l1 l2. LIST_REL $<= l1 l2 ==> MAX_LIST l1 <= MAX_LIST l2
-Proof
-  Induct \\ rw[MAX_DEF] \\ res_tac \\ rw[MAX_DEF]
-QED
+(* MAX_LIST_sum_bound moved to listLemmasTheory *)
+(* MAX_LIST_bounded_elements moved to listLemmasTheory *)
 
 Theorem MAX_LIST_MAP:
    ∀f l. (∀x y. x < y ==> f x < f y) ==> MAX_LIST (MAP f l) = if NULL l then 0 else f (MAX_LIST l)
@@ -361,52 +350,20 @@ Proof
   \\ metis_tac[w2n_lt]
 QED
 
-Theorem MOD_EQ_0_0:
-   ∀n b. 0 < b ⇒ (n MOD b = 0) ⇒ n < b ⇒ (n = 0)
-Proof
-  rw[MOD_EQ_0_DIVISOR] >> Cases_on`d`>>fs[]
-QED
+(* MOD_EQ_0_0 moved to arithLemmasTheory *)
 
 (* EVERY2_IMP_EVERY, EVERY2_IMP_EVERY2 moved to listLemmasTheory *)
 
-Theorem MEM_EVERY2_IMP:
-   !l x zs P. MEM x l /\ EVERY2 P zs l ==> ?z. MEM z zs /\ P z x
-Proof
-  Induct \\ Cases_on `zs` \\ full_simp_tac (srw_ss()) [] \\ metis_tac []
-QED
+(* MEM_EVERY2_IMP moved to listLemmasTheory *)
 
 val EVERY2_LENGTH = LIST_REL_LENGTH
 val EVERY2_IMP_LENGTH = EVERY2_LENGTH
 
-Theorem EVERY2_APPEND_CONS:
-   !xs y ys zs P. EVERY2 P (xs ++ y::ys) zs ==>
-                   ?t1 t t2. (zs = t1 ++ t::t2) /\ (LENGTH t1 = LENGTH xs) /\
-                             EVERY2 P xs t1 /\ P y t /\ EVERY2 P ys t2
-Proof
-  Induct \\ full_simp_tac (srw_ss()) []
-  \\ Cases_on `zs` \\ full_simp_tac (srw_ss()) []
-  \\ rpt strip_tac
-  \\ res_tac \\ full_simp_tac std_ss []
-  \\ Q.LIST_EXISTS_TAC [`h::t1`,`t'`,`t2`]
-  \\ full_simp_tac (srw_ss()) []
-QED
+(* EVERY2_APPEND_CONS moved to listLemmasTheory *)
 
-Theorem EVERY2_SWAP:
-   !xs ys. EVERY2 P xs ys ==> EVERY2 (\y x. P x y) ys xs
-Proof
-  Induct \\ Cases_on `ys` \\ full_simp_tac (srw_ss()) []
-QED
+(* EVERY2_SWAP moved to listLemmasTheory *)
 
-Theorem EVERY2_APPEND_IMP_APPEND:
-   !xs1 xs2 ys P.
-      EVERY2 P (xs1 ++ xs2) ys ==>
-      ?ys1 ys2. (ys = ys1 ++ ys2) /\ EVERY2 P xs1 ys1 /\ EVERY2 P xs2 ys2
-Proof
-  Induct \\ Cases_on `ys` \\ full_simp_tac (srw_ss()) [] \\ rpt strip_tac
-  \\ res_tac \\ full_simp_tac std_ss []
-  \\ Q.LIST_EXISTS_TAC [`h::ys1`,`ys2`]
-  \\ full_simp_tac std_ss [APPEND,LIST_REL_def] \\ metis_tac[]
-QED
+(* EVERY2_APPEND_IMP_APPEND moved to listLemmasTheory *)
 
 val EVERY2_IMP_APPEND = rich_listTheory.EVERY2_APPEND_suff
 val IMP_EVERY2_APPEND = EVERY2_IMP_APPEND

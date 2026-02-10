@@ -223,3 +223,11 @@ Proof
   Induct>>full_simp_tac(srw_ss())[INJ_DEF]>>srw_tac[][]>>
   metis_tac[MEM_MAP]
 QED
+
+(* -- from data_to_word_gcProofScript.sml -- *)
+
+Theorem SUBSET_INSERT_EQ_SUBSET:
+   ~(x IN s) ==> (s SUBSET (x INSERT t) <=> s SUBSET t)
+Proof
+  full_simp_tac(srw_ss())[EXTENSION]
+QED

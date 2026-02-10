@@ -93,3 +93,11 @@ Proof
   qid_spec_tac`x` \\ Induct_on`ls` \\ rw[] \\
   res_tac \\ fs[] \\ Cases_on`x` \\ fs[]
 QED
+
+(* -- from data_to_word_gcProofScript.sml -- *)
+
+Theorem IS_SOME_IF:
+   IS_SOME (if b then x else y) = if b then IS_SOME x else IS_SOME y
+Proof
+  Cases_on `b` \\ full_simp_tac(srw_ss())[]
+QED

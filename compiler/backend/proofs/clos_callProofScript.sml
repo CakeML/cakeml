@@ -76,12 +76,7 @@ Definition every_refv_def[simp]:
   (every_refv P _ ⇔ T)
 End
 
-Theorem IMP_EXISTS_IFF[local]:
-  !xs. (!x. MEM x xs ==> (P x <=> Q x)) ==>
-         (EXISTS P xs <=> EXISTS Q xs)
-Proof
-  Induct \\ fs []
-QED
+(* IMP_EXISTS_IFF moved to listLemmasTheory *)
 
 (* -- *)
 
@@ -160,12 +155,7 @@ Definition make_g_def:
     else NONE
 End
 
-Theorem ALL_DISTINCT_MAP_FST_ADD1[local]:
-    !xs. ALL_DISTINCT (MAP (λk. FST k + 1n) xs) =
-         ALL_DISTINCT (MAP FST xs)
-Proof
-  Induct \\ fs [MEM_MAP]
-QED
+(* ALL_DISTINCT_MAP_FST_ADD1 moved to listLemmasTheory *)
 
 Theorem make_g_wfg:
    make_g d code = SOME g ==> wfg g

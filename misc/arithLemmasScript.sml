@@ -229,3 +229,11 @@ Proof
   \\ qexists_tac`FUNPOW f n x`
   \\ simp[]
 QED
+
+(* -- from data_to_word_memoryProofScript.sml -- *)
+
+Theorem MOD_EQ_0_0:
+   !n b. 0 < b ==> (n MOD b = 0) ==> n < b ==> (n = 0)
+Proof
+  rw[MOD_EQ_0_DIVISOR] >> Cases_on`d`>>fs[]
+QED

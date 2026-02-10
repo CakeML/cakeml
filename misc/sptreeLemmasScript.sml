@@ -392,3 +392,44 @@ Proof
   \\ numLib.LEAST_ELIM_TAC
   \\ metis_tac [EXISTS_NOT_IN_spt_DOMAIN]
 QED
+
+(* -- from data_to_word_gcProofScript.sml -- *)
+
+Theorem toAList_LN[simp]:
+   toAList LN = []
+Proof
+  EVAL_TAC
+QED
+
+Theorem FOLDL_LENGTH_LEMMA:
+   !xs k l d q r.
+      FOLDL (\(i,t) a. (i + d,insert i a t)) (k,l) xs = (q,r) ==>
+      q = LENGTH xs * d + k
+Proof
+  Induct \\ fs [FOLDL] \\ rw [] \\ res_tac \\ fs [MULT_CLAUSES]
+QED
+
+Theorem fromList_SNOC:
+  !xs y. fromList (SNOC y xs) = insert (LENGTH xs) y (fromList xs)
+Proof
+  fs [fromList_def,FOLDL_APPEND,SNOC_APPEND] \\ rw []
+  \\ Cases_on `FOLDL (\(i,t) a. (i + 1,insert i a t)) (0,LN) xs`
+  \\ fs [] \\ imp_res_tac FOLDL_LENGTH_LEMMA \\ fs []
+QED
+
+(* -- from backendProofScript.sml -- *)
+
+Theorem PERM_toAList_fromAList:
+  !p. ALL_DISTINCT (MAP FST p) ==> PERM (toAList (fromAList p)) p
+Proof
+  rw []
+  \\ ho_match_mp_tac PERM_ALL_DISTINCT
+  \\ conj_tac
+  >- (qspec_then `FST` ho_match_mp_tac ALL_DISTINCT_MAP
+     \\ rw [ALL_DISTINCT_MAP_FST_toAList])
+  \\ conj_tac
+  >- (drule ALL_DISTINCT_MAP \\ fs [])
+  \\ rw [] \\ PairCases_on `x`
+  \\ rw [MEM_toAList,lookup_fromAList]
+  \\ drule MEM_ALOOKUP \\ rw []
+QED

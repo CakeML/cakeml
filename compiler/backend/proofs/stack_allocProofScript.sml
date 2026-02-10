@@ -25,28 +25,7 @@ val _ = temp_bring_to_front_overload"compile"{Thy="stack_alloc",Name="compile"};
 
 (* TODO: move and join with stack_remove *)
 
-Theorem lsl_lsr:
-   w2n ((n:'a word)) * 2 ** a < dimword (:'a) ⇒ n << a >>> a = n
-Proof
-  Cases_on`n` \\ simp[]
-  \\ qmatch_assum_rename_tac`n < dimword _`
-  \\ srw_tac[][]
-  \\ REWRITE_TAC[GSYM wordsTheory.w2n_11]
-  \\ REWRITE_TAC[wordsTheory.w2n_lsr]
-  \\ simp[]
-  \\ simp[word_lsl_n2w]
-  \\ srw_tac[][]
-  >- (
-    simp[ZERO_DIV]
-    \\ Cases_on`n`
-    \\ full_simp_tac(srw_ss())[dimword_def]
-    \\ full_simp_tac(srw_ss())[bitTheory.LT_TWOEXP]
-    \\ full_simp_tac(srw_ss())[bitTheory.LOG2_def]
-    \\ qmatch_asmsub_rename_tac`SUC n * 2 ** a`
-    \\ qspecl_then[`a`,`2`,`SUC n`]mp_tac logrootTheory.LOG_EXP
-    \\ simp[] )
-  \\ simp[MULT_DIV]
-QED
+(* lsl_lsr moved to wordLemmasTheory *)
 
 Theorem bytes_in_word_word_shift:
    good_dimindex(:'a) ∧ w2n (bytes_in_word:'a word) * w2n n < dimword(:'a) ⇒
@@ -243,11 +222,7 @@ Proof
   \\ full_simp_tac(srw_ss())[DIV_EQ_X] \\ decide_tac
 QED
 
-Theorem word_and_one_eq_0_iff:
-   !w. ((w && 1w) = 0w) <=> ~(w ' 0)
-Proof
-  srw_tac [wordsLib.WORD_BIT_EQ_ss] [wordsTheory.word_index]
-QED
+(* word_and_one_eq_0_iff: duplicate removed, see wordLemmasTheory *)
 
 Theorem split_num_forall_to_10[local]:
   ($! P) <=> P 0 /\ P 1 /\ P 2 /\ P 3 /\ P 4 /\ P 5 /\

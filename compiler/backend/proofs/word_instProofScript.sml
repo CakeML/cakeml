@@ -16,35 +16,7 @@ val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 *)
 Type result[pp] = “:'a wordSem$result”
 
-(* TODO: Move, but some of these are specific instantiations *)
-Theorem PERM_SWAP_SIMP[local]:
-  PERM (A ++ (B::C)) (B::(A++C))
-Proof
-  match_mp_tac APPEND_PERM_SYM>>full_simp_tac(srw_ss())[]>>
-  metis_tac[PERM_APPEND]
-QED
-
-Theorem EL_FILTER[local]:
-  ∀ls x. x < LENGTH (FILTER P ls) ⇒ P (EL x (FILTER P ls))
-Proof
-  Induct>>srw_tac[][]>>
-  Cases_on`x`>>full_simp_tac(srw_ss())[EL]
-QED
-
-Theorem PERM_SWAP[local]:
-  PERM (A ++ B ++ C) (B++(A++C))
-Proof
-  full_simp_tac(srw_ss())[PERM_DEF]>>srw_tac[][]>>
-  match_mp_tac LIST_EQ>>CONJ_ASM1_TAC
-  >-
-    (full_simp_tac(srw_ss())[FILTER_APPEND]>>DECIDE_TAC)
-  >>
-  srw_tac[][]>>
-  imp_res_tac EL_FILTER>>
-  last_x_assum SUBST_ALL_TAC>>
-  imp_res_tac EL_FILTER>>
-  metis_tac[]
-QED
+(* PERM_SWAP_SIMP, EL_FILTER, PERM_SWAP moved to listLemmasTheory *)
 
 (* Instruction selection and assorted optimisation correctness
 0) pull_exp correctness -- this does pull_ops and optimize_consts

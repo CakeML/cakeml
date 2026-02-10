@@ -2286,3 +2286,377 @@ Proof
   Induct \\ Cases_on `ys` \\ full_simp_tac (srw_ss()) []
   \\ rpt strip_tac \\ metis_tac []
 QED
+
+(* -- from data_to_word_gcProofScript.sml -- *)
+
+Theorem ALOOKUP_SKIP_LEMMA:
+   ~MEM n (MAP FST xs) /\ d = e ==>
+    ALOOKUP (xs ++ [(n,d)] ++ ys) n = SOME e
+Proof
+  full_simp_tac(srw_ss())[ALOOKUP_APPEND] \\ fs[GSYM ALOOKUP_NONE]
+QED
+
+Theorem LAST_EQ:
+   (LAST (x::xs) = if xs = [] then x else LAST xs) /\
+    (FRONT (x::xs) = if xs = [] then [] else x::FRONT xs)
+Proof
+  Cases_on `xs` \\ full_simp_tac(srw_ss())[]
+QED
+
+Theorem LASTN_LIST_REL_LEMMA:
+   !xs1 ys1 xs n y ys x P.
+      LASTN n xs1 = x::xs /\ LIST_REL P xs1 ys1 ==>
+      ?y ys. LASTN n ys1 = y::ys /\ P x y /\ LIST_REL P xs ys
+Proof
+  Induct \\ Cases_on `ys1` \\ full_simp_tac(srw_ss())[LASTN_ALT] \\ rpt strip_tac
+  \\ imp_res_tac LIST_REL_LENGTH \\ full_simp_tac(srw_ss())[]
+  \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
+  \\ full_simp_tac(srw_ss())[]
+  \\ every_case_tac \\ full_simp_tac(srw_ss())[]
+  \\ srw_tac[][] \\ `F` by decide_tac
+QED
+
+Theorem IS_SOME_ALOOKUP_EQ:
+   !l x. IS_SOME (ALOOKUP l x) = MEM x (MAP FST l)
+Proof
+  Induct \\ full_simp_tac(srw_ss())[]
+  \\ Cases \\ full_simp_tac(srw_ss())[ALOOKUP_def] \\ srw_tac[][]
+QED
+
+Theorem MEM_IMP_IS_SOME_ALOOKUP:
+   !l x y. MEM (x,y) l ==> IS_SOME (ALOOKUP l x)
+Proof
+  full_simp_tac(srw_ss())[IS_SOME_ALOOKUP_EQ,MEM_MAP,EXISTS_PROD] \\ metis_tac []
+QED
+
+Theorem EVERY2_IMP_EL:
+   !xs ys P n. EVERY2 P xs ys /\ n < LENGTH ys ==> P (EL n xs) (EL n ys)
+Proof
+  Induct \\ Cases_on `ys` \\ full_simp_tac(srw_ss())[]
+  \\ srw_tac[][] \\ Cases_on `n` \\ full_simp_tac(srw_ss())[]
+QED
+
+Theorem FST_PAIR_EQ:
+   !x v. (FST x,v) = x <=> v = SND x
+Proof
+  Cases \\ full_simp_tac(srw_ss())[]
+QED
+
+Theorem EVERY2_APPEND_IMP:
+   !xs1 xs2 zs P.
+      EVERY2 P (xs1 ++ xs2) zs ==>
+      ?zs1 zs2. zs = zs1 ++ zs2 /\ EVERY2 P xs1 zs1 /\ EVERY2 P xs2 zs2
+Proof
+  Induct \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
+  \\ res_tac \\ full_simp_tac(srw_ss())[]
+  \\ Q.LIST_EXISTS_TAC [`y::zs1`,`zs2`] \\ full_simp_tac(srw_ss())[]
+QED
+
+Theorem ZIP_ID:
+   !xs. ZIP (MAP FST xs, MAP SND xs) = xs
+Proof
+  Induct \\ full_simp_tac(srw_ss())[]
+QED
+
+(* -- from data_to_word_memoryProofScript.sml -- *)
+
+Theorem MAX_LIST_sum_bound:
+   SUM ls <= MAX_LIST ls * LENGTH ls
+Proof
+  Induct_on`ls` \\ rw[MAX_DEF,ADD1,LEFT_ADD_DISTRIB]
+  \\ match_mp_tac LESS_EQ_TRANS
+  \\ first_assum (irule_at Any) \\ simp[]
+QED
+
+Theorem MAX_LIST_bounded_elements:
+   !l1 l2. LIST_REL $<= l1 l2 ==> MAX_LIST l1 <= MAX_LIST l2
+Proof
+  Induct \\ rw[MAX_DEF] \\ res_tac \\ rw[MAX_DEF]
+QED
+
+Theorem MEM_EVERY2_IMP:
+   !l x zs P. MEM x l /\ EVERY2 P zs l ==> ?z. MEM z zs /\ P z x
+Proof
+  Induct \\ Cases_on `zs` \\ full_simp_tac (srw_ss()) [] \\ metis_tac []
+QED
+
+Theorem EVERY2_APPEND_CONS:
+   !xs y ys zs P. EVERY2 P (xs ++ y::ys) zs ==>
+                   ?t1 t t2. (zs = t1 ++ t::t2) /\ (LENGTH t1 = LENGTH xs) /\
+                             EVERY2 P xs t1 /\ P y t /\ EVERY2 P ys t2
+Proof
+  Induct \\ full_simp_tac (srw_ss()) []
+  \\ Cases_on `zs` \\ full_simp_tac (srw_ss()) []
+  \\ rpt strip_tac
+  \\ res_tac \\ full_simp_tac std_ss []
+  \\ Q.LIST_EXISTS_TAC [`h::t1`,`t'`,`t2`]
+  \\ full_simp_tac (srw_ss()) []
+QED
+
+Theorem EVERY2_SWAP:
+   !xs ys. EVERY2 P xs ys ==> EVERY2 (\y x. P x y) ys xs
+Proof
+  Induct \\ Cases_on `ys` \\ full_simp_tac (srw_ss()) []
+QED
+
+Theorem EVERY2_APPEND_IMP_APPEND:
+   !xs1 xs2 ys P.
+      EVERY2 P (xs1 ++ xs2) ys ==>
+      ?ys1 ys2. (ys = ys1 ++ ys2) /\ EVERY2 P xs1 ys1 /\ EVERY2 P xs2 ys2
+Proof
+  Induct \\ Cases_on `ys` \\ full_simp_tac (srw_ss()) [] \\ rpt strip_tac
+  \\ res_tac \\ full_simp_tac std_ss []
+  \\ Q.LIST_EXISTS_TAC [`h::ys1`,`ys2`]
+  \\ full_simp_tac std_ss [APPEND,LIST_REL_def] \\ metis_tac[]
+QED
+
+(* -- from source_to_flatProofScript.sml -- *)
+
+Theorem mapi_map:
+   !f g l. MAPi f (MAP g l) = MAPi (\i x. f i (g x)) l
+Proof
+  Induct_on `l` >>
+  rw [combinTheory.o_DEF]
+QED
+
+(* -- from word_to_stackProofScript.sml -- *)
+
+Theorem MAX_LIST_GENLIST_evens:
+    !n. MAX_LIST (GENLIST (\x. 2*x) n) = 2*(n-1)
+Proof
+  Induct>> fs[GENLIST]>>
+  fs[MAX_DEF]
+QED
+
+Theorem MAX_LIST_GENLIST_evens2:
+    !n. MAX_LIST (GENLIST (\x. 2*(x+1)) n) = 2*n
+Proof
+  Induct>> fs[GENLIST]>>
+  fs[MAX_DEF]
+QED
+
+(* -- from bvl_handleProofScript.sml -- *)
+
+Theorem IMP_EL_SING:
+   k = LENGTH xs ==> EL k (xs ++ [x] ++ ys) = x
+Proof
+  rw [] \\ fs [] \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+  \\ fs [EL_APPEND2]
+QED
+
+Theorem ALOOKUP_MAPi_SWAP_gen:
+  !z n k xs.
+      n <> k ==>
+      ALOOKUP (MAPi (\i x. (x,i+z)) (xs ++ [k])) n =
+      ALOOKUP (MAPi (\i x. (x,i+z)) xs) n
+Proof
+  Induct_on `xs` \\ fs [o_DEF,ADD1]
+QED
+
+Theorem ALOOKUP_MAPi_SWAP =
+  ALOOKUP_MAPi_SWAP_gen |> Q.SPEC `0` |> SIMP_RULE std_ss []
+
+Theorem ALOOKUP_MAPi_APPEND2_gen:
+  !z xs k.
+      ~MEM k xs ==>
+      ALOOKUP (MAPi (\i x. (x,i+z)) (xs ++ [k])) k = SOME (LENGTH xs + z)
+Proof
+  Induct_on `xs` \\ fs [o_DEF,ADD1]
+QED
+
+Theorem ALOOKUP_MAPi_APPEND2 =
+  ALOOKUP_MAPi_APPEND2_gen |> Q.SPEC `0` |> SIMP_RULE std_ss []
+
+(* -- from clos_callProofScript.sml -- *)
+
+Theorem IMP_EXISTS_IFF:
+  !xs. (!x. MEM x xs ==> (P x <=> Q x)) ==>
+         (EXISTS P xs <=> EXISTS Q xs)
+Proof
+  Induct \\ fs []
+QED
+
+Theorem ALL_DISTINCT_MAP_FST_ADD1:
+    !xs. ALL_DISTINCT (MAP (\k. FST k + 1n) xs) =
+         ALL_DISTINCT (MAP FST xs)
+Proof
+  Induct \\ fs [MEM_MAP]
+QED
+
+(* -- from clos_constantProofScript.sml -- *)
+
+Theorem LIST_REL_eq:
+  !l rs. LIST_REL (\c r. f r = c) l rs <=> l = MAP f rs
+Proof
+  Induct \\ Cases_on `rs` \\ fs [] \\ metis_tac []
+QED
+
+(* -- from clos_to_bvlProofScript.sml -- *)
+
+Theorem IS_SUBLIST_MEM:
+  !ls ls' x.
+  MEM x ls /\ IS_SUBLIST ls' ls ==>
+  MEM x ls'
+Proof
+  Induct>>Induct_on`ls'`>>rw[IS_SUBLIST]>>
+  metis_tac[MEM,IS_PREFIX_IS_SUBLIST]
+QED
+
+Theorem IS_SUBLIST_APPEND1:
+  !A B C.
+  IS_SUBLIST A C ==>
+  IS_SUBLIST (A++B) C
+Proof
+  rw[]>>match_mp_tac (snd(EQ_IMP_RULE (SPEC_ALL IS_SUBLIST_APPEND)))>>
+  fs[IS_SUBLIST_APPEND]>>
+  metis_tac[APPEND_ASSOC]
+QED
+
+Theorem IS_SUBLIST_APPEND2:
+  !A B C.
+  IS_SUBLIST B C ==>
+  IS_SUBLIST (A++B) C
+Proof
+  Induct_on`A`>>Induct_on`B`>>Induct_on`C`>>fs[IS_SUBLIST]
+QED
+
+Theorem IS_SUBLIST_REFL:
+  !ls.
+  IS_SUBLIST ls ls
+Proof
+  Induct>>fs[IS_SUBLIST]
+QED
+
+Theorem map2_snoc:
+  !l1 l2 f x y.
+    LENGTH l1 = LENGTH l2 ==>
+    MAP2 f (SNOC x l1) (SNOC y l2) = MAP2 f l1 l2 ++ [f x y]
+Proof
+  Induct_on `l1` >>
+  srw_tac[][] >>
+  `l2 = [] \/ ?h l2'. l2 = h::l2'` by (Cases_on `l2` >> srw_tac[][]) >>
+  Cases_on `l2` >>
+  full_simp_tac(srw_ss())[] >>
+  metis_tac[SNOC_APPEND]
+QED
+
+Theorem el_map2:
+  !x f l1 l2.
+    LENGTH l1 = LENGTH l2 /\ x < LENGTH l1
+    ==>
+    EL x (MAP2 f l1 l2) = f (EL x l1) (EL x l2)
+Proof
+  Induct_on `x` >>
+  srw_tac[][] >>
+  Cases_on `l2` >>
+  full_simp_tac(srw_ss())[] >>
+  Cases_on `l1` >>
+  full_simp_tac(srw_ss())[]
+QED
+
+Theorem length_take2:
+  !x l. ~(x <= LENGTH l) ==> LENGTH (TAKE x l) = LENGTH l
+Proof
+  Induct_on `l` >>
+  srw_tac[][TAKE_def] >>
+  Cases_on `x` >>
+  full_simp_tac(srw_ss())[] >>
+  first_x_assum match_mp_tac >>
+  decide_tac
+QED
+
+Theorem el_take_append:
+  !n l x l2. n <= LENGTH l ==> EL n (TAKE n l ++ [x] ++ l2) = x
+Proof
+  Induct_on `l` >>
+  srw_tac[][] >>
+  ONCE_REWRITE_TAC [GSYM APPEND_ASSOC]>>
+  fs[EL_APPEND2,LENGTH_TAKE]
+QED
+
+Theorem el_append2:
+  !l x. EL (LENGTH l) (l++[x]) = x
+Proof
+  Induct_on `l` >> srw_tac[][]
+QED
+
+Theorem el_append2_lemma:
+  !n args.
+    n+1 = LENGTH args
+    ==>
+    EL (SUC n) (args ++ [x]) = x
+Proof
+  Induct_on `args` >> srw_tac[][] >>
+  full_simp_tac (srw_ss()++ARITH_ss) [ADD1, el_append2]
+QED
+
+Theorem hd_append:
+  !l1 l2. 0 < LENGTH l1 ==> HD (l1 ++ l2) = HD l1
+Proof
+  Cases_on `l1` >> srw_tac[][]
+QED
+
+Theorem tl_append:
+  !l1 l2. 0 < LENGTH l1 ==> TL (l1 ++ l2) = TL l1 ++ l2
+Proof
+  Cases_on `l1` >> srw_tac[][]
+QED
+
+(* -- from clos_opProofScript.sml -- *)
+
+Theorem list_split3:
+  !P. P [] /\ (!x y z zs. P (x::y::z::zs)) /\ (!x. P [x]) /\ (!x y. P [x; y]) ==>
+      !xs. P xs
+Proof
+  rw[] \\ Cases_on `xs` \\ fs [] \\ Cases_on `t` \\ fs [] \\ Cases_on `t'` \\ fs []
+QED
+
+(* -- from word_instProofScript.sml -- *)
+
+Theorem PERM_SWAP_SIMP:
+  PERM (A ++ (B::C)) (B::(A++C))
+Proof
+  match_mp_tac APPEND_PERM_SYM>>full_simp_tac(srw_ss())[]>>
+  metis_tac[PERM_APPEND]
+QED
+
+Theorem EL_FILTER:
+  !ls x. x < LENGTH (FILTER P ls) ==> P (EL x (FILTER P ls))
+Proof
+  Induct>>srw_tac[][]>>
+  Cases_on`x`>>full_simp_tac(srw_ss())[EL]
+QED
+
+Theorem PERM_SWAP:
+  PERM (A ++ B ++ C) (B++(A++C))
+Proof
+  full_simp_tac(srw_ss())[PERM_DEF]>>srw_tac[][]>>
+  match_mp_tac LIST_EQ>>CONJ_ASM1_TAC
+  >-
+    (full_simp_tac(srw_ss())[FILTER_APPEND]>>DECIDE_TAC)
+  >>
+  srw_tac[][]>>
+  imp_res_tac EL_FILTER>>
+  last_x_assum SUBST_ALL_TAC>>
+  imp_res_tac EL_FILTER>>
+  metis_tac[]
+QED
+
+(* -- from stack_removeProofScript.sml -- *)
+
+Theorem LESS_LENGTH_IMP_APPEND:
+   !xs n. n < LENGTH xs ==> ?ys zs. xs = ys ++ zs /\ LENGTH ys = n
+Proof
+  Induct \\ full_simp_tac(srw_ss())[] \\ Cases_on `n` \\ full_simp_tac(srw_ss())[LENGTH_NIL]
+  \\ srw_tac[][] \\ res_tac \\ srw_tac[][]
+  \\ pop_assum (fn th => simp [Once th])
+  \\ qexists_tac `h::ys` \\ full_simp_tac(srw_ss())[]
+QED
+
+(* -- from flat_elimProofScript.sml -- *)
+
+Theorem EVERY_EL_IMP:
+  EVERY P xs /\ n < LENGTH xs ==> P (EL n xs)
+Proof
+  simp [EVERY_EL]
+QED
