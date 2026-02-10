@@ -3,7 +3,7 @@ inside the logic to produce the verified machine code version of the
 64-bit compiler.
 
 [arm8BootstrapScript.sml](arm8BootstrapScript.sml):
-Evaluateof the 64-bit version of the compiler into arm8 machine code.
+Evaluation of the 64-bit version of the compiler into arm8 machine code.
 
 [basis_ffi.c](basis_ffi.c):
 Implements the foreign function interface (FFI) used in the CakeML basis

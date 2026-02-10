@@ -1,5 +1,5 @@
 (*
-  Correctness proof for --
+  Correctness proof for pan_to_crep
 *)
 Theory pan_to_crepProof
 Ancestors

@@ -1,2 +1,2 @@
 Prove end-to-end correctness theorem for LPR checker with arrays
-against ARM8 model
+against the ARMv8 model.

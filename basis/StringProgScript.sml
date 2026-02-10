@@ -1,5 +1,5 @@
 (*
-  Module about the built-in string tyoe.
+  Module about the built-in string type.
 *)
 Theory StringProg
 Ancestors

@@ -1,5 +1,5 @@
 (*
-  The dataLang intermediate lannguage is the last language with a
+  The dataLang intermediate language is the last language with a
   functional-programming-style data abstraction.
 
   dataLang is the next step from BVL/BVI: (1) dataLang is an

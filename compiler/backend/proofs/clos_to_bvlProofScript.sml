@@ -1808,8 +1808,8 @@ QED
 
 val v_case_eq_thms =
   LIST_CONJ [
-    prove_case_eq_thm{nchotomy = closSemTheory.v_nchotomy, case_def = closSemTheory.v_case_def},
-    prove_case_eq_thm{nchotomy = bvlSemTheory.v_nchotomy, case_def = bvlSemTheory.v_case_def}];
+    TypeBase.case_eq_of ``:closSem$v``,
+    TypeBase.case_eq_of ``:bvlSem$v``];
 
 Theorem do_app_err[local]:
   do_app op xs s1 = Rerr err ∧

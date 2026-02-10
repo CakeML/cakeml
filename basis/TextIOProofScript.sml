@@ -2548,7 +2548,7 @@ Proof
     \\ xlet_auto >- xsimpl
     \\ xlet_auto >- xsimpl
     \\ xlet_auto >- (xsimpl \\ fs[instream_buffered_inv_def])
-    \\ xlet_auto >- xsimpl \\ fs [CharProgTheory.fromByte_def]
+    \\ xlet_auto >- xsimpl \\ fs [(*CharProgTheory.fromByte_def*)]
     \\ xapp
     \\ `bactive <> []` by (fs[instream_buffered_inv_def] \\ fs[DROP_NIL])
     \\ xsimpl
@@ -2617,7 +2617,7 @@ Proof
     \\ xlet_auto >- xsimpl
     \\ rveq
     \\ xlet_auto >- (xsimpl \\ fs[instream_buffered_inv_def])
-    \\ xlet_auto >- xsimpl \\ fs [CharProgTheory.fromByte_def]
+    \\ xlet_auto >- xsimpl \\ fs [(* CharProgTheory.fromByte_def *)]
     \\ xapp
     \\ `bactive <> []` by (fs[instream_buffered_inv_def] \\ fs[DROP_NIL])
     \\ xsimpl
@@ -6245,8 +6245,8 @@ Proof
   >- (xapp \\ simp [W8ARRAY_def] \\ xsimpl \\ metis_tac [])
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
-  \\ ‘fromByte (EL i wl) = c ⇔ ORD c = w2n (EL i wl)’ by
-   (gvs [CharProgTheory.fromByte_def]
+  \\ ‘word8_to_char (EL i wl) = c ⇔ ORD c = w2n (EL i wl)’ by
+   (gvs [(*CharProgTheory.fromByte_def*)]
     \\ Cases_on ‘EL i wl’ \\ gvs []
     \\ Cases_on ‘c’ \\ gvs [])
   \\ gvs []
