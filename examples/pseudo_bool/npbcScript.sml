@@ -3663,10 +3663,10 @@ QED
 (* Conclusion and outputs *)
 
 Definition sem_concl_def:
-  (sem_concl fml obj NoConcl = T) ∧
-  (sem_concl fml obj DSat = satisfiable fml) ∧
-  (sem_concl fml obj DUnsat = unsatisfiable fml) ∧
-  (sem_concl fml obj (OBounds lbi ubi) =
+  (sem_concl fml obj pres NoConcl = T) ∧
+  (sem_concl fml obj pres DSat = satisfiable fml) ∧
+  (sem_concl fml obj pres DUnsat = unsatisfiable fml) ∧
+  (sem_concl fml obj pres (OBounds lbi ubi) =
     ((case lbi of
       NONE => unsatisfiable fml
     | SOME lb =>
@@ -3674,12 +3674,11 @@ Definition sem_concl_def:
     (case ubi of
       NONE => T
     | SOME ub =>
-      (∃w. satisfies w fml ∧ eval_obj obj w ≤ ub))))
-End
-
-Definition pres_set_spt_def:
-  pres_set_spt pres =
-    case pres of NONE => {} | SOME pres => domain pres
+      (∃w. satisfies w fml ∧ eval_obj obj w ≤ ub)))) ∧
+  (sem_concl fml obj pres (EEnum n complete) =
+    (n ≤ CARD (proj_pres pres {w | satisfies w fml}) ∧
+    (complete ⇒
+      CARD (proj_pres pres {w | satisfies w fml}) ≤ n)))
 End
 
 Definition sem_output_def:
@@ -3705,5 +3704,10 @@ Definition sem_output_def:
         (proj_pres pres' {w' | satisfies w' fml' ∧ eval_obj obj' w' ≤ v})
     )
   )
+End
+
+Definition pres_set_spt_def:
+  pres_set_spt pres =
+    case pres of NONE => {} | SOME pres => domain pres
 End
 

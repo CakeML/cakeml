@@ -5,7 +5,7 @@ Theory npbc_check
 Libs
   preamble
 Ancestors
-  npbc mlstring mlint mlvector mllist spt_to_vec mergesort integer
+  pbc npbc mlstring mlint mlvector mllist spt_to_vec integer
 
 val _ = numLib.temp_prefer_num();
 
@@ -2655,6 +2655,7 @@ Datatype:
 
   (* Preserved set step b=T is add, b=F is remove *)
   | ChangePres bool var npbc subproof
+  | CheckPres num_set
   | Sol assg_raw
 End
 
@@ -3290,6 +3291,13 @@ Definition check_change_pres_def:
     else NONE
 End
 
+Definition check_eq_pres_def:
+  check_eq_pres pres sp' =
+  case pres of NONE => F
+  | SOME sp =>
+    toSortedAList sp = toSortedAList sp'
+End
+
 Type aord_s = ``:aord # unit option vector``;
 
 Datatype:
@@ -3522,7 +3530,7 @@ Definition check_cstep_def:
       SOME (fml, pc with <| id := id'; pres := SOME pres' |>)
     )
   | Sol w =>
-    (if pc.obj ≠ NONE then NONE
+    (if pc.obj ≠ NONE ∨ ¬pc.chk then NONE
     else
     case check_obj pc.obj w
       (MAP SND (toAList (mk_core_fml T fml))) NONE of
@@ -3539,6 +3547,10 @@ Definition check_cstep_def:
              dbound := dbound';
              enum := pc.enum+1
              |>))
+  | CheckPres ls' =>
+    if check_eq_pres pc.pres ls'
+    then SOME (fml,pc)
+    else NONE
   )
 End
 
@@ -3616,11 +3628,11 @@ Proof
   rw[imp_obj_def,sat_obj_le_def]>>
   `∃pw. pw ∈ proj_pres pres1
     {w | satisfies w C1 ∧ eval_obj fopt1 w ≤ v}` by
-    (simp[pbcTheory.proj_pres_def]>>
+    (simp[proj_pres_def]>>
     metis_tac[])>>
   gvs[INJ_DEF]>>
   last_x_assum drule>>
-  simp[pbcTheory.proj_pres_def]>>
+  simp[proj_pres_def]>>
   rw[]>>
   metis_tac[]
 QED
@@ -3634,7 +3646,7 @@ Proof
   rw[imp_obj_def,sat_obj_le_def]>>
   gvs[PULL_EXISTS]>>
   qexists_tac`I`>>
-  rw[INJ_DEF,pbcTheory.proj_pres_def]>>
+  rw[INJ_DEF,proj_pres_def]>>
   metis_tac[]
 QED
 
@@ -3697,7 +3709,7 @@ Theorem sat_obj_po_bimp_pres_obj:
 Proof
   rw[sat_obj_po_def,bimp_pres_obj_def]>>
   qexists_tac`I`>>
-  rw[INJ_DEF,pbcTheory.proj_pres_def]>>
+  rw[INJ_DEF,proj_pres_def]>>
   first_x_assum drule>>rw[]>>
   first_x_assum (irule_at Any)>>simp[]>>
   CONJ_TAC >- (
@@ -3712,7 +3724,7 @@ Theorem sat_obj_po_bimp_pres:
 Proof
   rw[sat_obj_po_def,bimp_pres_def]>>
   qexists_tac`I`>>
-  rw[INJ_DEF,pbcTheory.proj_pres_def]>>
+  rw[INJ_DEF,proj_pres_def]>>
   first_x_assum drule>>rw[]>>
   first_x_assum (irule_at Any)>>simp[]>>
   rw[EXTENSION]>>
@@ -3757,7 +3769,7 @@ Theorem bimp_pres_obj_SUBSET:
 Proof
   rw[bimp_pres_obj_def]>>
   qexists_tac`I`>>
-  rw[INJ_DEF,pbcTheory.proj_pres_def]>>
+  rw[INJ_DEF,proj_pres_def]>>
   first_x_assum (irule_at Any)>>simp[]>>
   metis_tac[satisfies_SUBSET]
 QED
@@ -3768,7 +3780,7 @@ Theorem bimp_pres_SUBSET:
 Proof
   rw[bimp_pres_def]>>
   qexists_tac`I`>>
-  rw[INJ_DEF,pbcTheory.proj_pres_def]>>
+  rw[INJ_DEF,proj_pres_def]>>
   qexists_tac`w`>>simp[]>>
   metis_tac[satisfies_SUBSET]
 QED
@@ -3926,7 +3938,7 @@ Theorem bimp_pres_obj_update_pres_1:
     (core_only_fml F fml)
 Proof
   rw[bimp_pres_obj_def]>>
-  gvs[pbcTheory.proj_pres_def,domain_update_pres]>>
+  gvs[proj_pres_def,domain_update_pres]>>
   drule pres_only_dependency>>rw[]
   >- ( (* insertion: the injection maps v to its definition *)
     qexists_tac
@@ -3968,7 +3980,7 @@ Theorem bimp_pres_obj_update_pres_2:
     (core_only_fml T fml)
 Proof
   rw[bimp_pres_obj_def]>>
-  gvs[pbcTheory.proj_pres_def,domain_update_pres]>>
+  gvs[proj_pres_def,domain_update_pres]>>
   drule pres_only_dependency>>rw[]
   >- ( (* reversed insertion: The injection drops v *)
     Cases_on`v ∈ domain pres`
@@ -4019,7 +4031,7 @@ Theorem bimp_pres_update_pres_1:
     (core_only_fml F fml)
 Proof
   rw[bimp_pres_def]>>
-  gvs[pbcTheory.proj_pres_def,domain_update_pres]>>
+  gvs[proj_pres_def,domain_update_pres]>>
   drule pres_only_dependency>>rw[]
   >- ( (* insertion: the injection maps v to its definition *)
     qexists_tac
@@ -4061,7 +4073,7 @@ Theorem bimp_pres_update_pres_2:
     (core_only_fml T fml)
 Proof
   rw[bimp_pres_def]>>
-  gvs[pbcTheory.proj_pres_def,domain_update_pres]>>
+  gvs[proj_pres_def,domain_update_pres]>>
   drule pres_only_dependency>>rw[]
   >- ( (* reversed insertion: The injection drops v *)
     Cases_on`v ∈ domain pres`
@@ -4104,7 +4116,7 @@ Theorem proj_pres_SUBSET:
   x ⊆ y ⇒
   proj_pres p x ⊆ proj_pres p y
 Proof
-  rw[pbcTheory.proj_pres_def]
+  rw[proj_pres_def]
 QED
 
 Theorem weaken:
@@ -4137,7 +4149,7 @@ Proof
   gvs[AllCasePreds()]>>
   `0 ≤ v ⇔ F` by intLib.ARITH_TAC>>
   qexists_tac`ARB`>>
-  rw[INJ_DEF,pbcTheory.proj_pres_def]
+  rw[INJ_DEF,proj_pres_def]
 QED
 
 Theorem if_opt_lt_opt_le[simp]:
@@ -4158,7 +4170,7 @@ QED
 Theorem FINITE_proj_pres_pres_set_spt:
   FINITE (proj_pres (pres_set_spt pres) ws)
 Proof
-  rw[pbcTheory.proj_pres_def]>>
+  rw[proj_pres_def]>>
   `IMAGE (λw. pres_set_spt pres ∩ w) ws ⊆ {s | s ⊆ pres_set_spt pres}` by
     (rw[SUBSET_DEF]>>fs[IN_INTER])>>
   `FINITE {s | s ⊆ pres_set_spt pres}` by
@@ -4213,7 +4225,9 @@ Theorem check_cstep_correct:
           pc'.obj (core_only_fml T fml')
         (pres_set_spt pc.pres)
           pc.obj (core_only_fml T fml)) ∧
-      (pc'.chk ⇒ pc.chk) ∧ (¬pc'.chk ⇒ pc.bound = pc'.bound) ∧
+      (pc'.chk ⇒ pc.chk) ∧
+      (¬pc'.chk ⇒ pc.bound = pc'.bound) ∧
+      (¬pc'.chk ⇒ pc.enum = pc'.enum) ∧
       OPTION_ALL good_aspo_subst pc'.ord ∧
       EVERY (good_aord_t o SND) pc'.orders
 Proof
@@ -4907,7 +4921,7 @@ Proof
           qexists_tac`I`>>
           simp[INJ_DEF,satisfies_npbc_model_improving]>>
           Cases_on`pc.dbound`>>fs[opt_lt_def]>>
-          rw[pbcTheory.proj_pres_def]>>
+          rw[proj_pres_def]>>
           first_assum (irule_at Any)>>simp[]>>
           intLib.ARITH_TAC)>>
         simp[core_only_fml_F_insert_b]>>
@@ -4916,7 +4930,7 @@ Proof
         qexists_tac`I`>>
         simp[INJ_DEF,satisfies_npbc_model_improving]>>
         Cases_on`pc.dbound`>>fs[opt_lt_def]>>
-        rw[pbcTheory.proj_pres_def]>>
+        rw[proj_pres_def]>>
         first_assum (irule_at Any)>>simp[]>>
         intLib.ARITH_TAC)>>
       strip_tac>>
@@ -5011,12 +5025,12 @@ Proof
       intLib.ARITH_TAC)>>
     CONJ_TAC >- (
       rw[bimp_pres_obj_def]>>
-      qexists_tac`I`>>rw[INJ_DEF,pbcTheory.proj_pres_def]>>
+      qexists_tac`I`>>rw[INJ_DEF,proj_pres_def]>>
       first_assum (irule_at Any)>> simp[]>>
       fs[satisfies_def,core_only_fml_def]>>
       metis_tac[])>>
     rw[bimp_pres_obj_def]>>
-    qexists_tac`I`>>rw[INJ_DEF,pbcTheory.proj_pres_def]>>
+    qexists_tac`I`>>rw[INJ_DEF,proj_pres_def]>>
     first_assum (irule_at Any)>> simp[])
   >~[`CheckObj`] >- (
     fs[check_cstep_def]>>
@@ -5052,7 +5066,7 @@ Proof
         qexists_tac`I`>>
         simp[INJ_DEF,satisfies_npbc_model_improving]>>
         Cases_on`pc.dbound`>>fs[opt_lt_def]>>
-        rw[pbcTheory.proj_pres_def]>>
+        rw[proj_pres_def]>>
         first_assum (irule_at Any)>>simp[]>>
         intLib.ARITH_TAC)>>
       simp[core_only_fml_F_insert_b]>>
@@ -5061,7 +5075,7 @@ Proof
       qexists_tac`I`>>
       simp[INJ_DEF,satisfies_npbc_model_improving]>>
       Cases_on`pc.dbound`>>fs[opt_lt_def]>>
-      rw[pbcTheory.proj_pres_def]>>
+      rw[proj_pres_def]>>
       first_assum (irule_at Any)>>simp[]>>
       intLib.ARITH_TAC)>>
     strip_tac>>
@@ -5170,19 +5184,23 @@ Proof
       qexists_tac`{pres_set_spt pc.pres ∩ ww}`>>
       rw[bimp_pres_def]
       >-
-        fs[pbcTheory.proj_pres_def,GSYM range_mk_core_fml,range_toAList]
+        fs[proj_pres_def,GSYM range_mk_core_fml,range_toAList]
       >- (
         qexists_tac`I`>>
         simp[INJ_DEF,core_only_fml_F_insert_b,satisfies_npbc_model_banning]>>
-        rw[pbcTheory.proj_pres_def]>>
+        rw[proj_pres_def]>>
         metis_tac[])
       >- (
         qexists_tac`I`>>
         simp[INJ_DEF,core_only_fml_T_insert_T,satisfies_npbc_model_banning]>>
-        rw[pbcTheory.proj_pres_def]>>
+        rw[proj_pres_def]>>
         metis_tac[]))>>
     DEP_REWRITE_TAC[bimp_pres_obj_NONE]>>
     fs[eval_obj_def])
+  >~[`CheckPres`] >- (
+    fs[check_cstep_def]>>
+    every_case_tac>>rw[]>>
+    metis_tac[INJ_ID])
 QED
 
 Definition check_csteps_def:
@@ -5241,6 +5259,32 @@ Proof
   metis_tac[INJ_COMPOSE]
 QED
 
+(* can be generalized; pres_set_spt guarantees FINITE *)
+Theorem bimp_pres_CARD:
+  FINITE e1 ∧
+  e2 ⊆ proj_pres (pres_set_spt pres2) {w | satisfies w C2} ∧
+  bimp_pres (pres_set_spt pres1) e1 C1 (pres_set_spt pres2) e2 C2 ⇒
+  CARD (proj_pres (pres_set_spt pres1) {w | satisfies w C1}) + CARD e2 ≤
+  CARD (proj_pres (pres_set_spt pres2) {w | satisfies w C2}) + CARD e1
+Proof
+  rw[bimp_pres_def]>>
+  drule INJ_CARD>>
+  DEP_REWRITE_TAC[CARD_DIFF_EQN]>>
+  simp[FINITE_proj_pres_pres_set_spt]>>
+  drule SUBSET_INTER2>>
+  rw[]>>
+  `CARD e2 ≤
+   CARD (proj_pres (pres_set_spt pres2) {w' | satisfies w' C2})` by
+    (irule CARD_SUBSET>>
+    simp[SUBSET_DEF,FINITE_proj_pres_pres_set_spt])>>
+  fs[]>>
+  `CARD (proj_pres (pres_set_spt pres1) {w | satisfies w C1} ∩ e1) ≤
+    CARD e1` by (
+    simp[Once INTER_COMM]>>
+    irule CARD_INTER_LESS_EQ)>>
+  fs[]
+QED
+
 Theorem check_csteps_correct:
   ∀csteps fml pc fml' pc'.
   id_ok fml pc.id ∧
@@ -5259,14 +5303,15 @@ Theorem check_csteps_correct:
     (pc.obj = NONE ⇔ pc'.obj = NONE) ∧
     pc.enum ≤ pc'.enum ∧
     (pc.obj = NONE ⇒
-      ∃ns.
-        ns ⊆ proj_pres (pres_set_spt pc.pres) {w | satisfies w (core_only_fml T fml)} ∧
-        CARD ns = pc'.enum - pc.enum ∧
-        bimp_pres (pres_set_spt pc.pres) ns (core_only_fml F fml)
-                  (pres_set_spt pc'.pres) {} (core_only_fml F fml') ∧
-        (pc'.chk ⇒
-        bimp_pres (pres_set_spt pc'.pres) {} (core_only_fml T fml')
-                  (pres_set_spt pc.pres) ns (core_only_fml T fml))) ∧
+      CARD (proj_pres (pres_set_spt pc.pres) {w | satisfies w (core_only_fml F fml)}) ≤
+        CARD (proj_pres (pres_set_spt pc'.pres) {w | satisfies w (core_only_fml F fml')}) +
+        (pc'.enum - pc.enum) ∧
+      (pc'.enum - pc.enum) ≤
+        CARD (proj_pres (pres_set_spt pc.pres) {w | satisfies w (core_only_fml T fml)}) ∧
+      (pc'.chk ⇒
+        CARD (proj_pres (pres_set_spt pc'.pres) {w | satisfies w (core_only_fml T fml')}) +
+        (pc'.enum - pc.enum) ≤
+        CARD (proj_pres (pres_set_spt pc.pres) {w | satisfies w (core_only_fml T fml)}))) ∧
     (bimp_pres_obj pc'.dbound
       (pres_set_spt pc.pres)
         pc.obj (core_only_fml F fml)
@@ -5278,6 +5323,7 @@ Theorem check_csteps_correct:
         (pres_set_spt pc.pres)
           pc.obj (core_only_fml T fml)) ∧
     (pc'.chk ⇒ pc.chk) ∧ (¬pc.chk ⇒ pc.bound = pc'.bound) ∧
+    (¬pc.chk ⇒ pc.enum = pc'.enum) ∧
     OPTION_ALL good_aspo_subst pc'.ord ∧
     EVERY (good_aord_t o SND) pc'.orders )
 Proof
@@ -5312,13 +5358,23 @@ Proof
     fs[bimp_obj_def,imp_obj_def]>>
     gvs[]>>
     fs[])>>
-  rw[]>>fs[]
-  >- (
-    gvs[]>>
-    rename1`ns ⊆ proj_pres (pres_set_spt pc.pres) _`>>
-    rename1`ns' ⊆ proj_pres (pres_set_spt pc''.pres) _`>>
-    cheat)
-  >- metis_tac[bimp_pres_obj_trans,bimp_pres_obj_le]
+  CONJ_TAC >- (
+    rw[]>>gvs[]
+    >- (
+      drule_at (Pos (el 3)) bimp_pres_CARD>>
+      simp[]>>
+      impl_tac >-
+        metis_tac[SUBSET_FINITE,FINITE_proj_pres_pres_set_spt]>>
+      simp[])
+    >- (
+      Cases_on`pc'.chk`>>fs[]>>
+      Cases_on`pc''.chk`>>fs[]>>
+      gvs[]>>
+      drule_at (Pos (el 3)) bimp_pres_CARD>>
+      simp[])
+    >- (
+      drule_at (Pos (el 3)) bimp_pres_CARD>>
+      simp[]))
   >- metis_tac[bimp_pres_obj_trans,bimp_pres_obj_le]
 QED
 
@@ -5341,7 +5397,7 @@ Proof
   metis_tac[opt_le_exists]
 QED
 
-Theorem bimp_pres_obj_NONE:
+Theorem bimp_pres_obj_NONE_satisfiable:
   bimp_pres_obj NONE pres1 obj1 C1 pres2 obj2 C2 ⇒
   (satisfiable C1 ⇒ satisfiable C2)
 Proof
@@ -5349,7 +5405,7 @@ Proof
   first_x_assum(qspec_then`eval_obj obj1 w` assume_tac)>>
   gvs[INJ_DEF]>>
   pop_assum kall_tac>>
-  gvs[pbcTheory.proj_pres_def,PULL_EXISTS]>>
+  gvs[proj_pres_def,PULL_EXISTS]>>
   metis_tac[integerTheory.INT_LE_REFL]
 QED
 
@@ -5466,6 +5522,7 @@ Datatype:
   | HDSat (assg_raw option)
   | HDUnsat num
   | HOBounds (int option) (int option) num (assg_raw option)
+  | HEEnum num bool (num option)
 End
 
 (* if lower bound is infinity, must prove infeasibility *)
@@ -5486,8 +5543,8 @@ End
 (* fml, obj are the original formula (as a list) and objective
   all the '-ed variables are after checking *)
 Definition check_hconcl_def:
-  (check_hconcl fml obj fml' obj' bound' dbound' HNoConcl = T) ∧
-  (check_hconcl fml obj fml' obj' bound' dbound' (HDSat wopt) =
+  (check_hconcl fml obj fml' obj' bound' dbound' enum HNoConcl = T) ∧
+  (check_hconcl fml obj fml' obj' bound' dbound' enum (HDSat wopt) =
     case wopt of
       NONE =>
       (* Claiming SAT without witness needs
@@ -5496,11 +5553,11 @@ Definition check_hconcl_def:
     | SOME wm =>
       (* Otherwise, use the witness *)
       check_obj obj wm fml NONE ≠ NONE) ∧
-  (check_hconcl fml obj fml' obj' bound' dbound' (HDUnsat n) =
+  (check_hconcl fml obj fml' obj' bound' dbound' enum (HDUnsat n) =
     (* Claiming UNSAT requires contradiction
       derived in the final formula *)
     (dbound' = NONE ∧ check_contradiction_fml F fml' n)) ∧
-  (check_hconcl fml obj fml' obj' bound' dbound'
+  (check_hconcl fml obj fml' obj' bound' dbound' enum
     (HOBounds lbi ubi n wopt) =
     (
     ((* Lower bound claimed must be at most the
@@ -5515,14 +5572,25 @@ Definition check_hconcl_def:
     case wopt of
       NONE => opt_le bound' ubi
     | SOME wm =>
-      opt_le (OPTION_MAP FST (check_obj obj wm fml NONE)) ubi)))
+      opt_le (OPTION_MAP FST (check_obj obj wm fml NONE)) ubi))) ∧
+  (check_hconcl fml obj fml' obj' bound' dbound' enum
+    (HEEnum n complete hint) =
+    (
+    obj = NONE ∧
+    (* Number of solutions claimed must be at most enumerated *)
+    n = enum ∧
+    (* And if complete enumeration is claimed, formula must be hinted *)
+    (complete ⇒
+      case hint of NONE => F
+      | SOME i => check_contradiction_fml F fml' i)))
 End
 
 Definition hconcl_concl_def:
   (hconcl_concl HNoConcl = NoConcl) ∧
   (hconcl_concl (HDSat _) = DSat) ∧
   (hconcl_concl (HDUnsat _) = DUnsat) ∧
-  (hconcl_concl (HOBounds lbi ubi _ _) = OBounds lbi ubi)
+  (hconcl_concl (HOBounds lbi ubi _ _) = OBounds lbi ubi) ∧
+  (hconcl_concl (HEEnum n complete _) = EEnum n complete)
 End
 
 Definition init_conf_def:
@@ -5548,8 +5616,8 @@ Theorem check_csteps_check_hconcl:
     SOME (fml',pc') ∧
   all_core fml ∧
   set fmlls = core_only_fml T fml ∧
-  check_hconcl fmlls obj fml' pc'.obj pc'.bound pc'.dbound hconcl ⇒
-  sem_concl (set fmlls) obj (hconcl_concl hconcl)
+  check_hconcl fmlls obj fml' pc'.obj pc'.bound pc'.dbound pc'.enum hconcl ⇒
+  sem_concl (set fmlls) obj (pres_set_spt pres) (hconcl_concl hconcl)
 Proof
   rw[]>>
   drule_at Any check_csteps_correct>>
@@ -5559,6 +5627,7 @@ Proof
   Cases_on`hconcl`>>
   fs[hconcl_concl_def,sem_concl_def,check_hconcl_def]
   >- ( (* HDSat *)
+    qpat_x_assum`pc'.chk ⇒ _` kall_tac>>
     gvs[AllCasePreds()]
     >- (
       Cases_on`pc'.bound`>>
@@ -5573,7 +5642,7 @@ Proof
   >- ( (* HDUnsat *)
     drule check_contradiction_fml_unsat>>
     gvs[]>>
-    drule bimp_pres_obj_NONE>>
+    drule bimp_pres_obj_NONE_satisfiable>>
     rw[]>>
     fs[all_core_core_only_fml_eq,unsatisfiable_def])
   >- ( (* HOBound *)
@@ -5586,7 +5655,7 @@ Proof
         Cases_on`pc'.dbound`>>fs[opt_le_def,opt_lt_def]>>
         drule check_contradiction_fml_unsat>>
         gvs[]>>
-        drule bimp_pres_obj_NONE>>
+        drule bimp_pres_obj_NONE_satisfiable>>
         fs[all_core_core_only_fml_eq,unsatisfiable_def]>>
         metis_tac[])>>
       imp_res_tac bimp_pres_obj_bimp_obj>>
@@ -5641,6 +5710,13 @@ Proof
     strip_tac>>
     gvs[all_core_core_only_fml_eq]>>
     rw[]>>asm_exists_tac>>simp[])
+  >- ( (* HEEnum *)
+    gvs[]>>
+    rw[]>>gvs[AllCasePreds(),all_core_core_only_fml_eq]>>
+    drule check_contradiction_fml_unsat>>
+    gvs[]>>
+    rw[]>>
+    fs[unsatisfiable_def,satisfiable_def,proj_pres_def])
 QED
 
 (* Every constraint in fml' is in fml *)
@@ -5715,7 +5791,7 @@ Theorem valid_conf_proj_pres_eq:
   proj_pres (pres_set_spt pres)
     {w | satisfies w (core_only_fml F fml) ∧ eval_obj obj w ≤ v}
 Proof
-  rw[valid_conf_def,valid_req_def,sat_obj_po_def,pbcTheory.proj_pres_def,EXTENSION,EQ_IMP_THM,pres_set_spt_def]
+  rw[valid_conf_def,valid_req_def,sat_obj_po_def,proj_pres_def,EXTENSION,EQ_IMP_THM,pres_set_spt_def]
   >- (
     first_x_assum drule>>
     rw[]>>
@@ -5848,7 +5924,7 @@ Proof
       by (
       pop_assum kall_tac>>
       simp[EXTENSION]>>
-      gvs[pbcTheory.proj_pres_def]>>
+      gvs[proj_pres_def]>>
       rw[EQ_IMP_THM]
       >- (
         irule_at Any (GEN_ALL fml_include_satisfies)>>
