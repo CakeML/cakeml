@@ -10,6 +10,8 @@ Ancestors
 Libs
   preamble ml_translatorLib ml_monad_translator_interfaceLib
 
+val _ = ParseExtras.tight_equality();
+
 (* Part 1. Translator Setup. *)
 
 (* Set up translator to not check subtractions never underflow. *)
@@ -20,12 +22,13 @@ val _ = set_up_monadic_translator ();
 (* The type variable used as parameter to the state type. It seems very
    important that this is used consistently. Strangely `'a` seems to work (for
    the current code) though it created problems in a previous iteration. *)
-val tvar = ``: 'a``;
+val tvar = ``: 'state``;
 
 (* Create the data type to handle the references *)
 Datatype:
   state_refs = <|
                  heap_array : ( ^tvar ) list;
+                 sz_array : num list;
                 |>
 End
 
@@ -40,10 +43,13 @@ val config = local_state_config |>
               with_state state_type |>
               with_exception ``:state_exn`` |>
               with_resizeable_arrays [
-                ("heap_array", listSyntax.mk_list ([], tvar), ``Subscript``, ``Subscript``)
+                ("heap_array", listSyntax.mk_list ([], tvar), ``Subscript``, ``Subscript``),
+                ("sz_array", ``[] : num list``, ``Subscript``, ``Subscript``)
               ];
 
 val _ = start_translation config;
+
+val run_init_state_def = define_run state_type [] "init_state";
 
 (* Part 2. Define monadic variants of functions from heap_sort_in_fun theory. *)
 
@@ -315,8 +321,6 @@ QED
 
 (* Part 3. Translation into CakeML AST. *)
 
-val run_init_state_def = define_run state_type [] "init_state";
-
 Definition heap_sort_via_monad_aux1_def:
   heap_sort_via_monad_aux1 R x xs =
   (do
@@ -407,4 +411,1158 @@ val heap_sort_via_monad_aux2_v_thm = heap_sort_via_monad_aux2_def
 
 val heap_sort_via_monad_v_thm = heap_sort_via_monad_def |> translate;
 
+
+(* Second variant. *)
+(* Heap list version. *)
+
+(* 'start_translation' parts at the top *)
+
+(* Positions of the left child in a suffix encoded balanced tree
+   of height ht. *)
+Definition sfx_heap_left_def:
+  sfx_heap_left i ht = (i - (2 EXP (ht - 1)))
+End
+
+(* Insert a value into a balanced suffix heap of height ht, replacing the
+   current top element which is at index i. *)
+Definition insert_into_sfx_heap_def:
+  insert_into_sfx_heap R i ht x = if ht <= 1
+  then update_heap_array i x
+  else do
+    l <- return (sfx_heap_left i ht);
+    r <- return (i - 1);
+    lx <- heap_array_sub l;
+    rx <- heap_array_sub r;
+    if R lx x /\ R rx x
+    then update_heap_array i x
+    else if R lx rx
+    then do
+      update_heap_array i rx;
+      insert_into_sfx_heap R r (ht - 1) x
+    od
+    else do
+      update_heap_array i lx;
+      insert_into_sfx_heap R l (ht - 1) x
+    od
+  od
+End
+
+(* Insert a value into a sequence of balanced suffix heaps, heights stored
+   in positions [0 ..< j] of the sz_array. Replace the top elements of the
+   final heap, which is at index i.  *)
+Definition insert_into_sfx_heap_list_def:
+  insert_into_sfx_heap_list R i j x =
+  if j <= 1 then do
+    ht <- sz_array_sub (j - 1);
+    insert_into_sfx_heap R i ht x
+  od
+  else do
+    ht <- sz_array_sub (j - 1);
+    i2 <- return ((i + 1) - (2 EXP ht));
+    t2x <- heap_array_sub i2;
+    cond1 <- return (~ R t2x x);
+    cond <- if cond1 /\ (1 < ht)
+      then do
+        l <- return (sfx_heap_left i ht);
+        r <- return (i - 1);
+        lx <- heap_array_sub l;
+        rx <- heap_array_sub r;
+        return (~ R t2x lx /\ ~ R t2x rx)
+      od
+      else return cond1;
+    if cond
+    then do
+      update_heap_array i t2x;
+      insert_into_sfx_heap_list R i2 (j - 1) x
+    od
+    else insert_into_sfx_heap R i ht x
+  od
+End
+
+(* Add another element to the final heap in a sequence of balanced suffix
+   heaps with i total elements and j total heaps. *)
+Definition add_to_sfx_heaps_step1_def:
+  add_to_sfx_heaps_step1 i j = do
+    merge <- if j <= 1
+      then return F
+      else do
+        n1 <- sz_array_sub (j - 1);
+        n2 <- sz_array_sub (j - 2);
+        return (n1 = n2);
+      od;
+    if merge
+    then do
+      n <- sz_array_sub (j - 2);
+      update_sz_array (j - 2) (n + 1);
+      return (j - 1);
+    od
+    else do
+      update_sz_array j 1;
+      return (j + 1);
+    od
+  od
+End
+
+(* Also set the top element and preserve invariants. *)
+Definition add_to_sfx_heaps_def:
+  add_to_sfx_heaps R i j x = do
+    j' <- add_to_sfx_heaps_step1 i j;
+    insert_into_sfx_heap_list R i j' x;
+    return j'
+  od
+End
+
+Definition add_all_to_sfx_heaps_def:
+  (add_all_to_sfx_heaps R i j [] = return (i, j)) /\
+  (add_all_to_sfx_heaps R i j (x :: xs) = do
+    j <- add_to_sfx_heaps R i j x;
+    add_all_to_sfx_heaps R (i + 1) j xs;
+  od)
+End
+
+Definition reinsert_tree_def:
+  reinsert_tree R i j ht =
+  do
+    update_sz_array j ht;
+    x <- heap_array_sub (i - 1);
+    upd <- if 0 < j then do
+      i2 <- return (i - (2 EXP ht));
+      t2x <- heap_array_sub i2;
+      return (~ (R t2x x))
+    od else return F;
+    if upd
+    then insert_into_sfx_heap_list R (i - 1) (j + 1) x
+    else return ();
+  od
+End
+
+Definition sfx_trees_to_list_def:
+  sfx_trees_to_list R i j acc =
+  if i = 0 then return acc
+  else do
+    ht <- sz_array_sub (j - 1);
+    x <- heap_array_sub (i - 1);
+    if ht <= 1 then sfx_trees_to_list R (i - 1) (j - 1) (x :: acc)
+    else do
+      l <- return (sfx_heap_left i ht);
+      reinsert_tree R l (j - 1) (ht - 1);
+      reinsert_tree R (i - 1) j (ht - 1);
+      sfx_trees_to_list R (i - 1) (j + 1) (x :: acc)
+    od
+  od
+End
+
+Definition sort_via_sfx_trees_worker_def:
+  sort_via_sfx_trees_worker R x xs = do
+      sz <- return (LENGTH xs);
+      alloc_heap_array sz x;
+      alloc_sz_array (LOG2 sz + 3) 0;
+      (i, j) <- add_all_to_sfx_heaps R 0 0 xs;
+      sfx_trees_to_list R i j []
+  od
+End
+
+Definition sort_via_sfx_trees_run_worker_def:
+  sort_via_sfx_trees_run_worker R x xs =
+  run_init_state (sort_via_sfx_trees_worker R x xs)
+    (init_state [] [])
+End
+
+Definition sort_via_sfx_trees_def:
+  sort_via_sfx_trees R xs = (case xs of [] => []
+    | x :: _ => (case sort_via_sfx_trees_run_worker R x xs of
+        M_success ys => ys
+      | _ => [])
+  )
+End
+
+
+(* Equivalence of second variant. *)
+
+Definition bs_tree_to_list_def:
+  (bs_tree_to_list 0 t = []) /\
+  (bs_tree_to_list (SUC ht) t =
+     bs_tree_to_list ht (case t of Node _ l r => l | _ => t) ++
+     bs_tree_to_list ht (case t of Node _ l r => r | _ => t) ++
+     [case t of Node x l r => x]
+  )
+End
+
+Theorem bs_tree_to_list_tree_rec[local]:
+  (i = 0 ==> bs_tree_to_list i Empty_Tree = []) /\
+  (0 < i ==> bs_tree_to_list i (Node x l r) =
+    bs_tree_to_list (i - 1) l ++
+    bs_tree_to_list (i - 1) r ++
+    [x])
+Proof
+  Cases_on `i` \\ simp [bs_tree_to_list_def]
+QED
+
+Definition two_exp_min_1_def:
+  two_exp_min_1 i = (2n EXP i) - 1
+End
+
+Theorem two_exp_min_1_less_rec:
+  0 < i ==> two_exp_min_1 i = two_exp_min_1 (i - 1) + two_exp_min_1 (i - 1) + 1
+Proof
+  Cases_on `i`
+  \\ fs [two_exp_min_1_def, EXP]
+  \\ rw [SUB_RIGHT_ADD]
+QED
+
+Theorem two_exp_min_1_rec:
+  two_exp_min_1 0 = 0 /\
+  two_exp_min_1 (SUC i) = two_exp_min_1 i + two_exp_min_1 i + 1
+Proof
+  simp [two_exp_min_1_less_rec] \\ simp [two_exp_min_1_def]
+QED
+
+Theorem to_two_exp_min_1:
+  (2n EXP i) = (two_exp_min_1 i + 1)
+Proof
+  rw [two_exp_min_1_def, SUB_RIGHT_ADD]
+QED
+
+Theorem sfx_heap_left_two_exp_min_1:
+  sfx_heap_left n ht = n - (two_exp_min_1 (ht - 1)) - 1
+Proof
+  simp [sfx_heap_left_def, to_two_exp_min_1]
+QED
+
+Theorem LENGTH_bs_tree_to_list:
+  ! i t. LENGTH (bs_tree_to_list i t) = two_exp_min_1 i
+Proof
+  Induct 
+  \\ simp [bs_tree_to_list_def, two_exp_min_1_rec]
+QED
+
+Definition tree_balanced_height_def:
+  (tree_balanced_height i Empty_Tree = (i = 0n)) /\
+  (tree_balanced_height i (Node x l r) = (
+    (i > 0) /\ tree_balanced_height (i - 1) l /\
+        tree_balanced_height (i - 1) r)
+  )
+End
+
+Theorem tree_balanced_height_0:
+  (tree_balanced_height 0 t = (t = Empty_Tree))
+Proof
+  Cases_on `t` \\ simp [tree_balanced_height_def]
+QED
+
+Theorem tree_balanced_height_pos:
+  0 < ht ==> tree_balanced_height ht t =
+    (?x l r. t = Node x l r /\ tree_balanced_height (ht - 1) l /\
+        tree_balanced_height (ht - 1) r)
+Proof
+  Cases_on `t` \\ simp [tree_balanced_height_def]
+QED
+
+(*
+Theorem tree_balanced_height_length_sfx_eq:
+  tree_balanced_height ht t ==>
+    (LENGTH (tree_sfx_list t) = ((2 EXP ht) - 1))
+Proof
+  qid_spec_tac `ht` \\ Induct_on `t`
+  \\ fs [tree_sfx_list_def, tree_balanced_height_def]
+  \\ rw []
+  \\ Cases_on `ht` \\ fs []
+  \\ res_tac
+  \\ simp [EXP]
+  \\ simp [SUB_RIGHT_ADD]
+  \\ rw []
+QED
+*)
+
+(*
+Theorem tree_balanced_height_length_sfx_eq:
+  tree_balanced_height ht t ==> 0 < ht ==>
+    (LENGTH (tree_sfx_list t) = two_exp_min_2 ht + 1)
+Proof
+  qid_spec_tac `ht` \\ Induct_on `t`
+  \\ simp [tree_balanced_height_def, tree_sfx_list_def, two_exp_min_2_rec]
+  \\ rw []
+  \\ Cases_on `ht` \\ fs []
+  \\ simp [two_exp_min_2_rec]
+  \\ rw []
+  \\ fs [tree_balanced_height_0, tree_sfx_list_def]
+  \\ res_tac
+  \\ simp []
+QED
+
+Definition tree_list_len_eq_def:
+  tree_list_len_eq xs t ht i =
+  (tree_balanced_height ht t /\
+    (i = LENGTH xs + LENGTH (tree_sfx_list t) - 1))
+End
+
+Theorem tree_list_len_eq_bases:
+  (tree_list_len_eq xs Empty_Tree ht i = ((ht = 0) /\ (i = LENGTH xs - 1))) /\
+  (tree_list_len_eq xs t 0 i = ((t = Empty_Tree) /\ (i = LENGTH xs - 1)))
+Proof
+  simp [tree_list_len_eq_def, tree_balanced_height_def, tree_sfx_list_def]
+  \\ Cases_on `t` \\ simp [tree_balanced_height_def, tree_sfx_list_def]
+QED
+
+Theorem tree_list_len_eq_split:
+  tree_list_len_eq xs (Node x l r) ht i ==>
+  tree_list_len_eq xs l (ht - 1) (i - (2 EXP (ht - 1))) /\
+  tree_list_len_eq (xs ++ tree_sfx_list l) r (ht - 1) (i - 1)
+Proof
+  rw [tree_list_len_eq_def]
+  \\ fs [tree_balanced_height_def, tree_sfx_list_def]
+  \\ imp_res_tac tree_balanced_height_length_sfx_eq
+  \\ Cases_on `ht` \\ full_simp_tac std_ss []
+  \\ simp [EXP]
+  \\ Cases_on `n = 0` \\ fs []
+  \\ subgoal `?x. 2 EXP n = (2 + x)`
+  \\ fs []
+  \\ qexists_tac `(2 EXP n) - 2`
+  \\ simp [SUB_RIGHT_ADD]
+  \\ rw []
+QED
+
+Definition tree_len_eq_def:
+  tree_len_eq n t ht i =
+  (tree_balanced_height ht t /\ (i = n + LENGTH (tree_sfx_list t) - 1))
+End
+
+Theorem tree_len_eq_bases:
+  (tree_len_eq n Empty_Tree ht i = ((ht = 0) /\ (i = n - 1))) /\
+  (tree_len_eq n t 0 i = ((t = Empty_Tree) /\ (i = n - 1)))
+Proof
+  simp [tree_len_eq_def, tree_balanced_height_def, tree_sfx_list_def]
+  \\ Cases_on `t` \\ simp [tree_balanced_height_def, tree_sfx_list_def]
+QED
+
+Theorem tree_len_eq_split:
+  tree_len_eq n (Node x l r) ht i ==>
+  tree_len_eq n l (ht - 1) (i - (2 EXP (ht - 1))) /\
+  tree_len_eq (n + LENGTH (tree_sfx_list l)) r (ht - 1) (i - 1)
+Proof
+  rw [tree_len_eq_def]
+  \\ fs [tree_balanced_height_def, tree_sfx_list_def]
+  \\ imp_res_tac tree_balanced_height_length_sfx_eq
+  \\ full_simp_tac std_ss []
+  \\ subgoal `ht > 1 ==> ?x. 2 EXP (ht - 1) = (2 + x)`
+  \\ Cases_on `ht - 1` \\ Cases_on `ht` \\ full_simp_tac std_ss []
+  \\ fs []
+  \\ qexists_tac `(2 EXP SUC n) - 2`
+  \\ simp [SUB_RIGHT_ADD]
+  \\ rw []
+QED
+*)
+
+Theorem return_bind_eq:
+  st_ex_bind (return v) f = f v
+Proof
+  simp [ml_monadBaseTheory.st_ex_bind_def, ml_monadBaseTheory.st_ex_return_def, FUN_EQ_THM]
+QED
+
+(*
+Theorem heap_array_sub_eq_intro:
+  tree_list_len_eq xs t ht i ==>
+  (st.heap_array = xs ++ tree_sfx_list t ++ ys) ==>
+  0 < ht ==>
+  (f (case t of Node y _ _ => y) st = (M_success v, st_fin)) ==>
+  (st_ex_bind (heap_array_sub i) f st = (M_success v, st_fin))
+Proof
+  simp [fetch "-" "heap_array_sub_def"]
+  \\ simp [ml_monadBaseTheory.monad_eqs]
+  \\ rw []
+  \\ imp_res_tac tree_balanced_height_length_sfx_eq
+  \\ simp []
+  \\ fs [tree_list_len_eq_def]
+  \\ Cases_on `t` \\ fs [tree_balanced_height_def]
+  \\ fs [tree_sfx_list_def]
+  \\ simp [EL_APPEND]
+QED
+
+Theorem heap_array_sub_eq_intro2:
+  tree_len_eq n t ht i ==>
+  0 < ht ==>
+  (DROP n st.heap_array = tree_sfx_list t ++ ys) ==>
+  (f (case t of Node y _ _ => y) st = (M_success v, st_fin)) ==>
+  (st_ex_bind (heap_array_sub i) f st = (M_success v, st_fin))
+Proof
+  simp [fetch "-" "heap_array_sub_def"]
+  \\ simp [ml_monadBaseTheory.monad_eqs]
+  \\ rpt disch_tac
+  \\ Cases_on `LENGTH st.heap_array <= n`
+  >- (
+    fs (RES_CANON miscTheory.DROP_NIL)
+    \\ Cases_on `t` \\ fs [tree_sfx_list_def, tree_len_eq_bases]
+  )
+  \\ subgoal `?xs. (st.heap_array = xs ++ tree_sfx_list t ++ ys) /\ (LENGTH xs = n)`
+  >- (
+    qexists_tac `TAKE n st.heap_array`
+    \\ simp [LENGTH_TAKE]
+    \\ metis_tac [TAKE_DROP, APPEND_ASSOC]
+  )
+  \\ fs [tree_len_eq_def]
+  \\ simp [EL_APPEND]
+  \\ Cases_on `t` \\ fs [tree_balanced_height_def]
+  \\ fs [tree_sfx_list_def]
+  \\ simp [EL_APPEND]
+QED
+
+
+Theorem update_heap_array_eq:
+  tree_list_len_eq xs t ht i ==>
+  (st.heap_array = xs ++ tree_sfx_list t ++ ys) ==>
+  0 < ht ==>
+  (st2 = st with <| heap_array :=
+        xs ++ tree_sfx_list (case t of Node _ l r => Node x l r) ++ ys |>) ==>
+  (update_heap_array i x st = (M_success (), st2))
+Proof
+  simp [fetch "-" "update_heap_array_def"]
+  \\ simp [ml_monadBaseTheory.monad_eqs]
+  \\ rw []
+  \\ imp_res_tac tree_balanced_height_length_sfx_eq
+  \\ simp []
+  \\ fs [tree_list_len_eq_def]
+  \\ Cases_on `t` \\ fs [tree_balanced_height_def]
+  \\ fs [tree_sfx_list_def]
+  \\ simp [LUPDATE_APPEND, LUPDATE_DEF]
+QED
+
+Theorem update_heap_array_eq_intro:
+  tree_list_len_eq xs t ht i ==>
+  (st.heap_array = xs ++ tree_sfx_list t ++ ys) ==>
+  0 < ht ==>
+  (!st' prev_xs. (st = st' with <| heap_array := prev_xs |>) /\
+        (st'.heap_array = xs ++ tree_sfx_list (case t of Node _ l r => Node x l r) ++ ys) ==>
+        (f () st' = (M_success v, st_fin))) ==>
+  (st_ex_bind (update_heap_array i x) f st = (M_success v, st_fin))
+Proof
+  simp [ml_monadBaseTheory.monad_eqs]
+  \\ rw []
+  \\ first_x_assum (irule_at Any)
+  \\ drule_then (irule_at Any) update_heap_array_eq 
+  \\ simp []
+  \\ simp [fetch "-" "state_refs_component_equality"]
+QED
+
+Theorem bind_return_eq:
+  st_ex_bind f return = f
+Proof
+  rw [ml_monadBaseTheory.st_ex_bind_def, ml_monadBaseTheory.st_ex_return_def, FUN_EQ_THM]
+  \\ BasicProvers.EVERY_CASE_TAC \\ simp []
+QED
+
+
+Theorem balanced_sfx_heap_left_eq:
+  tree_balanced_height (ht - 1) l ==>
+  1 < ht ==>
+  (sfx_heap_left (oths + LENGTH (tree_sfx_list l)) ht = oths - 1)
+Proof
+  rw []
+  \\ subgoal `!i. sfx_heap_left i ht = i - (LENGTH (tree_sfx_list l)) - 1`
+  >- (
+    imp_res_tac tree_balanced_height_length_sfx_eq
+    \\ simp [sfx_heap_left_def, SUB_RIGHT_SUB]
+    \\ simp [SUB_RIGHT_ADD]
+  )
+  \\ fs []
+  \\ imp_res_tac (GSYM tree_balanced_height_length_sfx_eq)
+  \\ Cases_on `l` \\ fs [tree_balanced_height_def, tree_sfx_list_def]
+QED
+*)
+
+Definition bs_tree_list_to_list_def:
+  bs_tree_list_to_list ts = FLAT (MAP (\(t, i). bs_tree_to_list i t) (REVERSE ts))
+End
+
+Theorem bs_tree_list_to_list_rec:
+  bs_tree_list_to_list (t_i :: ts) = (
+    bs_tree_list_to_list ts ++ bs_tree_to_list (SND t_i) (FST t_i)
+  ) /\
+  bs_tree_list_to_list [] = []
+Proof
+  simp [bs_tree_list_to_list_def]
+  \\ rpt (pairarg_tac \\ fs[])
+QED
+
+Theorem monad_simps[local] = LIST_CONJ
+    [fetch "-" "update_heap_array_def", fetch "-" "heap_array_sub_def",
+        ml_monadBaseTheory.monad_eqs, st_ex_ignore_bind_simp,
+        fetch "-" "update_sz_array_def", fetch "-" "sz_array_sub_def"]
+
+Theorem tree_len_simps_no_less = LIST_CONJ
+    [tree_balanced_height_def, tree_balanced_height_0,
+        two_exp_min_1_rec,
+        LENGTH_bs_tree_to_list, bs_tree_to_list_def,
+        bs_tree_to_list_tree_rec, bs_tree_list_to_list_rec]
+
+Theorem tree_len_simps = LIST_CONJ [tree_len_simps_no_less,
+        two_exp_min_1_less_rec]
+
+Theorem TAKE_DROP_eq_imp[local]:
+  !xs i j. TAKE i (DROP j xs) = ys ==>
+  i <= LENGTH ys ==>
+  ys = [] \/ (?xs_pre xs_post. xs = xs_pre ++ ys ++ xs_post /\
+    j = LENGTH xs_pre /\ i = LENGTH ys)
+Proof
+  Cases_on `ys = []` \\ simp []
+  \\ rw []
+  \\ qexists_tac `TAKE j xs`
+  \\ qexists_tac `DROP (i + j) xs`
+  \\ fs [GSYM TAKE_SUM]
+  \\ fs [LENGTH_TAKE_EQ]
+QED
+
+Theorem TAKE_DROP_last_eq_imp[local]:
+  TAKE l (DROP ((i + 1) - l) xs) = ys /\
+  i + 1 <= LENGTH xs /\ l <= i + 1 /\
+  l <= LENGTH ys /\ 0 < l ==>
+  ?xs_pre xs_post. xs = xs_pre ++ ys ++ xs_post /\
+    l = LENGTH ys /\ i = LENGTH xs_pre + (LENGTH ys - 1)
+Proof
+  rpt strip_tac
+  \\ dxrule TAKE_DROP_eq_imp
+  \\ Cases_on `ys = []` \\ fs []
+  \\ rw []
+  \\ irule_at Any EQ_REFL
+  \\ simp []
+QED
+
+Theorem insert_into_sfx_heap_eq:
+  ! t R i ht x st.
+  TAKE (two_exp_min_1 ht) (DROP ((i + 1) - two_exp_min_1 ht) st.heap_array) =
+    bs_tree_to_list ht t /\
+  i + 1 <= LENGTH st.heap_array /\
+  two_exp_min_1 ht <= i + 1 /\
+  ht > 0 /\
+  tree_balanced_height ht t ==>
+  (insert_into_sfx_heap R i ht x st =
+  (M_success (), st with <| heap_array := TAKE ((i + 1) - two_exp_min_1 ht) st.heap_array
+    ++ bs_tree_to_list ht (insert_tree_inv R t x) ++ DROP (i + 1) st.heap_array |>))
+Proof
+  Induct
+  \\ simp [tree_len_simps]
+  \\ ONCE_REWRITE_TAC [insert_into_sfx_heap_def]
+  \\ rpt strip_tac
+  \\ dxrule TAKE_DROP_last_eq_imp
+  \\ simp [tree_len_simps]
+  \\ rw [] \\ fs []
+  \\ simp [tree_len_simps, TAKE_APPEND2, TAKE_APPEND1, DROP_APPEND1, DROP_APPEND2]
+  >- (
+    Cases_on `ht = 1` \\ fs [tree_len_simps]
+    \\ fs [insert_tree_inv_def, tree_len_simps]
+    \\ simp [monad_simps, LUPDATE_APPEND, LUPDATE_DEF]
+  )
+  >- (
+    fs [tree_balanced_height_pos]
+    \\ simp [monad_simps, tree_len_simps, sfx_heap_left_two_exp_min_1]
+    \\ simp [EL_APPEND, tree_len_simps, LEFT_ADD_DISTRIB]
+    \\ rpt TOP_CASE_TAC \\ simp [ml_monadBaseTheory.monad_eqs]
+    >- (
+      simp [tree_len_simps, LUPDATE_APPEND, LUPDATE_DEF]
+      \\ simp [insert_tree_inv_def, tree_len_simps]
+    )
+    >- (
+      simp [tree_len_simps, LUPDATE_APPEND, LUPDATE_DEF]
+      \\ ONCE_REWRITE_TAC [insert_tree_inv_def]
+      \\ simp [tree_len_simps]
+      \\ simp [tree_len_simps, TAKE_APPEND2, TAKE_APPEND1, DROP_APPEND1, DROP_APPEND2]
+      \\ simp_tac bool_ss [GSYM APPEND_ASSOC, APPEND]
+    )
+    >- (
+      simp [tree_len_simps, LUPDATE_APPEND, LUPDATE_DEF]
+      \\ ONCE_REWRITE_TAC [insert_tree_inv_def]
+      \\ simp [tree_len_simps]
+      \\ simp [tree_len_simps, TAKE_APPEND2, TAKE_APPEND1, DROP_APPEND1, DROP_APPEND2]
+    )
+  )
+QED
+
+
+Theorem mk_sub_min_1[local]:
+  (x + 1n) - (2 EXP ht) = (x - two_exp_min_1 ht)
+Proof
+  simp [two_exp_min_1_def]
+  \\ Cases_on `2 EXP ht` \\ simp []
+  \\ fs []
+QED
+
+Theorem EL_APPEND_PLUS[local]:
+  EL (LENGTH xs + n) (xs ++ ys) = EL n ys
+Proof
+  simp [EL_APPEND]
+QED
+
+Theorem two_exp_min_1_pos[local]:
+  (0 < two_exp_min_1 r) = (0 < r)
+Proof
+  Cases_on `r` \\ simp [two_exp_min_1_rec]
+QED
+
+Theorem insert_into_sfx_heap_list_eq:
+  ! j ts R i x xs ys st.
+  TAKE (LENGTH (bs_tree_list_to_list ts))
+    (DROP ((i + 1) - (LENGTH (bs_tree_list_to_list ts))) st.heap_array) =
+    bs_tree_list_to_list ts /\
+  i + 1 <= LENGTH st.heap_array /\
+  LENGTH (bs_tree_list_to_list ts) <= i + 1 /\
+  TAKE j st.sz_array = MAP SND (REVERSE ts) /\
+  j <= LENGTH st.sz_array ==>
+  0 < j /\ EVERY (\(t, n). 0 < n /\ tree_balanced_height n t) ts ==>
+  insert_into_sfx_heap_list R i j x st =
+  (M_success (), st with <| heap_array := TAKE ((i + 1) - LENGTH (bs_tree_list_to_list ts)) st.heap_array
+    ++ bs_tree_list_to_list (insert_trees_inv R ts x) ++ DROP (i + 1) st.heap_array |>)
+Proof
+  Induct
+  \\ simp []
+  \\ ONCE_REWRITE_TAC [insert_into_sfx_heap_list_def]
+  \\ rpt strip_tac
+  \\ dxrule TAKE_DROP_last_eq_imp
+  \\ fs [tree_len_simps]
+  \\ Cases_on `HD ts` \\ Cases_on `ts` \\ fs []
+  \\ gs [tree_len_simps]
+  \\ simp [insert_trees_inv_def]
+  \\ rw []
+  >- (
+    Cases_on `t` \\ fs []
+    \\ Cases_on `j` \\ fs []
+    \\ qpat_x_assum `TAKE _ _ = _` (assume_tac o Q.AP_TERM `\x. (EL 0 x, LENGTH x)`)
+    \\ gs [HD_TAKE]
+    \\ simp [monad_simps]
+    \\ drule_at (Pat `tree_balanced_height _ _`) insert_into_sfx_heap_eq
+    \\ simp [tree_len_simps, TAKE_APPEND2, TAKE_APPEND1, DROP_APPEND1, DROP_APPEND2]
+  )
+  >- (
+    gs [tree_len_simps, two_exp_min_1_pos]
+    \\ first_x_assum (qspec_then `t` assume_tac)
+    \\ qpat_x_assum `TAKE _ _ = _` (assume_tac o Q.AP_TERM `\x. (TAKE j x, EL j x, LENGTH x)`)
+    \\ Cases_on `j` \\ fs []
+    \\ Cases_on `HD t` \\ Cases_on `t` \\ fs []
+    \\ gs [ADD1, EL_TAKE, EL_APPEND, TAKE_TAKE]
+    \\ gs [tree_balanced_height_pos]
+    \\ simp [monad_simps, tree_len_simps]
+    \\ full_simp_tac bool_ss [to_two_exp_min_1]
+    \\ full_simp_tac bool_ss [GSYM ADD_ASSOC, GSYM APPEND_ASSOC, EL_APPEND_PLUS]
+    \\ full_simp_tac bool_ss [to_two_exp_min_1]
+    \\ simp [tree_len_simps, TAKE_APPEND2, TAKE_APPEND1, DROP_APPEND1, DROP_APPEND2,
+                EL_APPEND1, EL_APPEND2]
+    \\ TOP_CASE_TAC
+    >- (
+      simp [monad_simps]
+      \\ simp [tree_len_simps, sfx_heap_left_two_exp_min_1, LEFT_ADD_DISTRIB]
+      \\ simp [tree_len_simps, TAKE_APPEND2, TAKE_APPEND1, DROP_APPEND1, DROP_APPEND2,
+                EL_APPEND1, EL_APPEND2]
+      \\ gs [tree_balanced_height_pos]
+      \\ simp [tree_len_simps, TAKE_APPEND2, TAKE_APPEND1, DROP_APPEND1, DROP_APPEND2,
+                EL_APPEND1, EL_APPEND2]
+      \\ rw []
+      >- (
+        simp [monad_simps]
+        \\ simp [tree_len_simps, LUPDATE_APPEND, LUPDATE_DEF]
+        \\ simp [tree_len_simps, TAKE_APPEND2, TAKE_APPEND1, DROP_APPEND1, DROP_APPEND2,
+                EL_APPEND1, EL_APPEND2, LUPDATE_APPEND, LUPDATE_DEF]
+      )
+      >- (
+        irule EQ_TRANS \\ irule_at Any insert_into_sfx_heap_eq
+        \\ simp [tree_len_simps, TAKE_APPEND2, TAKE_APPEND1, DROP_APPEND1, DROP_APPEND2,
+                EL_APPEND1, EL_APPEND2, LUPDATE_APPEND, LUPDATE_DEF]
+        \\ irule_at Any EQ_REFL
+        \\ simp [tree_len_simps]
+      )
+    )
+    >- (
+      simp [monad_simps]
+      \\ simp [tree_len_simps, sfx_heap_left_two_exp_min_1, LEFT_ADD_DISTRIB]
+      \\ TOP_CASE_TAC \\ fs []
+      >- (
+        Cases_on `r = 1` \\ fs []
+        \\ fs [tree_len_simps]
+        \\ simp [monad_simps]
+        \\ fs [tree_len_simps]
+        \\ simp [tree_len_simps, LUPDATE_APPEND, LUPDATE_DEF]
+        \\ simp [tree_len_simps, TAKE_APPEND2, TAKE_APPEND1, DROP_APPEND1, DROP_APPEND2,
+                EL_APPEND1, EL_APPEND2, LUPDATE_APPEND, LUPDATE_DEF]
+        \\ simp_tac bool_ss [GSYM APPEND_ASSOC, APPEND]
+      )
+      >- (
+        irule EQ_TRANS \\ irule_at Any insert_into_sfx_heap_eq
+        \\ simp [tree_len_simps, TAKE_APPEND2, TAKE_APPEND1, DROP_APPEND1, DROP_APPEND2,
+                EL_APPEND1, EL_APPEND2, LUPDATE_APPEND, LUPDATE_DEF]
+        \\ irule_at Any EQ_REFL
+        \\ simp [tree_len_simps]
+      )
+    )
+  )
+QED
+
+Theorem MAP_SND_insert_trees_inv[local]:
+  !ts. MAP SND (insert_trees_inv R ts x) = MAP SND ts
+Proof
+  Induct \\ simp [pairTheory.FORALL_PROD, insert_trees_inv_def]
+  \\ rw []
+  \\ rpt (TOP_CASE_TAC \\ simp [])
+  \\ simp []
+QED
+
+Theorem MAP_LENGTH_insert_trees_inv[local]:
+  MAP (LENGTH o (\(t, n). bs_tree_to_list n t))
+            (insert_trees_inv R ts x) =
+    MAP (LENGTH o (\(t, n). bs_tree_to_list n t)) ts
+Proof
+  qspec_then `ts` (mp_tac o Q.AP_TERM `MAP two_exp_min_1`) MAP_SND_insert_trees_inv
+  \\ simp [MAP_MAP_o, o_DEF, UNCURRY, tree_len_simps]
+QED
+
+Theorem LENGTH_insert_trees_inv[local] =
+  Q.AP_TERM `LENGTH` (SPEC_ALL MAP_LENGTH_insert_trees_inv)
+    |> REWRITE_RULE [LENGTH_MAP]
+
+Theorem LENGTH_list_of_insert_trees[local]:
+  LENGTH (bs_tree_list_to_list (insert_trees_inv R ts x)) =
+  LENGTH (bs_tree_list_to_list ts)
+Proof
+  simp [bs_tree_list_to_list_def, LENGTH_FLAT, MAP_MAP_o, MAP_REVERSE]
+  \\ simp [MAP_LENGTH_insert_trees_inv]
+QED
+
+Theorem TAKE_EQ_GENLIST:
+  !n xs. TAKE n xs = GENLIST (\i. EL i xs) (MIN n (LENGTH xs))
+Proof
+  Induct \\ rw []
+  \\ Cases_on `xs` \\ fs []
+  \\ irule EQ_SYM
+  \\ simp [llistTheory.GENLIST_EQ_CONS]
+  \\ simp [o_DEF, MIN_DEF]
+  \\ rw []
+QED
+
+Theorem bind_assoc:
+  st_ex_bind (st_ex_bind f g) h = do
+    x <- f;
+    y <- g x;
+    h y
+  od
+Proof
+  rw [ml_monadBaseTheory.st_ex_bind_def, FUN_EQ_THM]
+  \\ rpt (TOP_CASE_TAC \\ fs [])
+QED
+
+Theorem add_to_sfx_heaps_step1_eq:
+  EVERY (\(t, n). 0 < n /\ tree_balanced_height n t) ts ==>
+  TAKE i st.heap_array = bs_tree_list_to_list ts /\
+  TAKE j st.sz_array = MAP SND (REVERSE ts) /\
+  j = LENGTH ts /\ i = LENGTH (bs_tree_list_to_list ts) /\
+  i + 1 < LENGTH st.heap_array /\
+  j + 1 < LENGTH st.sz_array ==>
+  ?st'.
+  (let ts2 = add_trees_step1 ts (EL i st.heap_array);
+        xs = bs_tree_list_to_list ts2; l2 = LENGTH ts2 in
+  add_to_sfx_heaps_step1 i j st = (M_success l2, st') /\
+  TAKE (i + 1) st'.heap_array = xs /\
+  TAKE l2 st'.sz_array = MAP SND (REVERSE ts2) /\
+  LENGTH st'.sz_array = LENGTH st.sz_array /\
+  LENGTH st'.heap_array = LENGTH st.heap_array
+  )
+Proof
+  rw []
+  \\ simp [add_to_sfx_heaps_step1_def, add_trees_step1_def]
+  \\ Cases_on `ts` \\ fs []
+  >- (
+    simp [monad_simps]
+    \\ fs [tree_len_simps]
+    \\ fs [Q.SPEC `1` TAKE_EQ_GENLIST, MIN_DEF, EL_LUPDATE, HD_LUPDATE]
+  )
+  \\ Cases_on `t` \\ fs []
+  >- (
+    simp [monad_simps]
+    \\ fs [tree_len_simps]
+    \\ fs [Q.SPEC `2` TAKE_EQ_GENLIST, Q.SPEC `1` TAKE_EQ_GENLIST, MIN_DEF, EL_LUPDATE, HD_LUPDATE]
+    \\ fs [TAKE_SUM]
+  )
+  \\ rpt (TOP_CASE_TAC \\ fs [])
+  >- (
+    simp [monad_simps]
+    \\ fs [ADD1, TAKE_SUM, EL_DROP, EL_LUPDATE]
+    \\ gs [Q.SPEC `2` TAKE_EQ_GENLIST, Q.SPEC `1` TAKE_EQ_GENLIST, MIN_DEF, HD_DROP, EL_DROP]
+    \\ simp [monad_simps]
+    \\ fs [tree_len_simps_no_less, HD_DROP, EL_LUPDATE]
+    \\ irule EQ_TRANS
+    \\ first_x_assum (irule_at Any)
+    \\ irule listTheory.LIST_EQ
+    \\ simp [EL_TAKE, EL_LUPDATE]
+  )
+  >- (
+    simp [monad_simps]
+    \\ fs [ADD1, TAKE_SUM, EL_DROP, EL_LUPDATE]
+    \\ gs [Q.SPEC `2` TAKE_EQ_GENLIST, Q.SPEC `1` TAKE_EQ_GENLIST, MIN_DEF, HD_DROP, EL_DROP]
+    \\ simp [monad_simps]
+    \\ fs [tree_len_simps_no_less, HD_DROP, EL_LUPDATE]
+    \\ qpat_x_assum `_ = MAP _ (REVERSE _)` (assume_tac o GSYM)
+    \\ irule listTheory.LIST_EQ
+    \\ rw [EL_TAKE, EL_APPEND]
+    \\ simp [EL_LUPDATE, EL_DROP]
+    \\ rw []
+    \\ Cases_on `x = LENGTH t'` \\ fs []
+    \\ Cases_on `x = LENGTH t' + 1` \\ fs []
+  )
+QED
+
+Theorem LENGTH_add_trees_step1_adj[local]:
+  LENGTH (add_trees_step1 ts x) = LENGTH (I (add_trees_step1 ts) ARB)
+Proof
+  simp [add_trees_step1_def]
+  \\ rpt (TOP_CASE_TAC \\ fs [])
+QED
+
+Theorem LENGTH_add_tree_step1_facts:
+  0 < LENGTH (add_trees_step1 ts x) /\
+  LENGTH (bs_tree_list_to_list (add_trees_step1 ts x)) =
+    LENGTH (bs_tree_list_to_list ts) + 1 /\
+  LENGTH (add_trees_step1 ts x) <= LENGTH ts + 1 /\
+  (MAP SND (add_trees_step1 ts x) = MAP SND (add_trees_step1 ts y)) = T /\
+  (LENGTH (add_trees_step1 ts x) = LENGTH (add_trees_step1 ts y)) = T
+Proof
+  simp [add_trees_step1_def]
+  \\ rpt (TOP_CASE_TAC \\ fs [tree_len_simps])
+QED
+
+Theorem inv_add_tree_step1:
+  (EVERY (\(t,n). 0 < n /\ tree_balanced_height n t) ts ==>
+    EVERY (\(t,n). 0 < n /\ tree_balanced_height n t) (add_trees_step1 ts x)
+  ) /\
+  (EVERY (\(t,n). 0 < n /\ tree_balanced_height n t) ts /\
+    SORTED ($<=) (TAKE 2 (MAP SND ts)) /\ SORTED ($<) (MAP SND (DROP 1 ts)) ==>
+    SORTED ($<=) (TAKE 2 (MAP SND (add_trees_step1 ts x))) /\
+    SORTED ($<) (MAP SND (DROP 1 (add_trees_step1 ts x)))
+  )
+Proof
+  simp [add_trees_step1_def]
+  \\ rpt (TOP_CASE_TAC \\ fs [tree_len_simps])
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rw []
+  \\ fs []
+  \\ imp_res_tac SORTED_TL \\ fs []
+  \\ Cases_on `t'` \\ fs []
+QED
+
+Theorem insert_trees_adj_with_inv[local]:
+  EVERY (\(t,n). 0 < n /\ tree_balanced_height n t) ts ==>
+  insert_trees_inv R ((Node x_dc l r, n) :: ts) x =
+      insert_trees_inv R ((Node y_dc l r, n) :: ts) x
+Proof
+  simp [insert_trees_inv_def]
+  \\ rpt (TOP_CASE_TAC \\ fs []) \\ rw [] \\ fs [tree_len_simps]
+  \\ simp [insert_tree_inv_def]
+QED
+
+Theorem insert_trees_adj_add_trees_with_inv[local]:
+  EVERY (\(t,n). 0 < n /\ tree_balanced_height n t) ts ==>
+  insert_trees_inv R (add_trees_step1 ts x_dc) x =
+      insert_trees_inv R (add_trees_step1 ts y_dc) x
+Proof
+  simp [add_trees_step1_def]
+  \\ rpt (TOP_CASE_TAC \\ fs [tree_len_simps])
+  \\ rw []
+  \\ irule insert_trees_adj_with_inv
+  \\ simp []
+QED
+
+Theorem add_to_sfx_heaps_eq:
+  EVERY (\(t, n). 0 < n /\ tree_balanced_height n t) ts ==>
+  TAKE i st.heap_array = bs_tree_list_to_list ts /\
+  TAKE j st.sz_array = MAP SND (REVERSE ts) /\
+  j = LENGTH ts /\ i = LENGTH (bs_tree_list_to_list ts) /\
+  i + 1 < LENGTH st.heap_array /\
+  j + 1 < LENGTH st.sz_array ==>
+  ?st'.
+  (let ts2 = add_trees R ts x; xs = bs_tree_list_to_list ts2; l2 = LENGTH ts2 in
+  add_to_sfx_heaps R i j x st = (M_success l2, st') /\
+  TAKE (i + 1) st'.heap_array = xs /\
+  TAKE l2 st'.sz_array = MAP SND (REVERSE ts2) /\
+  LENGTH st'.sz_array = LENGTH st.sz_array /\
+  LENGTH st'.heap_array = LENGTH st.heap_array
+  )
+Proof
+  simp [add_to_sfx_heaps_def, add_trees_def]
+  \\ rpt strip_tac
+  \\ mp_tac add_to_sfx_heaps_step1_eq
+  \\ rpt strip_tac
+  \\ gs [monad_simps]
+  \\ irule_at Any insert_into_sfx_heap_list_eq
+  \\ qexists_tac `add_trees_step1 ts (EL i st.heap_array)`
+  \\ fs [tree_len_simps_no_less, LENGTH_insert_trees_inv]
+  \\ fs [LENGTH_add_tree_step1_facts, inv_add_tree_step1, LENGTH_list_of_insert_trees]
+  \\ rpt conj_tac
+  >- (
+    irule LESS_EQ_TRANS
+    \\ MAP_FIRST (irule_at Any) (CONJUNCTS LENGTH_add_tree_step1_facts)
+    \\ simp []
+  )
+  >- (
+    simp [TAKE_APPEND1, LENGTH_add_tree_step1_facts, LENGTH_list_of_insert_trees,
+        TAKE_LENGTH_TOO_LONG]
+    \\ AP_TERM_TAC
+    \\ irule insert_trees_adj_add_trees_with_inv
+    \\ simp []
+  )
+  >- (
+    simp [MAP_REVERSE, MAP_SND_insert_trees_inv]
+    \\ irule (Q.prove (`a = b /\ TAKE b xs = zs/\ zs = ys ==> TAKE a xs = ys`, simp []))
+    \\ first_x_assum (irule_at Any)
+    \\ simp [MAP_REVERSE, LENGTH_add_tree_step1_facts]
+  )
+QED
+
+Theorem LENGTH_to_list_add_trees:
+  LENGTH (bs_tree_list_to_list (add_trees R ts x)) = 
+    LENGTH (bs_tree_list_to_list ts) + 1
+Proof
+  simp [add_trees_def, LENGTH_list_of_insert_trees, LENGTH_add_tree_step1_facts]
+QED
+
+Theorem insert_tree_inv_balance_inv:
+  !t ht. tree_balanced_height ht t ==>
+  tree_balanced_height ht (insert_tree_inv R t x)
+Proof
+  Induct \\ simp [insert_tree_inv_def]
+  \\ rpt (TOP_CASE_TAC \\ fs [tree_len_simps])
+QED
+
+Theorem insert_trees_inv_balance_inv:
+  !ts x. EVERY (\(t,n). 0 < n /\ tree_balanced_height n t) ts ==>
+  EVERY (\(t,n). 0 < n /\ tree_balanced_height n t) (insert_trees_inv R ts x)
+Proof
+  Induct \\ simp [pairTheory.FORALL_PROD, insert_trees_inv_def]
+  \\ rw []
+  \\ rpt (TOP_CASE_TAC \\ fs [tree_len_simps, insert_tree_inv_balance_inv])
+QED
+
+Theorem inv_add_tree:
+  (EVERY (\(t,n). 0 < n /\ tree_balanced_height n t) ts ==>
+    EVERY (\(t,n). 0 < n /\ tree_balanced_height n t) (add_trees R ts x)
+  ) /\
+  (EVERY (\(t,n). 0 < n /\ tree_balanced_height n t) ts /\
+    SORTED ($<=) (TAKE 2 (MAP SND ts)) /\ SORTED ($<) (MAP SND (DROP 1 ts)) ==>
+    SORTED ($<=) (TAKE 2 (MAP SND (add_trees R ts x))) /\
+    SORTED ($<) (MAP SND (DROP 1 (add_trees R ts x)))
+  )
+Proof
+  simp [add_trees_def, MAP_SND_insert_trees_inv, MAP_DROP]
+  \\ simp [GSYM MAP_DROP, inv_add_tree_step1, insert_trees_inv_balance_inv]
+QED
+
+Theorem sum_gt_exp_2:
+  !js n. EVERYi (\i j. j >= (2 EXP i) * n) js ==>
+  SUM js >= ((2 EXP LENGTH js) - 1) * n
+Proof
+  Induct
+  \\ rw [EVERYi_def]
+  \\ first_x_assum (qspec_then `2 * n` mp_tac)
+  \\ fs [o_DEF, EXP]
+QED
+
+Theorem sum_lengths_greater_equal_exp[local]:
+  ! ts n. EVERY (\(t,n). 0 < n /\ tree_balanced_height n t) ts /\
+  SORTED $< (MAP SND ts) /\
+  ts <> [] /\ n <= SND (HD ts) /\ 1 <= n ==>
+  ((2 EXP (LENGTH ts + (n - 1))) - 1) <= LENGTH (bs_tree_list_to_list ts)
+Proof
+  Induct \\ rw []
+  \\ fs [tree_len_simps]
+  \\ pairarg_tac \\ fs []
+  \\ first_x_assum (qspec_then `SUC n` mp_tac)
+  \\ imp_res_tac SORTED_TL
+  \\ simp [tree_len_simps, EXP]
+  \\ Cases_on `ts` \\ fs []
+  >- (
+    simp [tree_len_simps]
+    \\ simp [two_exp_min_1_def, LEFT_SUB_DISTRIB]
+    \\ simp [GSYM EXP, ADD1]
+    \\ rw [SUB_RIGHT_ADD]
+  )
+  >- (
+    rw []
+    \\ gs [ADD1]
+  )
+QED
+
+Theorem inv_trees_less_via_exp[local]:
+  EVERY (\(t,n). 0 < n /\ tree_balanced_height n t) ts /\
+  SORTED $< (DROP 1 (MAP SND ts)) /\
+  LENGTH (bs_tree_list_to_list ts) < 2 ** lg /\
+  lg + i + 2 <= bd ==>
+  LENGTH ts + i < bd
+Proof
+  rw []
+  \\ fs [GSYM MAP_DROP]
+  \\ drule_at (Pat `SORTED _ _`) sum_lengths_greater_equal_exp
+  \\ simp [EVERY_DROP]
+  \\ disch_then (qspec_then `1` mp_tac)
+  \\ Cases_on `LENGTH ts <= 1` \\ fs []
+  \\ impl_tac
+  >- (
+    fs [HD_DROP, EVERY_EL, UNCURRY]
+    \\ first_x_assum (qspec_then `1` mp_tac)
+    \\ simp []
+  )
+  \\ disch_tac
+  \\ subgoal `2n ** (LENGTH ts - 1) < 2 ** lg`
+  >- (
+    drule_then irule LESS_EQ_LESS_TRANS
+    \\ Cases_on `ts` \\ fs [tree_len_simps]
+    \\ pairarg_tac \\ fs []
+    \\ gs [tree_len_simps]
+  )
+  \\ fs []
+QED
+
+Theorem add_all_to_sfx_heaps_eq:
+  !xs i j ts st. EVERY (\(t, n). 0 < n /\ tree_balanced_height n t) ts /\
+  SORTED ($<=) (TAKE 2 (MAP SND ts)) /\ SORTED ($<) (MAP SND (DROP 1 ts)) /\
+  TAKE i st.heap_array = bs_tree_list_to_list ts /\
+  TAKE j st.sz_array = MAP SND (REVERSE ts) /\
+  j = LENGTH ts /\ i = LENGTH (bs_tree_list_to_list ts) /\
+  i + LENGTH xs < LENGTH st.heap_array /\
+  lg + 3 <= LENGTH st.sz_array /\
+  i + LENGTH xs < 2 EXP lg ==>
+  ?st'.
+  (let ts2 = build_trees R ts xs; ys = bs_tree_list_to_list ts2; l2 = LENGTH ts2 in
+  add_all_to_sfx_heaps R i j xs st = (M_success (LENGTH ys, l2), st') /\
+  TAKE (LENGTH ys) st'.heap_array = ys /\
+  TAKE l2 st'.sz_array = MAP SND (REVERSE ts2) /\
+  LENGTH st'.sz_array = LENGTH st.sz_array /\
+  LENGTH st'.heap_array = LENGTH st.heap_array
+  )
+Proof
+  Induct
+  \\ rw [add_all_to_sfx_heaps_def, build_trees_def]
+  \\ simp [monad_simps]
+  \\ fs []
+  \\ qmatch_goalsub_abbrev_tac `add_to_sfx_heaps _ i j  x`
+  \\ mp_tac add_to_sfx_heaps_eq
+  \\ simp []
+  \\ impl_tac
+  >- (
+    fs [markerTheory.Abbrev_def]
+    \\ irule inv_trees_less_via_exp
+    \\ simp [GSYM MAP_DROP]
+    \\ qexists_tac `lg` \\ simp []
+  )
+  \\ rw []
+  \\ last_x_assum (drule_at (Pat `_ = MAP _ _`))
+  \\ gs [markerTheory.Abbrev_def, LENGTH_to_list_add_trees]
+  \\ simp [inv_add_tree]
+QED
+
+(* TODO: reinsert tree, sfx_trees_to_list and toplevel
+
+Theorem reinsert_tree_eq:
+
+  EVERY (\(t, n). 0 < n /\ tree_balanced_height n t) ts /\
+  SORTED ($<=) (TAKE 2 (MAP SND ts)) /\ SORTED ($<) (MAP SND (DROP 1 ts)) /\
+  TAKE i st.heap_array = bs_tree_list_to_list ts ++ bs_tree_to_list ht t /\
+  TAKE j st.sz_array = MAP SND (REVERSE ts) /\
+  j = LENGTH ts /\ i = LENGTH (bs_tree_list_to_list ts ++ bs_tree_to_list ht t) /\
+  i + LENGTH xs < LENGTH st.heap_array /\
+  lg + 3 <= LENGTH st.sz_array /\
+  i + LENGTH xs < 2 EXP lg /\
+  0 < ht /\ tree_balanced_height ht t ==>
+  ?st'.
+  (let ts2 = extend_trees R ts t ht; ys = bs_tree_list_to_list ts2; l2 = LENGTH ts2 in
+  reinsert_tree R i j ht st = (M_success (), st') /\
+  TAKE (LENGTH ys) st'.heap_array = ys /\
+  DROP (LENGTH ys) st'.heap_array = DROP (LENGTH ys) st.heap_array /\
+  TAKE l2 st'.sz_array = MAP SND (REVERSE ts2) /\
+  LENGTH st'.sz_array = LENGTH st.sz_array /\
+  LENGTH st'.heap_array = LENGTH st.heap_array
+  )
+
+Proof
+
+  rw [reinsert_tree_def]
+  \\ simp [monad_simps]
+  \\ drule inv_trees_less_via_exp
+  \\ simp [GSYM MAP_DROP]
+  \\ disch_then (qspecl_then [`lg`, `0`, `LENGTH st.sz_array`] mp_tac)
+  \\ rw []
+
+  >- (
+    simp [monad_simps]
+    \\ gs [tree_len_simps, to_two_exp_min_1, tree_balanced_height_pos]
+    \\ fs [TAKE_SUM, EL_DROP]
+    \\ Cases_on `ts` \\ fs []
+    \\ pairarg_tac \\ fs []
+    \\ gs [tree_len_simps, tree_balanced_height_pos]
+    \\ fs [TAKE_SUM, EL_DROP]
+    \\ fs [listTheory.APPEND_11_LENGTH, LENGTH_TAKE, LENGTH_DROP]
+
+
+print_match [] ``(_ ++ _) = (_ ++ _)``
+
+ 
+
+Theorem sfx_trees_to_list_eq:
+
+  !i j acc ts st. EVERY (\(t, n). 0 < n /\ tree_balanced_height n t) ts /\
+  SORTED ($<=) (TAKE 2 (MAP SND ts)) /\ SORTED ($<) (MAP SND (DROP 1 ts)) /\
+  TAKE i st.heap_array = bs_tree_list_to_list ts /\
+  TAKE j st.sz_array = MAP SND (REVERSE ts) /\
+  j = LENGTH ts /\ i = LENGTH (bs_tree_list_to_list ts) /\
+  i < LENGTH st.heap_array /\
+  lg + 4 <= LENGTH st.sz_array /\
+  i < 2 EXP lg ==>
+  ?st'. sfx_trees_to_list R i j acc st = (M_success (pull_trees R ts acc), st')
+
+Proof
+
+  Induct
+  \\ ONCE_REWRITE_TAC [sfx_trees_to_list_def]
+  >- (
+    rw []
+    \\ Cases_on `ts` \\ fs []
+    \\ simp [monad_simps, pull_trees_def]
+    \\ rpt (pairarg_tac \\ fs []) \\ gs [tree_len_simps, tree_balanced_height_pos]
+  )
+  \\ rw []
+  \\ simp [monad_simps]
+  \\ drule inv_trees_less_via_exp
+  \\ simp [GSYM MAP_DROP]
+  \\ disch_then (qspecl_then [`lg`, `0`, `LENGTH st.sz_array`] mp_tac)
+  \\ rw []
+  >- (
+    Cases_on `ts` \\ fs [tree_len_simps]
+    \\ pairarg_tac \\ fs []
+    \\ gs [tree_len_simps, tree_balanced_height_pos]
+    \\ gs [ADD1, TAKE_SUM]
+    \\ Cases_on `n = 1` \\ fs [tree_len_simps]
+    \\ simp [pull_trees_def, extend_trees_def]
+    \\ fs [HD_DROP]
+    \\ first_x_assum irule
+    \\ simp []
+    \\ Cases_on `t` \\ fs []
+    \\ imp_res_tac SORTED_TL
+    \\ simp []
+    \\ qmatch_goalsub_abbrev_tac `TAKE 1 tl_ts`
+    \\ Cases_on `tl_ts` \\ fs []
+  )
+  >- (
+    simp [monad_simps, sfx_heap_left_two_exp_min_1]
+    \\ Cases_on `ts` \\ fs [tree_len_simps]
+    \\ pairarg_tac \\ fs []
+    \\ gs [tree_len_simps, tree_balanced_height_pos]
+    \\ gs [ADD1, TAKE_SUM]
+    \\ fs [tree_len_simps, LEFT_ADD_DISTRIB]
+    \\ irule_at Any (Q.SPECL [`j`, `(t, n) :: ts`] insert_into_sfx_heap_list_eq)
+    \\ simp [ADD1, TAKE_SUM, EL_LUPDATE]
+    \\ simp [tree_len_simps]
+    \\ qexists_tac `t` \\ simp []
+    \\ hphp
+
+
+TAKE1
+
+  \\,  rpt (pairarg_tac \\ fs []) \\ gs [tree_len_simps, tree_balanced_height_pos]
+  \\ fs [ADD1]
+  \\ 
+
+    \\ irule inv_trees_less_via_exp
+*)
 
