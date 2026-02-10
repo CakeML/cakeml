@@ -230,17 +230,43 @@ Definition fts_is_min_def:
     ((v <= n.data.value) /\ (fts_is_min v ts) /\ (fts_is_min v rest)))
 End
 
+Definition fib_heap_size_def:
+  (fib_heap_size [] = 0:num) /\
+  (fib_heap_size (FibTree _ _ ts::rest) = 1 + fib_heap_size ts + fib_heap_size rest)
+End
+
+Definition fib_num_def:
+  fib_num n:num =
+    if n < 2 then
+    n
+    else
+    fib_num(n-1) + fib_num(n-2)
+End
+
+(*See paper S_k >= F_{k+2} >= k-decandants *)
+Definition fib_heap_identity_def:
+  fib_heap_identity (FibTree k v ts) = ((1 + fib_heap_size ts) >= fib_num ((LENGTH ts) + 2))
+End
+
+Definition fib_heap_root_idenitity_def:
+  (fib_heap_root_identity [] = T) /\
+  (fib_heap_root_identity (t::ts) =
+    (fib_heap_identity t /\ fib_heap_root_identity ts))
+End
+
 Definition fib_heap_inv_def:
   fib_heap_inv fh fts ⇔
-    (!k v. FLOOKUP fh k = SOME v ==> k <> 0w) /\ (*k is null*)
+    (!k v. FLOOKUP fh k = SOME v ==> k <> 0w) /\ (*k is not null*)
     (∀k v. FLOOKUP fh k = SOME v ⇔ ?b n p c r m. fts_has k
         (fill_anode (fill_dnode (FST v) (SND v) T m) b n p c r) fts) /\
         (*sem. equiv. of fh and fts*)
     (!k. FLOOKUP fh k = NONE <=> fts = []) /\ (*empty heap*)
     (!k v. (FLOOKUP fh k = SOME v) /\ k = head_key fts
-        ==> fts_is_min (FST v) fts) (*min element*)
+        ==> fts_is_min (FST v) fts) /\(*min element*)
+    (fib_heap_root_identity fts) (*identity*)
     (* Childs have their parents as pointers ?*)
-    (* The min size of a tree is fib r with r being the rank*)
+    (* Do we need to reason about siblings?*)
+    (* Do not reason about well-formed trees -> this only affects extract minimum*)
 End
 
 Definition fib_heap_def:
@@ -250,11 +276,6 @@ Definition fib_heap_def:
       cond (fib_heap_inv fh fts /\ a = head_key fts)
 End
 
-
-(*
-Theorem write_fun2set:
-    !y a x p f. (one (a,x) * p) (fun2set (f,d)) ==> (p * one (a,y)) (fun2set ((a =+ y) f,d))
-*)
 
 Definition fib_heap_empty_append_def:
     fib_heap_empty_append (k:'a word, m:'a word -> 'a word, dm:'a word set,c: bool) =
