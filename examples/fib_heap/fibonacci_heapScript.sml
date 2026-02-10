@@ -158,6 +158,32 @@ End
    Memory Tests
  *-------------------------------------------------------------------*)
 
+Definition test_build_fts_def:
+  (test_build_fts _   (0:num)  edges = []) /\
+  (test_build_fts mem (SUC amount) edges =
+    (FibTree mem (fill_dnode (mem + 1w) (HD edges) F F)[]
+    :: test_build_fts (mem + 100w * bytes_in_word) (amount) (TL edges)))
+End
+
+Definition test_build_ft_def:
+  test_build_ft mem children edges =
+    (FibTree mem (fill_dnode (mem + 1w) (HD edges) F T)
+        (test_build_fts (mem + 10w * bytes_in_word) children (TL edges)))
+End
+
+Definition test_list_edges_def:
+  (test_list_edges _ (0:num) = [])/\
+  (test_list_edges mem nodes =
+    ((mem,nodes)::(test_list_edges (mem + 8w * bytes_in_word) (nodes - 1))))
+End
+
+Definition test_full_conn_def:
+  (test_full_conn _ _ (0:num) = []) /\
+  (test_full_conn mem nodes count =
+    (((mem * 100w + bytes_in_word),test_list_edges mem nodes)
+    :: test_full_conn mem nodes (count -1)))
+End
+
 val test_fts_mem = “fts_mem (ann_fts [
     FibTree 10w (
     fill_dnode 11w (1000w, [(50w,10)]) T F) [];
@@ -168,6 +194,18 @@ val test_fts_mem = “fts_mem (ann_fts [
     ]
     ])”
     |> SCONV [fts_mem_def,STAR_ASSOC,ann_fts_def,ann_fts_seg_def,next_key_def,head_key_def,last_key_def,REVERSE_DEF,ft_seg_def,ones_def,edges_ones_def,LENGTH,b2w_def,fill_anode_def,fill_dnode_def];
+
+val test_large_fts_mem = “fts_mem (ann_fts [
+    test_build_ft (1000w:word64) 2 (test_full_conn 10000w 3 3)
+    ])”
+    |> SCONV [fts_mem_def,STAR_ASSOC,ann_fts_def,ann_fts_seg_def, test_full_conn_def,
+    next_key_def,head_key_def,last_key_def,REVERSE_DEF,ft_seg_def,
+   (* ones_def,edges_ones_def,LENGTH,b2w_def,fill_anode_def,fill_dnode_def,*)
+    test_build_ft_def, test_build_fts_def,
+    TL_DEF, HD, FST, byteTheory.bytes_in_word_def];
+
+
+
 
 val test =
     “ones 400w [x;y;z;e;r;t;y;u:word64]”
