@@ -2485,7 +2485,7 @@ QED
 
 (* -- from clos_constantProofScript.sml -- *)
 
-Theorem LIST_REL_eq:
+Theorem LIST_REL_eq_MAP:
   !l rs. LIST_REL (\c r. f r = c) l rs <=> l = MAP f rs
 Proof
   Induct \\ Cases_on `rs` \\ fs [] \\ metis_tac []

@@ -125,7 +125,7 @@ Proof
   Induct \\ fs [build_map_def,ADD1]
 QED
 
-(* LIST_REL_eq moved to listLemmasTheory *)
+(* LIST_REL_eq_MAP_MAP moved to listLemmasTheory *)
 
 Theorem build_map_ignore:
   ∀xs m n k. k < n ⇒ build_map m n xs k = m k
@@ -222,7 +222,7 @@ Proof
   THEN1
    (drule_all ALOOKUP_conses_ok_IMP \\ strip_tac
     \\ fs [build_map_APPEND] \\ fs [build_map_def,build_part_def]
-    \\ fs [build_map_ignore,APPLY_UPDATE_THM,LIST_REL_eq,MAP_EQ_f]
+    \\ fs [build_map_ignore,APPLY_UPDATE_THM,LIST_REL_eq_MAP,MAP_EQ_f]
     \\ rpt strip_tac
     \\ fs [EVERY_MEM] \\ first_x_assum drule \\ strip_tac
     \\ gvs [build_map_ignore,APPLY_UPDATE_THM])
@@ -233,7 +233,7 @@ Proof
   \\ TRY (irule IMP_conses_ok_CONS \\ fs [EVERY_MEM])
   \\ fs [build_map_APPEND]
   \\ fs [build_map_def,APPLY_UPDATE_THM,build_part_def]
-  \\ fs [LIST_REL_eq, SF ETA_ss]
+  \\ fs [LIST_REL_eq_MAP, SF ETA_ss]
 QED
 
 (*
@@ -255,7 +255,7 @@ Proof
   \\ impl_tac THEN1 fs [conses_ok_def]
   \\ rw [build_const_def,build_mem_thm]
   \\ fs [build_def,build_part_def,MAP_REVERSE,APPLY_UPDATE_THM]
-  \\ fs [LIST_REL_eq,MAP_EQ_f]
+  \\ fs [LIST_REL_eq_MAP,MAP_EQ_f]
 QED
 
 (* verification of the efficent version in clos_to_bvlTheory *)
