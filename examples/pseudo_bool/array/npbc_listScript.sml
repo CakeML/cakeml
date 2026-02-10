@@ -4019,21 +4019,23 @@ Definition check_cstep_list_def:
     let corels = core_fmlls fml inds in
     case check_obj pc.obj w (MAP SND corels) bopt of
       NONE => NONE
-    | SOME new =>
+    | SOME (new,w) =>
       let bound' = update_bound pc.chk pc.bound new in
       let dbound' = update_dbound pc.dbound new in
       if mi then
-        let c = model_improving pc.obj new in
-        SOME (
-          update_resize fml NONE (SOME (c,T)) pc.id,
-          zeros,
-          sorted_insert pc.id inds,
-          update_vimap vimap pc.id (FST c),
-          vomap,
-          pc with
-          <| id := pc.id+1;
-             bound := bound';
-             dbound := dbound' |>)
+        if pc.obj ≠ NONE then
+          let c = model_improving pc.obj new in
+          SOME (
+            update_resize fml NONE (SOME (c,T)) pc.id,
+            zeros,
+            sorted_insert pc.id inds,
+            update_vimap vimap pc.id (FST c),
+            vomap,
+            pc with
+            <| id := pc.id+1;
+               bound := bound';
+               dbound := dbound' |>)
+        else NONE
       else
         SOME (fml, zeros, inds, vimap, vomap,
           pc with
@@ -4053,17 +4055,19 @@ Definition check_cstep_list_def:
     then SOME (fml, zeros, inds, vimap, vomap, pc)
     else NONE
   | AssertObj i => (
-      let c = model_improving pc.obj i in
-      let dbound' = update_dbound pc.dbound i in
-        SOME (
-          update_resize fml NONE (SOME (c,T)) pc.id,
-          zeros,
-          sorted_insert pc.id inds,
-          update_vimap vimap pc.id (FST c),
-          vomap,
-          pc with
-          <| id := pc.id+1;
-             dbound := dbound' |>)
+      if pc.obj ≠ NONE then
+        let c = model_improving pc.obj i in
+        let dbound' = update_dbound pc.dbound i in
+          SOME (
+            update_resize fml NONE (SOME (c,T)) pc.id,
+            zeros,
+            sorted_insert pc.id inds,
+            update_vimap vimap pc.id (FST c),
+            vomap,
+            pc with
+            <| id := pc.id+1;
+               dbound := dbound' |>)
+      else NONE
     )
   | ChangePres b v c pfs =>
     (case check_change_pres_list b fml pc.id pc.pres
@@ -4074,6 +4078,31 @@ Definition check_cstep_list_def:
         fml', zeros', inds,
         vimap, vomap,
         pc with <| id:=id'; pres:=SOME pres' |>))
+  | Sol w =>
+    (if pc.obj ≠ NONE ∨ ¬pc.chk then NONE
+    else
+    let corels = core_fmlls fml inds in
+    case check_obj pc.obj w (MAP SND corels) NONE of
+      NONE => NONE
+    | SOME (new,w) =>
+      let bound' = update_bound pc.chk pc.bound new in
+      let dbound' = update_dbound pc.dbound new in
+      let c = model_banning pc.pres w in
+        SOME (
+          update_resize fml NONE (SOME (c,T)) pc.id,
+          zeros,
+          sorted_insert pc.id inds,
+          update_vimap vimap pc.id (FST c),
+          vomap,
+          pc with
+          <| id := pc.id+1;
+             bound := bound';
+             dbound := dbound';
+             enum := pc.enum+1 |>))
+  | CheckPres ls' =>
+    if check_eq_pres pc.pres ls'
+    then SOME (fml, zeros, inds, vimap, vomap, pc)
+    else NONE
 End
 
 Theorem MEM_core_fmlls:
@@ -4422,7 +4451,7 @@ Proof
       simp[lookup_mk_core_fml]>>
       metis_tac[ind_rel_lookup_core_only_list,fml_rel_lookup_core_only])>>
     drule check_obj_cong>>rw[]>>fs[]>>
-    rw[]>>gvs[]
+    rw[]
     >- metis_tac[fml_rel_update_resize]
     >- metis_tac[ind_rel_update_resize_sorted_insert]
     >- metis_tac[vimap_rel_update_resize_update_vimap]>>
@@ -4498,6 +4527,23 @@ Proof
       metis_tac[fml_rel_fml_rel_vimap_rel]>>
     simp[any_el_rollback]>>
     metis_tac[check_subproofs_list_zeros])
+  >~ [‘CheckPres’] >- (
+    fs[check_cstep_def,check_cstep_list_def])
+  >~ [‘Sol’] >- (
+    gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def]>>
+    rw[PULL_EXISTS]>>
+    `set (MAP SND (core_fmlls fmlls inds)) =
+      set (MAP SND (toAList (mk_core_fml T fml)))` by (
+      rw[EXTENSION,MEM_MAP,EXISTS_PROD,MEM_toAList,MEM_core_fmlls]>>
+      simp[lookup_mk_core_fml]>>
+      metis_tac[ind_rel_lookup_core_only_list,fml_rel_lookup_core_only])>>
+    drule check_obj_cong>>rw[]>>fs[]>>
+    rw[]
+    >- metis_tac[fml_rel_update_resize]
+    >- metis_tac[ind_rel_update_resize_sorted_insert]
+    >- metis_tac[vimap_rel_update_resize_update_vimap]>>
+    simp[any_el_update_resize]
+  )
 QED
 
 Definition check_csteps_list_def:
@@ -4552,20 +4598,20 @@ Definition check_implies_fml_list_def:
 End
 
 Definition check_hconcl_list_def:
-  (check_hconcl_list fml obj fml' obj' bound' dbound'
+  (check_hconcl_list fml obj fml' obj' bound' dbound' enum
     HNoConcl = T) ∧
-  (check_hconcl_list fml obj fml' obj' bound' dbound'
+  (check_hconcl_list fml obj fml' obj' bound' dbound' enum
     (HDSat wopt) =
     case wopt of
       NONE =>
       bound' ≠ NONE
     | SOME wm =>
       check_obj obj wm fml NONE ≠ NONE) ∧
-  (check_hconcl_list fml obj fml' obj' bound' dbound'
+  (check_hconcl_list fml obj fml' obj' bound' dbound' enum
     (HDUnsat n) =
     (dbound' = NONE ∧
       check_contradiction_fml_list F fml' n)) ∧
-  (check_hconcl_list fml obj fml' obj' bound' dbound'
+  (check_hconcl_list fml obj fml' obj' bound' dbound' enum
     (HOBounds lbi ubi n wopt) =
     (
     (opt_le lbi dbound' ∧
@@ -4576,7 +4622,17 @@ Definition check_hconcl_list_def:
     case wopt of
       NONE => opt_le bound' ubi
     | SOME wm =>
-      opt_le (check_obj obj wm fml NONE) ubi)))
+      opt_le (OPTION_MAP FST (check_obj obj wm fml NONE)) ubi))) ∧
+  (check_hconcl_list fml obj fml' obj' bound' dbound' enum
+    (HEEnum n complete hint) =
+    (
+    obj = NONE ∧
+    (* Number of solutions claimed must be at most enumerated *)
+    n = enum ∧
+    (* And if complete enumeration is claimed, formula must be hinted *)
+    (complete ⇒
+      case hint of NONE => F
+      | SOME i => check_contradiction_fml_list F fml' i)))
 End
 
 Theorem fml_rel_check_implies_fml:
@@ -4592,9 +4648,9 @@ QED
 Theorem fml_rel_check_hconcl_list:
   fml_rel fml' fmlls' ∧
   check_hconcl_list fml obj fmlls'
-    obj' bound' dbound' hconcl ⇒
+    obj' bound' dbound' enum hconcl ⇒
   check_hconcl fml obj fml'
-    obj' bound' dbound' hconcl
+    obj' bound' dbound' enum hconcl
 Proof
   Cases_on`hconcl`>>
   fs[check_hconcl_def,check_hconcl_list_def]
@@ -4769,8 +4825,8 @@ Theorem check_csteps_list_concl:
     (init_conf (LENGTH fml + 1) chk pres obj) =
     SOME(fmlls',zeros',inds',vimap',vomap',pc') ∧
   check_hconcl_list fml obj fmlls'
-    pc'.obj pc'.bound pc'.dbound hconcl ⇒
-  sem_concl (set fml) obj (hconcl_concl hconcl)
+    pc'.obj pc'.bound pc'.dbound pc'.enum hconcl ⇒
+  sem_concl (set fml) obj (pres_set_spt pres) (hconcl_concl hconcl)
 Proof
   rw[]>>
   qmatch_asmsub_abbrev_tac`check_csteps_list cs fmlls zeros

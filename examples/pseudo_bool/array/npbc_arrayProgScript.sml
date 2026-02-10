@@ -697,7 +697,7 @@ Definition err_check_string_def:
   concat[
     strlit"constraint id check failed. expect: ";
     npbc_string c;
-    strlit" got: ";
+    strlit" got (in checker): ";
     npbc_string c']
 End
 
@@ -5237,6 +5237,17 @@ End
 
 val res = translate change_pres_update_def;
 
+Definition sol_update_def:
+  sol_update pc id' bound' dbound' =
+    pc with
+          <| id := id';
+             bound := bound';
+             dbound := dbound';
+             enum := pc.enum + 1 |>
+End
+
+val res = translate sol_update_def;
+
 Definition npbc_obj_string_def:
   (npbc_obj_string (xs,i:int) =
     concat [
@@ -5252,7 +5263,7 @@ Definition err_obj_check_string_def:
     concat[
     strlit"objective check failed, expect: ";
     npbc_obj_string fc';
-    strlit" got: ";
+    strlit" got (in checker): ";
     npbc_obj_string fc]
 End
 
@@ -5368,6 +5379,34 @@ val res = translate (npbc_checkTheory.guard_ord_t_def |> SIMP_RULE std_ss[MEMBER
 
 val res = translate (npbc_checkTheory.mk_ordsub_def);
 
+Definition err_pres_check_string_def:
+  err_pres_check_string (fc:num_set option) (fc':num_set) =
+  case fc of NONE => strlit"preserved set check failed, no preserved set available"
+  | SOME fc =>
+    concat[
+    strlit"preserved set check failed, expect: ";
+    concatWith (strlit" ") (MAP (toString o FST) (toSortedAList fc'));
+    strlit" got (in checker): ";
+    concatWith (strlit" ") (MAP (toString o FST) (toSortedAList fc))]
+End
+
+val res = translate err_pres_check_string_def;
+val res = translate npbc_checkTheory.check_eq_pres_def;
+
+Definition obj_check_def:
+  obj_check on ⇔ on = NONE
+End
+
+val res = translate obj_check_def;
+
+Definition obj_chk_check_def:
+  obj_chk_check on chk ⇔ on = NONE ∧ chk
+End
+
+val res = translate obj_chk_check_def;
+
+val res = translate npbc_checkTheory.model_banning_def;
+
 Quote add_cakeml:
   fun check_cstep_arr lno cstep fml zeros inds vimap vomap pc =
   case cstep of
@@ -5463,13 +5502,19 @@ Quote add_cakeml:
       None =>
        raise Fail (format_failure lno
         ("supplied assignment did not satisfy constraints or did not improve objective"))
-      | Some new =>
+      | Some neww =>
       let
+        val new = fst neww
         val bound' = update_bound (get_chk pc) (get_bound pc) new
         val dbound' = update_dbound (get_dbound pc) new
       in
       if mi
       then
+        if obj_check obj
+        then
+          raise Fail (format_failure lno
+            ("model improving not allowed with no objective"))
+        else
         let
           val id = get_id pc
           val c = model_improving obj new in
@@ -5498,22 +5543,66 @@ Quote add_cakeml:
         (err_obj_check_string (get_obj pc) fc'))
   | Assertobj i =>
     let
-      val id = get_id pc
       val obj = get_obj pc
-      val c = model_improving obj i
-      val dbound' = update_dbound (get_dbound pc) i in
-      (Array.updateResize fml None id (Some (c,True)),
-       (zeros,
-       (sorted_insert id inds,
-       (update_vimap_arr vimap id (fst c),
-       (vomap,
-        assert_obj_update pc (id+1) dbound')))))
+    in
+    if obj_check obj
+    then
+      raise Fail (format_failure lno
+        ("model improving not allowed with no objective"))
+    else
+      let
+        val id = get_id pc
+        val c = model_improving obj i
+        val dbound' = update_dbound (get_dbound pc) i in
+        (Array.updateResize fml None id (Some (c,True)),
+         (zeros,
+         (sorted_insert id inds,
+         (update_vimap_arr vimap id (fst c),
+         (vomap,
+          assert_obj_update pc (id+1) dbound')))))
+      end
     end
   | Changepres b v c pfs =>
     (case check_change_pres_arr lno b fml
       (get_id pc) (get_pres pc) v c pfs zeros of
       (fml',(pres',(id',zeros'))) =>
         (fml', (zeros', (inds, (vimap, (vomap, change_pres_update pc id' pres'))))))
+  | Sol w => (
+    let
+      val obj = get_obj pc
+      val chk = get_chk pc
+    in
+      if obj_chk_check obj chk then
+        (case check_obj obj w
+          (map_snd (core_fmlls_arr fml inds)) None of
+        None =>
+         raise Fail (format_failure lno
+          ("supplied assignment did not satisfy constraints or did not improve objective"))
+        | Some neww =>
+        let
+          val new = fst neww
+          val bound' = update_bound chk (get_bound pc) new
+          val dbound' = update_dbound (get_dbound pc) new
+          val id = get_id pc
+          val pres = get_pres pc
+          val c = model_banning pres (snd neww) in
+          (Array.updateResize fml None id (Some (c,True)),
+           (zeros,
+           (sorted_insert id inds,
+           (update_vimap_arr vimap id (fst c),
+           (vomap,
+            sol_update pc (id+1) bound' dbound')))))
+        end)
+      else
+        raise Fail (format_failure lno
+          ("solution exclusion not allowed after unchecked del (and no objective allowed)"))
+    end)
+  | Checkpres ls' =>
+    if check_eq_pres (get_pres pc) ls'
+    then (fml, (zeros, (inds, (vimap, (vomap, pc)))))
+    else
+      raise Fail (format_failure lno
+        (err_pres_check_string (get_pres pc) ls'))
 End
 
 val NPBC_CHECK_CSTEP_TYPE_def = theorem "NPBC_CHECK_CSTEP_TYPE_def";
@@ -5909,12 +5998,26 @@ Proof
     >- (
       rpt xlet_autop>>
       xcon>>xsimpl>>
-      fs[PAIR_TYPE_def,get_id_def,obj_update_def]>>
+      Cases_on`x`>>
+      gvs[PAIR_TYPE_def,get_id_def,obj_update_def]>>
       `∀b db. pc with <|id := pc.id; bound := b; dbound := db|>
         = pc with <|bound := b; dbound := db|>` by
        fs[npbc_checkTheory.proof_conf_component_equality]>>
       metis_tac[ARRAY_W8ARRAY_refl])
     >- ( (* model improving *)
+      xlet_auto>- (
+        xsimpl>>
+        simp (eq_lemmas()))>>
+      fs[obj_check_def]>>
+      xif
+      >- (
+        xsimpl>>
+        rpt xlet_autop>>
+        xraise>>
+        xsimpl>>
+        TOP_CASE_TAC>>simp[]>>
+        metis_tac[Fail_exn_def,ARRAY_W8ARRAY_refl])>>
+      Cases_on`x`>>simp[]>>
       rpt xlet_autop>>
       xcon>>xsimpl>>
       simp[PAIR_TYPE_def,OPTION_TYPE_def]>>
@@ -5961,7 +6064,19 @@ Proof
   >- ( (* AssertObj *)
     xmatch>>
     rpt xlet_autop>>
+    xlet_auto>- (
+      xsimpl>>
+      simp (eq_lemmas()))>>
+    fs[obj_check_def]>>
+    xif
+    >- (
+      rpt xlet_autop>>
+      xraise>>xsimpl>>
+      fs[get_obj_def]>>
+      metis_tac[Fail_exn_def,ARRAY_W8ARRAY_refl])>>
+    rpt xlet_autop>>
     xcon>> xsimpl>>
+    fs[get_obj_def]>>
     simp[PAIR_TYPE_def]>>
     qmatch_goalsub_abbrev_tac`ARRAY _ A`>>
     qexists_tac`A`>>xsimpl>>
@@ -5990,6 +6105,59 @@ Proof
     xcon>>
     xsimpl>>
     fs[change_pres_update_def])
+  >- ( (* CheckPres *)
+    xmatch>>
+    xlet_autop>>
+    xlet_auto
+    >-
+      (xsimpl>>simp (eq_lemmas()))>>
+    xif>>fs[get_pres_def]
+    >- (
+      rpt xlet_autop>>
+      xcon>>xsimpl>>
+      simp[PAIR_TYPE_def]>>
+      metis_tac[ARRAY_W8ARRAY_refl])>>
+    rpt xlet_autop>>
+    xraise>>xsimpl>>
+    metis_tac[Fail_exn_def,ARRAY_W8ARRAY_refl])
+  >- ( (* Sol *)
+    xmatch>>
+    rpt xlet_autop>>
+    xlet_auto >-
+      (xsimpl>>simp (eq_lemmas()))>>
+    xif>>fs[obj_chk_check_def,get_chk_def,get_obj_def]
+    >- (
+      rpt xlet_autop>>
+      xlet`POSTv v. ARRAY fmlv fmllsv * W8ARRAY zerosv zeros * ARRAY vimapv vimaplsv *
+        &( OPTION_TYPE (PAIR_TYPE INT (NUM --> BOOL))
+          (check_obj NONE l (MAP SND (core_fmlls fmlls inds)) NONE) v)`
+      >- (
+        xapp>>xsimpl>>
+        rpt(first_x_assum (irule_at Any))>>
+        qexists_tac`NONE`>>simp[OPTION_TYPE_def]>>
+        rw[map_snd_def])>>
+      Cases_on`check_obj NONE l (MAP SND (core_fmlls fmlls inds)) NONE`>>
+      fs[map_snd_def,OPTION_TYPE_def]>>
+      xmatch
+      >- (
+        rpt xlet_autop>>
+        xraise>>xsimpl>>
+        metis_tac[Fail_exn_def,ARRAY_W8ARRAY_refl])>>
+      Cases_on`x`>>gvs[]>>
+      rpt xlet_autop>>
+      xcon>>xsimpl>>
+      simp[PAIR_TYPE_def,OPTION_TYPE_def]>>
+      qmatch_goalsub_abbrev_tac`ARRAY _ A`>>
+      qexists_tac`A`>>xsimpl>>
+      fs[get_id_def,sol_update_def,get_bound_def,get_dbound_def,get_pres_def]>>
+      unabbrev_all_tac>>
+      match_mp_tac LIST_REL_update_resize>>
+      fs[OPTION_TYPE_def,PAIR_TYPE_def]>>
+      EVAL_TAC)
+    >- (
+      rpt xlet_autop>>
+      xraise>>xsimpl>>
+      metis_tac[Fail_exn_def,ARRAY_W8ARRAY_refl]))
 QED
 
 Quote add_cakeml:
@@ -6033,7 +6201,8 @@ Definition check_sat_def:
   case wopt of
     NONE => bound' ≠ NONE
   | SOME wm =>
-    check_obj obj wm fml NONE ≠ NONE
+    case check_obj obj wm fml NONE of NONE => F
+    | _ => T
 End
 
 Definition check_ub_def:
@@ -6041,7 +6210,7 @@ Definition check_ub_def:
     case wopt of
       NONE => opt_le bound' ubi
     | SOME wm =>
-      opt_le (check_obj obj wm fml NONE) ubi
+      opt_le (OPTION_MAP FST (check_obj obj wm fml NONE)) ubi
 End
 
 val res = translate check_sat_def;
@@ -6091,8 +6260,26 @@ End
 
 val res = translate hobounds_res_def;
 
+Definition heenum_res_def:
+  heenum_res (obj:((int # num) list # int) option) (n:num) enum b3 b4 =
+  let
+    b1 = (obj = NONE);
+    b2 = (n = enum)
+  in
+  if b1 ∧ b2 ∧ b3 ∧ b4 then NONE
+  else SOME (
+      strlit "conclusion ENUMERATION check failed:" ^
+      strlit " [no objective] " ^ bool_to_string b1 ^
+      strlit " [enumeration claim] " ^ bool_to_string b2 ^
+      strlit " [complete hint present] " ^ bool_to_string b3 ^
+      strlit " [complete hint correct] " ^ bool_to_string b4
+  )
+End
+
+val res = translate heenum_res_def;
+
 Quote add_cakeml:
-  fun check_hconcl_arr fml obj fml' obj' bound' dbound' hconcl =
+  fun check_hconcl_arr fml obj fml' obj' bound' dbound' enum hconcl =
   case hconcl of
     Hnoconcl => None
   | Hdsat wopt => hdsat_res (check_sat fml obj bound' wopt)
@@ -6111,6 +6298,15 @@ Quote add_cakeml:
       hobounds_res b1 b2
         (check_implies_fml_arr fml' n (lower_bound obj' lb))
     end
+  | Heenum n complete hint =>
+    if complete
+    then
+      case hint of
+        None => heenum_res obj n enum False True
+      | Some i =>
+        heenum_res obj n enum True (check_contradiction_fml_arr False fml' i)
+    else
+      heenum_res obj n enum True True
 End
 
 val NPBC_CHECK_HCONCL_TYPE_def = theorem"NPBC_CHECK_HCONCL_TYPE_def";
@@ -6121,12 +6317,13 @@ Theorem check_hconcl_arr_spec:
   obj_TYPE obj1 obj1v ∧
   OPTION_TYPE INT bound1 bound1v ∧
   OPTION_TYPE INT dbound1 dbound1v ∧
+  NUM enum enumv ∧
   NPBC_CHECK_HCONCL_TYPE hconcl hconclv ∧
   LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_hconcl_arr" (get_ml_prog_state()))
-    [fmlv; objv; fml1v; obj1v; bound1v; dbound1v; hconclv]
+    [fmlv; objv; fml1v; obj1v; bound1v; dbound1v; enumv; hconclv]
     (ARRAY fml1v fmllsv)
     (POSTv v.
         ARRAY fml1v fmllsv *
@@ -6134,7 +6331,7 @@ Theorem check_hconcl_arr_spec:
         ∃s.
         OPTION_TYPE STRING_TYPE
         (if check_hconcl_list fml obj fmlls obj1
-          bound1 dbound1 hconcl then NONE else SOME s) v))
+          bound1 dbound1 enum hconcl then NONE else SOME s) v))
 Proof
   rw[]>>
   xcf"check_hconcl_arr"(get_ml_prog_state ())>>
@@ -6150,7 +6347,10 @@ Proof
       (xsimpl>>simp[EqualityType_NUM_BOOL])>>
     xapp>>xsimpl>>
     first_x_assum (irule_at Any)>>
-    simp[hdsat_res_def]>>rw[]>>fs[OPTION_TYPE_def,check_sat_def]>>
+    every_case_tac>>
+    gvs[OPTION_TYPE_def,hdsat_res_def,check_sat_def]>>
+    every_case_tac>>
+    gvs[OPTION_TYPE_def,hdsat_res_def,check_sat_def]>>
     metis_tac[])
   >- (
     (* Hdunsat *)
@@ -6172,28 +6372,79 @@ Proof
     xapp>>xsimpl>>
     rpt(first_x_assum (irule_at Any))>>
     simp[hdunsat_res_def]>>rw[]>>
-    metis_tac[])>>
-  rpt xlet_autop>>
-  rename1`opt_le lb dbound1`>>
-  Cases_on`lb`>>fs[OPTION_TYPE_def]>>xmatch
-  >- (
+    metis_tac[])
+  >- ( (*Hobounds *)
     rpt xlet_autop>>
-    xlet`POSTv v. ARRAY fml1v fmllsv *
-         &(
-         BOOL (check_contradiction_fml_list F fmlls n) v)`
-    >-
-      (xapp>>xsimpl)>>
+    rename1`opt_le lb dbound1`>>
+    Cases_on`lb`>>fs[OPTION_TYPE_def]>>xmatch
+    >- (
+      rpt xlet_autop>>
+      xlet`POSTv v. ARRAY fml1v fmllsv *
+           &(
+           BOOL (check_contradiction_fml_list F fmlls n) v)`
+      >-
+        (xapp>>xsimpl)>>
+      xapp>>xsimpl>>
+      rpt(first_x_assum (irule_at Any))>>
+      simp[hobounds_res_def,check_ub_def]>>rw[]>>every_case_tac>>
+      fs[OPTION_TYPE_def]>>
+      metis_tac[]) >>
+    rpt xlet_autop>>
     xapp>>xsimpl>>
     rpt(first_x_assum (irule_at Any))>>
     simp[hobounds_res_def,check_ub_def]>>rw[]>>every_case_tac>>
     fs[OPTION_TYPE_def]>>
-    metis_tac[]) >>
-  rpt xlet_autop>>
-  xapp>>xsimpl>>
-  rpt(first_x_assum (irule_at Any))>>
-  simp[hobounds_res_def,check_ub_def]>>rw[]>>every_case_tac>>
-  fs[OPTION_TYPE_def]>>
-  metis_tac[]
+    metis_tac[])
+  >- ( (* Heenum *)
+    xif>>
+    rpt xlet_autop
+    >- (
+      rename1`OPTION_TYPE NUM hint _`>>
+      Cases_on`hint`>>fs[OPTION_TYPE_def]>>
+      xmatch
+      >- (
+        rpt xlet_autop>>
+        xapp>>xsimpl>>
+        qexists_tac`T`>>
+        qexists_tac`F`>>
+        rpt(first_x_assum (irule_at Any))>>
+        gvs[heenum_res_def]>>
+        every_case_tac>>
+        gvs[OPTION_TYPE_def]>>
+        rw[]
+        >- EVAL_TAC
+        >- EVAL_TAC>>
+        metis_tac[])>>
+      rpt xlet_autop>>
+      rename1`NUM x _`>>
+      xlet`POSTv v. ARRAY fml1v fmllsv *
+       &(
+         BOOL (check_contradiction_fml_list F fmlls x) v)`
+      >-
+        (xapp>>xsimpl)>>
+      xlet_autop>>
+      xapp>>xsimpl>>
+      rpt(first_x_assum (irule_at Any))>>
+      qexists_tac`T`>>
+      gvs[heenum_res_def]>>
+      every_case_tac>>
+      gvs[OPTION_TYPE_def]>>
+      rw[]
+      >- EVAL_TAC
+      >- EVAL_TAC>>
+      metis_tac[])>>
+    xapp>>
+    xsimpl>>
+    qexists_tac`T`>>
+    qexists_tac`T`>>
+    rpt(first_x_assum (irule_at Any))>>
+    gvs[heenum_res_def]>>
+    every_case_tac>>
+    gvs[OPTION_TYPE_def]>>
+    rw[]
+    >- EVAL_TAC
+    >- EVAL_TAC>>
+    metis_tac[])
 QED
 
 Quote add_cakeml:

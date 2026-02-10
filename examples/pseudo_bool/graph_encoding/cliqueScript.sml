@@ -292,18 +292,21 @@ QED
 Theorem full_encode_sem_concl:
   good_graph g ∧
   full_encode g = (obj,pbf) ∧
-  sem_concl (set (MAP SND pbf)) obj concl ∧
+  sem_concl (set (MAP SND pbf)) obj {} concl ∧
   conv_concl (FST g) concl = SOME (lbg, ubg) ⇒
   (∀vs. is_clique vs g ⇒ CARD vs ≤ ubg) ∧
   (∃vs. is_clique vs g ∧ lbg ≤ CARD vs)
 Proof
   strip_tac>>
   gvs[full_encode_def]>>
-  qpat_x_assum`sem_concl _ _ _` mp_tac>>
+  qpat_x_assum`sem_concl _ _ _ _` mp_tac>>
   simp[LIST_TO_SET_MAP,IMAGE_IMAGE]>>
   simp[GSYM IMAGE_IMAGE, GSYM (Once LIST_TO_SET_MAP)]>>
+  `{} = IMAGE enc_string {}` by fs[]>>
+  pop_assum SUBST1_TAC>>
   DEP_REWRITE_TAC[GSYM concl_INJ_iff]>>
   CONJ_TAC >- (
+    simp[]>>
     assume_tac enc_string_INJ>>
     drule INJ_SUBSET>>
     disch_then match_mp_tac>>
@@ -363,7 +366,7 @@ QED
 Theorem full_encode_sem_concl_check:
   good_graph g ∧
   full_encode g = (obj,pbf) ∧
-  sem_concl (set (MAP SND pbf)) obj concl ∧
+  sem_concl (set (MAP SND pbf)) obj {} concl ∧
   conv_concl (FST g) concl = SOME (mc,mc) ⇒
   max_clique_size g = mc
 Proof

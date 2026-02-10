@@ -1720,6 +1720,10 @@ val res = translate parse_sol_def;
 val res = translate parse_eobj_def;
 val res = translate parse_obji_def;
 
+val res = translate parse_solx_def;
+val res = translate list_to_num_set_def;
+val res = translate parse_epres_def;
+
 val res = translate parse_cstep_head_def;
 
 val PB_PARSE_PAR_TYPE_def = theorem"PB_PARSE_PAR_TYPE_def";
@@ -1741,6 +1745,14 @@ Definition check_mark_qed_id_opt_obju_def:
 End
 
 val r = translate check_mark_qed_id_opt_obju_def;
+
+Definition check_mark_qed_id_opt_preserve_def:
+  check_mark_qed_id_opt_preserve b s =
+    check_mark_qed_id_opt
+      (if b then INL (strlit"preserve_add") else INL (strlit"preserve_remove")) s
+End
+
+val r = translate check_mark_qed_id_opt_preserve_def;
 
 Quote add_cakeml:
   fun parse_cstep fns fd lno =
@@ -1780,7 +1792,13 @@ Quote add_cakeml:
             | _ =>
                 raise Fail (format_failure (sub_one lno'') "Incorrectly terminated objective update step")))
     | Some (Changeprespar b x c, fns'') =>
-        raise Fail (format_failure lno "Parsing change proj set not yet supported")
+        (case parse_subproof_imp fns'' fd lno' of
+          (pf,(fns''',(s,lno''))) =>
+            (case check_mark_qed_id_opt_preserve b s of
+              Some None =>
+              (Inr (Changepres b x c pf),(fns''',lno''))
+            | _ =>
+                raise Fail (format_failure (sub_one lno'') "Incorrectly terminated preserve set change step")))
     )
 End
 
@@ -2055,11 +2073,58 @@ Proof
     simp[SUM_TYPE_def,NPBC_CHECK_CSTEP_TYPE_def]>>
     unabbrev_all_tac>>simp[forwardFD_o]>>
     metis_tac[STDIO_INSTREAM_LINES_refl_gc])
-  >>
+  >- (
+    qmatch_goalsub_abbrev_tac`INSTREAM_LINES #"\n" _ _ lines1 fs1`>>
+    xlet`(POSTve
+      (λv.
+         SEP_EXISTS k lines' acc' fns' s lno' rest.
+         STDIO (forwardFD fs1 fd k) *
+         INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs1 fd k) *
+         &(
+            (PAIR_TYPE pfs_TYPE
+              (PAIR_TYPE (fns_TYPE a)
+                (PAIR_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NUM))) (acc',fns',s,lno') v ∧
+            parse_subproof r (MAP toks_fast lines1) = SOME(acc',fns',s,rest) ∧
+            MAP toks_fast lines' = rest))
+      (λe.
+         SEP_EXISTS k lines'.
+           STDIO (forwardFD fs1 fd k) * INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs1 fd k) *
+           &(Fail_exn e ∧ parse_subproof r (MAP toks_fast lines1) = NONE))
+      )`
+    >- (
+      xapp>>
+      xsimpl>>
+      metis_tac[LIST_TYPE_def])
+    >- (
+      xsimpl>>
+      unabbrev_all_tac>>simp[forwardFD_o]>>
+      metis_tac[STDIO_INSTREAM_LINES_refl]) >>
+    fs[PAIR_TYPE_def]>>
+    xmatch>>
     rpt xlet_autop>>
-    xraise>>xsimpl>>
-    gvs[Fail_exn_def]>>
-    metis_tac[STDIO_INSTREAM_LINES_refl_gc]
+    TOP_CASE_TAC>>
+    gvs[check_mark_qed_id_opt_preserve_def,OPTION_TYPE_def]
+    >- (
+      xmatch>>
+      rpt xlet_autop>>
+      xraise>>xsimpl>>
+      unabbrev_all_tac>>
+      simp[Fail_exn_def,forwardFD_o]>>
+      metis_tac[STDIO_INSTREAM_LINES_refl_gc])>>
+    reverse TOP_CASE_TAC>>
+    gvs[check_mark_qed_id_opt_obju_def,OPTION_TYPE_def]>>
+    xmatch
+    >- (
+      rpt xlet_autop>>
+      xraise>>xsimpl>>
+      unabbrev_all_tac>>
+      simp[Fail_exn_def,forwardFD_o]>>
+      metis_tac[STDIO_INSTREAM_LINES_refl_gc])>>
+    rpt xlet_autop>>
+    xcon>>xsimpl>>
+    simp[SUM_TYPE_def,NPBC_CHECK_CSTEP_TYPE_def]>>
+    unabbrev_all_tac>>simp[forwardFD_o]>>
+    metis_tac[STDIO_INSTREAM_LINES_refl_gc])
 QED
 
 (* returns the necessary information to check the
@@ -2462,6 +2527,14 @@ val parse_lb_side = Q.prove(
 val res = translate parse_ub_def;
 val res = translate parse_bounds_def;
 
+val res = translate parse_enum_def;
+
+val parse_enum_side_def = fetch "-" "parse_enum_side_def";
+val parse_enum_side = Q.prove(
+  `parse_enum_side x`,
+  rw[Once parse_enum_side_def]>>
+  intLib.ARITH_TAC) |> update_precondition;
+
 val res = translate parse_concl_def;
 
 val res = translate parse_output_def;
@@ -2524,13 +2597,13 @@ val res = translate format_err_def;
 Quote add_cakeml:
   fun check_output_hconcl_arr
     fml obj
-    fml' inds' pres' obj' bound' dbound' chk'
+    fml' inds' pres' obj' bound' dbound' chk' enum'
     fmlt prest objt
     output hconcl =
   format_err
   (check_output_arr fml' inds'
     pres' obj' bound' dbound' chk' fmlt prest objt output)
-  (check_hconcl_arr fml obj fml' obj' bound' dbound' hconcl)
+  (check_hconcl_arr fml obj fml' obj' bound' dbound' enum' hconcl)
 End
 
 Theorem check_output_hconcl_arr_spec:
@@ -2541,6 +2614,7 @@ Theorem check_output_hconcl_arr_spec:
   pres_TYPE pres1 pres1v ∧
   OPTION_TYPE INT bound1 bound1v ∧
   OPTION_TYPE INT dbound1 dbound1v ∧
+  NUM enum enumv ∧
   BOOL chk1 chk1v ∧
   LIST_TYPE constraint_TYPE fmlt fmltv ∧
   pres_TYPE prest prestv ∧
@@ -2552,7 +2626,7 @@ Theorem check_output_hconcl_arr_spec:
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_output_hconcl_arr" (get_ml_prog_state()))
     [fmlv; objv;
-      fml1v; inds1v; pres1v; obj1v; bound1v; dbound1v; chk1v;
+      fml1v; inds1v; pres1v; obj1v; bound1v; dbound1v; chk1v; enumv;
       fmltv; prestv; objtv;
       outputv; hconclv]
     (ARRAY fml1v fmllsv)
@@ -2564,7 +2638,7 @@ Theorem check_output_hconcl_arr_spec:
         (if check_output_list fmlls inds1 pres1 obj1
           bound1 dbound1 chk1 fmlt prest objt output ∧
           check_hconcl_list fml obj fmlls obj1
-          bound1 dbound1 hconcl
+          bound1 dbound1 enum hconcl
         then NONE else SOME s) v))
 Proof
   rw[]>>
@@ -2583,7 +2657,7 @@ QED
 Quote add_cakeml:
   fun run_concl_file fd f_ns lno s
     fml obj
-    fml' inds' pres' obj' bound' dbound' chk'
+    fml' inds' pres' obj' bound' dbound' chk' enum'
     fmlt prest objt =
   let
     val ls = TextIO.inputAllTokens #"\n" fd blanks tokenize
@@ -2594,7 +2668,7 @@ Quote add_cakeml:
       case
         check_output_hconcl_arr
         fml obj
-        fml' inds' pres' obj' bound' dbound' chk'
+        fml' inds' pres' obj' bound' dbound' chk' enum'
         fmlt prest objt
         output hconcl of
         None => Inr (output,hconcl)
@@ -2628,6 +2702,7 @@ Theorem run_concl_file_spec:
   OPTION_TYPE INT bound1 bound1v ∧
   OPTION_TYPE INT dbound1 dbound1v ∧
   BOOL chk1 chk1v ∧
+  NUM enum enumv ∧
   LIST_TYPE constraint_TYPE fmlt fmltv ∧
   obj_TYPE objt objtv ∧
   pres_TYPE prest prestv ∧
@@ -2637,7 +2712,7 @@ Theorem run_concl_file_spec:
     ^(fetch_v "run_concl_file" (get_ml_prog_state()))
     [fdv; fnsv;lnov;sv;
       fmlv; objv; fml1v; inds1v; pres1v; obj1v; bound1v; dbound1v; chk1v;
-      fmltv; prestv; objtv]
+      enumv; fmltv; prestv; objtv]
     (STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs * ARRAY fml1v fmllsv)
     (POSTv v.
        SEP_EXISTS res.
@@ -2654,7 +2729,7 @@ Theorem run_concl_file_spec:
           check_output_list fmlls inds1
             pres1 obj1 bound1 dbound1 chk1 fmlt prest objt output ∧
           check_hconcl_list fml obj fmlls obj1
-          bound1 dbound1 hconcl
+          bound1 dbound1 enum hconcl
         | INL l => T))
 Proof
   rw[]>>
@@ -2780,6 +2855,12 @@ Proof
   xsimpl
 QED
 
+Definition get_enum_def:
+  get_enum pc = pc.enum
+End
+
+val res = translate get_enum_def;
+
 (* NOTE: 100000 just a random number *)
 Quote add_cakeml:
   fun check_unsat' b fns fd lno fml pres obj fmlt prest objt =
@@ -2801,7 +2882,8 @@ Quote add_cakeml:
     (get_bound pc')
     (run_concl_file fd fns' lno' s
     fml obj fml' inds'
-    (get_pres pc') (get_obj pc') (get_bound pc') (get_dbound pc') (get_chk pc')
+    (get_pres pc') (get_obj pc') (get_bound pc') (get_dbound pc')
+    (get_chk pc') (get_enum pc')
     fmlt prest objt))
     handle Fail s => Inl s
   end
@@ -2809,9 +2891,11 @@ End
 
 Theorem parse_and_run_check_csteps_list:
   ∀fns ss fml zeros inds vimap vomap pc rest s fns' fml' inds' pc'.
-  parse_and_run fns ss fml zeros inds vimap vomap pc = SOME (rest, s, fns', (fml', inds', pc')) ⇒
+  parse_and_run fns ss fml zeros inds vimap vomap pc =
+    SOME (rest, s, fns', (fml', inds', pc')) ⇒
   ∃csteps zeros' vimap' vomap'.
-  check_csteps_list csteps fml zeros inds vimap vomap pc = SOME (fml', zeros', inds', vimap', vomap', pc')
+  check_csteps_list csteps fml zeros inds vimap vomap pc =
+    SOME (fml', zeros', inds', vimap', vomap', pc')
 Proof
   ho_match_mp_tac parse_and_run_ind>>
   rw[]>>
@@ -2871,7 +2955,7 @@ Theorem check_unsat'_spec:
         res v ∧
       case res of
         INR (output,bound,concl) =>
-        sem_concl (set fml) obj concl ∧
+        sem_concl (set fml) obj (pres_set_spt pres) concl ∧
         sem_output (set fml) obj (pres_set_spt pres) bound (set fmlt) objt (pres_set_spt prest) output
       | INL l => T))
 Proof
@@ -2972,7 +3056,7 @@ Proof
         res v ∧
       case res of
         INR (output,bound,concl) =>
-        sem_concl (set fml) obj concl ∧
+        sem_concl (set fml) obj (pres_set_spt pres) concl ∧
         sem_output (set fml) obj (pres_set_spt pres) bound (set fmlt) objt (pres_set_spt prest) output
       | INL l => T)`
   >- (
@@ -3025,7 +3109,7 @@ Proof
           check_output_list res3 res4
           pc'.pres pc'.obj pc'.bound pc'.dbound pc'.chk fmlt prest objt output ∧
           check_hconcl_list fml obj res3
-              pc'.obj pc'.bound pc'.dbound hconcl
+              pc'.obj pc'.bound pc'.dbound pc'.enum hconcl
         | INL l => T))`
     >- (
       xapp>>xsimpl>>
@@ -3040,7 +3124,7 @@ Proof
       qexists_tac`emp`>>
       xsimpl>>rw[]>>
       first_x_assum(irule_at Any)>>
-      fs[get_pres_def,get_obj_def,get_bound_def,get_dbound_def,get_chk_def]>>
+      fs[get_pres_def,get_obj_def,get_bound_def,get_dbound_def,get_chk_def,get_enum_def]>>
       `∃k'.
         fastForwardFD (forwardFD fs fd k) fd =
         forwardFD (forwardFD fs fd k) fd k'` by
@@ -3235,7 +3319,7 @@ Theorem check_unsat_top_spec:
         res v ∧
       case res of
         INR (output,bound,concl) =>
-        sem_concl (set fml) obj concl ∧
+        sem_concl (set fml) obj (pres_set_spt pres) concl ∧
         sem_output (set fml) obj (pres_set_spt pres) bound (set fmlt) objt (pres_set_spt prest) output
       | INL l => T))
 Proof
@@ -3318,7 +3402,7 @@ Proof
             res v ∧
           case res of
             INR (output,bound,concl) =>
-            sem_concl (set fml) obj concl ∧
+            sem_concl (set fml) obj (pres_set_spt pres) concl ∧
             sem_output (set fml) obj (pres_set_spt pres) bound (set fmlt) objt (pres_set_spt prest) output
           | INL l => T)`
   >- (
@@ -3366,7 +3450,6 @@ val res = translate flip_coeffs_def;
 val res = translate pbc_ge_def;
 val res = translate normalise_def;
 val res = translate normalise_obj_pbf_def;
-val res = translate list_to_num_set_def;
 val res = translate normalise_prob_def;
 
 val res = translate mk_map_def;
@@ -3458,9 +3541,12 @@ Theorem check_unsat_top_norm_spec:
          res v ∧
        case res of
          INR (output,bound,concl) =>
-         sem_concl (set (SND (SND prob))) (FST (SND prob)) concl ∧
-         sem_output (set (SND (SND prob))) (FST (SND prob)) (pres_set_list (FST prob)) bound
-          (set (SND (SND probt))) (FST (SND probt)) (pres_set_list (FST probt)) output
+         sem_concl (set (SND (SND prob))) (FST (SND prob))
+            (pres_set_list (FST prob)) concl ∧
+         sem_output (set (SND (SND prob))) (FST (SND prob))
+            (pres_set_list (FST prob)) bound
+            (set (SND (SND probt))) (FST (SND probt))
+            (pres_set_list (FST probt)) output
        | INL l => T))
 Proof
   rw[]>>
@@ -3492,7 +3578,7 @@ Proof
   fs[normalise_full_2_def]>>
   pairarg_tac>>gvs[]>>
   pairarg_tac>>gvs[]>>
-  rename1`sem_concl _ _ con ∧ sem_output _ _ _ _ _ _ _ out`>>
+  rename1`sem_concl _ _ _ con ∧ sem_output _ _ _ _ _ _ _ out`>>
   PairCases_on`prob'`>>
   drule name_to_num_prob_concl_thm>>
   PairCases_on`probt'`>>

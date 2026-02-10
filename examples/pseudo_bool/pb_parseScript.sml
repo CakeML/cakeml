@@ -1977,18 +1977,6 @@ Definition parse_enum_def:
     | _ => NONE
 End
 
-(* lb : id ub [: optional assignment] *)
-Definition parse_lb_def:
-  parse_lb s =
-  case s of
-    lb :: INL s :: INR n :: rest =>
-    if s = strlit":" ∧ n ≥ 0 then
-      case parse_int_inf lb of NONE => NONE
-      | SOME lb => SOME ((lb,Num n), rest)
-    else NONE
-  | _ => NONE
-End
-
 Definition parse_concl_def:
   parse_concl f_ns s =
   case strip_term_line s of NONE => NONE
