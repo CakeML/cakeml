@@ -2102,3 +2102,187 @@ Proof
   rw[FUPDATE_LIST_alist_to_fmap,ALL_DISTINCT_alist_to_fmap_REVERSE]
   \\ match_mp_tac FUNION_COMM \\ rw[DISJOINT_SYM]
 QED
+
+(* --- LIST_REL lemmas --- *)
+
+Theorem LIST_REL_EL:
+  !xs ys r.
+    LIST_REL r xs ys <=>
+    (LENGTH xs = LENGTH ys) /\
+    !n. n < LENGTH ys ==> r (EL n xs) (EL n ys)
+Proof
+  Induct \\ Cases_on `ys` \\ fs [] \\ rw [] \\ eq_tac \\ rw []
+  THEN1 (Cases_on `n` \\ fs [])
+  THEN1 (first_x_assum (qspec_then `0` mp_tac) \\ fs [])
+  \\ first_x_assum (qspec_then `SUC n` mp_tac) \\ fs []
+QED
+
+Theorem LIST_REL_IMP_EL2:
+  !P xs ys. LIST_REL P xs ys ==> !i. i < LENGTH ys ==> P (EL i xs) (EL i ys)
+Proof
+  Induct_on `xs` \\ fs [PULL_EXISTS] \\ rw [] \\ Cases_on `i` \\ fs []
+QED
+
+Theorem LIST_REL_IMP_EL:
+  !P xs ys. LIST_REL P xs ys ==> !i. i < LENGTH xs ==> P (EL i xs) (EL i ys)
+Proof
+  Induct_on `xs` \\ fs [PULL_EXISTS] \\ rw [] \\ Cases_on `i` \\ fs []
+QED
+
+Theorem LIST_REL_ALOOKUP_OPTREL:
+  !xs ys. LIST_REL R xs ys /\
+  (!x y. R x y /\ MEM x xs /\ MEM y ys /\ (v = FST x \/ v = FST y) ==>
+    FST x = FST y /\ R2 (SND x) (SND y))
+  ==> OPTREL R2 (ALOOKUP xs v) (ALOOKUP ys v)
+Proof
+  Induct \\ rpt (Cases ORELSE gen_tac)
+  \\ simp [optionTheory.OPTREL_def]
+  \\ qmatch_goalsub_abbrev_tac `ALOOKUP (pair :: _)`
+  \\ Cases_on `pair`
+  \\ simp []
+  \\ rpt strip_tac
+  \\ last_x_assum drule
+  \\ impl_tac >- metis_tac []
+  \\ simp []
+  \\ strip_tac
+  \\ first_x_assum drule
+  \\ rw []
+  \\ fs [optionTheory.OPTREL_def]
+QED
+
+Theorem LIST_REL_ALOOKUP:
+  !xs ys. LIST_REL R xs ys /\
+  (!x y. R x y /\ MEM x xs /\ MEM y ys /\ (v = FST x \/ v = FST y) ==> x = y)
+  ==> ALOOKUP xs v = ALOOKUP ys v
+Proof
+  REWRITE_TAC [GSYM optionTheory.OPTREL_eq]
+  \\ rpt strip_tac
+  \\ drule_then irule LIST_REL_ALOOKUP_OPTREL
+  \\ metis_tac []
+QED
+
+Theorem LIST_REL_FILTER_MONO:
+  !xs ys. LIST_REL R (FILTER P1 xs) (FILTER P2 ys) /\
+  (!x. MEM x xs /\ P3 x ==> P1 x) /\
+  (!y. MEM y ys /\ P4 y ==> P2 y) /\
+  (!x y. MEM x xs /\ MEM y ys /\ R x y ==> P3 x = P4 y)
+  ==> LIST_REL R (FILTER P3 xs) (FILTER P4 ys)
+Proof
+  Induct
+  >- (
+    simp [FILTER_EQ_NIL, EVERY_MEM]
+    \\ metis_tac []
+  )
+  \\ gen_tac
+  \\ simp []
+  \\ reverse CASE_TAC
+  >- (
+    CASE_TAC
+    >- metis_tac []
+    \\ rw []
+  )
+  \\ rpt (gen_tac ORELSE disch_tac)
+  \\ fs [FILTER_EQ_CONS]
+  \\ rename [`_ = ys_pre ++ [y] ++ ys_post`]
+  \\ rpt BasicProvers.VAR_EQ_TAC \\ fs []
+  \\ fs [FILTER_APPEND]
+  \\ first_x_assum drule
+  \\ simp []
+  \\ disch_tac
+  \\ `FILTER P4 ys_pre = []` by (fs [FILTER_EQ_NIL, EVERY_MEM] \\ metis_tac [])
+  \\ rw []
+  \\ metis_tac []
+QED
+
+(* --- APPEND / LASTN / LAST lemmas --- *)
+
+Theorem APPEND_LENGTH_EQ:
+  !xs xs'. LENGTH xs = LENGTH xs' ==>
+  (xs ++ ys = xs' ++ ys' <=> xs = xs' /\ ys = ys')
+Proof
+  Induct
+  \\ rw []
+  \\ fs [quantHeuristicsTheory.LIST_LENGTH_COMPARE_SUC]
+  \\ metis_tac []
+QED
+
+Theorem LESS_EQ_IMP_APPEND_ALT:
+  !n xs. n <= LENGTH xs ==> ?ys zs. xs = ys ++ zs /\ LENGTH zs = n
+Proof
+  Induct \\ fs [LENGTH_NIL] \\ Cases_on `xs` \\ fs []
+  \\ rw [] \\ res_tac \\ rpt BasicProvers.VAR_EQ_TAC
+  \\ Cases_on `ys` \\ fs [] THEN1 (qexists_tac `[]` \\ fs [])
+  \\ qexists_tac `BUTLAST (h::h'::t)` \\ fs []
+  \\ qexists_tac `LAST (h::h'::t) :: zs` \\ fs []
+  \\ fs [APPEND_FRONT_LAST]
+QED
+
+Theorem LASTN_CONS_IMP_LENGTH:
+  !xs n y ys.
+     n <= LENGTH xs ==>
+     (LASTN n xs = y::ys) ==> LENGTH (y::ys) = n
+Proof
+  Induct \\ full_simp_tac(srw_ss())[LASTN_ALT]
+  \\ srw_tac[][] THEN1 decide_tac \\ full_simp_tac(srw_ss())[GSYM NOT_LESS]
+QED
+
+Theorem LASTN_IMP_APPEND:
+  !xs n ys.
+     n <= LENGTH xs /\ (LASTN n xs = ys) ==>
+     ?zs. xs = zs ++ ys /\ LENGTH ys = n
+Proof
+  Induct \\ full_simp_tac(srw_ss())[LASTN_ALT] \\ srw_tac[][] THEN1 decide_tac
+  \\ `n <= LENGTH xs` by decide_tac \\ res_tac \\ full_simp_tac(srw_ss())[]
+  \\ qpat_x_assum `xs = zs ++ LASTN n xs` (fn th => simp [Once th])
+QED
+
+Theorem NOT_NIL_IMP_LAST:
+  !xs x. xs <> [] ==> LAST (x::xs) = LAST xs
+Proof
+  Cases \\ full_simp_tac(srw_ss())[]
+QED
+
+(* --- MAPi --- *)
+
+Theorem MAPi_SNOC:
+  !xs x f. MAPi f (SNOC x xs) = SNOC (f (LENGTH xs) x) (MAPi f xs)
+Proof
+  Induct \\ fs [SNOC,SNOC_APPEND]
+QED
+
+(* --- ALOOKUP --- *)
+
+Theorem ALOOKUP_MAP_3:
+  (!x. MEM x xs ==> FST (f x) = FST x) ==>
+  ALOOKUP (MAP f xs) x = OPTION_MAP (\y. SND (f (x, y))) (ALOOKUP xs x)
+Proof
+  Induct_on `xs` \\ rw []
+  \\ fs [DISJ_IMP_THM, FORALL_AND_THM]
+  \\ Cases_on `f h`
+  \\ Cases_on `h`
+  \\ rw []
+  \\ fs []
+QED
+
+(* --- ZIP / EVERY2 / REPLICATE lemmas --- *)
+
+Theorem ZIP_REPLICATE:
+  !n. ZIP (REPLICATE n x, REPLICATE n y) = REPLICATE n (x,y)
+Proof
+  Induct \\ fs [REPLICATE]
+QED
+
+Theorem EVERY2_IMP_EVERY:
+  !xs ys. EVERY2 P xs ys ==> EVERY (\(x,y). P y x) (ZIP(ys,xs))
+Proof
+  Induct \\ Cases_on `ys` \\ full_simp_tac(srw_ss())[]
+QED
+
+Theorem EVERY2_IMP_EVERY2:
+  !xs ys P1 P2.
+     (!x y. MEM x xs /\ MEM y ys /\ P1 x y ==> P2 x y) ==>
+     EVERY2 P1 xs ys ==> EVERY2 P2 xs ys
+Proof
+  Induct \\ Cases_on `ys` \\ full_simp_tac (srw_ss()) []
+  \\ rpt strip_tac \\ metis_tac []
+QED

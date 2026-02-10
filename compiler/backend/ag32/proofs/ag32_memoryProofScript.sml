@@ -307,7 +307,7 @@ Proof
   \\ pop_assum SUBST1_TAC
   \\ simp[GSYM word_add_n2w]
   \\ qmatch_goalsub_abbrev_tac`byte_aligned (a + _)`
-  \\ Q.ISPECL_THEN[`a`,`4 * (num_ffis + 2)`]mp_tac(Q.GENL[`a`,`i`]backendProofTheory.byte_aligned_mult)
+  \\ Q.ISPECL_THEN[`a`,`4 * (num_ffis + 2)`]mp_tac(Q.GENL[`a`,`i`]byte_aligned_mult)
   \\ impl_tac >- EVAL_TAC
   \\ simp[GSYM word_add_n2w, GSYM word_mul_n2w]
   \\ rw[Abbr`a`]

@@ -11,7 +11,7 @@ Libs
 
 
 val shift_def = backend_commonTheory.word_shift_def;
-val good_dimindex_def = miscTheory.good_dimindex_def;
+val good_dimindex_def = wordLemmasTheory.good_dimindex_def;
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 val _ = diminish_srw_ss ["ABBREV"]
@@ -25,25 +25,14 @@ val _ = augment_srw_ss[rewrites[LENGTH_REPLICATE]]
 
 val _ = Parse.hide"el";
 val _ = Parse.hide"sign";
-Overload good_dimindex[local] = ``misc$good_dimindex``
+Overload good_dimindex[local] = ``wordLemmas$good_dimindex``
 
 val LESS_4 = DECIDE ``i < 4 <=> (i = 0) \/ (i = 1) \/ (i = 2) \/ (i = 3n)``
 val LESS_8 = DECIDE ``i < 8 <=> (i = 0) \/ (i = 1) \/ (i = 2) \/ (i = 3n) \/
                                 (i = 4) \/ (i = 5) \/ (i = 6) \/ (i = 7)``
 
-Theorem word_eq:
-   !w v. w = v <=> !n. word_bit n w = word_bit n v
-Proof
-  fs [word_bit_thm,fcpTheory.CART_EQ]
-  \\ rw [] \\ eq_tac \\ rw []
-  \\ eq_tac \\ rw [] \\ res_tac \\ fs []
-QED
-
-Theorem ZIP_REPLICATE:
-   !n. ZIP (REPLICATE n x, REPLICATE n y) = REPLICATE n (x,y)
-Proof
-  Induct \\ fs [REPLICATE]
-QED
+(* word_eq moved to wordLemmasTheory *)
+(* ZIP_REPLICATE moved to listLemmasTheory *)
 
 Theorem MAX_LIST_sum_bound:
    SUM ls <= MAX_LIST ls * LENGTH ls
@@ -378,20 +367,7 @@ Proof
   rw[MOD_EQ_0_DIVISOR] >> Cases_on`d`>>fs[]
 QED
 
-Theorem EVERY2_IMP_EVERY:
-   !xs ys. EVERY2 P xs ys ==> EVERY (\(x,y). P y x) (ZIP(ys,xs))
-Proof
-  Induct \\ Cases_on `ys` \\ full_simp_tac(srw_ss())[]
-QED
-
-Theorem EVERY2_IMP_EVERY2:
-   !xs ys P1 P2.
-      (!x y. MEM x xs /\ MEM y ys /\ P1 x y ==> P2 x y) ==>
-      EVERY2 P1 xs ys ==> EVERY2 P2 xs ys
-Proof
-  Induct \\ Cases_on `ys` \\ full_simp_tac (srw_ss()) []
-  \\ rpt strip_tac \\ metis_tac []
-QED
+(* EVERY2_IMP_EVERY, EVERY2_IMP_EVERY2 moved to listLemmasTheory *)
 
 Theorem MEM_EVERY2_IMP:
    !l x zs P. MEM x l /\ EVERY2 P zs l ==> ?z. MEM z zs /\ P z x

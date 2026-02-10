@@ -15,7 +15,7 @@ val word_shift_def = backend_commonTheory.word_shift_def
 val theWord_def = wordSemTheory.theWord_def;
 val isWord_def = wordSemTheory.isWord_def;
 
-Overload good_dimindex[local] = ``misc$good_dimindex``
+Overload good_dimindex[local] = ``wordLemmas$good_dimindex``
 Overload comp[local] = ``stack_rawcall$comp``
 Overload compile[local] = ``stack_rawcall$compile``
 Type prog[pp] = “:α stackLang$prog”

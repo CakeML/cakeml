@@ -87,72 +87,8 @@ Proof
   metis_tac [dec_enc]
 QED
 
-(* lists and lookups *)
-
-Theorem LIST_REL_ALOOKUP_OPTREL:
-  !xs ys. LIST_REL R xs ys /\
-  (!x y. R x y /\ MEM x xs /\ MEM y ys /\ (v = FST x \/ v = FST y) ==>
-    FST x = FST y /\ R2 (SND x) (SND y))
-  ==> OPTREL R2 (ALOOKUP xs v) (ALOOKUP ys v)
-Proof
-  Induct \\ rpt (Cases ORELSE gen_tac)
-  \\ simp [optionTheory.OPTREL_def]
-  \\ qmatch_goalsub_abbrev_tac `ALOOKUP (pair :: _)`
-  \\ Cases_on `pair`
-  \\ simp []
-  \\ rpt strip_tac
-  \\ last_x_assum drule
-  \\ impl_tac >- metis_tac []
-  \\ simp []
-  \\ strip_tac
-  \\ first_x_assum drule
-  \\ rw []
-  \\ fs [optionTheory.OPTREL_def]
-QED
-
-Theorem LIST_REL_ALOOKUP:
-  !xs ys. LIST_REL R xs ys /\
-  (!x y. R x y /\ MEM x xs /\ MEM y ys /\ (v = FST x \/ v = FST y) ==> x = y)
-  ==> ALOOKUP xs v = ALOOKUP ys v
-Proof
-  REWRITE_TAC [GSYM optionTheory.OPTREL_eq]
-  \\ rpt strip_tac
-  \\ drule_then irule LIST_REL_ALOOKUP_OPTREL
-  \\ metis_tac []
-QED
-
-Theorem LIST_REL_FILTER_MONO:
-  !xs ys. LIST_REL R (FILTER P1 xs) (FILTER P2 ys) /\
-  (!x. MEM x xs /\ P3 x ==> P1 x) /\
-  (!y. MEM y ys /\ P4 y ==> P2 y) /\
-  (!x y. MEM x xs /\ MEM y ys /\ R x y ==> P3 x = P4 y)
-  ==> LIST_REL R (FILTER P3 xs) (FILTER P4 ys)
-Proof
-  Induct
-  >- (
-    simp [FILTER_EQ_NIL, EVERY_MEM]
-    \\ metis_tac []
-  )
-  \\ gen_tac
-  \\ simp []
-  \\ reverse CASE_TAC
-  >- (
-    CASE_TAC
-    >- metis_tac []
-    \\ rw []
-  )
-  \\ rpt (gen_tac ORELSE disch_tac)
-  \\ fs [FILTER_EQ_CONS]
-  \\ rename [`_ = ys_pre ++ [y] ++ ys_post`]
-  \\ rveq \\ fs []
-  \\ fs [FILTER_APPEND]
-  \\ first_x_assum drule
-  \\ simp []
-  \\ disch_tac
-  \\ `FILTER P4 ys_pre = []` by (fs [FILTER_EQ_NIL, EVERY_MEM] \\ metis_tac [])
-  \\ rw []
-  \\ metis_tac []
-QED
+(* LIST_REL_ALOOKUP_OPTREL, LIST_REL_ALOOKUP, LIST_REL_FILTER_MONO
+   moved to listLemmasTheory *)
 
 Theorem COND_false:
   ~ P ==> ((if P then x else y) = y)
@@ -223,15 +159,7 @@ Proof
   )
 QED
 
-Theorem APPEND_LENGTH_EQ:
-  !xs xs'. LENGTH xs = LENGTH xs' ==>
-  (xs ++ ys = xs' ++ ys' <=> xs = xs' /\ ys = ys')
-Proof
-  Induct
-  \\ rw []
-  \\ fs [quantHeuristicsTheory.LIST_LENGTH_COMPARE_SUC]
-  \\ metis_tac []
-QED
+(* APPEND_LENGTH_EQ moved to listLemmasTheory *)
 
 Theorem pmatch_list_append_Match_exists:
   (pmatch_list s (xs ++ ys) vs pre_bindings = Match bindings) =
@@ -788,17 +716,7 @@ Proof
   rw [env_rel_def, ALOOKUP_rel_def]
 QED
 
-Theorem ALOOKUP_MAP_3:
-  (!x. MEM x xs ==> FST (f x) = FST x) ==>
-  ALOOKUP (MAP f xs) x = OPTION_MAP (\y. SND (f (x, y))) (ALOOKUP xs x)
-Proof
-  Induct_on `xs` \\ rw []
-  \\ fs [DISJ_IMP_THM, FORALL_AND_THM]
-  \\ Cases_on `f h`
-  \\ Cases_on `h`
-  \\ rw []
-  \\ fs []
-QED
+(* ALOOKUP_MAP_3 moved to listLemmasTheory *)
 
 Theorem ALOOKUP_rel_MAP_same:
   (!x. MEM x xs ==> FST (f x) = FST (g x) /\

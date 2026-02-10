@@ -1382,7 +1382,7 @@ Proof
     by (gs[Abbr ‘labst’, Abbr ‘sp’,
            lab_to_targetProofTheory.make_init_def]>>
         gs[Abbr ‘lorac’]>>
-        drule backendProofTheory.byte_aligned_MOD>>gs[]>>
+        drule byte_aligned_MOD>>gs[]>>
         strip_tac>>
         drule_all word_to_stack_good_code_lemma>>
         rw[]>>
@@ -1890,7 +1890,7 @@ Proof
     ntac 2 strip_tac>>gs[]>>
     ‘(w3 + -1w * s.base_addr) ⋙ (shift (:α) + 1) ≪ (shift (:α) + 1)
      = w3 + -1w * s.base_addr’
-      by (irule data_to_word_gcProofTheory.lsr_lsl>>gs[])>>
+      by (irule lsr_lsl>>gs[])>>
     gs[backendProofTheory.heap_regs_def]>>
     qpat_x_assum ‘w2 = _’ $ assume_tac o GSYM>>fs[])>>
   (* memory domain done *)
@@ -1900,7 +1900,7 @@ Proof
   gs[flookup_thm]>>strip_tac>>gs[]>>
   ‘(w3 + -1w * s.base_addr) ⋙ (shift (:α) + 1) ≪ (shift (:α) + 1)
    = w3 + -1w * s.base_addr’
-    by (irule data_to_word_gcProofTheory.lsr_lsl>>gs[])>>
+    by (irule lsr_lsl>>gs[])>>
   gs[]>>
 
   ‘w2n (-1w * w2 + w3 + bytes_in_word * n2w (LENGTH store_list)) DIV
@@ -2222,7 +2222,7 @@ Proof
   pop_assum $ kall_tac>>
   ‘(w3 + -1w * s.base_addr) ⋙ (shift (:α) + 1) ≪ (shift (:α) + 1) =
    w3 + -1w * s.base_addr’
-    by (irule data_to_word_gcProofTheory.lsr_lsl>>gs[])>>gs[]>>
+    by (irule lsr_lsl>>gs[])>>gs[]>>
   pop_assum $ kall_tac>>
 
   qpat_x_assum ‘word_to_stack$compile _ _ = _’ mp_tac>>

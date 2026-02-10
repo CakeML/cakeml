@@ -24,27 +24,7 @@ val _ = Parse.set_grammar_ancestry
     "source_evalProof" (* for compiler instance structure *)
   ];
 
-(* TODO: move/rephrase *)
-
-Theorem byte_aligned_mult:
-   good_dimindex (:'a) ==>
-    byte_aligned (a + bytes_in_word * n2w i) = byte_aligned (a:'a word)
-Proof
-  fs [alignmentTheory.byte_aligned_def,good_dimindex_def]
-  \\ rw [] \\ fs [bytes_in_word_def,word_mul_n2w]
-  \\ once_rewrite_tac [MULT_COMM]
-  \\ rewrite_tac [GSYM (EVAL ``2n**2``),GSYM (EVAL ``2n**3``), aligned_add_pow]
-QED
-
-Theorem byte_aligned_MOD:
-    good_dimindex (:'a) ⇒
-  ∀x:'a word.x ∈ byte_aligned ⇒
-  w2n x MOD (dimindex (:'a) DIV 8) = 0
-Proof
-  rw[IN_DEF]>>
-  fs [aligned_w2n, alignmentTheory.byte_aligned_def]>>
-  rfs[good_dimindex_def] \\ rfs []
-QED
+(* byte_aligned_mult, byte_aligned_MOD moved to wordLemmasTheory *)
 
 (* -- *)
 

@@ -10,17 +10,7 @@ Ancestors
 Libs
   preamble helperLib[qualified] induct_tweakLib[qualified]
 
-Theorem LIST_REL_EL: (* TODO: move *)
-  !xs ys r.
-    LIST_REL r xs ys <=>
-    (LENGTH xs = LENGTH ys) /\
-    !n. n < LENGTH ys ==> r (EL n xs) (EL n ys)
-Proof
-  Induct \\ Cases_on `ys` \\ fs [] \\ rw [] \\ eq_tac \\ rw []
-  THEN1 (Cases_on `n` \\ fs [])
-  THEN1 (first_x_assum (qspec_then `0` mp_tac) \\ fs [])
-  \\ first_x_assum (qspec_then `SUC n` mp_tac) \\ fs []
-QED
+(* LIST_REL_EL moved to listLemmasTheory *)
 
 Inductive v_rel:
   (!n b. v_rel (Loc b n) (RefPtr b n)) /\

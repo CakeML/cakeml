@@ -372,3 +372,23 @@ Proof
   match_mp_tac SORTED_ALL_DISTINCT>>
   simp[irreflexive_def]
 QED
+
+(* --- domain lemmas --- *)
+
+Theorem EXISTS_NOT_IN_spt_DOMAIN:
+  ?x. x NOTIN domain (refs : 'a spt)
+Proof
+  assume_tac (Q.INST [`t` |-> `refs`] FINITE_domain
+                      |> CONJ INFINITE_NUM_UNIV
+                      |> MATCH_MP IN_INFINITE_NOT_FINITE
+                      |> SIMP_RULE std_ss [IN_UNIV])
+  \\ rw []
+QED
+
+Theorem LEAST_NOTIN_spt_DOMAIN:
+  !refs. (LEAST x. x NOTIN domain (refs : 'a num_map)) NOTIN domain refs
+Proof
+  rw []
+  \\ numLib.LEAST_ELIM_TAC
+  \\ metis_tac [EXISTS_NOT_IN_spt_DOMAIN]
+QED

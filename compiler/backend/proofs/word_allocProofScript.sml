@@ -22,30 +22,7 @@ val _ = Parse.bring_to_front_overload"numset_list_insert"
 val _ = Parse.hide"mem";
 val _ = temp_delsimps ["fromAList_def", "domain_union"]
 
-(*TODO: Move?*)
-Theorem SUBSET_OF_INSERT:
- !s x. s ⊆ x INSERT s
-Proof
-  srw_tac[][SUBSET_DEF]
-QED
-
-Theorem INJ_UNION[local]:
-  !f A B.
-  INJ f (A ∪ B) UNIV ⇒
-  INJ f A UNIV ∧
-  INJ f B UNIV
-Proof
-  srw_tac[][]>>
-  metis_tac[INJ_SUBSET,SUBSET_DEF,SUBSET_UNION]
-QED
-
-Theorem INJ_less[local]:
-  INJ f s' UNIV ∧ s ⊆ s'
-  ⇒
-  INJ f s UNIV
-Proof
-  metis_tac[INJ_DEF,SUBSET_DEF]
-QED
+(* SUBSET_OF_INSERT, INJ_UNION, INJ_less moved to setLemmasTheory *)
 
 Theorem LET_FORALL_ELIM'[local]:
  LET f v ⇔ $! (S ($==> ∘ $= v) f)
@@ -57,32 +34,8 @@ Definition hide_def:
   hide x = x
 End
 
-Theorem INJ_IMP_IMAGE_DIFF[local]:
-  INJ f (s ∪ t) UNIV ⇒
-  IMAGE f (s DIFF t) = (IMAGE f s) DIFF (IMAGE f t)
-Proof
-  rw[EXTENSION,EQ_IMP_THM]>> TRY (metis_tac[])>>
-  fs[INJ_DEF]>>
-  metis_tac[]
-QED
-
-Theorem INJ_IMP_IMAGE_DIFF_single[local]:
-  INJ f (s ∪ {n}) UNIV ⇒
-  (IMAGE f s) DIFF {f n} = IMAGE f (s DIFF {n})
-Proof
-  rw[]>>
-  `{f n} = IMAGE f {n}` by fs[]>>
-  fs[INJ_IMP_IMAGE_DIFF]
-QED
-
-Theorem INJ_ALL_DISTINCT_MAP[local]:
-  ∀ls.
-  ALL_DISTINCT (MAP f ls) ⇒
-  INJ f (set ls) UNIV
-Proof
-  Induct>>full_simp_tac(srw_ss())[INJ_DEF]>>srw_tac[][]>>
-  metis_tac[MEM_MAP]
-QED
+(* INJ_IMP_IMAGE_DIFF, INJ_IMP_IMAGE_DIFF_single, INJ_ALL_DISTINCT_MAP
+   moved to setLemmasTheory *)
 
 (* word_alloc proofs
   1. correctness theorem about colouring_ok

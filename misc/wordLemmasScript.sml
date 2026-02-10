@@ -736,3 +736,104 @@ Proof
   rw[]>>gvs[]
 QED
 
+(* --- word bit/shift/index lemmas --- *)
+
+Theorem word_or_eq_0:
+  ((w || v) = 0w) <=> (w = 0w) /\ (v = 0w)
+Proof
+  fs [fcpTheory.CART_EQ,fcpTheory.FCP_BETA,word_or_def,word_index]
+  \\ rw [] \\ eq_tac \\ rw [] \\ fs []
+QED
+
+Theorem shift_shift_lemma:
+  ~(word_msb w) ==> (w << 1 >>> 1 = w)
+Proof
+  srw_tac [wordsLib.WORD_BIT_EQ_ss] []
+  \\ Cases_on `i + 1 < dimindex (:'a)`
+  \\ full_simp_tac (srw_ss()++wordsLib.WORD_BIT_EQ_ss) [NOT_LESS]
+  \\ `i = dimindex (:'a) - 1` by decide_tac
+  \\ simp []
+QED
+
+Theorem word_asr_dimindex:
+  !w:'a word n. dimindex (:'a) <= n ==> (w >> n = w >> (dimindex (:'a) - 1))
+Proof
+  fs [word_asr_def,fcpTheory.CART_EQ,fcpTheory.FCP_BETA]
+  \\ rw [] \\ Cases_on `i` \\ fs [] \\ rw [] \\ fs [word_msb_def]
+QED
+
+Theorem WORD_MUL_BIT0:
+  !a b. (a * b) ' 0 <=> a ' 0 /\ b ' 0
+Proof
+  fs [word_mul_def,word_index,bitTheory.BIT0_ODD,ODD_MULT]
+  \\ Cases \\ Cases \\ fs [word_index,bitTheory.BIT0_ODD]
+QED
+
+Theorem word_lsl_index:
+  i < dimindex(:'a) ==>
+   (((w:'a word) << n) ' i <=> n <= i /\ w ' (i-n))
+Proof
+  rw[word_lsl_def,fcpTheory.FCP_BETA]
+QED
+
+Theorem word_lsr_index:
+  i < dimindex(:'a) ==>
+  (((w:'a word) >>> n) ' i <=> i + n < dimindex(:'a) /\ w ' (i+n))
+Proof
+  rw[word_lsr_def,fcpTheory.FCP_BETA]
+QED
+
+Theorem lsr_lsl:
+  !w n. aligned n w ==> (w >>> n << n = w)
+Proof
+  simp [aligned_def, alignmentTheory.align_shift]
+QED
+
+Theorem word_index_test:
+  n < dimindex (:'a) ==> (w ' n <=> ((w && n2w (2 ** n)) <> 0w:'a word))
+Proof
+  srw_tac [wordsLib.WORD_BIT_EQ_ss] [wordsTheory.word_index]
+QED
+
+Theorem word_and_one_eq_0_iff:
+  !w. ((w && 1w) = 0w) <=> ~(w ' 0)
+Proof
+  srw_tac [wordsLib.WORD_BIT_EQ_ss] [word_index]
+QED
+
+Theorem word_index_0:
+  !w. w ' 0 <=> ~((1w && w) = 0w)
+Proof
+  metis_tac [word_and_one_eq_0_iff,WORD_AND_COMM]
+QED
+
+Theorem word_eq:
+  !w v. w = v <=> !n. word_bit n w = word_bit n v
+Proof
+  fs [word_bit_thm,fcpTheory.CART_EQ]
+  \\ rw [] \\ eq_tac \\ rw []
+  \\ eq_tac \\ rw [] \\ res_tac \\ fs []
+QED
+
+(* --- byte alignment --- *)
+
+Theorem byte_aligned_mult:
+  good_dimindex (:'a) ==>
+   byte_aligned (a + bytes_in_word * n2w i) = byte_aligned (a:'a word)
+Proof
+  fs [alignmentTheory.byte_aligned_def,good_dimindex_def]
+  \\ rw [] \\ fs [bytes_in_word_def,word_mul_n2w]
+  \\ once_rewrite_tac [MULT_COMM]
+  \\ rewrite_tac [GSYM (EVAL ``2n**2``),GSYM (EVAL ``2n**3``), aligned_add_pow]
+QED
+
+Theorem byte_aligned_MOD:
+   good_dimindex (:'a) ==>
+ !x:'a word.x IN byte_aligned ==>
+ w2n x MOD (dimindex (:'a) DIV 8) = 0
+Proof
+  rw[IN_DEF]>>
+  fs [aligned_w2n, alignmentTheory.byte_aligned_def]>>
+  rfs[good_dimindex_def] \\ rfs []
+QED
+

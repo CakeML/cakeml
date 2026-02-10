@@ -34,68 +34,10 @@ infix 8 by1
 val clean_tac = rpt var_eq_tac \\ rpt (qpat_x_assum `T` kall_tac)
 fun rpt_drule th = old_drule (th |> GEN_ALL) \\ rpt (disch_then old_drule \\ fs [])
 
-Theorem LESS_EQ_IMP_APPEND_ALT:
-   ∀n xs. n ≤ LENGTH xs ⇒ ∃ys zs. xs = ys ++ zs ∧ LENGTH zs = n
-Proof
-  Induct \\ fs [LENGTH_NIL] \\ Cases_on `xs` \\ fs []
-  \\ rw [] \\ res_tac \\ rveq
-  \\ Cases_on `ys` \\ fs [] THEN1 (qexists_tac `[]` \\ fs [])
-  \\ qexists_tac `BUTLAST (h::h'::t)` \\ fs []
-  \\ qexists_tac `LAST (h::h'::t) :: zs` \\ fs []
-  \\ fs [APPEND_FRONT_LAST]
-QED
-
-Theorem word_asr_dimindex:
-   !w:'a word n. dimindex (:'a) <= n ==> (w >> n = w >> (dimindex (:'a) - 1))
-Proof
-  fs [word_asr_def,fcpTheory.CART_EQ,fcpTheory.FCP_BETA]
-  \\ rw [] \\ Cases_on `i` \\ fs [] \\ rw [] \\ fs [word_msb_def]
-QED
-
-Theorem WORD_MUL_BIT0:
-   !a b. (a * b) ' 0 <=> a ' 0 /\ b ' 0
-Proof
-  fs [word_mul_def,word_index,bitTheory.BIT0_ODD,ODD_MULT]
-  \\ Cases \\ Cases \\ fs [word_index,bitTheory.BIT0_ODD]
-QED
-
-Theorem word_lsl_index:
-   i < dimindex(:'a) ⇒
-    (((w:'a word) << n) ' i ⇔ n ≤ i ∧ w ' (i-n))
-Proof
-  rw[word_lsl_def,fcpTheory.FCP_BETA]
-QED
-
-Theorem word_lsr_index:
-   i < dimindex(:'a) ⇒
-   (((w:'a word) >>> n) ' i ⇔ i + n < dimindex(:'a) ∧ w ' (i+n))
-Proof
-  rw[word_lsr_def,fcpTheory.FCP_BETA]
-QED
-
-Theorem lsr_lsl:
-   ∀w n. aligned n w ⇒ (w >>> n << n = w)
-Proof
-  simp [aligned_def, alignmentTheory.align_shift]
-QED
-
-Theorem word_index_test:
-   n < dimindex (:'a) ==> (w ' n <=> ((w && n2w (2 ** n)) <> 0w:'a word))
-Proof
-  srw_tac [wordsLib.WORD_BIT_EQ_ss] [wordsTheory.word_index]
-QED
-
-Theorem word_and_one_eq_0_iff: (* same in stack_alloc *)
-  !w. ((w && 1w) = 0w) <=> ~(w ' 0)
-Proof
-  srw_tac [wordsLib.WORD_BIT_EQ_ss] [word_index]
-QED
-
-Theorem word_index_0:
-   !w. w ' 0 <=> ~((1w && w) = 0w)
-Proof
-  metis_tac [word_and_one_eq_0_iff,WORD_AND_COMM]
-QED
+(* LESS_EQ_IMP_APPEND_ALT moved to listLemmasTheory *)
+(* word_asr_dimindex, WORD_MUL_BIT0, word_lsl_index, word_lsr_index,
+   lsr_lsl, word_index_test, word_and_one_eq_0_iff, word_index_0
+   moved to wordLemmasTheory *)
 
 Theorem ABS_w2n[simp]:
    ABS (&w2n w) = &w2n w
@@ -172,30 +114,8 @@ Proof
   \\ srw_tac[][] \\ `F` by decide_tac
 QED
 
-Theorem LASTN_CONS_IMP_LENGTH:
-   !xs n y ys.
-      n <= LENGTH xs ==>
-      (LASTN n xs = y::ys) ==> LENGTH (y::ys) = n
-Proof
-  Induct \\ full_simp_tac(srw_ss())[LASTN_ALT]
-  \\ srw_tac[][] THEN1 decide_tac \\ full_simp_tac(srw_ss())[GSYM NOT_LESS]
-QED
-
-Theorem LASTN_IMP_APPEND:
-   !xs n ys.
-      n <= LENGTH xs /\ (LASTN n xs = ys) ==>
-      ?zs. xs = zs ++ ys /\ LENGTH ys = n
-Proof
-  Induct \\ full_simp_tac(srw_ss())[LASTN_ALT] \\ srw_tac[][] THEN1 decide_tac
-  \\ `n <= LENGTH xs` by decide_tac \\ res_tac \\ full_simp_tac(srw_ss())[]
-  \\ qpat_x_assum `xs = zs ++ LASTN n xs` (fn th => simp [Once th])
-QED
-
-Theorem NOT_NIL_IMP_LAST:
-   !xs x. xs <> [] ==> LAST (x::xs) = LAST xs
-Proof
-  Cases \\ full_simp_tac(srw_ss())[]
-QED
+(* LASTN_CONS_IMP_LENGTH, LASTN_IMP_APPEND, NOT_NIL_IMP_LAST
+   moved to listLemmasTheory *)
 
 Theorem IS_SOME_IF:
    IS_SOME (if b then x else y) = if b then IS_SOME x else IS_SOME y

@@ -916,17 +916,7 @@ Proof
       v_rel_eqns, semanticPrimitivesTheory.list_to_v_def]
 QED
 
-Theorem LIST_REL_IMP_EL2: (* TODO: move *)
-  !P xs ys. LIST_REL P xs ys ==> !i. i < LENGTH ys ==> P (EL i xs) (EL i ys)
-Proof
-  Induct_on `xs` \\ fs [PULL_EXISTS] \\ rw [] \\ Cases_on `i` \\ fs []
-QED
-
-Theorem LIST_REL_IMP_EL: (* TODO: move *)
-  !P xs ys. LIST_REL P xs ys ==> !i. i < LENGTH xs ==> P (EL i xs) (EL i ys)
-Proof
-  Induct_on `xs` \\ fs [PULL_EXISTS] \\ rw [] \\ Cases_on `i` \\ fs []
-QED
+(* LIST_REL_IMP_EL2, LIST_REL_IMP_EL moved to listLemmasTheory *)
 
 Theorem NOT_NULL_EQ[local]:
   (~ NULL xs) = (?y ys. xs = CONS y ys)
@@ -3508,18 +3498,7 @@ Proof
   \\ fs [bool_case_eq, Q.ISPEC `SOME v` EQ_SYM_EQ]
 QED
 
-(* FIXME also in flat_pattern *)
-Theorem ALOOKUP_MAP_3:
-  (!x. MEM x xs ==> FST (f x) = FST x) ==>
-  ALOOKUP (MAP f xs) x = OPTION_MAP (\y. SND (f (x, y))) (ALOOKUP xs x)
-Proof
-  Induct_on `xs` \\ rw []
-  \\ fs [DISJ_IMP_THM, FORALL_AND_THM]
-  \\ Cases_on `f h`
-  \\ Cases_on `h`
-  \\ rw []
-  \\ fs []
-QED
+(* ALOOKUP_MAP_3 moved to listLemmasTheory *)
 
 Theorem alloc_tags_invariant:
   alloc_tags idx.tidx (ctors : (mlstring # ast_t list) list) = (ns, cids) ∧
@@ -5846,11 +5825,7 @@ QED
 val COUNT_LIST_ADD_SYM = COUNT_LIST_ADD
   |> CONV_RULE (SIMP_CONV bool_ss [Once ADD_SYM]);
 
-Theorem MAPi_SNOC: (* TODO: move *)
-  !xs x f. MAPi f (SNOC x xs) = SNOC (f (LENGTH xs) x) (MAPi f xs)
-Proof
-  Induct \\ fs [SNOC,SNOC_APPEND]
-QED
+(* MAPi_SNOC moved to listLemmasTheory *)
 
 Theorem compile_decs_elist_globals:
   !t n next env envs decs n' next' env' envs' decs'.

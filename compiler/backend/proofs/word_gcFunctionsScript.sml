@@ -20,12 +20,7 @@ Proof
   \\ fs [good_dimindex_def,dimword_def] \\ rw [] \\ rfs []
 QED
 
-Theorem word_or_eq_0:
-   (w || v) = 0w <=> w = 0w /\ v = 0w
-Proof
-  fs [fcpTheory.CART_EQ,fcpTheory.FCP_BETA,word_or_def,word_index]
-  \\ rw [] \\ eq_tac \\ rw [] \\ fs []
-QED
+(* word_or_eq_0 moved to wordLemmasTheory *)
 
 val IMP_EQ_DISJ = METIS_PROVE [] ``(b1 ==> b2) <=> ~b1 \/ b2``
 

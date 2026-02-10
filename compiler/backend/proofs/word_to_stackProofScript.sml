@@ -128,24 +128,7 @@ Proof
   fs[MAX_DEF]
 QED
 
-(*misc word stuff*)
-
-Theorem word_or_eq_0[local]:
-  ((w || v) = 0w) <=> (w = 0w) /\ (v = 0w)
-Proof
-  srw_tac [wordsLib.WORD_BIT_EQ_ss] []
-  \\ metis_tac []
-QED
-
-Theorem shift_shift_lemma[local]:
-  ~(word_msb w) ==> (w ≪ 1 ⋙ 1 = w)
-Proof
-  srw_tac [wordsLib.WORD_BIT_EQ_ss] []
-  \\ Cases_on `i + 1 < dimindex (:α)`
-  \\ full_simp_tac (srw_ss()++wordsLib.WORD_BIT_EQ_ss) [NOT_LESS]
-  \\ `i = dimindex (:'a) - 1` by decide_tac
-  \\ simp []
-QED
+(* word_or_eq_0, shift_shift_lemma moved to wordLemmasTheory *)
 
 Theorem word_shift_or_1:
   (n ≪ 1) ‖ 1w = (n ≪ 1) + 1w

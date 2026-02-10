@@ -20,7 +20,7 @@ val theWord_def = wordSemTheory.theWord_def;
 val isWord_def = wordSemTheory.isWord_def;
 val is_fwd_ptr_def = wordSemTheory.is_fwd_ptr_def;
 
-Overload good_dimindex[local] = ``misc$good_dimindex``
+Overload good_dimindex[local] = ``wordLemmas$good_dimindex``
 val _ = temp_bring_to_front_overload"compile"{Thy="stack_alloc",Name="compile"};
 
 (* TODO: move and join with stack_remove *)

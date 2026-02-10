@@ -170,3 +170,56 @@ Theorem DISJOINT_INTER:
 Proof
   rw[IN_DISJOINT] \\ metis_tac[]
 QED
+
+(* --- SUBSET / INJ lemmas --- *)
+
+Theorem SUBSET_OF_INSERT:
+  !s x. s SUBSET x INSERT s
+Proof
+  srw_tac[][SUBSET_DEF]
+QED
+
+Theorem INJ_UNION:
+  !f A B.
+  INJ f (A UNION B) UNIV ==>
+  INJ f A UNIV /\
+  INJ f B UNIV
+Proof
+  srw_tac[][]>>
+  metis_tac[INJ_SUBSET,SUBSET_DEF,SUBSET_UNION]
+QED
+
+Theorem INJ_less:
+  INJ f s' UNIV /\ s SUBSET s'
+  ==>
+  INJ f s UNIV
+Proof
+  metis_tac[INJ_DEF,SUBSET_DEF]
+QED
+
+Theorem INJ_IMP_IMAGE_DIFF:
+  INJ f (s UNION t) UNIV ==>
+  IMAGE f (s DIFF t) = (IMAGE f s) DIFF (IMAGE f t)
+Proof
+  rw[EXTENSION,EQ_IMP_THM]>> TRY (metis_tac[])>>
+  fs[INJ_DEF]>>
+  metis_tac[]
+QED
+
+Theorem INJ_IMP_IMAGE_DIFF_single:
+  INJ f (s UNION {n}) UNIV ==>
+  (IMAGE f s) DIFF {f n} = IMAGE f (s DIFF {n})
+Proof
+  rw[]>>
+  `{f n} = IMAGE f {n}` by fs[]>>
+  fs[INJ_IMP_IMAGE_DIFF]
+QED
+
+Theorem INJ_ALL_DISTINCT_MAP:
+  !ls.
+  ALL_DISTINCT (MAP f ls) ==>
+  INJ f (set ls) UNIV
+Proof
+  Induct>>full_simp_tac(srw_ss())[INJ_DEF]>>srw_tac[][]>>
+  metis_tac[MEM_MAP]
+QED

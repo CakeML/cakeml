@@ -547,25 +547,7 @@ Proof
   \\ imp_res_tac memory_rel_any_Number_IMP \\ fs []
 QED
 
-(* TODO: move to sptreeTheory *)
-Theorem EXISTS_NOT_IN_spt_DOMAIN[local]:
-  ∃x. x ∉ domain (refs : 'a spt)
-Proof
-  assume_tac (Q.INST [`t` |-> `refs`] FINITE_domain
-                      |> CONJ INFINITE_NUM_UNIV
-                      |> MATCH_MP IN_INFINITE_NOT_FINITE
-                      |> SIMP_RULE std_ss [IN_UNIV])
-  \\ rw []
-QED
-
-(* TODO: move to sptreeTheory *)
-Theorem LEAST_NOTIN_spt_DOMAIN:
-  ∀refs. (LEAST x. x ∉ domain (refs : 'a num_map)) ∉ domain refs
-Proof
-  rw []
-  \\ assume_tac EXISTS_NOT_IN_spt_DOMAIN
-  \\ fs [LEAST_EXISTS]
-QED
+(* EXISTS_NOT_IN_spt_DOMAIN, LEAST_NOTIN_spt_DOMAIN moved to sptreeLemmasTheory *)
 
 (*TODO: move to backendProps *)
 Theorem option_le_add_indv:

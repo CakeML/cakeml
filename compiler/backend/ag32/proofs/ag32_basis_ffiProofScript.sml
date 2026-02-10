@@ -6485,7 +6485,7 @@ Proof
     >- (
       simp[GSYM word_add_n2w]
       \\ qmatch_goalsub_abbrev_tac`z + _`
-      \\ Q.ISPECL_THEN[`z`,`LENGTH data`]mp_tac(Q.GENL[`a`,`i`]backendProofTheory.byte_aligned_mult)
+      \\ Q.ISPECL_THEN[`z`,`LENGTH data`]mp_tac(Q.GENL[`a`,`i`]byte_aligned_mult)
       \\ impl_tac >- EVAL_TAC
       \\ simp[bytes_in_word_def, word_add_n2w, word_mul_n2w]
       \\ fs[word_add_n2w] )
