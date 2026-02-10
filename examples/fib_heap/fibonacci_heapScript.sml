@@ -103,8 +103,8 @@ End
 Currently, unused definition.
 Annotates a single tree that is not part of any list and does not have a parent.
 *)
-Definition annotate_ft_def:
-  annotate_ft (FibTree k n xs) =
+Definition ann_ft_def:
+  ann_ft (FibTree k n xs) =
     FibTree k (fill_anode n 0w 0w 0w (head_key xs) (LENGTH xs))
         (ann_fts_seg k (head_key xs) (last_key xs) xs)
 End
@@ -148,6 +148,10 @@ Definition fts_mem_def:
   (fts_mem [] = emp ) /\
   (fts_mem (FibTree k n ts::xs) =
     (ft_seg $ FibTree k n ts) * (fts_mem ts) * (fts_mem xs))
+End
+
+Definition empty_node_def:
+  empty_node k v = fts_mem [ann_ft $ FibTree k (fill_dnode (FST v) (SND v) F F) []]
 End
 
 (*-------------------------------------------------------------------*
