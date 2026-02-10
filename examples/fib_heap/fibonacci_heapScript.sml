@@ -376,6 +376,7 @@ Theorem fib_heap_insert:
     fib_heap_insert (a, k, m, dm) = (a', m', b) ⇒
     (fib_heap a' (fh |+ (k,v)) * frame) (fun2set (m',dm)) ∧ b
 Proof
+  rw[fib_heap_insert_def,fib_heap_empty_append_def,fib_heap_def]
   cheat
 QED
 
