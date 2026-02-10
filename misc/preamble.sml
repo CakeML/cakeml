@@ -9,7 +9,10 @@ open ASCIInumbersTheory BasicProvers Defn HolKernel Parse SatisfySimps Tactic
      monadsyntax alistTheory alignmentTheory arithmeticTheory bagTheory boolLib
      boolSimps bossLib byteTheory containerTheory combinTheory dep_rewrite
      finite_mapTheory indexedListsTheory listTheory llistTheory
-     lprefix_lubTheory markerLib miscTheory mp_then optionTheory pairLib
+     lprefix_lubTheory markerLib
+     arithLemmasTheory listLemmasTheory setLemmasTheory optionLemmasTheory
+     sptreeLemmasTheory wordLemmasTheory
+     miscTheory mp_then optionTheory pairLib
      pairTheory pred_setTheory quantHeuristicsLib relationTheory res_quanTheory
      rich_listTheory sortingTheory sptreeTheory stringTheory sumTheory
      wordsTheory;
@@ -112,7 +115,7 @@ fun println s = print (strcat s "\n");
 (* -- *)
 
 (* TODO: move to listLib (and move MAP3 to listTheory) *)
-val (map3_tm,mk_map3,dest_map3,is_map3) = syntax_fns4 "misc" "MAP3"
+val (map3_tm,mk_map3,dest_map3,is_map3) = syntax_fns4 "listLemmas" "MAP3"
 
 local
   val (m3n,m3c) = CONJ_PAIR MAP3_def

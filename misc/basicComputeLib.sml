@@ -42,15 +42,20 @@ val add_basic_compset =
     ,``:location$locn``
     ],
    computeLib.Defs
-   [ (* misc *)
-     miscTheory.find_index_def
+   [ (* listLemmas *)
+     listLemmasTheory.find_index_def
+   , listLemmasTheory.UPDATE_LIST_THM
+   , listLemmasTheory.anub_def
+   , listLemmasTheory.list_subset_def
+   , listLemmasTheory.list_set_eq_def
+     (* arithLemmas *)
+   , arithLemmasTheory.LEAST_thm
+   , arithLemmasTheory.least_from_thm
+     (* sptreeLemmas *)
+   , sptreeLemmasTheory.lookup_any_def
+     (* misc *)
    , miscTheory.max3_def
-   , miscTheory.LEAST_thm
-   , miscTheory.least_from_thm
-   , miscTheory.lookup_any_def
-   , miscTheory.UPDATE_LIST_THM
    , rich_listTheory.MAX_LIST_def
-   , miscTheory.anub_def
    , miscTheory.zlookup_def
    , miscTheory.tlookup_def
    , miscTheory.any_el_def
@@ -58,8 +63,6 @@ val add_basic_compset =
    , miscTheory.append_def
    , miscTheory.SmartAppend_thm
    , miscTheory.option_fold_def
-   , miscTheory.list_subset_def
-   , miscTheory.list_set_eq_def
    , miscTheory.the_def
    (* TODO: move to HOL *)
    , listTheory.LIST_REL_def
