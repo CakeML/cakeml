@@ -3206,21 +3206,42 @@ Definition all_core_def:
   EVERY (λ(n,(c,b)). b) (toAList fml)
 End
 
-(* Note that these are the negations *)
+(* add v either positive (b) or negated (~b) to c. *)
+Definition add_lit_def:
+  add_lit v b (lhs,r) =
+  if r = 0
+  then (lhs,r)
+  else
+  if r < 0
+  then
+    add ([(if b then r else -r,v)],0) (lhs,0)
+  else
+    add ([(if b then -r else r,v)],0) (lhs,r)
+End
+
+Theorem add_lit_thm[simp]:
+  satisfies_npbc w (add_lit v b c) ⇔
+  ((w v = b) ⇒ satisfies_npbc w c)
+Proof
+  Cases_on`c`>>rw[add_lit_def]>>
+  simp[satisfies_npbc_def,add_def]>>
+  pairarg_tac>>gvs[satisfies_npbc_def]>>
+  drule add_lists_thm>>
+  disch_then (qspec_then`w` mp_tac)>>
+  Cases_on`w v`>>gvs[]>>
+  intLib.ARITH_TAC
+QED
+
+(* Note that these are the negations
+  ¬ (v ⇒ c)
+  ¬ (~v ⇒ ~c)
+*)
 Definition v_iff_npbc_def:
   v_iff_npbc v c ⇔
-  (* ¬ (v ⇒ c) *)
-   (
-   if SND c ≤ 0
-   then not c
-   else
-     not (add ([(-SND c,v)],0) c),
-  (* ¬ (~v ⇒ ~c) *)
-    let cc = not c in
-    if SND cc ≤ 0
-    then not cc
-    else
-      not (add ([(SND cc,v)],0) cc))
+  (
+   not(add_lit v T c),
+   not (add_lit v F (not c))
+  )
 End
 
 (* this equation is annoying when unfolded *)
@@ -3229,42 +3250,6 @@ Definition v_iff_npbc_sem_def:
   (w v ⇔ satisfies_npbc w c)
 End
 
-Theorem satisfies_npbc_snd_le_z:
-  SND c ≤ 0 ⇒
-  satisfies_npbc w c
-Proof
-  Cases_on`c`>>rw[satisfies_npbc_def]>>
-  intLib.ARITH_TAC
-QED
-
-Theorem satisfies_npbc_add_sing_pos:
-   0 < SND c ⇒
-   (satisfies_npbc w (add ([(-SND c,v)],0) c) ⇔
-   (w v ⇒ satisfies_npbc w c))
-Proof
-  Cases_on`c`>>rw[add_def]>>
-  pairarg_tac>>gvs[satisfies_npbc_def]>>
-  drule add_lists_thm>>
-  rw[]>>
-  pop_assum (qspec_then`w` mp_tac)>>
-  Cases_on`w v`>>gvs[]>>
-  intLib.ARITH_TAC
-QED
-
-Theorem satisfies_npbc_add_sing_neg:
-   0 < SND c ⇒
-   (satisfies_npbc w (add ([(SND c,v)],0) c) ⇔
-   (¬w v ⇒ satisfies_npbc w c))
-Proof
-  Cases_on`c`>>rw[add_def]>>
-  pairarg_tac>>gvs[satisfies_npbc_def]>>
-  drule add_lists_thm>>
-  rw[]>>
-  pop_assum (qspec_then`w` mp_tac)>>
-  Cases_on`w v`>>gvs[]>>
-  intLib.ARITH_TAC
-QED
-
 Theorem satisfies_npbc_v_iff_npbc:
   v_iff_npbc v c = (vc,cv) ∧
   ¬ satisfies_npbc w vc ∧
@@ -3272,8 +3257,10 @@ Theorem satisfies_npbc_v_iff_npbc:
   ⇒
   v_iff_npbc_sem v c w
 Proof
+  Cases_on`c`>>
   rw[v_iff_npbc_sem_def,v_iff_npbc_def]>>
-  gvs[not_thm,INT_NOT_LE,satisfies_npbc_add_sing_neg,satisfies_npbc_add_sing_pos]
+  fs[not_thm]>>
+  metis_tac[]
 QED
 
 Definition change_pres_subgoals_def:

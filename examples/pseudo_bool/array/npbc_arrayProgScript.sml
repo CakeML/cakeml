@@ -4948,6 +4948,7 @@ Proof
   metis_tac[ARRAY_W8ARRAY_refl,Fail_exn_def]
 QED
 
+val res = translate npbc_checkTheory.add_lit_def;
 val res = translate npbc_checkTheory.v_iff_npbc_def;
 val res = translate npbc_checkTheory.change_pres_subgoals_def;
 val res = translate npbc_checkTheory.pres_only_def;
