@@ -2811,12 +2811,7 @@ Definition red_cond_check_def:
   let (l,r) = extract_scoped_pids pfs LN LN in
   let fmlls = revalue bortcb fml inds in
   split_goals_hash fmlls extra l goals ∧
-  EVERY (λ(id,cs).
-    lookup id r ≠ NONE ∨
-    check_hash_imp c cs ∨
-    MEM id skipped
-    )
-  (enumerate 0 rsubs)
+  check_hash_goals c skipped r rsubs
 End
 
 Definition lookup_hash_imp_def:
@@ -2826,11 +2821,22 @@ Definition lookup_hash_imp_def:
   | SOME _ => T
 End
 
-Definition every_check_hash_imp_def:
-  every_check_hash_imp r c skipped rsubs =
+Theorem check_hash_goals_eq:
+  check_hash_goals c skipped r rsubs =
   EVERY (lookup_hash_imp r c skipped)
     (enumerate 0 rsubs)
-End
+Proof
+  rw[npbc_checkTheory.check_hash_goals_def]>>
+  irule EVERY_CONG >>rw[]>>
+  rw[FUN_EQ_THM]>>
+  pairarg_tac>>fs[lookup_hash_imp_def]>>
+  every_case_tac>>gvs[]
+QED
+
+val res = translate npbc_checkTheory.check_hash_imp_def;
+val res = translate miscTheory.enumerate_def;
+val res = translate (lookup_hash_imp_def |> REWRITE_RULE [MEMBER_INTRO]);
+val res = translate check_hash_goals_eq;
 
 Definition red_cond_check_pure_def:
   red_cond_check_pure c extra
@@ -2840,7 +2846,7 @@ Definition red_cond_check_pure_def:
   skipped =
   let (l,r) = extract_scoped_pids pfs LN LN in
   if
-     every_check_hash_imp r c skipped rsubs
+    check_hash_goals c skipped r rsubs
   then
     let (lp,lf) =
       PARTITION (λ(i,c). lookup i l ≠ NONE) goals in
@@ -2849,15 +2855,6 @@ Definition red_cond_check_pure_def:
     SOME (proved,lf)
   else NONE
 End
-
-Theorem lookup_hash_imp_fun_eq:
-  lookup_hash_imp r c skipped =
-  (λ(id,cs). lookup id r = NONE ⇒ check_hash_imp c cs ∨ MEM id skipped)
-Proof
-  rw[FUN_EQ_THM]>>
-  pairarg_tac>>fs[lookup_hash_imp_def]>>
-  every_case_tac>>gvs[]
-QED
 
 Theorem red_cond_check_eq:
   red_cond_check bortcb fml inds c extra pfs rsubs goals skipped =
@@ -2868,18 +2865,14 @@ Theorem red_cond_check_eq:
     let hs = mk_hashset fmlls (mk_hashset x (REPLICATE splim [])) in
     EVERY (λc. in_hashset c hs) ls
 Proof
-  rw[red_cond_check_def,red_cond_check_pure_def,every_check_hash_imp_def]>>
+  rw[red_cond_check_def,red_cond_check_pure_def]>>
   pairarg_tac>>fs[split_goals_hash_def]>>
   rpt (pairarg_tac>>fs[])>>
-  rw[lookup_hash_imp_fun_eq]
+  rw[]
 QED
 
-val res = translate npbc_checkTheory.check_hash_imp_def;
-val res = translate miscTheory.enumerate_def;
 val res = translate PART_DEF;
 val res = translate PARTITION_DEF;
-val res = translate (lookup_hash_imp_def |> REWRITE_RULE [MEMBER_INTRO]);
-val res = translate every_check_hash_imp_def;
 val res = translate npbc_checkTheory.extract_scope_val_def;
 val res = translate npbc_checkTheory.extract_scoped_pids_def;
 val res = translate red_cond_check_pure_def;

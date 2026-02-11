@@ -1300,12 +1300,7 @@ Definition do_red_check_def:
     let fmlls = revalue (b ∨ tcb) rfml inds in
       cond ∧
       split_goals_hash fmlls extra l goals ∧
-      EVERY (λ(id,cs).
-        lookup id r ≠ NONE ∨
-        check_hash_imp c cs ∨
-        MEM id skipped
-        )
-        (enumerate 0 rsubs)
+      check_hash_goals c skipped r rsubs
   | SOME cid =>
      check_contradiction_fml_list b fml cid
 End
@@ -3503,11 +3498,7 @@ Definition do_dom_check_def:
     let (l,r) = extract_scoped_pids pfs LN LN in
     if
       find_scope_1 dindex pfs ∧
-      EVERY (λ(id,cs).
-              lookup id r ≠ NONE ∨
-              check_hash_imp c cs ∨
-              id = dindex)
-      (enumerate 0 dsubs)
+      check_hash_goals c [dindex] r dsubs
     then
       let fmlls = revalue F rfml rinds in
       split_goals_hash fmlls extra l goals
@@ -3578,11 +3569,7 @@ End
 Definition do_change_check_def:
   do_change_check pfs csubs =
   let (l,r) = extract_pids pfs LN LN in
-    EVERY (λ(id,cs).
-      lookup id r ≠ NONE ∨
-      EXISTS check_contradiction cs
-      )
-      (enumerate 0 csubs)
+    check_hash_goals ([],1) [] r csubs
 End
 
 Definition check_change_obj_list_def:

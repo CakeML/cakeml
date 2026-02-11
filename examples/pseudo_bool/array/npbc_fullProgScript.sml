@@ -130,7 +130,13 @@ Definition concl_to_string_def:
   (concl_to_string (OBounds lbi ubi) =
     let lbs = int_inf_to_string lbi in
     let ubs = int_inf_to_string ubi in
-    strlit "s VERIFIED BOUNDS " ^ lbs ^ strlit " <= obj <= " ^ ubs ^ strlit"\n")
+    strlit "s VERIFIED BOUNDS " ^ lbs ^ strlit " <= obj <= " ^ ubs ^ strlit"\n") ∧
+  (concl_to_string (EEnum n b) =
+    if b
+    then
+      strlit "s VERIFIED COMPLETE ENUMERATION OF " ^ toString n ^ strlit " SOLUTIONS\n"
+    else
+      strlit "s VERIFIED PARTIAL ENUMERATION OF " ^ toString n ^ strlit " SOLUTIONS\n")
 End
 
 Definition get_fml_def:
@@ -145,7 +151,7 @@ Definition check_unsat_2_sem_def:
     get_fml fs f1 = SOME (pres,obj,fml) ∧
     ∃concl.
       out = concl_to_string concl ∧
-      pbc$sem_concl (set fml) obj concl)
+      pbc$sem_concl (set fml) obj (pres_set_list pres) concl)
 End
 
 (* Ignoring output section for 2-arg version *)
@@ -228,7 +234,7 @@ Proof
          res v ∧
        case res of
          INR (output,bound,concl) =>
-         sem_concl (set fml) obj concl
+         sem_concl (set fml) obj (pres_set_list pres) concl
       | INL l => T))`
   >- (
     xapp>>xsimpl>>
@@ -345,7 +351,7 @@ Definition check_unsat_3_sem_def:
       out =
         (concl_to_string concl ^
         output_to_string bound output) ∧
-      pbc$sem_concl (set fml) obj concl ∧
+      pbc$sem_concl (set fml) obj (pres_set_list pres) concl ∧
       pbc$sem_output (set fml) obj (pres_set_list pres) bound
         (set fmlt) objt (pres_set_list prest) output
   )
@@ -444,7 +450,7 @@ Proof
          res v ∧
        case res of
          INR (output,bound,concl) =>
-         sem_concl (set fml) obj concl ∧
+         sem_concl (set fml) obj (pres_set_list pres) concl ∧
          sem_output (set fml) obj (pres_set_list pres) bound
           (set fmlt) objt (pres_set_list prest) output
        | INL l => T))`
