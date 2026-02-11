@@ -13,7 +13,7 @@ cat program example: concatenate and print lines from files.
 Compilation of the CakeML examples to different architectures.
 
 [deflate](deflate):
-Scripts relevant to the formalisation of the DEFLATE algorithm
+Scripts relevant to the formalisation of the DEFLATE algorithm.
 
 [diffProgScript.sml](diffProgScript.sml):
 diff example: find a patch representing the difference between two files.
@@ -55,7 +55,7 @@ Verification of longest common subsequence algorithms.
 Parsing and pretty printing of s-expressions
 
 [lpr_checker](lpr_checker):
-An LPR checker built on CakeML
+An LPR checker built on CakeML.
 
 [md5ProgScript.sml](md5ProgScript.sml):
 Translate md5 function
@@ -67,7 +67,7 @@ Implementation of an OpenTheory reader based on the Candle kernel.
 patch example: apply a patch to a file.
 
 [pseudo_bool](pseudo_bool):
-A checker for pseudo-boolean constraints
+A checker for pseudo-boolean constraints.
 
 [queueProgScript.sml](queueProgScript.sml):
 An example of a queue data structure implemented using CakeML arrays, verified
@@ -76,14 +76,11 @@ using CF.
 [quicksortProgScript.sml](quicksortProgScript.sml):
 In-place quick sort on a polymorphic array.
 
-[replProgScript.sml](replProgScript.sml):
-The CakeML REPL
-
 [sat_encodings](sat_encodings):
 Encodings of puzzles to CNF, to use as SAT-solver input.
 
 [scpog_checker](scpog_checker):
-A checker for SCPOG format in CakeML
+A checker for SCPOG format in CakeML.
 
 [sortProgScript.sml](sortProgScript.sml):
 Program to sort the lines in a file, built on top of the quick sort example.
@@ -107,4 +104,4 @@ https://github.com/ambros-gleixner/VIPR
 Simple wordcount program, to demonstrate use of CF.
 
 [xlrup_checker](xlrup_checker):
-An XLRUP checker built on CakeML
+An XLRUP checker built on CakeML.

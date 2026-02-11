@@ -2981,6 +2981,8 @@ val builtin_monops =
    Eval_FP_toWord,
    Eval_empty_ffi,
    Eval_force_out_of_memory_error,
+   Eval_char_to_word8,
+   Eval_word8_to_char,
    Eval_Chr,
    Eval_Ord]
   |> map (fn th =>

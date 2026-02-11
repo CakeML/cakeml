@@ -1,4 +1,4 @@
-Improving the pseudoboolean proof checker with arrays (manually)
+Improving the pseudo-boolean proof checker with arrays (manually).
 
 [cliqueProgScript.sml](cliqueProgScript.sml):
 Clique encode and checker
@@ -7,7 +7,7 @@ Clique encode and checker
 CNF encoder and checker
 
 [compilation](compilation):
-Compiling the pseudo-boolean constraints checker
+Compiling the pseudo-boolean constraints checker.
 
 [graphProgScript.sml](graphProgScript.sml):
 Basic shared graph encoder definitions

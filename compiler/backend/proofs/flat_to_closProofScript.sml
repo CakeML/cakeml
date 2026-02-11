@@ -1338,6 +1338,27 @@ Proof
     \\ fs [compile_op_def, arg1_def]
     \\ simp [closSemTheory.evaluate_def]
     \\ gvs [v_rel_def, flatSemTheory.v_to_flat_def])
+  >~ [‘FromTo (WordT W8) CharT’] >-
+   (gvs [AllCaseEqs(), LENGTH_EQ_NUM_compute]
+    \\ gvs [MAP_EQ_CONS, PULL_EXISTS]
+    \\ first_x_assum (strip_assume_tac o MATCH_MP check_type_WordT_W8_flat_to_v)
+    \\ gvs [flatSemTheory.flat_to_v_def,
+            semanticPrimitivesTheory.the_Litv_Word8_def]
+    (* Derive closLang value form from v_rel *)
+    \\ gvs [v_rel_def, SWAP_REVERSE_SYM]
+    \\ fs [compile_op_def, arg1_def, evaluate_def]
+    \\ gvs [v_rel_def, flatSemTheory.v_to_flat_def, GSYM ORD_CHR]
+    \\ irule LESS_LESS_EQ_TRANS
+    \\ irule_at Any w2n_lt \\ EVAL_TAC)
+  >~ [‘FromTo CharT (WordT W8)’] >-
+   (gvs [AllCaseEqs(), LENGTH_EQ_NUM_compute]
+    \\ gvs [MAP_EQ_CONS, PULL_EXISTS]
+    \\ first_x_assum (strip_assume_tac o MATCH_MP check_type_CharT_flat_to_v)
+    \\ gvs [flatSemTheory.flat_to_v_def,
+            semanticPrimitivesTheory.the_Litv_Word8_def]
+    \\ gvs [v_rel_def, SWAP_REVERSE_SYM]
+    \\ fs [compile_op_def, arg1_def, evaluate_def]
+    \\ gvs [v_rel_def, flatSemTheory.v_to_flat_def, GSYM ORD_CHR, ORD_BOUND])
   >~ [‘FromTo (WordT W64) Float64T’] >-
    (gvs [AllCaseEqs(), LENGTH_EQ_NUM_compute]
     \\ gvs [MAP_EQ_CONS, PULL_EXISTS]
@@ -1878,7 +1899,7 @@ Proof
     \\ rpt (asm_exists_tac \\ fs [])
     \\ imp_res_tac evaluate_IMP_LENGTH
     \\ imp_res_tac LIST_REL_LENGTH \\ fs [])
-  \\ gvs [dest_nop_thm] \\ gvs [AllCaseEqs(),PULL_EXISTS]
+  \\ gvs [dest_nop_thm,AllCaseEqs(),PULL_EXISTS]
   \\ qpat_x_assum ‘_ = (_,_)’ mp_tac
   \\ simp [Once compile_def,dest_nop_def,compile_op_def]
   \\ fs [arg1_def]
@@ -1888,18 +1909,18 @@ Proof
   \\ fs [flatSemTheory.evaluate_def,AllCaseEqs(),PULL_EXISTS]
   \\ fs [flatSemTheory.do_app_def,AllCaseEqs(),PULL_EXISTS,check_type_def,
          do_conversion_def,v_to_flat_def,flat_to_v_def]
-  THEN1
-   (rw [] \\ fs [] \\ gvs []
-    \\ qpat_x_assum ‘v_rel _ _’ mp_tac
-    \\ once_rewrite_tac [v_rel_cases] \\ fs []
-    \\ rw [] \\ gvs [integer_wordTheory.i2w_pos,ORD_BOUND])
-  \\ Cases \\ fs [check_type_def] \\ strip_tac \\ gvs []
+  \\ fs [evaluate_def,AllCaseEqs(),PULL_EXISTS] \\ rw []
+  \\ imp_res_tac closPropsTheory.evaluate_IMP_LENGTH
+  \\ gvs [LENGTH_EQ_NUM_compute]
+  \\ fs [check_type_def]
   \\ gvs [semanticPrimitivesTheory.check_type_def]
+  \\ qpat_x_assum ‘v_rel _ _’ mp_tac
+  \\ once_rewrite_tac [v_rel_cases] \\ fs [evaluate_def,AllCaseEqs()]
+  \\ rw [] \\ gvs [integer_wordTheory.i2w_pos,ORD_BOUND,evaluate_def]
+  \\ fs [v_to_flat_def]
   \\ ‘w2n w < dimword (:8)’ by fs [w2n_lt] \\ fs []
   \\ ‘¬(&w2n w > 255i)’ by intLib.COOPER_TAC \\ fs[]
   \\ rw [] \\ fs [] \\ gvs []
-  \\ qpat_x_assum ‘v_rel _ _’ mp_tac
-  \\ once_rewrite_tac [v_rel_cases] \\ fs [v_to_flat_def]
 QED
 
 Theorem compile_Dlet:

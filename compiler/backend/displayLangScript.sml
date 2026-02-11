@@ -1,5 +1,5 @@
 (*
-  displayLang is a stepping stone when before pretty printing any of
+  displayLang is a stepping stone before pretty printing any of
   the compiler's intermediate languages for inspection by humans. The
   design of displayLang is intentionally very simple. The language
   supports Tuples, Items (e.g. datatype constructors), and Lists.

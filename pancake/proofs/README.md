@@ -1,4 +1,4 @@
-Proofs files for compiling Pancake.
+Proof files for compiling Pancake.
 
 [crep_arithProofScript.sml](crep_arithProofScript.sml):
 Correctness proof for crep_arith pass
@@ -7,7 +7,7 @@ Correctness proof for crep_arith pass
 Correctness proof for function inlining pass
 
 [crep_to_loopProofScript.sml](crep_to_loopProofScript.sml):
-Correctness proof for ---
+Correctness proof for crep_to_loop
 
 [loop_callProofScript.sml](loop_callProofScript.sml):
 loop_call proof
@@ -32,7 +32,7 @@ and itree semantics for Pancake.
 Correctness proof for pan_simp
 
 [pan_to_crepProofScript.sml](pan_to_crepProofScript.sml):
-Correctness proof for --
+Correctness proof for pan_to_crep
 
 [pan_to_targetProofScript.sml](pan_to_targetProofScript.sml):
 composing semantics correctness from pan to target

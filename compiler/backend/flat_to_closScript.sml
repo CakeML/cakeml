@@ -217,7 +217,6 @@ Definition compile_op_def:
     | FromTo (WordT W64) IntT => Op t (WordOp WordToInt) xs
     | FromTo IntT (WordT W8) => arg1 xs (\x. Op t (IntOp Mod) [Op t (IntOp (Const 256)) []; x])
     | FromTo IntT (WordT W64) => Op t (WordOp WordFromInt) xs
-    | FromTo CharT IntT => arg1 xs (\x. x)
     | FromTo IntT CharT => Let t xs (If t (Op t (IntOp Less) [Op None (IntOp (Const 0)) []; Var t 0])
                         (Raise t (Op t (BlockOp (Cons chr_tag)) []))
                         (If t (Op t (IntOp Less) [Var t 0; Op None (IntOp (Const 255)) []])
