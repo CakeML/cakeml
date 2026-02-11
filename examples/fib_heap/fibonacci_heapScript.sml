@@ -194,9 +194,9 @@ val test_fts_mem = “fts_mem (ann_fts [
     ]
     ])”
     |> SCONV [fts_mem_def,STAR_ASSOC,ann_fts_def,ann_fts_seg_def,next_key_def,head_key_def,last_key_def,REVERSE_DEF,ft_seg_def,ones_def,edges_ones_def,LENGTH,b2w_def,fill_anode_def,fill_dnode_def];
-
+(*
 val tfc = “test_full_conn (10000w:word64) 3 3” |> SCONV [test_full_conn_def];
-
+*)
 val test_large_fts_mem = “fts_mem (ann_fts [
     test_build_ft (1000w:word64) 2 (test_full_conn 10000w 3 3)
     ])”
@@ -376,7 +376,7 @@ Proof
   rw[fib_heap_insert_def, SEP_CLAUSES, STAR_ASSOC] >>
   fs[empty_node_def] >>
   rw[fts_mem_def,ann_ft_def,fill_dnode_def,FST,SND] (*Why does it not expand?*)
-cheat
+>> cheat
 QED
 
 (*FAPPLY_FUPDATE_THM not working -> not found by hol? *)
