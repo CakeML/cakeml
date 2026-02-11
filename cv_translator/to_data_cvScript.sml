@@ -3,7 +3,7 @@
 *)
 Theory to_data_cv[no_sig_docs]
 Ancestors
-  cv_std basis_cv backend backend_asm unify_cv infer_cv
+  cv_std basis_cv source_cv backend backend_asm
 Libs
   preamble cv_transLib
 

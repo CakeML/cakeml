@@ -252,7 +252,7 @@ Theorem ts_unify_side_def[allow_rebind] = Q.prove(`
   |> update_precondition;
 
 val r = translate alist_nub_def;
-val r = translate (ns_nub_def |> DefnBase.one_line_ify NONE);
+val r = translate (oneline ns_nub_def);
 
 Theorem anub_ind =
   REWRITE_RULE[MEMBER_INTRO]miscTheory.anub_ind

@@ -1,4 +1,4 @@
-An LRAT checker built on CakeML with arrays
+An LPR checker built on CakeML with arrays.
 
 [lpr_arrayCompileARM8Script.sml](lpr_arrayCompileARM8Script.sml):
 Compiles the lpr example by evaluation inside the logic of HOL
@@ -13,8 +13,8 @@ Compiles the packing example by evaluation inside the logic of HOL
 Compiles the lpr example by evaluation inside the logic of HOL
 
 [proofs](proofs):
-Prove end-to-end correctness theorem for LPR checker with arrays
+Prove end-to-end correctness theorem for LPR checker with arrays.
 
 [proofsARM8](proofsARM8):
 Prove end-to-end correctness theorem for LPR checker with arrays
-against ARM8 model
+against the ARMv8 model.

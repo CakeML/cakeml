@@ -233,48 +233,48 @@ Theorem evaluate_eval:
     env_v = Env env1 (env_id,0) ∧ decs_allowed decs ∧
     nsLookup env.v (Short eval_str) = SOME eval_v ⇒
     nsLookup env.v (Short arg_str) =
-      SOME (Conv NONE [Conv NONE [s1_v; Litv (IntLit (&next_gen))];
-                       Conv NONE [env_v; Litv (IntLit (&env_id))];
-                       decs_v]) ∧
+    SOME (Conv NONE [Conv NONE [s1_v; Litv (IntLit (&next_gen))];
+                     Conv NONE [env_v; Litv (IntLit (&env_id))];
+                     decs_v]) ∧
     BACKEND_INC_CONFIG_TYPE s1 s1_v ∧
     LIST_TYPE AST_DEC_TYPE decs decs_v ∧
     (∀ck junk st1 res. evaluate_decs (st with
-                    <|clock := st.clock − ck; refs := st.refs ++ junk;
-                      eval_state := NONE |>) env1
-                   decs = (st1,res) ⇒ res ≠ Rerr (Rabort Rtype_error)) ⇒
+                                         <|clock := st.clock − ck; refs := st.refs ++ junk;
+                                           eval_state := NONE |>) env1
+                                     decs = (st1,res) ⇒ res ≠ Rerr (Rabort Rtype_error)) ⇒
     ∃res s1 ck msg junk.
       evaluate st env [App Opapp [Var (Short eval_str); Var (Short arg_str)]] = (s1,res) ∧
       (res ≠ Rerr (Rabort Rtimeout_error) ⇒
-        res = Rval
-            [Conv (SOME (TypeStamp «Compile_error» eval_res_stamp))
-               [Litv (StrLit msg)]] ∧
-        s1 = st with <|clock := st.clock − ck; refs := st.refs ++ junk|> ∨
-        (∃f. res = Rerr (Rabort (Rffi_error f))) ∨
-        (∃exn st7 ck1 ck2 s2_v s2.
-           evaluate_decs (st with
-             <|clock := st.clock − ck1; refs := st.refs ++ junk;
-               eval_state := NONE|>) env1 decs = (st7,Rerr (Rraise exn)) ∧
-           BACKEND_INC_CONFIG_TYPE s2 s2_v ∧
-           res = Rval [Conv (SOME (TypeStamp «Eval_exn» eval_res_stamp))
-                        [exn; Conv NONE [s2_v; Litv (IntLit (&next_gen + 1))]]] ∧
-           s1 = st7 with <| clock := st7.clock - ck2 ;
-                            eval_state := SOME (EvalDecs
-             (s with <|compiler_state := s2_v;
-                env_id_counter := (cur_gen1,next_id1,next_gen1 + 1)|>)) |>) ∨
-        (∃env2 st7 ck1 ck2 s2_v s2.
-           evaluate_decs (st with
-             <|clock := st.clock − ck1; refs := st.refs ++ junk;
-               eval_state := NONE|>) env1 decs = (st7,Rval env2) ∧
-           BACKEND_INC_CONFIG_TYPE s2 s2_v ∧
-           res = Rval [Conv (SOME (TypeStamp «Eval_result» eval_res_stamp))
-             [Conv NONE
-                [Env (extend_dec_env env2 env1) (next_gen1,0);
-                 Litv (IntLit (&next_gen))];
-              Conv NONE [s2_v; Litv (IntLit (&next_gen + 1))]]] ∧
-           s1 = st7 with <| clock := st7.clock - ck2 ;
-                            eval_state := SOME (EvalDecs
-             (s with <|compiler_state := s2_v;
-                env_id_counter := (cur_gen1,next_id1,next_gen1 + 1)|>)) |>))
+       res = Rval
+             [Conv (SOME (TypeStamp «Compile_error» eval_res_stamp))
+                   [Litv (StrLit msg)]] ∧
+       s1 = st with <|clock := st.clock − ck; refs := st.refs ++ junk|> ∨
+       (∃f. res = Rerr (Rabort (Rffi_error f))) ∨
+       (∃exn st7 ck1 ck2 s2_v s2.
+          evaluate_decs (st with
+                            <|clock := st.clock − ck1; refs := st.refs ++ junk;
+                              eval_state := NONE|>) env1 decs = (st7,Rerr (Rraise exn)) ∧
+          BACKEND_INC_CONFIG_TYPE s2 s2_v ∧
+          res = Rval [Conv (SOME (TypeStamp «Eval_exn» eval_res_stamp))
+                           [exn; Conv NONE [s2_v; Litv (IntLit (&next_gen + 1))]]] ∧
+          s1 = st7 with <| clock := st7.clock - ck2 ;
+                           eval_state := SOME (EvalDecs
+                                               (s with <|compiler_state := s2_v;
+                                                         env_id_counter := (cur_gen1,next_id1,next_gen1 + 1)|>)) |>) ∨
+       (∃env2 st7 ck1 ck2 s2_v s2.
+          evaluate_decs (st with
+                            <|clock := st.clock − ck1; refs := st.refs ++ junk;
+                              eval_state := NONE|>) env1 decs = (st7,Rval env2) ∧
+          BACKEND_INC_CONFIG_TYPE s2 s2_v ∧
+          res = Rval [Conv (SOME (TypeStamp «Eval_result» eval_res_stamp))
+                           [Conv NONE
+                                 [Env (extend_dec_env env2 env1) (next_gen1,0);
+                                  Litv (IntLit (&next_gen))];
+                            Conv NONE [s2_v; Litv (IntLit (&next_gen + 1))]]] ∧
+          s1 = st7 with <| clock := st7.clock - ck2 ;
+                           eval_state := SOME (EvalDecs
+                                               (s with <|compiler_state := s2_v;
+                                                         env_id_counter := (cur_gen1,next_id1,next_gen1 + 1)|>)) |>))
 Proof
   rpt strip_tac \\ gvs []
   \\ simp [evaluate_def,eval_v_def]
@@ -296,9 +296,9 @@ Proof
   \\ rename [‘do_opapp [compiler64prog_compiler_for_eval_v;_]’]
   \\ qmatch_goalsub_abbrev_tac ‘do_opapp [_; arg_v]’
   \\ ‘PAIR_TYPE (PAIR_TYPE NUM NUM)
-                (PAIR_TYPE BACKEND_INC_CONFIG_TYPE (LIST_TYPE AST_DEC_TYPE))
-                   ((env_id,0),(s1,decs)) arg_v’ by
-     fs [Abbr‘arg_v’,ml_translatorTheory.PAIR_TYPE_def]
+      (PAIR_TYPE BACKEND_INC_CONFIG_TYPE (LIST_TYPE AST_DEC_TYPE))
+      ((env_id,0),(s1,decs)) arg_v’ by
+    fs [Abbr‘arg_v’,ml_translatorTheory.PAIR_TYPE_def]
   \\ assume_tac compiler64prog_compiler_for_eval_v_thm
   \\ drule_all Arrow_IMP
   \\ fs [dec_clock_def]
@@ -339,7 +339,7 @@ Proof
   \\ simp [evaluate_App_Opapp,evaluate_Var,build_rec_env_def]
   \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
   \\ rename [‘do_opapp [eval_prim_v;
-                Conv NONE [_; _; decs_v; s2_v; bs_v; ws_v]]’]
+                        Conv NONE [_; _; decs_v; s2_v; bs_v; ws_v]]’]
   \\ simp [do_opapp_def,eval_prim_v_def]
   \\ IF_CASES_TAC THEN1 fs []
   \\ fs [dec_clock_def]
@@ -366,10 +366,10 @@ Proof
   \\ fs [Abbr‘st4’]
   \\ qmatch_goalsub_abbrev_tac ‘evaluate_decs st5’
   \\ ‘∃st6 res6. evaluate_decs (st5 with eval_state := NONE) env1 decs =
-                   (st6,res6)’ by metis_tac [PAIR]
+                 (st6,res6)’ by metis_tac [PAIR]
   \\ drule (evaluatePropsTheory.eval_no_eval_simulation |> CONJUNCTS |> last)
   \\ disch_then (qspec_then ‘SOME (EvalDecs
-                    (add_decs_generation (s with compiler_state := s2_v)))’ mp_tac)
+                                   (add_decs_generation (s with compiler_state := s2_v)))’ mp_tac)
   \\ impl_keep_tac THEN1 (fs [] \\ unabbrev_all_tac \\ fs [] \\ metis_tac [])
   \\ fs [Abbr‘st5’] \\ strip_tac \\ pop_assum kall_tac
   (* cases on res of evaluated decs *)
@@ -390,12 +390,12 @@ Proof
     \\ IF_CASES_TAC THEN1 fs []
     \\ fs [dec_clock_def]
     \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
-             namespaceTheory.nsOptBind_def,do_app_def]
+             namespaceTheory.nsOptBind_def,do_app_def,do_arith_def,check_type_def]
     \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
              namespaceTheory.nsOptBind_def]
     \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
              namespaceTheory.nsOptBind_def,do_con_check_def,build_conv_def]
-    \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [opn_lookup_def]
+    \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
     \\ fs [add_decs_generation_def,reset_env_generation_def]
     \\ qexists_tac ‘junk’ \\ fs []
     \\ first_x_assum $ irule_at $ Pos hd
@@ -415,14 +415,14 @@ Proof
   \\ IF_CASES_TAC THEN1 fs []
   \\ fs [dec_clock_def]
   \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
-           namespaceTheory.nsOptBind_def,do_app_def]
+           namespaceTheory.nsOptBind_def,do_app_def,do_arith_def,check_type_def]
   \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
            namespaceTheory.nsOptBind_def]
   \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
            namespaceTheory.nsOptBind_def,do_con_check_def,build_conv_def]
   \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
            namespaceTheory.nsOptBind_def,do_con_check_def,build_conv_def]
-  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [opn_lookup_def]
+  \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
   \\ qexists_tac ‘junk’ \\ fs []
   \\ first_x_assum $ irule_at $ Pos hd
   \\ first_x_assum $ irule_at $ Pos hd
@@ -1294,4 +1294,3 @@ Proof
   \\ pairarg_tac \\ gvs []
   \\ qexists_tac ‘k’ \\ fs []
 QED
-

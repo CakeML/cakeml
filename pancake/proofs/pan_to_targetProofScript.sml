@@ -994,9 +994,9 @@ QED
 
 Theorem share_inst_modifies:
   wordSem$share_inst op v ad s = (res, t) ==>
-  ? ls ffi stk lsz.
+  ? ls ffi stk lsz st.
   t = (s with <| locals := ls; ffi := ffi;
-        stack := stk; locals_size := lsz |>)
+        stack := stk; locals_size := lsz; store := st |>)
 Proof
   Cases_on ‘op’>>
   gs[wordSemTheory.share_inst_def,

@@ -1,5 +1,5 @@
 (*
   A hello world program used for testing that the bootstrapped
-  compiler was built succesfully.
+  compiler was built successfully.
 *)
 print "Hello!\n";

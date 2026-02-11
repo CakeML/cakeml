@@ -1171,8 +1171,7 @@ Proof
   \\ rw[LIST_EQ_REWRITE]
   \\ gs[] \\ first_x_assum drule
   \\ first_x_assum drule
-  \\ Cases_on`ty`
-  \\ TRY(qmatch_goalsub_rename_tac`WordT w` \\ Cases_on`w`)
+  \\ Cases_on ‘ty’ using semanticPrimitivesPropsTheory.prim_type_cases
   \\ rw[semanticPrimitivesTheory.check_type_def]
   \\ Cases_on`EL x vs1`
   \\ gvs[flat_to_v_def,CaseEq"bool",semanticPrimitivesTheory.Boolv_def]
@@ -1201,24 +1200,26 @@ Proof
     \\ imp_res_tac check_type_LIST_REL_same \\ gvs []
     >- (EVAL_TAC \\ fs [simple_val_rel_def])
     \\ imp_res_tac semanticPrimitivesPropsTheory.do_arith_check_type
-    \\ Cases_on`ty` \\ TRY (Cases_on ‘w’)
+    \\ Cases_on ‘ty’ using semanticPrimitivesPropsTheory.prim_type_cases
     \\ gvs[semanticPrimitivesTheory.do_arith_def,CaseEq"list",CaseEq"arith"]
-    \\ gvs[simple_val_rel_simps,v_to_flat_def])
+    \\ gvs[simple_val_rel_simps,v_to_flat_def]
+    >~ [‘Arith Not BoolT’] >-
+     (Cases_on ‘flat_to_v x0 = Boolv T’ \\ gvs []
+      \\ EVAL_TAC \\ gvs [simple_val_rel_def]))
   \\ Cases_on ‘∃ty1 ty2. op = FromTo ty1 ty2’ >- (
     gvs[do_app_def,AllCaseEqs(),SF DNF_ss] \\ rw[]
     \\ imp_res_tac check_type_LIST_REL_same \\ gvs []
     \\ first_x_assum(qspecl_then[`[v]`,`ty1`]mp_tac)
     \\ rw[PULL_EXISTS]
-    \\ Cases_on`ty1` \\ Cases_on`ty2`
-    \\ gvs[semanticPrimitivesTheory.do_conversion_def]
-    \\ Cases_on`w`
-    \\ gvs[semanticPrimitivesTheory.do_conversion_def]
-    \\ gvs[v_to_flat_def] )
+    \\ Cases_on ‘ty1’ using semanticPrimitivesPropsTheory.prim_type_cases
+    \\ Cases_on ‘ty2’ using semanticPrimitivesPropsTheory.prim_type_cases
+    \\ gvs[semanticPrimitivesTheory.do_conversion_def,v_to_flat_def,CaseEq"bool"]
+    \\ rw[simple_val_rel_simps,chr_exn_v_def,v_to_flat_def,Boolv_def])
   \\ Cases_on ‘∃test ty. op = Test test ty’
   >-
    (gvs [PULL_EXISTS,do_app_def,AllCaseEqs()] \\ rw []
     \\ qexists_tac ‘b’ \\ conj_tac >- gvs [Boolv_def]
-    \\ Cases_on ‘ty’ \\ TRY (rename [‘WordT ws’] \\ Cases_on ‘ws’)
+    \\ Cases_on ‘ty’ using semanticPrimitivesPropsTheory.prim_type_cases
     \\ Cases_on ‘test’
     \\ gvs [AllCaseEqs(),flatSemTheory.do_test_def,PULL_EXISTS]
     \\ gvs [oneline dest_Litv_def, AllCaseEqs()]

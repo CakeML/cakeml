@@ -1472,6 +1472,14 @@ Proof
   Cases_on ‘x’ \\ gvs [concat_def]
 QED
 
+Definition char_to_word8_def[simp]:
+  char_to_word8 (c:char) = n2w (ORD c) :word8
+End
+
+Definition word8_to_char_def[simp]:
+  word8_to_char (w:word8) = CHR (w2n w) : char
+End
+
 (* The translator turns each `empty_ffi s` into a call to the FFI with
    an empty name and passing `s` as the argument. The empty FFI is
    used for logging/timing purposes. *)

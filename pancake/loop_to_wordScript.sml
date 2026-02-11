@@ -1,5 +1,5 @@
 (*
-  Compilation from looLang to wordLang.
+  Compilation from loopLang to wordLang.
 *)
 Theory loop_to_word
 Ancestors

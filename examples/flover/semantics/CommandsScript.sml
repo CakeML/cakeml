@@ -1,5 +1,5 @@
 (**
- Formalization of the Abstract Syntax Tree of a subset used in the Flover
+ Formalization of the Abstract Syntax Tree of a subset used in the FloVer
  framework
  **)
 Theory Commands

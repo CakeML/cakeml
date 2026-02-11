@@ -7,6 +7,9 @@ Ancestors[qualified]
 Libs
   preamble
 
+Datatype:
+  opw = Andw | Orw | Xor | Add | Sub
+End
 
 (* Small general definition *)
 Definition small_enough_int_def:
@@ -156,4 +159,3 @@ Definition word_shift_def:
        generated CakeML code *)
     if dimindex (:'a) = 32 then 2 else 3:num
 End
-
