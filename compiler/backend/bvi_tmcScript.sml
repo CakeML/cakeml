@@ -81,9 +81,10 @@ Definition rewrite_opt_def:
   (rewrite_opt ts loc loc_opt arity (Op (BlockOp (Cons block_tag)) op_args) =
     case extract_tail_call loc op_args of
     | SOME (SOME (l, Call t _ args h), r) =>
-        let alloc_var = Var arity in
-        let alloc_exp  = Var 0 in (*alloc(x, HOLE);*) (* hole needs to be constructed using l and r *)
-        let assign_exp = alloc_var in (* heap[k] = p *) (* assign(Var 0, alloc_var) *)
+        let alloc_var  = Var arity in
+        let hole_index = length l in
+        let alloc_exp  = Op (Mem_Op (MutCons block_tag hole_index)) (l ++ r) in (*alloc(x, HOLE);*)
+        let assign_exp = Op (Mem_Op UpdateCons) [(* TODO *)] in (* heap[k] = p *) (* assign(Var 0, alloc_var) *)
         bvi$Let [alloc_exp; assign_exp] $ Call t (SOME loc_opt) args h (* TODO: append HOLE pointer to args *)
     | _ => Op (BlockOp (Cons block_tag)) op_args) ∧
   (rewrite_opt ts loc loc_opt arity expr = (* TODO: Fill hole *) expr)
