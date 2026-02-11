@@ -53,7 +53,7 @@ Definition rewrite_aux_def:
     | NONE => NONE
     | SOME y => SOME $ Let xs y) ∧
   (rewrite_aux ts loc loc_opt arity (Raise x) = NONE) ∧
-  (rewrite_aux ts loc loc_opt arity (Tick x) = OPTMAP Tick $ rewrite_aux ts loc loc_opt arity x) ∧
+  (rewrite_aux ts loc loc_opt arity (Tick x) = OPTION_MAP Tick $ rewrite_aux ts loc loc_opt arity x) ∧
   (rewrite_aux ts loc loc_opt arity (Force _ n) = NONE) ∧
   (rewrite_aux ts loc loc_opt arity (Call t d args h) = NONE) ∧
   (* just pattern match on op, write dest_BlockOp_Cons *)
@@ -82,9 +82,9 @@ Definition rewrite_opt_def:
     case extract_tail_call loc op_args of
     | SOME (SOME (l, Call t _ args h), r) =>
         let alloc_var  = Var arity in
-        let hole_index = length l in
-        let alloc_exp  = Op (Mem_Op (MutCons block_tag hole_index)) (l ++ r) in (*alloc(x, HOLE);*)
-        let assign_exp = Op (Mem_Op UpdateCons) [(* TODO *)] in (* heap[k] = p *) (* assign(Var 0, alloc_var) *)
+        let hole_index = 0 (*length l*) in
+        let alloc_exp  = bvi$Op (MemOp (MutCons block_tag hole_index)) (l (*@ r*)) in (*alloc(x, HOLE);*)
+        let assign_exp = bvi$Op (MemOp UpdateCons) [(* TODO *)] in (* heap[k] = p *) (* assign(Var 0, alloc_var) *)
         bvi$Let [alloc_exp; assign_exp] $ Call t (SOME loc_opt) args h (* TODO: append HOLE pointer to args *)
     | _ => Op (BlockOp (Cons block_tag)) op_args) ∧
   (rewrite_opt ts loc loc_opt arity expr = (* TODO: Fill hole *) expr)
