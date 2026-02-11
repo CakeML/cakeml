@@ -220,7 +220,7 @@ Definition edges_off_def:
 End
 
 Definition flag_off_def:
-  edges_off = 2w * bytes_in_word
+  flag_off = 2w * bytes_in_word
 End
 
 Definition mark_off_def:
@@ -363,6 +363,8 @@ Definition fib_heap_insert_def:
         (* load sec element *)
         let c = (v_of_a + next_off IN dm /\ c) in
         let sec = m (v_of_a + next_off) in
+        (* set flag for new element *)
+        let m = ((k + flag_off) =+ b2w T) m in
         (* check whether k goes first *)
         if v_of_k <=+ v_of_a then
             fib_heap_append (k, a, last, sec, m, dm, c)
@@ -376,8 +378,8 @@ Theorem fib_heap_insert:
     fib_heap_insert (a, k, m, dm) = (a', m', b) ⇒
     (fib_heap a' (fh |+ (k,v)) * frame) (fun2set (m',dm)) ∧ b
 Proof
-  rw[fib_heap_insert_def,fib_heap_empty_append_def,fib_heap_def]
-  cheat
+  fs[fib_heap_insert_def,fib_heap_empty_append_def,fib_heap_def] >>
+cheat
 QED
 
 
