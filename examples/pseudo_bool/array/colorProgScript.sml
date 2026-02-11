@@ -496,7 +496,8 @@ Proof
   xlet_autop>>
   xcon>>
   xsimpl>>
-  gvs[get_graph_dimacs_def,AllCaseEqs(),mk_prob_def,pb_parseTheory.strip_annot_prob_def]>>
+  gvs[get_graph_dimacs_def,AllCaseEqs(),mk_prob_def,
+    pb_parseTheory.strip_annot_prob_def,pbcTheory.pres_set_list_def]>>
   drule parse_dimacs_good_graph>>
   rw[]>>
   rename1`check_k_color k f g`>>
@@ -635,7 +636,7 @@ Proof
     disch_then drule>>
     PairCases_on`prob`>>
     disch_then drule>>
-    fs[strip_annot_prob_def]>>
+    gvs[strip_annot_prob_def,pbcTheory.pres_set_list_def,lazy_full_encode_def,AllCaseEqs()]>>
     rw[]>>fs[]>>
     metis_tac[min_color_size_eq])
 QED

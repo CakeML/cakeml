@@ -648,7 +648,7 @@ Proof
           res v ∧
         case res of
          INR (output,bound,concl) =>
-           sem_concl (set (fml_to_pbf fml)) NONE concl
+           sem_concl (set (fml_to_pbf fml)) NONE {} concl
         | INL l => T)`
   >- (
     drule_at (Pos (el 2)) check_unsat_top_spec>>
@@ -664,7 +664,7 @@ Proof
     xsimpl>>
     simp[OPTION_TYPE_def,LIST_TYPE_def]>>
     rw[]>> asm_exists_tac>>simp[]>>
-    every_case_tac>>fs[])>>
+    every_case_tac>>fs[npbcTheory.pres_set_spt_def])>>
   xlet_autop>>
   Cases_on`ores_to_string res`>>fs[SUM_TYPE_def]>>
   xmatch

@@ -544,7 +544,8 @@ Proof
     xsimpl>>
     rw[]>>
     qexists_tac`x`>>simp[maxsat_sem_def]>>
-    every_case_tac>>fs[mk_prob_def]
+    every_case_tac>>
+    fs[mk_prob_def,pbcTheory.pres_set_list_def]
     >- (
       (drule_at Any) full_encode_sem_concl_opt_cost>>
       metis_tac[PAIR])
@@ -782,7 +783,7 @@ Proof
   rw[]>>
   qexists_tac`x`>>qexists_tac`x'`>>simp[maxsat_output_sem_def]>>
   CONJ_TAC >- (
-    fs[maxsat_sem_def,mk_prob_def]>>
+    fs[maxsat_sem_def,mk_prob_def,pbcTheory.pres_set_list_def]>>
     every_case_tac>>fs[]
     >- (
       (drule_at Any) full_encode_sem_concl_opt_cost>>

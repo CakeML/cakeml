@@ -231,7 +231,7 @@ Proof
     qexists_tac`strlit ""`>>
     simp[STD_streams_stderr,add_stdo_nil]>>
     xsimpl>>
-    fs[pb_parseTheory.strip_annot_prob_def]>>
+    fs[pb_parseTheory.strip_annot_prob_def,pbcTheory.pres_set_list_def]>>
     (drule_at Any) full_encode_sem_concl>>
     fs[]>>
     impl_tac >-
@@ -246,7 +246,7 @@ Proof
     qexists_tac`strlit ""`>>
     simp[STD_streams_stderr,add_stdo_nil]>>
     xsimpl>>
-    fs[pb_parseTheory.strip_annot_prob_def]>>
+    fs[pb_parseTheory.strip_annot_prob_def,pbcTheory.pres_set_list_def]>>
     (drule_at Any) full_encode_sem_concl>>
     fs[]>>
     impl_tac >-

@@ -251,12 +251,14 @@ Proof
       (drule_at Any) full_encode_sem_concl_check>>
       disch_then match_mp_tac>>
       Cases_on`full_encode g`>>
-      gvs[get_graph_dimacs_def,AllCaseEqs(),mk_prob_def,pb_parseTheory.strip_annot_prob_def]>>
+      gvs[get_graph_dimacs_def,AllCaseEqs(),mk_prob_def,
+        pb_parseTheory.strip_annot_prob_def,pbcTheory.pres_set_list_def]>>
       metis_tac[parse_dimacs_good_graph])>>
     (drule_at Any) full_encode_sem_concl>>
     disch_then match_mp_tac>>
     Cases_on`full_encode g`>>
-    gvs[get_graph_dimacs_def,AllCaseEqs(),mk_prob_def,pb_parseTheory.strip_annot_prob_def]>>
+    gvs[get_graph_dimacs_def,AllCaseEqs(),mk_prob_def,
+        pb_parseTheory.strip_annot_prob_def,pbcTheory.pres_set_list_def]>>
     metis_tac[parse_dimacs_good_graph])
 QED
 

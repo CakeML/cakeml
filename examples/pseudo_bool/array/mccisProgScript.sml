@@ -281,14 +281,13 @@ Proof
     qexists_tac`strlit ""`>>
     simp[STD_streams_stderr,add_stdo_nil]>>
     xsimpl>>
-    fs[oneline pb_parseTheory.strip_annot_prob_def]>>
-    every_case_tac>>gvs[]>>
+    gvs[oneline pb_parseTheory.strip_annot_prob_def, mk_prob_def]>>
+    rename1`full_encode_mccis gpp gtt`>>
+    Cases_on`full_encode_mccis gpp gtt`>>
+    gvs[pbcTheory.pres_set_list_def,get_graph_lad_def, AllCaseEqs()]>>
     (drule_at Any) full_encode_mccis_sem_concl>>
     fs[]>>
     Cases_on`x`>> disch_then (drule_at Any)>>
-    disch_then(qspec_then`gt'` mp_tac)>>
-    impl_tac>-
-      fs[get_graph_lad_def,AllCaseEqs(),mk_prob_def]>>
     rw[]>>
     rename1`(qq,rr)`>>
     qexists_tac`(qq,rr)`>>
