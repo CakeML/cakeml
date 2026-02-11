@@ -2767,17 +2767,6 @@ Proof
   \\ rveq \\ fs []
 QED
 
-Theorem opt_eval_config_wf_bounded:
-  opt_eval_config_wf (asm_conf:'a asm_config) (c') (SOME ci) ⇒
-  EVERY (λh. h.entry_pc < dimword (:α) ∧ h.addr_off < dimword (:α) ∧
-              h.exit_pc < dimword (:α)) ci.init_state.lab_conf.shmem_extra
-Proof
-  rw[opt_eval_config_wf_def]>>
-  fs[config_component_equality]>>
-  (* This doesn't look true *)
-  cheat
-QED
-
 Theorem cake_orac_eq_get_oracle[local]:
   ¬ semantics_prog s env prog Fail /\
   opt_eval_config_wf (asm_conf:'a asm_config) (c':config) (SOME ci) /\
@@ -2789,16 +2778,12 @@ Theorem cake_orac_eq_get_oracle[local]:
   !i r x. get_oracle ci s' env prog i = SOME r /\
   cake_orac asm_conf c' syntax I (\ps. (ps.env_id,ps.source_prog)) i = x ==>
   (case r of (id, cfg_v, ds) => ?cfg. cfg_v = ci.config_v cfg ∧
-  EVERY (λh. h.entry_pc < dimword (:α) ∧ h.addr_off < dimword (:α) ∧
-              h.exit_pc < dimword (:α)) cfg.lab_conf.shmem_extra ∧
     x = (cfg, id, ds))
 Proof
   strip_tac
   \\ drule config_wf_abs_conc
   \\ strip_tac
-  \\ drule opt_eval_config_wf_bounded
-  \\ strip_tac
-  \\ drule_then (drule_then drule) (source_evalProofTheory.get_oracle_props |> INST_TYPE [beta|->“:config”])
+  \\ drule_then (drule_then drule) (source_evalProofTheory.get_oracle_props |> INST_TYPE [beta|->``:config``])
   \\ disch_then drule
   \\ strip_tac
   \\ Induct
@@ -2808,7 +2793,6 @@ Proof
     \\ fs [cake_orac_0, compile_inc_progs_src_env, opt_eval_config_wf_def]
     \\ rpt (first_x_assum drule)
     \\ rw []
-    \\ cheat
   )
   >- (
     simp [FORALL_PROD]
@@ -2825,7 +2809,6 @@ Proof
     \\ rpt (pairarg_tac \\ fs [])
     \\ fs [compile_inc_progs_src_env]
     \\ gvs []
-    \\ cheat
     \\ irule_at Any EQ_REFL
   )
 QED
@@ -3270,7 +3253,7 @@ Theorem compile_correct':
    backend_config_ok asm_conf c ∧ lab_to_targetProof$mc_conf_ok mc ∧ mc_init_ok asm_conf c mc ∧
    opt_eval_config_wf asm_conf c' ev ∧
    installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names (heap_regs c.stack_conf.reg_names) mc
-    (MAP to_shmem_info c'.lab_conf.shmem_extra) ms ⇒
+      c'.lab_conf.shmem_extra ms ⇒
      machine_sem (mc:(α,β,γ) machine_config) ffi ms ⊆
        extend_with_resource_limit'
          (is_safe_for_space ffi asm_conf c prog (read_limits asm_conf c mc ms))
@@ -3564,21 +3547,18 @@ Proof
 
   \\ rpt (qsubpat_x_assum kall_tac `closSem$semantics`)
   \\ rpt (qsubpat_x_assum kall_tac `bvlSem$semantics`)
-  \\ cheat
-  (*
-
   \\ `∀n. EVERY ($<= data_num_stubs) (MAP FST (SND (data_oracle n)))` by (
     rpt (qsubpat_x_assum kall_tac `dataSem$semantics`)
     \\ gen_tac
     \\ simp[Abbr`data_oracle`, GSYM simple_orac_eqs]
     \\ irule (listTheory.MONO_EVERY |> Q.GEN `P` |> Q.ISPEC `$<= bvl_num_stubs`)
-    \\ drule_then (fn t => conseq [t]) bvl_num_stubs_LE_bvi_prog
+    \\ irule_at Any bvl_num_stubs_LE_bvi_prog
+    \\ first_x_assum (irule_at Any)
     \\ EVAL_TAC \\ simp []
   )
   \\ `loc = InitGlobals_location` by
    (fs [bvl_to_bviTheory.compile_def,bvl_to_bviTheory.compile_prog_def]
     \\ rpt (pairarg_tac \\ fs []))
-
   \\ impl_tac >- (
     simp[Abbr`word_st`,word_to_stackProofTheory.make_init_def,Abbr`c4`,Abbr`c4_data_conf`,
          EVAL ``wordSem$stack_size []``]
@@ -3674,7 +3654,7 @@ Proof
   \\ old_drule (GEN_ALL bvi_tailrecProofTheory.compile_prog_next_mono)
   \\ strip_tac
   \\ pop_assum(assume_tac o Abbrev_intro)
-  \\ full_simp_tac (bool_ss ++ simpLib.type_ssfrag ``: 'a config``) []
+  \\ full_simp_tac (bool_ss ++ simpLib.type_ssfrag ``:config``) []
 
   \\ rename1 `labcf.ffi_names = SOME mc.ffi_names`
   \\ `labProps$no_share_mem_inst p7` by (
@@ -3698,7 +3678,8 @@ Proof
     first_x_assum $ irule_at (Pos last) >>
     drule_then assume_tac $ iffRL no_share_mem_filter_skip >>
     first_x_assum $ irule_at (Pos hd) >>
-    fs[lab_to_targetTheory.compile_def])
+    fs[lab_to_targetTheory.compile_def] >>
+    metis_tac[])
   \\ `mc.ffi_names = ffi_names` by fs[]
   \\ simp[]
 
@@ -3745,16 +3726,17 @@ Proof
         \\ metis_tac[FST_EQ_EQUIV])
       \\ fs [markerTheory.Abbrev_def]
       \\ fs [lab_to_targetTheory.compile_def]
-      \\ drule compile_lab_lab_conf
       \\ drule compile_lab_LENGTH
       \\ simp [cake_orac_0, config_tuple2_def])
     (* ugh have to use metis just to show p7 is compiled from a data prog *)
     \\ conj_tac >- (
       qpat_x_assum`Abbrev(p7 = _)` mp_tac
       \\ disch_then (assume_tac o SYM o REWRITE_RULE [markerTheory.Abbrev_def])
-      \\ drule_then (drule_then $ irule_at (Pos hd)) (GEN_ALL to_lab_good_code_lemma)
+      \\ irule (GEN_ALL to_lab_good_code_lemma)
       \\ qpat_x_assum `all_enc_ok_pre _ _` mp_tac \\ simp []
       \\ disch_tac
+      \\ first_x_assum (irule_at Any)
+      \\ first_x_assum (irule_at Any)
       \\ simp [data_to_wordTheory.compile_def]
       \\ fs [markerTheory.Abbrev_def]
       \\ metis_tac[])
@@ -4017,7 +3999,7 @@ Proof
   (word_to_stackProofTheory.compile_semantics
    |> Q.GENL[`t`,`code`,`asm_conf`,`start`]
    |> GEN_ALL
-   |> Q.ISPECL_THEN[`kkk`,`word_oracle`,`stack_st`,`p5`,`asm_conf`,`InitGlobals_location`]mp_tac) \\
+   |> Q.ISPECL_THEN[`kkk`,`word_oracle`,`stack_st`,`p5`,`mc.target.config`,`InitGlobals_location`]mp_tac) \\
 
   impl_tac >- (
     rename [`rrr <> NONE`] \\ Cases_on `rrr` \\ fs [] \\
@@ -4118,9 +4100,7 @@ Proof
   qmatch_assum_abbrev_tac`z ∈ _ {_}` \\
   qexists_tac`{z}` \\
   conj_tac >- (
-    `asm_conf = mc.target.config` by
-      gvs[mc_init_ok_def]
-    \\ fs [implements'_def]
+    fs [implements'_def]
     \\ strip_tac \\ gvs []
     ) \\
   simp[Abbr`z`] \\
@@ -4131,7 +4111,7 @@ Proof
   ONCE_REWRITE_TAC[CONJ_COMM] \\
   asm_exists_tac \\ simp[] \\
   fs [implements'_def] \\ rw [] \\ fs [] \\
-  fs [extend_with_resource_limit'_def] *)
+  fs [extend_with_resource_limit'_def]
 QED
 
 Theorem compile_correct_no_eval[local] =
@@ -4145,7 +4125,7 @@ Theorem compile_correct:
    backend_config_ok asm_conf c ∧ lab_to_targetProof$mc_conf_ok mc ∧ mc_init_ok asm_conf c mc ∧
    installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names
         (heap_regs c.stack_conf.reg_names) mc
-        (MAP to_shmem_info c'.lab_conf.shmem_extra) ms ⇒
+        c'.lab_conf.shmem_extra ms ⇒
      machine_sem (mc:(α,β,γ) machine_config) ffi ms ⊆
        extend_with_resource_limit (semantics_prog s env prog)
 Proof
@@ -4173,7 +4153,7 @@ Theorem compile_correct_is_safe_for_space:
   backend_config_ok asm_conf c ∧ lab_to_targetProof$mc_conf_ok mc ∧ mc_init_ok asm_conf c mc ∧
   installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names
        (heap_regs c.stack_conf.reg_names) mc
-       (MAP to_shmem_info c'.lab_conf.shmem_extra) ms ⇒
+       c'.lab_conf.shmem_extra ms ⇒
   machine_sem (mc:(α,β,γ) machine_config) ffi ms =
   semantics_prog s env prog
 Proof
@@ -4198,7 +4178,7 @@ Theorem compile_correct_eval:
    lab_to_targetProof$mc_conf_ok mc ∧ mc_init_ok asm_conf c mc ∧ opt_eval_config_wf asm_conf c' ev ∧
    installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names
      (heap_regs c.stack_conf.reg_names) mc
-     (MAP to_shmem_info c'.lab_conf.shmem_extra) ms ⇒
+     c'.lab_conf.shmem_extra ms ⇒
    machine_sem mc ffi ms ⊆
      extend_with_resource_limit
        (semantics_prog (add_eval_state ev s0) env prog)
