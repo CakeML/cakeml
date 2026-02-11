@@ -3,9 +3,9 @@
 *)
 Theory fibonacci_heap
 Ancestors
-  misc words arithmetic list set_sep pair
+  misc words arithmetic list set_sep pair finite_map
 Libs
-  wordsLib
+  wordsLib helperLib
 
 (*-------------------------------------------------------------------*
    Datatypes
@@ -151,7 +151,8 @@ Definition fts_mem_def:
 End
 
 Definition empty_node_def:
-  empty_node k v = fts_mem [ann_ft $ FibTree k (fill_dnode (FST v) (SND v) F F) []]
+  empty_node k v =
+    fts_mem [ann_ft $ FibTree k (fill_dnode (FST v) (SND v) F F) []]
 End
 
 (*-------------------------------------------------------------------*
@@ -268,7 +269,7 @@ End
 Definition fts_is_min_def:
   (fts_is_min _ [] = T) /\
   (fts_is_min v (FibTree _ n ts::rest) =
-    ((v <= n.data.value) /\ (fts_is_min v ts) /\ (fts_is_min v rest)))
+    ((v <= n.value) /\ (fts_is_min v ts) /\ (fts_is_min v rest)))
 End
 
 Definition fib_heap_size_def:
@@ -287,42 +288,74 @@ End
 (*See paper S_k >= F_{k+2} >= k-decandants *)
 Definition fib_heap_identity_def:
   fib_heap_identity (FibTree k v ts) = ((1 + fib_heap_size ts) >= fib_num ((LENGTH ts) + 2))
+End (* flip >=*)
+
+Definition fib_heap_shape_ok_def:
+  (fib_heap_shape_ok [] = T) /\
+  (fib_heap_shape_ok ((FibTree k v ys)::ts) <=>
+    1 + fib_heap_size ys >= fib_num ((LENGTH ys) + 2) /\
+    fib_heap_shape_ok ys /\
+    fib_heap_shape_ok ts)
 End
 
-Definition fib_heap_root_idenitity_def:
-  (fib_heap_root_identity [] = T) /\
-  (fib_heap_root_identity (t::ts) =
-    (fib_heap_identity t /\ fib_heap_root_identity ts))
+Definition get_parent_def:
+  get_parent (FibTree k n _) = n.parent_ptr
 End
 
+Definition get_child_def:
+  get_child (FibTree k n _) = n.child_ptr
+End
+(*
+Definition ft_wf_parent_def:
+  (ft_wf_parent p [] = T) /\
+  (ft_wf_parent p (FibTree k n ts::rest) = ((n.parent_ptr = p) /\ ft_wf_parent p rest))
+End
+*)
+(*
+Definition fts_wf_child_def:
+  (fts_wf_child pn [] = T) /\
+  (fts_wf_child pn (FibTree k n ts::rest) =
+End
+
+Definition ft_wf_child_def:
+  (ft_wf_child (FibTree k n []) = (n.child_ptr = 0w)) /\
+  (ft_wf_child (FibTree k n (FibTree ck cn cts::rest)) =
+    (n.child_ptr = ck) /\
+    (ft_wf_child (FibTree ck cn cts) )
+End
+
+Definition ft_desc_def:
+  (ft_desc (FibTree k n []) = (n.child_ptr = 0w)) /\
+  (ft_desc (FibTree k n (FibTree ck cn cts::rest)) = (n.child_ptr = ck /\ )
+End
+*)
 Definition fib_heap_inv_def:
-  fib_heap_inv fh fts ⇔
+  fib_heap_inv fh (fts: ('a word, 'a node_data) fts) ⇔
     (!k v. FLOOKUP fh k = SOME v ==> k <> 0w) /\ (*k is not null*)
-    (∀k v. FLOOKUP fh k = SOME v ⇔ ?b n p c r m. fts_has k
-        (fill_anode (fill_dnode (FST v) (SND v) T m) b n p c r) fts) /\
-        (*sem. equiv. of fh and fts*)
-    (!k. FLOOKUP fh k = NONE <=> fts = []) /\ (*empty heap*)
-    (!k v. (FLOOKUP fh k = SOME v) /\ k = head_key fts
-        ==> fts_is_min (FST v) fts) /\(*min element*)
-    (fib_heap_root_identity fts) (*identity*)
-    (* Childs have their parents as pointers ?*)
-    (* Do we need to reason about siblings?*)
+    (∀k v e. FLOOKUP fh k = SOME (v,e) ⇔
+             ? m. fts_has k (fill_dnode v e T m) fts) /\ (*sem. equiv. of fh + fts*)
+    (!k v e.
+      (FLOOKUP fh k = SOME (v,e)) /\ k = head_key fts ==>
+      fts_is_min v fts) /\(*min element*)
+    (fib_heap_shape_ok fts) (*identity*)
     (* Do not reason about well-formed trees -> this only affects extract minimum*)
 End
 
 Definition fib_heap_def:
   fib_heap a fh =
     SEP_EXISTS fts.
-      fts_mem fts *
+      fts_mem (ann_fts fts) *
       cond (fib_heap_inv fh fts /\ a = head_key fts)
 End
 
 
 Definition fib_heap_empty_append_def:
-    fib_heap_empty_append (k:'a word, m:'a word -> 'a word, dm:'a word set,c: bool) =
+  fib_heap_empty_append (k:'a word, m:'a word -> 'a word, dm:'a word set,c: bool) =
+    let c = (k + next_off IN dm /\ c) in
     let m = ((k + next_off) =+ k) m in
+    let c = (k + before_off IN dm /\ c) in
     let m = ((k + before_off) =+ k)m in
-        (k,m,c)
+      (k,m,c)
 End
 
 Definition fib_heap_append_def:
@@ -335,7 +368,7 @@ Definition fib_heap_append_def:
     let m = ((k2 + next_off) =+ k1) m in
     let m = ((k1 + before_off) =+ k2) m in
     let m = ((k1 + next_off) =+ sec) m in
-        (k1, m, c)
+      (k1, m, c)
 End
 
 Definition fib_heap_insert_def:
@@ -345,6 +378,8 @@ Definition fib_heap_insert_def:
     (* load value at k *)
     let c = (k ∈ dm) in
     let v_of_k = m k in
+    let c = (k + flag_off IN dm /\ c) in
+    let m = ((k + flag_off) =+ b2w T) m in
     if a = 0w then
         fib_heap_empty_append (k, m, dm, c)
     else
@@ -357,8 +392,6 @@ Definition fib_heap_insert_def:
         (* load sec element *)
         let c = (v_of_a + next_off IN dm /\ c) in
         let sec = m (v_of_a + next_off) in
-        (* set flag for new element *)
-        let m = ((k + flag_off) =+ b2w T) m in
         (* check whether k goes first *)
         if v_of_k <=+ v_of_a then
             fib_heap_append (k, a, last, sec, m, dm, c)
@@ -373,9 +406,29 @@ Theorem fib_heap_insert:
     (fib_heap a' (fh |+ (k,v)) * frame) (fun2set (m',dm)) ∧ b
 Proof
   fs[fib_heap_def] >>
-  rw[fib_heap_insert_def, SEP_CLAUSES, STAR_ASSOC] >>
-  fs[empty_node_def] >>
-  rw[fts_mem_def,ann_ft_def,fill_dnode_def,FST,SND] (*Why does it not expand?*)
+  fs[SEP_CLAUSES, STAR_ASSOC, SEP_EXISTS_THM] >>
+  full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR] >>
+  rpt gen_tac >> strip_tac >>
+  simp [PULL_EXISTS] >>
+  pop_assum mp_tac >>
+  simp [fib_heap_insert_def] >>
+  fs[empty_node_def, ann_ft_def, fts_mem_def, fill_anode_def,
+     fill_dnode_def, head_key_def, last_key_def, ann_fts_seg_def,
+     ft_seg_def, ones_def, SEP_CLAUSES, flag_off_def] >>
+  SEP_R_TAC >>
+  IF_CASES_TAC
+  >-
+    (`fts = [] /\ fh = FEMPTY` by cheat >> (* fix by me *)
+    gvs[] >>
+    fs[fib_heap_empty_append_def,before_off_def, next_off_def] >>
+    SEP_R_TAC >> strip_tac >> gvs[] >>
+    SEP_W_TAC >>
+    PairCases_on `v` >>
+    qexists `[FibTree a' ARB []]` >>
+    fs[ann_fts_def, ann_fts_seg_def, last_key_def,fts_mem_def,
+       SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
+       next_key_def, ones_def] >>
+    cheat)
 >> cheat
 QED
 
