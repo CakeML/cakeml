@@ -931,6 +931,31 @@ Definition do_conversion_def:
   (do_conversion _ _ _ = NONE)
 End
 
+Definition dest_wide_word_def:
+  dest_wide_word (bitwidth:num) (Litv (IntLit i)) =
+    (if i < 0 ∨ bitwidth ≤ 64 then NONE else
+       let n = Num i in
+       let k = 2 ** bitwidth in
+         if n DIV k = 1 then SOME (n MOD k) else NONE) ∧
+  dest_wide_word bitwidth _ = NONE
+End
+
+Definition make_wide_word_def:
+  make_wide_word bitwidth n = 2 ** bitwidth + (n MOD (2 ** bitwidth))
+End
+
+Definition do_wide_word_def:
+  do_wide_word a (bitwidth:num) [v1; v2] =
+    case (dest_wide_word bitwidth v1, dest_wide_word bitwidth v2) of
+    | (SOME n1, SOME n2) =>
+        (case a of
+         | And => SOME $ make_wide_word bitwidth $ BITWISE bitwidth (λb1 b2. b1 ∧ b2) n1 n2
+         | Or  => SOME $ make_wide_word bitwidth $ BITWISE bitwidth (λb1 b2. b1 ∨ b2) n1 n2
+         | Xor => SOME $ make_wide_word bitwidth $ BITWISE bitwidth (λb1 b2. b1 ≠ b2) n1 n2
+         | _ => NONE)
+    | _ => NONE
+End
+
 Definition do_app_def:
   do_app (s: v store_v list, t: 'ffi ffi_state) op vs =
     case (op, vs) of
@@ -1260,9 +1285,12 @@ Definition do_app_def:
          else NONE)
     | (Test test test_ty, [v1; v2]) =>
         (case do_test test test_ty v1 v2 of
-            Eq_type_error => NONE
-          | Eq_val b => SOME ((s,t), Rval (Boolv b))
-        )
+         | Eq_type_error => NONE
+         | Eq_val b => SOME ((s,t), Rval (Boolv b)))
+    | (WideWord a bitwidth, vs) =>
+        (case do_wide_word a bitwidth vs of
+         | NONE => NONE
+         | SOME r => SOME ((s,t), Rval (Litv (IntLit (& r)))))
     | _ => NONE
 End
 

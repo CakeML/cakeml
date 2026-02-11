@@ -124,6 +124,8 @@ Datatype:
   | Aw8update_unsafe
   (* thunk operations *)
   | ThunkOp thunk_op
+  (* operations on wide words *)
+  | WideWord arith num (* bitwidth *)
   (* List operations *)
   | ListAppend
   (* Configure the GC *)
