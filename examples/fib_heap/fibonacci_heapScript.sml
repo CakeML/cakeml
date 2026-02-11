@@ -330,11 +330,6 @@ Definition fib_heap_append_def:
   fib_heap_append
     (k1:'a word, k2:'a word, last:'a word, sec:'a word, m:'a word -> 'a word, dm :'a word set, c: bool)
   =
-    (*Is c necessary? Already asserted in previous function.*)
-    let c = (k1 IN dm /\ c) in
-    let c = (k2 IN dm /\ c) in
-    let c = (last IN dm /\ c) in
-    let c = (sec IN dm /\ c) in
     let m = ((last + next_off) =+ k2) m in
     let m = ((k2 + before_off) =+ last) m in
     let m = ((sec + before_off) =+ k1) m in
