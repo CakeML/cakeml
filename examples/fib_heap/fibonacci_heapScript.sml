@@ -373,8 +373,12 @@ Theorem fib_heap_insert:
     fib_heap_insert (a, k, m, dm) = (a', m', b) ⇒
     (fib_heap a' (fh |+ (k,v)) * frame) (fun2set (m',dm)) ∧ b
 Proof
-  fs[fib_heap_insert_def,fib_heap_empty_append_def,fib_heap_def] >>
+  fs[fib_heap_def] >>
+  rw[fib_heap_insert_def, SEP_CLAUSES, STAR_ASSOC] >>
+  fs[empty_node_def] >>
+  rw[fts_mem_def,ann_ft_def,fill_dnode_def,FST,SND] (*Why does it not expand?*)
 cheat
 QED
 
+(*FAPPLY_FUPDATE_THM not working -> not found by hol? *)
 
