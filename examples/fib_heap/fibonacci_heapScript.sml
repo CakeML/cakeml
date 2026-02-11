@@ -180,8 +180,8 @@ End
 Definition test_full_conn_def:
   (test_full_conn _ _ (0:num) = []) /\
   (test_full_conn mem nodes count =
-    (((mem * 100w + bytes_in_word),test_list_edges mem nodes)
-    :: test_full_conn mem nodes (count -1)))
+    (((mem * 100w * bytes_in_word),test_list_edges mem nodes)
+    :: test_full_conn mem nodes (count-1)))
 End
 
 val test_fts_mem = “fts_mem (ann_fts [
@@ -195,17 +195,16 @@ val test_fts_mem = “fts_mem (ann_fts [
     ])”
     |> SCONV [fts_mem_def,STAR_ASSOC,ann_fts_def,ann_fts_seg_def,next_key_def,head_key_def,last_key_def,REVERSE_DEF,ft_seg_def,ones_def,edges_ones_def,LENGTH,b2w_def,fill_anode_def,fill_dnode_def];
 
+val tfc = “test_full_conn (10000w:word64) 3 3” |> SCONV [test_full_conn_def];
+
 val test_large_fts_mem = “fts_mem (ann_fts [
     test_build_ft (1000w:word64) 2 (test_full_conn 10000w 3 3)
     ])”
-    |> SCONV [fts_mem_def,STAR_ASSOC,ann_fts_def,ann_fts_seg_def, test_full_conn_def,
+    |> SCONV [fts_mem_def,STAR_ASSOC,ann_fts_def,ann_fts_seg_def,test_full_conn_def,
     next_key_def,head_key_def,last_key_def,REVERSE_DEF,ft_seg_def,
-   (* ones_def,edges_ones_def,LENGTH,b2w_def,fill_anode_def,fill_dnode_def,*)
-    test_build_ft_def, test_build_fts_def,
+    ones_def,edges_ones_def,LENGTH,b2w_def,fill_anode_def,fill_dnode_def,
+    test_build_ft_def, test_build_fts_def, test_list_edges_def,
     TL_DEF, HD, FST, byteTheory.bytes_in_word_def];
-
-
-
 
 val test =
     “ones 400w [x;y;z;e;r;t;y;u:word64]”
