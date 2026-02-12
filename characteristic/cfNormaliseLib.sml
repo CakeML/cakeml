@@ -271,12 +271,12 @@ fun norm_exp gen e = let
         )
       ) else (
         let val (e2', b2) = norm false false e2 in
-        if l ~~ And then
+        if l ~~ Andalso then
           (* produce: let <b1> in <e1'> andalso (lets <b2> in <e2'>) *)
-          wrap_if_needed as_value (mk_Log (And, e1', Lets b2 e2')) b1
-        else if l ~~ Or then
+          wrap_if_needed as_value (mk_Log (Andalso, e1', Lets b2 e2')) b1
+        else if l ~~ Orelse then
           (* produce: let <b1> in <e1'> orelse (let <b2> in <e2'>) *)
-          wrap_if_needed as_value (mk_Log (Or, e1', Lets b2 e2')) b1
+          wrap_if_needed as_value (mk_Log (Orelse, e1', Lets b2 e2')) b1
         else fail ()
         end
       )

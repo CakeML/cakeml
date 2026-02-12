@@ -338,6 +338,9 @@ Proof
     \\ first_x_assum(qspec_then`k`mp_tac) \\ rw[]
     \\ res_tac
     \\ TRY asm_exists_tac \\ simp[SUBSET_DEF])
+  \\ Cases_on `∃b cmp. op = MemOp (StringCmp b cmp)` THEN1
+   (gvs [bvlSemTheory.do_app_def]
+    \\ disch_tac \\ gvs [AllCaseEqs()])
   \\ Cases_on `op = MemOp El` THEN1
    (full_simp_tac(srw_ss())[bvlSemTheory.do_app_def]
     \\ BasicProvers.EVERY_CASE_TAC \\ rw [] \\ fs []
@@ -1411,6 +1414,23 @@ Proof
         last_x_assum(qspec_then`n`mp_tac) >>
         simp[] ) >> fs [CaseEq"bool"] >> rveq
     \\ rfs [EL_MAP,bvl_to_bvi_id])
+  \\ Cases_on `∃b cmp. op = MemOp (StringCmp b cmp)` \\ fs [] THEN1
+   (strip_tac
+    \\ gvs [AllCaseEqs(),PULL_EXISTS]
+    \\ rveq \\ fs [listTheory.SWAP_REVERSE_SYM] \\ rveq \\ fs []
+    \\ full_simp_tac(srw_ss())[adjust_bv_def,bEvalOp_def] >>
+    `FLOOKUP t2.refs (b2 s1) = FLOOKUP r.refs s1` by (
+      full_simp_tac(srw_ss())[state_rel_def] >>
+      last_x_assum(qspec_then`s1`mp_tac) >> simp[] ) >>
+    `FLOOKUP t2.refs (b2 s2) = FLOOKUP r.refs s2` by (
+      full_simp_tac(srw_ss())[state_rel_def] >>
+      last_x_assum(qspec_then`s2`mp_tac) >> simp[] ) >>
+    simp[] >>
+    simp[Once bvi_to_bvl_def] >>
+    simp[bvl_to_bvi_with_refs,bvl_to_bvi_with_ffi,bvl_to_bvi_id] >>
+    simp[bvi_to_bvl_def] >>
+    full_simp_tac(srw_ss())[state_rel_def] >>
+    simp[bvl_to_bvi_def])
   \\ Cases_on `op = BlockOp ListAppend` \\ fs []
   >-
    (fs [case_eq_thms, case_elim_thms, PULL_EXISTS, SWAP_REVERSE_SYM]

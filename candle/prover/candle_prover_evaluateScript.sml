@@ -461,16 +461,6 @@ Proof
     rw [do_app_cases] \\ gs [SF SFY_ss]
     \\ first_assum (irule_at Any)
     \\ simp [v_ok_def])
-  \\ Cases_on ‘op = Chr’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs [SF SFY_ss]
-    \\ first_assum (irule_at Any)
-    \\ simp [v_ok_def])
-  \\ Cases_on ‘op = Ord’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs [SF SFY_ss]
-    \\ first_assum (irule_at Any)
-    \\ simp [v_ok_def])
   \\ Cases_on ‘op = XorAw8Str_unsafe’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [v_ok_def, SF SFY_ss]
@@ -508,16 +498,6 @@ Proof
     rw [do_app_cases] \\ gs [SF SFY_ss]
     \\ first_assum (irule_at Any)
     \\ simp [v_ok_def])
-  \\ Cases_on ‘∃n. op = WordToInt n’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs [SF SFY_ss]
-    \\ first_assum (irule_at Any)
-    \\ simp [v_ok_def])
-  \\ Cases_on ‘∃n. op = WordFromInt n’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs [SF SFY_ss]
-    \\ first_assum (irule_at Any)
-    \\ simp [v_ok_def])
   \\ Cases_on ‘op = Aw8update’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [v_ok_def, SF SFY_ss]
@@ -549,43 +529,6 @@ Proof
     \\ strip_tac
     \\ first_x_assum (drule_then assume_tac)
     \\ drule kernel_loc_ok_LENGTH \\ gs [])
-  \\ Cases_on ‘∃top. op = FP_top top’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs [SF SFY_ss]
-    \\ first_assum (irule_at Any)
-    \\ simp [v_ok_def])
-  \\ Cases_on ‘∃bop. op = FP_bop bop’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs [SF SFY_ss]
-    \\ first_assum (irule_at Any)
-    \\ simp [v_ok_def])
-  \\ Cases_on ‘∃uop. op = FP_uop uop’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs [SF SFY_ss]
-    \\ first_assum (irule_at Any)
-    \\ simp [v_ok_def])
-  \\ Cases_on ‘∃cmp. op = FP_cmp cmp’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs [SF SFY_ss]
-    \\ first_assum (irule_at Any)
-    \\ simp [Boolv_def]
-    \\ rw [v_ok_def])
-  \\ Cases_on ‘∃opn. op = Opn opn’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs [SF SFY_ss]
-    \\ first_assum (irule_at Any)
-    \\ simp [v_ok_def])
-  \\ Cases_on ‘∃opb. op = Opb opb’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs [SF SFY_ss]
-    \\ first_assum (irule_at Any)
-    \\ simp [Boolv_def]
-    \\ rw [v_ok_def])
-  \\ Cases_on ‘∃sz opw. op = Opw sz opw’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs [SF SFY_ss]
-    \\ first_assum (irule_at Any)
-    \\ simp [v_ok_def])
   \\ Cases_on ‘∃sz sh n. op = Shift sz sh n’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [SF SFY_ss]
@@ -606,17 +549,16 @@ Proof
   \\ Cases_on ‘∃ty1 ty2. op = FromTo ty1 ty2’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [SF SFY_ss]
-    \\ first_assum (irule_at Any)
-    \\ Cases_on ‘ty1’ \\ Cases_on ‘ty2’ \\ gvs[do_conversion_def]
-    \\ Cases_on ‘w’ \\ gvs[do_conversion_def]
+    \\ gvs [do_conversion_def |> oneline, AllCaseEqs()]
+    \\ first_assum (irule_at $ Pos hd)
     \\ simp [Boolv_def]
-    \\ rw [v_ok_def])
+    \\ rw [v_ok_def]
+    \\ last_x_assum drule_all \\ simp [])
   \\ Cases_on ‘∃a ty. op = Arith a ty’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [SF SFY_ss]
     \\ first_assum (irule_at Any)
-    \\ Cases_on ‘a’ \\ Cases_on ‘ty’
-    \\ TRY (rename1 ‘WordT w’ \\ Cases_on ‘w’)
+    \\ Cases_on ‘a’ \\ Cases_on ‘ty’ using prim_type_cases
     \\ gvs[do_arith_def,CaseEq"list",CaseEq"bool"]
     \\ simp [Boolv_def]
     \\ rw [v_ok_def]
@@ -649,16 +591,6 @@ Proof
     \\ rw [EL_APPEND_EQN] \\ gs [NOT_LESS, LESS_OR_EQ, ref_ok_def]
     \\ first_x_assum (drule_then assume_tac)
     \\ drule kernel_loc_ok_LENGTH \\ gs [])
-  \\ Cases_on ‘op = FpFromWord’ \\ gs[]
-  >- (
-    rw[do_app_cases] \\ gs [SF SFY_ss]
-    \\ first_assum (irule_at Any)
-    \\ simp [v_ok_def])
-  \\ Cases_on ‘op = FpToWord’ \\ gs[]
-  >- (
-    rw[do_app_cases] \\ gs [SF SFY_ss]
-    \\ first_assum (irule_at Any)
-    \\ simp [v_ok_def])
   \\ Cases_on ‘∃m. op = ThunkOp (AllocThunk m)’ \\ gs[]
   >- (
     rw [do_app_cases] \\ gs [thunk_op_def, AllCaseEqs()]

@@ -2702,7 +2702,8 @@ Proof
     Q.EXISTS_TAC `e'` >> fs[])
   >- ( (*If*)
     full_simp_tac(srw_ss())[evaluate_def] >> every_case_tac >>
-    fs[])
+    fs[] >>
+    metis_tac [])
   >- ( (*LocValue*)
     fs[evaluate_def,flush_state_def]>>every_case_tac>>
     simp[]>>
@@ -4835,4 +4836,10 @@ Proof
   ‘st1 = st2’ by rw[Abbr ‘st1’, Abbr ‘st2’, state_component_equality] >>
   gvs[] >>
   simp[state_component_equality]
+QED
+
+Theorem word_cmp_Word_Word[simp]:
+  word_cmp cmp (Word c) (Word c') = SOME (word_cmp cmp c c')
+Proof
+  Cases_on `cmp` \\ rw [wordSemTheory.word_cmp_def,word_cmp_def]
 QED

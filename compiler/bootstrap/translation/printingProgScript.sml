@@ -56,7 +56,7 @@ val _ = (find_def_for_const := def_of_const);
 val _ = use_long_names:=true;
 
 val r = translate typeDecToPPTheory.con_x_i_pat_def;
-val r = translate addTypePPTheory.add_pp_decs_def;
+val r = translate typeDecToPPTheory.add_pp_decs_def;
 
 Theorem OPT_MAP_I[local]:
   ∀g ls. OPT_MMAP I (MAP g ls) = OPT_MMAP g ls
@@ -70,7 +70,7 @@ val r = translate
 
 val r = translate addPrintValsTheory.print_of_val_opts_def;
 
-val r = translate (DefnBase.one_line_ify NONE addPrintValsTheory.nsContents_def);
+val r = translate (oneline addPrintValsTheory.nsContents_def);
 
 val r = translate
   (printTweaksTheory.add_print_features_def

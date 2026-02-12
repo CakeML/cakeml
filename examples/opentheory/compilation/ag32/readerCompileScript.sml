@@ -1,5 +1,5 @@
 (*
-  In-logic compilation of the OPenTHeory article checker to the
+  In-logic compilation of the OpenTheory article checker to the
   Silver ISA.
 *)
 Theory readerCompile

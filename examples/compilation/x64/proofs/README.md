@@ -1,5 +1,5 @@
 Prove end-to-end correctness theorems for the examples as compiled to
-x86 machine code.
+x64 machine code.
 
 [catProofScript.sml](catProofScript.sml):
 Compose the cat semantics theorem and the compiler correctness
