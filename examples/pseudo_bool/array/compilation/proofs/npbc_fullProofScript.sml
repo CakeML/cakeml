@@ -82,7 +82,7 @@ Theorem machine_code_sound:
         ∃pres obj fml concl.
           get_fml fs (EL 1 cl) = SOME (pres, obj, fml) ∧
           out = concl_to_string concl ∧
-          pbc$sem_concl (set fml) obj concl) ∨
+          pbc$sem_concl (set fml) obj (pres_set_list pres) concl) ∨
         (LENGTH cl = 4 ∧
         ∃pres obj fml prest objt fmlt output bound concl.
           get_fml fs (EL 1 cl) = SOME (pres, obj, fml) ∧
@@ -90,7 +90,7 @@ Theorem machine_code_sound:
           out =
             (concl_to_string concl ^
             output_to_string bound output) ∧
-          pbc$sem_concl (set fml) obj concl ∧
+          pbc$sem_concl (set fml) obj (pres_set_list pres) concl ∧
           pbc$sem_output
             (set fml) obj (pres_set_list pres)
             bound
