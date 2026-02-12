@@ -7,4 +7,4 @@ Compile the examples via in-logic evaluation to Silver machine code.
 Compile the examples via in-logic evaluation to WASM.
 
 [x64](x64):
-Compile the examples via in-logic evaluation to x86 machine code.
+Compile the examples via in-logic evaluation to x64 machine code.

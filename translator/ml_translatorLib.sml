@@ -2956,6 +2956,14 @@ val builtin_binops =
    Eval_force_unit_type,
    Eval_strsub,
    Eval_ListAppend,
+   Eval_mlstring_lt,
+   Eval_mlstring_le,
+   Eval_mlstring_gt,
+   Eval_mlstring_ge,
+   Eval_fast_lt,
+   Eval_fast_le,
+   Eval_fast_gt,
+   Eval_fast_ge,
    Eval_sub,
    Eval_sub_unsafe,
    Eval_Implies,
@@ -2981,6 +2989,8 @@ val builtin_monops =
    Eval_FP_toWord,
    Eval_empty_ffi,
    Eval_force_out_of_memory_error,
+   Eval_char_to_word8,
+   Eval_word8_to_char,
    Eval_Chr,
    Eval_Ord]
   |> map (fn th =>

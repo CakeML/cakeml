@@ -73,6 +73,8 @@ Theorem bytes_in_word_def[cv_inline] =
 Theorem shift_def[cv_inline] =
   backend_commonTheory.word_shift_def |> arch_spec |> CONV_RULE (RAND_CONV EVAL);
 
+val _ = data_to_wordTheory.SetBool_def |> arch_spec |> SRULE [] |> cv_trans;
+val _ = data_to_wordTheory.AssignCmp_def |> arch_spec |> SRULE [] |> cv_trans;
 val _ = data_to_wordTheory.get_gen_size_def |> arch_spec |> SRULE [] |> cv_trans;
 
 val _ = stack_to_labTheory.compile_jump_def |> arch_spec |> cv_trans;
@@ -285,7 +287,7 @@ val _ = word_removeTheory.remove_must_terminate_def |> arch_spec |> cv_trans;
 
 val pre = word_allocTheory.remove_dead_def |> arch_spec |> cv_auto_trans_pre "";
 Theorem word_alloc_remove_dead_pre[cv_pre]:
-  ∀v live. word_alloc_remove_dead_pre v live
+  ∀v live nlive. word_alloc_remove_dead_pre v live nlive
 Proof
   ho_match_mp_tac word_allocTheory.remove_dead_ind \\ rw [] \\ simp [Once pre]
 QED

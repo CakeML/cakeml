@@ -994,9 +994,9 @@ QED
 
 Theorem share_inst_modifies:
   wordSem$share_inst op v ad s = (res, t) ==>
-  ? ls ffi stk lsz.
+  ? ls ffi stk lsz st.
   t = (s with <| locals := ls; ffi := ffi;
-        stack := stk; locals_size := lsz |>)
+        stack := stk; locals_size := lsz; store := st |>)
 Proof
   Cases_on ‘op’>>
   gs[wordSemTheory.share_inst_def,
@@ -1155,6 +1155,12 @@ Proof
   intLib.COOPER_TAC
 QED
 
+Theorem InitGlobals_location_eq_first_name:
+  InitGlobals_location = first_name
+Proof
+  EVAL_TAC
+QED
+
 (* resource_limit' *)
 Theorem pan_to_target_compile_semantics:
   compile_prog_max c mc pan_code = (SOME (bytes, bitmaps, c'), stack_max) ∧
@@ -1199,6 +1205,7 @@ Theorem pan_to_target_compile_semantics:
               (option_lt stack_max (SOME (FST (read_limits c mc ms))))
               {semantics_decls (s:('a,'ffi) panSem$state) start pan_code}
 Proof
+
   strip_tac>>
   last_x_assum mp_tac>>
   rewrite_tac[compile_prog_max_def]>>
@@ -2002,7 +2009,7 @@ Proof
 
   (* pan_to_word *)
 
-  Q.SUBGOAL_THEN ‘InitGlobals_location = first_name’ SUBST_ALL_TAC >- EVAL_TAC >>
+  fs [InitGlobals_location_eq_first_name]>>
   ‘wst0.code = fromAList (pan_to_word_compile_prog mc.target.config.ISA pan_code)’
     by gs[Abbr ‘wst0’, wordSemTheory.state_component_equality]>>
 
@@ -2403,3 +2410,5 @@ Proof
   rewrite_tac[LE_MULT_RCANCEL]>>
   rw[]
 QED
+
+val _ = check_thm pan_to_target_compile_semantics;

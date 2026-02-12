@@ -880,8 +880,7 @@ Proof
   \\ rpt conj_tac
   \\ TRY $ irule pure_add_constraints_ignore
   \\ simp [t_walkstar_eqn1]
-  \\ TRY (rename [‘t_num_of ty’] \\ Cases_on ‘ty’
-          \\ TRY (rename [‘WordT ww’] \\ Cases_on ‘ww’) \\ gvs [])
+  \\ TRY (rename [‘t_num_of ty’] \\ Cases_on ‘ty’ using semanticPrimitivesPropsTheory.prim_type_cases \\ gvs [])
   \\ unconversion_tac
   \\ gvs[LENGTH_EQ_NUM_compute, REPLICATE_compute,CaseEq"bool"]
   \\ unconversion_tac
@@ -2175,7 +2174,7 @@ Proof
     impl_keep_tac>- (fs[]>>metis_tac[infer_e_wfs])>>
     fs[]>>metis_tac[t_compat_trans])
   >- (*Log*)
-    (last_x_assum(qspecl_then
+   (last_x_assum(qspecl_then
       [`loc`, `s`,`ienv`,`st`,`constraints`] assume_tac)>>rfs[]>>
     first_x_assum(qspecl_then
       [`loc`, `s'`,`ienv`,`st'`,`constraints'`] mp_tac)>>

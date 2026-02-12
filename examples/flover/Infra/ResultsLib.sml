@@ -1,5 +1,5 @@
 (**
-  A monad for results used by FlOVer
+  A monad for results used by FloVer
 **)
 structure ResultsLib =
 struct
