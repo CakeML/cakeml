@@ -10,8 +10,6 @@ Ancestors
 Libs
   preamble ml_translatorLib ml_monad_translator_interfaceLib
 
-val _ = ParseExtras.tight_equality();
-
 (* Part 1. Translator Setup. *)
 
 (* Set up translator to not check subtractions never underflow. *)
@@ -51,371 +49,12 @@ val _ = start_translation config;
 
 val run_init_state_def = define_run state_type [] "init_state";
 
-(* Part 2. Define monadic variants of functions from heap_sort_in_fun theory. *)
+(* It seems important to turn this on last, or something turns it off again? *)
+val _ = ParseExtras.tight_equality();
 
-Definition heap_insert_larger_monadic_def:
-  heap_insert_larger_monadic R sz i x = (if (i = 0n) \/ i * 2 > sz
-    then (if i = 0 then return ()
-        else update_heap_array (i - 1) x)
-    else do
-      y <- heap_array_sub ((i * 2) - 1);
-      z <- if (i * 2) + 1 > sz
-      then return y
-      else heap_array_sub (i * 2);
-      if ((i * 2) + 1) <= sz /\ R z x /\ R z y
-      then do
-        update_heap_array (i - 1) z;
-        heap_insert_larger_monadic R sz ((i * 2) + 1) x
-      od
-      else if (i * 2) <= sz /\ R y x /\ (((i * 2) + 1) <= sz ==> R y z)
-      then do
-        update_heap_array (i - 1) y;
-        heap_insert_larger_monadic R sz (i * 2) x
-      od
-      else update_heap_array (i - 1) x
-    od)
-Termination
-  qexists_tac `measure (\(_, sz, i, _). sz - i)`
-  \\ simp []
-End
-
-Theorem st_ex_bind_split[local]:
-  (st_ex_bind f g st = (res, st')) <=>
-  ?r s. (f st = (r, s)) /\ (case r of M_success x => (g x s) = (res, st')
-    | M_failure y => (res, st') = (M_failure y, s))
-Proof
-  simp [ml_monadBaseTheory.st_ex_bind_def]
-  \\ Cases_on `f st`
-  \\ simp []
-  \\ Cases_on `FST (f st)`
-  \\ gs []
-  \\ metis_tac []
-QED
-
-Theorem st_ex_ignore_bind_simp[local]:
-  st_ex_ignore_bind f g = st_ex_bind f (\_. g)
-Proof
-  simp [ml_monadBaseTheory.st_ex_bind_def, ml_monadBaseTheory.st_ex_ignore_bind_def]
-QED
-
-Definition st_embed_def:
-  (st_embed sz hp : 'a state_refs) =
-    <| heap_array := GENLIST (hp o ((+) 1)) sz |>
-End
-
-Theorem LENGTH_st_embed[local]:
-  LENGTH (st_embed sz hp).heap_array = sz
-Proof
-  simp [st_embed_def]
-QED
-
-Theorem update_heap_array_st_embed[local]:
-  i < sz ==>
-  (update_heap_array i x (st_embed sz hp) =
-        (M_success (), st_embed sz (hp⦇i + 1 ↦ x⦈)))
-Proof
-  simp [fetch "-" "update_heap_array_def"]
-  \\ simp [ml_monadBaseTheory.monad_eqs]
-  \\ simp [st_embed_def, LUPDATE_GENLIST]
-  \\ simp [combinTheory.UPDATE_def, combinTheory.o_DEF]
-QED
-
-Theorem heap_array_sub_st_embed[local]:
-  i < sz ==>
-  (heap_array_sub i (st_embed sz hp) =
-    (M_success (hp (i + 1)), (st_embed sz hp)))
-Proof
-  simp [fetch "-" "heap_array_sub_def"]
-  \\ simp [ml_monadBaseTheory.monad_eqs, st_embed_def]
-QED
-
-Theorem monad_simps[local] = LIST_CONJ [
-    ml_monadBaseTheory.st_ex_bind_def |> Q.ISPEC `update_heap_array i x`,
-    update_heap_array_st_embed,
-    ml_monadBaseTheory.st_ex_bind_def |> Q.ISPEC `heap_array_sub i`,
-    heap_array_sub_st_embed,
-    ml_monadBaseTheory.monad_eqs,
-    st_ex_ignore_bind_simp]
-
-Theorem heap_insert_larger_monadic_eq:
-  0 < i /\ i <= sz /\ sz <= arr_sz ==>
-  (heap_insert_larger_monadic R sz i x (st_embed arr_sz hp) =
-    (M_success (), st_embed arr_sz (heap_insert_larger R sz i x hp)))
-Proof
-  qid_spec_tac `hp`
-  \\ measureInduct_on `(\i. sz - i) i`
-  \\ rw []
-  \\ ONCE_REWRITE_TAC [heap_insert_larger_monadic_def]
-  \\ ONCE_REWRITE_TAC [heap_insert_larger_def]
-  \\ rw [] \\ fs []
-  \\ simp [monad_simps]
-  \\ rw [] \\ fs []
-  \\ simp [monad_simps]
-QED
-
-Definition heap_pop_monadic_def:
-  heap_pop_monadic R sz_dec = (do
-    bot_el <- heap_array_sub 0;
-    top_el <- heap_array_sub sz_dec;
-    heap_insert_larger_monadic R sz_dec 1 top_el;
-    return bot_el
-  od)
-End
-
-(* The heap_pop_monadic version of sz is one less than the
-   functional one (the size after the pop), to avoid a translation
-   side-condition. *)
-Theorem heap_pop_monadic_eq:
-  sz < arr_sz ==>
-  (heap_pop_monadic R sz (st_embed arr_sz hp) =
-    (M_success (FST (heap_pop R (sz + 1) hp)), st_embed arr_sz (SND (heap_pop R (sz + 1) hp))))
-Proof
-  simp [heap_pop_def, heap_pop_monadic_def]
-  \\ rw [] \\ fs []
-  \\ simp [monad_simps, heap_insert_larger_monadic_eq]
-  \\ Cases_on `sz = 0`
-  >- (
-    (* Works by coincidence for the base case. *)
-    ONCE_REWRITE_TAC [heap_insert_larger_monadic_def]
-    \\ ONCE_REWRITE_TAC [heap_insert_larger_def]
-    \\ simp [monad_simps]
-  )
-  \\ simp [heap_insert_larger_monadic_eq]
-QED
-
-Definition heap_insert_smaller_monadic_def:
-  heap_insert_smaller_monadic R sz i x = (if (i <= 1n)
-    then update_heap_array (i - 1) x
-    else do
-      y <- heap_array_sub ((i DIV 2) - 1);
-      if R x y
-      then do
-        update_heap_array (i - 1) y;
-        heap_insert_smaller_monadic R sz (i DIV 2) x
-      od
-      else update_heap_array (i - 1) x
-    od)
-End
-
-Theorem heap_insert_smaller_monadic_eq:
-  0 < i /\ i <= sz /\ sz <= arr_sz ==>
-  (heap_insert_smaller_monadic R sz i x (st_embed arr_sz hp) =
-    (M_success (), st_embed arr_sz (heap_insert_smaller R sz i x hp)))
-Proof
-  qid_spec_tac `hp`
-  \\ measureInduct_on `I i`
-  \\ rw []
-  \\ ONCE_REWRITE_TAC [heap_insert_smaller_monadic_def]
-  \\ ONCE_REWRITE_TAC [heap_insert_smaller_def]
-  \\ rw [] \\ fs []
-  \\ subgoal `i DIV 2 < i`
-  \\ simp [monad_simps, dividesTheory.DIV_POS]
-  \\ rw [] \\ fs []
-  \\ gs [monad_simps, SUB_ADD, X_LE_DIV, dividesTheory.DIV_POS]
-QED
-
-Definition heap_add_monadic_def:
-  heap_add_monadic R sz x = (do
-    el <- if 0 < sz
-      then heap_array_sub (((sz + 1) DIV 2) - 1)
-      else return x;
-    update_heap_array sz el;
-    heap_insert_smaller_monadic R (sz + 1) (sz + 1) x
-  od)
-End
-
-Theorem heap_add_monadic_eq:
-  sz + 1 <= arr_sz ==>
-  (heap_add_monadic R sz x (st_embed arr_sz hp) =
-    (M_success (), st_embed arr_sz (heap_add R sz hp x)))
-Proof
-  simp [heap_add_monadic_def, heap_add_def]
-  \\ subgoal `0 < sz ==> (sz + 1) DIV 2 <= sz`
-  >- (
-    qspec_then `sz` assume_tac arithmeticTheory.ODD_OR_EVEN
-    \\ fs []
-  )
-  \\ rw []
-  \\ simp [monad_simps, heap_insert_smaller_monadic_eq]
-  \\ simp [SUB_ADD, X_LE_DIV]
-  \\ gs []
-  \\ ONCE_REWRITE_TAC [heap_insert_smaller_def]
-  \\ simp []
-QED
-
-Definition heap_add_all_monadic_def:
-  (heap_add_all_monadic R sz [] = return sz) /\
-  (heap_add_all_monadic R sz (x :: xs) = do
-    heap_add_monadic R sz x;
-    heap_add_all_monadic R (sz + 1) xs
-  od)
-End
-
-Theorem heap_add_all_monadic_eq:
-  sz + LENGTH xs <= arr_sz ==>
-  (heap_add_all_monadic R sz xs (st_embed arr_sz hp) =
-    (M_success (sz + LENGTH xs), st_embed arr_sz (heap_add_all R sz xs hp)))
-Proof
-  qid_spec_tac `hp`
-  \\ qid_spec_tac `sz`
-  \\ Induct_on `xs`
-  \\ ONCE_REWRITE_TAC [heap_add_all_monadic_def]
-  \\ ONCE_REWRITE_TAC [heap_add_all_def]
-  \\ simp [monad_simps, heap_add_monadic_eq]
-QED
-
-(* Leads to an exception.
-
-Defn.Hol_defn "monad_fun"
- ` (monad_fun sz xs = if sz = 0 then return xs
-    else st_ex_bind (return ARB)
-      (\el. monad_fun (sz - 1) (el :: xs))
-   )
- `
-
-This exception blocks heap_pop_all_monadic from being
-defined with an if/then/else on the RHS. Unfortunately
-the 0/SUC version doesn't want to translate.
-
-*)
-
-Definition heap_pop_all_monadic_def:
-  (heap_pop_all_monadic R 0 xs = return xs) /\
-  (heap_pop_all_monadic R (SUC next_sz) xs =
-    do
-      el <- heap_pop_monadic R next_sz;
-      heap_pop_all_monadic R next_sz (el :: xs)
-    od)
-End
-
-Theorem heap_pop_all_monadic_if_def:
-  heap_pop_all_monadic R sz xs = (if sz = 0n
-    then return xs
-    else do
-      el <- heap_pop_monadic R (sz - 1);
-      heap_pop_all_monadic R (sz - 1) (el :: xs)
-    od
-  )
-Proof
-  Cases_on `sz`
-  \\ simp [heap_pop_all_monadic_def]
-QED
-
-Theorem heap_pop_all_monadic_eq:
-  sz <= arr_sz ==>
-  ?hp2. (heap_pop_all_monadic R sz xs (st_embed arr_sz hp) =
-    (M_success (heap_pop_all R sz xs hp), hp2))
-Proof
-  qid_spec_tac `hp`
-  \\ qid_spec_tac `xs`
-  \\ Induct_on `sz`
-  \\ ONCE_REWRITE_TAC [heap_pop_all_monadic_def]
-  \\ ONCE_REWRITE_TAC [heap_pop_all_def]
-  \\ simp [monad_simps, heap_pop_monadic_eq]
-  \\ rw []
-  \\ pairarg_tac \\ fs []
-  \\ fs [arithmeticTheory.ADD1]
-  \\ simp [heap_pop_monadic_eq]
-QED
-
-
-(* Part 3. Translation into CakeML AST. *)
-
-Definition heap_sort_via_monad_aux1_def:
-  heap_sort_via_monad_aux1 R x xs =
-  (do
-      sz <- return (LENGTH xs);
-      R2 <- return (\x y. R y x);
-      alloc_heap_array sz x;
-      heap_add_all_monadic R2 0 xs;
-      heap_pop_all_monadic R2 sz [];
-    od)
-End
-
-Definition heap_sort_via_monad_aux2_def:
-  heap_sort_via_monad_aux2 R x xs =
-  run_init_state (heap_sort_via_monad_aux1 R x xs)
-    (init_state [])
-End
-
-Definition heap_sort_via_monad_def:
-  heap_sort_via_monad R xs = (case xs of
-    [] => []
-  | (x :: _) => (case heap_sort_via_monad_aux2 R x xs of
-    M_success ys => ys
-  | _ => []
-  ))
-End
-
-Theorem alloc_heap_array_eq[local]:
-  alloc_heap_array n v st = (M_success (), st_embed n (K v))
-Proof
-  simp [fetch "-" "alloc_heap_array_def"]
-  \\ simp [ml_monadBaseTheory.monad_eqs]
-  \\ simp [st_embed_def, REPLICATE_GENLIST]
-  \\ simp [fetch "-" "state_refs_component_equality"]
-QED
-
-Theorem heap_sort_eq:
-  heap_sort_via_monad R xs = heap_sort R xs
-Proof
-  simp [heap_sort_via_monad_def, heap_sort_def, heap_sort_via_monad_aux2_def,
-    run_init_state_def, heap_sort_via_monad_aux1_def]
-  \\ Cases_on `xs` \\ simp []
-  \\ simp [ml_monadBaseTheory.run_def]
-  \\ simp [ml_monadBaseTheory.exc_case_eq, pairTheory.FST_EQ_EQUIV]
-  \\ simp [monad_simps, alloc_heap_array_eq]
-  \\ simp [heap_add_all_monadic_eq, heap_pop_all_monadic_eq]
-QED
-
-fun fix_state_type thm = let
-    val types_in_thm = thm |> concl |> all_atoms
-      |> HOLset.listItems |> map type_of
-      |> map (fn t => fst (strip_fun t) @ [snd (strip_fun t)])
-      |> List.concat
-    val state_matching_types = types_in_thm
-      |> filter (can (match_type state_type))
-      |> HOLset.fromList Type.compare |> HOLset.listItems
-    val substs = map (fn t => match_type t state_type) state_matching_types
-  in case substs of
-    [] => thm
-  | [s] => INST_TYPE s thm
-  | _ => failwith "fix_state_type: multiple!"
-  end
-
-val heap_insert_larger_v_thm = heap_insert_larger_monadic_def
-  |> fix_state_type |> m_translate;
-
-val heap_pop_v_thm = heap_pop_monadic_def
-  |> fix_state_type |> m_translate;
-
-val heap_pop_all_v_thm = heap_pop_all_monadic_def
-  |> fix_state_type |> m_translate;
-
-val heap_insert_smaller_v_thm = heap_insert_smaller_monadic_def
-  |> fix_state_type |> m_translate;
-
-val heap_add_v_thm = heap_add_monadic_def
-  |> fix_state_type |> m_translate;
-
-val heap_add_all_v_thm = heap_add_all_monadic_def
-  |> fix_state_type |> m_translate;
-
-val length_v_thm = LENGTH |> translate;
-
-val heap_sort_via_monad_aux1_v_thm = heap_sort_via_monad_aux1_def
-  |> fix_state_type |> m_translate;
-
-val heap_sort_via_monad_aux2_v_thm = heap_sort_via_monad_aux2_def
-  |> fix_state_type |> m_translate_run;
-
-val heap_sort_via_monad_v_thm = heap_sort_via_monad_def |> translate;
-
-
-(* Second variant. *)
-(* Heap list version. *)
-
-(* 'start_translation' parts at the top *)
+(* Part 2. Definition of heap-list sort via "suffix encoded" balanced trees.
+   Every heap/tree is of power-of-two-minus-one size, with the largest element
+   at the end, and two equal-sized smaller trees before it. *)
 
 (* Positions of the left child in a suffix encoded balanced tree
    of height ht. *)
@@ -479,8 +118,8 @@ Definition insert_into_sfx_heap_list_def:
   od
 End
 
-(* Add another element to the final heap in a sequence of balanced suffix
-   heaps with i total elements and j total heaps. *)
+(* Expand the total size of a sequence of balanced suffix heaps from i to
+   i + 1 total elements, starting with j total heaps. *)
 Definition add_to_sfx_heaps_step1_def:
   add_to_sfx_heaps_step1 i j = do
     merge <- if j <= 1
@@ -503,7 +142,8 @@ Definition add_to_sfx_heaps_step1_def:
   od
 End
 
-(* Also set the top element and preserve invariants. *)
+(* Expand from i to i + 1 elements, set the new element, and preserve the heap
+   invariants. *)
 Definition add_to_sfx_heaps_def:
   add_to_sfx_heaps R i j x = do
     j' <- add_to_sfx_heaps_step1 i j;
@@ -512,6 +152,7 @@ Definition add_to_sfx_heaps_def:
   od
 End
 
+(* Extend a list of suffix heaps by a list of values. *)
 Definition add_all_to_sfx_heaps_def:
   (add_all_to_sfx_heaps R i j [] = return (i, j)) /\
   (add_all_to_sfx_heaps R i j (x :: xs) = do
@@ -520,6 +161,8 @@ Definition add_all_to_sfx_heaps_def:
   od)
 End
 
+(* Take an intact heap in the correct position and add it to the heap sequence,
+   i.e. ensure its top element is the overall top element. *)
 Definition reinsert_tree_def:
   reinsert_tree R i j ht =
   do
@@ -536,6 +179,7 @@ Definition reinsert_tree_def:
   od
 End
 
+(* Reduce a sequence of suffix-encoded heaps to a list. *)
 Definition sfx_trees_to_list_def:
   sfx_trees_to_list R i j acc =
   if i = 0 then return acc
@@ -552,6 +196,7 @@ Definition sfx_trees_to_list_def:
   od
 End
 
+(* Compute an overapproximation of the base-2 logarithm of v *)
 Definition above_log2_def:
   above_log2 i v n = if n = 0n \/ v <= n
     then i
@@ -585,8 +230,8 @@ Definition sort_via_sfx_trees_def:
   )
 End
 
-
-(* Equivalence of second variant. *)
+(* Part 3. Proof that this monadic encoding computes the same as the pure heap
+   list sort implementation. *)
 
 Definition bs_tree_to_list_def:
   (bs_tree_to_list 0 t = []) /\
@@ -667,219 +312,9 @@ Proof
   Cases_on `t` \\ simp [tree_balanced_height_def]
 QED
 
-(*
-Theorem tree_balanced_height_length_sfx_eq:
-  tree_balanced_height ht t ==>
-    (LENGTH (tree_sfx_list t) = ((2 EXP ht) - 1))
-Proof
-  qid_spec_tac `ht` \\ Induct_on `t`
-  \\ fs [tree_sfx_list_def, tree_balanced_height_def]
-  \\ rw []
-  \\ Cases_on `ht` \\ fs []
-  \\ res_tac
-  \\ simp [EXP]
-  \\ simp [SUB_RIGHT_ADD]
-  \\ rw []
-QED
-*)
-
-(*
-Theorem tree_balanced_height_length_sfx_eq:
-  tree_balanced_height ht t ==> 0 < ht ==>
-    (LENGTH (tree_sfx_list t) = two_exp_min_2 ht + 1)
-Proof
-  qid_spec_tac `ht` \\ Induct_on `t`
-  \\ simp [tree_balanced_height_def, tree_sfx_list_def, two_exp_min_2_rec]
-  \\ rw []
-  \\ Cases_on `ht` \\ fs []
-  \\ simp [two_exp_min_2_rec]
-  \\ rw []
-  \\ fs [tree_balanced_height_0, tree_sfx_list_def]
-  \\ res_tac
-  \\ simp []
-QED
-
-Definition tree_list_len_eq_def:
-  tree_list_len_eq xs t ht i =
-  (tree_balanced_height ht t /\
-    (i = LENGTH xs + LENGTH (tree_sfx_list t) - 1))
-End
-
-Theorem tree_list_len_eq_bases:
-  (tree_list_len_eq xs Empty_Tree ht i = ((ht = 0) /\ (i = LENGTH xs - 1))) /\
-  (tree_list_len_eq xs t 0 i = ((t = Empty_Tree) /\ (i = LENGTH xs - 1)))
-Proof
-  simp [tree_list_len_eq_def, tree_balanced_height_def, tree_sfx_list_def]
-  \\ Cases_on `t` \\ simp [tree_balanced_height_def, tree_sfx_list_def]
-QED
-
-Theorem tree_list_len_eq_split:
-  tree_list_len_eq xs (Node x l r) ht i ==>
-  tree_list_len_eq xs l (ht - 1) (i - (2 EXP (ht - 1))) /\
-  tree_list_len_eq (xs ++ tree_sfx_list l) r (ht - 1) (i - 1)
-Proof
-  rw [tree_list_len_eq_def]
-  \\ fs [tree_balanced_height_def, tree_sfx_list_def]
-  \\ imp_res_tac tree_balanced_height_length_sfx_eq
-  \\ Cases_on `ht` \\ full_simp_tac std_ss []
-  \\ simp [EXP]
-  \\ Cases_on `n = 0` \\ fs []
-  \\ subgoal `?x. 2 EXP n = (2 + x)`
-  \\ fs []
-  \\ qexists_tac `(2 EXP n) - 2`
-  \\ simp [SUB_RIGHT_ADD]
-  \\ rw []
-QED
-
-Definition tree_len_eq_def:
-  tree_len_eq n t ht i =
-  (tree_balanced_height ht t /\ (i = n + LENGTH (tree_sfx_list t) - 1))
-End
-
-Theorem tree_len_eq_bases:
-  (tree_len_eq n Empty_Tree ht i = ((ht = 0) /\ (i = n - 1))) /\
-  (tree_len_eq n t 0 i = ((t = Empty_Tree) /\ (i = n - 1)))
-Proof
-  simp [tree_len_eq_def, tree_balanced_height_def, tree_sfx_list_def]
-  \\ Cases_on `t` \\ simp [tree_balanced_height_def, tree_sfx_list_def]
-QED
-
-Theorem tree_len_eq_split:
-  tree_len_eq n (Node x l r) ht i ==>
-  tree_len_eq n l (ht - 1) (i - (2 EXP (ht - 1))) /\
-  tree_len_eq (n + LENGTH (tree_sfx_list l)) r (ht - 1) (i - 1)
-Proof
-  rw [tree_len_eq_def]
-  \\ fs [tree_balanced_height_def, tree_sfx_list_def]
-  \\ imp_res_tac tree_balanced_height_length_sfx_eq
-  \\ full_simp_tac std_ss []
-  \\ subgoal `ht > 1 ==> ?x. 2 EXP (ht - 1) = (2 + x)`
-  \\ Cases_on `ht - 1` \\ Cases_on `ht` \\ full_simp_tac std_ss []
-  \\ fs []
-  \\ qexists_tac `(2 EXP SUC n) - 2`
-  \\ simp [SUB_RIGHT_ADD]
-  \\ rw []
-QED
-*)
-
-Theorem return_bind_eq:
-  st_ex_bind (return v) f = f v
-Proof
-  simp [ml_monadBaseTheory.st_ex_bind_def, ml_monadBaseTheory.st_ex_return_def, FUN_EQ_THM]
-QED
-
-(*
-Theorem heap_array_sub_eq_intro:
-  tree_list_len_eq xs t ht i ==>
-  (st.heap_array = xs ++ tree_sfx_list t ++ ys) ==>
-  0 < ht ==>
-  (f (case t of Node y _ _ => y) st = (M_success v, st_fin)) ==>
-  (st_ex_bind (heap_array_sub i) f st = (M_success v, st_fin))
-Proof
-  simp [fetch "-" "heap_array_sub_def"]
-  \\ simp [ml_monadBaseTheory.monad_eqs]
-  \\ rw []
-  \\ imp_res_tac tree_balanced_height_length_sfx_eq
-  \\ simp []
-  \\ fs [tree_list_len_eq_def]
-  \\ Cases_on `t` \\ fs [tree_balanced_height_def]
-  \\ fs [tree_sfx_list_def]
-  \\ simp [EL_APPEND]
-QED
-
-Theorem heap_array_sub_eq_intro2:
-  tree_len_eq n t ht i ==>
-  0 < ht ==>
-  (DROP n st.heap_array = tree_sfx_list t ++ ys) ==>
-  (f (case t of Node y _ _ => y) st = (M_success v, st_fin)) ==>
-  (st_ex_bind (heap_array_sub i) f st = (M_success v, st_fin))
-Proof
-  simp [fetch "-" "heap_array_sub_def"]
-  \\ simp [ml_monadBaseTheory.monad_eqs]
-  \\ rpt disch_tac
-  \\ Cases_on `LENGTH st.heap_array <= n`
-  >- (
-    fs (RES_CANON miscTheory.DROP_NIL)
-    \\ Cases_on `t` \\ fs [tree_sfx_list_def, tree_len_eq_bases]
-  )
-  \\ subgoal `?xs. (st.heap_array = xs ++ tree_sfx_list t ++ ys) /\ (LENGTH xs = n)`
-  >- (
-    qexists_tac `TAKE n st.heap_array`
-    \\ simp [LENGTH_TAKE]
-    \\ metis_tac [TAKE_DROP, APPEND_ASSOC]
-  )
-  \\ fs [tree_len_eq_def]
-  \\ simp [EL_APPEND]
-  \\ Cases_on `t` \\ fs [tree_balanced_height_def]
-  \\ fs [tree_sfx_list_def]
-  \\ simp [EL_APPEND]
-QED
-
-
-Theorem update_heap_array_eq:
-  tree_list_len_eq xs t ht i ==>
-  (st.heap_array = xs ++ tree_sfx_list t ++ ys) ==>
-  0 < ht ==>
-  (st2 = st with <| heap_array :=
-        xs ++ tree_sfx_list (case t of Node _ l r => Node x l r) ++ ys |>) ==>
-  (update_heap_array i x st = (M_success (), st2))
-Proof
-  simp [fetch "-" "update_heap_array_def"]
-  \\ simp [ml_monadBaseTheory.monad_eqs]
-  \\ rw []
-  \\ imp_res_tac tree_balanced_height_length_sfx_eq
-  \\ simp []
-  \\ fs [tree_list_len_eq_def]
-  \\ Cases_on `t` \\ fs [tree_balanced_height_def]
-  \\ fs [tree_sfx_list_def]
-  \\ simp [LUPDATE_APPEND, LUPDATE_DEF]
-QED
-
-Theorem update_heap_array_eq_intro:
-  tree_list_len_eq xs t ht i ==>
-  (st.heap_array = xs ++ tree_sfx_list t ++ ys) ==>
-  0 < ht ==>
-  (!st' prev_xs. (st = st' with <| heap_array := prev_xs |>) /\
-        (st'.heap_array = xs ++ tree_sfx_list (case t of Node _ l r => Node x l r) ++ ys) ==>
-        (f () st' = (M_success v, st_fin))) ==>
-  (st_ex_bind (update_heap_array i x) f st = (M_success v, st_fin))
-Proof
-  simp [ml_monadBaseTheory.monad_eqs]
-  \\ rw []
-  \\ first_x_assum (irule_at Any)
-  \\ drule_then (irule_at Any) update_heap_array_eq
-  \\ simp []
-  \\ simp [fetch "-" "state_refs_component_equality"]
-QED
-
-Theorem bind_return_eq:
-  st_ex_bind f return = f
-Proof
-  rw [ml_monadBaseTheory.st_ex_bind_def, ml_monadBaseTheory.st_ex_return_def, FUN_EQ_THM]
-  \\ BasicProvers.EVERY_CASE_TAC \\ simp []
-QED
-
-
-Theorem balanced_sfx_heap_left_eq:
-  tree_balanced_height (ht - 1) l ==>
-  1 < ht ==>
-  (sfx_heap_left (oths + LENGTH (tree_sfx_list l)) ht = oths - 1)
-Proof
-  rw []
-  \\ subgoal `!i. sfx_heap_left i ht = i - (LENGTH (tree_sfx_list l)) - 1`
-  >- (
-    imp_res_tac tree_balanced_height_length_sfx_eq
-    \\ simp [sfx_heap_left_def, SUB_RIGHT_SUB]
-    \\ simp [SUB_RIGHT_ADD]
-  )
-  \\ fs []
-  \\ imp_res_tac (GSYM tree_balanced_height_length_sfx_eq)
-  \\ Cases_on `l` \\ fs [tree_balanced_height_def, tree_sfx_list_def]
-QED
-*)
-
 Definition bs_tree_list_to_list_def:
-  bs_tree_list_to_list ts = FLAT (MAP (\(t, i). bs_tree_to_list i t) (REVERSE ts))
+  bs_tree_list_to_list ts =
+    FLAT (MAP (\(t, i). bs_tree_to_list i t) (REVERSE ts))
 End
 
 Theorem bs_tree_list_to_list_rec:
@@ -892,56 +327,25 @@ Proof
   \\ rpt (pairarg_tac \\ fs[])
 QED
 
+Theorem st_ex_ignore_bind_simp[local]:
+  st_ex_ignore_bind f g = st_ex_bind f (\_. g)
+Proof
+  simp [ml_monadBaseTheory.st_ex_bind_def, ml_monadBaseTheory.st_ex_ignore_bind_def]
+QED
+
 Theorem monad_simps[local] = LIST_CONJ
     [fetch "-" "update_heap_array_def", fetch "-" "heap_array_sub_def",
         ml_monadBaseTheory.monad_eqs, st_ex_ignore_bind_simp,
          fetch "-" "update_sz_array_def", fetch "-" "sz_array_sub_def"]
 
-Theorem tree_len_simps_no_less = LIST_CONJ
+Theorem tree_len_simps_no_less[local] = LIST_CONJ
     [tree_balanced_height_def, tree_balanced_height_0,
         two_exp_min_1_rec,
         LENGTH_bs_tree_to_list, bs_tree_to_list_def,
         bs_tree_to_list_tree_rec, bs_tree_list_to_list_rec]
 
-Theorem tree_len_simps = LIST_CONJ [tree_len_simps_no_less,
+Theorem tree_len_simps[local] = LIST_CONJ [tree_len_simps_no_less,
         two_exp_min_1_less_rec]
-
-Definition array_mappings_def:
-  array_mappings xs = LIST_TO_BAG (MAPi (\i x. (i, x)) xs)
-End
-
-Definition array_upd_mappings_def:
-  array_of_mappings bg = GENLIST (\i. (CHOICE (\x. BAG_IN (i, x) bg))) (bag_size (K 0) bg)
-End
-
-Definition list_mappings_from_def:
-  list_mappings_from xs i = LIST_TO_BAG (MAPi (\j x. (i + j, x)) xs)
-End
-
-Theorem list_mappings_from_append:
-  list_mappings_from (xs ++ ys) i =
-    BAG_UNION (list_mappings_from xs i) (list_mappings_from ys (i + LENGTH xs))
-Proof
-  simp [list_mappings_from_def, MAPi_APPEND, LIST_TO_BAG_APPEND, o_DEF]
-QED
-
-Theorem list_mappings_from_bases:
-  list_mappings_from [x] i = {|(i, x)|} /\
-  list_mappings_from [] j = {||}
-Proof
-  simp [list_mappings_from_def]
-QED
-
-Theorem array_mappings_eq_from:
-  array_mappings xs = list_mappings_from xs 0
-Proof
-  simp [array_mappings_def, list_mappings_from_def]
-QED
-
-Theorem array_mappings_of:
-  array_mappings (array_of_mappings bg) = bg
-Proof
-  simp [array_mappings_def, array_of_mappings_def]
 
 Theorem TAKE_DROP_eq_imp[local]:
   !xs i j. TAKE i (DROP j xs) = ys ==>
@@ -972,105 +376,7 @@ Proof
   \\ simp []
 QED
 
-Theorem array_mappings_IMP_EL:
-  BAG_IN (i, x) (array_mappings arr) ==>
-  EL i arr = x /\ i < LENGTH arr
-Proof
-  rw [array_mappings_def]
-  \\ fs [IN_LIST_TO_BAG, MEM_MAPi]
-QED
-
-(*
-Theorem list_mappings_LUPDATE:
-  !arr j i. i < LENGTH arr ==>
-  list_mappings_from (LUPDATE y i arr) j =
-  (list_mappings_from arr j - {|(i + j, EL i arr)|} + {|(i + j, y)|})
-Proof
-  Induct \\ fs [list_mappings_from_def]
-  \\ rw [o_DEF]
-  \\ Cases_on `i` \\ fs [LUPDATE_DEF]
-  \\ simp [o_DEF, BAG_UNION_INSERT]
-  \\ simp [ADD1]
-  \\ simp [BAG_INSERT_UNION]
-  \\ cheat
-QED
-
-Theorem array_mappings_LUPDATE:
-  array_mappings arr = xs /\ xs = BAG_UNION {|(i, x)|} others ==>
-  array_mappings (LUPDATE y i arr) = BAG_UNION {|(i, y)|} others
-Proof
-  rw []
-  \\ mp_tac array_mappings_IMP_EL
-  \\ fs [array_mappings_eq_from]
-  \\ simp [list_mappings_LUPDATE]
-  \\ simp [COMM_BAG_UNION]
-QED
-
-Theorem update_heap_array_mappings:
-  array_mappings st.heap_array = xs /\
-  xs = BAG_UNION {|(i, prev_x)|} others ==>
-  ?arr. update_heap_array i x st = (M_success (), st with heap_array := arr) /\
-  array_mappings arr = {|(i,x)|} ⊎ others
-Proof
-  simp [fetch "-" "update_heap_array_def", ml_monadBaseTheory.monad_eqs]
-  \\ rw []
-  \\ irule_at Any EQ_REFL
-  \\ simp [array_mappings_LUPDATE]
-  \\ irule (UNDISCH array_mappings_IMP_EL |> BODY_CONJUNCTS |> List.last |> DISCH_ALL)
-  \\ simp [EXISTS_OR_THM]
-QED
-
-Theorem heap_array_sub_mappings:
-  array_mappings st.heap_array = xs /\
-  xs = BAG_UNION {|(i, x)|} others ==>
-  ?arr. heap_array_sub i st = (M_success x, st)
-Proof
-  cheat
-QED
-
-
-Theorem update_heap_array_mappings2:
-  array_mappings st.heap_array = BAG_UNION {|(i, prev_x)|} others /\
-  (!arr. array_mappings arr = {|(i,x)|} ⊎ others ==> P arr) ==>
-  ?arr. update_heap_array i x st = (M_success (), st with heap_array := arr) /\ P arr
-Proof
-  cheat
-QED
-
-fun use_ex_thm1 thm (alist, gl) = let
-    val (ex_vars, gl2) = strip_exists gl
-    val conjs = strip_conj gl2
-    val possible_gl_lhss = conjs |> mapfilter (fst o dest_eq)
-      |> filter (fn t => not (exists (fn v => free_in v t) ex_vars))
-    val thm_concl = concl thm |> strip_imp |> snd
-    val key_lhs = thm_concl |> strip_exists |> snd |> strip_conj |> hd |> lhs
-    val lhs_vars = FVL [key_lhs] (HOLset.empty Term.compare)
-    val thm_vars = FVL [concl thm] (HOLset.empty Term.compare)
-    val gen_vars = HOLset.listItems (HOLset.difference (thm_vars, lhs_vars))
-  in MAP_FIRST (fn gl_lhs => let
-    val (inst, tinst) = match_term key_lhs gl_lhs
-    val thm2 = INST_TYPE tinst thm |> INST inst |> GENL gen_vars
-  in mp_tac thm2 end) possible_gl_lhss (alist, gl) end
-
-fun use_ex_thm thm = (REWRITE_TAC [PULL_EXISTS] >> use_ex_thm1 thm)
-
-Theorem FUNNY_PULL_FORALL1:
-  !P R. (?x. P x ==> R) ==>
-  ((!x. P x) ==> R)
-Proof
-  metis_tac []
-QED
-
-Theorem FUNNY_PULL_FORALL:
-  !P Q R. (?x. P x /\ (Q x ==> R)) ==>
-  ((!x. P x ==> Q x) ==> R)
-Proof
-  metis_tac []
-QED
-*)
-
 Theorem insert_into_sfx_heap_eq:
-
   ! t R i ht x st.
   TAKE (two_exp_min_1 ht) (DROP ((i + 1) - two_exp_min_1 ht) st.heap_array) =
     bs_tree_to_list ht t /\
@@ -1118,15 +424,6 @@ Proof
       \\ simp [tree_len_simps, TAKE_APPEND2, TAKE_APPEND1, DROP_APPEND1, DROP_APPEND2]
     )
   )
-QED
-
-
-Theorem mk_sub_min_1[local]:
-  (x + 1n) - (2 EXP ht) = (x - two_exp_min_1 ht)
-Proof
-  simp [two_exp_min_1_def]
-  \\ Cases_on `2 EXP ht` \\ simp []
-  \\ fs []
 QED
 
 Theorem EL_APPEND_PLUS[local]:
@@ -1278,17 +575,6 @@ Proof
   \\ rw []
 QED
 
-Theorem bind_assoc:
-  st_ex_bind (st_ex_bind f g) h = do
-    x <- f;
-    y <- g x;
-    h y
-  od
-Proof
-  rw [ml_monadBaseTheory.st_ex_bind_def, FUN_EQ_THM]
-  \\ rpt (TOP_CASE_TAC \\ fs [])
-QED
-
 Theorem add_to_sfx_heaps_step1_eq:
   EVERY (\(t, n). 0 < n /\ tree_balanced_height n t) ts ==>
   TAKE i st.heap_array = bs_tree_list_to_list ts /\
@@ -1349,14 +635,7 @@ Proof
   )
 QED
 
-Theorem LENGTH_add_trees_step1_adj[local]:
-  LENGTH (add_trees_step1 ts x) = LENGTH (I (add_trees_step1 ts) ARB)
-Proof
-  simp [add_trees_step1_def]
-  \\ rpt (TOP_CASE_TAC \\ fs [])
-QED
-
-Theorem LENGTH_add_tree_step1_facts:
+Theorem LENGTH_add_tree_step1_facts[local]:
   0 < LENGTH (add_trees_step1 ts x) /\
   LENGTH (bs_tree_list_to_list (add_trees_step1 ts x)) =
     LENGTH (bs_tree_list_to_list ts) + 1 /\
@@ -1368,7 +647,7 @@ Proof
   \\ rpt (TOP_CASE_TAC \\ fs [tree_len_simps])
 QED
 
-Theorem inv_add_tree_step1:
+Theorem inv_add_tree_step1[local]:
   (EVERY (\(t,n). 0 < n /\ tree_balanced_height n t) ts ==>
     EVERY (\(t,n). 0 < n /\ tree_balanced_height n t) (add_trees_step1 ts x)
   ) /\
@@ -1455,14 +734,14 @@ Proof
   )
 QED
 
-Theorem LENGTH_to_list_add_trees:
+Theorem LENGTH_to_list_add_trees[local]:
   LENGTH (bs_tree_list_to_list (add_trees R ts x)) =
     LENGTH (bs_tree_list_to_list ts) + 1
 Proof
   simp [add_trees_def, LENGTH_list_of_insert_trees, LENGTH_add_tree_step1_facts]
 QED
 
-Theorem insert_tree_inv_balance_inv:
+Theorem insert_tree_inv_balance_inv[local]:
   !t ht. tree_balanced_height ht t ==>
   tree_balanced_height ht (insert_tree_inv R t x)
 Proof
@@ -1470,7 +749,7 @@ Proof
   \\ rpt (TOP_CASE_TAC \\ fs [tree_len_simps])
 QED
 
-Theorem insert_trees_inv_balance_inv:
+Theorem insert_trees_inv_balance_inv[local]:
   !ts x. EVERY (\(t,n). 0 < n /\ tree_balanced_height n t) ts ==>
   EVERY (\(t,n). 0 < n /\ tree_balanced_height n t) (insert_trees_inv R ts x)
 Proof
@@ -1479,7 +758,7 @@ Proof
   \\ rpt (TOP_CASE_TAC \\ fs [tree_len_simps, insert_tree_inv_balance_inv])
 QED
 
-Theorem inv_add_tree:
+Theorem inv_add_trees[local]:
   (EVERY (\(t,n). 0 < n /\ tree_balanced_height n t) ts ==>
     EVERY (\(t,n). 0 < n /\ tree_balanced_height n t) (add_trees R ts x)
   ) /\
@@ -1491,16 +770,6 @@ Theorem inv_add_tree:
 Proof
   simp [add_trees_def, MAP_SND_insert_trees_inv, MAP_DROP]
   \\ simp [GSYM MAP_DROP, inv_add_tree_step1, insert_trees_inv_balance_inv]
-QED
-
-Theorem sum_gt_exp_2:
-  !js n. EVERYi (\i j. j >= (2 EXP i) * n) js ==>
-  SUM js >= ((2 EXP LENGTH js) - 1) * n
-Proof
-  Induct
-  \\ rw [EVERYi_def]
-  \\ first_x_assum (qspec_then `2 * n` mp_tac)
-  \\ fs [o_DEF, EXP]
 QED
 
 Theorem sum_lengths_greater_equal_exp[local]:
@@ -1593,10 +862,10 @@ Proof
   \\ rw []
   \\ last_x_assum (drule_at (Pat `_ = MAP _ _`))
   \\ gs [markerTheory.Abbrev_def, LENGTH_to_list_add_trees]
-  \\ simp [inv_add_tree]
+  \\ simp [inv_add_trees]
 QED
 
-Theorem TAKE_LUPDATE_CASES:
+Theorem TAKE_LUPDATE_CASES[local]:
   !xs i j. TAKE i (LUPDATE x j xs) = (if j < i then LUPDATE x j (TAKE i xs) else TAKE i xs)
 Proof
   Induct \\ fs []
@@ -1695,10 +964,8 @@ Proof
         LENGTH_list_of_insert_trees, tree_len_simps, insert_trees_inv_balance_inv]
 QED
 
-
 Theorem TAKE_2_times_two_exp[local] =
     Q.SPECL [`two_exp_min_1 i`, `two_exp_min_1 i`] TAKE_SUM |> REWRITE_RULE [GSYM TIMES2]
-
 
 Theorem sfx_trees_to_list_eq:
   !i j acc ts st. EVERY (\(t, n). 0 < n /\ tree_balanced_height n t) ts /\
@@ -1787,7 +1054,7 @@ Proof
   \\ rw [] \\ fs [EXP_ADD]
 QED
 
-Theorem build_trees_facts:
+Theorem build_trees_facts[local]:
   !xs ts.
   EVERY (\(t, n). 0 < n /\ tree_balanced_height n t) ts ==>
   LENGTH (bs_tree_list_to_list (build_trees R ts xs)) =
@@ -1799,7 +1066,7 @@ Theorem build_trees_facts:
 Proof
   Induct \\ simp [tree_len_simps, build_trees_def]
   \\ rw []
-  \\ simp [inv_add_tree, LENGTH_to_list_add_trees]
+  \\ simp [inv_add_trees, LENGTH_to_list_add_trees]
   \\ fs [IMP_CONJ_THM, FORALL_AND_THM]
 QED
 
@@ -1832,7 +1099,7 @@ Proof
   )
 QED
 
-(* Final section: translation of the sfx variants. *)
+(* Part 4: translation of the sfx variants. *)
 
 fun fix_state_type thm = let
     val types_in_thm = thm |> concl |> all_atoms
@@ -1877,6 +1144,17 @@ val insert_into_sfx_heap_v_thm = insert_into_sfx_heap_def
 val insert_into_sfx_heap_list_v_thm = insert_into_sfx_heap_list_def
   |> REWRITE_RULE [use_comp_exp]
   |> fix_state_type |> m_translate;
+
+Theorem bind_assoc[local]:
+  st_ex_bind (st_ex_bind f g) h = do
+    x <- f;
+    y <- g x;
+    h y
+  od
+Proof
+  rw [ml_monadBaseTheory.st_ex_bind_def, FUN_EQ_THM]
+  \\ rpt (TOP_CASE_TAC \\ fs [])
+QED
 
 val add_to_sfx_heaps_v_thm = add_to_sfx_heaps_def
   |> SIMP_RULE bool_ss [add_to_sfx_heaps_step1_def, bind_assoc]
