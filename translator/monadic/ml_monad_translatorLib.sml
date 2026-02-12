@@ -2935,53 +2935,39 @@ fun abbrev_code (fname,ml_fname,def,th,v) = let
 
 (* Some definitions might have polymorphic state and exceptions:
    those types need to be instantiated before translation *)
-fun instantiate_monadic_types def = let
-  val original_def = def
-  (* Retrieve the state and exceptions types *)
-  val def = List.hd (CONJUNCTS def)
-  val ty = concl def |> strip_forall |> snd |> rhs |> type_of
-  val state_ty = dest_type ty |> snd |> List.hd
-  val exn_ty = dest_type ty |> snd |> List.last |> dest_type |> snd |>
-               List.hd |> dest_type |> snd |> List.last
-  (* Instantiate them to the proper types *)
-  val def =
-    if is_vartype state_ty then
-      let
-        val def = Thm.INST_TYPE[state_ty |-> !(#refs_type translator_state)]
-          original_def
-      in
-        print "Instantiated polymorphic monadic state\n";
-        def
-      end
-    else original_def
-
-  val def =
-    if is_vartype exn_ty then
-      let
-        val def = Thm.INST_TYPE [exn_ty |-> !(#exn_type translator_state)] def
-      in
-        print "Instantiated polymorphic monadic exceptions\n";
-        def
-      end
-    else def
-in def end;
-
 fun get_monadic_types_inst tm = let
     (* Retrieve the state and exceptions types *)
     val ty = type_of tm
     val state_ty = dest_type ty |> snd |> List.hd
     val exn_ty = dest_type ty |> snd |> List.last |> dest_type |> snd |> List.hd
                              |> dest_type |> snd |> List.last
-    (* Instantiate them to the proper types *)
-    val tys =
-      if is_vartype state_ty then
-        [state_ty |-> !(#refs_type translator_state)]
-      else []
-    val tys =
-      if is_vartype exn_ty
-        then (exn_ty |-> !(#exn_type translator_state)) :: tys
-      else tys
-in tys end;
+
+    fun print_inst inst = let
+        val strs = commafy (map (fn i => type_to_string (#redex i) ^
+                    " |-> " ^ type_to_string (#residue i)) inst)
+      in print (String.concat (strs @ ["\n"])) end
+
+    val ref_state_ty = !(#refs_type translator_state)
+    val inst1 = case total (match_type state_ty) ref_state_ty of
+        SOME [] => []
+      | SOME inst => (print "Instantiating polymorphic monadic state\n"; print_inst inst; inst)
+      | NONE => (print "Warning: no match on state type\n"; [])
+
+    val ref_exn_ty = !(#exn_type translator_state)
+    val inst2 = case total (match_type exn_ty) ref_exn_ty of
+        SOME [] => []
+      | SOME inst => (print "Instantiating polymorphic exception state\n"; print_inst inst; inst)
+      | NONE => (print "Warning: no match on exception type\n"; [])
+in inst1 @ inst2 end;
+
+fun instantiate_monadic_types def = let
+  val original_def = def
+
+  val def = List.hd (CONJUNCTS def)
+  val tm = concl def |> strip_forall |> snd |> rhs
+  val inst = get_monadic_types_inst tm
+
+in Thm.INST_TYPE inst original_def end;
 
 
 (******************************************************************************
