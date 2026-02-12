@@ -321,6 +321,25 @@ Proof
   intLib.ARITH_TAC
 QED
 
+(* Encodes a * X ≥ c where X is varc.
+   This is a special case to mk_constraint_ge.
+ *)
+Definition mk_constraint_one_ge_def:
+  mk_constraint_one_ge a X b =
+  case X of
+      INL vX => ([(a,vX)],[],b)
+    | INR cX => ([],[],b - a * cX)
+End
+
+Theorem mk_constraint_one_ge_sem[simp]:
+  iconstraint_sem (mk_constraint_one_ge a X b) (wi,wb) ⇔
+  a * (varc wi X) ≥ b
+Proof
+  rw[mk_constraint_one_ge_def]>>every_case_tac>>
+  gvs[varc_def,iconstraint_sem_def,eval_ilin_term_def,iSUM_def]>>
+  intLib.ARITH_TAC
+QED
+
 (* the two named equality constraints, held as a list *)
 Definition mk_ge_def[simp]:
   mk_ge X Y = mk_constraint_ge 1 (X) (-1) (Y) 0

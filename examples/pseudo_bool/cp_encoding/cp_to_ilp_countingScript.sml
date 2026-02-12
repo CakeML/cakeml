@@ -559,3 +559,49 @@ Proof
   >-simp[cencode_count_def,encode_count_def]
   >-simp[cencode_among_sem]
 QED
+
+(*
+Definition cencode_all_different_def:
+  cencode_all_different bnd Xs name =
+  flat_app (MAPi (λi X.
+    flat_app (MAPi (λj Y.
+      if i < j
+      then
+        List $
+          mk_annotate
+          [
+            mk_name name
+                    (int_to_string #"-" (&i) ^ strlit"gt" ^ int_to_string #"-" (&j));
+            mk_name name
+            (int_to_string #"-" (&i) ^ strlit"lt" ^ int_to_string #"-" (&j))
+          ]
+          [
+            bits_imply bnd [Pos (neiv name i j)] (mk_gt X Y);
+            bits_imply bnd [Neg (neiv name i j)] (mk_gt Y X)
+          ]
+      else
+        Nil) Xs)) Xs)
+End
+
+Theorem encode_all_different_sem_2:
+  valid_assignment bnd wi ∧
+  EVERY (λx. iconstraint_sem x (wi,wb))
+    (encode_all_different bnd Xs name) ⇒
+  all_different_sem Xs wi
+Proof
+  strip_tac>>
+  irule all_different_sem_aux>>
+  gs[EVERY_MEM,encode_all_different_def,cencode_all_different_def,
+     MEM_FLAT,MEM_MAPi,PULL_EXISTS,mk_annotate_def]>>
+  qexists ‘name’>>
+  qexists ‘wb’
+  qexistsl [‘name’,‘wb’]>>
+  rpt strip_tac>>
+  rename1 ‘[i;j]’>>
+  ‘i < LENGTH Xs’ by fs[]>>
+  first_x_assum $ drule_then rev_drule>>
+  simp[SF DNF_ss]>>
+  rw[]>>
+  intLib.ARITH_TAC
+QED
+*)
