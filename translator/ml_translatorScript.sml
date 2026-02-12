@@ -2389,17 +2389,83 @@ Proof
         implode_def]
 QED
 
+val str_cmp_tac =
+  Cases_on ‘s1’ \\ Cases_on ‘s2’
+  \\ simp [Eval_rw,STRING_TYPE_def] \\ rw [] \\ Eval2_tac
+  \\ fs [do_app_def,do_test_def,check_type_def,do_eq_def,lit_same_type_def]
+  \\ rw[state_component_equality]
+  \\ fs [ctor_same_type_def,same_type_def,BOOL_def];
+
 Theorem Eval_str_eq:
   Eval env x1 (STRING_TYPE s1) ==>
   Eval env x2 (STRING_TYPE s2) ==>
   Eval env (App (Test Equal StrT) [x1; x2]) (BOOL (s1 = s2))
 Proof
-  Cases_on ‘s1’ \\ Cases_on ‘s2’
-  \\ simp [Eval_rw,STRING_TYPE_def] \\ rw []
-  \\ Eval2_tac
-  \\ fs [do_app_def,do_test_def,check_type_def,do_eq_def,lit_same_type_def]
-  \\ rw[state_component_equality]
-  \\ fs [ctor_same_type_def,same_type_def,BOOL_def]
+  str_cmp_tac
+QED
+
+Theorem Eval_mlstring_lt:
+  Eval env x1 (STRING_TYPE s1) ==>
+  Eval env x2 (STRING_TYPE s2) ==>
+  Eval env (App (Test (Compare Lt) StrT) [x1; x2]) (BOOL (mlstring_lt s1 s2))
+Proof
+  str_cmp_tac
+QED
+
+Theorem Eval_mlstring_le:
+  Eval env x1 (STRING_TYPE s1) ==>
+  Eval env x2 (STRING_TYPE s2) ==>
+  Eval env (App (Test (Compare Leq) StrT) [x1; x2]) (BOOL (mlstring_le s1 s2))
+Proof
+  str_cmp_tac
+QED
+
+Theorem Eval_mlstring_gt:
+  Eval env x1 (STRING_TYPE s1) ==>
+  Eval env x2 (STRING_TYPE s2) ==>
+  Eval env (App (Test (Compare Gt) StrT) [x1; x2]) (BOOL (mlstring_gt s1 s2))
+Proof
+  str_cmp_tac
+QED
+
+Theorem Eval_mlstring_ge:
+  Eval env x1 (STRING_TYPE s1) ==>
+  Eval env x2 (STRING_TYPE s2) ==>
+  Eval env (App (Test (Compare Geq) StrT) [x1; x2]) (BOOL (mlstring_ge s1 s2))
+Proof
+  str_cmp_tac
+QED
+
+Theorem Eval_fast_lt:
+  Eval env x1 (STRING_TYPE s1) ==>
+  Eval env x2 (STRING_TYPE s2) ==>
+  Eval env (App (Test (AltCompare Lt) StrT) [x1; x2]) (BOOL (fast_lt s1 s2))
+Proof
+  str_cmp_tac
+QED
+
+Theorem Eval_fast_le:
+  Eval env x1 (STRING_TYPE s1) ==>
+  Eval env x2 (STRING_TYPE s2) ==>
+  Eval env (App (Test (AltCompare Leq) StrT) [x1; x2]) (BOOL (fast_le s1 s2))
+Proof
+  str_cmp_tac
+QED
+
+Theorem Eval_fast_gt:
+  Eval env x1 (STRING_TYPE s1) ==>
+  Eval env x2 (STRING_TYPE s2) ==>
+  Eval env (App (Test (AltCompare Gt) StrT) [x1; x2]) (BOOL (fast_gt s1 s2))
+Proof
+  str_cmp_tac
+QED
+
+Theorem Eval_fast_ge:
+  Eval env x1 (STRING_TYPE s1) ==>
+  Eval env x2 (STRING_TYPE s2) ==>
+  Eval env (App (Test (AltCompare Geq) StrT) [x1; x2]) (BOOL (fast_ge s1 s2))
+Proof
+  str_cmp_tac
 QED
 
 (* char list as string *)

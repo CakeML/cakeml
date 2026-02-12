@@ -17,6 +17,18 @@ val () = generate_sigs := true;
 val _ = ml_prog_update (add_dec
   ``Dtabbrev unknown_loc [] «string» (Atapp [] (Short «string»))`` I);
 
+val _ = trans "<"  “mlstring_lt”;
+val _ = trans "<=" “mlstring_le”;
+val _ = trans ">"  “mlstring_gt”;
+val _ = trans ">=" “mlstring_ge”;
+
+val _ = ml_prog_update (open_module "Fast");
+val _ = trans "<"  “fast_lt”;
+val _ = trans "<=" “fast_le”;
+val _ = trans ">"  “fast_gt”;
+val _ = trans ">=" “fast_ge”;
+val _ = ml_prog_update (close_module NONE);
+
 val _ = trans "sub" mlstringSyntax.strsub_tm;
 val _ = trans "implode" mlstringSyntax.implode_tm;
 val _ = trans "explode" mlstringSyntax.explode_tm;
@@ -166,36 +178,8 @@ val isPrefix_thm = Q.prove (
   `!s1 s2. isprefix_side s1 s2`,
   rw[isPrefix_side_def, isStringThere_aux_side_thm] ) |> update_precondition
 
-val _ = ml_prog_update open_local_block;
-val result = translate compare_aux_def;
-val compare_aux_side_def = theorem"compare_aux_side_def";
-val _ = ml_prog_update open_local_in_block;
-
 val _ = next_ml_names := ["compare"];
-val result = translate compare_def;
-val compare_side_def = definition"compare_1_side_def";
-
-Theorem compare_aux_side_thm[local]:
-  !s1 s2 ord n len. (n + len =
-    if strlen s1 < strlen s2
-      then strlen s1
-    else strlen s2) ==> compare_aux_side s1 s2 ord n len
-Proof
-  Induct_on `len` \\ rw [Once compare_aux_side_def]
-QED
-
-val compare_side_thm = Q.prove (
-  `!s1 s2. compare_1_side s1 s2`,
-  rw [compare_side_def, compare_aux_side_thm] ) |> update_precondition
-
-val _ = next_ml_names := ["<"];
-val _ = translate mlstring_lt_def;
-val _ = next_ml_names := ["<="];
-val _ = translate mlstring_le_def;
-val _ = next_ml_names := [">="];
-val _ = translate mlstring_ge_def;
-val _ = next_ml_names := [">"];
-val _ = translate mlstring_gt_def;
+val result = translate compare_thm;
 
 val _ = ml_prog_update open_local_block;
 val result = translate collate_aux_def;
