@@ -1339,21 +1339,89 @@ Proof
 simp[byte_align_def,w2n_align]
 QED
 
+Theorem get_byte_intro1:
+  (7 -- 0) w = w2w (get_byte 0w w F)
+Proof
+simp[get_byte_def,byte_index_def,w2w_w2w]
+QED
+
+Theorem get_byte_intro2:
+  i < dimindex (:α) DIV 8 ⇒ (7 -- 0) (w:'a word>>>(8*i)) = w2w (get_byte (n2w i) w F)
+Proof
+rw[get_byte_def,byte_index_def,w2w_w2w]
+>>subgoal`i < dimword (:α)`
+>-(
+assume_tac dimindex_lt_dimword
+>>intLib.ARITH_TAC
+)
+>>simp[]
+QED
+
+Definition nat_of_bytes_def:
+  nat_of_bytes [] = 0 ∧
+  nat_of_bytes (b::bb) = nat_of_bytes bb * 256 + w2n b
+End
+
+Theorem souffrir:
+  dimindex(:'a) ≤ l ⇒ word_slice_alt h l w = 0w
+Proof cheat
+QED
+
+Theorem set_byte_n2w:
+  n MOD 2**(8*i+8) = 0 ∧ i < dimindex(:'a) DIV 8 ⇒
+set_byte (n2w i) b (n2w n:'a word) F = n2w (w2n b*2**(8*i) + n)
+Proof
+rw[set_byte_def,byte_index_def]
+>>`i < dimword(:'a)` by (assume_tac dimindex_lt_dimword >> qpat_x_assum‘_=0’kall_tac>>intLib.ARITH_TAC)
+>>simp[]
+>>`word_slice_alt (8 * i) 0 (n2w n) = 0w`by cheat
+>>simp[]
+>>simp[word_slice_alt_shift]
+>>`n2w n ⋙ (8 * i + 8) ≪ (8 * i + 8) = n2w n` by cheat
+>>simp[]
+>>cheat
+QED
+
+Theorem word_of_bytes_n2w:
+  word_of_bytes F (n2w i) bb : 'a word = n2w (nat_of_bytes bb * 2**(8*i))
+Proof
+qspec_tac(`i`,`i`)
+>>Induct_on`bb`>>simp[word_of_bytes_def,nat_of_bytes_def]
+>>strip_tac>>strip_tac
+>>pop_assum $ qspec_then`SUC i`mp_tac
+>>rw[n2w_SUC]
+>>rw1 set_byte_n2w
+>>cheat
+QED
+
+
 Theorem exec_I64_LOAD8_aux1:
   align_nat 3 ad + 8 <= LENGTH memory ⇒
-  word_of_bytes F 0w (TAKE 1 (DROP ad memory)) : word8 =
-  word_of_bytes F 0w (TAKE 8 (DROP (align_nat 3 ad) memory)) >>> (8 * (ad MOD 8))
+  word_of_bytes F 0w (TAKE 1 (DROP ad memory)) : word64 =
+  (7--0)(word_of_bytes F 0w (TAKE 8 (DROP (align_nat 3 ad) memory)) >>> (8 * (ad MOD 8)))
 Proof
 subgoal‘∀ad memory.
-  ad<8 ∧ 8<=LENGTH memory ⇒
-  word_of_bytes F 0w (TAKE 1 (DROP ad memory)) : word8 =
-  word_of_bytes F 0w (TAKE 8 memory) >>> (8*ad)
+  ad<8 ∧ SUC ad <= LENGTH memory ⇒
+  word_of_bytes F 0w (TAKE 1 (DROP ad memory)) : word64 =
+  (7--0)(word_of_bytes F 0w (TAKE(SUC ad)memory) >>> (8*ad))
 ’
 >-(
-(*rw[]
->>`∃b0 b1 b2 b3 b4 b5 b6 b7 rest. memory = b0::b1::b2::b3::b4::b5::b6::b7::rest` by cheat
+strip_tac
+>>Induct_on`ad`
+>>rw[]
+>-(
+`∃b0 rest. memory = b0::rest` by (Cases_on`memory`>>fs[])
 >>gvs[word_of_bytes_def]
->>*)cheat
+>>rw1 get_byte_intro1
+>>simp[get_byte_set_byte]
+>>simp[set_byte_def,byte_index_def]
+>>simp[word_slice_alt_empty,word_slice_alt_zero]
+)
+>>`∃b0 rest. memory = b0::rest` by (Cases_on`memory`>>fs[])
+>>first_x_assum $ assume_tac o SPEC“rest:word8 list”
+>>gvs[]
+>>pop_assum kall_tac
+>>cheat
 )
 >>subgoal`ad = align_nat 3 ad + ad MOD 8`
 >-(
@@ -1370,9 +1438,11 @@ simp[align_nat_def]
 >>`(ad + align_nat 3 ad) MOD 8 = ad MOD 8` by (simp[align_nat_def]>>intLib.ARITH_TAC)
 >>`ad MOD 8 + align_nat 3 ad < LENGTH memory` by intLib.ARITH_TAC
 >>gvs[]
+>>cheat
 QED
 
 (* drule *)
+(*
 Theorem exec_I64_LOAD8:
   state_rel c s t ∧
   mem_load_byte_aux s.memory s.mdomain F ad64 = SOME b ∧
@@ -1425,6 +1495,7 @@ by fs[mem_rel_def]
 )
 >>simp[push_def]
 QED
+*)
 
 Theorem push_inj[simp]:
   push a t = push b t <=> a = b
