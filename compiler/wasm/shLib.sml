@@ -2,9 +2,10 @@
   Shuhan's misc utilities
 *)
 structure shLib = struct
-local open HolKernel boolLib bossLib in
-
+local
+open HolKernel boolLib bossLib
 val ERR = mk_HOL_ERR "shLib"
+in
 
 (*
 fun component_equality_of ty = let
@@ -135,7 +136,7 @@ fun record_canon_simp_conv tm = let
     map (fn (_,{fupd,...}) => const_thy_name fupd) fields
     |> Array.fromList
   val {Thy, Tyop, ...} = dest_thy_type ty
-  val fupdcanon = fetch Thy (Tyop^"_fupdcanon")
+  val fupdcanon = fetch Thy (Tyop^"_fupdcanon") (* helper thms as parameters *)
   val fupdfupds = fetch Thy (Tyop^"_fupdfupds")
   val (inner_tm, updated_by) = dest_fupd tm
   val nf = Array.length updated_by
@@ -239,36 +240,48 @@ fun undisch_ex_all concl_fv thm = let
     else (thm, a)
   in f [] thm end
 
-(* thm: Γ, R y ==> P x = Q x *)
+(* thm: Γ, R x y ==> P x = Q x *)
 fun rw1 thm = fn (asl,c) => let
   val spec_thm = SPEC_ALL $ GEN_ALL thm
   val (lhs, rhs) = dest_eq $ snd $ strip_imp $ concl spec_thm
-  fun f ctx tm =
+  fun f ctx bv tm =
     case try_match_term lhs tm of
-      SOME m => SOME (tm, ctx, m)
+      SOME m =>
+      SOME (tm, ctx, m, HOLset.intersection (HOLset.addList (empty_tmset, bv), FVL [tm] empty_tmset))
     | NONE =>
       case dest_term tm of
         VAR _ => NONE | CONST _ => NONE
       | COMB (tm1,tm2) =>
         (
-          case f (fn tm => ctx $ mk_comb (tm,tm2)) tm1 of SOME x => SOME x | NONE =>
-          f (fn tm => ctx $ mk_comb (tm1,tm)) tm2
+          case f (fn tm => ctx $ mk_comb (tm,tm2)) bv tm1 of SOME x => SOME x | NONE =>
+          f (fn tm => ctx $ mk_comb (tm1,tm)) bv tm2
         )
       | LAMB (x,tm1) =>
-        f (fn tm => ctx $ mk_abs (x,tm)) tm1
+        f (fn tm => ctx $ mk_abs (x,tm)) (x::bv) tm1
   in
-    case f I c of
-      SOME (lhs', ctx, (sub, tysub)) => let
+    case f I [] c of
+      SOME (lhs', ctx, (sub, tysub), bv) => let
       val rhs' = subst sub $ inst tysub rhs
       val eq_fv = FVL [lhs',rhs'] empty_tmset
-      val x(*placeholder*) = genvar (type_of lhs')
       val inst_spec_thm = INST sub $ INST_TYPE tysub spec_thm
-      (* Γ, ∃y. R y |- P x = Q x *)
+      (* Γ, ∃y. R x y |- P x = Q x *)
       val (eq, eq_assums) = undisch_ex_all eq_fv inst_spec_thm
-      (* Γ, ∃y. R y |- C (Q x) ==> C (P x) *)
+      val _ =
+        List.app
+        (
+          fn R => let
+          val bv_free_in_R = HOLset.filter (fn bv => free_in bv R) bv
+          in
+            if HOLset.isEmpty bv_free_in_R then ()
+            else raise ERR "rw1" "side conditions mention variables bound in goal"
+          end
+        )
+        eq_assums
+      val x(*placeholder*) = genvar (type_of lhs')
+      (* Γ, ∃y. R x y |- C (Q x) ==> C (P x) *)
       val th1 = SUBST [x|->eq] (mk_imp (ctx x, c)) (DISCH c $ ASSUME c)
       val n_eq_assums = length eq_assums
-      (* irule: Γ |- ∃y. R y ==> C (Q x) ==> C (P x) *)
+      (* irule: Γ |- ∃y. R x y ==> C (Q x) ==> C (P x) *)
       (* note that “C (P x)” itself may be an implication *)
       val th2 = foldl (uncurry DISCH) th1 eq_assums
 (*

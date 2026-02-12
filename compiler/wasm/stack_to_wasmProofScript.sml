@@ -5,8 +5,9 @@ Theory stack_to_wasmProof
 Libs
   preamble helperLib shLib
 Ancestors
-  sh_a11y longmul word_lemmas add_carry misc wasmLang
+  sh_a11y longmul word_lemmas add_carry misc wasmLang wasm_instructions
   wasmSem stackSem stackLang stackProps asm
+
 val _ = numLib.prefer_num ();
 
 (* TODO: move Irvin's simps *)
@@ -1302,6 +1303,129 @@ rw1 do_ld_thm
 (*EVAL``byte_align (63w:word64)``;*)
 QED
 
+Theorem w2w_w2w_lt_dimword:
+  w2n a < dimword(:'a) ⇒ w2w(w2w a:'a word) = a
+Proof
+simp[w2w_def]
+QED
+
+Definition align_nat_def:
+  align_nat p n = n - n MOD (2**p)
+End
+
+Theorem w2n_MOD_2e_dimindex:
+  w2n (w:'a word) MOD 2 ** dimindex(:'a) = w2n w
+Proof
+simp[REWRITE_RULE[dimword_def]w2n_lt]
+QED
+
+Theorem w2n_align:
+  w2n (align p w) = align_nat p (w2n w)
+Proof
+simp[align_def,align_nat_def]
+>>`w2n ((dimindex (:α) − 1 '' p) (n2w (w2n w):'a word)) = w2n w − w2n w MOD 2 ** p`
+suffices_by rewrite_tac[n2w_w2n]
+>>simp[wordsTheory.word_slice_n2w]
+>>simp[bitTheory.SLICE_def,bitTheory.MOD_2EXP_def]
+>>simp[prove(“SUC (dimindex(:'a) - 1) = dimindex(:'a)”, simp[DIMINDEX_GT_0])]
+>>simp[w2n_MOD_2e_dimindex]
+>>qspec_then`w`assume_tac w2n_lt
+>>decide_tac
+QED
+
+Theorem w2n_byte_align:
+  w2n (byte_align (w:'a word)) = align_nat (LOG2 (dimindex (:α) DIV 8)) (w2n w)
+Proof
+simp[byte_align_def,w2n_align]
+QED
+
+Theorem exec_I64_LOAD8_aux1:
+  align_nat 3 ad + 8 <= LENGTH memory ⇒
+  word_of_bytes F 0w (TAKE 1 (DROP ad memory)) : word8 =
+  word_of_bytes F 0w (TAKE 8 (DROP (align_nat 3 ad) memory)) >>> (8 * (ad MOD 8))
+Proof
+subgoal‘∀ad memory.
+  ad<8 ∧ 8<=LENGTH memory ⇒
+  word_of_bytes F 0w (TAKE 1 (DROP ad memory)) : word8 =
+  word_of_bytes F 0w (TAKE 8 memory) >>> (8*ad)
+’
+>-(
+(*rw[]
+>>`∃b0 b1 b2 b3 b4 b5 b6 b7 rest. memory = b0::b1::b2::b3::b4::b5::b6::b7::rest` by cheat
+>>gvs[word_of_bytes_def]
+>>*)cheat
+)
+>>subgoal`ad = align_nat 3 ad + ad MOD 8`
+>-(
+simp[align_nat_def]
+>>intLib.ARITH_TAC
+)
+>>pop_assum $ PURE_ONCE_REWRITE_TAC o single
+>>pop_assum (fn th => assume_tac$SPECL[“ad:num MOD 8”,“DROP (align_nat 3 (ad:num)) (memory:word8 list)”]th)
+>>`align_nat 3 (align_nat 3 ad + ad MOD 8) = align_nat 3 ad` by (simp[align_nat_def]>>intLib.ARITH_TAC)
+>>gvs[LENGTH_DROP]
+>>strip_tac
+>>`ad MOD 8 < 8 ∧ 8 ≤ LENGTH (DROP (align_nat 3 ad) memory)` by simp[LENGTH_DROP]
+>>gvs[DROP_DROP_T,EL_DROP]
+>>`(ad + align_nat 3 ad) MOD 8 = ad MOD 8` by (simp[align_nat_def]>>intLib.ARITH_TAC)
+>>`ad MOD 8 + align_nat 3 ad < LENGTH memory` by intLib.ARITH_TAC
+>>gvs[]
+QED
+
+(* drule *)
+Theorem exec_I64_LOAD8:
+  state_rel c s t ∧
+  mem_load_byte_aux s.memory s.mdomain F ad64 = SOME b ∧
+  ad64 = w2w(ad32+ofs) ∧
+  w2n ad32 + w2n ofs < 0x100000000 ⇒
+  exec (I64_LOAD8_U ofs) (push (I32 ad32) t) = (RNormal, push (I64 (w2w b)) t)
+Proof
+strip_tac
+>>simp[I64_LOAD8_U_def,exec_def]
+>>subgoal`w2n(ad32+ofs) = w2n ad32 + w2n ofs`
+>-(irule w2n_add_2>>simp[])
+>>subgoal‘do_ld ad32 (LoadNarrow I8x16 Unsigned W64 ofs 1w) t.memory = SOME (I64 (w2w b))’
+>-(
+rw1 do_ld_thm
+>>simp[load_op_rel_cases]
+>>simp[sext_def,ancillaryOpsTheory.load_def]
+>>gvs[wordSemTheory.mem_load_byte_aux_def,AllCaseEqs()]
+>>simp[get_byte_def,byte_index_def]
+>>`mem_rel s.mdomain s.memory t.memory` by fs[state_rel_def]
+>>‘word_of_bytes F 0w (TAKE 8 (DROP (w2n (byte_align (w2w (ad32 + ofs):64 word))) t.memory)) =
+         wl_word (s.memory (byte_align (w2w (ad32 + ofs):64 word)))’
+by fs[mem_rel_def]
+>>`w2n (byte_align (w2w (ad32 + ofs):64 word)) + 8 ≤ LENGTH t.memory`
+by fs[mem_rel_def]
+>>pop_assum mp_tac
+>>simp[byte_align_def,w2n_align,w2n_w2w,align_nat_def]
+>>strip_tac
+>>conj_tac
+>-(
+(*rw1$prove(“w2n(w2w(ad32+ofs:32 word):64 word)=w2n(ad32+ofs)”,simp[w2n_w2w])*)
+rw1$prove(“w2w(a:word8):word64=w2w(b:word8)<=>a=b”, rw1$GSYM w2n_11_lift>>simp[w2n_11])
+>>rw1 exec_I64_LOAD8_aux1
+>-simp[align_nat_def]
+>>gvs[w2n_byte_align,wl_word_def]
+>>simp[w2n_w2w]
+(*
+Globals.show_types:=true
+*)
+>>cheat
+(*
+Globals.show_types:=false
+*)
+)
+>>`w2n (byte_align (w2w (ad32 + ofs):64 word)) + 8 ≤ LENGTH t.memory`
+by fs[mem_rel_def]
+>>pop_assum mp_tac
+>>simp[byte_align_def,w2n_align,w2n_w2w]
+>>simp[align_nat_def]
+>>intLib.ARITH_TAC
+)
+>>simp[push_def]
+QED
+
 Theorem push_inj[simp]:
   push a t = push b t <=> a = b
 Proof
@@ -1858,12 +1982,6 @@ Theorem set_global'_stack[simp]:
   (set_global' i v t).stack = t.stack
 Proof
 simp[set_global'_def]
-QED
-
-Theorem w2w_w2w_lt_dimword:
-  w2n a < dimword(:'a) ⇒ w2w(w2w a:'a word) = a
-Proof
-simp[w2w_def]
 QED
 
 Theorem compile_Inst:
