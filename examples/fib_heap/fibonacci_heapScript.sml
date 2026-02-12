@@ -397,17 +397,26 @@ Proof
      ft_seg_def, ones_def, SEP_CLAUSES, flag_off_def] >>
   SEP_R_TAC >>
   IF_CASES_TAC
-  >-
-    (`fts = [] /\ fh = FEMPTY` by cheat >> (* fix by me *)
+  >- (
+    Cases_on `fts` >>
+    Cases_on `fh` >>
+    (*(`fts = [] /\ fh = FEMPTY` by cheat >> (* fixed by me *)*)
     gvs[] >>
     fs[fib_heap_empty_append_def,before_off_def, next_off_def] >>
-    SEP_R_TAC >> strip_tac >> gvs[] >>
+    SEP_R_TAC >>
+    strip_tac >> gvs[] >>
     SEP_W_TAC >>
     PairCases_on `v` >>
-    qexists `[FibTree a' ARB []]` >>
+    rename1 `(a',v,e)` >>
+    qexists `[FibTree a' (fill_dnode v e T F) []]` >>
     fs[ann_fts_def, ann_fts_seg_def, last_key_def,fts_mem_def,
        SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
-       next_key_def, ones_def] >>
+       fill_dnode_def, next_key_def, ones_def, STAR_ASSOC] >>
+    gvs[] >>
+    fs[fib_heap_inv_def,fib_heap_shape_ok_def,fib_heap_size_def] >>
+    simp[Ntimes fib_num_def 3] >>
+    simp[Once fib_num_def] >>
+    fs[head_key_def, fts_is_min_def,fill_dnode_def] >>
     cheat)
 >> cheat
 QED
