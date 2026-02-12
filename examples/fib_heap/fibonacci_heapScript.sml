@@ -328,15 +328,33 @@ End
 
 Definition fib_heap_append_def:
   fib_heap_append
-    (k1:'a word, k2:'a word, last:'a word, sec:'a word, m:'a word -> 'a word, dm :'a word set, c: bool)
+    (k1:'a word, k2:'a word, fst:'a word, m:'a word -> 'a word, dm :'a word set, c: bool)
   =
-    let m = ((last + next_off) =+ k2) m in
-    let m = ((k2 + before_off) =+ last) m in
-    let m = ((sec + before_off) =+ k1) m in
-    let m = ((k2 + next_off) =+ k1) m in
-    let m = ((k1 + before_off) =+ k2) m in
-    let m = ((k1 + next_off) =+ sec) m in
-      (k1, m, c)
+    (*load last elem*)
+    let c = (fst + before_off IN dm /\ c) in
+    let last = m (fst + before_off) in
+    (*load sec elem*)
+    let c = (fst + next_off IN dm /\ c) in
+    let sec = m (fst + next_off) in
+    (*Ensure values in heap *)
+    let c = (last + next_off IN dm /\ c) in
+    let c = (sec + before_off IN dm /\ c) in
+    (*put k1 as fst element and k2 as new last - order important!*)
+    if fst = sec then
+      (*only one element in the list *)
+      let m = ((k1 + next_off) =+ k2) m in
+      let m = ((k1 + before_off) =+ k2) m in
+      let m = ((k2 + next_off) =+ k1) m in
+      let m = ((k2 + before_off) =+ k1) m in
+        (k1, m, c)
+    else
+      let m = ((k2 + before_off) =+ last) m in
+      let m = ((k2 + next_off) =+ k1) m in
+      let m = ((k1 + before_off) =+ k2) m in
+      let m = ((k1 + next_off) =+ sec) m in
+      let m = ((sec + before_off) =+ k1) m in
+      let m = ((last + next_off) =+ k2) m in
+        (k1, m, c)
 End
 
 Definition fib_heap_insert_def:
