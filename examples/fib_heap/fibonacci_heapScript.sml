@@ -286,59 +286,27 @@ Definition fib_num_def:
 End
 
 (*See paper S_k >= F_{k+2} >= k-decandants *)
-Definition fib_heap_identity_def:
-  fib_heap_identity (FibTree k v ts) = ((1 + fib_heap_size ts) >= fib_num ((LENGTH ts) + 2))
-End (* flip >=*)
-
 Definition fib_heap_shape_ok_def:
   (fib_heap_shape_ok [] = T) /\
   (fib_heap_shape_ok ((FibTree k v ys)::ts) <=>
-    1 + fib_heap_size ys >= fib_num ((LENGTH ys) + 2) /\
+    (fib_num ((LENGTH ys) + 2) <= 1 + fib_heap_size ys) /\
     fib_heap_shape_ok ys /\
     fib_heap_shape_ok ts)
 End
 
-Definition get_parent_def:
-  get_parent (FibTree k n _) = n.parent_ptr
-End
 
-Definition get_child_def:
-  get_child (FibTree k n _) = n.child_ptr
-End
-(*
-Definition ft_wf_parent_def:
-  (ft_wf_parent p [] = T) /\
-  (ft_wf_parent p (FibTree k n ts::rest) = ((n.parent_ptr = p) /\ ft_wf_parent p rest))
-End
-*)
-(*
-Definition fts_wf_child_def:
-  (fts_wf_child pn [] = T) /\
-  (fts_wf_child pn (FibTree k n ts::rest) =
-End
-
-Definition ft_wf_child_def:
-  (ft_wf_child (FibTree k n []) = (n.child_ptr = 0w)) /\
-  (ft_wf_child (FibTree k n (FibTree ck cn cts::rest)) =
-    (n.child_ptr = ck) /\
-    (ft_wf_child (FibTree ck cn cts) )
-End
-
-Definition ft_desc_def:
-  (ft_desc (FibTree k n []) = (n.child_ptr = 0w)) /\
-  (ft_desc (FibTree k n (FibTree ck cn cts::rest)) = (n.child_ptr = ck /\ )
-End
-*)
 Definition fib_heap_inv_def:
   fib_heap_inv fh (fts: ('a word, 'a node_data) fts) ⇔
-    (!k v. FLOOKUP fh k = SOME v ==> k <> 0w) /\ (*k is not null*)
+    (!k v. FLOOKUP fh k = SOME v ==> k <> 0w) /\
     (∀k v e. FLOOKUP fh k = SOME (v,e) ⇔
-             ? m. fts_has k (fill_dnode v e T m) fts) /\ (*sem. equiv. of fh + fts*)
+             ? m. fts_has k (fill_dnode v e T m) fts) /\
     (!k v e.
       (FLOOKUP fh k = SOME (v,e)) /\ k = head_key fts ==>
-      fts_is_min v fts) /\(*min element*)
-    (fib_heap_shape_ok fts) (*identity*)
-    (* Do not reason about well-formed trees -> this only affects extract minimum*)
+      fts_is_min v fts) /\
+    (fib_heap_shape_ok fts)
+(*Everything else should be valid by annotation, construction of the heap,
+  or is an individual assertion for a heap operation.
+*)
 End
 
 Definition fib_heap_def:
