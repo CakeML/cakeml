@@ -372,17 +372,11 @@ Definition fib_heap_insert_def:
         (* load value at a *)
         let c = (a ∈ dm ∧ c) in
         let v_of_a = m a in
-        (* load last element *)
-        let c = (v_of_a + before_off IN dm /\ c) in
-        let last = m (v_of_a + before_off) in
-        (* load sec element *)
-        let c = (v_of_a + next_off IN dm /\ c) in
-        let sec = m (v_of_a + next_off) in
         (* check whether k goes first *)
         if v_of_k <=+ v_of_a then
-            fib_heap_append (k, a, last, sec, m, dm, c)
+            fib_heap_append (k, a, a, m, dm, c)
         else
-            fib_heap_append (a, k, last, sec, m, dm, c)
+            fib_heap_append (a, k, a, m, dm, c)
 End
 
 Theorem fib_heap_insert:
