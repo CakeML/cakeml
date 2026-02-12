@@ -1476,6 +1476,11 @@ Proof
   >-
    (gvs [oneline dest_Litv_def, AllCaseEqs()]
     \\ fs [Once v_rel_cases] \\ gvs []
+    \\ simp [Once evaluate_def, do_app_def]
+    \\ simp [MAP_MAP_o,o_DEF,ORD_BOUND])
+  >-
+   (gvs [oneline dest_Litv_def, AllCaseEqs()]
+    \\ fs [Once v_rel_cases] \\ gvs []
     \\ Cases_on ‘cmp’
     \\ gvs [closSemTheory.evaluate_def,closSemTheory.do_app_def,
             fpSemTheory.fp_cmp_def,
@@ -1487,6 +1492,11 @@ Proof
             closSemTheory.do_app_def,imp_cmp_eq_num_cmp,
             w2n_lt |> INST_TYPE [alpha|->“:8”] |> SRULE [],
             closSemTheory.do_word_app_def])
+  >-
+   (gvs [oneline dest_Litv_def, AllCaseEqs()]
+    \\ fs [Once v_rel_cases] \\ gvs []
+    \\ simp [Once evaluate_def, do_app_def]
+    \\ simp [MAP_MAP_o,o_DEF,ORD_BOUND])
   >-
    (gvs [oneline dest_Litv_def, AllCaseEqs()]
     \\ fs [Once v_rel_cases] \\ gvs []

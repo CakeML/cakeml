@@ -399,7 +399,7 @@ Proof
   assume_tac strict_weak_order_string_cmp \\
   xlet_auto >- (
     xsimpl
-    \\ mp_tac StringProgTheory.mlstring_lt_v_thm
+    \\ mp_tac StringProgTheory.string_lt_v_thm
     \\ simp[mlstringTheory.mlstring_lt_inv_image,inv_image_def] )
   \\ xapp >>
   xsimpl >>

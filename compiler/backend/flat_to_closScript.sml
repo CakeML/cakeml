@@ -177,6 +177,10 @@ Definition compile_op_def:
                           | Compare Gt  => Op t (WordOp (FP_cmp FP_Greater)) xs
                           | Compare Geq => Op t (WordOp (FP_cmp FP_GreaterEqual)) xs
                           | _           => Op t (WordOp (FP_cmp FP_Equal)) xs)
+          | StrT      => (case test of
+                          | Compare opb    => Op t (MemOp (StringCmp F opb)) xs
+                          | AltCompare opb => Op t (MemOp (StringCmp T opb)) xs
+                          | _              => Op t (BlockOp Equal) xs)
           | _         => Op t (BlockOp Equal) xs)
     | Aw8length => Op t (MemOp LengthByte) xs
     | AallocFixed => Op t (MemOp Ref) xs

@@ -398,6 +398,13 @@ Definition do_app_def:
             | SOME ds1 => Rval (Unit, s with refs := s.refs |+ (dst, ByteArray fl ds1))
             | NONE => Error)
          | _ => Error)
+    | (MemOp (StringCmp b cmp),[RefPtr _ s1; RefPtr _ s2]) =>
+        (case (FLOOKUP s.refs s1, FLOOKUP s.refs s2) of
+         | (SOME (ByteArray _ ws1), SOME (ByteArray _ ws2)) =>
+             (let s1 = implode (MAP (CHR o w2n) ws1) in
+              let s2 = implode (MAP (CHR o w2n) ws2) in
+                Rval (Boolv (semanticPrimitives$str_cmp b cmp s1 s2), s))
+         | _ => Error)
     | (BlockOp (TagEq n),[Block tag xs]) =>
         Rval (Boolv (tag = n), s)
     | (BlockOp (LenEq l),[Block tag xs]) =>

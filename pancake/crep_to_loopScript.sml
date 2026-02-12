@@ -228,7 +228,7 @@ Definition comp_func_def:
 End
 
 Definition first_name_def:
-  first_name = 62:num
+  first_name = 64:num
 End
 
 Definition make_funcs_def:
@@ -251,5 +251,3 @@ Definition compile_prog_def:
           loop_live$optimise (comp params (crep_arith$simp_prog body))))
    fnums prog
 End
-
-

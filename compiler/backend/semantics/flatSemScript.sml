@@ -254,8 +254,12 @@ Definition do_test_def:
      | (CharT,    SOME (Char c),    SOME (Char d))    => Eq_val (num_cmp cmp (ORD c) (ORD d))
      | (WordT W8, SOME (Word8 w),   SOME (Word8 v))   => Eq_val (num_cmp cmp (w2n w) (w2n v))
      | (Float64T, SOME (Float64 w), SOME (Float64 v)) => Eq_val (fp_cmp cmp w v)
+     | (StrT,     SOME (StrLit s),  SOME (StrLit t))  => Eq_val (str_cmp F cmp s t)
      | _ => Eq_type_error) ∧
-  do_test _ ty v1 v2 = Eq_type_error
+  do_test (AltCompare cmp) ty v1 v2 =
+    (case (ty, dest_Litv v1, dest_Litv v2) of
+     | (StrT,     SOME (StrLit s),  SOME (StrLit t))  => Eq_val (str_cmp T cmp s t)
+     | _ => Eq_type_error)
 End
 
 Definition v_to_flat_def:

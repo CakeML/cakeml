@@ -838,6 +838,17 @@ Definition int_cmp_def[simp]:
   int_cmp Geq i j = (i >= j)
 End
 
+Definition str_cmp_def[simp]:
+  str_cmp F Lt  i j = mlstring$mlstring_lt i j ∧
+  str_cmp F Leq i j = mlstring$mlstring_le i j ∧
+  str_cmp F Gt  i j = mlstring$mlstring_gt i j ∧
+  str_cmp F Geq i j = mlstring$mlstring_ge i j ∧
+  str_cmp T Lt  i j = mlstring$fast_lt i j ∧
+  str_cmp T Leq i j = mlstring$fast_le i j ∧
+  str_cmp T Gt  i j = mlstring$fast_gt i j ∧
+  str_cmp T Geq i j = mlstring$fast_ge i j
+End
+
 Definition do_test_def: (* TODO: extend with more cases *)
   do_test Equal ty v1 v2 =
     (if check_type ty v1 ∧ check_type ty v2 then
@@ -851,8 +862,12 @@ Definition do_test_def: (* TODO: extend with more cases *)
      | (CharT,    SOME (Char c),    SOME (Char d))    => Eq_val (num_cmp cmp (ORD c) (ORD d))
      | (WordT W8, SOME (Word8 w),   SOME (Word8 v))   => Eq_val (num_cmp cmp (w2n w) (w2n v))
      | (Float64T, SOME (Float64 w), SOME (Float64 v)) => Eq_val (fp_cmp cmp w v)
+     | (StrT,     SOME (StrLit s),  SOME (StrLit t))  => Eq_val (str_cmp F cmp s t)
      | _ => Eq_type_error) ∧
-  do_test _ ty v1 v2 = Eq_type_error
+  do_test (AltCompare cmp) ty v1 v2 =
+    (case (ty, dest_Litv v1, dest_Litv v2) of
+     | (StrT,     SOME (StrLit s),  SOME (StrLit t))  => Eq_val (str_cmp T cmp s t)
+     | _ => Eq_type_error)
 End
 
 Definition do_arith_def:
