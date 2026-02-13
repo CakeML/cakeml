@@ -98,7 +98,7 @@ val r = translate presLangTheory.default_tap_config_def;
 val def = spec32
   (backendTheory.attach_bitmaps_def
    |> Q.GENL[`c'`,`bytes`,`c`]
-   |> Q.ISPECL[`lab_conf:'a lab_to_target$config`,`bytes:word8 list`,`c:'a backend$config`])
+   |> Q.ISPECL[`lab_conf:lab_to_target$config`,`bytes:word8 list`,`c:backend$config`])
 
 val res = translate def
 
@@ -343,7 +343,7 @@ val res = translate backendTheory.ffinames_to_string_list_def;
 
 val res = format_compiler_result_def
         |> Q.GENL[`bytes`,`c`]
-        |> Q.ISPECL[`bytes:word8 list`,`c:'a backend$config`]
+        |> Q.ISPECL[`bytes:word8 list`,`c:backend$config`]
         |> spec32
         |> translate;
 

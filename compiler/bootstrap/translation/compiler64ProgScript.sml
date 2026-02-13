@@ -104,7 +104,7 @@ val r = translate presLangTheory.default_tap_config_def;
 val def = spec64
           (backendTheory.attach_bitmaps_def
              |> Q.GENL[`c'`,`bytes`,`c`]
-             |> Q.ISPECL[`lab_conf:'a lab_to_target$config`,`bytes:word8 list`,`c:'a backend$config`])
+             |> Q.ISPECL[`lab_conf:lab_to_target$config`,`bytes:word8 list`,`c:backend$config`])
 
 val res = translate def
 
@@ -374,7 +374,7 @@ val res = translate add_tap_output_def;
 
 val res = format_compiler_result_def
             |> Q.GENL[`bytes`,`c`]
-            |> Q.ISPECL[`bytes:word8 list`,`c:'a backend$config`]
+            |> Q.ISPECL[`bytes:word8 list`,`c:backend$config`]
             |> spec64
             |> translate;
 
@@ -434,12 +434,6 @@ val compiler_for_eval_alt =
                        EVAL “x64_config.addr_offset”,upper_w2w_eq_I,
                        EVAL “x64_config.ISA”, EVAL “x86_64 = ARMv7”]
 
-val r = translate (lab_to_targetTheory.to_shmem_info_def |> spec64);
-val r = translate (lab_to_targetTheory.inc_config_to_config_def |> spec64);
-val r = translate (lab_to_targetTheory.to_inc_shmem_info_def |> spec64);
-val r = translate (lab_to_targetTheory.config_to_inc_config_def |> spec64);
-val r = translate (backendTheory.inc_config_to_config_def |> spec64);
-val r = translate (backendTheory.config_to_inc_config_def |> spec64);
 val r = translate (word_to_wordTheory.compile_single_def |> spec64);
 val r = translate (word_to_wordTheory.full_compile_single_def |> spec64);
 val r = translate (word_to_wordTheory.full_compile_single_for_eval_def |> spec64);

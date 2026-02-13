@@ -2598,17 +2598,6 @@ Proof
   Cases_on `opt_ev` \\ simp [add_eval_state_def]
 QED
 
-(* delete?
-Definition compile_inc_progs_for_eval_def:
-  compile_inc_progs_for_eval asm_c x =
-  let (env_id, inc_c', decs) = x in
-  let c' = inc_config_to_config asm_c inc_c' in
-  let (c'', ps) = compile_inc_progs T asm_conf c' (env_id, decs) in
-    OPTION_MAP (\(bs, ws). (config_to_inc_config c'', bs,
-            MAP data_to_word_gcProof$upper_w2w ws))
-        ps.target_prog
-End
-*)
 
 Definition opt_eval_config_wf_def:
   opt_eval_config_wf asm_conf c' (SOME ci) = (
@@ -2812,19 +2801,6 @@ Proof
     \\ irule_at Any EQ_REFL
   )
 QED
-
-(*
-Theorem compile_inc_config_inv[local]:
-  compile asm_conf c prog = SOME (b,bm,c') ==>
-  inc_config_to_config asm_conf
-    (config_to_inc_config (cake_configs asm_conf c' syntax k)) =
-    cake_configs asm_conf c' syntax k
-Proof
-  rw []
-  \\ drule cake_orac_config_eqs
-  \\ simp [inc_config_to_config_inv]
-QED
-*)
 
 Theorem step_invs_cake_orac[local]:
   st.oracle = f o cake_orac asm_conf c' syn I I ==>
