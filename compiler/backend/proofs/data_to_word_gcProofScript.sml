@@ -8060,6 +8060,7 @@ Proof
   \\ fs [WORD_LO,w2n_lsr] \\ rfs []
   \\ reverse (Cases_on `w2n w DIV 4 < limit`) \\ fs [] THEN1
    (rfs [word_exp_rw,wordSemTheory.set_var_def,lookup_insert]
+    \\ gvs [asmTheory.word_cmp_def,WORD_LO]
     \\ reverse FULL_CASE_TAC
     \\ qpat_assum `state_rel c l1 l2 s t [] locs` mp_tac
     \\ rewrite_tac [state_rel_def] \\ strip_tac
@@ -8135,7 +8136,8 @@ Proof
     \\ drule_all state_rel_cut_env \\ strip_tac
     \\ drule_at Any has_space_state_rel
     \\ gvs [] \\ disch_then irule
-    \\ fs [wordSemTheory.has_space_def,wordSemTheory.get_store_def])
+    \\ fs [wordSemTheory.has_space_def,wordSemTheory.get_store_def]
+    \\ gvs [asmTheory.word_cmp_def, WORD_LO])
   \\ fs [lookup_insert]
   \\ reverse (Cases_on `c.call_empty_ffi`)
   THEN1

@@ -595,15 +595,6 @@ Definition word_tc_def:
 End
 
 Definition op_to_string_def:
-  (op_to_string (Opn _) = («Opn», 2n)) ∧
-  (op_to_string (Opb _) = («Opb», 2)) ∧
-  (op_to_string (Opw _ _) = («Opw», 2)) ∧
-  (op_to_string (FP_top _) = («FP_top», 3)) ∧
-  (op_to_string (FP_bop _) = («FP_bop», 2)) ∧
-  (op_to_string (FP_uop _) = («FP_uop», 1)) ∧
-  (op_to_string (FP_cmp _) = («FP_cmp», 2)) ∧
-  (op_to_string (FpToWord) = («FpToWord», 1)) /\
-  (op_to_string (FpFromWord) = («FpFromWord», 1)) /\
   (op_to_string (Shift _ _ _) = («Shift», 1)) ∧
   (op_to_string Equality = («Equality», 2)) ∧
   (op_to_string (Arith a ty) =
@@ -621,15 +612,11 @@ Definition op_to_string_def:
   (op_to_string Aw8update = («Aw8update», 3)) ∧
   (op_to_string Aw8sub_unsafe = («Aw8sub_unsafe», 2)) ∧
   (op_to_string Aw8update_unsafe = («Aw8update_unsafe», 3)) ∧
-  (op_to_string (WordFromInt _) = («WordFromInt», 1)) ∧
-  (op_to_string (WordToInt _) = («WordToInt», 1)) ∧
   (op_to_string XorAw8Str_unsafe = («XorAw8Str_unsafe», 2)) ∧
   (op_to_string CopyStrStr = («CopyStrStr», 3)) ∧
   (op_to_string CopyStrAw8 = («CopyStrAw8», 5)) ∧
   (op_to_string CopyAw8Str = («CopyAw8Str», 3)) ∧
   (op_to_string CopyAw8Aw8 = («CopyAw8Aw8», 5)) ∧
-  (op_to_string Chr = («Chr», 1)) ∧
-  (op_to_string Ord = («Ord», 1)) ∧
   (op_to_string Strsub = («Strsub», 2)) ∧
   (op_to_string Implode = («Implode», 1)) ∧
   (op_to_string Explode = («Explode», 1)) ∧
@@ -672,9 +659,6 @@ End
 Definition op_simple_constraints_def:
 op_simple_constraints op =
   case op of
-   | Opn _ => (T, [Tem Tint_num; Tem Tint_num], Tem Tint_num)
-   | Opb _ => (T, [Tem Tint_num; Tem Tint_num], Tem Tbool_num)
-   | Opw wz opw => (T, [Tem (word_tc wz); Tem (word_tc wz)], Tem (word_tc wz))
    | Arith a ty => (case supported_arith a ty of
                     | NONE => (F, [], Tem Tbool_num)
                     | SOME arity =>
@@ -685,21 +669,12 @@ op_simple_constraints op =
    | Test test ty => (supported_test test ty,
                       [Tem (t_num_of ty); Tem (t_num_of ty)],
                       Tem Tbool_num)
-   | FP_top _ => (T, [Tem Tdouble_num; Tem Tdouble_num; Tem Tdouble_num],
-        Tem Tdouble_num)
-   | FP_bop _ => (T, [Tem Tdouble_num; Tem Tdouble_num], Tem Tdouble_num)
-   | FP_uop _ => (T, [Tem Tdouble_num], Tem Tdouble_num)
-   | FP_cmp _ => (T, [Tem Tdouble_num; Tem Tdouble_num], Tem Tbool_num)
-   | FpFromWord => (T, [Tem Tword64_num], Tem Tdouble_num)
-   | FpToWord => (T, [Tem Tdouble_num], Tem Tword64_num)
    | Shift wz _ _ => (T, [Tem (word_tc wz)], Tem (word_tc wz))
    | Aw8alloc => (T, [Tem Tint_num; Tem Tword8_num], Tem Tword8array_num)
    | Aw8sub => (T, [Tem Tword8array_num; Tem Tint_num], Tem Tword8_num)
    | Aw8length => (T, [Tem Tword8array_num], Tem Tint_num)
    | Aw8update => (T, [Tem Tword8array_num; Tem Tint_num; Tem Tword8_num],
         Tem Ttup_num)
-   | WordFromInt wz => (T, [Tem Tint_num], Tem (word_tc wz))
-   | WordToInt wz => (T, [Tem (word_tc wz)], Tem Tint_num)
    | CopyStrStr => (T, [Tem Tstring_num; Tem Tint_num; Tem Tint_num],
         Tem Tstring_num)
    | CopyStrAw8 => (T, [Tem Tstring_num; Tem Tint_num; Tem Tint_num;
@@ -708,8 +683,6 @@ op_simple_constraints op =
         Tem Tstring_num)
    | CopyAw8Aw8 => (T, [Tem Tword8array_num; Tem Tint_num; Tem Tint_num;
             Tem Tword8array_num; Tem Tint_num], Tem Ttup_num)
-   | Chr => (T, [Tem Tint_num], Tem Tchar_num)
-   | Ord => (T, [Tem Tchar_num], Tem Tint_num)
    | Strsub => (T, [Tem Tstring_num; Tem Tint_num], Tem Tchar_num)
    | Strlen => (T, [Tem Tstring_num], Tem Tint_num)
    | ConfigGC => (T, [Tem Tint_num; Tem Tint_num], Tem Ttup_num)

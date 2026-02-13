@@ -9271,6 +9271,16 @@ Proof
   \\ EVAL_TAC \\ fs [good_dimindex_def,dimword_def]
 QED
 
+Theorem memory_rel_Boolv:
+  memory_rel c be ts refs sp st m dm vars ∧ good_dimindex (:α) ∧
+  (b ⇒ v = Word 18w) ∧ (~b ⇒ v = Word (2w:'a word)) ⇒
+  memory_rel c be ts refs sp st m dm ((Boolv b,v)::vars)
+Proof
+  rw [] \\ Cases_on ‘b’ \\ gvs []
+  >- (irule memory_rel_Boolv_T \\ gvs [])
+  >- (irule memory_rel_Boolv_F \\ gvs [])
+QED
+
 Theorem word_ml_inv_SP_LIMIT:
    word_ml_inv (heap,be,a,sp,sp1,gens) limit ts c refs stack ==> sp <= limit
 Proof
@@ -15084,4 +15094,294 @@ Proof
     \\ strip_tac \\ simp []
     \\ gvs [SEP_CLAUSES]
     \\ gvs [AC STAR_COMM STAR_ASSOC])
+QED
+
+(* --------- str_cmp --------- *)
+
+Definition word_str_cmp_loop_def:
+  word_str_cmp_loop (a1:'a word) (a2:'a word) r1 r2 (len:'a word) dm m be ck =
+    if ck = 0 then NONE else
+    if len = bytes_in_word then
+      SOME (r1, r2)
+    else
+      case mem_load_byte_aux m dm be a1 of NONE => NONE | SOME b1 =>
+      case mem_load_byte_aux m dm be a2 of NONE => NONE | SOME b2 =>
+        if b1 = b2 then
+          word_str_cmp_loop (a1 + 1w) (a2 + 1w) r1 r2 (len - 1w) dm m be (ck - 1:num)
+        else
+          SOME (w2w b1, w2w b2)
+End
+
+Definition word_str_cmp_def:
+  word_str_cmp b (a1:'a word) (a2:'a word) dm m be c =
+    let k = (dimindex (:α) − c.len_size - shift (:'a)) in
+      if a1 ∈ dm ∧ a2 ∈ dm ∧ isWord (m a1) ∧ isWord (m a2) then
+        let l1 = (theWord (m a1) >>> k) in
+        let l2 = (theWord (m a2) >>> k) in
+          if b then
+            (if l1 ≠ l2 then SOME (l1,l2) else
+               word_str_cmp_loop (a1 + bytes_in_word) (a2 + bytes_in_word) l1 l1 l1 dm m be (dimword (:'a)))
+          else
+            (let l = n2w (MIN (w2n l1) (w2n l2)) in
+               word_str_cmp_loop (a1 + bytes_in_word) (a2 + bytes_in_word) l1 l2 l dm m be (dimword (:'a)))
+      else NONE
+End
+
+Definition find_diff_def:
+  find_diff [] [] r1 r2 = (r1,r2) ∧
+  find_diff (x::xs) (y::ys) r1 r2 = if x = y then find_diff xs ys r1 r2 else (w2w x, w2w y)
+End
+
+Theorem word_str_loop_thm:
+  ∀k a1 a2 r1 r2 dm m be d vals1 vals2.
+    (∀i. i < LENGTH vals1 ⇒ mem_load_byte_aux m dm be (a1 + n2w i) = SOME vals1❲i❳) ∧
+    (∀i. i < LENGTH vals2 ⇒ mem_load_byte_aux m dm be (a2 + n2w i) = SOME vals2❲i❳) ∧
+    k ≤ LENGTH vals1 ∧
+    k ≤ LENGTH vals2 ∧
+    k < d ∧ d ≤ dimword (:'a)
+    ⇒
+    word_str_cmp_loop a1 a2 r1 r2 (n2w k + bytes_in_word : 'a word) dm m be d =
+    SOME (find_diff (TAKE k vals1) (TAKE k vals2) r1 r2)
+Proof
+  Induct
+  \\ simp [Once word_str_cmp_loop_def,find_diff_def]
+  \\ rpt strip_tac
+  \\ ‘0 < LENGTH vals1’ by fs []
+  \\ first_assum dxrule
+  \\ ‘0 < LENGTH vals2’ by fs []
+  \\ first_assum dxrule
+  \\ rpt strip_tac \\ simp [] \\ fs []
+  \\ Cases_on ‘vals1’ \\ gvs []
+  \\ Cases_on ‘vals2’ \\ gvs []
+  \\ gvs [find_diff_def]
+  \\ IF_CASES_TAC \\ gvs [ADD1,GSYM word_add_n2w]
+  \\ first_x_assum $ qspecl_then
+       [‘a1+1w’,‘a2+1w’,‘r1’,‘r2’,‘dm’,‘m’,‘be’,‘d-1’,‘t’,‘t'’] mp_tac
+  \\ reverse impl_tac >- fs []
+  \\ gvs [] \\ rw []
+  \\ drule (DECIDE “n < m ⇒ SUC n < m + 1”)
+  \\ strip_tac
+  \\ last_x_assum drule
+  \\ gvs [ADD1,GSYM word_add_n2w]
+QED
+
+Theorem compoare_aux_append_xs[local]:
+  ∀zs z xs ys r.
+    LENGTH xs ≤ LENGTH ys ⇒
+    compare_aux (strlit (z::(zs ++ xs)))
+                (strlit (z::(zs ++ ys))) r (LENGTH zs + 1) (STRLEN xs) =
+    compare_aux (strlit (zs++xs)) (strlit (zs++ys)) r (LENGTH zs) (STRLEN xs)
+Proof
+  Induct_on ‘xs’ \\ gvs []
+  \\ once_rewrite_tac [mlstringTheory.compare_aux_def]
+  \\ gvs [] \\ rewrite_tac [GSYM ADD1] \\ simp []
+  \\ Cases_on ‘ys’ \\ gvs [EL_APPEND2] \\ rw [] \\ gvs []
+  \\ last_x_assum $ qspecl_then [‘zs ++ [h]’,‘z’,‘t’,‘r’] mp_tac \\ gvs []
+  \\ ‘h = h'’ by (Cases_on ‘h’ \\ Cases_on ‘h'’ \\ gvs [char_lt_def])
+  \\ rewrite_tac [GSYM APPEND_ASSOC,APPEND] \\ rw [] \\ gvs [ADD1]
+QED
+
+Theorem compoare_aux_append_ys[local]:
+  ∀zs z xs ys r.
+    LENGTH ys ≤ LENGTH xs ⇒
+    compare_aux (strlit (z::(zs ++ xs)))
+                (strlit (z::(zs ++ ys))) r (LENGTH zs + 1) (STRLEN ys) =
+    compare_aux (strlit (zs++xs)) (strlit (zs++ys)) r (LENGTH zs) (STRLEN ys)
+Proof
+  Induct_on ‘ys’ \\ gvs []
+  \\ once_rewrite_tac [mlstringTheory.compare_aux_def]
+  \\ gvs [] \\ rewrite_tac [GSYM ADD1] \\ simp []
+  \\ Cases_on ‘xs’ \\ gvs [EL_APPEND2] \\ rw [] \\ gvs []
+  \\ last_x_assum $ qspecl_then [‘zs ++ [h]’,‘z’,‘t’,‘r’] mp_tac \\ gvs []
+  \\ ‘h = h'’ by (Cases_on ‘h’ \\ Cases_on ‘h'’ \\ gvs [char_lt_def])
+  \\ rewrite_tac [GSYM APPEND_ASSOC,APPEND] \\ rw [] \\ gvs [ADD1]
+QED
+
+Theorem compare_same:
+  compare (strlit (x::xs)) (strlit (x::ys)) =
+  compare (strlit xs) (strlit ys)
+Proof
+  simp [mlstringTheory.compare_def]
+  \\ rw [] \\ gvs []
+  \\ simp [Once mlstringTheory.compare_aux_def]
+  \\ gvs [char_lt_def]
+  >- (‘LENGTH xs ≤ LENGTH ys’ by decide_tac
+      \\ drule compoare_aux_append_xs
+      \\ disch_then $ qspec_then ‘[]’ mp_tac \\ gvs [])
+  \\ ‘LENGTH ys ≤ LENGTH xs’ by decide_tac
+  \\ drule compoare_aux_append_ys
+  \\ disch_then $ qspec_then ‘[]’ mp_tac \\ gvs []
+QED
+
+Theorem str_cmp_cons:
+  str_cmp b cmp (implode (x::xs)) (implode (x::ys)) =
+  str_cmp b cmp (implode xs) (implode ys)
+Proof
+  Cases_on ‘b’ \\ Cases_on ‘cmp’
+  \\ gvs [semanticPrimitivesTheory.str_cmp_def,mlstringTheory.implode_def,
+          mlstringTheory.fast_lt_def, mlstringTheory.fast_gt_def,
+          mlstringTheory.fast_le_def, mlstringTheory.fast_ge_def,
+          mlstringTheory.mlstring_lt_def, mlstringTheory.mlstring_gt_def,
+          mlstringTheory.mlstring_le_def, mlstringTheory.mlstring_ge_def]
+  \\ simp [compare_same,GREATER_DEF,GREATER_EQ]
+QED
+
+Theorem find_diff_str_cmp_thm1:
+  ∀vals1 vals2.
+    LENGTH (vals1:word8 list) = LENGTH (vals2:word8 list) ∧
+    good_dimindex (:'a) ⇒
+    ∃(r1:'a word) (r2:'a word).
+      find_diff vals1 vals2 (n2w l) (n2w l) = (r1,r2) ∧
+      (str_cmp T cmp (implode (MAP (CHR ∘ w2n) vals1)) (implode (MAP (CHR ∘ w2n) vals2)) ⇔
+       num_cmp cmp (w2n r1) (w2n r2))
+Proof
+  Induct
+  >- (gvs [find_diff_def] \\ Cases_on ‘cmp’ \\ EVAL_TAC \\ gvs [])
+  \\ Cases_on ‘vals2’ \\ gvs [] \\ rw []
+  \\ rw [find_diff_def,str_cmp_cons]
+  \\ Cases_on ‘h’ \\ Cases_on ‘h'’ \\ gvs [w2w_def]
+  \\ ‘256 ≤ dimword (:'a)’ by gvs [good_dimindex_def, dimword_def]
+  \\ gvs []
+  \\ Cases_on ‘cmp’
+  \\ gvs [semanticPrimitivesTheory.str_cmp_def,
+          mlstringTheory.fast_lt_def, mlstringTheory.fast_gt_def,
+          mlstringTheory.fast_le_def, mlstringTheory.fast_ge_def,
+          mlstringTheory.mlstring_lt_def, mlstringTheory.mlstring_gt_def,
+          mlstringTheory.mlstring_le_def, mlstringTheory.mlstring_ge_def]
+  \\ simp [mlstringTheory.compare_def]
+  \\ simp [Once mlstringTheory.compare_aux_def]
+  \\ simp [char_lt_def,mlstringTheory.strsub_def,mlstringTheory.implode_def]
+  \\ gvs [AllCaseEqs()]
+QED
+
+Theorem MIN_SUC_SUC:
+  MIN (SUC m) (SUC n) = SUC (MIN m n)
+Proof
+  rw [MIN_DEF]
+QED
+
+Theorem find_diff_str_cmp_thm2:
+  ∀k vals1 vals2 l1 l2.
+    Abbrev (l1 = LENGTH vals1 + 2 ** shift (:α)) ∧
+    Abbrev (l2 = LENGTH vals2 + 2 ** shift (:α)) ∧
+    k + l1 < dimword (:α) ∧ k + l2 < dimword (:α) ∧ good_dimindex (:'a)
+    ⇒
+    ∃(r1:'a word) (r2:'a word).
+      find_diff (TAKE (MIN (LENGTH vals1) (LENGTH vals2)) (vals1:word8 list))
+                (TAKE (MIN (LENGTH vals1) (LENGTH vals2)) vals2)
+                (n2w (k + l1))
+                (n2w (k + l2)) = (r1,r2) ∧
+      (str_cmp F cmp (implode (MAP (CHR ∘ w2n) vals1))
+                     (implode (MAP (CHR ∘ w2n) vals2)) ⇔
+       num_cmp cmp (w2n r1) (w2n r2))
+Proof
+  simp [markerTheory.Abbrev_def]
+  \\ Induct_on ‘vals1’ \\ Cases_on ‘vals2’ \\ gvs []
+  \\ gvs [find_diff_def]
+  \\ rpt strip_tac
+  >- (Cases_on ‘cmp’ \\ EVAL_TAC \\ gvs [] \\ rw [] \\ fs [])
+  >-
+   (Cases_on ‘cmp’ \\ simp [semanticPrimitivesTheory.num_cmp_def]
+    \\ gvs [semanticPrimitivesTheory.str_cmp_def,
+            mlstringTheory.fast_lt_def, mlstringTheory.fast_gt_def,
+            mlstringTheory.fast_le_def, mlstringTheory.fast_ge_def,
+            mlstringTheory.mlstring_lt_def, mlstringTheory.mlstring_gt_def,
+            mlstringTheory.mlstring_le_def, mlstringTheory.mlstring_ge_def]
+    \\ simp [mlstringTheory.compare_def]
+    \\ simp [Once mlstringTheory.compare_aux_def])
+  >-
+   (Cases_on ‘cmp’ \\ simp [semanticPrimitivesTheory.num_cmp_def]
+    \\ gvs [semanticPrimitivesTheory.str_cmp_def,
+            mlstringTheory.fast_lt_def, mlstringTheory.fast_gt_def,
+            mlstringTheory.fast_le_def, mlstringTheory.fast_ge_def,
+            mlstringTheory.mlstring_lt_def, mlstringTheory.mlstring_gt_def,
+            mlstringTheory.mlstring_le_def, mlstringTheory.mlstring_ge_def]
+    \\ simp [mlstringTheory.compare_def]
+    \\ simp [Once mlstringTheory.compare_aux_def])
+  \\ reverse IF_CASES_TAC
+  >-
+    (simp []
+     \\ ‘256 ≤ dimword (:'a)’ by gvs [good_dimindex_def, dimword_def]
+     \\ Cases_on ‘h’ \\ Cases_on ‘h'’ \\ gvs [w2w_def]
+     \\ Cases_on ‘cmp’
+     \\ gvs [semanticPrimitivesTheory.str_cmp_def,
+             mlstringTheory.mlstring_lt_def, mlstringTheory.mlstring_gt_def,
+             mlstringTheory.mlstring_le_def, mlstringTheory.mlstring_ge_def]
+     \\ simp [mlstringTheory.compare_def]
+     \\ rw []
+     \\ simp [Once mlstringTheory.compare_aux_def]
+     \\ simp [char_lt_def,mlstringTheory.strsub_def,mlstringTheory.implode_def]
+     \\ gvs [AllCaseEqs()])
+  \\ gvs [MIN_SUC_SUC]
+  \\ last_x_assum $ qspecl_then [‘k+1’,‘t’] mp_tac
+  \\ impl_tac >- gvs [ADD1]
+  \\ strip_tac \\ gvs [ADD1]
+  \\ pop_assum $ assume_tac o GSYM \\ gvs [str_cmp_cons]
+QED
+
+Theorem memory_rel_str_cmp:
+   memory_rel c be ts refs sp st m dm
+     ((RefPtr bl1 p1,v1:'a word_loc)::(RefPtr bl2 p2,v2:'a word_loc)::vars) ∧
+   lookup p1 refs = SOME (ByteArray fl1 vals1) ∧
+   lookup p2 refs = SOME (ByteArray fl2 vals2) ∧
+   good_dimindex (:'a)
+   ⇒
+   ?w1 a1 w2 a2 x1 m1 r1 r2.
+     v1 = Word w1 ∧
+     v2 = Word w2 ∧
+     get_real_addr c st w1 = SOME a1 ∧
+     get_real_addr c st w2 = SOME a2 ∧
+     word_str_cmp b a1 a2 dm m be c = SOME (r1,r2) ∧
+     str_cmp b cmp (implode (MAP (CHR ∘ w2n) vals1))
+                   (implode (MAP (CHR ∘ w2n) vals2)) =
+     semanticPrimitives$num_cmp cmp (w2n r1) (w2n r2)
+Proof
+  strip_tac
+  \\ drule_all memory_rel_ByteArray_IMP \\ strip_tac \\ simp []
+  \\ drule memory_rel_tl \\ strip_tac
+  \\ drule_all memory_rel_ByteArray_IMP \\ strip_tac \\ simp []
+  \\ gvs []
+  \\ simp [word_str_cmp_def,isWord_def,theWord_def]
+  \\ qabbrev_tac ‘l1 = LENGTH vals1 + 2 ** shift (:'a)’
+  \\ qabbrev_tac ‘l2 = LENGTH vals2 + 2 ** shift (:'a)’
+  \\ ‘make_byte_header c fl1 (LENGTH vals1) ⋙
+      (dimindex (:α) − (c.len_size + shift (:α))) =
+      (n2w l1 : 'a word) ∧ l1 < dimword (:'a)’ by
+    (gvs [good_dimindex_def,shift_def] \\ gvs [Abbr‘l1’,dimword_def])
+  \\ ‘make_byte_header c fl2 (LENGTH vals2) ⋙
+      (dimindex (:α) − (c.len_size + shift (:α))) =
+      (n2w l2 : 'a word) ∧ l2 < dimword (:'a)’ by
+    (gvs [good_dimindex_def,shift_def] \\ gvs [Abbr‘l1’,dimword_def])
+  \\ gvs []
+  \\ Cases_on ‘b’ \\ gvs []
+  >-
+   (Cases_on ‘l1 ≠ l2’ \\ gvs []
+    >-
+     (Cases_on ‘cmp’
+      \\ gvs [semanticPrimitivesTheory.str_cmp_def,Abbr‘l1’,Abbr‘l2’,
+              mlstringTheory.fast_lt_def, mlstringTheory.fast_le_def,
+              mlstringTheory.fast_gt_def, mlstringTheory.fast_ge_def])
+    \\ gvs [Abbr‘l1’] \\ gvs [markerTheory.Abbrev_def]
+    \\ qabbrev_tac ‘l = LENGTH vals1 + 2 ** shift (:'a)’
+    \\ qspecl_then [‘LENGTH vals1’,‘a + bytes_in_word’,‘a' + bytes_in_word’, ‘n2w l’,‘n2w l’,
+                    ‘dm’,‘m’,‘be’,‘dimword (:α)’, ‘vals1’, ‘vals2’] mp_tac word_str_loop_thm
+    \\ impl_tac
+    >- (gvs [] \\ gvs [good_dimindex_def,dimword_def])
+    \\ strip_tac \\ gvs []
+    \\ ‘bytes_in_word + n2w (LENGTH vals1) = n2w l :'a word’ by
+      gvs [bytes_in_word_def,good_dimindex_def,dimword_def,word_add_n2w,shift_def]
+    \\ gvs [TAKE_LENGTH_TOO_LONG]
+    \\ irule find_diff_str_cmp_thm1 \\ gvs [])
+  \\ qspecl_then [‘MIN (LENGTH vals1) (LENGTH vals2)’,
+                  ‘a + bytes_in_word’,‘a' + bytes_in_word’, ‘n2w l1’,‘n2w l2’,
+                  ‘dm’,‘m’,‘be’,‘dimword (:α)’, ‘vals1’, ‘vals2’] mp_tac word_str_loop_thm
+  \\ impl_tac
+  >- (unabbrev_all_tac \\ gvs [] \\ gvs [good_dimindex_def,dimword_def,shift_def])
+  \\ ‘n2w (MIN (LENGTH vals1) (LENGTH vals2)) + bytes_in_word =
+      n2w (MIN l1 l2) :'a word’ by
+    (gvs [bytes_in_word_def,good_dimindex_def,dimword_def,word_add_n2w,shift_def,MIN_DEF]
+     \\ unabbrev_all_tac \\ rw [] \\ gvs [])
+  \\ simp [] \\ rw []
+  \\ irule (find_diff_str_cmp_thm2 |> Q.SPEC ‘0’ |> SRULE [])
+  \\ gvs [markerTheory.Abbrev_def]
 QED

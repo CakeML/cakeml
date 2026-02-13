@@ -1,4 +1,4 @@
-The CakeML pattern matching expressions compiler
+The CakeML pattern matching expressions compiler.
 
 [pattern_commonScript.sml](pattern_commonScript.sml):
 Types common to some different parts of the pattern match compiler.

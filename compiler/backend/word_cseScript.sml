@@ -1,6 +1,6 @@
 (*
   Defines a common sub-expression elimination pass on a wordLang program.
-  This pass is to run immeidately atfer the SSA-like renaming.
+  This pass is to run immediately after the SSA-like renaming.
 *)
 Theory word_cse
 Ancestors

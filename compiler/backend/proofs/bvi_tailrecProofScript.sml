@@ -117,10 +117,8 @@ Definition ty_rel_def:
            (t = List ==> ?ys. v_to_list v = SOME ys))
 End
 
-val v_ty_thms = { nchotomy = v_ty_nchotomy, case_def = v_ty_case_def };
-val v_ty_cases = prove_case_eq_thm v_ty_thms
-val assoc_op_ty_thms = { nchotomy = assoc_op_nchotomy, case_def = assoc_op_case_def }
-val assoc_op_cases = prove_case_eq_thm assoc_op_ty_thms
+val v_ty_cases = TypeBase.case_eq_of ``:v_ty``
+val assoc_op_cases = TypeBase.case_eq_of ``:assoc_op``
 val case_eq_thms = CONJ v_ty_cases (CONJ assoc_op_cases bviPropsTheory.case_eq_thms)
 
 Theorem list_to_v_imp:

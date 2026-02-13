@@ -19,6 +19,7 @@ Datatype:
   keyword = SkipK | StK | StwK | St8K | St16K | St32K | IfK | ElseK | WhileK
   | BrK | ContK | RaiseK | RetK | TicK | VarK | WithK | HandleK | BiwK
   | LdsK | Ld8K | LdwK | Ld16K | Ld32K | BaseK | TopK | InK | FunK | ExportK | TrueK | FalseK
+  | InlineK
 End
 
 Datatype:
@@ -31,6 +32,7 @@ Datatype:
   | LBrakT | RBrakT | LCurT | RCurT
   | AssignT
   | StaticT
+  | NoinlineT
   | DefaultShT
   | KeywordT keyword
   | AnnotCommentT string
@@ -142,6 +144,7 @@ Definition get_keyword_def:
   if s = "false" then (KeywordT FalseK) else
   if s = "fun" then (KeywordT FunK) else
   if s = "export" then (KeywordT ExportK) else
+  if s = "inline" then (KeywordT InlineK) else
   if s = "" then LexErrorT $ «Expected keyword, found empty string» else
   if 2 <= LENGTH s ∧ EL 0 s = #"@" then ForeignIdent (DROP 1 s)
   else

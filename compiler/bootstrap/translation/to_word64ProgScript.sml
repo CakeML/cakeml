@@ -266,6 +266,9 @@ val r = data_to_wordTheory.parts_to_words_def |> inline_simp
         |> REWRITE_RULE [word_mul_n2w] |> conv64 |> translate;
 val r = data_to_wordTheory.const_parts_to_words_def |> conv64 |> translate;
 
+val r = data_to_wordTheory.SetBool_def |> conv64 |> translate;
+val r = data_to_wordTheory.AssignCmp_def |> conv64 |> translate;
+
 val _ = translate arg1_def;
 val _ = translate arg2_pmatch;
 val _ = translate arg3_pmatch;
@@ -662,6 +665,7 @@ val _ = translate(Append_code_def|> inline_simp |> conv64 |> we_simp |> econv |>
 val _ = translate(AppendMainLoop_code_def|> inline_simp |> conv64)
 val _ = translate(AppendLenLoop_code_def|> inline_simp |> conv64)
 val _ = translate(XorLoop_code_def|> inline_simp |> conv64)
+val _ = translate(StringCmpLoop_code_def|> inline_simp |> conv64)
 
 val _ = translate(Compare1_code_def|> inline_simp |> conv64)
 val _ = translate(Compare_code_def|> inline_simp |> conv64)

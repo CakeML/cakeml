@@ -2230,7 +2230,7 @@ Proof
 QED
 
 Theorem evaluate_ctxt_T_total:
-  ∀env s c v. ∃r.  evaluate_ctxt T env s c v r
+  ∀env s c v. ∃r. evaluate_ctxt T env s c v r
 Proof
   rw[] >> simp[Once evaluate_ctxt_cases] >> Cases_on ‘c’ >> gvs[SF DNF_ss]
   >- (

@@ -301,6 +301,8 @@ Definition stack_consumed_def:
      (lookup Replicate_location sfs)) /\
   (stack_consumed sfs lims (MemOp XorByte) vs =
     lookup XorLoop_location sfs) /\
+  (stack_consumed sfs lims (MemOp (StringCmp b cmp)) vs =
+    lookup StringCmpLoop_location sfs) /\
   (stack_consumed sfs lims (BlockOp (ConsExtend _)) vs =
     lookup MemCopy_location sfs) /\
     (* MemCopy looks not always necessary. Could be refined for more precise bounds. *)
@@ -888,6 +890,10 @@ Definition do_app_aux_def:
         (case (dest_Boolv v1, dest_Boolv v2) of
          | (SOME b1, SOME b2) => Rval (Boolv (b1 = b2), s)
          | _ => Error)
+    | (BlockOp BoolNot,[v1]) =>
+        (case dest_Boolv v1 of
+         | SOME b1 => Rval (Boolv (~b1), s)
+         | _ => Error)
     | (BlockOp ListAppend,[x1;x2]) =>
         (case (v_to_list x1, v_to_list x2) of
          | (SOME xs, SOME ys) =>
@@ -936,6 +942,13 @@ Definition do_app_aux_def:
            (case xor_bytes ws ds of
             | SOME ds1 => Rval (Unit, s with refs := insert dst (ByteArray f ds1) s.refs)
             | NONE => Error)
+         | _ => Error)
+    | (MemOp (StringCmp b cmp),[RefPtr _ s1; RefPtr _ s2]) =>
+        (case (lookup s1 s.refs, lookup s2 s.refs) of
+         | (SOME (ByteArray _ ws1),SOME (ByteArray _ ws2)) =>
+             (let s1 = implode (MAP (CHR o w2n) ws1) in
+              let s2 = implode (MAP (CHR o w2n) ws2) in
+                Rval (Boolv (semanticPrimitives$str_cmp b cmp s1 s2), s))
          | _ => Error)
     | (MemOp (CopyByte F),[RefPtr _ src; Number srcoff; Number len; RefPtr _ dst; Number dstoff]) =>
         (case (lookup src s.refs, lookup dst s.refs) of
@@ -1397,20 +1410,12 @@ End
 
 (* We prove that the clock never increases. *)
 
-val list_thms = { nchotomy = list_nchotomy, case_def = list_case_def };
-val option_thms = { nchotomy = option_nchotomy, case_def = option_case_def };
-val op_thms = { nchotomy = closLangTheory.op_nchotomy, case_def = closLangTheory.op_case_def };
-val v_thms = { nchotomy = theorem"v_nchotomy", case_def = definition"v_case_def" };
-val ref_thms = { nchotomy = bvlSemTheory.ref_nchotomy, case_def = bvlSemTheory.ref_case_def };
-val ffi_result_thms = { nchotomy = ffiTheory.ffi_result_nchotomy, case_def = ffiTheory.ffi_result_case_def };
-val word_size_thms = { nchotomy = astTheory.word_size_nchotomy, case_def = astTheory.word_size_case_def };
-val eq_result_thms = { nchotomy = semanticPrimitivesTheory.eq_result_nchotomy, case_def = semanticPrimitivesTheory.eq_result_case_def };
 Theorem case_eq_thms =
   (pair_case_eq::
    bool_case_eq::
-   (List.map prove_case_eq_thm
-             [list_thms, option_thms, op_thms, v_thms, ref_thms,
-              word_size_thms, eq_result_thms, ffi_result_thms]))
+   (List.map TypeBase.case_eq_of
+             [``:'a list``, ``:'a option``, ``:closLang$op``, ``:v``, ``:'a ref``,
+              ``:word_size``, ``:eq_result``, ``:'a ffi_result``]))
   |> LIST_CONJ
 
 Theorem do_stack_clock:
