@@ -394,6 +394,10 @@ Definition do_app_def:
            | SOME ds1 => Rval (Unit, s with refs := s.refs |+ (dst, ByteArray ds1))
            | _ => Error)
         | _ => Error)
+    | (MemOp (StringCmp b cmp),[ByteVector b1; ByteVector b2]) =>
+       (let s1 = implode (MAP (CHR o w2n) b1) in
+        let s2 = implode (MAP (CHR o w2n) b2) in
+          Rval (Boolv (semanticPrimitives$str_cmp b cmp s1 s2), s))
     | (BlockOp (TagEq n),[Block tag xs]) =>
         Rval (Boolv (tag = n), s)
     | (BlockOp (LenEq l),[Block tag xs]) =>

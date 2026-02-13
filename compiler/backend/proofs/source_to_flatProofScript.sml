@@ -962,9 +962,11 @@ Proof
   >-
    (drule_all (cj 1 do_eq) \\ simp []
     \\ imp_res_tac v_rel_check_type \\ fs [])
-  \\ gvs [oneline semanticPrimitivesTheory.dest_Litv_def, AllCaseEqs()]
-  \\ gvs [oneline flatSemTheory.dest_Litv_def, AllCaseEqs()]
-  \\ gvs [v_rel_eqns]
+  >-
+   (gvs [oneline semanticPrimitivesTheory.dest_Litv_def, AllCaseEqs()]
+    \\ gvs [oneline flatSemTheory.dest_Litv_def, AllCaseEqs()] \\ gvs [v_rel_eqns])
+  \\ gvs [semanticPrimitivesTheory.dest_Litv_def |> oneline, AllCaseEqs()]
+  \\ fs [Once v_rel_cases] \\ gvs [dest_Litv_def]
 QED
 
 Theorem check_type_IMP_v_rel:

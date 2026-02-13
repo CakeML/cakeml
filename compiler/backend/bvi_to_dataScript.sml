@@ -48,6 +48,7 @@ Theorem op_requires_names_eqn:
                           | Install => T
                           | MemOp (CopyByte new_flag) => T
                           | MemOp XorByte => T
+                          | MemOp (StringCmp b cmp) => T
                           | _ => F))
 Proof
   strip_tac >> rpt CASE_TAC >> fs[op_requires_names_def]
@@ -60,6 +61,7 @@ Theorem op_requires_names_pmatch:
                         | Install => T
                         | MemOp (CopyByte new_flag) => T
                         | MemOp XorByte => T
+                        | MemOp (StringCmp b cmp) => T
                         | _ => F))
 Proof
   rpt strip_tac >>

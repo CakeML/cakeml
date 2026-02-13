@@ -1849,7 +1849,8 @@ Proof
       rename1`WordOp (WordShift _ _ _)`>>
       pairarg_tac>>old_drule extract_labels_assignWordShift>>
       simp[])>>
-    fs[extract_labels_def,GiveUp_def,assign_def,assign_def_extras]>>
+    fs[extract_labels_def,GiveUp_def,assign_def,assign_def_extras,
+       oneline AssignCmp_def, SetBool_def]>>
     BasicProvers.EVERY_CASE_TAC>>
     fs[extract_labels_def,list_Seq_def,extract_labels_StoreEach,
        extract_labels_StoreAnyConsts,Maxout_bits_code_def])
@@ -1966,7 +1967,7 @@ Proof
   >- ( (* Assign *)
     gvs[comp_def,AllCaseEqs(),assign_def,all_assign_defs,
       arg1_def,arg2_def,arg3_def,arg4_def] >>
-    simp[no_share_inst_def,
+    simp[no_share_inst_def,oneline AssignCmp_def, SetBool_def,
       GiveUp_def,BignumHalt_def,AllocVar_def,SilentFFI_def,
       list_Seq_no_share_inst,StoreEach_no_share_inst,
       Make_ptr_bits_code_def,StoreAnyConsts_no_share_inst,
@@ -2145,8 +2146,8 @@ Proof
     Maxout_bits_code_def,GiveUp_def,StoreAnyConsts_no_inst,
     inst_ok_less_def,assign_def_extras,MemEqList_no_inst,
     asmTheory.fp_reg_ok_def,fp_uop_inst_def,fp_cmp_inst_def,
-    fp_bop_inst_def, fp_top_inst_def]>>
-  IF_CASES_TAC>>fs[every_inst_def,list_Seq_def,StoreEach_no_inst,
+    fp_bop_inst_def, fp_top_inst_def, oneline AssignCmp_def, SetBool_def]>>
+  (IF_CASES_TAC ORELSE TOP_CASE_TAC)>>fs[every_inst_def,list_Seq_def,StoreEach_no_inst,
     Maxout_bits_code_def,GiveUp_def,
     inst_ok_less_def,assign_def_extras,MemEqList_no_inst] \\ FAIL_TAC ""
 QED
@@ -2263,7 +2264,6 @@ Proof
    fs[good_dimindex_def]>>
    metis_tac[bounds_lem])
  >>
-
    first_x_assum irule >>
    fs[WORD_LE,miscTheory.good_dimindex_def,word_2comp_n2w,
      dimword_def,word_msb_n2w])
@@ -2419,7 +2419,7 @@ Theorem word_get_code_labels_assign[local]:
 Proof
   ho_match_mp_tac (closLangTheory.assign_get_code_label_ind)>>
   rw[assign_def,all_assign_defs,arg1_def,arg2_def,arg3_def,arg4_def,
-     closLangTheory.assign_get_code_label_def]>>
+     closLangTheory.assign_get_code_label_def, oneline AssignCmp_def, SetBool_def]>>
   fs[list_Seq_def,word_get_code_labels_StoreEach,word_get_code_labels_MemEqList]>>
   ntac 3 (every_case_tac>>fs[] >>
   TRY (irule SUBSET_TRANS >>
@@ -2484,7 +2484,8 @@ Theorem word_good_handlers_assign[local]:
     word_good_handlers secn (FST (assign c secn v w x y z))
 Proof
   ho_match_mp_tac (closLangTheory.assign_get_code_label_ind)>>
-  rw[assign_def,all_assign_defs,arg1_def,arg2_def,arg3_def,arg4_def]>>
+  rw[assign_def,all_assign_defs,arg1_def,arg2_def,arg3_def,arg4_def,
+     oneline AssignCmp_def, SetBool_def]>>
   rpt(
   every_case_tac>>fs[list_Seq_def,word_good_handlers_StoreEach,
                      word_good_handlers_StoreAnyConsts,word_good_handlers_MemEqList]>>

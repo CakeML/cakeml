@@ -686,6 +686,8 @@ Definition clos_op_to_display_def:
     | MemOp BoundsCheckArray => String (strlit "BoundsCheckArray")
     | MemOp (BoundsCheckByte b) => Item NONE (strlit "BoundsCheckByte") [bool_to_display b]
     | MemOp closLang$ConfigGC => String (strlit "ConfigGC")
+    | MemOp (StringCmp b opb) => Item NONE (strlit "StringCmp") [bool_to_display b;
+                                                                 opb_to_display opb]
     | MemOp XorByte => String (strlit "XorByte")
     | Label num => Item NONE (strlit "Label") [String (attach_name ns (SOME num))]
     | FFI s => Item NONE (strlit "FFI") [string_imp s]
