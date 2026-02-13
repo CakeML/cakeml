@@ -493,7 +493,8 @@ End
        if addr ∈ s.mdomain then SOME (s.memory addr) else NONE: thm
  *)
 Definition mem_rel_def:
-  mem_rel s_mdomain s_memory t_memory <=>
+  mem_rel (s_mdomain:64 word -> bool)
+    (s_memory:64 word -> 64 word_loc) t_memory <=>
   ( ∀ad. ad ∈ s_mdomain ⇒
     ad <+ 0x100000000w ∧ (* 32-bit addressable *)
     w2n ad + 8 <= LENGTH t_memory ∧
@@ -985,12 +986,14 @@ simp[I64_EQ_def,exec_def,num_stk_op_def,push_def,do_cmp_eq,b2v_b2w]
 QED
 
 Theorem exec_I64_EQ':
-  labSem$word_cmp Equal wa wb = SOME ☯ ⇒
+  wordSem$word_cmp Equal wa wb = SOME ☯ ⇒
   exec I64_EQ (push (wl_value wb) (push (wl_value wa) t)) =
   (RNormal, push (I32 (b2w ☯)) t)
 Proof
 simp[wl_value_wl_word,exec_I64_EQ]
->>(Cases_on`wa`>>Cases_on`wb`>>simp[wl_word_def,labSemTheory.word_cmp_def])
+>>(
+  Cases_on`wa`>>Cases_on`wb`>>
+  simp[wl_word_def,wordSemTheory.word_cmp_def])
 QED
 
 Theorem exec_I64_NE:
@@ -1001,7 +1004,7 @@ simp[I64_NE_def,exec_def,num_stk_op_def,push_def,do_cmp_eq,b2v_b2w]
 QED
 
 Theorem exec_I64_NE':
-  labSem$word_cmp NotEqual wa wb = SOME ☯ ⇒
+  wordSem$word_cmp NotEqual wa wb = SOME ☯ ⇒
   exec I64_NE (push (wl_value wb) (push (wl_value wa) t)) =
   (RNormal, push (I32 (b2w ☯)) t)
 Proof
@@ -1009,12 +1012,12 @@ strip_tac
 >>simp[I64_NE_def,exec_def]
 >>(PURE_TOP_CASE_TAC>>fs[])
 >>fs[push_def,num_stk_op_def,wl_value_def,do_cmp_eq]
->>(Cases_on`wa`>>Cases_on`wb`>>fs[labSemTheory.word_cmp_def])
+>>(Cases_on`wa`>>Cases_on`wb`>>fs[wordSemTheory.word_cmp_def])
 >>gvs[b2v_b2w]
 QED
 
 Theorem exec_I64_LT_U':
-  labSem$word_cmp Lower wa wb = SOME ☯ ⇒
+  wordSem$word_cmp Lower wa wb = SOME ☯ ⇒
   exec I64_LT_U (push (wl_value wb) (push (wl_value wa) t)) =
   (RNormal, push (I32 (b2w ☯)) t)
 Proof
@@ -1022,12 +1025,12 @@ strip_tac
 >>simp[I64_LT_U_def,exec_def]
 >>(PURE_TOP_CASE_TAC>>fs[])
 >>fs[push_def,num_stk_op_def,wl_value_def,do_cmp_eq]
->>(Cases_on`wa`>>Cases_on`wb`>>fs[labSemTheory.word_cmp_def])
+>>(Cases_on`wa`>>Cases_on`wb`>>fs[wordSemTheory.word_cmp_def])
 >>gvs[b2v_b2w]
 QED
 
 Theorem exec_I64_LE_U':
-  labSem$word_cmp NotLower wb wa = SOME ☯ ⇒
+  wordSem$word_cmp NotLower wb wa = SOME ☯ ⇒
   exec I64_LE_U (push (wl_value wb) (push (wl_value wa) t)) =
   (RNormal, push (I32 (b2w ☯)) t)
 Proof
@@ -1035,7 +1038,7 @@ strip_tac
 >>simp[I64_LE_U_def,exec_def]
 >>(PURE_TOP_CASE_TAC>>fs[])
 >>fs[push_def,num_stk_op_def,wl_value_def,do_cmp_eq]
->>(Cases_on`wa`>>Cases_on`wb`>>fs[labSemTheory.word_cmp_def])
+>>(Cases_on`wa`>>Cases_on`wb`>>fs[wordSemTheory.word_cmp_def])
 >>gvs[b2v_b2w,WORD_NOT_LOWER]
 QED
 
@@ -1049,7 +1052,7 @@ simp[I64_GT_U_def,exec_def]
 QED
 
 Theorem exec_I64_GT_U':
-  labSem$word_cmp Lower wb wa = SOME ☯ ⇒
+  wordSem$word_cmp Lower wb wa = SOME ☯ ⇒
   exec I64_GT_U (push (wl_value wb) (push (wl_value wa) t)) =
   (RNormal, push (I32 (b2w ☯)) t)
 Proof
@@ -1057,12 +1060,12 @@ strip_tac
 >>simp[I64_GT_U_def,exec_def]
 >>(PURE_TOP_CASE_TAC>>fs[])
 >>fs[push_def,num_stk_op_def,wl_value_def,do_cmp_eq]
->>(Cases_on`wa`>>Cases_on`wb`>>fs[labSemTheory.word_cmp_def])
+>>(Cases_on`wa`>>Cases_on`wb`>>fs[wordSemTheory.word_cmp_def])
 >>gvs[b2v_b2w,WORD_HIGHER]
 QED
 
 Theorem exec_I64_GE_U':
-  labSem$word_cmp NotLower wa wb = SOME ☯ ⇒
+  wordSem$word_cmp NotLower wa wb = SOME ☯ ⇒
   exec I64_GE_U (push (wl_value wb) (push (wl_value wa) t)) =
   (RNormal, push (I32 (b2w ☯)) t)
 Proof
@@ -1070,7 +1073,7 @@ strip_tac
 >>simp[I64_GE_U_def,exec_def]
 >>(PURE_TOP_CASE_TAC>>fs[])
 >>fs[push_def,num_stk_op_def,wl_value_def,do_cmp_eq]
->>(Cases_on`wa`>>Cases_on`wb`>>fs[labSemTheory.word_cmp_def])
+>>(Cases_on`wa`>>Cases_on`wb`>>fs[wordSemTheory.word_cmp_def])
 >>gvs[b2v_b2w,WORD_NOT_LOWER,WORD_HIGHER_EQ]
 QED
 
@@ -1089,7 +1092,7 @@ simp[I64_LT_U_def,exec_def,option_case_eq,push_def,num_stk_op_def,do_cmp_eq,b2v_
 QED
 
 Theorem exec_I64_LT_S':
-  labSem$word_cmp Less wa wb = SOME ☯ ⇒
+  wordSem$word_cmp Less wa wb = SOME ☯ ⇒
   exec I64_LT_S (push (wl_value wb) (push (wl_value wa) t)) =
   (RNormal, push (I32 (b2w ☯)) t)
 Proof
@@ -1097,12 +1100,12 @@ strip_tac
 >>simp[I64_LT_S_def,exec_def]
 >>(PURE_TOP_CASE_TAC>>fs[])
 >>fs[push_def,num_stk_op_def,wl_value_def,do_cmp_eq]
->>(Cases_on`wa`>>Cases_on`wb`>>fs[labSemTheory.word_cmp_def])
+>>(Cases_on`wa`>>Cases_on`wb`>>fs[wordSemTheory.word_cmp_def])
 >>gvs[b2v_b2w]
 QED
 
 Theorem exec_I64_LE_S':
-  labSem$word_cmp NotLess wb wa = SOME ☯ ⇒
+  wordSem$word_cmp NotLess wb wa = SOME ☯ ⇒
   exec I64_LE_S (push (wl_value wb) (push (wl_value wa) t)) =
   (RNormal, push (I32 (b2w ☯)) t)
 Proof
@@ -1110,12 +1113,12 @@ strip_tac
 >>simp[I64_LE_S_def,exec_def]
 >>(PURE_TOP_CASE_TAC>>fs[])
 >>fs[push_def,num_stk_op_def,wl_value_def,do_cmp_eq]
->>(Cases_on`wa`>>Cases_on`wb`>>fs[labSemTheory.word_cmp_def])
+>>(Cases_on`wa`>>Cases_on`wb`>>fs[wordSemTheory.word_cmp_def])
 >>gvs[b2v_b2w,WORD_NOT_LESS]
 QED
 
 Theorem exec_I64_GT_S':
-  labSem$word_cmp Less wb wa = SOME ☯ ⇒
+  wordSem$word_cmp Less wb wa = SOME ☯ ⇒
   exec I64_GT_S (push (wl_value wb) (push (wl_value wa) t)) =
   (RNormal, push (I32 (b2w ☯)) t)
 Proof
@@ -1123,12 +1126,12 @@ strip_tac
 >>simp[I64_GT_S_def,exec_def]
 >>(PURE_TOP_CASE_TAC>>fs[])
 >>fs[push_def,num_stk_op_def,wl_value_def,do_cmp_eq]
->>(Cases_on`wa`>>Cases_on`wb`>>fs[labSemTheory.word_cmp_def])
+>>(Cases_on`wa`>>Cases_on`wb`>>fs[wordSemTheory.word_cmp_def])
 >>gvs[b2v_b2w,WORD_GREATER]
 QED
 
 Theorem exec_I64_GE_S':
-  labSem$word_cmp NotLess wa wb = SOME ☯ ⇒
+  wordSem$word_cmp NotLess wa wb = SOME ☯ ⇒
   exec I64_GE_S (push (wl_value wb) (push (wl_value wa) t)) =
   (RNormal, push (I32 (b2w ☯)) t)
 Proof
@@ -1136,7 +1139,7 @@ strip_tac
 >>simp[I64_GE_S_def,exec_def]
 >>(PURE_TOP_CASE_TAC>>fs[])
 >>fs[push_def,num_stk_op_def,wl_value_def,do_cmp_eq]
->>(Cases_on`wa`>>Cases_on`wb`>>fs[labSemTheory.word_cmp_def])
+>>(Cases_on`wa`>>Cases_on`wb`>>fs[wordSemTheory.word_cmp_def])
 >>gvs[b2v_b2w,WORD_NOT_LESS,WORD_GREATER_EQ]
 QED
 
@@ -1364,22 +1367,24 @@ End
 
 Theorem souffrir:
   dimindex(:'a) ≤ l ⇒ word_slice_alt h l w = 0w
-Proof cheat
+Proof
+  cheat
 QED
 
 Theorem set_byte_n2w:
   n MOD 2**(8*i+8) = 0 ∧ i < dimindex(:'a) DIV 8 ⇒
-set_byte (n2w i) b (n2w n:'a word) F = n2w (w2n b*2**(8*i) + n)
+  set_byte (n2w i) b (n2w n:'a word) F = n2w (w2n b*2**(8*i) + n)
 Proof
-rw[set_byte_def,byte_index_def]
->>`i < dimword(:'a)` by (assume_tac dimindex_lt_dimword >> qpat_x_assum‘_=0’kall_tac>>intLib.ARITH_TAC)
->>simp[]
->>`word_slice_alt (8 * i) 0 (n2w n) = 0w`by cheat
->>simp[]
->>simp[word_slice_alt_shift]
->>`n2w n ⋙ (8 * i + 8) ≪ (8 * i + 8) = n2w n` by cheat
->>simp[]
->>cheat
+  print_apropos``set_byte``;
+  rw[set_byte_def,byte_index_def]
+  >>`i < dimword(:'a)` by (assume_tac dimindex_lt_dimword >> qpat_x_assum‘_=0’kall_tac>>intLib.ARITH_TAC)
+  >>simp[]
+  >>`word_slice_alt (8 * i) 0 (n2w n) = 0w`by cheat
+  >>simp[]
+  >>simp[word_slice_alt_shift]
+  >>`n2w n ⋙ (8 * i + 8) ≪ (8 * i + 8) = n2w n` by cheat
+  >>simp[]
+  >>cheat
 QED
 
 Theorem word_of_bytes_n2w:
@@ -1441,8 +1446,18 @@ simp[align_nat_def]
 >>cheat
 QED
 
+Theorem mem_rel_mem_load_byte_aux:
+  mem_rel sdom smem tmem ∧
+  mem_load_byte_aux smem sdom F ad64 = SOME b ⇒
+  EL (w2n ad64) tmem = b
+Proof
+  rw[mem_rel_def,wordSemTheory.mem_load_byte_aux_def,AllCaseEqs()]>>
+  first_x_assum drule>>rw[]>>
+  gvs[wl_word_def]>>
+  cheat
+QED
+
 (* drule *)
-(*
 Theorem exec_I64_LOAD8:
   state_rel c s t ∧
   mem_load_byte_aux s.memory s.mdomain F ad64 = SOME b ∧
@@ -1450,52 +1465,62 @@ Theorem exec_I64_LOAD8:
   w2n ad32 + w2n ofs < 0x100000000 ⇒
   exec (I64_LOAD8_U ofs) (push (I32 ad32) t) = (RNormal, push (I64 (w2w b)) t)
 Proof
-strip_tac
->>simp[I64_LOAD8_U_def,exec_def]
->>subgoal`w2n(ad32+ofs) = w2n ad32 + w2n ofs`
->-(irule w2n_add_2>>simp[])
->>subgoal‘do_ld ad32 (LoadNarrow I8x16 Unsigned W64 ofs 1w) t.memory = SOME (I64 (w2w b))’
->-(
-rw1 do_ld_thm
->>simp[load_op_rel_cases]
->>simp[sext_def,ancillaryOpsTheory.load_def]
->>gvs[wordSemTheory.mem_load_byte_aux_def,AllCaseEqs()]
->>simp[get_byte_def,byte_index_def]
->>`mem_rel s.mdomain s.memory t.memory` by fs[state_rel_def]
->>‘word_of_bytes F 0w (TAKE 8 (DROP (w2n (byte_align (w2w (ad32 + ofs):64 word))) t.memory)) =
-         wl_word (s.memory (byte_align (w2w (ad32 + ofs):64 word)))’
-by fs[mem_rel_def]
->>`w2n (byte_align (w2w (ad32 + ofs):64 word)) + 8 ≤ LENGTH t.memory`
-by fs[mem_rel_def]
->>pop_assum mp_tac
->>simp[byte_align_def,w2n_align,w2n_w2w,align_nat_def]
->>strip_tac
->>conj_tac
->-(
-(*rw1$prove(“w2n(w2w(ad32+ofs:32 word):64 word)=w2n(ad32+ofs)”,simp[w2n_w2w])*)
-rw1$prove(“w2w(a:word8):word64=w2w(b:word8)<=>a=b”, rw1$GSYM w2n_11_lift>>simp[w2n_11])
->>rw1 exec_I64_LOAD8_aux1
->-simp[align_nat_def]
->>gvs[w2n_byte_align,wl_word_def]
->>simp[w2n_w2w]
-(*
-Globals.show_types:=true
-*)
->>cheat
-(*
-Globals.show_types:=false
-*)
-)
->>`w2n (byte_align (w2w (ad32 + ofs):64 word)) + 8 ≤ LENGTH t.memory`
-by fs[mem_rel_def]
->>pop_assum mp_tac
->>simp[byte_align_def,w2n_align,w2n_w2w]
->>simp[align_nat_def]
->>intLib.ARITH_TAC
-)
->>simp[push_def]
+  strip_tac
+  >>simp[I64_LOAD8_U_def,exec_def]
+  >>subgoal`w2n(ad32+ofs) = w2n ad32 + w2n ofs`
+  >-(irule w2n_add_2>>simp[])
+  >>subgoal‘do_ld ad32 (LoadNarrow I8x16 Unsigned W64 ofs 1w) t.memory = SOME (I64 (w2w b))’
+  >-(
+    rw1 do_ld_thm
+    >>simp[load_op_rel_cases]
+    >>qexists_tac`b`
+    >>CONJ_TAC >-
+      simp[sext_def]>>
+    `load 1 ad32 ofs t.memory = (EL (w2n (ad32 + ofs)) t.memory,T)` by cheat>>
+    simp[]>>
+    fs[wordSemTheory.mem_load_byte_aux_def,AllCaseEqs()]>>
+    cheat)
+    (*
+    >>simp[sext_def,ancillaryOpsTheory.load_def]
+    >>gvs[wordSemTheory.mem_load_byte_aux_def,AllCaseEqs()]
+    >>simp[get_byte_def,byte_index_def]
+    >>`mem_rel s.mdomain s.memory t.memory` by fs[state_rel_def]
+    >>‘word_of_bytes F 0w (TAKE 8 (DROP (w2n (byte_align (w2w (ad32 + ofs):64 word))) t.memory)) =
+             wl_word (s.memory (byte_align (w2w (ad32 + ofs):64 word)))’
+      by fs[mem_rel_def]
+    >>`w2n (byte_align (w2w (ad32 + ofs):64 word)) + 8 ≤ LENGTH t.memory`
+      by fs[mem_rel_def]
+    >> gvs[]
+    >> gvs[wl_word_def,w2w_w2w,w2n_w2w,w2n_align,byte_align_def,align_nat_def]
+    >>pop_assum mp_tac
+    >>simp[byte_align_def,w2n_align,w2n_w2w,align_nat_def]
+    >>strip_tac
+    >>conj_tac
+    >-(
+      fs[
+    (*rw1$prove(“w2n(w2w(ad32+ofs:32 word):64 word)=w2n(ad32+ofs)”,simp[w2n_w2w])*)
+    rw1$prove(“w2w(a:word8):word64=w2w(b:word8)<=>a=b”, rw1$GSYM w2n_11_lift>>simp[w2n_11])
+    >>rw1 exec_I64_LOAD8_aux1
+    >-simp[align_nat_def]
+    >>gvs[w2n_byte_align,wl_word_def]
+    >>simp[w2n_w2w]
+    (*
+    Globals.show_types:=true
+    *)
+    >>cheat
+    (*
+    Globals.show_types:=false
+    *)
+    )
+    >>`w2n (byte_align (w2w (ad32 + ofs):64 word)) + 8 ≤ LENGTH t.memory`
+    by fs[mem_rel_def]
+    >>pop_assum mp_tac
+    >>simp[byte_align_def,w2n_align,w2n_w2w]
+    >>simp[align_nat_def]
+    >>intLib.ARITH_TAC
+  *)
+  >>simp[push_def]
 QED
-*)
 
 Theorem push_inj[simp]:
   push a t = push b t <=> a = b
@@ -1514,7 +1539,7 @@ QED
 Theorem compile_comp_thm:
   get_var a s = SOME wa ∧
   get_var_imm b s = SOME wb ∧
-  labSem$word_cmp cmp wa wb = SOME ☯ ∧
+  wordSem$word_cmp cmp wa wb = SOME ☯ ∧
   conf_ok c ∧
   state_rel c ^s ^t ==>
   exec_list (flatten (compile_comp cmp a b)) t = (RNormal, push (I32 (b2w ☯)) t)
@@ -1538,7 +1563,7 @@ rpt strip_tac
   simp[exec_list_cons,wl_value_wl_word,exec_I64_AND]
   >>simp[exec_I64_EQZ]
   >>qpat_x_assum `word_cmp _ _ _ = _` mp_tac
-  >>(Cases_on`wa`>>Cases_on`wb`>>simp[labSemTheory.word_cmp_def,wl_word_def])
+  >>(Cases_on`wa`>>Cases_on`wb`>>simp[wordSemTheory.word_cmp_def,wl_word_def])
   >>simp[AND_1]
 )
 >-(irule exec_I64_NE'>>first_assum ACCEPT_TAC)
@@ -1547,7 +1572,7 @@ rpt strip_tac
 >-(
   simp[exec_list_cons,wl_value_wl_word,exec_I64_AND,exec_I64_CONST,exec_I64_NE]
   >>qpat_x_assum `word_cmp _ _ _ = _` mp_tac
-  >>(Cases_on`wa`>>Cases_on`wb`>>simp[labSemTheory.word_cmp_def,wl_word_def])
+  >>(Cases_on`wa`>>Cases_on`wb`>>simp[wordSemTheory.word_cmp_def,wl_word_def])
   >>simp[AND_1]
 )
 QED
