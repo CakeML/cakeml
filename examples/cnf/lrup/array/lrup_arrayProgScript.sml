@@ -441,9 +441,8 @@ Proof
   xmatch
   >- (
     simp[Once run_checker_def]>>
-    xvar>>xsimpl
-    >- metis_tac[DW8ARRAY_STDIO_INSTREAM_LINES_refl]
-    >- simp[Once run_checker_def])>>
+    xvar>>xsimpl>>
+    metis_tac[DW8ARRAY_STDIO_INSTREAM_LINES_refl])>>
   xlet_autop
   >- (
     xsimpl>>
@@ -461,4 +460,17 @@ Proof
   simp[Once run_checker_def,fsFFIPropsTheory.forwardFD_o]>>
   metis_tac[STDIO_INSTREAM_LINES_refl]
 QED
+
+(* Guessing whether we're in binary based on the first character
+
+  In ASCII: the first character is always a number
+  In binary: the first character is always #"a" or #"d"
+*)
+Definition good_char_opt_def:
+  (good_char_opt NONE = F) ∧
+  (good_char_opt (SOME c) =
+    (c = #"a" ∨ c = #"d")
+End
+
+val res = translate good_char_opt_def;
 

@@ -30,7 +30,11 @@ Definition check_lrup_def:
     then
       SOME (insert n vc fml)
     else NONE
-  | Lrupvb n vc hints => NONE
+  | Lrupvb n vc s =>
+    if is_rup_vb fml vc s
+    then
+      SOME (insert n vc fml)
+    else NONE
 End
 
 Definition check_lrups_def:
@@ -56,6 +60,11 @@ Proof
     metis_tac[satisfies_fml_gen_delete_ids])
   >- (
     drule is_rup_sound>>
+    disch_then $ drule_at Any>>
+    fs[satisfies_vcfml_def]>>
+    metis_tac[satisfies_fml_gen_insert])
+  >- (
+    drule is_rup_vb_sound>>
     disch_then $ drule_at Any>>
     fs[satisfies_vcfml_def]>>
     metis_tac[satisfies_fml_gen_insert])
@@ -139,4 +148,7 @@ Definition parse_lrup_def:
       | _ => NONE) ∧
   (parse_lrup _ = NONE)
 End
+
+(* TODO: add a parser for the compressed format
+  that directly produces LRUP (Del and Lrupvb only) *)
 

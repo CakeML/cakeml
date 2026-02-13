@@ -7,7 +7,8 @@ Ancestors
 Libs
   preamble
 
-(* Refinement to make use of array representations *)
+(* Refinement to make use of array representations
+  TODO: extend with vb *)
 Definition check_lrup_list_def:
   check_lrup_list lrup fml dml b =
   case lrup of
