@@ -60,19 +60,20 @@ Definition rewrite_aux_def:
   (rewrite_aux ts loc loc_opt arity (Op (BlockOp (Cons block_tag)) op_args) =
     case extract_tail_call loc op_args of
     | SOME (SOME (l, Call t _ args h), r) =>
-        let alloc_var    = Var arity in
-        let hole_index   = LENGTH l in
-        let alloc_exp    = bvi$Op (MemOp (MutCons block_tag hole_index)) (l (*@ r*)) in (*alloc(x, HOLE);*)
-        let tail_exp     = Call t (SOME loc_opt) args h in (*; append’ (p + 1) xs ys*) (* TODO: append HOLE pointer to args *)
-        let finalise_exp = bvi$Op (MemOp FinaliseCons) [(* TODO *)] in
-        SOME $ Let [alloc_exp; tail_exp] finalise_exp
+        let new_hole_idx     = LENGTH l in
+        let var_new_hole_ptr = Var arity in
+        let exp_new_hole_ptr = Op (MemOp (MutCons block_tag new_hole_idx)) (l (*@ r*)) in
+        let exp_new_hole_idx = Op (Label new_hole_idx) [] in
+        let exp_tail_call    = Call t (SOME loc_opt) (args (*@ [var_new_hole_ptr; exp_new_hole_idx]*)) h in
+        let exp_finalise     = Op (MemOp FinaliseCons) [var_new_hole_ptr] in
+        SOME $ Let [exp_new_hole_ptr; exp_tail_call] exp_finalise
     | _ => NONE) ∧
   (rewrite_aux ts loc loc_opt arity _ = NONE)
 Termination
   cheat
 End
 
-(* Assumes that the function can and should be optimised - has been checked by rewrite_aux_def. Also assumes De Bruijn indices have been shifted (or add new arg to end). *)
+(* Assumes that the function can and should be optimised - has been checked by rewrite_aux_def. *)
 Definition rewrite_opt_def:
   (rewrite_opt ts loc loc_opt arity (If xi xt xe) =
     let yt = rewrite_opt ts loc loc_opt arity xt in
@@ -83,13 +84,20 @@ Definition rewrite_opt_def:
   (rewrite_opt ts loc loc_opt arity (Op (BlockOp (Cons block_tag)) op_args) =
     case extract_tail_call loc op_args of
     | SOME (SOME (l, Call t _ args h), r) =>
-        let alloc_var  = Var arity in
-        let hole_index = LENGTH l in
-        let alloc_exp  = bvi$Op (MemOp (MutCons block_tag hole_index)) (l (*@ r*)) in (*alloc(x, HOLE);*)
-        let assign_exp = bvi$Op (MemOp UpdateCons) [(* TODO *)] in (* heap[k] = p *) (* assign(Var 0, alloc_var) *)
-        bvi$Let [alloc_exp; assign_exp] $ Call t (SOME loc_opt) args h (* TODO: append HOLE pointer to args *)
+        let new_hole_idx     = LENGTH l in
+        let arg_old_hole_ptr = Var arity in
+        let arg_old_hole_idx = Var (arity + 1) in
+        let var_new_hole_ptr = Var (arity + 2) in
+        let exp_new_hole_ptr = Op (MemOp (MutCons block_tag new_hole_idx)) (l (*@ r*)) in
+        let exp_update_hole  = Op (MemOp UpdateCons) [arg_old_hole_ptr; arg_old_hole_idx; var_new_hole_ptr] in
+        let exp_new_hole_idx = Op (Label new_hole_idx) [] in
+        let exp_tail_call    = Call t (SOME loc_opt) (args (*@ [var_new_hole_ptr; exp_new_hole_idx]*)) h in
+        Let [exp_new_hole_ptr; exp_update_hole] $ exp_tail_call
     | _ => Op (BlockOp (Cons block_tag)) op_args) ∧
-  (rewrite_opt ts loc loc_opt arity expr = bvi$Op (MemOp UpdateCons) [(* TODO *)])
+  (rewrite_opt ts loc loc_opt arity expr =
+    let arg_old_hole_ptr = Var arity in
+    let arg_old_hole_idx = Var (arity + 1) in
+    Op (MemOp UpdateCons) [arg_old_hole_ptr; arg_old_hole_idx; expr])
 Termination
   cheat
 End
@@ -112,7 +120,7 @@ Definition compile_prog_def:
           (n, (loc, arity, exp)::ys)
     | SOME (exp_aux, exp_opt) =>
         let (n, ys) = compile_prog (next + bvl_to_bvi_namespaces) xs in
-        (n, (loc, arity, exp_aux)::(next, arity + 1, exp_opt)::ys))
+        (n, (loc, arity, exp_aux)::(next, arity + 2, exp_opt)::ys))
 End
 
 (* testing *)
