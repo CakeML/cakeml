@@ -235,10 +235,10 @@ QED
 
 (* Element2D: Xss[Y1 - offset1][Y2 - offset2] = Z *)
 Definition encode_element2d_aux_1_def:
-  encode_element2d_aux_1 bnd Yi1 Yi2 m n =
+  encode_element2d_aux_1 bnd Y1i Y2i m n =
   let
-    (Y1,offset1) = Yi1;
-    (Y2,offset2) = Yi2;
+    (Y1,offset1) = Y1i;
+    (Y2,offset2) = Y2i;
     (lb1,ub1) =
       case Y1 of
         INL vY1 => bnd vY1
@@ -268,10 +268,10 @@ Definition encode_element2d_aux_1_def:
 End
 
 Definition cencode_element2d_aux_1_def:
-  cencode_element2d_aux_1 bnd Yi1 Yi2 m n name =
+  cencode_element2d_aux_1 bnd Y1i Y2i m n name =
   let
-    (Y1,offset1) = Yi1;
-    (Y2,offset2) = Yi2;
+    (Y1,offset1) = Y1i;
+    (Y2,offset2) = Y2i;
     (lb1,ub1) =
       case Y1 of
         INL vY1 => bnd vY1
@@ -299,14 +299,14 @@ Definition cencode_element2d_aux_1_def:
   in
     List $ mk_annotate
       (lb1ann ++ ub1ann ++ lb2ann ++ ub2ann)
-      (encode_element2d_aux_1 bnd Yi1 Yi2 m n)
+      (encode_element2d_aux_1 bnd Y1i Y2i m n)
 End
 
 Definition encode_element2d_aux_2_def:
-  encode_element2d_aux_2 bnd Xss Yi1 Yi2 Z =
+  encode_element2d_aux_2 bnd Xss Y1i Y2i Z =
   let
-    (Y1,offset1) = Yi1;
-    (Y2,offset2) = Yi2
+    (Y1,offset1) = Y1i;
+    (Y2,offset2) = Y2i
   in
     FLAT $ MAPi
       (λi Xs. FLAT $ MAPi
@@ -326,10 +326,10 @@ Definition encode_element2d_aux_2_def:
 End
 
 Definition cencode_element2d_aux_2_def:
-  cencode_element2d_aux_2 bnd Xss Yi1 Yi2 Z name =
+  cencode_element2d_aux_2 bnd Xss Y1i Y2i Z name =
   let
-    (Y1,offset1) = Yi1;
-    (Y2,offset2) = Yi2
+    (Y1,offset1) = Y1i;
+    (Y2,offset2) = Y2i
   in
     List $ mk_annotate
       (FLAT $ MAPi
@@ -347,18 +347,18 @@ Definition cencode_element2d_aux_2_def:
             ])
           Xs)
         Xss)
-      (encode_element2d_aux_2 bnd Xss Yi1 Yi2 Z)
+      (encode_element2d_aux_2 bnd Xss Y1i Y2i Z)
 End
 
 Definition cencode_element2d_def:
-  cencode_element2d bnd Xss Yi1 Yi2 Z name ec =
+  cencode_element2d bnd Xss Y1i Y2i Z name ec =
   if LENGTH Xss > 0 ∧ EVERY (λXs. LENGTH Xs = LENGTH $ HD Xss) Xss
   then
     let
       len1 = LENGTH Xss;
       len2 = LENGTH $ HD Xss;
-      (Y1,offset1) = Yi1;
-      (Y2,offset2) = Yi2;
+      (Y1,offset1) = Y1i;
+      (Y2,offset2) = Y2i;
       (lb1,ub1) =
         case Y1 of
           INL vY1 => bnd vY1
@@ -383,16 +383,16 @@ Definition cencode_element2d_def:
         (Append
           (cencode_element2d_aux_1
             bnd
-            Yi1
-            Yi2
+            Y1i
+            Y2i
             (&len1)
             (&len2)
             name)
           (cencode_element2d_aux_2
             bnd
             Xss
-            Yi1
-            Yi2
+            Y1i
+            Y2i
             Z
             name)),
       ec')
@@ -400,14 +400,14 @@ Definition cencode_element2d_def:
 End
 
 Definition encode_element2d_def:
-  encode_element2d bnd Xss Yi1 Yi2 Z =
+  encode_element2d bnd Xss Y1i Y2i Z =
   if LENGTH Xss > 0 ∧ EVERY (λXs. LENGTH Xs = LENGTH $ HD Xss) Xss
   then
     let
       len1 = LENGTH Xss;
       len2 = LENGTH $ HD Xss;
-      (Y1,offset1) = Yi1;
-      (Y2,offset2) = Yi2;
+      (Y1,offset1) = Y1i;
+      (Y2,offset2) = Y2i;
       (lb1,ub1) =
         case Y1 of
           INL vY1 => bnd vY1
@@ -419,8 +419,8 @@ Definition encode_element2d_def:
     in
       (FLAT $ GENLIST (λi. encode_full_eq bnd Y1 (offset1 + &i)) len1) ++
       (FLAT $ GENLIST (λj. encode_full_eq bnd Y2 (offset2 + &j)) len2) ++
-      (encode_element2d_aux_1 bnd Yi1 Yi2 (&len1) (&len2)) ++
-      (encode_element2d_aux_2 bnd Xss Yi1 Yi2 Z)
+      (encode_element2d_aux_1 bnd Y1i Y2i (&len1) (&len2)) ++
+      (encode_element2d_aux_2 bnd Xss Y1i Y2i Z)
   else [false_constr]
 End
 
@@ -430,7 +430,26 @@ Theorem encode_element2d_sem_1:
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
     (encode_element2d bnd Xss Y1i Y2i Z)
 Proof
-  cheat
+  PairCases_on ‘Y1i’>>
+  PairCases_on ‘Y2i’>>
+  rename1 ‘element2d_sem _ (Y1,offset1) (Y2,offset2) _ _’>>
+  (Cases_on ‘Y1’>>Cases_on ‘Y2’)
+  >~[‘encode_element2d _ _ (INL vY1,_) (INL vY2,_) _’]
+  >-(
+    rw[element2d_sem_def,mk_array_ind_def,
+      encode_element2d_def,encode_element2d_aux_1_def,encode_element2d_aux_2_def]>>
+    (Cases_on ‘bnd vY1’>>Cases_on ‘bnd vY2’)
+    >-simp[encode_element_lem]
+    >-simp[encode_element_lem]
+    >-cheat
+    >-cheat
+    >-cheat)
+  >~[‘encode_element2d _ _ (INL vY1,_) (INR cY2,_) _’]
+  >-cheat
+  >~[‘encode_element2d _ _ (INR cY1,_) (INL vY2,_) _’]
+  >-cheat
+  >~[‘encode_element2d _ _ (INR cY1,_) (INR cY2,_) _’]
+  >-cheat
 QED
 
 Theorem encode_element2d_sem_2:
