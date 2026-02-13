@@ -657,5 +657,3 @@ Proof
   \\ mp_tac compile_prog_eq_pan_to_target_all
   \\ pairarg_tac \\ gvs []
 QED
-
-val _ = export_theory();
