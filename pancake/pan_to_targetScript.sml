@@ -47,7 +47,7 @@ Definition compile_prog_def:
       stack_alloc$stub_names () ++ stack_remove$stub_names ())) names in
     (* Add exported functions to  *)
     let c = c with exported := exports prog in
-      from_word c names prog3
+      from_word asm_conf c names prog3
 End
 
 (*  TODO: evaluate max_depth ... (full_call_graph dest (fromAList prog))  *)
@@ -70,7 +70,7 @@ Theorem compile_prog_eq:
                                 ::xs
                 | (xs,y::ys) => y::xs ++ ys in
     (* Compiler passes *)
-    let prog2 = pan_to_word$compile_prog c.lab_conf.asm_conf.ISA prog1 in
+    let prog2 = pan_to_word$compile_prog asm_conf.ISA prog1 in
     (* Add user functions to name mapping *)
     let names = fromAList (ZIP (sort $< (MAP FST prog2), (* func numbers *)
                                 «generated_main»::

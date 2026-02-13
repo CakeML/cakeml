@@ -27,7 +27,7 @@ val names_tac =
   \\ rpt strip_tac \\ rveq \\ EVAL_TAC
 
 Theorem arm7_backend_config_ok:
-  backend_config_ok arm7_backend_config
+  backend_config_ok arm7_config arm7_backend_config
 Proof
   simp[backend_config_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
   >> TRY(fs[arm7_backend_config_def]>>NO_TAC)
@@ -79,7 +79,7 @@ QED
 
 Theorem arm7_init_ok:
   is_arm7_machine_config mc ⇒
-    mc_init_ok arm7_backend_config mc
+    mc_init_ok arm7_config arm7_backend_config mc
 Proof
   rw[mc_init_ok_def] \\
   fs[is_arm7_machine_config_def] \\
@@ -90,8 +90,8 @@ val is_arm7_machine_config_mc = arm7_init_ok |> concl |> dest_imp |> #1
 
 Theorem arm7_compile_correct =
   compile_correct
-  |> Q.GENL[`c`,`mc`]
-  |> Q.ISPECL[`arm7_backend_config`, `^(rand is_arm7_machine_config_mc)`]
+  |> Q.GENL[`asm_conf`,`c`,`mc`]
+  |> Q.ISPECL[`arm7_config`, `arm7_backend_config`, `^(rand is_arm7_machine_config_mc)`]
   |> ADD_ASSUM is_arm7_machine_config_mc
   |> SIMP_RULE (srw_ss()) [arm7_backend_config_ok,UNDISCH arm7_machine_config_ok,UNDISCH arm7_init_ok]
   |> CONV_RULE (ONCE_DEPTH_CONV(EVAL o (assert(same_const``heap_regs``o fst o strip_comb))))
