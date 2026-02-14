@@ -2706,7 +2706,7 @@ QED
 val _ = cv_auto_trans rich_listTheory.COUNT_LIST_GENLIST;
 val _ = cv_trans bvi_to_dataTheory.compile_exp_eq;
 val _ = cv_auto_trans bvi_to_dataTheory.compile_prog_def;
-val _ = cv_trans to_data_def;
+val _ = cv_trans backendTheory.to_data_def;
 
 val _ = cv_trans backend_passesTheory.to_flat_all_def;
 val _ = cv_trans backend_passesTheory.to_clos_all_def;
@@ -2722,7 +2722,7 @@ Proof
   \\ imp_res_tac bvi_to_dataTheory.compile_sing_eq \\ gvs []
 QED
 
-val _ = cv_auto_trans (to_data_all_def |> REWRITE_RULE [bvi_to_data_compile_sing]);
+val _ = cv_auto_trans (backend_passesTheory.to_data_all_def |> REWRITE_RULE [bvi_to_data_compile_sing]);
 
 (* Explorer *)
 

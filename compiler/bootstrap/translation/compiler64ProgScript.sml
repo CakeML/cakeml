@@ -420,7 +420,7 @@ End
 Theorem upper_w2w_eq_I[local]:
   backend$upper_w2w = (I:word64 -> word64)
 Proof
-  fs [backendTheory.upper_w2w_def,FUN_EQ_THM]
+  fs [backend_commonTheory.upper_w2w_def,FUN_EQ_THM]
 QED
 
 val compiler_for_eval_alt =
