@@ -3170,8 +3170,8 @@ Definition nlive_store_def:
     s ∉ set nlive) ∧
   (nlive_store nlive (Load e) ⇔
     nlive_store nlive e) ∧
-  (nlive_store nlive (Shift _ e _) ⇔
-    nlive_store nlive e) ∧
+  (nlive_store nlive (Shift _ e1 e2) ⇔
+    nlive_store nlive e1 ∧ nlive_store nlive e2) ∧
   (nlive_store nlive _ ⇔ T)
 End
 
@@ -3242,13 +3242,20 @@ Proof
     first_x_assum (irule_at Any)>>
     simp[ETA_AX])
   >- (
-    gvs[AllCaseEqs()]>>
+    gvs[AllCaseEqs(),nlive_store_def]>>
     first_x_assum (irule_at Any)>>
     first_x_assum (irule_at Any)>>
-    gvs[nlive_store_def]>>
-    irule_at Any strong_locals_rel_subset>>
-    first_x_assum (irule_at Any)>>
-    simp[get_live_exp_def,domain_union])
+    gvs[]>>
+    conj_tac >- (
+      irule strong_locals_rel_subset>>
+      first_assum (irule_at Any)>>
+      simp[get_live_exp_def,domain_union]>>
+      fs[SUBSET_DEF]) >>
+    first_x_assum irule>>
+    irule strong_locals_rel_subset>>
+    first_assum (irule_at Any)>>
+    simp[get_live_exp_def,domain_union]>>
+    fs[SUBSET_DEF])
 QED
 
 Theorem strong_locals_rel_insert_notin[local]:
@@ -5516,8 +5523,9 @@ Proof
       fs[IS_SOME_EXISTS])>>
     fs[])
   >-
-    (ntac 4 TOP_CASE_TAC>> (* case word_exp st w of ... *)
-    res_tac>>full_simp_tac(srw_ss())[word_state_eq_rel_def,mem_load_def])
+    (strip_tac>>
+    gvs[AllCaseEqs()]>>
+    res_tac>>gvs[])
 QED
 
 val exp_tac2 =

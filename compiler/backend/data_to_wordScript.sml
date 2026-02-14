@@ -1600,8 +1600,8 @@ val def = assign_Define `
       list_Seq [
           Assign 1 (real_addr c (adjust_var v1)); (* address to header *)
           Assign 3 (real_addr c (adjust_var v2)); (* address to header *)
-          Assign 5 (Shift Lsr (Load (Var 1)) k); (* len + bytes_in_word *)
-          Assign 7 (Shift Lsr (Load (Var 3)) k); (* len + bytes_in_word *)
+          Assign 5 (ShiftN Lsr (Load (Var 1)) k); (* len + bytes_in_word *)
+          Assign 7 (ShiftN Lsr (Load (Var 3)) k); (* len + bytes_in_word *)
           (if b then
              If Equal 5 (Reg 7)
                 (list_Seq

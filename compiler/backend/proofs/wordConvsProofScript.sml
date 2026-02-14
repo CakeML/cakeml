@@ -1809,7 +1809,7 @@ Proof
     >> rpt conj_tac >> rpt (gen_tac ORELSE disch_tac)
     >> fs[copy_prop_inst_def,wordLangTheory.every_stack_var_def,
        inst_arg_convention_def, call_arg_convention_def]
-    >- (Cases_on`n`>>fs[inst_arg_convention_def])
+    >- (Cases_on`n`>>fs[inst_arg_convention_def,lookup_eq_imm_def,lookup_eq_def,reg_allocTheory.is_alloc_var_def])
     >- fs[reg_allocTheory.is_alloc_var_def,lookup_eq_def]
     >> rpt(pairarg_tac>>fs[]) >> rw[]
     >> fs[copy_prop_inst_def,wordLangTheory.every_stack_var_def,
@@ -1867,6 +1867,8 @@ Proof
       Cases_on‘ri’
       >>fs[inst_ok_less_def,lookup_eq_imm_def]
     )
+    >- (Cases_on`n`>>
+       fs[inst_ok_less_def,lookup_eq_imm_def])
     >- (Cases_on`n`>>
        fs[inst_ok_less_def,lookup_eq_imm_def])
     >>metis_tac[]
