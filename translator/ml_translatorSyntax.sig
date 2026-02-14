@@ -58,6 +58,8 @@ sig
 
   val DUMMY_TYPE_REP_v  : term
 
+  val Mat_cases_tm : term
+
   val mk_LIST_TYPE   : term * term * term -> term
   val dest_LIST_TYPE : term -> term * term * term
   val is_LIST_TYPE   : term -> bool

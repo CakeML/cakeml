@@ -81,7 +81,7 @@ sig
     (* internals, for the monadic translation *)
 
     val match_rec_pattern            : term -> term * string * term
-    val install_rec_pattern          : term -> string -> string -> unit
+    val install_rec_patterns         : (term * string * string) list -> unit
     val uninstall_rec_patterns       : unit -> unit
     val preprocess_def               : thm -> bool * thm list * thm option
     val get_unique_name              : string -> string

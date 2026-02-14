@@ -40,6 +40,8 @@ val (PreImp,mk_PreImp,dest_PreImp,is_PreImp) = binop "PreImp";
 val And_tm = prim_mk_const{Thy="ml_translator",Name="And"}
 fun mk_And (x, y) = list_mk_icomb (And_tm, [x, y])
 
+val Mat_cases_tm = prim_mk_const{Thy = "ml_translator",Name="Mat_cases"}
+
 val binop = HolKernel.syntax_fns2 "ml_prog"
 val (lookup_cons,mk_lookup_cons,dest_lookup_cons,is_lookup_cons) = binop "lookup_cons";
 val (lookup_var,mk_lookup_var,dest_lookup_var,is_lookup_var) = binop "lookup_var";
