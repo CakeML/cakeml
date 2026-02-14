@@ -54,14 +54,12 @@ fun define_target_specific_backend asm_config_def = let
     in d end
   (* to_livesets *)
   val th = data_to_wordTheory.compile_0_def |> asm_spec
-  val th = to_word_0_def |> asm_spec
+  val th = backendTheory.to_word_0_def |> asm_spec
   val th = word_instTheory.inst_select_exp_def |> asm_spec
   val th = word_instTheory.inst_select_def |> asm_spec
   val th = word_allocTheory.get_forced_def |> asm_spec
-  val th = to_livesets_0_def |> asm_spec
-  val th = to_livesets_def |> asm_spec
-  val th = ISPEC asm_conf to_livesets_thm |> REWRITE_RULE [th]
-  val res = save_thm ("to_livesets_" ^ name ^ "_thm", th)
+  val th = backendTheory.to_livesets_0_def |> asm_spec
+  val th = backendTheory.to_livesets_def |> asm_spec
   (* lab_to_target *)
   val th = enc_line_def |> asm_spec
   val th = enc_sec_def |> asm_spec

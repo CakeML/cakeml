@@ -1,6 +1,6 @@
 (*
-  Define new version of CakeML compiler where asm_conf is lifted out to
-  be a separate argument. Used for in-logic evaluation by cv_translator.
+  cv-compute-specific versions of lab_to_target and later passes
+  where asm_conf is lifted out. Used for in-logic evaluation by cv_translator.
 *)
 Theory backend_asm
 Ancestors
@@ -9,92 +9,6 @@ Ancestors
 Libs
   preamble
 
-
-(*----------------------------------------------------------------*
-    Early passes (identical to backend$ but defined locally)
- *----------------------------------------------------------------*)
-
-Definition to_flat_def:
-  to_flat c p =
-    let p = source_to_source$compile p in
-    let (c',p) = source_to_flat$compile c.source_conf p in
-    let c = c with source_conf := c' in
-      (c,p)
-End
-
-Definition to_clos_def:
-  to_clos c p =
-    let (c,p) = to_flat c p in
-    let p = flat_to_clos$compile_prog p in
-      (c,p)
-End
-
-Definition to_bvl_def:
-  to_bvl c p =
-    let (c,p) = to_clos c p in
-    let (c',p,names) = clos_to_bvl$compile c.clos_conf p in
-    let c = c with clos_conf := c' in
-      (c,p,names)
-End
-
-Definition to_bvi_def:
-  to_bvi c p =
-    let (c,p,names) = to_bvl c p in
-    let (s,p,l,n1,n2,names) =
-      bvl_to_bvi$compile c.clos_conf.start c.bvl_conf names p in
-    let names = sptree$union (sptree$fromAList $ (data_to_word$stub_names () ++
-      word_to_stack$stub_names () ++ stack_alloc$stub_names () ++
-      stack_remove$stub_names ())) names in
-    let c = c with clos_conf updated_by (λc. c with start := s) in
-    let c = c with bvl_conf updated_by (λc. c with
-                  <| inlines := l; next_name1 := n1; next_name2 := n2 |>) in
-      (c,p,names)
-End
-
-Definition to_data_def:
-  to_data c p =
-    let (c,p,names) = to_bvi c p in
-    let p = bvi_to_data$compile_prog p in
-      (c,p,names)
-End
-
-Definition to_word_0_def:
-  to_word_0 asm_conf c p =
-    let (c,p,names) = to_data c p in
-    let p = data_to_word$compile_0 c.data_conf asm_conf p in
-      (c,p,names)
-End
-
-Definition to_livesets_0_def:
-  to_livesets_0 asm_conf (c:config,p,names: mlstring num_map) =
-  let word_conf = c.word_to_word_conf in
-  let alg = word_conf.reg_alg in
-  let p =
-    MAP (λ(name_num,arg_count,prog).
-    let prog = word_simp$compile_exp prog in
-    let maxv = max_var prog + 1 in
-    let inst_prog = inst_select asm_conf maxv prog in
-    let ssa_prog = full_ssa_cc_trans arg_count inst_prog in
-    let rm_ssa_prog = remove_dead_prog ssa_prog in
-    let cse_prog = word_common_subexp_elim rm_ssa_prog in
-    let cp_prog = copy_prop cse_prog in
-    let two_prog = three_to_two_reg_prog asm_conf.two_reg_arith cp_prog in
-    let unreach_prog = remove_unreach two_prog in
-    let rm_prog = remove_dead_prog unreach_prog in
-        (name_num,arg_count,rm_prog))
-      p in
-    let data = MAP (\(name_num,arg_count,prog).
-    let (heu_moves,spillcosts) = get_heuristics alg name_num prog in
-    (get_clash_tree prog,heu_moves,spillcosts,
-      get_forced asm_conf prog [],get_stack_only prog)) p
-  in
-    ((asm_conf.reg_count - (5+LENGTH asm_conf.avoid_regs),data),c,names,p)
-End
-
-Definition to_livesets_def:
-  to_livesets asm_conf c p =
-    to_livesets_0 asm_conf (to_word_0 asm_conf c p)
-End
 
 (*----------------------------------------------------------------*
     Adjustments to lab_to_target
@@ -401,83 +315,6 @@ Proof
   \\ gvs []
 QED
 
-Theorem to_flat_thm[local]:
-  to_flat c p = (y0,y1) ∧
-  backend$to_flat c p = (z0,z1) ⇒
-  y0 = z0 ∧ y1 = z1
-Proof
-  gvs [to_flat_def,backendTheory.to_flat_def]
-  \\ rpt (pairarg_tac \\ gvs [])
-  \\ strip_tac \\ gvs []
-QED
-
-Theorem to_clos_thm[local]:
-  to_clos c p = (y0,y1) ∧
-  backend$to_clos c p = (z0,z1) ⇒
-  y0 = z0 ∧ y1 = z1
-Proof
-  gvs [to_clos_def,backendTheory.to_clos_def]
-  \\ rpt (pairarg_tac \\ gvs [])
-  \\ strip_tac \\ gvs []
-  \\ drule_all_then strip_assume_tac to_flat_thm \\ gvs []
-QED
-
-Theorem to_bvl_thm[local]:
-  to_bvl c p = (y0,y1) ∧
-  backend$to_bvl c p = (z0,z1) ⇒
-  y0 = z0 ∧ y1 = z1
-Proof
-  gvs [to_bvl_def,backendTheory.to_bvl_def]
-  \\ rpt (pairarg_tac \\ gvs [])
-  \\ strip_tac \\ gvs []
-  \\ drule_all_then strip_assume_tac to_clos_thm \\ gvs []
-QED
-
-Theorem to_bvi_thm[local]:
-  to_bvi c p = (y0,y1) ∧
-  backend$to_bvi c p = (z0,z1) ⇒
-  y0 = z0 ∧ y1 = z1
-Proof
-  gvs [to_bvi_def,backendTheory.to_bvi_def]
-  \\ rpt (pairarg_tac \\ gvs [])
-  \\ strip_tac \\ gvs []
-  \\ drule_all_then strip_assume_tac to_bvl_thm \\ gvs []
-QED
-
-Theorem to_data_thm[local]:
-  to_data c p = (y0,y1,y2) ∧
-  backend$to_data c p = (z0,z1,z2) ⇒
-  y0 = z0 ∧ y1 = z1 ∧ y2 = z2
-Proof
-  gvs [to_data_def,backendTheory.to_data_def]
-  \\ rpt (pairarg_tac \\ gvs [])
-  \\ strip_tac \\ gvs []
-  \\ drule_all_then strip_assume_tac to_bvi_thm \\ gvs []
-QED
-
-Theorem to_word_0_thm[local]:
-  to_word_0 asm_conf c p = (y0,y1,y2) ∧
-  backend$to_word_0 asm_conf c p = (z0,z1,z2) ⇒
-  y0 = z0 ∧ y1 = z1 ∧ y2 = z2
-Proof
-  gvs [to_word_0_def,backendTheory.to_word_0_def]
-  \\ rpt (pairarg_tac \\ gvs [])
-  \\ strip_tac \\ gvs []
-  \\ drule_all_then strip_assume_tac to_data_thm \\ gvs []
-QED
-
-Theorem to_livesets_thm:
-  ∀asm_conf:'a asm_config.
-    to_livesets asm_conf c p = (sets,c1,rest) ⇒
-    backend$to_livesets asm_conf c p = (sets,c1,rest)
-Proof
-  rw [to_livesets_def,backendTheory.to_livesets_def]
-  \\ ‘∃t. to_word_0 asm_conf c p = t’ by fs [] \\ PairCases_on ‘t’
-  \\ ‘∃u. backend$to_word_0 asm_conf c p = u’ by fs [] \\ PairCases_on ‘u’
-  \\ drule_all_then strip_assume_tac to_word_0_thm \\ gvs []
-  \\ gvs [to_livesets_0_def,backendTheory.to_livesets_0_def]
-QED
-
 Theorem compile_cake_thm:
   ∀asm_conf:'a asm_config.
     compile_cake asm_conf c p =
@@ -499,119 +336,11 @@ Proof
   \\ pop_assum $ irule_at Any
   \\ last_x_assum kall_tac
   \\ gvs [backendTheory.compile_oracle_word_0]
-  \\ pairarg_tac \\ gvs []
-  \\ drule_all to_word_0_thm
-  \\ rw [] \\ gvs []
 QED
 
 (*----------------------------------------------------------------*
    Explorer for in-logic evaluation of it
  *----------------------------------------------------------------*)
-
-Definition to_flat_all_def:
-  to_flat_all (c:config) p =
-    let ps = [] in
-    let ps = ps ++ [(strlit "original source code",Source p)] in
-    let p = source_let$compile_decs p in
-    let ps = ps ++ [(strlit "after source_let",Source p)] in
-    let (c',p) = source_to_flat$compile_prog c.source_conf p in
-    let ps = ps ++ [(strlit "after source_to_flat",Flat p)] in
-    let p = flat_elim$remove_flat_prog p in
-    let ps = ps ++ [(strlit "after remove_flat",Flat p)] in
-    let p = MAP (flat_pattern$compile_dec c'.pattern_cfg) p in
-    let ps = ps ++ [(strlit "after flat_pattern",Flat p)] in
-    let c = c with source_conf := c' in
-      ((ps: (mlstring # 'a any_prog) list),c,p)
-End
-
-Definition to_clos_all_def:
-  to_clos_all (c:config) p =
-    let (ps,c,p) = to_flat_all c p in
-    let p = flat_to_clos$compile_prog p in
-    let ps = ps ++ [(strlit "after flat_to_clos",Clos p [])] in
-      ((ps: (mlstring # 'a any_prog) list),c,p)
-End
-
-Definition to_bvl_all_def:
-  to_bvl_all (c:config) p =
-    let (ps,c,es0) = to_clos_all c p in
-    let c0 = c.clos_conf in
-    let es = clos_mti$compile c0.do_mti c0.max_app es0 in
-    let ps = ps ++ [(strlit "after clos_mti",Clos es [])] in
-    let loc = c0.next_loc + MAX 1 (LENGTH es) in
-    let loc = if loc MOD 2 = 0 then loc else loc + 1 in
-    let (n,es) = clos_number$renumber_code_locs_list loc es in
-    let ps = ps ++ [(strlit "after clos_number",Clos es [])] in
-    let (kc,es) = clos_known$compile c0.known_conf es in
-    let ps = ps ++ [(strlit "after clos_known",Clos es [])] in
-    let (es,g,aux) = clos_call$compile c0.do_call es in
-    let ps = ps ++ [(strlit "after clos_call",Clos es aux)] in
-    let prog = chain_exps c0.next_loc es ++ aux in
-    let prog = clos_annotate$compile prog in
-    let ps = ps ++ [(strlit "after clos_annotate",Clos [] prog)] in
-    let c1 = c0 with
-         <|start := c0.next_loc; next_loc := n; known_conf := kc;
-           call_state := (g,aux)|> in
-    let init_stubs = toAList (init_code c1.max_app) in
-    let init_globs =
-            [(num_stubs c1.max_app − 2, 2, force_thunk_code);
-             (num_stubs c1.max_app − 1, 0,
-              init_globals c1.max_app (num_stubs c1.max_app + c1.start))] in
-    let comp_progs = clos_to_bvl$compile_prog c1.max_app prog in
-    let prog' = init_stubs ++ init_globs ++ comp_progs in
-    let func_names =
-            make_name_alist (MAP FST prog') prog (num_stubs c1.max_app)
-              c0.next_loc (LENGTH es0) in
-    let ps = ps ++ [(strlit "after clos_to_bvl",Bvl prog' func_names)] in
-    let c2 = c1 with start := num_stubs c1.max_app − 1 in
-    let p = code_sort prog' in
-    let c = c with clos_conf := c2 in
-      ((ps: (mlstring # 'a any_prog) list),c,p,func_names)
-End
-
-Definition to_bvi_all_def:
-  to_bvi_all (c:config) p =
-    let (ps,c,p,names) = to_bvl_all c p in
-    let start = c.clos_conf.start in
-    let c0 = c.bvl_conf in
-    let limit = c0.inline_size_limit in
-    let split_seq = c0.split_main_at_seq in
-    let cut_size = c0.exp_cut in
-    let (inlines,prog1) = bvl_inline$tick_compile_prog limit LN p in
-    let prog = MAP (λ(name,arity,exp). (name,arity, HD (remove_ticks [exp]))) prog1 in
-    let ps = ps ++ [(strlit "after bvl_inline and remove_ticks",Bvl prog names)] in
-    let prog = MAP (λ(name,arity,exp). (name,arity, let_op_sing exp)) prog in
-    let ps = ps ++ [(strlit "after let_op_sing",Bvl prog names)] in
-    let prog = MAP (λ(name,arity,exp). (name,arity,
-                       bvl_handle$compile_any split_seq cut_size arity exp)) prog in
-    let ps = ps ++ [(strlit "after bvl_handle",Bvl prog names)] in
-    let (loc,code,n1) = bvl_to_bvi$compile_prog start 0 prog in
-    let (n2,code') = bvi_tailrec$compile_prog (bvl_num_stubs + 2) code in
-    let (s,p,l,n1,n2,names) = (loc,code',inlines,n1,n2,get_names (MAP FST code') names) in
-    let names = sptree$union (sptree$fromAList $ (data_to_word$stub_names () ++
-      word_to_stack$stub_names () ++ stack_alloc$stub_names () ++
-      stack_remove$stub_names ())) names in
-    let ps = ps ++ [(strlit "after bvl_to_bvi",Bvi code names)] in
-    let ps = ps ++ [(strlit "after bvi_tailrec",Bvi code' names)] in
-    let c = c with clos_conf updated_by (λc. c with start := s) in
-    let c = c with bvl_conf updated_by
-      (λc. c with <| inlines := l; next_name1 := n1; next_name2 := n2 |>) in
-     ((ps: (mlstring # 'a any_prog) list),c,p,names)
-End
-
-Definition to_data_all_def:
-  to_data_all (c:config) p =
-    let (ps,c,p,names) = to_bvi_all c p in
-    let p = MAP (λ(a,n,e). (a,n,FST (compile n (COUNT_LIST n) T [] [e]))) p in
-    let ps = ps ++ [(strlit "after bvi_to_data",Data p names)] in
-    let p = MAP (λ(a,n,e). (a,n,FST (data_live$compile e LN))) p in
-    let ps = ps ++ [(strlit "after data_live",Data p names)] in
-    let p = MAP (λ(a,n,e). (a,n,data_simp$simp e Skip)) p in
-    let ps = ps ++ [(strlit "after data_simp",Data p names)] in
-    let p = MAP (λ(a,n,e). (a,n,data_space$compile e)) p in
-    let ps = ps ++ [(strlit "after data_space",Data p names)] in
-      ((ps: (mlstring # 'a any_prog) list),c,p,names)
-End
 
 Definition to_word_all_def:
   to_word_all asm_conf (c:config) p =
