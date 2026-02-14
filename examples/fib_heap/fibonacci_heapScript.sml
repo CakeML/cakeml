@@ -391,12 +391,25 @@ Proof
   first_x_assum (qspecl_then [`0w`, `v`, `e`] assume_tac) >> fs[] >>
   Cases_on `FLOOKUP fh 0w` >> full_simp_tac std_ss [] >> gvs[] >>
   first_x_assum (qspec_then `m` assume_tac) >>
+
+(*
+  This does not look promising...
+
+  Induct_on `fts` >> fs[] >>
+  rpt strip_tac >>
+  ho_match_mp_tac fts_has_ind
+*)
+
+(*
+  This is just that the node data must not be the same.
+  But I cannot prove that with my assumptions.
+
   Cases_on `fts` >> fs[] >>
   Cases_on `h` >> rfs[head_key_def] >>
-
-
   fs[Once fts_has_cases]
+  last_x_assum (qspecl_then [`[]`, `[]`] assume_tac)
 
+*)
   >> cheat
   )
 
