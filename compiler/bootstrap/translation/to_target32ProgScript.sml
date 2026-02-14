@@ -351,8 +351,8 @@ Definition remove_labels_hash_def:
 End
 
 Theorem remove_labels_hash_correct[local]:
-  remove_labels_hash c.init_clock c.asm_conf c.pos c.labels ffis c.hash_size sec_list =
-  remove_labels c.init_clock c.asm_conf c.pos c.labels ffis sec_list
+  remove_labels_hash c.init_clock ac c.pos c.labels ffis c.hash_size sec_list =
+  remove_labels c.init_clock ac c.pos c.labels ffis sec_list
 Proof
   simp [FUN_EQ_THM, remove_labels_hash_def, remove_labels_def,
         enc_secs_32_correct]

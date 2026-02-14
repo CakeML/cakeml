@@ -87,9 +87,9 @@ Proof
 QED
 
 Theorem compile_tap_compile:
-  ∀conf p res td.
-    backend_passes$compile_tap conf p = (res,td) ⇒
-    backend$compile conf p = res
+  ∀asm_conf conf p res td.
+    backend_passes$compile_tap asm_conf conf p = (res,td) ⇒
+    backend$compile asm_conf conf p = res
 Proof
   metis_tac [backend_passesTheory.compile_alt,FST]
 QED
