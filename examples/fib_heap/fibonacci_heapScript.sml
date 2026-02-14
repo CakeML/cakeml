@@ -303,6 +303,9 @@ Definition fib_heap_inv_def:
     (!k v e.
       (FLOOKUP fh k = SOME (v,e)) /\ k = head_key fts ==>
       fts_is_min v fts) /\
+    (!k1 k2 n1 n2.
+      fts_has k1 n1 fts /\ fts_has k2 n2 fts /\ k1 = k2 ==>
+      n1 = n2) /\
     (fib_heap_shape_ok fts)
 (*Everything else should be valid by annotation, construction of the heap,
   or is an individual assertion for a heap operation.
@@ -387,11 +390,16 @@ Proof
   strip_tac >>
   conj_tac
   >- (
-  fs[fib_heap_inv_def] >>
-  first_x_assum (qspecl_then [`0w`, `v`, `e`] assume_tac) >> fs[] >>
-  Cases_on `FLOOKUP fh 0w` >> full_simp_tac std_ss [] >> gvs[] >>
-  first_x_assum (qspec_then `m` assume_tac) >>
-
+     fs[fib_heap_inv_def] >>
+     last_x_assum (qspecl_then [`0w`, `v`, `e`] assume_tac) >> fs[] >>
+     Cases_on `FLOOKUP fh 0w` >> full_simp_tac std_ss [] >> gvs[] >>
+     first_x_assum (qspec_then `m` assume_tac) >>
+     Cases_on `fts` >> fs[] >>
+     Cases_on `h` >> fs[head_key_def] >> rfs[] >>
+     last_x_assum (qspecl_then [`0w`, `(fill_dnode v e T m)`, `v'`] assume_tac) >>
+     res_tac
+  (* Next step, but imp does not resolve...
+  fs[Once fts_has_cases] *)
 (*
   This does not look promising...
 
