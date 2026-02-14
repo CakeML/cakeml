@@ -376,7 +376,7 @@ Proof
   gvs[]>>
   qmatch_asmsub_abbrev_tac ‘shmem_info ++ X’>>
   qpat_abbrev_tac ‘RH = shmem_info ++ _’>>
-  'RH = shmem_info ++ X' by simp[Abbr 'RH', Abbr 'X',shmem_info_num_component_equality]>>
+  ‘RH = shmem_info ++ X’ by simp[Abbr ‘RH’, Abbr ‘X’,shmem_info_num_component_equality]>>
   fs[Abbr ‘X’]
 QED
 
