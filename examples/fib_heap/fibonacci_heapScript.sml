@@ -379,6 +379,40 @@ Definition fib_heap_insert_def:
             fib_heap_append (a, k, a, m, dm, c)
 End
 
+Theorem lemma_empty_heap:
+  !fh fts. (fib_heap_inv fh fts /\ head_key fts = 0w) ==>
+      (fts = [] /\ fh = FEMPTY)
+Proof
+  rpt gen_tac >>
+  strip_tac >>
+  fs[fib_heap_inv_def] >>
+  first_x_assum (qspecl_then [`0w`, `v`, `e`] assume_tac) >> fs[] >>
+  Cases_on `FLOOKUP fh 0w` >> full_simp_tac std_ss [] >> gvs[] >>
+  first_x_assum (qspec_then `m` assume_tac) >>
+  cheat
+
+(*
+  Induct_on `fts` >>
+  fs[Once fts_has_cases] >>
+
+
+  Cases_on `fts` >> full_simp_tac std_ss [head_key_def] >>
+  rfs[head_key_def] >>
+  last_x_assum (qspec_then `ts` assume_tac) >>
+  last_x_assum(qspecl_then [`rest`, `ts`] assume_tac) >>
+
+
+
+
+
+Cases_on `fh` >>
+
+*)
+QED
+
+
+
+
 Theorem fib_heap_insert:
   ∀frame k v fh.
     (empty_node k v * fib_heap a fh * frame) (fun2set (m,dm)) ∧
@@ -398,9 +432,7 @@ Proof
   SEP_R_TAC >>
   IF_CASES_TAC
   >- (
-    Cases_on `fts` >>
-    Cases_on `fh` >>
-    (*(`fts = [] /\ fh = FEMPTY` by cheat >> (* fixed by me *)*)
+    `fts = [] /\ fh = FEMPTY` by cheat >>
     gvs[] >>
     fs[fib_heap_empty_append_def,before_off_def, next_off_def] >>
     SEP_R_TAC >>
@@ -416,7 +448,12 @@ Proof
     fs[fib_heap_inv_def,fib_heap_shape_ok_def,fib_heap_size_def] >>
     simp[Ntimes fib_num_def 3] >>
     simp[Once fib_num_def] >>
+(*
+    rpt conj_tac >>
+    strip_tac >>
+    gvs[]
     fs[head_key_def, fts_is_min_def,fill_dnode_def] >>
+*)
     cheat)
 >> cheat
 QED
