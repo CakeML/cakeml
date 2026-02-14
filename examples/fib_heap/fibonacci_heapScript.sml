@@ -385,11 +385,22 @@ Theorem lemma_empty_heap:
 Proof
   rpt gen_tac >>
   strip_tac >>
+  conj_tac
+  >- (
   fs[fib_heap_inv_def] >>
   first_x_assum (qspecl_then [`0w`, `v`, `e`] assume_tac) >> fs[] >>
   Cases_on `FLOOKUP fh 0w` >> full_simp_tac std_ss [] >> gvs[] >>
   first_x_assum (qspec_then `m` assume_tac) >>
-  cheat
+  Cases_on `fts` >> fs[] >>
+  Cases_on `h` >> rfs[head_key_def] >>
+
+
+  fs[Once fts_has_cases]
+
+  >> cheat
+  )
+
+  >> cheat
 
 (*
   Induct_on `fts` >>
