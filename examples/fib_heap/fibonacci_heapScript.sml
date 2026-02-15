@@ -299,13 +299,14 @@ Definition fib_heap_inv_def:
   fib_heap_inv fh (fts: ('a word, 'a node_data) fts) ⇔
     (!k v. FLOOKUP fh k = SOME v ==> k <> 0w) /\
     (∀k v e. FLOOKUP fh k = SOME (v,e) ⇔
-             ? m. fts_has k (fill_dnode v e T m) fts) /\
+      ? m. fts_has k (fill_dnode v e T m) fts) /\
     (!k v e.
       (FLOOKUP fh k = SOME (v,e)) /\ k = head_key fts ==>
       fts_is_min v fts) /\
-    (!k1 k2 n1 n2.
-      fts_has k1 n1 fts /\ fts_has k2 n2 fts /\ k1 = k2 ==>
+    (!k n1 n2.
+      fts_has k n1 fts /\ fts_has k n2 fts ==>
       n1 = n2) /\
+    (!k v e f m. fts_has k (fill_dnode v e f m) fts ==> f = T) /\
     (fib_heap_shape_ok fts)
 (*Everything else should be valid by annotation, construction of the heap,
   or is an individual assertion for a heap operation.
@@ -364,7 +365,6 @@ Definition fib_heap_insert_def:
   fib_heap_insert
     (a:'a word, k:'a word, m:'a word -> 'a word, dm :'a word set)
   =
-
     (* load value at k *)
     let c = (k ∈ dm) in
     let v_of_k = m k in
@@ -384,11 +384,13 @@ Definition fib_heap_insert_def:
 End
 
 Theorem lemma_something_about_neg:
-  ! v e m. fts_has 0w (fill_dnode v e T m) fts ==> F
+  !k v e m. (FLOOKUP fh k = SOME (v,e) /\ FLOOKUP fh k = SOME(v',e') <=> 
 Proof
   rpt strip_tac >>
   cheat
 QED
+
+print_match [] “node_data”;
 
 Theorem lemma_empty_heap:
   !fh fts. (fib_heap_inv fh fts /\ head_key fts = 0w) ==>
@@ -397,12 +399,22 @@ Proof
   rpt gen_tac >>
   strip_tac >>
   conj_tac
-  >- (
-     fs[fib_heap_inv_def] >>
-     last_x_assum (qspecl_then [`0w`, `v`, `e`] assume_tac) >>
-     Cases_on `FLOOKUP fh 0w` >> full_simp_tac std_ss [] >> gvs[] >>
-     first_x_assum (qspec_then `m` assume_tac) >>
-     last_x_assum (qspecl_then [`0w`, `v'`, `(fill_dnode v e T m)`] assume_tac) >>
+  >-(
+    (*Proof for fts=[]*)
+    fs[fib_heap_inv_def] >>
+    Cases_on `fts` >> rw[] >> Cases_on `h` >>
+    Cases_on `v` >>
+    rename1 `node_data v' e' f m'` >>
+    last_x_assum (qspecl_then [`0w`, `v'`, `e'`] assume_tac) >>
+    Cases_on `FLOOKUP fh 0w` >> fs[] >>
+    fs[Once fts_has_cases] >>
+    first_x_assum (qspec_then `m'` assume_tac) >> rfs[head_key_def, fill_dnode_def] >>
+
+    Cases_on `f` >- cheat >>
+    first_x_assum (qspecl_then [`k`, `v'`, `e'`, `F`, `m'`] assume_tac) >>
+    fs[] >> cheat >>
+    (*Proof for fh=FEMPTY *)
+    cheat
 (*
 Further tries:
      Cases_on `fts` >> fs[] >>
@@ -496,9 +508,11 @@ Proof
        SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
        fill_dnode_def, next_key_def, ones_def, STAR_ASSOC] >>
     gvs[] >>
-    rw[fib_heap_inv_def]
+    simp[fib_heap_inv_def] >>
+    rpt conj_tac
     >- fs[FLOOKUP_DEF]
     >- (
+      rpt strip_tac >>
       iff_tac >> strip_tac
       >- (
         qexists `F` >>
@@ -507,8 +521,15 @@ Proof
       fs[Once fts_has_cases, FLOOKUP_DEF, fill_dnode_def] >>
       fs[Once fts_has_cases]
       )
-    >- (fs[fts_is_min_def] >> fs[head_key_def, FLOOKUP_DEF])
-    >- (fs[Once fts_has_cases] >> fs[Once fts_has_cases])
+    >- (rpt strip_tac >> fs[fts_is_min_def] >> fs[head_key_def, FLOOKUP_DEF])
+    >- (rpt strip_tac >> fs[Once fts_has_cases] >> fs[Once fts_has_cases])
+    >- (
+      rpt strip_tac >>
+      fs[Once fts_has_cases] >>
+      Cases_on `f` >> rw[] >>
+      fs[fill_dnode_def] >>
+      fs[Once fts_has_cases]
+      )
     >- (
       fs[fib_heap_shape_ok_def] >>
       simp[Ntimes fib_num_def 3] >>
