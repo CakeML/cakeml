@@ -31,7 +31,7 @@ Definition compiler_instance_def:
 End
 
 Theorem compiler_instance_lemma[local]:
-  INJ compiler_instance.config_v 𝕌(:config) 𝕌(:semanticPrimitives$v) ∧
+  INJ compiler_instance.config_v 𝕌(:backend$config) 𝕌(:semanticPrimitives$v) ∧
   compiler_instance.init_state = info ∧
   compiler_instance.compiler_fun = compile_inc_progs_for_eval x64_config
 Proof

@@ -418,7 +418,7 @@ Definition compiler_for_eval_def:
 End
 
 Theorem upper_w2w_eq_I[local]:
-  backend$upper_w2w = (I:word64 -> word64)
+  backend_common$upper_w2w = (I:word64 -> word64)
 Proof
   fs [backend_commonTheory.upper_w2w_def,FUN_EQ_THM]
 QED

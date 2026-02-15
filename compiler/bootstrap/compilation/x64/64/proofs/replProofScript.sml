@@ -14,7 +14,7 @@ val _ = (max_print_depth := 12);
 Definition compiler_inst_def:
   compiler_inst c = (λ(x,y,z).
                 do
-                  cfg <- v_fun_abs 𝕌(:config) BACKEND_CONFIG_v y;
+                  cfg <- v_fun_abs 𝕌(:backend$config) BACKEND_CONFIG_v y;
                   (cfg2,bs,ws) <- compile_inc_progs_for_eval c (x,cfg,z);
                   SOME (BACKEND_CONFIG_v cfg2,bs,ws)
                 od)
@@ -81,7 +81,7 @@ QED
 
 Theorem v_fun_abs_BACKEND_CONFIG_v:
   BACKEND_CONFIG_TYPE s1 s1_v ⇒
-  v_fun_abs 𝕌(:config) BACKEND_CONFIG_v s1_v = SOME s1
+  v_fun_abs 𝕌(:backend$config) BACKEND_CONFIG_v s1_v = SOME s1
 Proof
   fs [source_evalProofTheory.v_rel_abs,BACKEND_CONFIG_IMP]
   \\ strip_tac \\ imp_res_tac BACKEND_CONFIG_IMP \\ fs []
