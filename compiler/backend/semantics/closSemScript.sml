@@ -451,7 +451,7 @@ Definition do_app_def:
         let ptr      = (LEAST ptr. ~(ptr IN FDOM s'.refs)) in
         let l        = TAKE n args in
         let r        = DROP n args in
-          Rval (RefPtr T ptr, s with refs := s'.refs |+ (ptr,ValueArray l))
+          Rval (RefPtr T ptr, s with refs := s'.refs |+ (ptr,ValueArray (l ++ r)))
     | (MemOp UpdateCons,args) => Error
     | (MemOp FinaliseCons,args) => Error
     | (MemOp ConfigGC,[Number _; Number _]) => (Rval (Unit, s))
