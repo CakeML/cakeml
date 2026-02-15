@@ -69,7 +69,7 @@ val compile_correct_applied =
   MATCH_MP compile_correct_eval (cj 1 compiler64_compiled)
   |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,
                          GSYM AND_IMP_INTRO,with_clos_conf_simp]
-  |> Q.INST ['ev'|->'SOME compiler_instance']
+  |> Q.INST [‘ev’|->‘SOME compiler_instance’]
   |> SIMP_RULE (srw_ss()) [add_eval_state_def,opt_eval_config_wf_def,
                            compiler_instance_lemma,mc_init_ok_init_conf]
   |> C MATCH_MP cake_not_fail
@@ -126,7 +126,7 @@ Theorem repl_not_fail =
   |> Q.GEN ‘s’ |> ISPEC (mk_init_eval_state_lemma |> concl |> rand |> rand)
   |> REWRITE_RULE [GSYM mk_init_eval_state_lemma]
   |> SIMP_RULE (srw_ss()) [IN_DEF]
-  |> Q.GEN 'conf' |> Q.SPEC 'info'
+  |> Q.GEN ‘conf’ |> Q.SPEC ‘info’
   |> REWRITE_RULE [GSYM (SIMP_CONV (srw_ss()) [] “hasFreeFD fs”)];
 
 Overload basis_init_ok =
