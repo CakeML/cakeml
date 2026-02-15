@@ -445,14 +445,16 @@ Definition do_app_def:
          | SOME (ValueArray ws) =>
              Rval (Boolv (0 <= i /\ i < & LENGTH ws),s)
          | _ => Error)
-    | (MemOp (MutCons tag n),args) => (* see MemOp Ref *) (* TODO: bounds check n *)
-        let hole_ptr = (LEAST ptr. ~(ptr IN FDOM s.refs)) in
-        let s'       = s with refs := s.refs |+ (hole_ptr,ValueArray [Unit]) in
-        let ptr      = (LEAST ptr. ~(ptr IN FDOM s'.refs)) in
-        let l        = TAKE n args in
-        let r        = DROP n args in
-          Rval (RefPtr T ptr, s with refs := s'.refs |+ (ptr,ValueArray (l ++ r)))
-    | (MemOp UpdateCons,args) => Error
+    | (MemOp (MutCons _ n),xs) =>
+        if 0 ≤ n ∧ n < & (LENGTH xs) then
+          let hole_ptr = (LEAST ptr. ~(ptr IN FDOM s.refs)) in
+          let s'       = s with refs := s.refs |+ (hole_ptr,ValueArray [Unit]) in
+          let ptr      = (LEAST ptr. ~(ptr IN FDOM s'.refs)) in
+          let l        = TAKE n xs in
+          let r        = DROP n xs in
+            Rval (RefPtr T ptr, s with refs := s'.refs |+ (ptr,ValueArray (l ++ r)))
+        else Error
+    | (MemOp UpdateCons,[RefPtr _ ptr; n; x]) => Error
     | (MemOp FinaliseCons,args) => Error
     | (MemOp ConfigGC,[Number _; Number _]) => (Rval (Unit, s))
     | (ThunkOp th_op, vs) =>
