@@ -306,7 +306,7 @@ Definition fib_heap_inv_def:
     (!k n1 n2.
       fts_has k n1 fts /\ fts_has k n2 fts ==>
       n1 = n2) /\
-    (!k v e f m. fts_has k (fill_dnode v e f m) fts ==> f = T) /\
+    (!k v e f m. fts_has k (fill_dnode v e f m) fts ==> f) /\
     (fib_heap_shape_ok fts)
 (*Everything else should be valid by annotation, construction of the heap,
   or is an individual assertion for a heap operation.
@@ -383,38 +383,43 @@ Definition fib_heap_insert_def:
             fib_heap_append (a, k, a, m, dm, c)
 End
 
-Theorem lemma_something_about_neg:
-  !k v e m. (FLOOKUP fh k = SOME (v,e) /\ FLOOKUP fh k = SOME(v',e') <=> 
+val rec_test = “
+    node_data 0w (0w,[]) T T
+    ”|> SCONV[node_data_accessors] ;
+
+Theorem lemma_empty_list:
+  !fh fts. (fib_heap_inv fh fts /\ head_key fts = 0w) ==> fts = []
 Proof
   rpt strip_tac >>
-  cheat
+  fs[fib_heap_inv_def] >>
+  Cases_on `fts` >> rw[] >> Cases_on `h` >>
+  Cases_on `v` >>
+  rename1 `node_data v' e' f m'` >>
+  last_x_assum (qspecl_then [`0w`, `v'`, `e'`] assume_tac) >>
+  Cases_on `FLOOKUP fh 0w` >> fs[] >>
+  fs[Once fts_has_cases] >>
+  first_x_assum (qspec_then `m'` assume_tac) >> rfs[head_key_def, fill_dnode_def] >>
+  Cases_on `f`
+  >- cheat >>
+  first_x_assum (qspecl_then [`k`, `v'`, `e'`, `F`, `m'`] assume_tac) >>
+  fs[] >> cheat
 QED
-
-print_match [] “node_data”;
 
 Theorem lemma_empty_heap:
   !fh fts. (fib_heap_inv fh fts /\ head_key fts = 0w) ==>
       (fts = [] /\ fh = FEMPTY)
 Proof
+  assume_tac lemma_empty_list >>
   rpt gen_tac >>
   strip_tac >>
-  conj_tac
-  >-(
-    (*Proof for fts=[]*)
-    fs[fib_heap_inv_def] >>
-    Cases_on `fts` >> rw[] >> Cases_on `h` >>
-    Cases_on `v` >>
-    rename1 `node_data v' e' f m'` >>
-    last_x_assum (qspecl_then [`0w`, `v'`, `e'`] assume_tac) >>
-    Cases_on `FLOOKUP fh 0w` >> fs[] >>
-    fs[Once fts_has_cases] >>
-    first_x_assum (qspec_then `m'` assume_tac) >> rfs[head_key_def, fill_dnode_def] >>
+  first_x_assum (qspecl_then [`fh`, `fts`] assume_tac) >> rfs[] >>
+  fs[fib_heap_inv_def] >>
+  Cases_on `fh` >> rw[] >>
+  Cases_on `y` >>
+  rename1 `x,(v,e)`
+  last_x_assum (qspecl_then [`x`,`v`,`e`] assume_tac) >>
+  fs[Once fts_has_cases, FLOOKUP_DEF]
 
-    Cases_on `f` >- cheat >>
-    first_x_assum (qspecl_then [`k`, `v'`, `e'`, `F`, `m'`] assume_tac) >>
-    fs[] >> cheat >>
-    (*Proof for fh=FEMPTY *)
-    cheat
 (*
 Further tries:
      Cases_on `fts` >> fs[] >>
