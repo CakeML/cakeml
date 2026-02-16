@@ -412,7 +412,7 @@ Proof
   fs[fib_heap_inv_def] >>
   Cases_on `fh` >> rw[] >>
   Cases_on `y` >>
-  rename1 `x,(v,e)`
+  rename1 `x,(v,e)` >>
   last_x_assum (qspecl_then [`x`,`v`,`e`] assume_tac) >>
   fs[Once fts_has_cases, FLOOKUP_DEF]
 QED
