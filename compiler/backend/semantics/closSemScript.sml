@@ -456,12 +456,17 @@ Definition do_app_def:
         (case FLOOKUP s.refs ptr of
          | SOME (ValueArray xs) =>
              case EL 0 xs of
-             | Number i =>
-                 Rval (Unit, s with refs := s.refs |+
-                                             (ptr,ValueArray (LUPDATE x (Num i) xs)))
+             | Number i => Rval (Unit, s with refs := s.refs |+
+                                         (ptr,ValueArray (LUPDATE x (Num i) xs)))
              | _ => Error
          | _ => Error)
-    | (MemOp FinaliseCons,args) => Error
+    | (MemOp FinaliseCons,[RefPtr _ ptr]) => (* Do we need to make sure the hole is filled? *)
+        (case FLOOKUP s.refs ptr of
+         | SOME (ValueArray xs) =>
+             case EL 0 xs of
+             | Number i => Rval (Block 0 [], s with refs := s.refs (* |- ptr *))
+             | _ => Error
+         | _ => Error)
     | (MemOp ConfigGC,[Number _; Number _]) => (Rval (Unit, s))
     | (ThunkOp th_op, vs) =>
         (case (th_op,vs) of
