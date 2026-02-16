@@ -1348,6 +1348,7 @@ Proof
 simp[byte_align_def,w2n_align]
 QED
 
+(*
 Theorem get_byte_intro1:
   (7 -- 0) w = w2w (get_byte 0w w F)
 Proof
@@ -1370,115 +1371,41 @@ Definition nat_of_bytes_def:
   nat_of_bytes [] = 0 ∧
   nat_of_bytes (b::bb) = nat_of_bytes bb * 256 + w2n b
 End
-
-Theorem set_byte_n2w:
-  n MOD 2**(8*i+8) = 0 ∧ i < dimindex(:'a) DIV 8 ⇒
-  set_byte (n2w i) b (n2w n:'a word) F = n2w (w2n b*2**(8*i) + n)
-Proof
-  print_apropos``set_byte``;
-  rw[set_byte_def,byte_index_def]
-  >>`i < dimword(:'a)` by (assume_tac dimindex_lt_dimword >> qpat_x_assum‘_=0’kall_tac>>intLib.ARITH_TAC)
-  >>simp[]
-  >>`word_slice_alt (8 * i) 0 (n2w n) = 0w`by cheat
-  >>simp[]
-  >>simp[word_slice_alt_shift]
-  >>`n2w n ⋙ (8 * i + 8) ≪ (8 * i + 8) = n2w n` by cheat
-  >>simp[]
-  >>cheat
-QED
-
-Theorem word_of_bytes_n2w:
-  word_of_bytes F (n2w i) bb : 'a word = n2w (nat_of_bytes bb * 2**(8*i))
-Proof
-qspec_tac(`i`,`i`)
->>Induct_on`bb`>>simp[word_of_bytes_def,nat_of_bytes_def]
->>strip_tac>>strip_tac
->>pop_assum $ qspec_then`SUC i`mp_tac
->>rw[n2w_SUC]
->>rw1 set_byte_n2w
->>cheat
-QED
+*)
 
 
-Theorem exec_I64_LOAD8_aux1:
-  align_nat 3 ad + 8 <= LENGTH memory ⇒
-  word_of_bytes F 0w (TAKE 1 (DROP ad memory)) : word64 =
-  (7--0)(word_of_bytes F 0w (TAKE 8 (DROP (align_nat 3 ad) memory)) >>> (8 * (ad MOD 8)))
-Proof
-subgoal‘∀ad memory.
-  ad<8 ∧ SUC ad <= LENGTH memory ⇒
-  word_of_bytes F 0w (TAKE 1 (DROP ad memory)) : word64 =
-  (7--0)(word_of_bytes F 0w (TAKE(SUC ad)memory) >>> (8*ad))
-’
->-(
-strip_tac
->>Induct_on`ad`
->>rw[]
->-(
-`∃b0 rest. memory = b0::rest` by (Cases_on`memory`>>fs[])
->>gvs[word_of_bytes_def]
->>rw1 get_byte_intro1
->>simp[get_byte_set_byte]
->>simp[set_byte_def,byte_index_def]
->>simp[word_slice_alt_empty,word_slice_alt_zero]
-)
->>`∃b0 rest. memory = b0::rest` by (Cases_on`memory`>>fs[])
->>first_x_assum $ assume_tac o SPEC“rest:word8 list”
->>gvs[]
->>pop_assum kall_tac
->>cheat
-)
->>subgoal`ad = align_nat 3 ad + ad MOD 8`
->-(
-simp[align_nat_def]
->>intLib.ARITH_TAC
-)
->>pop_assum $ PURE_ONCE_REWRITE_TAC o single
->>pop_assum (fn th => assume_tac$SPECL[“ad:num MOD 8”,“DROP (align_nat 3 (ad:num)) (memory:word8 list)”]th)
->>`align_nat 3 (align_nat 3 ad + ad MOD 8) = align_nat 3 ad` by (simp[align_nat_def]>>intLib.ARITH_TAC)
->>gvs[LENGTH_DROP]
->>strip_tac
->>`ad MOD 8 < 8 ∧ 8 ≤ LENGTH (DROP (align_nat 3 ad) memory)` by simp[LENGTH_DROP]
->>gvs[DROP_DROP_T,EL_DROP]
->>`(ad + align_nat 3 ad) MOD 8 = ad MOD 8` by (simp[align_nat_def]>>intLib.ARITH_TAC)
->>`ad MOD 8 + align_nat 3 ad < LENGTH memory` by intLib.ARITH_TAC
->>gvs[]
->>cheat
-QED
-
-(*Theorem a:
-  8 ≤ LENGTH L ⇒ ∃a b c d e f g h L'. L = a::b::c::d::e::f::g::h::L'
-Proof
-QED
-LESS_EQ_LENGTH
+(*
+quantHeuristicsTheory.LIST_LENGTH_COMPARE_SUC
 LENGTH_EQ_NUM_compute
 *)
-Theorem a:
+
+Triviality take8:
+  ∀L. 8 ≤ LENGTH L ⇒ ∃a b c d e f g h L'. L = a::b::c::d::e::f::g::h::L'
+Proof
+strip_tac
+>>namedCases_on`L `["","a1 L1"]>>simp[]
+>>namedCases_on`L1`["","a2 L2"]>>simp[]
+>>namedCases_on`L2`["","a3 L3"]>>simp[]
+>>namedCases_on`L3`["","a4 L4"]>>simp[]
+>>namedCases_on`L4`["","a5 L5"]>>simp[]
+>>namedCases_on`L5`["","a6 L6"]>>simp[]
+>>namedCases_on`L6`["","a7 L7"]>>simp[]
+>>namedCases_on`L7`["","a8 L8"]>>simp[]
+QED
+
+Triviality mem_rel_mem_load_byte_aux_2:
   i < 8 ∧ 8 ≤ LENGTH tmem ⇒
   tmem❲i❳ = get_byte (n2w i :word64) (word_of_bytes F 0w (TAKE 8 tmem)) F
 Proof
-`∃b0 b1 b2 b3 b4 b5 b6 b7 rest. tmem = b0::b1::b2::b3::b4::b5::b6::b7::rest` by cheat
+strip_tac
+>>`∃b0 b1 b2 b3 b4 b5 b6 b7 rest. tmem = b0::b1::b2::b3::b4::b5::b6::b7::rest` by
+metis_tac[take8]
 >>gvs[word_of_bytes_def]
->>namedCases_on‘i’["","i1"]
->-simp[get_byte_set_byte]
->>namedCases_on‘i1’["","i2"]
->-simp[get_byte_set_byte_irrelevant,get_byte_set_byte]
->>namedCases_on‘i2’["","i3"]
->-simp[get_byte_set_byte_irrelevant,get_byte_set_byte]
->>namedCases_on‘i3’["","i4"]
->-simp[get_byte_set_byte_irrelevant,get_byte_set_byte]
->>namedCases_on‘i4’["","i5"]
->-simp[get_byte_set_byte_irrelevant,get_byte_set_byte]
->>namedCases_on‘i5’["","i6"]
->-simp[get_byte_set_byte_irrelevant,get_byte_set_byte]
->>namedCases_on‘i6’["","i7"]
->-simp[get_byte_set_byte_irrelevant,get_byte_set_byte]
->>Cases_on‘i7’
+>>`i = 0 \/ i = 1 \/ i = 2 \/ i = 3 \/ i = 4 \/ i = 5 \/ i = 6 \/ i = 7` by fs[]
 >>simp[get_byte_set_byte_irrelevant,get_byte_set_byte]
 QED
 
-
-Theorem mem_rel_mem_load_byte_aux_1:
+Triviality mem_rel_mem_load_byte_aux_1:
   align_nat 3 (w2n(ad64:64 word)) + 8 ≤ LENGTH tmem ⇒
   tmem❲w2n ad64❳ = get_byte ad64 (word_of_bytes F 0w (TAKE 8 (DROP (align_nat 3 (w2n ad64)) tmem))) F
 Proof
@@ -1486,29 +1413,7 @@ strip_tac
 >>rw1$GSYM$
 REWRITE_RULE[prove(“w2n (ad64:64 word) − align_nat 3 (w2n ad64) = w2n ad64 MOD 8”, simp[align_nat_def]>>intLib.ARITH_TAC), CONV_RULE (SIMP_CONV arith_ss [dimindex_64]) $ INST_TYPE[“:α”|->“:64”]get_byte_cycle]$
 INST[“i:num”|->“w2n(ad64:64 word) - align_nat 3 (w2n ad64)”,“tmem:word8 list”|->“DROP (align_nat 3 (w2n(ad64:64 word))) (tmem:word8 list)”]$
-prove(“
-  i < 8 ∧ 8 ≤ LENGTH tmem ⇒
-  tmem❲i❳ = get_byte (n2w i :word64) (word_of_bytes F 0w (TAKE 8 tmem)) F
-”,
-`∃b0 b1 b2 b3 b4 b5 b6 b7 rest. tmem = b0::b1::b2::b3::b4::b5::b6::b7::rest` by cheat
->>gvs[word_of_bytes_def]
->>namedCases_on‘i’["","i1"]
->-simp[get_byte_set_byte]
->>namedCases_on‘i1’["","i2"]
->-simp[get_byte_set_byte_irrelevant,get_byte_set_byte]
->>namedCases_on‘i2’["","i3"]
->-simp[get_byte_set_byte_irrelevant,get_byte_set_byte]
->>namedCases_on‘i3’["","i4"]
->-simp[get_byte_set_byte_irrelevant,get_byte_set_byte]
->>namedCases_on‘i4’["","i5"]
->-simp[get_byte_set_byte_irrelevant,get_byte_set_byte]
->>namedCases_on‘i5’["","i6"]
->-simp[get_byte_set_byte_irrelevant,get_byte_set_byte]
->>namedCases_on‘i6’["","i7"]
->-simp[get_byte_set_byte_irrelevant,get_byte_set_byte]
->>Cases_on‘i7’
->>simp[get_byte_set_byte_irrelevant,get_byte_set_byte]
-)
+mem_rel_mem_load_byte_aux_2
 >-simp[]
 >>assume_tac$INST[“n:num”|->“w2n(ad64:word64)”]$prove(“n MOD 8 + align_nat 3 n = n”, simp[align_nat_def]>>intLib.ARITH_TAC)
 >>rw1 EL_DROP>-intLib.ARITH_TAC
@@ -1528,7 +1433,7 @@ rw[mem_rel_def,wordSemTheory.mem_load_byte_aux_def,AllCaseEqs()]
 QED
 
 (* drule *)
-Theorem exec_I64_LOAD8:
+Theorem exec_I64_LOAD8_U:
   state_rel c s t ∧
   mem_load_byte_aux s.memory s.mdomain F ad64 = SOME b ∧
   ad64 = w2w(ad32+ofs) ∧
@@ -1566,6 +1471,149 @@ pop_assum mp_tac
 >>`mem_rel s.mdomain s.memory t.memory` by fs[state_rel_def]
 >>drule_all_then assume_tac mem_rel_mem_load_byte_aux
 >>gvs[w2n_w2w]
+)
+>>simp[push_def]
+QED
+
+Triviality abomination:
+  i < 8 /\ 8 <= LENGTH memory /\
+  aligned 2 (n2w i :word64) /\
+  word_of_bytes F (0w:word64) (TAKE 8 memory) = v ==>
+  word_of_bytes F (0w:word32) (TAKE 4 (DROP i memory)) =
+  w2w (get_byte (n2w i   :word64) v F)      ||
+  w2w (get_byte (n2w(i+1):word64) v F) ≪  8 ||
+  w2w (get_byte (n2w(i+2):word64) v F) ≪ 16 ||
+  w2w (get_byte (n2w(i+3):word64) v F) ≪ 24
+Proof
+strip_tac
+>>`∃b0 b1 b2 b3 b4 b5 b6 b7 rest. memory = b0::b1::b2::b3::b4::b5::b6::b7::rest` by metis_tac[take8]
+>>`i=0∨i=4` by (fs[aligned_w2n]>>intLib.ARITH_TAC)
+>>gvs[word_of_bytes_def,get_byte_set_byte_irrelevant,get_byte_set_byte]
+>>rw1 set_byte_32
+>>simp[byte_index_def]
+>>rw1 set_byte_32
+>>simp[byte_index_def]
+>>rw1 set_byte_32
+>>simp[byte_index_def]
+>>rw1 set_byte_32
+>>simp[byte_index_def]
+>>blastLib.BBLAST_TAC
+QED
+
+Theorem decompose_address:
+  align_nat 3 n + n MOD 8 = n
+Proof
+simp[align_nat_def]>>intLib.ARITH_TAC
+QED
+
+Theorem exec_I64_LOAD32_U_aux1:
+  aligned 2 (ad64:word64) /\ w2n (byte_align ad64) + 8 ≤ LENGTH t.memory /\
+  word_of_bytes F (0w:word64) (TAKE 8 (DROP (w2n (byte_align ad64)) t.memory)) = v ==>
+  word_of_bytes F (0w:word32) (TAKE 4 (DROP (w2n ad64) t.memory)) =
+  w2w (get_byte (ad64   ) v F)      ||
+  w2w (get_byte (ad64+1w) v F) ≪ 8 ||
+  w2w (get_byte (ad64+2w) v F) ≪ 16 ||
+  w2w (get_byte (ad64+3w) v F) ≪ 24
+Proof
+strip_tac
+>>subgoal`w2n ad64 <= 0xffff_ffff_ffff_fffc`
+>-(
+qpat_x_assum‘aligned 2 ad64’mp_tac
+>>simp[aligned_def]
+>>strip_tac
+>>pop_assum $ rw1 o GSYM
+>>simp[w2n_align,align_nat_def]
+>>`w2n ad64 < 0x1_0000_0000_0000_0000` by metis_tac[w2n_lt,dimword_64]
+>>intLib.ARITH_TAC
+)
+>>subgoal`
+w2n ad64 MOD 8 + 1 = w2n(ad64+1w) MOD 8 /\
+w2n ad64 MOD 8 + 2 = w2n(ad64+2w) MOD 8 /\
+w2n ad64 MOD 8 + 3 = w2n(ad64+3w) MOD 8`
+>-(
+rw1 w2n_add_2>-simp[dimword_64]
+>>rw1 w2n_add_2>-simp[dimword_64]
+>>rw1 w2n_add_2>-simp[dimword_64]
+>>simp[]
+>>subgoal`w2n ad64 MOD 8 <= 4`
+>-(
+qpat_x_assum‘aligned 2 ad64’mp_tac
+>>simp[aligned_def]
+>>strip_tac
+>>pop_assum $ rw1 o GSYM
+>>simp[w2n_align,align_nat_def]
+>>intLib.ARITH_TAC
+)
+>>intLib.ARITH_TAC
+)
+>>assume_tac $ GEN_ALL $ SIMP_RULE std_ss [dimindex_64] $ INST_TYPE[alpha|->``:64``]get_byte_cycle
+>>mp_tac $ INST[``i:num``|->``w2n (ad64:word64) MOD 8``,“memory:word8 list”|->“DROP (align_nat 3 (w2n (ad64:word64))) t.memory”]abomination
+>>simp[]
+>>pop_assum kall_tac
+>>strip_tac
+>>pop_assum $ rw1 o GSYM
+>-(
+fs[w2n_byte_align,aligned_w2n]
+>>intLib.ARITH_TAC
+)
+>>rw1 DROP_DROP
+>-(fs[w2n_byte_align]>>intLib.ARITH_TAC)
+>>simp[ONCE_REWRITE_RULE[ADD_COMM]decompose_address]
+QED
+
+Theorem exec_I64_LOAD32_U:
+  state_rel c s t ∧
+  mem_load_32 s.memory s.mdomain F ad64 = SOME w ∧
+  ad64 = w2w(ad32+ofs) ∧
+  w2n ad32 + w2n ofs < 0x100000000 ⇒
+  exec (I64_LOAD32_U ofs) (push (I32 ad32) t) = (RNormal, push (I64 (w2w w)) t)
+Proof
+  strip_tac
+  >>simp[I64_LOAD32_U_def,exec_def]
+  >>`w2n(ad32+ofs) = w2n ad32 + w2n ofs`by(irule w2n_add_2>>simp[])
+>>`w2n (w2w (ad32 + ofs):word64) = w2n(ad32+ofs)` by simp[w2n_w2w_lt_dimword,w2n_lt]
+  >>subgoal‘do_ld ad32 (LoadNarrow32 Unsigned ofs 4w) t.memory = SOME (I64 (w2w w))’
+  >-(
+    rw1 do_ld_thm
+    >>simp[load_op_rel_cases]
+    >>qexists_tac`w`
+    >>CONJ_TAC>-simp[sext_def]
+>>fs[wordSemTheory.mem_load_32_def,AllCaseEqs()]
+>>simp[ancillaryOpsTheory.load_def]
+>>`mem_rel s.mdomain s.memory t.memory` by fs[state_rel_def]
+>>pop_assum (drule_then assume_tac o REWRITE_RULE[mem_rel_def])
+>>gvs[]
+>>conj_tac
+(*Globals.show_types:=true;*)
+>-(
+`
+        word_of_bytes F (0w :word32)
+          (TAKE (4 :num)
+             (DROP (w2n (ad32 :word32) + w2n (ofs :word32))
+                (t :wasmSem$state).memory)) =
+        (w2w (get_byte (w2w (ad32 + ofs) :word64) (v :word64) F) :word32) ‖
+        (w2w (get_byte ((w2w (ad32 + ofs) :word64) + (1w :word64)) v F) :
+         word32) ≪ (8 :num) ‖
+        (w2w (get_byte ((w2w (ad32 + ofs) :word64) + (2w :word64)) v F) :
+         word32) ≪ (16 :num) ||
+        (w2w (get_byte ((w2w (ad32 + ofs) :word64) + (3w :word64)) v F) :
+         word32) ≪ (24 :num)
+`
+suffices_by metis_tac[WORD_OR_COMM]
+(*
+Globals.show_types:=true
+Globals.show_types:=false
+*)
+>>rw1 $ GSYM exec_I64_LOAD32_U_aux1
+>-fs[wl_word_def]
+>>`w2n (w2w (ad32 + ofs):word64) = w2n(ad32+ofs)` by simp[w2n_w2w_lt_dimword,w2n_lt]
+>>simp[w2n_add_2]
+)
+>>qpat_x_assum‘w2n (byte_align (w2w (ad32 + ofs))) + 8 ≤ LENGTH t.memory’mp_tac
+>>simp[w2n_byte_align,align_nat_def]
+>>subgoal`(w2n ad32 + w2n ofs) MOD 4 = 0`
+>-(qpat_x_assum‘aligned 2 (w2w (ad32+ofs):word64)’mp_tac>>simp[aligned_w2n])
+>>intLib.ARITH_TAC
 )
 >>simp[push_def]
 QED
