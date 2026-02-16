@@ -383,10 +383,6 @@ Definition fib_heap_insert_def:
             fib_heap_append (a, k, a, m, dm, c)
 End
 
-val rec_test = “
-    node_data 0w (0w,[]) T T
-    ”|> SCONV[node_data_accessors] ;
-
 Theorem lemma_empty_list:
   !fh fts. (fib_heap_inv fh fts /\ head_key fts = 0w) ==> fts = []
 Proof
