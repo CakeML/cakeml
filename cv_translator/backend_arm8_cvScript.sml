@@ -311,11 +311,4 @@ val _ = cv_trans backend_arm8Theory.to_livesets_arm8_def;
 val _ = cv_trans backend_arm8Theory.compile_cake_arm8_def;
 val _ = cv_auto_trans backend_arm8Theory.compile_cake_explore_arm8_def;
 
-(* lemma used by automation *)
-
-Theorem set_asm_conf_arm8_backend_config:
-  set_asm_conf arm8_backend_config arm8_config = arm8_backend_config
-Proof
-  irule backendTheory.set_asm_conf_id \\ EVAL_TAC
-QED
 
