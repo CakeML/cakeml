@@ -445,28 +445,6 @@ Definition do_app_def:
          | SOME (ValueArray ws) =>
              Rval (Boolv (0 <= i /\ i < & LENGTH ws),s)
          | _ => Error)
-    | (MemOp (MutCons _ i),xs) =>
-        if 0 ≤ i ∧ i < & (LENGTH xs) then
-          let ptr = (LEAST ptr. ~(ptr IN FDOM s.refs)) in
-          let l   = TAKE i xs in
-          let r   = DROP i xs in
-            Rval (RefPtr T ptr, s with refs := s.refs |+ (ptr,ValueArray ((*[Number i] ++ *)l ++ [Unit] ++ r)))
-        else Error
-    | (MemOp UpdateCons,[RefPtr _ ptr; x]) =>
-        (case FLOOKUP s.refs ptr of
-         | SOME (ValueArray xs) =>
-             case EL 0 xs of
-             | Number i => Rval (Unit, s with refs := s.refs |+
-                                         (ptr,ValueArray (LUPDATE x (Num i) xs)))
-             | _ => Error
-         | _ => Error)
-    | (MemOp FinaliseCons,[RefPtr _ ptr]) => (* Do we need to make sure the hole is filled? *)
-        (case FLOOKUP s.refs ptr of
-         | SOME (ValueArray xs) =>
-             case EL 0 xs of
-             | Number i => Rval (Block 0 [], s with refs := s.refs (* |- ptr *))
-             | _ => Error
-         | _ => Error)
     | (MemOp ConfigGC,[Number _; Number _]) => (Rval (Unit, s))
     | (ThunkOp th_op, vs) =>
         (case (th_op,vs) of

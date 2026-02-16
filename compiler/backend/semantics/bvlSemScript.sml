@@ -21,6 +21,7 @@ Datatype:
                (* in closLang all are ByteArray F,
                   ByteArray T introduced in BVL to implement ByteVector *)
       | Thunk thunk_mode 'a
+      | MutBlock num ('a list) 'a ('a list) 
 End
 
 (* these parts are shared by bytecode and, if bytecode is to be supported, need

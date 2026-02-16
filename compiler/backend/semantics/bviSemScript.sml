@@ -48,7 +48,20 @@ Definition bvl_to_bvi_def:
             ; ffi := s.ffi |>
 End
 
-val s = ``(s:('c,'ffi) bviSem$state)``
+Definition finalise_cons_def:
+  (finalise_cons (RefPtr b ptr) refs =
+    case FLOOKUP refs ptr of
+    | SOME (MutBlock tag l c r) =>
+        (case finalise_cons c refs of
+           (*         | SOME c' => SOME (Block tag (l ++ c' ++ r))
+*)
+         | NONE => NONE)
+    | SOME res => SOME (RefPtr b ptr)
+    | NONE => NONE) ∧
+  (finalise_cons v refs = SOME v)
+End
+
+val s = ``(s:('c,'ffi) bviSem$state)``;
 
 Definition do_app_aux_def:
   do_app_aux op (vs:bvlSem$v list) ^s =
@@ -115,6 +128,31 @@ Definition do_app_aux_def:
                   (ptr, ByteArray f (REPLICATE (Num i) (i2w b)))))
             else NONE
           | _ => NONE)
+    | (MemOp (MutCons tag i),xs) =>
+        (let ptr = (LEAST ptr. ~(ptr IN FDOM s.refs)) in
+           if i >= LENGTH xs then NONE else
+             let l = TAKE i xs in
+             let c = EL i xs in
+             let r = DROP (i+1) xs in
+             let b = MutBlock tag l c r in
+               SOME (SOME (RefPtr F ptr, (s with refs := s.refs |+ (ptr,b)))))
+(*    | (MemOp UpdateCons,[RefPtr _ ptr; Number i; x]) =>
+        (case FLOOKUP s.refs ptr of
+         | SOME (MutBlock tag xs) =>
+             if i < 0 ∨ i >= & (LENGTH xs) then Error else
+                Rval (Unit, s with refs := s.refs |+
+                                         (ptr,MutBlock tag (LUPDATE x (Num i) xs)))
+         | _ => NONE)
+    | (MemOp FinaliseCons,[x]) =>
+        (case finalise_cons x s.refs of
+         | SOME v => SOME (SOME (v, s))
+         | NONE => NONE)
+        (*(case FLOOKUP s.refs ptr of
+         | SOME (ValueArray xs) =>
+             case EL 0 xs of
+             | Number i => Rval (Block 0 [], s with refs := s.refs (* |- ptr *))
+             | _ => Error
+         | _ => Error)*) Error*)
     | (GlobOp AllocGlobal, _) => NONE
     | (MemOp FromListByte, _) => NONE
     | (MemOp ToListByte, _) => NONE
