@@ -419,63 +419,6 @@ Proof
   rename1 `x,(v,e)`
   last_x_assum (qspecl_then [`x`,`v`,`e`] assume_tac) >>
   fs[Once fts_has_cases, FLOOKUP_DEF]
-
-(*
-Further tries:
-     Cases_on `fts` >> fs[] >>
-     Cases_on `h` >> rfs[head_key_def] >>
-     fs[Once fts_has_cases] >>
-     imp_res_tac MONO_NOT >>
-     fs[] >>
-     fs[Once fts_has_cases] >>
-
-
-     res_tac
-     pop_assum mp_tac >> fs[]
-
-*)
-  (* Next step, but imp does not resolve...
-  fs[Once fts_has_cases] *)
-(*
-  This does not look promising...
-
-  Induct_on `fts` >> fs[] >>
-  rpt strip_tac >>
-  ho_match_mp_tac fts_has_ind
-*)
-
-(*
-  This is just that the node data must not be the same.
-  But I cannot prove that with my assumptions.
-
-  Cases_on `fts` >> fs[] >>
-  Cases_on `h` >> rfs[head_key_def] >>
-  fs[Once fts_has_cases]
-  last_x_assum (qspecl_then [`[]`, `[]`] assume_tac)
-
-*)
-   cheat
-  )
-
-  >> cheat
-
-(*
-  Induct_on `fts` >>
-  fs[Once fts_has_cases] >>
-
-
-  Cases_on `fts` >> full_simp_tac std_ss [head_key_def] >>
-  rfs[head_key_def] >>
-  last_x_assum (qspec_then `ts` assume_tac) >>
-  last_x_assum(qspecl_then [`rest`, `ts`] assume_tac) >>
-
-
-
-
-
-Cases_on `fh` >>
-
-*)
 QED
 
 
