@@ -89,7 +89,7 @@ Definition rewrite_opt_def:
         let arg_old_hole_idx = Var (arity + 1) in
         let var_new_hole_ptr = Var (arity + 2) in
         let exp_new_hole_ptr = Op (MemOp (MutCons block_tag new_hole_idx)) (l ++ r) in
-        let exp_update_hole  = Op (MemOp UpdateCons) [arg_old_hole_ptr; arg_old_hole_idx; var_new_hole_ptr] in
+        let exp_update_hole  = Op (MemOp UpdateCons) [arg_old_hole_ptr; var_new_hole_ptr] in
         let exp_new_hole_idx = Op (Label new_hole_idx) [] in
         let exp_tail_call    = Call t (SOME loc_opt) (args ++ [var_new_hole_ptr; exp_new_hole_idx]) h in
         Let [exp_new_hole_ptr; exp_update_hole] $ exp_tail_call
