@@ -143,21 +143,19 @@ Definition do_app_aux_def:
              let r = DROP (i+1) xs in
              let b = MutBlock tag l c r in
                SOME (SOME (RefPtr F ptr, (s with refs := s.refs |+ (ptr,b)))))
-(*    | (MemOp UpdateCons,[RefPtr _ ptr; Number i; x]) =>
+    | (MemOp UpdateCons,[RefPtr _ ptr; x]) =>
         (case FLOOKUP s.refs ptr of
-         | SOME (MutBlock tag xs) =>
-             if i < 0 ∨ i >= & (LENGTH xs) then Error else
-                Rval (Unit, s with refs := s.refs |+
-                                         (ptr,MutBlock tag (LUPDATE x (Num i) xs)))
+         | SOME (MutBlock tag l c r) =>
+             SOME (SOME (Unit, s with refs := s.refs |+ (ptr,MutBlock tag l x r)))
          | _ => NONE)
-    | (MemOp FinaliseCons,[x]) =>
+(*    | (MemOp FinaliseCons,[x]) =>
         (case finalise_cons x s.refs of
          | SOME v => SOME (SOME (v, s))
          | NONE => NONE)
         (*(case FLOOKUP s.refs ptr of
          | SOME (ValueArray xs) =>
              case EL 0 xs of
-             | Number i => Rval (Block 0 [], s with refs := s.refs (* |- ptr *))
+             | Number i => Rval (Block 0 [], s with refs := s.refs (* \\ ptr *))
              | _ => Error
          | _ => Error)*) Error*)
     | (GlobOp AllocGlobal, _) => NONE
