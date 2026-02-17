@@ -14,9 +14,9 @@ val _ = (max_print_depth := 12);
 Definition compiler_inst_def:
   compiler_inst c = (λ(x,y,z).
                 do
-                  cfg <- v_fun_abs 𝕌(:inc_config) BACKEND_INC_CONFIG_v y;
+                  cfg <- v_fun_abs 𝕌(:backend$config) BACKEND_CONFIG_v y;
                   (cfg2,bs,ws) <- compile_inc_progs_for_eval c (x,cfg,z);
-                  SOME (BACKEND_INC_CONFIG_v cfg2,bs,ws)
+                  SOME (BACKEND_CONFIG_v cfg2,bs,ws)
                 od)
 End
 
@@ -39,8 +39,8 @@ QED
 val EqualityType_LIST_TYPE_AST_DEC_TYPE =
   decProgTheory.EqualityType_LIST_TYPE_AST_DEC_TYPE;
 
-val EqualityType_BACKEND_INC_CONFIG_TYPE =
-  decodeProgTheory.EqualityType_BACKEND_INC_CONFIG_TYPE;
+val EqualityType_BACKEND_CONFIG_TYPE =
+  decodeProgTheory.EqualityType_BACKEND_CONFIG_TYPE;
 
 Theorem concrete_v_decs:
   LIST_TYPE AST_DEC_TYPE decs v ⇒ concrete_v v
@@ -49,11 +49,11 @@ Proof
   \\ fs [EqualityType_LIST_TYPE_AST_DEC_TYPE]
 QED
 
-Theorem concrete_v_inc_config:
-  BACKEND_INC_CONFIG_TYPE c v ⇒ concrete_v v
+Theorem concrete_v_config:
+  BACKEND_CONFIG_TYPE c v ⇒ concrete_v v
 Proof
   rw [] \\ drule EqualityType_concrete_v
-  \\ fs [EqualityType_BACKEND_INC_CONFIG_TYPE]
+  \\ fs [EqualityType_BACKEND_CONFIG_TYPE]
 QED
 
 Theorem LIST_TYPE_AST_DEC_IMP:
@@ -69,22 +69,22 @@ Proof
   \\ fs [ml_translatorTheory.EqualityType_def]
 QED
 
-Theorem BACKEND_INC_CONFIG_IMP:
-  BACKEND_INC_CONFIG_TYPE c v ⇒
-  ∀x. BACKEND_INC_CONFIG_v x = v ⇔ x = c
+Theorem BACKEND_CONFIG_IMP:
+  BACKEND_CONFIG_TYPE c v ⇒
+  ∀x. BACKEND_CONFIG_v x = v ⇔ x = c
 Proof
-  assume_tac EqualityType_BACKEND_INC_CONFIG_TYPE
-  \\ rw [] \\ assume_tac decodeProgTheory.IsTypeRep_BACKEND_INC_CONFIG_v
+  assume_tac EqualityType_BACKEND_CONFIG_TYPE
+  \\ rw [] \\ assume_tac decodeProgTheory.IsTypeRep_BACKEND_CONFIG_v
   \\ fs [ml_translatorTheory.IsTypeRep_def]
   \\ fs [ml_translatorTheory.EqualityType_def]
 QED
 
-Theorem v_fun_abs_BACKEND_INC_CONFIG_v:
-  BACKEND_INC_CONFIG_TYPE s1 s1_v ⇒
-  v_fun_abs 𝕌(:inc_config) BACKEND_INC_CONFIG_v s1_v = SOME s1
+Theorem v_fun_abs_BACKEND_CONFIG_v:
+  BACKEND_CONFIG_TYPE s1 s1_v ⇒
+  v_fun_abs 𝕌(:backend$config) BACKEND_CONFIG_v s1_v = SOME s1
 Proof
-  fs [source_evalProofTheory.v_rel_abs,BACKEND_INC_CONFIG_IMP]
-  \\ strip_tac \\ imp_res_tac BACKEND_INC_CONFIG_IMP \\ fs []
+  fs [source_evalProofTheory.v_rel_abs,BACKEND_CONFIG_IMP]
+  \\ strip_tac \\ imp_res_tac BACKEND_CONFIG_IMP \\ fs []
 QED
 
 Theorem v_to_word64_list_thm:
@@ -126,8 +126,8 @@ Theorem evaluate_Eval:
   s.compiler_state = s1_v ∧
   s.decode_decs = v_fun_abs decs_allowed (LIST_v AST_DEC_v) ⇒
   LIST_TYPE AST_DEC_TYPE decs decs_v ∧
-  BACKEND_INC_CONFIG_TYPE s1 s1_v ∧
-  BACKEND_INC_CONFIG_TYPE s2 s2_v ∧
+  BACKEND_CONFIG_TYPE s1 s1_v ∧
+  BACKEND_CONFIG_TYPE s2 s2_v ∧
   LIST_TYPE WORD ws ws_v ∧
   LIST_TYPE WORD bs bs_v ∧
   nsLookup env.v (Short «env») = SOME (Env env1 id1) ⇒
@@ -167,11 +167,11 @@ Proof
     \\ DEEP_INTRO_TAC some_intro \\ fs [IN_DEF])
   \\ ‘compiler_agrees (compiler_inst x64_config) (id1,s1_v,decs) (s2_v,bs_v,ws_v)’ by
    (fs [compiler_agrees_def,compiler_inst_def]
-    \\ imp_res_tac v_fun_abs_BACKEND_INC_CONFIG_v \\ fs []
+    \\ imp_res_tac v_fun_abs_BACKEND_CONFIG_v \\ fs []
     \\ imp_res_tac v_to_word64_list_thm
     \\ imp_res_tac v_to_word8_list_thm
-    \\ imp_res_tac BACKEND_INC_CONFIG_IMP
-    \\ imp_res_tac concrete_v_inc_config \\ fs [])
+    \\ imp_res_tac BACKEND_CONFIG_IMP
+    \\ imp_res_tac concrete_v_config \\ fs [])
   \\ fs [concrete_v_decs,SF SFY_ss]
 QED
 
@@ -236,7 +236,7 @@ Theorem evaluate_eval:
     SOME (Conv NONE [Conv NONE [s1_v; Litv (IntLit (&next_gen))];
                      Conv NONE [env_v; Litv (IntLit (&env_id))];
                      decs_v]) ∧
-    BACKEND_INC_CONFIG_TYPE s1 s1_v ∧
+    BACKEND_CONFIG_TYPE s1 s1_v ∧
     LIST_TYPE AST_DEC_TYPE decs decs_v ∧
     (∀ck junk st1 res. evaluate_decs (st with
                                          <|clock := st.clock − ck; refs := st.refs ++ junk;
@@ -254,7 +254,7 @@ Theorem evaluate_eval:
           evaluate_decs (st with
                             <|clock := st.clock − ck1; refs := st.refs ++ junk;
                               eval_state := NONE|>) env1 decs = (st7,Rerr (Rraise exn)) ∧
-          BACKEND_INC_CONFIG_TYPE s2 s2_v ∧
+          BACKEND_CONFIG_TYPE s2 s2_v ∧
           res = Rval [Conv (SOME (TypeStamp «Eval_exn» eval_res_stamp))
                            [exn; Conv NONE [s2_v; Litv (IntLit (&next_gen + 1))]]] ∧
           s1 = st7 with <| clock := st7.clock - ck2 ;
@@ -265,7 +265,7 @@ Theorem evaluate_eval:
           evaluate_decs (st with
                             <|clock := st.clock − ck1; refs := st.refs ++ junk;
                               eval_state := NONE|>) env1 decs = (st7,Rval env2) ∧
-          BACKEND_INC_CONFIG_TYPE s2 s2_v ∧
+          BACKEND_CONFIG_TYPE s2 s2_v ∧
           res = Rval [Conv (SOME (TypeStamp «Eval_result» eval_res_stamp))
                            [Conv NONE
                                  [Env (extend_dec_env env2 env1) (next_gen1,0);
@@ -296,7 +296,7 @@ Proof
   \\ rename [‘do_opapp [compiler64prog_compiler_for_eval_v;_]’]
   \\ qmatch_goalsub_abbrev_tac ‘do_opapp [_; arg_v]’
   \\ ‘PAIR_TYPE (PAIR_TYPE NUM NUM)
-      (PAIR_TYPE BACKEND_INC_CONFIG_TYPE (LIST_TYPE AST_DEC_TYPE))
+      (PAIR_TYPE BACKEND_CONFIG_TYPE (LIST_TYPE AST_DEC_TYPE))
       ((env_id,0),(s1,decs)) arg_v’ by
     fs [Abbr‘arg_v’,ml_translatorTheory.PAIR_TYPE_def]
   \\ assume_tac compiler64prog_compiler_for_eval_v_thm
@@ -501,7 +501,7 @@ Theorem evaluate_repl:
      s.compiler_state = s1_v ∧
      s.decode_decs = v_fun_abs decs_allowed (LIST_v AST_DEC_v) ∧
      s.env_id_counter = (cur_gen,next_id,next_gen) ∧
-     BACKEND_INC_CONFIG_TYPE s1 s.compiler_state ∧
+     BACKEND_CONFIG_TYPE s1 s.compiler_state ∧
      LIST_TYPE AST_DEC_TYPE decs decs_v ∧
      TYPES_TYPE types types_v ∧
      STRING_TYPE input_str input_str_v ∧
@@ -970,7 +970,7 @@ Theorem evaluate_start_repl:
   s.compiler = compiler_inst x64_config ∧
   s.decode_decs = v_fun_abs decs_allowed (LIST_v AST_DEC_v) ∧
   s.env_id_counter = (0,1,1) ∧
-  BACKEND_INC_CONFIG_TYPE s1 s.compiler_state ∧
+  BACKEND_CONFIG_TYPE s1 s.compiler_state ∧
   LIST_TYPE STRING_TYPE cl cl_v ∧
   repl_types T (ffi,repl_rs)
                (repl_prog_types, st with eval_state := NONE, repl_init_env) ∧
@@ -1093,11 +1093,11 @@ Proof
   \\ Cases_on ‘xs’ \\ fs []
 QED
 
-Theorem BACKEND_INC_CONFIG_TYPE_v[local]:
-  BACKEND_INC_CONFIG_TYPE conf u ⇒
-  u = BACKEND_INC_CONFIG_v conf
+Theorem BACKEND_CONFIG_TYPE_v[local]:
+  BACKEND_CONFIG_TYPE conf u ⇒
+  u = BACKEND_CONFIG_v conf
 Proof
-  rw [] \\ imp_res_tac BACKEND_INC_CONFIG_IMP \\ fs []
+  rw [] \\ imp_res_tac BACKEND_CONFIG_IMP \\ fs []
 QED
 
 Theorem repl_prog_isPREFIX:
@@ -1120,7 +1120,7 @@ Theorem evaluate_decs_compiler64_prog:
   s.decode_decs = v_fun_abs decs_allowed (LIST_v AST_DEC_v) ∧
   s.env_id_counter = (0,0,1) ∧ prog_syntax_ok compiler64_prog ∧
   has_repl_flag (TL cl) ∧ wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧ hasFreeFD fs ∧
-  s.compiler_state = BACKEND_INC_CONFIG_v conf ∧
+  s.compiler_state = BACKEND_CONFIG_v conf ∧
   file_content fs «config_enc_str.txt» = SOME (encode_backend_config conf) ∧
   evaluate_decs (init_state (basis_ffi cl fs) with
                             <| clock := ck; eval_state := (SOME (EvalDecs s)) |>)
@@ -1259,7 +1259,7 @@ Proof
     (Q.GENL [‘st’,‘env’,‘start_repl_str’,‘arg_str’,‘ffi’,‘cl’,‘s1’,‘s’] evaluate_start_repl)
   \\ simp [Abbr‘st8’,Abbr‘env8’,Abbr‘ev’]
   \\ fs [backend_enc_decTheory.encode_backend_config_thm]
-  \\ drule BACKEND_INC_CONFIG_TYPE_v \\ strip_tac
+  \\ drule BACKEND_CONFIG_TYPE_v \\ strip_tac
   \\ gvs []
   \\ disch_then drule
   \\ gvs []
@@ -1282,7 +1282,7 @@ Theorem semantics_prog_compiler64_prog:
   s.decode_decs = v_fun_abs decs_allowed (LIST_v AST_DEC_v) ∧
   s.env_id_counter = (0,0,1) ∧ has_repl_flag (TL cl) ∧ wfcl cl ∧ wfFS fs ∧
   STD_streams fs ∧ hasFreeFD fs ∧ prog_syntax_ok compiler64_prog ∧
-  s.compiler_state = BACKEND_INC_CONFIG_v conf ∧
+  s.compiler_state = BACKEND_CONFIG_v conf ∧
   file_content fs «config_enc_str.txt» = SOME (encode_backend_config conf) ⇒
   Fail ∉ semantics_prog
            (init_state (basis_ffi cl fs) with eval_state := SOME (EvalDecs s))

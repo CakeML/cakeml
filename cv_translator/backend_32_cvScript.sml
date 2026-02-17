@@ -45,26 +45,27 @@ QED
 
 val _ = cv_trans (lab_to_targetTheory.pad_code_def |> arch_spec);
 
-Theorem to_shmem_rec[local]:
+Theorem to_shmem_info_num[local]:
   <| entry_pc := ep ;
      nbytes := nb ;
-     access_addr := aa ;
+     addr_reg := ar ;
+     addr_off := ao ;
      reg := r ;
      exit_pc := ex |>
-   = shmem_rec ep nb aa r ex
+   = shmem_info_num ep nb ar ao r ex
 Proof
-  gvs [lab_to_targetTheory.shmem_rec_component_equality]
+  gvs [lab_to_targetTheory.shmem_info_num_component_equality]
 QED
 
 val pre = cv_trans_pre "" (lab_to_targetTheory.get_shmem_info_def
-                          |> SRULE [to_shmem_rec] |> arch_spec);
+                          |> SRULE [to_shmem_info_num] |> arch_spec);
 
 Theorem lab_to_target_get_shmem_info_pre[cv_pre]:
   ∀v pos ffi_names shmem_info.
     lab_to_target_get_shmem_info_pre v pos ffi_names shmem_info
 Proof
   ho_match_mp_tac lab_to_targetTheory.get_shmem_info_ind
-  \\ rw [] \\ simp [Once pre] \\ gvs [to_shmem_rec]
+  \\ rw [] \\ simp [Once pre] \\ gvs [to_shmem_info_num]
 QED
 
 Theorem bytes_in_word_def[cv_inline] =

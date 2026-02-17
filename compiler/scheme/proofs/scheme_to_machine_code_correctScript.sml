@@ -31,8 +31,8 @@ Theorem scheme_to_machine_code_value_terminates:
   static_scope_check prog = INR prog ∧
   codegen prog = INR cml_prog
   ⇒
-  compile c cml_prog = SOME (bytes,bitmaps,c') ∧
-  backend_config_ok c ∧ mc_conf_ok mc ∧ mc_init_ok c mc ∧
+  compile asm_conf c cml_prog = SOME (bytes,bitmaps,c') ∧
+  backend_config_ok asm_conf c ∧ mc_conf_ok mc ∧ mc_init_ok asm_conf c mc ∧
   installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names
             (heap_regs c.stack_conf.reg_names) mc c'.lab_conf.shmem_extra ms
   ⇒
@@ -56,8 +56,8 @@ Theorem scheme_to_machine_code_exception_terminates:
   static_scope_check prog = INR prog ∧
   codegen prog = INR cml_prog
   ⇒
-  compile c cml_prog = SOME (bytes,bitmaps,c') ∧
-  backend_config_ok c ∧ mc_conf_ok mc ∧ mc_init_ok c mc ∧
+  compile asm_conf c cml_prog = SOME (bytes,bitmaps,c') ∧
+  backend_config_ok asm_conf c ∧ mc_conf_ok mc ∧ mc_init_ok asm_conf c mc ∧
   installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names
             (heap_regs c.stack_conf.reg_names) mc c'.lab_conf.shmem_extra ms
   ⇒
@@ -81,8 +81,8 @@ Theorem scheme_to_machine_code_diverges:
   static_scope_check prog = INR prog ∧
   codegen prog = INR cml_prog
   ⇒
-  compile c cml_prog = SOME (bytes,bitmaps,c') ∧
-  backend_config_ok c ∧ mc_conf_ok mc ∧ mc_init_ok c mc ∧
+  compile asm_conf c cml_prog = SOME (bytes,bitmaps,c') ∧
+  backend_config_ok asm_conf c ∧ mc_conf_ok mc ∧ mc_init_ok asm_conf c mc ∧
   installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names
             (heap_regs c.stack_conf.reg_names) mc c'.lab_conf.shmem_extra ms
   ⇒
