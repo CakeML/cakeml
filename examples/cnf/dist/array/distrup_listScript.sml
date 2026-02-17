@@ -46,6 +46,10 @@ Definition check_distrup_list_def:
     | _ => NONE)
   | Import n vc =>
       SOME (update_resize fml NONE (SOME vc) n, resize_dm dml b vc)
+  | ValidateUnsat =>
+    if contains_emp_list fml then
+      SOME (fml, (dml,b))
+    else NONE
 End
 
 Theorem check_distrup_list:
@@ -57,7 +61,7 @@ Theorem check_distrup_list:
     fml_rel fml' fmlls' ∧
     dm_rel dm' dml' b'
 Proof
-  rw[check_distrup_list_def]>>
+  simp[check_distrup_list_def]>>strip_tac>>
   gvs[AllCaseEqs(),check_distrup_def]
   >- (simp[fml_rel_delete_ids_list]>>metis_tac[])
   >- (
@@ -69,6 +73,8 @@ Proof
     gvs[resize_dm_def]>>
     drule_all dm_rel_reset_dm_list>>
     metis_tac[])
+  >-
+    metis_tac[fml_rel_contains_emp_list]
 QED
 
 Theorem check_distrup_list_bnd_fml:
@@ -76,7 +82,7 @@ Theorem check_distrup_list_bnd_fml:
   check_distrup_list distrup fmlls dml b = SOME (fmlls',(dml',b')) ⇒
   bnd_fml fmlls' (LENGTH dml')
 Proof
-  rw[check_distrup_list_def]>>
+  simp[check_distrup_list_def]>>strip_tac>>
   gvs[AllCaseEqs(),check_distrup_def]
   >- metis_tac[bnd_fml_delete_ids_list]
   >- (

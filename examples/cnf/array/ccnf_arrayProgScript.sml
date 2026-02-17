@@ -1068,3 +1068,90 @@ Proof
   fs[EL_REPLICATE]
 QED
 
+Definition is_empty_def:
+  is_empty (ls:'a vector) = (length ls = 0)
+End
+
+val res = translate is_empty_def;
+
+Quote add_cakeml:
+  fun contains_emp_arr_aux fml i =
+  if i = 0 then False
+  else
+    let val i1 = i - 1 in
+    case Unsafe.sub fml i1 of
+      None => contains_emp_arr_aux fml i1
+    | Some v =>
+      is_empty v orelse
+      contains_emp_arr_aux fml i1
+    end
+End
+
+Theorem contains_emp_arr_aux_spec:
+  ∀fmlls i iv fmlv fmllsv.
+  NUM i iv ∧
+  i <= LENGTH fmlls ∧
+  LIST_REL (OPTION_TYPE (VECTOR_TYPE a)) fmlls fmllsv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "contains_emp_arr_aux" (get_ml_prog_state()))
+    [fmlv; iv]
+    (ARRAY fmlv fmllsv)
+    (POSTv resv.
+      &(BOOL (contains_emp_list_aux fmlls i) resv) *
+      ARRAY fmlv fmllsv)
+Proof
+  ho_match_mp_tac contains_emp_list_aux_ind>>rw[]>>
+  xcf "contains_emp_arr_aux" (get_ml_prog_state ())>>
+  xlet_autop>>xif
+  >- (
+    xcon>>xsimpl>>
+    simp[Once contains_emp_list_aux_def]>>
+    EVAL_TAC)>>
+  rpt xlet_autop>>
+  simp[Once contains_emp_list_aux_def]>>
+  `LENGTH fmlls = LENGTH fmllsv` by
+    metis_tac[LIST_REL_LENGTH]>>
+  xlet_autop>>
+  `OPTION_TYPE (VECTOR_TYPE a) (EL (i-1) fmlls) (EL (i-1) fmllsv)` by
+    fs[LIST_REL_EL_EQN]>>
+  simp[any_el_ALT]>>
+  TOP_CASE_TAC >> fs[OPTION_TYPE_def]
+  >- (
+    xmatch>>
+    xapp>>xsimpl>>
+    fs[any_el_ALT])>>
+  xmatch>>
+  xlet_autop>>
+  xlog>>xsimpl>>
+  fs[is_empty_def]>>rw[]>>gvs[]>>
+  last_x_assum assume_tac>>
+  xapp>>xsimpl>>
+  fs[any_el_ALT]
+QED
+
+Quote add_cakeml:
+  fun contains_emp_arr fml =
+  contains_emp_arr_aux fml (Array.length fml)
+End
+
+Theorem contains_emp_arr_spec:
+  LIST_REL (OPTION_TYPE (VECTOR_TYPE a)) fmlls fmllsv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "contains_emp_arr" (get_ml_prog_state()))
+    [fmlv]
+    (ARRAY fmlv fmllsv)
+    (POSTv resv.
+      &(BOOL (contains_emp_list fmlls) resv) *
+      ARRAY fmlv fmllsv)
+Proof
+  rw[]>>
+  xcf "contains_emp_arr" (get_ml_prog_state ())>>
+  xlet_autop>>
+  xapp>>xsimpl>>
+  first_x_assum (irule_at Any)>>
+  first_assum (irule_at Any)>>
+  fs[contains_emp_list_def,LIST_REL_EL_EQN]
+QED
+

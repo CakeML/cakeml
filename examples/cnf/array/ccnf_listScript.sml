@@ -1161,3 +1161,57 @@ Proof
   rw[]>>gvs[]>>
   metis_tac[bnd_fml_le]
 QED
+
+(* Search backwards through the IDs *)
+Definition contains_emp_list_aux_def:
+  contains_emp_list_aux fml i =
+  if i = 0 then F
+  else
+    let i1 = i - 1 in
+    case any_el i1 fml NONE of
+      NONE => contains_emp_list_aux fml i1
+    | SOME c =>
+      if length c = 0 then T
+      else contains_emp_list_aux fml i1
+End
+
+Definition contains_emp_list_def:
+  contains_emp_list fml =
+  contains_emp_list_aux fml (LENGTH fml)
+End
+
+Theorem contains_emp_list_aux:
+  ∀n.
+  n <= LENGTH fml ⇒
+  (contains_emp_list_aux fml n ⇔
+  MEM (SOME (Vector [])) (TAKE n fml))
+Proof
+  Induct>>rw[Once contains_emp_list_aux_def]>>
+  every_case_tac>>rw[]>>
+  `n < LENGTH fml` by fs[]>>
+  drule SNOC_EL_TAKE>>
+  disch_then sym_sub_tac>>
+  fs[any_el_ALT]>>
+  Cases_on`x`>>gvs[mlvectorTheory.length_def]
+QED
+
+Theorem fml_rel_contains_emp_list:
+  fml_rel fml fmlls ⇒
+  (contains_emp_list fmlls <=> contains_emp fml)
+Proof
+  simp[contains_emp_list_def]>>
+  DEP_REWRITE_TAC[contains_emp_list_aux]>>
+  rw[contains_emp_def,MEM_MAP,EXISTS_PROD,MEM_toAList]>>
+  fs[fml_rel_def,MEM_EL]>>
+  eq_tac>>rw[]
+  >- (
+    first_x_assum(qspec_then`n` assume_tac)>>
+    rfs[any_el_ALT]>>
+    metis_tac[])>>
+  rename1`lookup n fml`>>
+  first_x_assum(qspec_then`n` assume_tac)>>
+  rfs[any_el_ALT]>>
+  metis_tac[]
+QED
+
+

@@ -7,19 +7,20 @@ Libs
 Ancestors
   cnf ccnf syntax_helper
 
-(* The format has three proof steps. *)
+(* The format has four proof steps. *)
 Datatype:
   distrup =
   | Del (num list) (* Clauses to delete *)
   | Lrup num vcclause (num list)
   | Import num vcclause
+  | ValidateUnsat
 End
 
 Definition check_distrup_def:
   check_distrup distrup fml =
   case distrup of
   | Del ls =>
-    SOME (delete_ids fml ls)
+      SOME (delete_ids fml ls)
   | Lrup n vc hints =>
     if is_rup fml vc hints
     then
@@ -27,6 +28,11 @@ Definition check_distrup_def:
     else NONE
   | Import n vc =>
       SOME (insert n vc fml)
+  | ValidateUnsat =>
+      if contains_emp fml
+      then
+        SOME fml
+      else NONE
 End
 
 (* TODO: soundness theorems *)

@@ -63,6 +63,12 @@ Quote add_cakeml:
   | Import n v =>
       (case resize_dm carr b v of (dml,b) =>
       (Array.updateResize fml None n (Some v), dml,b))
+  | Validateunsat =>
+      if contains_emp_arr fml
+      then
+        (fml,carr,b)
+      else
+        raise Fail (format_failure lno "failed to validate UNSAT (no empty clause)")
 End
 
 val DISTRUP_DISTRUP_TYPE_def = fetch "-" "DISTRUP_DISTRUP_TYPE_def";
@@ -92,7 +98,7 @@ Theorem check_distrup_arr_spec:
       (λe.
         &(Fail_exn e ∧ check_distrup_list distrup fmlls Clist b = NONE)))
 Proof
-  rw[check_distrup_list_def]>>
+  simp[check_distrup_list_def]>>strip_tac>>
   xcf "check_distrup_arr" (get_ml_prog_state ())>>
   Cases_on`distrup`>>fs[DISTRUP_DISTRUP_TYPE_def]>>
   xmatch
@@ -136,5 +142,15 @@ Proof
     xcon>>xsimpl>>
     irule LIST_REL_update_resize>>
     simp[OPTION_TYPE_def])
+  >- (
+    xlet_autop>>
+    xif
+    >-
+      (xcon>>xsimpl)>>
+    rpt xlet_autop>>
+    xraise>>xsimpl>>
+    fs[Fail_exn_def]>>
+    metis_tac[]
+  )
 QED
 
