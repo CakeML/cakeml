@@ -52,13 +52,22 @@ Definition finalise_cons_def:
   (finalise_cons (RefPtr b ptr) refs =
     case FLOOKUP refs ptr of
     | SOME (MutBlock tag l c r) =>
-        (case finalise_cons c refs of
-           (*         | SOME c' => SOME (Block tag (l ++ c' ++ r))
-*)
+        (case finalise_cons c (refs \\ ptr) of
+         | SOME c' => SOME (Block tag (l ++ [c'] ++ r))
          | NONE => NONE)
     | SOME res => SOME (RefPtr b ptr)
     | NONE => NONE) ∧
   (finalise_cons v refs = SOME v)
+Termination
+  wf_rel_tac ‘measure $ CARD o FDOM o SND’
+  >> simp [finite_mapTheory.FDOM_DOMSUB, FLOOKUP_DEF]
+  >> rw []
+  >> Cases_on ‘CARD (FDOM refs)’
+  >> rw []
+  >- fs[finite_setTheory.fCARD_EQ0]
+  >> simp []
+(*  >> rw[finite_setTheory.EXTENSION, finite_setTheory.NOT_IN_EMPTY] *)
+(*  print_match [] “ptr ∈ s ⇒ s ≠ ∅” *)
 End
 
 val s = ``(s:('c,'ffi) bviSem$state)``;
