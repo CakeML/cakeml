@@ -66,8 +66,6 @@ Termination
   >> rw []
   >- fs[finite_setTheory.fCARD_EQ0]
   >> simp []
-(*  >> rw[finite_setTheory.EXTENSION, finite_setTheory.NOT_IN_EMPTY] *)
-(*  print_match [] “ptr ∈ s ⇒ s ≠ ∅” *)
 End
 
 val s = ``(s:('c,'ffi) bviSem$state)``;
