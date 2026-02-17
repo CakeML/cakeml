@@ -621,9 +621,8 @@ Definition full_encode_def:
   MAP (annot_string ## map_pbc enc_string) (encode n g))
 End
 
-Definition mk_key_def:
-  mk_key NONE = NONE ∧
-  mk_key (SOME ann) =
+Definition mk_key_ann_def:
+  mk_key_ann ann =
     let ts = tokens (λc. ~ (#"0" ≤ c ∧ c ≤ #"9")) ann in
       if isPrefix (strlit "e_") ann then
         (case MAP fromNatString ts of
@@ -639,6 +638,11 @@ Definition mk_key_def:
             if isPrefix (strlit "cu") ann then SOME $ CU_Imp_VC (n-1) else
               NONE
       else NONE
+End
+
+Definition mk_key_def:
+  mk_key NONE = NONE ∧
+  mk_key (SOME ann) = mk_key_ann ann
 End
 
 Theorem mk_key_test[local]:
@@ -833,3 +837,103 @@ Theorem full_encode_eq =
   |> SIMP_RULE (srw_ss()) [FLAT_GENLIST_FOLDN,FOLDN_APPEND_op]
   |> PURE_ONCE_REWRITE_RULE [APPEND_OP_DEF]
   |> SIMP_RULE (srw_ss()) [if_APPEND];
+
+Definition lazy_constraints_def:
+  (lazy_constraints n g [] acc = SOME acc) ∧
+  (lazy_constraints n g (x::xs) acc =
+    case OPTION_BIND (mk_key_ann x) (gen_constraint n g) of NONE => NONE
+    | SOME c => lazy_constraints n g xs (map_pbc enc_string c::acc))
+End
+
+Definition lazy_full_encode_ann_def:
+  lazy_full_encode_ann (g:graph) obj anns =
+  let n = guess_n obj in
+  if lazy_color_obj n obj
+  then
+    OPTION_MAP (\f. (n,f)) (lazy_constraints n g anns [])
+  else NONE
+End
+
+Theorem lazy_constraints_subset:
+  ∀n g ls acc acc'.
+  lazy_constraints n g ls acc = SOME acc' ∧
+  set acc ⊆ set (MAP (map_pbc enc_string o SND) (encode n g)) ⇒
+  set acc' ⊆ set (MAP (map_pbc enc_string o SND) (encode n g))
+Proof
+  Induct_on`ls`>>rw[lazy_constraints_def]>>
+  gvs[AllCaseEqs()]>>
+  first_x_assum irule>>
+  last_x_assum $ irule_at Any>>
+  gvs[SUBSET_DEF]>>rw[]
+  >- (
+    Cases_on`g`>>
+    simp[encode_def,flat_genlist_def,MEM_FLAT,MEM_GENLIST,PULL_EXISTS,MEM_MAP]>>
+    qexists_tac`(x,c)`>>fs[]>>
+    simp[MEM_gen_named_constraint,Once EXISTS_PROD]>>
+    Cases_on`x`>>fs[]>>
+    gvs[gen_constraint_def])
+  >- metis_tac[]
+QED
+
+Theorem lazy_full_encode_ann_thm:
+  lazy_full_encode_ann g obj anns = SOME (n,fml) ⇒
+  ∃fml'.
+    full_encode n g = (SOME obj, fml') ∧
+    set fml ⊆ set (MAP SND fml')
+Proof
+  rw[lazy_full_encode_ann_def]>>
+  gvs[AllCaseEqs()]>>
+  simp[full_encode_def]>>
+  fs[lazy_color_obj_def]>>
+  drule lazy_constraints_subset>>simp[MAP_MAP_o]
+QED
+
+Theorem lazy_full_encode_ann_sem_concl:
+  good_graph g ∧
+  lazy_full_encode_ann g obj anns = SOME (n,fml) ∧
+  pbc$sem_concl (set fml) (SOME obj) {} concl ∧
+  conv_concl n concl = SOME lb ⇒
+  ∀f k.
+    is_k_color k f g ⇒ lb ≤ k
+Proof
+  rw[]>>
+  Cases_on`g`>>
+  drule encode_correct>>
+  simp[PULL_EXISTS, EQ_IMP_THM,SF DNF_ss]>>
+  rw[]>>
+  pop_assum kall_tac>>
+  ‘~(n < k) ⇒ is_k_color n f (q,r)’ by
+    (gvs [is_k_color_def] >> rw [] >> res_tac >> fs [])>>
+  Cases_on ‘n < k’ >> gvs [] >>
+  first_x_assum drule>>rw[]>>
+  drule lazy_full_encode_ann_thm >>rw[] >>
+  gvs[oneline conv_concl_def,AllCaseEqs()]>>
+  rename1`full_encode n (v,e) = (SOME obj,fmll)`>>
+  rename1`OBounds (SOME lb) ub`>>
+  `sem_concl (set (MAP SND fmll)) (SOME obj) {} (OBounds (SOME lb) NONE)` by (
+    fs[sem_concl_def]>>
+    rw[]>>first_x_assum irule>>
+    fs[satisfies_def,SUBSET_DEF])>>
+  qpat_x_assum`sem_concl _ _ _ _` mp_tac>>
+  gvs[full_encode_def]>>
+  simp[LIST_TO_SET_MAP,IMAGE_IMAGE]>>
+  simp[GSYM IMAGE_IMAGE, GSYM (Once LIST_TO_SET_MAP)]>>
+  qpat_x_assum`_ = SOME obj` sym_sub_tac>>
+  `{} = IMAGE enc_string {}` by fs[]>>
+  pop_assum SUBST1_TAC>>
+  DEP_REWRITE_TAC[GSYM concl_INJ_iff]>>
+  CONJ_TAC >- (
+    simp[]>>
+    assume_tac enc_string_INJ>>
+    drule INJ_SUBSET>>
+    disch_then match_mp_tac>>
+    simp[])>>
+  rw[sem_concl_def]>>
+  last_x_assum $ qspec_then ‘w’ mp_tac >>
+  impl_tac >- simp [] >>
+  simp [] >>
+  ‘∃l. lb = & l’ by (Cases_on ‘lb’ >> gvs []) >>
+  gvs [] >>
+  rw [] >> irule LESS_EQ_TRANS >> pop_assum $ irule_at Any >>
+  imp_res_tac is_k_color_IMP_CARD_colors_used_LEQ >> fs []
+QED
