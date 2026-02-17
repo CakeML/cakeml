@@ -62,7 +62,8 @@ Definition rewrite_aux_def:
     | SOME (SOME (l, Call t _ args h), r) =>
         let new_hole_idx     = LENGTH l in
         let var_new_hole_ptr = Var arity in
-        let exp_new_hole_ptr = Op (MemOp (MutCons block_tag new_hole_idx)) (l ++ r) in
+        let exp_hole = Op (IntOp (Const 0)) [] in (* Does it make sense to initialise hole here and not in bvi semantics? *)
+        let exp_new_hole_ptr = Op (MemOp (MutCons block_tag new_hole_idx)) (l ++ [exp_hole] ++ r) in
         let exp_new_hole_idx = Op (Label new_hole_idx) [] in
         let exp_tail_call    = Call t (SOME loc_opt) (args ++ [var_new_hole_ptr; exp_new_hole_idx]) h in
         let exp_finalise     = Op (MemOp FinaliseCons) [var_new_hole_ptr] in
@@ -88,7 +89,8 @@ Definition rewrite_opt_def:
         let arg_old_hole_ptr = Var arity in
         let arg_old_hole_idx = Var (arity + 1) in
         let var_new_hole_ptr = Var (arity + 2) in
-        let exp_new_hole_ptr = Op (MemOp (MutCons block_tag new_hole_idx)) (l ++ r) in
+        let exp_hole = Op (IntOp (Const 0)) [] in (* Does it make sense to initialise hole here and not in bvi semantics? *)
+        let exp_new_hole_ptr = Op (MemOp (MutCons block_tag new_hole_idx)) (l ++ [exp_hole] ++ r) in
         let exp_update_hole  = Op (MemOp UpdateCons) [arg_old_hole_ptr; var_new_hole_ptr] in
         let exp_new_hole_idx = Op (Label new_hole_idx) [] in
         let exp_tail_call    = Call t (SOME loc_opt) (args ++ [var_new_hole_ptr; exp_new_hole_idx]) h in
@@ -97,7 +99,7 @@ Definition rewrite_opt_def:
   (rewrite_opt ts loc loc_opt arity expr =
     let arg_old_hole_ptr = Var arity in
     let arg_old_hole_idx = Var (arity + 1) in
-    Op (MemOp UpdateCons) [arg_old_hole_ptr; arg_old_hole_idx; expr])
+    Op (MemOp UpdateCons) [arg_old_hole_ptr; expr])
 Termination
   cheat
 End
