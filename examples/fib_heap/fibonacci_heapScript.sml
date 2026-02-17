@@ -418,6 +418,40 @@ Proof
 QED
 
 
+Theorem fib_heap_empty_append_inv:
+  !a' v e.
+    a' <> 0w /\ fib_heap_inv FEMPTY [] ==>
+    fib_heap_inv (FEMPTY |+ (a',v, e))
+        [FibTree a' (fill_dnode v e T F) []]
+Proof
+  rw[fib_heap_inv_def]
+  >- fs[FLOOKUP_DEF]
+  >- (
+    rpt strip_tac >>
+    iff_tac >> strip_tac
+    >- (
+      qexists `F` >>
+      fs[Once fts_has_cases, FLOOKUP_DEF, fill_dnode_def]
+      ) >>
+    fs[Once fts_has_cases, FLOOKUP_DEF, fill_dnode_def] >>
+    fs[Once fts_has_cases]
+    )
+  >- (
+    rpt strip_tac >> fs[fts_is_min_def] >>
+    fs[head_key_def, FLOOKUP_DEF, fill_dnode_def]
+    )
+  >- (rpt strip_tac >> fs[Once fts_has_cases] >> fs[Once fts_has_cases])
+  >- (
+    rpt strip_tac >>
+    fs[Once fts_has_cases] >>
+    Cases_on `f` >> rw[] >>
+    fs[fill_dnode_def] >>
+    fs[Once fts_has_cases]
+    )
+  >> fs[fib_heap_shape_ok_def] >>
+  simp[Ntimes fib_num_def 3] >>
+  simp[Once fib_num_def]
+QED
 
 
 Theorem fib_heap_insert:
@@ -439,7 +473,8 @@ Proof
   SEP_R_TAC >>
   IF_CASES_TAC
   >- (
-    `fts = [] /\ fh = FEMPTY` by cheat >>
+    assume_tac lemma_empty_heap >>
+    first_x_assum (qspecl_then [`fh`, `fts`] assume_tac) >> rfs[] >>
     gvs[] >>
     fs[fib_heap_empty_append_def,before_off_def, next_off_def] >>
     SEP_R_TAC >>
@@ -452,51 +487,32 @@ Proof
        SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
        fill_dnode_def, next_key_def, ones_def, STAR_ASSOC] >>
     gvs[] >>
-    simp[fib_heap_inv_def] >>
-    rpt conj_tac
-    >- fs[FLOOKUP_DEF]
-    >- (
-      rpt strip_tac >>
-      iff_tac >> strip_tac
-      >- (
-        qexists `F` >>
-        fs[Once fts_has_cases, FLOOKUP_DEF, fill_dnode_def]
-        ) >>
-      fs[Once fts_has_cases, FLOOKUP_DEF, fill_dnode_def] >>
-      fs[Once fts_has_cases]
-      )
-    >- (rpt strip_tac >> fs[fts_is_min_def] >> fs[head_key_def, FLOOKUP_DEF])
-    >- (rpt strip_tac >> fs[Once fts_has_cases] >> fs[Once fts_has_cases])
-    >- (
-      rpt strip_tac >>
-      fs[Once fts_has_cases] >>
-      Cases_on `f` >> rw[] >>
-      fs[fill_dnode_def] >>
-      fs[Once fts_has_cases]
-      )
-    >- (
-      fs[fib_heap_shape_ok_def] >>
-      simp[Ntimes fib_num_def 3] >>
-      simp[Once fib_num_def]
-      )
+    assume_tac fib_heap_empty_append_inv >> (* solved inv. *)
+    first_x_assum (qspecl_then [`a'`, `v`, `e`] assume_tac) >>
+    gs[fill_dnode_def] >>
+    cheat (*TODO: Why does this not resolve? *)
     ) >>
   `fts = (h::t) /\ fh <> FEMPTY` by cheat >>
   gvs[] >>
   Cases_on `h` >>
+  Cases_on `v'` >>
+  rename1 `node_data v' e' f' x'` >>
   IF_CASES_TAC
   >- (
     fs[fib_heap_append_def, next_off_def, before_off_def, head_key_def] >>
+    (*fib_heap_append boolean return value looks malformed ????*)
     IF_CASES_TAC >>
-    strip_tac >>
-(*
-    rpt conj_tac >>
-    strip_tac >>
-    gvs[]
-    fs[head_key_def, fts_is_min_def,fill_dnode_def] >>
+    fs[ann_fts_def, ann_fts_seg_def, last_key_def,fts_mem_def,
+       SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
+       fill_dnode_def, next_key_def, ones_def, STAR_ASSOC] >>
+    (*SEP_R_TAC >>
+    strip_tac >> gvs[] >>
+    SEP_W_TAC >>
+    rename1 `(a',v,e)` >>
+    qexists `[FibTree a' (fill_dnode v e T F) [];
+              FibTree k' (fill_dnode v' e' f' x') l]` >>
 *)
     cheat)
 >> cheat
 QED
-
-(*FAPPLY_FUPDATE_THM not working -> not found by hol? *)
 
