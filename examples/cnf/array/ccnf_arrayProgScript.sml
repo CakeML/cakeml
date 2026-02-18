@@ -49,7 +49,7 @@ End
 
 Definition format_failure_def:
   format_failure (lno:num) s =
-  strlit "c Checking failed at line: " ^ toString lno ^ strlit ". Reason: " ^ s ^ strlit"\n"
+  strlit "c Checking failed at line: " ^ toString lno ^ strlit ". Reason: " ^ s
 End
 
 val res = translate format_failure_def;

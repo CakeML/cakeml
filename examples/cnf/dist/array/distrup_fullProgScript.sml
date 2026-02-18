@@ -157,14 +157,13 @@ val res = translate pp_distrup_def;
 (* Wraps and removes exception handling *)
 Quote add_cakeml:
   fun check_top lno instr st =
-    (print ("Running: " ^ pp_distrup instr ^"\n");
-    case st of
-      None => None
+    (case st of
+      None => (None, "")
     | Some (fml, carr, b) =>
         (case check_distrup_arr lno instr fml carr b of
-          (fml, carr, b) => Some (fml, carr, b))
+          (fml, carr, b) => (Some (fml, carr, b), ""))
         handle Fail err =>
-        (print err; None));
+        (None, err));
 End
 
 (* The main loop *)
@@ -185,8 +184,8 @@ fun loop step_arr buf_arr st lno =
       None => () (* Terminate: C handles response after cml_main returns *)
     | Some instr =>
         let
-          val st = check_top lno instr st
-          val res = case st of None => "0" | Some _ => "1"
+          val (st, msg) = check_top lno instr st
+          val res = case st of None => "0" ^ msg | Some _ => "1"
           val _ = do_callback res step_arr
         in
           loop step_arr buf_arr st (lno + 1)
