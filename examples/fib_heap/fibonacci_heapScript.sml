@@ -24,6 +24,9 @@ Datatype:
                  mark  : bool |>
 End
 
+val lemma_node_data_component_equality = fetch "-" "node_data_component_equality";
+
+
 Datatype:
   annotated_node =
     <| data       : 'a node_data ;
@@ -341,7 +344,9 @@ Definition fib_heap_append_def:
     let c = (fst + next_off IN dm /\ c) in
     let sec = m (fst + next_off) in
     (*Ensure values in heap *)
+    let c = (last IN dm /\ c) in
     let c = (last + next_off IN dm /\ c) in
+    let c = (sec IN dm /\ c) in
     let c = (sec + before_off IN dm /\ c) in
     (*put k1 as fst element and k2 as new last - order important!*)
     if fst = sec then
@@ -396,9 +401,9 @@ Proof
   fs[Once fts_has_cases] >>
   first_x_assum (qspec_then `m'` assume_tac) >> rfs[head_key_def, fill_dnode_def] >>
   Cases_on `f`
-  >- cheat >>
+  >- fs[lemma_node_data_component_equality]  >>
   first_x_assum (qspecl_then [`k`, `v'`, `e'`, `F`, `m'`] assume_tac) >>
-  fs[] >> cheat
+  fs[lemma_node_data_component_equality]
 QED
 
 Theorem lemma_empty_heap:
@@ -420,7 +425,7 @@ QED
 
 Theorem fib_heap_empty_append_inv:
   !a' v e.
-    a' <> 0w /\ fib_heap_inv FEMPTY [] ==>
+    a' <> 0w ==>
     fib_heap_inv (FEMPTY |+ (a',v, e))
         [FibTree a' (fill_dnode v e T F) []]
 Proof
@@ -487,24 +492,26 @@ Proof
        SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
        fill_dnode_def, next_key_def, ones_def, STAR_ASSOC] >>
     gvs[] >>
-    assume_tac fib_heap_empty_append_inv >> (* solved inv. *)
-    first_x_assum (qspecl_then [`a'`, `v`, `e`] assume_tac) >>
-    gs[fill_dnode_def] >>
-    cheat (*TODO: Why does this not resolve? *)
+    assume_tac fib_heap_empty_append_inv >>
+    gs[fill_dnode_def]
     ) >>
   `fts = (h::t) /\ fh <> FEMPTY` by cheat >>
   gvs[] >>
   Cases_on `h` >>
-  Cases_on `v'` >>
-  rename1 `node_data v' e' f' x'` >>
+  fs[ann_fts_def, ann_fts_seg_def,fts_mem_def,
+     SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
+     fill_dnode_def, next_key_def, ones_def, STAR_ASSOC] >>
+  SEP_R_TAC >>
   IF_CASES_TAC
   >- (
-    fs[fib_heap_append_def, next_off_def, before_off_def, head_key_def] >>
-    (*fib_heap_append boolean return value looks malformed ????*)
+    fs[fib_heap_append_def,next_off_def,before_off_def] >>
     IF_CASES_TAC >>
-    fs[ann_fts_def, ann_fts_seg_def, last_key_def,fts_mem_def,
-       SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
-       fill_dnode_def, next_key_def, ones_def, STAR_ASSOC] >>
+    Cases_on `t`
+    >- (
+      fs[next_key_def,last_key_def,head_key_def] >>
+      SEP_R_TAC >>
+      cheat
+      )>>
     (*SEP_R_TAC >>
     strip_tac >> gvs[] >>
     SEP_W_TAC >>
@@ -515,4 +522,4 @@ Proof
     cheat)
 >> cheat
 QED
-
+print_match [] “node_data”;
