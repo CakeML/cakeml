@@ -651,6 +651,9 @@ Proof
     \\ rw [] \\ fs [] \\ TRY (eq_tac \\ rw [] \\ fs [])
     \\ fs [decode_length_def,mc_multiwordTheory.mc_header_def,
            multiwordTheory.i2mw_def,WORD_MUL_LSL,word_mul_n2w]
+    \\ ‘(dimindex (:α) − c.len_size) MOD dimword (:α)
+        = (dimindex (:α) − c.len_size)’ by gvs [dimword_def, good_dimindex_def]
+    \\ gvs [word_mul_n2w]
     \\ qpat_assum `_ <=> i < 0i` (fn th => rewrite_tac [GSYM th])
     \\ qpat_assum `good_dimindex (:α)` mp_tac
     \\ fs [get_sign_word_lemma])
