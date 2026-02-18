@@ -85,7 +85,7 @@ Quote add_cakeml:
       val hdr = String.str (Char.chr (if trusted then 1 else 0)) ^ count_str
       val _ = #(clause) hdr arr
     in
-      (arr, read_ints arr len 0)
+      (arr, Vector.fromList (read_ints arr len 0))
     end;
 
   fun get_hints buf_arr count_str =
@@ -101,39 +101,39 @@ End
 (* Fully parse a single step *)
 Quote add_cakeml:
   fun parse_step step_arr buf_arr =
-  let
-    val _ = #(step) "" step_arr
-    val c = Char.fromByte (Word8Array.sub step_arr 0)
-  in
-    case c of
-      #"a" => (* PRODUCE *)
-        let
-          val id = get_u64 step_arr 1
-          val nb_lits_str = Word8Array.substring step_arr 9 4
-          val nb_hints_str = Word8Array.substring step_arr 13 4
-          val (buf_arr, cl) = get_clause buf_arr False nb_lits_str
-          val (buf_arr, hints) = get_hints buf_arr nb_hints_str
-        in
-          (buf_arr, Some (Lrup id cl hints))
-        end
-    | #"i" => (* IMPORT *)
-        let
-          val id = get_u64 step_arr 1
-          val nb_lits_str = Word8Array.substring step_arr 9 4
-          val (buf_arr, cl) = get_clause buf_arr True nb_lits_str
-        in
-          (buf_arr, Some (Import id cl))
-        end
-    | #"d" => (* DELETE *)
-        let
-          val nb_hints_str = Word8Array.substring step_arr 1 4
-          val (buf_arr, hints) = get_hints buf_arr nb_hints_str
-        in
-          (buf_arr, Some (Del hints))
-        end
-    | #"V" => (buf_arr, Some Validateunsat)
-    | _ => (buf_arr, None) (* Terminate or unknown *)
-  end;
+    let
+      val _ = #(step) "" step_arr
+      val c = Char.fromByte (Word8Array.sub step_arr 0)
+    in
+      case c of
+        #"a" => (* PRODUCE *)
+          let
+            val id = get_u64 step_arr 1
+            val nb_lits_str = Word8Array.substring step_arr 9 4
+            val nb_hints_str = Word8Array.substring step_arr 13 4
+            val (buf_arr, cl) = get_clause buf_arr False nb_lits_str
+            val (buf_arr, hints) = get_hints buf_arr nb_hints_str
+          in
+            (buf_arr, Some (Lrup id cl hints))
+          end
+      | #"i" => (* IMPORT *)
+          let
+            val id = get_u64 step_arr 1
+            val nb_lits_str = Word8Array.substring step_arr 9 4
+            val (buf_arr, cl) = get_clause buf_arr True nb_lits_str
+          in
+            (buf_arr, Some (Import id cl))
+          end
+      | #"d" => (* DELETE *)
+          let
+            val nb_hints_str = Word8Array.substring step_arr 1 4
+            val (buf_arr, hints) = get_hints buf_arr nb_hints_str
+          in
+            (buf_arr, Some (Del hints))
+          end
+      | #"V" => (buf_arr, Some Validateunsat)
+      | _ => (buf_arr, None) (* Terminate or unknown *)
+    end;
 End
 
 Definition pp_distrup_def:
