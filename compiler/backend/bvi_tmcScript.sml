@@ -175,3 +175,10 @@ val append_exp = “If (Op (BlockOp (TagLenEq 0 0)) [Var 0]) (Var 1) $
 val append_prog = “[(4000:num,2:num,^append_exp)]”;
 val append_eval = EVAL “compile_prog 6 ^append_prog”;
 
+(* [1] :: [x] :: my_bar xs *)
+val tail_cons1 = “extract_tail_call (4000:num) [Op (BlockOp (Cons 0))
+                                                 [Call 0 (SOME 4000) [Var 3] NONE;
+                                                  Op (BlockOp (Cons 0)) [Op (BlockOp (Cons 0)) []; Var 2]];
+                                              Op (BlockOp (Build [Int 1; Con 0 []; Con 0 [0; 1]])) []]”;
+val tail_cons_eval1 = EVAL tail_cons1;
+
