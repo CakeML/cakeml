@@ -5,7 +5,7 @@ Theory distrup_arrayProg
 Libs
   preamble basis
 Ancestors
-  ccnf_arrayProg distrup distrup_list syntax_helper byte
+  ccnf_arrayProg distrup distrup_list
 
 val _ = hide_environments true;
 
