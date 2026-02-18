@@ -45,10 +45,10 @@ Overload Loc = “wordLang$Loc”
 (* TODO: move *)
 
 Theorem word_sh_word_shift:
-   word_sh a b c = SOME z ⇒ z = word_shift a b c
+   word_sh a (b: α word) c = SOME z ⇒ c < dimindex (:α) ∧ z = word_shift a b c
 Proof
-  EVAL_TAC >> srw_tac[][] >> every_case_tac >> full_simp_tac(srw_ss())[] >>
-  EVAL_TAC >> srw_tac[][]
+  rw [wordLangTheory.word_sh_def |> oneline, AllCaseEqs()]
+  >> simp [asmSemTheory.word_shift_def]
 QED
 
 Theorem assert_T[simp]:
