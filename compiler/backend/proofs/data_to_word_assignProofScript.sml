@@ -243,7 +243,7 @@ Theorem get_real_byte_offset_lemma:
    word_exp t (real_byte_offset v) = SOME (Word (bytes_in_word + (w >>> 2)))
 Proof
   rw[real_byte_offset_def,wordSemTheory.get_var_def]
-  \\ eval_tac \\ fs[good_dimindex_def]
+  \\ eval_tac \\ fs[good_dimindex_def,dimword_def]
 QED
 
 Theorem reorder_lemma:
@@ -585,8 +585,8 @@ Proof
 QED
 
 Theorem word_exp_SmallLsr:
+  n < dimindex(:'a) ⇒
    word_exp s (SmallLsr e n) =
-      if dimindex (:'a) <= n then NONE else
       case word_exp s e of
         | SOME (Word w) => SOME (Word ((w:'a word) >>> n))
         | res => (if n = 0 then res else NONE)
@@ -598,6 +598,7 @@ Proof
     \\ Cases_on `word_exp s e` \\ fs []
     \\ Cases_on `x` \\ fs [])
   \\ fs [word_exp_rw] \\ every_case_tac \\ fs []
+  \\ ‘n < dimword (:α)’ by simp[dimindex_lt_dimword] \\ fs []
 QED
 
 Theorem evaluate_MakeBytes:
@@ -614,7 +615,7 @@ Proof
   \\ fs [EVAL ``good_dimindex (:'a)``]
   \\ fs [wordSemTheory.set_var_def,
          wordSemTheory.get_var_def,lookup_insert,word_of_byte_def,
-         insert_shadow,wordSemTheory.evaluate_def,word_exp_rw]
+         insert_shadow,wordSemTheory.evaluate_def,word_exp_rw,dimword_def]
 QED
 
 Theorem w2w_shift_shift:
