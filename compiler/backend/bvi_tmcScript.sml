@@ -75,8 +75,6 @@ Definition rewrite_aux_def:
     | BlockOp (Cons block_tag) => rewrite_aux_BlockOp_Cons ts loc loc_opt arity block_tag op_args
     | _ => NONE) ∧
   (rewrite_aux ts loc loc_opt arity _ = NONE)
-Termination
-  cheat
 End
 
 Definition rewrite_opt_BlockOp_Cons_def:
@@ -111,8 +109,6 @@ Definition rewrite_opt_def:
   (rewrite_opt ts loc loc_opt arity expr =
     let arg_old_hole_ptr = Var arity in
     Op (MemOp UpdateCons) [arg_old_hole_ptr; expr])
-Termination
-  cheat
 End
 
 Definition compile_exp_def:
