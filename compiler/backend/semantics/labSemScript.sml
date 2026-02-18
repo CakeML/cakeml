@@ -95,7 +95,7 @@ Definition arith_upd_def[simp]:
   (arith_upd (Shift l r1 r2 ri) s =
      case (read_reg r2 s, reg_imm ri s) of
      | (Word w1, Word w2) =>
-         assert (w2n w2 < dimword (:'a)) (upd_reg r1 (Word (word_shift l w1 (w2n w2))) s)
+         assert (w2n w2 < dimindex (:'a)) (upd_reg r1 (Word (word_shift l w1 (w2n w2))) s)
      | _ => assert F s) /\
   (arith_upd (Div r1 r2 r3) s =
      case (read_reg r3 s,read_reg r2 s) of
