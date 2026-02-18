@@ -38,6 +38,20 @@ Definition extract_tail_call_def:
     | NONE => NONE)
 End
 
+Definition rewrite_aux_BlockOp_Cons_def:
+  rewrite_aux_BlockOp_Cons ts loc loc_opt arity block_tag op_args =
+    case extract_tail_call loc op_args of
+    | SOME (SOME (l, Call t _ args h), r) =>
+        let new_hole_idx     = LENGTH l in
+        let var_new_hole_ptr = Var arity in
+        let exp_hole         = Op (IntOp (Const 0)) [] in (* Does it make sense to initialise hole here and not in bvi semantics? *)
+        let exp_new_hole_ptr = Op (MemOp (MutCons block_tag new_hole_idx)) (l ++ [exp_hole] ++ r) in
+        let exp_tail_call    = Call t (SOME loc_opt) (var_new_hole_ptr :: args) h in (* Are args flipped? *)
+        let exp_finalise     = Op (MemOp FinaliseCons) [var_new_hole_ptr] in
+        SOME $ Let [exp_new_hole_ptr; exp_tail_call] exp_finalise
+    | _ => NONE
+End
+
 Definition rewrite_aux_def:
   (rewrite_aux ts loc loc_opt arity (Var n) = NONE) ∧
   (rewrite_aux ts loc loc_opt arity (If xi xt xe) =
@@ -56,32 +70,17 @@ Definition rewrite_aux_def:
   (rewrite_aux ts loc loc_opt arity (Tick x) = OPTION_MAP Tick $ rewrite_aux ts loc loc_opt arity x) ∧
   (rewrite_aux ts loc loc_opt arity (Force _ n) = NONE) ∧
   (rewrite_aux ts loc loc_opt arity (Call t d args h) = NONE) ∧
-  (* just pattern match on op, write dest_BlockOp_Cons *)
-  (rewrite_aux ts loc loc_opt arity (Op (BlockOp (Cons block_tag)) op_args) =
-    case extract_tail_call loc op_args of
-    | SOME (SOME (l, Call t _ args h), r) =>
-        let new_hole_idx     = LENGTH l in
-        let var_new_hole_ptr = Var arity in
-        let exp_hole         = Op (IntOp (Const 0)) [] in (* Does it make sense to initialise hole here and not in bvi semantics? *)
-        let exp_new_hole_ptr = Op (MemOp (MutCons block_tag new_hole_idx)) (l ++ [exp_hole] ++ r) in
-        let exp_tail_call    = Call t (SOME loc_opt) (var_new_hole_ptr :: args) h in (* Are args flipped? *)
-        let exp_finalise     = Op (MemOp FinaliseCons) [var_new_hole_ptr] in
-        SOME $ Let [exp_new_hole_ptr; exp_tail_call] exp_finalise
+  (rewrite_aux ts loc loc_opt arity (Op op op_args) =
+    case op of
+    | BlockOp (Cons block_tag) => rewrite_aux_BlockOp_Cons ts loc loc_opt arity block_tag op_args
     | _ => NONE) ∧
   (rewrite_aux ts loc loc_opt arity _ = NONE)
 Termination
   cheat
 End
 
-(* Assumes that the function can and should be optimised - has been checked by rewrite_aux_def. *)
-Definition rewrite_opt_def:
-  (rewrite_opt ts loc loc_opt arity (If xi xt xe) =
-    let yt = rewrite_opt ts loc loc_opt arity xt in
-    let ye = rewrite_opt ts loc loc_opt arity xe in
-    If xi yt ye) ∧
-  (rewrite_opt ts loc loc_opt arity (Let xs x) = Let xs $ rewrite_opt ts loc loc_opt (arity + LENGTH xs) x) ∧
-  (rewrite_opt ts loc loc_opt arity (Raise x) = Raise x) ∧
-  (rewrite_opt ts loc loc_opt arity (Op (BlockOp (Cons block_tag)) op_args) =
+Definition rewrite_opt_BlockOp_Cons_def:
+  rewrite_opt_BlockOp_Cons ts loc loc_opt arity block_tag op_args =
     case extract_tail_call loc op_args of
     | SOME (SOME (l, Call t _ args h), r) =>
         let new_hole_idx     = LENGTH l in
@@ -92,7 +91,23 @@ Definition rewrite_opt_def:
         let exp_update_hole  = Op (MemOp UpdateCons) [arg_old_hole_ptr; var_new_hole_ptr] in
         let exp_tail_call    = Call t (SOME loc_opt) (var_new_hole_ptr :: args) h in (* Are args flipped? *)
         Let [exp_new_hole_ptr; exp_update_hole] $ exp_tail_call
-    | _ => Op (BlockOp (Cons block_tag)) op_args) ∧
+    | _ => Op (BlockOp (Cons block_tag)) op_args
+End
+
+(* Assumes that the function can and should be optimised - has been checked by rewrite_aux_def. *)
+Definition rewrite_opt_def:
+  (rewrite_opt ts loc loc_opt arity (If xi xt xe) =
+    let yt = rewrite_opt ts loc loc_opt arity xt in
+    let ye = rewrite_opt ts loc loc_opt arity xe in
+    If xi yt ye) ∧
+  (rewrite_opt ts loc loc_opt arity (Let xs x) = Let xs $ rewrite_opt ts loc loc_opt (arity + LENGTH xs) x) ∧
+  (rewrite_opt ts loc loc_opt arity (Raise x) = Raise x) ∧
+  (rewrite_opt ts loc loc_opt arity (Op op op_args) =
+    case op of
+    | BlockOp (Cons block_tag) => rewrite_opt_BlockOp_Cons ts loc loc_opt arity block_tag op_args
+    | _ =>
+      let arg_old_hole_ptr = Var arity in
+      Op (MemOp UpdateCons) [arg_old_hole_ptr; (Op op op_args)]) ∧
   (rewrite_opt ts loc loc_opt arity expr =
     let arg_old_hole_ptr = Var arity in
     Op (MemOp UpdateCons) [arg_old_hole_ptr; expr])
