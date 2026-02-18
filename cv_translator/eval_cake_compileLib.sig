@@ -17,6 +17,7 @@ sig
     , conf_def             : thm
     , prog_def             : thm
     , run_as_explorer      : bool
+    , main_return          : bool
     , output_filename      : string
     , output_conf_filename : string option }
 
