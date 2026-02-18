@@ -49,7 +49,7 @@ Definition rewrite_aux_def:
     | (NONE, SOME ye) => SOME $ If xi xt ye
     | (SOME yt, SOME ye) => SOME $ If xi yt ye) ∧
   (rewrite_aux ts loc loc_opt arity (Let xs x) =
-    case rewrite_aux ts loc loc_opt arity x of
+    case rewrite_aux ts loc loc_opt (arity + LENGTH xs) x of
     | NONE => NONE
     | SOME y => SOME $ Let xs y) ∧
   (rewrite_aux ts loc loc_opt arity (Raise x) = NONE) ∧
@@ -62,10 +62,9 @@ Definition rewrite_aux_def:
     | SOME (SOME (l, Call t _ args h), r) =>
         let new_hole_idx     = LENGTH l in
         let var_new_hole_ptr = Var arity in
-        let exp_hole = Op (IntOp (Const 0)) [] in (* Does it make sense to initialise hole here and not in bvi semantics? *)
+        let exp_hole         = Op (IntOp (Const 0)) [] in (* Does it make sense to initialise hole here and not in bvi semantics? *)
         let exp_new_hole_ptr = Op (MemOp (MutCons block_tag new_hole_idx)) (l ++ [exp_hole] ++ r) in
-        let exp_new_hole_idx = Op (Label new_hole_idx) [] in
-        let exp_tail_call    = Call t (SOME loc_opt) (args ++ [var_new_hole_ptr; exp_new_hole_idx]) h in
+        let exp_tail_call    = Call t (SOME loc_opt) (var_new_hole_ptr :: args) h in (* Are args flipped? *)
         let exp_finalise     = Op (MemOp FinaliseCons) [var_new_hole_ptr] in
         SOME $ Let [exp_new_hole_ptr; exp_tail_call] exp_finalise
     | _ => NONE) ∧
@@ -80,25 +79,22 @@ Definition rewrite_opt_def:
     let yt = rewrite_opt ts loc loc_opt arity xt in
     let ye = rewrite_opt ts loc loc_opt arity xe in
     If xi yt ye) ∧
-  (rewrite_opt ts loc loc_opt arity (Let xs x) = Let xs $ rewrite_opt ts loc loc_opt arity x) ∧
+  (rewrite_opt ts loc loc_opt arity (Let xs x) = Let xs $ rewrite_opt ts loc loc_opt (arity + LENGTH xs) x) ∧
   (rewrite_opt ts loc loc_opt arity (Raise x) = Raise x) ∧
   (rewrite_opt ts loc loc_opt arity (Op (BlockOp (Cons block_tag)) op_args) =
     case extract_tail_call loc op_args of
     | SOME (SOME (l, Call t _ args h), r) =>
         let new_hole_idx     = LENGTH l in
         let arg_old_hole_ptr = Var arity in
-        let arg_old_hole_idx = Var (arity + 1) in
-        let var_new_hole_ptr = Var (arity + 2) in
-        let exp_hole = Op (IntOp (Const 0)) [] in (* Does it make sense to initialise hole here and not in bvi semantics? *)
+        let var_new_hole_ptr = Var (arity + 1) in
+        let exp_hole         = Op (IntOp (Const 0)) [] in (* Does it make sense to initialise hole here and not in bvi semantics? *)
         let exp_new_hole_ptr = Op (MemOp (MutCons block_tag new_hole_idx)) (l ++ [exp_hole] ++ r) in
         let exp_update_hole  = Op (MemOp UpdateCons) [arg_old_hole_ptr; var_new_hole_ptr] in
-        let exp_new_hole_idx = Op (Label new_hole_idx) [] in
-        let exp_tail_call    = Call t (SOME loc_opt) (args ++ [var_new_hole_ptr; exp_new_hole_idx]) h in
+        let exp_tail_call    = Call t (SOME loc_opt) (var_new_hole_ptr :: args) h in (* Are args flipped? *)
         Let [exp_new_hole_ptr; exp_update_hole] $ exp_tail_call
     | _ => Op (BlockOp (Cons block_tag)) op_args) ∧
   (rewrite_opt ts loc loc_opt arity expr =
     let arg_old_hole_ptr = Var arity in
-    let arg_old_hole_idx = Var (arity + 1) in
     Op (MemOp UpdateCons) [arg_old_hole_ptr; expr])
 Termination
   cheat
@@ -164,7 +160,7 @@ val append_eval = EVAL “compile_prog 6 ^append_prog”;
 val append_exp = “If (Op (BlockOp (TagLenEq 0 0)) [Var 0]) (Var 1) $
                   Let [Op (BlockOp (ElemAt 0)) [Var 0];
                        Op (BlockOp (ElemAt 1)) [Var 0]] $
-                  Op (BlockOp (Cons 0)) [Call 0 (SOME 4000) [Var 1] NONE; Var 3]”;
+                  Op (BlockOp (Cons 0)) [Call 0 (SOME 4000) [Var 1; Var 3] NONE; Var 2]”;
 val append_prog = “[(4000:num,2:num,^append_exp)]”;
 val append_eval = EVAL “compile_prog 6 ^append_prog”;
 
