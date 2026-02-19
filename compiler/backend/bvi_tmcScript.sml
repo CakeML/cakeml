@@ -15,6 +15,10 @@ Libs
      * SOME (SOME l tail_call, r) if a single recursive tail call is found. In this case,
                                   ‘l’ are the args left of hole, ‘r’ are the args right of the hole,
                                   and the optimised version of ‘tail_call’ will be used to fill the hole. *)
+(* Datatype:
+  tc_and_op_args = 
+End *)
+
 Definition extract_tail_call_def:
   (extract_tail_call loc [] = SOME (NONE, [])) ∧
   (extract_tail_call loc ((Call t (SOME loc') args h)::op_args) =
@@ -38,17 +42,28 @@ Definition extract_tail_call_def:
     | NONE => NONE)
 End
 
+
+Definition to_mut_cons:
+  to_mut_cons loc block_tag op_args =
+    case extract_tail_call loc op_args of
+    | SOME (SOME (l, tail_call), r) =>
+      let hole_idx = LENGTH l in
+      let exp_hole = Op (IntOp (Const 0)) [] in
+      let mut_cons = Op (MemOp (MutCons block_tag hole_idx)) (l ++ [exp_hole] ++ r) in
+        SOME (tail_call, mut_cons)
+    | NONE => NONE
+End
+
 Definition rewrite_aux_BlockOp_Cons_def:
   rewrite_aux_BlockOp_Cons ts loc loc_opt arity block_tag op_args =
-    case extract_tail_call loc op_args of
-    | SOME (SOME (l, Call t _ args h), r) =>
-        let new_hole_idx     = LENGTH l in
+    case to_mut_cons loc block_tag op_args of
+    | SOME (Call t _ args h, exp_mut_cons) =>
+        (*        let new_hole_idx     = LENGTH l in*)
         let var_new_hole_ptr = Var arity in
-        let exp_hole         = Op (IntOp (Const 0)) [] in (* Does it make sense to initialise hole here and not in bvi semantics? *)
-        let exp_new_hole_ptr = Op (MemOp (MutCons block_tag new_hole_idx)) (l ++ [exp_hole] ++ r) in
-        let exp_tail_call    = Call t (SOME loc_opt) (var_new_hole_ptr :: args) h in (* Are args flipped? *)
+          (*        let exp_new_hole_ptr = Op (MemOp (MutCons block_tag new_hole_idx)) (l ++ [exp_hole] ++ r) in*)
+        let exp_tail_call    = Call t (SOME loc_opt) (var_new_hole_ptr :: args) h in
         let exp_finalise     = Op (MemOp FinaliseCons) [var_new_hole_ptr] in
-        SOME $ Let [exp_new_hole_ptr; exp_tail_call] exp_finalise
+        SOME $ Let [exp_mut_cons; exp_tail_call] exp_finalise
     | _ => NONE
 End
 
@@ -77,18 +92,16 @@ Definition rewrite_aux_def:
   (rewrite_aux ts loc loc_opt arity _ = NONE)
 End
 
+(* Assumes that the function can and should be optimised - has been checked by rewrite_aux_def. *)
 Definition rewrite_opt_BlockOp_Cons_def:
   rewrite_opt_BlockOp_Cons ts loc loc_opt arity block_tag op_args =
-    case extract_tail_call loc op_args of
-    | SOME (SOME (l, Call t _ args h), r) =>
-        let new_hole_idx     = LENGTH l in
+    case to_mut_cons loc block_tag op_args of
+    | SOME (Call t _ args h, exp_mut_cons) =>
         let arg_old_hole_ptr = Var arity in
         let var_new_hole_ptr = Var (arity + 1) in
-        let exp_hole         = Op (IntOp (Const 0)) [] in (* Does it make sense to initialise hole here and not in bvi semantics? *)
-        let exp_new_hole_ptr = Op (MemOp (MutCons block_tag new_hole_idx)) (l ++ [exp_hole] ++ r) in
         let exp_update_hole  = Op (MemOp UpdateCons) [arg_old_hole_ptr; var_new_hole_ptr] in
-        let exp_tail_call    = Call t (SOME loc_opt) (var_new_hole_ptr :: args) h in (* Are args flipped? *)
-        Let [exp_new_hole_ptr; exp_update_hole] $ exp_tail_call
+        let exp_tail_call    = Call t (SOME loc_opt) (var_new_hole_ptr :: args) h in
+          Let [exp_mut_cons; exp_update_hole] $ exp_tail_call
     | _ => Op (BlockOp (Cons block_tag)) op_args
 End
 
@@ -174,6 +187,25 @@ val append_exp = “If (Op (BlockOp (TagLenEq 0 0)) [Var 0]) (Var 1) $
                   Op (BlockOp (Cons 0)) [Call 0 (SOME 4000) [Var 1; Var 3] NONE; Var 2]”;
 val append_prog = “[(4000:num,2:num,^append_exp)]”;
 val append_eval = EVAL “compile_prog 6 ^append_prog”;
+
+(* Expected (at least I think):
+   (9,
+      [(4000,2,
+        If (Op (BlockOp (TagLenEq 0 0)) [Var 0]) (Var 1)
+          (Let [mk_elem_at (Var 0) 0; mk_elem_at (Var 0) 1]
+             (Let
+                [Op (MemOp (MutCons 0 0)) [Op (IntOp (Const 0)) []; Var 2];
+                 Call 0 (SOME 6) [Var 4; Var 1; Var 3] NONE]
+                (Op (MemOp FinaliseCons) [Var 4]))));
+       (6,4,
+        If (Op (BlockOp (TagLenEq 0 0)) [Var 0])
+          (Op (MemOp UpdateCons) [Var 2; Var 1])
+          (Let [mk_elem_at (Var 0) 0; mk_elem_at (Var 0) 1]
+             (Let
+                [Op (MemOp (MutCons 0 0)) [Op (IntOp (Const 0)) []; Var 2];
+                 Op (MemOp UpdateCons) [Var 4; Var 5]]
+                (Call 0 (SOME 6) [Var 5; Var 1; Var 3] NONE))))])
+ *)
 
 (* [1] :: [x] :: my_bar xs *)
 val tail_cons1 = “extract_tail_call (4000:num) [Op (BlockOp (Cons 0))
