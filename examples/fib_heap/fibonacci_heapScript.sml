@@ -423,6 +423,8 @@ Proof
 QED
 
 
+
+
 Theorem fib_heap_empty_append_inv:
   !a' v e.
     a' <> 0w ==>
@@ -456,6 +458,68 @@ Proof
   >> fs[fib_heap_shape_ok_def] >>
   simp[Ntimes fib_num_def 3] >>
   simp[Once fib_num_def]
+QED
+
+
+Theorem fib_heap_insert_inv:
+  !k v e fh fts.
+    k <> 0w /\ FLOOKUP fh k = NONE /\ fib_heap_inv fh fts ==>
+    fib_heap_inv (fh |+ (k,v,e)) (FibTree k (fill_dnode v e T F) []::fts)
+Proof
+  fs[fib_heap_inv_def] >>
+  rpt strip_tac
+  >- gvs[FLOOKUP_DEF]
+  >- (
+    iff_tac >>
+    strip_tac >>
+    last_x_assum (qspecl_then [`k'`, `v'`, `e'`] assume_tac) >>
+    Cases_on `k = k'`
+    >- (
+      fs[Once FLOOKUP_DEF] >>
+      qexists `F` >>
+      fs[Once fts_has_cases]
+      )
+    >- (
+      fs[FLOOKUP_SIMP] >>
+      qexists `m` >>
+      simp[Once fts_has_cases]
+      )
+    >- (
+      fs[] >>
+      fs[Once fts_has_cases]
+      >- fs[fill_dnode_def,FLOOKUP_DEF]
+      >- cheat
+      >- fs[Once fts_has_cases]
+      ) >>
+    fs[Once fts_has_cases]
+    >- cheat
+    >- fs[Once fts_has_cases]
+  )
+  >- (
+    fs[head_key_def, FLOOKUP_SIMP, fts_is_min_def] >>
+    simp[fill_dnode_def] >>
+    Cases_on `fts`
+    >- fs[fts_is_min_def]
+    >- (
+      Cases_on `FLOOKUP fh (head_key(h::t))`
+      >- (
+        Cases_on `h` >>
+        fs[head_key_def] >>
+        Cases_on `v''` >>
+        rename1 `(node_data v'' e'' f m')` >>
+        last_x_assum (qspecl_then [`k'`, `v''`, `e''`] assume_tac) >>
+        gvs[] >>
+        first_x_assum (qspec_then `m'` assume_tac) >>
+        Cases_on `f`
+        >- fs[Once fts_has_cases,fill_dnode_def,lemma_node_data_component_equality] >>
+        first_x_assum (qspecl_then [`k'`, `v''`, `e''`, `F`, `m'`] assume_tac) >>
+        fs[Once fts_has_cases, fill_dnode_def,lemma_node_data_component_equality]
+        ) >>
+        cheat
+      ) >>
+      cheat
+    )>>
+  cheat
 QED
 
 
