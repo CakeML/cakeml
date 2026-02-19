@@ -62,7 +62,7 @@ Definition pres_string_def:
   pres_string pres =
   let c_string =
     concatWith (strlit" ") pres in
-  strlit"preserve: " ^ c_string ^ strlit" \n"
+  strlit"preserved: " ^ c_string ^ strlit" \n"
 End
 
 (* Problem without annotation *)
@@ -291,14 +291,14 @@ End
 Definition parse_pres_def:
   (parse_pres [] = NONE) ∧
   (parse_pres (x::xs) =
-    if x = INL (strlit "preserve:") then
+    if x = INL (strlit "preserved:") then
       OPTION_BIND (strip_term_line xs) parse_vars_raw
     else NONE)
 End
 
 (*
-  EVAL``parse_pres (toks (strlit"preserve: x1 x2 x2 a b c ;"))``
-  EVAL``parse_pres (toks (strlit"preserve: x1 x2 x2 a b c;"))``
+  EVAL``parse_pres (toks (strlit"preserved: x1 x2 x2 a b c ;"))``
+  EVAL``parse_pres (toks (strlit"preserved: x1 x2 x2 a b c;"))``
 *)
 
 (* parse optional objective line *)
@@ -1796,8 +1796,7 @@ Definition parse_cstep_head_def:
     else if r = INL (strlit "eobj") then
       parse_eobj f_ns rs
     else if
-      r = INL (strlit "preserve_equals") ∨
-      r = INL (strlit "preserve_init") then
+      r = INL (strlit "epreserved") then
       parse_epres f_ns rs
     else NONE
 End
@@ -1834,10 +1833,7 @@ EVAL
 ``parse_cstep_head (plainVar_nf,()) (toks_fast (strlit"eobj 1 x1 -100 ;"))``;
 
 EVAL
-``parse_cstep_head (plainVar_nf,()) (toks_fast (strlit"preserve_init x3 x2 x5;"))``;
-
-EVAL
-``parse_cstep_head (plainVar_nf,()) (toks_fast (strlit"preserve_equals x3 x2 x5;"))``;
+``parse_cstep_head (plainVar_nf,()) (toks_fast (strlit"epreserved x3 x2 x5;"))``;
 
 EVAL
 ``parse_cstep_head (plainVar_nf,()) (toks_fast (strlit"obju new 1 x1 2 : subproof"))``;
@@ -1892,7 +1888,7 @@ Definition parse_cstep_def:
           NONE => NONE
         | SOME (pf,f_ns''',s,rest) =>
         (case check_mark_qed_id_opt
-          (if b then INL (strlit"preserve_add") else INL (strlit"preserve_remove")) s of
+          (if b then INL (strlit"preserved_add") else INL (strlit"preserved_rm")) s of
             SOME NONE => SOME (INR (ChangePres b x c pf), f_ns''', rest)
         | _ => NONE))
   )

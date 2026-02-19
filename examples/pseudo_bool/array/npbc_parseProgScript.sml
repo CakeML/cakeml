@@ -1749,7 +1749,7 @@ val r = translate check_mark_qed_id_opt_obju_def;
 Definition check_mark_qed_id_opt_preserve_def:
   check_mark_qed_id_opt_preserve b s =
     check_mark_qed_id_opt
-      (if b then INL (strlit"preserve_add") else INL (strlit"preserve_remove")) s
+      (if b then INL (strlit"preserved_add") else INL (strlit"preserved_rm")) s
 End
 
 val r = translate check_mark_qed_id_opt_preserve_def;
@@ -1798,7 +1798,7 @@ Quote add_cakeml:
               Some None =>
               (Inr (Changepres b x c pf),(fns''',lno''))
             | _ =>
-                raise Fail (format_failure (sub_one lno'') "Incorrectly terminated preserve set change step")))
+                raise Fail (format_failure (sub_one lno'') "Incorrectly terminated preserved set change step")))
     )
 End
 
