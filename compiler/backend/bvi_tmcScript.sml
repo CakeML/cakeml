@@ -15,43 +15,44 @@ Libs
      * SOME (SOME l tail_call, r) if a single recursive tail call is found. In this case,
                                   ‘l’ are the args left of hole, ‘r’ are the args right of the hole,
                                   and the optimised version of ‘tail_call’ will be used to fill the hole. *)
-(* Datatype:
-  tc_and_op_args = 
-End *)
+Datatype:
+  tc_and_mut_cons = MultipleTC
+                  | NoTC (exp list)
+                  | TC (exp list) exp (exp list)
+End
 
 Definition extract_tail_call_def:
-  (extract_tail_call loc [] = SOME (NONE, [])) ∧
+  (extract_tail_call loc [] = NoTC []) ∧
   (extract_tail_call loc ((Call t (SOME loc') args h)::op_args) =
     let call = Call t (SOME loc') args h in
     let rest = extract_tail_call loc op_args in
     if loc=loc' then
       (* found the recursive call *)
       case rest of
-      | SOME (NONE, r) => SOME (SOME ([], call), r)
-      | _ => NONE
+      | NoTC r => TC [] call r
+      | _ => MultipleTC
     else
       (* found a different call *)
       case rest of
-      | SOME (SOME (l, rec), r) => SOME (SOME (call::l, rec), r)
-      | SOME (NONE, r) => SOME (NONE, call::r)
-      | NONE => NONE) ∧
+      | TC l rec r => TC (call::l) rec r
+      | NoTC r => NoTC (call::r)
+      | MultipleTC => MultipleTC) ∧
   (extract_tail_call loc (op_arg::op_args) =
     case extract_tail_call loc op_args of
-    | SOME (SOME (l, rec), r) => SOME (SOME (op_arg::l, rec), r)
-    | SOME (NONE, r) => SOME (NONE, op_arg::r)
-    | NONE => NONE)
+    | TC l rec r => TC (op_arg::l) rec r
+    | NoTC r => NoTC (op_arg::r)
+    | MultipleTC => MultipleTC)
 End
-
 
 Definition to_mut_cons:
   to_mut_cons loc block_tag op_args =
     case extract_tail_call loc op_args of
-    | SOME (SOME (l, tail_call), r) =>
+    | TC l tail_call r =>
       let hole_idx = LENGTH l in
       let exp_hole = Op (IntOp (Const 0)) [] in
       let mut_cons = Op (MemOp (MutCons block_tag hole_idx)) (l ++ [exp_hole] ++ r) in
         SOME (tail_call, mut_cons)
-    | NONE => NONE
+    | _ => NONE
 End
 
 Definition rewrite_aux_BlockOp_Cons_def:
