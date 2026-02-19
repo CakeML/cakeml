@@ -148,15 +148,16 @@ val do_divide_side = Q.prove(
 
 Definition sat_map_def:
   (sat_map (nn:int) [] = []) ∧
-  (sat_map nn ((c,v)::rest) =
+  (sat_map nn (cv::rest) =
     let
-      rest' = sat_map nn rest
+      rest' = sat_map nn rest;
+      (c,v) = cv
     in
       if c < 0 then
         let nnn = -nn in
           if nnn <= c then
             if rest' = []
-            then rest' else (c,v)::rest'
+            then rest' else cv::rest'
           else
             (nnn,v)::
               if rest' = [] then rest else rest'
@@ -164,7 +165,7 @@ Definition sat_map_def:
         if c <= nn then
           if rest' = []
           then rest'
-          else (c,v)::rest'
+          else cv::rest'
         else
           (nn,v)::
             if rest' = [] then rest else rest')
