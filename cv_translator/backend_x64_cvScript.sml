@@ -296,11 +296,4 @@ val _ = cv_trans backend_x64Theory.to_livesets_x64_def;
 val _ = cv_trans backend_x64Theory.compile_cake_x64_def;
 val _ = cv_auto_trans backend_x64Theory.compile_cake_explore_x64_def;
 
-(* lemma used by automation *)
-
-Theorem set_asm_conf_x64_backend_config:
-  set_asm_conf x64_backend_config x64_config = x64_backend_config
-Proof
-  irule backendTheory.set_asm_conf_id \\ EVAL_TAC
-QED
 

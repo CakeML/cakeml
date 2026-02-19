@@ -65,14 +65,14 @@ val _ = (find_def_for_const := def_of_const);
 (* --- *)
 
 val _ = register_type “:lab_to_target$shmem_info_num”
-val _ = register_type “:lab_to_target$inc_config”
+val _ = register_type “:lab_to_target$config”
 
-val _ = register_type “:backend$inc_config”
+val _ = register_type “:backend$config”
 
-Theorem IsTypeRep_BACKEND_INC_CONFIG_v:
-  IsTypeRep BACKEND_INC_CONFIG_v BACKEND_INC_CONFIG_TYPE
+Theorem IsTypeRep_BACKEND_CONFIG_v:
+  IsTypeRep BACKEND_CONFIG_v BACKEND_CONFIG_TYPE
 Proof
-  irule_at Any (fetch_v_fun “:backend$inc_config” |> snd |> hd) \\ fs []
+  irule_at Any (fetch_v_fun “:backend$config” |> snd |> hd) \\ fs []
   \\ irule_at Any (fetch_v_fun “:bvl_to_bvi$config” |> snd |> hd) \\ fs []
   \\ irule_at Any (fetch_v_fun “:clos_to_bvl$config” |> snd |> hd) \\ fs []
   \\ rpt $ irule_at Any (fetch_v_fun “:'a num_map” |> snd |> hd) \\ fs []
@@ -98,21 +98,21 @@ Proof
   \\ rpt $ irule_at Any (fetch_v_fun “:closLang$const_part” |> snd |> hd) \\ fs []
   \\ rpt $ irule_at Any (fetch_v_fun “:closLang$const” |> snd |> hd) \\ fs []
   \\ rpt $ irule_at Any (fetch_v_fun “:word64” |> snd |> hd) \\ fs []
-  \\ irule (fetch_v_fun “:lab_to_target$inc_config” |> snd |> hd) \\ fs []
+  \\ irule (fetch_v_fun “:lab_to_target$config” |> snd |> hd) \\ fs []
   \\ irule (fetch_v_fun “:'a list” |> snd |> hd) \\ fs []
   \\ irule (fetch_v_fun “:lab_to_target$shmem_info_num” |> snd |> hd) \\ fs []
   \\ irule (fetch_v_fun “:word8” |> snd |> hd) \\ fs []
 QED
 
-Theorem EqualityType_BACKEND_INC_CONFIG_TYPE =
-  EqualityType_rule [] “:backend$inc_config”;
+Theorem EqualityType_BACKEND_CONFIG_TYPE =
+  EqualityType_rule [] “:backend$config”;
 
-Theorem INJ_BACKEND_INC_CONFIG_v[simp]:
-  INJ BACKEND_INC_CONFIG_v UNIV UNIV
+Theorem INJ_BACKEND_CONFIG_v[simp]:
+  INJ BACKEND_CONFIG_v UNIV UNIV
 Proof
   irule ml_translatorTheory.IsTypeRep_EqualityType_INJ
-  \\ irule_at Any IsTypeRep_BACKEND_INC_CONFIG_v
-  \\ fs [EqualityType_BACKEND_INC_CONFIG_TYPE]
+  \\ irule_at Any IsTypeRep_BACKEND_CONFIG_v
+  \\ fs [EqualityType_BACKEND_CONFIG_TYPE]
 QED
 
 (* --- *)
@@ -246,10 +246,10 @@ val res = translate def;
 val def = clos_to_bvl_config_dec_def
 val res = translate def;
 
-val def = lab_to_target_inc_config_dec_def
+val def = lab_to_target_config_dec_def
           |> REWRITE_RULE [GSYM string_dec_thm]
 val res = translate def;
-val res = translate backend_inc_config_dec_def;
+val res = translate backend_config_dec_def;
 
 val res = translate decode_backend_config_def;
 

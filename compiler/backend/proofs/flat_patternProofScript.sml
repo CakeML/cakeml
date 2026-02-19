@@ -1688,7 +1688,7 @@ Proof
     \\ rw []
     \\ fs [case_eq_thms] \\ rveq \\ fs [] \\ rveq \\ rfs []
     \\ fs []
-    \\ Cases_on `op = Opapp`
+    \\ Cases_on `op = Src Opapp`
     >- (
       fs [option_case_eq, pair_case_eq]
       \\ rveq \\ fs []
@@ -1705,7 +1705,7 @@ Proof
       \\ simp []
       \\ metis_tac [EVERY_REVERSE]
     )
-    \\ Cases_on `op = Eval`
+    \\ Cases_on `op = Src Eval`
     >- (
       fs [option_case_eq, pair_case_eq]
       \\ rveq \\ fs []
@@ -1729,7 +1729,7 @@ Proof
       \\ fs [option_case_eq] \\ rveq \\ fs []
       \\ rfs [env_rel_def, PULL_EXISTS, OPTREL_def]
     )
-    \\ Cases_on `op = ThunkOp ForceThunk`
+    \\ Cases_on `op = Src (ThunkOp ForceThunk)`
     >- (
       gvs [AllCaseEqs(), dec_clock_def, PULL_EXISTS]
       >- (

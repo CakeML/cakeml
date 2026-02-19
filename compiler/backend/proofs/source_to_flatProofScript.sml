@@ -4464,8 +4464,8 @@ Proof
   rpt (disch_then drule) >>
   (impl_tac >- fs [invariant_def, s_rel_cases]) >>
   rw [] >>
-  `astOp_to_flatOp op ≠ Opapp ∧ astOp_to_flatOp op ≠ Eval ∧
-   astOp_to_flatOp op ≠ ThunkOp ForceThunk`
+  `astOp_to_flatOp op ≠ Src Opapp ∧ astOp_to_flatOp op ≠ Src Eval ∧
+   astOp_to_flatOp op ≠ Src (ThunkOp ForceThunk)`
   by (
     rw [astOp_to_flatOp_def] >>
     Cases_on `op` >>

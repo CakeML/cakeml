@@ -255,7 +255,7 @@ Theorem evaluate_decs_sing:
   evaluate_decs s [d] = evaluate_dec s d
 Proof
   simp [flatSemTheory.evaluate_def]
-  \\ every_case_tac \\ simp []
+  \\ every_case_tac
 QED
 
 val decs_goal =
@@ -308,7 +308,7 @@ Proof
   \\ qpat_x_assum `_ = (s1,res1)` mp_tac
   \\ TOP_CASE_TAC \\ fs []
   \\ strip_tac \\ rveq \\ fs []
-  \\ imp_res_tac evaluate_sing \\ fs [] \\ rveq \\ fs []
+  \\ imp_res_tac evaluate_sing \\ fs []
 QED
 
 Theorem compile_Lit:
@@ -455,7 +455,6 @@ Theorem dest_Constants_IMP:
 Proof
   Induct \\ fs [dest_Constants_def]
   \\ rw [] \\ gvs [AllCaseEqs()]
-  \\ imp_res_tac dest_Constant_IMP \\ fs []
 QED
 
 Theorem dest_Constant_evaluate:
@@ -552,9 +551,7 @@ QED
 Theorem compile_Mat:
   ^(get_goal "flatLang$Mat")
 Proof
-  fs [no_Mat_def,dest_pat_thm] \\ rw []
-  \\ fs [EVAL ``pmatch e s (Pvar p') v []``]
-  \\ fs [EVAL ``ALL_DISTINCT (pat_bindings (Pvar p') [])``]
+  fs [no_Mat_def,dest_pat_thm]
 QED
 
 Theorem state_rel_LEAST:
@@ -594,20 +591,24 @@ QED
 
 Theorem compile_op_evaluates_args:
   evaluate (xs,db,t) = (Rerr err,t1) /\
-  op <> Opapp /\ op <> Eval /\ op <> ThunkOp ForceThunk
+  op <> Src Opapp /\ op <> Src Eval /\ op <> Src (ThunkOp ForceThunk)
   ==>
   evaluate ([compile_op tra op xs],db,t) = (Rerr err,t1)
 Proof
   Cases_on `op`
-  (* Handle Arith case first *)
-  >~ [`Arith`]
-  >- (rename [`Arith a ty`] \\ rw [compile_op_def]
-      \\ Cases_on `ty` \\ Cases_on `a`
-      \\ simp [compile_arith_def]
-      \\ TRY (irule evaluate_Op_error \\ simp [])
-      \\ TRY (irule evaluate_Let_error \\ simp []))
-  (* Handle FromTo case - merged with all other cases below *)
-  (* All other cases *)
+  >- ( (* Src case: split on inner ast$op *)
+    Cases_on `o'`
+    >~ [`Src (Arith _ _)`]
+    >- (rename [`Src (Arith a ty)`] \\ rw [compile_op_def]
+        \\ Cases_on `ty` \\ Cases_on `a`
+        \\ simp [compile_arith_def]
+        \\ TRY (irule evaluate_Op_error \\ simp [])
+        \\ TRY (irule evaluate_Let_error \\ simp []))
+    \\ fs [compile_op_def,evaluate_def,evaluate_APPEND,arg1_def,arg2_def]
+    \\ every_case_tac \\ fs [evaluate_def]
+    \\ fs [pair_case_eq,result_case_eq]
+    \\ rw [] \\ fs [PULL_EXISTS,do_app_def,do_int_app_def])
+  (* FlatLang-specific ops *)
   \\ fs [compile_op_def,evaluate_def,evaluate_APPEND,arg1_def,arg2_def]
   \\ every_case_tac \\ fs [evaluate_def]
   \\ fs [pair_case_eq,result_case_eq]
@@ -632,19 +633,19 @@ val op_goal =
     state_rel s1 (t1:('c,'ffi) closSem$state) /\
     evaluate (xs,db,t) = (Rval ws,t1) /\
     LIST_REL v_rel vs (REVERSE ws) /\
-    LENGTH xs = LENGTH vs /\ op <> Opapp /\ op <> ThunkOp ForceThunk ==>
+    LENGTH xs = LENGTH vs /\ op <> Src Opapp /\ op <> Src (ThunkOp ForceThunk) ==>
     ∃res2' t1.
       evaluate ([compile_op tt op xs],db,t) = (res2',t1) ∧
       state_rel s2 t1 ∧
       result_rel (LIST_REL v_rel) v_rel (evaluate$list_result res2) res2'``;
 
 Theorem op_refs:
-  (op = Opref) \/
+  (op = Src Opref) \/
   (?n. op = El n) \/
-  (op = Opassign) ==>
+  (op = Src Opassign) ==>
   ^op_goal
 Proof
-  Cases_on `op = Opref` THEN1
+  Cases_on `op = Src Opref` THEN1
    (fs [flatSemTheory.do_app_def,list_case_eq,CaseEq "flatSem$v",PULL_EXISTS,
            CaseEq "ast$lit",store_assign_def,option_case_eq]
     \\ rw [] \\ fs [] \\ rveq \\ fs [LENGTH_EQ_NUM_compute] \\ rveq \\ fs []
@@ -681,7 +682,7 @@ Proof
     \\ Cases_on `EL i s1.refs` \\ fs [store_v_same_type_def]
     \\ rpt strip_tac \\ fs []
     \\ fs [GSYM NOT_LESS,FLOOKUP_UPDATE,EL_LUPDATE])
-  \\ Cases_on `op = Opassign` THEN1
+  \\ Cases_on `op = Src Opassign` THEN1
    (fs [flatSemTheory.do_app_def,list_case_eq,CaseEq "flatSem$v",PULL_EXISTS,
            CaseEq "ast$lit",store_assign_def,option_case_eq]
     \\ rw [] \\ fs [] \\ rveq \\ fs [LENGTH_EQ_NUM_compute] \\ rveq \\ fs []
@@ -707,7 +708,7 @@ Proof
 QED
 
 Theorem op_shifts:
-  (?w s n. op = Shift w s n) ==>
+  (?w s n. op = Src (Shift w s n)) ==>
   ^op_goal
 Proof
   rw [] \\ Cases_on `w` \\ Cases_on `s` \\ rveq \\ fs []
@@ -721,12 +722,12 @@ Proof
 QED
 
 Theorem op_byte_arrays:
-  op = Aw8length \/
-  op = Aw8alloc \/
-  op = Aw8sub_unsafe \/
-  op = Aw8sub \/
-  op = Aw8update_unsafe \/
-  op = Aw8update ==>
+  op = Src Aw8length \/
+  op = Src Aw8alloc \/
+  op = Src Aw8sub_unsafe \/
+  op = Src Aw8sub \/
+  op = Src Aw8update_unsafe \/
+  op = Src Aw8update ==>
   ^op_goal
 Proof
   rpt strip_tac \\ rveq \\ fs []
@@ -798,11 +799,11 @@ Proof
 QED
 
 Theorem op_byte_copy:
-  op = CopyStrAw8 \/
-  op = CopyAw8Str \/
-  op = CopyAw8Aw8 \/
-  op = CopyStrStr \/
-  op = Aw8xor_unsafe ==>
+  op = Src CopyStrAw8 \/
+  op = Src CopyAw8Str \/
+  op = Src CopyAw8Aw8 \/
+  op = Src CopyStrStr \/
+  op = Src XorAw8Str_unsafe ==>
   ^op_goal
 Proof
   rpt strip_tac \\ rveq \\ fs []
@@ -879,8 +880,8 @@ Proof
 QED
 
 Theorem op_eq_gc:
-  op = ConfigGC \/
-  op = Equality ==>
+  op = Src ConfigGC \/
+  op = Src Equality ==>
   ^op_goal
 Proof
   rpt strip_tac \\ rveq \\ fs []
@@ -914,8 +915,6 @@ Proof
   \\ rveq \\ fs [ctor_same_type_def]
   \\ fs [CaseEq"eq_result",bool_case_eq] \\ rveq \\ fs []
   \\ fs [do_eq_def]
-  \\ qpat_x_assum `Eq_val b = _` (assume_tac o GSYM)
-  \\ res_tac \\ fs []
 QED
 
 Theorem v_rel_v_to_char_list:
@@ -929,11 +928,11 @@ Proof
 QED
 
 Theorem op_str:
-  op = Explode \/
-  op = Implode \/
-  op = Strlen \/
-  op = Strsub \/
-  op = Strcat ==>
+  op = Src Explode \/
+  op = Src Implode \/
+  op = Src Strlen \/
+  op = Src Strsub \/
+  op = Src Strcat ==>
   ^op_goal
 Proof
   rpt strip_tac \\ rveq \\ fs []
@@ -1035,10 +1034,10 @@ Proof
 QED
 
 Theorem op_vectors:
-  op = Vlength \/
-  op = Vsub \/
-  op = Vsub_unsafe \/
-  op = VfromList ==>
+  op = Src Vlength \/
+  op = Src Vsub \/
+  op = Src Vsub_unsafe \/
+  op = Src VfromList ==>
   ^op_goal
 Proof
   rpt strip_tac \\ rveq \\ fs []
@@ -1067,13 +1066,13 @@ Proof
 QED
 
 Theorem op_arrays:
-  op = Aalloc \/
-  op = AallocFixed \/
-  op = Asub_unsafe \/
-  op = Asub \/
-  op = Alength \/
-  op = Aupdate_unsafe \/
-  op = Aupdate ==>
+  op = Src Aalloc \/
+  op = Src AallocFixed \/
+  op = Src Asub_unsafe \/
+  op = Src Asub \/
+  op = Src Alength \/
+  op = Src Aupdate_unsafe \/
+  op = Src Aupdate ==>
   ^op_goal
 Proof
   rpt strip_tac \\ rveq \\ fs []
@@ -1168,7 +1167,7 @@ QED
 Theorem op_blocks:
   (?n0 n1. op = TagLenEq n0 n1) \/
   (?l. op = LenEq l) \/
-  op = ListAppend ==>
+  op = Src ListAppend ==>
   ^op_goal
 Proof
   rpt strip_tac \\ rveq \\ fs []
@@ -1253,7 +1252,7 @@ Proof
 QED
 
 Theorem op_arith:
-  (∃a ty. op = Arith a ty) ==>
+  (∃a ty. op = Src (Arith a ty)) ==>
   ^op_goal
 Proof
   rpt strip_tac \\ rveq \\ fs []
@@ -1315,7 +1314,7 @@ Proof
 QED
 
 Theorem op_from_to:
-  (∃ty1 ty2. op = FromTo ty1 ty2) ==>
+  (∃ty1 ty2. op = Src (FromTo ty1 ty2)) ==>
   ^op_goal
 Proof
   rpt strip_tac \\ rveq \\ fs []
@@ -1463,7 +1462,7 @@ Proof
 QED
 
 Theorem op_test:
-  (∃test ty. op = Test test ty) ==>
+  (∃test ty. op = Src (Test test ty)) ==>
   ^op_goal
 Proof
   rpt strip_tac \\ rveq \\ fs []
@@ -1532,7 +1531,7 @@ Proof
 QED
 
 Theorem op_ffi:
-  (?n. op = FFI n) ==>
+  (?n. op = Src (FFI n)) ==>
   ^op_goal
 Proof
   rpt strip_tac \\ rveq \\ fs []
@@ -1551,7 +1550,6 @@ Proof
   \\ first_x_assum (qspec_then `i` mp_tac)
   \\ IF_CASES_TAC \\ fs [FLOOKUP_UPDATE]
   \\ IF_CASES_TAC \\ fs []
-  \\ CASE_TAC \\ fs []
 QED
 
 Theorem op_id:
@@ -1562,18 +1560,18 @@ Proof
   \\ fs[flatSemTheory.do_app_def] \\ Cases_on ‘vs’ \\ fs[]
   \\ Cases_on ‘t'’ \\ fs[]
   \\ rveq \\ fs[compile_op_def]
-  \\ fs[evaluate_def]
+  \\ gvs[LENGTH_EQ_NUM_compute,arg1_def]
 QED
 
 Theorem op_eval:
-  op = Eval ==>
+  op = Src Eval ==>
   ^op_goal
 Proof
   simp [compile_op_def, flatSemTheory.do_app_def]
 QED
 
 Theorem op_thunk:
-  ∀th_op. op = ThunkOp th_op ==> ^op_goal
+  ∀th_op. op = Src (ThunkOp th_op) ==> ^op_goal
 Proof
   rpt strip_tac \\ rveq
   \\ gvs [flatSemTheory.do_app_def, compile_op_def, evaluate_def, do_app_def]
@@ -1620,7 +1618,9 @@ Proof
      op_arrays, op_test, op_arith, op_from_to, op_globals, op_blocks,
      op_ffi, op_byte_copy, op_eval, op_vectors, op_id])
   \\ `?this_is_case. this_is_case op` by (qexists_tac `K T` \\ fs [])
-  \\ rpt strip_tac \\ fs [] \\ Cases_on `op` \\ fs []
+  \\ rpt strip_tac \\ fs [] \\ Cases_on `op`
+  >- (Cases_on `o'` \\ fs [] \\ gvs [flatSemTheory.do_app_def])
+  \\ fs []
 QED
 
 Theorem v_rel_to_words:
@@ -1769,7 +1769,7 @@ Proof
   \\ disch_then drule
   \\ impl_tac THEN1 (CCONTR_TAC \\ fs [])
   \\ strip_tac
-  \\ Cases_on `op = ThunkOp ForceThunk` >- (
+  \\ Cases_on `op = Src (ThunkOp ForceThunk)` >- (
     gvs [dest_nop_def, compile_op_def, evaluate_def, AllCaseEqs(), PULL_EXISTS]
     \\ gvs [oneline flatSemTheory.dest_thunk_def, oneline dest_thunk_def,
             AllCaseEqs(), PULL_EXISTS]
@@ -1785,7 +1785,7 @@ Proof
              arg2_def, findi_def, SmartCons_def, compile_def]
       \\ goal_assum drule \\ gvs []
       \\ drule_all rel_update_thunk \\ rw []))
-  \\ Cases_on `op = Opapp` \\ fs []
+  \\ Cases_on `op = Src Opapp` \\ fs []
   THEN1
    (fs [compile_op_def,dest_nop_def] \\ rveq
     \\ reverse (fs [result_case_eq] \\ rveq \\ fs [] \\ rveq \\ fs [])
@@ -1872,7 +1872,7 @@ Proof
     \\ rename [`env_rel env3 m3 db3`]
     \\ qexists_tac `m3` \\ fs []
     \\ fs [o_DEF])
-  \\ Cases_on `op = Eval`
+  \\ Cases_on `op = Src Eval`
   THEN1 (
     simp [compile_op_def, evaluate_def, dest_nop_def]
     \\ fs [case_eq_thms, pair_case_eq] \\ rveq \\ fs []
