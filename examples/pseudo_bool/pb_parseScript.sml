@@ -1772,11 +1772,11 @@ Definition parse_cstep_head_def:
       (case parse_b_obj_term_npbc f_ns rs of NONE => NONE
       | SOME (b,f',f_ns') =>
         SOME (ChangeObjpar b f', f_ns'))
-    else if r = INL (strlit "preserve_add") ∨
-            r = INL (strlit "preserve_remove") then
+    else if r = INL (strlit "preserved_add") ∨
+            r = INL (strlit "preserved_rm") then
       case parse_preserve f_ns rs of NONE => NONE
       | SOME (x, c, f_ns') =>
-        let b = (r = INL(strlit "preserve_add")) in
+        let b = (r = INL(strlit "preserved_add")) in
           SOME (ChangePrespar b x c,f_ns')
     else
     case strip_term_line rs of NONE => NONE
