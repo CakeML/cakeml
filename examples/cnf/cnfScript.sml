@@ -78,31 +78,31 @@ End
 
 (* Helpers *)
 Theorem satisfies_fml_gen_lookup:
-  lookup h fml = SOME c ∧
-  satisfies_fml_gen sem w (range fml) ⇒
+  FLOOKUP fml h = SOME c ∧
+  satisfies_fml_gen sem w (FRANGE fml) ⇒
   sem w c
 Proof
-  rw[satisfies_fml_gen_def,range_def]>>
+  rw[satisfies_fml_gen_def,FRANGE_FLOOKUP]>>
   metis_tac[]
 QED
 
 Theorem satisfies_fml_gen_delete:
-  satisfies_fml_gen sem w (range fml) ⇒
-  satisfies_fml_gen sem w (range (delete n fml))
+  satisfies_fml_gen sem w (FRANGE fml) ⇒
+  satisfies_fml_gen sem w (FRANGE (fml \\ n))
 Proof
   rw[satisfies_fml_gen_def]>>
-  fs[range_def,lookup_delete,PULL_EXISTS]>>
+  fs[FRANGE_FLOOKUP,DOMSUB_FLOOKUP_THM] >>
   metis_tac[]
 QED
 
 Definition delete_ids_def:
   delete_ids fml ls =
-  FOLDL (\a b. sptree$delete b a) fml ls
+  FOLDL (\a b. a \\ b) (fml :α |-> β) ls
 End
 
 Theorem satisfies_fml_gen_delete_ids:
-  satisfies_fml_gen f w (range fml) ⇒
-  satisfies_fml_gen f w (range (delete_ids fml ls))
+  satisfies_fml_gen f w (FRANGE fml) ⇒
+  satisfies_fml_gen f w (FRANGE (delete_ids fml ls))
 Proof
   simp[delete_ids_def]>>
   qid_spec_tac`fml`>>
@@ -112,50 +112,51 @@ Proof
 QED
 
 Theorem satisfies_fml_gen_insert:
-  satisfies_fml_gen f w (range fml) ∧
+  satisfies_fml_gen f w (FRANGE fml) ∧
   f w vc ⇒
-  satisfies_fml_gen f w (range (insert n vc fml))
+  satisfies_fml_gen f w (FRANGE (fml |+ (n, vc) ))
 Proof
   rw[satisfies_fml_gen_def]>>
-  gvs[range_def,PULL_EXISTS,lookup_insert,AllCaseEqs()]>>
+  gvs[FRANGE_FLOOKUP,PULL_EXISTS,DOMSUB_FLOOKUP_THM,AllCaseEqs()]>>
   metis_tac[]
 QED
 
-(* Build a sptree from a list *)
+(* Build a fmap from a list *)
 Definition build_fml_def:
-  (build_fml (id:num) [] = LN) ∧
+  (build_fml (id:num) [] = FEMPTY) ∧
   (build_fml id (cl::cls) =
-    insert id cl (build_fml (id+1) cls))
+     (build_fml (id+1) cls) |+ (id,cl))
 End
 
 Theorem lookup_build_fml:
   ∀ls n acc i.
-  lookup i (build_fml n ls) =
+  FLOOKUP (build_fml n ls) i =
   if n ≤ i ∧ i < n + LENGTH ls
   then SOME (EL (i-n) ls)
   else NONE
 Proof
-  Induct>>rw[build_fml_def,lookup_def,lookup_insert]>>
+  Induct>>rw[build_fml_def,FLOOKUP_UPDATE]>>
   `i-n = SUC(i-(n+1))` by DECIDE_TAC>>
   simp[]
 QED
 
 Theorem range_build_fml:
-  ∀ls id. range (build_fml id ls) = set ls
+  ∀ls id. FRANGE (build_fml id ls) = set ls
 Proof
-  Induct>>fs[build_fml_def,range_def,lookup_def]>>
+  Induct>>fs[build_fml_def]>>
   fs[EXTENSION]>>
-  rw[lookup_insert]>>
   rw[EQ_IMP_THM]
   >- (
-    every_case_tac>>fs[]>>
-    metis_tac[])
-  >- metis_tac[] >>
+    fs[FRANGE_FLOOKUP,DOMSUB_FLOOKUP_THM]>>
+    metis_tac[]) >>
   first_x_assum(qspecl_then[`id+1`,`x`] mp_tac)>>
-  rw[]>>
-  fs[lookup_build_fml]>>
-  qexists_tac`n`>>simp[]
+  rw[] >>
+  fs[FRANGE_FLOOKUP,DOMSUB_FLOOKUP_THM] >>
+  Cases_on `x = h` >> fs[] >>
+  qexists_tac`k`>>simp[] >>
+  fs[lookup_build_fml]
 QED
+
 
 Definition var_lit_def[simp]:
   (var_lit (Pos n) = n) ∧
