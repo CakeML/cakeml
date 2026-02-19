@@ -1,4 +1,4 @@
-INCLUDES = $(HOLDIR)/examples/formal-languages/context-free\
+INCLUDES = $(CAKEMLDIR)/basis/pure \
            $(CAKEMLDIR)/misc $(CAKEMLDIR)/semantics \
 	   $(CAKEMLDIR)/semantics/proofs
 
