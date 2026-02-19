@@ -3,7 +3,7 @@
 *)
 Theory fibonacci_heap
 Ancestors
-  misc words arithmetic list set_sep pair finite_map
+  misc words arithmetic list set_sep pair finite_map combin
 Libs
   wordsLib helperLib
 
@@ -144,7 +144,7 @@ Definition ft_seg_def:
             n.parent_ptr;
             n.child_ptr;
             n2w n.rank] *
-    edges_ones (FST n.data.edges) (SND n.data.edges)
+    edges_ones (FST n.data.edges) (SND n.data.edges) (*Add cond(k <> 0w) *)
 End
 
 Definition fts_mem_def:
@@ -153,6 +153,7 @@ Definition fts_mem_def:
     (ft_seg $ FibTree k n ts) * (fts_mem ts) * (fts_mem xs))
 End
 
+(*Do not assume pointers! Dont use fts_mem! *)
 Definition empty_node_def:
   empty_node k v =
     fts_mem [ann_ft $ FibTree k (fill_dnode (FST v) (SND v) F F) []]
@@ -394,16 +395,14 @@ Proof
   rpt strip_tac >>
   fs[fib_heap_inv_def] >>
   Cases_on `fts` >> rw[] >> Cases_on `h` >>
-  Cases_on `v` >>
-  rename1 `node_data v' e' f m'` >>
-  last_x_assum (qspecl_then [`0w`, `v'`, `e'`] assume_tac) >>
+  rename [`FibTree k v l`] >>
+  last_x_assum (qspecl_then [`0w`, `v.value`, `v.edges`] assume_tac) >>
   Cases_on `FLOOKUP fh 0w` >> fs[] >>
   fs[Once fts_has_cases] >>
-  first_x_assum (qspec_then `m'` assume_tac) >> rfs[head_key_def, fill_dnode_def] >>
-  Cases_on `f`
-  >- fs[lemma_node_data_component_equality]  >>
-  first_x_assum (qspecl_then [`k`, `v'`, `e'`, `F`, `m'`] assume_tac) >>
-  fs[lemma_node_data_component_equality]
+  first_x_assum (qspec_then `v.mark` assume_tac) >> rfs[head_key_def, fill_dnode_def] >>
+  fs[lemma_node_data_component_equality] >>
+  first_x_assum (qspecl_then [`k`, `v.value`, `v.edges`, `v.flag`, `v.mark`] assume_tac) >>
+  gvs[lemma_node_data_component_equality]
 QED
 
 Theorem lemma_empty_heap:
@@ -565,11 +564,43 @@ Proof
   fs[ann_fts_def, ann_fts_seg_def,fts_mem_def,
      SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
      fill_dnode_def, next_key_def, ones_def, STAR_ASSOC] >>
+  simp[APPLY_UPDATE_THM]>>
+    (* Dont write flag to be T in insert function! Assume it has been done (empty node)  *)
+  `k + 2w * bytes_in_word <> k' /\
+   k + 2w * bytes_in_word <> k' + 4w * bytes_in_word /\
+   k + 2w * bytes_in_word <> k' + 5w * bytes_in_word
+   ` by (rpt strip_tac >> SEP_NEQ_TAC) >> simp[] >>
+  PairCases_on `v` >> rename [`fh |+ (k,v,e)`] >> gvs[] >>
+  IF_CASES_TAC
+
+
+  SEP_R_TAC >>
+  CASE_TAC
+  >- (
+    qsuff_tac `F` >> simp[] >>
+    pop_assum mp_tac >> simp[] >> gvs[]
+    SEP_NEQ_TAC >>
+
+
   SEP_R_TAC >>
   IF_CASES_TAC
   >- (
     fs[fib_heap_append_def,next_off_def,before_off_def] >>
     IF_CASES_TAC >>
+    simp[APPLY_UPDATE_THM] >>
+
+
+
+  Cases_on `l` using SNOC_CASES >>
+  fs[SNOC_APPEND]
+
+
+
+
+
+    SEP_R_TAC >>
+
+
     Cases_on `t`
     >- (
       fs[next_key_def,last_key_def,head_key_def] >>
