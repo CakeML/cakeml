@@ -10,11 +10,11 @@ Libs
 (* Primes Block args to be used as HoleBlock args.
    Extracts the recursive tail call from the list of args, and returns the args to the left and to the right of the tail call.
    Returns:
-     * NONE                       if multiple recursive tail calls are found.
-     * SOME (NONE, args)          if no recursive tail call is found.
-     * SOME (SOME l tail_call, r) if a single recursive tail call is found. In this case,
-                                  ‘l’ are the args left of hole, ‘r’ are the args right of the hole,
-                                  and the optimised version of ‘tail_call’ will be used to fill the hole. *)
+     * MultipleTC       if multiple recursive tail calls are found.
+     * NoTC args        if no recursive tail call is found.
+     * TC l tail_call r if a single recursive tail call is found. In this case,
+                        ‘l’ are the args left of hole, ‘r’ are the args right of the hole,
+                        and the optimised version of ‘tail_call’ will be used to fill the hole. *)
 Datatype:
   tc_and_mut_cons = MultipleTC
                   | NoTC (exp list)
@@ -59,9 +59,7 @@ Definition rewrite_aux_BlockOp_Cons_def:
   rewrite_aux_BlockOp_Cons ts loc loc_opt arity block_tag op_args =
     case to_mut_cons loc block_tag op_args of
     | SOME (Call t _ args h, exp_mut_cons) =>
-        (*        let new_hole_idx     = LENGTH l in*)
         let var_new_hole_ptr = Var arity in
-          (*        let exp_new_hole_ptr = Op (MemOp (MutCons block_tag new_hole_idx)) (l ++ [exp_hole] ++ r) in*)
         let exp_tail_call    = Call t (SOME loc_opt) (var_new_hole_ptr :: args) h in
         let exp_finalise     = Op (MemOp FinaliseCons) [var_new_hole_ptr] in
         SOME $ Let [exp_mut_cons; exp_tail_call] exp_finalise
