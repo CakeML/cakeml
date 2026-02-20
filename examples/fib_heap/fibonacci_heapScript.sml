@@ -389,6 +389,28 @@ Definition fib_heap_insert_def:
             fib_heap_append (a, k, a, m, dm, c)
 End
 
+(*
+
+*)
+
+Theorem fts_has_unwind_once:
+  !fts k v e f. ?m. fts_has k (fill_dnode v e f m) fts ==>
+    ?m. (? rest ts.
+      fts = FibTree k (fill_dnode v e f m) ts::rest) \/
+    (? k1 rest ts v1.
+      fts = FibTree k1 v1 ts::rest /\
+      fts_has k (fill_dnode v e f m) rest \/
+     ? k1 rest ts v1.
+      fts = FibTree k1 v1 ts::rest /\
+      fts_has k (fill_dnode v e f m) ts)
+Proof
+  rpt strip_tac >>
+  qexists `m`>>
+  strip_tac >>
+  pop_assum mp_tac >>
+QED
+
+
 Theorem lemma_empty_list:
   !fh fts. (fib_heap_inv fh fts /\ head_key fts = 0w) ==> fts = []
 Proof
@@ -479,21 +501,34 @@ Proof
       fs[Once fts_has_cases]
       )
     >- (
-      fs[FLOOKUP_SIMP] >>
-      qexists `m` >>
-      simp[Once fts_has_cases]
+        fs[FLOOKUP_SIMP] >>
+        qexists `m` >>
+        simp[Once fts_has_cases]
       )
     >- (
-      fs[] >>
       fs[Once fts_has_cases]
-      >- fs[fill_dnode_def,FLOOKUP_DEF]
-      >- cheat
-      >- fs[Once fts_has_cases]
-      ) >>
-    fs[Once fts_has_cases]
-    >- cheat
-    >- fs[Once fts_has_cases]
-  )
+      >- fs[fill_dnode_def, FLOOKUP_SIMP]
+      >- (
+        qpat_assum `fts_has k' (fill_dnode v' e' T m) fts` mp_tac >>
+        pure_rewrite_tac[Once fts_has_cases] >>
+        disch_tac >>
+        rfs[] >>
+        first_assum (qspec_then `m` assume_tac) >>
+        fs[]
+        )
+      >> fs[Once fts_has_cases]
+      )
+    >- (
+      qpat_assum `fts_has k' (fill_dnode v' e' T m)
+                    (FibTree k (fill_dnode v e T F) []::fts)` mp_tac >>
+      pure_rewrite_tac[Once fts_has_cases] >>
+      rfs[] >>
+      simp[DISJ_SYM] >>
+      simp[Once fts_has_cases] >>
+      strip_tac >>
+      fs[FLOOKUP_SIMP] >> qexists `m` >> gvs[]
+      )
+    )
   >- (
     fs[head_key_def, FLOOKUP_SIMP, fts_is_min_def] >>
     simp[fill_dnode_def] >>
