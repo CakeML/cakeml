@@ -444,55 +444,7 @@ End
 
 Definition flat_op_to_display_def:
   flat_op_to_display op = case op of
-    | Shift ws sh num => Item NONE (strlit "Shift") [
-      word_size_to_display ws;
-      shift_to_display sh;
-      num_to_display num]
-    | Arith a ty => Item NONE (strlit "Arith")
-                         [arith_to_display a;
-                          prim_type_to_display ty]
-    | FromTo ty1 ty2 => Item NONE (strlit "FromTo")
-                             [prim_type_to_display ty1;
-                              prim_type_to_display ty2]
-    | Test test ty => Item NONE (strlit "Test")
-                           [test_to_display test;
-                            prim_type_to_display ty]
-    | Equality => empty_item (strlit "Equality")
-    | Opapp => empty_item (strlit "Opapp")
-    | Opassign => empty_item (strlit "Opassign")
-    | Opref => empty_item (strlit "Opref")
-    | Aw8alloc => empty_item (strlit "Aw8alloc")
-    | Aw8sub => empty_item (strlit "Aw8sub")
-    | Aw8sub_unsafe => empty_item (strlit "Aw8sub_unsafe")
-    | Aw8length => empty_item (strlit "Aw8length")
-    | Aw8update => empty_item (strlit "Aw8update")
-    | Aw8update_unsafe => empty_item (strlit "Aw8update_unsafe")
-    | CopyStrStr => empty_item (strlit "CopyStrStr")
-    | CopyStrAw8 => empty_item (strlit "CopyStrAw8")
-    | CopyAw8Str => empty_item (strlit "CopyAw8Str")
-    | CopyAw8Aw8 => empty_item (strlit "CopyAw8Aw8")
-    | Aw8xor_unsafe => empty_item (strlit "Aw8xor_unsafe")
-    | Implode => empty_item (strlit "Implode")
-    | Explode => empty_item (strlit "Explode")
-    | Strsub => empty_item (strlit "Strsub")
-    | Strlen => empty_item (strlit "Strlen")
-    | Strcat => empty_item (strlit "Strcat")
-    | VfromList => empty_item (strlit "VfromList")
-    | Vsub => empty_item (strlit "Vsub")
-    | Vsub_unsafe => empty_item (strlit "Vsub_unsafe")
-    | Vlength => empty_item (strlit "Vlength")
-    | Aalloc => empty_item (strlit "Aalloc")
-    | AallocFixed => empty_item (strlit "AallocFixed")
-    | Asub => empty_item (strlit "Asub")
-    | Asub_unsafe => empty_item (strlit "Asub_unsafe")
-    | Alength => empty_item (strlit "Alength")
-    | Aupdate => empty_item (strlit "Aupdate")
-    | Aupdate_unsafe => empty_item (strlit "Aupdate_unsafe")
-    | ListAppend => empty_item (strlit "ListAppend")
-    | ConfigGC => empty_item (strlit "ConfigGC")
-    | FFI s => Item NONE (strlit "FFI") [string_imp s]
-    | Eval => empty_item (strlit "Eval")
-    | ThunkOp t => thunk_op_to_display t
+    | Src ast_op => op_to_display ast_op
     | GlobalVarAlloc n => item_with_num (strlit "GlobalVarAlloc") n
     | GlobalVarInit n => item_with_num (strlit "GlobalVarInit") n
     | GlobalVarLookup n => item_with_num (strlit "GlobalVarLookup") n

@@ -30,7 +30,7 @@ Definition is_hidden_def:
         (* local var *)
     (is_hidden (Fun t name body) = T) ∧
         (* function abstraction *)
-    (is_hidden (App t Opapp l) = F) ∧
+    (is_hidden (App t (Src Opapp) l) = F) ∧
         (* function application *)
     (is_hidden (App t (GlobalVarInit g) [e]) = is_hidden e) ∧
         (* GlobalVarInit *)
@@ -82,7 +82,7 @@ End
 Theorem is_pure_def1 = CONV_RULE (DEPTH_CONV ETA_CONV) is_pure_def
 
 Definition has_Eval_def:
-  (has_Eval (App t op es) ⇔ op = Eval ∨ has_Eval_list es) ∧
+  (has_Eval (App t op es) ⇔ op = Src Eval ∨ has_Eval_list es) ∧
   (has_Eval (Mat _ e pes) ⇔ has_Eval e ∨ has_Eval_pats pes) ∧
   (has_Eval (Letrec _ funs e) ⇔ has_Eval e ∨ has_Eval_funs funs) ∧
   (has_Eval (Raise _ e) ⇔ has_Eval e) ∧
