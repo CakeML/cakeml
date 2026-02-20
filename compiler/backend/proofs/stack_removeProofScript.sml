@@ -290,7 +290,7 @@ Theorem mem_load_32_IMP[local]:
     mem_load_32 s.memory s.mdomain s.be a = SOME x ==>
     mem_load_32 t.memory t.mdomain t.be a = SOME x
 Proof
-   full_simp_tac(srw_ss())[wordSemTheory.mem_load_32_def] \\ srw_tac[][]
+   full_simp_tac(srw_ss())[wordSemTheory.mem_load_32_alt] \\ srw_tac[][]
   \\ `s.be = t.be` by full_simp_tac(srw_ss())[state_rel_def]
   \\ ntac 5 (FULL_CASE_TAC >> fs[]) >> gvs[]
   \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
@@ -704,7 +704,7 @@ Theorem state_rel_mem_store_32:
    ∃y. mem_store_32 t.memory t.mdomain t.be a b = SOME y ∧
        state_rel jump off k (s with memory := z) (t with memory := y)
 Proof
-  fs[state_rel_def,wordSemTheory.mem_store_32_def] >>
+  fs[state_rel_def,wordSemTheory.mem_store_32_alt] >>
   rpt strip_tac
   \\ ntac 3 (pop_assum mp_tac)
   \\ BasicProvers.TOP_CASE_TAC \\ fs[]
