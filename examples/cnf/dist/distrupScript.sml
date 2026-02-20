@@ -7,12 +7,12 @@ Libs
 Ancestors
   cnf ccnf syntax_helper
 
-(* The format has four proof steps. *)
+(* The format has four proof steps. We let 'a be the ID type *)
 Datatype:
   distrup =
-  | Del (num list) (* Clauses to delete *)
-  | Lrup num vcclause (num list)
-  | Import num vcclause
+  | Del ('a list) (* Clauses to delete *)
+  | Lrup 'a vcclause ('a list)
+  | Import 'a vcclause
   | ValidateUnsat
 End
 
@@ -24,10 +24,10 @@ Definition check_distrup_def:
   | Lrup n vc hints =>
     if is_rup fml vc hints
     then
-      SOME (insert n vc fml)
+      SOME (fml |+ (n,vc))
     else NONE
   | Import n vc =>
-      SOME (insert n vc fml)
+      SOME (fml |+ (n,vc))
   | ValidateUnsat =>
       if contains_emp fml
       then

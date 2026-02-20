@@ -35,30 +35,52 @@ QED
 
 val _ = string_to_int_pre |> update_precondition;
 
+(* Copied from Word64Prog *)
+Definition concat_all4_def:
+  concat_all4 (a:word8) b c d =
+    concat_word_list [a;b;c;d]:64 word
+End
+
+Definition concat_all8_def:
+  concat_all8 (a:word8) b c d e f g h =
+    concat_word_list [a;b;c;d;e;f;g;h]:64 word
+End
+
+val concat_all4_impl =
+  REWRITE_RULE [concat_word_list_def, dimindex_8, ZERO_SHIFT, WORD_OR_CLAUSES] concat_all4_def;
+
+val concat_all8_impl =
+  REWRITE_RULE [concat_word_list_def, dimindex_8, ZERO_SHIFT, WORD_OR_CLAUSES] concat_all8_def;
+
+val r = translate concat_all4_impl;
+val r = translate concat_all8_impl;
+
 (* Array-level helpers *)
 Quote add_cakeml:
-  fun get_byte arr i = Word8.toInt (Word8Array.sub arr i);
-
   (* Little-endian: read 8 bytes as u64 starting at index i *)
   fun get_u64 arr i =
-    get_byte arr i +
-    get_byte arr (i+1) * 256 +
-    get_byte arr (i+2) * 65536 +
-    get_byte arr (i+3) * 16777216 +
-    get_byte arr (i+4) * 4294967296 +
-    get_byte arr (i+5) * 1099511627776 +
-    get_byte arr (i+6) * 281474976710656 +
-    get_byte arr (i+7) * 72057594037927936;
+    Word64.toInt (
+      concat_all8
+      (Word8Array.sub arr i)
+      (Word8Array.sub arr (i+1))
+      (Word8Array.sub arr (i+2))
+      (Word8Array.sub arr (i+3))
+      (Word8Array.sub arr (i+4))
+      (Word8Array.sub arr (i+5))
+      (Word8Array.sub arr (i+6))
+      (Word8Array.sub arr (i+7)));
 
   (* Little-endian: read 4 bytes as signed int starting at index i *)
   fun get_int arr i =
     let
-      val raw = get_byte arr i +
-                get_byte arr (i+1) * 256 +
-                get_byte arr (i+2) * 65536 +
-                get_byte arr (i+3) * 16777216
+      val raw = Word64.toInt (
+        concat_all4
+        (Word8Array.sub arr i)
+        (Word8Array.sub arr (i+1))
+        (Word8Array.sub arr (i+2))
+        (Word8Array.sub arr (i+3)))
     in
-      if get_byte arr (i+3) >= 128
+      if raw >= 2147483648
       then raw - 4294967296
       else raw
     end;

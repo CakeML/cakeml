@@ -11,7 +11,7 @@ val _ = hide_environments true;
 
 val _ = translation_extends "ccnf_arrayProg";
 
-val _ = register_type``:distrup``;
+val _ = register_type``:'a distrup``;
 
 Quote add_cakeml:
   fun resize_dm carr b v =
@@ -75,7 +75,7 @@ val DISTRUP_DISTRUP_TYPE_def = fetch "-" "DISTRUP_DISTRUP_TYPE_def";
 
 Theorem check_distrup_arr_spec:
   NUM lno lnov ∧
-  DISTRUP_DISTRUP_TYPE distrup distrupv ∧
+  DISTRUP_DISTRUP_TYPE NUM distrup distrupv ∧
   LIST_REL (OPTION_TYPE vcclause_TYPE) fmlls fmllsv ∧
   WORD8 b bv ∧
   bnd_fml fmlls (LENGTH Clist)
