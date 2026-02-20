@@ -7,58 +7,66 @@ Ancestors
 Libs
   preamble
 
-(* Primes Block args to be used as HoleBlock args.
-   Extracts the recursive tail call from the list of args, and returns the args to the left and to the right of the tail call.
-   Returns:
-     * MultipleTC       if multiple recursive tail calls are found.
-     * NoTC args        if no recursive tail call is found.
-     * TC l tail_call r if a single recursive tail call is found. In this case,
-                        ‘l’ are the args left of hole, ‘r’ are the args right of the hole,
-                        and the optimised version of ‘tail_call’ will be used to fill the hole. *)
 Datatype:
-  tc_and_mut_cons = MultipleTC
-                  | NoTC (exp list)
-                  | TC (exp list) exp (exp list)
+  tc_and_mut_cons = DupTC      (* Duplicate recursive tail calls. *)
+                  | NoTC       (* No recursive tail call. *)
+                  | TC exp exp (* One recursive tail call. TC call mut_cons *) (* TODO: destructure call/mutblock to cut down on cases *)
 End
 
-Definition extract_tail_call_def:
-  (extract_tail_call loc [] = NoTC []) ∧
-  (extract_tail_call loc ((Call t (SOME loc') args h)::op_args) =
+(* ‘cons_to_tc_and_mut_cons loc tag op_args’ finds a unique recursive call of index ‘loc’ nested within the args of a ‘BlockOp’ ‘Cons’
+    block of the form ‘Op (BlockOp (Cons tag)) op_args’. If such a call is found, then the block is converted to a (possibily nested)
+    ‘MemOp’ ‘MutCons’ hole block, where the hole is to be filled by the result of the recursive call.
+    Returns:
+      ‘DupTC’            if multiple matching recursive calls were found.
+      ‘NoTC’             if no matching recursive call was found.
+      ‘TC call mut_cons’ if ‘call’ is the only matching call and ‘mut_cons’ has a single hole to be filled by ‘call’. *)
+Definition cons_to_tc_and_mut_cons_def:
+  (cons_to_tc_and_mut_cons loc tag [] = NoTC) ∧
+  (cons_to_tc_and_mut_cons loc tag ((Op (BlockOp (Cons tag')) op_args')::op_args) =
+    case (cons_to_tc_and_mut_cons loc tag' op_args', cons_to_tc_and_mut_cons loc tag op_args) of
+    | (DupTC, _) => DupTC
+    | (_, DupTC) => DupTC
+    | (TC _ _, TC _ _) => DupTC
+    | (NoTC, NoTC) => NoTC
+    | (TC call' mut_cons', NoTC) =>
+        let mut_cons = Op (MemOp (MutCons tag 0)) (mut_cons'::op_args) in
+          TC call' mut_cons
+    | (NoTC, TC call (Op (MemOp (MutCons t i)) l)) =>
+        let cons     = Op (BlockOp (Cons tag')) op_args' in
+        let mut_cons = Op (MemOp (MutCons t (i+1))) (cons::l) in
+          TC call mut_cons) ∧
+  (cons_to_tc_and_mut_cons loc tag (Call t (SOME loc') args h::op_args) =
     let call = Call t (SOME loc') args h in
-    let rest = extract_tail_call loc op_args in
     if loc=loc' then
       (* found the recursive call *)
-      case rest of
-      | NoTC r => TC [] call r
-      | _ => MultipleTC
+      case cons_to_tc_and_mut_cons loc tag op_args of
+      | DupTC => DupTC
+      | TC _ _ => DupTC
+      | NoTC =>
+         let hole     = Op (IntOp (Const 0)) [] in
+         let mut_cons = Op (MemOp (MutCons tag 0)) (hole::op_args) in
+         TC call mut_cons
     else
       (* found a different call *)
-      case rest of
-      | TC l rec r => TC (call::l) rec r
-      | NoTC r => NoTC (call::r)
-      | MultipleTC => MultipleTC) ∧
-  (extract_tail_call loc (op_arg::op_args) =
-    case extract_tail_call loc op_args of
-    | TC l rec r => TC (op_arg::l) rec r
-    | NoTC r => NoTC (op_arg::r)
-    | MultipleTC => MultipleTC)
-End
-
-Definition to_mut_cons_def:
-  to_mut_cons loc block_tag op_args =
-    case extract_tail_call loc op_args of
-    | TC l tail_call r =>
-      let hole_idx = LENGTH l in
-      let exp_hole = Op (IntOp (Const 0)) [] in
-      let mut_cons = Op (MemOp (MutCons block_tag hole_idx)) (l ++ [exp_hole] ++ r) in
-        SOME (tail_call, mut_cons)
-    | _ => NONE
+      case cons_to_tc_and_mut_cons loc tag op_args of
+      | DupTC => DupTC
+      | NoTC => NoTC
+      | TC call (Op (MemOp (MutCons t i)) l) =>
+         let mut_cons = Op (MemOp (MutCons t (i+1))) (call::l) in
+           TC call mut_cons) ∧
+  (cons_to_tc_and_mut_cons loc tag (op_arg::op_args) =
+    case cons_to_tc_and_mut_cons loc tag op_args of
+    | DupTC => DupTC
+    | NoTC => NoTC
+    | TC call (Op (MemOp (MutCons t i)) l) =>
+       let mut_cons = Op (MemOp (MutCons t (i+1))) (op_arg::l) in
+         TC call mut_cons)
 End
 
 Definition rewrite_aux_BlockOp_Cons_def:
   rewrite_aux_BlockOp_Cons ts loc loc_opt arity block_tag op_args =
-    case to_mut_cons loc block_tag op_args of
-    | SOME (Call t _ args h, exp_mut_cons) =>
+    case cons_to_tc_and_mut_cons loc block_tag op_args of
+    | TC (Call t _ args h) exp_mut_cons =>
         let var_new_hole_ptr = Var arity in
         let exp_tail_call    = Call t (SOME loc_opt) (var_new_hole_ptr :: args) h in
         let exp_finalise     = Op (MemOp FinaliseCons) [var_new_hole_ptr] in
@@ -94,8 +102,8 @@ End
 (* Assumes that the function can and should be optimised - has been checked by rewrite_aux_def. *)
 Definition rewrite_opt_BlockOp_Cons_def:
   rewrite_opt_BlockOp_Cons ts loc loc_opt arity block_tag op_args =
-    case to_mut_cons loc block_tag op_args of
-    | SOME (Call t _ args h, exp_mut_cons) =>
+    case cons_to_tc_and_mut_cons loc block_tag op_args of
+    | TC (Call t _ args h) exp_mut_cons =>
         let arg_old_hole_ptr = Var arity in
         let var_new_hole_ptr = Var (arity + 1) in
         let exp_update_hole  = Op (MemOp UpdateCons) [arg_old_hole_ptr; var_new_hole_ptr] in
@@ -207,9 +215,9 @@ val append_eval = EVAL “compile_prog 6 ^append_prog”;
  *)
 
 (* [1] :: [x] :: my_bar xs *)
-val tail_cons1 = “extract_tail_call (4000:num) [Op (BlockOp (Cons 0))
-                                                 [Call 0 (SOME 4000) [Var 3] NONE;
-                                                  Op (BlockOp (Cons 0)) [Op (BlockOp (Cons 0)) []; Var 2]];
-                                              Op (BlockOp (Build [Int 1; Con 0 []; Con 0 [0; 1]])) []]”;
+val tail_cons1 = “cons_to_tc_and_mut_cons (4000:num) 12 [Op (BlockOp (Cons 0))
+                                                            [Call 0 (SOME 4000) [Var 3] NONE;
+                                                             Op (BlockOp (Cons 0)) [Op (BlockOp (Cons 0)) []; Var 2]];
+                                                         Op (BlockOp (Build [Int 1; Con 0 []; Con 0 [0; 1]])) []]”;
 val tail_cons_eval1 = EVAL tail_cons1;
 
