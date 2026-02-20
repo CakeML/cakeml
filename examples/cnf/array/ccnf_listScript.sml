@@ -388,7 +388,7 @@ QED
 Definition fml_rel_def:
   fml_rel fml fmlls ⇔
   ∀n.
-    any_el n fmlls NONE = lookup n fml
+    any_el n fmlls NONE = FLOOKUP fml n
 End
 
 Definition bnd_fml_def:
@@ -921,9 +921,9 @@ QED
 
 Theorem fml_rel_delete_list:
   fml_rel fml fmlls ⇒
-  fml_rel (delete l fml) (delete_list fmlls l)
+  fml_rel (fml \\ l) (delete_list fmlls l)
 Proof
-  rw[fml_rel_def,any_el_ALT,lookup_delete,delete_list_def]>>
+  rw[fml_rel_def,any_el_ALT,DOMSUB_FLOOKUP_THM,delete_list_def]>>
   gvs[AllCaseEqs(),SF DNF_ss]>>
   rw[EL_LUPDATE]>>
   metis_tac[]
@@ -942,10 +942,10 @@ QED
 
 Theorem fml_rel_update_resize:
   fml_rel fml fmlls ⇒
-  fml_rel (insert n v fml) (update_resize fmlls NONE (SOME v) n)
+  fml_rel (fml |+ (n ,v)) (update_resize fmlls NONE (SOME v) n)
 Proof
   rw[update_resize_def,fml_rel_def,any_el_ALT,EL_LUPDATE]>>
-  rw[lookup_insert]>>
+  rw[FLOOKUP_UPDATE]>>
   gvs[AllCaseEqs()]
   >- metis_tac[]
   >- metis_tac[]
@@ -953,7 +953,7 @@ Proof
     fs[EL_APPEND_EQN]>>
     rw[]>>fs[EL_REPLICATE,LENGTH_REPLICATE]>>
     metis_tac[]) >>
-  rename1`lookup nn fml`>>
+  rename1`FLOOKUP fml nn`>>
   first_x_assum(qspec_then`nn` assume_tac)>>rfs[]
 QED
 
@@ -1201,14 +1201,14 @@ Theorem fml_rel_contains_emp_list:
 Proof
   simp[contains_emp_list_def]>>
   DEP_REWRITE_TAC[contains_emp_list_aux]>>
-  rw[contains_emp_def,MEM_MAP,EXISTS_PROD,MEM_toAList]>>
+  rw[contains_emp_def,MEM_MAP,EXISTS_PROD]>>
   fs[fml_rel_def,MEM_EL]>>
   eq_tac>>rw[]
   >- (
     first_x_assum(qspec_then`n` assume_tac)>>
     rfs[any_el_ALT]>>
     metis_tac[])>>
-  rename1`lookup n fml`>>
+  rename1`FLOOKUP fml n`>>
   first_x_assum(qspec_then`n` assume_tac)>>
   rfs[any_el_ALT]>>
   metis_tac[]

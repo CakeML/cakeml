@@ -252,7 +252,7 @@ QED
 Definition unit_prop_def:
   (unit_prop fml dm [] = SOME (F,dm)) ∧
   (unit_prop fml dm (i::is) =
-  case lookup i fml of
+  case FLOOKUP fml i of
     NONE => NONE
   | SOME c =>
   case delete_literals_sing dm (REVERSE c) of
@@ -264,7 +264,7 @@ End
 Definition unit_prop_vec_def:
   (unit_prop_vec fml dm [] = SOME (F,dm)) ∧
   (unit_prop_vec fml dm (i::is) =
-  case lookup i fml of
+  case FLOOKUP fml i of
     NONE => NONE
   | SOME c =>
   case delete_literals_sing_vec dm c (length c) of
@@ -275,32 +275,31 @@ End
 
 Theorem unit_prop_vec:
   ∀is dm.
-  unit_prop_vec (map Vector fml) dm is =
+  unit_prop_vec (Vector o_f fml) dm is =
   unit_prop fml dm is
 Proof
   Induct>>rw[unit_prop_vec_def,unit_prop_def]>>
-  simp[lookup_map]>>
-  rename1`lookup h fml`>>
-  Cases_on`lookup h fml`>>
-  simp[]>>
+  simp[FLOOKUP_o_f] >>
+  rename1`FLOOKUP fml h`>>
+  Cases_on `FLOOKUP fml h`>>
+  simp[] >>
   DEP_REWRITE_TAC[delete_literals_sing_vec]>>
   simp[length_def]
 QED
 
+Theorem Vector_o_toList_I[local]:
+  Vector ∘ toList = I
+Proof
+    (simp[FUN_EQ_THM] >>
+     Cases >> simp[mlvectorTheory.toList_thm])
+QED
+
 Theorem unit_prop_vec':
-  unit_prop (map toList fml) dm is =
+  unit_prop (toList o_f fml) dm is =
   unit_prop_vec fml dm is
 Proof
-  rw[GSYM unit_prop_vec]>>
-  AP_THM_TAC>>
-  AP_THM_TAC>>
-  AP_TERM_TAC>>
-  rw[map_map_o,o_DEF]>>
-  qmatch_goalsub_abbrev_tac`map f _`>>
-  `f = I` by (
-    simp[Abbr`f`,FUN_EQ_THM]>>
-    Cases>>rw[mlvectorTheory.toList_thm])>>
-  simp[map_I]
+  rw[GSYM unit_prop_vec,Vector_o_toList_I]>>
+  simp[I_EQ_IDABS]
 QED
 
 (* The return is either
@@ -311,7 +310,7 @@ Definition unit_prop_vb_vec_def:
    let (m,i) = parse_vb_int s i1 len in
    if m <= 0 then SOME(SOME i1,dm)
    else
-   case lookup (Num m) fml of
+   case FLOOKUP fml (Num m) of
      NONE => NONE
    | SOME c =>
    case delete_literals_sing_vec dm c (length c) of
@@ -483,7 +482,7 @@ Theorem unit_prop_SOME_T:
   ∀is d dm.
   lit_map d dm ∧
   unit_prop fml dm is = SOME (T,dm') ∧
-  satisfies_cfml w (range fml) ⇒
+  satisfies_cfml w (FRANGE fml) ⇒
   satisfies_cclause w d
 Proof
   Induct>>rw[unit_prop_def]>>
@@ -512,7 +511,7 @@ Theorem unit_prop_SOME_F:
   ∀is d dm.
   lit_map d dm ∧
   unit_prop fml dm is = SOME (F,dm') ∧
-  satisfies_cfml w (range fml) ∧
+  satisfies_cfml w (FRANGE fml) ∧
   ¬ satisfies_cclause w d ⇒
   ∃d'.
   lit_map d' dm' ∧
@@ -589,13 +588,13 @@ QED
 Theorem unit_prop_vec_SOME_T:
   lit_map (toList d) dm ∧
   unit_prop_vec fml dm is = SOME (T,dm') ∧
-  satisfies_vcfml w (range fml) ⇒
+  satisfies_vcfml w (FRANGE fml) ⇒
   satisfies_vcclause w d
 Proof
   rw[]>>
   gvs[satisfies_vcfml_eq]>>
   drule unit_prop_SOME_T>>
-  gvs[GSYM range_map]>>
+  fs[IMAGE_FRANGE] >>
   disch_then $ drule_at Any>>
   simp[unit_prop_vec']>>
   disch_then $ drule_at Any>>
@@ -605,7 +604,7 @@ QED
 Theorem unit_prop_vec_SOME_F:
   lit_map (toList d) dm ∧
   unit_prop_vec fml dm is = SOME (F,dm') ∧
-  satisfies_vcfml w (range fml) ∧
+  satisfies_vcfml w (FRANGE fml) ∧
   ¬ satisfies_vcclause w d ⇒
   ∃d'.
   lit_map (toList d') dm' ∧
@@ -614,7 +613,7 @@ Proof
   rw[]>>
   gvs[satisfies_vcfml_eq,satisfies_vcclause_def]>>
   drule unit_prop_SOME_F>>
-  fs[GSYM range_map]>>
+  fs[IMAGE_FRANGE]>>
   disch_then $ drule_at Any>>
   disch_then $ drule_at Any>>
   simp[unit_prop_vec']>>
@@ -650,7 +649,7 @@ QED
 
 Theorem is_rup_sound:
   is_rup fml v is ∧
-  satisfies_vcfml w (range fml) ⇒
+  satisfies_vcfml w (FRANGE fml) ⇒
   satisfies_vcclause w v
 Proof
   rw[is_rup_def]>>
@@ -670,13 +669,13 @@ QED
 
 Theorem is_rup_vb_sound:
   is_rup_vb fml v s ∧
-  satisfies_vcfml w (range fml) ⇒
+  satisfies_vcfml w (FRANGE fml) ⇒
   satisfies_vcclause w v
 Proof
   rpt strip_tac >>
   fs[is_rup_vb_def,AllCasePreds()] >>
   rveq >>
-  irule is_rup_sound >>
+  irule $ INST_TYPE[Type.alpha |-> numSyntax.num] is_rup_sound >>
   drule_then strip_assume_tac unit_prop_vb_vec >>
   qexists_tac `fml` >>
   fs[is_rup_def] >>
@@ -686,19 +685,19 @@ QED
 
 Definition contains_emp_def:
   contains_emp fml =
-  let ls = MAP SND (toAList fml) in
+  let ls = MAP SND (fmap_to_alist fml) in
   MEM (Vector []) ls
 End
 
 Theorem contains_emp_unsat:
   contains_emp fml ⇒
-  ¬satisfies_vcfml w (range fml)
+  ¬satisfies_vcfml w (FRANGE fml)
 Proof
-  rw[satisfies_vcfml_def,contains_emp_def,range_def,MEM_MAP,satisfies_cfml_def,satisfies_fml_gen_def]>>
+  rw[satisfies_vcfml_def,contains_emp_def,IN_FRANGE_FLOOKUP,MEM_MAP,satisfies_cfml_def,satisfies_fml_gen_def]>>
   simp[PULL_EXISTS]>>
   rename1`MEM y _`>>
   Cases_on`y`>>
-  gvs[MEM_toAList]>>
+  gvs[]>>
   first_x_assum (irule_at Any)>>
   EVAL_TAC>>
   simp[]
