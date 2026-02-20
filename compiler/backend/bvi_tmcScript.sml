@@ -44,7 +44,7 @@ Definition extract_tail_call_def:
     | MultipleTC => MultipleTC)
 End
 
-Definition to_mut_cons:
+Definition to_mut_cons_def:
   to_mut_cons loc block_tag op_args =
     case extract_tail_call loc op_args of
     | TC l tail_call r =>
