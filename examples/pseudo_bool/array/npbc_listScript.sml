@@ -132,12 +132,16 @@ Definition update_assg_list_def:
   update_assg_list assg (ls,n) =
     if n ≤ 0
     then
-      ([],assg,T)
+      (F,[],assg,T)
     else
     let n = Num (ABS n) in
     let (max,ls1,m) = rup_pass1_list assg ls 0 [] 0 in
-    let assg1 = resize_to_fit m assg in
-      rup_pass2_list assg1 max ls1 n []
+    if max < n
+    then
+      (T,[],assg,T)
+    else
+      let assg1 = resize_to_fit m assg in
+      (F,rup_pass2_list assg1 max ls1 n [])
 End
 
 Definition get_rup_constraint_list_def:
@@ -154,17 +158,15 @@ Definition check_rup_loop_list_def:
     case get_rup_constraint_list b fml n nc of
     | NONE => (F,assg,all_changes,T)
     | SOME c =>
-        if NULL ns then
-          if SND c ≤ 0 then (F,assg,all_changes,T)
-          else
-          let (max,ls1,m) = rup_pass1_list assg (FST c) 0 [] 0 in
-            (max < Num (ABS (SND c)),assg,all_changes,T)
-        else
-          let (new_changes,assg,pre) = update_assg_list assg c in
-          let all_changes = new_changes ++ all_changes in
-          let (res,assg,all_changes,pre1) =
-                check_rup_loop_list b nc fml assg all_changes ns
-          in (res,assg,all_changes,pre ∧ pre1)
+      let (done,new_changes,assg,pre) = update_assg_list assg c in
+      if done
+      then
+          (T,assg,all_changes,pre)
+      else
+      let all_changes = new_changes ++ all_changes in
+      let (res,assg,all_changes,pre1) =
+            check_rup_loop_list b nc fml assg all_changes ns
+      in (res,assg,all_changes,pre ∧ pre1)
 End
 
 Definition delete_each_def:
@@ -552,10 +554,11 @@ Proof
 QED
 
 Theorem update_assg_list_pre[local]:
-  ∀assg x changes assg1 pre.
-    update_assg_list assg x = (changes,assg1,pre) ⇒
+  ∀assg x done changes assg1 pre.
+    update_assg_list assg x = (done,changes,assg1,pre) ⇒
     pre ∧ EVERY (λi. i < LENGTH assg1) changes ∧
     LENGTH assg ≤ LENGTH assg1 ∧
+    (done ⇒ changes = []) ∧
     ∀n. n < LENGTH assg1 ∧ EL n assg1 ≠ 0w ⇒
         MEM n changes ∨ n < LENGTH assg ∧ EL n assg = EL n assg1
 Proof
@@ -565,6 +568,7 @@ Proof
   >- gvs[]
   \\ pairarg_tac \\ gvs [] \\ strip_tac
   \\ drule rup_pass1_list_pre \\ gvs [] \\ strip_tac
+  \\ gvs[AllCaseEqs()]
   \\ drule rup_pass2_list_pre \\ fs []
   \\ impl_tac >-
    (pop_assum mp_tac
@@ -597,13 +601,6 @@ Proof
   Induct_on ‘ls’ \\ gvs [check_rup_loop_list_def]
   \\ rpt gen_tac \\ TOP_CASE_TAC \\ gvs []
   >- (strip_tac \\ gvs [])
-  \\ IF_CASES_TAC
-  >- (
-    IF_CASES_TAC
-    >- (
-      rw[]>>
-      metis_tac[])
-    >- (pairarg_tac \\ gvs [] \\ strip_tac \\ gvs []))
   \\ pairarg_tac \\ gvs []
   \\ strip_tac
   \\ drule update_assg_list_pre \\ strip_tac
@@ -616,7 +613,7 @@ Proof
       \\ match_mp_tac MONO_EVERY \\ simp_tac std_ss []
       \\ fs [])
     \\ metis_tac [])
-  \\ pairarg_tac \\ gvs []
+  \\ pairarg_tac \\ gvs [AllCaseEqs()]
   \\ last_x_assum drule
   \\ impl_tac >- gvs []
   \\ strip_tac \\ gvs []
@@ -717,9 +714,10 @@ QED
 
 Theorem update_assg_list_invs:
   ∀assgA assgB x new_changesA assgA1 preA new_changesB assgB1 preB.
-    update_assg_list assgA x = (new_changesA,assgA1,preA) ∧
-    update_assg_list assgB x = (new_changesB,assgB1,preB) ∧
+    update_assg_list assgA x = (doneA,new_changesA,assgA1,preA) ∧
+    update_assg_list assgB x = (doneB,new_changesB,assgB1,preB) ∧
     (∀i. get_assg i assgA = get_assg i assgB) ⇒
+    doneA = doneB ∧
     (new_changesA) = (new_changesB) ∧
     (∀i. get_assg i assgA1 = get_assg i assgB1)
 Proof
@@ -729,7 +727,8 @@ Proof
   \\ rpt (pairarg_tac \\ gvs [])
   \\ imp_res_tac rup_pass1_list_pre \\ gvs []
   \\ dxrule_then dxrule rup_pass1_list_invs
-  \\ impl_tac >- simp [] \\ strip_tac \\ gvs []
+  \\ impl_tac >- simp [] \\ strip_tac
+  \\ gvs [AllCaseEqs()]
   \\ dxrule_then dxrule rup_pass2_list_invs
   \\ reverse impl_tac >- (strip_tac \\ gvs [])
   \\ gvs []
@@ -755,9 +754,6 @@ Proof
   \\ last_x_assum $ dxrule_then dxrule
   \\ impl_tac >- simp []
   \\ every_case_tac \\ gvs []
-  \\ strip_tac \\ gvs []
-  \\ dxrule_then dxrule rup_pass1_list_invs
-  \\ impl_tac >- simp [] \\ strip_tac \\ gvs []
 QED
 
 Theorem check_rup_list_invs:
@@ -857,6 +853,7 @@ Proof
   \\ rpt (pairarg_tac \\ gvs [])
   \\ drule_then drule rup_pass1_list_thm
   \\ (impl_tac >- simp [] \\ strip_tac \\ gvs [])
+  \\ IF_CASES_TAC \\ gvs[]
   \\ drule rup_pass2_list_thm \\ fs []
   \\ disch_then $ qspecl_then [‘assg’] mp_tac
   \\ (impl_tac >- gvs [assg_rel_def])

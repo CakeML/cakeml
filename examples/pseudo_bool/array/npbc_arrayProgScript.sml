@@ -456,14 +456,15 @@ Proof
   >~[`Sat`] >- ( (* Sat *)
     fs[check_cutting_list_def,NPBC_CHECK_CONSTR_TYPE_def]>>
     xmatch>>
-    xlet_autop>- xsimpl>>
-    cheat
-    (* xapp_spec
+    xlet_autop
+    >- xsimpl>>
+    xapp_spec
     (fetch "-" "saturate_v_thm" |> INST_TYPE [alpha|->``:num``])>>
     xsimpl>>
-    pop_assum mp_tac>>
-    TOP_CASE_TAC>>rw[]>>
-    metis_tac[]*))
+    gvs[AllCasePreds()]>>
+    qexists_tac`x`>>qexists_tac`NUM`>>
+    xsimpl>>
+    simp (eq_lemmas()))
   >~[`Lit`] >- ( (* Lit *)
     fs[check_cutting_list_def,NPBC_CHECK_CONSTR_TYPE_def]>>
     xmatch>>
@@ -1135,29 +1136,35 @@ Quote add_cakeml:
   case lsn of (ls,n) =>
   if n <= 0
   then
-    ([],assg)
+    (False,[],assg)
   else
   case rup_pass1_arr assg ls 0 [] 0 of (max,ls1,m) =>
-    let val n1 = nabs n
-        val assg1 = resize_to_fit m assg
-        val changes2 = rup_pass2_arr assg1 max ls1 n1 [] in
-        (changes2,assg1)
+    let val n1 = nabs n in
+        if max < n1 then
+          (True,[],assg)
+        else
+        let
+          val assg1 = resize_to_fit m assg
+          val changes2 = rup_pass2_arr assg1 max ls1 n1 [] in
+          (False,changes2,assg1)
+        end
     end
 End
 
 Theorem update_assg_arr_spec:
   constraint_TYPE lsn lsnv ∧
-  update_assg_list assg lsn = (new_changes,assg2,T) ⇒
+  update_assg_list assg lsn = (done,new_changes,assg2,T) ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "update_assg_arr" (get_ml_prog_state()))
     [assgv; lsnv]
     (W8ARRAY assgv assg)
     (POSTv v.
-      SEP_EXISTS v1 v2.
-      W8ARRAY v2 assg2 *
+      SEP_EXISTS v1 v2 v3.
+      W8ARRAY v3 assg2 *
       &(
-        v = Conv NONE [v1; v2] ∧
-        LIST_TYPE NUM new_changes v1
+        v = Conv NONE [v1; v2; v3] ∧
+        BOOL done v1 ∧
+        LIST_TYPE NUM new_changes v2
       )
     )
 Proof
@@ -1169,9 +1176,9 @@ Proof
   xif>>
   gvs[update_assg_list_def]
   >- (
-    xlet_autop>>
+    rpt xlet_autop>>
     xcon>>xsimpl>>
-    simp[LIST_TYPE_def])>>
+    EVAL_TAC)>>
   rpt(pairarg_tac>>gvs[])>>
   xlet_autop>>
   xlet_auto
@@ -1180,14 +1187,20 @@ Proof
     simp[LIST_TYPE_def])>>
   xmatch>>
   rpt xlet_autop>>
+  xif>>gvs[nabs_def]
+  >- (
+    rpt xlet_autop>>
+    xcon>>xsimpl>>
+    EVAL_TAC)>>
   xlet_auto>>
-  xlet_autop>>
-  gvs[nabs_def]>>
+  xlet_autop>>gvs[]>>
   xlet_auto
   >- (
     xsimpl>>
     EVAL_TAC)>>
-  xcon>>xsimpl
+  xlet_autop>>
+  xcon>>xsimpl>>
+  EVAL_TAC
 QED
 
 Quote add_cakeml:
@@ -1240,20 +1253,15 @@ Quote add_cakeml:
   fun check_rup_loop_arr lno b nc fml assg all_changes ls =
   case ls of
     [] =>
-      raise Fail (format_failure lno ("invalid RUP step (missing hints)"))
+      raise Fail (format_failure lno ("contradiction not derived at end of hints"))
   | (n::ns) =>
     let val c = get_rup_constraint_arr lno b fml n nc in
-      if List.null ns then
-        if snd c <= 0 then
-            raise Fail (format_failure lno ("contradiction not derived at end of hints"))
-        else
-        case rup_pass1_arr assg (fst c) 0 [] 0 of (max,ls1,m) =>
-          if max < nabs (snd c) then (assg,all_changes)
-          else
-            raise Fail (format_failure lno ("contradiction not derived at end of hints"))
+      case update_assg_arr assg c of (done,new_changes,assg) =>
+      if done
+      then
+        (assg,all_changes)
       else
-      case update_assg_arr assg c of (new_changes,assg) =>
-      check_rup_loop_arr lno b nc fml assg (new_changes @ all_changes) ns
+        check_rup_loop_arr lno b nc fml assg (new_changes @ all_changes) ns
     end
 End
 
@@ -1304,43 +1312,20 @@ Proof
     rw[]>>gvs[]>>
     metis_tac[W8ARRAY_refl])>>
   gvs[AllCasePreds()]>>
-  xlet_autop>>
-  xif>>gvs[]
-  >- (
-    rpt xlet_autop>>
-    xif>>gvs[]
-    >- (
-      rpt xlet_autop>>
-      xraise>>xsimpl>>
-      simp[Fail_exn_def]>>
-      metis_tac[W8ARRAY_refl])
-    >- (
-      rpt(pairarg_tac>>gvs[])>>
-      rpt xlet_autop>>
-      gvs[]>>
-      xlet_auto
-      >-
-        (xsimpl>> EVAL_TAC)>>
-      xmatch>>
-      rpt xlet_autop>>
-      gvs[nabs_def]>>
-      xif
-      >-
-        (xcon>>xsimpl)>>
-      rpt xlet_autop>>
-      xraise>>xsimpl>>
-      simp[Fail_exn_def]>>
-      metis_tac[W8ARRAY_refl]))>>
-  (* ¬NULL ns *)
-  gvs[NULL_EQ_NIL]>>
   rpt(pairarg_tac>>gvs[])>>
   xlet_auto
   >- (
     xsimpl>>
-    gvs[AllCaseEqs()])>>
+    gvs[AllCaseEqs()]
+  )>>
   xmatch>>
+  xif
+  >- (
+    xcon>>xsimpl>>
+    gvs[])>>
   xlet_autop>>
   xapp>>xsimpl>>
+  gvs[]>>
   goal_assum drule>>
   xsimpl
 QED
