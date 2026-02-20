@@ -3,7 +3,7 @@
 *)
 Theory to_sexpProg
 Ancestors
-  ast fromSexp simpleSexpParse
+  ast fromSexp
 Libs
   preamble basis
 
@@ -17,11 +17,6 @@ val r = translate numposrepTheory.n2l_def;
 val r = translate ASCIInumbersTheory.n2s_def;
 val r = translate ASCIInumbersTheory.HEX_def;
 val r = translate ASCIInumbersTheory.num_to_dec_string_def;
-val r = translate simpleSexpParseTheory.print_space_separated_def;
-val r = translate simpleSexpParseTheory.strip_dot_def;
-val r = translate simpleSexpParseTheory.escape_string_def;
-val r = translate listTheory.EL;
-val r = translate simpleSexpParseTheory.print_sexp_def;
 val r = translate fromSexpTheory.listsexp_def;
 val r = translate fromSexpTheory.locnsexp_def;
 val r = translate fromSexpTheory.locssexp_def;
