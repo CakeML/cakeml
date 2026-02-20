@@ -792,15 +792,25 @@ Proof
     \\ fs [wordSemTheory.get_var_def]
     \\ strip_tac \\ imp_res_tac memory_rel_Number_IMP
     \\ fs [Smallnum_def] \\ fs [small_int_def] \\ fs [X_LT_DIV] \\ NO_TAC)
-  \\ rveq \\ fs [word_exp_SmallLsr]
-  \\ IF_CASES_TAC
-  THEN1 (fs [shift_def,state_rel_def,
-             EVAL ``good_dimindex (:'a)``] \\ rfs []) \\ fs []
-  \\ pop_assum kall_tac
+  \\ rveq
+  \\ `dimindex (:'a) - 63 < dimindex (:'a)` by
+       (assume_tac DIMINDEX_GT_0 \\ decide_tac)
+  \\ fs [word_exp_SmallLsr]
+  \\ `2 < dimword (:'a)` by
+       (assume_tac dimindex_lt_dimword \\
+        fs [good_dimindex_def] \\ decide_tac)
+  \\ `shift (:'a) < dimword (:'a)` by
+       (assume_tac dimindex_lt_dimword \\
+        rw [shift_def] \\ fs [good_dimindex_def] \\ decide_tac)
+  \\ `shift_length c − shift (:'a) < dimword (:'a)` by
+       (assume_tac dimindex_lt_dimword \\
+        `shift_length c < dimindex (:'a)` suffices_by decide_tac \\
+        fs [state_rel_def])
+  \\ `dimindex (:'a) − shift (:'a) − c.len_size < dimword (:'a)` by
+       (assume_tac dimindex_lt_dimword \\ decide_tac)
   \\ fs [word_exp_rw]
   \\ IF_CASES_TAC
-  THEN1 (fs [shift_def,state_rel_def,
-             EVAL ``good_dimindex (:'a)``] \\ rfs []) \\ fs []
+  THEN1 (fs [good_dimindex_def] \\ NO_TAC) \\ fs []
   \\ pop_assum kall_tac
   \\ `n2w (4 * i) ⋙ 2 = (n2w i):'a word` by
    (rewrite_tac [GSYM w2n_11,w2n_lsr]
@@ -1336,7 +1346,10 @@ Theorem evaluate_Maxout_bits_code:
     evaluate (Maxout_bits_code rep_len k dest n_reg,set_var dest (Word w) t) =
       (NONE,set_var dest (Word (w || maxout_bits n rep_len k)) t)
 Proof
-  fs [Maxout_bits_code_def,wordSemTheory.evaluate_def,wordSemTheory.get_var_def,
+  strip_tac
+  \\ `k < dimword (:'a)` by
+       (assume_tac dimindex_lt_dimword \\ decide_tac)
+  \\ fs [Maxout_bits_code_def,wordSemTheory.evaluate_def,wordSemTheory.get_var_def,
       wordSemTheory.set_var_def,wordSemTheory.get_var_imm_def,
       asmTheory.word_cmp_def,lookup_insert,WORD_LO,word_exp_rw,
       maxout_bits_def] \\ rw [] \\ fs [insert_shadow]
@@ -1356,8 +1369,11 @@ Theorem Make_ptr_bits_thm:
       evaluate (Make_ptr_bits_code c tag_reg len_reg dest,t) =
         (NONE,set_var dest (make_cons_ptr c (f-d) tag1 len1:'a word_loc) t)
 Proof
-  fs [Make_ptr_bits_code_def,list_Seq_def,wordSemTheory.evaluate_def,word_exp_rw]
-  \\ fs [make_cons_ptr_thm] \\ strip_tac
+  strip_tac
+  \\ `shift_length c − shift (:'a) < dimword (:'a)` by
+       (assume_tac dimindex_lt_dimword \\ decide_tac)
+  \\ fs [Make_ptr_bits_code_def,list_Seq_def,wordSemTheory.evaluate_def,word_exp_rw]
+  \\ fs [make_cons_ptr_thm]
   \\ pairarg_tac \\ fs []
   \\ pop_assum mp_tac
   \\ assume_tac (GEN_ALL evaluate_Maxout_bits_code)
@@ -1423,6 +1439,8 @@ Proof
     simp[good_dimindex_def] \\ EVAL_TAC \\ simp[WORD_w2w_EXTRACT]
     \\ srw_tac[wordsLib.WORD_BIT_EQ_ss][] )
   \\ strip_tac
+  \\ `shift_length c − shift (:'a) < dimword (:'a)` by
+       (assume_tac dimindex_lt_dimword \\ decide_tac)
   \\ eval_tac
   \\ fs[wordSemTheory.get_var_def,
         wordSemTheory.mem_store_def,
@@ -1483,6 +1501,8 @@ Proof
     \\ simp[good_dimindex_def] \\ EVAL_TAC \\ simp[WORD_w2w_EXTRACT]
     \\ srw_tac[wordsLib.WORD_BIT_EQ_ss][])
   \\ strip_tac
+  \\ `shift_length c − shift (:'a) < dimword (:'a)` by
+       (assume_tac dimindex_lt_dimword \\ decide_tac)
   \\ eval_tac
   \\ fs[wordSemTheory.get_var_def,
         wordSemTheory.mem_store_def,
@@ -1563,6 +1583,8 @@ Proof
     \\ CONV_TAC(PATH_CONV"lrlr"EVAL)
     \\ simp[dimword_def])
   \\ strip_tac
+  \\ `shift_length c − shift (:'a) < dimword (:'a)` by
+       (assume_tac dimindex_lt_dimword \\ decide_tac)
   \\ eval_tac
   \\ fs[wordSemTheory.get_var_def,
         wordSemTheory.mem_store_def,
@@ -1627,6 +1649,8 @@ Proof
     \\ CONV_TAC(PATH_CONV"lrlr"EVAL)
     \\ simp[dimword_def])
   \\ strip_tac
+  \\ `shift_length c − shift (:'a) < dimword (:'a)` by
+       (assume_tac dimindex_lt_dimword \\ decide_tac)
   \\ eval_tac
   \\ fs[wordSemTheory.get_var_def,
         wordSemTheory.mem_store_def,
@@ -1690,6 +1714,8 @@ Proof
     \\ CONV_TAC(PATH_CONV"lrlr"EVAL)
     \\ simp[dimword_def])
   \\ strip_tac
+  \\ `shift_length c − shift (:'a) < dimword (:'a)` by
+       (assume_tac dimindex_lt_dimword \\ decide_tac)
   \\ eval_tac
   \\ fs[wordSemTheory.get_var_def,
         wordSemTheory.mem_store_def,
@@ -2878,6 +2904,9 @@ Proof
         |> REWRITE_RULE [CONJ_ASSOC]
         |> ONCE_REWRITE_RULE [CONJ_COMM])
   \\ strip_tac \\ rveq
+  \\ `2 < dimword (:'a)` by
+       (assume_tac dimindex_lt_dimword \\
+        fs [good_dimindex_def] \\ decide_tac)
   \\ TOP_CASE_TAC \\ fs [] \\ fs [good_dimindex_def,list_Seq_def] \\ rfs []
   \\ fs [eq_eval,word_sh_def,Smallnum_def]
   \\ TRY(qpat_abbrev_tac `ww = _ >>> 2`
@@ -3558,6 +3587,8 @@ Proof
   \\ ntac 2 $ once_rewrite_tac [list_Seq_def]
   \\ ‘sh_len < dimindex (:α)’ by
     (unabbrev_all_tac \\ gvs [good_dimindex_def,shift_def])
+  \\ `sh_len < dimword (:'a)` by
+    (assume_tac dimindex_lt_dimword \\ decide_tac)
   \\ simp [eq_eval,word_sh_def]
   \\ ‘lookup StringCmpLoop_location t.code = SOME (6, StringCmpLoop_code)’ by
     (fs [state_rel_def,code_rel_def,stubs_def])
@@ -3846,12 +3877,9 @@ Proof
   \\ simp [eq_eval]
   (* load *)
   \\ once_rewrite_tac [list_Seq_def]
+  \\ `dimindex (:'a) - c.len_size < dimindex (:'a)` by
+       (fs [memory_rel_def,heap_in_memory_store_def] \\ decide_tac)
   \\ simp [eq_eval,word_exp_SmallLsr,GSYM decode_length_def]
-  \\ IF_CASES_TAC >-
-   (qsuff_tac ‘F’ >- rewrite_tac []
-    \\ fs [heap_in_memory_store_def,memory_rel_def])
-  \\ simp []
-  \\ ntac 3 $ pop_assum kall_tac
   (* two adds *)
   \\ ntac 2 $ once_rewrite_tac [list_Seq_def]
   \\ simp [eq_eval,get_names_def]
