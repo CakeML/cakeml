@@ -14737,11 +14737,9 @@ Theorem parts_to_words_NONE[local]:
     limits_inv s.limits (FLOOKUP t.store HeapLength) t.stack_limit
                c.len_size c.has_fp_ops c.has_fp_tern ⇒
     EXISTS ($¬ ∘ lim_safe_part s.limits) parts
-Proof
-  cheat
-QED
-
-(* OLD parts_to_words_NONE proof:
+Proof[exclude_simps = EXP_LE_LOG_SIMP EXP_LT_LOG_SIMP LE_EXP_LOG_SIMP
+                      LT_EXP_LOG_SIMP LOG_NUMERAL EXP_LT_1
+                      ONE_LE_EXP TWO_LE_EXP]
   Induct
   \\ fs [parts_to_words_def,AllCaseEqs(),PULL_EXISTS]
   \\ rpt gen_tac
@@ -14752,7 +14750,7 @@ QED
   \\ disj1_tac \\ strip_tac
   \\ Cases_on ‘∃n l. h = Con n l’
   THEN1
-   (gvs [part_to_words_def,arch_size_def,CaseEq “bool”]
+   (gvs [part_to_words_def,arch_size_def,CaseEq "bool"]
     \\ Cases_on ‘l’
     \\ gvs [good_dimindex_def,dimword_def,encode_header_def])
   \\ Cases_on ‘∃i. h = Int i’
@@ -14778,15 +14776,14 @@ QED
   \\ gvs [good_dimindex_def,dimword_def,byte_len_def,encode_header_def,
           AllCaseEqs(),NOT_LESS]
   \\ imp_res_tac TWO_POW_LEMMA
-  \\ fs [heap_in_memory_store_def,encode_header_def,AllCaseEqs()] *)
+  \\ fs [heap_in_memory_store_def,encode_header_def,AllCaseEqs()]
+QED
 
 Theorem assign_Build:
    (∃parts. op = BlockOp (Build parts)) ==> ^assign_thm_goal
-Proof
-  cheat
-QED
-
-(* OLD assign_Build proof:
+Proof[exclude_simps = EXP_LE_LOG_SIMP EXP_LT_LOG_SIMP LE_EXP_LOG_SIMP
+                      LT_EXP_LOG_SIMP LOG_NUMERAL EXP_LT_1
+                      ONE_LE_EXP TWO_LE_EXP]
   rpt strip_tac \\ drule0 (evaluate_GiveUp2 |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ rpt_drule0 state_rel_cut_IMP
@@ -14821,6 +14818,8 @@ QED
         FLOOKUP t.store CurrHeap = SOME (Word curr) ∧
         good_dimindex (:'a) ∧ shift_length c < dimindex (:α)’ by
           fs [state_rel_thm,memory_rel_def,heap_in_memory_store_def]
+  \\ ‘(shift_length c − shift (:α)) MOD dimword (:α)
+      = shift_length c − shift (:α)’ by fs [good_dimindex_def, dimword_def]
   \\ once_rewrite_tac [list_Seq_def]
   \\ fs [wordSemTheory.evaluate_def,wordSemTheory.word_exp_def,wordSemTheory.set_var_def,
          wordSemTheory.get_store_def]
@@ -14878,7 +14877,9 @@ QED
   \\ match_mp_tac memory_rel_insert
   \\ fs[inter_insert_ODD_adjust_set_alt,inter_delete_ODD_adjust_set_alt]
   \\ irule memory_rel_less_space
-  \\ qexists_tac ‘x.space − LENGTH y2’ \\ fs [] *)
+  \\ qexists_tac ‘x.space − LENGTH y2’ \\ fs []
+QED
+
 
 fun foldr1 f (x::xs) = foldr f x xs | foldr1 f [] = fail();
 
