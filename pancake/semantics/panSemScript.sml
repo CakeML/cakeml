@@ -9,7 +9,7 @@ Ancestors
   ffi[qualified]
   lprefix_lub[qualified]
 Libs
-  preamble
+  preamble blastLib
 
 
 (* TODO: rename or remove *)
@@ -71,7 +71,20 @@ Definition mem_load_byte_def:
 End
 
 Definition mem_load_32_def:
-  (* returns 32 word, first or second half of w if a = 64 *)
+  mem_load_32 m dm be (w:'a word) =
+  if aligned 2 w
+  then
+    case m (byte_align w) of
+    | Word v =>
+        if byte_align w IN dm
+        then SOME (word_of_bytes be (0w:word32)
+          [get_byte w v be; get_byte (w + 1w) v be;
+           get_byte (w + 2w) v be; get_byte (w + 3w) v be])
+        else NONE
+  else NONE
+End
+
+Theorem mem_load_32_alt:
   mem_load_32 m dm be (w:'a word) =
   if aligned 2 w
   then
@@ -92,7 +105,13 @@ Definition mem_load_32_def:
           in SOME (v': word32)
         else NONE
   else NONE
-End
+Proof
+  rw[mem_load_32_def] >>
+  every_case_tac >> rw[] >>
+  simp[word_of_bytes_def] >>
+  EVAL_TAC >>
+  BBLAST_TAC
+QED
 
 Definition mem_load_def:
   (mem_load sh addr dm (m: 'a word -> 'a word_lab) =
@@ -221,7 +240,23 @@ End
 *)
 
 Definition mem_store_32_def:
-  (* takes a 32 word *)
+  mem_store_32 m dm be (w:'a word) (hw:word32) =
+  if aligned 2 w
+  then
+    case m (byte_align w) of
+    | Word v =>
+        if byte_align w IN dm
+        then
+          let v0 = set_byte w (get_byte (0w:word32) hw be) v be in
+          let v1 = set_byte (w + 1w) (get_byte 1w hw be) v0 be in
+          let v2 = set_byte (w + 2w) (get_byte 2w hw be) v1 be in
+          let v3 = set_byte (w + 3w) (get_byte 3w hw be) v2 be in
+            SOME ((byte_align w =+ Word v3) m)
+        else NONE
+  else NONE
+End
+
+Theorem mem_store_32_alt:
   mem_store_32 m dm be (w:'a word) (hw:word32) =
   if aligned 2 w
   then
@@ -244,7 +279,11 @@ Definition mem_store_32_def:
               SOME ((byte_align w =+ Word v3) m)
         else NONE
   else NONE
-End
+Proof
+  rw[mem_store_32_def] >>
+  every_case_tac >> rw[] >>
+  EVAL_TAC
+QED
 
 Definition mem_store_def:
   mem_store (addr:'a word) (w:'a word_lab) dm m =
