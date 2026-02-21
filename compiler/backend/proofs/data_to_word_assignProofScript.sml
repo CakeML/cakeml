@@ -7026,7 +7026,7 @@ QED
 
 Theorem assign_WordFromInt:
    op = WordOp WordFromInt ==> ^assign_thm_goal
-Proof
+Proof[exclude_simps = INT_OF_NUM NUM_EQ0]
   rpt strip_tac \\ drule0 (evaluate_GiveUp2 |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ asm_rewrite_tac [] \\ pop_assum kall_tac
@@ -7197,10 +7197,9 @@ Proof
           \\ `18446744073709551616 − Num (ABS i) =
               4294967295 * 4294967296 + (4294967296 - Num (ABS i))` by fs[]
           \\ asm_rewrite_tac []
-          \\ cheat
-          (* \\ `4294967296 − Num (ABS i) < 4294967296` by decide_tac *)
-          (* \\ drule0 DIV_MULT *)
-          (* \\ simp_tac std_ss [] *))
+          \\ `4294967296 − Num (ABS i) < 4294967296` by decide_tac
+          \\ drule0 DIV_MULT
+          \\ simp_tac std_ss [])
         \\ strip_tac \\ fs []
         \\ fs [consume_space_def,LENGTH_n2mw_1]
         \\ rveq \\ fs []
