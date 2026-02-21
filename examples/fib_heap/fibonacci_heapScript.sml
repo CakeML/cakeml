@@ -24,7 +24,7 @@ Datatype:
                  mark  : bool |>
 End
 
-val lemma_node_data_component_equality = fetch "-" "node_data_component_equality";
+val node_data_component_equality = fetch "-" "node_data_component_equality";
 
 
 Datatype:
@@ -422,9 +422,9 @@ Proof
   Cases_on `FLOOKUP fh 0w` >> fs[] >>
   fs[Once fts_has_cases] >>
   first_x_assum (qspec_then `v.mark` assume_tac) >> rfs[head_key_def, fill_dnode_def] >>
-  fs[lemma_node_data_component_equality] >>
+  fs[node_data_component_equality] >>
   first_x_assum (qspecl_then [`k`, `v.value`, `v.edges`, `v.flag`, `v.mark`] assume_tac) >>
-  gvs[lemma_node_data_component_equality]
+  gvs[node_data_component_equality]
 QED
 
 Theorem lemma_empty_heap:
@@ -545,9 +545,9 @@ Proof
         gvs[] >>
         first_x_assum (qspec_then `m'` assume_tac) >>
         Cases_on `f`
-        >- fs[Once fts_has_cases,fill_dnode_def,lemma_node_data_component_equality] >>
+        >- fs[Once fts_has_cases,fill_dnode_def,node_data_component_equality] >>
         first_x_assum (qspecl_then [`k'`, `v''`, `e''`, `F`, `m'`] assume_tac) >>
-        fs[Once fts_has_cases, fill_dnode_def,lemma_node_data_component_equality]
+        fs[Once fts_has_cases, fill_dnode_def,node_data_component_equality]
         ) >>
         cheat
       ) >>
@@ -615,7 +615,7 @@ Proof
     qsuff_tac `F` >> simp[] >>
     pop_assum mp_tac >> simp[] >> gvs[]
     SEP_NEQ_TAC >>
-
+(*check NEQ_TAC and other sep._TACs *
 
   SEP_R_TAC >>
   IF_CASES_TAC
@@ -625,10 +625,12 @@ Proof
     simp[APPLY_UPDATE_THM] >>
 
 
+(*
+  Cases on last element of a list!
 
   Cases_on `l` using SNOC_CASES >>
   fs[SNOC_APPEND]
-
+*)
 
 
 
