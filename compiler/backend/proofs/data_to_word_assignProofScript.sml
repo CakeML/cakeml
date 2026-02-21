@@ -7052,7 +7052,6 @@ Proof[exclude_simps = INT_OF_NUM NUM_EQ0]
      fs[encode_header_def,state_rel_def,good_dimindex_def,limits_inv_def,dimword_def,
         memory_rel_def,heap_in_memory_store_def,consume_space_def] >> rfs[NOT_LESS] >>
      rveq >> rfs[])
-
   \\ reverse BasicProvers.TOP_CASE_TAC >- (
     simp[Once wordSemTheory.evaluate_def]
     \\ simp[Once wordSemTheory.evaluate_def,wordSemTheory.get_var_imm_def]
@@ -7151,7 +7150,6 @@ Proof[exclude_simps = INT_OF_NUM NUM_EQ0]
     \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
     \\ `dimindex (:α) = 32` by fs [good_dimindex_def]
     \\ IF_CASES_TAC (* first case is LENGTH = 1 *)
-
     THEN1
      (IF_CASES_TAC THEN1
        (assume_tac (GEN_ALL evaluate_WriteWord64_on_32)
@@ -11493,13 +11491,18 @@ Proof
   \\ fs[wordSemTheory.get_var_def]
   \\ simp[assign_def]
   \\ BasicProvers.CASE_TAC \\ eval_tac
+  (* Helper theorems used to simplify goals *)
   \\ ‘(dimindex (:α) - 10) MOD dimword (:α) = dimindex (:α) - 10’ by
     fs [good_dimindex_def, dimword_def]
-  \\ ‘(dimindex (:α) − 10 + MIN n' 8) MOD dimword (:α) = (dimindex (:α) − 10 + MIN n' 8)’ by
+  \\ ‘∀n. (dimindex (:α) − 10 + MIN n 8) MOD dimword (:α)
+          = (dimindex (:α) − 10 + MIN n 8)’ by
     fs [MIN_DEF, good_dimindex_def, dimword_def]
+  \\ ‘∀n. (MIN n 8 + 2) MOD dimword (:α) = (MIN n 8 + 2)’ by
+    fs [MIN_DEF, good_dimindex_def, dimword_def]
+  \\ ‘(dimindex (:α) − 8) MOD dimword (:α) = dimindex (:α) − 8’ by
+    fs [good_dimindex_def, dimword_def]
   \\ ‘2 MOD dimword (:α) = 2 ∧ 2 < dimindex (:α)’ by
     fs [good_dimindex_def, dimword_def]
-
   \\ fs []
   >- (
     IF_CASES_TAC
@@ -11569,7 +11572,6 @@ Proof
     \\ simp[]
     \\ drule0 memory_rel_tl
     \\ simp_tac std_ss [GSYM APPEND_ASSOC])
-
   >- (
     IF_CASES_TAC
     >- (fs[good_dimindex_def,MIN_DEF] \\ rfs[])
@@ -11632,8 +11634,6 @@ Proof
     IF_CASES_TAC
     >- (fs[good_dimindex_def,MIN_DEF] \\ rfs[])
     \\ simp[lookup_insert]
-    \\ IF_CASES_TAC
-    >- (fs[good_dimindex_def,MIN_DEF] \\ rfs[])
     \\ simp[lookup_insert,option_le_max_right]
     \\ conj_tac >- rw[]
     \\ ntac 2 (pop_assum kall_tac)
@@ -12839,7 +12839,7 @@ QED
 
 Theorem assign_UpdateByte:
    op = MemOp UpdateByte ==> ^assign_thm_goal
-Proof
+Proof[exclude_simps = INT_OF_NUM NUM_EQ0]
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ rpt_drule0 state_rel_cut_IMP
@@ -12879,6 +12879,8 @@ Proof
   \\ qpat_x_assum`get_var (adjust_var e2) _ = _`assume_tac
   \\ rpt_drule0 get_real_byte_offset_lemma
   \\ simp[assign_def,list_Seq_def] \\ eval_tac
+  \\ ‘2 MOD dimword (:α) = 2’ by
+    fs [good_dimindex_def, dimword_def]
   \\ fs[wordSemTheory.get_var_def]
   \\ simp[lookup_insert,wordSemTheory.inst_def]
   \\ `2 < dimindex(:'a)` by fs[good_dimindex_def]
@@ -13376,7 +13378,7 @@ Theorem word_exp_real_addr_some_value:
 Proof
   rw [real_addr_def] \\ fs [eq_eval] \\ eval_tac
   \\ IF_CASES_TAC \\ fs [NOT_LESS] \\ fs [GSYM NOT_LESS]
-  \\ fs [good_dimindex_def] \\ rfs [shift_def]
+  \\ fs [good_dimindex_def, dimword_def] \\ rfs [shift_def]
 QED
 
 Theorem store_list_APPEND:
