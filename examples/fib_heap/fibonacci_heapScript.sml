@@ -20,7 +20,6 @@ Type fts = “:('k,'v) ft list”;
 Datatype:
   node_data = <| value : 'a word ;
                  edges : ('a word # ('a word # num) list);
-                 flag  : bool ;
                  mark  : bool |>
 End
 
@@ -62,10 +61,9 @@ Definition last_key_def:
 End
 
 Definition fill_dnode_def:
-  fill_dnode v e f m =
+  fill_dnode v e m =
     <|  value := v;
         edges := e;
-        flag  := f;
         mark  := m |>
 End
 
@@ -137,7 +135,7 @@ Definition ft_seg_def:
   ft_seg ((FibTree k n _): ('a word, 'a annotated_node) ft) =
     ones k [n.data.value;
             FST n.data.edges;
-            b2w n.data.flag;
+            b2w T;
             b2w n.data.mark;
             n.before_ptr;
             n.next_ptr;
@@ -156,7 +154,7 @@ End
 (*Do not assume pointers! Dont use fts_mem! *)
 Definition empty_node_def:
   empty_node k v =
-    fts_mem [ann_ft $ FibTree k (fill_dnode (FST v) (SND v) F F) []]
+    fts_mem [ann_ft $ FibTree k (fill_dnode (FST v) (SND v) F) []]
 End
 
 (*-------------------------------------------------------------------*
@@ -166,13 +164,13 @@ End
 Definition test_build_fts_def:
   (test_build_fts _   (0:num)  edges = []) /\
   (test_build_fts mem (SUC amount) edges =
-    (FibTree mem (fill_dnode (mem + 1w) (HD edges) F F)[]
+    (FibTree mem (fill_dnode (mem + 1w) (HD edges) F)[]
     :: test_build_fts (mem + 100w * bytes_in_word) (amount) (TL edges)))
 End
 
 Definition test_build_ft_def:
   test_build_ft mem children edges =
-    (FibTree mem (fill_dnode (mem + 1w) (HD edges) F T)
+    (FibTree mem (fill_dnode (mem + 1w) (HD edges) T)
         (test_build_fts (mem + 10w * bytes_in_word) children (TL edges)))
 End
 
@@ -191,11 +189,11 @@ End
 
 val test_fts_mem = “fts_mem (ann_fts [
     FibTree 10w (
-    fill_dnode 11w (1000w, [(50w,10)]) T F) [];
+    fill_dnode 11w (1000w, [(50w,10)]) F) [];
     FibTree 50w (
-    fill_dnode 51w (2000w, [(10w,50)]) T F) [
+    fill_dnode 51w (2000w, [(10w,50)]) F) [
         FibTree 100w
-        (fill_dnode 101w (3000w, []) T F) []
+        (fill_dnode 101w (3000w, []) F) []
     ]
     ])”
     |> SCONV [fts_mem_def,STAR_ASSOC,ann_fts_def,ann_fts_seg_def,next_key_def,head_key_def,last_key_def,REVERSE_DEF,ft_seg_def,ones_def,edges_ones_def,LENGTH,b2w_def,fill_anode_def,fill_dnode_def];
@@ -303,14 +301,13 @@ Definition fib_heap_inv_def:
   fib_heap_inv fh (fts: ('a word, 'a node_data) fts) ⇔
     (!k v. FLOOKUP fh k = SOME v ==> k <> 0w) /\
     (∀k v e. FLOOKUP fh k = SOME (v,e) ⇔
-      ? m. fts_has k (fill_dnode v e T m) fts) /\
+      ? m. fts_has k (fill_dnode v e m) fts) /\
     (!k v e.
       (FLOOKUP fh k = SOME (v,e)) /\ k = head_key fts ==>
       fts_is_min v fts) /\
     (!k n1 n2.
       fts_has k n1 fts /\ fts_has k n2 fts ==>
       n1 = n2) /\
-    (!k v e f m. fts_has k (fill_dnode v e f m) fts ==> f) /\
     (fib_heap_shape_ok fts)
 (*Everything else should be valid by annotation, construction of the heap,
   or is an individual assertion for a heap operation.
@@ -374,8 +371,6 @@ Definition fib_heap_insert_def:
     (* load value at k *)
     let c = (k ∈ dm) in
     let v_of_k = m k in
-    let c = (k + flag_off IN dm /\ c) in
-    let m = ((k + flag_off) =+ b2w T) m in
     if a = 0w then
         fib_heap_empty_append (k, m, dm, c)
     else
@@ -393,23 +388,6 @@ End
 
 *)
 
-Theorem fts_has_unwind_once:
-  !fts k v e f. ?m. fts_has k (fill_dnode v e f m) fts ==>
-    ?m. (? rest ts.
-      fts = FibTree k (fill_dnode v e f m) ts::rest) \/
-    (? k1 rest ts v1.
-      fts = FibTree k1 v1 ts::rest /\
-      fts_has k (fill_dnode v e f m) rest \/
-     ? k1 rest ts v1.
-      fts = FibTree k1 v1 ts::rest /\
-      fts_has k (fill_dnode v e f m) ts)
-Proof
-  rpt strip_tac >>
-  qexists `m`>>
-  strip_tac >>
-  pop_assum mp_tac >>
-QED
-
 
 Theorem lemma_empty_list:
   !fh fts. (fib_heap_inv fh fts /\ head_key fts = 0w) ==> fts = []
@@ -422,9 +400,7 @@ Proof
   Cases_on `FLOOKUP fh 0w` >> fs[] >>
   fs[Once fts_has_cases] >>
   first_x_assum (qspec_then `v.mark` assume_tac) >> rfs[head_key_def, fill_dnode_def] >>
-  fs[node_data_component_equality] >>
-  first_x_assum (qspecl_then [`k`, `v.value`, `v.edges`, `v.flag`, `v.mark`] assume_tac) >>
-  gvs[node_data_component_equality]
+  fs[node_data_component_equality]
 QED
 
 Theorem lemma_empty_heap:
@@ -450,7 +426,7 @@ Theorem fib_heap_empty_append_inv:
   !a' v e.
     a' <> 0w ==>
     fib_heap_inv (FEMPTY |+ (a',v, e))
-        [FibTree a' (fill_dnode v e T F) []]
+        [FibTree a' (fill_dnode v e F) []]
 Proof
   rw[fib_heap_inv_def]
   >- fs[FLOOKUP_DEF]
@@ -469,13 +445,6 @@ Proof
     fs[head_key_def, FLOOKUP_DEF, fill_dnode_def]
     )
   >- (rpt strip_tac >> fs[Once fts_has_cases] >> fs[Once fts_has_cases])
-  >- (
-    rpt strip_tac >>
-    fs[Once fts_has_cases] >>
-    Cases_on `f` >> rw[] >>
-    fs[fill_dnode_def] >>
-    fs[Once fts_has_cases]
-    )
   >> fs[fib_heap_shape_ok_def] >>
   simp[Ntimes fib_num_def 3] >>
   simp[Once fib_num_def]
@@ -485,7 +454,7 @@ QED
 Theorem fib_heap_insert_inv:
   !k v e fh fts.
     k <> 0w /\ FLOOKUP fh k = NONE /\ fib_heap_inv fh fts ==>
-    fib_heap_inv (fh |+ (k,v,e)) (FibTree k (fill_dnode v e T F) []::fts)
+    fib_heap_inv (fh |+ (k,v,e)) (FibTree k (fill_dnode v e F) []::fts)
 Proof
   fs[fib_heap_inv_def] >>
   rpt strip_tac
@@ -509,7 +478,7 @@ Proof
       fs[Once fts_has_cases]
       >- fs[fill_dnode_def, FLOOKUP_SIMP]
       >- (
-        qpat_assum `fts_has k' (fill_dnode v' e' T m) fts` mp_tac >>
+        qpat_assum `fts_has k' (fill_dnode v' e' m) fts` mp_tac >>
         pure_rewrite_tac[Once fts_has_cases] >>
         disch_tac >>
         rfs[] >>
@@ -519,8 +488,8 @@ Proof
       >> fs[Once fts_has_cases]
       )
     >- (
-      qpat_assum `fts_has k' (fill_dnode v' e' T m)
-                    (FibTree k (fill_dnode v e T F) []::fts)` mp_tac >>
+      qpat_assum `fts_has k' (fill_dnode v' e' m)
+                    (FibTree k (fill_dnode v e F) []::fts)` mp_tac >>
       pure_rewrite_tac[Once fts_has_cases] >>
       rfs[] >>
       simp[DISJ_SYM] >>
@@ -540,20 +509,17 @@ Proof
         Cases_on `h` >>
         fs[head_key_def] >>
         Cases_on `v''` >>
-        rename1 `(node_data v'' e'' f m')` >>
+        rename1 `(node_data v'' e'' m')` >>
         last_x_assum (qspecl_then [`k'`, `v''`, `e''`] assume_tac) >>
         gvs[] >>
         first_x_assum (qspec_then `m'` assume_tac) >>
-        Cases_on `f`
-        >- fs[Once fts_has_cases,fill_dnode_def,node_data_component_equality] >>
-        first_x_assum (qspecl_then [`k'`, `v''`, `e''`, `F`, `m'`] assume_tac) >>
-        fs[Once fts_has_cases, fill_dnode_def,node_data_component_equality]
+        cheat
         ) >>
         cheat
-      ) >>
-      cheat
-    )>>
-  cheat
+      )
+    )
+  >- cheat
+  >> cheat
 QED
 
 
@@ -585,7 +551,7 @@ Proof
     SEP_W_TAC >>
     PairCases_on `v` >>
     rename1 `(a',v,e)` >>
-    qexists `[FibTree a' (fill_dnode v e T F) []]` >>
+    qexists `[FibTree a' (fill_dnode v e F) []]` >>
     fs[ann_fts_def, ann_fts_seg_def, last_key_def,fts_mem_def,
        SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
        fill_dnode_def, next_key_def, ones_def, STAR_ASSOC] >>
