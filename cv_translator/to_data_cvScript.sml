@@ -329,7 +329,7 @@ Definition naive_pattern_match_clocked_def:
   /\
   naive_pattern_match_clocked (SUC ck) t ((Pvar _, _) :: mats) = naive_pattern_match_clocked ck t mats /\
   naive_pattern_match_clocked (SUC ck) t ((Plit l, v) :: mats) = SmartIf t
-    (App t Equality [v; Lit t l]) (naive_pattern_match_clocked ck t mats) (Bool t F) /\
+    (App t (Src Equality) [v; Lit t l]) (naive_pattern_match_clocked ck t mats) (Bool t F) /\
   naive_pattern_match_clocked (SUC ck) t ((Pcon NONE ps, v) :: mats) =
     naive_pattern_match_clocked ck t (MAPi (\i p. (p, App t (El i) [v])) ps ++ mats) /\
   naive_pattern_match_clocked (SUC ck) t ((Pas p i, v) :: mats) =
@@ -731,7 +731,7 @@ Definition is_hidden_alt_def:
     (is_hidden_alt (Con t id_option es) = is_hidden_alts es) ∧
     (is_hidden_alt (Var_local t str) = T) ∧
     (is_hidden_alt (Fun t name body) = T) ∧
-    (is_hidden_alt (App t Opapp l) = F) ∧
+    (is_hidden_alt (App t (Src Opapp) l) = F) ∧
     (is_hidden_alt (App t (GlobalVarInit g) [e]) = is_hidden_alt e) ∧
     (is_hidden_alt (App t (GlobalVarLookup g) [e]) = F) ∧
     (is_hidden_alt (If t e1 e2 e3) = (is_hidden_alt e1 ∧ is_hidden_alt e2 ∧ is_hidden_alt e3)) ∧

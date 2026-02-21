@@ -401,7 +401,7 @@ Theorem mem_load_32_const_memory[simp]:
   fun2set (m,dm) = fun2set (m',dm) ⇒
   wordSem$mem_load_32 m dm be ad = mem_load_32 m' dm be ad
 Proof
-  strip_tac>>gs[wordSemTheory.mem_load_32_def]>>
+  strip_tac>>gs[wordSemTheory.mem_load_32_alt]>>
   rpt (TOP_CASE_TAC>>gs[set_sepTheory.fun2set_eq])>>
   last_x_assum $ qspec_then ‘byte_align ad’ assume_tac>>gvs[]
 QED
@@ -412,7 +412,7 @@ Theorem mem_store_32_const_memory:
   (fun2set (THE (mem_store_32 m dm be ad hw), dm) =
     fun2set (THE (wordSem$mem_store_32 m' dm be ad hw), dm))
 Proof
-  strip_tac>>gs[wordSemTheory.mem_store_32_def]>>
+  strip_tac>>gs[wordSemTheory.mem_store_32_alt]>>
   rpt (TOP_CASE_TAC>>gs[set_sepTheory.fun2set_eq])>>
   rpt strip_tac>>
   simp[APPLY_UPDATE_THM]
