@@ -1070,7 +1070,7 @@ Proof
         metis_tac[strong_locals_rel_subset])>>
       full_simp_tac(srw_ss())[word_state_eq_rel_def,LET_THM,set_var_def]>>
       Cases_on`x`>>simp[]>>
-      fs[mem_load_32_def]>>
+      fs[mem_load_32_alt]>>
       Cases_on`st.memory (byte_align c')`>>fs[]>>
       ntac 2 (IF_CASES_TAC>>fs[]) >> gvs[] >>
       fs[domain_union,get_writes_def,get_writes_inst_def]>>
@@ -6065,7 +6065,7 @@ Proof
       qpat_abbrev_tac`expr=((Op Add [Var n';A]))`>>
       setup_tac>>
       Cases_on`x`>>
-      full_simp_tac(srw_ss())[mem_load_32_def]>>
+      full_simp_tac(srw_ss())[mem_load_32_alt]>>
       Cases_on`st.memory (byte_align c')`>>fs[]>>
       ntac 2 (IF_CASES_TAC>>fs[])>> gvs[] >>
       match_mp_tac ssa_locals_rel_set_var>>
