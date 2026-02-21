@@ -4685,6 +4685,10 @@ Proof
            wordSemTheory.get_store_def]
   \\ simp [Once list_Seq_def,eq_eval,wordSemTheory.set_store_def,FLOOKUP_UPDATE,
            wordSemTheory.get_store_def]
+  \\ `shift_length c - shift (:'a) < dimword (:'a)` by
+       (assume_tac dimindex_lt_dimword \\
+        `shift_length c < dimindex (:'a)` suffices_by decide_tac \\
+        fs [state_rel_thm,memory_rel_def,heap_in_memory_store_def])
   \\ simp [Once list_Seq_def,eq_eval,wordSemTheory.set_store_def,FLOOKUP_UPDATE,
            wordLangTheory.word_sh_def,wordSemTheory.get_store_def]
   \\ IF_CASES_TAC THEN1
@@ -5154,6 +5158,10 @@ Proof
   \\ simp [Once list_Seq_def,eq_eval,wordSemTheory.set_store_def,
            wordSemTheory.get_store_def]
   \\ simp [Once list_Seq_def,eq_eval,wordSemTheory.set_store_def,FLOOKUP_UPDATE]
+  \\ `shift_length c - shift (:'a) < dimword (:'a)` by
+       (assume_tac dimindex_lt_dimword \\
+        `shift_length c < dimindex (:'a)` suffices_by decide_tac \\
+        fs [state_rel_thm,memory_rel_def,heap_in_memory_store_def])
   \\ simp [Once list_Seq_def,eq_eval,wordSemTheory.set_store_def,FLOOKUP_UPDATE,
            wordLangTheory.word_sh_def,
            wordSemTheory.get_store_def]
@@ -5389,6 +5397,10 @@ Proof
   \\ `new ∉ domain x.refs` by metis_tac [LEAST_NOTIN_spt_DOMAIN]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ rpt_drule0 memory_rel_AllocThunk \\ strip_tac
+  \\ `shift_length c - shift (:'a) < dimword (:'a)` by
+       (assume_tac dimindex_lt_dimword \\
+        `shift_length c < dimindex (:'a)` suffices_by decide_tac \\
+        fs [state_rel_thm,memory_rel_def,heap_in_memory_store_def])
   \\ fs [list_Seq_def] \\ eval_tac
   \\ fs [wordSemTheory.set_store_def,FLOOKUP_UPDATE]
   \\ qpat_abbrev_tac `t5 = t with <| locals := _ ; store := _ |>`
@@ -5608,6 +5620,15 @@ Proof
   \\ clean_tac
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs[LENGTH_EQ_NUM_compute] \\ clean_tac
+  \\ `good_dimindex (:'a)` by fs [state_rel_thm]
+  \\ `shift_length c < dimindex (:'a)` by
+       fs [state_rel_thm,memory_rel_def,heap_in_memory_store_def]
+  \\ `shift_length c - shift (:'a) < dimword (:'a) /\
+      shift_length c < dimword (:'a) /\
+      shift (:'a) < dimword (:'a) /\
+      61 < dimword (:'a) /\ 29 < dimword (:'a) /\ 2 < dimword (:'a)` by
+       (assume_tac dimindex_lt_dimword
+        \\ fs [shift_def,good_dimindex_def,dimword_def] \\ decide_tac)
   \\ fs[state_rel_thm] \\ eval_tac
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ rpt_drule0 (memory_rel_get_vars_IMP |> GEN_ALL)
@@ -6089,6 +6110,10 @@ Proof
   \\ `?f cur. FLOOKUP s1'.store NextFree = SOME (Word f) /\
               FLOOKUP s1'.store CurrHeap = SOME (Word cur)` by
         (fs [state_rel_def,heap_in_memory_store_def] \\ NO_TAC)
+  \\ `4 < dimword (:'a) /\ 2 < dimword (:'a) /\
+      dimindex (:'a) - (c.len_size + 2) < dimword (:'a)` by
+       (assume_tac dimindex_lt_dimword
+        \\ fs [state_rel_def,good_dimindex_def,dimword_def] \\ decide_tac)
   \\ ntac 5 (once_rewrite_tac [list_Seq_def])
   \\ fs [wordSemTheory.evaluate_def,word_exp_rw,lookup_insert,
          wordSemTheory.set_var_def]
@@ -9191,6 +9216,12 @@ Proof
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs [LENGTH_EQ_2] \\ clean_tac
   \\ fs [get_var_def]
+  \\ `shift_length c - shift (:'a) < dimword (:'a) /\
+      dimindex (:'a) - c.len_size < dimword (:'a) /\
+      2 < dimword (:'a)` by
+       (assume_tac dimindex_lt_dimword
+        \\ `shift_length c < dimindex (:'a)` suffices_by decide_tac
+        \\ fs [state_rel_thm,memory_rel_def,heap_in_memory_store_def])
   \\ simp [state_rel_thm] \\ eval_tac
   \\ fs [state_rel_thm,option_le_max_right] \\ eval_tac
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
@@ -9276,6 +9307,12 @@ Proof
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs [LENGTH_EQ_2] \\ clean_tac
   \\ fs [get_var_def]
+  \\ `shift_length c - shift (:'a) < dimword (:'a) /\
+      dimindex (:'a) - c.len_size < dimword (:'a) /\
+      2 < dimword (:'a)` by
+       (assume_tac dimindex_lt_dimword
+        \\ `shift_length c < dimindex (:'a)` suffices_by decide_tac
+        \\ fs [state_rel_thm,memory_rel_def,heap_in_memory_store_def])
   \\ simp [state_rel_thm] \\ eval_tac
   \\ fs [state_rel_thm,option_le_max_right] \\ eval_tac
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
@@ -9351,6 +9388,12 @@ Proof
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs [LENGTH_EQ_2] \\ clean_tac
   \\ fs [get_var_def]
+  \\ `shift_length c - shift (:'a) < dimword (:'a) /\
+      dimindex (:'a) - c.len_size < dimword (:'a) /\
+      2 < dimword (:'a)` by
+       (assume_tac dimindex_lt_dimword
+        \\ `shift_length c < dimindex (:'a)` suffices_by decide_tac
+        \\ fs [state_rel_thm,memory_rel_def,heap_in_memory_store_def])
   \\ simp [state_rel_thm] \\ eval_tac
   \\ fs [state_rel_thm,option_le_max_right] \\ eval_tac
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
