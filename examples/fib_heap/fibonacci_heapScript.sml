@@ -265,13 +265,15 @@ Inductive fts_has:
 End
 
 Definition fts_min_def:
-  fts_min_value fts = head_key fts
+  (fts_min ([] : ('a word, 'a node_data) fts) = i2w (UINT_MAX (:'a))) /\
+  (fts_min (FibTree k v _::_) = v.value)
 End
+
 
 Definition fts_is_min_def:
   (fts_is_min _ [] = T) /\
   (fts_is_min v (FibTree _ n ts::rest) =
-    ((v <= n.value) /\ (fts_is_min v ts) /\ (fts_is_min v rest)))
+    ((v <=+ n.value) /\ (fts_is_min v ts) /\ (fts_is_min v rest)))
 End
 
 Definition fib_heap_size_def:
@@ -451,9 +453,13 @@ Proof
 QED
 
 
+(* New smallest elemet *)
 Theorem fib_heap_insert_inv:
-  !k v e fh fts.
-    k <> 0w /\ FLOOKUP fh k = NONE /\ fib_heap_inv fh fts ==>
+  !fh fts k k' v e.
+    k <> 0w /\
+    FLOOKUP fh k = NONE /\
+    fib_heap_inv fh fts /\
+    (v <=+ fts_min fts) ==>
     fib_heap_inv (fh |+ (k,v,e)) (FibTree k (fill_dnode v e F) []::fts)
 Proof
   fs[fib_heap_inv_def] >>
@@ -502,22 +508,22 @@ Proof
     fs[head_key_def, FLOOKUP_SIMP, fts_is_min_def] >>
     simp[fill_dnode_def] >>
     Cases_on `fts`
-    >- fs[fts_is_min_def]
-    >- (
-      Cases_on `FLOOKUP fh (head_key(h::t))`
-      >- (
-        Cases_on `h` >>
-        fs[head_key_def] >>
-        Cases_on `v''` >>
-        rename1 `(node_data v'' e'' m')` >>
-        last_x_assum (qspecl_then [`k'`, `v''`, `e''`] assume_tac) >>
-        gvs[] >>
-        first_x_assum (qspec_then `m'` assume_tac) >>
-        cheat
-        ) >>
-        cheat
-      )
-    )
+    >- fs[fts_is_min_def] >>
+    Cases_on `h` >>
+    last_x_assum (qspecl_then [`k'`, `v''.value`, `v''.edges`] assume_tac ) >>
+    fs[EQ_IMP_THM]>>
+    fs[PULL_EXISTS] >>
+    first_assum (qspec_then `v''.mark` assume_tac) >>
+    pop_assum mp_tac >>
+    simp[Once fts_has_cases] >>
+    simp[fill_dnode_def,node_data_component_equality] >>
+    strip_tac >>
+    last_assum (qspecl_then [`v''.value`, `v''.edges`] assume_tac) >>
+    gvs[head_key_def] >>
+    fs[fts_min_def] >>
+    fs[fts_is_min_def]
+    cheat
+  )
   >- cheat
   >> cheat
 QED
@@ -567,10 +573,9 @@ Proof
      fill_dnode_def, next_key_def, ones_def, STAR_ASSOC] >>
   simp[APPLY_UPDATE_THM]>>
     (* Dont write flag to be T in insert function! Assume it has been done (empty node)  *)
-  `k + 2w * bytes_in_word <> k' /\
-   k + 2w * bytes_in_word <> k' + 4w * bytes_in_word /\
-   k + 2w * bytes_in_word <> k' + 5w * bytes_in_word
-   ` by (rpt strip_tac >> SEP_NEQ_TAC) >> simp[] >>
+  `k + 2w * bytes_in_word <> k'` by SEP_NEQ_TAC >> simp[] >>
+   (*k + 2w * bytes_in_word <> k' + 4w * bytes_in_word /\
+   k + 2w * bytes_in_word <> k' + 5w * bytes_in_word`by (rpt strip_tac >> SEP_NEQ_TAC) >> simp[] >> *)
   PairCases_on `v` >> rename [`fh |+ (k,v,e)`] >> gvs[] >>
   IF_CASES_TAC
 
@@ -581,7 +586,7 @@ Proof
     qsuff_tac `F` >> simp[] >>
     pop_assum mp_tac >> simp[] >> gvs[]
     SEP_NEQ_TAC >>
-(*check NEQ_TAC and other sep._TACs *
+(*check NEQ_TAC and other sep._TACs *)
 
   SEP_R_TAC >>
   IF_CASES_TAC
