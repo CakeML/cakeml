@@ -978,7 +978,7 @@ Proof
       fs [set_var_def, wlab_wloc_def] >>
       fs [panSemTheory.mem_load_byte_def, CaseEq "word_lab",
           wordSemTheory.mem_load_byte_aux_def,
-          panSemTheory.mem_load_32_def, wordSemTheory.mem_load_32_def] >>
+          panSemTheory.mem_load_32_alt, wordSemTheory.mem_load_32_alt] >>
       drule mem_rel_intro >> strip_tac >>
       last_x_assum (qspec_then ‘byte_align c’ (mp_tac o GSYM)) >>
       strip_tac >> fs [] >>
@@ -1017,7 +1017,7 @@ Proof
       fs [set_var_def, wlab_wloc_def] >>
       fs [panSemTheory.mem_load_byte_def, CaseEq "word_lab",
           wordSemTheory.mem_load_byte_aux_def,
-          panSemTheory.mem_load_32_def, wordSemTheory.mem_load_32_def] >>
+          panSemTheory.mem_load_32_alt, wordSemTheory.mem_load_32_alt] >>
       drule mem_rel_intro >>
       disch_then (qspec_then ‘byte_align c’ (mp_tac o GSYM)) >>
       strip_tac >> fs [] >>
@@ -1811,7 +1811,7 @@ Proof
     imp_res_tac eval_some_var_cexp_local_lookup >>
     res_tac >> fs [] >> rveq >> rfs []) >>
   fs [] >> pop_assum kall_tac >>
-  fs [wordSemTheory.mem_store_32_def, panSemTheory.mem_store_32_def,
+  fs [wordSemTheory.mem_store_32_alt, panSemTheory.mem_store_32_alt,
       AllCaseEqs ()] >>
   rveq >> fs [lookup_insert] >>
   ‘st'.memory (byte_align adr) = Word v’ by (

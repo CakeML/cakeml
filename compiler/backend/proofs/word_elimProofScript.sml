@@ -759,7 +759,7 @@ Proof
   >- (
     (* memory cases *)
     rw[AllCaseEqs()]>>
-    gvs[word_state_rel_def,mem_store_def,domain_find_loc_state,domain_get_memory,set_var_def,mem_store_byte_aux_def,mem_store_32_def,AllCaseEqs()]
+    gvs[word_state_rel_def,mem_store_def,domain_find_loc_state,domain_get_memory,set_var_def,mem_store_byte_aux_def,mem_store_32_alt,AllCaseEqs()]
     >>~-(
       [`domain (get_locals (insert _ _ _))`],
       irule SUBSET_TRANS

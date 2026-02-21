@@ -800,7 +800,7 @@ Proof
     qpat_x_assum`Word _ = _`(assume_tac o SYM) >> fs[]>> rfs[]) >>
   TRY (
     rename1`mem_store32`
-    \\ fs[wordSemTheory.mem_store_32_def]
+    \\ fs[wordSemTheory.mem_store_32_alt]
     \\ every_case_tac \\ fs[]
     \\ fs[mem_store32_def,addr_def]
     \\ fs[word_exp_def,wordLangTheory.word_op_def]
@@ -817,7 +817,7 @@ Proof
     \\ match_mp_tac SWAP_IMP
     \\ disch_then old_drule
     \\ disch_then (assume_tac o SYM)
-    \\ simp[wordSemTheory.mem_store_32_def]
+    \\ simp[wordSemTheory.mem_store_32_alt]
     \\ `s1.memory = t1.mem ∧ t1.mem_domain = s1.mdomain ∧ t1.be = s1.be` by fs[state_rel_def]
     \\ fs[] \\ strip_tac
     \\ TRY (qpat_x_assum`Word _ = read_reg _ _`(assume_tac o SYM)\\ fs[])
@@ -830,7 +830,7 @@ Proof
     \\ rveq \\ simp[]) >>
   TRY (
     qhdtm_x_assum`mem_load_32`mp_tac
-    \\ fs[wordSemTheory.mem_load_32_def,labSemTheory.mem_load32_def,labSemTheory.addr_def]
+    \\ fs[wordSemTheory.mem_load_32_alt,labSemTheory.mem_load32_def,labSemTheory.addr_def]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ fs[word_exp_def,wordLangTheory.word_op_def]
     \\ qpat_x_assum`IS_SOME _`mp_tac
