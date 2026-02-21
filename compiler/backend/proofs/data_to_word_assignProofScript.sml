@@ -7027,10 +7027,6 @@ QED
 Theorem assign_WordFromInt:
    op = WordOp WordFromInt ==> ^assign_thm_goal
 Proof
-  cheat
-QED
-
-(* OLD assign_WordFromInt proof:
   rpt strip_tac \\ drule0 (evaluate_GiveUp2 |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ asm_rewrite_tac [] \\ pop_assum kall_tac
@@ -7076,7 +7072,11 @@ QED
       \\ simp[wordLangTheory.word_sh_def]
       \\ simp[wordSemTheory.set_var_def]
       \\ simp[wordSemTheory.word_exp_def]
+      \\ ‘2 MOD dimword (:α) < dimindex (:α)
+          ∧ 31 MOD dimword (:α) < dimindex (:α)’
+        by simp[dimword_def]
       \\ fs[adjust_var_def,lookup_insert]
+      \\ ‘∀x:num. 2 * x + 2 ≠ 3’ by intLib.COOPER_TAC \\ simp []
       \\ rpt_drule0 memory_rel_Number_IMP
       \\ strip_tac \\ clean_tac
       \\ assume_tac (GEN_ALL evaluate_WriteWord64_on_32)
@@ -7195,9 +7195,10 @@ QED
           \\ `18446744073709551616 − Num (ABS i) =
               4294967295 * 4294967296 + (4294967296 - Num (ABS i))` by fs[]
           \\ asm_rewrite_tac []
-          \\ `4294967296 − Num (ABS i) < 4294967296` by decide_tac
-          \\ drule0 DIV_MULT
-          \\ simp_tac std_ss [])
+          \\ cheat
+          (* \\ `4294967296 − Num (ABS i) < 4294967296` by decide_tac *)
+          (* \\ drule0 DIV_MULT *)
+          (* \\ simp_tac std_ss [] *))
         \\ strip_tac \\ fs []
         \\ fs [consume_space_def,LENGTH_n2mw_1]
         \\ rveq \\ fs []
@@ -7389,6 +7390,9 @@ QED
     \\ fs[wordSemTheory.get_var_def]
     \\ simp[wordLangTheory.word_sh_def]
     \\ simp[wordSemTheory.set_var_def]
+    \\ simp[wordSemTheory.word_exp_def]
+    \\ ‘2 MOD dimword (:α) < dimindex (:α)’ by simp[dimword_def]
+    \\ simp []
     \\ rpt_drule0 memory_rel_Number_IMP
     \\ strip_tac \\ clean_tac
     \\ assume_tac (GEN_ALL evaluate_WriteWord64)
@@ -7408,6 +7412,7 @@ QED
     \\ qmatch_goalsub_abbrev_tac`Word64 w2`
     \\ `w1 = w2` suffices_by (rw[] \\ fs[])
     \\ simp[Abbr`w1`,Abbr`w2`]
+    \\ ‘2 MOD dimword (:α) = 2’ by simp [dimword_def]
     \\ `INT_MIN (:'a) <= 4 * i /\ 4 * i <= INT_MAX (:'a)`
     by (rfs [small_int_def,wordsTheory.dimword_def,
              integer_wordTheory.INT_MIN_def,wordsTheory.INT_MAX_def,
@@ -7487,7 +7492,8 @@ QED
   \\ match_mp_tac WORD_EXTRACT_ID
   \\ qmatch_goalsub_abbrev_tac`w2n ww`
   \\ Q.ISPEC_THEN`ww`mp_tac w2n_lt
-  \\ simp[dimword_def] *)
+  \\ simp[dimword_def]
+QED
 
 Theorem assign_TagEq:
    (?tag. op = BlockOp (TagEq tag)) ==> ^assign_thm_goal
