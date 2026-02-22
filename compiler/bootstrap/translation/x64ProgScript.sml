@@ -213,35 +213,35 @@ val x64_enc1_2 = el 2 x64_enc1s
   |> wc_simp |> we_simp |> gconv
   |> bconv |> SIMP_RULE std_ss [SHIFT_ZERO,Q.ISPEC`Zsize_CASE`
  COND_RAND,COND_RATOR,Zsize_case_def,COND_RAND_pair] |> fconv |> SIMP_RULE
- std_ss[simp_rw] |> csethm 2
+ std_ss[simp_rw] |> csethm 2;
 
 val (binop::shift::rest) = el 3 x64_enc1s |> SIMP_RULE (srw_ss() ++
-DatatypeSimps.expand_type_quants_ss [``:64 arith``]) [] |> CONJUNCTS
+DatatypeSimps.expand_type_quants_ss [``:64 arith``]) [] |> CONJUNCTS;
 
 val (binopreg_aux::binopimm_aux::_) = binop |> SIMP_RULE (srw_ss() ++
 DatatypeSimps.expand_type_quants_ss [``:64 reg_imm``])
 [FORALL_AND_THM] |> CONJUNCTS |> map (SIMP_RULE (srw_ss() ++ LET_ss ++
-DatatypeSimps.expand_type_quants_ss [``:asm$binop``]) [])
+DatatypeSimps.expand_type_quants_ss [``:asm$binop``]) []);
 
 (* TODO: simplify further? *) val binopreg = binopreg_aux |> CONJUNCTS
 |> map(fn th => th |> SIMP_RULE (srw_ss()++LET_ss) ((Q.ISPEC
 `x64_encode` COND_RAND) ::defaults) |> wc_simp |> we_simp |> gconv |>
-bconv |> fconv)
+bconv |> fconv);
 
 val binopregth = reconstruct_case ``x64_enc (Inst (Arith (Binop b n n0
 (Reg n'))))`` (rand o rator o rator o rator o rand o rand o rand) (map
-(csethm 2) binopreg)
+(csethm 2) binopreg);
 
 val binopimm = binopimm_aux |> CONJUNCTS |> map(fn th => th |>
 SIMP_RULE (srw_ss()++LET_ss) ((Q.ISPEC `x64_encode` COND_RAND)
-::defaults) |> wc_simp |> we_simp |> gconv |> bconv |> fconv)
+::defaults) |> wc_simp |> we_simp |> gconv |> bconv |> fconv);
 
 val binopimmth = reconstruct_case ``x64_enc (Inst (Arith (Binop b n n0
 (Imm c))))`` (rand o rator o rator o rator o rand o rand o rand) (map
-(csethm 3) binopimm)
+(csethm 3) binopimm);
 
 val binopth = reconstruct_case ``x64_enc(Inst (Arith (Binop b n n0
-r)))`` (rand o rand o rand o rand) [binopregth,binopimmth]
+r)))`` (rand o rand o rand o rand) [binopregth,binopimmth];
 
 val shiftths =
   shift
@@ -252,7 +252,7 @@ val shiftths =
   |> map (fn th => th |> wc_simp |> we_simp |> gconv
   |> bconv |> fconv |> csethm 3)
 
-val shiftth = reconstruct_case ``x64_enc(Inst (Arith (Shift s n n0 n1)))``
+val shiftth = reconstruct_case ``x64_enc(Inst (Arith (Shift s n n0 r)))``
   (rand o funpow 3 rator o funpow 3 rand) shiftths
 
 val x64_enc1_3_aux = binopth :: shiftth:: map (fn th => th |>
