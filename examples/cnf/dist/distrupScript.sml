@@ -10,9 +10,9 @@ Ancestors
 (* The format has four proof steps. We let 'a be the ID type *)
 Datatype:
   distrup =
-  | Del (mlstring list) (* Clauses to delete *)
-  | Lrup mlstring vcclause (mlstring list)
-  | Import mlstring vcclause
+  | Del (num list) (* Clauses to delete *)
+  | Lrup num vcclause (num list)
+  | Import num vcclause
   | ValidateUnsat
 End
 

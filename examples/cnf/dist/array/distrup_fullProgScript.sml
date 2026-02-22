@@ -35,15 +35,9 @@ QED
 
 val _ = string_to_int_pre |> update_precondition;
 
-Definition w8z_def:
-  w8z = (0w:word8)
-End
-
-val _ = translate w8z_def;
-
 (* Array-level helpers *)
 Quote add_cakeml:
-  fun get_byte arr i = Word8.toInt (Word8Array.sub arr i);
+  fun get_byte arr i = Word8.toInt (Unsafe.w8sub arr i);
 
   (* Little-endian: read 4 bytes as signed int starting at index i *)
   fun get_int arr i =
@@ -62,24 +56,18 @@ Quote add_cakeml:
   fun read_ints arr len i =
     if i >= len then [] else get_int arr (i * 4) :: read_ints arr len (i + 1);
 
-  (* Read 8 bytes from arr at offset, dropping trailing zero bytes *)
-  fun read_id arr offset =
-    let
-      fun find_last i =
-        if i = 0 then 0
-        else
-        let
-          val i1 = i - 1 in
-          if Word8Array.sub arr (offset + i1) = w8z
-          then find_last i1
-          else i
-        end
-    in
-      Word8Array.substring arr offset (find_last 8)
-    end;
+  fun get_u64 arr i =
+    get_byte arr i +
+    get_byte arr (i+1) * 256 +
+    get_byte arr (i+2) * 65536 +
+    get_byte arr (i+3) * 16777216 +
+    get_byte arr (i+4) * 4294967296 +
+    get_byte arr (i+5) * 1099511627776 +
+    get_byte arr (i+6) * 281474976710656 +
+    get_byte arr (i+7) * 72057594037927936;
 
-  fun read_id_strs arr len i =
-    if i >= len then [] else read_id arr (i * 8) :: read_id_strs arr len (i + 1);
+  fun read_ids arr len i =
+    if i >= len then [] else get_u64 arr (i * 8) :: read_ids arr len (i + 1);
 
   fun ensure_size buf_arr needed =
     if Word8Array.length buf_arr < needed
@@ -106,7 +94,7 @@ Quote add_cakeml:
       val arr = ensure_size buf_arr (len * 8)
       val _ = #(hints) count_str arr
     in
-      (arr, read_id_strs arr len 0)
+      (arr, read_ids arr len 0)
     end;
 End
 
@@ -120,7 +108,7 @@ Quote add_cakeml:
       case c of
         #"a" => (* PRODUCE *)
           let
-            val id = read_id step_arr 1
+            val id = get_u64 step_arr 1
             val nb_lits_str = Word8Array.substring step_arr 9 4
             val nb_hints_str = Word8Array.substring step_arr 13 4
             val (buf_arr, cl) = get_clause buf_arr False nb_lits_str
@@ -130,7 +118,7 @@ Quote add_cakeml:
           end
       | #"i" => (* IMPORT *)
           let
-            val id = read_id step_arr 1
+            val id = get_u64 step_arr 1
             val nb_lits_str = Word8Array.substring step_arr 9 4
             val (buf_arr, cl) = get_clause buf_arr True nb_lits_str
           in
@@ -190,7 +178,7 @@ fun main () =
   let
     val step_arr = Word8Array.array 17 (Word8.fromInt 0)
     val buf_arr = Word8Array.array 0 (Word8.fromInt 0)
-    val fml = Hashtable.empty 1024 hash_str String.compare
+    val fml = Hashtable.empty 1048576 (fn n => n mod 1000000007) Int.compare
     val carr = Word8Array.array 0 (Word8.fromInt 0)
     val b = Word8.fromInt 1
   in

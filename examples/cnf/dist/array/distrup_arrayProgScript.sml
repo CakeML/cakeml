@@ -13,39 +13,6 @@ val _ = translation_extends "ccnf_arrayProg";
 
 val res = register_type``:distrup``;
 
-(* TODO: move to ccnf_arrayProg or ccnf_list;
-  maybe later add to basis? *)
-Definition hash_str_aux_def:
-  hash_str_aux (s:mlstring) i acc =
-  if i = 0 then acc
-  else
-    let i1 = i - 1 in
-    let c = ORD (strsub s i1) in
-    hash_str_aux s i1 (31 * acc + c)
-End
-
-Definition hash_str_def:
-  hash_str (s:mlstring) =
-    hash_str_aux s (strlen s) 0
-End
-
-val res = translate hash_str_aux_def;
-
-Theorem hash_str_aux_side:
-  ∀s i acc.
-    hash_str_aux_side s i acc ⇔ i ≤ strlen s
-Proof
-  ho_match_mp_tac hash_str_aux_ind>>
-  rw[]>>
-  simp[Once (fetch "-" "hash_str_aux_side_def")]>>
-  Cases_on`i`>>rw[]>>
-  eq_tac>>rw[]
-QED
-
-val _ = hash_str_aux_side |> update_precondition;
-
-val res = translate hash_str_def;
-
 (* More to move ? *)
 Quote add_cakeml:
   fun delete_ids_ht fml ls =
@@ -58,7 +25,7 @@ End
 (* Not fully correct! *)
 Theorem delete_ids_ht_spec:
   ∀ls lsv.
-  (LIST_TYPE STRING_TYPE) ls lsv
+  (LIST_TYPE NUM) ls lsv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "delete_ids_ht" (get_ml_prog_state()))
@@ -76,7 +43,7 @@ Quote add_cakeml:
   fun unit_prop_ht_one lno fml carr b i =
   case Hashtable.lookup fml i of
     None =>
-      raise Fail (format_failure lno ("invalid clause hint (maybe deleted): " ^ i))
+      raise Fail (format_failure lno ("invalid clause hint (maybe deleted): " ^ Int.toString i))
   | Some c =>
     delete_literals_sing_arr lno carr b c (Vector.length c)
 End
