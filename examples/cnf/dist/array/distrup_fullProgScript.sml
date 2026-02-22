@@ -209,3 +209,122 @@ Definition distrup_prog_def:
   distrup_prog = ^prog_tm
 End
 
+(*----------------------------------------------------------------------*
+   FFI model:
+    - the state consists of two parts
+       + what to wait for as the next C call
+       + the list of pending inputs
+    - we need to encode and decode this into/from the ‘:ffi’ type
+ *----------------------------------------------------------------------*)
+
+(*
+Theorem aim:
+  ∀inputs.
+    app p main (CUSTOM_FFI Step inputs [] * CL ...)
+               (SEP_EXISTS trace.
+                  CUSTOM_FFI Terminate [] trace * CL ... *
+                  cond (trace_ok trace))
+Proof
+*)
+
+Type clause = “:word32 list”;
+Type hints = “:word64 list”;
+
+(* what to wait for as the next C call *)
+Datatype:
+  wait_for = Step
+           | Produce_clause clause hints
+           | Produce_hints hints
+           | Produce_callback
+           | Import_clause clause
+           | Import_callback
+           | Delete_hints hints
+           | Delete_callback
+           | Validate_UNSAT_callback
+           | Terminate
+End
+
+(* each input is one of: *)
+Datatype:
+  input = Produce clause hints
+        | Import clause
+        | Delete hints
+        | Validate_UNSAT
+End
+
+(* the state of the C code*)
+Type state = “:wait_for # input list”;
+
+(* encoding *)
+
+Definition WaitFor_def:
+  WaitFor Step = Str (strlit "Step") : ffi ∧
+  WaitFor _ = Str (strlit "Produce_clause")
+End
+
+Definition Input_def:
+  Input (Produce _ _) = Str (strlit "Produce") : ffi ∧ (* TODO fix *)
+  Input _ = Str (strlit "Import")
+End
+
+Definition State_def:
+  State waif_for inputs =
+    Cons (WaitFor waif_for)
+         (List (MAP Input inputs))
+End
+
+(* decoding *)
+
+Definition dest_WaitFor_def:
+  dest_WaitFor (x:ffi) = NONE : wait_for option
+End
+
+Definition dest_Input_def:
+  dest_Input _ = NONE : input option
+End
+
+Definition dest_State_def:
+  dest_State (x:ffi) =
+    case destCons x of NONE => NONE | SOME (x, y) =>
+    case dest_WaitFor x of NONE => NONE | SOME wait_for =>
+    case destList x of NONE => NONE | SOME l =>
+    let opt_inputs = MAP dest_Input l in
+    if MEM NONE opt_inputs then NONE else
+      SOME (wait_for, MAP THE opt_inputs) : state option
+End
+
+(* next state *)
+
+val imm_arg = “imm_arg:word8 list”
+val arr_arg = “arr_arg:word8 list”
+
+Definition update_step_def:
+  update_step ^imm_arg ^arr_arg Step inputs =
+    (if LENGTH imm_arg ≠ 0 ∨ LENGTH arr_arg ≠ 17 then NONE else
+       case inputs of
+       | [] => SOME (FFIreturn arr_arg (State Terminate inputs))
+       | (i::is) => NONE
+    ) ∧
+  update_step ^imm_arg ^arr_arg _ _ = NONE
+End
+
+Definition update_def:
+  update ffi_name imm_arg arr_arg s =
+    case dest_State s of
+    | NONE => NONE
+    | SOME (waif_for, inputs) =>
+        if ffi_name = strlit "step" then
+          update_step imm_arg arr_arg waif_for inputs
+        else if ffi_name = ARB then NONE else NONE
+End
+
+(* definition of separation logic assertion CUSTOM_FFI *)
+
+Definition names_def:
+  names = [«step»; «clause»; «hints»; «callback»]
+End
+
+Definition CUSTOM_FFI_def:
+  CUSTOM_FFI waif_for inputs events =
+    one (FFI_part (State waif_for inputs) update names events)
+End
