@@ -561,6 +561,7 @@ Proof
   \\ TRY(rename1`Inst (Mem m _ ri) ` \\ Cases_on`m` \\ Cases_on`ri`)
   \\ TRY(rename1`Inst (Arith a) ` \\ Cases_on`a`)
   \\ TRY(rename1`Inst (Arith (Binop _ _ _ ri)) ` \\ Cases_on`ri`)
+  \\ TRY(rename1`Inst (Arith (Shift _ _ _ ri)) ` \\ Cases_on`ri`)
   \\ rw[ag32_targetTheory.ag32_enc_def,
         ag32_targetTheory.ag32_encode_def,
         ag32_targetTheory.ag32_encode1_def,
