@@ -35,52 +35,26 @@ QED
 
 val _ = string_to_int_pre |> update_precondition;
 
-(* Copied from Word64Prog *)
-Definition concat_all4_def:
-  concat_all4 (a:word8) b c d =
-    concat_word_list [a;b;c;d]:64 word
+Definition w8z_def:
+  w8z = (0w:word8)
 End
 
-Definition concat_all8_def:
-  concat_all8 (a:word8) b c d e f g h =
-    concat_word_list [a;b;c;d;e;f;g;h]:64 word
-End
-
-val concat_all4_impl =
-  REWRITE_RULE [concat_word_list_def, dimindex_8, ZERO_SHIFT, WORD_OR_CLAUSES] concat_all4_def;
-
-val concat_all8_impl =
-  REWRITE_RULE [concat_word_list_def, dimindex_8, ZERO_SHIFT, WORD_OR_CLAUSES] concat_all8_def;
-
-val r = translate concat_all4_impl;
-val r = translate concat_all8_impl;
+val _ = translate w8z_def;
 
 (* Array-level helpers *)
 Quote add_cakeml:
-  (* Little-endian: read 8 bytes as u64 starting at index i *)
-  fun get_u64 arr i =
-    Word64.toInt (
-      concat_all8
-      (Word8Array.sub arr i)
-      (Word8Array.sub arr (i+1))
-      (Word8Array.sub arr (i+2))
-      (Word8Array.sub arr (i+3))
-      (Word8Array.sub arr (i+4))
-      (Word8Array.sub arr (i+5))
-      (Word8Array.sub arr (i+6))
-      (Word8Array.sub arr (i+7)));
+  fun get_byte arr i = Word8.toInt (Word8Array.sub arr i);
 
   (* Little-endian: read 4 bytes as signed int starting at index i *)
   fun get_int arr i =
     let
-      val raw = Word64.toInt (
-        concat_all4
-        (Word8Array.sub arr i)
-        (Word8Array.sub arr (i+1))
-        (Word8Array.sub arr (i+2))
-        (Word8Array.sub arr (i+3)))
+      val b3 = get_byte arr (i+3)
+      val raw = get_byte arr i +
+                get_byte arr (i+1) * 256 +
+                get_byte arr (i+2) * 65536 +
+                b3 * 16777216
     in
-      if raw >= 2147483648
+      if b3 >= 128
       then raw - 4294967296
       else raw
     end;
@@ -88,8 +62,24 @@ Quote add_cakeml:
   fun read_ints arr len i =
     if i >= len then [] else get_int arr (i * 4) :: read_ints arr len (i + 1);
 
-  fun read_u64s arr len i =
-    if i >= len then [] else get_u64 arr (i * 8) :: read_u64s arr len (i + 1);
+  (* Read 8 bytes from arr at offset, dropping trailing zero bytes *)
+  fun read_id arr offset =
+    let
+      fun find_last i =
+        if i = 0 then 0
+        else
+        let
+          val i1 = i - 1 in
+          if Word8Array.sub arr (offset + i1) = w8z
+          then find_last i1
+          else i
+        end
+    in
+      Word8Array.substring arr offset (find_last 8)
+    end;
+
+  fun read_id_strs arr len i =
+    if i >= len then [] else read_id arr (i * 8) :: read_id_strs arr len (i + 1);
 
   fun ensure_size buf_arr needed =
     if Word8Array.length buf_arr < needed
@@ -116,7 +106,7 @@ Quote add_cakeml:
       val arr = ensure_size buf_arr (len * 8)
       val _ = #(hints) count_str arr
     in
-      (arr, read_u64s arr len 0)
+      (arr, read_id_strs arr len 0)
     end;
 End
 
@@ -130,7 +120,7 @@ Quote add_cakeml:
       case c of
         #"a" => (* PRODUCE *)
           let
-            val id = get_u64 step_arr 1
+            val id = read_id step_arr 1
             val nb_lits_str = Word8Array.substring step_arr 9 4
             val nb_hints_str = Word8Array.substring step_arr 13 4
             val (buf_arr, cl) = get_clause buf_arr False nb_lits_str
@@ -140,7 +130,7 @@ Quote add_cakeml:
           end
       | #"i" => (* IMPORT *)
           let
-            val id = get_u64 step_arr 1
+            val id = read_id step_arr 1
             val nb_lits_str = Word8Array.substring step_arr 9 4
             val (buf_arr, cl) = get_clause buf_arr True nb_lits_str
           in
@@ -158,32 +148,14 @@ Quote add_cakeml:
     end;
 End
 
-Definition pp_distrup_def:
-  pp_distrup distrup =
-  case distrup of
-  | Del ls =>
-      strlit"Del: IDs [" ^ concatWith (strlit " ") (MAP toString ls) ^ strlit "]"
-  | Lrup n vc hints =>
-      strlit"Lrup: ID " ^ toString n ^
-      strlit " Clause [" ^ concatWith (strlit " ") (MAP toString (toList vc)) ^ strlit "]"^
-      strlit " Hints [" ^ concatWith (strlit " ") (MAP toString hints) ^ strlit "]"
-  | Import n vc =>
-      strlit"Import: ID " ^ toString n ^
-      strlit " Clause [" ^ concatWith (strlit " ") (MAP toString (toList vc)) ^ strlit "]"
-  | ValidateUnsat =>
-      strlit"ValidateUnsat"
-End
-
-val res = translate pp_distrup_def;
-
 (* Wraps and removes exception handling *)
 Quote add_cakeml:
-  fun check_top lno instr st =
+  fun check_top lno instr fml st =
     (case st of
       None => (None, "")
-    | Some (fml, carr, b) =>
-        (case check_distrup_arr lno instr fml carr b of
-          (fml, carr, b) => (Some (fml, carr, b), ""))
+    | Some (carr, b) =>
+        (case check_distrup_ht lno instr fml carr b of
+          (carr, b) => (Some (carr, b), ""))
         handle Fail err =>
         (None, err));
 End
@@ -198,7 +170,7 @@ fun do_callback res step_arr =
     ()
   end
 
-fun loop step_arr buf_arr st lno =
+fun loop step_arr buf_arr fml st lno =
   let
     val (buf_arr, result) = parse_step step_arr buf_arr
   in
@@ -206,11 +178,11 @@ fun loop step_arr buf_arr st lno =
       None => () (* Terminate: C handles response after cml_main returns *)
     | Some instr =>
         let
-          val (st, msg) = check_top lno instr st
+          val (st, msg) = check_top lno instr fml st
           val res = case st of None => "0" ^ msg | Some _ => "1"
           val _ = do_callback res step_arr
         in
-          loop step_arr buf_arr st (lno + 1)
+          loop step_arr buf_arr fml st (lno + 1)
         end
   end;
 
@@ -218,11 +190,11 @@ fun main () =
   let
     val step_arr = Word8Array.array 17 (Word8.fromInt 0)
     val buf_arr = Word8Array.array 0 (Word8.fromInt 0)
-    val fml = Array.array 0 None
+    val fml = Hashtable.empty 1024 hash_str String.compare
     val carr = Word8Array.array 0 (Word8.fromInt 0)
     val b = Word8.fromInt 1
   in
-    loop step_arr buf_arr (Some (fml, carr, b)) 1
+    loop step_arr buf_arr fml (Some (carr, b)) 1
   end;
 
 End

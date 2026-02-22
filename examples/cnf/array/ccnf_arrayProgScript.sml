@@ -422,14 +422,49 @@ Proof
 QED
 
 Quote add_cakeml:
-  fun prepare_rup carr b v =
+  fun resize_dm carr b v =
   let
     val lv = Vector.length v
     val sz = sz_lit_map lv v 0
   in
-    case reset_dm_arr carr b sz of (dml',b') =>
-    (init_lit_map_arr lv v dml' b'; (dml',b'))
+    reset_dm_arr carr b sz
   end
+End
+
+Theorem resize_dm_spec:
+  WORD8 b bv ∧
+  VECTOR_TYPE INT vec vecv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "resize_dm" (get_ml_prog_state()))
+    [Carrv; bv; vecv]
+    (W8ARRAY Carrv Clist)
+    (POSTv v.
+        SEP_EXISTS Carrv' b' Clist' bv'.
+        W8ARRAY Carrv' Clist' *
+        &(PAIR_TYPE ($=) WORD8 (Carrv', b') v ∧
+          resize_dm Clist b vec = (Clist',b')))
+Proof
+  rw[]>>
+  xcf "resize_dm" (get_ml_prog_state ())>>
+  xlet_autop>>
+  xlet_auto
+  >- (
+    xsimpl>>
+    irule sz_lit_map_side>>
+    simp[])>>
+  simp[resize_dm_def]>>
+  xapp>>xsimpl>>
+  rpt (first_x_assum $ irule_at Any)>>
+  rw[]>>
+  qexists_tac`x`>>xsimpl
+QED
+
+Quote add_cakeml:
+  fun prepare_rup carr b v =
+  case resize_dm carr b v of (dml',b') =>
+  (init_lit_map_arr (Vector.length v) v dml' b';
+    (dml',b'))
 End
 
 Theorem prepare_rup_spec:
@@ -449,12 +484,6 @@ Proof
   rw[]>>
   xcf "prepare_rup" (get_ml_prog_state ())>>
   xlet_autop>>
-  xlet_auto
-  >- (
-    xsimpl>>
-    irule sz_lit_map_side>>
-    simp[])>>
-  xlet_auto>>
   gvs[PAIR_TYPE_def]>>
   xmatch>>
   simp[prepare_rup_def]>>
@@ -462,10 +491,10 @@ Proof
   `IS_SOME (init_lit_map_list' (length vec) vec Clist' b')` by (
     irule init_lit_map_list'_SOME>>
     simp[]>>
-    drule reset_dm_list_LENGTH>>
-    rw[]>>
-    metis_tac[bnd_clause_le,sz_lit_map_bnd_clause])>>
+    drule bnd_clause_resize_dm>>
+    rw[])>>
   fs[IS_SOME_EXISTS]>>
+  xlet_autop>>
   xlet_autop>>
   xcon>>xsimpl>>
   metis_tac[init_lit_map_list']

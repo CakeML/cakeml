@@ -5,80 +5,141 @@ Theory distrup_arrayProg
 Libs
   preamble basis
 Ancestors
-  ccnf_arrayProg distrup distrup_list
+  ccnf_arrayProg distrup distrup_list HashtableProof
 
 val _ = hide_environments true;
 
 val _ = translation_extends "ccnf_arrayProg";
 
-val _ = register_type``:'a distrup``;
+val res = register_type``:distrup``;
+
+(* TODO: move to ccnf_arrayProg or ccnf_list;
+  maybe later add to basis? *)
+Definition hash_str_aux_def:
+  hash_str_aux (s:mlstring) i acc =
+  if i = 0 then acc
+  else
+    let i1 = i - 1 in
+    let c = ORD (strsub s i1) in
+    hash_str_aux s i1 (31 * acc + c)
+End
+
+Definition hash_str_def:
+  hash_str (s:mlstring) =
+    hash_str_aux s (strlen s) 0
+End
+
+val res = translate hash_str_aux_def;
+
+Theorem hash_str_aux_side:
+  ∀s i acc.
+    hash_str_aux_side s i acc ⇔ i ≤ strlen s
+Proof
+  ho_match_mp_tac hash_str_aux_ind>>
+  rw[]>>
+  simp[Once (fetch "-" "hash_str_aux_side_def")]>>
+  Cases_on`i`>>rw[]>>
+  eq_tac>>rw[]
+QED
+
+val _ = hash_str_aux_side |> update_precondition;
+
+val res = translate hash_str_def;
+
+(* More to move ? *)
+Quote add_cakeml:
+  fun delete_ids_ht fml ls =
+    case ls of
+      [] => ()
+    | (i::is) =>
+      (Hashtable.delete fml i; delete_ids_ht fml is)
+End
+
+(* Not fully correct! *)
+Theorem delete_ids_ht_spec:
+  ∀ls lsv.
+  (LIST_TYPE STRING_TYPE) ls lsv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "delete_ids_ht" (get_ml_prog_state()))
+    [fmlv; lsv]
+    (HASHTABLE a b hf cmp fml fmlv)
+    (POSTv uv.
+      &(UNIT_TYPE () uv) *
+        HASHTABLE a b hf cmp (delete_ids fml ls) fmlv)
+Proof
+  cheat
+QED
+
+(* May need renaming *)
+Quote add_cakeml:
+  fun unit_prop_ht_one lno fml carr b i =
+  case Hashtable.lookup fml i of
+    None =>
+      raise Fail (format_failure lno ("invalid clause hint (maybe deleted): " ^ i))
+  | Some c =>
+    delete_literals_sing_arr lno carr b c (Vector.length c)
+End
 
 Quote add_cakeml:
-  fun resize_dm carr b v =
-  let
-    val lv = Vector.length v
-    val sz = sz_lit_map lv v 0
-  in
-    reset_dm_arr carr b sz
+  fun unit_prop_ht lno fml carr b hints =
+    case hints of
+      [] => False
+    | i::is =>
+      if unit_prop_ht_one lno fml carr b i
+      then
+        True
+      else
+        unit_prop_ht lno fml carr b is
+End
+
+Quote add_cakeml:
+  fun is_rup_ht lno fml carr b v hints =
+  let val dmb = prepare_rup carr b v in
+    case dmb of (carr',b') =>
+    if unit_prop_ht lno fml carr' b' hints
+    then dmb
+    else
+      raise Fail (format_failure lno ("unit propagation did not prove RUP"))
   end
 End
 
-Theorem resize_dm_spec:
-  WORD8 b bv ∧
-  VECTOR_TYPE INT vec vecv
-  ⇒
-  app (p : 'ffi ffi_proj)
-    ^(fetch_v "resize_dm" (get_ml_prog_state()))
-    [Carrv; bv; vecv]
-    (W8ARRAY Carrv Clist)
-    (POSTv v.
-        SEP_EXISTS Carrv' b' Clist' bv'.
-        W8ARRAY Carrv' Clist' *
-        &(PAIR_TYPE ($=) WORD8 (Carrv', b') v ∧
-          resize_dm Clist b vec = (Clist',b')))
-Proof
-  rw[]>>
-  xcf "resize_dm" (get_ml_prog_state ())>>
-  xlet_autop>>
-  xlet_auto
-  >- (
-    xsimpl>>
-    irule sz_lit_map_side>>
-    simp[])>>
-  simp[resize_dm_def]>>
-  xapp>>xsimpl>>
-  rpt (first_x_assum $ irule_at Any)>>
-  rw[]>>
-  qexists_tac`x`>>xsimpl
-QED
+Quote add_cakeml:
+  fun contains_emp_ht fml =
+  let
+    val ls = List.map snd (Hashtable.toAscList fml)
+  in
+    List.exists is_empty ls
+  end
+End
 
 Quote add_cakeml:
-  fun check_distrup_arr lno distrup fml carr b =
+  fun check_distrup_ht lno distrup fml carr b =
   case distrup of
     Del ls =>
-      (delete_ids_arr fml ls; (fml,carr,b))
+      (delete_ids_ht fml ls; (carr,b))
   | Lrup n v hints =>
-      (case is_rup_arr lno fml carr b v hints of (dml,b) =>
-        (Array.updateResize fml None n (Some v), dml,b))
+      (case is_rup_ht lno fml carr b v hints of (dml,b) =>
+        (Hashtable.insert fml n v; (dml,b)))
   | Import n v =>
       (case resize_dm carr b v of (dml,b) =>
-      (Array.updateResize fml None n (Some v), dml,b))
+      (Hashtable.insert fml n v; (dml,b)))
   | Validateunsat =>
-      if contains_emp_arr fml
+      if contains_emp_ht fml
       then
-        (fml,carr,b)
+        (carr,b)
       else
         raise Fail (format_failure lno "failed to validate UNSAT (no empty clause)")
 End
 
 val DISTRUP_DISTRUP_TYPE_def = fetch "-" "DISTRUP_DISTRUP_TYPE_def";
 
+(* TODO: change to hash table
 Theorem check_distrup_arr_spec:
   NUM lno lnov ∧
   DISTRUP_DISTRUP_TYPE NUM distrup distrupv ∧
-  LIST_REL (OPTION_TYPE vcclause_TYPE) fmlls fmllsv ∧
   WORD8 b bv ∧
-  bnd_fml fmlls (LENGTH Clist)
+  bnd_fml fml (LENGTH Clist)
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_distrup_arr" (get_ml_prog_state()))
@@ -153,4 +214,4 @@ Proof
     metis_tac[]
   )
 QED
-
+*)

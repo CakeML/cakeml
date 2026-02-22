@@ -782,12 +782,17 @@ QED
 
 (* Automatically resize the dml if needed for the new clause
 *)
-Definition prepare_rup_def:
-  prepare_rup dml b v =
+Definition resize_dm_def:
+  resize_dm dml b v =
   let lv = length v in
   let sz = sz_lit_map lv v 0 in
-  let (dml',b') = reset_dm_list dml b sz in
-  let dml'' = init_lit_map_list lv v dml' b' in
+  reset_dm_list dml b sz
+End
+
+Definition prepare_rup_def:
+  prepare_rup dml b v =
+  let (dml',b') = resize_dm dml b v in
+  let dml'' = init_lit_map_list (length v) v dml' b' in
     (dml'',b')
 End
 
@@ -807,7 +812,8 @@ Theorem is_rup_list:
   ∃dm'. dm_rel dm' dml' b'
 Proof
   strip_tac>>
-  gvs[is_rup_list_def,UNCURRY_EQ,AllCaseEqs(),prepare_rup_def]>>
+  gvs[is_rup_list_def,UNCURRY_EQ,AllCaseEqs(),
+    prepare_rup_def,resize_dm_def]>>
   drule_all dm_rel_reset_dm_list>>
   strip_tac>>
   drule unit_prop_list>>
@@ -864,14 +870,22 @@ Proof
   fs[]
 QED
 
+Theorem resize_dm_LENGTH:
+  resize_dm dml b v = (dml',b') ⇒
+  LENGTH dml ≤ LENGTH dml'
+Proof
+  rw[resize_dm_def]>>
+  drule_then strip_assume_tac reset_dm_list_LENGTH
+QED
+
 Theorem prepare_rup_LENGTH:
   prepare_rup dml b v = (dml',b') ⇒
   LENGTH dml ≤ LENGTH dml'
 Proof
   rw[prepare_rup_def]>>
   gvs[UNCURRY_EQ]>>
-  drule_then strip_assume_tac reset_dm_list_LENGTH >>
-  irule LESS_EQ_TRANS >>
+  drule resize_dm_LENGTH>>
+  strip_tac>>irule LESS_EQ_TRANS >>
   (irule_at (Pos last)) LENGTH_init_lit_map_list >>
   fs[]
 QED
@@ -987,6 +1001,17 @@ Proof
   first_x_assum drule>>simp[]
 QED
 
+Theorem bnd_clause_resize_dm:
+  resize_dm dml b v = (dml',b') ⇒
+  bnd_clause v (LENGTH dml')
+Proof
+  rw[resize_dm_def]>>
+  irule bnd_clause_le >>
+  gvs[reset_dm_list_def,AllCaseEqs(),NOT_LESS] >>
+  irule_at (Pos last) sz_lit_map_bnd_clause >>
+  Q.EXISTS_TAC `0` >> fs[]
+QED
+
 Theorem bnd_clause_prepare_rup:
   prepare_rup dml b v = (dml',b') ⇒
   bnd_clause v (LENGTH dml')
@@ -996,10 +1021,7 @@ Proof
   irule bnd_clause_le >>
   irule_at (Pos hd) LENGTH_init_lit_map_list >>
   CONJ_TAC >-  fs[] >>
-  gvs[reset_dm_list_def,AllCaseEqs(),NOT_LESS ] >>
-  irule bnd_clause_le >>
-  irule_at (Pos last) sz_lit_map_bnd_clause >>
-  Q.EXISTS_TAC `0` >> fs[]
+  metis_tac[bnd_clause_resize_dm]
 QED
 
 Theorem bnd_clause_is_rup_list':
@@ -1070,7 +1092,7 @@ Proof
   strip_tac >>
   fs[is_rup_vb_list_def,is_rup_vb_def,
      UNCURRY_EQ,AllCaseEqs(),AllCasePreds()] >>
-  gvs[prepare_rup_def,UNCURRY_EQ,PULL_EXISTS] >>
+  gvs[prepare_rup_def,resize_dm_def,UNCURRY_EQ,PULL_EXISTS] >>
   drule_at (Pos last) unit_prop_vb_list >>
   disch_then drule >>
   qmatch_goalsub_abbrev_tac `unit_prop_vb_vec _ dm'` >>
@@ -1214,4 +1236,4 @@ Proof
   metis_tac[]
 QED
 
-
+(* TODO: split refinement allowing fml to be kept as a finite map but dm_rel is changed *)
