@@ -212,17 +212,15 @@ val tail_cons1 = “cons_to_tc_and_mut_cons (4000:num) 12 [Op (BlockOp (Cons 0))
                                                             [Call 0 (SOME 4000) [Var 3] NONE;
                                                              Op (BlockOp (Cons 0)) [Op (BlockOp (Cons 0)) []; Var 2]];
                                                          Op (BlockOp (Build [Int 1; Con 0 []; Con 0 [0; 1]])) []]”;
-val tail_cons_eval1 = EVAL tail_cons1;
-(* (0,[Var 3],NONE)⁺
-       (Op (MemOp (MutCons 12 0))
-          [Op (MemOp (MutCons 0 0))
-             [Op (IntOp (Const 0)) [];
-              Op (BlockOp (Cons 0)) [mk_unit; Var 2]];
-           Op (BlockOp (Build [Int 1; Con 0 []; Con 0 [0; 1]])) []])
- *)
-(* (12,0,
+val tail_cons1_expected = “(0,[Var 3],NONE)⁺
+       (12,0,
         [Op (MemOp (MutCons 0 0))
            [Op (IntOp (Const 0)) []; Op (BlockOp (Cons 0)) [mk_unit; Var 2]];
-         Op (BlockOp (Build [Int 1; Con 0 []; Con 0 [0; 1]])) []])
- *)
+         Op (BlockOp (Build [Int 1; Con 0 []; Con 0 [0; 1]])) []])”;
+
+Theorem tail_cons_check1:
+  ^tail_cons1 = ^tail_cons1_expected
+Proof
+  EVAL_TAC
+QED
 
