@@ -142,7 +142,7 @@ Definition ft_seg_def:
             n.parent_ptr;
             n.child_ptr;
             n2w n.rank] *
-    edges_ones (FST n.data.edges) (SND n.data.edges) (*Add cond(k <> 0w) *)
+    edges_ones (FST n.data.edges) (SND n.data.edges) * cond(k <> 0w)
 End
 
 Definition fts_mem_def:
@@ -548,7 +548,7 @@ QED
 
 Theorem fib_heap_insert:
   ∀frame k v fh.
-    (empty_node k v * fib_heap a fh * frame * cond(k <> 0w)) (fun2set (m,dm)) ∧
+    (empty_node k v * fib_heap a fh * frame) (fun2set (m,dm)) ∧
     fib_heap_insert (a, k, m, dm) = (a', m', b) ⇒
     (fib_heap a' (fh |+ (k,v)) * frame) (fun2set (m',dm)) ∧ b
 Proof
@@ -563,6 +563,7 @@ Proof
      fill_dnode_def, head_key_def, last_key_def, ann_fts_seg_def,
      ft_seg_def, ones_def, SEP_CLAUSES, flag_off_def] >>
   SEP_R_TAC >>
+  full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR] >>
   IF_CASES_TAC
   >- (
     assume_tac lemma_empty_heap >>
