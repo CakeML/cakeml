@@ -269,7 +269,6 @@ Definition fts_min_def:
   (fts_min (FibTree k v _::_) = v.value)
 End
 
-
 Definition fts_is_min_def:
   (fts_is_min _ [] = T) /\
   (fts_is_min v (FibTree _ n ts::rest) =
@@ -453,6 +452,73 @@ Proof
 QED
 
 
+Theorem lemma_fib_heap_new_min:
+  !v v' k n fts.
+    v <=+ v' /\ fts_is_min v' (FibTree k n []::fts) ==>
+    fts_is_min v (FibTree k n []::fts)
+Proof
+  Cases_on `fts` >>
+  assume_tac WORD_LOWER_EQ_TRANS >>
+  >- (
+    rpt strip_tac >>
+    fs[fts_is_min_def] >>
+    first_assum(qspecl_then [`v`, `v'`, `n.value`] assume_tac) >> gvs[] >>
+    ) >>
+  rpt strip_tac >>
+  Cases_on `h` >>
+  fs[fts_is_min_def]
+
+
+
+  >- (rpt strip_tac >> fs[Once fts_is_min_def]) >>
+  rpt strip_tac >>
+  >- (
+    strip_tac >>
+    fs[fts_is_min_def] >>
+    first_assum(qspecl_then [`v`, `v'`, `v''.value`] assume_tac) >> gvs[] >>
+    last_assum(qspecl_then [`v`, `v'`] assume_tac) >> gvs[]
+    ) >>
+  rpt strip_tac >>
+  simp[fts_is_min_def] >>
+  last_assum (qspecl_then [`v`,`v'`] assume_tac) >> gvs[] >>
+  first_assum(qspecl_then [`v`, `v'`, `v''.value`] assume_tac) >> gvs[] >>
+
+
+
+
+  fs[fts_is_min_def] >>
+  last_assum(qspecl_then [`v`, `v'`] assume_tac) >> gvs[] >>
+  Cases_on `fts_is_min v l` >> fs[]
+  >- (first_assum(qspecl_then [`v`, `v'`, `v''.value`] assume_tac) >> gvs[]) >>
+  Cases_on `l`
+  >- fs[fts_is_min_def] >>
+  Cases_on `h` >>
+  pop_assum mp_tac >>
+  fs[fts_is_min_def]
+
+  Cases_on `h` >>
+  fs[fts_is_min_def] >>
+  assume_tac WORD_LOWER_EQ_TRANS >>
+  first_assum(qspecl_then [`v`, `v'`, `v''.value`] assume_tac) >> gvs[] >>
+  Induct_on `l`
+  >- (
+    strip_tac >>
+    gvs[fts_is_min_def] >>
+    assume_tac WORD_LOWER_EQ_TRANS >>
+    first_assum(qspecl_then [`v`, `v'`, `v''.value`] assume_tac) >> gvs[]
+    ) >>
+  rpt strip_tac >>
+  Cases_on `h` >>
+  fs[fts_is_min_def] >>
+  assume_tac WORD_LOWER_EQ_TRANS >>
+  first_assum(qspecl_then [`v`, `v'`, `v'''.value`] assume_tac) >> gvs[] >>
+  rename [`!v v'. v <=+ v' /\ fts_is_min v' l' ==> fts_is_min v l'`]>>
+
+
+QED
+
+
+
 (* New smallest elemet *)
 Theorem fib_heap_insert_inv:
   !fh fts k k' v e.
@@ -574,12 +640,66 @@ Proof
   simp[APPLY_UPDATE_THM]>>
     (* Dont write flag to be T in insert function! Assume it has been done (empty node)  *)
   `k + 2w * bytes_in_word <> k'` by SEP_NEQ_TAC >> simp[] >>
-   (*k + 2w * bytes_in_word <> k' + 4w * bytes_in_word /\
-   k + 2w * bytes_in_word <> k' + 5w * bytes_in_word`by (rpt strip_tac >> SEP_NEQ_TAC) >> simp[] >> *)
+  `k + 2w * bytes_in_word <> k' + 4w * bytes_in_word` by SEP_NEQ_TAC >> simp[] >>
+  `k + 2w * bytes_in_word <> k' + 5w * bytes_in_word` by SEP_NEQ_TAC >> simp[] >>
   PairCases_on `v` >> rename [`fh |+ (k,v,e)`] >> gvs[] >>
   IF_CASES_TAC
-
-
+  >- (
+    fs[fib_heap_append_def,before_off_def,next_off_def] >>
+    fs[head_key_def,last_key_def] >>
+    Cases_on `t` using SNOC_CASES >>
+    fs[SNOC_APPEND]
+    >- (
+      fs[head_key_def,next_key_def] >>
+      SEP_R_TAC >>
+      IF_CASES_TAC >> fs[]>>
+      SEP_R_TAC >> simp[] >>
+      strip_tac >> gvs[] >>
+      SEP_W_TAC >>
+      qexists `[FibTree a' (fill_dnode v e F) []; FibTree k' v' l]` >>
+      fs[ann_fts_def, ann_fts_seg_def, last_key_def,fts_mem_def,
+         SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
+         fill_dnode_def, next_key_def, ones_def, STAR_ASSOC] >>
+      gvs[] >>
+      cheat (* Proof invariant! *)
+      ) >>
+    Cases_on `x` >> rename [`FibTree lk lv ts`] >>
+    fs[REVERSE_APPEND] >>
+    Cases_on `l'`
+    >- (
+      fs[head_key_def, next_key_def] >>
+      SEP_R_TAC >>
+      fs[ann_fts_def, ann_fts_seg_def, last_key_def,fts_mem_def,
+         SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
+         fill_dnode_def, next_key_def, ones_def, STAR_ASSOC] >>
+      `k' <> lk` by SEP_NEQ_TAC >>
+      IF_CASES_TAC >> fs[] >>
+      SEP_R_TAC >> simp[] >>
+      strip_tac >> gvs[] >>
+      SEP_W_TAC >>
+      qexists `[FibTree a' (fill_dnode v e F) []; FibTree lk lv ts;
+                FibTree k' v' l]` >>
+      fs[ann_fts_def, ann_fts_seg_def, last_key_def,fts_mem_def,
+         SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
+         fill_dnode_def, next_key_def, ones_def, STAR_ASSOC] >>
+      (* simp[STAR_COMM, STAR_ASSOC] >> termination? *)
+      (* also prove invariant here! *)
+      cheat
+     ) >>
+    Cases_on `h` >>
+    rename [`(FibTree k' v' l::(FibTree sk sv ts'::t ++ [FibTree lk lv ts]))`] >>
+    fs[head_key_def, next_key_def] >>
+    SEP_R_TAC >>
+    fs[ann_fts_def, ann_fts_seg_def, last_key_def,fts_mem_def,
+       SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
+       fill_dnode_def, next_key_def, ones_def, STAR_ASSOC] >>
+    `k' <> sk` by SEP_NEQ_TAC >>
+    IF_CASES_TAC >> fs[] >>
+    SEP_R_TAC >> simp[] >>
+    cheat (* need lemma about ++ with ann_fts_seg to get lk into memory *)
+    ) >>
+cheat
+(*
   SEP_R_TAC >>
   CASE_TAC
   >- (
@@ -603,26 +723,5 @@ Proof
   fs[SNOC_APPEND]
 *)
 
-
-
-
-    SEP_R_TAC >>
-
-
-    Cases_on `t`
-    >- (
-      fs[next_key_def,last_key_def,head_key_def] >>
-      SEP_R_TAC >>
-      cheat
-      )>>
-    (*SEP_R_TAC >>
-    strip_tac >> gvs[] >>
-    SEP_W_TAC >>
-    rename1 `(a',v,e)` >>
-    qexists `[FibTree a' (fill_dnode v e T F) [];
-              FibTree k' (fill_dnode v' e' f' x') l]` >>
 *)
-    cheat)
->> cheat
 QED
-print_match [] “node_data”;
