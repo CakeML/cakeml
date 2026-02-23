@@ -234,5 +234,10 @@ val tail_cons_eval1 = EVAL tail_cons1;
              [Op (IntOp (Const 0)) [];
               Op (BlockOp (Cons 0)) [mk_unit; Var 2]];
            Op (BlockOp (Build [Int 1; Con 0 []; Con 0 [0; 1]])) []])
-*)
+ *)
+(* (12,0,
+        [Op (MemOp (MutCons 0 0))
+           [Op (IntOp (Const 0)) []; Op (BlockOp (Cons 0)) [mk_unit; Var 2]];
+         Op (BlockOp (Build [Int 1; Con 0 []; Con 0 [0; 1]])) []])
+ *)
 
