@@ -10,7 +10,7 @@ Libs
 Datatype:
   tc_and_mut_cons = DupTC      (* Duplicate recursive tail calls. *)
                   | NoTC       (* No recursive tail call. *)
-                  | TC exp exp (* One recursive tail call. TC call mut_cons *) (* TODO: destructure call/mutblock to cut down on cases *)
+                  | TC (num # (exp list) # (exp option)) exp (* One recursive tail call. TC call mut_cons *)
 End
 
 (* ‘cons_to_tc_and_mut_cons loc tag op_args’ finds a unique recursive call of index ‘loc’ nested within the args of a ‘BlockOp’ ‘Cons’
@@ -45,15 +45,16 @@ Definition cons_to_tc_and_mut_cons_def:
       | NoTC =>
          let hole     = Op (IntOp (Const 0)) [] in
          let mut_cons = Op (MemOp (MutCons tag 0)) (hole::op_args) in
-         TC call mut_cons
+         TC (t, args, h) mut_cons
     else
       (* found a different call *)
       case cons_to_tc_and_mut_cons loc tag op_args of
       | DupTC => DupTC
       | NoTC => NoTC
-      | TC call (Op (MemOp (MutCons t i)) l) =>
-         let mut_cons = Op (MemOp (MutCons t (i+1))) (call::l) in
-           TC call mut_cons) ∧
+      | TC (t, args, h) (Op (MemOp (MutCons tag i)) l) =>
+         let call = Call t (SOME loc) args h in
+         let mut_cons = Op (MemOp (MutCons tag (i+1))) (call::l) in
+           TC (t, args, h) mut_cons) ∧
   (cons_to_tc_and_mut_cons loc tag (op_arg::op_args) =
     case cons_to_tc_and_mut_cons loc tag op_args of
     | DupTC => DupTC
@@ -66,7 +67,7 @@ End
 Definition rewrite_aux_BlockOp_Cons_def:
   rewrite_aux_BlockOp_Cons ts loc loc_opt arity block_tag op_args =
     case cons_to_tc_and_mut_cons loc block_tag op_args of
-    | TC (Call t _ args h) exp_mut_cons =>
+    | TC (t, args, h) exp_mut_cons =>
         let var_new_hole_ptr = Var arity in
         let exp_tail_call    = Call t (SOME loc_opt) (var_new_hole_ptr :: args) h in
         let exp_finalise     = Op (MemOp FinaliseCons) [var_new_hole_ptr] in
@@ -103,7 +104,7 @@ End
 Definition rewrite_opt_BlockOp_Cons_def:
   rewrite_opt_BlockOp_Cons ts loc loc_opt arity block_tag op_args =
     case cons_to_tc_and_mut_cons loc block_tag op_args of
-    | TC (Call t _ args h) exp_mut_cons =>
+    | TC (t, args, h) exp_mut_cons =>
         let arg_old_hole_ptr = Var arity in
         let var_new_hole_ptr = Var (arity + 1) in
         let exp_update_hole  = Op (MemOp UpdateCons) [arg_old_hole_ptr; var_new_hole_ptr] in
