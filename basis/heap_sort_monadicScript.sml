@@ -290,6 +290,13 @@ Proof
   \\ simp [bs_tree_to_list_def, two_exp_min_1_rec]
 QED
 
+Theorem LAST_bs_tree_to_list[local]:
+  0 < ht ==> LAST (bs_tree_to_list ht t) = (
+    case t of Node x _ _ => x)
+Proof
+  Cases_on `ht` \\ simp [bs_tree_to_list_def, two_exp_min_1_rec]
+QED
+
 Definition tree_balanced_height_def:
   (tree_balanced_height i Empty_Tree = (i = 0n)) /\
   (tree_balanced_height i (Node x l r) = (
@@ -300,6 +307,12 @@ End
 
 Theorem tree_balanced_height_0:
   (tree_balanced_height 0 t = (t = Empty_Tree))
+Proof
+  Cases_on `t` \\ simp [tree_balanced_height_def]
+QED
+
+Theorem tree_balanced_height_eq_0[local]:
+  ht = 0 ==> (tree_balanced_height ht t = (t = Empty_Tree))
 Proof
   Cases_on `t` \\ simp [tree_balanced_height_def]
 QED
@@ -1288,200 +1301,841 @@ Proof
   simp [list_mappings_from_def]
 QED
 
+Definition array_chunks_end_in_def:
+  array_chunks_end_in xs arr = (
+    EVERY (\(i, zs). LENGTH zs - 1 <= i) xs /\
+    let ys = FLAT (MAP (\(i, zs).
+        MAPi (\j z. ((i - (LENGTH zs - 1)) + j, z)) zs) xs) in
+    ALL_DISTINCT (MAP FST ys) /\
+    EVERY (\(j, z). j < LENGTH arr /\ EL j arr = z) ys
+  )
+End
+
+Theorem array_chunks_end_in_append[local]:
+  array_chunks_end_in (xs ++ ys) = array_chunks_end_in (ys ++ xs)
+Proof
+  simp [array_chunks_end_in_def, FUN_EQ_THM, ALL_DISTINCT_APPEND', DISJOINT_SYM]
+  \\ rw [] \\ EQ_TAC \\ rw [] \\ simp []
+QED
+
+Theorem array_chunks_end_in_rotate[local]:
+  array_chunks_end_in (x :: xs) = array_chunks_end_in (xs ++ [x])
+Proof
+  simp [Once array_chunks_end_in_append]
+QED
+
+Theorem array_chunks_end_in_null[local]:
+  array_chunks_end_in ((i, []) :: xs) = array_chunks_end_in xs
+Proof
+  simp [array_chunks_end_in_def, FUN_EQ_THM]
+QED
+
+Theorem list_to_bag_flat_eq:
+  !xs ys. LIST_TO_BAG xs = LIST_TO_BAG ys ==>
+  LIST_TO_BAG (FLAT xs) = LIST_TO_BAG (FLAT ys)
+Proof
+  Induct
+  >- (
+    Cases \\ simp []
+  )
+  >- (
+    rw []
+    \\ first_assum (mp_tac o Q.AP_TERM `BAG_IN h`)
+    \\ rw [IN_LIST_TO_BAG]
+    \\ fs [MEM_SPLIT]
+    \\ fs [LIST_TO_BAG_APPEND]
+    \\ fsrw_tac [bagSimps.BAG_AC_ss] [BAG_INSERT_UNION]
+    \\ simp_tac bool_ss [GSYM LIST_TO_BAG_APPEND, GSYM FLAT_APPEND]
+    \\ first_x_assum irule
+    \\ simp [LIST_TO_BAG_APPEND]
+  )
+QED
+
+Theorem array_chunks_end_in_bag_eq:
+  ! xs ys zs. LIST_TO_BAG xs = LIST_TO_BAG ys ==>
+  array_chunks_end_in xs = array_chunks_end_in ys
+Proof
+  rw []
+  \\ simp [array_chunks_end_in_def, FUN_EQ_THM]
+  \\ simp [EVERY_FLAT]
+  \\ rw [GSYM EVERY_LIST_TO_BAG, LIST_TO_BAG_MAP]
+  \\ rpt (irule AND_CONG \\ rw [])
+  \\ simp [GSYM containerTheory.LIST_TO_BAG_DISTINCT]
+  \\ simp [LIST_TO_BAG_MAP]
+  \\ AP_TERM_TAC
+  \\ AP_TERM_TAC
+  \\ irule list_to_bag_flat_eq
+  \\ simp [LIST_TO_BAG_MAP]
+QED
+
+Theorem array_chunks_end_in_chunk_append[local]:
+  array_chunks_end_in ((i, xs ++ ys) :: zs) arr = (
+    (LENGTH xs + LENGTH ys) - 1 <= i /\
+    array_chunks_end_in ((i - LENGTH ys, xs) :: (i, ys) :: zs) arr
+  )
+Proof
+  simp [array_chunks_end_in_def]
+  \\ Cases_on `xs = []` \\ csimp []
+  \\ Cases_on `ys = []` \\ csimp []
+  >- (
+    EQ_TAC \\ rw [] \\ fs []
+  )
+  \\ simp [MAPi_APPEND, o_DEF, GSYM CONJ_ASSOC]
+  \\ Cases_on `LENGTH xs` \\ fs []
+  \\ Cases_on `LENGTH ys` \\ fs []
+  \\ csimp [ADD1]
+QED
+
+Theorem array_chunks_end_in_chunk_append_fun[local]:
+  (LENGTH xs + LENGTH ys) - 1 <= i ==>
+  array_chunks_end_in ((i, xs ++ ys) :: zs) = (
+    array_chunks_end_in ((i - LENGTH ys, xs) :: (i, ys) :: zs)
+  )
+Proof
+  simp [FUN_EQ_THM, array_chunks_end_in_chunk_append]
+QED
+
+Theorem array_chunks_end_in_EL[local]:
+  array_chunks_end_in ((i, [x]) :: zs) arr ==>
+    i < LENGTH arr /\ EL i arr = x
+Proof
+  rw [array_chunks_end_in_def]
+QED
+
+Theorem array_chunks_end_in_EL_each_LAST[local]:
+  array_chunks_end_in xs arr ==>
+  EVERY (\(i, xs). 0 < LENGTH xs ==> i < LENGTH arr /\ EL i arr = LAST xs) xs
+Proof
+  rw [array_chunks_end_in_def]
+  \\ rw [EVERY_MEM]
+  \\ pairarg_tac \\ fs []
+  \\ fs [MEM_SPLIT] \\ fs []
+  \\ disch_tac
+  \\ qpat_x_assum `EVERY _ (MAPi _ _)` mp_tac
+  \\ simp [EVERY_EL]
+  \\ disch_then (qspec_then `LENGTH xs' - 1` mp_tac)
+  \\ imp_res_tac LENGTH_NOT_NULL
+  \\ fs [NULL_EQ, LAST_EL, PRE_SUB1]
+QED
+
+Theorem array_chunks_end_in_LUPDATE[local]:
+  array_chunks_end_in ((i, [x]) :: zs) arr ==>
+  array_chunks_end_in ((i, [y]) :: zs) (LUPDATE y i arr)
+Proof
+  rw [array_chunks_end_in_def, EL_LUPDATE]
+  \\ fs [EVERY_FLAT, EVERY_MAP]
+  \\ subgoal `!f g. EVERY f zs /\ (EVERY f zs = EVERY g zs) ==> EVERY g zs`
+  \\ csimp []
+  \\ pop_assum (drule_then irule)
+  \\ irule EVERY_CONG
+  \\ simp [FORALL_PROD] \\ rw []
+  \\ irule EVERY_CONG
+  \\ simp [MEM_MAPi, PULL_EXISTS]
+  \\ rw []
+  \\ dxrule (hd (RES_CANON MEM_SPLIT))
+  \\ rw [] \\ fs []
+  \\ fs [MEM_MAPi]
+QED
+
+Theorem array_chunks_end_in_tree_split[local]:
+  0 < ht ==> (
+  array_chunks_end_in ((i, bs_tree_to_list ht (Node x l r)) :: xs) arr <=>
+  (2 * two_exp_min_1 (ht - 1) <= i) /\
+  array_chunks_end_in (
+        (i - (two_exp_min_1 (ht - 1) + 1), bs_tree_to_list (ht - 1) l) ::
+        (i - 1, bs_tree_to_list (ht - 1) r) :: (i, [x]) :: xs) arr
+  )
+Proof
+  csimp [bs_tree_to_list_tree_rec]
+  \\ simp [array_chunks_end_in_chunk_append]
+  \\ rw [] \\ EQ_TAC \\ rw []
+  \\ fs [LENGTH_bs_tree_to_list]
+QED
+
+Theorem array_chunks_end_in_tree_split_fun[local]:
+  0 < ht /\ (2 * two_exp_min_1 (ht - 1) <= i) ==> (
+  array_chunks_end_in ((i, bs_tree_to_list ht (Node x l r)) :: xs) =
+  array_chunks_end_in (
+        (i - (two_exp_min_1 (ht - 1) + 1), bs_tree_to_list (ht - 1) l) ::
+        (i - 1, bs_tree_to_list (ht - 1) r) :: (i, [x]) :: xs)
+  )
+Proof
+  simp [FUN_EQ_THM, array_chunks_end_in_tree_split]
+QED
+
+Theorem array_chunks_end_in_bag_eq[local]:
+  array_chunks_end_in xs arr /\ LIST_TO_BAG xs = LIST_TO_BAG ys ==>
+  array_chunks_end_in ys arr
+
+Proof
+
+  cheat
+
+QED
+
+Theorem array_chunks_end_in_bag_eq_LUPDATE[local]:
+  array_chunks_end_in xs arr /\
+  MEM (i, [z]) xs /\
+  LIST_TO_BAG ys = ((LIST_TO_BAG xs - {|(i, [z])|}) + {|(i, [y])|}) ==>
+  array_chunks_end_in ys (LUPDATE y i arr)
+
+Proof
+
+  cheat
+
+QED
+
+Theorem EQ_REFL_OR[local]:
+  x = x \/ P
+Proof
+  simp []
+QED
+
+val rotate_
+           (CHANGED_TAC (REWRITE_TAC [array_chunks_end_in_rotate]) \\ simp [APPEND])
+
+
+Definition eq_array_def:
+  eq_array p p' P = (?arr. p = (FST p',
+    (SND p' : 'a state_refs) with <| heap_array := arr |>) /\ P arr)
+End
+
+Theorem eq_array_sub:
+  i < LENGTH (acc s) ==>
+  eq_array (st_ex_bind (Marray_sub acc exn i) f s) (M_success v, s') P =
+  eq_array (f (EL i (acc s)) s) (M_success v, s') P
+Proof
+  simp [eq_array_def, monad_simps]
+QED
+
+fun dest_list_apps t = let
+    open listSyntax
+    fun f xs yss [] = (xs, yss)
+      | f xs yss (t :: ts) = if is_cons t
+        then f (fst (dest_cons t) :: xs) yss (snd (dest_cons t) :: ts)
+        else if is_append t
+        then f xs yss (fst (dest_append t) :: snd (dest_append t) :: ts)
+        else f xs (t :: yss) ts
+  in f [] [] [t] end
+
+fun chunks_conv pred t = let
+    val (f, xs) = strip_comb t
+    val _ = same_const ``array_chunks_end_in`` f orelse
+        failwith "not array_chunks_end_in"
+    val _ = (length xs = 2) orelse failwith "not enough args"
+    val (chk_vs, oths) = dest_list_apps (hd xs)
+    val el_typ = listSyntax.dest_list_type (type_of (hd xs))
+    val (pick, reject) = partition pred chk_vs
+    val base = if null oths then listSyntax.mk_list ([], el_typ)
+        else foldr listSyntax.mk_append (last oths) (butlast oths)
+    val rhs_chks = foldr listSyntax.mk_cons base (pick @ reject)
+    val eq = mk_eq (t, list_mk_comb (f, [rhs_chks, last xs]))
+
+fun pred t = can (match_term ``(_, [_])``) t
+
+
 Theorem insert_into_sfx_heap_eq:
 
   ! t R i ht x st.
-  array_eqs (BAG_UNION others
-    (list_mappings_from (bs_tree_to_list ht t) ((i + 1) - two_exp_min_1 ht))) st.heap_array ==>
+  array_chunks_end_in ((i, bs_tree_to_list ht t) :: others) st.heap_array /\
   i + 1 <= LENGTH st.heap_array /\
   two_exp_min_1 ht <= i + 1 /\
   ht > 0 /\
   tree_balanced_height ht t ==>
-  monad_prop st (insert_into_sfx_heap R i ht x)
-    (\_ st'. ?arr'. st' = st with <| heap_array := arr' |> /\
-        LENGTH arr' = LENGTH st.heap_array /\
-        array_eqs (BAG_UNION others
-            (list_mappings_from (bs_tree_to_list ht (insert_tree_inv R t x))
-                ((i + 1) - two_exp_min_1 ht))) arr')
+  eq_array (insert_into_sfx_heap R i ht x st)
+    (M_success (), st)
+    (array_chunks_end_in ((i, bs_tree_to_list ht (insert_tree_inv R t x)) :: others))
+
 Proof
 
   Induct
-  \\ simp [tree_len_simps]
+  \\ simp [tree_balanced_height_def]
   \\ ONCE_REWRITE_TAC [insert_into_sfx_heap_def]
-  \\ rpt strip_tac
-  \\ rw [] \\ fs []
+  \\ rw []
   >- (
-    Cases_on `ht = 1` \\ fs [tree_len_simps]
-    \\ fs [insert_tree_inv_def, tree_len_simps]
-    \\ fs [list_mappings_from_bases, BAG_UNION_INSERT, array_eqs_insert]
-    \\ irule monad_prop_postcond_imp \\ irule_at Any update_heap_array_prop
-    \\ simp []
+    Cases_on `ht = 1` \\ fs [tree_balanced_height_0]
+    \\ simp [monad_simps, eq_array_def]
     \\ irule_at Any EQ_REFL
-    \\ simp [array_eqs_LUPDATE, EL_LUPDATE]
+    \\ fs [array_chunks_end_in_tree_split, bs_tree_to_list_def,
+            insert_tree_inv_def, array_chunks_end_in_null]
+    \\ drule_then irule array_chunks_end_in_LUPDATE
   )
   >- (
 
-    fs [tree_balanced_height_pos]
-    \\ simp [return_bind_eq]
-    \\ fs [tree_len_simps, sfx_heap_left_two_exp_min_1]
-    \\ fs [list_mappings_from_bases, list_mappings_from_append,
-            BAG_UNION_INSERT, array_eqs_insert]
-    \\ irule monad_prop_bind \\ irule_at Any heap_array_sub_prop \\ rw []
-    \\ irule monad_prop_bind \\ irule_at Any heap_array_sub_prop
-    \\ fs [list_mappings_from_bases, list_mappings_from_append,
-            BAG_UNION_INSERT, array_eqs_insert]
-
-    \\ irule monad_prop_bind \\ irule_at Any heap_array_sub_prop
-
-
-    \\ simp [EL_APPEND, tree_len_simps, LEFT_ADD_DISTRIB]
+    (* split array chunks once *)
+    gs [array_chunks_end_in_tree_split]
+    (* then expand the tree further to get top node vals *)
+    \\ gs [tree_balanced_height_pos]
+    (* continue *)
+    \\ simp [sfx_heap_left_def, to_two_exp_min_1]
+    \\ ONCE_REWRITE_TAC [insert_tree_inv_def]
+    \\ simp [monad_simps, return_bind_eq, eq_array_sub]
+    \\ imp_res_tac array_chunks_end_in_EL_each_LAST
+    \\ gs [LENGTH_bs_tree_to_list, LAST_bs_tree_to_list, two_exp_min_1_pos]
     \\ rpt TOP_CASE_TAC \\ simp [ml_monadBaseTheory.monad_eqs]
     >- (
-      simp [tree_len_simps, LUPDATE_APPEND, LUPDATE_DEF]
-      \\ simp [insert_tree_inv_def, tree_len_simps]
+      simp [eq_array_def, monad_simps]
+      \\ irule_at Any EQ_REFL
+      \\ simp [Once array_chunks_end_in_tree_split]
+      \\ drule_then (irule_at Any) array_chunks_end_in_bag_eq_LUPDATE
+      \\ simp []
+      \\ fsrw_tac [simpLib.ac_ss [(DISJ_ASSOC, DISJ_COMM)]] []
+      \\ irule_at Any EQ_REFL_OR
+      \\ simp [BAG_INSERT_commutes, BAG_UNION_INSERT]
     )
     >- (
-      simp [tree_len_simps, LUPDATE_APPEND, LUPDATE_DEF]
-      \\ ONCE_REWRITE_TAC [insert_tree_inv_def]
-      \\ simp [tree_len_simps]
-      \\ simp [tree_len_simps, TAKE_APPEND2, TAKE_APPEND1, DROP_APPEND1, DROP_APPEND2]
-      \\ simp_tac bool_ss [GSYM APPEND_ASSOC, APPEND]
+      irule_at Any array_chunks_end_in_bag_eq
+      \\ ONCE_REWRITE_TAC [CONJ_COMM]
+      \\ ONCE_REWRITE_TAC [CONJ_ASSOC]
+      \\ first_x_assum (irule_at Any)
+
+
+
+
+Theorem insert_into_sfx_heap_eq:
+
+  ! ht i st t others.
+  array_chunks_end_in ((i, bs_tree_to_list ht t) :: others) st.heap_array /\
+  i + 1 <= LENGTH st.heap_array /\
+  two_exp_min_1 ht <= i + 1 /\
+  ht > 0 /\
+  tree_balanced_height ht t ==>
+  ? arr'.
+  insert_into_sfx_heap R i ht x st = (M_success (), st with <| heap_array := arr' |>) /\
+  array_chunks_end_in ((i, bs_tree_to_list ht (insert_tree_inv R t x)) :: others) arr'
+
+Proof
+
+  Induct
+  \\ simp [tree_balanced_height_def, ADD1]
+  \\ ONCE_REWRITE_TAC [insert_into_sfx_heap_def]
+  \\ rw []
+  >- (
+    Cases_on `ht` \\ fs [tree_balanced_height_pos, tree_balanced_height_0]
+    \\ simp [monad_simps]
+    \\ irule_at Any EQ_REFL
+    \\ fs [array_chunks_end_in_tree_split, bs_tree_to_list_def,
+            insert_tree_inv_def, array_chunks_end_in_null]
+    \\ drule_then irule array_chunks_end_in_LUPDATE
+  )
+  >- (
+
+    (* unfold tree once *)
+    fs [Once tree_balanced_height_pos]
+    (* split array chunks once *)
+    \\ gs [array_chunks_end_in_tree_split]
+    (* then expand the tree further to get top node vals *)
+    \\ gs [tree_balanced_height_pos]
+    \\ simp [sfx_heap_left_def, to_two_exp_min_1]
+    \\ ONCE_REWRITE_TAC [insert_tree_inv_def]
+    \\ simp [monad_simps]
+    \\ imp_res_tac array_chunks_end_in_EL_each_LAST
+    \\ gs [LENGTH_bs_tree_to_list, LAST_bs_tree_to_list, two_exp_min_1_pos]
+    \\ rpt TOP_CASE_TAC \\ simp []
+
+    >- (
+      simp [monad_simps]
+      \\ irule_at Any EQ_REFL
+      \\ simp [Once array_chunks_end_in_tree_split_fun]
+
+      \\ qpat_x_assum `array_chunks_end_in _ _` mp_tac
+
+
+      \\ drule_then (irule_at Any) array_chunks_end_in_bag_eq_LUPDATE
+      \\ simp []
+      \\ fsrw_tac [simpLib.ac_ss [(DISJ_ASSOC, DISJ_COMM)]] []
+      \\ irule_at Any EQ_REFL_OR
+      \\ simp [BAG_INSERT_commutes, BAG_UNION_INSERT]
     )
     >- (
-      simp [tree_len_simps, LUPDATE_APPEND, LUPDATE_DEF]
-      \\ ONCE_REWRITE_TAC [insert_tree_inv_def]
-      \\ simp [tree_len_simps]
-      \\ simp [tree_len_simps, TAKE_APPEND2, TAKE_APPEND1, DROP_APPEND1, DROP_APPEND2]
+
+      ONCE_REWRITE_TAC [ml_monadBaseTheory.monad_eqs]
+      \\ simp [PULL_EXISTS]
+
+      qmatch_goalsub_abbrev_tac `insert_into_sfx_heap _ i2 _ _ st2`
+      \\ first_x_assum (qspecl_then [`i2`, `st2`] mp_tac)
+      \\ dxrule (hd (RES_CANON array_chunks_end_in_rotate))
+      \\ rw []
+      \\ first_x_assum drule
+
+      irule_at Any array_chunks_end_in_bag_eq
+      \\ ONCE_REWRITE_TAC [CONJ_COMM]
+      \\ ONCE_REWRITE_TAC [CONJ_ASSOC]
+      \\ first_x_assum (irule_at Any)
+
+      \\ fsrw_tac [bagLib.SBAG_SOLVE_ss] []
+
+
+
+      \\ rpt (irule array_chunks_end_in_LUPDATE ORELSE
+           (CHANGED_TAC (REWRITE_TAC [array_chunks_end_in_rotate]) \\ simp [APPEND])
+        )
+      \\ REWRITE_TAC [GSYM APPEND_ASSOC]
+      \\ ONCE_REWRITE_TAC [array_chunks_end_in_append]
+      \\ simp []
+      \\ first_assum (irule_at Any)
+    )
+
+REWRITE_TAC [array_chunks_end_in_rotate])
+      \\
+
+
+
+Theorem monad_eq_helper[local]:
+  (?s'. mv = (M_success x, s') /\ (SND mv = s' ==> s = s' /\ Q)) ==>
+  mv = (M_success x, s) /\ Q
+Proof
+  rw [] \\ fs []
+QED
+
+Definition monad_eq_array_prop_def:
+  monad_eq_array_prop mv x s P =
+    (case mv of (M_success x', (s' : 'a state_refs)) =>
+        x' = x /\ (?arr. s' = (s with <| heap_array := arr |>) /\ P arr)
+      | _ => F)
+End
+
+Theorem monad_eq_array_prop_array_upd[local]:
+  monad_eq_array_prop mv x (heap_array_fupd f s) P =
+  monad_eq_array_prop mv x s P
+Proof
+  simp [monad_eq_array_prop_def]
+QED
+
+Theorem monad_eq_array_prop_eraseI:
+  (case mv of (M_success x', s') =>
+    x' = x /\ (s' with <| heap_array := [] |>) = (s with <| heap_array := [] |>) /\
+    P s'.heap_array
+  | _ => F) ==>
+  monad_eq_array_prop mv x s P
+Proof
+  simp [monad_eq_array_prop_def]
+  \\ BasicProvers.EVERY_CASE_TAC \\ fs []
+  \\ simp [fetch "-" "state_refs_component_equality"]
+QED
+
+Theorem monad_eq_array_prop_exI:
+  (?s'. mv = (M_success x', s') /\
+    x' = x /\ (s' with <| heap_array := [] |>) = (s with <| heap_array := [] |>) /\
+    P s'.heap_array) ==>
+  monad_eq_array_prop mv x s P
+Proof
+  rw [] \\ irule monad_eq_array_prop_eraseI
+  \\ simp []
+QED
+
+Theorem monad_eq_array_prop_bindI:
+  monad_eq_array_prop (m (st : 'a state_refs)) y (bd_st : 'a state_refs) Q /\
+  (! upd_st arr. Q upd_st.heap_array /\ bd_st = (upd_st with <| heap_array := arr |>) ==>
+    monad_eq_array_prop (f y upd_st) x st' P)
+  ==>
+  monad_eq_array_prop (st_ex_bind m f st) x st' P
+Proof
+  rw [] \\ irule monad_eq_array_prop_exI
+  \\ simp [monad_simps]
+  \\ Cases_on `FST (m st)` \\ Cases_on `m st` \\ fs [monad_eq_array_prop_def]
+  \\ rw []
+  \\ first_x_assum (qspecl_then [`bd_st with heap_array := arr`, `bd_st.heap_array`] mp_tac)
+  \\ rpt (TOP_CASE_TAC \\ fs [])
+  \\ simp [fetch "-" "state_refs_component_equality"]
+QED
+
+Theorem monad_eq_array_prop_bindI_rdonly:
+  monad_eq_array_prop (m st) y st ((=) st.heap_array) /\
+  monad_eq_array_prop (f y st) x st' P
+  ==>
+  monad_eq_array_prop (st_ex_bind m f st) x st' P
+Proof
+  rw [] \\ irule monad_eq_array_prop_bindI
+  \\ last_assum (irule_at Any)
+  \\ rw []
+  \\ fs []
+  \\ subgoal `(upd_st with heap_array := upd_st.heap_array) = upd_st`
+  \\ fs []
+  \\ simp [fetch "-" "state_refs_component_equality"]
+QED
+
+Theorem heap_array_sub_bind_eq:
+  i < LENGTH st.heap_array ==>
+  st_ex_bind (heap_array_sub i) f st =
+  f (EL i st.heap_array) st
+Proof
+  rw []
+  \\ fs [ml_monadBaseTheory.st_ex_bind_def]
+  \\ simp [ml_monadBaseTheory.exc_case_eq, pair_case_eq]
+  \\ simp [monad_simps]
+QED
+
+Theorem sz_array_sub_bind_eq:
+  i < LENGTH st.sz_array ==>
+  st_ex_bind (sz_array_sub i) f st =
+  f (EL i st.sz_array) st
+Proof
+  rw []
+  \\ fs [ml_monadBaseTheory.st_ex_bind_def]
+  \\ simp [ml_monadBaseTheory.exc_case_eq, pair_case_eq]
+  \\ simp [monad_simps]
+QED
+
+Theorem update_sz_array_prop:
+  i < LENGTH st.sz_array ==>
+  monad_eq_array_prop (update_sz_array i x st) ()
+    (st with <| sz_array := LUPDATE x i st.sz_array |>)
+    ((=) st.heap_array)
+Proof
+  rw [] \\ irule monad_eq_array_prop_exI
+  \\ simp [monad_simps]
+QED
+
+Theorem update_heap_array_prop:
+  array_chunks_end_in ((i, [prev_x]) :: others) st.heap_array ==>
+  monad_eq_array_prop (update_heap_array i x st) () st
+    (array_chunks_end_in ((i, [x]) :: others))
+Proof
+  rw [] \\ irule monad_eq_array_prop_exI
+  \\ simp [monad_simps]
+  \\ imp_res_tac array_chunks_end_in_EL_each_LAST
+  \\ fs []
+  \\ drule_then irule array_chunks_end_in_LUPDATE
+QED
+
+Theorem monad_eq_array_prop_postcondI:
+  monad_eq_array_prop mv x s P /\ (!arr. P arr ==> Q arr) ==>
+  monad_eq_array_prop mv x s Q
+Proof
+  rw [monad_eq_array_prop_def]
+  \\ EVERY_CASE_TAC \\ fs []
+  \\ irule_at Any EQ_REFL \\ simp []
+QED
+
+Theorem array_chunks_end_in_bag_eq_IMP[local]:
+  array_chunks_end_in xs arr /\
+  LIST_TO_BAG xs = LIST_TO_BAG ys ==>
+  array_chunks_end_in ys arr
+Proof
+  metis_tac [array_chunks_end_in_bag_eq]
+QED
+
+val chunks_const = ``array_chunks_end_in``
+
+fun chunk_select_conv pat tm = let
+    val (f, xs) = strip_comb tm
+    val _ = same_const chunks_const f orelse
+        failwith "not array_chunks_end_in"
+    val _ = not (null xs) orelse failwith "array_chunks_end_in no args"
+    val cs = hd xs
+    val ts = find_terms (fn t => listSyntax.is_cons t
+        andalso can (match_term pat) (rand (rator t))) cs
+    val _ = not (null ts) orelse failwith ("no chunk matches")
+    val cs2 = Term.subst [hd ts |-> rand (hd ts)] cs
+    val cs3 = listSyntax.mk_cons (rand (rator (hd ts)), cs2)
+    val rhs = list_mk_comb (f, cs3 :: tl xs)
+    val _ = not (aconv tm rhs) orelse failwith "chunk_select_conv: done"
+    val eq = mk_eq (tm, list_mk_comb (f, cs3 :: tl xs))
+  in prove (eq, TRY AP_THM_TAC
+      \\ irule array_chunks_end_in_bag_eq
+      \\ fsrw_tac [bagSimps.BAG_AC_ss] [BAG_INSERT_UNION])
+  end
+
+fun chunk_select_tac pat = POP_ASSUM_LIST (fn asms => let
+    fun do_conv asm = if can (find_term (same_const chunks_const)) (concl asm)
+      then let
+        val asm2 = CONV_RULE (ONCE_DEPTH_CONV (chunk_select_conv pat)) asm
+      in (asm2, aconv (concl asm2) (concl asm)) end
+      else (asm, true)
+    val conv_asms = map do_conv asms
+    val (no_upd, upd) = partition snd conv_asms
+  in MAP_EVERY (ASSUME_TAC o fst) (rev (upd @ no_upd))
+    >> CONV_TAC (ONCE_DEPTH_CONV (chunk_select_conv pat)) end)
+
+fun select_chunk_goal pat = CONV_TAC (DEPTH_CONV (chunk_select_conv pat))
+
+fun select_chunk_asm pat = qpat_x_assum `array_chunks_end_in _ _`
+    (assume_tac o CONV_RULE (chunk_select_conv pat))
+
+(* chunks ends variant *)
+Theorem insert_into_sfx_heap_eq:
+  ! ht i st t others.
+  array_chunks_end_in ((i, bs_tree_to_list ht t) :: others) st.heap_array /\
+  ht > 0 /\
+  tree_balanced_height ht t ==>
+  monad_eq_array_prop (insert_into_sfx_heap R i ht x st) () st
+      (array_chunks_end_in ((i, bs_tree_to_list ht (insert_tree_inv R t x)) :: others))
+Proof
+  Induct
+  \\ simp [tree_balanced_height_def, ADD1]
+  \\ ONCE_REWRITE_TAC [insert_into_sfx_heap_def]
+  \\ rw []
+  >- (
+    Cases_on `ht` \\ fs [tree_balanced_height_pos, tree_balanced_height_0]
+    \\ irule monad_eq_array_prop_exI
+    \\ simp [monad_simps]
+    \\ imp_res_tac array_chunks_end_in_EL_each_LAST
+    \\ fs [LENGTH_bs_tree_to_list, two_exp_min_1_pos]
+    \\ fs [array_chunks_end_in_tree_split, bs_tree_to_list_def,
+            insert_tree_inv_def, array_chunks_end_in_null]
+    \\ drule_then irule array_chunks_end_in_LUPDATE
+  )
+  >- (
+    (* unfold tree once *)
+    fs [Once tree_balanced_height_pos]
+    (* split array chunks once *)
+    \\ gs [array_chunks_end_in_tree_split]
+    (* then expand the tree further to get top node vals *)
+    \\ gs [tree_balanced_height_pos]
+    \\ simp [sfx_heap_left_def, to_two_exp_min_1]
+    \\ ONCE_REWRITE_TAC [insert_tree_inv_def]
+    \\ imp_res_tac array_chunks_end_in_EL_each_LAST
+    \\ gs [LENGTH_bs_tree_to_list, LAST_bs_tree_to_list, two_exp_min_1_pos]
+    \\ simp [return_bind_eq, heap_array_sub_bind_eq]
+    \\ rpt TOP_CASE_TAC \\ simp []
+    >- (
+      simp [Once array_chunks_end_in_tree_split_fun]
+      \\ chunk_select_tac ``(_, [_])``
+      \\ drule_then irule update_heap_array_prop
+    )
+    >- (
+      simp [st_ex_ignore_bind_simp]
+      \\ simp [Once array_chunks_end_in_tree_split_fun]
+      \\ chunk_select_tac ``(_, [_])``
+      \\ irule monad_eq_array_prop_bindI
+      \\ dxrule_then (irule_at Any) update_heap_array_prop
+      \\ rw []
+      \\ chunk_select_tac ``(_ - 1n, _)``
+      \\ first_x_assum dxrule
+      \\ simp [monad_eq_array_prop_array_upd]
+    )
+    >- (
+      simp [st_ex_ignore_bind_simp]
+      \\ simp [Once array_chunks_end_in_tree_split_fun]
+      \\ chunk_select_tac ``(_, [_])``
+      \\ irule monad_eq_array_prop_bindI
+      \\ dxrule_then (irule_at Any) update_heap_array_prop
+      \\ rw []
+      \\ chunk_select_tac ``(_ - (_ + 1n), _)``
+      \\ first_x_assum dxrule
+      \\ simp [monad_eq_array_prop_array_upd]
     )
   )
 QED
 
-
-Theorem test:
-  3 < LENGTH st.heap_array ==>
-  monad_prop st
-    do
-      x <- heap_array_sub 1;
-      y <- heap_array_sub 2;
-      z <- heap_array_sub 3;
-      return (x + y + z)
-    od (\rv st. T)
- 
-Proof
-
-  rw []
-  \\ irule monad_prop_bind \\ irule_at Any heap_array_sub_prop \\ rw []
-  \\ simp []
-  \\ irule monad_prop_bind \\ irule_at Any heap_array_sub_prop \\ simp []
-
-  conj_tac
-
-
-
-
-Theorem broken:
-  (! s i. monad_postcond s (get i) (\rv s'. rv = get_pure s i /\ s' = s))
-  ==>
-  ?Q. monad_postcond s' (get k) Q /\ (Conds Q)
-Proof
-  strip_tac
-  >> pop_assum (irule_at Any)
-  >> cheat
-QED
-
-Theorem works:
-  (! s i. monad_postcond s (get i) (\rv s'. rv = get_pure s i /\ s' = s))
-  ==>
-  ?Q. monad_postcond s (get k) Q /\ (Conds Q)
-Proof  
-  strip_tac
-  >> pop_assum (irule_at Any)
-  >> cheat
-QED
-
-Theorem works:
-
-  (! s i. monad_postcond s (get i) (\rv s'. rv = get_pure s i /\ s' = s))
-  ==>
-  ?Q. monad_postcond s' (get k) Q /\ (Conds Q)
-
-
-  strip_tac
-  >> pop_assum (irule_at Any)
-
-
-Theorem
-
-  ∃P. Q P /\ monad_prop s' (heap_array_sub 2) P
-
-\\ irule_at Any heap_array_sub_prop
-
-Theorem works:
-  Q /\ (!x. R f x (\y. y = x))
-  ==>
-  R f z (\y. y = z) /\ Q
-Proof
-  strip_tac
-  >> pop_assum (irule_at Any)
-  >> simp []
-QED
-
-Theorem fails:
-  Q /\ (!x. R f x (\y. y = x))
-  ==>
-  R f y (\z. z = y) /\ Q
-
-Proof
-  strip_tac
-  >> pop_assum (qspec_then `y` (irule_at Any))
-
-  >> simp []
-QED
-
-
-
-
-
-
-Definition result_prop_def:
-  result_prop x Q = Q x
+Definition bs_tree_list_chunks_def:
+  bs_tree_list_chunks i [] = [] /\
+  bs_tree_list_chunks i ((t, ht) :: ts) =
+    ((i, bs_tree_to_list ht t) :: bs_tree_list_chunks (i - two_exp_min_1 ht) ts)
 End
 
-Theorem result_prop_LET:
-  result_prop v P /\ (!x. P x ==> result_prop (f x) Q) ==>
-  result_prop (LET f v) Q
+Theorem insert_into_sfx_heap_list_eq:
+  ! j ts R i x others st.
+  array_chunks_end_in ((i, bs_tree_list_to_list ts) :: others) st.heap_array /\
+  TAKE j st.sz_array = MAP SND (REVERSE ts) /\
+  j <= LENGTH st.sz_array ==>
+  0 < j /\ EVERY (\(t, n). 0 < n /\ tree_balanced_height n t) ts ==>
+  monad_eq_array_prop (insert_into_sfx_heap_list R i j x st) () st
+      (array_chunks_end_in ((i, bs_tree_list_to_list (insert_trees_inv R ts x)) :: others))
 Proof
-  simp [result_prop_def]
+  Induct
+  \\ simp []
+  \\ ONCE_REWRITE_TAC [insert_into_sfx_heap_list_def]
+  \\ rpt strip_tac
+  \\ Cases_on `HD ts` \\ Cases_on `ts` \\ fs []
+  \\ gs [ADD1, TAKE_SUM]
+  \\ simp [insert_trees_inv_def]
+  \\ rw []
+  >- (
+    Cases_on `j` \\ fs []
+    \\ gs [tree_balanced_height_pos, bs_tree_list_to_list_rec]
+    \\ simp [sz_array_sub_bind_eq]
+    \\ irule insert_into_sfx_heap_eq
+    \\ simp [tree_balanced_height_pos]
+  )
+  >- (
+    gs [bs_tree_list_to_list_rec, tree_balanced_height_pos, ADD1,
+        array_chunks_end_in_chunk_append]
+    \\ simp [sz_array_sub_bind_eq, return_bind_eq]
+    \\ imp_res_tac array_chunks_end_in_EL_each_LAST
+    \\ gs [EL_TAKE, EL_APPEND, array_chunks_end_in_tree_split,
+         LENGTH_bs_tree_to_list, two_exp_min_1_pos, APPEND]
+    \\ simp [to_two_exp_min_1]
+    \\ qpat_x_assum `0 < LENGTH (bs_tree_list_to_list _) ==> _` mp_tac
+    \\ impl_keep_tac
+    >- (
+      Cases_on `HD t` \\ Cases_on `t` \\ fs []
+      \\ gs [bs_tree_list_to_list_rec, tree_balanced_height_pos]
+      \\ simp [bs_tree_to_list_tree_rec]
+    )
+    \\ rw []
+    \\ Cases_on `HD t` \\ Cases_on `t` \\ fs []
+    \\ gs [tree_balanced_height_pos]
+    \\ simp [heap_array_sub_bind_eq]
+    \\ irule monad_eq_array_prop_bindI_rdonly
+    \\ qmatch_goalsub_abbrev_tac `bs_tree_list_to_list (COND tree_conds _ _)`
+    \\ qexists_tac `tree_conds`
+    \\ conj_tac
+    >- (
+      Cases_on `j` \\ fs [ADD1, TAKE_SUM]
+      \\ fs [markerTheory.Abbrev_def, bs_tree_list_to_list_rec,
+            bs_tree_to_list_tree_rec]
+      \\ reverse (rw [])
+      >- (
+        gs []
+        \\ irule monad_eq_array_prop_exI
+        \\ simp [ml_monadBaseTheory.monad_eqs]
+        \\ gs [tree_balanced_height_eq_0]
+      )
+      >- (
+        gs [tree_balanced_height_pos]
+        \\ fs [array_chunks_end_in_chunk_append]
+        \\ chunk_select_tac ``(_, _ ++ _)``
+        \\ fs [array_chunks_end_in_chunk_append]
+        \\ simp [sfx_heap_left_def, to_two_exp_min_1]
+        \\ imp_res_tac array_chunks_end_in_EL_each_LAST
+        \\ gs [LENGTH_bs_tree_to_list, two_exp_min_1_pos]
+        \\ simp [heap_array_sub_bind_eq, LAST_bs_tree_to_list]
+        \\ irule monad_eq_array_prop_exI
+        \\ simp [ml_monadBaseTheory.monad_eqs]
+      )
+    )
+    >- (
+      qpat_x_assum `Abbrev _` (K all_tac)
+      \\ rw []
+      >- (
+        fs [st_ex_ignore_bind_simp, bs_tree_to_list_tree_rec]
+        \\ chunk_select_tac ``(_, _ ++ _)``
+        \\ fs [array_chunks_end_in_chunk_append]
+        \\ chunk_select_tac ``(_, [_])``
+        \\ irule monad_eq_array_prop_bindI
+        \\ dxrule_then (irule_at Any) update_heap_array_prop
+        \\ rw []
+        \\ simp [bs_tree_list_to_list_rec]
+        \\ dep_rewrite.DEP_REWRITE_TAC [array_chunks_end_in_chunk_append_fun]
+        \\ fs [LENGTH_bs_tree_to_list, LENGTH_list_of_insert_trees]
+        \\ simp [monad_eq_array_prop_array_upd]
+        \\ first_x_assum irule
+        \\ simp [tree_balanced_height_def]
+        \\ chunk_select_tac ``(_, bs_tree_to_list _ (Node _ _ _))``
+        \\ simp [array_chunks_end_in_tree_split]
+        \\ chunk_select_tac ``(_, [_])``
+        \\ gs [bs_tree_list_to_list_rec, bs_tree_to_list_tree_rec]
+      )
+      >- (
+        ONCE_REWRITE_TAC [bs_tree_list_to_list_rec]
+        \\ simp [array_chunks_end_in_chunk_append_fun, LENGTH_bs_tree_to_list]
+        \\ chunk_select_tac ``(_, bs_tree_to_list _ _)``
+        \\ irule insert_into_sfx_heap_eq
+        \\ simp [tree_balanced_height_def]
+      )
+    )
+  )
 QED
 
-Theorem result_tup_eq_fst:
-  result_prop (x, y) (\t. FST t = x)
+Theorem add_to_sfx_heaps_step1_eq:
+  array_chunks_end_in ((i, [x]) :: (i - 1, bs_tree_list_to_list ts) :: others) st.heap_array /\
+  EVERY (\(t, n). 0 < n /\ tree_balanced_height n t) ts /\
+  0 < i /\
+  TAKE j st.sz_array = MAP SND (REVERSE ts) /\
+  j = LENGTH ts /\ j + 1 < LENGTH st.sz_array ==>
+  let ts2 = add_trees_step1 ts x;
+        xs = bs_tree_list_to_list ts2; l2 = LENGTH ts2 in
+  monad_eq_array_prop (add_to_sfx_heaps_step1 i j st) l2
+      (st with <| sz_array := MAP SND (REVERSE ts2) ++ DROP l2 st.sz_array |>)
+      (array_chunks_end_in ((i, bs_tree_list_to_list ts2) :: others))
 Proof
-  simp [result_prop_def]
+  rw []
+  \\ simp [add_to_sfx_heaps_step1_def, add_trees_step1_def]
+  \\ irule monad_eq_array_prop_bindI_rdonly
+  \\ qexists_tac `case ts of (_, n1) :: (_, n2) :: _ => n1 = n2 | _ => F`
+  \\ conj_tac
+  >- (
+    Cases_on `ts` \\ fs []
+    \\ simp [monad_eq_array_prop_exI, ml_monadBaseTheory.monad_eqs]
+    \\ fs [ADD1, TAKE_SUM]
+    \\ Cases_on `t` \\ fs []
+    \\ simp [monad_eq_array_prop_exI, ml_monadBaseTheory.monad_eqs]
+    \\ fs [ADD1, TAKE_SUM]
+    \\ simp [sz_array_sub_bind_eq]
+    \\ rpt (pairarg_tac \\ fs [])
+    \\ simp [monad_eq_array_prop_exI, ml_monadBaseTheory.monad_eqs]
+  )
+  \\ rw []
+  >- (
+    (* merge case *)
+    rpt (TOP_CASE_TAC \\ fs [ADD1, TAKE_SUM])
+    \\ simp [sz_array_sub_bind_eq, st_ex_ignore_bind_simp]
+    \\ irule monad_eq_array_prop_bindI
+    \\ irule_at Any update_sz_array_prop
+    \\ rw []
+    \\ simp [monad_eq_array_prop_array_upd]
+    \\ qspec_then `st.sz_array` mp_tac LESS_LENGTH
+    \\ disch_then (qspec_then `LENGTH t'` mp_tac)
+    \\ rw []
+    \\ fs [EL_APPEND, TAKE_APPEND1, LUPDATE_APPEND, LUPDATE_def]
+    \\ rw []
+    \\ gs [TAKE_LENGTH_TOO_LONG, DROP_APPEND2, monad_eq_array_prop_array_upd]
+    \\ irule monad_eq_array_prop_exI
+    \\ simp [ml_monadBaseTheory.monad_eqs]
+    \\ fs [bs_tree_list_to_list_rec, bs_tree_to_list_tree_rec]
+    \\ ONCE_REWRITE_TAC [array_chunks_end_in_chunk_append]
+    \\ fs []
+    \\ chunk_select_tac ``(_ - 1n, _)``
+    \\ simp []
+    \\ fs [array_chunks_end_in_chunk_append]
+    \\ gs [LENGTH_bs_tree_to_list, two_exp_min_1_less_rec]
+  )
+  >- (
+    (* no merge case *)
+    simp [st_ex_ignore_bind_simp]
+    \\ qmatch_goalsub_abbrev_tac `bs_tree_list_to_list upd_trees`
+    \\ subgoal `upd_trees = (Node x Empty_Tree Empty_Tree, 1) :: ts`
+    >- (
+      every_case_tac \\ fs []
+    )
+    \\ simp []
+    \\ irule monad_eq_array_prop_bindI
+    \\ irule_at Any update_sz_array_prop
+    \\ rw []
+    \\ fs [ADD1]
+    \\ qspec_then `st.sz_array` mp_tac LESS_LENGTH
+    \\ disch_then (qspec_then `LENGTH ts` mp_tac)
+    \\ rw []
+    \\ fs [LUPDATE_APPEND, LUPDATE_DEF, TAKE_APPEND1]
+    \\ gs [TAKE_LENGTH_TOO_LONG, DROP_APPEND2, monad_eq_array_prop_array_upd]
+    \\ irule monad_eq_array_prop_exI
+    \\ simp [ml_monadBaseTheory.monad_eqs]
+    \\ simp [bs_tree_list_to_list_rec, bs_tree_to_list_tree_rec]
+    \\ chunk_select_tac ``(_ - 1n, _)``
+    \\ simp [array_chunks_end_in_chunk_append]
+    \\ fs [array_chunks_end_in_def]
+  )
 QED
 
-Theorem works:
-  result_prop (let x = (1n, T); y = (2n, F); z = (3n, ()) in FST x + FST y + FST z) (\n. n > 5)
+Theorem add_to_sfx_heaps_eq:
+  EVERY (\(t, n). 0 < n /\ tree_balanced_height n t) ts /\
+  0 < i /\
+  array_chunks_end_in ((i, [x]) :: (i - 1, bs_tree_list_to_list ts) :: others) st.heap_array /\
+  TAKE j st.sz_array = MAP SND (REVERSE ts) /\
+  j = LENGTH ts /\ j + 1 < LENGTH st.sz_array ==>
+  (let ts2 = add_trees R ts x; xs = bs_tree_list_to_list ts2; l2 = LENGTH ts2 in
+  monad_eq_array_prop (add_to_sfx_heaps R i j x st) l2
+      (st with <| sz_array := MAP SND (REVERSE ts2) ++ DROP l2 st.sz_array |>)
+      (array_chunks_end_in ((i, bs_tree_list_to_list ts2) :: others))
+  )
+
 Proof
-  irule result_prop_LET \\ irule_at Any result_tup_eq_fst \\ rpt strip_tac \\ simp_tac bool_ss []
-  \\ irule result_prop_LET \\ irule_at Any result_tup_eq_fst \\ rpt strip_tac \\ simp_tac bool_ss []
-  \\ irule result_prop_LET \\ irule_at Any result_tup_eq_fst \\ rpt strip_tac \\ simp_tac bool_ss []
+
+  simp [add_to_sfx_heaps_def, add_trees_def, st_ex_ignore_bind_simp]
+  \\ rpt strip_tac
+  \\ irule monad_eq_array_prop_bindI
+  \\ dxrule_then (irule_at Any) (SIMP_RULE bool_ss [LET_THM] add_to_sfx_heaps_step1_eq)
   \\ fs []
-  \\ simp [result_prop_def]
-QED
+  \\ rw []
+  \\ irule monad_eq_array_prop_bindI
+  \\ dxrule_then (irule_at Any) insert_into_sfx_heap_list_eq
+  \\ simp [LENGTH_add_tree_step1_facts]
 
-Theorem works:
-  result_prop (let x = (1n, T); y = (2n, F); z = (3n, ()) in FST x + FST y + FST z) (\n. n > 5)
-Proof
-  irule result_prop_LET \\ irule_at Any result_tup_eq_fst \\ rpt strip_tac \\ simp_tac bool_ss []
-  \\ irule result_prop_LET \\ irule_at Any result_tup_eq_fst \\ rpt strip_tac \\ simp_tac bool_ss []
-  \\ irule result_prop_LET \\ irule_at Any result_tup_eq_fst \\ rpt strip_tac \\ simp_tac bool_ss []
-  \\ fs []
-  \\ simp [result_prop_def]
-QED
+  \\ 
+  \\ simp [
 
-
-(* Another alternative proof, via array->fun->tree directed equivalence. *)
 
 
 Definition extract_tree_def:
