@@ -212,7 +212,7 @@ val tail_cons1 = “cons_to_tc_and_mut_cons (4000:num) 12 [Op (BlockOp (Cons 0))
                                                             [Call 0 (SOME 4000) [Var 3] NONE;
                                                              Op (BlockOp (Cons 0)) [Op (BlockOp (Cons 0)) []; Var 2]];
                                                          Op (BlockOp (Build [Int 1; Con 0 []; Con 0 [0; 1]])) []]”;
-val tail_cons1_expected = “(0,[Var 3],NONE)⁺
+val tail_cons1_expected = “TC (0,[Var 3],NONE)
        (12,0,
         [Op (MemOp (MutCons 0 0))
            [Op (IntOp (Const 0)) []; Op (BlockOp (Cons 0)) [mk_unit; Var 2]];
@@ -220,6 +220,25 @@ val tail_cons1_expected = “(0,[Var 3],NONE)⁺
 
 Theorem tail_cons_check1:
   ^tail_cons1 = ^tail_cons1_expected
+Proof
+  EVAL_TAC
+QED
+
+
+(*
+   (func my_foo@471 (a)
+   (if (op LessEq (op (Const 0)) (var a))
+      (op (Cons 0) (var a))
+      (op (Cons 0) (op (Cons 0) (var a))
+         (call my_foo@471 (var a)) (var a))))
+*)
+
+(* Node x (my_foo x) (Leaf x) *)
+val tail_cons2 = “cons_to_tc_and_mut_cons (4000:num) 0 [Op (BlockOp (Cons 0)) [Var 0]; Call 0 (SOME 4000) [Var 0] NONE; Var 0]”;
+val tail_cons2_expected = “TC (0,[Var 0],NONE) (0,1,[Op (BlockOp (Cons 0)) [Var 0]; Op (IntOp (Const 0)) []; Var 0])”;
+
+Theorem tail_cons_check2:
+  ^tail_cons2 = ^tail_cons2_expected
 Proof
   EVAL_TAC
 QED
