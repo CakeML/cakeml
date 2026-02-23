@@ -306,9 +306,6 @@ Definition fib_heap_inv_def:
     (!k v e.
       (FLOOKUP fh k = SOME (v,e)) /\ k = head_key fts ==>
       fts_is_min v fts) /\
-    (!k n1 n2.
-      fts_has k n1 fts /\ fts_has k n2 fts ==>
-      n1 = n2) /\
     (fib_heap_shape_ok fts)
 (*Everything else should be valid by annotation, construction of the heap,
   or is an individual assertion for a heap operation.
@@ -389,7 +386,6 @@ End
 
 *)
 
-
 Theorem lemma_empty_list:
   !fh fts. (fib_heap_inv fh fts /\ head_key fts = 0w) ==> fts = []
 Proof
@@ -445,7 +441,6 @@ Proof
     rpt strip_tac >> fs[fts_is_min_def] >>
     fs[head_key_def, FLOOKUP_DEF, fill_dnode_def]
     )
-  >- (rpt strip_tac >> fs[Once fts_has_cases] >> fs[Once fts_has_cases])
   >> fs[fib_heap_shape_ok_def] >>
   simp[Ntimes fib_num_def 3] >>
   simp[Once fib_num_def]
@@ -544,14 +539,10 @@ Proof
     assume_tac lemma_fib_heap_new_min >>
     cheat
     (* first_assum (qspecl_then [`v`,`v''.value`, `(FibTree k' v'' l::t)`] assume_tac) >> *)
-  )
-  >- (
-    pop_assum mp_tac >>
-    simp[Once fts_has_cases] >>
-    simp[fill_dnode_def, node_data_component_equality] >>
-    strip_tac >> cheat
-    )
-  >> cheat
+  ) >>
+  fs[fib_heap_shape_ok_def] >>
+  simp[fib_heap_size_def, Ntimes fib_num_def 3] >>
+  simp[Once fib_num_def]
 QED
 
 
