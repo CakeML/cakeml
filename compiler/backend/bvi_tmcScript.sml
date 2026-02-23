@@ -160,24 +160,7 @@ Definition compile_prog_def:
         (n, (loc, arity, exp_aux)::(next, arity + 2, exp_opt)::ys))
 End
 
-(* testing *)
-
-val tm = “Let [] (Var 0)”;
-val test = EVAL “compile_exp 1 2 3 ^tm”;
-val test = EVAL “compile_exp 4 5 6 ^tm”;
-
-val prog = “[(700:num,1:num,^tm)]”
-val test2 = EVAL “compile_prog 5 ^prog”;
-
-val head = “Let [] (Op (BlockOp (ElemAt 0)) [Var 0])”;
-val head_prog = “[(123:num,1:num,^head)]”;
-val head_eval = EVAL “compile_prog 12 ^head_prog”;
-
-(*
-val append_exp = “Op (BlockOp (Cons 9)) []”; (* Cons x (append xs ys) (TODO) *)
-val append_prog = “[(3:num,2:num,^append_exp)]”;
-val append_eval = EVAL “compile_prog 6 ^append_prog”;
-*)
+(* --- Test rewriting --- *)
 
 (*
 (func my_append@465 (b a)
@@ -201,11 +184,8 @@ val append_exp = “If (Op (BlockOp (TagLenEq 0 0)) [Var 0]) (Var 1) $
                        Op (BlockOp (ElemAt 1)) [Var 0]] $
                   Op (BlockOp (Cons 0)) [Call 0 (SOME 4000) [Var 1; Var 3] NONE; Var 2]”;
 val append_prog = “[(4000:num,2:num,^append_exp)]”;
-val append_eval = EVAL “compile_prog 6 ^append_prog”;
-
-(* Expected (at least I think):
-   (9,
-      [(4000,2,
+val append_expected = “(9:num,
+      [(4000:num,2:num,
         If (Op (BlockOp (TagLenEq 0 0)) [Var 0]) (Var 1)
           (Let [mk_elem_at (Var 0) 0; mk_elem_at (Var 0) 1]
              (Let
@@ -219,8 +199,13 @@ val append_eval = EVAL “compile_prog 6 ^append_prog”;
              (Let
                 [Op (MemOp (MutCons 0 0)) [Op (IntOp (Const 0)) []; Var 2];
                  Op (MemOp UpdateCons) [Var 4; Var 5]]
-                (Call 0 (SOME 6) [Var 5; Var 1; Var 3] NONE))))])
- *)
+                (Call 0 (SOME 6) [Var 5; Var 1; Var 3] NONE))))])”;
+
+Theorem append_check:
+  compile_prog 6 ^append_prog = ^append_expected
+Proof
+  EVAL_TAC
+QED
 
 (* [1] :: [x] :: my_bar xs *)
 val tail_cons1 = “cons_to_tc_and_mut_cons (4000:num) 12 [Op (BlockOp (Cons 0))
