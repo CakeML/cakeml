@@ -272,7 +272,7 @@ End
 Definition fts_is_min_def:
   (fts_is_min _ [] = T) /\
   (fts_is_min v (FibTree _ n ts::rest) =
-    ((v <=+ n.value) /\ (fts_is_min v ts) /\ (fts_is_min v rest)))
+    ((v <=+ n.value) /\ (fts_is_min n.value ts) /\ (fts_is_min v rest)))
 End
 
 Definition fib_heap_size_def:
@@ -453,68 +453,22 @@ QED
 
 
 Theorem lemma_fib_heap_new_min:
-  !v v' k n fts.
-    v <=+ v' /\ fts_is_min v' (FibTree k n []::fts) ==>
-    fts_is_min v (FibTree k n []::fts)
+  !v v' fts.
+    v <=+ v' /\ fts_is_min v' fts ==>
+    fts_is_min v fts
 Proof
-  Cases_on `fts` >>
-  assume_tac WORD_LOWER_EQ_TRANS >>
+  Induct_on `fts` >>
+  assume_tac WORD_LOWER_EQ_TRANS
   >- (
     rpt strip_tac >>
     fs[fts_is_min_def] >>
-    first_assum(qspecl_then [`v`, `v'`, `n.value`] assume_tac) >> gvs[] >>
-    ) >>
-  rpt strip_tac >>
-  Cases_on `h` >>
-  fs[fts_is_min_def]
-
-
-
-  >- (rpt strip_tac >> fs[Once fts_is_min_def]) >>
-  rpt strip_tac >>
-  >- (
-    strip_tac >>
-    fs[fts_is_min_def] >>
-    first_assum(qspecl_then [`v`, `v'`, `v''.value`] assume_tac) >> gvs[] >>
-    last_assum(qspecl_then [`v`, `v'`] assume_tac) >> gvs[]
-    ) >>
-  rpt strip_tac >>
-  simp[fts_is_min_def] >>
-  last_assum (qspecl_then [`v`,`v'`] assume_tac) >> gvs[] >>
-  first_assum(qspecl_then [`v`, `v'`, `v''.value`] assume_tac) >> gvs[] >>
-
-
-
-
-  fs[fts_is_min_def] >>
-  last_assum(qspecl_then [`v`, `v'`] assume_tac) >> gvs[] >>
-  Cases_on `fts_is_min v l` >> fs[]
-  >- (first_assum(qspecl_then [`v`, `v'`, `v''.value`] assume_tac) >> gvs[]) >>
-  Cases_on `l`
-  >- fs[fts_is_min_def] >>
-  Cases_on `h` >>
-  pop_assum mp_tac >>
-  fs[fts_is_min_def]
-
-  Cases_on `h` >>
-  fs[fts_is_min_def] >>
-  assume_tac WORD_LOWER_EQ_TRANS >>
-  first_assum(qspecl_then [`v`, `v'`, `v''.value`] assume_tac) >> gvs[] >>
-  Induct_on `l`
-  >- (
-    strip_tac >>
-    gvs[fts_is_min_def] >>
-    assume_tac WORD_LOWER_EQ_TRANS >>
-    first_assum(qspecl_then [`v`, `v'`, `v''.value`] assume_tac) >> gvs[]
+    first_assum (qspecl_then [`v`, `v'`, `n.value`] assume_tac) >> gvs[]
     ) >>
   rpt strip_tac >>
   Cases_on `h` >>
   fs[fts_is_min_def] >>
-  assume_tac WORD_LOWER_EQ_TRANS >>
-  first_assum(qspecl_then [`v`, `v'`, `v'''.value`] assume_tac) >> gvs[] >>
-  rename [`!v v'. v <=+ v' /\ fts_is_min v' l' ==> fts_is_min v l'`]>>
-
-
+  last_assum (qspecl_then [`v`, `v'`] assume_tac)  >> rfs[] >>
+  first_assum (qspecl_then [`v`, `v'`, `v''.value`] assume_tac)  >> gvs[]
 QED
 
 
@@ -587,10 +541,16 @@ Proof
     last_assum (qspecl_then [`v''.value`, `v''.edges`] assume_tac) >>
     gvs[head_key_def] >>
     fs[fts_min_def] >>
-    fs[fts_is_min_def]
+    assume_tac lemma_fib_heap_new_min >>
     cheat
+    (* first_assum (qspecl_then [`v`,`v''.value`, `(FibTree k' v'' l::t)`] assume_tac) >> *)
   )
-  >- cheat
+  >- (
+    pop_assum mp_tac >>
+    simp[Once fts_has_cases] >>
+    simp[fill_dnode_def, node_data_component_equality] >>
+    strip_tac >> cheat
+    )
   >> cheat
 QED
 
