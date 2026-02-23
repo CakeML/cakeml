@@ -21,6 +21,9 @@ MCIS (connected) encode and checker
 [mcisProgScript.sml](mcisProgScript.sml):
 MCIS (unconnected) encode and checker
 
+[mcliqueProgScript.sml](mcliqueProgScript.sml):
+Maximal clique encode and checker
+
 [npbc_arrayProgScript.sml](npbc_arrayProgScript.sml):
 Refine npbc_list to npbc_array
 
