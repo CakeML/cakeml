@@ -8,8 +8,8 @@ Libs
   preamble
 
 Datatype:
-  tc_and_mut_cons = DupTC      (* Duplicate recursive tail calls. *)
-                  | NoTC       (* No recursive tail call. *)
+  tc_and_mut_cons = DupTC                                                       (* Duplicate recursive tail calls. *)
+                  | NoTC                                                        (* No recursive tail call. *)
                   | TC (num # (exp list) # (exp option)) (num # num # exp list) (* One recursive tail call.
                                                                                    ‘TC (t, args, h) (tag, i, l)’ means we found:
                                                                                    ‘Call t (SOME _) args h’ which fills the hole in:
