@@ -242,12 +242,22 @@ Proof
   EVAL_TAC
 QED
 
-(* Node x (my_foo x) (my_bar x) *)
+(* Node x (my_foo x) (other x) *)
 val tail_cons3 = “cons_to_tc_and_mut_cons (4000:num) 0 [Call 0 (SOME 4321) [Var 0] NONE; Call 0 (SOME 4000) [Var 0] NONE; Var 0]”;
 val tail_cons3_expected = “TC (0,[Var 0],NONE) (0,1,[Call 0 (SOME 4321) [Var 0] NONE; Op (IntOp (Const 0)) []; Var 0])”;
 
 Theorem tail_cons_check3:
   ^tail_cons3 = ^tail_cons3_expected
+Proof
+  EVAL_TAC
+QED
+
+(* Node x (other x) (my_foo x) *)
+val tail_cons4 = “cons_to_tc_and_mut_cons (4000:num) 0 [Call 0 (SOME 4000) [Var 0] NONE; Call 0 (SOME 4321) [Var 0] NONE; Var 0]”;
+val tail_cons4_expected = “TC (0,[Var 0],NONE) (0,0,[Op (IntOp (Const 0)) []; Call 0 (SOME 4321) [Var 0] NONE; Var 0])”;
+
+Theorem tail_cons_check4:
+  ^tail_cons4 = ^tail_cons4_expected
 Proof
   EVAL_TAC
 QED
