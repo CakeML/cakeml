@@ -5,32 +5,11 @@
 
 Theory aig
 Ancestors
-  list alist
+  alist
 
+(* Three-valued logic as defined in Section 14 of
+   "The AIGER And-Inverter Graph (AIG) Format Version 20071012". *)
 Type value = “:bool option”
-
-Type id = “:num”
-
-Datatype:
-  literal = Pos id | Neg id
-End
-
-Definition get_id_def:
-  (get_id (Pos id) = id) ∧
-  (get_id (Neg id) = id)
-End
-
-Definition is_pos_def:
-  (is_pos (Pos id) = T) ∧
-  (is_pos _ = F)
-End
-
-Type input = “:(id # value)”
-
-Type gate = “:(id # literal list)”
-
-(* output, current value, next state *)
-Type latch = “:((id # value) # literal)”
 
 Definition tri_not_def:
   (tri_not (SOME b) = SOME ¬b) ∧
@@ -44,8 +23,32 @@ Definition tri_and_def:
   (tri_and NONE NONE = NONE)
 End
 
+(* Since we do not need to settle on a specific type for id, we use a type
+   variable. *)
+Datatype:
+  literal = Pos 'id | Neg 'id
+End
+
+Definition get_id_def:
+  (get_id (Pos id) = id) ∧
+  (get_id (Neg id) = id)
+End
+
+Definition is_pos_def:
+  (is_pos (Pos id) = T) ∧
+  (is_pos _ = F)
+End
+
+Type input = “:('id # value)”
+
+(* output, inputs to and gate *)
+Type gate = “:('id # ('id literal) list)”
+
+(* output, current value, next state *)
+Type latch = “:(('id # value) # ('id literal))”
+
 Definition evaluate_def:
-  (evaluate (ins: input list) (latches: latch list) ([]: gate list) out =
+  (evaluate ins latches [] out =
     let id = get_id out in
     case ALOOKUP (MAP FST latches ++ ins) id of
     | SOME v => if is_pos out then v else tri_not v
