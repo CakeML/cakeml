@@ -206,6 +206,94 @@ Proof
   EVAL_TAC
 QED
 
+(*
+let
+      (c <- (op (Const 0)))
+      (if (op (TagLenEq 0 0) (var b)) (op (Cons 0))
+         (let
+            (d <- (op (ElemAt 0) (var b)))
+            (let
+               (e <- (op (ElemAt 1) (var b)))
+               (let
+                  (f <- (op (Const 0)))
+                  (let
+                     (g <- (op (Const 0)))
+                     (op (Cons 0)
+                        (call my_map@471 (var e) (var a))
+                        (let
+                           (i <- (op (Const 0)))
+                           (h <- (op (Const 0)))
+                           (if
+                              (op (EqualConst (Int 0)) (op (ElemAt 1) (var a)))
+                              (call none (var d) (var a) (op (ElemAt 0) (var a)))
+                              (call bvl_stub@69 (var d) (var a))))))))))
+ *)
+val map_exp = “Let [Op (IntOp (Const 0)) []] $
+               If (Op (BlockOp (TagLenEq 0 0)) [Var 1]) (Op (BlockOp (Cons 0)) []) $
+               Let [Op (BlockOp (ElemAt 0)) [Var 1]] $
+               Let [Op (BlockOp (ElemAt 1)) [Var 1]] $
+               Let [Op (IntOp (Const 0)) []] $
+               Let [Op (IntOp (Const 0)) []] $
+               Op (BlockOp (Cons 0))
+               [ Call 0 (SOME 4000) [Var 4; Var 0] NONE;
+                 Let [Op (IntOp (Const 0)) []; Op (IntOp (Const 0)) []] $
+                     If (Op (BlockOp (EqualConst (Int 0))) [Op (BlockOp (ElemAt 1)) [Var 0]])
+                     (Call 0 (SOME 1234) [Var 3; Var 0; Op (BlockOp (ElemAt 0)) [Var 0]] NONE)
+                     (Call 0 (SOME 5432) [Var 3; Var 0] NONE)
+                ]”;
+val map_prog = “[(4000:num,2:num,^map_exp)]”;
+val map_expected = “(9:num,
+      [(4000:num,2:num,
+        Let [Op (IntOp (Const 0)) []]
+          (If (Op (BlockOp (TagLenEq 0 0)) [Var 1]) mk_unit
+             (Let [mk_elem_at (Var 1) 0]
+                (Let [mk_elem_at (Var 1) 1]
+                   (Let [Op (IntOp (Const 0)) []]
+                      (Let [Op (IntOp (Const 0)) []]
+                         (Let
+                            [Op (MemOp (MutCons 0 0))
+                               [Op (IntOp (Const 0)) [];
+                                Let
+                                  [Op (IntOp (Const 0)) [];
+                                   Op (IntOp (Const 0)) []]
+                                  (If
+                                     (Op (BlockOp (EqualConst (Int 0)))
+                                        [mk_elem_at (Var 0) 1])
+                                     (Call 0 (SOME 1234)
+                                        [Var 3; Var 0; mk_elem_at (Var 0) 0]
+                                        NONE)
+                                     (Call 0 (SOME 5432) [Var 3; Var 0] NONE))];
+                             Call 0 (SOME 6) [Var 7; Var 4; Var 0] NONE]
+                            (Op (MemOp FinaliseCons) [Var 7]))))))));
+       (6,4,
+        Let [Op (IntOp (Const 0)) []]
+          (If (Op (BlockOp (TagLenEq 0 0)) [Var 1]) mk_unit
+             (Let [mk_elem_at (Var 1) 0]
+                (Let [mk_elem_at (Var 1) 1]
+                   (Let [Op (IntOp (Const 0)) []]
+                      (Let [Op (IntOp (Const 0)) []]
+                         (Let
+                            [Op (MemOp (MutCons 0 0))
+                               [Op (IntOp (Const 0)) [];
+                                Let
+                                  [Op (IntOp (Const 0)) [];
+                                   Op (IntOp (Const 0)) []]
+                                  (If
+                                     (Op (BlockOp (EqualConst (Int 0)))
+                                        [mk_elem_at (Var 0) 1])
+                                     (Call 0 (SOME 1234)
+                                        [Var 3; Var 0; mk_elem_at (Var 0) 0]
+                                        NONE)
+                                     (Call 0 (SOME 5432) [Var 3; Var 0] NONE))];
+                             Op (MemOp UpdateCons) [Var 7; Var 8]]
+                            (Call 0 (SOME 6) [Var 8; Var 4; Var 0] NONE))))))))])”;
+
+Theorem map_check:
+  compile_prog 6 ^map_prog = ^map_expected
+Proof
+  EVAL_TAC
+QED
+
 (* [1] :: [x] :: my_bar xs *)
 val tail_cons1 = “cons_to_tc_and_mut_cons (4000:num) 12 [Op (BlockOp (Cons 0))
                                                             [Call 0 (SOME 4000) [Var 3] NONE;
