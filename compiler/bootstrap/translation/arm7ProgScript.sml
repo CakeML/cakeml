@@ -129,7 +129,10 @@ Proof
   srw_tac[wordsLib.WORD_BIT_EQ_ss][]
 QED
 *)
-val defaults = [arm7_encode_def,arm7_encode1_def,encode_def,e_data_def,EncodeImmShift_def,v2w_rw,e_load_def,arm7_encode_fail_def,e_multiply_def,e_branch_def,Aligned_def,Align_def,e_store_def];
+val defaults = [arm7_encode_def,arm7_encode1_def,encode_def,
+  e_data_def,EncodeImmShift_def,v2w_rw,e_load_def,
+  arm7_encode_fail_def,e_multiply_def,e_branch_def,
+  Aligned_def,Align_def,e_store_def,EncodeRegShift_def];
 
 val finish = fn th => th |> wc_simp |> we_simp |> SIMP_RULE (std_ss) [SHIFT_ZERO,notw]
 

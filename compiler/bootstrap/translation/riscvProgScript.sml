@@ -69,7 +69,7 @@ QED
 val defaults = [riscv_ast_def, riscv_encode_def, Encode_def,
   Itype_def, opc_def, riscv_const32_def, Utype_def, Rtype_def,
   riscv_bop_r_def, riscv_bop_i_def, riscv_encode_fail_def,
-  riscv_memop_def, Stype_def, UJtype_def, SBtype_def];
+  riscv_memop_def, Stype_def, UJtype_def, SBtype_def, riscv_shv_def];
 
 val riscv_enc_thms =
   riscv_enc_def
