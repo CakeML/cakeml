@@ -438,6 +438,15 @@ Proof
   fs[node_data_component_equality]
 QED
 
+Theorem lemma_non_empty_list:
+  !fh fts. (fib_heap_inv fh fts /\ head_key fts <> 0w) ==> fts <> []
+Proof
+  rpt strip_tac >>
+  fs[fib_heap_inv_def] >>
+  Cases_on `fts` >>
+  fs[head_key_def]
+QED
+
 Theorem lemma_empty_heap:
   !fh fts. (fib_heap_inv fh fts /\ head_key fts = 0w) ==>
       (fts = [] /\ fh = FEMPTY)
@@ -454,8 +463,19 @@ Proof
   fs[Once fts_has_cases, FLOOKUP_DEF]
 QED
 
-
-
+Theorem lemma_non_empty_heap:
+  !fh fts. (fib_heap_inv fh fts /\ head_key fts <> 0w) ==>
+    (fts <> [] /\ fh <> FEMPTY)
+Proof
+  assume_tac lemma_non_empty_list >>
+  rpt strip_tac >>
+  first_assum (qspecl_then [`fh`, `fts`] assume_tac) >> rfs[] >>
+  Cases_on `fts` >> gvs[head_key_def] >>
+  fs[fib_heap_inv_def] >>
+  Cases_on `h` >>
+  first_assum (qspecl_then [`k`, `v.value`, `v.edges`, `v.mark`] assume_tac) >>
+  fs[Once fts_has_cases,fill_dnode_def,node_data_component_equality]
+QED
 
 Theorem fib_heap_empty_append_inv:
   !a' v e.
@@ -606,8 +626,7 @@ Proof
   IF_CASES_TAC
   >- (
     assume_tac lemma_empty_heap >>
-    first_x_assum (qspecl_then [`fh`, `fts`] assume_tac) >> rfs[] >>
-    gvs[] >>
+    first_x_assum (qspecl_then [`fh`, `fts`] assume_tac) >> gvs[] >>
     fs[fib_heap_empty_append_def,before_off_def, next_off_def,
        child_off_def, parent_off_def] >>
     SEP_R_TAC >>
@@ -623,13 +642,15 @@ Proof
     assume_tac fib_heap_empty_append_inv >>
     gs[fill_dnode_def]
     ) >>
-  `fts = (h::t) /\ fh <> FEMPTY` by cheat >>
-  gvs[] >>
+  assume_tac lemma_non_empty_heap >>
+  first_x_assum (qspecl_then [`fh`, `fts`] assume_tac) >>
+  Cases_on `fts` >> gvs[] >>
+  (* `fts <> (h::t) /\ fh <> FEMPTY` by cheat >> *)
   Cases_on `h` >>
   fs[ann_fts_def, ann_fts_seg_def,fts_mem_def,
      SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
      fill_dnode_def, next_key_def, ones_def, STAR_ASSOC] >>
-  simp[APPLY_UPDATE_THM]>>
+  (* simp[APPLY_UPDATE_THM]>> *)
     (* Dont write flag to be T in insert function! Assume it has been done (empty node)  *)
   `k + 2w * bytes_in_word <> k'` by SEP_NEQ_TAC >> simp[] >>
   `k + 2w * bytes_in_word <> k' + 4w * bytes_in_word` by SEP_NEQ_TAC >> simp[] >>
