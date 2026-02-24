@@ -40,8 +40,7 @@ Definition cons_to_tc_and_mut_cons_def:
         let cons     = Op (BlockOp (Cons tag')) op_args' in
         let mut_cons = (t, i+1, cons::l) in
           TC call mut_cons) ∧
-  (cons_to_tc_and_mut_cons loc tag (Call t (SOME loc') args h::op_args) =
-    let call = Call t (SOME loc') args h in
+  (cons_to_tc_and_mut_cons loc tag (Call t' (SOME loc') args' h'::op_args) =
     if loc=loc' then
       (* found the recursive call *)
       case cons_to_tc_and_mut_cons loc tag op_args of
@@ -50,15 +49,15 @@ Definition cons_to_tc_and_mut_cons_def:
       | NoTC =>
          let hole     = Op (IntOp (Const 0)) [] in
          let mut_cons = (tag, 0, hole::op_args) in
-         TC (t, args, h) mut_cons
+         TC (t', args', h') mut_cons
     else
       (* found a different call *)
       case cons_to_tc_and_mut_cons loc tag op_args of
       | DupTC => DupTC
       | NoTC => NoTC
       | TC (t, args, h) (tag, i, l) =>
-         let call = Call t (SOME loc) args h in
-         let mut_cons = (tag, i+1, call::l) in
+         let call' = Call t' (SOME loc') args' h' in
+         let mut_cons = (tag, i+1, call'::l) in
            TC (t, args, h) mut_cons) ∧
   (cons_to_tc_and_mut_cons loc tag (op_arg::op_args) =
     case cons_to_tc_and_mut_cons loc tag op_args of
@@ -239,6 +238,16 @@ val tail_cons2_expected = “TC (0,[Var 0],NONE) (0,1,[Op (BlockOp (Cons 0)) [Va
 
 Theorem tail_cons_check2:
   ^tail_cons2 = ^tail_cons2_expected
+Proof
+  EVAL_TAC
+QED
+
+(* Node x (my_foo x) (my_bar x) *)
+val tail_cons3 = “cons_to_tc_and_mut_cons (4000:num) 0 [Call 0 (SOME 4321) [Var 0] NONE; Call 0 (SOME 4000) [Var 0] NONE; Var 0]”;
+val tail_cons3_expected = “TC (0,[Var 0],NONE) (0,1,[Call 0 (SOME 4321) [Var 0] NONE; Op (IntOp (Const 0)) []; Var 0])”;
+
+Theorem tail_cons_check3:
+  ^tail_cons3 = ^tail_cons3_expected
 Proof
   EVAL_TAC
 QED
