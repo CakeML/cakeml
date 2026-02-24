@@ -473,7 +473,7 @@ val parse_regexp_side = Q.prove(
 
 Quote add_cakeml:
   fun print_matching_lines match prefix fd =
-    case TextIO.inputLine #"\n" fd of None => ()
+    case TextIO.inputLineWith #"\n" fd of None => ()
     | Some ln => (if match ln then (TextIO.print prefix; TextIO.print ln) else ();
                   print_matching_lines match prefix fd)
 End
