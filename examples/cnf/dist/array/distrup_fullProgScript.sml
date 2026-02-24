@@ -245,14 +245,34 @@ Type state = “:wait_for # input list”;
 
 (* encoding *)
 
+Definition Clause_def:
+  Clause (xs:clause) = List (MAP (Num o w2n) xs)
+End
+
+Definition Hints_def:
+  Hints (xs:hints) = List (MAP (Num o w2n) xs)
+End
+
 Definition WaitFor_def:
-  WaitFor Step = Str (strlit "Step") : ffi ∧
-  WaitFor _ = Str (strlit "Produce_clause")
+  WaitFor wf =
+    case wf of
+    | Step => Str (strlit "Step")
+    | Produce_clause c h => Cons (Str (strlit "Produce_clause")) (Cons (Clause c) (Hints h))
+    | Produce_hints h => Cons (Str (strlit "Produce_hints")) (Hints h)
+    | Produce_callback => Str (strlit "Produce_callback")
+    | Import_clause c => Cons (Str (strlit "Import_clause")) (Clause c)
+    | Import_callback => Str (strlit "Import_callback")
+    | Delete_hints h => Cons (Str (strlit "Delete_hints")) (Hints h)
+    | Delete_callback => Str (strlit "Delete_callback")
+    | Validate_UNSAT_callback => Str (strlit "Validate_UNSAT_callback")
+    | Terminate => Str (strlit "Terminate")
 End
 
 Definition Input_def:
-  Input (Produce _ _) = Str (strlit "Produce") : ffi ∧ (* TODO fix *)
-  Input _ = Str (strlit "Import")
+  Input (Produce c h)  = Cons (Str (strlit "Produce")) (Cons (Clause c) (Hints h)) ∧
+  Input (Import c)     = Cons (Str (strlit "Import")) (Clause c) ∧
+  Input (Delete h)     = Cons (Str (strlit "Delete")) (Hints h) ∧
+  Input Validate_UNSAT = Str (strlit "Validate_UNSAT")
 End
 
 Definition State_def:
@@ -261,25 +281,56 @@ Definition State_def:
          (List (MAP Input inputs))
 End
 
+Theorem Clause_11:
+  Clause x = Clause y ⇔ x = y
+Proof
+  gvs [Clause_def] \\ eq_tac
+  \\ rw [] \\ drule_at Any MAP_EQ_MAP_IMP \\ gvs []
+QED
+
+Theorem Hints_11:
+  Hints x = Hints y ⇔ x = y
+Proof
+  gvs [Hints_def] \\ eq_tac
+  \\ rw [] \\ drule_at Any MAP_EQ_MAP_IMP \\ gvs []
+QED
+
+Theorem Input_11:
+  Input x = Input y ⇔ x = y
+Proof
+  Cases_on ‘x’ \\ Cases_on ‘y’ \\ gvs [Input_def,Clause_11,Hints_11]
+QED
+
+Theorem WaitFor_11:
+  WaitFor x = WaitFor y ⇔ x = y
+Proof
+  Cases_on ‘x’ \\ Cases_on ‘y’ \\ gvs [WaitFor_def,Clause_11,Hints_11]
+QED
+
+Theorem State_11:
+  State x y = State x1 y1 ⇒ x = x1 ∧ y = y1
+Proof
+  fs [State_def] \\ gvs [WaitFor_11]
+  \\ rw [] \\ drule_at Any MAP_EQ_MAP_IMP
+  \\ gvs [Input_11]
+QED
+
 (* decoding *)
 
-Definition dest_WaitFor_def:
-  dest_WaitFor (x:ffi) = NONE : wait_for option
-End
-
-Definition dest_Input_def:
-  dest_Input _ = NONE : input option
-End
-
 Definition dest_State_def:
-  dest_State (x:ffi) =
-    case destCons x of NONE => NONE | SOME (x, y) =>
-    case dest_WaitFor x of NONE => NONE | SOME wait_for =>
-    case destList x of NONE => NONE | SOME l =>
-    let opt_inputs = MAP dest_Input l in
-    if MEM NONE opt_inputs then NONE else
-      SOME (wait_for, MAP THE opt_inputs) : state option
+  dest_State (x:ffi) = some res. State (FST res) (SND res) = x
 End
+
+Theorem dest_State_State[simp]:
+  dest_State (State w inputs) = SOME (w, inputs)
+Proof
+  rewrite_tac [dest_State_def]
+  \\ DEEP_INTRO_TAC optionTheory.some_intro
+  \\ reverse $ rw [FORALL_PROD]
+  >- (irule_at Any EQ_REFL)
+  \\ rename [‘FST x’] \\ Cases_on ‘x’ \\ gvs []
+  \\ imp_res_tac State_11 \\ fs []
+QED
 
 (* next state *)
 
