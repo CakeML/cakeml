@@ -411,17 +411,30 @@ val d1 = CONJ d1 $ Define ‘arm7_enc_Arith_LongDiv a b c d e =
 val d1 = CONJ d1 $ Define ‘arm7_enc_Arith_Div a b c =
                     arm7_enc (Inst (Arith (Div a b c)))’
   |> SIMP_RULE std_ss [arm7_enc_thm,cases_defs,APPEND]
-val d1 = CONJ d1 $ Define ‘arm7_enc_Arith_Shift_Ror a b c =
-                    arm7_enc (Inst (Arith (Shift Ror a b c)))’
+val d1 = CONJ d1 $ Define ‘arm7_enc_Arith_Ror_Imm a b c =
+                    arm7_enc (Inst (Arith (Shift Ror a b (Imm c))))’
   |> SIMP_RULE std_ss [arm7_enc_thm,cases_defs,APPEND]
-val d1 = CONJ d1 $ Define ‘arm7_enc_Arith_Shift_Asr a b c =
-                    arm7_enc (Inst (Arith (Shift Asr a b c)))’
+val d1 = CONJ d1 $ Define ‘arm7_enc_Arith_Asr_Imm a b c =
+                    arm7_enc (Inst (Arith (Shift Asr a b (Imm c))))’
   |> SIMP_RULE std_ss [arm7_enc_thm,cases_defs,APPEND]
-val d1 = CONJ d1 $ Define ‘arm7_enc_Arith_Shift_Lsr a b c =
-                    arm7_enc (Inst (Arith (Shift Lsr a b c)))’
+val d1 = CONJ d1 $ Define ‘arm7_enc_Arith_Lsr_Imm a b c =
+                    arm7_enc (Inst (Arith (Shift Lsr a b (Imm c))))’
   |> SIMP_RULE std_ss [arm7_enc_thm,cases_defs,APPEND]
-val d1 = CONJ d1 $ Define ‘arm7_enc_Arith_Shift_Lsl a b c =
-                    arm7_enc (Inst (Arith (Shift Lsl a b c)))’
+val d1 = CONJ d1 $ Define ‘arm7_enc_Arith_Lsl_Imm a b c =
+                    arm7_enc (Inst (Arith (Shift Lsl a b (Imm c))))’
+  |> SIMP_RULE std_ss [arm7_enc_thm,cases_defs,APPEND]
+
+val d1 = CONJ d1 $ Define ‘arm7_enc_Arith_Ror_Reg a b c =
+                    arm7_enc (Inst (Arith (Shift Ror a b (Reg c))))’
+  |> SIMP_RULE std_ss [arm7_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm7_enc_Arith_Asr_Reg a b c =
+                    arm7_enc (Inst (Arith (Shift Asr a b (Reg c))))’
+  |> SIMP_RULE std_ss [arm7_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm7_enc_Arith_Lsr_Reg a b c =
+                    arm7_enc (Inst (Arith (Shift Lsr a b (Reg c))))’
+  |> SIMP_RULE std_ss [arm7_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm7_enc_Arith_Lsl_Reg a b c =
+                    arm7_enc (Inst (Arith (Shift Lsl a b (Reg c))))’
   |> SIMP_RULE std_ss [arm7_enc_thm,cases_defs,APPEND]
 val d1 = CONJ d1 $ Define ‘arm7_enc_Arith_Add_Imm a b c =
                     arm7_enc (Inst (Arith (Binop Add a b (Imm c))))’
