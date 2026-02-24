@@ -42,23 +42,28 @@ End
 Type input = “:('id # value)”
 
 (* output, inputs to and gate *)
-Type gate = “:('id # ('id literal) list)”
+Type gate = “:('id # ('id literal # 'id literal))”
 
 (* output, current value, next state *)
 Type latch = “:(('id # value) # ('id literal))”
 
+(* Note that the semantics treats gates as if they were topologically sorted.
+   Additionally, "shadowing" of gates (different gates with the same id) is
+   possible.
+   References to undeclared ids are considered equivalent to uninitialized. *)
 Definition evaluate_def:
   (evaluate ins latches [] out =
     let id = get_id out in
     case ALOOKUP (MAP FST latches ++ ins) id of
     | SOME v => if is_pos out then v else tri_not v
     | NONE => NONE) ∧
-  (evaluate ins latches ((g_out, g_ins)::rest) out =
+  (evaluate ins latches ((g_out, (g_in₁, g_in₂))::rest) out =
     if g_out ≠ get_id out then
       evaluate ins latches rest out
     else
-      let g_vs = MAP (evaluate ins latches rest) g_ins in
-      let v = FOLDR tri_and (SOME T) g_vs in
+      let g_in₁ = evaluate ins latches rest g_in₁ in
+      let g_in₂ = evaluate ins latches rest g_in₂ in
+      let v = tri_and g_in₁ g_in₂ in
         if is_pos out then v else tri_not v)
 End
 
