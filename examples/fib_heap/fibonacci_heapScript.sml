@@ -691,8 +691,6 @@ Proof
       (* also prove invariant here! *)
       cheat
      ) >>
-    rename [`ann_fts (FibTree k' v' l::h::(t ++ [FibTree lk lv ts]))`]
-    rename [`fts_mem (h::t) ++ [Fibtree lk lv ts]`] >>
     Cases_on `h` >>
     rename [`fib_heap_inv fh (FibTree k' v' l::
              FibTree sk sv ts'::(t ++ [FibTree lk lv ts]))`] >>
