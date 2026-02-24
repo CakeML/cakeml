@@ -720,7 +720,8 @@ Proof
        fill_dnode_def, next_key_def, ones_def, STAR_ASSOC] >>
     `k' <> sk` by SEP_NEQ_TAC >>
     IF_CASES_TAC >> fs[] >>
-    fs[fts_mem_append_thm]
+    (*How to simplify with thms? *)
+    fs[fts_mem_append_thm,ann_fts_seg_append_thm] >>
     SEP_R_TAC >> simp[] >>
     cheat (* need lemma about ++ with ann_fts_seg to get lk into memory *)
     ) >>
