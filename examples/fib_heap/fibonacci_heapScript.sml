@@ -99,6 +99,12 @@ Definition ann_fts_def:
   ann_fts fts =
     ann_fts_seg 0w (head_key fts) (last_key fts) fts
 End
+(*
+Theorem ann_fts_seg_append_thm:
+  !p sroof
+
+QED
+*)
 
 (*
 Currently, unused definition.
@@ -151,10 +157,22 @@ Definition fts_mem_def:
     (ft_seg $ FibTree k n ts) * (fts_mem ts) * (fts_mem xs))
 End
 
-(*Do not assume pointers! Dont use fts_mem! *)
+Theorem fts_mem_append_thm:
+  !xs ys. fts_mem (xs ++ ys) = fts_mem xs * fts_mem ys
+Proof
+  Induct >>
+  fs[APPEND_def, fts_mem_def, SEP_CLAUSES] >>
+  Cases_on `h` >>
+  fs[fts_mem_def] >>
+  strip_tac >>
+  simp[STAR_ASSOC]
+QED
+
+(*The outside world already set the flag to T!*)
 Definition empty_node_def:
-  empty_node k v =
-    fts_mem [ann_ft $ FibTree k (fill_dnode (FST v) (SND v) F) []]
+  empty_node k (v,e) = SEP_EXISTS b n.
+    ones k [v; FST e; b2w T; b2w F;b;n;0w;0w; n2w 0] *
+    edges_ones (FST e) (SND e) * cond(k <> 0w)
 End
 
 (*-------------------------------------------------------------------*
@@ -558,10 +576,11 @@ Proof
   rpt gen_tac >> strip_tac >>
   simp [PULL_EXISTS] >>
   pop_assum mp_tac >>
+  PairCases_on `v` >>
+  rename [`empty_node k (v,e)`] >>
+  fs[empty_node_def, ones_def] >>
+  fs[SEP_EXISTS_THM, SEP_CLAUSES, STAR_ASSOC] >>
   simp [fib_heap_insert_def] >>
-  fs[empty_node_def, ann_ft_def, fts_mem_def, fill_anode_def,
-     fill_dnode_def, head_key_def, last_key_def, ann_fts_seg_def,
-     ft_seg_def, ones_def, SEP_CLAUSES, flag_off_def] >>
   SEP_R_TAC >>
   full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR] >>
   IF_CASES_TAC
@@ -569,12 +588,13 @@ Proof
     assume_tac lemma_empty_heap >>
     first_x_assum (qspecl_then [`fh`, `fts`] assume_tac) >> rfs[] >>
     gvs[] >>
-    fs[fib_heap_empty_append_def,before_off_def, next_off_def] >>
+    fs[fib_heap_empty_append_def,before_off_def, next_off_def,
+       child_off_def, parent_off_def] >>
     SEP_R_TAC >>
     strip_tac >> gvs[] >>
     SEP_W_TAC >>
-    PairCases_on `v` >>
-    rename1 `(a',v,e)` >>
+(*    PairCases_on `v` >>
+    rename1 `(a',v,e)` >> *)
     qexists `[FibTree a' (fill_dnode v e F) []]` >>
     fs[ann_fts_def, ann_fts_seg_def, last_key_def,fts_mem_def,
        SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
@@ -594,7 +614,8 @@ Proof
   `k + 2w * bytes_in_word <> k'` by SEP_NEQ_TAC >> simp[] >>
   `k + 2w * bytes_in_word <> k' + 4w * bytes_in_word` by SEP_NEQ_TAC >> simp[] >>
   `k + 2w * bytes_in_word <> k' + 5w * bytes_in_word` by SEP_NEQ_TAC >> simp[] >>
-  PairCases_on `v` >> rename [`fh |+ (k,v,e)`] >> gvs[] >>
+  SEP_R_TAC >>
+(*  PairCases_on `v` >> rename [`fh |+ (k,v,e)`] >> gvs[] >> *)
   IF_CASES_TAC
   >- (
     fs[fib_heap_append_def,before_off_def,next_off_def] >>
@@ -617,10 +638,10 @@ Proof
       ) >>
     Cases_on `x` >> rename [`FibTree lk lv ts`] >>
     fs[REVERSE_APPEND] >>
-    Cases_on `l'`
+    Cases_on `l'` >>
+    fs[head_key_def, next_key_def] >>
+    SEP_R_TAC
     >- (
-      fs[head_key_def, next_key_def] >>
-      SEP_R_TAC >>
       fs[ann_fts_def, ann_fts_seg_def, last_key_def,fts_mem_def,
          SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
          fill_dnode_def, next_key_def, ones_def, STAR_ASSOC] >>
@@ -634,19 +655,54 @@ Proof
       fs[ann_fts_def, ann_fts_seg_def, last_key_def,fts_mem_def,
          SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
          fill_dnode_def, next_key_def, ones_def, STAR_ASSOC] >>
+      qabbrev_tac `a'_hc = one (a',v) *
+                   one (a' + bytes_in_word,FST e) *
+                   one (a' + 2w * bytes_in_word,b2w T) *
+                   one (a' + 3w * bytes_in_word,b2w F) *
+                   one (a' + 4w * bytes_in_word,k') *
+                   one (a' + 5w * bytes_in_word,lk) *
+                   one (a' + 6w * bytes_in_word,0w) *
+                   one (a' + 7w * bytes_in_word,0w) *
+                   one (a' + 8w * bytes_in_word,0w) *
+                   edges_ones (FST e) (SND e) ` >>
+      full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR] >>
+      qabbrev_tac `lk_hc = one (lk,lv.value) *
+                   one (lk + bytes_in_word,FST lv.edges) *
+                   one (lk + 2w * bytes_in_word,b2w T) *
+                   one (lk + 3w * bytes_in_word,b2w lv.mark) *
+                   one (lk + 4w * bytes_in_word,a') *
+                   one (lk + 5w * bytes_in_word,k') *
+                   one (lk + 6w * bytes_in_word,0w) *
+                   one (lk + 7w * bytes_in_word,head_key ts) *
+                   one (lk + 8w * bytes_in_word,n2w (LENGTH ts)) *
+                   edges_ones (FST lv.edges) (SND lv.edges)` >>
+      qabbrev_tac `k'_hc = one (k',v'.value) *
+                   one (k' + bytes_in_word,FST v'.edges) *
+                   one (k' + 2w * bytes_in_word,b2w T) *
+                   one (k' + 3w * bytes_in_word,b2w v'.mark) *
+                   one (k' + 4w * bytes_in_word,lk) *
+                   one (k' + 5w * bytes_in_word,a') *
+                   one (k' + 6w * bytes_in_word,0w) *
+                   one (k' + 7w * bytes_in_word,head_key l) *
+                   one (k' + 8w * bytes_in_word,n2w (LENGTH l)) *
+                   edges_ones (FST v'.edges) (SND v'.edges)` >>
       (* simp[STAR_COMM, STAR_ASSOC] >> termination? *)
+      (* abbreviation does not simplifiy the g/a ? *)
       (* also prove invariant here! *)
       cheat
      ) >>
+    rename [`ann_fts (FibTree k' v' l::h::(t ++ [FibTree lk lv ts]))`]
+    rename [`fts_mem (h::t) ++ [Fibtree lk lv ts]`] >>
     Cases_on `h` >>
-    rename [`(FibTree k' v' l::(FibTree sk sv ts'::t ++ [FibTree lk lv ts]))`] >>
+    rename [`fib_heap_inv fh (FibTree k' v' l::
+             FibTree sk sv ts'::(t ++ [FibTree lk lv ts]))`] >>
     fs[head_key_def, next_key_def] >>
-    SEP_R_TAC >>
     fs[ann_fts_def, ann_fts_seg_def, last_key_def,fts_mem_def,
        SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
        fill_dnode_def, next_key_def, ones_def, STAR_ASSOC] >>
     `k' <> sk` by SEP_NEQ_TAC >>
     IF_CASES_TAC >> fs[] >>
+    fs[fts_mem_append_thm]
     SEP_R_TAC >> simp[] >>
     cheat (* need lemma about ++ with ann_fts_seg to get lk into memory *)
     ) >>
