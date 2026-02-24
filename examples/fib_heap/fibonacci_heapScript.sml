@@ -53,7 +53,7 @@ End
 
 Definition next_key_def:
   (next_key (s:'a word) [] = s) /\
-  (next_key s ((FibTree (k:'a word) (v:'a node_data) ys)::xs) = k)
+  (next_key s xs = head_key xs)
 End
 
 Definition last_key_def:
@@ -99,12 +99,32 @@ Definition ann_fts_def:
   ann_fts fts =
     ann_fts_seg 0w (head_key fts) (last_key fts) fts
 End
-(*
-Theorem ann_fts_seg_append_thm:
-  !p sroof
 
+Theorem ann_fts_seg_append_thm:
+  !p b xs ys. ?lk ak.
+    ann_fts_seg p lk b (xs ++ ys) =
+    (ann_fts_seg p lk b xs) ++ (ann_fts_seg p lk ak ys)
+Proof
+  Induct_on `xs`
+  >- (
+    fs[APPEND_def, ann_fts_seg_def, last_key_def, head_key_def] >>
+    rpt strip_tac >>
+    qexistsl [`lk`, `b`] >> simp[]
+    ) >>
+  rpt strip_tac >>
+  Cases_on `h` >>
+  Cases_on `xs` >>
+  Cases_on `ys` >> fs[ann_fts_seg_def] >>
+  Cases_on `h`
+  >- (
+    simp[next_key_def,head_key_def] >>
+    qexistsl [`k'`, `k`] >> simp[]
+    ) >>
+  simp[next_key_def, head_key_def] >>
+  first_assum (qspecl_then [`p`, `k`, `(h'::t')`] assume_tac) >> fs[] >>
+  qexistsl [`lk`, `ak`] >> simp[]
 QED
-*)
+
 
 (*
 Currently, unused definition.
