@@ -7,8 +7,7 @@ Theory aig
 Ancestors
   alist
 
-(* Three-valued logic as defined in Section 14 of
-   "The AIGER And-Inverter Graph (AIG) Format Version 20071012". *)
+(* Three-valued logic as defined in Section 14 of [1]. *)
 Type value = “:bool option”
 
 Definition tri_not_def:
@@ -39,38 +38,71 @@ Definition is_pos_def:
   (is_pos _ = F)
 End
 
-Type input = “:('id # value)”
-
 (* output, inputs to and gate *)
 Type gate = “:('id # ('id literal # 'id literal))”
 
-(* output, current value, next state *)
-Type latch = “:(('id # value) # ('id literal))”
-
-(* Note that the semantics treats gates as if they were topologically sorted.
-   Additionally, "shadowing" of gates (different gates with the same id) is
-   possible.
-   References to undeclared ids are considered equivalent to uninitialized. *)
+(* Note that in the base semantics
+   - gates are treated as if they were topologically sorted.
+   - "shadowing" of gates (different gates with the same id) is possible.
+   - references to undeclared ids are considered equivalent to uninitialized.
+   - latches are not considered separately; instead, they are just another input
+     to the circuit. *)
 Definition evaluate_def:
-  (evaluate ins latches [] out =
+  (evaluate ins [] out =
     let id = get_id out in
-    case ALOOKUP (MAP FST latches ++ ins) id of
+    case ALOOKUP ins id of
     | SOME v => if is_pos out then v else tri_not v
     | NONE => NONE) ∧
-  (evaluate ins latches ((g_out, (g_in₁, g_in₂))::rest) out =
+  (evaluate ins ((g_out, (g_in₁, g_in₂))::rest) out =
     if g_out ≠ get_id out then
-      evaluate ins latches rest out
+      evaluate ins rest out
     else
-      let g_in₁ = evaluate ins latches rest g_in₁ in
-      let g_in₂ = evaluate ins latches rest g_in₂ in
+      let g_in₁ = evaluate ins rest g_in₁ in
+      let g_in₂ = evaluate ins rest g_in₂ in
       let v = tri_and g_in₁ g_in₂ in
         if is_pos out then v else tri_not v)
 End
 
-Definition update_latches_def:
-  update_latches ins latches gates =
-    let (cur, next) = UNZIP latches in
-    let (out, cur_vs) = UNZIP cur in
-    let next_vs = MAP (evaluate ins latches gates) next in
-      ZIP (ZIP (out, next_vs), next)
+(* [2] define circuits as a tuple M = (I, L, R, F, P, C), where R, F, P and C
+   are predicates. In AIGER, these are simply outputs of a multi-rooted
+   And-Inverter Graph, which we represent with G. Thus, we can represent R, F, P
+   and C as 'id.  Additionally, since there is a reset state and transition for
+   each latch, we collapse L, R, and F into one object LRF. *)
+Datatype:
+  circuit = <|
+    G : ('id gate) list;  (* defines all predicates *)
+    I : 'id list;  (* inputs *)
+    LRF : ('id # ('id # 'id)) list;  (* (latch, (reset, transition)) *)
+    P : 'id;  (* defines good states *)
+    C : 'id;  (* defines set of states valid under it constraint *)
+  |>
 End
+
+Definition valid_circuit_def:
+  valid_circuit = T
+End
+
+Definition unsafe_def:
+  unsafe M = T
+End
+
+Definition safe_def:
+  safe M = ¬unsafe M
+End
+
+Definition valid_witness_def:
+  valid_witness M M' = T
+End
+
+(* Theorem 1 (from [2]) *)
+Theorem valid_witness_imp_safe:
+  valid_witness M M' ⇒ safe M
+Proof
+  cheat
+QED
+
+(* References
+
+   [1] The AIGER And-Inverter Graph (AIG) Format Version 20071012
+   [2] Introducing Certificates to the Hardware Model Checking Competition
+ *)
