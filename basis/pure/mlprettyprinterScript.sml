@@ -2,17 +2,14 @@
   Types and pure functions for pretty printing
 
   Most of these functions are translated in the first phase of the basis
-  setup so that default pretty-printing (c.f. the addTypePP system) will
+  setup so that default pretty-printing (c.f. typeDecToPP) will
   work from then on.
 *)
-open
+Theory mlprettyprinter
+Ancestors
+  mlstring mlint mlvector words
+Libs
   preamble
-  mlstringTheory
-  mlintTheory
-  mlvectorTheory
-  wordsTheory
-
-val _ = new_theory "mlprettyprinter"
 
 (* Data for pretty-printing. The bool indicates if this data needs to be
    wrapped in parens, if this data is given as an argument to an application.
@@ -117,7 +114,7 @@ Termination
   \\ simp []
 End
 
-Triviality findi_map_escape:
+Theorem findi_map_escape[local]:
   !P i s. P = IS_SOME o char_escape_seq ==>
   FLAT (MAP char_escaped (DROP i (explode s))) =
   case str_findi P i s of
@@ -254,5 +251,3 @@ Definition fromOption_def:
       NONE => List [strlit "NONE"]
     | SOME x => Append (List [strlit "SOME "]) (f x)
 End
-
-val _ = export_theory ()

@@ -1,14 +1,18 @@
 (*
   An example showing how to make use of m_translate_run
 *)
+Theory test_run
+Libs
+  preamble ml_monad_translator_interfaceLib
+Ancestors
+  ml_monad_translator
 
-open preamble ml_monad_translator_interfaceLib
+val _ = set_up_monadic_translator ();
+
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
-val _ = new_theory "test_run"
-
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 (* Create the data type to handle the references *)
 Datatype:
@@ -91,13 +95,13 @@ End
 val f10_v_thm = m_translate f10_def;
 
 Definition f11_def:
-  f11 x = case x of
+  f11 x = pmatch x of
       []    => return (0 : num)
     | x::xs => (do l <- f11 xs; return (1 + l) od)
 End
 val f11_v_thm = m_translate f11_def;
 val f11_side_def = fetch "-" "f11_side_def"
-Triviality f11_side_true:
+Theorem f11_side_true[local]:
   !xs st. f11_side st xs
 Proof
   Induct \\ rw[Once f11_side_def]
@@ -217,5 +221,3 @@ Definition r14_def:
 End
 val def = r14_def;
 val r14_v_thm = m_translate_run r14_def;
-
-val _ = export_theory ();

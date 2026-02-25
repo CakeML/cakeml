@@ -29,7 +29,7 @@ open semanticPrimitivesTheory bigStepTheory interpTheory
       ]
     ]
 
-  val interp_conv = computeLib.compset_conv (wordsLib.words_compset())
+  val interp_conv = computeLib.compset_conv (wordsLib.words_compset)
     [computeLib.Extenders
        [basicComputeLib.add_basic_compset, add_interp_compset]]
 

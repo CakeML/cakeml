@@ -2,11 +2,11 @@
   This is an example of applying the translator to the Red-Black
   Set algorithm from Chris Okasaki's book.
 *)
-open preamble;
-open okasaki_miscTheory pred_setTheory pred_setSimps;
-open ml_translatorLib ListProgTheory
-
-val _ = new_theory "RedBlackSet"
+Theory RedBlackSet
+Ancestors
+  okasaki_misc pred_set ListProg
+Libs
+  preamble pred_setSimps ml_translatorLib
 
 val _ = translation_extends "ListProg";
 
@@ -187,7 +187,7 @@ val r = translate insert_def;
 
 (* Proof of functional correctness *)
 
-Triviality balance'_correct:
+Theorem balance'_correct[local]:
   !c a x b. balance' c a x b = balance c a x b
 Proof
   recInduct balance_ind >>
@@ -196,7 +196,7 @@ rw [balance'_def, balance_def, balance_left_left_def, balance_left_right_def,
 REPEAT (BasicProvers.FULL_CASE_TAC)
 QED
 
-Triviality balance'_tree:
+Theorem balance'_tree[local]:
   !c t1 x t2. ∃c' t1' x' t2'. (balance' c t1 x t2 = Tree c' t1' x' t2')
 Proof
   recInduct balance_ind >>
@@ -205,7 +205,7 @@ rw [balance'_def, balance_left_left_def, balance_left_right_def,
 REPEAT BasicProvers.FULL_CASE_TAC
 QED
 
-Triviality balance'_set:
+Theorem balance'_set[local]:
   !c t1 x t2. tree_to_set (balance' c t1 x t2) = tree_to_set (Tree c t1 x t2)
 Proof
   recInduct balance_ind >>
@@ -217,7 +217,7 @@ REPEAT BasicProvers.FULL_CASE_TAC >>
 srw_tac [PRED_SET_AC_ss] [tree_to_set_def]
 QED
 
-Triviality balance'_bst:
+Theorem balance'_bst[local]:
   !c t1 x t2.
   transitive lt ∧ is_bst lt (Tree c t1 x t2)
   ⇒
@@ -237,7 +237,7 @@ fs [transitive_def, balance'_def,  balance_left_left_def,
 metis_tac []
 QED
 
-Triviality ins_tree:
+Theorem ins_tree[local]:
   !lt x t. ?c t1 y t2. (ins lt x t = Tree c t1 y t2)
 Proof
   cases_on `t` >>
@@ -245,7 +245,7 @@ rw [ins_def] >>
 metis_tac [balance'_tree]
 QED
 
-Triviality ins_set:
+Theorem ins_set[local]:
   ∀lt x t.
   StrongLinearOrder lt
   ⇒
@@ -261,7 +261,7 @@ srw_tac [PRED_SET_AC_ss] [] >>
 rw []
 QED
 
-Triviality ins_bst:
+Theorem ins_bst[local]:
   !lt x t. StrongLinearOrder lt ∧ is_bst lt t ⇒ is_bst lt (ins lt x t)
 Proof
   induct_on `t` >>
@@ -320,7 +320,7 @@ QED
  * and that the number of black nodes is the same on each path from
  * the root to the leaves. *)
 
-Triviality case_opt_lem:
+Theorem case_opt_lem[local]:
   !x f z.
   ((case x of NONE => NONE | SOME y => f y) = SOME z) =
   (?y. (x = SOME y) ∧ (f y = SOME z))
@@ -329,7 +329,7 @@ Proof
 rw []
 QED
 
-Triviality balance_inv2_black:
+Theorem balance_inv2_black[local]:
   !c t1 a t2 n.
   (red_black_invariant2 t1 = SOME n) ∧
   (red_black_invariant2 t2 = SOME n) ∧
@@ -342,7 +342,7 @@ rw [balance_def, red_black_invariant2_def, case_opt_lem] >>
 metis_tac []
 QED
 
-Triviality ins_inv2:
+Theorem ins_inv2[local]:
   !leq x t n.
   (red_black_invariant2 t = SOME n)
   ⇒
@@ -387,7 +387,7 @@ Definition rbinv1_root_def:
   red_black_invariant1 t1 ∧ red_black_invariant1 t2)
 End
 
-Triviality balance_inv1_black:
+Theorem balance_inv1_black[local]:
   !c t1 a t2 n.
   red_black_invariant1 t1 ∧ rbinv1_root t2 ∧ (c = Black)
   ⇒
@@ -398,7 +398,7 @@ Proof
 rw [balance_def, red_black_invariant1_def, rbinv1_root_def, not_red_def]
 QED
 
-Triviality inv1_lemma:
+Theorem inv1_lemma[local]:
   !t. red_black_invariant1 t ⇒ rbinv1_root t
 Proof
   cases_on `t` >>
@@ -407,7 +407,7 @@ cases_on `c` >>
 fs [red_black_invariant1_def]
 QED
 
-Triviality ins_inv1:
+Theorem ins_inv1[local]:
   !leq x t.
   red_black_invariant1 t
   ⇒
@@ -447,7 +447,7 @@ QED
 
 val insert_side_def = fetch "-" "insert_side_def"
 
-Triviality insert_side:
+Theorem insert_side[local]:
   ∀leq x t. insert_side leq x t
 Proof
   rw [insert_side_def] >>
@@ -455,4 +455,3 @@ Proof
 rw []
 QED
 
-val _ = export_theory ();

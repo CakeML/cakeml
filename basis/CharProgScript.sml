@@ -1,10 +1,11 @@
 (*
   A module about the char type for the CakeML standard basis library.
 *)
-open preamble ml_translatorLib ml_progLib basisFunctionsLib
-     RatProgTheory
-
-val _ = new_theory "CharProg";
+Theory CharProg
+Ancestors
+  RatProg
+Libs
+  preamble ml_translatorLib ml_progLib basisFunctionsLib
 
 val _ = translation_extends "RatProg";
 
@@ -15,10 +16,11 @@ val _ = ml_prog_update (open_module "Char");
 val () = generate_sigs := true;
 
 val _ = ml_prog_update (add_dec
-  ``Dtabbrev unknown_loc [] "char" (Atapp [] (Short "char"))`` I);
+  ``Dtabbrev unknown_loc [] «char» (Atapp [] (Short «char»))`` I);
 
 val _ = trans "ord" stringSyntax.ord_tm;
 val _ = trans "chr" stringSyntax.chr_tm;
+val _ = trans "=" “(=):char->char->bool”;
 val _ = trans "<" stringSyntax.char_lt_tm;
 val _ = trans ">" stringSyntax.char_gt_tm;
 val _ = trans "<=" stringSyntax.char_le_tm;
@@ -27,22 +29,7 @@ val _ = trans ">=" stringSyntax.char_ge_tm;
 val _ = next_ml_names := ["isSpace"];
 val res = translate stringTheory.isSpace_def;
 
-Definition fromByte_def:
-  fromByte (w:word8) = CHR (w2n w)
-End
-
-val _ = next_ml_names := ["fromByte"];
-val res = translate fromByte_def;
-
-Triviality frombyte_side_thm:
-  frombyte_side v = T
-Proof
-  fs [fetch "-" "frombyte_side_def"]
-  \\ qspec_then ‘v’ assume_tac w2n_lt
-  \\ fs [dimword_def]
-QED
-
-val _ = update_precondition frombyte_side_thm;
+val _ = trans "fromByte" “mlstring$word8_to_char”;
 
 Definition some_chars_vector_def:
   some_chars_vector = Vector (GENLIST (λn. SOME (CHR n)) 256)
@@ -71,7 +58,7 @@ val _ = ml_prog_update open_local_in_block;
 val _ = next_ml_names := ["some"];
 val res = translate some_char_def;
 
-Triviality some_char_side_thm:
+Theorem some_char_side_thm[local]:
   some_char_side v = T
 Proof
   fs [fetch "-" "some_char_side_def"] \\ EVAL_TAC \\ fs [ORD_BOUND]
@@ -82,5 +69,3 @@ val _ = update_precondition some_char_side_thm;
 val _ = ml_prog_update close_local_blocks;
 
 val _ = ml_prog_update (close_module NONE);
-
-val _ = export_theory()

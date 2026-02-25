@@ -1,18 +1,16 @@
 (* --------------------------------------------------------------------------
    Pre-evaluate encoder (to help speed up EVAL)
    -------------------------------------------------------------------------- *)
+Theory arm7_eval_encode[no_sig_docs]
+Ancestors
+  arm arm7_target alignment
 
-open HolKernel Parse boolLib bossLib
-open armTheory arm7_targetTheory alignmentTheory
 
-val () = new_theory "arm7_eval_encode"
-
-val () = Feedback.set_trace "TheoryPP.include_docs" 0
 
 local
-  val n = ["skip", "const", "binop reg", "binop imm", "shift", "div",
+  val n = ["skip", "const", "binop reg", "binop imm", "shift imm", "shift reg", "div",
            "long mul", "long div", "add carry", "add overflow", "sub overflow",
-           "load", "load32", "load8", "store", "store32", "store8",
+           "load", "load16", "load32", "load8", "store", "store16", "store32", "store8",
            "fp less", "fp less eq", "fp eq", "fp mov", "fp abs", "fp neg",
            "fp sqrt", "fp add", "fp sub", "fp mul", "fp div", "fp fma",
            "fp to reg", "fp from reg", "fp to int", "fp from int", "jump",
@@ -43,7 +41,10 @@ val binop_rwt = enc_thm "binop reg"
   [e_data_def, EncodeImmShift_def, boolTheory.LET_DEF]
 val binop_imm_rwt = enc_thm "binop imm"
   [e_data_def, EncodeImmShift_def, boolTheory.LET_DEF]
-val shift_rwt = enc_thm "shift" [e_data_def]
+val shift_rwt = enc_thm "shift reg"
+  [e_data_def, EncodeImmShift_def, boolTheory.LET_DEF]
+val shift_imm_rwt = enc_thm "shift imm"
+  [e_data_def, EncodeImmShift_def, boolTheory.LET_DEF]
 val long_mul_rwt = enc_thm "long mul" [e_multiply_def]
 val add_carry_rwt = enc_thm "add carry"
   [e_data_def, EncodeImmShift_def, boolTheory.LET_DEF]
@@ -54,12 +55,14 @@ val sub_overflow_rwt = enc_thm "sub overflow"
 
 val load_rwt = enc_thm "load" [e_load_def]
 val load32_rwt = enc_thm "load32" [e_load_def]
+val load16_rwt = enc_thm "load16" [e_load_def]
 val load8_rwt = enc_thm "load8"
   [e_load_def, mk_let_thm `1w: word1`, mk_let_thm `0w : word1`,
    mk_let_thm `v2w [x]: word1`]
 
 val store_rwt = enc_thm "store" [e_store_def]
 val store32_rwt = enc_thm "store32" [e_store_def]
+val store16_rwt = enc_thm "store16" [e_store_def]
 val store8_rwt = enc_thm "store8" [e_store_def]
 
 val fp_rwts =
@@ -101,13 +104,12 @@ val loc_rwt = enc_thm "loc"
 
 val arm7_encode_rwts = Theory.save_thm("arm7_encode_rwts",
   Drule.LIST_CONJ
-    [skip_rwt, const_rwt, binop_rwt, binop_imm_rwt, shift_rwt, long_mul_rwt,
-     add_carry_rwt, add_overflow_rwt, sub_overflow_rwt, load_rwt,
+    [skip_rwt, const_rwt, binop_rwt, binop_imm_rwt, shift_rwt, shift_imm_rwt,
+     long_mul_rwt, add_carry_rwt, add_overflow_rwt, sub_overflow_rwt, load_rwt,
      load32_rwt, load8_rwt, store_rwt, store32_rwt, store8_rwt,
+     load16_rwt, store16_rwt,
      jump_rwt, jump_cmp_rwt, jump_cmp_imm_rwt, call_rwt, jump_reg_rwt, loc_rwt,
      fp_less_rwt, fp_less_eq_rwt, fp_eq_rwt, fp_mov_rwt, fp_abs_rwt,
      fp_neg_rwt, fp_sqrt_rwt, fp_add_rwt, fp_sub_rwt, fp_mul_rwt, fp_div_rwt,
      fp_fma_rwt, fp_to_reg_rwt, fp_from_reg_rwt, fp_to_int_rwt,
      fp_from_int_rwt])
-
-val () = export_theory ()

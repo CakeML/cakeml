@@ -1,12 +1,13 @@
 (*
   Proves correctness of the linear-scan register allocator.
 *)
-open preamble sptreeTheory reg_allocTheory linear_scanTheory reg_allocProofTheory
-open ml_monadBaseTheory ml_monadBaseLib;
+Theory linear_scanProof
+Libs
+  preamble ml_monadBaseLib
+Ancestors
+  mllist sptree reg_alloc linear_scan reg_allocProof ml_monadBase
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "linear_scanProof"
 
 val _ = disable_tyabbrev_printing "type_ident"
 val _ = disable_tyabbrev_printing "alist"
@@ -4027,7 +4028,7 @@ Proof
     rw []
 QED
 
-Theorem qsort_regs_prop_lemma:
+Theorem sort_regs_prop_lemma:
      !(P : num -> bool) l1 l2 l r.
     l <= LENGTH l1 /\
     r <= LENGTH l1 /\
@@ -4071,12 +4072,12 @@ Proof
     fs [EL_APPEND_EQN]
 QED
 
-Theorem qsort_regs_correct:
+Theorem sort_regs_correct:
      !l r sth.
     (!i. l <= i /\ i < r ==> EL i sth.sorted_regs < LENGTH sth.int_beg) /\
     l <= LENGTH sth.sorted_regs /\
     r <= LENGTH sth.sorted_regs ==>
-    ?sthout. qsort_regs l r sth = (M_success (), sthout) /\
+    ?sthout. sort_regs l r sth = (M_success (), sthout) /\
     sthout = sth with sorted_regs := sthout.sorted_regs /\
     LENGTH sthout.sorted_regs = LENGTH sth.sorted_regs /\
     (!n. l <= n /\ r <= n /\ n <= LENGTH sth.sorted_regs ==> PERM (TAKE n sth.sorted_regs) (TAKE n sthout.sorted_regs)) /\
@@ -4087,9 +4088,9 @@ Theorem qsort_regs_correct:
         ($< LEX $<=) (EL reg1 sth.int_beg, reg1) (EL reg2 sth.int_beg, reg2)
     )
 Proof
-    recInduct qsort_regs_ind >>
+    recInduct sort_regs_ind >>
     rpt strip_tac >>
-    once_rewrite_tac [qsort_regs_def] >>
+    once_rewrite_tac [sort_regs_def] >>
     rw msimps
     THEN1 rw [linear_scan_hidden_state_component_equality]
     THEN1 (
@@ -4102,25 +4103,21 @@ Proof
     rename1 `partition_regs _ _ _ _ _ = (_, sthpart)` >>
     qspecl_then [`sthpart`, `l`, `mid-1`] assume_tac swap_regs_eq >>
     rfs [] >>
-
     `PERM sth.sorted_regs sthpart.sorted_regs` by (
         first_x_assum (qspec_then `LENGTH sth.sorted_regs` assume_tac) >>
         rfs [] >>
         metis_tac [TAKE_LENGTH_ID]
     ) >>
     sg `!i. l <= i /\ i < r ==> EL i sthpart.sorted_regs < LENGTH sth.int_beg` THEN1 (
-      qspecl_then [`\reg. reg < LENGTH sth.int_beg`, `sth.sorted_regs`, `sthpart.sorted_regs`, `l`, `r`] mp_tac qsort_regs_prop_lemma >>
+      qspecl_then [`\reg. reg < LENGTH sth.int_beg`, `sth.sorted_regs`, `sthpart.sorted_regs`, `l`, `r`] mp_tac sort_regs_prop_lemma >>
       impl_tac >> rw [] >> rw []
     ) >>
-
     simp [] >>
     `?sthswap. sthpart with sorted_regs := LUPDATE (EL l sth.sorted_regs) (mid - 1) (LUPDATE (EL (mid - 1) sthpart.sorted_regs) l sthpart.sorted_regs) = sthswap` by simp [] >>
     simp [] >> fs [linear_scan_hidden_state_component_equality] >>
     `LENGTH sthswap.sorted_regs = LENGTH sthpart.sorted_regs` by metis_tac[LENGTH_LUPDATE] >>
-
     NTAC 2 (last_x_assum (qspec_then `mid` assume_tac)) >>
     rfs [] >>
-
     sg `!i. l <= i /\ i < r ==> EL i sthswap.sorted_regs < LENGTH sth.int_beg` THEN1 (
         qpat_x_assum `_ = sthswap.sorted_regs` (fn th => assume_tac (GSYM th)) >>
         rw [EL_LUPDATE]
@@ -4134,21 +4131,19 @@ Proof
     `PERM sth.sorted_regs sthswap.sorted_regs` by metis_tac [PERM_TRANS] >>
     last_x_assum (qspec_then `sthswap` assume_tac) >>
     rfs [] >>
-    rename1 `qsort_regs _ _ _ = (_, sthqsort)` >>
+    rename1 `sort_regs _ _ _ = (_, sthqsort)` >>
     `PERM sthswap.sorted_regs sthqsort.sorted_regs` by (
         first_x_assum (qspec_then `LENGTH sth.sorted_regs` assume_tac) >>
         rfs [] >>
         metis_tac [TAKE_LENGTH_ID]
     ) >>
-
     sg `!i. l <= i /\ i < r ==> EL i sthqsort.sorted_regs < LENGTH sth.int_beg` THEN1 (
-      qspecl_then [`\reg. reg < LENGTH sth.int_beg`, `sthswap.sorted_regs`, `sthqsort.sorted_regs`, `l`, `r`] mp_tac qsort_regs_prop_lemma >>
+      qspecl_then [`\reg. reg < LENGTH sth.int_beg`, `sthswap.sorted_regs`, `sthqsort.sorted_regs`, `l`, `r`] mp_tac sort_regs_prop_lemma >>
       impl_tac >> rw [] >> rw []
     ) >>
     `LENGTH sthqsort.sorted_regs = LENGTH sthswap.sorted_regs` by simp [PERM_LENGTH] >>
     last_x_assum (qspec_then `sthqsort` assume_tac) >>
     rfs [] >>
-
     `!ind. ind < l ==> ind < mid` by simp [] >>
     `!ind. r <= ind ==> mid <= ind+1` by simp [] >>
     `!ind. ind < l ==> ind < l+1` by simp [] >>
@@ -4165,7 +4160,6 @@ Proof
     ) >>
     strip_tac
     THEN1 metis_tac [] >>
-
     sg `
     let rpiv = EL (mid-1) sthswap.sorted_regs in
     let begrpiv = EL rpiv sthswap.int_beg in
@@ -4188,7 +4182,6 @@ Proof
         metis_tac [TAKE_LENGTH_ID]
     ) >>
     `LENGTH sthout.sorted_regs = LENGTH sthqsort.sorted_regs` by simp [PERM_LENGTH] >>
-
     sg `!ind. mid <= ind /\ ind < r ==>
         let reg1 = EL (mid-1) sthout.sorted_regs in
         let reg2 = EL ind sthout.sorted_regs in
@@ -4205,11 +4198,10 @@ Proof
         metis_tac []
       ) >>
       qspecl_then [`\reg. ($< LEX $<=) (EL (EL (mid-1) sthswap.sorted_regs) sthswap.int_beg, EL (mid-1) sthswap.sorted_regs) (EL reg sthswap.int_beg, reg)`,
-                   `sthqsort.sorted_regs`, `sthout.sorted_regs`, `mid`, `r`] mp_tac qsort_regs_prop_lemma >>
+                   `sthqsort.sorted_regs`, `sthout.sorted_regs`, `mid`, `r`] mp_tac sort_regs_prop_lemma >>
       impl_tac THEN1 ( rw [] >> metis_tac [] ) >>
       rw []
     ) >>
-
     sg `!ind. l <= ind /\ ind < mid-1 ==>
         let reg1 = EL ind sthout.sorted_regs in
         let reg2 = EL (mid-1) sthout.sorted_regs in
@@ -4217,11 +4209,10 @@ Proof
     THEN1 (
       rw [] >>
       qspecl_then [`\reg. ($< LEX $<=) (EL reg sthswap.int_beg, reg) (EL (EL (mid-1) sthswap.sorted_regs) sthswap.int_beg, EL (mid-1) sthswap.sorted_regs)`,
-                   `sthswap.sorted_regs`, `sthqsort.sorted_regs`, `l`, `mid-1`] mp_tac qsort_regs_prop_lemma >>
+                   `sthswap.sorted_regs`, `sthqsort.sorted_regs`, `l`, `mid-1`] mp_tac sort_regs_prop_lemma >>
       impl_tac THEN1 ( rw [] >> metis_tac [] ) >>
       rw []
     ) >>
-
     rw [] >>
     Cases_on `i1 <= mid-1` >>
     Cases_on `i1 = mid-1` >>
@@ -4307,18 +4298,18 @@ Proof
     metis_tac [PERM_TRANS]
 QED
 
-Theorem qsort_moves_correct:
+Theorem sort_moves_correct:
      !l r sth.
     l <= LENGTH sth.sorted_moves /\
     r <= LENGTH sth.sorted_moves ==>
-    ?sthout. qsort_moves l r sth = (M_success (), sthout) /\
+    ?sthout. sort_moves l r sth = (M_success (), sthout) /\
     sthout = sth with sorted_moves := sthout.sorted_moves /\
     LENGTH sthout.sorted_moves = LENGTH sth.sorted_moves /\
     (!n. l <= n /\ r <= n /\ n <= LENGTH sth.sorted_moves ==> PERM (TAKE n sth.sorted_moves) (TAKE n sthout.sorted_moves))
 Proof
-    recInduct qsort_moves_ind >>
+    recInduct sort_moves_ind >>
     rw [] >>
-    once_rewrite_tac [qsort_moves_def] >>
+    once_rewrite_tac [sort_moves_def] >>
     rw msimps
     THEN1 rw [linear_scan_hidden_state_component_equality] >>
     qspecl_then [`l+1`, `FST (EL l sth.sorted_moves)`, `r`, `sth`] assume_tac partition_moves_correct >>
@@ -4331,7 +4322,7 @@ Proof
     rfs [] >>
     first_x_assum (qspec_then `sthswap` assume_tac) >>
     rfs [] >>
-    rename1 `qsort_moves _ _ _ = (_, sthqsort)` >>
+    rename1 `sort_moves _ _ _ = (_, sthqsort)` >>
     first_x_assum (qspec_then `sthqsort` assume_tac) >>
     rfs [] >>
     fs [linear_scan_hidden_state_component_equality] >>
@@ -4621,14 +4612,14 @@ Proof
     qpat_x_assum `(_,_) = _` (fn th => assume_tac (GSYM th)) >>
     simp [] >>
 
-    qspecl_then [`0`, `LENGTH reglist_unsorted`, `sthm3`] mp_tac qsort_regs_correct >>
+    qspecl_then [`0`, `LENGTH reglist_unsorted`, `sthm3`] mp_tac sort_regs_correct >>
     impl_tac THEN1 (
         rw [] >>
         `EL i sthm3.sorted_regs = EL i (TAKE (LENGTH reglist_unsorted) sthm3.sorted_regs)` by simp [EL_TAKE] >>
         fs [EVERY_EL]
     ) >>
     strip_tac >>
-    rename1 `qsort_regs _ _ _ = (M_success (), sthm2)` >>
+    rename1 `sort_regs _ _ _ = (M_success (), sthm2)` >>
     qpat_x_assum `!n. _ ==> PERM _ _` (qspec_then `LENGTH reglist_unsorted` assume_tac) >>
     fs [] >>
 
@@ -4643,10 +4634,10 @@ Proof
     qpat_x_assum `(_,_) = _` (fn th => assume_tac (GSYM th)) >>
     simp [] >>
 
-    qspecl_then [`0`, `LENGTH moves`, `sthm1`] mp_tac qsort_moves_correct >>
+    qspecl_then [`0`, `LENGTH moves`, `sthm1`] mp_tac sort_moves_correct >>
     impl_tac THEN1 rw [] >>
     strip_tac >>
-    rename1 `qsort_moves _ _ _ = (M_success (), sth0)` >>
+    rename1 `sort_moves _ _ _ = (M_success (), sth0)` >>
     qpat_x_assum `!n. _ ==> PERM _ _` (qspec_then `LENGTH moves` assume_tac) >>
     fs [] >>
 
@@ -6241,5 +6232,3 @@ Proof[exclude_simps = sptree.LENGTH_toAList]
         metis_tac [SOME_11]
     )
 QED
-
-val _ = export_theory ();

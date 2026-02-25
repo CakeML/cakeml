@@ -1,16 +1,17 @@
 (*
   Prove `encoder_correct` for RISC-V
 *)
-open HolKernel Parse boolLib bossLib
-open asmLib riscv_stepLib riscv_targetTheory;
-
-val () = new_theory "riscv_targetProof"
+Theory riscv_targetProof
+Ancestors
+  riscv_target
+Libs
+  asmLib riscv_stepLib
 
 val () = wordsLib.guess_lengths()
 
 (* some lemmas ---------------------------------------------------------- *)
 
-Triviality bytes_in_memory_thm:
+Theorem bytes_in_memory_thm[local]:
   !w s state a b c d.
       target_state_rel riscv_target s state /\
       bytes_in_memory s.pc [a; b; c; d] s.mem s.mem_domain ==>
@@ -34,7 +35,7 @@ Proof
    \\ fs []
 QED
 
-Triviality bytes_in_memory_thm2:
+Theorem bytes_in_memory_thm2[local]:
   !w s state a b c d.
       target_state_rel riscv_target s state /\
       bytes_in_memory (s.pc + w) [a; b; c; d] s.mem s.mem_domain ==>
@@ -63,7 +64,7 @@ val lem4 = blastLib.BBLAST_PROVE
             c ' 4; c ' 3; c ' 2; c ' 1; c ' 0] : word12) = c : word64)``
 
 
-Triviality lem5:
+Theorem lem5[local]:
   aligned 2 (c: word64) ==> ~c ' 1
 Proof
   simp [alignmentTheory.aligned_extract]
@@ -78,13 +79,13 @@ val lem6 = blastLib.BBLAST_PROVE
 val lem7 = CONJ (bitstringLib.v2w_n2w_CONV ``v2w [F] : word64``)
                 (bitstringLib.v2w_n2w_CONV ``v2w [T] : word64``)
 
-Triviality lem8:
+Theorem lem8[local]:
   ((if b then 1w else 0w : word64) = (v2w [x] || v2w [y])) = (b = (x \/ y))
 Proof
   rw [] \\ blastLib.BBLAST_TAC
 QED
 
-Triviality lem9:
+Theorem lem9[local]:
   !r2 : word64 r3 : word64.
     (18446744073709551616 <= w2n r2 + (w2n r3 + 1) <=>
      18446744073709551616w <=+ w2w r2 + w2w r3 + 1w : 65 word) /\
@@ -116,7 +117,7 @@ val lem12b =
               (0w : word12)) +
        sw2sw ((11 >< 0) c && ~2w) = c : word64)``
 
-Triviality mul_long:
+Theorem mul_long[local]:
   !a : word64 b : word64.
     n2w ((w2n a * w2n b) DIV 18446744073709551616) =
     (127 >< 64) (w2w a * w2w b : word128) : word64
@@ -143,7 +144,7 @@ val riscv_sub_overflow =
          (((x ?? y) && ~(y ?? (x - y))) >>> 63 = 1w)``]
     (Q.INST_TYPE [`:'a` |-> `:64`] integer_wordTheory.sub_overflow)
 
-Triviality ror:
+Theorem ror[local]:
   !w : word64 n. n < 64n ==> ((w << (64 - n) || w >>> n) = w #>> n)
 Proof
   srw_tac [fcpLib.FCP_ss]
@@ -173,21 +174,23 @@ val encode_rwts =
       open riscvTheory
    in
       [riscv_enc_def, riscv_ast_def, riscv_encode_def, riscv_const32_def,
-       riscv_bop_r_def, riscv_bop_i_def, riscv_sh_def, riscv_memop_def,
-       Encode_def, opc_def, Itype_def, Rtype_def, Stype_def, SBtype_def,
-       Utype_def, UJtype_def]
+       riscv_bop_r_def, riscv_bop_i_def, riscv_sh_def, riscv_shv_def,
+       riscv_memop_def, Encode_def, opc_def, Itype_def, Rtype_def, Stype_def,
+       SBtype_def, Utype_def, UJtype_def]
    end
 
-val word_bit_0_add4 = prove(
-  ``word_bit 0 (w +  4w:word64) = word_bit 0 w /\
+Theorem word_bit_0_add4[local]:
+    word_bit 0 (w +  4w:word64) = word_bit 0 w /\
     word_bit 0 (w +  8w:word64) = word_bit 0 w /\
     word_bit 0 (w + 12w:word64) = word_bit 0 w /\
     word_bit 0 (w + 16w:word64) = word_bit 0 w /\
     word_bit 0 (w + 20w:word64) = word_bit 0 w /\
     word_bit 0 (w + 24w:word64) = word_bit 0 w /\
     word_bit 0 (w + 28w:word64) = word_bit 0 w /\
-    word_bit 0 (w + 32w:word64) = word_bit 0 w``,
-  blastLib.BBLAST_TAC);
+    word_bit 0 (w + 32w:word64) = word_bit 0 w
+Proof
+  blastLib.BBLAST_TAC
+QED
 
 val enc_rwts =
   [riscv_config, riscv_asm_ok, lem6, word_bit_0_add4] @ encode_rwts @ asmLib.asm_rwts
@@ -378,7 +381,7 @@ in
     end
 end
 
-Triviality bytes_in_memory_IMP_all_pcs_MEM8:
+Theorem bytes_in_memory_IMP_all_pcs_MEM8[local]:
   !env a xs m dm.
    bytes_in_memory a xs m dm /\
    (!(i:num) ms'. (∀a. a ∈ dm ⇒ (env i ms').MEM8 a = ms'.MEM8 a)) ==>
@@ -448,13 +451,13 @@ end
    riscv target_ok
    ------------------------------------------------------------------------- *)
 
-Triviality length_riscv_encode:
+Theorem length_riscv_encode[local]:
   !i. LENGTH (riscv_encode i) = 4
 Proof
   rw [riscv_encode_def]
 QED
 
-Triviality riscv_encode_not_nil:
+Theorem riscv_encode_not_nil[local]:
   !i. riscv_encode i <> []
 Proof
   simp_tac std_ss [length_riscv_encode, GSYM listTheory.LENGTH_NIL]
@@ -471,7 +474,7 @@ val riscv_encoding = Q.prove (
    )
    |> SIMP_RULE (srw_ss()++boolSimps.LET_ss) [riscv_enc_def]
 
-Triviality riscv_target_ok:
+Theorem riscv_target_ok[local]:
   target_ok riscv_target
 Proof
   rw ([asmPropsTheory.target_ok_def, asmPropsTheory.target_state_rel_def,
@@ -498,6 +501,13 @@ QED
    ------------------------------------------------------------------------- *)
 
 val print_tac = asmLib.print_tac "correct"
+
+Theorem word_extract_6:
+  w <+ 64w ⇒
+  ((5 >< 0) (w:word64)):word6 = (w2w w)
+Proof
+  blastLib.FULL_BBLAST_TAC
+QED
 
 Theorem riscv_encoder_correct:
     encoder_correct riscv_target
@@ -553,8 +563,60 @@ Proof
                 Shift
               --------------*)
             print_tac "Shift"
-            \\ Cases_on `s`
-            \\ next_tac
+            \\ reverse(Cases_on`r`)
+            >- (
+              Cases_on `s`
+              \\ next_tac)
+            >- (
+              Cases_on`s = Ror`
+              >- (
+                rename1`Reg r`
+                \\ `w2n (s1.regs r) < 64` by fs enc_rwts
+                \\ `s1.regs r <+ 64w ∧ s1.regs r <=+ 64w` by (
+                    Cases_on`s1.regs r`
+                    \\ fs[wordsTheory.WORD_LO,wordsTheory.WORD_LS])
+                \\ `w2n (((5 >< 0) (s1.regs r)):word6) =
+                    w2n (s1.regs r)` by
+                      fs[word_extract_6,wordsTheory.w2w_def,wordsTheory.WORD_LO]
+                \\ `s1.regs n0 ⇄ w2n (s1.regs r) =
+                  s1.regs n0 <<~
+                  w2w ((5 >< 0) (-1w * s1.regs r + 64w)) ‖
+                  s1.regs n0 >>>~ w2w ((5 >< 0) (s1.regs r))` by (
+                  Cases_on`s1.regs r = 0w`
+                  >- simp[wordsTheory.w2w_def,bitstringTheory.word_ror_alt]>>
+                  simp[bitstringTheory.word_ror_alt,wordsTheory.w2w_def]>>
+                  qmatch_goalsub_abbrev_tac`_ << A || B = _ << C || D`>>
+                  qsuff_tac`A = C ∧ B = D` >- simp[]>>
+                  unabbrev_all_tac>>rw[]
+                  >- (
+                    dep_rewrite.DEP_REWRITE_TAC[word_extract_6]>>
+                    fs[wordsTheory.w2w_def,wordsTheory.WORD_LO]>>
+                    `-1w * (s1.regs r) + 64w =
+                      64w - s1.regs r` by blastLib.FULL_BBLAST_TAC>>
+                    pop_assum SUBST_ALL_TAC>>
+                    dep_rewrite.DEP_REWRITE_TAC[wordsTheory.word_sub_w2n]>>
+                    simp[]>>
+                    Cases_on`s1.regs r`>>gvs[])>>
+                  Cases_on`s1.regs r`>>gvs[])
+                \\ next_tac)
+              >- (
+                rename1`Reg r`
+                \\ `w2n (s1.regs r) < 64` by fs enc_rwts
+                \\ `w2n (s1.regs r) < dimword (:64)` by fs[]
+                \\ `(n2w (w2n (s1.regs r)) :word64) = s1.regs r` by
+                  fs[wordsTheory.n2w_w2n]
+                \\ imp_res_tac wordsTheory.word_shift_bv
+                \\ rpt (pop_assum (qspec_then `s1.regs n0` mp_tac))
+                \\ pop_assum SUBST_ALL_TAC
+                \\ rw[]
+                \\ `s1.regs r <+ 64w` by (
+                    Cases_on`s1.regs r`
+                    \\ fs[wordsTheory.WORD_LO])
+                \\ `(w2w ((5 >< 0) (s1.regs r):word6)):word64 =
+                    n2w (w2n (s1.regs r))` by
+                    simp[word_extract_6,wordsTheory.w2w_def,wordsTheory.WORD_LO]
+                \\ Cases_on `s`
+                \\ next_tac))
             )
          >- (
             (*--------------
@@ -681,4 +743,3 @@ Proof
       )
 QED
 
-val () = export_theory ()

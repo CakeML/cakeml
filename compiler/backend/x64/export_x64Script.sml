@@ -1,9 +1,11 @@
 (*
   Define the format of the compiler-generated .S file for x64
 *)
-open preamble exportTheory
-
-val () = new_theory "export_x64";
+Theory export_x64
+Ancestors
+  export
+Libs
+  preamble
 
 (*
 CakeML expects 4 arguments in order:
@@ -75,9 +77,9 @@ Definition ffi_asm_def:
   (ffi_asm [] = Nil) /\
   (ffi_asm (ffi::ffis) =
       SmartAppend (List [
-       strlit"cake_ffi"; implode ffi; strlit":\n";
+       strlit"cake_ffi"; ffi; strlit":\n";
        strlit"     pushq   %rax\n";
-       strlit"     jmp     wcdecl(ffi"; implode ffi; strlit")\n";
+       strlit"     jmp     wcdecl(ffi"; ffi; strlit")\n";
        strlit"     .p2align 4\n";
        strlit"\n"]) (ffi_asm ffis))
 End
@@ -123,12 +125,12 @@ Definition windows_ffi_asm_def:
   (windows_ffi_asm [] = Nil) /\
   (windows_ffi_asm (ffi::ffis) =
       SmartAppend (List [
-       strlit"windows_ffi"; implode ffi; strlit":\n";
+       strlit"windows_ffi"; ffi; strlit":\n";
        strlit"     movq    %rcx, %r9\n";
        strlit"     movq    %rdx, %r8\n";
        strlit"     movq    %rsi, %rdx\n";
        strlit"     movq    %rdi, %rcx\n";
-       strlit"     jmp     cdecl(ffi"; implode ffi; strlit")\n";
+       strlit"     jmp     cdecl(ffi"; ffi; strlit")\n";
        strlit"\n"]) (windows_ffi_asm ffis))
 End
 
@@ -287,5 +289,3 @@ End
   |> concl |> rand |> listSyntax.dest_list |> fst |> map rand
   |> map stringSyntax.fromHOLstring |> concat |> print
 *)
-
-val _ = export_theory ();

@@ -2,12 +2,12 @@
   Using the CakeML translator to produce a verified deep embedding of the
   simple BST implementation.
 *)
+Theory simple_bstProg
+Ancestors
+  simple_bst
+Libs
+  preamble ml_progLib ml_translatorLib
 
-open preamble
-     ml_progLib ml_translatorLib
-     simple_bstTheory
-
-val _ = new_theory "simple_bstProg";
 
 (*
   To translate a HOL function to CakeML, call translate on its definition. For
@@ -68,4 +68,3 @@ val res = translate member_def;
 
 (* TODO: use of certificate theorem to show something about the generated code? *)
 
-val _ = export_theory();

@@ -1,13 +1,14 @@
 (*
   Lemmas used in Okasaki examples.
 *)
-open preamble
-open relationTheory bagLib bagTheory;
+Theory okasaki_misc
+Ancestors
+  sorting relation bag
+Libs
+  preamble bagLib
 
 val fs = full_simp_tac (srw_ss ())
 val rw = srw_tac []
-
-val _ = new_theory "okasaki_misc"
 
 Theorem WeakLinearOrder_neg:
  !leq x y. WeakLinearOrder leq ⇒ (~leq x y <=> leq y x ∧ x ≠ y)
@@ -74,14 +75,14 @@ Induct_on `l1` >>
 srw_tac [BAG_ss] [list_to_bag_def, BAG_INSERT_UNION]
 QED
 
-Triviality list_to_bag_to_perm:
+Theorem list_to_bag_to_perm[local]:
   !l1 l2. PERM l1 l2 ⇒ (list_to_bag l1 = list_to_bag l2)
 Proof
   HO_MATCH_MP_TAC PERM_IND >>
 srw_tac [BAG_ss] [list_to_bag_def, BAG_INSERT_UNION]
 QED
 
-Triviality perm_to_list_to_bag_lem:
+Theorem perm_to_list_to_bag_lem[local]:
   !l1 l2 x.
   (list_to_bag (FILTER ($= x) l1) = list_to_bag (FILTER ($= x) l2))
   ⇒
@@ -94,7 +95,7 @@ rw [] >>
 fs [list_to_bag_def]
 QED
 
-Triviality perm_to_list_to_bag:
+Theorem perm_to_list_to_bag[local]:
   !l1 l2. (list_to_bag l1 = list_to_bag l2) ⇒ PERM l1 l2
 Proof
   rw [PERM_DEF] >>
@@ -107,7 +108,7 @@ Proof
 metis_tac [perm_to_list_to_bag, list_to_bag_to_perm]
 QED
 
-Triviality sorted_reverse_lem:
+Theorem sorted_reverse_lem[local]:
   !R l. transitive R ∧ SORTED R l ⇒ SORTED (\x y. R y x) (REVERSE l)
 Proof
   induct_on `l` >>
@@ -131,5 +132,3 @@ fs [transitive_def] >>
 fs [] >>
 metis_tac []
 QED
-
-val _ = export_theory ();

@@ -1,10 +1,12 @@
 (*
   Extend numBoolExp with more functionality
 *)
+Theory numBoolExtended
+Ancestors
+  misc boolExpToCnf numBoolExp cnf
+Libs
+  preamble
 
-open preamble miscTheory boolExpToCnfTheory numBoolExpTheory cnfTheory;
-
-val _ = new_theory "numBoolExtended";
 
 (* -------------------------------- Datatypes ------------------------------- *)
 
@@ -367,4 +369,3 @@ QED
 
 *)
 
-val _ = export_theory();

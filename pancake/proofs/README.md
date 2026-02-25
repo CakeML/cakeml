@@ -1,10 +1,13 @@
-Proofs files for compiling Pancake.
+Proof files for compiling Pancake.
 
 [crep_arithProofScript.sml](crep_arithProofScript.sml):
 Correctness proof for crep_arith pass
 
+[crep_inlineProofScript.sml](crep_inlineProofScript.sml):
+Correctness proof for function inlining pass
+
 [crep_to_loopProofScript.sml](crep_to_loopProofScript.sml):
-Correctness proof for ---
+Correctness proof for crep_to_loop
 
 [loop_callProofScript.sml](loop_callProofScript.sml):
 loop_call proof
@@ -18,15 +21,18 @@ Correctness proof for loop_remove
 [loop_to_wordProofScript.sml](loop_to_wordProofScript.sml):
 Correctness proof for loop_to_word
 
-[panItreeSemEquivScript.sml](panItreeSemEquivScript.sml):
-Proof of correspondence between functional big-step
+[pan_globalsProofScript.sml](pan_globalsProofScript.sml):
+Correctness proof for pan_globals
+
+[pan_itreeEquivProofScript.sml](pan_itreeEquivProofScript.sml):
+Proof of correspondence between functional big-step semantics
 and itree semantics for Pancake.
 
 [pan_simpProofScript.sml](pan_simpProofScript.sml):
 Correctness proof for pan_simp
 
 [pan_to_crepProofScript.sml](pan_to_crepProofScript.sml):
-Correctness proof for --
+Correctness proof for pan_to_crep
 
 [pan_to_targetProofScript.sml](pan_to_targetProofScript.sml):
 composing semantics correctness from pan to target

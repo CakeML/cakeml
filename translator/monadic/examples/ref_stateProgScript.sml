@@ -2,14 +2,18 @@
   An example showing how to use the monadic translator to translate
   monadic functions using references (no arrays, no exceptions).
 *)
-open preamble ml_monad_translator_interfaceLib
+Theory ref_stateProg
+Libs
+  preamble ml_monad_translator_interfaceLib
+Ancestors
+  ml_monad_translator
 
-val _ = new_theory "ref_stateProg"
+val _ = set_up_monadic_translator ();
 
 (* Pattern matching
- * Note that `dtcase` has to be used from now on in the function definitions (and not `case`)
+ * Note that `case` has to be used from now on in the function definitions (and not `case`)
  *)
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 (* Create the data type to handle the references.
    In this example, the data type has only one field, which means that
@@ -36,7 +40,7 @@ End
 
 (* A recursive monadic function *)
 Definition rec_fun_def:
-  rec_fun l = dtcase l of [] => return (0 : num)
+  rec_fun l = case l of [] => return (0 : num)
                    | x::l' => do x <- rec_fun l'; return (1+x) od
 End
 
@@ -73,5 +77,3 @@ val store_fun_v_thm = store_fun_def |> m_translate;
 val if_fun_v_thm = if_fun_def |> m_translate;
 
 (* ... *)
-
-val _ = export_theory ();

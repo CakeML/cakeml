@@ -2,10 +2,11 @@
   For ag32, prove that the compiler configuration is well formed, and
   instantiate the compiler correctness theorem.
 *)
-open preamble backendProofTheory ag32_configTheory
-     ag32_targetProofTheory open blastLib;
-
-val _ = new_theory"ag32_configProof";
+Theory ag32_configProof
+Ancestors
+  lab_to_targetProof backendProof ag32_config ag32_targetProof
+Libs
+  preamble blastLib
 
 Definition is_ag32_machine_config_def:
   is_ag32_machine_config mc ⇔
@@ -23,7 +24,7 @@ val names_tac =
   \\ rpt strip_tac \\ rveq \\ EVAL_TAC
 
 Theorem ag32_backend_config_ok:
-    backend_config_ok ag32_backend_config
+    backend_config_ok ag32_config ag32_backend_config
 Proof
   simp[backend_config_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
   \\ fs[ag32_backend_config_def,asmTheory.offset_ok_def,
@@ -32,6 +33,13 @@ Proof
         alignmentTheory.aligned_0,tlookup_bij_iff]
   THEN1 blastLib.FULL_BBLAST_TAC
   THEN1 names_tac
+  >- (
+    fs [stack_removeTheory.store_offset_def,
+        stack_removeTheory.store_pos_def]
+    \\ every_case_tac \\ fs [] THEN1 EVAL_TAC
+    \\ fs [stack_removeTheory.store_list_def]
+    \\ fs [INDEX_FIND_CONS_EQ_SOME,EVAL ``INDEX_FIND n f []``]
+    \\ rveq \\ fs [] \\ EVAL_TAC)
   >- (
     fs [stack_removeTheory.store_offset_def,
         stack_removeTheory.store_pos_def]
@@ -61,7 +69,7 @@ QED
 
 Theorem ag32_init_ok:
    is_ag32_machine_config mc ⇒
-    mc_init_ok ag32_backend_config mc
+    mc_init_ok ag32_config ag32_backend_config mc
 Proof
   rw[mc_init_ok_def]
   \\ fs[is_ag32_machine_config_def]
@@ -72,8 +80,8 @@ val is_ag32_machine_config_mc = ag32_init_ok |> concl |> dest_imp |> #1
 
 Theorem ag32_compile_correct =
   compile_correct
-  |> Q.GENL[`c`,`mc`]
-  |> Q.ISPECL[`ag32_backend_config`, `^(rand is_ag32_machine_config_mc)`]
+  |> Q.GENL[`asm_conf`,`c`,`mc`]
+  |> Q.ISPECL[`ag32_config`, `ag32_backend_config`, `^(rand is_ag32_machine_config_mc)`]
   |> ADD_ASSUM is_ag32_machine_config_mc
   |> SIMP_RULE (srw_ss()) [ag32_backend_config_ok,UNDISCH ag32_machine_config_ok,UNDISCH ag32_init_ok]
   |> CONV_RULE (ONCE_DEPTH_CONV(EVAL o (assert(same_const``heap_regs``o fst o strip_comb))))
@@ -89,7 +97,7 @@ Proof
   \\ pairarg_tac \\ gvs []
 QED
 
-Triviality IMP_EVERY_list_add_if_fresh:
+Theorem IMP_EVERY_list_add_if_fresh[local]:
   ∀xs x p. p x ∧ EVERY p xs ⇒ EVERY p (list_add_if_fresh x xs)
 Proof
   Induct \\ gvs [lab_to_targetTheory.list_add_if_fresh_def] \\ rw []
@@ -116,7 +124,7 @@ Proof
 QED
 
 Theorem compile_imp_ffi_names:
-  backend$compile c p = SOME (b,d,c1) ∧
+  backend$compile asm_conf c p = SOME (b,d,c1) ∧
   c1.lab_conf.shmem_extra = [] ∧ f ≠ [] ∧
   c.lab_conf.ffi_names = NONE ∧
   ffinames_to_string_list (the [] c1.lab_conf.ffi_names) = f ⇒
@@ -137,5 +145,3 @@ Proof
   \\ irule MAP_ExtCall_ffinames
   \\ gvs [find_ffi_names_ExtCall]
 QED
-
-val _ = export_theory();

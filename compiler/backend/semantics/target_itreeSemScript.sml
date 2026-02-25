@@ -1,11 +1,11 @@
 (*
   An itree-based semantics for the target machine code
 *)
-open preamble;
-open targetSemTheory;
-open itreeTheory;
-
-val _ = new_theory "target_itreeSem"
+Theory target_itreeSem
+Ancestors
+  targetSem itree
+Libs
+  preamble
 
 Overload get_ffi_string = “MAP (λx. case x of ExtCall s => s)”;
 
@@ -99,7 +99,7 @@ Definition eval_to_def:
                        (case read_ffi_bytearrays mc ms of
                         | (SOME bytes, SOME bytes2) =>
                             let mc1 = mc with ffi_interfer := shift_seq 1 mc.ffi_interfer in
-                              if EL ffi_index mc.ffi_names = ExtCall ""
+                              if EL ffi_index mc.ffi_names = ExtCall «»
                               then
                                 eval_to (k - 1) mc1 (mc.ffi_interfer 0 (ffi_index,bytes2,ms))
                               else Vis' (EL ffi_index mc.ffi_names, bytes, bytes2)
@@ -122,5 +122,3 @@ Definition machine_sem_itree_def:
 End
 
 (**********)
-
-val _ = export_theory();

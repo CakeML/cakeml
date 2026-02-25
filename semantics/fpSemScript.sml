@@ -1,10 +1,34 @@
 (*
   Definitions of the floating point operations used in CakeML.
 *)
-open HolKernel Parse boolLib bossLib;
-open fpValTreeTheory fpOptTheory machine_ieeeTheory;
+Theory fpSem
+Ancestors
+  machine_ieee ast (* order important because of FP_Add in ast & binary_ieee *)
 
-val _ = new_theory "fpSem";
+Datatype:
+  fp_cmp = FP_Less | FP_LessEqual | FP_Greater | FP_GreaterEqual | FP_Equal
+End
+
+Datatype:
+  fp_uop = FP_Abs | FP_Neg | FP_Sqrt
+End
+
+Datatype:
+  fp_bop = FP_Add | FP_Sub | FP_Mul | FP_Div
+End
+
+Datatype:
+  fp_top = FP_Fma
+End
+
+Definition fp_cmp_def:
+  fp_cmp cmp =
+  case cmp of
+  | Lt  => fp64_lessThan
+  | Leq => fp64_lessEqual
+  | Gt  => fp64_greaterThan
+  | Geq => fp64_greaterEqual
+End
 
 Definition fp_cmp_comp_def:
   fp_cmp_comp fop =
@@ -27,10 +51,10 @@ End
 Definition fp_bop_comp_def:
   fp_bop_comp fop =
   case fop of
-  | fpValTree$FP_Add => (fp64_add roundTiesToEven)
-  | fpValTree$FP_Sub => (fp64_sub roundTiesToEven)
-  | fpValTree$FP_Mul => (fp64_mul roundTiesToEven)
-  | fpValTree$FP_Div => (fp64_div roundTiesToEven)
+  | FP_Add => fp64_add roundTiesToEven
+  | FP_Sub => fp64_sub roundTiesToEven
+  | FP_Mul => fp64_mul roundTiesToEven
+  | FP_Div => fp64_div roundTiesToEven
 End
 
 Definition fpfma_def:
@@ -40,26 +64,3 @@ End
 Definition fp_top_comp_def:
   fp_top_comp fop = fpfma
 End
-
-Definition fp_opt_comp_def:
-  fp_opt_comp fpopt v = (case fpopt of Opt => v | NoOpt => v)
-End
-
-(* Compression function for value trees,
-   evaluating lazy trees into word64 or bool *)
-Definition compress_word_def:
- compress_word (Fp_const w1) =  w1 ∧
- compress_word (Fp_uop u1 v1) = (fp_uop_comp u1 (compress_word v1)) ∧
- compress_word (Fp_bop b v1 v2) = (fp_bop_comp b (compress_word v1) (compress_word v2)) ∧
- compress_word (Fp_top t v1 v2 v3) =
-   (fp_top_comp t (compress_word v1) (compress_word v2) (compress_word v3)) ∧
- compress_word (Fp_wopt fpopt v) =  (compress_word v)
-End
-
-Definition compress_bool_def:
-  compress_bool (Fp_cmp cmp v1 v2) =
-    (fp_cmp_comp cmp (compress_word v1) (compress_word v2)) ∧
-  compress_bool (Fp_bopt fpopt v)=  (compress_bool v)
-End
-
-val _ = export_theory();

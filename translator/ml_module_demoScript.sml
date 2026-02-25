@@ -1,10 +1,9 @@
 (*
   Demonstration of using the translator to produce a CakeML module.
 *)
-open HolKernel Parse boolLib bossLib;
-open ml_translatorLib ml_progLib;
-
-val _ = new_theory "ml_module_demo";
+Theory ml_module_demo
+Libs
+  ml_translatorLib ml_progLib
 
 val _ = (use_full_type_names := false);
 
@@ -31,5 +30,3 @@ End
 val r = translate add_def;
 
 val _ = ml_prog_update (close_module NONE);
-
-val _ = export_theory();

@@ -1,13 +1,13 @@
 (*
   Proves correctness of the graph-colouring register allocator.
 *)
-open preamble state_transformerTheory reg_allocTheory
-open sortingTheory;
-open ml_monadBaseTheory ml_monadBaseLib;
+Theory reg_allocProof
+Libs
+  preamble ml_monadBaseLib
+Ancestors
+  mllist state_transformer reg_alloc sorting ml_monadBase
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "reg_allocProof"
 
 val _ = ParseExtras.temp_tight_equality();
 val _ = monadsyntax.temp_add_monadsyntax()
@@ -95,9 +95,8 @@ val add_eqns = [add_freeze_wl_def,add_unavail_moves_wl_def,add_spill_wl_def];
 val all_eqns = get_eqns @ set_eqns @ add_eqns @ msimps;
 
 (* M_success conditions *)
-fun get_thms ty = { case_def = TypeBase.case_def_of ty, nchotomy = TypeBase.nchotomy_of ty };
 Theorem case_eq_thms = pair_case_eq::
-  List.map (prove_case_eq_thm o get_thms)
+  List.map TypeBase.case_eq_of
            [``:('a,'b) exc``,``:tag``,``:'a list``,``:'a option``]
          |> LIST_CONJ
 
@@ -343,7 +342,7 @@ Proof
     IF_CASES_TAC>>rw[]>>fs[MEM_FILTER]
 QED
 
-Triviality no_clash_LUPDATE_Stemp:
+Theorem no_clash_LUPDATE_Stemp[local]:
   no_clash adjls tags ⇒
   no_clash adjls (LUPDATE Stemp n tags)
 Proof
@@ -355,7 +354,7 @@ Proof
   fs[]
 QED
 
-Triviality no_clash_LUPDATE_Fixed:
+Theorem no_clash_LUPDATE_Fixed[local]:
   undirected adjls ∧
   EVERY (λls. EVERY (λv. v < LENGTH tags) ls) adjls ∧
   n < LENGTH adjls ∧
@@ -390,7 +389,7 @@ Proof
     CCONTR_TAC>>fs[]
 QED
 
-Triviality remove_colours_succeeds:
+Theorem remove_colours_succeeds[local]:
   ∀adj ks s s.
   EVERY (\v. v < LENGTH s.node_tag) adj ⇒
   ∃ls. remove_colours adj ks s = (M_success ls,s)
@@ -449,7 +448,7 @@ Proof
   metis_tac[]
 QED
 
-Triviality assign_Atemps_FOREACH_lem:
+Theorem assign_Atemps_FOREACH_lem[local]:
   ∀ls s ks prefs.
   good_ra_state s ∧
   no_clash s.adj_ls s.node_tag ∧
@@ -538,7 +537,7 @@ Proof
     rfs[]
 QED
 
-Triviality SORTED_HEAD_LT:
+Theorem SORTED_HEAD_LT[local]:
   ∀ls.
   (col:num) < h ∧ SORTED (λx y. x≤y) (h::ls) ⇒
   ¬MEM col ls
@@ -618,7 +617,7 @@ Proof
   qmatch_goalsub_abbrev_tac`prefs n bads`>>
   `SORTED (\ x y. x ≤ y) bads` by
       (fs[Abbr`bads`]>>
-      match_mp_tac QSORT_SORTED>>
+      match_mp_tac sort_SORTED>>
       fs[relationTheory.transitive_def,relationTheory.total_def])>>
   disch_then(qspecl_then[`n`,`bads`] assume_tac)>>gvs[]>>
   TOP_CASE_TAC >> simp[]
@@ -632,7 +631,7 @@ Proof
     rw[]>>
     first_x_assum(qspec_then`k` assume_tac)>>
     qabbrev_tac`k' = unbound_colour k bads`>>
-    fs[Abbr`bads`,QSORT_MEM,MEM_MAP]>>
+    fs[Abbr`bads`,MEM_MAP]>>
     first_x_assum(qspec_then`Fixed k'` assume_tac)>>fs[tag_col_def]>>
     pop_assum(qspec_then`EL n' (EL n s.adj_ls)` assume_tac)>>fs[]>>
     metis_tac[MEM_EL])
@@ -641,7 +640,7 @@ Proof
     match_mp_tac no_clash_LUPDATE_Fixed>>
     simp[MEM_EL,PULL_EXISTS]>>
     rw[]>>
-    fs[Abbr`bads`,QSORT_MEM,MEM_MAP]>>
+    fs[Abbr`bads`,MEM_MAP]>>
     first_x_assum(qspec_then`Fixed x` assume_tac)>>fs[tag_col_def]>>
     pop_assum(qspec_then`EL n' (EL n s.adj_ls)` assume_tac)>>fs[]>>
     metis_tac[MEM_EL]
@@ -649,7 +648,7 @@ Proof
 QED
 
 (* Almost exactly the same as the FOREACH for Atemps *)
-Triviality assign_Stemps_FOREACH_lem:
+Theorem assign_Stemps_FOREACH_lem[local]:
   ∀ls s k.
   good_ra_state s ∧
   no_clash s.adj_ls s.node_tag ∧
@@ -722,7 +721,7 @@ QED
 (* --  Random sanity checks that will be needed at some point -- *)
 
 (* Checking that biased_pref satisfies good_pref *)
-Triviality first_match_col_correct:
+Theorem first_match_col_correct[local]:
   ∀x ks s.
   ∃res. first_match_col ks x s = (res,s) ∧
   case res of
@@ -736,13 +735,33 @@ Proof
   IF_CASES_TAC>>fs[]
 QED
 
+Theorem coalesce_root_success:
+  ∀n s. good_ra_state s ∧ n < s.dim ⇒
+  ∃v. coalesce_root n s = (M_success v, s)
+Proof
+  completeInduct_on `n` >>
+  rw[Once coalesce_root_def] >>
+  simp msimps >>
+  fs[good_ra_state_def] >>
+  `EL n s.coalesced < s.dim` by (fs[EVERY_EL]) >>
+  simp[is_Fixed_def] >> simp msimps >>
+  TOP_CASE_TAC >> simp msimps >>
+  IF_CASES_TAC >> simp msimps >>
+  first_x_assum (qspec_then `EL n s.coalesced` mp_tac) >>
+  simp[] >>
+  disch_then (qspec_then `s` mp_tac) >>
+  simp[good_ra_state_def]
+QED
+
 Theorem good_pref_biased_pref:
     ∀t. good_pref (biased_pref t)
 Proof
   rw[good_pref_def,biased_pref_def]>>
   fs[get_dim_def]>>simp msimps>>
-  IF_CASES_TAC>>fs[good_ra_state_def]>>
-  TOP_CASE_TAC>>fs[handle_Subscript_def]>>
+  IF_CASES_TAC>>fs[]>>
+  drule_all coalesce_root_success >>
+  strip_tac >> simp[] >>
+  fs[good_ra_state_def,handle_Subscript_def]>>
   cases_on`lookup n t`>>fs[]>>
   qmatch_goalsub_abbrev_tac`first_match_col _ ls _`>>
   Q.ISPECL_THEN [`ls`,`ks`,`s`] assume_tac first_match_col_correct>>fs[]>>
@@ -783,7 +802,7 @@ Proof
   fs[domain_lookup]
 QED
 
-Triviality list_remap_domain:
+Theorem list_remap_domain[local]:
   ∀ls ta fa n ta' fa' n'.
   list_remap ls (ta,fa,n) = (ta',fa',n') ⇒
   domain ta' = domain ta ∪ set ls
@@ -818,7 +837,7 @@ val list_remap_bij = Q.prove(`
       fs[domain_insert,EXTENSION])>>
     metis_tac[])|>SIMP_RULE std_ss [markerTheory.Abbrev_def];
 
-Triviality mk_bij_aux_domain:
+Theorem mk_bij_aux_domain[local]:
   ∀ct ta fa n ta' fa' n'.
   mk_bij_aux ct (ta,fa,n) = (ta',fa',n') ⇒
   domain ta' = domain ta ∪ {x | in_clash_tree ct x}
@@ -902,7 +921,7 @@ val mk_bij_aux_bij = Q.prove(`
     strip_tac>>
     last_x_assum drule >> simp[markerTheory.Abbrev_def]) |> SIMP_RULE std_ss [markerTheory.Abbrev_def];
 
-Triviality list_remap_wf:
+Theorem list_remap_wf[local]:
   ∀l ta fa n ta' fa' n'.
   list_remap l (ta,fa,n) = (ta',fa',n') /\
   wf ta ∧ wf fa ==>
@@ -995,20 +1014,20 @@ Definition hide_def:
   hide x = x
 End
 
-Triviality GT_TRANS:
+Theorem GT_TRANS[local]:
   a:num > b ∧ b > c ⇒ a > c
 Proof
   fs[]
 QED
 
-Triviality GT_sorted_eq:
+Theorem GT_sorted_eq[local]:
   SORTED $> (x:num::L) ⇔ SORTED $> L ∧ ∀y. MEM y L ⇒ x > y
 Proof
   match_mp_tac SORTED_EQ>>
   fs[transitive_def]
 QED
 
-Triviality sorted_insert_correct_lem:
+Theorem sorted_insert_correct_lem[local]:
   ∀ls acc.
   SORTED $> ls ∧
   SORTED $> (REVERSE acc) ∧
@@ -1225,7 +1244,7 @@ Definition colouring_satisfactory_def:
 End
 
 (*TODO: this is in word_allocProof*)
-Triviality INJ_less:
+Theorem INJ_less[local]:
   ∀f s' t s.
   INJ f s' t ∧ s ⊆ s'
   ⇒
@@ -1308,14 +1327,14 @@ Proof
     first_x_assum(qspecl_then [`g`,`f`] mp_tac)>>rev_full_simp_tac(srw_ss())[]
 QED
 
-Triviality domain_eq_IMAGE:
+Theorem domain_eq_IMAGE[local]:
   domain s = IMAGE FST (set(toAList s))
 Proof
   fs[EXTENSION,EXISTS_PROD]>>
   fs[MEM_toAList,domain_lookup]
 QED
 
-Triviality is_clique_FILTER:
+Theorem is_clique_FILTER[local]:
   ∀ls.
   is_clique ls G ⇒
   is_clique (FILTER P ls) G
@@ -1327,7 +1346,7 @@ Proof
   metis_tac[]
 QED
 
-Triviality is_clique_subgraph:
+Theorem is_clique_subgraph[local]:
   is_clique ls s ∧
   is_subgraph s s' ⇒
   is_clique ls s'
@@ -1474,7 +1493,7 @@ Proof
   metis_tac[]
 QED
 
-Triviality ALL_DISTINCT_set_INJ:
+Theorem ALL_DISTINCT_set_INJ[local]:
   ∀ls col.
   ALL_DISTINCT (MAP col ls) ⇒
   INJ col (set ls) UNIV
@@ -1484,7 +1503,7 @@ Proof
   metis_tac[]
 QED
 
-Triviality IMAGE_DIFF:
+Theorem IMAGE_DIFF[local]:
   INJ f (s ∪ t) UNIV ⇒
   IMAGE f (s DIFF t) =
   (IMAGE f s DIFF IMAGE f t)
@@ -1493,7 +1512,7 @@ Proof
   metis_tac[]
 QED
 
-Triviality set_FILTER:
+Theorem set_FILTER[local]:
   set (FILTER P live) =
   set live DIFF (λx. ¬P x)
 Proof
@@ -1501,13 +1520,13 @@ Proof
   metis_tac[]
 QED
 
-Triviality MEM_MAP_IMAGE:
+Theorem MEM_MAP_IMAGE[local]:
   (λx. MEM x (MAP f l)) = IMAGE f (set l)
 Proof
   rw[EXTENSION,MEM_MAP]
 QED
 
-Triviality domain_difference:
+Theorem domain_difference[local]:
   domain(difference s t) = domain s DIFF domain t
 Proof
   fs[EXTENSION,domain_lookup,lookup_difference]>>
@@ -1515,7 +1534,7 @@ Proof
   metis_tac[option_nchotomy]
 QED
 
-Triviality UNION_DIFF_3:
+Theorem UNION_DIFF_3[local]:
   s DIFF t ∪ t = s ∪ t
 Proof
   rw[EXTENSION]>>
@@ -1934,7 +1953,7 @@ QED
 
 (* Again, this characterization is only needed for the conventions,
    but not for the correctness theorem *)
-Triviality mk_tags_st_ex_FOREACH_lem:
+Theorem mk_tags_st_ex_FOREACH_lem[local]:
   ∀ls s fa.
   good_ra_state s ∧
   EVERY (\v. v < s.dim) ls ⇒
@@ -2019,7 +2038,7 @@ Proof
   \\ simp[MULT_DIV]
 QED
 
-Triviality extract_color_st_ex_MAP_lem:
+Theorem extract_color_st_ex_MAP_lem[local]:
   ∀ls s.
   EVERY (λ(k,v). v < LENGTH s.node_tag) ls ⇒
   st_ex_MAP (λ(k,v). do t <- node_tag_sub v; return (k,extract_tag t) od) ls s =
@@ -2055,9 +2074,18 @@ QED
    some generic way to state the following lemmas
 *)
 
+(* is_not_coalesced succeeds and preserves state *)
+Theorem is_not_coalesced_succeeds[local]:
+  good_ra_state s ∧ n < s.dim ⇒
+  ∃b. is_not_coalesced n s = (M_success b, s)
+Proof
+  rw[is_not_coalesced_def]>>simp msimps>>
+  fs[good_ra_state_def]
+QED
+
 (* As an example, we don't bother fully characterizing
    st_ex_PARTITION, but merely that show it succeeds *)
-Triviality st_ex_PARTITION_split_degree:
+Theorem st_ex_PARTITION_split_degree[local]:
   ∀atemps k lss lss' s.
   good_ra_state s ⇒
   ?ts fs. st_ex_PARTITION (split_degree s.dim k) atemps lss lss' s =
@@ -2069,10 +2097,10 @@ Proof
   fs[EVERY_MEM]>>
   rw[split_degree_def]>>rfs msimps>>
   every_case_tac>>
-  fs[degrees_accessor,Marray_sub_def,is_not_coalesced_def]>>
+  fs[degrees_accessor,Marray_sub_def]>>
   fs msimps>>
   rfs[]>>fs[]>>
-  every_case_tac>>fs[]>>
+  imp_res_tac is_not_coalesced_succeeds>>fs[]>>
   first_x_assum drule>>
   fs[good_ra_state_def]>>
   rw[]>>rfs[]
@@ -2090,7 +2118,7 @@ Proof
     metis_tac[MEM])
 QED
 
-Triviality st_ex_PARTITION_move_related_sub:
+Theorem st_ex_PARTITION_move_related_sub[local]:
   ∀atemps lss lss' s.
   EVERY (λx. x < LENGTH s.move_related) atemps ⇒
   ?ts fs. st_ex_PARTITION move_related_sub atemps lss lss' s =
@@ -2111,7 +2139,7 @@ QED
 
 (* This is currently more general than necessary because it doesn't
    do any coalescing (yet) *)
-Triviality dec_deg_success:
+Theorem dec_deg_success[local]:
   ∀ls s.
   EVERY (λv. v < s.dim) ls ∧
   good_ra_state s ⇒
@@ -2126,7 +2154,7 @@ Proof
   simp[ra_state_component_equality]
 QED
 
-Triviality dec_degree_success:
+Theorem dec_degree_success[local]:
   ∀ls s.
   good_ra_state s ⇒
   ∃d.
@@ -2147,7 +2175,7 @@ Proof
   metis_tac[]
 QED
 
-Triviality MEM_smerge:
+Theorem MEM_smerge[local]:
   ∀xs ys.
   MEM x (smerge xs ys) ⇔
   MEM x xs ∨ MEM x ys
@@ -2156,7 +2184,7 @@ Proof
   metis_tac[]
 QED
 
-Triviality revive_moves_success:
+Theorem revive_moves_success[local]:
   EVERY (λx. x < LENGTH s.adj_ls) ls ⇒
   ∃s'.
   revive_moves ls s = (M_success(),s') ∧
@@ -2171,14 +2199,14 @@ Proof
   fs get_eqns>> fs set_eqns>>
   pairarg_tac>>fs[]>>
   fs[EVERY_MEM,MEM_smerge]>>
-  fs[PARTITION_DEF,sort_moves_def,QSORT_MEM]>>
+  fs[PARTITION_DEF,sort_moves_def]>>
   pop_assum (assume_tac o GSYM)>>
   drule PART_MEM>>
   simp[]>>
   metis_tac[]
 QED
 
-Triviality unspill_success:
+Theorem unspill_success[local]:
   ∀k s.
   good_ra_state s ⇒
   ∃s' b.
@@ -2211,7 +2239,7 @@ Proof
   metis_tac[]
 QED
 
-Triviality push_stack_success:
+Theorem push_stack_success[local]:
   ∀ls s.
   EVERY (λx. x < s.dim) ls ∧
   good_ra_state s ⇒
@@ -2234,7 +2262,7 @@ Proof
   simp[Abbr`s'`,ra_state_component_equality]
 QED
 
-Triviality do_simplify_success:
+Theorem do_simplify_success[local]:
   ∀s.
   good_ra_state s ⇒
   ∃s' b.
@@ -2258,7 +2286,7 @@ Proof
 QED
 
 (* This basically says nothing at the moment *)
-Triviality st_ex_FILTER_is_not_coalesced:
+Theorem st_ex_FILTER_is_not_coalesced[local]:
   ∀ls acc s.
   EVERY (λx. x < LENGTH s.coalesced) ls ∧
   EVERY (λx. x < LENGTH s.coalesced) acc ⇒
@@ -2273,7 +2301,7 @@ Proof
   first_x_assum match_mp_tac>>fs[]
 QED
 
-Triviality consistency_ok_success:
+Theorem consistency_ok_success[local]:
   ∀x y s.
   good_ra_state s ∧
   x < s.dim ∧
@@ -2292,7 +2320,7 @@ Proof
   fs[good_ra_state_def]
 QED
 
-Triviality st_ex_FILTER_consistency_ok:
+Theorem st_ex_FILTER_consistency_ok[local]:
   ∀ls acc s.
   good_ra_state s ∧
   EVERY (λ(p:num,x,y). x < s.dim ∧ y < s.dim) ls
@@ -2322,7 +2350,7 @@ Proof
 QED
 
 (* do_coalesce *)
-Triviality st_ex_FILTER_considered_var:
+Theorem st_ex_FILTER_considered_var[local]:
   ∀ls acc s.
   EVERY (λx. x < LENGTH s.node_tag) ls ∧
   EVERY (λx. x < LENGTH s.node_tag) acc ⇒
@@ -2356,7 +2384,7 @@ val st_ex_MAP_deg_or_inf = Q.prove(`
   first_x_assum drule>>rw[]>>
   fs[good_ra_state_def])|>GEN_ALL;
 
-Triviality bg_ok_success:
+Theorem bg_ok_success[local]:
   good_ra_state s ∧
   x < s.dim ∧ y < s.dim ⇒
   ∃opt.
@@ -2411,7 +2439,7 @@ Proof
   metis_tac[]
 QED
 
-Triviality coalesce_parent_success:
+Theorem coalesce_parent_success[local]:
   ∀x s.
   x < s.dim ∧
   good_ra_state s ⇒
@@ -2456,7 +2484,7 @@ Proof
   fs[]
 QED
 
-Triviality canonize_move_success:
+Theorem canonize_move_success[local]:
   x < s.dim ∧ y < s.dim ∧ good_ra_state s ⇒
   ∃x2 y2.
   canonize_move x y s = (M_success(x2,y2),s) ∧
@@ -2467,7 +2495,7 @@ Proof
   every_case_tac>>fs[]
 QED
 
-Triviality st_ex_FIRST_consistency_ok_bg_ok:
+Theorem st_ex_FIRST_consistency_ok_bg_ok[local]:
   ∀ls acc s.
   good_ra_state s ∧
   EVERY (λ(p:num,x,y). x < s.dim ∧ y < s.dim) ls ∧
@@ -2521,7 +2549,7 @@ Proof
   metis_tac[ra_state_component_equality]
 QED
 
-Triviality do_coalesce_real_success:
+Theorem do_coalesce_real_success[local]:
   ∀x y case1 case2 s.
   y < s.dim ∧
   x < s.dim ∧
@@ -2578,7 +2606,7 @@ Proof
   fs[is_subgraph_def]
 QED
 
-Triviality do_coalesce_success:
+Theorem do_coalesce_success[local]:
   ∀s.
     good_ra_state s ⇒
     ∃s' b.
@@ -2617,7 +2645,7 @@ Proof
   metis_tac[is_subgraph_trans]
 QED
 
-Triviality st_ex_FOREACH_update_move_related:
+Theorem st_ex_FOREACH_update_move_related[local]:
   ∀ls s b.
   EVERY (λv. v < LENGTH s.move_related) ls ⇒
   ∃lss.
@@ -2630,7 +2658,7 @@ Proof
   first_x_assum (qspec_then `ss` assume_tac)>>fs[Abbr`ss`]
 QED
 
-Triviality reset_move_related_success:
+Theorem reset_move_related_success[local]:
   ∀ls s.
   good_ra_state s ∧
   EVERY (λ(p,(x,y)). x < s.dim ∧ y < s.dim) ls
@@ -2656,7 +2684,7 @@ Proof
   fs[is_Fixed_def]>>fs msimps
 QED
 
-Triviality do_prefreeze_success:
+Theorem do_prefreeze_success[local]:
   ∀s.
   good_ra_state s ⇒
   ∃s' b.
@@ -2699,7 +2727,7 @@ Proof
 QED
 
 (* do freeze *)
-Triviality do_freeze_success:
+Theorem do_freeze_success[local]:
   ∀s.
   good_ra_state s ⇒
   ∃s' b.
@@ -2730,7 +2758,7 @@ Proof
 QED
 
 (* do spill *)
-Triviality st_ex_list_MIN_cost_success:
+Theorem st_ex_list_MIN_cost_success[local]:
   ∀ls s k v acc.
   good_ra_state s ∧
   EVERY (λv. v < s.dim) acc ∧
@@ -2746,7 +2774,7 @@ Proof
   rw[]
 QED
 
-Triviality st_ex_list_MAX_deg_success:
+Theorem st_ex_list_MAX_deg_success[local]:
   ∀ls s k v acc.
   good_ra_state s ∧
   EVERY (λv. v < s.dim) acc ∧
@@ -2762,7 +2790,7 @@ Proof
   rw[]
 QED
 
-Triviality do_spill_success:
+Theorem do_spill_success[local]:
   ∀s.
     good_ra_state s
     ⇒
@@ -2791,25 +2819,27 @@ Proof
     rw[]>>fs[good_ra_state_def,degrees_accessor,Marray_sub_def]>>
     first_x_assum(qspecl_then[`ls`,`kk`,`vv`,`acc`] assume_tac)>>
     rfs[Abbr`acc`])>>
-  fs[good_ra_state_def]>>
-  simp[dec_deg_def]>> simp msimps>>
-  qmatch_goalsub_abbrev_tac`push_stack xx ss`>>
-  Q.ISPECL_THEN [`[xx]`,`ss`] mp_tac push_stack_success>>
+  (`good_ra_state s` by fs[good_ra_state_def])>>
+  qmatch_goalsub_abbrev_tac`dec_degree yy`>>
+  drule dec_degree_success>>
+  disch_then(qspec_then `[yy]` assume_tac)>>
+  fs[st_ex_FOREACH_def]>>fs msimps>>
+  TOP_CASE_TAC>>fs[]>>
+  TOP_CASE_TAC>>fs[]>>
+  Q.ISPECL_THEN [`[yy]`,`s with degrees:=d`] mp_tac push_stack_success>>
   (impl_tac>-
-    fs[Abbr`ss`,good_ra_state_def])>>
+    fs[good_ra_state_def])>>
   rw[]>>fs[st_ex_FOREACH_def]>>fs msimps>>
   TOP_CASE_TAC>>fs[]>>
   TOP_CASE_TAC>>fs[set_spill_wl_def]>>
-  qmatch_goalsub_abbrev_tac`unspill k sss`>>
-  qspecl_then [`k`,`sss`] mp_tac unspill_success>>
-  impl_tac>-
-    fs[Abbr`sss`,Abbr`ss`,good_ra_state_def]>>
-  rw[]>>fs[]>>
-  unabbrev_all_tac>>
-  fs[good_ra_state_def]
+  qmatch_goalsub_abbrev_tac`unspill k ss`>>
+  qspecl_then [`k`,`ss`] mp_tac unspill_success>>
+  (impl_tac>-
+    fs[Abbr`ss`,good_ra_state_def])>>
+  rw[]>>fs[Abbr`ss`,good_ra_state_def]
 QED
 
-Triviality do_step_success:
+Theorem do_step_success[local]:
   ∀scost k s.
     good_ra_state s ⇒
     ∃b s'.
@@ -2833,7 +2863,7 @@ Proof
 QED
 
 val drule = FREEZE_THEN drule
-Triviality rpt_do_step_success:
+Theorem rpt_do_step_success[local]:
   ∀n s k sc.
     good_ra_state s ⇒
     ∃s'.
@@ -2849,7 +2879,7 @@ Proof
   metis_tac[is_subgraph_trans,do_step_success]
 QED
 
-Triviality full_consistency_ok_success:
+Theorem full_consistency_ok_success[local]:
   ∀x y s.
   good_ra_state s ⇒
   ∃b.
@@ -2863,7 +2893,7 @@ Proof
   fs[good_ra_state_def]
 QED
 
-Triviality st_ex_FILTER_full_consistency_ok:
+Theorem st_ex_FILTER_full_consistency_ok[local]:
   ∀ls acc s.
   good_ra_state s ⇒
   ?ts. st_ex_FILTER (λ(_,x,y). full_consistency_ok k x y) ls acc s =
@@ -2888,7 +2918,7 @@ Proof
   fs[]>>metis_tac[]
 QED
 
-Triviality do_alloc1_success:
+Theorem do_alloc1_success[local]:
   good_ra_state s ∧
   EVERY (λ(p:num,x,y). x < s.dim ∧ y < s.dim) moves
   ⇒
@@ -2970,11 +3000,11 @@ Proof
   Q.ISPECL_THEN [`moves`,`ss`] mp_tac  reset_move_related_success>>
   impl_tac>-
     (fs[good_ra_state_def,Abbr`ss`]>>
-    fs[EVERY_MEM,FORALL_PROD,sort_moves_def,QSORT_MEM]>>
+    fs[EVERY_MEM,FORALL_PROD,sort_moves_def]>>
     metis_tac[])>>
   rw[]>> fs[]>>
   `good_ra_state (ss with move_related := mv)` by (
-    fs[good_ra_state_def,Abbr`ss`,sort_moves_def,EVERY_MEM,QSORT_MEM]>>
+    fs[good_ra_state_def,Abbr`ss`,sort_moves_def,EVERY_MEM]>>
     metis_tac[])>>
   drule st_ex_PARTITION_split_degree >>
   disch_then(qspecl_then[`atemps`,`k`,`lss`,`lss`] assume_tac)>>fs[]>>
@@ -3064,7 +3094,7 @@ Proof
     metis_tac[]
 QED
 
-Triviality opt_split:
+Theorem opt_split[local]:
   a ≠ NONE ⇔ a = SOME ()
 Proof
   Cases_on`a`>>fs[]
@@ -3177,7 +3207,7 @@ Proof
     TOP_CASE_TAC>>simp[]
 QED
 
-Triviality neg_first_match_col_correct:
+Theorem neg_first_match_col_correct[local]:
   ∀x ks s.
   ∃res. neg_first_match_col k ks x s = (res,s) ∧
   case res of
@@ -3462,5 +3492,3 @@ Proof
   first_x_assum drule
 QED
 (* --- --- *)
-
-val _ = export_theory ();

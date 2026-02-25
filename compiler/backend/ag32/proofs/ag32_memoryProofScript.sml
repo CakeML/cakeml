@@ -3,14 +3,14 @@
   correctness of the startup code and length and lookup theorems for
   other parts of memory.
 *)
-open preamble ag32_memoryTheory
-local
-  open wordsLib blastLib asmLib combinLib ag32_targetLib
-  open data_to_word_memoryProofTheory backendProofTheory
-       ag32_machine_configTheory
-in end
-
-val _ = new_theory"ag32_memoryProof";
+Theory ag32_memoryProof
+Ancestors
+  ag32_memory data_to_word_memoryProof[qualified]
+  backendProof[qualified] ag32_machine_config[qualified]
+Libs
+  preamble wordsLib[qualified] blastLib[qualified]
+  asmLib[qualified] combinLib[qualified]
+  ag32_targetLib[qualified]
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
@@ -198,6 +198,7 @@ Proof
   \\ TRY(rename1`Inst (Mem m _ ri) ` \\ Cases_on`m` \\ Cases_on`ri`)
   \\ TRY(rename1`Inst (Arith a) ` \\ Cases_on`a`)
   \\ TRY(rename1`Inst (Arith (Binop _ _ _ ri)) ` \\ Cases_on`ri`)
+  \\ TRY(rename1`Inst (Arith (Shift _ _ _ ri)) ` \\ Cases_on`ri`)
   \\  rw[ag32_targetTheory.ag32_enc_def,
          ag32_targetTheory.ag32_constant_def,
          ag32_targetTheory.ag32_jump_constant_def,
@@ -285,7 +286,7 @@ Proof
   \\ rw[]
 QED
 
-Triviality get_byte_repl:
+Theorem get_byte_repl[local]:
   n+m < dimword(:32) ∧
   (m MOD 4 = 0n) ==>
   (get_byte ((n2w (n + m)):word32) w F =
@@ -393,7 +394,7 @@ Proof
   simp[Abbr`codel`]
 QED
 
-Triviality lem:
+Theorem lem[local]:
   (m MOD 4 = 0) ∧ n < m ⇒ n DIV 4 < m DIV 4
 Proof
   intLib.ARITH_TAC
@@ -811,8 +812,7 @@ Proof
     \\ conj_tac
     >- (
       simp[bytes_in_word_def]
-      \\ DEP_ONCE_REWRITE_TAC[GSYM MOD_PLUS]
-      \\ conj_tac >- rw[]
+      \\ PURE_REWRITE_TAC[Once (GSYM MOD_PLUS)]
       \\ rewrite_tac[LENGTH_FLAT, MAP_MAP_o]
       \\ DEP_ONCE_REWRITE_TAC[SUM_MOD]
       \\ conj_tac >- rw[]
@@ -898,7 +898,7 @@ val (asm_ok_tm, mk_asm_ok, dest_asm_ok, is_asm_ok) = HolKernel.syntax_fns2 "asm"
 val (ag32_enc_tm, mk_ag32_enc, dest_ag32_enc, is_ag32_enc) = HolKernel.syntax_fns1 "ag32_target" "ag32_enc"
 
 val bare_asm_conv =
- (computeLib.compset_conv (wordsLib.words_compset())
+ (computeLib.compset_conv (wordsLib.words_compset)
    [computeLib.Extenders[
      asmLib.add_asm_compset,
      combinLib.add_combin_compset],
@@ -942,7 +942,7 @@ val mem_ok_tac =
      addressTheory.ALIGNED_n2w,
      bitTheory.BITS_ZERO3 ]
 
-Triviality bounded_bits:
+Theorem bounded_bits[local]:
   ll < 4294967296 ⇒
    ((BIT 0 (ll MOD 256) ⇔ BIT 0 ll) ∧ (BIT 1 (ll MOD 256) ⇔ BIT 1 ll) ∧
    (BIT 2 (ll MOD 256) ⇔ BIT 2 ll) ∧ (BIT 3 (ll MOD 256) ⇔ BIT 3 ll) ∧
@@ -1011,7 +1011,7 @@ val mem_word_tac =
     blastLib.BBLAST_TAC>>
     simp[bounded_bits]
 
-Triviality ag32_const_enc:
+Theorem ag32_const_enc[local]:
   (∃a b c d.
   ag32_enc (Inst (Const r w)) = [a;b;c;d]) ∨
   ∃a b c d e f g h. ag32_enc (Inst (Const r w)) = [a;b;c;d;e;f;g;h]
@@ -1035,7 +1035,7 @@ fun LENGTH_ag32_enc_cases_tac
     \\ simp[]
   end g
 
-Triviality FLAT_CONS:
+Theorem FLAT_CONS[local]:
   FLAT (h::t) = h ++ FLAT t
 Proof
   fs[]
@@ -1310,5 +1310,3 @@ Proof
   \\ fs[ag32_targetTheory.ag32_target_def]
   \\ rfs[]
 QED
-
-val _ = export_theory();

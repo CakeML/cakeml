@@ -1,10 +1,11 @@
 (*
   Compiles the scpog example by evaluation inside the logic of HOL
 *)
-open preamble scpog_arrayFullProgTheory
-  eval_cake_compile_x64Lib eval_cake_compile_arm8Lib;
-
-val _ = new_theory "scpogCompile"
+Theory scpogCompile
+Ancestors
+  scpog_arrayFullProg x64_config arm8_config
+Libs
+  preamble eval_cake_compile_x64Lib eval_cake_compile_arm8Lib
 
 Definition x64_config'_def:
   x64_config' =
@@ -23,5 +24,3 @@ Theorem scpog_compiled =
 
 Theorem scpog_compiled_arm8 =
   eval_cake_compile_arm8_with_conf "arm8_" arm8_config'_def main_prog_def "cake_scpog_arm8.S";
-
-val _ = export_theory ();

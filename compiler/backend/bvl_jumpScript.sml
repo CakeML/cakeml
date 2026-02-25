@@ -1,9 +1,11 @@
 (*
   A function for generating efficient switch-like jumps in BVL.
 *)
-open preamble bvlTheory;
-
-val _ = new_theory "bvl_jump";
+Theory bvl_jump
+Ancestors
+  bvl
+Libs
+  preamble
 
 Definition JumpList_def:
   (JumpList n xs =
@@ -31,4 +33,3 @@ Definition Jump_def:
   Jump x xs = Let [x] (JumpList 0 xs)
 End
 
-val _ = export_theory();

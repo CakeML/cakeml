@@ -1,10 +1,12 @@
 (*
   Some lemmas about the syntactic functions.
 *)
-open preamble totoTheory comparisonTheory ternaryComparisonsTheory mlstringTheory
-     holSyntaxLibTheory holSyntaxTheory
-
-val _ = new_theory"holSyntaxExtra"
+Theory holSyntaxExtra
+Ancestors
+  toto comparison ternaryComparisons mlstring holSyntaxLib
+  holSyntax
+Libs
+  preamble
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
@@ -317,7 +319,7 @@ Theorem subterm_Abs =
   |> SIMP_CONV(srw_ss()++boolSimps.DNF_ss)
       [Once relationTheory.RTC_CASES2,subterm1_cases]
 
-Triviality subterm_welltyped_helper:
+Theorem subterm_welltyped_helper[local]:
   ∀tm ty. tm has_type ty ⇒ ∀t. t subterm tm ⇒ welltyped t
 Proof
   ho_match_mp_tac has_type_strongind >>
@@ -377,7 +379,7 @@ Proof
   rw[term_cmp_def,TO_of_LinearOrder]
 QED
 
-Triviality irreflexive_type_lt:
+Theorem irreflexive_type_lt[local]:
   irreflexive type_lt
 Proof
   mp_tac StrongLinearOrder_mlstring_lt >>
@@ -387,7 +389,7 @@ Proof
   Induct >> simp[]
 QED
 
-Triviality trichotomous_type_lt:
+Theorem trichotomous_type_lt[local]:
   trichotomous type_lt
 Proof
   mp_tac StrongLinearOrder_mlstring_lt >>
@@ -406,7 +408,7 @@ Proof
   metis_tac[]
 QED
 
-Triviality transitive_type_lt:
+Theorem transitive_type_lt[local]:
   ∀x y. type_lt x y ⇒ ∀z. type_lt y z ⇒ type_lt x z
 Proof
   ho_match_mp_tac type_lt_strongind >>
@@ -488,7 +490,7 @@ Proof
   ACCEPT_TAC StrongLinearOrder_type_lt
 QED
 
-Triviality irreflexive_term_lt:
+Theorem irreflexive_term_lt[local]:
   irreflexive term_lt
 Proof
   mp_tac StrongLinearOrder_mlstring_lt >>
@@ -498,7 +500,7 @@ Proof
   simp[term_lt_thm,LEX_DEF]
 QED
 
-Triviality trichotomous_term_lt:
+Theorem trichotomous_term_lt[local]:
   trichotomous term_lt
 Proof
   mp_tac StrongLinearOrder_mlstring_lt >>
@@ -510,7 +512,7 @@ Proof
   metis_tac[]
 QED
 
-Triviality transitive_term_lt:
+Theorem transitive_term_lt[local]:
   ∀x y. term_lt x y ⇒ ∀z. term_lt y z ⇒ term_lt x z
 Proof
   ho_match_mp_tac term_lt_strongind >>
@@ -535,21 +537,21 @@ Proof
   ACCEPT_TAC StrongLinearOrder_term_lt
 QED
 
-Triviality StrongLinearOrder_irreflexive:
+Theorem StrongLinearOrder_irreflexive[local]:
   StrongLinearOrder R ⇒ irreflexive R
 Proof
   rw[StrongLinearOrder,StrongOrder]
 QED
 
-Triviality irreflexive_mlstring_lt = MATCH_MP StrongLinearOrder_irreflexive StrongLinearOrder_mlstring_lt
+Theorem irreflexive_mlstring_lt[local] = MATCH_MP StrongLinearOrder_irreflexive StrongLinearOrder_mlstring_lt
 
-Triviality LLEX_irreflexive:
+Theorem LLEX_irreflexive[local]:
   ∀R. irreflexive R ⇒ irreflexive (LLEX R)
 Proof
   rw[irreflexive_def] >> Induct_on`x`>>rw[]
 QED
 
-Triviality irreflexive_LLEX_type_lt = MATCH_MP LLEX_irreflexive (irreflexive_type_lt)
+Theorem irreflexive_LLEX_type_lt[local] = MATCH_MP LLEX_irreflexive (irreflexive_type_lt)
 
 Theorem type_cmp_thm:
    ∀t1 t2.  type_cmp t1 t2 =
@@ -688,7 +690,7 @@ QED
 
 (* alpha ordering *)
 
-Triviality ALPHAVARS_ordav:
+Theorem ALPHAVARS_ordav[local]:
   ∀env tp. ALPHAVARS env tp ⇒ ordav env (FST tp) (SND tp) = EQUAL
 Proof
   Induct >> rw[ALPHAVARS_def,ordav_def] >>
@@ -697,7 +699,7 @@ Proof
   ntac 2 (pop_assum mp_tac) >> rw[]
 QED
 
-Triviality ordav_ALPHAVARS:
+Theorem ordav_ALPHAVARS[local]:
   ∀env t1 t2. ordav env t1 t2 = EQUAL ⇒ ALPHAVARS env (t1,t2)
 Proof
   ho_match_mp_tac ordav_ind >>
@@ -712,7 +714,7 @@ Proof
   metis_tac[ALPHAVARS_ordav,ordav_ALPHAVARS,pair_CASES,FST,SND]
 QED
 
-Triviality RACONV_orda:
+Theorem RACONV_orda[local]:
   ∀env tp. RACONV env tp ⇒ orda env (FST tp) (SND tp) = EQUAL
 Proof
   ho_match_mp_tac RACONV_ind >> rw[ALPHAVARS_eq_ordav]
@@ -720,7 +722,7 @@ Proof
   rw[Once orda_def]
 QED
 
-Triviality orda_RACONV:
+Theorem orda_RACONV[local]:
   ∀env t1 t2. orda env t1 t2 = EQUAL ⇒ RACONV env (t1,t2)
 Proof
   ho_match_mp_tac orda_ind >> rw[] >>
@@ -797,7 +799,7 @@ Proof
   simp[]
 QED
 
-Triviality orda_thm:
+Theorem orda_thm[local]:
   ∀env t1 t2. orda env t1 t2 = ^(#3(dest_cond(rhs(concl(SPEC_ALL orda_def)))))
 Proof
   rpt gen_tac >>
@@ -807,7 +809,7 @@ Proof
   fs[GSYM RACONV_eq_orda,RACONV_REFL]
 QED
 
-Triviality ordav_lx_trans:
+Theorem ordav_lx_trans[local]:
   ∀t1 t2 t3 env1 env2.
     ordav env1 t1 t2 ≠ GREATER ∧
     ordav env2 t2 t3 ≠ GREATER ∧
@@ -826,14 +828,14 @@ Proof
   metis_tac[cpn_nchotomy,cpn_distinct]
 QED
 
-Triviality undo_zip_map_fst:
+Theorem undo_zip_map_fst[local]:
   p::ZIP(MAP FST l1,MAP SND l2) =
     ZIP (MAP FST ((FST p,v2)::l1), MAP SND ((v2,SND p)::l2))
 Proof
   Cases_on`p`>>rw[]
 QED
 
-Triviality orda_lx_trans:
+Theorem orda_lx_trans[local]:
   ∀env1 t1 t2 env2 t3.
     orda env1 t1 t2 ≠ GREATER ∧
     orda env2 t2 t3 ≠ GREATER ∧
@@ -1129,7 +1131,7 @@ Proof
   metis_tac[MEM,ACONV_REFL,ACONV_SYM,hypset_ok_cons]
 QED
 
-Triviality term_union_sing_lt:
+Theorem term_union_sing_lt[local]:
   ∀ys x. EVERY (λy. alpha_lt x y) ys ⇒ (term_union [x] ys = x::ys)
 Proof
   Induct >> simp[term_union_thm] >> rw[] >> fs[] >>
@@ -3154,7 +3156,7 @@ val rws = [
   rich_listTheory.EL_DROP,
   rich_listTheory.EL_CONS]
 
-Triviality proves_concl_ACONV:
+Theorem proves_concl_ACONV[local]:
   ∀thyh c c'. thyh |- c ∧ ACONV c c' ∧ welltyped c' ⇒ thyh |- c'
 Proof
   rw[] >>
@@ -3166,7 +3168,7 @@ Proof
   metis_tac[eqMp_equation,term_union_thm,ACONV_SYM]
 QED
 
-Triviality proves_ACONV_lemma:
+Theorem proves_ACONV_lemma[local]:
   ∀thy c h' h1 h.
     (thy,h1++h) |- c ∧
     hypset_ok (h1++h') ∧
@@ -3748,7 +3750,7 @@ QED
 
 (* proofs still work in extended contexts *)
 
-Triviality update_extension:
+Theorem update_extension[local]:
   !lhs tm.
       lhs |- tm
       ⇒
@@ -3925,14 +3927,14 @@ Proof
   ho_match_mp_tac term_induction >> rw[] >> rw[]
 QED
 
-Triviality Var_subterm_types_in:
+Theorem Var_subterm_types_in[local]:
   ∀t x ty. Var x ty subterm t ⇒ ty ∈ types_in t
 Proof
   ho_match_mp_tac term_induction >> rw[subterm_Comb,subterm_Abs] >>
   metis_tac[]
 QED
 
-Triviality Const_subterm_types_in:
+Theorem Const_subterm_types_in[local]:
   ∀t x ty. Const x ty subterm t ⇒ ty ∈ types_in t
 Proof
   ho_match_mp_tac term_induction >> rw[subterm_Comb,subterm_Abs] >>
@@ -4160,5 +4162,3 @@ Proof
   simp[] >>
   Cases_on`z`>>simp[]
 QED
-
-val _ = export_theory();

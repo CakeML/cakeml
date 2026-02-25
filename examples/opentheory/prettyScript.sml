@@ -2,9 +2,13 @@
   A pretty printer producing mlstring app_lists.
   Based on the pretty printer from "ML from the working programmer".
 *)
-open preamble holSyntaxTheory holKernelTheory mlstringTheory;
+Theory pretty
+Ancestors
+  holSyntax holKernel mlstring
+Libs
+  preamble
 
-val _ = new_theory "pretty";
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 Datatype:
   t = Block (t list) num num
@@ -459,15 +463,14 @@ End
 (* PMATCH definitions.                                                       *)
 (* ------------------------------------------------------------------------- *)
 
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES ();
 val PMATCH_ELIM_CONV = patternMatchesLib.PMATCH_ELIM_CONV;
 
 Theorem is_binop_PMATCH:
    !tm.
      is_binop tm =
-       case tm of
+       pmatch tm of
          Comb (Comb (Const con _) _) _ =>
-           (case fixity_of con of
+           (pmatch fixity_of con of
               right _ => T
             | _ => F)
        | _ => F
@@ -479,7 +482,7 @@ QED
 Theorem is_binder_PMATCH:
    !tm.
      is_binder tm =
-       case tm of
+       pmatch tm of
          Comb (Const nm _) (Abs (Var _ _) _) =>
            nm = «Data.Bool.?» \/
            nm = «Data.Bool.!» \/
@@ -494,7 +497,7 @@ QED
 Theorem is_cond_PMATCH:
    !tm.
      is_cond tm =
-       case tm of
+       pmatch tm of
          Comb (Comb (Comb (Const con _) _) _) _ =>
            con = «Data.Bool.cond»
        | _ => F
@@ -506,7 +509,7 @@ QED
 Theorem is_neg_PMATCH:
    !tm.
      is_neg tm =
-       case tm of
+       pmatch tm of
          Comb (Const nm _) _ => nm = «Data.Bool.~»
        | _ => F
 Proof
@@ -517,7 +520,7 @@ QED
 Theorem collect_vars_PMATCH:
    !tm.
      collect_vars tm =
-       case tm of
+       pmatch tm of
          Abs (Var v ty) r =>
            let (vs, b) = collect_vars r in
              (v::vs, b)
@@ -530,7 +533,7 @@ QED
 Theorem dest_binary_PMATCH:
    !tm.
      dest_binary nm tm =
-       case tm of
+       pmatch tm of
          Comb (Comb (Const nm' _) l) r =>
            if nm <> nm' then
              ([], tm)
@@ -546,7 +549,7 @@ QED
 Theorem dest_binder_PMATCH:
    !tm.
      dest_binder nm tm =
-       case tm of
+       pmatch tm of
          Comb (Const nm' _) (Abs (Var v _) b) =>
            if nm <> nm' then
              ([], tm)
@@ -558,6 +561,4 @@ Proof
   CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV)
   \\ simp [Once dest_binder_def]
 QED
-
-val _ = export_theory ();
 

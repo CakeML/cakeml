@@ -1,12 +1,11 @@
 (*
   Defines the proof checker for SCPOG
 *)
-open preamble miscTheory mlstringTheory mlintTheory mlvectorTheory sptreeTheory
-  mergesortTheory cnf_scpogSemTheory;
-
-val _ = set_grammar_ancestry ["mlstring","mlvector","sptree","mergesort","misc","cnf_scpogSem"];
-
-val _ = new_theory "scpog";
+Theory scpog
+Libs
+  preamble
+Ancestors
+  mlstring mllist mlvector sptree mergesort misc cnf_scpogSem mlint
 
 (* Implementation *)
 Type clause = ``:int list``;
@@ -14,6 +13,8 @@ Type hint = ``:num list``;
 Type lit = ``:int``;
 Type var = ``:num``;
 Type id = ``:num``;
+
+val _ = temp_bring_to_front_overload "insert" {Name="insert", Thy="sptree"};
 
 (* Proof steps *)
 Datatype:
@@ -1521,14 +1522,14 @@ Definition to_flat_def:
     | ((m,x)::xs) => to_flat (m+1) xs (SOME x :: prepend (m-n) NONE acc)
 End
 
-Triviality prepend_eq:
+Theorem prepend_eq[local]:
   ∀n x xs. prepend n x xs = REPLICATE n x ++ xs
 Proof
   Induct \\ rewrite_tac [GSYM SNOC_REPLICATE, SNOC_APPEND]
   \\ fs [ADD1] \\ once_rewrite_tac [prepend_def] \\ fs []
 QED
 
-Triviality to_flat_lemma:
+Theorem to_flat_lemma[local]:
   ∀xs xs0 n.
     SORTED $< (MAP FST (xs0 ++ xs)) ∧ EVERY (λm. m < n) (MAP FST xs0) ∧
     (xs ≠ [] ⇒ n ≤ FST (HD xs)) ⇒
@@ -1624,17 +1625,19 @@ QED
 
 Definition mk_strict_sorted_def:
   mk_strict_sorted ls =
-  mk_strict (mergesort_tail (\x:int y. x ≥ y) ls)
+  mk_strict (sort (\x:int y. x ≥ y) ls)
 End
 
-Theorem mergesort_tail_eq_1[simp]:
-  mergesort_tail (λx y. x ≥ y) ls =
-  mergesort (λx y:int. x ≥ y) ls
+(*
+Theorem sort_tail_eq_1[simp]:
+  sort_tail (λx y. x ≥ y) ls =
+  sort (λx y:int. x ≥ y) ls
 Proof
-  irule mergesort_tail_correct>>
+  irule sort_tail_correct>>
   simp[total_def,transitive_def]>>
   intLib.ARITH_TAC
 QED
+*)
 
 Theorem mk_strict_sorted_SORTED:
   SORTED $< (mk_strict_sorted ls)
@@ -1646,7 +1649,7 @@ Proof
   qexists_tac`(λx y. x ≥ y)`>>
   rw[]
   >- (
-    irule mergesort_sorted >>
+    irule sort_SORTED >>
     simp[total_def,transitive_def]>>
     intLib.ARITH_TAC)>>
   intLib.ARITH_TAC
@@ -1657,7 +1660,7 @@ Theorem mk_strict_sorted_MEM:
 Proof
   rw[mk_strict_sorted_def]>>
   simp[mk_strict_MEM]>>
-  metis_tac[mergesort_mem,MEM]
+  metis_tac[sort_MEM,MEM]
 QED
 
 Definition opt_chr_def:
@@ -1992,7 +1995,7 @@ QED
 
 Definition alist_to_vec_def:
   alist_to_vec ls =
-    Vector (to_flat 0 (mergesort_tail (λx y. FST x ≤ FST y) ls) [])
+    Vector (to_flat 0 (sort (λx y. FST x ≤ FST y) ls) [])
 End
 
 Theorem ALL_DISTINCT_ALOOKUP_PERM:
@@ -2006,13 +2009,15 @@ Proof
   rw[EXTENSION,PERM_MEM_EQ]
 QED
 
-Theorem mergesort_tail_eq_2[simp]:
-  mergesort_tail (λ(x :num # α) (y :num # α). FST x ≤ FST y) ls =
-  mergesort (λ(x :num # α) (y :num # α). FST x ≤ FST y) ls
+(*
+Theorem sort_tail_eq_2[simp]:
+  sort_tail (λ(x :num # α) (y :num # α). FST x ≤ FST y) ls =
+  sort (λ(x :num # α) (y :num # α). FST x ≤ FST y) ls
 Proof
-  irule mergesort_tail_correct>>
+  irule sort_tail_correct>>
   simp[total_def,transitive_def]
 QED
+*)
 
 Theorem vec_lookup_alist_to_vec:
   ALL_DISTINCT (MAP FST ls) ⇒
@@ -2020,12 +2025,12 @@ Theorem vec_lookup_alist_to_vec:
 Proof
   rw[]>>
   fs [alist_to_vec_def,vec_lookup_def,length_def,sub_def]
-  \\ ‘SORTED $<= (MAP FST ([] ++ mergesort (λx y. FST x ≤ FST y) ls))’ by
+  \\ ‘SORTED $<= (MAP FST ([] ++ sort (λx y. FST x ≤ FST y) ls))’ by
     (simp[sorted_map,inv_image_def]>>
-    irule mergesort_sorted >>
+    irule sort_SORTED >>
     simp[total_def,transitive_def])
-  \\ `PERM ls (mergesort (λx y. FST x ≤ FST y) ls)` by metis_tac[mergesort_perm]
-  \\ ‘SORTED $< (MAP FST ([] ++ mergesort (λx y. FST x ≤ FST y) ls))’ by
+  \\ `PERM ls (sort (λx y. FST x ≤ FST y) ls)` by metis_tac[sort_PERM]
+  \\ ‘SORTED $< (MAP FST ([] ++ sort (λx y. FST x ≤ FST y) ls))’ by
     (drule_at Any ALL_DISTINCT_SORTED_WEAKEN>>
     disch_then irule>>
     simp[]>>
@@ -2036,7 +2041,7 @@ Proof
   >-
     metis_tac[ALL_DISTINCT_ALOOKUP_PERM]
   >>
-    gvs[EVERY_MAP,EVERY_MEM,mergesort_mem,ALOOKUP_NONE,MEM_MAP]>>
+    gvs[EVERY_MAP,EVERY_MEM,sort_MEM,ALOOKUP_NONE,MEM_MAP]>>
     rw[]>>CCONTR_TAC>>gvs[]
 QED
 
@@ -2449,7 +2454,7 @@ End
 Definition mk_pro_vm_def:
   mk_pro_vm v ls vm =
     let (l,ls) = get_node_vars vm ls [] [] in
-    let l = mergesort_tail (\x y:num. x ≤ y) l in
+    let l = sort (\x y:num. x ≤ y) l in
     let vs = big_union (l::ls) in
     if SORTED $< vs
     then SOME (insert v vs vm)
@@ -2458,16 +2463,18 @@ End
 
 Definition mk_strict_sorted_num_def:
   mk_strict_sorted_num ls =
-  mk_strict (mergesort_tail (\x y:num. y ≤ x) ls)
+  mk_strict (sort (\x y:num. y ≤ x) ls)
 End
 
-Theorem mergesort_tail_eq_3[simp]:
-  mergesort_tail (λ(x :num) (y :num). y ≤ x) ls =
-  mergesort (λ(x :num) (y :num). y ≤ x) ls
+(*
+Theorem sort_tail_eq_3[simp]:
+  sort_tail (λ(x :num) (y :num). y ≤ x) ls =
+  sort (λ(x :num) (y :num). y ≤ x) ls
 Proof
-  irule mergesort_tail_correct>>
+  irule sort_tail_correct>>
   simp[total_def,transitive_def]
 QED
+*)
 
 Theorem mk_strict_sorted_num_SORTED:
   SORTED $< (mk_strict_sorted_num ls)
@@ -2478,7 +2485,7 @@ Proof
   simp[]>>
   qexists_tac`(λx y. y <= x)`>>
   rw[]>>
-  irule mergesort_sorted >>
+  irule sort_SORTED >>
   simp[total_def,transitive_def]
 QED
 
@@ -2487,20 +2494,20 @@ Theorem mk_strict_sorted_num_MEM:
 Proof
   rw[mk_strict_sorted_num_def]>>
   simp[mk_strict_MEM]>>
-  metis_tac[mergesort_mem,MEM]
+  metis_tac[sort_MEM,MEM]
 QED
 
 Definition mk_sum_vm_def:
   mk_sum_vm v ls vm =
     let (l,ls) = get_node_vars vm ls [] [] in
-    let l = mergesort_tail (\x y:num. x ≤ y) l in
+    let l = sort (\x y:num. x ≤ y) l in
     let vs = big_union (l::ls) in
       SOME (insert v (mk_strict_sorted_num vs) vm)
 End
 
 Definition mk_sko_vm_def:
   mk_sko_vm  v ls vm =
-    let vs = mergesort_tail (\x y. x ≤ y) (MAP var_lit ls) in
+    let vs = sort (\x y. x ≤ y) (MAP var_lit ls) in
     if SORTED $< vs
     then SOME (insert v vs vm)
     else NONE
@@ -2525,7 +2532,7 @@ Theorem set_merge:
   set xs ∪ set ys
 Proof
   rw[EXTENSION]>>
-  `PERM (xs++ys) (merge R xs ys)` by metis_tac[merge_perm]>>
+  `PERM (xs++ys) (merge R xs ys)` by metis_tac[mergesortTheory.merge_perm]>>
   drule PERM_MEM_EQ>>
   simp[]
 QED
@@ -2634,7 +2641,7 @@ Proof
   Induct>>rw[]>>
   first_x_assum irule>>
   `PERM (merge (λx y. x ≤ y) acc h) (acc ++ h)` by
-    metis_tac[merge_perm,PERM_SYM]>>
+    metis_tac[mergesortTheory.merge_perm,PERM_SYM]>>
   irule PERM_TRANS>>
   first_x_assum (irule_at Any)>>
   metis_tac[PERM_APPEND_IFF]
@@ -2711,13 +2718,15 @@ Proof
   metis_tac[]
 QED
 
-Theorem mergesort_tail_eq_4[simp]:
-  mergesort_tail (λ(x :num) (y :num). x ≤ y) ls =
-  mergesort (λ(x :num) (y :num). x ≤ y) ls
+(*
+Theorem sort_tail_eq_4[simp]:
+  sort_tail (λ(x :num) (y :num). x ≤ y) ls =
+  sort (λ(x :num) (y :num). x ≤ y) ls
 Proof
-  irule mergesort_tail_correct>>
+  irule sort_tail_correct>>
   simp[total_def,transitive_def]
 QED
+*)
 
 Theorem check_dec_decomposable_scp:
   D ∩ E = {} ∧ Y ∩ E = {} ⇒
@@ -2768,13 +2777,13 @@ Proof
       rw[]>>
       simp[set_big_union]>>
       rw[EXTENSION]>>
-      metis_tac[mergesort_mem])>>
+      metis_tac[sort_MEM])>>
     irule all_disjoint_PERM>>
     simp[Once PERM_SYM]>>
     first_x_assum (irule_at Any)>>
     drule SORTED_big_union_ALL_DISTINCT>>
-    `FLAT (mergesort (λx y. x ≤ y) l::ls') =
-     FLAT (MAP (λi. [i]) (mergesort (λx y. x ≤ y) l) ++ ls')` by
+    `FLAT (sort (λx y. x ≤ y) l::ls') =
+     FLAT (MAP (λi. [i]) (sort (λx y. x ≤ y) l) ++ ls')` by
       simp[FLAT_MAP_SING]>>
     pop_assum SUBST_ALL_TAC>>
     strip_tac>>
@@ -2785,7 +2794,7 @@ Proof
     first_x_assum (irule_at Any)>>
     simp[PERM_APPEND_IFF]>>
     irule PERM_MAP>>
-    metis_tac[mergesort_perm,PERM_SYM])
+    metis_tac[sort_PERM,PERM_SYM])
   >- (
     gvs[mk_sum_vm_def,vars_scp_def]>>
     pairarg_tac>>gvs[]>>
@@ -2813,7 +2822,7 @@ Proof
       metis_tac[mk_strict_sorted_num_SORTED]>>
     simp[set_mk_strict_sorted_num,set_big_union]>>
     rw[EXTENSION]>>
-    metis_tac[mergesort_mem])
+    metis_tac[sort_MEM])
   >- (
     gvs[mk_sko_vm_def,vars_scp_def]>>
     rename1`EVERY _ lss`>>
@@ -2828,7 +2837,7 @@ Proof
       metis_tac[])>>
     rw[]
     >- (
-      gvs[EVERY_MEM,EXTENSION,mergesort_mem,MEM_MAP]>>
+      gvs[EVERY_MEM,EXTENSION,sort_MEM,MEM_MAP]>>
       metis_tac[])
     >-
       rw[lookup_insert]
@@ -2841,7 +2850,7 @@ Proof
       simp[irreflexive_def]>>
       strip_tac>>
       `ALL_DISTINCT (MAP var_lit lss)` by
-        metis_tac[ALL_DISTINCT_PERM,mergesort_perm]>>
+        metis_tac[ALL_DISTINCT_PERM,sort_PERM]>>
       `ALL_DISTINCT (FLAT (MAP (λi. [i]) (MAP var_lit lss)))` by
         simp[FLAT_MAP_SING]>>
       drule ALL_DISTINCT_FLAT_all_disjoint>>
@@ -3070,5 +3079,3 @@ Proof
   first_x_assum drule>>
   simp[sat_clause_def]
 QED
-
-val _ = export_theory ();

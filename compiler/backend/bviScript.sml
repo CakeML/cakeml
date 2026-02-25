@@ -4,10 +4,11 @@
   now bundled together with function calls: exceptions can only be
   caught at the point of function calls.
 *)
-open preamble closLangTheory;
-
-val _ = new_theory "bvi";
-val _ = set_grammar_ancestry ["closLang" (* for op *)]
+Theory bvi
+Ancestors
+  closLang (* for op *)
+Libs
+  preamble
 
 (* BVI = bytecode-value intermediate language *)
 
@@ -45,7 +46,11 @@ Datatype:
       | Raise exp
       | Tick exp
       | Call num (num option) (exp list) (exp option)
+      | Force num (* loc to call for evaluation of unevaluated thunk *)
+              num (* var holding thunk *)
       | Op op (exp list)
 End
 
-val _ = export_theory();
+Overload mk_unit = “bvi$Op (BlockOp (Cons 0)) []”
+
+Overload mk_elem_at = “λb i. bvi$Op (BlockOp (ElemAt i)) [b]”

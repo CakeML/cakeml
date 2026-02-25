@@ -3,13 +3,13 @@
   theorem with the compiler evaluation theorem to produce end-to-end
   correctness theorem that reaches final machine code.
 *)
-open preamble
-     semanticsPropsTheory backendProofTheory ag32_configProofTheory
-     ag32_memoryTheory ag32_memoryProofTheory ag32_ffi_codeProofTheory
-     ag32_machine_configTheory ag32_basis_ffiProofTheory
-     helloProgTheory helloCompileTheory;
-
-val _ = new_theory"helloProof";
+Theory helloProof
+Ancestors
+  mlstring semanticsProps backendProof ag32_configProof ag32_memory
+  ag32_memoryProof ag32_ffi_codeProof ag32_machine_config
+  ag32_basis_ffiProof helloProg helloCompile
+Libs
+  preamble
 
 val hello_io_events_def =
   new_specification("hello_io_events_def",["hello_io_events"],
@@ -144,7 +144,7 @@ Proof
   \\ simp[wfFS_stdin_fs, STD_streams_stdin_fs]
   \\ simp[TextIOProofTheory.add_stdo_def]
   \\ SELECT_ELIM_TAC
-  \\ simp[TextIOProofTheory.stdo_def]
+  \\ simp[TextIOProofTheory.stdo_def,implode_def]
   \\ conj_tac
   >- (
     simp[stdin_fs_def]
@@ -210,5 +210,3 @@ Proof
   \\ goal_assum(first_assum o mp_then Any mp_tac)
   \\ metis_tac[]
 QED
-
-val _ = export_theory();

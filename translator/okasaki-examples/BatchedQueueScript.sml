@@ -2,9 +2,11 @@
   This is an example of applying the translator to the Batched Queue
   algorithm from Chris Okasaki's book.
 *)
-open HolKernel Parse boolLib bossLib; val _ = new_theory "BatchedQueue";
-
-open listTheory arithmeticTheory ml_translatorLib ListProgTheory;
+Theory BatchedQueue
+Ancestors
+  list arithmetic ListProg
+Libs
+  ml_translatorLib
 
 val _ = translation_extends "ListProg";
 
@@ -53,26 +55,26 @@ Definition queue_inv_def:
     (q = xs ++ REVERSE ys) /\ ((xs = []) ==> (ys = []))
 End
 
-Triviality empty_thm:
+Theorem empty_thm[local]:
   !xs. queue_inv xs empty = (xs = [])
 Proof
   EVAL_TAC THEN SIMP_TAC std_ss []
 QED
 
-Triviality is_empty_thm:
+Theorem is_empty_thm[local]:
   !q xs. queue_inv xs q ==> (is_empty q = (xs = []))
 Proof
   Cases THEN Cases_on `l` THEN EVAL_TAC THEN SRW_TAC [] [REV_DEF]
 QED
 
-Triviality snoc_thm:
+Theorem snoc_thm[local]:
   !q xs x. queue_inv xs q ==> queue_inv (xs ++ [x]) (snoc q x)
 Proof
   Cases THEN Cases_on `l` THEN FULL_SIMP_TAC (srw_ss())
     [queue_inv_def,snoc_def,REVERSE_DEF,checkf_def,APPEND]
 QED
 
-Triviality head_thm:
+Theorem head_thm[local]:
   !q x xs. queue_inv (x::xs) q ==> (head q = x)
 Proof
   Cases THEN Cases_on `l` THEN FULL_SIMP_TAC (srw_ss())
@@ -80,7 +82,7 @@ Proof
   THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC (srw_ss()) []
 QED
 
-Triviality tail_thm:
+Theorem tail_thm[local]:
   !q x xs. queue_inv (x::xs) q ==> queue_inv xs (tail q)
 Proof
   Cases THEN Cases_on `l` THEN EVAL_TAC THEN SRW_TAC [] []
@@ -88,4 +90,3 @@ Proof
   THEN FULL_SIMP_TAC (srw_ss()) [REVERSE_DEF,REV_DEF]
 QED
 
-val _ = export_theory();

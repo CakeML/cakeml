@@ -1,11 +1,13 @@
 (*
   The straightforward non-generational copying garbage collector.
 *)
-open preamble gc_sharedTheory wordsTheory wordsLib integer_wordTheory;
+Theory copying_gc
+Ancestors
+  gc_shared words integer_word
+Libs
+  preamble wordsLib
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "copying_gc";
 
 val _ = ParseExtras.temp_loose_equality();
 
@@ -91,7 +93,7 @@ End
 
 (* Invariant maintained *)
 
-Triviality DRESTRICT_heap_map:
+Theorem DRESTRICT_heap_map[local]:
   !heap k. n < k ==> (DRESTRICT (heap_map k heap) (COMPL {n}) = heap_map k heap)
 Proof
   simp_tac (srw_ss()) [GSYM fmap_EQ_THM,DRESTRICT_DEF,EXTENSION] \\ rpt strip_tac
@@ -103,7 +105,7 @@ Proof
   \\ metis_tac [DECIDE ``n<k ==> n < k + m:num``,DECIDE ``n<k ==> n < k + m+1:num``]
 QED
 
-Triviality IN_FRANGE:
+Theorem IN_FRANGE[local]:
   !heap n. MEM (ForwardPointer ptr d l) heap ==> ptr IN FRANGE (heap_map n heap)
 Proof
   Induct \\ full_simp_tac std_ss [MEM] \\ rpt strip_tac
@@ -111,7 +113,7 @@ Proof
   \\ `n < n + n0 + 1` by decide_tac \\ full_simp_tac std_ss [DRESTRICT_heap_map]
 QED
 
-Triviality heap_addresses_SNOC:
+Theorem heap_addresses_SNOC[local]:
   !xs n x.
       heap_addresses n (xs ++ [x]) =
       heap_addresses n xs UNION {heap_length xs + n}
@@ -129,7 +131,7 @@ val NOT_IN_heap_addresses = Q.prove(
   THEN1 (Cases_on `h` \\ EVAL_TAC \\ decide_tac) \\ metis_tac [])
   |> Q.SPECL [`xs`,`0`] |> SIMP_RULE std_ss [];
 
-Triviality gc_move_thm:
+Theorem gc_move_thm[local]:
   gc_inv (h1,h2,a,n,heap:('a,'b) heap_element list,c,limit) heap0 roots0 /\
     (!ptr u. (x = Pointer ptr u) ==> isSomeDataOrForward (heap_lookup ptr heap) /\
                                      reachable_addresses roots0 heap0 ptr) ==>
@@ -212,7 +214,7 @@ Proof
   \\ full_simp_tac std_ss [FAPPLY_FUPDATE_THM] \\ metis_tac []
 QED
 
-Triviality gc_move_list_thm:
+Theorem gc_move_list_thm[local]:
   !xs h2 a n heap c.
     gc_inv (h1,h2,a,n,heap:('a,'b) heap_element list,c,limit) heap0 roots0 /\
     (!ptr u. MEM (Pointer ptr u) (xs:'a heap_address list) ==>
@@ -270,7 +272,7 @@ Proof
   \\ full_simp_tac std_ss [APPEND_ASSOC]
 QED
 
-Triviality gc_move_list_APPEND_lemma:
+Theorem gc_move_list_APPEND_lemma[local]:
   !ys xs a n heap c limit ys3 xs3 a3 n3 heap3 c3.
       (gc_move_list (ys,xs,a,n,heap,c,limit) = (ys3,xs3,a3,n3,heap3,c3)) ==>
       (?xs1. xs3 = xs ++ xs1)
@@ -280,7 +282,7 @@ Proof
   \\ full_simp_tac std_ss [APPEND_ASSOC] \\ metis_tac []
 QED
 
-Triviality gc_move_loop_thm:
+Theorem gc_move_loop_thm[local]:
   !h1 h2 a n heap c.
       gc_inv (h1,h2,a,n,heap:('a,'b) heap_element list,c,limit) heap0 roots0 ==>
       ?h13 a3 n3 heap3 c3.
@@ -361,7 +363,7 @@ Proof
   \\ full_simp_tac (srw_ss()) [heap_length_def,el_length_def]
 QED
 
-Triviality gc_inv_init:
+Theorem gc_inv_init[local]:
   gc_inv ([],[],0,limit,heap,T,limit) heap roots = heap_ok heap limit
 Proof
   full_simp_tac std_ss [gc_inv_def] \\ Cases_on `heap_ok heap limit`
@@ -693,4 +695,3 @@ Proof
   \\ imp_res_tac gc_move_loop_IMP_isDataElement \\ fs []
 QED
 
-val _ = export_theory();

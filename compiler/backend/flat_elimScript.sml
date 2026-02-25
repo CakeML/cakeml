@@ -5,12 +5,13 @@
   Closes this next-step function to give a set of reachable globals.
   Removes unreachable globals from the code.
 *)
+Theory flat_elim
+Ancestors
+  spt_closure flatLang misc[qualified] sptree
+Libs
+  preamble
 
-open preamble sptreeTheory flatLangTheory spt_closureTheory
 
-val _ = new_theory "flat_elim";
-
-val _ = set_grammar_ancestry ["spt_closure", "flatLang", "misc"]
 val _ = temp_tight_equality();
 
 (**************************** ANALYSIS FUNCTIONS *****************************)
@@ -29,7 +30,7 @@ Definition is_hidden_def:
         (* local var *)
     (is_hidden (Fun t name body) = T) ∧
         (* function abstraction *)
-    (is_hidden (App t Opapp l) = F) ∧
+    (is_hidden (App t (Src Opapp) l) = F) ∧
         (* function application *)
     (is_hidden (App t (GlobalVarInit g) [e]) = is_hidden e) ∧
         (* GlobalVarInit *)
@@ -81,7 +82,7 @@ End
 Theorem is_pure_def1 = CONV_RULE (DEPTH_CONV ETA_CONV) is_pure_def
 
 Definition has_Eval_def:
-  (has_Eval (App t op es) ⇔ op = Eval ∨ has_Eval_list es) ∧
+  (has_Eval (App t op es) ⇔ op = Src Eval ∨ has_Eval_list es) ∧
   (has_Eval (Mat _ e pes) ⇔ has_Eval e ∨ has_Eval_pats pes) ∧
   (has_Eval (Letrec _ funs e) ⇔ has_Eval e ∨ has_Eval_funs funs) ∧
   (has_Eval (Raise _ e) ⇔ has_Eval e) ∧
@@ -202,22 +203,20 @@ End
 Definition analyse_code_def:
     analyse_code [] = (LN, LN) ∧
     analyse_code ((Dlet e)::cs) =
-        code_analysis_union (analyse_exp e) (analyse_code cs) ∧
-    analyse_code (_::cs) = analyse_code cs
+        code_analysis_union (analyse_exp e) (analyse_code cs)
 End
 
 
 (**************************** REMOVAL FUNCTIONS *****************************)
 
 Definition keep_def:
-    (keep reachable (Dlet e) =
+    keep reachable (Dlet e) =
         (* if none of the global variables that e may assign to are in
            the reachable set, then e is candidate for removal
            -> if any are in, then keep e
            -> however if e is not pure (can have side-effects),
               then it must be kept *)
-        if isEmpty (inter (find_loc e) reachable) then (¬ (is_pure e)) else T) ∧
-    (keep reachable _ = T) (* not a Dlet, will be Dtype/Dexn so keep *)
+        if isEmpty (inter (find_loc e) reachable) then (¬ (is_pure e)) else T
 End
 
 Definition remove_unreachable_def:
@@ -225,8 +224,7 @@ Definition remove_unreachable_def:
 End
 
 Definition has_Eval_dec_def:
-  has_Eval_dec (Dlet e) = has_Eval e /\
-  has_Eval_dec _ = F
+  has_Eval_dec (Dlet e) = has_Eval e
 End
 
 Definition remove_flat_prog_def:
@@ -239,4 +237,3 @@ Definition remove_flat_prog_def:
         remove_unreachable reachable code
 End
 
-val _ = export_theory();

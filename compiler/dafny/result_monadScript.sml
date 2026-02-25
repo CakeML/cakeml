@@ -1,11 +1,12 @@
 (*
   Definition of a specialized Either monad, where an error is an mlstring.
 *)
+Theory result_monad
+Ancestors
+  mlstring
+Libs
+  preamble
 
-open preamble
-open mlstringTheory
-
-val _ = new_theory "result_monad"
 
 Type error = “:mlstring”;
 
@@ -48,6 +49,27 @@ Proof
   \\ res_tac
 QED
 
+Theorem mem_result_mmap_rl:
+  ∀xs ys.
+    result_mmap f xs = INR ys ∧ MEM y ys ⇒
+    ∃x. f x = INR y ∧ MEM x xs
+Proof
+  Induct
+  \\ rpt strip_tac
+  \\ gvs [result_mmap_def, oneline bind_def, CaseEq "sum"]
+  \\ first_assum $ irule_at (Pos hd) \\ simp []
+QED
+
+Theorem mem_result_mmap_lr:
+  ∀xs ys.
+    result_mmap f xs = INR ys ∧ MEM x xs ⇒
+    ∃y. f x = INR y ∧ MEM y ys
+Proof
+  Induct
+  \\ rpt strip_tac
+  \\ gvs [result_mmap_def, oneline bind_def, CaseEq "sum"]
+QED
+
 Definition result_mmap2_def:
   result_mmap2 f [] [] = return [] ∧
   result_mmap2 f (h0::t0) (h1::t1) =
@@ -81,5 +103,3 @@ End
 Definition extend_path_def:
   extend_path cur next = concat [cur; next; «:»]
 End
-
-val _ = export_theory();

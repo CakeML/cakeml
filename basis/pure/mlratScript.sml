@@ -1,10 +1,11 @@
 (*
   Pure functions for the Rat module.
 *)
-open preamble mlstringTheory mlintTheory;
-open ratLib gcdTheory ratTheory;
-
-val _ = new_theory "mlrat";
+Theory mlrat
+Ancestors
+  mlstring mlint gcd rat
+Libs
+  preamble ratLib
 
 (* representation type *)
 
@@ -143,7 +144,7 @@ Proof
        realTheory.real_sub]
 QED
 
-Triviality inv_div:
+Theorem inv_div[local]:
   x ≠ 0r ∧ y ≠ 0 ⇒ (inv (x / y) = y / x)
 Proof
   simp[realTheory.real_div, realTheory.REAL_INV_MUL, realTheory.REAL_INV_EQ_0,
@@ -357,4 +358,3 @@ Proof
   simp[intrealTheory.INT_FLOOR]
 QED
 
-val _ = export_theory ();

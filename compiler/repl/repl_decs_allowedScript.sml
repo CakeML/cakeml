@@ -2,15 +2,15 @@
   The REPL puts some restrictions on what decs are acceptable as user input.
   This file defines what those restrictions are.
 *)
-open preamble
-open semanticsPropsTheory evaluateTheory semanticPrimitivesTheory
-open candle_prover_invTheory
+Theory repl_decs_allowed
+Ancestors
+  semanticsProps evaluate semanticPrimitives candle_prover_inv
+Libs
+  preamble
 
 val _ = Parse.hide "types"
 
-val _ = new_theory "repl_decs_allowed";
-
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 (* definition *)
 
@@ -20,10 +20,10 @@ End
 
 (* pmatch lemmas *)
 
-Triviality safe_exp_pmatch_lemma:
+Theorem safe_exp_pmatch_lemma[local]:
   safe_exp =
-     every_exp $ λx. case x of
-                     | Con opt xs => (dtcase opt of
+     every_exp $ λx. pmatch x of
+                     | Con opt xs => (case opt of
                                       | SOME id => let n = id_to_n id in n ∉ kernel_ctors
                                       | NONE => T)
                      | App op xs' => op ≠ FFI kernel_ffi
@@ -42,4 +42,3 @@ Theorem safe_exp_pmatch = safe_exp_pmatch_lemma
                        candle_kernel_valsTheory.kernel_ffi_def,
                        IN_UNION,IN_INSERT,NOT_IN_EMPTY,GSYM CONJ_ASSOC]
 
-val _ = export_theory();

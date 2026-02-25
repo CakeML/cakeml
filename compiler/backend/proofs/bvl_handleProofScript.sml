@@ -1,12 +1,11 @@
 (*
   Correctness proof for bvl_handle
 *)
-open preamble bvl_handleTheory bvlSemTheory bvlPropsTheory;
-local open bvl_constProofTheory in end
-
-val _ = new_theory"bvl_handleProof";
-
-val _ = set_grammar_ancestry["bvlSem","bvl_handle","bvlProps"];
+Theory bvl_handleProof
+Ancestors
+  bvlSem bvl_handle bvlProps bvl_constProof[qualified]
+Libs
+  preamble
 
 Theorem can_raise_thm:
   (∀e env s (s:('a,'b) state).
@@ -56,6 +55,8 @@ Proof
    (rpt (CASE_TAC \\ fs [])
     \\ first_x_assum (qspec_then ‘a'::xs’ mp_tac)
     \\ imp_res_tac evaluate_IMP_LENGTH \\ fs [ADD1])
+  >-
+   (rw [] \\ gvs [EL_APPEND])
   \\ once_rewrite_tac [evaluate_CONS] \\ fs []
 QED
 
@@ -180,6 +181,7 @@ Definition handle_ok_def:
          EVERY isVar xs /\ bVarBound (LENGTH xs) [b] /\
          handle_ok [b] /\ handle_ok [x2]
      | _ => F) /\
+  (handle_ok [Force loc n] <=> T) ∧
   (handle_ok [Call ticks dest xs] <=> handle_ok xs)
 Termination
   WF_REL_TAC `measure (exp1_size)`
@@ -308,13 +310,13 @@ Proof
   fs [LIST_RELi_EL_EQN,env_rel_def]
 QED
 
-Triviality opt_lemma:
+Theorem opt_lemma[local]:
   x = y <=> (x = SOME () <=> y = SOME ())
 Proof
   Cases_on `x` \\ Cases_on `y` \\ fs []
 QED
 
-Triviality OptionalLetLet_IMP:
+Theorem OptionalLetLet_IMP[local]:
   (ys,l,s',nr') = OptionalLetLet y (LENGTH env) lx s1 limit nr /\
     (∀env2 extra.
       env_rel l env env2 ⇒ evaluate ([y],env2 ++ extra,s) = res) /\
@@ -436,6 +438,11 @@ Theorem compile_correct = Q.prove(`
       \\ Cases \\ fs [ADD1]) \\ res_tac \\ fs [])
   THEN1 (* Op *)
    (fs [env_rel_mk_Union] \\ rpt gen_tac \\ strip_tac
+    \\ Cases_on `op = ThunkOp ForceThunk` \\ gvs []
+    >- (
+      gvs [AllCaseEqs()]
+      \\ rpt strip_tac
+      \\ simp [evaluate_def] \\ gvs [])
     \\ drule (GEN_ALL OptionalLetLet_IMP) \\ strip_tac
     \\ pop_assum match_mp_tac
     \\ drule (GEN_ALL OptionalLetLet_limit)
@@ -447,6 +454,12 @@ Theorem compile_correct = Q.prove(`
     \\ imp_res_tac do_app_err \\ fs [] \\ res_tac \\ fs [])
   THEN1 (* Tick *)
    (Cases_on `s.clock = 0` \\ fs [] \\ rw [evaluate_def] \\ res_tac \\ fs [])
+  THEN1 (* Force *)
+   (rw [] \\ gvs []
+    \\ gvs [AllCaseEqs(), evaluate_def, PULL_EXISTS]
+    \\ imp_res_tac env_rel_length \\ gvs [EL_APPEND]
+    \\ gvs [oneline dest_thunk_def, AllCaseEqs(), PULL_EXISTS, env_rel_def,
+            LIST_RELi_EL_EQN])
   THEN1 (* Call *)
    (fs [env_rel_mk_Union] \\ rpt gen_tac \\ strip_tac
     \\ drule (GEN_ALL OptionalLetLet_IMP) \\ strip_tac
@@ -700,12 +713,14 @@ Proof
   \\ fs [LetLet_def,EVERY_MEM,MEM_MAP,PULL_EXISTS,isVar_def]
   \\ imp_res_tac compile_IMP_LENGTH \\ fs []
   \\ TRY (match_mp_tac handle_ok_OptionalLetLet)
+  \\ imp_res_tac compile_IMP_bVarBound
   \\ fs [handle_ok_def]
-  \\ TRY ( conj_tac >- ( strip_tac \\ fs[LENGTH_NIL] ) )
-  \\ TRY (imp_res_tac compile_IMP_bVarBound \\ fs [] \\ NO_TAC)
-  \\ conj_tac THEN1
-   (conj_tac THEN1
-     (once_rewrite_tac [bVarBound_MEM]
+  >- (rw[] \\ fs[])
+  \\ conj_tac
+  >- (
+    conj_tac
+    >- (
+      once_rewrite_tac [bVarBound_MEM]
       \\ fs [MEM_GENLIST,PULL_EXISTS] \\ rw []
       \\ every_case_tac \\ fs []
       \\ imp_res_tac ALOOKUP_MAPi \\ fs [])
@@ -715,6 +730,7 @@ Proof
     \\ match_mp_tac bVarBound_compile \\ fs [])
   \\ rw [SmartLet_def] \\ fs [handle_ok_def]
   \\ IF_CASES_TAC \\ fs[]
+  >- fs[GENLIST_EQ_NIL]
   \\ rpt (pop_assum kall_tac)
   \\ match_mp_tac handle_ok_Var_Const_list
   \\ fs [EVERY_GENLIST]
@@ -791,10 +807,10 @@ Proof
   \\ rveq \\ fs[NULL_EQ] \\ rw[bvl_handleTheory.OptionalLetLet_def]
   \\ fs[]
   \\ fsrw_tac[DNF_ss][SUBSET_DEF]
-  \\ EVAL_TAC
+  \\ EVAL_TAC \\ rw []
 QED
 
-Triviality get_code_labels_dest_handle_Raise:
+Theorem get_code_labels_dest_handle_Raise[local]:
   ∀c x. dest_handle_Raise c = SOME x ⇒
         get_code_labels c = get_code_labels x
 Proof
@@ -802,7 +818,7 @@ Proof
   \\ rpt strip_tac \\ gvs [dest_handle_Raise_def,AllCaseEqs()]
 QED
 
-Triviality get_code_labels_handle_adj_vars:
+Theorem get_code_labels_handle_adj_vars[local]:
   (∀x d l. get_code_labels (handle_adj_vars d l x) = get_code_labels x) ∧
   (∀x d l. MAP get_code_labels (handle_adj_vars1 d l x) = MAP get_code_labels x)
 Proof
@@ -867,4 +883,3 @@ Proof
   \\ metis_tac [compile_exp_code_labels, SUBSET_UNION, SUBSET_TRANS, UNION_SUBSET]
 QED
 
-val _ = export_theory();

@@ -1,21 +1,13 @@
 (*
   Proof about the primitive semantic environment
 *)
-open preamble;
-open astTheory evaluateTheory semanticPrimitivesTheory;
-open semanticsTheory;
-open evaluateTheory;
-open semanticPrimitivesPropsTheory;
-open evaluateComputeLib;
-open primTypesTheory;
-open typeSystemTheory;
-open typeSoundInvariantsTheory;
-open namespaceTheory;
-open namespacePropsTheory;
-open typeSysPropsTheory;
-
-val _ = new_theory "primSemEnv";
-
+Theory primSemEnv
+Ancestors
+  ast evaluate semanticPrimitives semantics evaluate
+  semanticPrimitivesProps primTypes typeSystem
+  typeSoundInvariants namespace namespaceProps typeSysProps
+Libs
+  preamble evaluateComputeLib
 
 Theorem prim_sem_env_eq =
   EVAL ``prim_sem_env (ffi:'ffi ffi_state)``
@@ -36,10 +28,10 @@ Proof
       (div_stamp, ([],[],Texn_num));
       (chr_stamp, ([],[],Texn_num));
       (subscript_stamp, ([],[],Texn_num));
-      (TypeStamp "[]" list_type_num, (["'a"],[],Tlist_num));
-      (TypeStamp "::" list_type_num, (["'a"],[Tvar "'a"; Tlist (Tvar "'a")], Tlist_num));
-      (TypeStamp "True" bool_type_num, ([],[], Tbool_num));
-      (TypeStamp "False" bool_type_num, ([],[], Tbool_num))]` >>
+      (TypeStamp «[]» list_type_num, ([«'a»],[],Tlist_num));
+      (TypeStamp «::» list_type_num, ([«'a»],[Tvar «'a»; Tlist (Tvar «'a»)], Tlist_num));
+      (TypeStamp «True» bool_type_num, ([],[], Tbool_num));
+      (TypeStamp «False» bool_type_num, ([],[], Tbool_num))]` >>
   rw []
   >- (
     simp [tenv_ok_def, tenv_ctor_ok_def, tenv_abbrev_ok_def]>>
@@ -83,5 +75,3 @@ Proof
     \\ rpt strip_tac \\ rveq
     \\ EVAL_TAC)
 QED
-
-val _ = export_theory ();

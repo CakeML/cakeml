@@ -6,14 +6,12 @@
   - decodes decision tree to if-tree
   - encodes the variable bindings of each case as let-bindings
 *)
+Theory flat_pattern
+Ancestors
+  misc flatLang sptree pattern_semantics pattern_comp
+Libs
+  preamble
 
-open preamble sptreeTheory flatLangTheory pattern_semanticsTheory
-  pattern_compTheory
-
-val _ = new_theory "flat_pattern";
-
-val _ = set_grammar_ancestry ["misc","flatLang","sptree",
-    "pattern_semantics"];
 
 Datatype:
   config =
@@ -25,22 +23,26 @@ Definition init_config_def:
 End
 
 Definition sum_string_ords_def:
-  sum_string_ords i str = if i < LENGTH str
-    then (ORD (EL i str) - 35) + sum_string_ords (i + 1) str
+  sum_string_ords i str = if i < strlen str
+    then (ORD (strsub str i) - 35) + sum_string_ords (i + 1) str
     else 0
 Termination
-  WF_REL_TAC `measure (\(i, str). LENGTH str - i)`
+  WF_REL_TAC `measure (\(i, str). strlen str - i)`
 End
 
 Definition dec_name_to_num_def:
-  dec_name_to_num name = if LENGTH name < 2 then 0
-    else if EL 0 name = #"." /\ EL 1 name = #"."
+  dec_name_to_num name = if strlen name < 2 then 0
+    else if strsub name 0 = #"." /\ strsub name 1 = #"."
     then sum_string_ords 2 name else 0
 End
 
+Definition enc_num_to_name_aux_def:
+  enc_num_to_name_aux i xs = if i < 90 then #"." :: #"." :: CHR (i + 35) :: xs
+    else enc_num_to_name_aux (i - 90) (CHR 125 :: xs)
+End
+
 Definition enc_num_to_name_def:
-  enc_num_to_name i xs = if i < 90 then #"." :: #"." :: CHR (i + 35) :: xs
-    else enc_num_to_name (i - 90) (CHR 125 :: xs)
+  enc_num_to_name i = mlstring$implode (enc_num_to_name_aux i [])
 End
 
 Theorem pat1_size:
@@ -66,7 +68,7 @@ Definition compile_pat_bindings_def:
     compile_pat_bindings t i m exp /\
   compile_pat_bindings t i ((Pcon _ ps, k, x) :: m) exp = (
     let j_nms = MAP (\(j, p). let k = i + 1 + j in
-        let nm = enc_num_to_name k [] in
+        let nm = enc_num_to_name k in
         ((j, nm), (p, k, Var_local t nm))) (enumerate 0 ps) in
     let (spt, exp2) = compile_pat_bindings t (i + 2 + LENGTH ps)
         (MAP SND j_nms ++ m) exp in
@@ -76,13 +78,13 @@ Definition compile_pat_bindings_def:
     let spt2 = if NULL j_nms_used then spt else insert k () spt in
     (spt2, exp3)) /\
   compile_pat_bindings t i ((Pas p v, k, x) :: m) exp = (
-    let nm = enc_num_to_name (i + 1) [] in
+    let nm = enc_num_to_name (i + 1) in
     let (spt, exp2) = compile_pat_bindings t (i + 2)
                       ((p, i + 1, Var_local t nm) :: m) exp in
     (insert k () spt, Let t (SOME v) x
                             (Let t (SOME nm) (Var_local t v) exp2))) /\
   compile_pat_bindings t i ((Pref p, k, x) :: m) exp = (
-    let nm = enc_num_to_name (i + 1) [] in
+    let nm = enc_num_to_name (i + 1) in
     let (spt, exp2) = compile_pat_bindings t (i + 2)
         ((p, i + 1, Var_local t nm) :: m) exp in
     (insert k () spt, Let t (SOME nm) (App t (El 0) [x]) exp2))
@@ -105,7 +107,7 @@ End
 
 Definition decode_test_def:
   decode_test t (TagLenEq tag l) v = App t (TagLenEq tag l) [v] /\
-  decode_test t (LitEq lit) v = App t Equality [v; Lit t lit]
+  decode_test t (LitEq lit) v = App t (Src Equality) [v; Lit t lit]
 End
 
 Definition simp_guard_def:
@@ -135,7 +137,7 @@ Definition simp_guard_def:
 End
 
 Definition decode_guard_def:
-  decode_guard t v (Not gd) = App t Equality [decode_guard t v gd; Bool t F] /\
+  decode_guard t v (Not gd) = App t (Src Equality) [decode_guard t v gd; Bool t F] /\
   decode_guard t v (Conj gd1 gd2) = SmartIf t (decode_guard t v gd1)
     (decode_guard t v gd2) (Bool t F) /\
   decode_guard t v (Disj gd1 gd2) = SmartIf t (decode_guard t v gd1) (Bool t T)
@@ -148,7 +150,7 @@ Definition decode_dtree_def:
   decode_dtree t br_spt v df (Leaf n) = (case lookup n br_spt
     of SOME br => br | NONE => df) /\
   decode_dtree t br_spt v df pattern_semantics$Fail = df /\
-  decode_dtree t br_spt v df TypeFail = Var_local t "impossible-case" /\
+  decode_dtree t br_spt v df TypeFail = Var_local t «impossible-case» /\
   decode_dtree t br_spt v df (If guard dt1 dt2) =
   let guard = simp_guard guard in
   let dec1 = decode_dtree t br_spt v df dt1 in
@@ -180,7 +182,7 @@ Definition naive_pattern_match_def:
   /\
   naive_pattern_match t ((Pvar _, _) :: mats) = naive_pattern_match t mats /\
   naive_pattern_match t ((Plit l, v) :: mats) = SmartIf t
-    (App t Equality [v; Lit t l]) (naive_pattern_match t mats) (Bool t F) /\
+    (App t (Src Equality) [v; Lit t l]) (naive_pattern_match t mats) (Bool t F) /\
   naive_pattern_match t ((Pcon NONE ps, v) :: mats) =
     naive_pattern_match t (MAPi (\i p. (p, App t (El i) [v])) ps ++ mats) /\
   naive_pattern_match t ((Pas p i, v) :: mats) =
@@ -241,7 +243,7 @@ Definition compile_exp_def:
     let (i, sgx, y) = compile_exp cfg x in
     let (j, sgp, ps2) = compile_match cfg ps in
     let k = MAX i j + 2 in
-    let nm = enc_num_to_name k [] in
+    let nm = enc_num_to_name k in
     let v = Var_local t nm in
     let r = Raise t v in
     let exp = compile_pats cfg sgp t k v r ps2 in
@@ -259,7 +261,7 @@ Definition compile_exp_def:
     let (i, sgx, y) = compile_exp cfg x in
     let (j, sgp, ps2) = compile_match cfg ps in
     let k = MAX i j + 2 in
-    let nm = enc_num_to_name k [] in
+    let nm = enc_num_to_name k in
     let v = Var_local t nm in
     let r = Raise t (Con t (SOME (bind_tag, NONE)) []) in
     let exp = compile_pats cfg sgp t k v r ps2 in
@@ -318,9 +320,5 @@ Proof
 QED
 
 Definition compile_dec_def:
-  compile_dec cfg (Dlet exp) = Dlet (SND (SND (compile_exp cfg exp))) /\
-  compile_dec cfg (Dtype tid amap) = Dtype tid amap /\
-  compile_dec cfg (Dexn n n') = Dexn n n'
+  compile_dec cfg (Dlet exp) = Dlet (SND (SND (compile_exp cfg exp)))
 End
-
-val _ = export_theory()

@@ -2,18 +2,18 @@
   The CakeML program implementing the word frequency application.
   This is produced by a combination of translation and CF verification.
 *)
-
-open preamble basis
-     splitwordsTheory balanced_mapTheory mlmapTheory
+Theory wordfreqProg
+Libs
+  preamble basis
+Ancestors
+  splitwords balanced_map mllist mlmap basis_ffi
 
 (* note: opening all these theories/libraries can take a while
    and it will print many warning messages which can be ignored *)
-
-val _ = new_theory "wordfreqProg";
-
 val _ = translation_extends"basisProg";
 
 (* Avoid printing potentially very long output *)
+val _ = hide_environments true;
 val _ = Globals.max_print_depth := 20
 
 (* Pure functions for word frequency counting *)
@@ -117,13 +117,12 @@ val res = translate compute_wordfreq_output_def;
 
 (* Main wordfreq implementation *)
 
-val wordfreq = process_topdecs`
+Quote add_cakeml:
   fun wordfreq u =
-    case TextIO.inputLinesFrom (List.hd (CommandLine.arguments()))
+    case TextIO.inputLinesFile #"\n" (List.hd (CommandLine.arguments()))
     of Some lines =>
-      TextIO.print_list (compute_wordfreq_output lines)`;
-
-val () = append_prog wordfreq;
+      TextIO.print_list (compute_wordfreq_output lines);
+End
 
 (* Main wordfreq specification.
    Idea: for a given file_contents, the output of wordfreq should be the
@@ -151,15 +150,15 @@ Theorem valid_wordfreq_output_exists:
    ∃output. valid_wordfreq_output file_chars output
 Proof
   rw[valid_wordfreq_output_def] \\
-  qexists_tac`QSORT $<= (nub (splitwords file_chars))` \\
+  qexists_tac`sort $<= (nub (splitwords file_chars))` \\
   qmatch_goalsub_abbrev_tac`set l1 = LIST_TO_SET l2` \\
-  `PERM (nub l2) l1` by metis_tac[QSORT_PERM] \\
+  `PERM (nub l2) l1` by metis_tac[sort_PERM] \\
   imp_res_tac PERM_LIST_TO_SET \\ fs[] \\
   simp[Abbr`l1`] \\
   match_mp_tac (MP_CANON ALL_DISTINCT_SORTED_WEAKEN) \\
   qexists_tac`$<=` \\ fs[mlstring_le_thm] \\
   conj_tac >- metis_tac[ALL_DISTINCT_PERM,all_distinct_nub] \\
-  match_mp_tac QSORT_SORTED \\
+  match_mp_tac sort_SORTED \\
   simp[transitive_def,total_def] \\
   metis_tac[mlstring_lt_trans,mlstring_lt_cases]
 QED
@@ -273,7 +272,7 @@ Theorem wordfreq_spec:
   (* EXERCISE: step through the first few function calls in wordfreq using CF
      tactics like xlet_auto, xsimpl, xcon, etc. *)
 
-  (* Before you step through the call to TextIO.inputLinesFrom, the following
+  (* Before you step through the call to TextIO.inputLinesFile, the following
      may be useful first to establish `wfcl cl`, which constrains fname to be
      a valid filename:
   *)
@@ -302,7 +301,7 @@ Theorem wordfreq_spec:
   (* now let us unabbreviate xxxx and yyyy *)
   map_every qunabbrev_tac[`xxxx`,`yyyy`] \\ simp[] \\
 
-  (* EXERCISE: use the lemmas above to finish the proof, see also all_lines_def *)
+  (* EXERCISE: use the lemmas above to finish the proof, see also all_lines_file_def *)
 QED
 
 (* Finally, we package the verified program up with the following boilerplate *)
@@ -332,5 +331,3 @@ Theorem wordfreq_semantics =
   sem_thm |> ONCE_REWRITE_RULE[GSYM wordfreq_prog_def]
   |> DISCH_ALL |> Q.GENL[`cl`,`contents`]
   |> SIMP_RULE(srw_ss())[AND_IMP_INTRO,GSYM CONJ_ASSOC]
-
-val _ = export_theory();

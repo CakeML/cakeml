@@ -1,21 +1,21 @@
 (*
   Proves an end-to-end correctness theorem for the bootstrapped compiler.
 *)
-open preamble
-     semanticsPropsTheory backendProofTheory
-     ag32_configProofTheory ag32_machine_configTheory
-     ag32_memoryProofTheory ag32_basis_ffiProofTheory ag32_ffi_codeProofTheory
-     compiler32ProgTheory ag32BootstrapTheory
+Theory ag32BootstrapProof
+Ancestors
+  repl_decs_allowed semanticsProps backendProof ag32_configProof
+  ag32_machine_config ag32_memoryProof ag32_basis_ffiProof
+  ag32_ffi_codeProof compiler32Prog ag32Bootstrap
+Libs
+  preamble
 
-val _ = new_theory"ag32BootstrapProof";
-
-Triviality with_clos_conf_simp:
-    (mc_init_ok (ag32_backend_config with <| clos_conf := z ; bvl_conf updated_by
+Theorem with_clos_conf_simp[local]:
+    (mc_init_ok ag32_config (ag32_backend_config with <| clos_conf := z ; bvl_conf updated_by
                     (λc. c with <|inline_size_limit := t1; exp_cut := t2|>) |>) =
-     mc_init_ok ag32_backend_config) /\
+     mc_init_ok ag32_config ag32_backend_config) /\
     (x.max_app <> 0 /\ (case x.known_conf of NONE => T | SOME k => k.val_approx_spt = LN) ==>
-     (backend_config_ok (ag32_backend_config with clos_conf := x) =
-      backend_config_ok ag32_backend_config))
+     (backend_config_ok ag32_config (ag32_backend_config with clos_conf := x) =
+      backend_config_ok ag32_config ag32_backend_config))
 Proof
   fs [mc_init_ok_def,FUN_EQ_THM,backend_config_ok_def]
   \\ rw [] \\ eq_tac \\ rw [] \\ EVAL_TAC
@@ -25,30 +25,21 @@ Overload cake_config = “ag32Bootstrap$info”;
 
 Definition compiler_instance_def:
   compiler_instance =
-    <| init_state := config_to_inc_config cake_config ;
-       compiler_fun := compile_inc_progs_for_eval cake_config.lab_conf.asm_conf ;
+    <| init_state := cake_config ;
+       compiler_fun := compile_inc_progs_for_eval ag32_config ;
        config_dom := UNIV ;
-       config_v := BACKEND_INC_CONFIG_v ;
+       config_v := BACKEND_CONFIG_v ;
        decs_dom := decs_allowed ;
        decs_v := LIST_v AST_DEC_v |>
 End
 
-Triviality compiler_instance_lemma:
-  INJ compiler_instance.config_v 𝕌(:inc_config) 𝕌(:semanticPrimitives$v) ∧
-  compiler_instance.init_state = config_to_inc_config cake_config ∧
+Theorem compiler_instance_lemma[local]:
+  INJ compiler_instance.config_v 𝕌(:backend$config) 𝕌(:semanticPrimitives$v) ∧
+  compiler_instance.init_state = cake_config ∧
   compiler_instance.compiler_fun =
-    compile_inc_progs_for_eval cake_config.lab_conf.asm_conf
+    compile_inc_progs_for_eval ag32_config
 Proof
   fs [compiler_instance_def]
-QED
-
-Theorem cake_config_lab_conf_asm_conf:
-  cake_config.lab_conf.asm_conf = ag32_config
-Proof
-  assume_tac $ cj 1 compiler32_compiled
-  \\ drule compile_asm_config_eq
-  \\ gvs [backendTheory.set_oracle_def]
-  \\ strip_tac \\ EVAL_TAC
 QED
 
 val cake_io_events_def = new_specification("cake_io_events_def",["cake_io_events"],
@@ -174,8 +165,7 @@ Proof
   \\ disch_then drule
   \\ strip_tac
   \\ simp[ag32_memoryTheory.ffi_exitpcs_def]
-  \\ conj_tac >- (simp[LENGTH_code] \\ EVAL_TAC)
-  \\ conj_tac >- (simp[LENGTH_code, LENGTH_data] \\ EVAL_TAC)
+  \\ rpt (conj_tac >- (simp[LENGTH_code, LENGTH_data] \\ EVAL_TAC))
   \\ asm_exists_tac \\ simp[]
   \\ last_x_assum $ irule_at Any \\ fs []
 QED
@@ -273,7 +263,7 @@ Proof
   \\ simp[AFUPDKEY_ALOOKUP]
   \\ TOP_CASE_TAC
   \\ TOP_CASE_TAC
-  \\ fs[]
+  \\ fs[mlstringTheory.implode_def]
 QED
 
 Theorem ALOOKUP_add_stderr_inode_tbl:
@@ -296,7 +286,7 @@ Proof
   \\ simp[AFUPDKEY_ALOOKUP]
   \\ TOP_CASE_TAC
   \\ TOP_CASE_TAC
-  \\ fs[]
+  \\ fs[mlstringTheory.implode_def]
 QED
 
 Theorem ALOOKUP_add_stdout_infds:
@@ -382,7 +372,7 @@ Proof
     >- (
       simp[stdin_fs_def]
       \\ qexists_tac`implode""`
-      \\ simp[] )
+      \\ simp[mlstringTheory.implode_def] )
     \\ simp[Once stdin_fs_def, AFUPDKEY_def]
     \\ Cases \\ simp[] \\ strip_tac \\ rveq
     \\ pop_assum mp_tac
@@ -395,6 +385,7 @@ Proof
       \\ simp[AFUPDKEY_ALOOKUP]
       \\ disch_then match_mp_tac
       \\ rw[fsFFIPropsTheory.inFS_fname_def]
+      \\ fs[mlstringTheory.implode_def]
       >- (
         fs[CaseEq"option",CaseEq"bool",FORALL_PROD]
         \\ rw[] \\ CCONTR_TAC \\ fs[]
@@ -402,7 +393,8 @@ Proof
       >- (
         pop_assum mp_tac
         \\ rw[] \\ fs[] \\ rw[]
-        \\ pop_assum mp_tac \\ rw[])
+        \\ pop_assum mp_tac \\ rw[]
+        \\ fs[mlstringTheory.implode_def])
       >- ( rw[] \\ rw[OPTREL_def]))))>>
   IF_CASES_TAC>>fs[]
   \\ (simp[TextIOProofTheory.add_stdout_fastForwardFD, STD_streams_stdin_fs]
@@ -546,9 +538,7 @@ Proof
   \\ impl_tac >- fs[STD_streams_stdin_fs, wfFS_stdin_fs]
   \\ strip_tac
   \\ irule ag32_next
-  \\ conj_tac >- simp[ffi_names,extcalls_def]
-  \\ conj_tac >- (simp[ffi_names,extcalls_def, LENGTH_code, LENGTH_data] \\ EVAL_TAC)
-  \\ conj_tac >- (simp[ffi_names,extcalls_def] \\ EVAL_TAC)
+  \\ rpt (conj_tac >- (simp[ffi_names,extcalls_def, LENGTH_code, LENGTH_data] \\ EVAL_TAC))
   \\ goal_assum(first_assum o mp_then Any mp_tac)
   \\ goal_assum(first_assum o mp_then Any mp_tac)
   \\ goal_assum(first_assum o mp_then Any mp_tac)
@@ -562,5 +552,3 @@ Proof
   \\ goal_assum(first_assum o mp_then Any mp_tac)
   \\ metis_tac[]
 QED
-
-val _ = export_theory();

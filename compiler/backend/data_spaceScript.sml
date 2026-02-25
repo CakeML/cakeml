@@ -4,11 +4,13 @@
   wordLang code. By lumping together MakeSpace operations we turn
   several calls to the memory allocator into a single efficient call.
 *)
-open preamble dataLangTheory;
+Theory data_space
+Ancestors
+  dataLang
+Libs
+  preamble
 
-val _ = new_theory "data_space";
-
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 Definition num_size_def:
   num_size (n:num) =
@@ -36,6 +38,7 @@ Definition op_space_req_def:
   (op_space_req (WordOp (FP_uop _)) _ = 3) /\
   (op_space_req (WordOp (FP_bop _)) _ = 3) /\
   (op_space_req (WordOp (FP_top _)) _ = 3) /\
+  (op_space_req (ThunkOp (AllocThunk _)) l = l + 1) /\
   (op_space_req _ _ = 0)
 End
 
@@ -43,7 +46,7 @@ End
 Theorem op_space_req_pmatch:
   !op l.
   op_space_req op l =
-    case op of
+    pmatch op of
       Cons _ => if l = 0n then 0 else l+1
     | Ref => l + 1
     | WordOp (WordOpw W64 _) => 3
@@ -71,14 +74,14 @@ Definition space_def:
   (space (Seq c1 c2) =
      let d1 = pMakeSpace (space c1) in
      let x2 = space c2 in
-       dtcase x2 of
+       case x2 of
        | INL c4 =>
-          (dtcase c1 of
+          (case c1 of
            | MakeSpace k names => INR (k,names,c4)
            | Skip => INL c4
            | _ => INL (Seq d1 c4))
        | INR (k2,names2,c4) =>
-          (dtcase c1 of
+          (case c1 of
            | Skip => INR (k2,names2,c4)
            | MakeSpace k1 names1 => INR (k2,inter names1 names2,c4)
            | Move dest src =>
@@ -97,19 +100,19 @@ End
 Theorem space_pmatch:
   ∀c.
   space c =
-    case c of
+    pmatch c of
     | MakeSpace k names => INR (k,names,Skip)
     | Seq c1 c2 => (
      let d1 = pMakeSpace (space c1) in
      let x2 = space c2 in
-       case x2 of
+       pmatch x2 of
        | INL c4 =>
-          (case c1 of
+          (pmatch c1 of
            | MakeSpace k names => INR (k,names,c4)
            | Skip => INL c4
            | _ => INL (Seq d1 c4))
        | INR (k2,names2,c4) =>
-          (case c1 of
+          (pmatch c1 of
            | Skip => INR (k2,names2,c4)
            | MakeSpace k1 names1 => INR (k2,inter names1 names2,c4)
            | Move dest src =>
@@ -134,4 +137,3 @@ Definition compile_def:
   compile c = pMakeSpace (space c)
 End
 
-val _ = export_theory();

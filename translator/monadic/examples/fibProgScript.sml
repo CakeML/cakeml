@@ -5,18 +5,22 @@
 *)
 
 (* Load the interface to the monadic translator, and basis for IO *)
-open preamble basisProgTheory ml_monad_translator_interfaceLib
+Theory fibProg
+Ancestors
+  basisProg ml_monad_translator
+Libs
+  preamble ml_monad_translator_interfaceLib
 
-val _ = new_theory "fibProg"
+val _ = set_up_monadic_translator ();
 
 val _ = translation_extends "basisProg";
 
 (*
  * Pattern matching
- * Note that `dtcase` has to be used from now on in the
+ * Note that `case` has to be used from now on in the
  * function definitions (and not `case`)
  *)
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 (* Create the data type to handle the references and I/O. *)
 Datatype:
@@ -39,12 +43,12 @@ val _ = start_translation config;
 
 (* Monadic translations *)
 Definition hd_def:
-  hd l = dtcase l of [] => raise_Fail | x::l' => return x
+  hd l = case l of [] => raise_Fail | x::l' => return x
 End
 
 Definition str_to_num_def:
   str_to_num (s:mlstring) =
-    dtcase mlint$fromString s of
+    case mlint$fromString s of
       NONE => raise_Fail
     | SOME i => if i < 0i then raise_Fail else return (Num i)
 End
@@ -83,5 +87,3 @@ val str_to_num_side = Q.prove (
 val res = translate num_to_str_def
 val res = translate fiba_def
 val res = m_translate fibm_def
-
-val _ = export_theory ();

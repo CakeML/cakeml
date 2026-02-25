@@ -3,21 +3,24 @@
   monadic functions using IO primitives from the basis library.
 *)
 
+Theory helloProg
 (* Load the interface to the monadic translator, and basis for IO *)
-open preamble basisProgTheory ml_monad_translator_interfaceLib
+Ancestors
+  basisProg ml_monad_translator
+Libs
+  preamble ml_monad_translator_interfaceLib
+  (* Load cfMonadLib for the cf app spec *)
+  cfMonadLib
 
-(* Load cfMonadLib for the cf app spec *)
-open cfMonadLib
-
-val _ = new_theory "helloProg"
+val _ = set_up_monadic_translator ();
 
 val _ = translation_extends "basisProg";
 
 (* Pattern matching
- * Note that `dtcase` has to be used from now on in the
+ * Note that `case` has to be used from now on in the
  * function definitions (and not `case`)
  *)
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 (* Create the data type to handle the references and I/O. *)
 Datatype:
@@ -40,7 +43,7 @@ End
 
 (* A recursive monadic function *)
 Definition rec_fun_def:
-  rec_fun l = dtcase l of []    => return (0 : num)
+  rec_fun l = case l of []    => return (0 : num)
                         | x::l' => do x <- rec_fun l'; return (1+x) od
 End
 
@@ -82,5 +85,3 @@ val res = m_translate hello_def;
 
 Theorem hello_app_thm =
   cfMonadLib.mk_app_of_ArrowP res |> SPEC_ALL
-
-val _ = export_theory ();

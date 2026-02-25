@@ -1,9 +1,11 @@
 (*
   Define the compiler configuration for ag32
 *)
-open preamble backendTheory ag32_targetTheory ag32_targetLib
-
-val _ = new_theory"ag32_config";
+Theory ag32_config
+Ancestors
+  backend ag32_target
+Libs
+  preamble ag32_targetLib
 
 Definition ag32_names_def:
   ag32_names = LN:num num_map
@@ -18,7 +20,7 @@ val word_to_word_conf = ``<| reg_alg:=2; col_oracle := [] |>``
 val ag32_data_conf = ``<| tag_bits:=0; len_bits:=0; pad_bits:=1; len_size:=20; has_div:=F; has_longdiv:=F; has_fp_ops:=F; has_fp_tern:=F; be:=F; call_empty_ffi:=F; gc_kind:=Simple|>``
 val ag32_word_conf = ``<| bitmaps_length := 0; stack_frame_size := LN |>``
 val ag32_stack_conf = ``<|jump:=T;reg_names:=ag32_names|>``
-val ag32_lab_conf = ``<|pos:=0;ffi_names:=NONE;labels:=LN;sec_pos_len:=[];asm_conf:=ag32_config;init_clock:=5;hash_size:=104729n;shmem_extra:=[]|>``
+val ag32_lab_conf = ``<|pos:=0;ffi_names:=NONE;labels:=LN;sec_pos_len:=[];init_clock:=5;hash_size:=104729n;shmem_extra:=[]|>``
 
 Definition ag32_backend_config_def:
   ag32_backend_config =
@@ -36,4 +38,3 @@ Definition ag32_backend_config_def:
                |>
 End
 
-val _ = export_theory();

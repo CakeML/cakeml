@@ -3,13 +3,12 @@
   theorem with the compiler evaluation theorem to produce end-to-end
   correctness theorem that reaches final machine code.
 *)
-open preamble
-     semanticsPropsTheory backendProofTheory x64_configProofTheory
-     TextIOProofTheory
-     mccisProgTheory
-     mcisTheory mccisCompileTheory;
-
-val _ = new_theory"mccisProof";
+Theory mccisProof
+Ancestors
+  semanticsProps backendProof x64_configProof TextIOProof
+  mccisProg mcis mccisCompile
+Libs
+  preamble
 
 val cake_pb_mccis_io_events_def = new_specification("cake_pb_mccis_io_events_def",["cake_pb_mccis_io_events"],
   main_semantics |> Q.GENL[`cl`,`fs`]
@@ -39,7 +38,7 @@ Theorem cake_pb_mccis_compiled_thm =
 (* Prettifying the standard parts of all the theorems *)
 Definition installed_x64_def:
   installed_x64 ((code, data, cfg) :
-      (word8 list # word64 list # 64 backend$config))
+      (word8 list # word64 list # backend$config))
     mc ms
   <=>
     ?cbspace data_sp.
@@ -78,7 +77,7 @@ Theorem machine_code_sound:
         get_graph_lad fs (EL 2 cl) = SOME gt ∧
         (
           (LENGTH cl = 3 ∧
-            out = concat (print_prob (mk_prob (full_encode_mccis gp gt)))) ∨
+            out = concat (print_annot_prob (mk_prob (full_encode_mccis gp gt)))) ∨
           (LENGTH cl = 4 ∧
             (
               out = mccis_eq_str (max_ccis_size gp gt) ∨
@@ -120,4 +119,3 @@ QED
 
 val chk = machine_code_sound |> check_thm;
 
-val _ = export_theory();

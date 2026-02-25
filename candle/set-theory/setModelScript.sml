@@ -2,9 +2,11 @@
   An example universe satisfying is_set_theory and (assuming the
   existence of an infinite set) is_model.
 *)
-open preamble bitTheory setSpecTheory
-
-val _ = new_theory"setModel"
+Theory setModel
+Ancestors
+  numposrep bit setSpec
+Libs
+  preamble
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
@@ -223,7 +225,7 @@ Proof
   metis_tac[V_bij]
 QED
 
-Triviality V_choice_exists:
+Theorem V_choice_exists[local]:
   ∃ch. is_choice V_mem ch
 Proof
   simp[is_choice_def,GSYM SKOLEM_THM] >>
@@ -247,5 +249,3 @@ Theorem is_model_V:
 Proof
   simp[is_model_def,is_set_theory_V,V_choice_def,V_indset_def]
 QED
-
-val _ = export_theory()

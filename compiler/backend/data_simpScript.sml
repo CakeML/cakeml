@@ -15,9 +15,11 @@
 
     Seq (Seq x1 x2) x3 --> Seq x1 (Seq x2 x3)
 *)
-open preamble dataLangTheory;
-
-val _ = new_theory "data_simp";
+Theory data_simp
+Ancestors
+  dataLang
+Libs
+  preamble
 
 Definition pSeq_def:
   pSeq c1 c2 =
@@ -36,4 +38,3 @@ Definition simp_def:
   (simp c1 c2 = pSeq c1 c2)
 End
 
-val _ = export_theory();

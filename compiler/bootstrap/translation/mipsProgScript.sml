@@ -1,6 +1,12 @@
 (*
   Translate the MIPS instruction encoder and MIPS-specific config.
 *)
+Theory mipsProg[no_sig_docs]
+Ancestors
+  evaluate ml_translator riscvProg mips_target mips
+Libs
+  preamble ml_translatorLib inliningLib
+
 open preamble;
 open evaluateTheory
 open ml_translatorLib ml_translatorTheory;
@@ -10,10 +16,7 @@ open inliningLib;
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
-val _ = new_theory "mipsProg"
-
 val _ = translation_extends "riscvProg";
-val _ = ml_translatorLib.use_string_type true;
 val _ = ml_translatorLib.use_sub_check true;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "mipsProg");
@@ -21,7 +24,7 @@ val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "mipsProg");
 val _ = add_preferred_thy "-";
 val _ = add_preferred_thy "termination";
 
-Triviality NOT_NIL_AND_LEMMA:
+Theorem NOT_NIL_AND_LEMMA[local]:
   (b <> [] /\ x) = if b = [] then F else x
 Proof
   Cases_on `b` THEN FULL_SIMP_TAC std_ss []
@@ -108,19 +111,37 @@ val binopimmth = reconstruct_case ``mips_enc (Inst (Arith (Binop b n n0 (Imm c))
 
 val binopth = reconstruct_case ``mips_enc(Inst (Arith (Binop b n n0 r)))`` (rand o rand o rand o rand) [binopregth,binopimmth]
 
-val shiftths =
-  shift
-  |> SIMP_RULE(srw_ss()++LET_ss++DatatypeSimps.expand_type_quants_ss[``:shift``])
-      (Q.ISPEC`(λ(f,n). P f n)` COND_RAND::
-       Q.ISPEC`LIST_BIND`COND_RAND ::
-       COND_RATOR ::
-       mips_sh32_def :: mips_sh_def ::
-      defaults)
-  |> CONJUNCTS
-  |> map (fn th => th |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO])
+val (shiftreg_aux::shiftimm_aux::_) = shift |> SIMP_RULE (srw_ss() ++
+  DatatypeSimps.expand_type_quants_ss [``:64 reg_imm``])
+  [FORALL_AND_THM] |> CONJUNCTS |> map (SIMP_RULE (srw_ss() ++ LET_ss ++
+  DatatypeSimps.expand_type_quants_ss [``:shift``]) []);
 
-val shiftth = reconstruct_case ``mips_enc(Inst (Arith (Shift s n n0 n1)))``
-  (rand o funpow 3 rator o funpow 3 rand) shiftths
+val shiftreg = shiftreg_aux |> CONJUNCTS
+  |> map(fn th => th
+    |> SIMP_RULE (srw_ss()++LET_ss)
+        (Q.ISPEC`(λ(f,n). P f n)` COND_RAND::
+         Q.ISPEC`LIST_BIND`COND_RAND ::
+         COND_RATOR ::
+         mips_sh32_def :: mips_sh_def :: defaults)
+    |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO]);
+
+val shiftregth = reconstruct_case ``mips_enc (Inst (Arith (Shift b n n0
+  (Reg n'))))`` (rand o rator o rator o rator o rand o rand o rand) shiftreg;
+
+val shiftimm = shiftimm_aux |> CONJUNCTS
+  |> map(fn th => th
+    |> SIMP_RULE (srw_ss()++LET_ss)
+        (Q.ISPEC`(λ(f,n). P f n)` COND_RAND::
+         Q.ISPEC`LIST_BIND`COND_RAND ::
+         COND_RATOR ::
+         mips_sh32_def :: mips_sh_def :: defaults)
+    |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO]);
+
+val shiftimmth = reconstruct_case ``mips_enc (Inst (Arith (Shift b n n0
+  (Imm c))))`` (rand o rator o rator o rator o rand o rand o rand) shiftimm;
+
+val shiftth = reconstruct_case ``mips_enc(Inst (Arith (Shift b n n0
+  r)))`` (rand o rand o rand o rand) [shiftregth,shiftimmth]
 
 val mips_enc1_3_aux = binopth :: shiftth :: map (fn th => th |>
 SIMP_RULE (srw_ss()) defaults |> wc_simp |> we_simp |> gconv |>
@@ -271,11 +292,23 @@ val d1 = CONJ d1 $ Define ‘mips_enc_Mem_Store a b c =
 val d1 = CONJ d1 $ Define ‘mips_enc_Mem_Store8 a b c =
                     mips_enc (Inst (Mem Store8 a (Addr b c)))’
   |> SIMP_RULE std_ss [mips_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘mips_enc_Mem_Store16 a b c =
+                    mips_enc (Inst (Mem Store16 a (Addr b c)))’
+  |> SIMP_RULE std_ss [mips_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘mips_enc_Mem_Store32 a b c =
+                    mips_enc (Inst (Mem Store32 a (Addr b c)))’
+  |> SIMP_RULE std_ss [mips_enc_thm,cases_defs,APPEND]
 val d1 = CONJ d1 $ Define ‘mips_enc_Mem_Load a b c =
                     mips_enc (Inst (Mem Load a (Addr b c)))’
   |> SIMP_RULE std_ss [mips_enc_thm,cases_defs,APPEND]
 val d1 = CONJ d1 $ Define ‘mips_enc_Mem_Load8 a b c =
                     mips_enc (Inst (Mem Load8 a (Addr b c)))’
+  |> SIMP_RULE std_ss [mips_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘mips_enc_Mem_Load16 a b c =
+                    mips_enc (Inst (Mem Load16 a (Addr b c)))’
+  |> SIMP_RULE std_ss [mips_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘mips_enc_Mem_Load32 a b c =
+                    mips_enc (Inst (Mem Load32 a (Addr b c)))’
   |> SIMP_RULE std_ss [mips_enc_thm,cases_defs,APPEND]
 val d1 = CONJ d1 $ Define ‘mips_enc_Arith_SubOverflow a b c d =
                     mips_enc (Inst (Arith (SubOverflow a b c d)))’
@@ -295,17 +328,30 @@ val d1 = CONJ d1 $ Define ‘mips_enc_Arith_LongDiv a b c d e =
 val d1 = CONJ d1 $ Define ‘mips_enc_Arith_Div a b c =
                     mips_enc (Inst (Arith (Div a b c)))’
   |> SIMP_RULE std_ss [mips_enc_thm,cases_defs,APPEND]
-val d1 = CONJ d1 $ Define ‘mips_enc_Arith_Shift_Ror a b c =
-                    mips_enc (Inst (Arith (Shift Ror a b c)))’
+val d1 = CONJ d1 $ Define ‘mips_enc_Arith_Ror_Imm a b c =
+                    mips_enc (Inst (Arith (Shift Ror a b (Imm c))))’
   |> SIMP_RULE std_ss [mips_enc_thm,cases_defs,APPEND]
-val d1 = CONJ d1 $ Define ‘mips_enc_Arith_Shift_Asr a b c =
-                    mips_enc (Inst (Arith (Shift Asr a b c)))’
+val d1 = CONJ d1 $ Define ‘mips_enc_Arith_Asr_Imm a b c =
+                    mips_enc (Inst (Arith (Shift Asr a b (Imm c))))’
   |> SIMP_RULE std_ss [mips_enc_thm,cases_defs,APPEND]
-val d1 = CONJ d1 $ Define ‘mips_enc_Arith_Shift_Lsr a b c =
-                    mips_enc (Inst (Arith (Shift Lsr a b c)))’
+val d1 = CONJ d1 $ Define ‘mips_enc_Arith_Lsr_Imm a b c =
+                    mips_enc (Inst (Arith (Shift Lsr a b (Imm c))))’
   |> SIMP_RULE std_ss [mips_enc_thm,cases_defs,APPEND]
-val d1 = CONJ d1 $ Define ‘mips_enc_Arith_Shift_Lsl a b c =
-                    mips_enc (Inst (Arith (Shift Lsl a b c)))’
+val d1 = CONJ d1 $ Define ‘mips_enc_Arith_Lsl_Imm a b c =
+                    mips_enc (Inst (Arith (Shift Lsl a b (Imm c))))’
+  |> SIMP_RULE std_ss [mips_enc_thm,cases_defs,APPEND]
+
+val d1 = CONJ d1 $ Define ‘mips_enc_Arith_Ror_Reg a b c =
+                    mips_enc (Inst (Arith (Shift Ror a b (Reg c))))’
+  |> SIMP_RULE std_ss [mips_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘mips_enc_Arith_Asr_Reg a b c =
+                    mips_enc (Inst (Arith (Shift Asr a b (Reg c))))’
+  |> SIMP_RULE std_ss [mips_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘mips_enc_Arith_Lsr_Reg a b c =
+                    mips_enc (Inst (Arith (Shift Lsr a b (Reg c))))’
+  |> SIMP_RULE std_ss [mips_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘mips_enc_Arith_Lsl_Reg a b c =
+                    mips_enc (Inst (Arith (Shift Lsl a b (Reg c))))’
   |> SIMP_RULE std_ss [mips_enc_thm,cases_defs,APPEND]
 val d1 = CONJ d1 $ Define ‘mips_enc_Arith_Add_Imm a b c =
                     mips_enc (Inst (Arith (Binop Add a b (Imm c))))’
@@ -387,10 +433,7 @@ val res = translate def;
 Theorem mips_config_v_thm[allow_rebind] = translate
   (mips_config_def |> SIMP_RULE bool_ss [IN_INSERT,NOT_IN_EMPTY]|> econv);
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
 val _ = (ml_translatorLib.clean_on_exit := true);
-
-val _ = export_theory();

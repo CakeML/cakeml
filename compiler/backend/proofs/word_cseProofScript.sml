@@ -1,13 +1,12 @@
 (*
   Correctness proof for word_cse
 *)
-open preamble alistTheory totoTheory;
-open wordLangTheory wordSemTheory wordPropsTheory reg_allocTheory;
-open word_simpTheory word_cseTheory helperLib;
-open wordConvsTheory
-val _ = new_theory "word_cseProof";
-
-val _ = set_grammar_ancestry ["wordLang", "wordSem", "wordProps", "word_cse"];
+Theory word_cseProof
+Libs
+  preamble helperLib
+Ancestors
+  wordLang wordSem wordProps word_cse alist toto reg_alloc
+  word_simp wordConvs
 
 Definition data_inv_def:
   data_inv (data:knowledge) (s:('a,'c,'ffi) wordSem$state) ⇔
@@ -115,6 +114,7 @@ Theorem is_complex_canonical[simp]:
   ∀data a. is_complex (canonicalArith data a) = is_complex a
 Proof
   Cases_on ‘a’ \\ gvs [canonicalArith_def, is_complex_def]
+  \\ Cases_on`r` \\ EVAL_TAC \\rw[]
 QED
 
 Theorem wordToNum_unique[simp]:
@@ -182,11 +182,17 @@ Proof
       \\ gvs [AllCaseEqs(), firstRegOfArith_def]
       \\ gvs [state_component_equality]
       \\ gvs [insert_eq])
-  >- (gvs [evaluate_def, inst_def, assign_def, word_exp_def, the_words_def]
-      \\ Cases_on ‘n0=r’ \\ gvs [get_var_def,set_var_def,lookup_insert]
-      \\ gvs[AllCaseEqs()]
-      \\ gvs [state_component_equality, firstRegOfArith_def]
-      \\ gvs[insert_eq])
+  >- (Cases_on ‘r'’ \\ gvs [are_reads_seen_def]
+      \\ gvs [evaluate_def, inst_def, assign_def, word_exp_def, the_words_def]
+      >- (
+          Cases_on ‘n0=r’ \\ gvs [get_var_def,set_var_def, lookup_insert]
+          \\ Cases_on ‘n'=r’ \\ gvs [AllCaseEqs(), firstRegOfArith_def]
+          \\ gvs [state_component_equality]
+          \\ gvs [insert_eq])
+      \\ Cases_on ‘n0=r’ \\ gvs [get_var_def,set_var_def, lookup_insert]
+      \\ gvs [AllCaseEqs(), firstRegOfArith_def]
+      \\ gvs [state_component_equality]
+      \\ gvs [insert_eq])
   \\ gvs [evaluate_def, inst_def, assign_def]
   \\ gvs [get_vars_def, get_var_def, set_var_def, lookup_insert]
   \\ Cases_on ‘n1=r’ \\ gvs []
@@ -220,10 +226,15 @@ Proof
       \\ gvs [AllCaseEqs(), firstRegOfArith_def]
       \\ gvs [state_component_equality]
       \\ gvs [insert_eq])
-  >- (gvs [evaluate_def, inst_def, assign_def, word_exp_def, the_words_def]
-          \\ gvs [get_var_def,set_var_def, lookup_insert]
-      \\ Cases_on ‘n0=r’ \\ gvs [AllCaseEqs()]
-      \\ gvs [state_component_equality, firstRegOfArith_def]
+  >- (Cases_on ‘r'’ \\ gvs [are_reads_seen_def]
+      \\ gvs [evaluate_def, inst_def, assign_def, word_exp_def, the_words_def]
+      >- (Cases_on ‘n0=r’ \\ gvs [get_var_def,set_var_def, lookup_insert]
+          \\ Cases_on ‘n'=r’ \\ gvs [AllCaseEqs(), firstRegOfArith_def]
+          \\ gvs [state_component_equality]
+          \\ gvs [insert_eq])
+      \\ Cases_on ‘n0=r’ \\ gvs [get_var_def,set_var_def, lookup_insert]
+      \\ gvs [AllCaseEqs(), firstRegOfArith_def]
+      \\ gvs [state_component_equality]
       \\ gvs [insert_eq])
   \\ gvs [evaluate_def, inst_def, assign_def]
   \\ gvs [get_vars_def, get_var_def, set_var_def, lookup_insert]
@@ -591,6 +602,7 @@ Proof
   Induct \\ rpt strip_tac \\ gvs [list_insert_def]
   \\ Cases_on ‘a’ \\ gvs [is_complex_def, are_reads_seen_def, is_seen_def]
   >- (Cases_on ‘r’ \\ gvs [are_reads_seen_def, is_seen_def])
+  >- (Cases_on ‘r’ \\ gvs [are_reads_seen_def, is_seen_def])
   >- (Cases_on ‘r’ \\ gvs [are_reads_seen_def, is_seen_def]
       \\ gvs [list_insert_insert, lookup_insert]
       >- (‘¬is_complex (Binop Add n n0 (Reg n'))’ by gvs [is_complex_def]
@@ -603,11 +615,13 @@ Proof
       \\ gvs [are_reads_seen_def, is_seen_def]
       \\ pop_assum drule_all \\ strip_tac
       \\ Cases_on ‘n0=h’ \\ gvs [])
-  >- (‘¬is_complex (Shift s d n0 x)’ by gvs [is_complex_def]
-      \\ last_x_assum drule \\ strip_tac
-      \\ gvs [are_reads_seen_def, is_seen_def, list_insert_insert]
-      \\ pop_assum drule_all \\ strip_tac
-      \\ Cases_on ‘n0=h’ \\ gvs [lookup_insert])
+  >- (rename1 ‘Shift s n n0’
+      \\ ‘¬is_complex (Shift s n n0 r)’ by gvs [is_complex_def]
+      \\ last_x_assum drule_all \\ strip_tac
+      \\ Cases_on ‘r’
+      \\ gvs [are_reads_seen_def, is_seen_def, list_insert_insert, lookup_insert]
+      \\ IF_CASES_TAC \\ gvs []
+      \\ IF_CASES_TAC \\ gvs [])
   \\ ‘¬is_complex (Div n n0 n1)’ by gvs [is_complex_def]
   \\ last_x_assum drule \\ strip_tac
   \\ gvs [are_reads_seen_def, is_seen_def, list_insert_insert]
@@ -890,16 +904,21 @@ Proof
       \\ Cases_on ‘src=n’ \\ gvs [lookup_insert]
       \\ Cases_on ‘v=n’ \\ gvs [get_var_def, set_var_def, lookup_insert, domain_lookup]
       \\ gvs [word_exp_def, get_var_def,lookup_insert])
+
   >- (rpt conj_tac
       >- (rpt gen_tac \\ strip_tac \\ last_x_assum drule \\ strip_tac
-          \\ gvs [get_var_def, set_var_def, domain_lookup, is_seen_def]
-          \\ Cases_on ‘r=n’ \\ Cases_on ‘v=n’ \\ gvs [lookup_insert])
+          \\ gvs [get_var_def, set_var_def, domain_lookup, is_seen_def, lookup_insert]
+          \\ IF_CASES_TAC \\ gvs []
+          \\ IF_CASES_TAC \\ gvs [])
       >- (rpt gen_tac \\ strip_tac \\ gvs [lookup_insert_simp, instToNumList_def]
           \\ first_x_assum drule \\ strip_tac
           \\ Cases_on ‘v=n’ \\ gvs [set_var_def, lookup_insert, is_seen_def, domain_lookup])
+
       >- (rpt gen_tac \\ strip_tac \\ gvs [lookup_insert_simp, instToNumList_def]
           \\ gvs [AllCaseEqs()]
+
           >- (Cases_on ‘a’ \\ gvs [arithToNumList_def, canonicalArith_def]
+              \\ Cases_on ‘r’ \\ Cases_on ‘r'’ \\ gvs []
               \\ ‘s'=s''’ by (Cases_on ‘s'’ \\ Cases_on ‘s''’ \\ gvs [shiftToNum_def])
               \\ gvs [canonicalRegs_def, canonicalImmReg_def,
                       canonicalRegs'_def, canonicalImmReg'_def,
@@ -1008,25 +1027,45 @@ Proof
          \\ first_x_assum drule \\ pop_assum kall_tac \\ strip_tac
          \\ Cases_on ‘v=n’ \\ gvs [get_var_def, set_var_def, lookup_insert, domain_lookup, is_seen_def]
          \\ Cases_on ‘src=n’ \\ gvs [word_exp_def,get_var_def,lookup_insert]))
-  (* Shift and Div *)
-  \\ (rpt conj_tac
-      >- (rpt gen_tac
-          \\ Cases_on ‘r=n’ \\ gvs [lookup_insert, domain_lookup, is_seen_def]
-          >- (strip_tac \\ Cases_on ‘v=n’ \\ gvs [get_var_def, set_var_def, lookup_insert])
-          \\ strip_tac \\ first_x_assum drule \\ strip_tac
-          \\ Cases_on ‘r'=n’ \\ Cases_on ‘v=n’ \\ gvs [set_var_def, get_var_def, lookup_insert])
-      >- (rpt gen_tac \\ strip_tac
-          \\ first_x_assum drule \\ pop_assum kall_tac \\ strip_tac
-          \\ Cases_on ‘v=n’ \\ gvs [set_var_def, lookup_insert, domain_lookup, is_seen_def])
-      >- (rpt gen_tac \\ strip_tac
-          \\ first_x_assum drule \\ pop_assum kall_tac \\ strip_tac
-          \\ Cases_on ‘v=n’ \\ gvs [get_var_def, set_var_def, lookup_insert, domain_lookup, is_seen_def]
-          \\ qspecl_then [‘a'’, ‘w'’, ‘s’, ‘n’, ‘w’] assume_tac evaluate_arith_insert
-          \\ gvs [is_seen_def, evaluate_def, set_var_def])
-      \\rpt gen_tac \\ strip_tac
+  >- (* Shift *)
+   ( Cases_on ‘r’ \\ gvs [are_reads_seen_def]
+     \\ (rpt conj_tac
+         >- (rpt gen_tac
+             \\ Cases_on ‘r'=n’ \\ gvs [lookup_insert, domain_lookup, is_seen_def]
+             >- (strip_tac \\ Cases_on ‘v=n’ \\ gvs [get_var_def, set_var_def, lookup_insert])
+             \\ strip_tac \\ first_x_assum drule \\ strip_tac
+             \\ Cases_on ‘r'=n’ \\ Cases_on ‘v=n’ \\ gvs [set_var_def, get_var_def, lookup_insert])
+         >- (rpt gen_tac \\ strip_tac
+             \\ first_x_assum drule \\ pop_assum kall_tac \\ strip_tac
+             \\ Cases_on ‘v=n’ \\ gvs [set_var_def, lookup_insert, domain_lookup, is_seen_def])
+         >- (rpt gen_tac \\ strip_tac
+             \\ first_x_assum drule \\ pop_assum kall_tac \\ strip_tac
+             \\ Cases_on ‘v=n’ \\ gvs [get_var_def, set_var_def, lookup_insert, domain_lookup, is_seen_def]
+             \\ qspecl_then [‘a'’, ‘w'’, ‘s’, ‘n’, ‘w’] assume_tac evaluate_arith_insert
+             \\ gvs [is_seen_def, evaluate_def, set_var_def])
+         \\rpt gen_tac \\ strip_tac
+         \\ first_x_assum drule \\ pop_assum kall_tac \\ strip_tac
+         \\ Cases_on ‘v=n’ \\ gvs [get_var_def, set_var_def, lookup_insert, domain_lookup, is_seen_def]
+         \\ Cases_on ‘src=n’ \\ gvs [word_exp_def,get_var_def,lookup_insert]))
+  (* Div *)
+  \\ rpt conj_tac
+  >- (rpt gen_tac
+      \\ Cases_on ‘r=n’ \\ gvs [lookup_insert, domain_lookup, is_seen_def]
+      >- (strip_tac \\ Cases_on ‘v=n’ \\ gvs [get_var_def, set_var_def, lookup_insert])
+      \\ strip_tac \\ first_x_assum drule \\ strip_tac
+      \\ Cases_on ‘r'=n’ \\ Cases_on ‘v=n’ \\ gvs [set_var_def, get_var_def, lookup_insert])
+  >- (rpt gen_tac \\ strip_tac
+      \\ first_x_assum drule \\ pop_assum kall_tac \\ strip_tac
+      \\ Cases_on ‘v=n’ \\ gvs [set_var_def, lookup_insert, domain_lookup, is_seen_def])
+  >- (rpt gen_tac \\ strip_tac
       \\ first_x_assum drule \\ pop_assum kall_tac \\ strip_tac
       \\ Cases_on ‘v=n’ \\ gvs [get_var_def, set_var_def, lookup_insert, domain_lookup, is_seen_def]
-      \\ Cases_on ‘src=n’ \\ gvs [word_exp_def,get_var_def, lookup_insert])
+      \\ qspecl_then [‘a'’, ‘w'’, ‘s’, ‘n’, ‘w’] assume_tac evaluate_arith_insert
+      \\ gvs [is_seen_def, evaluate_def, set_var_def])
+  \\ rpt gen_tac \\ strip_tac
+  \\ first_x_assum drule \\ pop_assum kall_tac \\ strip_tac
+  \\ Cases_on ‘v=n’ \\ gvs [get_var_def, set_var_def, lookup_insert, domain_lookup, is_seen_def]
+  \\ Cases_on ‘src=n’ \\ gvs [word_exp_def,get_var_def, lookup_insert]
 QED
 
 Theorem data_inv_Arith_update:
@@ -1040,7 +1079,7 @@ Proof
   \\ Cases_on ‘a’ \\ gvs [is_complex_def, inst_def, assign_def, firstRegOfArith_def, AllCaseEqs(), data_inv_set_var]
 QED
 
-Triviality if_eq_rw[simp]:
+Theorem if_eq_rw[local,simp]:
   (if x = y then y else x) = x
 Proof
   rw []
@@ -1191,6 +1230,9 @@ Proof
   \\ strip_tac
   >- (rpt gen_tac \\ strip_tac \\ first_x_assum drule_all \\ strip_tac \\ gvs []
       \\ Cases_on ‘a’ \\ gvs [is_complex_def, firstRegOfArith_def]
+      >- (gvs [evaluate_def, inst_def, assign_def] \\ Cases_on ‘r’ \\ gvs [word_exp_def, the_words_def]
+          \\ gvs [AllCaseEqs()]
+          \\ gvs [set_var_def, state_component_equality])
       >- (gvs [evaluate_def, inst_def, assign_def] \\ Cases_on ‘r’ \\ gvs [word_exp_def, the_words_def]
           \\ gvs [AllCaseEqs()]
           \\ gvs [set_var_def, state_component_equality])
@@ -1777,6 +1819,7 @@ Proof
   rpt strip_tac
   \\ Cases_on ‘a’ \\ gvs [inst_ok_less_def, canonicalArith_def, canonicalRegs_def, lookup_any_def]
   >- (Cases_on ‘r’ \\ gvs [canonicalImmReg'_def, inst_ok_less_def])
+  >- (Cases_on ‘r’ \\ gvs [canonicalImmReg'_def, inst_ok_less_def])
   >- (strip_tac \\ gvs [data_conventions_def]
       \\ Cases_on ‘lookup n1 data.map’ \\ gvs []
       \\ Cases_on ‘lookup n2 data.map’ \\ gvs []
@@ -1866,7 +1909,10 @@ Theorem inst_arg_convention_canonicalArith:
 Proof
   rpt strip_tac
   \\ Cases_on ‘a’ \\ gvs [is_complex_def]
-  \\ gvs [canonicalArith_def, inst_arg_convention_def]
+  >- (gvs [canonicalArith_def, inst_arg_convention_def]) (* Binop *)
+  >- (rename1 ‘Shift _ _ _ r’ \\ Cases_on ‘r’
+      \\ gvs [canonicalArith_def, canonicalImmReg'_def, inst_arg_convention_def,is_complex_def])
+  >- (gvs [canonicalArith_def, inst_arg_convention_def]) (* Div *)
 QED
 
 Theorem word_cse_pre_alloc_conventions:
@@ -1886,7 +1932,9 @@ Proof
       >- (gvs [add_to_data_def, add_to_data_aux_def, AllCaseEqs(),
                every_stack_var_def, call_arg_convention_def]
           \\ Cases_on ‘a’
-          \\ gvs [is_complex_def, canonicalArith_def, inst_arg_convention_def])
+          \\ gvs [is_complex_def, canonicalArith_def, inst_arg_convention_def]
+          \\ rename [‘canonicalImmReg' _ _ r’] \\ Cases_on ‘r’
+          \\ gvs [canonicalImmReg'_def, inst_arg_convention_def,is_complex_def])
       \\ Cases_on ‘a’ \\ gvs [word_cseInst_def]
       \\ Cases_on ‘m’
       \\ gvs [is_store_def, every_stack_var_def, call_arg_convention_def,
@@ -2062,5 +2110,3 @@ Proof
   fs [word_common_subexp_elim_def] \\ pairarg_tac \\ gvs []
   \\ qspecl_then [‘p’,‘empty_data’,‘ac’] mp_tac word_cse_conventions \\ fs []
 QED
-
-val _ = export_theory();

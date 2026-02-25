@@ -15,88 +15,25 @@
   of the constructors rather than the types. Type annotations are
   also gone.
 *)
+Theory flatLang
+Ancestors
+  ast backend_common
+Libs
+  preamble
 
-open preamble astTheory backend_commonTheory
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
-val _ = new_theory "flatLang";
-
-val _ = set_grammar_ancestry ["ast", "backend_common"];
-
-(* Copied from the semantics, but with AallocEmpty missing. GlobalVar ops have
- * been added, also TagLenEq and El for pattern match compilation. *)
+(* Most ops are inherited from ast$op via the Src wrapper.
+ * GlobalVar ops, TagLenEq, LenEq, El, and Id are flatLang-specific. *)
 Datatype:
  op =
-  (* Operations on integers *)
-    Opn opn
-  | Opb opb
-  (* Operations on words *)
-  | Opw word_size opw
-  | Shift word_size shift num
-  | Equality
-  (* FP operations *)
-  | FP_cmp fp_cmp
-  | FP_uop fp_uop
-  | FP_bop fp_bop
-  | FP_top fp_top
-  (* Function application *)
-  | Opapp
-  (* Reference operations *)
-  | Opassign
-  | Opref
- (* Opderef -- replaced by El, later in this list *)
-  (* Word8Array operations *)
-  | Aw8alloc
-  | Aw8sub
-  | Aw8length
-  | Aw8update
-  (* Word/integer conversions *)
-  | WordFromInt word_size
-  | WordToInt word_size
-  (* string/bytearray conversions *)
-  | CopyStrStr
-  | CopyStrAw8
-  | CopyAw8Str
-  | CopyAw8Aw8
-  (* Char operations *)
-  | Ord
-  | Chr
-  | Chopb opb
-  (* String operations *)
-  | Implode
-  | Explode
-  | Strsub
-  | Strlen
-  | Strcat
-  (* Vector operations *)
-  | VfromList
-  | Vsub
-  | Vlength
-  (* Array operations *)
-  | Aalloc
-  | AallocFixed
-  | Asub
-  | Alength
-  | Aupdate
-  (* Unsafe array operations *)
-  | Asub_unsafe
-  | Aupdate_unsafe
-  | Aw8sub_unsafe
-  | Aw8update_unsafe
-  | Aw8xor_unsafe
-  (* List operations *)
-  | ListAppend
-  (* Configure the GC *)
-  | ConfigGC
-  (* Call a given foreign function *)
-  | FFI string
+    Src ast$op
   (* Allocate the given number of new global variables *)
   | GlobalVarAlloc num
   (* Initialise given global variable *)
   | GlobalVarInit num
   (* Get the value of the given global variable *)
   | GlobalVarLookup num
-  (* Evaluate some declarations *)
-  | Eval
   (* for pattern match compilation *)
   | TagLenEq num num
   | LenEq num
@@ -214,12 +151,6 @@ QED
 Datatype:
  dec =
     Dlet exp
-  (* The first number is the identity for the type. The sptree maps arities to
-   * how many constructors have that arity *)
-  | Dtype num (num spt)
-  (* The first number is the identity of the exception. The second number is the
-   * constructor's arity *)
-  | Dexn num num
 End
 
 Definition bool_id_def:
@@ -242,12 +173,10 @@ Definition SmartIf_def:
     | _ => If t e p q
 End
 
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
-
 Theorem SmartIf_PMATCH:
   !t e p q.
     SmartIf t e p q =
-      case e of
+      pmatch e of
         Con _ (SOME (tag, SOME id)) [] =>
           if id = bool_id then
             if tag = backend_common$true_tag then p
@@ -260,5 +189,3 @@ Proof
   \\ CONV_TAC (RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
   \\ rw [SmartIf_def]
 QED
-
-val _ = export_theory ();

@@ -1,11 +1,11 @@
 (*
   Proof about the code in the byte-array module Word8Array.
 *)
-open preamble
-     ml_translatorTheory ml_translatorLib ml_progLib cfLib
-     Word8ArrayProgTheory
-
-val _ = new_theory "Word8ArrayProof";
+Theory Word8ArrayProof
+Ancestors
+  ml_translator Word8ArrayProg
+Libs
+  preamble ml_translatorLib ml_progLib cfLib
 
 val _ = translation_extends "Word8ArrayProg";
 
@@ -104,7 +104,7 @@ Theorem w8array_substring_spec:
      app (p:'ffi ffi_proj) ^(fetch_v "Word8Array.substring" (basis_st()))
        [srcv; srcoffv; lenv]
        (W8ARRAY srcv src)
-       (POSTv v. &(STRING_TYPE (strlit (MAP (CHR o w2n) (TAKE len (DROP srcoff src)))) v) *
+       (POSTv v. &(STRING_TYPE (implode (MAP (CHR o w2n) (TAKE len (DROP srcoff src)))) v) *
                  W8ARRAY srcv src)
 Proof
   prove_array_spec "Word8Array.substring"
@@ -270,5 +270,3 @@ Proof
   \\ xlet_auto >- xsimpl
   \\ xapp \\ xsimpl \\  fs[findi_def] \\ asm_exists_tac \\ fs[]
 QED
-
-val _ = export_theory()

@@ -3,11 +3,12 @@
   theorem with the compiler evaluation theorem to produce end-to-end
   correctness theorem that reaches final machine code.
 *)
-open preamble
-     semanticsPropsTheory backendProofTheory x64_configProofTheory
-     grepProgTheory grepCompileTheory
-
-val _ = new_theory"grepProof";
+Theory grepProof
+Ancestors
+  semanticsProps backendProof x64_configProof grepProg
+  grepCompile
+Libs
+  preamble
 
 val grep_io_events_def = new_specification("grep_io_events_def",["grep_io_events"],
   grep_semantics |> Q.GENL[`cl`,`fs`]
@@ -34,4 +35,3 @@ Theorem grep_compiled_thm =
   |> DISCH_ALL
   |> check_thm
 
-val _ = export_theory();

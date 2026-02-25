@@ -5,7 +5,7 @@ CakeML is a verified implementation of a significant subset of
 Standard ML.
 
 The source and proofs for CakeML are developed in the [HOL4 theorem
-prover](http://hol-theorem-prover.org). We use the latest development
+prover](http://hol-theorem-prover.org). We use the latest master
 version of [HOL4](https://github.com/HOL-Theorem-Prover/HOL), which we
 build on [PolyML 5.7.1](http://www.polyml.org).
 Example build instructions can be found in

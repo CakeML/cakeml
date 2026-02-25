@@ -1,14 +1,15 @@
 (*
   Encoding program for the killer sudoku puzzle
 *)
-open preamble basis miscTheory set_sepTheory listTheory cnfTheory;
-open boolExpToCnfTheory quantifierExpTheory orderEncodingBoolTheory;
-open numBoolExpTheory numBoolExtendedTheory numBoolRangeTheory;
-open unorderedSetsTheory sudokuTheory numberSudokuTheory killerSudokuTheory;
-open (* for parsing: *) parsingTheory source_valuesTheory;
-open toCnfHelperTheory sat_encodersProgTheory;
-
-val _ = new_theory "killerSudokuEncoderProg";
+Theory killerSudokuEncoderProg
+Ancestors
+  misc set_sep list cnf boolExpToCnf quantifierExp
+  orderEncodingBool numBoolExp numBoolExtended numBoolRange
+  unorderedSets sudoku numberSudoku killerSudoku
+  (* for parsing: *) parsing source_values
+  toCnfHelper sat_encodersProg
+Libs
+  preamble basis
 
 val _ = translation_extends "sat_encodersProg";
 
@@ -135,8 +136,9 @@ val res = translate main_function_def;
 val _ = type_of “main_function” = “:mlstring -> mlstring app_list”
         orelse failwith "The main_function has the wrong type.";
 
-val main = process_topdecs
-  `print_app_list (main_function (TextIO.inputAll TextIO.stdIn));`;
+Quote main = cakeml:
+  print_app_list (main_function (TextIO.inputAll (TextIO.openStdIn ())));
+End
 
 val prog =
   get_ml_prog_state ()
@@ -151,5 +153,3 @@ val prog =
 Definition killerSudoku_encoder_prog_def:
   killerSudoku_encoder_prog = ^prog
 End
-
-val _ = export_theory();

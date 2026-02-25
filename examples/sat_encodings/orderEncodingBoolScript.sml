@@ -2,10 +2,12 @@
   Extend pseudoBoolExp with OrderAxiom, to prepare for order encoding
   of natural numbers.
 *)
+Theory orderEncodingBool
+Ancestors
+  misc quantifierExp boolExpToCnf cnf
+Libs
+  preamble
 
-open preamble miscTheory quantifierExpTheory boolExpToCnfTheory cnfTheory;
-
-val _ = new_theory "orderEncodingBool";
 
 (* ----------------------------- Types --------------------------- *)
 
@@ -225,4 +227,3 @@ Proof
       GSYM pseudoBool_to_cnf_preserves_unsat, orderBool_to_pseudoBool_preserves_sat]
 QED
 
-val _ = export_theory();

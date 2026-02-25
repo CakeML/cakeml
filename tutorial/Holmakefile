@@ -1,4 +1,4 @@
-INCLUDES = $(HOLDIR)/examples/balanced_bst\
+INCLUDES = $(HOLDIR)/examples/data-structures/balanced_bst\
 					 $(CAKEMLDIR)/misc $(CAKEMLDIR)/semantics $(CAKEMLDIR)/semantics/proofs\
 					 $(CAKEMLDIR)/basis/pure $(CAKEMLDIR)/basis\
 					 $(CAKEMLDIR)/translator $(CAKEMLDIR)/characteristic\

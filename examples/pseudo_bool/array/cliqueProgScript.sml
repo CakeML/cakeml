@@ -1,13 +1,13 @@
 (*
   Clique encode and checker
 *)
-open preamble basis pbc_normaliseTheory graphProgTheory cliqueTheory graph_basicTheory;
-
-val _ = new_theory "cliqueProg"
+Theory cliqueProg
+Ancestors
+  basis_ffi pbc_normalise graphProg clique graph_basic
+Libs
+  preamble basis
 
 val _ = translation_extends"graphProg";
-
-val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
 
 val res = translate enc_string_def;
 val res = translate pbcTheory.map_obj_def;
@@ -18,12 +18,13 @@ val res = translate annot_string_def;
 val res = translate full_encode_eq;
 
 (* parse input from f and run encoder into pbc *)
-val parse_and_enc = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun parse_and_enc f =
   case parse_dimacs f of
     Inl err => Inl err
   | Inr g =>
-    Inr (fst g, full_encode g)`
+    Inr (fst g, full_encode g)
+End
 
 Theorem parse_and_enc_spec:
   STRING_TYPE f fv ∧
@@ -131,13 +132,13 @@ val res = translate map_concl_to_string_def;
 
 Definition mk_prob_def:
   mk_prob objf = (NONE,objf):mlstring list option #
-    ((int # mlstring lit) list # int) option #
-    (mlstring option # (pbop # (int # mlstring lit) list # int)) list
+    ((int # mlstring pbc$lit) list # int) option #
+    (mlstring option # (pbop # (int # mlstring pbc$lit) list # int)) list
 End
 
 val res = translate mk_prob_def;
 
-val check_unsat_2 = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun check_unsat_2 f1 f2 =
   case parse_and_enc f1 of
     Inl err => TextIO.output TextIO.stdErr err
@@ -151,7 +152,8 @@ val check_unsat_2 = (append_prog o process_topdecs) `
           (check_unsat_top_norm False prob probt f2) of
         Inl err => TextIO.output TextIO.stdErr err
       | Inr s => TextIO.print s)
-    end`
+    end
+End
 
 Theorem check_unsat_2_spec:
   STRING_TYPE f1 f1v ∧ validArg f1 ∧
@@ -285,7 +287,7 @@ End
 
 val res = translate check_concl_to_string_def;
 
-val check_unsat_3 = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun check_unsat_3 f1 f2 s =
   case parse_and_enc f1 of
     Inl err => TextIO.output TextIO.stdErr err
@@ -297,7 +299,8 @@ val check_unsat_3 = (append_prog o process_topdecs) `
       check_concl_to_string mc n
         (check_unsat_top_norm prob f2) of
       Inl err => TextIO.output TextIO.stdErr err
-    | Inr s => TextIO.print s)`
+    | Inr s => TextIO.print s)
+End
 
 Theorem STDIO_refl:
   STDIO A ==>>
@@ -419,12 +422,13 @@ Definition check_unsat_1_sem_def:
     out = concat (print_annot_prob (mk_prob (full_encode g)))
 End
 
-val check_unsat_1 = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun check_unsat_1 f1 =
   case parse_and_enc f1 of
     Inl err => TextIO.output TextIO.stdErr err
   | Inr (n,objf) =>
-    TextIO.print_list (print_annot_prob (mk_prob objf))`
+    TextIO.print_list (print_annot_prob (mk_prob objf))
+End
 
 Theorem check_unsat_1_spec:
   STRING_TYPE f1 f1v ∧ validArg f1 ∧
@@ -470,12 +474,13 @@ End
 
 val r = translate usage_string_def;
 
-val main = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun main u =
   case CommandLine.arguments () of
     [f1] => check_unsat_1 f1
   | [f1,f2] => check_unsat_2 f1 f2
-  | _ => TextIO.output TextIO.stdErr usage_string`
+  | _ => TextIO.output TextIO.stdErr usage_string
+End
 
 Definition main_sem_def:
   main_sem fs cl out =
@@ -594,5 +599,3 @@ Theorem main_semantics =
   |> SIMP_RULE(srw_ss())[GSYM CONJ_ASSOC,AND_IMP_INTRO];
 
 end
-
-val _ = export_theory();

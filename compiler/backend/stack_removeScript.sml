@@ -2,13 +2,14 @@
   This compiler phase implements all stack operations as normal memory
   load/store operations.
 *)
+Theory stack_remove
+Ancestors
+  stackLang
+  misc[qualified] (* for bytes_in_word *)
+  mlstring
+Libs
+  preamble
 
-open preamble stackLangTheory mlstringTheory
-
-val _ = new_theory "stack_remove";
-
-val _ = set_grammar_ancestry ["stackLang",
-  "misc" (* for bytes_in_word *) ];
 
 (* -- compiler -- *)
 
@@ -352,5 +353,3 @@ Definition compile_def:
     init_stubs gen_gc max_heap k start ++
     MAP (prog_comp jump off k) prog
 End
-
-val _ = export_theory();

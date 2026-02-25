@@ -1,17 +1,18 @@
 (*
   Set up cv translation of fmaps
 *)
-open preamble cv_transLib cv_stdTheory finite_mapTheory listTheory;
-open alistTheory stringTheory;
-
-val _ = new_theory "fmap_cv";
+Theory fmap_cv
+Libs
+  preamble cv_transLib
+Ancestors
+  mllist cv_std finite_map list alist string
 
 (* -- string as domain -- *)
 
 Definition from_str_fmap_def:
   from_str_fmap (f_a:'a -> cv) (m:string |-> 'a) =
     from_list (from_pair (from_list from_char) f_a)
-      (MAP (λk. (k, m ' k)) (QSORT string_le (SET_TO_LIST (FDOM m))))
+      (MAP (λk. (k, m ' k)) (sort string_le (SET_TO_LIST (FDOM m))))
 End
 
 Definition to_str_fmap_def:
@@ -26,32 +27,32 @@ Proof
   rw[cv_typeTheory.from_to_def]
 QED
 
-Theorem ALL_DISTINCT_QSORT_string_le[simp]:
+Theorem ALL_DISTINCT_SORT_string_le[simp]:
   FINITE xs ⇒
-  ALL_DISTINCT (QSORT string_le (SET_TO_LIST xs))
+  ALL_DISTINCT (sort string_le (SET_TO_LIST xs))
 Proof
-  simp[GSYM (MATCH_MP ALL_DISTINCT_PERM (SPEC_ALL QSORT_PERM))]
+  simp[GSYM (MATCH_MP ALL_DISTINCT_PERM (SPEC_ALL sort_PERM))]
 QED
 
-Theorem QSORT_SORTED_string_le[simp]:
-  SORTED string_le (QSORT string_le xs)
+Theorem SORT_SORTED_string_le[simp]:
+  SORTED string_le (sort string_le xs)
 Proof
-  match_mp_tac QSORT_SORTED>>
+  match_mp_tac sort_SORTED>>
   simp[transitive_def,total_def,string_le_def]>>
   metis_tac[string_lt_trans,string_lt_cases]
 QED
 
 Theorem fmap_eq_rep:
-  FEMPTY |++ MAP (λk. (k,x ' k)) (QSORT string_le (SET_TO_LIST (FDOM x))) = x
+  FEMPTY |++ MAP (λk. (k,x ' k)) (sort string_le (SET_TO_LIST (FDOM x))) = x
 Proof
   rw[fmap_eq_flookup]>>
   Cases_on`FLOOKUP x x'`>>
   rw[FLOOKUP_FUPDATE_LIST,AllCaseEqs()]
-  >- fs[ALOOKUP_FAILS,MEM_MAP,flookup_thm,QSORT_MEM] >>
+  >- fs[ALOOKUP_FAILS,MEM_MAP,flookup_thm] >>
   DEP_REWRITE_TAC[alookup_distinct_reverse] >>
   simp[MAP_MAP_o,o_DEF]>>
   DEP_REWRITE_TAC[ALOOKUP_TABULATE]>>
-  fs[flookup_thm ,QSORT_MEM]
+  fs[flookup_thm]
 QED
 
 Theorem from_to_str_fmap[cv_from_to]:
@@ -88,7 +89,7 @@ Proof
   simp[FLOOKUP_FUPDATE_LIST]>>
   DEP_REWRITE_TAC[alookup_distinct_reverse] >>
   CONJ_TAC >-
-    simp[MAP_MAP_o,o_DEF,GSYM (MATCH_MP ALL_DISTINCT_PERM (SPEC_ALL QSORT_PERM))]>>
+    simp[MAP_MAP_o,o_DEF,GSYM (MATCH_MP ALL_DISTINCT_PERM (SPEC_ALL sort_PERM))]>>
   simp[MAP_MAP_o,o_DEF]>>
   every_case_tac>>gvs[]
 QED
@@ -120,9 +121,9 @@ Proof
   simp[string_le_def]
 QED
 
-Theorem QSORT_SORTED_string_lt[simp]:
+Theorem SORT_SORTED_string_lt[simp]:
   FINITE s ⇒
-  SORTED string_lt (QSORT string_le (SET_TO_LIST s))
+  SORTED string_lt (sort string_le (SET_TO_LIST s))
 Proof
   rw[]>>match_mp_tac SORTED_string_le_string_lt>>
   simp[]
@@ -202,10 +203,10 @@ Proof
     match_mp_tac PERM_ALL_DISTINCT>>
     simp[FORALL_PROD]>>
     unabbrev_all_tac>>
-    simp[MEM_MAP,QSORT_MEM]>>
+    simp[MEM_MAP]>>
     rw[]>>
     DEP_REWRITE_TAC [MEM_str_insert]>>
-    simp[MAP_MAP_o,o_DEF,MEM_MAP,QSORT_MEM]>>
+    simp[MAP_MAP_o,o_DEF,MEM_MAP]>>
     IF_CASES_TAC>>rw[NOT_EQ_FAPPLY])>>
   CONJ_TAC >-
     simp[antisymmetric_def,string_lt_antisym]>>
@@ -221,5 +222,3 @@ End
 
 val _ = cv_trans test_def;
 val res = fetch "-" "cv_test_thm";
-
-val _ = export_theory();

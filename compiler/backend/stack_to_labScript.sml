@@ -1,15 +1,18 @@
 (*
-  This compiler phase maps stackLang programs, which has structure
+  This compiler phase maps stackLang programs, which have structure
   such as If, While, Return etc, to labLang programs that are a soup
   of goto-like jumps.
 *)
-open preamble stackLangTheory labLangTheory;
-local open stack_allocTheory stack_removeTheory stack_namesTheory
-           word_to_stackTheory bvl_to_bviTheory stack_rawcallTheory in end
+Theory stack_to_lab
+Ancestors
+  stackLang labLang stack_alloc[qualified]
+  stack_remove[qualified] stack_names[qualified]
+  word_to_stack[qualified] bvl_to_bvi[qualified]
+  stack_rawcall[qualified]
+Libs
+  preamble
 
-val _ = new_theory "stack_to_lab";
-
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 Overload Asm[local] = ``λa. Asm (Asmi a)``
 
@@ -18,7 +21,7 @@ Definition compile_jump_def:
   (compile_jump (INR r) = Asm (JumpReg r) [] 0)
 End
 
-Definition negate_def:
+Definition negate_def[simp]:
   (negate Less = NotLess) /\
   (negate Equal = NotEqual) /\
   (negate Lower = NotLower) /\
@@ -29,13 +32,12 @@ Definition negate_def:
   (negate NotTest = Test)
 End
 
-val _ = export_rewrites ["negate_def"];
 
 Overload "++"[local] = ``misc$Append``
 
 local val flatten_quotation = `
   flatten t p n m =
-    dtcase p of
+    case p of
     | Tick => (List [Asm (Inst (Skip)) [] 0],F,m)
     | Inst a => (List [Asm (Inst a) [] 0],F,m)
     | Halt _ => (List [LabAsm Halt 0w [] 0],T,m)
@@ -76,7 +78,7 @@ local val flatten_quotation = `
         let (xs,nr1,m) = flatten F p1 n m in
         let prefix = List [LabAsm (LocValue lr (Lab l1 l2)) 0w [] 0;
                  compile_jump dest; Label l1 l2 0] ++ xs in
-        (dtcase handler of
+        (case handler of
         | NONE => (prefix, nr1, m)
         | SOME (p2,k1,k2) =>
             let (ys,nr2,m) = flatten F p2 n m in
@@ -102,7 +104,7 @@ val flatten_def = Define flatten_quotation;
 Theorem flatten_pmatch = Q.prove(
   `∀p n m.` @
     (flatten_quotation |>
-     map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
+     map (fn QUOTE s => Portable.replace_string {from="case",to="pmatch"} s |> QUOTE
          | aq => aq)),
    rpt strip_tac
    >> CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true)
@@ -152,4 +154,3 @@ Definition compile_no_stubs_def:
         (MAP prog_comp prog)))
 End
 
-val _ = export_theory();

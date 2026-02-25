@@ -1,11 +1,12 @@
 (*
 Implementation written by Alexander Cox
 *)
+Theory ringBuffer
+Ancestors
+  list rich_list arithmetic
+Libs
+  preamble
 
-open preamble;
-open listTheory rich_listTheory  arithmeticTheory;
-
-val _ = new_theory"ringBuffer";
 
 (* a ringBuffer is a list with the current size and index of the start *)
 (* do I need an end index, i.e. to avoid deletions *)
@@ -370,4 +371,3 @@ Proof EVAL_TAC >> simp[]
 QED
 
 
-val _ = export_theory();

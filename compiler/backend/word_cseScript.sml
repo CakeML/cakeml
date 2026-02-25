@@ -1,11 +1,13 @@
 (*
   Defines a common sub-expression elimination pass on a wordLang program.
-  This pass is to run immeidately atfer the SSA-like renaming.
+  This pass is to run immediately after the SSA-like renaming.
 *)
+Theory word_cse
+Ancestors
+  wordLang words bool balanced_map sptree
+Libs
+  preamble
 
-open preamble wordLangTheory wordsTheory boolTheory balanced_mapTheory sptreeTheory
-
-val _ = new_theory "word_cse";
 
 Type regsE = ``:num list list``
 Type regsM = ``:num num_map``
@@ -147,8 +149,8 @@ End
 Definition canonicalArith_def:
   canonicalArith data (Binop op r1 r2 r3) =
     Binop op r1 (canonicalRegs' r1 data r2) (canonicalImmReg' r1 data r3) ∧
-  canonicalArith data (Shift s r1 r2 n) =
-    Shift s r1 (canonicalRegs' r1 data r2) n ∧
+  canonicalArith data (Shift s r1 r2 r3) =
+    Shift s r1 (canonicalRegs' r1 data r2) (canonicalImmReg' r1 data r3) ∧
   canonicalArith data (Div r1 r2 r3) =
     Div r1 (canonicalRegs data r2) (canonicalRegs data r3) ∧
   canonicalArith data (LongMul r1 r2 r3 r4) =
@@ -228,7 +230,7 @@ Definition arithToNumList_def:
   arithToNumList (Binop op r1 r2 ri) = [25; arithOpToNum op; r2+100] ++ regImmToNumList ri ∧
   arithToNumList (LongMul r1 r2 r3 r4) = [26; r3+100; r4+100] ∧
   arithToNumList (LongDiv r1 r2 r3 r4 r5) = [27; r3+100; r4+100; r5+100] ∧
-  arithToNumList (Shift s r1 r2 n) = [28; shiftToNum s; r2+100; n] ∧
+  arithToNumList (Shift s r1 r2 ri) = [28; shiftToNum s; r2+100] ++ regImmToNumList ri ∧
   arithToNumList (Div r1 r2 r3) = [29; r2+100; r3+100] ∧
   arithToNumList (AddCarry r1 r2 r3 r4) = [30; r2+100; r3+100] ∧
   arithToNumList (AddOverflow r1 r2 r3 r4) = [31; r2+100; r3+100] ∧
@@ -238,10 +240,12 @@ End
 Definition memOpToNum_def:
   memOpToNum Load = (21:num) ∧
   memOpToNum Load8 = 22 ∧
+  memOpToNum Load16 = 46 ∧
   memOpToNum Load32 = 44 ∧
   memOpToNum Store = 23 ∧
-  memOpToNum Store8 = 24 ∧
-  memOpToNum Store34 = 45
+  memOpToNum Store8 = 47 ∧
+  memOpToNum Store16 = 24 ∧
+  memOpToNum Store32 = 45
 End
 
 Definition fpToNumList_def:
@@ -314,10 +318,11 @@ End
 
 Definition are_reads_seen_def:
   are_reads_seen (Binop _ _ r1 (Reg r2)) data = (is_seen r1 data ∧ is_seen r2 data) ∧
-  are_reads_seen (Binop _ _ r1 (Imm _)) data = (is_seen r1 data) ∧
-  are_reads_seen (Div _ r1 r2) data = (is_seen r1 data ∧ is_seen r2 data) ∧
-  are_reads_seen (Shift _ _ r _) data = is_seen r data ∧
-  are_reads_seen _ data = T
+  are_reads_seen (Binop _ _ r1 (Imm _))  data = (is_seen r1 data) ∧
+  are_reads_seen (Div _ r1 r2)           data = (is_seen r1 data ∧ is_seen r2 data) ∧
+  are_reads_seen (Shift _ _ r1 (Reg r2)) data = (is_seen r1 data ∧ is_seen r2 data) ∧
+  are_reads_seen (Shift _ _ r1 (Imm _))  data = is_seen r1 data ∧
+  are_reads_seen _                       data = T
 End
 
 Definition add_to_data_aux_def:
@@ -342,16 +347,18 @@ End
 Definition is_store_def:
   is_store Load = F ∧
   is_store Load8 = F ∧
+  is_store Load16 = F ∧
   is_store Load32 = F ∧
   is_store Store = T ∧
   is_store Store8 = T ∧
+  is_store Store16 = T ∧
   is_store Store32 = T
 End
 
 Definition is_complex_def:
   is_complex (Binop _ _ _ _) = F ∧
   is_complex (Div _ _ _) = F ∧
-  is_complex (Shift _ _ _ _) = F ∧
+  is_complex (Shift _ _ _ (Imm _)) = F ∧
   is_complex _ = T
 End
 
@@ -474,5 +481,3 @@ Definition word_common_subexp_elim_def:
     let (_,new_prog) = word_cse empty_data prog in
       new_prog
 End
-
-val _ = export_theory ();

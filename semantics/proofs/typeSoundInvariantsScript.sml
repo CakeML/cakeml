@@ -2,11 +2,9 @@
   A type system for values, and
   the invariants that are used for type soundness.
 *)
-open HolKernel Parse boolLib bossLib;
-open astTheory namespaceTheory semanticPrimitivesTheory typeSystemTheory;
-open namespacePropsTheory;
-
-val _ = new_theory "typeSoundInvariants"
+Theory typeSoundInvariants
+Ancestors
+  ast namespace semanticPrimitives typeSystem namespaceProps
 
 Datatype:
  store_t =
@@ -94,10 +92,8 @@ Inductive type_v:
     type_v tvs ctMap tenvS (Litv (Word8 w)) Tword8) ∧
   (!tvs ctMap tenvS w.
     type_v tvs ctMap tenvS (Litv (Word64 w)) Tword64) ∧
-  (!tvs ctMap tenvS v.
-    type_v tvs ctMap tenvS (FP_WordTree v) Tdouble) /\
-  (!tvs ctMap tenvS r.
-    type_v tvs ctMap tenvS (Real r) Treal) /\
+  (!tvs ctMap tenvS w.
+    type_v tvs ctMap tenvS (Litv (Float64 w)) Tdouble) ∧
   (!tvs ctMap tenvS vs tvs' stamp ts' ts ti.
     EVERY (check_freevars tvs []) ts' ∧
     LENGTH tvs' = LENGTH ts' ∧
@@ -185,18 +181,18 @@ End
 (* The global constructor type environment has the list primitives in it *)
 Definition ctMap_has_lists_def:
   ctMap_has_lists ctMap ⇔
-    FLOOKUP ctMap (TypeStamp "[]" list_type_num) = SOME (["'a"],[],Tlist_num) ∧
-    FLOOKUP ctMap (TypeStamp "::" list_type_num) =
-      SOME (["'a"],[Tvar "'a"; Tlist (Tvar "'a")],Tlist_num) ∧
-    (!cn. cn ≠ "::" ∧ cn ≠ "[]" ⇒ FLOOKUP ctMap (TypeStamp cn list_type_num) = NONE)
+    FLOOKUP ctMap (TypeStamp «[]» list_type_num) = SOME ([«'a»],[],Tlist_num) ∧
+    FLOOKUP ctMap (TypeStamp «::» list_type_num) =
+      SOME ([«'a»],[Tvar «'a»; Tlist (Tvar «'a»)],Tlist_num) ∧
+    (!cn. cn ≠ «::» ∧ cn ≠ «[]» ⇒ FLOOKUP ctMap (TypeStamp cn list_type_num) = NONE)
 End
 
 (* The global constructor type environment has the bool primitives in it *)
 Definition ctMap_has_bools_def:
   ctMap_has_bools ctMap ⇔
-    FLOOKUP ctMap (TypeStamp "True" bool_type_num) = SOME ([],[],Tbool_num) ∧
-    FLOOKUP ctMap (TypeStamp "False" bool_type_num) = SOME ([],[],Tbool_num) ∧
-    (!cn. cn ≠ "True" ∧ cn ≠ "False" ⇒ FLOOKUP ctMap (TypeStamp cn bool_type_num) = NONE)
+    FLOOKUP ctMap (TypeStamp «True» bool_type_num) = SOME ([],[],Tbool_num) ∧
+    FLOOKUP ctMap (TypeStamp «False» bool_type_num) = SOME ([],[],Tbool_num) ∧
+    (!cn. cn ≠ «True» ∧ cn ≠ «False» ⇒ FLOOKUP ctMap (TypeStamp cn bool_type_num) = NONE)
 End
 
 Definition good_ctMap_def:
@@ -258,6 +254,3 @@ type_sound_invariant st env ctMap tenvS type_idents tenv ⇔
   type_all_env ctMap tenvS env tenv ∧
   type_s ctMap st.refs tenvS
 End
-
-
-val _ = export_theory();

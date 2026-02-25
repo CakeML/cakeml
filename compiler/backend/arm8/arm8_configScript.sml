@@ -1,9 +1,11 @@
 (*
   Define the compiler configuration for ARMv8
 *)
-open preamble backendTheory arm8_targetTheory arm8_targetLib
-
-val _ = new_theory"arm8_config";
+Theory arm8_config
+Ancestors
+  backend arm8_target
+Libs
+  preamble arm8_targetLib
 
 Definition arm8_names_def:
   arm8_names =
@@ -37,7 +39,7 @@ val word_to_word_conf = ``<| reg_alg:=2; col_oracle := [] |>``
 val arm8_data_conf = ``<| tag_bits:=4; len_bits:=4; pad_bits:=2; len_size:=32; has_div:=T; has_longdiv:=F; has_fp_ops:=F; has_fp_tern:=F; be:=F; call_empty_ffi:=F; gc_kind:=Simple|>``
 val arm8_word_conf = ``<| bitmaps_length := 0; stack_frame_size := LN |>``
 val arm8_stack_conf = ``<|jump:=F;reg_names:=arm8_names|>``
-val arm8_lab_conf = ``<|pos:=0;ffi_names:=NONE;labels:=LN;sec_pos_len:=[];asm_conf:=arm8_config;init_clock:=5;hash_size:=104729n;shmem_extra:=[]|>``
+val arm8_lab_conf = ``<|pos:=0;ffi_names:=NONE;labels:=LN;sec_pos_len:=[];init_clock:=5;hash_size:=104729n;shmem_extra:=[]|>``
 
 Definition arm8_backend_config_def:
   arm8_backend_config =
@@ -55,4 +57,3 @@ Definition arm8_backend_config_def:
                |>
 End
 
-val _ = export_theory();

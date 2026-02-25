@@ -3,10 +3,11 @@
   is parametrised by the target configuration, which includes the next
   state function of the target architecture.
 *)
-open preamble ffiTheory lab_to_targetTheory wordSemTheory
-     evaluatePropsTheory asmPropsTheory;
-
-val _ = new_theory "targetSem";
+Theory targetSem
+Ancestors
+  ffi lab_to_target wordSem evaluateProps asmProps
+Libs
+  preamble
 
 (* -- execute target machine with interference from environment -- *)
 
@@ -82,6 +83,10 @@ Definition is_valid_mapped_read_def:
     then
       (bytes_in_memory pc (t.config.encode (Inst (Mem Load r ad)))
         (t.get_byte ms) md)
+    else if nb = 2w
+    then
+      (bytes_in_memory pc (t.config.encode (Inst (Mem Load16 r ad)))
+        (t.get_byte ms) md)
     else if nb = 4w
     then
       (bytes_in_memory pc (t.config.encode (Inst (Mem Load32 r ad)))
@@ -98,6 +103,10 @@ Definition is_valid_mapped_write_def:
     else if nb = 0w
     then
         (bytes_in_memory pc (t.config.encode (Inst (Mem Store r ad)))
+          (t.get_byte ms) md)
+    else if nb = 2w
+    then
+        (bytes_in_memory pc (t.config.encode (Inst (Mem Store16 r ad)))
           (t.get_byte ms) md)
     else if nb = 4w
     then
@@ -308,7 +317,7 @@ Definition ffi_interfer_ok_def:
          (index < i ==>
            read_ffi_bytearrays mc_conf ms2 = (SOME bytes, SOME bytes2) ∧
            LENGTH new_bytes = LENGTH bytes2 ∧
-           (EL index mc_conf.ffi_names = ExtCall "" ⇒ new_bytes = bytes2) ∧
+           (EL index mc_conf.ffi_names = ExtCall «» ⇒ new_bytes = bytes2) ∧
            target_state_rel mc_conf.target
              (t1 with pc := -n2w ((3 + index) * ffi_offset) + pc) ms2 ∧
            aligned mc_conf.target.config.code_alignment
@@ -449,13 +458,12 @@ Definition installed_def:
        (fun2set (m,byte_aligned ∩ bitmaps_dm)) ∧
       ffi_names = SOME mc_conf.ffi_names /\
    (!i. mmio_pcs_min_index mc_conf.ffi_names = SOME i ==>
-     MAP (\rec. rec.entry_pc + mc_conf.target.get_pc ms) shmem_extra =
-      DROP i mc_conf.ffi_entry_pcs /\
+     MAP (\rec. w2n (mc_conf.target.get_pc ms) + rec.entry_pc) shmem_extra =
+       DROP i (MAP w2n mc_conf.ffi_entry_pcs) /\
      mc_conf.mmio_info = ZIP (GENLIST (λindex. index + i) (LENGTH shmem_extra),
-                              (MAP (\rec. (rec.nbytes, rec.access_addr, rec.reg,
-                                           rec.exit_pc + mc_conf.target.get_pc ms))
+                              (MAP (\rec. (rec.nbytes,
+                                   Addr rec.addr_reg (n2w rec.addr_off), rec.reg,
+                                   n2w rec.exit_pc + mc_conf.target.get_pc ms))
                                    shmem_extra)) /\
     cbspace + LENGTH bytes + ffi_offset * (i + 3) < dimword (:'a))
 End
-
-val _ = export_theory();

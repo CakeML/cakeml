@@ -1,10 +1,11 @@
 (*
   Define the target compiler configuration for ARMv8.
 *)
-open HolKernel Parse boolLib bossLib
-open asmLib arm8_stepTheory arithmeticTheory wordsTheory;
-
-val () = new_theory "arm8_target"
+Theory arm8_target
+Ancestors
+  asmProps arm8_step arithmetic words
+Libs
+  asmLib
 
 val () = wordsLib.guess_lengths ()
 
@@ -52,6 +53,13 @@ Definition cmp_cond_def:
    (cmp_cond NotLower = 0b0010w) /\
    (cmp_cond NotEqual = 0b0001w) /\
    (cmp_cond NotTest  = 0b0001w)
+End
+
+Definition arm8_shv_def:
+   (arm8_shv Lsl = ShiftType_LSL) /\
+   (arm8_shv Lsr = ShiftType_LSR) /\
+   (arm8_shv Asr = ShiftType_ASR) /\
+   (arm8_shv Ror = ShiftType_ROR)
 End
 
 Definition arm8_enc_mov_imm_def:
@@ -108,6 +116,25 @@ Definition arm8_load_store_ast32_def:
            n2w r2, n2w r1))]
 End
 
+Definition arm8_load_store_ast16_def:
+  arm8_load_store_ast16 ls r1 r2 a =
+  let unsigned = ~word_msb a in
+  if a <> sw2sw ((8 >< 0) a : word9) /\
+     (unsigned ==> a <> w2w ((11 >< 0) (a >>> 1) : word12) << 1) then
+    let (b, c) = if unsigned then (a - 0xFFw, 0xFFw) else (-a - 0x100w, -0x100w)
+    in
+      [Data (AddSubImmediate@64 (1w, ~unsigned, F, b, n2w r2, ^temp));
+       LoadStore
+         (LoadStoreImmediate@16
+            (1w, T, ls, AccType_NORMAL, F, F, F, F, F, unsigned, c,
+             ^temp, n2w r1))]
+  else
+    [LoadStore
+       (LoadStoreImmediate@16
+          (1w, T, ls, AccType_NORMAL, F, F, F, F, F, unsigned, a,
+           n2w r2, n2w r1))]
+End
+
 Definition arm8_ast_def:
    (arm8_ast (Inst Skip) = [NoOperation]) /\
    (arm8_ast (Inst (Const r i)) =
@@ -154,7 +181,8 @@ Definition arm8_ast_def:
                      LogicalImmediate@64
                        (1w, LogicalOp_EOR, F, i, n2w r2, n2w r1)
           | x => LogicalImmediate@64 (1w, bop_enc x, F, i, n2w r2, n2w r1))]) /\
-   (arm8_ast (Inst (Arith (Shift sh r1 r2 n))) =
+   (arm8_ast (Inst (Arith (Shift sh r1 r2 (Imm i)))) =
+      let n = w2n i in
       case sh of
          Lsl => (let i = n2w n : word6 in
                  let r = -i and s = 63w - i in
@@ -172,6 +200,8 @@ Definition arm8_ast_def:
                        (BitfieldMove@64
                          (1w, T, x = Asr, wmask, tmask, n, 63, n2w r2, n2w r1))]
                 | NONE => arm8_encode_fail)) /\
+   (arm8_ast (Inst (Arith (Shift sh r1 r2 (Reg r)))) =
+      [Data (Shift@64 (1w, arm8_shv sh, n2w r, n2w r2, n2w r1))]) /\
    (arm8_ast (Inst (Arith (Div r1 r2 r3))) =
       [Data (Division@64 (1w, F, n2w r3, n2w r2, n2w r1))]) /\
    (arm8_ast (Inst (Arith (LongMul r1 r2 r3 r4))) =
@@ -197,6 +227,8 @@ Definition arm8_ast_def:
       arm8_load_store_ast MemOp_LOAD r1 r2 a) /\
    (arm8_ast (Inst (Mem Load32 r1 (Addr r2 a))) =
     arm8_load_store_ast32 MemOp_LOAD r1 r2 a) /\
+   (arm8_ast (Inst (Mem Load16 r1 (Addr r2 a))) =
+    arm8_load_store_ast16 MemOp_LOAD r1 r2 a) /\
    (arm8_ast (Inst (Mem Load8 r1 (Addr r2 a))) =
       [LoadStore
          (LoadStoreImmediate@8
@@ -206,6 +238,8 @@ Definition arm8_ast_def:
       arm8_load_store_ast MemOp_STORE r1 r2 a) /\
    (arm8_ast (Inst (Mem Store32 r1 (Addr r2 a))) =
     arm8_load_store_ast32 MemOp_STORE r1 r2 a) /\
+   (arm8_ast (Inst (Mem Store16 r1 (Addr r2 a))) =
+    arm8_load_store_ast16 MemOp_STORE r1 r2 a) /\
    (arm8_ast (Inst (Mem Store8 r1 (Addr r2 a))) =
       [LoadStore
          (LoadStoreImmediate@8
@@ -298,6 +332,7 @@ Definition arm8_config_def:
     ; code_alignment := 2
     ; valid_imm := valid_immediate
     ; addr_offset := (^off_min, ^off_max)
+    ; hw_offset := (^off_min, ^off_max)
     ; byte_offset := (^off_min9, ^off_max12)
     ; jump_offset := (^jump_min, ^jump_max)
     ; cjump_offset := (^cjump_min, ^cjump_max)
@@ -374,5 +409,3 @@ Proof
   eq_tac>>
   fs[listTheory.EL_GENLIST]
 QED
-
-val () = export_theory ()

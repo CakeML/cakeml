@@ -2,12 +2,11 @@
   Definitions of semantic primitives (e.g., values, and functions for doing
   primitive operations) used in the semantics.
 *)
-open HolKernel Parse boolLib bossLib;
-open miscTheory astTheory namespaceTheory ffiTheory fpValTreeTheory fpSemTheory realOpsTheory;
+Theory semanticPrimitives
+Ancestors
+  misc ast machine_ieee namespace ffi fpSem mlstring
 
 val _ = numLib.temp_prefer_num();
-
-val _ = new_theory "semanticPrimitives"
 
 (* Constructors and exceptions need unique identities, which we represent by stamps. *)
 Datatype:
@@ -42,21 +41,8 @@ Datatype:
   | Recclosure (v sem_env) ((varN # varN # exp) list) varN
   | Loc bool (* = is allowed *) num (* address *)
   | Vectorv (v list)
-  | FP_WordTree fp_word_val
-  | FP_BoolTree fp_bool_val
-  | Real real
   (* Environment value for Eval, and its numeric identifier *)
   | Env (v sem_env) (num # num)
-End
-
-(* The runtime semantics should be able to deal with constants too, thus we add
-   a translation function from word constants to value trees *)
-(*val fp_translate: v -> maybe v*)
-Definition fp_translate_def:
-  fp_translate (Litv (Word64 w)) = (SOME (FP_WordTree (Fp_const w))) ∧
-  fp_translate (FP_WordTree v) = (SOME (FP_WordTree v)) ∧
-  fp_translate (FP_BoolTree v) = (SOME (FP_BoolTree v)) ∧
-  fp_translate _=  NONE
 End
 
 Type env_ctor = ``: (modN, conN, (num # stamp)) namespace``
@@ -139,15 +125,7 @@ End
 Definition fp_cmp_type_num_def:
   fp_cmp_type_num = 16
 End
-Definition real_uop_type_num_def:
-  real_uop_type_num = 17
-End
-Definition real_bop_type_num_def:
-  real_bop_type_num = 18
-End
-Definition real_cmp_type_num_def:
-  real_cmp_type_num = 19
-End
+
 Definition op_type_num_def:
   op_type_num     = 20
 End
@@ -156,9 +134,6 @@ Definition locn_type_num_def:
 End
 Definition locs_type_num_def:
   locs_type_num   = 22
-End
-Definition fp_opt_num_def:
-  fp_opt_num      = 23
 End
 Definition exp_type_num_def:
   exp_type_num    = 24
@@ -196,14 +171,17 @@ Datatype:
   | W8array (word8 list)
   (* An array of values *)
   | Varray ('a list)
+  (* Thunk *)
+  | Thunk thunk_mode 'a
 End
 
 Definition store_v_same_type_def:
   store_v_same_type v1 v2 =
     case (v1:'a store_v, v2:'a store_v) of
-    | (Refv _, Refv _) => T
-    | (W8array _,W8array _) => T
-    | (Varray _,Varray _) => T
+    | (Refv _,    Refv _   ) => T
+    | (W8array _, W8array _) => T
+    | (Varray _,  Varray _ ) => T
+    | (Thunk NotEvaluated _, Thunk _ _) => T
     | _ => F
 End
 
@@ -241,29 +219,6 @@ End
 Type compiler_args = ``: ((num # num) # v # dec list)``
 Type compiler_fun = ``: compiler_args ->
      (v # word8 list # word64 list)option``
-
-(*
-   State component encapsulating Icing optimizations and rewriter oracle.
-   rws := list of rewrites allowed to be applied by the semantics
-   opts := oracle that decides which rewrites are applied next
-   choices := global counter how many rewriting steps have been done
-   canOpt := flag indicating whether evaluation has stepped below an "opt" scope
-*)
-Datatype:
- optChoice =
-    Strict (* strict 64-bit floating-point semantics, ignores annotations *)
- | FPScope fp_opt (* currently under scope *)
-End
-
-Datatype:
- fpState =
-  <| rws: fp_rw list
-   ; opts: num -> rewrite_app list
-   ; choices: num
-   ; canOpt : optChoice
-   ; real_sem : bool
-   |>
-End
 
 Datatype:
  eval_decs_state =
@@ -305,7 +260,6 @@ Datatype:
    ; ffi : 'ffi ffi_state
    ; next_type_stamp : num
    ; next_exn_stamp : num
-   ; fp_state : fpState
    ; eval_state :  eval_state option
    |>
 End
@@ -313,7 +267,7 @@ End
 (* Other primitives *)
 (* Check that a constructor is properly applied *)
 Definition do_con_check_def:
-  do_con_check (cenv:((string),(string),(num#stamp))namespace) n_opt l ⇔
+  do_con_check (cenv:((mlstring),(mlstring),(num#stamp))namespace) n_opt l ⇔
     case n_opt of
       NONE => T
     | SOME n => case nsLookup cenv n of NONE => F | SOME (l',v2) => l = l'
@@ -325,7 +279,7 @@ Definition one_con_check_def[simp]:
 End
 
 Definition build_conv_def:
-  build_conv (envC:((string),(string),(num#stamp))namespace) cn vs =
+  build_conv (envC:((mlstring),(mlstring),(num#stamp))namespace) cn vs =
   case cn of
     NONE => SOME (Conv NONE vs)
   | SOME id =>
@@ -342,6 +296,7 @@ Definition lit_same_type_def:
      | (StrLit _, StrLit _) => T
      | (Word8  _, Word8  _) => T
      | (Word64 _, Word64 _) => T
+     | (Float64 _, Float64 _) => T
      | _ => F
 End
 
@@ -372,23 +327,8 @@ End
 
 Definition Boolv_def:
   Boolv b =
-    if b then Conv (SOME (TypeStamp "True" bool_type_num)) []
-         else Conv (SOME (TypeStamp "False" bool_type_num)) []
-End
-
-Definition compress_def:
- compress (FP_WordTree fp) = (Litv (Word64 (compress_word fp))) ∧
- compress (FP_BoolTree fp) = (Boolv (compress_bool fp)) ∧
- compress (Real r) = (Real r) ∧
- compress (Litv l) =  (Litv l) ∧
- compress (Conv ts vs) = (Conv ts (compress_list vs)) ∧
- compress (Closure env x e) = (Closure env x e) ∧
- compress (Env env n) =  (Env env n) ∧
- compress (Recclosure env es x) = (Recclosure env es x) ∧
- compress (Loc b n) =  (Loc b n) ∧
- compress (Vectorv vs) = (Vectorv (compress_list vs)) ∧
- compress_list [] = [] ∧
- compress_list (v::vs) = (compress v)::(compress_list vs)
+    if b then Conv (SOME (TypeStamp «True» bool_type_num)) []
+         else Conv (SOME (TypeStamp «False» bool_type_num)) []
 End
 
 (* A big-step pattern matcher.  If the value matches the pattern, return an
@@ -423,8 +363,7 @@ Definition pmatch_def:
   (case store_lookup lnum s of
      NONE => Match_type_error
    | SOME (Refv v) => pmatch envC s p v env
-   | SOME (W8array v6) => Match_type_error
-   | SOME (Varray v7) => Match_type_error) ∧
+   | SOME _ => Match_type_error) ∧
   pmatch envC s (Pas p i) v env = pmatch envC s p v ((i,v)::env) ∧
   pmatch envC s (Ptannot p t) v env = pmatch envC s p v env ∧
   pmatch envC s _ _ env = Match_type_error ∧
@@ -454,15 +393,15 @@ End
 
 (* Bind each function of a mutually recursive set of functions to its closure *)
 Definition build_rec_env_def:
-  (build_rec_env:(varN#varN#exp)list ->(v)sem_env ->((string),(string),(v))namespace
-                 ->((string),(string),(v))namespace) funs cl_env add_to_env =
+  (build_rec_env:(varN#varN#exp)list ->(v)sem_env ->((mlstring),(mlstring),(v))namespace
+                 ->((mlstring),(mlstring),(v))namespace) funs cl_env add_to_env =
   FOLDR (λ(f,x,e) env'. nsBind f (Recclosure cl_env funs f) env')
         add_to_env funs
 End
 
 (* Lookup in the list of mutually recursive functions *)
 Definition find_recfun_def:
-  (find_recfun:string ->(string#'a#'b)list ->('a#'b)option) n funs =
+  (find_recfun:mlstring ->(mlstring#'a#'b)list ->('a#'b)option) n funs =
   case funs of
     [] => NONE
   | (f,x,e)::funs' => if f = n then SOME (x,e) else find_recfun n funs'
@@ -489,31 +428,6 @@ Definition do_eq_def:
   do_eq (Closure v8 v9 v10) (Recclosure v11 v12 v13) = Eq_val T ∧
   do_eq (Recclosure v14 v15 v16) (Closure v17 v18 v19) = Eq_val T ∧
   do_eq (Recclosure v20 v21 v22) (Recclosure v23 v24 v25) = Eq_val T ∧
-  do_eq (FP_BoolTree v1) (FP_BoolTree v2) = (Eq_val (compress_bool v1 <=> compress_bool v2)) ∧
-  do_eq (FP_BoolTree v1) (Conv cn2 vs2)=
-   (case Boolv (compress_bool v1) of
-    Conv cn1 vs1 =>
-    if (cn1 = cn2) /\ (LENGTH vs1 = LENGTH vs2) then
-      do_eq_list vs1 vs2
-      else if ctor_same_type cn1 cn2 then
-         Eq_val F
-      else
-        Eq_type_error
-  | _ => Eq_type_error) ∧
-  do_eq (Conv cn1 vs1) (FP_BoolTree v2)=
-   (case Boolv (compress_bool v2) of
-    Conv cn2 vs2 =>
-    if (cn1 = cn2) /\ (LENGTH vs1 = LENGTH vs2) then
-      do_eq_list vs1 vs2
-      else if ctor_same_type cn1 cn2 then
-         Eq_val F
-      else
-        Eq_type_error
-  | _ => Eq_type_error) ∧
-  do_eq (FP_WordTree v1) (FP_WordTree v2) = (Eq_val (compress_word v1 = compress_word v2)) ∧
-  do_eq (Litv (Word64 w1)) (FP_WordTree v2) = (Eq_val (w1 = compress_word v2)) ∧
-  do_eq (FP_WordTree v1) (Litv (Word64 w2)) = (Eq_val (compress_word v1 = w2)) ∧
-  do_eq (Real r1) (Real r2) =  (Eq_val (r1 = r2)) ∧
   do_eq (Env v26 (gen1,id1)) (Env v27 (gen2,id2)) =
     Eq_val (gen1 = gen2 ∧ id1 = id2) ∧
   do_eq _ _ = Eq_type_error ∧
@@ -548,48 +462,48 @@ End
 (* If a value represents a list, get that list. Otherwise return Nothing *)
 Definition v_to_list_def:
   v_to_list (Conv (SOME stamp) []) =
-    (if stamp = TypeStamp "[]" list_type_num then SOME [] else NONE) ∧
+    (if stamp = TypeStamp «[]» list_type_num then SOME [] else NONE) ∧
   v_to_list (Conv (SOME stamp) [v1; v2]) =
-    (if stamp = TypeStamp "::" list_type_num then
+    (if stamp = TypeStamp «::» list_type_num then
        case v_to_list v2 of NONE => NONE | SOME vs => SOME (v1::vs)
      else NONE) ∧
   v_to_list _ = NONE
 End
 
 Definition list_to_v_def:
-  list_to_v [] = Conv (SOME (TypeStamp "[]" list_type_num)) [] ∧
-  list_to_v (x::xs) = Conv (SOME (TypeStamp "::" list_type_num)) [x; list_to_v xs]
+  list_to_v [] = Conv (SOME (TypeStamp «[]» list_type_num)) [] ∧
+  list_to_v (x::xs) = Conv (SOME (TypeStamp «::» list_type_num)) [x; list_to_v xs]
 End
 
 Definition v_to_char_list_def:
   v_to_char_list (Conv (SOME stamp) []) =
-    (if stamp = TypeStamp "[]" list_type_num then SOME "" else NONE) ∧
+    (if stamp = TypeStamp «[]» list_type_num then SOME "" else NONE) ∧
   v_to_char_list (Conv (SOME stamp) [Litv (Char c); v]) =
-    (if stamp = TypeStamp "::" list_type_num then
+    (if stamp = TypeStamp «::» list_type_num then
        case v_to_char_list v of NONE => NONE | SOME cs => SOME (STRING c cs)
      else NONE) ∧
   v_to_char_list _ = NONE
 End
 
 Definition vs_to_string_def:
-  vs_to_string [] = SOME "" ∧
+  vs_to_string [] = SOME «»  ∧
   vs_to_string (Litv (StrLit s1)::vs) =
-    (case vs_to_string vs of NONE => NONE | SOME s2 => SOME (STRCAT s1 s2)) ∧
+    (case vs_to_string vs of NONE => NONE | SOME s2 => SOME (strcat s1 s2)) ∧
   vs_to_string (_::v1) = NONE
 End
 
 Definition maybe_to_v_def:
-  maybe_to_v NONE = Conv (SOME (TypeStamp "None" option_type_num)) [] ∧
-  maybe_to_v (SOME v) = Conv (SOME (TypeStamp "Some" option_type_num)) [v]
+  maybe_to_v NONE = Conv (SOME (TypeStamp «None» option_type_num)) [] ∧
+  maybe_to_v (SOME v) = Conv (SOME (TypeStamp «Some» option_type_num)) [v]
 End
 
 Definition v_to_id_def:
   v_to_id (Conv (SOME stamp) [Litv (StrLit s)]) =
-     (if stamp = TypeStamp "Short" id_type_num then
+     (if stamp = TypeStamp «Short» id_type_num then
         SOME (Short s)
       else NONE) ∧
   v_to_id (Conv (SOME stamp) [Litv (StrLit s); v]) =
-     (if stamp = TypeStamp "Long" id_type_num then
+     (if stamp = TypeStamp «Long» id_type_num then
         case v_to_id v of NONE => NONE | SOME id => SOME (Long s id)
       else NONE) ∧
   v_to_id _ = NONE
@@ -687,9 +601,6 @@ Definition concrete_v_def:
      | Litv _ => T
      | Conv v_ vs => concrete_v_list vs
      | Vectorv vs => concrete_v_list vs
-     | FP_WordTree fp => T
-     | FP_BoolTree fp => T
-     | Real r => T
      | _ => F) ∧
   (concrete_v_list [] ⇔ T) ∧
   (concrete_v_list (v::vs) ⇔ concrete_v v ∧ concrete_v_list vs)
@@ -786,6 +697,8 @@ Definition chars_to_ws_def:
   chars_to_ws cs = MAP (λc. i2w (&ORD c)) cs :word8 list
 End
 
+(*
+
 Definition opn_lookup_def:
   opn_lookup n =
     case n of
@@ -821,6 +734,8 @@ Definition opw64_lookup_def:
     | Sub => word_sub : word64 -> word64 -> word64
 End
 
+*)
+
 Definition shift8_lookup_def:
   shift8_lookup sh =
     case sh of
@@ -845,37 +760,8 @@ End
 
 Type store_ffi = “: 'v store # 'ffi ffi_state”
 
-Definition do_fprw_def:
- do_fprw (v:(v,v) result) fp_opt fp_rws=
-   (case (v, fp_opt) of
-    (Rval (FP_BoolTree fv), rws) =>
-    (case rwAllBoolTree rws fp_rws fv of
-      NONE => NONE
-    | SOME fv_opt => SOME (Rval (FP_BoolTree fv_opt))
-    )
-  | (Rval (FP_WordTree fv), rws) =>
-    (case rwAllWordTree rws fp_rws fv of
-      NONE => NONE
-    | SOME fv_opt => SOME (Rval (FP_WordTree fv_opt))
-    )
-  | (Rval r, [] ) => SOME v
-  | (_, _) => NONE)
-End
-
-Definition do_fpoptimise_def:
-  do_fpoptimise fpopt [] = [] ∧
-  do_fpoptimise fpopt [Litv l] = [Litv l] ∧
-  do_fpoptimise fpopt [Conv st vs] = [Conv st (do_fpoptimise fpopt vs)] ∧
-  do_fpoptimise fpopt [Closure env x e] = [Closure env x e] ∧
-  do_fpoptimise fpopt [Recclosure env ls x] = [Recclosure env ls x] ∧
-  do_fpoptimise fpopt [Loc b n] = [Loc b n] ∧
-  do_fpoptimise fpopt [Vectorv vs] = [Vectorv (do_fpoptimise fpopt vs)] ∧
-  do_fpoptimise fpopt [Real r]=  [Real r]  ∧
-  do_fpoptimise fpopt [FP_WordTree fp] = [FP_WordTree (Fp_wopt fpopt fp)] ∧
-  do_fpoptimise fpopt [FP_BoolTree fp] = [FP_BoolTree (Fp_bopt fpopt fp)] ∧
-  do_fpoptimise fpopt [Env env n] = [Env env n] ∧
-  do_fpoptimise fpopt (v::vs) = (do_fpoptimise fpopt [v]) ++ (do_fpoptimise fpopt vs)
-End
+Overload w64lit[local] = “λw. Litv (Word64 w)”
+Overload f64lit[local] = “λw. Litv (Float64 w)”
 
 Definition xor_bytes_def:
   xor_bytes [] bs2 = SOME (bs2:word8 list) ∧
@@ -886,6 +772,180 @@ Definition xor_bytes_def:
     | SOME rest => SOME (word_xor b1 b2 :: rest)
 End
 
+Definition thunk_op_def:
+  thunk_op (s: v store_v list, t: 'ffi ffi_state) th_op vs =
+    case (th_op,vs) of
+    | (AllocThunk m, [v]) =>
+        (let (s',n) = store_alloc (Thunk m v) s in
+           SOME ((s',t), Rval (Loc F n)))
+    | (UpdateThunk m, [Loc _ lnum; v]) =>
+        (case store_assign lnum (Thunk m v) s of
+         | SOME s' => SOME ((s',t), Rval (Conv NONE []))
+         | NONE => NONE)
+    | _ => NONE
+End
+
+Definition check_type_def:
+  check_type BoolT v = (v = Boolv T ∨ v = Boolv F) ∧
+  check_type IntT v = (∃i. v = Litv (IntLit i)) ∧
+  check_type CharT v = (∃c. v = Litv (Char c)) ∧
+  check_type StrT v = (∃s. v = Litv (StrLit s)) ∧
+  check_type (WordT W8) v = (∃w. v = Litv (Word8 w)) ∧
+  check_type (WordT W64) v = (∃w. v = Litv (Word64 w)) ∧
+  check_type Float64T v = (∃w. v = Litv (Float64 w))
+End
+
+Definition dest_Litv_def[simp]:
+  dest_Litv (Litv v) = SOME v ∧
+  dest_Litv _ = NONE
+End
+
+Definition the_Litv_IntLit_def[simp]:
+  the_Litv_IntLit (Litv (IntLit i)) = i
+End
+
+Definition the_Litv_Word8_def[simp]:
+  the_Litv_Word8 (Litv (Word8 w)) = w
+End
+
+Definition the_Litv_Word64_def[simp]:
+  the_Litv_Word64 (Litv (Word64 w)) = w
+End
+
+Definition the_Litv_Float64_def[simp]:
+  the_Litv_Float64 (Litv (Float64 w)) = w
+End
+
+Definition the_Litv_Char_def[simp]:
+  the_Litv_Char (Litv (Char c)) = c
+End
+
+Definition the_Boolv_def[simp]:
+  the_Boolv v = (v = Boolv T)
+End
+
+Definition num_cmp_def[simp]:
+  num_cmp Lt  i j = (i <  j:num) ∧
+  num_cmp Leq i j = (i <= j) ∧
+  num_cmp Gt  i j = (i >  j) ∧
+  num_cmp Geq i j = (i >= j)
+End
+
+Definition int_cmp_def[simp]:
+  int_cmp Lt  i j = (i <  j:int) ∧
+  int_cmp Leq i j = (i <= j) ∧
+  int_cmp Gt  i j = (i >  j) ∧
+  int_cmp Geq i j = (i >= j)
+End
+
+Definition str_cmp_def[simp]:
+  str_cmp F Lt  i j = mlstring$mlstring_lt i j ∧
+  str_cmp F Leq i j = mlstring$mlstring_le i j ∧
+  str_cmp F Gt  i j = mlstring$mlstring_gt i j ∧
+  str_cmp F Geq i j = mlstring$mlstring_ge i j ∧
+  str_cmp T Lt  i j = mlstring$fast_lt i j ∧
+  str_cmp T Leq i j = mlstring$fast_le i j ∧
+  str_cmp T Gt  i j = mlstring$fast_gt i j ∧
+  str_cmp T Geq i j = mlstring$fast_ge i j
+End
+
+Definition do_test_def: (* TODO: extend with more cases *)
+  do_test Equal ty v1 v2 =
+    (if check_type ty v1 ∧ check_type ty v2 then
+       (if ty = Float64T
+        then Eq_val (fp64_equal (the_Litv_Float64 v1) (the_Litv_Float64 v2))
+        else do_eq v1 v2)
+     else Eq_type_error) ∧
+  do_test (Compare cmp) ty v1 v2 =
+    (case (ty, dest_Litv v1, dest_Litv v2) of
+     | (IntT,     SOME (IntLit i),  SOME (IntLit j))  => Eq_val (int_cmp cmp i j)
+     | (CharT,    SOME (Char c),    SOME (Char d))    => Eq_val (num_cmp cmp (ORD c) (ORD d))
+     | (WordT W8, SOME (Word8 w),   SOME (Word8 v))   => Eq_val (num_cmp cmp (w2n w) (w2n v))
+     | (Float64T, SOME (Float64 w), SOME (Float64 v)) => Eq_val (fp_cmp cmp w v)
+     | (StrT,     SOME (StrLit s),  SOME (StrLit t))  => Eq_val (str_cmp F cmp s t)
+     | _ => Eq_type_error) ∧
+  do_test (AltCompare cmp) ty v1 v2 =
+    (case (ty, dest_Litv v1, dest_Litv v2) of
+     | (StrT,     SOME (StrLit s),  SOME (StrLit t))  => Eq_val (str_cmp T cmp s t)
+     | _ => Eq_type_error)
+End
+
+Definition do_arith_def:
+  (do_arith a Float64T vals =
+     case (a, MAP the_Litv_Float64 vals) of
+     | (Abs,  [v1])       => SOME (INR $ Litv $ Float64 $ fp64_abs v1)
+     | (Neg,  [v1])       => SOME (INR $ Litv $ Float64 $ fp64_negate v1)
+     | (Sqrt, [v1])       => SOME (INR $ Litv $ Float64 $ fp64_sqrt roundTiesToEven v1)
+     | (Add,  [v1;v2])    => SOME (INR $ Litv $ Float64 $ fp64_add roundTiesToEven v1 v2)
+     | (Sub,  [v1;v2])    => SOME (INR $ Litv $ Float64 $ fp64_sub roundTiesToEven v1 v2)
+     | (Mul,  [v1;v2])    => SOME (INR $ Litv $ Float64 $ fp64_mul roundTiesToEven v1 v2)
+     | (Div,  [v1;v2])    => SOME (INR $ Litv $ Float64 $ fp64_div roundTiesToEven v1 v2)
+     | (FMA,  [v1;v2;v3]) => SOME (INR $ Litv $ Float64 $ fp64_mul_add roundTiesToEven v2 v3 v1)
+     | _ => NONE) ∧
+  (do_arith a IntT vals =
+     case (a, MAP the_Litv_IntLit vals) of
+     | (Add,  [v1;v2]) => SOME (INR $ Litv $ IntLit $ v1 + v2)
+     | (Sub,  [v1;v2]) => SOME (INR $ Litv $ IntLit $ v1 - v2)
+     | (Mul,  [v1;v2]) => SOME (INR $ Litv $ IntLit $ v1 * v2)
+     | (Div,  [v1;v2]) => SOME (if v2 = 0 then INL div_exn_v else
+                                  INR (Litv $ IntLit $ v1 / v2))
+     | (Mod,  [v1;v2]) => SOME (if v2 = 0 then INL div_exn_v else
+                                  INR (Litv $ IntLit $ v1 % v2))
+     | _ => NONE) ∧
+  (do_arith a (WordT W8) vals =
+     case (a, MAP the_Litv_Word8 vals) of
+     | (Add, [v1;v2]) => SOME (INR $ Litv $ Word8 $ word_add v1 v2)
+     | (Sub, [v1;v2]) => SOME (INR $ Litv $ Word8 $ word_sub v1 v2)
+     | (And, [v1;v2]) => SOME (INR $ Litv $ Word8 $ word_and v1 v2)
+     | (Or,  [v1;v2]) => SOME (INR $ Litv $ Word8 $ word_or v1 v2)
+     | (Xor, [v1;v2]) => SOME (INR $ Litv $ Word8 $ word_xor v1 v2)
+     | _ => NONE) ∧
+  (do_arith a (WordT W64) vals =
+     case (a, MAP the_Litv_Word64 vals) of
+     | (Add, [v1;v2]) => SOME (INR $ Litv $ Word64 $ word_add v1 v2)
+     | (Sub, [v1;v2]) => SOME (INR $ Litv $ Word64 $ word_sub v1 v2)
+     | (And, [v1;v2]) => SOME (INR $ Litv $ Word64 $ word_and v1 v2)
+     | (Or,  [v1;v2]) => SOME (INR $ Litv $ Word64 $ word_or v1 v2)
+     | (Xor, [v1;v2]) => SOME (INR $ Litv $ Word64 $ word_xor v1 v2)
+     | _ => NONE) ∧
+  (do_arith a BoolT vals =
+     case (a, vals) of
+     | (Not, [v1]) => SOME (INR $ Boolv (¬ (the_Boolv v1)))
+     | _ => NONE) ∧
+  (do_arith a _ vals = NONE)
+End
+
+Definition do_conversion_def:
+  (* Word to Int conversions *)
+  (do_conversion v (WordT W8) IntT =
+     SOME (INR $ Litv $ IntLit $ & (w2n (the_Litv_Word8 v)))) ∧
+  (do_conversion v (WordT W64) IntT =
+     SOME (INR $ Litv $ IntLit $ & (w2n (the_Litv_Word64 v)))) ∧
+  (* Int to Word conversions *)
+  (do_conversion v IntT (WordT W8) =
+     SOME (INR $ Litv $ Word8 $ i2w (the_Litv_IntLit v))) ∧
+  (do_conversion v IntT (WordT W64) =
+     SOME (INR $ Litv $ Word64 $ i2w (the_Litv_IntLit v))) ∧
+  (* Char/Int conversions *)
+  (do_conversion v CharT IntT =
+     SOME (INR $ Litv $ IntLit $ & (ORD (the_Litv_Char v)))) ∧
+  (do_conversion v IntT CharT =
+     let i = the_Litv_IntLit v in
+       if i < 0 ∨ i > 255 then SOME (INL chr_exn_v)
+       else SOME (INR $ Litv $ Char $ CHR (Num (ABS i)))) ∧
+  (* Char/Word8 conversions *)
+  (do_conversion v CharT (WordT W8) =
+     SOME (INR $ Litv $ Word8 $ char_to_word8 (the_Litv_Char v))) ∧
+  (do_conversion v (WordT W8) CharT =
+     SOME (INR $ Litv $ Char $ word8_to_char (the_Litv_Word8 v))) ∧
+  (* Float64/Word64 conversions (bit reinterpretation) *)
+  (do_conversion v Float64T (WordT W64) =
+     SOME (INR $ Litv $ Word64 $ the_Litv_Float64 v)) ∧
+  (do_conversion v (WordT W64) Float64T =
+     SOME (INR $ Litv $ Float64 $ the_Litv_Word64 v)) ∧
+  (do_conversion _ _ _ = NONE)
+End
+
 Definition do_app_def:
   do_app (s: v store_v list, t: 'ffi ffi_state) op vs =
     case (op, vs) of
@@ -894,68 +954,10 @@ Definition do_app_def:
           (SOME xs, SOME ys) => SOME ((s,t), Rval (list_to_v (xs ++ ys)))
         | _ => NONE
       )
-    | (Opn op, [Litv (IntLit n1); Litv (IntLit n2)]) =>
-        if ((op = Divide) \/ (op = Modulo)) /\ (n2 =( 0 : int)) then
-          SOME ((s,t), Rerr (Rraise div_exn_v))
-        else
-          SOME ((s,t), Rval (Litv (IntLit (opn_lookup op n1 n2))))
-    | (Opb op, [Litv (IntLit n1); Litv (IntLit n2)]) =>
-        SOME ((s,t), Rval (Boolv (opb_lookup op n1 n2)))
-    | (Opw W8 op, [Litv (Word8 w1); Litv (Word8 w2)]) =>
-        SOME ((s,t), Rval (Litv (Word8 (opw8_lookup op w1 w2))))
-    | (Opw W64 op, [Litv (Word64 w1); Litv (Word64 w2)]) =>
-        SOME ((s,t), Rval (Litv (Word64 (opw64_lookup op w1 w2))))
-    | (Opw W64 op, [FP_WordTree w1; Litv (Word64 w2)]) =>
-        let wr1 = (compress_word w1) in
-          SOME ((s,t), Rval (Litv (Word64 (opw64_lookup op wr1 w2))))
-    | (Opw W64 op, [Litv (Word64 w1); FP_WordTree w2]) =>
-        let wr2 = (compress_word w2) in
-          SOME ((s,t), Rval (Litv (Word64 (opw64_lookup op w1 wr2))))
-    | (Opw W64 op, [FP_WordTree w1; FP_WordTree w2]) =>
-        let wr1 = (compress_word w1) in
-        let wr2 = (compress_word w2) in
-          SOME ((s,t), Rval (Litv (Word64 (opw64_lookup op wr1 wr2))))
-    | (FP_top t_op, [v1; v2; v3]) =>
-        (case (fp_translate v1, fp_translate v2, fp_translate v3) of
-          (SOME (FP_WordTree w1), SOME (FP_WordTree w2), SOME (FP_WordTree w3)) =>
-          SOME ((s,t), Rval (FP_WordTree (fp_top t_op w1 w2 w3)))
-        | _ => NONE
-        )
-    | (FP_bop bop, [v1; v2]) =>
-        (case (fp_translate v1, fp_translate v2) of
-          (SOME (FP_WordTree w1), SOME (FP_WordTree w2)) =>
-          SOME ((s,t),Rval (FP_WordTree (fp_bop bop w1 w2)))
-        | _ => NONE
-        )
-    | (FP_uop uop, [v1]) =>
-        (case (fp_translate v1) of
-          (SOME (FP_WordTree w1)) =>
-          SOME ((s,t),Rval (FP_WordTree (fp_uop uop w1)))
-        | _ => NONE
-        )
-    | (FP_cmp cmp, [v1; v2]) =>
-        (case (fp_translate v1, fp_translate v2) of
-          (SOME (FP_WordTree w1), SOME (FP_WordTree w2)) =>
-          SOME ((s,t),Rval (FP_BoolTree (fp_cmp cmp w1 w2)))
-        | _ => NONE
-        )
-    | (FpToWord, [FP_WordTree v1]) => SOME ((s,t), Rval (Litv (Word64 (compress_word v1))))
-    | (FpFromWord, [Litv (Word64 v1)]) => (SOME ((s,t), Rval (FP_WordTree (Fp_const v1))))
-    | (Real_cmp cmp, [Real v1; Real v2]) =>
-        SOME ((s,t), Rval (Boolv (real_cmp cmp v1 v2)))
-    | (Real_bop bop, [Real v1; Real v2]) =>
-        SOME ((s,t), Rval (Real (real_bop bop v1 v2)))
-    | (Real_uop uop, [Real v1]) =>
-        SOME ((s,t), Rval (Real (real_uop uop v1)))
-    | (RealFromFP, [Litv (Word64 fp)]) =>
-        SOME ((s,t), Rval (Real (fp64_to_real fp)))
     | (Shift W8 op n, [Litv (Word8 w)]) =>
         SOME ((s,t), Rval (Litv (Word8 (shift8_lookup op w n))))
     | (Shift W64 op n, [Litv (Word64 w)]) =>
         SOME ((s,t), Rval (Litv (Word64 (shift64_lookup op w n))))
-    | (Shift W64 op n, [FP_WordTree w1]) =>
-        let wr1 = (compress_word w1) in
-          (SOME ((s,t), Rval (Litv (Word64 (shift64_lookup op wr1 n)))))
     | (Equality, [v1; v2]) =>
         (case do_eq v1 v2 of
             Eq_type_error => NONE
@@ -1046,28 +1048,17 @@ Definition do_app_def:
                   )
         | _ => NONE
       )
-    | (WordFromInt W8, [Litv(IntLit i)]) =>
-        SOME ((s,t), Rval (Litv (Word8 (i2w i))))
-    | (WordFromInt W64, [Litv(IntLit i)]) =>
-        SOME ((s,t), Rval (Litv (Word64 (i2w i))))
-    | (WordToInt W8, [Litv (Word8 w)]) =>
-        SOME ((s,t), Rval (Litv (IntLit (int_of_num(w2n w)))))
-    | (WordToInt W64, [Litv (Word64 w)]) =>
-        SOME ((s,t), Rval (Litv (IntLit (int_of_num(w2n w)))))
-    | (WordToInt W64, [FP_WordTree v]) =>
-        let w = (compress_word v) in
-          SOME ((s,t), Rval (Litv (IntLit (int_of_num(w2n w)))))
-    | (CopyStrStr, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len)]) =>
+    | (CopyStrStr, [Litv(StrLit strng);Litv(IntLit off);Litv(IntLit len)]) =>
         SOME ((s,t),
-        (case copy_array (EXPLODE str,off) len NONE of
+        (case copy_array (explode strng,off) len NONE of
           NONE => Rerr (Rraise sub_exn_v)
-        | SOME cs => Rval (Litv(StrLit(IMPLODE(cs))))
+        | SOME cs => Rval (Litv(StrLit(implode(cs))))
         ))
-    | (CopyStrAw8, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len);
+    | (CopyStrAw8, [Litv(StrLit strng);Litv(IntLit off);Litv(IntLit len);
                     Loc _ dst;Litv(IntLit dstoff)]) =>
         (case store_lookup dst s of
           SOME (W8array ws) =>
-            (case copy_array (EXPLODE str,off) len (SOME(ws_to_chars ws,dstoff)) of
+            (case copy_array (explode strng,off) len (SOME(ws_to_chars ws,dstoff)) of
               NONE => SOME ((s,t), Rerr (Rraise sub_exn_v))
             | SOME cs =>
               (case store_assign dst (W8array (chars_to_ws cs)) s of
@@ -1081,11 +1072,11 @@ Definition do_app_def:
       (case store_lookup src s of
         SOME (W8array ws) =>
         SOME ((s,t),
-          (case copy_array (ws,off) len NONE of
-            NONE => Rerr (Rraise sub_exn_v)
-          | SOME ws => Rval (Litv(StrLit(IMPLODE(ws_to_chars ws))))
-          ))
-      | _ => NONE
+              (case copy_array (ws,off) len NONE of
+                 NONE => Rerr (Rraise sub_exn_v)
+               | SOME ws => Rval (Litv(StrLit(implode(ws_to_chars ws))))
+              ))
+       | _ => NONE
       )
     | (CopyAw8Aw8, [Loc _ src;Litv(IntLit off);Litv(IntLit len);
                     Loc _ dst;Litv(IntLit dstoff)]) =>
@@ -1104,7 +1095,7 @@ Definition do_app_def:
     | (XorAw8Str_unsafe, [Loc _ dst; Litv (StrLit str_arg)]) =>
         (case store_lookup dst s of
           SOME (W8array bs) =>
-            (case xor_bytes (MAP (n2w o ORD) str_arg) bs of
+            (case xor_bytes (MAP (n2w o ORD) (explode str_arg)) bs of
              | NONE => NONE
              | SOME new_bs =>
                 case store_assign dst (W8array new_bs) s of
@@ -1112,45 +1103,35 @@ Definition do_app_def:
                 | SOME s' => SOME ((s',t), Rval (Conv NONE [])))
         | _ => NONE
         )
-    | (Ord, [Litv (Char c)]) =>
-          SOME ((s,t), Rval (Litv(IntLit(int_of_num(ORD c)))))
-    | (Chr, [Litv (IntLit i)]) =>
-        SOME ((s,t),
-          (if (i <( 0 : int)) \/ (i >( 255 : int)) then
-            Rerr (Rraise chr_exn_v)
-          else
-            Rval (Litv(Char(CHR(Num (ABS (I i))))))))
-    | (Chopb op, [Litv (Char c1); Litv (Char c2)]) =>
-        SOME ((s,t), Rval (Boolv (opb_lookup op (int_of_num(ORD c1)) (int_of_num(ORD c2)))))
     | (Implode, [v]) =>
           (case v_to_char_list v of
             SOME ls =>
-              SOME ((s,t), Rval (Litv (StrLit (IMPLODE ls))))
+              SOME ((s,t), Rval (Litv (StrLit (implode ls))))
           | NONE => NONE
           )
     | (Explode, [v]) =>
           (case v of
-            Litv (StrLit str) =>
-              SOME ((s,t), Rval (list_to_v (MAP (\ c .  Litv (Char c)) (EXPLODE str))))
+            Litv (StrLit strng) =>
+              SOME ((s,t), Rval (list_to_v (MAP (\ c .  Litv (Char c)) (explode strng))))
           | _ => NONE
           )
-    | (Strsub, [Litv (StrLit str); Litv (IntLit i)]) =>
+    | (Strsub, [Litv (StrLit strng); Litv (IntLit i)]) =>
         if i <( 0 : int) then
           SOME ((s,t), Rerr (Rraise sub_exn_v))
         else
           let n = (Num (ABS (I i))) in
-            if n >= STRLEN str then
+            if n >= strlen strng then
               SOME ((s,t), Rerr (Rraise sub_exn_v))
             else
-              SOME ((s,t), Rval (Litv (Char (EL n (EXPLODE str)))))
-    | (Strlen, [Litv (StrLit str)]) =>
-        SOME ((s,t), Rval (Litv(IntLit(int_of_num(STRLEN str)))))
+              SOME ((s,t), Rval (Litv (Char (EL n (explode strng)))))
+    | (Strlen, [Litv (StrLit strng)]) =>
+        SOME ((s,t), Rval (Litv(IntLit(int_of_num(strlen strng)))))
     | (Strcat, [v]) =>
         (case v_to_list v of
           SOME vs =>
             (case vs_to_string vs of
-              SOME str =>
-                SOME ((s,t), Rval (Litv(StrLit str)))
+              SOME strng =>
+                SOME ((s,t), Rval (Litv(StrLit strng)))
             | _ => NONE
             )
         | _ => NONE
@@ -1161,6 +1142,11 @@ Definition do_app_def:
                 SOME ((s,t), Rval (Vectorv vs))
             | NONE => NONE
           )
+    | (Vsub_unsafe, [Vectorv vs; Litv (IntLit i)]) =>
+        if (0:int) ≤ i ∧ Num i < LENGTH vs then
+          SOME ((s,t), Rval (EL (Num i) vs))
+        else
+          NONE
     | (Vsub, [Vectorv vs; Litv (IntLit i)]) =>
         if i <( 0 : int) then
           SOME ((s,t), Rerr (Rraise sub_exn_v))
@@ -1257,7 +1243,7 @@ Definition do_app_def:
     | (FFI n, [Litv(StrLit conf); Loc _ lnum]) =>
         (case store_lookup lnum s of
           SOME (W8array ws) =>
-            (case call_FFI t (ExtCall n) (MAP (n2w o ORD) conf) ws of
+            (case call_FFI t (ExtCall n) (MAP (n2w o ORD) (explode conf)) ws of
               FFI_return t' ws' =>
                (case store_assign lnum (W8array ws') s of
                  SOME s' => SOME ((s', t'), Rval (Conv NONE []))
@@ -1272,14 +1258,34 @@ Definition do_app_def:
             Rval (Conv NONE [nat_to_v gen; nat_to_v id]))
     | (Env_id, [Conv NONE [gen; id]]) => SOME ((s, t),
             Rval (Conv NONE [gen; id]))
+    | (ThunkOp th_op, vs) => thunk_op (s,t) th_op vs
+    | (Arith a ty, vs) =>
+        (if EVERY (check_type ty) vs then
+           (case do_arith a ty vs of
+            | SOME (INR res) => SOME ((s, t), Rval res)
+            | SOME (INL exn) => SOME ((s, t), Rerr (Rraise exn))
+            | NONE           => NONE)
+         else NONE)
+    | (FromTo ty1 ty2, [v]) =>
+        (if check_type ty1 v then
+           (case do_conversion v ty1 ty2 of
+            | SOME (INR res) => SOME ((s, t), Rval res)
+            | SOME (INL exn) => SOME ((s, t), Rerr (Rraise exn))
+            | NONE           => NONE)
+         else NONE)
+    | (Test test test_ty, [v1; v2]) =>
+        (case do_test test test_ty v1 v2 of
+            Eq_type_error => NONE
+          | Eq_val b => SOME ((s,t), Rval (Boolv b))
+        )
     | _ => NONE
 End
 
 (* Do a logical operation *)
 Definition do_log_def:
   do_log l v e =
-    if l = And ∧ v = Boolv T ∨ l = Or ∧ v = Boolv F then SOME (Exp e)
-    else if l = And ∧ v = Boolv F ∨ l = Or ∧ v = Boolv T then SOME (Val v)
+    if l = Andalso ∧ v = Boolv T ∨ l = Orelse ∧ v = Boolv F then SOME (Exp e)
+    else if l = Andalso ∧ v = Boolv F ∨ l = Orelse ∧ v = Boolv T then SOME (Val v)
     else NONE
 End
 
@@ -1298,8 +1304,8 @@ End
 
 (* Build a constructor environment for the type definition tds *)
 Definition build_tdefs_def:
-  build_tdefs next_stamp ([]:(tvarN list # string # (string # ast_t list) list) list) =
-    ((alist_to_ns []):((string),(string),(num#stamp))namespace) ∧
+  build_tdefs next_stamp ([]:(tvarN list # mlstring # (mlstring # ast_t list) list) list) =
+    ((alist_to_ns []):((mlstring),(mlstring),(num#stamp))namespace) ∧
   build_tdefs next_stamp ((tvs,tn,condefs)::tds) =
     nsAppend (build_tdefs (next_stamp + 1) tds)
       (alist_to_ns (REVERSE (build_constrs next_stamp condefs)))
@@ -1307,7 +1313,7 @@ End
 
 (* Checks that no constructor is defined twice in a type *)
 Definition check_dup_ctors_def:
-  check_dup_ctors ((tvs,tn,condefs):(tvarN)list#string#(string#(ast_t)list)list) ⇔
+  check_dup_ctors ((tvs,tn,condefs):(tvarN)list#mlstring#(mlstring#(ast_t)list)list) ⇔
     ALL_DISTINCT
       (let x2 = [] in
          FOLDR (λ(n,ts) x2. if T then n::x2 else x2) x2 condefs)
@@ -1325,17 +1331,38 @@ Definition extend_dec_env_def:
     <|c := nsAppend new_env.c env.c; v := nsAppend new_env.v env.v|>
 End
 
-Definition shift_fp_opts_def:
-  shift_fp_opts s =
-  (s with <| fp_state :=
-             s.fp_state with <|
-                opts := (\ x . s.fp_state.opts (x + 1));
-                choices := (s.fp_state.choices + 1)
-             |>
-          |>)
-End
-
 val _ = set_fixity "+++" (Infixl 480);
 Overload "+++" = “extend_dec_env”;
 
-val _ = export_theory()
+(* With `dest_thunk` we check 3 things:
+     - The values contain exactly one reference
+     - The reference is valid
+     - The reference points to a thunk
+   We distinguish between `BadRef` and `NotThunk` instead of returning an option
+   with `NONE` for both, because we want `update_thunk` to succeed when
+   `dest_thunk` fails but only when the reference actually exists and points to
+   something other than a thunk. *)
+Datatype:
+  dest_thunk_ret
+    = BadRef
+    | NotThunk
+    | IsThunk thunk_mode v
+End
+
+Definition dest_thunk_def:
+  dest_thunk [Loc _ n] st =
+    (case store_lookup n st of
+     | NONE => BadRef
+     | SOME (Thunk Evaluated v) => IsThunk Evaluated v
+     | SOME (Thunk NotEvaluated v) => IsThunk NotEvaluated v
+     | SOME _ => NotThunk) ∧
+  dest_thunk vs st = NotThunk
+End
+
+Definition update_thunk_def:
+  update_thunk [Loc _ n] st [v] =
+    (case dest_thunk [v] st of
+     | NotThunk => store_assign n (Thunk Evaluated v) st
+     | _ => NONE) ∧
+  update_thunk _ st _ = NONE
+End

@@ -1,12 +1,11 @@
 (*
   Parser for Scheme
 *)
-open preamble;
-open mlstringTheory;
-open scheme_valuesTheory;
-open scheme_astTheory;
-
-val _ = new_theory "scheme_parsing";
+Theory scheme_parsing
+Ancestors
+  mlstring scheme_values scheme_ast
+Libs
+  preamble
 
 val _ = monadsyntax.declare_monad("sum", {
   unit = “INR”,
@@ -310,18 +309,11 @@ Termination
   >> gvs[]
 End
 
-Definition static_scope_check_def:
-  static_scope_check p = if static_scope ∅ p
-    then INR p
-    else INL "Not statically scoped or duplicate parameter in lambda or letrec"
-End
-
 Definition parse_to_ast_def:
   parse_to_ast s = do
       lxs <- lexer s;
       e <- parse lxs Nil [];
-      p <- cons_ast (head e);
-      static_scope_check p
+      cons_ast (head e);
     od
 End
 
@@ -334,4 +326,3 @@ EVAL “parse_to_ast "(letrec ((x 3) (y x)) 2)"”
 EVAL “parse_to_ast "(cons 3 2)"”
 *)
 
-val _ = export_theory();

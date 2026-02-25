@@ -61,10 +61,9 @@
    of the semantics is relational but it only allows deterministic behaviour.
 
    ------------------------------------------------------------------------- *)
-open HolKernel Parse boolLib bossLib
-open wordsTheory alignmentTheory astTheory
-
-val () = new_theory "asm"
+Theory asm
+Ancestors
+  words alignment ast
 
 (* -- syntax of ASM instruction -- *)
 
@@ -86,7 +85,7 @@ End
 
 Datatype:
   arith = Binop binop reg reg ('a reg_imm)
-        | Shift shift reg reg num
+        | Shift shift reg reg ('a reg_imm)
         | Div reg reg reg
         | LongMul reg reg reg reg
         | LongDiv reg reg reg reg reg
@@ -124,8 +123,8 @@ Datatype:
 End
 
 Datatype:
-  memop = Load  | Load8  | Load32
-        | Store | Store8 | Store32
+  memop = Load  | Load8  | Load16  | Load32
+        | Store | Store8 | Store16 | Store32
 End
 
 Datatype:
@@ -164,6 +163,7 @@ Datatype:
      ; two_reg_arith  : bool
      ; valid_imm      : (binop + cmp) -> 'a word -> bool
      ; addr_offset    : 'a word # 'a word
+     ; hw_offset      : 'a word # 'a word
      ; byte_offset    : 'a word # 'a word
      ; jump_offset    : 'a word # 'a word
      ; cjump_offset   : 'a word # 'a word
@@ -194,10 +194,15 @@ Definition arith_ok_def:
               "Or" on "two_reg_arith" architectures. *)
      (c.two_reg_arith ==> (r1 = r2) \/ (b = Or) /\ (ri = Reg r2)) /\
      reg_ok r1 c /\ reg_ok r2 c /\ reg_imm_ok (INL b) ri c) /\
-  (arith_ok (Shift l r1 r2 n) (c: 'a asm_config) <=>
+  (arith_ok (Shift l r1 r2 ri) (c: 'a asm_config) <=>
      (c.two_reg_arith ==> (r1 = r2)) /\
      reg_ok r1 c /\ reg_ok r2 c /\
-     ((n = 0) ==> (l = Lsl)) /\ n < dimindex(:'a)) /\
+     (case ri of
+      | Imm i => (((i = 0w) ==> (l = Lsl)) /\ w2n i < dimindex(:'a))
+      | Reg r =>
+        reg_ok r c ∧
+        (c.ISA = x86_64 ⇒ r = 1)
+      )) /\
   (arith_ok (Div r1 r2 r3) c <=>
      reg_ok r1 c /\ reg_ok r2 c /\ reg_ok r3 c /\
      c.ISA IN {ARMv8; MIPS; RISC_V}) /\
@@ -271,12 +276,12 @@ Definition offset_ok_def:
   let (min, max) = offset in min <= w /\ w <= max /\ aligned a w
 End
 
-val () = List.app overload_on
-  [("addr_offset_ok",  ``\c. offset_ok 0 c.addr_offset``),
-   ("byte_offset_ok",  ``\c. offset_ok 0 c.byte_offset``),
-   ("jump_offset_ok",  ``\c. offset_ok c.code_alignment c.jump_offset``),
-   ("cjump_offset_ok", ``\c. offset_ok c.code_alignment c.cjump_offset``),
-   ("loc_offset_ok",   ``\c. offset_ok c.code_alignment c.loc_offset``)]
+Overload addr_offset_ok = “λc. offset_ok 0 c.addr_offset”
+Overload hw_offset_ok = “λc. offset_ok 0 c.hw_offset”
+Overload byte_offset_ok = “λc. offset_ok 0 c.byte_offset”
+Overload jump_offset_ok = “λc. offset_ok c.code_alignment c.jump_offset”
+Overload cjump_offset_ok = “λc. offset_ok c.code_alignment c.cjump_offset”
+Overload loc_offset_ok = “λc. offset_ok c.code_alignment c.loc_offset”
 
 Definition inst_ok_def:
   (inst_ok Skip c = T) /\
@@ -287,6 +292,8 @@ Definition inst_ok_def:
      reg_ok r1 c /\ reg_ok r2 c /\
      (if m IN {Load; Store; Load32; Store32} then
         addr_offset_ok c w
+      else if m IN {Load16; Store16} then
+        hw_offset_ok c w ∧ c.ISA ≠ Ag32
       else
         byte_offset_ok c w))
 End
@@ -317,8 +324,7 @@ End
 Definition is_load_def[simp]:
   (is_load Load = T) ∧
   (is_load Load8 = T) ∧
+  (is_load Load16 = T) ∧
   (is_load Load32 = T) ∧
   (is_load _ = F)
 End
-
-val () = export_theory ()

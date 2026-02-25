@@ -2,16 +2,13 @@
   Defines the repeat function and the corresponding lemma used to prove
   non-termination of programs in cf.
 *)
-open preamble
-open set_sepTheory helperLib ml_translatorTheory
-open ml_translatorTheory semanticPrimitivesTheory
-open cfHeapsBaseTheory cfHeapsTheory cfHeapsBaseLib cfStoreTheory
-open cfNormaliseTheory cfAppTheory evaluateTheory
-open cfTacticsBaseLib cfTacticsLib cfTheory
-open std_preludeTheory;
-
-
-val _ = new_theory "cfDiv";
+Theory cfDiv
+Ancestors
+  set_sep ml_translator ml_translator semanticPrimitives
+  cfHeapsBase cfHeaps cfStore cfNormalise cfApp evaluate cf
+  std_prelude
+Libs
+  preamble helperLib cfHeapsBaseLib cfTacticsBaseLib cfTacticsLib
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
@@ -19,6 +16,10 @@ val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val _ = ml_translatorLib.translation_extends "std_prelude";
 
+(* Make sure we are using the option monad even in the presence of other
+   monads *)
+val _ = monadsyntax.temp_enable_monadsyntax ();
+val _ = monadsyntax.temp_enable_monad "option";
 
 (* -- general set up -- *)
 
@@ -79,10 +80,10 @@ Theorem nsLookup_build_rec_env_fresh:
     nsLookup(build_rec_env funs env' env.v) (Short fname) =
     nsLookup env.v (Short fname)
 Proof
-  `∀(funs:(string # string # exp) list) funs' env env' fname.
+  `∀(funs:(mlstring # mlstring # exp) list) funs' env env' fname.
    EVERY (λx. fname ≠ x) (MAP FST funs) ⇒
    nsLookup
-   (FOLDR (λ(f,x,e) env''. nsBind f (Recclosure env' (funs':(string # string # exp) list) f) env'')
+   (FOLDR (λ(f,x,e) env''. nsBind f (Recclosure env' (funs':(mlstring # mlstring # exp) list) f) env'')
           env.v funs) (Short fname) = nsLookup env.v (Short fname)`
     suffices_by rw[semanticPrimitivesTheory.build_rec_env_def] >>
   Induct >> rw[semanticPrimitivesTheory.build_rec_env_def] >>
@@ -102,7 +103,7 @@ QED
 
 (* -- tailrec -- *)
 
-val tailrec_clos = cfTacticsLib.process_topdecs `
+val tailrec_clos = process_topdecs `
   fun tailrec f x =
     case f x of
       Inl x => tailrec f x
@@ -113,12 +114,12 @@ val tailrec_body = tailrec_clos |> rator |> rand |> rand |> rand |> rand
 
 Definition mk_inl_def:
   mk_inl e =
-  Let (SOME "x") e (Con(SOME(Short "Inl")) [Var(Short "x")])
+  Let (SOME «x») e (Con(SOME(Short «Inl»)) [Var(Short «x»)])
 End
 
 Definition mk_inr_def:
   mk_inr e =
-  Let (SOME "x") e (Con(SOME(Short "Inr")) [Var(Short "x")])
+  Let (SOME «x») e (Con(SOME(Short «Inr»)) [Var(Short «x»)])
 End
 
 Definition mk_single_app_def:
@@ -269,14 +270,6 @@ Definition mk_single_app_def:
          od
       )
    ) /\
-   (mk_single_app fname allow_fname (FpOptimise fpopt e) =
-    do
-      e <- mk_single_app fname F e;
-      if allow_fname then
-        SOME(mk_inr(FpOptimise fpopt e))
-      else
-        SOME(FpOptimise fpopt e)
-    od) /\
    (mk_single_apps fname allow_fname (e::es) =
     do
       e <- mk_single_app fname allow_fname e;
@@ -313,8 +306,8 @@ Termination
    | INR (INR (INL (t,x,pes))) =>
        list_size (pair_size pat_size exp_size) pes
    | INR (INR (INR (t,x,funs))) =>
-       list_size (pair_size (list_size char_size)
-                  (pair_size (list_size char_size) exp_size)) funs)`
+       list_size (pair_size mlstring_size
+                  (pair_size mlstring_size exp_size)) funs)`
   \\ rw[]
   \\ gvs [Once (dest_opapp_def |> DefnBase.one_line_ify NONE)]
   \\ gvs [AllCaseEqs()]
@@ -339,7 +332,7 @@ Definition mk_tailrec_closure_def:
             (nsBind fname gclosure env.v) |>) farg
           (App Opapp
                [App Opapp
-                  [Letrec ^tailrec_clos (Var(Short "tailrec"));
+                  [Letrec ^tailrec_clos (Var(Short «tailrec»));
                    Var(Short fname)];
                 Var(Short farg)]
           )
@@ -347,7 +340,7 @@ Definition mk_tailrec_closure_def:
     od) /\ mk_tailrec_closure _ = NONE
 End
 
-Triviality mk_single_app_F_unchanged_gen:
+Theorem mk_single_app_F_unchanged_gen[local]:
   (!fname allow_fname e e'. mk_single_app fname allow_fname e = SOME e'
                /\ allow_fname = F ==> e = e') /\
    (!fname allow_fname es es'. mk_single_apps fname allow_fname es = SOME es'
@@ -370,21 +363,21 @@ Theorem mk_single_app_F_unchanged =
 
 Definition mk_inr_res_def:
   (mk_inr_res(Rval vs) =
-   Rval(MAP (λv. Conv (SOME (TypeStamp "Inr" 4)) [v]) vs)
+   Rval(MAP (λv. Conv (SOME (TypeStamp «Inr» 4)) [v]) vs)
   ) /\
   (mk_inr_res res = res)
 End
 
 Definition mk_inl_res_def:
   (mk_inl_res(Rval vs) =
-   Rval(MAP (λv. Conv (SOME (TypeStamp "Inl" 4)) [v]) vs)
+   Rval(MAP (λv. Conv (SOME (TypeStamp «Inl» 4)) [v]) vs)
   ) /\
   (mk_inl_res res = res)
 End
 
 Definition dest_inr_v_def:
   (dest_inr_v (Conv (SOME (TypeStamp txt n)) [v]) =
-   if txt = "Inr" /\ n = 4 then
+   if txt = «Inr» /\ n = 4 then
      SOME v
    else
      NONE) /\
@@ -393,7 +386,7 @@ End
 
 Definition dest_inl_v_def:
   (dest_inl_v (Conv (SOME (TypeStamp txt n)) [v]) =
-   if txt = "Inl" /\ n = 4 then
+   if txt = «Inl» /\ n = 4 then
      SOME v
    else
      NONE) /\
@@ -401,23 +394,23 @@ Definition dest_inl_v_def:
 End
 
 Theorem dest_inr_v_IMP:
-  !e1 v. dest_inr_v e1 = SOME v ==> e1 = Conv (SOME (TypeStamp "Inr" 4)) [v]
+  !e1 v. dest_inr_v e1 = SOME v ==> e1 = Conv (SOME (TypeStamp «Inr» 4)) [v]
 Proof
   ho_match_mp_tac (fetch "-" "dest_inr_v_ind") >>
   rw[dest_inr_v_def]
 QED
 
 Theorem dest_inl_v_IMP:
-  !e1 v. dest_inl_v e1 = SOME v ==> e1 = Conv (SOME (TypeStamp "Inl" 4)) [v]
+  !e1 v. dest_inl_v e1 = SOME v ==> e1 = Conv (SOME (TypeStamp «Inl» 4)) [v]
 Proof
   ho_match_mp_tac (fetch "-" "dest_inl_v_ind") >>
   rw[dest_inl_v_def]
 QED
 
 Theorem evaluate_inl:
-    do_con_check env.c (SOME (Short "Inl")) 1 = T /\
-    (!v. build_conv env.c (SOME (Short "Inl")) [v] =
-           SOME(Conv (SOME (TypeStamp "Inl" 4)) [v]))
+    do_con_check env.c (SOME (Short «Inl»)) 1 = T /\
+    (!v. build_conv env.c (SOME (Short «Inl»)) [v] =
+           SOME(Conv (SOME (TypeStamp «Inl» 4)) [v]))
     ==> evaluate st env [mk_inl e] =
         case evaluate st env [e] of
             (st,Rval v) => (st,mk_inl_res(Rval v))
@@ -430,7 +423,7 @@ Proof
     fs[quantHeuristicsTheory.LIST_LENGTH_1]
 QED
 
-Triviality build_conv_check_IMP_nsLookup:
+Theorem build_conv_check_IMP_nsLookup[local]:
   !env const v consname stamp n.
   (∀v. build_conv env (SOME const) [v] =
    SOME (Conv (SOME stamp) [v])) /\
@@ -443,9 +436,9 @@ Proof
 QED
 
 Theorem evaluate_IMP_inl:
-    do_con_check env.c (SOME (Short "Inl")) 1 = T /\
-    (!v. build_conv env.c (SOME (Short "Inl")) [v] =
-           SOME(Conv (SOME (TypeStamp "Inl" 4)) [v])) /\
+    do_con_check env.c (SOME (Short «Inl»)) 1 = T /\
+    (!v. build_conv env.c (SOME (Short «Inl»)) [v] =
+           SOME(Conv (SOME (TypeStamp «Inl» 4)) [v])) /\
     evaluate st env [e] = (st',res)
     ==> evaluate st env [mk_inl e] = (st',mk_inl_res res)
 Proof
@@ -457,9 +450,9 @@ Proof
 QED
 
 Theorem evaluate_inr:
-    do_con_check env.c (SOME (Short "Inr")) 1 = T /\
-    (!v. build_conv env.c (SOME (Short "Inr")) [v] =
-           SOME(Conv (SOME (TypeStamp "Inr" 4)) [v]))
+    do_con_check env.c (SOME (Short «Inr»)) 1 = T /\
+    (!v. build_conv env.c (SOME (Short «Inr»)) [v] =
+           SOME(Conv (SOME (TypeStamp «Inr» 4)) [v]))
     ==> evaluate st env [mk_inr e] =
         case evaluate st env [e] of
             (st,Rval v) => (st,mk_inr_res(Rval v))
@@ -473,9 +466,9 @@ Proof
 QED
 
 Theorem evaluate_IMP_inr:
-    do_con_check env.c (SOME (Short "Inr")) 1 = T /\
-    (!v. build_conv env.c (SOME (Short "Inr")) [v] =
-           SOME(Conv (SOME (TypeStamp "Inr" 4)) [v])) /\
+    do_con_check env.c (SOME (Short «Inr»)) 1 = T /\
+    (!v. build_conv env.c (SOME (Short «Inr»)) [v] =
+           SOME(Conv (SOME (TypeStamp «Inr» 4)) [v])) /\
     evaluate ^st env [e] = (st',res)
     ==> evaluate st env [mk_inr e] = (st',mk_inr_res res)
 Proof
@@ -495,19 +488,19 @@ Proof
   \\ rw [] \\ fs [] \\ res_tac \\ fs []
 QED
 
-Triviality mk_single_app_NONE_evaluate:
+Theorem mk_single_app_NONE_evaluate[local]:
   (!^st env es es'. mk_single_apps NONE T es = SOME es'
-    /\ do_con_check env.c (SOME (Short "Inr")) 1 = T
-    /\ (!v. build_conv env.c (SOME (Short "Inr")) [v] =
-           SOME(Conv (SOME (TypeStamp "Inr" 4)) [v]))
+    /\ do_con_check env.c (SOME (Short «Inr»)) 1 = T
+    /\ (!v. build_conv env.c (SOME (Short «Inr»)) [v] =
+           SOME(Conv (SOME (TypeStamp «Inr» 4)) [v]))
     ==> evaluate st env es'
         = case evaluate st env es of
            (st',res) => (st', mk_inr_res res)
    ) /\
    (!^st env v pes err_v pes'. mk_single_appps NONE T pes = SOME pes'
-    /\ do_con_check env.c (SOME (Short "Inr")) 1 = T
-    /\ (!v. build_conv env.c (SOME (Short "Inr")) [v] =
-           SOME(Conv (SOME (TypeStamp "Inr" 4)) [v]))
+    /\ do_con_check env.c (SOME (Short «Inr»)) 1 = T
+    /\ (!v. build_conv env.c (SOME (Short «Inr»)) [v] =
+           SOME(Conv (SOME (TypeStamp «Inr» 4)) [v]))
     ==> evaluate_match st env v pes' err_v
         = case evaluate_match st env v pes err_v of
            (st',res) => (st', mk_inr_res res)
@@ -629,10 +622,6 @@ Proof
   (* Lannot *)
   >- (fs[mk_single_app_def] >> rveq >>
       fs[Once evaluate_def])
-  (* FpOptimise *)
-  >- (fs[mk_single_app_def] >> rveq >>
-      imp_res_tac mk_single_app_F_unchanged >> rveq >>
-      irule evaluate_IMP_inr >> fs[])
   (* Pmatch empty row *)
   >- (fs[mk_single_app_def] >> rveq >>
       fs[evaluate_def] >> rveq >>
@@ -642,15 +631,15 @@ Proof
       fs[Once evaluate_def] >> rveq >>
       reverse IF_CASES_TAC >-
         (fs[] >> rveq >> fs[mk_inr_res_def]) >>
-      fs[] >> rveq >> fs[mk_inr_res_def, fp_translate_def] >>
+      fs[] >> rveq >> fs[mk_inr_res_def] >>
       TOP_CASE_TAC >> gs[] >> rveq >> fs[mk_inr_res_def])
 QED
 
-Triviality mk_single_app_NONE_evaluate_single:
+Theorem mk_single_app_NONE_evaluate_single[local]:
   (!^st env e e'. mk_single_app NONE T e = SOME e'
-    /\ do_con_check env.c (SOME (Short "Inr")) 1
-    /\ (!v. build_conv env.c (SOME (Short "Inr")) [v] =
-           SOME(Conv (SOME (TypeStamp "Inr" 4)) [v]))
+    /\ do_con_check env.c (SOME (Short «Inr»)) 1
+    /\ (!v. build_conv env.c (SOME (Short «Inr»)) [v] =
+           SOME(Conv (SOME (TypeStamp «Inr» 4)) [v]))
     ==> evaluate st env [e']
         = case evaluate st env [e] of
            (st',res) => (st', mk_inr_res res)
@@ -698,24 +687,24 @@ partially_evaluates_to_match fv mv err_v env st (pr1,pr2) =
    | (st',rerr) => evaluate_match st env mv pr2 err_v = (st',rerr)
 End
 
-Triviality mk_single_app_evaluate:
+Theorem mk_single_app_evaluate[local]:
   (!^st env es es' fname fv. mk_single_apps (SOME fname) T es = SOME es'
-    /\ do_con_check env.c (SOME (Short "Inr")) 1 = T
-    /\ (!v. build_conv env.c (SOME (Short "Inr")) [v] =
-           SOME(Conv (SOME (TypeStamp "Inr" 4)) [v]))
-    /\ do_con_check env.c (SOME (Short "Inl")) 1 = T
-    /\ (!v. build_conv env.c (SOME (Short "Inl")) [v] =
-           SOME(Conv (SOME (TypeStamp "Inl" 4)) [v]))
+    /\ do_con_check env.c (SOME (Short «Inr»)) 1 = T
+    /\ (!v. build_conv env.c (SOME (Short «Inr»)) [v] =
+           SOME(Conv (SOME (TypeStamp «Inr» 4)) [v]))
+    /\ do_con_check env.c (SOME (Short «Inl»)) 1 = T
+    /\ (!v. build_conv env.c (SOME (Short «Inl»)) [v] =
+           SOME(Conv (SOME (TypeStamp «Inl» 4)) [v]))
     /\ nsLookup env.v (Short fname) = SOME fv
     ==> partially_evaluates_to fv env st (ZIP(es',es))
    ) /\
    (!^st env v pes err_v pes' fname fv. mk_single_appps (SOME fname) T pes = SOME pes'
-    /\ do_con_check env.c (SOME (Short "Inr")) 1 = T
-    /\ (!v. build_conv env.c (SOME (Short "Inr")) [v] =
-           SOME(Conv (SOME (TypeStamp "Inr" 4)) [v]))
-    /\ do_con_check env.c (SOME (Short "Inl")) 1 = T
-    /\ (!v. build_conv env.c (SOME (Short "Inl")) [v] =
-           SOME(Conv (SOME (TypeStamp "Inl" 4)) [v]))
+    /\ do_con_check env.c (SOME (Short «Inr»)) 1 = T
+    /\ (!v. build_conv env.c (SOME (Short «Inr»)) [v] =
+           SOME(Conv (SOME (TypeStamp «Inr» 4)) [v]))
+    /\ do_con_check env.c (SOME (Short «Inl»)) 1 = T
+    /\ (!v. build_conv env.c (SOME (Short «Inl»)) [v] =
+           SOME(Conv (SOME (TypeStamp «Inl» 4)) [v]))
     /\ nsLookup env.v (Short fname) = SOME fv
     ==> partially_evaluates_to_match fv v err_v env st (pes',pes)
    )
@@ -926,17 +915,6 @@ Proof
       fs[PULL_EXISTS] >> first_x_assum drule >>
       rpt(disch_then drule) >>
       simp[partially_evaluates_to_def,evaluate_def])
-  (* FpOptimise *)
-  >- (fs[mk_single_app_def] >> rveq >>
-      imp_res_tac mk_single_app_F_unchanged >> rveq >>
-      rw[] >> fs[PULL_EXISTS] >>
-      fs[partially_evaluates_to_def] >>
-      fs [evaluate_inr] >>
-      Cases_on `evaluate st env [FpOptimise annot e]` >> fs[] >>
-      rename1 `_ = (_, result)` >> Cases_on `result` >> fs[mk_inr_res_def] >>
-      imp_res_tac evaluatePropsTheory.evaluate_length >>
-      fs[quantHeuristicsTheory.LIST_LENGTH_1] >>
-      rveq >> fs[dest_inr_v_def])
   (* Pmatch empty row *)
   >- (fs[mk_single_app_def] >> rveq >>
       simp[partially_evaluates_to_match_def,evaluate_def])
@@ -973,12 +951,12 @@ QED
 
 Theorem mk_single_app_evaluate_single:
   !^st env e e' fname fv. mk_single_app (SOME fname) T e = SOME e'
-    /\ do_con_check env.c (SOME (Short "Inr")) 1 = T
-    /\ (!v. build_conv env.c (SOME (Short "Inr")) [v] =
-           SOME(Conv (SOME (TypeStamp "Inr" 4)) [v]))
-    /\ do_con_check env.c (SOME (Short "Inl")) 1 = T
-    /\ (!v. build_conv env.c (SOME (Short "Inl")) [v] =
-           SOME(Conv (SOME (TypeStamp "Inl" 4)) [v]))
+    /\ do_con_check env.c (SOME (Short «Inr»)) 1 = T
+    /\ (!v. build_conv env.c (SOME (Short «Inr»)) [v] =
+           SOME(Conv (SOME (TypeStamp «Inr» 4)) [v]))
+    /\ do_con_check env.c (SOME (Short «Inl»)) 1 = T
+    /\ (!v. build_conv env.c (SOME (Short «Inl»)) [v] =
+           SOME(Conv (SOME (TypeStamp «Inl» 4)) [v]))
     /\ nsLookup env.v (Short fname) = SOME fv
     ==> partially_evaluates_to fv env st [(e',e)]
 Proof
@@ -988,24 +966,24 @@ Proof
   rpt(disch_then drule) >> simp[]
 QED
 
-Triviality evaluate_tailrec_ind_lemma:
+Theorem evaluate_tailrec_ind_lemma[local]:
   !ck fbody gbody env env' ^st farg x v fname st' res.
    mk_single_app (SOME fname) T fbody = SOME gbody /\
-   do_con_check env.c (SOME (Short "Inr")) 1 /\
+   do_con_check env.c (SOME (Short «Inr»)) 1 /\
    (∀v.
-        build_conv env.c (SOME (Short "Inr")) [v] =
-        SOME (Conv (SOME (TypeStamp "Inr" 4)) [v])) /\
-   do_con_check env.c (SOME (Short "Inl")) 1 /\
+        build_conv env.c (SOME (Short «Inr»)) [v] =
+        SOME (Conv (SOME (TypeStamp «Inr» 4)) [v])) /\
+   do_con_check env.c (SOME (Short «Inl»)) 1 /\
    res <> Rerr(Rabort(Rtimeout_error)) /\
    (∀v.
-        build_conv env.c (SOME (Short "Inl")) [v] =
-        SOME (Conv (SOME (TypeStamp "Inl" 4)) [v])) /\
+        build_conv env.c (SOME (Short «Inl»)) [v] =
+        SOME (Conv (SOME (TypeStamp «Inl» 4)) [v])) /\
    fname <> farg /\
    evaluate_ck ck ^st
      (env with
       v :=
-        nsBind "x" v
-          (nsBind "f"
+        nsBind «x» v
+          (nsBind «f»
              (Closure
                 (env with
                  v :=
@@ -1144,18 +1122,18 @@ Proof
       fs[semanticPrimitivesTheory.state_component_equality])
 QED
 
-Triviality evaluate_tailrec_lemma:
+Theorem evaluate_tailrec_lemma[local]:
   !ck fbody gbody env ^st farg x fname st' res.
    mk_single_app (SOME fname) T fbody = SOME gbody /\
-   do_con_check env.c (SOME (Short "Inr")) 1 /\
+   do_con_check env.c (SOME (Short «Inr»)) 1 /\
    (∀v.
-        build_conv env.c (SOME (Short "Inr")) [v] =
-        SOME (Conv (SOME (TypeStamp "Inr" 4)) [v])) /\
-   do_con_check env.c (SOME (Short "Inl")) 1 /\
+        build_conv env.c (SOME (Short «Inr»)) [v] =
+        SOME (Conv (SOME (TypeStamp «Inr» 4)) [v])) /\
+   do_con_check env.c (SOME (Short «Inl»)) 1 /\
    res <> Rerr(Rabort(Rtimeout_error)) /\
    (∀v.
-        build_conv env.c (SOME (Short "Inl")) [v] =
-        SOME (Conv (SOME (TypeStamp "Inl" 4)) [v])) /\
+        build_conv env.c (SOME (Short «Inl»)) [v] =
+        SOME (Conv (SOME (TypeStamp «Inl» 4)) [v])) /\
    fname <> farg /\
    evaluate_ck ck ^st
       (env with
@@ -1168,7 +1146,7 @@ Triviality evaluate_tailrec_lemma:
                       farg gbody) env.v))
     [App Opapp
         [App Opapp
-           [Letrec ^tailrec_clos (Var(Short "tailrec"));
+           [Letrec ^tailrec_clos (Var(Short «tailrec»));
             Var(Short fname)]; Var (Short farg)]] = (st',res) ==>
     ∃ck'.evaluate_ck ck ^st
          (env with
@@ -1197,7 +1175,7 @@ Proof
   simp[semanticPrimitivesTheory.state_component_equality]
 QED
 
-Triviality mk_single_app_unroll_lemma:
+Theorem mk_single_app_unroll_lemma[local]:
   !fname fbody gbody ^st st' ck1 env farg ck2 x v.
     mk_single_app (SOME fname) T fbody = SOME gbody /\
     evaluate (^st with clock := ck1)
@@ -1207,14 +1185,14 @@ Triviality mk_single_app_unroll_lemma:
                     (nsBind fname (Recclosure env [(fname,farg,fbody)] fname)
                        env.v)) [gbody] =
              (st' with clock := 0,mk_inl_res(Rval [v])) /\
-    do_con_check env.c (SOME (Short "Inr")) 1 /\
+    do_con_check env.c (SOME (Short «Inr»)) 1 /\
     (∀v.
-      build_conv env.c (SOME (Short "Inr")) [v] =
-     SOME (Conv (SOME (TypeStamp "Inr" 4)) [v])) /\
-    do_con_check env.c (SOME (Short "Inl")) 1 /\
+      build_conv env.c (SOME (Short «Inr»)) [v] =
+     SOME (Conv (SOME (TypeStamp «Inr» 4)) [v])) /\
+    do_con_check env.c (SOME (Short «Inl»)) 1 /\
     (∀v.
-      build_conv env.c (SOME (Short "Inl")) [v] =
-     SOME (Conv (SOME (TypeStamp "Inl" 4)) [v])) /\
+      build_conv env.c (SOME (Short «Inl»)) [v] =
+     SOME (Conv (SOME (TypeStamp «Inl» 4)) [v])) /\
     fname ≠ farg
     ==>
     evaluate (^st with clock := ck1 + ck2 + 1)
@@ -1245,23 +1223,23 @@ Proof
   simp[] >> fs[build_rec_env_def]
 QED
 
-Triviality evaluate_tailrec_diverge_lemma:
+Theorem evaluate_tailrec_diverge_lemma[local]:
   !ck fbody gbody env env' ^st farg x v fname.
    mk_single_app (SOME fname) T fbody = SOME gbody /\
-   do_con_check env.c (SOME (Short "Inr")) 1 /\
+   do_con_check env.c (SOME (Short «Inr»)) 1 /\
    (∀v.
-        build_conv env.c (SOME (Short "Inr")) [v] =
-        SOME (Conv (SOME (TypeStamp "Inr" 4)) [v])) /\
-   do_con_check env.c (SOME (Short "Inl")) 1 /\
+        build_conv env.c (SOME (Short «Inr»)) [v] =
+        SOME (Conv (SOME (TypeStamp «Inr» 4)) [v])) /\
+   do_con_check env.c (SOME (Short «Inl»)) 1 /\
    (∀v.
-        build_conv env.c (SOME (Short "Inl")) [v] =
-        SOME (Conv (SOME (TypeStamp "Inl" 4)) [v])) /\
+        build_conv env.c (SOME (Short «Inl»)) [v] =
+        SOME (Conv (SOME (TypeStamp «Inl» 4)) [v])) /\
    fname <> farg /\
    (!ck. ?st'. evaluate_ck ck ^st
      (env with
       v :=
-        nsBind "x" v
-          (nsBind "f"
+        nsBind «x» v
+          (nsBind «f»
              (Closure
                 (env with
                  v :=
@@ -1414,24 +1392,24 @@ Proof
     )
 QED
 
-Triviality evaluate_tailrec_div_ind_lemma:
+Theorem evaluate_tailrec_div_ind_lemma[local]:
   !ck fbody gbody env env' ^st farg x v fname st' res.
    mk_single_app (SOME fname) T fbody = SOME gbody /\
-   do_con_check env.c (SOME (Short "Inr")) 1 /\
+   do_con_check env.c (SOME (Short «Inr»)) 1 /\
    (∀v.
-        build_conv env.c (SOME (Short "Inr")) [v] =
-        SOME (Conv (SOME (TypeStamp "Inr" 4)) [v])) /\
-   do_con_check env.c (SOME (Short "Inl")) 1 /\
+        build_conv env.c (SOME (Short «Inr»)) [v] =
+        SOME (Conv (SOME (TypeStamp «Inr» 4)) [v])) /\
+   do_con_check env.c (SOME (Short «Inl»)) 1 /\
    (∀v.
-        build_conv env.c (SOME (Short "Inl")) [v] =
-        SOME (Conv (SOME (TypeStamp "Inl" 4)) [v])) /\
+        build_conv env.c (SOME (Short «Inl»)) [v] =
+        SOME (Conv (SOME (TypeStamp «Inl» 4)) [v])) /\
    fname <> farg /\
    ck > 0 /\
    evaluate_ck ck ^st
      (env with
       v :=
-        nsBind "x" v
-          (nsBind "f"
+        nsBind «x» v
+          (nsBind «f»
              (Closure
                 (env with
                  v :=
@@ -1556,17 +1534,17 @@ Proof
       asm_exists_tac >> first_x_assum ACCEPT_TAC)
 QED
 
-Triviality evaluate_tailrec_div_ind_lemma2:
+Theorem evaluate_tailrec_div_ind_lemma2[local]:
   !ck fbody gbody env env' ^st farg x v fname st' res.
    mk_single_app (SOME fname) T fbody = SOME gbody /\
-   do_con_check env.c (SOME (Short "Inr")) 1 /\
+   do_con_check env.c (SOME (Short «Inr»)) 1 /\
    (∀v.
-        build_conv env.c (SOME (Short "Inr")) [v] =
-        SOME (Conv (SOME (TypeStamp "Inr" 4)) [v])) /\
-   do_con_check env.c (SOME (Short "Inl")) 1 /\
+        build_conv env.c (SOME (Short «Inr»)) [v] =
+        SOME (Conv (SOME (TypeStamp «Inr» 4)) [v])) /\
+   do_con_check env.c (SOME (Short «Inl»)) 1 /\
    (∀v.
-        build_conv env.c (SOME (Short "Inl")) [v] =
-        SOME (Conv (SOME (TypeStamp "Inl" 4)) [v])) /\
+        build_conv env.c (SOME (Short «Inl»)) [v] =
+        SOME (Conv (SOME (TypeStamp «Inl» 4)) [v])) /\
    fname <> farg /\
    evaluate_ck ck ^st
          (env with
@@ -1575,8 +1553,8 @@ Triviality evaluate_tailrec_div_ind_lemma2:
    ?ck. evaluate_ck ck ^st
      (env with
       v :=
-        nsBind "x" v
-          (nsBind "f"
+        nsBind «x» v
+          (nsBind «f»
              (Closure
                 (env with
                  v :=
@@ -1665,7 +1643,7 @@ Proof
       imp_res_tac evaluate_clock >> fs[])
 QED
 
-Triviality lprefix_mono_lprefix:
+Theorem lprefix_mono_lprefix[local]:
   !f i k.
  (!i. LPREFIX (f i) (f(i + 1)))
  ==> LPREFIX (f i) (f(i + (k:num)))
@@ -1676,7 +1654,7 @@ Proof
  metis_tac[LPREFIX_TRANS]
 QED
 
-Triviality gify:
+Theorem gify[local]:
   !g n.
  (!i. g i < g (i +1))
  ==> ?k (i:num). g i = (n:num) + k
@@ -1711,12 +1689,12 @@ QED
 
 Theorem mk_tailrec_closure_sound_basic:
    !fv env . mk_tailrec_closure(Recclosure env [(fname,farg,fbody)] fname) = SOME fv
-   /\ do_con_check env.c (SOME (Short "Inr")) 1
-   /\ (!v. build_conv env.c (SOME (Short "Inr")) [v] =
-           SOME(Conv (SOME (TypeStamp "Inr" 4)) [v]))
-   /\ do_con_check env.c (SOME (Short "Inl")) 1
-   /\ (!v. build_conv env.c (SOME (Short "Inl")) [v] =
-          SOME(Conv (SOME (TypeStamp "Inl" 4)) [v]))
+   /\ do_con_check env.c (SOME (Short «Inr»)) 1
+   /\ (!v. build_conv env.c (SOME (Short «Inr»)) [v] =
+           SOME(Conv (SOME (TypeStamp «Inr» 4)) [v]))
+   /\ do_con_check env.c (SOME (Short «Inl»)) 1
+   /\ (!v. build_conv env.c (SOME (Short «Inl»)) [v] =
+          SOME(Conv (SOME (TypeStamp «Inl» 4)) [v]))
    /\ fname <> farg
    /\ app_basic (p:'ffi ffi_proj) fv x H Q
    ==> app_basic p (Recclosure env [(fname,farg,fbody)] fname) x H Q
@@ -1830,12 +1808,12 @@ QED
 
 Theorem mk_tailrec_closure_sound:
    !fv env . mk_tailrec_closure(Recclosure env [(fname,farg,fbody)] fname) = SOME fv
-   /\ do_con_check env.c (SOME (Short "Inr")) 1
-   /\ (!v. build_conv env.c (SOME (Short "Inr")) [v] =
-           SOME(Conv (SOME (TypeStamp "Inr" 4)) [v]))
-   /\ do_con_check env.c (SOME (Short "Inl")) 1
-   /\ (!v. build_conv env.c (SOME (Short "Inl")) [v] =
-          SOME(Conv (SOME (TypeStamp "Inl" 4)) [v]))
+   /\ do_con_check env.c (SOME (Short «Inr»)) 1
+   /\ (!v. build_conv env.c (SOME (Short «Inr»)) [v] =
+           SOME(Conv (SOME (TypeStamp «Inr» 4)) [v]))
+   /\ do_con_check env.c (SOME (Short «Inl»)) 1
+   /\ (!v. build_conv env.c (SOME (Short «Inl»)) [v] =
+          SOME(Conv (SOME (TypeStamp «Inl» 4)) [v]))
    /\ fname <> farg
    /\ app p fv [x] H Q
    ==> app p (Recclosure env [(fname,farg,fbody)] fname) [x] H Q
@@ -1844,7 +1822,7 @@ Proof
 QED
 
 Definition some_tailrec_clos_def:
-  some_tailrec_clos env = Recclosure env ^tailrec_clos "tailrec"
+  some_tailrec_clos env = Recclosure env ^tailrec_clos «tailrec»
 End
 
 Theorem POSTv_eq:
@@ -1886,7 +1864,7 @@ Proof
   \\ qexists_tac `ck-ck0` \\ fs []
 QED
 
-Triviality lprefix_mono_lprefix:
+Theorem lprefix_mono_lprefix[local]:
   !f i k.
   (!i. LPREFIX (f i) (f(i + 1)))
   ==> LPREFIX (f i) (f(i + (k:num)))
@@ -1897,7 +1875,7 @@ Proof
   metis_tac[LPREFIX_TRANS]
 QED
 
-Triviality gify:
+Theorem gify[local]:
   !g n.
   (!i. g i < g (i +1))
   ==> ?k (i:num). g i = (n:num) + k
@@ -1946,8 +1924,8 @@ QED
 
 Theorem tailrec_POSTd:
     !p env fv xv H Q.
-      nsLookup env.c (Short "Inr") = SOME (1,inr) /\ same_type inr inl /\
-      nsLookup env.c (Short "Inl") = SOME (1,inl) /\ inr <> inl /\
+      nsLookup env.c (Short «Inr») = SOME (1,inr) /\ same_type inr inl /\
+      nsLookup env.c (Short «Inl») = SOME (1,inl) /\ inr <> inl /\
       (?Hs events vs io.
          vs 0 = xv /\ H ==>> Hs 0 /\
          (!i. ?P. Hs i = P * one (FFI_full (events i))) /\
@@ -2051,12 +2029,12 @@ Proof
   \\ qabbrev_tac `cks_sum = \i. SUM (GENLIST cks i) + 3 * i`
   \\ qabbrev_tac `nth_env = \i. (env with
                v :=
-                 nsBind "x" (vs i)
-                   (nsBind "f" fv
+                 nsBind «x» (vs i)
+                   (nsBind «f» fv
                       (build_rec_env ^tailrec_clos env env.v)))`
   \\ `(env with v :=
-                 nsBind "x" (vs 0)
-                   (nsBind "f" fv
+                 nsBind «x» (vs 0)
+                   (nsBind «f» fv
                       (build_rec_env ^tailrec_clos env env.v))) = nth_env 0`
         by fs [Abbr `nth_env`] \\ fs [] \\ pop_assum kall_tac
   \\ qabbrev_tac `body = ^let_a`
@@ -2233,20 +2211,20 @@ QED
 
 Theorem IMP_app_POSTd_old:
     mk_stepfun_closure env fname farg fbody = SOME stepv /\
-    nsLookup env.c (Short "Inr") = SOME (1,TypeStamp "Inr" 4) /\
-    nsLookup env.c (Short "Inl") = SOME (1,TypeStamp "Inl" 4) /\
-    do_con_check env.c (SOME (Short "Inr")) 1 ∧
-    (∀v. build_conv env.c (SOME (Short "Inr")) [v] =
-         SOME (Conv (SOME (TypeStamp "Inr" 4)) [v])) ∧
-    do_con_check env.c (SOME (Short "Inl")) 1 ∧
-    (∀v. build_conv env.c (SOME (Short "Inl")) [v] =
-         SOME (Conv (SOME (TypeStamp "Inl" 4)) [v])) ∧ fname ≠ farg ∧
+    nsLookup env.c (Short «Inr») = SOME (1,TypeStamp «Inr» 4) /\
+    nsLookup env.c (Short «Inl») = SOME (1,TypeStamp «Inl» 4) /\
+    do_con_check env.c (SOME (Short «Inr»)) 1 ∧
+    (∀v. build_conv env.c (SOME (Short «Inr»)) [v] =
+         SOME (Conv (SOME (TypeStamp «Inr» 4)) [v])) ∧
+    do_con_check env.c (SOME (Short «Inl»)) 1 ∧
+    (∀v. build_conv env.c (SOME (Short «Inl»)) [v] =
+         SOME (Conv (SOME (TypeStamp «Inl» 4)) [v])) ∧ fname ≠ farg ∧
     (∃Hs events vs io.
          vs 0 = xv ∧ H ==>> Hs 0 * one (FFI_full (events 0)) ∧
          (∀i.
               app p stepv [vs i] (Hs i * one (FFI_full (events i)))
                 (POSTv v'.
-                     &(v' = Conv (SOME (TypeStamp "Inl" 4))
+                     &(v' = Conv (SOME (TypeStamp «Inl» 4))
                               [vs (SUC i)]) *
                    Hs (SUC i) * one (FFI_full (events (SUC i))))) ∧
          lprefix_lub (IMAGE (fromList ∘ events) univ(:num)) io ∧ Q io) ⇒
@@ -2272,20 +2250,20 @@ QED
 
 (* -- repeat -- *)
 
-val repeat_clos = cfTacticsLib.process_topdecs `
+val repeat_clos = process_topdecs `
   fun repeat f x = repeat f (f x);
-  ` |> rator |> rand |> rand
+  ` |> rator |> rand |> rand;
 
 val repeat_body = repeat_clos |> rator |> rand |> rand |> rand |> rand
 
 Definition cause_type_error_def:
-  cause_type_error = App Ord [Lit(IntLit 0)]
+  cause_type_error = App (FromTo CharT IntT) [Lit(IntLit 0)]
 End
 
 Theorem evaluate[simp]:
   evaluate s env [cause_type_error] = (s,Rerr (Rabort Rtype_error))
 Proof
-  fs [evaluate_def,cause_type_error_def,
+  fs [evaluate_def,cause_type_error_def,check_type_def,
       semanticPrimitivesTheory.do_opapp_def,semanticPrimitivesTheory.do_app_def]
 QED
 
@@ -2442,14 +2420,6 @@ Definition make_single_app_def:
          od
       )
    ) /\
-   (make_single_app fname allow_fname (FpOptimise annot e) =
-    do
-      e <- make_single_app fname F e;
-      if allow_fname then
-        SOME(then_tyerr (FpOptimise annot e))
-      else
-        SOME(FpOptimise annot e)
-    od) /\
    (make_single_apps fname (e::es) =
     do
       e <- make_single_app fname F e;
@@ -2485,8 +2455,8 @@ Termination
                                  | INR (INR (INL (t,x,pes))) =>
                                      list_size (pair_size pat_size exp_size) pes
                                  | INR (INR (INR (t,funs))) =>
-       list_size (pair_size (list_size char_size)
-                  (pair_size (list_size char_size) exp_size)) funs)`
+       list_size (pair_size mlstring_size
+                  (pair_size mlstring_size exp_size)) funs)`
   \\ rw []
   \\ gvs [Once (dest_opapp_def |> DefnBase.one_line_ify NONE)]
   \\ gvs [AllCaseEqs()]
@@ -2511,7 +2481,7 @@ Definition make_repeat_closure_def:
             (nsBind fname gclosure env.v) |>) farg
           (App Opapp
                [App Opapp
-                  [Letrec ^repeat_clos (Var(Short "repeat"));
+                  [Letrec ^repeat_clos (Var(Short «repeat»));
                    Var(Short fname)];
                 Var(Short farg)]
           )
@@ -2519,7 +2489,7 @@ Definition make_repeat_closure_def:
     od) /\ make_repeat_closure _ = NONE
 End
 
-Triviality make_single_app_F_unchanged_gen:
+Theorem make_single_app_F_unchanged_gen[local]:
   (!fname allow_fname e e'. make_single_app fname allow_fname e = SOME e'
                /\ allow_fname = F ==> e = e') /\
    (!fname es es'. make_single_apps fname es = SOME es'
@@ -2955,14 +2925,6 @@ Proof
     \\ rename [`mk_tyerr_res r2`] \\ Cases_on `r2` \\ fs [mk_tyerr_res_def]
     \\ every_case_tac \\ fs [])
   THEN1
-   (rw[make_single_app_def] \\ fs[]
-    \\ imp_res_tac make_single_app_F_unchanged \\ fs [] \\ rveq \\ rfs []
-    \\ fs [part_evaluates_to_def]
-    \\ Cases_on `evaluate st env [FpOptimise annot e]`
-    \\ rename1 `_ = (_, result)`
-    \\ Cases_on `result` \\ fs[mk_tyerr_res_def]
-    \\ rpt (TOP_CASE_TAC \\ fs[]))
-  THEN1
    (rw[make_single_app_def] \\ fs [] \\ rename [`(p,_)::_`]
     \\ imp_res_tac make_single_app_F_unchanged \\ fs [] \\ rveq \\ rfs []
     \\ rveq \\ fs [] \\ fs [part_evaluates_to_def]
@@ -3001,7 +2963,7 @@ QED
 val make_single_app_SOME_evaluate_exp =
   make_single_app_SOME_evaluate |> CONJUNCT1 |> SIMP_RULE std_ss [];
 
-Triviality make_single_app_unroll_lemma:
+Theorem make_single_app_unroll_lemma[local]:
   !fname fbody gbody ^st st' ck1 env farg ck2 x v.
     make_single_app (SOME fname) T fbody = SOME gbody /\
     evaluate (^st with clock := ck1)
@@ -3040,15 +3002,15 @@ Proof
   simp[] >> fs[build_rec_env_def]
 QED
 
-Triviality evaluate_repeat_diverge_lemma:
+Theorem evaluate_repeat_diverge_lemma[local]:
   !ck fbody gbody env env' ^st farg x v fname.
    make_single_app (SOME fname) T fbody = SOME gbody /\
    fname <> farg /\
    (!ck. ?st'. evaluate_ck ck ^st
      (env with
       v :=
-        nsBind "x" v
-          (nsBind "f"
+        nsBind «x» v
+          (nsBind «f»
              (Closure
                 (env with
                  v :=
@@ -3188,7 +3150,7 @@ Proof
    simp[] >> simp[build_rec_env_def]
 QED
 
-Triviality evaluate_repeat_div_ind_lemma:
+Theorem evaluate_repeat_div_ind_lemma[local]:
   !ck fbody gbody env env' ^st farg x v fname st' res.
    make_single_app (SOME fname) T fbody = SOME gbody /\
    fname <> farg /\
@@ -3196,8 +3158,8 @@ Triviality evaluate_repeat_div_ind_lemma:
    evaluate_ck ck ^st
      (env with
       v :=
-        nsBind "x" v
-          (nsBind "f"
+        nsBind «x» v
+          (nsBind «f»
              (Closure
                 (env with
                  v :=
@@ -3301,7 +3263,7 @@ Proof
   asm_exists_tac >> first_x_assum ACCEPT_TAC
 QED
 
-Triviality evaluate_repeat_div_ind_lemma2:
+Theorem evaluate_repeat_div_ind_lemma2[local]:
   !ck fbody gbody env env' ^st farg x v fname st' res.
    make_single_app (SOME fname) T fbody = SOME gbody /\
    fname <> farg /\
@@ -3312,8 +3274,8 @@ Triviality evaluate_repeat_div_ind_lemma2:
    ?ck res2. evaluate_ck ck ^st
      (env with
       v :=
-        nsBind "x" v
-          (nsBind "f"
+        nsBind «x» v
+          (nsBind «f»
              (Closure
                 (env with
                  v :=
@@ -3507,10 +3469,10 @@ Theorem make_repeat_closure_sound:
     ==> app p (Recclosure env [(fname,farg,fbody)] fname) [x] H ($POSTd Q)
 Proof
   metis_tac[make_repeat_closure_sound_basic,app_def]
-QED;
+QED
 
 Definition some_repeat_clos_def:
-  some_repeat_clos env = Recclosure env ^repeat_clos "repeat"
+  some_repeat_clos env = Recclosure env ^repeat_clos «repeat»
 End
 
 fun rename_conv s tm =
@@ -3624,12 +3586,12 @@ Proof
   \\ qabbrev_tac `cks_sum = \i. SUM (GENLIST cks i) + 3 * i`
   \\ qabbrev_tac `nth_env = \i. (env with
                v :=
-                 nsBind "x" (vs i)
-                   (nsBind "f" fv
+                 nsBind «x» (vs i)
+                   (nsBind «f» fv
                       (build_rec_env ^repeat_clos env env.v)))`
   \\ `(env with v :=
-                 nsBind "x" (vs 0)
-                   (nsBind "f" fv
+                 nsBind «x» (vs 0)
+                   (nsBind «f» fv
                       (build_rec_env ^repeat_clos env env.v))) = nth_env 0`
         by fs [Abbr `nth_env`] \\ fs [] \\ pop_assum kall_tac
   \\ qabbrev_tac `body = ^let_a`
@@ -3896,12 +3858,12 @@ Proof
   \\ qabbrev_tac `cks_sum = \i. SUM (GENLIST cks i) + 3 * i`
   \\ qabbrev_tac `nth_env = \i. (env with
                v :=
-                 nsBind "x" (vls i)
-                   (nsBind "f" fv
+                 nsBind «x» (vls i)
+                   (nsBind «f» fv
                       (build_rec_env ^repeat_clos env env.v)))`
   \\ `(env with v :=
-                 nsBind "x" (vls 0)
-                   (nsBind "f" fv
+                 nsBind «x» (vls 0)
+                   (nsBind «f» fv
                       (build_rec_env ^repeat_clos env env.v))) = nth_env 0`
         by fs [Abbr `nth_env`] \\ fs [] \\ pop_assum kall_tac
   \\ qabbrev_tac `body = ^let_a`
@@ -4021,16 +3983,18 @@ QED
 
 (* -- old repeat approach -- *)
 
-val _ = (append_prog o cfTacticsLib.process_topdecs)
+val _ = (append_prog o process_topdecs)
   `fun repeat f x = repeat f (f x);`
 
 val st = ml_translatorLib.get_ml_prog_state ();
 
 val repeat_v = fetch "-" "repeat_v_def"
 
-val evaluate_IMP_io_events_mono = prove(
-  ``evaluate s e exp = (t,res) ==> io_events_mono s.ffi t.ffi``,
-  metis_tac [evaluatePropsTheory.evaluate_io_events_mono,FST]);
+Theorem evaluate_IMP_io_events_mono[local]:
+    evaluate s e exp = (t,res) ==> io_events_mono s.ffi t.ffi
+Proof
+  metis_tac [evaluatePropsTheory.evaluate_io_events_mono,FST]
+QED
 
 Theorem repeat_POSTd:
     !p fv xv H Q.
@@ -4133,10 +4097,10 @@ Proof
        \\ simp [Once get_index_def])
      \\ fs [])
   \\ qabbrev_tac `cks_sum = \i. SUM (GENLIST cks i) + 3 * i`
-  \\ qpat_abbrev_tac `the_env = nsBind "f" fv _`
+  \\ qpat_abbrev_tac `the_env = nsBind «f» fv _`
   \\ qpat_abbrev_tac `other_env = merge_env _ _`
-  \\ qabbrev_tac `nth_env = \i. (other_env with v := nsBind "x" (vs i) the_env)`
-  \\ `(other_env with v := nsBind "x" (vs 0) the_env) = nth_env 0`
+  \\ qabbrev_tac `nth_env = \i. (other_env with v := nsBind «x» (vs i) the_env)`
+  \\ `(other_env with v := nsBind «x» (vs 0) the_env) = nth_env 0`
         by fs [Abbr`nth_env`] \\ fs []
   \\ pop_assum kall_tac
   \\ fs [Abbr`the_env`,Abbr`other_env`]
@@ -4405,7 +4369,7 @@ Proof
  simp[LNTH_LUNFOLD,FUNPOW]
 QED
 
-Triviality every_LGENLIST:
+Theorem every_LGENLIST[local]:
   every P (LGENLIST f NONE)
   = !x. P(f x)
 Proof
@@ -4458,7 +4422,7 @@ Proof
   \\ rw[]
   \\ `LFLATTEN(LGENLIST f NONE) <> [||]` by(CCONTR_TAC >> fs[])
   \\ dxrule LFLATTEN_NOT_NIL_IMP
-  \\ disch_then(strip_assume_tac o Ho_Rewrite.REWRITE_RULE[whileTheory.LEAST_EXISTS])
+  \\ disch_then(strip_assume_tac o Ho_Rewrite.REWRITE_RULE[WhileTheory.LEAST_EXISTS])
   \\ qmatch_asmsub_abbrev_tac `LNTH a1`
   \\ Q.ISPECL_THEN [`a1`,`f`] assume_tac (GEN_ALL LGENLIST_CHUNK_GENLIST)
   \\ fs[]
@@ -4491,13 +4455,13 @@ Proof
   \\ fs[o_DEF]
 QED
 
-Triviality list_length_eq:
+Theorem list_length_eq[local]:
   l1 = l2 ==> LENGTH l1 = LENGTH l2
 Proof
   simp[]
 QED
 
-Triviality list_length_eq2:
+Theorem list_length_eq2[local]:
   l1 = l2 ==> LENGTH(FLAT(MAP FST l1)) = LENGTH(FLAT(MAP FST l2))
 Proof
   simp[]
@@ -4758,7 +4722,7 @@ Proof
     (fs[Once LFLATTEN])
   \\ match_mp_tac OR_INTRO_THM2
   \\ pop_assum(assume_tac o Ho_Rewrite.REWRITE_RULE [every_LGENLIST,o_DEF,NOT_FORALL_THM])
-  \\ pop_assum(strip_assume_tac o Ho_Rewrite.REWRITE_RULE[whileTheory.LEAST_EXISTS])
+  \\ pop_assum(strip_assume_tac o Ho_Rewrite.REWRITE_RULE[WhileTheory.LEAST_EXISTS])
   \\ fs[CONV_RULE(LHS_CONV SYM_CONV) fromList_EQ_LNIL]
   \\ qspecl_then [`LEAST x. events (n + x) <> []`,`fromList o events o $+ n`] mp_tac
       (LGENLIST_CHUNK_GENLIST
@@ -4855,5 +4819,3 @@ Proof
   \\ qexists_tac `ns` \\ fs []
   \\ asm_exists_tac \\ fs[] \\ asm_exists_tac \\ fs[]
 QED
-
-val _ = export_theory();

@@ -6,10 +6,11 @@
   uses to known which variables it should treat as roots in a given
   stack frame.
 *)
-open preamble asmTheory wordLangTheory stackLangTheory parmoveTheory
-     word_allocTheory mlstringTheory
-
-val _ = new_theory "word_to_stack";
+Theory word_to_stack
+Ancestors
+  asm wordLang stackLang parmove word_alloc mlstring
+Libs
+  preamble
 
 (* bitmaps_length stores the current length of the bitmaps *)
 Datatype:
@@ -96,10 +97,15 @@ Definition wInst_def:
     let (l',n3) = wReg2 n3 kf in
     wStackLoad (l++l')
       (wRegWrite1 (\n1. Inst (Arith (Binop bop n1 n2 (Reg n3)))) n1 kf)) /\
-  (wInst (Arith (Shift sh n1 n2 a)) kf =
+  (wInst (Arith (Shift sh n1 n2 (Imm imm))) kf =
     let (l,n2) = wReg1 n2 kf in
     wStackLoad l
-      (wRegWrite1 (\n1. Inst (Arith (Shift sh n1 n2 a))) n1 kf)) /\
+      (wRegWrite1 (\n1. Inst (Arith (Shift sh n1 n2 (Imm imm)))) n1 kf)) /\
+  (wInst (Arith (Shift sh n1 n2 (Reg n3))) kf =
+    let (l,n2) = wReg1 n2 kf in
+    let (l',n3) = wReg2 n3 kf in
+    wStackLoad (l++l')
+      (wRegWrite1 (\n1. Inst (Arith (Shift sh n1 n2 (Reg n3)))) n1 kf)) /\
   (wInst (Arith (Div n1 n2 n3)) kf =
     let (l,n2) = wReg1 n2 kf in
     let (l',n3) = wReg2 n3 kf in
@@ -186,6 +192,10 @@ Definition wShareInst_def:
     let (l,n2) = wReg1 ad kf in
     wStackLoad l
       (wRegWrite1 (\r. ShMemOp Load8 r (Addr n2 offset)) v kf)) /\
+  (wShareInst Load16 v (Addr ad offset) kf =
+    let (l,n2) = wReg1 ad kf in
+    wStackLoad l
+      (wRegWrite1 (\r. ShMemOp Load16 r (Addr n2 offset)) v kf)) /\
   (wShareInst Load32 v (Addr ad offset) kf =
     let (l,n2) = wReg1 ad kf in
     wStackLoad l
@@ -200,6 +210,11 @@ Definition wShareInst_def:
     let (l2,n1) = wReg2 v kf in
     wStackLoad (l1 ++ l2)
       (ShMemOp Store8 n1 (Addr n2 offset))) /\
+  (wShareInst Store16 v (Addr ad offset) kf =
+    let (l1,n2) = wReg1 ad kf in
+    let (l2,n1) = wReg2 v kf in
+    wStackLoad (l1 ++ l2)
+      (ShMemOp Store16 n1 (Addr n2 offset))) /\
   (wShareInst Store32 v (Addr ad offset) kf =
     let (l1,n2) = wReg1 ad kf in
     let (l2,n1) = wReg2 v kf in
@@ -523,4 +538,3 @@ Definition stub_names_def:
     (store_consts_stub_location, mlstring$strlit "_StoreConsts")]
 End
 
-val _ = export_theory();

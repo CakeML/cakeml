@@ -2,17 +2,19 @@
   This builds a proof checker specialized to the
   packing chromatic number bounds
 *)
-open preamble basis lpr_composeProgTheory UnsafeProofTheory lprTheory lpr_listTheory lpr_parsingTheory HashtableProofTheory lpr_arrayProgTheory lpr_arrayParsingProgTheory packingTheory;
-
-val _ = new_theory "lpr_arrayPackingProg"
+Theory lpr_arrayPackingProg
+Ancestors
+  lpr_composeProg UnsafeProof lpr lpr_list lpr_parsing
+  HashtableProof lpr_arrayProg lpr_arrayParsingProg packing
+  basis_ffi
+Libs
+  preamble basis
 
 val _ = temp_delsimps ["NORMEQ_CONV"] (*"*)
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val _ = translation_extends"lpr_arrayParsingProg";
-
-val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
 
 val usage_string = ‘
 Input: <r = radius> <k = total colors> <c = center color, 1 ≤ c ≤ k>
@@ -47,13 +49,14 @@ val r = translate parse_numbers_def;
 
 (* NOTE: still written in the old style since this doesn't actually use the UNSAT checker *)
 (* 3 arg *)
-val check_unsat_3 = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun check_unsat_3 enc r k c =
     case parse_numbers r k c of
       Some (r,(k,c)) =>
       TextIO.print_list (print_dimacs (enc r k c))
     | None =>
-      TextIO.output TextIO.stdErr usage_string`
+      TextIO.output TextIO.stdErr usage_string
+End
 
 Definition check_unsat_3_sem_def:
   check_unsat_3_sem fs enc r k c err =
@@ -127,11 +130,12 @@ val res = translate packingTheory.full_restrict_def;
 val res = translate packingTheory.encode_def;
 val res = translate full_encode_def;
 
-val main = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun main u =
   case CommandLine.arguments () of
     [r,k,c] => check_unsat_3 full_encode r k c
-  | _ => TextIO.output TextIO.stdErr usage_string`
+  | _ => TextIO.output TextIO.stdErr usage_string
+End
 
 Definition main_sem_def:
   main_sem cl fs err =
@@ -208,5 +212,3 @@ Theorem main_semantics =
   |> SIMP_RULE(srw_ss())[GSYM CONJ_ASSOC,AND_IMP_INTRO];
 
 end
-
-val _ = export_theory();

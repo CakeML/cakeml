@@ -1,9 +1,11 @@
 (*
   Define the format of the compiler-generated .S file for ARMv8
 *)
-open preamble exportTheory
-
-val () = new_theory "export_arm8";
+Theory export_arm8
+Ancestors
+  export
+Libs
+  preamble
 
 (*
 CakeML expects 4 arguments in order:
@@ -71,8 +73,8 @@ Definition ffi_asm_def:
   (ffi_asm [] = Nil) /\
   (ffi_asm (ffi::ffis) =
       SmartAppend (List [
-       strlit"cake_ffi"; implode ffi; strlit":\n";
-       strlit"     b     cdecl(ffi"; implode ffi; strlit")\n";
+       strlit"cake_ffi"; ffi; strlit":\n";
+       strlit"     b     cdecl(ffi"; ffi; strlit")\n";
        strlit"     .p2align 4\n";
        strlit"\n"]) (ffi_asm ffis))
 End
@@ -115,17 +117,33 @@ val entry_point_code =
     [""; "";
      "cml_enter:";
      "     str    x30, [sp, #-32]!";
+     "     str    x29, [sp, #-32]!";
      "     str    x28, [sp, #-32]!";
      "     str    x27, [sp, #-32]!";
+     "     str    x26, [sp, #-32]!";
      "     str    x25, [sp, #-32]!";
+     "     str    x24, [sp, #-32]!";
+     "     str    x23, [sp, #-32]!";
+     "     str    x22, [sp, #-32]!";
+     "     str    x21, [sp, #-32]!";
+     "     str    x20, [sp, #-32]!";
+     "     str    x19, [sp, #-32]!";
      "     b      cake_main";
      "     .p2align 4";
      ""; "";
      "cake_enter:";
      "     str    x30, [sp, #-32]!";
+     "     str    x29, [sp, #-32]!";
      "     str    x28, [sp, #-32]!";
      "     str    x27, [sp, #-32]!";
+     "     str    x26, [sp, #-32]!";
      "     str    x25, [sp, #-32]!";
+     "     str    x24, [sp, #-32]!";
+     "     str    x23, [sp, #-32]!";
+     "     str    x22, [sp, #-32]!";
+     "     str    x21, [sp, #-32]!";
+     "     str    x20, [sp, #-32]!";
+     "     str    x19, [sp, #-32]!";
      "     _ldrel x9, can_enter";
      "     ldr    x11, [x9]";
      "     cbz    x11, cake_err3";
@@ -153,9 +171,17 @@ val entry_point_code =
      "     mov    x11, #1";
      "     str    x11, [x9]";
      "     mov    x8, x0";
+     "     ldr    x19, [sp], #32";
+     "     ldr    x20, [sp], #32";
+     "     ldr    x21, [sp], #32";
+     "     ldr    x22, [sp], #32";
+     "     ldr    x23, [sp], #32";
+     "     ldr    x24, [sp], #32";
      "     ldr    x25, [sp], #32";
+     "     ldr    x26, [sp], #32";
      "     ldr    x27, [sp], #32";
      "     ldr    x28, [sp], #32";
+     "     ldr    x29, [sp], #32";
      "     ldr    x30, [sp], #32";
      "     ret";
      "     .p2align 4";
@@ -202,7 +228,3 @@ Definition arm8_export_def:
         (SmartAppend ^entry_point_code (export_funcs lsyms exp))
       else List []))))
 End
-
-
-
-val _ = export_theory ();

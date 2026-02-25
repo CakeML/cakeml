@@ -1,16 +1,13 @@
 (*
   Lemmas used in proof of clos_known
 *)
-open HolKernel Parse boolLib bossLib;
+Theory clos_knownProps
+Ancestors
+  closProps clos_known
+Libs
+  preamble
 
-open preamble
-open closPropsTheory clos_knownTheory
-
-val _ = new_theory "clos_knownProps";
-
-val va_case_eq =
-    prove_case_eq_thm{case_def = TypeBase.case_def_of ``:val_approx``,
-                      nchotomy = TypeBase.nchotomy_of ``:val_approx``}
+val va_case_eq = TypeBase.case_eq_of ``:val_approx``
 
 Theorem merge_Other[simp]:
    merge Other a = Other ∧ merge a Other = Other
@@ -179,4 +176,3 @@ Proof
   conj_tac \\ simp [Once mk_Ticks_def]
 QED
 
-val _ = export_theory();

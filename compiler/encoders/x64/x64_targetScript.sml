@@ -1,10 +1,11 @@
 (*
   Define the target compiler configuration for x64.
 *)
-open HolKernel Parse boolLib bossLib
-open asmLib x64_stepTheory;
-
-val () = new_theory "x64_target"
+Theory x64_target
+Ancestors
+  asmProps x64_step
+Libs
+  asmLib
 
 val () = wordsLib.guess_lengths()
 
@@ -73,7 +74,11 @@ Definition x64_ast_def:
    (x64_ast (Inst (Const r i)) =
       let sz = if (63 >< 31) i = 0w: 33 word then Z32 else Z64
       in
-        [Zmov (Z_ALWAYS, sz, Zrm_i (reg r, i))]) /\
+        if i = 0w
+        then
+          [Zbinop (Zxor, (Z32, Zrm_r (reg r, total_num2Zreg r)))]
+        else
+          [Zmov (Z_ALWAYS, sz, Zrm_i (reg r, i))]) /\
    (x64_ast (Inst (Arith (Binop bop r1 r2 (Reg r3)))) =
       let a = (Z64, Zrm_r (reg r1, total_num2Zreg r3))
       in
@@ -86,8 +91,10 @@ Definition x64_ast_def:
          Zmonop (Znot, Z64, reg r)
        else
          Zbinop (x64_bop bop, Z64, Zrm_i (reg r, i))]) /\
-   (x64_ast (Inst (Arith (Shift sh r _ n))) =
-      [Zbinop (x64_sh sh, Z64, Zrm_i (reg r, n2w n))]) /\
+   (x64_ast (Inst (Arith (Shift sh r _ (Imm i)))) =
+      [Zbinop (x64_sh sh, Z64, Zrm_i (reg r, i))]) /\
+   (x64_ast (Inst (Arith (Shift sh r1 _ (Reg r2)))) =
+      [Zbinop (x64_sh sh, Z64, Zrm_r (reg r1, total_num2Zreg r2))]) /\
    (x64_ast (Inst (Arith (Div _ _ _))) = []) /\
    (x64_ast (Inst (Arith (LongMul _ _ _ r))) = [Zmul (Z64, reg r)]) /\
    (x64_ast (Inst (Arith (LongDiv _ _ _ _ r))) = [Zdiv (Z64, reg r)]) /\
@@ -109,12 +116,16 @@ Definition x64_ast_def:
       [Zmov (Z_ALWAYS, Z64, ld r1 r2 a)]) /\
    (x64_ast (Inst (Mem Load32 r1 (Addr r2 a))) =
       [Zmov (Z_ALWAYS, Z32, ld r1 r2 a)]) /\
+   (x64_ast (Inst (Mem Load16 r1 (Addr r2 a))) =
+      [Zmovzx (Z16, ld r1 r2 a, Z64)]) /\
    (x64_ast (Inst (Mem Load8 r1 (Addr r2 a))) =
       [Zmovzx (Z8 T, ld r1 r2 a, Z64)]) /\
    (x64_ast (Inst (Mem Store r1 (Addr r2 a))) =
       [Zmov (Z_ALWAYS, Z64, st r1 r2 a)]) /\
    (x64_ast (Inst (Mem Store32 r1 (Addr r2 a))) =
       [Zmov (Z_ALWAYS, Z32, st r1 r2 a)]) /\
+   (x64_ast (Inst (Mem Store16 r1 (Addr r2 a))) =
+      [Zmov (Z_ALWAYS, Z16, st r1 r2 a)]) /\
    (x64_ast (Inst (Mem Store8 r1 (Addr r2 a))) =
       [Zmov (Z_ALWAYS, Z8 (3 < r1), st r1 r2 a)]) /\
 (**)
@@ -227,6 +238,7 @@ Definition x64_config_def:
     ; big_endian := F
     ; valid_imm := \b i. ^min32 <= i /\ i <= ^max32
     ; addr_offset := (^min32, ^max32)
+    ; hw_offset := (^min32, ^max32)
     ; byte_offset := (^min32, ^max32)
     ; jump_offset := (^min32 + 13w, ^max32 + 5w)
     ; cjump_offset := (^min32 + 13w, ^max32 + 5w)
@@ -257,9 +269,5 @@ End
 val (x64_config, x64_asm_ok) =
   asmLib.target_asm_rwts [alignmentTheory.aligned_0] ``x64_config``
 
-Theorem x64_config =
-  x64_config
-Theorem x64_asm_ok =
-  x64_asm_ok
-
-val () = export_theory ()
+Theorem x64_config = x64_config
+Theorem x64_asm_ok = x64_asm_ok

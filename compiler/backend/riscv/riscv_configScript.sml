@@ -1,9 +1,11 @@
 (*
   Define the compiler configuration for RISC-V
 *)
-open preamble backendTheory riscv_targetTheory riscv_targetLib
-
-val _ = new_theory"riscv_config";
+Theory riscv_config
+Ancestors
+  backend riscv_target
+Libs
+  preamble riscv_targetLib
 
 Definition riscv_names_def:
   riscv_names =
@@ -49,7 +51,7 @@ val word_to_word_conf = ``<| reg_alg:=3; col_oracle := [] |>``
 val riscv_data_conf = ``<| tag_bits:=4; len_bits:=4; pad_bits:=2; len_size:=32; has_div:=T; has_longdiv:=F; has_fp_ops:=F; has_fp_tern:=F; be:=F; call_empty_ffi:=F; gc_kind:=Simple|>``
 val riscv_word_conf = ``<| bitmaps_length := 0; stack_frame_size := LN |>``
 val riscv_stack_conf = ``<|jump:=F;reg_names:=riscv_names|>``
-val riscv_lab_conf = ``<|pos:=0;ffi_names:=NONE;labels:=LN;sec_pos_len:=[];asm_conf:=riscv_config;init_clock:=5;hash_size:=104729n;shmem_extra:=[]|>``
+val riscv_lab_conf = ``<|pos:=0;ffi_names:=NONE;labels:=LN;sec_pos_len:=[];init_clock:=5;hash_size:=104729n;shmem_extra:=[]|>``
 
 Definition riscv_backend_config_def:
   riscv_backend_config =
@@ -67,4 +69,3 @@ Definition riscv_backend_config_def:
                |>
 End
 
-val _ = export_theory();

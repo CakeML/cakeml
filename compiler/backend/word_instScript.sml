@@ -2,12 +2,14 @@
   This compiler phase implements instruction selection. It uses the
   Maximal Munch strategy.
 *)
-open preamble wordLangTheory stackLangTheory sortingTheory;
-
-val _ = new_theory "word_inst";
+Theory word_inst
+Ancestors
+  wordLang stackLang sorting
+Libs
+  preamble
 
 val _ = Parse.bring_to_front_overload"Shift"{Thy="wordLang",Name="Shift"};
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 (*Scheme:
 1) Pull all nested ops and consts as far up as possible and convert
@@ -21,7 +23,7 @@ val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 Definition pull_ops_def:
   (pull_ops op [] acc = acc) ∧
   (pull_ops op (x::xs) acc =
-    dtcase x of
+    case x of
     |  (Op op' ls) => if op = op' then pull_ops op xs (ls ++ acc) else pull_ops op xs (x::acc)
     |  _  => pull_ops op xs (x::acc))
 End
@@ -46,7 +48,7 @@ End
 Theorem convert_sub_pmatch:
   !l.
   convert_sub l =
-  case l of
+  pmatch l of
     [Const w1;Const w2] => Const (w1 -w2)
   | [x;Const w] => Op Add [Const (-w);x]
   | ls => Op Sub ls
@@ -65,7 +67,7 @@ End
 Theorem op_consts_pmatch:
   !op.
   op_consts op =
-  case op of
+  pmatch op of
     And => Const (~0w)
   | _ => Const 0w
 Proof
@@ -80,7 +82,7 @@ Definition reduce_const_def:
   reduce_const op w rest =
   if w = 0w then
     if op = Add ∨ op = Or ∨ op = Xor then
-      dtcase rest of
+      case rest of
         []  => Const w
       | [x] => x
       | _ => Op op rest
@@ -93,7 +95,7 @@ End
 Definition optimize_consts_def:
   optimize_consts op ls =
   let (const_ls,nconst_ls) = PARTITION is_const ls in
-    dtcase const_ls of
+    case const_ls of
       [] => Op op nconst_ls
     | _ =>
       let w = THE (word_op op (MAP rm_const const_ls)) in
@@ -115,7 +117,7 @@ Definition pull_exp_def:
     let pull_ls = pull_ops op new_ls [] in
       optimize_consts op pull_ls) ∧
   (pull_exp (Load exp) = Load (pull_exp exp)) ∧
-  (pull_exp (Shift shift exp nexp) = Shift shift (pull_exp exp) nexp) ∧
+  (pull_exp (Shift shift exp nexp) = Shift shift (pull_exp exp) (pull_exp nexp)) ∧
   (pull_exp exp = exp)
 Termination
   WF_REL_TAC `measure (exp_size ARB)`
@@ -129,7 +131,7 @@ End
 Theorem pull_exp_pmatch:
   !(exp:'a exp).
   pull_exp exp =
-  case exp of
+  pmatch exp of
    Op Sub ls => (
     let new_ls = MAP pull_exp ls in
     convert_sub new_ls)
@@ -140,7 +142,7 @@ Theorem pull_exp_pmatch:
     let pull_ls = pull_ops op new_ls [] in
       optimize_consts op pull_ls)
   | Load exp => Load (pull_exp exp)
-  | Shift sh exp nexp => Shift sh (pull_exp exp) nexp
+  | Shift sh exp nexp => Shift sh (pull_exp exp) (pull_exp nexp)
   | exp => exp
 Proof
   rpt strip_tac
@@ -164,7 +166,7 @@ Definition flatten_exp_def:
   (flatten_exp (Op op [x]) = flatten_exp x) ∧
   (flatten_exp (Op op (x::xs)) = Op op [flatten_exp (Op op xs);flatten_exp x]) ∧
   (flatten_exp (Load exp) = Load (flatten_exp exp)) ∧
-  (flatten_exp (Shift shift exp nexp) = Shift shift (flatten_exp exp) nexp) ∧
+  (flatten_exp (Shift shift exp nexp) = Shift shift (flatten_exp exp) (flatten_exp nexp)) ∧
   (flatten_exp exp = exp)
 Termination
   WF_REL_TAC `measure (exp_size ARB)`
@@ -179,7 +181,7 @@ End
 Theorem flatten_exp_pmatch:
   !exp.
   flatten_exp exp =
-  case exp of
+  pmatch exp of
     (Op Sub exps) => Op Sub (MAP flatten_exp exps)
   | (Op op []) => op_consts op
   | (Op op [x]) => flatten_exp x
@@ -208,7 +210,7 @@ End
 
 Theorem is_Lookup_CurrHeap_pmatch:
   is_Lookup_CurrHeap e =
-    (case e of Lookup CurrHeap => T | _ => F)
+    (pmatch e of Lookup CurrHeap => T | _ => F)
 Proof
   rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac >>
          PURE_ONCE_REWRITE_TAC[LET_DEF] >> BETA_TAC) >>
@@ -230,7 +232,7 @@ QED
 
 Definition inst_select_exp_def:
   (inst_select_exp (c:'a asm_config) (tar:num) (temp:num) (Load exp) =
-    dtcase exp of
+    case exp of
     | Op Add [exp';Const w] =>
       if addr_offset_ok c w then
         let prog = inst_select_exp c temp temp exp' in
@@ -256,7 +258,7 @@ Definition inst_select_exp_def:
         Seq p2 (OpCurrHeap op tar temp))
     else
     let p1 = inst_select_exp c temp temp e1 in
-    dtcase e2 of
+    case e2 of
     | Const w =>
       (*t = r op const*)
       if c.valid_imm (INL op) w then
@@ -271,15 +273,22 @@ Definition inst_select_exp_def:
     | _ =>
       let p2 = inst_select_exp c (temp+1) (temp+1) e2 in
       Seq p1 (Seq p2 (Inst (Arith (Binop op tar temp (Reg (temp+1))))))) ∧
-  (inst_select_exp c tar temp (Shift sh exp n) =
-    if (n < dimindex(:'a)) then
-      let prog = inst_select_exp c temp temp exp in
-      if n = 0 then
-        Seq prog (Move 0 [tar,temp])
-      else
-        Seq prog (Inst (Arith (Shift sh tar temp n)))
-    else
-      Inst (Const tar 0w)) ∧
+  (inst_select_exp c tar temp (Shift sh exp e1) =
+    case e1 of
+    | Const shift_len =>
+        let n = w2n shift_len in
+          if (n < dimindex(:'a)) then
+            (let prog = inst_select_exp c temp temp exp in
+              if n = 0 then
+                Seq prog (Move 0 [tar,temp])
+              else
+                 Seq prog (Inst (Arith (Shift sh tar temp (Imm (n2w n))))))
+          else
+            Inst (Const tar 0w)
+    | _ =>
+      let p = inst_select_exp c temp temp exp in
+      let p1 = inst_select_exp c (temp+1) (temp+1) e1 in
+      Seq p (Seq p1 (Inst (Arith (Shift sh tar temp (Reg (temp+1))))))) ∧
   (*Make it total*)
   (inst_select_exp _ _ _ _ = Skip)
 Termination
@@ -288,12 +297,12 @@ Termination
    \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
    \\ fs[exp_size_def]
    \\ TRY (DECIDE_TAC)
-End ;
+End
 
 Theorem inst_select_exp_pmatch:
   !c tar temp exp.
   inst_select_exp (c:'a asm_config) tar temp exp =
-  case exp of
+  pmatch exp of
     Load(Op Add [exp';Const w]) =>
       if addr_offset_ok c w then
         let prog = inst_select_exp c temp temp exp' in
@@ -318,7 +327,7 @@ Theorem inst_select_exp_pmatch:
       (let p2 = inst_select_exp c temp temp e2 in
         Seq p2 (OpCurrHeap op tar temp))
     else
-     case e2 of
+     pmatch e2 of
       Const w =>
       (*t = r op const*)
       if c.valid_imm (INL op) w then
@@ -333,15 +342,22 @@ Theorem inst_select_exp_pmatch:
     | _ =>
       let p2 = inst_select_exp c (temp+1) (temp+1) e2 in
       Seq (inst_select_exp c temp temp e1) (Seq p2 (Inst (Arith (Binop op tar temp (Reg (temp+1)))))))
-  | Shift sh exp n =>
-    (if (n < dimindex(:'a)) then
-      let prog = inst_select_exp c temp temp exp in
-      if n = 0 then
-        Seq prog (Move 0 [tar,temp])
-      else
-        Seq prog (Inst (Arith (Shift sh tar temp n)))
-    else
-      Inst (Const tar 0w))
+  | Shift sh exp e1 =>
+   (case e1 of
+    | Const shift_len =>
+        let n = w2n shift_len in
+          if (n < dimindex(:'a)) then
+            (let prog = inst_select_exp c temp temp exp in
+              if n = 0 then
+                Seq prog (Move 0 [tar,temp])
+              else
+                 Seq prog (Inst (Arith (Shift sh tar temp (Imm (n2w n))))))
+          else
+            Inst (Const tar 0w)
+    | _ =>
+      let p = inst_select_exp c temp temp exp in
+      let p1 = inst_select_exp c (temp+1) (temp+1) e1 in
+      Seq p (Seq p1 (Inst (Arith (Shift sh tar temp (Reg (temp+1)))))))
   (*Make it total*)
   | _ => Skip
 Proof
@@ -372,7 +388,7 @@ Definition inst_select_def:
     Seq prog (Set store (Var temp))) ∧
   (inst_select c temp (Store exp var) =
     let exp = (flatten_exp o pull_exp) exp in
-    dtcase exp of
+    case exp of
     | Op Add [exp';Const w] =>
       if addr_offset_ok c w then
         let prog = inst_select_exp c temp temp exp' in
@@ -389,10 +405,11 @@ Definition inst_select_def:
     MustTerminate (inst_select c temp p1)) ∧
   (inst_select c temp (ShareInst op v exp) =
     let exp = (flatten_exp o pull_exp) exp in
-    dtcase exp of
+    case exp of
     | Op Add [exp';Const w] =>
       if ((op = Load ∨ op = Store) /\ addr_offset_ok c w) ∨
           ((op = Load32 ∨ op  = Store32) /\ addr_offset_ok c w) ∨
+          ((op = Load16 ∨ op  = Store16) /\ hw_offset_ok c w) ∨
           ((op = Load8 ∨ op  = Store8) /\ byte_offset_ok c w) then
         let prog = inst_select_exp c temp temp exp' in
           Seq prog (ShareInst op v (Op Add [Var temp; Const w]))
@@ -406,12 +423,12 @@ Definition inst_select_def:
     If cmp r1 ri (inst_select c temp c1) (inst_select c temp c2)) ∧
   (inst_select c temp (Call ret dest args handler) =
     let retsel =
-      dtcase ret of
+      case ret of
         NONE => NONE
       | SOME (n,names,ret_handler,l1,l2) =>
         SOME (n,names,inst_select c temp ret_handler,l1,l2) in
     let handlersel =
-      dtcase handler of
+      case handler of
         NONE => NONE
       | SOME (n,h,l1,l2) => SOME (n,inst_select c temp h,l1,l2) in
     Call retsel dest args handlersel) ∧
@@ -421,7 +438,7 @@ End
 Theorem inst_select_pmatch:
   !c temp prog.
   inst_select c temp prog =
-  case prog of
+  pmatch prog of
   | Assign v exp =>
     (inst_select_exp c v temp o flatten_exp o pull_exp) exp
   | Set store exp =>
@@ -429,7 +446,7 @@ Theorem inst_select_pmatch:
     Seq prog (Set store (Var temp)))
   | Store exp var =>
     (let exp = (flatten_exp o pull_exp) exp in
-    case exp of
+    pmatch exp of
     | Op Add [exp';Const w] =>
       if addr_offset_ok c w then
         let prog = inst_select_exp c temp temp exp' in
@@ -448,10 +465,11 @@ Theorem inst_select_pmatch:
       If cmp r1 ri (inst_select c temp c1) (inst_select c temp c2)
   | ShareInst op var exp =>
     (let exp = (flatten_exp o pull_exp) exp in
-    case exp of
+    pmatch exp of
     | Op Add [exp';Const w] =>
       if ((op = Load ∨ op = Store) /\ addr_offset_ok c w) \/
           ((op = Load32 ∨ op  = Store32) /\ addr_offset_ok c w) \/
+          ((op = Load16 ∨ op  = Store16) /\ hw_offset_ok c w) \/
           ((op = Load8 ∨ op  = Store8) /\ byte_offset_ok c w) then
         let prog = inst_select_exp c temp temp exp' in
           Seq prog (ShareInst op var (Op Add [Var temp; Const w]))
@@ -463,12 +481,12 @@ Theorem inst_select_pmatch:
       Seq prog (ShareInst op var (Var temp)))
   | (Call ret dest args handler) =>
     (let retsel =
-      case ret of
+      pmatch ret of
         NONE => NONE
       | SOME (n,names,ret_handler,l1,l2) =>
         SOME (n,names,inst_select c temp ret_handler,l1,l2) in
     let handlersel =
-      case handler of
+      pmatch handler of
         NONE => NONE
       | SOME (n,h,l1,l2) => SOME (n,inst_select c temp h,l1,l2) in
     Call retsel dest args handlersel)
@@ -478,6 +496,7 @@ Proof
     rpt strip_tac
     >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac >>
          PURE_ONCE_REWRITE_TAC[LET_DEF] >> BETA_TAC)
+    >> TRY (rename1 ‘Ag32’>>CASE_TAC>>gvs[])
     >> fs[inst_select_def] )
 QED
 
@@ -505,12 +524,12 @@ Definition three_to_two_reg_def:
     If cmp r1 ri (three_to_two_reg c1) (three_to_two_reg c2)) ∧
   (three_to_two_reg (Call ret dest args handler) =
     let retsel =
-      dtcase ret of
+      case ret of
         NONE => NONE
       | SOME (n,names,ret_handler,l1,l2) =>
         SOME (n,names,three_to_two_reg ret_handler,l1,l2) in
     let handlersel =
-      dtcase handler of
+      case handler of
         NONE => NONE
       | SOME (n,h,l1,l2) => SOME (n,three_to_two_reg h,l1,l2) in
     Call retsel dest args handlersel) ∧
@@ -520,7 +539,7 @@ End
 Theorem three_to_two_reg_pmatch:
   !prog.
   three_to_two_reg prog =
-  case prog of
+  pmatch prog of
   | (Inst (Arith (Binop bop r1 r2 ri))) =>
     Seq (Move 0 [r1,r2]) (Inst (Arith (Binop bop r1 r1 ri)))
   | (Inst (Arith (Shift l r1 r2 n))) =>
@@ -541,12 +560,12 @@ Theorem three_to_two_reg_pmatch:
     If cmp r1 ri (three_to_two_reg c1) (three_to_two_reg c2)
   | (Call ret dest args handler) =>
     (let retsel =
-      case ret of
+      pmatch ret of
         NONE => NONE
       | SOME (n,names,ret_handler,l1,l2) =>
         SOME (n,names,three_to_two_reg ret_handler,l1,l2) in
     let handlersel =
-      case handler of
+      pmatch handler of
         NONE => NONE
       | SOME (n,h,l1,l2) => SOME (n,three_to_two_reg h,l1,l2) in
     Call retsel dest args handlersel)
@@ -563,5 +582,3 @@ Definition three_to_two_reg_prog_def:
   three_to_two_reg_prog b prog =
     if b then three_to_two_reg prog else prog
 End
-
-val _ = export_theory();

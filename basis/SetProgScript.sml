@@ -2,12 +2,11 @@
   This module contains CakeML code implementing a functional set type
   using a self-balancing binary tree.
 *)
-open preamble
-  ml_translatorLib ml_translatorTheory ml_progLib
-  balanced_mapTheory MapProgTheory basisFunctionsLib
-local open mlsetTheory in end
-
-val _ = new_theory "SetProg"
+Theory SetProg
+Libs
+  preamble ml_translatorLib ml_progLib basisFunctionsLib
+Ancestors
+  ml_translator balanced_map MapProg mlset[qualified]
 
 val _ = translation_extends "MapProg";
 
@@ -115,7 +114,7 @@ val _ = ml_prog_update (open_module "Set");
 
 (* provides the Set.set name for the set type *)
 val _ = ml_prog_update (add_dec
-  ``Dtabbrev unknown_loc ["'a"] "set" (Atapp [Atvar "'a"] (Short "mlset"))`` I);
+  ``Dtabbrev unknown_loc [«'a»] «set» (Atapp [Atvar «'a»] (Short «mlset»))`` I);
 
 val _ = next_ml_names := ["singleton"];
 val _ = translate mlsetTheory.singleton_def;
@@ -157,7 +156,7 @@ val _ = translate mlsetTheory.insert_def;
 val _ = ml_prog_update (close_module NONE);
 
 val _ = ml_prog_update (add_dec
-  ``Dtabbrev unknown_loc ["'a"] "set" (Atapp [Atvar "'a"] (Short "mlset"))`` I);
+  ``Dtabbrev unknown_loc [«'a»] «set» (Atapp [Atvar «'a»] (Short «mlset»))`` I);
 
 val _ = ml_prog_update close_local_block;
 
@@ -166,5 +165,3 @@ val _ = List.app (fn tm => let val {Name, Thy,...} = dest_thy_const tm
                            in remove_ovl_mapping Name {Name = Name, Thy = Thy}
                            end)
                  (constants "mlset");
-
-val _ = export_theory ();

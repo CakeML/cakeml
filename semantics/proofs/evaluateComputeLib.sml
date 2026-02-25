@@ -24,7 +24,7 @@ open semanticPrimitivesTheory evaluateTheory
       ]
     ]
 
-  val evaluate_conv = computeLib.compset_conv (wordsLib.words_compset())
+  val evaluate_conv = computeLib.compset_conv wordsLib.words_compset
     [computeLib.Extenders
        [basicComputeLib.add_basic_compset, add_evaluate_compset]]
 

@@ -6,10 +6,11 @@
     reachable functions.
   Removes unreachable functions from the code.
 *)
-
-open preamble sptreeTheory spt_closureTheory wordLangTheory
-
-val _ = new_theory "word_elim";
+Theory word_elim
+Ancestors
+  sptree spt_closure wordLang
+Libs
+  preamble
 
 
 Definition find_word_loc_def:
@@ -57,4 +58,3 @@ Definition remove_word_prog_def:
 End
 
 
-val _ = export_theory();

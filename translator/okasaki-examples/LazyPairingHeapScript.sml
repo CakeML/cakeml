@@ -2,10 +2,11 @@
   This is an example of applying the translator to the Lazy Pairing
   Heap algorithm from Chris Okasaki's book.
 *)
-open preamble
-open bagTheory bagLib okasaki_miscTheory ml_translatorLib ListProgTheory
-
-val _ = new_theory "LazyPairingHeap"
+Theory LazyPairingHeap
+Ancestors
+  bag okasaki_misc ListProg
+Libs
+  preamble bagLib ml_translatorLib
 
 val _ = translation_extends "ListProg";
 
@@ -95,7 +96,7 @@ Definition merge_def:
                  Empty))
 End
 
-Triviality merge_size:
+Theorem merge_size[local]:
   !get_key leq h1 h2.
   heap_size (\x.0) (merge get_key leq h1 h2) =
   heap_size (\x.0) h1 + heap_size (\x.0) h2
@@ -114,7 +115,7 @@ full_simp_tac (srw_ss()++numSimps.ARITH_AC_ss) [heap_size_def, merge_def] >>
 full_simp_tac (srw_ss()++ARITH_ss) []
 QED
 
-Triviality merge_size_lem:
+Theorem merge_size_lem[local]:
   (heap_size (\x.0) (merge get_key leq (Tree x h1 h2) h1') <
   heap_size (\x.0) h1 + heap_size (\x.0) h2 + heap_size (\x.0) h1' + 2) = T
 Proof
@@ -133,7 +134,7 @@ val merge_ind =
 Theorem merge_ind[allow_rebind] =
   merge_ind
 
-Triviality merge_thm:
+Theorem merge_thm[local]:
   merge get_key leq a b =
     case (a,b) of
     | (a,Empty) => a
@@ -282,18 +283,17 @@ QED
 val delete_min_side_def = fetch "-" "delete_min_side_def"
 val find_min_side_def = fetch "-" "find_min_side_def"
 
-Triviality delete_min_side:
+Theorem delete_min_side[local]:
   !get_key leq h. delete_min_side get_key leq h = (h ≠ Empty)
 Proof
   cases_on `h` >>
 rw [delete_min_side_def]
 QED
 
-Triviality find_min_side:
+Theorem find_min_side[local]:
   !h. find_min_side h = (h ≠ Empty)
 Proof
   cases_on `h` >>
 rw [find_min_side_def]
 QED
 
-val _ = export_theory ();

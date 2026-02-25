@@ -7,11 +7,14 @@ sig
   include Abbrev
 
     val get_module_prefix : unit -> string
+    val get_exn_conv      : term -> term
     val trans             : string -> term -> thm
     val append_dec        : term -> unit
     val append_decs       : term -> unit
     val append_prog       : term -> unit
     val prove_ref_spec    : string -> goal -> goal list * (thm list -> thm)
     val process_topdecs   : string quotation -> term
+    val cakeml            : string quotation -> term
+    val add_cakeml        : string quotation -> unit
 
 end

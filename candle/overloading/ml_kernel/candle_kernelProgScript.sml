@@ -1,11 +1,12 @@
 (*
   Adds Candle specific functions to the kernel module from ml_hol_kernel_funsProg
 *)
-open preamble;
-open ml_translatorLib ml_monad_translatorLib ml_progLib ml_hol_kernel_funsProgTheory;
-open basisFunctionsLib;
-
-val _ = new_theory "candle_kernelProg";
+Theory candle_kernelProg
+Ancestors
+  ml_hol_kernel_funsProg
+Libs
+  preamble ml_translatorLib ml_monad_translatorLib ml_progLib
+  basisFunctionsLib
 
 val _ = m_translation_extends "ml_hol_kernel_funsProg"
 
@@ -21,7 +22,7 @@ val _ = translate thm_to_string_def;
 
 val _ = ml_prog_update open_local_in_block;
 
-val _ = (append_prog o process_topdecs) `
+Quote add_cakeml:
   val print_thm = fn th => case th of Sequent tms c =>
     let
       val ctxt = !the_context
@@ -30,7 +31,7 @@ val _ = (append_prog o process_topdecs) `
     in
       #(kernel_ffi) str arr
     end;
-`
+End
 
 val _ = ml_prog_update close_local_blocks;
 val _ = ml_prog_update (close_module NONE);
@@ -64,4 +65,3 @@ Theorem EqualityType_UPDATE_TYPE = EqualityType_rule [] “:update”;
 
 val _ = (print_asts := true);
 
-val _ = export_theory();

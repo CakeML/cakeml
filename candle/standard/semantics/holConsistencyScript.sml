@@ -5,11 +5,13 @@
   with no axioms, with all but infinity axiom, with all three axioms) have
   models (under suitable assumptions).
 *)
-open preamble
-     setSpecTheory holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory holBoolSyntaxTheory holAxiomsSyntaxTheory
-     holSemanticsTheory holSemanticsExtraTheory holSoundnessTheory holExtensionTheory holBoolTheory holAxiomsTheory
-
-val _ = new_theory"holConsistency"
+Theory holConsistency
+Ancestors
+  setSpec holSyntaxLib holSyntax holSyntaxExtra holBoolSyntax
+  holAxiomsSyntax holSemantics holSemanticsExtra holSoundness
+  holExtension holBool holAxioms
+Libs
+  preamble
 
 val _ = Parse.hide "mem";
 
@@ -250,4 +252,3 @@ Proof
   metis_tac[hol_has_model]
 QED
 
-val _ = export_theory()

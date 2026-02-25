@@ -1,9 +1,11 @@
 (*
   Useful predicates on the CakeML ast.
  *)
-open preamble astTheory semanticPrimitivesPropsTheory;
-
-val _ = new_theory "ast_extras";
+Theory ast_extras
+Ancestors
+  ast semanticPrimitivesProps
+Libs
+  preamble
 
 Definition every_exp_def[simp]:
   (every_exp f (Raise e) <=>
@@ -47,9 +49,6 @@ Definition every_exp_def[simp]:
     every_exp f e) /\
   (every_exp f (Lannot e l) <=>
     f (Lannot e l) /\
-    every_exp f e) /\
-  (every_exp f (FpOptimise fpopt e) <=>
-    f (FpOptimise fpopt e) /\
     every_exp f e) /\
   (every_exp f e <=> f e)
 Termination
@@ -131,8 +130,7 @@ Definition freevars_def[simp]:
                                        {Short fn; Short vn}) f)) ∪
        (freevars x DIFF set (MAP (Short o FST) f))) ∧
   freevars (Tannot x t) = freevars x ∧
-  freevars (Lannot x l) = freevars x ∧
-  freevars (FpOptimise fpopt e) = freevars e
+  freevars (Lannot x l) = freevars x
 End
 
 (* Partial applications of closures.
@@ -146,4 +144,3 @@ Definition do_partial_app_def:
     | _ => NONE
 End
 
-val _ = export_theory ();

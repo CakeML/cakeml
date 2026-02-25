@@ -2,17 +2,16 @@
   Definitions and theorems supporting ml_progLib, which constructs a
   CakeML program and its semantic environment.
 *)
+Theory ml_prog
+Ancestors
+  ast semanticPrimitives evaluate semanticPrimitivesProps
+  evaluateProps mlstring integer evaluate_dec namespace
+  alist_tree primSemEnv[qualified]
+Libs
+  preamble
 
-open preamble
-open astTheory semanticPrimitivesTheory evaluateTheory
-     semanticPrimitivesPropsTheory evaluatePropsTheory;
-open mlstringTheory integerTheory evaluate_decTheory;
-open namespaceTheory;
-open alist_treeTheory;
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "ml_prog";
 
 (* --- env operators --- *)
 
@@ -228,20 +227,24 @@ Definition write_tdefs_def:
     write_tdefs (n+1) tds (write_conses (REVERSE (build_constrs n condefs)) env)
 End
 
-val write_conses_v = prove(
-  ``!xs env. (write_conses xs env).v = env.v``,
-  Induct \\ fs [write_conses_def,FORALL_PROD,write_cons_def]);
+Theorem write_conses_v[local]:
+    !xs env. (write_conses xs env).v = env.v
+Proof
+  Induct \\ fs [write_conses_def,FORALL_PROD,write_cons_def]
+QED
 
-val write_tdefs_lemma = prove(
-  ``!tds env n.
+Theorem write_tdefs_lemma[local]:
+    !tds env n.
       write_tdefs n tds env =
-      merge_env <|v := nsEmpty; c := build_tdefs n tds|> env``,
+      merge_env <|v := nsEmpty; c := build_tdefs n tds|> env
+Proof
   Induct \\ fs [write_tdefs_def,merge_env_def,build_tdefs_def,FORALL_PROD]
   \\ rw [write_conses_v]
   \\ rewrite_tac [GSYM namespacePropsTheory.nsAppend_assoc]
   \\ AP_TERM_TAC
   \\ Q.SPEC_TAC (`REVERSE (build_constrs n p_2)`,`xs`)
-  \\ Induct \\ fs [write_conses_def,FORALL_PROD,write_cons_def]);
+  \\ Induct \\ fs [write_conses_def,FORALL_PROD,write_cons_def]
+QED
 
 Theorem write_tdefs_thm:
    write_tdefs n tds empty_env =
@@ -250,17 +253,21 @@ Proof
   fs [write_tdefs_lemma,empty_env_def,merge_env_def]
 QED
 
-val merge_env_write_conses = prove(
-  ``!xs env. merge_env (write_conses xs env1) env2 =
-             write_conses xs (merge_env env1 env2)``,
+Theorem merge_env_write_conses[local]:
+    !xs env. merge_env (write_conses xs env1) env2 =
+             write_conses xs (merge_env env1 env2)
+Proof
   Induct \\ fs [write_conses_def,FORALL_PROD]
-  \\ fs [write_cons_def,merge_env_def,sem_env_component_equality]);
+  \\ fs [write_cons_def,merge_env_def,sem_env_component_equality]
+QED
 
-val merge_env_write_tdefs = prove(
-  ``!tds n env1 env2.
+Theorem merge_env_write_tdefs[local]:
+    !tds n env1 env2.
       merge_env (write_tdefs n tds env1) env2 =
-      write_tdefs n tds (merge_env env1 env2)``,
-  Induct \\ fs [write_tdefs_def,FORALL_PROD,merge_env_write_conses]);
+      write_tdefs n tds (merge_env env1 env2)
+Proof
+  Induct \\ fs [write_tdefs_def,FORALL_PROD,merge_env_write_conses]
+QED
 
 (* it's not clear if these are still needed, but ml_progComputeLib and
    cfTacticsLib want them to be present. *)
@@ -425,7 +432,7 @@ Proof
   \\ fs [write_def,empty_env_def]
 QED
 
-Triviality FOLDR_LEMMA:
+Theorem FOLDR_LEMMA[local]:
   ∀xs ys. FOLDR (\(x1,x2,x3) x4. (x1, f x1 x2 x3) :: x4) [] xs ++ ys =
           FOLDR (\(x1,x2,x3) x4. (x1, f x1 x2 x3) :: x4) ys xs
 Proof
@@ -598,7 +605,7 @@ End
 
 Definition ML_code_def:
   (ML_code env [] res_st <=> T) ∧
-  (ML_code env (((comment : string # string), st, decls, res_env) :: bls) res_st <=>
+  (ML_code env (((comment : mlstring # mlstring), st, decls, res_env) :: bls) res_st <=>
      ML_code env bls st ∧
      Decls (ML_code_env env bls) st decls res_env res_st)
 End
@@ -652,7 +659,7 @@ Theorem nsLookup_init_env_pfun_eqs =
 end
 
 Theorem ML_code_NIL:
-   ML_code init_env [(("Toplevel", ""), init_state ffi, [], empty_env)]
+   ML_code init_env [((«Toplevel», «»), init_state ffi, [], empty_env)]
     (init_state ffi)
 Proof
   fs [ML_code_def,Decls_NIL]
@@ -670,7 +677,7 @@ Proof
 QED
 
 Theorem ML_code_close_module:
-   ML_code inp_env ((("Module", mn), m_i_st, m_decls, m_env)
+   ML_code inp_env (((«Module», mn), m_i_st, m_decls, m_env)
         :: (comm, st, decls, env) :: bls) st2
     ==> let env2 = write_mod mn m_env env
         in ML_code inp_env ((comm, st, SNOC (Dmod mn m_decls) decls,
@@ -684,8 +691,8 @@ Proof
 QED
 
 Theorem ML_code_close_local:
-   ML_code inp_env ((("Local", ln2), l2_i_st, l2_decls, l2_env)
-        :: (("Local", ln1), l1_i_st, l1_decls, l1_env)
+   ML_code inp_env (((«Local», ln2), l2_i_st, l2_decls, l2_env)
+        :: ((«Local», ln1), l1_i_st, l1_decls, l1_env)
         :: (comm, st, decls, env) :: bls) st2
     ==> let env2 = merge_env l2_env env
         in ML_code inp_env ((comm, st, SNOC (Dlocal l1_decls l2_decls) decls,
@@ -737,7 +744,7 @@ QED
 
 (* appending a Letrec *)
 
-Triviality build_rec_env_APPEND:
+Theorem build_rec_env_APPEND[local]:
   nsAppend (build_rec_env funs cl_env nsEmpty) add_to_env =
    build_rec_env funs cl_env add_to_env
 Proof
@@ -827,7 +834,7 @@ Proof
   \\ irule (SIMP_RULE std_ss [LET_THM] ML_code_Dlet_var) \\ fs []
   \\ first_x_assum $ irule_at $ Pos hd
   \\ fs [eval_rel_def,evaluate_def,state_component_equality,AllCaseEqs(),
-         do_app_def,store_alloc_def, isFpBool_def, getOpClass_def]
+         do_app_def,store_alloc_def, getOpClass_def]
 QED
 
 (* appending an environment *)
@@ -905,7 +912,7 @@ QED
 (* theorems about old lookup functions *)
 (* FIXME: everything below this line is unlikely to be needed. *)
 
-Triviality nsLookupMod_nsBind:
+Theorem nsLookupMod_nsBind[local]:
   p ≠ [] ⇒
   nsLookupMod (nsBind k v env) p = nsLookupMod env p
 Proof
@@ -1223,5 +1230,3 @@ Proof
           semanticsTheory.evaluate_prog_with_clock_def,
           evaluate_decTheory.evaluate_dec_list_with_clock_def]
 QED
-
-val _ = export_theory();

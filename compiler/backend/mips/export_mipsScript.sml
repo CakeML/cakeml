@@ -1,9 +1,11 @@
 (*
   Define the format of the compiler-generated .S file for MIPS
 *)
-open preamble exportTheory
-
-val () = new_theory "export_mips";
+Theory export_mips
+Ancestors
+  export
+Libs
+  preamble
 
 (*
 CakeML expects 4 arguments in order:
@@ -54,8 +56,8 @@ Definition ffi_asm_def:
   (ffi_asm [] = Nil) /\
   (ffi_asm (ffi::ffis) =
       SmartAppend (List [
-       strlit"cake_ffi"; implode ffi; strlit":\n";
-       strlit"     dla    $t9,cdecl(ffi"; implode ffi; strlit")\n";
+       strlit"cake_ffi"; ffi; strlit":\n";
+       strlit"     dla    $t9,cdecl(ffi"; ffi; strlit")\n";
        strlit"     jr     $t9\n";
        strlit"     .p2align 4\n";
        strlit"\n"]) (ffi_asm ffis))
@@ -100,20 +102,30 @@ val entry_point_code =
   ``(List (MAP (\n. strlit(n ++ "\n"))
     [""; "";
      "cml_enter:";
-     "     daddiu  $sp, $sp, -32";
+     "     daddiu  $sp, $sp, -72";
      "     sd      $ra, 0($sp)";
-     "     sd      $s5, 8($sp)";
+     "     sd      $s7, 8($sp)";
      "     sd      $s6, 16($sp)";
-     "     sd      $s7, 24($sp)";
+     "     sd      $s5, 24($sp)";
+     "     sd      $s4, 32($sp)";
+     "     sd      $s3, 40($sp)";
+     "     sd      $s2, 48($sp)";
+     "     sd      $s1, 56($sp)";
+     "     sd      $s0, 64($sp)";
      "     j       cake_main";
      "     .p2align 4";
      ""; "";
      "cake_enter:";
-     "     daddiu  $sp, $sp, -32";
+     "     daddiu  $sp, $sp, -72";
      "     sd      $ra, 0($sp)";
-     "     sd      $s5, 8($sp)";
+     "     sd      $s7, 8($sp)";
      "     sd      $s6, 16($sp)";
-     "     sd      $s7, 24($sp)";
+     "     sd      $s5, 24($sp)";
+     "     sd      $s4, 32($sp)";
+     "     sd      $s3, 40($sp)";
+     "     sd      $s2, 48($sp)";
+     "     sd      $s1, 56($sp)";
+     "     sd      $s0, 64($sp)";
      "     dla     $t1, can_enter";
      "     ld      $t2, 0($t1)";
      "     beq     $t2, $zero, cake_err3";
@@ -141,11 +153,16 @@ val entry_point_code =
      "     li      $t2, 1";
      "     sd      $t2, 0($t1)";
      "     move    $v0, $a0";
-     "     ld      $s7, 24($sp)";
+     "     ld      $s0, 64($sp)";
+     "     ld      $s1, 56($sp)";
+     "     ld      $s2, 48($sp)";
+     "     ld      $s3, 40($sp)";
+     "     ld      $s4, 32($sp)";
+     "     ld      $s5, 24($sp)";
      "     ld      $s6, 16($sp)";
-     "     ld      $s5, 8($sp)";
+     "     ld      $s7, 8($sp)";
      "     ld      $ra, 0($sp)";
-     "     daddiu  $sp, $sp, 32";
+     "     daddiu  $sp, $sp, 72";
      "     jr      $ra";
      "     .p2align 4";
      ""; "";
@@ -190,5 +207,3 @@ Definition mips_export_def:
         (SmartAppend ^entry_point_code (export_funcs lsyms exp))
       else List []))))
 End
-
-val _ = export_theory ();

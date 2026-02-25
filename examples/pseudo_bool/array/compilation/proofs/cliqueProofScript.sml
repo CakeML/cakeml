@@ -3,13 +3,12 @@
   theorem with the compiler evaluation theorem to produce end-to-end
   correctness theorem that reaches final machine code.
 *)
-open preamble
-     semanticsPropsTheory backendProofTheory x64_configProofTheory
-     TextIOProofTheory
-     cliqueProgTheory
-     cliqueTheory cliqueCompileTheory;
-
-val _ = new_theory"cliqueProof";
+Theory cliqueProof
+Ancestors
+  semanticsProps backendProof x64_configProof TextIOProof
+  cliqueProg clique cliqueCompile
+Libs
+  preamble
 
 val cake_pb_clique_io_events_def = new_specification("cake_pb_clique_io_events_def",["cake_pb_clique_io_events"],
   main_semantics |> Q.GENL[`cl`,`fs`]
@@ -39,7 +38,7 @@ Theorem cake_pb_clique_compiled_thm =
 (* Prettifying the standard parts of all the theorems *)
 Definition installed_x64_def:
   installed_x64 ((code, data, cfg) :
-      (word8 list # word64 list # 64 backend$config))
+      (word8 list # word64 list # backend$config))
     mc ms
   <=>
     ?cbspace data_sp.
@@ -119,4 +118,3 @@ QED
 
 val chk = machine_code_sound |> check_thm;
 
-val _ = export_theory();

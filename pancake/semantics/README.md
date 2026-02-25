@@ -12,12 +12,6 @@ Properties of loopLang and loopSem
 [loopSemScript.sml](loopSemScript.sml):
 The formal semantics of loopLang
 
-[panItreePropsScript.sml](panItreePropsScript.sml):
-Props for Pancake ITree semantics and correspondence proof.
-
-[panItreeSemScript.sml](panItreeSemScript.sml):
-An itree semantics for Pancake.
-
 [panPropsScript.sml](panPropsScript.sml):
 panLang Properties
 
@@ -26,3 +20,9 @@ Semantics of panLang
 
 [pan_commonPropsScript.sml](pan_commonPropsScript.sml):
 Common Properties for Pancake ILS
+
+[pan_itreePropsScript.sml](pan_itreePropsScript.sml):
+Misc Lemmas for Pancake ITree semantics and correspondence proof.
+
+[pan_itreeSemScript.sml](pan_itreeSemScript.sml):
+An itree semantics for Pancake.

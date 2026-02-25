@@ -3,14 +3,13 @@
   theorem with the compiler evaluation theorem to produce end-to-end
   correctness theorem that reaches final machine code.
 *)
-open preamble
-     semanticsPropsTheory backendProofTheory x64_configProofTheory
-     TextIOProofTheory
-     x64_configTheory blastLib
-     cnf_scpogSemTheory scpogTheory scpog_listTheory scpog_arrayFullProgTheory
-     scpog_parsingTheory scpogCompileTheory;
-
-val _ = new_theory"scpogProof";
+Theory scpogProof
+Ancestors
+  semanticsProps backendProof x64_configProof TextIOProof
+  x64_config cnf_scpogSem scpog scpog_list scpog_arrayFullProg
+  scpog_parsing scpogCompile
+Libs
+  preamble blastLib
 
 val cake_scpog_io_events_def = new_specification("cake_scpog_io_events_def",["cake_scpog_io_events"],
   main_semantics |> Q.GENL[`cl`,`fs`]
@@ -27,13 +26,20 @@ val names_tac =
   \\ rpt strip_tac \\ rveq \\ EVAL_TAC
 
 Theorem x64_backend_config_ok':
-  backend_config_ok (set_asm_conf x64_config' x64_config)
+  backend_config_ok x64_config x64_config'
 Proof
-  simp[backend_config_ok_def,backendTheory.set_asm_conf_def,x64_config'_def]>>
+  simp[backend_config_ok_def,x64_config'_def]>>
   rw[]>>TRY(EVAL_TAC>>NO_TAC)
   >- fs[x64_configTheory.x64_backend_config_def]
   >- (EVAL_TAC>> blastLib.FULL_BBLAST_TAC)
   >- names_tac
+  >- (
+    fs [stack_removeTheory.store_offset_def,
+        stack_removeTheory.store_pos_def]
+    \\ every_case_tac \\ fs [] THEN1 EVAL_TAC
+    \\ fs [stack_removeTheory.store_list_def]
+    \\ fs [INDEX_FIND_CONS_EQ_SOME,EVAL ``INDEX_FIND n f []``]
+    \\ rveq \\ fs [] \\ EVAL_TAC)
   >- (
     fs [stack_removeTheory.store_offset_def,
         stack_removeTheory.store_pos_def]
@@ -49,16 +55,10 @@ QED
 
 Theorem x64_init_ok':
    is_x64_machine_config mc ⇒
-    mc_init_ok (set_asm_conf x64_config' x64_config) mc
+    mc_init_ok x64_config x64_config' mc
 Proof
   rw[mc_init_ok_def] \\
   fs[is_x64_machine_config_def] \\
-  EVAL_TAC
-QED
-
-Theorem set_asm_conf_stack_conf:
-  (set_asm_conf x y).stack_conf = x.stack_conf
-Proof
   EVAL_TAC
 QED
 
@@ -73,7 +73,7 @@ val compile_correct_applied =
   |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO]
   |> C MATCH_MP cake_scpog_not_fail
   |> C MATCH_MP x64_backend_config_ok'
-  |> REWRITE_RULE[set_asm_conf_stack_conf,x64_config'_stack_conf]
+  |> REWRITE_RULE[x64_config'_stack_conf]
   |> REWRITE_RULE[cake_scpog_sem_sing,AND_IMP_INTRO]
   |> REWRITE_RULE[Once (GSYM AND_IMP_INTRO)]
   |> C MATCH_MP (CONJ(UNDISCH x64_machine_config_ok)(UNDISCH x64_init_ok'))
@@ -88,7 +88,7 @@ Theorem cake_scpog_compiled_thm =
 (* Prettifying the standard parts of all the theorems *)
 Definition installed_x64_def:
   installed_x64 ((code, data, cfg) :
-      (word8 list # word64 list # 64 backend$config))
+      (word8 list # word64 list # backend$config))
     mc ms
   <=>
     ?cbspace data_sp.
@@ -202,6 +202,10 @@ Proof
       >- (
         simp[get_data_vars_def]>>
         TOP_CASE_TAC>>gvs[])>>
+      ‘lpr$wf_clause = scpog$wf_clause’ by
+        (simp [FUN_EQ_THM,
+               lprTheory.wf_clause_def,
+               scpogTheory.wf_clause_def]) >>
       gvs[]
       )>>
     TOP_CASE_TAC>>simp[print_result_def]>>
@@ -209,5 +213,3 @@ Proof
   qexists_tac`err`>>rw[]>>
   metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]
 QED
-
-val _ = export_theory();

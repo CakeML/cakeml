@@ -1,10 +1,12 @@
 (*
   Implement and prove correct monadic version of encoder
 *)
-open preamble
-open asmTheory lab_to_targetTheory
+Theory monadic_enc
+Ancestors
+  asm lab_to_target
+Libs
+  preamble
 
-val _ = new_theory "monadic_enc"
 (*
   This hash function is roughly a rolling hash
   The modulus m is a hash size parameter
@@ -43,9 +45,11 @@ End
 Definition hash_memop_def:
   (hash_memop Load   = 17n) ∧
   (hash_memop Load8  = 18n) ∧
+  (hash_memop Load16  = 57n) ∧
   (hash_memop Load32  = 56n) ∧
   (hash_memop Store  = 19n) ∧
   (hash_memop Store8 = 20n) ∧
+  (hash_memop Store16 = 57n) ∧
   (hash_memop Store32  = 56n)
 End
 
@@ -65,8 +69,8 @@ Try to put largest terms at the end of the list!
 Definition hash_arith_def:
   (hash_arith m (Binop bop r1 r2 ri) =
     roll_hash [hash_binop bop; r1; r2; hash_reg_imm m ri] 21n) ∧
-  (hash_arith m (Shift sh r1 r2 n) =
-    roll_hash [hash_shift sh; r1; r2; n] 22n) ∧
+  (hash_arith m (Shift sh r1 r2 ri) =
+    roll_hash [hash_shift sh; r1; r2; hash_reg_imm m ri] 22n) ∧
   (hash_arith m (Div r1 r2 r3) =
     roll_hash [r1;r2;r3] 23n) ∧
   (hash_arith m (LongMul r1 r2 r3 r4) =
@@ -147,4 +151,3 @@ Definition hash_asm_def:
     roll_hash [r; w2n w MOD m] 55n)
 End
 
-val _ = export_theory();

@@ -2,12 +2,15 @@
   An example showing how to use the monadic translator to translate monadic
   doubling functions, including using references (no arrays, no exceptions).
  *)
+Theory doubleArgProg
+Libs
+  preamble ml_monad_translator_interfaceLib
+Ancestors
+  ml_monad_translator
 
-open preamble ml_monad_translator_interfaceLib
+val _ = set_up_monadic_translator ();
 
-val _ = new_theory "doubleArgProg"
-
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 (* Create the data type to handle the references and I/O. *)
 Datatype:
@@ -37,7 +40,7 @@ End
 
 (* TODO update this A basic monadic double function using references *)
 Definition double_ref_def:
-  double_ref x = dtcase x of 0n    => return 0n
+  double_ref x = case x of 0n    => return 0n
                            | SUC v => do
                                         result <- double_ref v;
                                         return (result + 2)
@@ -53,5 +56,3 @@ val double_ref_v = double_ref_def |> m_translate;
 
 Theorem double_ref_thm =
   cfMonadLib.mk_app_of_ArrowP double_ref_v |> SPEC_ALL
-
-val _ = export_theory ();

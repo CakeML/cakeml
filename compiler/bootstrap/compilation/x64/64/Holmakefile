@@ -19,14 +19,16 @@ config_enc_str.txt: *$(ARCH)BootstrapScript.sml
 cake-sexpr-32: *sexprBootstrap32Script.sml
 cake-sexpr-64: *sexprBootstrap64Script.sml
 
-test-hello-cake: cake-$(ARCH)-$(WORD_SIZE).tar.gz
+cake: cake.S
+	make cake
+
+test-hello-cake: cake-$(ARCH)-$(WORD_SIZE).tar.gz cake
 	make test-hello.cake   # the following lines are a basic test
 	./test-hello.cake >output
 	echo 'Hello!'>expected_output
 	diff output expected_output   # returns non-zero if files differ
 
-test-candle-records: cake-$(ARCH)-$(WORD_SIZE).tar.gz
-	make cake
+test-candle-records: cake-$(ARCH)-$(WORD_SIZE).tar.gz cake
 	./cake --candle < candle_records.ml | tail -n29 > candle.out
 	diff candle.out candle.expected
 

@@ -1,10 +1,11 @@
 (*
   Prove `encoder_correct` for MIPS
 *)
-open HolKernel Parse boolLib bossLib
-open realLib asmLib mips_stepLib mips_targetTheory;
-
-val () = new_theory "mips_targetProof"
+Theory mips_targetProof
+Ancestors
+  mips_target
+Libs
+  realLib asmLib mips_stepLib
 
 val () = wordsLib.guess_lengths()
 
@@ -12,7 +13,7 @@ val ERR = mk_HOL_ERR "mips_targetProofTheory";
 
 (* some lemmas ---------------------------------------------------------- *)
 
-Triviality bytes_in_memory_thm:
+Theorem bytes_in_memory_thm[local]:
   !w s state a b c d.
       target_state_rel mips_target s state /\
       bytes_in_memory s.pc [a; b; c; d] s.mem s.mem_domain ==>
@@ -43,7 +44,7 @@ Proof
    \\ blastLib.FULL_BBLAST_TAC
 QED
 
-Triviality bytes_in_memory_thm2:
+Theorem bytes_in_memory_thm2[local]:
   !w s state a b c d.
       target_state_rel mips_target s state /\
       bytes_in_memory (s.pc + w) [a; b; c; d] s.mem s.mem_domain ==>
@@ -66,11 +67,12 @@ val lem4 =
    blastLib.BBLAST_CONV ``(1 >< 0) (x: word64) = 0w: word2``
    |> Thm.EQ_IMP_RULE |> fst
 
-Triviality lem5:
+Theorem lem5[local]:
   !s state.
      target_state_rel mips_target s state ==>
      !n. n < 32 /\ mips_reg_ok n ==>
-         (s.regs n = state.gpr (n2w n)) /\ n <> 0 /\ n2w n <> 1w : word5
+         (s.regs n = state.gpr (n2w n)) /\ n <> 0 /\
+          n2w n <> 1w : word5 ∧ n2w n <> 30w :word5
 Proof
   lrw [asmPropsTheory.target_state_rel_def, mips_target_def, mips_config_def,
         mips_reg_ok_def]
@@ -85,7 +87,7 @@ val lem6 =
                 c ' 10; c ' 9; c ' 8; c ' 7; c ' 6; c ' 5;
                 c ' 4; c ' 3; c ' 2; c ' 1; c ' 0]: word16) = c)``
 
-Triviality lem7:
+Theorem lem7[local]:
   (!c: word64. aligned 3 c ==> ((2 >< 0) c = 0w: word3)) /\
     (!c: word64. aligned 2 c ==> ((1 >< 0) c = 0w: word2))
 Proof
@@ -113,6 +115,12 @@ val lem9 =
        w2w (b2: word8) << 8) =
        w2w (b0 @@ b1 @@ b2 @@ b3) : word64``
 
+val lem9b =
+   blastLib.BBLAST_PROVE
+    ``(w2w (b1: word8) ||
+       w2w (b0: word8) << 8) =
+       w2w (b0 @@ b1) : word64``
+
 val lem10 =
    blastLib.BBLAST_PROVE
      ``!c: word64.
@@ -124,13 +132,13 @@ val lem10 =
 
 val lem12 = utilsLib.mk_cond_rand_thms [optionSyntax.is_some_tm]
 
-Triviality adc_lem1:
+Theorem adc_lem1[local]:
   ((if b then 1w else 0w) = (v2w [x] || v2w [y] : word64)) <=> (b = (x \/ y))
 Proof
   rw [] \\ blastLib.BBLAST_TAC
 QED
 
-Triviality adc_lem2:
+Theorem adc_lem2[local]:
   !r2 : word64 r3 : word64.
     (18446744073709551616 <= w2n r2 + w2n r3 + 1 <=>
      18446744073709551616w <=+ w2w r2 + w2w r3 + 1w : 65 word) /\
@@ -144,14 +152,14 @@ Proof
           wordsTheory.word_ls_n2w]
 QED
 
-Triviality mul_long1:
+Theorem mul_long1[local]:
   !a : word64 b. (63 >< 0) (w2w a * w2w b : word128) = a * b
 Proof
   srw_tac [wordsLib.WORD_EXTRACT_ss]
     [Once wordsTheory.WORD_EXTRACT_OVER_MUL]
 QED
 
-Triviality mul_long2:
+Theorem mul_long2[local]:
   !a : word64 b : word64.
     n2w ((w2n a * w2n b) DIV 18446744073709551616) =
     (127 >< 64) (w2w a * w2w b : word128) : word64
@@ -162,7 +170,7 @@ Proof
          wordsTheory.word_extract_n2w, bitTheory.BITS_THM]
 QED
 
-Triviality ror:
+Theorem ror[local]:
   !w : word64 n. n < 64n ==> ((w << (64 - n) || w >>> n) = w #>> n)
 Proof
   srw_tac [fcpLib.FCP_ss]
@@ -191,7 +199,7 @@ val mips_sub_overflow =
          (((x ?? y) && ~(y ?? (x - y))) >>> 63 = 1w)``]
     (Q.INST_TYPE [`:'a` |-> `:64`] integer_wordTheory.sub_overflow)
 
-Triviality fp_to_int_lem:
+Theorem fp_to_int_lem[local]:
   !i w : word64.
       (w2i w = i) ==> -0x8000000000000000 <= i /\ i <= 0x7FFFFFFFFFFFFFFF
 Proof
@@ -252,9 +260,9 @@ val encode_rwts =
       open mipsTheory
    in
       [mips_enc_def, mips_ast_def, mips_encode_def, mips_bop_r_def,
-       mips_bop_i_def, mips_sh_def, mips_sh32_def, mips_memop_def, mips_cmp_def,
-       mips_fp_cmp_def, Encode_def, COP1Encode_def, form1_def, form2_def,
-       form3_def, form4_def, form5_def]
+       mips_bop_i_def, mips_sh_def, mips_sh32_def, mips_shv_def, mips_memop_def,
+       mips_cmp_def, mips_fp_cmp_def, Encode_def, COP1Encode_def, form1_def,
+       form2_def, form3_def, form4_def, form5_def]
    end
 
 val enc_rwts =
@@ -357,7 +365,7 @@ fun state_tac asm =
       [asmPropsTheory.all_pcs, mips_ok_def, asmPropsTheory.sym_target_state_rel,
        mips_target_def, mips_config, alignmentTheory.aligned_numeric,
        mipsTheory.IntToDWordMIPS_def, set_sepTheory.fun2set_eq, mips_reg_ok,
-       lem8, lem9, fcc_lem]
+       lem8, lem9, lem9b, fcc_lem]
    \\ (if asmLib.isAddCarry asm then
          REPEAT strip_tac
          \\ Cases_on `i = n2`
@@ -386,7 +394,7 @@ fun state_tac asm =
                    (srw_ss()++wordsLib.WORD_EXTRACT_ss++wordsLib.WORD_CANCEL_ss)
                    []
              else
-              NO_STRIP_FULL_SIMP_TAC std_ss
+              NO_STRIP_FULL_SIMP_TAC (srw_ss())
                  [gt_not_leq, alignmentTheory.aligned_extract,
                   EVAL ``mips_reg_ok 30``]
               \\ blastLib.FULL_BBLAST_TAC
@@ -444,13 +452,13 @@ end
    mips target_ok
    ------------------------------------------------------------------------- *)
 
-Triviality length_mips_encode:
+Theorem length_mips_encode[local]:
   !i. LENGTH (mips_encode i) = 4
 Proof
   rw [mips_encode_def]
 QED
 
-Triviality length_mips_enc:
+Theorem length_mips_enc[local]:
   !l. LENGTH (LIST_BIND l mips_encode) = 4 * LENGTH l
 Proof
   Induct \\ rw [length_mips_encode]
@@ -467,7 +475,7 @@ val mips_encoding = Q.prove (
    )
    |> SIMP_RULE (srw_ss()++boolSimps.LET_ss) [mips_enc_def]
 
-Triviality mips_target_ok:
+Theorem mips_target_ok[local]:
   target_ok mips_target
 Proof
   rw ([asmPropsTheory.target_ok_def, asmPropsTheory.target_state_rel_def,
@@ -496,6 +504,13 @@ QED
    ------------------------------------------------------------------------- *)
 
 val print_tac = asmLib.print_tac "correct"
+
+Theorem word_extract_6:
+  w <+ 64w ⇒
+  ((5 >< 0) (w:word64)):word6 = (w2w w)
+Proof
+  blastLib.FULL_BBLAST_TAC
+QED
 
 Theorem mips_encoder_correct:
     encoder_correct mips_target
@@ -557,10 +572,68 @@ Proof
                 Shift
               --------------*)
             print_tac "Shift"
-            \\ Cases_on `s`
-            \\ Cases_on `n1 < 32`
-            THEN_LT LASTGOAL (Cases_on `n1 = 32`)
-            \\ next_tac
+            \\ reverse(Cases_on`r`)
+            >- (
+              Cases_on`c`
+              \\ rename1`Imm (n2w c)`
+              \\ Cases_on `s = Ror`
+              >- (
+                Cases_on `c < 32`
+                THEN_LT LASTGOAL (Cases_on `c = 32`)
+                \\ next_tac)
+              >- (
+                Cases_on `s`
+                \\ Cases_on `c < 32`
+                \\ next_tac))
+            >- (
+              Cases_on`s = Ror`
+              >- (
+                rename1`Reg r`
+                \\ `w2n (s1.regs r) < 64` by fs enc_rwts
+                \\ `s1.regs r <+ 64w ∧ s1.regs r <=+ 64w` by (
+                    Cases_on`s1.regs r`
+                    \\ fs[wordsTheory.WORD_LO,wordsTheory.WORD_LS])
+                \\ `-1w * (s1.regs r) + 64w =
+                  64w - s1.regs r` by blastLib.FULL_BBLAST_TAC
+
+                \\ `w2n (64w - s1.regs r) =
+                  64 - w2n (s1.regs r)` by
+                    (dep_rewrite.DEP_REWRITE_TAC[wordsTheory.word_sub_w2n]>>
+                    simp[])
+
+                 \\ `w2n (((5 >< 0) (s1.regs r)):word6) =
+                    w2n (s1.regs r)` by
+                      fs[word_extract_6,wordsTheory.w2w_def,wordsTheory.WORD_LO]
+
+                \\ `ms.gpr (n2w n0) ≪ (64 - w2n (s1.regs r)) ‖
+                    ms.gpr (n2w n0) ⋙ w2n (s1.regs r) =
+                    ms.gpr (n2w n0) ⇄ w2n (s1.regs r)` by
+                    simp[bitstringTheory.word_ror_alt]
+
+                \\ Cases_on`s1.regs r = 0w`
+                >- (
+                  `w2n ((5 >< 0) (64w - s1.regs r):word6) = 0` by simp[]
+                  \\ next_tac)
+                \\ `w2n ((5 >< 0) (64w - s1.regs r):word6) =
+                  w2n (64w - s1.regs r) ` by
+                    (dep_rewrite.DEP_REWRITE_TAC[word_extract_6]>>
+                    fs[wordsTheory.w2w_def,wordsTheory.WORD_LO]>>
+                    Cases_on`s1.regs r`>>fs[])
+                \\ next_tac
+              )
+              >- (
+                rename1`Reg r`
+                \\ `w2n ((5 >< 0) (s1.regs r):word6) =
+                    w2n (s1.regs r)` by (
+                  fs enc_rwts
+                  \\ `s1.regs r <+ 64w` by (
+                    Cases_on`s1.regs r`
+                    \\ fs[wordsTheory.WORD_LO])
+                  \\ simp[word_extract_6,wordsTheory.w2w_def])
+                \\ Cases_on `s`
+                \\ next_tac
+              )
+            )
             )
          >- (
             (*--------------
@@ -719,4 +792,3 @@ Proof
       )
 QED
 
-val () = export_theory ()

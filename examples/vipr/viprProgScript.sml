@@ -1,10 +1,11 @@
 (*
   Produces a verified CakeML program that checks VIPR proofs
 *)
-open preamble basis basisProgTheory cfLib basisFunctionsLib
-     vipr_checkerTheory milpTheory;
-
-val _ = new_theory "viprProg"
+Theory viprProg
+Libs
+  preamble basis cfLib basisFunctionsLib
+Ancestors
+  basisProg vipr_checker milp basis_ffi
 
 val _ = translation_extends "basisProg";
 
@@ -124,13 +125,14 @@ End
 val r = translate (usage_message_def |> CONV_RULE (RAND_CONV EVAL));
 val r = translate oHD_def;
 
-val _ = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun main u =
     let
       val cl = CommandLine.arguments ()
       val r = TextIO.foldLines #"\n" checker_step init_state (ohd cl)
     in print (print_outcome (Option.valOf r)) end
-    handle e => TextIO.output TextIO.stdErr usage_message`;
+    handle e => TextIO.output TextIO.stdErr usage_message
+End
 
 val main_v_def = fetch "-" "main_v_def";
 
@@ -308,7 +310,7 @@ Definition vipr_prog_def:
   vipr_prog = ^prog_tm
 End
 
-Triviality clean_up:
+Theorem clean_up[local]:
   (b' ⇒ c) ⇒ ∀b. (b ⇒ b') ⇒ b ⇒ c
 Proof
   fs []
@@ -335,5 +337,3 @@ Theorem vipr_file_semantics =
              filename_ok (EL 1 cl) ∧ wfcl cl ∧ wfFS fs ∧ STD_streams fs’
   |> CONV_RULE ((RATOR_CONV o RAND_CONV) (SIMP_CONV (srw_ss()) []))
   |> (fn th => MATCH_MP th TRUTH);
-
-val _ = export_theory();

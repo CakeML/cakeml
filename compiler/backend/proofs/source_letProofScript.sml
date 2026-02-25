@@ -1,19 +1,16 @@
 (*
   Correctness for the source_let pass.
  *)
+Theory source_letProof
+Ancestors
+  source_let evaluate evaluateProps semanticPrimitives
+  semanticPrimitivesProps misc[qualified] semantics ast
+  source_evalProof
+Libs
+  preamble
 
-open preamble astTheory evaluateTheory evaluatePropsTheory
-     semanticPrimitivesTheory semanticPrimitivesPropsTheory
-     semanticsTheory source_letTheory source_evalProofTheory;
 
-val _ = new_theory "source_letProof";
-
-val _ = set_grammar_ancestry [
-  "source_let", "evaluate", "evaluateProps", "semanticPrimitives",
-  "semanticPrimitivesProps", "misc", "semantics"
-  ];
-
-Triviality env_c_lemma:
+Theorem env_c_lemma[local]:
   (<|v := build_rec_env q env env1; c := nsEmpty|> +++ env).c = env.c
 Proof
   fs [extend_dec_env_def]
@@ -204,4 +201,3 @@ Proof
   \\ simp []
 QED
 
-val _ = export_theory ();

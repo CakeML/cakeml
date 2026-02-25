@@ -2,9 +2,11 @@
   This is an example of applying the translator to the Bankers Queue
   algorithm from Chris Okasaki's book.
 *)
-open HolKernel Parse boolLib bossLib; val _ = new_theory "BankersQueue";
-
-open listTheory arithmeticTheory ml_translatorLib listLib ListProgTheory;
+Theory BankersQueue
+Ancestors
+  list arithmetic ListProg
+Libs
+  ml_translatorLib listLib
 
 val _ = translation_extends "ListProg";
 
@@ -54,20 +56,20 @@ Definition queue_inv_def:
     (lenf = LENGTH f) /\ lenr <= lenf
 End
 
-Triviality empty_thm:
+Theorem empty_thm[local]:
   !xs. queue_inv xs empty = (xs = [])
 Proof
   EVAL_TAC THEN SIMP_TAC std_ss []
 QED
 
-Triviality is_empty_thm:
+Theorem is_empty_thm[local]:
   !q xs. queue_inv xs q ==> (is_empty q = (xs = []))
 Proof
   Cases THEN Cases_on `l` THEN EVAL_TAC THEN SRW_TAC [] []
   THEN FULL_SIMP_TAC std_ss [REVERSE_DEF,LENGTH_NIL,REV_DEF]
 QED
 
-Triviality snoc_thm:
+Theorem snoc_thm[local]:
   !q xs x. queue_inv xs q ==> queue_inv (xs ++ [x]) (snoc q x)
 Proof
   Cases THEN Cases_on `l` THEN1
@@ -77,14 +79,14 @@ Proof
   THEN SRW_TAC [] [queue_inv_def] THEN DECIDE_TAC
 QED
 
-Triviality head_thm:
+Theorem head_thm[local]:
   !q x xs. queue_inv (x::xs) q ==> (head q = x)
 Proof
   Cases THEN Cases_on `l` THEN EVAL_TAC THEN SRW_TAC [] []
   THEN FULL_SIMP_TAC (srw_ss()) [REVERSE_DEF,LENGTH_NIL,REV_DEF]
 QED
 
-Triviality tail_thm:
+Theorem tail_thm[local]:
   !q x xs. queue_inv (x::xs) q ==> queue_inv xs (tail q)
 Proof
   Cases THEN Cases_on `l` THEN1
@@ -96,4 +98,3 @@ Proof
   THEN SRW_TAC [] [queue_inv_def] THEN DECIDE_TAC
 QED
 
-val _ = export_theory();

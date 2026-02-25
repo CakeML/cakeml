@@ -1,12 +1,15 @@
 (*
   Definitions that are common for many parts of the compiler backend.
 *)
+Theory backend_common
+Ancestors[qualified]
+  arithmetic integer words
+Libs
+  preamble
 
-open preamble
-
-val _ = new_theory "backend_common";
-
-val _ = set_grammar_ancestry ["arithmetic", "integer", "words"];
+Datatype:
+  opw = Andw | Orw | Xor | Add | Sub
+End
 
 (* Small general definition *)
 Definition small_enough_int_def:
@@ -125,11 +128,11 @@ Definition word_num_stubs_def:
 End
 
 Definition data_num_stubs_def:
-  data_num_stubs = word_num_stubs + (* general: *) 30 + (* bignum: *) 23
+  data_num_stubs = word_num_stubs + (* general: *) 32 + (* bignum: *) 23
 End
 
 Definition bvl_num_stubs_def:
-  bvl_num_stubs = data_num_stubs + 8 + (* dummy to make it a multiple of 3 *) 1
+  bvl_num_stubs = data_num_stubs + 9 + (* dummy to make it a multiple of 3 *) 1
 End
 
 Definition bvl_to_bvi_namespaces_def:
@@ -157,4 +160,8 @@ Definition word_shift_def:
     if dimindex (:'a) = 32 then 2 else 3:num
 End
 
-val _ = export_theory();
+Definition upper_w2w_def:
+  upper_w2w (w:'a word) =
+    if dimindex (:'a) = 32 then w2w w << 32 else (w2w w):word64
+End
+

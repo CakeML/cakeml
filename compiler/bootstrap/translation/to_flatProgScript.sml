@@ -1,13 +1,17 @@
 (*
   Translate backend phases up to and including flatLang.
 *)
-open preamble ml_translatorLib ml_translatorTheory decProgTheory
+Theory to_flatProg[no_sig_docs]
+Ancestors
+  ml_translator decProg source_to_flat[qualified]
+  source_to_source[qualified]
+Libs
+  preamble ml_translatorLib
 
-local open source_to_flatTheory source_to_sourceTheory in end;
+open preamble ml_translatorLib ml_translatorTheory decProgTheory;
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
-val _ = new_theory "to_flatProg";
 val _ = translation_extends "decProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "to_flatProg");
@@ -31,7 +35,7 @@ fun list_mk_fun_type [ty] = ty
 val _ = add_preferred_thy "-";
 val _ = add_preferred_thy "termination";
 
-Triviality NOT_NIL_AND_LEMMA:
+Theorem NOT_NIL_AND_LEMMA[local]:
   (b <> [] /\ x) = if b = [] then F else x
 Proof
   Cases_on `b` THEN FULL_SIMP_TAC std_ss []
@@ -62,9 +66,6 @@ fun def_of_const tm = let
 val _ = (find_def_for_const := def_of_const);
 
 val _ = use_long_names:=true;
-
-(* use CakeML's string type for HOL's char list *)
-val _ = ml_translatorLib.use_string_type true;
 
 (* ------------------------------------------------------------------------- *)
 (* source_to_flat                                                            *)
@@ -154,7 +155,5 @@ val _ = (length (hyp res) = 0)
 
 (* ------------------------------------------------------------------------- *)
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 val _ = ml_translatorLib.clean_on_exit := true;
-val _ = export_theory ();

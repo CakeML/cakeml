@@ -2,10 +2,13 @@
   Auxiliary functions and lemmas for defining and reasoning about the
   model extension function.
 *)
-open preamble mlstringTheory setSpecTheory holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
-     holSemanticsTheory holSemanticsExtraTheory holSoundnessTheory holAxiomsSyntaxTheory holBoolTheory
-
-val _ = new_theory"holExtension"
+Theory holExtension
+Ancestors
+  mlstring setSpec holSyntaxLib holSyntax holSyntaxExtra
+  holSemantics holSemanticsExtra holSoundness holAxiomsSyntax
+  holBool
+Libs
+  preamble
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
@@ -196,7 +199,7 @@ Definition subst_clos_term_rel_def:
    else F
 End
 
-Triviality LIST_LENGTH_2:
+Theorem LIST_LENGTH_2[local]:
   LENGTH l = 2 ⇔ ∃e1 e2. l = [e1; e2]
 Proof
   Cases_on ‘l’ \\ fs [] \\ Cases_on ‘t’ \\ fs []
@@ -1229,4 +1232,3 @@ Proof
   fs[]
 QED
 
-val _ = export_theory()

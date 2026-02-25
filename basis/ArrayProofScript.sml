@@ -1,10 +1,11 @@
 (*
   Proofs about the Array module.
 *)
-open preamble ml_translatorTheory ml_translatorLib cfLib
-     mlbasicsProgTheory ArrayProgTheory
-
-val _ = new_theory"ArrayProof";
+Theory ArrayProof
+Ancestors
+  ml_translator mlbasicsProg ArrayProg
+Libs
+  preamble ml_translatorLib cfLib
 
 val _ = translation_extends "ArrayProg";
 
@@ -111,7 +112,7 @@ Proof
         ) \\
       once_rewrite_tac[CONS_APPEND] \\
       rewrite_tac[APPEND_ASSOC] \\
-      xapp \\ xsimpl ) \\
+      xapp \\ xsimpl \\ gvs []) \\
   Cases_on `l` >>
   fs [LIST_TYPE_def] >>
   rfs [] >>
@@ -153,7 +154,7 @@ QED
 val eq_v_thm = fetch "mlbasicsProg" "eq_v_thm"
 val eq_num_v_thm = MATCH_MP (DISCH_ALL eq_v_thm) (EqualityType_NUM_BOOL |> CONJUNCT1)
 
-Triviality num_eq_thm:
+Theorem num_eq_thm[local]:
   !n nv x xv. NUM n nv /\ NUM x xv ==> (n = x <=> nv = xv)
 Proof
   metis_tac[EqualityType_NUM_BOOL, EqualityType_def]
@@ -253,7 +254,7 @@ val res = max_print_depth := 100
 *)
 
 
-Triviality less_than_length_thm:
+Theorem less_than_length_thm[local]:
   !xs n. (n < LENGTH xs) ==> (?ys z zs. (xs = ys ++ z::zs) /\ (LENGTH ys = n))
 Proof
   rw[] \\
@@ -266,7 +267,7 @@ Proof
 QED
 
 
-Triviality lupdate_breakdown_thm:
+Theorem lupdate_breakdown_thm[local]:
   !l val n. n < LENGTH l
     ==> LUPDATE val n l = TAKE n l ++ [val] ++ DROP (n + 1) l
 Proof
@@ -466,14 +467,14 @@ Proof
   rw [NUM_def]
 QED
 
-Triviality list_rel_take_thm:
+Theorem list_rel_take_thm[local]:
   !A xs ys n.
       LIST_REL A xs ys ==> LIST_REL A (TAKE n xs) (TAKE n ys)
 Proof
   Induct_on `xs` \\ Induct_on `ys` \\ rw[LIST_REL_def, TAKE_def]
 QED
 
-Triviality drop_pre_length_thm:
+Theorem drop_pre_length_thm[local]:
   !l. l <> [] ==> (DROP (LENGTH l - 1) l) = [(EL (LENGTH l - 1) l)]
 Proof
   rw[] \\ Induct_on `l` \\ rw[DROP, LENGTH, DROP_EL_CONS, DROP_LENGTH_NIL]
@@ -794,7 +795,7 @@ Proof
       \\ fs[] \\metis_tac[TAKE_LENGTH_ID]
 QED
 
-Triviality IMP_app:
+Theorem IMP_app[local]:
   f = Closure v1 env (Fun v2 x) ∧
   app p (Closure (v1 with v := nsBind env x1 v1.v) v2 x) (x2::xs) H Q ⇒
   app p f (x1::x2::xs) H Q
@@ -1069,5 +1070,3 @@ Proof
   first_x_assum (irule_at Any)>>
   simp[]
 QED
-
-val _ = export_theory();

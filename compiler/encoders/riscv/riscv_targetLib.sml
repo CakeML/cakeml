@@ -26,7 +26,7 @@ in
   val riscv_encode_conv =
    Conv.memoize dst (Redblackmap.mkDict Term.compare) listSyntax.is_list
      (ERR "riscv_encode_conv" "")
-     (computeLib.compset_conv (wordsLib.words_compset())
+     (computeLib.compset_conv (wordsLib.words_compset)
       [computeLib.Defs
        [riscv_enc, riscv_ast_def, riscv_encode_def, riscv_const32_def,
         riscv_bop_r_def, riscv_bop_i_def, riscv_sh_def, riscv_memop_def,
@@ -45,7 +45,7 @@ val add_riscv_encode_compset = computeLib.extend_compset
    computeLib.Tys [``:('a, 'b) sum``]]
 
 val riscv_encode_decode_conv =
-  computeLib.compset_conv (wordsLib.words_compset())
+  computeLib.compset_conv (wordsLib.words_compset)
     [computeLib.Extenders
        [bitstringLib.add_bitstring_compset,
         integer_wordLib.add_integer_word_compset,

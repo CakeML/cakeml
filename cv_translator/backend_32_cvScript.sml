@@ -1,13 +1,16 @@
 (*
   Translate arch-size-specific functions to cv equations.
 *)
-open preamble cv_transLib cv_stdTheory backend_cvTheory to_data_cvTheory;
-open backendTheory;
 
 (* The following line is (and shall remain) the only difference between
    the 32-bit and 64-bit versions of this file. *)
+Theory backend_32_cv[no_sig_docs]
+Ancestors
+  cv_std backend_cv to_data_cv backend
+Libs
+  preamble cv_transLib
 
-val arch_size = (new_theory "backend_32_cv"; “:32”);
+val arch_size = if String.isSubstring "32" (current_theory()) then “:32” else “:64”;
 
 val arch_spec = INST_TYPE [alpha |-> arch_size];
 val arch_spec_beta = INST_TYPE [beta |-> arch_size];
@@ -42,26 +45,27 @@ QED
 
 val _ = cv_trans (lab_to_targetTheory.pad_code_def |> arch_spec);
 
-Triviality to_shmem_rec:
+Theorem to_shmem_info_num[local]:
   <| entry_pc := ep ;
      nbytes := nb ;
-     access_addr := aa ;
+     addr_reg := ar ;
+     addr_off := ao ;
      reg := r ;
      exit_pc := ex |>
-   = shmem_rec ep nb aa r ex
+   = shmem_info_num ep nb ar ao r ex
 Proof
-  gvs [lab_to_targetTheory.shmem_rec_component_equality]
+  gvs [lab_to_targetTheory.shmem_info_num_component_equality]
 QED
 
 val pre = cv_trans_pre "" (lab_to_targetTheory.get_shmem_info_def
-                          |> SRULE [to_shmem_rec] |> arch_spec);
+                          |> SRULE [to_shmem_info_num] |> arch_spec);
 
 Theorem lab_to_target_get_shmem_info_pre[cv_pre]:
   ∀v pos ffi_names shmem_info.
     lab_to_target_get_shmem_info_pre v pos ffi_names shmem_info
 Proof
   ho_match_mp_tac lab_to_targetTheory.get_shmem_info_ind
-  \\ rw [] \\ simp [Once pre] \\ gvs [to_shmem_rec]
+  \\ rw [] \\ simp [Once pre] \\ gvs [to_shmem_info_num]
 QED
 
 Theorem bytes_in_word_def[cv_inline] =
@@ -70,6 +74,8 @@ Theorem bytes_in_word_def[cv_inline] =
 Theorem shift_def[cv_inline] =
   backend_commonTheory.word_shift_def |> arch_spec |> CONV_RULE (RAND_CONV EVAL);
 
+val _ = data_to_wordTheory.SetBool_def |> arch_spec |> SRULE [] |> cv_trans;
+val _ = data_to_wordTheory.AssignCmp_def |> arch_spec |> SRULE [] |> cv_trans;
 val _ = data_to_wordTheory.get_gen_size_def |> arch_spec |> SRULE [] |> cv_trans;
 
 val _ = stack_to_labTheory.compile_jump_def |> arch_spec |> cv_trans;
@@ -175,7 +181,7 @@ val _ = word_to_stackTheory.wInst_def |> arch_spec |> cv_auto_trans;
 val _ = word_to_stackTheory.wMove_def |> arch_spec |> cv_auto_trans;
 val _ = word_to_stackTheory.bits_to_word_def |> arch_spec |> cv_trans;
 
-Triviality cv_DROP_lemma:
+Theorem cv_DROP_lemma[local]:
   ∀n cv_xs. cv_size (cv_DROP (Num n) cv_xs) ≤ cv_size cv_xs
 Proof
   Induct \\ rw [] \\ simp [Once cv_DROP_def]
@@ -281,7 +287,7 @@ val _ = word_removeTheory.remove_must_terminate_def |> arch_spec |> cv_trans;
 
 val pre = word_allocTheory.remove_dead_def |> arch_spec |> cv_auto_trans_pre "";
 Theorem word_alloc_remove_dead_pre[cv_pre]:
-  ∀v live. word_alloc_remove_dead_pre v live
+  ∀v live nlive. word_alloc_remove_dead_pre v live nlive
 Proof
   ho_match_mp_tac word_allocTheory.remove_dead_ind \\ rw [] \\ simp [Once pre]
 QED
@@ -457,7 +463,7 @@ Proof
   \\ rw [] \\ simp [Once pre]
 QED
 
-Triviality lemma:
+Theorem lemma[local]:
   ∀i. Num (ABS i) = Num i
 Proof
   Cases \\ gvs []
@@ -479,7 +485,7 @@ val _ = get_words_def |> arch_spec |> cv_trans;
 val _ = data_to_wordTheory.getWords_def |> arch_spec_beta |> cv_trans;
 val cv_getWords_def = fetch "-" "cv_data_to_word_getWords_def";
 
-Triviality cv_getWords_lemma:
+Theorem cv_getWords_lemma[local]:
   ∀g acc. cv_size (cv_snd (cv_data_to_word_getWords g acc)) ≤ cv_size g
 Proof
   Induct \\ gvs []
@@ -539,6 +545,8 @@ val _ = cv_trans (data_to_wordTheory.assign_def |> arch_spec |> SRULE
    data_to_wordTheory.arg3_def,
    data_to_wordTheory.arg4_def])
 
+val _ = cv_trans (data_to_wordTheory.force_thunk_def |> arch_spec);
+
 val pre = data_to_wordTheory.comp_def |> arch_spec |> SRULE [to_adjust_vars] |> cv_trans_pre "";
 Theorem data_to_word_comp_pre[cv_pre,local]:
   ∀c secn l p. data_to_word_comp_pre c secn l p
@@ -570,6 +578,3 @@ Proof
 QED
 
 val _ = word_allocTheory.get_heuristics_def |> arch_spec |> cv_auto_trans;
-
-val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
-val _ = export_theory();

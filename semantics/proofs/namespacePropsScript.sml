@@ -1,11 +1,11 @@
 (*
   Proofs about the namespace datatype.
 *)
-open preamble;
-open astTheory;
-open namespaceTheory;
-
-val _ = new_theory "namespaceProps";
+Theory namespaceProps
+Ancestors
+  ast namespace
+Libs
+  preamble
 
 Theorem mk_id_11[simp]:
    !a b c d. mk_id a b = mk_id c d ⇔ (a = c) ∧ (b = d)
@@ -1194,7 +1194,7 @@ Proof
   rw [nsLookupMod_def]
 QED
 
-Triviality lemma:
+Theorem lemma[local]:
   (?x. y = SOME x) ⇔ y ≠ NONE
 Proof
   Cases_on `y` >>
@@ -1276,4 +1276,3 @@ Proof
     metis_tac [option_nchotomy])
 QED
 
-val _ = export_theory ();

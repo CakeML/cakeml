@@ -10,9 +10,6 @@ CakeML to OCaml and CakeML to SML translator, currently used for benchmarking.
 A work in progress attempt to translate the particular OCaml syntax used by HOL
 Light into Standard ML (as a step towards CakeML).
 
-[lem](lem):
-A parking lot for the old Lem files that were used for defining the semantics
-
 [ocaml-syntax](ocaml-syntax):
 An OCaml to CakeML translator. Attempts to translate type-correct OCaml files
 to equivalent CakeML files. Multi-file programs should be supported eventually,

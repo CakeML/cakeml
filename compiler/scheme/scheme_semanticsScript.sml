@@ -1,12 +1,11 @@
 (*
   Semantics of Scheme
 *)
-open preamble;
-open mlstringTheory;
-open scheme_astTheory;
-open finite_mapTheory;
-
-val _ = new_theory "scheme_semantics";
+Theory scheme_semantics
+Ancestors
+  mlstring scheme_ast finite_map
+Libs
+  preamble
 
 Datatype:
   e_or_v = Exp senv exp | Val val | Exception mlstring
@@ -200,8 +199,25 @@ Definition step_def:
 End
 
 Definition steps_def:
-  steps (n:num) t = if n = 0 then t
-    else steps (n - 1) $ step t
+  steps = FUNPOW step
+End
+
+Datatype:
+  scheme_res = STerminate val | SDiverge | SError mlstring
+End
+
+Definition terminating_state_def:
+  terminating_state (st, ks, e)
+    ⇔ (ks = [] ∧ ∃ v . e = Val v) ∨ (∃ ex . e = Exception ex)
+End
+
+Definition scheme_semantics_prog_def:
+  (scheme_semantics_prog prog (STerminate v) <=>
+    (? n store . steps n ([], [], Exp FEMPTY prog) = (store, [], Val v))) /\
+  (scheme_semantics_prog prog SDiverge <=>
+    (! n . ¬ terminating_state (steps n ([], [], Exp FEMPTY prog)))) /\
+  (scheme_semantics_prog prog (SError s) <=>
+    (? n store . steps n ([], [], Exp FEMPTY prog) = (store, [], Exception s)))
 End
 
 (*
@@ -372,4 +388,3 @@ End
   ))] (Apply (Ident $ strlit "fac") [Lit $ LitNum 6]))”
 *)
 
-val _ = export_theory();

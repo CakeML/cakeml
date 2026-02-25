@@ -26,10 +26,8 @@ make install
 
 ## build HOL
 cd
-git clone https://github.com/HOL-Theorem-Prover/HOL
+git clone https://github.com/HOL-Theorem-Prover/HOL -b master
 cd HOL
-## optionally switch to a released version, e.g., kananaskis-11
-# git checkout kananaskis-11
 ## note: currently, we only aim to ensure that
 ##       CakeML branch master builds on HOL branch master
 poly --script tools/smart-configure.sml

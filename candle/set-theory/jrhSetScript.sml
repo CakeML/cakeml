@@ -2,13 +2,15 @@
   A HOL4 port of Model/modelset.ml from the HOL Light distribution.
   Now unused, but was once the set theory behind our semantics.
 *)
-open preamble cardinalTheory
+Theory jrhSet
+Ancestors
+  cardinal relation
+Libs
+  preamble
 
 val _ = numLib.temp_prefer_num()
 
-val _ = new_theory"jrhSet"
-
-Triviality ind_model_exists:
+Theorem ind_model_exists[local]:
   ∃x. (@s:num->bool. s ≠ {} ∧ FINITE s) x
 Proof
   metis_tac[IN_DEF, MEMBER_NOT_EMPTY, IN_SING, FINITE_DEF]
@@ -23,7 +25,7 @@ val mk_ind_onto   = prove_abs_fn_onto    ind_model_bij
 val dest_ind_11   = prove_rep_fn_one_one ind_model_bij
 val dest_ind_onto = prove_rep_fn_onto    ind_model_bij
 
-Triviality inacc_exists:
+Theorem inacc_exists[local]:
   ∃x:num. UNIV x
 Proof
   metis_tac[IN_UNIV,IN_DEF]
@@ -44,7 +46,7 @@ Proof
   metis_tac[INFINITE_Unum]
 QED
 
-Triviality lemma:
+Theorem lemma[local]:
   ∀s. s ≺ 𝕌(:I) ⇔ FINITE s
 Proof
   rw[FINITE_CARD_LT] >>
@@ -100,7 +102,7 @@ Proof
   qexists_tac`{}`>>simp[]
 QED
 
-Triviality I_PAIR_EXISTS:
+Theorem I_PAIR_EXISTS[local]:
   ∃f:I#I->I. !x y. (f x = f y) ==> (x = y)
 Proof
   qsuff_tac `𝕌(:I#I) ≼ 𝕌(:I)` >-
@@ -125,7 +127,7 @@ Proof
   HINT_EXISTS_TAC >> simp[UNIV_BOOL]
 QED
 
-Triviality I_BOOL_EXISTS:
+Theorem I_BOOL_EXISTS[local]:
   ∃f:bool->I. !x y. (f x = f y) ==> (x = y)
 Proof
   `𝕌(:bool) ≼ 𝕌(:I)` by metis_tac[CARD_BOOL_LT_I,cardlt_lenoteq] >>
@@ -136,7 +138,7 @@ val I_BOOL_def =
   new_specification("I_BOOL_def",["I_BOOL"],
     REWRITE_RULE[INJ_LEMMA] I_BOOL_EXISTS)
 
-Triviality I_IND_EXISTS:
+Theorem I_IND_EXISTS[local]:
   ∃f:ind_model->I. !x y. (f x = f y) ==> (x = y)
 Proof
   `𝕌(:ind_model) ≼ 𝕌(:I)` by metis_tac[I_AXIOM,cardlt_lenoteq] >>
@@ -147,7 +149,7 @@ val I_IND_def =
   new_specification("I_IND_def",["I_IND"],
     REWRITE_RULE[INJ_LEMMA] I_IND_EXISTS)
 
-Triviality I_SET_EXISTS:
+Theorem I_SET_EXISTS[local]:
   ∀s:I->bool. s ≺ 𝕌(:I) ⇒ ∃f:(I->bool)->I. !x y. x ⊆ s ∧ y ⊆ s ∧ (f x = f y) ==> (x = y)
 Proof
   gen_tac >> disch_then(strip_assume_tac o MATCH_MP(CONJUNCT2 I_AXIOM)) >>
@@ -214,7 +216,7 @@ Definition universe_def:
   universe = {(t,x) | x ∈ setlevel t}
 End
 
-Triviality v_exists:
+Theorem v_exists[local]:
   ∃a. a ∈ universe
 Proof
   qexists_tac`Ur_bool,I_BOOL T` >>
@@ -230,7 +232,7 @@ val mk_V_onto   = prove_abs_fn_onto    v_bij
 val dest_V_11   = prove_rep_fn_one_one v_bij
 val dest_V_onto = prove_rep_fn_onto    v_bij
 
-Triviality universe_IN:
+Theorem universe_IN[local]:
   universe x ⇔ x ∈ universe
 Proof
   rw[IN_DEF]
@@ -337,7 +339,7 @@ Proof
   metis_tac[I_SET_SETLEVEL]
 QED
 
-Triviality EMPTY_EXISTS:
+Theorem EMPTY_EXISTS[local]:
   ∀l. ∃s. level s = l ∧ ∀x. ¬(x <: s)
 Proof
   Induct >> TRY (
@@ -350,7 +352,7 @@ val emptyset_def =
   new_specification("emptyset_def",["emptyset"],
     SIMP_RULE std_ss [SKOLEM_THM] EMPTY_EXISTS)
 
-Triviality COMPREHENSION_EXISTS:
+Theorem COMPREHENSION_EXISTS[local]:
   ∀s p. ∃t. level t = level s ∧ ∀x. x <: t ⇔ x <: s ∧ p x
 Proof
   rpt gen_tac >>
@@ -403,7 +405,7 @@ Proof
   metis_tac[SET_DECOMP]
 QED
 
-Triviality POWERSET_EXISTS:
+Theorem POWERSET_EXISTS[local]:
   ∀s. ∃t. level t = Powerset(level s) ∧ ∀x. x <: t ⇔ x <=: s
 Proof
   gen_tac >> Cases_on`isaset s` >- (
@@ -471,7 +473,7 @@ Proof
   rw[fst_def,snd_def] >> metis_tac[PAIR_INJ]
 QED
 
-Triviality CARTESIAN_EXISTS:
+Theorem CARTESIAN_EXISTS[local]:
   ∀s t. ∃u. level u = Powerset(Cartprod (droplevel(level s))
                                           (droplevel(level t))) ∧
               ∀z. z <: u ⇔ ∃x y. (z = pair x y) ∧ x <: s ∧ y <: t
@@ -551,7 +553,7 @@ Definition boolset_def:
   boolset = mk_V(Powerset Ur_bool,I_SET (setlevel Ur_bool) (setlevel Ur_bool))
 End
 
-Triviality setlevel_bool:
+Theorem setlevel_bool[local]:
   ∀b. I_BOOL b ∈ setlevel Ur_bool
 Proof
   simp[setlevel_def,I_BOOL_def]
@@ -605,29 +607,29 @@ val ch_def =
     Q.prove(`∃ch. ∀s. (∃x. x <: s) ⇒ ch s <: s`,
       simp[GSYM SKOLEM_THM] >> metis_tac[]))
 
-Triviality IN_POWERSET:
+Theorem IN_POWERSET[local]:
   !x s. x <: powerset s <=> x <=: s
 Proof
   metis_tac[powerset_def]
-QED;
+QED
 
-Triviality IN_PRODUCT:
+Theorem IN_PRODUCT[local]:
   !z s t. z <: product s t <=> ?x y. (z = pair x y) /\ x <: s /\ y <: t
 Proof
   metis_tac[PRODUCT_def]
-QED;
+QED
 
-Triviality IN_COMPREHENSION:
+Theorem IN_COMPREHENSION[local]:
   !p s x. x <: (s suchthat p) <=> x <: s /\ p x
 Proof
   metis_tac[suchthat_def]
-QED;
+QED
 
-Triviality PRODUCT_INHABITED:
+Theorem PRODUCT_INHABITED[local]:
   (?x. x <: s) /\ (?y. y <: t) ==> ?z. z <: product s t
 Proof
   metis_tac[IN_PRODUCT]
-QED;
+QED
 
 Definition funspace_def:
   funspace s t = (powerset(product s t) suchthat
@@ -747,8 +749,6 @@ Proof
   metis_tac[PAIR_INJ]
 QED
 
-open relationTheory
-
 Theorem WF_inset:
    WF $<:
 Proof
@@ -767,4 +767,3 @@ QED
 Theorem inset_ind =
   MATCH_MP WF_INDUCTION_THM WF_inset
 
-val _ = export_theory()

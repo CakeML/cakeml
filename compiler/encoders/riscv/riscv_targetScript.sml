@@ -1,10 +1,11 @@
 (*
   Define the target compiler configuration for RISC-V.
 *)
-open HolKernel Parse boolLib bossLib
-open asmLib riscv_stepTheory;
-
-val () = new_theory "riscv_target"
+Theory riscv_target
+Ancestors
+  asmProps riscv_step
+Libs
+  asmLib
 
 val () = wordsLib.guess_lengths()
 
@@ -56,12 +57,20 @@ Definition riscv_sh_def:
    (riscv_sh Asr = SRAI)
 End
 
+Definition riscv_shv_def:
+   (riscv_shv Lsl = SLL) /\
+   (riscv_shv Lsr = SRL) /\
+   (riscv_shv Asr = SRA)
+End
+
 Definition riscv_memop_def:
    (riscv_memop Load    = INL LD) /\
    (riscv_memop Load32  = INL LWU) /\
+   (riscv_memop Load16  = INL LHU) /\
    (riscv_memop Load8   = INL LBU) /\
    (riscv_memop Store   = INR SD) /\
    (riscv_memop Store32 = INR SW) /\
+   (riscv_memop Store16 = INR SH) /\
    (riscv_memop Store8  = INR SB)
 End
 
@@ -109,13 +118,23 @@ Definition riscv_ast_def:
      [ArithI (ADDI (n2w r1, n2w r2, -(w2w i)))]) /\
    (riscv_ast (Inst (Arith (Binop bop r1 r2 (Imm i)))) =
      [ArithI (riscv_bop_i bop (n2w r1, n2w r2, w2w i))]) /\
-   (riscv_ast (Inst (Arith (Shift sh r1 r2 n))) =
+   (riscv_ast (Inst (Arith (Shift sh r1 r2 (Imm i)))) =
+     let n = w2n i in
      if sh = Ror then
        [Shift (SRLI (temp_reg, n2w r2, n2w n));
         Shift (SLLI (n2w r1, n2w r2, n2w (64 - n)));
         ArithR (OR (n2w r1, n2w r1, temp_reg))]
      else
        [Shift (riscv_sh sh (n2w r1, n2w r2, n2w n))]) /\
+   (riscv_ast (Inst (Arith (Shift sh r1 r2 (Reg r)))) =
+     if sh = Ror then
+       [ArithI (ORI (temp_reg, 0w, 64w));
+        ArithR (SUB (temp_reg, temp_reg, n2w r));
+        Shift (SLL (temp_reg, n2w r2, temp_reg));
+        Shift (SRL (n2w r1, n2w r2, n2w r));
+        ArithR (OR (n2w r1, n2w r1, temp_reg))]
+     else
+       [Shift (riscv_shv sh (n2w r1, n2w r2, n2w r))]) /\
    (riscv_ast (Inst (Arith (Div r1 r2 r3))) =
      [MulDiv (riscv$DIV (n2w r1, n2w r2, n2w r3))]) /\
    (riscv_ast (Inst (Arith (LongMul r1 r2 r3 r4))) =
@@ -275,6 +294,7 @@ Definition riscv_config_def:
     ; valid_imm := (\b i. (if b = INL Sub then ^min12 < i else ^min12 <= i) /\
                           i <= ^max12)
     ; addr_offset := (^min12, ^max12)
+    ; hw_offset := (^min12, ^max12)
     ; byte_offset := (^min12, ^max12)
     ; jump_offset := (^min32, 0x7FFFF7FFw)
     ; cjump_offset := (^min21 + 8w, ^max21 + 4w)
@@ -312,5 +332,3 @@ Theorem riscv_config =
   riscv_config
 Theorem riscv_asm_ok =
   riscv_asm_ok
-
-val () = export_theory ()

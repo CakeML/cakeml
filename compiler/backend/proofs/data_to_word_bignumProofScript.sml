@@ -1,17 +1,15 @@
 (*
   Part of the correctness proof for data_to_word
 *)
-open preamble dataSemTheory dataPropsTheory
-     copying_gcTheory int_bitwiseTheory finite_mapTheory
-     data_to_word_memoryProofTheory data_to_word_gcProofTheory
-     data_to_wordTheory wordPropsTheory
-     set_sepTheory semanticsPropsTheory
-     helperLib alignmentTheory blastLib word_bignumTheory
-     wordLangTheory word_bignumProofTheory gen_gc_partialTheory
-     gc_sharedTheory word_gcFunctionsTheory word_depthProofTheory;
-local open gen_gcTheory in end
-
-val _ = new_theory "data_to_word_bignumProof";
+Theory data_to_word_bignumProof
+Libs
+  preamble helperLib blastLib
+Ancestors
+  mllist dataSem wordSem[qualified] data_to_word
+  data_to_word_memoryProof data_to_word_gcProof word_bignumProof
+  dataProps copying_gc int_bitwise finite_map wordProps set_sep
+  semanticsProps alignment word_bignum wordLang gen_gc_partial
+  gc_shared word_gcFunctions word_depthProof gen_gc[qualified]
 
 val _ = temp_delsimps ["NORMEQ_CONV", "fromAList_def", "domain_union",
                        "domain_inter", "domain_difference",
@@ -19,11 +17,6 @@ val _ = temp_delsimps ["NORMEQ_CONV", "fromAList_def", "domain_union",
                        "sptree.insert_notEmpty", "sptree.isEmpty_union"]
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
-
-val _ = set_grammar_ancestry
-  ["dataSem", "wordSem", "data_to_word",
-   "data_to_word_memoryProof", "data_to_word_gcProof", "word_bignumProof"
-  ];
 
 val _ = temp_bring_to_front_overload"cut_env"{Name="cut_env",Thy="wordSem"};
 
@@ -79,15 +72,23 @@ Proof
   \\ Cases_on ‘x’ \\ gvs []
   \\ fs [ShiftVar_def]
   \\ cases_on ‘sow’ \\ gvs []
-  \\ rw [] \\ gvs [wordSemTheory.word_exp_def,wordSemTheory.get_var_def,word_sh_def]
-  \\ Cases_on `n < dimindex (:'a)` \\ gvs []
+  \\ `!m. m < dimindex (:'a) ==> m MOD dimword (:'a) = m` by
+       (rw [] \\ metis_tac [dimindex_lt_dimword,LESS_TRANS])
+  \\ rw [] \\ gvs [wordSemTheory.word_exp_def,wordSemTheory.get_var_def,word_sh_def,
+                    wordsTheory.mod_dimindex]
+  (* Ror case: n MOD dimindex >= dimindex is impossible *)
+  \\ TRY (qspec_then `n` assume_tac (MATCH_MP MOD_LESS DIMINDEX_GT_0) \\
+          gvs [GSYM NOT_LESS,GREATER_EQ] \\ NO_TAC)
+  (* Ror case: rotation by 0 *)
+  \\ TRY (Cases_on `n < dimindex (:'a)` \\ gvs [] \\ NO_TAC)
+  (* Asr case: dimindex <= n *)
+  \\ `dimindex (:'a) - 1 < dimindex (:'a)` by
+       (Cases_on `dimindex (:'a)` \\ fs [])
+  \\ res_tac
   \\ gvs [word_asr_dimindex]
-  \\ qspec_then `n` assume_tac (MATCH_MP MOD_LESS DIMINDEX_GT_0)
-  \\ gvs [word_asr_dimindex,GSYM NOT_LESS,GREATER_EQ]
   \\ gvs [fcpTheory.CART_EQ,word_asr_def,fcpTheory.FCP_BETA]
   \\ rw [] \\ gvs [WORD_NEG_1_T,word_0]
-  \\ gvs [GSYM NOT_LESS]
-  \\ gvs [NOT_LESS,word_msb_def]
+  \\ `i = 0` by fs [] \\ gvs [word_msb_def]
 QED
 
 Theorem i2mw_small_int_IMP_0:
@@ -220,9 +221,11 @@ Proof
   \\ rw [] \\ Cases_on `i = 0` \\ fs [word_bit_def]
 QED
 
-val if_eq_b2w = prove(
-  ``(if b then 1w else 0w) = b2w b``,
-  Cases_on `b` \\ EVAL_TAC);
+Theorem if_eq_b2w[local]:
+    (if b then 1w else 0w) = b2w b
+Proof
+  Cases_on `b` \\ EVAL_TAC
+QED
 
 
 Theorem option_le_max_dest:
@@ -241,7 +244,7 @@ Proof
   \\ every_case_tac \\ fs []
 QED
 
-Triviality b2n_not:
+Theorem b2n_not[local]:
   (if c then 0 else 1) = b2n (~c)
 Proof
   Cases_on ‘c’ \\ EVAL_TAC
@@ -473,6 +476,14 @@ Proof
   \\ drule option_le_max_dest \\ fs [option_map_max_comm]
 QED
 
+Theorem lt_dimindex_MOD_dimword[local,simp]:
+  n < dimindex (:'a) ==> n MOD dimword (:'a) = n
+Proof
+  strip_tac
+  \\ `n < dimword (:'a)` by metis_tac [dimindex_lt_dimword, LESS_TRANS]
+  \\ fs [LESS_MOD]
+QED
+
 Theorem get_real_addr_lemma:
    shift_length c < dimindex (:'a) /\
     good_dimindex (:'a) /\
@@ -480,7 +491,8 @@ Theorem get_real_addr_lemma:
     get_real_addr c t.store ptr_w = SOME x ==>
     word_exp t (real_addr c v) = SOME (Word (x:'a word))
 Proof
-  fs [get_real_addr_def] \\ every_case_tac \\ fs []
+  strip_tac
+  \\ fs [get_real_addr_def] \\ every_case_tac \\ fs []
   \\ fs [wordSemTheory.get_var_def,real_addr_def]
   \\ eval_tac \\ fs [] \\ rw [wordSemTheory.get_var_def]
   \\ eval_tac \\ fs [] \\ rw [] \\ fs []
@@ -556,6 +568,10 @@ Proof
   \\ IF_CASES_TAC THEN1
    (fs [good_dimindex_def] \\ rfs [])
   \\ pop_assum kall_tac \\ fs []
+  \\ `2 MOD dimword (:'a) = 2 /\
+      (dimindex (:'a) - c.len_size) MOD dimword (:'a) =
+      dimindex (:'a) - c.len_size` by
+    (fs [good_dimindex_def, dimword_def])
   \\ fs [WORD_MUL_LSL,GSYM word_mul_n2w,multiwordTheory.i2mw_def]
 QED
 
@@ -635,6 +651,9 @@ Proof
     \\ rw [] \\ fs [] \\ TRY (eq_tac \\ rw [] \\ fs [])
     \\ fs [decode_length_def,mc_multiwordTheory.mc_header_def,
            multiwordTheory.i2mw_def,WORD_MUL_LSL,word_mul_n2w]
+    \\ ‘(dimindex (:α) − c.len_size) MOD dimword (:α)
+        = (dimindex (:α) − c.len_size)’ by gvs [dimword_def, good_dimindex_def]
+    \\ gvs [word_mul_n2w]
     \\ qpat_assum `_ <=> i < 0i` (fn th => rewrite_tac [GSYM th])
     \\ qpat_assum `good_dimindex (:α)` mp_tac
     \\ fs [get_sign_word_lemma])
@@ -918,7 +937,7 @@ Proof
   \\ fs [Abbr `t2`,lookup_insert,multiwordTheory.single_div_def]
   \\ impl_tac THEN1 fs [wordSemTheory.MustTerminate_limit_def]
   \\ strip_tac \\ fs [] \\ pop_assum kall_tac
-  \\ fs [wordSemTheory.pop_env_def,EVAL “QSORT R []”,
+  \\ fs [wordSemTheory.pop_env_def,EVAL “sort R []”,
          FLOOKUP_UPDATE,wordSemTheory.set_store_def,wordSemTheory.set_vars_def]
   \\ gvs [alist_insert_def,EVAL “list_rearrange p []”,fromAList_def,
           domain_fromAList_toAList,wordSemTheory.get_store_def,FLOOKUP_SIMP]
@@ -1902,7 +1921,7 @@ Proof
   THEN1
    (qunabbrev_tac `if_stmt` \\ fs [eq_eval]
     \\ IF_CASES_TAC THEN1
-     (fs [word_sh_def,lookup_insert]
+     (fs [word_sh_def,lookup_insert,asmTheory.word_cmp_def]
       \\ `v1 >>> (dimindex (:α) - 3) = 0w /\
           v1 << 2 = Smallnum v` by
        (ntac 2 (pop_assum mp_tac)
@@ -1927,7 +1946,7 @@ Proof
       \\ strip_tac \\ qexists_tac `new_c`
       \\ fs [wordSemTheory.flush_state_def])
     \\ IF_CASES_TAC THEN1
-     (fs [word_sh_def,lookup_insert]
+     (fs [word_sh_def,lookup_insert,asmTheory.word_cmp_def]
       \\ `(v1 + -1w) >>> (dimindex (:α) - 3) = 0w /\
           -1w * v1 << 2 = Smallnum v` by
        (ntac 3 (pop_assum mp_tac)
@@ -2544,5 +2563,3 @@ Proof
   \\ Cases_on `stack_size t.stack` THEN1 fs [OPTION_MAP2_DEF]
   \\ fs [] \\ rw [MAX_DEF] \\ fs [])
 QED
-
-val _ = export_theory();

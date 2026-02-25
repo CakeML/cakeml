@@ -1,11 +1,12 @@
 (*
   Encoding program for simple decompression
 *)
-open preamble basis miscTheory set_sepTheory listTheory lispProgTheory arithmeticTheory numposrepTheory;
-open compressionTheory;
-open (* for parsing: *) parsingTheory source_valuesTheory;
-
-val _ = new_theory "decompressionProg";
+Theory decompressionProg
+Ancestors
+  misc set_sep list lispProg arithmetic numposrep compression
+  (* for parsing: *) parsing source_values
+Libs
+  preamble basis
 
 val _ = translation_extends "lispProg";
 
@@ -56,8 +57,9 @@ val res = translate main_function_def;
 val _ = type_of “main_function” = “:mlstring -> mlstring app_list”
         orelse failwith "The main_function has the wrong type.";
 
-val main = process_topdecs
-  `print_app_list (main_function (TextIO.inputAll TextIO.stdIn));`;
+Quote main = cakeml:
+  print_app_list (main_function (TextIO.inputAll (TextIO.openStdIn ())));
+End
 
 val prog =
   get_ml_prog_state ()
@@ -73,5 +75,3 @@ val prog =
 Definition decompression_prog_def:
   decompression_prog = ^prog
 End
-
-val _ = export_theory();

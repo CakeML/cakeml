@@ -1,10 +1,11 @@
 (*
   Define the target compiler configuration for ag32.
 *)
-open HolKernel Parse boolLib bossLib
-open asmLib ag32Theory;
-
-val () = new_theory "ag32_target"
+Theory ag32_target
+Ancestors
+  asmProps ag32
+Libs
+  asmLib
 
 (* --- Valid Ag32 states --- *)
 
@@ -96,8 +97,10 @@ Definition ag32_enc_def:
       ag32_encode
         (ag32_constant (temp_reg, i) ++
         [Normal (ag32_bop bop, n2w r1, Reg (n2w r2), Reg temp_reg)])) /\
-   (ag32_enc (Inst (Arith (asm$Shift sh r1 r2 n))) =
-      enc (Shift (ag32_sh sh, n2w r1, Reg (n2w r2), Imm (n2w n)))) /\
+   (ag32_enc (Inst (Arith (asm$Shift sh r1 r2 (Imm i)))) =
+      enc (Shift (ag32_sh sh, n2w r1, Reg (n2w r2), Imm (w2w i)))) /\
+   (ag32_enc (Inst (Arith (asm$Shift sh r1 r2 (Reg r3)))) =
+      enc (Shift (ag32_sh sh, n2w r1, Reg (n2w r2), Reg (n2w r3)))) /\
    (ag32_enc (Inst (Arith (Div _ _ _))) = enc ReservedInstr) /\
    (ag32_enc (Inst (Arith (LongMul r1 r2 r3 r4))) =
       ag32_encode
@@ -137,6 +140,17 @@ Definition ag32_enc_def:
         (ag32_constant (temp_reg, a) ++
          [Normal (fAdd, n2w r1, Reg (n2w r2), Reg temp_reg);
          LoadMEM (n2w r1, Reg (n2w r1))])) /\
+(* fake inst for 16bit (it is actually 32bit) *)
+   (ag32_enc (Inst (Mem Load16 r1 (Addr r2 a))) =
+    if -32w <= a /\ a < 32w then
+      ag32_encode
+        [Normal (fAdd, n2w r1, Reg (n2w r2), Imm (w2w a));
+         LoadMEM (n2w r1, Reg (n2w r1))]
+    else
+      ag32_encode
+        (ag32_constant (temp_reg, a) ++
+         [Normal (fAdd, n2w r1, Reg (n2w r2), Reg temp_reg);
+         LoadMEM (n2w r1, Reg (n2w r1))])) /\
    (ag32_enc (Inst (Mem Load8 r1 (Addr r2 a))) =
     if -32w <= a /\ a < 32w then
       ag32_encode
@@ -158,6 +172,17 @@ Definition ag32_enc_def:
          [Normal (fAdd, temp_reg, Reg (n2w r2), Reg temp_reg);
          StoreMEM (Reg (n2w r1), Reg temp_reg)])) /\
    (ag32_enc (Inst (Mem Store32 r1 (Addr r2 a))) =
+    if -32w <= a /\ a < 32w then
+      ag32_encode
+        [Normal (fAdd, temp_reg, Reg (n2w r2), Imm (w2w a));
+         StoreMEM (Reg (n2w r1), Reg temp_reg)]
+    else
+      ag32_encode
+        (ag32_constant (temp_reg, a) ++
+         [Normal (fAdd, temp_reg, Reg (n2w r2), Reg temp_reg);
+         StoreMEM (Reg (n2w r1), Reg temp_reg)])) /\
+   (* fake inst for 16bit (it is actually 32bit) *)
+   (ag32_enc (Inst (Mem Store16 r1 (Addr r2 a))) =
     if -32w <= a /\ a < 32w then
       ag32_encode
         [Normal (fAdd, temp_reg, Reg (n2w r2), Imm (w2w a));
@@ -231,6 +256,7 @@ Definition ag32_config_def:
                          else
                            -32w <= n /\ n < 32w
     ; addr_offset := (-0x7FFFFFw, 0x7FFFFFw)
+    ; hw_offset := (-0x7FFFFFw, 0x7FFFFFw)
     ; byte_offset := (-32w, 31w)
     ; jump_offset := (-0x7FFFFFFFw + 4w, 0x7FFFFFFFw)
     ; cjump_offset := (-0x7FFFFFFFw + 4w, 0x7FFFFFFFw)
@@ -257,9 +283,5 @@ End
 
 val (ag32_config, ag32_asm_ok) = asmLib.target_asm_rwts [] ``ag32_config``
 
-Theorem ag32_config =
-  ag32_config
-Theorem ag32_asm_ok =
-  ag32_asm_ok
-
-val () = export_theory ()
+Theorem ag32_config = ag32_config
+Theorem ag32_asm_ok = ag32_asm_ok

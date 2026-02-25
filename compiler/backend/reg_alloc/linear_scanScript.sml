@@ -1,10 +1,11 @@
 (*
   A linear-scan register allocator.
 *)
-open preamble sptreeTheory reg_allocTheory
-open state_transformerTheory ml_monadBaseLib ml_monadBaseTheory
-
-val _ = new_theory "linear_scan"
+Theory linear_scan
+Libs
+  preamble ml_monadBaseLib
+Ancestors
+  mllist sptree reg_alloc state_transformer ml_monadBase
 
 val _ = ParseExtras.temp_tight_equality();
 val _ = monadsyntax.temp_add_monadsyntax()
@@ -795,7 +796,7 @@ End
 
 Definition sort_moves_rev_def:
   sort_moves_rev ls =
-    QSORT (\p:num,x p',x'. p<p') ls
+    sort (\p:num,x p',x'. p<p') ls
 End
 
 Definition swap_regs_def:
@@ -828,8 +829,8 @@ Termination
   WF_REL_TAC `measure (\l,rpiv,begrpiv,r. r-l)`
 End
 
-Definition qsort_regs_def:
-    qsort_regs l r =
+Definition sort_regs_def:
+    sort_regs l r =
       if r <= l+1 then
         return ()
       else
@@ -843,8 +844,8 @@ Definition qsort_regs_def:
             return ()
           else
             do
-              qsort_regs l (m-1);
-              qsort_regs m r;
+              sort_regs l (m-1);
+              sort_regs m r;
             od
         od
 Termination
@@ -907,8 +908,8 @@ Termination
   WF_REL_TAC `measure (\l,piv,r. r-l)`
 End
 
-Definition qsort_moves_def:
-    qsort_moves l r =
+Definition sort_moves_def:
+    sort_moves l r =
       if r <= l+1 then
         return ()
       else
@@ -921,8 +922,8 @@ Definition qsort_moves_def:
             return ()
           else
             do
-              qsort_moves l (m-1);
-              qsort_moves m r;
+              sort_moves l (m-1);
+              sort_moves m r;
             od
         od
 Termination
@@ -964,13 +965,13 @@ Definition linear_reg_alloc_intervals_def:
         let st_init_pass1 = linear_reg_alloc_pass1_initial_state k in
         do
           list_to_sorted_regs reglist_unsorted 0;
-          qsort_regs 0 lenreg;
+          sort_regs 0 lenreg;
           reglist <- sorted_regs_to_list 0 lenreg;
           phyregs <- return (FILTER is_phy_var reglist);
           phyphyregs <- return (FILTER (\r. r < 2*k) phyregs);
           stackphyregs <- return (FILTER (\r. 2*k <= r) phyregs);
           list_to_sorted_moves moves 0;
-          qsort_moves 0 lenmoves;
+          sort_moves 0 lenmoves;
           smoves <- sorted_moves_to_list 0 lenmoves;
           moves_adjlist <- edges_to_adjlist (MAP SND smoves) LN;
           forced_adjlist <- edges_to_adjlist forced LN;
@@ -1328,4 +1329,3 @@ val res = translate get_intervals_def;
 val res = translate linear_scan_reg_alloc_def;
 
 *)
-val _ = export_theory ();

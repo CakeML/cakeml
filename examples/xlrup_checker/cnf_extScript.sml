@@ -1,9 +1,11 @@
 (*
   Syntax and semantics of CNF extended with theories
 *)
-open preamble miscTheory mlstringTheory mlintTheory;
-
-val _ = new_theory "cnf_ext";
+Theory cnf_ext
+Ancestors
+  misc mlstring mlint
+Libs
+  preamble
 
 (* The goal of this file is to provide a surface syntax and semantics that
 closely resembles the meaning of CNF DIMACS files (or its extended variants) *)
@@ -359,7 +361,7 @@ Proof
   simp[GSYM mlstringTheory.TOKENS_eq_tokens]
 QED
 
-Triviality isDigit_not_blanks:
+Theorem isDigit_not_blanks[local]:
   isDigit c ==> ~ blanks c
 Proof
   CCONTR_TAC \\ fs [blanks_def] \\ fs [isDigit_def]
@@ -947,4 +949,3 @@ Proof
   metis_tac[parse_cnf_ext_toks_nz_lit]
 QED
 
-val _ = export_theory ();

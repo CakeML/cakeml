@@ -1,13 +1,13 @@
 (*
   The infer_t datatype and various to_string functions.
 *)
-open preamble;
-open mlstringTheory mlintTheory;
-open astTheory semanticPrimitivesTheory typeSystemTheory;
+Theory infer_t
+Ancestors
+  mlstring mlint ast semanticPrimitives typeSystem
+Libs
+  preamble
 
 val _ = numLib.temp_prefer_num();
-
-val _ = new_theory "infer_t";
 
 Datatype:
  infer_t =
@@ -20,9 +20,9 @@ Theorem infer_t_ind = fetch "-" "infer_t_induction"
   |> Q.SPEC ‘P’ |> Q.SPEC ‘EVERY P’ |> SRULE [] |> cj 1 |> SRULE [EVERY_MEM];
 
 Definition id_to_string_def:
-  (id_to_string (Short s) = implode s) ∧
+  (id_to_string (Short s) = s) ∧
   (id_to_string (Long x id) =
-    concat [implode x; implode "."; id_to_string id])
+    concat [x; implode "."; id_to_string id])
 End
 
 Definition get_tyname_def:
@@ -30,7 +30,7 @@ Definition get_tyname_def:
   get_tyname n (Bind [] ((m,ys)::xs)) =
     (case get_tyname n ys of
      | NONE => get_tyname n (Bind [] xs)
-     | SOME x => SOME (m ++ "." ++ x)) /\
+     | SOME x => SOME (m ^ «.» ^ x)) /\
   get_tyname n (Bind ((tyname,_,t)::xs) m) =
     if (case t of Tapp _ m => m = n | _ => F) then
       SOME tyname
@@ -65,12 +65,10 @@ Definition type_ident_to_string_def:
     strlit "byte_array"
   else if ti = Tdouble_num then
     strlit "Double.double"
-  else if ti = Treal_num then
-    strlit "Double.real"
   else
     case get_tyname ti tys of
     | NONE => mlint$toString (&ti)
-    | SOME s => implode s
+    | SOME s => s
 End
 
 Definition ty_var_name_def:
@@ -131,5 +129,3 @@ End
 Definition inf_type_to_string_def:
   inf_type_to_string tys t = FST (inf_type_to_string_rec tys t)
 End
-
-val _ = export_theory ();

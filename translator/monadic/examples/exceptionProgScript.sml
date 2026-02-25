@@ -2,11 +2,15 @@
   An example showing how to use the monadic translator to translate
   monadic functions using exceptions (no references, no arrays).
 *)
-open preamble ml_monad_translator_interfaceLib
+Theory exceptionProg
+Libs
+  preamble ml_monad_translator_interfaceLib
+Ancestors
+  ml_monad_translator
 
-val _ = new_theory "exceptionProg";
+val _ = set_up_monadic_translator ();
 
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 (* No references/arays, so use unit for the state type *)
 val state_type = ``:unit``;
@@ -30,7 +34,7 @@ Definition failwith_def:
   failwith x = \(state : state_refs). (M_failure (Fail1 x), state)
 End
 Definition handle_fail_def:
-  handle_fail x f = \(state : state_refs). dtcase x state of
+  handle_fail x f = \(state : state_refs). case x state of
     (M_success x, state) => (M_success x, state)
   | (M_failure (Fail1 e), state) => f e state
   | other => other
@@ -63,5 +67,3 @@ val decrease_v_thm = decrease_def |> m_translate;
 val handle_decrease = handle_decrease_def |> m_translate;
 
 (**********)
-
-val _ = export_theory();

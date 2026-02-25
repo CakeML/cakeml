@@ -1,19 +1,15 @@
 (*
   Proving that the basis program only produces v_ok values.
  *)
+Theory candle_basis_evaluate
+Ancestors
+  candle_prover_inv ast_extras evaluate namespaceProps
+  perms[qualified] semanticPrimitivesProps misc[qualified]
+  semanticPrimitives evaluateProps sptree candle_kernelProg
+  candle_prover_evaluate
+Libs
+  preamble helperLib ml_progLib[qualified]
 
-open preamble helperLib;
-open semanticPrimitivesTheory semanticPrimitivesPropsTheory
-     evaluateTheory namespacePropsTheory evaluatePropsTheory
-     sptreeTheory candle_kernelProgTheory
-open candle_prover_invTheory candle_prover_evaluateTheory ast_extrasTheory;
-local open ml_progLib in end
-
-val _ = new_theory "candle_basis_evaluate";
-
-val _ = set_grammar_ancestry [
-  "candle_prover_inv", "ast_extras", "evaluate", "namespaceProps", "perms",
-  "semanticPrimitivesProps", "misc"];
 
 val _ = temp_send_to_back_overload "If"  {Name="If", Thy="compute_syntax"};
 val _ = temp_send_to_back_overload "App" {Name="App",Thy="compute_syntax"};
@@ -30,7 +26,9 @@ Definition simple_exp_def:
       App op xs => (case op of
         VfromList => T
       | Aw8alloc => T
-      | Opb _ => T
+      | Test _ _ => T
+      | Arith _ _ => T
+      | FromTo _ _ => T
       | _ => F)
     | Lit lit => T
     | Var v => T
@@ -224,9 +222,16 @@ Proof
   >- (Cases_on ‘op’ \\ gs[])
   >- (Cases_on ‘op’ \\ gs[])
   >- (Cases_on ‘op’ \\ gs[])
+  >- (Cases_on ‘op’ \\ gvs [])
   >- (
     gvs [do_app_cases, Boolv_def]
     \\ rw [v_ok_def]
+    >~ [`do_arith a ty`]
+    >- (
+      gvs[oneline do_arith_def, v_ok_def, AllCaseEqs()]
+      \\ rw [Boolv_def] \\ rw [v_ok_def])
+    >~ [`do_conversion _ ty1 ty2`]
+    >- (gvs[oneline do_conversion_def, v_ok_def, AllCaseEqs()])
     >- (
       gvs [store_alloc_def, post_state_ok_def]
       \\ strip_tac
@@ -237,19 +242,6 @@ Proof
       \\ first_assum (irule_at Any)
       \\ first_x_assum irule \\ gs []
       \\ gs [post_state_ok_def]))
-  >- (Cases_on ‘op’ \\ gs[])
-  >- (Cases_on ‘op’ \\ gs[])
-QED
-
-Theorem evaluate_basis_v_ok_FpOptimise:
-  ^(get_goal "FpOptimise")
-Proof
-  rw [evaluate_def]
-  \\ gvs [CaseEqs ["bool", "option", "prod", "semanticPrimitives$result"], SF SFY_ss]
-  >- (irule EVERY_v_ok_do_fpoptimise \\ first_assum irule \\ gs[simple_exp_def])
-  >- (Cases_on ‘e'’ \\ gs[] \\ first_assum irule \\ gs[simple_exp_def])
-  >- (irule EVERY_v_ok_do_fpoptimise \\ first_assum irule \\ gs[simple_exp_def])
-  >- (Cases_on ‘e'’ \\ gs[] \\ first_assum irule \\ gs[simple_exp_def])
 QED
 
 Theorem evaluate_basis_v_ok_decs_Nil:
@@ -405,7 +397,6 @@ Proof
   \\ rewrite_tac [evaluate_basis_v_ok_Nil, evaluate_basis_v_ok_Cons,
                   evaluate_basis_v_ok_Lit, evaluate_basis_v_ok_Con,
                   evaluate_basis_v_ok_Var, evaluate_basis_v_ok_App,
-                  evaluate_basis_v_ok_FpOptimise,
                   evaluate_basis_v_ok_decs_Nil,
                   evaluate_basis_v_ok_decs_Cons,
                   evaluate_basis_v_ok_decs_Dlet,
@@ -425,5 +416,3 @@ Theorem post_state_ok_with_clock[simp]:
 Proof
   rw [post_state_ok_def]
 QED
-
-val _ = export_theory ();

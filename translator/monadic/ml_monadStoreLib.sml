@@ -220,7 +220,7 @@ fun derive_eval_thm_ALLOCATE_ARRAY name n init_value_def = let
     val env = get_env(get_ml_prog_state())
     val s = get_state(get_ml_prog_state())
 
-    val lookup_assum = list_mk_comb(nsLookup_env_short_term, [env, stringSyntax.fromMLstring init_value_name]) |> ((RATOR_CONV BETA_CONV) THENC BETA_CONV) |> concl |> rhs
+    val lookup_assum = list_mk_comb(nsLookup_env_short_term, [env, mlstringSyntax.mk_mlstring init_value_name]) |> ((RATOR_CONV BETA_CONV) THENC BETA_CONV) |> concl |> rhs
     val lookup_assum = EVAL lookup_assum
 
     val th = ISPECL [env, s, numSyntax.term_of_int n] ALLOCATE_ARRAY_evaluate |> SPEC_ALL
@@ -264,7 +264,7 @@ fun create_store refs_init_list rarrays_init_list farrays_init_list =
         let
           val value_def = translate def
           val init_name = concl def |> dest_eq |> fst |> dest_const |> fst
-          val init_name = stringLib.fromMLstring init_name
+          val init_name = mlstringSyntax.mk_mlstring init_name
           val e = mk_opref_expr init_name
           val eval_thm = REWRITE_RULE [ML_code_env_def]
                                       (derive_eval_thm false name e)
@@ -827,7 +827,7 @@ fun prove_store_access_specs refs_manip_list
 
     fun prove_ref_specs ((name, get_fun_def, read_fun, set_fun_def, write_fun),
                         loc_def) = let
-        val name_v = stringLib.fromMLstring name
+        val name_v = mlstringSyntax.mk_mlstring name
         val loc = concl loc_def |> lhs
         val TYPE = dest_abs read_fun |> snd |> type_of |> get_type_inv
         val EXN_TYPE = exn_ri
@@ -904,7 +904,7 @@ fun prove_store_access_specs refs_manip_list
     *)
     (* Resizable arrays *)
     fun prove_rarray_specs ((name, get_def, get_fun, set_fun_def, set_fun, length_def, sub_def, update_def, alloc_def), loc_def) = let
-        val name_v = stringLib.fromMLstring name
+        val name_v = mlstringSyntax.mk_mlstring name
         val loc = concl loc_def |> lhs
         val TYPE =  get_fun |> dest_abs |> snd |> type_of |> dest_type |> snd |> List.hd |> get_type_inv
         val EXN_TYPE = exn_ri
@@ -1041,7 +1041,7 @@ fun prove_store_access_specs refs_manip_list
     (* val (name, get_def, get_fun, set_fun_def, set_fun, length_def, sub_def, update_def) = List.hd farrays_manip_list;
        val loc_def = List.hd farrays_locs_defs; *)
     fun prove_farray_specs ((name, get_def, get_fun, set_fun_def, set_fun, length_def, sub_def, update_def), loc_def) = let
-        val name_v = stringLib.fromMLstring name
+        val name_v = mlstringSyntax.mk_mlstring name
         val loc = concl loc_def |> lhs
         val TYPE =  get_fun |> dest_abs |> snd |> type_of |> dest_type |> snd |> List.hd |> get_type_inv
         val EXN_TYPE = exn_ri

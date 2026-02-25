@@ -1,16 +1,16 @@
 (*
   The formal semantics of wordLang
 *)
-open preamble wordLangTheory;
-local open alignmentTheory asmTheory ffiTheory in end;
+Theory wordSem
+Libs
+  preamble blastLib
+Ancestors
+  mllist wordLang alignment[qualified] finite_map[qualified]
+  misc[qualified] asm[qualified] fpSem[qualified]
+  ffi[qualified] (* for call_FFI *)
+  lprefix_lub[qualified] (* for build_lprefix_lub *)
+  machine_ieee[qualified] (* for FP *)
 
-val _ = new_theory"wordSem";
-val _ = set_grammar_ancestry [
-  "wordLang", "alignment", "finite_map", "misc", "asm",
-  "ffi", (* for call_FFI *)
-  "lprefix_lub", (* for build_lprefix_lub *)
-  "machine_ieee" (* for FP *)
-]
 Datatype:
   buffer =
     <| position   : 'a word
@@ -52,7 +52,52 @@ Proof
   Cases_on`x` \\ rw[isWord_def]
 QED
 
+Definition word_cmp_def:
+  (word_cmp Equal    (Word w1) (Word w2) = SOME (w1 = w2)) /\
+  (word_cmp Less     (Word w1) (Word w2) = SOME (w1 < w2)) /\
+  (word_cmp Lower    (Word w1) (Word w2) = SOME (w1 <+ w2)) /\
+  (word_cmp Test     (Word w1) (Word w2) = SOME ((w1 && w2) = 0w)) /\
+  (word_cmp Test     (Loc _ n) (Word w2) = if n ≠ 0 then NONE else if w2 = 1w then SOME T else NONE) /\
+  (word_cmp NotEqual (Word w1) (Word w2) = SOME (w1 <> w2)) /\
+  (word_cmp NotLess  (Word w1) (Word w2) = SOME (~(w1 < w2))) /\
+  (word_cmp NotLower (Word w1) (Word w2) = SOME (~(w1 <+ w2))) /\
+  (word_cmp NotTest  (Word w1) (Word w2) = SOME ((w1 && w2) <> 0w)) /\
+  (word_cmp NotTest  (Loc _ n) (Word w2) = if n ≠ 0 then NONE else if w2 = 1w then SOME F else NONE) /\
+  (word_cmp _ _ _ = NONE)
+End
+
 Definition mem_load_32_def:
+  mem_load_32 m dm be (w:'a word) =
+  if aligned 2 w
+  then case m (byte_align w) of
+       | Loc _ _ => NONE
+       | Word v =>
+           if byte_align w IN dm
+           then SOME (word_of_bytes be (0w:word32)
+             [get_byte w v be; get_byte (w + 1w) v be;
+              get_byte (w + 2w) v be; get_byte (w + 3w) v be])
+           else NONE
+  else NONE
+End
+
+Definition mem_store_32_def:
+  mem_store_32 m dm be (w:'a word) (hw: word32) =
+  if aligned 2 w
+  then case m (byte_align w) of
+       | Word v =>
+           if byte_align w IN dm
+           then
+             let v0 = set_byte w (get_byte (0w:word32) hw be) v be in
+             let v1 = set_byte (w + 1w) (get_byte 1w hw be) v0 be in
+             let v2 = set_byte (w + 2w) (get_byte 2w hw be) v1 be in
+             let v3 = set_byte (w + 3w) (get_byte 3w hw be) v2 be in
+               SOME ((byte_align w =+ Word v3) m)
+           else NONE
+       | _ => NONE
+  else NONE
+End
+
+Theorem mem_load_32_alt:
   mem_load_32 m dm be (w:'a word) =
   if aligned 2 w
   then case m (byte_align w) of
@@ -73,9 +118,15 @@ Definition mem_load_32_def:
              in SOME (v': word32)
            else NONE
   else NONE
-End
+Proof
+  rw[mem_load_32_def] >>
+  every_case_tac >> rw[] >>
+  simp[word_of_bytes_def] >>
+  EVAL_TAC >>
+  BBLAST_TAC
+QED
 
-Definition mem_store_32_def:
+Theorem mem_store_32_alt:
   mem_store_32 m dm be (w:'a word) (hw: word32) =
   if aligned 2 w
   then case m (byte_align w) of
@@ -98,7 +149,11 @@ Definition mem_store_32_def:
            else NONE
        | _ => NONE
   else NONE
-End
+Proof
+  rw[mem_store_32_def] >>
+  every_case_tac >> rw[] >>
+  EVAL_TAC
+QED
 
 Definition mem_load_byte_aux_def:
   mem_load_byte_aux m dm be w =
@@ -212,16 +267,15 @@ Definition fix_clock_def:
          termdep := old_s.termdep |>)
 End
 
-Definition is_word_def:
+Definition is_word_def[simp]:
   (is_word (Word w) = T) /\
   (is_word _ = F)
 End
 
-Definition get_word_def:
+Definition get_word_def[simp]:
   get_word (Word w) = w
 End
 
-val _ = export_rewrites["is_word_def","get_word_def"];
 
 Definition mem_store_def:
   mem_store (addr:'a word) (w:'a word_loc) ^s =
@@ -293,9 +347,9 @@ Definition word_exp_def:
      case the_words (MAP (word_exp s) wexps) of
      | SOME ws => (OPTION_MAP Word (word_op op ws))
      | _ => NONE) /\
-  (word_exp s (Shift sh wexp n) =
-     case word_exp s wexp of
-     | SOME (Word w) => OPTION_MAP Word (word_sh sh w n)
+  (word_exp s (Shift sh wexp wexp1) =
+     case (word_exp s wexp, word_exp s wexp1) of
+     | (SOME (Word w), SOME (Word w1)) => OPTION_MAP Word (word_sh sh w (w2n w1))
      | _ => NONE)
 Termination
   WF_REL_TAC `measure (exp_size ARB o SND)`
@@ -304,10 +358,11 @@ Termination
    \\ DECIDE_TAC
 End
 
-(* Flushes the locals and (optionally) the stack *)
+(* Flushes the locals and (optionally) the store *)
 Definition flush_state_def:
    flush_state T ^s = s with <| locals := LN
                               ; stack := []
+                              ; store := FEMPTY
                               ; locals_size := SOME 0 |>
 /\ flush_state F ^s = s with <| locals := LN
                               ; locals_size := SOME 0 |>
@@ -341,6 +396,16 @@ Definition sh_mem_store_byte_def:
     else (SOME Error, s)
 End
 
+Definition sh_mem_store16_def:
+  sh_mem_store16 (a:'a word) (w:'a word) ^s =
+    if byte_align a IN s.sh_mdomain then
+      case call_FFI s.ffi (SharedMem MappedWrite) [2w:word8]
+                    (TAKE 2 (word_to_bytes w F) ++ word_to_bytes a F) of
+        FFI_final outcome => (SOME (FinalFFI outcome), flush_state T s)
+      | FFI_return new_ffi new_bytes => (NONE, (s with ffi := new_ffi))
+    else (SOME Error, s)
+End
+
 Definition sh_mem_store32_def:
   sh_mem_store32 (a:'a word) (w:'a word) ^s =
     if byte_align a IN s.sh_mdomain then
@@ -355,6 +420,14 @@ Definition sh_mem_load_byte_def:
   sh_mem_load_byte (a:'a word) ^s =
     if byte_align a IN s.sh_mdomain then
       SOME $ call_FFI s.ffi (SharedMem MappedRead) [1w:word8]
+                    (word_to_bytes a F)
+    else NONE
+End
+
+Definition sh_mem_load16_def:
+  sh_mem_load16 (a:'a word) ^s =
+    if byte_align a IN s.sh_mdomain then
+      SOME $ call_FFI s.ffi (SharedMem MappedRead) [2w:word8]
                     (word_to_bytes a F)
     else NONE
 End
@@ -377,12 +450,16 @@ End
 Definition share_inst_def:
   (share_inst Load v ad s = sh_mem_set_var (sh_mem_load ad s) v s) /\
   (share_inst Load8 v ad s = sh_mem_set_var (sh_mem_load_byte ad s) v s) /\
+  (share_inst Load16 v ad s = sh_mem_set_var (sh_mem_load16 ad s) v s) /\
   (share_inst Load32 v ad s = sh_mem_set_var (sh_mem_load32 ad s) v s) /\
   (share_inst Store v ad s = case get_var v s of
     | SOME (Word v) => sh_mem_store ad v s
     | _ => (SOME Error,s)) /\
   (share_inst Store8 v ad s = case get_var v s of
     | SOME (Word v) => sh_mem_store_byte ad v s
+    | _ => (SOME Error,s)) /\
+  (share_inst Store16 v ad s = case get_var v s of
+    | SOME (Word v) => sh_mem_store16 ad v s
     | _ => (SOME Error,s)) /\
   (share_inst Store32 v ad s = case get_var v s of
     | SOME (Word v) => sh_mem_store32 ad v s
@@ -429,7 +506,7 @@ Definition env_to_list_def:
     let mover = bij_seq 0 in
     let permute = (\n. bij_seq (n + 1)) in
     let l = toAList env in
-    let l = QSORT key_val_compare l in
+    let l = mllist$sort key_val_compare l in
     let l = list_rearrange mover l in
       (l,permute)
 End
@@ -466,7 +543,7 @@ Definition pop_env_def:
     | _ => NONE
 End
 
-Triviality push_env_clock:
+Theorem push_env_clock[local]:
   (wordSem$push_env env b ^s).clock = s.clock
 Proof
   Cases_on `b` \\ TRY(PairCases_on`x`) \\ full_simp_tac(srw_ss())[push_env_def]
@@ -474,7 +551,7 @@ Proof
   \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
 QED
 
-Triviality pop_env_clock:
+Theorem pop_env_clock[local]:
   (wordSem$pop_env ^s = SOME s1) ==> (s1.clock = s.clock)
 Proof
   full_simp_tac(srw_ss())[pop_env_def]
@@ -642,9 +719,10 @@ Definition inst_def:
         assign r1
           (Op bop [Var r2; case ri of Reg r3 => Var r3
                                     | Imm w => Const w]) s
-    | Arith (Shift sh r1 r2 n) =>
+    | Arith (Shift sh r1 r2 ri) =>
         assign r1
-          (Shift sh (Var r2) n) s
+          (Shift sh (Var r2) (case ri of Reg r3 => Var r3
+                                       | Imm w => Const w)) s
     | Arith (Div r1 r2 r3) =>
        (let vs = get_vars[r3;r2] s in
        case vs of
@@ -707,6 +785,7 @@ Definition inst_def:
             | NONE => NONE
             | SOME w => SOME (set_var r (Word (w2w w)) s))
         | _ => NONE)
+    | Mem Load16 _ _ => NONE
     | Mem Load32 r (Addr a w) =>
        (case word_exp s (Op Add [Var a; Const w]) of
         | SOME (Word w) =>
@@ -728,6 +807,7 @@ Definition inst_def:
              | SOME new_m => SOME (s with memory := new_m)
              | NONE => NONE)
         | _ => NONE)
+    | Mem Store16 _ _ => NONE
     | Mem Store32 r (Addr a w) =>
        (case (word_exp s (Op Add [Var a; Const w]), get_var r s) of
         | (SOME (Word a), SOME (Word w)) =>
@@ -871,7 +951,7 @@ Definition bad_dest_args_def:
   bad_dest_args dest args ⇔ dest = NONE ∧ args = []
 End
 
-Triviality termdep_rw:
+Theorem termdep_rw[local]:
   ((call_env p_1 ss ^s).termdep = s.termdep) /\
     ((dec_clock s).termdep = s.termdep) /\
     ((set_var n v s).termdep = s.termdep)
@@ -879,7 +959,7 @@ Proof
   EVAL_TAC \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
 QED
 
-Triviality fix_clock_IMP_LESS_EQ:
+Theorem fix_clock_IMP_LESS_EQ[local]:
   !x. fix_clock ^s x = (res,s1) ==> s1.clock <= s.clock /\ s1.termdep = s.termdep
 Proof
   full_simp_tac(srw_ss())[fix_clock_def,FORALL_PROD] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ decide_tac
@@ -984,10 +1064,12 @@ Definition evaluate_def:
         | NONE => (SOME Error,s)
         | SOME (s,l1,l2) => (SOME (Exception (Loc l1 l2) w)),s)) /\
   (evaluate (If cmp r1 ri c1 c2,s) =
-    (case (get_var r1 s,get_var_imm ri s)of
-    | SOME (Word x),SOME (Word y) =>
-      if word_cmp cmp x y then evaluate (c1,s)
-                          else evaluate (c2,s)
+    (case (get_var r1 s,get_var_imm ri s) of
+    | SOME x,SOME y =>
+     (case word_cmp cmp x y of
+      | SOME T => evaluate (c1,s)
+      | SOME F => evaluate (c2,s)
+      | NONE => (SOME Error,s))
     | _ => (SOME Error,s))) /\
   (evaluate (LocValue r l1,s) =
      if l1 ∈ domain s.code then
@@ -1178,13 +1260,13 @@ Proof
   simp[share_inst_def] >>
   rpt strip_tac >>
   gvs[AllCaseEqs(),sh_mem_store_def,sh_mem_store_byte_def,flush_state_def,
-      sh_mem_store32_def
+      sh_mem_store32_def,sh_mem_store16_def
      ] >>
   drule sh_mem_set_var_clock >>
   simp[]
 QED
 
-Triviality inst_clock:
+Theorem inst_clock[local]:
   inst i s = SOME s2 ==> s2.clock <= s.clock /\ s2.termdep = s.termdep
 Proof
   Cases_on `i` \\ full_simp_tac(srw_ss())[inst_def,assign_def,get_vars_def,LET_THM]
@@ -1226,7 +1308,7 @@ Proof
   \\ decide_tac
 QED
 
-Triviality fix_clock_evaluate:
+Theorem fix_clock_evaluate[local]:
   fix_clock s (evaluate (c1,s)) = evaluate (c1,s)
 Proof
   Cases_on `evaluate (c1,s)` \\ full_simp_tac(srw_ss())[fix_clock_def]
@@ -1282,5 +1364,3 @@ End
 (* clean up *)
 
 val _ = map delete_binding ["evaluate_AUX_def", "evaluate_primitive_def"];
-
-val _ = export_theory();

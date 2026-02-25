@@ -2,16 +2,13 @@
   Prove top-level correctness theorem for complete compiler, i.e. the
   combination of parsing, type inference, compiler backend.
 *)
-open preamble
-     compilerTheory
-     semanticsTheory targetSemTheory
-     evaluatePropsTheory typeSoundTheory typeSoundInvariantsTheory
-     pegSoundTheory pegCompleteTheory
-     inferTheory inferSoundTheory inferCompleteTheory
-     inferPropsTheory envRelTheory
-     backendProofTheory
-
-val _ = new_theory"compilerProof";
+Theory compilerProof
+Ancestors
+  compiler semantics targetSem evaluateProps typeSound
+  typeSoundInvariants pegSound pegComplete infer inferSound
+  inferComplete inferProps envRel lab_to_targetProof backendProof
+Libs
+  preamble
 
 val _ = diminish_srw_ss ["ABBREV"]
 
@@ -24,8 +21,8 @@ Definition config_ok_def:
     ¬cc.skip_type_inference ∧
     ¬cc.only_print_types ∧
     ¬cc.only_print_sexp ∧
-    backend_config_ok cc.backend_config ∧
-    mc_conf_ok mc ∧ mc_init_ok cc.backend_config mc
+    backend_config_ok cc.asm_config cc.backend_config ∧
+    mc_conf_ok mc ∧ mc_init_ok cc.asm_config cc.backend_config mc
 End
 
 Definition initial_condition_def:
@@ -45,8 +42,8 @@ Definition initial_condition_def:
     ¬cc.skip_type_inference ∧
     ¬cc.only_print_types ∧
     ¬cc.only_print_sexp ∧
-    backend_config_ok cc.backend_config ∧
-    mc_conf_ok mc ∧ mc_init_ok cc.backend_config mc
+    backend_config_ok cc.asm_config cc.backend_config ∧
+    mc_conf_ok mc ∧ mc_init_ok cc.asm_config cc.backend_config mc
 End
 
 Theorem parse_prog_correct:
@@ -90,19 +87,19 @@ Proof
 QED
 
 Theorem compile_tap_compile:
-  ∀conf p res td.
-    backend_passes$compile_tap conf p = (res,td) ⇒
-    backend$compile conf p = res
+  ∀asm_conf conf p res td.
+    backend_passes$compile_tap asm_conf conf p = (res,td) ⇒
+    backend$compile asm_conf conf p = res
 Proof
   metis_tac [backend_passesTheory.compile_alt,FST]
 QED
 
 Definition read_limits_def:
-  read_limits cc mc ms = backendProof$read_limits cc.backend_config mc ms
+  read_limits cc mc ms = backendProof$read_limits cc.asm_config cc.backend_config mc ms
 End
 
 Definition is_safe_for_space_def:
-  is_safe_for_space ffi cc = backendProof$is_safe_for_space ffi cc.backend_config
+  is_safe_for_space ffi cc = backendProof$is_safe_for_space ffi cc.asm_config cc.backend_config
 End
 
 Theorem compile_correct_gen:
@@ -307,5 +304,3 @@ Proof
     rw [unconvert_t_def, inf_set_tids_def,typeSystemTheory.check_freevars_def]) >>
   rw [typeSystemTheory.prim_type_nums_def]
 QED
-
-val _ = export_theory();

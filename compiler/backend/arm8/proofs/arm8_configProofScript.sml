@@ -2,11 +2,11 @@
   For ARMv8, prove that the compiler configuration is well formed, and
   instantiate the compiler correctness theorem.
 *)
-open preamble backendProofTheory
-     arm8_configTheory arm8_targetProofTheory
-open blastLib;
-
-val _ = new_theory"arm8_configProof";
+Theory arm8_configProof
+Ancestors
+  lab_to_targetProof backendProof arm8_config arm8_targetProof
+Libs
+  preamble blastLib
 
 Definition is_arm8_machine_config_def:
   is_arm8_machine_config mc ⇔
@@ -24,12 +24,19 @@ val names_tac =
   \\ rpt strip_tac \\ rveq \\ EVAL_TAC
 
 Theorem arm8_backend_config_ok:
-    backend_config_ok arm8_backend_config
+    backend_config_ok arm8_config arm8_backend_config
 Proof
   simp[backend_config_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
   >- fs[arm8_backend_config_def]
   >- (EVAL_TAC>> blastLib.FULL_BBLAST_TAC)
   >- names_tac
+  >- (
+    fs [stack_removeTheory.store_offset_def,
+        stack_removeTheory.store_pos_def]
+    \\ every_case_tac \\ fs [] THEN1 EVAL_TAC
+    \\ fs [stack_removeTheory.store_list_def]
+    \\ fs [INDEX_FIND_CONS_EQ_SOME,EVAL ``INDEX_FIND n f []``]
+    \\ rveq \\ fs [] \\ EVAL_TAC)
   >- (
     fs [stack_removeTheory.store_offset_def,
         stack_removeTheory.store_pos_def]
@@ -67,7 +74,7 @@ QED
 
 Theorem arm8_init_ok:
    is_arm8_machine_config mc ⇒
-    mc_init_ok arm8_backend_config mc
+    mc_init_ok arm8_config arm8_backend_config mc
 Proof
   rw[mc_init_ok_def] \\
   fs[is_arm8_machine_config_def] \\
@@ -78,11 +85,9 @@ val is_arm8_machine_config_mc = arm8_init_ok |> concl |> dest_imp |> #1
 
 Theorem arm8_compile_correct =
   compile_correct
-  |> Q.GENL[`c`,`mc`]
-  |> Q.ISPECL[`arm8_backend_config`, `^(rand is_arm8_machine_config_mc)`]
+  |> Q.GENL[`asm_conf`,`c`,`mc`]
+  |> Q.ISPECL[`arm8_config`, `arm8_backend_config`, `^(rand is_arm8_machine_config_mc)`]
   |> ADD_ASSUM is_arm8_machine_config_mc
   |> SIMP_RULE (srw_ss()) [arm8_backend_config_ok,UNDISCH arm8_machine_config_ok,UNDISCH arm8_init_ok]
   |> CONV_RULE (ONCE_DEPTH_CONV(EVAL o (assert(same_const``heap_regs``o fst o strip_comb))))
   |> DISCH_ALL
-
-val _ = export_theory();

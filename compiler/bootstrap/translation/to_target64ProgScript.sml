@@ -1,6 +1,14 @@
 (*
   Translate the final part of the compiler backend for 64-bit targets.
 *)
+Theory to_target64Prog[no_sig_docs]
+Ancestors
+  evaluate ml_translator to_word64Prog std_prelude word_to_stack
+  stack_alloc stack_remove stack_names stack_to_lab lab_filter
+  lab_to_target asm monadic_enc monadic_enc64
+Libs
+  preamble ml_translatorLib ml_monad_translatorLib
+
 open preamble;
 open evaluateTheory
 open ml_translatorLib ml_translatorTheory;
@@ -8,13 +16,10 @@ open to_word64ProgTheory std_preludeTheory;
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
-val _ = new_theory "to_target64Prog"
-
 val _ = translation_extends "to_word64Prog";
-val _ = ml_translatorLib.use_string_type true;
 val _ = ml_translatorLib.use_sub_check true;
 
-val () = computeLib.set_skip computeLib.the_compset “COND” (SOME 1);
+val _ = (computeLib.the_compset := computeLib.set_skip (!computeLib.the_compset) “COND” (SOME 1));
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "to_target64Prog");
 
@@ -22,7 +27,7 @@ val RW = REWRITE_RULE
 
 val _ = add_preferred_thy "-";
 
-Triviality NOT_NIL_AND_LEMMA:
+Theorem NOT_NIL_AND_LEMMA[local]:
   (b <> [] /\ x) = if b = [] then F else x
 Proof
   Cases_on `b` THEN FULL_SIMP_TAC std_ss []
@@ -284,7 +289,7 @@ val _ = m_translate_run enc_secs_64_aux_def;
 
 val _ = translate enc_secs_64_def;
 
-Triviality monadic_enc64_enc_line_hash_64_ls_side_def:
+Theorem monadic_enc64_enc_line_hash_64_ls_side_def[local]:
   ∀a b c d e.
   d ≠ 0 ⇒
   monadic_enc64_enc_line_hash_64_ls_side a b c d e ⇔ T
@@ -294,7 +299,7 @@ Proof
   EVAL_TAC>>rw[]>>fs[]
 QED
 
-Triviality monadic_enc64_enc_sec_hash_64_ls_side_def:
+Theorem monadic_enc64_enc_sec_hash_64_ls_side_def[local]:
   ∀a b c d e.
   d ≠ 0 ⇒
   monadic_enc64_enc_sec_hash_64_ls_side a b c d e ⇔ T
@@ -315,9 +320,11 @@ val _ = translate (spec64 filter_skip_def)
 
 val _ = translate (get_jump_offset_def |>INST_TYPE [alpha|->``:64``,beta |-> ``:64``])
 
-val word_2compl_eq = prove(
-  ``!w:'a word. -w = 0w - w``,
-  fs []);
+Theorem word_2compl_eq[local]:
+    !w:'a word. -w = 0w - w
+Proof
+  fs []
+QED
 
 val _ = translate (conv64 reg_imm_ok_def |> SIMP_RULE std_ss [IN_INSERT,NOT_IN_EMPTY,
                                                word_2compl_eq])
@@ -343,9 +350,9 @@ Definition remove_labels_hash_def:
     remove_labels_loop init_clock c pos labs ffis (enc_secs_64 c.encode hash_size sec_list)
 End
 
-Triviality remove_labels_hash_correct:
-  remove_labels_hash c.init_clock c.asm_conf c.pos c.labels ffis c.hash_size sec_list =
-  remove_labels c.init_clock c.asm_conf c.pos c.labels ffis sec_list
+Theorem remove_labels_hash_correct[local]:
+  remove_labels_hash c.init_clock ac c.pos c.labels ffis c.hash_size sec_list =
+  remove_labels c.init_clock ac c.pos c.labels ffis sec_list
 Proof
   simp [FUN_EQ_THM, remove_labels_hash_def, remove_labels_def,
         enc_secs_64_correct]
@@ -354,26 +361,8 @@ QED
 val res = translate (remove_labels_hash_def |> spec64);
 
 val res = translate $ INST_TYPE[alpha|->``:8``] $ get_memop_info_def;
-val res = translate_no_ind $ spec64 $ get_shmem_info_def;
 
-Theorem get_shmem_info_ind:
-  lab_to_target_get_shmem_info_ind
-Proof
-  PURE_REWRITE_TAC [fetch "-" "lab_to_target_get_shmem_info_ind_def"]
-  \\ rpt gen_tac
-  \\ rpt (disch_then strip_assume_tac)
-  \\ match_mp_tac (spec64 $ latest_ind ())
-  \\ rpt strip_tac >>
-  TRY (last_x_assum match_mp_tac>>
-       rpt strip_tac>>fs[])>>
-  gvs[]>>
-  qmatch_asmsub_abbrev_tac ‘shmem_info ++ X’>>
-  qpat_abbrev_tac ‘RH = shmem_info ++ _’>>
-  ‘RH = shmem_info ++ X’ by simp[Abbr ‘RH’, Abbr ‘X’,shmem_rec_component_equality]>>
-  fs[Abbr ‘X’]
-QED
-
-val _ = get_shmem_info_ind |> update_precondition;
+val res = translate $ spec64 $ get_shmem_info_def;
 
 val compile_lab_thm = compile_lab_def
   |> spec64 |> REWRITE_RULE [GSYM remove_labels_hash_correct];
@@ -394,10 +383,7 @@ val res = presLangTheory.stack_prog_to_display_def |> spec64
           |> REWRITE_RULE [presLangTheory.string_imp_def] |> translate;
 val res = presLangTheory.stack_fun_to_display_def |> spec64 |> translate;
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
 val _ = (ml_translatorLib.clean_on_exit := true);
-
-val _ = export_theory();

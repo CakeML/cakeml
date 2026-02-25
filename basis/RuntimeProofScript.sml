@@ -1,11 +1,11 @@
 (*
   Proof about the exit function in the Runtime module.
 *)
-open preamble
-     ml_translatorTheory ml_translatorLib ml_progLib cfLib basisFunctionsLib
-     mlstringTheory runtimeFFITheory RuntimeProgTheory
-
-val _ = new_theory"RuntimeProof";
+Theory RuntimeProof
+Ancestors
+  cfMain cfLetAuto ml_translator mlstring runtimeFFI RuntimeProg
+Libs
+  preamble ml_translatorLib ml_progLib cfLib basisFunctionsLib
 
 val _ = translation_extends "RuntimeProg";
 val _ = option_monadsyntax.temp_add_option_monadsyntax();
@@ -33,7 +33,7 @@ Theorem Runtime_exit_spec:
    INT i iv ==>
    app (p:'ffi ffi_proj) Runtime_exit_v [iv]
      (RUNTIME)
-     (POSTf n. λc b. RUNTIME * &(n = "exit" /\ c = [] /\ b = [i2w i]))
+     (POSTf n. λc b. RUNTIME * &(n = «exit» /\ c = [] /\ b = [i2w i]))
 Proof
   qpat_abbrev_tac `Q = $POSTf _`
   \\ simp [RUNTIME_def,runtime_ffi_part_def,IOx_def,IO_def]
@@ -58,7 +58,7 @@ Proof
   \\ conj_tac
   >- (fs[STAR_def,emp_def,SPLIT_emp2] >> metis_tac[])
   \\ qexists_tac `(POSTf n. (λc b. RUNTIME *
-                                   &(n = "exit" ∧ c = [] ∧ b = [i2w i]) *
+                                   &(n = «exit» ∧ c = [] ∧ b = [i2w i]) *
                                    SEP_EXISTS loc. W8ARRAY loc [i2w i]))`
   \\ reverse (conj_tac)
   >- (unabbrev_all_tac \\ xsimpl)
@@ -79,7 +79,7 @@ Theorem Runtime_abort_spec:
    UNIT_TYPE u uv ==>
    app (p:'ffi ffi_proj) ^(fetch_v "Runtime.abort" st) [uv]
      (RUNTIME)
-     (POSTf n. λc b. RUNTIME * &(n = "exit" /\ c = [] /\ b = [1w]))
+     (POSTf n. λc b. RUNTIME * &(n = «exit» /\ c = [] /\ b = [1w]))
 Proof
   rpt strip_tac
   \\ xcf "Runtime.abort" st
@@ -96,5 +96,3 @@ Proof
   THEN1 (asm_exists_tac \\ rw[] \\ rw[SPLIT_emp1,cond_def])
   \\ fs[SPLIT_emp1,cond_def] \\ metis_tac[]
 QED
-
-val _ = export_theory();

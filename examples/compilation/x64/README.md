@@ -1,4 +1,4 @@
-Compile the examples via in-logic evaluation to x86 machine code.
+Compile the examples via in-logic evaluation to x64 machine code.
 
 [catCompileScript.sml](catCompileScript.sml):
 Compiles the cat example by evaluation inside the logic of HOL
@@ -18,15 +18,12 @@ Compiles the hello example by evaluation inside the logic of HOL
 [helloErrCompileScript.sml](helloErrCompileScript.sml):
 Compiles the helloErr example by evaluation inside the logic of HOL
 
-[iocatCompileScript.sml](iocatCompileScript.sml):
-Compiles the iocat example by evaluation inside the logic of HOL
-
 [patchCompileScript.sml](patchCompileScript.sml):
 Compiles the patch example by evaluation inside the logic of HOL
 
 [proofs](proofs):
 Prove end-to-end correctness theorems for the examples as compiled to
-x86 machine code.
+x64 machine code.
 
 [sortCompileScript.sml](sortCompileScript.sml):
 Compiles the sort example by evaluation inside the logic of HOL

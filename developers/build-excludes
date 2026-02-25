@@ -5,6 +5,12 @@ tutorial
 compiler/backend/San
 
 unverified
-unverified/lem/lem_lib_stub
 
-icing/examples/output
+# Unmaintained + exampleLib does unholy things like calling set_grammar_ancestry
+
+examples/flover
+examples/flover/Infra
+examples/flover/semantics
+
+unverified/sexpr-bootstrap/x64/64
+unverified/sexpr-bootstrap/x64/32

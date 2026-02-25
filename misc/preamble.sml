@@ -13,6 +13,19 @@ open ASCIInumbersTheory BasicProvers Defn HolKernel Parse SatisfySimps Tactic
      pairTheory pred_setTheory quantHeuristicsLib relationTheory res_quanTheory
      rich_listTheory sortingTheory sptreeTheory stringTheory sumTheory
      wordsTheory;
+(*Temporary workaround for cache being slow on long files*)
+fun clear_cache_prover gtac  =
+ let
+   val _ = List.app Cache.clear_cache [numSimps.arith_cache, intSimps.omega_cache,
+                                       intSimps.cooper_cache]
+   val res = TAC_PROOF gtac
+   val _ = List.app Cache.clear_cache [numSimps.arith_cache, intSimps.omega_cache,
+                                       intSimps.cooper_cache]
+ in
+   res
+ end
+val _ = Tactical.set_prover clear_cache_prover;
+
 (* TOOD: move? *)
 val wf_rel_tac = WF_REL_TAC
 val induct_on = Induct_on
@@ -34,7 +47,11 @@ fun impl_subgoal_tac th =
 (* -- *)
 
 fun check_tag t = Tag.isEmpty t orelse Tag.isDisk t
-val check_thm = Lib.assert (check_tag o Thm.tag)
+fun check_thm t = (
+  prove(T, fn g => (
+    (if check_tag (Thm.tag t) then () else failwith "theorem depends on cheats");
+    ACCEPT_TAC TRUTH g));
+  t)
 
 val option_bind_tm = prim_mk_const{Thy="option",Name="OPTION_BIND"};
 val option_ignore_bind_tm = prim_mk_const{Thy="option",Name="OPTION_IGNORE_BIND"};

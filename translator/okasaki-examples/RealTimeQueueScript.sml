@@ -2,9 +2,11 @@
   This is an example of applying the translator to the Real-Time
   Heap algorithm from Chris Okasaki's book.
 *)
-open HolKernel Parse boolLib bossLib; val _ = new_theory "RealTimeQueue";
-
-open listTheory arithmeticTheory ml_translatorLib ListProgTheory;
+Theory RealTimeQueue
+Ancestors
+  list arithmetic ListProg
+Libs
+  ml_translatorLib
 
 val _ = translation_extends "ListProg";
 
@@ -63,20 +65,20 @@ Definition queue_inv_def:
   queue_inv q (QUEUE f r s) <=> prop 0 q (QUEUE f r s)
 End
 
-Triviality empty_thm:
+Theorem empty_thm[local]:
   !xs. queue_inv xs empty = (xs = [])
 Proof
   EVAL_TAC THEN SIMP_TAC std_ss []
 QED
 
-Triviality is_empty_thm:
+Theorem is_empty_thm[local]:
   !q xs. queue_inv xs q ==> (is_empty q = (xs = []))
 Proof
   Cases THEN Cases_on `l`
   THEN SRW_TAC [] [LENGTH_NIL,queue_inv_def,is_empty_def,prop_def,LENGTH]
 QED
 
-Triviality rotate_thm:
+Theorem rotate_thm[local]:
   !f r s.
       (LENGTH r = LENGTH f + 1) ==>
       (rotate (QUEUE f r s) = f ++ REVERSE r ++ s)
@@ -89,7 +91,7 @@ Proof
   THEN FULL_SIMP_TAC std_ss [REVERSE_DEF,GSYM APPEND_ASSOC,APPEND]
 QED
 
-Triviality exec_thm:
+Theorem exec_thm[local]:
   prop 1 xs (QUEUE f r s) ==>
     queue_inv xs (exec (QUEUE f r s))
 Proof
@@ -98,7 +100,7 @@ Proof
   THEN REPEAT STRIP_TAC THEN DECIDE_TAC
 QED
 
-Triviality snoc_thm:
+Theorem snoc_thm[local]:
   !q xs x. queue_inv xs q ==> queue_inv (xs ++ [x]) (snoc q x)
 Proof
   Cases THEN FULL_SIMP_TAC (srw_ss())
@@ -107,7 +109,7 @@ Proof
   THEN FULL_SIMP_TAC (srw_ss()) [prop_def] THEN DECIDE_TAC
 QED
 
-Triviality head_thm:
+Theorem head_thm[local]:
   !q x xs. queue_inv (x::xs) q ==> (head q = x)
 Proof
   Cases THEN Cases_on `l` THEN FULL_SIMP_TAC (srw_ss())
@@ -115,7 +117,7 @@ Proof
   THEN SRW_TAC [] [] THEN FULL_SIMP_TAC (srw_ss()) [LENGTH_NIL,REVERSE_DEF]
 QED
 
-Triviality tail_thm:
+Theorem tail_thm[local]:
   !q x xs. queue_inv (x::xs) q ==> queue_inv xs (tail q)
 Proof
   Cases THEN Cases_on `l` THEN FULL_SIMP_TAC (srw_ss())
@@ -124,4 +126,3 @@ Proof
   THEN MATCH_MP_TAC exec_thm THEN EVAL_TAC THEN DECIDE_TAC
 QED
 
-val _ = export_theory();

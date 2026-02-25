@@ -1,11 +1,11 @@
 (*
    Basic specification of an LPR checker (minimal optimization)
 *)
-open preamble miscTheory mlstringTheory satSemTheory;
-
-val _ = new_theory "lpr";
-
-val _ = set_grammar_ancestry ["mlstring","satSem","sptree","integer","misc"];
+Theory lpr
+Libs
+  preamble
+Ancestors
+  mllist mlstring satSem sptree[qualified] integer[qualified] misc
 
 (*
   Bridging implementation and semantics
@@ -218,7 +218,7 @@ Definition sorted_dup_def:
 End
 
 Definition canon_clause_def:
-  canon_clause cl = sorted_dup (QSORT (λi j. i ≤ (j:int)) cl)
+  canon_clause cl = sorted_dup (sort (λi j. i ≤ (j:int)) cl)
 End
 
 Theorem set_sorted_dup:
@@ -229,17 +229,11 @@ Proof
   rw[sorted_dup_def]
 QED
 
-Theorem set_QSORT:
-  set (QSORT R ls) = set ls
-Proof
-  rw[EXTENSION,QSORT_MEM]
-QED
-
 Theorem canon_clause_interp:
   interp_cclause (canon_clause cl) = interp_cclause cl
 Proof
   rw[canon_clause_def,interp_cclause_def]>>
-  simp[set_sorted_dup,set_QSORT]
+  simp[set_sorted_dup,sort_set]
 QED
 
 Definition contains_clauses_def:
@@ -1333,5 +1327,3 @@ Proof
   match_mp_tac (satisfiable_SUBSET)>>
   fs[interp_def]
 QED
-
-val _ = export_theory ();

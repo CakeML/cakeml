@@ -2,11 +2,12 @@
   Various lemmas that are handy in the soundness and completeness
   proofs of the type inferencer.
 *)
-open preamble;
-open namespacePropsTheory typeSystemTheory astTheory semanticPrimitivesTheory inferTheory unifyTheory infer_tTheory;
-open astPropsTheory typeSysPropsTheory;
-
-val _ = new_theory "inferProps";
+Theory inferProps
+Ancestors
+  namespaceProps typeSystem ast semanticPrimitives infer unify
+  infer_t typeSysProps
+Libs
+  preamble
 
 Theorem ienv_unchanged[simp]:
    (ienv with inf_v := ienv.inf_v) = ienv ∧
@@ -359,7 +360,7 @@ Proof
   rw [infer_st_component_equality]
 QED
 
-Triviality st_ex_return_success:
+Theorem st_ex_return_success[local]:
   !v st v' st'.
   (st_ex_return v st = (Success v', st')) =
   ((v = v') ∧ (st = st'))
@@ -367,7 +368,7 @@ Proof
   rw [st_ex_return_def]
 QED
 
-Triviality st_ex_bind_success:
+Theorem st_ex_bind_success[local]:
   !f g st st' v.
  (st_ex_bind f g st = (Success v, st')) =
  ?v' st''. (f st = (Success v', st'')) /\ (g v' st'' = (Success v, st'))
@@ -379,7 +380,7 @@ cases_on `q` >>
 rw []
 QED
 
-Triviality fresh_uvar_success:
+Theorem fresh_uvar_success[local]:
   !st t st'.
   (fresh_uvar st = (Success t, st')) =
   ((t = Infer_Tuvar st.next_uvar) ∧
@@ -407,7 +408,7 @@ eq_tac >>
 srw_tac [ARITH_ss] [arithmeticTheory.ADD1]
 QED
 
-Triviality apply_subst_success:
+Theorem apply_subst_success[local]:
   !t1 st1 t2 st2.
   (apply_subst t1 st1 = (Success t2, st2))
   =
@@ -430,7 +431,7 @@ full_case_tac >>
 metis_tac []
 QED
 
-Triviality add_constraints_success:
+Theorem add_constraints_success[local]:
   !l ts1 ts2 st st' x.
   (add_constraints l ts1 ts2 st = (Success x, st'))
   =
@@ -452,7 +453,7 @@ cases_on `t_unify st.subst t1 t2` >>
 fs []
 QED
 
-Triviality add_constraints_nil2_success:
+Theorem add_constraints_nil2_success[local]:
   (add_constraints l ts1 [] st = (Success x, st'))
   = (ts1 = [] /\ st = st')
 Proof
@@ -460,7 +461,7 @@ Proof
   \\ simp [failwith_def, st_ex_bind_success, st_ex_return_success]
 QED
 
-Triviality add_constraints_cons2_success:
+Theorem add_constraints_cons2_success[local]:
   (add_constraints l ts1 (t2 :: ts2) st = (Success x, st'))
   = (?t1 tl1 st''. ts1 = t1 :: tl1 /\
     add_constraint l t1 t2 st = (Success (), st'') /\
@@ -470,13 +471,13 @@ Proof
   \\ simp [failwith_def, st_ex_bind_success, st_ex_return_success]
 QED
 
-Triviality failwith_success:
+Theorem failwith_success[local]:
   !l m st v st'. (failwith l m st = (Success v, st')) = F
 Proof
   rw [failwith_def]
 QED
 
-Triviality lookup_st_ex_success:
+Theorem lookup_st_ex_success[local]:
   !loc x err l st v st'.
   (lookup_st_ex loc err x l st = (Success v, st'))
   =
@@ -487,10 +488,10 @@ Proof
 QED
 
 val op_data = {nchotomy = op_nchotomy, case_def = op_case_def};
-val op_case_eq = prove_case_eq_thm op_data;
+val op_case_eq = TypeBase.case_eq_of ``:op``;
 val op_case_rand = prove_case_rand_thm op_data;
 val list_data = {nchotomy = list_nchotomy, case_def = list_case_def}
-val list_case_eq = prove_case_eq_thm list_data;
+val list_case_eq = TypeBase.case_eq_of ``:'a list``;
 val list_case_rand = prove_case_rand_thm list_data;
 
 val bool_data = {nchotomy = TypeBase.nchotomy_of bool,
@@ -515,7 +516,7 @@ Proof
   Cases_on `x` \\ simp []
 QED
 
-Triviality constrain_op_op_case:
+Theorem constrain_op_op_case[local]:
   constrain_op l op ts st = (case op of
       Opapp => let x = () in constrain_op l op ts st
     | _ => constrain_op l op ts st)
@@ -526,7 +527,7 @@ QED
 val constrain_op_success =
   ``(constrain_op l op ts st = (Success v, st'))``
   |> (REWRITE_CONV [Once constrain_op_op_case, op_case_eq]
-    THENC SIMP_CONV (srw_ss () ++ CONJ_ss) [constrain_op_dtcase_def,
+    THENC SIMP_CONV (srw_ss () ++ CONJ_ss) [constrain_op_case_def,
         op_simple_constraints_def, LET_THM, bool_case_eq,
         st_ex_bind_success,st_ex_return_success,
         add_constraint_success,failwith_success,
@@ -539,7 +540,7 @@ val constrain_op_success =
 Theorem constrain_op_success =
   constrain_op_success
 
-Triviality get_next_uvar_success:
+Theorem get_next_uvar_success[local]:
   !st v st'.
   (get_next_uvar st = (Success v, st'))
   =
@@ -553,7 +554,7 @@ val apply_subst_list_success =
   SIMP_CONV (srw_ss()) [apply_subst_list_def, LET_THM]
   ``(apply_subst_list ts st = (Success v, st'))``
 
-Triviality guard_success:
+Theorem guard_success[local]:
   ∀P l m st v st'.
   (guard P l m st = (Success v, st'))
   =
@@ -696,7 +697,7 @@ Proof
  fs [LAMBDA_PROD, combinTheory.o_DEF]
 QED
 
-Triviality option_case_eq:
+Theorem option_case_eq[local]:
   !opt f g v st st'.
   ((case opt of NONE => f | SOME x => g x) st = (Success v, st')) =
   (((opt = NONE) ∧ (f st = (Success v, st'))) ∨ (?x. (opt = SOME x) ∧ (g x st = (Success v, st'))))
@@ -796,7 +797,7 @@ QED
 
 (* ---------- Dealing with the constraint set ---------- *)
 
-Triviality pure_add_constraints_append2:
+Theorem pure_add_constraints_append2[local]:
   !s1 ts s2 t1 t2.
   t_wfs s1 ∧
   pure_add_constraints s1 ts s2 ∧
@@ -873,18 +874,26 @@ Theorem infer_e_constraints:
     ⇒
     (?ts. pure_add_constraints st.subst ts st'.subst))
 Proof
-ho_match_mp_tac infer_e_ind >>
-rw [infer_e_def, constrain_op_success, success_eqns, remove_pair_lem, GSYM FORALL_PROD] >>
-rw [] >>
-res_tac >>
-fs [] >>
-TRY (cases_on `v'`) >>
-every_case_tac >> TRY (Cases_on `uop:fp_uop`) >>
-fs [success_eqns] >>
-rw [] >>
-fs [infer_st_rewrs] >>
-TRY (prove_tac [pure_add_constraints_append, pure_add_constraints_def,
-           infer_p_constraints, type_name_check_subst_state])
+  ho_match_mp_tac infer_e_ind >>
+  rw [infer_e_def, constrain_op_success, success_eqns, remove_pair_lem,
+      GSYM FORALL_PROD] >>
+  rw [] >>~-
+  ([‘∃y. pure_add_constraints x y x (* g *)’],
+   irule_at Any (iffRL (cj 1 pure_add_constraints_def)) >> simp[]) >>
+  rpt (first_x_assum $ drule_then strip_assume_tac) >> simp[] >>
+  gvs[success_eqns]
+  >~ [‘t_unify s2.subst t1 (FST v) = SOME s’]
+  >- (Cases_on ‘v’ >> gvs[] >>
+      prove_tac [pure_add_constraints_append, pure_add_constraints_def,
+                 infer_p_constraints, type_name_check_subst_state])
+  >~ [‘supported_arith a ty’]
+  >- (Cases_on ‘supported_arith a ty’
+      \\ gvs [failwith_def,AllCaseEqs(),st_ex_bind_def,st_ex_return_def]
+      \\ gvs [add_constraints_success]
+      \\ prove_tac [pure_add_constraints_append, pure_add_constraints_def,
+                    infer_p_constraints, type_name_check_subst_state])
+  \\ prove_tac [pure_add_constraints_append, pure_add_constraints_def,
+                infer_p_constraints, type_name_check_subst_state]
 QED
 
 Theorem pure_add_constraints_wfs:
@@ -1079,7 +1088,7 @@ rw [t_vars_eqn, check_t_def, EVERY_MEM, SUBSET_DEF, MEM_MAP] >>
 metis_tac []
 QED
 
-Triviality check_s_more:
+Theorem check_s_more[local]:
   !s tvs uvs. check_s tvs (count uvs) s ⇒ check_s tvs (count (uvs + 1)) s
 Proof
   rw [check_s_def] >>
@@ -1176,7 +1185,7 @@ fs [check_s_def, FLOOKUP_DEF] >>
 metis_tac [check_t_def, IN_UNION]
 QED
 
-Triviality t_walkstar_check':
+Theorem t_walkstar_check'[local]:
   !s. t_wfs s ⇒
   !t tvs uvs.
     check_s tvs (uvs ∪ FDOM s) s ∧
@@ -1226,7 +1235,7 @@ Proof
 metis_tac [t_walkstar_check']
 QED
 
-Triviality t_walkstar_uncheck_lem:
+Theorem t_walkstar_uncheck_lem[local]:
   !s. t_wfs s ⇒
     ∀t max_tvs uvs.
     check_t max_tvs uvs (t_walkstar s t) ⇒
@@ -1258,7 +1267,7 @@ Proof
  metis_tac [t_walkstar_uncheck_lem]
 QED
 
-Triviality t_unify_check_s_help:
+Theorem t_unify_check_s_help[local]:
   (!s t1 t2. t_wfs s ⇒
     !tvs uvs s'. check_s tvs uvs s ∧
            check_t tvs uvs t1 ∧
@@ -1329,7 +1338,7 @@ Proof
   metis_tac []
 QED
 
-Triviality t_walkstar_no_vars:
+Theorem t_walkstar_no_vars[local]:
   !tvs uvs t s.
   t_wfs s ∧
   uvs = {} ∧
@@ -1471,7 +1480,7 @@ Proof
       metis_tac [infer_p_wfs, check_t_more3])
 QED
 
-Triviality check_infer_type_subst:
+Theorem check_infer_type_subst[local]:
   (!t tvs uvs.
   check_freevars 0 tvs t
   ⇒
@@ -1662,7 +1671,7 @@ Proof
  >> fs [EL_MAP, LENGTH_COUNT_LIST, check_t_def, EL_COUNT_LIST]
 QED
 
-Triviality check_t_infer_db_subst:
+Theorem check_t_infer_db_subst[local]:
   (!t uvs tvs.
    check_t 0 (count (uvs + tvs)) (infer_deBruijn_subst (MAP (\n. Infer_Tuvar (uvs + n)) (COUNT_LIST tvs)) t)
    =
@@ -1695,26 +1704,26 @@ metis_tac []
 QED
 
 Theorem infer_e_check_t:
-   (!l ienv e st st' t.
-    infer_e l ienv e st = (Success t, st') ∧
-    ienv_val_ok (count st.next_uvar) ienv.inf_v
-    ⇒
+  (∀l ienv e st st' t.
+     infer_e l ienv e st = (Success t, st') ∧
+     ienv_val_ok (count st.next_uvar) ienv.inf_v
+     ⇒
     check_t 0 (count st'.next_uvar) t) ∧
-   (!l ienv es st st' ts.
-    infer_es l ienv es st = (Success ts, st') ∧
+  (∀l ienv es st st' ts.
+     infer_es l ienv es st = (Success ts, st') ∧
+     ienv_val_ok (count st.next_uvar) ienv.inf_v
+     ⇒
+     EVERY (check_t 0 (count st'.next_uvar)) ts) ∧
+  (∀l ienv pes t1 t2 st st'.
+     infer_pes l ienv pes t1 t2 st = (Success (), st') ∧
     ienv_val_ok (count st.next_uvar) ienv.inf_v
-    ⇒
-    EVERY (check_t 0 (count st'.next_uvar)) ts) ∧
-   (!l ienv pes t1 t2 st st'.
-    infer_pes l ienv pes t1 t2 st = (Success (), st') ∧
-    ienv_val_ok (count st.next_uvar) ienv.inf_v
-    ⇒
-    T) ∧
-   (!l ienv funs st st' ts'.
-    infer_funs l ienv funs st = (Success ts', st') ∧
-    ienv_val_ok (count st.next_uvar) ienv.inf_v
-    ⇒
-    EVERY (check_t 0 (count st'.next_uvar)) ts')
+     ⇒
+     T) ∧
+  (∀l ienv funs st st' ts'.
+     infer_funs l ienv funs st = (Success ts', st') ∧
+     ienv_val_ok (count st.next_uvar) ienv.inf_v
+     ⇒
+     EVERY (check_t 0 (count st'.next_uvar)) ts')
 Proof
  ho_match_mp_tac infer_e_ind >>
  srw_tac[] [infer_e_def, constrain_op_success, success_eqns, remove_pair_lem, LET_THM] >>
@@ -1755,6 +1764,7 @@ Proof
      irule nsAll_nsOptBind
      >> simp [option_nchotomy]
      >> metis_tac [check_env_more, DECIDE ``x:num ≤ x + 1``])
+ >- ( first_x_assum drule \\ rw[] )
  >- (
    first_x_assum old_drule
    >> first_x_assum old_drule
@@ -1823,6 +1833,10 @@ Theorem constrain_op_wfs:
 Proof
   rw [constrain_op_success, success_eqns] >>
   fs [] >>
+  TRY (rename [‘supported_arith a p’] >>
+       rpt (pairarg_tac >> gvs [AllCaseEqs(),failwith_def]) >>
+       gvs [st_ex_bind_def,AllCaseEqs(),st_ex_return_def] >>
+       imp_res_tac pure_add_constraints_wfs) >>
   every_case_tac >>
   TRY (Cases_on `f`) >>
   fs [op_to_string_def, success_eqns] >>
@@ -1840,6 +1854,7 @@ Theorem constrain_op_check_t:
     check_t 0 (count st'.next_uvar) t
 Proof
   rw [constrain_op_success, success_eqns] >>
+  rpt (pairarg_tac >> gvs [AllCaseEqs(),st_ex_bind_def,st_ex_return_def]) >>
   every_case_tac >>
   TRY (Cases_on `f`) >>
   fs [op_to_string_def, success_eqns] >>
@@ -1857,14 +1872,32 @@ Theorem constrain_op_check_s:
     check_s tvs (count st'.next_uvar) st'.subst
 Proof
    rw [] >>
-   `!uvs tvs. check_t tvs uvs (Infer_Tapp [] TC_int)` by rw [check_t_def] >>
-   `!uvs tvs. check_t tvs uvs (Infer_Tapp [] TC_word8)` by rw [check_t_def] >>
-   `!uvs tvs. check_t tvs uvs (Infer_Tapp [] TC_word8array)` by rw [check_t_def] >>
-   `!uvs tvs. check_t tvs uvs (Infer_Tapp [] TC_string)` by rw [check_t_def] >>
-   `!uvs tvs. check_t tvs uvs (Infer_Tapp [] TC_char)` by rw [check_t_def] >>
-   `!uvs tvs wz. check_t tvs uvs (Infer_Tapp [] (TC_word wz))` by rw [check_t_def] >>
+   `!uvs tvs tc. check_t tvs uvs (Infer_Tapp [] tc)` by rw [check_t_def] >>
    fs [constrain_op_success] >> rw [] >>
+   rpt (pairarg_tac \\ gvs [AllCaseEqs(),st_ex_bind_def,st_ex_return_def,failwith_def]) >>
    fs [op_to_string_def, infer_st_rewrs]
+   >~ [‘supported_arith a p’]
+   >- (Cases_on‘p’ >> gvs[supported_arith_def] >>
+       TRY (Cases_on‘a:arith’) >>
+       gvs [supported_arith_def,LENGTH_EQ_NUM_compute,REPLICATE_compute,
+            add_constraints_def, st_ex_bind_success, add_constraint_def,
+            CaseEq"prod", CaseEq"option", st_ex_return_success] >>
+       imp_res_tac t_unify_wfs >>
+       match_mp_tac t_unify_check_s >> asm_exists_tac >> rw[] >>
+       TRY(match_mp_tac t_unify_check_s \\ asm_exists_tac \\ rw[]) >>
+       TRY(match_mp_tac t_unify_check_s \\ asm_exists_tac \\ rw[])
+       \\ TRY(match_mp_tac check_t_more_0 \\ rw[]))
+   >~ [‘supported_conversion p p0’]
+   >- (Cases_on`p` \\ Cases_on`p0` >> gvs [supported_conversion_def] >>
+       match_mp_tac t_unify_check_s >> asm_exists_tac >>
+       imp_res_tac t_unify_wfs >> rw[] >>
+       match_mp_tac check_t_more_0 \\ rw[])
+   >~ [‘supported_test t0 p0’]
+   >- (Cases_on`t0` >> gvs [supported_test_def] >>
+       imp_res_tac t_unify_wfs >>
+       match_mp_tac t_unify_check_s >> asm_exists_tac >> rw[] >>
+       TRY(match_mp_tac t_unify_check_s \\ asm_exists_tac \\ rw[]) >>
+       match_mp_tac check_t_more_0 \\ rw[])
    \\ TRY (Cases_on `uop`)
    \\ TRY pairarg_tac >> fs [success_eqns]
    \\ imp_res_tac t_unify_wfs \\ rfs[fresh_uvar_success]
@@ -2017,7 +2050,8 @@ Proof
    >> simp []
    >> metis_tac [infer_e_check_t, ienv_ok_def])
  >- (
-   first_x_assum old_drule
+   gvs []
+   >> first_x_assum old_drule
    >> rw []
    >> first_x_assum old_drule
    >> rw []
@@ -2282,7 +2316,7 @@ Proof
    >> simp [check_s_more])
 QED
 
-Triviality generalise_complete_lemma:
+Theorem generalise_complete_lemma[local]:
   !tvs ts.
   (∀uv. uv ∈ FDOM (FEMPTY |++ ts) ⇒ ∃tv. (FEMPTY |++ ts) ' uv = tv ∧ tv < tvs)
   ⇒
@@ -2296,7 +2330,7 @@ Proof
   metis_tac [FST, fupdate_list_map]
 QED
 
-Triviality generalise_complete_lemma2:
+Theorem generalise_complete_lemma2[local]:
   !s ts.
   t_wfs s ∧
   ALL_DISTINCT (MAP FST ts) ∧
@@ -2336,7 +2370,7 @@ Definition infer_subst_var_def:
 (infer_subst_var s t = t)
 End
 
-Triviality generalise_complete_lemma4:
+Theorem generalise_complete_lemma4[local]:
   !s. t_wfs s ⇒
   !t s'. t_wfs (s |++ MAP (λ(uv,tv). (uv,Infer_Tvar_db tv)) s') ∧
          ALL_DISTINCT (MAP FST s') ∧
@@ -2373,7 +2407,7 @@ Proof
      metis_tac [])
 QED
 
-Triviality generalise_complete_lemma5:
+Theorem generalise_complete_lemma5[local]:
   !s. t_wfs s ⇒
   !t s'. t_wfs (s |++ MAP (λ(uv,tv). (uv,Infer_Tvar_db tv)) s') ⇒
          ALL_DISTINCT (MAP FST s') ∧
@@ -2402,7 +2436,7 @@ Proof
  fs []
 QED
 
-Triviality fst_lem:
+Theorem fst_lem[local]:
   FST = (\(x,y).x)
 Proof
   rw [FUN_EQ_THM] >>
@@ -2817,7 +2851,7 @@ Proof
      \\ metis_tac[])
 QED
 
-Triviality init_infer_state_wfs:
+Theorem init_infer_state_wfs[local]:
   t_wfs (init_infer_state st).subst ∧
    check_s 0 ∅ (init_infer_state st).subst
 Proof
@@ -2890,13 +2924,13 @@ val let_tac =
    >> fs [sub_completion_def, EVERY_MEM, MEM_MAP, PULL_EXISTS]
    >> metis_tac [check_t_more2, check_t_more5, MEM_EL, DECIDE ``x + 0n = x``];
 
-Triviality eta2_thm:
+Theorem eta2_thm[local]:
   (\x. f a b x) = f a b
 Proof
   metis_tac []
 QED
 
-Triviality check_env_letrec_lem2:
+Theorem check_env_letrec_lem2[local]:
   ∀funs.
     nsAll (λx (tvs,t). check_t tvs (count (LENGTH funs)) t)
       (alist_to_ns (MAP2 (λ(f,x,e) uvar. (f,0,uvar))
@@ -3112,13 +3146,13 @@ Proof
   metis_tac[LESS_EQ_TRANS]
 QED
 
-Triviality count_list_one:
+Theorem count_list_one[local]:
   COUNT_LIST 1 = [0]
 Proof
   metis_tac [COUNT_LIST_def, MAP, DECIDE ``1 = SUC 0``]
 QED
 
-Triviality check_freevars_more_append:
+Theorem check_freevars_more_append[local]:
   (!t x fvs1 fvs2.
   check_freevars x fvs1 t ⇒
   check_freevars x (fvs2++fvs1) t ∧
@@ -3133,24 +3167,6 @@ rw [check_freevars_def] >>
 metis_tac []
 QED
 
-(*
-Theorem t_to_freevars_check:
- (!t st fvs st'.
-   (t_to_freevars t (st:'a) = (Success fvs, st'))
-   ⇒
-   check_freevars 0 fvs t) ∧
- (!ts st fvs st'.
-   (ts_to_freevars ts (st:'a) = (Success fvs, st'))
-   ⇒
-   EVERY (check_freevars 0 fvs) ts)
-Proof
-Induct >>
-rw [t_to_freevars_def, success_eqns, check_freevars_def] >>
-rw [] >>
-metis_tac [check_freevars_more_append]
-QED
-*)
-
 Theorem check_freevars_more:
    ∀a b c. check_freevars a b c ⇒ ∀b'. set b ⊆ set b' ⇒ check_freevars a b' c
 Proof
@@ -3159,18 +3175,6 @@ Proof
     fs[SUBSET_DEF] >>
   fs[EVERY_MEM]
 QED
-
-(*
-Theorem check_freevars_t_to_freevars:
-   (∀t fvs (st:'a). check_freevars 0 fvs t ⇒
-      ∃fvs' st'. t_to_freevars t st = (Success fvs', st') ∧ set fvs' ⊆ set fvs) ∧
-    (∀ts fvs (st:'a). EVERY (check_freevars 0 fvs) ts ⇒
-      ∃fvs' st'. ts_to_freevars ts st = (Success fvs', st') ∧ set fvs' ⊆ set fvs)
-Proof
-  Induct >> simp[check_freevars_def,t_to_freevars_def,PULL_EXISTS,success_eqns] >>
-  simp_tac(srw_ss()++boolSimps.ETA_ss)[] >> simp[] >> metis_tac[]
-QED
-*)
 
 Theorem check_t_infer_type_subst_dbs:
    ∀m w t n u ls.
@@ -3212,157 +3216,12 @@ Proof
   Cases_on`ls`>>fs[]
 QED
 
-(*
-Theorem check_specs_check:
- !mn orig_tenvT idecls ienv specs st decls' ienv' st'.
-  check_specs mn orig_tenvT idecls ienv specs st = (Success (decls',ienv'), st') ∧
-  tenv_abbrev_ok orig_tenvT ∧
-  ienv_ok {} ienv
-  ⇒
-  ienv_ok {} ienv'
-Proof
- ho_match_mp_tac check_specs_ind >>
- STRIP_TAC >>
- REPEAT GEN_TAC >-
- (rw [check_specs_def, success_eqns] >>
-  metis_tac []) >>
- REPEAT CONJ_TAC >>
- REPEAT GEN_TAC >>
- STRIP_TAC >>
- fs [check_specs_def, success_eqns]
- >-
-   (rpt gen_tac>>strip_tac>>
-   FIRST_X_ASSUM match_mp_tac >>
-   fs[check_specs_def]>>
-   qexists_tac`nub fvs`>>fs[GSYM PULL_EXISTS]>>
-   CONJ_TAC>- metis_tac []
-   >> imp_res_tac t_to_freevars_check>>
-     imp_res_tac check_freevars_type_name_subst>>
-     Cases_on`fvs = []`>-
-       (fs[nub_def,COUNT_LIST_def]>>
-       fs [ienv_ok_def, ienv_val_ok_def]
-       >> irule nsAll_nsBind
-       >> simp []
-       >> metis_tac[infer_type_subst_empty_check])
-     >>
-     fs [ienv_ok_def, ienv_val_ok_def] >>
-     irule nsAll_nsBind >>
-     simp [] >>
-     match_mp_tac check_t_infer_type_subst_dbs>>
-     qexists_tac`0`>>
-     qexists_tac`fvs`>>
-     fs[nub_eq_nil])
- >- (rpt gen_tac >>
-     strip_tac >>
-     FIRST_X_ASSUM match_mp_tac >>
-     rw [] >>
-     qmatch_assum_abbrev_tac `check_ctor_tenv (nsAppend new_tenvT orig_tenvT) _`
-     >> qexists_tac `nsAppend new_tenvT orig_tenvT`
-     >> qexists_tac `MAP (λ(tvs,tn,ctors). mk_id mn tn) tdefs`
-     >> qexists_tac `new_tenvT`
-     >> qexists_tac `st`
-     >> simp []
-     >> `tenv_abbrev_ok new_tenvT`
-       by (
-         simp [Abbr `new_tenvT`, typeSoundInvariantsTheory.tenv_abbrev_ok_def]
-         >> irule nsAll_alist_to_ns
-         >> rw [EVERY_MEM, MEM_MAP]
-         >> rpt (pairarg_tac >> fs [])
-         >> rw [check_freevars_def, EVERY_MAP, EVERY_MEM])
-     >> conj_asm1_tac
-     >- (
-       fs [typeSoundInvariantsTheory.tenv_abbrev_ok_def]
-       >> irule nsAll_nsAppend
-       >> simp [])
-     >> fs [ienv_ok_def]
-     >> conj_tac
-     >- (
-       fs [typeSoundInvariantsTheory.tenv_ctor_ok_def]
-       >> irule nsAll_nsAppend
-       >> simp []
-       >> irule (SIMP_RULE (srw_ss()) [typeSoundInvariantsTheory.tenv_ctor_ok_def] check_ctor_tenv_ok)
-       >> simp [])
-     >- metis_tac [typeSoundInvariantsTheory.tenv_abbrev_ok_def, nsAll_nsAppend])
- >- (
-   rw []
-   >> first_x_assum match_mp_tac
-   >> fs [ienv_ok_def]
-   >> `tenv_abbrev_ok (nsSing tn (tvs, type_name_subst orig_tenvT t):tenv_abbrev)`
-     by (
-       rw [typeSoundInvariantsTheory.tenv_abbrev_ok_def]
-       >> irule check_freevars_type_name_subst
-       >> simp [])
-   >> metis_tac [typeSoundInvariantsTheory.tenv_abbrev_ok_def, nsAll_nsAppend, nsAppend_nsSing])
- >- (
-   rw []
-   >> first_x_assum irule
-   >> simp []
-   >> conj_tac >- metis_tac []
-   >> fs [ienv_ok_def, check_exn_tenv_def, typeSoundInvariantsTheory.tenv_ctor_ok_def]
-   >> irule nsAll_nsBind
-   >> fs [EVERY_MAP, EVERY_MEM]
-   >> rw []
-   >> fs [MEM_MAP]
-   >> metis_tac [check_freevars_type_name_subst])
- >- (
-   rw []
-   >> first_x_assum irule
-   >> `tenv_abbrev_ok ((nsSing tn (tvs,Tapp (MAP Tvar tvs) (TC_name (mk_id mn tn)))):tenv_abbrev)`
-     by rw [typeSoundInvariantsTheory.tenv_abbrev_ok_def, check_freevars_def, EVERY_MAP, EVERY_MEM]
-   >> qmatch_assum_abbrev_tac `tenv_abbrev_ok new_tenvT`
-   >> qexists_tac `decls'`
-   >> qexists_tac `new_tenvT`
-   >> qexists_tac `st`
-   >> fs [ienv_ok_def, typeSoundInvariantsTheory.tenv_abbrev_ok_def]
-   >> rw [Abbr `new_tenvT`]
-   >> irule nsAll_nsBind
-   >> rw [check_freevars_def, EVERY_MAP, EVERY_MEM])
-QED
-
-*)
-
 Theorem ienv_ok_lift:
    !mn ienv n. ienv_ok n ienv ⇒ ienv_ok n (lift_ienv mn ienv)
 Proof
  rw [lift_ienv_def, ienv_ok_def, ienv_val_ok_def, typeSoundInvariantsTheory.tenv_ctor_ok_def,
      typeSoundInvariantsTheory.tenv_abbrev_ok_def]
 QED
-
-(*
-Theorem infer_top_invariant:
- !decls1 ienv t_op st1 decls' ienv' st2.
-  infer_top decls1 ienv t_op st1 = (Success (decls', ienv'), st2) ∧
-  ienv_ok {} ienv
-  ⇒
-  ienv_ok {} ienv'
-Proof
- rw []
- >> Cases_on `t_op`
- >> fs [infer_top_def, success_eqns]
- >> rpt (pairarg_tac >> fs [])
- >> fs [success_eqns]
- >> rpt (pairarg_tac >> fs [])
- >> fs [success_eqns]
- >> rw []
- >- (
-   old_drule infer_ds_check
-   >> rw []
-   >> rename1 `check_signature [mn] _ _ _ _ si st2 = _`
-   >> Cases_on `si`
-   >> fs [check_signature_def, success_eqns]
-   >> rw []
-   >> irule ienv_ok_lift
-   >> simp []
-   >> rpt (pairarg_tac >> fs [])
-   >> rw []
-   >> fs [success_eqns]
-   >> rw []
-   >> old_drule check_specs_check
-   >> disch_then irule
-   >> fs [ienv_ok_def, ienv_val_ok_def])
- >> metis_tac [infer_d_check]
-QED
-*)
 
 Theorem sub_completion_wfs:
  !n uvars s1 ts s2.
@@ -3859,10 +3718,24 @@ Proof
                   \\fs[prim_tids_def,prim_type_nums_def]))
     \\ strip_tac \\ fs[])
   \\ rveq \\ fs[inf_set_tids_def,prim_tids_def, prim_type_nums_def]
+  \\ gvs[CaseEq"option",failwith_success,CaseEq"bool",
+         st_ex_bind_success,st_ex_return_success,inf_set_tids_def,
+         add_constraints_success]
+  \\ TRY(rename1`supported_arith a p` \\ Cases_on`a`
+         \\ Cases_on ‘p’ using semanticPrimitivesPropsTheory.prim_type_cases \\ gvs[supported_arith_def]
+         \\ irule pure_add_constraints_set_tids
+         \\ first_x_assum $ irule_at (Pat`pure_add_constraints`)
+         \\ gvs[LENGTH_EQ_NUM_compute,REPLICATE_compute]
+         \\ gvs[inf_set_tids_subset_def, inf_set_tids_def])
+  \\ TRY(rename1`supported_conversion c x`
+         \\ Cases_on ‘c’ using semanticPrimitivesPropsTheory.prim_type_cases
+         \\ Cases_on ‘x’ using semanticPrimitivesPropsTheory.prim_type_cases \\ gvs[supported_conversion_def])
+  \\ rename1`supported_test x p`
+  \\ Cases_on`x` \\ Cases_on ‘p’ using semanticPrimitivesPropsTheory.prim_type_cases \\ gvs[supported_test_def]
 QED
 
 Theorem infer_e_inf_set_tids:
-    (!l cenv p st t st'.
+  (!l cenv p st t st'.
     (infer_e l cenv p st = (Success t, st'))
     ⇒
     prim_tids T tids ∧ inf_set_tids_ienv tids cenv ∧ inf_set_tids_subst tids st.subst
@@ -3970,6 +3843,7 @@ Proof
     \\ goal_assum(first_assum o mp_then(Pat`t_unify`)mp_tac)
     \\ simp[]
     \\ simp[inf_set_tids_def]
+    \\ fs [inf_set_tids_subset_def]
     \\ conj_tac >- (fs[prim_tids_def,prim_type_nums_def] \\ NO_TAC)
     \\ irule (CONJUNCT1 t_unify_set_tids)
     \\ rw[inf_set_tids_subset_def]
@@ -4338,5 +4212,3 @@ Proof
   \\ fs[n_fresh_id_def] \\ rw[]
   \\ metis_tac[]
 QED
-
-val _ = export_theory ();

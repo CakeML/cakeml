@@ -1,10 +1,11 @@
 (*
   Defines what is means for a CF separation logic assertion to be "local".
 *)
-open preamble set_sepTheory
-open cfHeapsBaseTheory cfHeapsBaseLib
-
-val _ = new_theory "cfHeaps"
+Theory cfHeaps
+Ancestors
+  set_sep cfHeapsBase
+Libs
+  preamble cfHeapsBaseLib
 
 fun sing x = [x]
 
@@ -228,4 +229,3 @@ Proof
   fs [local_extract_exists]
 QED
 
-val _ = export_theory()

@@ -1,19 +1,31 @@
 (*
   Translates definitions to translate from Dafny's to CakeML's AST.
 *)
+Theory dafny_to_cakemlProg
+Ancestors
+  sexp_to_dafnyProg dafny_to_cakeml namespace location
+Libs
+  preamble ml_translatorLib
 
-open preamble
-open ml_translatorLib
-open sexp_to_dafnyProgTheory
-open dafny_to_cakemlTheory
-open namespaceTheory
-open locationTheory
-
-val _ = new_theory "dafny_to_cakemlProg";
 
 val _ = translation_extends "sexp_to_dafnyProg";
 
 val r = translate dafny_to_cakemlTheory.cml_list_def;
+
+val r = translate locationTheory.unknown_loc_def;
+
+val r = translate dafny_to_cakemlTheory.cml_dec_to_string_name_def;
+val r = translate dafny_to_cakemlTheory.cml_dec_to_string_param_def;
+val r = translate dafny_to_cakemlTheory.cml_dec_to_string_body_def;
+val r = translate dafny_to_cakemlTheory.cml_dec_to_string_dlet_def;
+val r = translate dafny_to_cakemlTheory.cml_nat_to_string_name_def;
+val r = translate dafny_to_cakemlTheory.cml_nat_to_string_param_def;
+val r = translate dafny_to_cakemlTheory.cml_nat_to_string_body_def;
+val r = translate dafny_to_cakemlTheory.cml_nat_to_string_dletrec_def;
+val r = translate dafny_to_cakemlTheory.cml_int_to_string_name_def;
+val r = translate dafny_to_cakemlTheory.cml_int_to_string_param_def;
+val r = translate dafny_to_cakemlTheory.cml_int_to_string_body_def;
+val r = translate dafny_to_cakemlTheory.cml_int_to_string_dlet_def;
 
 val r = translate astTheory.Funs_def;
 val r = translate dafny_to_cakemlTheory.cml_new_refs_def;
@@ -56,7 +68,4 @@ val r = translate dafny_to_cakemlTheory.set_up_in_refs_def;
 val r = translate dafny_to_cakemlTheory.set_up_cml_fun_def;
 val r = translate dafny_to_cakemlTheory.from_member_decl_def;
 
-val r = translate locationTheory.unknown_loc_def;
 val r = translate dafny_to_cakemlTheory.from_program_def;
-
-val _ = export_theory ();

@@ -1,11 +1,13 @@
 (*
   The wordLang intermediate language consists of structured programs
-  that overate over machine words, a list-like stack and a flat memory.
+  that operate over machine words, a list-like stack and a flat memory.
   This is the language where register allocation is performed.
 *)
-open preamble asmTheory stackLangTheory;
-
-val _ = new_theory "wordLang";
+Theory wordLang
+Ancestors
+  stackLang
+Libs
+  preamble
 
 Type shift = ``:ast$shift``
 
@@ -15,8 +17,10 @@ Datatype:
       | Lookup store_name
       | Load exp
       | Op binop (exp list)
-      | Shift shift exp num
+      | Shift shift exp exp
 End
+
+Overload ShiftN = “λsh e n. Shift sh e (Const (n2w n))”;
 
 Theorem MEM_IMP_exp_size:
    !xs a. MEM a xs ==> (exp_size l a < exp1_size l xs)
@@ -56,7 +60,7 @@ Datatype:
                                       data buffer start, length of new data, cut-set *)
        | CodeBufferWrite num num (* code buffer address, byte to write *)
        | DataBufferWrite num num (* data buffer address, word to write *)
-       | FFI string num num num num cutsets (* FFI name, conf_ptr, conf_len, array_ptr, array_len, cut-set *)
+       | FFI mlstring num num num num cutsets (* FFI name, conf_ptr, conf_len, array_ptr, array_len, cut-set *)
        | ShareInst memop num ('a exp) (* memory operation, varname, expression for memory address *)
 End
 
@@ -79,7 +83,7 @@ Definition every_var_exp_def:
   (every_var_exp P (Var num) = P num) ∧
   (every_var_exp P (Load exp) = every_var_exp P exp) ∧
   (every_var_exp P (Op wop ls) = EVERY (every_var_exp P) ls) ∧
-  (every_var_exp P (Shift sh exp n) = every_var_exp P exp) ∧
+  (every_var_exp P (Shift sh e1 e2) = (every_var_exp P e1 ∧ every_var_exp P e2)) ∧
   (every_var_exp P expr = T)
 End
 
@@ -92,7 +96,7 @@ Definition every_var_inst_def:
   (every_var_inst P (Const reg w) = P reg) ∧
   (every_var_inst P (Arith (Binop bop r1 r2 ri)) =
     (P r1 ∧ P r2 ∧ every_var_imm P ri)) ∧
-  (every_var_inst P (Arith (Shift shift r1 r2 n)) = (P r1 ∧ P r2)) ∧
+  (every_var_inst P (Arith (Shift shift r1 r2 ri)) = (P r1 ∧ P r2 ∧ every_var_imm P ri)) ∧
   (every_var_inst P (Arith (Div r1 r2 r3)) = (P r1 ∧ P r2 ∧ P r3)) ∧
   (every_var_inst P (Arith (AddCarry r1 r2 r3 r4)) = (P r1 ∧ P r2 ∧ P r3 ∧ P r4)) ∧
   (every_var_inst P (Arith (AddOverflow r1 r2 r3 r4)) = (P r1 ∧ P r2 ∧ P r3 ∧ P r4)) ∧
@@ -196,8 +200,8 @@ End
 Definition max_var_exp_def:
   (max_var_exp (Var num) = num) ∧
   (max_var_exp (Load exp) = max_var_exp exp) ∧
-  (max_var_exp (Op wop ls) = list_max (MAP (max_var_exp) ls))∧
-  (max_var_exp (Shift sh exp n) = max_var_exp exp) ∧
+  (max_var_exp (Op wop ls) = MAX_LIST (MAP (max_var_exp) ls))∧
+  (max_var_exp (Shift sh exp1 exp2) = MAX (max_var_exp exp1) (max_var_exp exp2)) ∧
   (max_var_exp exp = 0:num)
 End
 
@@ -206,7 +210,8 @@ Definition max_var_inst_def:
   (max_var_inst (Const reg w) = reg) ∧
   (max_var_inst (Arith (Binop bop r1 r2 ri)) =
     case ri of Reg r => max3 r1 r2 r | _ => MAX r1 r2) ∧
-  (max_var_inst (Arith (Shift shift r1 r2 n)) = MAX r1 r2) ∧
+  (max_var_inst (Arith (Shift shift r1 r2 n)) =
+    case n  of Reg r => max3 r1 r2 r | _ => MAX r1 r2) ∧
   (max_var_inst (Arith (Div r1 r2 r3)) = max3 r1 r2 r3) ∧
   (max_var_inst (Arith (AddCarry r1 r2 r3 r4)) = MAX (MAX r1 r2) (MAX r3 r4)) ∧
   (max_var_inst (Arith (AddOverflow r1 r2 r3 r4)) = MAX (MAX r1 r2) (MAX r3 r4)) ∧
@@ -233,24 +238,24 @@ End
 
 Definition cutsets_max_def[simp]:
   cutsets_max (c:cutsets) =
-    MAX (list_max (MAP FST (toAList (FST c)))) (list_max (MAP FST (toAList (SND c))))
+    MAX (MAX_LIST (MAP FST (toAList (FST c)))) (MAX_LIST (MAP FST (toAList (SND c))))
 End
 
 Definition max_var_def:
   (max_var Skip = 0) ∧
   (max_var (Move pri ls) =
-    list_max (MAP FST ls ++ MAP SND ls)) ∧
+    MAX_LIST (MAP FST ls ++ MAP SND ls)) ∧
   (max_var (Inst i) = max_var_inst i) ∧
   (max_var (Assign num exp) = MAX num (max_var_exp exp)) ∧
   (max_var (Get num store) = num) ∧
   (max_var (Store exp num) = MAX num (max_var_exp exp)) ∧
   (max_var (Call ret dest args h) =
-    let n = list_max args in
+    let n = MAX_LIST args in
     case ret of
       NONE => n
     | SOME (v,cutset,ret_handler,l1,l2) =>
       let cutset_max = MAX n (cutsets_max cutset) in
-      let ret_max = max3 (list_max v) cutset_max (max_var ret_handler) in
+      let ret_max = max3 (MAX_LIST v) cutset_max (max_var ret_handler) in
       (case h of
         NONE => ret_max
       | SOME (v,prog,l1,l2) =>
@@ -263,18 +268,18 @@ Definition max_var_def:
   (max_var (Alloc num numset) =
     MAX num (cutsets_max numset)) ∧
   (max_var (StoreConsts a b c d ws) =
-    list_max [a;b;c;d]) ∧
+    MAX_LIST [a;b;c;d]) ∧
   (max_var (Install r1 r2 r3 r4 numset) =
-    (list_max (r1::r2::r3::r4::cutsets_max numset::[]))) ∧
+    (MAX_LIST [r1;r2;r3;r4;cutsets_max numset])) ∧
   (max_var (CodeBufferWrite r1 r2) =
     MAX r1 r2) ∧
   (max_var (DataBufferWrite r1 r2) =
     MAX r1 r2) ∧
   (max_var (FFI ffi_index ptr1 len1 ptr2 len2 numset) =
-    list_max (ptr1::len1::ptr2::len2::cutsets_max numset::[])) ∧
+    MAX_LIST [ptr1;len1;ptr2;len2;cutsets_max numset]) ∧
   (max_var (Raise num) = num) ∧
   (max_var (OpCurrHeap _ num1 num2) = MAX num1 num2) ∧
-  (max_var (Return num1 ns) = list_max (num1::ns)) ∧
+  (max_var (Return num1 ns) = MAX_LIST (num1::ns)) ∧
   (max_var Tick = 0) ∧
   (max_var (LocValue r l1) = r) ∧
   (max_var (Set n exp) = max_var_exp exp) ∧
@@ -314,5 +319,3 @@ Overload shift = “backend_common$word_shift”
 Datatype:
   word_loc = Word ('a word) | Loc num num
 End
-
-val _ = export_theory();

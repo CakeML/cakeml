@@ -2,12 +2,12 @@
   This is a source-to-source transformation that lifts Let/Letrec expressions
   that sit at the top of Dlet:s into their own Dlet/Dletrec:s.
  *)
+Theory source_let
+Ancestors
+  ast evaluate misc[qualified]
+Libs
+  preamble
 
-open preamble evaluateTheory astTheory ;
-
-val _ = new_theory "source_let";
-
-val _ = set_grammar_ancestry ["ast", "evaluate", "misc"];
 
 Overload string_size = “list_size char_size”;
 
@@ -106,6 +106,4 @@ val test5 = EVAL “
     Dlet l (Pvar "foo") (Var (Short "bar"))
     ]”;
  *)
-
-val _ = export_theory ();
 

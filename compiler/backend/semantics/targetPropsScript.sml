@@ -1,21 +1,18 @@
 (*
   Properties about the target semantics
 *)
-open preamble
-     ffiTheory
-     asmTheory asmSemTheory asmPropsTheory
-     targetSemTheory;
-
-val _ = new_theory"targetProps";
-
-val _ = set_grammar_ancestry["ffi","asm","targetSem","misc"];
+Theory targetProps
+Ancestors
+  ffi asm targetSem misc[qualified] asmSem asmProps
+Libs
+  preamble
 
 Definition shift_interfer_def:
   shift_interfer k s =
     s with next_interfer := shift_seq k s.next_interfer
 End
 
-Triviality shift_interfer_intro:
+Theorem shift_interfer_intro[local]:
   shift_interfer k1 (shift_interfer k2 c) =
     shift_interfer (k1+k2) c
 Proof
@@ -240,7 +237,7 @@ Proof
   \\ imp_res_tac asserts2_first \\ fs[]
 QED
 
-Triviality enc_ok_not_empty:
+Theorem enc_ok_not_empty[local]:
   enc_ok c /\ asm_ok w c ==> (c.encode w <> [])
 Proof
   METIS_TAC [listTheory.LENGTH_NIL,enc_ok_def]
@@ -559,4 +556,3 @@ Proof
   \\ asm_exists_tac \\ rw[]
 QED
 
-val _ = export_theory();

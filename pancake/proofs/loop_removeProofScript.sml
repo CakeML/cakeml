@@ -1,13 +1,12 @@
 (*
   Correctness proof for loop_remove
 *)
+Theory loop_removeProof
+Ancestors
+  loopLang loopSem loopProps loop_remove wordSem[qualified]
+Libs
+  preamble
 
-open preamble loopLangTheory loopSemTheory
-     loopPropsTheory loop_removeTheory
-
-local open wordSemTheory in end
-
-val _ = new_theory"loop_removeProof";
 
 Definition has_code_def:
   has_code (n,funs) code =
@@ -334,20 +333,20 @@ Proof
   \\ fs [CaseEq"option"] \\ rveq \\ fs []
 QED
 
-Triviality case_cut_res:
+Theorem case_cut_res[local]:
   cut_res x y = (res,s) ⇒
   ∃part1 part2. cut_res x (part1, part2) = (res,s) ∧ y = (part1, part2)
 Proof
   Cases_on ‘y’ \\ fs []
 QED
 
-Triviality state_rel_IMP_locals:
+Theorem state_rel_IMP_locals[local]:
   state_rel s t ⇒ s.locals = t.locals
 Proof
   fs [state_rel_def] \\ rw [] \\ rveq \\ fs []
 QED
 
-Triviality state_rel_IMP_clock:
+Theorem state_rel_IMP_clock[local]:
   state_rel s t ⇒ s.clock = t.clock
 Proof
   fs [state_rel_def] \\ rw [] \\ rveq \\ fs []
@@ -1438,7 +1437,7 @@ Proof
   qexists_tac ‘(q', r')’ >> fs []
 QED
 
-Triviality state_rel_imp_code_rel:
+Theorem state_rel_imp_code_rel[local]:
   state_rel s t ⇒ ∃c. t = s with code := c
 Proof
   rw [state_rel_def] >>
@@ -1975,4 +1974,3 @@ Proof
   impl_tac >-metis_tac[FOLDR_min]>>rw[]
 QED
 
-val _ = export_theory();

@@ -1,17 +1,21 @@
 (*
   Correctness proof for bvl_const
 *)
-open preamble bvl_constTheory bvlSemTheory bvlPropsTheory;
+Theory bvl_constProof
+Ancestors
+  bvl_const bvlSem bvlProps
+Libs
+  preamble
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory"bvl_constProof";
 
 Definition v_rel_def:
   v_rel (:'c) (:'ffi) a x y xs ys =
     case a of
     | Var n => LLOOKUP ys n = SOME x
-    | Op _ _ => !(s:('c,'ffi) bvlSem$state) env. evaluate ([a],env,s) = (Rval [x],s)
+    | Op _ _ =>
+      (x = y) ∧
+      !(s:('c,'ffi) bvlSem$state) env. evaluate ([a],env,s) = (Rval [x],s)
     | _ => F
 End
 
@@ -31,7 +35,7 @@ Proof
   \\ Cases \\ fs [env_rel_def]
 QED
 
-Triviality env_rel_LLOOKUP_NONE:
+Theorem env_rel_LLOOKUP_NONE[local]:
   !ax env env2 n.
       env_rel (:'c) (:'ffi) ax env env2 /\
       (LLOOKUP ax n = NONE \/ LLOOKUP ax n = SOME NONE) ==>
@@ -42,7 +46,7 @@ Proof
   \\ rw [] \\ fs [] \\ Cases_on `n` \\ fs [EL]
 QED
 
-Triviality env_rel_LOOKUP_SOME:
+Theorem env_rel_LOOKUP_SOME[local]:
   !env env2 ax x n.
       env_rel (:'c) (:'ffi) ax env env2 /\
       LLOOKUP ax n = SOME (SOME x) ==>
@@ -66,7 +70,7 @@ Proof
   \\ CCONTR_TAC \\ fs [] \\ rw []
 QED
 
-Triviality evaluate_delete_var_Rerr:
+Theorem evaluate_delete_var_Rerr[local]:
   !xs s r e env2.
       evaluate (xs,env2,s) = (Rerr e,r) /\
       e <> Rabort Rtype_error ==>
@@ -82,7 +86,7 @@ Proof
   \\ fs[AllCaseEqs()]
 QED
 
-Triviality evaluate_delete_var_Rval:
+Theorem evaluate_delete_var_Rval[local]:
   !xs env2 s a r ax env.
       evaluate (xs,env2,s:('c,'ffi) bvlSem$state) = (Rval a,r) /\
       env_rel (:'c) (:'ffi) ax env env2 ==>
@@ -125,7 +129,7 @@ Proof
   \\ CCONTR_TAC \\ fs [] \\ fs [evaluate_def]
 QED
 
-Triviality dest_simple_eq:
+Theorem dest_simple_eq[local]:
   dest_simple h = SOME y <=> (h = Op (IntOp (Const y)) [])
 Proof
   Cases_on `h` \\ fs [dest_simple_def]
@@ -134,7 +138,7 @@ Proof
   \\ eq_tac \\ rw [] \\ rw []
 QED
 
-Triviality case_op_const_eq:
+Theorem case_op_const_eq[local]:
   case_op_const exp = SOME x <=>
   (?op x1 n2. x = (op, x1, n2) /\ (exp = Op op [x1; Op (IntOp (Const n2)) []]))
 Proof
@@ -143,7 +147,7 @@ Proof
   eq_tac \\ rw []
 QED
 
-Triviality SmartOp_flip_thm:
+Theorem SmartOp_flip_thm[local]:
   (op', x1', x2') = SmartOp_flip op x1 x2 /\
   evaluate ([Op op [x1; x2]], env, s) = (res, s2) /\
   res ≠ Rerr (Rabort Rtype_error) ==>
@@ -163,7 +167,7 @@ Proof
   fs [SmartOp_flip_def]
 QED
 
-Triviality SmartOp2_thm:
+Theorem SmartOp2_thm[local]:
   evaluate ([Op op [x1;x2]],env,s) = (res,s2) /\
   res ≠ Rerr (Rabort Rtype_error) ==>
   evaluate ([SmartOp2 (op,x1,x2)],env,s) = (res,s2)
@@ -182,10 +186,13 @@ Proof
     fs [dest_simple_eq, case_op_const_eq] \\
     simp [evaluate_def, do_app_def,oneline do_int_app_def] \\
     fsrw_tac [DNF_ss] [case_eq_thms] \\
-    rw [REVERSE_DEF] \\
-    imp_res_tac evaluate_SING  \\
-    fs [] \\ rveq \\
-    intLib.COOPER_TAC)
+    rw [REVERSE_DEF]
+    \\ (
+      imp_res_tac evaluate_SING  \\
+      fs [] \\ rveq \\
+      intLib.COOPER_TAC
+        ORELSE metis_tac [intLib.COOPER_PROVE
+                           ``!(a : int) b. 0 ≤ a ∧ a < &b ⇒ Num a < b``]))
   \\ fs []
   \\ every_case_tac \\ fs []
   \\ fs [dest_simple_eq] \\ rveq
@@ -216,7 +223,6 @@ Proof
   \\ gvs [evaluate_def,do_app_def,do_int_app_def]
   \\ rw [] \\ gvs [] \\ eq_tac \\ rw []
 QED
-
 
 Theorem SmartOp_thm:
    evaluate ([Op op xs],env,s) = (res,s2) /\
@@ -293,6 +299,15 @@ Proof
     \\ res_tac \\ rw [] \\ Cases_on `e` \\ fs [] \\ rw [] \\ fs []
     \\ first_x_assum match_mp_tac
     \\ fs [env_rel_def])
+  >~ [‘dest_thunk’] >- (
+    imp_res_tac env_rel_length \\ gvs []
+    \\ rpt (PURE_CASE_TAC \\ gvs [])
+    \\ gvs [evaluate_def, AllCaseEqs(), PULL_EXISTS]
+    >>~- ([‘LLOOKUP _ _ = NONE’], drule env_rel_LLOOKUP_NONE \\ rw [])
+    >>~- ([‘LLOOKUP _ _ = SOME NONE’], drule env_rel_LLOOKUP_NONE \\ rw [])
+    \\ (
+      drule_all env_rel_LOOKUP_SOME \\ rw []
+      \\ gvs [v_rel_def, LLOOKUP_DROP, LLOOKUP_EQ_EL, EL_DROP]))
   \\ TRY (match_mp_tac SmartOp_thm)
   \\ fs [evaluate_def] \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
   \\ res_tac \\ fs [] \\ rw [] \\ fs [] \\ rw [] \\ fs []
@@ -400,7 +415,7 @@ Proof
     \\ fs[MEM_MAP, MEM_FILTER, IS_SOME_EXISTS, PULL_EXISTS]
     \\ simp[MEM_EL, PULL_EXISTS]
     \\ goal_assum(first_assum o mp_then Any mp_tac) \\ simp[]
-    \\ PURE_FULL_CASE_TAC \\ fs[] )
+    \\ PURE_FULL_CASE_TAC \\ fs[])
   >- (
     rw[]
     \\ last_x_assum drule
@@ -409,6 +424,17 @@ Proof
     >- metis_tac[]
     \\ imp_res_tac MEM_extract_list_code_labels
     \\ fs[])
+  >- (
+    CASE_TAC \\ gvs []
+    \\ CASE_TAC \\ gvs []
+    \\ rw []
+    \\ Cases_on ‘x'' = loc’ \\ gvs []
+    \\ asm_exists_tac \\ gvs []
+    \\ gvs [LLOOKUP_THM]
+    \\ gvs [MEM_MAP, MEM_FILTER, IS_SOME_EXISTS, PULL_EXISTS]
+    \\ simp [MEM_EL, PULL_EXISTS]
+    \\ goal_assum (first_assum o mp_then Any mp_tac) \\ simp []
+    \\ FULL_CASE_TAC \\ gvs [])
 QED
 
 Theorem compile_exp_code_labels:
@@ -420,4 +446,3 @@ Proof
   \\ rw[] \\ fs[Once(GSYM bvl_constTheory.compile_HD_SING)]
 QED
 
-val _ = export_theory();

@@ -1,26 +1,58 @@
 (*
   Definition of CakeML abstract syntax (AST).
 *)
-open HolKernel Parse boolLib bossLib;
-open namespaceTheory fpSemTheory fpValTreeTheory realOpsTheory;
-
-local open integerTheory wordsTheory stringTheory namespaceTheory locationTheory in end;
-val _ = new_theory "ast"
-val _ = set_grammar_ancestry ["integer", "words", "string", "namespace", "location"];
+Theory ast
+Ancestors
+  integer[qualified] words[qualified] string[qualified] mlstring[qualified] namespace
+  location[qualified]
 
 (* Literal constants *)
 Datatype:
   lit =
     IntLit int
   | Char char
-  | StrLit string
+  | StrLit mlstring
   | Word8 word8
   | Word64 word64
+  | Float64 word64
 End
 
-(* Built-in binary operations *)
 Datatype:
-  opn = Plus | Minus | Times | Divide | Modulo
+  shift = Lsl | Lsr | Asr | Ror
+End
+
+Datatype:
+  arith = Add | Sub | Mul | Div | Mod | Neg | And | Xor | Or | Not | Abs | Sqrt | FMA
+End
+
+(* Module names *)
+Type modN = “:mlstring”
+
+(* Variable names *)
+Type varN = “:mlstring”
+
+(* Constructor names (from datatype definitions) *)
+Type conN = ``: mlstring``
+
+(* Type names *)
+Type typeN = ``: mlstring``
+
+(* Type variable names *)
+Type tvarN = ``: mlstring``
+
+Datatype:
+  word_size = W8 | W64
+End
+
+Datatype:
+  thunk_mode = Evaluated | NotEvaluated
+End
+
+Datatype:
+  thunk_op =
+    AllocThunk thunk_mode
+  | UpdateThunk thunk_mode
+  | ForceThunk
 End
 
 Datatype:
@@ -28,55 +60,28 @@ Datatype:
 End
 
 Datatype:
-  opw = Andw | Orw | Xor | Add | Sub
+  test = Equal | Compare opb | AltCompare opb
 End
 
 Datatype:
-  shift = Lsl | Lsr | Asr | Ror
-End
-
-(* Module names *)
-Type modN = “:string”
-
-(* Variable names *)
-Type varN = “:string”
-
-(* Constructor names (from datatype definitions) *)
-Type conN = ``: string``
-
-(* Type names *)
-Type typeN = ``: string``
-
-(* Type variable names *)
-Type tvarN = ``: string``
-
-Datatype:
-  word_size = W8 | W64
+  prim_type = BoolT
+            | IntT
+            | CharT
+            | StrT
+            | WordT word_size
+            | Float64T
 End
 
 Datatype:
   op =
-  (* Operations on integers *)
-    Opn opn
-  | Opb opb
+  (* primitive operations for the primitive types: +, -, and, sqrt, etc. *)
+    Arith arith prim_type
+  (* conversions between primitive types: char<->int, word<->double, word<->int *)
+  | FromTo prim_type prim_type
   (* Operations on words *)
-  | Opw word_size opw
   | Shift word_size shift num
   | Equality
-  (* FP operations *)
-  | FP_cmp fp_cmp
-  | FP_uop fp_uop
-  | FP_bop fp_bop
-  | FP_top fp_top
-  (* Floating-point <-> word translations *)
-  | FpFromWord
-  | FpToWord
-  (* Real ops for verification *)
-  | Real_cmp real_cmp
-  | Real_uop real_uop
-  | Real_bop real_bop
-  (* Translation from floating-points to reals for verification *)
-  | RealFromFP
+  | Test test prim_type
   (* Function application *)
   | Opapp
   (* Reference operations *)
@@ -88,19 +93,12 @@ Datatype:
   | Aw8sub
   | Aw8length
   | Aw8update
-  (* Word/integer conversions *)
-  | WordFromInt word_size
-  | WordToInt word_size
   (* string/bytearray conversions *)
   | CopyStrStr
   | CopyStrAw8
   | CopyAw8Str
   | CopyAw8Aw8
   | XorAw8Str_unsafe
-  (* Char operations *)
-  | Ord
-  | Chr
-  | Chopb opb
   (* String operations *)
   | Implode
   | Explode
@@ -118,17 +116,20 @@ Datatype:
   | Asub
   | Alength
   | Aupdate
-  (* Unsafe array accesses *)
+  (* Unsafe vector/array accesses *)
+  | Vsub_unsafe
   | Asub_unsafe
   | Aupdate_unsafe
   | Aw8sub_unsafe
   | Aw8update_unsafe
+  (* thunk operations *)
+  | ThunkOp thunk_op
   (* List operations *)
   | ListAppend
   (* Configure the GC *)
   | ConfigGC
   (* Call a given foreign function *)
-  | FFI string
+  | FFI mlstring
   (* Evaluate new code in a given env *)
   | Eval
   (* Get the identifier of an env object *)
@@ -140,36 +141,20 @@ Datatype:
  op_class =
     EvalOp (* Eval primitive *)
   | FunApp (* function application *)
+  | Force (* forcing a thunk *)
   | Simple (* arithmetic operation, no finite-precision/reals *)
-  | Icing (* 64-bit floating-points *)
-  | Reals (* real numbers *)
 End
+
 Definition getOpClass_def[simp]:
  getOpClass op =
  case op of
-   FP_cmp _ => Icing
-  | FP_top _ => Icing
-  | FP_bop _ => Icing
-  | FP_uop _ => Icing
-  | Real_cmp _ => Reals
-  | Real_bop _ => Reals
-  | Real_uop _ => Reals
-  | RealFromFP => Reals
   | Opapp => FunApp
   | Eval => EvalOp
+  | ThunkOp t => (if t = ForceThunk then Force else Simple)
   | _ => Simple
 End
 
-Definition isFpBool_def:
-  isFpBool op = case op of FP_cmp _ => T | _ => F
-End
-
-(* Logical operations *)
-Datatype:
- lop = And | Or
-End
-
-(* Types *)
+(* Types used in type annotations *)
 Datatype:
  ast_t =
   (* Type variables that the user writes down ('a, 'b, etc.) *)
@@ -196,6 +181,11 @@ Datatype:
   (* Pattern alias. *)
   | Pas pat varN
   | Ptannot pat ast_t
+End
+
+(* Short circuiting logical operations *)
+Datatype:
+  lop = Andalso | Orelse
 End
 
 (* Expressions *)
@@ -229,8 +219,6 @@ Datatype:
   | Tannot exp ast_t
   (* Location annotated expressions, not expected in source programs *)
   | Lannot exp locs
-  (* Floating-point optimisations *)
-  | FpOptimise fp_opt exp
 End
 
 Type type_def = ``: ( tvarN list # typeN # (conN # ast_t list) list) list``
@@ -301,8 +289,6 @@ Definition every_exp_def[simp]:
              p (Tannot e a) ∧ every_exp p e) ∧
   (every_exp p (Lannot e a) ⇔
              p (Lannot e a) ∧ every_exp p e) ∧
-  (every_exp p (FpOptimise fpopt e) ⇔
-             p (FpOptimise fpopt e) ∧ every_exp p e) ∧
   (every_exp p (Letrec funs e) ⇔
              p (Letrec funs e) ∧ every_exp p e ∧ EVERY (λ(n,v,e). every_exp p e) funs)
 End
@@ -321,5 +307,3 @@ Definition Funs_def:
   Funs [] e = e ∧
   Funs (x::xs) e = Fun x (Funs xs e)
 End
-
-val _ = export_theory()
