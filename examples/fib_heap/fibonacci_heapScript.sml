@@ -547,7 +547,7 @@ QED
 
 
 (* New smallest elemet *)
-Theorem fib_heap_insert_inv:
+Theorem lemma_insert_new_min_inv:
   !fh fts k k' v e.
     k <> 0w /\
     FLOOKUP fh k = NONE /\
@@ -626,7 +626,8 @@ QED
 
 Theorem fib_heap_insert:
   ∀frame k v fh.
-    (empty_node k v * fib_heap a fh * frame) (fun2set (m,dm)) ∧
+    (empty_node k v * fib_heap a fh * frame * cond(FLOOKUP fh k = NONE))
+      (fun2set (m,dm)) ∧
     fib_heap_insert (a, k, m, dm) = (a', m', b) ⇒
     (fib_heap a' (fh |+ (k,v)) * frame) (fun2set (m',dm)) ∧ b
 Proof
@@ -694,7 +695,9 @@ Proof
       fs[ann_fts_def, ann_fts_seg_def, last_key_def,fts_mem_def,
          SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
          fill_dnode_def, next_key_def, ones_def, STAR_ASSOC] >>
-      gvs[] >>
+      assume_tac lemma_insert_new_min_inv >>
+      (*first_x_assum(qspecl_then
+        [`fh`, `[FibTree k' v' l]`, `a'`, `k'`, `v`, `e`] assume_tac) >> *)
       cheat (* Proof invariant! *)
       ) >>
     Cases_on `x` >> rename [`FibTree lk lv ts`] >>
