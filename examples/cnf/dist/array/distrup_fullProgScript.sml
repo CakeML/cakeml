@@ -136,14 +136,32 @@ Quote add_cakeml:
     end;
 End
 
+Definition pp_distrup_def:
+  pp_distrup distrup =
+  case distrup of
+  | Del ls =>
+      strlit"Del: IDs [" ^ concatWith (strlit " ") (MAP toString ls) ^ strlit "]"
+  | Lrup n vc hints =>
+      strlit"Lrup: ID " ^ toString n ^
+      strlit " Clause [" ^ concatWith (strlit " ") (MAP toString (toList vc)) ^ strlit "]"^
+      strlit " Hints [" ^ concatWith (strlit " ") (MAP toString hints) ^ strlit "]"
+  | Import n vc =>
+      strlit"Import: ID " ^ toString n ^
+      strlit " Clause [" ^ concatWith (strlit " ") (MAP toString (toList vc)) ^ strlit "]"
+  | ValidateUnsat =>
+      strlit"ValidateUnsat"
+End
+
+val res = translate pp_distrup_def;
+
 (* Wraps and removes exception handling *)
 Quote add_cakeml:
-  fun check_top lno instr fml st =
+  fun check_top lno instr st =
     (case st of
       None => (None, "")
-    | Some (carr, b) =>
-        (case check_distrup_ht lno instr fml carr b of
-          (carr, b) => (Some (carr, b), ""))
+    | Some (fml, carr, b) =>
+        (case check_distrup_arr lno instr fml carr b of
+          (fml, carr, b) => (Some (fml, carr, b), ""))
         handle Fail err =>
         (None, err));
 End
@@ -158,7 +176,7 @@ fun do_callback res step_arr =
     ()
   end
 
-fun loop step_arr buf_arr fml st lno =
+fun loop step_arr buf_arr st lno =
   let
     val (buf_arr, result) = parse_step step_arr buf_arr
   in
@@ -166,11 +184,11 @@ fun loop step_arr buf_arr fml st lno =
       None => () (* Terminate: C handles response after cml_main returns *)
     | Some instr =>
         let
-          val (st, msg) = check_top lno instr fml st
+          val (st, msg) = check_top lno instr st
           val res = case st of None => "0" ^ msg | Some _ => "1"
           val _ = do_callback res step_arr
         in
-          loop step_arr buf_arr fml st (lno + 1)
+          loop step_arr buf_arr st (lno + 1)
         end
   end;
 
@@ -178,11 +196,11 @@ fun main () =
   let
     val step_arr = Word8Array.array 17 (Word8.fromInt 0)
     val buf_arr = Word8Array.array 0 (Word8.fromInt 0)
-    val fml = Hashtable.empty 1048576 (fn n => n mod 1000000007) Int.compare
-    val carr = Word8Array.array 0 (Word8.fromInt 0)
+    val fml = Array.array 4096 None
+    val carr = Word8Array.array 1024 (Word8.fromInt 0)
     val b = Word8.fromInt 1
   in
-    loop step_arr buf_arr fml (Some (carr, b)) 1
+    loop step_arr buf_arr (Some (fml, carr, b)) 1
   end;
 
 End

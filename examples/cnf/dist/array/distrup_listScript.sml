@@ -7,8 +7,10 @@ Ancestors
 Libs
   preamble
 
-(* TODO: move to ccnf_list and
-  rename everything consistently *)
+(*
+  TODO: Unrefined hashtable version
+  TODO: move to ccnf_list and
+  rename everything consistently
 Definition unit_prop_one_def:
   unit_prop_one fml dml b i =
   case FLOOKUP fml i of
@@ -39,9 +41,6 @@ Theorem is_rup_list:
   is_rup_list fml dml b v is = (T, (dml',b')) ⇒
   is_rup fml v is ∧
   ∃dm'. dm_rel dm' dml' b'
-Proof
-  cheat
-QED
 
 Definition bnd_fml_def:
   bnd_fml fml sz ⇔
@@ -49,68 +48,68 @@ Definition bnd_fml_def:
     v ∈ FRANGE fml ⇒
     bnd_clause v sz
 End
-
-(* END MOVE *)
+*)
 
 (* Refinement to make use of array representations *)
 Definition check_distrup_list_def:
   check_distrup_list distrup fml dml b =
   case distrup of
   | Del ls =>
-    SOME (delete_ids fml ls, (dml, b))
+    SOME (delete_ids_list fml ls, (dml, b))
   | Lrup n vc hints =>
     (case is_rup_list fml dml b vc hints of
       (T, dmlb) =>
-      SOME (fml |+ (n, vc) , dmlb)
+      SOME (update_resize fml NONE (SOME vc) n, dmlb)
     | _ => NONE)
   | Import n vc =>
-      SOME (fml |+ (n, vc) , resize_dm dml b vc)
+      SOME (update_resize fml NONE (SOME vc) n, resize_dm dml b vc)
   | ValidateUnsat =>
-    if contains_emp fml then
+    if contains_emp_list fml then
       SOME (fml, (dml,b))
     else NONE
 End
 
 Theorem check_distrup_list:
+  fml_rel fml fmlls ∧
   dm_rel dm dml b ∧
-  check_distrup_list distrup fml dml b =
-    SOME (fml',(dml',b')) ⇒
-  ∃dm'.
+  check_distrup_list distrup fmlls dml b = SOME (fmlls',(dml',b')) ⇒
+  ∃fml' dm'.
     check_distrup distrup fml = SOME fml' ∧
+    fml_rel fml' fmlls' ∧
     dm_rel dm' dml' b'
 Proof
   simp[check_distrup_list_def]>>strip_tac>>
   gvs[AllCaseEqs(),check_distrup_def]
-  >- metis_tac[]
+  >- (simp[fml_rel_delete_ids_list]>>metis_tac[])
   >- (
-    drule_all is_rup_list>>rw[])
+    drule_all is_rup_list>>rw[]>>
+    simp[fml_rel_update_resize]>>
+    metis_tac[])
   >- (
+    simp[fml_rel_update_resize]>>
     gvs[resize_dm_def]>>
     drule_all dm_rel_reset_dm_list>>
     metis_tac[])
   >-
-    metis_tac[]
+    metis_tac[fml_rel_contains_emp_list]
 QED
 
 Theorem check_distrup_list_bnd_fml:
-  bnd_fml fml (LENGTH dml) ∧
-  check_distrup_list distrup fml dml b = SOME (fml',(dml',b')) ⇒
-  bnd_fml fml' (LENGTH dml')
+  bnd_fml fmlls (LENGTH dml) ∧
+  check_distrup_list distrup fmlls dml b = SOME (fmlls',(dml',b')) ⇒
+  bnd_fml fmlls' (LENGTH dml')
 Proof
   simp[check_distrup_list_def]>>strip_tac>>
   gvs[AllCaseEqs(),check_distrup_def]
-  >- cheat (* metis_tac[bnd_fml_delete_ids_list] *)
+  >- metis_tac[bnd_fml_delete_ids_list]
   >- (
-    cheat
-    (* drule_all bnd_fml_is_rup_list>>
-    metis_tac[bnd_fml_update_resize]*))
+    drule_all bnd_fml_is_rup_list>>
+    metis_tac[bnd_fml_update_resize])
   >- (
-    cheat
-    (*
     irule bnd_fml_update_resize>>
     drule bnd_clause_resize_dm>>
     simp[]>>
     rw[]>>irule bnd_fml_le>>
-    metis_tac[resize_dm_LENGTH]*))
+    metis_tac[resize_dm_LENGTH])
 QED
 
