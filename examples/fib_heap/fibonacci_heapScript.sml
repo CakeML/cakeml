@@ -313,6 +313,26 @@ Definition fts_is_min_def:
     ((v <=+ n.value) /\ (fts_is_min n.value ts) /\ (fts_is_min v rest)))
 End
 
+Theorem fts_is_min_append_thm:
+  !v xs ys. fts_is_min v (xs ++ ys) <=> fts_is_min v xs /\ fts_is_min v ys
+Proof
+  Induct_on `xs` >>
+  fs[fts_is_min_def] >>
+  Cases_on `h` >>
+  fs[fts_is_min_def,CONJ_ASSOC]
+QED
+
+Theorem fts_is_min_TL_HD_thm:
+  !v fts. fts <> [] ==> (fts_is_min v fts <=> fts_is_min v (TL fts ++ [HD fts]))
+Proof
+  Cases_on `fts`>> fs[] >>
+  Cases_on `h` >>
+  fs[fts_is_min_append_thm,fts_is_min_def] >>
+  strip_tac >>
+  iff_tac >> strip_tac >> simp[]
+QED
+
+
 Definition fib_heap_size_def:
   (fib_heap_size [] = 0:num) /\
   (fib_heap_size (FibTree _ _ ts::rest) = 1 + fib_heap_size ts + fib_heap_size rest)
@@ -507,21 +527,21 @@ QED
 
 Theorem lemma_fib_heap_new_min:
   !v v' fts.
-    v <=+ v' /\ fts_is_min v' fts ==>
-    fts_is_min v fts
+    v <=+ v' /\ fts_is_min v' fts /\ fts <> [] ==>
+    fts_is_min v ((TL fts) ++ [HD fts])
 Proof
-  Induct_on `fts` >>
-  assume_tac WORD_LOWER_EQ_TRANS
-  >- (
-    rpt strip_tac >>
-    fs[fts_is_min_def] >>
-    first_assum (qspecl_then [`v`, `v'`, `n.value`] assume_tac) >> gvs[]
-    ) >>
+  assume_tac WORD_LOWER_EQ_TRANS >>
   rpt strip_tac >>
+  Cases_on `fts`
+  >- fs[] >>
+  Cases_on `h` >>
+  fs[fts_is_min_def,fts_is_min_append_thm] >>
+  first_assum (qspecl_then [`v`, `v'`, `v''.value`] assume_tac)  >> gvs[] >>
+  Induct_on `t` >> simp[fts_is_min_def] >>
   Cases_on `h` >>
   fs[fts_is_min_def] >>
-  last_assum (qspecl_then [`v`, `v'`] assume_tac)  >> rfs[] >>
-  first_assum (qspecl_then [`v`, `v'`, `v''.value`] assume_tac)  >> gvs[]
+  strip_tac >>
+  first_assum (qspecl_then [`v`, `v'`, `v'''.value`] assume_tac)  >> gvs[]
 QED
 
 
