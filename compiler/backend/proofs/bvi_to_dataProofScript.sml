@@ -690,7 +690,44 @@ Proof
           state_rel_def, lookup_map, AllCaseEqs()]
 QED
 
+Theorem domain_list_insert2[local]:
+   domain (list_insert xs t) = set xs UNION domain t
+Proof
+ASM_SET_TAC[domain_list_insert]
+QED
+
+Theorem domain_list_to_num_set2[local]:
+   domain (list_to_num_set xs) = set xs
+Proof
+ASM_SET_TAC[domain_list_to_num_set]
+QED
+
+Theorem list_insert_list_to_num_set[simp,local]:
+  list_insert xs (list_to_num_set (xs ++ ys ++ zs)) =
+  list_to_num_set (xs ++ ys ++ zs)
+Proof
+  DEP_REWRITE_TAC [spt_eq_thm] >>
+  CONJ_TAC >- (simp[] >>
+   `!xs A. wf A ==> wf (list_insert xs A)` by
+     (Induct_on `xs` >> rw[list_insert_def] >>
+      metis_tac[wf_insert ]) >> fs[]) >>
+  rw[] >>
+  qmatch_goalsub_abbrev_tac `lookup n A = lookup n B` >>
+  Cases_on `lookup n A` >>
+  Cases_on `lookup n B` >>
+  fs[] >> UNABBREV_ALL_TAC >>
+  MAP_EVERY imp_res_tac [lookup_NONE_domain ,domain_lookup] >>
+  fs[domain_list_insert2,domain_list_to_num_set2] >> metis_tac[]
+QED
+
 fun note_tac s g = (print ("compile_correct: " ^ s ^ "\n"); ALL_TAC g);
+
+Theorem existsnot[simp]:
+  $? $~
+Proof
+  simp[boolTheory.EXISTS_DEF] >>
+  metis_tac[]
+QED
 
 Theorem compile_correct:
   ∀xs env s1 res s2 t1 n corr tail live.
@@ -993,6 +1030,7 @@ Proof
        \\ METIS_TAC [])
     \\ full_simp_tac(srw_ss())[]
     \\ Q.ABBREV_TAC `env1 = mk_wf (inter t2.locals (list_to_num_set (REVERSE vs++live++corr)))`
+    \\ Q.ABBREV_TAC `env2 = mk_wf (inter t2.locals (list_insert vs (list_to_num_set (REVERSE vs++live++corr))))`
     \\ `var_corr (REVERSE a) (REVERSE vs) (map data_to_bvi_v env1)` by
       (UNABBREV_ALL_TAC
        \\ full_simp_tac(srw_ss())[var_corr_def,get_var_def,state_rel_def,
@@ -1000,6 +1038,11 @@ Proof
        \\ Q.PAT_X_ASSUM `LIST_REL rrr xs1 xs2` MP_TAC
        \\ ONCE_REWRITE_TAC [LIST_REL_MEM]
        \\ full_simp_tac(srw_ss())[EVERY2_REVERSE] \\ NO_TAC)
+    \\ `env2 = env1`
+      by (UNABBREV_ALL_TAC \\
+      simp[spt_eq_thm,lookup_inter_alt,domain_list_insert2,
+       domain_list_to_num_set2,SF DISJ_ss])
+    \\ POP_ASSUM $ ASSUME_NAMED_TAC "ENV2=ENV1"
     \\ IMP_RES_TAC get_vars_thm
     \\ IMP_RES_TAC get_vars_lift_thm
     \\ `state_rel r (t2 with <|locals := env1; space := 0|>)` by
@@ -1378,9 +1421,17 @@ Proof
               ,code_rel_def, do_stack_def
               ,state_rel_def]
       \\ IMP_RES_TAC do_app_aux_const \\ fs [lookup_insert]
+      \\ qmatch_goalsub_abbrev_tac `if TRUE then SOME _ else NONE`
+      \\ `TRUE = T`
+          by (fs [Abbr`TRUE`,Abbr`env1`,domain_list_insert2,domain_list_to_num_set2] \\
+                 SET_TAC[])
+      \\ POP_ASSUM SUBST_ALL_TAC
+      \\ fs[]
       \\ REPEAT STRIP_TAC
-      THEN1 (UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[lookup_inter_EQ]
-             \\ `n1 <= k` by DECIDE_TAC \\ full_simp_tac(srw_ss())[])
+      THEN1 (
+             UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[lookup_inter_EQ,lookup_insert]
+             \\ `n1 <= k` by DECIDE_TAC \\ `k <> n1` by DECIDE_TAC \\
+             full_simp_tac(srw_ss())[])
       THEN1 (full_simp_tac(srw_ss())[LIST_REL_EL_EQN,var_corr_def,
                                      get_var_def,lookup_insert]
              \\ REPEAT STRIP_TAC
@@ -1394,9 +1445,13 @@ Proof
              \\ pop_assum (ASSUME_TAC o Q.SPEC `z`)
              \\ rfs[lookup_inter_EQ,lookup_list_to_num_set]
              \\ full_simp_tac(srw_ss())[] \\ METIS_TAC [MEM_EL])
-      THEN1 (Cases_on `k = n1` \\ full_simp_tac(srw_ss())[] \\ UNABBREV_ALL_TAC
+      THEN1 (
+            pop_assum mp_tac \\
+            Cases_on `k = n1` \\ full_simp_tac(srw_ss())[] \\ UNABBREV_ALL_TAC
              \\ rfs[lookup_insert,lookup_inter_EQ,
                     lookup_list_to_num_set]
+             \\ simp[SF CONJ_ss]
+             \\ DISCH_THEN (CONJUNCTS_THEN ASSUME_TAC)
              \\ RES_TAC \\ DECIDE_TAC)
       THEN1
        (`k <> n1` by (REPEAT STRIP_TAC \\ RES_TAC

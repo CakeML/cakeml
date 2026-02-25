@@ -161,6 +161,12 @@ Theorem state_rel_cut_env_IMP_cut_env =
   |> SRULE [get_vars_def,cut_state_opt_def,cut_state_def,
             CaseEq"option",PULL_EXISTS,wordSemTheory.get_vars_def];
 
+Theorem cut_state_opt_ffi[local]:
+  dataSem$cut_state_opt names_opt r = SOME v1 ==> v1.ffi = r.ffi
+Proof
+  rw [] \\ gvs [cut_state_def,cut_env_def,cut_state_opt_def,AllCaseEqs()]
+QED
+
 Theorem data_compile_correct:
    !prog s c n l l1 l2 res s1 (t:('a,'c,'ffi)wordSem$state) locs.
       (dataSem$evaluate (prog,s) = (res,s1)) /\
@@ -207,35 +213,27 @@ Proof
     \\ imp_res_tac word_ml_inv_get_var_IMP
     \\ match_mp_tac word_ml_inv_insert \\ fs [])
   >~ [‘evaluate (Assign _ _ _ _,s)’] >-
-   (full_simp_tac std_ss []
-    \\ fs [comp_def,dataSemTheory.evaluate_def,wordSemTheory.evaluate_def]
-    \\ imp_res_tac (METIS_PROVE [] ``(if b1 /\ b2 then x1 else x2) = y ==>
-                                     b1 /\ b2 /\ x1 = y \/
-                                     (b1 ==> ~b2) /\ x2 = y``)
-    \\ fs [] \\ srw_tac[][]
-    \\ Cases_on `cut_state_opt names_opt s` \\ fs []
-    \\ Cases_on `get_vars args x.locals` \\ fs []
-    \\ reverse (Cases_on `do_app op x' x`) \\ fs []
+   (fs [comp_def,dataSemTheory.evaluate_def,wordSemTheory.evaluate_def]
+    \\ gvs [CaseEq"bool"]
+    \\ gvs [CaseEq"option"]
+    \\ reverse (Cases_on `do_app op xs v`) \\ fs []
     THEN1 (imp_res_tac do_app_Rerr \\ rveq \\ fs []
-           \\ drule_all_then assume_tac assign_FFI_final
-           \\ first_x_assum(qspecl_then [`n`,`l`,`dest`] strip_assume_tac)
-           \\ asm_exists_tac >> fs[] >> rpt strip_tac \\ fs[]
+           \\ drule_all assign_FFI_final
+           \\ disch_then $ qspecl_then [`n`,`l`,`dest`] strip_assume_tac
+           \\ asm_exists_tac >> fs[] >> rpt strip_tac \\ fs[flush_state_def]
+           \\ imp_res_tac cut_state_opt_ffi \\ fs []
            \\ imp_res_tac cut_state_opt_const \\ fs[state_rel_def,flush_state_def]
            \\ fs [cut_state_opt_def,CaseEq"option",cut_state_def] \\ rveq \\ fs [])
-    \\ Cases_on `a`
-    \\ drule assign_thm \\ fs []
-    \\ rpt (disch_then old_drule)
+    \\ Cases_on `a` \\ gvs [CaseEq"option"]
+    \\ drule_all assign_thm \\ fs []
     \\ disch_then (qspecl_then [`n`,`l`,`dest`] strip_assume_tac)
-    \\ `option_le r'.stack_max r.stack_max` by
-        (Cases_on `q' = SOME NotEnoughSpace` \\ fs [state_rel_def,set_var_def])
-    \\ fs [] \\ srw_tac[][] \\ fs []
+    \\ `option_le r’.stack_max v1.stack_max` by
+        (Cases_on `q’ = SOME NotEnoughSpace` \\ fs [state_rel_def,set_var_def])
+    \\ fs [set_var_def]
     \\ imp_res_tac do_app_io_events_mono \\ rfs []
-    \\ `s.ffi = t.ffi` by fs [state_rel_def] \\ fs []
-    \\ sg `x.ffi = s.ffi`
-    \\ imp_res_tac do_app_io_events_mono \\ rfs []
-    \\ Cases_on `names_opt` \\ fs [cut_state_opt_def] \\ srw_tac[][] \\ fs []
-    \\ fs [cut_state_def,cut_env_def] \\ every_case_tac
-    \\ fs [] \\ rw [] \\ fs [set_var_def])
+    \\ `s.ffi = t.ffi` by fs [state_rel_def]
+    \\ strip_tac \\ gvs []
+    \\ imp_res_tac cut_state_opt_ffi \\ fs [])
   >~ [‘evaluate (Force _ _ _,s)’] >-
    (simp [comp_def, force_thunk_def]
     \\ TOP_CASE_TAC \\ gvs []
