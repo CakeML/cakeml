@@ -5,7 +5,9 @@
 
 Theory aig
 Ancestors
+  list
   alist
+  sorting
 
 (* Three-valued logic as defined in Section 14 of [1]. *)
 Type value = “:bool option”
@@ -20,6 +22,11 @@ Definition tri_and_def:
   (tri_and (SOME b) NONE = if ¬b then (SOME F) else NONE) ∧
   (tri_and NONE (SOME b) = if ¬b then (SOME F) else NONE) ∧
   (tri_and NONE NONE = NONE)
+End
+
+Definition is_true_def:
+  (is_true (SOME T) = T) ∧
+  (is_true _ = F)
 End
 
 (* Since we do not need to settle on a specific type for id, we use a type
@@ -78,25 +85,69 @@ Datatype:
   |>
 End
 
-Definition valid_circuit_def:
-  valid_circuit = T
+(* TODO Pass circuit directly if get_{L,R,F} are only used on circuits. *)
+Definition get_L_def:
+  get_L (LRF: ('id # ('id # 'id)) list) = MAP FST LRF
+End
+
+Definition get_R_def:
+  get_R (LRF: ('id # ('id # 'id)) list) = MAP (FST ∘ SND) LRF
+End
+
+Definition get_F_def:
+  get_F (LRF: ('id # ('id # 'id)) list) = MAP (SND ∘ SND) LRF
+End
+
+Definition evaluate_circuit_def:
+  evaluate_circuit M ins s out =
+  let input_ids = M.I in
+  let latch_ids = get_L M.LRF in
+  let circuit_ins = ZIP (input_ids, ins) ++ ZIP (latch_ids, s) in
+    evaluate circuit_ins M.G (Pos out)
+End
+
+Definition is_reset_def:
+  is_reset M s =
+  let latch_ids = get_L M.LRF in
+  let latch_lits = MAP Pos latch_ids in
+  let is_reset_latches = MAP (evaluate (ZIP (latch_ids, s)) M.G) latch_lits in
+    is_true (FOLDR tri_and (SOME T) is_reset_latches)
+End
+
+Definition is_step_def:
+  is_step M ins curs nexts =
+    LIST_REL (λout next. evaluate_circuit M ins curs out = next)
+      (get_F M.LRF) nexts
 End
 
 Definition unsafe_def:
-  unsafe M = T
+  unsafe M n ⇔
+    ∃(inputs: value list) (trace: (value list) list).
+      (* A trace of length n is sequence of n + 1 states. *)
+      LENGTH trace = n + 1 ∧
+      (* A state holds the value of each latch *)
+      EVERY (λs. LENGTH s = LENGTH M.LRF) trace ∧
+      (* First state satisfies R *)
+      is_reset M (HD trace) ∧
+      (* Every pair of consecutive states satisfies F *)
+      SORTED (is_step M inputs) trace ∧
+      (* All states satisfy the constraint C *)
+      EVERY (λs. is_true (evaluate_circuit M inputs s M.C)) trace ∧
+      (* Last state violates P *)
+      ¬is_true (evaluate_circuit M inputs (LAST trace) M.P)
 End
 
 Definition safe_def:
-  safe M = ¬unsafe M
+  safe M n = ¬unsafe M n
 End
 
 Definition valid_witness_def:
-  valid_witness M M' = T
+  valid_witness M M' n = T
 End
 
 (* Theorem 1 (from [2]) *)
 Theorem valid_witness_imp_safe:
-  valid_witness M M' ⇒ safe M
+  valid_witness M M' n ⇒ safe M n
 Proof
   cheat
 QED
