@@ -66,7 +66,7 @@ QED
    If something (q1 ; n := X) (q2 ; n := Y) ;
    If (n == Z) p1 p2
 
-   --> (in pmatch X <> Y and Z == X)
+   --> (in case X <> Y and Z == X)
 
    If something (q1 ; n := X ; p1) (q2 ; n := Y ; p2) ;
 
@@ -196,13 +196,15 @@ Definition const_fp_exp_def:
                         | SOME w => Const w
                         | _ => Op op (MAP Const ws))
          | _ => Op op const_fp_args) /\
-  (const_fp_exp (Shift sh e n) cs =
+  (const_fp_exp (Shift sh e e1) cs =
      let const_fp_exp_e = const_fp_exp e cs in
-       case const_fp_exp_e of
-         | Const c => (case word_sh sh c n of
-                        | SOME w => Const w
-                        | _ => Shift sh (Const c) n)
-         | _ => Shift sh e n) /\
+     let const_fp_exp_e1 = const_fp_exp e1 cs in
+       case (const_fp_exp_e, const_fp_exp_e1) of
+         | (Const c, Const c1) =>
+             (case word_sh sh c (w2n c1) of
+              | SOME w => Const w
+              | _ => Shift sh (Const c) (Const c1))
+         | _ => Shift sh const_fp_exp_e const_fp_exp_e1) /\
   (const_fp_exp e _ = e)
 End
 
@@ -339,7 +341,7 @@ End
 Optimise near-consecutive If/If pairs into a single If when there are only two
 possible control-flow paths.
 
-This pmatch looks like:
+This case looks like:
   (if C then X else Y) ; Zs ; (if C2 then X2 else Y2)
 
 Also, the number of intermediate Zs is small, (X ; Zs) guarantees either C2 or
@@ -352,7 +354,7 @@ the const_fp pass to simplify each branch down to a straight line.
 
 This means the correctness follows straightforwardly from that of const_fp.
 
-To recognise the pmatch (1), step through Seq sequences which we expect to be
+To recognise the case (1), step through Seq sequences which we expect to be
 right-associated, and incrementally build up their left-associated variant
 (which we will need eventually to pull things into the first If). Give up if
 this takes too many steps (too many Zs). When an If is found, test-run the
