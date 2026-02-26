@@ -333,7 +333,7 @@ Proof
 QED
 
 (*fs[] is slower than full_simp_tac(srw_ss())[]*)
-Theorem do_app_with_locals[local]:
+Theorem do_app_with_locals:
   do_app op vs (s with locals := z) =
   map_result (λ(x,y). (x,y with <| locals := z
                                   ; safe_for_space   := do_app_safe op vs (s with locals := z)
