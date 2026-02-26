@@ -121,33 +121,30 @@ Definition is_step_def:
 End
 
 Definition unsafe_def:
-  unsafe M n ⇔
-    ∃(inputs: value list) (trace: (value list) list).
-      (* A trace of length n is sequence of n + 1 states. *)
-      LENGTH trace = n + 1 ∧
-      (* A state holds the value of each latch *)
-      EVERY (λs. LENGTH s = LENGTH M.LRF) trace ∧
-      (* First state satisfies R *)
-      is_reset M (HD trace) ∧
-      (* Every pair of consecutive states satisfies F *)
-      SORTED (is_step M inputs) trace ∧
-      (* All states satisfy the constraint C *)
-      EVERY (λs. is_true (evaluate_circuit M inputs s M.C)) trace ∧
-      (* Last state violates P *)
-      ¬is_true (evaluate_circuit M inputs (LAST trace) M.P)
+  unsafe M (inputs: value list) (trace: (value list) list) ⇔
+    (* A trace is a sequence of states. A state holds the value of each latch *)
+    EVERY (λs. LENGTH s = LENGTH M.LRF) trace ∧
+    (* First state satisfies R *)
+    is_reset M (HD trace) ∧
+    (* Every pair of consecutive states satisfies F *)
+    SORTED (is_step M inputs) trace ∧
+    (* All states satisfy the constraint C *)
+    EVERY (λs. is_true (evaluate_circuit M inputs s M.C)) trace ∧
+    (* Last state violates P *)
+    ¬is_true (evaluate_circuit M inputs (LAST trace) M.P)
 End
 
 Definition safe_def:
-  safe M n = ¬unsafe M n
+  safe M ⇔ ∀inputs trace. ¬unsafe M inputs trace
 End
 
 Definition valid_witness_def:
-  valid_witness M M' n = T
+  valid_witness M M' = T
 End
 
 (* Theorem 1 (from [2]) *)
 Theorem valid_witness_imp_safe:
-  valid_witness M M' n ⇒ safe M n
+  valid_witness M M' ⇒ safe M
 Proof
   cheat
 QED
