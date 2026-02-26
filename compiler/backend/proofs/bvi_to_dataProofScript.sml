@@ -1082,6 +1082,7 @@ Proof
     >- (
       fs[dataLangTheory.op_requires_names_def,domain_map]
       \\ simp[evaluate_def,cut_state_opt_def,cut_state_def,cut_env_def]
+      \\ fs[ EVAL ``op_requires_names Install``]
       \\ fs[bviSemTheory.do_app_def,dataSemTheory.do_app_def]
       \\ fs[bviSemTheory.do_install_def,dataSemTheory.do_install_def]
       \\ fs[case_eq_thms,GSYM MAP_REVERSE,bvlSemTheory.case_eq_thms]
@@ -1099,11 +1100,19 @@ Proof
         \\ gvs[compile_prog_def] )
       \\ `r.compile = λcfg prog. t2.compile cfg (compile_prog prog)` by fs[state_rel_def]
       \\ `t2.compile_oracle = (I ## compile_prog) o r.compile_oracle` by fs[state_rel_def]
-      \\ fs[] \\ rveq \\ fs[shift_seq_def]
-      \\ Cases_on`h` \\ fs[set_var_def,lookup_insert,var_corr_def,state_rel_def,o_DEF,get_var_def,lookup_insert,lookup_map]
+      \\ fs[] \\ rveq \\ fs[shift_seq_def,dataLangTheory.op_requires_names_def]
+      \\ Cases_on`h`
+      \\ fs[set_var_def,lookup_insert,var_corr_def,state_rel_def,
+            o_DEF,get_var_def,lookup_insert,lookup_map]
+      \\ simp [SF DNF_ss]
+      \\ fs[set_var_def,lookup_insert,var_corr_def,state_rel_def,
+            o_DEF,get_var_def,lookup_insert,lookup_map]
       \\ qmatch_goalsub_abbrev_tac`fromAList progs1`
       \\ qmatch_goalsub_abbrev_tac`union t2.code (fromAList progs2)`
-      \\ gvs [PULL_EXISTS]
+      \\ conj_tac
+      >-
+       (fs[domain_list_to_num_set2,Abbr`env1`] >>
+        ASM_SET_TAC[])
       \\ conj_tac
       >- (
         ntac 2 (pop_assum kall_tac) \\ rveq \\
@@ -1126,11 +1135,10 @@ Proof
         >- ( res_tac \\ fs[] )
         \\ METIS_TAC[MEM_EL] )
       \\ conj_tac >- (
-        rw[Abbr`env1`,lookup_inter_EQ,lookup_list_to_num_set]
-        \\ res_tac \\ fs[] )
+        rw[Abbr`env1`,lookup_inter_alt] \\ res_tac \\ fs[] )
       \\ conj_tac >- (
-        rw[Abbr`env1`,lookup_inter_EQ,lookup_list_to_num_set]
-        \\ METIS_TAC[] )
+        rw[Abbr`env1`,lookup_inter_alt]
+        \\ fs [domain_list_to_num_set])
       \\ reverse conj_tac >- (
         fs[compile_prog_def,compile_part_thm,Abbr`progs1`,data_to_bvi_v_def]
         \\ fs[markerTheory.Abbrev_def] )
@@ -1145,16 +1153,24 @@ Proof
           \\ fs [evaluate_def,cut_state_opt_def]
           \\ fs [cut_state_def,cut_env_def,domain_map
                  ,dataLangTheory.op_requires_names_def]
+          \\ fs[domain_list_insert2,domain_list_to_num_set2]
           \\ imp_res_tac get_vars_reverse \\ fs []
+          \\ LABEL_X_ASSUM "ENV2=ENV1" (SUBST_TAC o single)
           \\ qpat_x_assum `bviSem$do_app _ _ _ = _` mp_tac
           \\ simp [bviSemTheory.do_app_def,bviSemTheory.do_app_aux_def,
                    bvlSemTheory.do_app_def,oneline bvlSemTheory.do_int_app_def]
           \\ disch_then (mp_tac o SRULE[AllCaseEqs(),PULL_EXISTS])
           \\ fs [SWAP_REVERSE_SYM,MAP_EQ_CONS]
           \\ strip_tac  \\ rveq
+          \\ fs [EVAL ``op_space_reset (IntOp Less)``,EVAL ``op_space_reset (IntOp LessEq)``]
           \\ rename [`dataSem$do_app _ [Number i';Number i]`]
           \\ fs [EVAL ``dataSem$do_app (IntOp Less) [Number i'; Number i] t``]
           \\ fs [EVAL ``dataSem$do_app (IntOp LessEq) [Number i'; Number i] t``]
+          \\ qmatch_goalsub_abbrev_tac `if TRUE then SOME _ else NONE`
+          \\ `TRUE = T`
+              by (fs [Abbr`TRUE`,Abbr`env1`,domain_list_insert2,domain_list_to_num_set2] \\
+                 SET_TAC[])
+          \\ POP_ASSUM SUBST_ALL_TAC
           \\ fs [set_var_def,lookup_insert,integerTheory.int_gt,integerTheory.int_ge]
           \\ fs [state_rel_def]
           \\ fs [EVAL ``(bvl_to_bvi (bvi_to_bvl r) r).refs``]
@@ -1269,6 +1285,11 @@ Proof
               , pair_case_eq,SWAP_REVERSE_SYM,lookup_map]
       \\ ntac 5 (rfs [MAP_EQ_CONS])
       \\ fs [v_to_words_eq,v_to_bytes_eq,data_to_bvi_v_eq]
+      \\ reverse IF_CASES_TAC >-
+       (qsuff_tac `F` \\ gvs [] \\ pop_assum mp_tac
+        \\ fs [domain_list_to_num_set,SUBSET_DEF,Abbr`env1`,SF DNF_ss])
+      \\ simp [dataLangTheory.op_requires_names_def]
+      \\ fs [v_to_words_eq,v_to_bytes_eq,data_to_bvi_v_eq]
       \\ IMP_RES_TAC data_to_bvi_v_eq \\ rveq
       \\ fs [lookup_map,case_eq_thms]
       \\ IMP_RES_TAC data_to_bvi_eq_ByteArray \\ rveq
@@ -1313,6 +1334,11 @@ Proof
               , pair_case_eq,SWAP_REVERSE_SYM,lookup_map]
       \\ ntac 5 (rfs [MAP_EQ_CONS])
       \\ fs [v_to_words_eq,v_to_bytes_eq,data_to_bvi_v_eq]
+      \\ reverse IF_CASES_TAC >-
+       (qsuff_tac `F` \\ gvs [] \\ pop_assum mp_tac
+        \\ fs [domain_list_to_num_set,SUBSET_DEF,Abbr`env1`,SF DNF_ss])
+      \\ simp [dataLangTheory.op_requires_names_def]
+      \\ fs [v_to_words_eq,v_to_bytes_eq,data_to_bvi_v_eq]
       \\ IMP_RES_TAC data_to_bvi_v_eq \\ rveq
       \\ fs [lookup_map,case_eq_thms]
       \\ IMP_RES_TAC data_to_bvi_eq_ByteArray \\ rveq
@@ -1347,6 +1373,7 @@ Proof
       \\ simp[bviSemTheory.do_app_def,bviSemTheory.do_app_aux_def,closSemTheory.case_eq_thms]
       \\ strip_tac \\ rveq \\ fs[pair_case_eq,domain_map] \\ rw[]
       \\ simp[evaluate_def,cut_state_opt_def,cut_state_def,cut_env_def]
+      \\ fs[EVAL ``op_requires_names (MemOp (CopyByte F))``]
       \\ fs[dataSemTheory.do_app_def,do_space_def,dataLangTheory.op_space_reset_def,
             data_spaceTheory.op_space_req_def,do_app_aux_def]
       \\ fs[state_rel_def,code_rel_def]
@@ -1356,6 +1383,11 @@ Proof
               , pair_case_eq,SWAP_REVERSE_SYM,lookup_map]
       \\ ntac 5 (rfs [MAP_EQ_CONS])
       \\ fs [v_to_words_eq,v_to_bytes_eq,data_to_bvi_v_eq]
+      \\ qmatch_goalsub_abbrev_tac `if TRUE then SOME _ else NONE`
+      \\ `TRUE = T`
+          by (fs [Abbr`TRUE`,Abbr`env1`,domain_list_insert2,domain_list_to_num_set2] \\
+                 SET_TAC[])
+      \\ POP_ASSUM SUBST_ALL_TAC
       \\ IMP_RES_TAC data_to_bvi_v_eq \\ rveq
       \\ fs [lookup_map,case_eq_thms]
       \\ IMP_RES_TAC data_to_bvi_eq_ByteArray \\ rveq
