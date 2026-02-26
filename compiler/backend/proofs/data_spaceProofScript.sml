@@ -89,7 +89,7 @@ Proof
      \\ simp[]
      \\ fs[do_app_with_locals]
      \\ Cases_on `do_app op x s` \\ fs[]
-     >-(rename ['Rval a'] \\ PairCases_on `a`
+     >-(rename [`Rval a`] \\ PairCases_on `a`
         \\ fs[set_var_def,locals_ok_def,lookup_insert,state_component_equality]
         \\ rw[] \\ gvs[lookup_insert]
         \\  last_x_assum (assume_tac o GSYM)
@@ -294,19 +294,16 @@ Proof
          \\ fs[op_space_req_def]
          \\ first_assum(mp_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO]evaluate_locals))
          \\ disch_then drule
-         \\ simp[]
-         \\ qpat_abbrev_tac`ll = insert n _ (inter _ _)`
-         \\ disch_then(qspec_then`ll`mp_tac)
+         \\ simp[state_fupdcanon]
+         \\ disch_then(qspec_then`s1.locals`mp_tac)
          \\ impl_tac THEN1
-           (UNABBREV_ALL_TAC \\ fs[]
-            \\ fs[dataSemTheory.state_component_equality]
-            \\ SRW_TAC [] []
-            \\ fs[locals_ok_def,lookup_insert,lookup_inter_alt]
-            \\ fs[domain_delete,domain_list_insert])
+           (qpat_x_assum `_ = s1.locals` (SUBST1_TAC o SYM)
+            \\ fs[locals_ok_def,lookup_insert,lookup_inter_alt,
+                  domain_delete,domain_list_insert])
          \\ strip_tac \\ simp[]
-         \\ drule_then (qspecl_then [ `v5.stack_max`
-                                    , `v5.safe_for_space`
-                                    , `v5.peak_heap_length`] ASSUME_TAC)
+         \\ drule_then (qspecl_then [ `s1.stack_max`
+                                    , `s1.safe_for_space`
+                                    , `s1.peak_heap_length`] ASSUME_TAC)
                        evaluate_smx_safe_peak_swap
          \\ fs [state_fupdcanon]
          \\ qexists_tac`w`
