@@ -24,9 +24,9 @@ Definition tri_and_def:
   (tri_and NONE NONE = NONE)
 End
 
-Definition is_true_def:
-  (is_true (SOME T) = T) ∧
-  (is_true _ = F)
+Definition to_bool_def:
+  (to_bool (SOME T) = T) ∧
+  (to_bool _ = F)
 End
 
 (* Since we do not need to settle on a specific type for id, we use a type
@@ -81,7 +81,7 @@ Datatype:
     I : 'id list;  (* inputs *)
     LRF : ('id # ('id # 'id)) list;  (* (latch, (reset, transition)) *)
     P : 'id;  (* defines good states *)
-    C : 'id;  (* defines set of states valid under it constraint *)
+    C : 'id;  (* defines set of states valid under the constraint *)
   |>
 End
 
@@ -100,24 +100,34 @@ End
 
 Definition evaluate_circuit_def:
   evaluate_circuit M ins s out =
-  let input_ids = M.I in
-  let latch_ids = get_L M.LRF in
-  let circuit_ins = ZIP (input_ids, ins) ++ ZIP (latch_ids, s) in
+  let circuit_ins = ZIP (M.I, ins) ++ ZIP (get_L M.LRF, s) in
     evaluate circuit_ins M.G (Pos out)
 End
 
+Definition C_holds_def:
+  C_holds M ins s = to_bool (evaluate_circuit M ins s M.C)
+End
+
+Definition P_holds_def:
+  P_holds M ins s = to_bool (evaluate_circuit M ins s M.P)
+End
+
+Definition is_reset_on_def:
+  is_reset_on (K: 'id list) M s =
+    EVERY (λlatch. to_bool (evaluate_circuit M [] s latch)) K
+End
+
 Definition is_reset_def:
-  is_reset M s =
-  let latch_ids = get_L M.LRF in
-  let latch_lits = MAP Pos latch_ids in
-  let is_reset_latches = MAP (evaluate (ZIP (latch_ids, s)) M.G) latch_lits in
-    is_true (FOLDR tri_and (SOME T) is_reset_latches)
+  is_reset M s = is_reset_on (get_L M.LRF) M s
+End
+
+Definition is_step_on_def:
+  is_step_on (K: 'id list) M ins curs nexts =
+    LIST_REL (λout next. evaluate_circuit M ins curs out = next) K nexts
 End
 
 Definition is_step_def:
-  is_step M ins curs nexts =
-    LIST_REL (λout next. evaluate_circuit M ins curs out = next)
-      (get_F M.LRF) nexts
+  is_step M ins curs nexts = is_step_on (get_F M.LRF) M ins curs nexts
 End
 
 Definition unsafe_def:
@@ -129,22 +139,54 @@ Definition unsafe_def:
     (* Every pair of consecutive states satisfies F *)
     SORTED (is_step M inputs) trace ∧
     (* All states satisfy the constraint C *)
-    EVERY (λs. is_true (evaluate_circuit M inputs s M.C)) trace ∧
+    EVERY (λs. to_bool (evaluate_circuit M inputs s M.C)) trace ∧
     (* Last state violates P *)
-    ¬is_true (evaluate_circuit M inputs (LAST trace) M.P)
+    ¬(to_bool (evaluate_circuit M inputs (LAST trace) M.P))
 End
 
 Definition safe_def:
   safe M ⇔ ∀inputs trace. ¬unsafe M inputs trace
 End
 
-Definition valid_witness_def:
-  valid_witness M M' = T
+val _ = set_fixity "simulates" (Infix (NONASSOC, 450));
+Definition simulates_def:
+  (M' simulates M) ⇔
+    (∀ins s K C C' P P'.
+       ARB = K  ∧ (* TODO common latches *)
+       C_holds M ins s = C ∧ C_holds M' ins s = C' ∧
+       P_holds M ins s = P ∧ P_holds M' ins s = P' ∧
+       (* Initial state in the original circuit M corresponds to an initial
+          state in the witness circuit M'*)
+       (is_reset_on K M s ∧ C ⇒ is_reset_on K M' s ∧ C') ∧
+       (* Each valid transition in M corresponds to a transition in M' *)
+       (∀s₀ s₁ s₀' s₁'.
+          is_reset M s₀ ∧ is_reset M' s₀' ∧
+          is_step_on K M ins s₀ s₁ ∧
+          C_holds M ins s₀ ∧ C_holds M ins s₁ ∧ C_holds M' ins s₀'
+          ⇒
+          is_step_on K M' ins s₀' s₁' ∧ C_holds M' ins s₁') ∧
+       (* Property P' is a strengthening of P *)
+       ((C ∧ C') ⇒ (P' ⇒ P)))
+End
+
+Theorem simulates_safe:
+  M' simulates M ∧ safe M' ⇒ safe M
+Proof
+  cheat
+QED
+
+Definition inductive_def:
+  inductive M = ARB
+End
+
+val _ = set_fixity "witnesses" (Infix (NONASSOC, 450));
+Definition witnesses_def:
+  (M' witnesses M) ⇔ M' simulates M ∧ inductive M'
 End
 
 (* Theorem 1 (from [2]) *)
-Theorem valid_witness_imp_safe:
-  valid_witness M M' ⇒ safe M
+Theorem witnesses_safe:
+  M' witnesses M ⇒ safe M
 Proof
   cheat
 QED
