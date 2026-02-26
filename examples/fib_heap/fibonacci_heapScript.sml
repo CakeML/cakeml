@@ -167,7 +167,7 @@ Annotates a single tree that is not part of any list and does not have a parent.
 Definition ann_ft_def:
   ann_ft (FibTree k n xs) =
     FibTree k (fill_anode n 0w 0w 0w (head_key xs) (LENGTH xs))
-        (ann_fts_seg k (head_key xs) (last_key xs) xs)
+        (ann_fts_seg k (head_key xs) (last_key xs) (next_key (head_key xs) (TL xs)) xs)
 End
 
 (*-------------------------------------------------------------------*
