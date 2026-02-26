@@ -8,13 +8,32 @@ Libs
   preamble
 
 Datatype:
-  tc_and_mut_cons = DupTC                                                       (* Duplicate recursive tail calls. *)
-                  | NoTC                                                        (* No recursive tail call. *)
-                  | TC (num # (exp list) # (exp option)) (num # num # exp list) (* One recursive tail call.
-                                                                                   ‘TC (t, args, h) (tag, i, l)’ means we found:
-                                                                                   ‘Call t (SOME _) args h’ which fills the hole in:
-                                                                                   ‘Op (MemOp (MutCons tag i)) l’
-                                                                                 *)
+  tcall = TCall num (exp list) (exp option) (* loc is not needed here, as it is known in function body *)
+End
+
+Datatype:
+  hole_block = HoleBlock num (exp list) (hole_block option) (exp list)
+End
+
+Definition push_left_def:
+  push_left (HoleBlock t l h r) e = HoleBlock t (e::l) h r
+End
+
+Definition to_mut_cons:
+  to_mut_cons (HoleBlock t l h r) =
+    let hole = case h of
+      | SOME h' => to_mut_cons h'
+      | NONE => Op (IntOp (Const 0)) [] in
+    let i = LENGTH l in
+    Op (MemOp (MutCons t i)) (l ++ [hole] ++ r)
+End
+
+Datatype:
+  tc_and_hb = DupTC               (* Duplicate recursive tail calls. TODO: we can handle this - lift all but last into ‘Let’s. *)
+            | NoTC                (* No recursive tail call. *)
+            | TC tcall hole_block (* One recursive tail call.
+                                     tcall fills the final ‘NONE’ hole nested in hole_block.
+                                   *)
 End
 
 (* ‘cons_to_tc_and_mut_cons loc tag op_args’ finds a unique recursive call of index ‘loc’ nested within the args of a ‘BlockOp’ ‘Cons’
@@ -24,56 +43,55 @@ End
       ‘DupTC’            if multiple matching recursive calls were found.
       ‘NoTC’             if no matching recursive call was found.
       ‘TC call mut_cons’ if ‘call’ is the only matching call and ‘mut_cons’ has a single hole to be filled by ‘call’. *)
-Definition cons_to_tc_and_mut_cons_def:
-  (cons_to_tc_and_mut_cons loc tag [] = NoTC) ∧
-  (cons_to_tc_and_mut_cons loc tag ((Op (BlockOp (Cons tag')) op_args')::op_args) =
-    case (cons_to_tc_and_mut_cons loc tag' op_args', cons_to_tc_and_mut_cons loc tag op_args) of
+Definition cons_to_tc_and_hb_def:
+  (cons_to_tc_and_hb loc tag [] = NoTC) ∧
+  (cons_to_tc_and_hb loc tag ((Op (BlockOp (Cons tag')) op_args')::op_args) =
+    case (cons_to_tc_and_hb loc tag' op_args', cons_to_tc_and_hb loc tag op_args) of
     | (DupTC, _) => DupTC
     | (_, DupTC) => DupTC
     | (TC _ _, TC _ _) => DupTC
     | (NoTC, NoTC) => NoTC
-    | (TC call' (t', i', l'), NoTC) =>
-        let mut_cons' = Op (MemOp (MutCons t' i')) l' in
-        let mut_cons  = (tag, 0, mut_cons'::op_args) in
-          TC call' mut_cons
-    | (NoTC, TC call (t, i, l)) =>
-        let cons     = Op (BlockOp (Cons tag')) op_args' in
-        let mut_cons = (t, i+1, cons::l) in
-          TC call mut_cons) ∧
-  (cons_to_tc_and_mut_cons loc tag (Call t' (SOME loc') args' h'::op_args) =
+    | (TC call' hb', NoTC) =>
+        let hb  = HoleBlock tag [] (SOME hb') op_args in
+          TC call' hb
+    | (NoTC, TC call hb) =>
+        let cons = Op (BlockOp (Cons tag')) op_args' in
+        let hb'  = push_left hb cons in
+          TC call hb') ∧
+  (cons_to_tc_and_hb loc tag (Call t' (SOME loc') args' h'::op_args) =
     if loc=loc' then
       (* found the recursive call *)
-      case cons_to_tc_and_mut_cons loc tag op_args of
+      case cons_to_tc_and_hb loc tag op_args of
       | DupTC => DupTC
       | TC _ _ => DupTC
       | NoTC =>
-         let hole     = Op (IntOp (Const 0)) [] in
-         let mut_cons = (tag, 0, hole::op_args) in
-         TC (t', args', h') mut_cons
+         let call = TCall t' args' h' in
+         let hb   = HoleBlock tag [] NONE op_args in
+         TC call hb
     else
       (* found a different call *)
-      case cons_to_tc_and_mut_cons loc tag op_args of
+      case cons_to_tc_and_hb loc tag op_args of
       | DupTC => DupTC
       | NoTC => NoTC
-      | TC (t, args, h) (tag, i, l) =>
+      | TC call hb =>
          let call' = Call t' (SOME loc') args' h' in
-         let mut_cons = (tag, i+1, call'::l) in
-           TC (t, args, h) mut_cons) ∧
-  (cons_to_tc_and_mut_cons loc tag (op_arg::op_args) =
-    case cons_to_tc_and_mut_cons loc tag op_args of
+         let hb'   = push_left hb call' in
+           TC call hb') ∧
+  (cons_to_tc_and_hb loc tag (op_arg::op_args) =
+    case cons_to_tc_and_hb loc tag op_args of
     | DupTC => DupTC
     | NoTC => NoTC
-    | TC call (t, i, l) =>
-       let mut_cons = (t, i+1, op_arg::l) in
-         TC call mut_cons)
+    | TC call hb =>
+       let hb'   = push_left hb op_arg in
+         TC call hb')
 End
 
 Definition rewrite_aux_BlockOp_Cons_def:
   rewrite_aux_BlockOp_Cons ts loc loc_opt arity block_tag op_args =
-    case cons_to_tc_and_mut_cons loc block_tag op_args of
-    | TC (t, args, h) (tag, i, l) =>
+    case cons_to_tc_and_hb loc block_tag op_args of
+    | TC (TCall t args h) hb =>
         let var_new_hole_ptr = Var arity in
-        let exp_mut_cons     = Op (MemOp (MutCons tag i)) l in
+        let exp_mut_cons     = to_mut_cons hb in
         let exp_tail_call    = Call t (SOME loc_opt) (var_new_hole_ptr :: args) h in
         let exp_finalise     = Op (MemOp FinaliseCons) [var_new_hole_ptr] in
         SOME $ Let [exp_mut_cons; exp_tail_call] exp_finalise
@@ -108,12 +126,12 @@ End
 (* Assumes that the function can and should be optimised - has been checked by rewrite_aux_def. *)
 Definition rewrite_opt_BlockOp_Cons_def:
   rewrite_opt_BlockOp_Cons ts loc loc_opt arity block_tag op_args =
-    case cons_to_tc_and_mut_cons loc block_tag op_args of
-    | TC (t, args, h) (tag, i, l) =>
+    case cons_to_tc_and_hb loc block_tag op_args of
+    | TC (TCall t args h) hb =>
         let arg_old_hole_ptr = Var arity in
         let var_new_hole_ptr = Var (arity + 1) in
-        let exp_mut_cons     = Op (MemOp (MutCons tag i)) l in
-        let exp_update_hole  = Op (MemOp UpdateCons) [arg_old_hole_ptr; var_new_hole_ptr] in
+        let exp_mut_cons     = to_mut_cons hb in
+        let exp_update_hole  = Op (MemOp UpdateCons) [arg_old_hole_ptr; (* TODO: i *) var_new_hole_ptr] in
         let exp_tail_call    = Call t (SOME loc_opt) (var_new_hole_ptr :: args) h in
           Let [exp_mut_cons; exp_update_hole] $ exp_tail_call
     | _ => Op (BlockOp (Cons block_tag)) op_args
@@ -295,22 +313,24 @@ Proof
 QED
 
 (* [1] :: [x] :: my_bar xs *)
-val tail_cons1 = “cons_to_tc_and_mut_cons (4000:num) 12 [Op (BlockOp (Cons 0))
-                                                            [Call 0 (SOME 4000) [Var 3] NONE;
-                                                             Op (BlockOp (Cons 0)) [Op (BlockOp (Cons 0)) []; Var 2]];
-                                                         Op (BlockOp (Build [Int 1; Con 0 []; Con 0 [0; 1]])) []]”;
-val tail_cons1_expected = “TC (0,[Var 3],NONE)
-       (12,0,
-        [Op (MemOp (MutCons 0 0))
-           [Op (IntOp (Const 0)) []; Op (BlockOp (Cons 0)) [mk_unit; Var 2]];
-         Op (BlockOp (Build [Int 1; Con 0 []; Con 0 [0; 1]])) []])”;
+val tc_hb1 = “cons_to_tc_and_hb (4000:num) 12 [Op (BlockOp (Cons 0))
+                                                  [Call 0 (SOME 4000) [Var 3] NONE;
+                                                   Op (BlockOp (Cons 0)) [Op (BlockOp (Cons 0)) []; Var 2]];
+                                               Op (BlockOp (Build [Int 1; Con 0 []; Con 0 [0; 1]])) []]”;
+val tc_hb1_expected = “TC (TCall 0 [Var 3] NONE)
+                       (HoleBlock 12
+                                  []
+                                  (SOME (HoleBlock 0
+                                                   []
+                                                   NONE
+                                                   [Op (BlockOp (Cons 0)) [mk_unit; Var 2]]))
+                                  [Op (BlockOp (Build [Int 1; Con 0 []; Con 0 [0; 1]])) []])”;
 
-Theorem tail_cons_check1:
-  ^tail_cons1 = ^tail_cons1_expected
+Theorem tc_check1:
+  ^tc_hb1 = ^tc_hb1_expected
 Proof
   EVAL_TAC
 QED
-
 
 (*
    (func my_foo@471 (a)
@@ -321,31 +341,31 @@ QED
 *)
 
 (* Node x (my_foo x) (Leaf x) *)
-val tail_cons2 = “cons_to_tc_and_mut_cons (4000:num) 0 [Op (BlockOp (Cons 0)) [Var 0]; Call 0 (SOME 4000) [Var 0] NONE; Var 0]”;
-val tail_cons2_expected = “TC (0,[Var 0],NONE) (0,1,[Op (BlockOp (Cons 0)) [Var 0]; Op (IntOp (Const 0)) []; Var 0])”;
+val tc_hb2 = “cons_to_tc_and_hb (4000:num) 0 [Op (BlockOp (Cons 0)) [Var 0]; Call 0 (SOME 4000) [Var 0] NONE; Var 0]”;
+val tc_hb2_expected = “TC (TCall 0 [Var 0] NONE) (HoleBlock 0 [Op (BlockOp (Cons 0)) [Var 0]] NONE [Var 0])”;
 
 Theorem tail_cons_check2:
-  ^tail_cons2 = ^tail_cons2_expected
+  ^tc_hb2 = ^tc_hb2_expected
 Proof
   EVAL_TAC
 QED
 
 (* Node x (my_foo x) (other x) *)
-val tail_cons3 = “cons_to_tc_and_mut_cons (4000:num) 0 [Call 0 (SOME 4321) [Var 0] NONE; Call 0 (SOME 4000) [Var 0] NONE; Var 0]”;
-val tail_cons3_expected = “TC (0,[Var 0],NONE) (0,1,[Call 0 (SOME 4321) [Var 0] NONE; Op (IntOp (Const 0)) []; Var 0])”;
+val tc_hb3 = “cons_to_tc_and_hb (4000:num) 0 [Call 0 (SOME 4321) [Var 0] NONE; Call 0 (SOME 4000) [Var 0] NONE; Var 0]”;
+val tc_hb3_expected = “TC (TCall 0 [Var 0] NONE) (HoleBlock 0 [Call 0 (SOME 4321) [Var 0] NONE] NONE [Var 0])”;
 
 Theorem tail_cons_check3:
-  ^tail_cons3 = ^tail_cons3_expected
+  ^tc_hb3 = ^tc_hb3_expected
 Proof
   EVAL_TAC
 QED
 
 (* Node x (other x) (my_foo x) *)
-val tail_cons4 = “cons_to_tc_and_mut_cons (4000:num) 0 [Call 0 (SOME 4000) [Var 0] NONE; Call 0 (SOME 4321) [Var 0] NONE; Var 0]”;
-val tail_cons4_expected = “TC (0,[Var 0],NONE) (0,0,[Op (IntOp (Const 0)) []; Call 0 (SOME 4321) [Var 0] NONE; Var 0])”;
+val tc_hb4 = “cons_to_tc_and_hb (4000:num) 0 [Call 0 (SOME 4000) [Var 0] NONE; Call 0 (SOME 4321) [Var 0] NONE; Var 0]”;
+val tc_hb4_expected = “TC (TCall 0 [Var 0] NONE) (HoleBlock 0 [] NONE [Call 0 (SOME 4321) [Var 0] NONE; Var 0])”;
 
 Theorem tail_cons_check4:
-  ^tail_cons4 = ^tail_cons4_expected
+  ^tc_hb4 = ^tc_hb4_expected
 Proof
   EVAL_TAC
 QED
