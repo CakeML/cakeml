@@ -709,8 +709,64 @@ Proof
     (* Dont write flag to be T in insert function! Assume it has been done (empty node)  *)
   Cases_on `t` using SNOC_CASES >>
   fs[SNOC_APPEND,head_key_def]
-
-
+  >- (
+    fs[ann_fts_def, ann_fts_seg_def,fts_mem_def,
+       SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
+       fill_dnode_def, next_key_def, ones_def, STAR_ASSOC] >>
+    `k + 2w * bytes_in_word <> k'` by SEP_NEQ_TAC >> simp[] >>
+    SEP_R_TAC >>
+    IF_CASES_TAC
+    >- (
+      fs[fib_heap_append_def,before_off_def,next_off_def] >>
+      fs[head_key_def,last_key_def] >>
+      SEP_R_TAC >>
+      IF_CASES_TAC >> fs[] >>
+      SEP_R_TAC >> simp[] >>
+      strip_tac >> gvs[] >>
+      SEP_W_TAC >>
+      qexists `[FibTree a' (fill_dnode v e F) []; FibTree k' v' l]` >>
+      simp[ann_fts_def, ann_fts_seg_def, last_key_def,fts_mem_def,
+           SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
+           fill_dnode_def, next_key_def, ones_def, STAR_ASSOC] >>
+      assume_tac lemma_insert_new_min_inv >>
+      (*first_x_assum(qspecl_then
+          [`fh`, `[FibTree k' v' l]`, `a'`, `k'`, `v`, `e`] assume_tac) >> *)
+       cheat (* Proof invariant! *)
+      ) >>
+      (* opposite case *)
+      cheat
+    ) >>
+  Cases_on `x` >>
+  rename [`fib_heap_inv fh (FibTree k' v' l::(l' ++ [FibTree lk lv ts]))`] >>
+  Cases_on `l'` >>
+  fs[head_key_def, next_key_def]
+  >- (
+    fs[ann_fts_def, ann_fts_seg_def,fts_mem_def,
+       SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
+       fill_dnode_def, next_key_def, ones_def, STAR_ASSOC] >>
+    SEP_R_TAC >>
+    IF_CASES_TAC
+    >- (
+      cheat
+      ) >>
+    cheat
+   ) >>
+  assume_tac ann_fts_append_thm >>
+  first_assum(qspecl_then
+    [`FibTree k' v' l::h::t`, `[FibTree lk lv ts]`] assume_tac) >>
+  Cases_on `h` >>
+  fs[head_key_def, next_key_def] >>
+  fs[fts_mem_append_thm] >>
+  gvs[ann_fts_def, ann_fts_seg_def,fts_mem_def,
+     SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
+     fill_dnode_def, next_key_def, ones_def, STAR_ASSOC] >>
+  SEP_R_TAC >>
+  IF_CASES_TAC
+  >- (
+    cheat
+    )
+  >> cheat
+(*
   `k + 2w * bytes_in_word <> k'` by SEP_NEQ_TAC >> simp[] >>
   `k + 2w * bytes_in_word <> k' + 4w * bytes_in_word` by SEP_NEQ_TAC >> simp[] >>
   `k + 2w * bytes_in_word <> k' + 5w * bytes_in_word` by SEP_NEQ_TAC >> simp[] >>
@@ -839,5 +895,5 @@ cheat
   fs[SNOC_APPEND]
 *)
 
-*)
+*)*)
 QED
