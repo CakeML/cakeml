@@ -143,10 +143,11 @@ Definition do_app_aux_def:
              let r = DROP (i+1) xs in
              let b = MutBlock tag l c r in
                SOME (SOME (RefPtr F ptr, (s with refs := s.refs |+ (ptr,b)))))
-    | (MemOp UpdateCons,[RefPtr _ ptr; x]) =>
+    | (MemOp UpdateCons,[RefPtr _ ptr; Number i; x]) =>
         (case FLOOKUP s.refs ptr of
          | SOME (MutBlock tag l c r) =>
-             SOME (SOME (Unit, s with refs := s.refs |+ (ptr,MutBlock tag l x r)))
+             if i ≠ & LENGTH l then NONE else
+               SOME (SOME (Unit, s with refs := s.refs |+ (ptr,MutBlock tag l x r)))
          | _ => NONE)
     | (MemOp FinaliseCons,[x]) =>
         (case finalise_cons x s.refs of
