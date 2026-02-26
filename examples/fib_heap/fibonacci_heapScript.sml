@@ -85,45 +85,79 @@ Second, it calls itself for all ts where the parent and starting node of the dll
 p = parent
 s = first element of the list
 b = previous element
+n = next key
 *)
 Definition ann_fts_seg_def:
-  (ann_fts_seg p s b [] = []) /\
-  (ann_fts_seg p s b ((FibTree k n ys)::xs) =
+  (ann_fts_seg p s b n [] = []) /\
+  (ann_fts_seg p s b n ((FibTree k v ys)::xs) =
     (FibTree k
-        (fill_anode n b (next_key s xs) p (head_key ys) (LENGTH ys))
-        (ann_fts_seg k (head_key ys) (last_key ys) ys)
-    ::(ann_fts_seg p s k xs)))
+        (fill_anode v b n p (head_key ys) (LENGTH ys))
+        (ann_fts_seg k (head_key ys) (last_key ys)
+            (next_key (head_key ys) (TL ys))
+            ys)
+    ::(ann_fts_seg p s k (next_key s (TL xs)) xs)))
 End
 
-Definition ann_fts_def:
-  ann_fts fts =
-    ann_fts_seg 0w (head_key fts) (last_key fts) fts
-End
 
 Theorem ann_fts_seg_append_thm:
-  !p b xs ys. ?lk ak.
-    ann_fts_seg p lk b (xs ++ ys) =
-    (ann_fts_seg p lk b xs) ++ (ann_fts_seg p lk ak ys)
+  !p s b n xs ys.
+    xs <> [] /\ ys <> [] ==>
+    ann_fts_seg p s b (next_key s xs) (xs ++ ys) =
+    (ann_fts_seg p (head_key ys) b (next_key (head_key ys) xs) xs) ++
+    (ann_fts_seg p s (last_key xs) (next_key s (TL ys)) ys)
 Proof
-  Induct_on `xs`
-  >- (
-    fs[APPEND_def, ann_fts_seg_def, last_key_def, head_key_def] >>
-    rpt strip_tac >>
-    qexistsl [`lk`, `b`] >> simp[]
-    ) >>
+  Induct_on `xs` >> fs[] >>
   rpt strip_tac >>
-  Cases_on `h` >>
-  Cases_on `xs` >>
-  Cases_on `ys` >> fs[ann_fts_seg_def] >>
-  Cases_on `h`
+  Cases_on `xs`
   >- (
-    simp[next_key_def,head_key_def] >>
-    qexistsl [`k'`, `k`] >> simp[]
+    Cases_on `h` >>
+    fs[ann_fts_seg_def,last_key_def,head_key_def,next_key_def]
     ) >>
-  simp[next_key_def, head_key_def] >>
-  first_assum (qspecl_then [`p`, `k`, `(h'::t')`] assume_tac) >> fs[] >>
-  qexistsl [`lk`, `ak`] >> simp[]
+  Cases_on `h` >>
+  fs[next_key_def,head_key_def] >>
+  fs[ann_fts_seg_def] >>
+  Cases_on `h'` >>
+  fs[ann_fts_seg_def] >>
+  Cases_on `t` using SNOC_CASES >> fs[head_key_def, next_key_def,ann_fts_seg_def]
+  >- (
+    Cases_on `ys` >> fs[] >>
+    Cases_on `h`>> fs[next_key_def, head_key_def, last_key_def]
+    ) >>
+  Cases_on `x` >> fs[SNOC_APPEND,last_key_def, head_key_def] >>
+  Cases_on `l''` >> fs[]
+  >- fs[next_key_def, head_key_def] >>
+  Cases_on `h` >>
+  fs[next_key_def, head_key_def]
 QED
+
+
+
+Definition ann_fts_def:
+  (ann_fts [] = []) /\
+  (ann_fts (x::xs) =
+    ann_fts_seg 0w (head_key [x]) (last_key (x::xs)) (next_key (head_key [x]) xs)
+    (x::xs))
+End
+
+Theorem ann_fts_append_thm:
+  !xs ys. xs <> [] /\ ys <> [] ==>
+    ann_fts (xs ++ ys) =
+    (ann_fts_seg 0w (head_key ys) (last_key ys)
+      (next_key (head_key xs)  (TL xs ++ ys)) xs) ++
+    (ann_fts_seg 0w (head_key xs) (last_key xs) (next_key (head_key xs) (TL ys)) ys)
+Proof
+  rpt strip_tac >>
+  assume_tac ann_fts_seg_append_thm >>
+  Cases_on `xs` >> fs[ann_fts_def] >>
+  first_assum (qspecl_then [`0w`, `(head_key [h])`, `(last_key (h::(t ++ ys)))`,
+                            `(h::t)`, `ys`] assume_tac) >>
+  Cases_on `h` >>
+  fs[ann_fts_seg_def,head_key_def,last_key_def] >>
+  Cases_on `ys` using SNOC_CASES >> fs[] >>
+  Cases_on `x` >> fs[SNOC_APPEND] >>
+  fs[REVERSE_APPEND, head_key_def]
+QED
+
 
 
 (*
@@ -668,11 +702,15 @@ Proof
   Cases_on `fts` >> gvs[] >>
   (* `fts <> (h::t) /\ fh <> FEMPTY` by cheat >> *)
   Cases_on `h` >>
-  fs[ann_fts_def, ann_fts_seg_def,fts_mem_def,
+  (*fs[ann_fts_def, ann_fts_seg_def,fts_mem_def,
      SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
-     fill_dnode_def, next_key_def, ones_def, STAR_ASSOC] >>
+     fill_dnode_def, next_key_def, ones_def, STAR_ASSOC] >> *)
   (* simp[APPLY_UPDATE_THM]>> *)
     (* Dont write flag to be T in insert function! Assume it has been done (empty node)  *)
+  Cases_on `t` using SNOC_CASES >>
+  fs[SNOC_APPEND,head_key_def]
+
+
   `k + 2w * bytes_in_word <> k'` by SEP_NEQ_TAC >> simp[] >>
   `k + 2w * bytes_in_word <> k' + 4w * bytes_in_word` by SEP_NEQ_TAC >> simp[] >>
   `k + 2w * bytes_in_word <> k' + 5w * bytes_in_word` by SEP_NEQ_TAC >> simp[] >>
@@ -700,7 +738,8 @@ Proof
         [`fh`, `[FibTree k' v' l]`, `a'`, `k'`, `v`, `e`] assume_tac) >> *)
       cheat (* Proof invariant! *)
       ) >>
-    Cases_on `x` >> rename [`FibTree lk lv ts`] >>
+    Cases_on `x` >>
+    rename [`fib_heap_inv fh (FibTree k' v' l::(l' ++ [FibTree lk lv ts]))`] >>
     fs[REVERSE_APPEND] >>
     Cases_on `l'` >>
     fs[head_key_def, next_key_def] >>
@@ -765,6 +804,12 @@ Proof
     `k' <> sk` by SEP_NEQ_TAC >>
     IF_CASES_TAC >> fs[] >>
     (*How to simplify with thms? *)
+    assume_tac ann_fts_seg_append_thm >>
+    first_assum(qspecl_then [`0w`,`sk`,`t`,`[FibTree lk lv ts]`] assume_tac) >>
+    fs[]
+
+
+
     fs[fts_mem_append_thm,ann_fts_seg_append_thm] >>
     SEP_R_TAC >> simp[] >>
     cheat (* need lemma about ++ with ann_fts_seg to get lk into memory *)
