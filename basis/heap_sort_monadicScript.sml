@@ -652,7 +652,7 @@ Theorem mk_st_node_split_r:
   mk_st ((Node x l r, ht) :: hps, oths) szs =
   mk_st ((r, ht - 1) :: (l, ht - 1) :: hps, x :: oths) szs
 Proof
-  cheat
+  simp [mk_st_def, tree_to_list_unfold]
 QED
 
 Theorem mk_st_node_split_l:
@@ -660,7 +660,7 @@ Theorem mk_st_node_split_l:
   mk_st ((Node x l r, ht) :: hps, oths) szs =
   mk_st ((l, ht - 1) :: hps, bs_tree_to_list (ht - 1) r ++ x :: oths) szs
 Proof
-  cheat
+  simp [mk_st_def, tree_to_list_unfold]
 QED
 
 Theorem mk_st_move_others:
@@ -669,65 +669,35 @@ Theorem mk_st_move_others:
   mk_st hps_pair (n :: szs, sz_oths) =
   mk_st hps_pair (szs, n :: sz_oths)
 Proof
-  cheat
+  simp [mk_st_def, tree_to_list_unfold]
 QED
 
-Theorem heap_array_sub_left:
-  is_last_ix (ht :: MAP SND hps) i /\ 1 < ht ==>
-  st_ex_bind (heap_array_sub (sfx_heap_left i ht)) f
-    (mk_st ((Node x (Node lx ll lr) r, ht) :: hps, oths) szs) =
-  f lx (mk_st ((Node x (Node lx ll lr) r, ht) :: hps, oths) szs)
+Theorem LENGTH_bs_tree_list_to_list_eq_SUM[local]:
+  LENGTH (bs_tree_list_to_list ts) = SUM (MAP two_exp_min_1 (MAP SND ts))
 Proof
-  cheat
+  simp [bs_tree_list_to_list_def, LENGTH_FLAT, MAP_MAP_o, o_DEF]
+  \\ simp [UNCURRY, LENGTH_bs_tree_to_list, MAP_REVERSE, SUM_REVERSE]
 QED
 
-Theorem heap_array_sub_right:
-  is_last_ix (ht :: MAP SND hps) i /\ 1 < ht ==>
-  st_ex_bind (heap_array_sub (i - 1)) f
-    (mk_st ((Node x l (Node rx rl rr), ht) :: hps, oths) szs) =
-  f rx (mk_st ((Node x l (Node rx rl rr), ht) :: hps, oths) szs)
-Proof
-  cheat
-QED
-
-Theorem heap_array_sub_curr:
+Theorem heap_array_sub_curr_bind_eq:
   is_last_ix (ht :: MAP SND hps) i /\ 0 < ht ==>
   st_ex_bind (heap_array_sub i) f
     (mk_st ((Node x l r, ht) :: hps, oths) szs) =
   f x (mk_st ((Node x l r, ht) :: hps, oths) szs)
 Proof
-  cheat
-QED
-
-Theorem heap_array_sub_prev:
-  is_last_ix (ht :: MAP SND hps) i /\ 0 < LENGTH hps /\
-    EVERY (\(t, n). 0 < n /\ tree_balanced_height n t) hps ==>
-  st_ex_bind (heap_array_sub (i - two_exp_min_1 ht)) f
-    (mk_st ((t, ht) :: hps, oths) szs) =
-  f (case hps of (Node x _ _, _) :: _ => x) (mk_st ((t, ht) :: hps, oths) szs)
-Proof
-  cheat
-QED
-
-Theorem update_heap_array_mk_st_eq:
-  is_last_ix (n :: MAP SND hps) i ==>
-  update_heap_array i x (mk_st ((Node x_dc l r, n) :: hps, oths) szs) =
-        (M_success (), mk_st ((Node x l r, n) :: hps, oths) szs)
-Proof
-  cheat
-QED
-
-Theorem return_bind_eq:
-  st_ex_bind (return v) f = f v
-Proof
-  simp [ml_monadBaseTheory.st_ex_bind_def, ml_monadBaseTheory.st_ex_return_def, FUN_EQ_THM]
+  rw []
+  \\ irule bind_success_eqI
+  \\ simp [fetch "-" "heap_array_sub_def", ml_monadBaseTheory.monad_eqs]
+  \\ simp [mk_st_def, tree_to_list_unfold, LENGTH_bs_tree_to_list]
+  \\ fs [is_last_ix_def, LENGTH_bs_tree_list_to_list_eq_SUM, two_exp_min_1_less_rec,
+            EL_APPEND1, EL_APPEND2, LENGTH_bs_tree_to_list, EL_CONS_IF]
 QED
 
 Theorem is_last_ix_imps:
   is_last_ix (ht :: hts) i ==>
   (1 < ht ==> is_last_ix (ht - 1 :: hts) (sfx_heap_left i ht)) /\
   (1 < ht ==> is_last_ix (ht - 1 :: ht - 1 :: hts) (i - 1)) /\
-  (0 < ht /\ 0 < LENGTH hts /\ 0 < HD hts ==> is_last_ix hts (i - two_exp_min_1 ht))
+  (0 < LENGTH hts /\ 0 < HD hts ==> is_last_ix hts (i - two_exp_min_1 ht))
 Proof
   fs [is_last_ix_def]
   \\ rw []
@@ -736,12 +706,77 @@ Proof
   \\ fs [sfx_heap_left_def, to_two_exp_min_1, two_exp_min_1_less_rec]
 QED
 
+Theorem heap_array_sub_left_bind_eq:
+  is_last_ix (ht :: MAP SND hps) i /\ 1 < ht ==>
+  st_ex_bind (heap_array_sub (sfx_heap_left i ht)) f
+    (mk_st ((Node x (Node lx ll lr) r, ht) :: hps, oths) szs) =
+  f lx (mk_st ((Node x (Node lx ll lr) r, ht) :: hps, oths) szs)
+Proof
+  rw []
+  \\ imp_res_tac is_last_ix_imps
+  \\ fs []
+  \\ simp [Once mk_st_node_split_l]
+  \\ simp [heap_array_sub_curr_bind_eq]
+  \\ simp [mk_st_node_split_l]
+QED
+
+Theorem heap_array_sub_right_bind_eq:
+  is_last_ix (ht :: MAP SND hps) i /\ 1 < ht ==>
+  st_ex_bind (heap_array_sub (i - 1)) f
+    (mk_st ((Node x l (Node rx rl rr), ht) :: hps, oths) szs) =
+  f rx (mk_st ((Node x l (Node rx rl rr), ht) :: hps, oths) szs)
+Proof
+  rw []
+  \\ imp_res_tac is_last_ix_imps
+  \\ fs []
+  \\ simp [Once mk_st_node_split_r]
+  \\ simp [heap_array_sub_curr_bind_eq]
+  \\ simp [mk_st_node_split_r]
+QED
+
+Theorem heap_array_sub_prev_bind_eq:
+  is_last_ix (ht :: MAP SND hps) i /\ 0 < LENGTH hps /\
+    EVERY (\(t, n). 0 < n /\ tree_balanced_height n t) hps ==>
+  st_ex_bind (heap_array_sub (i - two_exp_min_1 ht)) f
+    (mk_st ((t, ht) :: hps, oths) szs) =
+  f (case hps of (Node x _ _, _) :: _ => x) (mk_st ((t, ht) :: hps, oths) szs)
+Proof
+  rw []
+  \\ imp_res_tac is_last_ix_imps
+  \\ fs []
+  \\ simp [mk_st_move_others]
+  \\ Cases_on `HD hps` \\ Cases_on `hps` \\ fs []
+  \\ gs [tree_balanced_height_pos]
+  \\ simp [heap_array_sub_curr_bind_eq]
+QED
+
+Theorem update_heap_array_mk_st_eq:
+  is_last_ix (ht :: MAP SND hps) i /\ 0 < ht ==>
+  update_heap_array i x (mk_st ((Node x_dc l r, ht) :: hps, oths) szs) =
+        (M_success (), mk_st ((Node x l r, ht) :: hps, oths) szs)
+Proof
+  simp [fetch "-" "update_heap_array_def", ml_monadBaseTheory.monad_eqs]
+  \\ rw [is_last_ix_def, mk_st_def]
+  \\ fs [tree_to_list_unfold, LENGTH_bs_tree_to_list,
+            LENGTH_bs_tree_list_to_list_eq_SUM, LUPDATE_APPEND,
+            two_exp_min_1_less_rec, LUPDATE_DEF]
+QED
+
+Theorem return_bind_eq:
+  st_ex_bind (return v) f = f v
+Proof
+  simp [ml_monadBaseTheory.st_ex_bind_def, ml_monadBaseTheory.st_ex_return_def, FUN_EQ_THM]
+QED
+
 Theorem sz_array_sub_bind_eq:
   i < LENGTH szs ==>
   st_ex_bind (sz_array_sub i) f (mk_st hps (szs, oths)) =
   f (EL (LENGTH szs - (i + 1)) szs) (mk_st hps (szs, oths))
 Proof
-  cheat
+  rw []
+  \\ irule bind_success_eqI
+  \\ simp [fetch "-" "sz_array_sub_def", ml_monadBaseTheory.monad_eqs]
+  \\ simp [mk_st_def, EL_APPEND1, EL_REVERSE, PRE_SUB1]
 QED
 
 Theorem update_sz_array_eq:
@@ -749,14 +784,13 @@ Theorem update_sz_array_eq:
   update_sz_array i x (mk_st hps (szs, oths)) =
     (M_success (), mk_st hps (LUPDATE x (LENGTH szs - (i + 1)) szs, oths))
 Proof
-  cheat
-QED
-
-Theorem LENGTH_bs_tree_list_to_list_eq_SUM[local]:
-  LENGTH (bs_tree_list_to_list ts) = SUM (MAP two_exp_min_1 (MAP SND ts))
-Proof
-  simp [bs_tree_list_to_list_def, LENGTH_FLAT, MAP_MAP_o, o_DEF]
-  \\ simp [UNCURRY, LENGTH_bs_tree_to_list, MAP_REVERSE, SUM_REVERSE]
+  rw []
+  \\ simp [fetch "-" "update_sz_array_def", ml_monadBaseTheory.monad_eqs]
+  \\ simp [mk_st_def]
+  \\ qspecl_then [`REVERSE szs`, `i`] mp_tac LESS_LENGTH
+  \\ simp [listTheory.SWAP_REVERSE_SYM]
+  \\ rw []
+  \\ simp [LUPDATE_APPEND1, LUPDATE_APPEND2, LUPDATE_DEF]
 QED
 
 (* 3.3: Proofs of equivalence *)
@@ -783,7 +817,7 @@ Proof
     \\ ONCE_REWRITE_TAC [insert_tree_inv_def]
     \\ drule_then assume_tac is_last_ix_imps
     \\ gs []
-    \\ simp [heap_array_sub_left, heap_array_sub_right]
+    \\ simp [heap_array_sub_left_bind_eq, heap_array_sub_right_bind_eq]
     \\ rpt TOP_CASE_TAC
     \\ simp [update_heap_array_mk_st_eq, st_ex_ignore_bind_simp]
     >- (
@@ -826,7 +860,7 @@ Proof
   )
   \\ simp [sz_array_sub_bind_eq, return_bind_eq]
   \\ simp [ADD1]
-  \\ simp [to_two_exp_min_1, heap_array_sub_prev]
+  \\ simp [to_two_exp_min_1, heap_array_sub_prev_bind_eq]
   \\ irule bind_success_rdonly_eqI
   \\ qexists_tac `case t of ((Node t2x _ _, _) :: _) =>
         ~ R t2x x /\ ~ (case q of Node _ (Node lx _ _) _ => R t2x lx | _ => F) /\
@@ -837,7 +871,7 @@ Proof
     \\ rw []
     >- (
       gs [tree_balanced_height_pos]
-      \\ simp [heap_array_sub_left, heap_array_sub_right]
+      \\ simp [heap_array_sub_left_bind_eq, heap_array_sub_right_bind_eq]
       \\ simp [ml_monadBaseTheory.monad_eqs]
     )
     >- (
@@ -1003,7 +1037,7 @@ Proof
   \\ simp [st_ex_ignore_bind_simp]
   \\ irule_at Any bind_success_eqI
   \\ simp [update_sz_array_eq]
-  \\ dep_rewrite.DEP_REWRITE_TAC [heap_array_sub_curr]
+  \\ dep_rewrite.DEP_REWRITE_TAC [heap_array_sub_curr_bind_eq]
   \\ conj_asm1_tac
   >- (
     fs [markerTheory.Abbrev_def]
@@ -1016,7 +1050,7 @@ Proof
   >- (
     rw []
     \\ simp [return_bind_eq, to_two_exp_min_1]
-    \\ simp [heap_array_sub_prev |> Q.GEN `i` |> Q.SPEC `i - 1`
+    \\ simp [heap_array_sub_prev_bind_eq |> Q.GEN `i` |> Q.SPEC `i - 1`
         |> SIMP_RULE (srw_ss ()) [GSYM SUB_PLUS, ADD_COMM]]
     \\ simp [ml_monadBaseTheory.monad_eqs]
     \\ every_case_tac \\ fs [markerTheory.Abbrev_def]
@@ -1062,7 +1096,7 @@ Proof
   \\ Cases_on `HD ts` \\ Cases_on `ts` \\ fs [bs_tree_list_to_list_rec]
   \\ simp [sz_array_sub_bind_eq, ADD1]
   \\ gs [tree_balanced_height_pos, bs_tree_to_list_tree_rec, ADD1]
-  \\ simp [heap_array_sub_curr]
+  \\ simp [heap_array_sub_curr_bind_eq]
 (*
   \\ drule inv_trees_less_via_exp
   \\ simp [GSYM MAP_DROP]
