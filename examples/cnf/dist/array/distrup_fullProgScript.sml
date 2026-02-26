@@ -3,9 +3,9 @@
 *)
 Theory distrup_fullProg
 Libs
-  preamble basis
+  preamble basis wordsLib
 Ancestors
-  distrup_arrayProg
+  distrup_arrayProg words byte
 
 val _ = hide_environments true;
 
@@ -223,16 +223,6 @@ End
     - we need to encode and decode this into/from the ‘:ffi’ type
  *----------------------------------------------------------------------*)
 
-(*
-Theorem aim:
-  ∀inputs.
-    app p main (CUSTOM_FFI Step inputs [] * CL ...)
-               (SEP_EXISTS trace.
-                  CUSTOM_FFI Terminate [] trace * CL ... *
-                  cond (trace_ok trace))
-Proof
-*)
-
 Type clause = “:word32 list”;
 Type hints = “:word64 list”;
 
@@ -359,10 +349,64 @@ Definition update_step_def:
   update_step ^imm_arg ^arr_arg Step inputs =
     (if LENGTH imm_arg ≠ 0 ∨ LENGTH arr_arg ≠ 17 then NONE else
        case inputs of
-       | [] => SOME (FFIreturn arr_arg (State Terminate inputs))
-       | (i::is) => NONE
-    ) ∧
+       | [] => SOME (FFIreturn (0w :: TL arr_arg) (State Terminate inputs))
+       | (i::is) =>
+         case i of
+         | Produce c h =>
+             SOME (FFIreturn ([n2w (ORD #"a")] ++
+                              word_to_bytes (n2w (LENGTH c) : word32) F ++
+                              word_to_bytes (n2w (LENGTH h) : word32) F)
+                             (State (Produce_clause c h) is))
+         | Import c =>
+             SOME (FFIreturn ([n2w (ORD #"i")] ++
+                              word_to_bytes (n2w (LENGTH c) : word32) F ++
+                              word_to_bytes (n2w 0 : word32) F)
+                             (State (Import_clause c) is))
+         | Delete h =>
+             SOME (FFIreturn ([n2w (ORD #"d")] ++
+                              word_to_bytes (n2w 0 : word32) F ++
+                              word_to_bytes (n2w (LENGTH h) : word32) F)
+                             (State (Delete_hints h) is))
+         | Validate_UNSAT =>
+             SOME (FFIreturn ([n2w (ORD #"V")] ++ TL arr_arg)
+                             (State Validate_UNSAT_callback is))) ∧
   update_step ^imm_arg ^arr_arg _ _ = NONE
+End
+
+Definition write_bytes_def:
+  write_bytes [] xs = [] ∧
+  write_bytes xs [] = xs ∧
+  write_bytes (x::xs) (y::ys) = (y:word8) :: write_bytes xs ys
+End
+
+Definition update_clause_def:
+  update_clause ^imm_arg ^arr_arg (Produce_clause c h) inputs =
+    (SOME (FFIreturn (write_bytes arr_arg (FLAT (MAP (λw. word_to_bytes w F) c)))
+                     (State (Produce_hints h) inputs))) ∧
+  update_clause ^imm_arg ^arr_arg (Import_clause c) inputs =
+    (SOME (FFIreturn (write_bytes arr_arg (FLAT (MAP (λw. word_to_bytes w F) c)))
+                     (State Import_callback inputs))) ∧
+  update_clause ^imm_arg ^arr_arg _ _ = NONE
+End
+
+Definition update_hints_def:
+  update_hints ^imm_arg ^arr_arg (Produce_hints h) inputs =
+    (SOME (FFIreturn (write_bytes arr_arg (FLAT (MAP (λw. word_to_bytes w F) h)))
+                     (State Produce_callback inputs))) ∧
+  update_hints ^imm_arg ^arr_arg (Delete_hints h) inputs =
+    (SOME (FFIreturn (write_bytes arr_arg (FLAT (MAP (λw. word_to_bytes w F) h)))
+                     (State Delete_callback inputs))) ∧
+  update_hints ^imm_arg ^arr_arg _ _ = NONE
+End
+
+Definition update_callback_def:
+  update_callback ^imm_arg ^arr_arg Produce_callback inputs =
+    (SOME (FFIreturn arr_arg (State Step inputs))) ∧
+  update_callback ^imm_arg ^arr_arg Import_callback inputs =
+    (SOME (FFIreturn arr_arg (State Step inputs))) ∧
+  update_callback ^imm_arg ^arr_arg Delete_callback inputs =
+    (SOME (FFIreturn arr_arg (State Step inputs))) ∧
+  update_callback ^imm_arg ^arr_arg _ _ = NONE
 End
 
 Definition update_def:
@@ -372,7 +416,13 @@ Definition update_def:
     | SOME (waif_for, inputs) =>
         if ffi_name = strlit "step" then
           update_step imm_arg arr_arg waif_for inputs
-        else if ffi_name = ARB then NONE else NONE
+        else if ffi_name = strlit "clause" then
+          update_clause imm_arg arr_arg waif_for inputs
+        else if ffi_name = strlit "hints" then
+          update_hints imm_arg arr_arg waif_for inputs
+        else if ffi_name = strlit "callback" then
+          update_callback imm_arg arr_arg waif_for inputs
+        else NONE
 End
 
 (* definition of separation logic assertion CUSTOM_FFI *)
@@ -385,3 +435,120 @@ Definition CUSTOM_FFI_def:
   CUSTOM_FFI waif_for inputs events =
     one (FFI_part (State waif_for inputs) update names events)
 End
+
+(* verification of FFI calling functions *)
+
+Definition is_final_event_def:
+  is_final_event event ⇔
+    ∃xs. event = IO_event (ExtCall «step») [] xs ∧ SND (HD xs) = 0w
+End
+
+Theorem parse_step_NIL:
+  LENGTH step_arr = 17 ⇒
+  app (p:'ffi ffi_proj) parse_step_v [step_arrv; buf_arrv]
+    (CUSTOM_FFI Step [] events *
+     W8ARRAY step_arrv step_arr)
+    (POSTv res.
+       SEP_EXISTS step_arr1 final_event.
+         CUSTOM_FFI Terminate [] (events ++ [final_event]) *
+         W8ARRAY step_arrv step_arr1 *
+         cond (LENGTH step_arr1 = 17 ∧ is_final_event final_event ∧
+               ∃none.
+                 OPTION_TYPE INT NONE none ∧
+                 res = Conv NONE [buf_arrv; none]))
+Proof
+  rpt strip_tac >>
+  xcf_with_def (fetch "-" "parse_step_v_def") >>
+  qabbrev_tac ‘final_event = IO_event (ExtCall «step») [] (ZIP (step_arr,0w::TL step_arr))’ >>
+  xlet ‘POSTv res.
+    CUSTOM_FFI Terminate [] (events ++ [final_event]) * W8ARRAY step_arrv (0w :: TL step_arr)’
+  >-
+   (xffi >>
+    gvs [CUSTOM_FFI_def,implode_def] >>
+    xsimpl >>
+    qexists_tac ‘emp’ >> xsimpl >>
+    irule_at Any SEP_IMP_REFL >>
+    conj_tac >- EVAL_TAC >>
+    conj_tac >- EVAL_TAC >>
+    simp [update_def,update_step_def] >>
+    gvs [names_def,SEP_CLAUSES] >>
+    xsimpl) >>
+  xlet_auto >- xsimpl >>
+  xlet_auto >- xsimpl >>
+  gvs [CHAR_def,WORD_def] >>
+  xmatch >>
+  xlet ‘POSTv res. W8ARRAY step_arrv (0w::TL step_arr) *
+           CUSTOM_FFI Terminate [] (events ++ [final_event]) *
+           cond (OPTION_TYPE INT NONE res)’
+  >- (xcon >> gvs [OPTION_TYPE_def] >> xsimpl) >>
+  xcon >>
+  xsimpl >>
+  gvs [LENGTH_EQ_NUM_compute] >>
+  qexists_tac ‘final_event’ >>
+  xsimpl >>
+  unabbrev_all_tac >>
+  gvs [is_final_event_def]
+QED
+
+Definition is_unsat_event_def:
+  is_unsat_event event ⇔
+    ∃xs. event = IO_event (ExtCall «step») [] xs ∧ SND (HD xs) = n2w (ORD #"V")
+End
+
+Theorem parse_step_Validate_UNSAT:
+  LENGTH step_arr = 17 ⇒
+  app (p:'ffi ffi_proj) parse_step_v [step_arrv; buf_arrv]
+    (CUSTOM_FFI Step (Validate_UNSAT :: inputs) events *
+     W8ARRAY step_arrv step_arr)
+    (POSTv res.
+       SEP_EXISTS step_arr1 unsat_event.
+         CUSTOM_FFI Validate_UNSAT_callback inputs (events ++ [unsat_event]) *
+         W8ARRAY step_arrv step_arr1 *
+         cond (LENGTH step_arr1 = 17 ∧ is_unsat_event unsat_event ∧
+               ∃v. OPTION_TYPE DISTRUP_DISTRUP_TYPE (SOME ValidateUnsat) v ∧
+                   res = Conv NONE [buf_arrv; v]))
+Proof
+  rpt strip_tac >>
+  xcf_with_def (fetch "-" "parse_step_v_def") >>
+  qabbrev_tac ‘unsat_event = IO_event (ExtCall «step») [] (ZIP (step_arr,n2w (ORD #"V")::TL step_arr))’ >>
+  xlet ‘POSTv res.
+    CUSTOM_FFI Validate_UNSAT_callback inputs (events ++ [unsat_event]) * W8ARRAY step_arrv (n2w (ORD #"V") :: TL step_arr)’
+  >-
+   (xffi >>
+    gvs [CUSTOM_FFI_def,implode_def] >>
+    xsimpl >>
+    qexists_tac ‘emp’ >> xsimpl >>
+    irule_at Any SEP_IMP_REFL >>
+    conj_tac >- EVAL_TAC >>
+    conj_tac >- EVAL_TAC >>
+    simp [update_def,update_step_def] >>
+    gvs [names_def,SEP_CLAUSES] >>
+    xsimpl) >>
+  xlet_auto >- xsimpl >>
+  xlet_auto >- xsimpl >>
+  gvs [CHAR_def,WORD_def] >>
+  xmatch >>
+  xlet ‘POSTv res. CUSTOM_FFI Validate_UNSAT_callback inputs (events ++ [unsat_event]) *
+           W8ARRAY step_arrv (n2w (ORD #"V") :: TL step_arr) *
+           cond (DISTRUP_DISTRUP_TYPE ValidateUnsat res)’
+  >- (xcon >> gvs [DISTRUP_DISTRUP_TYPE_def] >> xsimpl) >>
+  xlet_auto >- (xsimpl >> xcon >> xsimpl) >>
+  xcon >>
+  xsimpl >>
+  gvs [LENGTH_EQ_NUM_compute] >>
+  qexists_tac ‘unsat_event’ >>
+  xsimpl >>
+  unabbrev_all_tac >>
+  rewrite_tac [OPTION_TYPE_def] >>
+  gvs [is_unsat_event_def]
+QED
+
+(*
+Theorem aim:
+  ∀inputs.
+    app p main (CUSTOM_FFI Step inputs [] * CL ...)
+               (SEP_EXISTS trace.
+                  CUSTOM_FFI Terminate [] trace * CL ... *
+                  cond (trace_ok trace))
+Proof
+*)
