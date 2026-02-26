@@ -1,13 +1,21 @@
 (*
-  Heap-sort in an array, where the array is represented by a function.
 
-  Used to verify a stateful heap sort which uses a mutable array to
-  hold the heap contents during sorting, e.g. one written in CakeML.
+  A heap-sort variant that builds a list of exactly-balanced heaps.
 
-  Could potentially move out of CakeML to HOL4 sorting theories.
+  This is prototyped and verified as a standard recursive functional program.
+
+  It is also presented as an in-array algorithm, where the list of heaps are
+  placed in segments of an array.
+
+  This allows the one algorithm to be evaluated either via its pure functional
+  instance or as an in-place algorithm in CakeML.
+
+  The heap segments all point in the correct direction, so, unlike a standard
+  in-array heap-sort, sorting a sorted array requires linear-time comparisons
+  and no data moves.
 *)
 
-Theory heap_sort_in_fun
+Theory heap_list_sort
 Ancestors
    list rich_list sorting container bag
 
