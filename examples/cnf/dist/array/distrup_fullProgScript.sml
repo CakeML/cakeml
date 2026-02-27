@@ -676,12 +676,134 @@ Proof
   cheat
 QED
 
-(*
-Theorem aim:
-  ∀inputs.
-    app p main (CUSTOM_FFI Step inputs [] * CL ...)
-               (SEP_EXISTS trace.
-                  CUSTOM_FFI Terminate [] trace * CL ... *
-                  cond (trace_ok trace))
+Inductive events_ok:
+[~init:]
+  events_ok [] (REPLICATE n NONE, REPLICATE k 0w, b)
+[~produce_fail:]
+  events_ok events (fmlls, Clist, b) ∧
+  is_produce_events n vc produce_events ∧
+  (* TODO: constrain output_event *)
+  check_distrup_list (Lrup n vc hints) fmlls Clist b = SOME (fmlls', Clist', b')
+  ⇒
+  events_ok (events ++ produce_events ++ [output_event]) (fmlls', Clist', b')
+End
+
+Definition full_events_ok_def:
+  full_events_ok events ⇔
+    ∃xs final fmlls Clist b.
+      events = xs ++ [final] ∧
+      events_ok xs (fmlls, Clist, b) ∧
+      is_final_event final
+End
+
+Theorem loop_spec:
+  ∀inputs lno lnov events fmlls fmllsv Clist step_arr step_arrv buf_arrv stv.
+    NUM lno lnov ∧
+    LIST_REL (OPTION_TYPE vcclause_TYPE) fmlls fmllsv ∧
+    bnd_fml fmlls (LENGTH Clist) ∧
+    events_ok events (fmlls, Clist, b) ∧
+    LENGTH step_arr = 17 ⇒
+    app (p:'ffi ffi_proj) loop_v [step_arrv; buf_arrv; stv; lnov]
+        (CUSTOM_FFI Step inputs events *
+         ARRAY fmlv fmllsv *
+         W8ARRAY Carrv Clist *
+         W8ARRAY buf_arrv buf_arr *
+         W8ARRAY step_arrv step_arr)
+        (POSTv res.
+           SEP_EXISTS step_arr1 buf_arrv buf_arr new_events fmlls1 Clist1 b1.
+             CUSTOM_FFI Terminate [] new_events *
+             ARRAY fmlv fmllsv *
+             W8ARRAY Carrv Clist *
+             W8ARRAY buf_arrv buf_arr *
+             W8ARRAY step_arrv step_arr1 *
+             cond (full_events_ok new_events))
 Proof
-*)
+  Induct
+  >-
+   (rpt strip_tac >>
+    xcf_with_def (fetch "-" "loop_v_def") >>
+    xlet_auto_spec (SOME parse_step_NIL)
+    >-
+     (xsimpl >>
+      rw [PULL_EXISTS] >>
+      first_x_assum $ irule_at Any >> xsimpl) >>
+    gvs [] >> xmatch >>
+    gvs [OPTION_TYPE_def] >>
+    xmatch >> xcon >>
+    xsimpl >>
+    qexistsl [‘buf_arrv’,‘buf_arr’,‘(events ++ [final_event])’] >>
+    xsimpl >>
+    simp [full_events_ok_def] >>
+    first_x_assum $ irule_at Any) >>
+  Cases_on ‘h’
+  >~ [‘Produce i c h’] >-
+   (rpt strip_tac >>
+    xcf_with_def (fetch "-" "loop_v_def") >>
+    xlet ‘POSTv res.
+            SEP_EXISTS step_arr1 buf_arrv buf_arr produce_events cl hs.
+              CUSTOM_FFI (Produce_callback i) inputs (events ++ produce_events) *
+              W8ARRAY buf_arrv buf_arr * W8ARRAY step_arrv step_arr1 *
+              ARRAY fmlv fmllsv *
+              W8ARRAY Carrv Clist *
+              cond (LENGTH step_arr1 = 17 ∧
+                    is_produce_events (w2n i) cl produce_events ∧
+                    ∃v. OPTION_TYPE DISTRUP_DISTRUP_TYPE (SOME (Lrup (w2n i) cl hs)) v ∧
+                        res = Conv NONE [buf_arrv; v])’
+    >-
+     (xapp_spec parse_step_Produce >>
+      qrefinel [‘_’,‘step_arr’,‘inputs’,‘i’,‘h’,‘events’,‘c’,‘buf_arr’] >>
+      xsimpl >>
+      rw [] >>
+      first_x_assum $ irule_at Any >>
+      first_x_assum $ irule_at Any >>
+      xsimpl) >>
+    gvs [] >>
+    xmatch >> gvs [OPTION_TYPE_def] >>
+    xmatch >> gvs [] >>
+    cheat)
+  >~ [‘Import i c’] >- cheat
+  >~ [‘Delete h’] >- cheat
+  >~ [‘Validate_UNSAT’] >- cheat
+QED
+
+Theorem main_spec:
+  app (p:'ffi ffi_proj) main_v [Conv NONE []]
+    (CUSTOM_FFI Step inputs [])
+    (POSTv res.
+       SEP_EXISTS events.
+         CUSTOM_FFI Terminate [] events *
+         cond (full_events_ok events))
+Proof
+  rpt strip_tac >>
+  xcf_with_def (fetch "-" "main_v_def") >>
+  xmatch  >> gvs [] >>
+  xlet_auto >- xsimpl >>
+  xlet_auto >- xsimpl >>
+  xlet_auto >- xsimpl >>
+  xlet_auto >- xsimpl >>
+  xlet_auto >- (xcon >> xsimpl) >>
+  xlet_auto >- xsimpl >>
+  xlet_auto >- xsimpl >>
+  xlet_auto >- xsimpl >>
+  xlet_auto >- xsimpl >>
+  xlet_auto >- (xcon >> xsimpl) >>
+  xlet_auto >- (xcon >> xsimpl) >>
+  xapp >>
+  qexists ‘emp’ >> xsimpl >>
+  qrefinel [‘inputs’,‘_’,‘_’,‘[]’] >>
+  xsimpl >>
+  qexists ‘av’ >>
+  qexists ‘REPLICATE 4096 (Conv (SOME (TypeStamp «None» 2)) [])’ >>
+  xsimpl >>
+  irule_at Any SEP_IMP_REFL >>
+  qexists ‘REPLICATE 4096 NONE’ >>
+  simp [Once events_ok_cases] >>
+  conj_tac >-
+   (gvs [ccnf_listTheory.bnd_fml_def,miscTheory.any_el_ALT,EL_REPLICATE, SF CONJ_ss]) >>
+  conj_tac >- metis_tac [] >>
+  conj_tac >-
+   (gvs [LIST_REL_EL_EQN,OPTION_TYPE_def,EL_REPLICATE]) >>
+  rw [] >> rename [‘CUSTOM_FFI Terminate [] xx’] >>
+  pop_assum $ irule_at Any >>
+  xsimpl
+QED
