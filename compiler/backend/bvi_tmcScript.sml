@@ -87,12 +87,12 @@ Definition cons_to_tc_and_hb_def:
 End
 
 Definition rewrite_aux_BlockOp_Cons_def:
-  rewrite_aux_BlockOp_Cons ts loc loc_opt arity block_tag op_args =
+  rewrite_aux_BlockOp_Cons ts loc loc_opt i_hole_ptr block_tag op_args =
     case cons_to_tc_and_hb loc block_tag op_args of
     | TC (TCall t args h) (HoleBlock tag l hole r) =>
         let hb            = HoleBlock tag l hole r in
         let i             = & LENGTH l in
-        let var_hole_ptr  = Var arity in
+        let var_hole_ptr  = Var i_hole_ptr in
         let exp_hole_idx  = Op (IntOp (Const i)) [] in
         let exp_mut_cons  = to_mut_cons hb in
         let exp_tail_call = Call t (SOME loc_opt) (exp_hole_idx :: var_hole_ptr :: args) h in
@@ -102,40 +102,40 @@ Definition rewrite_aux_BlockOp_Cons_def:
 End
 
 Definition rewrite_aux_def:
-  (rewrite_aux ts loc loc_opt arity (Var n) = NONE) ∧
-  (rewrite_aux ts loc loc_opt arity (If xi xt xe) =
-    let opt_t = rewrite_aux ts loc loc_opt arity xt in
-    let opt_e = rewrite_aux ts loc loc_opt arity xe in
+  (rewrite_aux ts loc loc_opt i_hole_ptr (Var n) = NONE) ∧
+  (rewrite_aux ts loc loc_opt i_hole_ptr (If xi xt xe) =
+    let opt_t = rewrite_aux ts loc loc_opt i_hole_ptr xt in
+    let opt_e = rewrite_aux ts loc loc_opt i_hole_ptr xe in
     case (opt_t, opt_e) of
     | (NONE, NONE) => NONE
     | (SOME yt, NONE) => SOME $ If xi yt xe
     | (NONE, SOME ye) => SOME $ If xi xt ye
     | (SOME yt, SOME ye) => SOME $ If xi yt ye) ∧
-  (rewrite_aux ts loc loc_opt arity (Let xs x) =
-    case rewrite_aux ts loc loc_opt (arity + LENGTH xs) x of
+  (rewrite_aux ts loc loc_opt i_hole_ptr (Let xs x) =
+    case rewrite_aux ts loc loc_opt (i_hole_ptr + LENGTH xs) x of
     | NONE => NONE
     | SOME y => SOME $ Let xs y) ∧
-  (rewrite_aux ts loc loc_opt arity (Raise x) = NONE) ∧
-  (rewrite_aux ts loc loc_opt arity (Tick x) = OPTION_MAP Tick $ rewrite_aux ts loc loc_opt arity x) ∧
-  (rewrite_aux ts loc loc_opt arity (Force _ n) = NONE) ∧
-  (rewrite_aux ts loc loc_opt arity (Call t d args h) = NONE) ∧
-  (rewrite_aux ts loc loc_opt arity (Op op op_args) =
+  (rewrite_aux ts loc loc_opt i_hole_ptr (Raise x) = NONE) ∧
+  (rewrite_aux ts loc loc_opt i_hole_ptr (Tick x) = OPTION_MAP Tick $ rewrite_aux ts loc loc_opt i_hole_ptr x) ∧
+  (rewrite_aux ts loc loc_opt i_hole_ptr (Force _ n) = NONE) ∧
+  (rewrite_aux ts loc loc_opt i_hole_ptr (Call t d args h) = NONE) ∧
+  (rewrite_aux ts loc loc_opt i_hole_ptr (Op op op_args) =
     case op of
-    | BlockOp (Cons block_tag) => rewrite_aux_BlockOp_Cons ts loc loc_opt arity block_tag op_args
+    | BlockOp (Cons block_tag) => rewrite_aux_BlockOp_Cons ts loc loc_opt i_hole_ptr block_tag op_args
     | _ => NONE) ∧
-  (rewrite_aux ts loc loc_opt arity _ = NONE)
+  (rewrite_aux ts loc loc_opt i_hole_ptr _ = NONE)
 End
 
 (* Assumes that the function can and should be optimised - has been checked by rewrite_aux_def. *)
 Definition rewrite_opt_BlockOp_Cons_def:
-  rewrite_opt_BlockOp_Cons ts loc loc_opt arity block_tag op_args =
+  rewrite_opt_BlockOp_Cons ts loc loc_opt i_old_hole_ptr i_old_hole_idx i_new_hole_ptr block_tag op_args =
     case cons_to_tc_and_hb loc block_tag op_args of
     | TC (TCall t args h) (HoleBlock tag l hole r) =>
         let hb               = HoleBlock tag l hole r in
         let i                = & LENGTH l in
-        let arg_old_hole_ptr = Var arity in
-        let arg_old_hole_idx = Var (arity + 1) in
-        let var_new_hole_ptr = Var (arity + 2) in
+        let arg_old_hole_ptr = Var i_old_hole_ptr in
+        let arg_old_hole_idx = Var i_old_hole_idx in
+        let var_new_hole_ptr = Var i_new_hole_ptr in
         let exp_new_hole_idx = Op (IntOp (Const i)) [] in
         let exp_mut_cons     = to_mut_cons hb in
         let exp_update_hole  = Op (MemOp UpdateCons) [arg_old_hole_ptr; arg_old_hole_idx; var_new_hole_ptr] in
@@ -146,23 +146,25 @@ End
 
 (* Assumes that the function can and should be optimised - has been checked by rewrite_aux_def. *)
 Definition rewrite_opt_def:
-  (rewrite_opt ts loc loc_opt arity (If xi xt xe) =
-    let yt = rewrite_opt ts loc loc_opt arity xt in
-    let ye = rewrite_opt ts loc loc_opt arity xe in
+  (rewrite_opt ts loc loc_opt i_old_hole_ptr i_old_hole_idx i_new_hole_ptr (If xi xt xe) =
+    let yt = rewrite_opt ts loc loc_opt i_old_hole_ptr i_old_hole_idx i_new_hole_ptr xt in
+    let ye = rewrite_opt ts loc loc_opt i_old_hole_ptr i_old_hole_idx i_new_hole_ptr xe in
     If xi yt ye) ∧
-  (rewrite_opt ts loc loc_opt arity (Let xs x) = Let xs $ rewrite_opt ts loc loc_opt (arity + LENGTH xs) x) ∧
-  (rewrite_opt ts loc loc_opt arity (Raise x) = Raise x) ∧
-  (rewrite_opt ts loc loc_opt arity (Op op op_args) =
+  (rewrite_opt ts loc loc_opt i_old_hole_ptr i_old_hole_idx i_new_hole_ptr (Let xs x) =
+    let offset = LENGTH xs in
+      Let xs $ rewrite_opt ts loc loc_opt (i_old_hole_ptr + offset) (i_old_hole_idx + offset) (i_new_hole_ptr + offset) x) ∧
+  (rewrite_opt ts loc loc_opt i_old_hole_ptr i_old_hole_idx i_new_hole_ptr (Raise x) = Raise x) ∧
+  (rewrite_opt ts loc loc_opt i_old_hole_ptr i_old_hole_idx i_new_hole_ptr (Op op op_args) =
     case op of
-    | BlockOp (Cons block_tag) => rewrite_opt_BlockOp_Cons ts loc loc_opt arity block_tag op_args
+    | BlockOp (Cons block_tag) => rewrite_opt_BlockOp_Cons ts loc loc_opt i_old_hole_ptr i_old_hole_idx i_new_hole_ptr block_tag op_args
     | _ =>
-      let arg_hole_ptr = Var arity in
-      let arg_hole_idx = Var (arity + 1) in
+      let arg_hole_ptr = Var i_old_hole_ptr in
+      let arg_hole_idx = Var i_old_hole_idx in
       let exp_hole_val = Op op op_args in
         Op (MemOp UpdateCons) [arg_hole_ptr; arg_hole_idx; exp_hole_val]) ∧
-  (rewrite_opt ts loc loc_opt arity expr =
-    let arg_hole_ptr = Var arity in
-    let arg_hole_idx = Var (arity + 1) in
+  (rewrite_opt ts loc loc_opt i_old_hole_ptr i_old_hole_idx i_new_hole_ptr expr =
+    let arg_hole_ptr = Var i_old_hole_ptr in
+    let arg_hole_idx = Var i_old_hole_idx in
       Op (MemOp UpdateCons) [arg_hole_ptr; arg_hole_idx; expr])
 End
 
@@ -171,7 +173,7 @@ Definition compile_exp_def:
     case rewrite_aux 0 (* TODO *) loc next arity exp of
     | NONE => NONE
     | SOME exp_aux =>
-      let exp_opt = rewrite_opt 0 (* TODO *) loc next arity exp in
+      let exp_opt = rewrite_opt 0 (* TODO *) loc next arity (arity + 1) (arity + 2) exp in
       SOME (exp_aux, exp_opt)
 End
 
