@@ -52,7 +52,7 @@ Definition cons_to_tc_and_hb_def:
     | (TC _ _, TC _ _) => DupTC
     | (NoTC, NoTC) => NoTC
     | (TC call' hb', NoTC) =>
-        let hb  = HoleBlock tag [] (SOME hb') op_args in
+        let hb = HoleBlock tag [] (SOME hb') op_args in
           TC call' hb
     | (NoTC, TC call hb) =>
         let cons = Op (BlockOp (Cons tag')) op_args' in
@@ -82,18 +82,21 @@ Definition cons_to_tc_and_hb_def:
     | DupTC => DupTC
     | NoTC => NoTC
     | TC call hb =>
-       let hb'   = push_left hb op_arg in
+       let hb' = push_left hb op_arg in
          TC call hb')
 End
 
 Definition rewrite_aux_BlockOp_Cons_def:
   rewrite_aux_BlockOp_Cons ts loc loc_opt arity block_tag op_args =
     case cons_to_tc_and_hb loc block_tag op_args of
-    | TC (TCall t args h) hb =>
-        let var_new_hole_ptr = Var arity in
-        let exp_mut_cons     = to_mut_cons hb in
-        let exp_tail_call    = Call t (SOME loc_opt) (var_new_hole_ptr :: args) h in
-        let exp_finalise     = Op (MemOp FinaliseCons) [var_new_hole_ptr] in
+    | TC (TCall t args h) (HoleBlock tag l hole r) =>
+        let hb            = HoleBlock tag l hole r in
+        let i             = & LENGTH l in
+        let var_hole_ptr  = Var arity in
+        let exp_hole_idx  = Op (IntOp (Const i)) [] in
+        let exp_mut_cons  = to_mut_cons hb in
+        let exp_tail_call = Call t (SOME loc_opt) (exp_hole_idx :: var_hole_ptr :: args) h in
+        let exp_finalise  = Op (MemOp FinaliseCons) [var_hole_ptr] in
         SOME $ Let [exp_mut_cons; exp_tail_call] exp_finalise
     | _ => NONE
 End
@@ -127,12 +130,16 @@ End
 Definition rewrite_opt_BlockOp_Cons_def:
   rewrite_opt_BlockOp_Cons ts loc loc_opt arity block_tag op_args =
     case cons_to_tc_and_hb loc block_tag op_args of
-    | TC (TCall t args h) hb =>
+    | TC (TCall t args h) (HoleBlock tag l hole r) =>
+        let hb               = HoleBlock tag l hole r in
+        let i                = & LENGTH l in
         let arg_old_hole_ptr = Var arity in
-        let var_new_hole_ptr = Var (arity + 1) in
+        let arg_old_hole_idx = Var (arity + 1) in
+        let var_new_hole_ptr = Var (arity + 2) in
+        let exp_new_hole_idx = Op (IntOp (Const i)) [] in
         let exp_mut_cons     = to_mut_cons hb in
-        let exp_update_hole  = Op (MemOp UpdateCons) [arg_old_hole_ptr; (* TODO: i *) var_new_hole_ptr] in
-        let exp_tail_call    = Call t (SOME loc_opt) (var_new_hole_ptr :: args) h in
+        let exp_update_hole  = Op (MemOp UpdateCons) [arg_old_hole_ptr; arg_old_hole_idx; var_new_hole_ptr] in
+        let exp_tail_call    = Call t (SOME loc_opt) (exp_new_hole_idx :: var_new_hole_ptr :: args) h in
           Let [exp_mut_cons; exp_update_hole] $ exp_tail_call
     | _ => Op (BlockOp (Cons block_tag)) op_args
 End
@@ -149,11 +156,14 @@ Definition rewrite_opt_def:
     case op of
     | BlockOp (Cons block_tag) => rewrite_opt_BlockOp_Cons ts loc loc_opt arity block_tag op_args
     | _ =>
-      let arg_old_hole_ptr = Var arity in
-      Op (MemOp UpdateCons) [arg_old_hole_ptr; (Op op op_args)]) ∧
+      let arg_hole_ptr = Var arity in
+      let arg_hole_idx = Var (arity + 1) in
+      let exp_hole_val = Op op op_args in
+        Op (MemOp UpdateCons) [arg_hole_ptr; arg_hole_idx; exp_hole_val]) ∧
   (rewrite_opt ts loc loc_opt arity expr =
-    let arg_old_hole_ptr = Var arity in
-    Op (MemOp UpdateCons) [arg_old_hole_ptr; expr])
+    let arg_hole_ptr = Var arity in
+    let arg_hole_idx = Var (arity + 1) in
+      Op (MemOp UpdateCons) [arg_hole_ptr; arg_hole_idx; expr])
 End
 
 Definition compile_exp_def:
@@ -193,7 +203,6 @@ End
                   (let
                      (g <- (op (Const 0)))
                      (op (Cons 0) (call my_append@465 (var b) (var e)) (var d)))))))))
-
 *)
 
 val append_exp = “If (Op (BlockOp (TagLenEq 0 0)) [Var 0]) (Var 1) $
@@ -207,16 +216,16 @@ val append_expected = “(9:num,
           (Let [mk_elem_at (Var 0) 0; mk_elem_at (Var 0) 1]
              (Let
                 [Op (MemOp (MutCons 0 0)) [Op (IntOp (Const 0)) []; Var 2];
-                 Call 0 (SOME 6) [Var 4; Var 1; Var 3] NONE]
+                 Call 0 (SOME 6) [Op (IntOp (Const 0)) []; Var 4; Var 1; Var 3] NONE]
                 (Op (MemOp FinaliseCons) [Var 4]))));
        (6,4,
         If (Op (BlockOp (TagLenEq 0 0)) [Var 0])
-          (Op (MemOp UpdateCons) [Var 2; Var 1])
+          (Op (MemOp UpdateCons) [Var 2; Var 3; Var 1])
           (Let [mk_elem_at (Var 0) 0; mk_elem_at (Var 0) 1]
              (Let
                 [Op (MemOp (MutCons 0 0)) [Op (IntOp (Const 0)) []; Var 2];
-                 Op (MemOp UpdateCons) [Var 4; Var 5]]
-                (Call 0 (SOME 6) [Var 5; Var 1; Var 3] NONE))))])”;
+                 Op (MemOp UpdateCons) [Var 4; Var 5; Var 6]]
+                (Call 0 (SOME 6) [Op (IntOp (Const 0)) []; Var 6; Var 1; Var 3] NONE))))])”;
 
 Theorem append_check:
   compile_prog 6 ^append_prog = ^append_expected
@@ -281,7 +290,7 @@ val map_expected = “(9:num,
                                         [Var 3; Var 0; mk_elem_at (Var 0) 0]
                                         NONE)
                                      (Call 0 (SOME 5432) [Var 3; Var 0] NONE))];
-                             Call 0 (SOME 6) [Var 7; Var 4; Var 0] NONE]
+                             Call 0 (SOME 6) [Op (IntOp (Const 0)) []; Var 7; Var 4; Var 0] NONE]
                             (Op (MemOp FinaliseCons) [Var 7]))))))));
        (6,4,
         Let [Op (IntOp (Const 0)) []]
@@ -303,8 +312,8 @@ val map_expected = “(9:num,
                                         [Var 3; Var 0; mk_elem_at (Var 0) 0]
                                         NONE)
                                      (Call 0 (SOME 5432) [Var 3; Var 0] NONE))];
-                             Op (MemOp UpdateCons) [Var 7; Var 8]]
-                            (Call 0 (SOME 6) [Var 8; Var 4; Var 0] NONE))))))))])”;
+                             Op (MemOp UpdateCons) [Var 7; Var 8; Var 9]]
+                            (Call 0 (SOME 6) [Op (IntOp (Const 0)) []; Var 9; Var 4; Var 0] NONE))))))))])”;
 
 Theorem map_check:
   compile_prog 6 ^map_prog = ^map_expected
