@@ -223,17 +223,18 @@ End
     - we need to encode and decode this into/from the ‘:ffi’ type
  *----------------------------------------------------------------------*)
 
+Type id = “:word64”;
 Type clause = “:word32 list”;
 Type hints = “:word64 list”;
 
 (* what to wait for as the next C call *)
 Datatype:
   wait_for = Step
-           | Produce_clause clause hints
-           | Produce_hints hints
-           | Produce_callback
-           | Import_clause clause
-           | Import_callback
+           | Produce_clause id clause hints
+           | Produce_hints id hints
+           | Produce_callback id
+           | Import_clause id clause
+           | Import_callback id
            | Delete_hints hints
            | Delete_callback
            | Validate_UNSAT_callback
@@ -242,8 +243,8 @@ End
 
 (* each input is one of: *)
 Datatype:
-  input = Produce clause hints
-        | Import clause
+  input = Produce id clause hints
+        | Import id clause
         | Delete hints
         | Validate_UNSAT
 End
@@ -265,11 +266,11 @@ Definition WaitFor_def:
   WaitFor wf =
     case wf of
     | Step => Str (strlit "Step")
-    | Produce_clause c h => Cons (Str (strlit "Produce_clause")) (Cons (Clause c) (Hints h))
-    | Produce_hints h => Cons (Str (strlit "Produce_hints")) (Hints h)
-    | Produce_callback => Str (strlit "Produce_callback")
-    | Import_clause c => Cons (Str (strlit "Import_clause")) (Clause c)
-    | Import_callback => Str (strlit "Import_callback")
+    | Produce_clause i c h => Cons (Str (strlit "Produce_clause")) (Cons (Num (w2n i)) (Cons (Clause c) (Hints h)))
+    | Produce_hints i h => Cons (Str (strlit "Produce_hints")) (Cons (Num (w2n i)) (Hints h))
+    | Produce_callback i => Cons (Str (strlit "Produce_callback")) (Num (w2n i))
+    | Import_clause i c => Cons (Str (strlit "Import_clause")) (Cons (Num (w2n i)) (Clause c))
+    | Import_callback i => Cons (Str (strlit "Import_callback")) (Num (w2n i))
     | Delete_hints h => Cons (Str (strlit "Delete_hints")) (Hints h)
     | Delete_callback => Str (strlit "Delete_callback")
     | Validate_UNSAT_callback => Str (strlit "Validate_UNSAT_callback")
@@ -277,10 +278,12 @@ Definition WaitFor_def:
 End
 
 Definition Input_def:
-  Input (Produce c h)  = Cons (Str (strlit "Produce")) (Cons (Clause c) (Hints h)) ∧
-  Input (Import c)     = Cons (Str (strlit "Import")) (Clause c) ∧
-  Input (Delete h)     = Cons (Str (strlit "Delete")) (Hints h) ∧
-  Input Validate_UNSAT = Str (strlit "Validate_UNSAT")
+  Input (Produce i c h) = Cons (Str (strlit "Produce"))
+                               (Cons (Num (w2n i)) (Cons (Clause c) (Hints h))) ∧
+  Input (Import i c)    = Cons (Str (strlit "Import"))
+                               (Cons (Num (w2n i)) (Clause c)) ∧
+  Input (Delete h)      = Cons (Str (strlit "Delete")) (Hints h) ∧
+  Input Validate_UNSAT  = Str (strlit "Validate_UNSAT")
 End
 
 Definition State_def:
@@ -352,20 +355,22 @@ Definition update_step_def:
        | [] => SOME (FFIreturn (0w :: TL arr_arg) (State Terminate inputs))
        | (i::is) =>
          case i of
-         | Produce c h =>
+         | Produce id c h =>
              SOME (FFIreturn ([n2w (ORD #"a")] ++
+                              word_to_bytes (id : word64) F ++
                               word_to_bytes (n2w (LENGTH c) : word32) F ++
                               word_to_bytes (n2w (LENGTH h) : word32) F)
-                             (State (Produce_clause c h) is))
-         | Import c =>
+                             (State (Produce_clause id c h) is))
+         | Import id c =>
              SOME (FFIreturn ([n2w (ORD #"i")] ++
+                              word_to_bytes (id : word64) F ++
                               word_to_bytes (n2w (LENGTH c) : word32) F ++
-                              word_to_bytes (n2w 0 : word32) F)
-                             (State (Import_clause c) is))
+                              DROP 13 arr_arg)
+                             (State (Import_clause id c) is))
          | Delete h =>
              SOME (FFIreturn ([n2w (ORD #"d")] ++
-                              word_to_bytes (n2w 0 : word32) F ++
-                              word_to_bytes (n2w (LENGTH h) : word32) F)
+                              word_to_bytes (n2w (LENGTH h) : word32) F ++
+                              DROP 5 arr_arg)
                              (State (Delete_hints h) is))
          | Validate_UNSAT =>
              SOME (FFIreturn ([n2w (ORD #"V")] ++ TL arr_arg)
@@ -380,19 +385,19 @@ Definition write_bytes_def:
 End
 
 Definition update_clause_def:
-  update_clause ^imm_arg ^arr_arg (Produce_clause c h) inputs =
+  update_clause ^imm_arg ^arr_arg (Produce_clause id c h) inputs =
     (SOME (FFIreturn (write_bytes arr_arg (FLAT (MAP (λw. word_to_bytes w F) c)))
-                     (State (Produce_hints h) inputs))) ∧
-  update_clause ^imm_arg ^arr_arg (Import_clause c) inputs =
+                     (State (Produce_hints id h) inputs))) ∧
+  update_clause ^imm_arg ^arr_arg (Import_clause id c) inputs =
     (SOME (FFIreturn (write_bytes arr_arg (FLAT (MAP (λw. word_to_bytes w F) c)))
-                     (State Import_callback inputs))) ∧
+                     (State (Import_callback id) inputs))) ∧
   update_clause ^imm_arg ^arr_arg _ _ = NONE
 End
 
 Definition update_hints_def:
-  update_hints ^imm_arg ^arr_arg (Produce_hints h) inputs =
+  update_hints ^imm_arg ^arr_arg (Produce_hints id h) inputs =
     (SOME (FFIreturn (write_bytes arr_arg (FLAT (MAP (λw. word_to_bytes w F) h)))
-                     (State Produce_callback inputs))) ∧
+                     (State (Produce_callback id) inputs))) ∧
   update_hints ^imm_arg ^arr_arg (Delete_hints h) inputs =
     (SOME (FFIreturn (write_bytes arr_arg (FLAT (MAP (λw. word_to_bytes w F) h)))
                      (State Delete_callback inputs))) ∧
@@ -400,9 +405,9 @@ Definition update_hints_def:
 End
 
 Definition update_callback_def:
-  update_callback ^imm_arg ^arr_arg Produce_callback inputs =
+  update_callback ^imm_arg ^arr_arg (Produce_callback id) inputs =
     (SOME (FFIreturn arr_arg (State Step inputs))) ∧
-  update_callback ^imm_arg ^arr_arg Import_callback inputs =
+  update_callback ^imm_arg ^arr_arg (Import_callback id) inputs =
     (SOME (FFIreturn arr_arg (State Step inputs))) ∧
   update_callback ^imm_arg ^arr_arg Delete_callback inputs =
     (SOME (FFIreturn arr_arg (State Step inputs))) ∧
