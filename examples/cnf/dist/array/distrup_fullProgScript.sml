@@ -517,12 +517,13 @@ Proof
   xcf_with_def (fetch "-" "parse_step_v_def") >>
   qabbrev_tac ‘unsat_event = IO_event (ExtCall «step») [] (ZIP (step_arr,n2w (ORD #"V")::TL step_arr))’ >>
   xlet ‘POSTv res.
-    CUSTOM_FFI Validate_UNSAT_callback inputs (events ++ [unsat_event]) * W8ARRAY step_arrv (n2w (ORD #"V") :: TL step_arr)’
+    CUSTOM_FFI Validate_UNSAT_callback inputs (events ++ [unsat_event]) *
+    W8ARRAY step_arrv (n2w (ORD #"V") :: TL step_arr)’
   >-
    (xffi >>
     gvs [CUSTOM_FFI_def,implode_def] >>
     xsimpl >>
-    qexists_tac ‘emp’ >> xsimpl >>
+    qexists_tac ‘emp’  >> xsimpl >>
     irule_at Any SEP_IMP_REFL >>
     conj_tac >- EVAL_TAC >>
     conj_tac >- EVAL_TAC >>
@@ -546,6 +547,133 @@ Proof
   unabbrev_all_tac >>
   rewrite_tac [OPTION_TYPE_def] >>
   gvs [is_unsat_event_def]
+QED
+
+Theorem get_u64_spec:
+  ∀xs k ys nv.
+    NUM k nv ∧ k = LENGTH xs ⇒
+    app (p:'ffi ffi_proj) get_u64_v [step_arrv; nv]
+        (W8ARRAY step_arrv (xs ++ word_to_bytes (id : word64) F ++ ys))
+        (POSTv res.
+          W8ARRAY step_arrv (xs ++ word_to_bytes id F ++ ys) *
+          cond (NUM (w2n id) res))
+Proof
+  cheat
+QED
+
+Definition read_ints_def:
+  read_ints k xs =
+    if k = 0:num then [] else
+      w2i (word_of_bytes F 0w (TAKE 4 xs) : word32) :: read_ints (k-1) (DROP 4 xs)
+End
+
+Definition is_produce_events_def:
+  is_produce_events id cl produce_events ⇔
+    ∃xs1 xs2 xs3 clen.
+      produce_events = [IO_event (ExtCall «step»)   [] xs1;
+                        IO_event (ExtCall «clause») [] xs2;
+                        IO_event (ExtCall «hints»)  [] xs3] ∧
+      LENGTH xs1 = 17 ∧
+      SND (HD xs1) = n2w (ORD #"a") ∧
+      word_to_bytes (n2w id : word64) F = MAP SND (TAKE 8 (DROP 1 xs1)) ∧
+      word_to_bytes (clen   : word32) F = MAP SND (TAKE 4 (DROP 9 xs1)) ∧
+      w2n clen * 4 ≤ LENGTH xs2 ∧
+      cl = Vector (read_ints (w2n clen) (MAP SND xs2))
+End
+
+Theorem parse_step_Produce:
+  LENGTH step_arr = 17 ⇒
+  app (p:'ffi ffi_proj) parse_step_v [step_arrv; buf_arrv]
+    (CUSTOM_FFI Step (Produce id c h :: inputs) events *
+     W8ARRAY buf_arrv buf_arr *
+     W8ARRAY step_arrv step_arr)
+    (POSTv res.
+       SEP_EXISTS step_arr1 buf_arrv buf_arr produce_events cl hs.
+         CUSTOM_FFI (Produce_callback id) inputs (events ++ produce_events) *
+         W8ARRAY buf_arrv buf_arr *
+         W8ARRAY step_arrv step_arr1 *
+         cond (LENGTH step_arr1 = 17 ∧
+               is_produce_events (w2n id) cl produce_events ∧
+               ∃v. OPTION_TYPE DISTRUP_DISTRUP_TYPE (SOME (Lrup (w2n id) cl hs)) v ∧
+                   res = Conv NONE [buf_arrv; v]))
+Proof
+  rpt strip_tac >>
+  xcf_with_def (fetch "-" "parse_step_v_def") >>
+  qabbrev_tac ‘a1 = [n2w (ORD #"a")] ++
+                    word_to_bytes (id : word64) F ++
+                    word_to_bytes (n2w (LENGTH c) : word32) F ++
+                    word_to_bytes (n2w (LENGTH h) : word32) F’ >>
+  qabbrev_tac ‘event1 = IO_event (ExtCall «step») [] (ZIP (step_arr,a1))’ >>
+  xlet ‘POSTv res.
+      CUSTOM_FFI (Produce_clause id c h) inputs (events ++ [event1]) *
+      W8ARRAY buf_arrv buf_arr *
+      W8ARRAY step_arrv a1’
+  >-
+   (xffi >>
+    gvs [CUSTOM_FFI_def,implode_def] >>
+    xsimpl >>
+    qexists_tac ‘W8ARRAY buf_arrv buf_arr’ >> xsimpl >>
+    irule_at Any SEP_IMP_REFL >>
+    conj_tac >- EVAL_TAC >>
+    conj_tac >- EVAL_TAC >>
+    simp [update_def,update_step_def] >>
+    gvs [names_def,SEP_CLAUSES] >>
+    xsimpl) >>
+  xlet_auto >- xsimpl >>
+  xlet_auto >- xsimpl >>
+  gvs [CHAR_def,WORD_def] >>
+  xmatch >>
+  xlet ‘POSTv res.
+    W8ARRAY step_arrv a1 *
+    W8ARRAY buf_arrv buf_arr *
+    CUSTOM_FFI (Produce_clause id c h) inputs (events ++ [event1]) *
+    cond (NUM (w2n id) res)’
+  >-
+   (xapp >> xsimpl >>
+    gvs [LENGTH_EQ_NUM_compute,PULL_EXISTS,Abbr‘a1’] >>
+    rewrite_tac [GSYM APPEND_ASSOC] >>
+    irule_at Any EQ_REFL >> fs []) >>
+  xlet_auto >- xsimpl >>
+  xlet_auto >- xsimpl >>
+  xlet_auto >- (xcon \\ xsimpl) >>
+  xlet ‘POSTv res.
+    SEP_EXISTS buf_arrv1 buf_arr1 cl event2.
+      W8ARRAY step_arrv a1 *
+      W8ARRAY buf_arrv1 buf_arr1 *
+      CUSTOM_FFI (Produce_hints id h) inputs (events ++ [event1; event2]) *
+      cond (∃v. res = Conv NONE [buf_arrv1; v] ∧
+                VECTOR_TYPE INT cl v)’
+  >- cheat >>
+  gvs [] >>
+  xmatch >>
+  xlet ‘POSTv res.
+    SEP_EXISTS buf_arrv1 buf_arr1 hs event3.
+      W8ARRAY step_arrv a1 *
+      W8ARRAY buf_arrv1 buf_arr1 *
+      CUSTOM_FFI (Produce_callback id) inputs (events ++ [event1; event2; event3]) *
+      cond (∃v. res = Conv NONE [buf_arrv1; v] ∧
+                LIST_TYPE NUM hs v)’
+  >- cheat >>
+  gvs [] >>
+  xmatch >>
+  xlet_auto >- (xcon >> xsimpl) >>
+  xlet_auto >- (xcon >> xsimpl) >>
+  xcon >> xsimpl >>
+  simp [PULL_EXISTS] >> xsimpl >>
+  qexists ‘[event1; event2; event3]’ >> xsimpl >>
+  gvs [] >>
+  gvs [OPTION_TYPE_def, DISTRUP_DISTRUP_TYPE_def] >>
+  first_x_assum $ irule_at Any >>
+  first_x_assum $ irule_at Any >>
+  simp [GSYM PULL_EXISTS] >>
+  conj_tac
+  >-
+   (unabbrev_all_tac >>
+    gvs [word_to_bytes_def] >>
+    simp [EVAL “word_to_bytes_aux 8 id F”,
+          EVAL “word_to_bytes_aux 4 id F”]) >>
+  gvs [is_produce_events_def,Abbr‘event1’] >>
+  cheat
 QED
 
 (*
