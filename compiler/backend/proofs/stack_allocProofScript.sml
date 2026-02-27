@@ -361,6 +361,14 @@ Proof
   \\ fs []
 QED
 
+Theorem lt_dimindex_MOD_dimword[local,simp]:
+  n < dimindex (:'a) ==> n MOD dimword (:'a) = n
+Proof
+  strip_tac
+  \\ `n < dimword (:'a)` by metis_tac [dimindex_lt_dimword, LESS_TRANS]
+  \\ fs [LESS_MOD]
+QED
+
 val tac = simp [list_Seq_def,evaluate_def,inst_def,word_exp_def,get_var_def,
        wordLangTheory.word_op_def,mem_load_def,assign_def,set_var_def,
        FLOOKUP_UPDATE,mem_store_def,dec_clock_def,get_var_imm_def,

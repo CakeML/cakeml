@@ -141,6 +141,7 @@ val _ = cv_trans arm8_load_store_ast32_def;
 val _ = cv_trans cmp_cond_def;
 val _ = cv_trans asmSemTheory.is_test_def;
 val bop_enc_pre = cv_trans_pre "" bop_enc_def;
+val _ = cv_trans arm8_targetTheory.arm8_shv_def;
 val arm8_ast_pre = cv_trans_pre "" (SRULE [SF LET_ss] arm8_ast_def);
 
 Theorem arm8_ast_pre[cv_pre]:
@@ -310,5 +311,3 @@ val _ = cv_auto_trans
 val _ = cv_trans backend_arm8Theory.to_livesets_arm8_def;
 val _ = cv_trans backend_arm8Theory.compile_cake_arm8_def;
 val _ = cv_auto_trans backend_arm8Theory.compile_cake_explore_arm8_def;
-
-

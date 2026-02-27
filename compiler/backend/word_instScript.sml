@@ -117,7 +117,7 @@ Definition pull_exp_def:
     let pull_ls = pull_ops op new_ls [] in
       optimize_consts op pull_ls) ∧
   (pull_exp (Load exp) = Load (pull_exp exp)) ∧
-  (pull_exp (Shift shift exp nexp) = Shift shift (pull_exp exp) nexp) ∧
+  (pull_exp (Shift shift exp nexp) = Shift shift (pull_exp exp) (pull_exp nexp)) ∧
   (pull_exp exp = exp)
 Termination
   WF_REL_TAC `measure (exp_size ARB)`
@@ -142,7 +142,7 @@ Theorem pull_exp_pmatch:
     let pull_ls = pull_ops op new_ls [] in
       optimize_consts op pull_ls)
   | Load exp => Load (pull_exp exp)
-  | Shift sh exp nexp => Shift sh (pull_exp exp) nexp
+  | Shift sh exp nexp => Shift sh (pull_exp exp) (pull_exp nexp)
   | exp => exp
 Proof
   rpt strip_tac
@@ -166,7 +166,7 @@ Definition flatten_exp_def:
   (flatten_exp (Op op [x]) = flatten_exp x) ∧
   (flatten_exp (Op op (x::xs)) = Op op [flatten_exp (Op op xs);flatten_exp x]) ∧
   (flatten_exp (Load exp) = Load (flatten_exp exp)) ∧
-  (flatten_exp (Shift shift exp nexp) = Shift shift (flatten_exp exp) nexp) ∧
+  (flatten_exp (Shift shift exp nexp) = Shift shift (flatten_exp exp) (flatten_exp nexp)) ∧
   (flatten_exp exp = exp)
 Termination
   WF_REL_TAC `measure (exp_size ARB)`
@@ -273,15 +273,22 @@ Definition inst_select_exp_def:
     | _ =>
       let p2 = inst_select_exp c (temp+1) (temp+1) e2 in
       Seq p1 (Seq p2 (Inst (Arith (Binop op tar temp (Reg (temp+1))))))) ∧
-  (inst_select_exp c tar temp (Shift sh exp n) =
-    if (n < dimindex(:'a)) then
-      let prog = inst_select_exp c temp temp exp in
-      if n = 0 then
-        Seq prog (Move 0 [tar,temp])
-      else
-        Seq prog (Inst (Arith (Shift sh tar temp n)))
-    else
-      Inst (Const tar 0w)) ∧
+  (inst_select_exp c tar temp (Shift sh exp e1) =
+    case e1 of
+    | Const shift_len =>
+        let n = w2n shift_len in
+          if (n < dimindex(:'a)) then
+            (let prog = inst_select_exp c temp temp exp in
+              if n = 0 then
+                Seq prog (Move 0 [tar,temp])
+              else
+                 Seq prog (Inst (Arith (Shift sh tar temp (Imm (n2w n))))))
+          else
+            Inst (Const tar 0w)
+    | _ =>
+      let p = inst_select_exp c temp temp exp in
+      let p1 = inst_select_exp c (temp+1) (temp+1) e1 in
+      Seq p (Seq p1 (Inst (Arith (Shift sh tar temp (Reg (temp+1))))))) ∧
   (*Make it total*)
   (inst_select_exp _ _ _ _ = Skip)
 Termination
@@ -335,15 +342,22 @@ Theorem inst_select_exp_pmatch:
     | _ =>
       let p2 = inst_select_exp c (temp+1) (temp+1) e2 in
       Seq (inst_select_exp c temp temp e1) (Seq p2 (Inst (Arith (Binop op tar temp (Reg (temp+1)))))))
-  | Shift sh exp n =>
-    (if (n < dimindex(:'a)) then
-      let prog = inst_select_exp c temp temp exp in
-      if n = 0 then
-        Seq prog (Move 0 [tar,temp])
-      else
-        Seq prog (Inst (Arith (Shift sh tar temp n)))
-    else
-      Inst (Const tar 0w))
+  | Shift sh exp e1 =>
+   (case e1 of
+    | Const shift_len =>
+        let n = w2n shift_len in
+          if (n < dimindex(:'a)) then
+            (let prog = inst_select_exp c temp temp exp in
+              if n = 0 then
+                Seq prog (Move 0 [tar,temp])
+              else
+                 Seq prog (Inst (Arith (Shift sh tar temp (Imm (n2w n))))))
+          else
+            Inst (Const tar 0w)
+    | _ =>
+      let p = inst_select_exp c temp temp exp in
+      let p1 = inst_select_exp c (temp+1) (temp+1) e1 in
+      Seq p (Seq p1 (Inst (Arith (Shift sh tar temp (Reg (temp+1)))))))
   (*Make it total*)
   | _ => Skip
 Proof
@@ -568,4 +582,3 @@ Definition three_to_two_reg_prog_def:
   three_to_two_reg_prog b prog =
     if b then three_to_two_reg prog else prog
 End
-

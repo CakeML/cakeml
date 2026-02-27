@@ -752,9 +752,13 @@ Proof
       imp_res_tac domain_big_union_subset>>
       metis_tac[SUBSET_DEF])>>
     fs[])
-  >>
-    qpat_x_assum`A=SOME res`mp_tac>>TOP_CASE_TAC>>rw[]>>
-    fs[]
+  >> namedCases_on ‘word_exp st w’ ["", "x"] >> fs []
+  >> Cases_on ‘x’ >> fs []
+  >> namedCases_on ‘word_exp st w'’ ["", "x"] >> fs []
+  >> Cases_on ‘x’ >> fs []
+  >> ntac 2 $ last_x_assum $ qspecl_then [‘cst’, ‘f’] assume_tac >> gvs []
+  >> ntac 2 $ pop_assum $ DEP_REWRITE_TAC o single >> fs []
+  >> rpt strip_tac >> fs [] >> first_assum irule >> fs [domain_union]
 QED
 
 Theorem strong_locals_rel_insert:
@@ -1000,11 +1004,14 @@ Proof
       metis_tac[INSERT_SING_UNION,strong_locals_rel_subset,SUBSET_OF_INSERT]))
     >-
       (qpat_abbrev_tac`expr = (Shift s (Var n0) B)`>>
+      rename1 ‘Shift _ _ (case r of _ => _ | _ => _)’>>
       setup_tac>>
       impl_tac>-
-        (full_simp_tac(srw_ss())[get_live_exp_def,big_union_def]>>
-        `{n0} ⊆ n0 INSERT domain live DELETE n` by full_simp_tac(srw_ss())[SUBSET_DEF]>>
-        metis_tac[SUBSET_OF_INSERT,strong_locals_rel_subset])>>
+       (Cases_on ‘r’>>
+        irule strong_locals_rel_subset>>
+        first_assum $ irule_at (Pos last)>>
+        full_simp_tac(srw_ss())[get_live_exp_def,big_union_def,domain_union]) >>
+      Cases_on ‘r’>>
       pairarg_tac>>
       fs[word_exp_def,word_state_eq_rel_def,set_var_def]>> strip_tac>>
       match_mp_tac strong_locals_rel_insert>>
@@ -2073,7 +2080,8 @@ Proof
   srw_tac[][]>>full_simp_tac(srw_ss())[get_live_exp_def,every_var_exp_def]>>
   full_simp_tac(srw_ss())[EVERY_MEM]>>srw_tac[][]>>res_tac>>
   match_mp_tac every_var_exp_mono>>
-  HINT_EXISTS_TAC>>full_simp_tac(srw_ss())[]>>
+  first_assum $ irule_at (Pos last)>>
+  full_simp_tac(srw_ss())[domain_union]>>
   metis_tac[SUBSET_DEF,domain_big_union_subset]
 QED
 
@@ -2387,7 +2395,7 @@ Proof
   fs[MEM_FLAT,MEM_MAP]>>rw[EQ_IMP_THM]>>
   res_tac>>fs[]>>
   imp_res_tac domain_big_union_subset>>
-  fs[SUBSET_DEF]>>
+  fs[SUBSET_DEF,domain_union]>>
   Induct_on`ls`>>rw[]>>
   fs[domain_union,big_union_def]
   >-
@@ -2466,7 +2474,7 @@ Theorem wf_get_live_exp[local]:
 Proof
   ho_match_mp_tac get_live_exp_ind>>fs[get_live_exp_def,wf_insert,wf_def]>>
   rw[]>>
-  fs[big_union_def]>>
+  fs[big_union_def, Req0 wf_union]>>
   Induct_on`ls`>>rw[wf_def,wf_union]
 QED
 
@@ -2542,12 +2550,17 @@ Proof
           HINT_EXISTS_TAC>>fs[DELETE_DEF])>>
         fs[domain_union,UNION_COMM]))
     >-
-      (start_tac>-
+      (Cases_on`r`>>FULL_CASE_TAC>>fs[check_clash_tree_def]>>start_tac>>
+      TRY (*2 cases*)
         (CONJ_TAC>-
           subset_tac>>
-        fs[INJ_IMP_IMAGE_DIFF_single])
-      >>
-      fs[domain_union,UNION_COMM,DELETE_DEF,INSERT_UNION_EQ])
+        fs[INJ_IMP_IMAGE_DIFF_single,wf_insert_swap])
+      >> (*2 cases*)
+        (strip_tac>>CONJ_TAC>-
+          (match_mp_tac (GEN_ALL INJ_less)>>
+          qpat_x_assum`INJ f A B` kall_tac>>
+          HINT_EXISTS_TAC>>fs[DELETE_DEF])>>
+        fs[domain_union,UNION_COMM]))
     >-
       (start_tac>-
         (CONJ_TAC>-
@@ -3157,8 +3170,8 @@ Definition nlive_store_def:
     s ∉ set nlive) ∧
   (nlive_store nlive (Load e) ⇔
     nlive_store nlive e) ∧
-  (nlive_store nlive (Shift _ e _) ⇔
-    nlive_store nlive e) ∧
+  (nlive_store nlive (Shift _ e1 e2) ⇔
+    nlive_store nlive e1 ∧ nlive_store nlive e2) ∧
   (nlive_store nlive _ ⇔ T)
 End
 
@@ -3229,13 +3242,20 @@ Proof
     first_x_assum (irule_at Any)>>
     simp[ETA_AX])
   >- (
-    gvs[AllCaseEqs()]>>
+    gvs[AllCaseEqs(),nlive_store_def]>>
     first_x_assum (irule_at Any)>>
     first_x_assum (irule_at Any)>>
-    gvs[nlive_store_def]>>
-    irule_at Any strong_locals_rel_subset>>
-    first_x_assum (irule_at Any)>>
-    simp[get_live_exp_def,domain_union])
+    gvs[]>>
+    conj_tac >- (
+      irule strong_locals_rel_subset>>
+      first_assum (irule_at Any)>>
+      simp[get_live_exp_def,domain_union]>>
+      fs[SUBSET_DEF]) >>
+    first_x_assum irule>>
+    irule strong_locals_rel_subset>>
+    first_assum (irule_at Any)>>
+    simp[get_live_exp_def,domain_union]>>
+    fs[SUBSET_DEF])
 QED
 
 Theorem strong_locals_rel_insert_notin[local]:
@@ -4864,10 +4884,10 @@ Proof
 QED
 
 Theorem ssa_locals_rel_set_var[local]:
-  ssa_locals_rel na ssa st.locals cst.locals ∧
+  ssa_locals_rel na ssa stl cstl ∧
   ssa_map_ok na ssa ∧
   n < na ⇒
-  ssa_locals_rel (na+4) (insert n na ssa) (insert n w st.locals) (insert na w cst.locals)
+  ssa_locals_rel (na+4) (insert n na ssa) (insert n w stl) (insert na w cstl)
 Proof
   srw_tac[][ssa_locals_rel_def]>>
   full_simp_tac(srw_ss())[lookup_insert]>>Cases_on`x=n`>>full_simp_tac(srw_ss())[]
@@ -5503,8 +5523,9 @@ Proof
       fs[IS_SOME_EXISTS])>>
     fs[])
   >-
-    (Cases_on`word_exp st w`>>
-    res_tac>>full_simp_tac(srw_ss())[word_state_eq_rel_def,mem_load_def])
+    (strip_tac>>
+    gvs[AllCaseEqs()]>>
+    res_tac>>gvs[])
 QED
 
 val exp_tac2 =
@@ -5842,10 +5863,44 @@ Proof
       full_simp_tac(srw_ss())[every_var_inst_def,every_var_def])
     >~[`Shift`]
     >- (
-      qpat_abbrev_tac`expr = (Shift s (Var n0) Z)`>>
-      setup_tac>>
-      match_mp_tac ssa_locals_rel_set_var>>
-      fs[every_var_inst_def,every_var_def])
+      rename1`Shift _ n n0 r`>>
+      Cases_on`r`>>
+      fs[evaluate_def,inst_def,assign_def,get_vars_def]
+      >- (
+        fs[word_exp_def]>>
+        rename1`Reg n'`>>
+        Cases_on`get_var n0 st`>>fs[]>>
+        rename1`get_var _ _ = SOME x`>>
+        Cases_on`x`>>simp[]>>
+        Cases_on`get_var n' st`>>fs[]>>
+        rename1`get_var _ _ = SOME x`>>
+        Cases_on`x`>>simp[]>>
+        imp_res_tac ssa_locals_rel_get_var>>
+        fs[set_vars_def,get_var_def,lookup_alist_insert]>>
+        `option_lookup ssa n0 ≠ 8` by (
+          fs[ssa_locals_rel_def]>>
+          qpat_x_assum`lookup n' _ = _` kall_tac>>
+          first_x_assum drule>>
+          rfs[domain_lookup,ssa_map_ok_def]>>
+          strip_tac>>
+          first_x_assum drule>>
+          rw[]>>
+          fs[is_phy_var_def,option_lookup_def]>>
+          CCONTR_TAC>>
+          fs[])>>
+        fs[]>>
+        every_case_tac>>
+        simp[set_var_def,alist_insert_def]>>
+        match_mp_tac ssa_locals_rel_set_var>>
+        fs[every_var_def,every_var_inst_def]>>
+        irule ssa_locals_rel_ignore_insert>>
+        simp[is_phy_var_def])
+     >- (
+        qpat_abbrev_tac`expr = (Shift s (Var n0) Z)`>>
+        setup_tac>>
+        match_mp_tac ssa_locals_rel_set_var>>
+        fs[every_var_inst_def,every_var_def])
+    )
     >- ( (*Div*)
       fs[]>>
       Cases_on`get_vars [n1;n0] st`>>fs[get_vars_def]>>
@@ -8057,7 +8112,8 @@ Proof
   srw_tac[][every_var_exp_def,max_var_exp_def]>>
   full_simp_tac(srw_ss())[EVERY_MEM]>>srw_tac[][]>>res_tac>>
   match_mp_tac every_var_exp_mono>>
-  HINT_EXISTS_TAC>>srw_tac[][]>>
+  first_assum $ irule_at (Pos last)>>
+  srw_tac[][]>>
   irule LE_TRANS >>
   irule_at (Pos (el 2)) MAX_LIST_PROPERTY >>
   simp[MEM_MAP,PULL_EXISTS] >>
@@ -8070,9 +8126,8 @@ Theorem max_var_inst_max[local]:
 Proof
   ho_match_mp_tac max_var_inst_ind>>
   srw_tac[][every_var_inst_def,max_var_inst_def]>>
-  TRY(Cases_on`ri`)>>full_simp_tac(srw_ss())[every_var_imm_def]>>
-  TRY(IF_CASES_TAC)>>full_simp_tac(srw_ss())[]>>
-  DECIDE_TAC
+  gvs [oneline every_var_imm_def, AllCaseEqs()]>>
+  TOP_CASE_TAC >> simp []
 QED
 
 Theorem max_var_max:
@@ -8516,8 +8571,8 @@ Proof
   ho_match_mp_tac ssa_cc_trans_ind>>full_simp_tac(srw_ss())[ssa_cc_trans_def]>>srw_tac[][]>>
   unabbrev_all_tac>>
   full_simp_tac(srw_ss())[every_inst_def]>>imp_res_tac ssa_cc_trans_props>>full_simp_tac(srw_ss())[]
-  >-
-    (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`m`)>>TRY(Cases_on`r`)>>
+  >- (
+    Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`m`)>>TRY(Cases_on`r`)>>
     TRY(Cases_on`f`)>>
     full_simp_tac(srw_ss())[ssa_cc_trans_inst_def,LET_THM,next_var_rename_def]>>
     every_case_tac>>
@@ -8525,7 +8580,7 @@ Proof
     fs[every_var_def,every_var_inst_def,every_var_imm_def,every_inst_def]>>
     full_simp_tac(srw_ss())[distinct_tar_reg_def,ssa_map_ok_def,option_lookup_def]>>
     EVERY_CASE_TAC>>srw_tac[][]>>res_tac>>full_simp_tac(srw_ss())[]>>
-    fs[is_alloc_var_def]>>CCONTR_TAC>>fs[])
+    fs[is_alloc_var_def]>>CCONTR_TAC>>gvs[])
   >-
     (full_simp_tac(srw_ss())[every_var_def]>>
     first_x_assum match_mp_tac>>
@@ -8842,10 +8897,10 @@ Proof
   srw_tac[][call_arg_convention_def,every_var_def]>>
   EVERY_CASE_TAC>>unabbrev_all_tac>>
   full_simp_tac(srw_ss())[call_arg_convention_def]
-  >-
-    (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`r`)>>TRY(Cases_on`m`)>>
+  >- (
+    Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`r`)>>TRY(Cases_on`m`)>>
     TRY(Cases_on`f'`>>every_case_tac)>>
-    fs[inst_arg_convention_def,every_var_inst_def,is_phy_var_def]) >>
+    fs[inst_arg_convention_def,every_var_inst_def,is_phy_var_def,every_var_imm_def])>>
   TRY(is_phy_var_tac>>NO_TAC)>>
   rpt conj_tac >>
   TRY (qpat_abbrev_tac `ysl = LENGTH _` >> gvs[]) >>
