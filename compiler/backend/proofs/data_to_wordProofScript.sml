@@ -227,8 +227,8 @@ Proof
     \\ Cases_on `a` \\ gvs [CaseEq"option"]
     \\ drule_all assign_thm \\ fs []
     \\ disch_then (qspecl_then [`n`,`l`,`dest`] strip_assume_tac)
-    \\ `option_le r’.stack_max v1.stack_max` by
-        (Cases_on `q’ = SOME NotEnoughSpace` \\ fs [state_rel_def,set_var_def])
+    \\ `option_le r'.stack_max v1.stack_max` by
+        (Cases_on `q' = SOME NotEnoughSpace` \\ fs [state_rel_def,set_var_def])
     \\ fs [set_var_def]
     \\ imp_res_tac do_app_io_events_mono \\ rfs []
     \\ `s.ffi = t.ffi` by fs [state_rel_def]
