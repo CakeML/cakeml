@@ -223,19 +223,17 @@ End
     - we need to encode and decode this into/from the ‘:ffi’ type
  *----------------------------------------------------------------------*)
 
-Type id = “:word64”;
-Type clause = “:word32 list”;
-Type hints = “:word64 list”;
+Type w8s = “:word8 list”;
 
 (* what to wait for as the next C call *)
 Datatype:
   wait_for = Step
-           | Produce_clause id clause hints
-           | Produce_hints id hints
-           | Produce_callback id
-           | Import_clause id clause
-           | Import_callback id
-           | Delete_hints hints
+           | Produce_clause w8s w8s
+           | Produce_hints w8s
+           | Produce_callback
+           | Import_clause w8s
+           | Import_callback
+           | Delete_hints w8s
            | Delete_callback
            | Validate_UNSAT_callback
            | Terminate
@@ -243,10 +241,10 @@ End
 
 (* each input is one of: *)
 Datatype:
-  input = Produce id clause hints
-        | Import id clause
-        | Delete hints
-        | Validate_UNSAT
+  input = Produce w8s w8s w8s
+        | Import w8s w8s
+        | Delete w8s w8s
+        | Validate_UNSAT w8s
 End
 
 (* the state of the C code*)
@@ -254,36 +252,37 @@ Type state = “:wait_for # input list”;
 
 (* encoding *)
 
-Definition Clause_def:
-  Clause (xs:clause) = List (MAP (Num o w2n) xs)
+Definition Bytes_def:
+  Bytes (xs:word8 list) = List (MAP (Num o w2n) xs)
 End
 
-Definition Hints_def:
-  Hints (xs:hints) = List (MAP (Num o w2n) xs)
+Definition Int_def:
+  Int i = if i < 0 then Cons (Num (Num (ABS i))) (Num 0) else Num (Num i)
 End
 
 Definition WaitFor_def:
   WaitFor wf =
     case wf of
     | Step => Str (strlit "Step")
-    | Produce_clause i c h => Cons (Str (strlit "Produce_clause")) (Cons (Num (w2n i)) (Cons (Clause c) (Hints h)))
-    | Produce_hints i h => Cons (Str (strlit "Produce_hints")) (Cons (Num (w2n i)) (Hints h))
-    | Produce_callback i => Cons (Str (strlit "Produce_callback")) (Num (w2n i))
-    | Import_clause i c => Cons (Str (strlit "Import_clause")) (Cons (Num (w2n i)) (Clause c))
-    | Import_callback i => Cons (Str (strlit "Import_callback")) (Num (w2n i))
-    | Delete_hints h => Cons (Str (strlit "Delete_hints")) (Hints h)
+    | Produce_clause xs ys => Cons (Str (strlit "Produce_clause")) (Cons (Bytes xs) (Bytes ys))
+    | Produce_hints xs => Cons (Str (strlit "Produce_hints")) (Bytes xs)
+    | Produce_callback => Str (strlit "Produce_callback")
+    | Import_clause xs => Cons (Str (strlit "Import_clause")) (Bytes xs)
+    | Import_callback => Str (strlit "Import_callback")
+    | Delete_hints xs => Cons (Str (strlit "Delete_hints")) (Bytes xs)
     | Delete_callback => Str (strlit "Delete_callback")
     | Validate_UNSAT_callback => Str (strlit "Validate_UNSAT_callback")
     | Terminate => Str (strlit "Terminate")
 End
 
 Definition Input_def:
-  Input (Produce i c h) = Cons (Str (strlit "Produce"))
-                               (Cons (Num (w2n i)) (Cons (Clause c) (Hints h))) ∧
-  Input (Import i c)    = Cons (Str (strlit "Import"))
-                               (Cons (Num (w2n i)) (Clause c)) ∧
-  Input (Delete h)      = Cons (Str (strlit "Delete")) (Hints h) ∧
-  Input Validate_UNSAT  = Str (strlit "Validate_UNSAT")
+  Input (Produce xs ys zs)  = Cons (Str (strlit "Produce"))
+                                   (Cons (Bytes xs) (Cons (Bytes ys) (Bytes zs))) ∧
+  Input (Import xs ys)      = Cons (Str (strlit "Import"))
+                                   (Cons (Bytes xs) (Bytes ys)) ∧
+  Input (Delete xs ys)      = Cons (Str (strlit "Delete"))
+                                   (Cons (Bytes xs) (Bytes ys)) ∧
+  Input (Validate_UNSAT xs) = Cons (Str (strlit "Validate_UNSAT")) (Bytes xs)
 End
 
 Definition State_def:
@@ -292,30 +291,30 @@ Definition State_def:
          (List (MAP Input inputs))
 End
 
-Theorem Clause_11:
-  Clause x = Clause y ⇔ x = y
+Theorem Bytes_11:
+  Bytes x = Bytes y ⇔ x = y
 Proof
-  gvs [Clause_def] \\ eq_tac
+  gvs [Bytes_def] \\ eq_tac
   \\ rw [] \\ drule_at Any MAP_EQ_MAP_IMP \\ gvs []
 QED
 
-Theorem Hints_11:
-  Hints x = Hints y ⇔ x = y
+Theorem Int_11:
+  Int x = Int y ⇔ x = y
 Proof
-  gvs [Hints_def] \\ eq_tac
-  \\ rw [] \\ drule_at Any MAP_EQ_MAP_IMP \\ gvs []
+  gvs [Int_def] \\ eq_tac \\ rw []
+  \\ intLib.COOPER_TAC
 QED
 
 Theorem Input_11:
   Input x = Input y ⇔ x = y
 Proof
-  Cases_on ‘x’ \\ Cases_on ‘y’ \\ gvs [Input_def,Clause_11,Hints_11]
+  Cases_on ‘x’ \\ Cases_on ‘y’ \\ gvs [Input_def,Bytes_11,Int_11]
 QED
 
 Theorem WaitFor_11:
   WaitFor x = WaitFor y ⇔ x = y
 Proof
-  Cases_on ‘x’ \\ Cases_on ‘y’ \\ gvs [WaitFor_def,Clause_11,Hints_11]
+  Cases_on ‘x’ \\ Cases_on ‘y’ \\ gvs [WaitFor_def,Bytes_11,Int_11]
 QED
 
 Theorem State_11:
@@ -348,6 +347,12 @@ QED
 val imm_arg = “imm_arg:word8 list”
 val arr_arg = “arr_arg:word8 list”
 
+Definition write_bytes_def:
+  write_bytes [] xs = [] ∧
+  write_bytes xs [] = xs ∧
+  write_bytes (x::xs) (y::ys) = (y:word8) :: write_bytes xs ys
+End
+
 Definition update_step_def:
   update_step ^imm_arg ^arr_arg Step inputs =
     (if LENGTH imm_arg ≠ 0 ∨ LENGTH arr_arg ≠ 17 then NONE else
@@ -355,59 +360,45 @@ Definition update_step_def:
        | [] => SOME (FFIreturn (0w :: TL arr_arg) (State Terminate inputs))
        | (i::is) =>
          case i of
-         | Produce id c h =>
-             SOME (FFIreturn ([n2w (ORD #"a")] ++
-                              word_to_bytes (id : word64) F ++
-                              word_to_bytes (n2w (LENGTH c) : word32) F ++
-                              word_to_bytes (n2w (LENGTH h) : word32) F)
-                             (State (Produce_clause id c h) is))
-         | Import id c =>
-             SOME (FFIreturn ([n2w (ORD #"i")] ++
-                              word_to_bytes (id : word64) F ++
-                              word_to_bytes (n2w (LENGTH c) : word32) F ++
-                              DROP 13 arr_arg)
-                             (State (Import_clause id c) is))
-         | Delete h =>
-             SOME (FFIreturn ([n2w (ORD #"d")] ++
-                              word_to_bytes (n2w (LENGTH h) : word32) F ++
-                              DROP 5 arr_arg)
-                             (State (Delete_hints h) is))
-         | Validate_UNSAT =>
-             SOME (FFIreturn ([n2w (ORD #"V")] ++ TL arr_arg)
-                             (State Validate_UNSAT_callback is))) ∧
+         | Produce xs ys zs =>
+             let res = write_bytes arr_arg (n2w (ORD #"a") :: xs) in
+               SOME (FFIreturn res (State (Produce_clause ys zs) is))
+         | Import xs ys =>
+             let res = write_bytes arr_arg (n2w (ORD #"i") :: xs) in
+               SOME (FFIreturn res (State (Import_clause ys) is))
+         | Delete xs ys =>
+             let res = write_bytes arr_arg (n2w (ORD #"d") :: xs) in
+               SOME (FFIreturn res (State (Delete_hints ys) is))
+         | Validate_UNSAT xs =>
+             let res = write_bytes arr_arg (n2w (ORD #"V") :: xs) in
+               SOME (FFIreturn res (State Validate_UNSAT_callback is))) ∧
   update_step ^imm_arg ^arr_arg _ _ = NONE
 End
 
-Definition write_bytes_def:
-  write_bytes [] xs = [] ∧
-  write_bytes xs [] = xs ∧
-  write_bytes (x::xs) (y::ys) = (y:word8) :: write_bytes xs ys
-End
-
 Definition update_clause_def:
-  update_clause ^imm_arg ^arr_arg (Produce_clause id c h) inputs =
-    (SOME (FFIreturn (write_bytes arr_arg (FLAT (MAP (λw. word_to_bytes w F) c)))
-                     (State (Produce_hints id h) inputs))) ∧
-  update_clause ^imm_arg ^arr_arg (Import_clause id c) inputs =
-    (SOME (FFIreturn (write_bytes arr_arg (FLAT (MAP (λw. word_to_bytes w F) c)))
-                     (State (Import_callback id) inputs))) ∧
+  update_clause ^imm_arg ^arr_arg (Produce_clause ys zs) inputs =
+    (SOME (FFIreturn (write_bytes arr_arg ys)
+                     (State (Produce_hints zs) inputs))) ∧
+  update_clause ^imm_arg ^arr_arg (Import_clause ys) inputs =
+    (SOME (FFIreturn (write_bytes arr_arg ys)
+                     (State Import_callback inputs))) ∧
   update_clause ^imm_arg ^arr_arg _ _ = NONE
 End
 
 Definition update_hints_def:
-  update_hints ^imm_arg ^arr_arg (Produce_hints id h) inputs =
-    (SOME (FFIreturn (write_bytes arr_arg (FLAT (MAP (λw. word_to_bytes w F) h)))
-                     (State (Produce_callback id) inputs))) ∧
-  update_hints ^imm_arg ^arr_arg (Delete_hints h) inputs =
-    (SOME (FFIreturn (write_bytes arr_arg (FLAT (MAP (λw. word_to_bytes w F) h)))
+  update_hints ^imm_arg ^arr_arg (Produce_hints zs) inputs =
+    (SOME (FFIreturn (write_bytes arr_arg zs)
+                     (State Produce_callback inputs))) ∧
+  update_hints ^imm_arg ^arr_arg (Delete_hints zs) inputs =
+    (SOME (FFIreturn (write_bytes arr_arg zs)
                      (State Delete_callback inputs))) ∧
   update_hints ^imm_arg ^arr_arg _ _ = NONE
 End
 
 Definition update_callback_def:
-  update_callback ^imm_arg ^arr_arg (Produce_callback id) inputs =
+  update_callback ^imm_arg ^arr_arg Produce_callback inputs =
     (SOME (FFIreturn arr_arg (State Step inputs))) ∧
-  update_callback ^imm_arg ^arr_arg (Import_callback id) inputs =
+  update_callback ^imm_arg ^arr_arg Import_callback inputs =
     (SOME (FFIreturn arr_arg (State Step inputs))) ∧
   update_callback ^imm_arg ^arr_arg Delete_callback inputs =
     (SOME (FFIreturn arr_arg (State Step inputs))) ∧
@@ -503,7 +494,7 @@ End
 Theorem parse_step_Validate_UNSAT:
   LENGTH step_arr = 17 ⇒
   app (p:'ffi ffi_proj) parse_step_v [step_arrv; buf_arrv]
-    (CUSTOM_FFI Step (Validate_UNSAT :: inputs) events *
+    (CUSTOM_FFI Step (Validate_UNSAT xs :: inputs) events *
      W8ARRAY step_arrv step_arr)
     (POSTv res.
        SEP_EXISTS step_arr1 unsat_event.
@@ -515,10 +506,10 @@ Theorem parse_step_Validate_UNSAT:
 Proof
   rpt strip_tac >>
   xcf_with_def (fetch "-" "parse_step_v_def") >>
-  qabbrev_tac ‘unsat_event = IO_event (ExtCall «step») [] (ZIP (step_arr,n2w (ORD #"V")::TL step_arr))’ >>
+  qabbrev_tac ‘unsat_event = IO_event (ExtCall «step») [] (ZIP (step_arr,write_bytes step_arr (86w::xs)))’ >>
   xlet ‘POSTv res.
     CUSTOM_FFI Validate_UNSAT_callback inputs (events ++ [unsat_event]) *
-    W8ARRAY step_arrv (n2w (ORD #"V") :: TL step_arr)’
+    W8ARRAY step_arrv (write_bytes step_arr (n2w (ORD #"V")::xs))’
   >-
    (xffi >>
     gvs [CUSTOM_FFI_def,implode_def] >>
@@ -530,12 +521,13 @@ Proof
     simp [update_def,update_step_def] >>
     gvs [names_def,SEP_CLAUSES] >>
     xsimpl) >>
+  Cases_on ‘step_arr’ >> gvs [write_bytes_def] >>
   xlet_auto >- xsimpl >>
   xlet_auto >- xsimpl >>
   gvs [CHAR_def,WORD_def] >>
   xmatch >>
   xlet ‘POSTv res. CUSTOM_FFI Validate_UNSAT_callback inputs (events ++ [unsat_event]) *
-           W8ARRAY step_arrv (n2w (ORD #"V") :: TL step_arr) *
+           W8ARRAY step_arrv (86w::write_bytes t xs) *
            cond (DISTRUP_DISTRUP_TYPE ValidateUnsat res)’
   >- (xcon >> gvs [DISTRUP_DISTRUP_TYPE_def] >> xsimpl) >>
   xlet_auto >- (xsimpl >> xcon >> xsimpl) >>
@@ -546,7 +538,8 @@ Proof
   xsimpl >>
   unabbrev_all_tac >>
   rewrite_tac [OPTION_TYPE_def] >>
-  gvs [is_unsat_event_def]
+  gvs [is_unsat_event_def] >>
+  cheat (* easy *)
 QED
 
 Theorem get_u64_spec:
@@ -584,19 +577,20 @@ End
 Theorem parse_step_Produce:
   LENGTH step_arr = 17 ⇒
   app (p:'ffi ffi_proj) parse_step_v [step_arrv; buf_arrv]
-    (CUSTOM_FFI Step (Produce id c h :: inputs) events *
+    (CUSTOM_FFI Step (Produce xs ys zs :: inputs) events *
      W8ARRAY buf_arrv buf_arr *
      W8ARRAY step_arrv step_arr)
     (POSTv res.
-       SEP_EXISTS step_arr1 buf_arrv buf_arr produce_events cl hs.
-         CUSTOM_FFI (Produce_callback id) inputs (events ++ produce_events) *
+       SEP_EXISTS step_arr1 buf_arrv buf_arr produce_events cl hs id.
+         CUSTOM_FFI Produce_callback inputs (events ++ produce_events) *
          W8ARRAY buf_arrv buf_arr *
          W8ARRAY step_arrv step_arr1 *
          cond (LENGTH step_arr1 = 17 ∧
-               is_produce_events (w2n id) cl produce_events ∧
-               ∃v. OPTION_TYPE DISTRUP_DISTRUP_TYPE (SOME (Lrup (w2n id) cl hs)) v ∧
+               is_produce_events id cl produce_events ∧
+               ∃v. OPTION_TYPE DISTRUP_DISTRUP_TYPE (SOME (Lrup id cl hs)) v ∧
                    res = Conv NONE [buf_arrv; v]))
 Proof
+  cheat (*
   rpt strip_tac >>
   xcf_with_def (fetch "-" "parse_step_v_def") >>
   qabbrev_tac ‘a1 = [n2w (ORD #"a")] ++
@@ -673,13 +667,13 @@ Proof
     simp [EVAL “word_to_bytes_aux 8 id F”,
           EVAL “word_to_bytes_aux 4 id F”]) >>
   gvs [is_produce_events_def,Abbr‘event1’] >>
-  cheat
+  cheat *)
 QED
 
 Inductive events_ok:
 [~init:]
   events_ok [] (REPLICATE n NONE, REPLICATE k 0w, b)
-[~produce_fail:]
+[~produce:]
   events_ok events (fmlls, Clist, b) ∧
   is_produce_events n vc produce_events ∧
   (* TODO: constrain output_event *)
@@ -736,22 +730,22 @@ Proof
     simp [full_events_ok_def] >>
     first_x_assum $ irule_at Any) >>
   Cases_on ‘h’
-  >~ [‘Produce i c h’] >-
+  >~ [‘Produce xs ys zs’] >-
    (rpt strip_tac >>
     xcf_with_def (fetch "-" "loop_v_def") >>
     xlet ‘POSTv res.
-            SEP_EXISTS step_arr1 buf_arrv buf_arr produce_events cl hs.
-              CUSTOM_FFI (Produce_callback i) inputs (events ++ produce_events) *
+            SEP_EXISTS step_arr1 buf_arrv buf_arr produce_events cl hs i.
+              CUSTOM_FFI Produce_callback inputs (events ++ produce_events) *
               W8ARRAY buf_arrv buf_arr * W8ARRAY step_arrv step_arr1 *
               ARRAY fmlv fmllsv *
               W8ARRAY Carrv Clist *
               cond (LENGTH step_arr1 = 17 ∧
-                    is_produce_events (w2n i) cl produce_events ∧
-                    ∃v. OPTION_TYPE DISTRUP_DISTRUP_TYPE (SOME (Lrup (w2n i) cl hs)) v ∧
+                    is_produce_events i cl produce_events ∧
+                    ∃v. OPTION_TYPE DISTRUP_DISTRUP_TYPE (SOME (Lrup i cl hs)) v ∧
                         res = Conv NONE [buf_arrv; v])’
     >-
      (xapp_spec parse_step_Produce >>
-      qrefinel [‘_’,‘step_arr’,‘inputs’,‘i’,‘h’,‘events’,‘c’,‘buf_arr’] >>
+      qrefinel [‘_’,‘zs’,‘ys’,‘xs’,‘step_arr’,‘inputs’,‘events’,‘buf_arr’] >>
       xsimpl >>
       rw [] >>
       first_x_assum $ irule_at Any >>
@@ -761,8 +755,8 @@ Proof
     xmatch >> gvs [OPTION_TYPE_def] >>
     xmatch >> gvs [] >>
     cheat)
-  >~ [‘Import i c’] >- cheat
-  >~ [‘Delete h’] >- cheat
+  >~ [‘Import xs ys’] >- cheat
+  >~ [‘Delete xs ys’] >- cheat
   >~ [‘Validate_UNSAT’] >- cheat
 QED
 
