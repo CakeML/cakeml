@@ -1005,7 +1005,10 @@ Definition asm_arith_to_display_def:
         [asm_binop_to_display bop; num_to_display n1; num_to_display n2;
             asm_reg_imm_to_display reg_imm]
     | asm$Shift sh n1 n2 n3 => Item NONE (strlit "Shift")
-        (shift_to_display sh :: MAP num_to_display [n1; n2; n3])
+        [shift_to_display sh;
+         num_to_display n1;
+         num_to_display n2;
+         asm_reg_imm_to_display n3]
     | Div n1 n2 n3 => item_with_nums (strlit "Div") [n1; n2; n3]
     | LongMul n1 n2 n3 n4 => item_with_nums (strlit "LongMul") [n1; n2; n3; n4]
     | LongDiv n1 n2 n3 n4 n5 => item_with_nums (strlit "LongDiv") [n1; n2; n3; n4; n5]
@@ -1312,11 +1315,11 @@ Definition word_exp_to_display_def:
   (word_exp_to_display (Op bop exs)
     = Item NONE (strlit "Op") (asm_binop_to_display bop
         :: word_exp_to_display_list exs)) /\
-  (word_exp_to_display (Shift sh exp num)
+  (word_exp_to_display (Shift sh exp exp1)
     = Item NONE (strlit "Shift") [
       shift_to_display sh;
       word_exp_to_display exp;
-      num_to_display num
+      word_exp_to_display exp1
     ]) ∧
   (word_exp_to_display_list [] = []) ∧
   (word_exp_to_display_list (x::xs) =

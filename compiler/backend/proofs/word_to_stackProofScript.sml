@@ -4001,7 +4001,7 @@ Definition map_var_def[simp]:
   (map_var f (Var num) = Var (f num)) ∧
   (map_var f (Load exp) = Load (map_var f exp)) ∧
   (map_var f (Op wop ls) = Op wop (MAP (map_var f) ls)) ∧
-  (map_var f (Shift sh e1 e2) = Shift sh (map_var f e1) e2) ∧
+  (map_var f (Shift sh e1 e2) = Shift sh (map_var f e1) (map_var f e2)) ∧
   (map_var f (Const c) = Const c) ∧
   (map_var f (Lookup v) = Lookup v)
 Termination
@@ -4766,20 +4766,47 @@ Proof
             by simp[MAX_DEF,max3_def] >>
         fs[])
     >- ( (* Shift *)
-        gvs[assign_def,word_exp_def,AllCaseEqs()] >>
-        simp[wInst_def] >>
-        (pairarg_tac >> fs[]) >>
-        simp[evaluate_wStackLoad_seq] >>
-        dxrule_all evaluate_wStackLoad_wReg1 >>
-        strip_tac >> simp[Once stackSemTheory.evaluate_def] >>
-        simp[evaluate_wRegWrite1_seq] >>
-        pairarg_tac >> simp[] >>
-        fs[stackSemTheory.evaluate_def,stackSemTheory.inst_def,
-           stackSemTheory.assign_def,stackSemTheory.word_exp_def] >>
-        (*TODO remove this line by changing word_exp_def*)
-        fs[GSYM stackSemTheory.get_var_def] >>
-        match_mp_tac evaluate_wStackStore_wReg1 >>
-        fs[])
+        full_simp_tac(bool_ss)[GSYM max3_def] >>
+        `!a b c. max3 a b c = MAX a (MAX b c)`
+            by simp[MAX_DEF,max3_def] >>
+        fs[] >>
+        Cases_on `r` >> fs[]
+        >- ( (* Shift Reg *)
+            fs[reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,
+            wordLangTheory.every_var_imm_def] >>
+            gvs[assign_def,word_exp_def,AllCaseEqs()] >>
+            simp[wInst_def] >>
+            ntac 2 (pairarg_tac >> fs[]) >>
+            simp[wStackLoad_append] >>
+            simp[evaluate_wStackLoad_seq] >>
+            dxrule_all evaluate_wStackLoad_wReg1 >>
+            strip_tac >> simp[Once stackSemTheory.evaluate_def] >>
+            simp[evaluate_wStackLoad_seq] >>
+            dxrule_all evaluate_wStackLoad_wReg2 >>
+            strip_tac >> simp[Once stackSemTheory.evaluate_def] >>
+            simp[evaluate_wRegWrite1_seq] >>
+            pairarg_tac >> simp[] >>
+            fs[stackSemTheory.evaluate_def,stackSemTheory.inst_def,
+            stackSemTheory.assign_def,stackSemTheory.word_exp_def] >>
+            fs[GSYM stackSemTheory.get_var_def] >>
+            match_mp_tac evaluate_wStackStore_wReg1 >>
+            fs[])
+        >- ( (* Shift Imm *)
+            fs[reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,
+            wordLangTheory.every_var_imm_def] >>
+            gvs[assign_def,word_exp_def,AllCaseEqs()] >>
+            simp[wInst_def] >>
+            (pairarg_tac >> fs[]) >>
+            simp[evaluate_wStackLoad_seq] >>
+            dxrule_all evaluate_wStackLoad_wReg1 >>
+            strip_tac >> simp[Once stackSemTheory.evaluate_def] >>
+            simp[evaluate_wRegWrite1_seq] >>
+            pairarg_tac >> simp[] >>
+            fs[stackSemTheory.evaluate_def,stackSemTheory.inst_def,
+               stackSemTheory.assign_def,stackSemTheory.word_exp_def] >>
+            fs[GSYM stackSemTheory.get_var_def] >>
+            match_mp_tac evaluate_wStackStore_wReg1 >>
+            fs[]))
     (* Binop *)
     \\ full_simp_tac(bool_ss)[GSYM max3_def]
     \\ `!x y z. max3 x y z = (MAX (MAX x y) z)`
@@ -10505,7 +10532,7 @@ Proof
   >-
     (Cases_on`i`>>TRY(Cases_on`m`)>>TRY(Cases_on`a`)>>
     TRY(Cases_on`f`)>>
-    TRY(Cases_on`b`>>Cases_on`r`)>>EVAL_TAC>>
+    TRY(Cases_on`b`>>Cases_on`r`)>>TRY(Cases_on`r`)>>EVAL_TAC>>
     EVERY_CASE_TAC>>EVAL_TAC)
   >- rpt (EVERY_CASE_TAC>>EVAL_TAC)
   >- rpt (EVERY_CASE_TAC>>EVAL_TAC)
@@ -10705,7 +10732,7 @@ Proof
     EVAL_TAC>>fs[])
   >- (
     Cases_on`i`>>TRY(Cases_on`m`)>>TRY(Cases_on`a`)>>
-    TRY(Cases_on`b`>>Cases_on`r`)>>
+    TRY(Cases_on`b`>>Cases_on`r`)>>TRY(Cases_on`r`)>>
     TRY(Cases_on`f`)>>
     fs wconvs>>
     fs[inst_ok_less_def,inst_arg_convention_def,every_inst_def,two_reg_inst_def,wordLangTheory.every_var_inst_def,reg_allocTheory.is_phy_var_def,asmTheory.fp_reg_ok_def] >>
@@ -10870,7 +10897,7 @@ Proof
   >- (
     Cases_on`i`>>TRY(Cases_on`m`)>>TRY(Cases_on`a`)>>
     TRY(Cases_on`f`)>>
-    TRY(Cases_on`b`>>Cases_on`r`)>>
+    TRY(Cases_on`b`>>Cases_on`r`)>>TRY(Cases_on`r`)>>
     rpt(EVAL_TAC>>rw[]))
   >- (rpt(EVAL_TAC>>rw[]))
   >- (rpt(EVAL_TAC>>rw[]))
