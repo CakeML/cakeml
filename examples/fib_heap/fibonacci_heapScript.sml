@@ -46,19 +46,44 @@ Definition annotate_def:  (* TODO: needs helper functions *)
             (FibTree k ARB ARB) : ('a word, 'a annotated_node_data) ft
 End
 *)
+(*[simp] *)
 Definition head_key_def:
   (head_key [] = 0w) /\
   (head_key ((FibTree k _ _)::xs) = k)
 End
+
+Theorem head_key_append_thm:
+  !xs ys. xs <> [] ==> head_key (xs ++ ys) = head_key (xs)
+Proof
+  rpt strip_tac >>
+  Cases_on `xs` >> fs[] >>
+  Cases_on `h` >> simp[head_key_def]
+QED
 
 Definition next_key_def:
   (next_key (s:'a word) [] = s) /\
   (next_key s xs = head_key xs)
 End
 
+Theorem next_key_append_thm:
+  !s xs ys. xs <> [] ==> next_key s (xs ++ ys) = next_key s xs
+Proof
+  rpt strip_tac >>
+  Cases_on `xs` >> fs[] >>
+  Cases_on `h` >> simp[next_key_def,head_key_def]
+QED
+
 Definition last_key_def:
   last_key xs = head_key (REVERSE xs)
 End
+
+Theorem last_key_append_thm:
+  !xs ys. ys <> [] ==> last_key (xs ++ ys) = last_key ys
+Proof
+  rpt strip_tac >>
+  Cases_on `ys` using SNOC_CASES >> fs[] >>
+  Cases_on `x` >> simp[SNOC_APPEND,REVERSE_APPEND,last_key_def,head_key_def]
+QED
 
 Definition fill_dnode_def:
   fill_dnode v e m =
@@ -100,10 +125,10 @@ End
 
 
 Theorem ann_fts_seg_append_thm:
-  !p s b n xs ys.
+  !p s b xs ys.
     xs <> [] /\ ys <> [] ==>
     ann_fts_seg p s b (next_key s xs) (xs ++ ys) =
-    (ann_fts_seg p (head_key ys) b (next_key (head_key ys) xs) xs) ++
+    (ann_fts_seg p (head_key ys) b (head_key xs) xs) ++
     (ann_fts_seg p s (last_key xs) (next_key s (TL ys)) ys)
 Proof
   Induct_on `xs` >> fs[] >>
@@ -113,12 +138,13 @@ Proof
     Cases_on `h` >>
     fs[ann_fts_seg_def,last_key_def,head_key_def,next_key_def]
     ) >>
-  Cases_on `h` >>
-  fs[next_key_def,head_key_def] >>
+  rename [`last_key (h1::h2::xs)`] >>
+  Cases_on `h1` >>
+  simp[next_key_def,head_key_def] >>
+  simp[ann_fts_seg_def] >>
+  Cases_on `h2` >>
   fs[ann_fts_seg_def] >>
-  Cases_on `h'` >>
-  fs[ann_fts_seg_def] >>
-  Cases_on `t` using SNOC_CASES >> fs[head_key_def, next_key_def,ann_fts_seg_def]
+  Cases_on `xs` using SNOC_CASES >> fs[head_key_def, next_key_def,ann_fts_seg_def]
   >- (
     Cases_on `ys` >> fs[] >>
     Cases_on `h`>> fs[next_key_def, head_key_def, last_key_def]
@@ -140,16 +166,18 @@ Definition ann_fts_def:
 End
 
 Theorem ann_fts_append_thm:
-  !xs ys. xs <> [] /\ ys <> [] ==>
+  !xs ys.
+    xs <> [] /\ ys <> [] ==>
     ann_fts (xs ++ ys) =
     (ann_fts_seg 0w (head_key ys) (last_key ys)
       (next_key (head_key xs)  (TL xs ++ ys)) xs) ++
-    (ann_fts_seg 0w (head_key xs) (last_key xs) (next_key (head_key xs) (TL ys)) ys)
+    (ann_fts_seg 0w (head_key xs) (last_key xs)
+      (next_key (head_key xs) (TL ys)) ys)
 Proof
   rpt strip_tac >>
-  assume_tac ann_fts_seg_append_thm >>
   Cases_on `xs` >> fs[ann_fts_def] >>
-  first_assum (qspecl_then [`0w`, `(head_key [h])`, `(last_key (h::(t ++ ys)))`,
+  mp_tac ann_fts_seg_append_thm >>
+  disch_then (qspecl_then [`0w`, `(head_key [h])`, `(last_key (h::(t ++ ys)))`,
                             `(h::t)`, `ys`] assume_tac) >>
   Cases_on `h` >>
   fs[ann_fts_seg_def,head_key_def,last_key_def] >>
@@ -337,14 +365,14 @@ Inductive fts_has:
 End
 
 Definition fts_min_def:
-  (fts_min ([] : ('a word, 'a node_data) fts) = i2w (UINT_MAX (:'a))) /\
+  (fts_min ([] : ('a word, 'a node_data) fts) = -1w ) /\
   (fts_min (FibTree k v _::_) = v.value)
 End
 
 Definition fts_is_min_def:
   (fts_is_min _ [] = T) /\
   (fts_is_min v (FibTree _ n ts::rest) =
-    ((v <=+ n.value) /\ (fts_is_min n.value ts) /\ (fts_is_min v rest)))
+    ((v <=+ n.value) /\ (fts_is_min v ts) /\ (fts_is_min v rest)))
 End
 
 Theorem fts_is_min_append_thm:
@@ -558,31 +586,20 @@ Proof
   simp[Once fib_num_def]
 QED
 
-
 Theorem lemma_fib_heap_new_min:
-  !v v' fts.
-    v <=+ v' /\ fts_is_min v' fts /\ fts <> [] ==>
-    fts_is_min v ((TL fts) ++ [HD fts])
+  !v v' fts. v <=+ v' /\ fts_is_min v' fts ==> fts_is_min v fts
 Proof
-  assume_tac WORD_LOWER_EQ_TRANS >>
+  gen_tac >>
+  ho_match_mp_tac fts_is_min_ind >>
+  simp[fts_is_min_def] >>
   rpt strip_tac >>
-  Cases_on `fts`
-  >- fs[] >>
-  Cases_on `h` >>
-  fs[fts_is_min_def,fts_is_min_append_thm] >>
-  first_assum (qspecl_then [`v`, `v'`, `v''.value`] assume_tac)  >> gvs[] >>
-  Induct_on `t` >> simp[fts_is_min_def] >>
-  Cases_on `h` >>
-  fs[fts_is_min_def] >>
-  strip_tac >>
-  first_assum (qspecl_then [`v`, `v'`, `v'''.value`] assume_tac)  >> gvs[]
+  imp_res_tac WORD_LOWER_EQ_TRANS
 QED
-
 
 
 (* New smallest elemet *)
 Theorem lemma_insert_new_min_inv:
-  !fh fts k k' v e.
+  !fh fts k v e.
     k <> 0w /\
     FLOOKUP fh k = NONE /\
     fib_heap_inv fh fts /\
@@ -648,9 +665,7 @@ Proof
     last_assum (qspecl_then [`v''.value`, `v''.edges`] assume_tac) >>
     gvs[head_key_def] >>
     fs[fts_min_def] >>
-    assume_tac lemma_fib_heap_new_min >>
-    cheat
-    (* first_assum (qspecl_then [`v`,`v''.value`, `(FibTree k' v'' l::t)`] assume_tac) >> *)
+    dxrule_all lemma_fib_heap_new_min >> simp[]
   ) >>
   fs[fib_heap_shape_ok_def] >>
   simp[fib_heap_size_def, Ntimes fib_num_def 3] >>
@@ -728,10 +743,10 @@ Proof
       simp[ann_fts_def, ann_fts_seg_def, last_key_def,fts_mem_def,
            SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
            fill_dnode_def, next_key_def, ones_def, STAR_ASSOC] >>
-      assume_tac lemma_insert_new_min_inv >>
-      (*first_x_assum(qspecl_then
-          [`fh`, `[FibTree k' v' l]`, `a'`, `k'`, `v`, `e`] assume_tac) >> *)
-       cheat (* Proof invariant! *)
+      mp_tac lemma_insert_new_min_inv >>
+      disch_then (qspecl_then
+          [`fh`, `[FibTree k' v' l]`, `a'`, `v`, `e`] assume_tac) >>
+      fs[fts_min_def,fill_dnode_def]
       ) >>
       (* opposite case *)
       cheat
@@ -845,7 +860,7 @@ Proof
                    one (k' + 7w * bytes_in_word,head_key l) *
                    one (k' + 8w * bytes_in_word,n2w (LENGTH l)) *
                    edges_ones (FST v'.edges) (SND v'.edges)` >>
-      (* simp[STAR_COMM, STAR_ASSOC] >> termination? *)
+      (* simp[AC STAR_COMM STAR_ASSOC] >> termination? *)
       (* abbreviation does not simplifiy the g/a ? *)
       (* also prove invariant here! *)
       cheat
