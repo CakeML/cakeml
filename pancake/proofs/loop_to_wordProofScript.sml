@@ -344,6 +344,14 @@ Proof
   fs [LASTN_CONS]
 QED
 
+Theorem word_sh_SOME_MOD_dimword[local]:
+  good_dimindex (:α) ∧ word_sh sh (w: α word) n = SOME z ⇒
+  n MOD dimword (:α) = n
+Proof
+  rpt strip_tac
+  >> fs [word_sh_def, dimword_def, good_dimindex_def]
+QED
+
 Theorem comp_exp_preserves_eval:
   ∀s (e:'a loopLang$exp) v t ctxt.
     eval s e = SOME v ∧ good_dimindex(:'a) ∧
@@ -383,7 +391,8 @@ Proof
     fs [the_words_def, CaseEq"option", CaseEq"word_loc"] >>
     rveq >> fs [])
   >-
-   (fs [CaseEq"option", CaseEq"word_loc"] >> rveq >> fs []) >>
+   (fs [CaseEq"option", CaseEq"word_loc"] >> rveq >> fs []
+    >> drule_all word_sh_SOME_MOD_dimword >> simp []) >>
   fs[state_rel_def,get_store_def] >>
   Cases_on ‘FLOOKUP t.store CurrHeap’ >> fs[] >>
   rename1 ‘x’ >>

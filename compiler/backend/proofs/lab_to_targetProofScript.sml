@@ -1838,9 +1838,14 @@ Proof
     rpt $ pop_assum mp_tac >>
     EVAL_TAC >>
     rw [] >>
-    qmatch_assum_rename_tac`read_reg r _ = _` >>
-    first_x_assum(qspec_then`r`mp_tac) >>
-    simp[] >> EVAL_TAC >> srw_tac[][] )
+    Cases_on`r` >> EVAL_TAC >> srw_tac[][] >> gvs [reg_imm_def]
+    >- (* TODO Don't rely on auto-generated names... *)
+     (first_assum(qspec_then`n`mp_tac) >>
+      first_x_assum(qspec_then‘n0’mp_tac) >>
+      simp[] >> EVAL_TAC >> srw_tac[][]) >>
+    qmatch_assum_rename_tac`read_reg r2 _ = _` >>
+    first_x_assum(qspec_then`r2`mp_tac) >>
+    simp[] >> EVAL_TAC >> srw_tac[][])
   >> (
     unabbrev_all_tac
     \\ first_assum(qspec_then`n0`mp_tac)
@@ -2000,6 +2005,11 @@ Proof
       full_simp_tac(srw_ss())[reg_imm_def,binop_upd_def,labSemTheory.binop_upd_def] >>
       full_simp_tac(srw_ss())[upd_reg_def,labSemTheory.upd_reg_def,state_rel_def] >>
       TRY (Cases_on`b`)>>EVAL_TAC >> full_simp_tac(srw_ss())[state_rel_def]
+      >-
+       (rename1 ‘w2n (_ n')’
+        \\ qpat_x_assum ‘∀r. word_loc_val _ _ _ = SOME _’ mp_tac
+        \\ disch_then(qspec_then‘n'’assume_tac)
+        \\ gvs [word_loc_val_def])
       (*Div*)
       >-
         (unabbrev_all_tac \\ fs[]
