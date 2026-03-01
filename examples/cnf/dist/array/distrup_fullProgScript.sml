@@ -485,6 +485,17 @@ Proof
   gvs [is_final_event_def]
 QED
 
+Definition bytes_to_num_def:
+  bytes_to_num [] = 0 ∧
+  bytes_to_num (b::bs) = w2n (b:word8) + 256 * bytes_to_num bs
+End
+
+Theorem LENGTH_write_bytes:
+  ∀xs ys. LENGTH (write_bytes xs ys) = LENGTH xs
+Proof
+  Induct >> Cases_on ‘ys’ >> gvs [write_bytes_def]
+QED
+
 Definition is_unsat_event_def:
   is_unsat_event event ⇔
     ∃xs. event = IO_event (ExtCall «step») [] xs ∧ SND (HD xs) = n2w (ORD #"V")
@@ -538,17 +549,18 @@ Proof
   unabbrev_all_tac >>
   rewrite_tac [OPTION_TYPE_def] >>
   gvs [is_unsat_event_def] >>
-  cheat (* easy *)
+  ‘LENGTH (write_bytes t xs) = 16’ by (rewrite_tac [LENGTH_write_bytes] >> gvs []) >>
+  gvs [LENGTH_EQ_NUM_compute]
 QED
 
 Theorem get_u64_spec:
-  ∀xs k ys nv.
-    NUM k nv ∧ k = LENGTH xs ⇒
+  ∀xs k nv.
+    NUM k nv ∧ k + 8 < LENGTH xs ⇒
     app (p:'ffi ffi_proj) get_u64_v [step_arrv; nv]
-        (W8ARRAY step_arrv (xs ++ word_to_bytes (id : word64) F ++ ys))
+        (W8ARRAY step_arrv xs)
         (POSTv res.
-          W8ARRAY step_arrv (xs ++ word_to_bytes id F ++ ys) *
-          cond (NUM (w2n id) res))
+          W8ARRAY step_arrv xs *
+          cond (NUM (bytes_to_num (TAKE 8 (DROP k xs))) res))
 Proof
   cheat
 QED
@@ -567,10 +579,10 @@ Definition is_produce_events_def:
                         IO_event (ExtCall «hints»)  [] xs3] ∧
       LENGTH xs1 = 17 ∧
       SND (HD xs1) = n2w (ORD #"a") ∧
-      word_to_bytes (n2w id : word64) F = MAP SND (TAKE 8 (DROP 1 xs1)) ∧
-      word_to_bytes (clen   : word32) F = MAP SND (TAKE 4 (DROP 9 xs1)) ∧
-      w2n clen * 4 ≤ LENGTH xs2 ∧
-      cl = Vector (read_ints (w2n clen) (MAP SND xs2))
+      id = bytes_to_num (TAKE 8 (DROP 1 (MAP SND xs1))) ∧
+      clen = bytes_to_num (TAKE 4 (DROP 9 (MAP SND xs1))) ∧
+      clen * 4 ≤ LENGTH xs2 ∧
+      cl = Vector (read_ints clen (MAP SND xs2))
 End
 
 Theorem parse_step_Produce:
@@ -589,16 +601,12 @@ Theorem parse_step_Produce:
                ∃v. OPTION_TYPE DISTRUP_DISTRUP_TYPE (SOME (Lrup id cl hs)) v ∧
                    res = Conv NONE [buf_arrv; v]))
 Proof
-  cheat (*
   rpt strip_tac >>
   xcf_with_def (fetch "-" "parse_step_v_def") >>
-  qabbrev_tac ‘a1 = [n2w (ORD #"a")] ++
-                    word_to_bytes (id : word64) F ++
-                    word_to_bytes (n2w (LENGTH c) : word32) F ++
-                    word_to_bytes (n2w (LENGTH h) : word32) F’ >>
+  qabbrev_tac ‘a1 = write_bytes step_arr (97w::xs)’ >>
   qabbrev_tac ‘event1 = IO_event (ExtCall «step») [] (ZIP (step_arr,a1))’ >>
   xlet ‘POSTv res.
-      CUSTOM_FFI (Produce_clause id c h) inputs (events ++ [event1]) *
+      CUSTOM_FFI (Produce_clause ys zs) inputs (events ++ [event1]) *
       W8ARRAY buf_arrv buf_arr *
       W8ARRAY step_arrv a1’
   >-
@@ -612,28 +620,26 @@ Proof
     simp [update_def,update_step_def] >>
     gvs [names_def,SEP_CLAUSES] >>
     xsimpl) >>
+  Cases_on ‘step_arr’ >> gvs [write_bytes_def,Abbr‘a1’] >>
   xlet_auto >- xsimpl >>
   xlet_auto >- xsimpl >>
   gvs [CHAR_def,WORD_def] >>
   xmatch >>
   xlet ‘POSTv res.
-    W8ARRAY step_arrv a1 *
+    W8ARRAY step_arrv (97w::write_bytes t xs) *
     W8ARRAY buf_arrv buf_arr *
-    CUSTOM_FFI (Produce_clause id c h) inputs (events ++ [event1]) *
-    cond (NUM (w2n id) res)’
+    CUSTOM_FFI (Produce_clause ys zs) inputs (events ++ [event1]) *
+    cond (NUM (bytes_to_num (TAKE 8 (write_bytes t xs))) res)’
   >-
-   (xapp >> xsimpl >>
-    gvs [LENGTH_EQ_NUM_compute,PULL_EXISTS,Abbr‘a1’] >>
-    rewrite_tac [GSYM APPEND_ASSOC] >>
-    irule_at Any EQ_REFL >> fs []) >>
-  xlet_auto >- xsimpl >>
-  xlet_auto >- xsimpl >>
+   (xapp >> xsimpl >> gvs [LENGTH_write_bytes]) >>
+  xlet_auto >- (xsimpl >> gvs [LENGTH_write_bytes]) >>
+  xlet_auto >- (xsimpl >> gvs [LENGTH_write_bytes]) >>
   xlet_auto >- (xcon \\ xsimpl) >>
   xlet ‘POSTv res.
     SEP_EXISTS buf_arrv1 buf_arr1 cl event2.
-      W8ARRAY step_arrv a1 *
+      W8ARRAY step_arrv (97w::write_bytes t xs) *
       W8ARRAY buf_arrv1 buf_arr1 *
-      CUSTOM_FFI (Produce_hints id h) inputs (events ++ [event1; event2]) *
+      CUSTOM_FFI (Produce_hints zs) inputs (events ++ [event1; event2]) *
       cond (∃v. res = Conv NONE [buf_arrv1; v] ∧
                 VECTOR_TYPE INT cl v)’
   >- cheat >>
@@ -641,9 +647,9 @@ Proof
   xmatch >>
   xlet ‘POSTv res.
     SEP_EXISTS buf_arrv1 buf_arr1 hs event3.
-      W8ARRAY step_arrv a1 *
+      W8ARRAY step_arrv (97w::write_bytes t xs) *
       W8ARRAY buf_arrv1 buf_arr1 *
-      CUSTOM_FFI (Produce_callback id) inputs (events ++ [event1; event2; event3]) *
+      CUSTOM_FFI Produce_callback inputs (events ++ [event1; event2; event3]) *
       cond (∃v. res = Conv NONE [buf_arrv1; v] ∧
                 LIST_TYPE NUM hs v)’
   >- cheat >>
@@ -661,12 +667,11 @@ Proof
   simp [GSYM PULL_EXISTS] >>
   conj_tac
   >-
-   (unabbrev_all_tac >>
-    gvs [word_to_bytes_def] >>
-    simp [EVAL “word_to_bytes_aux 8 id F”,
-          EVAL “word_to_bytes_aux 4 id F”]) >>
-  gvs [is_produce_events_def,Abbr‘event1’] >>
-  cheat *)
+   (‘LENGTH (write_bytes t xs) = 16’ by (rewrite_tac [LENGTH_write_bytes] >> gvs []) >>
+    gvs [LENGTH_EQ_NUM_compute]) >>
+  qpat_x_assum ‘NUM _ res’ $ irule_at Any >>
+  gvs [is_produce_events_def,Abbr‘event1’,LENGTH_write_bytes] >>
+  cheat
 QED
 
 Inductive events_ok:
