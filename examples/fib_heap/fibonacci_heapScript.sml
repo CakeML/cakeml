@@ -364,6 +364,30 @@ Inductive fts_has:
   fts_has k v (FibTree k1 v1 ts :: rest)
 End
 
+Theorem fts_has_append_thm:
+  !k n xs ys.
+    fts_has k n (xs ++ ys) = (fts_has k n xs \/ fts_has k n ys)
+Proof
+  Induct_on `xs`
+  >- (
+    simp[] >>
+    rpt strip_tac >>
+    iff_tac >>
+    rpt strip_tac >>
+    fs[Once fts_has_cases] >>
+    simp[Once fts_has_cases]
+    ) >>
+  rpt strip_tac >>
+  Cases_on `h` >>
+  iff_tac >> strip_tac >>
+  simp[Once fts_has_cases] >>
+  pop_assum mp_tac >>
+  simp[Once fts_has_cases] >>
+  disch_tac >> fs[]
+QED
+
+
+
 Definition fts_min_def:
   (fts_min ([] : ('a word, 'a node_data) fts) = -1w ) /\
   (fts_min (FibTree k v _::_) = v.value)
@@ -416,6 +440,26 @@ Definition fib_heap_shape_ok_def:
     fib_heap_shape_ok ys /\
     fib_heap_shape_ok ts)
 End
+
+
+Theorem fib_heap_shape_ok_append_thm:
+  !xs ys.
+    fib_heap_shape_ok (xs ++ ys) <=> (fib_heap_shape_ok xs /\ fib_heap_shape_ok ys)
+Proof
+  Induct
+  >- fs[fib_heap_shape_ok_def] >>
+  Cases_on `h` >>
+  strip_tac >>
+  iff_tac >> strip_tac
+  >- (
+    fs[fib_heap_shape_ok_def] >>
+    first_x_assum (qspec_then `ys` assume_tac) >>
+    fs[EQ_IMP_THM]
+    ) >>
+  fs[fib_heap_shape_ok_def]
+QED
+
+
 
 
 Definition fib_heap_inv_def:
@@ -672,6 +716,100 @@ Proof
   simp[Once fib_num_def]
 QED
 
+Theorem lemma_insert_old_min_inv:
+  !fh fts k v e.
+    k <> 0w /\
+    FLOOKUP fh k = NONE /\
+    fib_heap_inv fh fts /\
+    ~(v <=+ fts_min fts) ==>
+    fib_heap_inv (fh |+ (k,v,e)) (fts ++ [FibTree k (fill_dnode v e F) []])
+Proof
+  fs[fib_heap_inv_def] >>
+  rpt strip_tac
+  >- gvs[FLOOKUP_SIMP]
+  >- (
+    iff_tac >>
+    strip_tac >>
+    last_x_assum (qspecl_then [`k'`, `v'`, `e'`] assume_tac) >>
+    Cases_on `k = k'`
+    >- (
+      qexists `F` >>
+      simp[fts_has_append_thm] >>
+      fs[FLOOKUP_SIMP] >>
+      disj2_tac >>
+      simp[Once fts_has_cases]
+      )
+    >- (
+      fs[FLOOKUP_SIMP] >>
+      qexists `m` >>
+      simp[fts_has_append_thm]
+      )
+    >- (
+      qpat_x_assum `fts_has k' (fill_dnode v' e' m)
+                    (fts ++ [FibTree k (fill_dnode v e F) []])` mp_tac >>
+      simp[fts_has_append_thm] >>
+      disch_tac >> gvs[] >>
+      pop_assum mp_tac >> simp[Once fts_has_cases] >>
+      disch_tac >> fs[]
+      >- fs[fill_dnode_def,FLOOKUP_SIMP] >>
+      fs[Once fts_has_cases]
+      ) >>
+    simp[FLOOKUP_SIMP] >>
+    qexists `m` >>
+    fs[fts_has_append_thm] >>
+    qpat_x_assum `fts_has k' (fill_dnode v' e' m)
+                  [FibTree k (fill_dnode v e F) []]` mp_tac >>
+    simp[Once fts_has_cases] >>
+    simp[Once fts_has_cases]
+    )
+  >- (
+    simp[fts_is_min_append_thm] >>
+    strip_tac
+    >- (
+      Cases_on `fts`
+      >- simp[fts_is_min_def] >>
+      fs[head_key_append_thm] >>
+      Cases_on `h` >>
+      fs[head_key_def,fts_min_def] >>
+      Cases_on `k = k'`
+      >- (
+        first_x_assum(qspecl_then [`k'`,`v''.value`,`v''.edges`] assume_tac) >>
+        gvs[FLOOKUP_SIMP] >>
+        first_x_assum(qspec_then `v''.mark` assume_tac) >>
+        fs[Once fts_has_cases] >>
+        fs[fill_dnode_def,node_data_component_equality]
+        ) >>
+      fs[FLOOKUP_SIMP]
+      ) >>
+    Cases_on `fts`
+    >- (
+       fs[head_key_def,FLOOKUP_SIMP] >>
+       simp[fts_is_min_def,fill_dnode_def]
+       ) >>
+    Cases_on `h` >>
+    fs[head_key_def,fts_min_def] >>
+    Cases_on `k = k'`
+    >- fs[FLOOKUP_SIMP, fts_is_min_def,fill_dnode_def] >>
+    first_x_assum(qspecl_then [`v'`,`e'`] assume_tac) >>
+    rfs[fts_is_min_def] >>
+    simp[fill_dnode_def] >>
+    first_x_assum (qspecl_then [`k'`,`v'`,`e'`] assume_tac) >>
+    fs[FLOOKUP_SIMP] >>
+    fs[PULL_EXISTS] >>
+    first_x_assum (qspec_then `m` assume_tac) >> rfs[] >>
+    mp_tac WORD_LOWER_EQ_CASES >>
+    disch_then (qspecl_then [`v`,`v''.value`] assume_tac) >> rfs[] >>
+    mp_tac WORD_LOWER_EQ_TRANS >>
+    disch_then (qspecl_then [`v'`,`v''.value`,`v`] assume_tac) >>
+    simp[]
+    ) >>
+  simp[fib_heap_shape_ok_append_thm] >>
+  simp[fib_heap_shape_ok_def] >>
+  simp[Ntimes fib_num_def 3, fib_heap_size_def] >>
+  simp[Once fib_num_def]
+QED
+
+
 
 Theorem fib_heap_insert:
   ∀frame k v fh.
@@ -748,8 +886,22 @@ Proof
           [`fh`, `[FibTree k' v' l]`, `a'`, `v`, `e`] assume_tac) >>
       fs[fts_min_def,fill_dnode_def]
       ) >>
-      (* opposite case *)
-      cheat
+      fs[fib_heap_append_def,before_off_def,next_off_def] >>
+      SEP_R_TAC >>
+      IF_CASES_TAC >> fs[] >>
+      fs[head_key_def,last_key_def] >>
+      SEP_R_TAC >> simp[] >>
+      strip_tac >> gvs[] >>
+      SEP_W_TAC >>
+      qexists `[FibTree a' v' l; FibTree k (fill_dnode v e F) []]` >>
+      simp[ann_fts_def, ann_fts_seg_def, last_key_def,fts_mem_def,
+           SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
+           fill_dnode_def, next_key_def, ones_def, STAR_ASSOC] >>
+      fs[AC STAR_COMM STAR_ASSOC] >>
+      fs[STAR_ASSOC] >>
+      mp_tac lemma_insert_old_min_inv >>
+      disch_then (qspecl_then [`fh`, `[FibTree a' v' l]`,`k`,`v`,`e`] assume_tac) >>
+      fs[fts_min_def, fill_dnode_def]
     ) >>
   Cases_on `x` >>
   rename [`fib_heap_inv fh (FibTree k' v' l::(l' ++ [FibTree lk lv ts]))`] >>
