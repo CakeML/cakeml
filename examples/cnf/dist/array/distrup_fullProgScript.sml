@@ -11,29 +11,28 @@ val _ = hide_environments true;
 
 val _ = translation_extends "distrup_arrayProg";
 
-(* Helper functions *)
-Definition string_to_int_def:
-  string_to_int s =
+(* Unsigned 32-bit number from a 4-byte string *)
+Definition string_to_num_def:
+  string_to_num s =
   let
     b0 = &ORD (strsub s 0);
     b1 = &ORD (strsub s 1);
     b2 = &ORD (strsub s 2);
-    b3 = &ORD (strsub s 3);
-    raw = b0 + b1 * 256 + b2 * 65536 + b3 * (16777216:int)
+    b3 = &ORD (strsub s 3)
   in
-    if b3 >= 128 then raw - 4294967296 else raw
+    b0 + b1 * 256 + b2 * 65536 + b3 * (16777216:int)
 End
 
-val res = translate string_to_int_def;
+val res = translate string_to_num_def;
 
-Theorem string_to_int_pre:
-  string_to_int_side s ⇔
+Theorem string_to_num_pre:
+  string_to_num_side s ⇔
   4 ≤ strlen s
 Proof
-  rw[fetch "-" "string_to_int_side_def"]
+  rw[fetch "-" "string_to_num_side_def"]
 QED
 
-val _ = string_to_int_pre |> update_precondition;
+val _ = string_to_num_pre |> update_precondition;
 
 (* Array-level helpers *)
 Quote add_cakeml:
@@ -80,7 +79,7 @@ End
 Quote add_cakeml:
   fun get_clause buf_arr trusted count_str =
     let
-      val len = string_to_int count_str
+      val len = string_to_num count_str
       val arr = ensure_size buf_arr (len * 4)
       val hdr = String.str (Char.chr (if trusted then 1 else 0)) ^ count_str
       val _ = #(clause) hdr arr
@@ -90,7 +89,7 @@ Quote add_cakeml:
 
   fun get_hints buf_arr count_str =
     let
-      val len = string_to_int count_str
+      val len = string_to_num count_str
       val arr = ensure_size buf_arr (len * 8)
       val _ = #(hints) count_str arr
     in
