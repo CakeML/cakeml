@@ -959,23 +959,23 @@ Proof
           [`fh`, `[FibTree k' v' l]`, `a'`, `v`, `e`] assume_tac) >>
       fs[fts_min_def,fill_dnode_def]
       ) >>
-      fs[fib_heap_append_def,before_off_def,next_off_def] >>
-      SEP_R_TAC >>
-      IF_CASES_TAC >> fs[] >>
-      fs[head_key_def,last_key_def] >>
-      SEP_R_TAC >> simp[] >>
-      strip_tac >> gvs[] >>
-      SEP_W_TAC >>
-      qexists `[FibTree a' v' l; FibTree k (fill_dnode v e F) []]` >>
-      simp[ann_fts_def, ann_fts_seg_def, last_key_def,fts_mem_def,
-           SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
-           fill_dnode_def, next_key_def, ones_def, STAR_ASSOC] >>
-      fs[AC STAR_COMM STAR_ASSOC] >>
-      fs[STAR_ASSOC] >>
-      mp_tac lemma_insert_old_min_inv >>
-      disch_then (qspecl_then [`fh`, `[FibTree a' v' l]`,`k`,`v`,`e`] assume_tac) >>
-      fs[fts_min_def, fill_dnode_def]
-    ) >>
+    fs[fib_heap_append_def,before_off_def,next_off_def] >>
+    SEP_R_TAC >>
+    IF_CASES_TAC >> fs[] >>
+    fs[head_key_def,last_key_def] >>
+    SEP_R_TAC >> simp[] >>
+    strip_tac >> gvs[] >>
+    SEP_W_TAC >>
+    qexists `[FibTree a' v' l; FibTree k (fill_dnode v e F) []]` >>
+    simp[ann_fts_def, ann_fts_seg_def, last_key_def,fts_mem_def,
+         SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
+         fill_dnode_def, next_key_def, ones_def, STAR_ASSOC] >>
+    fs[AC STAR_COMM STAR_ASSOC] >>
+    fs[STAR_ASSOC] >>
+    mp_tac lemma_insert_old_min_inv >>
+    disch_then (qspecl_then [`fh`, `[FibTree a' v' l]`,`k`,`v`,`e`] assume_tac) >>
+    fs[fts_min_def, fill_dnode_def]
+   ) >>
   Cases_on `x` >>
   rename [`fib_heap_inv fh (FibTree k' v' l::(l' ++ [FibTree lk lv ts]))`] >>
   Cases_on `l'` >>
@@ -984,12 +984,12 @@ Proof
     fs[ann_fts_def, ann_fts_seg_def,fts_mem_def,
        SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
        fill_dnode_def, next_key_def, ones_def, STAR_ASSOC] >>
+    `k' <> lk` by SEP_NEQ_TAC >> simp[] >>
     SEP_R_TAC >>
     IF_CASES_TAC
     >- (
       simp[fib_heap_append_def,before_off_def,next_off_def] >>
       SEP_R_TAC >>
-      `k' <> lk` by SEP_NEQ_TAC >> simp[] >>
       fs[last_key_def,head_key_def] >>
       SEP_R_TAC >> simp[] >>
       strip_tac >> gvs[] >>
@@ -1010,7 +1010,23 @@ Proof
                  `[FibTree k' v' l]`,`[FibTree lk lv ts]`] assume_tac) >>
       rfs[fill_dnode_def]
       ) >>
-    cheat
+    simp[fib_heap_append_def,before_off_def,next_off_def] >>
+    fs[last_key_def,head_key_def] >>
+    SEP_R_TAC >> simp[] >>
+    SEP_R_TAC >> simp[] >>
+    strip_tac >> gvs[] >>
+    SEP_W_TAC >>
+    qexists `[FibTree a' v' l; FibTree lk lv ts;
+              FibTree k (fill_dnode v e F) []]` >>
+    simp[ann_fts_def, ann_fts_seg_def, last_key_def,fts_mem_def,
+         SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
+         fill_dnode_def, next_key_def, ones_def, STAR_ASSOC] >>
+    fs[AC STAR_COMM STAR_ASSOC] >>
+    fs[STAR_ASSOC] >>
+    mp_tac lemma_insert_old_min_inv >>
+    disch_then (qspecl_then [`fh`, `[FibTree a' v' l; FibTree lk lv ts]`,
+                             `k`,`v`,`e`] assume_tac) >>
+    fs[fts_min_def, fill_dnode_def]
    ) >>
   assume_tac ann_fts_append_thm >>
   first_assum(qspecl_then
