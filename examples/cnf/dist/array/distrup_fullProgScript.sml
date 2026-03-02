@@ -20,7 +20,7 @@ Definition string_to_num_def:
     b2 = &ORD (strsub s 2);
     b3 = &ORD (strsub s 3)
   in
-    b0 + b1 * 256 + b2 * 65536 + b3 * (16777216:int)
+    b0 + b1 * 256 + b2 * 65536 + b3 * (16777216:num)
 End
 
 val res = translate string_to_num_def;
@@ -74,6 +74,15 @@ Quote add_cakeml:
     else buf_arr;
 End
 
+Definition mk_trusted_def:
+  mk_trusted b s =
+  if b
+  then str (CHR 1) ^ s
+  else str (CHR 0) ^ s
+End
+
+val res = translate mk_trusted_def;
+
 (* get_clause and get_hints read from the respective buffers,
   growing them as necessary *)
 Quote add_cakeml:
@@ -81,7 +90,7 @@ Quote add_cakeml:
     let
       val len = string_to_num count_str
       val arr = ensure_size buf_arr (len * 4)
-      val hdr = String.str (Char.chr (if trusted then 1 else 0)) ^ count_str
+      val hdr = mk_trusted trusted count_str
       val _ = #(clause) hdr arr
     in
       (arr, Vector.fromList (read_ints arr len 0))
@@ -285,8 +294,8 @@ Definition Input_def:
 End
 
 Definition State_def:
-  State waif_for inputs =
-    Cons (WaitFor waif_for)
+  State wait_for inputs =
+    Cons (WaitFor wait_for)
          (List (MAP Input inputs))
 End
 
@@ -408,15 +417,15 @@ Definition update_def:
   update ffi_name imm_arg arr_arg s =
     case dest_State s of
     | NONE => NONE
-    | SOME (waif_for, inputs) =>
+    | SOME (wait_for, inputs) =>
         if ffi_name = strlit "step" then
-          update_step imm_arg arr_arg waif_for inputs
+          update_step imm_arg arr_arg wait_for inputs
         else if ffi_name = strlit "clause" then
-          update_clause imm_arg arr_arg waif_for inputs
+          update_clause imm_arg arr_arg wait_for inputs
         else if ffi_name = strlit "hints" then
-          update_hints imm_arg arr_arg waif_for inputs
+          update_hints imm_arg arr_arg wait_for inputs
         else if ffi_name = strlit "callback" then
-          update_callback imm_arg arr_arg waif_for inputs
+          update_callback imm_arg arr_arg wait_for inputs
         else NONE
 End
 
@@ -427,8 +436,8 @@ Definition names_def:
 End
 
 Definition CUSTOM_FFI_def:
-  CUSTOM_FFI waif_for inputs events =
-    one (FFI_part (State waif_for inputs) update names events)
+  CUSTOM_FFI wait_for inputs events =
+    one (FFI_part (State wait_for inputs) update names events)
 End
 
 (* verification of FFI calling functions *)
@@ -553,15 +562,58 @@ Proof
   gvs [LENGTH_EQ_NUM_compute]
 QED
 
+Theorem get_byte_spec:
+  NUM k nv ∧ k < LENGTH xs ⇒
+  app (p:'ffi ffi_proj) get_byte_v [arrv; nv]
+      (W8ARRAY arrv xs)
+      (POSTv res.
+        W8ARRAY arrv xs *
+        cond (NUM (w2n (EL k xs)) res))
+Proof
+  rw[]>>
+  xcf_with_def (fetch "-" "get_byte_v_def") >>
+  xlet_autop>>
+  xapp>>
+  asm_exists_tac>>xsimpl
+QED
+
 Theorem get_u64_spec:
   ∀xs k nv.
-    NUM k nv ∧ k + 8 < LENGTH xs ⇒
-    app (p:'ffi ffi_proj) get_u64_v [step_arrv; nv]
-        (W8ARRAY step_arrv xs)
+    NUM k nv ∧ k + 8 ≤ LENGTH xs ⇒
+    app (p:'ffi ffi_proj) get_u64_v [arrv; nv]
+        (W8ARRAY arrv xs)
         (POSTv res.
-          W8ARRAY step_arrv xs *
+          W8ARRAY arrv xs *
           cond (NUM (bytes_to_num (TAKE 8 (DROP k xs))) res))
 Proof
+  rw[]>>
+  xcf_with_def (fetch "-" "get_u64_v_def") >>
+  rpt (xlet_auto >> xsimpl) >>
+  xapp>>xsimpl>>
+  gvs[NUM_def]>>
+  first_x_assum $ irule_at Any>>
+  first_x_assum $ irule_at Any>>
+  rw[]>>
+  `TAKE 8 (DROP k xs) =
+    [xs❲k❳;xs❲k+1❳;xs❲k+2❳;xs❲k+3❳;xs❲k+4❳;xs❲k+5❳;xs❲k+6❳;xs❲k+7❳]` by
+      (rw[LIST_EQ_REWRITE,EL_TAKE,EL_DROP]>>
+      fs[NUMERAL_LESS_THM ])>>
+  rw[bytes_to_num_def]>>gvs[LEFT_ADD_DISTRIB,INT_OF_NUM_ADD]
+QED
+
+Theorem get_int_spec:
+    NUM k nv ∧ k + 4 ≤ LENGTH xs ⇒
+    app (p:'ffi ffi_proj) get_int_v [arrv; nv]
+        (W8ARRAY arrv xs)
+        (POSTv res.
+          W8ARRAY arrv xs *
+          cond (INT (w2i (word_of_bytes F 0w (TAKE 4 (DROP k xs)) : word32)) res))
+Proof
+  rw[]>>
+  xcf_with_def (fetch "-" "get_int_v_def") >>
+  rpt (xlet_auto >> xsimpl) >>
+  xif>- cheat>>
+  xvar>>xsimpl>>
   cheat
 QED
 
@@ -584,6 +636,129 @@ Definition is_produce_events_def:
       clen * 4 ≤ LENGTH xs2 ∧
       cl = Vector (read_ints clen (MAP SND xs2))
 End
+
+(* We only need to know a new array with appropriate length is allocated *)
+Theorem ensure_size_spec:
+  NUM n nv ⇒
+  app (p:'ffi ffi_proj) ensure_size_v [arrv; nv]
+      (W8ARRAY arrv xs)
+      (POSTv arrv'.
+        SEP_EXISTS xs'.
+          W8ARRAY arrv' xs' *
+          &(n ≤ LENGTH xs'))
+Proof
+  rw[]>>
+  xcf_with_def (fetch "-" "ensure_size_v_def") >>
+  xlet_autop>>
+  xlet_autop>>
+  reverse xif>-
+    (xvar>>xsimpl)>>
+  xlet_autop>>
+  xapp>>xsimpl>>
+  rpt (first_x_assum (irule_at Any))>>
+  simp[]
+QED
+
+Theorem CHR_w2n_n2w_ORD_I:
+  (CHR ∘ w2n ∘ (n2w:num -> word8) ∘ ORD) = I
+Proof
+  RW_TAC std_ss [FUN_EQ_THM,o_DEF]>>
+  simp[CHR_w2n_n2w_ORD_simp]
+QED
+
+Theorem read_ints_spec:
+  ∀lv iv.
+  NUM len lv ∧
+  NUM i iv ∧
+  4 * len ≤ LENGTH xs ⇒
+  app (p:'ffi ffi_proj) read_ints_v [arrv; lv; iv]
+      (W8ARRAY arrv xs)
+      (POSTv res.
+        W8ARRAY arrv xs *
+        & LIST_TYPE INT
+        (read_ints (len - i) (DROP (i * 4) xs)) res)
+Proof
+  completeInduct_on`len - i`>>
+  rw[]>>
+  xcf_with_def (fetch "-" "read_ints_v_def") >>
+  xlet_autop>>
+  xif
+  >- (
+    xcon>>xsimpl>>
+    `len - i = 0` by fs[]>>
+    simp[Once read_ints_def,LIST_TYPE_def])>>
+  xlet_autop>>
+  first_x_assum(qspec_then`len - (i+1)` mp_tac)>>
+  impl_tac >- fs[]>>
+  disch_then (qspecl_then [`len`, `i+1`] mp_tac)>>
+  simp[]>>
+  disch_then drule_all>>
+  rw[]>>
+  rpt xlet_autop>>
+  xlet_auto>>
+  xcon>>xsimpl>>
+  simp[Once read_ints_def,LIST_TYPE_def]>>
+  fs[DROP_DROP,LEFT_ADD_DISTRIB]
+QED
+
+Theorem get_clause_Produce:
+  BOOL b bv ∧
+  STRING_TYPE s sv ∧
+  4 ≤ strlen s ⇒
+  app (p:'ffi ffi_proj) get_clause_v [arrv; bv; sv]
+      (CUSTOM_FFI (Produce_clause cl hs) inputs events *
+        W8ARRAY arrv xs)
+      (POSTv res.
+        SEP_EXISTS arrv' xs' clausev outs.
+        CUSTOM_FFI (Produce_hints hs) inputs
+          (events ++ [IO_event (ExtCall «clause»)
+            (MAP (n2w o ORD) (explode (mk_trusted b s)))
+               (ZIP (xs',write_bytes xs' cl))]) *
+        W8ARRAY arrv' (write_bytes xs' cl) *
+        &(
+          string_to_num s ≤ LENGTH xs' ∧
+          vcclause_TYPE (Vector (read_ints (string_to_num s) (write_bytes xs' cl))) clausev ∧
+          res = Conv NONE [arrv'; clausev]))
+Proof
+  rw[]>>
+  xcf_with_def (fetch "-" "get_clause_v_def") >>
+  rpt xlet_autop>>
+  rename1`W8ARRAY arrvv xss`>>
+  xlet`POSTv res.
+        CUSTOM_FFI (Produce_hints hs) inputs
+          (events ++ [IO_event (ExtCall «clause»)
+            (MAP (n2w o ORD) (explode (mk_trusted b s)))
+            (ZIP (xss,write_bytes xss cl))]) *
+        W8ARRAY arrvv (write_bytes xss cl)`
+  >- (
+    xffi>>xsimpl>>
+    simp[CUSTOM_FFI_def]>>
+    (* conf *)
+    qexists_tac`MAP (n2w o ORD) (explode (mk_trusted b s))`>>
+    (* frame *)
+    qexists_tac`emp`>>
+    xsimpl>>
+    (* state *)
+    qmatch_goalsub_abbrev_tac`FFI_part ss`>>
+    qexists_tac`ss`>>
+    qexists_tac`update`>>
+    qexists_tac`names`>>
+    qexists_tac`events`>>
+    rw[]
+    >- EVAL_TAC
+    >- gvs[STRING_TYPE_def,MAP_MAP_o,CHR_w2n_n2w_ORD_I]
+    >- EVAL_TAC
+    >- xsimpl>>
+    simp[update_def,Abbr`ss`,update_clause_def]>>
+    xsimpl>>rw[])>>
+  xlet_auto
+  >-(
+    xsimpl>>fs[LENGTH_write_bytes]>>
+    metis_tac[])>>
+  xlet_autop>>
+  xcon>>xsimpl>>
+  qexists_tac`xss`>>xsimpl
+QED
 
 Theorem parse_step_Produce:
   LENGTH step_arr = 17 ⇒
@@ -642,7 +817,25 @@ Proof
       CUSTOM_FFI (Produce_hints zs) inputs (events ++ [event1; event2]) *
       cond (∃v. res = Conv NONE [buf_arrv1; v] ∧
                 VECTOR_TYPE INT cl v)’
-  >- cheat >>
+  >- (
+    xapp>>
+    xsimpl>>
+    first_x_assum $ irule_at Any>>
+    qexists_tac`inputs`>>
+    qexists_tac`zs`>>
+    qexists_tac`events ++ [event1]`>>
+    qexists_tac`ys`>>
+    qexists_tac`F`>>
+    qexists_tac`W8ARRAY step_arrv (97w::write_bytes t xs)`>>
+    xsimpl>>
+    rw[]
+    >- (
+      DEP_REWRITE_TAC[LENGTH_TAKE,LENGTH_DROP,LENGTH_write_bytes]>>
+      gvs[])>>
+    first_x_assum (irule_at Any)>>
+    qmatch_goalsub_abbrev_tac`_ ++ [_] ++ [A]`>>
+    qexists_tac`A`>>PURE_REWRITE_TAC[GSYM APPEND_ASSOC]>>
+    REWRITE_TAC[APPEND]>>xsimpl)>>
   gvs [] >>
   xmatch >>
   xlet ‘POSTv res.
