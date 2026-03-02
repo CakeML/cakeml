@@ -25,7 +25,7 @@ End
 val state_component_equality = fetch "-" "state_component_equality"
 
 Datatype:
-  label = Tau | Act 'name (('id,'fact) message option)
+  label = Tau | Act 'name (('id,'fact) message)
 End
 
 Inductive step:
@@ -33,7 +33,7 @@ Inductive step:
   (∀name n fact facts infer st.
      FLOOKUP st.procs name = SOME(SOME facts) ∧
      infer (FRANGE facts) fact ⇒
-     step infer R st (Act name (SOME(Produce n fact)))
+     step infer R st (Act name (Produce n fact))
           (st with
               <|procs := st.procs |+ (name, SOME(facts |+ (n,fact)));
                 facts := fact::st.facts
@@ -42,18 +42,18 @@ Inductive step:
 [~produce_fail:]
   (∀name n fact facts infer st.
      FLOOKUP st.procs name = SOME(SOME facts) ⇒
-     step infer R st (Act name (SOME(Produce n fact)))
+     step infer R st (Act name (Produce n fact))
           (st with procs := st.procs |+ (name, NONE)))
 [~delete:]
   (∀name ids facts infer st.
      FLOOKUP st.procs name = SOME(SOME facts) ⇒
-     step infer R st (Act name (SOME(Delete ids)))
+     step infer R st (Act name (Delete ids))
           (st with procs := st.procs |+ (name, SOME(DRESTRICT facts (COMPL (set ids))))))
 [~import:]
   (∀name n fact facts infer st.
      FLOOKUP st.procs name = SOME(SOME facts) ∧
      MEM fact st.facts ⇒
-     step infer R st (Act name (SOME(Import n fact)))
+     step infer R st (Act name (Import n fact))
           (st with
               <|procs := st.procs |+ (name, SOME(facts |+ (n,fact)))|>
               ))
@@ -61,13 +61,13 @@ Inductive step:
   (∀name n fact facts infer st.
      FLOOKUP st.procs name = SOME(SOME facts) ∧
      ¬MEM fact st.facts ⇒
-     step infer R st (Act name (SOME(Import n fact)))
+     step infer R st (Act name (Import n fact))
           (st with procs := st.procs |+ (name, NONE)))
 [~validate:]
   (∀name fact facts infer st.
      FLOOKUP st.procs name = SOME(SOME facts) ∧
      fact ∈ FRANGE facts ⇒
-     step infer R st (Act name (SOME(Validate fact)))
+     step infer R st (Act name (Validate fact))
           (st with
               <|validated := fact INSERT st.validated|>
               ))
@@ -75,7 +75,7 @@ Inductive step:
   (∀name fact facts infer st.
      FLOOKUP st.procs name = SOME(SOME facts) ∧
      fact ∉ FRANGE facts ⇒
-     step infer R st (Act name (SOME(Validate fact)))
+     step infer R st (Act name (Validate fact))
           (st with procs := st.procs |+ (name, NONE)))
 [~drop:]
   (∀st facts fact facts'.
@@ -157,14 +157,6 @@ Proof
   gvs[cut_elimination_def] >>
   first_assum $ rev_drule_then drule >>
   strip_tac
-QED
-
-Theorem FRANGE_FDOMSUB:
-  FRANGE(fm \\ k) = FRANGE fm DELETE k
-Proof
-  rw[FRANGE_DEF,SET_EQ_SUBSET,SUBSET_DEF,DOMSUB_FAPPLY_THM] >>
-  gvs[]
-  rw[SET_EQ_SUBSET,DELETE_SUBSET_INSERT]
 QED
 
 Theorem step_rel_inv:
