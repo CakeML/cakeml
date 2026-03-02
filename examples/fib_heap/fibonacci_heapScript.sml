@@ -476,6 +476,79 @@ Definition fib_heap_inv_def:
 *)
 End
 
+Theorem lemma_fts_has_ul:
+  !k' v' e xs ys.
+    (∃m. fts_has k' (fill_dnode v' e m) (xs ++ ys)) ⇔
+    ∃m. fts_has k' (fill_dnode v' e m) (ys ++ xs)
+Proof
+  Induct_on `xs` >> simp[] >>
+  rpt strip_tac >>
+  Cases_on `h` >>
+  iff_tac >> strip_tac
+  >- (
+    qexists `m` >>
+    simp[fts_has_append_thm, DISJ_COMM] >>
+    pop_assum mp_tac >>
+    simp[Once fts_has_cases] >>
+    simp[fts_has_append_thm] >>
+    strip_tac >> simp[] >>
+    disj2_tac >> simp[Once fts_has_cases]
+    ) >>
+  qexists `m` >>
+  simp[Once fts_has_cases] >>
+  simp[fts_has_append_thm, DISJ_COMM] >>
+  pop_assum mp_tac >>
+  simp[fts_has_append_thm] >>
+  strip_tac >> simp[] >>
+  pop_assum mp_tac >>
+  simp[Once fts_has_cases] >>
+  strip_tac >> simp[]
+QED
+
+
+Theorem lemma_fib_heap_inv_ul:
+  !fh k v l xs ys.
+    fib_heap_inv fh (FibTree k v l::(xs ++ ys)) ==>
+    fib_heap_inv fh (FibTree k v l::(ys ++ xs))
+Proof
+  rpt strip_tac >>
+  fs[fib_heap_inv_def] >>
+  rpt strip_tac
+  >- (
+    iff_tac >> strip_tac >>
+    qexists `m` >> simp[Once fts_has_cases] >>
+    pop_assum mp_tac >>
+    simp[Once fts_has_cases] >>
+    simp[fts_has_append_thm] >>
+    strip_tac >> simp[]
+    )
+  >- (
+    simp[fts_is_min_def] >>
+    simp[fts_is_min_append_thm] >>
+    fs[head_key_def] >>
+    first_x_assum(qspecl_then [`k`, `v'`, `e`] assume_tac) >>
+    fs[EQ_IMP_THM] >>
+    fs[PULL_EXISTS] >>
+    first_x_assum(qspec_then `m` assume_tac) >> rfs[] >>
+    first_x_assum(qspecl_then [`v'`,`e`] assume_tac) >> rfs[] >>
+    fs[fts_is_min_def] >>
+    fs[fts_is_min_append_thm]
+    ) >>
+  fs[fib_heap_shape_ok_def] >>
+  fs[fib_heap_shape_ok_append_thm]
+QED
+
+Theorem fib_heap_inv_ul_thm:
+ !fh k v l xs ys.
+    fib_heap_inv fh (FibTree k v l::(xs ++ ys)) <=>
+    fib_heap_inv fh (FibTree k v l::(ys ++ xs))
+Proof
+  rpt strip_tac >>
+  assume_tac lemma_fib_heap_inv_ul >>
+  iff_tac >> simp[]
+QED
+
+
 Definition fib_heap_def:
   fib_heap a fh =
     SEP_EXISTS fts.
@@ -914,7 +987,28 @@ Proof
     SEP_R_TAC >>
     IF_CASES_TAC
     >- (
-      cheat
+      simp[fib_heap_append_def,before_off_def,next_off_def] >>
+      SEP_R_TAC >>
+      `k' <> lk` by SEP_NEQ_TAC >> simp[] >>
+      fs[last_key_def,head_key_def] >>
+      SEP_R_TAC >> simp[] >>
+      strip_tac >> gvs[] >>
+      SEP_W_TAC >>
+      qexists `[FibTree a' (fill_dnode v e F) []; FibTree lk lv ts;
+                FibTree k' v' l]` >>
+      simp[ann_fts_def, ann_fts_seg_def, last_key_def,fts_mem_def,
+           SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
+           fill_dnode_def, next_key_def, ones_def, STAR_ASSOC] >>
+      fs[AC STAR_COMM STAR_ASSOC] >>
+      fs[STAR_ASSOC] >>
+      mp_tac lemma_insert_new_min_inv >>
+      disch_then (qspecl_then [`fh`, `[FibTree k' v' l;FibTree lk lv ts]`, `a'`,
+                               `v`,`e`] assume_tac) >>
+      rfs[fts_min_def] >>
+      mp_tac fib_heap_inv_ul_thm >>
+      disch_then (qspecl_then [`fh |+ (a',v,e)`,`a'`,`(fill_dnode v e F)`,`[]`,
+                 `[FibTree k' v' l]`,`[FibTree lk lv ts]`] assume_tac) >>
+      rfs[fill_dnode_def]
       ) >>
     cheat
    ) >>
