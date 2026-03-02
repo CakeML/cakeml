@@ -8,74 +8,83 @@ Libs
   bossLib
 
 Datatype:
-  message = Delete 'fact | Add 'fact
+  message =
+  | Produce 'id 'fact
+  | Delete ('id list)
+  | Import 'id 'fact
+  | Validate 'fact
 End
 
 Datatype:
-  state = <| procs  : 'name |-> 'fact set;
-             msgs   : 'fact message list;
-             result : 'fact option
+  state = <| procs  : 'name |-> ('id |-> 'fact) option;
+             facts  : 'fact list;
+             validated  : 'fact set
            |>
 End
 
 val state_component_equality = fetch "-" "state_component_equality"
 
 Datatype:
-  label = Tau | Act 'a ('fact option)
+  label = Tau | Act 'name (('id,'fact) message option)
 End
 
 Inductive step:
-[~infer:]
+[~produce_succeed:]
+  (∀name n fact facts infer st.
+     FLOOKUP st.procs name = SOME(SOME facts) ∧
+     infer (FRANGE facts) fact ⇒
+     step infer R st (Act name (SOME(Produce n fact)))
+          (st with
+              <|procs := st.procs |+ (name, SOME(facts |+ (n,fact)));
+                facts := fact::st.facts
+               |>
+              ))
+[~produce_fail:]
+  (∀name n fact facts infer st.
+     FLOOKUP st.procs name = SOME(SOME facts) ⇒
+     step infer R st (Act name (SOME(Produce n fact)))
+          (st with procs := st.procs |+ (name, NONE)))
+[~delete:]
+  (∀name ids facts infer st.
+     FLOOKUP st.procs name = SOME(SOME facts) ⇒
+     step infer R st (Act name (SOME(Delete ids)))
+          (st with procs := st.procs |+ (name, SOME(DRESTRICT facts (COMPL (set ids))))))
+[~import:]
+  (∀name n fact facts infer st.
+     FLOOKUP st.procs name = SOME(SOME facts) ∧
+     MEM fact st.facts ⇒
+     step infer R st (Act name (SOME(Import n fact)))
+          (st with
+              <|procs := st.procs |+ (name, SOME(facts |+ (n,fact)))|>
+              ))
+[~import_fail:]
+  (∀name n fact facts infer st.
+     FLOOKUP st.procs name = SOME(SOME facts) ∧
+     ¬MEM fact st.facts ⇒
+     step infer R st (Act name (SOME(Import n fact)))
+          (st with procs := st.procs |+ (name, NONE)))
+[~validate:]
   (∀name fact facts infer st.
-     FLOOKUP st.procs name = SOME facts ∧
-     infer facts fact ⇒
-     step infer R st (Act name NONE)
-          (st with procs := st.procs |+ (name, fact INSERT facts)))
-[~forget:]
+     FLOOKUP st.procs name = SOME(SOME facts) ∧
+     fact ∈ FRANGE facts ⇒
+     step infer R st (Act name (SOME(Validate fact)))
+          (st with
+              <|validated := fact INSERT st.validated|>
+              ))
+[~validate_fail:]
   (∀name fact facts infer st.
-     FLOOKUP st.procs name = SOME facts ∧
-     fact ∈ facts ⇒
-     step infer R st (Act name NONE)
-          (st with procs := st.procs |+ (name, facts DELETE fact)))
-[~send_fact:]
-  (∀name fact facts infer st.
-     FLOOKUP st.procs name = SOME facts ∧
-     fact ∈ facts ⇒
-     step infer R st (Act name (SOME fact)) (st with msgs := Add fact::st.msgs))
-[~send_delete:]
-  (∀name fact facts infer st.
-     FLOOKUP st.procs name = SOME facts ∧
-     fact ∈ facts ⇒
-     step infer R st (Act name NONE) (st with msgs := Delete fact::st.msgs))
+     FLOOKUP st.procs name = SOME(SOME facts) ∧
+     fact ∉ FRANGE facts ⇒
+     step infer R st (Act name (SOME(Validate fact)))
+          (st with procs := st.procs |+ (name, NONE)))
 [~drop:]
-  (∀st msgs msg msgs'.
-     st.msgs = msgs ++ msg :: msgs' ⇒
-     step infer R st Tau (st with msgs := msgs ++ msgs'))
+  (∀st facts fact facts'.
+     st.facts = facts ++ fact :: facts' ⇒
+     step infer R st Tau (st with facts := facts ++ facts'))
 [~conjure:]
-  (∀st msg.
-     R msg ⇒
-     step infer R st Tau (st with msgs := msg::st.msgs))
-[~announce:]
-  (∀name fact facts infer st.
-     FLOOKUP st.procs name = SOME facts ∧
-     fact ∈ facts ∧
-     st.result = NONE
-     ⇒
-     step infer R st (Act name NONE) (st with result := SOME fact))
-[~receive_add:]
-  (∀name fact facts infer st msgs msgs'.
-     st.msgs = msgs ++ Add fact :: msgs' ∧
-     FLOOKUP st.procs name = SOME facts
-     ⇒
-     step infer R st (Act name NONE)
-          (st with <|procs := st.procs |+ (name,fact INSERT facts)|>))
-[~receive_delete:]
-  (∀name fact facts infer st msgs msgs'.
-     st.msgs = msgs ++ Delete fact :: msgs' ∧
-     FLOOKUP st.procs name = SOME facts
-     ⇒
-     step infer R st (Act name NONE)
-          (st with <|procs := st.procs |+ (name,facts DELETE fact)|>))
+  (∀st fact.
+     R fact ⇒
+     step infer R st Tau (st with facts := fact::st.facts))
 End
 
 Definition reduce_def:
@@ -85,10 +94,10 @@ End
 Definition step_rel_def:
   step_rel infer oprems st ⇔
   (∀name facts.
-     FLOOKUP st.procs name = SOME facts ⇒
-     FINITE facts ∧ facts ⊆ infer oprems) ∧
-  (∀fact. MEM (Add fact) st.msgs ⇒ infer oprems fact) ∧
-  (∀fact. st.result = SOME fact ⇒ infer oprems fact)
+     FLOOKUP st.procs name = SOME(SOME facts) ⇒
+     FRANGE(facts) ⊆ infer oprems) ∧
+  (∀fact. MEM fact st.facts ⇒ infer oprems fact) ∧
+  (∀fact. fact ∈ st.validated ⇒ infer oprems fact)
 End
 
 Definition cut_elimination_def:
@@ -150,36 +159,51 @@ Proof
   strip_tac
 QED
 
+Theorem FRANGE_FDOMSUB:
+  FRANGE(fm \\ k) = FRANGE fm DELETE k
+Proof
+  rw[FRANGE_DEF,SET_EQ_SUBSET,SUBSET_DEF,DOMSUB_FAPPLY_THM] >>
+  gvs[]
+  rw[SET_EQ_SUBSET,DELETE_SUBSET_INSERT]
+QED
+
 Theorem step_rel_inv:
   ∀infer R st l st' oprems.
     step infer R st l st' ∧
     step_rel infer oprems st ∧
     cut_elimination infer ∧ monotonic infer ∧
-    (∀fact. R (Add fact) ⇒ infer oprems fact)
+    (∀fact. R fact ⇒ infer oprems fact)
     ⇒
     step_rel infer oprems st'
 Proof
   Induct_on ‘step’ >>
   rw[step_rel_def,FLOOKUP_UPDATE,AllCaseEqs(),IN_INSERT] >>
   res_tac >> gvs[IN_DEF]
+  >- (conj_tac
+      >- (irule cut_elim_lemma2 >>
+          simp[] >>
+          first_assum $ irule_at $ Pos last >>
+          simp[]) >>
+      metis_tac[FRANGE_DOMSUB_SUBSET,SUBSET_TRANS])
   >- (irule cut_elim_lemma2 >>
       simp[] >>
-      first_assum $ irule_at $ Pos hd >>
-      simp[]) >>
+      first_assum $ irule_at $ Pos last >>
+      simp[])
+  >- metis_tac[FRANGE_DRESTRICT_SUBSET,SUBSET_TRANS]
+  >- metis_tac[FRANGE_DOMSUB_SUBSET,SUBSET_TRANS] >>
   gvs[SUBSET_DEF,IN_DEF]
 QED
 
 Theorem step_sound:
   (reduce infer R)꙳ st st' ∧
-  (∀name facts. FLOOKUP st.procs name = SOME facts ⇒ facts = oprems) ∧
-  st.msgs = [] ∧
-  st.result = NONE ∧
-  st'.result = SOME fact ∧
+  (∀name facts. FLOOKUP st.procs name = SOME(SOME facts) ⇒ FRANGE facts ⊆ oprems) ∧
+  set st.facts ⊆ oprems ∧
+  st.validated = ∅ ∧
+  fact ∈ st'.validated ∧
   monotonic infer ∧
   cut_elimination infer ∧
   assumption infer ∧
-  FINITE oprems ∧
-  (∀fact. R (Add fact) ⇒ infer oprems fact)
+  (∀fact. R fact ⇒ infer oprems fact)
   ⇒
   infer oprems fact
 Proof
@@ -188,13 +212,11 @@ Proof
   >- (gvs[step_rel_def] >> rw[] >>
       res_tac >>
       gvs[assumption_def,SUBSET_DEF,monotonic_def,IN_DEF] >>
-      strip_tac >>
-      rename [‘_ ⇒ _ _ fact’] >>
-      strip_tac >>
-      first_x_assum $ qspec_then ‘fact’ kall_tac >>
-      first_x_assum $ qspec_then ‘fact’ assume_tac >>
-      first_x_assum drule >>
-      disch_then $ qspec_then ‘facts’ mp_tac >>
+      rpt strip_tac >>
+      rename [‘_ _ fact’] >>
+      qpat_x_assum ‘∀fact. infer {_} _’ $ qspec_then ‘fact’ assume_tac >>
+      qpat_x_assum ‘∀fact facts' fact. _’ drule >>
+      disch_then $ qspec_then ‘oprems’ mp_tac >>
       match_mp_tac EQ_IMPLIES >>
       AP_THM_TAC >> AP_TERM_TAC >>
       rw[SET_EQ_SUBSET,SUBSET_DEF,IN_DEF]) >>
