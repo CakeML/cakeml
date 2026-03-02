@@ -3,7 +3,7 @@
 *)
 Theory stack_to_wasmProof
 Libs
-  preamble helperLib shLib
+  preamble helperLib shLib blastLib
 Ancestors
   sh_a11y longmul word_lemmas add_carry misc wasmLang wasm_instructions
   wasmSem stackSem stackLang stackProps asm
@@ -1618,6 +1618,12 @@ Globals.show_types:=false
 >>simp[push_def]
 QED
 
+(*
+Theorem
+          exec (I64_STORE 0w)
+            (push (wl_value (Word ad))
+               (push (I32 (w2w (ofs + wl_word (Word ad)))) t)) =
+*)
 Theorem push_inj[simp]:
   push a t = push b t <=> a = b
 Proof
@@ -2176,6 +2182,13 @@ Proof
 simp[set_global'_def]
 QED
 
+(*Theorem byte_align_ule:
+  byte_align w <=+ w
+Proof
+simp[byte_align_def,align_ls]
+QED
+*)
+
 Theorem compile_Inst:
   ^(get_goal "Inst")
 Proof
@@ -2543,12 +2556,12 @@ simp[wl_word_def]
 >>pop_assum $ fs o single
 (* load 8u *)
 >-(
-drule_then (drule_then rw1) exec_I64_LOAD8
+drule_then (drule_then rw1) exec_I64_LOAD8_U
 >-(
 simp[wl_word_def]
 >>`byte_align(ad + ofs) ∈ s.mdomain` by fs[wordSemTheory.mem_load_byte_aux_def,AllCaseEqs()]
 >>qpat_x_assum‘mem_rel s.mdomain s.memory t.memory’(drule_then assume_tac o REWRITE_RULE[mem_rel_def])
->>`w2n(ad+ofs)<0x100000000`by metis_tac[prove(“byte_align (ad:word64) <₊ 0x100000000w ⇒ w2n ad < 0x100000000”, cheat)]
+>>`w2n(ad+ofs)<0x100000000`by metis_tac[prove(“byte_align (ad:word64) <₊ 0x100000000w ⇒ w2n ad < 0x100000000”, simp[WORD_LO,byte_align_def,w2n_align,align_nat_def]>>intLib.ARITH_TAC)]
 >>simp[w2w_w2w_lt_dimword,w2n_w2w_lt_dimword,dimword_32]
 )
 >>simp[]
@@ -2560,6 +2573,28 @@ simp[wl_word_def]
 >>metis_tac[wasm_reg_ok_drule]
 )
 (* load 32u *)
+>-(
+drule_then (drule_then rw1) exec_I64_LOAD32_U
+>-(
+simp[wl_word_def]
+>>`byte_align(ad + ofs) ∈ s.mdomain` by fs[wordSemTheory.mem_load_32_def,AllCaseEqs()]
+>>qpat_x_assum‘mem_rel s.mdomain s.memory t.memory’(drule_then assume_tac o REWRITE_RULE[mem_rel_def])
+>>`w2n(ad+ofs)<0x100000000`by metis_tac[prove(“byte_align (ad:word64) <₊ 0x100000000w ⇒ w2n ad < 0x100000000”, simp[WORD_LO,byte_align_def,w2n_align,align_nat_def]>>intLib.ARITH_TAC)]
+>>simp[w2w_w2w_lt_dimword,w2n_w2w_lt_dimword,dimword_32]
+)
+>>simp[]
+>>rw1 exec_GLOBAL_SET
+>-metis_tac[wasm_reg_ok_drule,LT_IMP_LE]
+>>simp[res_rel_def]
+>>irule state_rel_set_var
+>>simp[wl_value_def]
+>>metis_tac[wasm_reg_ok_drule]
+)
+(* store *)
+>>qpat_x_assum‘get_var r s = SOME _’assume_tac
+>>drule_then (drule_then (fn th => rw1 th>-(rw1 state_rel_push>>FIRST_ASSUM ACCEPT_TAC))) exec_GLOBAL_GET
+>>simp[]
+
 >>cheat
 (* store 64 *)
 (* store 8 *)
