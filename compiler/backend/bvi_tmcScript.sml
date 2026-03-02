@@ -7,6 +7,35 @@ Ancestors
 Libs
   preamble
 
+Definition effectful_op_def:
+  (effectful_op (Label _) = F) ∧
+  (effectful_op (FFI _) = T) ∧
+  (effectful_op (IntOp _) = F) ∧
+  (effectful_op (WordOp _) = F) ∧
+  (effectful_op (BlockOp _) = F) ∧
+  (effectful_op (GlobOp _) = T) ∧
+  (effectful_op (MemOp _) = T) ∧
+  (effectful_op Install = T) ∧
+  (effectful_op (ThunkOp _) = T)
+End
+
+Definition effectful_exps_def:
+  (effectful_exps [] = F) ∧
+  (effectful_exps [Var _] = F) ∧
+  (effectful_exps [If e1 e2 e3] = (effectful_exps [e1] ∨ effectful_exps [e2] ∨ effectful_exps [e3])) ∧
+  (effectful_exps [Let es e] = effectful_exps (e::es)) ∧
+  (effectful_exps [Raise _] = T) ∧
+  (effectful_exps [Tick e] = effectful_exps [e]) ∧ (* TODO *)
+  (effectful_exps [Call _ _ _ _] = T) ∧
+  (effectful_exps [Force _ _] = T) ∧
+  (effectful_exps [Op op args] = (effectful_op op ∨ effectful_exps args)) ∧
+  (effectful_exps (h::t) = (effectful_exps [h] ∨ effectful_exps t))
+End
+
+Definition effectful_exp_def:
+  (effectful_exp e = effectful_exps [e])
+End
+
 Datatype:
   tcall = TCall num (exp list) (exp option) (* loc is not needed here, as it is known in function body *)
 End
@@ -29,7 +58,8 @@ Definition to_mut_cons:
 End
 
 Datatype:
-  tc_and_hb = DupTC               (* Duplicate recursive tail calls. TODO: we can handle this - lift all but last into ‘Let’s. *)
+  tc_and_hb = Invalid             (* Duplicate recursive tail calls. TODO: we can handle this - lift all but last into ‘Let’s.
+                                     OR effectful expressions after the tail call. *)
             | NoTC                (* No recursive tail call. *)
             | TC tcall hole_block (* One recursive tail call.
                                      tcall fills the final ‘NONE’ hole nested in hole_block.
@@ -47,43 +77,46 @@ Definition cons_to_tc_and_hb_def:
   (cons_to_tc_and_hb loc tag [] = NoTC) ∧
   (cons_to_tc_and_hb loc tag ((Op (BlockOp (Cons tag')) op_args')::op_args) =
     case (cons_to_tc_and_hb loc tag' op_args', cons_to_tc_and_hb loc tag op_args) of
-    | (DupTC, _) => DupTC
-    | (_, DupTC) => DupTC
-    | (TC _ _, TC _ _) => DupTC
+    | (Invalid, _) => Invalid
+    | (_, Invalid) => Invalid
+    | (TC _ _, TC _ _) => Invalid
     | (NoTC, NoTC) => NoTC
     | (TC call' hb', NoTC) =>
         let hb = HoleBlock tag [] (SOME hb') op_args in
           TC call' hb
     | (NoTC, TC call hb) =>
         let cons = Op (BlockOp (Cons tag')) op_args' in
-        let hb'  = push_left hb cons in
-          TC call hb') ∧
+        if effectful_exp cons then Invalid else
+          let hb'  = push_left hb cons in
+            TC call hb') ∧
   (cons_to_tc_and_hb loc tag (Call t' (SOME loc') args' h'::op_args) =
     if loc=loc' then
       (* found the recursive call *)
       case cons_to_tc_and_hb loc tag op_args of
-      | DupTC => DupTC
-      | TC _ _ => DupTC
+      | Invalid => Invalid
+      | TC _ _ => Invalid
       | NoTC =>
          let call = TCall t' args' h' in
          let hb   = HoleBlock tag [] NONE op_args in
-         TC call hb
+           TC call hb
     else
       (* found a different call *)
       case cons_to_tc_and_hb loc tag op_args of
-      | DupTC => DupTC
+      | Invalid => Invalid
       | NoTC => NoTC
-      | TC call hb =>
-         let call' = Call t' (SOME loc') args' h' in
+      | TC call hb => Invalid (* Call is effectful *)
+(*         let call' = Call t' (SOME loc') args' h' in
          let hb'   = push_left hb call' in
-           TC call hb') ∧
+           TC call hb'
+*)) ∧
   (cons_to_tc_and_hb loc tag (op_arg::op_args) =
     case cons_to_tc_and_hb loc tag op_args of
-    | DupTC => DupTC
+    | Invalid => Invalid
     | NoTC => NoTC
     | TC call hb =>
-       let hb' = push_left hb op_arg in
-         TC call hb')
+       if effectful_exp op_arg then Invalid else
+         let hb' = push_left hb op_arg in
+           TC call hb')
 End
 
 Definition rewrite_aux_BlockOp_Cons_def:
@@ -363,10 +396,9 @@ QED
 
 (* Node x (my_foo x) (other x) *)
 val tc_hb3 = “cons_to_tc_and_hb (4000:num) 0 [Call 0 (SOME 4321) [Var 0] NONE; Call 0 (SOME 4000) [Var 0] NONE; Var 0]”;
-val tc_hb3_expected = “TC (TCall 0 [Var 0] NONE) (HoleBlock 0 [Call 0 (SOME 4321) [Var 0] NONE] NONE [Var 0])”;
 
 Theorem tail_cons_check3:
-  ^tc_hb3 = ^tc_hb3_expected
+  ^tc_hb3 = Invalid
 Proof
   EVAL_TAC
 QED
