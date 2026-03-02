@@ -193,10 +193,13 @@ fun loop step_arr buf_arr st lno =
     | Some instr =>
         let
           val (st, msg) = check_top lno instr st
-          val res = case st of None => "0" ^ msg | Some _ => "1"
-          val _ = do_callback res step_arr
         in
-          loop step_arr buf_arr st (lno + 1)
+          case st of None =>
+            (do_callback ("0" ^ msg) step_arr;
+            loop step_arr buf_arr st (lno + 1))
+          | Some _ =>
+            (do_callback ("1" ^ msg) step_arr;
+            loop step_arr buf_arr st (lno + 1))
         end
   end;
 
@@ -1009,6 +1012,42 @@ Proof
   gvs[]
 QED
 
+(* generalize? *)
+Theorem do_callback_Produce:
+  STRING_TYPE res resv ⇒
+  app (p:'ffi ffi_proj) do_callback_v [resv; step_arrv]
+    (CUSTOM_FFI Produce_callback inputs events *
+     W8ARRAY step_arrv step_arr)
+    (POSTv uv.
+         CUSTOM_FFI Step inputs (events ++
+            [IO_event (ExtCall «callback») (MAP (n2w ∘ ORD) (explode res))
+                 (ZIP (step_arr,step_arr))]) *
+         W8ARRAY step_arrv step_arr)
+Proof
+  rw[]>>
+  xcf_with_def (fetch "-" "do_callback_v_def") >>
+  xlet ‘POSTv uv.
+      CUSTOM_FFI Step inputs (events ++
+            [IO_event (ExtCall «callback») (MAP (n2w ∘ ORD) (explode res))
+                 (ZIP (step_arr,step_arr))]) *
+       W8ARRAY step_arrv step_arr’
+  >-
+   (xffi >>
+    gvs [CUSTOM_FFI_def,implode_def] >>
+    xsimpl >>
+    qexists_tac`MAP (n2w o ORD) (explode res)`>>
+    qexists_tac ‘emp’ >> xsimpl >>
+    irule_at Any SEP_IMP_REFL >>
+    conj_tac >- EVAL_TAC >>
+    conj_tac >-
+      gvs[STRING_TYPE_def,MAP_MAP_o,CHR_w2n_n2w_ORD_I,GSYM implode_def]>>
+    conj_tac >- EVAL_TAC >>
+    simp [update_def,update_callback_def] >>
+    gvs [names_def,SEP_CLAUSES] >>
+    xsimpl) >>
+  xcon>>xsimpl
+QED
+
 Inductive events_ok:
 [~init:]
   events_ok [] (REPLICATE n NONE, REPLICATE k 0w, b)
@@ -1105,6 +1144,68 @@ Proof
   rpt xlet_autop>>
   xcon>>
   xsimpl
+QED
+
+Theorem loop_NONE:
+  ∀inputs lno lnov events fmlls fmllsv Clist step_arr step_arrv buf_arrv stv.
+    NUM lno lnov ∧
+    stv = Conv (SOME (TypeStamp «None» 2)) [] ∧
+    events_ok events (fmlls, Clist, b) ∧
+    LENGTH step_arr = 17 ⇒
+    app (p:'ffi ffi_proj) loop_v [step_arrv; buf_arrv; stv; lnov]
+        (CUSTOM_FFI Step inputs events *
+         W8ARRAY buf_arrv buf_arr *
+         W8ARRAY step_arrv step_arr)
+        (POSTv res.
+           SEP_EXISTS step_arr1 buf_arrv buf_arr new_events.
+             CUSTOM_FFI Terminate [] new_events *
+             W8ARRAY buf_arrv buf_arr *
+             W8ARRAY step_arrv step_arr1 *
+             cond (full_events_ok new_events))
+Proof
+  Induct
+  >-
+   (rpt strip_tac >>
+    xcf_with_def (fetch "-" "loop_v_def") >>
+    xlet_auto_spec (SOME parse_step_NIL)
+    >-
+     (xsimpl >>
+      rw [PULL_EXISTS] >>
+      first_x_assum $ irule_at Any >> xsimpl) >>
+    gvs [] >> xmatch >>
+    gvs [OPTION_TYPE_def] >>
+    xmatch >> xcon >>
+    xsimpl >>
+    qexistsl [‘buf_arrv’,‘buf_arr’,‘(events ++ [final_event])’] >>
+    xsimpl >>
+    simp [full_events_ok_def] >>
+    first_x_assum $ irule_at Any) >>
+  Cases_on ‘h’
+  >~ [‘Produce xs ys zs’] >-
+   (rpt strip_tac >>
+    xcf_with_def (fetch "-" "loop_v_def") >>
+    xlet ‘POSTv res.
+            SEP_EXISTS step_arr1 buf_arrv buf_arr produce_events cl hs i.
+              CUSTOM_FFI Produce_callback inputs (events ++ produce_events) *
+              W8ARRAY buf_arrv buf_arr * W8ARRAY step_arrv step_arr1 *
+              cond (LENGTH step_arr1 = 17 ∧
+                    is_produce_events i cl produce_events ∧
+                    ∃v. OPTION_TYPE DISTRUP_DISTRUP_TYPE (SOME (Lrup i cl hs)) v ∧
+                        res = Conv NONE [buf_arrv; v])’
+    >-
+     (xapp_spec parse_step_Produce >>
+      rw[])>>
+    gvs [] >>
+    xmatch >> gvs [OPTION_TYPE_def] >>
+    xmatch >> gvs [] >>
+    xlet_autop>>
+    xmatch>>
+    xmatch>>
+    xlet_autop>>
+    cheat)
+  >~ [‘Import xs ys’] >- cheat
+  >~ [‘Delete xs ys’] >- cheat
+  >~ [‘Validate_UNSAT’] >- cheat
 QED
 
 Theorem loop_spec:
