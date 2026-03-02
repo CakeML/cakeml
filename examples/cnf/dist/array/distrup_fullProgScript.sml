@@ -1029,6 +1029,84 @@ Definition full_events_ok_def:
       is_final_event final
 End
 
+Theorem check_top_NONE:
+    NUM lno lnov ∧
+    DISTRUP_DISTRUP_TYPE inst instv ∧
+    stv = Conv (SOME (TypeStamp «None» 2)) [] ⇒
+    app (p:'ffi ffi_proj) check_top_v [lnov; instv; stv]
+        (emp)
+        (POSTv res.
+          &(res =
+            Conv NONE [Conv (SOME (TypeStamp «None» 2)) [];
+              Litv (StrLit «»)]))
+Proof
+  rw[]>>
+  xcf_with_def (fetch "-" "check_top_v_def") >>
+  xmatch>>
+  xlet_autop>>
+  xcon>>xsimpl
+QED
+
+Theorem check_top_SOME:
+    NUM lno lnov ∧
+    LIST_REL (OPTION_TYPE vcclause_TYPE) fmlls fmllsv ∧
+    WORD8 b bv ∧
+    DISTRUP_DISTRUP_TYPE inst instv ∧
+    bnd_fml fmlls (LENGTH Clist) ∧
+    stv =
+      Conv (SOME (TypeStamp «Some» 2))
+        [Conv NONE [fmlv; Carrv; bv]] ⇒
+    app (p:'ffi ffi_proj) check_top_v [lnov; instv; stv]
+        (ARRAY fmlv fmllsv *
+         W8ARRAY Carrv Clist)
+        (POSTv res.
+           SEP_EXISTS v1 v2 msg stopt.
+           &(res = Conv NONE [v1;v2] ∧
+             STRING_TYPE msg v2) *
+           case check_distrup_list inst fmlls Clist b of
+             NONE =>
+              &(v1 = Conv (SOME (TypeStamp «None» 2)) [])
+           | SOME (fmlls', Clist', b') =>
+              SEP_EXISTS v11 v12 v13 fmllsv'.
+              ARRAY v11 fmllsv' *
+              W8ARRAY v12 Clist' *
+              &(
+                v1 = Conv (SOME (TypeStamp «Some» 2))
+                  [Conv NONE [v11;v12;v13]] ∧
+                WORD8 b' v13 ∧
+                LIST_REL (OPTION_TYPE vcclause_TYPE) fmlls' fmllsv'
+              )
+        )
+Proof
+  rw[]>>
+  xcf_with_def (fetch "-" "check_top_v_def") >>
+  xmatch>>
+  Cases_on`check_distrup_list inst fmlls Clist b`
+  >- (
+    simp[]>>
+    xhandle`POSTe e.
+      &(Fail_exn e ∧ check_distrup_list inst fmlls Clist b = NONE)`
+    >- (
+      xlet_autop>>
+      xsimpl)>>
+    gvs[ccnf_arrayProgTheory.Fail_exn_def]>>
+    xcases>>
+    xlet_autop>>
+    xcon>>xsimpl>>
+    metis_tac[])>>
+  `?fmlls' Clist' b'. x = (fmlls', Clist', b')` by metis_tac[PAIR]>>
+  simp[]>>
+  qmatch_goalsub_abbrev_tac`$POSTv Qval`>>
+  xhandle`$POSTv Qval` \\ xsimpl >>
+  qunabbrev_tac`Qval`>>
+  xlet_autop >- xsimpl>>
+  gvs[]>>
+  xmatch>>
+  rpt xlet_autop>>
+  xcon>>
+  xsimpl
+QED
+
 Theorem loop_spec:
   ∀inputs lno lnov events fmlls fmllsv Clist step_arr step_arrv buf_arrv stv.
     NUM lno lnov ∧
