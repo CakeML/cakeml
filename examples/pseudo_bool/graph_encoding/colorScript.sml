@@ -16,7 +16,7 @@ Definition is_k_color_def:
   is_k_color k f (v,e) ⇔
   (∀x. x < v ⇒ f x < k) ∧
   (∀x y.
-    x < v ∧ y < v ∧
+    x < v ∧ y < v ∧ x ≠ y ∧
     is_edge e x y ⇒ f x ≠ f y)
 End
 
@@ -108,7 +108,7 @@ Definition check_k_color_aux_def:
   let c = f v in
   c < k ∧
   let vs = neighbours (e:edges) (v:num) in
-  EVERY (λy. f y ≠ c) vs
+  EVERY (λy. y = v ∨ f y ≠ c) vs
 End
 
 Definition check_k_color_def:
@@ -144,7 +144,7 @@ End
 
 Definition gen_constraint_def:
   gen_constraint (n:num) ((v,e):graph) (Edge x y c) =
-    (if c < n ∧ x < v ∧ y < v ∧ is_edge e x y then
+    (if c < n ∧ x < v ∧ y < v ∧ is_edge e x y ∧ x ≠ y then
        SOME (GreaterEqual, [(1i, Neg (VertexHasColor x c));
                             (1i, Neg (VertexHasColor y c))], 1i)
      else NONE) ∧
@@ -427,7 +427,7 @@ Proof
       \\ gvs [SF DNF_ss, colors_used_def, IN_DEF]
       \\ first_assum $ irule_at Any \\ gvs [])
     >-
-     (Cases_on ‘is_edge e x y’ \\ gvs []
+     (Cases_on ‘is_edge e x y ∧ x ≠ y’ \\ gvs []
       \\ simp [satisfies_pbc_def,eval_lin_term_def]
       \\ gvs [is_k_color_def,MEM_GENLIST,PULL_EXISTS]
       \\ gvs []
