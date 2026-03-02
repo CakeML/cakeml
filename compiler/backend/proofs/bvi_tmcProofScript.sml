@@ -3,7 +3,7 @@
 *)
 Theory bvi_tmcProof
 Ancestors
-  bvi_tmc bviProps bviSem
+  bvi_tmc (* bviProps bviSem *)
 Libs
   preamble
 
