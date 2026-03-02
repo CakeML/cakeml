@@ -623,12 +623,13 @@ Definition read_ints_def:
       w2i (word_of_bytes F 0w (TAKE 4 xs) : word32) :: read_ints (k-1) (DROP 4 xs)
 End
 
+(* TODO: can say more about ss2/ss3 *)
 Definition is_produce_events_def:
   is_produce_events id cl produce_events ⇔
-    ∃xs1 xs2 xs3 clen.
+    ∃xs1 ss2 xs2 ss3 xs3 clen.
       produce_events = [IO_event (ExtCall «step»)   [] xs1;
-                        IO_event (ExtCall «clause») [] xs2;
-                        IO_event (ExtCall «hints»)  [] xs3] ∧
+                        IO_event (ExtCall «clause») ss2 xs2;
+                        IO_event (ExtCall «hints»)  ss3 xs3] ∧
       LENGTH xs1 = 17 ∧
       SND (HD xs1) = n2w (ORD #"a") ∧
       id = bytes_to_num (TAKE 8 (DROP 1 (MAP SND xs1))) ∧
@@ -709,14 +710,14 @@ Theorem get_clause_Produce:
       (CUSTOM_FFI (Produce_clause cl hs) inputs events *
         W8ARRAY arrv xs)
       (POSTv res.
-        SEP_EXISTS arrv' xs' clausev outs.
+        SEP_EXISTS arrv' xs' clausev.
         CUSTOM_FFI (Produce_hints hs) inputs
           (events ++ [IO_event (ExtCall «clause»)
             (MAP (n2w o ORD) (explode (mk_trusted b s)))
                (ZIP (xs',write_bytes xs' cl))]) *
         W8ARRAY arrv' (write_bytes xs' cl) *
         &(
-          string_to_num s ≤ LENGTH xs' ∧
+          4 * string_to_num s ≤ LENGTH xs' ∧
           vcclause_TYPE (Vector (read_ints (string_to_num s) (write_bytes xs' cl))) clausev ∧
           res = Conv NONE [arrv'; clausev]))
 Proof
@@ -758,6 +759,111 @@ Proof
   xlet_autop>>
   xcon>>xsimpl>>
   qexists_tac`xss`>>xsimpl
+QED
+
+Theorem read_ids_spec:
+  ∀lv iv.
+  NUM len lv ∧
+  NUM i iv ∧
+  8 * len ≤ LENGTH xs ⇒
+  app (p:'ffi ffi_proj) read_ids_v [arrv; lv; iv]
+      (W8ARRAY arrv xs)
+      (POSTv res.
+        SEP_EXISTS hs.
+        W8ARRAY arrv xs *
+        & LIST_TYPE NUM hs res)
+Proof
+  completeInduct_on`len - i`>>
+  rw[]>>
+  xcf_with_def (fetch "-" "read_ids_v_def") >>
+  xlet_autop>>
+  xif
+  >- (
+    xcon>>xsimpl>>
+    qexists_tac`[]`>>simp[LIST_TYPE_def])>>
+  xlet_autop>>
+  first_x_assum(qspec_then`len - (i+1)` mp_tac)>>
+  impl_tac >- fs[]>>
+  disch_then (qspecl_then [`len`, `i+1`] mp_tac)>>
+  simp[]>>
+  disch_then drule_all>>
+  rw[]>>
+  xlet_auto>>
+  xlet_autop>>
+  xlet_auto>>
+  xcon>>xsimpl>>
+  metis_tac[LIST_TYPE_def]
+QED
+
+Theorem get_hints_Produce:
+  STRING_TYPE s sv ∧
+  4 ≤ strlen s ⇒
+  app (p:'ffi ffi_proj) get_hints_v [arrv; sv]
+      (CUSTOM_FFI (Produce_hints hs) inputs events *
+        W8ARRAY arrv xs)
+      (POSTv res.
+        SEP_EXISTS arrv' xs' hints hintsv.
+        CUSTOM_FFI Produce_callback inputs
+          (events ++ [IO_event (ExtCall «hints»)
+            (MAP (n2w o ORD) (explode s))
+               (ZIP (xs',write_bytes xs' hs))]) *
+        W8ARRAY arrv' (write_bytes xs' hs) *
+        &(
+          4 * string_to_num s ≤ LENGTH xs' ∧
+          LIST_TYPE NUM hints hintsv ∧
+          res = Conv NONE [arrv'; hintsv]))
+Proof
+  rw[]>>
+  xcf_with_def (fetch "-" "get_hints_v_def") >>
+  rpt xlet_autop>>
+  rename1`W8ARRAY arrvv xss`>>
+  xlet`POSTv res.
+        CUSTOM_FFI Produce_callback inputs
+          (events ++ [IO_event (ExtCall «hints»)
+            (MAP (n2w o ORD) (explode s))
+            (ZIP (xss,write_bytes xss hs))]) *
+        W8ARRAY arrvv (write_bytes xss hs)`
+  >- (
+    xffi>>xsimpl>>
+    simp[CUSTOM_FFI_def]>>
+    (* conf *)
+    qexists_tac`MAP (n2w o ORD) (explode s)`>>
+    (* frame *)
+    qexists_tac`emp`>>
+    xsimpl>>
+    (* state *)
+    qmatch_goalsub_abbrev_tac`FFI_part ss`>>
+    qexists_tac`ss`>>
+    qexists_tac`update`>>
+    qexists_tac`names`>>
+    qexists_tac`events`>>
+    rw[]
+    >- EVAL_TAC
+    >- gvs[STRING_TYPE_def,MAP_MAP_o,CHR_w2n_n2w_ORD_I]
+    >- EVAL_TAC
+    >- xsimpl>>
+    simp[update_def,Abbr`ss`,update_hints_def]>>
+    xsimpl>>rw[])>>
+  xlet_auto
+  >-(
+    xsimpl>>fs[LENGTH_write_bytes]>>
+    metis_tac[])>>
+  xcon>>xsimpl>>
+  qexists_tac`xss`>>xsimpl>>
+  metis_tac[]
+QED
+
+Theorem string_to_num_eq_bytes_to_num:
+  LENGTH ls = 4 ⇒
+  string_to_num
+  (implode (MAP (CHR ∘ w2n) ls)) =
+  bytes_to_num ls
+Proof
+  rw[LENGTH_EQ_NUM_compute]>>
+  simp[string_to_num_def,bytes_to_num_def]>>
+  simp[strsub_def,implode_def]>>
+  DEP_REWRITE_TAC[ORD_CHR_RWT]>>
+  rw[w2n_lt_256]
 QED
 
 Theorem parse_step_Produce:
@@ -810,13 +916,18 @@ Proof
   xlet_auto >- (xsimpl >> gvs [LENGTH_write_bytes]) >>
   xlet_auto >- (xsimpl >> gvs [LENGTH_write_bytes]) >>
   xlet_auto >- (xcon \\ xsimpl) >>
+  qmatch_asmsub_abbrev_tac`STRING_TYPE ss2 sv`>>
+  qmatch_asmsub_abbrev_tac`STRING_TYPE ss3 sv1`>>
   xlet ‘POSTv res.
-    SEP_EXISTS buf_arrv1 buf_arr1 cl event2.
+    SEP_EXISTS buf_arrv1 buf_arr1 cl wss2 io2 clausev.
       W8ARRAY step_arrv (97w::write_bytes t xs) *
       W8ARRAY buf_arrv1 buf_arr1 *
-      CUSTOM_FFI (Produce_hints zs) inputs (events ++ [event1; event2]) *
-      cond (∃v. res = Conv NONE [buf_arrv1; v] ∧
-                VECTOR_TYPE INT cl v)’
+      CUSTOM_FFI (Produce_hints zs) inputs (events ++ [event1;
+        IO_event (ExtCall «clause») wss2 io2]) *
+      cond (
+        4 * string_to_num ss2 ≤ LENGTH io2 ∧
+        vcclause_TYPE (Vector (read_ints (string_to_num ss2) (MAP SND io2))) clausev ∧
+        res = Conv NONE [buf_arrv1; clausev])’
   >- (
     xapp>>
     xsimpl>>
@@ -830,22 +941,49 @@ Proof
     xsimpl>>
     rw[]
     >- (
+      rw[Abbr`ss2`]>>
       DEP_REWRITE_TAC[LENGTH_TAKE,LENGTH_DROP,LENGTH_write_bytes]>>
       gvs[])>>
-    first_x_assum (irule_at Any)>>
+    simp[]>>
+    rename1`(write_bytes aa bb)`>>
+    rename1`IO_event _ sss2 _`>>
+    qexists_tac`sss2`>> qexists_tac`ZIP (aa,write_bytes aa bb)`>>
+    xsimpl>>simp[LENGTH_write_bytes,MAP_ZIP]>>
     qmatch_goalsub_abbrev_tac`_ ++ [_] ++ [A]`>>
-    qexists_tac`A`>>PURE_REWRITE_TAC[GSYM APPEND_ASSOC]>>
+    PURE_REWRITE_TAC[GSYM APPEND_ASSOC]>>
     REWRITE_TAC[APPEND]>>xsimpl)>>
+  qmatch_goalsub_abbrev_tac`[event1; event2]`>>
   gvs [] >>
   xmatch >>
   xlet ‘POSTv res.
-    SEP_EXISTS buf_arrv1 buf_arr1 hs event3.
+    SEP_EXISTS buf_arrv1 buf_arr1 hs wss3 io3.
       W8ARRAY step_arrv (97w::write_bytes t xs) *
       W8ARRAY buf_arrv1 buf_arr1 *
-      CUSTOM_FFI Produce_callback inputs (events ++ [event1; event2; event3]) *
+      CUSTOM_FFI Produce_callback inputs (events ++ [event1; event2;
+        IO_event (ExtCall «hints») wss3 io3]) *
       cond (∃v. res = Conv NONE [buf_arrv1; v] ∧
                 LIST_TYPE NUM hs v)’
-  >- cheat >>
+  >- (
+    xapp>>
+    xsimpl>>
+    first_x_assum $ irule_at Any>>
+    qexists_tac`inputs`>>
+    qexists_tac`zs`>>
+    qexists_tac`events ++ [event1; event2]`>>
+    qexists_tac`W8ARRAY step_arrv (97w::write_bytes t xs)`>>
+    xsimpl>>
+    rw[]
+    >- (
+      rw[Abbr`ss3`]>>
+      DEP_REWRITE_TAC[LENGTH_TAKE,LENGTH_DROP,LENGTH_write_bytes]>>
+      gvs[])>>
+    first_x_assum (irule_at Any)>>
+    rename1`IO_event _ sss3 io3`>>
+    qexists_tac`io3`>>
+    qexists_tac`sss3`>>
+    PURE_REWRITE_TAC[GSYM APPEND_ASSOC]>>
+    REWRITE_TAC[APPEND]>>xsimpl)>>
+  qmatch_goalsub_abbrev_tac`[event1; event2; event3]`>>
   gvs [] >>
   xmatch >>
   xlet_auto >- (xcon >> xsimpl) >>
@@ -863,8 +1001,12 @@ Proof
    (‘LENGTH (write_bytes t xs) = 16’ by (rewrite_tac [LENGTH_write_bytes] >> gvs []) >>
     gvs [LENGTH_EQ_NUM_compute]) >>
   qpat_x_assum ‘NUM _ res’ $ irule_at Any >>
-  gvs [is_produce_events_def,Abbr‘event1’,LENGTH_write_bytes] >>
-  cheat
+  unabbrev_all_tac>>
+  gvs [is_produce_events_def,LENGTH_write_bytes,MAP_ZIP] >>
+  pop_assum mp_tac>>
+  DEP_REWRITE_TAC[string_to_num_eq_bytes_to_num]>>
+  DEP_REWRITE_TAC[LENGTH_TAKE,LENGTH_DROP,LENGTH_write_bytes]>>
+  gvs[]
 QED
 
 Inductive events_ok:
