@@ -47,6 +47,9 @@
 signature ml_monad_translator_interfaceLib =
 sig
 
+  (* Sets up monadic syntax, Less invasive than the full version. *)
+  val minimal_set_up_monadic_translator : unit -> unit
+
   val set_up_monadic_translator : unit -> unit
 
   type term = Term.term
