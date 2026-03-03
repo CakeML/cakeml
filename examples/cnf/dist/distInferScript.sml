@@ -77,6 +77,10 @@ Inductive step:
      fact ∉ FRANGE facts ⇒
      step infer R st (Act name (Validate fact))
           (st with procs := st.procs |+ (name, NONE)))
+[~spin:]
+  (∀name act infer st.
+     FLOOKUP st.procs name = SOME NONE ⇒
+     step infer R st (Act name act) st)
 [~drop:]
   (∀st facts fact facts'.
      st.facts = facts ++ fact :: facts' ⇒
