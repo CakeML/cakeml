@@ -15,8 +15,8 @@ local
   end
   open Parse
 in
-val emp_tm = ``emp:hprop``
-val PURE_tm = ``PURE : ('a -> v -> bool) -> ('a, 'b) H``
+val emp_tm = cfHeapsBaseSyntax.emp_tm
+val PURE_tm = prim_mk_const {Thy="ml_monad_translator", Name="PURE"}
 end
 
 
