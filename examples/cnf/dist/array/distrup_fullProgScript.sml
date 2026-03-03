@@ -406,14 +406,25 @@ Definition update_hints_def:
   update_hints ^imm_arg ^arr_arg _ _ = NONE
 End
 
+Definition match_callback_def:
+  match_callback c cb =
+    (c = #"a" ∧ cb = Produce_callback ∨
+    c = #"i" ∧ cb = Import_callback ∨
+    c = #"d" ∧ cb = Delete_callback ∨
+    c = #"V" ∧ cb = Validate_UNSAT_callback)
+End
+
 Definition update_callback_def:
-  update_callback ^imm_arg ^arr_arg Produce_callback inputs =
-    (SOME (FFIreturn arr_arg (State Step inputs))) ∧
-  update_callback ^imm_arg ^arr_arg Import_callback inputs =
-    (SOME (FFIreturn arr_arg (State Step inputs))) ∧
-  update_callback ^imm_arg ^arr_arg Delete_callback inputs =
-    (SOME (FFIreturn arr_arg (State Step inputs))) ∧
-  update_callback ^imm_arg ^arr_arg _ _ = NONE
+  (update_callback ^imm_arg ^arr_arg cb inputs =
+    if 0 < LENGTH arr_arg
+    then
+      let c = CHR (w2n (HD arr_arg)) in
+      if match_callback c cb
+      then
+        SOME (FFIreturn arr_arg (State Step inputs))
+      else NONE
+    else
+      NONE)
 End
 
 Definition update_def:
@@ -880,7 +891,7 @@ Theorem parse_step_Produce:
          CUSTOM_FFI Produce_callback inputs (events ++ produce_events) *
          W8ARRAY buf_arrv buf_arr *
          W8ARRAY step_arrv step_arr1 *
-         cond (LENGTH step_arr1 = 17 ∧
+         cond (LENGTH step_arr1 = 17 ∧ CHR (w2n (HD step_arr1)) = #"a" ∧
                is_produce_events id cl produce_events ∧
                ∃v. OPTION_TYPE DISTRUP_DISTRUP_TYPE (SOME (Lrup id cl hs)) v ∧
                    res = Conv NONE [buf_arrv; v]))
@@ -1012,11 +1023,12 @@ Proof
   gvs[]
 QED
 
-(* generalize? *)
-Theorem do_callback_Produce:
-  STRING_TYPE res resv ⇒
+Theorem do_callback_gen:
+  STRING_TYPE res resv ∧
+  0 < LENGTH step_arr ∧
+  match_callback (CHR (w2n (HD step_arr))) cb ⇒
   app (p:'ffi ffi_proj) do_callback_v [resv; step_arrv]
-    (CUSTOM_FFI Produce_callback inputs events *
+    (CUSTOM_FFI cb inputs events *
      W8ARRAY step_arrv step_arr)
     (POSTv uv.
          CUSTOM_FFI Step inputs (events ++
@@ -1048,23 +1060,47 @@ Proof
   xcon>>xsimpl
 QED
 
-Inductive events_ok:
-[~init:]
-  events_ok [] (REPLICATE n NONE, REPLICATE k 0w, b)
-[~produce:]
-  events_ok events (fmlls, Clist, b) ∧
-  is_produce_events n vc produce_events ∧
-  (* TODO: constrain output_event *)
-  check_distrup_list (Lrup n vc hints) fmlls Clist b = SOME (fmlls', Clist', b')
-  ⇒
-  events_ok (events ++ produce_events ++ [output_event]) (fmlls', Clist', b')
+Definition is_output_event_def:
+  is_output_event c success event ⇔
+    ∃xs ss.
+      event = IO_event (ExtCall «callback») ss xs ∧
+      LENGTH xs = 17 ∧
+      CHR (w2n (HD (MAP SND xs))) = c ∧
+      ss ≠ [] ∧
+      CHR (w2n (HD ss)) = success
 End
 
+Inductive events_ok:
+[~init:]
+  events_ok [] (SOME (REPLICATE n NONE, REPLICATE k 0w, b))
+[~produce:]
+  events_ok events (SOME (fmlls, Clist, b)) ∧
+  is_produce_events n vc produce_events ∧
+  is_output_event #"a" #"1" output_event ∧
+  check_distrup_list (Lrup n vc hints) fmlls Clist b = SOME (fmlls', Clist', b')
+  ⇒
+  events_ok (events ++ produce_events ++ [output_event]) (SOME (fmlls', Clist', b'))
+[~produce_Fail:]
+  events_ok events (SOME (fmlls, Clist, b)) ∧
+  is_produce_events n vc produce_events ∧
+  is_output_event #"a" #"0" output_event ∧
+  check_distrup_list (Lrup n vc hints) fmlls Clist b = NONE
+  ⇒
+  events_ok (events ++ produce_events ++ [output_event]) NONE
+[~produce_None:]
+  events_ok events NONE ∧
+  is_produce_events n vc produce_events ∧
+  is_output_event #"a" #"0" output_event
+  ⇒
+  events_ok (events ++ produce_events ++ [output_event]) NONE
+End
+
+(* Allow any state or SOME? *)
 Definition full_events_ok_def:
   full_events_ok events ⇔
-    ∃xs final fmlls Clist b.
+    ∃xs final st.
       events = xs ++ [final] ∧
-      events_ok xs (fmlls, Clist, b) ∧
+      events_ok xs st ∧
       is_final_event final
 End
 
@@ -1147,10 +1183,10 @@ Proof
 QED
 
 Theorem loop_NONE:
-  ∀inputs lno lnov events fmlls fmllsv Clist step_arr step_arrv buf_arrv stv.
+  ∀inputs lno lnov events step_arr step_arrv buf_arr buf_arrv stv.
     NUM lno lnov ∧
     stv = Conv (SOME (TypeStamp «None» 2)) [] ∧
-    events_ok events (fmlls, Clist, b) ∧
+    events_ok events NONE ∧
     LENGTH step_arr = 17 ⇒
     app (p:'ffi ffi_proj) loop_v [step_arrv; buf_arrv; stv; lnov]
         (CUSTOM_FFI Step inputs events *
@@ -1188,7 +1224,7 @@ Proof
             SEP_EXISTS step_arr1 buf_arrv buf_arr produce_events cl hs i.
               CUSTOM_FFI Produce_callback inputs (events ++ produce_events) *
               W8ARRAY buf_arrv buf_arr * W8ARRAY step_arrv step_arr1 *
-              cond (LENGTH step_arr1 = 17 ∧
+              cond (LENGTH step_arr1 = 17 ∧ CHR (w2n (HD step_arr1)) = #"a" ∧
                     is_produce_events i cl produce_events ∧
                     ∃v. OPTION_TYPE DISTRUP_DISTRUP_TYPE (SOME (Lrup i cl hs)) v ∧
                         res = Conv NONE [buf_arrv; v])’
@@ -1202,7 +1238,22 @@ Proof
     xmatch>>
     xmatch>>
     xlet_autop>>
-    cheat)
+    `0 < LENGTH step_arr1 ∧
+    CHR (w2n (HD step_arr1)) = #"a" ∧
+    match_callback (CHR (w2n (HD step_arr1))) Produce_callback` by
+      fs[match_callback_def]>>
+    drule_all do_callback_gen>>
+    disch_then (qspecl_then[`step_arrv`,`p`,`inputs`] assume_tac)>>
+    xlet_autop>>
+    xlet_autop>>
+    xapp>>xsimpl>>
+    first_x_assum $ irule_at Any>>
+    CONV_TAC SWAP_EXISTS_CONV>>
+    qexists_tac`emp`>>xsimpl>>
+    irule_at Any SEP_IMP_REFL >>
+    irule events_ok_produce_None>>
+    fs[is_output_event_def]>>
+    metis_tac[])
   >~ [‘Import xs ys’] >- cheat
   >~ [‘Delete xs ys’] >- cheat
   >~ [‘Validate_UNSAT’] >- cheat
