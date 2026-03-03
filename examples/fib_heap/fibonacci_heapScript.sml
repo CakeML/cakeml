@@ -1096,134 +1096,17 @@ Proof
     cheat
     )
   >> cheat
-(*
-  `k + 2w * bytes_in_word <> k'` by SEP_NEQ_TAC >> simp[] >>
-  `k + 2w * bytes_in_word <> k' + 4w * bytes_in_word` by SEP_NEQ_TAC >> simp[] >>
-  `k + 2w * bytes_in_word <> k' + 5w * bytes_in_word` by SEP_NEQ_TAC >> simp[] >>
-  SEP_R_TAC >>
-(*  PairCases_on `v` >> rename [`fh |+ (k,v,e)`] >> gvs[] >> *)
-  IF_CASES_TAC
-  >- (
-    fs[fib_heap_append_def,before_off_def,next_off_def] >>
-    fs[head_key_def,last_key_def] >>
-    Cases_on `t` using SNOC_CASES >>
-    fs[SNOC_APPEND]
-    >- (
-      fs[head_key_def,next_key_def] >>
-      SEP_R_TAC >>
-      IF_CASES_TAC >> fs[]>>
-      SEP_R_TAC >> simp[] >>
-      strip_tac >> gvs[] >>
-      SEP_W_TAC >>
-      qexists `[FibTree a' (fill_dnode v e F) []; FibTree k' v' l]` >>
-      fs[ann_fts_def, ann_fts_seg_def, last_key_def,fts_mem_def,
-         SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
-         fill_dnode_def, next_key_def, ones_def, STAR_ASSOC] >>
-      assume_tac lemma_insert_new_min_inv >>
-      (*first_x_assum(qspecl_then
-        [`fh`, `[FibTree k' v' l]`, `a'`, `k'`, `v`, `e`] assume_tac) >> *)
-      cheat (* Proof invariant! *)
-      ) >>
-    Cases_on `x` >>
-    rename [`fib_heap_inv fh (FibTree k' v' l::(l' ++ [FibTree lk lv ts]))`] >>
-    fs[REVERSE_APPEND] >>
-    Cases_on `l'` >>
-    fs[head_key_def, next_key_def] >>
-    SEP_R_TAC
-    >- (
-      fs[ann_fts_def, ann_fts_seg_def, last_key_def,fts_mem_def,
-         SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
-         fill_dnode_def, next_key_def, ones_def, STAR_ASSOC] >>
-      `k' <> lk` by SEP_NEQ_TAC >>
-      IF_CASES_TAC >> fs[] >>
-      SEP_R_TAC >> simp[] >>
-      strip_tac >> gvs[] >>
-      SEP_W_TAC >>
-      qexists `[FibTree a' (fill_dnode v e F) []; FibTree lk lv ts;
-                FibTree k' v' l]` >>
-      fs[ann_fts_def, ann_fts_seg_def, last_key_def,fts_mem_def,
-         SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
-         fill_dnode_def, next_key_def, ones_def, STAR_ASSOC] >>
-      qabbrev_tac `a'_hc = one (a',v) *
-                   one (a' + bytes_in_word,FST e) *
-                   one (a' + 2w * bytes_in_word,b2w T) *
-                   one (a' + 3w * bytes_in_word,b2w F) *
-                   one (a' + 4w * bytes_in_word,k') *
-                   one (a' + 5w * bytes_in_word,lk) *
-                   one (a' + 6w * bytes_in_word,0w) *
-                   one (a' + 7w * bytes_in_word,0w) *
-                   one (a' + 8w * bytes_in_word,0w) *
-                   edges_ones (FST e) (SND e) ` >>
-      full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR] >>
-      qabbrev_tac `lk_hc = one (lk,lv.value) *
-                   one (lk + bytes_in_word,FST lv.edges) *
-                   one (lk + 2w * bytes_in_word,b2w T) *
-                   one (lk + 3w * bytes_in_word,b2w lv.mark) *
-                   one (lk + 4w * bytes_in_word,a') *
-                   one (lk + 5w * bytes_in_word,k') *
-                   one (lk + 6w * bytes_in_word,0w) *
-                   one (lk + 7w * bytes_in_word,head_key ts) *
-                   one (lk + 8w * bytes_in_word,n2w (LENGTH ts)) *
-                   edges_ones (FST lv.edges) (SND lv.edges)` >>
-      qabbrev_tac `k'_hc = one (k',v'.value) *
-                   one (k' + bytes_in_word,FST v'.edges) *
-                   one (k' + 2w * bytes_in_word,b2w T) *
-                   one (k' + 3w * bytes_in_word,b2w v'.mark) *
-                   one (k' + 4w * bytes_in_word,lk) *
-                   one (k' + 5w * bytes_in_word,a') *
-                   one (k' + 6w * bytes_in_word,0w) *
-                   one (k' + 7w * bytes_in_word,head_key l) *
-                   one (k' + 8w * bytes_in_word,n2w (LENGTH l)) *
-                   edges_ones (FST v'.edges) (SND v'.edges)` >>
-      (* simp[AC STAR_COMM STAR_ASSOC] >> termination? *)
-      (* abbreviation does not simplifiy the g/a ? *)
-      (* also prove invariant here! *)
-      cheat
-     ) >>
-    Cases_on `h` >>
-    rename [`fib_heap_inv fh (FibTree k' v' l::
-             FibTree sk sv ts'::(t ++ [FibTree lk lv ts]))`] >>
-    fs[head_key_def, next_key_def] >>
-    fs[ann_fts_def, ann_fts_seg_def, last_key_def,fts_mem_def,
-       SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
-       fill_dnode_def, next_key_def, ones_def, STAR_ASSOC] >>
-    `k' <> sk` by SEP_NEQ_TAC >>
-    IF_CASES_TAC >> fs[] >>
-    (*How to simplify with thms? *)
-    assume_tac ann_fts_seg_append_thm >>
-    first_assum(qspecl_then [`0w`,`sk`,`t`,`[FibTree lk lv ts]`] assume_tac) >>
-    fs[]
-
-
-
-    fs[fts_mem_append_thm,ann_fts_seg_append_thm] >>
-    SEP_R_TAC >> simp[] >>
-    cheat (* need lemma about ++ with ann_fts_seg to get lk into memory *)
-    ) >>
-cheat
-(*
-  SEP_R_TAC >>
-  CASE_TAC
-  >- (
-    qsuff_tac `F` >> simp[] >>
-    pop_assum mp_tac >> simp[] >> gvs[]
-    SEP_NEQ_TAC >>
-(*check NEQ_TAC and other sep._TACs *)
-
-  SEP_R_TAC >>
-  IF_CASES_TAC
-  >- (
-    fs[fib_heap_append_def,next_off_def,before_off_def] >>
-    IF_CASES_TAC >>
-    simp[APPLY_UPDATE_THM] >>
-
-
-(*
-  Cases on last element of a list!
-
-  Cases_on `l` using SNOC_CASES >>
-  fs[SNOC_APPEND]
-*)
-
-*)*)
 QED
+
+
+
+
+
+
+
+
+
+
+
+
+
