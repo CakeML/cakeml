@@ -6,7 +6,7 @@ The kernel implementation is heavily based on the HOL Light kernel.
 [holKernelPmatchScript.sml](holKernelPmatchScript.sml):
 This file proves alternative definitions of those HOL kernel
 functions that have complex pattern matching. The new definitions
-use PMATCH-based case expressions instead of HOL's standard
+use PMATCH-based pmatch expressions instead of HOL's standard
 per-datatype case constants.
 
 [holKernelProofScript.sml](holKernelProofScript.sml):

@@ -139,11 +139,23 @@ val d1 = CONJ d1 $ Define ‘ag32_enc_Mem_Store a b c =
 val d1 = CONJ d1 $ Define ‘ag32_enc_Mem_Store8 a b c =
                     ag32_enc (Inst (Mem Store8 a (Addr b c)))’
   |> SIMP_RULE std_ss [ag32_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘ag32_enc_Mem_Store16 a b c =
+                    ag32_enc (Inst (Mem Store16 a (Addr b c)))’
+  |> SIMP_RULE std_ss [ag32_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘ag32_enc_Mem_Store32 a b c =
+                    ag32_enc (Inst (Mem Store32 a (Addr b c)))’
+  |> SIMP_RULE std_ss [ag32_enc_thm,cases_defs,APPEND]
 val d1 = CONJ d1 $ Define ‘ag32_enc_Mem_Load a b c =
                     ag32_enc (Inst (Mem Load a (Addr b c)))’
   |> SIMP_RULE std_ss [ag32_enc_thm,cases_defs,APPEND]
 val d1 = CONJ d1 $ Define ‘ag32_enc_Mem_Load8 a b c =
                     ag32_enc (Inst (Mem Load8 a (Addr b c)))’
+  |> SIMP_RULE std_ss [ag32_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘ag32_enc_Mem_Load16 a b c =
+                    ag32_enc (Inst (Mem Load16 a (Addr b c)))’
+  |> SIMP_RULE std_ss [ag32_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘ag32_enc_Mem_Load32 a b c =
+                    ag32_enc (Inst (Mem Load32 a (Addr b c)))’
   |> SIMP_RULE std_ss [ag32_enc_thm,cases_defs,APPEND]
 val d1 = CONJ d1 $ Define ‘ag32_enc_Binop_Imm bop r1 r2 i =
                     ag32_enc (Inst (Arith (Binop bop r1 r2 (Imm i))))’

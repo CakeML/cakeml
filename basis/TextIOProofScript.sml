@@ -2548,7 +2548,7 @@ Proof
     \\ xlet_auto >- xsimpl
     \\ xlet_auto >- xsimpl
     \\ xlet_auto >- (xsimpl \\ fs[instream_buffered_inv_def])
-    \\ xlet_auto >- xsimpl \\ fs [CharProgTheory.fromByte_def]
+    \\ xlet_auto >- xsimpl \\ fs [(*CharProgTheory.fromByte_def*)]
     \\ xapp
     \\ `bactive <> []` by (fs[instream_buffered_inv_def] \\ fs[DROP_NIL])
     \\ xsimpl
@@ -2617,7 +2617,7 @@ Proof
     \\ xlet_auto >- xsimpl
     \\ rveq
     \\ xlet_auto >- (xsimpl \\ fs[instream_buffered_inv_def])
-    \\ xlet_auto >- xsimpl \\ fs [CharProgTheory.fromByte_def]
+    \\ xlet_auto >- xsimpl \\ fs [(* CharProgTheory.fromByte_def *)]
     \\ xapp
     \\ `bactive <> []` by (fs[instream_buffered_inv_def] \\ fs[DROP_NIL])
     \\ xsimpl
@@ -6245,8 +6245,8 @@ Proof
   >- (xapp \\ simp [W8ARRAY_def] \\ xsimpl \\ metis_tac [])
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
-  \\ ‘fromByte (EL i wl) = c ⇔ ORD c = w2n (EL i wl)’ by
-   (gvs [CharProgTheory.fromByte_def]
+  \\ ‘word8_to_char (EL i wl) = c ⇔ ORD c = w2n (EL i wl)’ by
+   (gvs [(*CharProgTheory.fromByte_def*)]
     \\ Cases_on ‘EL i wl’ \\ gvs []
     \\ Cases_on ‘c’ \\ gvs [])
   \\ gvs []
@@ -6807,11 +6807,11 @@ Proof
   gvs[EVERY_MEM,EXISTS_MEM]
 QED
 
-Theorem inputLine_spec_STR[local]:
+Theorem inputLineWith_spec_STR[local]:
   CHAR c0 c0v /\
   EVERY (\c. c <> c0) to_read /\
   (text <> "" ==> HD text = c0) ==>
-  app (p:'ffi ffi_proj) TextIO_inputLine_v [c0v; is]
+  app (p:'ffi ffi_proj) TextIO_inputLineWith_v [c0v; is]
     (STDIO fs * INSTREAM_STR fd is (to_read ++ text) fs)
     (POSTv v. SEP_EXISTS k.
                 cond (OPTION_TYPE STRING_TYPE
@@ -6822,7 +6822,7 @@ Theorem inputLine_spec_STR[local]:
                 INSTREAM_STR fd is (TL text) (forwardFD fs fd k))
 Proof
   rpt strip_tac
-  \\ xcf_with_def TextIO_inputLine_v_def
+  \\ xcf_with_def TextIO_inputLineWith_v_def
   \\ xlet_auto THEN1 (xcon \\ xsimpl)
   \\ xapp_spec inputUntil_2_spec_STR
   \\ simp[LIST_TYPE_def]
@@ -6879,7 +6879,7 @@ Theorem inputLineTokens_spec_STR[local]:
 Proof
   rpt strip_tac
   \\ xcf_with_def TextIO_inputLineTokens_v_def
-  \\ xlet_auto_spec (SOME inputLine_spec_STR)
+  \\ xlet_auto_spec (SOME inputLineWith_spec_STR)
   >- (
     qexists_tac`emp`>>
     qexists_tac`fs`>>
@@ -7490,9 +7490,9 @@ Proof
   \\ simp [std_preludeTheory.OPTION_TYPE_def]
 QED
 
-Theorem inputLine_spec_lines:
+Theorem inputLineWith_spec_lines:
   CHAR c0 c0v ⇒
-  app (p:'ffi ffi_proj) TextIO_inputLine_v [c0v; is]
+  app (p:'ffi ffi_proj) TextIO_inputLineWith_v [c0v; is]
      (STDIO fs * INSTREAM_LINES c0 fd is lines fs)
      (POSTv v.
        SEP_EXISTS k.
@@ -7501,7 +7501,7 @@ Theorem inputLine_spec_lines:
          & (OPTION_TYPE STRING_TYPE (oHD lines) v))
 Proof
   strip_tac \\ fs [INSTREAM_LINES_def] \\ xpull
-  \\ xapp_spec inputLine_spec_STR \\ rveq
+  \\ xapp_spec inputLineWith_spec_STR \\ rveq
   \\ strip_assume_tac (Q.SPEC ‘rest’ split_exists)
   \\ first_assum (irule_at Any)
   \\ first_assum (irule_at Any)
@@ -7538,6 +7538,20 @@ Proof
   \\ fs [] \\ Cases_on ‘to_read’ \\ fs [strcat_def,concat_def,implode_def,str_def]
 QED
 
+
+Theorem inputLine_spec_lines:
+  app (p:'ffi ffi_proj) TextIO_inputLine_v [is]
+     (STDIO fs * INSTREAM_LINES #"\n" fd is lines fs)
+     (POSTv v.
+       SEP_EXISTS k.
+         STDIO (forwardFD fs fd k) *
+         INSTREAM_LINES #"\n" fd is (TL lines) (forwardFD fs fd k) *
+         & (OPTION_TYPE STRING_TYPE (oHD lines) v))
+Proof
+  xcf_with_def TextIO_inputLine_v_def >> xapp >>
+  simp[CHAR_def]
+QED
+
 Theorem inputLines_aux_spec:
   !lines acc accv fs.
     CHAR c0 c0v ∧
@@ -7561,7 +7575,7 @@ Proof
          INSTREAM_LINES c0 fd is (TL lines) (forwardFD fs fd k) *
          & (OPTION_TYPE STRING_TYPE (oHD lines) v)`
   THEN1 (
-    xapp_spec inputLine_spec_lines \\ gvs[])
+    xapp_spec inputLineWith_spec_lines \\ gvs[])
   \\ Cases_on `lines` \\ fs [std_preludeTheory.OPTION_TYPE_def] \\ rveq
   \\ xmatch \\ fs []
   THEN1
@@ -7951,7 +7965,7 @@ Proof
           INSTREAM_LINES c0 fd is [] (forwardFD fs fd k) *
           &OPTION_TYPE STRING_TYPE NONE chv)’
     THEN1
-     (xapp_spec (inputLine_spec_lines |> Q.INST [‘lines’|->‘[]’] )
+     (xapp_spec (inputLineWith_spec_lines |> Q.INST [‘lines’|->‘[]’] )
       \\ qexists_tac ‘emp’
       \\ qexists_tac ‘fs’
       \\ qexists_tac ‘fd’
@@ -7968,7 +7982,7 @@ Proof
             INSTREAM_LINES c0 fd is s (forwardFD fs fd k) *
             &OPTION_TYPE STRING_TYPE (SOME h) chv)’
   THEN1
-   (xapp_spec (inputLine_spec_lines |> Q.INST [‘lines’|->‘h::s’] )
+   (xapp_spec (inputLineWith_spec_lines |> Q.INST [‘lines’|->‘h::s’] )
     \\ qexists_tac ‘emp’
     \\ qexists_tac ‘s’
     \\ qexists_tac ‘h’

@@ -200,7 +200,7 @@ val _ = cv_auto_trans lab_filterTheory.filter_skip_def;
 val _ = cv_auto_trans lab_to_targetTheory.prog_to_bytes_def;
 val _ = cv_auto_trans lab_to_targetTheory.zero_labs_acc_exist_def;
 val _ = cv_auto_trans lab_to_targetTheory.find_ffi_names_def;
-val _ = TypeBase.accessors_of “:lab_to_target$inc_config” |> map cv_trans;
+val _ = TypeBase.accessors_of “:lab_to_target$config” |> map cv_trans;
 val _ = TypeBase.accessors_of “:environment” |> map cv_trans;
 val _ = cv_trans (lab_to_targetTheory.get_memop_info_def
                     |> INST_TYPE [alpha|->“:8”]);
@@ -231,7 +231,7 @@ val _ = cv_auto_trans backend_enc_decTheory.data_to_word_config_enc_def;
 val _ = cv_auto_trans backend_enc_decTheory.word_to_word_config_enc_def;
 val _ = cv_auto_trans backend_enc_decTheory.word_to_stack_config_enc_def;
 val _ = cv_auto_trans backend_enc_decTheory.stack_to_lab_config_enc_def;
-val _ = cv_auto_trans backend_enc_decTheory.lab_to_target_inc_config_enc_def;
+val _ = cv_auto_trans backend_enc_decTheory.lab_to_target_config_enc_def;
 val _ = cv_auto_trans backend_enc_decTheory.presLang_tap_config_enc_def;
 
 (* environment encoding *)
@@ -409,7 +409,7 @@ QED
 
 val _ = cv_auto_trans backend_enc_decTheory.clos_to_bvl_config_enc_def;
 
-val _ = cv_auto_trans backend_enc_decTheory.backend_inc_config_enc_def;
+val _ = cv_auto_trans backend_enc_decTheory.backend_config_enc_def;
 val _ = cv_trans backend_enc_decTheory.encode_backend_config_def;
 val _ = cv_auto_trans backend_asmTheory.attach_bitmaps_def;
 
@@ -908,7 +908,7 @@ val pre = cv_auto_trans (sort_canonize_def |> SRULE [sort_def,mergesort_tail_def
 
 val res = word_allocTheory.canonize_moves_def |> SRULE[GSYM sort_canonize_def] |> cv_auto_trans
 
-val _ = cv_trans backendTheory.inc_set_oracle_def;
+val _ = cv_trans backendTheory.set_oracle_def;
 
 val _ = cv_trans (exportTheory.escape_sym_char_def |> SRULE [GREATER_EQ]);
 val _ = cv_auto_trans exportTheory.emit_symbol_def;

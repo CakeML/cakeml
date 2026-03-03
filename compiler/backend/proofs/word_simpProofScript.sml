@@ -155,7 +155,7 @@ Proof
   rw [MAP_MAP_o, o_DEF, word_exp_def, SIMP_RULE std_ss [o_DEF] the_words_thm])
   >-
   (CASE_TAC \\ CASE_TAC \\ rw [word_exp_def] \\ every_case_tac \\
-  res_tac \\ qpat_x_assum `_ = word_exp s e` (assume_tac o GSYM) \\ fs [word_exp_def])
+  res_tac \\ qpat_x_assum `_ = word_exp s e` (assume_tac o GSYM) \\ gvs [word_exp_def])
 QED
 
 Theorem const_fp_exp_word_exp_const:

@@ -833,9 +833,12 @@ Definition arith_name_def:
   (arith_name (Binop b r1 r2 ri) (c:'a asm_config) ⇔
     (c.two_reg_arith ⇒ r1 = r2 ∨ b = Or ∧ ri = Reg r2) ∧ reg_name r1 c ∧
     reg_name r2 c ∧ reg_imm_name (INL b) ri c) ∧
-  (arith_name (Shift l r1 r2 n) c ⇔
+  (arith_name (Shift l r1 r2 (Imm i)) c ⇔
     (c.two_reg_arith ⇒ r1 = r2) ∧ reg_name r1 c ∧ reg_name r2 c ∧
-    (n = 0 ⇒ l = Lsl) ∧ n < dimindex (:α)) ∧
+    (i = 0w ⇒ l = Lsl) ∧ w2n i < dimindex (:α)) ∧
+  (arith_name (Shift l r1 r2 (Reg r3)) c ⇔
+    (c.two_reg_arith ⇒ r1 = r2) ∧ reg_name r1 c ∧
+     reg_name r2 c ∧ reg_name r3 c ∧ (c.ISA = x86_64 ⇒ r3 = 4)) ∧
   (arith_name (Div r1 r2 r3) c ⇔
     (reg_name r1 c ∧ reg_name r2 c ∧ reg_name r3 c ∧
     c.ISA ∈ {ARMv8; MIPS; RISC_V})) ∧
@@ -947,6 +950,7 @@ Definition fixed_names_def:
   fixed_names names c =
   if c.ISA = x86_64 then
     find_name names 3 = 2 ∧
+    find_name names 4 = 1 ∧
     find_name names 0 = 0
   else T
 End
@@ -1004,7 +1008,7 @@ End
 Definition reg_bound_exp_def[simp]:
   (reg_bound_exp (Var n) k ⇔ n < k) ∧
   (reg_bound_exp (Load e) k ⇔ reg_bound_exp e k) ∧
-  (reg_bound_exp (Shift _ e _) k ⇔ reg_bound_exp e k) ∧
+  (reg_bound_exp (Shift _ e1 e2) k ⇔ reg_bound_exp e1 k ∧ reg_bound_exp e2 k) ∧
   (reg_bound_exp (Lookup _) _ ⇔ F) ∧
   (reg_bound_exp (Op _ es) k ⇔ EVERY (λe. reg_bound_exp e k) es) ∧
   (reg_bound_exp _ _ ⇔ T)
@@ -1017,7 +1021,7 @@ End
 Definition reg_bound_inst_def[simp]:
   (reg_bound_inst (Mem _ n (Addr a _)) k ⇔ n < k ∧ a < k) ∧
   (reg_bound_inst (Const n _) k ⇔ n < k) ∧
-  (reg_bound_inst (Arith (Shift _ n r2 _)) k ⇔ r2 < k ∧ n < k) ∧
+  (reg_bound_inst (Arith (Shift _ n r2 ri)) k ⇔ r2 < k ∧ n < k ∧ (case ri of Reg r => r < k | _ => T)) ∧
   (reg_bound_inst (Arith (Binop _ n r2 ri)) k ⇔ r2 < k ∧ n < k ∧ (case ri of Reg r1 => r1 < k | _ => T)) ∧
   (reg_bound_inst (Arith (Div r1 r2 r3)) k ⇔ r1 < k ∧ r2 < k ∧ r3 < k) ∧
   (reg_bound_inst (Arith (AddCarry r1 r2 r3 r4)) k ⇔ r1 < k ∧ r2 < k ∧ r3 < k ∧ r4 < k) ∧

@@ -72,7 +72,8 @@ Proof
 QED
 
 Theorem with_same_clock[simp]:
-   x with clock := x.clock = x
+  ∀(x :('a,'c,'ffi) stackSem$state).
+    x with clock := x.clock = x
 Proof
   srw_tac[][state_component_equality]
 QED
@@ -289,7 +290,7 @@ Theorem mem_load_32_IMP[local]:
     mem_load_32 s.memory s.mdomain s.be a = SOME x ==>
     mem_load_32 t.memory t.mdomain t.be a = SOME x
 Proof
-   full_simp_tac(srw_ss())[wordSemTheory.mem_load_32_def] \\ srw_tac[][]
+   full_simp_tac(srw_ss())[wordSemTheory.mem_load_32_alt] \\ srw_tac[][]
   \\ `s.be = t.be` by full_simp_tac(srw_ss())[state_rel_def]
   \\ ntac 5 (FULL_CASE_TAC >> fs[]) >> gvs[]
   \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
@@ -436,7 +437,7 @@ Proof
   \\ simp[get_var_imm_def,get_var_def]
   \\ full_simp_tac(srw_ss())[get_var_def,set_var_def,FLOOKUP_UPDATE]
   \\ simp[]
-  \\ simp[labSemTheory.word_cmp_def,asmTheory.word_cmp_def]
+  \\ simp[wordSemTheory.word_cmp_def,asmTheory.word_cmp_def]
   \\ qpat_abbrev_tac`cc = c + _ + _`
   \\ `cc <+ c ⇔ s.stack_space < n`
   by (
@@ -665,8 +666,9 @@ Proof
     \\ metis_tac[])
   >-
     (qpat_x_assum`_ = SOME w`mp_tac
-    \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[] \\
-    res_tac \\ simp[])
+    \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
+    \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
+    \\ rw[] \\ res_tac \\ simp[])
 QED
 
 Theorem memory_write:
@@ -703,7 +705,7 @@ Theorem state_rel_mem_store_32:
    ∃y. mem_store_32 t.memory t.mdomain t.be a b = SOME y ∧
        state_rel jump off k (s with memory := z) (t with memory := y)
 Proof
-  fs[state_rel_def,wordSemTheory.mem_store_32_def] >>
+  fs[state_rel_def,wordSemTheory.mem_store_32_alt] >>
   rpt strip_tac
   \\ ntac 3 (pop_assum mp_tac)
   \\ BasicProvers.TOP_CASE_TAC \\ fs[]
@@ -802,7 +804,8 @@ Proof
       \\ strip_tac
       \\ ONCE_REWRITE_TAC[CONJ_COMM]
       \\ disch_then old_drule
-      \\ srw_tac[][] )
+      \\ srw_tac[][reg_bound_exp_def]
+      \\ every_case_tac \\ fs[] )
     \\ qpat_abbrev_tac`c ⇔ _ ∧ _`
     \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
     >- (
@@ -978,7 +981,7 @@ Proof
   \\ simp[]
   \\ full_simp_tac(srw_ss())[get_var_def,set_var_def,FLOOKUP_UPDATE]
   \\ simp[]
-  \\ simp[labSemTheory.word_cmp_def,asmTheory.word_cmp_def]
+  \\ simp[wordSemTheory.word_cmp_def,asmTheory.word_cmp_def]
   \\ full_simp_tac(srw_ss())[state_rel_def]
   \\ simp[FLOOKUP_UPDATE]
   \\ rw[] >> TRY (metis_tac[])
@@ -1292,7 +1295,7 @@ Proof
   \\ once_rewrite_tac [list_Seq_def]
   \\ fs [evaluate_def,get_var_def,get_var_imm_def,asmTheory.word_cmp_def,inst_def,
          word_exp_def,get_var_def,wordLangTheory.word_op_def,mem_load_def,assign_def,
-         set_var_def,FLOOKUP_UPDATE,labSemTheory.word_cmp_def]
+         set_var_def,FLOOKUP_UPDATE,wordSemTheory.word_cmp_def]
   \\ qspec_then ‘pattern’ assume_tac (word_bit_test |> Q.INST [‘n’|->‘0’] |> GEN_ALL)
   \\ fs [word_bit_def]
   \\ Cases_on ‘1w && pattern = 0w’ \\ fs []
@@ -1300,7 +1303,7 @@ Proof
   \\ fs [SUBSET_DEF] \\ res_tac \\ fs []
   \\ fs [evaluate_def,get_var_def,get_var_imm_def,asmTheory.word_cmp_def,inst_def,
          word_exp_def,get_var_def,wordLangTheory.word_op_def,mem_load_def,assign_def,
-         set_var_def,FLOOKUP_UPDATE,labSemTheory.word_cmp_def,list_Seq_def,
+         set_var_def,FLOOKUP_UPDATE,wordSemTheory.word_cmp_def,list_Seq_def,
          wordLangTheory.word_sh_def,mem_store_def,dec_clock_def]
   \\ rewrite_tac [STOP_def]
   \\ fs [copy_each_def,list_Seq_def]
@@ -1529,6 +1532,8 @@ Proof
         FLOOKUP t1'.regs 1 = SOME (Word i)’ by (rpt strip_tac \\ fs [state_rel_def])
     \\ ‘shift (:α) < dimindex (:α)’ by
        fs [state_rel_def,good_dimindex_def,backend_commonTheory.word_shift_def]
+    \\ `shift (:'a) MOD dimword (:'a) = shift (:'a)` by
+       fs [state_rel_def,good_dimindex_def,backend_commonTheory.word_shift_def,dimword_def]
     \\ fs [wordLangTheory.word_sh_def,FLOOKUP_UPDATE,wordLangTheory.word_op_def]
     \\ qpat_x_assum ‘state_rel jump off k s _’ mp_tac
     \\ rename [‘state_rel jump off k s t6’]
@@ -2300,6 +2305,8 @@ Proof
     \\ simp[wordLangTheory.word_op_def]
     \\ qexists_tac`0` \\ simp[]
     \\ simp[Once set_var_def,FLOOKUP_UPDATE]
+    \\ `word_shift (:'a) MOD dimword (:'a) = word_shift (:'a)` by
+         (fs[state_rel_def,good_dimindex_def,word_shift_def,dimword_def])
     \\ simp[wordLangTheory.word_sh_def]
     \\ IF_CASES_TAC \\ simp[]
     >- (
@@ -2346,6 +2353,8 @@ Proof
     \\ simp[wordLangTheory.word_op_def]
     \\ qexists_tac`0` \\ simp[]
     \\ simp[Once set_var_def,FLOOKUP_UPDATE]
+    \\ `word_shift (:'a) MOD dimword (:'a) = word_shift (:'a)` by
+         (fs[state_rel_def,good_dimindex_def,word_shift_def,dimword_def])
     \\ simp[wordLangTheory.word_sh_def]
     \\ IF_CASES_TAC \\ simp[]
     >- (
@@ -2386,6 +2395,8 @@ Proof
     \\ full_simp_tac(srw_ss())[LET_THM,stackSemTheory.inst_def,stackSemTheory.assign_def,
            word_exp_def,set_var_def,FLOOKUP_UPDATE,get_var_def]
     \\ `FLOOKUP t1.regs v = SOME (Word c)` by metis_tac [state_rel_def] \\ full_simp_tac(srw_ss())[]
+    \\ `word_shift (:'a) MOD dimword (:'a) = word_shift (:'a)` by
+         (fs[state_rel_def,good_dimindex_def,word_shift_def,dimword_def])
     \\ full_simp_tac(srw_ss())[wordLangTheory.word_op_def,FLOOKUP_UPDATE,
            wordLangTheory.word_sh_def]
     \\ `mem_load (c << word_shift (:'a) + ww << word_shift (:'a)) t1 =
@@ -2607,14 +2618,14 @@ val tac = simp [list_Seq_def,evaluate_def,inst_def,word_exp_def,get_var_def,
        wordLangTheory.word_op_def,mem_load_def,assign_def,set_var_def,
        FLOOKUP_UPDATE,mem_store_def,dec_clock_def,get_var_imm_def,
        asmTheory.word_cmp_def,
-       labSemTheory.word_cmp_def,GREATER_EQ,GSYM NOT_LESS,FUPDATE_LIST,
+       wordSemTheory.word_cmp_def,GREATER_EQ,GSYM NOT_LESS,FUPDATE_LIST,
        wordLangTheory.word_sh_def,halt_inst_def]
 
 val tac1 = simp [Once list_Seq_def,evaluate_def,inst_def,word_exp_def,get_var_def,
        wordLangTheory.word_op_def,mem_load_def,assign_def,set_var_def,
        FLOOKUP_UPDATE,mem_store_def,dec_clock_def,get_var_imm_def,
        asmTheory.word_cmp_def,
-       labSemTheory.word_cmp_def,GREATER_EQ,GSYM NOT_LESS,FUPDATE_LIST,
+       wordSemTheory.word_cmp_def,GREATER_EQ,GSYM NOT_LESS,FUPDATE_LIST,
        wordLangTheory.word_sh_def,halt_inst_def]
 
 Definition mem_val_def:
@@ -3250,6 +3261,10 @@ Proof
   \\ `shift (:α) + 1 < dimindex (:α)` by
         fs [good_dimindex_def,
             backend_commonTheory.word_shift_def]
+  \\ `(shift (:'a) + 1) MOD dimword (:'a) = shift (:'a) + 1` by
+        fs [good_dimindex_def,backend_commonTheory.word_shift_def,dimword_def]
+  \\ `shift (:'a) MOD dimword (:'a) = shift (:'a)` by
+        fs [good_dimindex_def,backend_commonTheory.word_shift_def,dimword_def]
   \\ ntac 9 tac1 \\ fs [fmap_simp_lemma1]
   \\ qmatch_goalsub_abbrev_tac `(0,Word middle)`
   \\ qmatch_goalsub_abbrev_tac `(2,Word adj_ptr2)`
@@ -3345,7 +3360,17 @@ Proof
     \\ eq_tac \\ rw [] \\ fs [])
   \\ pop_assum (fn th => rewrite_tac [th])
   \\ pop_assum kall_tac \\ fs []
-  \\ ntac 4 tac1
+  \\ `(shift (:'a) + 1) MOD dimword (:'a) = shift (:'a) + 1` by
+        fs [good_dimindex_def,backend_commonTheory.word_shift_def,dimword_def]
+  \\ `shift (:'a) MOD dimword (:'a) = shift (:'a)` by
+        fs [good_dimindex_def,backend_commonTheory.word_shift_def,dimword_def]
+  \\ `shift (:α) + 1 < dimindex (:α)` by
+        fs [good_dimindex_def, backend_commonTheory.word_shift_def]
+  \\ tac1
+  \\ PURE_REWRITE_TAC [word_add_n2w]
+  \\ tac1
+  \\ PURE_REWRITE_TAC [word_add_n2w]
+  \\ ntac 2 tac1
   \\ qmatch_goalsub_abbrev_tac `(3n,Word reg3)`
   \\ `n2w ptr2 ∈ s.mdomain /\
       n2w ptr2 + bytes_in_word ∈ s.mdomain /\
@@ -3362,7 +3387,10 @@ Proof
     \\ Cases_on `n'` THEN1 fs []
     \\ fs [word_list_exists_thm,SEP_CLAUSES,SEP_EXISTS_THM]
     \\ SEP_R_TAC \\ simp [])
-  \\ fs [] \\ tac
+  \\ fs []
+  \\ `shift (:'a) MOD dimword (:'a) = shift (:'a)` by
+        fs [good_dimindex_def,backend_commonTheory.word_shift_def,dimword_def]
+  \\ tac
   \\ `w2n (bytes_in_word:'a word) = dimindex (:'a) DIV 8` by
     (fs [good_dimindex_def,bytes_in_word_def,dimword_def])
   \\ fs [] \\ pop_assum kall_tac
@@ -3373,6 +3401,10 @@ Proof
             good_dimindex_def,FUN_EQ_THM]))
   \\ fs [GSYM word_add_n2w]
   \\ rfs [alignmentTheory.aligned_add_sub]
+  \\ `(shift (:'a) + 1) MOD dimword (:'a) = shift (:'a) + 1` by
+        fs [good_dimindex_def,backend_commonTheory.word_shift_def,dimword_def]
+  \\ `shift (:'a) MOD dimword (:'a) = shift (:'a)` by
+        fs [good_dimindex_def,backend_commonTheory.word_shift_def,dimword_def]
   \\ `aligned (shift (:α)) reg3` by
    (fs [Abbr`reg3`] \\ rw []
     \\ fs [alignmentTheory.aligned_add_sub]
@@ -4199,7 +4231,7 @@ Proof
         inst_name_def,arith_name_def,reg_name_def,reg_imm_name_def,addr_name_def] >>
     ‘1 <= max_stack_alloc’ by EVAL_TAC >>
     res_tac >> fs [bytes_in_word_def] >>
-    gvs [good_dimindex_def,word_shift_def])
+    gvs [good_dimindex_def,word_shift_def,dimword_def])
   >-
     (* stack alloc *)
     (completeInduct_on`n`>>
@@ -4230,7 +4262,7 @@ Proof
         first_x_assum(qspec_then `n-max_stack_alloc` assume_tac)>>fs[]>>
         rfs[max_stack_alloc_def])
   >>
-    fs[good_dimindex_def,word_shift_def]
+    fs[good_dimindex_def,word_shift_def,dimword_def]
   >>
     simp[stack_load_def,stack_store_def,stack_asm_name_def,inst_name_def,addr_name_def]>>
     qpat_assum`!n. A ⇒ B` mp_tac>>
@@ -4243,7 +4275,7 @@ Proof
 QED
 
 Theorem stack_remove_stack_asm_name:
-    EVERY (λ(n,p). stack_asm_name c p) prog ∧
+  EVERY (λ(n,p). stack_asm_name c p) prog ∧
   EVERY (λ(n,p). (stack_asm_remove (c:'a asm_config) p)) prog ∧
   addr_offset_ok c 0w ∧
   good_dimindex (:'a) ∧
@@ -4262,14 +4294,12 @@ Theorem stack_remove_stack_asm_name:
   (compile jump c.addr_offset gen_gc max_heap k start prog)
 Proof
   rw[compile_def]
-  >-
-    (fs[good_dimindex_def]>>EVAL_TAC>>fs[]>>rw[]>>EVAL_TAC>>fs[reg_name_def]>>
-    pairarg_tac>>fs[asmTheory.offset_ok_def]>>
-    Induct_on`bitmaps`>>rw[]>>
-    EVAL_TAC>>fs[])
-  >>
-    fs[EVERY_MAP,EVERY_MEM,FORALL_PROD,prog_comp_def]>>
-    metis_tac[stack_remove_comp_stack_asm_name]
+  >- (
+    EVAL_TAC>>rw[]>>fs[reg_name_def]>>
+    fs[good_dimindex_def,dimword_def]>>
+    pairarg_tac>>fs[asmTheory.offset_ok_def])>>
+  fs[EVERY_MAP,EVERY_MEM,FORALL_PROD,prog_comp_def]>>
+  metis_tac[stack_remove_comp_stack_asm_name]
 QED
 
 Theorem upshift_downshift_call_args:

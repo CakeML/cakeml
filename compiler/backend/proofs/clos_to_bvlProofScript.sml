@@ -1556,6 +1556,10 @@ Proof
   >-
    (gvs [closSemTheory.do_app_def,AllCaseEqs()] \\ rw []
     \\ gvs [bvlSemTheory.do_app_def])
+  \\ Cases_on `op = BlockOp BoolNot`
+  >-
+   (gvs [closSemTheory.do_app_def,AllCaseEqs()] \\ rw []
+    \\ gvs [bvlSemTheory.do_app_def])
   \\ Cases_on `∃ws test. op = WordOp (WordTest ws test)`
   >-
    (fs [] \\ Cases_on ‘ws’ \\ Cases_on ‘test’
@@ -1804,8 +1808,8 @@ QED
 
 val v_case_eq_thms =
   LIST_CONJ [
-    prove_case_eq_thm{nchotomy = closSemTheory.v_nchotomy, case_def = closSemTheory.v_case_def},
-    prove_case_eq_thm{nchotomy = bvlSemTheory.v_nchotomy, case_def = bvlSemTheory.v_case_def}];
+    TypeBase.case_eq_of ``:closSem$v``,
+    TypeBase.case_eq_of ``:bvlSem$v``];
 
 Theorem do_app_err[local]:
   do_app op xs s1 = Rerr err ∧

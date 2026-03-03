@@ -185,6 +185,7 @@ val _ = m_translate (consistency_ok_def |> REWRITE_RULE [MEMBER_INTRO,
                            METIS_PROVE [] ``~(b1 /\ b2) <=> ~b1 \/ ~b2``]);
 
 val _ = m_translate coalesce_parent_def;
+val _ = m_translate coalesce_root_def;
 val _ = m_translate canonize_move_def;
 val _ = m_translate st_ex_FIRST_def;
 val _ = m_translate (respill_def |> REWRITE_RULE [MEMBER_INTRO]);

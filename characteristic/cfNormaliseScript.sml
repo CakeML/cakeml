@@ -351,12 +351,12 @@ Definition norm_def:
      ) else (
        let (e2', n2, b2) = norm F F n1 e2 in
        case l of
-           And =>
+           Andalso =>
            (* produce: let <b1> in <e1'> andalso (lets <b2> in <e2'>) *)
-           wrap_if_needed as_value n2 (Log And e1' (Lets b2 e2')) b1
-         | Or =>
+           wrap_if_needed as_value n2 (Log Andalso e1' (Lets b2 e2')) b1
+         | Orelse =>
            (* produce: let <b1> in <e1'> orelse (let <b2> in <e2'>) *)
-           wrap_if_needed as_value n2 (Log Or e1' (Lets b2 e2')) b1
+           wrap_if_needed as_value n2 (Log Orelse e1' (Lets b2 e2')) b1
      )) /\
   norm is_named as_value ns (Fun v e) =
     (let (e', ns) = protect is_named (v::ns) e in

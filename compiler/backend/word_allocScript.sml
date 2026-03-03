@@ -1,5 +1,5 @@
 (*
-  This is the compiler's regsiter allocator. It supports different modes:
+  This is the compiler's register allocator. It supports different modes:
       0) simple allocator, no spill heuristics;
       1) simple allocator + spill heuristics;
       2) IRC allocator, no spill heuristics (default);
@@ -142,10 +142,18 @@ Definition ssa_cc_trans_inst_def:
       let r2' = option_lookup ssa r2 in
       let (r1',ssa',na') = next_var_rename r1 ssa na in
         (Inst (Arith (Binop bop r1' r2' ri)),ssa',na')) ∧
-  (ssa_cc_trans_inst (Arith (Shift shift r1 r2 n)) ssa na =
-    let r2' = option_lookup ssa r2 in
-    let (r1',ssa',na') = next_var_rename r1 ssa na in
-      (Inst (Arith (Shift shift r1' r2' n)),ssa',na')) ∧
+  (ssa_cc_trans_inst (Arith (Shift shift r1 r2 ri)) ssa na =
+    case ri of
+    | Reg r3 =>
+      let r3' = option_lookup ssa r3 in
+      let r2' = option_lookup ssa r2 in
+      let mov_in = Move1 [(8,r3')] in
+      let (r1',ssa',na') = next_var_rename r1 ssa na in
+        (Seq mov_in (Inst (Arith (Shift shift r1' r2' (Reg 8)))),ssa',na')
+    | _ =>
+      let r2' = option_lookup ssa r2 in
+      let (r1',ssa',na') = next_var_rename r1 ssa na in
+        (Inst (Arith (Shift shift r1' r2' ri)),ssa',na')) ∧
   (ssa_cc_trans_inst (Arith (Div r1 r2 r3)) ssa na =
     let r2' = option_lookup ssa r2 in
     let r3' = option_lookup ssa r3 in
@@ -266,7 +274,7 @@ Definition ssa_cc_trans_exp_def:
   (ssa_cc_trans_exp t (Op wop ls) =
     Op wop (MAP (ssa_cc_trans_exp t) ls)) ∧
   (ssa_cc_trans_exp t (Shift sh exp nexp) =
-    Shift sh (ssa_cc_trans_exp t exp) nexp) ∧
+    Shift sh (ssa_cc_trans_exp t exp) (ssa_cc_trans_exp t nexp)) ∧
   (ssa_cc_trans_exp t expr = expr)
 End
 
@@ -501,7 +509,7 @@ Definition apply_colour_exp_def[simp]:
   (apply_colour_exp f (Var num) = Var (f num)) /\
   (apply_colour_exp f (Load exp) = Load (apply_colour_exp f exp)) /\
   (apply_colour_exp f (Op wop ls) = Op wop (MAP (apply_colour_exp f) ls)) /\
-  (apply_colour_exp f (Shift sh exp nexp) = Shift sh (apply_colour_exp f exp) nexp) /\
+  (apply_colour_exp f (Shift sh exp nexp) = Shift sh (apply_colour_exp f exp) (apply_colour_exp f nexp)) /\
   (apply_colour_exp f expr = expr)
 End
 
@@ -515,8 +523,8 @@ Definition apply_colour_inst_def[simp]:
   (apply_colour_inst f (Const reg w) = Const (f reg) w) ∧
   (apply_colour_inst f (Arith (Binop bop r1 r2 ri)) =
     Arith (Binop bop (f r1) (f r2) (apply_colour_imm f ri))) ∧
-  (apply_colour_inst f (Arith (Shift shift r1 r2 n)) =
-    Arith (Shift shift (f r1) (f r2) n)) ∧
+  (apply_colour_inst f (Arith (Shift shift r1 r2 ri)) =
+    Arith (Shift shift (f r1) (f r2) (apply_colour_imm f ri))) ∧
   (apply_colour_inst f (Arith (Div r1 r2 r3)) =
     Arith (Div (f r1) (f r2) (f r3))) ∧
   (apply_colour_inst f (Arith (AddCarry r1 r2 r3 r4)) =
@@ -599,7 +607,7 @@ End
 Definition get_writes_inst_def:
   (get_writes_inst (Const reg w) = insert reg () LN) ∧
   (get_writes_inst (Arith (Binop bop r1 r2 ri)) = insert r1 () LN) ∧
-  (get_writes_inst (Arith (Shift shift r1 r2 n)) = insert r1 () LN) ∧
+  (get_writes_inst (Arith (Shift shift r1 r2 ri)) = insert r1 () LN) ∧
   (get_writes_inst (Arith (Div r1 r2 r3)) = insert r1 () LN) ∧
   (get_writes_inst (Arith (AddCarry r1 r2 r3 r4)) = insert r4 () (insert r1 () LN)) ∧
   (get_writes_inst (Arith (AddOverflow r1 r2 r3 r4)) = insert r4 () (insert r1 () LN)) ∧
@@ -627,8 +635,9 @@ Definition get_live_inst_def:
   (get_live_inst (Arith (Binop bop r1 r2 ri)) live =
     case ri of Reg r3 => insert r2 () (insert r3 () (delete r1 live))
     | _ => insert r2 () (delete r1 live)) ∧
-  (get_live_inst (Arith (Shift shift r1 r2 n)) live =
-    insert r2 () (delete r1 live)) ∧
+  (get_live_inst (Arith (Shift shift r1 r2 ri)) live =
+    case ri of Reg r3 => insert r2 () (insert r3 () (delete r1 live))
+    | _ => insert r2 () (delete r1 live)) ∧
   (get_live_inst (Arith (Div r1 r2 r3)) live =
     (insert r3 () (insert r2 () (delete r1 live)))) ∧
   (get_live_inst (Arith (AddCarry r1 r2 r3 r4)) live =
@@ -678,7 +687,7 @@ Definition get_live_exp_def:
   (get_live_exp (Load exp) = get_live_exp exp) ∧
   (get_live_exp (Op wop ls) =
     big_union (MAP get_live_exp ls)) ∧
-  (get_live_exp (Shift sh exp nexp) = get_live_exp exp) ∧
+  (get_live_exp (Shift sh exp nexp) = union (get_live_exp exp) (get_live_exp nexp)) ∧
   (get_live_exp expr = LN)
 End
 
@@ -782,82 +791,112 @@ Definition remove_dead_inst_def:
   (remove_dead_inst x live = F)
 End
 
-(*Delete dead code, w.r.t. a set of live variables*)
+(* Delete dead code, w.r.t. a set of live variables.
+  The liveset is a tuple (live,nlive):
+  - live is an sptree of live variables
+  - nlive is a list of globals which are NOT live
+
+  This code is written assuming flat_exp_conventions,
+    so many trivial cases are omitted.
+*)
 Definition remove_dead_def:
-  (remove_dead Skip live = (Skip,live)) ∧
-  (remove_dead (Move pri ls) live =
+  (remove_dead (Move pri ls) live nlive =
     let ls = FILTER (λx,y. lookup x live = SOME ()) ls in
-    if ls = [] then (Skip,live)
+    if ls = [] then (Skip,live,nlive)
     else
     let killed = FOLDR delete live (MAP FST ls) in
-      (Move pri ls,numset_list_insert (MAP SND ls) killed)) ∧
-  (remove_dead (Inst i) live =
-    if remove_dead_inst i live then (Skip,live)
-                               else (Inst i,get_live_inst i live)) ∧
-  (remove_dead (Assign num exp) live =
-    (if lookup num live = NONE then
-      (Skip,live)
-    else
-      (Assign num exp, get_live (Assign num exp) live))) ∧
-  (remove_dead (Get num store) live =
+      (Move pri ls, numset_list_insert (MAP SND ls) killed,nlive)) ∧
+  (remove_dead (Inst i) live nlive =
+    if remove_dead_inst i live
+    then (Skip,live,nlive)
+    else (Inst i, get_live_inst i live,nlive)) ∧
+  (remove_dead (Get num store) live nlive =
     if lookup num live = NONE then
-      (Skip,live)
-    else (Get num store,delete num live)) ∧
-  (remove_dead (OpCurrHeap b num src) live =
+      (Skip,live,nlive)
+    else (Get num store, delete num live, FILTER (λs. store ≠ s) nlive)) ∧
+  (remove_dead (OpCurrHeap b num src) live nlive =
     if lookup num live = NONE then
-      (Skip,live)
-    else (OpCurrHeap b num src,insert src () (delete num live))) ∧
-  (remove_dead (LocValue r l1) live =
+      (Skip,live,nlive)
+    else (
+      OpCurrHeap b num src,
+        insert src () (delete num live), FILTER (λs. CurrHeap ≠ s) nlive)) ∧
+  (remove_dead (LocValue r l1) live nlive =
     if lookup r live = NONE then
-      (Skip,live)
-    else (LocValue r l1,delete r live)) ∧
-  (remove_dead (Seq s1 s2) live =
-    let (s2,s2live) = remove_dead s2 live in
-    let (s1,s1live) = remove_dead s1 s2live in
+      (Skip, live,nlive)
+    else (LocValue r l1, delete r live,nlive)) ∧
+  (remove_dead (Set store_name exp) live nlive =
+    case exp of
+      Var r =>
+      if MEM store_name nlive then
+        (Skip, live, nlive)
+      else
+        (Set store_name (Var r), insert r () live, store_name::nlive)
+    | _ =>
+      let prog = Set store_name exp in
+        (prog,get_live prog live,[])
+  ) ∧
+  (remove_dead (Seq s1 s2) live nlive =
+    let (s2,s2live,s2nlive) = remove_dead s2 live nlive in
+    let (s1,s1live,s1nlive) = remove_dead s1 s2live s2nlive in
     let prog =
       if s1 = Skip then
         s2
       else
         if s2 = Skip then s1
         else Seq s1 s2
-    in (prog,s1live)) ∧
-  (remove_dead (MustTerminate s1) live =
+    in (prog,s1live,s1nlive)) ∧
+  (remove_dead (MustTerminate s1) live nlive =
     (* This can technically be optimized away if it was a Skip,
        but we should never use MustTerminate to wrap completely dead code
     *)
-    let (s1,s1live) = remove_dead s1 live in
-      (MustTerminate s1,s1live)) ∧
-  (remove_dead (If cmp r1 ri e2 e3) live =
-    let (e2,e2_live) = remove_dead e2 live in
-    let (e3,e3_live) = remove_dead e3 live in
+    let (s1,s1live,s1nlive) = remove_dead s1 live nlive in
+      (MustTerminate s1,s1live,s1nlive)) ∧
+  (remove_dead (If cmp r1 ri e2 e3) live nlive =
+    let (e2,e2_live,e2_nlive) = remove_dead e2 live nlive in
+    let (e3,e3_live,e3_nlive) = remove_dead e3 live nlive in
     let union_live = union e2_live e3_live in
     let liveset =
        case ri of Reg r2 => insert r2 () (insert r1 () union_live)
       | _ => insert r1 () union_live in
+    let nliveset = FILTER (λs. MEM s e3_nlive) e2_nlive in
     let prog =
       if e2 = Skip ∧ e3 = Skip then Skip
       else If cmp r1 ri e2 e3 in
-    (prog,liveset)) ∧
-  (remove_dead (Call(SOME(v,cutsets,ret_handler,l1,l2))dest args h) live =
+    (prog,liveset,nliveset)) ∧
+  (remove_dead (Call(SOME(v,cutsets,ret_handler,l1,l2))dest args h) live nlive =
     (*top level*)
     let args_set = numset_list_insert args LN in
     let cutset = union (FST cutsets) (SND cutsets) in
     let live_set = union cutset args_set in
-    let (ret_handler,_) = remove_dead ret_handler live in
+    let (ret_handler,_) = remove_dead ret_handler live nlive in
     let h =
       (case h of
         NONE => NONE
       | SOME(v',prog,l1,l2) =>
-        SOME(v',FST (remove_dead prog live),l1,l2)) in
-    (Call (SOME (v,cutsets,ret_handler,l1,l2)) dest args h,live_set)) ∧
+        SOME(v',FST (remove_dead prog live nlive),l1,l2)) in
+    (Call (SOME (v,cutsets,ret_handler,l1,l2)) dest args h,(live_set,[]))) ∧
   (* we should not remove the ShareInst Load instructions.
-  * It produces a ffi event even if the variable is not in
-  * the live set *)
-  (remove_dead prog live = (prog,get_live prog live))
+    * It produces a ffi event even if the variable is not in
+    * the live set *)
+  (* In the cases below, we either return nlive unchanged
+    or we return [] because of control flow *)
+  (remove_dead (Call NONE a b c) live nlive =
+    let prog = Call NONE a b c in
+      (prog, get_live prog live, [])) ∧
+  (remove_dead (Alloc a b) live nlive =
+    let prog = Alloc a b in
+      (prog, get_live prog live, [])) ∧
+  (remove_dead (Raise a) live nlive =
+    let prog = Raise a in
+      (prog, get_live prog live, [])) ∧
+  (remove_dead (Return a b) live nlive =
+    let prog = Return a b in
+      (prog, get_live prog live, [])) ∧
+  (remove_dead prog live nlive = (prog,get_live prog live,nlive))
 End
 
 Definition remove_dead_prog_def:
-  remove_dead_prog prog = FST (remove_dead prog LN)
+  remove_dead_prog prog = FST (remove_dead prog LN [])
 End
 
 (*Single step immediate writes by a prog*)
@@ -944,7 +983,9 @@ Definition get_delta_inst_def:
   (get_delta_inst (Arith (Binop bop r1 r2 ri)) =
     case ri of Reg r3 => Delta [r1] [r2;r3]
                   | _ => Delta [r1] [r2]) ∧
-  (get_delta_inst (Arith (Shift shift r1 r2 n)) = Delta [r1] [r2]) ∧
+  (get_delta_inst (Arith (Shift shift r1 r2 ri)) =
+    case ri of Reg r3 => Delta [r1] [r2;r3]
+                  | _ => Delta [r1] [r2]) ∧
   (get_delta_inst (Arith (Div r1 r2 r3)) = Delta [r1] [r3;r2]) ∧
   (get_delta_inst (Arith (AddCarry r1 r2 r3 r4)) = Delta [r1;r4] [r4;r3;r2]) ∧
   (get_delta_inst (Arith (AddOverflow r1 r2 r3 r4)) = Delta [r1;r4] [r3;r2]) ∧
@@ -977,7 +1018,7 @@ Definition get_reads_exp_def:
   (get_reads_exp (Load exp) = get_reads_exp exp) ∧
   (get_reads_exp (Op wop ls) =
       FLAT (MAP get_reads_exp ls)) ∧
-  (get_reads_exp (Shift sh exp nexp) = get_reads_exp exp) ∧
+  (get_reads_exp (Shift sh exp nexp) = get_reads_exp exp ++ get_reads_exp nexp) ∧
   (get_reads_exp expr = [])
 End
 
@@ -1150,9 +1191,14 @@ Definition get_heu_inst_def:
     | _ =>
         (add1_lhs_reg r1
         (add1_rhs_reg r2 lr)))) ∧
-  (get_heu_inst (Arith (Shift shift r1 r2 n)) lr =
-     (add1_lhs_reg r1
-     (add1_rhs_reg r2 lr))) ∧
+  (get_heu_inst (Arith (Shift shift r1 r2 ri)) lr =
+    (case ri of
+      Reg r3 => (* r1 := r2 (shift) r3*)
+        (add1_lhs_reg r1
+        (add1_rhs_reg r3 (add1_rhs_reg r2 lr)))
+    | _ =>
+        (add1_lhs_reg r1
+        (add1_rhs_reg r2 lr)))) ∧
   (get_heu_inst (Arith (Div r1 r2 r3)) lr =
      (add1_lhs_reg r1
      (add1_rhs_reg r3 (add1_rhs_reg r2 lr)))) ∧

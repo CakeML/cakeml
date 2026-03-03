@@ -3,7 +3,7 @@
 *)
 Theory flat_elimProof
 Ancestors
-  flat_elim flatSem flatLang flatProps spt_closure
+  flat_elim flatSem flatLang flatProps spt_closure ast
   misc[qualified] ffi[qualified] sptree
 Libs
   preamble
@@ -523,9 +523,21 @@ Theorem do_app_cases =
   (SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, eqs, pair_case_eq, pair_lam_lem, CaseEq "thunk_op"] THENC
    SIMP_CONV (srw_ss()++COND_elim_ss) [LET_THM, eqs])
 
+
+Theorem fvg_v_to_flat[local,simp]:
+  sptree$domain (find_v_globals (v_to_flat v)) ⊆ sptree$domain reachable ∧
+  ¬v_has_Eval (v_to_flat v)
+Proof
+  Cases_on `v`
+  >> simp [v_to_flat_def, find_v_globals_def, v_has_Eval_def,
+           semanticPrimitivesTheory.Boolv_def, Boolv_def]
+  >> every_case_tac
+  >> simp [find_v_globals_def, v_has_Eval_def, Boolv_def]
+QED
+
 Theorem do_app_SOME_flat_state_rel:
      ∀ reachable state removed_state op l new_state result new_removed_state.
-        flat_state_rel reachable state removed_state ∧ op ≠ Opapp ∧
+        flat_state_rel reachable state removed_state ∧ op ≠ Src Opapp ∧
         domain(find_v_globalsL l) ⊆ domain reachable ∧
         domain (find_lookups (App tra op [])) ⊆ domain reachable ∧
         EVERY ($~ ∘ v_has_Eval) l
@@ -543,33 +555,82 @@ Proof
   \\ qpat_assum `flat_state_rel _ _ _` (mp_tac o REWRITE_RULE [flat_state_rel_def])
   \\ rw []
   \\ `∃ this_case . this_case op` by (qexists_tac `K T` >> simp[])
-  \\ Cases_on ‘∃a ty. op = Arith a ty’ >- (
+  \\ Cases_on `∃a ty. op = Src (Arith a ty)` >- (
     fs [do_app_def]
     \\ gvs [AllCaseEqs()]
-    \\ Cases_on ‘ty’
-    \\ TRY(rename1 `WordT w` \\ Cases_on`w`)
+    \\ Cases_on ‘ty’ using semanticPrimitivesPropsTheory.prim_type_cases
     \\ gvs [semanticPrimitivesTheory.do_arith_def, AllCaseEqs()]
     \\ simp [do_app_def, semanticPrimitivesTheory.do_arith_def,
               find_sem_prim_res_globals_def, find_result_globals_def,
-              find_v_globals_def, v_has_Eval_def, div_exn_v_def, v_to_flat_def])
-  \\ Cases_on ‘∃ty1 ty2. op = FromTo ty1 ty2’ >- (
-    fs [do_app_def]
-    \\ gvs [AllCaseEqs()]
-    \\ Cases_on ‘ty1’ \\ Cases_on ‘ty2’
-    \\ gvs [semanticPrimitivesTheory.do_conversion_def, AllCaseEqs()]
-    \\ TRY (Cases_on ‘w’) \\ gvs [semanticPrimitivesTheory.do_conversion_def]
-    \\ simp [do_app_def, semanticPrimitivesTheory.do_conversion_def,
-              find_sem_prim_res_globals_def, find_result_globals_def,
-              find_v_globals_def, v_has_Eval_def, v_to_flat_def])
-  \\ qpat_x_assum `do_app _ _ _ = SOME _`
-      (strip_assume_tac o REWRITE_RULE [do_app_cases])
-  \\ rw []
-  \\ fs [v_has_Eval_def]
-  \\ simp [do_app_def]
-  \\ fs [find_sem_prim_res_globals_def, find_v_globals_def,
-        find_result_globals_def, chr_exn_v_def, Boolv_def, div_exn_v_def,
-        v_has_Eval_def, subscript_exn_v_def, Unitv_def, find_lookups_def,
-        dest_GlobalVarLookup_def]
+              find_v_globals_def, v_has_Eval_def, div_exn_v_def, v_to_flat_def]
+    \\ rw [find_v_globals_def, v_has_Eval_def,
+           semanticPrimitivesTheory.Boolv_def, v_to_flat_def, Boolv_def]
+    \\ every_case_tac \\ gvs [find_v_globals_def, v_has_Eval_def, Boolv_def])
+  \\ Cases_on `∃ty1 ty2. op = Src (FromTo ty1 ty2)` >- (
+    gvs [do_app_def, AllCaseEqs(),
+         find_sem_prim_res_globals_def, find_result_globals_def,
+         find_v_globals_def, v_has_Eval_def, chr_exn_v_def])
+  \\ Cases_on `op` \\ gvs []
+  >- ( (* Src case, excluding Arith and FromTo *)
+    rename [`Src aop`]
+    \\ Cases_on `aop`
+    \\ gvs [do_app_def, AllCaseEqs(),
+            find_sem_prim_res_globals_def, find_result_globals_def,
+            find_v_globals_def, v_has_Eval_def,
+            chr_exn_v_def, div_exn_v_def, subscript_exn_v_def,
+            Boolv_def, Unitv_def,
+            fvg_map_char_empty, v_has_Eval_list_to_v,
+            semanticPrimitivesTheory.store_alloc_def]
+    \\ rfs []
+    \\ imp_res_tac not_LE_LESS_IMP
+    \\ imp_res_tac find_v_globals_v_to_list
+    \\ imp_res_tac v_has_Eval_v_to_list
+    \\ imp_res_tac find_v_globals_list_to_v_APPEND
+    \\ imp_res_tac not_v_has_Eval_EVERY_EL
+    \\ qif_pat_tac `store_assign _ _ _ = SOME _` (
+      fs [semanticPrimitivesTheory.store_assign_def]
+      \\ rw []
+      \\ simp [flat_state_rel_def, listTheory.IMP_EVERY_LUPDATE,
+              find_refs_globals_LUPDATE]
+    )
+    \\ TRY (
+      simp [flat_state_rel_def, find_refs_globals_APPEND,
+            find_refs_globals_def, domain_union,
+            find_v_globals_def, v_has_Eval_def, EVERY_MAP,
+            find_v_globalsL_REPLICATE]
+      \\ NO_TAC
+    )
+    \\ fs [semanticPrimitivesTheory.store_lookup_def]
+    \\ fs [Q.ISPEC `EL _ _` EQ_SYM_EQ |> Q.SPEC `HD _`]
+    \\ fs [rich_listTheory.LENGTH_NOT_NULL]
+    \\ TRY (rename [`~ NULL xs`] \\ Cases_on `xs` \\ fs [])
+    \\ fs [find_v_globals_def, domain_union]
+    \\ imp_res_tac EVERY_EL_IMP
+    \\ imp_res_tac find_refs_globals_EL
+    \\ rfs []
+    \\ DEP_REWRITE_TAC [find_v_globalsL_EL_trans]
+    \\ simp []
+    \\ gvs [EVERY_MAP, v_has_Eval_def,
+            backend_commonTheory.true_tag_def,
+            backend_commonTheory.false_tag_def]
+    \\ gvs [flat_state_rel_def, listTheory.IMP_EVERY_LUPDATE]
+    \\ TRY (
+      irule (cj 2 find_refs_globals_LUPDATE) \\ simp []
+      \\ irule find_v_globalsL_LUPDATE \\ simp []
+    )
+    \\ TRY (
+      irule (cj 4 find_refs_globals_LUPDATE) \\ simp []
+    )
+    \\ gvs [find_refs_globals_APPEND, find_refs_globals_def, domain_union,
+            find_v_globals_def]
+    \\ metis_tac [find_v_globalsL_REPLICATE, SUBSET_TRANS]
+    )
+  (* FlatLang-specific ops - remaining 7 subgoals *)
+  \\ gvs [do_app_def, AllCaseEqs(),
+          find_sem_prim_res_globals_def, find_v_globals_def,
+          find_result_globals_def, chr_exn_v_def, Boolv_def, div_exn_v_def,
+          v_has_Eval_def, subscript_exn_v_def, Unitv_def, find_lookups_def,
+          dest_GlobalVarLookup_def]
   \\ rfs []
   \\ imp_res_tac not_LE_LESS_IMP
   \\ qif_pat_tac `store_assign _ _ _ = SOME _` (
@@ -597,90 +658,22 @@ Proof
     \\ simp []
   )
   >- (
-    qpat_assum `this_case Explode` kall_tac
-    \\ simp [v_has_Eval_list_to_v, EVERY_MAP, v_has_Eval_def,
-            fvg_map_char_empty]
-  )
-  >- (
-    drule_then drule find_v_globals_v_to_list
-    \\ imp_res_tac v_has_Eval_v_to_list
-    \\ fs []
-  )
-  >- (
-    qpat_assum `this_case Vsub` kall_tac
-    \\ simp [find_v_globalsL_EL_trans]
-    \\ fs [EVERY_EL]
-  )
-  >- (
-    qpat_assum `this_case Vsub_unsafe` kall_tac
-    \\ simp [find_v_globalsL_EL_trans]
-    \\ fs [EVERY_EL]
-  )
-  >- metis_tac[find_v_globalsL_REPLICATE,SUBSET_TRANS]
-  >- (
-    qpat_assum `this_case Asub` kall_tac
-    \\ fs [semanticPrimitivesTheory.store_lookup_def]
-    \\ DEP_REWRITE_TAC [find_v_globalsL_EL_trans, not_v_has_Eval_EVERY_EL]
-    \\ imp_res_tac find_refs_globals_EL
-    \\ imp_res_tac EVERY_EL_IMP
-    \\ rfs []
-  )
-  >- (
-    qpat_assum `this_case Aupdate` kall_tac
-    \\ fs [semanticPrimitivesTheory.store_lookup_def]
-    \\ DEP_REWRITE_TAC (listTheory.IMP_EVERY_LUPDATE
-        :: RES_CANON find_refs_globals_LUPDATE)
-    \\ simp []
-    \\ DEP_REWRITE_TAC [find_v_globalsL_LUPDATE, listTheory.IMP_EVERY_LUPDATE]
-    \\ simp []
-    \\ imp_res_tac find_refs_globals_EL
-    \\ imp_res_tac EVERY_EL_IMP
-    \\ rfs []
-  )
-  >- (
-    qpat_assum `this_case Asub_unsafe` kall_tac
-    \\ fs [semanticPrimitivesTheory.store_lookup_def]
-    \\ DEP_REWRITE_TAC [find_v_globalsL_EL_trans, not_v_has_Eval_EVERY_EL]
-    \\ imp_res_tac find_refs_globals_EL
-    \\ imp_res_tac EVERY_EL_IMP
-    \\ rfs []
-  )
-  >- (
-    qpat_assum `this_case Aupdate_unsafe` kall_tac
-    \\ fs [semanticPrimitivesTheory.store_lookup_def]
-    \\ DEP_REWRITE_TAC (listTheory.IMP_EVERY_LUPDATE
-        :: RES_CANON find_refs_globals_LUPDATE)
-    \\ simp []
-    \\ DEP_REWRITE_TAC [find_v_globalsL_LUPDATE, listTheory.IMP_EVERY_LUPDATE]
-    \\ simp []
-    \\ imp_res_tac find_refs_globals_EL
-    \\ imp_res_tac EVERY_EL_IMP
-    \\ rfs []
-  )
-  >- (
-    qpat_assum `this_case ListAppend` kall_tac
-    \\ imp_res_tac v_has_Eval_v_to_list
-    \\ rfs [v_has_Eval_list_to_v, domain_union]
-    \\ metis_tac[find_v_globals_v_to_list, find_v_globals_list_to_v_APPEND]
-  )
-  >- (
     qpat_assum `this_case (GlobalVarAlloc _)` kall_tac
     \\ fs [flat_state_rel_def, globals_rel_def]
     \\ simp [listTheory.EL_APPEND_EQN, EL_REPLICATE, bool_case_eq]
     \\ csimp [EL_REPLICATE]
-    \\ metis_tac []
+    \\ metis_tac [] (* A *)
   )
   >- (
     qpat_assum `this_case (GlobalVarInit _)` kall_tac
     \\ fs [flat_state_rel_def, globals_rel_def]
     \\ simp [EL_LUPDATE, bool_case_eq]
-    \\ metis_tac []
+    \\ metis_tac [] (* B *)
   )
   >- (
     qpat_assum `this_case (GlobalVarLookup _)` kall_tac
-    \\ fs [flat_state_rel_def, globals_rel_def, IS_SOME_EXISTS]
-    \\ rfs []
-    \\ metis_tac []
+    \\ gvs [flat_state_rel_def, globals_rel_def, IS_SOME_EXISTS]
+    \\ metis_tac [] (* C *)
   )
 QED
 
@@ -757,7 +750,7 @@ Theorem has_Eval_def[local]:
   (has_Eval (Handle _ e pes) = (has_Eval e ∨ EXISTS has_Eval (MAP SND pes))) ∧
   (has_Eval (Con _ _ es) = EXISTS has_Eval es) ∧
   (has_Eval (Fun _ _ e) = has_Eval e) ∧
-  (has_Eval (App t op es) = (op = Eval ∨ EXISTS has_Eval es)) ∧
+  (has_Eval (App t op es) = (op = Src Eval ∨ EXISTS has_Eval es)) ∧
   (has_Eval (If t e1 e2 e3) = (has_Eval e1 ∨ has_Eval e2 ∨ has_Eval e3)) ∧
   (has_Eval (Mat t e pes) = (has_Eval e ∨ EXISTS has_Eval (MAP SND pes))) ∧
   (has_Eval (Let _ opt e1 e2) = (has_Eval e1 ∨ has_Eval e2)) ∧
@@ -938,7 +931,7 @@ Proof
         fs[domain_insert]) >>
     fs[] >>
     Cases_on `r` >> fs[] >> strip_tac >> rveq >> fs[] >> rfs[] >>
-    Cases_on `op = Opapp` >> fs[]
+    Cases_on `op = Src Opapp` >> fs[]
     >- (
       Cases_on `do_opapp (REVERSE a)` >> fs[] >>
       Cases_on `x` >> fs[] >>
@@ -1014,7 +1007,7 @@ Proof
         )
       )
     >- (
-      Cases_on `op = ThunkOp ForceThunk` >> gvs []
+      Cases_on `op = Src (ThunkOp ForceThunk)` >> gvs []
       >- (
         gvs [AllCaseEqs(), dec_clock_def, dest_GlobalVarLookup_def, PULL_EXISTS]
         >- (
@@ -1430,7 +1423,7 @@ Proof
     strip_tac >> fs[] >> fs[EVERY_REVERSE] >> fs[find_loc_EVERY_isEmpty] >>
     Cases_on `r` >> fs[]
     >- (
-      Cases_on `op = Opapp` >> fs[is_pure_def1, dest_GlobalVarInit_def] >>
+      Cases_on `op = Src Opapp` >> fs[is_pure_def1, dest_GlobalVarInit_def] >>
       first_x_assum (qspecl_then [`reachable`, `removed_state`] mp_tac) >>
       strip_tac >>
       Cases_on `op` >>
