@@ -76,13 +76,31 @@ val RARRAY_const = ml_monad_translatorBaseTheory.RARRAY_def |> left_const
 val ARRAY_const = cfHeapsBaseTheory.ARRAY_def |> left_const
 val one_const = numSyntax.term_of_int 1
 val cond_const = set_sepTheory.cond_def |> left_const
-val get_refs_const = "λ(state : 'a semanticPrimitives$state). state.refs"
-val opref_expr = "λname. (App Opref [Var (Short name)])"
+val get_refs_const = let
+    val state_var = mk_var("state", ffi_state_ty)
+    val refs_acc = prim_mk_const{Thy="semanticPrimitives",Name="state_refs"}
+    val body = mk_comb(inst [alpha |-> ffi_var] refs_acc, state_var)
+  in mk_abs(state_var, body) end
+val opref_expr = let
+    val name_var = mk_var("name", mlstringSyntax.mlstring_ty)
+    val var_exp = astSyntax.mk_Var(astSyntax.mk_Short name_var)
+    val body = astSyntax.mk_App(astSyntax.Opref,
+                 listSyntax.mk_list([var_exp], astSyntax.exp_ty))
+  in mk_abs(name_var, body) end
 val empty_v_list = listSyntax.mk_list ([], v_ty)
 val empty_v_store = listSyntax.mk_list ([],
     semanticPrimitivesSyntax.store_v_ty |> type_subst [alpha |-> v_ty])
 val empty_alpha_list = listSyntax.mk_list ([], alpha)
-val nsLookup_env_short_term = "λ(env : v sem_env) name. nsLookup env.v (Short name)"
+val nsLookup_env_short_term = let
+    val sem_env_ty = semanticPrimitivesSyntax.sem_env_ty |> type_subst [alpha |-> v_ty]
+    val env_var = mk_var("env", sem_env_ty)
+    val name_var = mk_var("name", mlstringSyntax.mlstring_ty)
+    val nsLookup_tm = prim_mk_const{Thy="namespace",Name="nsLookup"}
+    val v_accessor = prim_mk_const{Thy="semanticPrimitives",Name="sem_env_v"}
+    val env_v = mk_comb(inst [alpha |-> v_ty] v_accessor, env_var)
+    val short_name = astSyntax.mk_Short name_var
+    val body = list_mk_icomb(nsLookup_tm, [env_v, short_name])
+  in list_mk_abs([env_var, name_var], body) end
 val Conv_Subscript = Conv_Subscript
 end (* local *)
 
