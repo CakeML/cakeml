@@ -578,6 +578,13 @@ Definition fib_heap_def:
 End
 
 
+(*-------------------------------------------------------------------*
+   Fib Heap Insert Definition and Verification
+ *-------------------------------------------------------------------*)
+
+
+
+
 Definition fib_heap_empty_append_def:
   fib_heap_empty_append (k:'a word, m:'a word -> 'a word, dm:'a word set,c: bool) =
     let c = (k + next_off IN dm /\ c) in
@@ -1102,11 +1109,54 @@ QED
 
 
 
+(*-------------------------------------------------------------------*
+   Fib Heap Extract Minimum Definition and Verification
+ *-------------------------------------------------------------------*)
+
+Definition find_new_min_def:
+  find_new_min
+    (min_n:'a word, s:'a word, t:'a word,
+     m:'a word -> 'a word, dm: 'a word set, c: bool)
+  =
+    let c = (t IN dm /\ c) in
+    if s = t then
+      (*balance root list or do it in a separate step *)
+      (min_n,m,c)
+    else
+      let c = (min_n IN dm /\ c) in
+      let v = m min_n in
+      let c = (t + next_off IN dm /\ c) in
+      let v_t = m t in
+      let t_n = m (t + next_off) in
+      if v_t <=+ v then
+        find_new_min(v_t,s,t_n,m,dm,c)
+      else
+        find_new_min(min_n,s,t_n,m,dm,c)
+Termination
+cheat
+End
 
 
 
 
-
-
-
-
+Definition fib_heap_extract_min_def:
+  fib_heap_extract_min
+    (a:'a word, m:'a word -> 'a word, dm :'a word set)
+  =
+    let c = (a IN dm) in
+    let c = (a + next_off IN dm /\ c) in
+    let sec = m (a + next_off) in
+    if a = sec then
+      (0w,m,c)
+    else
+      let c = (a + before_off IN dm /\ c) in
+      let lst = m (a + before_off) in
+      let c = (lst + next_off IN dm /\ c) in
+      let c = (sec + before_off IN dm /\ c) in
+      let m = ((lst + next_off) =+ sec) m in
+      let m = ((sec + before_off) =+ lst) m in
+      let c = (sec IN dm /\ c) in
+      let sec_n = (sec + next_off IN dm /\ c) in
+        (*find_new_min(sec,sec,sec_n,m,dm,c)*)
+        (0w,m,c)
+End
