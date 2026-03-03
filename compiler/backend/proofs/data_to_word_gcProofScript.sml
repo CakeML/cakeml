@@ -17,6 +17,7 @@ val _ = diminish_srw_ss ["ABBREV"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val shift_def = backend_commonTheory.word_shift_def
+val upper_w2w_def = backend_commonTheory.upper_w2w_def
 val isWord_def = wordSemTheory.isWord_def
 val theWord_def = wordSemTheory.theWord_def
 val is_fwd_ptr_def = wordSemTheory.is_fwd_ptr_def
@@ -4456,11 +4457,6 @@ Definition contains_loc_def:
   contains_loc (StackFrame _ vs _ _) (l1,l2) = (ALOOKUP vs 0 = SOME (Loc l1 l2))
 End
 
-Definition upper_w2w_def:
-  upper_w2w (w:'a word) =
-    if dimindex (:'a) = 32 then w2w w << 32 else (w2w w):word64
-End
-
 Definition code_oracle_rel_def:
   code_oracle_rel c
       (s_compile:'c -> (num # num # dataLang$prog) list ->
@@ -8051,10 +8047,10 @@ Proof
         FLOOKUP t.store NextFree = SOME (Word next) /\
         FLOOKUP t.store HeapLength = SOME (Word heap_length1)` by
           full_simp_tac(srw_ss())[state_rel_def,heap_in_memory_store_def]
+  \\ ‘2 MOD dimword (:α) = 2 ∧ 2 < dimindex (:α) ∧
+      shift (:α) MOD dimword (:α) = shift (:α) ∧ shift (:α) < dimindex (:α)’
+    by fs [dimword_def, state_rel_def, good_dimindex_def, shift_def]
   \\ fs [word_exp_rw,get_var_set_var_thm,wordSemTheory.get_store_def] \\ rfs []
-  \\ rfs [wordSemTheory.get_var_def]
-  \\ `~(2 ≥ dimindex (:α))` by
-         fs [state_rel_def,EVAL ``good_dimindex (:α)``,shift_def] \\ fs []
   \\ rfs [word_exp_rw,wordSemTheory.set_var_def,lookup_insert]
   \\ fs [asmTheory.word_cmp_def]
   \\ fs [WORD_LO,w2n_lsr] \\ rfs []
@@ -8115,10 +8111,7 @@ Proof
           gvs [Abbr‘t1’,wordSemTheory.state_component_equality]
     \\ gvs [alloc_locals_insert_1]
     \\ strip_tac \\ gvs [])
-  \\ qpat_assum `_ = (q,r)` mp_tac
-  \\ IF_CASES_TAC THEN1
-    (fs [state_rel_def,EVAL ``good_dimindex (:α)``,shift_def])
-  \\ pop_assum kall_tac \\ fs [lookup_insert]
+  \\ fs [lookup_insert]
   \\ `1w ≪ shift (:α) + w ⋙ 2 ≪ shift (:α) =
       alloc_size (w2n w DIV 4 + 1)` by
    (fs [alloc_size_def] \\ IF_CASES_TAC THEN1
@@ -8129,10 +8122,11 @@ Proof
     THEN1 fs [] \\ pop_assum kall_tac
     \\ fs [EVAL ``good_dimindex (:'a)``,state_rel_def,dimword_def]
     \\ rfs [] \\ NO_TAC)
-  \\ fs []
-  \\ reverse IF_CASES_TAC
+  \\ gvs []
+  \\ qpat_assum `_ = (q,r)` mp_tac
+  \\ reverse $ IF_CASES_TAC
   THEN1
-   (fs [] \\ strip_tac \\ rveq \\ fs []
+   (strip_tac \\ gvs []
     \\ fs[state_rel_insert_3_1]
     \\ last_x_assum assume_tac
     \\ drule_all state_rel_cut_env \\ strip_tac
@@ -8140,8 +8134,6 @@ Proof
     \\ gvs [] \\ disch_then irule
     \\ fs [wordSemTheory.has_space_def,wordSemTheory.get_store_def]
     \\ gvs [asmTheory.word_cmp_def, WORD_LO])
-  \\ `~(shift (:α) ≥ dimindex (:α))` by
-    (fs [good_dimindex_def,shift_def,state_rel_def] \\ fs [])
   \\ fs [lookup_insert]
   \\ reverse (Cases_on `c.call_empty_ffi`)
   THEN1

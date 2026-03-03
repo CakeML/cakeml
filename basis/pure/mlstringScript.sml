@@ -977,10 +977,39 @@ Definition mlstring_ge_def:
   mlstring_ge s1 s2 ⇔ (compare s1 s2 <> LESS)
 End
 
+Theorem compare_thm:
+  compare s1 s2 =
+    if mlstring_lt s1 s2 then LESS else
+    if mlstring_le s1 s2 then EQUAL else GREATER
+Proof
+  fs [mlstring_lt_def,mlstring_le_def]
+  \\ Cases_on ‘compare s1 s2’ \\ gvs []
+QED
+
 Overload "<" = ``λx y. mlstring_lt x y``
 Overload "<=" = ``λx y. mlstring_le x y``
 Overload ">" = ``λx y. mlstring_gt x y``
 Overload ">=" = ``λx y. mlstring_ge x y``
+
+Definition fast_lt_def:
+  fast_lt s1 s2 =
+    if strlen s1 = strlen s2 then mlstring_lt s1 s2 else strlen s1 < strlen s2
+End
+
+Definition fast_le_def:
+  fast_le s1 s2 =
+    if strlen s1 = strlen s2 then mlstring_le s1 s2 else strlen s1 ≤ strlen s2
+End
+
+Definition fast_gt_def:
+  fast_gt s1 s2 =
+    if strlen s1 = strlen s2 then mlstring_gt s1 s2 else strlen s1 > strlen s2
+End
+
+Definition fast_ge_def:
+  fast_ge s1 s2 =
+    if strlen s1 = strlen s2 then mlstring_ge s1 s2 else strlen s1 ≥ strlen s2
+End
 
 (* Properties of string orderings *)
 

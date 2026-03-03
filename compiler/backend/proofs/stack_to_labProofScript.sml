@@ -45,10 +45,10 @@ Overload Loc = “wordLang$Loc”
 (* TODO: move *)
 
 Theorem word_sh_word_shift:
-   word_sh a b c = SOME z ⇒ z = word_shift a b c
+   word_sh a (b: α word) c = SOME z ⇒ c < dimindex (:α) ∧ z = word_shift a b c
 Proof
-  EVAL_TAC >> srw_tac[][] >> every_case_tac >> full_simp_tac(srw_ss())[] >>
-  EVAL_TAC >> srw_tac[][]
+  rw [wordLangTheory.word_sh_def |> oneline, AllCaseEqs()]
+  >> simp [asmSemTheory.word_shift_def]
 QED
 
 Theorem assert_T[simp]:
@@ -762,6 +762,7 @@ Proof
   imp_res_tac state_rel_read_reg_FLOOKUP_regs >> rfs[] >> rw[] >>
   imp_res_tac state_rel_read_fp_reg_FLOOKUP_fp_regs >> rfs[] >> rw[] >>
   imp_res_tac word_sh_word_shift >>
+  simp[w2n_lt] >>
   full_simp_tac(srw_ss())[wordLangTheory.word_op_def] >> srw_tac[][] >>
   imp_res_tac state_rel_read_reg_FLOOKUP_regs >> rfs[] >> rw[] >>
   TRY ( full_simp_tac(srw_ss())[binop_upd_def] >> match_mp_tac set_var_upd_reg >> full_simp_tac(srw_ss())[] >> NO_TAC) >>
@@ -800,7 +801,7 @@ Proof
     qpat_x_assum`Word _ = _`(assume_tac o SYM) >> fs[]>> rfs[]) >>
   TRY (
     rename1`mem_store32`
-    \\ fs[wordSemTheory.mem_store_32_def]
+    \\ fs[wordSemTheory.mem_store_32_alt]
     \\ every_case_tac \\ fs[]
     \\ fs[mem_store32_def,addr_def]
     \\ fs[word_exp_def,wordLangTheory.word_op_def]
@@ -817,7 +818,7 @@ Proof
     \\ match_mp_tac SWAP_IMP
     \\ disch_then old_drule
     \\ disch_then (assume_tac o SYM)
-    \\ simp[wordSemTheory.mem_store_32_def]
+    \\ simp[wordSemTheory.mem_store_32_alt]
     \\ `s1.memory = t1.mem ∧ t1.mem_domain = s1.mdomain ∧ t1.be = s1.be` by fs[state_rel_def]
     \\ fs[] \\ strip_tac
     \\ TRY (qpat_x_assum`Word _ = read_reg _ _`(assume_tac o SYM)\\ fs[])
@@ -830,7 +831,7 @@ Proof
     \\ rveq \\ simp[]) >>
   TRY (
     qhdtm_x_assum`mem_load_32`mp_tac
-    \\ fs[wordSemTheory.mem_load_32_def,labSemTheory.mem_load32_def,labSemTheory.addr_def]
+    \\ fs[wordSemTheory.mem_load_32_alt,labSemTheory.mem_load32_def,labSemTheory.addr_def]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ fs[word_exp_def,wordLangTheory.word_op_def]
     \\ qpat_x_assum`IS_SOME _`mp_tac

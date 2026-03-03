@@ -128,11 +128,11 @@ Definition word_num_stubs_def:
 End
 
 Definition data_num_stubs_def:
-  data_num_stubs = word_num_stubs + (* general: *) 30 + (* bignum: *) 23
+  data_num_stubs = word_num_stubs + (* general: *) 32 + (* bignum: *) 23
 End
 
 Definition bvl_num_stubs_def:
-  bvl_num_stubs = data_num_stubs + 9 + (* dummy to make it a multiple of 3 *) 0
+  bvl_num_stubs = data_num_stubs + 9 + (* dummy to make it a multiple of 3 *) 1
 End
 
 Definition bvl_to_bvi_namespaces_def:
@@ -159,3 +159,9 @@ Definition word_shift_def:
        generated CakeML code *)
     if dimindex (:'a) = 32 then 2 else 3:num
 End
+
+Definition upper_w2w_def:
+  upper_w2w (w:'a word) =
+    if dimindex (:'a) = 32 then w2w w << 32 else (w2w w):word64
+End
+

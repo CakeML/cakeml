@@ -1358,7 +1358,7 @@ Theorem eval_swap_memaddrs:
     eval (s with memaddrs := memaddrs) exp = SOME v
 Proof
   recInduct eval_ind >>
-  rw[eval_def,AllCaseEqs(),PULL_EXISTS,mem_load_byte_def,mem_load_32_def] >>
+  rw[eval_def,AllCaseEqs(),PULL_EXISTS,mem_load_byte_def,mem_load_32_alt] >>
   rpt $ irule_at (Pos last) EQ_REFL >>
   rpt $ first_assum $ irule_at (Pos last) >>
   fs[]
@@ -1397,7 +1397,7 @@ Theorem eval_swap_memory:
     eval (s with memory := mry) exp = SOME v
 Proof
   recInduct eval_ind >>
-  rw[eval_def,AllCaseEqs(),PULL_EXISTS,mem_load_byte_def,mem_load_32_def] >>
+  rw[eval_def,AllCaseEqs(),PULL_EXISTS,mem_load_byte_def,mem_load_32_alt] >>
   rpt $ irule_at (Pos last) EQ_REFL >>
   rpt $ first_assum $ irule_at (Pos last) >>
   fs[]

@@ -962,9 +962,11 @@ Proof
   >-
    (drule_all (cj 1 do_eq) \\ simp []
     \\ imp_res_tac v_rel_check_type \\ fs [])
-  \\ gvs [oneline semanticPrimitivesTheory.dest_Litv_def, AllCaseEqs()]
-  \\ gvs [oneline flatSemTheory.dest_Litv_def, AllCaseEqs()]
-  \\ gvs [v_rel_eqns]
+  >-
+   (gvs [oneline semanticPrimitivesTheory.dest_Litv_def, AllCaseEqs()]
+    \\ gvs [oneline flatSemTheory.dest_Litv_def, AllCaseEqs()] \\ gvs [v_rel_eqns])
+  \\ gvs [semanticPrimitivesTheory.dest_Litv_def |> oneline, AllCaseEqs()]
+  \\ fs [Once v_rel_cases] \\ gvs [dest_Litv_def]
 QED
 
 Theorem check_type_IMP_v_rel:
@@ -4462,8 +4464,8 @@ Proof
   rpt (disch_then drule) >>
   (impl_tac >- fs [invariant_def, s_rel_cases]) >>
   rw [] >>
-  `astOp_to_flatOp op ≠ Opapp ∧ astOp_to_flatOp op ≠ Eval ∧
-   astOp_to_flatOp op ≠ ThunkOp ForceThunk`
+  `astOp_to_flatOp op ≠ Src Opapp ∧ astOp_to_flatOp op ≠ Src Eval ∧
+   astOp_to_flatOp op ≠ Src (ThunkOp ForceThunk)`
   by (
     rw [astOp_to_flatOp_def] >>
     Cases_on `op` >>

@@ -69,7 +69,7 @@ QED
 val defaults = [riscv_ast_def, riscv_encode_def, Encode_def,
   Itype_def, opc_def, riscv_const32_def, Utype_def, Rtype_def,
   riscv_bop_r_def, riscv_bop_i_def, riscv_encode_fail_def,
-  riscv_memop_def, Stype_def, UJtype_def, SBtype_def];
+  riscv_memop_def, Stype_def, UJtype_def, SBtype_def, riscv_shv_def];
 
 val riscv_enc_thms =
   riscv_enc_def
@@ -124,19 +124,37 @@ val binopimmth = reconstruct_case
 val binopth = reconstruct_case ``riscv_enc(Inst (Arith (Binop b n n0 r)))``
   (rand o rand o rand o rand) [binopregth,binopimmth];
 
-val shiftths =
-  shift
-  |> SIMP_RULE(srw_ss()++LET_ss++DatatypeSimps.expand_type_quants_ss[``:shift``])
-      (Q.ISPEC`(λ(f,n). P f n)` COND_RAND::
-       Q.ISPEC`LIST_BIND`COND_RAND ::
-       COND_RATOR ::
-       riscv_sh_def ::
-      defaults)
-  |> CONJUNCTS
-  |> map (fn th => th |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO]);
+val (shiftreg_aux::shiftimm_aux::_) = shift |> SIMP_RULE (srw_ss() ++
+  DatatypeSimps.expand_type_quants_ss [``:64 reg_imm``])
+  [FORALL_AND_THM] |> CONJUNCTS |> map (SIMP_RULE (srw_ss() ++ LET_ss ++
+  DatatypeSimps.expand_type_quants_ss [``:shift``]) []);
 
-val shiftth = reconstruct_case ``riscv_enc(Inst (Arith (Shift s n n0 n1)))``
-  (rand o funpow 3 rator o funpow 3 rand) shiftths;
+val shiftreg = shiftreg_aux |> CONJUNCTS
+  |> map(fn th => th
+    |> SIMP_RULE (srw_ss()++LET_ss)
+        (Q.ISPEC`(λ(f,n). P f n)` COND_RAND::
+         Q.ISPEC`LIST_BIND`COND_RAND ::
+         COND_RATOR ::
+         riscv_sh_def :: defaults)
+    |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO]);
+
+val shiftregth = reconstruct_case ``riscv_enc (Inst (Arith (Shift b n n0
+  (Reg n'))))`` (rand o rator o rator o rator o rand o rand o rand) shiftreg;
+
+val shiftimm = shiftimm_aux |> CONJUNCTS
+  |> map(fn th => th
+    |> SIMP_RULE (srw_ss()++LET_ss)
+        (Q.ISPEC`(λ(f,n). P f n)` COND_RAND::
+         Q.ISPEC`LIST_BIND`COND_RAND ::
+         COND_RATOR ::
+         riscv_sh_def :: defaults)
+    |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO]);
+
+val shiftimmth = reconstruct_case ``riscv_enc (Inst (Arith (Shift b n n0
+  (Imm c))))`` (rand o rator o rator o rator o rand o rand o rand) shiftimm;
+
+val shiftth = reconstruct_case ``riscv_enc(Inst (Arith (Shift b n n0
+  r)))`` (rand o rand o rand o rand) [shiftregth,shiftimmth];
 
 val riscv_enc1_3_aux = binopth :: shiftth :: map (fn th => th |>
   SIMP_RULE (srw_ss()) defaults |> wc_simp |> we_simp |> gconv |>
@@ -303,11 +321,23 @@ val d1 = CONJ d1 $ Define ‘riscv_enc_Mem_Store a b c =
 val d1 = CONJ d1 $ Define ‘riscv_enc_Mem_Store8 a b c =
                     riscv_enc (Inst (Mem Store8 a (Addr b c)))’
   |> SIMP_RULE std_ss [riscv_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘riscv_enc_Mem_Store16 a b c =
+                    riscv_enc (Inst (Mem Store16 a (Addr b c)))’
+  |> SIMP_RULE std_ss [riscv_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘riscv_enc_Mem_Store32 a b c =
+                    riscv_enc (Inst (Mem Store32 a (Addr b c)))’
+  |> SIMP_RULE std_ss [riscv_enc_thm,cases_defs,APPEND]
 val d1 = CONJ d1 $ Define ‘riscv_enc_Mem_Load a b c =
                     riscv_enc (Inst (Mem Load a (Addr b c)))’
   |> SIMP_RULE std_ss [riscv_enc_thm,cases_defs,APPEND]
 val d1 = CONJ d1 $ Define ‘riscv_enc_Mem_Load8 a b c =
                     riscv_enc (Inst (Mem Load8 a (Addr b c)))’
+  |> SIMP_RULE std_ss [riscv_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘riscv_enc_Mem_Load16 a b c =
+                    riscv_enc (Inst (Mem Load16 a (Addr b c)))’
+  |> SIMP_RULE std_ss [riscv_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘riscv_enc_Mem_Load32 a b c =
+                    riscv_enc (Inst (Mem Load32 a (Addr b c)))’
   |> SIMP_RULE std_ss [riscv_enc_thm,cases_defs,APPEND]
 val d1 = CONJ d1 $ Define ‘riscv_enc_Arith_SubOverflow a b c d =
                     riscv_enc (Inst (Arith (SubOverflow a b c d)))’
@@ -327,17 +357,30 @@ val d1 = CONJ d1 $ Define ‘riscv_enc_Arith_LongDiv a b c d e =
 val d1 = CONJ d1 $ Define ‘riscv_enc_Arith_Div a b c =
                     riscv_enc (Inst (Arith (Div a b c)))’
   |> SIMP_RULE std_ss [riscv_enc_thm,cases_defs,APPEND]
-val d1 = CONJ d1 $ Define ‘riscv_enc_Arith_Shift_Ror a b c =
-                    riscv_enc (Inst (Arith (Shift Ror a b c)))’
+val d1 = CONJ d1 $ Define ‘riscv_enc_Arith_Ror_Imm a b c =
+                    riscv_enc (Inst (Arith (Shift Ror a b (Imm c))))’
   |> SIMP_RULE std_ss [riscv_enc_thm,cases_defs,APPEND]
-val d1 = CONJ d1 $ Define ‘riscv_enc_Arith_Shift_Asr a b c =
-                    riscv_enc (Inst (Arith (Shift Asr a b c)))’
+val d1 = CONJ d1 $ Define ‘riscv_enc_Arith_Asr_Imm a b c =
+                    riscv_enc (Inst (Arith (Shift Asr a b (Imm c))))’
   |> SIMP_RULE std_ss [riscv_enc_thm,cases_defs,APPEND]
-val d1 = CONJ d1 $ Define ‘riscv_enc_Arith_Shift_Lsr a b c =
-                    riscv_enc (Inst (Arith (Shift Lsr a b c)))’
+val d1 = CONJ d1 $ Define ‘riscv_enc_Arith_Lsr_Imm a b c =
+                    riscv_enc (Inst (Arith (Shift Lsr a b (Imm c))))’
   |> SIMP_RULE std_ss [riscv_enc_thm,cases_defs,APPEND]
-val d1 = CONJ d1 $ Define ‘riscv_enc_Arith_Shift_Lsl a b c =
-                    riscv_enc (Inst (Arith (Shift Lsl a b c)))’
+val d1 = CONJ d1 $ Define ‘riscv_enc_Arith_Lsl_Imm a b c =
+                    riscv_enc (Inst (Arith (Shift Lsl a b (Imm c))))’
+  |> SIMP_RULE std_ss [riscv_enc_thm,cases_defs,APPEND]
+
+val d1 = CONJ d1 $ Define ‘riscv_enc_Arith_Ror_Reg a b c =
+                    riscv_enc (Inst (Arith (Shift Ror a b (Reg c))))’
+  |> SIMP_RULE std_ss [riscv_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘riscv_enc_Arith_Asr_Reg a b c =
+                    riscv_enc (Inst (Arith (Shift Asr a b (Reg c))))’
+  |> SIMP_RULE std_ss [riscv_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘riscv_enc_Arith_Lsr_Reg a b c =
+                    riscv_enc (Inst (Arith (Shift Lsr a b (Reg c))))’
+  |> SIMP_RULE std_ss [riscv_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘riscv_enc_Arith_Lsl_Reg a b c =
+                    riscv_enc (Inst (Arith (Shift Lsl a b (Reg c))))’
   |> SIMP_RULE std_ss [riscv_enc_thm,cases_defs,APPEND]
 val d1 = CONJ d1 $ Define ‘riscv_enc_Arith_Add_Imm a b c =
                     riscv_enc (Inst (Arith (Binop Add a b (Imm c))))’

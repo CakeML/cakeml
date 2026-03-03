@@ -102,7 +102,7 @@ Proof
   >- gvs[eval_def,compile_exp_def,AllCaseEqs(),mem_load_byte_def,
          state_rel_def,SUBSET_DEF]
   >~ [‘Load32’]
-  >- (gvs[eval_def,compile_exp_def,AllCaseEqs(),mem_load_32_def,
+  >- (gvs[eval_def,compile_exp_def,AllCaseEqs(),mem_load_32_alt,
           state_rel_def,SUBSET_DEF])
   >~ [‘Op’]
   >- (gvs[eval_def,compile_exp_def,AllCaseEqs()] >>
@@ -613,11 +613,11 @@ Proof
   rw[evaluate_def,compile_def,AllCaseEqs(),UNCURRY_eq_pair,SF DNF_ss] >>
   imp_res_tac compile_exp_correct >>
   simp[] >>
-  qpat_x_assum ‘mem_store_32 _ _ _ _ _ = _’ (assume_tac o REWRITE_RULE [mem_store_32_def]) >>
+  qpat_x_assum ‘mem_store_32 _ _ _ _ _ = _’ (assume_tac o REWRITE_RULE [mem_store_32_alt]) >>
   gvs[AllCaseEqs(),good_res_def] >>
   drule_all state_rel_memory_update >>
   disch_then $ irule_at $ Pos last >>
-  gvs[state_rel_def,mem_store_32_def,SUBSET_DEF]
+  gvs[state_rel_def,mem_store_32_alt,SUBSET_DEF]
 QED
 
 Theorem compile_StoreByte:

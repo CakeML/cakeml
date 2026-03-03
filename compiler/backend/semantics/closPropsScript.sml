@@ -2464,7 +2464,8 @@ Proof
       (?m. opp = MemOp m ∧ (
         m = Length \/ (?b. m = BoundsCheckByte b) \/
         m = BoundsCheckArray \/ m = LengthByte \/
-        m = DerefByteVec \/ m = DerefByte \/ m = El)) \/
+        m = DerefByteVec \/ m = DerefByte \/ m = El \/
+        ∃b cmp. m = StringCmp b cmp)) \/
       (?g. opp = GlobOp g ∧ (g = GlobalsPtr \/ g = SetGlobalsPtr)) \/
       (?n. opp = BlockOp (ElemAt n))`
   THEN1
