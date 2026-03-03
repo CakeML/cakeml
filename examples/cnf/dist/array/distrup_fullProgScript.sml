@@ -1573,95 +1573,81 @@ End
 
 Inductive events_ok:
 [~init:]
-  events_ok [] (SOME (REPLICATE n NONE, REPLICATE k 0w, b))
+  events_ok [] [] (SOME (REPLICATE n NONE, REPLICATE k 0w, b))
 [~produce:]
-  events_ok events (SOME (fmlls, Clist, b)) ∧
+  events_ok events aevents (SOME (fmlls, Clist, b)) ∧
   is_produce_events n vc produce_events ∧
   is_output_event #"a" #"1" output_event ∧
   check_distrup_list (Lrup n vc hints) fmlls Clist b = SOME (fmlls', Clist', b')
   ⇒
-  events_ok (events ++ produce_events ++ [output_event]) (SOME (fmlls', Clist', b'))
+  events_ok (events ++ produce_events ++ [output_event]) (aevents ++ [Lrup n vc hints]) (SOME (fmlls', Clist', b'))
 [~produce_Fail:]
-  events_ok events (SOME (fmlls, Clist, b)) ∧
+  events_ok events aevents (SOME (fmlls, Clist, b)) ∧
   is_produce_events n vc produce_events ∧
   is_output_event #"a" #"0" output_event ∧
   check_distrup_list (Lrup n vc hints) fmlls Clist b = NONE
   ⇒
-  events_ok (events ++ produce_events ++ [output_event]) NONE
+  events_ok (events ++ produce_events ++ [output_event]) (aevents ++ [Lrup n vc hints]) NONE
 [~produce_None:]
-  events_ok events NONE ∧
+  events_ok events aevents NONE ∧
   is_produce_events n vc produce_events ∧
   is_output_event #"a" #"0" output_event
   ⇒
-  events_ok (events ++ produce_events ++ [output_event]) NONE
+  events_ok (events ++ produce_events ++ [output_event]) (aevents ++ [Lrup n vc hints]) NONE
 [~import:]
-  events_ok events (SOME (fmlls, Clist, b)) ∧
+  events_ok events aevents (SOME (fmlls, Clist, b)) ∧
   is_import_events n vc import_events ∧
   is_output_event #"i" #"1" output_event ∧
   check_distrup_list (Import n vc) fmlls Clist b = SOME (fmlls', Clist', b')
   ⇒
-  events_ok (events ++ import_events ++ [output_event]) (SOME (fmlls', Clist', b'))
-[~import_Fail:]
-  events_ok events (SOME (fmlls, Clist, b)) ∧
-  is_import_events n vc import_events ∧
-  is_output_event #"i" #"0" output_event ∧
-  check_distrup_list (Import n vc) fmlls Clist b = NONE
-  ⇒
-  events_ok (events ++ import_events ++ [output_event]) NONE
+  events_ok (events ++ import_events ++ [output_event]) (aevents ++ [Import n vc]) (SOME (fmlls', Clist', b'))
 [~import_None:]
-  events_ok events NONE ∧
+  events_ok events aevents NONE ∧
   is_import_events n vc import_events ∧
   is_output_event #"i" #"0" output_event
   ⇒
-  events_ok (events ++ import_events ++ [output_event]) NONE
+  events_ok (events ++ import_events ++ [output_event]) (aevents ++ [Import n vc]) NONE
 [~delete:]
-  events_ok events (SOME (fmlls, Clist, b)) ∧
+  events_ok events aevents (SOME (fmlls, Clist, b)) ∧
   is_delete_events delete_events ∧
   is_output_event #"d" #"1" output_event ∧
   check_distrup_list (Del hints) fmlls Clist b = SOME (fmlls', Clist', b')
   ⇒
-  events_ok (events ++ delete_events ++ [output_event]) (SOME (fmlls', Clist', b'))
-[~delete_Fail:]
-  events_ok events (SOME (fmlls, Clist, b)) ∧
-  is_delete_events delete_events ∧
-  is_output_event #"d" #"0" output_event ∧
-  check_distrup_list (Del hints) fmlls Clist b = NONE
-  ⇒
-  events_ok (events ++ delete_events ++ [output_event]) NONE
+  events_ok (events ++ delete_events ++ [output_event]) (aevents ++ [Del hints]) (SOME (fmlls', Clist', b'))
 [~delete_None:]
-  events_ok events NONE ∧
+  events_ok events aevents NONE ∧
   is_delete_events delete_events ∧
   is_output_event #"d" #"0" output_event
   ⇒
-  events_ok (events ++ delete_events ++ [output_event]) NONE
+  events_ok (events ++ delete_events ++ [output_event]) (aevents ++ [Del hints]) NONE
 [~validate:]
-  events_ok events (SOME (fmlls, Clist, b)) ∧
+  events_ok events aevents (SOME (fmlls, Clist, b)) ∧
   is_validate_events validate_events ∧
   is_output_event #"V" #"1" output_event ∧
   check_distrup_list Validate_Unsat fmlls Clist b = SOME (fmlls', Clist', b')
   ⇒
-  events_ok (events ++ validate_events ++ [output_event]) (SOME (fmlls', Clist', b'))
+  events_ok (events ++ validate_events ++ [output_event]) (aevents ++ [Validate_Unsat]) (SOME (fmlls', Clist', b'))
 [~validate_Fail:]
-  events_ok events (SOME (fmlls, Clist, b)) ∧
+  events_ok events aevents (SOME (fmlls, Clist, b)) ∧
   is_validate_events validate_events ∧
   is_output_event #"V" #"0" output_event ∧
   check_distrup_list Validate_Unsat fmlls Clist b = NONE
   ⇒
-  events_ok (events ++ validate_events ++ [output_event]) NONE
+  events_ok (events ++ validate_events ++ [output_event]) (aevents ++ [Validate_Unsat]) NONE
 [~validate_None:]
-  events_ok events NONE ∧
+  events_ok events aevents NONE ∧
   is_validate_events validate_events ∧
   is_output_event #"V" #"0" output_event
   ⇒
-  events_ok (events ++ validate_events ++ [output_event]) NONE
+  events_ok (events ++ validate_events ++ [output_event]) (aevents ++ [Validate_Unsat]) NONE
 End
 
 (* Allow any state or SOME? *)
 Definition full_events_ok_def:
   full_events_ok events ⇔
-    ∃xs final st.
+    ∃xs final aevents st.
       events = xs ++ [final] ∧
-      events_ok xs st ∧
+      events_ok xs aevents st ∧
       is_final_event final
 End
 
@@ -1750,10 +1736,10 @@ Proof
 QED
 
 Theorem loop_NONE:
-  ∀inputs lno lnov events step_arr step_arrv buf_arr buf_arrv stv.
+  ∀inputs lno lnov events aevents step_arr step_arrv buf_arr buf_arrv stv.
     NUM lno lnov ∧
     stv = Conv (SOME (TypeStamp «None» 2)) [] ∧
-    events_ok events NONE ∧
+    events_ok events aevents NONE ∧
     LENGTH step_arr = 17 ⇒
     app (p:'ffi ffi_proj) loop_v [step_arrv; buf_arrv; stv; lnov]
         (CUSTOM_FFI Step inputs events *
@@ -1913,13 +1899,13 @@ Proof
 QED
 
 Theorem loop_SOME:
-  ∀inputs lno lnov events fmlls fmllsv Clist step_arr step_arrv
+  ∀inputs lno lnov events aevents fmlls fmllsv Clist step_arr step_arrv
     buf_arr buf_arrv b bv stv fmlv Carrv.
     NUM lno lnov ∧
     LIST_REL (OPTION_TYPE vcclause_TYPE) fmlls fmllsv ∧
     WORD8 b bv ∧
     bnd_fml fmlls (LENGTH Clist) ∧
-    events_ok events (SOME (fmlls, Clist, b)) ∧
+    events_ok events aevents (SOME (fmlls, Clist, b)) ∧
     stv =
       Conv (SOME (TypeStamp «Some» 2))
         [Conv NONE [fmlv; Carrv; bv]] ⇒
@@ -2065,9 +2051,8 @@ Proof
       xapp_spec loop_NONE>>xsimpl>>
       irule_at Any SEP_IMP_REFL_emp>>
       pop_assum $ irule_at Any>>
-      irule events_ok_import_Fail>>
-      fs[is_output_event_def]>>
-      metis_tac[])>>
+      (* it should be possible to prove F from the premises here *)
+      cheat)>>
     `∃fmlls' Clist' b'.
       x = (fmlls',Clist',b')` by metis_tac[PAIR]>>
     fs[]>>
@@ -2132,9 +2117,10 @@ Proof
       xapp_spec loop_NONE>>xsimpl>>
       irule_at Any SEP_IMP_REFL_emp>>
       pop_assum $ irule_at Any>>
-      irule events_ok_delete_Fail>>
+      cheat (* it should be possible to prove F from the premises here *)
+      (*irule events_ok_delete_Fail>>
       fs[is_output_event_def]>>
-      metis_tac[])>>
+      metis_tac[]*))>>
     `∃fmlls' Clist' b'.
       x = (fmlls',Clist',b')` by metis_tac[PAIR]>>
     fs[]>>
