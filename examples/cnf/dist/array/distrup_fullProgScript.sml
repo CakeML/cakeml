@@ -637,7 +637,8 @@ Definition read_ints_def:
       w2i (word_of_bytes F 0w (TAKE 4 xs) : word32) :: read_ints (k-1) (DROP 4 xs)
 End
 
-(* TODO: can say more about ss2/ss3 *)
+(* Produce events
+  TODO: can say more about ss2/ss3 *)
 Definition is_produce_events_def:
   is_produce_events id cl produce_events ⇔
     ∃xs1 ss2 xs2 ss3 xs3 clen.
@@ -1060,6 +1061,472 @@ Proof
   xcon>>xsimpl
 QED
 
+Theorem do_callback_Produce:
+  STRING_TYPE res resv ∧
+  LENGTH step_arr = 17 ∧ CHR (w2n (HD step_arr)) = #"a" ⇒
+  app (p:'ffi ffi_proj) do_callback_v [resv; step_arrv]
+    (CUSTOM_FFI Produce_callback inputs events *
+     W8ARRAY step_arrv step_arr)
+    (POSTv uv.
+         CUSTOM_FFI Step inputs (events ++
+            [IO_event (ExtCall «callback») (MAP (n2w ∘ ORD) (explode res))
+                 (ZIP (step_arr,step_arr))]) *
+         W8ARRAY step_arrv step_arr)
+Proof
+  rw[]>>irule do_callback_gen>>fs[match_callback_def]
+QED
+
+(* Import events
+  TODO: can say more about ss2/ss3 *)
+Definition is_import_events_def:
+  is_import_events id cl import_events ⇔
+    ∃xs1 ss2 xs2 clen.
+      import_events = [IO_event (ExtCall «step»)   [] xs1;
+                        IO_event (ExtCall «clause») ss2 xs2] ∧
+      LENGTH xs1 = 17 ∧
+      SND (HD xs1) = n2w (ORD #"i") ∧
+      id = bytes_to_num (TAKE 8 (DROP 1 (MAP SND xs1))) ∧
+      clen = bytes_to_num (TAKE 4 (DROP 9 (MAP SND xs1))) ∧
+      clen * 4 ≤ LENGTH xs2 ∧
+      cl = Vector (read_ints clen (MAP SND xs2))
+End
+
+Theorem get_clause_Import:
+  BOOL b bv ∧
+  STRING_TYPE s sv ∧
+  4 ≤ strlen s ⇒
+  app (p:'ffi ffi_proj) get_clause_v [arrv; bv; sv]
+      (CUSTOM_FFI (Import_clause cl) inputs events *
+        W8ARRAY arrv xs)
+      (POSTv res.
+        SEP_EXISTS arrv' xs' clausev.
+        CUSTOM_FFI Import_callback inputs
+          (events ++ [IO_event (ExtCall «clause»)
+            (MAP (n2w o ORD) (explode (mk_trusted b s)))
+               (ZIP (xs',write_bytes xs' cl))]) *
+        W8ARRAY arrv' (write_bytes xs' cl) *
+        &(
+          4 * string_to_num s ≤ LENGTH xs' ∧
+          vcclause_TYPE (Vector (read_ints (string_to_num s) (write_bytes xs' cl))) clausev ∧
+          res = Conv NONE [arrv'; clausev]))
+Proof
+  rw[]>>
+  xcf_with_def (fetch "-" "get_clause_v_def") >>
+  rpt xlet_autop>>
+  rename1`W8ARRAY arrvv xss`>>
+  xlet`POSTv res.
+        CUSTOM_FFI (Import_callback) inputs
+          (events ++ [IO_event (ExtCall «clause»)
+            (MAP (n2w o ORD) (explode (mk_trusted b s)))
+            (ZIP (xss,write_bytes xss cl))]) *
+        W8ARRAY arrvv (write_bytes xss cl)`
+  >- (
+    xffi>>xsimpl>>
+    simp[CUSTOM_FFI_def]>>
+    (* conf *)
+    qexists_tac`MAP (n2w o ORD) (explode (mk_trusted b s))`>>
+    (* frame *)
+    qexists_tac`emp`>>
+    xsimpl>>
+    (* state *)
+    qmatch_goalsub_abbrev_tac`FFI_part ss`>>
+    qexists_tac`ss`>>
+    qexists_tac`update`>>
+    qexists_tac`names`>>
+    qexists_tac`events`>>
+    rw[]
+    >- EVAL_TAC
+    >- gvs[STRING_TYPE_def,MAP_MAP_o,CHR_w2n_n2w_ORD_I]
+    >- EVAL_TAC
+    >- xsimpl>>
+    simp[update_def,Abbr`ss`,update_clause_def]>>
+    xsimpl>>rw[])>>
+  xlet_auto
+  >-(
+    xsimpl>>fs[LENGTH_write_bytes]>>
+    metis_tac[])>>
+  xlet_autop>>
+  xcon>>xsimpl>>
+  qexists_tac`xss`>>xsimpl
+QED
+
+Theorem parse_step_Import:
+  LENGTH step_arr = 17 ⇒
+  app (p:'ffi ffi_proj) parse_step_v [step_arrv; buf_arrv]
+    (CUSTOM_FFI Step (Import xs ys :: inputs) events *
+     W8ARRAY buf_arrv buf_arr *
+     W8ARRAY step_arrv step_arr)
+    (POSTv res.
+       SEP_EXISTS step_arr1 buf_arrv buf_arr import_events cl id.
+         CUSTOM_FFI Import_callback inputs (events ++ import_events) *
+         W8ARRAY buf_arrv buf_arr *
+         W8ARRAY step_arrv step_arr1 *
+         cond (LENGTH step_arr1 = 17 ∧ CHR (w2n (HD step_arr1)) = #"i" ∧
+               is_import_events id cl import_events ∧
+               ∃v. OPTION_TYPE DISTRUP_DISTRUP_TYPE (SOME (Import id cl)) v ∧
+                   res = Conv NONE [buf_arrv; v]))
+Proof
+  rpt strip_tac >>
+  xcf_with_def (fetch "-" "parse_step_v_def") >>
+  qabbrev_tac ‘a1 = write_bytes step_arr (105w::xs)’ >>
+  qabbrev_tac ‘event1 = IO_event (ExtCall «step») [] (ZIP (step_arr,a1))’ >>
+  xlet ‘POSTv res.
+      CUSTOM_FFI (Import_clause ys) inputs (events ++ [event1]) *
+      W8ARRAY buf_arrv buf_arr *
+      W8ARRAY step_arrv a1’
+  >-
+   (xffi >>
+    gvs [CUSTOM_FFI_def,implode_def] >>
+    xsimpl >>
+    qexists_tac ‘W8ARRAY buf_arrv buf_arr’ >> xsimpl >>
+    irule_at Any SEP_IMP_REFL >>
+    conj_tac >- EVAL_TAC >>
+    conj_tac >- EVAL_TAC >>
+    simp [update_def,update_step_def] >>
+    gvs [names_def,SEP_CLAUSES] >>
+    xsimpl) >>
+  Cases_on ‘step_arr’ >> gvs [write_bytes_def,Abbr‘a1’] >>
+  xlet_auto >- xsimpl >>
+  xlet_auto >- xsimpl >>
+  gvs [CHAR_def,WORD_def] >>
+  xmatch >>
+  xlet ‘POSTv res.
+    W8ARRAY step_arrv (105w::write_bytes t xs) *
+    W8ARRAY buf_arrv buf_arr *
+    CUSTOM_FFI (Import_clause ys) inputs (events ++ [event1]) *
+    cond (NUM (bytes_to_num (TAKE 8 (write_bytes t xs))) res)’
+  >-
+   (xapp >> xsimpl >> gvs [LENGTH_write_bytes]) >>
+  xlet_auto >- (xsimpl >> gvs [LENGTH_write_bytes]) >>
+  xlet_auto >- (xcon \\ xsimpl) >>
+  qmatch_asmsub_abbrev_tac`STRING_TYPE ss2 sv`>>
+  xlet ‘POSTv res.
+    SEP_EXISTS buf_arrv1 buf_arr1 cl wss2 io2 clausev.
+      W8ARRAY step_arrv (105w::write_bytes t xs) *
+      W8ARRAY buf_arrv1 buf_arr1 *
+      CUSTOM_FFI Import_callback inputs (events ++ [event1;
+        IO_event (ExtCall «clause») wss2 io2]) *
+      cond (
+        4 * string_to_num ss2 ≤ LENGTH io2 ∧
+        vcclause_TYPE (Vector (read_ints (string_to_num ss2) (MAP SND io2))) clausev ∧
+        res = Conv NONE [buf_arrv1; clausev])’
+  >- (
+    xapp>>
+    xsimpl>>
+    first_x_assum $ irule_at Any>>
+    qexists_tac`inputs`>>
+    qexists_tac`events ++ [event1]`>>
+    qexists_tac`ys`>>
+    qexists_tac`T`>>
+    qexists_tac`W8ARRAY step_arrv (105w::write_bytes t xs)`>>
+    xsimpl>>
+    rw[]
+    >- (
+      rw[Abbr`ss2`]>>
+      DEP_REWRITE_TAC[LENGTH_TAKE,LENGTH_DROP,LENGTH_write_bytes]>>
+      gvs[])>>
+    simp[]>>
+    rename1`(write_bytes aa bb)`>>
+    rename1`IO_event _ sss2 _`>>
+    qexists_tac`sss2`>> qexists_tac`ZIP (aa,write_bytes aa bb)`>>
+    xsimpl>>simp[LENGTH_write_bytes,MAP_ZIP]>>
+    qmatch_goalsub_abbrev_tac`_ ++ [_] ++ [A]`>>
+    PURE_REWRITE_TAC[GSYM APPEND_ASSOC]>>
+    REWRITE_TAC[APPEND]>>xsimpl)>>
+  qmatch_goalsub_abbrev_tac`[event1; event2]`>>
+  gvs [] >>
+  xmatch >>
+  xlet_auto >- (xcon >> xsimpl) >>
+  xlet_auto >- (xcon >> xsimpl) >>
+  xcon >> xsimpl >>
+  simp [PULL_EXISTS] >> xsimpl >>
+  qexists ‘[event1; event2]’ >> xsimpl >>
+  gvs [] >>
+  gvs [OPTION_TYPE_def, DISTRUP_DISTRUP_TYPE_def] >>
+  first_x_assum $ irule_at Any >>
+  first_x_assum $ irule_at Any >>
+  simp [GSYM PULL_EXISTS] >>
+  conj_tac
+  >-
+   (‘LENGTH (write_bytes t xs) = 16’ by (rewrite_tac [LENGTH_write_bytes] >> gvs []) >>
+    gvs [LENGTH_EQ_NUM_compute]) >>
+  unabbrev_all_tac>>
+  gvs [is_import_events_def,LENGTH_write_bytes,MAP_ZIP] >>
+  pop_assum mp_tac>>
+  DEP_REWRITE_TAC[string_to_num_eq_bytes_to_num]>>
+  DEP_REWRITE_TAC[LENGTH_TAKE,LENGTH_DROP,LENGTH_write_bytes]>>
+  gvs[]
+QED
+
+Theorem do_callback_Import:
+  STRING_TYPE res resv ∧
+  LENGTH step_arr = 17 ∧ CHR (w2n (HD step_arr)) = #"i" ⇒
+  app (p:'ffi ffi_proj) do_callback_v [resv; step_arrv]
+    (CUSTOM_FFI Import_callback inputs events *
+     W8ARRAY step_arrv step_arr)
+    (POSTv uv.
+         CUSTOM_FFI Step inputs (events ++
+            [IO_event (ExtCall «callback») (MAP (n2w ∘ ORD) (explode res))
+                 (ZIP (step_arr,step_arr))]) *
+         W8ARRAY step_arrv step_arr)
+Proof
+  rw[]>>irule do_callback_gen>>fs[match_callback_def]
+QED
+
+(* Delete events
+  TODO: can say more about ss2/ss3 *)
+Definition is_delete_events_def:
+  is_delete_events delete_events ⇔
+    ∃xs1 ss2 xs2.
+      delete_events = [IO_event (ExtCall «step»)   [] xs1;
+                        IO_event (ExtCall «hints») ss2 xs2] ∧
+      LENGTH xs1 = 17 ∧
+      SND (HD xs1) = n2w (ORD #"d")
+End
+
+Theorem get_hints_Delete:
+  STRING_TYPE s sv ∧
+  4 ≤ strlen s ⇒
+  app (p:'ffi ffi_proj) get_hints_v [arrv; sv]
+      (CUSTOM_FFI (Delete_hints hs) inputs events *
+        W8ARRAY arrv xs)
+      (POSTv res.
+        SEP_EXISTS arrv' xs' hints hintsv.
+        CUSTOM_FFI Delete_callback inputs
+          (events ++ [IO_event (ExtCall «hints»)
+            (MAP (n2w o ORD) (explode s))
+               (ZIP (xs',write_bytes xs' hs))]) *
+        W8ARRAY arrv' (write_bytes xs' hs) *
+        &(
+          4 * string_to_num s ≤ LENGTH xs' ∧
+          LIST_TYPE NUM hints hintsv ∧
+          res = Conv NONE [arrv'; hintsv]))
+Proof
+  rw[]>>
+  xcf_with_def (fetch "-" "get_hints_v_def") >>
+  rpt xlet_autop>>
+  rename1`W8ARRAY arrvv xss`>>
+  xlet`POSTv res.
+        CUSTOM_FFI Delete_callback inputs
+          (events ++ [IO_event (ExtCall «hints»)
+            (MAP (n2w o ORD) (explode s))
+            (ZIP (xss,write_bytes xss hs))]) *
+        W8ARRAY arrvv (write_bytes xss hs)`
+  >- (
+    xffi>>xsimpl>>
+    simp[CUSTOM_FFI_def]>>
+    (* conf *)
+    qexists_tac`MAP (n2w o ORD) (explode s)`>>
+    (* frame *)
+    qexists_tac`emp`>>
+    xsimpl>>
+    (* state *)
+    qmatch_goalsub_abbrev_tac`FFI_part ss`>>
+    qexists_tac`ss`>>
+    qexists_tac`update`>>
+    qexists_tac`names`>>
+    qexists_tac`events`>>
+    rw[]
+    >- EVAL_TAC
+    >- gvs[STRING_TYPE_def,MAP_MAP_o,CHR_w2n_n2w_ORD_I]
+    >- EVAL_TAC
+    >- xsimpl>>
+    simp[update_def,Abbr`ss`,update_hints_def]>>
+    xsimpl>>rw[])>>
+  xlet_auto
+  >-(
+    xsimpl>>fs[LENGTH_write_bytes]>>
+    metis_tac[])>>
+  xcon>>xsimpl>>
+  qexists_tac`xss`>>xsimpl>>
+  metis_tac[]
+QED
+
+Theorem parse_step_Delete:
+  LENGTH step_arr = 17 ⇒
+  app (p:'ffi ffi_proj) parse_step_v [step_arrv; buf_arrv]
+    (CUSTOM_FFI Step (Delete xs ys :: inputs) events *
+     W8ARRAY buf_arrv buf_arr *
+     W8ARRAY step_arrv step_arr)
+    (POSTv res.
+       SEP_EXISTS step_arr1 buf_arrv buf_arr delete_events hs.
+         CUSTOM_FFI Delete_callback inputs (events ++ delete_events) *
+         W8ARRAY buf_arrv buf_arr *
+         W8ARRAY step_arrv step_arr1 *
+         cond (LENGTH step_arr1 = 17 ∧ CHR (w2n (HD step_arr1)) = #"d" ∧
+               is_delete_events delete_events ∧
+               ∃v. OPTION_TYPE DISTRUP_DISTRUP_TYPE (SOME (Del hs)) v ∧
+                   res = Conv NONE [buf_arrv; v]))
+Proof
+  rpt strip_tac >>
+  xcf_with_def (fetch "-" "parse_step_v_def") >>
+  qabbrev_tac ‘a1 = write_bytes step_arr (100w::xs)’ >>
+  qabbrev_tac ‘event1 = IO_event (ExtCall «step») [] (ZIP (step_arr,a1))’ >>
+  xlet ‘POSTv res.
+      CUSTOM_FFI (Delete_hints ys) inputs (events ++ [event1]) *
+      W8ARRAY buf_arrv buf_arr *
+      W8ARRAY step_arrv a1’
+  >-
+   (xffi >>
+    gvs [CUSTOM_FFI_def,implode_def] >>
+    xsimpl >>
+    qexists_tac ‘W8ARRAY buf_arrv buf_arr’ >> xsimpl >>
+    irule_at Any SEP_IMP_REFL >>
+    conj_tac >- EVAL_TAC >>
+    conj_tac >- EVAL_TAC >>
+    simp [update_def,update_step_def] >>
+    gvs [names_def,SEP_CLAUSES] >>
+    xsimpl) >>
+  Cases_on ‘step_arr’ >> gvs [write_bytes_def,Abbr‘a1’] >>
+  xlet_auto >- xsimpl >>
+  xlet_auto >- xsimpl >>
+  gvs [CHAR_def,WORD_def] >>
+  xmatch >>
+  xlet_auto >- (xsimpl >> gvs [LENGTH_write_bytes]) >>
+  gvs [] >>
+  xlet ‘POSTv res.
+    SEP_EXISTS buf_arrv1 buf_arr1 hs wss3 io3.
+      W8ARRAY step_arrv (100w::write_bytes t xs) *
+      W8ARRAY buf_arrv1 buf_arr1 *
+      CUSTOM_FFI Delete_callback inputs (events ++ [event1;
+        IO_event (ExtCall «hints») wss3 io3]) *
+      cond (∃v. res = Conv NONE [buf_arrv1; v] ∧
+                LIST_TYPE NUM hs v)’
+  >- (
+    xapp>>
+    xsimpl>>
+    first_x_assum $ irule_at Any>>
+    qexists_tac`inputs`>>
+    qexists_tac`ys`>>
+    qexists_tac`events ++ [event1]`>>
+    qexists_tac`W8ARRAY step_arrv (100w::write_bytes t xs)`>>
+    xsimpl>>
+    rw[]
+    >- (
+      DEP_REWRITE_TAC[LENGTH_TAKE,LENGTH_DROP,LENGTH_write_bytes]>>
+      gvs[])>>
+    first_x_assum (irule_at Any)>>
+    rename1`IO_event _ sss3 io3`>>
+    qexists_tac`io3`>>
+    qexists_tac`sss3`>>
+    PURE_REWRITE_TAC[GSYM APPEND_ASSOC]>>
+    REWRITE_TAC[APPEND]>>xsimpl)>>
+  qmatch_goalsub_abbrev_tac`[event1; event2]`>>
+  gvs [] >>
+  xmatch >>
+  xlet_auto >- (xcon >> xsimpl) >>
+  xlet_auto >- (xcon >> xsimpl) >>
+  xcon >> xsimpl >>
+  simp [PULL_EXISTS] >> xsimpl >>
+  qexists ‘[event1; event2]’ >> xsimpl >>
+  gvs [] >>
+  gvs [OPTION_TYPE_def, DISTRUP_DISTRUP_TYPE_def] >>
+  first_x_assum $ irule_at Any >>
+  simp [GSYM PULL_EXISTS] >>
+  conj_tac
+  >-
+   (‘LENGTH (write_bytes t xs) = 16’ by (rewrite_tac [LENGTH_write_bytes] >> gvs []) >>
+    gvs [LENGTH_EQ_NUM_compute]) >>
+  unabbrev_all_tac>>
+  gvs [is_delete_events_def,LENGTH_write_bytes,MAP_ZIP]
+QED
+
+Theorem do_callback_Delete:
+  STRING_TYPE res resv ∧
+  LENGTH step_arr = 17 ∧ CHR (w2n (HD step_arr)) = #"d" ⇒
+  app (p:'ffi ffi_proj) do_callback_v [resv; step_arrv]
+    (CUSTOM_FFI Delete_callback inputs events *
+     W8ARRAY step_arrv step_arr)
+    (POSTv uv.
+         CUSTOM_FFI Step inputs (events ++
+            [IO_event (ExtCall «callback») (MAP (n2w ∘ ORD) (explode res))
+                 (ZIP (step_arr,step_arr))]) *
+         W8ARRAY step_arrv step_arr)
+Proof
+  rw[]>>irule do_callback_gen>>fs[match_callback_def]
+QED
+
+(* Validate_UNSAT events
+  TODO: can say more about ss2/ss3 *)
+Definition is_validate_events_def:
+  is_validate_events validate_events ⇔
+    ∃xs1.
+      validate_events = [IO_event (ExtCall «step»)   [] xs1] ∧
+      LENGTH xs1 = 17 ∧
+      SND (HD xs1) = n2w (ORD #"V")
+End
+
+Theorem parse_step_Validate_UNSAT:
+  LENGTH step_arr = 17 ⇒
+  app (p:'ffi ffi_proj) parse_step_v [step_arrv; buf_arrv]
+    (CUSTOM_FFI Step (Validate_UNSAT xs :: inputs) events *
+     W8ARRAY buf_arrv buf_arr *
+     W8ARRAY step_arrv step_arr)
+    (POSTv res.
+       SEP_EXISTS step_arr1 buf_arrv buf_arr delete_events hs.
+         CUSTOM_FFI Validate_UNSAT_callback inputs (events ++ delete_events) *
+         W8ARRAY buf_arrv buf_arr *
+         W8ARRAY step_arrv step_arr1 *
+         cond (LENGTH step_arr1 = 17 ∧ CHR (w2n (HD step_arr1)) = #"V" ∧
+               is_validate_events delete_events ∧
+               ∃v. OPTION_TYPE DISTRUP_DISTRUP_TYPE (SOME ValidateUnsat) v ∧
+                   res = Conv NONE [buf_arrv; v]))
+Proof
+  rpt strip_tac >>
+  xcf_with_def (fetch "-" "parse_step_v_def") >>
+  qabbrev_tac ‘a1 = write_bytes step_arr (86w::xs)’ >>
+  qabbrev_tac ‘event1 = IO_event (ExtCall «step») [] (ZIP (step_arr,a1))’ >>
+  xlet ‘POSTv res.
+      CUSTOM_FFI Validate_UNSAT_callback inputs (events ++ [event1]) *
+      W8ARRAY buf_arrv buf_arr *
+      W8ARRAY step_arrv a1’
+  >-
+   (xffi >>
+    gvs [CUSTOM_FFI_def,implode_def] >>
+    xsimpl >>
+    qexists_tac ‘W8ARRAY buf_arrv buf_arr’ >> xsimpl >>
+    irule_at Any SEP_IMP_REFL >>
+    conj_tac >- EVAL_TAC >>
+    conj_tac >- EVAL_TAC >>
+    simp [update_def,update_step_def] >>
+    gvs [names_def,SEP_CLAUSES] >>
+    xsimpl) >>
+  Cases_on ‘step_arr’ >> gvs [write_bytes_def,Abbr‘a1’] >>
+  xlet_auto >- xsimpl >>
+  xlet_auto >- xsimpl >>
+  gvs [CHAR_def,WORD_def] >>
+  xmatch >>
+  xlet_autop>>
+  xlet_autop>>
+  xcon >> xsimpl >>
+  simp [PULL_EXISTS] >> xsimpl >>
+  qexists ‘[event1]’ >> xsimpl >>
+  gvs [] >>
+  gvs [OPTION_TYPE_def, DISTRUP_DISTRUP_TYPE_def] >>
+  simp [GSYM PULL_EXISTS] >>
+  conj_tac
+  >-
+   (‘LENGTH (write_bytes t xs) = 16’ by (rewrite_tac [LENGTH_write_bytes] >> gvs []) >>
+    gvs [LENGTH_EQ_NUM_compute]) >>
+  unabbrev_all_tac>>
+  gvs [is_validate_events_def,LENGTH_write_bytes,MAP_ZIP]
+QED
+
+Theorem do_callback_Validate_UNSAT:
+  STRING_TYPE res resv ∧
+  LENGTH step_arr = 17 ∧ CHR (w2n (HD step_arr)) = #"V" ⇒
+  app (p:'ffi ffi_proj) do_callback_v [resv; step_arrv]
+    (CUSTOM_FFI Validate_UNSAT_callback inputs events *
+     W8ARRAY step_arrv step_arr)
+    (POSTv uv.
+         CUSTOM_FFI Step inputs (events ++
+            [IO_event (ExtCall «callback») (MAP (n2w ∘ ORD) (explode res))
+                 (ZIP (step_arr,step_arr))]) *
+         W8ARRAY step_arrv step_arr)
+Proof
+  rw[]>>irule do_callback_gen>>fs[match_callback_def]
+QED
+
 Definition is_output_event_def:
   is_output_event c success event ⇔
     ∃xs ss.
@@ -1093,6 +1560,66 @@ Inductive events_ok:
   is_output_event #"a" #"0" output_event
   ⇒
   events_ok (events ++ produce_events ++ [output_event]) NONE
+[~import:]
+  events_ok events (SOME (fmlls, Clist, b)) ∧
+  is_import_events n vc import_events ∧
+  is_output_event #"i" #"1" output_event ∧
+  check_distrup_list (Import n vc) fmlls Clist b = SOME (fmlls', Clist', b')
+  ⇒
+  events_ok (events ++ import_events ++ [output_event]) (SOME (fmlls', Clist', b'))
+[~import_Fail:]
+  events_ok events (SOME (fmlls, Clist, b)) ∧
+  is_import_events n vc import_events ∧
+  is_output_event #"i" #"0" output_event ∧
+  check_distrup_list (Import n vc) fmlls Clist b = NONE
+  ⇒
+  events_ok (events ++ import_events ++ [output_event]) NONE
+[~import_None:]
+  events_ok events NONE ∧
+  is_import_events n vc import_events ∧
+  is_output_event #"i" #"0" output_event
+  ⇒
+  events_ok (events ++ import_events ++ [output_event]) NONE
+[~delete:]
+  events_ok events (SOME (fmlls, Clist, b)) ∧
+  is_delete_events delete_events ∧
+  is_output_event #"d" #"1" output_event ∧
+  check_distrup_list (Del hints) fmlls Clist b = SOME (fmlls', Clist', b')
+  ⇒
+  events_ok (events ++ delete_events ++ [output_event]) (SOME (fmlls', Clist', b'))
+[~delete_Fail:]
+  events_ok events (SOME (fmlls, Clist, b)) ∧
+  is_delete_events delete_events ∧
+  is_output_event #"d" #"0" output_event ∧
+  check_distrup_list (Del hints) fmlls Clist b = NONE
+  ⇒
+  events_ok (events ++ delete_events ++ [output_event]) NONE
+[~delete_None:]
+  events_ok events NONE ∧
+  is_delete_events delete_events ∧
+  is_output_event #"d" #"0" output_event
+  ⇒
+  events_ok (events ++ delete_events ++ [output_event]) NONE
+[~validate:]
+  events_ok events (SOME (fmlls, Clist, b)) ∧
+  is_validate_events validate_events ∧
+  is_output_event #"V" #"1" output_event ∧
+  check_distrup_list Validate_Unsat fmlls Clist b = SOME (fmlls', Clist', b')
+  ⇒
+  events_ok (events ++ validate_events ++ [output_event]) (SOME (fmlls', Clist', b'))
+[~validate_Fail:]
+  events_ok events (SOME (fmlls, Clist, b)) ∧
+  is_validate_events validate_events ∧
+  is_output_event #"V" #"0" output_event ∧
+  check_distrup_list Validate_Unsat fmlls Clist b = NONE
+  ⇒
+  events_ok (events ++ validate_events ++ [output_event]) NONE
+[~validate_None:]
+  events_ok events NONE ∧
+  is_validate_events validate_events ∧
+  is_output_event #"V" #"0" output_event
+  ⇒
+  events_ok (events ++ validate_events ++ [output_event]) NONE
 End
 
 (* Allow any state or SOME? *)
@@ -1188,21 +1715,6 @@ Proof
   xsimpl
 QED
 
-Theorem do_callback_Produce:
-  STRING_TYPE res resv ∧
-  LENGTH step_arr = 17 ∧ CHR (w2n (HD step_arr)) = #"a" ⇒
-  app (p:'ffi ffi_proj) do_callback_v [resv; step_arrv]
-    (CUSTOM_FFI Produce_callback inputs events *
-     W8ARRAY step_arrv step_arr)
-    (POSTv uv.
-         CUSTOM_FFI Step inputs (events ++
-            [IO_event (ExtCall «callback») (MAP (n2w ∘ ORD) (explode res))
-                 (ZIP (step_arr,step_arr))]) *
-         W8ARRAY step_arrv step_arr)
-Proof
-  rw[]>>irule do_callback_gen>>fs[match_callback_def]
-QED
-
 Theorem loop_NONE:
   ∀inputs lno lnov events step_arr step_arrv buf_arr buf_arrv stv.
     NUM lno lnov ∧
@@ -1269,9 +1781,101 @@ Proof
     irule events_ok_produce_None>>
     fs[is_output_event_def]>>
     metis_tac[])
-  >~ [‘Import xs ys’] >- cheat
-  >~ [‘Delete xs ys’] >- cheat
-  >~ [‘Validate_UNSAT’] >- cheat
+  >~ [‘Import xs ys’] >-
+    (rpt strip_tac >>
+    xcf_with_def (fetch "-" "loop_v_def") >>
+    xlet ‘POSTv res.
+            SEP_EXISTS step_arr1 buf_arrv buf_arr import_events cl i.
+              CUSTOM_FFI Import_callback inputs (events ++ import_events) *
+              W8ARRAY buf_arrv buf_arr * W8ARRAY step_arrv step_arr1 *
+              cond (LENGTH step_arr1 = 17 ∧ CHR (w2n (HD step_arr1)) = #"i" ∧
+                    is_import_events i cl import_events ∧
+                    ∃v. OPTION_TYPE DISTRUP_DISTRUP_TYPE (SOME (Import i cl)) v ∧
+                        res = Conv NONE [buf_arrv; v])’
+    >-
+     (xapp_spec parse_step_Import >>
+     rw[])>>
+    gvs [] >>
+    xmatch >> gvs [OPTION_TYPE_def] >>
+    xmatch >> gvs [] >>
+    xlet_autop>>
+    xmatch>>
+    xmatch>>
+    xlet_autop>>
+    drule_all do_callback_Import>>
+    disch_then (qspecl_then[`step_arrv`,`p`,`inputs`] assume_tac)>>
+    xlet_autop>>
+    xlet_autop>>
+    xapp>>xsimpl>>
+    first_x_assum $ irule_at Any>>
+    irule_at Any SEP_IMP_REFL_emp>>
+    irule events_ok_import_None>>
+    fs[is_output_event_def]>>
+    metis_tac[])
+  >~ [‘Delete xs ys’] >-
+    (rpt strip_tac >>
+    xcf_with_def (fetch "-" "loop_v_def") >>
+    xlet ‘POSTv res.
+            SEP_EXISTS step_arr1 buf_arrv buf_arr delete_events hints.
+              CUSTOM_FFI Delete_callback inputs (events ++ delete_events) *
+              W8ARRAY buf_arrv buf_arr * W8ARRAY step_arrv step_arr1 *
+              cond (LENGTH step_arr1 = 17 ∧ CHR (w2n (HD step_arr1)) = #"d" ∧
+                    is_delete_events delete_events ∧
+                    ∃v. OPTION_TYPE DISTRUP_DISTRUP_TYPE (SOME (Del hints)) v ∧
+                        res = Conv NONE [buf_arrv; v])’
+    >-
+     (xapp_spec parse_step_Delete >>
+     rw[])>>
+    gvs [] >>
+    xmatch >> gvs [OPTION_TYPE_def] >>
+    xmatch >> gvs [] >>
+    xlet_autop>>
+    xmatch>>
+    xmatch>>
+    xlet_autop>>
+    drule_all do_callback_Delete>>
+    disch_then (qspecl_then[`step_arrv`,`p`,`inputs`] assume_tac)>>
+    xlet_autop>>
+    xlet_autop>>
+    xapp>>xsimpl>>
+    first_x_assum $ irule_at Any>>
+    irule_at Any SEP_IMP_REFL_emp>>
+    irule events_ok_delete_None>>
+    fs[is_output_event_def])
+  >~ [‘Validate_UNSAT’] >-
+    (rpt strip_tac >>
+    xcf_with_def (fetch "-" "loop_v_def") >>
+    xlet ‘POSTv res.
+            SEP_EXISTS step_arr1 buf_arrv buf_arr validate_events.
+              CUSTOM_FFI Validate_UNSAT_callback inputs (events ++ validate_events) *
+              W8ARRAY buf_arrv buf_arr * W8ARRAY step_arrv step_arr1 *
+              cond (LENGTH step_arr1 = 17 ∧ CHR (w2n (HD step_arr1)) = #"V" ∧
+                    is_validate_events validate_events ∧
+                    ∃v. OPTION_TYPE DISTRUP_DISTRUP_TYPE (SOME ValidateUnsat) v ∧
+                        res = Conv NONE [buf_arrv; v])’
+    >-
+     (xapp_spec parse_step_Validate_UNSAT >>
+      xsimpl>>
+      irule_at Any SEP_IMP_REFL_emp>>
+      rw[]>>xsimpl>>
+      first_x_assum (irule_at Any)>>
+      xsimpl)>>
+    gvs [] >>
+    xmatch >> gvs [OPTION_TYPE_def] >>
+    xmatch >> gvs [] >>
+    xlet_autop>>
+    xmatch>>
+    xmatch>>
+    xlet_autop>>
+    drule_all do_callback_Validate_UNSAT>>
+    disch_then (qspecl_then[`step_arrv`,`p`,`inputs`] assume_tac)>>
+    xlet_autop>>
+    xlet_autop>>
+    xapp>>xsimpl>>
+    first_x_assum $ irule_at Any>>
+    irule_at Any SEP_IMP_REFL_emp>>
+    irule events_ok_validate_None>>
+    fs[is_output_event_def])
 QED
 
 Theorem loop_SOME:
@@ -1384,7 +1988,73 @@ Proof
     irule events_ok_produce>>
     fs[is_output_event_def]>>
     metis_tac[])
-  >~ [‘Import xs ys’] >- cheat
+  >~ [‘Import xs ys’] >-
+    (rpt strip_tac >>
+    xcf_with_def (fetch "-" "loop_v_def") >>
+    xlet ‘POSTv res.
+            SEP_EXISTS step_arr1 buf_arrv buf_arr import_events cl i.
+              CUSTOM_FFI Import_callback inputs (events ++ import_events) *
+              W8ARRAY buf_arrv buf_arr * W8ARRAY step_arrv step_arr1 *
+              ARRAY fmlv fmllsv *
+              W8ARRAY Carrv Clist *
+              cond (LENGTH step_arr1 = 17 ∧ CHR (w2n (HD step_arr1)) = #"i" ∧
+                    is_import_events i cl import_events ∧
+                    ∃v. OPTION_TYPE DISTRUP_DISTRUP_TYPE (SOME (Import i cl)) v ∧
+                        res = Conv NONE [buf_arrv; v])’
+    >-
+     (xapp_spec parse_step_Import >>
+      qrefinel [‘_’,‘ys’,‘xs’,‘step_arr’,‘inputs’,‘events’,‘buf_arr’] >>
+      xsimpl >>
+      rw [] >>
+      first_x_assum $ irule_at Any >>
+      first_x_assum $ irule_at Any >>
+      xsimpl) >>
+    drule_at Any do_callback_Import>>
+    disch_then $ drule_at Any>>
+    strip_tac>>
+    gvs [] >>
+    xmatch >> gvs [OPTION_TYPE_def] >>
+    xmatch >> gvs [] >>
+    xlet_auto_spec (SOME check_top_SOME)
+    >-
+      (xsimpl>>metis_tac[])>>
+    TOP_CASE_TAC
+    >- ( (* None *)
+      xpull>>
+      xmatch>>
+      xmatch>>
+      xlet_autop>>
+      first_x_assum drule>>
+      disch_then (qspecl_then[`step_arrv`,`p`,`inputs`] assume_tac)>>
+      xlet_autop>>
+      xlet_autop>>
+      xapp_spec loop_NONE>>xsimpl>>
+      irule_at Any SEP_IMP_REFL_emp>>
+      pop_assum $ irule_at Any>>
+      irule events_ok_import_Fail>>
+      fs[is_output_event_def]>>
+      metis_tac[])>>
+    `∃fmlls' Clist' b'.
+      x = (fmlls',Clist',b')` by metis_tac[PAIR]>>
+    fs[]>>
+    xpull>>
+    xmatch>>
+    xmatch>>
+    xlet_autop>>
+    first_x_assum drule>>
+    disch_then (qspecl_then[`step_arrv`,`p`,`inputs`] assume_tac)>>
+    xlet_autop>>
+    xlet_autop>>
+    xapp>>xsimpl>>
+    irule_at Any SEP_IMP_REFL_emp>>
+    pop_assum $ irule_at Any>>
+    first_x_assum $ irule_at Any>>
+    first_x_assum $ irule_at Any>>
+    CONJ_TAC >-
+      metis_tac[distrup_listTheory.check_distrup_list_bnd_fml]>>
+    irule events_ok_import>>
+    fs[is_output_event_def]>>
+    metis_tac[])
   >~ [‘Delete xs ys’] >- cheat
   >~ [‘Validate_UNSAT’] >- cheat
 QED
