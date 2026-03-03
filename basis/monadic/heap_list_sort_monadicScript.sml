@@ -12,23 +12,23 @@ Libs
 
 (* The data type of the state. *)
 Datatype:
-  state_refs = <|
+  heap_list_state = <|
                  heap_array : ( 'a ) list;
                  sz_array : num list;
                 |>
 End
 
-(* Data type for the exceptions. Seems to be standard. *)
+(* Equivalent to unit, but we need to construct a type so that the translation
+   can construct a new exception type. *)
 Datatype:
-  state_exn = Fail string | Subscript
+  heap_list_subscript_exn = Heap_List_Subscript
 End
 
 (* Setup to use monad translator constants and monad syntax. *)
-val acc_fun_defs = define_monad_access_funs ``: 'a state_refs``
+val acc_fun_defs = define_monad_access_funs ``: 'a heap_list_state``
 
-val acc_fun_unfolds = LIST_CONJ (flatten (map (fn (_, t1, t2) => [t1, t2]) acc_fun_defs))
-
-val mr_manip_funs = define_MRarray_manip_funs acc_fun_defs ``Subscript`` ``Subscript``
+val mr_manip_funs = define_MRarray_manip_funs acc_fun_defs
+        ``Heap_List_Subscript`` ``Heap_List_Subscript``
 
 val _ = ParseExtras.temp_tight_equality ();
 val _ = monadsyntax.temp_add_monadsyntax ();
@@ -599,7 +599,7 @@ Definition mk_st_def:
     (<|
         sz_array := REVERSE (FST szs) ++ SND szs;
         heap_array := bs_tree_list_to_list (FST hps) ++ SND hps
-    |> : 'a state_refs)
+    |>)
 End
 
 Definition is_last_ix_def:

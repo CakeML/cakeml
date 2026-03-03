@@ -3,9 +3,10 @@
 *)
 Theory ListProg
 Ancestors
-  mergesort std_prelude mllist ml_translator OptionProg
+  mergesort std_prelude mllist ml_translator OptionProg heap_list_sort_monadic
 Libs
   preamble ml_translatorLib ml_progLib cfLib basisFunctionsLib
+  ml_monad_translator_interfaceLib
 
 val _ = translation_extends "OptionProg"
 
@@ -341,59 +342,127 @@ val _ = translate mllistTheory.list_compare_def;
 
 val _ = ml_prog_update open_local_block;
 
-val result = translate sort2_tail_def;
-val result = translate sort3_tail_def;
-val result = translate REV_DEF;
-val result = translate merge_tail_def;
-val result = translate DIV2_def;
-val result = translate DROP_def;
-val result = translate_no_ind mergesortN_tail_def;
+(* Config to use monadic translator temporarily. *)
+val _ = ml_translatorLib.use_sub_check true;
 
-Theorem mergesortn_tail_ind[local]:
-  mergesortn_tail_ind (:'a)
+val tvar = ``: 'state``;
+
+val state_type = ``: ( ^tvar ) heap_list_state``;
+
+val subs = ``Heap_List_Subscript``
+
+val exn_type = type_of subs;
+
+val config = local_state_config |>
+              with_state state_type |>
+              with_exception exn_type |>
+              with_resizeable_arrays [
+                ("heap_array", listSyntax.mk_list ([], tvar), subs, subs),
+                ("sz_array", ``[] : num list``, subs, subs)
+              ];
+
+val _ = start_translation config;
+
+(* Some clunking around to translate the accessors as auto-defined in
+   heap_list_sort_monadicTheory using their counterparts auto-defined above. *)
+val heap_list_acc_def_names = ["heap_array_sub_def", "update_heap_array_def",
+  "alloc_heap_array_def", "sz_array_sub_def", "update_sz_array_def",
+  "alloc_sz_array_def"]
+
+val configured_acc_defs = map (fetch "-") heap_list_acc_def_names;
+val previous_acc_defs = map (fetch "heap_list_sort_monadic") heap_list_acc_def_names;
+val redefs = previous_acc_defs
+  |> map (REWRITE_RULE (map GSYM configured_acc_defs))
+val do_redef = REWRITE_RULE redefs
+
+Definition comp_exp_def:
+  comp_exp m x 0 = x /\
+  comp_exp (m : num) x (SUC i) = comp_exp m (x * m) i
+End
+
+Theorem comp_exp_eq_ind[local]:
+  !i x. comp_exp m x i = x * (m EXP i)
 Proof
-  once_rewrite_tac [fetch "-" "mergesortn_tail_ind_def"]
-  \\ rpt gen_tac
-  \\ rpt (disch_then strip_assume_tac)
-  \\ match_mp_tac (latest_ind ())
-  \\ rpt strip_tac
-  \\ last_x_assum match_mp_tac
-  \\ rpt strip_tac
-  \\ gvs [FORALL_PROD, DIV2_def]
+  Induct \\ simp [comp_exp_def, EXP]
 QED
 
-val result = mergesortn_tail_ind |> update_precondition;
-
-Theorem mergesortn_tail_side[local]:
-  !w x y z. mergesortn_tail_side w x y z
+Theorem use_comp_exp:
+  (m EXP i) = comp_exp m 1 i
 Proof
-  completeInduct_on `y`
-  \\ once_rewrite_tac[(fetch "-" "mergesortn_tail_side_def")]
-  \\ rpt gen_tac \\ rename1 `SUC x1`
-  \\ rw[DIV2_def]
-     >- (
-        first_x_assum match_mp_tac
-        \\ fs[]
-        \\ qspecl_then [`2`,`SUC x1`] assume_tac dividesTheory.DIV_POS
-        \\ gvs[]
-      )
-     >- (
-        qspecl_then [`SUC x1`, `2`] assume_tac arithmeticTheory.DIV_LESS
-        \\ `0 < SUC x1` by fs[]
-        \\ `SUC x1 DIV 2 < SUC x1` suffices_by rw[]
-        \\ first_x_assum match_mp_tac
-        \\ fs[]
-      )
+  simp [comp_exp_eq_ind]
 QED
 
-val result = mergesortn_tail_side |> update_precondition;
-val result = translate mergesort_tail_def
+val comp_exp_v_thm = comp_exp_def |> translate;
+
+val sfx_heap_left_v_thm = sfx_heap_left_def
+  |> REWRITE_RULE [use_comp_exp] |> translate;
+
+val insert_into_sfx_heap_v_thm = insert_into_sfx_heap_def
+  |> do_redef |> m_translate;
+
+val insert_into_sfx_heap_list_v_thm = insert_into_sfx_heap_list_def
+  |> REWRITE_RULE [use_comp_exp]
+  |> do_redef |> m_translate;
+
+Theorem bind_assoc[local]:
+  (st_ex_bind (st_ex_bind f g) h) =
+  (st_ex_bind f (\x. st_ex_bind (g x) h))
+Proof
+  rw [ml_monadBaseTheory.st_ex_bind_def, FUN_EQ_THM]
+  \\ rpt (TOP_CASE_TAC \\ fs [])
+QED
+
+val add_to_sfx_heaps_v_thm = add_to_sfx_heaps_def
+  |> SIMP_RULE bool_ss [add_to_sfx_heaps_step1_def, bind_assoc]
+  |> do_redef |> m_translate;
+
+val add_all_to_sfx_heaps_v_thm = add_all_to_sfx_heaps_def
+  |> do_redef |> m_translate;
+
+val reinsert_tree_v_thm = reinsert_tree_def
+  |> REWRITE_RULE [use_comp_exp]
+  |> do_redef |> m_translate;
+
+val sfx_trees_to_list_v_thm = sfx_trees_to_list_def
+  |> do_redef |> m_translate;
+
+val above_log2_v_thm = above_log2_def |> translate;
+
+val sort_via_sfx_trees_worker_v_thm = sort_via_sfx_trees_worker_def
+  |> do_redef |> m_translate;
+
+val run_init_heap_list_state_def = define_run state_type [] "init_heap_list_state";
+
+Definition sort_via_sfx_trees_run_worker_def:
+  sort_via_sfx_trees_run_worker R x xs =
+  run_init_heap_list_state (sort_via_sfx_trees_worker R x xs)
+    (init_heap_list_state [] [])
+End
+
+val run_init_heap_list_state_v_thm = sort_via_sfx_trees_run_worker_def
+  |> m_translate_run;
+
+Definition sort_via_sfx_trees_def:
+  sort_via_sfx_trees R xs = (case xs of [] => []
+    | x :: _ => (case sort_via_sfx_trees_run_worker R x xs of
+        M_success ys => ys
+      | _ => [])
+  )
+End
+
+val sort_via_sfx_trees_v_thm = sort_via_sfx_trees_def |> translate;
+
+(* Done monadic translation. *)
+
+val _ = ml_translatorLib.use_sub_check false;
 
 val _ = ml_prog_update open_local_in_block;
 
-val _ = next_ml_names := ["sort"];
+Definition sort_def:
+  sort R xs = sort_via_sfx_trees R xs
+End
 
-val result = translate sort_def;
+val sort_v_thm = sort_def |> translate;
 
 val _ =  ml_prog_update close_local_blocks;
 val _ =  ml_prog_update (close_module NONE);

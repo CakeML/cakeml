@@ -41,3 +41,19 @@ Theorem app_spec = Q.prove(
 |> Q.SPEC`0` |> SIMP_RULE(srw_ss())[]
 |> Q.GENL[`eff`,`fv`]
 
+Theorem sort_is_heap_list_sort:
+  ListProg$sort R xs = heap_list_sort R xs
+Proof
+  simp [sort_def, sort_via_sfx_trees_def]
+  \\ Cases_on `xs` \\ simp [EVAL ``(heap_list_sort R [])``]
+  \\ simp [sort_via_sfx_trees_run_worker_def,
+        run_init_heap_list_state_def, ml_monadBaseTheory.run_def]
+  \\ simp [heap_list_sort_monadicTheory.sort_via_sfx_trees_worker_eq]
+QED
+
+Theorem sort_sorted = heap_list_sortTheory.heap_list_sort_sorted
+  |> REWRITE_RULE [GSYM sort_is_heap_list_sort]
+
+Theorem sort_contents = heap_list_sortTheory.heap_list_sort_contents
+  |> REWRITE_RULE [GSYM sort_is_heap_list_sort]
+
