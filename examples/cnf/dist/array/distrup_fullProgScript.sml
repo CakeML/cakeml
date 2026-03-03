@@ -519,6 +519,7 @@ Proof
   Induct >> Cases_on ‘ys’ >> gvs [write_bytes_def]
 QED
 
+(*
 Definition is_unsat_event_def:
   is_unsat_event event ⇔
     ∃xs. event = IO_event (ExtCall «step») [] xs ∧ SND (HD xs) = n2w (ORD #"V")
@@ -575,6 +576,7 @@ Proof
   ‘LENGTH (write_bytes t xs) = 16’ by (rewrite_tac [LENGTH_write_bytes] >> gvs []) >>
   gvs [LENGTH_EQ_NUM_compute]
 QED
+*)
 
 Theorem get_byte_spec:
   NUM k nv ∧ k < LENGTH xs ⇒
@@ -1632,15 +1634,15 @@ Definition full_events_ok_def:
 End
 
 Theorem check_top_NONE:
-    NUM lno lnov ∧
-    DISTRUP_DISTRUP_TYPE inst instv ∧
-    stv = Conv (SOME (TypeStamp «None» 2)) [] ⇒
-    app (p:'ffi ffi_proj) check_top_v [lnov; instv; stv]
-        (emp)
-        (POSTv res.
-          &(res =
-            Conv NONE [Conv (SOME (TypeStamp «None» 2)) [];
-              Litv (StrLit «»)]))
+  NUM lno lnov ∧
+  DISTRUP_DISTRUP_TYPE inst instv ∧
+  stv = Conv (SOME (TypeStamp «None» 2)) [] ⇒
+  app (p:'ffi ffi_proj) check_top_v [lnov; instv; stv]
+      (emp)
+      (POSTv res.
+        &(res =
+          Conv NONE [Conv (SOME (TypeStamp «None» 2)) [];
+            Litv (StrLit «»)]))
 Proof
   rw[]>>
   xcf_with_def (fetch "-" "check_top_v_def") >>
@@ -1650,35 +1652,35 @@ Proof
 QED
 
 Theorem check_top_SOME:
-    NUM lno lnov ∧
-    LIST_REL (OPTION_TYPE vcclause_TYPE) fmlls fmllsv ∧
-    WORD8 b bv ∧
-    DISTRUP_DISTRUP_TYPE inst instv ∧
-    bnd_fml fmlls (LENGTH Clist) ∧
-    stv =
-      Conv (SOME (TypeStamp «Some» 2))
-        [Conv NONE [fmlv; Carrv; bv]] ⇒
-    app (p:'ffi ffi_proj) check_top_v [lnov; instv; stv]
-        (ARRAY fmlv fmllsv *
-         W8ARRAY Carrv Clist)
-        (POSTv res.
-           SEP_EXISTS v1 v2 msg stopt.
-           &(res = Conv NONE [v1;v2] ∧
-             STRING_TYPE msg v2) *
-           case check_distrup_list inst fmlls Clist b of
-             NONE =>
-              &(v1 = Conv (SOME (TypeStamp «None» 2)) [])
-           | SOME (fmlls', Clist', b') =>
-              SEP_EXISTS v11 v12 v13 fmllsv'.
-              ARRAY v11 fmllsv' *
-              W8ARRAY v12 Clist' *
-              &(
-                v1 = Conv (SOME (TypeStamp «Some» 2))
-                  [Conv NONE [v11;v12;v13]] ∧
-                WORD8 b' v13 ∧
-                LIST_REL (OPTION_TYPE vcclause_TYPE) fmlls' fmllsv'
-              )
-        )
+  NUM lno lnov ∧
+  LIST_REL (OPTION_TYPE vcclause_TYPE) fmlls fmllsv ∧
+  WORD8 b bv ∧
+  DISTRUP_DISTRUP_TYPE inst instv ∧
+  bnd_fml fmlls (LENGTH Clist) ∧
+  stv =
+    Conv (SOME (TypeStamp «Some» 2))
+      [Conv NONE [fmlv; Carrv; bv]] ⇒
+  app (p:'ffi ffi_proj) check_top_v [lnov; instv; stv]
+      (ARRAY fmlv fmllsv *
+       W8ARRAY Carrv Clist)
+      (POSTv res.
+         SEP_EXISTS v1 v2 msg stopt.
+         &(res = Conv NONE [v1;v2] ∧
+           STRING_TYPE msg v2) *
+         case check_distrup_list inst fmlls Clist b of
+           NONE =>
+            &(v1 = Conv (SOME (TypeStamp «None» 2)) [])
+         | SOME (fmlls', Clist', b') =>
+            SEP_EXISTS v11 v12 v13 fmllsv'.
+            ARRAY v11 fmllsv' *
+            W8ARRAY v12 Clist' *
+            &(
+              v1 = Conv (SOME (TypeStamp «Some» 2))
+                [Conv NONE [v11;v12;v13]] ∧
+              WORD8 b' v13 ∧
+              LIST_REL (OPTION_TYPE vcclause_TYPE) fmlls' fmllsv'
+            )
+      )
 Proof
   rw[]>>
   xcf_with_def (fetch "-" "check_top_v_def") >>
@@ -2055,8 +2057,141 @@ Proof
     irule events_ok_import>>
     fs[is_output_event_def]>>
     metis_tac[])
-  >~ [‘Delete xs ys’] >- cheat
-  >~ [‘Validate_UNSAT’] >- cheat
+  >~ [‘Delete xs ys’] >-
+    (rpt strip_tac >>
+    xcf_with_def (fetch "-" "loop_v_def") >>
+    xlet ‘POSTv res.
+            SEP_EXISTS step_arr1 buf_arrv buf_arr delete_events hs.
+              CUSTOM_FFI Delete_callback inputs (events ++ delete_events) *
+              W8ARRAY buf_arrv buf_arr * W8ARRAY step_arrv step_arr1 *
+              ARRAY fmlv fmllsv *
+              W8ARRAY Carrv Clist *
+              cond (LENGTH step_arr1 = 17 ∧ CHR (w2n (HD step_arr1)) = #"d" ∧
+                    is_delete_events delete_events ∧
+                    ∃v. OPTION_TYPE DISTRUP_DISTRUP_TYPE (SOME (Del hs)) v ∧
+                        res = Conv NONE [buf_arrv; v])’
+    >-
+     (xapp_spec parse_step_Delete >>
+      qrefinel [‘_’,‘ys’,‘xs’,‘step_arr’,‘inputs’,‘events’,‘buf_arr’] >>
+      xsimpl >>
+      rw [] >>
+      first_x_assum $ irule_at Any >>
+      first_x_assum $ irule_at Any >>
+      xsimpl) >>
+    drule_at Any do_callback_Delete>>
+    disch_then $ drule_at Any>>
+    strip_tac>>
+    gvs [] >>
+    xmatch >> gvs [OPTION_TYPE_def] >>
+    xmatch >> gvs [] >>
+    xlet_auto_spec (SOME check_top_SOME)
+    >-
+      (xsimpl>>metis_tac[])>>
+    TOP_CASE_TAC
+    >- ( (* None *)
+      xpull>>
+      xmatch>>
+      xmatch>>
+      xlet_autop>>
+      first_x_assum drule>>
+      disch_then (qspecl_then[`step_arrv`,`p`,`inputs`] assume_tac)>>
+      xlet_autop>>
+      xlet_autop>>
+      xapp_spec loop_NONE>>xsimpl>>
+      irule_at Any SEP_IMP_REFL_emp>>
+      pop_assum $ irule_at Any>>
+      irule events_ok_delete_Fail>>
+      fs[is_output_event_def]>>
+      metis_tac[])>>
+    `∃fmlls' Clist' b'.
+      x = (fmlls',Clist',b')` by metis_tac[PAIR]>>
+    fs[]>>
+    xpull>>
+    xmatch>>
+    xmatch>>
+    xlet_autop>>
+    first_x_assum drule>>
+    disch_then (qspecl_then[`step_arrv`,`p`,`inputs`] assume_tac)>>
+    xlet_autop>>
+    xlet_autop>>
+    xapp>>xsimpl>>
+    irule_at Any SEP_IMP_REFL_emp>>
+    pop_assum $ irule_at Any>>
+    first_x_assum $ irule_at Any>>
+    first_x_assum $ irule_at Any>>
+    CONJ_TAC >-
+      metis_tac[distrup_listTheory.check_distrup_list_bnd_fml]>>
+    irule events_ok_delete>>
+    fs[is_output_event_def]>>
+    metis_tac[])
+  >~ [‘Validate_UNSAT’] >-
+    (rpt strip_tac >>
+    xcf_with_def (fetch "-" "loop_v_def") >>
+    xlet ‘POSTv res.
+            SEP_EXISTS step_arr1 buf_arrv buf_arr validate_events.
+              CUSTOM_FFI Validate_UNSAT_callback inputs (events ++ validate_events) *
+              W8ARRAY buf_arrv buf_arr * W8ARRAY step_arrv step_arr1 *
+              ARRAY fmlv fmllsv *
+              W8ARRAY Carrv Clist *
+              cond (LENGTH step_arr1 = 17 ∧ CHR (w2n (HD step_arr1)) = #"V" ∧
+                    is_validate_events validate_events ∧
+                    ∃v. OPTION_TYPE DISTRUP_DISTRUP_TYPE (SOME ValidateUnsat) v ∧
+                        res = Conv NONE [buf_arrv; v])’
+    >-
+     (xapp_spec parse_step_Validate_UNSAT >>
+      qrefinel [‘_’,‘xs’,‘step_arr’,‘inputs’,‘events’,‘buf_arr’] >>
+      xsimpl >>
+      simp[Once (GSYM STAR_ASSOC)]>>
+      irule_at Any SEP_IMP_REFL>>
+      rw[]>>
+      first_x_assum (irule_at Any)>>
+      xsimpl)>>
+    drule_at Any do_callback_Validate_UNSAT>>
+    disch_then $ drule_at Any>>
+    strip_tac>>
+    gvs [] >>
+    xmatch >> gvs [OPTION_TYPE_def] >>
+    xmatch >> gvs [] >>
+    xlet_auto_spec (SOME check_top_SOME)
+    >-
+      (xsimpl>>metis_tac[])>>
+    TOP_CASE_TAC
+    >- ( (* None *)
+      xpull>>
+      xmatch>>
+      xmatch>>
+      xlet_autop>>
+      first_x_assum drule>>
+      disch_then (qspecl_then[`step_arrv`,`p`,`inputs`] assume_tac)>>
+      xlet_autop>>
+      xlet_autop>>
+      xapp_spec loop_NONE>>xsimpl>>
+      irule_at Any SEP_IMP_REFL_emp>>
+      pop_assum $ irule_at Any>>
+      irule events_ok_validate_Fail>>
+      fs[is_output_event_def]>>
+      metis_tac[])>>
+    `∃fmlls' Clist' b'.
+      x = (fmlls',Clist',b')` by metis_tac[PAIR]>>
+    fs[]>>
+    xpull>>
+    xmatch>>
+    xmatch>>
+    xlet_autop>>
+    first_x_assum drule>>
+    disch_then (qspecl_then[`step_arrv`,`p`,`inputs`] assume_tac)>>
+    xlet_autop>>
+    xlet_autop>>
+    xapp>>xsimpl>>
+    irule_at Any SEP_IMP_REFL_emp>>
+    pop_assum $ irule_at Any>>
+    first_x_assum $ irule_at Any>>
+    first_x_assum $ irule_at Any>>
+    CONJ_TAC >-
+      metis_tac[distrup_listTheory.check_distrup_list_bnd_fml]>>
+    irule events_ok_validate>>
+    fs[is_output_event_def]>>
+    metis_tac[])
 QED
 
 Theorem main_spec:
