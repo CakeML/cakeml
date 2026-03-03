@@ -5,7 +5,7 @@ Theory distrup_fullProg
 Libs
   preamble basis wordsLib
 Ancestors
-  distrup_list distrup_arrayProg words byte
+  distrup_list distrup_arrayProg words cv_std byte
 
 val _ = hide_environments true;
 
@@ -628,9 +628,41 @@ Proof
   rw[]>>
   xcf_with_def (fetch "-" "get_int_v_def") >>
   rpt (xlet_auto >> xsimpl) >>
-  xif>- cheat>>
-  xvar>>xsimpl>>
-  cheat
+  ‘k ≤ LENGTH xs’ by decide_tac >>
+  drule LESS_EQ_LENGTH >>
+  strip_tac >> gvs [EL_APPEND2] >>
+  ‘∃y1 y2 y3 y4 ts. ys2 = [y1;y2;y3;y4] ++ ts’ by
+   (Cases_on ‘ys2’ >> gvs [] >> rpt (Cases_on ‘t’ >> gvs [] >> Cases_on ‘t'’ >> gvs [])) >>
+  gvs [DROP_APPEND,GSYM byteTheory.word_of_bytes_le_def] >>
+  DEP_REWRITE_TAC [cv_stdTheory.word_of_bytes_le_eq_num_of_bytes] >>
+  conj_tac >- EVAL_TAC >>
+  Cases_on ‘y1’ >> gvs [] >>
+  Cases_on ‘y2’ >> gvs [] >>
+  Cases_on ‘y3’ >> gvs [] >>
+  Cases_on ‘y4’ >> gvs [] >>
+  rename [‘num_of_bytes [n2w n1; n2w n2; n2w n3; n2w n4]’] >>
+  qabbrev_tac ‘kk = n1 + (256 * n2 + (65536 * n3 + 16777216 * n4))’ >>
+  ‘num_of_bytes [n2w n1; n2w n2; n2w n3; n2w n4] < dimword (:32) ∧
+   num_of_bytes [n2w n1; n2w n2; n2w n3; n2w n4] = kk’ by
+    simp [num_of_bytes_def,Abbr‘kk’] >>
+  fs [] >>
+  pop_assum kall_tac >>
+  reverse xif >-
+   (xvar>>xsimpl>>
+    gvs [INT_def,NUM_def] >>
+    gvs [integer_wordTheory.w2i_def,word_msb_n2w] >>
+    simp [bitTheory.BIT_def,bitTheory.BITS_THM2,DIV_EQ_X] >>
+    rw [] >> unabbrev_all_tac >> gvs []) >>
+  xapp >> xsimpl >>
+  gvs [NUM_def] >> first_x_assum $ irule_at Any >>
+  simp [INT_def] >>
+  gvs [integer_wordTheory.w2i_def,word_msb_n2w] >>
+  simp [bitTheory.BIT_def,bitTheory.BITS_THM2,DIV_EQ_X] >>
+  gvs [INT_def,NUM_def] >>
+  rw [] >- intLib.COOPER_TAC >>
+  qsuff_tac ‘F’ >> fs [] >>
+  pop_assum mp_tac >>
+  gvs [Abbr‘kk’]
 QED
 
 Definition read_ints_def:
