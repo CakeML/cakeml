@@ -1300,7 +1300,7 @@ Proof
   xlet_auto >- xsimpl >>
   xlet_auto >- (xcon >> xsimpl) >>
   xlet_auto >- (xcon >> xsimpl) >>
-  xapp >>
+  xapp_spec loop_spec >>
   qexists ‘emp’ >> xsimpl >>
   qrefinel [‘inputs’,‘_’,‘_’,‘[]’] >>
   xsimpl >>
