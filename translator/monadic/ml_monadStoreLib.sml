@@ -77,10 +77,11 @@ val ARRAY_const = cfHeapsBaseTheory.ARRAY_def |> left_const
 val one_const = numSyntax.term_of_int 1
 val cond_const = set_sepTheory.cond_def |> left_const
 val get_refs_const = let
-    val state_var = mk_var("state", ffi_state_ty)
-    val refs_acc = assoc "refs" (TypeBase.fields_of
-        (semanticPrimitivesSyntax.state_ty)) |> #accessor
-    val body = mk_comb(inst [alpha |-> ffi_var] refs_acc, state_var)
+    val state_ty_a = semanticPrimitivesSyntax.state_ty (* has alpha *)
+    val state_var = mk_var("state", state_ty_a)
+    val refs_acc = assoc "refs" (TypeBase.fields_of state_ty_a) |> #accessor
+    val tysub = match_type (dom_rng (type_of refs_acc) |> fst) state_ty_a
+    val body = mk_comb(inst tysub refs_acc, state_var)
   in mk_abs(state_var, body) end
 val opref_expr = let
     val name_var = mk_var("name", mlstringSyntax.mlstring_ty)
