@@ -78,7 +78,8 @@ val one_const = numSyntax.term_of_int 1
 val cond_const = set_sepTheory.cond_def |> left_const
 val get_refs_const = let
     val state_var = mk_var("state", ffi_state_ty)
-    val refs_acc = prim_mk_const{Thy="semanticPrimitives",Name="state_refs"}
+    val refs_acc = assoc "refs" (TypeBase.fields_of
+        (semanticPrimitivesSyntax.state_ty)) |> #accessor
     val body = mk_comb(inst [alpha |-> ffi_var] refs_acc, state_var)
   in mk_abs(state_var, body) end
 val opref_expr = let
@@ -96,8 +97,10 @@ val nsLookup_env_short_term = let
     val env_var = mk_var("env", sem_env_ty)
     val name_var = mk_var("name", mlstringSyntax.mlstring_ty)
     val nsLookup_tm = prim_mk_const{Thy="namespace",Name="nsLookup"}
-    val v_accessor = prim_mk_const{Thy="semanticPrimitives",Name="sem_env_v"}
-    val env_v = mk_comb(inst [alpha |-> v_ty] v_accessor, env_var)
+    val v_accessor = assoc "v" (TypeBase.fields_of
+        (semanticPrimitivesSyntax.sem_env_ty)) |> #accessor
+    val tysub = match_type (dom_rng (type_of v_accessor) |> fst) sem_env_ty
+    val env_v = mk_comb(inst tysub v_accessor, env_var)
     val short_name = astSyntax.mk_Short name_var
     val body = list_mk_icomb(nsLookup_tm, [env_v, short_name])
   in list_mk_abs([env_var, name_var], body) end
