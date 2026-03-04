@@ -23,13 +23,13 @@ Overload Var = “cVar”;
 Overload Const = “cConst”;
 
 Datatype:
-  prog = Skip
-       | Seq prog prog
-       | If cmp mlstring ('a cmp_arg) prog prog
-       | While cmp mlstring ('a cmp_arg) prog
-       | Dec ((mlstring # 'a exp) list) prog
+  stmt = Skip
+       | Seq stmt stmt
+       | If cmp mlstring ('a cmp_arg) stmt stmt
+       | While cmp mlstring ('a cmp_arg) stmt
+       (* | Dec ((mlstring # 'a exp) list) stmt *)
        | Assign mlstring ('a exp)
-       | Move ((mlstring # mlstring) list)   (* ? *)
+       (* | Move ((mlstring # mlstring) list) *)
        | Store ('a exp) mlstring
        | Return (mlstring list)
        | Call ((mlstring list) option) mlstring (('a exp) list)

@@ -7,6 +7,9 @@ intermediate language.
 General definitions and theorems that are useful within the proofs
 about the compiler backend.
 
+[bignumSemScript.sml](bignumSemScript.sml):
+The formal semantics of bignumLang
+
 [bviPropsScript.sml](bviPropsScript.sml):
 Properties about BVI and its semantics
 
