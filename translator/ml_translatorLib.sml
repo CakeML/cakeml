@@ -494,9 +494,9 @@ end
  * current module) we give a Long name, otherwise the name is short.
  *)
 fun full_id n =
-  case lookup_type_mod (mlstringSyntax.dest_mlstring n) of
-    NONE => astSyntax.mk_Short n
-  | SOME type_mod => get_qualified_name type_mod n;
+  case lookup_type_mod n of
+    NONE => astSyntax.mk_Short (mlstringSyntax.mk_mlstring n)
+  | SOME type_mod => get_qualified_name type_mod (mlstringSyntax.mk_mlstring n);
 
 (* code for managing type information *)
 
@@ -588,16 +588,9 @@ in
      type_memory := [];
      deferred_dprogs := [];
      all_eq_lemmas := default_eq_lemmas)
-  fun dest_fun_type ty = let
-    val (name,args) = dest_type ty
-    in if name = "fun" then (el 1 args, el 2 args) else failwith("not fun type") end
+  fun dest_fun_type ty = Type.dom_rng ty
   fun find_type_mapping ty =
     first (fn (t,_) => can (match_type t) ty) (!type_mappings)
-  fun free_typevars ty =
-    if can dest_vartype ty then [ty] else let
-    val (name,tt) = dest_type ty
-    in Lib.flatten (map free_typevars tt) end
-    handle HOL_ERR _ => []
   fun add_new_type_mapping ty target_ty =
     (type_mappings := (ty,target_ty) :: (!type_mappings))
   fun string_tl s = s |> explode |> tl |> implode
@@ -609,7 +602,8 @@ in
   val word64_ast_t = prim_type "word64"
   val string_ast_t = prim_type "string"
   val double_ast_t = prim_type "double"
-
+  val mk_list_ast_t = let val id_tm = astSyntax.mk_Short(mlstringSyntax.mk_mlstring "list")
+                      in fn tm => Atapp [tm] id_tm end
   val one_ast_t = mk_Attup(listSyntax.mk_list([],ast_t_ty))
   fun type2t ty =
     if ty = bool then bool_ast_t else
@@ -625,27 +619,27 @@ in
     if use_hol_string_type() andalso ty = stringSyntax.string_ty then string_ast_t else
     if ty = mlstringSyntax.mlstring_ty then string_ast_t else
     if ty = float64_ty then double_ast_t else
+    if can listSyntax.dest_list_type ty then mk_list_ast_t (type2t(listSyntax.dest_list_type ty)) else
+    if can Type.dom_rng ty then
+       let val (ty1,ty2) = Type.dom_rng ty
+       in mk_Atfun (type2t ty1,type2t ty2) end else
+    if can pairSyntax.dest_prod ty then
+       let val (ty1,ty2) = pairSyntax.dest_prod ty
+       in mk_Attup(listSyntax.mk_list([type2t ty1,type2t ty2],astSyntax.ast_t_ty)) end else
     if can dest_vartype ty then
       astSyntax.mk_Atvar(mlstringSyntax.mk_mlstring (dest_vartype ty))
     else let
       val (lhs,rhs) = find_type_mapping ty
-      val i = match_type lhs ty
-      val xs = free_typevars rhs
-      val i = filter (fn {redex = a, residue = _} => mem a xs) i
-      val tm = type2t rhs
-      val s = map (fn {redex = a, residue = b} => type2t a |-> type2t b) i
-      in subst s tm end handle HOL_ERR _ =>
+      val i = match_type ty lhs
+      val rhs' = type_subst i rhs
+      in type2t rhs' end handle HOL_ERR _ =>
     let
-      val (x,tt) = dest_type ty
-      val name = if x = "fun" then "fun" else
-                 if x = "prod" then "prod" else
-                   full_name_of_type ty
+      val (_,tt) = dest_type ty
+      val name = full_name_of_type ty
       val tt = map type2t tt
-      val name_tm = mlstringSyntax.mk_mlstring name
-      in if name = "fun"  then mk_Atfun(el 1 tt, el 2 tt) else
-         if name = "prod" then mk_Attup(listSyntax.mk_list(tt,astSyntax.ast_t_ty)) else
-         if name = "list" then Atapp tt (astSyntax.mk_Short(name_tm))
-                          else Atapp tt (full_id name_tm) end
+    in
+      Atapp tt (full_id name)
+    end
   fun inst_type_inv (ty,inv) ty0 = let
     val i = match_type ty ty0
     val ii = map (fn {redex = x, residue = y} => (x,y)) i
