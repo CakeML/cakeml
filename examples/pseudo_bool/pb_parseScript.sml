@@ -62,7 +62,7 @@ Definition pres_string_def:
   pres_string pres =
   let c_string =
     concatWith (strlit" ") pres in
-  strlit"preserved: " ^ c_string ^ strlit" \n"
+  strlit"preserved: " ^ c_string ^ strlit" ;\n"
 End
 
 (* Problem without annotation *)
