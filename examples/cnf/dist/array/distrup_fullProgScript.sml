@@ -1573,7 +1573,7 @@ End
 
 Inductive events_ok:
 [~init:]
-  events_ok [] [] (SOME (REPLICATE n NONE, REPLICATE k 0w, b))
+  events_ok [] [] (SOME (REPLICATE n NONE, REPLICATE k 0w, 1w))
 [~produce:]
   events_ok events aevents (SOME (fmlls, Clist, b)) ∧
   is_produce_events n vc produce_events ∧
