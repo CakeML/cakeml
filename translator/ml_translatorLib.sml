@@ -989,7 +989,7 @@ fun get_nchotomy_of ty = let (* ensures that good variables names are used *)
   in lemma end
 
 fun find_mutrec_types ty = let (* e.g. input ``:v`` gives [``:exp``,``:v``]  *)
-  fun is_pair_ty ty = fst (dest_type ty) = "prod"
+  fun is_pair_ty ty = can pairSyntax.dest_prod ty
   val xs = TypeBase.axiom_of ty |> SPEC_ALL  |> concl |> strip_exists |> #1 |> map (#1 o dest_fun_type o type_of) |> (fn ls => filter (fn ty => intersect ((#2 o dest_type) ty) ls = []) ls)
   in if is_pair_ty ty then [ty] else if length xs = 0 then [ty] else xs end
 
@@ -1066,12 +1066,12 @@ fun derive_record_specific_thms ty = let
     |> map (rator o rator o fst o dest_eq o concl o SPEC_ALL)
   val thy_name = access_funs |> hd |>dest_thy_const |> #Thy
   val tm =
-    DB.fetch thy_name (ty_name ^ "_11")
+    TypeBase.one_one_of ty
     |> SPEC_ALL |> concl |> dest_eq |> fst |> dest_eq |> fst
   val xs = dest_args tm
   val c = repeat rator tm
   val case_tm =
-    DB.fetch thy_name (ty_name ^ "_case_cong")
+    TypeBase.case_cong_of ty
     |> SPEC_ALL |> UNDISCH_ALL |> concl |> dest_eq |> fst |> repeat rator
   fun prove_accessor_eq (a,x) = let
     val v = mk_var("v",type_of tm)
@@ -2104,7 +2104,7 @@ fun register_term_types register_type tm = let
                       @ get_user_supplied_types ()
   fun ignore_type ty =
     if can (first (fn ty1 => can (match_type ty1) ty)) special_types then true else
-    if not (can dest_type ty) then true else
+    if is_vartype ty then true else
     if can (dest_fun_type) ty then true else
     if fcpSyntax.is_numeric_type ty andalso fcpSyntax.dest_int_numeric_type ty > 1 then true else false
   fun typeops ty = let
