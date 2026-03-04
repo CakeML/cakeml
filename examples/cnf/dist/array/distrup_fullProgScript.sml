@@ -2276,3 +2276,38 @@ Proof
   pop_assum $ irule_at Any >>
   xsimpl
 QED
+
+(* semantics theorem about whole program *)
+
+(*
+  max_print_depth := 15
+*)
+
+val Decls_thm =
+  get_ml_prog_state ()
+  |> ml_progLib.clean_state
+  |> ml_progLib.remove_snocs
+  |> ml_progLib.get_thm
+  |> REWRITE_RULE [ml_progTheory.ML_code_def,ml_progTheory.ML_code_env_def];
+
+Theorem SPLIT_heaps_lemma[local]:
+  SPLIT
+    (store2heap (distrup_arrayProg_st ffi).refs ∪
+     ffi2heap p (distrup_arrayProg_st ffi).ffi)
+    ({FFI_part (State Step inputs tb) update names []},
+     FFI_split INSERT store2heap (distrup_arrayProg_st ffi).refs)
+Proof
+  cheat
+QED
+
+(*
+print_find "ffi2heap_def"
+*)
+
+val main_lemma = main_spec
+  |> SRULE [app_def,app_basic_def,cfHeapsBaseTheory.POSTv_ignore,PULL_EXISTS]
+  |> SRULE [CUSTOM_FFI_def,SEP_EXISTS,PULL_EXISTS,cond_STAR]
+  |> SRULE [one_def,evaluate_to_heap_def,PULL_EXISTS]
+  |> SRULE [cfStoreTheory.st2heap_def]
+  |> Q.SPECL [‘hhh’,‘distrup_arrayProg_st ffi’]
+  |> C MATCH_MP SPLIT_heaps_lemma
