@@ -586,7 +586,7 @@ val _ = parsetest0 “nStart” “ptree_Start”
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   "true || let y = z in y"
-  (SOME “Log Orelse (C «True» []) (Let (SOME «y») (V «z») (V «y»))”)
+  (SOME “Log Orelse (Con (SOME true_id) []) (Let (SOME «y») (V «z») (V «y»))”)
   ;
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
