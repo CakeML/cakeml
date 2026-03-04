@@ -8,7 +8,7 @@ Libs
   bossLib
 
 (* could go to satisfies_cnf *)
-  
+
 Definition sat_infer_def:
   sat_infer facts fact ⇔
   ∀w. satisfies_vcfml w facts ⇒ satisfies_vcclause w fact
