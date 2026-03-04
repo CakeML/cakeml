@@ -18,25 +18,96 @@ Datatype:
   label = Tau | Act 'name distrup
 End
 
+Inductive resume_ok:
+[~init:]
+  resume_ok st [] [] st
+[~produce:]
+  resume_ok st events aevents (SOME (fmlls, Clist, b)) ∧
+  is_produce_events n vc produce_events ∧
+  is_output_event #"a" #"1" output_event ∧
+  check_distrup_list (Lrup n vc hints) fmlls Clist b = SOME (fmlls', Clist', b')
+  ⇒
+  resume_ok st (events ++ produce_events ++ [output_event]) (aevents ++ [Lrup n vc hints]) (SOME (fmlls', Clist', b'))
+[~produce_Fail:]
+  resume_ok st events aevents (SOME (fmlls, Clist, b)) ∧
+  is_produce_events n vc produce_events ∧
+  is_output_event #"a" #"0" output_event ∧
+  check_distrup_list (Lrup n vc hints) fmlls Clist b = NONE
+  ⇒
+  resume_ok st (events ++ produce_events ++ [output_event]) (aevents ++ [Lrup n vc hints]) NONE
+[~produce_None:]
+  resume_ok st events aevents NONE ∧
+  is_produce_events n vc produce_events ∧
+  is_output_event #"a" #"0" output_event
+  ⇒
+  resume_ok st (events ++ produce_events ++ [output_event]) (aevents ++ [Lrup n vc hints]) NONE
+[~import:]
+  resume_ok st events aevents (SOME (fmlls, Clist, b)) ∧
+  is_import_events n vc import_events ∧
+  is_output_event #"i" #"1" output_event ∧
+  check_distrup_list (Import n vc) fmlls Clist b = SOME (fmlls', Clist', b')
+  ⇒
+  resume_ok st (events ++ import_events ++ [output_event]) (aevents ++ [Import n vc]) (SOME (fmlls', Clist', b'))
+[~import_None:]
+  resume_ok st events aevents NONE ∧
+  is_import_events n vc import_events ∧
+  is_output_event #"i" #"0" output_event
+  ⇒
+  resume_ok st (events ++ import_events ++ [output_event]) (aevents ++ [Import n vc]) NONE
+[~delete:]
+  resume_ok st events aevents (SOME (fmlls, Clist, b)) ∧
+  is_delete_events delete_events ∧
+  is_output_event #"d" #"1" output_event ∧
+  check_distrup_list (Del hints) fmlls Clist b = SOME (fmlls', Clist', b')
+  ⇒
+  resume_ok st (events ++ delete_events ++ [output_event]) (aevents ++ [Del hints]) (SOME (fmlls', Clist', b'))
+[~delete_None:]
+  resume_ok st events aevents NONE ∧
+  is_delete_events delete_events ∧
+  is_output_event #"d" #"0" output_event
+  ⇒
+  resume_ok st (events ++ delete_events ++ [output_event]) (aevents ++ [Del hints]) NONE
+[~validate:]
+  resume_ok st events aevents (SOME (fmlls, Clist, b)) ∧
+  is_validate_events validate_events ∧
+  is_output_event #"V" #"1" output_event ∧
+  check_distrup_list Validate_Unsat fmlls Clist b = SOME (fmlls', Clist', b')
+  ⇒
+  resume_ok st (events ++ validate_events ++ [output_event]) (aevents ++ [Validate_Unsat]) (SOME (fmlls', Clist', b'))
+[~validate_Fail:]
+  resume_ok st events aevents (SOME (fmlls, Clist, b)) ∧
+  is_validate_events validate_events ∧
+  is_output_event #"V" #"0" output_event ∧
+  check_distrup_list Validate_Unsat fmlls Clist b = NONE
+  ⇒
+  resume_ok st (events ++ validate_events ++ [output_event]) (aevents ++ [Validate_Unsat]) NONE
+[~validate_None:]
+  resume_ok st events aevents NONE ∧
+  is_validate_events validate_events ∧
+  is_output_event #"V" #"0" output_event
+  ⇒
+  resume_ok st (events ++ validate_events ++ [output_event]) (aevents ++ [Validate_Unsat]) NONE
+End
+
 Inductive step:
 [~events_ok_step:]
   FLOOKUP st.procs id = SOME lst ∧
   events_ok events aevents lst ∧
-  events_ok events' (aevents ++ [alpha]) lst' ∧
+  resume_ok lst events' [alpha] lst' ∧
   (∀n c. alpha ≠ Import n c)
   ⇒
   step st (Act id alpha) (st with procs := st.procs |+ (id,lst'))
 [~events_ok_Import:]
   FLOOKUP st.procs id = SOME lst ∧
   events_ok events aevents lst ∧
-  events_ok events' (aevents ++ [Import n c]) lst' ∧
+  resume_ok lst events' [Import n c] lst' ∧
   MEM c st.facts
   ⇒
   step st (Act id (Import n c)) (st with procs := st.procs |+ (id,lst'))
 [~events_ok_Produce:]
   FLOOKUP st.procs id = SOME(SOME vlst) ∧
   events_ok events aevents (SOME vlst) ∧
-  events_ok events' (aevents ++ [Lrup n c hints]) (SOME vlst') ∧
+  resume_ok (SOME vlst) events' [Lrup n c hints] (SOME vlst') ∧
   MEM c st.facts
   ⇒
   step st (Act id (Lrup n c hints)) (st with <|procs := st.procs |+ (id,SOME vlst');
@@ -47,7 +118,6 @@ Definition reduce_def:
   reduce st st' = ∃l. step st l st'
 End
 
-(*((int vector option list # word8 list # word8) option)*)
 Definition state_rel_def:
   state_rel ast cst ⇔
     ast.validated = (if cst.validated then {Vector []} else {}) ∧
@@ -73,11 +143,86 @@ Inductive act_rel:
   R alpha beta ⇒ act_rel R (Act n alpha) (Act n beta)
 End
 
+Theorem resume_ok_NIL:
+  resume_ok lst evs [] lst' ⇔ lst = lst' ∧ evs = []
+Proof
+  rw[Once resume_ok_cases] >>
+  metis_tac[]
+QED
+
+Theorem check_distrup_list_impossibe[simp]:
+  check_distrup_list (Import n c) fmlls Clist b = NONE ⇔ F
+Proof
+  rw[check_distrup_list_def]
+QED
+
+Theorem fmap_rel_FLOOKUP_imp2:
+  fmap_rel R f1 f2 ⇒
+     ∀k v2. FLOOKUP f2 k = SOME v2 ⇒ ∃v1. FLOOKUP f1 k = SOME v1 ∧ R v1 v2
+Proof
+  rw[fmap_rel_def,flookup_thm] >>
+  gvs[] >>
+  metis_tac[]
+QED
+
+Theorem fmap_rel_fdomsub:
+  fmap_rel R a b ⇒ fmap_rel R (a \\ x) (b \\ x)
+Proof
+  rw[fmap_rel_def,DOMSUB_FAPPLY_THM]
+QED
+
 Theorem state_rel_step:
   ∀cst clb cst' ast.
     state_rel ast cst ∧ distrup_global$step cst clb cst' ⇒
     ∃alb ast'. act_rel label_rel alb clb ∧ step sat_infer (K F) ast alb ast' ∧ state_rel ast' cst'
 Proof
+  strip_tac >>
+  Induct_on ‘step’ >>
+  rpt strip_tac
+  >~ [‘[Import _ _]’]
+  >- (qhdtm_x_assum ‘resume_ok’ $ assume_tac o PURE_ONCE_REWRITE_RULE[resume_ok_cases] >>
+      gvs[resume_ok_NIL] >>
+      rw[act_rel_cases,label_rel_cases]
+      >- (irule_at (Pos hd) step_import >>
+          gvs[state_rel_def] >>
+          drule_all fmap_rel_FLOOKUP_imp2 >>
+          rw[OPTREL_SOME] >>
+          rw[] >>
+          irule fmap_rel_FUPDATE_I >>
+          simp[] >>
+          drule_all_then strip_assume_tac check_distrup_list >>
+          gvs[distrupTheory.check_distrup_def] >>
+          conj_tac >- metis_tac[] >>
+          irule fmap_rel_fdomsub >>
+          simp[])
+      >- (irule_at (Pos hd) step_spin >>
+          gvs[state_rel_def] >>
+          drule_all fmap_rel_FLOOKUP_imp2 >>
+          rw[OPTREL_SOME] >>
+          rw[] >>
+          ‘cst.procs |+ (id,NONE) = cst.procs’ suffices_by simp[] >>
+          rw[fmap_eq_flookup,FLOOKUP_UPDATE] >> rw[] >> rw[])
+      >- (irule_at (Pos hd) step_import >>
+          gvs[state_rel_def] >>
+          drule_all fmap_rel_FLOOKUP_imp2 >>
+          rw[OPTREL_SOME] >>
+          rw[] >>
+          irule fmap_rel_FUPDATE_I >>
+          simp[] >>
+          drule_all_then strip_assume_tac check_distrup_list >>
+          gvs[distrupTheory.check_distrup_def] >>
+          conj_tac >- metis_tac[] >>
+          irule fmap_rel_fdomsub >>
+          simp[])
+      >- (irule_at (Pos hd) step_spin >>
+          gvs[state_rel_def] >>
+          drule_all fmap_rel_FLOOKUP_imp2 >>
+          rw[OPTREL_SOME] >>
+          rw[] >>
+          ‘cst.procs |+ (id,NONE) = cst.procs’ suffices_by simp[] >>
+          rw[fmap_eq_flookup,FLOOKUP_UPDATE] >> rw[] >> rw[]))
+  >~ [‘[Lrup _ _ _]’]
+  >- cheat >>
   cheat
 QED
 
