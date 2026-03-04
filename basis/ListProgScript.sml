@@ -458,11 +458,19 @@ val _ = ml_translatorLib.use_sub_check false;
 
 val _ = ml_prog_update open_local_in_block;
 
-Definition sort_def:
-  sort R xs = sort_via_sfx_trees R xs
-End
+Theorem heap_list_sort_eq_sort_via_sfx_trees:
+  heap_list_sort R xs = sort_via_sfx_trees R xs
+Proof
+  simp [sort_via_sfx_trees_def]
+  \\ Cases_on `xs` \\ simp [EVAL ``(heap_list_sort R [])``]
+  \\ simp [sort_via_sfx_trees_run_worker_def,
+        run_init_heap_list_state_def, ml_monadBaseTheory.run_def]
+  \\ simp [heap_list_sort_monadicTheory.sort_via_sfx_trees_worker_eq]
+QED
 
-val sort_v_thm = sort_def |> translate;
+val _ = next_ml_names := ["sort"];
+
+val sort_v_thm = heap_list_sort_eq_sort_via_sfx_trees |> translate;
 
 val _ =  ml_prog_update close_local_blocks;
 val _ =  ml_prog_update (close_module NONE);
