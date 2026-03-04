@@ -345,7 +345,7 @@ val _ = ml_prog_update open_local_block;
 (* Config to use monadic translator temporarily. *)
 val _ = ml_translatorLib.use_sub_check true;
 
-val tvar = ``: 'state``;
+val tvar = ``: 'el``;
 
 val state_type = ``: ( ^tvar ) heap_list_state``;
 
