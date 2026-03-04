@@ -161,10 +161,10 @@ fun guess_const_def tm = let
  *)
 fun register_exception_type exn_type =
   (
-    register_type ``:unit``;
-    register_type ``:'a # 'b``;
-    register_type ``:'a list``;
-    register_type ``:'a option``;
+    register_type unit_ty;
+    register_type (pairSyntax.mk_prod (alpha, beta));
+    register_type (listSyntax.mk_list_type alpha);
+    register_type (optionSyntax.mk_option alpha);
     register_exn_type exn_type;
     guess_const_def (get_type_inv exn_type)
   );
