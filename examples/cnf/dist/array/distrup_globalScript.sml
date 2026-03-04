@@ -55,26 +55,89 @@ Definition state_rel_def:
     fmap_rel (OPTREL (λfml (fmls,dml,b). fml_rel fml fmls ∧ (∃dm. dm_rel dm dml b))) ast.procs cst.procs
 End
 
-Definition label_rel_def:
-  label_rel = ARB
+Inductive label_rel:
+[~validate:]
+  label_rel (Validate (Vector [])) ValidateUnsat
+[~delete:]
+  label_rel (Delete hints) (Del hints)
+[~import:]
+  label_rel (Import n fml) (Import n fml)
+[~produce:]
+  label_rel (Produce n fml) (Lrup n fml hints)
+End
+
+Inductive act_rel:
+[~tau:]
+  act_rel R distInfer$Tau distrup_global$Tau
+[~lab:]
+  R alpha beta ⇒ act_rel R (Act n alpha) (Act n beta)
 End
 
 Theorem state_rel_step:
-  ∀ast cst alb.
-    state_rel ast cst ∧ label_rel alb clb ∧ step cst clb cst' ⇒
-    ∃ast'. step sat_infer (K F) ast alb ast' ∧ state_rel ast' cst'
+  ∀cst clb cst' ast.
+    state_rel ast cst ∧ distrup_global$step cst clb cst' ⇒
+    ∃alb ast'. act_rel label_rel alb clb ∧ step sat_infer (K F) ast alb ast' ∧ state_rel ast' cst'
 Proof
   cheat
 QED
 
+Theorem state_rel_reduce:
+  ∀cst cst' ast.
+    state_rel ast cst ∧ distrup_global$reduce꙳ cst cst' ⇒
+    ∃ast'. (reduce sat_infer (K F))꙳ ast ast' ∧ state_rel ast' cst'
+Proof
+  Induct_on ‘RTC’ using RTC_strongind >>
+  rw[reduce_def,distInferTheory.reduce_def]
+  >- (first_x_assum $ irule_at Any >> simp[]) >>
+  drule_all_then strip_assume_tac state_rel_step >>
+  first_x_assum $ dxrule_then strip_assume_tac >>
+  first_x_assum $ irule_at $ Pos last >>
+  irule $ cj 2 RTC_rules >>
+  first_x_assum $ irule_at $ Pos last >>
+  simp[distInferTheory.reduce_def] >>
+  metis_tac[]
+QED
+
 Theorem sat_step_sound:
   reduce꙳ st st' ∧
-  (∀name facts. ∃n k. FLOOKUP st.procs name = SOME(SOME (REPLICATE n NONE, REPLICATE k 0w, b))) ∧
+  (∀name facts. name ∈ FDOM st.procs ⇒ ∃n k. FLOOKUP st.procs name = SOME(SOME (REPLICATE n NONE, REPLICATE k 0w, b))) ∧
   set st.facts = oprems ∧
   ¬st.validated ∧
   st'.validated
   ⇒
   sat_infer oprems (Vector [])
 Proof
-  cheat
+  rpt strip_tac >>
+  irule $ INST_TYPE [alpha |-> “:num”, beta |-> alpha] sat_step_sound >>
+  qexists ‘K F’ >>
+  simp[] >>
+  Q.SUBGOAL_THEN ‘∃ast. state_rel ast st’ strip_assume_tac
+  >- (rw[state_rel_def] >>
+      Q.REFINE_EXISTS_TAC ‘<| procs := _; facts := _; validated := _|>’ >>
+      simp[] >>
+      qexists ‘FUN_FMAP (K $ SOME FEMPTY) (FDOM st.procs)’ >>
+      rw[fmap_rel_def,FUN_FMAP_DEF] >>
+      gvs[flookup_thm] >>
+      first_x_assum drule >>
+      rw[] >>
+      gvs[ccnf_listTheory.fml_rel_def,any_el_ALT,EL_REPLICATE] >>
+      cheat (* TODO: fix events_ok *)) >>
+  drule_all state_rel_reduce >>
+  rw[] >>
+  first_assum $ irule_at $ Pos last >>
+  gvs[state_rel_def] >>
+  rw[] >>
+  rev_drule $ cj 2 fmap_rel_FLOOKUP_imp >>
+  disch_then drule >>
+  rw[OPTREL_SOME,ELIM_UNCURRY] >>
+  gvs[FDOM_FLOOKUP,SF DNF_ss] >>
+  last_x_assum drule >>
+  rw[] >>
+  Q.SUBGOAL_THEN ‘facts = FEMPTY’ SUBST_ALL_TAC
+  >- (rw[fmap_eq_flookup] >>
+      gvs[ccnf_listTheory.fml_rel_def,any_el_ALT] >>
+      rename1 ‘FLOOKUP _ m’ >>
+      first_x_assum $ qspec_then ‘m’ mp_tac >>
+      rw[EL_REPLICATE]) >>
+  rw[]
 QED
