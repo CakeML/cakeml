@@ -75,8 +75,8 @@ QED
 
 
 Theorem next_key_pull_last_thm:
-  !xs xk xv xts.
-    next_key _ (xs ++ [FibTree xk xv xts]) = next_key xk xs
+  !xs xk xv xts d.
+    next_key d (xs ++ [FibTree xk xv xts]) = next_key xk xs
 Proof
   Cases_on `xs` >> simp[next_key_def,head_key_def] >>
   Cases_on `h` >> simp[head_key_def]
@@ -966,8 +966,6 @@ Proof
     SEP_R_TAC >>
     strip_tac >> gvs[] >>
     SEP_W_TAC >>
-(*    PairCases_on `v` >>
-    rename1 `(a',v,e)` >> *)
     qexists `[FibTree a' (fill_dnode v e F) []]` >>
     fs[ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def, fts_mem_def,
        SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
@@ -979,13 +977,7 @@ Proof
   assume_tac lemma_non_empty_heap >>
   first_x_assum (qspecl_then [`fh`, `fts`] assume_tac) >>
   Cases_on `fts` >> gvs[] >>
-  (* `fts <> (h::t) /\ fh <> FEMPTY` by cheat >> *)
   Cases_on `h` >>
-  (*fs[ann_fts_def, ann_fts_seg_def,fts_mem_def,
-     SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
-     fill_dnode_def, next_key_def, ones_def, STAR_ASSOC] >> *)
-  (* simp[APPLY_UPDATE_THM]>> *)
-    (* Dont write flag to be T in insert function! Assume it has been done (empty node)  *)
   Cases_on `t` using SNOC_CASES >>
   fs[SNOC_APPEND,head_key_def]
   >- (
@@ -1124,12 +1116,39 @@ Proof
       `[FibTree fk fv fts]`,`(FibTree sk sv sts::t) ++ [FibTree lk lv lts]`]
       assume_tac fib_heap_inv_ul_thm >>
     rfs[fill_dnode_def]
-    )
-  >> cheat
+    ) >>
+  simp[fib_heap_append_def,before_off_def,next_off_def] >>
+  fs[last_key_def, head_key_def, last_key_t_def] >>
+  SEP_R_TAC >> simp[] >>
+  SEP_R_TAC >> simp[] >>
+  strip_tac >> gvs[] >>
+  SEP_W_TAC >>
+  qexists `[FibTree a' fv fts; FibTree sk sv sts] ++ t ++
+           [FibTree lk lv lts; FibTree k (fill_dnode v e F) []]` >>
+  fs[head_key_def,next_key_def,last_key_def,head_key_append_thm] >>
+  simp[ann_fts_def, ann_fts_seg_def, last_key_def,fts_mem_def,
+       SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
+       fill_dnode_def, next_key_def, ones_def, STAR_ASSOC] >>
+  simp[ann_fts_seg_append_thm,fts_mem_append_thm, ann_fts_append_thm, STAR_ASSOC] >>
+  simp[ann_fts_def, ann_fts_seg_def, last_key_def,fts_mem_def,
+       SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
+       fill_dnode_def, next_key_def, ones_def, STAR_ASSOC] >>
+  fs[next_key_append_thm, last_key_t_def, head_key_def, REVERSE_APPEND] >>
+  fs[lemma_head_key_eq_last_key_t]>>
+  qspecl_then[`t ++ [FibTree lk lv lts]`,`k`,`(fill_dnode v e F)`, `[]`]
+    mp_tac next_key_pull_last_thm >>
+  pure_rewrite_tac[GSYM APPEND_ASSOC,APPEND] >>
+  disch_tac >> fs[fill_dnode_def] >>
+  simp[next_key_pull_last_thm] >>
+  fs[AC STAR_ASSOC STAR_COMM] >>
+  fs[STAR_ASSOC] >>
+  qspecl_then[`fh`, `(FibTree a' fv fts::FibTree sk sv sts::t) ++
+    [FibTree lk lv lts]`, `k`, `v`, `e`] assume_tac lemma_insert_old_min_inv >>
+  rfs[fts_min_def,fill_dnode_def] >>
+  pop_assum mp_tac >>
+  pure_rewrite_tac[GSYM APPEND_ASSOC,APPEND] >>
+  disch_tac >> simp[]
 QED
-
-
-
 
 
 (*-------------------------------------------------------------------*
