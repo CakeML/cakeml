@@ -1798,7 +1798,7 @@ Proof
     xapp>>xsimpl>>
     first_x_assum $ irule_at Any>>
     irule_at Any SEP_IMP_REFL_emp>>
-    irule events_ok_produce_None>>
+    irule_at Any events_ok_produce_None>>
     fs[is_output_event_def]>>
     metis_tac[])
   >~ [‘Import xs ys’] >-
@@ -1829,7 +1829,7 @@ Proof
     xapp>>xsimpl>>
     first_x_assum $ irule_at Any>>
     irule_at Any SEP_IMP_REFL_emp>>
-    irule events_ok_import_None>>
+    irule_at Any events_ok_import_None>>
     fs[is_output_event_def]>>
     metis_tac[])
   >~ [‘Delete xs ys’] >-
@@ -1860,8 +1860,9 @@ Proof
     xapp>>xsimpl>>
     first_x_assum $ irule_at Any>>
     irule_at Any SEP_IMP_REFL_emp>>
-    irule events_ok_delete_None>>
-    fs[is_output_event_def])
+    irule_at Any events_ok_delete_None>>
+    fs[is_output_event_def]>>
+    metis_tac[])
   >~ [‘Validate_UNSAT’] >-
     (rpt strip_tac >>
     xcf_with_def (fetch "-" "loop_v_def") >>
@@ -1894,8 +1895,9 @@ Proof
     xapp>>xsimpl>>
     first_x_assum $ irule_at Any>>
     irule_at Any SEP_IMP_REFL_emp>>
-    irule events_ok_validate_None>>
-    fs[is_output_event_def])
+    irule_at Any events_ok_validate_None>>
+    fs[is_output_event_def]>>
+    metis_tac[])
 QED
 
 Theorem loop_SOME:
@@ -1984,7 +1986,7 @@ Proof
       xapp_spec loop_NONE>>xsimpl>>
       irule_at Any SEP_IMP_REFL_emp>>
       pop_assum $ irule_at Any>>
-      irule events_ok_produce_Fail>>
+      irule_at Any events_ok_produce_Fail>>
       fs[is_output_event_def]>>
       metis_tac[])>>
     `∃fmlls' Clist' b'.
@@ -2003,9 +2005,10 @@ Proof
     pop_assum $ irule_at Any>>
     first_x_assum $ irule_at Any>>
     first_x_assum $ irule_at Any>>
+    simp[GSYM PULL_EXISTS]>>
     CONJ_TAC >-
       metis_tac[distrup_listTheory.check_distrup_list_bnd_fml]>>
-    irule events_ok_produce>>
+    irule_at Any events_ok_produce>>
     fs[is_output_event_def]>>
     metis_tac[])
   >~ [‘Import xs ys’] >-
@@ -2040,19 +2043,7 @@ Proof
       (xsimpl>>metis_tac[])>>
     TOP_CASE_TAC
     >- ( (* None *)
-      xpull>>
-      xmatch>>
-      xmatch>>
-      xlet_autop>>
-      first_x_assum drule>>
-      disch_then (qspecl_then[`step_arrv`,`p`,`inputs`] assume_tac)>>
-      xlet_autop>>
-      xlet_autop>>
-      xapp_spec loop_NONE>>xsimpl>>
-      irule_at Any SEP_IMP_REFL_emp>>
-      pop_assum $ irule_at Any>>
-      (* it should be possible to prove F from the premises here *)
-      cheat)>>
+      gvs[check_distrup_list_def])>>
     `∃fmlls' Clist' b'.
       x = (fmlls',Clist',b')` by metis_tac[PAIR]>>
     fs[]>>
@@ -2069,9 +2060,10 @@ Proof
     pop_assum $ irule_at Any>>
     first_x_assum $ irule_at Any>>
     first_x_assum $ irule_at Any>>
+    simp[GSYM PULL_EXISTS]>>
     CONJ_TAC >-
       metis_tac[distrup_listTheory.check_distrup_list_bnd_fml]>>
-    irule events_ok_import>>
+    irule_at Any events_ok_import>>
     fs[is_output_event_def]>>
     metis_tac[])
   >~ [‘Delete xs ys’] >-
@@ -2106,21 +2098,7 @@ Proof
       (xsimpl>>metis_tac[])>>
     TOP_CASE_TAC
     >- ( (* None *)
-      xpull>>
-      xmatch>>
-      xmatch>>
-      xlet_autop>>
-      first_x_assum drule>>
-      disch_then (qspecl_then[`step_arrv`,`p`,`inputs`] assume_tac)>>
-      xlet_autop>>
-      xlet_autop>>
-      xapp_spec loop_NONE>>xsimpl>>
-      irule_at Any SEP_IMP_REFL_emp>>
-      pop_assum $ irule_at Any>>
-      cheat (* it should be possible to prove F from the premises here *)
-      (*irule events_ok_delete_Fail>>
-      fs[is_output_event_def]>>
-      metis_tac[]*))>>
+      gvs[check_distrup_list_def])>>
     `∃fmlls' Clist' b'.
       x = (fmlls',Clist',b')` by metis_tac[PAIR]>>
     fs[]>>
@@ -2137,9 +2115,10 @@ Proof
     pop_assum $ irule_at Any>>
     first_x_assum $ irule_at Any>>
     first_x_assum $ irule_at Any>>
+    simp[GSYM PULL_EXISTS]>>
     CONJ_TAC >-
       metis_tac[distrup_listTheory.check_distrup_list_bnd_fml]>>
-    irule events_ok_delete>>
+    irule_at Any events_ok_delete>>
     fs[is_output_event_def]>>
     metis_tac[])
   >~ [‘Validate_UNSAT’] >-
@@ -2186,7 +2165,7 @@ Proof
       xapp_spec loop_NONE>>xsimpl>>
       irule_at Any SEP_IMP_REFL_emp>>
       pop_assum $ irule_at Any>>
-      irule events_ok_validate_Fail>>
+      irule_at Any events_ok_validate_Fail>>
       fs[is_output_event_def]>>
       metis_tac[])>>
     `∃fmlls' Clist' b'.
@@ -2205,9 +2184,10 @@ Proof
     pop_assum $ irule_at Any>>
     first_x_assum $ irule_at Any>>
     first_x_assum $ irule_at Any>>
+    simp[GSYM PULL_EXISTS]>>
     CONJ_TAC >-
       metis_tac[distrup_listTheory.check_distrup_list_bnd_fml]>>
-    irule events_ok_validate>>
+    irule_at Any events_ok_validate>>
     fs[is_output_event_def]>>
     metis_tac[])
 QED
@@ -2240,13 +2220,14 @@ Proof
   qexists_tac`[]`>>
   first_x_assum $ irule_at Any>>
   qexists ‘REPLICATE 4096 NONE’ >>
+  qexists ‘[]’ >>
   xsimpl >>
   conj_tac >-
    (gvs [ccnf_listTheory.bnd_fml_def,miscTheory.any_el_ALT,EL_REPLICATE, SF CONJ_ss]) >>
   conj_tac >-
-    simp[events_ok_init]>>
-  conj_tac >-
    (gvs [LIST_REL_EL_EQN,OPTION_TYPE_def,EL_REPLICATE]) >>
+  conj_tac >-
+    simp[events_ok_init]>>
   rw [] >> rename [‘CUSTOM_FFI Terminate [] xx’] >>
   pop_assum $ irule_at Any >>
   xsimpl
