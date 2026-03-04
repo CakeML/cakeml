@@ -73,6 +73,17 @@ Proof
   Cases_on `h` >> simp[next_key_def,head_key_def]
 QED
 
+
+Theorem next_key_pull_last_thm:
+  !xs xk xv xts.
+    next_key _ (xs ++ [FibTree xk xv xts]) = next_key xk xs
+Proof
+  Cases_on `xs` >> simp[next_key_def,head_key_def] >>
+  Cases_on `h` >> simp[head_key_def]
+QED
+
+
+
 Definition last_key_t_def:
   (last_key_t d [] = d) /\
   (last_key_t d xs = head_key (REVERSE xs))
@@ -87,12 +98,28 @@ Proof
   Cases_on `l` >> Cases_on `xs` >> simp[last_key_t_def,REVERSE_APPEND,head_key_def]
 QED
 
+Theorem lemma_head_key_eq_last_key_t:
+  !xs xk xv xts.
+     head_key (REVERSE xs ++ [FibTree xk xv xts]) = last_key_t xk xs
+Proof
+  Induct
+  >- simp[head_key_def,last_key_t_def] >>
+  Cases_on `h` >>
+  simp[REVERSE_APPEND,head_key_append_thm] >>
+  simp[last_key_t_def]
+QED
+
+
 Theorem last_key_t_pull_thm:
-  !xs x. last_key_t (head_key [x]) xs = head_key(REVERSE (x::xs))
+  !xs x. last_key_t _ (xs ++ [x]) = head_key [x]
 Proof
   Cases_on `xs` >>  simp[last_key_t_def] >>
-  simp[head_key_append_thm]
+  simp[head_key_append_thm, REVERSE_APPEND] >>
+  Cases_on `x` >> simp[head_key_def]
 QED
+
+
+
 
 
 Definition last_key_def:
@@ -149,7 +176,7 @@ Theorem ann_fts_seg_append_thm:
   !p s b xs ys.
     ys <> [] ==>
     ann_fts_seg p s b (next_key s (TL (xs ++ ys))) (xs ++ ys) =
-    (ann_fts_seg p (head_key ys) b (next_key s (TL (xs ++ ys))) xs) ++
+    (ann_fts_seg p (head_key ys) b (next_key (head_key ys) (TL xs)) xs) ++
     (ann_fts_seg p s (last_key_t b xs) (next_key s (TL ys)) ys)
 Proof
   Induct_on `xs` >> fs[]
@@ -163,17 +190,15 @@ Proof
   Cases_on `h` >>
   simp[ann_fts_seg_def] >>
   Cases_on `xs` using SNOC_CASES >> simp[]
-  >- simp[ann_fts_seg_def,last_key_t_def,head_key_def] >>
-  Cases_on `x` >> fs[SNOC_APPEND] >>
-  rename [`(next_key s (TL (xs ++ [FibTree xk xv xl] ++ ys)))`] >>
-  Cases_on `xs` >> simp[last_key_t_def, head_key_def]
   >- (
+    simp[ann_fts_seg_def,last_key_t_def,head_key_def] >>
     Cases_on `ys` >> fs[] >>
-    Cases_on `h` >> fs[next_key_def,head_key_def]
+    Cases_on `h` >> simp[head_key_def, next_key_def]
     ) >>
-  Cases_on `t` >> simp[next_key_def,head_key_def] >>
-  rename [`(head_key (x'::(xs' ++ [FibTree xk xv xl] ++ ys)))`] >>
-  Cases_on `x'` >> simp[head_key_def]
+  Cases_on `x` >> fs[SNOC_APPEND] >>
+  fs[last_key_t_def,head_key_def,next_key_append_thm] >>
+  rename [`(next_key s (xs ++ [FibTree xk xv xl]))`] >>
+  Cases_on `xs` >> simp[next_key_def,last_key_t_def,head_key_def]
 QED
 
 
@@ -1029,13 +1054,11 @@ Proof
            fill_dnode_def, next_key_def, ones_def, STAR_ASSOC] >>
       fs[AC STAR_COMM STAR_ASSOC] >>
       fs[STAR_ASSOC] >>
-      mp_tac lemma_insert_new_min_inv >>
-      disch_then (qspecl_then [`fh`, `[FibTree k' v' l;FibTree lk lv ts]`, `a'`,
-                               `v`,`e`] assume_tac) >>
+      qspecl_then [`fh`, `[FibTree k' v' l;FibTree lk lv ts]`, `a'`,
+                               `v`,`e`] assume_tac lemma_insert_new_min_inv >>
       rfs[fts_min_def] >>
-      mp_tac fib_heap_inv_ul_thm >>
-      disch_then (qspecl_then [`fh |+ (a',v,e)`,`a'`,`(fill_dnode v e F)`,`[]`,
-                 `[FibTree k' v' l]`,`[FibTree lk lv ts]`] assume_tac) >>
+      qspecl_then [`fh |+ (a',v,e)`,`a'`,`(fill_dnode v e F)`,`[]`,
+        `[FibTree k' v' l]`,`[FibTree lk lv ts]`] assume_tac fib_heap_inv_ul_thm >>
       rfs[fill_dnode_def]
       ) >>
     simp[fib_heap_append_def,before_off_def,next_off_def] >>
@@ -1056,9 +1079,8 @@ Proof
                              `k`,`v`,`e`] assume_tac) >>
     fs[fts_min_def, fill_dnode_def]
    ) >>
-  mp_tac ann_fts_append_thm >>
-  disch_then (qspecl_then
-    [`FibTree k' v' l::h::t`, `[FibTree lk lv ts]`] assume_tac) >>
+  qspecl_then [`FibTree k' v' l::h::t`, `[FibTree lk lv ts]`]
+    assume_tac ann_fts_append_thm >>
   fs[] >>
   pop_assum kall_tac >>
   Cases_on `h` >>
@@ -1081,26 +1103,27 @@ Proof
     SEP_W_TAC >>
     qexists `[FibTree a' (fill_dnode v e F) []; FibTree sk sv sts] ++
               t ++ [FibTree lk lv lts] ++ [FibTree fk fv fts]` >>
-    simp[ann_fts_append_thm] >>
-    simp[head_key_def,next_key_def,last_key_def,last_key_t_def,head_key_append_thm] >>
+    fs[head_key_def,next_key_def,last_key_def,head_key_append_thm] >>
     simp[ann_fts_def, ann_fts_seg_def, last_key_def,fts_mem_def,
          SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
          fill_dnode_def, next_key_def, ones_def, STAR_ASSOC] >>
-    simp[fts_mem_append_thm] >>
+    simp[ann_fts_seg_append_thm,fts_mem_append_thm, STAR_ASSOC] >>
+    simp[next_key_append_thm] >>
     simp[ann_fts_def, ann_fts_seg_def, last_key_def,fts_mem_def,
          SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
          fill_dnode_def, next_key_def, ones_def, STAR_ASSOC] >>
-    simp[ann_fts_seg_append_thm] >>
-    simp[fts_mem_append_thm, STAR_ASSOC] >>
-    simp[ann_fts_def, ann_fts_seg_def, last_key_def,fts_mem_def,
-         SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
-         fill_dnode_def, next_key_def, ones_def, STAR_ASSOC] >>
-    fs[REVERSE_APPEND] >>
-    fs[head_key_append_thm] >>
-    assume_tac (last_key_t_pull_thm |> GSYM) >>
-    fs[REVERSE_DEF] >>
-    rfs[] >>
-    cheat
+    fs[last_key_t_def,head_key_def,REVERSE_APPEND] >>
+    fs[lemma_head_key_eq_last_key_t] >>
+    fs[next_key_pull_last_thm,last_key_t_pull_thm,head_key_def] >>
+    fs[AC STAR_ASSOC STAR_COMM] >>
+    fs[STAR_ASSOC] >>
+    qspecl_then [`fh`, `(FibTree fk fv fts::FibTree sk sv sts::t) ++
+      [FibTree lk lv lts]`, `a'`, `v`,`e`] assume_tac lemma_insert_new_min_inv >>
+    rfs[fts_min_def] >>
+    qspecl_then [`fh |+ (a',v,e)`,`a'`,`(fill_dnode v e F)`,`[]`,
+      `[FibTree fk fv fts]`,`(FibTree sk sv sts::t) ++ [FibTree lk lv lts]`]
+      assume_tac fib_heap_inv_ul_thm >>
+    rfs[fill_dnode_def]
     )
   >> cheat
 QED
@@ -1114,10 +1137,11 @@ QED
  *-------------------------------------------------------------------*)
 
 Definition find_new_min_def:
-  find_new_min
+  find_new_min (k:num)
     (min_n:'a word, s:'a word, t:'a word,
      m:'a word -> 'a word, dm: 'a word set, c: bool)
   =
+    if k = 0 then (min_n,m,F) else
     let c = (t IN dm /\ c) in
     if s = t then
       (*balance root list or do it in a separate step *)
@@ -1129,15 +1153,21 @@ Definition find_new_min_def:
       let v_t = m t in
       let t_n = m (t + next_off) in
       if v_t <=+ v then
-        find_new_min(v_t,s,t_n,m,dm,c)
+        find_new_min (k-1) (v_t,s,t_n,m,dm,c)
       else
-        find_new_min(min_n,s,t_n,m,dm,c)
-Termination
-cheat
+        find_new_min (k-1) (min_n,s,t_n,m,dm,c)
 End
+(*
+Definition fib_heap_rebalancing_def:
+  fib_heap_rebalancing
+    (a:'a word, t:'a word, m:'a word -> 'a word, dm:'a word set)
+   let c = (a IN dm) in
+   let
 
 
-
+   (m,c)
+End
+*)
 
 Definition fib_heap_extract_min_def:
   fib_heap_extract_min
@@ -1147,7 +1177,9 @@ Definition fib_heap_extract_min_def:
     let c = (a + next_off IN dm /\ c) in
     let sec = m (a + next_off) in
     if a = sec then
-      (0w,m,c)
+      let c = (a + child_off IN dm /\ c) in
+      let a_child = m (a + child_off) in
+        (a_child,m,c)
     else
       let c = (a + before_off IN dm /\ c) in
       let lst = m (a + before_off) in
