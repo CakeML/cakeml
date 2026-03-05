@@ -1216,11 +1216,6 @@ Definition list_not_in_heap_def:
     FLOOKUP fh k = NONE /\ list_not_in_heap fh ts /\ list_not_in_heap fh rest)
 End
 
-Definition to_map_upd_list_def:
-  (to_map_upd_list [] = []) /\
-  (to_map_upd_list (FibTree k v ts::rest) =
-    [(k,v.value,v.edges)] ++ to_map_upd_list rest ++ to_map_upd_list ts)
-End
 
 
 Theorem lemma_fib_heap_insert_1into1:
@@ -1485,12 +1480,105 @@ Proof
   simp[head_key_def] >>
   fs[AC STAR_COMM STAR_ASSOC]
 QED
-(*
-Theorem lemma_insert_list_new_min_inv:
-Proof
 
+Definition list_keys_not_null_def:
+  (list_keys_not_null [] <=> T) /\
+  (list_keys_not_null (FibTree k v xs::rest) <=>
+    k <> 0w /\ list_keys_not_null xs /\ list_keys_not_null rest)
+End
+
+Definition map_upd_list_def:
+  (map_upd_list [] = []) /\
+  (map_upd_list (FibTree k v ts::rest) =
+    [(k,v.value,v.edges)] ++ map_upd_list rest ++ map_upd_list ts)
+End
+
+Theorem lemma_empty_map:
+  !fh. (!k v e. FLOOKUP fh k <> SOME (v,e)) ==> fh = FEMPTY
+Proof
+  Cases_on `fh`
+  >- simp[] >>
+  rpt strip_tac >>
+  PairCases_on `y` >>
+  first_x_assum(qspecl_then [`x`,`y0`,`y1`] assume_tac) >>
+  fs[FLOOKUP_SIMP]
 QED
-*)
+
+
+Theorem fts_key_not_null:
+  !n fts k. list_keys_not_null fts /\ fts_has k n fts ==> k <> 0w
+Proof
+  strip_tac >>
+  ho_match_mp_tac list_keys_not_null_ind >>
+  rpt strip_tac
+  >- fs[Once fts_has_cases] >>
+  fs[list_keys_not_null_def] >>
+  qpat_x_assum `fts_has 0w n (FibTree k fts fts'::fts'')` mp_tac >>
+  simp[Once fts_has_cases]
+QED
+
+
+Theorem lemma_map_no_null_key:
+  !n fts fh k.
+    list_keys_not_null fts /\ fts_has k n fts /\
+    (FLOOKUP fh 0w = NONE) ==>
+    FLOOKUP (fh |++ map_upd_list fts) 0w <> SOME (v,e)
+Proof
+  strip_tac >>
+  ho_match_mp_tac map_upd_list_ind >>
+  rpt strip_tac
+  >- fs[Once fts_has_cases] >>
+  pop_assum mp_tac >> simp[] >>
+  fs[list_keys_not_null_def] >>
+  qpat_assum `fts_has k' n (FibTree k fts fts'::fts'')` mp_tac >>
+  pure_rewrite_tac[Once fts_has_cases] >>
+  strip_tac >> gvs[]
+  >- (
+    pure_rewrite_tac[map_upd_list_def] >>
+    simp[FUPDATE_LIST_APPEND] >>
+    simp[GSYM FUPDATE_EQ_FUPDATE_LIST] >>
+    gvs[] >>
+    cheat
+    ) >>
+  cheat
+QED
+
+Theorem lemma_insert_list_new_min_inv:
+  !fts fh xs v k n.
+    (fib_heap_inv fh fts) /\
+      (fts_is_min v xs) /\ (v = fts_min xs) /\
+      (list_keys_not_null xs) /\
+      (fts_has k n xs) /\
+      (v <=+ fts_min fts) ==>
+    (fib_heap_inv (fh |++ map_upd_list xs) (xs ++ fts))
+Proof
+  rpt strip_tac >>
+  Cases_on `fts`
+  >- (
+    fs[fib_heap_inv_def] >>
+    qpat_x_assum `∀k v e.FLOOKUP fh k = SOME (v,e) ⇔
+                  ∃m. fts_has k (fill_dnode v e m) []` mp_tac >>
+    simp[Once fts_has_cases] >>
+    strip_tac >>
+    fs[lemma_empty_map] >>
+    Cases_on `xs`
+    >- (
+      rpt strip_tac
+      >- (fs[map_upd_list_def,FUPDATE_LIST] )
+      >- (
+        simp[map_upd_list_def,FUPDATE_LIST] >>
+        simp[Once fts_has_cases]
+      )
+      >- simp[fts_is_min_def] >>
+      simp[fib_heap_shape_ok_def]
+      ) >>
+    Cases_on `h` >>
+    fs[fts_is_min_def,fts_min_def,head_key_def] >>
+    strip_tac >> cheat
+     ) >>
+  cheat
+QED
+
 
 Theorem fib_heap_insert_list:
   ∀frame xs fh n.
