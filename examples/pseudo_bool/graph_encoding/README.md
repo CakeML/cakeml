@@ -3,8 +3,8 @@ Encoders for various graph problems.
 [cliqueScript.sml](cliqueScript.sml):
 Formalization of the max clique problem
 
-[colorScript.sml](colorScript.sml):
-Formalization of the min coloring problem
+[colourScript.sml](colourScript.sml):
+Formalization of the min colouring problem
 
 [graph_basicScript.sml](graph_basicScript.sml):
 Basic graph notions

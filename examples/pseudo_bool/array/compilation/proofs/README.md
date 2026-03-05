@@ -10,7 +10,7 @@ Compose the semantics theorem and the compiler correctness
 theorem with the compiler evaluation theorem to produce end-to-end
 correctness theorem that reaches final machine code.
 
-[colorProofScript.sml](colorProofScript.sml):
+[colourProofScript.sml](colourProofScript.sml):
 Compose the semantics theorem and the compiler correctness
 theorem with the compiler evaluation theorem to produce end-to-end
 correctness theorem that reaches final machine code.

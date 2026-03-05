@@ -3,35 +3,35 @@
   theorem with the compiler evaluation theorem to produce end-to-end
   correctness theorem that reaches final machine code.
 *)
-Theory colorProof
+Theory colourProof
 Ancestors
   semanticsProps backendProof x64_configProof TextIOProof
-  colorProg color colorCompile
+  colourProg colour colourCompile
 Libs
   preamble
 
-val cake_pb_color_io_events_def = new_specification("cake_pb_color_io_events_def",["cake_pb_color_io_events"],
+val cake_pb_colour_io_events_def = new_specification("cake_pb_colour_io_events_def",["cake_pb_colour_io_events"],
   main_semantics |> Q.GENL[`cl`,`fs`]
   |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM)]);
 
-val (cake_pb_color_sem,cake_pb_color_output) = cake_pb_color_io_events_def |> SPEC_ALL |> UNDISCH |> SIMP_RULE std_ss [GSYM PULL_EXISTS]|> CONJ_PAIR
-val (cake_pb_color_not_fail,cake_pb_color_sem_sing) = cake_pb_color_sem
-  |> SRULE [color_compiled,ml_progTheory.prog_syntax_ok_semantics]
+val (cake_pb_colour_sem,cake_pb_colour_output) = cake_pb_colour_io_events_def |> SPEC_ALL |> UNDISCH |> SIMP_RULE std_ss [GSYM PULL_EXISTS]|> CONJ_PAIR
+val (cake_pb_colour_not_fail,cake_pb_colour_sem_sing) = cake_pb_colour_sem
+  |> SRULE [colour_compiled,ml_progTheory.prog_syntax_ok_semantics]
   |> MATCH_MP semantics_prog_Terminate_not_Fail |> CONJ_PAIR
 
 val compile_correct_applied =
-  MATCH_MP compile_correct (cj 1 color_compiled)
+  MATCH_MP compile_correct (cj 1 colour_compiled)
   |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO]
-  |> C MATCH_MP cake_pb_color_not_fail
+  |> C MATCH_MP cake_pb_colour_not_fail
   |> C MATCH_MP x64_backend_config_ok
-  |> REWRITE_RULE[cake_pb_color_sem_sing,AND_IMP_INTRO]
+  |> REWRITE_RULE[cake_pb_colour_sem_sing,AND_IMP_INTRO]
   |> REWRITE_RULE[Once (GSYM AND_IMP_INTRO)]
   |> C MATCH_MP (CONJ(UNDISCH x64_machine_config_ok)(UNDISCH x64_init_ok))
   |> DISCH(#1(dest_imp(concl x64_init_ok)))
   |> REWRITE_RULE[AND_IMP_INTRO]
 
-Theorem cake_pb_color_compiled_thm =
-  CONJ compile_correct_applied cake_pb_color_output
+Theorem cake_pb_colour_compiled_thm =
+  CONJ compile_correct_applied cake_pb_colour_output
   |> DISCH_ALL
   (* |> check_thm *)
 
@@ -51,25 +51,25 @@ Definition installed_x64_def:
         cfg.lab_conf.shmem_extra ms
 End
 
-Definition cake_pb_color_code_def:
-  cake_pb_color_code = (code, data, info)
+Definition cake_pb_colour_code_def:
+  cake_pb_colour_code = (code, data, info)
 End
 
-(* A standard run of cake_pb_color
+(* A standard run of cake_pb_colour
   satisfying all the default assumptions *)
-Definition cake_pb_color_run_def:
-  cake_pb_color_run cl fs mc ms ⇔
+Definition cake_pb_colour_run_def:
+  cake_pb_colour_run cl fs mc ms ⇔
   wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧ hasFreeFD fs ∧
-  installed_x64 cake_pb_color_code mc ms
+  installed_x64 cake_pb_colour_code mc ms
 End
 
 Theorem machine_code_sound:
-  cake_pb_color_run cl fs mc ms ⇒
+  cake_pb_colour_run cl fs mc ms ⇒
   machine_sem mc (basis_ffi cl fs) ms ⊆
     extend_with_resource_limit
-      {Terminate Success (cake_pb_color_io_events cl fs)} ∧
+      {Terminate Success (cake_pb_colour_io_events cl fs)} ∧
   ∃out err.
-    extract_fs fs (cake_pb_color_io_events cl fs) =
+    extract_fs fs (cake_pb_colour_io_events cl fs) =
       SOME (add_stdout (add_stderr fs err) out) ∧
     (out ≠ strlit"" ⇒
       ∃g.
@@ -80,17 +80,17 @@ Theorem machine_code_sound:
           (LENGTH cl = 5 ∧
             ∃k f.
               get_col fs (EL 4 cl) = SOME (k,f) ∧
-              is_k_color k f g ∧
-              (out = color_eq_str (min_color_size g) ∨
+              is_k_colour k f g ∧
+              (out = colour_eq_str (min_colour g) ∨
               ∃l.
-                out = color_bound_str l k ∧
-                (∀k' f'. is_k_color k' f' g ⇒ l ≤ k')))
+                out = colour_bound_str l k ∧
+                (∀k' f'. is_k_colour k' f' g ⇒ l ≤ k')))
         )
     )
 Proof
   strip_tac>>
-  fs[installed_x64_def,cake_pb_color_code_def,cake_pb_color_run_def]>>
-  drule cake_pb_color_compiled_thm>>
+  fs[installed_x64_def,cake_pb_colour_code_def,cake_pb_colour_run_def]>>
+  drule cake_pb_colour_compiled_thm>>
   simp[AND_IMP_INTRO]>>
   disch_then drule>>
   disch_then (qspecl_then [`ms`,`mc`,`data_sp`,`cbspace`] mp_tac)>>
@@ -108,8 +108,8 @@ Proof
     fs[check_unsat_4_sem_def]>>
     strip_tac>>
     gvs[]>>
-    qpat_x_assum`color_sem _ _ _ _` mp_tac>>
-    simp[color_sem_def,print_color_str_def]>>
+    qpat_x_assum`colour_sem _ _ _ _` mp_tac>>
+    simp[colour_sem_def,print_colour_str_def]>>
     rw[]>>
     metis_tac[])>>
   metis_tac[]

@@ -41,5 +41,5 @@ cake_pb_clique_arm8.S : *cliqueCompileScript.sml
 cake_pb_mclique.S : *mcliqueCompileScript.sml
 cake_pb_mclique_arm8.S : *mcliqueCompileScript.sml
 
-cake_pb_color.S : *colorCompileScript.sml
-cake_pb_color_arm8.S : *colorCompileScript.sml
+cake_pb_colour.S : *colourCompileScript.sml
+cake_pb_colour_arm8.S : *colourCompileScript.sml

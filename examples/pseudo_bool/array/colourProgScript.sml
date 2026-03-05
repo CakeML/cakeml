@@ -1,9 +1,9 @@
 (*
-  Color encode and checker
+  Colour encode and checker
 *)
-Theory colorProg
+Theory colourProg
 Ancestors
-  basis_ffi pbc_normalise graphProg color graph_basic
+  basis_ffi pbc_normalise graphProg colour graph_basic
     npbc_parseProg pb_parse
 Libs
   preamble basis
@@ -11,7 +11,7 @@ Libs
 val _ = translation_extends"graphProg";
 
 val res = translate enc_string_def;
-val res = translate color_obj_def;
+val res = translate colour_obj_def;
 val res = translate FOLDN_def;
 val res = translate annot_string_def;
 
@@ -352,34 +352,34 @@ Proof
 QED
 
 (* Pretty print conclusion *)
-Definition color_eq_str_def:
-  color_eq_str (n:num) =
+Definition colour_eq_str_def:
+  colour_eq_str (n:num) =
   strlit "s VERIFIED CHROMATIC NUMBER = " ^
     toString n ^ strlit"\n"
 End
 
-Definition color_bound_str_def:
-  color_bound_str (l:num) (u:num) =
+Definition colour_bound_str_def:
+  colour_bound_str (l:num) (u:num) =
   strlit "s VERIFIED CHROMATIC NUMBER BOUND "^
     toString l ^ strlit " <= NUM COL <= " ^
     toString u ^ strlit"\n"
 End
 
-Definition print_color_str_def:
-  print_color_str lbg ubg =
+Definition print_colour_str_def:
+  print_colour_str lbg ubg =
   if lbg = ubg
-  then color_eq_str ubg
-  else color_bound_str lbg ubg
+  then colour_eq_str ubg
+  else colour_bound_str lbg ubg
 End
 
-Definition color_sem_def:
-  color_sem g lb k f ⇔
-  is_k_color k f g ∧
+Definition colour_sem_def:
+  colour_sem g lb k f ⇔
+  is_k_colour k f g ∧
   if lb = k then
-    min_color_size g = k
+    min_colour g = k
   else
     (∀k f.
-        is_k_color k f g ⇒ lb ≤ k)
+        is_k_colour k f g ⇒ lb ≤ k)
 End
 
 Definition check_unsat_4_sem_def:
@@ -389,12 +389,12 @@ Definition check_unsat_4_sem_def:
     get_graph_dimacs fs fg = SOME g ∧
     good_graph g ∧
     get_col fs fc = SOME (k,f) ∧
-    out = print_color_str lb k ∧
-    color_sem g lb k f)
+    out = print_colour_str lb k ∧
+    colour_sem g lb k f)
 End
 
-val _ = translate check_k_color_aux_def;
-val _ = translate check_k_color_def;
+val _ = translate check_k_colour_aux_def;
+val _ = translate check_k_colour_def;
 
 val _ = translate MAX_LIST_def;
 val _ = translate parse_cu_def;
@@ -421,13 +421,13 @@ val _ = translate lazy_constraint_aux_def;
 val _ = translate lazy_constraint_def;
 
 val _ = translate lazy_encode_def;
-val _ = translate lazy_color_obj_def;
+val _ = translate lazy_colour_obj_def;
 val res = translate lazy_full_encode_def;
 
 val res = translate lazy_constraints_def;
 val res = translate lazy_full_encode_ann_def;
 
-(* f1: graph, f2: opb, f3: proof, f4: coloring *)
+(* f1: graph, f2: opb, f3: proof, f4: colouring *)
 Quote add_cakeml:
   fun parse_and_check f1 f2 f4 =
   case parse_dimacs f1 of
@@ -436,7 +436,7 @@ Quote add_cakeml:
   case parse_col f4 of
     Inl err => Inl err
   | Inr (k,f) =>
-  if check_k_color k f g
+  if check_k_colour k f g
   then
     case parse_pbf_full f2 of
       Inl err => Inl err
@@ -446,7 +446,7 @@ Quote add_cakeml:
         Inl "Input OPB not subset of encoding\n"
       | Some (n,fml) => Inr (k, (n, (obj,fml)))
   else
-    Inl "Invalid coloring\n"
+    Inl "Invalid colouring\n"
 End
 
 Definition parse_and_check_sem_def:
@@ -457,7 +457,7 @@ Definition parse_and_check_sem_def:
       get_graph_dimacs fs f1 = SOME g ∧
       good_graph g ∧
       get_col fs f4 = SOME (k,f) ∧
-      is_k_color k f g ∧
+      is_k_colour k f g ∧
       lazy_full_encode_ann (g:graph) obj anns = SOME (n,fml))
 End
 
@@ -514,7 +514,7 @@ Proof
   reverse xif
   >- (
     xcon>>xsimpl>>
-    qexists_tac`INL «Invalid coloring\n»`>>
+    qexists_tac`INL «Invalid colouring\n»`>>
     simp[SUM_TYPE_def])>>
   xlet_autop>>
   Cases_on`get_annots fs f2`>>
@@ -542,25 +542,25 @@ Proof
   gvs[get_graph_dimacs_def,AllCaseEqs()]>>
   drule parse_dimacs_good_graph>>
   rw[]>>
-  rename1`check_k_color k f g`>>
+  rename1`check_k_colour k f g`>>
   rename1`lazy_full_encode_ann _ (obj1,obj2) anns = SOME (n,fml)`>>
   qexists_tac`INR (k,n,(obj1,obj2),fml)`>>
   simp[SUM_TYPE_def,PAIR_TYPE_def]>>
-  metis_tac[check_k_color_is_k_color]
+  metis_tac[check_k_colour_is_k_colour]
 QED
 
 Definition map_concl_to_string_def:
   (map_concl_to_string k n (INL s) = (INL s)) ∧
   (map_concl_to_string k n (INR (out,bnd,c)) =
     case conv_concl n c of
-      SOME lb => INR (print_color_str lb k)
-    | NONE => INL (strlit "c Unexpected conclusion type for min coloring problem.\n"))
+      SOME lb => INR (print_colour_str lb k)
+    | NONE => INL (strlit "c Unexpected conclusion type for min colouring problem.\n"))
 End
 
 val res = translate conv_concl_def;
-val res = translate color_eq_str_def;
-val res = translate color_bound_str_def;
-val res = translate print_color_str_def;
+val res = translate colour_eq_str_def;
+val res = translate colour_bound_str_def;
+val res = translate print_colour_str_def;
 val res = translate map_concl_to_string_def;
 
 Definition mk_prob2_def:
@@ -676,23 +676,23 @@ Proof
     qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
     rw[]>>
     Cases_on`objf`>>
-    qexists_tac`print_color_str x k`>>simp[]>>
+    qexists_tac`print_colour_str x k`>>simp[]>>
     qexists_tac`strlit ""`>>
     rw[]>>simp[STD_streams_stderr,add_stdo_nil]>>
     xsimpl>>
-    gvs[parse_and_check_sem_def,color_sem_def,mk_prob2_def]>>
-    rename1`print_color_str lb k`>>
+    gvs[parse_and_check_sem_def,colour_sem_def,mk_prob2_def]>>
+    rename1`print_colour_str lb k`>>
     qexists_tac`lb`>>simp[]>>
     (drule_at Any) lazy_full_encode_ann_sem_concl>>
     disch_then drule>>
     disch_then drule>>
     gvs[pbcTheory.pres_set_list_def,lazy_full_encode_def,AllCaseEqs()]>>
     rw[]>>fs[]>>
-    metis_tac[min_color_size_eq])
+    metis_tac[min_colour_eq])
 QED
 
 Definition usage_string_def:
-  usage_string = strlit "Usage: cake_pb_color <DIMACS graph file> <OPB file> <PB proof file> <coloring file>\n"
+  usage_string = strlit "Usage: cake_pb_colour <DIMACS graph file> <OPB file> <PB proof file> <colouring file>\n"
 End
 
 val r = translate usage_string_def;
