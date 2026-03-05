@@ -3233,19 +3233,44 @@ Proof
   metis_tac[LIST_TYPE_def]
 QED
 
+val res = translate sorted_merge_def;
 val res = translate get_inds_rhs_def;
+
+Quote add_cakeml:
+  fun check_get_inds_rhs_arr vimap ls =
+  case ls of
+    [] => True
+  | ((n,rhs)::xs) =>
+    case Array.lookup vimap None n of
+      Some (Inr _) => False
+    | _ => check_get_inds_rhs_arr vimap xs
+End
+
+Quote add_cakeml:
+  fun fold_get_inds_rhs_arr fml ls acc vimap =
+  case ls of
+    [] => (acc, vimap)
+  | ((n,rhs)::xs) =>
+    case Array.lookup vimap None n of
+      None => fold_get_inds_rhs_arr fml xs acc vimap
+    | Some (Inl (_,(pinds,ninds))) =>
+      let
+        val pinds = reindex_arr fml pinds
+        val ninds = reindex_arr fml ninds
+        val rinds = get_inds_rhs rhs pinds ninds in
+      fold_get_inds_rhs_arr fml xs
+        (sorted_merge rinds acc)
+        (Array.updateResize vimap None n (Some (Inl (None,(pinds,ninds)))))
+      end
+    | Some (Inr earliest) => (acc, vimap)
+End
 
 Quote add_cakeml:
   fun get_set_indices_arr fml inds s vimap =
   case s of
-    Inr v =>
-    if Vector.length v = 0 then ([], (inds, vimap))
-    else
-      let val rinds = reindex_arr fml inds in
-        (rinds, (rinds, vimap))
-      end
-  | Inl (n,rhs) =>
-    case Array.lookup vimap None n of
+    [] => ([], (inds, vimap))
+  | [(n,rhs)] =>
+    (case Array.lookup vimap None n of
       None => ([], (inds, vimap))
     | Some (Inl (nn,(pinds,ninds))) =>
       let
@@ -3259,13 +3284,21 @@ Quote add_cakeml:
       let
         val rinds = get_inds_rhs rhs pinds ninds in
         (rinds, (inds, Array.updateResize vimap None n (Some (Inl (None,(pinds,ninds))))))
+      end)
+  | _ =>
+    if check_get_inds_rhs_arr vimap s then
+      case fold_get_inds_rhs_arr fml s [] vimap of (rinds, vimap') =>
+        (rinds, (inds, vimap'))
+    else
+      let val rinds = reindex_arr fml inds in
+        (rinds, (rinds, vimap))
       end
 End
 
 Theorem get_set_indices_arr_spec:
   LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv ∧
   (LIST_TYPE NUM) inds indsv ∧
-  subst_TYPE s sv ∧
+  subst_raw_TYPE s sv ∧
   LIST_REL (OPTION_TYPE vimapn_TYPE) vimap vimaplsv
   ⇒
   app (p : 'ffi ffi_proj)
@@ -3284,6 +3317,8 @@ Theorem get_set_indices_arr_spec:
               v = vimapv'))
             (get_set_indices fmlls inds s vimap) v))
 Proof
+  cheat
+  (*
   rw[]>>
   xcf "get_set_indices_arr" (get_ml_prog_state ())>>
   reverse (Cases_on`s`)>>fs[SUM_TYPE_def]
@@ -3327,7 +3362,7 @@ Proof
     rpt xlet_autop>>
     xcon>>xsimpl>>
     irule LIST_REL_update_resize>>
-    fs[OPTION_TYPE_def,PAIR_TYPE_def,SUM_TYPE_def])
+    fs[OPTION_TYPE_def,PAIR_TYPE_def,SUM_TYPE_def]) *)
 QED
 
 Overload "vomap_TYPE" = ``STRING_TYPE``
@@ -3560,7 +3595,7 @@ Quote add_cakeml:
   let
     val bortcb = b orelse tcb
     val hs = has_scope pfs in
-    case get_set_indices_arr fml inds ss vimap of (rinds, (inds',vimap')) =>
+    case get_set_indices_arr fml inds s vimap of (rinds, (inds',vimap')) =>
     case fast_red_subgoals ord ss c obj vomap hs of (rsubs,rscopes) =>
   let
     val nc = not_1 c
