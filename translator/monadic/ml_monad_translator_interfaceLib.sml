@@ -351,6 +351,24 @@ fun extract_rarrays_manip_funs (name, init, get, set, len, sub, upd, alloc) =
 fun extract_farrays_manip_funs (name, init, get, set, len, sub, upd) =
       (name, get, set, len, sub, upd);
 
+fun get_store_inv_name state_type = let
+    val _ = is_type state_type orelse (print_type state_type;
+        failwith ("get_store_inv_name: not a type constructor")
+      )
+    val (nm, _) = dest_type state_type
+  in
+    nm ^ "_STORE_INV"
+  end
+
+fun get_store_inv state_type = let
+    val nm = get_store_inv_name state_type
+    (* This is a bit of a hack. The call to start_translation will call to the
+       store library (ml_monadStoreLib) to define the store inv. We then fetch
+       it back via naming scheme to do follow-up proofs. *)
+    val def_thm = DB.fetch "-" (nm ^ "_def")
+    val const = left_const def_thm
+  in (const, def_thm) end
+
 local
 
   val IMP_STAR_GC = Q.prove(
@@ -367,10 +385,19 @@ in
 
   fun add_field_access_patterns (hprop_comb, field_name) = let
     val state_ty = ( !(#state_type internal_state) )
-    val state_predicate = get_type_inv state_ty
-    val state_predicate_def = guess_const_def state_predicate
-    val field = Term [QUOTE field_name]
-    val st_field = Term [QUOTE "st.", QUOTE field_name]
+    val (store_inv, store_inv_def) = get_store_inv state_ty
+
+    val liftM_const = left_const ml_monadBaseTheory.liftM_def
+    val field_gen = Term [QUOTE field_name]
+    val _ = same_const liftM_const (fst (strip_comb field_gen))
+        orelse failwith ("add_field_access_patterns: " ^
+            "syntax conflict with liftM: " ^ field_name)
+
+    val st_var = mk_var ("st", state_ty)
+    val f_var = mk_var ("f", fst (dom_rng (type_of field_gen)))
+    val field = mk_icomb (mk_comb (field_gen, f_var), st_var) |> rator |> rator
+    val st_field = case strip_comb field of (_, [acc, _]) => mk_comb (acc, st_var)
+      | _ => failwith ("add_field_access_patterns: field format issue")
 
     val HPROP_COMB_STAR_COMM = Q.prove(
       `∀ p q . p * ^(hprop_comb) q = ^(hprop_comb) q * p`,
@@ -384,13 +411,13 @@ in
         ⇒
           (∀st. EvalM ro env st exp
             (MONAD ret_ty exc_ty (^field f))
-              (^state_predicate, p:'ffi ffi_proj))`,
+              (^store_inv, p:'ffi ffi_proj))`,
         fs [ml_monad_translatorTheory.EvalM_def] >> rw [] >>
         first_x_assum (qspecl_then [`^st_field`,`s`] mp_tac) >>
         impl_tac
         >- (
           fs [ml_monad_translatorBaseTheory.REFS_PRED_def] >>
-          fs [state_predicate_def] >>
+          fs [store_inv_def] >>
           qabbrev_tac `a = ^hprop_comb ^st_field` >>
           qabbrev_tac `b = GC` >>
           fs [AC set_sepTheory.STAR_ASSOC set_sepTheory.STAR_COMM] >>
@@ -405,13 +432,14 @@ in
         Cases_on `f ^st_field` >> fs [] >>
         EVERY_CASE_TAC >>
         rveq >> fs [] >>
-        fs [state_predicate_def] >>
+        fs [store_inv_def] >>
         fs [ml_monadBaseTheory.liftM_def] >>
         rw [] >>
         rfs[] >>
         fs[HPROP_COMB_STAR_COMM, set_sepTheory.STAR_ASSOC] >>
         metis_tac[set_sepTheory.STAR_ASSOC]
       )
+
     val state_exn_ty = ( !(#exn_type internal_state) )
     val state_exn_predicate = get_type_inv state_exn_ty
 
@@ -469,7 +497,7 @@ fun start_translation (translator_config : config) =
           ((!(#refs                     c) ) |> map from_named_tuple_refs)
           ((!(#resizeable_arrays        c) ) |> map from_named_tuple_rarray)
           ((!(#fixed_arrays             c) ) |> map from_named_tuple_farray)
-          ((!(#state_type               c) ) |> dest_type |> fst |> (fn s => s^"_STORE_INV"))
+          ((!(#state_type               c) ) |> get_store_inv_name)
           ( !(#state_type               c) )
           ( !(#exn_type_def             s) )
           ((!(#exn_access_funs          c) ) |> map from_named_tuple_exn)
@@ -490,7 +518,7 @@ fun start_translation (translator_config : config) =
                                                 map extract_rarrays_manip_funs)
           ((!(#fixed_arrays             c) ) |> map from_named_tuple_farray |>
                                                 map extract_farrays_manip_funs)
-          ((!(#state_type               c) ) |> dest_type |> fst |> (fn s => s^"_STORE_INV"))
+          ((!(#state_type               c) ) |> get_store_inv_name)
           ( !(#state_type               c) )
           ( !(#exn_type_def             s) )
           ((!(#exn_access_funs          c) ) |> map from_named_tuple_exn)
