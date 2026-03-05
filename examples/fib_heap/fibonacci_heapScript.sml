@@ -1175,65 +1175,6 @@ Definition find_min_def:
         find_min (k-1) (min_n,s,t_n,m,dm,c)
 End
 
-Definition list_in_mem_def:
-  list_in_mem (k:num)
-    (t:'a word, s:'a word, m:'a word -> 'a word, dm: 'a word set,c: bool)
-  =
-    if k = 0 then F else
-    if t = s then
-      c
-    else
-      let t_n = (t + next_off IN dm /\ c) in
-      let n = m (t + next_off) in
-        list_in_mem (k-1) (n,s,m,dm,c)
-End
-
-
-Theorem lemma_list_in_mem:
-  !xs frame k h n.
-    (LENGTH xs < k) /\
-      (head_key xs = h) /\ (next_key h (TL xs) = n) /\
-      (fts_mem (ann_fts xs) * frame) (fun2set(m,dm)) ==>
-    list_in_mem k (n,h,m,dm,T)
-Proof
-  Induct_on `k`
-  >- (
-    rpt strip_tac >>
-    Cases_on `xs` >> fs[LENGTH]
-    ) >>
-  simp[Once list_in_mem_def] >>
-  rpt strip_tac >>
-  Cases_on `xs` >> simp[next_key_def,head_key_def] >>
-  Cases_on `h` >> simp[head_key_def] >>
-  Cases_on `t` >> simp[next_key_def] >>
-  Cases_on `h` >> simp[head_key_def] >>
-  rename [`LENGTH (FibTree k1 v1 l1::FibTree k2 v2 l2::xs)`] >>
-  fs[ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def, fts_mem_def,
-     SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
-     fill_dnode_def, next_key_def, ones_def, STAR_ASSOC,
-     fts_mem_append_thm,ann_fts_seg_append_thm,next_key_pull_last_thm] >>
-  `k1 <> k2` by SEP_NEQ_TAC >> simp[] >>
-  simp[next_off_def] >>
-  SEP_R_TAC >>
-  Cases_on `xs`
-  >- (
-    simp[next_key_def] >>
-    fs[LENGTH] >>
-    simp[Once list_in_mem_def]
-    ) >>
-  Cases_on `h`>> simp[next_key_def,head_key_def] >>
-  fs[REVERSE_APPEND,head_key_def] >>
-  first_x_assum(qspec_then `(FibTree k2 v2 l2::FibTree k' v l::t) ++
-    [FibTree k1 v1 l1]` assume_tac) >>
-  fs[LENGTH] >>
-  fs[ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def, fts_mem_def,
-     SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
-     fill_dnode_def, next_key_def, ones_def, STAR_ASSOC,
-     fts_mem_append_thm,ann_fts_seg_append_thm,next_key_pull_last_thm] >>
-  rfs[] >>
-  cheat
-QED
-
 
 (*assumption: both heads are the smallest element*)
 Definition fib_heap_insert_list_def:
@@ -1544,7 +1485,12 @@ Proof
   simp[head_key_def] >>
   fs[AC STAR_COMM STAR_ASSOC]
 QED
+(*
+Theorem lemma_insert_list_new_min_inv:
+Proof
 
+QED
+*)
 
 Theorem fib_heap_insert_list:
   ∀frame xs fh n.
