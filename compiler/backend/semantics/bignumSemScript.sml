@@ -21,6 +21,10 @@ Datatype:
      ; be      : bool (*is big-endian*) |>
 End
 
+Definition is_var_def:
+  is_var s v ⇔ v ∈ FDOM s.locals
+End
+
 Definition get_var_def:
   get_var s v = FLOOKUP s.locals v
 End
@@ -40,6 +44,10 @@ End
 
 Definition set_vars_def:
   set_vars s vws = s with locals := s.locals |++ vws
+End
+
+Definition drop_var_def:
+  drop_var s v = s with locals := s.locals \\ v
 End
 
 Definition mem_load_word_def:
@@ -115,12 +123,12 @@ End
 
 Definition evaluate_def[nocompute]:
   (evaluate (Skip, s) = (NONE,s)) ∧
-  (* (evaluate (Move pri moves,s) = *)
-  (*    if ALL_DISTINCT (MAP FST moves) then *)
-  (*      case get_vars (MAP SND moves) s of *)
-  (*      | NONE => (SOME Error,s) *)
-  (*      | SOME vs => (NONE, set_vars (MAP FST moves) vs s) *)
-  (*    else (SOME Error,s)) /\ *)
+  (evaluate (Move moves, s) =
+     if ALL_DISTINCT (MAP FST moves) then
+       case get_vars s (MAP SND moves) of
+       | NONE => (SOME Error,s)
+       | SOME vs => (NONE, set_vars s (ZIP (MAP FST moves, vs)))
+     else (SOME Error,s)) ∧
   (evaluate (Assign v exp, s) =
      case bignum_exp s exp of
      | NONE => (SOME Error, s)
@@ -147,6 +155,15 @@ Definition evaluate_def[nocompute]:
       | SOME F => evaluate (c2,s)
       | NONE => (SOME Error,s))
     | _ => (SOME Error,s))) ∧
+  (evaluate (While cmp v arg body, s) = (NONE, s)) ∧
+  (evaluate (Dec dec body, s) =
+   let (name, exp) = dec in
+     if ¬is_var s name then (SOME Error, s) else
+     case bignum_exp s exp of
+     | SOME w =>
+       let (res, s) = evaluate (body, set_var s name w) in
+         (res, drop_var s name)
+     | _ => (SOME Error, s)) ∧
   (evaluate (Call ret name args, s) =
    case bignum_exps s args of
    | NONE => (SOME Error,s)
@@ -165,11 +182,10 @@ Definition evaluate_def[nocompute]:
                    | SOME (Result ws) =>
                        if LENGTH outs ≠ LENGTH ws then (SOME Error, s₂)
                        else (NONE, set_vars s₂ (ZIP (outs, ws)))
-                   | res => (res, s₂)))) ∧
-  (evaluate (While cmp v arg body, s) = (NONE, s))
+                   | res => (res, s₂))))
 Termination
   wf_rel_tac ‘inv_image ($< LEX $<) (λ(stmt, s). (s.clock, stmt_size (K 0) stmt))’
-  >> rw [call_env_def, dec_clock_def]
+  >> rw [call_env_def, dec_clock_def, set_var_def]
   >> drule $ GSYM fix_clock_imp >> simp []
 End
 
@@ -177,10 +193,10 @@ Theorem evaluate_clock:
   ∀xs s₁ vs s₂. evaluate (xs, s₁) = (vs, s₂) ⇒ s₂.clock ≤ s₁.clock
 Proof
   recInduct evaluate_ind >> rw [evaluate_def]
-  >> gvs [mem_store_word_def, set_var_def, AllCaseEqs()]
-  >> rpt (pairarg_tac >> gvs [])
+  >> gvs [mem_store_word_def, set_var_def, set_vars_def, AllCaseEqs()]
+  >> rpt (pairarg_tac >> gvs [AllCaseEqs()])
   >> gvs [dec_clock_def, restore_caller_def, call_env_def, set_vars_def,
-          AllCaseEqs()]
+          drop_var_def]
   >> imp_res_tac fix_clock_imp >> simp []
 QED
 
