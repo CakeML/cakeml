@@ -134,11 +134,11 @@ Theorem evaluate_rewrite_tmc:
          ∀n exp arity.
            lookup loc s.code = SOME (arity, exp) ∧
            optimized_code loc arity exp n s'.code ∧
-           (∃loc_op.
-             rewrite_aux loc loc_op arity (HD xs) = SOME aux) ⇒
-               (* let x = rewrite_opt loc arity (arity + 1) (arity + 2) (HD xs) in *)
+           (∃loc_opt.
+             rewrite_aux loc loc_opt arity (HD xs) = SOME aux) ⇒
+               let x = rewrite_opt loc loc_opt arity (arity + 1) (arity + 2) (HD xs) in
                  ∃rrr t1 t2.
-                   evaluate ([aux], env2, s') = (rrr,t1) ∧
+                   evaluate ([x], env2, s') = (rrr,t1) ∧
                    evaluate (xs, env2, s') = (rrr,t2) ∧
                    state_rel t t1 ∧
                    state_rel t t2)
