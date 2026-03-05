@@ -18,8 +18,8 @@ Definition env_rel_def:
       LENGTH env1 = l ∧
       LENGTH env2 > l ∧
       ∃hole_ptr hole_idx.
-        EL l env2 = Var hole_ptr ∧
-        EL (l + 1) env2 = Op (IntOp (Const hole_idx)) [])
+        EL l env2 = RefPtr F hole_ptr ∧
+        EL (l + 1) env2 = Number hole_idx)
 End
 
 Overload in_ns_2[local] = ``λn. n MOD bvl_to_bvi_namespaces = 2``
@@ -165,7 +165,7 @@ Theorem evaluate_compile_prog:
 Proof
   rw []
   >> qmatch_asmsub_abbrev_tac `(es,env,st1)`
-  >> `env_rel env env` by fs [env_rel_def]
+  >> `env_rel F 0 env env` by fs [env_rel_def]
   >> Cases_on `compile_prog next prog`
   >> fs []
   >> drule (GEN_ALL compile_prog_code_rel)
