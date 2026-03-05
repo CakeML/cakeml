@@ -121,9 +121,9 @@ QED
                  (rrr,t2) ∧ state_rel t t1 ∧ state_rel t t2)): thm
 *)
 Theorem evaluate_rewrite_tmc:
-   ∀xs ^s env1 r t opt s' env2 loc.
+   ∀xs ^s l env1 r t opt s' env2 loc.
      evaluate (xs, env1, s) = (r, t) ∧
-     env_rel env1 env2 ∧
+     env_rel opt l env1 env2 ∧
      state_rel s s' ∧
      (opt ⇒ LENGTH xs = 1) ∧
      r ≠ Rerr (Rabort Rtype_error) ⇒
