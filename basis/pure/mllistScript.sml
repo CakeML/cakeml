@@ -6,7 +6,7 @@ Libs
   preamble
 Ancestors
   indexedLists[qualified] toto[qualified]
-  sorting mergesort
+  sorting heap_list_sort mergesort
 
 (* ===== TODO: TO BE PORTED TO HOL (better theorems for mergesort_tail) ===== *)
 Theorem merge_tail_MEM:
@@ -277,36 +277,44 @@ Proof
 QED
 (* ^^^^^ TO BE PORTED TO HOL ^^^^^ *)
 
+Definition old_sort_def:
+  old_sort = mergesort$mergesort_tail
+End
+
 Definition sort_def:
-  sort = mergesort$mergesort_tail
+  sort = heap_list_sort$heap_list_sort
 End
 
 Theorem sort_thm:
-  !R l. sort R l = mergesort$mergesort_tail R l
+  !R l. sort R l = heap_list_sort$heap_list_sort R l
 Proof
   rw[sort_def]
+QED
+
+Triviality total_reflexive:
+  total R ==> reflexive R
+Proof
+  simp [total_def, reflexive_def]
+  \\ metis_tac []
 QED
 
 Theorem sort_SORTED:
   !R L. transitive R ∧ total R ==> sorting$SORTED R (sort R L)
 Proof
-  simp[sort_def, mergesort_tail_def, mergesortN_correct, mergesortN_sorted]
-QED
-
-Theorem sort_MEM[simp]:
-  !R L. MEM x (sort R L) ⇔ MEM x L
-Proof
-  simp[sort_def, mergesort_tail_MEM]
+  simp[sort_def, heap_list_sort_sorted, total_reflexive]
 QED
 
 Theorem sort_PERM:
   !R L. sorting$PERM L (sort R L)
 Proof
-  simp[sort_def, mergesort_tail_def]
-  \\ rpt strip_tac
-  \\ `L = TAKE (LENGTH L) L` by rw[]
-  \\ pop_assum (fn x => pure_rewrite_tac [Once $ x])
-  \\ rw[mergesortN_tail_PERM]
+  simp[sort_def]
+  \\ metis_tac [sortingTheory.PERM_SYM, heap_list_sort_PERM]
+QED
+
+Theorem sort_MEM[simp]:
+  !R L. MEM x (sort R L) ⇔ MEM x L
+Proof
+  metis_tac [sort_PERM, PERM_MEM_EQ]
 QED
 
 Theorem sort_LENGTH[simp]:
