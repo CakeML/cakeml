@@ -11,30 +11,28 @@ val s = mk_var("s",
   type_of ``bviSem$evaluate`` |> strip_fun |> snd |> dest_prod |> snd
   |> type_subst [alpha|->``:num#'c``,beta|->``:'ffi``]);
 
-(* Copied - TODO *)
 Definition env_rel_def:
-  env_rel (*ty opt acc*) env1 env2 <=>
-    isPREFIX env1 env2 (* ∧
+  env_rel opt l env1 env2 <=>
+    isPREFIX env1 env2 ∧
     (opt ⇒
-      LENGTH env1 = acc ∧
-      LENGTH env2 > acc ∧
-      case ty of
-        Int => ?k. EL acc env2 = Number k
-      | List => ?ys. v_to_list (EL acc env2) = SOME ys
-      | Any => F) *)
+      LENGTH env1 = l ∧
+      LENGTH env2 > l ∧
+      ∃hole_ptr hole_idx.
+        EL l env2 = Var hole_ptr ∧
+        EL (l + 1) env2 = Op (IntOp (Const hole_idx)) [])
 End
 
 Overload in_ns_2[local] = ``λn. n MOD bvl_to_bvi_namespaces = 2``
 
 Definition code_rel_def:
   code_rel c1 c2 ⇔
-    ∀loc arity exp op.
+    ∀loc arity exp exp_aux.
       lookup loc c1 = SOME (arity, exp) ⇒
       ∃n.
         (rewrite_aux loc n arity exp = NONE ⇒
           lookup loc c2 = SOME (arity, exp)) ∧
-        (rewrite_aux loc n arity exp = SOME op ⇒
-          ∀exp_aux exp_opt.
+        (rewrite_aux loc n arity exp = SOME exp_aux ⇒
+          ∀exp_opt.
             compile_exp loc n arity exp = SOME (exp_aux, exp_opt) ⇒
               lookup loc c2 = SOME (arity, exp_aux) ∧
               lookup n c2 = SOME (arity + 1, exp_opt))
