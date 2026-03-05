@@ -1217,6 +1217,11 @@ Definition list_not_in_heap_def:
 End
 
 
+Definition map_upd_list_def:
+  (map_upd_list [] = []) /\
+  (map_upd_list (FibTree k v ts::rest) =
+    [(k,v.value,v.edges)] ++ map_upd_list rest ++ map_upd_list ts)
+End
 
 Theorem lemma_fib_heap_insert_1into1:
   !frame x t k a.
@@ -1400,7 +1405,7 @@ Proof
   pop_assum mp_tac >>
   Cases_on `xs`
   >- (
-    fs[to_map_upd_list_def, fts_mem_def, ann_fts_def,SEP_CLAUSES,head_key_def] >>
+    fs[map_upd_list_def, fts_mem_def, ann_fts_def,SEP_CLAUSES,head_key_def] >>
     simp[fib_heap_insert_list_def] >>
     strip_tac >>
     qexists `fts` >> gvs[]
@@ -1487,11 +1492,6 @@ Definition list_keys_not_null_def:
     k <> 0w /\ list_keys_not_null xs /\ list_keys_not_null rest)
 End
 
-Definition map_upd_list_def:
-  (map_upd_list [] = []) /\
-  (map_upd_list (FibTree k v ts::rest) =
-    [(k,v.value,v.edges)] ++ map_upd_list rest ++ map_upd_list ts)
-End
 
 Theorem lemma_empty_map:
   !fh. (!k v e. FLOOKUP fh k <> SOME (v,e)) ==> fh = FEMPTY
@@ -1586,7 +1586,7 @@ Theorem fib_heap_insert_list:
      cond(list_not_in_heap fh xs /\ n > LENGTH xs /\ head_key xs = k))
       (fun2set (m,dm)) ∧
     fib_heap_insert_list (a, k, m, dm) = (a', m', b) ⇒
-    (fib_heap a' (fh |++ (to_map_upd_list xs)) * frame) (fun2set (m',dm)) ∧ b
+    (fib_heap a' (fh |++ (map_upd_list xs)) * frame) (fun2set (m',dm)) ∧ b
 Proof
   fs[fib_heap_def] >>
   fs[SEP_CLAUSES, STAR_ASSOC, SEP_EXISTS_THM] >>
@@ -1596,7 +1596,7 @@ Proof
   pop_assum mp_tac >>
   Cases_on `xs`
   >- (
-    fs[to_map_upd_list_def, fts_mem_def, ann_fts_def,SEP_CLAUSES,head_key_def] >>
+    fs[map_upd_list_def, fts_mem_def, ann_fts_def,SEP_CLAUSES,head_key_def] >>
     simp[fib_heap_insert_list_def] >>
     simp[FUPDATE_LIST] >>
     strip_tac >>
