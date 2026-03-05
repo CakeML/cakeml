@@ -20,7 +20,11 @@ Definition check_lrup_list_def:
       (T, dmlb) =>
       SOME (update_resize fml NONE (SOME vc) n, dmlb)
     | _ => NONE)
-  | _ => NONE
+  | Lrupvb n vc s =>
+    (case is_rup_vb_list fml dml b vc s of
+      (T, dmlb) =>
+      SOME (update_resize fml NONE (SOME vc) n, dmlb)
+    | _ => NONE)
 End
 
 Theorem check_lrup_list:
@@ -40,6 +44,10 @@ Proof
     drule_all is_rup_list>>rw[]>>
     simp[fml_rel_update_resize]>>
     metis_tac[])
+  >- (
+    drule_all is_rup_vb_list>>rw[]>>
+    simp[fml_rel_update_resize]>>
+    metis_tac[])
 QED
 
 Theorem check_lrup_list_bnd_fml:
@@ -52,6 +60,9 @@ Proof
   >- metis_tac[bnd_fml_delete_ids_list]
   >- (
     drule_all bnd_fml_is_rup_list>>
+    metis_tac[bnd_fml_update_resize])
+  >- (
+    drule_all bnd_fml_is_rup_vb_list>>
     metis_tac[bnd_fml_update_resize])
 QED
 

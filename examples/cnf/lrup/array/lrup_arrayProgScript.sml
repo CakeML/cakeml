@@ -22,8 +22,9 @@ Quote add_cakeml:
   | Lrup n v hints =>
       (case is_rup_arr lno fml carr b v hints of (dml,b) =>
       (Array.updateResize fml None n (Some v), dml,b))
-  | _ =>
-    raise Fail (format_failure lno ("vb not yet supported."))
+  | Lrupvb n v s =>
+      (case is_rup_vb_arr lno fml carr b v s of (dml,b) =>
+      (Array.updateResize fml None n (Some v), dml,b))
 End
 
 val LRUP_LRUP_TYPE_def = fetch "-" "LRUP_LRUP_TYPE_def";
@@ -89,11 +90,32 @@ Proof
     xcon>>xsimpl>>
     irule LIST_REL_update_resize>>
     simp[OPTION_TYPE_def])
-  >- (
+  >- ( (* Lrupvb *)
+    xlet `
+      POSTve
+        (λres.
+             (SEP_EXISTS b' Carrv' Clist'.
+                W8ARRAY Carrv' Clist' *
+                &(PAIR_TYPE $= WORD8 (Carrv',b') res ∧
+                 is_rup_vb_list fmlls Clist b v m = (T,Clist',b'))) *
+             ARRAY fmlv fmllsv)
+        (λe.
+            &(Fail_exn e ∧ ¬FST (is_rup_vb_list fmlls Clist b v m)))`
+    >- (
+      xapp>>xsimpl>>
+      rpt(first_x_assum (irule_at Any))>>
+      simp[PAIR_TYPE_def]>>rw[]>>
+      xsimpl)
+    >- (
+      xsimpl>>
+      simp[AllCaseEqs()]>>
+      Cases_on`is_rup_vb_list fmlls Clist b v m`>>simp[])>>
+    fs[PAIR_TYPE_def]>>
+    xmatch>>
     rpt xlet_autop>>
-    xraise>>
-    xsimpl>>
-    metis_tac[W8ARRAY_refl,Fail_exn_def])
+    xcon>>xsimpl>>
+    irule LIST_REL_update_resize>>
+    simp[OPTION_TYPE_def])
 QED
 
 (* Parser translation *)
@@ -259,7 +281,9 @@ Definition parse_one_c_def:
   parse_one_c lines =
   case lines of
     [] => SOME NONE : (lrup # mlstring list) option option
-  | (x::xs) => ARB
+  | (x::xs) => (case ARB x of
+                 SOME l => SOME(SOME (l,xs))
+               | NONE => NONE)
 End
 
 Theorem parse_one_c_spec:
@@ -469,7 +493,7 @@ QED
 Definition good_char_opt_def:
   (good_char_opt NONE = F) ∧
   (good_char_opt (SOME c) =
-    (c = #"a" ∨ c = #"d")
+    (c = #"a" ∨ c = #"d"))
 End
 
 val res = translate good_char_opt_def;

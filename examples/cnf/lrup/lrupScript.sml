@@ -28,12 +28,12 @@ Definition check_lrup_def:
   | Lrup n vc hints =>
     if is_rup fml vc hints
     then
-      SOME (insert n vc fml)
+      SOME (fml |+ (n, vc))
     else NONE
   | Lrupvb n vc s =>
     if is_rup_vb fml vc s
     then
-      SOME (insert n vc fml)
+      SOME (fml |+ (n, vc))
     else NONE
 End
 
@@ -48,9 +48,9 @@ End
 
 Theorem check_lrup_sound:
   check_lrup lrup fml = SOME fml' ∧
-  satisfies_vcfml w (range fml)
+  satisfies_vcfml w (FRANGE fml)
   ⇒
-  satisfies_vcfml w (range fml')
+  satisfies_vcfml w (FRANGE fml')
 Proof
   simp[check_lrup_def]>>strip_tac>>
   gvs[AllCaseEqs()]
@@ -62,21 +62,21 @@ Proof
     drule is_rup_sound>>
     disch_then $ drule_at Any>>
     fs[satisfies_vcfml_def]>>
-    metis_tac[satisfies_fml_gen_insert])
+    metis_tac[SRULE [] satisfies_fml_gen_insert])
   >- (
     drule is_rup_vb_sound>>
     disch_then $ drule_at Any>>
     fs[satisfies_vcfml_def]>>
-    metis_tac[satisfies_fml_gen_insert])
+    metis_tac[SRULE [] satisfies_fml_gen_insert])
 QED
 
 (* The main operational theorem about check_lrups *)
 Theorem check_lrups_sound:
   ∀ls fml fml'.
   check_lrups ls fml = SOME fml' ∧
-  satisfies_vcfml w (range fml)
+  satisfies_vcfml w (FRANGE fml)
   ⇒
-  satisfies_vcfml w (range fml')
+  satisfies_vcfml w (FRANGE fml')
 Proof
   Induct>>simp[check_lrups_def]>>
   rw[]>>
