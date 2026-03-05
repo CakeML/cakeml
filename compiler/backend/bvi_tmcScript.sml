@@ -7,6 +7,7 @@ Ancestors
 Libs
   preamble
 
+(* TODO: Read only MemOps *)
 Definition effectful_op_def:
   (effectful_op (Label _) = F) ∧
   (effectful_op (FFI _) = T) ∧
@@ -104,11 +105,7 @@ Definition cons_to_tc_and_hb_def:
       case cons_to_tc_and_hb loc tag op_args of
       | Invalid => Invalid
       | NoTC => NoTC
-      | TC call hb => Invalid (* Call is effectful *)
-(*         let call' = Call t' (SOME loc') args' h' in
-         let hb'   = push_left hb call' in
-           TC call hb'
-*)) ∧
+      | TC call hb => Invalid (* Call is effectful *)) ∧
   (cons_to_tc_and_hb loc tag (op_arg::op_args) =
     case cons_to_tc_and_hb loc tag op_args of
     | Invalid => Invalid
