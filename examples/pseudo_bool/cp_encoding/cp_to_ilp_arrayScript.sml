@@ -8,8 +8,8 @@ Ancestors
   pbc cp ilp cp_to_ilp
 
 (* Element: Xs[Y - offset] = Z *)
-Definition encode_element_aux_1_def:
-  encode_element_aux_1 bnd Yi n =
+Definition encode_proper_index_def:
+  encode_proper_index bnd Yi n =
   let
     (Y,offset) = Yi;
     (lb,ub) =
@@ -28,8 +28,22 @@ Definition encode_element_aux_1_def:
     lbc ++ ubc
 End
 
-Definition cencode_element_aux_1_def:
-  cencode_element_aux_1 bnd Yi n name =
+Theorem encode_proper_index_lem[local]:
+  valid_assignment bnd wi ∧
+  0 ≤ varc wi Y − offset ∧
+  Num (varc wi Y − offset) < n ⇒
+  EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
+    (encode_proper_index bnd (Y,offset) &n)
+Proof
+  rw[encode_proper_index_def]>>
+  every_case_tac>>
+  pairarg_tac>>
+  rw[]>>
+  intLib.ARITH_TAC
+QED
+
+Definition cencode_proper_index_def:
+  cencode_proper_index bnd Yi n name =
   let
     (Y,offset) = Yi;
     (lb,ub) =
@@ -47,11 +61,11 @@ Definition cencode_element_aux_1_def:
   in
     List $ mk_annotate
       (lbann ++ ubann)
-      (encode_element_aux_1 bnd Yi n)
+      (encode_proper_index bnd Yi n)
 End
 
-Definition encode_element_aux_2_def:
-  encode_element_aux_2 bnd Xs Yi Z =
+Definition encode_element_aux_def:
+  encode_element_aux bnd Xs Yi Z =
   let
     (Y,offset) = Yi
   in
@@ -64,8 +78,8 @@ Definition encode_element_aux_2_def:
       Xs
 End
 
-Definition cencode_element_aux_2_def:
-  cencode_element_aux_2 bnd Xs Yi Z name =
+Definition cencode_element_aux_def:
+  cencode_element_aux bnd Xs Yi Z name =
   List $ mk_annotate
     (FLAT $ MAPi
       (λi X.
@@ -74,7 +88,7 @@ Definition cencode_element_aux_2_def:
           mk_name name (int_to_string #"-" (&i) ^ strlit"le")
         ])
       Xs)
-    (encode_element_aux_2 bnd Xs Yi Z)
+    (encode_element_aux bnd Xs Yi Z)
 End
 
 Definition cencode_element_def:
@@ -95,8 +109,8 @@ Definition cencode_element_def:
     (Append
       xs
       (Append
-        (cencode_element_aux_1 bnd Yi (&len) name)
-        (cencode_element_aux_2 bnd Xs Yi Z name)),
+        (cencode_proper_index bnd Yi (&len) name)
+        (cencode_element_aux bnd Xs Yi Z name)),
     ec')
 End
 
@@ -111,11 +125,11 @@ Definition encode_element_def:
       | INR cY => (cY,cY)
   in
     (FLAT $ GENLIST (λi. encode_full_eq bnd Y (offset + &i)) len) ++
-    (encode_element_aux_1 bnd Yi (&len)) ++
-    (encode_element_aux_2 bnd Xs Yi Z)
+    (encode_proper_index bnd Yi (&len)) ++
+    (encode_element_aux bnd Xs Yi Z)
 End
 
-Theorem encode_element_lem[local]:
+Theorem encode_full_eq_lem[local]:
   valid_assignment bnd wi ⇒
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
     (FLAT (GENLIST
@@ -134,28 +148,13 @@ Theorem encode_element_sem_1:
 Proof
   PairCases_on ‘Yi’>>
   rename1 ‘(Y,offset)’>>
-  Cases_on ‘Y’
-  >~[‘INL vY’]
-  >-(
-    rw[element_sem_def,mk_array_ind_def,
-      encode_element_def,encode_element_aux_1_def,encode_element_aux_2_def]>>
-    Cases_on ‘bnd vY’
-    >-simp[encode_element_lem]>>
-    rw[EVERY_FLAT,Once EVERY_MEM,MEM_MAPi,SF DNF_ss,reify_avar_def,reify_reif_def]>>
-    intLib.ARITH_TAC)
-  >~[‘INR cY’]
-  >-(
-    rw[encode_element_def]
-    >-simp[encode_element_lem]>>
-    fs[element_sem_def,mk_array_ind_def,varc_def]
-    >-(
-      rw[encode_element_aux_1_def,varc_def]>>
-      intLib.ARITH_TAC)
-    >-(
-      rw[encode_element_aux_2_def,EVERY_FLAT,
-        Once EVERY_MEM,MEM_FLAT,MEM_MAPi,SF DNF_ss,
-        reify_avar_def,reify_reif_def,varc_def]>>
-      intLib.ARITH_TAC))
+  Cases_on ‘Xs = []’>>
+  rw[element_sem_def,mk_array_ind_def,
+    encode_element_def,encode_proper_index_lem,encode_element_aux_def,
+    encode_full_eq_lem]>>
+  rw[EVERY_FLAT,Once EVERY_MEM,MEM_MAPi]>>
+    simp[EVERY_MEM,reify_avar_def,reify_reif_def,varc_def]>>
+    intLib.ARITH_TAC
 QED
 
 Theorem encode_element_sem_2:
@@ -176,13 +175,13 @@ Proof
     simp[CONJ_ASSOC]>>
     CONJ_ASM1_TAC
     >-(
-      gs[encode_element_aux_1_def,valid_assignment_def,varc_def]>>
+      gs[encode_proper_index_def,valid_assignment_def,varc_def]>>
       last_x_assum $ drule_then assume_tac>>
       every_case_tac>>
       fs[SF DNF_ss,varc_def]>>
       intLib.ARITH_TAC)
     >-(
-      fs[encode_element_aux_2_def,EVERY_FLAT,SF DNF_ss]>>
+      fs[encode_element_aux_def,EVERY_FLAT,SF DNF_ss]>>
       gvs[MEM_MAPi,SF DNF_ss,EVERY_MEM]>>
       rpt (last_x_assum $ drule_then assume_tac)>>
       intLib.ARITH_TAC))
@@ -193,12 +192,12 @@ Proof
     simp[CONJ_ASSOC]>>
     CONJ_ASM1_TAC
     >-(
-      gs[encode_element_aux_1_def,varc_def]>>
+      gs[encode_proper_index_def,varc_def]>>
       every_case_tac>>
       fs[SF DNF_ss,varc_def]>>
       intLib.ARITH_TAC)
     >-(
-      fs[encode_element_aux_2_def,EVERY_FLAT,SF DNF_ss]>>
+      fs[encode_element_aux_def,EVERY_FLAT,SF DNF_ss]>>
       gvs[MEM_MAPi,SF DNF_ss,EVERY_MEM]>>
       rpt (last_x_assum $ drule_then assume_tac)>>
       intLib.ARITH_TAC))
@@ -212,7 +211,6 @@ Proof
   PairCases_on ‘Yi’>>
   rename1 ‘(Y,offset)’>>
   rw[cencode_element_def,encode_element_def,UNCURRY_EQ]>>
-  simp[]>>
   pure_rewrite_tac[GSYM APPEND_ASSOC]>>
   irule enc_rel_Append>>
   drule_at Any enc_rel_fold_cenc>>
@@ -220,7 +218,7 @@ Proof
   disch_then $ irule_at Any>>
   simp[enc_rel_encode_full_eq]>>
   irule enc_rel_Append>>
-  simp[cencode_element_aux_1_def,cencode_element_aux_2_def]>>
+  simp[cencode_proper_index_def,cencode_element_aux_def]>>
   Cases_on ‘Y’
   >-(
     rename1 ‘INL vY’>>
@@ -234,76 +232,8 @@ Proof
 QED
 
 (* Element2D: Xss[Y1 - offset1][Y2 - offset2] = Z *)
-Definition encode_element2d_aux_1_def:
-  encode_element2d_aux_1 bnd Y1i Y2i m n =
-  let
-    (Y1,offset1) = Y1i;
-    (Y2,offset2) = Y2i;
-    (lb1,ub1) =
-      case Y1 of
-        INL vY1 => bnd vY1
-      | INR cY1 => (cY1,cY1);
-    (lb2,ub2) =
-      case Y2 of
-        INL vY2 => bnd vY2
-      | INR cY2 => (cY2,cY2);
-    lb1c =
-      if lb1 < offset1
-      then [mk_constraint_one_ge 1 Y1 offset1]
-      else [];
-    ub1c =
-      if ub1 > offset1 + m - 1
-      then [mk_constraint_one_ge (-1) Y1 (1 - m - offset1)]
-      else [];
-    lb2c =
-      if lb2 < offset2
-      then [mk_constraint_one_ge 1 Y2 offset2]
-      else [];
-    ub2c =
-      if ub2 > offset2 + n - 1
-      then [mk_constraint_one_ge (-1) Y2 (1 - n - offset2)]
-      else []
-  in
-    lb1c ++ ub1c ++ lb2c ++ ub2c
-End
-
-Definition cencode_element2d_aux_1_def:
-  cencode_element2d_aux_1 bnd Y1i Y2i m n name =
-  let
-    (Y1,offset1) = Y1i;
-    (Y2,offset2) = Y2i;
-    (lb1,ub1) =
-      case Y1 of
-        INL vY1 => bnd vY1
-      | INR cY1 => (cY1,cY1);
-    (lb2,ub2) =
-      case Y2 of
-        INL vY2 => bnd vY2
-      | INR cY2 => (cY2,cY2);
-    lb1ann =
-      if lb1 < offset1
-      then [mk_name name $ strlit"lb1"]
-      else [];
-    ub1ann =
-      if ub1 > offset1 + m - 1
-      then [mk_name name $ strlit"ub1"]
-      else [];
-    lb2ann =
-      if lb2 < offset2
-      then [mk_name name $ strlit"lb2"]
-      else [];
-    ub2ann =
-      if ub2 > offset2 + n - 1
-      then [mk_name name $ strlit"ub2"]
-      else []
-  in
-    List $ mk_annotate
-      (lb1ann ++ ub1ann ++ lb2ann ++ ub2ann)
-      (encode_element2d_aux_1 bnd Y1i Y2i m n)
-End
-
-Definition encode_element2d_aux_2_def:
-  encode_element2d_aux_2 bnd Xss Y1i Y2i Z =
+Definition encode_element2d_aux_def:
+  encode_element2d_aux bnd Xss Y1i Y2i Z =
   let
     (Y1,offset1) = Y1i;
     (Y2,offset2) = Y2i
@@ -325,8 +255,8 @@ Definition encode_element2d_aux_2_def:
       Xss
 End
 
-Definition cencode_element2d_aux_2_def:
-  cencode_element2d_aux_2 bnd Xss Y1i Y2i Z name =
+Definition cencode_element2d_aux_def:
+  cencode_element2d_aux bnd Xss Y1i Y2i Z name =
   let
     (Y1,offset1) = Y1i;
     (Y2,offset2) = Y2i
@@ -347,12 +277,12 @@ Definition cencode_element2d_aux_2_def:
             ])
           Xs)
         Xss)
-      (encode_element2d_aux_2 bnd Xss Y1i Y2i Z)
+      (encode_element2d_aux bnd Xss Y1i Y2i Z)
 End
 
 Definition cencode_element2d_def:
   cencode_element2d bnd Xss Y1i Y2i Z name ec =
-  if LENGTH Xss > 0 ∧ EVERY (λXs. LENGTH Xs = LENGTH $ HD Xss) Xss
+  if 0 < LENGTH Xss ∧ ∃l. EVERY (λXs. LENGTH Xs = l) Xss
   then
     let
       len1 = LENGTH Xss;
@@ -367,41 +297,37 @@ Definition cencode_element2d_def:
         case Y2 of
           INL vY2 => bnd vY2
         | INR cY2 => (cY2,cY2);
-      (xs'',ec'') =
+      (xs',ec') =
         fold_cenc
           (λi ec. cencode_full_eq bnd Y1 (offset1 + &i) ec)
           (COUNT_LIST len1)
           ec;
-      (xs',ec') =
+      (xs'',ec'') =
         fold_cenc
           (λj ec. cencode_full_eq bnd Y2 (offset2 + &j) ec)
           (COUNT_LIST len2)
-          ec''
+          ec'
     in
       (Append
-        xs'
+        (Append xs' xs'')
         (Append
-          (cencode_element2d_aux_1
-            bnd
-            Y1i
-            Y2i
-            (&len1)
-            (&len2)
-            name)
-          (cencode_element2d_aux_2
+          (Append
+            (cencode_proper_index bnd Y1i (&len1) name)
+            (cencode_proper_index bnd Y2i (&len2) name))
+          (cencode_element2d_aux
             bnd
             Xss
             Y1i
             Y2i
             Z
             name)),
-      ec')
+      ec'')
   else (cfalse_constr,ec)
 End
 
 Definition encode_element2d_def:
   encode_element2d bnd Xss Y1i Y2i Z =
-  if LENGTH Xss > 0 ∧ EVERY (λXs. LENGTH Xs = LENGTH $ HD Xss) Xss
+  if 0 < LENGTH Xss ∧ ∃l. EVERY (λXs. LENGTH Xs = l) Xss
   then
     let
       len1 = LENGTH Xss;
@@ -419,8 +345,9 @@ Definition encode_element2d_def:
     in
       (FLAT $ GENLIST (λi. encode_full_eq bnd Y1 (offset1 + &i)) len1) ++
       (FLAT $ GENLIST (λj. encode_full_eq bnd Y2 (offset2 + &j)) len2) ++
-      (encode_element2d_aux_1 bnd Y1i Y2i (&len1) (&len2)) ++
-      (encode_element2d_aux_2 bnd Xss Y1i Y2i Z)
+      (encode_proper_index bnd Y1i (&len1)) ++
+      (encode_proper_index bnd Y2i (&len2)) ++
+      (encode_element2d_aux bnd Xss Y1i Y2i Z)
   else [false_constr]
 End
 
@@ -433,23 +360,19 @@ Proof
   PairCases_on ‘Y1i’>>
   PairCases_on ‘Y2i’>>
   rename1 ‘element2d_sem _ (Y1,offset1) (Y2,offset2) _ _’>>
-  (Cases_on ‘Y1’>>Cases_on ‘Y2’)
-  >~[‘encode_element2d _ _ (INL vY1,_) (INL vY2,_) _’]
+  Cases_on ‘Xss = []’>>
+  rw[element2d_sem_def,mk_array_ind_def]>>
+  rename1 ‘EVERY (λXs. LENGTH Xs = len) _’>>
+  ‘len = LENGTH (HD Xss)’ by (
+    drule HEAD_MEM>>
+    fs[EVERY_MEM])>>
+  rw[encode_element2d_def,encode_element2d_aux_def,
+    encode_full_eq_lem,encode_proper_index_lem]
   >-(
-    rw[element2d_sem_def,mk_array_ind_def,
-      encode_element2d_def,encode_element2d_aux_1_def,encode_element2d_aux_2_def]>>
-    (Cases_on ‘bnd vY1’>>Cases_on ‘bnd vY2’)
-    >-simp[encode_element_lem]
-    >-simp[encode_element_lem]
-    >-cheat
-    >-cheat
-    >-cheat)
-  >~[‘encode_element2d _ _ (INL vY1,_) (INR cY2,_) _’]
-  >-cheat
-  >~[‘encode_element2d _ _ (INR cY1,_) (INL vY2,_) _’]
-  >-cheat
-  >~[‘encode_element2d _ _ (INR cY1,_) (INR cY2,_) _’]
-  >-cheat
+    ntac 2 (rw[EVERY_FLAT,Once EVERY_MEM,MEM_MAPi])>>
+    simp[EVERY_MEM,reify_avar_def,reify_reif_def,varc_def]>>
+    intLib.ARITH_TAC)
+  >-metis_tac[NOT_EVERY]
 QED
 
 Theorem encode_element2d_sem_2:
@@ -458,7 +381,76 @@ Theorem encode_element2d_sem_2:
     (encode_element2d bnd Xss Y1i Y2i Z) ⇒
   element2d_sem Xss Y1i Y2i Z wi
 Proof
-  cheat
+  PairCases_on ‘Y1i’>>
+  PairCases_on ‘Y2i’>>
+  rename1 ‘element2d_sem _ (Y1,offset1) (Y2,offset2) _ _’>>
+  rw[encode_element2d_def]>>
+  gs[EVERY_FLAT,element2d_sem_def,mk_array_ind_def,encode_element2d_def,
+    MEM_FLAT,SF DNF_ss,EVERY_GENLIST]>>
+  rename1 ‘EVERY (λXs. LENGTH Xs = len) _’>>
+  qexists ‘len’>>
+  simp[CONJ_ASSOC]>>
+  CONJ_ASM1_TAC
+  >-(
+    gs[encode_proper_index_def,valid_assignment_def]>>
+    rpt (pairarg_tac>>fs[])>>
+    ‘LENGTH (HD Xss) = len’ by (
+      Cases_on ‘Xss’>>
+      fs[])>>
+    pop_assum SUBST_ALL_TAC>>
+    every_case_tac>>
+    gvs[EVERY_MEM,mk_constraint_one_ge_sem]>>
+    fs[varc_def]>>
+    last_assum $ drule_then assume_tac>>
+    last_assum $ rev_drule_then assume_tac>>
+    intLib.ARITH_TAC)
+  >-(
+    ‘Xss ≠ []’ by simp[GSYM LENGTH_NON_NIL]>>
+    drule_then assume_tac HEAD_MEM>>
+    fs[encode_element2d_aux_def,EVERY_FLAT]>>
+    qmatch_asmsub_abbrev_tac ‘EVERY P (MAPi _ _)’>>
+    gvs[MEM_MAPi,SF DNF_ss,EVERY_MEM]>>
+    unabbrev_all_tac>>
+    fs[EVERY_FLAT]>>
+    qmatch_asmsub_abbrev_tac ‘EVERY P (MAPi _ _)’>>
+    gvs[MEM_MAPi,SF DNF_ss,EVERY_MEM]>>
+    qmatch_asmsub_abbrev_tac ‘i < LENGTH Xss’>>
+    drule_then assume_tac EL_MEM>>
+    first_x_assum $ drule>>
+    first_x_assum $ drule_then assume_tac>>
+    disch_then $ (fn thm => fs[thm])>>
+    qmatch_asmsub_abbrev_tac ‘j < len’>>
+    rpt (first_x_assum $ drule_then assume_tac)>>
+    unabbrev_all_tac>>
+    gvs[EVERY_MEM,bits_imply_sem]>>
+    intLib.ARITH_TAC)
+QED
+
+Theorem cencode_element2d_sem:
+  valid_assignment bnd wi ∧
+  cencode_element2d bnd Xss Y1i Y2i Z name ec = (es,ec') ⇒
+  enc_rel wi es (encode_element2d bnd Xss Y1i Y2i Z) ec ec'
+Proof
+  PairCases_on ‘Y1i’>>
+  PairCases_on ‘Y2i’>>
+  rename1 ‘encode_element2d _ _ (Y1,offset1) (Y2,offset2) _ ’>>
+  rw[cencode_element2d_def,encode_element2d_def,UNCURRY_EQ,SYM MAP_COUNT_LIST]>>
+  pure_rewrite_tac[METIS_PROVE[APPEND_ASSOC]
+    “a ++ b ++ c ++ d ++ e = a ++ b ++ (c ++ d ++ e)”]>>
+  rpt (irule_at Any enc_rel_Append)>>
+  drule_at Any enc_rel_fold_cenc>>
+  disch_then $ irule_at Any>>
+  rev_drule_at Any enc_rel_fold_cenc>>
+  disch_then $ irule_at Any>>
+  simp[enc_rel_encode_full_eq]>>
+  simp[cencode_proper_index_def]>>
+  ntac 2 (qexists ‘ec'’)>>
+  every_case_tac>>
+  rpt (pairarg_tac>>fs[])>>
+  rpt IF_CASES_TAC>>
+  simp[enc_rel_List_mk_annotate]>>
+  simp[cencode_element2d_aux_def]>>
+  simp[enc_rel_List_mk_annotate]
 QED
 
 Definition arri_def[simp]:
@@ -671,7 +663,7 @@ Definition cencode_array_constr_def:
   cencode_array_constr bnd c name ec =
   case c of
     Element Xs Yi Z => cencode_element bnd Xs Yi Z name ec
-  | Element2D Xss Y1i Y2i Z => (List [], ec)
+  | Element2D Xss Y1i Y2i Z => cencode_element2d bnd Xss Y1i Y2i Z name ec
   | ArrayMax Xs Y => (cencode_array_max bnd Xs Y name,ec)
   | ArrayMin Xs Y => (cencode_array_min bnd Xs Y name,ec)
 End
@@ -684,7 +676,7 @@ Proof
   Cases_on‘c’>>
   rw[cencode_array_constr_def,encode_array_constr_def]
   >- metis_tac[cencode_element_sem]
-  >- cheat
+  >- metis_tac[cencode_element2d_sem]
   >- metis_tac[cencode_array_max_sem]
   >- metis_tac[cencode_array_min_sem]
 QED
