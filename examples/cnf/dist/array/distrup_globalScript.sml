@@ -473,3 +473,11 @@ Proof
       rw[EL_REPLICATE]) >>
   rw[]
 QED
+
+Theorem resume_ok_makes_sense:
+  events_ok events aevents lst ∧
+  resume_ok lst events' avents' lst' ⇒
+  events_ok (events ++ events') (aevents ++ aevents') lst'
+Proof
+  cheat
+QED
