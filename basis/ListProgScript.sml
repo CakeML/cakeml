@@ -456,8 +456,6 @@ val sort_via_sfx_trees_v_thm = sort_via_sfx_trees_def |> translate;
 
 val _ = ml_translatorLib.use_sub_check false;
 
-val _ = ml_prog_update open_local_in_block;
-
 Theorem heap_list_sort_eq_sort_via_sfx_trees:
   heap_list_sort R xs = sort_via_sfx_trees R xs
 Proof
@@ -468,9 +466,13 @@ Proof
   \\ simp [heap_list_sort_monadicTheory.sort_via_sfx_trees_worker_eq]
 QED
 
+val heap_list_sort_v_thm = heap_list_sort_eq_sort_via_sfx_trees |> translate;
+
+val _ = ml_prog_update open_local_in_block;
+
 val _ = next_ml_names := ["sort"];
 
-val sort_v_thm = heap_list_sort_eq_sort_via_sfx_trees |> translate;
+val sort_v_thm = mllistTheory.sort_thm |> translate;
 
 val _ =  ml_prog_update close_local_blocks;
 val _ =  ml_prog_update (close_module NONE);
