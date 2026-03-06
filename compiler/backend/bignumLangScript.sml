@@ -27,7 +27,7 @@ Datatype:
        | Seq stmt stmt
        | If cmp mlstring ('a cmp_arg) stmt stmt
        | While cmp mlstring ('a cmp_arg) stmt
-       | Dec (mlstring # 'a exp) stmt
+       | Dec mlstring ('a exp) stmt
        | Assign mlstring ('a exp)
        | Move ((mlstring # mlstring) list)
        | Store ('a exp) mlstring

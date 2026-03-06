@@ -599,50 +599,58 @@ end = struct
 
   local
     val alpha = Type.alpha
-    (* asm *)
-    val add_tm      = HolKernel.prim_mk_const{Thy="asm", Name="Add"}
-    val sub_tm      = HolKernel.prim_mk_const{Thy="asm", Name="Sub"}
-    val and_tm      = HolKernel.prim_mk_const{Thy="asm", Name="And"}
-    val or_tm       = HolKernel.prim_mk_const{Thy="asm", Name="Or"}
-    val xor_tm      = HolKernel.prim_mk_const{Thy="asm", Name="Xor"}
-    val equal_tm    = HolKernel.prim_mk_const{Thy="asm", Name="Equal"}
-    val lower_tm    = HolKernel.prim_mk_const{Thy="asm", Name="Lower"}
-    val less_tm     = HolKernel.prim_mk_const{Thy="asm", Name="Less"}
-    val test_tm     = HolKernel.prim_mk_const{Thy="asm", Name="Test"}
-    val notequal_tm = HolKernel.prim_mk_const{Thy="asm", Name="NotEqual"}
-    val notlower_tm = HolKernel.prim_mk_const{Thy="asm", Name="NotLower"}
-    val notless_tm  = HolKernel.prim_mk_const{Thy="asm", Name="NotLess"}
-    val nottest_tm  = HolKernel.prim_mk_const{Thy="asm", Name="NotTest"}
-    (* bignumLang *)
-    val exp_ty = Type.mk_thy_type{Thy="bignumLang", Tyop="exp", Args=[alpha]}
-    val stmt_ty = Type.mk_thy_type{Thy="bignumLang", Tyop="stmt", Args=[alpha]}
-    val mlstring_pair_ty =
-      pairSyntax.mk_prod(mlstringSyntax.mlstring_ty, mlstringSyntax.mlstring_ty)
-    val func_ty =
-      pairSyntax.mk_prod(mlstringSyntax.mlstring_ty,
-        pairSyntax.mk_prod(
-          listSyntax.mk_list_type mlstringSyntax.mlstring_ty, stmt_ty))
-    (* helpers *)
+
+    fun mk_asm_const n = HolKernel.prim_mk_const {Thy="asm", Name=n}
+    val add_tm      = mk_asm_const "Add"
+    val sub_tm      = mk_asm_const "Sub"
+    val and_tm      = mk_asm_const "And"
+    val or_tm       = mk_asm_const "Or"
+    val xor_tm      = mk_asm_const "Xor"
+    val equal_tm    = mk_asm_const "Equal"
+    val lower_tm    = mk_asm_const "Lower"
+    val less_tm     = mk_asm_const "Less"
+    val test_tm     = mk_asm_const "Test"
+    val notequal_tm = mk_asm_const "NotEqual"
+    val notlower_tm = mk_asm_const "NotLower"
+    val notless_tm  = mk_asm_const "NotLess"
+    val nottest_tm  = mk_asm_const "NotTest"
+
+    val str_ty = mlstringSyntax.mlstring_ty
+    val str_pair_ty = pairSyntax.mk_prod (str_ty, str_ty)
+    val str_list_ty = listSyntax.mk_list_type str_ty
+
+    val mk_str = mlstringSyntax.mk_mlstring
+    fun mk_str_pair (l, r) = pairSyntax.mk_pair (mk_str l, mk_str r)
+    val mk_str_list = listSyntax.lift_list str_list_ty mk_str
     fun mk_word n =
       integer_wordSyntax.mk_i2w (intSyntax.term_of_int (Arbint.fromLargeInt n), alpha)
-    val mk_str = mlstringSyntax.mk_mlstring
-    (* exp constructors *)
+
+    fun mk_bignum_ty tyop =
+      Type.mk_thy_type {Thy="bignumLang", Tyop=tyop, Args=[alpha]}
+    val exp_ty = mk_bignum_ty "exp"
+    val stmt_ty = mk_bignum_ty "stmt"
+    val func_ty =
+      pairSyntax.mk_prod(str_ty, pairSyntax.mk_prod (str_list_ty, stmt_ty))
+
     val (_,mk_Const,_,_) = HolKernel.syntax_fns1 "bignumLang" "Const"
     val (_,mk_Var,_,_)   = HolKernel.syntax_fns1 "bignumLang" "Var"
     val (_,mk_Load,_,_)  = HolKernel.syntax_fns1 "bignumLang" "Load"
     val (_,mk_Op,_,_)    = HolKernel.syntax_fns2 "bignumLang" "Op"
     val (_,mk_Shift,_,_) = HolKernel.syntax_fns3 "bignumLang" "Shift"
-    (* cmp_arg constructors *)
+
     val (_,mk_cVar,_,_)   = HolKernel.syntax_fns1 "bignumLang" "cVar"
     val (_,mk_cConst,_,_) = HolKernel.syntax_fns1 "bignumLang" "cConst"
-    (* stmt constructors *)
-    val skip_tm = HolKernel.prim_mk_const{Name="Skip", Thy="bignumLang"}
+
+    fun mk_bignum_const n = HolKernel.prim_mk_const {Thy="bignumLang", Name=n}
+    val skip_tm = mk_bignum_const "Skip"
+    val if_tm = mk_bignum_const "If"
+
+    fun mk_If (cmp, var, arg, thn, els) =
+      list_mk_comb (if_tm, [cmp, var, arg, thn, els])
+
     val (_,mk_Seq,_,_)    = HolKernel.syntax_fns2 "bignumLang" "Seq"
-    fun mk_If (cmp, var, arg, thn, els) = let
-        val if_tm = HolKernel.prim_mk_const{Thy="bignumLang", Name="If"}
-    in list_mk_comb (if_tm, [cmp, var, arg, thn, els]) end
     val (_,mk_While,_,_)  = HolKernel.syntax_fns4 "bignumLang" "While"
-    val (_,mk_Dec,_,_)    = HolKernel.syntax_fns2 "bignumLang" "Dec"
+    val (_,mk_Dec,_,_)    = HolKernel.syntax_fns3 "bignumLang" "Dec"
     val (_,mk_Assign,_,_) = HolKernel.syntax_fns2 "bignumLang" "Assign"
     val (_,mk_Move,_,_)   = HolKernel.syntax_fns1 "bignumLang" "Move"
     val (_,mk_Store,_,_)  = HolKernel.syntax_fns2 "bignumLang" "Store"
@@ -677,67 +685,47 @@ end = struct
     | exp_to_term (Load e) =
         mk_Load (exp_to_term e)
     | exp_to_term (Op (b, es)) =
-        mk_Op
-          (binop_to_term b, listSyntax.mk_list (map exp_to_term es, exp_ty))
+        mk_Op (binop_to_term b, listSyntax.lift_list (listSyntax.mk_list_type exp_ty) exp_to_term es)
     | exp_to_term (Shift (sh, e1, e2)) =
-        mk_Shift (shift_to_term sh, exp_to_term e1,
-                                   exp_to_term e2)
+        mk_Shift (shift_to_term sh, exp_to_term e1, exp_to_term e2)
 
   fun cmp_arg_to_term (cVar s)   = mk_cVar (mk_str s)
     | cmp_arg_to_term (cConst n) = mk_cConst (mk_word n)
 
-  fun stmt_to_term Skip =
-        Term.inst [alpha |-> alpha] skip_tm
+  fun stmt_to_term Skip = skip_tm
     | stmt_to_term (Seq (s1, s2)) =
         mk_Seq (stmt_to_term s1, stmt_to_term s2)
     | stmt_to_term (If (c, v, ca, s1, s2)) =
         mk_If (cmp_to_term c, mk_str v, cmp_arg_to_term ca,
                stmt_to_term s1, stmt_to_term s2)
     | stmt_to_term (While (c, v, ca, s)) =
-        mk_While
-          (cmp_to_term c, mk_str v, cmp_arg_to_term ca, stmt_to_term s)
+        mk_While (cmp_to_term c, mk_str v, cmp_arg_to_term ca, stmt_to_term s)
     | stmt_to_term (Dec (v, e, s)) =
-        mk_Dec
-          (pairSyntax.mk_pair (mk_str v, exp_to_term e), stmt_to_term s)
+        mk_Dec (mk_str v, exp_to_term e, stmt_to_term s)
     | stmt_to_term (Assign (v, e)) =
         mk_Assign (mk_str v, exp_to_term e)
     | stmt_to_term (Move pairs) =
-        mk_Move
-          (listSyntax.mk_list
-            (map (fn (d,s) => pairSyntax.mk_pair (mk_str d, mk_str s)) pairs,
-             mlstring_pair_ty))
+        mk_Move (listSyntax.lift_list (listSyntax.mk_list_type str_pair_ty) mk_str_pair pairs)
     | stmt_to_term (Store (e, v)) =
         mk_Store (exp_to_term e, mk_str v)
     | stmt_to_term (Return vs) =
-        mk_Return
-          (listSyntax.mk_list (map mk_str vs, mlstringSyntax.mlstring_ty))
-    | stmt_to_term (Call (ret, fname, args)) =
-        let val ret_tm =
-              case ret of
-                NONE => optionSyntax.mk_none
-                  (listSyntax.mk_list_type mlstringSyntax.mlstring_ty)
-              | SOME vs => optionSyntax.mk_some
-                  (listSyntax.mk_list
-                    (map mk_str vs, mlstringSyntax.mlstring_ty))
-        in
-          mk_Call
-            (ret_tm, mk_str fname,
-             listSyntax.mk_list (map exp_to_term args, exp_ty))
-        end
+        mk_Return (mk_str_list vs)
+    | stmt_to_term (Call (ret, fname, args)) = let
+        val ret_tm = optionSyntax.lift_option str_list_ty mk_str_list ret
+        val args_tm = listSyntax.lift_list (listSyntax.mk_list_type exp_ty) exp_to_term args
+      in mk_Call (ret_tm, mk_str fname, args_tm) end
 
   fun func_to_term (name, params, body) =
     pairSyntax.mk_pair (mk_str name,
-      pairSyntax.mk_pair
-        (listSyntax.mk_list (map mk_str params, mlstringSyntax.mlstring_ty),
-         stmt_to_term body))
+      pairSyntax.mk_pair (mk_str_list params, stmt_to_term body))
 
   fun prog_to_term prog =
-    listSyntax.mk_list (map func_to_term prog, func_ty)
+    listSyntax.lift_list (listSyntax.mk_list_type func_ty) func_to_term prog
 
   fun bignum [QUOTE s] =
         ((prog_to_term $ parse s) handle e => raise wrap_exn "bignumLangLib" "bignum" e)
     | bignum _         =
-        raise mk_HOL_ERR "bignumLangLib" "bignum" "unsupported frag list"
+        raise mk_HOL_ERR "bignumLangLib" "bignum" "expected a single QUOTE fragment"
   end
 
 end

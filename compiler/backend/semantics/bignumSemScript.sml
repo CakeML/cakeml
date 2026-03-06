@@ -156,8 +156,7 @@ Definition evaluate_def[nocompute]:
       | NONE => (SOME Error,s))
     | _ => (SOME Error,s))) ∧
   (evaluate (While cmp v arg body, s) = (NONE, s)) ∧
-  (evaluate (Dec dec body, s) =
-   let (name, exp) = dec in
+  (evaluate (Dec name exp body, s) =
      if ¬is_var s name then (SOME Error, s) else
      case bignum_exp s exp of
      | SOME w =>
