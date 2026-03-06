@@ -934,7 +934,10 @@ Proof
   simp[Once fib_num_def]
 QED
 
+(*
 
+Maybe replace by fib_heap_insert_list?
+Comment to reduce HOLMAKE!
 
 Theorem fib_heap_insert:
   ∀frame k v fh.
@@ -1148,6 +1151,9 @@ Proof
   pure_rewrite_tac[GSYM APPEND_ASSOC,APPEND] >>
   disch_tac >> simp[]
 QED
+
+*)
+
 
 (*-------------------------------------------------------------------*
    Fib Heap Extract Minimum Definition and Verification
