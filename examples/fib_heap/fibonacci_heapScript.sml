@@ -1519,16 +1519,14 @@ QED
 
 
 Theorem lemma_map_no_null_key:
-  !n fts fh k.
+  !fts n fh k.
     list_keys_not_null fts /\ fts_has k n fts /\
     (FLOOKUP fh 0w = NONE) ==>
-    FLOOKUP (fh |++ map_upd_list fts) 0w <> SOME (v,e)
+    FLOOKUP (fh |++ map_upd_list fts) 0w = NONE
 Proof
-  strip_tac >>
   ho_match_mp_tac map_upd_list_ind >>
   rpt strip_tac
   >- fs[Once fts_has_cases] >>
-  pop_assum mp_tac >> simp[] >>
   fs[list_keys_not_null_def] >>
   qpat_assum `fts_has k' n (FibTree k fts fts'::fts'')` mp_tac >>
   pure_rewrite_tac[Once fts_has_cases] >>
@@ -1537,6 +1535,9 @@ Proof
     pure_rewrite_tac[map_upd_list_def] >>
     simp[FUPDATE_LIST_APPEND] >>
     simp[GSYM FUPDATE_EQ_FUPDATE_LIST] >>
+    qpat_x_assum `fts_has k fts (FibTree k fts fts'::fts'')` mp_tac >>
+    pure_rewrite_tac[Once fts_has_cases] >>
+
     gvs[] >>
     cheat
     ) >>
@@ -1574,7 +1575,9 @@ Proof
       ) >>
     Cases_on `h` >>
     fs[fts_is_min_def,fts_min_def,head_key_def] >>
-    strip_tac >> cheat
+    rpt strip_tac
+    >- cheat >>
+    cheat
      ) >>
   cheat
 QED
@@ -1619,17 +1622,85 @@ QED
 
 
 
+
+Definition res_rm_upd_def:
+  res_rm_upd (c:num) (rm, (r:num), FibTree k v l) =
+    if c = 0 then rm else
+    case FLOOKUP rm r of
+      SOME(k',v',l') =>
+        let rm = rm \\ r in
+          if v.value <=+ v'.value then
+            res_rm_upd (c-1) (rm,(r + 1),(FibTree k v (FibTree k' v' l'::l)))
+          else
+            res_rm_upd (c-1) (rm,(r + 1),(FibTree k' v' (FibTree k v l::l')))
+     |NONE =>
+        (rm |+ (r,k,v,l))
+End
+
+Definition fill_rm_def:
+  (fill_rm (c:num) (rm, []) = rm) /\
+  (fill_rm c (rm, (FibTree k v l::fts)) =
+    case FLOOKUP rm (LENGTH l) of
+      SOME(_,_,_) => res_rm_upd c (rm,LENGTH l, FibTree k v l)
+     |NONE => fill_rm c ((rm |+ ((LENGTH l),k,v,l)),fts))
+End
+
+Definition map_to_list_def:
+  (map_to_list (r:num) mp =
+    if r = 0 then
+      case FLOOKUP mp r of
+        SOME (k,v,l) => [FibTree k v l]
+       |NONE => []
+    else
+      case FLOOKUP mp r of
+        SOME (k,v,l) => (FibTree k v l::map_to_list (r-1) mp)
+       |NONE => map_to_list (r-1) mp )
+End
+
+
+Definition fts_find_min_def:
+  (fts_find_min min [] = min) /\
+  (fts_find_min (FibTree k v l) (FibTree k' v' l'::fts) =
+    if v.value <=+ v'.value then
+      fts_find_min (FibTree k v l) fts
+    else
+      fts_find_min (FibTree k' v' l') fts )
+End
+
+Definition fts_set_min_hd_def:
+  (fts_set_min_hd min rest [] = []) /\ (* This case should be impossible *)
+  (fts_set_min_hd (FibTree mk mv ml) rest (FibTree k' v' l'::fts) =
+    if mk = k' then
+      (FibTree k' v' l'::fts) ++ rest
+    else
+      fts_set_min_hd (FibTree mk mv ml) (FibTree k' v' l'::fts) fts)
+End
+
+Definition fts_highest_rank_def:
+  (fts_highest_rank (r:num) [] = r) /\
+  (fts_highest_rank r (FibTree k v l::fts) =
+    if r <= LENGTH l then
+      fts_highest_rank (LENGTH l) fts
+    else
+      fts_highest_rank r fts )
+End
+
 (*
-Definition fib_heap_rebalancing_def:
-  fib_heap_rebalancing
-    (a:'a word, t:'a word, m:'a word -> 'a word, dm:'a word set)
-   let c = (a IN dm) in
-   let
+Type error between map and list?
 
-
-   (m,c)
+Definition fts_reb_def:
+  (fts_reb [] = []) /\
+  (fts_reb (FibTree k v l::fts) =
+    let rm = fill_rm (LENGTH fts + 1) (FEMPTY, (FibTree k v l::fts)) in
+    let list = map_to_list ((fts_highest_rank 0 (FibTree k v l::fts))
+        + LENGTH fts + 1) rm in
+    let min = fts_find_min (HD list) list in
+      fts_set_min_hd min list )
 End
 *)
+
+
+
 
 Definition fib_heap_extract_min_def:
   fib_heap_extract_min
