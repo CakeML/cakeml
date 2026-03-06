@@ -1518,38 +1518,43 @@ Proof
 QED
 
 
-Theorem lemma_map_no_null_key:
-  !fts n fh k.
-    list_keys_not_null fts /\ fts_has k n fts /\
-    (FLOOKUP fh 0w = NONE) ==>
+Theorem lemma_map_update_not_null:
+  !fts fh.
+    list_keys_not_null fts /\ (FLOOKUP fh 0w = NONE) ==>
     FLOOKUP (fh |++ map_upd_list fts) 0w = NONE
 Proof
   ho_match_mp_tac map_upd_list_ind >>
+  simp[Once list_keys_not_null_def] >>
+  simp[Once map_upd_list_def] >>
   rpt strip_tac
-  >- fs[Once fts_has_cases] >>
+  >- simp[FUPDATE_LIST] >>
   fs[list_keys_not_null_def] >>
-  qpat_assum `fts_has k' n (FibTree k fts fts'::fts'')` mp_tac >>
-  pure_rewrite_tac[Once fts_has_cases] >>
-  strip_tac >> gvs[]
+  pure_rewrite_tac[map_upd_list_def] >>
+  simp[FUPDATE_LIST_APPEND] >>
+  simp[GSYM FUPDATE_EQ_FUPDATE_LIST] >>
+  rename [`(k,v,e)`] >>
+  Cases_on `FLOOKUP (fh |+ (k,v,e)) 0w = NONE`
   >- (
-    pure_rewrite_tac[map_upd_list_def] >>
-    simp[FUPDATE_LIST_APPEND] >>
-    simp[GSYM FUPDATE_EQ_FUPDATE_LIST] >>
-    qpat_x_assum `fts_has k fts (FibTree k fts fts'::fts'')` mp_tac >>
-    pure_rewrite_tac[Once fts_has_cases] >>
-
-    gvs[] >>
-    cheat
+    last_x_assum(qspec_then `(fh |+ (k,v,e))` assume_tac) >>
+    rfs[]
     ) >>
+  fs[FLOOKUP_SIMP]
+QED
+
+Theorem lemma_map_eq_fts_has:
+  !fh fts k v e.
+    (FLOOKUP (fh |++ (map_upd_list fts)) k = SOME (v,e)) /\ (FLOOKUP fh k = NONE) <=>
+    ?m. fts_has k (fill_dnode v e m) fts
+Proof
   cheat
 QED
 
+
 Theorem lemma_insert_list_new_min_inv:
-  !fts fh xs v k n.
+  !fts fh xs v .
     (fib_heap_inv fh fts) /\
       (fts_is_min v xs) /\ (v = fts_min xs) /\
       (list_keys_not_null xs) /\
-      (fts_has k n xs) /\
       (v <=+ fts_min fts) ==>
     (fib_heap_inv (fh |++ map_upd_list xs) (xs ++ fts))
 Proof
@@ -1576,7 +1581,17 @@ Proof
     Cases_on `h` >>
     fs[fts_is_min_def,fts_min_def,head_key_def] >>
     rpt strip_tac
-    >- cheat >>
+    >- (dxrule lemma_map_update_not_null >> strip_tac >>fs[])
+    >- (
+      qspecl_then [`FEMPTY`,`(FibTree k v' l::t)`, `k'`, `v''`, `e`]
+        assume_tac lemma_map_eq_fts_has >> fs[]
+      )
+    >- (
+      gvs[] >>
+      fs[map_upd_list_def,FUPDATE_FUPDATE_LIST_COMMUTES] >>
+      fs[FLOOKUP_SIMP] >>
+      cheat
+     ) >>
     cheat
      ) >>
   cheat
@@ -1645,6 +1660,7 @@ Definition fill_rm_def:
      |NONE => fill_rm c ((rm |+ ((LENGTH l),k,v,l)),fts))
 End
 
+
 Definition map_to_list_def:
   (map_to_list (r:num) mp =
     if r = 0 then
@@ -1685,6 +1701,7 @@ Definition fts_highest_rank_def:
       fts_highest_rank r fts )
 End
 
+
 (*
 Type error between map and list?
 
@@ -1692,10 +1709,10 @@ Definition fts_reb_def:
   (fts_reb [] = []) /\
   (fts_reb (FibTree k v l::fts) =
     let rm = fill_rm (LENGTH fts + 1) (FEMPTY, (FibTree k v l::fts)) in
-    let list = map_to_list ((fts_highest_rank 0 (FibTree k v l::fts))
-        + LENGTH fts + 1) rm in
-    let min = fts_find_min (HD list) list in
-      fts_set_min_hd min list )
+    let list = map_to_list ((fts_highest_rank 0 (FibTree k v l::fts)) +
+                            LENGTH fts + 1) rm in
+    let m = fts_find_min (HD list) list in
+      fts_set_min_hd m list )
 End
 *)
 
