@@ -7,16 +7,14 @@ Ancestors
 Libs
   preamble
 
-val s = mk_var("s",
-  type_of ``bviSem$evaluate`` |> strip_fun |> snd |> dest_prod |> snd
-  |> type_subst [alpha|->``:num#'c``,beta|->``:'ffi``]);
+val s = “s : (num # γ, 'ffi) bviSem$state”;
 
 Definition env_rel_def:
   env_rel opt l env1 env2 <=>
     isPREFIX env1 env2 ∧
     (opt ⇒
       LENGTH env1 = l ∧
-      LENGTH env2 > l ∧
+      LENGTH env2 = l + 2 ∧
       ∃hole_ptr hole_idx.
         EL l env2 = RefPtr F hole_ptr ∧
         EL (l + 1) env2 = Number hole_idx)
@@ -28,7 +26,7 @@ Definition code_rel_def:
   code_rel c1 c2 ⇔
     ∀loc arity exp exp_aux.
       lookup loc c1 = SOME (arity, exp) ⇒
-      ∃n.
+      ∃n. (* Case on compile_exp instead *)
         (rewrite_aux loc n arity exp = NONE ⇒
           lookup loc c2 = SOME (arity, exp)) ∧
         (rewrite_aux loc n arity exp = SOME exp_aux ⇒
@@ -39,11 +37,10 @@ Definition code_rel_def:
 End
 
 Definition optimized_code_def:
-  optimized_code loc arity exp n c =
-    ∃exp_aux exp_opt.
-        compile_exp loc n arity exp = SOME (exp_aux, exp_opt) ∧
-        lookup loc c                = SOME (arity, exp_aux) ∧
-        lookup n c                  = SOME (arity + 1, exp_opt)
+  optimized_code loc arity exp loc_opt c exp_aux exp_opt ⇔
+    compile_exp loc loc_opt arity exp = SOME (exp_aux, exp_opt) ∧
+    lookup loc c                      = SOME (arity, exp_aux) ∧
+    lookup loc_opt c                  = SOME (arity + 2, exp_opt)
 End
 
 (* Copied *)
@@ -93,6 +90,13 @@ Proof
   cheat
 QED
 
+Definition opt_res_rel_def:
+  opt_res_rel (r1 : (v list, v) result) (r2 : (v list, v) result) =
+    case r1 of
+    | Rval v1 => r2 = Rval [Block 0 []]
+    | _ => r1 = r2
+End
+
 (* Copied *)
 (* Original with types:
      ∀(xs :bvi$exp list) (s :(num # γ, 'ffi) state) (env1 :v list)
@@ -121,29 +125,49 @@ QED
                  (rrr,t2) ∧ state_rel t t1 ∧ state_rel t t2)): thm
 *)
 Theorem evaluate_rewrite_tmc:
-   ∀xs ^s l env1 r t opt s' env2 loc.
+   ∀xs env1 ^s l r t opt s' env2.
      evaluate (xs, env1, s) = (r, t) ∧
      env_rel opt l env1 env2 ∧
      state_rel s s' ∧
      (opt ⇒ LENGTH xs = 1) ∧
      r ≠ Rerr (Rabort Rtype_error) ⇒
-       ?t'.
+     ∃t'.
        evaluate (xs, env2, s') = (r, t') ∧
        state_rel t t' ∧
        (opt ⇒
-         ∀n exp arity.
-           lookup loc s.code = SOME (arity, exp) ∧
-           optimized_code loc arity exp n s'.code ∧
-           (∃loc_opt.
-             rewrite_aux loc loc_opt arity (HD xs) = SOME aux) ⇒
-               let x = rewrite_opt loc loc_opt arity (arity + 1) (arity + 2) (HD xs) in
-                 ∃rrr t1 t2.
-                   evaluate ([x], env2, s') = (rrr,t1) ∧
-                   evaluate (xs, env2, s') = (rrr,t2) ∧
-                   state_rel t t1 ∧
-                   state_rel t t2)
+         ∀arity loc loc_opt exp_aux exp_opt.
+           lookup loc s.code = SOME (arity, HD xs) ∧
+           optimized_code loc arity (HD xs) loc_opt s'.code exp_aux exp_opt ⇒
+           (∃t1.
+              evaluate ([exp_aux], env2, s') = (r,t1) ∧
+              state_rel t t1) ∧
+           (∃rrr t2.
+              evaluate ([exp_opt], env2, s') = (rrr,t2) ∧
+              opt_res_rel r rrr ∧
+              state_rel t t2))
 Proof
-  cheat
+  recInduct bviSemTheory.evaluate_ind
+  >> rpt strip_tac
+  >~ [‘evaluate ([],_,_)’] >-
+   (gvs [evaluate_def])
+  >~ [‘evaluate (x::y::xs,_,_)’] >-
+   cheat
+  >~ [‘Var n’] >-
+   cheat
+  >~ [‘If x1 x2 x3’] >-
+   cheat
+  >~ [‘Let xs x2’] >-
+   cheat
+  >~ [‘Raise x1’] >-
+   cheat
+  >~ [‘Op op xs’] >-
+   cheat
+  >~ [‘Tick x’] >-
+   cheat
+  >~ [‘Force force_loc n’] >-
+   cheat
+  >~ [‘Call ticks dest xs handler’] >-
+   cheat
 QED
 
 (* Copied *)
