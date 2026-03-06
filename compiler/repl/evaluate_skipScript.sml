@@ -809,7 +809,7 @@ Theorem v_rel_IMP_check_type_eq[local]:
   v_rel fr ft fe v1 w1 ⇒ (check_type ty v1 = check_type ty w1)
 Proof
   simp [Once v_rel_cases] \\ rw [] \\ simp [check_type_def]
-  \\ Cases_on ‘ty’ \\ TRY (rename [‘WordT ww’] \\ Cases_on ‘ww’)
+  \\ Cases_on ‘ty’ using semanticPrimitivesPropsTheory.prim_type_cases
   \\ gvs [check_type_def,Boolv_def]
   \\ eq_tac \\ rw [] \\ gvs [OPTREL_def,stamp_rel_cases]
   \\ gvs [state_rel_def]
@@ -840,7 +840,7 @@ Proof
    (gvs [check_type_def,the_Litv_Float64_def]
    \\ fs [Once v_rel_cases])
   >-
-   (Cases_on ‘ty’ \\ TRY (rename [‘WordT ww’] \\ Cases_on ‘ww’)
+   (Cases_on ‘ty’ using semanticPrimitivesPropsTheory.prim_type_cases
     \\ gvs [check_type_def]
     \\ fs [do_eq_def,Boolv_def] \\ EVAL_TAC
     \\ rpt $ pop_assum mp_tac
@@ -861,8 +861,7 @@ Proof
   \\ drule v_rel_IMP_check_type_eq
   \\ strip_tac
   \\ rw[OPTREL_def]
-  \\ Cases_on ‘a’ \\ Cases_on ‘ty’
-  \\ TRY(rename1 ‘WordT w’ \\ Cases_on ‘w’)
+  \\ Cases_on ‘a’ \\ Cases_on ‘ty’ using semanticPrimitivesPropsTheory.prim_type_cases
   \\ rw[do_arith_def]
   \\ gvs[check_type_def, CaseEq"list", PULL_EXISTS]
   \\ simp[Once v_rel_cases]
@@ -870,7 +869,7 @@ Proof
   \\ rpt (
     qmatch_assum_rename_tac‘LENGTH vs = LENGTH ws’
     \\ Cases_on ‘vs’ \\ Cases_on ‘ws’ \\ gvs[PULL_EXISTS])
-  \\ gvs[NUMERAL_LESS_THM, SF DNF_ss]
+  \\ gvs[NUMERAL_LESS_THM, SF DNF_ss, Boolv_def]
   \\ gvs[Once v_rel_cases]
   \\ gvs[Once v_rel_cases]
   \\ rw[]
@@ -878,6 +877,9 @@ Proof
     rw[Once v_rel_cases, div_exn_v_def, stamp_rel_cases, div_stamp_def]
     \\ gvs[state_rel_def] \\ NO_TAC )
   \\ gvs[Once v_rel_cases]
+  \\ gvs [optionTheory.OPTREL_SOME]
+  \\ gvs [stamp_rel_cases]
+  \\ gvs [state_rel_def]
 QED
 
 Theorem do_app_update:
@@ -925,12 +927,16 @@ Proof
     \\ reverse $ rw[]
     >- prove_tac[]
     >- prove_tac[]
-    \\ Cases_on‘ty1’ \\ Cases_on‘ty2’ \\ gvs[do_conversion_def]
-    \\ Cases_on‘w’ \\ gvs[do_conversion_def]
-    \\ simp[Once v_rel_cases]
+    \\ Cases_on‘ty1’ using semanticPrimitivesPropsTheory.prim_type_cases
+    \\ Cases_on‘ty2’ using semanticPrimitivesPropsTheory.prim_type_cases
+    \\ gvs[do_conversion_def] \\ rw []
     \\ gvs[check_type_def]
+    \\ last_assum $ irule_at Any \\ gvs []
+    \\ gvs [chr_exn_v_def, chr_stamp_def]
     \\ gvs[Once v_rel_cases]
-    \\ prove_tac[]  )
+    \\ simp [Once v_rel_cases]
+    \\ simp [Once stamp_rel_cases]
+    \\ gvs [state_rel_def])
   \\ Cases_on ‘∃test ty. op = Test test ty’ \\ gs []
   >- (
     Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
@@ -1409,22 +1415,6 @@ Proof
     \\ drule_all v_rel_v_to_char_list \\ rw []
     \\ first_assum (irule_at Any)
     \\ gs [v_rel_def] \\ metis_tac[])
-  \\ Cases_on ‘op = Chr’ \\ gs []
-  >- (
-    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
-                           CaseEqs ["list", "v", "option", "prod", "lit",
-                                    "store_v"]]
-    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
-    \\ first_assum (irule_at Any) \\ gs []
-    \\ rw [] \\ gs [v_rel_def, chr_exn_v_def, stamp_rel_cases, chr_stamp_def,
-                    state_rel_def])
-  \\ Cases_on ‘op = Ord’ \\ gs []
-  >- (
-    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
-                           CaseEqs ["list", "v", "option", "prod", "lit",
-                                    "store_v"]]
-    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
-    \\ first_assum (irule_at Any) \\ gs [])
   \\ Cases_on ‘op = XorAw8Str_unsafe’ \\ gs []
   >- (
     Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
@@ -1546,20 +1536,6 @@ Proof
           eval_state := NONE |>’ \\ gs []
     \\ gs [state_rel_def, EL_LUPDATE]
     \\ rw [] \\ gs [ref_rel_def, v_rel_def, stamp_rel_cases])
-  \\ Cases_on ‘∃n. op = WordToInt n’ \\ gs []
-  >- (
-    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
-                           CaseEqs ["list", "v", "option", "prod", "lit",
-                                    "store_v", "word_size"], PULL_EXISTS]
-    \\ rpt (irule_at Any SUBMAP_REFL \\ gs [])
-    \\ first_assum (irule_at Any) \\ gs [])
-  \\ Cases_on ‘∃n. op = WordFromInt n’ \\ gs []
-  >- (
-    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
-                           CaseEqs ["list", "v", "option", "prod", "lit",
-                                    "store_v", "word_size"], PULL_EXISTS]
-    \\ rpt (irule_at Any SUBMAP_REFL \\ gs [])
-    \\ first_assum (irule_at Any) \\ gs [])
   \\ Cases_on ‘op = Aw8update’ \\ gs []
   >- (
     Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
@@ -1653,63 +1629,6 @@ Proof
     \\ first_assum (irule_at Any) \\ rw []
     \\ irule v_rel_update
     \\ first_assum (irule_at (Pat ‘v_rel’)) \\ gs [])
-  \\ Cases_on ‘∃top. op = FP_top top’ \\ gs []
-  >- (
-    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
-                           CaseEqs ["list", "v", "option", "prod", "lit",
-                                    "store_v", "v"]]
-    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
-    \\ first_assum (irule_at Any) \\ gs [])
-  \\ Cases_on ‘∃bop. op = FP_bop bop’ \\ gs []
-  >- (
-    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
-                           CaseEqs ["list", "v", "option", "prod", "lit",
-                                    "store_v"]]
-    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
-    \\ first_assum (irule_at Any) \\ gs [])
-  \\ Cases_on ‘∃uop. op = FP_uop uop’ \\ gs []
-  >- (
-    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
-                           CaseEqs ["list", "v", "option", "prod", "lit",
-                                    "store_v"]]
-    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
-    \\ first_assum (irule_at Any) \\ gs [])
-  \\ Cases_on ‘∃cmp. op = FP_cmp cmp’ \\ gs []
-  >- (
-    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
-                           CaseEqs ["list", "v", "option", "prod", "lit",
-                                    "store_v"]]
-    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
-    \\ first_assum (irule_at Any) \\ gs []
-    \\ gs [Boolv_def] \\ rw [v_rel_def, stamp_rel_cases]
-    \\ gs [state_rel_def])
-  \\ Cases_on ‘∃opn. op = Opn opn’ \\ gs []
-  >- (
-    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
-                           CaseEqs ["list", "v", "option", "prod", "lit",
-                                    "store_v"]]
-    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
-    \\ rw [] \\ gvs []
-    \\ first_assum (irule_at Any) \\ gs []
-    \\ gs [v_rel_def, div_exn_v_def, div_stamp_def, stamp_rel_cases,
-           state_rel_def])
-  \\ Cases_on ‘∃opb. op = Opb opb’ \\ gs []
-  >- (
-    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
-                           CaseEqs ["list", "v", "option", "prod", "lit",
-                                    "store_v"]]
-    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
-    \\ rw [] \\ gvs []
-    \\ first_assum (irule_at Any) \\ gs []
-    \\ gs [Boolv_def] \\ rw [v_rel_def, stamp_rel_cases]
-    \\ gs [state_rel_def])
-  \\ Cases_on ‘∃sz opw. op = Opw sz opw’ \\ gs []
-  >- (
-    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
-                           CaseEqs ["list", "v", "option", "prod", "lit",
-                                    "store_v", "word_size"]]
-    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
-    \\ first_assum (irule_at Any) \\ gs [])
   \\ Cases_on ‘∃sz sh n. op = Shift sz sh n’ \\ gs []
   >- (
     Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
@@ -1814,20 +1733,6 @@ Proof
     \\ irule v_rel_update
     \\ first_assum (irule_at (Pat ‘v_rel’))
     \\ gs [])
-  \\ Cases_on ‘op = FpFromWord’ \\ gs[]
-  >- (
-    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
-                           CaseEqs ["list", "v", "option", "prod", "lit",
-                                    "store_v", "v"]]
-    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
-    \\ first_assum (irule_at Any) \\ gs [])
-  \\ Cases_on ‘op = FpToWord’ \\ gs[]
-  >- (
-    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
-                           CaseEqs ["list", "v", "option", "prod", "lit",
-                                    "store_v", "v"]]
-    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
-    \\ first_assum (irule_at Any) \\ gs [])
   \\ Cases_on ‘∃m. op = ThunkOp (AllocThunk m)’ \\ gs[]
   >- (
     Cases_on ‘res’ \\ gvs [do_app_def, AllCaseEqs(), thunk_op_def]

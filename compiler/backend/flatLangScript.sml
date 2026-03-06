@@ -23,96 +23,23 @@ Libs
 
 val _ = patternMatchesSyntax.temp_enable_pmatch();
 
-(* Copied from the semantics, but with AallocEmpty missing. GlobalVar ops have
- * been added, also TagLenEq and El for pattern match compilation. *)
+(* Most ops are inherited from ast$op via the Src wrapper.
+ * GlobalVar ops, TagLenEq, LenEq, El, and Id are flatLang-specific. *)
 Datatype:
  op =
-  (* primitive operations for the primitive types: +, -, and, sqrt, etc. *)
-    Arith arith prim_type
-  (* conversions between primitive types: char<->int, word<->double, word<->int *)
-  | FromTo prim_type prim_type
-  (* Operations on integers *)
-  | Opn opn
-  | Opb opb
-  (* Operations on words *)
-  | Opw word_size opw
-  | Shift word_size shift num
-  | Equality
-  | Test test prim_type
-  (* FP operations *)
-  | FP_cmp fp_cmp
-  | FP_uop fp_uop
-  | FP_bop fp_bop
-  | FP_top fp_top
-  | FpFromWord
-  | FpToWord
-  (* Function application *)
-  | Opapp
-  (* Reference operations *)
-  | Opassign
-  | Opref
- (* Opderef -- replaced by El, later in this list *)
-  (* Word8Array operations *)
-  | Aw8alloc
-  | Aw8sub
-  | Aw8length
-  | Aw8update
-  (* Word/integer conversions *)
-  | WordFromInt word_size
-  | WordToInt word_size
-  (* string/bytearray conversions *)
-  | CopyStrStr
-  | CopyStrAw8
-  | CopyAw8Str
-  | CopyAw8Aw8
-  (* Char operations *)
-  | Ord
-  | Chr
-  (* String operations *)
-  | Implode
-  | Explode
-  | Strsub
-  | Strlen
-  | Strcat
-  (* Vector operations *)
-  | VfromList
-  | Vsub
-  | Vsub_unsafe
-  | Vlength
-  (* Array operations *)
-  | Aalloc
-  | AallocFixed
-  | Asub
-  | Alength
-  | Aupdate
-  (* Unsafe array operations *)
-  | Asub_unsafe
-  | Aupdate_unsafe
-  | Aw8sub_unsafe
-  | Aw8update_unsafe
-  | Aw8xor_unsafe
-  (* List operations *)
-  | ListAppend
-  (* Configure the GC *)
-  | ConfigGC
-  (* Call a given foreign function *)
-  | FFI mlstring
+    Src ast$op
   (* Allocate the given number of new global variables *)
   | GlobalVarAlloc num
   (* Initialise given global variable *)
   | GlobalVarInit num
   (* Get the value of the given global variable *)
   | GlobalVarLookup num
-  (* Evaluate some declarations *)
-  | Eval
   (* for pattern match compilation *)
   | TagLenEq num num
   | LenEq num
   | El num
   (* No-op step for a single value *)
   | Id
-  (* Thunk *)
-  | ThunkOp ast$thunk_op
 End
 
 Type ctor_id = ``:num``

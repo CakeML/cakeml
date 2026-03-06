@@ -1,7 +1,7 @@
-An XLRUP checker built on CakeML
+An XLRUP checker built on CakeML.
 
 [array](array):
-Improving the XLRUP checker with arrays (manually)
+Improving the XLRUP checker with arrays (manually).
 
 [cnf_extScript.sml](cnf_extScript.sml):
 Syntax and semantics of CNF extended with theories

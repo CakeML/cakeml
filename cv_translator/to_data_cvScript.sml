@@ -3,7 +3,7 @@
 *)
 Theory to_data_cv[no_sig_docs]
 Ancestors
-  cv_std basis_cv backend backend_asm unify_cv infer_cv
+  cv_std basis_cv source_cv backend backend_asm
 Libs
   preamble cv_transLib
 
@@ -329,7 +329,7 @@ Definition naive_pattern_match_clocked_def:
   /\
   naive_pattern_match_clocked (SUC ck) t ((Pvar _, _) :: mats) = naive_pattern_match_clocked ck t mats /\
   naive_pattern_match_clocked (SUC ck) t ((Plit l, v) :: mats) = SmartIf t
-    (App t Equality [v; Lit t l]) (naive_pattern_match_clocked ck t mats) (Bool t F) /\
+    (App t (Src Equality) [v; Lit t l]) (naive_pattern_match_clocked ck t mats) (Bool t F) /\
   naive_pattern_match_clocked (SUC ck) t ((Pcon NONE ps, v) :: mats) =
     naive_pattern_match_clocked ck t (MAPi (\i p. (p, App t (El i) [v])) ps ++ mats) /\
   naive_pattern_match_clocked (SUC ck) t ((Pas p i, v) :: mats) =
@@ -731,7 +731,7 @@ Definition is_hidden_alt_def:
     (is_hidden_alt (Con t id_option es) = is_hidden_alts es) ∧
     (is_hidden_alt (Var_local t str) = T) ∧
     (is_hidden_alt (Fun t name body) = T) ∧
-    (is_hidden_alt (App t Opapp l) = F) ∧
+    (is_hidden_alt (App t (Src Opapp) l) = F) ∧
     (is_hidden_alt (App t (GlobalVarInit g) [e]) = is_hidden_alt e) ∧
     (is_hidden_alt (App t (GlobalVarLookup g) [e]) = F) ∧
     (is_hidden_alt (If t e1 e2 e3) = (is_hidden_alt e1 ∧ is_hidden_alt e2 ∧ is_hidden_alt e3)) ∧
@@ -791,7 +791,7 @@ QED
 
 val _ = cv_auto_trans flat_elimTheory.remove_flat_prog_def;
 
-val _ = cv_auto_trans backend_asmTheory.to_flat_def;
+val _ = cv_auto_trans backendTheory.to_flat_def;
 
 (* flat_to_clos *)
 
@@ -917,7 +917,7 @@ val _ = cv_auto_trans flat_to_closTheory.compile_prog_def
 
 (* to_clos *)
 
-val _ = cv_trans backend_asmTheory.to_clos_def
+val _ = cv_trans backendTheory.to_clos_def
 
 (* clos_mti *)
 
@@ -2184,7 +2184,7 @@ val _ = cv_auto_trans clos_to_bvlTheory.compile_def;
 
 (* to_bvl *)
 
-val _ = cv_auto_trans backend_asmTheory.to_bvl_def;
+val _ = cv_auto_trans backendTheory.to_bvl_def;
 
 (* bvl_const *)
 
@@ -2663,7 +2663,7 @@ val _ = cv_auto_trans bvl_to_bviTheory.compile_def;
 
 (* to_bvi *)
 
-val _ = cv_auto_trans backend_asmTheory.to_bvi_def;
+val _ = cv_auto_trans backendTheory.to_bvi_def;
 
 (* to_data *)
 
@@ -2706,12 +2706,12 @@ QED
 val _ = cv_auto_trans rich_listTheory.COUNT_LIST_GENLIST;
 val _ = cv_trans bvi_to_dataTheory.compile_exp_eq;
 val _ = cv_auto_trans bvi_to_dataTheory.compile_prog_def;
-val _ = cv_trans to_data_def;
+val _ = cv_trans backendTheory.to_data_def;
 
-val _ = cv_trans backend_asmTheory.to_flat_all_def;
-val _ = cv_trans backend_asmTheory.to_clos_all_def;
-val _ = cv_trans backend_asmTheory.to_bvl_all_def;
-val _ = cv_auto_trans (backend_asmTheory.to_bvi_all_def
+val _ = cv_trans backend_passesTheory.to_flat_all_def;
+val _ = cv_trans backend_passesTheory.to_clos_all_def;
+val _ = cv_trans backend_passesTheory.to_bvl_all_def;
+val _ = cv_auto_trans (backend_passesTheory.to_bvi_all_def
                          |> REWRITE_RULE [bvl_inlineTheory.remove_ticks_sing,HD]);
 
 Theorem bvi_to_data_compile_sing[local]:
@@ -2722,7 +2722,7 @@ Proof
   \\ imp_res_tac bvi_to_dataTheory.compile_sing_eq \\ gvs []
 QED
 
-val _ = cv_auto_trans (to_data_all_def |> REWRITE_RULE [bvi_to_data_compile_sing]);
+val _ = cv_auto_trans (backend_passesTheory.to_data_all_def |> REWRITE_RULE [bvi_to_data_compile_sing]);
 
 (* Explorer *)
 

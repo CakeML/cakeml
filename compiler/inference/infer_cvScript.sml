@@ -3,7 +3,7 @@
 *)
 Theory infer_cv[no_sig_docs]
 Ancestors
-  misc typeSystem ast namespace infer inferProps basis_cv unify_cv
+  misc typeSystem ast namespace infer inferProps basis_cv unify_cv source_cv
 Libs
   preamble cv_transLib
 
@@ -69,7 +69,7 @@ val _ = cv_auto_trans infer_tTheory.type_ident_to_string_def;
 
 val res = cv_trans_pre "" infer_tTheory.ty_var_name_def;
 
-Theorem ty_var_name_pre[cv_pre,local]:
+Theorem ty_var_name_pre[cv_pre]:
   ∀a0. ty_var_name_pre a0
 Proof
   gvs [res]
@@ -413,3 +413,32 @@ val _ = cv_auto_trans (infertype_prog_inc_eq |> SRULE [extend_dec_ienv_def]);
 
 (* main results stored as: cv_infertype_prog_thm
                            cv_infertype_prog_inc_thm *)
+
+Definition alist_nub2_def:
+  alist_nub2 0 xs = [] ∧
+  alist_nub2 (SUC n) [] = [] ∧
+  alist_nub2 (SUC n) ((x,y)::xs) =
+    (x, y)::(alist_nub2 n (FILTER (λt. x ≠ FST t) xs))
+End
+
+Theorem alist_nub2_eq:
+  ∀n xs. LENGTH xs ≤ n ⇒ alist_nub xs = alist_nub2 n xs
+Proof
+  ho_match_mp_tac alist_nub2_ind
+  \\ rpt strip_tac
+  \\ gvs [alist_nub2_def, alist_nub_def]
+  \\ last_assum irule
+  \\ irule arithmeticTheory.LESS_EQ_TRANS
+  \\ irule_at (Pos hd) rich_listTheory.LENGTH_FILTER_LEQ
+  \\ simp []
+QED
+
+Theorem alist_nub_eq:
+  alist_nub xs = alist_nub2 (LENGTH xs) xs
+Proof
+  gvs [alist_nub2_eq]
+QED
+
+val res = cv_auto_trans alist_nub_eq;
+
+val res = cv_trans ns_nub_def;

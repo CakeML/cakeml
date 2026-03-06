@@ -583,12 +583,12 @@ val _ = parsetest0 “nStart” “ptree_Start”
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   "true || let y = z in y"
-  (SOME “Log Or (C «True» []) (Let (SOME «y») (V «z») (V «y»))”)
+  (SOME “Log Orelse (C «True» []) (Let (SOME «y») (V «z») (V «y»))”)
   ;
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   "let y = z in y || true"
-  (SOME “Let (SOME «y») (V «z») (Log Or (V «y») (C «True» []))”)
+  (SOME “Let (SOME «y») (V «z») (Log Orelse (V «y») (C «True» []))”)
   ;
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
@@ -641,18 +641,18 @@ val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   "x && y"
-  (SOME “Log And (V «x») (V «y»)”)
+  (SOME “Log Andalso (V «x») (V «y»)”)
   ;
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   "x || y"
-  (SOME “Log Or (V «x») (V «y»)”)
+  (SOME “Log Orelse (V «x») (V «y»)”)
   ;
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   "if x || y then x && y"
-  (SOME “If (Log Or (V «x») (V «y»))
-            (Log And (V «x») (V «y»))
+  (SOME “If (Log Orelse (V «x») (V «y»))
+            (Log Andalso (V «x») (V «y»))
             (Con NONE [])”)
   ;
 

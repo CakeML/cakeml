@@ -18,7 +18,7 @@ Datatype:
 End
 
 Definition pan_to_target_all_def:
-  pan_to_target_all (c:'a config) prog =
+  pan_to_target_all asm_conf (c:config) prog =
     let
       prog1:'a decl list = case SPLITP (λx. case x of
                             Function fi => fi.name = «main»
@@ -26,6 +26,7 @@ Definition pan_to_target_all_def:
               | ([],ys) => ys
               | (xs,[]) => Function
                             <| name := «main»
+                              ; inline := F
                               ; export := F
                               ; params := []
                               ; body := Return (Const 0w)
@@ -40,13 +41,16 @@ Definition pan_to_target_all_def:
         ps = ps ++ [(«after pan_simp»,Pan prog_a0)];
         prog_a = pan_globals$compile_top prog_a0 «main»;
         ps = ps ++ [(«after pan_globals»,Pan prog_a)];
-        prog_b0 = pan_to_crep$compile_prog prog_a;
+        prog_b0 = pan_to_crep$compile_to_crep prog_a;
         ps = ps ++ [(«after pan_to_crep»,Crep prog_b0)];
-        prog_b = MAP (λ(n,ps,e). (n,ps,crep_arith$simp_prog e)) prog_b0;
+        inl_fs_names = MAP FST (functions (FILTER inlinable prog_a));
+        prog_bi = compile_inl_top inl_fs_names prog_b0;
+        ps = ps ++ [(«after crep_inline»,Crep prog_bi)];
+        prog_b = MAP (λ(n,ps,e). (n,ps,crep_arith$simp_prog e)) prog_bi;
         ps = ps ++ [(«after crep_arith»,Crep prog_b)];
         fnums = GENLIST (λn. n + first_name) (LENGTH prog_b);
         funcs = make_funcs prog_b;
-        target = c.lab_conf.asm_conf.ISA;
+        target = asm_conf.ISA;
         comp = comp_func target funcs;
         prog_b1 = MAP2 (λn (name,params,body).
                     (n,(GENLIST I ∘ LENGTH) params, comp params body)) fnums prog_b;
@@ -62,7 +66,7 @@ Definition pan_to_target_all_def:
         ps = ps ++ [(«after loop_remove»,Loop prog_c1 names)];
         ps = ps ++ [(«after loop_to_word»,Cake (Word prog2 names))];
         c = c with exported := exports prog;
-        (ps1,out) = from_word_0_all [] c names prog2
+        (ps1,out) = from_word_0_all [] asm_conf c names prog2
       in
         (ps ++ MAP (λ(n,p). (n,Cake p)) ps1,out)
 End
@@ -93,11 +97,12 @@ Proof
 QED
 
 Theorem compile_prog_eq_pan_to_target_all:
-  compile_prog c p = SND (pan_to_target_all c p)
+  compile_prog asm_conf c p = SND (pan_to_target_all asm_conf c p)
 Proof
   gvs [compile_prog_eq,pan_to_target_all_def,UNCURRY]
   \\ gvs [backend_passesTheory.from_word_0_thm,pan_to_wordTheory.compile_prog_def,
           loop_to_wordTheory.compile_def,crep_to_loopTheory.compile_prog_def,
+          pan_to_crepTheory.compile_prog_def, pan_to_crepTheory.compile_to_crep_def,
           MAP_MAP2,MAP2_MAP,make_funcs_MAP]
   \\ gvs [LAMBDA_PROD,loop_to_wordTheory.compile_def]
 QED
@@ -638,15 +643,15 @@ Definition any_pan_prog_pp_def:
 End
 
 Definition pan_compile_tap_def:
-  pan_compile_tap (c:'a config) p =
+  pan_compile_tap asm_conf (c:config) p =
     if c.tap_conf.explore_flag then
-      let (ps,out) = pan_to_target_all c p in
+      let (ps,out) = pan_to_target_all asm_conf c p in
         (out, FOLDR (pp_with_title any_pan_prog_pp) Nil ps)
-    else (compile_prog c p, Nil)
+    else (compile_prog asm_conf c p, Nil)
 End
 
 Theorem compile_alt:
-  compile_prog c p = FST (pan_compile_tap c p)
+  compile_prog asm_conf c p = FST (pan_compile_tap asm_conf c p)
 Proof
   rw [pan_compile_tap_def]
   \\ mp_tac compile_prog_eq_pan_to_target_all

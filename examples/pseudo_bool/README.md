@@ -1,16 +1,16 @@
-A checker for pseudo-boolean constraints
+A checker for pseudo-boolean constraints.
 
 [array](array):
-Improving the pseudoboolean proof checker with arrays (manually)
+Improving the pseudo-boolean proof checker with arrays (manually).
 
 [cnf_encoding](cnf_encoding):
-Encoders for various CNF-based problems
+Encoders for various CNF-based problems.
 
 [cp_encoding](cp_encoding):
 CP semantics and encoders
 
 [graph_encoding](graph_encoding):
-Encoders for various graph problems
+Encoders for various graph problems.
 
 [npbcScript.sml](npbcScript.sml):
 Formalisation of normalised pseudo-boolean constraints

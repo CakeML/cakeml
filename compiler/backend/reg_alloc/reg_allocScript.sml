@@ -26,8 +26,10 @@ val _ = hide "state";
 
   This is an attempt at listing them:
 
-  1) In ra_state.coalesced, if coalesced[x] ≥ x it is not coalesced
-     i.e., coalesces only happen ``downwards''
+  1) In ra_state.coalesced, coalesced[x] = x iff x is not coalesced.
+     For non-Fixed pairs, coalesces happen ``downwards'' (smaller index
+     survives). For Fixed-Atemp pairs, the Fixed node survives regardless
+     of index, so coalesce_parent checks is_Fixed before the <= test.
 
   2) adjacency lists are ALWAYS sorted
 *)
@@ -324,7 +326,7 @@ Definition is_not_coalesced_def:
   is_not_coalesced d =
   do
     dt <- coalesced_sub d;
-    return (d <= dt)
+    return (d = dt)
   od
 End
 
@@ -367,9 +369,8 @@ Definition revive_moves_def:
     nbs <- st_ex_MAP adj_ls_sub vs;
     uam <- get_unavail_moves_wl;
     am <- get_avail_moves_wl;
-    let fnbs = FLAT nbs in
     let (rev,unavail) = PARTITION
-      (λ(_,(x,y)). sorted_mem x fnbs ∨ sorted_mem y fnbs) uam in
+      (λ(_,(x,y)). EXISTS (sorted_mem x) nbs ∨ EXISTS (sorted_mem y) nbs) uam in
     let sorted = smerge (sort_moves rev) am in
     do
       set_avail_moves_wl sorted;
@@ -821,7 +822,7 @@ Definition do_spill_def:
         (y,ys) <- case scostopt of
               NONE => st_ex_list_MAX_deg xs d x xv []
             | SOME scost => st_ex_list_MIN_cost scost xs d x (safe_div (lookup_any x scost 0n) xv) [];
-        dec_deg y;
+        dec_degree y;
         push_stack y;
         set_spill_wl ys;
         unspill k;
@@ -1349,6 +1350,24 @@ Datatype:
   algorithm = Simple | IRC
 End
 
+(* Read-only version of coalesce_parent: follows the coalesce chain
+   to the root without path compression. Safe for use in biased_pref
+   where state must not be modified. *)
+Definition coalesce_root_def:
+  coalesce_root x =
+  do
+    xt <- coalesced_sub x;
+    bx <- is_Fixed xt;
+    if bx then
+      return xt
+    else
+      if x <= xt then
+        return x
+      else
+        coalesce_root xt
+  od
+End
+
 (* mtable is an sptree lookup for the moves *)
 Definition biased_pref_def:
   biased_pref mtable n ks =
@@ -1356,7 +1375,7 @@ Definition biased_pref_def:
     d <- get_dim;
     if n < d then
     do
-      v <- coalesced_sub n;
+      v <- coalesce_root n;
       let vs = case lookup n mtable of NONE => [] | SOME vs => vs in
       handle_Subscript (first_match_col ks (v::vs)) (return NONE)
     od

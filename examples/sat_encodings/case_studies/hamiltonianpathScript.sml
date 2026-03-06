@@ -1,5 +1,5 @@
 (*
-  Encoding of Hamiltonain path problem
+  Encoding of Hamiltonian path problem
 *)
 Theory hamiltonianpath
 Ancestors

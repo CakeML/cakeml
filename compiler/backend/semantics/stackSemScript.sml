@@ -4,8 +4,7 @@
 Theory stackSem
 Ancestors
   stackLang
-  wordSem[qualified] (* for word_loc *)
-  labSem[qualified]
+  wordSem[qualified] (* for word_loc and word_cmp *)
 Libs
   preamble
 
@@ -143,10 +142,10 @@ Definition word_exp_def:
   (word_exp s (Op op wexps) =
      let ws = MAP (word_exp s) wexps in
        if EVERY IS_SOME ws then word_op op (MAP THE ws) else NONE) /\
-  (word_exp s (Shift sh wexp n) =
-     case word_exp s wexp of
-     | NONE => NONE
-     | SOME w => word_sh sh w n)
+  (word_exp s (Shift sh wexp wexp1) =
+     case (word_exp s wexp, word_exp s wexp1) of
+     | (SOME w, SOME w1) => word_sh sh w (w2n w1)
+     | _ => NONE)
 Termination
   WF_REL_TAC `measure (exp_size ARB o SND)`
    \\ REPEAT STRIP_TAC \\ IMP_RES_TAC wordLangTheory.MEM_IMP_exp_size
@@ -419,9 +418,10 @@ Definition inst_def:
           assign r1
             (Op bop [Var r2; case ri of Reg r3 => Var r3
                                       | Imm w => Const w]) s
-    | Arith (Shift sh r1 r2 n) =>
+    | Arith (Shift sh r1 r2 ri) =>
         assign r1
-          (Shift sh (Var r2) n) s
+          (Shift sh (Var r2) (case ri of Reg r3 => Var r3
+                                       | Imm w => Const w)) s
     | Arith (Div r1 r2 r3) =>
        (let vs = get_vars[r3;r2] s in
        case vs of
@@ -800,7 +800,7 @@ Definition evaluate_def:
   (evaluate (If cmp r1 ri c1 c2,s) =
     (case (get_var r1 s,get_var_imm ri s)of
     | SOME x,SOME y =>
-     (case labSem$word_cmp cmp x y of
+     (case wordSem$word_cmp cmp x y of
       | SOME T => evaluate (c1,s)
       | SOME F => evaluate (c2,s)
       | NONE => (SOME Error,s))

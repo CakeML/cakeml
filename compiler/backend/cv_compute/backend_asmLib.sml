@@ -54,14 +54,12 @@ fun define_target_specific_backend asm_config_def = let
     in d end
   (* to_livesets *)
   val th = data_to_wordTheory.compile_0_def |> asm_spec
-  val th = to_word_0_def |> asm_spec
+  val th = backendTheory.to_word_0_def |> asm_spec
   val th = word_instTheory.inst_select_exp_def |> asm_spec
   val th = word_instTheory.inst_select_def |> asm_spec
   val th = word_allocTheory.get_forced_def |> asm_spec
-  val th = to_livesets_0_def |> asm_spec
-  val th = to_livesets_def |> asm_spec
-  val th = ISPEC asm_conf to_livesets_thm |> REWRITE_RULE [th]
-  val res = save_thm ("to_livesets_" ^ name ^ "_thm", th)
+  val th = backendTheory.to_livesets_0_def |> asm_spec
+  val th = backendTheory.to_livesets_def |> asm_spec
   (* lab_to_target *)
   val th = enc_line_def |> asm_spec
   val th = enc_sec_def |> asm_spec
@@ -97,7 +95,7 @@ fun define_target_specific_backend asm_config_def = let
   val th = ISPEC asm_conf compile_cake_thm |> REWRITE_RULE [th]
   val res = save_thm ("compile_cake_" ^ name ^ "_thm", th)
   (* explorer *)
-  val th = backend_passesTheory.word_internal_def |> asm_spec
+  val th = backend_passesTheory.word_internal_all_def |> asm_spec
   val th = to_word_all_def |> asm_spec
   val th = to_stack_all_def |> REWRITE_RULE [word_to_stackTheory.compile_def] |> asm_spec
   val th = to_lab_all_def |> asm_spec

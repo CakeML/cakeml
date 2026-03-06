@@ -209,7 +209,7 @@ Definition scheme_basis_def:
               App Opapp [
                 App Opapp [
                   App Opapp [Var (Short «sadd»); Var (Short «k»)];
-                  App (Opn Plus) [Var (Short «n»); Var (Short «tn»)]
+                  App (Arith Add IntT) [Var (Short «n»); Var (Short «tn»)]
                 ];
                 Var (Short «ts'»)
               ]);
@@ -229,7 +229,7 @@ Definition scheme_basis_def:
               App Opapp [
                 App Opapp [
                   App Opapp [Var (Short «smul»); Var (Short «k»)];
-                  App (Opn Times) [Var (Short «n»); Var (Short «tn»)]
+                  App (Arith Mul IntT) [Var (Short «n»); Var (Short «tn»)]
                 ];
                 Var (Short «ts'»)
               ]);
@@ -249,12 +249,12 @@ Definition scheme_basis_def:
               Mat (Var (Short «ts'»)) [
                 (Pcon (SOME $ Short «[]») [],
                   App Opapp [Var (Short «k»); Con (SOME $ Short «SNum») [
-                    App (Opn Minus) [Lit $ IntLit 0; Var (Short «n»)]]]);
+                    App (Arith Sub IntT) [Lit $ IntLit 0; Var (Short «n»)]]]);
                 (Pany, App Opapp [App Opapp [App Opapp [Var (Short «sadd»);
                   Fun «t» $ Mat (Var (Short «t»)) [
                     (Pcon (SOME $ Short «SNum») [Pvar «m»],
                       App Opapp [Var (Short «k»); Con (SOME $ Short «SNum») [
-                        App (Opn Minus) [Var (Short «n»); Var (Short «m»)]]]);
+                        App (Arith Sub IntT) [Var (Short «n»); Var (Short «m»)]]]);
                     (Pany,
                       App Opapp [Var (Short «k»); Var (Short «t»)])
                   ]];

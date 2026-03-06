@@ -1,7 +1,7 @@
 (**
   Simple approximation of sqrt as it is not computable in HOL4 using
   newton iterations.
-  As the iteration may fail, the process "self-validates", checkign that
+  As the iteration may fail, the process "self-validates", checking that
   the result is an over/under-approximation of the real sqrt
 **)
 Theory sqrtApprox

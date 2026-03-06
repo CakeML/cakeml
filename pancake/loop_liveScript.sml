@@ -1,5 +1,5 @@
 (*
-  Correctness proof for loop to loop_remove
+  Liveness analysis for loopLang.
 *)
 Theory loop_live
 Ancestors

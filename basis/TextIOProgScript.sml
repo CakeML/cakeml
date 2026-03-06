@@ -472,12 +472,16 @@ End
 val _ = ml_prog_update open_local_in_block;
 
 Quote add_cakeml:
-  fun inputLine c0 is = inputUntil_2 is c0 []
+  fun inputLineWith c0 is = inputUntil_2 is c0 []
+End
+
+Quote add_cakeml:
+  fun inputLine is = inputLineWith #"\n" is
 End
 
 Quote add_cakeml:
   fun inputLineTokens c0 is tokP mp =
-    case inputLine c0 is of
+    case inputLineWith c0 is of
       None => None
     | Some l =>
       Some (List.map mp (String.tokens tokP l))
@@ -487,7 +491,7 @@ val _ = ml_prog_update open_local_block;
 
 Quote add_cakeml:
   fun inputLines_aux c0 is acc =
-     case inputLine c0 is of
+     case inputLineWith c0 is of
        None => List.rev acc
      | Some l => inputLines_aux c0 is (l::acc)
 End
@@ -525,7 +529,7 @@ Quote add_cakeml:
       None => y
     | Some c => fold_chars_loop f is (f c y);
   fun fold_lines_loop c0 f is y =
-    case inputLine c0 is of
+    case inputLineWith c0 is of
       None => y
     | Some c => fold_lines_loop c0 f is (f c y);
   fun fold_tokens_loop c0 tokP mp fld is y =
