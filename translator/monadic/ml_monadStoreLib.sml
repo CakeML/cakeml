@@ -50,32 +50,38 @@ local
   end
   open Parse
   (* Information about the subscript exceptions *)
-  val Conv_Subscript = EVAL ``sub_exn_v`` |> concl |> rand
+  val Conv_Subscript = EVAL semanticPrimitivesSyntax.sub_exn_v |> concl |> rand
   (* val Stamp_Subscript = Conv_Subscript |> rator |> rand |> rand *)
 in
 
+(* Sidestep setting up "syntax" libraries, fetch const from def. *)
+fun left_const thm = concl thm
+    |> strip_conj |> hd |> strip_forall |> snd |> lhs
+    |> strip_comb |> fst
+
 (* Constants *)
-val hprop_ty = “:hprop”
-val v_ty = “:v”
-val ffi_state_ty = “:'ffi semanticPrimitives$state”
-val ffi_ffi_proj_ty = “:'ffi ffi_proj”
-val lookup_ret_ty = “:num # stamp”
+val hprop_ty = cfHeapsBaseSyntax.hprop_ty
+val v_ty = semanticPrimitivesSyntax.v_ty
+val ffi_var = mk_vartype "'ffi"
+val ffi_state_ty = semanticPrimitivesSyntax.state_ty |> type_subst [alpha |-> ffi_var]
+val ffi_ffi_proj_ty = cfHeapsBaseSyntax.mk_ffi_proj_ty ffi_var
+val lookup_ret_ty = pairSyntax.mk_prod(numSyntax.num, semanticPrimitivesSyntax.stamp_ty)
 
 val TRUE = boolSyntax.T
-val emp_const = “emp : hprop”
-val APPEND_const = “APPEND : α list -> α list -> α list”
-val CONS_const = “CONS : α -> α list -> α list”
-val REF_const = “REF”
-val RARRAY_const = “RARRAY”
-val ARRAY_const = “ARRAY”
-val SOME_const = “SOME”
-val one_const = “1 : num”
-val cond_const = “set_sep$cond”
+val emp_const = cfHeapsBaseSyntax.emp_tm
+val APPEND_const = listSyntax.append_tm
+val CONS_const = listSyntax.cons_tm
+val REF_const = cfHeapsBaseTheory.REF_def |> left_const
+val RARRAY_const = ml_monad_translatorBaseTheory.RARRAY_def |> left_const
+val ARRAY_const = cfHeapsBaseTheory.ARRAY_def |> left_const
+val one_const = numSyntax.term_of_int 1
+val cond_const = set_sepTheory.cond_def |> left_const
 val get_refs_const = “λ(state : 'a semanticPrimitives$state). state.refs”
 val opref_expr = “λname. (App Opref [Var (Short name)])”
-val empty_v_list = “[] : v list”
-val empty_v_store = “[] : v store”
-val empty_alpha_list = “[] : α list”
+val empty_v_list = listSyntax.mk_list ([], v_ty)
+val empty_v_store = listSyntax.mk_list ([],
+    semanticPrimitivesSyntax.store_v_ty |> type_subst [alpha |-> v_ty])
+val empty_alpha_list = listSyntax.mk_list ([], alpha)
 val nsLookup_env_short_term = “λ(env : v sem_env) name. nsLookup env.v (Short name)”
 val Conv_Subscript = Conv_Subscript
 end (* local *)
@@ -86,7 +92,14 @@ fun mk_get_refs state = let
     val get_refs = mk_comb(get_refs, state) |> BETA_CONV |> concl |> rand
 in get_refs end
 
-
+(* wrap ISPECL to give more detailed error. *)
+fun ISPECL terms thm = Drule.ISPECL terms thm
+  handle HOL_ERR err => (
+    print "ISPECL failed:\n";
+    List.app print_term terms;
+    print_thm thm;
+    Drule.ISPECL terms thm
+  )
 
 fun mk_REF_REL TYPE r x =
   ISPECL [TYPE, r, x] REF_REL_def |> concl |> dest_eq |> fst
@@ -105,7 +118,7 @@ fun mk_VALID_REFS_PRED H =
 
 fun mk_lookup_eq name env type_tm = let
     val lookup_tm = ISPECL [name, env] lookup_cons_def |> concl |> dest_eq |> fst
-    val some_tm = mk_comb (inst [alpha |-> lookup_ret_ty] SOME_const, mk_pair(one_const, type_tm))
+    val some_tm = optionSyntax.mk_some(mk_pair(one_const, type_tm))
 in mk_eq(lookup_tm, some_tm) end
 
 (******* COPY/PASTE from ml_monadProgScript.sml *****************************************)
@@ -418,8 +431,7 @@ fun create_store_X_hprop refs_manip_list
         val get_term = mk_comb (get_f, Term.inst ty_subst state_var) |>
                        BETA_CONV |> concl |> dest_eq |> snd
 
-        val hprop =
-          list_mk_ucomb(``RARRAY_REL``, [ref_inv, rarray_ref_loc, get_term])
+        val hprop = mk_RARRAY_REL ref_inv rarray_ref_loc get_term
       in
         hprop
       end
@@ -441,7 +453,7 @@ fun create_store_X_hprop refs_manip_list
         val get_term = mk_comb (get_f, Term.inst ty_subst state_var) |>
                        BETA_CONV |> concl |> dest_eq |> snd
 
-        val hprop = list_mk_ucomb(``ARRAY_REL``, [ref_inv, farray_loc, get_term])
+        val hprop = mk_ARRAY_REL ref_inv farray_loc get_term
       in
         hprop
       end
@@ -981,6 +993,8 @@ fun prove_store_access_specs refs_manip_list
         in (eval_th, true) end
         handle HOL_ERR _ => (TRUTH, false)
 
+        (* Handle annoying situations where ``\st. st with <| arr := xs |>``
+           gets type ``: 'a state => 'b state``. FIXME: same fix for farray? *)
         val set_subst =
           let val set_type = type_of set_arr |> dom_rng |> snd |> dom_rng
           in match_type (snd set_type) (fst set_type) end
@@ -997,7 +1011,7 @@ fun prove_store_access_specs refs_manip_list
           in rewrite_thm th end
           else let
             val th =
-              ISPECL[name_v,loc,TYPE,EXN_TYPE,H_part,get_arr,set_arr,
+              ISPECL[name_v,loc,TYPE,EXN_TYPE,H_part,get_arr,set_arr',
                      update_exn,update_rexp] EvalM_R_Marray_update_handle
             val th = SPEC_ALL th |> UNDISCH |> UNDISCH
             val th = remove_assumption th |> remove_assumption
