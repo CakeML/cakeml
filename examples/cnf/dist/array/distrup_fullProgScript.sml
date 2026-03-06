@@ -5,7 +5,7 @@ Theory distrup_fullProg
 Libs
   preamble basis wordsLib
 Ancestors
-  distrup_list distrup_arrayProg words cv_std byte
+  distrup_list distrup_arrayProg words cfHeapsBase cv_std byte
 
 val _ = hide_environments true;
 
@@ -2280,7 +2280,7 @@ QED
 (* semantics theorem about whole program *)
 
 (*
-  max_print_depth := 15
+  max_print_depth := 35
 *)
 
 val Decls_thm =
@@ -2290,14 +2290,53 @@ val Decls_thm =
   |> ml_progLib.get_thm
   |> REWRITE_RULE [ml_progTheory.ML_code_def,ml_progTheory.ML_code_env_def];
 
+Definition update_oracle_def:
+  update_oracle =
+    ((λfname st a1 a2.
+        case fname of
+        | SharedMem _ => Oracle_final FFI_failed
+        | ExtCall n   => case update n a1 a2 st of
+                         | SOME (FFIreturn x y) => Oracle_return y x
+                         | _ => Oracle_final FFI_failed) : ffi oracle)
+End
+
+Definition custom_ffi_def:
+  custom_ffi s =
+    <| oracle    := update_oracle
+     ; ffi_state := s
+     ; io_events := []
+   |>
+End
+
+Definition ffi_proj_def:
+  ffi_proj (s:ffi) = FEMPTY |++ (MAP (λn. (n,s)) names)
+End
+
 Theorem SPLIT_heaps_lemma[local]:
   SPLIT
-    (store2heap (distrup_arrayProg_st ffi).refs ∪
-     ffi2heap p (distrup_arrayProg_st ffi).ffi)
-    ({FFI_part (State Step inputs tb) update names []},
-     FFI_split INSERT store2heap (distrup_arrayProg_st ffi).refs)
+    (store2heap (distrup_arrayProg_st (custom_ffi s)).refs ∪
+     ffi2heap (ffi_proj,[(names,update)]) (distrup_arrayProg_st (custom_ffi s)).ffi)
+    ({FFI_part s update names []},
+     FFI_split INSERT store2heap (distrup_arrayProg_st (custom_ffi s)).refs)
 Proof
-  cheat
+  fs [EVAL “(distrup_arrayProg_st ffi).ffi”] >>
+  qsuff_tac
+    ‘ffi2heap (ffi_proj,[(names,update)]) (custom_ffi s) =
+     {FFI_split; FFI_part s update names []}’
+  >-
+   (strip_tac >> simp [SPLIT_def] >>
+    conj_tac >- (gvs [EXTENSION] \\ rw [] \\ eq_tac \\ rw [] \\ gvs []) >>
+    gvs [cfAppTheory.FFI_part_NOT_IN_store2heap]) >>
+  simp [cfStoreTheory.ffi2heap_def] >>
+  ‘parts_ok (custom_ffi s) (ffi_proj,[(names,update)])’ by cheat >>
+  gvs [] >>
+  fs [EVAL “(distrup_arrayProg_st ffi).ffi”,
+      EVAL “(custom_ffi s).ffi_state”,
+      EVAL “(custom_ffi s).io_events”, SF CONJ_ss] >>
+  ‘∀n. MEM n names ⇒ FLOOKUP (ffi_proj s) n = SOME s’ by cheat >>
+  gvs [] >>
+  simp [EXTENSION] >> rw [] >> eq_tac >> rw [] >>
+  gvs [names_def,SF DNF_ss]
 QED
 
 (*
@@ -2309,5 +2348,21 @@ val main_lemma = main_spec
   |> SRULE [CUSTOM_FFI_def,SEP_EXISTS,PULL_EXISTS,cond_STAR]
   |> SRULE [one_def,evaluate_to_heap_def,PULL_EXISTS]
   |> SRULE [cfStoreTheory.st2heap_def]
+  |> Q.GEN ‘p’ |> Q.ISPEC ‘ffi_proj,[(names,update)]’
   |> Q.SPECL [‘hhh’,‘distrup_arrayProg_st ffi’]
-  |> C MATCH_MP SPLIT_heaps_lemma
+  |> Q.GEN ‘ffi’ |> Q.SPEC ‘custom_ffi (State Step inputs tb)’
+  |> C MATCH_MP (SPLIT_heaps_lemma |> Q.GEN ‘s’ |> Q.SPEC ‘State Step inputs tb’)
+  |> Q.GEN ‘inputs’
+  |> Q.GEN ‘tb’
+  |> SRULE [boolTheory.SKOLEM_THM]
+
+val main_res = new_specification("main_res",
+  ["main_env","main_exp","main_h","main_res","main_events","main_ck","main_st"],
+  main_lemma);
+
+Theorem main_st_ffi_events:
+  (main_st tb inputs).ffi.io_events = main_events tb inputs
+Proof
+  assume_tac (main_res |> SPEC_ALL |> cj 1) >>
+  cheat
+QED
