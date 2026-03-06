@@ -1702,6 +1702,19 @@ Definition fts_highest_rank_def:
 End
 
 
+Definition bal_fts_def:
+  (bal_fts [] = []) /\
+  (bal_fts (t::ts) =
+    map_to_list ((fts_highest_rank 0 (t::ts)) + LENGTH ts + 1)
+                (fill_rm (LENGTH ts +1) (FEMPTY, (t::ts))) )
+End
+
+Definition fts_reb_def:
+  fts_reb fts =
+    let list = bal_fts fts in
+      fts_set_min_hd (fts_find_min (HD list) list) list
+End
+
 (*
 Type error between map and list?
 
