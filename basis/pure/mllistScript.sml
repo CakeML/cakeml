@@ -291,7 +291,7 @@ Proof
   rw[sort_def]
 QED
 
-Triviality total_reflexive:
+Theorem total_reflexive[local]:
   total R ==> reflexive R
 Proof
   simp [total_def, reflexive_def]
