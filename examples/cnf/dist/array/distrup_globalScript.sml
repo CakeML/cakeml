@@ -430,16 +430,26 @@ Proof
   metis_tac[]
 QED
 
-Theorem sat_step_sound:
+(* A good initial state *)
+Definition init_st_def:
+  init_st st fml ⇔
+    FEVERY (λ(n,v).
+      v = NONE ∨
+      ∃n k. v = SOME (REPLICATE n NONE, REPLICATE k 0w, 1w))
+      st.procs ∧
+    set st.facts ⊆ fml ∧
+    ¬st.validated
+End
+
+Theorem sat_step_sound_spec_aux:
   reduce꙳ st st' ∧
-  (∀name facts. name ∈ FDOM st.procs ⇒ ∃n k. FLOOKUP st.procs name = SOME(SOME (REPLICATE n NONE, REPLICATE k 0w, 1w))) ∧
-  set st.facts = oprems ∧
-  ¬st.validated ∧
+  init_st st fml ∧
   st'.validated
   ⇒
-  sat_infer oprems (Vector [])
+  sat_infer fml (Vector [])
 Proof
   rpt strip_tac >>
+  fs[init_st_def]>>
   irule $ INST_TYPE [alpha |-> “:num”, beta |-> alpha] sat_step_sound >>
   qexists ‘K F’ >>
   simp[] >>
@@ -447,10 +457,12 @@ Proof
   >- (rw[state_rel_def] >>
       Q.REFINE_EXISTS_TAC ‘<| procs := _; facts := _; validated := _|>’ >>
       simp[] >>
-      qexists ‘FUN_FMAP (K $ SOME FEMPTY) (FDOM st.procs)’ >>
-      rw[fmap_rel_def,FUN_FMAP_DEF] >>
-      gvs[flookup_thm] >>
+      qexists_tac`(OPTION_MAP (λ_. FEMPTY)) o_f st.procs`>>
+      rw[fmap_rel_def, oneline OPTREL_THM] >>
+      TOP_CASE_TAC>>gvs[FEVERY_DEF]>>
+      pairarg_tac>>gvs[]>>
       first_x_assum drule >>
+      gvs[flookup_thm] >>
       rw[] >>
       gvs[ccnf_listTheory.fml_rel_def,any_el_ALT,EL_REPLICATE] >>
       irule_at Any ccnf_listTheory.dm_rel_FEMPTY_REPLICATE) >>
@@ -462,9 +474,9 @@ Proof
   rev_drule $ cj 2 fmap_rel_FLOOKUP_imp >>
   disch_then drule >>
   rw[OPTREL_SOME,ELIM_UNCURRY] >>
-  gvs[FDOM_FLOOKUP,SF DNF_ss] >>
+  gvs[FDOM_FLOOKUP,SF DNF_ss,FEVERY_DEF] >>
   last_x_assum drule >>
-  rw[] >>
+  strip_tac>>gvs[flookup_thm]>>
   Q.SUBGOAL_THEN ‘facts = FEMPTY’ SUBST_ALL_TAC
   >- (rw[fmap_eq_flookup] >>
       gvs[ccnf_listTheory.fml_rel_def,any_el_ALT] >>
@@ -472,6 +484,30 @@ Proof
       first_x_assum $ qspec_then ‘m’ mp_tac >>
       rw[EL_REPLICATE]) >>
   rw[]
+QED
+
+Definition satisfiable_def:
+  satisfiable fml ⇔
+  (∃w. satisfies_vcfml w fml)
+End
+
+Definition unsatisfiable_def:
+  unsatisfiable fml ⇔ ¬ satisfiable fml
+End
+
+Theorem sat_step_sound_spec:
+  reduce꙳ st st' ∧
+  init_st st fml ∧
+  st'.validated
+  ⇒
+  unsatisfiable fml
+Proof
+  rw[]>>
+  drule_all sat_step_sound_spec_aux>>
+  rw[sat_infer_def,unsatisfiable_def,satisfiable_def]>>
+  CCONTR_TAC>>fs[]>>
+  first_x_assum drule>>
+  EVAL_TAC>>rw[]
 QED
 
 Theorem resume_ok_makes_sense:
