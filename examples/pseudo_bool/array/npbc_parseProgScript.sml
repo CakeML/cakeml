@@ -2495,13 +2495,13 @@ Definition fold_update_vimap_enum_def:
   (fold_update_vimap_enum (k:num) [] acc = acc) ∧
   (fold_update_vimap_enum k (x::xs) acc =
     fold_update_vimap_enum (k+1)
-      xs (update_vimap acc k (FST x)))
+      xs (update_vimap F acc k (FST x)))
 End
 
 Theorem fold_update_vimap_enum_FOLDL:
   ∀xs k acc.
   fold_update_vimap_enum k xs acc =
-  (FOLDL (λacc (i,v). update_vimap acc i (FST v)) acc (enumerate k xs))
+  (FOLDL (λacc (i,v). update_vimap F acc i (FST v)) acc (enumerate k xs))
 Proof
   Induct>>rw[fold_update_vimap_enum_def,miscTheory.enumerate_def]
 QED
@@ -2822,7 +2822,7 @@ Quote add_cakeml:
   case ls of [] => acc
   | (x::xs) =>
     fold_update_vimap_enum_arr (k+1)
-      xs (update_vimap_arr acc k (fst x))
+      xs (update_vimap_arr False acc k (fst x))
 End
 
 Theorem fold_update_vimap_enum_arr_spec:
@@ -2850,6 +2850,14 @@ Proof
     xvar>>xsimpl>>
     simp[miscTheory.enumerate_def])>>
   simp[miscTheory.enumerate_def]>>
+  rpt xlet_autop>>
+  xlet`POSTv vimapv'. SEP_EXISTS vimaplsv'.
+         ARRAY vimapv' vimaplsv' *
+         &LIST_REL (OPTION_TYPE vimapn_TYPE)
+           (update_vimap F vimap k (FST h)) vimaplsv'`
+  >- (
+    xapp>>
+    simp[]>>EVAL_TAC)>>
   rpt xlet_autop>>
   xapp>>
   xsimpl

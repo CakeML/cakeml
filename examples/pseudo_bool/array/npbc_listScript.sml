@@ -96,7 +96,7 @@ Termination
   WF_REL_TAC `measure (λp. LENGTH (FST p) + LENGTH (SND p))` >> simp[]
 End
 
-Theorem MEM_sorted_merge:
+Theorem MEM_sorted_merge[simp]:
   MEM x (sorted_merge xs ys) ⇔ MEM x xs ∨ MEM x ys
 Proof
   MAP_EVERY qid_spec_tac [`ys`,`xs`]>>
@@ -1621,6 +1621,10 @@ End
 Type vimap_ty = ``:((num option # num list # num list) + num) option list``;
 
 (* Useful for translation *)
+
+(* TODO: a technical optimization we can do here
+  is to stop checking after we hit n > x, because
+  the constraints should be sorted *)
 Definition cond_pos_def:
   cond_pos x cc =
     EXISTS (λ(c:int,n:num). 0 ≤ c ∧ n = x) cc
@@ -1667,6 +1671,17 @@ Definition get_inds_rhs_def:
   | _ => sorted_merge pinds ninds)
 End
 
+Definition do_reindex_rhs_def:
+  do_reindex_rhs fml rhs pinds ninds =
+  (case rhs of
+    INL b =>
+    if b
+    then (pinds, reindex fml ninds)
+    else (reindex fml pinds, ninds)
+  | _ =>
+    (reindex fml pinds, reindex fml ninds))
+End
+
 Definition check_get_inds_rhs_def:
   (check_get_inds_rhs vimap [] = T) ∧
   (check_get_inds_rhs vimap ((n,rhs)::xs) =
@@ -1681,8 +1696,7 @@ Definition fold_get_inds_rhs_def:
     (case any_el n vimap NONE of
       NONE => fold_get_inds_rhs fml xs acc vimap
     | SOME (INL (_,pinds,ninds)) =>
-      let pinds = reindex fml pinds in
-      let ninds = reindex fml ninds in
+      let (pinds,ninds) = do_reindex_rhs fml rhs pinds ninds in
       let rinds = get_inds_rhs rhs pinds ninds in
       fold_get_inds_rhs fml xs
         (sorted_merge rinds acc)
@@ -1699,8 +1713,7 @@ Definition get_set_indices_def:
     (case any_el n vimap NONE of
       NONE => ([], inds, vimap)
     | SOME (INL (_,pinds,ninds)) =>
-      let pinds = reindex fml pinds in
-      let ninds = reindex fml ninds in
+      let (pinds,ninds) = do_reindex_rhs fml rhs pinds ninds in
       let rinds = get_inds_rhs rhs pinds ninds in
       (rinds, inds,
         update_resize vimap NONE (SOME (INL (NONE,pinds,ninds))) n)
@@ -1809,9 +1822,14 @@ Definition opt_cons_aux_def:
   if 0 ≤ (i:int) then (v::pinds,ninds) else (pinds,v::ninds)
 End
 
+(* fresh flag controls if, when we see a new var,
+  whether to track it forever or not *)
 Definition opt_cons_def:
-  (opt_cons i (v:num) NONE = INL (SOME 1n,opt_cons_aux i v ([],[]))) ∧
-  (opt_cons i v (SOME (INL (n,ls))) =
+  (opt_cons fresh i (v:num) NONE =
+    INL (
+      if fresh then NONE else SOME 1,
+      opt_cons_aux i v ([],[]))) ∧
+  (opt_cons fresh i v (SOME (INL (n,ls))) =
     case n of NONE =>
       INL (NONE, opt_cons_aux i v ls)
     | SOME n =>
@@ -1820,15 +1838,15 @@ Definition opt_cons_def:
       INR (0n)
     else
       INL (SOME (n+1), opt_cons_aux i v ls)) ∧
-  (opt_cons i v (SOME (INR earliest)) = INR earliest)
+  (opt_cons fresh i v (SOME (INR earliest)) = INR earliest)
 End
 
 Definition update_vimap_def:
-  (update_vimap (vimap:vimap_ty) v [] = vimap) ∧
-  (update_vimap vimap v ((i,n)::ns) =
-    update_vimap
+  (update_vimap fresh (vimap:vimap_ty) v [] = vimap) ∧
+  (update_vimap fresh vimap v ((i,n)::ns) =
+    update_vimap fresh
     (update_resize vimap NONE
-      (SOME (opt_cons i v (any_el n vimap NONE))) n)
+      (SOME (opt_cons fresh i v (any_el n vimap NONE))) n)
     v
     ns)
 End
@@ -1839,7 +1857,7 @@ Definition opt_update_inds_def[simp]:
   (opt_update_inds fml (SOME cc) id inds vimap zeros =
     (update_resize fml NONE (SOME cc) id,
       sorted_insert id inds,
-      update_vimap vimap id (FST (FST cc)),
+      update_vimap T vimap id (FST (FST cc)),
       id+1,
       zeros))
 End
@@ -1861,7 +1879,7 @@ Definition check_sstep_list_def:
       SOME (
         update_resize rfml NONE (SOME (c,tcb)) id',
         sorted_insert id' rinds,
-        update_vimap vimap' id' (FST c),
+        update_vimap T vimap' id' (FST c),
         id'+1,
         zeros')
     | NONE => NONE)
@@ -2710,6 +2728,103 @@ Proof
   rw[restore_def,restore_aux]
 QED
 
+Theorem vec_lookup_empty[simp]:
+  vec_lookup (Vector []) x = NONE
+Proof
+  EVAL_TAC
+QED
+
+Theorem MEM_get_inds_rhs_pinds_reindex:
+  any_el i fml NONE = SOME res ∧
+  MEM i pinds ∧ rhs ≠ (INL T):bool + num lit ⇒
+  MEM i (get_inds_rhs rhs (reindex fml pinds) ninds)
+Proof
+  rw[get_inds_rhs_def]>>
+  every_case_tac>>gvs[]>>
+  rw[reindex_characterize,MEM_FILTER]
+QED
+
+Theorem MEM_get_inds_rhs_ninds_reindex:
+  any_el i fml NONE = SOME res ∧
+  MEM i ninds ∧ rhs ≠ (INL F):bool + num lit ⇒
+  MEM i (get_inds_rhs rhs pinds (reindex fml ninds))
+Proof
+  rw[get_inds_rhs_def]>>
+  every_case_tac>>gvs[]>>
+  rw[reindex_characterize,MEM_FILTER]
+QED
+
+Theorem check_get_inds_rhs_not_INR:
+  ∀vimap ls.
+  check_get_inds_rhs vimap ls ∧
+  MEM (n,rhs) ls ⇒
+  any_el n vimap NONE ≠ SOME (INR e)
+Proof
+  ho_match_mp_tac check_get_inds_rhs_ind>>
+  rw[check_get_inds_rhs_def]>>
+  gvs[AllCasePreds()]
+QED
+
+Theorem fold_get_inds_rhs_acc:
+  ∀fml ls acc vimap rinds vimap' n pinds ninds.
+  fold_get_inds_rhs fml ls acc vimap = (rinds,vimap') ∧
+  MEM i acc ⇒ MEM i rinds
+Proof
+  ho_match_mp_tac fold_get_inds_rhs_ind>>
+  rw[]>>
+  gvs[fold_get_inds_rhs_def,AllCaseEqs(),UNCURRY_EQ]
+QED
+
+Theorem fold_get_inds_rhs_MEM:
+  ∀fml ls acc vimap rinds vimap' n pinds ninds.
+  fold_get_inds_rhs fml ls acc vimap = (rinds,vimap') ∧
+  (∀n rhs e.
+    MEM (n,rhs) ls ⇒
+    any_el n vimap NONE ≠ SOME (INR e)) ∧
+  any_el i fml NONE = SOME res ∧
+  any_el x vimap NONE = SOME (INL (n,pinds,ninds)) ∧
+  MEM (x,rhs) ls ⇒
+  (rhs ≠ INL T ∧ MEM i pinds ⇒ MEM i rinds) ∧
+  (rhs ≠ (INL F):bool + num lit ∧ MEM i ninds ⇒ MEM i rinds)
+Proof
+  ho_match_mp_tac fold_get_inds_rhs_ind>>
+  conj_tac>- rw[]>>
+  rpt gen_tac>>
+  strip_tac>>
+  rpt gen_tac>>
+  SIMP_TAC list_ss []>>
+  strip_tac>>
+  rveq
+  >- (
+    ntac 2 (last_x_assum kall_tac)>>
+    gvs[fold_get_inds_rhs_def,UNCURRY_EQ,do_reindex_rhs_def,AllCaseEqs()]>>
+    rw[]>>
+    drule_then irule fold_get_inds_rhs_acc>>
+    simp[]>>
+    drule MEM_get_inds_rhs_ninds_reindex>>
+    drule MEM_get_inds_rhs_pinds_reindex>>
+    rw[])>>
+  Cases_on`any_el n vimap NONE`>>
+  fs[fold_get_inds_rhs_def]>>
+  gvs[AllCaseEqs(),UNCURRY_EQ]
+  >- metis_tac[]>>
+  last_x_assum mp_tac>>
+  simp[any_el_update_resize]>>
+  IF_CASES_TAC
+  >- (
+    gvs[]>>
+    impl_tac >-
+      (rw[]>>
+      metis_tac[])>>
+    gvs[do_reindex_rhs_def,AllCaseEqs(),reindex_characterize,MEM_FILTER])>>
+  disch_then irule>>
+  conj_tac
+  >- (
+    rw[any_el_update_resize]>>
+    metis_tac[])>>
+  metis_tac[]
+QED
+
 Theorem MEM_get_set_indices_mk_subst:
   vimap_rel fmlls vimap ∧
   ind_rel fmlls inds ∧
@@ -2719,10 +2834,11 @@ Theorem MEM_get_set_indices_mk_subst:
   ⇒
   MEM i rinds
 Proof
-  cheat
-  (*
-  rw[get_set_indices_def]>>
-  gvs[AllCaseEqs()]
+  strip_tac>>
+  gvs[get_set_indices_def,AllCaseEqs(),mk_subst_def,UNCURRY_EQ]
+  >- (
+    drule IS_SOME_subst_opt>>strip_tac>>
+    gvs[subst_fun_def,IS_SOME_EXISTS,vimap_rel_def])
   >- (
     drule IS_SOME_subst_opt>>strip_tac>>
     gvs[subst_fun_def,IS_SOME_EXISTS,vimap_rel_def]>>
@@ -2732,16 +2848,16 @@ Proof
     drule IS_SOME_subst_opt>>strip_tac>>
     gvs[subst_fun_def,IS_SOME_EXISTS,vimap_rel_def]>>
     first_x_assum drule>>simp[]>>
-    disch_then drule>> strip_tac>> gvs[AllCasePreds()]>>
-    gvs[get_inds_rhs_def]>>
-    every_case_tac>>
-    gvs[reindex_characterize,MEM_FILTER,IS_SOME_EXISTS,ind_rel_def,PULL_EXISTS,any_el_ALT])
+    disch_then drule>> strip_tac>>
+    gvs[AllCasePreds(),do_reindex_rhs_def,AllCaseEqs()]>>
+    drule MEM_get_inds_rhs_ninds_reindex>>
+    drule MEM_get_inds_rhs_pinds_reindex>>
+    rw[])
   >- (
     drule IS_SOME_subst_opt>>strip_tac>>
     gvs[subst_fun_def,IS_SOME_EXISTS,vimap_rel_def]>>
     first_x_assum drule>>simp[]>>
     disch_then drule>> strip_tac>> gvs[AllCasePreds()]>>
-    pairarg_tac>>
     gvs[get_inds_rhs_def]>>
     every_case_tac>>
     gvs[restore_characterize,MEM_FILTER,IS_SOME_EXISTS,ind_rel_def,PULL_EXISTS,any_el_ALT]>>
@@ -2758,10 +2874,26 @@ Proof
   )
   >- (
     drule IS_SOME_subst_opt>>strip_tac>>
-    gvs[mk_subst_cases,AllCaseEqs(),subst_fun_def,spt_to_vecTheory.vec_lookup_def])
+    gvs[subst_fun_def,spt_to_vecTheory.vec_lookup_num_man_to_vec,lookup_fromAList,IS_SOME_EXISTS]>>
+    gvs[vimap_rel_def]>>first_x_assum drule>>
+    simp[]>> disch_then drule>>
+    rw[]>>
+    drule ALOOKUP_MEM>> strip_tac>>
+    drule check_get_inds_rhs_not_INR>>
+    disch_then drule>>
+    pop_assum kall_tac>>
+    drule check_get_inds_rhs_not_INR>>
+    strip_tac>>
+    rename1`ALOOKUP ls x = SOME rhs`>>
+    drule ALOOKUP_MEM>> strip_tac>>
+    drule fold_get_inds_rhs_MEM>>
+    disch_then (drule_at Any)>>
+    disch_then (drule_at Any)>>
+    gvs[AllCasePreds()]>>
+    metis_tac[])
   >- (
     gvs[reindex_characterize,MEM_FILTER]>>
-    gvs[ind_rel_def]) *)
+    gvs[ind_rel_def])
 QED
 
 Theorem fml_rel_fml_rel_vimap_rel:
@@ -2784,12 +2916,53 @@ Theorem ind_rel_get_set_indices:
   ind_rel fmlls inds ⇒
   ind_rel fmlls inds'
 Proof
-  cheat
-  (*
   rw[get_set_indices_def] >>
-  gvs[AllCaseEqs()]
-  >- (pairarg_tac>>gvs[])>>
-  metis_tac[ind_rel_reindex]*)
+  gvs[AllCaseEqs(),UNCURRY_EQ]>>
+  metis_tac[ind_rel_reindex]
+QED
+
+Theorem vimap_rel_do_reindex:
+  vimap_rel fmlls vimap ∧
+  any_el n vimap NONE = SOME (INL (c,pinds,ninds)) ∧
+  do_reindex_rhs fmlls rhs pinds ninds = (pinds',ninds') ⇒
+  vimap_rel fmlls
+    (update_resize vimap NONE (SOME (INL (NONE,pinds',ninds'))) n)
+Proof
+  rw[]>>gvs[do_reindex_rhs_def,AllCaseEqs()]>>
+  fs[vimap_rel_def,any_el_update_resize]>>rw[]>>
+  first_x_assum drule_all>>
+  rw[reindex_characterize]>>
+  gvs[MEM_FILTER]
+QED
+
+Theorem vimap_rel_restore:
+  vimap_rel fmlls vimap ∧
+  restore n fmlls inds = (pinds', ninds') ∧
+  ind_rel fmlls inds ⇒
+  vimap_rel fmlls
+    (update_resize vimap NONE (SOME (INL (NONE,pinds',ninds'))) n)
+Proof
+  rw[restore_characterize,AllCaseEqs()]>>
+  fs[vimap_rel_def,any_el_update_resize]>>rw[]>>
+  first_x_assum drule_all>>
+  rw[]>>gvs[MEM_FILTER,AllCasePreds()]>>
+  rw[cond_pos_def,cond_neg_def,EXISTS_MEM]>>
+  gvs[ind_rel_def,IS_SOME_EXISTS,PULL_EXISTS]>>
+  first_x_assum (irule_at Any)>>gvs[]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem vimap_rel_fold_get_inds_rhs:
+  ∀fmlls ls acc vimap rinds vimap'.
+  fold_get_inds_rhs fmlls ls acc vimap = (rinds,vimap') ∧
+  vimap_rel fmlls vimap ⇒
+  vimap_rel fmlls vimap'
+Proof
+  ho_match_mp_tac fold_get_inds_rhs_ind>>
+  rw[fold_get_inds_rhs_def]>>
+  gvs[AllCaseEqs(),UNCURRY_EQ]>>
+  first_x_assum irule>>
+  metis_tac[vimap_rel_do_reindex]
 QED
 
 Theorem vimap_rel_get_set_indices:
@@ -2798,24 +2971,13 @@ Theorem vimap_rel_get_set_indices:
   ind_rel fmlls inds ⇒
   vimap_rel fmlls vimap'
 Proof
-  cheat
-  (*
   rw[get_set_indices_def] >>
-  gvs[AllCaseEqs(),vimap_rel_def]>>
-  every_case_tac>>rw[any_el_update_resize]>>
-  first_x_assum drule_all>>
-  rw[reindex_characterize,MEM_FILTER]>>
-  pairarg_tac>>gvs[]>>
-  rw[any_el_update_resize]>>
-  gvs[AllCasePreds(),restore_characterize,MEM_FILTER]>>
-  gvs[ind_rel_def,IS_SOME_EXISTS,PULL_EXISTS]>>
-  first_x_assum drule>>
-  rw[cond_pos_def,cond_neg_def,EXISTS_MEM,EXISTS_PROD]>>
-  Cases_on`0 ≤ coeff`>>
-  gvs[]
-  >- metis_tac[]>>
-  first_x_assum (irule_at Any)>>
-  intLib.ARITH_TAC*)
+  gvs[AllCaseEqs(),UNCURRY_EQ]
+  >- metis_tac[vimap_rel_do_reindex]
+  >- metis_tac[vimap_rel_restore]
+  >- metis_tac[vimap_rel_fold_get_inds_rhs]
+  >- metis_tac[vimap_rel_do_reindex]
+  >- metis_tac[vimap_rel_restore]
 QED
 
 Definition vomap_rel_def:
@@ -3307,9 +3469,11 @@ Proof
 QED
 
 Theorem opt_cons_alt:
-  opt_cons i (v:num) opt =
+  opt_cons fresh i (v:num) opt =
   case opt of
-    NONE => INL (SOME 1n,opt_cons_aux i v ([],[]))
+    NONE => INL (
+      if fresh then NONE
+      else SOME 1n,opt_cons_aux i v ([],[]))
   | (SOME (INL (n,ls))) =>
     (case n of NONE => INL (NONE, opt_cons_aux i v ls)
     | SOME n =>
@@ -3327,7 +3491,7 @@ Theorem lookup_update_vimap:
   ∀v0 vimap ls x ll0.
     any_el x vimap NONE = SOME ll0 ⇒
     ∃ll.
-      any_el x (update_vimap vimap n v0) NONE = SOME ll ∧
+      any_el x (update_vimap fresh vimap n v0) NONE = SOME ll ∧
       case ll0 of
         INL (n,lls,rls) =>
         (case ll of
@@ -3340,11 +3504,11 @@ Proof
   Induct \\ gvs [update_vimap_def,FORALL_PROD] \\ rw []
   >-
     (every_case_tac>>simp[])
-  \\ rename1`opt_cons i`
+  \\ rename1`opt_cons fresh i`
   \\ `∃ll.
     any_el x
     (update_resize vimap NONE
-       (SOME (opt_cons i n (any_el p_2 vimap NONE))) p_2) NONE = SOME ll ∧
+       (SOME (opt_cons fresh i n (any_el p_2 vimap NONE))) p_2) NONE = SOME ll ∧
     case ll0 of
       INL (nn,lls,rls) =>
       (case ll of INL (nn',lls',rls') =>
@@ -3364,14 +3528,14 @@ Theorem lookup_update_vimap_l:
   any_el x vimap NONE = SOME ll0 ∧
   (case ll0 of INL (n,lls,rls) => MEM i lls | INR _ => T) ⇒
   ∃ll.
-    any_el x (update_vimap vimap n v0) NONE = SOME ll ∧
+    any_el x (update_vimap fresh vimap n v0) NONE = SOME ll ∧
     case ll of
       INL (n,lls,rls) => MEM i lls
     | INR _ => T
 Proof
   rw[]>>
   drule  lookup_update_vimap>>
-  disch_then(qspecl_then[`n`,`v0`] assume_tac)>>gvs[]>>
+  disch_then(qspecl_then[`n`,`fresh`,`v0`] assume_tac)>>gvs[]>>
   every_case_tac>>gvs[]
 QED
 
@@ -3379,14 +3543,14 @@ Theorem lookup_update_vimap_r:
   any_el x vimap NONE = SOME ll0 ∧
   (case ll0 of INL (n,lls,rls) => MEM i rls | INR _ => T) ⇒
   ∃ll.
-    any_el x (update_vimap vimap n v0) NONE = SOME ll ∧
+    any_el x (update_vimap fresh vimap n v0) NONE = SOME ll ∧
     case ll of
       INL (n,lls,rls) => MEM i rls
     | INR _ => T
 Proof
   rw[]>>
   drule  lookup_update_vimap>>
-  disch_then(qspecl_then[`n`,`v0`] assume_tac)>>gvs[]>>
+  disch_then(qspecl_then[`n`,`fresh`,`v0`] assume_tac)>>gvs[]>>
   every_case_tac>>gvs[]
 QED
 
@@ -3394,7 +3558,7 @@ Theorem lookup_update_vimap_MEM:
   ∀v0 vimap.
     MEM (coeff,x) v0 ⇒
     ∃ll.
-      any_el x (update_vimap vimap i v0) NONE = SOME ll ∧
+      any_el x (update_vimap fresh vimap i v0) NONE = SOME ll ∧
       case ll of
         INL (n,lls,rls) =>
           if 0 ≤ coeff then MEM i lls
@@ -3424,7 +3588,7 @@ Theorem vimap_rel_LUPDATE:
   n < LENGTH fml ∧
   vimap_rel fml vimap ⇒
   vimap_rel (LUPDATE (SOME (v,b)) n fml)
-    (update_vimap vimap n (FST v))
+    (update_vimap fresh vimap n (FST v))
 Proof
   simp[vimap_rel_def,any_el_LUPDATE]
   \\ rpt strip_tac
@@ -3454,7 +3618,7 @@ QED
 Theorem vimap_rel_update_resize_update_vimap:
   vimap_rel fml vimap ⇒
   vimap_rel (update_resize fml NONE (SOME (v,b)) n)
-    (update_vimap vimap n (FST v))
+    (update_vimap fresh vimap n (FST v))
 Proof
   rewrite_tac [update_resize_def] \\ rw []
   \\ irule vimap_rel_LUPDATE \\ fs []
@@ -3699,7 +3863,7 @@ Definition check_spec_aux_list_def:
       | SOME (fml',inds',vimap',id',zeros') =>
         let fml'' = update_resize fml' NONE (SOME (c,F)) id' in
         let inds'' = sorted_insert id' inds' in
-        let vimap'' = update_vimap vimap' id' (FST c) in
+        let vimap'' = update_vimap T vimap' id' (FST c) in
         let id'' = id' + 1 in
         check_spec_aux_list asv fml'' inds'' id'' gs vimap'' zeros'
   else F)
@@ -3983,7 +4147,7 @@ Definition check_cstep_list_def:
               update_resize rfml NONE (SOME (c,pc.tcb)) id',
               zeros',
               sorted_insert id' rinds,
-              update_vimap vimap id' (FST c),
+              update_vimap T vimap id' (FST c),
               vomap,
               pc with id := id'+1)
           else NONE))
@@ -4067,7 +4231,7 @@ Definition check_cstep_list_def:
             update_resize fml NONE (SOME (c,T)) pc.id,
             zeros,
             sorted_insert pc.id inds,
-            update_vimap vimap pc.id (FST c),
+            update_vimap T vimap pc.id (FST c),
             vomap,
             pc with
             <| id := pc.id+1;
@@ -4100,7 +4264,7 @@ Definition check_cstep_list_def:
             update_resize fml NONE (SOME (c,T)) pc.id,
             zeros,
             sorted_insert pc.id inds,
-            update_vimap vimap pc.id (FST c),
+            update_vimap T vimap pc.id (FST c),
             vomap,
             pc with
             <| id := pc.id+1;
@@ -4130,7 +4294,7 @@ Definition check_cstep_list_def:
           update_resize fml NONE (SOME (c,T)) pc.id,
           zeros,
           sorted_insert pc.id inds,
-          update_vimap vimap pc.id (FST c),
+          update_vimap T vimap pc.id (FST c),
           vomap,
           pc with
           <| id := pc.id+1;
@@ -4823,7 +4987,7 @@ Theorem vimap_rel_FOLDL_update_resize:
   vimap_rel ls t ⇒
   vimap_rel
   (FOLDL (λacc (i,v). update_resize acc NONE (SOME (v,b)) i) ls xs)
-  (FOLDL (λacc (i,v). update_vimap acc i (FST v)) t xs)
+  (FOLDL (λacc (i,v). update_vimap fresh acc i (FST v)) t xs)
 Proof
   Induct>>rw[]>>
   first_x_assum match_mp_tac>>
@@ -4847,9 +5011,10 @@ Definition mk_vomap_opt_def:
   (mk_vomap_opt (SOME fc) = mk_vomap (LENGTH (FST fc)) fc)
 End
 
+(* For initial setup. Do not track vars *)
 Definition mk_vimap_def:
   mk_vimap ls efml =
-    FOLDL (λacc (i,v). update_vimap acc i (FST v)) ls efml
+    FOLDL (λacc (i,v). update_vimap F acc i (FST v)) ls efml
 End
 
 Theorem check_csteps_list_concl:

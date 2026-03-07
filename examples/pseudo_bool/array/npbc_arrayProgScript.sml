@@ -7,6 +7,7 @@ Libs
 Ancestors
   UnsafeProg UnsafeProof npbc npbc_list
 
+val _ = hide_environments true;
 val _ = translation_extends"UnsafeProg";
 
 Quote add_cakeml:
@@ -3237,6 +3238,53 @@ val res = translate sorted_merge_def;
 val res = translate get_inds_rhs_def;
 
 Quote add_cakeml:
+  fun do_reindex_rhs_arr fml rhs pinds ninds =
+  case rhs of
+    Inl b =>
+    if b
+    then (pinds, reindex_arr fml ninds)
+    else (reindex_arr fml pinds, ninds)
+  | Inr _ =>
+    (reindex_arr fml pinds, reindex_arr fml ninds)
+End
+
+Theorem do_reindex_rhs_arr_spec:
+  LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv ∧
+  SUM_TYPE BOOL a rhs rhsv ∧
+  LIST_TYPE NUM pinds pindsv ∧
+  LIST_TYPE NUM ninds nindsv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "do_reindex_rhs_arr" (get_ml_prog_state()))
+    [fmlv; rhsv; pindsv; nindsv]
+    (ARRAY fmlv fmllsv)
+    (POSTv v.
+      ARRAY fmlv fmllsv *
+      &(PAIR_TYPE (LIST_TYPE NUM) (LIST_TYPE NUM)
+        (do_reindex_rhs fmlls rhs pinds ninds) v))
+Proof
+  rw[]>>
+  xcf "do_reindex_rhs_arr" (get_ml_prog_state ())>>
+  rpt xlet_autop>>
+  Cases_on `rhs` >> gvs[SUM_TYPE_def,do_reindex_rhs_def]>>
+  xmatch
+  >- (
+    xif
+    >- (
+      rpt xlet_autop>>
+      xcon>>xsimpl>>
+      simp[PAIR_TYPE_def])
+    >- (
+      rpt xlet_autop>>
+      xcon>>xsimpl>>
+      simp[PAIR_TYPE_def]))
+  >- (
+    rpt xlet_autop>>
+    xcon>>xsimpl>>
+    simp[PAIR_TYPE_def])
+QED
+
+Quote add_cakeml:
   fun check_get_inds_rhs_arr vimap ls =
   case ls of
     [] => True
@@ -3246,6 +3294,48 @@ Quote add_cakeml:
     | _ => check_get_inds_rhs_arr vimap xs
 End
 
+Overload "subst_raw_TYPE" = ``LIST_TYPE (PAIR_TYPE NUM (SUM_TYPE BOOL (PBC_LIT_TYPE NUM)))``
+
+Theorem check_get_inds_rhs_arr_spec:
+  ∀ls lsv vimap vimaplsv vimapv.
+  subst_raw_TYPE ls lsv ∧
+  LIST_REL (OPTION_TYPE vimapn_TYPE) vimap vimaplsv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "check_get_inds_rhs_arr" (get_ml_prog_state()))
+    [vimapv; lsv]
+    (ARRAY vimapv vimaplsv)
+    (POSTv v.
+      ARRAY vimapv vimaplsv *
+      &(BOOL (check_get_inds_rhs vimap ls) v))
+Proof
+  Induct>>
+  rw[]>>
+  xcf "check_get_inds_rhs_arr" (get_ml_prog_state ())>>
+  fs[LIST_TYPE_def,check_get_inds_rhs_def]
+  >- (
+    xmatch>>
+    xcon>>xsimpl)>>
+  Cases_on`h`>>
+  fs[PAIR_TYPE_def,check_get_inds_rhs_def]>>
+  xmatch>>
+  rpt xlet_autop>>
+  xlet_auto>>
+  `OPTION_TYPE vimapn_TYPE (any_el q vimap NONE) v'` by (
+    rw[any_el_ALT]>>
+    fs[LIST_REL_EL_EQN,OPTION_TYPE_def])>>
+  every_case_tac>>
+  gvs[OPTION_TYPE_def,SUM_TYPE_def,PAIR_TYPE_def]>>
+  xmatch
+  >- (
+    xapp>>
+    simp[])
+  >- (
+    xapp>>
+    simp[])>>
+  xcon>>xsimpl
+QED
+
 Quote add_cakeml:
   fun fold_get_inds_rhs_arr fml ls acc vimap =
   case ls of
@@ -3254,16 +3344,68 @@ Quote add_cakeml:
     case Array.lookup vimap None n of
       None => fold_get_inds_rhs_arr fml xs acc vimap
     | Some (Inl (_,(pinds,ninds))) =>
+      (case do_reindex_rhs_arr fml rhs pinds ninds of
+        (pinds',ninds') =>
       let
-        val pinds = reindex_arr fml pinds
-        val ninds = reindex_arr fml ninds
-        val rinds = get_inds_rhs rhs pinds ninds in
+        val rinds = get_inds_rhs rhs pinds' ninds' in
       fold_get_inds_rhs_arr fml xs
         (sorted_merge rinds acc)
-        (Array.updateResize vimap None n (Some (Inl (None,(pinds,ninds)))))
-      end
+        (Array.updateResize vimap None n (Some (Inl (None,(pinds',ninds')))))
+      end)
     | Some (Inr earliest) => (acc, vimap)
 End
+
+Theorem fold_get_inds_rhs_arr_spec:
+  ∀fmlls ls acc vimap fmllsv accv lsv vimaplsv
+    fmlv vimapv.
+  LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv ∧
+  subst_raw_TYPE ls lsv ∧
+  (LIST_TYPE NUM) acc accv ∧
+  LIST_REL (OPTION_TYPE vimapn_TYPE) vimap vimaplsv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "fold_get_inds_rhs_arr" (get_ml_prog_state()))
+    [fmlv; lsv; accv; vimapv]
+    (ARRAY fmlv fmllsv * ARRAY vimapv vimaplsv)
+    (POSTv v.
+        SEP_EXISTS vimapv' vimaplsv'.
+        ARRAY fmlv fmllsv * ARRAY vimapv' vimaplsv' *
+        &(
+          (PAIR_TYPE
+            (LIST_TYPE NUM)
+            (λl v.
+              LIST_REL (OPTION_TYPE vimapn_TYPE) l vimaplsv' ∧
+              v = vimapv'))
+            (fold_get_inds_rhs fmlls ls acc vimap) v))
+Proof
+  ho_match_mp_tac fold_get_inds_rhs_ind>>
+  rw[]>>
+  xcf "fold_get_inds_rhs_arr" (get_ml_prog_state ())>>
+  fs[LIST_TYPE_def,PAIR_TYPE_def,fold_get_inds_rhs_def]>>
+  xmatch
+  >- (xcon>>xsimpl)>>
+  xlet_autop>>
+  xlet_autop>>
+  `OPTION_TYPE vimapn_TYPE (any_el n vimap NONE) v'` by (
+    rw[any_el_ALT]>>
+    fs[LIST_REL_EL_EQN,OPTION_TYPE_def])>>
+  every_case_tac>>
+  gvs[OPTION_TYPE_def,SUM_TYPE_def,PAIR_TYPE_def]>>
+  xmatch
+  >- (
+    xapp>>xsimpl>>
+    metis_tac[])
+  >- (
+    rpt xlet_autop>>
+    pairarg_tac>>gvs[PAIR_TYPE_def]>>
+    xmatch>>
+    rpt xlet_autop>>
+    xapp>>xsimpl>>
+    irule LIST_REL_update_resize>>
+    fs[OPTION_TYPE_def,PAIR_TYPE_def,SUM_TYPE_def])
+  >-
+    (xcon>>xsimpl)
+QED
 
 Quote add_cakeml:
   fun get_set_indices_arr fml inds s vimap =
@@ -3273,18 +3415,17 @@ Quote add_cakeml:
     (case Array.lookup vimap None n of
       None => ([], (inds, vimap))
     | Some (Inl (nn,(pinds,ninds))) =>
+      (case do_reindex_rhs_arr fml rhs pinds ninds of (pinds,ninds) =>
       let
-        val pinds = reindex_arr fml pinds
-        val ninds = reindex_arr fml ninds
         val rinds = get_inds_rhs rhs pinds ninds in
       (rinds, (inds, Array.updateResize vimap None n (Some (Inl (None,(pinds,ninds))))))
-      end
+      end)
     | Some (Inr (earliest)) =>
-      case restore_arr n fml inds of (pinds,ninds) =>
+      (case restore_arr n fml inds of (pinds,ninds) =>
       let
         val rinds = get_inds_rhs rhs pinds ninds in
         (rinds, (inds, Array.updateResize vimap None n (Some (Inl (None,(pinds,ninds))))))
-      end)
+      end))
   | _ =>
     if check_get_inds_rhs_arr vimap s then
       case fold_get_inds_rhs_arr fml s [] vimap of (rinds, vimap') =>
@@ -3317,52 +3458,77 @@ Theorem get_set_indices_arr_spec:
               v = vimapv'))
             (get_set_indices fmlls inds s vimap) v))
 Proof
-  cheat
-  (*
   rw[]>>
   xcf "get_set_indices_arr" (get_ml_prog_state ())>>
-  reverse (Cases_on`s`)>>fs[SUM_TYPE_def]
+  simp[get_set_indices_def]>>
+  Cases_on`s`>>fs[LIST_TYPE_def]
   >- (
     xmatch>>
-    simp[get_set_indices_def]>>
     rpt xlet_autop>>
-    xif
-    >-(
+    xcon>>xsimpl>>
+    simp[PAIR_TYPE_def,LIST_TYPE_def]>>
+    metis_tac[ARRAY_refl])>>
+  rename1`subst_raw_TYPE t _`>>
+  Cases_on`t`>>
+  rename1`PAIR_TYPE _ _ h _`>>
+  Cases_on`h`>>fs[PAIR_TYPE_def,LIST_TYPE_def]
+  >- (
+    xmatch>>
+    rpt xlet_autop>>
+    `OPTION_TYPE vimapn_TYPE (any_el q vimap NONE) v'` by (
+      rw[any_el_ALT]>>
+      fs[LIST_REL_EL_EQN,OPTION_TYPE_def])>>
+    every_case_tac>>
+    gvs[OPTION_TYPE_def,SUM_TYPE_def,PAIR_TYPE_def]>>
+    xmatch
+    >- (
       rpt xlet_autop>>
       xcon>>xsimpl>>
-      simp[LIST_TYPE_def,PAIR_TYPE_def]>>
-      metis_tac[ARRAY_refl])>>
-    rpt xlet_autop>>
-    xcon>>xsimpl>>
-    simp[PAIR_TYPE_def]>>
-    metis_tac[ARRAY_refl])>>
-  Cases_on`x`>>gvs[PAIR_TYPE_def]>>
+      simp[LIST_TYPE_def])
+    >> ( (* two subgoals *)
+      pairarg_tac>>fs[]>>
+      xlet_autop>>
+      fs[PAIR_TYPE_def]>>
+      xmatch>>
+      rpt xlet_autop>>
+      xcon>>xsimpl>>
+      irule LIST_REL_update_resize>>
+      fs[OPTION_TYPE_def,PAIR_TYPE_def,SUM_TYPE_def]))>>
   xmatch>>
-  rpt xlet_autop>>
-  simp[get_set_indices_def]>>
-  `OPTION_TYPE vimapn_TYPE (any_el q vimap NONE) v'` by (
-    rw[any_el_ALT]>>
-    fs[LIST_REL_EL_EQN,OPTION_TYPE_def])>>
-  every_case_tac>>
-  gvs[OPTION_TYPE_def,SUM_TYPE_def,PAIR_TYPE_def]>>
-  xmatch
+  qmatch_goalsub_abbrev_tac`fold_get_inds_rhs _ ls`>>
+  xlet`POSTv v.
+      ARRAY fmlv fmllsv * ARRAY vimapv vimaplsv *
+      &(BOOL (check_get_inds_rhs vimap ls) v)`
   >- (
-    rpt xlet_autop>>
-    xcon>>xsimpl>>
-    EVAL_TAC)
+    xapp>>xsimpl>>
+    first_x_assum (irule_at Any)>>
+    qexists_tac`ls`>>
+    simp[Abbr`ls`,LIST_TYPE_def,PAIR_TYPE_def])>>
+  xif
   >- (
-    rpt xlet_autop>>
-    xcon>>xsimpl>>
-    irule LIST_REL_update_resize>>
-    fs[OPTION_TYPE_def,PAIR_TYPE_def,SUM_TYPE_def])
-  >- (
-    rpt xlet_autop>>
-    pairarg_tac>>gvs[PAIR_TYPE_def]>>
+    xlet_autop>>
+    pairarg_tac>>gvs[]>>
+    xlet `POSTv v.
+        SEP_EXISTS vimapv' vimaplsv'.
+        ARRAY fmlv fmllsv * ARRAY vimapv' vimaplsv' *
+        &(
+          (PAIR_TYPE
+            (LIST_TYPE NUM)
+            (λl v.
+              LIST_REL (OPTION_TYPE vimapn_TYPE) l vimaplsv' ∧
+              v = vimapv'))
+            (fold_get_inds_rhs fmlls ls [] vimap) v)`
+    >- (
+      xapp>>xsimpl>>
+      simp[LIST_TYPE_def,Abbr`ls`,PAIR_TYPE_def])>>
+    gvs[PAIR_TYPE_def]>>
     xmatch>>
-    rpt xlet_autop>>
-    xcon>>xsimpl>>
-    irule LIST_REL_update_resize>>
-    fs[OPTION_TYPE_def,PAIR_TYPE_def,SUM_TYPE_def]) *)
+    xlet_autop>>
+    xcon>>xsimpl)>>
+  rpt xlet_autop>>
+  xcon>>xsimpl>>
+  simp[PAIR_TYPE_def]>>
+  metis_tac[ARRAY_refl]
 QED
 
 Overload "vomap_TYPE" = ``STRING_TYPE``
@@ -3502,8 +3668,6 @@ Overload "obj_TYPE" = ``
   OPTION_TYPE (PAIR_TYPE (LIST_TYPE (PAIR_TYPE INT NUM)) INT)``
 
 Overload "pres_TYPE" = ``OPTION_TYPE (SPTREE_SPT_TYPE UNIT_TYPE)``
-
-Overload "subst_raw_TYPE" = ``LIST_TYPE (PAIR_TYPE NUM (SUM_TYPE BOOL (PBC_LIT_TYPE NUM)))``
 
 Theorem OPTION_TYPE_SPLIT:
   OPTION_TYPE a x v ⇔
@@ -3812,31 +3976,32 @@ val res = translate opt_cons_aux_def;
 val res = translate (opt_cons_def |> REWRITE_RULE [ind_lim_def]);
 
 Quote add_cakeml:
-  fun update_vimap_arr vimap v ls =
+  fun update_vimap_arr fresh vimap v ls =
   case ls of [] => vimap
   | ((i,n)::ns) =>
-    update_vimap_arr
+    update_vimap_arr fresh
     (Array.updateResize vimap None n
-      (Some (opt_cons i v (Array.lookup vimap None n))))
+      (Some (opt_cons fresh i v (Array.lookup vimap None n))))
     v
     ns
 End
 
 Theorem update_vimap_arr_spec:
   ∀ls lsv vimap vimaplsv vimapv.
+  BOOL fresh freshv ∧
   LIST_TYPE (PAIR_TYPE INT NUM) ls lsv ∧
   NUM v vv ∧
   LIST_REL (OPTION_TYPE vimapn_TYPE) vimap vimaplsv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "update_vimap_arr" (get_ml_prog_state()))
-    [vimapv; vv; lsv]
+    [freshv; vimapv; vv; lsv]
     (ARRAY vimapv vimaplsv)
     (POSTv vimapv'.
         SEP_EXISTS vimaplsv'.
         ARRAY vimapv' vimaplsv' *
         &(
-        LIST_REL (OPTION_TYPE vimapn_TYPE) (update_vimap vimap v ls) vimaplsv'))
+        LIST_REL (OPTION_TYPE vimapn_TYPE) (update_vimap fresh vimap v ls) vimaplsv'))
 Proof
   Induct>>
   rw[]>>
@@ -3855,7 +4020,7 @@ Proof
     fs[LIST_REL_EL_EQN,OPTION_TYPE_def])>>
   xlet`POSTv res.
     ARRAY vimapv vimaplsv *
-    &vimapn_TYPE (opt_cons q v (any_el r vimap NONE)) res`
+    &vimapn_TYPE (opt_cons fresh q v (any_el r vimap NONE)) res`
   >- (
     xapp>>xsimpl  >>
     metis_tac[])>>
@@ -3878,7 +4043,7 @@ Quote add_cakeml:
       | Some cc =>
         (Array.updateResize rfml None id' (Some cc),
           (sorted_insert id' inds,
-          (update_vimap_arr vimap id' (fst (fst cc)),
+          (update_vimap_arr True vimap id' (fst (fst cc)),
           (id'+1,
           zeros)))) ))
   | Red c s pfs idopt =>
@@ -3888,7 +4053,7 @@ Quote add_cakeml:
        (Array.updateResize fml' None id'
           (Some (c,tcb)),
         (sorted_insert id' rinds,
-        (update_vimap_arr vimap' id' (fst c),
+        (update_vimap_arr True vimap' id' (fst c),
         (id'+1,
         zeros)))))
 End
@@ -3992,6 +4157,10 @@ Proof
       simp[PAIR_TYPE_def,PULL_EXISTS]>>
       metis_tac[ARRAY_W8ARRAY_refl])>>
     rpt xlet_autop>>
+    rename1`bv = Conv _ []`>>
+    `BOOL T bv` by
+      (fs[]>>EVAL_TAC)>>
+    rpt xlet_autop>>
     xcon>>xsimpl>>
     simp[PAIR_TYPE_def]>>
     qmatch_goalsub_abbrev_tac`ARRAY _ A`>>
@@ -4039,6 +4208,10 @@ Proof
       metis_tac[ARRAY_W8ARRAY_refl])>>
     every_case_tac>>fs[PAIR_TYPE_def]>>
     xmatch>>
+    rpt xlet_autop>>
+    rename1`bv = Conv _ []`>>
+    `BOOL T bv` by
+      (fs[]>>EVAL_TAC)>>
     rpt xlet_autop>>
     xcon>>xsimpl>>
     match_mp_tac LIST_REL_update_resize>>
@@ -4100,7 +4273,7 @@ Quote add_cakeml:
         (sorted_insert id' inds')
         (id' + 1)
         gs
-        (update_vimap_arr vimap' id' (fst c))
+        (update_vimap_arr True vimap' id' (fst c))
         zeros'
     else
       raise Fail (format_failure lno ("specification proof in order definition failed."))
@@ -4195,6 +4368,10 @@ Proof
   PairCases_on`res`>>
   gvs[PAIR_TYPE_def]>>
   xmatch>>
+  rpt xlet_autop>>
+  rename1`bvv = Conv _ []`>>
+  `BOOL T bvv` by
+    (fs[]>>EVAL_TAC)>>
   rpt xlet_autop>>
   xapp>>xsimpl>>
   rpt (first_x_assum (irule_at Any))>>
@@ -5497,7 +5674,7 @@ Quote add_cakeml:
         (Array.updateResize fml' None id' (Some (c,get_tcb pc)),
          (zeros',
          (sorted_insert id' rinds,
-         (update_vimap_arr vimap id' (fst c),
+         (update_vimap_arr True vimap id' (fst c),
           (vomap, set_id pc (id'+1))))))
       else raise Fail (format_failure lno ("freshness check failed on auxiliary variables"))
       else raise Fail (format_failure lno ("domain of substitution must not mention projection set"))
@@ -5596,7 +5773,7 @@ Quote add_cakeml:
           (Array.updateResize fml None id (Some (c,True)),
            (zeros,
            (sorted_insert id inds,
-           (update_vimap_arr vimap id (fst c),
+           (update_vimap_arr True vimap id (fst c),
            (vomap,
             obj_update pc (id+1) bound' dbound')))))
         end
@@ -5632,7 +5809,7 @@ Quote add_cakeml:
         (Array.updateResize fml None id (Some (c,True)),
          (zeros,
          (sorted_insert id inds,
-         (update_vimap_arr vimap id (fst c),
+         (update_vimap_arr True vimap id (fst c),
          (vomap,
           assert_obj_update pc (id+1) dbound')))))
       end
@@ -5664,7 +5841,7 @@ Quote add_cakeml:
           (Array.updateResize fml None id (Some (c,True)),
            (zeros,
            (sorted_insert id inds,
-           (update_vimap_arr vimap id (fst c),
+           (update_vimap_arr True vimap id (fst c),
            (vomap,
             sol_update pc (id+1) bound' dbound')))))
         end)
@@ -5791,6 +5968,10 @@ Proof
     qmatch_asmsub_rename_tac`PAIR_TYPE _ _ xxx _`>>
     PairCases_on`xxx`>>fs[PAIR_TYPE_def]>>
     xmatch>>
+    rpt xlet_autop>>
+    rename1`bvv = Conv _ []`>>
+    `BOOL T bvv` by
+      (fs[]>>EVAL_TAC)>>
     rpt xlet_autop>>
     pairarg_tac>>gvs[check_dom_list_def,AllCaseEqs()]>>
     xcon>>xsimpl>>
@@ -6094,6 +6275,10 @@ Proof
         metis_tac[Fail_exn_def,ARRAY_W8ARRAY_refl])>>
       Cases_on`x`>>simp[]>>
       rpt xlet_autop>>
+      rename1`bvv = Conv _ []`>>
+      `BOOL T bvv` by
+        (fs[]>>EVAL_TAC)>>
+      rpt xlet_autop>>
       xcon>>xsimpl>>
       simp[PAIR_TYPE_def,OPTION_TYPE_def]>>
       qmatch_goalsub_abbrev_tac`ARRAY _ A`>>
@@ -6149,6 +6334,10 @@ Proof
       xraise>>xsimpl>>
       fs[get_obj_def]>>
       metis_tac[Fail_exn_def,ARRAY_W8ARRAY_refl])>>
+    rpt xlet_autop>>
+    rename1`bvv = Conv _ []`>>
+    `BOOL T bvv` by
+      (fs[]>>EVAL_TAC)>>
     rpt xlet_autop>>
     xcon>> xsimpl>>
     fs[get_obj_def]>>
@@ -6219,6 +6408,10 @@ Proof
         xraise>>xsimpl>>
         metis_tac[Fail_exn_def,ARRAY_W8ARRAY_refl])>>
       Cases_on`x`>>gvs[]>>
+      rpt xlet_autop>>
+      rename1`bvv = Conv _ []`>>
+      `BOOL T bvv` by
+        (fs[]>>EVAL_TAC)>>
       rpt xlet_autop>>
       xcon>>xsimpl>>
       simp[PAIR_TYPE_def,OPTION_TYPE_def]>>
