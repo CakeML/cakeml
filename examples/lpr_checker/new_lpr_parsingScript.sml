@@ -908,8 +908,8 @@ Definition parse_single_vb_num_def:
 End
 
 Theorem parse_single_vb_num_aux_offset_mono:
-   i <= len /\ 
-   parse_single_vb_num_aux x i len ex n = (v,offset') ==> 
+   i <= len /\
+   parse_single_vb_num_aux x i len ex n = (v,offset') ==>
    i < offset'
 Proof
   simp[parse_single_vb_num_def] >>
@@ -925,7 +925,7 @@ QED
 
 Definition parse_vb_string_aux_def:
   parse_vb_string_aux x offset len =
-  if offset <= len then 
+  if offset <= len then
       let (v,offset') = parse_single_vb_num x offset len in
       v :: parse_vb_string_aux x offset' len
   else []
@@ -1176,4 +1176,3 @@ val clprraw = `` [
 val res = EVAL ``good_char (strsub (HD ^(clprraw)) 0)``
 
 val res = EVAL``parse_pr ^(clprraw)``
-
