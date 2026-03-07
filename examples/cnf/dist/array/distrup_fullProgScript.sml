@@ -512,7 +512,10 @@ Proof
     gvs [names_def,SEP_CLAUSES] >>
     xsimpl) >>
   ‘∃c cs. write_bytes step_arr (fix_tb tb) = c::cs ∧
-          c ∉ {n2w (ORD #"a"); n2w (ORD #"i"); n2w (ORD #"d"); n2w (ORD #"V")}’ by cheat >>
+          c ∉ {n2w (ORD #"a"); n2w (ORD #"i"); n2w (ORD #"d"); n2w (ORD #"V")}’ by
+    (gvs [LENGTH_EQ_NUM_compute] >>
+     Cases_on ‘tb’ >> gvs [fix_tb_def,write_bytes_def] >>
+     IF_CASES_TAC >> gvs [write_bytes_def]) >>
   gvs [] >>
   xlet_auto >- xsimpl >>
   xlet_auto >- xsimpl >>
@@ -2312,6 +2315,28 @@ Definition ffi_proj_def:
   ffi_proj (s:ffi) = FEMPTY |++ (MAP (λn. (n,s)) names)
 End
 
+Theorem parts_ok_custom_ffi:
+  parts_ok (custom_ffi s) (ffi_proj,[(names,update)])
+Proof
+  rw [cfStoreTheory.parts_ok_def]
+  >- EVAL_TAC >- EVAL_TAC
+  >- (gvs [ffi_proj_def,custom_ffi_def,FLOOKUP_FUPDATE_LIST] >>
+      qexists_tac ‘s’ >> fs [])
+  >- (gvs [custom_ffi_def,update_oracle_def] >>
+      gvs [update_def,AllCaseEqs(), oneline update_step_def, oneline update_clause_def,
+           oneline update_hints_def,LENGTH_write_bytes,
+           oneline update_callback_def])
+  >- (gvs [update_def,AllCaseEqs(), oneline update_step_def, oneline update_clause_def,
+           oneline update_hints_def,LENGTH_write_bytes,
+           oneline update_callback_def]) >>
+  ‘ffi_proj x ' m = x’ by
+   (qsuff_tac ‘FLOOKUP (ffi_proj x) m = SOME x’ >- simp [FLOOKUP_DEF] >>
+    fs [FLOOKUP_FUPDATE_LIST, ffi_proj_def]) >>
+  fs [custom_ffi_def,update_oracle_def] >>
+  gvs [TO_FLOOKUP,FLOOKUP_FUPDATE_LIST,FUN_EQ_THM] >>
+  rw [] >> fs [FLOOKUP_FUPDATE_LIST, ffi_proj_def]
+QED
+
 Theorem SPLIT_heaps_lemma[local]:
   SPLIT
     (store2heap (distrup_arrayProg_st (custom_ffi s)).refs ∪
@@ -2328,20 +2353,16 @@ Proof
     conj_tac >- (gvs [EXTENSION] \\ rw [] \\ eq_tac \\ rw [] \\ gvs []) >>
     gvs [cfAppTheory.FFI_part_NOT_IN_store2heap]) >>
   simp [cfStoreTheory.ffi2heap_def] >>
-  ‘parts_ok (custom_ffi s) (ffi_proj,[(names,update)])’ by cheat >>
-  gvs [] >>
+  gvs [parts_ok_custom_ffi] >>
   fs [EVAL “(distrup_arrayProg_st ffi).ffi”,
       EVAL “(custom_ffi s).ffi_state”,
       EVAL “(custom_ffi s).io_events”, SF CONJ_ss] >>
-  ‘∀n. MEM n names ⇒ FLOOKUP (ffi_proj s) n = SOME s’ by cheat >>
+  ‘∀n. MEM n names ⇒ FLOOKUP (ffi_proj s) n = SOME s’ by
+     gvs [ffi_proj_def,FLOOKUP_FUPDATE_LIST] >>
   gvs [] >>
   simp [EXTENSION] >> rw [] >> eq_tac >> rw [] >>
   gvs [names_def,SF DNF_ss]
 QED
-
-(*
-print_find "ffi2heap_def"
-*)
 
 val main_lemma = main_spec
   |> SRULE [app_def,app_basic_def,cfHeapsBaseTheory.POSTv_ignore,PULL_EXISTS]
@@ -2360,9 +2381,70 @@ val main_res = new_specification("main_res",
   ["main_env","main_exp","main_h","main_res","main_events","main_ck","main_st"],
   main_lemma);
 
+Theorem FILTER_SKIP:
+  ∀xs P. EVERY P xs ⇒ FILTER P xs = xs
+Proof
+  Induct \\ gvs []
+QED
+
 Theorem main_st_ffi_events:
   (main_st tb inputs).ffi.io_events = main_events tb inputs
 Proof
   assume_tac (main_res |> SPEC_ALL |> cj 1) >>
-  cheat
+  gvs [SPLIT3_def] >>
+  last_x_assum mp_tac >>
+  simp [SET_EQ_SUBSET,cfStoreTheory.FFI_part_NOT_IN_store2heap] >>
+  strip_tac >>
+  fs [cfStoreTheory.ffi2heap_def] >>
+  Cases_on ‘parts_ok (main_st tb inputs).ffi (ffi_proj,[(names,update)])’ >> gvs [] >>
+  pop_assum mp_tac >>
+  rpt $ pop_assum kall_tac >>
+  rw [cfStoreTheory.parts_ok_def] >>
+  DEP_REWRITE_TAC [FILTER_SKIP] >> simp []
+QED
+
+val ml_code_thm = get_ml_prog_state () |> get_thm
+  |> REWRITE_RULE [ml_progTheory.ML_code_def,ml_progTheory.Decls_def,ml_progTheory.ML_code_env_def]
+  |> cj 2;
+
+Theorem semantics_prog_distrup_prog:
+  semantics_prog (init_state (custom_ffi (State Step inputs tb))) init_env
+    distrup_prog
+    (Terminate Success (main_events tb inputs))
+Proof
+  gvs [semanticsTheory.semantics_prog_def] >>
+  qrefinel [‘_’,‘_’,‘Rval v’] >> simp [] >>
+  qspec_then ‘custom_ffi (State Step inputs tb)’ strip_assume_tac (ml_code_thm |> Q.GEN ‘ffi’) >>
+  pop_assum mp_tac >>
+  qmatch_goalsub_abbrev_tac ‘p:dec list’ >>
+  ‘distrup_prog = SNOC ^main_call p’ by (unabbrev_all_tac >> EVAL_TAC) >>
+  DEP_REWRITE_TAC [evaluate_decTheory.evaluate_dec_list_eq_evaluate_decs] >>
+  conj_tac >- (unabbrev_all_tac >> EVAL_TAC) >>
+  last_x_assum kall_tac >> simp [] >>
+  last_x_assum kall_tac >> rw [] >>
+  fs [semanticsTheory.evaluate_prog_with_clock_def,SNOC_APPEND] >>
+  qspecl_then [‘tb’,‘inputs’] mp_tac main_res >>
+  strip_tac >>
+  simp [evaluatePropsTheory.evaluate_decs_append] >>
+  drule evaluatePropsTheory.evaluate_decs_set_clock >> simp [] >>
+  disch_then $ qspec_then ‘main_ck tb inputs + 1’ mp_tac >> strip_tac >>
+  rename [‘init_state (custom_ffi (State Step inputs tb)) with clock := ck4’] >>
+  qrefinel [‘_’,‘ck4’] >> fs [] >>
+  fs [evaluateTheory.evaluate_decs_def,astTheory.pat_bindings_def,
+      evaluateTheory.evaluate_def,semanticPrimitivesTheory.build_conv_def,
+      semanticPrimitivesTheory.do_con_check_def] >>
+  simp [semanticPrimitivesTheory.extend_dec_env_def] >>
+  CONV_TAC (DEPTH_CONV nsLookup_conv) >> simp [] >>
+  qpat_x_assum ‘SOME _ = _’ $ assume_tac o GSYM >>
+  asm_rewrite_tac [] >> simp [] >>
+  fs [evaluateTheory.dec_clock_def,cfAppTheory.evaluate_ck_def] >>
+  simp [semanticPrimitivesTheory.pmatch_def] >>
+  simp [semanticPrimitivesTheory.combine_dec_result_def] >>
+  simp [main_st_ffi_events]
+QED
+
+Theorem full_events_ok_main_events:
+  full_events_ok (main_events tb inputs)
+Proof
+  gvs [main_res]
 QED
