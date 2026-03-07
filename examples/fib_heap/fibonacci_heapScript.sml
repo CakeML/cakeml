@@ -1159,27 +1159,6 @@ QED
    Fib Heap Extract Minimum Definition and Verification
  *-------------------------------------------------------------------*)
 
-Definition find_min_def:
-  find_min (k:num)
-    (min_n:'a word, s:'a word, t:'a word,
-     m:'a word -> 'a word, dm: 'a word set, c: bool)
-  =
-    if k = 0 then (min_n,m,F) else
-    let c = (t IN dm /\ c) in
-    if s = t then
-      (*balance root list or do it in a separate step *)
-      (min_n,m,c)
-    else
-      let c = (min_n IN dm /\ c) in
-      let v = m min_n in
-      let c = (t + next_off IN dm /\ c) in
-      let v_t = m t in
-      let t_n = m (t + next_off) in
-      if v_t <=+ v then
-        find_min (k-1) (v_t,s,t_n,m,dm,c)
-      else
-        find_min (k-1) (min_n,s,t_n,m,dm,c)
-End
 
 
 (*assumption: both heads are the smallest element*)
@@ -1492,11 +1471,16 @@ Proof
   fs[AC STAR_COMM STAR_ASSOC]
 QED
 
+
+
+
+
 Definition list_keys_not_null_def:
   (list_keys_not_null [] <=> T) /\
   (list_keys_not_null (FibTree k v xs::rest) <=>
     k <> 0w /\ list_keys_not_null xs /\ list_keys_not_null rest)
 End
+
 
 
 Theorem lemma_empty_map:
@@ -1547,10 +1531,12 @@ Proof
   fs[FLOOKUP_SIMP]
 QED
 
+
+
 Theorem lemma_map_eq_fts_has:
   !fh fts k v e.
-    (FLOOKUP (fh |++ (map_upd_list fts)) k = SOME (v,e)) /\ (FLOOKUP fh k = NONE) <=>
-    ?m. fts_has k (fill_dnode v e m) fts
+    ((FLOOKUP (fh |++ (map_upd_list fts)) k = SOME (v,e)) /\ (FLOOKUP fh k = NONE) <=>
+    ?m. fts_has k (fill_dnode v e m) fts)
 Proof
   cheat
 QED
@@ -1737,27 +1723,99 @@ End
 
 
 
+Definition fib_heap_parent_to_null_def:
+  fib_heap_parent_to_null (n:num)
+    (a:'a word, s:'a word, m:'a word -> 'a word, dm:'a word set, c: bool)
+  =
+    if n = 0 then (m,F) else
+    let c = (a IN dm /\ c) in
+    let c = (a + parent_off IN dm /\ c) in
+    let m = ((a + parent_off) =+ 0w) m in
+    let c = (a + next_off IN dm /\ c) in
+    let a_n = m (a + next_off) in
+    if a = s then
+      (m,c)
+    else
+      fib_heap_parent_to_null (n-1) (a_n,s,m,dm,c)
+End
+
+Definition find_min_def:
+  find_min (k:num)
+    (min_n:'a word, s:'a word, t:'a word,
+     m:'a word -> 'a word, dm: 'a word set, c: bool)
+  =
+    if k = 0 then (min_n,m,F) else
+    let c = (t IN dm /\ c) in
+    if s = t then
+      (*balance root list or do it in a separate step *)
+      (min_n,m,c)
+    else
+      let c = (min_n IN dm /\ c) in
+      let v = m min_n in
+      let c = (t + next_off IN dm /\ c) in
+      let v_t = m t in
+      let t_n = m (t + next_off) in
+      if v_t <=+ v then
+        find_min (k-1) (v_t,s,t_n,m,dm,c)
+      else
+        find_min (k-1) (min_n,s,t_n,m,dm,c)
+End
 
 Definition fib_heap_extract_min_def:
-  fib_heap_extract_min
+  fib_heap_extract_min (n: num)
     (a:'a word, m:'a word -> 'a word, dm :'a word set)
   =
     let c = (a IN dm) in
+    let c = (a + child_off IN dm /\ c) in
+    let a_child = m (a + child_off) in
+    let c = (a_child + next_off IN dm /\ c) in
+    let n_child = m (a_child + next_off) in
+    let m_c = (fib_heap_parent_to_null n (n_child,a_child,m,dm,c)) in
+    let m = FST m_c in
+    let c = SND m_c in
+
+    let min_m_c = (find_min n (a_child,a_child,n_child,m,dm,c)) in
+    let min = FST min_m_c in
+    let m = FST (SND min_m_c) in
+    let c = SND (SND min_m_c) in
+
     let c = (a + next_off IN dm /\ c) in
     let sec = m (a + next_off) in
     if a = sec then
-      let c = (a + child_off IN dm /\ c) in
-      let a_child = m (a + child_off) in
-        (a_child,m,c)
+      let a'_m_c = fib_heap_insert_list(0w,min,m,dm) in
+      let a' = FST a'_m_c in
+      let m  = FST (SND a'_m_c) in
+      let c  = (SND (SND a'_m_c) /\ c) in
+        (a,a',m,c)
     else
-      let c = (a + before_off IN dm /\ c) in
-      let lst = m (a + before_off) in
-      let c = (lst + next_off IN dm /\ c) in
-      let c = (sec + before_off IN dm /\ c) in
-      let m = ((lst + next_off) =+ sec) m in
-      let m = ((sec + before_off) =+ lst) m in
-      let c = (sec IN dm /\ c) in
-      let sec_n = (sec + next_off IN dm /\ c) in
-        (*find_new_min(sec,sec,sec_n,m,dm,c)*)
-        (0w,m,c)
+      let c = (a + next_off IN dm /\ c) in
+      let a_n = m (a + next_off) in
+      let c = (a_n + next_off IN dm /\ c) in
+      let a_nn = m (a_n + next_off) in
+      let min2_m_c = (find_min n (a_n,a_n,a_nn,m,dm,c)) in
+      let min2 = FST min2_m_c in
+      let m = FST (SND min2_m_c) in
+      let c = SND (SND min2_m_c) in
+
+      let a'_m_c = fib_heap_insert_list(min2,min,m,dm) in
+      let a' = FST a'_m_c in
+      let m  = FST (SND a'_m_c) in
+      let c  = (SND (SND a'_m_c) /\ c) in
+        (a,a',m,c)
 End
+
+
+(*
+Definition balance:
+  balance (n:num)
+    (k:'a word, a: 'a word, m: 'a word -> 'a word, dm: 'a word set, c: bool)
+  =
+    (m,c)
+End
+
+Definition construct_list:
+
+Definition fib_heap_reb_def:
+
+End
+*)
