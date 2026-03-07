@@ -617,7 +617,9 @@ end = struct
 
     val str_ty = mlstringSyntax.mlstring_ty
     val str_pair_ty = pairSyntax.mk_prod (str_ty, str_ty)
+    val str_pair_list_ty = listSyntax.mk_list_type str_pair_ty
     val str_list_ty = listSyntax.mk_list_type str_ty
+    val str_list_opt_ty = optionSyntax.mk_option str_list_ty
 
     val mk_str = mlstringSyntax.mk_mlstring
     fun mk_str_pair (l, r) = pairSyntax.mk_pair (mk_str l, mk_str r)
@@ -628,9 +630,11 @@ end = struct
     fun mk_bignum_ty tyop =
       Type.mk_thy_type {Thy="bignumLang", Tyop=tyop, Args=[alpha]}
     val exp_ty = mk_bignum_ty "exp"
+    val exp_list_ty = listSyntax.mk_list_type exp_ty
     val stmt_ty = mk_bignum_ty "stmt"
     val func_ty =
       pairSyntax.mk_prod(str_ty, pairSyntax.mk_prod (str_list_ty, stmt_ty))
+    val func_list_ty = listSyntax.mk_list_type func_ty
 
     val (_,mk_Const,_,_) = HolKernel.syntax_fns1 "bignumLang" "Const"
     val (_,mk_Var,_,_)   = HolKernel.syntax_fns1 "bignumLang" "Var"
@@ -685,7 +689,7 @@ end = struct
     | exp_to_term (Load e) =
         mk_Load (exp_to_term e)
     | exp_to_term (Op (b, es)) =
-        mk_Op (binop_to_term b, listSyntax.lift_list (listSyntax.mk_list_type exp_ty) exp_to_term es)
+        mk_Op (binop_to_term b, listSyntax.lift_list exp_list_ty exp_to_term es)
     | exp_to_term (Shift (sh, e1, e2)) =
         mk_Shift (shift_to_term sh, exp_to_term e1, exp_to_term e2)
 
@@ -705,14 +709,14 @@ end = struct
     | stmt_to_term (Assign (v, e)) =
         mk_Assign (mk_str v, exp_to_term e)
     | stmt_to_term (Move pairs) =
-        mk_Move (listSyntax.lift_list (listSyntax.mk_list_type str_pair_ty) mk_str_pair pairs)
+        mk_Move (listSyntax.lift_list str_pair_list_ty mk_str_pair pairs)
     | stmt_to_term (Store (e, v)) =
         mk_Store (exp_to_term e, mk_str v)
     | stmt_to_term (Return vs) =
         mk_Return (mk_str_list vs)
     | stmt_to_term (Call (ret, fname, args)) = let
-        val ret_tm = optionSyntax.lift_option str_list_ty mk_str_list ret
-        val args_tm = listSyntax.lift_list (listSyntax.mk_list_type exp_ty) exp_to_term args
+        val ret_tm = optionSyntax.lift_option str_list_opt_ty mk_str_list ret
+        val args_tm = listSyntax.lift_list exp_list_ty exp_to_term args
       in mk_Call (ret_tm, mk_str fname, args_tm) end
 
   fun func_to_term (name, params, body) =
@@ -720,7 +724,7 @@ end = struct
       pairSyntax.mk_pair (mk_str_list params, stmt_to_term body))
 
   fun prog_to_term prog =
-    listSyntax.lift_list (listSyntax.mk_list_type func_ty) func_to_term prog
+    listSyntax.lift_list func_list_ty func_to_term prog
 
   fun bignum [QUOTE s] =
         ((prog_to_term $ parse s) handle e => raise wrap_exn "bignumLangLib" "bignum" e)
