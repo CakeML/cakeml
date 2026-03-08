@@ -510,10 +510,47 @@ Proof
   EVAL_TAC>>rw[]
 QED
 
-Theorem resume_ok_makes_sense:
-  events_ok events aevents lst ∧
-  resume_ok lst events' avents' lst' ⇒
-  events_ok (events ++ events') (aevents ++ aevents') lst'
+Theorem resume_ok_append:
+  ∀lst events' aevents' lst' events aevents.
+    resume_ok lst0 events aevents lst ∧
+    resume_ok lst events' aevents' lst' ⇒
+    resume_ok lst0 (events ++ events') (aevents ++ aevents') lst'
 Proof
-  cheat
+  strip_tac >>
+  PURE_ONCE_REWRITE_TAC [CONJ_SYM] >>
+  Induct_on ‘resume_ok’ >>
+  rw[] >>
+  metis_tac[resume_ok_rules]
+QED
+
+Theorem resume_ok_makes_sense:
+  ∀lst events' aevents' lst' events aevents.
+    events_ok events aevents lst ∧
+    resume_ok lst events' aevents' lst' ⇒
+    events_ok (events ++ events') (aevents ++ aevents') lst'
+Proof
+  strip_tac >>
+  Induct_on ‘resume_ok’ >>
+  rw[] >>
+  metis_tac[events_ok_rules]
+QED
+
+Theorem resume_ok_imp_events_ok:
+  ∀events aevents lst.
+    resume_ok (SOME (REPLICATE n NONE, REPLICATE k 0w, 1w)) events aevents lst ⇒
+    events_ok events aevents lst
+Proof
+  Induct_on ‘resume_ok’ >>
+  rw[] >>
+  metis_tac[events_ok_rules]
+QED
+
+Theorem events_ok_imp_resume_ok:
+  ∀events aevents lst.
+    events_ok events aevents lst ⇒
+    ∃n k. resume_ok (SOME (REPLICATE n NONE, REPLICATE k 0w, 1w)) events aevents lst
+Proof
+  Induct_on ‘events_ok’ >>
+  rw[] >>
+  metis_tac[resume_ok_rules]
 QED
