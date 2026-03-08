@@ -205,7 +205,7 @@ QED
 Theorem state_rel_step:
   ∀cst clb cst' ast.
     state_rel ast cst ∧ distrup_global$step cst clb cst' ⇒
-    ∃alb ast'. act_rel label_rel alb clb ∧ step sat_infer (K F) ast alb ast' ∧ state_rel ast' cst'
+    ∃alb ast'. act_rel label_rel alb clb ∧ step sat_infer ast alb ast' ∧ state_rel ast' cst'
 Proof
   strip_tac >>
   Induct_on ‘step’ >>
@@ -416,7 +416,7 @@ QED
 Theorem state_rel_reduce:
   ∀cst cst' ast.
     state_rel ast cst ∧ distrup_global$reduce꙳ cst cst' ⇒
-    ∃ast'. (reduce sat_infer (K F))꙳ ast ast' ∧ state_rel ast' cst'
+    ∃ast'. (reduce sat_infer)꙳ ast ast' ∧ state_rel ast' cst'
 Proof
   Induct_on ‘RTC’ using RTC_strongind >>
   rw[reduce_def,distInferTheory.reduce_def]
@@ -451,7 +451,6 @@ Proof
   rpt strip_tac >>
   fs[init_st_def]>>
   irule $ INST_TYPE [alpha |-> “:num”, beta |-> alpha] sat_step_sound >>
-  qexists ‘K F’ >>
   simp[] >>
   Q.SUBGOAL_THEN ‘∃ast. state_rel ast st’ strip_assume_tac
   >- (rw[state_rel_def] >>

@@ -30,69 +30,61 @@ End
 
 Inductive step:
 [~produce_succeed:]
-  (∀name n fact facts infer st.
-     FLOOKUP st.procs name = SOME(SOME facts) ∧
+  (∀id n fact facts infer st.
+     FLOOKUP st.procs id = SOME(SOME facts) ∧
      infer (FRANGE facts) fact ⇒
-     step infer R st (Act name (Produce n fact))
+     step infer st (Act id (Produce n fact))
           (st with
-              <|procs := st.procs |+ (name, SOME(facts |+ (n,fact)));
+              <|procs := st.procs |+ (id, SOME(facts |+ (n,fact)));
                 facts := fact::st.facts
                |>
               ))
 [~produce_fail:]
-  (∀name n fact facts infer st.
-     FLOOKUP st.procs name = SOME(SOME facts) ⇒
-     step infer R st (Act name (Produce n fact))
-          (st with procs := st.procs |+ (name, NONE)))
+  (∀id n fact facts infer st.
+     FLOOKUP st.procs id = SOME(SOME facts) ⇒
+     step infer st (Act id (Produce n fact))
+          (st with procs := st.procs |+ (id, NONE)))
 [~delete:]
-  (∀name ids facts infer st.
-     FLOOKUP st.procs name = SOME(SOME facts) ⇒
-     step infer R st (Act name (Delete ids))
-          (st with procs := st.procs |+ (name, SOME(DRESTRICT facts (COMPL (set ids))))))
+  (∀id ids facts infer st.
+     FLOOKUP st.procs id = SOME(SOME facts) ⇒
+     step infer st (Act id (Delete ids))
+          (st with procs := st.procs |+ (id, SOME(DRESTRICT facts (COMPL (set ids))))))
 [~import:]
-  (∀name n fact facts infer st.
-     FLOOKUP st.procs name = SOME(SOME facts) ∧
+  (∀id n fact facts infer st.
+     FLOOKUP st.procs id = SOME(SOME facts) ∧
      MEM fact st.facts ⇒
-     step infer R st (Act name (Import n fact))
+     step infer st (Act id (Import n fact))
           (st with
-              <|procs := st.procs |+ (name, SOME(facts |+ (n,fact)))|>
+              <|procs := st.procs |+ (id, SOME(facts |+ (n,fact)))|>
               ))
 [~import_fail:]
-  (∀name n fact facts infer st.
-     FLOOKUP st.procs name = SOME(SOME facts) ∧
+  (∀id n fact facts infer st.
+     FLOOKUP st.procs id = SOME(SOME facts) ∧
      ¬MEM fact st.facts ⇒
-     step infer R st (Act name (Import n fact))
-          (st with procs := st.procs |+ (name, NONE)))
+     step infer st (Act id (Import n fact))
+          (st with procs := st.procs |+ (id, NONE)))
 [~validate:]
-  (∀name fact facts infer st.
-     FLOOKUP st.procs name = SOME(SOME facts) ∧
+  (∀id fact facts infer st.
+     FLOOKUP st.procs id = SOME(SOME facts) ∧
      fact ∈ FRANGE facts ⇒
-     step infer R st (Act name (Validate fact))
+     step infer st (Act id (Validate fact))
           (st with
               <|validated := fact INSERT st.validated|>
               ))
 [~validate_fail:]
-  (∀name fact facts infer st.
-     FLOOKUP st.procs name = SOME(SOME facts) ∧
+  (∀id fact facts infer st.
+     FLOOKUP st.procs id = SOME(SOME facts) ∧
      fact ∉ FRANGE facts ⇒
-     step infer R st (Act name (Validate fact))
-          (st with procs := st.procs |+ (name, NONE)))
+     step infer st (Act id (Validate fact))
+          (st with procs := st.procs |+ (id, NONE)))
 [~spin:]
-  (∀name act infer st.
-     FLOOKUP st.procs name = SOME NONE ⇒
-     step infer R st (Act name act) st)
-[~drop:]
-  (∀st facts fact facts'.
-     st.facts = facts ++ fact :: facts' ⇒
-     step infer R st Tau (st with facts := facts ++ facts'))
-[~conjure:]
-  (∀st fact.
-     R fact ⇒
-     step infer R st Tau (st with facts := fact::st.facts))
+  (∀id act infer st.
+     FLOOKUP st.procs id = SOME NONE ⇒
+     step infer st (Act id act) st)
 End
 
 Definition reduce_def:
-  reduce infer R st st' = ∃l. step infer R st l st'
+  reduce infer st st' = ∃l. step infer st l st'
 End
 
 Definition step_rel_def:
@@ -164,11 +156,10 @@ Proof
 QED
 
 Theorem step_rel_inv:
-  ∀infer R st l st' oprems.
-    step infer R st l st' ∧
+  ∀infer st l st' oprems.
+    step infer st l st' ∧
     step_rel infer oprems st ∧
-    cut_elimination infer ∧ monotonic infer ∧
-    (∀fact. R fact ⇒ infer oprems fact)
+    cut_elimination infer ∧ monotonic infer
     ⇒
     step_rel infer oprems st'
 Proof
@@ -191,15 +182,14 @@ Proof
 QED
 
 Theorem step_sound:
-  (reduce infer R)꙳ st st' ∧
+  (reduce infer)꙳ st st' ∧
   (∀name facts. FLOOKUP st.procs name = SOME(SOME facts) ⇒ FRANGE facts ⊆ oprems) ∧
   set st.facts ⊆ oprems ∧
   st.validated = ∅ ∧
   fact ∈ st'.validated ∧
   monotonic infer ∧
   cut_elimination infer ∧
-  assumption infer ∧
-  (∀fact. R fact ⇒ infer oprems fact)
+  assumption infer
   ⇒
   infer oprems fact
 Proof
@@ -220,77 +210,4 @@ Proof
   disch_then $ drule_at $ Pos last >>
   impl_tac >- metis_tac[reduce_def,step_rel_inv] >>
   simp[step_rel_def]
-QED
-
-Definition areduce_def:
-  areduce ns infer R st st' ⇔
-    (∃msg n. n ∈ ns ∧ step infer R st (Act n msg) st') ∨
-    step infer R st Tau st'
-End
-
-Definition pres_inv_def:
-  pres_inv i tr = ∀st st'. i st ∧ tr st st' ⇒ i st'
-End
-
-Theorem pres_inv_subset:
-  pres_inv i tr ∧ UNCURRY tr' ⊆ UNCURRY tr ⇒
-  pres_inv i tr'
-Proof
-  rw[pres_inv_def,SUBSET_DEF,pairTheory.FORALL_PROD] >>
-  res_tac
-QED
-
-Theorem compose_inv:
-  pres_inv i (areduce ns infer Rn) ∧
-  pres_inv i (areduce ms infer Rm) ⇒
-  pres_inv i (areduce (ns ∪ ms) infer (Rn ∪ Rm))
-Proof
-  rw[pres_inv_def,areduce_def] >>
-  gvs[SF DNF_ss]
-  >- (first_x_assum $ drule_at $ Pat ‘_ ∈ _’ >>
-      disch_then irule >>
-      first_x_assum $ irule_at $ Pos hd >>
-      qexists ‘msg’ >>
-      rpt $ PRED_ASSUM is_forall kall_tac >>
-      gvs[step_cases] >>
-      metis_tac[])
-  >- (first_x_assum $ drule_at $ Pat ‘_ ∈ _’ >>
-      disch_then irule >>
-      first_x_assum $ irule_at $ Pos hd >>
-      qexists ‘msg’ >>
-      rpt $ PRED_ASSUM is_forall kall_tac >>
-      gvs[step_cases] >>
-      metis_tac[])
-  >- (first_x_assum drule >>
-      rename1 ‘_ ⇒ _ st'’ >>
-      disch_then $ qspec_then ‘st'’ mp_tac >>
-      strip_tac >>
-      PRED_ASSUM is_forall kall_tac >>
-      first_x_assum drule >>
-      rename1 ‘_ ⇒ _ st'’ >>
-      disch_then $ qspec_then ‘st'’ mp_tac >>
-      strip_tac >>
-      PRED_ASSUM is_forall kall_tac >>
-      gvs[step_cases,SF DNF_ss,IN_DEF])
-QED
-
-Theorem areduce_frame:
-  areduce ns infer R st st' ∧
-  n ∉ ns ⇒
-  areduce ns infer R
-          (st with procs := st.procs |+ (n,facts))
-          (st' with procs := st'.procs |+ (n,facts))
-Proof
-  rpt strip_tac >>
-  reverse $ gvs[areduce_def,reduce_def]
-  >- (disj2_tac >> gvs[step_cases] >>
-      metis_tac[]) >>
-  disj1_tac >>
-  first_assum $ irule_at $ Pos hd >>
-  rename1 ‘nn ∈ _’ >>
-  ‘n ≠ nn’ by metis_tac[] >>
-  qhdtm_x_assum ‘step’ $ strip_assume_tac o PURE_REWRITE_RULE[step_cases] >>
-  gvs[FUPDATE_COMMUTES] >>
-  gvs[step_cases,state_component_equality,FLOOKUP_UPDATE] >>
-  metis_tac[]
 QED

@@ -51,12 +51,11 @@ Proof
 QED
 
 Theorem sat_step_sound:
-  (reduce sat_infer R)꙳ st st' ∧
+  (reduce sat_infer)꙳ st st' ∧
   (∀name facts. FLOOKUP st.procs name = SOME(SOME facts) ⇒ FRANGE facts ⊆ oprems) ∧
   set st.facts ⊆ oprems ∧
   st.validated = ∅ ∧
-  fact ∈ st'.validated ∧
-  (∀fact. R fact ⇒ sat_infer oprems fact)
+  fact ∈ st'.validated
   ⇒
   sat_infer oprems fact
 Proof
