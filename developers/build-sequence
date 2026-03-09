@@ -40,6 +40,7 @@ compiler
 compiler/inference
 compiler/backend/reg_alloc
 compiler/backend/gc
+compiler/backend/bignum
 compiler/backend
 compiler/encoders/asm
 compiler/encoders/x64
