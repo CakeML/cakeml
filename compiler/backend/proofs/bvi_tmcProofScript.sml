@@ -151,21 +151,49 @@ Proof
   >~ [‘evaluate ([],_,_)’] >-
    (gvs [evaluate_def])
   >~ [‘evaluate (x::y::xs,_,_)’] >-
-   cheat
+   (gvs [evaluate_def]
+    >> cheat)
   >~ [‘Var n’] >-
-   cheat
+   (gvs [evaluate_def]
+    >> qexists ‘s'’
+    >> rw [] >-
+     cheat >-
+     cheat >-
+     cheat >-
+     () >-
+     cheat)
   >~ [‘If x1 x2 x3’] >-
    cheat
   >~ [‘Let xs x2’] >-
    cheat
   >~ [‘Raise x1’] >-
-   cheat
+   (gvs [evaluate_def]
+    >> cheat)
   >~ [‘Op op xs’] >-
    cheat
   >~ [‘Tick x’] >-
-   cheat
+   (gvs [evaluate_def]
+    >> ‘s'.clock = s.clock’ by cheat (* state_rel s s' *)
+    >> gs []
+    >> Cases_on ‘s.clock’ >-
+     (gs []
+      >> strip_tac
+      >> rw [] >-
+       (qexists ‘s'’
+        >> simp []
+        >> cheat) >-
+       (qexistsl [‘Rerr (Rabort Rtimeout_error)’, ‘s'’]
+        >> simp [opt_res_rel_def]
+        >> cheat)) (* s'.clock = 0 => timeout *)
+    >> gvs [dec_clock_def]
+    >> ‘state_rel (s with clock := n) s'’ by cheat
+    >> first_x_assum drule_all
+    >> strip_tac
+    >> qexists ‘t''’
+    >> rw [] >- cheat >- cheat >> cheat)
   >~ [‘Force force_loc n’] >-
-   cheat
+   (gvs [evaluate_def]
+   >> cheat)
   >~ [‘Call ticks dest xs handler’] >-
    cheat
 QED
