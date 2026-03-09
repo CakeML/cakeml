@@ -1628,66 +1628,14 @@ QED
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 (*---------------------------------------------------------*
 
-  Verification of 'Extract Minimum' from fib heap list!
+  Definition of 'Extract Minimum' from fib heap list!
 
 *----------------------------------------------------------*)
 
 
 
-Definition res_rm_upd_def:
-  res_rm_upd (c:num) (rm, (r:num), FibTree k v l) =
-    if c = 0 then rm else
-    case FLOOKUP rm r of
-      SOME(k',v',l') =>
-        let rm = rm \\ r in
-          if v.value <=+ v'.value then
-            res_rm_upd (c-1) (rm,(r + 1),(FibTree k v (FibTree k' v' l'::l)))
-          else
-            res_rm_upd (c-1) (rm,(r + 1),(FibTree k' v' (FibTree k v l::l')))
-     |NONE =>
-        (rm |+ (r,k,v,l))
-End
-
-Definition fill_rm_def:
-  (fill_rm (c:num) (rm, []) = rm) /\
-  (fill_rm c (rm, (FibTree k v l::fts)) =
-    case FLOOKUP rm (LENGTH l) of
-      SOME(_,_,_) => res_rm_upd c (rm,LENGTH l, FibTree k v l)
-     |NONE => fill_rm c ((rm |+ ((LENGTH l),k,v,l)),fts))
-End
-
-
-Definition map_to_list_def:
-  (map_to_list (r:num) mp =
-    if r = 0 then
-      case FLOOKUP mp r of
-        SOME (k,v,l) => [FibTree k v l]
-       |NONE => []
-    else
-      case FLOOKUP mp r of
-        SOME (k,v,l) => (FibTree k v l::map_to_list (r-1) mp)
-       |NONE => map_to_list (r-1) mp )
-End
 
 
 Definition fts_find_min_def:
@@ -1708,17 +1656,6 @@ Definition fts_set_min_hd_def:
       fts_set_min_hd (FibTree mk mv ml) (FibTree k' v' l'::fts) fts)
 End
 
-Definition bal_fts_def:
-  (bal_fts n [] = []) /\
-  (bal_fts n (t::ts) =
-    map_to_list n (fill_rm (LENGTH ts +1) (FEMPTY, (t::ts))) )
-End
-
-Definition fts_reb_def:
-  fts_reb n fts =
-    let list = bal_fts n fts in
-      fts_set_min_hd (fts_find_min (HD list) list) list
-End
 
 
 
@@ -1812,7 +1749,52 @@ Definition of 'Rebalancing' (separated from extract minimum
 
 *---------------------------------------------------------*)
 
+Definition res_rm_upd_def:
+  res_rm_upd (c:num) (rm, (r:num), FibTree k v l) =
+    if c = 0 then rm else
+    case FLOOKUP rm r of
+      SOME(k',v',l') =>
+        let rm = rm \\ r in
+          if v.value <=+ v'.value then
+            res_rm_upd (c-1) (rm,(r + 1),(FibTree k v (FibTree k' v' l'::l)))
+          else
+            res_rm_upd (c-1) (rm,(r + 1),(FibTree k' v' (FibTree k v l::l')))
+     |NONE =>
+        (rm |+ (r,k,v,l))
+End
 
+Definition fill_rm_def:
+  (fill_rm (c:num) (rm, []) = rm) /\
+  (fill_rm c (rm, (FibTree k v l::fts)) =
+    case FLOOKUP rm (LENGTH l) of
+      SOME(_,_,_) => res_rm_upd c (rm,LENGTH l, FibTree k v l)
+     |NONE => fill_rm c ((rm |+ ((LENGTH l),k,v,l)),fts))
+End
+
+
+Definition map_to_list_def:
+  (map_to_list (r:num) mp =
+    if r = 0 then
+      case FLOOKUP mp r of
+        SOME (k,v,l) => [FibTree k v l]
+       |NONE => []
+    else
+      case FLOOKUP mp r of
+        SOME (k,v,l) => (FibTree k v l::map_to_list (r-1) mp)
+       |NONE => map_to_list (r-1) mp )
+End
+
+Definition bal_fts_def:
+  (bal_fts n [] = []) /\
+  (bal_fts n (t::ts) =
+    map_to_list n (fill_rm (LENGTH ts +1) (FEMPTY, (t::ts))) )
+End
+
+Definition fts_reb_def:
+  fts_reb n fts =
+    let list = bal_fts n fts in
+      fts_set_min_hd (fts_find_min (HD list) list) list
+End
 
 
 
