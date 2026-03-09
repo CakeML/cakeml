@@ -1805,17 +1805,99 @@ Definition fib_heap_extract_min_def:
 End
 
 
-(*
-Definition balance:
-  balance (n:num)
-    (k:'a word, a: 'a word, m: 'a word -> 'a word, dm: 'a word set, c: bool)
+(* At the start n = max_r, but n counts down for termination *)
+Definition reb_tree_def:
+  reb_tree (n:num) (max_r:num)
+    (a:'a word, k: 'a word, m: 'a word -> 'a word, dm: 'a word set, c: bool)
   =
-    (m,c)
+    if n = 0 then (m,F) else
+    let c = (k + rank_off IN dm /\ c) in
+    let k_r = m (k + rank_off) in
+    if (w2n k_r) = max_r then (m,F) else
+
+    let off = a + bytes_in_word * k_r in
+    let c = (off IN dm /\ c) in
+    let t = m off in
+
+    if t = 0w then
+      let m = (off =+ k) m in
+        (m,c)
+    else
+      let c = (k IN dm /\ c) in
+      let k_v = m k in
+      let c = (t IN dm /\ c) in
+      let t_v = m t in
+      if k_v <=+ t_v then
+        let c = (k + child_off IN dm /\ c) in
+        let k_c = m (k + child_off) in
+        let a'_m_c = fib_heap_insert(k_c,t,m,dm) in
+        let m = FST (SND a'_m_c) in
+        let c = (SND (SND a'_m_c) /\ c) in
+        let m = ((k + rank_off) =+ n2w(w2n k_r + 1)) m in
+        let m = (off =+ 0w) m in
+          reb_tree (n-1) max_r (a,k,m,dm,c)
+      else
+        let c = (t + child_off IN dm /\ c) in
+        let t_c = m (k + child_off) in
+        let a'_m_c = fib_heap_insert(t_c,k,m,dm) in
+        let m = FST (SND a'_m_c) in
+        let c = (SND (SND a'_m_c) /\ c) in
+        let c = (t + rank_off IN dm /\ c) in
+        let t_r = m (t + rank_off) in
+        let m = ((t + rank_off) =+ n2w(w2n t_r + 1)) m in
+        let m = (off =+ 0w) m in
+          reb_tree (n-1) max_r (a,t,m,dm,c)
 End
 
-Definition construct_list:
+Definition reb_list_def:
+  reb_list (n:num) (max_r:num)
+    (array: 'a word, a:'a word, s:'a word,
+     m:'a word -> 'a word, dm:'a word set, c: bool)
+  =
+    if n = 0 then (m,F) else
+    let m_c = reb_tree max_r max_r (array,a,m,dm,c) in
+    let m = FST m_c in
+    let c = SND m_c in
+    let c = (a IN dm /\ c) in
+    let c = (a + next_off IN dm /\ c) in
+    let a_n = m (a + next_off) in
+    if a_n = s then
+      (m,c)
+    else
+      reb_list (n-1) max_r (array,a_n,s,m,dm,c)
+End
+
+
+Definition coll_list_def:
+  coll_list (n:num)
+    (a:'a word, k:'a word, m:'a word -> 'a word, dm:'a word set, c:bool)
+  =
+    let off = a + bytes_in_word * (n2w n) in
+    let c = (off IN dm /\ c) in
+    let a_n = m off in
+    let a'_m_c = fib_heap_insert(k,a_n,m,dm) in
+    let k = FST a'_m_c in
+    let m = FST (SND a'_m_c) in
+    let c = (SND (SND a'_m_c) /\ c) in
+    if n = 0 then
+      (k,m,c)
+    else
+      coll_list (n-1) (a,k,m,dm,c)
+End
+
 
 Definition fib_heap_reb_def:
-
+  fib_heap_reb (n:num)
+    (a:'a word, array: 'a word, m: 'a word -> 'a word, dm: 'a word set)
+  =
+    let m_c = reb_list n n (array,a,a,m,dm,T) in
+    let m = FST m_c in
+    let c = SND m_c in
+    let a'_m_c = coll_list (n-1) (array,0w,m,dm,c) in
+    let a = FST a'_m_c in
+    let m = FST (SND a'_m_c) in
+    let c = SND (SND a'_m_c) in
+    let c = (a + next_off IN dm /\ c) in
+    let a_n = m (a + next_off) in
+      find_min n (a,a,a_n,m,dm,c)
 End
-*)
