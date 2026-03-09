@@ -24,16 +24,14 @@ Overload in_ns_2[local] = ``λn. n MOD bvl_to_bvi_namespaces = 2``
 
 Definition code_rel_def:
   code_rel c1 c2 ⇔
-    ∀loc arity exp exp_aux.
-      lookup loc c1 = SOME (arity, exp) ⇒
-      ∃n. (* Case on compile_exp instead *)
-        (rewrite_aux loc n arity exp = NONE ⇒
-          lookup loc c2 = SOME (arity, exp)) ∧
-        (rewrite_aux loc n arity exp = SOME exp_aux ⇒
-          ∀exp_opt.
-            compile_exp loc n arity exp = SOME (exp_aux, exp_opt) ⇒
-              lookup loc c2 = SOME (arity, exp_aux) ∧
-              lookup n c2 = SOME (arity + 1, exp_opt))
+    ∀loc arity exp exp_aux exp_opt.
+      ∃n.
+        lookup loc c1 = SOME (arity, exp) ⇒
+        (compile_exp loc n arity exp = NONE ⇒
+         lookup loc c2 = SOME (arity, exp)) ∧
+        (compile_exp loc n arity exp = SOME (exp_aux, exp_opt) ⇒
+         lookup loc c2 = SOME (arity, exp_aux) ∧
+         lookup n c2 = SOME (arity + 1, exp_opt))
 End
 
 Definition optimized_code_def:
@@ -160,7 +158,7 @@ Proof
      cheat >-
      cheat >-
      cheat >-
-     () >-
+     cheat >-
      cheat)
   >~ [‘If x1 x2 x3’] >-
    cheat
