@@ -33,14 +33,17 @@ Definition compiled_code_installed_def:
                 info.lab_conf.shmem_extra ms
 End
 
+Overload custom_ffi = “λ(inputs,tb). custom_ffi (State Step inputs tb)”;
+
 Theorem compiled_code_produces_events_ok:
   compiled_code_installed mc ms ⇒
-  ∃events.
-    full_events_ok init_st events ∧
-    machine_sem mc (custom_ffi (State Step inputs tb)) ms ⊆
-    extend_with_resource_limit {Terminate Success events}
+  ∀inputs.
+    ∃events.
+      machine_sem mc (custom_ffi inputs) ms ⊆
+      extend_with_resource_limit {Terminate Success events} ∧
+      full_events_ok init_st events
 Proof
-  rw [compiled_code_installed_def] >>
+  rw [compiled_code_installed_def,FORALL_PROD] >>
   drule_all compile_correct_applied >>
   metis_tac [full_events_ok_main_events]
 QED
