@@ -1,5 +1,5 @@
 (*
-  TODO
+  Language for implementation of the bignum library used by the CakeML compiler
 *)
 Theory bignumLang
 Ancestors

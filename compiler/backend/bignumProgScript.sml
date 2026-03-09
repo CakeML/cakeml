@@ -9,5 +9,5 @@ Libs
   bignumLangLib
 
 Quote add = bignum:
-  add(x,y) { return x + y; }
+  add (x, y) { var t = x + y; return t; }
 End
