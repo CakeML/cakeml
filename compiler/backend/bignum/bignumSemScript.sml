@@ -3,17 +3,19 @@
 *)
 Theory bignumSem
 Ancestors
-  wordLang
-  wordSem
-  bignumLang
+  bignumLang asm asmSem
 Libs
   preamble
+
+Datatype:
+  word_other = Word ('a word) | Other 'b
+End
 
 Datatype:
   state =
     <| locals  : mlstring |-> 'a word
      (* ; stack   : ('a stack_frame) list *)
-     ; memory  : 'a word -> 'a word_loc
+     ; memory  : 'a word -> ('a,'b) word_other
      ; mdomain : ('a word) set
      (* ; gc_fun  : 'a gc_fun_type *)
      ; clock   : num
@@ -39,7 +41,7 @@ Definition get_vars_def:
 End
 
 Definition set_var_def:
-  set_var s v w = s with locals := s.locals⟨v ↦ w⟩
+  set_var s v w = (s with locals := s.locals |+ (v,w))
 End
 
 Definition set_vars_def:
@@ -77,6 +79,29 @@ Definition find_code_def:
   find_code s name = FLOOKUP s.code name
 End
 
+Definition word_binop_def:
+  word_binop op ws =
+    case ws of [w1;w2] => (SOME $
+      case op of
+      | Add => word_add w1 w2
+      | Sub => word_sub w1 w2
+      | And => word_and w1 w2
+      | Or  => word_or  w1 w2
+      | Xor => word_xor w1 w2)
+   | _ => NONE
+End
+
+Definition word_sh_def:
+  word_sh sh (w:'a word) n =
+    if n < dimindex (:'a) then
+      SOME (case sh of
+            | Lsl => word_lsl w n
+            | Lsr => word_lsr w n
+            | Asr => word_asr w n
+            | Ror => word_ror w n)
+    else NONE
+End
+
 Definition bignum_exp_def:
   (bignum_exp s (Const w) = SOME w) ∧
   (bignum_exp s (Var v) = get_var s v) ∧
@@ -87,7 +112,7 @@ Definition bignum_exp_def:
   (bignum_exp s (Op op wexps) =
      case OPT_MMAP (bignum_exp s) wexps of
      | NONE => NONE
-     | SOME ws => word_op op ws) ∧
+     | SOME ws => word_binop op ws) ∧
   (bignum_exp s (Shift sh wexp wexp1) =
      case (bignum_exp s wexp, bignum_exp s wexp1) of
      | (SOME w, SOME w1) => word_sh sh w (w2n w1)
@@ -150,10 +175,9 @@ Definition evaluate_def[nocompute]:
   (evaluate (If cmp v arg c1 c2,s) =
     (case (get_var s v,get_var_const s arg) of
     | SOME x,SOME y =>
-     (case word_cmp cmp (Word x) (Word y) of
-      | SOME T => evaluate (c1,s)
-      | SOME F => evaluate (c2,s)
-      | NONE => (SOME Error,s))
+     (case asm$word_cmp cmp x y of
+      | T => evaluate (c1,s)
+      | F => evaluate (c2,s))
     | _ => (SOME Error,s))) ∧
   (evaluate (While cmp v arg body, s) = (NONE, s)) ∧
   (evaluate (Dec name exp body, s) =

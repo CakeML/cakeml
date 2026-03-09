@@ -3,7 +3,7 @@
 *)
 Theory bignumLang
 Ancestors
-  wordLang
+  mlstring words asm
 Libs
   preamble
 
