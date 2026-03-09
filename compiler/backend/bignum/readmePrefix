@@ -1,0 +1,2 @@
+This directory contains the verified bignum implementation used by the
+CakeML runtime.

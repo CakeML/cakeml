@@ -29,14 +29,9 @@ Definitions that are common for many parts of the compiler backend.
 Reformulates compile definition to expose the result of each internal
 compiler pass
 
-[bignumLangLib.sml](bignumLangLib.sml):
-Implements a basic parser for bignumLang.
-
-[bignumLangScript.sml](bignumLangScript.sml):
-Language for implementation of the bignum library used by the CakeML compiler
-
-[bignumProgScript.sml](bignumProgScript.sml):
-Various programs written in bignumLang.
+[bignum](bignum):
+This directory contains the verified bignum implementation used by the
+CakeML runtime.
 
 [bviScript.sml](bviScript.sml):
 The BVI intermediate language. This language is very similar to BVL.
