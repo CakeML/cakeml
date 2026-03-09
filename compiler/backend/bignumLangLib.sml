@@ -50,6 +50,9 @@ structure bignumLangLib :> sig
 
 end = struct
 
+  open HolKernel boolLib bossLib;
+  open asmTheory bignumLangTheory;
+
   (* --- AST types --- *)
 
   datatype binop = Add | Sub | And | Or | Xor
