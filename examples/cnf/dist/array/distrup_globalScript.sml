@@ -18,116 +18,39 @@ Datatype:
   label = Tau | Act 'name distrup
 End
 
-Inductive resume_ok:
-[~init:]
-  resume_ok st [] [] st
-[~produce:]
-  resume_ok st events aevents (SOME (fmlls, Clist, b)) ∧
-  is_produce_events n vc produce_events ∧
-  is_output_event #"a" #"1" output_event ∧
-  check_distrup_list (Lrup n vc hints) fmlls Clist b = SOME (fmlls', Clist', b')
-  ⇒
-  resume_ok st (events ++ produce_events ++ [output_event]) (aevents ++ [Lrup n vc hints]) (SOME (fmlls', Clist', b'))
-[~produce_Fail:]
-  resume_ok st events aevents (SOME (fmlls, Clist, b)) ∧
-  is_produce_events n vc produce_events ∧
-  is_output_event #"a" #"0" output_event ∧
-  check_distrup_list (Lrup n vc hints) fmlls Clist b = NONE
-  ⇒
-  resume_ok st (events ++ produce_events ++ [output_event]) (aevents ++ [Lrup n vc hints]) NONE
-[~produce_None:]
-  resume_ok st events aevents NONE ∧
-  is_produce_events n vc produce_events ∧
-  is_output_event #"a" #"0" output_event
-  ⇒
-  resume_ok st (events ++ produce_events ++ [output_event]) (aevents ++ [Lrup n vc hints]) NONE
-[~import:]
-  resume_ok st events aevents (SOME (fmlls, Clist, b)) ∧
-  is_import_events n vc import_events ∧
-  is_output_event #"i" #"1" output_event ∧
-  check_distrup_list (Import n vc) fmlls Clist b = SOME (fmlls', Clist', b')
-  ⇒
-  resume_ok st (events ++ import_events ++ [output_event]) (aevents ++ [Import n vc]) (SOME (fmlls', Clist', b'))
-[~import_None:]
-  resume_ok st events aevents NONE ∧
-  is_import_events n vc import_events ∧
-  is_output_event #"i" #"0" output_event
-  ⇒
-  resume_ok st (events ++ import_events ++ [output_event]) (aevents ++ [Import n vc]) NONE
-[~delete:]
-  resume_ok st events aevents (SOME (fmlls, Clist, b)) ∧
-  is_delete_events delete_events ∧
-  is_output_event #"d" #"1" output_event ∧
-  check_distrup_list (Del hints) fmlls Clist b = SOME (fmlls', Clist', b')
-  ⇒
-  resume_ok st (events ++ delete_events ++ [output_event]) (aevents ++ [Del hints]) (SOME (fmlls', Clist', b'))
-[~delete_None:]
-  resume_ok st events aevents NONE ∧
-  is_delete_events delete_events ∧
-  is_output_event #"d" #"0" output_event
-  ⇒
-  resume_ok st (events ++ delete_events ++ [output_event]) (aevents ++ [Del hints]) NONE
-[~validate:]
-  resume_ok st events aevents (SOME (fmlls, Clist, b)) ∧
-  is_validate_events validate_events ∧
-  is_output_event #"V" #"1" output_event ∧
-  check_distrup_list Validate_Unsat fmlls Clist b = SOME (fmlls', Clist', b')
-  ⇒
-  resume_ok st (events ++ validate_events ++ [output_event]) (aevents ++ [Validate_Unsat]) (SOME (fmlls', Clist', b'))
-[~validate_Fail:]
-  resume_ok st events aevents (SOME (fmlls, Clist, b)) ∧
-  is_validate_events validate_events ∧
-  is_output_event #"V" #"0" output_event ∧
-  check_distrup_list Validate_Unsat fmlls Clist b = NONE
-  ⇒
-  resume_ok st (events ++ validate_events ++ [output_event]) (aevents ++ [Validate_Unsat]) NONE
-[~validate_None:]
-  resume_ok st events aevents NONE ∧
-  is_validate_events validate_events ∧
-  is_output_event #"V" #"0" output_event
-  ⇒
-  resume_ok st (events ++ validate_events ++ [output_event]) (aevents ++ [Validate_Unsat]) NONE
-End
-
 Inductive step:
 [~events_ok_delete:]
   FLOOKUP st.procs id = SOME lst ∧
-  events_ok events aevents lst ∧
-  resume_ok lst events' [Del hints] lst'
+  events_ok lst events' [Del hints] lst'
   ⇒
   step st (Act id (Del hints)) (st with procs := st.procs |+ (id,lst'))
 [~events_ok_Import:]
   FLOOKUP st.procs id = SOME lst ∧
-  events_ok events aevents lst ∧
-  resume_ok lst events' [Import n c] lst' ∧
+  events_ok lst events' [Import n c] lst' ∧
   MEM c st.facts
   ⇒
   step st (Act id (Import n c)) (st with procs := st.procs |+ (id,lst'))
 [~events_ok_Produce:]
   FLOOKUP st.procs id = SOME(SOME vlst) ∧
-  events_ok events aevents (SOME vlst) ∧
-  resume_ok (SOME vlst) events' [Lrup n c hints] (SOME vlst') ∧
+  events_ok (SOME vlst) events' [Lrup n c hints] (SOME vlst') ∧
   MEM c st.facts
   ⇒
   step st (Act id (Lrup n c hints)) (st with <|procs := st.procs |+ (id,SOME vlst');
                                            facts := c::st.facts|>)
 [~events_ok_Produce_fail:]
   FLOOKUP st.procs id = SOME lst ∧
-  events_ok events aevents lst ∧
-  resume_ok lst events' [Lrup n c hints] NONE
+  events_ok lst events' [Lrup n c hints] NONE
   ⇒
   step st (Act id (Lrup n c hints)) (st with <|procs := st.procs |+ (id,NONE)|>)
 [~events_ok_Validate:]
   FLOOKUP st.procs id = SOME(SOME vlst) ∧
-  events_ok events aevents (SOME vlst) ∧
-  resume_ok (SOME vlst) events' [ValidateUnsat] (SOME vlst')
+  events_ok (SOME vlst) events' [ValidateUnsat] (SOME vlst')
   ⇒
   step st (Act id (ValidateUnsat)) (st with <|procs := st.procs |+ (id,SOME vlst');
                                               validated := T|>)
 [~events_ok_Validate_fail:]
   FLOOKUP st.procs id = SOME lst ∧
-  events_ok events aevents lst ∧
-  resume_ok lst events' [ValidateUnsat] NONE
+  events_ok lst events' [ValidateUnsat] NONE
   ⇒
   step st (Act id (ValidateUnsat)) (st with <|procs := st.procs |+ (id,NONE)|>)
 End
@@ -161,10 +84,10 @@ Inductive act_rel:
   R alpha beta ⇒ act_rel R (Act n alpha) (Act n beta)
 End
 
-Theorem resume_ok_NIL:
-  resume_ok lst evs [] lst' ⇔ lst = lst' ∧ evs = []
+Theorem events_ok_NIL:
+  events_ok lst evs [] lst' ⇔ lst = lst' ∧ evs = []
 Proof
-  rw[Once resume_ok_cases] >>
+  rw[Once events_ok_cases] >>
   metis_tac[]
 QED
 
@@ -211,8 +134,8 @@ Proof
   Induct_on ‘step’ >>
   rpt strip_tac
   >~ [‘[Import _ _]’]
-  >- (qhdtm_x_assum ‘resume_ok’ $ assume_tac o PURE_ONCE_REWRITE_RULE[resume_ok_cases] >>
-      gvs[resume_ok_NIL] >>
+  >- (qhdtm_x_assum ‘events_ok’ $ assume_tac o PURE_ONCE_REWRITE_RULE[events_ok_cases] >>
+      gvs[events_ok_NIL] >>
       rw[act_rel_cases,label_rel_cases]
       >- (irule_at (Pos hd) step_import >>
           gvs[state_rel_def] >>
@@ -252,9 +175,9 @@ Proof
           rw[] >>
           ‘cst.procs |+ (id,NONE) = cst.procs’ suffices_by simp[] >>
           rw[fmap_eq_flookup,FLOOKUP_UPDATE] >> rw[] >> rw[]))
-  >~ [‘resume_ok _ _ [Lrup _ _ _] (SOME _)’]
-  >- (qhdtm_x_assum ‘resume_ok’ $ assume_tac o PURE_ONCE_REWRITE_RULE[resume_ok_cases] >>
-      gvs[resume_ok_NIL] >>
+  >~ [‘events_ok _ _ [Lrup _ _ _] (SOME _)’]
+  >- (qhdtm_x_assum ‘events_ok’ $ assume_tac o PURE_ONCE_REWRITE_RULE[events_ok_cases] >>
+      gvs[events_ok_NIL] >>
       rw[act_rel_cases,label_rel_cases]
       >- (irule_at (Pos hd) step_produce_succeed >>
           gvs[state_rel_def] >>
@@ -286,9 +209,9 @@ Proof
           conj_tac >- metis_tac[] >>
           irule fmap_rel_fdomsub >>
           simp[]))
-  >~ [‘resume_ok _ _ [Lrup _ _ _] NONE’]
-  >- (qhdtm_x_assum ‘resume_ok’ $ assume_tac o PURE_ONCE_REWRITE_RULE[resume_ok_cases] >>
-      gvs[resume_ok_NIL] >>
+  >~ [‘events_ok _ _ [Lrup _ _ _] NONE’]
+  >- (qhdtm_x_assum ‘events_ok’ $ assume_tac o PURE_ONCE_REWRITE_RULE[events_ok_cases] >>
+      gvs[events_ok_NIL] >>
       rw[act_rel_cases,label_rel_cases]
       >- (irule_at (Pos hd) step_produce_fail >>
           gvs[state_rel_def] >>
@@ -322,9 +245,9 @@ Proof
           simp[] >>
           ‘cst.procs |+ (id,NONE) = cst.procs’ suffices_by simp[] >>
           rw[fmap_eq_flookup,FLOOKUP_UPDATE] >> rw[] >> rw[]))
-  >~ [‘resume_ok _ _ [ValidateUnsat] (SOME _)’]
-  >- (qhdtm_x_assum ‘resume_ok’ $ assume_tac o PURE_ONCE_REWRITE_RULE[resume_ok_cases] >>
-      gvs[resume_ok_NIL] >>
+  >~ [‘events_ok _ _ [ValidateUnsat] (SOME _)’]
+  >- (qhdtm_x_assum ‘events_ok’ $ assume_tac o PURE_ONCE_REWRITE_RULE[events_ok_cases] >>
+      gvs[events_ok_NIL] >>
       rw[act_rel_cases,label_rel_cases] >>
       irule_at (Pos hd) step_validate >>
       gvs[state_rel_def] >>
@@ -341,9 +264,9 @@ Proof
       gvs[check_distrup_list_def] >>
       ‘(cst.procs |+ (id,SOME (fmlls,Clist,b))) = cst.procs’ suffices_by simp[] >>
       rw[fmap_eq_flookup,FLOOKUP_UPDATE] >> rw[] >> rw[])
-  >~ [‘resume_ok _ _ [ValidateUnsat] NONE’]
-  >- (qhdtm_x_assum ‘resume_ok’ $ assume_tac o PURE_ONCE_REWRITE_RULE[resume_ok_cases] >>
-      gvs[resume_ok_NIL] >>
+  >~ [‘events_ok _ _ [ValidateUnsat] NONE’]
+  >- (qhdtm_x_assum ‘events_ok’ $ assume_tac o PURE_ONCE_REWRITE_RULE[events_ok_cases] >>
+      gvs[events_ok_NIL] >>
       rw[act_rel_cases,label_rel_cases]
       >- (irule_at (Pos hd) step_validate_fail >>
           gvs[state_rel_def] >>
@@ -368,8 +291,8 @@ Proof
       simp[] >>
       ‘cst.procs |+ (id,NONE) = cst.procs’ suffices_by simp[] >>
       rw[fmap_eq_flookup,FLOOKUP_UPDATE] >> rw[] >> rw[]) >>
-  qhdtm_x_assum ‘resume_ok’ $ assume_tac o PURE_ONCE_REWRITE_RULE[resume_ok_cases] >>
-  gvs[resume_ok_NIL] >>
+  qhdtm_x_assum ‘events_ok’ $ assume_tac o PURE_ONCE_REWRITE_RULE[events_ok_cases] >>
+  gvs[events_ok_NIL] >>
   rw[act_rel_cases,label_rel_cases]
   >- (irule_at (Pos hd) step_delete >>
       gvs[state_rel_def] >>
@@ -431,8 +354,8 @@ Proof
 QED
 
 (* A good initial state *)
-Definition init_st_def:
-  init_st st fml ⇔
+Definition init_def:
+  init st fml ⇔
     FEVERY (λ(n,v).
       v = NONE ∨
       ∃n k. v = SOME (REPLICATE n NONE, REPLICATE k 0w, 1w))
@@ -443,13 +366,13 @@ End
 
 Theorem sat_step_sound_spec_aux:
   reduce꙳ st st' ∧
-  init_st st fml ∧
+  init st fml ∧
   st'.validated
   ⇒
   sat_infer fml (Vector [])
 Proof
   rpt strip_tac >>
-  fs[init_st_def]>>
+  fs[init_def]>>
   irule $ INST_TYPE [alpha |-> “:num”, beta |-> alpha] sat_step_sound >>
   simp[] >>
   Q.SUBGOAL_THEN ‘∃ast. state_rel ast st’ strip_assume_tac
@@ -496,7 +419,7 @@ End
 
 Theorem sat_step_sound_spec:
   reduce꙳ st st' ∧
-  init_st st fml ∧
+  init st fml ∧
   st'.validated
   ⇒
   unsatisfiable fml
@@ -509,47 +432,16 @@ Proof
   EVAL_TAC>>rw[]
 QED
 
-Theorem resume_ok_append:
+Theorem events_ok_append:
   ∀lst events' aevents' lst' events aevents.
-    resume_ok lst0 events aevents lst ∧
-    resume_ok lst events' aevents' lst' ⇒
-    resume_ok lst0 (events ++ events') (aevents ++ aevents') lst'
+    events_ok lst0 events aevents lst ∧
+    events_ok lst events' aevents' lst' ⇒
+    events_ok lst0 (events ++ events') (aevents ++ aevents') lst'
 Proof
   strip_tac >>
   PURE_ONCE_REWRITE_TAC [CONJ_SYM] >>
-  Induct_on ‘resume_ok’ >>
-  rw[] >>
-  metis_tac[resume_ok_rules]
-QED
-
-Theorem resume_ok_makes_sense:
-  ∀lst events' aevents' lst' events aevents.
-    events_ok events aevents lst ∧
-    resume_ok lst events' aevents' lst' ⇒
-    events_ok (events ++ events') (aevents ++ aevents') lst'
-Proof
-  strip_tac >>
-  Induct_on ‘resume_ok’ >>
-  rw[] >>
-  metis_tac[events_ok_rules]
-QED
-
-Theorem resume_ok_imp_events_ok:
-  ∀events aevents lst.
-    resume_ok (SOME (REPLICATE n NONE, REPLICATE k 0w, 1w)) events aevents lst ⇒
-    events_ok events aevents lst
-Proof
-  Induct_on ‘resume_ok’ >>
-  rw[] >>
-  metis_tac[events_ok_rules]
-QED
-
-Theorem events_ok_imp_resume_ok:
-  ∀events aevents lst.
-    events_ok events aevents lst ⇒
-    ∃n k. resume_ok (SOME (REPLICATE n NONE, REPLICATE k 0w, 1w)) events aevents lst
-Proof
   Induct_on ‘events_ok’ >>
   rw[] >>
-  metis_tac[resume_ok_rules]
+  metis_tac[events_ok_rules]
 QED
+

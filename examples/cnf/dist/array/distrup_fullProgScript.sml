@@ -1604,82 +1604,73 @@ End
 
 Inductive events_ok:
 [~init:]
-  events_ok [] [] (SOME (REPLICATE n NONE, REPLICATE k 0w, 1w))
+  events_ok st [] [] st
 [~produce:]
-  events_ok events aevents (SOME (fmlls, Clist, b)) ∧
+  events_ok st events aevents (SOME (fmlls, Clist, b)) ∧
   is_produce_events n vc produce_events ∧
   is_output_event #"a" #"1" output_event ∧
   check_distrup_list (Lrup n vc hints) fmlls Clist b = SOME (fmlls', Clist', b')
   ⇒
-  events_ok (events ++ produce_events ++ [output_event]) (aevents ++ [Lrup n vc hints]) (SOME (fmlls', Clist', b'))
+  events_ok st (events ++ produce_events ++ [output_event]) (aevents ++ [Lrup n vc hints]) (SOME (fmlls', Clist', b'))
 [~produce_Fail:]
-  events_ok events aevents (SOME (fmlls, Clist, b)) ∧
+  events_ok st events aevents (SOME (fmlls, Clist, b)) ∧
   is_produce_events n vc produce_events ∧
   is_output_event #"a" #"0" output_event ∧
   check_distrup_list (Lrup n vc hints) fmlls Clist b = NONE
   ⇒
-  events_ok (events ++ produce_events ++ [output_event]) (aevents ++ [Lrup n vc hints]) NONE
+  events_ok st (events ++ produce_events ++ [output_event]) (aevents ++ [Lrup n vc hints]) NONE
 [~produce_None:]
-  events_ok events aevents NONE ∧
+  events_ok st events aevents NONE ∧
   is_produce_events n vc produce_events ∧
   is_output_event #"a" #"0" output_event
   ⇒
-  events_ok (events ++ produce_events ++ [output_event]) (aevents ++ [Lrup n vc hints]) NONE
+  events_ok st (events ++ produce_events ++ [output_event]) (aevents ++ [Lrup n vc hints]) NONE
 [~import:]
-  events_ok events aevents (SOME (fmlls, Clist, b)) ∧
+  events_ok st events aevents (SOME (fmlls, Clist, b)) ∧
   is_import_events n vc import_events ∧
   is_output_event #"i" #"1" output_event ∧
   check_distrup_list (Import n vc) fmlls Clist b = SOME (fmlls', Clist', b')
   ⇒
-  events_ok (events ++ import_events ++ [output_event]) (aevents ++ [Import n vc]) (SOME (fmlls', Clist', b'))
+  events_ok st (events ++ import_events ++ [output_event]) (aevents ++ [Import n vc]) (SOME (fmlls', Clist', b'))
 [~import_None:]
-  events_ok events aevents NONE ∧
+  events_ok st events aevents NONE ∧
   is_import_events n vc import_events ∧
   is_output_event #"i" #"0" output_event
   ⇒
-  events_ok (events ++ import_events ++ [output_event]) (aevents ++ [Import n vc]) NONE
+  events_ok st (events ++ import_events ++ [output_event]) (aevents ++ [Import n vc]) NONE
 [~delete:]
-  events_ok events aevents (SOME (fmlls, Clist, b)) ∧
+  events_ok st events aevents (SOME (fmlls, Clist, b)) ∧
   is_delete_events delete_events ∧
   is_output_event #"d" #"1" output_event ∧
   check_distrup_list (Del hints) fmlls Clist b = SOME (fmlls', Clist', b')
   ⇒
-  events_ok (events ++ delete_events ++ [output_event]) (aevents ++ [Del hints]) (SOME (fmlls', Clist', b'))
+  events_ok st (events ++ delete_events ++ [output_event]) (aevents ++ [Del hints]) (SOME (fmlls', Clist', b'))
 [~delete_None:]
-  events_ok events aevents NONE ∧
+  events_ok st events aevents NONE ∧
   is_delete_events delete_events ∧
   is_output_event #"d" #"0" output_event
   ⇒
-  events_ok (events ++ delete_events ++ [output_event]) (aevents ++ [Del hints]) NONE
+  events_ok st (events ++ delete_events ++ [output_event]) (aevents ++ [Del hints]) NONE
 [~validate:]
-  events_ok events aevents (SOME (fmlls, Clist, b)) ∧
+  events_ok st events aevents (SOME (fmlls, Clist, b)) ∧
   is_validate_events validate_events ∧
   is_output_event #"V" #"1" output_event ∧
   check_distrup_list Validate_Unsat fmlls Clist b = SOME (fmlls', Clist', b')
   ⇒
-  events_ok (events ++ validate_events ++ [output_event]) (aevents ++ [Validate_Unsat]) (SOME (fmlls', Clist', b'))
+  events_ok st (events ++ validate_events ++ [output_event]) (aevents ++ [Validate_Unsat]) (SOME (fmlls', Clist', b'))
 [~validate_Fail:]
-  events_ok events aevents (SOME (fmlls, Clist, b)) ∧
+  events_ok st events aevents (SOME (fmlls, Clist, b)) ∧
   is_validate_events validate_events ∧
   is_output_event #"V" #"0" output_event ∧
   check_distrup_list Validate_Unsat fmlls Clist b = NONE
   ⇒
-  events_ok (events ++ validate_events ++ [output_event]) (aevents ++ [Validate_Unsat]) NONE
+  events_ok st (events ++ validate_events ++ [output_event]) (aevents ++ [Validate_Unsat]) NONE
 [~validate_None:]
-  events_ok events aevents NONE ∧
+  events_ok st events aevents NONE ∧
   is_validate_events validate_events ∧
   is_output_event #"V" #"0" output_event
   ⇒
-  events_ok (events ++ validate_events ++ [output_event]) (aevents ++ [Validate_Unsat]) NONE
-End
-
-(* Allow any state or SOME? *)
-Definition full_events_ok_def:
-  full_events_ok events ⇔
-    ∃xs final aevents st.
-      events = xs ++ [final] ∧
-      events_ok xs aevents st ∧
-      is_final_event final
+  events_ok st (events ++ validate_events ++ [output_event]) (aevents ++ [Validate_Unsat]) NONE
 End
 
 Theorem check_top_NONE:
@@ -1766,11 +1757,20 @@ Proof
   xsimpl
 QED
 
+(* Allow any state or SOME? *)
+Definition full_events_ok_def:
+  full_events_ok st events ⇔
+    ∃xs final aevents st'.
+      events = xs ++ [final] ∧
+      events_ok st xs aevents st' ∧
+      is_final_event final
+End
+
 Theorem loop_NONE:
   ∀inputs lno lnov events aevents step_arr step_arrv buf_arr buf_arrv stv.
     NUM lno lnov ∧
     stv = Conv (SOME (TypeStamp «None» 2)) [] ∧
-    events_ok events aevents NONE ∧
+    events_ok st events aevents NONE ∧
     LENGTH step_arr = 17 ⇒
     app (p:'ffi ffi_proj) loop_v [step_arrv; buf_arrv; stv; lnov]
         (CUSTOM_FFI Step inputs events tb *
@@ -1781,7 +1781,7 @@ Theorem loop_NONE:
              CUSTOM_FFI Terminate [] new_events tb *
              W8ARRAY buf_arrv buf_arr *
              W8ARRAY step_arrv step_arr1 *
-             cond (full_events_ok new_events))
+             cond (full_events_ok st new_events))
 Proof
   Induct
   >-
@@ -1940,7 +1940,7 @@ Theorem loop_SOME:
     LIST_REL (OPTION_TYPE vcclause_TYPE) fmlls fmllsv ∧
     WORD8 b bv ∧
     bnd_fml fmlls (LENGTH Clist) ∧
-    events_ok events aevents (SOME (fmlls, Clist, b)) ∧
+    events_ok st events aevents (SOME (fmlls, Clist, b)) ∧
     stv =
       Conv (SOME (TypeStamp «Some» 2))
         [Conv NONE [fmlv; Carrv; bv]] ⇒
@@ -1956,7 +1956,7 @@ Theorem loop_SOME:
              CUSTOM_FFI Terminate [] new_events tb *
              W8ARRAY buf_arrv buf_arr *
              W8ARRAY step_arrv step_arr1 *
-             cond (full_events_ok new_events))
+             cond (full_events_ok st new_events))
 Proof
   Induct
   >-
@@ -2238,44 +2238,36 @@ Proof
     metis_tac[])
 QED
 
+Definition init_st_def:
+  init_st = (SOME (REPLICATE 4096n (NONE:vcclause option), REPLICATE 1024n (0w:word8), (1w:word8)))
+End
+
 Theorem main_spec:
   app (p:'ffi ffi_proj) main_v [Conv NONE []]
     (CUSTOM_FFI Step inputs [] tb)
     (POSTv res.
        SEP_EXISTS events.
          CUSTOM_FFI Terminate [] events tb *
-         cond (full_events_ok events))
+         cond (full_events_ok init_st events))
 Proof
   rpt strip_tac >>
   xcf_with_def (fetch "-" "main_v_def") >>
   xmatch  >> gvs [] >>
-  xlet_auto >- xsimpl >>
-  xlet_auto >- xsimpl >>
-  xlet_auto >- xsimpl >>
-  xlet_auto >- xsimpl >>
-  xlet_auto >- (xcon >> xsimpl) >>
-  xlet_auto >- xsimpl >>
-  xlet_auto >- xsimpl >>
-  xlet_auto >- xsimpl >>
-  xlet_auto >- xsimpl >>
-  xlet_auto >- (xcon >> xsimpl) >>
-  xlet_auto >- (xcon >> xsimpl) >>
+  rpt xlet_autop>>
   xapp_spec loop_SOME >>
   qexists ‘emp’ >> xsimpl >>
   qexists_tac`tb`>>
-  qexists_tac`inputs`>>
-  qexists_tac`[]`>>
   first_x_assum $ irule_at Any>>
+  irule_at Any events_ok_init>>
+  qexists_tac`inputs`>>
   qexists ‘REPLICATE 4096 NONE’ >>
-  qexists ‘[]’ >>
   xsimpl >>
   conj_tac >-
    (gvs [ccnf_listTheory.bnd_fml_def,miscTheory.any_el_ALT,EL_REPLICATE, SF CONJ_ss]) >>
   conj_tac >-
    (gvs [LIST_REL_EL_EQN,OPTION_TYPE_def,EL_REPLICATE]) >>
-  conj_tac >-
-    simp[events_ok_init]>>
   rw [] >> rename [‘CUSTOM_FFI Terminate [] xx’] >>
+  gvs[init_st_def]>>
   pop_assum $ irule_at Any >>
   xsimpl
 QED
@@ -2444,7 +2436,7 @@ Proof
 QED
 
 Theorem full_events_ok_main_events:
-  full_events_ok (main_events tb inputs)
+  full_events_ok init_st (main_events tb inputs)
 Proof
   gvs [main_res]
 QED
