@@ -201,28 +201,26 @@ Proof
   Cases_on `xs` >> simp[next_key_def,last_key_t_def,head_key_def]
 QED
 
-
-
 Definition ann_fts_def:
-  (ann_fts [] = []) /\
-  (ann_fts (x::xs) =
-    ann_fts_seg 0w (head_key [x]) (last_key (x::xs)) (next_key (head_key [x]) xs)
+  (ann_fts p [] = []) /\
+  (ann_fts p (x::xs) =
+    ann_fts_seg p (head_key [x]) (last_key (x::xs)) (next_key (head_key [x]) xs)
     (x::xs))
 End
 
 Theorem ann_fts_append_thm:
-  !xs ys.
+  !xs ys p.
     xs <> [] /\ ys <> [] ==>
-    ann_fts (xs ++ ys) =
-    (ann_fts_seg 0w (head_key ys) (last_key ys)
+    ann_fts p (xs ++ ys) =
+    (ann_fts_seg p (head_key ys) (last_key ys)
       (next_key (head_key xs)  (TL xs ++ ys)) xs) ++
-    (ann_fts_seg 0w (head_key xs) (last_key xs)
+    (ann_fts_seg p (head_key xs) (last_key xs)
       (next_key (head_key xs) (TL ys)) ys)
 Proof
   rpt strip_tac >>
   Cases_on `xs` >> fs[ann_fts_def] >>
   mp_tac ann_fts_seg_append_thm >>
-  disch_then (qspecl_then [`0w`, `(head_key [h])`, `(last_key (h::(t ++ ys)))`,
+  disch_then (qspecl_then [`p`, `(head_key [h])`, `(last_key (h::(t ++ ys)))`,
                             `(h::t)`, `ys`] assume_tac) >>
   Cases_on `h` >>
   fs[ann_fts_seg_def,head_key_def,last_key_def] >>
@@ -332,7 +330,7 @@ Definition test_full_conn_def:
     :: test_full_conn mem nodes (count-1)))
 End
 
-val test_fts_mem = “fts_mem (ann_fts [
+val test_fts_mem = “fts_mem (ann_fts 0w [
     FibTree 10w (
     fill_dnode 11w (1000w, [(50w,10)]) F) [];
     FibTree 50w (
@@ -345,7 +343,7 @@ val test_fts_mem = “fts_mem (ann_fts [
 (*
 val tfc = “test_full_conn (10000w:word64) 3 3” |> SCONV [test_full_conn_def];
 *)
-val test_large_fts_mem = “fts_mem (ann_fts [
+val test_large_fts_mem = “fts_mem (ann_fts 0w [
     test_build_ft (1000w:word64) 2 (test_full_conn 10000w 3 3)
     ])”
     |> SCONV [fts_mem_def,STAR_ASSOC,ann_fts_def,ann_fts_seg_def,test_full_conn_def,
@@ -597,7 +595,7 @@ QED
 Definition fib_heap_def:
   fib_heap a fh =
     SEP_EXISTS fts.
-      fts_mem (ann_fts fts) *
+      fts_mem (ann_fts 0w fts) *
       cond (fib_heap_inv fh fts /\ a = head_key fts)
 End
 
@@ -934,10 +932,7 @@ Proof
   simp[Once fib_num_def]
 QED
 
-(*
 
-Maybe replace by fib_heap_insert_list?
-Comment to reduce HOLMAKE!
 
 Theorem fib_heap_insert:
   ∀frame k v fh.
@@ -1020,7 +1015,8 @@ Proof
     fs[AC STAR_COMM STAR_ASSOC] >>
     fs[STAR_ASSOC] >>
     mp_tac lemma_insert_old_min_inv >>
-    disch_then (qspecl_then [`fh`, `[FibTree a' v' l]`,`k`,`v`,`e`] assume_tac) >>
+    disch_then (qspecl_then [`fh`, `[FibTree a' v' l]`,`k`,`v`,`e`]
+      assume_tac) >>
     fs[fts_min_def, fill_dnode_def]
    ) >>
   Cases_on `x` >>
@@ -1152,13 +1148,10 @@ Proof
   disch_tac >> simp[]
 QED
 
-*)
-
 
 (*-------------------------------------------------------------------*
    Fib Heap Extract Minimum Definition and Verification
  *-------------------------------------------------------------------*)
-
 
 
 (*assumption: both heads are the smallest element*)
@@ -1207,6 +1200,9 @@ Definition map_upd_list_def:
   (map_upd_list (FibTree k v ts::rest) =
     [(k,v.value,v.edges)] ++ map_upd_list rest ++ map_upd_list ts)
 End
+
+(*
+Comment due to Holmake
 
 Theorem lemma_fib_heap_insert_1into1:
   !frame x t k a.
@@ -1471,7 +1467,7 @@ Proof
   fs[AC STAR_COMM STAR_ASSOC]
 QED
 
-
+*)
 
 
 
@@ -1591,8 +1587,8 @@ QED
 
 
 Theorem fib_heap_insert_list:
-  ∀frame xs fh n.
-    (fts_mem (ann_fts xs) * fib_heap a fh * frame *
+  ∀frame xs fh n p.
+    (fts_mem (ann_fts p xs) * fib_heap a fh * frame *
      cond(list_not_in_heap fh xs /\ n > LENGTH xs /\ head_key xs = k))
       (fun2set (m,dm)) ∧
     fib_heap_insert_list (a, k, m, dm) = (a', m', b) ⇒
@@ -1627,6 +1623,34 @@ Proof
   cheat
 QED
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+(*---------------------------------------------------------*
+
+  Verification of 'Extract Minimum' from fib heap list!
+
+*----------------------------------------------------------*)
 
 
 
@@ -1684,42 +1708,17 @@ Definition fts_set_min_hd_def:
       fts_set_min_hd (FibTree mk mv ml) (FibTree k' v' l'::fts) fts)
 End
 
-Definition fts_highest_rank_def:
-  (fts_highest_rank (r:num) [] = r) /\
-  (fts_highest_rank r (FibTree k v l::fts) =
-    if r <= LENGTH l then
-      fts_highest_rank (LENGTH l) fts
-    else
-      fts_highest_rank r fts )
-End
-
-
 Definition bal_fts_def:
-  (bal_fts [] = []) /\
-  (bal_fts (t::ts) =
-    map_to_list ((fts_highest_rank 0 (t::ts)) + LENGTH ts + 1)
-                (fill_rm (LENGTH ts +1) (FEMPTY, (t::ts))) )
+  (bal_fts n [] = []) /\
+  (bal_fts n (t::ts) =
+    map_to_list n (fill_rm (LENGTH ts +1) (FEMPTY, (t::ts))) )
 End
 
 Definition fts_reb_def:
-  fts_reb fts =
-    let list = bal_fts fts in
+  fts_reb n fts =
+    let list = bal_fts n fts in
       fts_set_min_hd (fts_find_min (HD list) list) list
 End
-
-(*
-Type error between map and list?
-
-Definition fts_reb_def:
-  (fts_reb [] = []) /\
-  (fts_reb (FibTree k v l::fts) =
-    let rm = fill_rm (LENGTH fts + 1) (FEMPTY, (FibTree k v l::fts)) in
-    let list = map_to_list ((fts_highest_rank 0 (FibTree k v l::fts)) +
-                            LENGTH fts + 1) rm in
-    let m = fts_find_min (HD list) list in
-      fts_set_min_hd m list )
-End
-*)
 
 
 
@@ -1803,6 +1802,18 @@ Definition fib_heap_extract_min_def:
       let c  = (SND (SND a'_m_c) /\ c) in
         (a,a',m,c)
 End
+
+
+
+
+(*--------------------------------------------------------*
+
+Definition of 'Rebalancing' (separated from extract minimum
+
+*---------------------------------------------------------*)
+
+
+
 
 
 (* At the start n = max_r, but n counts down for termination *)
@@ -1901,3 +1912,7 @@ Definition fib_heap_reb_def:
     let a_n = m (a + next_off) in
       find_min n (a,a,a_n,m,dm,c)
 End
+
+
+
+
