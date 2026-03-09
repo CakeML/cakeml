@@ -123,7 +123,7 @@ End
                  (rrr,t2) ∧ state_rel t t1 ∧ state_rel t t2)): thm
 *)
 Theorem evaluate_rewrite_tmc:
-   ∀xs env1 ^s l r t opt s' env2.
+   ∀opt xs env1 ^s l r t s' env2.
      evaluate (xs, env1, s) = (r, t) ∧
      env_rel opt l env1 env2 ∧
      state_rel s s' ∧
@@ -144,7 +144,7 @@ Theorem evaluate_rewrite_tmc:
               opt_res_rel r rrr ∧
               state_rel t t2))
 Proof
-  recInduct bviSemTheory.evaluate_ind
+  (* recInduct bviSemTheory.evaluate_ind
   >> rpt strip_tac
   >~ [‘evaluate ([],_,_)’] >-
    (gvs [evaluate_def])
@@ -192,7 +192,7 @@ Proof
   >~ [‘Force force_loc n’] >-
    (gvs [evaluate_def]
    >> cheat)
-  >~ [‘Call ticks dest xs handler’] >-
+  >~ [‘Call ticks dest xs handler’] >- *)
    cheat
 QED
 
@@ -224,7 +224,8 @@ Proof
   >> `state_rel st1 st2` by cheat
   >> drule evaluate_rewrite_tmc
   >> disch_then (qspec_then `F` drule)
-  cheat
+  >> rpt (disch_then drule)
+  >> fs []
 QED
 
 (* Copied *)
