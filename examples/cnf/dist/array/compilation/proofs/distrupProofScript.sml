@@ -25,7 +25,7 @@ val compile_correct_applied =
   |> REWRITE_RULE[AND_IMP_INTRO, sem_sing]
 
 Definition compiled_code_installed_def:
-  compiled_code_isntalled mc ms ⇔
+  compiled_code_installed mc ms ⇔
     ∃cbspace data_sp.
       is_x64_machine_config mc ∧
       installed code cbspace data data_sp info.lab_conf.ffi_names
@@ -34,9 +34,9 @@ Definition compiled_code_installed_def:
 End
 
 Theorem compiled_code_produces_events_ok:
-  compiled_code_isntalled mc ms ⇒
+  compiled_code_installed mc ms ⇒
   ∃events.
-    full_events_ok events ∧
+    full_events_ok init_st events ∧
     machine_sem mc (custom_ffi (State Step inputs tb)) ms ⊆
     extend_with_resource_limit {Terminate Success events}
 Proof
