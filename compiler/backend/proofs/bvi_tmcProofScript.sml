@@ -144,8 +144,11 @@ Proof
         >> rw [] >-
          (gvs [rich_listTheory.is_prefix_el]) >-
          (cheat)
-         >> cheat)
-      >> cheat)
+        >> qexistsl [‘Rval [env❲n❳]’, ‘s'’]
+        >> rw [] >-
+         (cheat)
+         >> (cheat))
+      >> gvs [])
     >> gvs [env_rel_def]
     >> cheat)
   >~ [‘If x1 x2 x3’] >-
