@@ -14,4 +14,4 @@ Various programs written in bignumLang.
 The formal semantics of bignumLang
 
 [multiword_extScript.sml](multiword_extScript.sml):
-TODO Extensions to multiword that should be upstreamed.
+Extensions to multiword that should be upstreamed.
