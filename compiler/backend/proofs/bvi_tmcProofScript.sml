@@ -71,10 +71,10 @@ Definition state_ref_rel_def:
          ∃t l h r. ~(is i) ⇒ FLOOKUP t_refs i = SOME(MutBlock t l h r))
 End
 
-(* Copied *)
 Definition state_rel_def:
   state_rel s (t:('a,'ffi) bviSem$state) ⇔
-    t.refs = s.refs ∧
+    (* t.refs = s.refs ∧ *)
+    state_ref_rel s.refs t.refs ∧
     t.clock = s.clock ∧
     t.global = s.global ∧
     t.ffi = s.ffi ∧
@@ -155,10 +155,9 @@ Proof
   recInduct bviSemTheory.evaluate_ind
   >> rpt strip_tac
   >~ [‘evaluate ([],_,_)’] >-
-   (gvs [evaluate_def])
+   (gvs [evaluate_def] >> cheat)
   >~ [‘evaluate (x::y::xs,_,_)’] >-
-   (gvs [evaluate_def]
-        >> )
+   (gvs [evaluate_def] >> cheat)
   >~ [‘Var n’] >-
    (gvs [evaluate_def]
     >> qexists ‘s'’
