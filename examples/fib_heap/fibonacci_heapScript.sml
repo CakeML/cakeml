@@ -1177,7 +1177,7 @@ Proof
        fill_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
   fs[head_key_t_append_thm, last_key_t_def, head_key_t_def,
      head_key_def, REVERSE_APPEND] >>
-  fs[lemma_head_key_eq_last_key_t]>>
+  fs[lemma_head_keys_eq_last_key_t]>>
   qspecl_then[`t ++ [FibTree lk lv lts]`,`k`,`(fill_dnode v e F)`, `[]`]
     mp_tac head_key_t_pull_last_thm >>
   pure_rewrite_tac[GSYM APPEND_ASSOC,APPEND] >>
@@ -1696,13 +1696,18 @@ End
 
 Definition fts_set_min_hd_def:
   (fts_set_min_hd min rest [] = []) /\ (* This case should be impossible *)
-  (fts_set_min_hd (FibTree mk mv ml) rest (FibTree k' v' l'::fts) =
-    if mk = k' then
-      (FibTree k' v' l'::fts) ++ rest
+  (fts_set_min_hd (FibTree mk mv ml) rest (FibTree k v l::fts) =
+    if mk = k then
+      (FibTree k v l::fts) ++ rest
     else
-      fts_set_min_hd (FibTree mk mv ml) (FibTree k' v' l'::fts) fts)
+      fts_set_min_hd (FibTree mk mv ml) (rest ++ [FibTree k v l]) fts)
 End
 
+Definition fts_ext_min_def:
+  (fts_ext_min [] = []) /\
+  (fts_ext_min (FibTree k v l::rest) =
+    fts_set_min_hd (fts_find_min (HD rest) rest) [] rest)
+End
 
 
 
@@ -1788,6 +1793,17 @@ Definition fib_heap_extract_min_def:
 End
 
 
+Theorem fib_heap_extract_min:
+  !frame fh.
+  (fib_heap a fh * frame * cond(n = w2n (-1w)))
+    (fun2set (m,dm)) /\
+  fib_heap_extract_min n (a,m,dm) = (a,a',m',b) ==>
+  ?fts. ((fts_mem (ann_fts 0w (fts_ext_min fts))) * frame *
+    cond(a' = head_key fts /\ fib_heap_inv fh fts))
+    (fun2set (m,dm)) /\ b
+Proof
+cheat
+QED
 
 
 (*--------------------------------------------------------*
@@ -1796,8 +1812,9 @@ Definition of 'Rebalancing' (separated from extract minimum
 
 *---------------------------------------------------------*)
 
+
 Definition res_rm_upd_def:
-  res_rm_upd (c:num) (rm, (r:num), FibTree k v l) =
+  res_rm_upd (c:num) (rm, (r:num), FibTree (k:'a word) v l) =
     if c = 0 then rm else
     case FLOOKUP rm r of
       SOME(k',v',l') =>
@@ -1815,7 +1832,7 @@ Definition fill_rm_def:
   (fill_rm c (rm, (FibTree k v l::fts)) =
     case FLOOKUP rm (LENGTH l) of
       SOME(_,_,_) => res_rm_upd c (rm,LENGTH l, FibTree k v l)
-     |NONE => fill_rm c ((rm |+ ((LENGTH l),k,v,l)),fts))
+     |NONE => fill_rm c ((rm |+ (LENGTH l,k,v,l)),fts))
 End
 
 
@@ -1831,38 +1848,56 @@ Definition map_to_list_def:
        |NONE => map_to_list (r-1) mp )
 End
 
-Definition bal_fts_def:
-  (bal_fts n [] = []) /\
-  (bal_fts n (t::ts) =
+Definition fts_bal_def:
+  (fts_bal n [] = []) /\
+  (fts_bal n (t::ts) =
     map_to_list n (fill_rm (LENGTH ts +1) (FEMPTY, (t::ts))) )
 End
 
 Definition fts_reb_def:
-  fts_reb n fts =
-    let list = bal_fts n fts in
-      fts_set_min_hd (fts_find_min (HD list) list) list
+  fts_reb n fts = (
+    let list = fts_bal n fts in
+      fts_set_min_hd (fts_find_min (HD list) list) [] list)
 End
 
+Definition arr_mem_def:
+  arr_mem (a:'a word) (n:num) =
+    if n = 0 then
+      one(a, 0w)
+    else
+      one(a + bytes_in_word * n2w n, 0w) * arr_mem a (n-1)
+End
+
+(*
+Definition fts_set_reb_hd_def:
+  fts_set_reb_hd n list =
+    fts_set_min_hd (fts_find_min (HD list) list) list
+End
+
+Definition fts_reb_def:
+  fts_reb n fts = fts_set_reb_hd n (fts_bal n fts)
+End
+*)
 
 
-(* At the start n = max_r, but n counts down for termination *)
 Definition reb_tree_def:
-  reb_tree (n:num) (max_r:num)
+  reb_tree (n:num)
     (a:'a word, k: 'a word, m: 'a word -> 'a word, dm: 'a word set, c: bool)
   =
     if n = 0 then (m,F) else
     let c = (k + rank_off IN dm /\ c) in
     let k_r = m (k + rank_off) in
-    if (w2n k_r) = max_r then (m,F) else
 
     let off = a + bytes_in_word * k_r in
     let c = (off IN dm /\ c) in
     let t = m off in
 
     if t = 0w then
+    (* no entry -> just insert new element *)
       let m = (off =+ k) m in
         (m,c)
     else
+    (* compare both entries -> insert entry with smaller value *)
       let c = (k IN dm /\ c) in
       let k_v = m k in
       let c = (t IN dm /\ c) in
@@ -1875,7 +1910,7 @@ Definition reb_tree_def:
         let c = (SND (SND a'_m_c) /\ c) in
         let m = ((k + rank_off) =+ n2w(w2n k_r + 1)) m in
         let m = (off =+ 0w) m in
-          reb_tree (n-1) max_r (a,k,m,dm,c)
+          reb_tree (n-1) (a,k,m,dm,c)
       else
         let c = (t + child_off IN dm /\ c) in
         let t_c = m (k + child_off) in
@@ -1886,7 +1921,7 @@ Definition reb_tree_def:
         let t_r = m (t + rank_off) in
         let m = ((t + rank_off) =+ n2w(w2n t_r + 1)) m in
         let m = (off =+ 0w) m in
-          reb_tree (n-1) max_r (a,t,m,dm,c)
+          reb_tree (n-1) (a,t,m,dm,c)
 End
 
 Definition reb_list_def:
@@ -1895,7 +1930,7 @@ Definition reb_list_def:
      m:'a word -> 'a word, dm:'a word set, c: bool)
   =
     if n = 0 then (m,F) else
-    let m_c = reb_tree max_r max_r (array,a,m,dm,c) in
+    let m_c = reb_tree max_r (array,a,m,dm,c) in
     let m = FST m_c in
     let c = SND m_c in
     let c = (a IN dm /\ c) in
@@ -1919,6 +1954,7 @@ Definition coll_list_def:
     let k = FST a'_m_c in
     let m = FST (SND a'_m_c) in
     let c = (SND (SND a'_m_c) /\ c) in
+    let m = (off =+ 0w) m in
     if n = 0 then
       (k,m,c)
     else
@@ -1941,6 +1977,34 @@ Definition fib_heap_reb_def:
     let a_n = m (a + next_off) in
       find_min n (a,a,a_n,m,dm,c)
 End
+
+(*
+ Main question: what is the reb_list invariant!
+*)
+
+
+
+Theorem fib_heap_reb:
+  !frame fh.
+  (fib_heap a fh * arr_mem c n * frame * cond(n = w2n (-1w)))
+    (fun2set (m,dm)) /\
+  fib_heap_reb n (a,c,m,dm) = (a,m',b) ==>
+  ?fts. (fts_mem (ann_fts 0w (fts_reb n fts)) * arr_mem c n * frame *
+    cond(a = head_key fts /\ fib_heap_inv fh fts))
+    (fun2set (m,dm)) /\ b
+Proof
+  fs[fib_heap_def] >>
+  fs[SEP_CLAUSES, STAR_ASSOC, SEP_EXISTS_THM] >>
+  full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR] >>
+  rpt gen_tac >> strip_tac >>
+  simp [PULL_EXISTS] >>
+  pop_assum mp_tac >>
+  simp[fib_heap_reb_def] >>
+  cheat
+QED
+
+
+
 
 
 
