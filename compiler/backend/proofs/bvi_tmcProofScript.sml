@@ -65,10 +65,13 @@ End
 
 Definition state_ref_rel_def:
   state_ref_rel (s_refs : num |-> bvlSem$v ref) (t_refs : num |-> bvlSem$v ref) ⇔
-    s_refs ⊑ t_refs ∧
-    (∀i v.
-       FLOOKUP s_refs i = NONE ∧ FLOOKUP t_refs i = SOME v ⇒
-       ∃t l h r. v = MutBlock t l h r)
+    ∃f.
+      ∀i v.
+        (FLOOKUP s_refs i = SOME v ⇒
+         FLOOKUP t_refs (f i) = SOME v) ∧
+        (FLOOKUP s_refs i = NONE ∧
+         FLOOKUP t_refs (f i) = SOME v ⇒
+         ∃t l h r. v = MutBlock t l h r)        
 End
 
 Definition state_rel_def:
@@ -103,33 +106,6 @@ Definition opt_res_rel_def:
     | _ => r1 = r2
 End
 
-(* Copied *)
-(* Original with types:
-     ∀(xs :bvi$exp list) (s :(num # γ, 'ffi) state) (env1 :v list)
-         (r :(v list, v) result) (t :(num # γ, 'ffi) state) (opt :bool)
-         (s' :(γ, 'ffi) state) (acc :num) (env2 :v list) (loc :num)
-         (ts :v_ty list) (ty :v_ty).
-       evaluate (xs,env1,s) = (r,t) ∧ env_rel ty opt acc env1 env2 ∧
-       state_rel s s' ∧ ty_rel env1 ts ∧ (opt ⇒ LENGTH xs = (1 :num)) ∧
-       r ≠ (Rerr (Rabort Rtype_error :v error_result) :(v list, v) result) ⇒
-       ∃(t' :(γ, 'ffi) state).
-         evaluate (xs,env2,s') = (r,t') ∧ state_rel t t' ∧
-         (opt ⇒
-          ∀(op :assoc_op) (n :num) (exp :bvi$exp) (arity :num).
-            lookup loc s.code = SOME (arity,exp) ∧
-            optimized_code loc arity exp n s'.code op ∧ op_type op = ty ∧
-            (∃(op1 :assoc_op) (tt :v_ty list) (ty :v_ty) (r :bool).
-               scan_expr ts loc [HD xs] = [(tt,ty,r,SOME op1)] ∧ ty ≠ Any ∧
-               op1 ≠ Noop ∧ op_type op1 = op_type op) ⇒
-            (let
-               ((lr :bool),(x :bvi$exp)) = rewrite loc n op acc ts (HD xs)
-             in
-               ∃(rrr :(v list, v) result) (t1 :(γ, 'ffi) state)
-                   (t2 :(γ, 'ffi) state).
-                 evaluate ([x],env2,s') = (rrr,t1) ∧
-                 evaluate ([apply_op op (Var acc :bvi$exp) (HD xs)],env2,s') =
-                 (rrr,t2) ∧ state_rel t t1 ∧ state_rel t t2)): thm
-*)
 Theorem evaluate_rewrite_tmc:
    ∀xs env1 ^s r t opt l s' env2.
      evaluate (xs, env1, s) = (r, t) ∧
