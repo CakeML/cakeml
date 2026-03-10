@@ -6,7 +6,7 @@ Libs
   preamble cv_transLib
 Ancestors
   mllist mergesort cv_std backend to_data_cv export unify_cv
-  infer_cv basis_cv
+  infer_cv basis_cv heap_list_sort
 
 val _ = cv_memLib.use_long_names := true;
 
@@ -834,80 +834,23 @@ val _ = word_allocTheory.canonize_moves_aux_def |> cv_trans;
 val _ = word_allocTheory.heu_max_all_def |> cv_auto_trans;
 val _ = word_allocTheory.heu_merge_call_def |> cv_trans;
 
-val tm = word_allocTheory.canonize_moves_def
+(* A little detour to specialise the sort functions to this order relation. *)
+val sort_rel = word_allocTheory.canonize_moves_def
            |> concl |> find_term (can (match_term “sort _”)) |> rand;
 
 Definition sort_canonize_def:
   sort_canonize ls =
-    sort ^tm ls
+    sort ^sort_rel ls
 End
 
-Definition merge_tail_canonize_def:
-  merge_tail_canonize b ls accl accr =
-    merge_tail b ^tm ls accl accr
-End
+val sort_metric_def = sort_canonize_def
+  |> REWRITE_RULE [sort_def, heap_list_sort_metric_eq]
 
-val merge_tail_eq = merge_tail_def
-            |> CONJUNCTS |> map SPEC_ALL |> LIST_CONJ
-            |> Q.GEN ‘R’ |> ISPEC tm |> SRULE [GSYM merge_tail_canonize_def]
-            |> GEN_ALL |> SRULE [FORALL_PROD] |> SPEC_ALL
+val _ = sort_metric_def |> cv_auto_trans
 
-val pre = cv_trans_pre "" merge_tail_eq;
-
-Theorem merge_tail_canonize_pre[cv_pre]:
-  ∀negate v0 v acc. merge_tail_canonize_pre negate v0 v acc
-Proof
-  Induct_on`v` \\ rw[]
-  >- simp[Once pre]
-  \\ qid_spec_tac`acc`
-  \\ Induct_on`v0` \\ rw[]
-  >- simp[Once pre]
-  \\ simp[Once pre]
-  \\ rw[]
-  \\ metis_tac[]
-QED
-
-Definition mergesortN_tail_canonize_def:
-  mergesortN_tail_canonize b n ls =
-    mergesortN_tail b ^tm n ls
-End
-
-val mergesortN_tail_eq = mergesortN_tail_def
-            |> CONJUNCTS |> map SPEC_ALL |> LIST_CONJ
-            |> Q.GEN ‘R’ |> ISPEC tm |> SRULE [GSYM mergesortN_tail_canonize_def, GSYM merge_tail_canonize_def]
-            |> GEN_ALL |> SRULE [FORALL_PROD] |> SPEC_ALL;
-
-Theorem c2b_b2c[local]:
-  cv$c2b (b2c b) = b
-Proof
-  fs[cvTheory.b2c_if,cvTheory.c2b_def]
-  \\ rw[]
-QED
-
-val _ = cv_trans DIV2_def;
-
-val pre = cv_auto_trans_pre_rec "" mergesortN_tail_eq
-  (WF_REL_TAC ‘measure (cv_size o FST o SND)’ \\ rw []
-   \\ rename1`_ < cv_size cvv`
-   \\ Cases_on`cvv`
-   \\ simp[GSYM (fetch "-" "cv_arithmetic_DIV2_thm")]
-   \\ rw[DIV2_def]
-   \\ cv_termination_tac
-   \\ fs[c2b_b2c]
-   \\ intLib.ARITH_TAC);
-
-Theorem mergesortN_tail_canonize_pre[cv_pre]:
-  ∀negate n l. mergesortN_tail_canonize_pre negate n l
-Proof
-  completeInduct_on`n`>>
-  rw[Once pre,DIV2_def]>>
-  first_x_assum irule>>
-  intLib.ARITH_TAC
-QED
-
-val pre = cv_auto_trans (sort_canonize_def |> SRULE [sort_def,mergesort_tail_def,GSYM mergesortN_tail_canonize_def]);
-
-val res = word_allocTheory.canonize_moves_def |> SRULE[GSYM sort_canonize_def] |> cv_auto_trans
+val res = word_allocTheory.canonize_moves_def
+  |> REWRITE_RULE [GSYM sort_canonize_def]
+  |> cv_auto_trans
 
 val _ = cv_trans backendTheory.set_oracle_def;
 

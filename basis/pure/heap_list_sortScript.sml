@@ -96,7 +96,7 @@ QED
 (* Insert similarly into a list of heap/trees. *)
 Definition insert_trees_inv_def:
   (insert_trees_inv R [] x = []) /\
-  (insert_trees_inv R ((t1, n1) :: ts) x = (case ts of
+  (insert_trees_inv R (tup :: ts) x = (case tup of (t1, n1) => (case ts of
     | [] => [(insert_tree_inv R t1 x, n1)]
     | (t2, n2) :: tl_ts =>
         (case t1 of Empty_Tree =>
@@ -108,7 +108,7 @@ Definition insert_trees_inv_def:
             ~ (case r of Empty_Tree => F | Node rx _ _ => R t2x rx)
         then (Node t2x l r, n1) :: insert_trees_inv R ts x
         else (insert_tree_inv R t1 x, n1) :: ts
-  ))))
+  )))))
 End
 
 Theorem insert_trees_inv_size:
@@ -157,30 +157,81 @@ Definition add_heap_to_heaps_def:
 End
 
 Theorem add_heap_to_heaps_size:
-  SUM (MAP (\t_n. simple_tree_size (K 0) (FST t_n)) (add_heap_to_heaps R ts t n)) =
-    simple_tree_size (K 0) t + SUM (MAP (\t_n. simple_tree_size (K 0) (FST t_n)) ts)
+  SUM (MAP (simple_tree_size (K 0) o FST) (add_heap_to_heaps R ts t n)) =
+    simple_tree_size (K 0) t + SUM (MAP (simple_tree_size (K 0) o FST) ts)
 Proof
   simp [add_heap_to_heaps_def]
   \\ BasicProvers.EVERY_CASE_TAC \\ simp []
-  \\ simp [REWRITE_RULE [combinTheory.o_DEF] insert_trees_inv_size]
+  \\ simp [insert_trees_inv_size]
 QED
 
+(* This variant has a "fuel" parameter to make termination obvious, which
+   later helps with CV-translation of the sort function. *)
+Definition heaps_to_list_metric_def:
+  heaps_to_list_metric R 0n ts acc = acc /\
+  heaps_to_list_metric R n_bound orig_ts acc = (case orig_ts of
+    ((Node x l r, n) :: ts) =>
+    let ts2 = add_heap_to_heaps R ts l (n - 1);
+        ts3 = add_heap_to_heaps R ts2 r (n - 1)
+    in heaps_to_list_metric R (n_bound - 1) ts3 (x :: acc)
+  | _ => acc)
+End
+
+(* This variant doesn't have the fuel parameter. Defining one in terms of the
+   other seems to be too tricky. *)
 Definition heaps_to_list_def:
   heaps_to_list R [] acc = acc /\
-  heaps_to_list R ((Empty_Tree, _) :: ts) acc = acc /\
-  heaps_to_list R ((Node x l r, n) :: ts) acc =
+  heaps_to_list R (tup :: ts) acc = (case tup of
+    (Node x l r, n) =>
     let ts2 = add_heap_to_heaps R ts l (n - 1);
         ts3 = add_heap_to_heaps R ts2 r (n - 1)
     in heaps_to_list R ts3 (x :: acc)
+  | _ => acc)
 Termination
-  WF_REL_TAC `measure (\(R, ts, acc). SUM (MAP (simple_tree_size (K 0) o FST) ts))`
-  \\ rw []
-  \\ simp [add_heap_to_heaps_size]
+  WF_REL_TAC `measure (\(_, ts, _). SUM (MAP (simple_tree_size (K 0) o FST) ts))`
+  \\ simp [REWRITE_RULE [combinTheory.o_DEF] add_heap_to_heaps_size]
 End
+
+Theorem heaps_to_list_metric_eq:
+  !n acc. (SUM (MAP (simple_tree_size (K 0) o FST) ts)) <= n ==>
+  heaps_to_list_metric R n ts acc = heaps_to_list R ts acc
+Proof
+  measureInduct_on `SUM (MAP (simple_tree_size (K 0) o FST) ts)`
+  \\ simp []
+  \\ Cases
+  \\ rw []
+  \\ simp [heaps_to_list_def]
+  \\ Cases_on `n`
+  \\ simp [heaps_to_list_metric_def]
+  \\ Cases_on `FST h` \\ Cases_on `h` \\ fs []
+  \\ simp [add_heap_to_heaps_size]
+QED
 
 Definition heap_list_sort_def:
   heap_list_sort R xs = heaps_to_list R (add_values_to_heaps R [] xs) []
 End
+
+(* Equivalence of metric version. *)
+Theorem add_values_to_heaps_size:
+  !xs hps. SUM (MAP (simple_tree_size (K 0) ∘ FST) (add_values_to_heaps R hps xs)) =
+  SUM (MAP (simple_tree_size (K 0) ∘ FST) hps) + LENGTH xs
+Proof
+  Induct
+  \\ simp [add_values_to_heaps_def, add_to_heaps_def,
+    insert_trees_inv_size, add_to_heaps_step1_def]
+  \\ rw []
+  \\ BasicProvers.EVERY_CASE_TAC \\ simp []
+QED
+
+Theorem heap_list_sort_metric_eq:
+  heap_list_sort R xs = heaps_to_list_metric R (LENGTH xs)
+    (add_values_to_heaps R [] xs) []
+Proof
+  simp [heap_list_sort_def]
+  \\ irule EQ_SYM
+  \\ irule heaps_to_list_metric_eq
+  \\ simp [add_values_to_heaps_size]
+QED
 
 (* Invariant preservation. *)
 Theorem insert_tree_inv_less[local]:
@@ -528,9 +579,11 @@ Theorem heaps_to_list_contents:
   BAG_UNION (FOLDR BAG_UNION {||} (MAP (tree_to_bag o FST) ts)) (LIST_TO_BAG acc)
 Proof
   recInduct heaps_to_list_ind
+  \\ simp [heaps_to_list_def]
   \\ rw []
-  \\ simp [heaps_to_list_def, tree_to_bag_def]
+  \\ BasicProvers.EVERY_CASE_TAC \\ fs []
   \\ simp [add_heap_to_heaps_contents, add_heap_to_heaps_not_empty]
+  \\ simp [tree_to_bag_def]
   \\ simp [BAG_UNION_INSERT]
   \\ simp [BAG_INSERT_commutes, ASSOC_BAG_UNION, COMM_BAG_UNION]
 QED
@@ -543,8 +596,9 @@ Theorem heaps_to_list_sorted:
   SORTED R (heaps_to_list R ts acc)
 Proof
   recInduct heaps_to_list_ind
-  \\ rw [] \\ fs []
   \\ simp [heaps_to_list_def]
+  \\ rw []
+  \\ BasicProvers.EVERY_CASE_TAC \\ fs []
   \\ fs [heaps_tree_inv_rec_def, heap_tree_inv_def, tree_top_less_def]
   \\ gs []
   \\ first_x_assum irule
