@@ -1672,6 +1672,56 @@ QED
 
 
 
+(*---------------------------------------------------------*
+
+  Definition of 'Remove Element' from a fib heap list!
+
+*----------------------------------------------------------*)
+
+Definition fts_remove_def:
+  (fts_remove x rest [] = rest) /\
+  (fts_remove x rest (FibTree k v l::ts) =
+    if x = k then
+      rest ++ ts
+    else
+      fts_remove x (rest ++ [FibTree k v (fts_remove x [] l)]) ts)
+End
+
+
+Definition fib_heap_remove_def:
+  fib_heap_remove
+  (a:'a word, m: 'a word -> 'a word, dm: 'a word set) =
+    let c = (a IN dm) in
+    let c = ((a + next_off) IN dm /\ c) in
+    let a_n = m (a + next_off) in
+    let c = ((a + before_off) IN dm /\ c) in
+    let a_b = m (a + before_off) in
+
+    let c = ((a_b + next_off) IN dm /\ c) in
+    let m = ((a_b + next_off) =+ a_n) m in
+
+    let c = ((a_n + before_off) IN dm /\ c) in
+    let m = ((a_n + before_off) =+ a_b) m in
+
+    let m = ((a + next_off) =+ a) m in
+    let m = ((a + before_off) =+ a) m in
+      (a,m,c)
+End
+
+
+(* TODO: finish proof! *)
+Theorem fib_heap_remove:
+  !frame fh v e.
+    (fib_heap a fh * frame * cond(x <> a /\ FLOOKUP fh x = SOME(v,e)))
+      (fun2set(m,dm)) /\
+    fib_heap_remove(x,m,dm) = (x,m,b) ==>
+  ?fts. ((fts_mem (ann_fts 0w (fts_remove x [] fts))) * frame *
+    cond(a = head_key fts /\ fib_heap_inv (fh \\ x) fts))
+    (fun2set (m,dm)) /\ b
+Proof
+  cheat
+QED
+
 
 
 
@@ -1680,9 +1730,6 @@ QED
   Definition of 'Extract Minimum' from fib heap list!
 
 *----------------------------------------------------------*)
-
-
-
 
 
 Definition fts_find_min_def:
@@ -1793,6 +1840,8 @@ Definition fib_heap_extract_min_def:
 End
 
 
+
+(*TODO: finish proof. Ask about n?*)
 Theorem fib_heap_extract_min:
   !frame fh.
   (fib_heap a fh * frame * cond(n = w2n (-1w)))
@@ -1868,20 +1917,28 @@ Definition arr_mem_def:
       one(a + bytes_in_word * n2w n, 0w) * arr_mem a (n-1)
 End
 
-(*
-Definition fts_set_reb_hd_def:
-  fts_set_reb_hd n list =
-    fts_set_min_hd (fts_find_min (HD list) list) list
+
+Definition arr_mem_v_def:
+  arr_mem (a:'a word) (n:num) =
+    SEP_EXISTS x.
+    if n = 0 then
+      one(a, x)
+    else
+      one(a + bytes_in_word * n2w n, x) * arr_mem a (n-1)
 End
 
-Definition fts_reb_def:
-  fts_reb n fts = fts_set_reb_hd n (fts_bal n fts)
+(*Array when filled up with a map 'mp'  *)
+Definition map_mem_def:
+  map_mem a n mp =
+    let rec_call = if n = 0 then emp else map_mem a (n-1) mp in
+    case FLOOKUP mp n of
+      SOME(k,_,_) => one(a + bytes_in_word * n2w n, k) * rec_call
+     |NONE => one(a + bytes_in_word * n2w n, 0w) * rec_call
 End
-*)
 
 
-Definition reb_tree_def:
-  reb_tree (n:num)
+Definition reb2trees_def:
+  reb2trees (n:num)
     (a:'a word, k: 'a word, m: 'a word -> 'a word, dm: 'a word set, c: bool)
   =
     if n = 0 then (m,F) else
@@ -1905,24 +1962,44 @@ Definition reb_tree_def:
       if k_v <=+ t_v then
         let c = (k + child_off IN dm /\ c) in
         let k_c = m (k + child_off) in
-        let a'_m_c = fib_heap_insert(k_c,t,m,dm) in
-        let m = FST (SND a'_m_c) in
-        let c = (SND (SND a'_m_c) /\ c) in
+        let (t,m,c') = fib_heap_remove(t,m,dm) in
+        let (_,m,c'') = fib_heap_insert(k_c,t,m,dm) in
+        let c = (c'' /\ c' /\ c) in
         let m = ((k + rank_off) =+ n2w(w2n k_r + 1)) m in
         let m = (off =+ 0w) m in
-          reb_tree (n-1) (a,k,m,dm,c)
+          reb2trees (n-1) (a,k,m,dm,c)
       else
         let c = (t + child_off IN dm /\ c) in
         let t_c = m (k + child_off) in
-        let a'_m_c = fib_heap_insert(t_c,k,m,dm) in
-        let m = FST (SND a'_m_c) in
-        let c = (SND (SND a'_m_c) /\ c) in
+        let (k,m,c') = fib_heap_remove(k,m,dm) in
+        let (_,m,c'') = fib_heap_insert(t_c,k,m,dm) in
+        let c = (c'' /\ c' /\ c) in
         let c = (t + rank_off IN dm /\ c) in
         let t_r = m (t + rank_off) in
         let m = ((t + rank_off) =+ n2w(w2n t_r + 1)) m in
         let m = (off =+ 0w) m in
-          reb_tree (n-1) (a,t,m,dm,c)
+          reb2trees (n-1) (a,t,m,dm,c)
 End
+
+
+(* TODO: finish proof
+  - check correct construction of statement
+ *)
+Theorem reb2trees:
+  !frame fh.
+  (arr_mem c n * frame * fib_heap a (fh |+ (x,v,e)))
+    (fun2set (m,dm)) /\
+  reb2trees n (x,c,m,dm) = (a,m',b) ==>
+  ?fts. ?v. (fts_mem (ann_fts 0w (fts_reb n fts)) * arr_mem c n * frame *
+    cond(fts_has x v fts /\ fib_heap_inv fh fts))
+    (fun2set (m,dm)) /\ b
+Proof
+  cheat
+QED
+
+
+
+
 
 Definition reb_list_def:
   reb_list (n:num) (max_r:num)
@@ -1930,9 +2007,7 @@ Definition reb_list_def:
      m:'a word -> 'a word, dm:'a word set, c: bool)
   =
     if n = 0 then (m,F) else
-    let m_c = reb_tree max_r (array,a,m,dm,c) in
-    let m = FST m_c in
-    let c = SND m_c in
+    let (m,c) = reb2trees max_r (array,a,m,dm,c) in
     let c = (a IN dm /\ c) in
     let c = (a + next_off IN dm /\ c) in
     let a_n = m (a + next_off) in
@@ -1943,6 +2018,10 @@ Definition reb_list_def:
 End
 
 
+
+
+
+
 Definition coll_list_def:
   coll_list (n:num)
     (a:'a word, k:'a word, m:'a word -> 'a word, dm:'a word set, c:bool)
@@ -1950,10 +2029,8 @@ Definition coll_list_def:
     let off = a + bytes_in_word * (n2w n) in
     let c = (off IN dm /\ c) in
     let a_n = m off in
-    let a'_m_c = fib_heap_insert(k,a_n,m,dm) in
-    let k = FST a'_m_c in
-    let m = FST (SND a'_m_c) in
-    let c = (SND (SND a'_m_c) /\ c) in
+    let (k,m,c') = fib_heap_insert(k,a_n,m,dm) in
+    let c = (c' /\ c) in
     let m = (off =+ 0w) m in
     if n = 0 then
       (k,m,c)
@@ -1961,18 +2038,34 @@ Definition coll_list_def:
       coll_list (n-1) (a,k,m,dm,c)
 End
 
+(* TODO: Finish proof -
+ - finish Theorem construction first!
+*)
+Theorem coll_list_inv:
+  !frame fts c k.
+    (fib_heap_inv fh fts) /\
+    (arr_mem_v c n * frame) (fun2set (m,dm)) /\
+    (k <=+ n) /\
+    (m k <> 0w) ==>
+    SEP_EXISTS x n.
+      (one(c + bytes_in_word * k, x)) (fun2set (m,dm)) /\
+      (x IN dm) /\
+      (fts_has x n fts)
+Proof
+  cheat
+QED
+
+
+
+
+
 
 Definition fib_heap_reb_def:
   fib_heap_reb (n:num)
     (a:'a word, array: 'a word, m: 'a word -> 'a word, dm: 'a word set)
   =
-    let m_c = reb_list n n (array,a,a,m,dm,T) in
-    let m = FST m_c in
-    let c = SND m_c in
-    let a'_m_c = coll_list (n-1) (array,0w,m,dm,c) in
-    let a = FST a'_m_c in
-    let m = FST (SND a'_m_c) in
-    let c = SND (SND a'_m_c) in
+    let (m,c) = reb_list n n (array,a,a,m,dm,T) in
+    let (a,m,c) = coll_list (n-1) (array,0w,m,dm,c) in
     let c = (a + next_off IN dm /\ c) in
     let a_n = m (a + next_off) in
       find_min n (a,a,a_n,m,dm,c)
@@ -1984,6 +2077,9 @@ End
 
 
 
+(* TODO: finish proof
+- finish sub proofs first!
+*)
 Theorem fib_heap_reb:
   !frame fh.
   (fib_heap a fh * arr_mem c n * frame * cond(n = w2n (-1w)))
