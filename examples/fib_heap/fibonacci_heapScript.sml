@@ -342,6 +342,14 @@ Definition empty_node_def:
     edges_ones (FST e) (SND e) * cond(k <> 0w)
 End
 
+Definition full_node_def:
+  full_node k (v,e) =
+   if k = 0w then emp else
+   SEP_EXISTS m b n p c r.
+   ones k [v; FST e; b2w T;b2w m;b;n;p;c;r] *
+    edges_ones (FST e) (SND e) * cond(k <> 0w)
+End
+
 (*-------------------------------------------------------------------*
    Memory Tests
  *-------------------------------------------------------------------*)
@@ -691,6 +699,11 @@ Definition fib_heap_append_def:
         (k1, m, c)
 End
 
+
+(* TODO:
+    Allow insertion of 0w -> just return the old list!
+    Makes related operations easier!
+ *)
 Definition fib_heap_insert_def:
   fib_heap_insert
     (a:'a word, k:'a word, m:'a word -> 'a word, dm :'a word set)
@@ -1705,20 +1718,56 @@ Definition fib_heap_remove_def:
 
     let m = ((a + next_off) =+ a) m in
     let m = ((a + before_off) =+ a) m in
+
+    let c = ((a + parent_off) IN dm /\ c) in
+    let a_p = m (a + parent_off) in
+
+    (*maybe set new child for parent*)
+    if a_p = 0w then (a,m,c) else
+
+    let c = ((a_p + child_off) IN dm /\ c) in
+    let p_c = m (a_p + child_off) in
+    if p_c = a then
+      if a = a_n then
+        let m = (p_c =+ 0w) m in
+          (a,m,c)
+      else
+        let m = (p_c =+ a_n) m in
+          (a,m,c)
+    else
       (a,m,c)
 End
 
+(*
+
+Weaken fib_heap invariant to this?:
+
+full_node p (v,e) *
+fts_mem(ann_fts p ([FibTree x n l] ++ xs))
+*)
 
 (* TODO: finish proof! *)
 Theorem fib_heap_remove:
-  !frame fh v e.
-    (fib_heap a fh * frame * cond(x <> a /\ FLOOKUP fh x = SOME(v,e)))
+  !frame fh x n l.
+    (fib_heap a fh * frame *
+     cond(x <> a /\ FLOOKUP fh x = SOME(v,e)))
       (fun2set(m,dm)) /\
-    fib_heap_remove(x,m,dm) = (x,m,b) ==>
+    fib_heap_remove(x,m,dm) = (x,m',b) ==>
   ?fts. ((fts_mem (ann_fts 0w (fts_remove x [] fts))) * frame *
     cond(a = head_key fts /\ fib_heap_inv (fh \\ x) fts))
-    (fun2set (m,dm)) /\ b
+    (fun2set (m',dm)) /\ b
 Proof
+  fs[fib_heap_def] >>
+  fs[SEP_CLAUSES, STAR_ASSOC, SEP_EXISTS_THM] >>
+  full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR] >>
+  rpt gen_tac >> strip_tac >>
+  simp [PULL_EXISTS] >>
+  pop_assum mp_tac >>
+  fs[full_node_def] >>
+  fs[SEP_CLAUSES, STAR_ASSOC, SEP_EXISTS_THM] >>
+  full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR] >>
+  rpt gen_tac >> strip_tac >>
+  simp [PULL_EXISTS] >>
   cheat
 QED
 
