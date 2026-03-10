@@ -153,14 +153,14 @@ Proof
    (gvs [evaluate_def] >> cheat)
   >~ [‘Tick x’] >-
    (gvs [evaluate_def]
-    >> ‘s'.clock = s.clock’ by cheat (* state_rel s s' *)
-    >> gs []
+    >> ‘s'.clock = s.clock’ by gvs [state_rel_def]
+    >> gvs []
     >> Cases_on ‘s.clock’ >-
-     (gs []
+     (gvs []
       >> strip_tac
       >> rw [] >-
        (qexists ‘s'’
-        >> gvs [optimized_code_def]
+        >> gvs [optimized_code_def, compile_exp_def]
         >> cheat) >-
        (qexistsl [‘Rerr (Rabort Rtimeout_error)’, ‘s'’]
         >> gvs [opt_res_rel_def, optimized_code_def, compile_exp_def]
