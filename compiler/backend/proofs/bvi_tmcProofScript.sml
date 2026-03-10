@@ -63,6 +63,14 @@ Definition input_condition_def:
    bvl_num_stubs ≤ next ∧ in_ns_2 next
 End
 
+Definition state_ref_rel_def:
+  state_ref_rel (s_refs : num |-> bvlSem$v ref) (t_refs : num |-> bvlSem$v ref) ⇔
+    ∃is.
+      (DRESTRICT t_refs is = s_refs) ∧
+      (∀i.
+         ∃t l h r. ~(is i) ⇒ FLOOKUP t_refs i = SOME(MutBlock t l h r))
+End
+
 (* Copied *)
 Definition state_rel_def:
   state_rel s (t:('a,'ffi) bviSem$state) ⇔
@@ -150,7 +158,7 @@ Proof
    (gvs [evaluate_def])
   >~ [‘evaluate (x::y::xs,_,_)’] >-
    (gvs [evaluate_def]
-    >> cheat)
+        >> )
   >~ [‘Var n’] >-
    (gvs [evaluate_def]
     >> qexists ‘s'’
@@ -161,14 +169,13 @@ Proof
      cheat >-
      cheat)
   >~ [‘If x1 x2 x3’] >-
-   cheat
+   (gvs [evaluate_def] >> cheat)
   >~ [‘Let xs x2’] >-
-   cheat
+   (gvs [evaluate_def] >> cheat)
   >~ [‘Raise x1’] >-
-   (gvs [evaluate_def]
-    >> cheat)
+   (gvs [evaluate_def] >> cheat)
   >~ [‘Op op xs’] >-
-   cheat
+   (gvs [evaluate_def] >> cheat)
   >~ [‘Tick x’] >-
    (gvs [evaluate_def]
     >> ‘s'.clock = s.clock’ by cheat (* state_rel s s' *)
@@ -178,10 +185,10 @@ Proof
       >> strip_tac
       >> rw [] >-
        (qexists ‘s'’
-        >> simp []
+        >> gvs [optimized_code_def]
         >> cheat) >-
        (qexistsl [‘Rerr (Rabort Rtimeout_error)’, ‘s'’]
-        >> simp [opt_res_rel_def]
+        >> gvs [opt_res_rel_def, optimized_code_def, compile_exp_def]
         >> cheat)) (* s'.clock = 0 => timeout *)
     >> gvs [dec_clock_def]
     >> ‘state_rel (s with clock := n) s'’ by cheat
@@ -190,10 +197,9 @@ Proof
     >> qexists ‘t''’
     >> rw [] >- cheat >- cheat >> cheat)
   >~ [‘Force force_loc n’] >-
-   (gvs [evaluate_def]
-   >> cheat)
+   (gvs [evaluate_def] >> cheat)
   >~ [‘Call ticks dest xs handler’] >-
-   cheat
+   (gvs [evaluate_def] >> cheat)
 QED
 
 (* Copied *)
