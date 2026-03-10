@@ -131,7 +131,7 @@ Proof
   recInduct bviSemTheory.evaluate_ind
   >> rpt strip_tac
   >~ [‘evaluate ([],_,_)’] >-
-   (gvs [evaluate_def] >> cheat)
+   (gvs [evaluate_def])
   >~ [‘evaluate (x::y::xs,_,_)’] >-
    (gvs [evaluate_def] >> cheat)
   >~ [‘Var n’] >-
