@@ -2038,10 +2038,10 @@ Theorem reb2trees:
   !frame fh.
   (arr_mem c n * frame * fib_heap a (fh |+ (x,v,e)))
     (fun2set (m,dm)) /\
-  reb2trees n (x,c,m,dm) = (a,m',b) ==>
+  reb2trees n (x,c,m,dm,T) = (m',b) ==>
   ?fts. ?v. (fts_mem (ann_fts 0w (fts_reb n fts)) * arr_mem c n * frame *
     cond(fts_has x v fts /\ fib_heap_inv fh fts))
-    (fun2set (m,dm)) /\ b
+    (fun2set (m',dm)) /\ b
 Proof
   cheat
 QED
@@ -2089,7 +2089,6 @@ End
 
 (* TODO: Finish proof -
  - finish Theorem construction first!
-*)
 Theorem coll_list_inv:
   !frame fts c k.
     (fib_heap_inv fh fts) /\
@@ -2103,7 +2102,7 @@ Theorem coll_list_inv:
 Proof
   cheat
 QED
-
+*)
 
 
 
