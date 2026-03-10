@@ -11,13 +11,14 @@ val s = “s : (num # γ, 'ffi) bviSem$state”;
 
 Definition env_rel_def:
   env_rel opt l env1 env2 <=>
-    isPREFIX env1 env2 ∧
-    (opt ⇒
-      LENGTH env1 = l ∧
-      LENGTH env2 = l + 2 ∧
-      ∃hole_ptr hole_idx.
-        EL l env2 = RefPtr F hole_ptr ∧
-        EL (l + 1) env2 = Number hole_idx)
+  (opt ⇒
+   isPREFIX env1 env2 ∧
+   LENGTH env1 = l ∧
+   LENGTH env2 = l + 2 ∧
+   ∃hole_ptr hole_idx.
+     EL l env2 = RefPtr F hole_ptr ∧
+     EL (l + 1) env2 = Number hole_idx) ∧
+  (~opt ⇒ env1 = env2)
 End
 
 Overload in_ns_2[local] = ``λn. n MOD bvl_to_bvi_namespaces = 2``
@@ -71,7 +72,8 @@ Definition state_ref_rel_def:
          FLOOKUP t_refs (f i) = SOME v) ∧
         (FLOOKUP s_refs i = NONE ∧
          FLOOKUP t_refs (f i) = SOME v ⇒
-         ∃t l h r. v = MutBlock t l h r)        
+         (∃t l h r. v = MutBlock t l h r ∨
+             v = ) 
 End
 
 Definition state_rel_def:
@@ -131,18 +133,24 @@ Proof
   recInduct bviSemTheory.evaluate_ind
   >> rpt strip_tac
   >~ [‘evaluate ([],_,_)’] >-
-   (gvs [evaluate_def])
+   gvs [evaluate_def]
   >~ [‘evaluate (x::y::xs,_,_)’] >-
-   (gvs [evaluate_def] >> cheat)
+   (gvs [evaluate_def, env_rel_def]
+    >> Cases_on ‘evaluate ([x],env,s')’
+    >> Cases_on ‘q’ >-
+     (gvs [] >> cheat)
+    >> cheat)
   >~ [‘Var n’] >-
    (gvs [evaluate_def]
-    >> qexists ‘s'’
-    >> rw [] >-
-     cheat >-
-     cheat >-
-     cheat >-
-     cheat >-
-     cheat)
+    >> Cases_on ‘opt’ >-
+     (Cases_on ‘n < LENGTH env’ >-
+       (gvs [env_rel_def]
+        >> rw [] >-
+         (gvs [rich_listTheory.is_prefix_el]) >-
+         cheat
+         >> cheat)
+      >> cheat)
+    >> cheat)
   >~ [‘If x1 x2 x3’] >-
    (gvs [evaluate_def] >> cheat)
   >~ [‘Let xs x2’] >-
