@@ -42,12 +42,10 @@ Definition optimized_code_def:
     lookup loc_opt c                  = SOME (arity + 2, exp_opt)
 End
 
-(* Copied *)
 Definition free_names_def:
   free_names n (name: num) ⇔ ∀k. n + bvl_to_bvi_namespaces*k ≠ name
 End
 
-(* Copied *)
 Definition namespace_rel_def:
   namespace_rel (c1:'a spt) (c2:'a spt) ⇔
     (∀n. n ∈ domain c2 ∧ bvl_num_stubs ≤ n ⇒ if in_ns_2 n then n ∉ domain c1 else n ∈ domain c1) ∧
@@ -55,7 +53,6 @@ Definition namespace_rel_def:
     (∀n. n ∈ domain c2 ∧ n < bvl_num_stubs ⇒ n ∈ domain c1)
 End
 
-(* Copied *)
 Definition input_condition_def:
   input_condition next prog ⇔
     EVERY (free_names next o FST) prog ∧
@@ -72,8 +69,7 @@ Definition state_ref_rel_def:
          FLOOKUP t_refs (f i) = SOME v) ∧
         (FLOOKUP s_refs i = NONE ∧
          FLOOKUP t_refs (f i) = SOME v ⇒
-         (∃t l h r. v = MutBlock t l h r ∨
-             v = ) 
+         ∃t l h r. v = MutBlock t l h r)
 End
 
 Definition state_rel_def:
@@ -147,9 +143,10 @@ Proof
        (gvs [env_rel_def]
         >> rw [] >-
          (gvs [rich_listTheory.is_prefix_el]) >-
-         cheat
+         (cheat)
          >> cheat)
       >> cheat)
+    >> gvs [env_rel_def]
     >> cheat)
   >~ [‘If x1 x2 x3’] >-
    (gvs [evaluate_def] >> cheat)
@@ -185,7 +182,6 @@ Proof
    (gvs [evaluate_def] >> cheat)
 QED
 
-(* Copied *)
 Theorem evaluate_compile_prog:
    input_condition next prog ∧
    (∀n next cfg prog. co n = ((next,cfg),prog) ⇒ input_condition next prog) ∧
@@ -210,14 +206,21 @@ Proof
   >> drule (GEN_ALL compile_prog_code_rel)
   >> strip_tac
   >> qmatch_goalsub_abbrev_tac`(es,env,st2)`
-  >> `state_rel st1 st2` by cheat
+  (* >> `state_rel st1 st2` by cheat *)
+  >> sg `state_rel st1 st2` >-
+   (simp[state_rel_def,Abbr`st1`,Abbr`st2`,domain_fromAList]
+    >> rfs[input_condition_def]
+    >> reverse conj_tac >-
+     (rw []
+      >> last_x_assum(qspec_then`n`mp_tac)
+      >> cheat)
+    >> cheat)
   >> drule evaluate_rewrite_tmc
   >> disch_then (qspec_then `F` drule)
   >> rpt (disch_then drule)
   >> fs []
 QED
 
-(* Copied *)
 Theorem compile_prog_semantics:
    input_condition n prog ∧
    (∀k n cfg prog. co k = ((n,cfg),prog) ⇒ input_condition n prog) ∧
