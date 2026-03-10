@@ -65,10 +65,10 @@ End
 
 Definition state_ref_rel_def:
   state_ref_rel (s_refs : num |-> bvlSem$v ref) (t_refs : num |-> bvlSem$v ref) ⇔
-    ∃is.
-      (DRESTRICT t_refs is = s_refs) ∧
-      (∀i.
-         ∃t l h r. ~(is i) ⇒ FLOOKUP t_refs i = SOME(MutBlock t l h r))
+    s_refs ⊑ t_refs ∧
+    (∀i v.
+       FLOOKUP s_refs i = NONE ∧ FLOOKUP t_refs i = SOME v ⇒
+       ∃t l h r. v = MutBlock t l h r)
 End
 
 Definition state_rel_def:
