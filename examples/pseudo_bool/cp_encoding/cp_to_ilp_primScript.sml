@@ -82,7 +82,7 @@ Definition cencode_not_equal_1_def[simp]:
     (SOME (mk_name name (strlit"gt")),
       bits_imply bnd [Pos (nev name)] (mk_gt X Y));
     (SOME (mk_name name (strlit"lt")),
-      bits_imply bnd [Neg (nev name)] (mk_gt Y X))
+      bits_imply bnd [Neg (nev name)] (mk_lt X Y))
   ]
 End
 
@@ -91,7 +91,7 @@ Definition cencode_not_equal_2_def[simp]:
   Append
     (cbimply_var bnd (gtv name) (mk_gt X Y)) $
   Append
-    (cbimply_var bnd (ltv name) (mk_gt Y X)) $
+    (cbimply_var bnd (ltv name) (mk_lt X Y)) $
   (cat_least_one name
       [Pos (ltv name); Pos (gtv name); Neg (INL (Ge Z 1))])
 End
@@ -127,13 +127,9 @@ Theorem encode_not_equal_sem_1:
 Proof
   rw[reify_sem_def,encode_not_equal_def]>>
   gvs[AllCasePreds(),reify_avar_def,reify_flag_def,reify_reif_def]
-  >- intLib.ARITH_TAC
-  >- (
-    simp[SF DNF_ss,reify_avar_def,reify_flag_def,reify_reif_def]>>
-    intLib.ARITH_TAC)
-  >- (
-    simp[SF DNF_ss,reify_avar_def,reify_flag_def,reify_reif_def]>>
-    intLib.ARITH_TAC)
+  >- intLib.ARITH_TAC>>
+  simp[SF DNF_ss,reify_avar_def,reify_flag_def,reify_reif_def]>>
+  intLib.ARITH_TAC
 QED
 
 Theorem encode_not_equal_sem_2:
