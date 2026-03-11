@@ -593,21 +593,13 @@ Proof
   gvs[AllCaseEqs(),UNCURRY_EQ]
   >- (
     irule enc_rel_abstr_cong>>
-    simp[])
-  >- (
-    pure_rewrite_tac[GSYM APPEND_ASSOC]>>
-    irule enc_rel_Append>>
-    irule_at Any enc_rel_encode_ge>>
-    simp[]>>
-    irule enc_rel_abstr_cong>>
-    simp[])
-  >- (
-    pure_rewrite_tac[GSYM APPEND_ASSOC]>>
-    irule enc_rel_Append>>
-    irule_at Any enc_rel_encode_ge>>
-    simp[]>>
-    irule enc_rel_abstr_cong>>
-    simp[])
+    simp[])>>
+  pure_rewrite_tac[GSYM APPEND_ASSOC]>>
+  irule enc_rel_Append>>
+  irule_at Any enc_rel_encode_ge>>
+  simp[]>>
+  irule enc_rel_abstr_cong>>
+  simp[]
 QED
 
 Definition cencode_order_cmpops_def:
