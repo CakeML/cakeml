@@ -77,6 +77,61 @@ QED
 
 (* TODO Move to HOL's multiword. *)
 
+(* mw2n_mw_fix uses prove() in HOL; should be replaced by this *)
+Theorem mw2n_mw_fix:
+  ∀xs. mw2n (mw_fix xs) = mw2n xs
+Proof
+  recInduct mw_fix_ind
+  >> rw [Once mw_fix_def]
+  >> namedCases_on ‘xs’ ["", "y ys"] using SNOC_CASES >> gvs []
+  >> simp [Once mw_fix_def]
+  >> IF_CASES_TAC
+  >> simp [SNOC_APPEND, mw2n_APPEND, Once mw_fix_def, mw2n_def]
+QED
+
+(* From HOL (modernized) *)
+(* TODO Split into mw_ok_nil[simp] and mw_ok_cons (not local).
+   Replace mw_ok_CLAUSES with mw_ok_cons in multiwordScript.sml *)
+Theorem mw_ok_CLAUSES[local]:
+  mw_ok [] ∧ (mw_ok (x::xs) ⇔ (xs = [] ⇒ x ≠ 0w) ∧ mw_ok xs)
+Proof
+  simp [mw_ok_def] >> Cases_on ‘xs’ using SNOC_CASES >> simp [LAST_DEF]
+QED
+
+Theorem cons_n2mw:
+  (n = 0 ⇒ (w: α word) ≠ 0w) ⇒ w::n2mw n = n2mw (w2n w + n * dimword (:α))
+Proof
+  rw []
+  >> simp [Once n2mw_def, SimpRHS]
+  >> IF_CASES_TAC >> gvs []
+  >- fs [ZERO_LT_dimword]
+  >> conj_tac
+  >- (Cases_on ‘w’ >> gvs [])
+  >> ‘w2n w < dimword (:α)’ by (Cases_on ‘w’ >> fs [])
+  >> drule DIV_MULT >> simp []
+QED
+
+(* From HOL (modernized) *)
+Theorem mw_ok_IMP_EXISTS_n2mw:
+  ∀xs. mw_ok xs ⇒ ∃n. xs = n2mw n
+Proof
+  Induct >- metis_tac [n2mw_def]
+  >> simp [mw_ok_CLAUSES]
+  >> rpt strip_tac >> gvs []
+  >> fs [n2mw_NIL]
+  >> metis_tac [cons_n2mw]
+QED
+
+(* TODO Remove mw_fix_EQ_n2mw from HOL *)
+
+Theorem n2mw_mw2n:
+  mw_fix xs = n2mw (mw2n xs)
+Proof
+  qspec_then ‘mw_fix xs’ assume_tac mw_ok_IMP_EXISTS_n2mw >> fs [mw_ok_fix]
+  >> simp [(Once o GSYM) mw2n_mw_fix, mw2n_n2mw]
+QED
+
+
 Definition mw_neg_def:
   mw_neg xs =
     let (ys,c) = mw_sub xs [] F in
@@ -134,10 +189,10 @@ End
 
 (* verification *)
 
-Theorem mw_fix_lemma:
+Theorem mw_fix_lemma[local]:
   (mw2n xs = n) ⇒ mw_fix xs = n2mw n
 Proof
-  cheat
+  simp [n2mw_mw2n]
 QED
 
 Definition b2mw_def:
