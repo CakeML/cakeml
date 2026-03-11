@@ -1797,7 +1797,7 @@ Theorem fib_heap_remove:
     (fib_heap a fh * frame *
      cond(x <> a /\ FLOOKUP fh x = SOME(v,e)))
       (fun2set(m,dm)) /\
-    fib_heap_remove(x,m,dm) = (x,m',b) ==>
+    fib_heap_remove(x,m,dm) = (x,a,m',b) ==>
   ?fts. ((fts_mem (ann_fts 0w (fts_remove x [] fts))) * frame *
     cond(a = head_key fts /\ fib_heap_inv (fh \\ x) fts))
     (fun2set (m',dm)) /\ b
@@ -2040,18 +2040,16 @@ Definition reb2trees_def:
       if k_v <=+ t_v then
         let c = (k + child_off IN dm /\ c) in
         let k_c = m (k + child_off) in
-        let (t,m,c') = fib_heap_remove(t,m,dm) in
-        let (_,m,c'') = fib_heap_insert(k_c,t,m,dm) in
-        let c = (c'' /\ c' /\ c) in
+        let (_,m,c') = fib_heap_insert(k_c,t,m,dm) in
+        let c = (c' /\ c) in
         let m = ((k + rank_off) =+ n2w(w2n k_r + 1)) m in
         let m = (off =+ 0w) m in
           reb2trees (n-1) (a,k,m,dm,c)
       else
         let c = (t + child_off IN dm /\ c) in
         let t_c = m (k + child_off) in
-        let (k,m,c') = fib_heap_remove(k,m,dm) in
-        let (_,m,c'') = fib_heap_insert(t_c,k,m,dm) in
-        let c = (c'' /\ c' /\ c) in
+        let (_,m,c') = fib_heap_insert(t_c,k,m,dm) in
+        let c = (c' /\ c) in
         let c = (t + rank_off IN dm /\ c) in
         let t_r = m (t + rank_off) in
         let m = ((t + rank_off) =+ n2w(w2n t_r + 1)) m in
