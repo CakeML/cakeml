@@ -217,10 +217,39 @@ Proof
   cheat
 QED
 
+(* TODO Move to int_bitwise *)
+Theorem num_of_bits_append:
+  ∀xs ys.
+    num_of_bits (xs ⧺ ys) =
+    2 ** LENGTH xs * num_of_bits ys + num_of_bits xs
+Proof
+  recInduct num_of_bits_ind >> simp [num_of_bits_def, ADD1, EXP_ADD]
+QED
+
+(* TODO Move to int_bitwise *)
+Theorem num_of_bits_lt:
+  ∀xs. num_of_bits xs < 2 ** LENGTH xs
+Proof
+  recInduct num_of_bits_ind >> rw [num_of_bits_def, EXP]
+QED
+
 Theorem mw2n_b2mw:
   ∀bs. mw2n (b2mw bs : 'a word list) = num_of_bits bs
 Proof
-  cheat
+  recInduct b2mw_ind >> rw []
+  >> Cases_on ‘xs = []’
+  >> simp [Once b2mw_def, mw2n_def, num_of_bits_def] >> fs []
+  >> irule EQ_TRANS
+  >> qexists ‘num_of_bits (TAKE (dimindex (:α)) xs ++ (DROP (dimindex (:α)) xs))’
+  >> reverse conj_tac >- simp []
+  >> rewrite_tac [num_of_bits_append]
+  >> ‘num_of_bits (TAKE (dimindex (:α)) xs) < dimword (:α)’ by
+    (irule LESS_LESS_EQ_TRANS >> irule_at (Pos hd) num_of_bits_lt
+     >> simp [dimword_def, LENGTH_TAKE_EQ])
+  >> simp []
+  >> Cases_on ‘LENGTH xs ≤ dimindex (:α)’
+  >- simp [Req0 DROP_LENGTH_TOO_LONG, num_of_bits_def]
+  >> simp [Req0 TAKE_LENGTH_TOO_LONG, GSYM dimword_def]
 QED
 
 Theorem mw_and_b2mw:
