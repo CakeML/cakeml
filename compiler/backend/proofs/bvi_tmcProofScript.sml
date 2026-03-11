@@ -132,10 +132,25 @@ Proof
    gvs [evaluate_def]
   >~ [‘evaluate (x::y::xs,_,_)’] >-
    (gvs [evaluate_def, env_rel_def]
-    >> Cases_on ‘evaluate ([x],env,s')’
-    >> Cases_on ‘q’ >-
-     (gvs [] >> cheat)
-    >> cheat)
+    >> gvs [CaseEq "prod", PULL_EXISTS]
+    >> rename[‘evaluate ([x],env,s) = (r1,s1)’]
+    >> first_x_assum $ qspec_then ‘F’ mp_tac
+    >> simp []
+    >> disch_then drule
+    >> impl_tac >-
+     (spose_not_then assume_tac >> fs [])
+    >> strip_tac >> fs []
+    >> Cases_on ‘r1’ >> gvs []
+    >> gvs [CaseEq "prod", PULL_EXISTS]
+    >> qpat_x_assum ‘_ = _’ kall_tac
+    >> rename[‘evaluate (y::xs,env,s1) = (r2,s2)’]
+    >> first_x_assum $ qspec_then ‘F’ mp_tac
+    >> simp []
+    >> disch_then drule
+    >> impl_tac >-
+     (spose_not_then assume_tac >> fs [])
+    >> strip_tac >> fs []
+    >> Cases_on ‘r2’ >> gvs [])
   >~ [‘Var n’] >-
    (gvs [evaluate_def]
     >> Cases_on ‘opt’ >-
@@ -154,13 +169,26 @@ Proof
   >~ [‘If x1 x2 x3’] >-
    (gvs [evaluate_def] >> cheat)
   >~ [‘Let xs x2’] >-
-   (gvs [evaluate_def] >> cheat)
+   (simp [evaluate_def]
+    >> CASE_TAC
+    >> Cases_on ‘q’ >-
+     (gvs []
+      >> cheat)
+    >> cheat)
   >~ [‘Raise x1’] >-
    (gvs [evaluate_def] >> cheat)
   >~ [‘Op op xs’] >-
    (gvs [evaluate_def] >> cheat)
   >~ [‘Tick x’] >-
-   (gvs [evaluate_def]
+   (simp [evaluate_def]
+    >> ‘s'.clock = s.clock’ by gvs [state_rel_def]
+    >> gvs []
+    >> Cases_on ‘s.clock’ >-
+     cheat
+    >> gvs [dec_clock_def]
+    >> last_x_assum $ qspecl_then [‘r’, ‘t’ (*todo*), ‘opt’, ‘LENGTH env’, ‘s' with clock := n’, ‘env2’] mp_tac
+    >> )
+   (*gvs [evaluate_def]
     >> ‘s'.clock = s.clock’ by gvs [state_rel_def]
     >> gvs []
     >> Cases_on ‘s.clock’ >-
@@ -178,7 +206,7 @@ Proof
     >> first_x_assum drule_all
     >> strip_tac
     >> qexists ‘t''’
-    >> rw [] >- cheat >- cheat >> cheat)
+    >> rw [] >- cheat >- cheat >> cheat*)
   >~ [‘Force force_loc n’] >-
    (gvs [evaluate_def] >> cheat)
   >~ [‘Call ticks dest xs handler’] >-
