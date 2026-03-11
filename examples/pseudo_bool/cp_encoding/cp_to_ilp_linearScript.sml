@@ -73,10 +73,20 @@ Proof
   intLib.ARITH_TAC
 QED
 
-Theorem LAMBDA_eval_icterm[local]:
-  (λx. eval_icterm wi x) = eval_icterm wi
+Theorem eval_iclin_term_MAP_neg[local]:
+  eval_iclin_term w (MAP (λ(c,X). (-c,X)) cXs) = -eval_iclin_term w cXs
 Proof
-  cong_tac NONE
+  simp[eval_iclin_term_def,iSUM_def,MAP_MAP_o,
+    eval_icterm_neg,iSUM_MAP_lin_const]>>
+  rename1 ‘λx. f x’>>
+  simp[ETA_AX]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem eval_iclin_term_CONS[local]:
+  eval_iclin_term w (x::xs) = eval_icterm w x + eval_iclin_term w xs
+Proof
+  simp[eval_iclin_term_def,iSUM_def]
 QED
 
 Theorem encode_lin_equal_sem_1:
@@ -89,9 +99,7 @@ Theorem encode_lin_equal_sem_1:
 Proof
   rw[reify_sem_def,encode_lin_equal_def]>>
   gvs[AllCasePreds(),reify_avar_def,reify_reif_def,reify_flag_def,
-    iconstraint_sem_def,eval_iclin_term_def,eval_icterm_def,
-    iSUM_def,MAP_MAP_o,eval_icterm_neg,iSUM_MAP_lin_const,
-    LAMBDA_eval_icterm]
+    eval_iclin_term_def,eval_iclin_term_CONS,eval_iclin_term_MAP_neg]
   >-intLib.ARITH_TAC
   >-intLib.ARITH_TAC
   >-(
@@ -109,8 +117,83 @@ Theorem encode_lin_equal_sem_2:
 Proof
   rw[reify_sem_def,encode_lin_equal_def]>>
   every_case_tac>>
-  gvs[eval_iclin_term_def,iSUM_def,MAP_MAP_o,eval_icterm_neg,
-    iSUM_MAP_lin_const,LAMBDA_eval_icterm]>>
+  gvs[eval_iclin_term_CONS,eval_iclin_term_MAP_neg]>>
+  intLib.ARITH_TAC
+QED
+
+Definition cencode_lin_not_equal_1_def[simp]:
+  cencode_lin_not_equal_1 bnd cXs Y name =
+  List [
+    (SOME (mk_name name (strlit"gt")),
+      bits_imply bnd [Pos (nev name)] (mk_lin_gt cXs Y));
+    (SOME (mk_name name (strlit"lt")),
+      bits_imply bnd [Neg (nev name)] (mk_lin_lt cXs Y))
+  ]
+End
+
+Definition cencode_lin_not_equal_2_def[simp]:
+  cencode_lin_not_equal_2 bnd Z cXs Y name =
+  Append
+    (cbimply_var bnd (gtv name) (mk_lin_gt cXs Y)) $
+  Append
+    (cbimply_var bnd (ltv name) (mk_lin_lt cXs Y)) $
+  (cat_least_one name
+      [Pos (ltv name); Pos (gtv name); Neg (INL (Ge Z 1))])
+End
+
+Definition cencode_lin_not_equal_3_def[simp]:
+  cencode_lin_not_equal_3 bnd Z cXs Y name =
+  Append
+    (List (MAP (I ## bits_imply bnd [Neg (INL (Ge Z 1))])
+      (cmk_lin_eq name cXs Y))) $
+    cencode_lin_not_equal_2 bnd Z cXs Y name
+End
+
+Definition encode_lin_not_equal_def:
+  encode_lin_not_equal bnd Zr cXs Y name =
+  case Zr of
+    NONE =>
+    abstr (cencode_lin_not_equal_1 bnd cXs Y name)
+  | SOME (INL Z) =>
+    encode_ge bnd Z 1 ++
+    abstr (cencode_lin_not_equal_2 bnd Z cXs Y name)
+  | SOME (INR Z) =>
+    encode_ge bnd Z 1 ++
+    abstr (cencode_lin_not_equal_3 bnd Z cXs Y name)
+End
+
+Theorem encode_lin_not_equal_sem_1:
+  valid_assignment bnd wi ∧
+  ALOOKUP cs name = SOME (Linear (Lin reif cmp cXs Y)) ∧
+  reify_sem Zr wi
+    (eval_iclin_term wi cXs ≠ varc wi Y) ⇒
+  EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
+    (encode_lin_not_equal bnd Zr cXs Y name)
+Proof
+  rw[reify_sem_def,encode_lin_not_equal_def]>>
+  gvs[AllCasePreds(),eval_iclin_term_CONS,eval_iclin_term_MAP_neg,
+    reify_avar_def,reify_reif_def,reify_flag_def]
+  >-intLib.ARITH_TAC>>
+  simp[SF DNF_ss,reify_avar_def,reify_reif_def,reify_flag_def]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem encode_not_equal_sem_2:
+  valid_assignment bnd wi ∧
+  EVERY (λx. iconstraint_sem x (wi,wb))
+    (encode_lin_not_equal bnd Zr cXs Y name) ⇒
+  reify_sem Zr wi
+    (eval_iclin_term wi cXs ≠ varc wi Y)
+Proof
+  rw[reify_sem_def,encode_lin_not_equal_def]>>
+  gvs[AllCasePreds(),reify_avar_def,reify_reif_def,reify_flag_def]>>
+  every_case_tac>>
+  gvs[eval_iclin_term_CONS,eval_iclin_term_MAP_neg]
+  >-(
+    rename1 ‘wb v’>>
+    Cases_on ‘wb v’>>
+    gvs[]>>
+    intLib.ARITH_TAC)>>
   intLib.ARITH_TAC
 QED
 
@@ -203,6 +286,42 @@ Proof
     simp[]>>
     irule enc_rel_abstr_cong>>
     simp[])
+QED
+
+Definition cencode_lin_not_equal_def:
+  cencode_lin_not_equal bnd Zr cXs Y name ec =
+  case Zr of
+    NONE => (cencode_lin_not_equal_1 bnd cXs Y name, ec)
+  | SOME (INL Z) =>
+    let
+      (e,ec') = cencode_ge bnd Z 1 ec
+    in
+      (Append e $
+        cencode_lin_not_equal_2 bnd Z cXs Y name, ec')
+  | SOME (INR Z) =>
+    let
+      (e,ec') = cencode_ge bnd Z 1 ec
+    in
+      (Append e $
+        cencode_lin_not_equal_3 bnd Z cXs Y name, ec')
+End
+
+Theorem cencode_lin_not_equal_sem:
+  valid_assignment bnd wi ∧
+  cencode_lin_not_equal bnd Zr cXs Y name ec = (es, ec') ⇒
+  enc_rel wi es (encode_lin_not_equal bnd Zr cXs Y name) ec ec'
+Proof
+  rw[cencode_lin_not_equal_def,encode_lin_not_equal_def]>>
+  gvs[AllCaseEqs(),UNCURRY_EQ]
+  >-(
+    irule enc_rel_abstr_cong>>
+    simp[])>>
+  pure_rewrite_tac[GSYM APPEND_ASSOC]>>
+  irule enc_rel_Append>>
+  irule_at Any enc_rel_encode_ge>>
+  simp[]>>
+  irule enc_rel_abstr_cong>>
+  simp[]
 QED
 
 Definition cencode_linear_constr_def:

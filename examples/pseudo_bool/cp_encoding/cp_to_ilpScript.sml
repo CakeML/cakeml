@@ -83,7 +83,7 @@ Definition reify_flag_def:
       else if ann = strlit"lge"
       then varc wi X ≥ varc wi Z
       else varc wi Y ≥ varc wi Z
-    | SOME (Linear (Lin reif cmp cXs Y)) =>
+    | SOME (Linear (Lin _ _ cXs Y)) =>
       if ann = strlit"lt"
       then eval_iclin_term wi cXs < varc wi Y
       else eval_iclin_term wi cXs > varc wi Y)
@@ -135,6 +135,17 @@ Definition format_flag_def:
       strlit"v[" ^ name ^ strlit"][" ^ format_int_list ns ^ strlit"]" ^ format_annot annot
 End
 
+Definition format_var_def:
+  format_var v =
+  case v of
+    INL y => format_reif y
+  | INR z => format_flag z
+End
+
+(*
+  ltv, gtv and neg are commonly used in the constraints
+  (linear) equal and (linear) not-equal
+*)
 Definition ltv_def[simp]:
   ltv name =
     INR (name, Flag (strlit "lt"))
@@ -148,13 +159,6 @@ End
 Definition nev_def[simp]:
   nev name =
     INR (name, Flag (strlit "ne"))
-End
-
-Definition format_var_def:
-  format_var v =
-  case v of
-    INL y => format_reif y
-  | INR z => format_flag z
 End
 
 (*
