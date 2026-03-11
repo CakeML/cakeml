@@ -169,6 +169,15 @@ Proof
   >> fs []
 QED
 
+Theorem state_rel_dec:
+  state_rel f s s' ∧
+  s.clock ≠ 0 ∧
+  s'.clock ≠ 0 ⇒
+  state_rel f (dec_clock 1 s) (dec_clock 1 s')
+Proof
+  cheat
+QED
+
 Theorem evaluate_rewrite_tmc:
    ∀xs env1 ^s r t opt f l s' env2.
      evaluate (xs, env1, s) = (r, t) ∧
@@ -229,13 +238,13 @@ Proof
         >> qexists ‘f3’ >> fs []
         >> imp_res_tac evaluate_SING_IMP >> gvs []
         >> drule_all v_rel_submap >> rw []
-        >> imp_res_tac SUBMAP_TRANS
-       )
+        >> imp_res_tac SUBMAP_TRANS)
     >> rename [‘state_rel f3 s3 t3’]
     >> qexists ‘f3’ >> fs []
     >> imp_res_tac SUBMAP_TRANS)
   >~ [‘Var n’] >-
-   (gvs [evaluate_def]
+   cheat
+   (*gvs [evaluate_def]
     >> Cases_on ‘opt’ >-
      (Cases_on ‘n < LENGTH env’ >-
        (gvs [env_rel_def]
@@ -248,7 +257,7 @@ Proof
          >> (cheat))
       >> gvs [])
     >> gvs [env_rel_def]
-    >> cheat)
+    >> cheat*)
   >~ [‘If x1 x2 x3’] >-
    (gvs [evaluate_def] >> cheat)
   >~ [‘Let xs x2’] >-
@@ -263,33 +272,25 @@ Proof
   >~ [‘Op op xs’] >-
    (gvs [evaluate_def] >> cheat)
   >~ [‘Tick x’] >-
-   (simp [evaluate_def]
+   (gvs [evaluate_def]
     >> ‘s'.clock = s.clock’ by gvs [state_rel_def]
     >> gvs []
-    >> Cases_on ‘s.clock’ >-
-     cheat
-    >> gvs [dec_clock_def]
-    >> last_x_assum $ qspecl_then [‘r’, ‘t’ (*todo*), ‘opt’, ‘LENGTH env’, ‘s' with clock := n’, ‘env2’] mp_tac
-    >> )
-   (*gvs [evaluate_def]
-    >> ‘s'.clock = s.clock’ by gvs [state_rel_def]
+    >> Cases_on ‘s.clock’
     >> gvs []
-    >> Cases_on ‘s.clock’ >-
-     (gvs []
-      >> strip_tac
-      >> rw [] >-
-       (qexists ‘s'’
-        >> gvs [optimized_code_def, compile_exp_def]
-        >> cheat) >-
-       (qexistsl [‘Rerr (Rabort Rtimeout_error)’, ‘s'’]
-        >> gvs [opt_res_rel_def, optimized_code_def, compile_exp_def]
-        >> cheat)) (* s'.clock = 0 => timeout *)
-    >> gvs [dec_clock_def]
-    >> ‘state_rel (s with clock := n) s'’ by cheat
-    >> first_x_assum drule_all
+    >- (cheat) (* Prove timeout error? *)
+    >> gvs [CaseEq "prod", PULL_EXISTS]
+    >> Cases_on ‘opt’
+    >> gvs []
+    >- cheat
+    >> first_x_assum $ qspec_then ‘F’ mp_tac
+    >> simp []
+    >> disch_then drule
+    >> ‘s.clock ≠ 0’ by gvs []
+    >> ‘s'.clock ≠ 0’ by gvs []
+    >> drule_all state_rel_dec
     >> strip_tac
-    >> qexists ‘t''’
-    >> rw [] >- cheat >- cheat >> cheat*)
+    >> disch_then drule
+    >> fs [])
   >~ [‘Force force_loc n’] >-
    (gvs [evaluate_def] >> cheat)
   >~ [‘Call ticks dest xs handler’] >-
