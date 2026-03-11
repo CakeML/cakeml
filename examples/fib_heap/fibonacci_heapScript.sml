@@ -1691,6 +1691,43 @@ QED
 
 *----------------------------------------------------------*)
 
+(* Weakend invariant? *)
+(*
+Definition fib_heap_inv_def:
+  fib_heap_inv fh (fts: ('a word, 'a node_data) fts) ⇔
+    (!k v. FLOOKUP fh k = SOME v ==> k <> 0w) /\
+    (∀k v e. FLOOKUP fh k = SOME (v,e) ⇔
+      ? m. fts_has k (fill_dnode v e m) fts) /\
+    (!k v e.
+      (FLOOKUP fh k = SOME (v,e)) /\ k = head_key fts ==>
+      fts_is_min v fts) /\
+    (fib_heap_shape_ok fts)
+(*Everything else should be valid by annotation, construction of the heap,
+  or is an individual assertion for a heap operation.
+*)
+End
+*)
+
+Definition fib_heap_inv_weak_def:
+  fib_heap_inv_weak fh (fts: ('a word, 'a node_data) fts) ⇔
+    (!k v. FLOOKUP fh k = SOME v ==> k <> 0w) /\
+    (∀k v e. FLOOKUP fh k = SOME (v,e) ⇔
+      ? m. fts_has k (fill_dnode v e m) fts) /\
+    (fib_heap_shape_ok fts)
+End
+
+Theorem fib_heap_inv_weak:
+  !fh fts.
+    fib_heap_inv fh fts ==> fib_heap_inv_weak fh fts
+Proof
+  rpt strip_tac >>
+  fs[fib_heap_inv_def] >>
+  cheat
+QED
+
+
+
+
 Definition fts_remove_def:
   (fts_remove x rest [] = rest) /\
   (fts_remove x rest (FibTree k v l::ts) =
@@ -1723,19 +1760,21 @@ Definition fib_heap_remove_def:
     let a_p = m (a + parent_off) in
 
     (*maybe set new child for parent*)
-    if a_p = 0w then (a,m,c) else
+    if a_p = 0w then
+      if a_n = a then (a,0w,m,c) else (a,a_n,m,c)
+    else
 
     let c = ((a_p + child_off) IN dm /\ c) in
     let p_c = m (a_p + child_off) in
     if p_c = a then
       if a = a_n then
         let m = (p_c =+ 0w) m in
-          (a,m,c)
+          (a,0w,m,c)
       else
         let m = (p_c =+ a_n) m in
-          (a,m,c)
+          (a,a_n,m,c)
     else
-      (a,m,c)
+      (a,a_n,m,c)
 End
 
 (*
@@ -1743,7 +1782,13 @@ End
 Weaken fib_heap invariant to this?:
 
 full_node p (v,e) *
-fts_mem(ann_fts p ([FibTree x n l] ++ xs))
+fts_mem(ann_fts p ([FibTree x n l] ++ fts)) *
+fib_heap_inv_weak fh (FibTree x n l::fts)
+fib_heap_remove(x,m,dm) = (x,a,m',b)
+==>
+(fts_mem (ann_fts p fts) * frame *
+ cond(a = head_key fts /\ fib_heap_inv_weak (fh \\ x) fts)
+ (fun2set (m',dm)) /\ b
 *)
 
 (* TODO: finish proof! *)
@@ -1854,38 +1899,22 @@ Definition fib_heap_extract_min_def:
     let a_child = m (a + child_off) in
     let c = (a_child + next_off IN dm /\ c) in
     let n_child = m (a_child + next_off) in
-    let m_c = (fib_heap_parent_to_null n (n_child,a_child,m,dm,c)) in
-    let m = FST m_c in
-    let c = SND m_c in
-
-    let min_m_c = (find_min n (a_child,a_child,n_child,m,dm,c)) in
-    let min = FST min_m_c in
-    let m = FST (SND min_m_c) in
-    let c = SND (SND min_m_c) in
-
+    let (m,c) = (fib_heap_parent_to_null n (n_child,a_child,m,dm,c)) in
+    let (min,m,c) = (find_min n (a_child,a_child,n_child,m,dm,c)) in
     let c = (a + next_off IN dm /\ c) in
     let sec = m (a + next_off) in
     if a = sec then
-      let a'_m_c = fib_heap_insert_list(0w,min,m,dm) in
-      let a' = FST a'_m_c in
-      let m  = FST (SND a'_m_c) in
-      let c  = (SND (SND a'_m_c) /\ c) in
-        (a,a',m,c)
+      let (a',m,c') = fib_heap_insert_list(0w,min,m,dm) in
+        (a,a',m,c' /\ c)
     else
       let c = (a + next_off IN dm /\ c) in
       let a_n = m (a + next_off) in
       let c = (a_n + next_off IN dm /\ c) in
       let a_nn = m (a_n + next_off) in
-      let min2_m_c = (find_min n (a_n,a_n,a_nn,m,dm,c)) in
-      let min2 = FST min2_m_c in
-      let m = FST (SND min2_m_c) in
-      let c = SND (SND min2_m_c) in
+      let (min2,m,c) = (find_min n (a_n,a_n,a_nn,m,dm,c)) in
 
-      let a'_m_c = fib_heap_insert_list(min2,min,m,dm) in
-      let a' = FST a'_m_c in
-      let m  = FST (SND a'_m_c) in
-      let c  = (SND (SND a'_m_c) /\ c) in
-        (a,a',m,c)
+      let (a',m,c') = fib_heap_insert_list(min2,min,m,dm) in
+        (a,a',m, c' /\ c)
 End
 
 
@@ -2052,18 +2081,14 @@ QED
 
 Definition reb_list_def:
   reb_list (n:num) (max_r:num)
-    (array: 'a word, a:'a word, s:'a word,
+    (array: 'a word, a:'a word,
      m:'a word -> 'a word, dm:'a word set, c: bool)
   =
     if n = 0 then (m,F) else
-    let (m,c) = reb2trees max_r (array,a,m,dm,c) in
-    let c = (a IN dm /\ c) in
-    let c = (a + next_off IN dm /\ c) in
-    let a_n = m (a + next_off) in
-    if a_n = s then
-      (m,c)
-    else
-      reb_list (n-1) max_r (array,a_n,s,m,dm,c)
+    if a = 0w then (m,c) else
+    let (x,a',m,c) = fib_heap_remove(a,m,dm) in
+    let (m,c) = reb2trees max_r (array,x,m,dm,c) in
+      reb_list (n-1) max_r (array,a',m,dm,c)
 End
 
 
@@ -2112,7 +2137,7 @@ Definition fib_heap_reb_def:
   fib_heap_reb (n:num)
     (a:'a word, array: 'a word, m: 'a word -> 'a word, dm: 'a word set)
   =
-    let (m,c) = reb_list n n (array,a,a,m,dm,T) in
+    let (m,c) = reb_list n n (array,a,m,dm,T) in
     let (a,m,c) = coll_list (n-1) (array,0w,m,dm,c) in
     let c = (a + next_off IN dm /\ c) in
     let a_n = m (a + next_off) in
