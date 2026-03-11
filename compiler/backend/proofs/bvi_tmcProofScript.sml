@@ -9,19 +9,52 @@ Libs
 
 val s = “s : (num # γ, 'ffi) bviSem$state”;
 
-Definition env_rel_def:
-  env_rel opt l env1 env2 <=>
-  (opt ⇒
-   isPREFIX env1 env2 ∧
-   LENGTH env1 = l ∧
-   LENGTH env2 = l + 2 ∧
-   ∃hole_ptr hole_idx.
-     EL l env2 = RefPtr F hole_ptr ∧
-     EL (l + 1) env2 = Number hole_idx) ∧
-  (~opt ⇒ env1 = env2)
+Overload in_ns_2[local] = ``λn. n MOD bvl_to_bvi_namespaces = 2``
+
+Inductive v_rel:
+[~Number:]
+  ∀f i. v_rel f (Number i) (Number i)
+[~Word64:]
+  ∀f w. v_rel f (Word64 w) (Word64 w)
+[~Block:]
+  ∀f n xs ys.
+    LIST_REL (v_rel f) xs ys ⇒
+    v_rel f (Block n xs) (Block n ys)
+[~CodePtr:]
+  ∀f n. v_rel f (CodePtr n) (CodePtr n)
+[~RefPtr:]
+  ∀f n m b.
+    FLOOKUP f n = SOME m ⇒
+    v_rel f (RefPtr b n) (RefPtr b m)
 End
 
-Overload in_ns_2[local] = ``λn. n MOD bvl_to_bvi_namespaces = 2``
+Inductive ref_rel:
+[~ByteArray:]
+  ref_rel f (ByteArray b bs) (ByteArray b bs)
+[~ValueArray:]
+  LIST_REL (v_rel f) xs ys ⇒
+  ref_rel f (ValueArray xs) (ValueArray ys)
+[~Thunk:]
+  v_rel f x y ⇒
+  ref_rel f (Thunk tm x) (Thunk tm y)
+[~MutBlock:]
+  LIST_REL (v_rel f) xs1 ys1 ∧
+  v_rel f h1 h2 ∧
+  LIST_REL (v_rel f) xs2 ys2 ⇒
+  ref_rel f (MutBlock n xs1 h1 ys1) (MutBlock n xs2 h2 ys2)
+End
+
+Definition env_rel_def:
+  env_rel opt f l env1 env2 <=>
+  ∃xs ys.
+    env2 = xs ++ ys ∧
+    LIST_REL (v_rel f) env1 xs ∧
+    if ~opt then ys = [] else
+      LENGTH ys = 2 ∧
+      ∃hole_ptr hole_idx.
+        EL 0 ys = RefPtr F hole_ptr ∧
+        EL 1 ys = Number hole_idx
+End
 
 Definition code_rel_def:
   code_rel c1 c2 ⇔
@@ -62,20 +95,18 @@ Definition input_condition_def:
 End
 
 Definition state_ref_rel_def:
-  state_ref_rel (s_refs : num |-> bvlSem$v ref) (t_refs : num |-> bvlSem$v ref) ⇔
-    ∃f.
-      ∀i v.
-        (FLOOKUP s_refs i = SOME v ⇒
-         FLOOKUP t_refs (f i) = SOME v) ∧
-        (FLOOKUP s_refs i = NONE ∧
-         FLOOKUP t_refs (f i) = SOME v ⇒
-         ∃t l h r. v = MutBlock t l h r)
+  state_ref_rel f (s_refs : num |-> bvlSem$v ref) (t_refs : num |-> bvlSem$v ref) ⇔
+    FDOM f = FDOM s_refs ∧
+    ∀i v.
+      FLOOKUP s_refs i = SOME v ⇒
+       ∃j w. FLOOKUP f i = SOME j ∧
+             ref_rel f v w ∧
+             FLOOKUP t_refs j = SOME w
 End
 
 Definition state_rel_def:
-  state_rel s (t:('a,'ffi) bviSem$state) ⇔
-    (* t.refs = s.refs ∧ *)
-    state_ref_rel s.refs t.refs ∧
+  state_rel f s (t:('a,'ffi) bviSem$state) ⇔
+    state_ref_rel f s.refs t.refs ∧
     t.clock = s.clock ∧
     t.global = s.global ∧
     t.ffi = s.ffi ∧
@@ -104,53 +135,88 @@ Definition opt_res_rel_def:
     | _ => r1 = r2
 End
 
+Theorem v_rel_submap:
+  ∀f v1 v2 f'. v_rel f v1 v2 ∧ f SUBMAP f' ⇒ v_rel f' v1 v2
+Proof
+  Induct_on ‘v_rel’
+  >> rpt strip_tac
+  >> simp [Once v_rel_cases]
+  >- gvs [LIST_REL_EL_EQN]
+  >> drule_all FLOOKUP_SUBMAP
+  >> fs []
+QED
+
+Theorem env_rel_submap:
+  env_rel opt f rel env1 env2 ∧ f SUBMAP f' ⇒ env_rel opt f' rel env1 env2
+Proof
+  cheat
+QED
+
 Theorem evaluate_rewrite_tmc:
-   ∀xs env1 ^s r t opt l s' env2.
+   ∀xs env1 ^s r t opt f l s' env2.
      evaluate (xs, env1, s) = (r, t) ∧
-     env_rel opt l env1 env2 ∧
-     state_rel s s' ∧
+     env_rel opt f l env1 env2 ∧
+     state_rel f s s' ∧
      (opt ⇒ LENGTH xs = 1) ∧
      r ≠ Rerr (Rabort Rtype_error) ⇒
-     ∃t'.
-       evaluate (xs, env2, s') = (r, t') ∧
-       state_rel t t' ∧
+     ∃t' f' r'.
+       evaluate (xs, env2, s') = (r', t') ∧
+       result_rel (LIST_REL (v_rel f')) (v_rel f') r r' ∧
+       state_rel f' t t' ∧
+       f SUBMAP f' ∧
        (opt ⇒
          ∀arity loc loc_opt exp_aux exp_opt.
            lookup loc s.code = SOME (arity, HD xs) ∧
            optimized_code loc arity (HD xs) loc_opt s'.code exp_aux exp_opt ⇒
            (∃t1.
-              evaluate ([exp_aux], env2, s') = (r,t1) ∧
-              state_rel t t1) ∧
+              evaluate ([exp_aux], env2, s') = (r',t1) ∧
+              state_rel f' t t1) ∧
            (∃rrr t2.
               evaluate ([exp_opt], env2, s') = (rrr,t2) ∧
-              opt_res_rel r rrr ∧
-              state_rel t t2))
+              opt_res_rel r' rrr ∧
+              state_rel f' t t2))
 Proof
   recInduct bviSemTheory.evaluate_ind
   >> rpt strip_tac
   >~ [‘evaluate ([],_,_)’] >-
-   gvs [evaluate_def]
+   (gvs [evaluate_def] >> first_x_assum $ irule_at Any >> fs [])
   >~ [‘evaluate (x::y::xs,_,_)’] >-
-   (gvs [evaluate_def, env_rel_def]
+   (gvs [evaluate_def]
+    (* First inductive hypothesis *)
     >> gvs [CaseEq "prod", PULL_EXISTS]
     >> rename[‘evaluate ([x],env,s) = (r1,s1)’]
     >> first_x_assum $ qspec_then ‘F’ mp_tac
     >> simp []
     >> disch_then drule
+    >> disch_then drule
     >> impl_tac >-
      (spose_not_then assume_tac >> fs [])
     >> strip_tac >> fs []
-    >> Cases_on ‘r1’ >> gvs []
+    >> reverse $ Cases_on ‘r1’ >> gvs []
+    >- (pop_assum $ irule_at Any >> fs [])
+    (* Second inductive hypothesis *)
     >> gvs [CaseEq "prod", PULL_EXISTS]
     >> qpat_x_assum ‘_ = _’ kall_tac
     >> rename[‘evaluate (y::xs,env,s1) = (r2,s2)’]
     >> first_x_assum $ qspec_then ‘F’ mp_tac
     >> simp []
+    >> drule_all env_rel_submap
+    >> strip_tac
+    >> disch_then drule
     >> disch_then drule
     >> impl_tac >-
      (spose_not_then assume_tac >> fs [])
     >> strip_tac >> fs []
-    >> Cases_on ‘r2’ >> gvs [])
+    >> Cases_on ‘r2’ >> gvs []
+    >- (rename [‘state_rel f3 s3 t3’]
+        >> qexists ‘f3’ >> fs []
+        >> imp_res_tac evaluate_SING_IMP >> gvs []
+        >> drule_all v_rel_submap >> rw []
+        >> imp_res_tac SUBMAP_TRANS
+       )
+    >> rename [‘state_rel f3 s3 t3’]
+    >> qexists ‘f3’ >> fs []
+    >> imp_res_tac SUBMAP_TRANS)
   >~ [‘Var n’] >-
    (gvs [evaluate_def]
     >> Cases_on ‘opt’ >-
