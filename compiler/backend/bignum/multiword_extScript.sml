@@ -72,6 +72,28 @@ Proof
   simp [int_and_def, int_bitwise_def, bits_bitwise_and]
 QED
 
+(* TODO Move to int_bitwise *)
+Theorem bits_of_num_nil:
+  bits_of_num n = [] ⇔ n = 0
+Proof
+  simp [Once bits_of_num_def] >> IF_CASES_TAC >> simp []
+QED
+
+(* TODO Move to int_bitwise *)
+Theorem num_of_bits_append:
+  ∀xs ys.
+    num_of_bits (xs ⧺ ys) =
+    2 ** LENGTH xs * num_of_bits ys + num_of_bits xs
+Proof
+  recInduct num_of_bits_ind >> simp [num_of_bits_def, ADD1, EXP_ADD]
+QED
+
+(* TODO Move to int_bitwise *)
+Theorem num_of_bits_lt:
+  ∀xs. num_of_bits xs < 2 ** LENGTH xs
+Proof
+  recInduct num_of_bits_ind >> rw [num_of_bits_def, EXP]
+QED
 
 (** multiword extensions ******************************************************)
 
@@ -211,26 +233,30 @@ Definition b2mw'_def:
       b2mw' (k-1:num) (DROP (dimindex (:'a)) xs) : 'a word list
 End
 
-Theorem n2mw_eq_b2mw:
-  n2mw n = b2mw (bits_of_num n) : 'a word list
+Theorem num_of_bits_TAKE:
+  ∀m. num_of_bits (TAKE m (bits_of_num n)) = n MOD (2 ** m)
 Proof
   cheat
 QED
 
-(* TODO Move to int_bitwise *)
-Theorem num_of_bits_append:
-  ∀xs ys.
-    num_of_bits (xs ⧺ ys) =
-    2 ** LENGTH xs * num_of_bits ys + num_of_bits xs
+Theorem num_of_bits_TAKE_dimindex_lt:
+  num_of_bits (TAKE (dimindex (:α)) xs) < dimword (:α)
 Proof
-  recInduct num_of_bits_ind >> simp [num_of_bits_def, ADD1, EXP_ADD]
+  irule LESS_LESS_EQ_TRANS
+  >> irule_at (Pos hd) num_of_bits_lt
+  >> simp [dimword_def, LENGTH_TAKE_EQ]
 QED
 
-(* TODO Move to int_bitwise *)
-Theorem num_of_bits_lt:
-  ∀xs. num_of_bits xs < 2 ** LENGTH xs
+Theorem n2mw_eq_b2mw:
+  ∀n. n2mw n = b2mw (bits_of_num n) : 'a word list
 Proof
-  recInduct num_of_bits_ind >> rw [num_of_bits_def, EXP]
+  recInduct n2mw_ind >> rw []
+  >> Cases_on ‘n = 0’
+  >- simp [Once b2mw_def, Once bits_of_num_def, Once n2mw_def]
+  >> fs []
+  >> simp [Once b2mw_def, bits_of_num_nil]
+  >> simp [Once n2mw_def, num_of_bits_TAKE_dimindex_lt]
+  >> cheat
 QED
 
 Theorem mw2n_b2mw:
@@ -243,10 +269,7 @@ Proof
   >> qexists ‘num_of_bits (TAKE (dimindex (:α)) xs ++ (DROP (dimindex (:α)) xs))’
   >> reverse conj_tac >- simp []
   >> rewrite_tac [num_of_bits_append]
-  >> ‘num_of_bits (TAKE (dimindex (:α)) xs) < dimword (:α)’ by
-    (irule LESS_LESS_EQ_TRANS >> irule_at (Pos hd) num_of_bits_lt
-     >> simp [dimword_def, LENGTH_TAKE_EQ])
-  >> simp []
+  >> simp [num_of_bits_TAKE_dimindex_lt]
   >> Cases_on ‘LENGTH xs ≤ dimindex (:α)’
   >- simp [Req0 DROP_LENGTH_TOO_LONG, num_of_bits_def]
   >> simp [Req0 TAKE_LENGTH_TOO_LONG, GSYM dimword_def]
