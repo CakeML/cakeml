@@ -50,10 +50,26 @@ Proof
   Induct >> fs [bits_bitwise_def]
 QED
 
+Theorem bits_bitwise_sym:
+  ∀f bs₁ r₁ bs₂ r₂.
+    (∀x y. f x y = f y x) ⇒
+    bits_bitwise f (bs₁,r₁) (bs₂,r₂) = bits_bitwise f (bs₂,r₂) (bs₁,r₁)
+Proof
+  recInduct bits_bitwise_ind >> rw [bits_bitwise_def]
+  >> AP_TERM_TAC
+  >> first_assum drule >> simp []
+QED
+
+Theorem bits_bitwise_and:
+  ∀x y. bits_bitwise $/\ x y = bits_bitwise $/\ y x
+Proof
+  rpt Cases >> irule bits_bitwise_sym >> rpt Cases >> simp []
+QED
+
 Theorem int_and_sym:
   int_and i j = int_and j i
 Proof
-  cheat
+  simp [int_and_def, int_bitwise_def, bits_bitwise_and]
 QED
 
 
