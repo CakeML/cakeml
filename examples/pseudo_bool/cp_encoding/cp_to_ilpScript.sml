@@ -82,7 +82,11 @@ Definition reify_flag_def:
       then varc wi Y ≤ varc wi Z
       else if ann = strlit"lge"
       then varc wi X ≥ varc wi Z
-      else varc wi Y ≥ varc wi Z)
+      else varc wi Y ≥ varc wi Z
+    | SOME (Linear (Lin reif cmp cXs Y)) =>
+      if ann = strlit"lt"
+      then eval_iclin_term wi cXs < varc wi Y
+      else eval_iclin_term wi cXs > varc wi Y)
   | Values vs ann =>
     (case ALOOKUP cs name of
     | SOME (Counting (NValue Xs Y)) =>
@@ -129,6 +133,21 @@ Definition format_flag_def:
       strlit"x[" ^ name ^ strlit"][" ^ format_num_list ns ^ strlit"]" ^ format_annot annot
   | Values ns annot =>
       strlit"v[" ^ name ^ strlit"][" ^ format_int_list ns ^ strlit"]" ^ format_annot annot
+End
+
+Definition ltv_def[simp]:
+  ltv name =
+    INR (name, Flag (strlit "lt"))
+End
+
+Definition gtv_def[simp]:
+  gtv name =
+    INR (name, Flag (strlit "gt"))
+End
+
+Definition nev_def[simp]:
+  nev name =
+    INR (name, Flag (strlit "ne"))
 End
 
 Definition format_var_def:
@@ -321,8 +340,8 @@ Proof
   intLib.ARITH_TAC
 QED
 
-(* Encodes a * X ≥ c where X is varc.
-   This is a special case to mk_constraint_ge.
+(* Encodes a * X ≥ b where X is varc.
+   This is a special case of mk_constraint_ge.
  *)
 Definition mk_constraint_one_ge_def:
   mk_constraint_one_ge a X b =
@@ -339,6 +358,49 @@ Proof
   gvs[varc_def,iconstraint_sem_def,eval_ilin_term_def,iSUM_def]>>
   intLib.ARITH_TAC
 QED
+
+(* Encodes a1 * X1 +...+ an * Xn ≥ b where Xi is varc.
+   This is a general case of mk_constraint_ge.
+ *)
+Definition mk_lin_constraint_ge_aux_def:
+  (mk_lin_constraint_ge_aux [] res = res) ∧
+  (mk_lin_constraint_ge_aux ((a,X)::aXs) (is,bs,rhs) =
+    case (X:'a varc) of
+      INL vX => mk_lin_constraint_ge_aux aXs ((a,vX)::is,bs,rhs)
+    | INR cX => mk_lin_constraint_ge_aux aXs (is,bs,rhs - a * cX))
+End
+
+Theorem mk_lin_constraint_ge_aux_sem[local]:
+  ∀is rhs. iconstraint_sem (mk_lin_constraint_ge_aux aXs (is,bs,rhs)) (wi,wb) ⇔
+    eval_iclin_term wi aXs + eval_ilin_term wi is + eval_lin_term wb bs ≥ rhs
+Proof
+  Induct_on ‘aXs’>>
+  rw[]
+  >-simp[mk_lin_constraint_ge_aux_def,iconstraint_sem_def,
+    eval_iclin_term_def,iSUM_def]>>
+  rename1 ‘(h::_)’>>
+  PairCases_on ‘h’>>
+  rename1 ‘(a,X)’>>
+  Cases_on ‘X’>>
+  simp[mk_lin_constraint_ge_aux_def,iSUM_def,varc_def,
+    eval_iclin_term_def,eval_ilin_term_def]>>
+  intLib.ARITH_TAC
+QED
+
+Definition mk_lin_constraint_ge_def:
+  mk_lin_constraint_ge aXs b = mk_lin_constraint_ge_aux aXs ([],[],b)
+End
+
+Theorem mk_lin_constraint_ge_sem[simp]:
+  iconstraint_sem (mk_lin_constraint_ge aXs b) (wi,wb) ⇔
+  eval_iclin_term wi aXs ≥ b
+Proof
+  simp[mk_lin_constraint_ge_def,mk_lin_constraint_ge_aux_sem]
+QED
+
+Definition mk_lin_ge_def[simp]:
+  mk_lin_ge cXs Y = mk_lin_constraint_ge ((-1i,Y)::cXs) 0
+End
 
 (* the two named equality constraints, held as a list *)
 Definition mk_ge_def[simp]:

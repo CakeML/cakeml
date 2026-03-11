@@ -7,21 +7,6 @@ Libs
 Ancestors
   pbc cp ilp cp_to_ilp
 
-Definition ltv_def[simp]:
-  ltv name =
-    INR (name, Flag (strlit "lt"))
-End
-
-Definition gtv_def[simp]:
-  gtv name =
-    INR (name, Flag (strlit "gt"))
-End
-
-Definition nev_def[simp]:
-  nev name =
-    INR (name, Flag (strlit "ne"))
-End
-
 Definition cmk_eq_def[simp]:
   cmk_eq name X Y =
   [
@@ -562,7 +547,7 @@ Definition cencode_equal_def:
       let
         (e,ec') = cencode_ge bnd Z 1 ec
       in
-        (Append e $  cencode_equal_2 bnd Z X Y name, ec')
+        (Append e $ cencode_equal_2 bnd Z X Y name, ec')
 End
 
 Theorem cencode_equal_sem:
