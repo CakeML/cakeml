@@ -149,7 +149,24 @@ QED
 Theorem env_rel_submap:
   env_rel opt f rel env1 env2 ∧ f SUBMAP f' ⇒ env_rel opt f' rel env1 env2
 Proof
-  cheat
+  strip_tac
+  >> gvs [env_rel_def]
+  >> reverse (Cases_on ‘opt’)
+  >> gvs [LIST_REL_EL_EQN]
+  >- (rw []
+      >> first_x_assum $ qspec_then ‘n’ mp_tac
+      >> strip_tac
+      >> gvs []
+      >> drule_all v_rel_submap
+      >> fs [])
+  >> qexistsl [‘xs’, ‘ys’]
+  >> gvs []
+  >> rw []
+  >> first_x_assum $ qspec_then ‘n’ mp_tac
+  >> strip_tac
+  >> gvs []
+  >> drule_all v_rel_submap
+  >> fs []
 QED
 
 Theorem evaluate_rewrite_tmc:
