@@ -809,17 +809,6 @@ Definition evaluate_def:
       | SOME F => evaluate (c2,s)
       | NONE => (SOME Error,s))
     | _ => (SOME Error,s))) /\
-  (evaluate (While cmp r1 ri c1,s) =
-    (case (get_var r1 s,get_var_imm ri s)of
-    | SOME (Word x),SOME (Word y) =>
-      if word_cmp cmp x y
-      then let (res,s1) = fix_clock s (evaluate (c1,s)) in
-             if res = SOME Break then (NONE,s1) else
-             if res <> NONE /\ res <> SOME Continue then (res,s1) else
-             if s1.clock = 0 then (SOME TimeOut,empty_env s1) else
-               evaluate (STOP (While cmp r1 ri c1),dec_clock s1)
-      else (NONE,s)
-    | _ => (SOME Error,s))) /\
   (evaluate (Loop c1,s) =
     (let (res,s1) = fix_clock s (evaluate (c1,s)) in
        if res = SOME Break then (NONE,s1) else
