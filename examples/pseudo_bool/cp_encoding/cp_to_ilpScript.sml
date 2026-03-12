@@ -1055,17 +1055,6 @@ Definition encode_bitsum_def:
       ([], MAP (λb. (-1i, Pos b)) Bs, -cY)]
 End
 
-Theorem iSUM_MAP_lin:
-  ∀ls a f b. iSUM (MAP (λx. a * f x + b) ls) = a * iSUM (MAP (λx. f x) ls) + b * &LENGTH ls
-Proof
-  Induct>>
-  simp[iSUM_def,MAP,LENGTH]>>
-  rw[]>>
-  intLib.ARITH_TAC
-QED
-
-Theorem iSUM_MAP_lin_const = iSUM_MAP_lin |> CONV_RULE (RESORT_FORALL_CONV List.rev) |> Q.SPEC `0` |> SRULE [] |> SPEC_ALL;
-
 Theorem encode_bitsum_sem:
   valid_assignment bnd wi ⇒
   (EVERY (λx. iconstraint_sem x (wi,wb)) (encode_bitsum Bs Y) ⇔

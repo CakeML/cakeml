@@ -311,6 +311,39 @@ Definition eval_iclin_term_def:
     iSUM (MAP (eval_icterm w) xs)
 End
 
+Theorem eval_iclin_term_CONS:
+  eval_iclin_term w (x::xs) = eval_icterm w x + eval_iclin_term w xs
+Proof
+  simp[eval_iclin_term_def,iSUM_def]
+QED
+
+Theorem iSUM_MAP_lin:
+  ∀ls a f b. iSUM (MAP (λx. a * f x + b) ls) = a * iSUM (MAP (λx. f x) ls) + b * &LENGTH ls
+Proof
+  Induct>>
+  simp[iSUM_def,MAP,LENGTH]>>
+  rw[]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem iSUM_MAP_lin_const = iSUM_MAP_lin |> CONV_RULE (RESORT_FORALL_CONV List.rev) |> Q.SPEC `0` |> SRULE [] |> SPEC_ALL;
+
+Theorem eval_iclin_term_MAP_neg[simp]:
+  eval_iclin_term w (MAP (λ(c,X). (-c,X)) cXs) = -eval_iclin_term w cXs
+Proof
+  simp[eval_iclin_term_def,iSUM_def,MAP_MAP_o,o_DEF]>>
+  ‘(λx. eval_icterm w ((λ(c,X). (-c,X)) x)) =
+  (λx. -1 * eval_icterm w x)’ by (
+    cong_tac NONE>>
+    pairarg_tac>>
+    gs[]>>
+    intLib.ARITH_TAC)>>
+  simp[iSUM_MAP_lin_const]>>
+  rename1 ‘λx. f x’>>
+  simp[ETA_AX]>>
+  intLib.ARITH_TAC
+QED
+
 Definition lin_sem_def:
   lin_sem Zr cmp Xs Y w ⇔
   reify_sem Zr w

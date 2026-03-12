@@ -62,33 +62,6 @@ Definition encode_lin_equal_def:
     abstr (cencode_lin_equal_2 bnd Z cXs Y name)
 End
 
-Theorem eval_icterm_neg[local]:
-  eval_icterm wi ∘ (λ(c,X). (-c,X)) =
-  (λx. -1 * eval_icterm wi x)
-Proof
-  cong_tac NONE>>
-  simp[]>>
-  pairarg_tac>>
-  gs[]>>
-  intLib.ARITH_TAC
-QED
-
-Theorem eval_iclin_term_MAP_neg[local]:
-  eval_iclin_term w (MAP (λ(c,X). (-c,X)) cXs) = -eval_iclin_term w cXs
-Proof
-  simp[eval_iclin_term_def,iSUM_def,MAP_MAP_o,
-    eval_icterm_neg,iSUM_MAP_lin_const]>>
-  rename1 ‘λx. f x’>>
-  simp[ETA_AX]>>
-  intLib.ARITH_TAC
-QED
-
-Theorem eval_iclin_term_CONS[local]:
-  eval_iclin_term w (x::xs) = eval_icterm w x + eval_iclin_term w xs
-Proof
-  simp[eval_iclin_term_def,iSUM_def]
-QED
-
 Theorem encode_lin_equal_sem_1:
   valid_assignment bnd wi ∧
   ALOOKUP cs name = SOME (Linear (Lin reif cmp cXs Y)) ∧
@@ -99,7 +72,7 @@ Theorem encode_lin_equal_sem_1:
 Proof
   rw[reify_sem_def,encode_lin_equal_def]>>
   gvs[AllCasePreds(),reify_avar_def,reify_reif_def,reify_flag_def,
-    eval_iclin_term_def,eval_iclin_term_CONS,eval_iclin_term_MAP_neg]
+    eval_iclin_term_def,eval_iclin_term_CONS]
   >-intLib.ARITH_TAC
   >-intLib.ARITH_TAC
   >-(
@@ -117,7 +90,7 @@ Theorem encode_lin_equal_sem_2:
 Proof
   rw[reify_sem_def,encode_lin_equal_def]>>
   every_case_tac>>
-  gvs[eval_iclin_term_CONS,eval_iclin_term_MAP_neg]>>
+  gvs[eval_iclin_term_CONS]>>
   intLib.ARITH_TAC
 QED
 
@@ -171,7 +144,7 @@ Theorem encode_lin_not_equal_sem_1:
     (encode_lin_not_equal bnd Zr cXs Y name)
 Proof
   rw[reify_sem_def,encode_lin_not_equal_def]>>
-  gvs[AllCasePreds(),eval_iclin_term_CONS,eval_iclin_term_MAP_neg,
+  gvs[AllCasePreds(),eval_iclin_term_CONS,
     reify_avar_def,reify_reif_def,reify_flag_def]
   >-intLib.ARITH_TAC>>
   simp[SF DNF_ss,reify_avar_def,reify_reif_def,reify_flag_def]>>
@@ -188,7 +161,7 @@ Proof
   rw[reify_sem_def,encode_lin_not_equal_def]>>
   gvs[AllCasePreds(),reify_avar_def,reify_reif_def,reify_flag_def]>>
   every_case_tac>>
-  gvs[eval_iclin_term_CONS,eval_iclin_term_MAP_neg]
+  gvs[eval_iclin_term_CONS]
   >-(
     rename1 ‘wb v’>>
     Cases_on ‘wb v’>>
