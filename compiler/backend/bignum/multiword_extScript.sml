@@ -271,17 +271,24 @@ Proof
   >> simp [(Once o GSYM) mw2n_mw_fix, mw2n_n2mw]
 QED
 
-
-Definition mw_neg_def:
-  mw_neg xs =
+(*
+Motivation for definition:
+bits_of_int_def |> Q.SPEC ‘-i’ |> DISCH “0 < i” |> SRULE [int_not_def]
+*)
+Definition mw_bits_of_int_def:
+  mw_bits_of_int xs =
     let (ys,c) = mw_sub xs [] F in
       MAP (~) ys
 End
 
-Definition mw_neg_expand_def:
-  mw_neg_expand xs =
-    let (ys,c) = mw_sub xs [] F in
-      if c then MAP (~) ys else MAP (~) ys ++ [1w]
+(*
+Motivation for definition:
+int_of_bits_def |> SRULE [int_not_def, intLib.COOPER_PROVE “-i-1 = -(i+1):int”]
+*)
+Definition mw_int_of_bits_def:
+  mw_int_of_bits xs =
+    let (ys,c) = mw_add (MAP (~) xs) (MAP (K 0w) xs) T in
+      if c then ys ++ [1w] else ys
 End
 
 (* Computes the bitwise and of two non-negative multiwords.
@@ -317,12 +324,14 @@ Definition mwi_and_def:
     (F, mw_fix (mw_and_flip xs ys))
   else if s ∧ ~t then
     (F, mw_fix (if LENGTH xs < LENGTH ys
-                then mw_and_keep (mw_neg xs) ys
-                else mw_and ys (mw_neg xs)))
+                then mw_and_keep (mw_bits_of_int xs) ys
+                else mw_and ys (mw_bits_of_int xs)))
   else if ~s ∧ t then
     mwi_and (t, ys) (s, xs)
   else
-    (T, mw_fix (mw_neg_expand (mw_and_keep_flip (mw_neg xs) (mw_neg ys))))
+    (T, mw_fix (mw_int_of_bits (mw_and_keep_flip
+                                  (mw_bits_of_int xs)
+                                  (mw_bits_of_int ys))))
 Termination
   WF_REL_TAC ‘measure $ λ((s,xs),(t,ys)). if t then 1 else 0n’
 End
@@ -513,9 +522,9 @@ Proof
   >> rw [] >> eq_tac >> rw []
 QED
 
-Theorem mw_neg_b2mw:
+Theorem mw_bits_of_int_b2mw:
   ∀n. n ≠ 0 ⇒
-      mw_neg (b2mw (bits_of_num n)) =
+      mw_bits_of_int (b2mw (bits_of_num n)) =
       MAP $¬ (b2mw' (LENGTH (b2mw (bits_of_num n) : 'a word list))
                     (bits_of_num (Num (& n - 1)))) : 'a word list
 Proof
@@ -524,7 +533,7 @@ QED
 
 Theorem selftest_1:
   EVERY
-    (λn. mw_neg (b2mw (bits_of_num n)) =
+    (λn. mw_bits_of_int (b2mw (bits_of_num n)) =
          MAP $¬ (b2mw' (LENGTH (b2mw (bits_of_num n) : word3 list))
                        (bits_of_num (Num (& n - 1)))) : word3 list)
     (GENLIST (λn. n + 1) 10)
@@ -548,8 +557,8 @@ Proof
   >> Cases_on ‘bs’ >> gvs [oneline int_of_bits_def, bits_of_int_def]
   >> drule_then assume_tac bits_bitwise_rest >> gvs []
   >> rewrite_tac [n2mw_eq_b2mw]
-  >> simp [mw_neg_b2mw]
-  >> fs [mw_neg_b2mw] >> simp []
+  >> simp [mw_bits_of_int_b2mw]
+  >> fs [mw_bits_of_int_b2mw] >> simp []
   >> cheat
 QED
 
@@ -579,7 +588,7 @@ Proof
   >> Cases_on ‘bs’ >> gvs [oneline int_of_bits_def, bits_of_int_def]
   >> drule_then assume_tac bits_bitwise_rest >> gvs []
   >> rewrite_tac [n2mw_eq_b2mw]
-  >> simp [mw_neg_b2mw,int_not_def,integerTheory.int_calculate]
+  >> simp [mw_bits_of_int_b2mw,int_not_def,integerTheory.int_calculate]
   >> cheat
 QED
 
