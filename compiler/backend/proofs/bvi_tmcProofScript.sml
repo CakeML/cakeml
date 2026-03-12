@@ -179,6 +179,14 @@ Proof
   cheat
 QED
 
+Theorem env_rel_append:
+  env_rel F f'' env env2 ∧
+  LIST_REL (v_rel f'') x y ⇒
+  env_rel F f'' (x ++ env) (y ++ env2)
+Proof
+  cheat
+QED
+
 Theorem evaluate_rewrite_tmc:
    ∀xs env1 ^s r t opt f s' env2.
      evaluate (xs, env1, s) = (r, t) ∧
@@ -281,8 +289,15 @@ Proof
         >> simp []
         >> drule_all env_rel_submap
         >> strip_tac
-        >> disch_then $ qspec_then ‘f''’ mp_tac
-        >> cheat)
+        >> strip_tac
+        >> drule_all env_rel_append
+        >> strip_tac
+        >> first_x_assum drule_all
+        >> strip_tac
+        >> gvs []
+        >> qexists ‘f'³'’ (* Rename me *)
+        >> rw []
+        >> imp_res_tac SUBMAP_TRANS)
     >> cheat)
   >~ [‘Raise x1’] >-
    (gvs [evaluate_def] >> cheat)
