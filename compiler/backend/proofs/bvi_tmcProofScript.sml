@@ -170,10 +170,11 @@ Proof
 QED
 
 Theorem state_rel_dec:
-  state_rel f s s' ∧
-  s.clock ≠ 0 ∧
-  s'.clock ≠ 0 ⇒
-  state_rel f (dec_clock 1 s) (dec_clock 1 s')
+  ∀n.
+    state_rel f s s' ∧
+    s.clock = SUC n ∧
+    s'.clock = SUC n ⇒
+    state_rel f (dec_clock 1 s) (dec_clock 1 s')
 Proof
   cheat
 QED
@@ -281,7 +282,24 @@ Proof
     >> gvs [CaseEq "prod", PULL_EXISTS]
     >> Cases_on ‘opt’
     >> gvs []
-    >- cheat
+    >- (first_x_assum $ qspec_then ‘T’ mp_tac
+        >> simp []
+        >> disch_then drule
+        >> drule_all state_rel_dec
+        >> gvs []
+        >> strip_tac
+        >> disch_then drule
+        >> strip_tac
+        >> gvs []
+                
+        >> qexists ‘f''’
+        >> strip_tac
+        >> gvs []
+        >> rpt gen_tac
+        >> strip_tac
+        >> gvs []
+        >> cheat
+        )
     >> first_x_assum $ qspec_then ‘F’ mp_tac
     >> simp []
     >> disch_then drule
