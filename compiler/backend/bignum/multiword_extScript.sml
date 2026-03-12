@@ -350,7 +350,7 @@ Proof
   >> simp [num_of_bits_TAKE_dimindex_lt]
   >> Cases_on ‘LENGTH xs ≤ dimindex (:α)’
   >- simp [Req0 DROP_LENGTH_TOO_LONG, num_of_bits_def]
-  >> simp [Req0 TAKE_LENGTH_TOO_LONG, GSYM dimword_def]
+  >> simp [GSYM dimword_def]
 QED
 
 Theorem mw_and_b2mw:
