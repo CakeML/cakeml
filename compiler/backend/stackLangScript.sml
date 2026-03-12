@@ -34,7 +34,6 @@ Datatype:
               (* handler: exception-handler code, labels l1,l2*)
        | Seq stackLang$prog stackLang$prog
        | If cmp num ('a reg_imm) stackLang$prog stackLang$prog
-       | While cmp num ('a reg_imm) stackLang$prog
        | Loop stackLang$prog
        | JumpLower num num num (* reg, reg, target name *)
        | Alloc num
