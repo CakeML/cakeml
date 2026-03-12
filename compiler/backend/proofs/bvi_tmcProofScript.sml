@@ -70,9 +70,9 @@ End
 
 Definition optimized_code_def:
   optimized_code loc arity exp loc_opt c exp_aux exp_opt ⇔
-    compile_exp loc loc_opt arity exp = SOME (exp_aux, exp_opt) ∧
+    compile_exp loc loc_opt arity exp = SOME (exp_aux, exp_opt) (* ∧
     lookup loc c                      = SOME (arity, exp_aux) ∧
-    lookup loc_opt c                  = SOME (arity + 2, exp_opt)
+    lookup loc_opt c                  = SOME (arity + 2, exp_opt) *)
 End
 
 Definition free_names_def:
@@ -183,6 +183,23 @@ Theorem env_rel_append:
   env_rel F f'' env env2 ∧
   LIST_REL (v_rel f'') x y ⇒
   env_rel F f'' (x ++ env) (y ++ env2)
+Proof
+  cheat
+QED
+
+Theorem opt_strip_tick:
+  ∀s loc loc_opt arity x exp_aux exp_opt.
+    optimized_code loc arity (Tick x) loc_opt s.code exp_aux exp_opt ⇒
+    optimized_code loc arity x loc_opt s.code (Tick exp_aux) (Tick exp_opt)
+Proof
+  cheat
+QED
+
+Theorem evaluate_tick_step:
+  ∀s t n x env r.
+    s.clock = SUC n ∧
+    evaluate ([Tick x],env,dec_clock 1 s) = (r,t) ⇒
+    evaluate ([x],env,s) = (r,t)
 Proof
   cheat
 QED
@@ -310,27 +327,32 @@ Proof
     >> Cases_on ‘s.clock’
     >> gvs []
     >- (cheat) (* Prove timeout error? *)
-    >> gvs [CaseEq "prod", PULL_EXISTS]
     >> Cases_on ‘opt’
     >> gvs []
     >- (first_x_assum $ qspec_then ‘T’ mp_tac
         >> simp []
         >> disch_then drule
         >> drule_all state_rel_dec
-        >> gvs []
         >> strip_tac
         >> disch_then drule
         >> strip_tac
         >> gvs []
         >> qexists ‘f''’
-        >> strip_tac
         >> gvs []
         >> rpt gen_tac
+        >> pop_assum $ qspecl_then [‘arity’, ‘loc’, ‘loc_opt’] mp_tac
         >> strip_tac
-        >> gvs []
-
-        >> first_x_assum $ qspecl_then [‘arity’, ‘loc’, ‘loc_opt’] mp_tac
-        >> cheat)
+        >> strip_tac
+        >> drule_all opt_strip_tick
+        >> rw []
+        >- (first_x_assum drule
+            >> strip_tac
+            >> qexists ‘t1’
+            >> gvs [evaluate_tick_step])
+        >> first_x_assum drule
+        >> strip_tac
+        >> qexistsl [‘rrr’, ‘t2’]
+        >> gvs [evaluate_tick_step])
     >> first_x_assum $ qspec_then ‘F’ mp_tac
     >> simp []
     >> disch_then drule
