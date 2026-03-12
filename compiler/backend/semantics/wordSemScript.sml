@@ -1090,7 +1090,6 @@ Definition evaluate_def:
            | SOME F => (NONE, s)
            | SOME T =>
               let (res,s) = fix_clock s (evaluate (c,s)) in
-                if res = NONE then (NONE, s) else
                 if res = SOME Break then (NONE, s) else
                 if res ≠ SOME Continue then (res, s) else
                 if s.clock = 0 then (SOME TimeOut,flush_state T s) else
