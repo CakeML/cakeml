@@ -23,6 +23,21 @@ Proof
   >> simp [Excl "ODD_MOD_2"] >> simp []
 QED
 
+Theorem MAP2_SYM:
+  ∀xs ys. (∀x y. R x y = R y x) ⇒ MAP2 R xs ys = MAP2 R ys xs
+Proof
+  Induct >> simp [] >> Cases_on ‘ys’ >>
+  rewrite_tac [MAP2_DEF] >> metis_tac []
+QED
+
+Theorem MAP2_MAP:
+  ∀xs ys.
+    MAP2 f (MAP g xs) ys = MAP2 (λx y. f (g x) y) xs ys ∧
+    MAP2 f xs (MAP h ys) = MAP2 (λx y. f x (h y)) xs ys
+Proof
+  Induct >> Cases_on ‘ys’ >> gvs []
+QED
+
 (** Helper lemmas for int_bitwise *********************************************)
 
 (* TODO Decide which of these should live in int_bitwise and move them. *)
@@ -367,21 +382,6 @@ Theorem num_of_bits_leading_F:
   num_of_bits (xs ++ REPLICATE k F) = num_of_bits xs
 Proof
   cheat
-QED
-
-Theorem MAP2_SYM:
-  ∀xs ys. (∀x y. R x y = R y x) ⇒ MAP2 R xs ys = MAP2 R ys xs
-Proof
-  Induct >> simp [] >> Cases_on ‘ys’ >>
-  rewrite_tac [MAP2_DEF] >> metis_tac []
-QED
-
-Theorem MAP2_MAP:
-  ∀xs ys.
-    MAP2 f (MAP g xs) ys = MAP2 (λx y. f (g x) y) xs ys ∧
-    MAP2 f xs (MAP h ys) = MAP2 (λx y. f x (h y)) xs ys
-Proof
-  Induct \\ Cases_on ‘ys’ \\ gvs []
 QED
 
 Theorem mwi_and_pos:
