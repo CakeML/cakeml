@@ -40,6 +40,8 @@ Datatype:
        | StoreConsts num num (num option) (* reg, reg, stub name to call *)
        | Raise num
        | Return num
+       | Break
+       | Continue
        | FFI mlstring num num num num num (* FFI index, conf_ptr, conf_len,
                                              array_ptr, array_len, ret_addr *)
        | Tick
