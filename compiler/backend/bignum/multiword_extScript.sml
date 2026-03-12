@@ -3,6 +3,8 @@
 *)
 Theory multiword_ext
 Ancestors
+  arithmetic (* CEILING_DIV_def *)
+  divides  (* SUB_DIV, DIV_POS *)
   bit
   integer
   int_bitwise
@@ -12,7 +14,9 @@ Libs
 
 (** General helper lemmas *****************************************************)
 
-(* TODO Move somewhere reasonable *)
+(* TODO Decide which theorems should be moved, and which should stay here as
+   local. *)
+
 Theorem ODD_MOD_2_EXP:
   0 ≠ m ⇒ ODD (x MOD (2 ** m)) = ODD x
 Proof
@@ -21,6 +25,35 @@ Proof
   >> irule_at (Pos hd) $ GSYM ODD_MOD_2
   >> qspecl_then [‘2 ** m’, ‘2’] mp_tac MOD_MULT_MOD
   >> simp [Excl "ODD_MOD_2"] >> simp []
+QED
+
+Theorem ZERO_CEILING_DIV[simp]:
+  0 \\ k = 0
+Proof
+  Cases_on ‘k = 0’ >> simp [CEILING_DIV_def, LESS_DIV_EQ_ZERO]
+QED
+
+Theorem CEILING_DIV_ZERO[simp]:
+  k \\ 0 = 0
+Proof
+  simp [CEILING_DIV_def]
+QED
+
+Theorem CEILING_DIV_POS:
+  0 < x ∧ 0 < y ⇒ 0 < x \\ y
+Proof
+  simp [CEILING_DIV_def, DIV_POS]
+QED
+
+Theorem SUB_CEILING_DIV:
+  (x - y) \\ y = (x \\ y) - 1
+Proof
+  Cases_on ‘y = 0’
+  >> simp [CEILING_DIV]
+  >> Cases_on ‘x < y’
+  >- (‘x - y = 0’ by (simp[]) >> simp [LESS_DIV_EQ_ZERO])
+  >> simp [SUB_DIV, SUB_MOD]
+  >> ‘0 < x DIV y’ by (simp [DIV_POS]) >> simp []
 QED
 
 Theorem MAP2_SYM:
@@ -36,6 +69,18 @@ Theorem MAP2_MAP:
     MAP2 f xs (MAP h ys) = MAP2 (λx y. f x (h y)) xs ys
 Proof
   Induct >> Cases_on ‘ys’ >> gvs []
+QED
+
+Theorem MAP2_DROP:
+  ∀xs ys n. MAP2 f (DROP n xs) (DROP n ys) = DROP n (MAP2 f xs ys)
+Proof
+  Induct >> Cases_on ‘ys’ >> Cases_on ‘n’ >> simp []
+QED
+
+Theorem MAP2_EQ_NIL:
+  MAP2 f xs ys = [] ⇔ (xs = []) ∨ (ys = [])
+Proof
+  Cases_on ‘xs’ >> Cases_on ‘ys’ >> fs [MAP2_DEF]
 QED
 
 (** Helper lemmas for int_bitwise *********************************************)
@@ -353,12 +398,41 @@ Proof
   >> simp [GSYM dimword_def]
 QED
 
+
+Theorem num_of_bits_TAKE_and:
+  n2w (num_of_bits (TAKE n xs)) && n2w (num_of_bits (TAKE n ys)) =
+  n2w (num_of_bits (TAKE n (MAP2 $/\ xs ys)))
+Proof
+  cheat
+QED
+
+Theorem LENGTH_b2mw:
+  ∀xs. LENGTH (b2mw xs : α word list) = LENGTH xs \\ dimindex (:α)
+Proof
+  recInduct b2mw_ind >> rw []
+  >> Cases_on ‘xs = []’ >> simp [Once b2mw_def]
+  >> simp [SUB_CEILING_DIV, ADD1]
+  >> ‘0 < LENGTH xs \\ dimindex (:α)’ by
+    (irule CEILING_DIV_POS >> simp [LENGTH_NON_NIL])
+  >> simp []
+QED
+
 Theorem mw_and_b2mw:
   ∀xs ys.
     LENGTH (b2mw xs : 'a word list) ≤ LENGTH (b2mw ys : 'a word list) ⇒
     mw_and (b2mw xs) (b2mw ys) = b2mw (MAP2 $/\ xs ys) : 'a word list
 Proof
-  cheat
+  recInduct b2mw_ind >> rw []
+  >> once_rewrite_tac [b2mw_def]
+  >> IF_CASES_TAC >- simp [mw_and_def]
+  >> IF_CASES_TAC >- simp [mw_and_def]
+  >> IF_CASES_TAC >- (gvs [mw_and_def, MAP2_EQ_NIL])
+  >> gvs []
+  >> simp [mw_and_def]
+  >> conj_tac >- simp [num_of_bits_TAKE_and]
+  >> first_assum $ qspec_then ‘DROP (dimindex (:α)) ys’ mp_tac
+  >> impl_tac >- gvs [LENGTH_b2mw, SUB_CEILING_DIV]
+  >> rw [MAP2_DROP]
 QED
 
 Theorem mw_and_keep_b2mw:
