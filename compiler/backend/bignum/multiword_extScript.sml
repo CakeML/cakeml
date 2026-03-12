@@ -77,6 +77,12 @@ Proof
   Induct >> Cases_on ‘ys’ >> Cases_on ‘n’ >> simp []
 QED
 
+Theorem MAP2_TAKE:
+  ∀xs ys n. MAP2 f (TAKE n xs) (TAKE n ys) = TAKE n (MAP2 f xs ys)
+Proof
+  Induct >> Cases_on ‘ys’ >> Cases_on ‘n’ >> simp []
+QED
+
 Theorem MAP2_EQ_NIL:
   MAP2 f xs ys = [] ⇔ (xs = []) ∨ (ys = [])
 Proof
@@ -171,6 +177,14 @@ Theorem num_of_bits_append:
     2 ** LENGTH xs * num_of_bits ys + num_of_bits xs
 Proof
   recInduct num_of_bits_ind >> simp [num_of_bits_def, ADD1, EXP_ADD]
+QED
+
+Theorem num_of_bits_cons:
+  num_of_bits (b::ys) = 2 * num_of_bits ys + num_of_bits [b]
+Proof
+  once_rewrite_tac [CONS_APPEND]
+  >> rewrite_tac [num_of_bits_append]
+  >> simp [num_of_bits_def]
 QED
 
 Theorem num_of_bits_lt:
@@ -398,12 +412,32 @@ Proof
   >> simp [GSYM dimword_def]
 QED
 
+Theorem num_of_bits_and:
+  ∀xs ys.
+    n2w (num_of_bits xs) && n2w (num_of_bits ys) =
+    n2w (num_of_bits (MAP2 $/\ xs ys))
+Proof
+  Induct_on ‘xs’ >> simp [num_of_bits_def]
+  >> Cases_on ‘ys’ >> simp [num_of_bits_def]
+  >> strip_tac
+  >> once_rewrite_tac [num_of_bits_cons]
+  >> cheat
+QED
 
 Theorem num_of_bits_TAKE_and:
-  n2w (num_of_bits (TAKE n xs)) && n2w (num_of_bits (TAKE n ys)) =
-  n2w (num_of_bits (TAKE n (MAP2 $/\ xs ys)))
+  ∀xs ys n.
+    n2w (num_of_bits (TAKE n xs)) && n2w (num_of_bits (TAKE n ys)) =
+    n2w (num_of_bits (TAKE n (MAP2 $/\ xs ys)))
 Proof
-  cheat
+  Induct >> simp [num_of_bits_def]
+  >> Cases_on ‘ys’ >> simp [num_of_bits_def]
+  >> Cases_on ‘n’ >> simp []
+  >> rpt strip_tac
+  >> once_rewrite_tac [num_of_bits_and]
+  >> rpt AP_TERM_TAC >> simp []
+  >> simp [GSYM MAP2_TAKE]
+  >> irule_at (Pos last) MAP2_SYM
+  >> simp [CONJ_SYM]
 QED
 
 Theorem LENGTH_b2mw:
