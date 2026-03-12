@@ -1091,7 +1091,7 @@ Definition evaluate_def:
            | SOME T =>
               let (res,s) = fix_clock s (evaluate (c,s)) in
                 if res = SOME Break then (NONE, s) else
-                if res ≠ SOME Continue then (res, s) else
+                if res ≠ SOME Continue ∧ res ≠ NONE then (res, s) else
                 if s.clock = 0 then (SOME TimeOut,flush_state T s) else
                   evaluate (STOP $ While names cmp r1 ri c,
                             dec_clock s))
