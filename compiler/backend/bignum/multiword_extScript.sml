@@ -285,6 +285,30 @@ Proof
   >> simp [dimword_def, LENGTH_TAKE_EQ]
 QED
 
+Theorem num_of_bits_TAKE_dimindex:
+  num_of_bits (TAKE (dimindex (:α)) (bits_of_num n)) = n MOD dimword (:α)
+Proof
+  simp [num_of_bits_TAKE, dimword_def]
+QED
+
+Theorem b2mw_DROP:
+  ∀n m. b2mw (DROP m (bits_of_num n)) = b2mw (bits_of_num (n DIV (2 ** m)))
+Proof
+  recInduct bits_of_num_ind >> rw []
+  >> Cases_on ‘n = 0’ >> gvs []
+  >- (once_rewrite_tac [bits_of_num_def] >> simp [])
+  >> Cases_on ‘m’ >- simp []
+  >> simp [Once bits_of_num_def, SimpLHS]
+  >> simp [EXP, DIV_DIV_DIV_MULT]
+QED
+
+Theorem b2mw_DROP_dimindex:
+  b2mw (DROP (dimindex (:α)) (bits_of_num n)) =
+  b2mw (bits_of_num (n DIV (dimword (:α))))
+Proof
+  simp [b2mw_DROP, dimword_def]
+QED
+
 Theorem n2mw_eq_b2mw:
   ∀n. n2mw n = b2mw (bits_of_num n) : 'a word list
 Proof
@@ -293,8 +317,9 @@ Proof
   >- simp [Once b2mw_def, Once bits_of_num_def, Once n2mw_def]
   >> fs []
   >> simp [Once b2mw_def, bits_of_num_nil]
-  >> simp [Once n2mw_def, num_of_bits_TAKE_dimindex_lt]
-  >> cheat
+  >> simp [Once n2mw_def]
+  >> simp [num_of_bits_TAKE_dimindex_lt, num_of_bits_TAKE_dimindex,
+           b2mw_DROP_dimindex]
 QED
 
 Theorem mw2n_b2mw:
