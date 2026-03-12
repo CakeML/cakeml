@@ -49,10 +49,13 @@ Datatype:
               (* handler: varname, exception-handler code, labels l1,l2*)
        | Seq wordLang$prog wordLang$prog
        | If cmp num ('a reg_imm) wordLang$prog wordLang$prog
+       | While num_set cmp num ('a reg_imm) wordLang$prog
        | Alloc num cutsets
        | StoreConsts num num num num ((bool # 'a word) list)
        | Raise num
        | Return num (num list) (* return lab, return values *)
+       | Break
+       | Continue
        | Tick
        | OpCurrHeap binop num num (* special case compiled well in stackLang *)
        | LocValue num num        (* assign v1 := Loc v2 0 *)

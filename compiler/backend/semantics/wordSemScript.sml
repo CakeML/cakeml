@@ -240,6 +240,8 @@ val state_component_equality = theorem"state_component_equality";
 Datatype:
   result = Result ('w word_loc) (('w word_loc) list)
          | Exception ('w word_loc) ('w word_loc)
+         | Break
+         | Continue
          | TimeOut
          | NotEnoughSpace
          | FinalFFI final_event
@@ -988,6 +990,10 @@ Definition const_writes_def:
       ((a =+ Word (if b then x + off else x)) m)
 End
 
+Definition STOP_def:
+  STOP x = x
+End
+
 Definition evaluate_def:
   (evaluate (Skip:'a wordLang$prog,^s) = (NONE,s)) /\
   (evaluate (Alloc n names,s) =
@@ -1063,6 +1069,8 @@ Definition evaluate_def:
        (case jump_exc s of
         | NONE => (SOME Error,s)
         | SOME (s,l1,l2) => (SOME (Exception (Loc l1 l2) w)),s)) /\
+  (evaluate (Break,s) = (SOME Break,s)) /\
+  (evaluate (Continue,s) = (SOME Continue,s)) /\
   (evaluate (If cmp r1 ri c1 c2,s) =
     (case (get_var r1 s,get_var_imm ri s) of
     | SOME x,SOME y =>
@@ -1071,6 +1079,24 @@ Definition evaluate_def:
       | SOME F => evaluate (c2,s)
       | NONE => (SOME Error,s))
     | _ => (SOME Error,s))) /\
+  (evaluate (While names cmp r1 ri c,s) =
+     case cut_state (names,LN) s of
+     | NONE => (SOME Error,s)
+     | SOME s =>
+        case (get_var r1 s, get_var_imm ri s) of
+        | (SOME x, SOME y) =>
+          (case word_cmp cmp x y of
+           | NONE   => (SOME Error,s)
+           | SOME F => (NONE, s)
+           | SOME T =>
+              let (res,s) = fix_clock s (evaluate (c,s)) in
+                if res = NONE then (NONE, s) else
+                if res = SOME Break then (NONE, s) else
+                if res ≠ SOME Continue then (res, s) else
+                if s.clock = 0 then (SOME TimeOut,flush_state T s) else
+                  evaluate (STOP $ While names cmp r1 ri c,
+                            dec_clock s))
+        | _ => (SOME Error,s)) /\
   (evaluate (LocValue r l1,s) =
      if l1 ∈ domain s.code then
        (NONE,set_var r (Loc l1 0) s)
@@ -1205,12 +1231,14 @@ Termination
   WF_REL_TAC `(inv_image (measure I LEX measure I LEX measure (prog_size (K 0)))
                (\(xs,^s). (s.termdep,s.clock,xs)))`
   \\ REPEAT STRIP_TAC \\ TRY (full_simp_tac(srw_ss())[] \\ DECIDE_TAC)
-  \\ full_simp_tac(srw_ss())[termdep_rw] \\ imp_res_tac fix_clock_IMP_LESS_EQ \\ full_simp_tac(srw_ss())[]
+  \\ full_simp_tac(srw_ss())[termdep_rw,STOP_def]
+  \\ imp_res_tac fix_clock_IMP_LESS_EQ \\ full_simp_tac(srw_ss())[]
   \\ imp_res_tac (GSYM fix_clock_IMP_LESS_EQ)
   \\ TRY (Cases_on `handler`) \\ TRY (PairCases_on `x`)
   \\ full_simp_tac(srw_ss())[set_var_def,set_vars_def,push_env_def,call_env_def,dec_clock_def,LET_THM]
   \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
   \\ full_simp_tac(srw_ss())[pop_env_def] \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
+  \\ gvs [cut_state_def,CaseEq"option"]
   \\ decide_tac
 End
 
@@ -1305,6 +1333,7 @@ Proof
   \\ TRY (PairCases_on `x''`)
   \\ full_simp_tac(srw_ss())[push_env_def,LET_THM]
   \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
+  \\ gvs [cut_state_def,CaseEq"option"]
   \\ decide_tac
 QED
 
