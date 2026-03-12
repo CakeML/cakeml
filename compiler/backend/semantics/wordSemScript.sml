@@ -1187,7 +1187,10 @@ Definition evaluate_def:
                    if s.clock = 0 then (SOME TimeOut,flush_state T s)
                    else (case evaluate (prog, call_env args1 ss (dec_clock s)) of
                          | (NONE,s) => (SOME Error,s)
-                         | (SOME res,s) => (SOME res,s))
+                         | (SOME res,s) =>
+                             if res = Break then (SOME Error,s) else
+                             if res = Continue then (SOME Error,s) else
+                              (SOME res,s))
                  else (SOME Error,s)
              | SOME (n,names,ret_handler,l1,l2) (* returning call, returns into var n *) =>
                  if domain (FST names) = {} ∨ ¬ALL_DISTINCT n then (SOME Error,s)
@@ -1225,6 +1228,8 @@ Definition evaluate_def:
                                        then evaluate (h, set_var n y s2)
                                        else (SOME Error,s2)))
                            | (NONE,s) => (SOME Error,s)
+                           | (SOME Break,s) => (SOME Error,s)
+                           | (SOME Continue,s) => (SOME Error,s)
                            | res => res)))
 Termination
   WF_REL_TAC `(inv_image (measure I LEX measure I LEX measure (prog_size (K 0)))
