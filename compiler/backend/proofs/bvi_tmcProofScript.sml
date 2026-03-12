@@ -45,7 +45,7 @@ Inductive ref_rel:
 End
 
 Definition env_rel_def:
-  env_rel opt f l env1 env2 <=>
+  env_rel opt f env1 env2 <=>
   ∃xs ys.
     env2 = xs ++ ys ∧
     LIST_REL (v_rel f) env1 xs ∧
@@ -147,7 +147,7 @@ Proof
 QED
 
 Theorem env_rel_submap:
-  env_rel opt f rel env1 env2 ∧ f SUBMAP f' ⇒ env_rel opt f' rel env1 env2
+  env_rel opt f env1 env2 ∧ f SUBMAP f' ⇒ env_rel opt f' env1 env2
 Proof
   strip_tac
   >> gvs [env_rel_def]
@@ -180,9 +180,9 @@ Proof
 QED
 
 Theorem evaluate_rewrite_tmc:
-   ∀xs env1 ^s r t opt f l s' env2.
+   ∀xs env1 ^s r t opt f s' env2.
      evaluate (xs, env1, s) = (r, t) ∧
-     env_rel opt f l env1 env2 ∧
+     env_rel opt f env1 env2 ∧
      state_rel f s s' ∧
      (opt ⇒ LENGTH xs = 1) ∧
      r ≠ Rerr (Rabort Rtype_error) ⇒
@@ -262,11 +262,27 @@ Proof
   >~ [‘If x1 x2 x3’] >-
    (gvs [evaluate_def] >> cheat)
   >~ [‘Let xs x2’] >-
-   (simp [evaluate_def]
-    >> CASE_TAC
-    >> Cases_on ‘q’ >-
-     (gvs []
-      >> cheat)
+   (gvs [evaluate_def]
+    >> gvs [CaseEq "prod", PULL_EXISTS]
+    >> Cases_on ‘opt’
+    >> gvs []
+    >- (cheat)
+    (* Non-opt *)
+    (* First inductive hypothesis *)
+    >> first_x_assum $ qspec_then ‘F’ mp_tac
+    >> gvs []
+    >> disch_then drule
+    >> disch_then drule
+    >> strip_tac
+    >> Cases_on ‘v2’
+    >> gvs []
+    (* Second inductive hypothesis *)
+    >- (first_x_assum $ qspec_then ‘F’ mp_tac
+        >> simp []
+        >> drule_all env_rel_submap
+        >> strip_tac
+        >> disch_then $ qspec_then ‘f''’ mp_tac
+        >> cheat)
     >> cheat)
   >~ [‘Raise x1’] >-
    (gvs [evaluate_def] >> cheat)
@@ -291,20 +307,19 @@ Proof
         >> disch_then drule
         >> strip_tac
         >> gvs []
-                
         >> qexists ‘f''’
         >> strip_tac
         >> gvs []
         >> rpt gen_tac
         >> strip_tac
         >> gvs []
-        >> cheat
-        )
+
+        >> first_x_assum $ qspecl_then [‘arity’, ‘loc’, ‘loc_opt’, ‘exp_aux’, ‘exp_opt’] mp_tac
+        >> gvs []
+        >> cheat)
     >> first_x_assum $ qspec_then ‘F’ mp_tac
     >> simp []
     >> disch_then drule
-    >> ‘s.clock ≠ 0’ by gvs []
-    >> ‘s'.clock ≠ 0’ by gvs []
     >> drule_all state_rel_dec
     >> strip_tac
     >> disch_then drule
