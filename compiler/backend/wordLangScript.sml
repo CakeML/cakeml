@@ -49,7 +49,7 @@ Datatype:
               (* handler: varname, exception-handler code, labels l1,l2*)
        | Seq wordLang$prog wordLang$prog
        | If cmp num ('a reg_imm) wordLang$prog wordLang$prog
-       | While num_set cmp num ('a reg_imm) wordLang$prog
+       | Loop num_set wordLang$prog
        | Alloc num cutsets
        | StoreConsts num num num num ((bool # 'a word) list)
        | Raise num

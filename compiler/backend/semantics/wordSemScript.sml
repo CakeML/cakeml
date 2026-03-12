@@ -1079,23 +1079,15 @@ Definition evaluate_def:
       | SOME F => evaluate (c2,s)
       | NONE => (SOME Error,s))
     | _ => (SOME Error,s))) /\
-  (evaluate (While names cmp r1 ri c,s) =
+  (evaluate (Loop names c,s) =
      case cut_state (names,LN) s of
      | NONE => (SOME Error,s)
      | SOME s =>
-        case (get_var r1 s, get_var_imm ri s) of
-        | (SOME x, SOME y) =>
-          (case word_cmp cmp x y of
-           | NONE   => (SOME Error,s)
-           | SOME F => (NONE, s)
-           | SOME T =>
-              let (res,s) = fix_clock s (evaluate (c,s)) in
-                if res = SOME Break then (NONE, s) else
-                if res ≠ SOME Continue ∧ res ≠ NONE then (res, s) else
-                if s.clock = 0 then (SOME TimeOut,flush_state T s) else
-                  evaluate (STOP $ While names cmp r1 ri c,
-                            dec_clock s))
-        | _ => (SOME Error,s)) /\
+         let (res,s) = fix_clock s (evaluate (c, s)) in
+           if res = SOME Break then (NONE, s) else
+           if res ≠ SOME Continue ∧ res ≠ NONE then (res, s) else
+           if s.clock = 0 then (SOME TimeOut, flush_state T s) else
+             evaluate (STOP (Loop names c), dec_clock s)) /\
   (evaluate (LocValue r l1,s) =
      if l1 ∈ domain s.code then
        (NONE,set_var r (Loc l1 0) s)
