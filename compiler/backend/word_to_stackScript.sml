@@ -401,6 +401,8 @@ Definition comp_def:
      let (xs,src_r) = wReg1 src kf in
        (wStackLoad xs (wRegWrite1 (\dst_r. OpCurrHeap b dst_r src_r) dst kf),bs)) /\
   (comp conf (Tick) bs kf = (Tick,bs)) /\
+  (comp conf Break bs kf = (Break,bs)) /\
+  (comp conf Continue bs kf = (Continue,bs)) /\
   (comp conf (MustTerminate p1) gs kf = comp conf p1 gs kf) /\
   (comp conf (Seq p1 p2) bs kf =
      let (q1,bs) = comp conf p1 bs kf in
@@ -422,6 +424,9 @@ Definition comp_def:
           (Seq
             (const_inst r i)
             (wStackLoad x1 (If cmp r' (Reg r) q1 q2)),bs)) /\
+  (comp conf (Loop _ p1) bs kf =
+     let (q1,bs) = comp conf p1 bs kf in
+       (Loop q1,bs)) /\
   (comp conf (Set name exp) bs kf =
     if name = BitmapBase then (Skip,bs) (*Impossible*)
     else
@@ -537,4 +542,3 @@ Definition stub_names_def:
     (raise_stub_location,        mlstring$strlit "_Raise");
     (store_consts_stub_location, mlstring$strlit "_StoreConsts")]
 End
-
