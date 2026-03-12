@@ -229,7 +229,7 @@ Proof
   >> simp [SNOC_APPEND, mw2n_APPEND, Once mw_fix_def, mw2n_def]
 QED
 
-(* TODO Split into mw_ok_nil[simp] and mw_ok_cons (not local).
+(* TODO Split into mw_ok_nil[local,simp] and mw_ok_cons (not local).
    Replace mw_ok_CLAUSES with mw_ok_cons in multiwordScript.sml *)
 Theorem mw_ok_CLAUSES[local]:
   mw_ok [] ∧ (mw_ok (x::xs) ⇔ (xs = [] ⇒ x ≠ 0w) ∧ mw_ok xs)
@@ -421,16 +421,26 @@ Proof
   >> simp [GSYM dimword_def]
 QED
 
+Theorem BIT_num_of_bits:
+  ∀xs i. BIT i (num_of_bits xs) ⇔ if i < LENGTH xs then xs❲i❳ else F
+Proof
+  recInduct num_of_bits_ind >> rw [num_of_bits_def]
+  >> Cases_on ‘i’ >> simp [BIT_TIMES2, BIT_TIMES2_1]
+  >> simp [ADD1]
+  >> eq_tac >> simp []
+QED
+
 Theorem num_of_bits_and:
   ∀xs ys.
     n2w (num_of_bits xs) && n2w (num_of_bits ys) =
     n2w (num_of_bits (MAP2 $/\ xs ys))
 Proof
-  Induct_on ‘xs’ >> simp [num_of_bits_def]
-  >> Cases_on ‘ys’ >> simp [num_of_bits_def]
-  >> strip_tac
-  >> once_rewrite_tac [num_of_bits_cons]
-  >> cheat
+  simp [fcpTheory.CART_EQ]
+  >> simp [word_and_def, fcpTheory.FCP_BETA, n2w_def]
+  >> simp [BIT_num_of_bits] >> rw []
+  >> Cases_on ‘i < LENGTH xs’ >> fs []
+  >> Cases_on ‘i < LENGTH ys’ >> fs []
+  >> simp [EL_MAP2]
 QED
 
 Theorem num_of_bits_TAKE_and:
