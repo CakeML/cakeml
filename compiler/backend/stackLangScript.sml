@@ -65,6 +65,8 @@ Datatype:
        | Halt num
 End
 
+Overload While = “λcmp r ri c. Loop (If cmp r ri c Break)”
+
 Overload move = “λdest src. Inst (Arith (Binop Or dest src (Reg src)))”
 Overload sub_1_inst = “λr1. Inst (Arith (Binop Sub r1 r1 (Imm 1w)))”
 Overload sub_inst = “λr1 r2. Inst (Arith (Binop Sub r1 r1 (Reg r2)))”
