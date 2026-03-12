@@ -329,8 +329,7 @@ Proof
         >> strip_tac
         >> gvs []
 
-        >> first_x_assum $ qspecl_then [‘arity’, ‘loc’, ‘loc_opt’, ‘exp_aux’, ‘exp_opt’] mp_tac
-        >> gvs []
+        >> first_x_assum $ qspecl_then [‘arity’, ‘loc’, ‘loc_opt’] mp_tac
         >> cheat)
     >> first_x_assum $ qspec_then ‘F’ mp_tac
     >> simp []
@@ -345,6 +344,14 @@ Proof
    (gvs [evaluate_def] >> cheat)
 QED
 
+Definition ref_ptrs_def:
+  (ref_ptrs [] = ∅) ∧
+  (ref_ptrs (Number _::t) = ref_ptrs t) ∧
+  (ref_ptrs (Word64 _::t) = ref_ptrs t) ∧
+  (ref_ptrs (Block _ xs::t) = ref_ptrs xs ∪ ref_ptrs t) ∧
+  (ref_ptrs (RefPtr _ n::t) = {n} ∪ ref_ptrs t)
+End
+
 Theorem evaluate_compile_prog:
    input_condition next prog ∧
    (∀n next cfg prog. co n = ((next,cfg),prog) ⇒ input_condition next prog) ∧
@@ -353,35 +360,33 @@ Theorem evaluate_compile_prog:
              initial_state ffi0 (fromAList prog) co
                  (state_cc compile_prog cc) k) = (r, s) ∧
    r ≠ Rerr (Rabort Rtype_error) ⇒
-   ∃s2.
+   ∃f s2.
      evaluate
       ([Call 0 (SOME start) [] NONE], [],
         initial_state ffi0 (fromAList (SND (compile_prog next prog)))
             (state_co compile_prog co) cc k)
       = (r, s2) ∧
-     state_rel s s2
+     state_rel f s s2
 Proof
   rw []
   >> qmatch_asmsub_abbrev_tac `(es,env,st1)`
-  >> `env_rel F 0 env env` by fs [env_rel_def]
+  (*  >> `env_rel F 0 env env` by fs [env_rel_def] *)
+  >> ‘∃f. env_rel F f env env’ by cheat
   >> Cases_on `compile_prog next prog`
   >> fs []
   >> drule (GEN_ALL compile_prog_code_rel)
   >> strip_tac
   >> qmatch_goalsub_abbrev_tac`(es,env,st2)`
   (* >> `state_rel st1 st2` by cheat *)
-  >> sg `state_rel st1 st2` >-
-   (simp[state_rel_def,Abbr`st1`,Abbr`st2`,domain_fromAList]
-    >> rfs[input_condition_def]
-    >> reverse conj_tac >-
-     (rw []
-      >> last_x_assum(qspec_then`n`mp_tac)
-      >> cheat)
-    >> cheat)
+  >> ‘state_rel f st1 st2’ by cheat
   >> drule evaluate_rewrite_tmc
   >> disch_then (qspec_then `F` drule)
   >> rpt (disch_then drule)
   >> fs []
+  >> strip_tac
+  >> gvs []
+  >> qexists ‘f'’
+  >> cheat
 QED
 
 Theorem compile_prog_semantics:
