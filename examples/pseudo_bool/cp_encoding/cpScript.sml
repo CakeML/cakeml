@@ -345,17 +345,17 @@ Proof
 QED
 
 Definition lin_sem_def:
-  lin_sem Zr cmp Xs Y w ⇔
+  lin_sem Zr cmp cXs Y w ⇔
   reify_sem Zr w
   (cmpop_val cmp
-    (eval_iclin_term w Xs)
+    (eval_iclin_term w cXs)
     (varc w Y))
 End
 
 Definition linear_constr_sem_def:
   linear_constr_sem c w ⇔
-  case c of Lin Zr cmp Xs Y =>
-    lin_sem Zr cmp Xs Y w
+  case c of Lin Zr cmp cXs Y =>
+    lin_sem Zr cmp cXs Y w
 End
 
 (***
