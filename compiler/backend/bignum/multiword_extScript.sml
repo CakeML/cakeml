@@ -3,17 +3,31 @@
 *)
 Theory multiword_ext
 Ancestors
+  bit
   integer
   int_bitwise
   multiword
 Libs
   preamble wordsLib
 
+(** General helper lemmas *****************************************************)
+
+(* TODO Move somewhere reasonable *)
+Theorem ODD_MOD_2_EXP:
+  0 ≠ m ⇒ ODD (x MOD (2 ** m)) = ODD x
+Proof
+  Induct_on ‘m’ >> simp [EXP]
+  >> irule EQ_TRANS
+  >> irule_at (Pos hd) $ GSYM ODD_MOD_2
+  >> qspecl_then [‘2 ** m’, ‘2’] mp_tac MOD_MULT_MOD
+  >> simp [Excl "ODD_MOD_2"] >> simp []
+QED
+
 (** Helper lemmas for int_bitwise *********************************************)
 
 (* TODO Decide which of these should live in int_bitwise and move them. *)
 
-Theorem int_of_bits_sign[local]:
+Theorem int_of_bits_sign:
   int_of_bits bs < 0 ⇔ SND bs
 Proof
   namedCases_on ‘bs’ ["xs r"] >> Cases_on ‘r’
@@ -21,7 +35,7 @@ Proof
   >> intLib.COOPER_TAC
 QED
 
-Theorem bits_bitwise_rest[local]:
+Theorem bits_bitwise_rest:
   ∀f xs s ys t zs z. bits_bitwise f (xs, s) (ys, t) = (zs, z) ⇒ z = f s t
 Proof
   recInduct bits_bitwise_ind >> rw [bits_bitwise_def]
@@ -36,14 +50,14 @@ Proof
   >> drule bits_bitwise_rest >> simp []
 QED
 
-(* TODO Copied from HOL - Remove HOL version (too specific) *)
+(* TODO Remove bits_bitwise_NIL - superseded by bits_bitwise_empty_{left,right} *)
+
 Theorem bits_bitwise_empty_left[simp]:
   ∀xs rest f. bits_bitwise f ([],b) (xs,rest) = (MAP (f b) xs,f b rest)
 Proof
   Induct >> fs [bits_bitwise_def]
 QED
 
-(* TODO Copied from HOL - Remove HOL version (too specific) *)
 Theorem bits_bitwise_empty_right[simp]:
   ∀xs rest f. bits_bitwise f (xs,rest) ([],b) = (MAP (λx. f x b) xs,f rest b)
 Proof
@@ -72,14 +86,25 @@ Proof
   simp [int_and_def, int_bitwise_def, bits_bitwise_and]
 QED
 
-(* TODO Move to int_bitwise *)
 Theorem bits_of_num_nil:
   bits_of_num n = [] ⇔ n = 0
 Proof
   simp [Once bits_of_num_def] >> IF_CASES_TAC >> simp []
 QED
 
-(* TODO Move to int_bitwise *)
+Theorem num_of_bits_bits_of_num:
+  ∀n. num_of_bits (bits_of_num n) = n
+Proof
+  recInduct bits_of_num_ind >> rw []
+  >> Cases_on ‘n = 0’ >> gvs []
+  >- simp [Once bits_of_num_def, num_of_bits_def]
+  >> simp [Once bits_of_num_def]
+  >> Cases_on ‘ODD n’
+  >> simp [num_of_bits_def, DIV_MULT_THM2]
+  >- fs [ODD_MOD2_LEM]
+  >> fs [ODD_EVEN, EVEN_MOD2]
+QED
+
 Theorem num_of_bits_append:
   ∀xs ys.
     num_of_bits (xs ⧺ ys) =
@@ -88,11 +113,30 @@ Proof
   recInduct num_of_bits_ind >> simp [num_of_bits_def, ADD1, EXP_ADD]
 QED
 
-(* TODO Move to int_bitwise *)
 Theorem num_of_bits_lt:
   ∀xs. num_of_bits xs < 2 ** LENGTH xs
 Proof
   recInduct num_of_bits_ind >> rw [num_of_bits_def, EXP]
+QED
+
+Theorem num_of_bits_TAKE:
+  ∀n m. num_of_bits (TAKE m (bits_of_num n)) = n MOD (2 ** m)
+Proof
+  recInduct bits_of_num_ind >> rw []
+  >> Cases_on ‘n = 0’ >> gvs []
+  >- simp [Once bits_of_num_def, num_of_bits_def]
+  >> Cases_on ‘m’ >- simp [num_of_bits_def]
+  >> simp [Once bits_of_num_def]
+  >> Cases_on ‘ODD n’
+  >> simp [num_of_bits_def]
+  >> simp [DIV_MOD_MOD_DIV, GSYM EXP]
+  >> qmatch_goalsub_abbrev_tac ‘_ MOD m'’
+  >-
+   (‘ODD (n MOD m')’ by (unabbrev_all_tac >> simp [ODD_MOD_2_EXP])
+    >> ‘n MOD m' ≠ 0’ by (drule ODD_POS >> simp [])
+    >> fs [DIV_MULT_THM2, ODD_MOD2_LEM])
+  >> ‘EVEN (n MOD m')’ by (unabbrev_all_tac >> simp [EVEN_ODD, ODD_MOD_2_EXP])
+  >> fs [DIV_MULT_THM2, EVEN_MOD2]
 QED
 
 (** multiword extensions ******************************************************)
@@ -111,7 +155,6 @@ Proof
   >> simp [SNOC_APPEND, mw2n_APPEND, Once mw_fix_def, mw2n_def]
 QED
 
-(* From HOL (modernized) *)
 (* TODO Split into mw_ok_nil[simp] and mw_ok_cons (not local).
    Replace mw_ok_CLAUSES with mw_ok_cons in multiwordScript.sml *)
 Theorem mw_ok_CLAUSES[local]:
@@ -133,7 +176,7 @@ Proof
   >> drule DIV_MULT >> simp []
 QED
 
-(* From HOL (modernized) *)
+(* Replace version in HOL with this*)
 Theorem mw_ok_IMP_EXISTS_n2mw:
   ∀xs. mw_ok xs ⇒ ∃n. xs = n2mw n
 Proof
@@ -146,6 +189,7 @@ QED
 
 (* TODO Remove mw_fix_EQ_n2mw from HOL *)
 
+(* Replace version in HOL with this*)
 Theorem n2mw_mw2n:
   mw_fix xs = n2mw (mw2n xs)
 Proof
@@ -232,12 +276,6 @@ Definition b2mw'_def:
       n2w (num_of_bits (TAKE (dimindex (:'a)) xs)) ::
       b2mw' (k-1:num) (DROP (dimindex (:'a)) xs) : 'a word list
 End
-
-Theorem num_of_bits_TAKE:
-  ∀m. num_of_bits (TAKE m (bits_of_num n)) = n MOD (2 ** m)
-Proof
-  cheat
-QED
 
 Theorem num_of_bits_TAKE_dimindex_lt:
   num_of_bits (TAKE (dimindex (:α)) xs) < dimword (:α)
