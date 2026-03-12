@@ -35,6 +35,7 @@ Datatype:
        | Seq stackLang$prog stackLang$prog
        | If cmp num ('a reg_imm) stackLang$prog stackLang$prog
        | While cmp num ('a reg_imm) stackLang$prog
+       | Loop stackLang$prog
        | JumpLower num num num (* reg, reg, target name *)
        | Alloc num
        | StoreConsts num num (num option) (* reg, reg, stub name to call *)

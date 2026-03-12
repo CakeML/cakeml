@@ -820,6 +820,12 @@ Definition evaluate_def:
                evaluate (STOP (While cmp r1 ri c1),dec_clock s1)
       else (NONE,s)
     | _ => (SOME Error,s))) /\
+  (evaluate (Loop c1,s) =
+    (let (res,s1) = fix_clock s (evaluate (c1,s)) in
+       if res = SOME Break then (NONE,s1) else
+       if res <> NONE /\ res <> SOME Continue then (res,s1) else
+       if s1.clock = 0 then (SOME TimeOut, empty_env s1) else
+         evaluate (STOP (Loop c1), dec_clock s1))) /\
   (evaluate (JumpLower r1 r2 dest,s) =
     case (get_var r1 s, get_var r2 s) of
     | SOME (Word x),SOME (Word y) =>
