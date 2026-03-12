@@ -374,19 +374,18 @@ val tac = simp [list_Seq_def,evaluate_def,inst_def,word_exp_def,get_var_def,
        FLOOKUP_UPDATE,mem_store_def,dec_clock_def,get_var_imm_def,
        asmTheory.word_cmp_def,
        wordSemTheory.word_cmp_def,GREATER_EQ,GSYM NOT_LESS,FUPDATE_LIST,
-       wordLangTheory.word_sh_def,word_shift_not_0,FLOOKUP_UPDATE]
+       wordLangTheory.word_sh_def,word_shift_not_0,FLOOKUP_UPDATE];
 
 val tac1 = simp [Once list_Seq_def, evaluate_def,inst_def,word_exp_def,get_var_def,
        wordLangTheory.word_op_def,mem_load_def,assign_def,set_var_def,
        FLOOKUP_UPDATE,mem_store_def,dec_clock_def,get_var_imm_def,
        asmTheory.word_cmp_def,set_store_def,
        wordSemTheory.word_cmp_def,GREATER_EQ,GSYM NOT_LESS,FUPDATE_LIST,
-       wordLangTheory.word_sh_def,word_shift_not_0,FLOOKUP_UPDATE]
-
+       wordLangTheory.word_sh_def,word_shift_not_0,FLOOKUP_UPDATE];
 
 fun abbrev_under_exists tm tac =
   (fn state => (`?^(tm). ^(hd (fst (hd (fst (tac state)))))` by
-        (fs [markerTheory.Abbrev_def] \\ NO_TAC)) state)
+        (fs [markerTheory.Abbrev_def] \\ NO_TAC)) state);
 
 Theorem memcpy_code_thm[local]:
   !n a b m dm b1 m1 (s:('a,'c,'b)stackSem$state).
@@ -410,7 +409,7 @@ Proof
     \\ srw_tac[][]
     \\ full_simp_tac(srw_ss())[memcpy_code_def,
             evaluate_def,get_var_def,get_var_imm_def]
-    \\ full_simp_tac(srw_ss())[EVAL ``word_cmp NotEqual 0w 0w``]
+    \\ full_simp_tac(srw_ss())[EVAL ``word_cmp NotEqual 0w 0w``,LET_THM]
     \\ full_simp_tac(srw_ss())[state_component_equality]
     \\ full_simp_tac(srw_ss())[FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
            FUN_EQ_THM,FAPPLY_FUPDATE_THM]

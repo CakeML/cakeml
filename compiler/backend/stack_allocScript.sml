@@ -13,6 +13,8 @@ Libs
 
 val _ = patternMatchesSyntax.temp_enable_pmatch();
 
+Overload While = “λcmp r ri c. Loop (If cmp r ri c Break)”;
+
 Definition memcpy_code_def:
   memcpy_code =
     While NotEqual 0 (Imm 0w)
@@ -720,4 +722,3 @@ End
 Definition compile_def:
   compile c prog = stubs c ++ MAP prog_comp prog
 End
-
