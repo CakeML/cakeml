@@ -201,7 +201,7 @@ Theorem evaluate_rewrite_tmc:
        f SUBMAP f' ∧
        (opt ⇒
          ∀arity loc loc_opt exp_aux exp_opt.
-           lookup loc s.code = SOME (arity, HD xs) ∧
+           (* lookup loc s.code = SOME (arity, HD xs) ∧ *)
            optimized_code loc arity (HD xs) loc_opt s'.code exp_aux exp_opt ⇒
            (∃t1.
               evaluate ([exp_aux], env2, s') = (r',t1) ∧
