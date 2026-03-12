@@ -64,8 +64,7 @@ local val comp_quotation = `
     | Seq p1 p2 => Seq (comp f p1) (comp f p2)
     | If c r ri p1 p2 =>
         If c (find_name f r) (ri_find_name f ri) (comp f p1) (comp f p2)
-    | While c r ri p1 =>
-        While c (find_name f r) (ri_find_name f ri) (comp f p1)
+    | Loop p1 => Loop (comp f p1)
     | Call ret dest exc =>
         Call (case ret of
               | NONE => NONE

@@ -1174,9 +1174,8 @@ Definition stack_prog_to_display_def:
         [Tuple [asm_cmp_to_display c; num_to_display n; asm_reg_imm_to_display to];
          stack_prog_to_display k ns x;
          stack_prog_to_display k ns y] ∧
-   stack_prog_to_display (SUC k) ns (While c n to x) = Item NONE «while»
-        [Tuple [asm_cmp_to_display c; num_to_display n; asm_reg_imm_to_display to];
-         stack_prog_to_display k ns x] ∧
+   stack_prog_to_display (SUC k) ns (Loop x) = Item NONE «loop»
+        [stack_prog_to_display k ns x] ∧
    stack_prog_to_display (SUC k) ns (JumpLower n1 n2 n3) =
      item_with_nums «jump_lower» [n1; n2; n3] ∧
    stack_prog_to_display (SUC k) ns (Alloc n) = item_with_num «alloc» n ∧

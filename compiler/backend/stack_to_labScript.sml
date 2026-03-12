@@ -66,10 +66,12 @@ local val flatten_quotation = `
             (List [LabAsm (JumpCmp c r ri (Lab n m)) 0w [] 0] ++ ys ++
              List [LabAsm (Jump (Lab n (m+1))) 0w [] 0; Label n m 0] ++ xs ++
              List [Label n (m+1) 0],nr1 ∧ nr2,m+2)
+(*
     | While c r ri p1 =>
         let (xs,_,m) = flatten F p1 n m in
           (List [Label n m 0; LabAsm (JumpCmp (negate c) r ri (Lab n (m+1))) 0w [] 0] ++
            xs ++ List [LabAsm (Jump (Lab n m)) 0w [] 0; Label n (m+1) 0],F,m+2)
+*)
     | Raise r => (List [Asm (JumpReg r) [] 0],T,m)
     | Return r => (List [Asm (JumpReg r) [] 0],T,m)
     | RawCall n => (List [LabAsm (Jump (Lab n 1)) 0w [] 0],T,m)
@@ -153,4 +155,3 @@ Definition compile_no_stubs_def:
       (MAP (prog_comp jump offset sp)
         (MAP prog_comp prog)))
 End
-
