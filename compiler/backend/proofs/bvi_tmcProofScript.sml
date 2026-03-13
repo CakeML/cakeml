@@ -170,6 +170,14 @@ Proof
   >> fs []
 QED
 
+Theorem env_rel_append:
+  env_rel opt f env env2 ∧
+  LIST_REL (v_rel f) x y ⇒
+  env_rel opt f (x ++ env) (y ++ env2)
+Proof
+  cheat
+QED
+
 Theorem state_rel_dec:
   ∀n.
     state_rel f s s' ∧
@@ -180,10 +188,14 @@ Proof
   cheat
 QED
 
-Theorem env_rel_append:
-  env_rel F f'' env env2 ∧
-  LIST_REL (v_rel f'') x y ⇒
-  env_rel F f'' (x ++ env) (y ++ env2)
+Theorem opt_strip_let:
+  ∀s t r env loc loc_opt arity xs x exp_aux exp_opt.
+    evaluate(xs,env,s) = (r,t) ∧
+    optimized_code loc arity (Let xs x) loc_opt s.code exp_aux exp_opt ⇒
+    ∃exp_aux' exp_opt'.
+      exp_aux = Let xs exp_aux' ∧
+      exp_opt = Let xs exp_opt' ∧
+      optimized_code loc arity x loc_opt t.code exp_aux' exp_opt'
 Proof
   cheat
 QED
@@ -240,8 +252,8 @@ Proof
     >> simp []
     >> disch_then drule
     >> disch_then drule
-    >> impl_tac >-
-     (spose_not_then assume_tac >> fs [])
+    >> impl_tac
+    >- (spose_not_then assume_tac >> fs [])
     >> strip_tac >> fs []
     >> reverse $ Cases_on ‘r1’ >> gvs []
     >- (pop_assum $ irule_at Any >> fs [])
@@ -255,8 +267,8 @@ Proof
     >> strip_tac
     >> disch_then drule
     >> disch_then drule
-    >> impl_tac >-
-     (spose_not_then assume_tac >> fs [])
+    >> impl_tac
+    >- (spose_not_then assume_tac >> fs [])
     >> strip_tac >> fs []
     >> Cases_on ‘r2’ >> gvs []
     >- (rename [‘state_rel f3 s3 t3’]
@@ -286,11 +298,54 @@ Proof
   >~ [‘If x1 x2 x3’] >-
    (gvs [evaluate_def] >> cheat)
   >~ [‘Let xs x2’] >-
+     
    (gvs [evaluate_def]
     >> gvs [CaseEq "prod", PULL_EXISTS]
+    >> rename [‘evaluate (xs,env,s) = (rs,u)’]
     >> Cases_on ‘opt’
     >> gvs []
-    >- (cheat)
+    (* Opt *)
+    (* First inductive hypothesis *)
+    >- (first_x_assum $ qspec_then ‘T’ mp_tac
+        >> simp []
+        >> disch_then drule
+        >> disch_then drule
+        >> strip_tac
+        >> Cases_on ‘rs’
+        >> gvs []
+        (* Second inductive hypothesis *)    
+        >- (rename [‘evaluate (xs,env,s) = (Rval vs,u)’]
+            >> first_x_assum $ qspec_then ‘T’ mp_tac
+            >> simp []
+            >> Cases_on ‘LENGTH xs = 1’
+            >> gvs []
+            >- (rename [‘evaluate (xs,env2,s') = (Rval vs',u')’]
+                >> drule_all env_rel_submap
+                >> strip_tac
+                >> drule_all env_rel_append
+                >> strip_tac
+                >> disch_then drule_all
+                >> strip_tac
+                >> rename [‘evaluate ([x2],vs' ++ env2,u') = (r',t')’]
+                >> gvs []
+                >> qexists ‘f'³'’
+                >> gvs []
+                >> rw []
+                >- (imp_res_tac SUBMAP_TRANS)
+                                
+                >> drule_all opt_strip_let
+                >> strip_tac
+                (* HERE *)
+                        
+                >> first_x_assum drule_all
+                >> first_x_assum drule_all
+                >> rw []
+                >> qexistsl [‘t1'’, ‘rrr'’, ‘t2'’]
+
+                >> gvs [evaluate_def]
+               )
+           )
+       cheat)
     (* Non-opt *)
     (* First inductive hypothesis *)
     >> first_x_assum $ qspec_then ‘F’ mp_tac
@@ -320,7 +375,6 @@ Proof
   >~ [‘Op op xs’] >-
    (gvs [evaluate_def] >> cheat)
   >~ [‘Tick x’] >-
-
    (gvs [evaluate_def]
     >> ‘s'.clock = s.clock’ by gvs [state_rel_def]
     >> gvs []
@@ -329,6 +383,7 @@ Proof
     >- (cheat) (* Prove timeout error? *)
     >> Cases_on ‘opt’
     >> gvs []
+    (* Opt *)
     >- (first_x_assum $ qspec_then ‘T’ mp_tac
         >> simp []
         >> disch_then drule
@@ -347,6 +402,7 @@ Proof
         >> strip_tac
         >> last_x_assum $ qspecl_then [‘exp_aux'’, ‘exp_opt'’] drule
         >> gvs [evaluate_def, dec_clock_def])
+    (* Non-opt *)
     >> first_x_assum $ qspec_then ‘F’ mp_tac
     >> simp []
     >> disch_then drule
