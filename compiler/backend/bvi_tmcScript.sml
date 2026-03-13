@@ -192,6 +192,8 @@ Definition rewrite_opt_def:
       let arg_hole_idx = Var i_old_hole_idx in
       let exp_hole_val = Op op op_args in
         Op (MemOp UpdateCons) [arg_hole_ptr; arg_hole_idx; exp_hole_val]) ∧
+  (rewrite_opt loc loc_opt i_old_hole_ptr i_old_hole_idx i_new_hole_ptr (Tick x) =
+    Tick $ rewrite_opt loc loc_opt i_old_hole_ptr i_old_hole_idx i_new_hole_ptr x) ∧
   (rewrite_opt loc loc_opt i_old_hole_ptr i_old_hole_idx i_new_hole_ptr expr =
     let arg_hole_ptr = Var i_old_hole_ptr in
     let arg_hole_idx = Var i_old_hole_idx in

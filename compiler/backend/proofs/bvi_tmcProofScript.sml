@@ -70,7 +70,8 @@ End
 
 Definition optimized_code_def:
   optimized_code loc arity exp loc_opt c exp_aux exp_opt ⇔
-    compile_exp loc loc_opt arity exp = SOME (exp_aux, exp_opt) (* ∧
+    compile_exp loc loc_opt arity exp = SOME (exp_aux, exp_opt)
+(* ∧
     lookup loc c                      = SOME (arity, exp_aux) ∧
     lookup loc_opt c                  = SOME (arity + 2, exp_opt) *)
 End
@@ -190,18 +191,16 @@ QED
 Theorem opt_strip_tick:
   ∀s loc loc_opt arity x exp_aux exp_opt.
     optimized_code loc arity (Tick x) loc_opt s.code exp_aux exp_opt ⇒
-    optimized_code loc arity x loc_opt s.code (Tick exp_aux) (Tick exp_opt)
+    ∃exp_aux' exp_opt'.
+      exp_aux = Tick exp_aux' ∧
+      exp_opt = Tick exp_opt' ∧
+      optimized_code loc arity x loc_opt s.code exp_aux' exp_opt'
 Proof
-  cheat
-QED
-
-Theorem evaluate_tick_step:
-  ∀s t n x env r.
-    s.clock = SUC n ∧
-    evaluate ([Tick x],env,dec_clock 1 s) = (r,t) ⇒
-    evaluate ([x],env,s) = (r,t)
-Proof
-  cheat
+  rw []
+  >> gvs [optimized_code_def, compile_exp_def, rewrite_aux_def]
+  >> CASE_TAC
+  >> gvs []
+  >> simp [rewrite_opt_def]
 QED
 
 Theorem evaluate_rewrite_tmc:
@@ -321,6 +320,7 @@ Proof
   >~ [‘Op op xs’] >-
    (gvs [evaluate_def] >> cheat)
   >~ [‘Tick x’] >-
+
    (gvs [evaluate_def]
     >> ‘s'.clock = s.clock’ by gvs [state_rel_def]
     >> gvs []
@@ -343,16 +343,12 @@ Proof
         >> pop_assum $ qspecl_then [‘arity’, ‘loc’, ‘loc_opt’] mp_tac
         >> strip_tac
         >> strip_tac
-        >> drule_all opt_strip_tick
-        >> rw []
-        >- (first_x_assum drule
-            >> strip_tac
-            >> qexists ‘t1’
-            >> gvs [evaluate_tick_step])
-        >> first_x_assum drule
+        (* HERE *)
+
+        >> drule opt_strip_tick
         >> strip_tac
-        >> qexistsl [‘rrr’, ‘t2’]
-        >> gvs [evaluate_tick_step])
+        >> last_x_assum $ qspecl_then [‘exp_aux'’, ‘exp_opt'’] drule
+        >> gvs [evaluate_def, dec_clock_def])
     >> first_x_assum $ qspec_then ‘F’ mp_tac
     >> simp []
     >> disch_then drule
@@ -367,9 +363,9 @@ Proof
 QED
 
 Definition ref_ptrs_def:
-  (ref_ptrs [] = ∅) ∧
-  (ref_ptrs (Number _::t) = ref_ptrs t) ∧
-  (ref_ptrs (Word64 _::t) = ref_ptrs t) ∧
+  (ref_ptrs []              = ∅) ∧
+  (ref_ptrs (Number _::t)   = ref_ptrs t) ∧
+  (ref_ptrs (Word64 _::t)   = ref_ptrs t) ∧
   (ref_ptrs (Block _ xs::t) = ref_ptrs xs ∪ ref_ptrs t) ∧
   (ref_ptrs (RefPtr _ n::t) = {n} ∪ ref_ptrs t)
 End
