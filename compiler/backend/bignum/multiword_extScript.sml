@@ -274,6 +274,9 @@ QED
 (*
 Motivation for definition:
 bits_of_int_def |> Q.SPEC ‘-i’ |> DISCH “0 < i” |> SRULE [int_not_def]
+
+Subtracts one and flips all the bits. Together with the (separate) sign bit, we
+get the two's complement form.
 *)
 Definition mw_bits_of_int_def:
   mw_bits_of_int xs =
