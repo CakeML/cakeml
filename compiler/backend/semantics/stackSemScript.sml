@@ -12,8 +12,8 @@ Libs
 Datatype:
   result = Result ('w word_loc)
          | Exception ('w word_loc)
-         | Break
-         | Continue
+         | Break num
+         | Continue num
          | Halt ('w word_loc)
          | TimeOut
          | FinalFFI final_event
@@ -799,8 +799,8 @@ Definition evaluate_def:
      case get_var n s of
      | SOME (Loc l1 l2) => (SOME (Exception (Loc l1 l2)),s)
      | _ => (SOME Error,s)) /\
-  (evaluate (Break,s) = (SOME Break,s)) /\
-  (evaluate (Continue,s) = (SOME Continue,s)) /\
+  (evaluate (Break n,s) = (SOME (Break n),s)) /\
+  (evaluate (Continue n,s) = (SOME (Continue n),s)) /\
   (evaluate (If cmp r1 ri c1 c2,s) =
     (case (get_var r1 s,get_var_imm ri s)of
     | SOME x,SOME y =>
@@ -810,11 +810,18 @@ Definition evaluate_def:
       | NONE => (SOME Error,s))
     | _ => (SOME Error,s))) /\
   (evaluate (Loop c1,s) =
-    (let (res,s1) = fix_clock s (evaluate (c1,s)) in
-       if res = SOME Break then (NONE,s1) else
-       if res <> NONE /\ res <> SOME Continue then (res,s1) else
-       if s1.clock = 0 then (SOME TimeOut, empty_env s1) else
-         evaluate (STOP (Loop c1), dec_clock s1))) /\
+    (case fix_clock s (evaluate (c1,s)) of
+     | (NONE,s1) =>
+         (if s1.clock = 0 then (SOME TimeOut, empty_env s1) else
+          evaluate (STOP (Loop c1), dec_clock s1))
+     | (SOME (Continue n),s1) =>
+         (if n = 0 then
+            if s1.clock = 0 then (SOME TimeOut, empty_env s1)
+            else evaluate (STOP (Loop c1), dec_clock s1)
+          else (SOME (Continue (n-1)),s1))
+     | (SOME (Break n),s1) =>
+         (if n = 0 then (NONE,s1) else (SOME (Break (n-1)),s1))
+     | (res,s1) => (res,s1))) /\
   (evaluate (JumpLower r1 r2 dest,s) =
     case (get_var r1 s, get_var r2 s) of
     | SOME (Word x),SOME (Word y) =>
@@ -851,9 +858,9 @@ Definition evaluate_def:
            if s.clock = 0 then (SOME TimeOut,empty_env s) else
              (case fix_clock (dec_clock s) (evaluate (prog,dec_clock s)) of
               | (NONE,s) => (SOME Error,s)
-              | (SOME res,s) =>
-                   if res = Break ∨ res = Continue then (SOME Error,s) else
-                     (SOME res,s)))
+              | (SOME (Break n),s) => (SOME Error,s)
+              | (SOME (Continue n),s) => (SOME Error,s)
+              | (SOME res,s) => (SOME res,s)))
      (* returning call, returns into var n *)
      | SOME (ret_handler,link_reg,l1,l2) =>
        (case find_code dest (s.regs \\ link_reg) s.code of
@@ -872,8 +879,8 @@ Definition evaluate_def:
                       if x <> Loc l1 l2 then (SOME Error,s2) else
                         evaluate (h,s2))
               | (NONE,s) => (SOME Error,s)
-              | (SOME Break,s) => (SOME Error,s)
-              | (SOME Continue,s) => (SOME Error,s)
+              | (SOME (Break n),s) => (SOME Error,s)
+              | (SOME (Continue n),s) => (SOME Error,s)
               | res => res))) /\
   (evaluate (Install ptr len dptr dlen ret,s) =
     case (get_var ptr s, get_var len s, get_var dptr s, get_var dlen s) of
