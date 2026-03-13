@@ -488,13 +488,22 @@ Proof
   >> rw [MAP2_DROP]
 QED
 
+(* Unprovable: Does not account for padding that is done when bitstring is not
+   divisible by dimindex *)
 Theorem mw_and_keep_b2mw:
   ∀xs ys.
     LENGTH (b2mw xs : 'a word list) ≤ LENGTH (b2mw ys : 'a word list) ⇒
     mw_and_keep (b2mw xs) (b2mw ys) =
     b2mw (MAP2 $/\ xs ys ++ DROP (LENGTH xs) ys) : 'a word list
 Proof
-  cheat
+  recInduct b2mw_ind >> rw []
+  >> once_rewrite_tac [b2mw_def]
+  >> Cases_on ‘xs = []’ >> Cases_on ‘ys = []’
+  >> simp [mw_and_keep_def]
+  >> IF_CASES_TAC
+  >> gvs [MAP2_EQ_NIL]
+  >> conj_tac
+  >> cheat
 QED
 
 Theorem bitwise_and_F_F:
