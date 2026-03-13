@@ -651,7 +651,7 @@ val next_lab_quotation = `
     case p of
     | Seq p1 p2 => next_lab p1 (next_lab p2 aux)
     | If _ _ _ p1 p2 => next_lab p1 (next_lab p2 aux)
-    | While _ _ _ p => next_lab p aux
+    | Loop p => next_lab p aux
     | Call NONE _ NONE => aux
     | Call NONE _ (SOME (_,_,l2)) => MAX aux (l2 + 2)
     | Call (SOME (p,_,_,l2)) _ NONE => next_lab p (MAX aux (l2 + 2))
