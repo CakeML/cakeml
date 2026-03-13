@@ -571,13 +571,34 @@ Proof
   >> fs [SUB_CEILING_DIV]
 QED
 
+Theorem MAP_NOT_EQ:
+  ∀xs ys. MAP $¬ xs = MAP $¬ ys ⇔ xs = ys : 'a word list
+Proof
+  Induct >> Cases_on ‘ys’ >> rw []
+QED
+
+Theorem mw_sub_carry:
+  ∀xs. xs ≠ [] ⇒ mw_sub xs [] F = mw_sub xs [1w] T
+Proof
+  cheat
+QED
+
+Theorem mw_sub_n2mw_b2mw':
+  FST (mw_sub (n2mw (n :num) :α word list) [] F) =
+  b2mw' (LENGTH (n2mw n :α word list)) (bits_of_num (Num (&n − 1)))
+Proof
+  cheat
+QED
+
 Theorem mw_bits_of_int_b2mw:
   ∀n. n ≠ 0 ⇒
       mw_bits_of_int (b2mw (bits_of_num n)) =
       MAP $¬ (b2mw' (LENGTH (b2mw (bits_of_num n) : 'a word list))
                     (bits_of_num (Num (& n - 1)))) : 'a word list
 Proof
-  cheat
+  rw [mw_bits_of_int_def, UNCURRY, MAP_NOT_EQ]
+  >> Cases_on ‘mw_sub (b2mw (bits_of_num n)) [] F’ >> simp []
+  >> fs [GSYM n2mw_eq_b2mw, GSYM mw_sub_n2mw_b2mw']
 QED
 
 Theorem selftest_1:
@@ -590,6 +611,18 @@ Proof
   CONV_TAC (RAND_CONV EVAL)
   >> rewrite_tac [EVERY_DEF] >> rpt strip_tac >> simp []
   >> TRY (EVAL_TAC >> NO_TAC)
+QED
+
+Theorem mw2n_mw_and_keep_not:
+  ∀l xs ys zs.
+    bits_bitwise $/\ (MAP $¬ xs,T) (ys,F) = (zs,F) ∧
+    LENGTH (b2mw xs : 'a word list) ≤ l ∧
+    l < LENGTH (b2mw ys : 'a word list) ⇒
+    mw2n (mw_and_keep (MAP $¬ (b2mw' l xs)) (b2mw ys : 'a word list)) =
+    num_of_bits zs
+Proof
+  recInduct b2mw'_ind
+  >> cheat
 QED
 
 Theorem mwi_and_neg_pos:
@@ -609,6 +642,9 @@ Proof
   >> simp [mw_bits_of_int_b2mw]
   >> fs [mw_bits_of_int_b2mw] >> simp []
   >> cheat
+  (* >> irule mw2n_mw_and_keep_not >> simp [] *)
+  (* >> simp [GSYM n2mw_eq_b2mw] *)
+  (* >> cheat *)
 QED
 
 Theorem mwi_and_pos_neg:
