@@ -40,8 +40,8 @@ Datatype:
        | StoreConsts num num (num option) (* reg, reg, stub name to call *)
        | Raise num
        | Return num
-       | Break
-       | Continue
+       | Break num
+       | Continue num
        | FFI mlstring num num num num num (* FFI index, conf_ptr, conf_len,
                                              array_ptr, array_len, ret_addr *)
        | Tick
@@ -65,7 +65,7 @@ Datatype:
        | Halt num
 End
 
-Overload While = “λcmp r ri c. Loop (If cmp r ri c Break)”
+Overload While = “λcmp r ri c. Loop (If cmp r ri c (Break 0))”
 
 Overload move = “λdest src. Inst (Arith (Binop Or dest src (Reg src)))”
 Overload sub_1_inst = “λr1. Inst (Arith (Binop Sub r1 r1 (Imm 1w)))”

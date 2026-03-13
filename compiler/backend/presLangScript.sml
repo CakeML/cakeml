@@ -1182,6 +1182,8 @@ Definition stack_prog_to_display_def:
    stack_prog_to_display (SUC k) ns (StoreConsts n1 n2 _) = item_with_nums «store_consts» [n1; n2] ∧
    stack_prog_to_display (SUC k) ns (Raise n) = item_with_num «raise» n ∧
    stack_prog_to_display (SUC k) ns (Return n) = item_with_num «return» n ∧
+   stack_prog_to_display (SUC k) ns (Break n) = item_with_num «break» n ∧
+   stack_prog_to_display (SUC k) ns (Continue n) = item_with_num «continue» n ∧
    stack_prog_to_display (SUC k) ns (FFI nm cp cl ap al ra) = Item NONE «ffi»
         (string_imp nm :: MAP num_to_display [cp; cl; ap; al; ra]) ∧
    stack_prog_to_display (SUC k) ns (Tick) = empty_item «tick» ∧
