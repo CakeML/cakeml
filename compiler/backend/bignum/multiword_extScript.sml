@@ -557,6 +557,17 @@ Proof
   >> rw [] >> eq_tac >> rw []
 QED
 
+Theorem b2mw'_eq_b2mw:
+  ∀xs. b2mw' (LENGTH xs \\ dimindex (:α)) xs = b2mw xs : 'a word list
+Proof
+  recInduct b2mw_ind >> rw []
+  >> Cases_on ‘xs = []’ >> gvs []
+  >> once_rewrite_tac [b2mw_def, b2mw'_def] >> simp []
+  >> ‘0 < LENGTH xs \\ dimindex (:α)’ by
+    (irule CEILING_DIV_POS >> simp [LENGTH_NON_NIL])
+  >> fs [SUB_CEILING_DIV]
+QED
+
 Theorem mw_bits_of_int_b2mw:
   ∀n. n ≠ 0 ⇒
       mw_bits_of_int (b2mw (bits_of_num n)) =
