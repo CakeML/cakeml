@@ -3,7 +3,7 @@
 *)
 Theory fibonacci_heap
 Ancestors
-  misc words arithmetic list set_sep pair finite_map combin
+  misc words arithmetic list alist set_sep pair finite_map combin
 Libs
   wordsLib helperLib
 
@@ -274,15 +274,20 @@ QED
 
 
 
-(*
-Currently, unused definition.
-Annotates a single tree that is not part of any list and does not have a parent.
-*)
 Definition ann_ft_def:
-  ann_ft (FibTree k n xs) =
-    FibTree k (fill_anode n 0w 0w 0w (head_key xs) (LENGTH xs))
+  ann_ft p (FibTree k n xs) =
+    FibTree k (fill_anode n k k p (head_key xs) (LENGTH xs))
         (ann_fts_seg k (head_key xs) (last_key xs) (head_key_t (head_key xs) (TL xs)) xs)
 End
+
+Definition ann_fts_as_singl_def:
+  (ann_fts_as_singl p [] = [] ) /\
+  (ann_fts_as_singl p (x::xs) =
+    [ann_ft p x] ++ ann_fts_as_singl p xs)
+End
+
+
+
 
 (*-------------------------------------------------------------------*
    Heap Mappings (Separation Logic)
@@ -1563,6 +1568,48 @@ Proof
 QED
 
 
+
+
+(*---------------------------------------------------------
+
+Rewriting the fib_heap_inv!
+
+
+-----------------------------------------------------------*)
+
+
+
+Definition fts_all_dist_def:
+  (fts_all_dist [] <=> T) /\
+  (fts_all_dist (FibTree k _ ts::fts) <=>
+    (!v. ~fts_has k v ts /\ ~fts_has k v fts) /\
+    fts_all_dist ts /\ fts_all_dist fts)
+End
+
+Definition fts_uniq_mem_def:
+  (fts_uniq_mem [] <=> T) /\
+  (fts_uniq_mem fts <=>
+    !k n1 n2.
+      fts_has k n1 fts /\ fts_has k n2 fts ==> n1 = n2)
+End
+
+
+Definition fib_heap_inv2_def:
+  fib_heap_inv2 fh (fts: ('a word, 'a node_data) fts) ⇔
+    (!k v. FLOOKUP fh k = SOME v ==> k <> 0w) /\
+    (∀k v e. FLOOKUP fh k = SOME (v,e) ==>
+      ?m. fts_has k (fill_dnode v e m) fts) /\
+    (fts_all_dist fts) /\
+    (!k v e.
+      (FLOOKUP fh k = SOME (v,e)) /\ k = head_key fts ==>
+      fts_is_min v fts) /\
+    (fib_heap_shape_ok fts)
+(*Everything else should be valid by annotation, construction of the heap,
+  or is an individual assertion for a heap operation.
+*)
+End
+
+
 Theorem lemma_map_update_not_null:
   !fts fh.
     list_keys_not_null fts /\ (FLOOKUP fh 0w = NONE) ==>
@@ -1588,28 +1635,130 @@ QED
 
 
 
-Theorem lemma_map_eq_fts_has:
-  !fh fts k v e.
-    ((FLOOKUP (fh |++ (map_upd_list fts)) k = SOME (v,e)) /\ (FLOOKUP fh k = NONE) <=>
-    ?m. fts_has k (fill_dnode v e m) fts)
+Theorem lemma_mem_eq_fts_has:
+ !fts k v e.
+    MEM (k,v,e) (map_upd_list fts) <=>
+    ?m. fts_has k (fill_dnode v e m) fts
 Proof
-  cheat
+  ho_match_mp_tac map_upd_list_ind >>
+  rpt strip_tac >> fs[map_upd_list_def]
+  >- simp[Once fts_has_cases] >>
+  iff_tac >> rpt strip_tac
+  >- (
+    qexists `fts.mark` >>
+    simp[Once fts_has_cases,fill_dnode_def,node_data_component_equality]
+    )
+  >- (qexists `m` >> simp[Once fts_has_cases])
+  >- (qexists `m` >> simp[Once fts_has_cases]) >>
+  pop_assum mp_tac >> simp[Once fts_has_cases] >>
+  disch_tac >> fs[]
+  >- fs[fill_dnode_def, node_data_component_equality]
+  >- (disj2_tac >> disj1_tac >> qexists `m` >> simp[]) >>
+  rpt disj2_tac >> qexists `m` >> simp[]
+QED
+
+
+Theorem lemma_map_upd_eq_fts_has:
+  !fts fh k v e.
+    ((FLOOKUP (fh |++ (map_upd_list fts)) k = SOME (v,e)) /\
+     (FLOOKUP fh k = NONE) ==>
+   ?m. fts_has k (fill_dnode v e m) fts)
+Proof
+  rpt strip_tac >>
+  gvs[miscTheory.flookup_update_list_some] >>
+  imp_res_tac ALOOKUP_MEM >> fs[] >>
+  assume_tac lemma_mem_eq_fts_has >>
+  res_tac >>
+  pop_assum $ irule_at Any
+QED
+
+Theorem lemma_flookup_list_append_update:
+  !x xs ys fh.
+    FLOOKUP (fh |++ (x::(xs ++ ys))) = FLOOKUP (fh |+ x |++ xs |++ ys)
+Proof
+  pure_rewrite_tac[Once (GSYM APPEND)] >>
+  simp[FUPDATE_LIST_APPEND] >>
+  pure_rewrite_tac[GSYM APPEND_EQ_CONS] >>
+  simp[FUPDATE_LIST_THM]
+QED
+
+
+
+Theorem lemma_flookup_fts_is_none:
+  !fts fh k.
+    (FLOOKUP fh k = NONE /\ !n. ~fts_has k n fts)  ==>
+    FLOOKUP (fh |++ map_upd_list fts) k = NONE
+Proof
+  ho_match_mp_tac map_upd_list_ind >>
+  rpt strip_tac
+  >- simp[map_upd_list_def,FUPDATE_LIST] >>
+  simp[map_upd_list_def] >>
+  simp[lemma_flookup_list_append_update] >>
+  rename [`!n. ~fts_has k n (FibTree k' n' fts'::fts'')`] >>
+  pop_assum mp_tac >>
+  simp[Once fts_has_cases] >>
+  rpt strip_tac >>
+  fs[FORALL_AND_THM] >>
+  last_assum (qspecl_then [`(fh |+ (k',n'.value,n'.edges))`, `k`]
+    assume_tac) >>
+  Cases_on `FLOOKUP (fh |+ (k',n'.value,n'.edges)) k = NONE` >> fs[] >>
+  fs[FLOOKUP_SIMP]
+QED
+
+
+
+
+Theorem lemma_apply_list_upd:
+  !xs fh x v e.
+    fts_all_dist xs /\ FLOOKUP (fh |++ map_upd_list xs) x = SOME (v,e) /\
+    FLOOKUP fh x = NONE ==>
+    FLOOKUP (fh |+ (x,v,e)) x = SOME(v,e)
+Proof
+  ho_match_mp_tac map_upd_list_ind >>
+  rpt strip_tac
+  >- (
+    fs[map_upd_list_def,FUPDATE_LIST]
+    ) >>
+  rename [`(FibTree k n xs'::xs'')`] >>
+  qpat_x_assum `FLOOKUP (fh |++ map_upd_list (FibTree k n xs'::xs'')) x =
+    SOME (v,e)` mp_tac >>
+  fs[fts_all_dist_def] >>
+  simp[map_upd_list_def] >>
+  simp[lemma_flookup_list_append_update] >>
+  fs[FORALL_AND_THM] >>
+  simp[FLOOKUP_SIMP]
+QED
+
+Theorem lemma_map_extract_head:
+  !fts fh k n l v e.
+    fts_all_dist (FibTree k n l::fts) /\ FLOOKUP fh k = NONE /\
+    FLOOKUP (fh |++ map_upd_list (FibTree k n l::fts)) k = SOME(v,e) ==>
+    n.value = v /\ n.edges = e
+Proof
+  rpt strip_tac >>
+  drule_all lemma_map_upd_eq_fts_has >>
+  strip_tac >> fs[] >>
+  fs[fts_all_dist_def] >>
+  pop_assum mp_tac >>
+  simp[Once fts_has_cases] >>
+  strip_tac >>
+  fs[fill_dnode_def,node_data_component_equality]
 QED
 
 
 Theorem lemma_insert_list_new_min_inv:
-  !fts fh xs v .
-    (fib_heap_inv fh fts) /\
-      (fts_is_min v xs) /\ (v = fts_min xs) /\
-      (list_keys_not_null xs) /\
-      (v <=+ fts_min fts) ==>
-    (fib_heap_inv (fh |++ map_upd_list xs) (xs ++ fts))
+  !fts fh fh2 xs.
+    (fib_heap_inv2 fh fts) /\
+    (fib_heap_inv2 fh2 xs) /\
+    (list_keys_not_null xs) /\
+    (fts_min xs <=+ fts_min fts) ==>
+    (fib_heap_inv2 (fh |++ map_upd_list xs) (xs ++ fts))
 Proof
   rpt strip_tac >>
   Cases_on `fts`
   >- (
-    fs[fib_heap_inv_def] >>
-    qpat_x_assum `∀k v e.FLOOKUP fh k = SOME (v,e) ⇔
+    fs[fib_heap_inv2_def] >>
+    qpat_x_assum `∀k v e.FLOOKUP fh k = SOME (v,e) ==>
                   ∃m. fts_has k (fill_dnode v e m) []` mp_tac >>
     simp[Once fts_has_cases] >>
     strip_tac >>
@@ -1617,40 +1766,39 @@ Proof
     Cases_on `xs`
     >- (
       rpt strip_tac
-      >- (fs[map_upd_list_def,FUPDATE_LIST] )
-      >- (
-        simp[map_upd_list_def,FUPDATE_LIST] >>
-        simp[Once fts_has_cases]
-      )
+      >- fs[map_upd_list_def,FUPDATE_LIST]
+      >- fs[map_upd_list_def,FUPDATE_LIST]
       >- simp[fts_is_min_def] >>
       simp[fib_heap_shape_ok_def]
       ) >>
     Cases_on `h` >>
-    fs[fts_is_min_def,fts_min_def,head_key_def] >>
+    gvs[fts_is_min_def,fts_min_def,head_key_def] >>
     rpt strip_tac
     >- (dxrule lemma_map_update_not_null >> strip_tac >>fs[])
     >- (
-      qspecl_then [`FEMPTY`,`(FibTree k v' l::t)`, `k'`, `v''`, `e`]
-        assume_tac lemma_map_eq_fts_has >> fs[]
+      qspecl_then [`(FibTree k v l::t)`,`FEMPTY`,`k'`, `v'`, `e`]
+        assume_tac lemma_map_upd_eq_fts_has >> fs[]
       )
     >- (
-      gvs[] >>
-      fs[map_upd_list_def,FUPDATE_FUPDATE_LIST_COMMUTES] >>
-      fs[FLOOKUP_SIMP] >>
+      gvs[head_key_t_def] >>
+      qspecl_then [`t`,`FEMPTY`,`k`,`v`,`l`,`v'`,`e`]
+        assume_tac lemma_map_extract_head >> fs[] >>
+      drule_all lemma_map_extract_head
+      ) >>
       cheat
      ) >>
     cheat
-     ) >>
-  cheat
 QED
 
-
+(* TODO: Verify invariant.
+    - Solve |++ problem!
+*)
 Theorem fib_heap_insert_list:
-  ∀frame xs fh n p.
-    (fts_mem (ann_fts p xs) * fib_heap a fh * frame *
-     cond(list_not_in_heap fh xs /\ n > LENGTH xs /\ head_key xs = k))
+  ∀frame xs fh p.
+    (fts_mem (ann_fts p xs) * fib_heap a fh * frame)
       (fun2set (m,dm)) ∧
-    fib_heap_insert_list (a, k, m, dm) = (a', m', b) ⇒
+    list_not_in_heap fh xs /\
+    fib_heap_insert_list (a, head_key xs, m, dm) = (a', m', b) ⇒
     (fib_heap a' (fh |++ (map_upd_list xs)) * frame) (fun2set (m',dm)) ∧ b
 Proof
   fs[fib_heap_def] >>
@@ -1957,9 +2105,7 @@ End
 Definition fill_rm_def:
   (fill_rm (c:num) (rm, []) = rm) /\
   (fill_rm c (rm, (FibTree k v l::fts)) =
-    case FLOOKUP rm (LENGTH l) of
-      SOME(_,_,_) => res_rm_upd c (rm,LENGTH l, FibTree k v l)
-     |NONE => fill_rm c ((rm |+ (LENGTH l,k,v,l)),fts))
+    fill_rm c (res_rm_upd c (rm, LENGTH l, FibTree k v l), fts))
 End
 
 
@@ -1989,10 +2135,7 @@ End
 
 Definition arr_mem_def:
   arr_mem (a:'a word) (n:num) =
-    if n = 0 then
-      one(a, 0w)
-    else
-      one(a + bytes_in_word * n2w n, 0w) * arr_mem a (n-1)
+    ones a (REPLICATE (n+1) 0w)
 End
 
 
@@ -2005,13 +2148,17 @@ Definition arr_mem_v_def:
       one(a + bytes_in_word * n2w n, x) * arr_mem a (n-1)
 End
 
+Definition map_lookup_def:
+  map_lookup mp n =
+    case FLOOKUP mp n of
+    | SOME(k,_,_) => k
+    | NONE        => 0w
+End
+
 (*Array when filled up with a map 'mp'  *)
 Definition map_mem_def:
   map_mem a n mp =
-    let rec_call = if n = 0 then emp else map_mem a (n-1) mp in
-    case FLOOKUP mp n of
-      SOME(k,_,_) => one(a + bytes_in_word * n2w n, k) * rec_call
-     |NONE => one(a + bytes_in_word * n2w n, 0w) * rec_call
+    ones a (GENLIST (map_lookup mp) (n+1))
 End
 
 
@@ -2058,14 +2205,19 @@ Definition reb2trees_def:
 End
 
 
+(*
+  (map_mem c rm * ann_fts_as_singl 0w fts * cond(
+*)
+
+
 (* TODO: finish proof
   - check correct construction of statement
  *)
 Theorem reb2trees:
-  !frame fh.
+  !n i frame fh.
   (arr_mem c n * frame * fib_heap a (fh |+ (x,v,e)))
     (fun2set (m,dm)) /\
-  reb2trees n (x,c,m,dm,T) = (m',b) ==>
+  reb2trees i (x,c,m,dm,T) = (m',b) ==>
   ?fts. ?v. (fts_mem (ann_fts 0w (fts_reb n fts)) * arr_mem c n * frame *
     cond(fts_has x v fts /\ fib_heap_inv fh fts))
     (fun2set (m',dm)) /\ b
