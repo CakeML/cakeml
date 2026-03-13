@@ -524,10 +524,16 @@ Proof
   >> rpt (pairarg_tac >> gvs [])
 QED
 
+Theorem EVERY_F_num_of_bits:
+  ∀xs. EVERY (λx. x = F) xs ⇒ num_of_bits xs = 0
+Proof
+  recInduct num_of_bits_ind >> rw [num_of_bits_def]
+QED
+
 Theorem num_of_bits_leading_F:
   num_of_bits (xs ++ REPLICATE k F) = num_of_bits xs
 Proof
-  cheat
+  simp [num_of_bits_append, EVERY_F_num_of_bits]
 QED
 
 Theorem mwi_and_pos:
