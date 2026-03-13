@@ -506,12 +506,22 @@ Proof
   >> cheat
 QED
 
+Theorem AND_F_K:
+  ($/\ F) = K F
+Proof
+  simp [FUN_EQ_THM]
+QED
+
 Theorem bitwise_and_F_F:
   ∀xs ys q x y.
     bits_bitwise $/\ (xs,F) (ys,F) = (q,F) ⇒
     ∃k. q = MAP2 $/\ xs ys ++ REPLICATE k F
 Proof
-  cheat
+  Induct >> simp [bits_bitwise_def]
+  >- (metis_tac [AND_F_K, MAP_K_REPLICATE])
+  >> Cases_on ‘ys’ >> simp [bits_bitwise_def]
+  >- (metis_tac [K_DEF, MAP_K_REPLICATE, REPLICATE])
+  >> rpt (pairarg_tac >> gvs [])
 QED
 
 Theorem num_of_bits_leading_F:
