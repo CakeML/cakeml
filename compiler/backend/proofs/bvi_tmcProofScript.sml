@@ -343,8 +343,6 @@ Proof
         >> pop_assum $ qspecl_then [‘arity’, ‘loc’, ‘loc_opt’] mp_tac
         >> strip_tac
         >> strip_tac
-        (* HERE *)
-
         >> drule opt_strip_tick
         >> strip_tac
         >> last_x_assum $ qspecl_then [‘exp_aux'’, ‘exp_opt'’] drule
