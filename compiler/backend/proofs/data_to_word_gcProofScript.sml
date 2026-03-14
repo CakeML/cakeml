@@ -5771,41 +5771,6 @@ Proof
   \\ full_simp_tac(srw_ss())[MEM_toAList,lookup_inter_alt]
 QED
 
-Theorem state_rel_get_var_RefPtr:
-   state_rel c l1 l2 s t v1 locs ∧
-   get_var n s.locals = SOME (RefPtr b p) ⇒
-   ∃f u. get_var (adjust_var n) t = SOME (Word (get_addr c (FAPPLY f p) u))
-Proof
-  cheat
-  (*rw[]
-  \\ imp_res_tac state_rel_get_var_IMP
-  \\ fs[state_rel_def,wordSemTheory.get_var_def,dataSemTheory.get_var_def]
-  \\ full_simp_tac std_ss [Once (GSYM APPEND_ASSOC)]
-  \\ old_drule (GEN_ALL word_ml_inv_lookup)
-  \\ disch_then old_drule
-  \\ disch_then old_drule
-  \\ REWRITE_TAC[GSYM APPEND_ASSOC]
-  \\ qmatch_goalsub_abbrev_tac`v1 ++ (rr ++ ls)`
-  \\ qmatch_abbrev_tac`P (v1 ++ (rr ++ ls)) ⇒ _`
-  \\ strip_tac
-  \\ `P (rr ++ v1 ++ ls)`
-  by (
-    unabbrev_all_tac
-    \\ match_mp_tac (GEN_ALL (MP_CANON word_ml_inv_rearrange))
-    \\ ONCE_REWRITE_TAC[CONJ_COMM]
-    \\ asm_exists_tac
-    \\ simp[] \\ metis_tac[] )
-  \\ pop_assum mp_tac
-  \\ pop_assum kall_tac
-  \\ simp[Abbr`P`,Abbr`rr`,word_ml_inv_def]
-  \\ strip_tac \\ rveq
-  \\ fs[abs_ml_inv_def]
-  \\ fs[bc_stack_ref_inv_def]
-  \\ fs[v_inv_def]
-  \\ simp[word_addr_def]
-  \\ metis_tac[]*)
-QED
-
 Theorem state_rel_get_var_Block:
    state_rel c l1 l2 s t v1 locs ∧
    get_var n s.locals = SOME (Block ts tag vs) ⇒

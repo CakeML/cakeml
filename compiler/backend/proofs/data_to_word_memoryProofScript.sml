@@ -192,10 +192,19 @@ Inductive v_inv_rel:
 [~CodePtr:]
   v_inv conf (CodePtr n) refs (Data (Loc n 0),f,tf,heap:'a ml_heap)
 [~RefPtr:]
-  n ∈ FDOM f ⇒
+  n ∈ FDOM f ∧
+  (∀ev v. lookup n refs ≠ SOME (Thunk ev v)) ⇒
     v_inv conf (RefPtr b n) refs
                (Pointer (f ' n) (Word 0w),f,tf,heap:'a ml_heap)
 [~RefPtrThunk:]
+  lookup n refs = SOME (Thunk ev v) ∧
+  (ev = Evaluated ⇒ dest_thunk v refs = NotThunk) ∧
+  n ∈ FDOM f ∧
+  v_inv conf v refs (x,f,tf,heap) ∧
+  heap_lookup (f ' n) heap = SOME (ThunkBlock ev x) ⇒
+    v_inv conf (RefPtr F n) refs
+               (Pointer (f ' n) (Word 0w),f,tf,heap:'a ml_heap)
+[~RefPtrThunkInlined:]
   lookup n refs = SOME (Thunk Evaluated v) ∧
   dest_thunk v refs = NotThunk ∧
   v_inv conf v refs (x,f,tf,heap) ⇒
@@ -274,7 +283,7 @@ Definition get_refs_def:
   (get_refs (Number _) = []) /\
   (get_refs (Word64 _) = []) /\
   (get_refs (CodePtr _) = []) /\
-  (get_refs (RefPtr _ p) = [p]) /\
+  (get_refs (RefPtr b p) = [(b,p)]) /\
   (get_refs (Block _ _ vs) = FLAT (MAP get_refs vs))
 Termination
   WF_REL_TAC `measure (v_size)` \\ rpt strip_tac \\ Induct_on `vs`
@@ -282,10 +291,10 @@ Termination
 End
 
 Definition ref_edge_def:
-  ref_edge refs (x:num) (y:num) =
+  ref_edge refs (bx,x) res =
     case lookup x refs of
-    | SOME (ValueArray ys) => MEM y (get_refs (Block 0 ARB ys))
-    | SOME (Thunk _ v) => MEM y (get_refs (Block 0 ARB [v]))
+    | SOME (ValueArray ys) => MEM res (get_refs (Block 0 ARB ys))
+    | SOME (Thunk _ v) => MEM res (get_refs (Block 0 ARB [v]))
     | _ => F
 End
 
@@ -302,8 +311,12 @@ Definition ThunkBlock_def:
   ThunkBlock ev x = DataElement [x] 1 (ThunkTag ev,[])
 End
 
+Inductive dest_evaluated_thunk_rel:
+  ∀x. dest_evaluated_thunk_rel (ThunkBlock Evaluated x) x
+End
+
 Definition bc_ref_inv_def:
-  bc_ref_inv conf n refs (f,tf,heap,be) =
+  bc_ref_inv conf (b,n) refs (f,tf,heap,be) =
     case (FLOOKUP f n, lookup n refs) of
     | (SOME x, SOME (ValueArray ys)) =>
         (∃zs. heap_lookup x heap = SOME (RefBlock zs) ∧
@@ -313,7 +326,9 @@ Definition bc_ref_inv_def:
           (heap_lookup x heap = SOME (Bytes be flag bs (REPLICATE ws (0w:'a word))))
     | (SOME x, SOME (Thunk ev v)) =>
         (∃(z:α word_loc heap_address).
+           ¬b ∧
            heap_lookup x heap = SOME (ThunkBlock ev z) ∧
+           (ev = Evaluated ⇒ dest_thunk v refs = NotThunk) ∧
            v_inv conf v refs (z,f,tf,heap))
     | _ => F
 End
@@ -354,10 +369,10 @@ Definition bc_stack_ref_inv_def:
       FDOM tf SUBSET (all_ts refs stack) /\
       FDOM tf SUBSET { n | n < ts } /\ be_ok conf.be be /\
       EVERY2 (\v x. v_inv conf v refs (x,f,tf,heap)) stack roots /\
-      !n.
-        reachable_refs stack refs n ∧
+      !b n.
+        reachable_refs stack refs (b,n) ∧
         n ∈ FDOM f ⇒
-          bc_ref_inv conf n refs (f,tf,heap,be)
+          bc_ref_inv conf (b,n) refs (f,tf,heap,be)
 End
 
 Definition data_up_to_def:
@@ -579,7 +594,7 @@ Theorem v_inv_related_lemma[local]:
         gc_shared$gc_related g heap1 (heap2:'a ml_heap) ∧
         (∀ptr u. (x = Pointer ptr u) ⇒ ptr ∈ FDOM g) ⇒
       v_inv conf w refs (ADDR_APPLY (FAPPLY g) x,g f_o_f f,g f_o_f tf,heap2) ∧
-      EVERY (\n. n ∉ evaluated_thunk_ptr refs ⇒ f ' n ∈ FDOM g) (get_refs w)
+      EVERY (\(_,n). n ∉ evaluated_thunk_ptr refs ⇒ f ' n ∈ FDOM g) (get_refs w)
 Proof
   ho_match_mp_tac v_inv_rel_strongind \\ rw []
   \\ gvs [ADDR_APPLY_def, get_refs_def]
@@ -623,7 +638,7 @@ Theorem v_inv_related[local]:
     (∀ptr u. (x = Pointer ptr u) ⇒ ptr ∈ FDOM g) ∧
     v_inv conf w refs (x,f,tf,heap1) ⇒
     v_inv conf w refs (ADDR_APPLY (FAPPLY g) x,g f_o_f f,g f_o_f tf,heap2) ∧
-    EVERY (\n. n ∉ evaluated_thunk_ptr refs ⇒ f ' n ∈ FDOM g)
+    EVERY (\(_,n). n ∉ evaluated_thunk_ptr refs ⇒ f ' n ∈ FDOM g)
           (get_refs w)
 Proof
   metis_tac [v_inv_related_lemma]
@@ -640,8 +655,8 @@ QED
 
 Theorem bc_ref_inv_related[local]:
   gc_shared$gc_related g heap1 heap2 /\
-    bc_ref_inv conf n refs (f,tf,heap1,be) /\ (f ' n) IN FDOM g ==>
-    bc_ref_inv conf n refs (g f_o_f f,g f_o_f tf,heap2,be)
+    bc_ref_inv conf (b,n) refs (f,tf,heap1,be) /\ (f ' n) IN FDOM g ==>
+    bc_ref_inv conf (b,n) refs (g f_o_f f,g f_o_f tf,heap2,be)
 Proof
   full_simp_tac std_ss [bc_ref_inv_def] \\ strip_tac \\ full_simp_tac std_ss []
   \\ MP_TAC v_inv_related \\ asm_simp_tac std_ss []
@@ -757,7 +772,7 @@ Theorem reachable_refs_lemma[local]:
     (!n. reachable_refs stack refs n ==> bc_ref_inv conf n refs (f,tf,heap,be)) /\
     (*(∀n. reachable_refs stack refs n ⇒ n ∉ evaluated_thunk_ptr refs) ∧*)
     (!ptr u. MEM (Pointer ptr u) roots ==> ptr IN FDOM g) ==>
-    (!n. reachable_refs stack refs n ∧
+    (!b n. reachable_refs stack refs (b,n) ∧
          n ∉ evaluated_thunk_ptr refs ⇒
            n IN FDOM f /\ (f ' n) IN FDOM g)
 Proof
@@ -802,23 +817,181 @@ Proof
   \\ gvs [EVERY_MEM]*)
 QED
 
-Definition update_ptr_def:
-  (update_ptr refs g (Data x) r ⇔ (r = Data x)) ∧
-  (update_ptr refs g (Pointer ptr u) r ⇔
-    (r = Pointer (g ' ptr) u ∧ ptr ∈ FDOM g) ∨
-    (∃v. lookup ptr refs = SOME (Thunk Evaluated v) ∧ ARB))
+Inductive gc_inline_rel:
+[~unchanged:] gc_inline_rel inline h1 x x
+[~inline:]
+  heap_lookup p h1 = SOME block ∧
+  inline block x ⇒
+    gc_inline_rel inline h1 (Pointer p u) x
 End
 
-Theorem bc_stack_ref_inv_related[local]:
-  gc_related g heap1 heap2 /\
-    bc_stack_ref_inv conf ts stack refs (roots,heap1,be) /\
-    (*(∀n. reachable_refs stack refs n ⇒ n ∉ evaluated_thunk_ptr refs) ∧*)
-    (*(!ptr u. MEM (Pointer ptr u) roots ==> ptr IN FDOM g) ∧*)
-    LIST_REL (update_ptr refs g) roots roots2 ==>
+Inductive gc_heap_inline_rel:
+[~unchanged:] gc_heap_inline_rel inline h1 x x
+[~inline:]
+  LIST_REL (gc_inline_rel inline h1) xs ys ⇒
+    gc_heap_inline_rel inline h1 (DataElement xs n d) (DataElement ys n d)
+End
+
+Definition gc_inline_def:
+  gc_inline inline (r1,h1) (r2,h2) ⇔
+    LIST_REL (gc_inline_rel inline h1) r1 r2 ∧
+    LIST_REL (gc_heap_inline_rel inline h1) h1 h2
+End
+
+Definition gc_related_roots_heap_def:
+  gc_related_roots_heap f (r1,h1) (r2,h2) ⇔
+    gc_related f h1 h2 ∧
+    r2 = ADDR_MAP ($' f) r1 ∧
+    (∀ptr u. MEM (Pointer ptr u) r1 ⇒ ptr ∈ FDOM f)
+End
+
+Definition gc_inline_related_def:
+  gc_inline_related inline f (r1,h1) (r2,h2) =
+    ∃ri hi. gc_inline inline (r1,h1) (ri,hi) ∧
+            gc_related_roots_heap f (ri,hi) (r2,h2)
+End
+
+Theorem gc_heap_inline_rel_heap_lookup[local]:
+  ∀heap1 heap2.
+    LIST_REL (gc_heap_inline_rel dest_evaluated_thunk_rel heap) heap1 heap2 ⇒
+      ∀a. isSomeDataElement (heap_lookup a heap1) ⇔
+          isSomeDataElement (heap_lookup a heap2)
+Proof
+  ho_match_mp_tac LIST_REL_ind \\ rw []
+  \\ iff_tac \\ rw [] \\ gvs [heap_lookup_def]
+  \\ rpt (TOP_CASE_TAC \\ gvs [])
+  \\ metis_tac [gc_heap_inline_rel_cases, el_length_def, isSomeDataElement_def]
+QED
+
+Theorem ThunkBlock_not_EQ[local]:
+  ThunkBlock ev x ≠ Bignum i ∧
+  ThunkBlock ev x ≠ Word64Rep (:α) w ∧
+  ThunkBlock ev x ≠ BlockRep n xs ∧
+  ThunkBlock ev x ≠ RefBlock zs ∧
+  ThunkBlock ev x ≠ Bytes be flag bs ys
+Proof
+  simp [ThunkBlock_def, Bignum_def, Word64Rep_def, BlockRep_def, RefBlock_def,
+        Bytes_def]
+  \\ pairarg_tac \\ rw []
+QED
+
+Theorem LIST_REL_gc_heap_inline_DataElement[local]:
+  ∀heap1 heap2.
+    LIST_REL (gc_heap_inline_rel dest_evaluated_thunk_rel base) heap1 heap2 ⇒
+      ∀ptr.
+        heap_lookup ptr heap1 = SOME (DataElement xs n d) ⇒
+        ∃ys.
+          heap_lookup ptr heap2 = SOME (DataElement ys n d) ∧
+          LIST_REL (gc_inline_rel dest_evaluated_thunk_rel base) xs ys
+Proof
+  ho_match_mp_tac LIST_REL_ind \\ rw []
+  \\ gvs [heap_lookup_def]
+  \\ TOP_CASE_TAC \\ gvs []
+  >- gvs [gc_heap_inline_rel_cases, LIST_REL_EL_EQN, gc_inline_rel_cases]
+  \\ gvs [gc_heap_inline_rel_cases, el_length_def]
+QED
+
+Theorem gc_heap_inline_rel_v_inv_lemma[local]:
+  ∀v refs y.
+    v_inv conf v refs y ⇒
+      ∀x1 x2 f tf heap1 heap2.
+        y = (x1,f,tf,heap1) ∧
+        LIST_REL (gc_heap_inline_rel dest_evaluated_thunk_rel heap1) heap1 heap2 ∧
+        (* TODO maybe ∀ conj not needed *)
+        (∀b n.
+          n ∈ FDOM f ∧
+          reachable_refs [v] refs (b,n) ⇒
+            bc_ref_inv conf (b,n) refs (f,tf,heap1,be)) ∧
+        gc_inline_rel dest_evaluated_thunk_rel heap1 x1 x2 ⇒
+          v_inv conf v refs (x2,f,tf,heap2)
+Proof
+  ho_match_mp_tac v_inv_rel_strongind \\ rw [] \\ gvs []
+  >- gvs [v_inv_def, gc_inline_rel_cases]
+  >- (
+    gvs [v_inv_def, gc_inline_rel_cases, dest_evaluated_thunk_rel_cases,
+         ThunkBlock_not_EQ]
+    \\ gvs [Bignum_def]
+    \\ pairarg_tac \\ gvs []
+    \\ drule_all LIST_REL_gc_heap_inline_DataElement \\ rw [])
+  >- (
+    gvs [v_inv_def, gc_inline_rel_cases, dest_evaluated_thunk_rel_cases,
+         ThunkBlock_not_EQ]
+    \\ gvs [Word64Rep_def]
+    \\ IF_CASES_TAC \\ gvs []
+    \\ drule_all LIST_REL_gc_heap_inline_DataElement \\ rw [])
+  >- gvs [v_inv_def, gc_inline_rel_cases]
+  >- (
+    gvs [v_inv_def, gc_inline_rel_cases, dest_evaluated_thunk_rel_cases]
+    \\ first_x_assum drule
+    \\ simp [reachable_refs_def, get_refs_def]
+    \\ disch_then $ qspec_then `b` mp_tac \\ gvs []
+    \\ simp [bc_ref_inv_def, FLOOKUP_DEF]
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ gvs [ThunkBlock_not_EQ]
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ rw [] \\ gvs [ThunkBlock_def]
+    \\ disj1_tac \\ gvs []
+    \\ cheat)
+  >- (
+    gvs [v_inv_def]
+    \\ disj1_tac
+    \\ first_x_assum irule \\ gvs [] \\ rw []
+    \\ first_x_assum irule \\ gvs [reachable_refs_def, get_refs_def]
+    \\ simp [Once RTC_CASES1] \\ disj2_tac
+    \\ pop_assum $ irule_at Any \\ simp [ref_edge_def, get_refs_def])
+  >- gvs [v_inv_def, gc_inline_rel_cases]
+  >- (
+    gvs [v_inv_def, gc_inline_rel_cases, dest_evaluated_thunk_rel_cases,
+         ThunkBlock_not_EQ]
+    \\ cheat)
+QED
+
+Theorem gc_heap_inline_rel_v_inv[local]:
+  LIST_REL (gc_heap_inline_rel dest_evaluated_thunk_rel heap1) heap1 heap2 ∧
+  (!n. n ∈ FDOM f ⇒ bc_ref_inv conf n refs (f,tf,heap,be)) ∧
+  v_inv conf v refs (x1,f,tf,heap1) ∧
+  gc_inline_rel dest_evaluated_thunk_rel heap1 x1 x2 ⇒
+    v_inv conf v refs (x2,f,tf,heap2)
+Proof
+  metis_tac [gc_heap_inline_rel_v_inv_lemma]
+QED
+
+Theorem bc_stack_ref_inv_gc_inline[local]:
+  gc_inline dest_evaluated_thunk_rel (roots1,heap1) (roots2,heap2) ∧
+  bc_stack_ref_inv conf ts stack refs (roots1,heap1,be) ⇒
     bc_stack_ref_inv conf ts stack refs (roots2,heap2,be)
 Proof
-  cheat
-  (*rpt strip_tac \\ full_simp_tac std_ss [bc_stack_ref_inv_def]
+  rw [bc_stack_ref_inv_def] \\ gvs []
+  \\ qexistsl [`f`, `tf`] \\ gvs [gc_inline_def]
+  \\ drule gc_heap_inline_rel_heap_lookup \\ rw [] \\ gvs []
+  >- (
+    drule gc_heap_inline_rel_v_inv \\ gvs []
+    \\ gvs [LIST_REL_EL_EQN] \\ rw []
+    \\ metis_tac [])
+  \\ gvs [bc_ref_inv_def, FLOOKUP_DEF]
+  \\ first_x_assum drule_all \\ gvs [] \\ strip_tac \\ gvs []
+  \\ ntac 2 (TOP_CASE_TAC \\ gvs [])
+  >- cheat
+  >- cheat
+  >- (
+    drule gc_heap_inline_rel_v_inv
+    \\ disch_then drule
+    \\ gvs [LIST_REL_EL_EQN]
+    \\ qpat_x_assum `∀n. n < LENGTH heap2 ⇒ gc_heap_inline_rel _ _ _ _` mp_tac
+    \\ disch_then $ qspec_then `f ' n` mp_tac \\ gvs []
+    \\ impl_tac >- cheat
+    \\ simp [gc_heap_inline_rel_cases]
+    \\ rw []
+    >- cheat
+  )
+QED
+
+Theorem bc_stack_ref_inv_gc_related_roots_heap[local]:
+  gc_related_roots_heap g (roots1,heap1) (roots2,heap2) ∧
+  bc_stack_ref_inv conf ts stack refs (roots1,heap1,be) ⇒
+    bc_stack_ref_inv conf ts stack refs (roots2,heap2,be)
+Proof
+  rpt strip_tac \\ gvs [bc_stack_ref_inv_def, gc_related_roots_heap_def]
   \\ qexists_tac `g f_o_f f`
   \\ qexists_tac `g f_o_f tf`
   \\ rpt strip_tac
@@ -831,13 +1004,22 @@ Proof
    (full_simp_tac std_ss [ONCE_REWRITE_RULE [CONJ_COMM] EVERY2_EVERY,
       LENGTH_ADDR_MAP,EVERY_MEM,MEM_ZIP,PULL_EXISTS] \\ rpt strip_tac \\ res_tac
     \\ full_simp_tac std_ss [MEM_ZIP,PULL_EXISTS]
-    \\ `MEM (EL n roots) roots` by (full_simp_tac std_ss [MEM_EL] \\ metis_tac [])
-    \\ `(!ptr u. (EL n roots = Pointer ptr u) ==> ptr IN FDOM g)` by metis_tac []
+    \\ `MEM (EL n roots1) roots1` by (full_simp_tac std_ss [MEM_EL] \\ metis_tac [])
+    \\ `(!ptr u. (EL n roots1 = Pointer ptr u) ==> ptr IN FDOM g)` by metis_tac []
     \\ imp_res_tac v_inv_related \\ imp_res_tac EL_ADDR_MAP
     \\ full_simp_tac std_ss [])
   \\ match_mp_tac bc_ref_inv_related \\ full_simp_tac std_ss []
-  \\ cheat
-  (*\\ metis_tac [reachable_refs_lemma]*)*)
+  \\ gvs [f_o_f_DEF]
+QED
+
+Theorem bc_stack_ref_inv_related[local]:
+  gc_inline_related dest_evaluated_thunk g (roots1,heap1) (roots2,heap2) ∧
+  bc_stack_ref_inv conf ts stack refs (roots1,heap1,be) ⇒
+    bc_stack_ref_inv conf ts stack refs (roots2,heap2,be)
+Proof
+  rw [gc_inline_related_def]
+  \\ metis_tac [bc_stack_ref_inv_gc_inline,
+                bc_stack_ref_inv_gc_related_roots_heap]
 QED
 
 Theorem data_up_to_APPEND[simp]:
