@@ -1586,12 +1586,65 @@ Definition fts_all_dist_def:
     fts_all_dist ts /\ fts_all_dist fts)
 End
 
-Definition fts_uniq_mem_def:
-  (fts_uniq_mem [] <=> T) /\
-  (fts_uniq_mem fts <=>
-    !k n1 n2.
-      fts_has k n1 fts /\ fts_has k n2 fts ==> n1 = n2)
+
+Definition fts_head_is_min_def:
+  (fts_head_is_min [] <=> T) /\
+  (fts_head_is_min (FibTree _ v _::fts) <=>
+    !k n l. v.value <=+ n.value <=> MEM (FibTree k n l) fts)
 End
+
+Theorem fts_head_is_min_append_thm:
+  !xs ys.
+    fts_min xs <=+ fts_min ys /\
+    fts_head_is_min xs /\ fts_head_is_min ys
+    ==> fts_head_is_min(xs ++ ys)
+Proof
+  Cases_on `xs`
+  >- simp[fts_head_is_min_def] >>
+  Cases_on `ys`
+  >- simp[fts_head_is_min_def] >>
+  Cases_on `h` >>
+  Cases_on `h'` >>
+  rpt strip_tac >>
+  fs[fts_head_is_min_def] >>
+  rpt strip_tac >>
+  iff_tac
+  >- (
+    strip_tac >>
+    disj1_tac >>
+    rename [`MEM (FibTree x n xl) t`] >>
+    last_x_assum (qspecl_then [`x`,`n`,`xl`] assume_tac) >> fs[]
+    ) >>
+  rename [`MEM (FibTree x n xl) t`] >>
+  rpt strip_tac
+  >- (last_x_assum (qspecl_then [`x`,`n`,`xl`] assume_tac) >> fs[])
+  >- gvs[fts_min_def] >>
+  fs[fts_min_def] >>
+  first_x_assum (qspecl_then [`x`,`n`,`xl`] assume_tac) >> rfs[] >>
+  dxrule_all WORD_LOWER_EQ_TRANS >>
+  simp[]
+QED
+
+
+
+Definition fts_child_head_is_min_def:
+  (fts_child_head_is_min [] <=> T) /\
+  (fts_child_head_is_min (FibTree k v l::fts) <=>
+    fts_head_is_min l /\ fts_child_head_is_min l /\ fts_child_head_is_min fts)
+End
+
+Theorem fts_child_head_is_min_append_thm:
+  !xs ys.
+    fts_child_head_is_min xs /\ fts_child_head_is_min ys ==>
+    fts_child_head_is_min (xs ++ ys)
+Proof
+  ho_match_mp_tac fts_child_head_is_min_ind >>
+  rpt strip_tac
+  >- simp[fts_child_head_is_min_def] >>
+  simp[fts_child_head_is_min_def] >>
+  qpat_x_assum `fts_child_head_is_min (FibTree k xs xs'::xs'')` mp_tac >>
+  simp[fts_child_head_is_min_def]
+QED
 
 
 Definition fib_heap_inv2_def:
@@ -1600,13 +1653,9 @@ Definition fib_heap_inv2_def:
     (∀k v e. FLOOKUP fh k = SOME (v,e) ==>
       ?m. fts_has k (fill_dnode v e m) fts) /\
     (fts_all_dist fts) /\
-    (!k v e.
-      (FLOOKUP fh k = SOME (v,e)) /\ k = head_key fts ==>
-      fts_is_min v fts) /\
+    (fts_is_min (fts_min fts) fts) /\
+    (fts_child_head_is_min fts) /\
     (fib_heap_shape_ok fts)
-(*Everything else should be valid by annotation, construction of the heap,
-  or is an individual assertion for a heap operation.
-*)
 End
 
 
@@ -1660,9 +1709,9 @@ QED
 
 Theorem lemma_map_upd_eq_fts_has:
   !fts fh k v e.
-    ((FLOOKUP (fh |++ (map_upd_list fts)) k = SOME (v,e)) /\
+    (FLOOKUP (fh |++ (map_upd_list fts)) k = SOME (v,e)) /\
      (FLOOKUP fh k = NONE) ==>
-   ?m. fts_has k (fill_dnode v e m) fts)
+   ?m. fts_has k (fill_dnode v e m) fts
 Proof
   rpt strip_tac >>
   gvs[miscTheory.flookup_update_list_some] >>
@@ -1745,6 +1794,23 @@ Proof
   fs[fill_dnode_def,node_data_component_equality]
 QED
 
+Theorem lemma_list_upd_not_null:
+  !fts fh.
+    list_keys_not_null fts /\ FLOOKUP fh 0w = NONE ==>
+    FLOOKUP (fh |++ map_upd_list fts) 0w = NONE
+Proof
+  ho_match_mp_tac map_upd_list_ind >>
+  rpt strip_tac
+  >- (fs[map_upd_list_def,FUPDATE_LIST]) >>
+  rename [`list_keys_not_null (FibTree k n l::fts)`] >>
+  simp[map_upd_list_def,lemma_flookup_list_append_update] >>
+  fs[list_keys_not_null_def] >>
+  Cases_on `FLOOKUP (fh |+ (k,n.value,n.edges)) 0w = NONE`
+  >- (last_x_assum(qspec_then `(fh |+ (k,n.value,n.edges))` assume_tac) >> rfs[]) >>
+  fs[FLOOKUP_SIMP]
+QED
+
+
 
 Theorem lemma_insert_list_new_min_inv:
   !fts fh fh2 xs.
@@ -1764,13 +1830,7 @@ Proof
     strip_tac >>
     fs[lemma_empty_map] >>
     Cases_on `xs`
-    >- (
-      rpt strip_tac
-      >- fs[map_upd_list_def,FUPDATE_LIST]
-      >- fs[map_upd_list_def,FUPDATE_LIST]
-      >- simp[fts_is_min_def] >>
-      simp[fib_heap_shape_ok_def]
-      ) >>
+    >- fs[map_upd_list_def,FUPDATE_LIST] >>
     Cases_on `h` >>
     gvs[fts_is_min_def,fts_min_def,head_key_def] >>
     rpt strip_tac
@@ -1779,14 +1839,31 @@ Proof
       qspecl_then [`(FibTree k v l::t)`,`FEMPTY`,`k'`, `v'`, `e`]
         assume_tac lemma_map_upd_eq_fts_has >> fs[]
       )
+   ) >>
+  Cases_on `h` >>
+  fs[fib_heap_inv2_def] >>
+  Cases_on `xs`
+  >- (rpt strip_tac >> fs[] >> fs[map_upd_list_def,FUPDATE_LIST]) >>
+  Cases_on `h` >>
+  rpt strip_tac
+  >- (
+    qspecl_then [`(FibTree k' v' l'::t')`, `fh`] assume_tac lemma_list_upd_not_null >>
+    rfs[] >>
+    pop_assum mp_tac >>
+    Cases_on `FLOOKUP fh 0w` >> fs[]
+    )
+  >- (
+    simp[fts_has_append_thm] >>
+    Cases_on `FLOOKUP fh k'' = NONE`
     >- (
-      gvs[head_key_t_def] >>
-      qspecl_then [`t`,`FEMPTY`,`k`,`v`,`l`,`v'`,`e`]
-        assume_tac lemma_map_extract_head >> fs[] >>
-      drule_all lemma_map_extract_head
+      drule_all lemma_map_upd_eq_fts_has >> simp[PULL_EXISTS] >>
+      rpt strip_tac >>
+      qexists `m` >> simp[]
       ) >>
-      cheat
-     ) >>
+    last_x_assum(qspecl_then [`k''`,`v''`,`e`] assume_tac) >>
+    fs[] >>
+    cheat
+    ) >>
     cheat
 QED
 
