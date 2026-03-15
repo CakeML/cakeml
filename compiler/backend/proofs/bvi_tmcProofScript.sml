@@ -195,9 +195,13 @@ Theorem opt_strip_let:
     ∃exp_aux' exp_opt'.
       exp_aux = Let xs exp_aux' ∧
       exp_opt = Let xs exp_opt' ∧
-      optimized_code loc arity x loc_opt t.code exp_aux' exp_opt'
+      optimized_code loc (arity + LENGTH xs) x loc_opt t.code exp_aux' exp_opt'
 Proof
-  cheat
+  rw []
+  >> gvs [optimized_code_def, compile_exp_def, rewrite_aux_def]
+  >> CASE_TAC
+  >> gvs []
+  >> gvs [rewrite_opt_def]
 QED
 
 Theorem opt_strip_tick:
@@ -239,6 +243,7 @@ Theorem evaluate_rewrite_tmc:
               opt_res_rel r' rrr ∧
               state_rel f' t t2))
 Proof
+
   recInduct bviSemTheory.evaluate_ind
   >> rpt strip_tac
   >~ [‘evaluate ([],_,_)’] >-
@@ -296,9 +301,45 @@ Proof
     >> gvs [env_rel_def]
     >> cheat*)
   >~ [‘If x1 x2 x3’] >-
-   (gvs [evaluate_def] >> cheat)
+   (gvs [evaluate_def]
+    >> gvs [CaseEq "prod", PULL_EXISTS]
+    >> rename [‘evaluate ([x1],env,s) = (r1,s1)’]
+    >> Cases_on ‘opt’
+    >> gvs []
+    (* Opt *)
+    (* First inductive hypothesis *)
+    >- (first_x_assum $ qspec_then ‘T’ mp_tac
+        >> simp []
+        >> disch_then drule
+        >> disch_then drule
+        >> impl_tac
+        >> gvs []
+        >- (spose_not_then assume_tac >> fs [])
+        >> strip_tac
+        >> rename [‘evaluate ([x1],env2,s') = (r1',s1')’]
+        >> gvs []
+        >> Cases_on ‘r1’
+        >> gvs []
+        >- (rename [‘evaluate ([x1],env2,s') = (Rval v1',s1')’]
+            >> Cases_on ‘HD a = Boolv T’
+            >> gvs []
+            (* True inductive hypothesis *)
+            >- (first_x_assum $ qspec_then ‘T’ mp_tac
+                >> simp []
+                >> drule_all env_rel_submap
+                >> strip_tac
+                >> disch_then drule_all
+                >> strip_tac
+                >> cheat
+               )
+            >> cheat
+           )
+        >> cheat
+       )
+    >> cheat
+    )
   >~ [‘Let xs x2’] >-
-     
+
    (gvs [evaluate_def]
     >> gvs [CaseEq "prod", PULL_EXISTS]
     >> rename [‘evaluate (xs,env,s) = (rs,u)’]
@@ -331,17 +372,10 @@ Proof
                 >> qexists ‘f'³'’
                 >> gvs []
                 >> rw []
-                >- (imp_res_tac SUBMAP_TRANS)
-                                
+                >- (imp_res_tac SUBMAP_TRANS)    
                 >> drule_all opt_strip_let
-                >> strip_tac
-                (* HERE *)
-                        
+                >> strip_tac                        
                 >> first_x_assum drule_all
-                >> first_x_assum drule_all
-                >> rw []
-                >> qexistsl [‘t1'’, ‘rrr'’, ‘t2'’]
-
                 >> gvs [evaluate_def]
                )
            )
