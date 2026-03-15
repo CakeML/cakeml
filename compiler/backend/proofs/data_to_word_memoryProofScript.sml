@@ -157,6 +157,10 @@ Proof
   Cases \\ rw[Word64Rep_def]
 QED
 
+Definition ThunkBlock_def:
+  ThunkBlock ev x = DataElement [x] 1 (ThunkTag ev,[])
+End
+
 Theorem v_size_LEMMA[local]:
   !vs v. MEM v vs ==> v_size v <= v1_size vs
 Proof
@@ -200,8 +204,8 @@ Inductive v_inv_rel:
   lookup n refs = SOME (Thunk ev v) ∧
   (ev = Evaluated ⇒ dest_thunk v refs = NotThunk) ∧
   n ∈ FDOM f ∧
-  v_inv conf v refs (x,f,tf,heap) ∧
-  heap_lookup (f ' n) heap = SOME (ThunkBlock ev x) ⇒
+  heap_lookup (f ' n) heap = SOME (ThunkBlock ev x) ∧
+  v_inv conf v refs (x,f,tf,heap) ⇒
     v_inv conf (RefPtr F n) refs
                (Pointer (f ' n) (Word 0w),f,tf,heap:'a ml_heap)
 [~RefPtrThunkInlined:]
@@ -247,12 +251,22 @@ Theorem v_inv_def:
   (v_inv conf (CodePtr n) refs (x,f,tf,heap) <=>
      (x = Data (Loc n 0))) /\
   (v_inv conf (RefPtr b n) refs (x,f,tf,heap) <=>
-     (∃v. lookup n refs = SOME (Thunk Evaluated v) ∧
-          b = F ∧
-          dest_thunk v refs = NotThunk ∧
-          v_inv conf v refs (x,f,tf,heap)) ∨
      (n ∈ FDOM f ∧
-      x = Pointer (f ' n) (Word 0w))) /\
+      (∀ev v. lookup n refs ≠ SOME (Thunk ev v)) ∧
+      x = Pointer (f ' n) (Word 0w)) ∨
+     (∃ev v y.
+         lookup n refs = SOME (Thunk ev v) ∧
+         (ev = Evaluated ⇒ dest_thunk v refs = NotThunk) ∧
+         n ∈ FDOM f ∧
+         heap_lookup (f ' n) heap = SOME (ThunkBlock ev y) ∧
+         v_inv conf v refs (y,f,tf,heap) ∧
+         ¬b ∧
+         x = Pointer (f ' n) (Word 0w)) ∨
+     (∃v.
+         lookup n refs = SOME (Thunk Evaluated v) ∧
+         dest_thunk v refs = NotThunk ∧
+         ¬b ∧
+         v_inv conf v refs (x,f,tf,heap))) /\
   (v_inv conf (Block ts n vs) refs (x,f,tf,heap) <=>
      if vs = []
      then (x = Data (Word (BlockNil n))) /\
@@ -268,7 +282,7 @@ Proof
   rw []
   \\ simp [Once v_inv_rel_cases]
   \\ iff_tac \\ rw [] \\ gvs []
-  \\ irule_at Any EQ_REFL \\ gvs []
+  \\ metis_tac []
 QED
 
 Theorem MEM_IMP_v_size[local]:
@@ -305,10 +319,6 @@ End
 
 Definition RefBlock_def:
   RefBlock xs = DataElement xs (LENGTH xs) (RefTag,[])
-End
-
-Definition ThunkBlock_def:
-  ThunkBlock ev x = DataElement [x] 1 (ThunkTag ev,[])
 End
 
 Inductive dest_evaluated_thunk_rel:
@@ -611,6 +621,12 @@ Proof
     \\ gvs [ADDR_MAP_def])
   >- gvs [v_inv_def]
   >- gvs [v_inv_def, f_o_f_DEF]
+  >- (
+    gvs [v_inv_def, f_o_f_DEF, gc_related_def, ThunkBlock_def]
+    \\ disj1_tac \\ gvs []
+    \\ first_x_assum drule_all \\ rw [] \\ gvs []
+    \\ first_x_assum $ irule_at Any \\ gvs []
+    \\ Cases_on `x` \\ gvs [ADDR_MAP_def, ADDR_APPLY_def])
   >- gvs [v_inv_def]
   >- gvs [IN_DEF, evaluated_thunk_ptr_def]
   >- gvs [v_inv_def]
@@ -897,7 +913,6 @@ Theorem gc_heap_inline_rel_v_inv_lemma[local]:
       ∀x1 x2 f tf heap1 heap2.
         y = (x1,f,tf,heap1) ∧
         LIST_REL (gc_heap_inline_rel dest_evaluated_thunk_rel heap1) heap1 heap2 ∧
-        (* TODO maybe ∀ conj not needed *)
         (∀b n.
           n ∈ FDOM f ∧
           reachable_refs [v] refs (b,n) ⇒
@@ -928,13 +943,31 @@ Proof
     \\ simp [bc_ref_inv_def, FLOOKUP_DEF]
     \\ TOP_CASE_TAC \\ gvs []
     \\ gvs [ThunkBlock_not_EQ]
-    \\ TOP_CASE_TAC \\ gvs []
-    \\ rw [] \\ gvs [ThunkBlock_def]
-    \\ disj1_tac \\ gvs []
-    \\ cheat)
+    \\ TOP_CASE_TAC \\ gvs [])
   >- (
     gvs [v_inv_def]
-    \\ disj1_tac
+    \\ gvs [gc_inline_rel_cases]
+    >- (
+      disj1_tac
+      \\ gvs [ThunkBlock_def]
+      \\ drule_all LIST_REL_gc_heap_inline_DataElement \\ rw [] \\ gvs []
+      \\ first_x_assum irule \\ gvs []
+      \\ rw []
+      >- (
+        first_x_assum irule \\ gvs [reachable_refs_def, get_refs_def]
+        \\ simp [Once RTC_CASES1] \\ disj2_tac
+        \\ gvs [ref_edge_def, get_refs_def]
+        \\ metis_tac [])
+      \\ gvs [gc_inline_rel_cases])
+    \\ disj2_tac
+    \\ gvs [dest_evaluated_thunk_rel_cases, ThunkBlock_def]
+    \\ first_x_assum irule \\ gvs [] \\ rw []
+    \\ first_x_assum irule \\ gvs [reachable_refs_def, get_refs_def]
+    \\ simp [Once RTC_CASES1] \\ disj2_tac \\ gvs [ref_edge_def, get_refs_def]
+    \\ metis_tac [])
+  >- (
+    gvs [v_inv_def]
+    \\ disj2_tac
     \\ first_x_assum irule \\ gvs [] \\ rw []
     \\ first_x_assum irule \\ gvs [reachable_refs_def, get_refs_def]
     \\ simp [Once RTC_CASES1] \\ disj2_tac
@@ -943,12 +976,26 @@ Proof
   >- (
     gvs [v_inv_def, gc_inline_rel_cases, dest_evaluated_thunk_rel_cases,
          ThunkBlock_not_EQ]
-    \\ cheat)
+    \\ gvs [BlockRep_def]
+    \\ drule_all LIST_REL_gc_heap_inline_DataElement \\ rw [] \\ gvs []
+    \\ gvs [LIST_REL_EL_EQN] \\ rw []
+    \\ last_x_assum drule \\ rw []
+    \\ first_x_assum irule \\ gvs []
+    \\ rw []
+    >- (
+      first_x_assum irule \\ gvs [reachable_refs_def, get_refs_def]
+      \\ simp [MEM_FLAT, MEM_MAP, PULL_EXISTS]
+      \\ metis_tac [MEM_EL])
+    \\ first_x_assum drule \\ rw [gc_inline_rel_cases] \\ gvs []
+    \\ gvs [dest_evaluated_thunk_rel_cases])
 QED
 
 Theorem gc_heap_inline_rel_v_inv[local]:
   LIST_REL (gc_heap_inline_rel dest_evaluated_thunk_rel heap1) heap1 heap2 ∧
-  (!n. n ∈ FDOM f ⇒ bc_ref_inv conf n refs (f,tf,heap,be)) ∧
+  (∀b n.
+    n ∈ FDOM f ∧
+    reachable_refs [v] refs (b,n) ⇒
+      bc_ref_inv conf (b,n) refs (f,tf,heap1,be)) ∧
   v_inv conf v refs (x1,f,tf,heap1) ∧
   gc_inline_rel dest_evaluated_thunk_rel heap1 x1 x2 ⇒
     v_inv conf v refs (x2,f,tf,heap2)
