@@ -416,7 +416,7 @@ Proof
     >> disch_then drule
     >> disch_then drule
     >> strip_tac
-    >> Cases_on ‘v2’
+    >> Cases_on ‘rs’
     >> gvs []
     (* Second inductive hypothesis *)
     >- (first_x_assum $ qspec_then ‘F’ mp_tac
