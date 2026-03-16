@@ -1583,8 +1583,74 @@ Definition fts_all_dist_def:
   (fts_all_dist [] <=> T) /\
   (fts_all_dist (FibTree k _ ts::fts) <=>
     (!v. ~fts_has k v ts /\ ~fts_has k v fts) /\
-    fts_all_dist ts /\ fts_all_dist fts)
+    (fts_all_dist ts) /\ (fts_all_dist fts) /\
+    (!k v. fts_has k v ts ==> ~fts_has k v fts))
 End
+
+Theorem lemma_other_side:
+  !xs ys.
+    (fts_all_dist xs /\ fts_all_dist ys /\
+    (!k v. fts_has k v xs ==> ~fts_has k v ys)) ==>
+    fts_all_dist (xs ++ ys)
+Proof
+  ho_match_mp_tac fts_all_dist_ind >>
+  rpt strip_tac >> fs[] >>
+  fs[fts_all_dist_def] >>
+  rpt strip_tac >>
+  cheat
+QED
+
+
+Theorem fts_all_dist_append_thm:
+  !xs ys.
+    fts_all_dist (xs ++ ys) ==>
+    fts_all_dist xs /\ fts_all_dist ys /\
+    (!k v. fts_has k v xs ==> ~fts_has k v ys)
+Proof
+  ho_match_mp_tac fts_all_dist_ind >>
+  rpt strip_tac >> fs[]
+  >- simp[fts_all_dist_def]
+  >- fs[Once fts_has_cases]
+  >- (
+    fs[fts_all_dist_def] >>
+    res_tac >> simp[] >>
+    fs[fts_has_append_thm]
+    )
+  >- fs[fts_all_dist_def] >>
+  fs[fts_all_dist_def] >>
+  fs[PULL_FORALL] >>
+  qpat_x_assum `fts_has k' v (FibTree k v0 xs::xs')` mp_tac >>
+  pure_rewrite_tac[Once fts_has_cases] >> simp[] >>
+  rpt strip_tac
+  >- gvs[fts_has_append_thm]
+  >- res_tac >>
+  res_tac >>
+  qpat_x_assum `¬fts_has k' v (xs' ++ ys)` mp_tac >>
+  once_rewrite_tac[IMP_F] >>
+  once_rewrite_tac[NOT_CLAUSES] >>
+  pure_rewrite_tac[fts_has_append_thm] >>
+  simp[]
+QED
+
+
+Theorem fts_all_dist_append_trans_thm:
+  !xs ys. fts_all_dist (xs ++ ys) ==> fts_all_dist (ys ++ xs)
+Proof
+  ho_match_mp_tac fts_all_dist_ind >>
+  rpt strip_tac >> fs[] >>
+  fs[fts_all_dist_def] >>
+
+
+
+
+simp[fts_all_dist_append_thm]
+
+  Cases_on `xs` >> Cases_on `ys` >> fs[fts_all_dist_def] >>
+  Cases_on `h` >> Cases_on `h'` >>
+  simp[fts_all_dist_def] >>
+
+
+QED
 
 
 Definition fts_head_is_min_def:
@@ -1811,11 +1877,36 @@ Proof
 QED
 
 
+Theorem lemma_flookup_in_map_or_upd:
+  !fts fh k v e.
+    FLOOKUP(fh |++ map_upd_list fts) k = SOME (v,e) ==>
+      FLOOKUP fh k = SOME (v,e) \/ MEM (k,v,e) (map_upd_list fts)
+Proof
+  ho_match_mp_tac map_upd_list_ind >>
+  rpt strip_tac
+  >- fs[map_upd_list_def,FUPDATE_LIST] >>
+  simp[map_upd_list_def] >>
+  pop_assum mp_tac >>
+  simp[Once map_upd_list_def] >>
+  pure_rewrite_tac[lemma_flookup_list_append_update] >>
+  strip_tac >>
+  rename[`fh |+ (k,n.value,n.edges)`] >>
+  first_x_assum(qspecl_then [`(fh |+ (k,n.value,n.edges) |++ map_upd_list fts'')`,
+    `k'`,`v`,`e`] assume_tac) >>
+  rfs[] >>
+  first_x_assum(qspecl_then[`(fh |+ (k,n.value,n.edges))`,`k'`,`v`,`e`] assume_tac) >>
+  rfs[] >>
+  Cases_on `k = k'` >>
+  fs[FLOOKUP_SIMP]
+QED
+
+
 
 Theorem lemma_insert_list_new_min_inv:
   !fts fh fh2 xs.
     (fib_heap_inv2 fh fts) /\
     (fib_heap_inv2 fh2 xs) /\
+    (fts_all_dist (fts ++ xs)) /\
     (list_keys_not_null xs) /\
     (fts_min xs <=+ fts_min fts) ==>
     (fib_heap_inv2 (fh |++ map_upd_list xs) (xs ++ fts))
@@ -1854,14 +1945,16 @@ Proof
     )
   >- (
     simp[fts_has_append_thm] >>
-    Cases_on `FLOOKUP fh k'' = NONE`
-    >- (
-      drule_all lemma_map_upd_eq_fts_has >> simp[PULL_EXISTS] >>
-      rpt strip_tac >>
-      qexists `m` >> simp[]
-      ) >>
-    last_x_assum(qspecl_then [`k''`,`v''`,`e`] assume_tac) >>
-    fs[] >>
+    qspecl_then [`(FibTree k' v' l'::t')`,`fh`,`k''`,`v''`,`e`]
+      assume_tac lemma_flookup_in_map_or_upd >> rfs[]
+    >- (res_tac >> qexists `m` >> simp[]) >>
+    fs[lemma_mem_eq_fts_has] >>
+    qexists `m` >> simp[]
+    )
+  >- (
+    qpat_x_assum `fts_all_dist (FibTree k v l::(t ++ FibTree k' v' l'::t'))` mp_tac >>
+    simp[fts_all_dist_append_thm]
+    simp[fts_all_dist_def]
     cheat
     ) >>
     cheat
