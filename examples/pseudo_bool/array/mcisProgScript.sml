@@ -12,7 +12,6 @@ val _ = translation_extends"graphProg";
 (* The encoder *)
 val res = translate enc_string_def;
 
-val res = translate pbcTheory.map_obj_def;
 val res = translate unmapped_obj_def;
 
 val res = translate FOLDN_def;
@@ -269,16 +268,15 @@ Proof
     rw[]>>
     qexists_tac`print_mcis_str x`>>simp[]>>
     qexists_tac`strlit ""`>>
-    rw[]>>simp[STD_streams_stderr,add_stdo_nil]>>
+    simp[STD_streams_stderr,add_stdo_nil]>>
     xsimpl>>
-    fs[oneline pb_parseTheory.strip_annot_prob_def]>>
-    every_case_tac>>gvs[]>>
+    gvs[oneline pb_parseTheory.strip_annot_prob_def, mk_prob_def]>>
+    rename1`full_encode_mcis gpp gtt`>>
+    Cases_on`full_encode_mcis gpp gtt`>>
+    gvs[pbcTheory.pres_set_list_def,get_graph_lad_def, AllCaseEqs()]>>
     (drule_at Any) full_encode_mcis_sem_concl>>
     fs[]>>
     Cases_on`x`>> disch_then (drule_at Any)>>
-    disch_then(qspec_then`gt'` mp_tac)>>
-    impl_tac>-
-      fs[get_graph_lad_def,AllCaseEqs(),mk_prob_def]>>
     rw[]>>
     rename1`(qq,rr)`>>
     qexists_tac`(qq,rr)`>>
@@ -365,7 +363,7 @@ Quote add_cakeml:
   case CommandLine.arguments () of
     [f1,f2] => check_unsat_2 f1 f2
   | [f1,f2,f3] => check_unsat_3 f1 f2 f3
-  | _ => TextIO.output TextIO.stdErr usage_string
+  | _ => TextIO.output TextIO.stdErr (mk_usage_string usage_string)
 End
 
 Definition main_sem_def:
@@ -405,11 +403,13 @@ Proof
   Cases_on`t`>>fs[LIST_TYPE_def]
   >- (
     xmatch>>
+    assume_tac (theorem "usage_string_v_thm")>>
+    xlet_autop>>
     xapp_spec output_stderr_spec \\ xsimpl>>
     rename1`COMMANDLINE cl`>>
     qexists_tac`COMMANDLINE cl`>>xsimpl>>
-    qexists_tac `usage_string` >>
-    simp [theorem "usage_string_v_thm"] >>
+    qexists_tac `mk_usage_string usage_string` >>
+    simp [] >>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -417,11 +417,13 @@ Proof
   Cases_on`t'`>>fs[LIST_TYPE_def]
   >- (
     xmatch>>
+    assume_tac (theorem "usage_string_v_thm")>>
+    xlet_autop>>
     xapp_spec output_stderr_spec \\ xsimpl>>
     rename1`COMMANDLINE cl`>>
     qexists_tac`COMMANDLINE cl`>>xsimpl>>
-    qexists_tac `usage_string` >>
-    simp [theorem "usage_string_v_thm"] >>
+    qexists_tac `mk_usage_string usage_string` >>
+    simp [] >>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -441,11 +443,13 @@ Proof
     fs[wfcl_def]>>
     rw[]>>metis_tac[STDIO_refl])>>
   xmatch>>
+  assume_tac (theorem "usage_string_v_thm")>>
+  xlet_autop>>
   xapp_spec output_stderr_spec \\ xsimpl>>
   rename1`COMMANDLINE cl`>>
   qexists_tac`COMMANDLINE cl`>>xsimpl>>
-  qexists_tac `usage_string` >>
-  simp [theorem "usage_string_v_thm"] >>
+  qexists_tac `mk_usage_string usage_string` >>
+  simp [] >>
   qexists_tac`fs`>>xsimpl>>
   rw[]>>
   fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
