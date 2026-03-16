@@ -130,7 +130,13 @@ Definition concl_to_string_def:
   (concl_to_string (OBounds lbi ubi) =
     let lbs = int_inf_to_string lbi in
     let ubs = int_inf_to_string ubi in
-    strlit "s VERIFIED BOUNDS " ^ lbs ^ strlit " <= obj <= " ^ ubs ^ strlit"\n")
+    strlit "s VERIFIED BOUNDS " ^ lbs ^ strlit " <= obj <= " ^ ubs ^ strlit"\n") ∧
+  (concl_to_string (EEnum n b) =
+    if b
+    then
+      strlit "s VERIFIED COMPLETE ENUMERATION OF " ^ toString n ^ strlit " SOLUTIONS\n"
+    else
+      strlit "s VERIFIED PARTIAL ENUMERATION OF " ^ toString n ^ strlit " SOLUTIONS\n")
 End
 
 Definition get_fml_def:
@@ -145,7 +151,7 @@ Definition check_unsat_2_sem_def:
     get_fml fs f1 = SOME (pres,obj,fml) ∧
     ∃concl.
       out = concl_to_string concl ∧
-      pbc$sem_concl (set fml) obj concl)
+      pbc$sem_concl (set fml) obj (pres_set_list pres) concl)
 End
 
 (* Ignoring output section for 2-arg version *)
@@ -228,7 +234,7 @@ Proof
          res v ∧
        case res of
          INR (output,bound,concl) =>
-         sem_concl (set fml) obj concl
+         sem_concl (set fml) obj (pres_set_list pres) concl
       | INL l => T))`
   >- (
     xapp>>xsimpl>>
@@ -345,7 +351,7 @@ Definition check_unsat_3_sem_def:
       out =
         (concl_to_string concl ^
         output_to_string bound output) ∧
-      pbc$sem_concl (set fml) obj concl ∧
+      pbc$sem_concl (set fml) obj (pres_set_list pres) concl ∧
       pbc$sem_output (set fml) obj (pres_set_list pres) bound
         (set fmlt) objt (pres_set_list prest) output
   )
@@ -444,7 +450,7 @@ Proof
          res v ∧
        case res of
          INR (output,bound,concl) =>
-         sem_concl (set fml) obj concl ∧
+         sem_concl (set fml) obj (pres_set_list pres) concl ∧
          sem_output (set fml) obj (pres_set_list pres) bound
           (set fmlt) objt (pres_set_list prest) output
        | INL l => T))`
@@ -501,7 +507,7 @@ Quote add_cakeml:
     [f1] => check_unsat_1 f1
   | [f1,f2] => check_unsat_2 f1 f2
   | [f1,f2,f3] => check_unsat_3 f1 f2 f3
-  | _ => TextIO.output TextIO.stdErr usage_string
+  | _ => TextIO.output TextIO.stdErr (mk_usage_string usage_string)
 End
 
 Definition main_sem_def:
@@ -543,11 +549,13 @@ Proof
   Cases_on`t`>>fs[LIST_TYPE_def]
   >- (
     xmatch>>
+    assume_tac (theorem "usage_string_v_thm")>>
+    xlet_autop>>
     xapp_spec output_stderr_spec \\ xsimpl>>
     rename1`COMMANDLINE cl`>>
     qexists_tac`COMMANDLINE cl`>>xsimpl>>
-    qexists_tac `usage_string` >>
-    simp [theorem "usage_string_v_thm"] >>
+    qexists_tac `mk_usage_string usage_string` >>
+    simp [] >>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -579,11 +587,13 @@ Proof
     fs[wfcl_def]>>
     rw[]>>metis_tac[STDIO_refl])>>
   xmatch>>
+  assume_tac (theorem "usage_string_v_thm")>>
+  xlet_autop>>
   xapp_spec output_stderr_spec \\ xsimpl>>
   rename1`COMMANDLINE cl`>>
   qexists_tac`COMMANDLINE cl`>>xsimpl>>
-  qexists_tac `usage_string` >>
-  simp [theorem "usage_string_v_thm"] >>
+  qexists_tac `mk_usage_string usage_string` >>
+  simp [] >>
   qexists_tac`fs`>>xsimpl>>
   rw[]>>
   fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>

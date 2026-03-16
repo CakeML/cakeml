@@ -93,6 +93,22 @@ Proof
   metis_tac[]
 QED
 
+(* stricter version which excludes the vertex itself *)
+Definition strict_not_neighbours_def:
+  strict_not_neighbours (v,e) a =
+  let n = neighbours_sp e a in
+  FILTER (λu. sptree$lookup u n ≠ SOME () ∧ u ≠ a) (COUNT_LIST v)
+End
+
+Theorem MEM_strict_not_neighbours:
+  MEM b (strict_not_neighbours (vp,ep) a) ⇔
+  b < vp ∧ b ≠ a ∧
+  ¬is_edge ep a b
+Proof
+  rw[strict_not_neighbours_def,MEM_FILTER,lookup_neighbours_sp,MEM_COUNT_LIST]>>
+  metis_tac[]
+QED
+
 Definition insert_dir_edge_def:
   insert_dir_edge e u v =
   let ns = neighbours_sp e u in

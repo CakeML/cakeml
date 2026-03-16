@@ -6,6 +6,9 @@ Clique encode and checker
 [cnfProgScript.sml](cnfProgScript.sml):
 CNF encoder and checker
 
+[colourProgScript.sml](colourProgScript.sml):
+Colour encode and checker
+
 [compilation](compilation):
 Compiling the pseudo-boolean constraints checker.
 
@@ -17,6 +20,9 @@ MCIS (connected) encode and checker
 
 [mcisProgScript.sml](mcisProgScript.sml):
 MCIS (unconnected) encode and checker
+
+[mcliqueProgScript.sml](mcliqueProgScript.sml):
+Maximal clique encode and checker
 
 [npbc_arrayProgScript.sml](npbc_arrayProgScript.sml):
 Refine npbc_list to npbc_array
