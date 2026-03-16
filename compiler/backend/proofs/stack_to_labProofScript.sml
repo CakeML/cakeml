@@ -3833,13 +3833,14 @@ Definition complex_get_code_labels_def[simp]:
   (complex_get_code_labels _ = {})
 End
 
-Theorem complex_flatten_labels:
+Theorem complex_flatten_labels[local]:
   ∀t p n m cs bs.
   let pp = set(append (FST (flatten t p n m cs bs))) in
   BIGUNION (IMAGE line_get_labels pp)
   ⊆
   (n,0) INSERT
   (n,if t /\ ?p1 p2. p = Seq p1 p2 then 1 else 0) INSERT
+  set (MAP (λl. (n,l)) (cs ++ bs)) ∪
   IMAGE (λn2. (n,n2)) (BIGUNION (IMAGE line_get_code_labels pp)) ∪
   complex_get_code_labels p
 Proof
@@ -3879,21 +3880,24 @@ Proof
     fs[line_get_labels_def]>>
     match_mp_tac SUBSET_TRANS>> asm_exists_tac>>fs[]>>
     metis_tac[SUBSET_UNION,SUBSET_OF_INSERT,SUBSET_TRANS])
-  >> cheat (*
   >- (
     fs[line_get_labels_def]>>
     match_mp_tac SUBSET_TRANS>>
     asm_exists_tac>>
     rw[]>>
-    metis_tac[SUBSET_UNION,SUBSET_OF_INSERT,SUBSET_TRANS]) *)
+    metis_tac[SUBSET_UNION,SUBSET_OF_INSERT,SUBSET_TRANS]) >>
+  rw [find_lab_def,oEL_THM,MEM_MAP] >>
+  gvs [MEM_EL] >>
+  metis_tac []
 QED
 
-Theorem flatten_labels:
+Theorem flatten_labels[local]:
    ∀t m n p cs bs l x y.
      flatten t m n p cs bs = (l,x,y) ∧
      EVERY (sec_label_ok n) (append l)
      ⇒
      BIGUNION (IMAGE line_get_labels (set (append l))) ⊆
+     set (MAP (λl. (n,l)) (cs ++ bs)) ∪
      sec_get_code_labels (Section n (append l)) ∪
      get_code_labels m
 Proof
@@ -3927,13 +3931,15 @@ Proof
           labPropsTheory.line_get_code_labels_def]
     \\ fs[SUBSET_DEF, PULL_EXISTS, FORALL_PROD]
     \\ metis_tac[] )
-  >~ [‘Break’] >- cheat
-  >~ [‘Continue’] >- cheat
+  >~ [‘Break’] >-
+   (rw [find_lab_def,oEL_THM,MEM_MAP] \\ fs [MEM_EL] \\ metis_tac [])
+  >~ [‘Continue’] >-
+   (rw [find_lab_def,oEL_THM,MEM_MAP] \\ fs [MEM_EL] \\ metis_tac [])
   \\ (
     rpt (pairarg_tac \\ fs[]) \\ rveq
     \\ fs[labPropsTheory.line_get_labels_def,
           labPropsTheory.line_get_code_labels_def]
-    \\ fs[SUBSET_DEF, PULL_EXISTS, FORALL_PROD]
+    \\ fs[SUBSET_DEF, PULL_EXISTS, FORALL_PROD, MEM_MAP]
     \\ fs[CaseEq"bool"] \\ rveq
     \\ fsrw_tac[DNF_ss][labPropsTheory.line_get_labels_def,
           labPropsTheory.line_get_code_labels_def]
