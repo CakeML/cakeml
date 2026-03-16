@@ -1230,6 +1230,7 @@ Theorem flatten_correct:
      ∃ck t2.
      case halt_view r of
      | SOME res =>
+   (*  (∀n. r = SOME (Continue n) ⇒ ck ≠ 0) ∧ *)
        evaluate (t1 with clock := t1.clock + ck) =
          (res,t2) ∧ t2.ffi = s2.ffi
      | NONE =>
@@ -1241,6 +1242,7 @@ Theorem flatten_correct:
        t2.ptr2_reg = t1.ptr2_reg ∧
        t2.link_reg = t1.link_reg ∧
        t1.code ≼ t2.code ∧
+    (* (∀n. r = SOME (Continue n) ⇒ ck ≠ 0) ∧ *)
        case OPTION_MAP (λw. result_view w n cs bs) r of
        | NONE =>
          t2.pc = t1.pc + LENGTH (FILTER ($~ o is_Label)
@@ -1254,7 +1256,6 @@ Theorem flatten_correct:
        | SOME Vtimeout => t2.ffi = s2.ffi ∧ t2.clock = 0
        | _ => F
 Proof
-
   recInduct stackSemTheory.evaluate_ind >>
   conj_tac >- (
     rename [`Skip`] >>
@@ -1594,7 +1595,9 @@ Proof
       >- (
         simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
         simp[dec_clock_def,inc_pc_def] >>
-        first_x_assum(old_drule)>>simp[] )
+        first_x_assum(old_drule)>>simp[] >>
+        strip_tac >> gvs [] >>
+        first_x_assum $ irule_at $ Pos hd >> fs [])
       \\ first_x_assum old_drule \\ simp[] \\ strip_tac >>
       TOP_CASE_TAC \\ fs[] >>
       qexists_tac`ck`>>simp[] >>
@@ -1681,7 +1684,8 @@ Proof
         simp[Once labSemTheory.evaluate_def,asm_fetch_def]
         \\ simp[inc_pc_def,dec_clock_def] \\ rfs[]
         \\ qexists_tac`ck+1`>>simp[] >>
-        qexists_tac`t2`>>simp[]) >>
+        qexists_tac`t2`>>simp[] >>
+        CASE_TAC \\ gvs []) >>
       Ho_Rewrite.ONCE_REWRITE_TAC[EXISTS_NUM] >> disj2_tac >>
       simp[get_pc_value_def] >>
       imp_res_tac code_installed_append_imp >>
@@ -1816,10 +1820,7 @@ Proof
     qexists_tac`upd_pc pc t2`>>simp[upd_pc_def] >>
     fs[Abbr`pc`,FILTER_APPEND]>>
     metis_tac[state_rel_with_pc,upd_pc_def]) >>
-  conj_tac >-
-
-(
-
+  conj_tac >- (
     rename [`Loop`]
     \\ srw_tac[][stackSemTheory.evaluate_def]
     \\ `flatten t (Loop c1) n l cs bs = flatten F (Loop c1) n l cs bs`
@@ -1828,6 +1829,7 @@ Proof
     \\ qpat_x_assum`_ = (r,_)`mp_tac
     \\ pairarg_tac \\ gvs []
     \\ Cases_on ‘res = SOME Error’ >> gvs []
+    \\ qpat_assum ‘code_installed _ _ _’ $ mk_asm "code"
     \\ qpat_x_assum ‘code_installed _ _ _’ mp_tac
     \\ simp [Once flatten_def]
     \\ pairarg_tac \\ gvs []
@@ -1851,7 +1853,8 @@ Proof
          \\ rw [exit_loop_def])
       \\ simp []
       \\ reverse $ Cases_on ‘halt_view res’
-      >- (fs [] \\ first_x_assum $ irule_at $ Pos hd \\ fs [])
+      >- (fs [] \\ first_x_assum $ irule_at $ Pos $ el 2 \\ fs []
+          \\ qexists ‘ck’ \\ fs [])
       \\ gvs [] \\ Cases_on ‘res’ \\ gvs []
       \\ qexists ‘ck’ \\ gvs []
       \\ qexists ‘t2’ \\ gvs []
@@ -1868,7 +1871,19 @@ Proof
             loc_to_pc n (l + 1) t2.code = loc_to_pc n (l + 1) t1.code’ by
           (imp_res_tac loc_to_pc_isPREFIX \\ fs[])
         \\ asm_rewrite_tac [] \\ simp [])
+      (*m\\ conj_tac
+      >-
+       (pop_assum mp_tac \\ simp [oneline exit_loop_def,AllCaseEqs()]
+        \\ rw [] \\ gvs [])
+      *)
       \\ simp_tac (srw_ss()) []
+      (*
+      \\ conj_tac
+      >-
+       (rw [] \\ gvs []
+        \\ pop_assum mp_tac
+        \\ Cases_on ‘x’ \\ simp_tac (srw_ss()) []
+        \\ gvs [cont_loop_def]) *)
       \\ rename [‘exit_loop (SOME x) = SOME y’]
       \\ qsuff_tac ‘result_view x n (l::cs) (l + 1::bs) = result_view y n cs bs’
       >- (strip_tac \\ gvs [])
@@ -1898,7 +1913,7 @@ Proof
       \\ full_simp_tac std_ss [] \\ res_tac
       \\ qpat_x_assum ‘state_rel s1 t2’ mp_tac
       \\ simp_tac (srw_ss()) [state_rel_def]
-      \\asm_rewrite_tac [])
+      \\ asm_rewrite_tac [])
     \\ strip_tac
     \\ last_x_assum $ drule_then drule
     \\ disch_then drule
@@ -1910,6 +1925,7 @@ Proof
        \\ full_simp_tac std_ss [find_lab_def, oEL_def]
        \\ imp_res_tac loc_to_pc_isPREFIX
        \\ res_tac)
+    \\ ‘t2.clock ≠ 0’ by full_simp_tac (srw_ss()) [state_rel_def]
     \\ dxrule state_rel_dec_clock \\ strip_tac
     \\ ‘state_rel (dec_clock s1) (dec_clock t2 with pc := t1.pc)’ by
      (pop_assum mp_tac
@@ -1917,10 +1933,74 @@ Proof
     \\ disch_then drule \\ asm_simp_tac (srw_ss()) []
     \\ disch_then $ qspecl_then [‘F’,‘n’,‘l’,‘cs’,‘bs’] mp_tac
     \\ simp [Once flatten_def]
-    \\ impl_keep_tac >- cheat
+    \\ impl_keep_tac >-
+     (asm_x "code" assume_tac
+      \\ drule_all code_installed_isPREFIX
+      \\ simp [Once flatten_def]
+      \\ imp_res_tac every_is_some_loc_to_pc_prefix
+      \\ imp_res_tac is_some_loc_to_pc_prefix \\ fs [])
     \\ strip_tac
-    \\ cheat) >>
-
+    \\ gvs [code_installed_def]
+    \\ drule code_installed_append_imp
+    \\ simp [code_installed_def] \\ strip_tac
+    \\ simp [Once flatten_def,FILTER_APPEND]
+    \\ drule cont_loop_IMP \\ strip_tac
+    >~ [‘res = NONE’] >-
+     (gvs [] \\ reverse $ Cases_on ‘halt_view r’ \\ gvs []
+      >-
+       (gvs [dec_clock_def]
+        \\ qexists ‘ck + ck'’ \\ gvs []
+        \\ first_x_assum $ qspec_then ‘ck'’ assume_tac \\ gvs []
+        \\ ‘t2.clock ≠ 0’ by full_simp_tac std_ss [state_rel_def]
+        \\ simp [Once evaluate_def,asm_fetch_def,get_pc_value_def,dec_clock_def,upd_pc_def]
+        \\ Cases_on ‘t2.clock’ \\ fs [ADD1])
+      \\ gvs [dec_clock_def]
+      \\ qexists ‘ck + ck'’ \\ gvs []
+      \\ ‘∀ck1. ck + (ck' + (ck1 + t1.clock)) = ck + ((ck' + ck1) + t1.clock)’ by decide_tac
+      \\ asm_rewrite_tac []
+      \\ ‘t2.clock ≠ 0’ by full_simp_tac std_ss [state_rel_def]
+      \\ simp [Once evaluate_def,asm_fetch_def,get_pc_value_def,dec_clock_def,upd_pc_def]
+      \\ Cases_on ‘t2.clock’ \\ fs [ADD1]
+      \\ qexists ‘t2'’ \\ simp []
+      \\ qpat_x_assum ‘option_CASE _ _ _’ mp_tac
+      \\ simp [Once flatten_def,FILTER_APPEND]
+      \\ imp_res_tac isPREFIX_TRANS \\ asm_rewrite_tac[])
+    \\ rename [‘res = SOME (Continue 0)’]
+    \\ ‘ck' ≠ 0’ by cheat
+    \\ gvs [] \\ reverse $ Cases_on ‘halt_view r’ \\ full_simp_tac std_ss []
+    >-
+     (full_simp_tac (srw_ss()) [dec_clock_def]
+      \\ qexists ‘ck + ck' - 1’ \\ full_simp_tac std_ss []
+      \\ last_x_assum $ qspec_then ‘ck'-1’ assume_tac
+      \\ Cases_on ‘ck'’ \\ full_simp_tac std_ss [ADD1]
+      \\ gvs []
+      \\ full_simp_tac std_ss [ADD_ASSOC,find_lab_def,oEL_def]
+      \\ ‘t2.clock ≠ 0’ by full_simp_tac std_ss [state_rel_def]
+      \\ first_x_assum $ irule_at $ Pos last
+      \\ irule EQ_TRANS
+      \\ first_x_assum $ irule_at $ Pos last
+      \\ AP_TERM_TAC
+      \\ asm_simp_tac (srw_ss()) [state_component_equality]
+      \\ decide_tac)
+    \\ gvs [dec_clock_def]
+    \\ qexists ‘ck + ck' - 1’ \\ full_simp_tac std_ss []
+    \\ ‘∀ck1. ck + ck' - 1 + (ck1 + t1.clock) = ck + ((ck' - 1 + ck1) + t1.clock)’ by decide_tac
+    \\ asm_rewrite_tac []
+    \\ qexists ‘t2'’ \\ simp []
+    \\ conj_tac
+    >-
+     (gen_tac
+      \\ irule EQ_TRANS
+      \\ first_x_assum $ irule_at $ Pos last
+      \\ AP_TERM_TAC
+      \\ asm_simp_tac (srw_ss()) [state_component_equality]
+      \\ full_simp_tac std_ss [ADD_ASSOC,find_lab_def,oEL_def])
+    \\ conj_tac
+    >- (imp_res_tac isPREFIX_TRANS \\ fs [])
+    \\ qpat_x_assum ‘option_CASE _ _ _’ mp_tac
+    \\ once_rewrite_tac [flatten_def]
+    \\ asm_simp_tac (srw_ss()) [FILTER_APPEND,LET_THM]
+    \\ simp []) >>
   conj_tac >- (
     rename [`JumpLower`] >>
     srw_tac[][] >>
