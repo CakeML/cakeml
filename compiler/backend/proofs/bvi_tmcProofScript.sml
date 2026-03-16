@@ -232,8 +232,21 @@ Proof
   rw []
   >> gvs [optimized_code_def, compile_exp_def, rewrite_aux_def]
   >> CASE_TAC
-  >> gvs []
   >> gvs [rewrite_opt_def]
+QED
+
+(* TODO - this is not true. it might be that only x3 is optimized *)
+Theorem opt_strip_if:
+  ∀s t loc loc_opt arity env x1 x2 x3 v1 exp_aux exp_opt.
+    evaluate([x1],env,s) = (Rval v1,t) ∧
+    HD v1 = Boolv T ∧
+    optimized_code loc arity (If x1 x2 x3) loc_opt s.code exp_aux exp_opt ⇒
+    ∃exp_aux2 exp_aux3 exp_opt2 exp_opt3.
+      exp_aux = If x1 exp_aux2 exp_aux3 ∧
+      exp_opt = If x1 exp_opt2 exp_opt3 ∧
+      optimized_code loc arity x2 loc_opt t.code exp_aux2 exp_opt2
+Proof
+  cheat
 QED
 
 Theorem opt_strip_tick:
@@ -329,6 +342,7 @@ Proof
     >> rw []
     >> gvs [opt_strip_var])
   >~ [‘If x1 x2 x3’] >-
+     
    (gvs [evaluate_def]
     >> gvs [CaseEq "prod", PULL_EXISTS]
     >> rename [‘evaluate ([x1],env,s) = (r1,s1)’]
@@ -352,14 +366,28 @@ Proof
             >> Cases_on ‘HD a = Boolv T’
             >> gvs []
             (* True inductive hypothesis *)
-            >- (first_x_assum $ qspec_then ‘T’ mp_tac
+            >- (rename [‘LIST_REL (v_rel f'') v1 v1'’]
+                >> first_x_assum $ qspec_then ‘T’ mp_tac
                 >> simp []
                 >> drule_all env_rel_submap
                 >> strip_tac
                 >> disch_then drule_all
                 >> strip_tac
-                >> cheat
-               )
+                >> sg ‘HD v1' = Boolv T’
+                >- cheat
+                >> gvs []
+                >> qexists ‘f'³'’
+                >> gvs []
+                >> rw []
+                >- (imp_res_tac SUBMAP_TRANS)
+                >> drule_all opt_strip_if
+                >> strip_tac
+                >> gvs []
+                >> first_x_assum drule
+                >> strip_tac
+                >> qexistsl [‘t1’, ‘rrr’, ‘t2’]
+                >> rw []
+                >> gvs [evaluate_def])
             >> cheat
            )
         >> cheat
@@ -367,7 +395,6 @@ Proof
     >> cheat
     )
   >~ [‘Let xs x2’] >-
-
    (gvs [evaluate_def]
     >> gvs [CaseEq "prod", PULL_EXISTS]
     >> rename [‘evaluate (xs,env,s) = (rs,u)’]
