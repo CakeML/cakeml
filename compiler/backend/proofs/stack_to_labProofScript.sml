@@ -954,16 +954,16 @@ Proof
 QED
 
 Datatype:
-  result_view = Vloc num num | Vtimeout | Verr
+  result_view = Vloc num num | Vcont num num | Vtimeout | Verr
 End
 
 Definition result_view_def[simp]:
-  (result_view (Result (Loc n1 n2)) _ _ _ = Vloc n1 n2) ∧
+  (result_view (Result (Loc n1 n2)) _ _ _    = Vloc n1 n2) ∧
   (result_view (Exception (Loc n1 n2)) _ _ _ = Vloc n1 n2) ∧
-  (result_view TimeOut _ _ _ = Vtimeout) ∧
-  (result_view (Continue n) l cs _ = Vloc l (find_lab n cs)) ∧
-  (result_view (Break n) l _ bs = Vloc l (find_lab n bs)) ∧
-  (result_view _ _ _ _ = Verr)
+  (result_view TimeOut _ _ _                 = Vtimeout) ∧
+  (result_view (Continue n) l cs _           = Vcont l (find_lab n cs)) ∧
+  (result_view (Break n) l _ bs              = Vloc l (find_lab n bs)) ∧
+  (result_view _ _ _ _                       = Verr)
 End
 
 Definition halt_word_view_def[simp]:
@@ -1230,7 +1230,6 @@ Theorem flatten_correct:
      ∃ck t2.
      case halt_view r of
      | SOME res =>
-   (*  (∀n. r = SOME (Continue n) ⇒ ck ≠ 0) ∧ *)
        evaluate (t1 with clock := t1.clock + ck) =
          (res,t2) ∧ t2.ffi = s2.ffi
      | NONE =>
@@ -1242,7 +1241,6 @@ Theorem flatten_correct:
        t2.ptr2_reg = t1.ptr2_reg ∧
        t2.link_reg = t1.link_reg ∧
        t1.code ≼ t2.code ∧
-    (* (∀n. r = SOME (Continue n) ⇒ ck ≠ 0) ∧ *)
        case OPTION_MAP (λw. result_view w n cs bs) r of
        | NONE =>
          t2.pc = t1.pc + LENGTH (FILTER ($~ o is_Label)
@@ -1253,6 +1251,9 @@ Theorem flatten_correct:
            ∀w. loc_to_pc n1 n2 t2.code = SOME w ⇒
                w = t2.pc ∧
                state_rel s2 t2
+       | SOME (Vcont n1 n2) =>
+           state_rel s2 t2 ∧
+           code_installed t2.pc [LabAsm (Jump (Lab n1 n2)) 0w [] 0] t2.code
        | SOME Vtimeout => t2.ffi = s2.ffi ∧ t2.clock = 0
        | _ => F
 Proof
@@ -1512,22 +1513,7 @@ Proof
     rename [`Continue`] >>
     srw_tac[][stackSemTheory.evaluate_def,flatten_def] >>
     simp [halt_view_def] >>
-    qexists_tac ‘1’ >> gvs [] >>
-    gvs [code_installed_def] >>
-    simp [Once labSemTheory.evaluate_def, asm_fetch_def, get_pc_value_def] >>
-    gvs [call_args_def] >>
-    CASE_TAC >-
-     (gvs [EVERY_MEM] >>
-      Cases_on ‘MEM (find_lab n cs) cs’
-      >- (res_tac \\ fs [IS_SOME_EXISTS] \\ fs []) >>
-      imp_res_tac NOT_MEM_find_lab_IMP >>
-      fs [IS_SOME_EXISTS] \\ fs []) >>
-    simp [dec_clock_def] >>
-    qmatch_assum_rename_tac`_ = SOME pc`>>
-    qexists_tac`upd_pc pc t1` >>
-    simp[upd_pc_def] >>
-    full_simp_tac(srw_ss())[state_rel_def] >>
-    metis_tac[IS_SOME_EXISTS]) >>
+    qexistsl [‘0’,‘t1’] >> fs []) >>
   conj_tac >- (
     rename [`If`] >>
     rw[] >>
@@ -1871,22 +1857,10 @@ Proof
             loc_to_pc n (l + 1) t2.code = loc_to_pc n (l + 1) t1.code’ by
           (imp_res_tac loc_to_pc_isPREFIX \\ fs[])
         \\ asm_rewrite_tac [] \\ simp [])
-      (*m\\ conj_tac
-      >-
-       (pop_assum mp_tac \\ simp [oneline exit_loop_def,AllCaseEqs()]
-        \\ rw [] \\ gvs [])
-      *)
       \\ simp_tac (srw_ss()) []
-      (*
-      \\ conj_tac
-      >-
-       (rw [] \\ gvs []
-        \\ pop_assum mp_tac
-        \\ Cases_on ‘x’ \\ simp_tac (srw_ss()) []
-        \\ gvs [cont_loop_def]) *)
       \\ rename [‘exit_loop (SOME x) = SOME y’]
       \\ qsuff_tac ‘result_view x n (l::cs) (l + 1::bs) = result_view y n cs bs’
-      >- (strip_tac \\ gvs [])
+      >- (strip_tac \\ gvs [code_installed_def])
       \\ pop_assum mp_tac
       \\ qid_spec_tac ‘y’
       \\ ntac 3 $ pop_assum mp_tac
@@ -1944,63 +1918,30 @@ Proof
     \\ drule code_installed_append_imp
     \\ simp [code_installed_def] \\ strip_tac
     \\ simp [Once flatten_def,FILTER_APPEND]
-    \\ drule cont_loop_IMP \\ strip_tac
-    >~ [‘res = NONE’] >-
-     (gvs [] \\ reverse $ Cases_on ‘halt_view r’ \\ gvs []
-      >-
-       (gvs [dec_clock_def]
-        \\ qexists ‘ck + ck'’ \\ gvs []
-        \\ first_x_assum $ qspec_then ‘ck'’ assume_tac \\ gvs []
-        \\ ‘t2.clock ≠ 0’ by full_simp_tac std_ss [state_rel_def]
-        \\ simp [Once evaluate_def,asm_fetch_def,get_pc_value_def,dec_clock_def,upd_pc_def]
-        \\ Cases_on ‘t2.clock’ \\ fs [ADD1])
-      \\ gvs [dec_clock_def]
+    \\ ‘state_rel s1 t2 ∧
+        asm_fetch_aux t2.pc t2.code =
+        SOME (LabAsm (Jump (Lab n l)) 0w [] 0)’ by
+     (drule cont_loop_IMP \\ strip_tac
+      \\ gvs [] \\ simp [find_lab_def,oEL_def])
+    \\ gvs [] \\ reverse $ Cases_on ‘halt_view r’ \\ gvs []
+    >-
+     (gvs [dec_clock_def]
       \\ qexists ‘ck + ck'’ \\ gvs []
-      \\ ‘∀ck1. ck + (ck' + (ck1 + t1.clock)) = ck + ((ck' + ck1) + t1.clock)’ by decide_tac
-      \\ asm_rewrite_tac []
+      \\ first_x_assum $ qspec_then ‘ck'’ assume_tac \\ gvs []
       \\ ‘t2.clock ≠ 0’ by full_simp_tac std_ss [state_rel_def]
       \\ simp [Once evaluate_def,asm_fetch_def,get_pc_value_def,dec_clock_def,upd_pc_def]
-      \\ Cases_on ‘t2.clock’ \\ fs [ADD1]
-      \\ qexists ‘t2'’ \\ simp []
-      \\ qpat_x_assum ‘option_CASE _ _ _’ mp_tac
-      \\ simp [Once flatten_def,FILTER_APPEND]
-      \\ imp_res_tac isPREFIX_TRANS \\ asm_rewrite_tac[])
-    \\ rename [‘res = SOME (Continue 0)’]
-    \\ ‘ck' ≠ 0’ by cheat
-    \\ gvs [] \\ reverse $ Cases_on ‘halt_view r’ \\ full_simp_tac std_ss []
-    >-
-     (full_simp_tac (srw_ss()) [dec_clock_def]
-      \\ qexists ‘ck + ck' - 1’ \\ full_simp_tac std_ss []
-      \\ last_x_assum $ qspec_then ‘ck'-1’ assume_tac
-      \\ Cases_on ‘ck'’ \\ full_simp_tac std_ss [ADD1]
-      \\ gvs []
-      \\ full_simp_tac std_ss [ADD_ASSOC,find_lab_def,oEL_def]
-      \\ ‘t2.clock ≠ 0’ by full_simp_tac std_ss [state_rel_def]
-      \\ first_x_assum $ irule_at $ Pos last
-      \\ irule EQ_TRANS
-      \\ first_x_assum $ irule_at $ Pos last
-      \\ AP_TERM_TAC
-      \\ asm_simp_tac (srw_ss()) [state_component_equality]
-      \\ decide_tac)
+      \\ Cases_on ‘t2.clock’ \\ fs [ADD1])
     \\ gvs [dec_clock_def]
-    \\ qexists ‘ck + ck' - 1’ \\ full_simp_tac std_ss []
-    \\ ‘∀ck1. ck + ck' - 1 + (ck1 + t1.clock) = ck + ((ck' - 1 + ck1) + t1.clock)’ by decide_tac
+    \\ qexists ‘ck + ck'’ \\ gvs []
+    \\ ‘∀ck1. ck + (ck' + (ck1 + t1.clock)) = ck + ((ck' + ck1) + t1.clock)’ by decide_tac
     \\ asm_rewrite_tac []
+    \\ ‘t2.clock ≠ 0’ by full_simp_tac std_ss [state_rel_def]
+    \\ simp [Once evaluate_def,asm_fetch_def,get_pc_value_def,dec_clock_def,upd_pc_def]
+    \\ Cases_on ‘t2.clock’ \\ fs [ADD1]
     \\ qexists ‘t2'’ \\ simp []
-    \\ conj_tac
-    >-
-     (gen_tac
-      \\ irule EQ_TRANS
-      \\ first_x_assum $ irule_at $ Pos last
-      \\ AP_TERM_TAC
-      \\ asm_simp_tac (srw_ss()) [state_component_equality]
-      \\ full_simp_tac std_ss [ADD_ASSOC,find_lab_def,oEL_def])
-    \\ conj_tac
-    >- (imp_res_tac isPREFIX_TRANS \\ fs [])
     \\ qpat_x_assum ‘option_CASE _ _ _’ mp_tac
-    \\ once_rewrite_tac [flatten_def]
-    \\ asm_simp_tac (srw_ss()) [FILTER_APPEND,LET_THM]
-    \\ simp []) >>
+    \\ simp [Once flatten_def,FILTER_APPEND]
+    \\ imp_res_tac isPREFIX_TRANS \\ asm_rewrite_tac[]) >>
   conj_tac >- (
     rename [`JumpLower`] >>
     srw_tac[][] >>
