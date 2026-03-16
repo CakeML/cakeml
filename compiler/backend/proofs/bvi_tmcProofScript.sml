@@ -216,8 +216,7 @@ Theorem opt_strip_var:
   ∀s loc loc_opt arity n exp_aux exp_opt.
     ~(optimized_code loc arity (Var n) loc_opt s.code exp_aux exp_opt)
 Proof
-  rw []
-  >> gvs [optimized_code_def, compile_exp_def, rewrite_aux_def]
+  rw [] >> gvs [optimized_code_def, compile_exp_def, rewrite_aux_def]
 QED
 
 Theorem opt_strip_let:
@@ -235,8 +234,7 @@ Proof
   >> gvs [rewrite_opt_def]
 QED
 
-(* TODO - this is not true. it might be that only x3 is optimized *)
-Theorem opt_strip_if:
+Theorem opt_strip_if_true:
   ∀s t loc loc_opt arity env x1 x2 x3 v1 exp_aux exp_opt.
     evaluate([x1],env,s) = (Rval v1,t) ∧
     HD v1 = Boolv T ∧
@@ -244,9 +242,21 @@ Theorem opt_strip_if:
     ∃exp_aux2 exp_aux3 exp_opt2 exp_opt3.
       exp_aux = If x1 exp_aux2 exp_aux3 ∧
       exp_opt = If x1 exp_opt2 exp_opt3 ∧
-      optimized_code loc arity x2 loc_opt t.code exp_aux2 exp_opt2
+      (optimized_code loc arity x2 loc_opt t.code exp_aux2 exp_opt2 ∨
+       ∃i j k.
+         (exp_aux2 = x2 ∧
+          exp_opt2 = rewrite_opt loc loc_opt i j k x2))
 Proof
-  cheat
+  rw []
+  >> gvs [optimized_code_def, compile_exp_def, rewrite_aux_def]
+  >> CASE_TAC
+  >> gvs []
+  >- (Cases_on ‘rewrite_aux loc loc_opt arity x3’
+      >> gvs [rewrite_opt_def]
+      >> qexistsl [‘arity’, ‘arity + 1’, ‘arity + 2’]
+      >> gvs [])
+  >> Cases_on ‘rewrite_aux loc loc_opt arity x3’
+  >> gvs [rewrite_opt_def]
 QED
 
 Theorem opt_strip_tick:
@@ -380,14 +390,29 @@ Proof
                 >> gvs []
                 >> rw []
                 >- (imp_res_tac SUBMAP_TRANS)
-                >> drule_all opt_strip_if
+                >> drule_all opt_strip_if_true       
                 >> strip_tac
                 >> gvs []
-                >> first_x_assum drule
-                >> strip_tac
-                >> qexistsl [‘t1’, ‘rrr’, ‘t2’]
+                >- (first_x_assum drule
+                    >> strip_tac
+                    >> qexistsl [‘t1’, ‘rrr’, ‘t2’]
+                    >> rw []
+                    >> gvs [evaluate_def])
+
+                >> gvs [evaluate_def]
+                >> Cases_on ‘evaluate ([rewrite_opt loc loc_opt i j k exp_aux2],env2,s1')’
+                >> rename [‘evaluate ([rewrite_opt loc loc_opt i j k exp_aux2],env2,s1') = (rrr,t2)’]
+                >> qexistsl [‘rrr’, ‘t2’]
                 >> rw []
-                >> gvs [evaluate_def])
+                >> gvs []
+                >> gvs []
+
+
+                >> gvs [evaluate_def]
+                >> gvs [opt_res_rel_def]
+                >> CASE_TAC
+                >> gvs []
+                >> cheat)
             >> cheat
            )
         >> cheat
