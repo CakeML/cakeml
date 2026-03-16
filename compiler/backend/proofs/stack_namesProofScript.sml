@@ -310,30 +310,31 @@ Theorem comp_correct[local]:
      evaluate (comp f p, rename_state c f s) = (r, rename_state c f t)
 Proof
   recInduct evaluate_ind \\ rpt strip_tac
-  THEN1 (fs [evaluate_def,comp_def] \\ rpt var_eq_tac)
-  THEN1 (fs [evaluate_def,comp_def] \\ rpt var_eq_tac \\ CASE_TAC \\ fs []
-         \\ rw [] \\ fs [rename_state_def,empty_env_def])
-  THEN1 (fs [evaluate_def,comp_def,rename_state_def] \\ rpt var_eq_tac \\ fs [])
-  THEN1 (fs [evaluate_def,comp_def,rename_state_def] \\ rpt var_eq_tac \\ fs [])
-  THEN1 (fs [evaluate_def,comp_def] >>
+  >~ [‘Skip’] >- (gvs [evaluate_def,comp_def,rename_state_def])
+  >~ [‘Break’] >- (gvs [evaluate_def,comp_def,rename_state_def])
+  >~ [‘Continue’] >- (gvs [evaluate_def,comp_def,rename_state_def])
+  >~ [‘Alloc’] >- (gvs [evaluate_def,comp_def,rename_state_def])
+  >~ [‘Set’] >- (gvs [evaluate_def,comp_def,rename_state_def])
+  >~ [‘Get’] >- (gvs [evaluate_def,comp_def,rename_state_def])
+  >~ [‘StoreConsts’] >- (gvs [evaluate_def,comp_def,rename_state_def])
+  >~ [‘OpCurrHeap’] >- (gvs [evaluate_def,comp_def,rename_state_def])
+  >~ [‘Halt’] >- (fs [evaluate_def,comp_def] \\ rpt var_eq_tac \\ CASE_TAC \\ fs []
+                  \\ rw [] \\ fs [rename_state_def,empty_env_def])
+  >~ [‘Inst’] >-
+   (fs [evaluate_def,comp_def] >>
     every_case_tac >> fs[] >> rveq >> fs[] >>
     imp_res_tac inst_rename >> fs[])
-  THEN1 (fs [evaluate_def,comp_def,rename_state_def] >> rveq >> fs[])
-  THEN1 (fs [evaluate_def,comp_def,rename_state_def] >> rveq >> fs[])
-  THEN1 (fs [evaluate_def,comp_def,rename_state_def] >> rveq >> fs[])
-  THEN1 (fs [evaluate_def,comp_def,rename_state_def] \\ rw []
-         \\ fs [] \\ rw [] \\ fs [empty_env_def,dec_clock_def])
-  THEN1
+  >~ [‘Tick’] >- (fs [evaluate_def,comp_def,rename_state_def] \\ rw []
+                  \\ fs [] \\ rw [] \\ fs [empty_env_def,dec_clock_def])
+  >~ [‘Seq’] >-
    (simp [Once evaluate_def,Once comp_def]
     \\ fs [evaluate_def,LET_DEF] \\ rpt (pairarg_tac \\ fs [])
     \\ rw [] \\ fs [] \\ rfs [] \\ fs []
     \\ imp_res_tac evaluate_consts \\ fs [])
-  THEN1 (fs [evaluate_def,comp_def] \\ rpt var_eq_tac \\ every_case_tac \\ fs [])
-  THEN1 (fs [evaluate_def,comp_def] \\ rpt var_eq_tac \\ every_case_tac \\ fs [])
-  THEN1 (fs [evaluate_def,comp_def] \\ rpt var_eq_tac \\ every_case_tac \\ fs [])
-  THEN1 (fs [evaluate_def,comp_def] \\ rpt var_eq_tac \\ every_case_tac \\ fs [])
-  THEN1 (
-    fs[evaluate_def] >>
+  >~ [‘Return’] >- (fs [evaluate_def,comp_def] \\ rpt var_eq_tac \\ every_case_tac \\ fs [])
+  >~ [‘Raise’] >- (fs [evaluate_def,comp_def] \\ rpt var_eq_tac \\ every_case_tac \\ fs [])
+  >~ [‘If’] >-
+   (fs[evaluate_def] >>
     simp[Once comp_def] >>
     simp[evaluate_def] >>
     BasicProvers.TOP_CASE_TAC >> fs[] >>
@@ -341,31 +342,16 @@ Proof
     BasicProvers.TOP_CASE_TAC >> fs[] >>
     BasicProvers.TOP_CASE_TAC >> fs[] >>
     BasicProvers.TOP_CASE_TAC >> fs[] )
-  THEN1 (* Loop *)
+  >~ [‘Loop’] >-
    (simp [Once comp_def] \\ fs [evaluate_def,get_var_def]
-    \\ gvs [CaseEq"prod"]
-    \\ rename [‘evaluate (c1,s) = (res,s1)’]
-    \\ Cases_on `res` \\ fs []
-    >-
-     (Cases_on `s1.clock = 0` \\ fs []
-      THEN1 (gvs [rename_state_def,empty_env_def])
-      \\ `(rename_state c f s1).clock <> 0` by fs [rename_state_def] \\ fs []
-      \\ fs [comp_STOP_Loop] \\ rfs []
-      \\ fs [dec_clock_def,rename_state_def]
-      \\ imp_res_tac evaluate_consts \\ fs [])
-    \\ rename [‘evaluate (c1,s) = (SOME res,s1)’]
-    \\ Cases_on ‘res = Continue 0’
-    >-
-     (Cases_on `s1.clock = 0` \\ fs []
-      THEN1 (gvs [rename_state_def,empty_env_def])
-      \\ `(rename_state c f s1).clock <> 0` by fs [rename_state_def] \\ fs []
-      \\ fs [comp_STOP_Loop] \\ rfs []
-      \\ fs [dec_clock_def,rename_state_def]
-      \\ imp_res_tac evaluate_consts \\ fs [])
-    \\ gvs [AllCaseEqs()])
-  (* JumpLower *)
-  THEN1 (
-    simp[Once comp_def] >>
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ gvs [AllCaseEqs()]
+    >- (gvs [rename_state_def,empty_env_def])
+    \\ fs [comp_STOP_Loop] \\ rfs []
+    \\ fs [dec_clock_def,rename_state_def]
+    \\ imp_res_tac evaluate_consts \\ fs [])
+  >~ [‘JumpLower’] >-
+   (simp[Once comp_def] >>
     fs[evaluate_def] >>
     BasicProvers.TOP_CASE_TAC >> fs[] >>
     BasicProvers.TOP_CASE_TAC >> fs[] >>
@@ -398,8 +384,7 @@ Proof
     fs[MEM_toAList] >> rveq >>
     fs[dec_clock_rename_state] >>
     BasicProvers.TOP_CASE_TAC >> fs[])
-  (* RawCall *)
-  THEN1
+  >~ [‘RawCall’] >-
    (simp [comp_def,evaluate_def]
     \\ `lookup dest (rename_state c f s).code =
         find_code (dest_find_name f (INL dest))
@@ -413,8 +398,7 @@ Proof
     \\ once_rewrite_tac [comp_def] \\ fs [dest_Seq_def]
     THEN1 (fs [empty_env_def,rename_state_def])
     \\ fs [rename_state_def,dec_clock_def])
-  (* Call *)
-  THEN1 cheat (* (
+  >~ [‘Call’] >- (
     simp[Once comp_def] >>
     fs[evaluate_def] >>
     BasicProvers.TOP_CASE_TAC >> fs[] >- (
@@ -465,10 +449,9 @@ Proof
     strip_tac >> fs[] >>
     first_x_assum match_mp_tac >>
     imp_res_tac evaluate_consts >>
-    fs[rename_state_def] ) *)
-  THEN1 (
-  (* Install *)
-    simp[Once comp_def] >>
+    fs[rename_state_def] )
+  >~ [‘Install’] >-
+   (simp[Once comp_def] >>
     fs[evaluate_def] >>
     ntac 8 (TOP_CASE_TAC \\ fs[]) \\
     pairarg_tac>>fs[]>>
@@ -501,18 +484,16 @@ Proof
     gen_tac \\
     TOP_CASE_TAC \\ fs[] \\
     TOP_CASE_TAC \\ fs[] )
-  THEN1 (
-  (* ShMemOp *)
-   simp[Once comp_def] \\
-   fs[evaluate_def] \\
-   fs[word_exp_def,IS_SOME_EXISTS,empty_env_def]>>
-   simp[sh_mem_op_rename_store]>>
-   rpt (CASE_TAC>>gs[])>>
-   gs[wordLangTheory.word_op_def,dec_clock_rename_state]>>
-   rveq>>gs[rename_state_def])
-  THEN1 (
-  (* CodeBufferWrite *)
-    simp[Once comp_def] \\
+  >~ [‘ShMemOp’] >- (
+    simp[Once comp_def] >>
+    fs[evaluate_def] >>
+    fs[word_exp_def,IS_SOME_EXISTS,empty_env_def]>>
+    simp[sh_mem_op_rename_store]>>
+    rpt (CASE_TAC>>gs[])>>
+    gs[wordLangTheory.word_op_def,dec_clock_rename_state]>>
+    rveq>>gs[rename_state_def])
+  >~ [‘CodeBufferWrite’] >-
+   (simp[Once comp_def] \\
     fs[evaluate_def] \\
     TOP_CASE_TAC \\ fs[] \\
     TOP_CASE_TAC \\ fs[] \\
@@ -520,12 +501,10 @@ Proof
     TOP_CASE_TAC \\ fs[] \\
     TOP_CASE_TAC \\ fs[] \\ rw[] \\
     EVAL_TAC)
-  THEN1 (
-  (* DataBufferWrite is not needed anymore *)
+  >~ [‘DataBufferWrite’] >- (
     simp[Once comp_def] \\
     fs[evaluate_def])
-  (* FFI *)
-  THEN1 (
+  >~ [‘FFI’] >- (
     simp[Once comp_def] >>
     fs[evaluate_def] >>
     rpt(BasicProvers.TOP_CASE_TAC >> fs[]) >>
@@ -537,7 +516,7 @@ Proof
     fs[] >> rveq >> fs[rename_state_def,state_component_equality] >>
     dep_rewrite.DEP_REWRITE_TAC[DRESTRICT_MAP_KEYS_IMAGE] >>
     metis_tac[BIJ_DEF])
-  THEN1 (
+  >~ [‘LocValue’] >- (
     simp[Once comp_def] >> fs[evaluate_def,loc_check_rename_state] >>
     rw[] >> fs[] >> rveq >> fs[set_var_find_name] )
   \\ (

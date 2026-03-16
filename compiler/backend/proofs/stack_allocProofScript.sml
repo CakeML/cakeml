@@ -5519,42 +5519,45 @@ Proof
     \\ simp[state_component_equality])
   \\ conj_tac (* Loop *) >- (
     rpt strip_tac
-    \\ simp [Once comp_def] \\ full_simp_tac(srw_ss())[evaluate_def,get_var_def]
-    \\ pairarg_tac \\ full_simp_tac(srw_ss())[]
+    \\ simp [Once comp_def] \\ full_simp_tac(srw_ss())[evaluate_def,get_var_def,LET_THM]
+    \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
     \\ qpat_x_assum`_ = (r,_)`mp_tac
-    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ Cases_on ‘q ≠ NONE ∧ q ≠ SOME (Continue 0)’
+    \\ reverse IF_CASES_TAC
     >-
      (strip_tac
-      \\ simp [evaluate_def]
-      \\ Cases_on ‘q = SOME Error’ >- gvs [] \\ gvs [alloc_arg_def]
+      \\ simp [evaluate_def] \\ gvs []
+      \\ Cases_on ‘res = SOME Error’ >- gvs [] \\ gvs [alloc_arg_def]
       \\ first_x_assum $ drule_at $ Pos last
       \\ disch_then $ qspecl_then [‘m’,‘n’,‘c’] mp_tac
       \\ impl_tac >- gvs [SF SFY_ss]
       \\ strip_tac \\ qexists ‘ck’ \\ gvs []
       \\ gvs [AllCaseEqs()]
-      \\ fs[state_component_equality])
+      \\ fs[state_component_equality]
+      \\ Cases_on ‘res’ >> gvs []
+      \\ rename [‘exit_loop (SOME x1)’]
+      \\ Cases_on ‘x1’ >> gvs [])
     \\ rename [‘r1.clock’]
     \\ Cases_on ‘r1.clock = 0’
     >-
      (gvs [] \\ strip_tac \\ gvs []
       \\ gvs [evaluate_def,alloc_arg_def]
       \\ first_x_assum $ qspecl_then [‘m’,‘n’,‘c’,‘regs’] mp_tac
-      \\ (impl_tac >- gvs [SF SFY_ss])
+      \\ impl_tac >- (gvs [SF SFY_ss] \\ imp_res_tac cont_loop_IMP \\ gvs [])
       \\ strip_tac \\ qexists ‘ck’ \\ gvs []
       \\ fs[state_component_equality,empty_env_def])
     \\ gvs [] \\ strip_tac \\ gvs []
     \\ gvs [evaluate_def,alloc_arg_def]
     \\ gvs [STOP_def,alloc_arg_def]
-    \\ last_x_assum $ qspecl_then [‘m’,‘n’,‘c’,‘regs’] mp_tac
-    \\ (impl_tac >- gvs [SF SFY_ss])
+    \\ first_x_assum $ qspecl_then [‘m’,‘n’,‘c’,‘regs’] mp_tac
+    \\ impl_tac >- (gvs [SF SFY_ss] \\ imp_res_tac cont_loop_IMP \\ gvs [])
     \\ strip_tac \\ gvs [EVAL “(dec_clock r1).regs”]
     \\ last_x_assum $ qspecl_then [‘m’,‘n’,‘c’,‘regs1’] mp_tac
-    \\ (impl_tac >-
+    \\ impl_tac >-
          (simp []
           \\ qpat_x_assum ‘evaluate (c1,_) = _’ assume_tac
-          \\ drule evaluate_consts \\ strip_tac \\ simp [] \\
-          old_drule evaluate_code_bitmaps \\
+          \\ drule evaluate_consts \\ strip_tac \\ simp []
+          \\ Cases_on ‘(∃w. res = SOME (Halt w))’ \\ gvs []
+          \\ old_drule evaluate_code_bitmaps \\
           disch_then(qx_choose_then`k`strip_assume_tac) \\
           simp[lookup_FOLDL_union] \\
           conj_tac >- (
@@ -5566,9 +5569,10 @@ Proof
            imp_res_tac ALOOKUP_MEM \\
            metis_tac[] ) \\
           fs[shift_seq_def] \\
-          metis_tac[]))
+          metis_tac[])
     \\ simp [Once comp_def]
     \\ strip_tac \\ gvs []
+    \\ Cases_on ‘res = SOME TimeOut’ \\ gvs []
     \\ qpat_x_assum ‘evaluate (q1,_) = _’ assume_tac
     \\ dxrule evaluate_add_clock \\ simp []
     \\ disch_then $ qspec_then ‘ck'’ strip_assume_tac
@@ -5625,13 +5629,13 @@ Proof
      THEN1
       (qexists_tac `0` \\ fs [] \\ fs [empty_env_def,state_component_equality]
        \\ rfs [] \\ fs [] \\ qpat_x_assum `[] = _` (assume_tac o GSYM) \\ fs [])
-     \\ fs [CaseEq"option",pair_case_eq] \\ rveq \\ fs [dec_clock_def]
+     \\ fs [CaseEq"option",pair_case_eq,CaseEq"bool"] \\ rveq \\ fs [dec_clock_def]
      \\ rename [`comp m4 m5 p0 = (q2,m6)`]
      \\ last_x_assum (qspecl_then [`m5`,`m4`,`c`,`regs`] mp_tac) \\ fs []
      \\ impl_tac THEN1 (res_tac \\ fs [alloc_arg_def] \\ rw [] \\ res_tac)
      \\ strip_tac \\ fs [] \\ qexists_tac `ck` \\ fs []
      \\ fs [state_component_equality])
-  \\ conj_tac (* Call *) >- cheat (* (
+  \\ conj_tac (* Call *) >- (
      rpt strip_tac
      \\ full_simp_tac(srw_ss())[evaluate_def]
      \\ Cases_on `ret` \\ full_simp_tac(srw_ss())[] THEN1
@@ -5786,7 +5790,7 @@ Proof
     \\ qexists_tac `ck+ck'` \\ full_simp_tac(srw_ss())[]
     \\ `ck + ck' + s.clock - 1 = s.clock - 1 + ck + ck'` by decide_tac \\ full_simp_tac(srw_ss())[]
     \\ imp_res_tac evaluate_consts \\ full_simp_tac(srw_ss())[]
-    \\ simp[state_component_equality]) *)
+    \\ simp[state_component_equality])
   (* Install *)
   \\ conj_tac >- (
     rw[] \\
