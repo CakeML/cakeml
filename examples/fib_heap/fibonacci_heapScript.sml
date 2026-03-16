@@ -1939,8 +1939,8 @@ Proof
     )
   >- (
     qpat_x_assum `fts_all_dist (FibTree k v l::(t ++ FibTree k' v' l'::t'))` mp_tac >>
-    simp[fts_all_dist_append_thm]
-    simp[fts_all_dist_def]
+    simp[fts_all_dist_append_thm] >>
+    simp[fts_all_dist_def] >>
     cheat
     ) >>
     cheat
@@ -2313,13 +2313,13 @@ End
 
 (*Array when filled up with a map 'mp'  *)
 Definition map_mem_def:
-  map_mem a n mp =
+  map_mem a (n:num) mp =
     ones a (GENLIST (map_lookup mp) (n+1))
 End
 
 
-Definition reb2trees_def:
-  reb2trees (n:num)
+Definition merge_trees_def:
+  merge_trees (n:num)
     (a:'a word, k: 'a word, m: 'a word -> 'a word, dm: 'a word set, c: bool)
   =
     if n = 0 then (m,F) else
@@ -2347,7 +2347,7 @@ Definition reb2trees_def:
         let c = (c' /\ c) in
         let m = ((k + rank_off) =+ n2w(w2n k_r + 1)) m in
         let m = (off =+ 0w) m in
-          reb2trees (n-1) (a,k,m,dm,c)
+          merge_trees (n-1) (a,k,m,dm,c)
       else
         let c = (t + child_off IN dm /\ c) in
         let t_c = m (k + child_off) in
@@ -2357,27 +2357,38 @@ Definition reb2trees_def:
         let t_r = m (t + rank_off) in
         let m = ((t + rank_off) =+ n2w(w2n t_r + 1)) m in
         let m = (off =+ 0w) m in
-          reb2trees (n-1) (a,t,m,dm,c)
+          merge_trees (n-1) (a,t,m,dm,c)
 End
 
-
-(*
-  (map_mem c rm * ann_fts_as_singl 0w fts * cond(
-*)
 
 
 (* TODO: finish proof
   - check correct construction of statement
  *)
-Theorem reb2trees:
-  !n i frame fh.
-  (arr_mem c n * frame * fib_heap a (fh |+ (x,v,e)))
+Theorem merge_trees:
+  !i n fh v p xs frame.
+  (map_mem a n fh * fts_mem(ann_fts p [FibTree x v xs]) * frame)
     (fun2set (m,dm)) /\
-  reb2trees i (x,c,m,dm,T) = (m',b) ==>
-  ?fts. ?v. (fts_mem (ann_fts 0w (fts_reb n fts)) * arr_mem c n * frame *
-    cond(fts_has x v fts /\ fib_heap_inv fh fts))
+  (n < i /\ LENGTH xs < n) /\
+  (x <> 0w /\ FLOOKUP fh n = NONE) /\
+  merge_trees i (a,x,m,dm,T) = (m',b) ==>
+  ?fh.
+    (map_mem a n fh * frame)
     (fun2set (m',dm)) /\ b
 Proof
+  Induct
+  >- fs[] >>
+  rpt gen_tac >>
+  simp[map_mem_def] >>
+  Cases_on `n` >> fs[] >>
+  simp[map_lookup_def,ones_def] >>
+  simp[ann_fts_def, ann_fts_seg_def, last_key_def,fts_mem_def,
+       SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
+       fill_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
+  Cases_on `x = 0w` >> fs[] >>
+  simp[SEP_CLAUSES, STAR_ASSOC, SEP_EXISTS_THM] >>
+  simp[PULL_EXISTS] >>
+  rpt strip_tac >> pop_assum mp_tac >>
   cheat
 QED
 
@@ -2393,7 +2404,7 @@ Definition reb_list_def:
     if n = 0 then (m,F) else
     if a = 0w then (m,c) else
     let (x,a',m,c) = fib_heap_remove(a,m,dm) in
-    let (m,c) = reb2trees max_r (array,x,m,dm,c) in
+    let (m,c) = merge_trees max_r (array,x,m,dm,c) in
       reb_list (n-1) max_r (array,a',m,dm,c)
 End
 
