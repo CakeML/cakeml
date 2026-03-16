@@ -178,6 +178,30 @@ Proof
   cheat
 QED
 
+Theorem env_rel_length:
+  ∀opt f env1 env2.
+    env_rel opt f env1 env2 ⇒ LENGTH env2 >= LENGTH env1
+Proof
+  rw []
+  >> gvs [env_rel_def]
+  >> drule LIST_REL_LENGTH
+  >> gvs []
+QED
+        
+Theorem env_rel_el_v_rel:
+  ∀opt f env1 env2 n.
+    env_rel opt f env1 env2 ∧
+    n < LENGTH env1 ⇒
+    v_rel f env1❲n❳ env2❲n❳
+Proof
+  rw []
+  >> gvs [env_rel_def]
+  >> drule LIST_REL_LENGTH
+  >> strip_tac
+  >> ‘n < LENGTH xs’ by gvs []
+  >> gvs [EL_APPEND_EQN, LIST_REL_EL_EQN]
+QED
+
 Theorem state_rel_dec:
   ∀n.
     state_rel f s s' ∧
@@ -186,6 +210,14 @@ Theorem state_rel_dec:
     state_rel f (dec_clock 1 s) (dec_clock 1 s')
 Proof
   cheat
+QED
+
+Theorem opt_strip_var:
+  ∀s loc loc_opt arity n exp_aux exp_opt.
+    ~(optimized_code loc arity (Var n) loc_opt s.code exp_aux exp_opt)
+Proof
+  rw []
+  >> gvs [optimized_code_def, compile_exp_def, rewrite_aux_def]
 QED
 
 Theorem opt_strip_let:
@@ -285,21 +317,17 @@ Proof
     >> qexists ‘f3’ >> fs []
     >> imp_res_tac SUBMAP_TRANS)
   >~ [‘Var n’] >-
-   cheat
-   (*gvs [evaluate_def]
-    >> Cases_on ‘opt’ >-
-     (Cases_on ‘n < LENGTH env’ >-
-       (gvs [env_rel_def]
-        >> rw [] >-
-         (gvs [rich_listTheory.is_prefix_el]) >-
-         (cheat)
-        >> qexistsl [‘Rval [env❲n❳]’, ‘s'’]
-        >> rw [] >-
-         (cheat)
-         >> (cheat))
-      >> gvs [])
-    >> gvs [env_rel_def]
-    >> cheat*)
+   (gvs [evaluate_def]
+    >> Cases_on ‘n < LENGTH env’
+    >> gvs []
+    >> ‘n < LENGTH env2’ by (drule_all env_rel_length >> gvs [])                  
+    >> gvs []
+    >> drule_all env_rel_el_v_rel
+    >> strip_tac
+    >> qexists ‘f’
+    >> gvs []
+    >> rw []
+    >> gvs [opt_strip_var])
   >~ [‘If x1 x2 x3’] >-
    (gvs [evaluate_def]
     >> gvs [CaseEq "prod", PULL_EXISTS]
@@ -378,8 +406,9 @@ Proof
                 >> first_x_assum drule_all
                 >> gvs [evaluate_def]
                )
+            >> cheat
            )
-       cheat)
+        >> cheat)
     (* Non-opt *)
     (* First inductive hypothesis *)
     >> first_x_assum $ qspec_then ‘F’ mp_tac
