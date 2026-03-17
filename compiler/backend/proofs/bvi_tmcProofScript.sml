@@ -394,7 +394,6 @@ Proof
     >> cheat
    )
   >~ [‘If x1 x2 x3’] >-
-     
    (gvs [evaluate_def]
     >> gvs [CaseEq "prod", PULL_EXISTS]
     >> rename [‘evaluate ([x1],env,s) = (r1,s1)’]
@@ -418,7 +417,7 @@ Proof
         >- (rename [‘evaluate ([x1],env2,s') = (Rval v1',s1')’]
             >> Cases_on ‘HD a = Boolv T’
             >> gvs []
-            (* True inductive hypothesis *)
+            (* then inductive hypothesis *)
             >- (rename [‘LIST_REL (v_rel f'') v1 v1'’]
                 >> first_x_assum $ qspec_then ‘T’ mp_tac
                 >> simp []
@@ -435,14 +434,13 @@ Proof
                 >- (imp_res_tac SUBMAP_TRANS)
                 >- (drule aux_strip_if_then
                     >> strip_tac
-                    (*>> gvs []*)
                     >- (first_x_assum drule
                         >> strip_tac
                         >> qexists ‘t1’
                         >> gvs [evaluate_def])
                     >> gvs [evaluate_def])
                 >> fs [rewrite_opt_def, evaluate_def])
-            (* False inductive hypothesis *)
+            (* else inductive hypothesis *)
             >> rename [‘LIST_REL (v_rel f'') v1 v1'’]
             >> Cases_on ‘HD v1 = Boolv F’
             >> gvs []            
@@ -455,7 +453,7 @@ Proof
             >> sg ‘HD v1' = Boolv F’
             >- cheat
             >> gvs []
-            >> qexists  ‘f'³'’
+            >> qexists ‘f'³'’
             >> gvs []
             >> rw []
             >> gvs []
@@ -477,9 +475,57 @@ Proof
             >> strip_tac
             >> gvs [evaluate_def])
         >> gvs [rewrite_opt_def, evaluate_def, opt_res_rel_def])
-    >> cheat
-   )
+    (* Non opt *)
+    (* First inductive hypothesis *)
+    >> first_x_assum $ qspec_then ‘F’ mp_tac
+    >> gvs []
+    >> disch_then drule
+    >> disch_then drule
+    >> impl_tac
+    >> gvs []
+    >- (spose_not_then assume_tac >> fs [])
+    >> strip_tac
+    >> rename [‘evaluate ([x1],env2,s') = (r1',s1')’]
+    >> gvs []
+    >> Cases_on ‘r1’
+    >> gvs []
+    >- (rename [‘evaluate ([x1],env2,s') = (Rval v1',s1')’]
+        >> Cases_on ‘HD a = Boolv T’
+        >> gvs []
+        (* then inductive hypothesis *)
+        >- (rename [‘LIST_REL (v_rel f'') v1 v1'’]
+            >> first_x_assum $ qspec_then ‘F’ mp_tac
+            >> simp []
+            >> drule_all env_rel_submap
+            >> strip_tac
+            >> disch_then drule_all
+            >> strip_tac
+            >> sg ‘HD v1' = Boolv T’
+            >- cheat
+            >> gvs []
+            >> qexists ‘f'³'’
+            >> gvs []
+            >> imp_res_tac SUBMAP_TRANS)
+        (* else inductive hypothesis *)
+        >> rename [‘LIST_REL (v_rel f'') v1 v1'’]
+        >> Cases_on ‘HD v1 = Boolv F’
+        >> gvs []
+        >> first_x_assum $ qspec_then ‘F’ mp_tac
+        >> simp []
+        >> drule_all env_rel_submap
+        >> strip_tac
+        >> disch_then drule_all
+        >> strip_tac
+        >> sg ‘HD v1' = Boolv F’
+        >- cheat
+        >> gvs []
+        >> qexists ‘f'³'’
+        >> gvs []
+        >> imp_res_tac SUBMAP_TRANS)
+    >> qexists ‘f''’
+    >> gvs [])
   >~ [‘Let xs x2’] >-
+     
    (gvs [evaluate_def]
     >> gvs [CaseEq "prod", PULL_EXISTS]
     >> rename [‘evaluate (xs,env,s) = (rs,u)’]
