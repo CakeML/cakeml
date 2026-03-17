@@ -424,7 +424,7 @@ Definition comp_def:
           (Seq
             (const_inst r i)
             (wStackLoad x1 (If cmp r' (Reg r) q1 q2)),bs)) /\
-  (comp conf (Loop _ p1) bs kf =
+  (comp conf (Loop _ p1 _) bs kf =
      let (q1,bs) = comp conf p1 bs kf in
        (Loop q1,bs)) /\
   (comp conf (Set name exp) bs kf =

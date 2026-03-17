@@ -1384,6 +1384,11 @@ Definition word_prog_to_display_def:
               num_to_display n;
               asm_reg_imm_to_display reg];
        word_prog_to_display k ns p1; word_prog_to_display k ns p2]) /\
+  (word_prog_to_display (SUC k) ns (Loop ns1 p ns2) =
+    Item NONE (strlit "Loop")
+      [num_set_to_display ns1;
+       word_prog_to_display k ns p;
+       num_set_to_display ns2]) /\
   (word_prog_to_display (SUC k) ns (Alloc n ms) = Item NONE (strlit "alloc")
     [num_to_display n; num_sets_to_display ms]) /\
   (word_prog_to_display (SUC k) ns (StoreConsts a b c d ws) = Item NONE (strlit "store_consts")

@@ -1008,8 +1008,7 @@ Definition cont_loop_def[simp]:
 End
 
 Definition exit_loop_def[simp]:
-  exit_loop (SOME (Break 0)) = NONE ∧
-  exit_loop (SOME (Break (SUC n))) = SOME (Break n) ∧
+  exit_loop (SOME (Break n)) = SOME (Break (n - 1)) ∧
   exit_loop (SOME (Continue n)) = SOME (Continue (n - 1)) ∧
   exit_loop res = res
 End
@@ -1099,14 +1098,18 @@ Definition evaluate_def:
       | SOME F => evaluate (c2,s)
       | NONE => (SOME Error,s))
     | _ => (SOME Error,s))) /\
-  (evaluate (Loop names c,s) =
+  (evaluate (Loop names c exit_names,s) =
      case cut_state (names,LN) s of
      | NONE => (SOME Error,s)
      | SOME s =>
          let (res,s1) = fix_clock s (evaluate (c,s)) in
            if cont_loop res then
              (if s1.clock = 0 then (SOME TimeOut, flush_state T s1) else
-                evaluate (STOP (Loop names c), dec_clock s1))
+                evaluate (STOP (Loop names c exit_names), dec_clock s1))
+           else if res = SOME (Break 0) then
+             case cut_state (exit_names,LN) s1 of
+             | NONE => (SOME Error,s1)
+             | SOME s2 => (NONE,s2)
            else (exit_loop res,s1)) /\
   (evaluate (LocValue r l1,s) =
      if l1 ∈ domain s.code then
