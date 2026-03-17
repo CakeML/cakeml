@@ -476,9 +476,7 @@ Proof
             >> drule aux_strip_if_then
             >> strip_tac
             >> gvs [evaluate_def])
-        >> (* HERE *)
-                cheat
-       )
+        >> gvs [rewrite_opt_def, evaluate_def, opt_res_rel_def])
     >> cheat
    )
   >~ [‘Let xs x2’] >-
