@@ -7,7 +7,7 @@ Ancestors
   divides  (* SUB_DIV, DIV_POS *)
   bit
   integer
-  fcpTheory (* DIMINDEX_GE_1 *)
+  fcp (* DIMINDEX_GE_1 *)
   int_bitwise
   multiword
 Libs
@@ -554,6 +554,14 @@ Proof
   >> fs [SUB_CEILING_DIV]
 QED
 
+Theorem LENGTH_b2mw':
+  ∀k xs. LENGTH (b2mw' k xs) = k
+Proof
+  recInduct b2mw'_ind >> rw []
+  >> Cases_on ‘k = 0’
+  >> simp [Once b2mw'_def]
+QED
+
 Theorem MAP_NOT_EQ:
   ∀xs ys. MAP $¬ xs = MAP $¬ ys ⇔ xs = ys : 'a word list
 Proof
@@ -600,11 +608,50 @@ Proof
   >> ‘r₁ MOD n = r₂ MOD n’ by metis_tac [MOD_TIMES, MULT_COMM, ADD_COMM]
   >> imp_res_tac LESS_MOD >> simp []
 QED
+
+(* from HOL *)
+val mw_sub_thm = prove(
+  ``!xs ys c zs d.
+     (LENGTH xs = LENGTH ys) /\ mw2n ys <= mw2n xs ==>
+     (mw2n (FST (mw_sub xs ys T)) = mw2n xs - mw2n ys)``,
+  cheat);
+
+Theorem mw2n_mw_sub:
+  mw2n ys ≤ mw2n xs ⇒
+  mw2n (FST (mw_sub xs ys T)) = mw2n xs - mw2n ys
+Proof
+  (* pad with 0s to get LENGTH xs = LENGTH ys, then apply mw_sub_thm *)
+  cheat
+QED
+
+Theorem mw2n_b2mw'_sub:
+  y ≤ x ⇒
+  mw2n (b2mw' (LENGTH (n2mw x)) (bits_of_num (x − y))) =
+  mw2n (n2mw x) - mw2n (n2mw y)
+Proof
+  cheat
+QED
+
 Theorem mw_sub_n2mw_b2mw':
+  n ≠ 0 ⇒
   FST (mw_sub (n2mw (n :num) :α word list) [] F) =
   b2mw' (LENGTH (n2mw n :α word list)) (bits_of_num (Num (&n − 1)))
 Proof
-  cheat
+  disch_tac
+  >> ‘n2mw n ≠ []’ by simp [n2mw_NIL]
+  >> DEP_REWRITE_TAC [mw_sub_carry] >> simp []
+  >> irule mw2n_eq
+  >> conj_tac >-
+   (‘LENGTH (FST (mw_sub (n2mw n: α word list) [1w] T)) =
+     LENGTH (n2mw n: α word list)’ by
+      (Cases_on ‘mw_sub (n2mw n) [1w] T’ >> drule LENGTH_mw_sub >> simp [])
+    >> simp [LENGTH_b2mw'])
+  >> DEP_REWRITE_TAC [mw2n_mw_sub]
+  >> conj_tac >- simp [mw2n_def, mw2n_n2mw]
+  >> ‘Num (&n - 1) = n - 1’ by (DEP_REWRITE_TAC [INT_SUB] >> simp [])
+  >> pop_assum SUBST_ALL_TAC
+  >> DEP_REWRITE_TAC [mw2n_b2mw'_sub]
+  >> simp [mw2n_def, mw2n_n2mw]
 QED
 
 Theorem mw_bits_of_int_b2mw:
