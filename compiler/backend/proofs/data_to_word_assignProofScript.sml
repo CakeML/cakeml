@@ -2250,6 +2250,53 @@ Proof
   \\ disch_then imp_res_tac
 QED
 
+Theorem do_app_preserves_locals:
+  do_app op x s = Rval (q,r) ==> r.locals = s.locals
+Proof
+  strip_tac \\ drule do_app_locals
+  \\ disch_then (qspec_then `s.locals` mp_tac)
+  \\ `s with locals := s.locals = s` by
+       simp [dataSemTheory.state_component_equality]
+  \\ simp [] \\ strip_tac \\ gvs [dataSemTheory.state_component_equality]
+QED
+
+Theorem cut_state_opt_IMP_stack_max:
+  dataSem$cut_state_opt names_opt s = SOME x ==> x.stack_max = s.stack_max
+Proof
+  fs [dataSemTheory.cut_state_opt_def,dataSemTheory.cut_state_def]
+  \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
+QED
+
+Theorem cut_state_opt_IMP_safe_for_space:
+  dataSem$cut_state_opt names_opt s = SOME x ==> x.safe_for_space = s.safe_for_space
+Proof
+  fs [dataSemTheory.cut_state_opt_def,dataSemTheory.cut_state_def]
+  \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
+QED
+
+(* Conversion from old-style assign_thm (with s2) to new-style (with s2_cut).
+   Used by all cheated proofs where op_requires_names op = T. *)
+Theorem assign_s2_to_s2_cut:
+  cut_state_opt (SOME kept) s2 = SOME s2_cut ==>
+  (q = SOME NotEnoughSpace ==>
+   rffi = tffi /\ option_le rsm s2.stack_max /\
+   (P ==> ~s2.safe_for_space)) ==>
+  (q <> SOME NotEnoughSpace ==>
+   state_rel c l1 l2 (set_var dest v s2) r [] locs /\ q = NONE) ==>
+  (q = SOME NotEnoughSpace ==>
+   rffi = tffi /\ option_le rsm s2_cut.stack_max /\
+   (P ==> ~s2_cut.safe_for_space)) /\
+  (q <> SOME NotEnoughSpace ==>
+   state_rel c l1 l2 (set_var dest v s2_cut) r [] locs /\ q = NONE)
+Proof
+  rpt strip_tac \\ gvs []
+  >- (imp_res_tac cut_state_opt_IMP_stack_max \\ gvs [])
+  >- (imp_res_tac cut_state_opt_IMP_safe_for_space \\ gvs [])
+  \\ irule state_rel_cut_state_opt_set_var
+  \\ qexists_tac `kept` \\ gvs []
+  \\ qexists_tac `s2` \\ gvs []
+QED
+
 Theorem assign_Install:
   (op = Install) ==> ^assign_thm_goal
 Proof
