@@ -69,11 +69,35 @@ Definition code_rel_def:
 End
 
 Definition optimized_code_def:
-  optimized_code loc arity exp loc_opt c exp_aux exp_opt ⇔
+  optimized_code loc loc_opt arity exp exp_aux exp_opt ⇔
     compile_exp loc loc_opt arity exp = SOME (exp_aux, exp_opt)
-(* ∧
-    lookup loc c                      = SOME (arity, exp_aux) ∧
-    lookup loc_opt c                  = SOME (arity + 2, exp_opt) *)
+End
+
+Definition optimised_base_def:
+  optimised_base loc loc_opt i j k exp ⇔
+    rewrite_opt loc loc_opt i j k exp = Op (MemOp UpdateCons) [Var i; Var j; exp]
+End
+
+Definition optimised_code_def:
+  (optimised_code loc loc_opt arity (Tick x) (Tick aux) (Tick opt) ⇔
+     compile_exp loc loc_opt arity (Tick x) = SOME (Tick aux, Tick opt)) ∧
+  (optimised_code loc loc_opt arity (If e1 e2 e3) (If e1' aux2 aux3) (If e1'' opt2 opt3) ⇔
+     e1 = e1' ∧
+     e1 = e1'' ∧
+     compile_exp loc loc_opt arity (If e1 e2 e3) = SOME (If e1 aux2 aux3, If e1 opt2 opt3) ∧
+     (* Do need to enforce optimised_code on at least one branch? *)
+     (optimised_code loc loc_opt arity e2 aux2 opt2 ∨
+      ∃i j k.
+        aux2 = e2 ∧
+        opt2 = rewrite_opt loc loc_opt i j k e2) ∧
+     (optimised_code loc loc_opt arity e3 aux3 opt3 ∨
+      ∃i j k.
+          aux3 = e3 ∧
+          opt3 = rewrite_opt loc loc_opt i j k e3)) ∧
+  (optimised_code loc loc_opt arity (Let xs x) (Let xs' aux) (Let xs'' opt) ⇔
+     xs = xs' ∧
+     xs = xs'' ∧
+     compile_exp loc loc_opt arity (Let xs x) = SOME (Let xs' aux, Let xs'' opt))
 End
 
 Definition free_names_def:
@@ -213,20 +237,20 @@ Proof
 QED
 
 Theorem opt_strip_var:
-  ∀s loc loc_opt arity n exp_aux exp_opt.
-    ~(optimized_code loc arity (Var n) loc_opt s.code exp_aux exp_opt)
+  ∀loc loc_opt arity n exp_aux exp_opt.
+    ~(optimized_code loc loc_opt arity (Var n) exp_aux exp_opt)
 Proof
-  rw [] >> gvs [optimized_code_def, compile_exp_def, rewrite_aux_def]
+  rw []
+  >> gvs [optimized_code_def, compile_exp_def, rewrite_aux_def]
 QED
 
 Theorem opt_strip_let:
-  ∀s t r env loc loc_opt arity xs x exp_aux exp_opt.
-    evaluate(xs,env,s) = (r,t) ∧
-    optimized_code loc arity (Let xs x) loc_opt s.code exp_aux exp_opt ⇒
+  ∀loc loc_opt arity xs x exp_aux exp_opt.
+    optimized_code loc loc_opt arity (Let xs x) exp_aux exp_opt ⇒
     ∃exp_aux' exp_opt'.
       exp_aux = Let xs exp_aux' ∧
       exp_opt = Let xs exp_opt' ∧
-      optimized_code loc (arity + LENGTH xs) x loc_opt t.code exp_aux' exp_opt'
+      optimized_code loc loc_opt (arity + LENGTH xs) x exp_aux' exp_opt'
 Proof
   rw []
   >> gvs [optimized_code_def, compile_exp_def, rewrite_aux_def]
@@ -235,14 +259,12 @@ Proof
 QED
 
 Theorem opt_strip_if_true:
-  ∀s t loc loc_opt arity env x1 x2 x3 v1 exp_aux exp_opt.
-    evaluate([x1],env,s) = (Rval v1,t) ∧
-    HD v1 = Boolv T ∧
-    optimized_code loc arity (If x1 x2 x3) loc_opt s.code exp_aux exp_opt ⇒
+  ∀loc loc_opt arity env x1 x2 x3 v1 exp_aux exp_opt.
+    optimized_code loc loc_opt arity (If x1 x2 x3) exp_aux exp_opt ⇒
     ∃exp_aux2 exp_aux3 exp_opt2 exp_opt3.
       exp_aux = If x1 exp_aux2 exp_aux3 ∧
       exp_opt = If x1 exp_opt2 exp_opt3 ∧
-      (optimized_code loc arity x2 loc_opt t.code exp_aux2 exp_opt2 ∨
+      (optimized_code loc loc_opt arity x2 exp_aux2 exp_opt2 ∨
        ∃i j k.
          (exp_aux2 = x2 ∧
           exp_opt2 = rewrite_opt loc loc_opt i j k x2))
@@ -261,11 +283,11 @@ QED
 
 Theorem opt_strip_tick:
   ∀s loc loc_opt arity x exp_aux exp_opt.
-    optimized_code loc arity (Tick x) loc_opt s.code exp_aux exp_opt ⇒
+    optimized_code loc loc_opt arity (Tick x) exp_aux exp_opt ⇒
     ∃exp_aux' exp_opt'.
       exp_aux = Tick exp_aux' ∧
       exp_opt = Tick exp_opt' ∧
-      optimized_code loc arity x loc_opt s.code exp_aux' exp_opt'
+      optimized_code loc loc_opt arity x exp_aux' exp_opt'
 Proof
   rw []
   >> gvs [optimized_code_def, compile_exp_def, rewrite_aux_def]
@@ -287,16 +309,20 @@ Theorem evaluate_rewrite_tmc:
        state_rel f' t t' ∧
        f SUBMAP f' ∧
        (opt ⇒
-         ∀arity loc loc_opt exp_aux exp_opt.
-           (* lookup loc s.code = SOME (arity, HD xs) ∧ *)
-           optimized_code loc arity (HD xs) loc_opt s'.code exp_aux exp_opt ⇒
-           (∃t1.
-              evaluate ([exp_aux], env2, s') = (r',t1) ∧
-              state_rel f' t t1) ∧
-           (∃rrr t2.
-              evaluate ([exp_opt], env2, s') = (rrr,t2) ∧
-              opt_res_rel r' rrr ∧
-              state_rel f' t t2))
+         ∀arity loc loc_opt i j k exp_aux exp_opt.
+           (optimized_code loc loc_opt arity (HD xs) exp_aux exp_opt ⇒
+            (∃t1.
+               evaluate ([exp_aux], env2, s') = (r',t1) ∧
+               state_rel f' t t1) ∧
+            (∃rrr t2.
+               evaluate ([exp_opt], env2, s') = (rrr,t2) ∧
+               opt_res_rel r' rrr ∧
+               state_rel f' t t2)) ∧
+           (optimised_base loc loc_opt i j k (HD xs) ⇒
+            (∃rrr t2.
+               evaluate ([exp_opt], env2, s') = (rrr,t2) ∧
+               opt_res_rel r' rrr ∧
+               state_rel f' t t2)))
 Proof
 
   recInduct bviSemTheory.evaluate_ind
@@ -350,7 +376,9 @@ Proof
     >> qexists ‘f’
     >> gvs []
     >> rw []
-    >> gvs [opt_strip_var])
+    >> gvs [opt_strip_var]
+    >> (* HERE *)
+    )
   >~ [‘If x1 x2 x3’] >-
      
    (gvs [evaluate_def]
@@ -399,13 +427,18 @@ Proof
                     >> rw []
                     >> gvs [evaluate_def])
 
+                >> rename [‘evaluate ([x2],env2,s1') = (r'',t'')’]
+                    
                 >> gvs [evaluate_def]
-                >> Cases_on ‘evaluate ([rewrite_opt loc loc_opt i j k exp_aux2],env2,s1')’
-                >> rename [‘evaluate ([rewrite_opt loc loc_opt i j k exp_aux2],env2,s1') = (rrr,t2)’]
+                >> Cases_on ‘evaluate ([rewrite_opt loc loc_opt i j k x2],env2,s1')’
+                >> rename [‘evaluate ([rewrite_opt loc loc_opt i j k x2],env2,s1') = (rrr,t2)’]
                 >> qexistsl [‘rrr’, ‘t2’]
                 >> rw []
                 >> gvs []
-                >> gvs []
+
+                >- cheat
+
+                >> 
 
 
                 >> gvs [evaluate_def]
