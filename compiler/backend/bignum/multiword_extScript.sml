@@ -586,6 +586,20 @@ Proof
   >> gvs [single_sub_carry]
 QED
 
+Theorem mw2n_eq:
+  ∀xs ys. mw2n xs = mw2n ys ∧ LENGTH xs = LENGTH ys ⇒ xs = ys
+Proof
+  Induct >> Cases_on ‘ys’ >> simp [mw2n_def]
+  >> ntac 2 strip_tac
+  >> rename1 ‘w2n x + _ * mw2n xs = w2n y + _ * mw2n ys’
+  >> ‘w2n x = w2n y’ suffices_by (strip_tac >> gvs [ZERO_LT_dimword])
+  >> qmatch_asmsub_abbrev_tac ‘r₁ + n * k₁ = r₂ + _ * k₂’
+  >> ‘r₁ < n ∧ r₂ < n’ by (unabbrev_all_tac >> simp [w2n_lt])
+  >> rpt $ qpat_x_assum ‘Abbrev _’ $ kall_tac
+  >> ‘(r₁ + n * k₁) MOD n = (r₂ + n * k₂) MOD n’ by simp []
+  >> ‘r₁ MOD n = r₂ MOD n’ by metis_tac [MOD_TIMES, MULT_COMM, ADD_COMM]
+  >> imp_res_tac LESS_MOD >> simp []
+QED
 Theorem mw_sub_n2mw_b2mw':
   FST (mw_sub (n2mw (n :num) :α word list) [] F) =
   b2mw' (LENGTH (n2mw n :α word list)) (bits_of_num (Num (&n − 1)))
