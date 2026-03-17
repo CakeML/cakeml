@@ -251,19 +251,14 @@ Proof
   >> gvs []
 QED
 
-Theorem opt_strip_tick:
-  ∀s loc loc_opt arity x exp_aux exp_opt.
-    optimized_code loc loc_opt arity (Tick x) exp_aux exp_opt ⇒
-    ∃exp_aux' exp_opt'.
-      exp_aux = Tick exp_aux' ∧
-      exp_opt = Tick exp_opt' ∧
-      optimized_code loc loc_opt arity x exp_aux' exp_opt'
+Theorem aux_strip_tick:
+  ∀loc loc_opt arity x aux.
+    rewrite_aux loc loc_opt arity (Tick x) = SOME aux ⇒
+    ∃aux'.
+      aux = Tick aux' ∧
+      rewrite_aux loc loc_opt arity x = SOME aux'
 Proof
-  rw []
-  >> gvs [optimized_code_def, compile_exp_def, rewrite_aux_def]
-  >> CASE_TAC
-  >> gvs []
-  >> simp [rewrite_opt_def]
+  rw [] >> gvs [rewrite_aux_def]
 QED
 
 Theorem evaluate_rewrite_tmc:
@@ -495,7 +490,7 @@ Proof
         >- (rename [‘evaluate (xs,env,s) = (Rval vs,u)’]
             >> first_x_assum $ qspec_then ‘T’ mp_tac
             >> simp []
-
+(*
             >> pop_assum kall_tac
             >> strip_tac
             >> Cases_on ‘evaluate (xs,env2,s')’
@@ -511,8 +506,8 @@ Proof
                 >> drule_all env_rel_append
                 >> strip_tac
                 >> cheat
-                )
-                        
+               )
+*)
             >> Cases_on ‘LENGTH xs = 1’
             >> gvs []
             >- (rename [‘evaluate (xs,env2,s') = (Rval vs',u')’]
@@ -527,11 +522,12 @@ Proof
                 >> qexists ‘f'³'’
                 >> gvs []
                 >> rw []
-                >- (imp_res_tac SUBMAP_TRANS)    
-                >> drule_all opt_strip_let
+                >- (imp_res_tac SUBMAP_TRANS)
+                >> cheat
+                (*>> drule_all opt_strip_let
                 >> strip_tac                        
                 >> first_x_assum drule_all
-                >> gvs [evaluate_def]
+                >> gvs [evaluate_def]*)
                )
             >> cheat
            )
@@ -585,13 +581,18 @@ Proof
         >> qexists ‘f''’
         >> gvs []
         >> rpt gen_tac
-        >> pop_assum $ qspecl_then [‘arity’, ‘loc’, ‘loc_opt’] mp_tac
+        >> rw []
+        >> gvs []
+        >- (drule aux_strip_tick
+            >> strip_tac
+            >> last_x_assum drule
+            >> strip_tac
+            >> qexists ‘t1’
+            >> gvs [evaluate_def])
+        >> pop_assum $ qspecl_then [‘loc’, ‘loc_opt’, ‘i’, ‘j’, ‘k’] mp_tac             
         >> strip_tac
-        >> strip_tac
-        >> drule opt_strip_tick
-        >> strip_tac
-        >> last_x_assum $ qspecl_then [‘exp_aux'’, ‘exp_opt'’] drule
-        >> gvs [evaluate_def, dec_clock_def])
+        >> qexistsl [‘rrr’, ‘t2’]
+        >> gvs [rewrite_opt_def, evaluate_def])
     (* Non-opt *)
     >> first_x_assum $ qspec_then ‘F’ mp_tac
     >> simp []
