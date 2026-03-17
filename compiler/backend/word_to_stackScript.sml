@@ -401,8 +401,8 @@ Definition comp_def:
      let (xs,src_r) = wReg1 src kf in
        (wStackLoad xs (wRegWrite1 (\dst_r. OpCurrHeap b dst_r src_r) dst kf),bs)) /\
   (comp conf (Tick) bs kf = (Tick,bs)) /\
-  (comp conf Break bs kf = (Break,bs)) /\
-  (comp conf Continue bs kf = (Continue,bs)) /\
+  (comp conf (Break k) bs kf = (Break k,bs)) /\
+  (comp conf (Continue k) bs kf = (Continue k,bs)) /\
   (comp conf (MustTerminate p1) gs kf = comp conf p1 gs kf) /\
   (comp conf (Seq p1 p2) bs kf =
      let (q1,bs) = comp conf p1 bs kf in

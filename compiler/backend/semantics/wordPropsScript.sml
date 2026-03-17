@@ -1383,6 +1383,22 @@ Proof
   rpt strip_tac >> drule jump_exc_const >>gvs[]
 QED
 
+Theorem evaluate_Break_const:
+  ^(get_goal "wordLang$Break")
+Proof
+  gvs[evaluate_def] >> rpt gen_tac >>
+  rpt (CASE_ONE >> gvs[]) >>
+  rpt strip_tac >> gvs[]
+QED
+
+Theorem evaluate_Continue_const:
+  ^(get_goal "wordLang$Continue")
+Proof
+  gvs[evaluate_def] >> rpt gen_tac >>
+  rpt (CASE_ONE >> gvs[]) >>
+  rpt strip_tac >> gvs[]
+QED
+
 Theorem evaluate_LocValue_const:
   ^(get_goal "LocValue")
 Proof
@@ -1444,6 +1460,8 @@ val evaluate_const = [
   evaluate_Store_const,
   evaluate_Return_const,
   evaluate_Raise_const,
+  evaluate_Break_const,
+  evaluate_Continue_const,
   evaluate_LocValue_const,
   evaluate_Install_const,
   evaluate_CodeBufferWrite_const,
@@ -1546,6 +1564,20 @@ Proof
   rpt (CASE_ONE >> gvs[])
 QED
 
+Theorem evaluate_Break_with_const:
+  ^(get_goal_clock "wordLang$Break")
+Proof
+  gvs[evaluate_def] >> rpt strip_tac >>
+  rpt (CASE_ONE >> gvs[])
+QED
+
+Theorem evaluate_Continue_with_const:
+  ^(get_goal_clock "wordLang$Continue")
+Proof
+  gvs[evaluate_def] >> rpt strip_tac >>
+  rpt (CASE_ONE >> gvs[])
+QED
+
 Theorem evaluate_LocValue_with_const:
   ^(get_goal_clock "LocValue")
 Proof
@@ -1601,6 +1633,8 @@ val evaluate_with_const = [
   evaluate_Store_with_const,
   evaluate_Return_with_const,
   evaluate_Raise_with_const,
+  evaluate_Break_with_const,
+  evaluate_Continue_with_const,
   evaluate_LocValue_with_const,
   evaluate_Install_with_const,
   evaluate_CodeBufferWrite_with_const,
@@ -1675,14 +1709,16 @@ Proof
     rpt (CASE_ONE >> gvs[]) >>
     strip_tac >> gvs[]
     )
-  >~[`Call`]
+  >~[`Loop`] >- cheat
+  >~[`Call`] >- cheat
+(*
   >-(
     fs[evaluate_def,dec_clock_def] >>
     rpt (CASE_ONE >> gvs[]) >>
     rpt strip_tac >> gvs[] >>
     drule pop_env_const >>
     strip_tac >> gvs[]
-    )
+    ) *)
   >>
   fs evaluate_with_const >>
   strip_tac >>

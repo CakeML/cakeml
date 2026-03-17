@@ -54,8 +54,8 @@ Datatype:
        | StoreConsts num num num num ((bool # 'a word) list)
        | Raise num
        | Return num (num list) (* return lab, return values *)
-       | Break
-       | Continue
+       | Break num
+       | Continue num
        | Tick
        | OpCurrHeap binop num num (* special case compiled well in stackLang *)
        | LocValue num num        (* assign v1 := Loc v2 0 *)

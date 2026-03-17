@@ -240,8 +240,8 @@ val state_component_equality = theorem"state_component_equality";
 Datatype:
   result = Result ('w word_loc) (('w word_loc) list)
          | Exception ('w word_loc) ('w word_loc)
-         | Break
-         | Continue
+         | Break num
+         | Continue num
          | TimeOut
          | NotEnoughSpace
          | FinalFFI final_event
@@ -994,6 +994,26 @@ Definition STOP_def:
   STOP x = x
 End
 
+Definition bad_fun_return_def[simp]:
+  bad_fun_return NONE = T ∧
+  bad_fun_return (SOME (Break _)) = T ∧
+  bad_fun_return (SOME (Continue _)) = T ∧
+  bad_fun_return _ = F
+End
+
+Definition cont_loop_def[simp]:
+  cont_loop NONE = T ∧
+  cont_loop (SOME (Continue n)) = (n = 0) ∧
+  cont_loop _ = F
+End
+
+Definition exit_loop_def[simp]:
+  exit_loop (SOME (Break 0)) = NONE ∧
+  exit_loop (SOME (Break (SUC n))) = SOME (Break n) ∧
+  exit_loop (SOME (Continue n)) = SOME (Continue (n - 1)) ∧
+  exit_loop res = res
+End
+
 Definition evaluate_def:
   (evaluate (Skip:'a wordLang$prog,^s) = (NONE,s)) /\
   (evaluate (Alloc n names,s) =
@@ -1069,8 +1089,8 @@ Definition evaluate_def:
        (case jump_exc s of
         | NONE => (SOME Error,s)
         | SOME (s,l1,l2) => (SOME (Exception (Loc l1 l2) w)),s)) /\
-  (evaluate (Break,s) = (SOME Break,s)) /\
-  (evaluate (Continue,s) = (SOME Continue,s)) /\
+  (evaluate (Break k,s) = (SOME (Break k),s)) /\
+  (evaluate (Continue k,s) = (SOME (Continue k),s)) /\
   (evaluate (If cmp r1 ri c1 c2,s) =
     (case (get_var r1 s,get_var_imm ri s) of
     | SOME x,SOME y =>
@@ -1083,11 +1103,11 @@ Definition evaluate_def:
      case cut_state (names,LN) s of
      | NONE => (SOME Error,s)
      | SOME s =>
-         let (res,s) = fix_clock s (evaluate (c, s)) in
-           if res = SOME Break then (NONE, s) else
-           if res ≠ SOME Continue ∧ res ≠ NONE then (res, s) else
-           if s.clock = 0 then (SOME TimeOut, flush_state T s) else
-             evaluate (STOP (Loop names c), dec_clock s)) /\
+         let (res,s1) = fix_clock s (evaluate (c,s)) in
+           if cont_loop res then
+             (if s1.clock = 0 then (SOME TimeOut, flush_state T s1) else
+                evaluate (STOP (Loop names c), dec_clock s1))
+           else (exit_loop res,s1)) /\
   (evaluate (LocValue r l1,s) =
      if l1 ∈ domain s.code then
        (NONE,set_var r (Loc l1 0) s)
@@ -1178,11 +1198,7 @@ Definition evaluate_def:
                  if handler = NONE then
                    if s.clock = 0 then (SOME TimeOut,flush_state T s)
                    else (case evaluate (prog, call_env args1 ss (dec_clock s)) of
-                         | (NONE,s) => (SOME Error,s)
-                         | (SOME res,s) =>
-                             if res = Break then (SOME Error,s) else
-                             if res = Continue then (SOME Error,s) else
-                              (SOME res,s))
+                         | (res,s) => if bad_fun_return res then (SOME Error,s) else (res,s))
                  else (SOME Error,s)
              | SOME (n,names,ret_handler,l1,l2) (* returning call, returns into var n *) =>
                  if domain (FST names) = {} ∨ ¬ALL_DISTINCT n then (SOME Error,s)
@@ -1220,8 +1236,8 @@ Definition evaluate_def:
                                        then evaluate (h, set_var n y s2)
                                        else (SOME Error,s2)))
                            | (NONE,s) => (SOME Error,s)
-                           | (SOME Break,s) => (SOME Error,s)
-                           | (SOME Continue,s) => (SOME Error,s)
+                           | (SOME (Break _),s) => (SOME Error,s)
+                           | (SOME (Continue _),s) => (SOME Error,s)
                            | res => res)))
 Termination
   WF_REL_TAC `(inv_image (measure I LEX measure I LEX measure (prog_size (K 0)))

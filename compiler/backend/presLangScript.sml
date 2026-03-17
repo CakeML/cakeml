@@ -1393,6 +1393,8 @@ Definition word_prog_to_display_def:
      num_to_display d;
      Tuple (ws_to_display ws)]) /\
   (word_prog_to_display (SUC k) ns (Raise n) = item_with_num (strlit "raise") n) /\
+  (word_prog_to_display (SUC k) ns (Break n) = item_with_num «break» n) ∧
+  (word_prog_to_display (SUC k) ns (Continue n) = item_with_num «continue» n) ∧
   (word_prog_to_display (SUC k) ns (Return n vs) =
      Item NONE (strlit "return")
        [num_to_display n;
