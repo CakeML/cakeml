@@ -7,6 +7,7 @@ Ancestors
   divides  (* SUB_DIV, DIV_POS *)
   bit
   integer
+  fcpTheory (* DIMINDEX_GE_1 *)
   int_bitwise
   multiword
 Libs
@@ -559,10 +560,30 @@ Proof
   Induct >> Cases_on ‘ys’ >> rw []
 QED
 
+Theorem w2n_neg2_plus1:
+  w2n (-(2w: α word)) + 1 = w2n (-(1w: α word))
+Proof
+  simp [w2n_plus1]
+  >> Cases_on ‘dimindex (:α) = 1’
+  >- simp [dimword_def]
+  >> ‘2 < dimword (:α)’ by simp [dimword_def, DIMINDEX_GE_1]
+  >> simp []
+QED
+
+Theorem single_sub_carry:
+  single_sub (x: α word) 0w F = single_sub x 1w T
+Proof
+  simp [single_sub_def, single_add_def, b2n_def, b2w_def]
+  >> ‘w2n (-(2w :α word)) + 1 = w2n (-(1w :α word))’ suffices_by simp []
+  >> simp [w2n_neg2_plus1]
+QED
+
 Theorem mw_sub_carry:
   ∀xs. xs ≠ [] ⇒ mw_sub xs [] F = mw_sub xs [1w] T
 Proof
-  cheat
+  Induct >> rw [mw_sub_def]
+  >> rpt (pairarg_tac >> gvs [])
+  >> gvs [single_sub_carry]
 QED
 
 Theorem mw_sub_n2mw_b2mw':
