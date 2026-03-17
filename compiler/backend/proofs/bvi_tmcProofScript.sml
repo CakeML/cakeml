@@ -73,33 +73,6 @@ Definition optimized_code_def:
     compile_exp loc loc_opt arity exp = SOME (exp_aux, exp_opt)
 End
 
-Definition optimised_base_def:
-  optimised_base loc loc_opt i j k exp ⇔
-    rewrite_opt loc loc_opt i j k exp = Op (MemOp UpdateCons) [Var i; Var j; exp]
-End
-
-Definition optimised_code_def:
-  (optimised_code loc loc_opt arity (Tick x) (Tick aux) (Tick opt) ⇔
-     compile_exp loc loc_opt arity (Tick x) = SOME (Tick aux, Tick opt)) ∧
-  (optimised_code loc loc_opt arity (If e1 e2 e3) (If e1' aux2 aux3) (If e1'' opt2 opt3) ⇔
-     e1 = e1' ∧
-     e1 = e1'' ∧
-     compile_exp loc loc_opt arity (If e1 e2 e3) = SOME (If e1 aux2 aux3, If e1 opt2 opt3) ∧
-     (* Do need to enforce optimised_code on at least one branch? *)
-     (optimised_code loc loc_opt arity e2 aux2 opt2 ∨
-      ∃i j k.
-        aux2 = e2 ∧
-        opt2 = rewrite_opt loc loc_opt i j k e2) ∧
-     (optimised_code loc loc_opt arity e3 aux3 opt3 ∨
-      ∃i j k.
-          aux3 = e3 ∧
-          opt3 = rewrite_opt loc loc_opt i j k e3)) ∧
-  (optimised_code loc loc_opt arity (Let xs x) (Let xs' aux) (Let xs'' opt) ⇔
-     xs = xs' ∧
-     xs = xs'' ∧
-     compile_exp loc loc_opt arity (Let xs x) = SOME (Let xs' aux, Let xs'' opt))
-End
-
 Definition free_names_def:
   free_names n (name: num) ⇔ ∀k. n + bvl_to_bvi_namespaces*k ≠ name
 End
@@ -236,14 +209,6 @@ Proof
   cheat
 QED
 
-Theorem opt_strip_var:
-  ∀loc loc_opt arity n exp_aux exp_opt.
-    ~(optimized_code loc loc_opt arity (Var n) exp_aux exp_opt)
-Proof
-  rw []
-  >> gvs [optimized_code_def, compile_exp_def, rewrite_aux_def]
-QED
-
 Theorem opt_strip_let:
   ∀loc loc_opt arity xs x exp_aux exp_opt.
     optimized_code loc loc_opt arity (Let xs x) exp_aux exp_opt ⇒
@@ -325,19 +290,6 @@ Theorem evaluate_rewrite_tmc:
              evaluate ([exp_opt], env2, s') = (rrr,t2) ∧
              opt_res_rel r' rrr ∧
              state_rel f' t t2))
-           (* (optimized_code loc loc_opt arity (HD xs) exp_aux exp_opt ⇒
-            (∃t1.
-               evaluate ([exp_aux], env2, s') = (r',t1) ∧
-               state_rel f' t t1) ∧
-            (∃rrr t2.
-               evaluate ([exp_opt], env2, s') = (rrr,t2) ∧
-               opt_res_rel r' rrr ∧
-               state_rel f' t t2)) ∧
-           (optimised_base loc loc_opt i j k (HD xs) ⇒
-            (∃rrr t2.
-               evaluate ([exp_opt], env2, s') = (rrr,t2) ∧
-               opt_res_rel r' rrr ∧
-               state_rel f' t t2))) *)
 Proof
 
   recInduct bviSemTheory.evaluate_ind
@@ -381,7 +333,6 @@ Proof
     >> qexists ‘f3’ >> fs []
     >> imp_res_tac SUBMAP_TRANS)
   >~ [‘Var n’] >-
-
    (gvs [evaluate_def]
     >> Cases_on ‘n < LENGTH env’
     >> gvs []
@@ -544,6 +495,24 @@ Proof
         >- (rename [‘evaluate (xs,env,s) = (Rval vs,u)’]
             >> first_x_assum $ qspec_then ‘T’ mp_tac
             >> simp []
+
+            >> pop_assum kall_tac
+            >> strip_tac
+            >> Cases_on ‘evaluate (xs,env2,s')’
+            >> rename [‘evaluate (xs,env2,s') = (r',u')’]
+            >> Cases_on ‘r'’
+            >> gvs []
+            >- (rename [‘evaluate (xs,env2,s') = (Rval vs',u')’]
+                >> Cases_on ‘evaluate ([x2],vs' ++ env2,u')’
+                >> rename [‘evaluate ([x2],vs' ++ env2,u') = (r',t')’]
+                >> gvs []
+                >> sg ‘LIST_REL (v_rel f) vs vs'’
+                >- cheat (* TODO: this doesn't seem obvious... *)
+                >> drule_all env_rel_append
+                >> strip_tac
+                >> cheat
+                )
+                        
             >> Cases_on ‘LENGTH xs = 1’
             >> gvs []
             >- (rename [‘evaluate (xs,env2,s') = (Rval vs',u')’]
