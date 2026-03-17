@@ -480,6 +480,18 @@ Proof
   EQ_TAC >> simp[]
 QED
 
+Theorem bad_fun_return_IMP:
+  bad_fun_return res ⇒ res = NONE ∨ ∃n. res = SOME (Break n) ∨ res = SOME (Continue n)
+Proof
+  Cases_on ‘res’ \\ gvs [] \\ rename [‘SOME y’] \\ Cases_on ‘y’ \\ gvs []
+QED
+
+Theorem cont_loop_IMP:
+  cont_loop res ⇒ res = NONE ∨ res = SOME (Continue 0)
+Proof
+  Cases_on ‘res’ \\ gvs [] \\ rename [‘SOME y’] \\ Cases_on ‘y’ \\ gvs []
+QED
+
 Theorem evaluate_add_clock:
    ∀p s r s'.
     evaluate (p,s) = (r,s') ∧ r ≠ SOME TimeOut ⇒
@@ -489,20 +501,23 @@ Proof
   >~[`Call`]
   >-(srw_tac[][evaluate_def] >> full_simp_tac(srw_ss())[LET_THM] >>
     gvs[AllCaseEqs(),UNCURRY_EQ] >>
+    imp_res_tac bad_fun_return_IMP >>
     fsrw_tac[ARITH_ss][dec_clock_def] >>
     rev_full_simp_tac(arith_ss)[] >>
     fs[])
   >~[`RawCall`]
   >-(srw_tac[][evaluate_def] >> full_simp_tac(srw_ss())[LET_THM] >>
     gvs[AllCaseEqs(),UNCURRY_EQ] >>
+    imp_res_tac bad_fun_return_IMP >>
     fsrw_tac[ARITH_ss][dec_clock_def] >>
     rev_full_simp_tac(arith_ss)[] >>
     fs[])
   >~[`Loop`]
   >-(srw_tac[][evaluate_def] >> full_simp_tac(srw_ss())[LET_THM] >>
     gvs[AllCaseEqs(),UNCURRY_EQ] >>
+    imp_res_tac cont_loop_IMP >>
     fsrw_tac[ARITH_ss][dec_clock_def] >>
-    irule pair_CASES)
+    Cases_on ‘res' = SOME TimeOut’ >> gvs [])
   >~[`Tick`]
   >-(srw_tac[][evaluate_def] >> full_simp_tac(srw_ss())[LET_THM] >>
     gvs[AllCaseEqs(),UNCURRY_EQ] >>
@@ -514,6 +529,7 @@ Proof
   >> map_every imp_res_tac [alloc_const,inst_const,store_const_sem_const,sh_mem_op_const]
   >> fs[]
   >> fsrw_tac[ARITH_ss][dec_clock_def]
+  >> imp_res_tac bad_fun_return_IMP
   >> fs[pair_map_eq]
 QED
 
@@ -549,8 +565,10 @@ Proof
     (rpt strip_tac >>
     gvs[evaluate_def,Ntimes (CONJ UNCURRY_EQ (AllCaseEqs())) 7] >>
     imp_res_tac evaluate_add_clock >> fs[] >>
+    Cases_on ‘res = SOME TimeOut’ >> gvs [] >>
     gvs[AllCaseEqs()] >>
     fsrw_tac[ARITH_ss][dec_clock_def] >>
+    Cases_on ‘res' = SOME TimeOut’ >> gvs [] >>
     imp_res_tac evaluate_io_events_mono >> fs[] >>
     METIS_TAC[IS_PREFIX_TRANS])
   >~ [`JumpLower`]

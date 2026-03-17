@@ -750,6 +750,25 @@ Definition dest_Seq_def:
   dest_Seq _ = NONE
 End
 
+Definition bad_fun_return_def[simp]:
+  bad_fun_return NONE = T ∧
+  bad_fun_return (SOME (Break _)) = T ∧
+  bad_fun_return (SOME (Continue _)) = T ∧
+  bad_fun_return _ = F
+End
+
+Definition cont_loop_def[simp]:
+  cont_loop NONE = T ∧
+  cont_loop (SOME (Continue n)) = (n = 0) ∧
+  cont_loop _ = F
+End
+
+Definition exit_loop_def[simp]:
+  exit_loop (SOME (Break n)) = (if n = 0 then NONE else SOME (Break (n - 1))) ∧
+  exit_loop (SOME (Continue n)) = SOME (Continue (n - 1)) ∧
+  exit_loop res = res
+End
+
 Definition evaluate_def:
   (evaluate (Skip:'a stackLang$prog,s) = (NONE,s:('a,'c,'ffi) stackSem$state)) /\
   (evaluate (Halt v,s) =
@@ -810,18 +829,11 @@ Definition evaluate_def:
       | NONE => (SOME Error,s))
     | _ => (SOME Error,s))) /\
   (evaluate (Loop c1,s) =
-    (case fix_clock s (evaluate (c1,s)) of
-     | (NONE,s1) =>
+    (let (res,s1) = fix_clock s (evaluate (c1,s)) in
+       if cont_loop res then
          (if s1.clock = 0 then (SOME TimeOut, empty_env s1) else
-          evaluate (STOP (Loop c1), dec_clock s1))
-     | (SOME (Continue n),s1) =>
-         (if n = 0 then
-            if s1.clock = 0 then (SOME TimeOut, empty_env s1)
-            else evaluate (STOP (Loop c1), dec_clock s1)
-          else (SOME (Continue (n-1)),s1))
-     | (SOME (Break n),s1) =>
-         (if n = 0 then (NONE,s1) else (SOME (Break (n-1)),s1))
-     | (res,s1) => (res,s1))) /\
+            evaluate (STOP (Loop c1), dec_clock s1))
+       else (exit_loop res,s1))) /\
   (evaluate (JumpLower r1 r2 dest,s) =
     case (get_var r1 s, get_var r2 s) of
     | SOME (Word x),SOME (Word y) =>
@@ -831,8 +843,7 @@ Definition evaluate_def:
         | SOME prog =>
            if s.clock = 0 then (SOME TimeOut,empty_env s) else
              (case evaluate (prog,dec_clock s) of
-              | (NONE,s) => (SOME Error,s)
-              | (SOME res,s) => (SOME res,s)))
+              | (res,s) => if bad_fun_return res then (SOME Error,s) else (res,s)))
       else (NONE,s)
     | _ => (SOME Error,s)) /\
   (evaluate (RawCall dest,s) =
@@ -843,8 +854,7 @@ Definition evaluate_def:
         | SOME (_,body) =>
            if s.clock = 0 then (SOME TimeOut,empty_env s) else
              (case evaluate (body,dec_clock s) of
-              | (NONE,s) => (SOME Error,s)
-              | (SOME res,s) => (SOME res,s))
+              | (res,s) => if bad_fun_return res then (SOME Error,s) else (res,s))
         | _ => (SOME Error,s))
     | _ => (SOME Error,s)) /\
   (evaluate (Call ret dest handler,s) =
@@ -857,10 +867,7 @@ Definition evaluate_def:
            if handler <> NONE then (SOME Error,s) else
            if s.clock = 0 then (SOME TimeOut,empty_env s) else
              (case fix_clock (dec_clock s) (evaluate (prog,dec_clock s)) of
-              | (NONE,s) => (SOME Error,s)
-              | (SOME (Break n),s) => (SOME Error,s)
-              | (SOME (Continue n),s) => (SOME Error,s)
-              | (SOME res,s) => (SOME res,s)))
+              | (res,s) => if bad_fun_return res then (SOME Error,s) else (res,s)))
      (* returning call, returns into var n *)
      | SOME (ret_handler,link_reg,l1,l2) =>
        (case find_code dest (s.regs \\ link_reg) s.code of
@@ -879,9 +886,9 @@ Definition evaluate_def:
                       if x <> Loc l1 l2 then (SOME Error,s2) else
                         evaluate (h,s2))
               | (NONE,s) => (SOME Error,s)
-              | (SOME (Break n),s) => (SOME Error,s)
-              | (SOME (Continue n),s) => (SOME Error,s)
-              | res => res))) /\
+              | (SOME (Break _),s) => (SOME Error,s)
+              | (SOME (Continue _),s) => (SOME Error,s)
+              | (res,s) => (res,s)))) /\
   (evaluate (Install ptr len dptr dlen ret,s) =
     case (get_var ptr s, get_var len s, get_var dptr s, get_var dlen s) of
     | SOME (Word w1), SOME (Word w2), SOME (Word w3), SOME (Word w4) =>
