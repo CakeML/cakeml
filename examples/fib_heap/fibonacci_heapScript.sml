@@ -17,6 +17,8 @@ End
 
 Type fts = “:('k,'v) ft list”;
 
+
+(* TODO: Refactor node_data to data_node *)
 Datatype:
   node_data = <| value : 'a word ;
                  edges : ('a word # ('a word # num) list);
@@ -2244,24 +2246,24 @@ Definition of 'Rebalancing' (separated from extract minimum
 *---------------------------------------------------------*)
 
 
-Definition res_rm_upd_def:
-  res_rm_upd (c:num) (rm, (r:num), FibTree (k:'a word) v l) =
+Definition fts_merge_trees_def:
+  fts_merge_trees (c:num) (rm, (r:num), FibTree (k:'a word) v l) =
     if c = 0 then rm else
     case FLOOKUP rm r of
       SOME(k',v',l') =>
         let rm = rm \\ r in
           if v.value <=+ v'.value then
-            res_rm_upd (c-1) (rm,(r + 1),(FibTree k v (FibTree k' v' l'::l)))
+            fts_merge_trees (c-1) (rm,(r + 1),(FibTree k v (FibTree k' v' l'::l)))
           else
-            res_rm_upd (c-1) (rm,(r + 1),(FibTree k' v' (FibTree k v l::l')))
+            fts_merge_trees (c-1) (rm,(r + 1),(FibTree k' v' (FibTree k v l::l')))
      |NONE =>
         (rm |+ (r,k,v,l))
 End
 
-Definition fill_rm_def:
-  (fill_rm (c:num) (rm, []) = rm) /\
-  (fill_rm c (rm, (FibTree k v l::fts)) =
-    fill_rm c (res_rm_upd c (rm, LENGTH l, FibTree k v l), fts))
+Definition fts_reb_trees_def:
+  (fts_reb_trees (c:num) (rm, []) = rm) /\
+  (fts_reb_trees c (rm, (FibTree k v l::fts)) =
+    fts_reb_trees c (fts_merge_trees c (rm, LENGTH l, FibTree k v l), fts))
 End
 
 
@@ -2280,7 +2282,7 @@ End
 Definition fts_bal_def:
   (fts_bal n [] = []) /\
   (fts_bal n (t::ts) =
-    map_to_list n (fill_rm (LENGTH ts +1) (FEMPTY, (t::ts))) )
+    map_to_list n (fts_reb_trees (LENGTH ts +1) (FEMPTY, (t::ts))) )
 End
 
 Definition fts_reb_def:
@@ -2289,19 +2291,19 @@ Definition fts_reb_def:
       fts_set_min_hd (fts_find_min (HD list) list) [] list)
 End
 
-Definition arr_mem_def:
-  arr_mem (a:'a word) (n:num) =
+Definition map_mem_empty_def:
+  map_mem_empty (a:'a word) (n:num) =
     ones a (REPLICATE (n+1) 0w)
 End
 
 
-Definition arr_mem_v_def:
-  arr_mem (a:'a word) (n:num) =
+Definition map_mem_empty_v_def:
+  map_mem_empty (a:'a word) (n:num) =
     SEP_EXISTS x.
     if n = 0 then
       one(a, x)
     else
-      one(a + bytes_in_word * n2w n, x) * arr_mem a (n-1)
+      one(a + bytes_in_word * n2w n, x) * map_mem_empty a (n-1)
 End
 
 Definition map_lookup_def:
@@ -2367,7 +2369,7 @@ End
  *)
 Theorem merge_trees:
   !i n fh v p xs frame.
-  (map_mem a n fh * fts_mem(ann_fts p [FibTree x v xs]) * frame)
+  (map_mem a n fh * fts_mem(ann_fts 0w [FibTree x v xs]) * frame)
     (fun2set (m,dm)) /\
   (n < i /\ LENGTH xs < n) /\
   (x <> 0w /\ FLOOKUP fh n = NONE) /\
@@ -2396,8 +2398,8 @@ QED
 
 
 
-Definition reb_list_def:
-  reb_list (n:num) (max_r:num)
+Definition fib_heap_build_rarray_def:
+  fib_heap_build_rarray (n:num) (max_r:num)
     (array: 'a word, a:'a word,
      m:'a word -> 'a word, dm:'a word set, c: bool)
   =
@@ -2405,7 +2407,7 @@ Definition reb_list_def:
     if a = 0w then (m,c) else
     let (x,a',m,c) = fib_heap_remove(a,m,dm) in
     let (m,c) = merge_trees max_r (array,x,m,dm,c) in
-      reb_list (n-1) max_r (array,a',m,dm,c)
+      fib_heap_build_rarray (n-1) max_r (array,a',m,dm,c)
 End
 
 
@@ -2413,8 +2415,8 @@ End
 
 
 
-Definition coll_list_def:
-  coll_list (n:num)
+Definition fib_heap_collect_array_def:
+  fib_heap_collect_array (n:num)
     (a:'a word, k:'a word, m:'a word -> 'a word, dm:'a word set, c:bool)
   =
     let off = a + bytes_in_word * (n2w n) in
@@ -2426,15 +2428,15 @@ Definition coll_list_def:
     if n = 0 then
       (k,m,c)
     else
-      coll_list (n-1) (a,k,m,dm,c)
+      fib_heap_collect_array (n-1) (a,k,m,dm,c)
 End
 
 (* TODO: Finish proof -
  - finish Theorem construction first!
-Theorem coll_list_inv:
+Theorem fib_heap_collect_array_inv:
   !frame fts c k.
     (fib_heap_inv fh fts) /\
-    (arr_mem_v c n * frame) (fun2set (m,dm)) /\
+    (map_mem_empty_v c n * frame) (fun2set (m,dm)) /\
     (k <=+ n) /\
     (m k <> 0w) ==>
     SEP_EXISTS x n.
@@ -2454,15 +2456,15 @@ Definition fib_heap_reb_def:
   fib_heap_reb (n:num)
     (a:'a word, array: 'a word, m: 'a word -> 'a word, dm: 'a word set)
   =
-    let (m,c) = reb_list n n (array,a,m,dm,T) in
-    let (a,m,c) = coll_list (n-1) (array,0w,m,dm,c) in
+    let (m,c) = fib_heap_build_rarray n n (array,a,m,dm,T) in
+    let (a,m,c) = fib_heap_collect_array (n-1) (array,0w,m,dm,c) in
     let c = (a + next_off IN dm /\ c) in
     let a_n = m (a + next_off) in
       find_min n (a,a,a_n,m,dm,c)
 End
 
 (*
- Main question: what is the reb_list invariant!
+ Main question: what is the fib_heap_build_rarray invariant!
 *)
 
 
@@ -2472,10 +2474,10 @@ End
 *)
 Theorem fib_heap_reb:
   !frame fh.
-  (fib_heap a fh * arr_mem c n * frame * cond(n = w2n (-1w)))
+  (fib_heap a fh * map_mem_empty c n * frame * cond(n = w2n (-1w)))
     (fun2set (m,dm)) /\
   fib_heap_reb n (a,c,m,dm) = (a,m',b) ==>
-  ?fts. (fts_mem (ann_fts 0w (fts_reb n fts)) * arr_mem c n * frame *
+  ?fts. (fts_mem (ann_fts 0w (fts_reb n fts)) * map_mem_empty c n * frame *
     cond(a = head_key fts /\ fib_heap_inv fh fts))
     (fun2set (m,dm)) /\ b
 Proof
