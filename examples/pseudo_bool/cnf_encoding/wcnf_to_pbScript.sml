@@ -464,7 +464,7 @@ QED
   on the MAX-SAT objective *)
 Theorem full_encode_sem_concl:
   full_encode wfml = (obj,pbf) ∧
-  sem_concl (set pbf) obj concl ∧
+  sem_concl (set pbf) obj {} concl ∧
   conv_concl concl = SOME (SOME (lbg, ubg)) ⇒
   (case lbg of
     NONE => ¬∃w. sat_hard w wfml
@@ -477,10 +477,13 @@ Proof
   strip_tac>>
   gvs[full_encode_def]>>
   pairarg_tac>>gvs[]>>
-  qpat_x_assum`sem_concl _ _ _` mp_tac>>
+  qpat_x_assum`sem_concl _ _ _ _` mp_tac>>
   simp[LIST_TO_SET_MAP]>>
+  `{} = IMAGE enc_string {}` by fs[]>>
+  pop_assum SUBST1_TAC>>
   DEP_REWRITE_TAC[GSYM concl_INJ_iff]>>
   CONJ_TAC >- (
+    simp[]>>
     assume_tac enc_string_INJ>>
     drule INJ_SUBSET>>
     disch_then match_mp_tac>>
@@ -543,7 +546,7 @@ QED
 (* Special case *)
 Theorem full_encode_sem_concl_opt_cost:
   full_encode wfml = (obj,pbf) ∧
-  sem_concl (set pbf) obj concl ∧
+  sem_concl (set pbf) obj {} concl ∧
   conv_concl concl = SOME (SOME (lbg, ubg)) ⇒
   (lbg = NONE ⇒ opt_cost wfml = NONE) ∧
   (lbg = ubg ⇒ opt_cost wfml = lbg)
