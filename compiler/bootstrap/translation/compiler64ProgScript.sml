@@ -458,7 +458,7 @@ val _ = register_type “:('a,'b,'c,'d,'e) eval_res”;
 Quote add_cakeml:
 fun eval ((s1,next_gen), (env,id), decs) =
 case compiler_for_eval ((id,0),(s1,decs)) of
-  None => Compile_error "ERROR: failed to compile input\n»"
+  None => Compile_error "ERROR: failed to compile input\n"
 | Some (s2,(bs,ws)) =>
     let
 val new_env = eval_prim (env,s1,decs,s2,bs,ws)

@@ -40,7 +40,7 @@ in () end
 ******************************************************************************)
 
 fun toUppers(str) = String.implode (map Char.toUpper (String.explode str));
-val unit_ty = type_of ``()``;
+val unit_ty = oneSyntax.one_ty;
 
 
 datatype translator_mode = GLOBAL | LOCAL;

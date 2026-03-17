@@ -20,6 +20,7 @@ val res = translate neighbours_def;
 val res = translate COUNT_LIST_AUX_def;
 val res = translate COUNT_LIST_compute;
 val res = translate not_neighbours_def;
+val res = translate strict_not_neighbours_def;
 
 (* shared parsing LAD and DIMACS
   TODO: blanks already translated using the copy in pb_parse *)
