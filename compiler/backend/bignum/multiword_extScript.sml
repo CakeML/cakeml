@@ -616,12 +616,30 @@ val mw_sub_thm = prove(
      (mw2n (FST (mw_sub xs ys T)) = mw2n xs - mw2n ys)``,
   cheat);
 
+(* From HOL *)
+val mw_sub_APPEND_0 = prove(
+  ``!n xs ys c. mw_sub xs (ys ++ REPLICATE n 0w) c = mw_sub xs ys c``,
+cheat);
+
+(* From HOL *)
+val mw2n_REPLICATE = prove(
+  ``!n. mw2n (REPLICATE n 0x0w) = 0``,
+  Induct THEN1 EVAL_TAC
+  \\ ASM_SIMP_TAC std_ss [REPLICATE,mw2n_def,w2n_n2w,ZERO_LT_dimword]);
+
 Theorem mw2n_mw_sub:
-  mw2n ys ≤ mw2n xs ⇒
+  mw2n ys ≤ mw2n xs ∧ LENGTH ys ≤ LENGTH xs ⇒
   mw2n (FST (mw_sub xs ys T)) = mw2n xs - mw2n ys
 Proof
-  (* pad with 0s to get LENGTH xs = LENGTH ys, then apply mw_sub_thm *)
-  cheat
+  disch_tac
+  >> qabbrev_tac ‘zs = REPLICATE (LENGTH xs - LENGTH ys) 0w : α word list’
+  >> ‘mw2n (FST (mw_sub xs ys T)) = mw2n (FST (mw_sub xs (ys ⧺ zs) T))’ by
+    (unabbrev_all_tac >> simp [mw_sub_APPEND_0])
+  >> pop_assum SUBST_ALL_TAC
+  >> ‘mw2n (ys ⧺ zs) = mw2n ys’ by
+    (unabbrev_all_tac >> simp [mw2n_APPEND, mw2n_REPLICATE])
+  >> DEP_REWRITE_TAC [mw_sub_thm]
+  >> unabbrev_all_tac >> simp [mw2n_APPEND]
 QED
 
 Theorem mw2n_b2mw'_sub:
@@ -647,7 +665,9 @@ Proof
       (Cases_on ‘mw_sub (n2mw n) [1w] T’ >> drule LENGTH_mw_sub >> simp [])
     >> simp [LENGTH_b2mw'])
   >> DEP_REWRITE_TAC [mw2n_mw_sub]
-  >> conj_tac >- simp [mw2n_def, mw2n_n2mw]
+  >> rpt conj_tac
+  >- simp [mw2n_def, mw2n_n2mw]
+  >- simp [Once n2mw_def]
   >> ‘Num (&n - 1) = n - 1’ by (DEP_REWRITE_TAC [INT_SUB] >> simp [])
   >> pop_assum SUBST_ALL_TAC
   >> DEP_REWRITE_TAC [mw2n_b2mw'_sub]
