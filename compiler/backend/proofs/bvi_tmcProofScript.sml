@@ -258,27 +258,32 @@ Proof
   >> gvs [rewrite_opt_def]
 QED
 
-Theorem opt_strip_if_true:
-  ∀loc loc_opt arity env x1 x2 x3 v1 exp_aux exp_opt.
-    optimized_code loc loc_opt arity (If x1 x2 x3) exp_aux exp_opt ⇒
-    ∃exp_aux2 exp_aux3 exp_opt2 exp_opt3.
-      exp_aux = If x1 exp_aux2 exp_aux3 ∧
-      exp_opt = If x1 exp_opt2 exp_opt3 ∧
-      (optimized_code loc loc_opt arity x2 exp_aux2 exp_opt2 ∨
-       ∃i j k.
-         (exp_aux2 = x2 ∧
-          exp_opt2 = rewrite_opt loc loc_opt i j k x2))
+Theorem aux_strip_if_then:
+  rewrite_aux loc loc_opt arity (If x1 x2 x3) = SOME aux ⇒
+  ∃aux2 aux3.
+    aux = If x1 aux2 aux3 ∧
+    (rewrite_aux loc loc_opt arity x2 = SOME aux2 ∨
+     aux2 = x2)
 Proof
   rw []
-  >> gvs [optimized_code_def, compile_exp_def, rewrite_aux_def]
-  >> CASE_TAC
-  >> gvs []
-  >- (Cases_on ‘rewrite_aux loc loc_opt arity x3’
-      >> gvs [rewrite_opt_def]
-      >> qexistsl [‘arity’, ‘arity + 1’, ‘arity + 2’]
-      >> gvs [])
+  >> gvs [rewrite_aux_def]
+  >> Cases_on ‘rewrite_aux loc loc_opt arity x2’
   >> Cases_on ‘rewrite_aux loc loc_opt arity x3’
-  >> gvs [rewrite_opt_def]
+  >> gvs []
+QED
+
+Theorem aux_strip_if_else:
+  rewrite_aux loc loc_opt arity (If x1 x2 x3) = SOME aux ⇒
+  ∃aux2 aux3.
+    aux = If x1 aux2 aux3 ∧
+    (rewrite_aux loc loc_opt arity x3 = SOME aux3 ∨
+     aux3 = x3)
+Proof
+  rw []
+  >> gvs [rewrite_aux_def]
+  >> Cases_on ‘rewrite_aux loc loc_opt arity x2’
+  >> Cases_on ‘rewrite_aux loc loc_opt arity x3’
+  >> gvs []
 QED
 
 Theorem opt_strip_tick:
@@ -309,8 +314,18 @@ Theorem evaluate_rewrite_tmc:
        state_rel f' t t' ∧
        f SUBMAP f' ∧
        (opt ⇒
-         ∀arity loc loc_opt i j k exp_aux exp_opt.
-           (optimized_code loc loc_opt arity (HD xs) exp_aux exp_opt ⇒
+        (∀loc loc_opt arity exp_aux exp_opt.
+           rewrite_aux loc loc_opt arity (HD xs) = SOME exp_aux ⇒
+           ∃t1.
+             evaluate ([exp_aux], env2, s') = (r',t1) ∧
+             state_rel f' t t1) ∧
+        (∀loc loc_opt i j k exp_aux exp_opt.
+           rewrite_opt loc loc_opt i j k (HD xs) = exp_opt ⇒
+           ∃rrr t2.
+             evaluate ([exp_opt], env2, s') = (rrr,t2) ∧
+             opt_res_rel r' rrr ∧
+             state_rel f' t t2))
+           (* (optimized_code loc loc_opt arity (HD xs) exp_aux exp_opt ⇒
             (∃t1.
                evaluate ([exp_aux], env2, s') = (r',t1) ∧
                state_rel f' t t1) ∧
@@ -322,7 +337,7 @@ Theorem evaluate_rewrite_tmc:
             (∃rrr t2.
                evaluate ([exp_opt], env2, s') = (rrr,t2) ∧
                opt_res_rel r' rrr ∧
-               state_rel f' t t2)))
+               state_rel f' t t2))) *)
 Proof
 
   recInduct bviSemTheory.evaluate_ind
@@ -366,6 +381,7 @@ Proof
     >> qexists ‘f3’ >> fs []
     >> imp_res_tac SUBMAP_TRANS)
   >~ [‘Var n’] >-
+
    (gvs [evaluate_def]
     >> Cases_on ‘n < LENGTH env’
     >> gvs []
@@ -375,10 +391,8 @@ Proof
     >> strip_tac
     >> qexists ‘f’
     >> gvs []
-    >> rw []
-    >> gvs [opt_strip_var]
-    >> (* HERE *)
-    )
+    >> cheat
+   )
   >~ [‘If x1 x2 x3’] >-
      
    (gvs [evaluate_def]
@@ -398,6 +412,7 @@ Proof
         >> strip_tac
         >> rename [‘evaluate ([x1],env2,s') = (r1',s1')’]
         >> gvs []
+        >> pop_assum kall_tac
         >> Cases_on ‘r1’
         >> gvs []
         >- (rename [‘evaluate ([x1],env2,s') = (Rval v1',s1')’]
@@ -415,43 +430,57 @@ Proof
                 >- cheat
                 >> gvs []
                 >> qexists ‘f'³'’
-                >> gvs []
                 >> rw []
-                >- (imp_res_tac SUBMAP_TRANS)
-                >> drule_all opt_strip_if_true       
-                >> strip_tac
                 >> gvs []
+                >- (imp_res_tac SUBMAP_TRANS)
+                >- (drule aux_strip_if_then
+                    >> strip_tac
+                    (*>> gvs []*)
+                    >- (first_x_assum drule
+                        >> strip_tac
+                        >> qexists ‘t1’
+                        >> gvs [evaluate_def])
+                    >> gvs [evaluate_def])
+                >> fs [rewrite_opt_def, evaluate_def])
+            (* False inductive hypothesis *)
+            >> rename [‘LIST_REL (v_rel f'') v1 v1'’]
+            >> Cases_on ‘HD v1 = Boolv F’
+            >> gvs []            
+            >> first_x_assum $ qspec_then ‘T’ mp_tac
+            >> simp []
+            >> drule_all env_rel_submap
+            >> strip_tac
+            >> disch_then drule_all
+            >> strip_tac
+            >> sg ‘HD v1' = Boolv F’
+            >- cheat
+            >> gvs []
+            >> qexists  ‘f'³'’
+            >> gvs []
+            >> rw []
+            >> gvs []
+            >- (imp_res_tac SUBMAP_TRANS)
+            >- (drule aux_strip_if_else
+                >> strip_tac
                 >- (first_x_assum drule
                     >> strip_tac
-                    >> qexistsl [‘t1’, ‘rrr’, ‘t2’]
-                    >> rw []
+                    >> qexists ‘t1’
                     >> gvs [evaluate_def])
-
-                >> rename [‘evaluate ([x2],env2,s1') = (r'',t'')’]
-                    
-                >> gvs [evaluate_def]
-                >> Cases_on ‘evaluate ([rewrite_opt loc loc_opt i j k x2],env2,s1')’
-                >> rename [‘evaluate ([rewrite_opt loc loc_opt i j k x2],env2,s1') = (rrr,t2)’]
-                >> qexistsl [‘rrr’, ‘t2’]
-                >> rw []
-                >> gvs []
-
-                >- cheat
-
-                >> 
-
-
-                >> gvs [evaluate_def]
-                >> gvs [opt_res_rel_def]
-                >> CASE_TAC
-                >> gvs []
-                >> cheat)
-            >> cheat
-           )
-        >> cheat
+                >> gvs [evaluate_def])
+            >> fs [rewrite_opt_def, evaluate_def])
+        >> qexists ‘f''’
+        >> gvs []
+        >> rw []
+        >- (qexists ‘s1'’
+            >> gvs []
+            >> drule aux_strip_if_then
+            >> strip_tac
+            >> gvs [evaluate_def])
+        >> (* HERE *)
+                cheat
        )
     >> cheat
-    )
+   )
   >~ [‘Let xs x2’] >-
    (gvs [evaluate_def]
     >> gvs [CaseEq "prod", PULL_EXISTS]
