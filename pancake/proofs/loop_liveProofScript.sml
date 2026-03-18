@@ -27,54 +27,85 @@ val goal =
       | SOME Break => subspt (inter s1.locals (SND p)) new_locals
       | _ => new_locals = s1.locals”
 
-local
-  val ind_thm = loopSemTheory.evaluate_ind |> ISPEC goal
-    |> CONV_RULE (DEPTH_CONV PairRules.PBETA_CONV) |> REWRITE_RULE [];
-  fun list_dest_conj tm = if not (is_conj tm) then [tm] else let
-    val (c1,c2) = dest_conj tm in list_dest_conj c1 @ list_dest_conj c2 end
-  val ind_goals = ind_thm |> concl |> dest_imp |> fst |> list_dest_conj
-in
-  fun get_goal s = first (can (find_term (can (match_term (Term [QUOTE s]))))) ind_goals
-  fun compile_correct_tm () = ind_thm |> concl |> rand
-  fun the_ind_thm () = ind_thm
-end
+val ind_thm = loopSemTheory.evaluate_ind |> ISPEC goal
+  |> CONV_RULE (DEPTH_CONV PairRules.PBETA_CONV) |> REWRITE_RULE [];
+fun list_dest_conj tm = if not (is_conj tm) then [tm] else let
+  val (c1,c2) = dest_conj tm in list_dest_conj c1 @ list_dest_conj c2 end
+val ind_goals = ind_thm |> concl |> dest_imp |> fst |> list_dest_conj;
+fun get_goal s = first (can (find_term (can (match_term (Term [QUOTE s]))))) ind_goals;
 
-
-Theorem compile_Skip:
-  ^(get_goal "loopLang$Skip") ∧
-  ^(get_goal "loopLang$Fail") ∧
-  ^(get_goal "loopLang$Tick")
+Theorem compile_correct:
+  ^(ind_thm |> concl |> rand)
 Proof
+  match_mp_tac ind_thm
+  \\ rpt conj_tac
+  >~ [`loopLang$Skip`] >- suspend "Skip"
+  >~ [`loopLang$Fail`] >- suspend "Fail"
+  >~ [`loopLang$Tick`] >- suspend "Tick"
+  >~ [`loopLang$Continue`] >- suspend "Continue"
+  >~ [`loopLang$Break`] >- suspend "Break"
+  >~ [`loopLang$Mark`] >- suspend "Mark"
+  >~ [`loopLang$Return`] >- suspend "Return"
+  >~ [`loopLang$Raise`] >- suspend "Raise"
+  >~ [`loopLang$Seq`] >- suspend "Seq"
+  >~ [`loopLang$Loop`] >- suspend "Loop"
+  >~ [`loopLang$Assign`] >- suspend "Assign"
+  >~ [`loopLang$SetGlobal`] >- suspend "SetGlobal"
+  >~ [`loopLang$LocValue`] >- suspend "LocValue"
+  >~ [`loopLang$If`] >- suspend "If"
+  >~ [`loopLang$Call`] >- suspend "Call"
+  >~ [`loopLang$Store`] >- suspend "Store"
+  >~ [`loopLang$Store32`] >- suspend "Store32"
+  >~ [`loopLang$StoreByte`] >- suspend "StoreByte"
+  >~ [`loopLang$Load32`] >- suspend "Load32"
+  >~ [`loopLang$LoadByte`] >- suspend "LoadByte"
+  >~ [`loopLang$FFI`] >- suspend "FFI"
+  >~ [`loopLang$Arith`] >- suspend "Arith"
+  >~ [`loopLang$ShMem`] >- suspend "ShMem"
+QED
+
+Resume compile_correct[Skip]:
   fs [shrink_def,evaluate_def] \\ fs [CaseEq"bool"] \\ rw []
   \\ fs [dec_clock_def,state_component_equality]
 QED
 
-Theorem compile_Continue:
-  ^(get_goal "loopLang$Continue") ∧
-  ^(get_goal "loopLang$Break")
-Proof
+Resume compile_correct[Fail]:
+  fs [shrink_def,evaluate_def] \\ fs [CaseEq"bool"] \\ rw []
+  \\ fs [dec_clock_def,state_component_equality]
+QED
+
+Resume compile_correct[Tick]:
+  fs [shrink_def,evaluate_def] \\ fs [CaseEq"bool"] \\ rw []
+  \\ fs [dec_clock_def,state_component_equality]
+QED
+
+Resume compile_correct[Continue]:
   fs [shrink_def,evaluate_def]
   \\ fs [state_component_equality]
 QED
 
-Theorem compile_Mark:
-  ^(get_goal "loopLang$Mark")
-Proof
+Resume compile_correct[Break]:
+  fs [shrink_def,evaluate_def]
+  \\ fs [state_component_equality]
+QED
+
+Resume compile_correct[Mark]:
   fs [shrink_def,evaluate_def]
 QED
 
-Theorem compile_Return:
-  ^(get_goal "loopLang$Return") ∧
-  ^(get_goal "loopLang$Raise")
-Proof
+Resume compile_correct[Return]:
   fs [shrink_def,evaluate_def,CaseEq"option"] \\ rw []
   \\ fs [call_env_def] \\ fs [state_component_equality]
   \\ fs [subspt_lookup,lookup_inter_alt]
 QED
 
-Theorem compile_Seq:
-  ^(get_goal "loopLang$Seq")
-Proof
+Resume compile_correct[Raise]:
+  fs [shrink_def,evaluate_def,CaseEq"option"] \\ rw []
+  \\ fs [call_env_def] \\ fs [state_component_equality]
+  \\ fs [subspt_lookup,lookup_inter_alt]
+QED
+
+Resume compile_correct[Seq]:
   fs [shrink_def,evaluate_def,CaseEq"option"] \\ rw []
   \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
   \\ rename [‘_ = (res7,s7)’]
@@ -93,9 +124,7 @@ Proof
   fs [subspt_def,SUBSET_DEF]
 QED
 
-Theorem compile_Loop:
-  ^(get_goal "loopLang$Loop")
-Proof
+Resume compile_correct[Loop]:
   rpt gen_tac \\ disch_then assume_tac \\ fs [] \\ rpt gen_tac
   \\ once_rewrite_tac [evaluate_def]
   \\ once_rewrite_tac [shrink_def] \\ fs []
@@ -276,7 +305,7 @@ Proof
     \\ res_tac \\ fs[] \\ fs [mem_load_def])
 QED
 
-Theorem compile_Assign:
+Theorem compile_Assign_helper[local]:
   ^(get_goal "loopLang$Assign") ∧
   ^(get_goal "loopLang$SetGlobal") ∧
   ^(get_goal "loopLang$LocValue")
@@ -319,9 +348,19 @@ Proof
   \\ disch_then drule \\ fs []
 QED
 
-Theorem compile_If:
-  ^(get_goal "loopLang$If")
-Proof
+Resume compile_correct[Assign]:
+  MATCH_ACCEPT_TAC (cj 1 compile_Assign_helper)
+QED
+
+Resume compile_correct[SetGlobal]:
+  MATCH_ACCEPT_TAC (cj 2 compile_Assign_helper)
+QED
+
+Resume compile_correct[LocValue]:
+  MATCH_ACCEPT_TAC (cj 3 compile_Assign_helper)
+QED
+
+Resume compile_correct[If]:
   fs [evaluate_def,CaseEq"option",CaseEq"word_loc",PULL_EXISTS]
   \\ rpt strip_tac \\ fs [] \\ rveq \\ fs []
   \\ Cases_on ‘evaluate (if word_cmp cmp x y then c1 else c2,s)’ \\ fs []
@@ -348,9 +387,7 @@ Proof
   \\ fs [subspt_lookup,lookup_inter_alt,domain_inter]
 QED
 
-Theorem compile_Call:
-  ^(get_goal "loopLang$Call")
-Proof
+Resume compile_correct[Call]:
   rw [] \\ fs [evaluate_def]
   \\ Cases_on ‘get_vars argvars s’ \\ fs []
   \\ Cases_on ‘find_code dest x s.code’ \\ fs []
@@ -457,7 +494,7 @@ Proof
     \\ fs [domain_lookup] \\ res_tac \\ res_tac \\ fs [])
 QED
 
-Theorem compile_Store:
+Theorem compile_Store_helper[local]:
   ^(get_goal "loopLang$Store") ∧
   ^(get_goal "loopLang$Store32") ∧
   ^(get_goal "loopLang$StoreByte") ∧
@@ -485,9 +522,27 @@ Proof
    \\ res_tac \\ fs [] \\ rw [])
 QED
 
-Theorem compile_FFI:
-  ^(get_goal "loopLang$FFI")
-Proof
+Resume compile_correct[Store]:
+  MATCH_ACCEPT_TAC (cj 1 compile_Store_helper)
+QED
+
+Resume compile_correct[Store32]:
+  MATCH_ACCEPT_TAC (cj 2 compile_Store_helper)
+QED
+
+Resume compile_correct[StoreByte]:
+  MATCH_ACCEPT_TAC (cj 3 compile_Store_helper)
+QED
+
+Resume compile_correct[Load32]:
+  MATCH_ACCEPT_TAC (cj 4 compile_Store_helper)
+QED
+
+Resume compile_correct[LoadByte]:
+  MATCH_ACCEPT_TAC (cj 5 compile_Store_helper)
+QED
+
+Resume compile_correct[FFI]:
   fs [evaluate_def] \\ rw []
   \\ fs [CaseEq"option",CaseEq"word_loc"] \\ rveq \\ fs []
   \\ fs [shrink_def] \\ rveq \\ fs []
@@ -512,9 +567,7 @@ Proof
   \\ res_tac \\ fs [domain_lookup]
 QED
 
-Theorem compile_Arith:
-  ^(get_goal "loopLang$Arith")
-Proof
+Resume compile_correct[Arith]:
   rpt strip_tac >>
   gvs[evaluate_def, DefnBase.one_line_ify NONE loop_arith_def,
       AllCaseEqs(),shrink_def,PULL_EXISTS,
@@ -532,9 +585,7 @@ Proof
   simp[GSYM subspt_domain,GSYM SUBSET_DEF, vars_of_exp_mono]
 QED
 
-Theorem compile_ShMem:
-  ^(get_goal "loopLang$ShMem")
-Proof
+Resume compile_correct[ShMem]:
   rpt strip_tac >>
   gvs[evaluate_def,shrink_def,CaseEq"option",CaseEq"word_loc"]>>
   fs[PULL_EXISTS]>>
@@ -563,15 +614,7 @@ Proof
      CCONTR_TAC>>Cases_on ‘lookup x l0’>>fs[])>>fs[]
 QED
 
-Theorem compile_correct:
-  ^(compile_correct_tm())
-Proof
-  match_mp_tac (the_ind_thm())
-  \\ EVERY (map strip_assume_tac [compile_Skip, compile_Continue, compile_ShMem,
-       compile_Mark, compile_Return, compile_Assign, compile_Store, compile_Arith,
-       compile_Call, compile_Seq, compile_If, compile_FFI, compile_Loop])
-  \\ asm_rewrite_tac [] \\ rw [] \\ rpt (pop_assum kall_tac)
-QED
+Finalise compile_correct;
 
 Theorem mark_correct:
   ∀prog s res s1. evaluate (prog,s) = (res,s1) ⇒

@@ -83,18 +83,43 @@ val goal =
                       res1 = SOME (Exception (Loc l1 l2) v) ∧ r = t1
          | _ => F``
 
-local
-  val ind_thm = loopSemTheory.evaluate_ind
-    |> ISPEC goal
-    |> CONV_RULE (DEPTH_CONV PairRules.PBETA_CONV) |> REWRITE_RULE [];
-  fun list_dest_conj tm = if not (is_conj tm) then [tm] else let
-    val (c1,c2) = dest_conj tm in list_dest_conj c1 @ list_dest_conj c2 end
-  val ind_goals = ind_thm |> concl |> dest_imp |> fst |> list_dest_conj
-in
-  fun get_goal s = first (can (find_term (can (match_term (Term [QUOTE s]))))) ind_goals
-  fun compile_correct_tm () = ind_thm |> concl |> rand
-  fun the_ind_thm () = ind_thm
-end
+val ind_thm = loopSemTheory.evaluate_ind
+  |> ISPEC goal
+  |> CONV_RULE (DEPTH_CONV PairRules.PBETA_CONV) |> REWRITE_RULE [];
+fun list_dest_conj tm = if not (is_conj tm) then [tm] else let
+  val (c1,c2) = dest_conj tm in list_dest_conj c1 @ list_dest_conj c2 end
+val ind_goals = ind_thm |> concl |> dest_imp |> fst |> list_dest_conj;
+fun get_goal s = first (can (find_term (can (match_term (Term [QUOTE s]))))) ind_goals;
+
+Theorem compile_correct:
+  ^(ind_thm |> concl |> rand)
+Proof
+  match_mp_tac ind_thm
+  \\ rpt conj_tac
+  >~ [`loopLang$Skip`] >- suspend "Skip"
+  >~ [`loopLang$Fail`] >- suspend "Fail"
+  >~ [`loopLang$Tick`] >- suspend "Tick"
+  >~ [`loopLang$Continue`] >- suspend "Continue"
+  >~ [`loopLang$Break`] >- suspend "Break"
+  >~ [`loopLang$Mark`] >- suspend "Mark"
+  >~ [`loopLang$Return`] >- suspend "Return"
+  >~ [`loopLang$Raise`] >- suspend "Raise"
+  >~ [`loopLang$Seq`] >- suspend "Seq"
+  >~ [`loopLang$Loop`] >- suspend "Loop"
+  >~ [`loopLang$Assign`] >- suspend "Assign"
+  >~ [`loopLang$SetGlobal`] >- suspend "SetGlobal"
+  >~ [`loopLang$LocValue`] >- suspend "LocValue"
+  >~ [`loopLang$If`] >- suspend "If"
+  >~ [`loopLang$Call`] >- suspend "Call"
+  >~ [`loopLang$Store`] >- suspend "Store"
+  >~ [`loopLang$Store32`] >- suspend "Store32"
+  >~ [`loopLang$StoreByte`] >- suspend "StoreByte"
+  >~ [`loopLang$Load32`] >- suspend "Load32"
+  >~ [`loopLang$LoadByte`] >- suspend "LoadByte"
+  >~ [`loopLang$FFI`] >- suspend "FFI"
+  >~ [`loopLang$Arith`] >- suspend "Arith"
+  >~ [`loopLang$ShMem`] >- suspend "ShMem"
+QED
 
 Theorem locals_rel_intro:
   locals_rel ctxt l1 l2 ==>
@@ -401,7 +426,7 @@ Proof
   simp[WORD_MUL_LSL]
 QED
 
-Theorem compile_Skip:
+Theorem compile_Skip_helper[local]:
   ^(get_goal "comp _ loopLang$Skip") ∧
   ^(get_goal "comp _ loopLang$Fail") ∧
   ^(get_goal "comp _ loopLang$Tick")
@@ -418,7 +443,19 @@ Proof
       rw[])
 QED
 
-Theorem compile_Loop:
+Resume compile_correct[Skip]:
+  MATCH_ACCEPT_TAC (cj 1 compile_Skip_helper)
+QED
+
+Resume compile_correct[Fail]:
+  MATCH_ACCEPT_TAC (cj 2 compile_Skip_helper)
+QED
+
+Resume compile_correct[Tick]:
+  MATCH_ACCEPT_TAC (cj 3 compile_Skip_helper)
+QED
+
+Theorem compile_Loop_helper[local]:
   ^(get_goal "comp _ loopLang$Continue") ∧
   ^(get_goal "comp _ loopLang$Break") ∧
   ^(get_goal "comp _ (loopLang$Loop _ _ _)")
@@ -428,18 +465,26 @@ Proof
   fs [no_Loop_def, every_prog_def]
 QED
 
-Theorem compile_Mark:
-  ^(get_goal "comp _ (Mark _)")
-Proof
+Resume compile_correct[Continue]:
+  MATCH_ACCEPT_TAC (cj 1 compile_Loop_helper)
+QED
+
+Resume compile_correct[Break]:
+  MATCH_ACCEPT_TAC (cj 2 compile_Loop_helper)
+QED
+
+Resume compile_correct[Loop]:
+  MATCH_ACCEPT_TAC (cj 3 compile_Loop_helper)
+QED
+
+Resume compile_correct[Mark]:
   rpt strip_tac >>
   fs [loopSemTheory.evaluate_def, comp_def,
       evaluate_def, no_Loops_def,
       loopLangTheory.acc_vars_def, no_Loop_def, every_prog_def]
 QED
 
-Theorem compile_Return:
-  ^(get_goal "loopLang$Return")
-Proof
+Resume compile_correct[Return]:
   rpt strip_tac >>
   fs [loopSemTheory.evaluate_def, comp_def, evaluate_def] >>
   cases_on ‘lookup n s.locals’ >>
@@ -453,9 +498,7 @@ Proof
       loopSemTheory.call_env_def]
 QED
 
-Theorem compile_Raise:
-  ^(get_goal "loopLang$Raise")
-Proof
+Resume compile_correct[Raise]:
   fs [comp_def,loopSemTheory.evaluate_def,CaseEq"option"] >>
   rw [] >> fs [evaluate_def] >>
   imp_res_tac locals_rel_get_var >> fs [] >>
@@ -470,9 +513,7 @@ Proof
   fs [state_rel_def]
 QED
 
-Theorem compile_Seq:
-  ^(get_goal "comp _ (loopLang$Seq _ _)")
-Proof
+Resume compile_correct[Seq]:
   rpt strip_tac >>
   fs [loopSemTheory.evaluate_def] >>
   pairarg_tac >> fs [comp_def] >>
@@ -510,7 +551,7 @@ Proof
   Cases_on ‘x’ >> fs []
 QED
 
-Theorem compile_Assign:
+Theorem compile_Assign_helper[local]:
   ^(get_goal "loopLang$Assign") ∧
   ^(get_goal "loopLang$LocValue")
 Proof
@@ -547,7 +588,15 @@ Proof
   fs [loopLangTheory.acc_vars_def]
 QED
 
-Theorem compile_Store:
+Resume compile_correct[Assign]:
+  MATCH_ACCEPT_TAC (cj 1 compile_Assign_helper)
+QED
+
+Resume compile_correct[LocValue]:
+  MATCH_ACCEPT_TAC (cj 2 compile_Assign_helper)
+QED
+
+Theorem compile_Store_helper[local]:
   ^(get_goal "loopLang$Store") ∧
   ^(get_goal "loopLang$Store32") ∧
   ^(get_goal "loopLang$StoreByte")
@@ -573,9 +622,19 @@ Proof
   fs [state_rel_def]
 QED
 
-Theorem compile_Load32:
-  ^(get_goal "loopLang$Load32")
-Proof
+Resume compile_correct[Store]:
+  MATCH_ACCEPT_TAC (cj 1 compile_Store_helper)
+QED
+
+Resume compile_correct[Store32]:
+  MATCH_ACCEPT_TAC (cj 2 compile_Store_helper)
+QED
+
+Resume compile_correct[StoreByte]:
+  MATCH_ACCEPT_TAC (cj 3 compile_Store_helper)
+QED
+
+Resume compile_correct[Load32]:
   rpt strip_tac >>
   fs [loopSemTheory.evaluate_def,
       comp_def, evaluate_def] >>
@@ -599,9 +658,7 @@ Proof
   fs [domain_lookup, find_var_def]
 QED
 
-Theorem compile_LoadByte:
-  ^(get_goal "loopLang$LoadByte")
-Proof
+Resume compile_correct[LoadByte]:
   rpt strip_tac >>
   fs [loopSemTheory.evaluate_def,
       comp_def, evaluate_def] >>
@@ -625,9 +682,7 @@ Proof
   fs [domain_lookup, find_var_def]
 QED
 
-Theorem compile_SetGlobal:
-  ^(get_goal "loopLang$SetGlobal")
-Proof
+Resume compile_correct[SetGlobal]:
   rpt strip_tac >>
   fs [loopSemTheory.evaluate_def,
       comp_def, evaluate_def] >>
@@ -644,9 +699,7 @@ QED
 Theorem acc_vars_acc'[local] =
         acc_vars_acc |> CONV_RULE SWAP_FORALL_CONV |> SPEC “acc_vars (q:'a loopLang$prog) LN”;
 
-Theorem compile_If:
-  ^(get_goal "loopLang$If")
-Proof
+Resume compile_correct[If]:
   rpt strip_tac >>
   ‘no_Loops c1 ∧ no_Loops c2’ by (gvs[no_Loops_def,no_Loop_def,every_prog_def]) >>
   fs [loopSemTheory.evaluate_def, comp_def] >>
@@ -681,9 +734,7 @@ Proof
   gvs[locals_rel_def,lookup_inter_alt]
 QED
 
-Theorem compile_Call:
-  ^(get_goal "comp _ (loopLang$Call _ _ _ _)")
-Proof
+Resume compile_correct[Call]:
   rw [] >> qpat_x_assum ‘evaluate _ = (res,_)’ mp_tac
   >> simp [loopSemTheory.evaluate_def]
   >> simp [CaseEq"option"]
@@ -986,9 +1037,7 @@ Proof
   >> metis_tac []
 QED
 
-Theorem compile_FFI:
-  ^(get_goal "loopLang$FFI")
-Proof
+Resume compile_correct[FFI]:
   rpt strip_tac >>
   fs [loopSemTheory.evaluate_def,
       comp_def, evaluate_def] >>
@@ -1011,9 +1060,7 @@ Proof
   fs [mk_new_cutset_def]
 QED
 
-Theorem compile_Arith:
-  ^(get_goal "loopLang$Arith")
-Proof
+Resume compile_correct[Arith]:
   rpt strip_tac >>
   gvs [loopSemTheory.evaluate_def,
        comp_def, evaluate_def,DefnBase.one_line_ify NONE loop_arith_def,
@@ -1037,9 +1084,7 @@ Proof
   rw[word_to_bytes_def,good_dimindex_def] >> rw[word_to_bytes_aux_compute]
 QED
 
-Theorem compile_ShMem:
-  ^(get_goal "loopLang$ShMem")
-Proof
+Resume compile_correct[ShMem]:
   rpt strip_tac >>
   gvs [loopSemTheory.evaluate_def,comp_def,evaluate_def,
        DefnBase.one_line_ify NONE loopSemTheory.sh_mem_op_def,
@@ -1078,18 +1123,7 @@ Proof
      ]
 QED
 
-Theorem compile_correct:
-  ^(compile_correct_tm())
-Proof
-  match_mp_tac (the_ind_thm())
-  >> EVERY (map strip_assume_tac [compile_Skip, compile_Raise,
-       compile_Mark, compile_Return, compile_Assign, compile_Store,
-       compile_SetGlobal, compile_Call, compile_Seq, compile_If,
-       compile_FFI, compile_Loop, compile_LoadByte, compile_Arith,
-       compile_Load32,
-       compile_ShMem])
-  >> asm_rewrite_tac [] >> rw [] >> rpt (pop_assum kall_tac)
-QED
+Finalise compile_correct;
 
 Theorem state_rel_with_clock:
   state_rel s t ==>
