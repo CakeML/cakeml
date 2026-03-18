@@ -44,7 +44,7 @@ fun find_possible_rws knwn_vars tm =
 *)
 fun reconstruct_conj knwn_vars tm eq clauses =
   let
-      val recon_tm = mk_conj (eq, list_mk mk_conj clauses ``T``)
+      val recon_tm = mk_conj (eq, list_mk mk_conj clauses T)
 
       (* Prove that this new term is egal to the original one *)
       val conv_th = AC_CONV (CONJ_ASSOC, CONJ_SYM) (mk_eq (tm, recon_tm)) |> EQT_ELIM

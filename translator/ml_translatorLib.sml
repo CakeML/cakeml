@@ -4319,7 +4319,7 @@ val word64_msb_thm = Q.prove(
 val res = translate word64_msb_thm;
 
 val def = (miscTheory.arith_shift_right_def
-                     |> INST_TYPE [alpha|->``:64``]
+                     |> INST_TYPE [alpha |-> fcpSyntax.mk_int_numeric_type 64]
                      |> PURE_REWRITE_RULE [wordsTheory.dimindex_64]
                      |> CONV_RULE (DEPTH_CONV wordsLib.WORD_GROUND_CONV));
 
