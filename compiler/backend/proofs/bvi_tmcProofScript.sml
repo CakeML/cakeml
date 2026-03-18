@@ -68,11 +68,6 @@ Definition code_rel_def:
          lookup n c2 = SOME (arity + 1, exp_opt))
 End
 
-Definition optimized_code_def:
-  optimized_code loc loc_opt arity exp exp_aux exp_opt ⇔
-    compile_exp loc loc_opt arity exp = SOME (exp_aux, exp_opt)
-End
-
 Definition free_names_def:
   free_names n (name: num) ⇔ ∀k. n + bvl_to_bvi_namespaces*k ≠ name
 End
@@ -199,6 +194,20 @@ Proof
   >> gvs [EL_APPEND_EQN, LIST_REL_EL_EQN]
 QED
 
+Theorem env_rel_non_opt:
+  ∀f env1 env2.
+    env_rel T f env1 env2 ⇒
+    ∃env2' hole_ptr hole_idx.
+      env_rel F f env1 env2' ∧
+      env2 = env2' ++ [RefPtr F hole_ptr; Number hole_idx]
+Proof
+  rw []
+  >> gvs [env_rel_def]
+  >> qexistsl [‘xs’, ‘hole_ptr’, ‘hole_idx’]
+  >> gvs []
+  >> cheat
+QED
+
 Theorem state_rel_dec:
   ∀n.
     state_rel f s s' ∧
@@ -207,20 +216,6 @@ Theorem state_rel_dec:
     state_rel f (dec_clock 1 s) (dec_clock 1 s')
 Proof
   cheat
-QED
-
-Theorem opt_strip_let:
-  ∀loc loc_opt arity xs x exp_aux exp_opt.
-    optimized_code loc loc_opt arity (Let xs x) exp_aux exp_opt ⇒
-    ∃exp_aux' exp_opt'.
-      exp_aux = Let xs exp_aux' ∧
-      exp_opt = Let xs exp_opt' ∧
-      optimized_code loc loc_opt (arity + LENGTH xs) x exp_aux' exp_opt'
-Proof
-  rw []
-  >> gvs [optimized_code_def, compile_exp_def, rewrite_aux_def]
-  >> CASE_TAC
-  >> gvs [rewrite_opt_def]
 QED
 
 Theorem aux_strip_if_then:
@@ -251,6 +246,16 @@ Proof
   >> gvs []
 QED
 
+Theorem aux_strip_let:
+  ∀loc loc_opt arity xs x aux.
+    rewrite_aux loc loc_opt arity (Let xs x) = SOME aux ⇒
+    ∃aux'.
+      aux = Let xs aux' ∧
+      rewrite_aux loc loc_opt arity x = SOME aux'
+Proof
+  cheat
+QED
+
 Theorem aux_strip_tick:
   ∀loc loc_opt arity x aux.
     rewrite_aux loc loc_opt arity (Tick x) = SOME aux ⇒
@@ -259,6 +264,14 @@ Theorem aux_strip_tick:
       rewrite_aux loc loc_opt arity x = SOME aux'
 Proof
   rw [] >> gvs [rewrite_aux_def]
+QED
+
+Theorem evaluate_pad_env:
+  ∀xs env s t vs extra.
+    evaluate (xs, env, s) = (Rval vs, t) ⇒
+  evaluate (xs, env ++ extra, s) = (Rval vs, t)
+Proof
+  cheat
 QED
 
 Theorem evaluate_rewrite_tmc:
@@ -479,58 +492,48 @@ Proof
     >> gvs []
     (* Opt *)
     (* First inductive hypothesis *)
-    >- (first_x_assum $ qspec_then ‘T’ mp_tac
+    >- (first_x_assum $ qspec_then ‘F’ mp_tac
         >> simp []
-        >> disch_then drule
-        >> disch_then drule
+        >> disch_then $ drule_at $ Pos $ el 2
+        >> drule env_rel_non_opt
         >> strip_tac
+        >> gvs []
+        >> rename [‘env_rel F f env env2’]
+        >> disch_then drule
         >> Cases_on ‘rs’
         >> gvs []
-        (* Second inductive hypothesis *)    
+        (* Second inductive hypothesis *)
         >- (rename [‘evaluate (xs,env,s) = (Rval vs,u)’]
-            >> first_x_assum $ qspec_then ‘T’ mp_tac
-            >> simp []
-(*
-            >> pop_assum kall_tac
             >> strip_tac
-            >> Cases_on ‘evaluate (xs,env2,s')’
-            >> rename [‘evaluate (xs,env2,s') = (r',u')’]
-            >> Cases_on ‘r'’
+            >> rename [‘evaluate (xs, env2, s') = (rs', u')’]
+            >> rename [‘LIST_REL (v_rel f'') vs vs'’]
+            >> first_x_assum $ qspec_then ‘T’ mp_tac
             >> gvs []
-            >- (rename [‘evaluate (xs,env2,s') = (Rval vs',u')’]
-                >> Cases_on ‘evaluate ([x2],vs' ++ env2,u')’
-                >> rename [‘evaluate ([x2],vs' ++ env2,u') = (r',t')’]
-                >> gvs []
-                >> sg ‘LIST_REL (v_rel f) vs vs'’
-                >- cheat (* TODO: this doesn't seem obvious... *)
-                >> drule_all env_rel_append
-                >> strip_tac
-                >> cheat
-               )
-*)
-            >> Cases_on ‘LENGTH xs = 1’
-            >> gvs []
-            >- (rename [‘evaluate (xs,env2,s') = (Rval vs',u')’]
+            >> disch_then $ drule_at $ Pos $ el 2
+            >> disch_then $ qspec_then ‘vs' ++ env2 ++ [RefPtr F hole_ptr; Number hole_idx]’ mp_tac
+            >> impl_tac
+            >- (qpat_x_assum ‘env_rel F f env env2’ kall_tac
                 >> drule_all env_rel_submap
                 >> strip_tac
                 >> drule_all env_rel_append
+                >> gvs [])
+            >> strip_tac
+            >> drule evaluate_pad_env
+            >> disch_then $ qspec_then ‘[RefPtr F hole_ptr; Number hole_idx]’ mp_tac
+            >> gvs []
+            >> strip_tac
+            >> qexists ‘f'³'’
+            >> gvs []
+            >> rw []
+            >- (imp_res_tac SUBMAP_TRANS)
+            >- (drule aux_strip_let
                 >> strip_tac
-                >> disch_then drule_all
+                >> last_x_assum drule
                 >> strip_tac
-                >> rename [‘evaluate ([x2],vs' ++ env2,u') = (r',t')’]
-                >> gvs []
-                >> qexists ‘f'³'’
-                >> gvs []
-                >> rw []
-                >- (imp_res_tac SUBMAP_TRANS)
-                >> cheat
-                (*>> drule_all opt_strip_let
-                >> strip_tac                        
-                >> first_x_assum drule_all
-                >> gvs [evaluate_def]*)
-               )
-            >> cheat
-           )
+                >> gvs [evaluate_def])
+            >> first_x_assum $ qspecl_then [‘loc’, ‘loc_opt’, ‘i + LENGTH xs’, ‘j + LENGTH xs’, ‘k + LENGTH xs’] mp_tac
+            >> strip_tac
+            >> gvs [rewrite_opt_def, evaluate_def])
         >> cheat)
     (* Non-opt *)
     (* First inductive hypothesis *)
@@ -552,7 +555,7 @@ Proof
         >> first_x_assum drule_all
         >> strip_tac
         >> gvs []
-        >> qexists ‘f'³'’ (* Rename me *)
+        >> qexists ‘f'³'’
         >> rw []
         >> imp_res_tac SUBMAP_TRANS)
     >> cheat)
