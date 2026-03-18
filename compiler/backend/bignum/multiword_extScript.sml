@@ -57,6 +57,14 @@ Proof
   >> ‘0 < x DIV y’ by (simp [DIV_POS]) >> simp []
 QED
 
+Theorem MULT_CEILING_DIV:
+  0 < n ⇒ q * n \\ n = q
+Proof
+  Cases_on ‘q = 0’ >- simp []
+  >> rw [CEILING_DIV]
+  >> drule MULT_DIV >> simp []
+QED
+
 Theorem MAP2_SYM:
   ∀xs ys. (∀x y. R x y = R y x) ⇒ MAP2 R xs ys = MAP2 R ys xs
 Proof
@@ -378,8 +386,8 @@ Proof
   simp [num_of_bits_TAKE, dimword_def]
 QED
 
-Theorem b2mw_DROP:
-  ∀n m. b2mw (DROP m (bits_of_num n)) = b2mw (bits_of_num (n DIV (2 ** m)))
+Theorem DROP_bits_of_num:
+  ∀n m. DROP m (bits_of_num n) = bits_of_num (n DIV (2 ** m))
 Proof
   recInduct bits_of_num_ind >> rw []
   >> Cases_on ‘n = 0’ >> gvs []
@@ -389,11 +397,11 @@ Proof
   >> simp [EXP, DIV_DIV_DIV_MULT]
 QED
 
-Theorem b2mw_DROP_dimindex:
-  b2mw (DROP (dimindex (:α)) (bits_of_num n)) =
-  b2mw (bits_of_num (n DIV (dimword (:α))))
+Theorem DROP_dimindex_bits_of_num:
+  DROP (dimindex (:α)) (bits_of_num n) =
+  bits_of_num (n DIV (dimword (:α)))
 Proof
-  simp [b2mw_DROP, dimword_def]
+  simp [DROP_bits_of_num, dimword_def]
 QED
 
 Theorem n2mw_eq_b2mw:
@@ -406,7 +414,7 @@ Proof
   >> simp [Once b2mw_def, bits_of_num_nil]
   >> simp [Once n2mw_def]
   >> simp [num_of_bits_TAKE_dimindex_lt, num_of_bits_TAKE_dimindex,
-           b2mw_DROP_dimindex]
+           DROP_dimindex_bits_of_num]
 QED
 
 Theorem mw2n_b2mw:
@@ -642,12 +650,37 @@ Proof
   >> unabbrev_all_tac >> simp [mw2n_APPEND]
 QED
 
-Theorem mw2n_b2mw'_sub:
-  y ≤ x ⇒
-  mw2n (b2mw' (LENGTH (n2mw x)) (bits_of_num (x − y))) =
-  mw2n (n2mw x) - mw2n (n2mw y)
+Theorem LENGTH_n2mw_DIV_dimword:
+  ∀n.
+    LENGTH (n2mw (n DIV dimword (:α)) :α word list) =
+    LENGTH (n2mw n :α word list) - 1
 Proof
-  cheat
+  recInduct n2mw_ind >> rw []
+  >> Cases_on ‘n = 0’
+  >- (once_rewrite_tac [n2mw_def] >> simp [])
+  >> once_rewrite_tac [n2mw_def] >> fs []
+  >> IF_CASES_TAC >- simp [Once n2mw_def]
+  >> simp [ADD1]
+  >> ‘LENGTH (n2mw (n DIV dimword (:α)) :α word list) ≠ 0’ by
+    (CCONTR_TAC >> gvs [n2mw_NIL])
+  >> simp []
+QED
+
+Theorem b2mw'_n2mw:
+  ∀x k.
+    k = (LENGTH (n2mw x :α word list)) ⇒
+    b2mw' k (bits_of_num x) = n2mw x :α word list
+Proof
+  recInduct n2mw_ind >> rw []
+  >> Cases_on ‘n = 0’ >> fs []
+  >-
+   (once_rewrite_tac [b2mw'_def] >> simp []
+    >> once_rewrite_tac [n2mw_def] >> simp [])
+  >> once_rewrite_tac [b2mw'_def]
+  >> simp [n2mw_NIL, DROP_dimindex_bits_of_num]
+  >> fs [LENGTH_n2mw_DIV_dimword]
+  >> simp [num_of_bits_TAKE_dimindex]
+  >> simp [Once n2mw_def, SimpRHS]
 QED
 
 Theorem mw_sub_n2mw_b2mw':
@@ -670,8 +703,10 @@ Proof
   >- simp [Once n2mw_def]
   >> ‘Num (&n - 1) = n - 1’ by (DEP_REWRITE_TAC [INT_SUB] >> simp [])
   >> pop_assum SUBST_ALL_TAC
-  >> DEP_REWRITE_TAC [mw2n_b2mw'_sub]
+  (* >> DEP_REWRITE_TAC [b2mw'_n2mw] *)
+  (* >> conj_tac >- cheat *)
   >> simp [mw2n_def, mw2n_n2mw]
+  >> cheat
 QED
 
 Theorem mw_bits_of_int_b2mw:
