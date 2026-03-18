@@ -230,10 +230,37 @@ Proof
   Cases_on `ys` >> fs[] >> Cases_on `h` >> simp[head_key_t_def]
 QED
 
+
+Theorem lemma_ann_fts_seg_MEM:
+  !fts x v l p s b n frame.
+    (fts_mem (ann_fts_seg p s b n fts) * frame) (fun2set(m,dm))  /\
+    MEM (FibTree x v l) fts ==>
+    ?t1 t2. fts = t1 ++ [FibTree x v l] ++ t2
+Proof
+  Induct >> fs[] >>
+  rpt strip_tac >>
+  Cases_on `h` >> gvs[]
+  >- (qexistsl [`[]`,`fts`] >> simp[] ) >>
+  fs[fts_mem_def,ann_fts_seg_def] >>
+  res_tac >>
+  first_x_assum(qspecl_then [`s`,`p`,`(head_key_t s (TL fts))`,
+    `ft_seg(FibTree k (fill_anode v' b n p (head_key l') (LENGTH l'))
+      (ann_fts_seg k (head_key l') (last_key l')
+      (head_key_t (head_key l') (TL l')) l')) *
+     fts_mem
+      (ann_fts_seg k (head_key l') (last_key l')
+      (head_key_t (head_key l') (TL l')) l') * frame`, `k`] assume_tac) >>
+  rfs[AC STAR_ASSOC STAR_COMM] >>
+  qexistsl [`(FibTree k v' l'::t1)`,`t2`] >> simp[]
+QED
+
+
+
 Definition ann_fts_def:
   (ann_fts p [] = []) /\
   (ann_fts p (x::xs) =
-    ann_fts_seg p (head_key [x]) (last_key (x::xs)) (head_key_t (head_key [x]) xs)
+    ann_fts_seg p (head_key [x]) (last_key (x::xs))
+      (head_key_t (head_key [x]) xs)
     (x::xs))
 End
 
@@ -342,6 +369,7 @@ Proof
   strip_tac >>
   simp[STAR_ASSOC]
 QED
+
 
 (*The outside world already set the flag to T!*)
 Definition empty_node_def:
