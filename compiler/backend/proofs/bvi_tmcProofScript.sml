@@ -266,10 +266,19 @@ Proof
   rw [] >> gvs [rewrite_aux_def]
 QED
 
-Theorem evaluate_pad_env:
+Theorem evaluate_pad_env_val:
   ∀xs env s t vs extra.
     evaluate (xs, env, s) = (Rval vs, t) ⇒
-  evaluate (xs, env ++ extra, s) = (Rval vs, t)
+    evaluate (xs, env ++ extra, s) = (Rval vs, t)
+Proof
+  cheat
+QED
+
+Theorem evaluate_pad_env_err:
+  ∀xs env s t e extra.
+    evaluate (xs, env, s) = (Rerr e, t) ∧
+    e ≠ Rabort Rtype_error ⇒
+    evaluate (xs, env ++ extra, s) = (Rerr e, t)
 Proof
   cheat
 QED
@@ -518,7 +527,7 @@ Proof
                 >> drule_all env_rel_append
                 >> gvs [])
             >> strip_tac
-            >> drule evaluate_pad_env
+            >> drule evaluate_pad_env_val
             >> disch_then $ qspec_then ‘[RefPtr F hole_ptr; Number hole_idx]’ mp_tac
             >> gvs []
             >> strip_tac
@@ -534,7 +543,21 @@ Proof
             >> first_x_assum $ qspecl_then [‘loc’, ‘loc_opt’, ‘i + LENGTH xs’, ‘j + LENGTH xs’, ‘k + LENGTH xs’] mp_tac
             >> strip_tac
             >> gvs [rewrite_opt_def, evaluate_def])
-        >> cheat)
+        >> strip_tac
+        >> rename [‘evaluate (xs,env2,s') = (r',t')’]
+        >> gvs []
+        >> sg ‘e' ≠ Rabort Rtype_error’
+        >- cheat                
+        >> drule_all evaluate_pad_env_err
+        >> strip_tac
+        >> gvs []
+        >> goal_assum $ drule_at Any
+        >> gvs []
+        >> rw []
+        >- (drule aux_strip_let
+            >> strip_tac
+            >> gvs [evaluate_def])
+        >> gvs [rewrite_opt_def, evaluate_def, opt_res_rel_def])
     (* Non-opt *)
     (* First inductive hypothesis *)
     >> first_x_assum $ qspec_then ‘F’ mp_tac
@@ -558,7 +581,8 @@ Proof
         >> qexists ‘f'³'’
         >> rw []
         >> imp_res_tac SUBMAP_TRANS)
-    >> cheat)
+    >> goal_assum $ drule_at Any
+    >> gvs [])
   >~ [‘Raise x1’] >-
    (gvs [evaluate_def] >> cheat)
   >~ [‘Op op xs’] >-
