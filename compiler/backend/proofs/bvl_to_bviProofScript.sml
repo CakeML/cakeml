@@ -2175,8 +2175,6 @@ val goal = ``
         (MAP (adjust_bv b1) env = MAP (adjust_bv b2) env) /\
         (!a. a IN FDOM s1.refs ==> (b1 a = b2 a))``
 
-val ind_thm = eval_ind_alt |> ISPEC goal |> GEN_BETA_RULE;
-
 Theorem compile_exps_correct:
    !xs env s1 n res s2 (t1:('c,'ffi) bviSem$state) n2 ys aux b1.
      (evaluate (xs,env,s1) = (res,s2)) /\ res <> Rerr(Rabort Rtype_error) /\

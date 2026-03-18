@@ -432,24 +432,13 @@ Proof
   gvs [data_inv_def, empty_data_def] \\ EVAL_TAC
 QED
 
-(* setting up the goal *)
-
-val goal = “
- λ(p:'a wordLang$prog,s:('a,'c,'ffi) wordSem$state).
-   ∀res s' data p' data'.
-     evaluate (p, s) = (res, s') ∧ flat_exp_conventions p ∧
-     data_inv data s ∧
-     res ≠ SOME Error ∧
-     word_cse data p  = (data', p') ⇒
-     evaluate (p', s) = (res, s') ∧
-     (res = NONE ⇒ data_inv data' s')”
-
-val ind_thm = evaluate_ind |> ISPEC goal |> GEN_BETA_RULE;
-
 Theorem comp_correct:
-  ^(ind_thm |> concl |> rand)
+  ∀v v1 res s' data p' data'.
+    evaluate (v,v1) = (res,s') ∧ flat_exp_conventions v ∧ data_inv data v1 ∧
+    res ≠ SOME Error ∧ word_cse data v = (data',p') ⇒
+    evaluate (p',v1) = (res,s') ∧ (res = NONE ⇒ data_inv data' s')
 Proof
-  match_mp_tac ind_thm
+  recInduct evaluate_ind
   \\ rpt conj_tac
   >~ [`Skip`] >- suspend "Skip"
   >~ [`Alloc`] >- suspend "Alloc"
