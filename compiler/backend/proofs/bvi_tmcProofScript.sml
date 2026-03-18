@@ -362,6 +362,7 @@ Proof
     >> cheat
    )
   >~ [‘If x1 x2 x3’] >-
+
    (gvs [evaluate_def]
     >> gvs [CaseEq "prod", PULL_EXISTS]
     >> rename [‘evaluate ([x1],env,s) = (r1,s1)’]
@@ -369,80 +370,106 @@ Proof
     >> gvs []
     (* Opt *)
     (* First inductive hypothesis *)
-    >- (first_x_assum $ qspec_then ‘T’ mp_tac
+    >- (first_x_assum $ qspec_then ‘F’ mp_tac
         >> simp []
-        >> disch_then drule
-        >> disch_then drule
-        >> impl_tac
-        >> gvs []
-        >- (spose_not_then assume_tac >> fs [])
+
+        >> disch_then $ drule_at $ Pos $ el 2
+        >> drule env_rel_non_opt
         >> strip_tac
-        >> rename [‘evaluate ([x1],env2,s') = (r1',s1')’]
         >> gvs []
-        >> pop_assum kall_tac
+        >> rename [‘env_rel F f env env2’]
+        >> disch_then drule
         >> Cases_on ‘r1’
         >> gvs []
-        >- (rename [‘evaluate ([x1],env2,s') = (Rval v1',s1')’]
-            >> Cases_on ‘HD a = Boolv T’
+        >- (rename [‘evaluate ([x1],env,s) = (Rval v1,s1)’]
+            >> Cases_on ‘HD v1 = Boolv T’
             >> gvs []
-            (* then inductive hypothesis *)
-            >- (rename [‘LIST_REL (v_rel f'') v1 v1'’]
-                >> first_x_assum $ qspec_then ‘T’ mp_tac
-                >> simp []
-                >> drule_all env_rel_submap
-                >> strip_tac
-                >> disch_then drule_all
+            (* Then inductive hypothesis *)
+            >- (strip_tac
+                >> rename [‘LIST_REL (v_rel f'') v1 v1'’]
+                >> rename [‘evaluate ([x1],env2,s') = (r1',s1')’]
+                >> gvs []
+                >> drule evaluate_pad_env_val
+                >> disch_then $ qspec_then ‘[RefPtr F hole_ptr; Number hole_idx]’ mp_tac
+                >> gvs []
                 >> strip_tac
                 >> sg ‘HD v1' = Boolv T’
                 >- cheat
                 >> gvs []
-                >> qexists ‘f'³'’
-                >> rw []
+                >> last_x_assum $ qspec_then ‘T’ mp_tac
+                >> disch_then $ drule_at $ Pos $ el 2
+                >> qpat_x_assum ‘env_rel F f env env2’ kall_tac
+                >> drule_all env_rel_submap
+                >> strip_tac
+                >> disch_then drule
+                >> strip_tac
                 >> gvs []
+                >> goal_assum $ drule_at Any
+                >> gvs []
+                >> rw []
                 >- (imp_res_tac SUBMAP_TRANS)
                 >- (drule aux_strip_if_then
                     >> strip_tac
                     >- (first_x_assum drule
                         >> strip_tac
-                        >> qexists ‘t1’
+                        >> goal_assum $ drule_at Any
                         >> gvs [evaluate_def])
                     >> gvs [evaluate_def])
-                >> fs [rewrite_opt_def, evaluate_def])
-            (* else inductive hypothesis *)
+                >> first_x_assum $ qspecl_then [‘loc’, ‘loc_opt’, ‘i’, ‘j’, ‘k’] mp_tac
+                >> strip_tac
+                >> gvs [rewrite_opt_def, evaluate_def])
+            (* Then inductive hypothesis *) (* TODO - maybe some of this can be factored out *)
+            >> strip_tac
             >> rename [‘LIST_REL (v_rel f'') v1 v1'’]
+            >> rename [‘evaluate ([x1],env2,s') = (r1',s1')’]
+            >> gvs []
+            >> drule evaluate_pad_env_val
+            >> disch_then $ qspec_then ‘[RefPtr F hole_ptr; Number hole_idx]’ mp_tac
+            >> gvs []
+            >> strip_tac
             >> Cases_on ‘HD v1 = Boolv F’
-            >> gvs []            
-            >> first_x_assum $ qspec_then ‘T’ mp_tac
-            >> simp []
-            >> drule_all env_rel_submap
-            >> strip_tac
-            >> disch_then drule_all
-            >> strip_tac
+            >> gvs []
+                        
             >> sg ‘HD v1' = Boolv F’
             >- cheat
             >> gvs []
-            >> qexists ‘f'³'’
+            >> last_x_assum $ qspec_then ‘T’ mp_tac
+            >> disch_then $ drule_at $ Pos $ el 2
+            >> qpat_x_assum ‘env_rel F f env env2’ kall_tac
+            >> drule_all env_rel_submap
+            >> strip_tac
+            >> disch_then drule
+            >> strip_tac
+            >> gvs []
+            >> goal_assum $ drule_at Any
             >> gvs []
             >> rw []
-            >> gvs []
             >- (imp_res_tac SUBMAP_TRANS)
             >- (drule aux_strip_if_else
                 >> strip_tac
                 >- (first_x_assum drule
                     >> strip_tac
-                    >> qexists ‘t1’
+                    >> goal_assum $ drule_at Any
                     >> gvs [evaluate_def])
                 >> gvs [evaluate_def])
-            >> fs [rewrite_opt_def, evaluate_def])
-        >> qexists ‘f''’
+            >> first_x_assum $ qspecl_then [‘loc’, ‘loc_opt’, ‘i’, ‘j’, ‘k’] mp_tac
+            >> strip_tac
+            >> gvs [rewrite_opt_def, evaluate_def])
+        >> strip_tac
+        >> rename [‘evaluate ([x1],env2,s') = (r1',s1')’]
+        >> gvs []
+        >> sg ‘e' ≠ Rabort Rtype_error’
+        >- cheat
+        >> drule_all evaluate_pad_env_err
+        >> disch_then $ qspec_then ‘[RefPtr F hole_ptr; Number hole_idx]’ mp_tac
+        >> gvs []
+        >> strip_tac
+        >> goal_assum $ drule_at Any
         >> gvs []
         >> rw []
-        >- (qexists ‘s1'’
-            >> gvs []
-            >> drule aux_strip_if_then
-            >> strip_tac
-            >> gvs [evaluate_def])
-        >> gvs [rewrite_opt_def, evaluate_def, opt_res_rel_def])
+        >- (cheat)
+        >> cheat)
+        (* HERE *)
     (* Non opt *)
     (* First inductive hypothesis *)
     >> first_x_assum $ qspec_then ‘F’ mp_tac
@@ -493,7 +520,6 @@ Proof
     >> qexists ‘f''’
     >> gvs [])
   >~ [‘Let xs x2’] >-
-     
    (gvs [evaluate_def]
     >> gvs [CaseEq "prod", PULL_EXISTS]
     >> rename [‘evaluate (xs,env,s) = (rs,u)’]
@@ -547,7 +573,7 @@ Proof
         >> rename [‘evaluate (xs,env2,s') = (r',t')’]
         >> gvs []
         >> sg ‘e' ≠ Rabort Rtype_error’
-        >- cheat                
+        >- cheat
         >> drule_all evaluate_pad_env_err
         >> strip_tac
         >> gvs []
