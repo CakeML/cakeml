@@ -13,26 +13,24 @@ val _ = temp_delsimps ["fromAList_def", "domain_union",
                        "domain_map", "sptree.map_def", "sptree.lookup_rwts",
                        "sptree.insert_notEmpty", "sptree.isEmpty_union"];
 
-val goal =
-  “λ(prog, s). ∀res s1 p l0 locals prog1 l1.
-    evaluate (prog,s) = (res,s1) ∧ res ≠ SOME Error ∧
-    shrink p prog l0 = (prog1,l1) ∧
-    subspt (inter s.locals l1) locals ⇒
-    ∃new_locals.
-      evaluate (prog1,s with locals := locals) =
-        (res,s1 with locals := new_locals) ∧
-      case res of
-      | NONE => subspt (inter s1.locals l0) new_locals
-      | SOME Continue => subspt (inter s1.locals (FST p)) new_locals
-      | SOME Break => subspt (inter s1.locals (SND p)) new_locals
-      | _ => new_locals = s1.locals”
-
-val ind_thm = loopSemTheory.evaluate_ind |> ISPEC goal
-  |> CONV_RULE (DEPTH_CONV PairRules.PBETA_CONV) |> REWRITE_RULE [];
 Theorem compile_correct:
-  ^(ind_thm |> concl |> rand)
+  ∀v v1 res s1 p l0 locals prog1 l1.
+    evaluate (v,v1) = (res,s1) ∧ res ≠ SOME Error ∧
+    shrink p v l0 = (prog1,l1) ∧ subspt (inter v1.locals l1) locals ⇒
+    ∃new_locals.
+      evaluate (prog1,v1 with locals := locals) =
+      (res,s1 with locals := new_locals) ∧
+      case res of
+        NONE => subspt (inter s1.locals l0) new_locals
+      | SOME (Result v5) => new_locals = s1.locals
+      | SOME (Exception v6) => new_locals = s1.locals
+      | SOME Break => subspt (inter s1.locals (SND p)) new_locals
+      | SOME Continue => subspt (inter s1.locals (FST p)) new_locals
+      | SOME TimeOut => new_locals = s1.locals
+      | SOME (FinalFFI v7) => new_locals = s1.locals
+      | SOME Error => new_locals = s1.locals
 Proof
-  match_mp_tac ind_thm
+  recInduct loopSemTheory.evaluate_ind
   \\ rpt conj_tac
   >~ [`loopLang$Skip`] >- suspend "Skip"
   >~ [`loopLang$Fail`] >- suspend "Fail"

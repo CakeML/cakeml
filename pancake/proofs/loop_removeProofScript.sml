@@ -36,38 +36,45 @@ Definition breaks_ok_def:
   breaks_ok (p:'a loopLang$prog,q:'a loopLang$prog) <=> break_ok p ∧ break_ok q
 End
 
-val goal =
-  ``λ(prog, s). ∀res s1 t p.
-    evaluate (prog,s) = (res,s1) ∧ state_rel s t ∧ res ≠ SOME Error ∧
-    breaks_ok p ⇒
-    (syntax_ok prog ⇒
-      ∀cont s q s'.
-        comp_with_loop p prog cont s = (q,s') ∧
-        has_code s' t.code ∧ break_ok cont ⇒
-        ∃t1.
-         (let result = evaluate (q,t) in
-            state_rel s1 t1 ∧ t1.code = t.code ∧
-            case res of
-            | NONE => result = evaluate (cont,t1)
-            | SOME Break => result = evaluate (FST p,t1)
-            | SOME Continue => result = evaluate (SND p,t1)
-            | _ => result = (res,t1))) ∧
-    (no_Loop prog ⇒
-        ∃t1.
-         (let result = evaluate (comp_no_loop p prog,t) in
-            state_rel s1 t1 ∧ t1.code = t.code ∧
-            case res of
-            | SOME Continue => result = evaluate (SND p,t1)
-            | SOME Break => result = evaluate (FST p,t1)
-            | _ => result = (res,t1)))``
-
-val ind_thm = loopSemTheory.evaluate_ind
-  |> ISPEC goal
-  |> CONV_RULE (DEPTH_CONV PairRules.PBETA_CONV) |> REWRITE_RULE [];
 Theorem compile_correct:
-  ^(ind_thm |> concl |> rand)
+  ∀v v1 res s1 t p.
+    evaluate (v,v1) = (res,s1) ∧ state_rel v1 t ∧ res ≠ SOME Error ∧
+    breaks_ok p ⇒
+    (syntax_ok v ⇒
+     ∀cont s q s'.
+       comp_with_loop p v cont s = (q,s') ∧
+       has_code s' t.code ∧ break_ok cont ⇒
+       ∃t1.
+         (let
+            result = evaluate (q,t)
+          in
+            state_rel s1 t1 ∧ t1.code = t.code ∧
+            case res of
+              NONE => result = evaluate (cont,t1)
+            | SOME (Result v5) => result = (res,t1)
+            | SOME (Exception v6) => result = (res,t1)
+            | SOME Break => result = evaluate (FST p,t1)
+            | SOME Continue => result = evaluate (SND p,t1)
+            | SOME TimeOut => result = (res,t1)
+            | SOME (FinalFFI v7) => result = (res,t1)
+            | SOME Error => result = (res,t1))) ∧
+    (no_Loop v ⇒
+     ∃t1.
+       (let
+          result = evaluate (comp_no_loop p v,t)
+        in
+          state_rel s1 t1 ∧ t1.code = t.code ∧
+          case res of
+            NONE => result = (res,t1)
+          | SOME (Result v5) => result = (res,t1)
+          | SOME (Exception v6) => result = (res,t1)
+          | SOME Break => result = evaluate (FST p,t1)
+          | SOME Continue => result = evaluate (SND p,t1)
+          | SOME TimeOut => result = (res,t1)
+          | SOME (FinalFFI v7) => result = (res,t1)
+          | SOME Error => result = (res,t1)))
 Proof
-  match_mp_tac ind_thm
+  recInduct loopSemTheory.evaluate_ind
   \\ rpt conj_tac
   >~ [`loopLang$Skip`] >- suspend "Skip"
   >~ [`loopLang$Fail`] >- suspend "Fail"

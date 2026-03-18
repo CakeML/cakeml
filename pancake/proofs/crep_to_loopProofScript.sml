@@ -107,43 +107,37 @@ Definition locals_rel_def:
     lookup n t_locals = SOME (wlab_wloc v)
 End
 
-val goal =
-  ``λ(prog, s). ∀res s1 t ctxt l.
-      evaluate (prog,s) = (res,s1) ∧ res ≠ SOME Error ∧
-      state_rel s t ∧ mem_rel s.memory t.memory s.memaddrs ∧
-      globals_rel s.globals t.globals ∧
-      code_rel ctxt s.code t.code ∧
-      locals_rel ctxt l s.locals t.locals ⇒
-      ∃ck res1 t1. evaluate (compile ctxt l prog,
-                             t with clock := t.clock + ck) = (res1,t1) /\
+Theorem ncompile_correct:
+  ∀v v1 res s1 t ctxt l.
+    evaluate (v,v1) = (res,s1) ∧ res ≠ SOME Error ∧
+    state_rel v1 t ∧ mem_rel v1.memory t.memory v1.memaddrs ∧
+    globals_rel v1.globals t.globals ∧
+    code_rel ctxt v1.code t.code ∧
+    locals_rel ctxt l v1.locals t.locals ⇒
+    ∃ck res1 t1.
+      evaluate (compile ctxt l v,t with clock := t.clock + ck) = (res1,t1) ∧
       state_rel s1 t1 ∧ mem_rel s1.memory t1.memory s1.memaddrs ∧
       globals_rel s1.globals t1.globals ∧
       code_rel ctxt s1.code t1.code ∧
-      (res1 = case res of
-           NONE => NONE
-         | SOME Break => SOME Break
-         | SOME Continue => SOME Continue
-         | SOME (Return v) => SOME (Result (wlab_wloc v))
-         | SOME (Exception eid) => SOME (Exception (Word eid))
-         | SOME TimeOut => SOME TimeOut
-         | SOME (FinalFFI f) => SOME (FinalFFI f)
-         | SOME Error => SOME Error) ∧
-      (case res of
-       | NONE => locals_rel ctxt l s1.locals t1.locals
-       | SOME Break => locals_rel ctxt l s1.locals t1.locals
-       | SOME Continue => locals_rel ctxt l s1.locals t1.locals
-       | SOME (Return v) => T
-       | SOME Error => F
-       | _ => T)``
-
-val ind_thm = crepSemTheory.evaluate_ind
-  |> ISPEC goal
-  |> CONV_RULE (DEPTH_CONV PairRules.PBETA_CONV) |> REWRITE_RULE [];
-
-Theorem ncompile_correct:
-  ^(ind_thm |> concl |> rand)
+      (res1 =
+       case res of
+         NONE => NONE
+       | SOME Break => SOME Break
+       | SOME Continue => SOME Continue
+       | SOME (Return v) => SOME (Result (wlab_wloc v))
+       | SOME (Exception eid) => SOME (Exception (Word eid))
+       | SOME TimeOut => SOME TimeOut
+       | SOME (FinalFFI f) => SOME (FinalFFI f)
+       | SOME Error => SOME Error) ∧
+      case res of
+        NONE => locals_rel ctxt l s1.locals t1.locals
+      | SOME Break => locals_rel ctxt l s1.locals t1.locals
+      | SOME Continue => locals_rel ctxt l s1.locals t1.locals
+      | SOME (Return v) => T
+      | SOME Error => F
+      | _ => T
 Proof
-  match_mp_tac ind_thm
+  recInduct crepSemTheory.evaluate_ind
   \\ rpt conj_tac
   >~ [`crepLang$Skip`] >- suspend "Skip"
   >~ [`crepLang$Break`] >- suspend "Break"

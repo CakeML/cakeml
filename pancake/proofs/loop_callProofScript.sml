@@ -13,19 +13,13 @@ Definition labels_in_def:
     !n x. lookup n l = SOME x ==> lookup n locals = SOME (Loc x 0)
 End
 
-val goal =
-  “λ(prog, s). ∀res s1 l p nl.
-    evaluate (prog,s) = (res,s1) ∧ res ≠ SOME Error ∧
-    comp l prog = (p, nl) /\ labels_in l s.locals ==>
-    evaluate (p,s) = (res,s1) /\ labels_in nl s1.locals”
-
-val ind_thm = loopSemTheory.evaluate_ind |> ISPEC goal
-  |> CONV_RULE (DEPTH_CONV PairRules.PBETA_CONV) |> REWRITE_RULE [];
-
 Theorem compile_correct:
-  ^(ind_thm |> concl |> rand)
+  ∀v v1 res s1 l p nl.
+    evaluate (v,v1) = (res,s1) ∧ res ≠ SOME Error ∧
+    comp l v = (p,nl) ∧ labels_in l v1.locals ⇒
+    evaluate (p,v1) = (res,s1) ∧ labels_in nl s1.locals
 Proof
-  match_mp_tac ind_thm
+  recInduct loopSemTheory.evaluate_ind
   \\ rpt conj_tac
   >~ [`loopLang$Skip`] >- suspend "Skip"
   >~ [`loopLang$Fail`] >- suspend "Fail"

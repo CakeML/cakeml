@@ -420,48 +420,40 @@ Definition globals_lookup_def:
 End
 
 
-val gen_goal =
-  ``λ comp (prog, s). ∀res s1 t ctxt.
-      evaluate (prog,s) = (res,s1) ∧ res ≠ SOME Error ∧
-      state_rel s t ∧ code_rel ctxt s.code t.code /\
-      excp_rel ctxt.eids s.eshapes /\
-      locals_rel ctxt s.locals t.locals /\
-      localised_prog prog ⇒
-      ∃res1 t1. evaluate (comp ctxt prog,t) = (res1,t1) /\
-      state_rel s1 t1 ∧ code_rel ctxt s1.code t1.code /\
-      excp_rel ctxt.eids s1.eshapes /\
-      case res of
-       | NONE => res1 = NONE /\ locals_rel ctxt s1.locals t1.locals
-       | SOME Break => res1 = SOME Break /\
-                       locals_rel ctxt s1.locals t1.locals
-       | SOME Continue => res1 = SOME Continue /\
-                       locals_rel ctxt s1.locals t1.locals
-       | SOME (Return v) =>
-          (size_of_shape (shape_of v) = 0 ==> res1 = SOME (Return (Word 0w))) ∧
-          (size_of_shape (shape_of v) = 1 ==> res1 = SOME (Return (HD(flatten v)))) ∧
-          (1 < size_of_shape (shape_of v) ==>
-               res1 = SOME (Return (Word 0w)) /\ globals_lookup t1 v = SOME (flatten v) ∧
-               size_of_shape (shape_of v) <= 32)
-       | SOME (Exception eid v) =>
-         (case FLOOKUP ctxt.eids eid of
-           | SOME n => res1 = SOME (Exception n) ∧
-             (1 <= size_of_shape (shape_of v) ==>
-                  globals_lookup t1 v = SOME (flatten v) ∧
-                  size_of_shape (shape_of v) <= 32)
-           | NONE => F)
-       | SOME TimeOut => res1 = SOME TimeOut
-       | SOME (FinalFFI f) => res1 = SOME (FinalFFI f)
-       | _ => F``
-
-val goal = beta_conv ``^gen_goal pan_to_crep$compile``
-val ind_thm = panSemTheory.evaluate_ind
-  |> ISPEC goal
-  |> CONV_RULE (DEPTH_CONV PairRules.PBETA_CONV) |> REWRITE_RULE [];
-
 Theorem pc_compile_correct:
-  ^(ind_thm |> concl |> rand)
+  ∀v v1 res s1 t ctxt.
+    evaluate (v,v1) = (res,s1) ∧ res ≠ SOME Error ∧ state_rel v1 t ∧
+    code_rel ctxt v1.code t.code ∧ excp_rel ctxt.eids v1.eshapes ∧
+    locals_rel ctxt v1.locals t.locals ∧ localised_prog v ⇒
+    ∃res1 t1.
+      evaluate (compile ctxt v,t) = (res1,t1) ∧ state_rel s1 t1 ∧
+      code_rel ctxt s1.code t1.code ∧ excp_rel ctxt.eids s1.eshapes ∧
+      case res of
+        NONE => res1 = NONE ∧ locals_rel ctxt s1.locals t1.locals
+      | SOME Error => F
+      | SOME TimeOut => res1 = SOME TimeOut
+      | SOME Break => res1 = SOME Break ∧ locals_rel ctxt s1.locals t1.locals
+      | SOME Continue =>
+        res1 = SOME Continue ∧ locals_rel ctxt s1.locals t1.locals
+      | SOME (Return v) =>
+        (size_of_shape (shape_of v) = 0 ⇒ res1 = SOME (Return (Word 0w))) ∧
+        (size_of_shape (shape_of v) = 1 ⇒
+         res1 = SOME (Return (HD (flatten v)))) ∧
+        (1 < size_of_shape (shape_of v) ⇒
+         res1 = SOME (Return (Word 0w)) ∧
+         globals_lookup t1 v = SOME (flatten v) ∧
+         size_of_shape (shape_of v) ≤ 32)
+      | SOME (Exception eid v') =>
+        (case FLOOKUP ctxt.eids eid of
+           NONE => F
+         | SOME n =>
+           res1 = SOME (Exception n) ∧
+           (1 ≤ size_of_shape (shape_of v') ⇒
+            globals_lookup t1 v' = SOME (flatten v') ∧
+            size_of_shape (shape_of v') ≤ 32))
+      | SOME (FinalFFI f) => res1 = SOME (FinalFFI f)
 Proof
-  match_mp_tac ind_thm
+  recInduct panSemTheory.evaluate_ind
   \\ rpt conj_tac
   >~ [`panLang$Skip`] >- suspend "Skip"
   >~ [`panLang$Break`] >- suspend "Break"
