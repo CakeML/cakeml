@@ -3372,6 +3372,64 @@ Proof
   rw[]
 QED
 
+Theorem ret_satisfy_FUNPOW_Tau:
+  ret_satisfy P t ⇔ ret_satisfy P (FUNPOW Tau n t)
+Proof
+  Induct_on ‘n’ \\ gvs[]
+  \\ rw[FUNPOW_SUC, ret_satisfy_Tau]
+QED
+
+
+Theorem ret_satisfy_wbisim_impl:
+  t ≈ t' ⇒ ret_satisfy P t ⇒ ret_satisfy P t'
+Proof
+  rpt strip_tac
+  \\ irule ret_satisfy_coind
+  \\ qexists ‘λt'. ∃t''. t' ≈ t'' ∧ ret_satisfy P t''’
+  \\ rw[]
+  >- metis_tac[itree_wbisim_sym]
+  \\ qpat_x_assum ‘a0 ≈ _’ $ assume_tac o SRULE[Once itree_wbisim_strip_tau_cases]
+  \\ gvs[]
+  >- (disj2_tac
+      \\ disj1_tac
+      \\ metis_tac[spin, itree_wbisim_refl]
+     )
+  >- (imp_res_tac strip_tau_FUNPOW
+      \\ gvs[GSYM ret_satisfy_FUNPOW_Tau, ret_satisfy_Ret]
+      \\ Cases_on ‘n'’ \\ gvs[FUNPOW_SUC]
+      \\ qexists ‘Ret r’
+      \\ rw[FUNPOW_Tau_wbisim, ret_satisfy_Ret]
+     )
+  \\ imp_res_tac strip_tau_FUNPOW
+  \\ gvs[GSYM ret_satisfy_FUNPOW_Tau, ret_satisfy_Vis]
+  \\ Cases_on ‘n'’ \\ gvs[FUNPOW_SUC]
+  >- (rpt strip_tac
+      \\ qexists ‘k' r’ \\ rw[]
+     )
+  \\ qexists ‘Vis e k'’ \\ rw[ret_satisfy_Vis]
+  \\ ‘FUNPOW Tau n'' (Vis e k) ≈ FUNPOW Tau 0 (Vis e k')’ suffices_by rw[]
+  \\ irule FUNPOW_Tau_wbisim_intro
+  \\ rw[itree_wbisim_vis_vis]
+QED
+
+Theorem ret_satisfy_wbisim_biim:
+  t ≈ t' ⇒ (ret_satisfy P t ⇔ ret_satisfy P t')
+Proof
+  rpt strip_tac
+  \\ iff_tac
+  \\  metis_tac[itree_wbisim_sym, ret_satisfy_wbisim_impl]
+QED
+
+Theorem eval_op_impl_let:
+  (∃wv. eval s (Op op es) = SOME (ValWord wv)) ⇒
+  eval s (Op op es) =
+  let ws = THE (OPT_MMAP (λa. eval s a) es) in
+    (OPTION_MAP (λw. ValWord w) (word_op op (MAP (λw. case w of ValWord n => n | Struct v1 => ARB) ws)))
+Proof
+  rw[eval_def]
+  \\ EVERY_CASE_TAC \\ gvs[word_of_val_def]
+QED
+
         
 val tree_simp_rules = [mem_stores_def, mem_store_def, pair_case_def, flatten_def, DOMSUB_FEMPTY, DOMSUB_FUPDATE,
                        FUPDATE_EQ, DOMSUB_FUPDATE_THM, v_case_def, OPTION_BIND_def, word_lab_case_def,
