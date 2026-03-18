@@ -258,27 +258,25 @@ Proof
   \\ every_case_tac
 QED
 
-val decs_goal =
-  ``\^s ds. !res1 s1 ^t.
-    evaluate_decs s ds = (s1,res1) ∧ state_rel s t ∧
-    no_Mat_decs ds /\ res1 ≠ SOME (Rabort Rtype_error) ⇒
-    ∃res2 t1.
-      evaluate (compile_decs ds,[],t) = (res2,t1) ∧ state_rel s1 t1 /\
-      ?v.
-        let res1' = (case res1 of NONE => Rval v | SOME e => Rerr e) in
-          result_rel (LIST_REL (\x y. T)) v_rel res1' res2``
-
-val ind_thm = flatSemTheory.evaluate_ind
-  |> induct_tweakLib.list_single_induct
-  |> ISPEC exps_goal
-  |> ISPEC decs_goal
-  |> CONV_RULE (DEPTH_CONV BETA_CONV)
-  |> REWRITE_RULE [evaluate_decs_sing];
-
 Theorem compile_correct:
-  ^(ind_thm |> concl |> rand)
+  (∀env ^s es m db res1 s1 t.
+     evaluate env s es = (s1,res1) ∧ state_rel s t ∧ env_rel env m db ∧
+     EVERY no_Mat es ∧ res1 ≠ Rerr (Rabort Rtype_error) ⇒
+     ∃res2 t1.
+       evaluate (compile m es,db,t) = (res2,t1) ∧ state_rel s1 t1 ∧
+       result_rel (LIST_REL v_rel) v_rel res1 res2) ∧
+  ∀^s ds res1 s1 t.
+    evaluate_decs s ds = (s1,res1) ∧ state_rel s t ∧ no_Mat_decs ds ∧
+    res1 ≠ SOME (Rabort Rtype_error) ⇒
+    ∃res2 t1.
+      evaluate (compile_decs ds,[],t) = (res2,t1) ∧ state_rel s1 t1 ∧
+      ∃v. (let
+             res1' = case res1 of NONE => Rval v | SOME e => Rerr e
+           in
+             result_rel (LIST_REL (λx y. T)) v_rel res1' res2)
 Proof
-  match_mp_tac ind_thm
+  ho_match_mp_tac (flatSemTheory.evaluate_ind |> induct_tweakLib.list_single_induct)
+  \\ rewrite_tac [evaluate_decs_sing]
   \\ rpt conj_tac
   >~ [`[] : flatLang$exp list`] >- suspend "nil"
   >~ [`_::_::_`] >- suspend "cons"
