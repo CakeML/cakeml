@@ -1644,7 +1644,7 @@ QED
 Definition fts_head_is_min_def:
   (fts_head_is_min [] <=> T) /\
   (fts_head_is_min (FibTree _ v _::fts) <=>
-    !k n l. v.value <=+ n.value <=> MEM (FibTree k n l) fts)
+    !k n l. MEM (FibTree k n l) fts ==> v.value <=+ n.value )
 End
 
 Theorem fts_head_is_min_append_thm:
@@ -2034,94 +2034,120 @@ QED
 
 
 
-Definition fts_remove_def:
-  (fts_remove x rest [] = rest) /\
-  (fts_remove x rest (FibTree k v l::ts) =
-    if x = k then
-      rest ++ ts
-    else
-      fts_remove x (rest ++ [FibTree k v (fts_remove x [] l)]) ts)
-End
-
-
-Definition fib_heap_remove_def:
-  fib_heap_remove
-  (a:'a word, m: 'a word -> 'a word, dm: 'a word set) =
-    let c = (a IN dm) in
-    let c = ((a + next_off) IN dm /\ c) in
-    let a_n = m (a + next_off) in
-    let c = ((a + before_off) IN dm /\ c) in
-    let a_b = m (a + before_off) in
-
-    let c = ((a_b + next_off) IN dm /\ c) in
-    let m = ((a_b + next_off) =+ a_n) m in
-
-    let c = ((a_n + before_off) IN dm /\ c) in
-    let m = ((a_n + before_off) =+ a_b) m in
-
-    let m = ((a + next_off) =+ a) m in
-    let m = ((a + before_off) =+ a) m in
-
-    let c = ((a + parent_off) IN dm /\ c) in
-    let a_p = m (a + parent_off) in
-
-    (*maybe set new child for parent*)
-    if a_p = 0w then
-      if a_n = a then (a,0w,m,c) else (a,a_n,m,c)
-    else
-
-    let c = ((a_p + child_off) IN dm /\ c) in
-    let p_c = m (a_p + child_off) in
-    if p_c = a then
-      if a = a_n then
-        let m = (p_c =+ 0w) m in
-          (a,0w,m,c)
-      else
-        let m = (p_c =+ a_n) m in
-          (a,a_n,m,c)
-    else
-      (a,a_n,m,c)
-End
 
 (*
+Requires that x is in the list!
 
-Weaken fib_heap invariant to this?:
+Definition fib_heap_remove_def:
+  fib_heap_remove (i:num)
+  (a:'a word, x:'a word, min:'a word)
+  (m: 'a word -> 'a word, dm: 'a word set,b: bool) =
+    if i = 0 then (x,min,m,F) else
+    let c = (a IN dm) in
+    let c = (x IN dm /\ c) in
+    if a = x then
+      let c = (x + next_off IN dm /\ c) in
+      let x_n = m (x + next_off) in
+      let c = (x + before_off IN dm /\ c) in
+      let x_b = m (x + before_off) in
+      let c = (x_b + next_off IN dm /\ c) in
+      let m = ((x_b + next_off) =+ x_n) m in
+      let c = (x_n + before_off IN dm /\ c) in
+      let m = ((x_n + before_off) =+ x_b) m in
+      let m = ((x + next_off) =+ x) m in
+      let m = ((x + before_off) =+ x) m in
+        (x,min,m,c)
+    else
+      let c = (a + next_off IN dm /\ c) in
+      let a_n = m (a + next_off) in
+      let c = (min IN dm /\ c) in
+      if m a <=+ m min then
+        fib_heap_remove (i-1) (a_n,x,  a) (m,dm,c)
+      else
+        fib_heap_remove (i-1) (a_n,x,min) (m,dm,c)
+End
 
-full_node p (v,e) *
-fts_mem(ann_fts p ([FibTree x n l] ++ fts)) *
-fib_heap_inv_weak fh (FibTree x n l::fts)
-fib_heap_remove(x,m,dm) = (x,a,m',b)
-==>
-(fts_mem (ann_fts p fts) * frame *
- cond(a = head_key fts /\ fib_heap_inv_weak (fh \\ x) fts)
- (fun2set (m',dm)) /\ b
-*)
 
-(* TODO: finish proof! *)
+
+(*
+    if x = 0w then (0w,0w,m,T) else
+
+    let c = (x IN dm) in
+    let c = ((x + next_off) IN dm /\ c) in
+    let x_n = m (x + next_off) in
+    let c = ((x + before_off) IN dm /\ c) in
+    let x_b = m (x + before_off) in
+
+    let c = ((x_b + next_off) IN dm /\ c) in
+    let m = ((x_b + next_off) =+ x_n) m in
+
+    let c = ((x_n + before_off) IN dm /\ c) in
+    let m = ((x_n + before_off) =+ x_b) m in
+
+    let m = ((x + next_off) =+ x) m in
+    let m = ((x + before_off) =+ x) m in
+
+    let c = ((x + parent_off) IN dm /\ c) in
+    let x_p = m (x + parent_off) in
+
+    (*maybe set new child for parent*)
+    if x_p = 0w then
+      (*TODO: find new min if x_n <> x*)
+      if x_n = x then (x,0w,m,c) else (x,x_n,m,c)
+    else
+
+    let c = ((x_p + child_off) IN dm /\ c) in
+    let p_c = m (x_p + child_off) in
+    if p_c = x then
+      if x = x_n then
+        let m = (p_c =+ 0w) m in
+          (x,0w,m,c)
+      else
+        (*TODO: need to find new minimum! *)
+        let m = (p_c =+ x_n) m in
+          (x,x_n,m,c)
+    else
+      (x,x_n,m,c)   *)
+
+
+
 Theorem fib_heap_remove:
-  !frame fh x n l.
-    (fib_heap a fh * frame *
-     cond(x <> a /\ FLOOKUP fh x = SOME(v,e)))
+  !frame fh fts p x n l e.
+    (fts_mem(ann_fts p fts) * frame)
       (fun2set(m,dm)) /\
-    fib_heap_remove(x,m,dm) = (x,a,m',b) ==>
-  ?fts. ((fts_mem (ann_fts 0w (fts_remove x [] fts))) * frame *
-    cond(a = head_key fts /\ fib_heap_inv (fh \\ x) fts))
-    (fun2set (m',dm)) /\ b
+    fib_heap_inv_weak fh fts /\
+    MEM (FibTree x n l) fts /\
+    LENGTH fts < i /\
+    fib_heap_remove i (x,m,dm) = (x,a',m',b) ==>
+    ?fts.
+    (fts_mem(ann_fts p fts) * full_node x (v,e) * frame)
+    (fun2set (m',dm)) /\ b /\
+    fib_heap_inv_weak fh fts /\
+    a' = head_key fts /\
+    !m l. ~fts_has x (fill_dnode v e m) l
 Proof
   fs[fib_heap_def] >>
   fs[SEP_CLAUSES, STAR_ASSOC, SEP_EXISTS_THM] >>
-  full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR] >>
   rpt gen_tac >> strip_tac >>
   simp [PULL_EXISTS] >>
   pop_assum mp_tac >>
   fs[full_node_def] >>
   fs[SEP_CLAUSES, STAR_ASSOC, SEP_EXISTS_THM] >>
   full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR] >>
-  rpt gen_tac >> strip_tac >>
-  simp [PULL_EXISTS] >>
+  Cases_on `x = 0w`
+  >- fs[fib_heap_inv_weak_def,FLOOKUP_SIMP] >>
+  simp[SEP_CLAUSES, STAR_ASSOC, SEP_EXISTS_THM] >>
+  simp[PULL_EXISTS] >>
+  Cases_on `fts`
+  >- (
+    fs[fib_heap_inv_weak_def] >>
+    first_x_assum(qspecl_then [`x`,`v`,`e`] assume_tac) >>
+    fs[Once fts_has_cases, FLOOKUP_SIMP]
+    ) >>
+  Cases_on `h` >>
   cheat
 QED
-
+*)
 
 
 
@@ -2174,16 +2200,18 @@ Definition fib_heap_parent_to_null_def:
       fib_heap_parent_to_null (n-1) (a_n,s,m,dm,c)
 End
 
-Definition find_min_def:
-  find_min (k:num)
-    (min_n:'a word, s:'a word, t:'a word,
-     m:'a word -> 'a word, dm: 'a word set, c: bool)
+Definition fib_heap_find_min_def:
+  fib_heap_find_min (i:num)
+    (min_n:'a word, l:'a word, t:'a word)
+    (m:'a word -> 'a word, dm: 'a word set, c: bool)
   =
-    if k = 0 then (min_n,m,F) else
-    let c = (t IN dm /\ c) in
-    if s = t then
-      (*balance root list or do it in a separate step *)
-      (min_n,m,c)
+    if i = 0 then (min_n,m,F) else
+    if l = t then
+      let c = ((l IN dm) /\ c) in
+      if m min_n <=+ m l then
+        (min_n,m,c)
+      else
+        (l,m,c)
     else
       let c = (min_n IN dm /\ c) in
       let v = m min_n in
@@ -2191,10 +2219,60 @@ Definition find_min_def:
       let v_t = m t in
       let t_n = m (t + next_off) in
       if v_t <=+ v then
-        find_min (k-1) (v_t,s,t_n,m,dm,c)
+        fib_heap_find_min (i-1) (t,l,t_n) (m,dm,c)
       else
-        find_min (k-1) (min_n,s,t_n,m,dm,c)
+        fib_heap_find_min (i-1) (min_n,l,t_n) (m,dm,c)
 End
+
+
+Theorem fib_heap_find_min:
+  !i frame fts p x n l.
+    (fts_mem (ann_fts p fts) * frame) (fun2set(m,dm)) /\
+    LENGTH fts < i /\
+    MEM (FibTree x n l) fts /\
+    list_keys_not_null fts /\
+    fib_heap_find_min i (x, last_key_t (head_key fts) fts, head_key fts)
+      (m,dm,T) = (a',m,b) ==>
+    ?fts'.
+    (fts_mem (ann_fts p fts') * frame) (fun2set(m,dm)) /\ b /\
+    head_key fts' = a' /\ fts_head_is_min fts' /\
+    !k n. fts_has k n fts ==> fts_has k n fts'
+Proof
+  Induct
+  >- (Cases_on `fts` >> fs[]) >>
+  rpt gen_tac >>
+  Cases_on `fts`
+  >- simp[] >>
+  Cases_on `h` >>
+  Cases_on `t` using SNOC_CASES >>
+  >- (
+    fs[ann_fts_def, ann_fts_seg_def, last_key_def,fts_mem_def,
+         SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
+         fill_dnode_def, head_key_t_def, last_key_t_def,ones_def, STAR_ASSOC] >>
+    rpt strip_tac >> gvs[] >>
+    pop_assum mp_tac >>
+    simp[Once fib_heap_find_min_def] >>
+    SEP_R_TAC >>
+    rpt strip_tac >> gvs[] >>
+    qexists `[FibTree a' n l]` >>
+    fs[ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def, fts_mem_def,
+         SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
+         fill_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
+    simp[fts_head_is_min_def]
+    ) >>
+  Cases_on `x'` >> simp[SNOC_APPEND] >>
+  simp[ann_fts_def, ann_fts_seg_def, last_key_def,fts_mem_def,
+       SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
+       fill_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
+  simp[Once fib_heap_find_min_def] >>
+  rpt strip_tac >> gvs[] >>
+  pop_assum mp_tac >>
+  cheat
+QED
+
+
+
+
 
 Definition fib_heap_extract_min_def:
   fib_heap_extract_min (n: num)
