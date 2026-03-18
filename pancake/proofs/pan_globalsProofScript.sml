@@ -151,11 +151,6 @@ val goal = beta_conv ``^gen_goal pan_globals$compile``
 val ind_thm = panSemTheory.evaluate_ind
   |> ISPEC goal
   |> CONV_RULE (DEPTH_CONV PairRules.PBETA_CONV) |> REWRITE_RULE [];
-fun list_dest_conj tm = if not (is_conj tm) then [tm] else let
-  val (c1,c2) = dest_conj tm in list_dest_conj c1 @ list_dest_conj c2 end
-val ind_goals = ind_thm |> concl |> dest_imp |> fst |> list_dest_conj;
-fun get_goal s = first (can (find_term (can (match_term (Term [QUOTE s]))))) ind_goals;
-
 Theorem compile_correct:
   ^(ind_thm |> concl |> rand)
 Proof
@@ -183,36 +178,34 @@ Proof
   >~ [`panLang$ExtCall`] >- suspend "ExtCall"
 QED
 
-Theorem compile_Skip_helper[local]:
-  ^(get_goal "compile _ Skip") /\
-  ^(get_goal "compile _ Break") /\
-  ^(get_goal "compile _ Continue") /\
-  ^(get_goal "compile _ (Annot _ _)") /\
-  ^(get_goal "compile _ Tick")
-Proof
+Resume compile_correct[Skip]:
   rpt strip_tac >>
   gvs[evaluate_def,compile_def,AllCaseEqs(),dec_clock_def,
       state_rel_def,empty_locals_def]
 QED
 
-Resume compile_correct[Skip]:
-  MATCH_ACCEPT_TAC (cj 1 compile_Skip_helper)
-QED
-
 Resume compile_correct[Break]:
-  MATCH_ACCEPT_TAC (cj 2 compile_Skip_helper)
+  rpt strip_tac >>
+  gvs[evaluate_def,compile_def,AllCaseEqs(),dec_clock_def,
+      state_rel_def,empty_locals_def]
 QED
 
 Resume compile_correct[Continue]:
-  MATCH_ACCEPT_TAC (cj 3 compile_Skip_helper)
+  rpt strip_tac >>
+  gvs[evaluate_def,compile_def,AllCaseEqs(),dec_clock_def,
+      state_rel_def,empty_locals_def]
 QED
 
 Resume compile_correct[Annot]:
-  MATCH_ACCEPT_TAC (cj 4 compile_Skip_helper)
+  rpt strip_tac >>
+  gvs[evaluate_def,compile_def,AllCaseEqs(),dec_clock_def,
+      state_rel_def,empty_locals_def]
 QED
 
 Resume compile_correct[Tick]:
-  MATCH_ACCEPT_TAC (cj 5 compile_Skip_helper)
+  rpt strip_tac >>
+  gvs[evaluate_def,compile_def,AllCaseEqs(),dec_clock_def,
+      state_rel_def,empty_locals_def]
 QED
 
 (* TODO: move? *)

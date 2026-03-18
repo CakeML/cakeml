@@ -29,11 +29,6 @@ val goal =
 
 val ind_thm = loopSemTheory.evaluate_ind |> ISPEC goal
   |> CONV_RULE (DEPTH_CONV PairRules.PBETA_CONV) |> REWRITE_RULE [];
-fun list_dest_conj tm = if not (is_conj tm) then [tm] else let
-  val (c1,c2) = dest_conj tm in list_dest_conj c1 @ list_dest_conj c2 end
-val ind_goals = ind_thm |> concl |> dest_imp |> fst |> list_dest_conj;
-fun get_goal s = first (can (find_term (can (match_term (Term [QUOTE s]))))) ind_goals;
-
 Theorem compile_correct:
   ^(ind_thm |> concl |> rand)
 Proof
@@ -305,30 +300,8 @@ Proof
     \\ res_tac \\ fs[] \\ fs [mem_load_def])
 QED
 
-Theorem compile_Assign_helper[local]:
-  ^(get_goal "loopLang$Assign") ∧
-  ^(get_goal "loopLang$SetGlobal") ∧
-  ^(get_goal "loopLang$LocValue")
-Proof
-  reverse (rw []) THEN1
-   (fs [shrink_def,CaseEq"option"] \\ rveq \\ fs []
-    THEN1
-     (fs [evaluate_def,CaseEq"bool"] \\ rveq \\ fs [set_var_def]
-      \\ fs [state_component_equality]
-      \\ ‘~(r IN domain l0)’ by fs [domain_lookup]
-      \\ fs [subspt_lookup,lookup_inter_alt,lookup_insert]
-      \\ rw [] \\ fs [])
-    \\ fs [evaluate_def,CaseEq"bool"] \\ rveq \\ fs [set_var_def]
-    \\ fs [state_component_equality]
-    \\ fs [subspt_lookup,lookup_inter_alt,lookup_insert] \\ rw [])
-  \\ fs [shrink_def,CaseEq"option"] \\ rveq \\ fs []
-  THEN1
-   (fs [evaluate_def,CaseEq"option"] \\ rveq \\ fs [PULL_EXISTS,set_globals_def]
-    \\ fs [state_component_equality]
-    \\ drule eval_lemma \\ disch_then drule \\ fs []
-    \\ fs [subspt_lookup,lookup_inter_alt]
-    \\ pop_assum mp_tac
-    \\ once_rewrite_tac [vars_of_exp_acc] \\ fs [domain_union])
+Resume compile_correct[Assign]:
+  rw [shrink_def,CaseEq"option"] \\ rveq \\ fs []
   THEN1
    (fs [evaluate_def,state_component_equality,CaseEq"option",set_var_def]
     \\ rveq \\ fs [] \\ fs [subspt_lookup,lookup_inter,CaseEq"option"]
@@ -348,16 +321,27 @@ Proof
   \\ disch_then drule \\ fs []
 QED
 
-Resume compile_correct[Assign]:
-  MATCH_ACCEPT_TAC (cj 1 compile_Assign_helper)
-QED
-
 Resume compile_correct[SetGlobal]:
-  MATCH_ACCEPT_TAC (cj 2 compile_Assign_helper)
+  rw [shrink_def,CaseEq"option"] \\ rveq \\ fs []
+  \\ fs [evaluate_def,CaseEq"option"] \\ rveq \\ fs [PULL_EXISTS,set_globals_def]
+  \\ fs [state_component_equality]
+  \\ drule eval_lemma \\ disch_then drule \\ fs []
+  \\ fs [subspt_lookup,lookup_inter_alt]
+  \\ pop_assum mp_tac
+  \\ once_rewrite_tac [vars_of_exp_acc] \\ fs [domain_union]
 QED
 
 Resume compile_correct[LocValue]:
-  MATCH_ACCEPT_TAC (cj 3 compile_Assign_helper)
+  rw [shrink_def,CaseEq"option"] \\ rveq \\ fs []
+  THEN1
+   (fs [evaluate_def,CaseEq"bool"] \\ rveq \\ fs [set_var_def]
+    \\ fs [state_component_equality]
+    \\ ‘~(r IN domain l0)’ by fs [domain_lookup]
+    \\ fs [subspt_lookup,lookup_inter_alt,lookup_insert]
+    \\ rw [] \\ fs [])
+  \\ fs [evaluate_def,CaseEq"bool"] \\ rveq \\ fs [set_var_def]
+  \\ fs [state_component_equality]
+  \\ fs [subspt_lookup,lookup_inter_alt,lookup_insert] \\ rw []
 QED
 
 Resume compile_correct[If]:
@@ -494,52 +478,55 @@ Resume compile_correct[Call]:
     \\ fs [domain_lookup] \\ res_tac \\ res_tac \\ fs [])
 QED
 
-Theorem compile_Store_helper[local]:
-  ^(get_goal "loopLang$Store") ∧
-  ^(get_goal "loopLang$Store32") ∧
-  ^(get_goal "loopLang$StoreByte") ∧
-  ^(get_goal "loopLang$Load32") ∧
-  ^(get_goal "loopLang$LoadByte")
-Proof
-  rw [] \\ fs [shrink_def] \\ rveq
-  THEN1
-   (fs [evaluate_def,CaseEq"option",CaseEq"word_loc"] \\ rveq \\ fs []
-    \\ fs [PULL_EXISTS]
-    \\ fs [mem_store_def] \\ rveq \\ fs []
-    \\ simp [state_component_equality]
-    \\ drule eval_lemma
-    \\ disch_then drule \\ fs []
-    \\ fs [subspt_lookup,lookup_inter_alt]
-    \\ qpat_x_assum ‘∀x. _’ mp_tac
-    \\ once_rewrite_tac [vars_of_exp_acc] \\ fs [domain_union]
-    \\ strip_tac
-    \\ ‘lookup v locals = SOME w’ by metis_tac [] \\ fs [])
-  >>
-  (fs [evaluate_def,CaseEq"option",CaseEq"word_loc"] \\ rveq \\ fs []
-   \\ fs [PULL_EXISTS]
-   \\ simp [state_component_equality,set_var_def]
-   \\ fs [subspt_lookup,lookup_inter_alt,lookup_insert]
-   \\ res_tac \\ fs [] \\ rw [])
-QED
-
 Resume compile_correct[Store]:
-  MATCH_ACCEPT_TAC (cj 1 compile_Store_helper)
+  rw [shrink_def] \\ rveq
+  \\ fs [evaluate_def,CaseEq"option",CaseEq"word_loc"] \\ rveq \\ fs []
+  \\ fs [PULL_EXISTS]
+  \\ fs [mem_store_def] \\ rveq \\ fs []
+  \\ simp [state_component_equality]
+  \\ drule eval_lemma
+  \\ disch_then drule \\ fs []
+  \\ fs [subspt_lookup,lookup_inter_alt]
+  \\ qpat_x_assum ‘∀x. _’ mp_tac
+  \\ once_rewrite_tac [vars_of_exp_acc] \\ fs [domain_union]
+  \\ strip_tac
+  \\ ‘lookup v locals = SOME w’ by metis_tac [] \\ fs []
 QED
 
 Resume compile_correct[Store32]:
-  MATCH_ACCEPT_TAC (cj 2 compile_Store_helper)
+  rw [shrink_def] \\ rveq
+  \\ fs [evaluate_def,CaseEq"option",CaseEq"word_loc"] \\ rveq \\ fs []
+  \\ fs [PULL_EXISTS]
+  \\ simp [state_component_equality,set_var_def]
+  \\ fs [subspt_lookup,lookup_inter_alt,lookup_insert]
+  \\ res_tac \\ fs [] \\ rw []
 QED
 
 Resume compile_correct[StoreByte]:
-  MATCH_ACCEPT_TAC (cj 3 compile_Store_helper)
+  rw [shrink_def] \\ rveq
+  \\ fs [evaluate_def,CaseEq"option",CaseEq"word_loc"] \\ rveq \\ fs []
+  \\ fs [PULL_EXISTS]
+  \\ simp [state_component_equality,set_var_def]
+  \\ fs [subspt_lookup,lookup_inter_alt,lookup_insert]
+  \\ res_tac \\ fs [] \\ rw []
 QED
 
 Resume compile_correct[Load32]:
-  MATCH_ACCEPT_TAC (cj 4 compile_Store_helper)
+  rw [shrink_def] \\ rveq
+  \\ fs [evaluate_def,CaseEq"option",CaseEq"word_loc"] \\ rveq \\ fs []
+  \\ fs [PULL_EXISTS]
+  \\ simp [state_component_equality,set_var_def]
+  \\ fs [subspt_lookup,lookup_inter_alt,lookup_insert]
+  \\ res_tac \\ fs [] \\ rw []
 QED
 
 Resume compile_correct[LoadByte]:
-  MATCH_ACCEPT_TAC (cj 5 compile_Store_helper)
+  rw [shrink_def] \\ rveq
+  \\ fs [evaluate_def,CaseEq"option",CaseEq"word_loc"] \\ rveq \\ fs []
+  \\ fs [PULL_EXISTS]
+  \\ simp [state_component_equality,set_var_def]
+  \\ fs [subspt_lookup,lookup_inter_alt,lookup_insert]
+  \\ res_tac \\ fs [] \\ rw []
 QED
 
 Resume compile_correct[FFI]:

@@ -86,11 +86,6 @@ val goal =
 val ind_thm = loopSemTheory.evaluate_ind
   |> ISPEC goal
   |> CONV_RULE (DEPTH_CONV PairRules.PBETA_CONV) |> REWRITE_RULE [];
-fun list_dest_conj tm = if not (is_conj tm) then [tm] else let
-  val (c1,c2) = dest_conj tm in list_dest_conj c1 @ list_dest_conj c2 end
-val ind_goals = ind_thm |> concl |> dest_imp |> fst |> list_dest_conj;
-fun get_goal s = first (can (find_term (can (match_term (Term [QUOTE s]))))) ind_goals;
-
 Theorem compile_correct:
   ^(ind_thm |> concl |> rand)
 Proof
@@ -426,55 +421,48 @@ Proof
   simp[WORD_MUL_LSL]
 QED
 
-Theorem compile_Skip_helper[local]:
-  ^(get_goal "comp _ loopLang$Skip") ∧
-  ^(get_goal "comp _ loopLang$Fail") ∧
-  ^(get_goal "comp _ loopLang$Tick")
-Proof
+Resume compile_correct[Skip]:
+  rpt strip_tac >>
+  fs [loopSemTheory.evaluate_def, comp_def,
+      evaluate_def] >>
+  rveq >> fs [state_rel_def]
+QED
+
+Resume compile_correct[Fail]:
   rpt strip_tac >>
   fs [loopSemTheory.evaluate_def, comp_def,
       evaluate_def] >>
   rveq >> fs []
-  >- fs [state_rel_def]
-  >- (TOP_CASE_TAC >>
-      fs [flush_state_def, state_rel_def,
-          loopSemTheory.dec_clock_def, dec_clock_def] >> rveq >>
-      fs [] >>
-      rw[])
-QED
-
-Resume compile_correct[Skip]:
-  MATCH_ACCEPT_TAC (cj 1 compile_Skip_helper)
-QED
-
-Resume compile_correct[Fail]:
-  MATCH_ACCEPT_TAC (cj 2 compile_Skip_helper)
 QED
 
 Resume compile_correct[Tick]:
-  MATCH_ACCEPT_TAC (cj 3 compile_Skip_helper)
+  rpt strip_tac >>
+  fs [loopSemTheory.evaluate_def, comp_def,
+      evaluate_def] >>
+  rveq >> fs [] >>
+  TOP_CASE_TAC >>
+  fs [flush_state_def, state_rel_def,
+      loopSemTheory.dec_clock_def, dec_clock_def] >> rveq >>
+  fs [] >>
+  rw[]
 QED
 
-Theorem compile_Loop_helper[local]:
-  ^(get_goal "comp _ loopLang$Continue") ∧
-  ^(get_goal "comp _ loopLang$Break") ∧
-  ^(get_goal "comp _ (loopLang$Loop _ _ _)")
-Proof
+Resume compile_correct[Continue]:
   rpt strip_tac >>
   fs [no_Loops_def, every_prog_def] >>
   fs [no_Loop_def, every_prog_def]
 QED
 
-Resume compile_correct[Continue]:
-  MATCH_ACCEPT_TAC (cj 1 compile_Loop_helper)
-QED
-
 Resume compile_correct[Break]:
-  MATCH_ACCEPT_TAC (cj 2 compile_Loop_helper)
+  rpt strip_tac >>
+  fs [no_Loops_def, every_prog_def] >>
+  fs [no_Loop_def, every_prog_def]
 QED
 
 Resume compile_correct[Loop]:
-  MATCH_ACCEPT_TAC (cj 3 compile_Loop_helper)
+  rpt strip_tac >>
+  fs [no_Loops_def, every_prog_def] >>
+  fs [no_Loop_def, every_prog_def]
 QED
 
 Resume compile_correct[Mark]:
@@ -551,26 +539,28 @@ Resume compile_correct[Seq]:
   Cases_on ‘x’ >> fs []
 QED
 
-Theorem compile_Assign_helper[local]:
-  ^(get_goal "loopLang$Assign") ∧
-  ^(get_goal "loopLang$LocValue")
-Proof
+Resume compile_correct[Assign]:
   rpt strip_tac >>
   fs [loopSemTheory.evaluate_def,
-      comp_def, evaluate_def]
+      comp_def, evaluate_def] >>
+  cases_on ‘eval s exp’ >> fs [] >>
+  rveq >> fs [] >>
+  imp_res_tac comp_exp_preserves_eval >>
+  fs [loopSemTheory.set_var_def, set_var_def] >>
+  conj_tac >- fs [state_rel_def] >>
+  conj_tac >- fs [state_rel_def] >>
+  conj_tac
   >- (
-   cases_on ‘eval s exp’ >> fs [] >>
-   rveq >> fs [] >>
-   imp_res_tac comp_exp_preserves_eval >>
-   fs [loopSemTheory.set_var_def, set_var_def] >>
-   conj_tac >- fs [state_rel_def] >>
-   conj_tac >- fs [state_rel_def] >>
-   conj_tac
-   >- (
-    fs [lookup_insert, CaseEq "bool", loopLangTheory.acc_vars_def] >>
-    imp_res_tac find_var_neq_0 >> fs []) >>
-   match_mp_tac locals_rel_insert >>
-   fs [loopLangTheory.acc_vars_def]) >>
+   fs [lookup_insert, CaseEq "bool", loopLangTheory.acc_vars_def] >>
+   imp_res_tac find_var_neq_0 >> fs []) >>
+  match_mp_tac locals_rel_insert >>
+  fs [loopLangTheory.acc_vars_def]
+QED
+
+Resume compile_correct[LocValue]:
+  rpt strip_tac >>
+  fs [loopSemTheory.evaluate_def,
+      comp_def, evaluate_def] >>
   fs [CaseEq "bool"] >> rveq >> fs [] >>
   fs [loopSemTheory.set_var_def, set_var_def] >>
   conj_tac
@@ -588,30 +578,23 @@ Proof
   fs [loopLangTheory.acc_vars_def]
 QED
 
-Resume compile_correct[Assign]:
-  MATCH_ACCEPT_TAC (cj 1 compile_Assign_helper)
-QED
-
-Resume compile_correct[LocValue]:
-  MATCH_ACCEPT_TAC (cj 2 compile_Assign_helper)
-QED
-
-Theorem compile_Store_helper[local]:
-  ^(get_goal "loopLang$Store") ∧
-  ^(get_goal "loopLang$Store32") ∧
-  ^(get_goal "loopLang$StoreByte")
-Proof
+Resume compile_correct[Store]:
   rpt strip_tac >>
   fs [loopSemTheory.evaluate_def,
-      comp_def, evaluate_def]
-  >- (
-   fs [CaseEq "option", CaseEq "word_loc"] >> rveq >>
-   imp_res_tac comp_exp_preserves_eval >>
-   fs [] >>
-   drule_all locals_rel_get_var >>
-   strip_tac >> fs [] >>
-   fs [loopSemTheory.mem_store_def, mem_store_def] >>
-   rveq >> fs [state_rel_def]) >>
+      comp_def, evaluate_def] >>
+  fs [CaseEq "option", CaseEq "word_loc"] >> rveq >>
+  imp_res_tac comp_exp_preserves_eval >>
+  fs [] >>
+  drule_all locals_rel_get_var >>
+  strip_tac >> fs [] >>
+  fs [loopSemTheory.mem_store_def, mem_store_def] >>
+  rveq >> fs [state_rel_def]
+QED
+
+Resume compile_correct[Store32]:
+  rpt strip_tac >>
+  fs [loopSemTheory.evaluate_def,
+      comp_def, evaluate_def] >>
   fs [CaseEq "option", CaseEq "word_loc"] >> rveq >>
   fs [inst_def, word_exp_def] >>
   drule locals_rel_intro >>
@@ -622,16 +605,18 @@ Proof
   fs [state_rel_def]
 QED
 
-Resume compile_correct[Store]:
-  MATCH_ACCEPT_TAC (cj 1 compile_Store_helper)
-QED
-
-Resume compile_correct[Store32]:
-  MATCH_ACCEPT_TAC (cj 2 compile_Store_helper)
-QED
-
 Resume compile_correct[StoreByte]:
-  MATCH_ACCEPT_TAC (cj 3 compile_Store_helper)
+  rpt strip_tac >>
+  fs [loopSemTheory.evaluate_def,
+      comp_def, evaluate_def] >>
+  fs [CaseEq "option", CaseEq "word_loc"] >> rveq >>
+  fs [inst_def, word_exp_def] >>
+  drule locals_rel_intro >>
+  strip_tac >>
+  res_tac >> fs [] >>
+  fs [find_var_def, the_words_def, word_op_def] >>
+  fs [get_var_def] >>
+  fs [state_rel_def]
 QED
 
 Resume compile_correct[Load32]:

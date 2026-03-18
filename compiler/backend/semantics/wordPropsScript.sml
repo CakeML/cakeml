@@ -1282,14 +1282,14 @@ val goal = “
       s'.clock = s.clock”
 val ind_thm = evaluate_ind |> ISPEC goal |> CONV_RULE (DEPTH_CONV PAIRED_BETA_CONV);
 val ind_goals = ind_thm |> concl |> dest_imp |> fst |> helperLib.list_dest dest_conj;
-fun get_goal s = first (can (find_term (can (match_term (Term [QUOTE s]))))) ind_goals;
 
 Theorem evaluate_clock_const:
-  ^(list_mk_conj (map get_goal
+  ^(let fun sel s = first (can (find_term (can (match_term (Term [QUOTE s]))))) ind_goals
+    in list_mk_conj (map sel
      ["Skip", "Alloc", "StoreConsts", "Move", "Inst", "Assign",
       "Get", "Set", "OpCurrHeap", "Store", "Return", "Raise",
       "LocValue", "Install", "CodeBufferWrite", "DataBufferWrite",
-      "FFI", "ShareInst"]))
+      "FFI", "ShareInst"]) end)
 Proof
   rpt conj_tac
   >~ [`Skip`] >- suspend "Skip"
@@ -1429,14 +1429,14 @@ val clock_goal = “
       evaluate (p, s with clock := k) = (λ(r,s). (r,s with clock := k)) (evaluate (p,s))”
 val ind_thm2 = evaluate_ind |> ISPEC clock_goal |> CONV_RULE (DEPTH_CONV PAIRED_BETA_CONV);
 val ind_goals2 = ind_thm2 |> concl |> dest_imp |> fst |> helperLib.list_dest dest_conj;
-fun get_goal_clock s = first (can (find_term (can (match_term (Term [QUOTE s]))))) ind_goals2;
 
 Theorem evaluate_clock_with_const:
-  ^(list_mk_conj (map get_goal_clock
+  ^(let fun sel s = first (can (find_term (can (match_term (Term [QUOTE s]))))) ind_goals2
+    in list_mk_conj (map sel
      ["Skip", "Alloc", "StoreConsts", "Move", "Inst", "Assign",
       "Get", "Set", "OpCurrHeap", "Store", "Return", "Raise",
       "LocValue", "Install", "CodeBufferWrite", "DataBufferWrite",
-      "FFI", "ShareInst"]))
+      "FFI", "ShareInst"]) end)
 Proof
   rpt conj_tac
   >~ [`Skip`] >- suspend "Skip"
