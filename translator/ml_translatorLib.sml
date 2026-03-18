@@ -2896,7 +2896,8 @@ val builtin_terops =
   [Eval_substring,
    Eval_FLOAT_FMA]
   |> map (fn th =>
-      (th |> SPEC_ALL |> UNDISCH_ALL |> concl |> rand |> rand |> rator |> rator |> rator, th))
+      let th = SPEC_ALL th in
+      (th |> UNDISCH_ALL |> concl |> rand |> rand |> rator |> rator |> rator, th) end)
 
 val builtin_binops =
   [Eval_NUM_ADD,
@@ -3577,7 +3578,7 @@ fun hol2deep tm =
     val th1 = hol2deep x1
     val th2 = hol2deep x2
     val th3 = hol2deep x3
-    val result = MATCH_MP (MATCH_MP (MATCH_MP lemma th1) (UNDISCH_ALL th2)) (UNDISCH_ALL th3) |> UNDISCH_ALL
+    val result = MATCH_MP lemma (LIST_CONJ [th1, th2 ,th3]) |> UNDISCH_ALL
     in check_inv "terop" tm result end else
   (* equality: n = 0 *)
   if can (match_term (get_term "n = 0")) tm then let

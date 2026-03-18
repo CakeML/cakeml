@@ -1764,8 +1764,8 @@ End
 
 Theorem Eval_FLOAT_FMA:
   ∀f1 f2 f3.
-    Eval env x2 (FLOAT64 f2) ⇒
-    Eval env x3 (FLOAT64 f3) ⇒
+    Eval env x2 (FLOAT64 f2) /\
+    Eval env x3 (FLOAT64 f3) /\
     Eval env x1 (FLOAT64 f1) ⇒
     Eval env
          (App (Arith FMA Float64T) [x1; x2; x3])
@@ -2350,8 +2350,8 @@ QED
 
 Theorem Eval_substring:
    ∀env x1 x2 x3 len off st.
-    Eval env x1 (STRING_TYPE st) ==>
-    Eval env x2 (NUM off) ==>
+    Eval env x1 (STRING_TYPE st) /\ 
+    Eval env x2 (NUM off) /\ 
     Eval env x3 (NUM len) ==>
       off + len <= strlen st ==>
     Eval env (App CopyStrStr [x1; x2; x3]) (STRING_TYPE (substring st off len))
