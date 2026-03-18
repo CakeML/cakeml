@@ -38,8 +38,8 @@ val add_basic_compset =
    , sortingLib.add_sorting_compset],
    computeLib.Tys
    [ (* misc *)
-     ``:α app_list``
-    ,``:location$locn``
+     mk_thy_type{Thy="misc",Tyop="app_list",Args=[alpha]}
+    ,mk_thy_type{Thy="location",Tyop="locn",Args=[]}
     ],
    computeLib.Defs
    [ (* misc *)
