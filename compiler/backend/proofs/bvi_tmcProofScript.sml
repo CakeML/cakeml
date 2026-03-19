@@ -277,9 +277,20 @@ Theorem evaluate_pad_env_val:
     evaluate (xs, env, s) = (Rval vs, t) ⇒
     evaluate (xs, env ++ extra, s) = (Rval vs, t)
 Proof
-  cheat
+  recInduct bviSemTheory.evaluate_ind
+  >> rpt strip_tac
+  >~ [‘evaluate ([],_,_)’] >-
+   (gvs [evaluate_def])
+  >~ [‘evaluate (x::y::xs,_,_)’] >-
+   (gvs [evaluate_def]
+    >> CASE_TAC
+    >> Cases_on ‘q’
+    >> gvs []
+    >> cheat)
+  >> cheat
 QED
 
+(* This could probably be combined with the above *)
 Theorem evaluate_pad_env_err:
   ∀xs env s t e extra.
     evaluate (xs, env, s) = (Rerr e, t) ∧
