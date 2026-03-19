@@ -1823,7 +1823,9 @@ Definition opt_cons_aux_def:
 End
 
 (* fresh flag controls if, when we see a new var,
-  whether to track it forever or not *)
+  whether to track it forever or not.
+  Also, we only start resetting once fresh is set
+    (i.e., when actually running a proof) *)
 Definition opt_cons_def:
   (opt_cons fresh i (v:num) NONE =
     INL (
@@ -1833,7 +1835,7 @@ Definition opt_cons_def:
     case n of NONE =>
       INL (NONE, opt_cons_aux i v ls)
     | SOME n =>
-    if ind_lim ≤ n
+    if ind_lim ≤ n ∧ fresh
     then
       INR (0n)
     else
@@ -3477,7 +3479,7 @@ Theorem opt_cons_alt:
   | (SOME (INL (n,ls))) =>
     (case n of NONE => INL (NONE, opt_cons_aux i v ls)
     | SOME n =>
-    if ind_lim ≤ n
+    if ind_lim ≤ n ∧ fresh
     then
       INR (0n)
     else
@@ -3706,7 +3708,7 @@ Proof
 QED
 
 Definition do_dom_check_def:
-  do_dom_check idopt fml rfml w indcore rinds c extra pfs dsubs dindex =
+  do_dom_check idopt fml rfml inds w indcore c extra pfs dsubs dindex =
   case idopt of NONE =>
     let goals =
       MAP_OPT (subst_opt w) indcore in
@@ -3715,7 +3717,7 @@ Definition do_dom_check_def:
       find_scope_1 dindex pfs ∧
       check_hash_goals c [dindex] r dsubs
     then
-      let fmlls = revalue F rfml rinds in
+      let fmlls = revalue F rfml inds in
       split_goals_hash fmlls extra l goals
     else F
   | SOME cid =>
@@ -4117,6 +4119,17 @@ Definition check_storeorder_def:
     else NONE
 End
 
+(* make a list of variables (which are partially tracked) permanently tracked *)
+Definition mk_perm_def:
+  (mk_perm (vimap:vimap_ty) [] = vimap) ∧
+  (mk_perm (vimap:vimap_ty) (n::ns) =
+    (case any_el n vimap NONE of
+    | SOME (INL (_,pinds,ninds)) =>
+      mk_perm
+        (update_resize vimap NONE (SOME (INL (NONE,pinds,ninds))) n) ns
+    | _ => mk_perm vimap ns))
+End
+
 Definition check_cstep_list_def:
   check_cstep_list cstep fml zeros inds vimap vomap pc =
   case cstep of
@@ -4128,7 +4141,7 @@ Definition check_cstep_list_def:
       check_fresh_aspo_list c s pc.ord vimap vomap then
     ( let nc = not c in
       let id = pc.id in
-      let rinds = reindex fml inds in
+      let (rinds,inds',vimap') = get_set_indices fml inds s vimap in
       let corels = core_fmlls fml rinds in
       let fml_not_c = update_resize fml NONE (SOME (nc,F)) id in
       let s = mk_subst s in
@@ -4142,12 +4155,12 @@ Definition check_cstep_list_def:
           NONE => NONE
         | SOME (fml',id',zeros') =>
           let rfml = rollback fml' id id' in
-          if do_dom_check idopt fml' rfml w corels rinds c nc pfs dsubs dindex then
+          if do_dom_check idopt fml' rfml inds' w corels c nc pfs dsubs dindex then
             SOME(
               update_resize rfml NONE (SOME (c,pc.tcb)) id',
               zeros',
-              sorted_insert id' rinds,
-              update_vimap T vimap id' (FST c),
+              sorted_insert id' inds',
+              update_vimap T vimap' id' (FST c),
               vomap,
               pc with id := id'+1)
           else NONE))
@@ -4204,7 +4217,7 @@ Definition check_cstep_list_def:
           case core_from_inds fml inds' of NONE => NONE
           | SOME fml' =>
           SOME (fml',zeros, inds',
-            vimap,vomap,pc with ord := mk_ordsub ord' xs)
+            mk_perm vimap (MAP FST xs),vomap,pc with ord := mk_ordsub ord' xs)
         else NONE)
   | UnloadOrder =>
     (case pc.ord of NONE => NONE
@@ -4462,6 +4475,19 @@ Proof
   \\ rw [] \\ gvs []
 QED
 
+Theorem vimap_rel_mk_perm:
+  ∀ls vimap.
+  vimap_rel fmlls vimap ⇒
+  vimap_rel fmlls (mk_perm vimap ls)
+Proof
+  Induct>>rw[mk_perm_def]>>
+  every_case_tac>>gvs[]>>
+  first_x_assum irule>>
+  gvs[vimap_rel_def]>>rw[]>>
+  first_x_assum drule_all>>
+  gvs[any_el_update_resize]>>rw[]
+QED
+
 Theorem fml_rel_check_cstep_list:
   fml_rel fml fmlls ∧
   ind_rel fmlls inds ∧
@@ -4513,8 +4539,12 @@ Proof
           match_mp_tac fml_rel_rollback>>rw[]>>fs[])>>
         match_mp_tac split_goals_same_goals>>
         simp[EXTENSION,FORALL_PROD,MEM_toAList,lookup_map_opt,MEM_MAP_OPT,AllCaseEqs(),lookup_mk_core_fml]>>
-        simp[MEM_core_fmlls]>>
-        metis_tac[ind_rel_reindex,ind_rel_lookup_core_only_list,fml_rel_lookup_core_only])>>
+        simp[MEM_core_fmlls]>>rw[]>>
+        DEP_REWRITE_TAC[GSYM fml_rel_lookup_core_only]>>
+        rw[EQ_IMP_THM]>>fs[]>>
+        irule MEM_get_set_indices_mk_subst>>
+        first_x_assum (irule_at Any)>>
+        fs[lookup_core_only_list_def,AllCaseEqs()])>>
       metis_tac[fml_rel_check_contradiction_fml] )>>
     CONJ_TAC>- (
       match_mp_tac fml_rel_update_resize>>
@@ -4523,10 +4553,11 @@ Proof
       match_mp_tac ind_rel_update_resize_sorted_insert>>
       match_mp_tac ind_rel_rollback_2>>
       fs[]>>
-      metis_tac[ind_rel_reindex])>>
+      metis_tac[ind_rel_get_set_indices])>>
     CONJ_TAC >- (
       match_mp_tac vimap_rel_update_resize_update_vimap>>
       match_mp_tac fml_rel_fml_rel_vimap_rel>>fs[]>>
+      CONJ_TAC >- metis_tac[vimap_rel_get_set_indices]>>
       match_mp_tac fml_rel_rollback>>rw[]>>fs[])>>
     CONJ_TAC >- simp[rollback_def,any_el_list_delete_list,MEM_MAP,MEM_COUNT_LIST]>>
     metis_tac[check_scopes_list_zeros])
@@ -4638,7 +4669,8 @@ Proof
       fs[ind_rel_def]>>
       rw[]>>
       metis_tac[IS_SOME_EXISTS,option_CLAUSES])>>
-    metis_tac[vimap_rel_core_from_inds])
+    drule_all vimap_rel_core_from_inds>>
+    metis_tac[vimap_rel_mk_perm])
   >~ [‘UnloadOrder’] >- (
     gvs[check_cstep_list_def,AllCaseEqs(),check_cstep_def])
   >~ [‘StoreOrder’] >- (
