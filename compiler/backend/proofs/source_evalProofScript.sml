@@ -916,22 +916,6 @@ Proof
   simp [abort_def] \\ every_case_tac \\ simp []
 QED
 
-val case_const = ``Case``
-fun is_app_case t = is_comb t andalso same_const case_const (rator t)
-
-fun setup (q : term quotation, t : tactic) = let
-    val the_concl = Parse.typedTerm q bool
-    val t2 = (t \\ rpt (pop_assum mp_tac))
-    val (goals, validation) = t2 ([], the_concl)
-    fun get_goal q = first (can (rename [q])) goals |> snd
-    fun init thms st = if null (fst st) andalso aconv (snd st) the_concl
-      then ((K (goals, validation)) \\ TRY (MAP_FIRST ACCEPT_TAC thms)) st
-      else failwith "setup tactic: mismatching starting state"
-    val cases = map (find_terms is_app_case o snd) goals
-  in {get_goal = get_goal, concl = fn () => the_concl,
-    cases = cases, init = (init : thm list -> tactic),
-    all_goals = fn () => map snd goals} end
-
 (* case splits for evaluate proofs *)
 val eval_cases_tac =
   fs [pair_case_eq, result_case_eq, error_result_case_eq, bool_case_eq,
@@ -961,7 +945,13 @@ val insts_tac = rpt (FIRST ([
       match_mp_tac abort_imp_intro \\ rw [] \\ fs []
     ]))
 
-val eval_simulation_setup = setup (`
+Theorem env_rel_imp_c[local]:
+  env_rel x env env' ⇒ env'.c = env.c
+Proof
+  fs [env_rel_def]
+QED
+
+Theorem eval_simulation:
   (! ^s env exps s' res es t env'.
   evaluate s env exps = (s', res) /\
   s_rel ^ci s t /\
@@ -1003,7 +993,7 @@ val eval_simulation_setup = setup (`
   result_rel (env_rel (v_rel es')) (v_rel es') res res' /\
   es_forward (orac_s t.eval_state) es' /\
   (~ abort res' ==> es_stack_forward (orac_s t.eval_state) es'))
-  `,
+Proof
   ho_match_mp_tac (name_ind_cases [``()``, ``()``, ``Dlet``] full_evaluate_ind)
   \\ rpt conj_tac
   \\ rpt (gen_tac ORELSE disch_tac)
@@ -1011,11 +1001,41 @@ val eval_simulation_setup = setup (`
   (* FIXME: tweak name_ind_cases to skip dummy patterns *)
   \\ fs [Q.prove (`Case ((), x) = Case (x)`, simp [markerTheory.Case_def])]
   \\ rveq \\ fs []
-  );
+  >~ [`Case ([App _ _])`] >- suspend "App"
+  >~ [`Case (Dlet, [Denv _])`] >- suspend "Denv"
+  >~ [`Case ([Con _ _])`] >- suspend "Con"
+  >~ [`Case ([Letrec _ _])`] >- suspend "Letrec"
+  >~ [`Case ((_, _) :: _)`] >- suspend "match"
+  >~ [`Case ([Let _ _ _])`] >- suspend "Let"
+  >~ [`Case (Dlet, _ :: _ :: _)`] >- suspend "cons_decs"
+  >~ [`Case (_, [Dletrec _ _])`] >- suspend "Dletrec"
+  >~ [`Case (_, [Dtype _ _])`] >- suspend "Dtype"
+  >~ [`Case (_, [Dexn _ _ _])`] >- suspend "Dexn"
+  >~ [`Case (_, [Dlocal _ _])`] >- suspend "Dlocal"
+  \\ rpt disch_tac
+  \\ insts_tac
+  \\ TRY (
+    (* big hammer for similar cases *)
+    eval_cases_tac
+    \\ fs []
+    \\ imp_res_tac env_rel_imp_c
+    \\ insts_tac
+    \\ fs [do_con_check_def, build_conv_def, do_log_def, do_if_def]
+    \\ TRY (drule_then (drule_then assume_tac) can_pmatch_all)
+    \\ TRY (drule_then (drule_then assume_tac)
+        (REWRITE_RULE [match_result_rel_def] pmatch_drule_form))
+    \\ TRY (drule_then drule env_rel_nsLookup_v \\ rw [])
+    \\ eval_cases_tac
+    \\ fs [bind_exn_v_def]
+    \\ insts_tac
+    \\ simp [alist_to_ns_to_bind2]
+    \\ TRY (irule env_rel_add_nsBindList)
+    \\ TRY (irule env_rel_nsLift)
+    \\ simp []
+   )
+QED
 
-Theorem eval_simulation_App:
-  ^(#get_goal eval_simulation_setup `Case ([App _ _])`)
-Proof
+Resume eval_simulation[App]:
   rw []
   \\ reverse (fs [pair_case_eq, result_case_eq] \\ rveq \\ fs [])
   \\ insts_tac
@@ -1192,9 +1212,7 @@ Proof
   \\ rw [] \\ fs []
 QED
 
-Theorem eval_simulation_Denv[local]:
-  ^(#get_goal eval_simulation_setup `Case (Dlet, [Denv _])`)
-Proof
+Resume eval_simulation[Denv]:
   rw []
   \\ eval_cases_tac
   \\ fs [declare_env_def, s_rel_def]
@@ -1226,9 +1244,7 @@ Proof
   )
 QED
 
-Theorem eval_simulation_Con[local]:
-  ^(#get_goal eval_simulation_setup `Case ([Con _ _])`)
-Proof
+Resume eval_simulation[Con]:
   rpt disch_tac
   \\ eval_cases_tac
   \\ insts_tac
@@ -1238,9 +1254,7 @@ Proof
   \\ insts_tac
 QED
 
-Theorem eval_simulation_Let[local]:
-  ^(#get_goal eval_simulation_setup `Case ([Let _ _ _])`)
-Proof
+Resume eval_simulation[Let]:
   rpt disch_tac
   \\ eval_cases_tac
   \\ insts_tac
@@ -1254,9 +1268,7 @@ Proof
   \\ insts_tac
 QED
 
-Theorem eval_simulation_Letrec[local]:
-  ^(#get_goal eval_simulation_setup `Case ([Letrec _ _])`)
-Proof
+Resume eval_simulation[Letrec]:
   rpt disch_tac
   \\ eval_cases_tac
   \\ insts_tac
@@ -1271,9 +1283,7 @@ Proof
   \\ simp [GSYM pairarg_to_pair_map, ELIM_UNCURRY, EVERY2_refl]
 QED
 
-Theorem eval_simulation_match[local]:
-  ^(#get_goal eval_simulation_setup `Case ((_, _) :: _)`)
-Proof
+Resume eval_simulation[match]:
   rpt disch_tac
   \\ eval_cases_tac
   \\ drule_then (drule_then assume_tac) pmatch_drule_form
@@ -1287,9 +1297,7 @@ Proof
   \\ simp [nsAppend_to_nsBindList]
 QED
 
-Theorem eval_simulation_cons_decs[local]:
-  ^(#get_goal eval_simulation_setup `Case (Dlet, _ :: _ :: _)`)
-Proof
+Resume eval_simulation[cons_decs]:
   rpt disch_tac
   \\ eval_cases_tac
   \\ insts_tac
@@ -1306,15 +1314,7 @@ Proof
   \\ insts_tac
 QED
 
-Theorem env_rel_imp_c[local]:
-  env_rel x env env' ⇒ env'.c = env.c
-Proof
-  fs [env_rel_def]
-QED
-
-Theorem eval_simulation_Dletrec[local]:
-  ^(#get_goal eval_simulation_setup `Case (_, [Dletrec _ _])`)
-Proof
+Resume eval_simulation[Dletrec]:
   rpt disch_tac
   \\ eval_cases_tac
   \\ insts_tac
@@ -1344,9 +1344,7 @@ Proof
   fs []
 QED
 
-Theorem eval_simulation_Dtype[local]:
-  ^(#get_goal eval_simulation_setup `Case (_, [Dtype _ _])`)
-Proof
+Resume eval_simulation[Dtype]:
   rpt disch_tac
   \\ eval_cases_tac
   \\ fs [EVERY_MEM, FORALL_PROD, MEM_MAP, EXISTS_PROD, PULL_EXISTS,
@@ -1356,18 +1354,14 @@ Proof
   \\ simp []
 QED
 
-Theorem eval_simulation_Dexn[local]:
-  ^(#get_goal eval_simulation_setup `Case (_, [Dexn _ _ _])`)
-Proof
+Resume eval_simulation[Dexn]:
   rpt disch_tac
   \\ eval_cases_tac
   \\ fs [s_rel_def, state_component_equality]
   \\ insts_tac
 QED
 
-Theorem eval_simulation_Dlocal[local]:
-  ^(#get_goal eval_simulation_setup `Case (_, [Dlocal _ _])`)
-Proof
+Resume eval_simulation[Dlocal]:
   rpt disch_tac
   \\ eval_cases_tac
   \\ insts_tac
@@ -1377,38 +1371,7 @@ Proof
   \\ insts_tac
 QED
 
-Theorem eval_simulation:
-  ^(#concl eval_simulation_setup ())
-Proof
-  #init eval_simulation_setup [eval_simulation_App,
-    eval_simulation_Denv, eval_simulation_Con, eval_simulation_Let,
-    eval_simulation_Letrec, eval_simulation_match,
-    eval_simulation_cons_decs, eval_simulation_Dletrec,
-    eval_simulation_Dtype, eval_simulation_Dexn, eval_simulation_Dlocal]
-  \\ rpt disch_tac
-  \\ insts_tac
-  \\ TRY ( (
-    (* big hammer for similar cases *)
-    eval_cases_tac
-    \\ fs []
-    \\ imp_res_tac env_rel_imp_c
-    \\ insts_tac
-    \\ fs [do_con_check_def, build_conv_def, do_log_def, do_if_def]
-    \\ TRY (drule_then (drule_then assume_tac) can_pmatch_all)
-    \\ TRY (drule_then (drule_then assume_tac)
-        (REWRITE_RULE [match_result_rel_def] pmatch_drule_form))
-    \\ TRY (drule_then drule env_rel_nsLookup_v \\ rw [])
-    \\ eval_cases_tac
-    \\ fs [bind_exn_v_def]
-    \\ insts_tac
-    \\ simp [alist_to_ns_to_bind2]
-    \\ TRY (irule env_rel_add_nsBindList)
-    \\ TRY (irule env_rel_nsLift)
-    \\ simp []
-   )
-  \\ NO_TAC
-  )
-QED
+Finalise eval_simulation;
 
 Overload shift_seq = “misc$shift_seq”
 
@@ -1668,8 +1631,8 @@ fun imp_res_simp_tac t = IMP_RES_THEN mp_tac t
 
 val imp_res_simp_tac = IMP_RES_THEN simp_res_tac
 
-val insert_oracle_correct_setup = setup (
-  `(! ^s env exps s' res.
+Theorem insert_oracle_correct:
+  (! ^s env exps s' res.
   evaluate s env exps = (s', res) /\
   is_record ci s.eval_state /\
   orac_agrees orac s'.eval_state /\
@@ -1701,18 +1664,31 @@ val insert_oracle_correct_setup = setup (
   ==>
   evaluate_decs (s with eval_state updated_by insert_oracle ci orac) env decs =
   (s' with eval_state updated_by insert_oracle ci orac, res)
-  )`,
+  )
+Proof
   ho_match_mp_tac (name_ind_cases [``Let``, ``Mat``, ``Dlet``] full_evaluate_ind)
   \\ rpt conj_tac
   \\ rpt (gen_tac ORELSE disch_tac)
   \\ fs [full_evaluate_def]
   \\ fs []
   \\ rveq \\ fs []
-  );
+  >~ [`Case (_, [App _ _])`] >- suspend "App"
+  >~ [`Case (_, [Denv _])`] >- suspend "Denv"
+  \\ TRY ((
+    rw []
+    \\ eval_cases_tac
+    \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ, combine_dec_result_eq_Rerr]
+    \\ rveq \\ fs []
+    \\ imp_res_simp_tac evaluate_is_record_forward
+    \\ fs []
+    \\ imp_res_simp_tac evaluate_is_record_forward
+    \\ agrees_impl_tac
+    \\ simp []
+    \\ gvs [EVERY_MEM,EXISTS_MEM]
+  ) \\ NO_TAC)
+QED
 
-Theorem insert_oracle_correct_App[local]:
-  ^(#get_goal insert_oracle_correct_setup `Case (_, [App _ _])`)
-Proof
+Resume insert_oracle_correct[App]:
   rw []
   \\ fs [pair_case_eq, result_case_eq] \\ rveq \\ fs []
   \\ fs [bool_case_eq] \\ rveq \\ fs [] \\ Cases_on ‘getOpClass op’ \\ gs[]
@@ -1760,32 +1736,14 @@ Proof
   \\ gs[]
 QED
 
-Theorem insert_oracle_correct_Denv[local]:
-  ^(#get_goal insert_oracle_correct_setup `Case (_, [Denv _])`)
-Proof
+Resume insert_oracle_correct[Denv]:
   rw []
   \\ fs [option_case_eq, pair_case_eq] \\ rveq \\ fs []
   \\ imp_res_simp_tac insert_declare_env
   \\ simp []
 QED
 
-Theorem insert_oracle_correct:
-  ^(#concl insert_oracle_correct_setup ())
-Proof
-  #init insert_oracle_correct_setup [insert_oracle_correct_App,
-    insert_oracle_correct_Denv]
-  \\ TRY ((
-    rw []
-    \\ eval_cases_tac
-    \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ, combine_dec_result_eq_Rerr]
-    \\ rveq \\ fs []
-    \\ imp_res_simp_tac evaluate_is_record_forward
-    \\ fs []
-    \\ imp_res_simp_tac evaluate_is_record_forward
-    \\ agrees_impl_tac
-    \\ simp []
-  ) \\ NO_TAC)
-QED
+Finalise insert_oracle_correct;
 
 Theorem v_rel_concrete_v:
   (! v. concrete_v v ==> v_rel es v v) /\
