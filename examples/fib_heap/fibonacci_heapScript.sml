@@ -231,28 +231,6 @@ Proof
 QED
 
 
-Theorem lemma_ann_fts_seg_MEM:
-  !fts x v l p s b n frame.
-    (fts_mem (ann_fts_seg p s b n fts) * frame) (fun2set(m,dm))  /\
-    MEM (FibTree x v l) fts ==>
-    ?t1 t2. fts = t1 ++ [FibTree x v l] ++ t2
-Proof
-  Induct >> fs[] >>
-  rpt strip_tac >>
-  Cases_on `h` >> gvs[]
-  >- (qexistsl [`[]`,`fts`] >> simp[] ) >>
-  fs[fts_mem_def,ann_fts_seg_def] >>
-  res_tac >>
-  first_x_assum(qspecl_then [`s`,`p`,`(head_key_t s (TL fts))`,
-    `ft_seg(FibTree k (fill_anode v' b n p (head_key l') (LENGTH l'))
-      (ann_fts_seg k (head_key l') (last_key l')
-      (head_key_t (head_key l') (TL l')) l')) *
-     fts_mem
-      (ann_fts_seg k (head_key l') (last_key l')
-      (head_key_t (head_key l') (TL l')) l') * frame`, `k`] assume_tac) >>
-  rfs[AC STAR_ASSOC STAR_COMM] >>
-  qexistsl [`(FibTree k v' l'::t1)`,`t2`] >> simp[]
-QED
 
 
 
@@ -370,6 +348,28 @@ Proof
   simp[STAR_ASSOC]
 QED
 
+Theorem lemma_ann_fts_seg_MEM:
+  !fts x v l p s b n frame.
+    (fts_mem (ann_fts_seg p s b n fts) * frame) (fun2set(m,dm))  /\
+    MEM (FibTree x v l) fts ==>
+    ?t1 t2. fts = t1 ++ [FibTree x v l] ++ t2
+Proof
+  Induct >> fs[] >>
+  rpt strip_tac >>
+  Cases_on `h` >> gvs[]
+  >- (qexistsl [`[]`,`fts`] >> simp[] ) >>
+  fs[fts_mem_def,ann_fts_seg_def] >>
+  res_tac >>
+  first_x_assum(qspecl_then [`s`,`p`,`(head_key_t s (TL fts))`,
+    `ft_seg(FibTree k (fill_anode v' b n p (head_key l') (LENGTH l'))
+      (ann_fts_seg k (head_key l') (last_key l')
+      (head_key_t (head_key l') (TL l')) l')) *
+     fts_mem
+      (ann_fts_seg k (head_key l') (last_key l')
+      (head_key_t (head_key l') (TL l')) l') * frame`, `k`] assume_tac) >>
+  rfs[AC STAR_ASSOC STAR_COMM] >>
+  qexistsl [`(FibTree k v' l'::t1)`,`t2`] >> simp[]
+QED
 
 (*The outside world already set the flag to T!*)
 Definition empty_node_def:
@@ -1689,20 +1689,11 @@ Proof
   Cases_on `h'` >>
   rpt strip_tac >>
   fs[fts_head_is_min_def] >>
-  rpt strip_tac >>
-  iff_tac
-  >- (
-    strip_tac >>
-    disj1_tac >>
-    rename [`MEM (FibTree x n xl) t`] >>
-    last_x_assum (qspecl_then [`x`,`n`,`xl`] assume_tac) >> fs[]
-    ) >>
-  rename [`MEM (FibTree x n xl) t`] >>
   rpt strip_tac
-  >- (last_x_assum (qspecl_then [`x`,`n`,`xl`] assume_tac) >> fs[])
+  >- res_tac
   >- gvs[fts_min_def] >>
   fs[fts_min_def] >>
-  first_x_assum (qspecl_then [`x`,`n`,`xl`] assume_tac) >> rfs[] >>
+  res_tac >>
   dxrule_all WORD_LOWER_EQ_TRANS >>
   simp[]
 QED
@@ -1714,6 +1705,14 @@ Definition fts_child_head_is_min_def:
   (fts_child_head_is_min (FibTree k v l::fts) <=>
     fts_head_is_min l /\ fts_child_head_is_min l /\ fts_child_head_is_min fts)
 End
+
+
+Definition every_fts_def:
+  every_fts P xs <=>
+    P xs /\ !k v l. MEM(FibTree k v l) xs ==> every_fts P l
+End
+
+
 
 Theorem fts_child_head_is_min_append_thm:
   !xs ys.
@@ -1727,6 +1726,26 @@ Proof
   qpat_x_assum `fts_child_head_is_min (FibTree k xs xs'::xs'')` mp_tac >>
   simp[fts_child_head_is_min_def]
 QED
+
+
+Definition fib_heap_inv_weak_def:
+  fib_heap_inv_weak fh (fts: ('a word, 'a node_data) fts) ⇔
+    (!k v. FLOOKUP fh k = SOME v ==> k <> 0w) /\
+    (!k v e. FLOOKUP fh k = SOME (v,e) ==>
+      ?m. fts_has k (fill_dnode v e m) fts) /\
+    (ALL_DISTINCT fts) /\
+    (?min. fts_min fts = min /\ !k n l. MEM(FibTree k n l) fts ==> min <=+ n.value)
+End
+
+Definition fib_heap_inv_strong_def:
+  fib_heap_inv_strong fh (fts: ('a word, 'a node_data) fts) ⇔
+    (!k v. FLOOKUP fh k = SOME v ==> k <> 0w) /\
+    (!k v e. FLOOKUP fh k = SOME (v,e) ==>
+      ?m. fts_has k (fill_dnode v e m) fts) /\
+    fts_all_dist fts /\
+    fib_heap_shape_ok fts /\
+    every_fts fts_head_is_min fts
+End
 
 
 Definition fib_heap_inv2_def:
@@ -2042,25 +2061,27 @@ Definition fib_heap_inv_def:
 End
 *)
 
-Definition fib_heap_inv_weak_def:
-  fib_heap_inv_weak fh (fts: ('a word, 'a node_data) fts) ⇔
-    (!k v. FLOOKUP fh k = SOME v ==> k <> 0w) /\
-    (∀k v e. FLOOKUP fh k = SOME (v,e) ⇔
-      ? m. fts_has k (fill_dnode v e m) fts) /\
-    (fib_heap_shape_ok fts)
+
+Definition fts_remove_def:
+  (fts_remove x acc [] = acc) /\
+  (fts_remove x acc (FibTree k v l::rest) =
+    if x = k then
+      acc ++ rest
+    else
+      acc ++ [FibTree k v (fts_remove x [] l)] ++ rest)
 End
 
-Theorem fib_heap_inv_weak:
-  !fh fts.
-    fib_heap_inv fh fts ==> fib_heap_inv_weak fh fts
+Theorem fts_remove:
+  !x fts fh.
+    fib_heap_inv2 fh fts /\ (?n. fts_has x n fts) /\
+    fts_remove x [] fts = fts' ==>
+    ?fh1 fh2.
+    (!k v l. MEM (FibTree k v l) fts' ==>
+             fib_heap_inv_strong fh1 [FibTree k v l]) /\
+    (!v l. fib_heap_inv_strong fh2 [FibTree x v l])
 Proof
-  rpt strip_tac >>
-  fs[fib_heap_inv_def] >>
   cheat
 QED
-
-
-
 
 
 (*
@@ -2195,6 +2216,8 @@ Definition fts_find_min_def:
       fts_find_min (FibTree k' v' l') fts )
 End
 
+
+
 Definition fts_set_min_hd_def:
   (fts_set_min_hd min rest [] = []) /\ (* This case should be impossible *)
   (fts_set_min_hd (FibTree mk mv ml) rest (FibTree k v l::fts) =
@@ -2203,6 +2226,9 @@ Definition fts_set_min_hd_def:
     else
       fts_set_min_hd (FibTree mk mv ml) (rest ++ [FibTree k v l]) fts)
 End
+
+
+
 
 Definition fts_ext_min_def:
   (fts_ext_min [] = []) /\
@@ -2366,11 +2392,42 @@ Definition fts_merge_trees_def:
         (rm |+ (r,k,v,l))
 End
 
+Theorem fts_merge_trees:
+  !c map fts k v l.
+    MEM(FibTree k v l) fts /\
+    fib_heap_size fts < c /\
+    ?fh. fib_heap_inv_strong fh [FibTree k v l] /\
+    fts_merge_trees c (map, LENGTH l, FibTree k v l) = map' ==>
+    (!k v l. FLOOKUP map' (LENGTH l) = SOME(k,v,l) ==>
+      ?fh. fib_heap_inv_strong fh [FibTree k v l])
+Proof
+  cheat
+QED
+
+
+
 Definition fts_reb_trees_def:
   (fts_reb_trees (c:num) (rm, []) = rm) /\
   (fts_reb_trees c (rm, (FibTree k v l::fts)) =
     fts_reb_trees c (fts_merge_trees c (rm, LENGTH l, FibTree k v l), fts))
 End
+
+Theorem fts_reb_trees:
+  !c map fts k v l.
+    fib_heap_size fts < c /\
+    ?fh. fib_heap_inv_strong fh fts /\
+    fts_reb_trees c (map,fts) = map' ==>
+    (!k v l. FLOOKUP map' (LENGTH l) = SOME(k,v,l) ==>
+      ?fh. fib_heap_inv_strong fh [FibTree k v l])
+Proof
+  cheat
+QED
+
+
+
+
+
+
 
 
 Definition map_to_list_def:
@@ -2402,6 +2459,15 @@ Definition map_mem_empty_def:
     ones a (REPLICATE (n+1) 0w)
 End
 
+(* TODO: Maybe good start with supervior!*)
+Theorem lemma_map_mem_expand_thm:
+  !i n a. (0 < i /\ i < n) ==>
+    ones a (REPLICATE (n + 1) 0w) =
+    ones a (REPLICATE (i - 1) 0w) *
+    ones (a + bytes_in_word * n2w i) (REPLICATE (n + 1) 0w)
+Proof
+  cheat
+QED
 
 Definition map_mem_empty_v_def:
   map_mem_empty (a:'a word) (n:num) =
@@ -2424,6 +2490,10 @@ Definition map_mem_def:
   map_mem a (n:num) mp =
     ones a (GENLIST (map_lookup mp) (n+1))
 End
+
+
+
+
 
 
 Definition merge_trees_def:
