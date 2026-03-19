@@ -136,7 +136,7 @@ val add_lexparse_compset = computeLib.extend_compset
       ]
     end,
    computeLib.Tys
-    [mk_thy_type{Thy="tokens",Tyop="symbol",Args=[]}
+    [mk_thy_type{Thy="lexer_fun",Tyop="symbol",Args=[]}
     ,mk_thy_type{Thy="tokens",Tyop="token",Args=[]}
     ],
    computeLib.Defs
