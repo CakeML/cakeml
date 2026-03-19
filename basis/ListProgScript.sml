@@ -475,6 +475,70 @@ val _ = next_ml_names := ["sort"];
 val sort_v_thm = mllistTheory.sort_thm |> translate;
 
 val _ =  ml_prog_update close_local_blocks;
+
+(* Translation of the more conventional merge-sort, needed by Candle.
+
+ * (The Candle proofs include a static check of the sources for various
+ * issues, and the monadic code above would require additional work.)
+ *)
+val _ = ml_prog_update open_local_block;
+
+val result = translate sort2_tail_def;
+val result = translate sort3_tail_def;
+val result = translate REV_DEF;
+val result = translate merge_tail_def;
+val result = translate DIV2_def;
+val result = translate DROP_def;
+
+val result = translate_no_ind mergesortN_tail_def;
+
+Theorem mergesortn_tail_ind[local]:
+  mergesortn_tail_ind (:'a)
+Proof
+  once_rewrite_tac [fetch "-" "mergesortn_tail_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ gvs [FORALL_PROD, DIV2_def]
+QED
+
+val result = mergesortn_tail_ind |> update_precondition;
+
+Theorem mergesortn_tail_side[local]:
+  !w x y z. mergesortn_tail_side w x y z
+Proof
+  completeInduct_on `y`
+  \\ once_rewrite_tac[(fetch "-" "mergesortn_tail_side_def")]
+  \\ rpt gen_tac \\ rename1 `SUC x1`
+  \\ rw[DIV2_def]
+     >- (
+        first_x_assum match_mp_tac
+        \\ fs[]
+        \\ qspecl_then [`2`,`SUC x1`] assume_tac dividesTheory.DIV_POS
+        \\ gvs[]
+      )
+     >- (
+        qspecl_then [`SUC x1`, `2`] assume_tac arithmeticTheory.DIV_LESS
+        \\ `0 < SUC x1` by fs[]
+        \\ `SUC x1 DIV 2 < SUC x1` suffices_by rw[]
+        \\ first_x_assum match_mp_tac
+        \\ fs[]
+      )
+QED
+
+val result = mergesortn_tail_side |> update_precondition;
+val result = translate mergesort_tail_def
+
+val _ = ml_prog_update open_local_in_block;
+
+val _ = next_ml_names := ["mergesort"];
+val result = translate mergesort_def;
+
+val _ =  ml_prog_update close_local_blocks;
+
 val _ =  ml_prog_update (close_module NONE);
 
 (* finite maps -- depend on lists *)

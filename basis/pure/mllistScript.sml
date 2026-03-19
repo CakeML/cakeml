@@ -277,8 +277,8 @@ Proof
 QED
 (* ^^^^^ TO BE PORTED TO HOL ^^^^^ *)
 
-Definition old_sort_def:
-  old_sort = mergesort$mergesort_tail
+Definition mergesort_def:
+  mergesort = mergesort$mergesort_tail
 End
 
 Definition sort_def:
