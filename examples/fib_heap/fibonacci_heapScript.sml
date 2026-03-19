@@ -1728,23 +1728,85 @@ Proof
 QED
 
 
-Definition fib_heap_inv_weak_def:
-  fib_heap_inv_weak fh (fts: ('a word, 'a node_data) fts) ⇔
-    (!k v. FLOOKUP fh k = SOME v ==> k <> 0w) /\
-    (!k v e. FLOOKUP fh k = SOME (v,e) ==>
-      ?m. fts_has k (fill_dnode v e m) fts) /\
-    (ALL_DISTINCT fts) /\
-    (?min. fts_min fts = min /\ !k n l. MEM(FibTree k n l) fts ==> min <=+ n.value)
-End
+
 
 Definition fib_heap_inv_strong_def:
   fib_heap_inv_strong fh (fts: ('a word, 'a node_data) fts) ⇔
     (!k v. FLOOKUP fh k = SOME v ==> k <> 0w) /\
     (!k v e. FLOOKUP fh k = SOME (v,e) ==>
       ?m. fts_has k (fill_dnode v e m) fts) /\
+    (* fts_is_min (fts_min fts) fts /\ *)
     fts_all_dist fts /\
     fib_heap_shape_ok fts /\
     every_fts fts_head_is_min fts
+End
+
+
+
+
+
+Definition all_disjoint_def:
+  (all_disjoint [] <=> T ) /\
+  (all_disjoint ((fh,fts)::rest) <=>
+    all_disjoint rest /\ EVERY (\(x,y). DISJOINT (FDOM fh) (FDOM x)) rest)
+End
+
+Theorem all_disjoint_append_thm:
+  !xs ys. all_disjoint (xs ++ ys) <=>
+    all_disjoint xs /\ all_disjoint ys /\
+    !x y. MEM x xs /\ MEM y ys ==> DISJOINT (FDOM (FST x)) (FDOM (FST y))
+Proof
+  Induct >> fs[all_disjoint_def] >>
+  Cases_on `h` >>
+  gen_tac >> iff_tac
+  >- (
+    strip_tac >>
+    fs[all_disjoint_def] >>
+    first_assum(qspec_then `ys` assume_tac) >> fs[] >>
+    rpt strip_tac >> gvs[] >>
+    fs[EVERY_MEM] >>
+    res_tac >>
+    pairarg_tac >> gvs[] >>
+    first_x_assum(qspec_then `(x,y')` assume_tac) >> fs[]
+    ) >>
+  rpt strip_tac >>
+  fs[all_disjoint_def] >>
+  fs[EVERY_MEM] >>
+  rpt strip_tac >>
+  first_x_assum(qspecl_then [`(q,r)`,`e`] assume_tac) >>
+  gvs[] >>
+  pairarg_tac >> gvs[]
+QED
+
+
+
+
+Definition fh_union_def:
+  (fh_union [] = FEMPTY) /\
+  (fh_union ((fh,fts)::rest) =
+    FUNION fh (fh_union rest))
+End
+
+Theorem lemma_fh_union_split:
+  all_disjoint (l1 ++ (fh,xs ++ ys) ++ l2) ==>
+  (fh_union (l1 ++ (fh,xs ++ ys) ++ l2) <=>
+  fh_union (l1 ++ (fhx,xs) ++ l3 ++ (fhy,ys) ++ l2))
+Proof
+
+QED
+
+
+
+Definition fib_heap_inv_union_def:
+  fib_heap_inv_union fh fh_fts ⇔
+    EVERY (\(fh,fts). fib_heap_inv_strong fh fts) fh_fts /\
+    (all_disjoint fh_fts) /\
+    (fh = fh_union fh_fts)
+End
+
+Definition fib_heap_inv_list_def:
+  fib_heap_inv_list fh ftss <=>
+    ?fh_fts. fib_heap_inv_union fh fh_fts /\ ftss = MAP SND fh_fts
 End
 
 
@@ -1758,6 +1820,45 @@ Definition fib_heap_inv2_def:
     (fts_child_head_is_min fts) /\
     (fib_heap_shape_ok fts)
 End
+
+Theorem lemma_fib_heap_union_init:
+  fib_heap_inv_strong fh fts ==>
+    fib_heap_inv_union fh [(fh,fts)]
+Proof
+  fs[fib_heap_inv_union_def] >>
+  simp[all_disjoint_def, fh_union_def]
+QED
+
+
+
+Theorem lemma_fib_heap_union_split:
+  fib_heap_inv_union fh ((fh_xy,xs ++ ys)::rest) ==>
+    ?fhx fhy. fib_heap_inv_union fh ((fhx,xs)::(fhy,ys)::rest)
+Proof
+  fs[fib_heap_inv_union_def] >>
+  rpt strip_tac >>
+  cheat
+QED
+
+
+Theorem lemma_fib_heap_union_merge:
+  fib_heap_inv_union fh ((fhx,xs)::(fhy,ys)::rest) ==>
+    fib_heap_inv_union fh ((FUNION fhx fhy),xs ++ ys)::rest) ==>
+Proof
+  cheat
+QED
+
+
+
+Theorem lemma_fib_heap_union_reord:
+  fib_heap_inv_union fh (cs ++ xs ++ ms ++ ys ++ qs) ==>
+  fib_heap_inv_union fh (cs ++ ys ++ ms ++ xs ++ qs)
+Proof
+  cheat
+QED
+
+
+
 
 
 Theorem lemma_map_update_not_null:
@@ -2073,7 +2174,7 @@ End
 
 Theorem fts_remove:
   !x fts fh.
-    fib_heap_inv2 fh fts /\ (?n. fts_has x n fts) /\
+    fib_heap_inv_weak (fh,fts) /\ (?n. fts_has x n fts) /\
     fts_remove x [] fts = fts' ==>
     ?fh1 fh2.
     (!k v l. MEM (FibTree k v l) fts' ==>
@@ -2418,6 +2519,8 @@ Theorem fts_reb_trees:
 Proof
   cheat
 QED
+
+
 
 
 
