@@ -251,9 +251,12 @@ Theorem aux_strip_let:
     rewrite_aux loc loc_opt arity (Let xs x) = SOME aux ⇒
     ∃aux'.
       aux = Let xs aux' ∧
-      rewrite_aux loc loc_opt arity x = SOME aux'
+      rewrite_aux loc loc_opt (arity + LENGTH xs) x = SOME aux'
 Proof
-  cheat
+  rw []
+  >> gvs [rewrite_aux_def]
+  >> Cases_on ‘rewrite_aux loc loc_opt (arity + LENGTH xs) x’
+  >> gvs []
 QED
 
 Theorem aux_strip_tick:
@@ -519,6 +522,7 @@ Proof
     >> qexists ‘f''’
     >> gvs [])
   >~ [‘Let xs x2’] >-
+     
    (gvs [evaluate_def]
     >> gvs [CaseEq "prod", PULL_EXISTS]
     >> rename [‘evaluate (xs,env,s) = (rs,u)’]
