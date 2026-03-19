@@ -32,8 +32,8 @@ Datatype:
        | Arith loop_arith
        | Store ('a exp) num            (* dest, source *)
        | SetGlobal (5 word) ('a exp)   (* dest, source *)
-       | Load32 num num               (* TODISC: have removed imm, why num num? *)
-       | LoadByte num num               (* TODISC: have removed imm, why num num? *)
+       | Load32 num num                (* TODISC: have removed imm, why num num? *)
+       | LoadByte num num              (* TODISC: have removed imm, why num num? *)
        | Store32 num num
        | StoreByte num num
        | Seq prog prog
@@ -42,13 +42,13 @@ Datatype:
        | Break
        | Continue
        | Raise num
-       | Return num
+       | Return (num list)
        | ShMem memop num ('a exp)
        | Tick
        | Mark prog
        | Fail
        | LocValue num num  (* assign v1 := Loc v2 0 *)
-       | Call ((num # num_set) option) (* return var *)
+       | Call ((num list # num_set) option) (* return var *)
               (num option) (* target of call *)
               (num list)   (* arguments *)
               ((num # prog # prog # num_set) option) (* var to store exception,
@@ -106,9 +106,9 @@ Definition assigned_vars_def:
   (assigned_vars (Mark p) = assigned_vars p) ∧
   (assigned_vars (Loop _ p _) = assigned_vars p) ∧
   (assigned_vars (Call NONE _ _ _) = []) ∧
-  (assigned_vars (Call (SOME (n,_)) _ _ NONE) = [n]) ∧
-  (assigned_vars (Call (SOME (n,_)) _ _ (SOME (m,p,q, _))) =
-     n::m::assigned_vars p ++ assigned_vars q) ∧
+  (assigned_vars (Call (SOME (ns,_)) _ _ NONE) = ns) ∧
+  (assigned_vars (Call (SOME (ns,_)) _ _ (SOME (m,p,q, _))) =
+     ns ++ m::assigned_vars p ++ assigned_vars q) ∧
   (assigned_vars _ = [])
 End
 
@@ -132,8 +132,8 @@ Definition acc_vars_def:
   (acc_vars (Call ret dest args handler) l =
        case ret of
        | NONE => l
-       | SOME (v,live) =>
-         let l = insert v () l in
+       | SOME (vs,live) =>
+         let l = list_insert vs l in
            case handler of
            | NONE => l
            | SOME (n,p1,p2,l1) =>

@@ -95,7 +95,7 @@ Definition comp_def:
   (comp ctxt Break l = (Skip,l)) /\ (* not present in input *)
   (comp ctxt Continue l = (Skip,l)) /\ (* not present in input *)
   (comp ctxt (Raise v) l = (Raise (find_var ctxt v),l)) /\
-  (comp ctxt (Return v) l = (Return 0 [find_var ctxt v],l)) /\
+  (comp ctxt (Return vs) l = (Return 0 (MAP (find_var ctxt) vs),l)) /\
   (comp ctxt Tick l = (Tick,l)) /\
   (comp ctxt (Mark p) l = comp ctxt p l) /\
   (comp ctxt Fail l = (Skip,l)) /\
@@ -104,17 +104,17 @@ Definition comp_def:
      let args = MAP (find_var ctxt) args in
        case ret of
        | NONE (* tail-call *) => (wordLang$Call NONE dest (0::args) NONE,l)
-       | SOME (v,live) =>
-         let v = find_var ctxt v in
+       | SOME (vs,live) =>
+         let vs = MAP (find_var ctxt) vs in
          let live = mk_new_cutset ctxt live in
          let new_l = (FST l, SND l+1) in
            case handler of
-           | NONE => (wordLang$Call (SOME ([v],(live,LN),Skip,l)) dest args NONE, new_l)
+           | NONE => (wordLang$Call (SOME (vs,(live,LN),Skip,l)) dest args NONE, new_l)
            | SOME (n,p1,p2,_) =>
               let (p1,l1) = comp ctxt p1 new_l in
               let (p2,l1) = comp ctxt p2 l1 in
               let new_l = (FST l1, SND l1+1) in
-                (Seq (Call (SOME ([v],(live,LN),p2,l)) dest args
+                (Seq (Call (SOME (vs,(live,LN),p2,l)) dest args
                    (SOME (find_var ctxt n,p1,l1))) Tick, new_l)) /\
    (comp ctxt (FFI f ptr1 len1 ptr2 len2 live) l =
       let live = mk_new_cutset ctxt live in
