@@ -163,11 +163,14 @@ Proof
 QED
 
 Theorem env_rel_append:
-  env_rel opt f env env2 ∧
-  LIST_REL (v_rel f) x y ⇒
-  env_rel opt f (x ++ env) (y ++ env2)
+  env_rel opt f env1 env2 ∧
+  LIST_REL (v_rel f) a b ⇒
+  env_rel opt f (a ++ env1) (b ++ env2)
 Proof
-  cheat
+  rw []
+  >> gvs [env_rel_def]
+  >> qexistsl [‘b ++ xs’, ‘ys’]
+  >> gvs [LIST_REL_APPEND_suff]
 QED
 
 Theorem env_rel_length:
