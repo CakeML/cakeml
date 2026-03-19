@@ -2240,7 +2240,7 @@ End
 
 Definition fib_heap_parent_to_null_def:
   fib_heap_parent_to_null (n:num)
-    (a:'a word, s:'a word, m:'a word -> 'a word, dm:'a word set, c: bool)
+    (a:'a word, l:'a word) (m:'a word -> 'a word, dm:'a word set, c: bool)
   =
     if n = 0 then (m,F) else
     let c = (a IN dm /\ c) in
@@ -2248,10 +2248,10 @@ Definition fib_heap_parent_to_null_def:
     let m = ((a + parent_off) =+ 0w) m in
     let c = (a + next_off IN dm /\ c) in
     let a_n = m (a + next_off) in
-    if a = s then
+    if a = l then
       (m,c)
     else
-      fib_heap_parent_to_null (n-1) (a_n,s,m,dm,c)
+      fib_heap_parent_to_null (n-1) (a_n,l) (m,dm,c)
 End
 
 Definition fib_heap_find_min_def:
@@ -2298,7 +2298,7 @@ Proof
   Cases_on `fts`
   >- simp[] >>
   Cases_on `h` >>
-  Cases_on `t` using SNOC_CASES >>
+  Cases_on `t` using SNOC_CASES
   >- (
     fs[ann_fts_def, ann_fts_seg_def, last_key_def,fts_mem_def,
          SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
@@ -2335,26 +2335,22 @@ Definition fib_heap_extract_min_def:
     let c = (a IN dm) in
     let c = (a + child_off IN dm /\ c) in
     let a_child = m (a + child_off) in
-    let c = (a_child + next_off IN dm /\ c) in
-    let n_child = m (a_child + next_off) in
-    let (m,c) = (fib_heap_parent_to_null n (n_child,a_child,m,dm,c)) in
-    let (min,m,c) = (find_min n (a_child,a_child,n_child,m,dm,c)) in
+    let c = (a_child + before_off IN dm /\ c) in
+    let b_child = m (a_child + before_off) in
+    let (m,c) = (fib_heap_parent_to_null n (a_child,b_child) (m,dm,c)) in
+    let (min,m,c) = (fib_heap_find_min n (a_child,b_child,a_child) (m,dm,c)) in
     let c = (a + next_off IN dm /\ c) in
     let sec = m (a + next_off) in
     if a = sec then
       let (a',m,c') = fib_heap_insert_list(0w,min,m,dm) in
         (a,a',m,c' /\ c)
     else
-      let c = (a + next_off IN dm /\ c) in
-      let a_n = m (a + next_off) in
-      let c = (a_n + next_off IN dm /\ c) in
-      let a_nn = m (a_n + next_off) in
-      let (min2,m,c) = (find_min n (a_n,a_n,a_nn,m,dm,c)) in
-
+      let c = (a + before_off IN dm /\ c) in
+      let a_b = m (a + before_off) in
+      let (min2,m,c) = (fib_heap_find_min n (a,a_b,a) (m,dm,c)) in
       let (a',m,c') = fib_heap_insert_list(min2,min,m,dm) in
         (a,a',m, c' /\ c)
 End
-
 
 
 (*TODO: finish proof. Ask about n?*)
@@ -2573,6 +2569,9 @@ QED
 
 
 
+(*
+Low-level code.
+Adjust after high-level code has been proven!
 
 Definition fib_heap_build_rarray_def:
   fib_heap_build_rarray (n:num) (max_r:num)
@@ -2666,7 +2665,7 @@ Proof
   simp[fib_heap_reb_def] >>
   cheat
 QED
-
+*)
 
 
 
