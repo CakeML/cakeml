@@ -362,7 +362,6 @@ Proof
     >> cheat
    )
   >~ [‘If x1 x2 x3’] >-
-
    (gvs [evaluate_def]
     >> gvs [CaseEq "prod", PULL_EXISTS]
     >> rename [‘evaluate ([x1],env,s) = (r1,s1)’]
@@ -372,7 +371,6 @@ Proof
     (* First inductive hypothesis *)
     >- (first_x_assum $ qspec_then ‘F’ mp_tac
         >> simp []
-
         >> disch_then $ drule_at $ Pos $ el 2
         >> drule env_rel_non_opt
         >> strip_tac
@@ -429,7 +427,6 @@ Proof
             >> strip_tac
             >> Cases_on ‘HD v1 = Boolv F’
             >> gvs []
-                        
             >> sg ‘HD v1' = Boolv F’
             >- cheat
             >> gvs []
@@ -467,8 +464,10 @@ Proof
         >> goal_assum $ drule_at Any
         >> gvs []
         >> rw []
-        >- (cheat)
-        >> cheat)
+        >- (drule aux_strip_if_then
+            >> strip_tac
+            >> gvs [evaluate_def])
+        >> gvs [rewrite_opt_def, evaluate_def, opt_res_rel_def])
         (* HERE *)
     (* Non opt *)
     (* First inductive hypothesis *)
