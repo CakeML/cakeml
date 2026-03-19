@@ -1347,7 +1347,7 @@ Definition new_basic_type_definition_def:
     do (P,x) <- try dest_comb c (strlit "new_basic_type_definition: Not a combination") ;
     if ~(freesin [] P) then
       failwith (strlit "new_basic_type_definition: Predicate is not closed") else
-    let tyvars = MAP Tyvar (MAP implode (sort string_le (MAP explode (type_vars_in_term P)))) in
+    let tyvars = MAP Tyvar (MAP implode (mergesort string_le (MAP explode (type_vars_in_term P)))) in
     do rty <- type_of x ;
        add_type (tyname, LENGTH tyvars) ;
        aty <- mk_type(tyname,tyvars) ;
