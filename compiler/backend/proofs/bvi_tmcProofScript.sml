@@ -218,7 +218,7 @@ Theorem state_rel_dec:
     s'.clock = SUC n ⇒
     state_rel f (dec_clock 1 s) (dec_clock 1 s')
 Proof
-  cheat
+  rw [] >> gvs [state_rel_def, dec_clock_def]
 QED
 
 Theorem aux_strip_if_then:
