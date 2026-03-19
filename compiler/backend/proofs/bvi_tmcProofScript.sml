@@ -500,7 +500,7 @@ Proof
     >> gvs []
     >> Cases_on ‘r1’
     >> gvs []
-    >- (rename [‘evaluate ([x1],env2,s') = (Rval v1',s1')’]
+    >- (rename [‘evaluate ([x1],env2,s') = (Rval v1',s1')’] (* single *)
         >> Cases_on ‘HD a = Boolv T’
         >> gvs []
         (* then inductive hypothesis *)
@@ -693,25 +693,43 @@ Theorem evaluate_compile_prog:
              initial_state ffi0 (fromAList prog) co
                  (state_cc compile_prog cc) k) = (r, s) ∧
    r ≠ Rerr (Rabort Rtype_error) ⇒
-   ∃f s2.
+   ∃f s2 r2.
      evaluate
       ([Call 0 (SOME start) [] NONE], [],
         initial_state ffi0 (fromAList (SND (compile_prog next prog)))
             (state_co compile_prog co) cc k)
-      = (r, s2) ∧
+     = (r2, s2) ∧
+     result_rel (LIST_REL (v_rel f)) (v_rel f) r r2 ∧
      state_rel f s s2
 Proof
   rw []
   >> qmatch_asmsub_abbrev_tac `(es,env,st1)`
-  (*  >> `env_rel F 0 env env` by fs [env_rel_def] *)
-  >> ‘∃f. env_rel F f env env’ by cheat
+  >> ‘env_rel F FEMPTY env env’ by gvs [env_rel_def, Abbr ‘env’]
   >> Cases_on `compile_prog next prog`
   >> fs []
   >> drule (GEN_ALL compile_prog_code_rel)
+  >> impl_tac
+  >- gvs [input_condition_def]
   >> strip_tac
   >> qmatch_goalsub_abbrev_tac`(es,env,st2)`
-  (* >> `state_rel st1 st2` by cheat *)
-  >> ‘state_rel f st1 st2’ by cheat
+  >> ‘state_rel FEMPTY st1 st2’ by (
+    gvs [state_rel_def, Abbr ‘st1’, Abbr ‘st2’, input_condition_def]
+    >> gvs [domain_fromAList]
+    >> conj_tac
+    >- gvs [state_ref_rel_def]
+    >> conj_tac
+    >- (gvs [namespace_rel_def, domain_fromAList]
+        >> conj_tac
+        >- (strip_tac
+            >> strip_tac
+            >> gvs []
+            )
+        )
+    >> rpt strip_tac
+    >> pairarg_tac
+    >> gvs []
+    >> res_tac
+    >> gvs [])
   >> drule evaluate_rewrite_tmc
   >> disch_then (qspec_then `F` drule)
   >> rpt (disch_then drule)
@@ -719,7 +737,7 @@ Proof
   >> strip_tac
   >> gvs []
   >> qexists ‘f'’
-  >> cheat
+  >> gvs []
 QED
 
 Theorem compile_prog_semantics:
