@@ -371,8 +371,15 @@ Proof
     >> gvs []
     >> drule_all env_rel_el_v_rel
     >> strip_tac
-    >> qexists ‘f’
+    >> goal_assum $ drule_at Any
     >> gvs []
+    >> strip_tac
+    >> conj_tac
+    >- (rpt gen_tac >> gvs [rewrite_aux_def])
+    >> rpt gen_tac
+    >> gvs []
+    >> goal_assum $ drule_at Any
+    >> gvs [rewrite_opt_def, evaluate_def]
     >> cheat
    )
   >~ [‘If x1 x2 x3’] >-
@@ -529,7 +536,6 @@ Proof
     >> qexists ‘f''’
     >> gvs [])
   >~ [‘Let xs x2’] >-
-     
    (gvs [evaluate_def]
     >> gvs [CaseEq "prod", PULL_EXISTS]
     >> rename [‘evaluate (xs,env,s) = (rs,u)’]
@@ -618,8 +624,40 @@ Proof
         >> imp_res_tac SUBMAP_TRANS)
     >> goal_assum $ drule_at Any
     >> gvs [])
-  >~ [‘Raise x1’] >-
-   (gvs [evaluate_def] >> cheat)
+  >~ [‘Raise x’] >-
+   (* TODO - do we need to actually split into opt t/f? *)
+   (gvs [evaluate_def]
+    >> gvs [CaseEq "prod", PULL_EXISTS]
+    >> rename [‘evaluate ([x],env,s) = (v,u)’]
+    >> Cases_on ‘opt’ >> gvs[]
+    >- (first_x_assum $ qspec_then ‘T’ mp_tac
+        >> disch_then drule
+        >> disch_then drule
+        >> impl_tac
+        >- (Cases_on ‘v’ >> gvs [])
+        >> gvs []
+        >> strip_tac
+        >> rename [‘evaluate ([x],env2,s') = (v',u')’]
+        >> goal_assum $ drule_at Any
+        >> goal_assum $ drule_at Any
+        >> Cases_on ‘v’
+        >> gvs [rewrite_aux_def, rewrite_opt_def, evaluate_def, opt_res_rel_def]
+        >> imp_res_tac evaluate_SING_IMP
+        >> gvs [])
+    >> first_x_assum $ qspec_then ‘F’ mp_tac
+    >> gvs []
+    >> disch_then drule
+    >> disch_then drule
+    >> impl_tac
+    >- (Cases_on ‘v’ >> gvs [])
+    >> strip_tac
+    >> rename [‘evaluate ([x],env2,s') = (v',u')’]
+    >> goal_assum $ drule_at Any
+    >> goal_assum $ drule_at Any
+    >> Cases_on ‘v’
+    >> gvs [rewrite_aux_def, rewrite_opt_def, evaluate_def, opt_res_rel_def]
+    >> imp_res_tac evaluate_SING_IMP
+    >> gvs [])
   >~ [‘Op op xs’] >-
    (gvs [evaluate_def] >> cheat)
   >~ [‘Tick x’] >-
