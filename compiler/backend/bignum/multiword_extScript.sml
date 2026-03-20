@@ -666,21 +666,34 @@ Proof
   >> simp []
 QED
 
+Theorem b2mw'_nil_REPLICATE:
+  ∀k. b2mw' k [] = REPLICATE k 0w
+Proof
+  Induct >> simp [Once b2mw'_def]
+  >> EVAL_TAC >> simp [MOD_0]
+QED
+
 Theorem b2mw'_n2mw:
   ∀x k.
-    k = (LENGTH (n2mw x :α word list)) ⇒
-    b2mw' k (bits_of_num x) = n2mw x :α word list
+    LENGTH (n2mw x :α word list) ≤ k ⇒
+    b2mw' k (bits_of_num x) =
+    n2mw x ⧺ REPLICATE (k - LENGTH (n2mw x :α word list)) 0w :α word list
 Proof
   recInduct n2mw_ind >> rw []
   >> Cases_on ‘n = 0’ >> fs []
   >-
-   (once_rewrite_tac [b2mw'_def] >> simp []
-    >> once_rewrite_tac [n2mw_def] >> simp [])
+   (once_rewrite_tac [n2mw_def, bits_of_num_def]
+    >> simp [b2mw'_nil_REPLICATE])
   >> once_rewrite_tac [b2mw'_def]
-  >> simp [n2mw_NIL, DROP_dimindex_bits_of_num]
+  >> IF_CASES_TAC >> fs []
+  >> simp [DROP_dimindex_bits_of_num]
   >> fs [LENGTH_n2mw_DIV_dimword]
   >> simp [num_of_bits_TAKE_dimindex]
   >> simp [Once n2mw_def, SimpRHS]
+  >> simp [LENGTH_n2mw_DIV_dimword]
+  >> cong_tac (SOME 1)
+  >> ‘LENGTH (n2mw n) ≠ 0’ by simp [n2mw_NIL]
+  >> simp []
 QED
 
 Theorem mw_sub_n2mw_b2mw':
@@ -703,10 +716,9 @@ Proof
   >- simp [Once n2mw_def]
   >> ‘Num (&n - 1) = n - 1’ by (DEP_REWRITE_TAC [INT_SUB] >> simp [])
   >> pop_assum SUBST_ALL_TAC
-  (* >> DEP_REWRITE_TAC [b2mw'_n2mw] *)
-  (* >> conj_tac >- cheat *)
-  >> simp [mw2n_def, mw2n_n2mw]
-  >> cheat
+  >> DEP_REWRITE_TAC [b2mw'_n2mw]
+  >> conj_tac >- simp [LENGTH_n2mw_LESS_LENGTH_n2mw]
+  >> simp [mw2n_def, mw2n_n2mw, mw2n_APPEND, mw2n_REPLICATE]
 QED
 
 Theorem mw_bits_of_int_b2mw:
