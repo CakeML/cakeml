@@ -70,7 +70,8 @@ Datatype:
      ; limits      : limits
      ; safe_for_space   : bool
      ; peak_heap_length : num
-     ; compile_oracle   : num -> 'c # (num # num # dataLang$prog) list |>
+     ; compile_oracle   : num -> 'c # (num # num # dataLang$prog) list
+     ; ptr_eq_oracle    : num -> bool |>
 End
 
 val s = ``(s:('c,'ffi) dataSem$state)``
@@ -777,6 +778,19 @@ Definition dest_Boolv_def:
   dest_Boolv _ = NONE
 End
 
+Definition is_CodePtr_def:
+  is_CodePtr (CodePtr _) = T ∧
+  is_CodePtr _ = F
+End
+
+Definition do_ptr_eq_def:
+  do_ptr_eq v1 v2 s =
+    if is_CodePtr v1 ∨ is_CodePtr v2 then NONE else
+    if v1 ≠ v2 then SOME (F,s) else
+      SOME (s.ptr_eq_oracle 0,
+            s with ptr_eq_oracle := (λn. s.ptr_eq_oracle (n+1)))
+End
+
 Definition do_app_aux_def:
   do_app_aux op ^vs ^s =
     case (op,vs) of
@@ -885,6 +899,10 @@ Definition do_app_aux_def:
             (if n < LENGTH xs
              then Rval (EL n xs, s)
              else Error)
+         | _ => Error)
+    | (BlockOp PtrEqual,[v1;v2]) =>
+        (case do_ptr_eq v1 v2 s of
+         | SOME (res, s) => Rval (Boolv res, s)
          | _ => Error)
     | (BlockOp (BoolTest test),[v1;v2]) =>
         (case (dest_Boolv v1, dest_Boolv v2) of
@@ -1431,6 +1449,8 @@ Theorem do_app_clock:
 Proof
   rw[ do_app_def
     , do_app_aux_def
+    , do_app_aux_def
+    , do_ptr_eq_def
     , do_space_def
     , consume_space_def
     , do_install_def
@@ -1485,7 +1505,7 @@ Theorem evaluate_ind[allow_rebind] =
 (* observational semantics *)
 
 Definition initial_state_def:
-  initial_state ffi code coracle cc stamps lims ss k = <|
+  initial_state ffi code coracle cc ptr_eq stamps lims ss k = <|
     locals := LN
   ; locals_size := SOME 0
   ; stack := []
@@ -1497,6 +1517,7 @@ Definition initial_state_def:
   ; code := code
   ; compile := cc
   ; compile_oracle := coracle
+  ; ptr_eq_oracle := ptr_eq
   ; ffi := ffi
   ; space := 0
   ; tstamps := if stamps then SOME 0 else NONE
@@ -1508,9 +1529,9 @@ Definition initial_state_def:
 End
 
 Definition semantics_def:
-  semantics init_ffi code coracle cc lims ss start  =
+  semantics init_ffi code coracle cc ptr_eq lims ss start  =
   let p = Call NONE (SOME start) [] NONE in
-  let init = initial_state init_ffi code coracle cc T lims ss in
+  let init = initial_state init_ffi code coracle cc ptr_eq T lims ss in
     if ∃k. case FST(evaluate (p,init k)) of
              | SOME (Rerr e) => e ≠ Rabort Rtimeout_error /\ (!f. e ≠ Rabort(Rffi_error f))
              | NONE => T | _ => F
@@ -1532,10 +1553,10 @@ Definition semantics_def:
 End
 
 Definition data_lang_safe_for_space_def:
-  data_lang_safe_for_space init_ffi code (lims:dataSem$limits) (ss:num num_map) start =
+  data_lang_safe_for_space init_ffi ptr_eq code (lims:dataSem$limits) (ss:num num_map) start =
     !ck.
       let p = Call NONE (SOME start) [] NONE in
-      let init = initial_state init_ffi code ARB ARB T lims ss in
+      let init = initial_state init_ffi code ARB ARB ptr_eq T lims ss in
       let (res,s) = dataSem$evaluate (p,(init ck): (unit,'ffi) dataSem$state) in
         s.safe_for_space
 End

@@ -74,6 +74,7 @@ Datatype:
      | ListAppend        (* appends two lists *)
      | Constant const    (* produces a constant value *)
      | Equal             (* structural equality *)
+     | PtrEqual          (* pointer equality *)
      | EqualConst const_part (* equal to integer/string/word constant *)
      | Build (const_part list)  (* implementation of Constant above *)
 End

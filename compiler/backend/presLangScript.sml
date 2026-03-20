@@ -618,6 +618,7 @@ Definition clos_op_to_display_def:
     | BlockOp ListAppend => String (strlit "ListAppend")
     | BlockOp (Constant c) => Item NONE (strlit "Constant") [const_to_display c]
     | BlockOp Equal => String (strlit "Equal")
+    | BlockOp PtrEqual => String (strlit "PtrEqual")
     | BlockOp (EqualConst c) => Item NONE (strlit "EqualConst") [const_part_to_display c]
     | BlockOp (Build bs) => Item NONE (strlit "Build") (MAP const_part_to_display bs)
     | MemOp Ref => String (strlit "Ref")
