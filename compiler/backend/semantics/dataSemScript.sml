@@ -784,11 +784,10 @@ Definition is_CodePtr_def:
 End
 
 Definition do_ptr_eq_def:
-  do_ptr_eq v1 v2 s =
+  do_ptr_eq v1 v2 (oracle : num -> bool) =
     if is_CodePtr v1 ∨ is_CodePtr v2 then NONE else
-    if v1 ≠ v2 then SOME (F,s) else
-      SOME (s.ptr_eq_oracle 0,
-            s with ptr_eq_oracle := (λn. s.ptr_eq_oracle (n+1)))
+    if v1 ≠ v2 then SOME (F, oracle) else
+      SOME (oracle 0, (λn. oracle (n+1)))
 End
 
 Definition do_app_aux_def:
@@ -901,8 +900,8 @@ Definition do_app_aux_def:
              else Error)
          | _ => Error)
     | (BlockOp PtrEqual,[v1;v2]) =>
-        (case do_ptr_eq v1 v2 s of
-         | SOME (res, s) => Rval (Boolv res, s)
+        (case do_ptr_eq v1 v2 s.ptr_eq_oracle of
+         | SOME (res, rest) => Rval (Boolv res, s with ptr_eq_oracle := rest)
          | _ => Error)
     | (BlockOp (BoolTest test),[v1;v2]) =>
         (case (dest_Boolv v1, dest_Boolv v2) of
@@ -1450,7 +1449,6 @@ Proof
   rw[ do_app_def
     , do_app_aux_def
     , do_app_aux_def
-    , do_ptr_eq_def
     , do_space_def
     , consume_space_def
     , do_install_def
