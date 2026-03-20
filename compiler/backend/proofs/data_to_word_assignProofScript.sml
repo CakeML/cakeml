@@ -4989,7 +4989,7 @@ Proof
           THEN rewrite_tac [LEFT_ADD_DISTRIB]
           THEN rewrite_tac [GSYM th]) >>
        fs [LEFT_SUB_DISTRIB] >>
-       `(12 * SUC (LENGTH in1) + 4 * sp MOD 3) < dimword (:α)` by
+       `(12 * SUC (LENGTH in1) + 4 * (sp MOD 3)) < dimword (:α)` by
         (`sp MOD 3 < 3` by fs []
          \\ qpat_x_assum `memory_rel c t.be _ s.refs s.space t.store t.memory t.mdomain
             ((r1,Word ww)::_)` assume_tac
@@ -5059,7 +5059,7 @@ Proof
        THEN rewrite_tac [LEFT_ADD_DISTRIB]
        THEN rewrite_tac [GSYM th]) >>
     fs [LEFT_SUB_DISTRIB] >>
-    `(12 * SUC (LENGTH in1) + 4 * sp MOD 3) < dimword (:α)` by
+    `(12 * SUC (LENGTH in1) + 4 * (sp MOD 3)) < dimword (:α)` by
      (`sp MOD 3 < 3` by fs []
       \\ qpat_x_assum `memory_rel c t.be _ s.refs s.space t.store t.memory t.mdomain
          ((r1,Word ww)::_)` assume_tac
@@ -5068,7 +5068,7 @@ Proof
       \\ fs [LEFT_ADD_DISTRIB]
       \\ `sp MOD 3 < 3` by fs [] \\ simp []) >>
     fs [ADD_DIV_EQ] \\ fs [X_LE_DIV] >>
-    `(4 * sp MOD 3 + 4) = 4 * (sp MOD 3 + 1)` by simp[] >>
+    `(4 * (sp MOD 3) + 4) = 4 * (sp MOD 3 + 1)` by simp[] >>
     simp  [ADD_DIV_ADD_DIV |> PURE_ONCE_REWRITE_RULE[ADD_SYM]
                           |> PURE_ONCE_REWRITE_RULE[MULT_SYM]] >>
     simp [intLib.COOPER_PROVE ``12 * a DIV 4 = 3 * a``] >>
@@ -5090,7 +5090,7 @@ Proof
     \\ fs [LEFT_SUB_DISTRIB]
     \\ `12 * (sp DIV 3) < 12 * SUC (LENGTH in1)` by
            (fs [LT_MULT_LCANCEL,DIV_LT_X]) \\ fs []
-    \\ `(12 * SUC (LENGTH in1) + 4 * sp MOD 3) < dimword (:α)` by
+    \\ `(12 * SUC (LENGTH in1) + 4 * (sp MOD 3)) < dimword (:α)` by
      (`sp MOD 3 < 3` by fs []
       \\ qpat_x_assum `memory_rel c t.be _ s.refs s.space t.store t.memory t.mdomain
          ((r1,Word ww)::vars)` assume_tac
@@ -11038,7 +11038,7 @@ Proof
       \\ (impl_tac >- simp[Abbr`f`])
       \\ disch_then SUBST_ALL_TAC
       \\ simp[Abbr`d`,Abbr`f`]
-      \\ qmatch_goalsub_abbrev_tac`a * b MOD q`
+      \\ qmatch_goalsub_abbrev_tac`a * (b MOD q)`
       \\ qspecl_then[`a`,`b`,`q`]mp_tac MOD_COMMON_FACTOR
       \\ (impl_tac >- simp[Abbr`a`,Abbr`q`])
       \\ disch_then SUBST_ALL_TAC

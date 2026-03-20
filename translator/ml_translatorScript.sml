@@ -1295,17 +1295,17 @@ QED
 
 Theorem MOD_COMMON_FACTOR_ANY[local]:
   !n p q. 0 < n ∧ 0 < q ==>
-            ((n * p) MOD (n * q) = n * p MOD q) /\
-            ((p * n) MOD (n * q) = n * p MOD q) /\
-            ((n * p) MOD (q * n) = n * p MOD q) /\
-            ((p * n) MOD (q * n) = n * p MOD q)
+            ((n * p) MOD (n * q) = n * (p MOD q)) /\
+            ((p * n) MOD (n * q) = n * (p MOD q)) /\
+            ((n * p) MOD (q * n) = n * (p MOD q)) /\
+            ((p * n) MOD (q * n) = n * (p MOD q))
 Proof
   fs [GSYM MOD_COMMON_FACTOR]
 QED
 
 Theorem Eval_word_add_lemma[local]:
   dimindex (:'a) <= k ==>
-    (2 ** (k − dimindex (:α)) * q MOD dimword (:α)) MOD 2 ** k =
+    (2 ** (k − dimindex (:α)) * (q MOD dimword (:α))) MOD 2 ** k =
     (2 ** (k − dimindex (:α)) * q) MOD 2 ** k
 Proof
   rw [] \\ fs [LESS_EQ_EXISTS]
