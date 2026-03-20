@@ -79,22 +79,22 @@ Proof
 QED
 
 Theorem initial_state_simp[simp]:
-  (initial_state f c co cc ts l ss k).clock = k ∧
-  (initial_state f c co cc ts l ss k).locals = LN ∧
-  (initial_state f c co cc ts l ss k).code = c ∧
-  (initial_state f c co cc ts l ss k).ffi = f ∧
-  (initial_state f c co cc ts l ss k).compile_oracle = co ∧
-  (initial_state f c co cc ts l ss k).compile = cc ∧
-  (initial_state f c co cc ts l ss k).stack = [] ∧
-  (initial_state f c co cc ts l ss k).peak_heap_length = 0
+  (initial_state f c co cc pe ts l ss k).clock = k ∧
+  (initial_state f c co cc pe ts l ss k).locals = LN ∧
+  (initial_state f c co cc pe ts l ss k).code = c ∧
+  (initial_state f c co cc pe ts l ss k).ffi = f ∧
+  (initial_state f c co cc pe ts l ss k).compile_oracle = co ∧
+  (initial_state f c co cc pe ts l ss k).compile = cc ∧
+  (initial_state f c co cc pe ts l ss k).stack = [] ∧
+  (initial_state f c co cc pe ts l ss k).peak_heap_length = 0
 Proof
   srw_tac[][initial_state_def]
 QED
 
 Theorem initial_state_with_simp[simp]:
-   (initial_state f c co cc ts l ss k with clock := k' = initial_state f c co cc ts l ss k') ∧
-   (initial_state f c co cc ts l ss k with stack := [] = initial_state f c co cc ts l ss k) ∧
-   (initial_state f c co cc ts l ss k with locals := LN = initial_state f c co cc ts l ss k)
+   (initial_state f c co cc pe ts l ss k with clock := k' = initial_state f c co cc pe ts l ss k') ∧
+   (initial_state f c co cc pe ts l ss k with stack := [] = initial_state f c co cc pe ts l ss k) ∧
+   (initial_state f c co cc pe ts l ss k with locals := LN = initial_state f c co cc pe ts l ss k)
 Proof
   srw_tac[][initial_state_def]
 QED
@@ -2116,7 +2116,7 @@ Proof
 QED
 
 Theorem semantics_Div_IMP_LPREFIX:
-  semantics ffi prog co cc lim ss start = Diverge l ==> LPREFIX (fromList ffi.io_events) l
+  semantics ffi prog co cc pe lim ss start = Diverge l ==> LPREFIX (fromList ffi.io_events) l
 Proof
   simp[semantics_def]
   \\ IF_CASES_TAC \\ fs[]
@@ -2144,7 +2144,7 @@ Proof
 QED
 
 Theorem semantics_Term_IMP_PREFIX:
-  semantics ffi prog co cc lim ss start = Terminate tt l ==> ffi.io_events ≼ l
+  semantics ffi prog co cc pe lim ss start = Terminate tt l ==> ffi.io_events ≼ l
 Proof
   simp[semantics_def] \\ IF_CASES_TAC \\ fs[]
   \\ DEEP_INTRO_TAC some_intro \\ fs[] \\ rw[]
@@ -2153,10 +2153,10 @@ QED
 
 Theorem Resource_limit_hit_implements_semantics:
   implements {Terminate Resource_limit_hit ffi.io_events}
-       {semantics ffi (fromAList prog) co cc lim ss start}
+       {semantics ffi (fromAList prog) co cc pe lim ss start}
 Proof
   fs [implements_def,extend_with_resource_limit_def]
-  \\ Cases_on `semantics ffi (fromAList prog) co cc lim ss start` \\ fs []
+  \\ Cases_on `semantics ffi (fromAList prog) co cc pe lim ss start` \\ fs []
   \\ imp_res_tac semantics_Div_IMP_LPREFIX \\ fs []
   \\ imp_res_tac semantics_Term_IMP_PREFIX \\ fs []
 QED
@@ -2734,8 +2734,8 @@ Proof
 QED
 
 Theorem semantics_zero_limits:
-  dataSem$semantics ffi code co cc lim ss start =
-  dataSem$semantics ffi code co cc zero_limits LN start
+  dataSem$semantics ffi code co cc pe lim ss start =
+  dataSem$semantics ffi code co cc pe zero_limits LN start
 Proof
   rw[semantics_def,initial_state_def] >>
   fs[Once evaluate_zero_limits_FST, Once evaluate_stack_frame_sizes_FST,
@@ -2880,7 +2880,8 @@ Definition cc_co_only_diff_def:
     s.tstamps = t.tstamps /\
     s.limits = t.limits /\
     s.safe_for_space = t.safe_for_space /\
-    s.peak_heap_length = t.peak_heap_length
+    s.peak_heap_length = t.peak_heap_length /\
+    s.ptr_eq_oracle = t.ptr_eq_oracle
 End
 
 (*fs[] is slower than full_simp_tac(srw_ss())[]*)
@@ -2906,7 +2907,7 @@ Proof
    gvs[]) >>
   ntac 2(
   full_simp_tac(srw_ss())[LET_THM,do_app_aux_def,cc_co_only_diff_def,do_app_def,do_stack_def,list_case_eq,option_case_eq,v_case_eq,
-     bool_case_eq,do_app_def,do_stack_def,do_space_def,
+     bool_case_eq,do_app_def,do_stack_def,do_space_def,do_ptr_eq_def,
      with_fresh_ts_def,bvlSemTheory.ref_case_eq,do_install_def,stack_consumed_def,
      ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,space_consumed_def,
      semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
@@ -3247,4 +3248,3 @@ Proof
   imp_res_tac the_le_IMP_option_le >>
   fs[option_le_max]
 QED
-
