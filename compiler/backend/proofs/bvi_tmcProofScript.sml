@@ -212,13 +212,14 @@ Proof
 QED
 
 Theorem state_rel_dec:
-  ∀n.
+  ∀n f s s'.
     state_rel f s s' ∧
     s.clock = SUC n ∧
     s'.clock = SUC n ⇒
     state_rel f (dec_clock 1 s) (dec_clock 1 s')
 Proof
   rw [] >> gvs [state_rel_def, dec_clock_def]
+  >> cheat
 QED
 
 Theorem aux_strip_if_then:
@@ -282,11 +283,7 @@ Proof
   >~ [‘evaluate ([],_,_)’] >-
    (gvs [evaluate_def])
   >~ [‘evaluate (x::y::xs,_,_)’] >-
-   (gvs [evaluate_def]
-    >> CASE_TAC
-    >> Cases_on ‘q’
-    >> gvs []
-    >> cheat)
+   (cheat)
   >> cheat
 QED
 
@@ -396,20 +393,21 @@ Proof
         >> disch_then drule
         >> Cases_on ‘r1’
         >> gvs []
-        >- (rename [‘evaluate ([x1],env,s) = (Rval v1,s1)’]
-            >> Cases_on ‘HD v1 = Boolv T’
+        >- (imp_res_tac evaluate_SING_IMP
+            >> gvs []
+            >> rename [‘evaluate ([x1],env,s) = (Rval [v1],s1)’]
+            >> Cases_on ‘v1 = Boolv T’
             >> gvs []
             (* Then inductive hypothesis *)
             >- (strip_tac
-                >> rename [‘LIST_REL (v_rel f'') v1 v1'’]
+                >> rename [‘v_rel f'' (Boolv T) v1'’]
                 >> rename [‘evaluate ([x1],env2,s') = (r1',s1')’]
                 >> gvs []
                 >> drule evaluate_pad_env_val
                 >> disch_then $ qspec_then ‘[RefPtr F hole_ptr; Number hole_idx]’ mp_tac
                 >> gvs []
                 >> strip_tac
-                >> sg ‘HD v1' = Boolv T’
-                >- cheat
+                >> ‘v1' = Boolv T’ by (drule $ iffLR v_rel_cases >> gvs [bvlSemTheory.Boolv_def])
                 >> gvs []
                 >> last_x_assum $ qspec_then ‘T’ mp_tac
                 >> disch_then $ drule_at $ Pos $ el 2
@@ -435,17 +433,16 @@ Proof
                 >> gvs [rewrite_opt_def, evaluate_def])
             (* Then inductive hypothesis *) (* TODO - maybe some of this can be factored out *)
             >> strip_tac
-            >> rename [‘LIST_REL (v_rel f'') v1 v1'’]
+            >> rename [‘v_rel f'' v1 v1'’]
             >> rename [‘evaluate ([x1],env2,s') = (r1',s1')’]
             >> gvs []
             >> drule evaluate_pad_env_val
             >> disch_then $ qspec_then ‘[RefPtr F hole_ptr; Number hole_idx]’ mp_tac
             >> gvs []
             >> strip_tac
-            >> Cases_on ‘HD v1 = Boolv F’
+            >> Cases_on ‘v1 = Boolv F’
             >> gvs []
-            >> sg ‘HD v1' = Boolv F’
-            >- cheat
+            >> ‘v1' = Boolv F’ by (drule $ iffLR v_rel_cases >> gvs [bvlSemTheory.Boolv_def])
             >> gvs []
             >> last_x_assum $ qspec_then ‘T’ mp_tac
             >> disch_then $ drule_at $ Pos $ el 2
@@ -472,8 +469,7 @@ Proof
         >> strip_tac
         >> rename [‘evaluate ([x1],env2,s') = (r1',s1')’]
         >> gvs []
-        >> sg ‘e' ≠ Rabort Rtype_error’
-        >- cheat
+        >> ‘e' ≠ Rabort Rtype_error’ by (spose_not_then assume_tac >> gvs [])
         >> drule_all evaluate_pad_env_err
         >> disch_then $ qspec_then ‘[RefPtr F hole_ptr; Number hole_idx]’ mp_tac
         >> gvs []
@@ -485,7 +481,6 @@ Proof
             >> strip_tac
             >> gvs [evaluate_def])
         >> gvs [rewrite_opt_def, evaluate_def, opt_res_rel_def])
-        (* HERE *)
     (* Non opt *)
     (* First inductive hypothesis *)
     >> first_x_assum $ qspec_then ‘F’ mp_tac
@@ -500,26 +495,25 @@ Proof
     >> gvs []
     >> Cases_on ‘r1’
     >> gvs []
-    >- (rename [‘evaluate ([x1],env2,s') = (Rval v1',s1')’] (* single *)
-        >> Cases_on ‘HD a = Boolv T’
+    >- (imp_res_tac evaluate_SING_IMP
+        >> gvs []
+        >> rename [‘v_rel f'' v1 v1'’]
+        >> Cases_on ‘v1 = Boolv T’
         >> gvs []
         (* then inductive hypothesis *)
-        >- (rename [‘LIST_REL (v_rel f'') v1 v1'’]
-            >> first_x_assum $ qspec_then ‘F’ mp_tac
+        >- (first_x_assum $ qspec_then ‘F’ mp_tac
             >> simp []
             >> drule_all env_rel_submap
             >> strip_tac
             >> disch_then drule_all
             >> strip_tac
-            >> sg ‘HD v1' = Boolv T’
-            >- cheat
+            >> ‘v1' = Boolv T’ by (drule $ iffLR v_rel_cases >> gvs [bvlSemTheory.Boolv_def])
             >> gvs []
             >> qexists ‘f'³'’
             >> gvs []
             >> imp_res_tac SUBMAP_TRANS)
         (* else inductive hypothesis *)
-        >> rename [‘LIST_REL (v_rel f'') v1 v1'’]
-        >> Cases_on ‘HD v1 = Boolv F’
+        >> Cases_on ‘v1 = Boolv F’
         >> gvs []
         >> first_x_assum $ qspec_then ‘F’ mp_tac
         >> simp []
@@ -527,8 +521,7 @@ Proof
         >> strip_tac
         >> disch_then drule_all
         >> strip_tac
-        >> sg ‘HD v1' = Boolv F’
-        >- cheat
+        >> ‘v1' = Boolv F’ by (drule $ iffLR v_rel_cases >> gvs [bvlSemTheory.Boolv_def])
         >> gvs []
         >> qexists ‘f'³'’
         >> gvs []
@@ -677,14 +670,6 @@ Proof
    (gvs [evaluate_def] >> cheat)
 QED
 
-Definition ref_ptrs_def:
-  (ref_ptrs []              = ∅) ∧
-  (ref_ptrs (Number _::t)   = ref_ptrs t) ∧
-  (ref_ptrs (Word64 _::t)   = ref_ptrs t) ∧
-  (ref_ptrs (Block _ xs::t) = ref_ptrs xs ∪ ref_ptrs t) ∧
-  (ref_ptrs (RefPtr _ n::t) = {n} ∪ ref_ptrs t)
-End
-
 Theorem evaluate_compile_prog:
    input_condition next prog ∧
    (∀n next cfg prog. co n = ((next,cfg),prog) ⇒ input_condition next prog) ∧
@@ -718,11 +703,13 @@ Proof
     >> conj_tac
     >- gvs [state_ref_rel_def]
     >> conj_tac
-    >- (gvs [namespace_rel_def, domain_fromAList]
+    >- (gvs [namespace_rel_def]
         >> conj_tac
         >- (strip_tac
             >> strip_tac
             >> gvs []
+            >> CASE_TAC
+            >- ()
             )
         )
     >> rpt strip_tac
