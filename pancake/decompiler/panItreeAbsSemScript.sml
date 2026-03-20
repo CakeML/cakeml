@@ -2430,10 +2430,12 @@ Proof
 QED
 
 
-
-val state_update_locals_locals = CONJ (EVAL “(s with locals := a).locals”)
-                                      (EVAL “((s:('a, 'b) state) with locals := a).locals”)
-
+Theorem state_update_locals_locals:
+  (s with locals := a).locals = a ∧ (s with locals := a).locals = a
+Proof
+  EVAL_TAC
+QED
+        
 Theorem empty_locals_with_locals:
   empty_locals s with locals := new_locals = s with locals := new_locals
 Proof
@@ -2500,11 +2502,11 @@ Proof
   rw[]
 QED
 
-
-        
-
-val upds_multi_locals = EVAL “s with <|locals := a; locals := b|>”
-
+Theorem upds_multi_locals:
+  s with <|locals := a; locals := b|> = s with locals := a
+Proof
+  EVAL_TAC
+QED
 
 Theorem itree_bind_result_case_def:
   result_CASE rs v v1 v2 v3 f f1 f2 >>= k =
@@ -2530,13 +2532,17 @@ Proof
   rw[]
 QED
 
+Theorem option_case_same:
+  (case x of NONE => NONE | SOME a => SOME a) = option_CASE x NONE SOME
+Proof
+  EVERY_CASE_TAC \\ gvs[]
+QED
 
-
-        
-val option_case_same = EVAL “case x of NONE => NONE | SOME a => SOME a”
-
-val upds_multi_memory = EVAL “s with <|memory := a; memory := b|>”
-
+Theorem upds_multi_memory:
+  s with <|memory := a; memory := b|> = s with memory := a
+Proof
+  EVAL_TAC
+QED
 
 Theorem itree_bind_ffi_result_CASE_assoc:
   ffi_result_CASE res a b >>= d = case res of
@@ -2552,9 +2558,6 @@ Theorem pair_CASE_same:
 Proof
   Cases_on ‘x’ \\ gvs[]
 QED
-
-
-val itree_bind_ffi_result_CASE_assoc_pair = INST_TYPE [delta |-> mk_prod (“:'f”, “:'e”)] itree_bind_ffi_result_CASE_assoc
 
         
 Theorem itree_semantics_Seq_ret_satisfy_pres:
@@ -3430,26 +3433,294 @@ Proof
   \\ EVERY_CASE_TAC \\ gvs[word_of_val_def]
 QED
 
+
+  
+Theorem itree_semantics_While_with_pre_conj:
+  (∀s. P_loop s ⇒ itree_semantics (p,s) = loop_t s) ⇒
+  ((let
+      valword_w = THE (eval s e)
+    in
+      valword_w = ValWord 0w) ⇒
+   (∃w. eval s e = SOME (ValWord w)) ⇒
+   itree_semantics (While e p,s) = Ret (INR (NONE,s))) ∧
+  ((let
+      valword_w = THE (eval s e)
+    in
+      valword_w ≠ ValWord 0w) ⇒
+   P_loop s ⇒
+   (∃w. eval s e = SOME (ValWord w)) ⇒
+   itree_semantics (While e p,s) =
+   Tau
+   (loop_t s >>=
+           (λa.
+              case a of
+                INL l => Ret (INR (SOME Error,s))
+              | INR (res,s') =>
+                  case res of
+                    NONE => Tau (itree_semantics (While e p,s'))
+                  | SOME Error => Ret (INR (res,s'))
+                  | SOME TimeOut => Ret (INR (res,s'))
+                  | SOME Break => Ret (INR (NONE,s'))
+                  | SOME Continue => Tau (itree_semantics (While e p,s'))
+                  | SOME (Return v6) => Ret (INR (res,s'))
+                  | SOME (Exception v7 v8) => Ret (INR (res,s'))
+                  | SOME (FinalFFI v9) => Ret (INR (res,s')))))
+Proof
+  rpt strip_tac
+  \\ rw[Once itree_semantics_While]
+  \\ gvs[]
+QED
+
+Theorem itree_semantics_If_with_pre_conj:
+  (∀s. P_p s ⇒ itree_semantics (p, s) = p_t s) ⇒
+  (∀s. P_q s ⇒ itree_semantics (q, s) = q_t s) ⇒
+  ((let
+      valword_w = THE (eval s e)
+    in
+      valword_w ≠ ValWord 0w) ⇒
+   P_p s ⇒
+   (∃w. eval s e = SOME (ValWord w)) ⇒
+   itree_semantics (If e p q,s) =
+   Tau
+   (p_t s >>=
+        (λa.
+           Ret
+           (INR
+            (case a of
+               INL l => (SOME Error,s)
+             | INR (res,s') => (res,s')))))) ∧
+  ((let
+      valword_w = THE (eval s e)
+    in
+      valword_w = ValWord 0w) ⇒
+   P_q s ⇒
+   (∃w. eval s e = SOME (ValWord w)) ⇒
+   itree_semantics (If e p q,s) =
+   Tau
+   (q_t s >>=
+        (λa.
+           Ret
+           (INR
+            (case a of
+               INL l => (SOME Error,s)
+             | INR (res,s') => (res,s'))))))
+Proof
+  rpt strip_tac
+  \\ rw[itree_semantics_If]
+  \\ gvs[]
+QED
+
+
+Theorem strong_bisim_upfrom_abs_FUNPOW_Tau_SUC_abs_intro:
+  (∃r. abs r = t ∧ abs' r = t') ⇒
+  strong_bisim_upfrom_abs (abs,abs') (FUNPOW Tau (SUC n) t)
+  (FUNPOW Tau (SUC n) t')
+Proof
+  rpt strip_tac
+  \\ rpt (pop_assum (fn x => rw[GSYM x]))
+  \\ rw[strong_bisim_upfrom_abs_FUNPOW_Tau_SUC_abs]
+QED
+
+Theorem FUNPOW_bind_FUNPOW_Tau_comm:
+  FUNPOW (λx. x >>= k) n (FUNPOW Tau n' t) = FUNPOW Tau n' (FUNPOW (λx. x >>= k) n t)
+Proof
+  Induct_on ‘n’
+  >- rw[FUNPOW]
+  \\ rw[FUNPOW_SUC, GSYM FUNPOW_Tau_bind]
+QED
+
         
-val tree_simp_rules = [mem_stores_def, mem_store_def, pair_case_def, flatten_def, DOMSUB_FEMPTY, DOMSUB_FUPDATE,
-                       FUPDATE_EQ, DOMSUB_FUPDATE_THM, v_case_def, OPTION_BIND_def, word_lab_case_def,
-                       locals_emmpty_locals, empty_locals_with_locals, upds_multi_locals,
-                       state_update_locals_locals, upds_multi_memory, DOMSUB_FEMPTY,
-                       state_fupdcanon, state_accfupds, option_case_ID, FUPDATE_LIST,
-                       bstate_fupdcanon, FOLDR_MAP,FOLDR, option_case_same, bstate_accfupds, result_case_def, con_dif,
-                       neq_1w_0w, asmTheory.word_cmp_def, OPTION_BIND_def, wordLangTheory.word_op_def, pan_op_def, is_valid_value_def,
-                       shape_of_def, size_of_shape_def, FLOOKUP_SIMP, FUPDATE_LIST_THM,
-                       bool_case_ID, bool_case_rev_ID, nb_op_def, eval_simps, size_of_shape_def, shape_of_def,
-                       itree_bind_assoc_tuple, itree_bind_v_case_assoc, itree_bind_option_case_assoc, itree_bind_cond_assoc,
-                       UNCURRY_DEF, set_kvar_def, lookup_kvar_defs, tau_let_assoc, LET_ValWord, ret_satisfy_LET, LET_v_LET_in,
-                       set_kvar_defs, FLOOKUP_SIMP, o_DEF, set_var_defs,
-                       itree_bind_ffi_result_CASE_assoc, itree_bind_let_assoc,
-                       itree_bind_cond_assoc, shape_of_def, size_of_shape_def, pair_CASE_sum_CASE_assoc, pair_CASE_if_assoc,
-                       mem_load_def, word_of_val_def, struct_of_val_def, LET_AND_split, LET_OR_split,
-                       itree_bind_assoc, itree_bind_sum_case_assoc, itree_bind_pair_case_assoc,itree_bind_result_case_def,
-                       ret_satisfy_Tau, ret_satisfy_Ret, ret_satisfy_Vis, pair_CASE_same, sum_CASE_eq_pair, COND_eq_pair,
-                       bstate_fupdfupds,bstate_fupdcanon,bstate_accfupds,bstate_accessors,empty_locals_def, THE_LET_in,
-                       sum_CASE_and, COND_and, OPTION_EQ_AND_IMPL_simp, EXISTS_OR_THM, EXISTS_sum_CASE_THM, EXISTS_COND_THM,
-                       option_case_NONE_F, sum_CASE_same, LET_concrete, exists_LET, word_of_val_LET_in, LET_AND,
-                       val_mem_valword, val_mem_valword_LET, if_then_else_word_simp, COND_ID,
-                       eval_exists_strengthen, ret_satisfy_if]
+Theorem itree_bisim_FUNPOW_Tau_SUC_self_bind_spin:
+  t = FUNPOW Tau (SUC n) (t >>= k) ⇔ t = spin 
+Proof
+  iff_tac
+  >- (rpt strip_tac
+      \\ rw[GSYM wbisim_spin_eq]
+      \\ irule itree_wbisim_coind
+      \\ qexists ‘CURRY {(FUNPOW (λx. x >>= k) n (FUNPOW Tau n' t), spin)| n, n' | T }’
+      \\ reverse $ rw[]
+      >- (qexists ‘(0,0)’
+          \\ rw[FUNPOW]
+         )
+      \\ disj1_tac
+      \\ Cases_on ‘x’
+      \\ gvs[]
+      \\ first_assum (fn x => rw[Once x])
+      \\ rw[GSYM FUNPOW_ADD, GSYM FUNPOW_Tau_bind]
+      \\ ‘(λx. x >>= k) (FUNPOW Tau (r + SUC n) t) = (FUNPOW Tau (r + SUC n) t) >>= k’ by rw[]
+      \\ pop_assum (fn x => PURE_ONCE_REWRITE_TAC[GSYM x])
+      \\ PURE_REWRITE_TAC[GSYM (cj 2 FUNPOW)]
+      \\ rw[FUNPOW_bind_FUNPOW_Tau_comm, GSYM ADD_SUC]
+      \\ rw[Once FUNPOW_SUC, Once spin]
+      \\ qexists ‘(SUC q, n + r)’
+      \\ rw[]
+     )
+  \\ rw[spin_bind]
+  \\ irule EQ_SYM
+  \\ irule $ iffRL FUNPOW_Tau_SUC_cyclic_spin
+  \\ irule EQ_REFL
+QED
+
+Theorem itree_bisim_FUNPOW_Tau_neq_zero_self_bind_spin:
+  n ≠ 0 ⇒ (t = FUNPOW Tau n (t >>= k) ⇔ t = spin)
+Proof
+  rpt strip_tac
+  \\ Cases_on ‘n’ \\ gvs[itree_bisim_FUNPOW_Tau_SUC_self_bind_spin]
+QED
+
+Theorem FUNPOW_Tau_neq_zero_cyclic_spin:
+  n ≠ 0 ⇒ (t = FUNPOW Tau n t ⇔ t = spin)
+Proof
+  rpt strip_tac
+  \\ Cases_on ‘n’ \\ gvs[FUNPOW_Tau_SUC_cyclic_spin]
+QED
+
+
+Theorem FUNPOW_Tau_SUC_self_bind_abs:
+  (∀s. ∃s' n k. t s = FUNPOW Tau (SUC n) (t s' >>= k)) ⇒ t s = spin
+Proof
+  rpt strip_tac
+  \\ rw[GSYM wbisim_spin_eq]
+  \\ irule itree_wbisim_coind
+  \\ qexists ‘CURRY {(FUNPOW Tau n (t s) >>= k , spin) | n, s, k | T }’
+  \\ reverse $ rw[]
+  >- (qexists ‘(0,s,Ret)’
+      \\ rw[]
+     )
+  \\ disj1_tac
+  \\ Cases_on ‘x’ \\ gvs[]
+  \\ Cases_on ‘r’ \\ gvs[]
+  \\ first_assum $ qspec_then ‘q'’ mp_tac
+  \\ rpt strip_tac
+  \\ rw[GSYM ADD_SUC, GSYM FUNPOW_ADD, GSYM FUNPOW_Tau_bind, itree_bind_assoc, Once spin]
+  \\ rw[FUNPOW_SUC]
+  \\ qexists ‘(n + q, s', (λx. k x >>= r'))’
+  \\ rw[]
+QED
+
+Theorem FUNPOW_Tau_SUC_self_bind_abs_with_pre:
+  (∀s. Pre s ⇒ Pre (f s)) ⇒ (∀s. Pre s ⇒ ∃s' n k. t s = FUNPOW Tau (SUC n) (t (f s) >>= k)) ⇒ Pre s ⇒ t s = spin
+Proof
+  rpt strip_tac
+  \\ rw[GSYM wbisim_spin_eq]
+  \\ irule itree_wbisim_coind
+  \\ qexists ‘CURRY {(FUNPOW Tau n (t s) >>= k , spin) | n, s, k | Pre s }’
+  \\ reverse $ rw[]
+  >- (qexists ‘(0,s,Ret)’
+      \\ rw[]
+     )
+  \\ disj1_tac
+  \\ Cases_on ‘x’ \\ gvs[]
+  \\ Cases_on ‘r’ \\ gvs[]
+  \\ first_x_assum $ drule_then assume_tac
+  \\ gvs[]
+  \\ first_x_assum $ drule_then assume_tac
+  \\ rw[GSYM ADD_SUC, GSYM FUNPOW_ADD, GSYM FUNPOW_Tau_bind, itree_bind_assoc, Once spin]
+  \\ rw[FUNPOW_SUC]
+  \\ qexists ‘(n + q, f q', (λx. k x >>= r'))’
+  \\ rw[]
+QED
+
+
+Theorem FUNPOW_Tau_1:
+  FUNPOW Tau (SUC 0) t = Tau t
+Proof
+  rw[]
+QED
+
+        
+Theorem itree_eq_imp_wbisim:
+  t = t' ⇒ t ≈ t'
+Proof
+  rw[itree_wbisim_refl]
+QED
+  
+
+Theorem FUNPOW_Tau_2:
+  FUNPOW Tau (SUC 1) x = Tau (Tau x)
+Proof
+  rw[FUNPOW]
+QED
+
+
+(*
+Theorem funpow_tau_conv_thm:
+   t ≈ FUNPOW Tau (SUC n) x ⇒ t ≈ FUNPOW Tau n x
+Proof
+  gvs[FUNPOW_SUC]
+QED
+*)
+        
+Theorem funpow_tau_conv_thm:
+   t ≈ FUNPOW Tau n x ⇒ t ≈ x
+Proof
+  rpt strip_tac
+  \\ dxrule itree_wbisim_trans
+  \\ rpt strip_tac
+  \\ pop_assum $ qspec_then ‘x’ irule
+  \\ rw[FUNPOW_Tau_wbisim]
+QED
+
+Theorem tau_conv_thm:
+  b ≈ (Tau a) ⇒ b ≈ a
+Proof
+  rw[]
+QED
+        
+Theorem tau_ret_conv_thm:
+  b ≈ (Tau (Ret a)) ⇒ b ≈ (Ret a)
+Proof
+  disch_tac
+  \\ irule itree_wbisim_trans
+  \\ qexists ‘(Tau (Ret a))’ \\ rw[itree_wbisim_refl]
+QED
+
+
+        
+Theorem tau_vis_conv_thm:
+  b ≈ (Tau (Vis e k)) ⇒ b ≈ (Vis e k)
+Proof
+  disch_tac
+  \\ irule itree_wbisim_trans
+  \\ qexists ‘(Tau (Vis e k))’ \\ rw[itree_wbisim_refl]
+QED
+
+Theorem option_CASE_wbisim_cong:
+  (a ≈ b) ∧ (∀x. (f1 x) ≈ (f2 x)) ⇒ ∀x. (option_CASE x a f1) ≈ (option_CASE x b f2)
+Proof
+  rpt strip_tac
+  \\ Cases_on ‘x’ \\ rw[]
+QED
+
+
+Theorem v_CASE_wbisim_cong:
+  (∀x. (f1 x) ≈ (f3 x)) ∧ (∀x. (f2 x) ≈ (f4 x)) ⇒ ∀x. (v_CASE x f1 f2) ≈ (v_CASE x f3 f4)
+Proof
+  rpt strip_tac
+  \\ Cases_on ‘x’ \\ rw[]
+QED
+
+
+Theorem word_lab_case_wbisim_cong:
+  (∀x. (f1 x) ≈ (f2 x)) ⇒ ∀x. (word_lab_CASE x f1) ≈ (word_lab_CASE x f2)
+Proof
+  rpt strip_tac
+  \\ Cases_on ‘x’ \\ rw[]
+QED
+
+
+Theorem COND_wbisim_cong:
+  (a ≈ b) ∧ (c ≈ d) ⇒ (COND x a c) ≈ (COND x b d)
+Proof
+  rpt strip_tac
+  \\ Cases_on ‘x’ \\ rw[]
+QED
+
+
+Theorem sum_CASE_wbisim_cong:
+  (∀x. f1 x ≈ f3 x) ∧ (∀x. f2 x ≈ f4 x) ⇒
+  ∀x. sum_CASE x f1 f2 ≈ sum_CASE x f3 f4
+Proof
+  rpt strip_tac
+  \\ Cases_on ‘x’ \\ gvs[]
+QED
