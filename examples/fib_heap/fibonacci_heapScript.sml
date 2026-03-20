@@ -1607,26 +1607,69 @@ Rewriting the fib_heap_inv!
 
 -----------------------------------------------------------*)
 
+Definition fts_has_inj_def:
+  fts_has_inj fts <=>
+    !k v v'. fts_has k v fts /\ fts_has k v' fts ==> v = v'
+End
 
+Theorem fts_has_inj_append:
+  fts_has_inj (xs ++ ys) <=>
+    fts_has_inj xs /\ fts_has_inj ys /\
+    !k v v'. fts_has k v xs /\ fts_has k v' ys ==> v = v'
+Proof
+  simp[fts_has_inj_def] >>
+  simp[fts_has_append_thm] >>
+  iff_tac
+  >- (rpt strip_tac >> res_tac) >>
+  rpt strip_tac >> res_tac >> simp[]
+QED
+
+Theorem fts_has_inj_append_sym:
+  fts_has_inj (xs ++ ys) <=> fts_has_inj (ys ++ xs)
+Proof
+  simp[fts_has_inj_def,fts_has_inj_append] >>
+  iff_tac >> rpt strip_tac >> res_tac >> simp[]
+QED
 
 Definition fts_all_dist_def:
   (fts_all_dist [] <=> T) /\
-  (fts_all_dist (FibTree k _ ts::fts) <=>
+  (fts_all_dist (FibTree k v ts::fts) <=>
+    fts_has_inj (FibTree k v ts::fts) /\
     (!v. ~fts_has k v ts /\ ~fts_has k v fts) /\
     (fts_all_dist ts) /\ (fts_all_dist fts) /\
     (!k v. fts_has k v ts ==> ~fts_has k v fts))
 End
 
+
 Theorem lemma_other_side:
   !xs ys.
-    (fts_all_dist xs /\ fts_all_dist ys /\
-    (!k v. fts_has k v xs ==> ~fts_has k v ys)) ==>
+    fts_has_inj (xs ++ ys) /\
+    fts_all_dist xs /\ fts_all_dist ys /\
+    (!k v. fts_has k v xs ==> ~fts_has k v ys) ==>
     fts_all_dist (xs ++ ys)
 Proof
   ho_match_mp_tac fts_all_dist_ind >>
   rpt strip_tac >> fs[] >>
   fs[fts_all_dist_def] >>
   rpt strip_tac >>
+  rename [`(FibTree k n l::xs)`] >>
+  >- (
+    fs[fts_has_append_thm]
+    >- res_tac >>
+    qpat_x_assum `fts_has_inj (FibTree k n l::(xs ++ ys))` mp_tac >>
+    pure_rewrite_tac[cj 2 (GSYM APPEND)] >>
+    strip_tac >>
+    fs[fts_has_inj_append] >>
+    fs[Once MONO_NOT_EQ] >>
+    `~fts_has k v (FibTree k n l::xs)` by res_tac >>
+    pop_assum mp_tac >> pure_rewrite_tac[Once fts_has_cases] >>
+    spose_not_then assume_tac >>
+    first_x_assum(qspecl_then [`k`,`n`,`v`] assume_tac) >>
+    rfs[] >>
+    pop_assum mp_tac >>
+    pure_rewrite_tac[Once fts_has_cases] >>
+    simp[]
+    ) >>
   cheat
 QED
 
@@ -1644,18 +1687,22 @@ Proof
   >- (
     fs[fts_all_dist_def] >>
     res_tac >> simp[] >>
-    fs[fts_has_append_thm]
+    fs[fts_has_append_thm] >>
+    qpat_x_assum `fts_has_inj (FibTree k xs xs'::(xs'' ++ ys))` mp_tac >>
+    pure_rewrite_tac[cj 2 (GSYM APPEND)] >>
+    strip_tac >>
+    fs[fts_has_inj_append]
     )
   >- fs[fts_all_dist_def] >>
   fs[fts_all_dist_def] >>
   fs[PULL_FORALL] >>
-  qpat_x_assum `fts_has k' v (FibTree k v0 xs::xs')` mp_tac >>
+  qpat_x_assum `fts_has k' v (FibTree k xs xs'::xs'')` mp_tac >>
   pure_rewrite_tac[Once fts_has_cases] >> simp[] >>
   rpt strip_tac
   >- gvs[fts_has_append_thm]
   >- res_tac >>
   res_tac >>
-  qpat_x_assum `¬fts_has k' v (xs' ++ ys)` mp_tac >>
+  qpat_x_assum `¬fts_has k' v (xs'' ++ ys)` mp_tac >>
   once_rewrite_tac[IMP_F] >>
   once_rewrite_tac[NOT_CLAUSES] >>
   pure_rewrite_tac[fts_has_append_thm] >>
@@ -1788,11 +1835,11 @@ Definition fh_union_def:
 End
 
 Theorem lemma_fh_union_split:
-  all_disjoint (l1 ++ (fh,xs ++ ys) ++ l2) ==>
-  (fh_union (l1 ++ (fh,xs ++ ys) ++ l2) <=>
-  fh_union (l1 ++ (fhx,xs) ++ l3 ++ (fhy,ys) ++ l2))
+  all_disjoint (l1 ++ [(fh,xs ++ ys)] ++ l2) ==>
+  (fh_union (l1 ++ [(fh,xs ++ ys)] ++ l2) =
+  fh_union (l1 ++ [(fhx,xs)] ++ l3 ++ [(fhy,ys)] ++ l2))
 Proof
-
+  cheat
 QED
 
 
@@ -1815,6 +1862,7 @@ Definition fib_heap_inv2_def:
     (!k v. FLOOKUP fh k = SOME v ==> k <> 0w) /\
     (∀k v e. FLOOKUP fh k = SOME (v,e) ==>
       ?m. fts_has k (fill_dnode v e m) fts) /\
+
     (fts_all_dist fts) /\
     (fts_is_min (fts_min fts) fts) /\
     (fts_child_head_is_min fts) /\
