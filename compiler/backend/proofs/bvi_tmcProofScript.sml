@@ -273,6 +273,18 @@ Proof
   rw [] >> gvs [rewrite_aux_def]
 QED
 
+Theorem aux_strip_op:
+  ∀loc loc_opt arity block_tag op xs aux.
+    (rewrite_aux loc loc_opt arity (Op (BlockOp (Cons block_tag)) xs) = SOME aux ⇒
+     ∃aux'.
+       aux = ARB) ∧
+    (rewrite_aux loc loc_opt arity (Op op xs) = SOME aux ⇒
+     ∃aux' i j.
+       aux = Op (MemOp UpdateCons) [Var i; Var j; Op op xs])
+Proof
+  rw [] >> cheat
+QED
+
 Theorem evaluate_pad_env_val:
   ∀xs env s t vs extra.
     evaluate (xs, env, s) = (Rval vs, t) ⇒
@@ -293,6 +305,18 @@ Theorem evaluate_pad_env_err:
     evaluate (xs, env, s) = (Rerr e, t) ∧
     e ≠ Rabort Rtype_error ⇒
     evaluate (xs, env ++ extra, s) = (Rerr e, t)
+Proof
+  cheat
+QED
+
+Theorem ry:
+  ∀f vs vs' s s' t t' op_vals op_vals' op.
+    LIST_REL (v_rel f) vs vs' ∧
+    state_rel f s s' ∧
+    do_app op (REVERSE vs) s = Rval (op_vals,t) ∧
+    do_app op (REVERSE vs') s' = Rval (op_vals',t') ⇒
+    v_rel f op_vals op_vals' ∧
+    state_rel f t t'
 Proof
   cheat
 QED
@@ -625,7 +649,6 @@ Proof
     >> goal_assum $ drule_at Any
     >> gvs [])
   >~ [‘Raise x’] >-
-   (* TODO - do we need to actually split into opt t/f? *)
    (gvs [evaluate_def]
     >> gvs [CaseEq "prod", PULL_EXISTS]
     >> rename [‘evaluate ([x],env,s) = (v,u)’]
@@ -659,7 +682,60 @@ Proof
     >> imp_res_tac evaluate_SING_IMP
     >> gvs [])
   >~ [‘Op op xs’] >-
-   (gvs [evaluate_def] >> cheat)
+     
+   (gvs [evaluate_def]
+    >> gvs [CaseEq "prod", PULL_EXISTS]
+    >> rename [‘evaluate (xs,env,s) = (rs,u)’]
+    >> first_x_assum $ qspec_then ‘F’ mp_tac
+    >> gvs []
+    >> strip_tac
+    >> Cases_on ‘opt’ >> gvs []
+    >- (first_x_assum $ drule_at Any
+        >> drule env_rel_non_opt
+        >> strip_tac
+        >> gvs []
+        >> rename [‘env_rel F f env env2’]
+        >> Cases_on ‘rs’ >> gvs []
+        >- (rename [‘evaluate (xs,env,s) = (Rval vs,u)’]
+            >> disch_then drule
+            >> strip_tac
+            >> gvs []
+            >> rename [‘evaluate (xs,env2,s') = (Rval vs',u')’]
+            >> drule evaluate_pad_env_val
+            >> strip_tac
+            >> gvs []
+            >> Cases_on ‘do_app op (REVERSE vs) u’ >> gvs []
+            >- (gvs [CaseEq "prod", PULL_EXISTS]
+                >> rename [‘do_app op (REVERSE vs) u = Rval (op_vals, t)’]
+                >> Cases_on ‘do_app op (REVERSE vs') u'’ >> gvs []
+                >- (Cases_on ‘a’ >> gvs []
+                    >> rename [‘do_app op (REVERSE vs') u' = Rval (op_vals',t')’]
+                    >> drule_all ry
+                    >> strip_tac
+                    >> goal_assum $ drule_at Any
+                    >> gvs []
+                    >> conj_tac
+                    >- (rpt gen_tac
+                        >> strip_tac
+                        >> drule aux_strip_op
+                                
+                        >> Cases_on ‘op’ >> gvs [] >> pop_assum mp_tac
+                        >~ [‘Op (BlockOp b) xs’] >-
+                         ()
+                        )
+                        )
+               )
+            >> 
+            )
+                            
+        >> strip_tac
+        >> pop_assum drule
+        >> Cases_on ‘rs’ >> gvs []
+        >- (rename [‘evaluate (xs,env,s) = (Rval vs,u)’]
+
+            >> )
+       )
+   )
   >~ [‘Tick x’] >-
    (gvs [evaluate_def]
     >> ‘s'.clock = s.clock’ by gvs [state_rel_def]
