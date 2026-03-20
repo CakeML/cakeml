@@ -3236,7 +3236,7 @@ Proof
   metis_tac[LIST_TYPE_def]
 QED
 
-val res = translate sorted_merge_def;
+val res = translate list_insert_def;
 val res = translate get_inds_rhs_def;
 
 Quote add_cakeml:
@@ -3339,46 +3339,45 @@ Proof
 QED
 
 Quote add_cakeml:
-  fun fold_get_inds_rhs_arr fml ls acc vimap =
+  fun fold_get_inds_rhs_arr fml ls t vimap =
   case ls of
-    [] => (acc, vimap)
+    [] => (t, vimap)
   | ((n,rhs)::xs) =>
     case Array.lookup vimap None n of
-      None => fold_get_inds_rhs_arr fml xs acc vimap
+      None => fold_get_inds_rhs_arr fml xs t vimap
     | Some (Inl (_,(pinds,ninds))) =>
       (case do_reindex_rhs_arr fml rhs pinds ninds of
         (pinds',ninds') =>
       let
-        val rinds = get_inds_rhs rhs pinds' ninds' in
-      fold_get_inds_rhs_arr fml xs
-        (sorted_merge rinds acc)
+        val t' = get_inds_rhs rhs pinds' ninds' t in
+      fold_get_inds_rhs_arr fml xs t'
         (Array.updateResize vimap None n (Some (Inl (None,(pinds',ninds')))))
       end)
-    | Some (Inr earliest) => (acc, vimap)
+    | Some (Inr earliest) => (t, vimap)
 End
 
 Theorem fold_get_inds_rhs_arr_spec:
-  ∀fmlls ls acc vimap fmllsv accv lsv vimaplsv
+  ∀fmlls ls t vimap fmllsv tv lsv vimaplsv
     fmlv vimapv.
   LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv ∧
   subst_raw_TYPE ls lsv ∧
-  (LIST_TYPE NUM) acc accv ∧
+  SPTREE_SPT_TYPE UNIT_TYPE t tv ∧
   LIST_REL (OPTION_TYPE vimapn_TYPE) vimap vimaplsv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "fold_get_inds_rhs_arr" (get_ml_prog_state()))
-    [fmlv; lsv; accv; vimapv]
+    [fmlv; lsv; tv; vimapv]
     (ARRAY fmlv fmllsv * ARRAY vimapv vimaplsv)
     (POSTv v.
         SEP_EXISTS vimapv' vimaplsv'.
         ARRAY fmlv fmllsv * ARRAY vimapv' vimaplsv' *
         &(
           (PAIR_TYPE
-            (LIST_TYPE NUM)
+            (SPTREE_SPT_TYPE UNIT_TYPE)
             (λl v.
               LIST_REL (OPTION_TYPE vimapn_TYPE) l vimaplsv' ∧
               v = vimapv'))
-            (fold_get_inds_rhs fmlls ls acc vimap) v))
+            (fold_get_inds_rhs fmlls ls t vimap) v))
 Proof
   ho_match_mp_tac fold_get_inds_rhs_ind>>
   rw[]>>
@@ -3409,6 +3408,12 @@ Proof
     (xcon>>xsimpl)
 QED
 
+Definition map_fst_def:
+  map_fst ls = MAP FST ls
+End
+
+val res = translate map_fst_def;
+
 Quote add_cakeml:
   fun get_set_indices_arr fml inds s vimap =
   case s of
@@ -3419,24 +3424,34 @@ Quote add_cakeml:
     | Some (Inl (nn,(pinds,ninds))) =>
       (case do_reindex_rhs_arr fml rhs pinds ninds of (pinds,ninds) =>
       let
-        val rinds = get_inds_rhs rhs pinds ninds in
+        val t = get_inds_rhs rhs pinds ninds Ln
+        val rinds = map_fst (toalist t) in
       (rinds, (inds, Array.updateResize vimap None n (Some (Inl (None,(pinds,ninds))))))
       end)
     | Some (Inr (earliest)) =>
       (case restore_arr n fml inds of (pinds,ninds) =>
       let
-        val rinds = get_inds_rhs rhs pinds ninds in
+        val t = get_inds_rhs rhs pinds ninds Ln
+        val rinds = map_fst (toalist t) in
         (rinds, (inds, Array.updateResize vimap None n (Some (Inl (None,(pinds,ninds))))))
       end))
   | _ =>
     if check_get_inds_rhs_arr vimap s then
-      case fold_get_inds_rhs_arr fml s [] vimap of (rinds, vimap') =>
-        (rinds, (inds, vimap'))
+      case fold_get_inds_rhs_arr fml s Ln vimap of
+        (t, vimap') =>
+        (map_fst (toalist t), (inds, vimap'))
     else
       let val rinds = reindex_arr fml inds in
         (rinds, (rinds, vimap))
       end
 End
+
+Theorem spt_Ln[local,simp]:
+  v = Conv (SOME (TypeStamp «Ln» 26)) [] ⇔
+  SPTREE_SPT_TYPE UNIT_TYPE LN v
+Proof
+  EVAL_TAC
+QED
 
 Theorem get_set_indices_arr_spec:
   LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv ∧
@@ -3493,7 +3508,11 @@ Proof
       fs[PAIR_TYPE_def]>>
       xmatch>>
       rpt xlet_autop>>
-      xcon>>xsimpl>>
+      xlet_auto >-
+        (xcon>>xsimpl>>EVAL_TAC)>>
+      gvs[]>>
+      rpt xlet_autop>>
+      xcon>>xsimpl>>fs[map_fst_def]>>
       irule LIST_REL_update_resize>>
       fs[OPTION_TYPE_def,PAIR_TYPE_def,SUM_TYPE_def]))>>
   xmatch>>
@@ -3508,25 +3527,27 @@ Proof
     simp[Abbr`ls`,LIST_TYPE_def,PAIR_TYPE_def])>>
   xif
   >- (
-    xlet_autop>>
+    xlet_auto >-
+      (xcon>>xsimpl>>EVAL_TAC)>>
     pairarg_tac>>gvs[]>>
     xlet `POSTv v.
         SEP_EXISTS vimapv' vimaplsv'.
         ARRAY fmlv fmllsv * ARRAY vimapv' vimaplsv' *
         &(
           (PAIR_TYPE
-            (LIST_TYPE NUM)
+            (SPTREE_SPT_TYPE UNIT_TYPE)
             (λl v.
               LIST_REL (OPTION_TYPE vimapn_TYPE) l vimaplsv' ∧
               v = vimapv'))
-            (fold_get_inds_rhs fmlls ls [] vimap) v)`
+            (fold_get_inds_rhs fmlls ls LN vimap) v)`
     >- (
       xapp>>xsimpl>>
-      simp[LIST_TYPE_def,Abbr`ls`,PAIR_TYPE_def])>>
+      gvs[LIST_TYPE_def,Abbr`ls`,PAIR_TYPE_def])>>
     gvs[PAIR_TYPE_def]>>
     xmatch>>
-    xlet_autop>>
-    xcon>>xsimpl)>>
+    rpt xlet_autop>>
+    xcon>>xsimpl>>
+    fs[map_fst_def])>>
   rpt xlet_autop>>
   xcon>>xsimpl>>
   simp[PAIR_TYPE_def]>>
@@ -5738,12 +5759,6 @@ Proof
     fs[OPTION_TYPE_def,PAIR_TYPE_def,SUM_TYPE_def] )
   >- (xapp>>xsimpl)
 QED
-
-Definition map_fst_def:
-  map_fst ls = MAP FST ls
-End
-
-val res = translate map_fst_def;
 
 Quote add_cakeml:
   fun check_cstep_arr lno cstep fml zeros inds vimap vomap pc =

@@ -84,27 +84,6 @@ Definition sorted_insert_def:
     else y::(sorted_insert x ys))
 End
 
-(* merge two ≥ sorted lists, deduplicating *)
-Definition sorted_merge_def:
-  (sorted_merge [] ys = ys) ∧
-  (sorted_merge xs [] = xs) ∧
-  (sorted_merge ((x:num)::xs) (y::ys) =
-    if x > y then x :: sorted_merge xs (y::ys)
-    else if x = y then x :: sorted_merge xs ys
-    else y :: sorted_merge (x::xs) ys)
-Termination
-  WF_REL_TAC `measure (λp. LENGTH (FST p) + LENGTH (SND p))` >> simp[]
-End
-
-Theorem MEM_sorted_merge[simp]:
-  MEM x (sorted_merge xs ys) ⇔ MEM x xs ∨ MEM x ys
-Proof
-  MAP_EVERY qid_spec_tac [`ys`,`xs`]>>
-  ho_match_mp_tac sorted_merge_ind>>
-  rw[sorted_merge_def]>>
-  metis_tac[]
-QED
-
 Definition check_contradiction_fml_list_def:
   check_contradiction_fml_list b fml n =
   case lookup_core_only_list b fml n of
@@ -1665,10 +1644,11 @@ Definition restore_def:
 End
 
 Definition get_inds_rhs_def:
-  get_inds_rhs rhs pinds ninds =
+  get_inds_rhs rhs pinds ninds t =
   (case rhs of
-    INL b => if b then ninds else pinds
-  | _ => sorted_merge pinds ninds)
+    INL b =>
+      list_insert (if b then ninds else pinds) t
+  | _ => list_insert pinds (list_insert ninds t))
 End
 
 Definition do_reindex_rhs_def:
@@ -1691,17 +1671,16 @@ Definition check_get_inds_rhs_def:
 End
 
 Definition fold_get_inds_rhs_def:
-  (fold_get_inds_rhs fml [] acc vimap = (acc,vimap)) ∧
-  (fold_get_inds_rhs fml ((n,rhs)::xs) acc vimap =
+  (fold_get_inds_rhs fml [] t vimap = (t,vimap)) ∧
+  (fold_get_inds_rhs fml ((n,rhs)::xs) t vimap =
     (case any_el n vimap NONE of
-      NONE => fold_get_inds_rhs fml xs acc vimap
+      NONE => fold_get_inds_rhs fml xs t vimap
     | SOME (INL (_,pinds,ninds)) =>
       let (pinds,ninds) = do_reindex_rhs fml rhs pinds ninds in
-      let rinds = get_inds_rhs rhs pinds ninds in
-      fold_get_inds_rhs fml xs
-        (sorted_merge rinds acc)
+      let t = get_inds_rhs rhs pinds ninds t in
+      fold_get_inds_rhs fml xs t
         (update_resize vimap NONE (SOME (INL (NONE,pinds,ninds))) n)
-    | SOME (INR earliest) => (acc,vimap)))
+    | SOME (INR earliest) => (t,vimap)))
 End
 
 (* (indices in goal, overall indices, vimap) *)
@@ -1714,18 +1693,21 @@ Definition get_set_indices_def:
       NONE => ([], inds, vimap)
     | SOME (INL (_,pinds,ninds)) =>
       let (pinds,ninds) = do_reindex_rhs fml rhs pinds ninds in
-      let rinds = get_inds_rhs rhs pinds ninds in
+      let t = get_inds_rhs rhs pinds ninds LN in
+      let rinds = MAP FST (toAList t) in
       (rinds, inds,
         update_resize vimap NONE (SOME (INL (NONE,pinds,ninds))) n)
     | SOME (INR earliest) =>
       let (pinds,ninds) = restore n fml inds in
-      let rinds = get_inds_rhs rhs pinds ninds in
+      let t = get_inds_rhs rhs pinds ninds LN in
+      let rinds = MAP FST (toAList t) in
       (rinds, inds,
         update_resize vimap NONE (SOME (INL (NONE,pinds,ninds))) n))
   | _ =>
     if check_get_inds_rhs vimap s
     then
-      let (rinds,vimap) = fold_get_inds_rhs fml s [] vimap in
+      let (t,vimap) = fold_get_inds_rhs fml s LN vimap in
+      let rinds = MAP FST (toAList t) in
         (rinds, inds, vimap)
     else
       let rinds = reindex fml inds in
@@ -2736,23 +2718,23 @@ Proof
   EVAL_TAC
 QED
 
-Theorem MEM_get_inds_rhs_pinds_reindex:
+Theorem domain_get_inds_rhs_pinds_reindex:
   any_el i fml NONE = SOME res ∧
   MEM i pinds ∧ rhs ≠ (INL T):bool + num lit ⇒
-  MEM i (get_inds_rhs rhs (reindex fml pinds) ninds)
+  i ∈ domain (get_inds_rhs rhs (reindex fml pinds) ninds t)
 Proof
   rw[get_inds_rhs_def]>>
-  every_case_tac>>gvs[]>>
+  every_case_tac>>gvs[domain_list_insert]>>
   rw[reindex_characterize,MEM_FILTER]
 QED
 
-Theorem MEM_get_inds_rhs_ninds_reindex:
+Theorem domain_get_inds_rhs_ninds_reindex:
   any_el i fml NONE = SOME res ∧
   MEM i ninds ∧ rhs ≠ (INL F):bool + num lit ⇒
-  MEM i (get_inds_rhs rhs pinds (reindex fml ninds))
+  i ∈ domain (get_inds_rhs rhs pinds (reindex fml ninds) t)
 Proof
   rw[get_inds_rhs_def]>>
-  every_case_tac>>gvs[]>>
+  every_case_tac>>gvs[domain_list_insert]>>
   rw[reindex_characterize,MEM_FILTER]
 QED
 
@@ -2767,27 +2749,36 @@ Proof
   gvs[AllCasePreds()]
 QED
 
+Theorem get_inds_rhs_acc:
+  i ∈ domain t ⇒
+  i ∈ domain (get_inds_rhs rhs pinds ninds t)
+Proof
+  rw[get_inds_rhs_def]>>
+  every_case_tac>>gvs[domain_list_insert]
+QED
+
 Theorem fold_get_inds_rhs_acc:
-  ∀fml ls acc vimap rinds vimap' n pinds ninds.
-  fold_get_inds_rhs fml ls acc vimap = (rinds,vimap') ∧
-  MEM i acc ⇒ MEM i rinds
+  ∀fml ls t vimap t' vimap'.
+  fold_get_inds_rhs fml ls t vimap = (t',vimap') ∧
+  i ∈ domain t ⇒ i ∈ domain t'
 Proof
   ho_match_mp_tac fold_get_inds_rhs_ind>>
-  rw[]>>
-  gvs[fold_get_inds_rhs_def,AllCaseEqs(),UNCURRY_EQ]
+  rw[]
+  >- gvs[fold_get_inds_rhs_def]>>
+  gvs[fold_get_inds_rhs_def,AllCaseEqs(),UNCURRY_EQ,get_inds_rhs_acc]
 QED
 
 Theorem fold_get_inds_rhs_MEM:
-  ∀fml ls acc vimap rinds vimap' n pinds ninds.
-  fold_get_inds_rhs fml ls acc vimap = (rinds,vimap') ∧
+  ∀fml ls t vimap t' vimap' n pinds ninds.
+  fold_get_inds_rhs fml ls t vimap = (t',vimap') ∧
   (∀n rhs e.
     MEM (n,rhs) ls ⇒
     any_el n vimap NONE ≠ SOME (INR e)) ∧
   any_el i fml NONE = SOME res ∧
   any_el x vimap NONE = SOME (INL (n,pinds,ninds)) ∧
   MEM (x,rhs) ls ⇒
-  (rhs ≠ INL T ∧ MEM i pinds ⇒ MEM i rinds) ∧
-  (rhs ≠ (INL F):bool + num lit ∧ MEM i ninds ⇒ MEM i rinds)
+  (rhs ≠ INL T ∧ MEM i pinds ⇒ i ∈ domain t') ∧
+  (rhs ≠ (INL F):bool + num lit ∧ MEM i ninds ⇒ i ∈ domain t')
 Proof
   ho_match_mp_tac fold_get_inds_rhs_ind>>
   conj_tac>- rw[]>>
@@ -2803,8 +2794,8 @@ Proof
     rw[]>>
     drule_then irule fold_get_inds_rhs_acc>>
     simp[]>>
-    drule MEM_get_inds_rhs_ninds_reindex>>
-    drule MEM_get_inds_rhs_pinds_reindex>>
+    drule domain_get_inds_rhs_ninds_reindex>>
+    drule domain_get_inds_rhs_pinds_reindex>>
     rw[])>>
   Cases_on`any_el n vimap NONE`>>
   fs[fold_get_inds_rhs_def]>>
@@ -2837,7 +2828,7 @@ Theorem MEM_get_set_indices_mk_subst:
   MEM i rinds
 Proof
   strip_tac>>
-  gvs[get_set_indices_def,AllCaseEqs(),mk_subst_def,UNCURRY_EQ]
+  gvs[get_set_indices_def,AllCaseEqs(),mk_subst_def,UNCURRY_EQ,toAList_domain]
   >- (
     drule IS_SOME_subst_opt>>strip_tac>>
     gvs[subst_fun_def,IS_SOME_EXISTS,vimap_rel_def])
@@ -2852,8 +2843,8 @@ Proof
     first_x_assum drule>>simp[]>>
     disch_then drule>> strip_tac>>
     gvs[AllCasePreds(),do_reindex_rhs_def,AllCaseEqs()]>>
-    drule MEM_get_inds_rhs_ninds_reindex>>
-    drule MEM_get_inds_rhs_pinds_reindex>>
+    drule domain_get_inds_rhs_ninds_reindex>>
+    drule domain_get_inds_rhs_pinds_reindex>>
     rw[])
   >- (
     drule IS_SOME_subst_opt>>strip_tac>>
@@ -2861,18 +2852,19 @@ Proof
     first_x_assum drule>>simp[]>>
     disch_then drule>> strip_tac>> gvs[AllCasePreds()]>>
     gvs[get_inds_rhs_def]>>
-    every_case_tac>>
-    gvs[restore_characterize,MEM_FILTER,IS_SOME_EXISTS,ind_rel_def,PULL_EXISTS,any_el_ALT]>>
+    Cases_on`rhs`>>
+    rw[]>>
+    gvs[restore_characterize,MEM_FILTER,IS_SOME_EXISTS,ind_rel_def,PULL_EXISTS,any_el_ALT,domain_list_insert]>>
     first_x_assum drule_all>>
     rw[cond_pos_def,cond_neg_def,EXISTS_MEM]
     >- (
       first_x_assum (irule_at Any)>>simp[]>>
       intLib.ARITH_TAC)
-    >- (first_x_assum (irule_at Any)>>simp[])>>
-    Cases_on`0 ≤ coeff`
-    >- (DISJ1_TAC >> first_x_assum (irule_at Any)>>simp[])
-    >- (DISJ2_TAC >> first_x_assum (irule_at Any)>>simp[]>>
-      intLib.ARITH_TAC)
+    >- (first_x_assum (irule_at Any)>>simp[])
+    >- (Cases_on`0 ≤ coeff`
+      >- (DISJ1_TAC >> first_x_assum (irule_at Any)>>simp[])
+      >- (DISJ2_TAC >> first_x_assum (irule_at Any)>>simp[]>>
+        intLib.ARITH_TAC))
   )
   >- (
     drule IS_SOME_subst_opt>>strip_tac>>
