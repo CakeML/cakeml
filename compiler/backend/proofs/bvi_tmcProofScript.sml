@@ -582,8 +582,7 @@ Proof
         >> strip_tac
         >> rename [‘evaluate (xs,env2,s') = (r',t')’]
         >> gvs []
-        >> sg ‘e' ≠ Rabort Rtype_error’
-        >- cheat
+        >> ‘e' ≠ Rabort Rtype_error’ by (spose_not_then assume_tac >> gvs [])
         >> drule_all evaluate_pad_env_err
         >> strip_tac
         >> gvs []
