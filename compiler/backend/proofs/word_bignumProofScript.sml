@@ -353,14 +353,15 @@ Proof
   \\ rw []
 QED
 
+Theorem sort_singleton[local] =
+    sort_PERM |> Q.SPECL [`R`, `[x]`]
+        |> SIMP_RULE std_ss [sortingTheory.PERM_SING]
+
 Theorem env_to_list_insert_0_LN[local]:
     env_to_list (insert 0 ret_val LN) p = ([0,ret_val],(\n. p (n+1)))
 Proof
   fs [env_to_list_def,toAList_def,Once insert_def,foldi_def]
-  \\ fs [sort_def,
-         mergesortTheory.mergesort_tail_def,
-         Once $ mergesortTheory.mergesortN_tail_def
-        ]
+  \\ simp [sort_singleton]
   \\ fs [list_rearrange_def] \\ rw []
   \\ fs [BIJ_DEF,EVAL ``count 1``,INJ_DEF,SURJ_DEF]
 QED

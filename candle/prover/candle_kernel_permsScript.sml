@@ -133,10 +133,10 @@ Proof
   \\ rw[]
 QED
 
-Theorem perms_ok_sort_v[simp]:
-  perms_ok ps ListProg$sort_v
+Theorem perms_ok_mergesort_v[simp]:
+  perms_ok ps ListProg$mergesort_v
 Proof
-  rw[perms_ok_def, ListProgTheory.sort_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  rw[perms_ok_def, ListProgTheory.mergesort_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
   \\ pop_assum mp_tac \\ eval_nsLookup_tac
   \\ rw[]
 QED
