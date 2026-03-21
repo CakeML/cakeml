@@ -6,7 +6,7 @@ structure ml_progLib :> ml_progLib =
 struct
 
 open preamble;
-open ml_progTheory astSyntax packLib alist_treeLib comparisonTheory;
+open ml_progTheory astSyntax packLib alist_tree2Lib comparisonTheory;
 local open mlstringSyntax in end;
 
 fun allowing_rebind f = Feedback.trace ("Theory.allow_rebinds", 1) f
@@ -34,7 +34,7 @@ local
 
 val nsLookup_repr_set = let
     val irrefl_thm = MATCH_MP good_cmp_Less_irrefl_trans mlstringTheory.good_cmp_compare
-  in alist_treeLib.mk_alist_reprs irrefl_thm EVAL
+  in alist_tree2Lib.mk_alist_reprs irrefl_thm EVAL
     str_dest (list_compare Int.compare)
   end
 
@@ -107,8 +107,9 @@ val nsLookup_conv_arg1_xs = [boolSyntax.conjunction, boolSyntax.disjunction,
 fun nsLookup_arg1_conv conv tm = let
     val (f, xs) = strip_comb tm
     val _ = exists (same_const f) nsLookup_conv_arg1_xs orelse raise UNCHANGED
-  in if length xs > 1 then RATOR_CONV (nsLookup_arg1_conv conv) tm
-    else if length xs = 1 then RAND_CONV conv tm
+    val len = length xs
+  in if len > 1 then RATOR_CONV (nsLookup_arg1_conv conv) tm
+    else if len = 1 then RAND_CONV conv tm
     else raise UNCHANGED
   end
 
@@ -121,9 +122,10 @@ val nsLookup_rewrs = List.concat (map BODY_CONJUNCTS
         nsLookup_Short_Bind, nsLookup_Mod1_Bind, nsLookup_merge_env_eqs,
         nsLookup_empty_eqs, alistTheory.ALOOKUP_def])
 
+val nsLookup_rewrs_conv = GEN_REWRITE_CONV I Rewrite.empty_rewrites nsLookup_rewrs
+
 fun nsLookup_conv tm = REPEATC (BETA_CONV ORELSEC FIRST_CONV
-  (map REWR_CONV nsLookup_rewrs
-    @ map (RATOR_CONV o REWR_CONV) nsLookup_rewrs
+   ([nsLookup_rewrs_conv,RATOR_CONV nsLookup_rewrs_conv]
     @ map QCHANGED_CONV [nsLookup_arg1_conv nsLookup_conv,
         nsLookup_pf_conv])) tm
 
@@ -273,24 +275,32 @@ fun let_v_abbrev nm conv op_nm (th, ML_code (ss, envs, vs, ml_th)) = let
 (*
 val tm = ``!n. n = 5 ==> n < 8``
 *)
+local
+val conv1 = REWR_CONV UNWIND_FORALL_THM1
+val conv2 = REWR_CONV UNWIND_FORALL_THM2
+in
 fun unwind_forall_conv tm =
   let
     val (v,_) = dest_forall tm
   in
     (QUANT_CONV (RAND_CONV (UNBETA_CONV v))
-     THENC (REWR_CONV UNWIND_FORALL_THM1 ORELSEC
-            REWR_CONV UNWIND_FORALL_THM2)
+     THENC (conv1 ORELSEC conv2)
      THENC BETA_CONV) tm
   end
+end
 
+local
+val conv1 = REWR_CONV SOME_11
+in
 fun forall_nsLookup_upd nm (th,x) =
   (CONV_RULE
     (QUANT_CONV
       ((RATOR_CONV o RAND_CONV o RATOR_CONV o RAND_CONV) (nsLookup_conv THENC EVAL)
-       THENC (RATOR_CONV o RAND_CONV) (REWR_CONV SOME_11))
+       THENC (RATOR_CONV o RAND_CONV) (conv1))
      THENC unwind_forall_conv) th,
    x) handle HOL_ERR _ =>
   failwith "forall_nsLookup_upd: nsLookup failed to produce SOME"
+end
 
 fun solve_ml_imp f nm (th, ML_code code) = let
     val msg = "solve_ml_imp: " ^ nm ^ ": not imp"
