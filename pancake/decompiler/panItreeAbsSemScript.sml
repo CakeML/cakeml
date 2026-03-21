@@ -3100,11 +3100,11 @@ Theorem eval_eq_SOME_strip_eval:
   ((∃w. eval s (Load One addr) = SOME (ValWord w)) ⇔
      (∃wa. eval s addr = SOME (ValWord wa)) ∧ (let wa = word_of_val (THE (eval s addr)) in wa ∈ s.memaddrs)) ∧
   ((∃w. eval s (Load32 addr) = SOME (ValWord w)) ⇔
-     (∃wa. eval s addr = SOME (ValWord wa) ∧
+     ((∃wa. eval s addr = SOME (ValWord wa)) ∧
            (let wa = word_of_val (THE (eval s addr)) in aligned 2 wa ∧ (∃vb. s.memory (byte_align wa) = Word vb)
                                                         ∧ byte_align wa ∈ s.memaddrs))) ∧
   ((∃w. eval s (LoadByte addr) = SOME (ValWord w)) ⇔
-     (∃wa. eval s addr = SOME (ValWord wa) ∧
+     ((∃wa. eval s addr = SOME (ValWord wa)) ∧
               (let wa = word_of_val (THE (eval s addr)) in (∃vb. s.memory (byte_align wa) = Word vb) ∧ byte_align wa ∈ s.memaddrs))) ∧
   ((∃w. eval s (Op Sub [exp1; exp2]) = SOME (ValWord w)) ⇔
      ((∃v1. eval s exp1 = SOME (ValWord v1)) ∧ (∃v2. eval s exp2 = SOME (ValWord v2)))) ∧
@@ -3723,4 +3723,12 @@ Theorem sum_CASE_wbisim_cong:
 Proof
   rpt strip_tac
   \\ Cases_on ‘x’ \\ gvs[]
+QED
+
+
+Theorem word_lab_exists_word:
+  ∃wv. w = Word wv
+Proof
+  Cases_on ‘w’
+  \\ rw[]
 QED
