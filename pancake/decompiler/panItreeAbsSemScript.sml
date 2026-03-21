@@ -3732,3 +3732,30 @@ Proof
   Cases_on ‘w’
   \\ rw[]
 QED
+
+
+
+(* Filter function out *)
+Definition is_func_def:
+  is_func (Function _) = T ∧
+  is_func _ = F
+End
+
+Definition dest_func_def:
+  dest_func (Function f) = f ∧
+  dest_func _ = ARB
+End
+
+
+
+Definition file_code_def:
+  file_code fundecs = FEMPTY |++ (MAP (λx. (x.name, (x.params, del_annot x.body))) (fundecs))
+End
+
+Definition funcname_bodies_def:
+  funcname_bodies fundecs = MAP (λx. (x.name, del_annot x.body)) fundecs
+End
+
+Definition funcname_params_list_def:
+  funcname_params_list fundecs = MAP (λx. (x.name, (x.params, del_annot x.body))) fundecs
+End

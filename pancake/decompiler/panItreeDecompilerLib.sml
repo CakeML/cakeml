@@ -8,6 +8,25 @@ open itreeTauTheory panLangTheory panSemTheory pan_itreeSemTheory pan_itreeProps
      panItreeAbsSemTheory alignmentTheory wordLangTheory ffiTheory miscTheory
 
 
+
+(* Extension of itreeTauTheory *)
+val _ = monadsyntax.enable_monadsyntax();
+val _ = declare_monad("itree", {unit = “Ret”, bind = “itree_bind”,
+                      ignorebind = NONE,
+                      choice = NONE,
+                      fail = NONE,
+                      guard = NONE});
+val _ = enable_monad "itree";
+
+(* Unicode operator overloads *)
+val _ = temp_set_fixity "≈" (Infixl 500);
+Overload "≈" = “itree_wbisim”;
+val _ = temp_set_fixity ">>=" (Infixl 500);
+Overload ">>=" = “itree_bind”;
+
+Overload "case" = “itree_CASE”;
+
+
         
 val tree_simp_rules = [mem_stores_def, mem_store_def, pair_case_def, flatten_def, DOMSUB_FEMPTY, DOMSUB_FUPDATE,
                        FUPDATE_EQ, DOMSUB_FUPDATE_THM, v_case_def, OPTION_BIND_def, word_lab_case_def,
