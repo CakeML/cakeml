@@ -1893,6 +1893,31 @@ Proof
   \\ fs[spin]
 QED
 
+Theorem ret_satisfy_impl_bind_impl:
+  ret_satisfy P t ⇒
+  (∀r. P r ⇒ ret_satisfy Q (k r)) ⇒
+  ret_satisfy Q (t >>= k)
+Proof
+  rpt strip_tac
+  \\ irule ret_satisfy_coind
+  \\ qexists ‘λt. ret_satisfy Q t ∨ (∃t'. t = t' >>= k ∧ ret_satisfy P t')’
+  \\ rw[]
+  >- metis_tac[]
+  >- (pop_assum $ assume_tac o SRULE[Once ret_satisfy_cases]
+      \\ gvs[]
+     )
+  \\ pop_assum $ assume_tac o SRULE[Once ret_satisfy_cases]
+  \\ gvs[]
+  >- (first_x_assum $ qspec_then ‘v’ assume_tac
+      \\ gvs[]
+      \\ pop_assum $ assume_tac o SRULE[Once ret_satisfy_cases]
+      \\ gvs[]
+     )
+  >- metis_tac[]
+  \\ metis_tac[]
+QED
+
+
 CoInductive event_satisfy:
   (event_satisfy P (Ret v)) ∧
   (event_satisfy P t ⇒ event_satisfy P (Tau t)) ∧
