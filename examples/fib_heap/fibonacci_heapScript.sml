@@ -1726,13 +1726,12 @@ End
 Theorem fts_head_is_min_append_thm:
   !xs ys.
     fts_min xs <=+ fts_min ys /\
-    fts_head_is_min xs /\ fts_head_is_min ys
-    ==> fts_head_is_min(xs ++ ys)
+    fts_head_is_min xs /\ fts_head_is_min ys ==>
+    fts_head_is_min(xs ++ ys)
 Proof
-  Cases_on `xs`
-  >- simp[fts_head_is_min_def] >>
-  Cases_on `ys`
-  >- simp[fts_head_is_min_def] >>
+  rpt strip_tac >>
+  Cases_on `xs` >> simp[fts_min_def,fts_head_is_min_def] >>
+  Cases_on `ys` >> simp[fts_min_def,fts_head_is_min_def] >>
   Cases_on `h` >>
   Cases_on `h'` >>
   rpt strip_tac >>
@@ -1745,7 +1744,6 @@ Proof
   dxrule_all WORD_LOWER_EQ_TRANS >>
   simp[]
 QED
-
 
 
 Definition fts_child_head_is_min_def:
@@ -1781,16 +1779,13 @@ QED
 Definition fib_heap_inv_strong_def:
   fib_heap_inv_strong fh (fts: ('a word, 'a node_data) fts) ⇔
     (!k v. FLOOKUP fh k = SOME v ==> k <> 0w) /\
-    (!k v e. FLOOKUP fh k = SOME (v,e) ==>
+    (!k v e. FLOOKUP fh k = SOME (v,e) <=>
       ?m. fts_has k (fill_dnode v e m) fts) /\
     fts_is_min (fts_min fts) fts /\
-    fts_all_dist fts /\
-    fib_heap_shape_ok fts /\
-    every_fts fts_head_is_min fts
+    every_fts fts_head_is_min fts /\
+    fib_heap_shape_ok fts
+    (* fts_all_dist fts /\ *)
 End
-
-
-
 
 
 Definition all_disjoint_def:
@@ -1826,6 +1821,31 @@ Proof
   pairarg_tac >> gvs[]
 QED
 
+Theorem lemma_every_true:
+  !list. EVERY (\(x,y). T) list = T
+Proof
+ Induct >> fs[EVERY_DEF]
+QED
+
+
+Theorem all_disjoint_split_thm:
+  !fh xs ys rest.
+  all_disjoint ((fh,xs ++ ys)::rest) <=>
+  ?fhx fhy. all_disjoint ((fhx,xs)::(fhy,ys)::rest) /\ fh = FUNION fhx fhy
+Proof
+  rpt strip_tac >>
+  iff_tac >> strip_tac
+  >- (
+    fs[all_disjoint_def] >>
+    qexistsl [`fh`,`FEMPTY`] >> fs[] >>
+    simp[lemma_every_true]
+  ) >>
+  fs[all_disjoint_def] >>
+  fs[EVERY_MEM] >>
+  rpt strip_tac >>
+  res_tac >>
+  pairarg_tac >> fs[]
+QED
 
 
 
@@ -1835,12 +1855,16 @@ Definition fh_union_def:
     FUNION fh (fh_union rest))
 End
 
-Theorem lemma_fh_union_split:
-  all_disjoint (l1 ++ [(fh,xs ++ ys)] ++ l2) ==>
-  (fh_union (l1 ++ [(fh,xs ++ ys)] ++ l2) =
-  fh_union (l1 ++ [(fhx,xs)] ++ l3 ++ [(fhy,ys)] ++ l2))
+Theorem fh_union_append_thm:
+  !xs ys.
+  fh_union (xs ++ ys) =
+    FUNION (fh_union xs) (fh_union ys)
 Proof
-  cheat
+  ho_match_mp_tac fh_union_ind >> fs[] >>
+  rpt strip_tac
+  >- simp[fh_union_def] >>
+  simp[fh_union_def] >>
+  simp[FUNION_ASSOC]
 QED
 
 
@@ -1852,6 +1876,20 @@ Definition fib_heap_inv_union_def:
     (fh = fh_union fh_fts)
 End
 
+
+
+Theorem fib_heap_inv_union_append_thm:
+  !fh xs ys.
+    fib_heap_inv_union fh (xs ++ ys) <=>
+    ?fhx fhy. fib_heap_inv_union fhx xs /\ fib_heap_inv_union fhy ys /\
+    all_disjoint (xs ++ ys) /\
+    (fh = fh_union (xs ++ ys))
+Proof
+  rpt strip_tac >>
+  fs[fib_heap_inv_union_def] >>
+  iff_tac >> rpt strip_tac >> fs[] >>
+  fs[all_disjoint_append_thm]
+QED
 
 
 
@@ -1886,12 +1924,13 @@ End
 
 
 
-Theorem lemma_fib_heap_union_split:
-  fib_heap_inv_union fh ((fh_xy,xs ++ ys)::rest) ==>
-    ?fhx fhy. fib_heap_inv_union fh ((fhx,xs)::(fhy,ys)::rest)
+Theorem lemma_fib_heap_union_split_last:
+  fib_heap_inv_union fh ((fh_xy,xs ++ [y])::rest) ==>
+    ?fhx fhy. fib_heap_inv_union fh ((fhx,xs)::(fhy,[y])::rest)
 Proof
   fs[fib_heap_inv_union_def] >>
   rpt strip_tac >>
+  fs[all_disjoint_def]
   cheat
 QED
 
