@@ -58,14 +58,15 @@ local val comp_quotation = `
     case p of
     | Halt r => Halt (find_name f r)
     | Raise r => Raise (find_name f r)
+    | Break n => Break n
+    | Continue n => Continue n
     | Return r => Return (find_name f r)
     | Inst i => Inst (inst_find_name f i)
     | LocValue i l1 l2 => LocValue (find_name f i) l1 l2
     | Seq p1 p2 => Seq (comp f p1) (comp f p2)
     | If c r ri p1 p2 =>
         If c (find_name f r) (ri_find_name f ri) (comp f p1) (comp f p2)
-    | While c r ri p1 =>
-        While c (find_name f r) (ri_find_name f ri) (comp f p1)
+    | Loop p1 => Loop (comp f p1)
     | Call ret dest exc =>
         Call (case ret of
               | NONE => NONE

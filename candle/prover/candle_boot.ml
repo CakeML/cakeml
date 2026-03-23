@@ -163,7 +163,7 @@ module Filename = struct
   let dirSep = "/";;
   let isRelative fname =
     try String.sub fname 0 <> '/'
-    with Subscript -> True;;
+    with Subscript -> true;;
   let concat dname fname =
     if dname = currentDir then fname
     else String.concat [dname; dirSep; fname];;
@@ -262,8 +262,8 @@ let trimRight str =
 let isFile fname =
   try let ins = Text_io.openIn fname in
       Text_io.closeIn ins;
-      True
-  with Text_io.Bad_file_name -> False
+      true
+  with Text_io.Bad_file_name -> false
 ;;
 
 (* ------------------------------------------------------------------------- *
@@ -532,7 +532,7 @@ let (input1 : (unit -> char option) ref) =
 
 let prompt1 = ref "# ";;
 let prompt2 = ref "  ";;
-let userInput = ref True;;
+let userInput = ref true;;
 
 let unquote = ref (fun (s: string) -> s);;
 
@@ -683,7 +683,7 @@ let () =
                         if List.null lines then scan level else
                           begin
                             pushLoad fname;
-                            userInput := False;
+                            userInput := false;
                             scan_lines lines;
                             scan level
                           end
@@ -709,7 +709,7 @@ let () =
             (match popLoad () with
              | Some (fname, rest) -> (
                print ("- Finished loading " ^ fname ^ "\n");
-               if List.null rest then userInput := True)
+               if List.null rest then userInput := true)
              | None -> failwith "candle_boot.ml: scan - should be unreachable");
             scan level
         | Some tok ->
@@ -737,10 +737,10 @@ let () =
     try checkError ();
         match scan 0 with
         | None ->
-            Repl.isEOF := True;
+            Repl.isEOF := true;
             Repl.nextString := ""
         | Some ts ->
-            Repl.isEOF := False;
+            Repl.isEOF := false;
             Repl.nextString :=
               String.concat
                 (List.map (Lexer.string_of_token (Some (!unquote))) ts)
@@ -750,7 +750,7 @@ let () =
       Buffer.flush output_buffer;
       clearLoadStack ();
       Repl.nextString := "";
-      userInput := True in
+      userInput := true in
   Repl.readNextString := (fun () ->
     print (!prompt1);
     next ();

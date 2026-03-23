@@ -257,7 +257,7 @@ Proof
   >- (`LOG 16 N = 0` by simp[logrootTheory.LOG_EQ_0] >>
       simp[Abbr`s`, LASTN_def, HEX_UNHEX, toUpper_def] >>
       simp[Abbr`N`] >> fs[s2n_def, l2n_def] >>
-      rename1`16 * UNHEX c1 MOD 16 + UNHEX c2 MOD 16 < 16` >>
+      rename1`16 * (UNHEX c1 MOD 16) + UNHEX c2 MOD 16 < 16` >>
       `UNHEX c1 MOD 16 = 0` by simp[] >>
       `UNHEX c1 < 16` by simp[UNHEX_lt16] >>
       `UNHEX c1 = 0` by intLib.ARITH_TAC >>

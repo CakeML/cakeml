@@ -1280,334 +1280,278 @@ val goal = “
      ∀r s'.
       evaluate (p, s) = (r, s') ⇒
       s'.clock = s.clock”
-local
-  val ind_thm = evaluate_ind |> ISPEC goal |> CONV_RULE (DEPTH_CONV PAIRED_BETA_CONV)
-  val ind_goals = ind_thm |> concl |> dest_imp |> fst |> helperLib.list_dest dest_conj
-in
-  fun get_goal s = first (can (find_term (can (match_term (Term [QUOTE s]))))) ind_goals
-  fun compile_correct_tm () = ind_thm |> concl |> rand
-  fun the_ind_thm () = ind_thm
-end;
+val ind_thm = evaluate_ind |> ISPEC goal |> CONV_RULE (DEPTH_CONV PAIRED_BETA_CONV);
+val ind_goals = ind_thm |> concl |> dest_imp |> fst |> helperLib.list_dest dest_conj;
 
-Theorem evaluate_Skip_const:
-  ^(get_goal "Skip")
+Theorem evaluate_clock_const:
+  ^(let fun sel s = first (can (find_term (can (match_term (Term [QUOTE s]))))) ind_goals
+    in list_mk_conj (map sel
+     ["Skip", "Alloc", "StoreConsts", "Move", "Inst", "Assign",
+      "Get", "Set", "OpCurrHeap", "Store", "Return", "Raise",
+      "LocValue", "Install", "CodeBufferWrite", "DataBufferWrite",
+      "FFI", "ShareInst"]) end)
 Proof
+  rpt conj_tac
+  >~ [`Skip`] >- suspend "Skip"
+  >~ [`Alloc`] >- suspend "Alloc"
+  >~ [`StoreConsts`] >- suspend "StoreConsts"
+  >~ [`Move`] >- suspend "Move"
+  >~ [`Inst`] >- suspend "Inst"
+  >~ [`Assign`] >- suspend "Assign"
+  >~ [`Get`] >- suspend "Get"
+  >~ [`Set`] >- suspend "Set"
+  >~ [`OpCurrHeap`] >- suspend "OpCurrHeap"
+  >~ [`Store`] >- suspend "Store"
+  >~ [`Return`] >- suspend "Return"
+  >~ [`Raise`] >- suspend "Raise"
+  >~ [`LocValue`] >- suspend "LocValue"
+  >~ [`Install`] >- suspend "Install"
+  >~ [`CodeBufferWrite`] >- suspend "CodeBufferWrite"
+  >~ [`DataBufferWrite`] >- suspend "DataBufferWrite"
+  >~ [`FFI`] >- suspend "FFI"
+  >~ [`ShareInst`] >- suspend "ShareInst"
+QED
+
+
+Resume evaluate_clock_const[Skip]:
   gvs[evaluate_def]
 QED
 
-Theorem evaluate_Alloc_const:
-  ^(get_goal "Alloc")
-Proof
+Resume evaluate_clock_const[Alloc]:
   gvs[evaluate_def] >> rpt gen_tac >>
   rpt (CASE_ONE >> gvs[]) >>
   rpt strip_tac >> drule alloc_const >> gvs[]
 QED
 
-Theorem evaluate_StoreConsts_const:
-  ^(get_goal "StoreConsts")
-Proof
+Resume evaluate_clock_const[StoreConsts]:
   gvs[evaluate_def] >> rpt gen_tac >>
   rpt (CASE_ONE >> gvs[]) >>
   rpt strip_tac >> gvs[]
 QED
 
-Theorem evaluate_Move_const:
-  ^(get_goal "Move")
-Proof
+Resume evaluate_clock_const[Move]:
   gvs[evaluate_def] >> rpt gen_tac >>
   rpt (CASE_ONE >> gvs[]) >>
   rpt strip_tac >> gvs[]
 QED
 
-Theorem evaluate_Inst_const:
-  ^(get_goal "Inst")
-Proof
+Resume evaluate_clock_const[Inst]:
   gvs[evaluate_def] >> rpt gen_tac >>
   rpt (CASE_ONE >> gvs[]) >>
   rpt strip_tac >> drule inst_const >> gvs[]
 QED
 
-Theorem evaluate_Assign_const:
-  ^(get_goal "Assign")
-Proof
+Resume evaluate_clock_const[Assign]:
   gvs[evaluate_def] >> rpt gen_tac >>
   rpt (CASE_ONE >> gvs[]) >>
   rpt strip_tac >> gvs[]
 QED
 
-Theorem evaluate_Get_const:
-  ^(get_goal "Get")
-Proof
+Resume evaluate_clock_const[Get]:
   gvs[evaluate_def] >> rpt gen_tac >>
   rpt (CASE_ONE >> gvs[]) >>
   rpt strip_tac >> gvs[]
 QED
 
-Theorem evaluate_Set_const:
-  ^(get_goal "Set")
-Proof
+Resume evaluate_clock_const[Set]:
   gvs[evaluate_def] >> rpt gen_tac >>
   rpt (CASE_ONE >> gvs[]) >>
   rpt strip_tac >> gvs[]
 QED
 
-Theorem evaluate_OpCurrHeap_const:
-  ^(get_goal "OpCurrHeap")
-Proof
+Resume evaluate_clock_const[OpCurrHeap]:
   gvs[evaluate_def] >> rpt gen_tac >>
   rpt (CASE_ONE >> gvs[]) >>
   rpt strip_tac >> gvs[]
 QED
 
-Theorem evaluate_Store_const:
-  ^(get_goal "Store")
-Proof
+Resume evaluate_clock_const[Store]:
   gvs[evaluate_def] >> rpt gen_tac >>
   rpt (CASE_ONE >> gvs[]) >>
   rpt strip_tac >> drule mem_store_const >> gvs[]
 QED
 
-Theorem evaluate_Return_const:
-  ^(get_goal "Return")
-Proof
+Resume evaluate_clock_const[Return]:
   gvs[evaluate_def] >> rpt gen_tac >>
   rpt (CASE_ONE >> gvs[]) >>
   rpt strip_tac >> gvs[]
 QED
 
-Theorem evaluate_Raise_const:
-  ^(get_goal "Raise")
-Proof
+Resume evaluate_clock_const[Raise]:
   gvs[evaluate_def] >> rpt gen_tac >>
   rpt (CASE_ONE >> gvs[]) >>
   rpt strip_tac >> drule jump_exc_const >>gvs[]
 QED
 
-Theorem evaluate_LocValue_const:
-  ^(get_goal "LocValue")
-Proof
+Resume evaluate_clock_const[LocValue]:
   gvs[evaluate_def] >> rpt gen_tac >>
   rpt (CASE_ONE >> gvs[]) >>
   rpt strip_tac >> gvs[]
 QED
 
-Theorem evaluate_Install_const:
-  ^(get_goal "Install")
-Proof
+Resume evaluate_clock_const[Install]:
   gvs[evaluate_def] >> rpt gen_tac >>
   rpt (CASE_ONE >> gvs[]) >>
   rpt strip_tac >> gvs[]
 QED
 
-Theorem evaluate_CodeBufferWrite_const:
-  ^(get_goal "CodeBufferWrite")
-Proof
+Resume evaluate_clock_const[CodeBufferWrite]:
   gvs[evaluate_def] >> rpt gen_tac >>
   rpt (CASE_ONE >> gvs[]) >>
   rpt strip_tac >> gvs[]
 QED
 
-Theorem evaluate_DataBufferWrite_const:
-  ^(get_goal "DataBufferWrite")
-Proof
+Resume evaluate_clock_const[DataBufferWrite]:
   gvs[evaluate_def] >> rpt gen_tac >>
   rpt (CASE_ONE >> gvs[]) >>
   rpt strip_tac >> gvs[]
 QED
 
-Theorem evaluate_FFI_const:
-  ^(get_goal "FFI")
-Proof
+Resume evaluate_clock_const[FFI]:
   gvs[evaluate_def] >> rpt gen_tac >>
   rpt (CASE_ONE >> gvs[]) >>
   rpt strip_tac >> gvs[]
 QED
 
-Theorem evaluate_ShareInst_const:
-  ^(get_goal "ShareInst")
-Proof
+Resume evaluate_clock_const[ShareInst]:
   gvs[evaluate_def] >> rpt gen_tac >>
   rpt (CASE_ONE >> gvs[]) >>
   rpt strip_tac >> drule share_inst_const >> gvs[]
 QED
 
-val evaluate_const = [
-  evaluate_Skip_const,
-  evaluate_Alloc_const,
-  evaluate_StoreConsts_const,
-  evaluate_Move_const,
-  evaluate_Inst_const,
-  evaluate_Assign_const,
-  evaluate_Get_const,
-  evaluate_Set_const,
-  evaluate_OpCurrHeap_const,
-  evaluate_Store_const,
-  evaluate_Return_const,
-  evaluate_Raise_const,
-  evaluate_LocValue_const,
-  evaluate_Install_const,
-  evaluate_CodeBufferWrite_const,
-  evaluate_DataBufferWrite_const,
-  evaluate_FFI_const,
-  evaluate_ShareInst_const
-]
+Finalise evaluate_clock_const;
+
+val evaluate_const = CONJUNCTS evaluate_clock_const;
 
 val clock_goal = “
   λ(p:'a wordLang$prog,s:('a,'c,'ffi) wordSem$state).
     ∀k.
       evaluate (p, s with clock := k) = (λ(r,s). (r,s with clock := k)) (evaluate (p,s))”
-local
-  val ind_thm = evaluate_ind |> ISPEC clock_goal |> CONV_RULE (DEPTH_CONV PAIRED_BETA_CONV)
-  val ind_goals = ind_thm |> concl |> dest_imp |> fst |> helperLib.list_dest dest_conj
-in
-  fun get_goal_clock s = first (can (find_term (can (match_term (Term [QUOTE s]))))) ind_goals
-end;
+val ind_thm2 = evaluate_ind |> ISPEC clock_goal |> CONV_RULE (DEPTH_CONV PAIRED_BETA_CONV);
+val ind_goals2 = ind_thm2 |> concl |> dest_imp |> fst |> helperLib.list_dest dest_conj;
 
-Theorem evaluate_Skip_with_const:
-  ^(get_goal_clock "Skip")
+Theorem evaluate_clock_with_const:
+  ^(let fun sel s = first (can (find_term (can (match_term (Term [QUOTE s]))))) ind_goals2
+    in list_mk_conj (map sel
+     ["Skip", "Alloc", "StoreConsts", "Move", "Inst", "Assign",
+      "Get", "Set", "OpCurrHeap", "Store", "Return", "Raise",
+      "LocValue", "Install", "CodeBufferWrite", "DataBufferWrite",
+      "FFI", "ShareInst"]) end)
 Proof
+  rpt conj_tac
+  >~ [`Skip`] >- suspend "Skip"
+  >~ [`Alloc`] >- suspend "Alloc"
+  >~ [`StoreConsts`] >- suspend "StoreConsts"
+  >~ [`Move`] >- suspend "Move"
+  >~ [`Inst`] >- suspend "Inst"
+  >~ [`Assign`] >- suspend "Assign"
+  >~ [`Get`] >- suspend "Get"
+  >~ [`Set`] >- suspend "Set"
+  >~ [`OpCurrHeap`] >- suspend "OpCurrHeap"
+  >~ [`Store`] >- suspend "Store"
+  >~ [`Return`] >- suspend "Return"
+  >~ [`Raise`] >- suspend "Raise"
+  >~ [`LocValue`] >- suspend "LocValue"
+  >~ [`Install`] >- suspend "Install"
+  >~ [`CodeBufferWrite`] >- suspend "CodeBufferWrite"
+  >~ [`DataBufferWrite`] >- suspend "DataBufferWrite"
+  >~ [`FFI`] >- suspend "FFI"
+  >~ [`ShareInst`] >- suspend "ShareInst"
+QED
+
+
+Resume evaluate_clock_with_const[Skip]:
   gvs[evaluate_def]
 QED
 
-Theorem evaluate_Alloc_with_const:
-  ^(get_goal_clock "Alloc")
-Proof
+Resume evaluate_clock_with_const[Alloc]:
   gvs[evaluate_def] >> rpt strip_tac >>
   rpt (CASE_ONE >> gvs[])
 QED
 
-Theorem evaluate_StoreConsts_with_const:
-  ^(get_goal_clock "StoreConsts")
-Proof
+Resume evaluate_clock_with_const[StoreConsts]:
   gvs[evaluate_def] >> rpt strip_tac >>
   rpt (CASE_ONE >> gvs[])
 QED
 
-Theorem evaluate_Move_with_const:
-  ^(get_goal_clock "Move")
-Proof
+Resume evaluate_clock_with_const[Move]:
   gvs[evaluate_def] >> rpt strip_tac >>
   rpt (CASE_ONE >> gvs[])
 QED
 
-Theorem evaluate_Inst_with_const:
-  ^(get_goal_clock "Inst")
-Proof
+Resume evaluate_clock_with_const[Inst]:
   gvs[evaluate_def] >> rpt strip_tac >>
   rpt (CASE_ONE >> gvs[])
 QED
 
-Theorem evaluate_Assign_with_const:
-  ^(get_goal_clock "Assign")
-Proof
+Resume evaluate_clock_with_const[Assign]:
   gvs[evaluate_def] >> rpt strip_tac >>
   rpt (CASE_ONE >> gvs[])
 QED
 
-Theorem evaluate_Get_with_const:
-  ^(get_goal_clock "Get")
-Proof
+Resume evaluate_clock_with_const[Get]:
   gvs[evaluate_def] >> rpt strip_tac >>
   rpt (CASE_ONE >> gvs[])
 QED
 
-Theorem evaluate_Set_with_const:
-  ^(get_goal_clock "Set")
-Proof
+Resume evaluate_clock_with_const[Set]:
   gvs[evaluate_def] >> rpt strip_tac >>
   rpt (CASE_ONE >> gvs[])
 QED
 
-Theorem evaluate_OpCurrHeap_with_const:
-  ^(get_goal_clock "OpCurrHeap")
-Proof
+Resume evaluate_clock_with_const[OpCurrHeap]:
   gvs[evaluate_def] >> rpt strip_tac >>
   rpt (CASE_ONE >> gvs[])
 QED
 
-Theorem evaluate_Store_with_const:
-  ^(get_goal_clock "Store")
-Proof
+Resume evaluate_clock_with_const[Store]:
   gvs[evaluate_def] >> rpt strip_tac >>
   rpt (CASE_ONE >> gvs[])
 QED
 
-Theorem evaluate_Return_with_const:
-  ^(get_goal_clock "Return")
-Proof
+Resume evaluate_clock_with_const[Return]:
   gvs[evaluate_def] >> rpt strip_tac >>
   rpt (CASE_ONE >> gvs[])
 QED
 
-Theorem evaluate_Raise_with_const:
-  ^(get_goal_clock "Raise")
-Proof
+Resume evaluate_clock_with_const[Raise]:
   gvs[evaluate_def] >> rpt strip_tac >>
   rpt (CASE_ONE >> gvs[])
 QED
 
-Theorem evaluate_LocValue_with_const:
-  ^(get_goal_clock "LocValue")
-Proof
+Resume evaluate_clock_with_const[LocValue]:
   gvs[evaluate_def] >> rpt strip_tac >>
   rpt (CASE_ONE >> gvs[])
 QED
 
-Theorem evaluate_Install_with_const:
-  ^(get_goal_clock "Install")
-Proof
+Resume evaluate_clock_with_const[Install]:
   gvs[evaluate_def] >> rpt strip_tac >>
   rpt (CASE_ONE >> gvs[])
 QED
 
-Theorem evaluate_CodeBufferWrite_with_const:
-  ^(get_goal_clock "CodeBufferWrite")
-Proof
+Resume evaluate_clock_with_const[CodeBufferWrite]:
   gvs[evaluate_def] >> rpt strip_tac >>
   rpt (CASE_ONE >> gvs[])
 QED
 
-Theorem evaluate_DataBufferWrite_with_const:
-  ^(get_goal_clock "DataBufferWrite")
-Proof
+Resume evaluate_clock_with_const[DataBufferWrite]:
   gvs[evaluate_def] >> rpt strip_tac >>
   rpt (CASE_ONE >> gvs[])
 QED
 
-Theorem evaluate_FFI_with_const:
-  ^(get_goal_clock "FFI")
-Proof
+Resume evaluate_clock_with_const[FFI]:
   gvs[evaluate_def] >> rpt strip_tac >>
   rpt (CASE_ONE >> gvs[])
 QED
 
-Theorem evaluate_ShareInst_with_const:
-  ^(get_goal_clock "ShareInst")
-Proof
+Resume evaluate_clock_with_const[ShareInst]:
   gvs[evaluate_def] >> rpt strip_tac >>
   rpt (CASE_ONE >> gvs[])
 QED
 
-val evaluate_with_const = [
-  evaluate_Skip_with_const,
-  evaluate_Alloc_with_const,
-  evaluate_StoreConsts_with_const,
-  evaluate_Move_with_const,
-  evaluate_Inst_with_const,
-  evaluate_Assign_with_const,
-  evaluate_Get_with_const,
-  evaluate_Set_with_const,
-  evaluate_OpCurrHeap_with_const,
-  evaluate_Store_with_const,
-  evaluate_Return_with_const,
-  evaluate_Raise_with_const,
-  evaluate_LocValue_with_const,
-  evaluate_Install_with_const,
-  evaluate_CodeBufferWrite_with_const,
-  evaluate_DataBufferWrite_with_const,
-  evaluate_FFI_with_const,
-  evaluate_ShareInst_with_const
-]
+Finalise evaluate_clock_with_const;
+
+val evaluate_with_const = CONJUNCTS evaluate_clock_with_const;
 (******CONST LEMMAS END *****)
 
 (*TODO complete for all get set variaents *)
