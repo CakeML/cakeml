@@ -1641,6 +1641,7 @@ Definition fts_all_dist_def:
 End
 
 
+(*
 Theorem lemma_other_side:
   !xs ys.
     fts_has_inj (xs ++ ys) /\
@@ -1672,7 +1673,7 @@ Proof
     ) >>
   cheat
 QED
-
+*)
 
 Theorem fts_all_dist_append_thm:
   !xs ys.
@@ -1782,7 +1783,7 @@ Definition fib_heap_inv_strong_def:
     (!k v. FLOOKUP fh k = SOME v ==> k <> 0w) /\
     (!k v e. FLOOKUP fh k = SOME (v,e) ==>
       ?m. fts_has k (fill_dnode v e m) fts) /\
-    (* fts_is_min (fts_min fts) fts /\ *)
+    fts_is_min (fts_min fts) fts /\
     fts_all_dist fts /\
     fib_heap_shape_ok fts /\
     every_fts fts_head_is_min fts
@@ -1851,6 +1852,12 @@ Definition fib_heap_inv_union_def:
     (fh = fh_union fh_fts)
 End
 
+
+
+
+
+
+
 Definition fib_heap_inv_list_def:
   fib_heap_inv_list fh ftss <=>
     ?fh_fts. fib_heap_inv_union fh fh_fts /\ ftss = MAP SND fh_fts
@@ -1860,22 +1867,22 @@ End
 Definition fib_heap_inv2_def:
   fib_heap_inv2 fh (fts: ('a word, 'a node_data) fts) ⇔
     (!k v. FLOOKUP fh k = SOME v ==> k <> 0w) /\
-    (∀k v e. FLOOKUP fh k = SOME (v,e) ==>
+    (∀k v e. FLOOKUP fh k = SOME (v,e) <=>
       ?m. fts_has k (fill_dnode v e m) fts) /\
-
-    (fts_all_dist fts) /\
+    (*(fts_all_dist fts) /\ *)
     (fts_is_min (fts_min fts) fts) /\
-    (fts_child_head_is_min fts) /\
+    (every_fts fts_head_is_min fts) /\
     (fib_heap_shape_ok fts)
 End
 
-Theorem lemma_fib_heap_union_init:
-  fib_heap_inv_strong fh fts ==>
-    fib_heap_inv_union fh [(fh,fts)]
-Proof
-  fs[fib_heap_inv_union_def] >>
-  simp[all_disjoint_def, fh_union_def]
-QED
+
+Definition fib_heap2_def:
+  fib_heap2 a fh =
+    SEP_EXISTS fts.
+      fts_mem (ann_fts 0w fts) *
+      cond (fib_heap_inv2 fh fts /\ a = head_key fts)
+End
+
 
 
 
@@ -1891,7 +1898,7 @@ QED
 
 Theorem lemma_fib_heap_union_merge:
   fib_heap_inv_union fh ((fhx,xs)::(fhy,ys)::rest) ==>
-    fib_heap_inv_union fh ((FUNION fhx fhy),xs ++ ys)::rest) ==>
+    fib_heap_inv_union fh (((FUNION fhx fhy),xs ++ ys)::rest)
 Proof
   cheat
 QED
@@ -2086,6 +2093,68 @@ QED
 
 
 
+Theorem lemma_merge_heaps_new_min:
+  fts_min xs <=+ fts_min ys /\
+  fts_is_min (fts_min ys) ys /\
+  fts_is_min (fts_min xs) xs ==>
+  fts_is_min (fts_min (xs ++ ys)) (xs ++ ys)
+Proof
+  simp[fts_is_min_append_thm] >>
+  Cases_on `xs` >> simp[fts_is_min_def] >>
+  Cases_on `h` >>
+  simp[fts_min_def] >>
+  rpt strip_tac >>
+  pop_assum kall_tac >>
+  drule_all lemma_fib_heap_new_min >> simp[]
+QED
+
+
+Theorem lemma_merge_heaps_new_min_inv:
+  !fh1 fh2 xs ys.
+  (fib_heap_inv2 fh1 xs) /\
+  (fib_heap_inv2 fh2 ys) /\
+  (DISJOINT (FDOM fh1) (FDOM fh2)) /\
+  (fts_min ys <=+ fts_min xs) ==>
+  (fib_heap_inv2 (FUNION fh1 fh2) (ys ++ xs))
+Proof
+  fs[fib_heap_inv2_def] >>
+  rpt strip_tac
+  >- (
+    fs[FLOOKUP_FUNION] >>
+    Cases_on `FLOOKUP fh1 0w` >> fs[]
+    )
+  >- (
+    iff_tac >> strip_tac
+    >- (
+      fs[FLOOKUP_FUNION] >>
+      Cases_on `FLOOKUP fh1 k` >> gvs[] >>
+      simp[fts_has_append_thm] >>
+      res_tac >>
+      qexists `m` >> simp[]
+      ) >>
+    fs[fts_has_append_thm] >> res_tac
+    >- (
+     (* drule_all FUNION_COMM >> *)
+      cheat
+      ) >>
+    simp[FLOOKUP_SIMP]
+    )
+  >- (drule_all lemma_merge_heaps_new_min >> simp[])
+  >- (
+    simp[Once every_fts_def] >>
+    qpat_x_assum `every_fts fts_head_is_min fts` mp_tac >>
+    simp[Once every_fts_def] >> strip_tac >>
+    qpat_x_assum `every_fts fts_head_is_min xs` mp_tac >>
+    simp[Once every_fts_def] >> strip_tac >>
+    simp[fts_head_is_min_append_thm] >>
+    rpt strip_tac >> res_tac >> simp[]
+    ) >>
+  simp[fib_heap_shape_ok_append_thm]
+QED
+
+
+
+(*
 Theorem lemma_insert_list_new_min_inv:
   !fts fh fh2 xs.
     (fib_heap_inv2 fh fts) /\
@@ -2143,46 +2212,89 @@ Proof
     ) >>
     cheat
 QED
-
-(* TODO: Verify invariant.
-    - Solve |++ problem!
 *)
-Theorem fib_heap_insert_list:
-  ∀frame xs fh p.
-    (fts_mem (ann_fts p xs) * fib_heap a fh * frame)
-      (fun2set (m,dm)) ∧
-    list_not_in_heap fh xs /\
-    fib_heap_insert_list (a, head_key xs, m, dm) = (a', m', b) ⇒
-    (fib_heap a' (fh |++ (map_upd_list xs)) * frame) (fun2set (m',dm)) ∧ b
+
+
+Theorem lemma_empty_list2:
+  !fh fts.  (fib_heap_inv2 fh fts /\ head_key fts = 0w) ==> fts = []
 Proof
-  fs[fib_heap_def] >>
+  rpt strip_tac >>
+  fs[fib_heap_inv2_def] >>
+  Cases_on `fts` >> fs[] >>
+  Cases_on `h` >>
+  Cases_on `FLOOKUP fh 0w` >> fs[] >>
+  last_x_assum (qspecl_then [`k`, `v.value`, `v.edges`] assume_tac) >>
+  gvs[head_key_def,head_key_t_def] >>
+  fs[Once fts_has_cases] >>
+  first_x_assum (qspec_then `v.mark` assume_tac) >>
+  rfs[head_key_def, head_key_t_def, fill_dnode_def] >>
+  fs[node_data_component_equality]
+QED
+
+
+Theorem lemma_empty_heap2:
+  !fh fts.
+  (fib_heap_inv2 fh fts /\ head_key fts = 0w) ==>
+      (fts = [] /\ fh = FEMPTY)
+Proof
+  assume_tac lemma_empty_list2 >>
+  rpt gen_tac >>
+  strip_tac >>
+  res_tac >> gvs[] >>
+  fs[fib_heap_inv2_def] >>
+  Cases_on `fh` >> rw[] >>
+  Cases_on `y` >>
+  rename [`x,(v,e)`] >>
+  last_x_assum (qspecl_then [`x`,`v`,`e`] assume_tac) >>
+  fs[Once fts_has_cases, FLOOKUP_DEF]
+QED
+
+
+
+(* TODO: Verify invariant. *)
+Theorem fib_heap_merge_heaps:
+  ∀frame.
+    (fib_heap2 a fh1 * fib_heap2 b fh2 * frame)
+      (fun2set (m,dm)) ∧
+    DISJOINT (FDOM fh1) (FDOM fh2) /\
+    fib_heap_insert_list (a, b, m, dm) = (a', m', c) ⇒
+    (fib_heap2 a' (FUNION fh1 fh2) * frame) (fun2set (m',dm)) ∧ c
+Proof
+  fs[fib_heap2_def] >>
   fs[SEP_CLAUSES, STAR_ASSOC, SEP_EXISTS_THM] >>
   full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR] >>
   rpt gen_tac >> strip_tac >>
   simp [PULL_EXISTS] >>
   pop_assum mp_tac >>
-  Cases_on `xs`
+  Cases_on `fts'`
   >- (
     fs[head_key_def,head_key_t_def] >>
-    fs[map_upd_list_def, fts_mem_def, ann_fts_def,SEP_CLAUSES,head_key_def] >>
+    assume_tac lemma_empty_heap2 >>
+    first_x_assum (qspecl_then [`fh2`,`[]`] assume_tac) >> fs[] >>
+    fs[fts_mem_def, ann_fts_def,SEP_CLAUSES,head_key_def,head_key_t_def] >>
     simp[fib_heap_insert_list_def] >>
-    simp[FUPDATE_LIST] >>
     strip_tac >>
     qexists `fts` >> gvs[]
     ) >>
-  Cases_on `h`>> gvs[head_key_def] >>
-  fs[ann_fts_def, ann_fts_seg_def, last_key_def,fts_mem_def,
-       SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
-       fill_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
-  Cases_on `t` using SNOC_CASES
+  Cases_on `h`>> gvs[head_key_def,head_key_t_def] >>
+  Cases_on `fts`
   >- (
-  fs[ann_fts_def, ann_fts_seg_def, last_key_def,fts_mem_def,
+    simp[head_key_t_def] >>
+    assume_tac lemma_empty_heap2 >>
+    first_x_assum(qspecl_then [`fh1`,`[]`] assume_tac) >> fs[] >>
+    fs[ann_fts_def, ann_fts_seg_def, last_key_def,fts_mem_def,
        SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
        fill_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
-  fs[fib_heap_insert_list_def] >>
-  full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR] >>
-  cheat ) >>
-  cheat
+    simp[fib_heap_insert_list_def] >>
+    full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR] >>
+    SEP_R_TAC >>
+    strip_tac >> gvs[] >>
+    qexists `(FibTree a' v l::t)` >>
+    simp[ann_fts_def, ann_fts_seg_def, last_key_def,fts_mem_def,
+         SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
+         fill_dnode_def, head_key_t_def, ones_def, STAR_ASSOC]
+    )
+  >> cheat
 QED
 
 
