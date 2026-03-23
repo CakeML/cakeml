@@ -211,6 +211,44 @@ Proof
   >> cheat
 QED
 
+Definition build_v_rel_def:
+  (build_v_rel _ (Number i) = Number i) ∧
+  (build_v_rel _ (Word64 w) = Word64 w) ∧
+  (build_v_rel f (Block n xs) =
+   let ys = MAP (build_v_rel f) xs in
+     Block n ys) ∧
+  (build_v_rel _ (CodePtr n) = CodePtr n) ∧
+  (build_v_rel f (RefPtr b n) =
+   case FLOOKUP f n of
+   | SOME m => RefPtr b m) ∧
+End
+
+Theorem v_rel_functional:
+  ∀f x y z.
+    v_rel f x y ∧
+    v_rel f x z ⇒
+    y = z
+Proof
+  Induct_on ‘v_rel’
+  >> rw []
+  >> gvs [v_rel_cases]
+  >> rename [‘LIST_REL (v_rel f) xs zs’]
+  >> Induct_on ‘xs’ >> gvs []
+  >> strip_tac
+  >> strip_tac
+  >> cheat
+QED
+
+Theorem env_rel_total:
+  ∀opt f env1.
+    ∃env2.
+      env_rel opt f env1 env2
+Proof
+  rw []
+  >> gvs [env_rel_def]
+  >> cheat (* Use build_v_rel - except i don't think this holds for any f *)
+QED
+
 Theorem state_rel_dec:
   ∀n f s s'.
     state_rel f s s' ∧
@@ -273,14 +311,41 @@ Proof
   rw [] >> gvs [rewrite_aux_def]
 QED
 
+(* TODO: uniqueness, effectfulness *)
+(* Definition has_tmc_call_def:
+  has_tmc_call loc (Op (BlockOp (Cons tag)) xs) ⇔
+    (∃t args h n.
+       EL n xs = Call t loc args h) ∨
+    (∃n block_op_cons.
+       EL n xs = block_op_cons ∧
+       has_tmc_call loc block_op_cons)
+End *)
+        
+Definition is_block_op_cons_def:
+  is_block_op_cons op ⇔
+    ∃block_tag.
+      op = BlockOp (Cons block_tag)
+End
+
 Theorem aux_strip_op:
+  ∀loc loc_opt arity op xs aux.
+    ~is_block_op_cons op ∧
+    rewrite_aux loc loc_opt arity (Op op xs) = SOME aux ⇒
+    ∃aux' i j.
+      aux = Op (MemOp UpdateCons) [Var i; Var j; Op op xs]
+Proof
+  rw []>> gvs [is_block_op_cons_def, rewrite_aux_def]
+  >> Cases_on ‘op’ >> gvs []
+  >> gvs [rewrite_aux_BlockOp_Cons_def]
+  >> Cases_on ‘b’ >> gvs []                
+QED
+
+Theorem aux_strip_op_BlockOpCons:
   ∀loc loc_opt arity block_tag op xs aux.
-    (rewrite_aux loc loc_opt arity (Op (BlockOp (Cons block_tag)) xs) = SOME aux ⇒
-     ∃aux'.
-       aux = ARB) ∧
-    (rewrite_aux loc loc_opt arity (Op op xs) = SOME aux ⇒
-     ∃aux' i j.
-       aux = Op (MemOp UpdateCons) [Var i; Var j; Op op xs])
+    is_block_op_cons op ∧
+    rewrite_aux loc loc_opt arity (Op op xs) = SOME aux ⇒
+    ∃aux'.
+      aux = ARB
 Proof
   rw [] >> cheat
 QED
@@ -310,15 +375,55 @@ Proof
 QED
 
 Theorem ry:
-  ∀f vs vs' s s' t t' op_vals op_vals' op.
+  ∀f vs vs' s s' t t' op_val op_val' op.
     LIST_REL (v_rel f) vs vs' ∧
     state_rel f s s' ∧
-    do_app op (REVERSE vs) s = Rval (op_vals,t) ∧
-    do_app op (REVERSE vs') s' = Rval (op_vals',t') ⇒
-    v_rel f op_vals op_vals' ∧
+    do_app op (REVERSE vs) s = Rval (op_val,t) ∧
+    do_app op (REVERSE vs') s' = Rval (op_val',t') ⇒
+    v_rel f op_val op_val' ∧
     state_rel f t t'
 Proof
-  cheat
+  rw []
+  >- ()
+QED
+
+(* Rename this *)
+Theorem dest_thunk_tmc:
+  ∀n opt f env env2 s s' tm v v'.
+    env_rel opt f env env2 ∧
+    state_rel f s s' ∧
+    v_rel f v v' ∧
+    dest_thunk env❲n❳ s.refs = IsThunk tm v ⇒
+    dest_thunk env2❲n❳ s'.refs = IsThunk tm v'
+Proof
+  rw []
+  >> Cases_on ‘env❲n❳’ >> gvs [dest_thunk_def]
+  >> rename [‘env❲n❳ = RefPtr b ptr’]
+  >> Cases_on ‘FLOOKUP s.refs ptr’ >> gvs []
+  >> Cases_on ‘x’ >> gvs []
+  >> ‘tm = t ∧ v = a’ by (Cases_on ‘t’ >> gvs [])
+  >> gvs [env_rel_def, EL_APPEND_EQN]
+  >> rename [‘FLOOKUP s.refs ptr = SOME (Thunk tm v)’]
+  >> rename [‘LIST_REL (v_rel f) env env2’]
+  >> drule $ iffLR LIST_REL_EL_EQN
+  >> strip_tac
+  >> ‘n < LENGTH env’ by cheat
+  >> gvs []
+  >> first_x_assum drule
+  >> strip_tac
+  >> drule $ iffLR v_rel_cases
+  >> simp []
+  >> strip_tac
+  >> rename [‘env2❲n❳ = RefPtr b ptr'’]                
+  >> gvs [dest_thunk_def, state_rel_def, state_ref_rel_def]
+  >> last_x_assum drule
+  >> strip_tac
+  >> gvs [ref_rel_cases]
+  >> rename [‘FLOOKUP s'.refs ptr' = SOME (Thunk tm v')’]
+  >> Cases_on ‘tm’ >> gvs []
+  >> drule v_rel_functional
+  >> disch_then $ qspec_then ‘v''’ mp_tac
+  >> fs []
 QED
 
 Theorem evaluate_rewrite_tmc:
@@ -682,8 +787,8 @@ Proof
     >> imp_res_tac evaluate_SING_IMP
     >> gvs [])
   >~ [‘Op op xs’] >-
-     
-   (gvs [evaluate_def]
+   cheat
+   (*gvs [evaluate_def]
     >> gvs [CaseEq "prod", PULL_EXISTS]
     >> rename [‘evaluate (xs,env,s) = (rs,u)’]
     >> first_x_assum $ qspec_then ‘F’ mp_tac
@@ -706,10 +811,10 @@ Proof
             >> gvs []
             >> Cases_on ‘do_app op (REVERSE vs) u’ >> gvs []
             >- (gvs [CaseEq "prod", PULL_EXISTS]
-                >> rename [‘do_app op (REVERSE vs) u = Rval (op_vals, t)’]
+                >> rename [‘do_app op (REVERSE vs) u = Rval (op_val, t)’]
                 >> Cases_on ‘do_app op (REVERSE vs') u'’ >> gvs []
                 >- (Cases_on ‘a’ >> gvs []
-                    >> rename [‘do_app op (REVERSE vs') u' = Rval (op_vals',t')’]
+                    >> rename [‘do_app op (REVERSE vs') u' = Rval (op_val',t')’]
                     >> drule_all ry
                     >> strip_tac
                     >> goal_assum $ drule_at Any
@@ -721,21 +826,19 @@ Proof
                                 
                         >> Cases_on ‘op’ >> gvs [] >> pop_assum mp_tac
                         >~ [‘Op (BlockOp b) xs’] >-
-                         ()
-                        )
-                        )
+                         cheat
+                        >> cheat
+                       )
+                    >> cheat
+                   )
+                >> cheat
                )
-            >> 
-            )
-                            
-        >> strip_tac
-        >> pop_assum drule
-        >> Cases_on ‘rs’ >> gvs []
-        >- (rename [‘evaluate (xs,env,s) = (Rval vs,u)’]
-
-            >> )
+            >> cheat
+           )
+        >> cheat
        )
-   )
+    >> cheat
+   *)
   >~ [‘Tick x’] >-
    (gvs [evaluate_def]
     >> ‘s'.clock = s.clock’ by gvs [state_rel_def]
@@ -778,7 +881,69 @@ Proof
     >> disch_then drule
     >> fs [])
   >~ [‘Force force_loc n’] >-
-   (gvs [evaluate_def] >> cheat)
+     
+   (gvs [evaluate_def]
+    >> Cases_on ‘n < LENGTH env’ >> gvs []
+    >> drule env_rel_length
+    >> strip_tac
+    >> gvs []
+    >> Cases_on ‘dest_thunk env❲n❳ s.refs’ >> gvs []
+    >> rename [‘dest_thunk env❲n❳ s.refs = IsThunk tm v’]
+
+    >> drule_all env_rel_el_v_rel
+    >> strip_tac
+
+        (* SKip *)
+    >> drule_at (Pos last) dest_thunk_tmc
+    >> rpt (disch_then drule)
+    >> strip_tac
+
+    >> Cases_on ‘env❲n❳’ >> gvs [dest_thunk_def]
+    >> rename [‘env❲n❳ = RefPtr b ptr’]
+    >> Cases_on ‘env2❲n❳’ >> gvs [v_rel_cases]
+    >> rename [‘env2❲n❳ = RefPtr b ptr'’]
+    >> Cases_on ‘tm’ >> gvs []
+    >- (Cases_on ‘FLOOKUP s.refs ptr’ >> gvs []
+        >> Cases_on ‘x’ >> gvs []
+        >> Cases_on ‘t’ >> gvs []
+        >> cheat)
+    >> Cases_on ‘FLOOKUP s.refs ptr’ >> gvs []
+    >> Cases_on ‘x’ >> gvs []
+    >> Cases_on ‘t'’ >> gvs []
+    >> rename [‘FLOOKUP s.refs ptr = SOME (Thunk NotEvaluated v)’]
+    >> Cases_on ‘find_code (SOME force_loc) [RefPtr b ptr; v] s.code’ >> gvs []
+    >> Cases_on ‘x’ >> gvs []
+    >> rename [‘find_code (SOME force_loc) [RefPtr b ptr; v] s.code = SOME (thunk_env, thunk_exp)’]
+    >> ‘s'.clock = s.clock’ by gvs [state_rel_def]
+    >> Cases_on ‘s.clock’ >> gvs []
+    >- (cheat)
+    >> last_x_assum $ qspec_then ‘F’ mp_tac
+    >> gvs []
+    >> drule state_rel_dec
+    >> gvs []
+    >> strip_tac
+    >> disch_then $ drule_at $ Pos $ el 2
+    >> disch_then 
+
+                       
+
+    >> drule_at (Pos last) dest_thunk_tmc
+    >> rpt (disch_then drule)
+    >> strip_tac
+    >> Cases_on ‘tm’ >> gvs []
+    >- (gvs [state_rel_def]
+        >> gvs [dest_thunk_def]
+        >> )
+
+                           
+    >> Cases_on ‘dest_thunk env2❲n❳ s'.refs’ >> gvs []
+    >- ()
+
+
+
+    >> 
+       
+    )
   >~ [‘Call ticks dest xs handler’] >-
    (gvs [evaluate_def] >> cheat)
 QED
