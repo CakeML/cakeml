@@ -1449,6 +1449,24 @@ Proof
   rw[state_component_equality]
 QED
 
+Theorem cont_loop_not_timeout[local]:
+  cont_loop res ⇒ res ≠ SOME TimeOut
+Proof
+  Cases_on `res` >> gvs[cont_loop_def] >>
+  Cases_on `x` >> gvs[cont_loop_def]
+QED
+
+Theorem evaluate_add_clock_body[local]:
+  evaluate (c,s) = (res,s') ∧ cont_loop res ⇒
+  ∀extra.
+    evaluate (c,s with clock := s.clock + extra) =
+    (res,s' with clock := s'.clock + extra)
+Proof
+  strip_tac >>
+  imp_res_tac cont_loop_not_timeout >>
+  drule_all evaluate_add_clock >> simp[]
+QED
+
 Theorem evaluate_dec_clock:
   ∀prog st res rst.
   evaluate(prog,st) = (res,rst) ⇒
@@ -1488,17 +1506,19 @@ Proof
     )
   >~[`Loop`]
   >-(
-    cheat
-    (*
-    fs[evaluate_def] >>
-    rpt (CASE_ONE >> gvs[]) >>
-    imp_res_tac cut_state_const>>
-    gvs[]>>
-    strip_tac>>gvs[flush_state_def,dec_clock_def]>>
-    rename1`cut_state _ s = SOME x`>>
-    `x.clock = s.clock` by
-      (imp_res_tac cut_state_const >>fs[])>>
-    gvs[]>>rw[] *)
+    strip_tac >>
+    fs[evaluate_def,cut_state_def,cut_env_def] >>
+    TOP_CASE_TAC >> gvs[] >>
+    Cases_on `evaluate (c,x)` >> fs[] >>
+    imp_res_tac evaluate_clock >> gvs[] >>
+    gvs[AllCaseEqs(),AllCasePreds(),flush_state_def,
+        dec_clock_def,cut_state_def,cut_env_def,state_component_equality] >>
+    imp_res_tac evaluate_add_clock_body >> gvs[] >>
+    first_x_assum (qspec_then `r.clock - rst.clock` mp_tac) >> simp[] >>
+    imp_res_tac evaluate_clock >>
+    `r.clock − rst.clock + x.clock − r.clock = x.clock − rst.clock` by
+      (gvs[dec_clock_def] >> DECIDE_TAC) >>
+    gvs[] >> strip_tac >> gvs[]
     )
   >~[`Call`]
   >-(
@@ -1668,7 +1688,9 @@ Proof
            >> fs[]
            >> rpt (TOP_CASE_TAC >>fs[])
            >> drule_then assume_tac pop_env_const >> fs[])))
-  >~[`Loop`] >- cheat
+  >~[`Loop`]
+  >-(
+    cheat)
   >> fs[evaluate_clock_with_const] >> gvs[SND_alt_def]
   >> rpt (pairarg_tac >> gvs[])
   >> fs[evaluate_def] >>
