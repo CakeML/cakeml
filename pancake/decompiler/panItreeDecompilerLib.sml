@@ -1014,12 +1014,12 @@ fun reduce_to_view extt th = deep_conj_app (reduce_to_view_singleton extt) th
 fun let_non_comb_rw_once th =
   let val let_terms = find_terms (can (match_term “LET _ _”)) (th |> concl)
       val let_n2w_terms = filter (fn x => ((not o is_comb) (rand x))) let_terms
-      val let_rw_thms = map (QCONV (PURE_REWRITE_CONV [LET_THM])) let_n2w_terms
+      val let_rw_thms = map (QCONV (PURE_REWRITE_CONV [Once LET_THM])) let_n2w_terms
   in
     if null let_rw_thms then
       raise Domain
     else
-      PURE_REWRITE_RULE let_rw_thms th
+      SIMP_RULE (srw_ss ()) let_rw_thms th
     end
 
 
@@ -1039,23 +1039,6 @@ fun let_n2w_rw_once th =
     else
       PURE_REWRITE_RULE let_rw_thms th
     end
-
-fun let_n2w_rw_once_bu th =
-  let val let_terms = find_terms (can (match_term “LET _ _”)) (th |> concl)
-      val let_n2w_terms = filter (fn x =>
-                                    (is_comb (rand x))
-                                    andalso ((same_const (rator (rand x)) “n2w”)
-                                             orelse ((not (same_const (rator (rand x)) “THE”))
-                                                     andalso (not (same_const (rator (rand x)) “word_of_val”))
-                                                     andalso (not (same_const (rator (rand x)) “struct_of_val”))))) let_terms
-      val let_rw_thms = map (QCONV (PURE_REWRITE_CONV [LET_THM])) let_n2w_terms
-  in
-    if null let_rw_thms then
-      raise Domain
-    else
-      SIMP_RULE (srw_ss ()) let_rw_thms th
-    end
-
 
 fun let_n2w_rw th = let_n2w_rw (let_n2w_rw_once th)
                                handle _ => th

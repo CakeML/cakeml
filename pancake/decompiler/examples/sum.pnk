@@ -1,0 +1,16 @@
+fun sum (1 x, 1 y) {
+  return x + y;
+}
+
+fun sum_redundant (1 x, 1 y) {
+  var t = 1;
+  if (t == 1) {
+    var z = 0;
+    var c = 3;
+  } else {
+    var g = 1;
+    var v = 4;
+  }
+  return x + y;
+}
+
