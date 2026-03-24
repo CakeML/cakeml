@@ -46,8 +46,8 @@ fun mlstring_case_conv tm =
       boolSimps.bool_ss++stringSimps.STRING_ss++listSimps.LIST_ss++
       (simpLib.std_conv_ss{conv=stringLib.char_EQ_CONV,
                            name="char_EQ_CONV",
-                           pats=[mk_eq(mk_var("x",charSyntax.char_ty),
-                                       mk_var("y",charSyntax.char_ty))]})
+                           pats=[mk_eq(mk_var("x",stringSyntax.char_ty),
+                                       mk_var("y",stringSyntax.char_ty))]})
     val the_rws = [
       mlstringTheory.mlstring_11,
       mlstringTheory.mlstring_case_def]
