@@ -1868,7 +1868,6 @@ Proof
 QED
 
 
-
 Definition fib_heap_inv_union_def:
   fib_heap_inv_union fh fh_fts ⇔
     EVERY (\(fh,fts). fib_heap_inv_strong fh fts) fh_fts /\
@@ -1930,8 +1929,16 @@ Theorem lemma_fib_heap_union_split_last:
 Proof
   fs[fib_heap_inv_union_def] >>
   rpt strip_tac >>
-  fs[all_disjoint_def]
-  cheat
+  fs[all_disjoint_split_thm] >>
+  gvs[] >>
+  qexistsl [`fhx`,`fhy`] >>
+  strip_tac
+  >- (
+    fs[all_disjoint_def] >>
+    fs[fib_heap_inv_strong_def] >>
+    cheat
+    ) >>
+  simp[fh_union_def,FUNION_ASSOC]
 QED
 
 
@@ -1943,11 +1950,31 @@ Proof
 QED
 
 
+Theorem lemma_funion_fh_union_comm:
+  (all_disjoint xs /\ all_disjoint ys /\
+  ∀x y. MEM x xs ∧ MEM y ys ==> DISJOINT (FDOM (FST x)) (FDOM (FST y))) ==>
+  FUNION (fh_union xs) (fh_union ys) = FUNION (fh_union ys) (fh_union xs)
+Proof
+ rpt strip_tac >>
+ Cases_on `xs` >> fs[fh_union_def] >>
+ Cases_on `h` >>
+ fs[all_disjoint_def,fh_union_def] >>
+ cheat
+
+(*TODO: show comm on list -> all_disjoint t /\ EVERY(DISJIONT q (FST t)) t ==>
+    FUNION q fh_union t = FUNION fh_union t q*)
+(*TODO: maybe induct on xs?*)
+QED
+
 
 Theorem lemma_fib_heap_union_reord:
-  fib_heap_inv_union fh (cs ++ xs ++ ms ++ ys ++ qs) ==>
+  fib_heap_inv_union fh (cs ++ xs ++ ms ++ ys ++ qs) <=>
   fib_heap_inv_union fh (cs ++ ys ++ ms ++ xs ++ qs)
 Proof
+  fs[fib_heap_inv_union_def] >>
+  fs[fh_union_append_thm,all_disjoint_append_thm] >>
+  iff_tac >> rpt strip_tac >> fs[] >> res_tac >> fs[pred_setTheory.DISJOINT_SYM]
+  fs[fh_union_def] >>
   cheat
 QED
 
@@ -2334,6 +2361,47 @@ Proof
          fill_dnode_def, head_key_t_def, ones_def, STAR_ASSOC]
     )
   >> cheat
+QED
+
+
+Theorem fib_heap_insert2:
+  !frame k v e.
+    (empty_node k (v,e) * frame) (fun2set(m,dm)) ==>
+    (fib_heap2 k (FEMPTY |+ (k,v,e)) * frame) (fun2set(m,dm))
+Proof
+  rpt strip_tac >>
+  fs[fib_heap2_def, empty_node_def] >>
+  fs[SEP_CLAUSES, STAR_ASSOC, SEP_EXISTS_THM] >>
+  full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR] >>
+  fs[ones_def,STAR_ASSOC] >>
+  qexists `[FibTree k (fill_dnode v e F) []]` >>
+  fs[ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def,fts_mem_def,
+     SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
+     fill_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
+  simp[fib_heap_inv2_def] >>
+  rpt strip_tac
+  >- fs[FLOOKUP_SIMP]
+  >- (
+    Cases_on `k = k'` >> gvs[]
+    >- (
+      simp[FLOOKUP_SIMP] >>
+      iff_tac >> strip_tac >> gvs[]
+      >- (
+        qexists `F` >>
+        simp[Once fts_has_cases,node_data_component_equality, fill_dnode_def]
+        ) >>
+      fs[Once fts_has_cases] >>
+      fs[node_data_component_equality, fill_dnode_def] >>
+      fs[Once fts_has_cases]
+     ) >>
+    simp[FLOOKUP_SIMP] >>
+    simp[Once fts_has_cases] >>
+    simp[Once fts_has_cases]
+    )
+  >- fs[fts_is_min_def,fts_min_def]
+  >- fs[every_fts_def, fts_head_is_min_def] >>
+  fs[fib_heap_shape_ok_def, fib_heap_size_def, Ntimes fib_num_def 2] >>
+  fs[Once fib_num_def]
 QED
 
 
