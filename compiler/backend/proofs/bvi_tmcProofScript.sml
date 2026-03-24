@@ -374,17 +374,17 @@ Proof
   cheat
 QED
 
-Theorem ry:
-  ∀f vs vs' s s' t t' op_val op_val' op.
+Theorem do_app_rewrite_tmc:
+  ∀f op vs vs' s s' r.
+    bviSem$do_app op (REVERSE vs) s = r ∧
     LIST_REL (v_rel f) vs vs' ∧
-    state_rel f s s' ∧
-    do_app op (REVERSE vs) s = Rval (op_val,t) ∧
-    do_app op (REVERSE vs') s' = Rval (op_val',t') ⇒
-    v_rel f op_val op_val' ∧
-    state_rel f t t'
+    state_rel f s s' ⇒
+    ∃r' f'.
+      bviSem$do_app op (REVERSE vs') s' = r' ∧
+      result_rel (PAIR_REL (v_rel f') (state_rel f')) (v_rel f') r r' ∧
+      f SUBMAP f'
 Proof
-  rw []
-  >- ()
+  rw [] >> cheat
 QED
 
 (* Rename this *)
@@ -787,14 +787,16 @@ Proof
     >> imp_res_tac evaluate_SING_IMP
     >> gvs [])
   >~ [‘Op op xs’] >-
-   cheat
-   (*gvs [evaluate_def]
+
+   (gvs [evaluate_def]
     >> gvs [CaseEq "prod", PULL_EXISTS]
     >> rename [‘evaluate (xs,env,s) = (rs,u)’]
     >> first_x_assum $ qspec_then ‘F’ mp_tac
     >> gvs []
     >> strip_tac
     >> Cases_on ‘opt’ >> gvs []
+    (* Opt *)
+    (* First inductive hypothesis *)                   
     >- (first_x_assum $ drule_at Any
         >> drule env_rel_non_opt
         >> strip_tac
@@ -808,37 +810,37 @@ Proof
             >> rename [‘evaluate (xs,env2,s') = (Rval vs',u')’]
             >> drule evaluate_pad_env_val
             >> strip_tac
-            >> gvs []
+            >> gvs []                        
             >> Cases_on ‘do_app op (REVERSE vs) u’ >> gvs []
-            >- (gvs [CaseEq "prod", PULL_EXISTS]
-                >> rename [‘do_app op (REVERSE vs) u = Rval (op_val, t)’]
-                >> Cases_on ‘do_app op (REVERSE vs') u'’ >> gvs []
-                >- (Cases_on ‘a’ >> gvs []
-                    >> rename [‘do_app op (REVERSE vs') u' = Rval (op_val',t')’]
-                    >> drule_all ry
-                    >> strip_tac
-                    >> goal_assum $ drule_at Any
-                    >> gvs []
-                    >> conj_tac
-                    >- (rpt gen_tac
+            >- (drule_all do_app_rewrite_tmc
+                >> strip_tac
+                >> rename [‘f' ⊑ f''’]
+                >> Cases_on ‘r'’ >> gvs []
+                >> Cases_on ‘a’ >> gvs []
+                >> Cases_on ‘a'’ >> gvs []
+                >> rename [‘state_rel f'' t t'’]
+                >> rename [‘v_rel f'' v v'’]
+                >> goal_assum $ drule_at Any
+                >> gvs []
+                >> conj_tac
+                >- (imp_res_tac SUBMAP_TRANS)
+                >> rw []
+                >- (goal_assum $ drule_at Any
+                    >> reverse $ Cases_on ‘is_block_op_cons op’ >> gvs[]
+                    >- (drule_all aux_strip_op
                         >> strip_tac
-                        >> drule aux_strip_op
-                                
-                        >> Cases_on ‘op’ >> gvs [] >> pop_assum mp_tac
-                        >~ [‘Op (BlockOp b) xs’] >-
-                         cheat
-                        >> cheat
-                       )
-                    >> cheat
-                   )
-                >> cheat
-               )
-            >> cheat
-           )
-        >> cheat
-       )
-    >> cheat
-   *)
+                        >> gvs [evaluate_def]
+                        >> Cases_on ‘i < LENGTH env2 + 2’ >> gvs []
+                        >- (Cases_on ‘j < LENGTH env2 + 2’ >> gvs []
+                            >- (gvs [do_app_def]
+                                >> cheat)
+                            >> cheat)
+                        >> cheat)
+                    >> cheat)
+                >> cheat)
+            >> cheat)
+        >> cheat)
+    >> cheat)
   >~ [‘Tick x’] >-
    (gvs [evaluate_def]
     >> ‘s'.clock = s.clock’ by gvs [state_rel_def]
