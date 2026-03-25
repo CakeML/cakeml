@@ -161,40 +161,52 @@ local
             | Rerr (Rraise v) => v_ok ctxt v
             | _ => T’]
     |> CONV_RULE (DEPTH_CONV BETA_CONV);
-  val ind_goals = ind_thm |> concl |> dest_imp |> fst |> helperLib.list_dest dest_conj
 in
-  fun get_goal s = first (can (find_term (can (match_term (Term [QUOTE s]))))) ind_goals
-    |> helperLib.list_dest dest_forall
-    |> last
   fun evaluate_basis_v_ok () = ind_thm |> concl |> rand
   fun the_ind_thm () = ind_thm
 end
 
-Theorem evaluate_basis_v_ok_Nil:
-  ^(get_goal "[]")
+Theorem evaluate_basis_v_ok:
+  ^(evaluate_basis_v_ok ())
 Proof
+  match_mp_tac (the_ind_thm ())
+  \\ rpt conj_tac
+  >~ [`[] : exp list`] >- suspend "Nil"
+  >~ [`_::_::_ : exp list`] >- suspend "Cons"
+  >~ [`Lit`] >- suspend "Lit"
+  >~ [`Con`] >- suspend "Con"
+  >~ [`ast$Var`] >- suspend "Var"
+  >~ [`ast$App`] >- suspend "App"
+  >~ [`[]:dec list`] >- suspend "decs_Nil"
+  >~ [`_::_::_:dec list`] >- suspend "decs_Cons"
+  >~ [`Dlet`] >- suspend "decs_Dlet"
+  >~ [`Dletrec`] >- suspend "decs_Dletrec"
+  >~ [`Dtype`] >- suspend "decs_Dtype"
+  >~ [`Dtabbrev`] >- suspend "decs_Dtabbrev"
+  >~ [`Denv`] >- suspend "decs_Denv"
+  >~ [`Dexn`] >- suspend "decs_Dexn"
+  >~ [`Dmod`] >- suspend "decs_Dmod"
+  >~ [`Dlocal`] >- suspend "decs_Dlocal"
+  \\ simp []
+QED
+
+Resume evaluate_basis_v_ok[Nil]:
   rw [evaluate_def]
 QED
 
-Theorem evaluate_basis_v_ok_Cons:
-  ^(get_goal "_::_::_")
-Proof
+Resume evaluate_basis_v_ok[Cons]:
   rw [evaluate_def]
   \\ gvs [CaseEqs ["prod", "semanticPrimitives$result"], SF SFY_ss]
   \\ drule_then strip_assume_tac evaluate_sing \\ gvs []
   \\ drule_all_then assume_tac evaluate_post_state_mono \\ gs [SF SFY_ss]
 QED
 
-Theorem evaluate_basis_v_ok_Lit:
-  ^(get_goal "Lit l")
-Proof
+Resume evaluate_basis_v_ok[Lit]:
   rw [evaluate_def] \\ gs []
   \\ simp [v_ok_Lit]
 QED
 
-Theorem evaluate_basis_v_ok_Con:
-  ^(get_goal "Con cn es")
-Proof
+Resume evaluate_basis_v_ok[Con]:
   rw [evaluate_def]
   \\ gvs [CaseEqs ["option", "prod", "semanticPrimitives$result"], EVERY_MAP,
           SF SFY_ss]
@@ -204,17 +216,13 @@ Proof
   \\ strip_tac \\ gs [SF SFY_ss]
 QED
 
-Theorem evaluate_basis_v_ok_Var:
-  ^(get_goal "ast$Var n")
-Proof
+Resume evaluate_basis_v_ok[Var]:
   rw [evaluate_def]
   \\ gvs [CaseEqs ["option"]]
   \\ gs [env_ok_def, SF SFY_ss]
 QED
 
-Theorem evaluate_basis_v_ok_App:
-  ^(get_goal "App")
-Proof
+Resume evaluate_basis_v_ok[App]:
   rw [evaluate_def]
   \\ Cases_on ‘getOpClass op’
   \\ gvs [CaseEqs ["bool", "option", "prod", "semanticPrimitives$result"], SF SFY_ss]
@@ -244,15 +252,11 @@ Proof
       \\ gs [post_state_ok_def]))
 QED
 
-Theorem evaluate_basis_v_ok_decs_Nil:
-  ^(get_goal "[]:dec list")
-Proof
+Resume evaluate_basis_v_ok[decs_Nil]:
   rw [evaluate_decs_def, extend_dec_env_def]
 QED
 
-Theorem evaluate_basis_v_ok_decs_Cons:
-  ^(get_goal "_::_::_:dec list")
-Proof
+Resume evaluate_basis_v_ok[decs_Cons]:
   rw [evaluate_decs_def]
   \\ gvs [CaseEqs ["option", "prod", "semanticPrimitives$result"], SF SFY_ss]
   \\ drule_all_then assume_tac evaluate_decs_post_state_mono
@@ -263,9 +267,7 @@ Proof
   \\ gs [extend_dec_env_def, env_ok_def, SF SFY_ss]
 QED
 
-Theorem evaluate_basis_v_ok_decs_Dlet:
-  ^(get_goal "Dlet")
-Proof
+Resume evaluate_basis_v_ok[decs_Dlet]:
   rw [evaluate_decs_def] \\ gvs [evaluate_def]
   >- (
     CASE_TAC \\ gs []
@@ -284,9 +286,7 @@ Proof
   \\ rw [] \\ gs [SF SFY_ss]
 QED
 
-Theorem evaluate_basis_v_ok_decs_Dletrec:
-  ^(get_goal "Dletrec")
-Proof
+Resume evaluate_basis_v_ok[decs_Dletrec]:
   rw [evaluate_decs_def] \\ gs []
   \\ gs [extend_dec_env_def, build_rec_env_merge, env_ok_def,
          nsLookup_nsAppend_some, nsLookup_alist_to_ns_some, SF SFY_ss]
@@ -297,9 +297,7 @@ Proof
   \\ rw [] \\ gs [env_ok_def, SF SFY_ss]
 QED
 
-Theorem evaluate_basis_v_ok_decs_Dtype:
-  ^(get_goal "Dtype")
-Proof
+Resume evaluate_basis_v_ok[decs_Dtype]:
   rw [evaluate_decs_def] \\ gs []
   \\ gs [post_state_ok_def, env_ok_def, extend_dec_env_def,
          nsLookup_nsAppend_some, nsLookup_alist_to_ns_some, SF SFY_ss]
@@ -328,16 +326,12 @@ Proof
   \\ first_x_assum (drule_all_then assume_tac) \\ gs []
 QED
 
-Theorem evaluate_basis_v_ok_decs_Dtabbrev:
-  ^(get_goal "Dtabbrev")
-Proof
+Resume evaluate_basis_v_ok[decs_Dtabbrev]:
   rw [evaluate_decs_def]
   \\ gs [env_ok_def, extend_dec_env_def, SF SFY_ss]
 QED
 
-Theorem evaluate_basis_v_ok_decs_Denv:
-  ^(get_goal "Denv")
-Proof
+Resume evaluate_basis_v_ok[decs_Denv]:
   rw [evaluate_decs_def]
   \\ gvs [CaseEqs ["option", "prod"]]
   \\ gs [env_ok_def, extend_dec_env_def, SF SFY_ss]
@@ -347,9 +341,7 @@ Proof
   \\ rw [] \\ gs [v_ok_def, env_ok_def, nat_to_v_def, SF SFY_ss]
 QED
 
-Theorem evaluate_basis_v_ok_decs_Dexn:
-  ^(get_goal "Dexn")
-Proof
+Resume evaluate_basis_v_ok[decs_Dexn]:
   rw [evaluate_decs_def]
   \\ gvs [CaseEqs ["option", "prod"], state_ok_def]
   \\ gs [env_ok_def, extend_dec_env_def, SF SFY_ss]
@@ -358,9 +350,7 @@ Proof
   \\ rw [] \\ gs [SF SFY_ss]
 QED
 
-Theorem evaluate_basis_v_ok_decs_Dmod:
-  ^(get_goal "Dmod")
-Proof
+Resume evaluate_basis_v_ok[decs_Dmod]:
   rw [evaluate_decs_def]
   \\ gvs [CaseEqs ["option", "prod", "semanticPrimitives$result"], SF SFY_ss]
   \\ first_x_assum (drule_all_then strip_assume_tac)
@@ -372,9 +362,7 @@ Proof
   \\ rw [] \\ gs [SF SFY_ss]
 QED
 
-Theorem evaluate_basis_v_ok_decs_Dlocal:
-  ^(get_goal "Dlocal")
-Proof
+Resume evaluate_basis_v_ok[decs_Dlocal]:
   rw [evaluate_decs_def]
   \\ gvs [CaseEqs ["option", "prod", "semanticPrimitives$result"], SF SFY_ss]
   \\ drule_all_then assume_tac evaluate_decs_post_state_mono
@@ -388,26 +376,7 @@ Proof
   \\ rw [] \\ gs [SF SFY_ss]
 QED
 
-Theorem evaluate_basis_v_ok:
-  ^(evaluate_basis_v_ok ())
-Proof
-  match_mp_tac (the_ind_thm ())
-  \\ rpt conj_tac \\ rpt gen_tac
-  \\ TRY (simp [] \\ NO_TAC)
-  \\ rewrite_tac [evaluate_basis_v_ok_Nil, evaluate_basis_v_ok_Cons,
-                  evaluate_basis_v_ok_Lit, evaluate_basis_v_ok_Con,
-                  evaluate_basis_v_ok_Var, evaluate_basis_v_ok_App,
-                  evaluate_basis_v_ok_decs_Nil,
-                  evaluate_basis_v_ok_decs_Cons,
-                  evaluate_basis_v_ok_decs_Dlet,
-                  evaluate_basis_v_ok_decs_Dletrec,
-                  evaluate_basis_v_ok_decs_Dtype,
-                  evaluate_basis_v_ok_decs_Dtabbrev,
-                  evaluate_basis_v_ok_decs_Denv,
-                  evaluate_basis_v_ok_decs_Dexn,
-                  evaluate_basis_v_ok_decs_Dmod,
-                  evaluate_basis_v_ok_decs_Dlocal]
-QED
+Finalise evaluate_basis_v_ok;
 
 Theorem evaluate_basis_v_ok_decs = el 3 (CONJUNCTS evaluate_basis_v_ok);
 

@@ -621,7 +621,7 @@ Proof
         PURE_TOP_CASE_TAC >> fs[] >> fs[mem_load_def, word_state_rel_def])
     >- (`MAP (λ a . word_exp s a) wexps = MAP (λ a . word_exp s2 a) wexps` by
             (fs[MAP_EQ_f] >> metis_tac[]) >> fs[])
-    >- (first_x_assum drule >> rw[])
+    >- (ntac 2 $ first_x_assum drule >> rw[])
 QED
 
 Theorem word_state_rel_mem_load:
@@ -759,7 +759,7 @@ Proof
   >- (
     (* memory cases *)
     rw[AllCaseEqs()]>>
-    gvs[word_state_rel_def,mem_store_def,domain_find_loc_state,domain_get_memory,set_var_def,mem_store_byte_aux_def,mem_store_32_def,AllCaseEqs()]
+    gvs[word_state_rel_def,mem_store_def,domain_find_loc_state,domain_get_memory,set_var_def,mem_store_byte_aux_def,mem_store_32_alt,AllCaseEqs()]
     >>~-(
       [`domain (get_locals (insert _ _ _))`],
       irule SUBSET_TRANS
@@ -1384,7 +1384,10 @@ Proof
                 fs[mem_load_def] >> metis_tac[domain_get_memory, SUBSET_DEF])
             >- (Cases_on `the_words (MAP (λa. word_exp s a) l)` >>
                 fs[])
-            >- (Cases_on `word_exp s e` >> fs[] >>
+            >- (rename1 ‘Shift _ e₁ e₂’>>
+                namedCases_on `word_exp s e₁` ["", "x"] >> fs[] >>
+                Cases_on `x` >> fs[]>>
+                namedCases_on `word_exp s e₂` ["", "x"] >> fs[] >>
                 Cases_on `x` >> fs[])) >>
         fs[SUBSET_DEF] >> metis_tac[]
         )
@@ -1418,7 +1421,10 @@ Proof
                 fs[mem_load_def] >> metis_tac[domain_get_memory, SUBSET_DEF])
             >- (Cases_on `the_words (MAP (λa. word_exp s a) l)` >>
                 fs[])
-            >- (Cases_on `word_exp s e` >> fs[] >>
+            >- (rename1 ‘Shift _ e₁ e₂’>>
+                namedCases_on `word_exp s e₁` ["", "x"] >> fs[] >>
+                Cases_on `x` >> fs[]>>
+                namedCases_on `word_exp s e₂` ["", "x"] >> fs[] >>
                 Cases_on `x` >> fs[])) >>
         fs[SUBSET_DEF] >> metis_tac[]
         )

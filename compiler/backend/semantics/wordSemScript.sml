@@ -3,7 +3,7 @@
 *)
 Theory wordSem
 Libs
-  preamble
+  preamble blastLib
 Ancestors
   mllist wordLang alignment[qualified] finite_map[qualified]
   misc[qualified] asm[qualified] fpSem[qualified]
@@ -73,6 +73,37 @@ Definition mem_load_32_def:
        | Loc _ _ => NONE
        | Word v =>
            if byte_align w IN dm
+           then SOME (word_of_bytes be (0w:word32)
+             [get_byte w v be; get_byte (w + 1w) v be;
+              get_byte (w + 2w) v be; get_byte (w + 3w) v be])
+           else NONE
+  else NONE
+End
+
+Definition mem_store_32_def:
+  mem_store_32 m dm be (w:'a word) (hw: word32) =
+  if aligned 2 w
+  then case m (byte_align w) of
+       | Word v =>
+           if byte_align w IN dm
+           then
+             let v0 = set_byte w (get_byte (0w:word32) hw be) v be in
+             let v1 = set_byte (w + 1w) (get_byte 1w hw be) v0 be in
+             let v2 = set_byte (w + 2w) (get_byte 2w hw be) v1 be in
+             let v3 = set_byte (w + 3w) (get_byte 3w hw be) v2 be in
+               SOME ((byte_align w =+ Word v3) m)
+           else NONE
+       | _ => NONE
+  else NONE
+End
+
+Theorem mem_load_32_alt:
+  mem_load_32 m dm be (w:'a word) =
+  if aligned 2 w
+  then case m (byte_align w) of
+       | Loc _ _ => NONE
+       | Word v =>
+           if byte_align w IN dm
            then
              let b0 = get_byte w v be in
              let b1 = get_byte (w + 1w) v be in
@@ -87,9 +118,15 @@ Definition mem_load_32_def:
              in SOME (v': word32)
            else NONE
   else NONE
-End
+Proof
+  rw[mem_load_32_def] >>
+  every_case_tac >> rw[] >>
+  simp[word_of_bytes_def] >>
+  EVAL_TAC >>
+  BBLAST_TAC
+QED
 
-Definition mem_store_32_def:
+Theorem mem_store_32_alt:
   mem_store_32 m dm be (w:'a word) (hw: word32) =
   if aligned 2 w
   then case m (byte_align w) of
@@ -112,7 +149,11 @@ Definition mem_store_32_def:
            else NONE
        | _ => NONE
   else NONE
-End
+Proof
+  rw[mem_store_32_def] >>
+  every_case_tac >> rw[] >>
+  EVAL_TAC
+QED
 
 Definition mem_load_byte_aux_def:
   mem_load_byte_aux m dm be w =
@@ -306,9 +347,9 @@ Definition word_exp_def:
      case the_words (MAP (word_exp s) wexps) of
      | SOME ws => (OPTION_MAP Word (word_op op ws))
      | _ => NONE) /\
-  (word_exp s (Shift sh wexp n) =
-     case word_exp s wexp of
-     | SOME (Word w) => OPTION_MAP Word (word_sh sh w n)
+  (word_exp s (Shift sh wexp wexp1) =
+     case (word_exp s wexp, word_exp s wexp1) of
+     | (SOME (Word w), SOME (Word w1)) => OPTION_MAP Word (word_sh sh w (w2n w1))
      | _ => NONE)
 Termination
   WF_REL_TAC `measure (exp_size ARB o SND)`
@@ -678,9 +719,10 @@ Definition inst_def:
         assign r1
           (Op bop [Var r2; case ri of Reg r3 => Var r3
                                     | Imm w => Const w]) s
-    | Arith (Shift sh r1 r2 n) =>
+    | Arith (Shift sh r1 r2 ri) =>
         assign r1
-          (Shift sh (Var r2) n) s
+          (Shift sh (Var r2) (case ri of Reg r3 => Var r3
+                                       | Imm w => Const w)) s
     | Arith (Div r1 r2 r3) =>
        (let vs = get_vars[r3;r2] s in
        case vs of

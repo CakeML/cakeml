@@ -480,6 +480,18 @@ Proof
   EQ_TAC >> simp[]
 QED
 
+Theorem bad_fun_return_IMP:
+  bad_fun_return res ⇒ res = NONE ∨ ∃n. res = SOME (Break n) ∨ res = SOME (Continue n)
+Proof
+  Cases_on ‘res’ \\ gvs [] \\ rename [‘SOME y’] \\ Cases_on ‘y’ \\ gvs []
+QED
+
+Theorem cont_loop_IMP:
+  cont_loop res ⇒ res = NONE ∨ res = SOME (Continue 0)
+Proof
+  Cases_on ‘res’ \\ gvs [] \\ rename [‘SOME y’] \\ Cases_on ‘y’ \\ gvs []
+QED
+
 Theorem evaluate_add_clock:
    ∀p s r s'.
     evaluate (p,s) = (r,s') ∧ r ≠ SOME TimeOut ⇒
@@ -489,20 +501,23 @@ Proof
   >~[`Call`]
   >-(srw_tac[][evaluate_def] >> full_simp_tac(srw_ss())[LET_THM] >>
     gvs[AllCaseEqs(),UNCURRY_EQ] >>
+    imp_res_tac bad_fun_return_IMP >>
     fsrw_tac[ARITH_ss][dec_clock_def] >>
     rev_full_simp_tac(arith_ss)[] >>
     fs[])
   >~[`RawCall`]
   >-(srw_tac[][evaluate_def] >> full_simp_tac(srw_ss())[LET_THM] >>
     gvs[AllCaseEqs(),UNCURRY_EQ] >>
+    imp_res_tac bad_fun_return_IMP >>
     fsrw_tac[ARITH_ss][dec_clock_def] >>
     rev_full_simp_tac(arith_ss)[] >>
     fs[])
-  >~[`While`]
+  >~[`Loop`]
   >-(srw_tac[][evaluate_def] >> full_simp_tac(srw_ss())[LET_THM] >>
     gvs[AllCaseEqs(),UNCURRY_EQ] >>
+    imp_res_tac cont_loop_IMP >>
     fsrw_tac[ARITH_ss][dec_clock_def] >>
-    irule pair_CASES)
+    Cases_on ‘res' = SOME TimeOut’ >> gvs [])
   >~[`Tick`]
   >-(srw_tac[][evaluate_def] >> full_simp_tac(srw_ss())[LET_THM] >>
     gvs[AllCaseEqs(),UNCURRY_EQ] >>
@@ -514,6 +529,7 @@ Proof
   >> map_every imp_res_tac [alloc_const,inst_const,store_const_sem_const,sh_mem_op_const]
   >> fs[]
   >> fsrw_tac[ARITH_ss][dec_clock_def]
+  >> imp_res_tac bad_fun_return_IMP
   >> fs[pair_map_eq]
 QED
 
@@ -544,20 +560,17 @@ Proof
     strip_tac >> gvs[] >>
     imp_res_tac evaluate_io_events_mono >> fs[] >>
     METIS_TAC[IS_PREFIX_TRANS])
-  >~ [`While`]
+  >~ [`Loop`]
   >-
     (rpt strip_tac >>
-    gvs[evaluate_def,Ntimes (CONJ UNCURRY_EQ (AllCaseEqs())) 7]
-    >-(
-      gvs[AllCaseEqs(),UNCURRY_EQ] >>
-      imp_res_tac evaluate_io_events_mono >> fs[] >>
-      METIS_TAC[IS_PREFIX_TRANS]) >>
+    gvs[evaluate_def,Ntimes (CONJ UNCURRY_EQ (AllCaseEqs())) 7] >>
     imp_res_tac evaluate_add_clock >> fs[] >>
-    gvs[AllCaseEqs()]
-    >-(
+    Cases_on ‘res = SOME TimeOut’ >> gvs [] >>
+    gvs[AllCaseEqs()] >>
+    fsrw_tac[ARITH_ss][dec_clock_def] >>
+    Cases_on ‘res' = SOME TimeOut’ >> gvs [] >>
     imp_res_tac evaluate_io_events_mono >> fs[] >>
-    METIS_TAC[IS_PREFIX_TRANS]) >>
-    fsrw_tac[ARITH_ss][dec_clock_def])
+    METIS_TAC[IS_PREFIX_TRANS])
   >~ [`JumpLower`]
   >- (rpt strip_tac >>
     gvs[evaluate_def,Ntimes (CONJ UNCURRY_EQ (AllCaseEqs())) 7]
@@ -587,9 +600,8 @@ Proof
         gvs[AllCaseEqs(),UNCURRY_EQ] >>
         imp_res_tac evaluate_io_events_mono >> fs[] >>
         METIS_TAC[IS_PREFIX_TRANS]) >>
-      gvs[AllCaseEqs()]
-      >- fsrw_tac[ARITH_ss][dec_clock_def]
-      >- fsrw_tac[ARITH_ss][dec_clock_def])
+      gvs[AllCaseEqs()] >>
+      fsrw_tac[ARITH_ss][dec_clock_def])
     >- (
       gvs[Ntimes (CONJ UNCURRY_EQ (AllCaseEqs())) 5]
       >-(
@@ -767,7 +779,7 @@ Definition extract_labels_def:
     | SOME (prog,l1',l2') =>
       let h_rest = extract_labels prog in
       [(l1,l2);(l1',l2')]++ret_rest++h_rest))) ∧
-  (extract_labels (While _ _ _ s1) = extract_labels s1) ∧
+  (extract_labels (Loop s1) = extract_labels s1) ∧
   (extract_labels (Seq s1 s2) =
     extract_labels s1 ++ extract_labels s2) ∧
   (extract_labels (If cmp r1 ri e2 e3) =
@@ -803,7 +815,7 @@ Definition stack_asm_ok_def:
   (stack_asm_ok c (CodeBufferWrite r1 r2) ⇔ r1 < c.reg_count ∧ r2 < c.reg_count ∧ ¬MEM r1 c.avoid_regs ∧ ¬MEM r2 c.avoid_regs) ∧
   (stack_asm_ok c (Seq p1 p2) ⇔ stack_asm_ok c p1 ∧ stack_asm_ok c p2) ∧
   (stack_asm_ok c (If cmp n r p p') ⇔ stack_asm_ok c p ∧ stack_asm_ok c p') ∧
-  (stack_asm_ok c (While cmp n r p) ⇔ stack_asm_ok c p) ∧
+  (stack_asm_ok c (Loop p) ⇔ stack_asm_ok c p) ∧
   (stack_asm_ok c (Raise n) ⇔ n < c.reg_count ∧ ¬MEM n c.avoid_regs) ∧
   (stack_asm_ok c (Return n) ⇔ n < c.reg_count ∧ ¬MEM n c.avoid_regs) ∧
   (stack_asm_ok c (Call r tar h) ⇔
@@ -833,9 +845,12 @@ Definition arith_name_def:
   (arith_name (Binop b r1 r2 ri) (c:'a asm_config) ⇔
     (c.two_reg_arith ⇒ r1 = r2 ∨ b = Or ∧ ri = Reg r2) ∧ reg_name r1 c ∧
     reg_name r2 c ∧ reg_imm_name (INL b) ri c) ∧
-  (arith_name (Shift l r1 r2 n) c ⇔
+  (arith_name (Shift l r1 r2 (Imm i)) c ⇔
     (c.two_reg_arith ⇒ r1 = r2) ∧ reg_name r1 c ∧ reg_name r2 c ∧
-    (n = 0 ⇒ l = Lsl) ∧ n < dimindex (:α)) ∧
+    (i = 0w ⇒ l = Lsl) ∧ w2n i < dimindex (:α)) ∧
+  (arith_name (Shift l r1 r2 (Reg r3)) c ⇔
+    (c.two_reg_arith ⇒ r1 = r2) ∧ reg_name r1 c ∧
+     reg_name r2 c ∧ reg_name r3 c ∧ (c.ISA = x86_64 ⇒ r3 = 4)) ∧
   (arith_name (Div r1 r2 r3) c ⇔
     (reg_name r1 c ∧ reg_name r2 c ∧ reg_name r3 c ∧
     c.ISA ∈ {ARMv8; MIPS; RISC_V})) ∧
@@ -929,7 +944,7 @@ Definition stack_asm_name_def:
   (stack_asm_name c (DataBufferWrite r1 r2) ⇔ reg_name r1 c ∧ reg_name r2 c) ∧
   (stack_asm_name c (Seq p1 p2) ⇔ stack_asm_name c p1 ∧ stack_asm_name c p2) ∧
   (stack_asm_name c (If cmp n r p p') ⇔ stack_asm_name c p ∧ stack_asm_name c p') ∧
-  (stack_asm_name c (While cmp n r p) ⇔ stack_asm_name c p) ∧
+  (stack_asm_name c (Loop p) ⇔ stack_asm_name c p) ∧
   (stack_asm_name c (Raise n) ⇔ reg_name n c) ∧
   (stack_asm_name c (Return n) ⇔ reg_name n c) ∧
   (stack_asm_name c (Call r tar h) ⇔
@@ -947,6 +962,7 @@ Definition fixed_names_def:
   fixed_names names c =
   if c.ISA = x86_64 then
     find_name names 3 = 2 ∧
+    find_name names 4 = 1 ∧
     find_name names 0 = 0
   else T
 End
@@ -965,7 +981,7 @@ Definition stack_asm_remove_def:
   (stack_asm_remove c (StoreConsts n n0 _) ⇔ reg_name n c ∧ reg_name n0 c) ∧
   (stack_asm_remove c (Seq p1 p2) ⇔ stack_asm_remove c p1 ∧ stack_asm_remove c p2) ∧
   (stack_asm_remove c (If cmp n r p p') ⇔ stack_asm_remove c p ∧ stack_asm_remove c p') ∧
-  (stack_asm_remove c (While cmp n r p) ⇔ stack_asm_remove c p) ∧
+  (stack_asm_remove c (Loop p) ⇔ stack_asm_remove c p) ∧
   (stack_asm_remove c (Call r tar h) ⇔
     (case r of
       (SOME (p,_,_,_) => stack_asm_remove c p ∧
@@ -991,7 +1007,7 @@ Definition alloc_arg_def:
      alloc_arg p1 /\ alloc_arg p2) /\
   (alloc_arg ((If c r ri p1 p2):'a stackLang$prog) <=>
      alloc_arg p1 /\ alloc_arg p2) /\
-  (alloc_arg (While c r ri p1) <=>
+  (alloc_arg (Loop p1) <=>
      alloc_arg p1) /\
   (alloc_arg (Call x1 _ x2) <=>
      (case x1 of | SOME (y,r,_,_) => alloc_arg y | NONE => T) /\
@@ -1004,7 +1020,7 @@ End
 Definition reg_bound_exp_def[simp]:
   (reg_bound_exp (Var n) k ⇔ n < k) ∧
   (reg_bound_exp (Load e) k ⇔ reg_bound_exp e k) ∧
-  (reg_bound_exp (Shift _ e _) k ⇔ reg_bound_exp e k) ∧
+  (reg_bound_exp (Shift _ e1 e2) k ⇔ reg_bound_exp e1 k ∧ reg_bound_exp e2 k) ∧
   (reg_bound_exp (Lookup _) _ ⇔ F) ∧
   (reg_bound_exp (Op _ es) k ⇔ EVERY (λe. reg_bound_exp e k) es) ∧
   (reg_bound_exp _ _ ⇔ T)
@@ -1017,7 +1033,7 @@ End
 Definition reg_bound_inst_def[simp]:
   (reg_bound_inst (Mem _ n (Addr a _)) k ⇔ n < k ∧ a < k) ∧
   (reg_bound_inst (Const n _) k ⇔ n < k) ∧
-  (reg_bound_inst (Arith (Shift _ n r2 _)) k ⇔ r2 < k ∧ n < k) ∧
+  (reg_bound_inst (Arith (Shift _ n r2 ri)) k ⇔ r2 < k ∧ n < k ∧ (case ri of Reg r => r < k | _ => T)) ∧
   (reg_bound_inst (Arith (Binop _ n r2 ri)) k ⇔ r2 < k ∧ n < k ∧ (case ri of Reg r1 => r1 < k | _ => T)) ∧
   (reg_bound_inst (Arith (Div r1 r2 r3)) k ⇔ r1 < k ∧ r2 < k ∧ r3 < k) ∧
   (reg_bound_inst (Arith (AddCarry r1 r2 r3 r4)) k ⇔ r1 < k ∧ r2 < k ∧ r3 < k ∧ r4 < k) ∧
@@ -1057,8 +1073,7 @@ Definition reg_bound_def:
   (reg_bound ((If c r ri p1 p2):'a stackLang$prog) k <=>
      r < k /\ (case ri of Reg n => n < k | _ => T) /\
      reg_bound p1 k /\ reg_bound p2 k) /\
-  (reg_bound (While c r ri p1) k <=>
-     r < k /\ (case ri of Reg n => n < k | _ => T) /\
+  (reg_bound (Loop p1) k <=>
      reg_bound p1 k) /\
   (reg_bound (Halt n) k <=> n < k) /\
   (reg_bound (FFI ffi_index ptr' len' ptr2' len2' ret') k <=>
@@ -1096,7 +1111,7 @@ Definition call_args_def:
   (call_args ((If c r ri p1 p2):'a stackLang$prog) ptr len ptr2 len2 ret <=>
      call_args p1 ptr len ptr2 len2 ret /\
      call_args p2 ptr len ptr2 len2 ret) /\
-  (call_args (While c r ri p1) ptr len ptr2 len2 ret <=>
+  (call_args (Loop p1) ptr len ptr2 len2 ret <=>
      call_args p1 ptr len ptr2 len2 ret) /\
   (call_args (Halt n) ptr len ptr2 len2 ret <=> (n = ptr)) /\
   (call_args (FFI ffi_index ptr' len' ptr2' len2' ret') ptr len ptr2 len2 ret <=>
@@ -1122,7 +1137,7 @@ Definition stack_get_handler_labels_def[simp]:
   ) ∧
   (stack_get_handler_labels n (Seq p1 p2) = stack_get_handler_labels n p1 ∪ stack_get_handler_labels n p2) ∧
   (stack_get_handler_labels n (If _ _ _ p1 p2) = stack_get_handler_labels n p1 ∪ stack_get_handler_labels n p2) ∧
-  (stack_get_handler_labels n (While _ _ _ p) = stack_get_handler_labels n p) ∧
+  (stack_get_handler_labels n (Loop p) = stack_get_handler_labels n p) ∧
   (stack_get_handler_labels n _ = {})
 End
 
@@ -1133,7 +1148,7 @@ Definition get_code_labels_def[simp]:
     (case h of SOME (x,_,_) => get_code_labels x | _ => {})) ∧
   (get_code_labels (Seq p1 p2) = get_code_labels p1 ∪ get_code_labels p2) ∧
   (get_code_labels (If _ _ _ p1 p2) = get_code_labels p1 ∪ get_code_labels p2) ∧
-  (get_code_labels (While _ _ _ p) = get_code_labels p) ∧
+  (get_code_labels (Loop p) = get_code_labels p) ∧
   (get_code_labels (JumpLower _ _ t) = {(t,0)}) ∧
   (get_code_labels (RawCall t) = {(t,1)}) ∧
   (get_code_labels (LocValue _ l1 l2) = {(l1,l2)}) ∧
@@ -1160,10 +1175,10 @@ End
 Definition no_install_def:
   (no_install (Call r d h) =
     ((case r of SOME (x,_,_) => no_install x | _ => T) /\
-    (case h of SOME (x,_,_) => no_install x | _ => T))) /\
+     (case h of SOME (x,_,_) => no_install x | _ => T))) /\
   (no_install (Seq p1 p2) = (no_install p1 /\ no_install p2)) /\
   (no_install (If _ _ _ p1 p2) = (no_install p1 /\ no_install p2)) /\
-  (no_install (While _ _ _ p) = no_install p) /\
+  (no_install (Loop p) = no_install p) /\
   (no_install (Install _ _ _ _ _) = F) /\
   (no_install _ = T)
 End
@@ -1171,10 +1186,10 @@ End
 Definition no_shmemop_def:
   (no_shmemop (Call r d h) =
     ((case r of SOME (x,_,_) => no_shmemop x | _ => T) /\
-    (case h of SOME (x,_,_) => no_shmemop x | _ => T))) /\
+     (case h of SOME (x,_,_) => no_shmemop x | _ => T))) /\
   (no_shmemop (Seq p1 p2) = (no_shmemop p1 /\ no_shmemop p2)) /\
   (no_shmemop (If _ _ _ p1 p2) = (no_shmemop p1 /\ no_shmemop p2)) /\
-  (no_shmemop (While _ _ _ p) = no_shmemop p) /\
+  (no_shmemop (Loop p) = no_shmemop p) /\
   (no_shmemop (ShMemOp _ _ _) = F) /\
   (no_shmemop _ = T)
 End

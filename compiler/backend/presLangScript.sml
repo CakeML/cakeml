@@ -1005,7 +1005,10 @@ Definition asm_arith_to_display_def:
         [asm_binop_to_display bop; num_to_display n1; num_to_display n2;
             asm_reg_imm_to_display reg_imm]
     | asm$Shift sh n1 n2 n3 => Item NONE (strlit "Shift")
-        (shift_to_display sh :: MAP num_to_display [n1; n2; n3])
+        [shift_to_display sh;
+         num_to_display n1;
+         num_to_display n2;
+         asm_reg_imm_to_display n3]
     | Div n1 n2 n3 => item_with_nums (strlit "Div") [n1; n2; n3]
     | LongMul n1 n2 n3 n4 => item_with_nums (strlit "LongMul") [n1; n2; n3; n4]
     | LongDiv n1 n2 n3 n4 n5 => item_with_nums (strlit "LongDiv") [n1; n2; n3; n4; n5]
@@ -1171,15 +1174,16 @@ Definition stack_prog_to_display_def:
         [Tuple [asm_cmp_to_display c; num_to_display n; asm_reg_imm_to_display to];
          stack_prog_to_display k ns x;
          stack_prog_to_display k ns y] ∧
-   stack_prog_to_display (SUC k) ns (While c n to x) = Item NONE «while»
-        [Tuple [asm_cmp_to_display c; num_to_display n; asm_reg_imm_to_display to];
-         stack_prog_to_display k ns x] ∧
+   stack_prog_to_display (SUC k) ns (Loop x) = Item NONE «loop»
+        [stack_prog_to_display k ns x] ∧
    stack_prog_to_display (SUC k) ns (JumpLower n1 n2 n3) =
      item_with_nums «jump_lower» [n1; n2; n3] ∧
    stack_prog_to_display (SUC k) ns (Alloc n) = item_with_num «alloc» n ∧
    stack_prog_to_display (SUC k) ns (StoreConsts n1 n2 _) = item_with_nums «store_consts» [n1; n2] ∧
    stack_prog_to_display (SUC k) ns (Raise n) = item_with_num «raise» n ∧
    stack_prog_to_display (SUC k) ns (Return n) = item_with_num «return» n ∧
+   stack_prog_to_display (SUC k) ns (Break n) = item_with_num «break» n ∧
+   stack_prog_to_display (SUC k) ns (Continue n) = item_with_num «continue» n ∧
    stack_prog_to_display (SUC k) ns (FFI nm cp cl ap al ra) = Item NONE «ffi»
         (string_imp nm :: MAP num_to_display [cp; cl; ap; al; ra]) ∧
    stack_prog_to_display (SUC k) ns (Tick) = empty_item «tick» ∧
@@ -1312,11 +1316,11 @@ Definition word_exp_to_display_def:
   (word_exp_to_display (Op bop exs)
     = Item NONE (strlit "Op") (asm_binop_to_display bop
         :: word_exp_to_display_list exs)) /\
-  (word_exp_to_display (Shift sh exp num)
+  (word_exp_to_display (Shift sh exp exp1)
     = Item NONE (strlit "Shift") [
       shift_to_display sh;
       word_exp_to_display exp;
-      num_to_display num
+      word_exp_to_display exp1
     ]) ∧
   (word_exp_to_display_list [] = []) ∧
   (word_exp_to_display_list (x::xs) =

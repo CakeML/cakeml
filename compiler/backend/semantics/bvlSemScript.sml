@@ -191,6 +191,33 @@ Definition do_int_app_def:
   do_int_app (op:closLang$int_op) (vs:bvlSem$v list) = NONE
 End
 
+Theorem do_int_app_eq_some:
+  (!n. do_int_app (Const n) vs = SOME res ==>
+    vs = [] /\ res = Number n) /\
+  (do_int_app (Add) vs = SOME res ==>
+    ?n1 n2. vs = [Number n1;Number n2] /\ res = Number (n1 + n2)) /\
+  (do_int_app (Sub) vs = SOME res ==>
+    ?n1 n2. vs = [Number n1;Number n2] /\ res = Number (n1 - n2)) /\
+  (do_int_app (Mult) vs = SOME res ==>
+    ?n1 n2. vs = [Number n1;Number n2] /\ res = Number (n1 * n2)) /\
+  (do_int_app (Div) vs = SOME res ==>
+    ?n1 n2. vs = [Number n1;Number n2] /\ n2 ≠ 0 ∧ res = Number (n1 / n2)) /\
+  (do_int_app (Mod) vs = SOME res ==>
+    ?n1 n2. vs = [Number n1;Number n2] /\ n2 ≠ 0 ∧ res = Number (n1 % n2)) /\
+  (do_int_app (Less) vs = SOME res ==>
+    ?n1 n2. vs = [Number n1;Number n2] /\ res = Boolv (n1 < n2)) /\
+  (do_int_app (LessEq) vs = SOME res ==>
+    ?n1 n2. vs = [Number n1;Number n2] /\ res = Boolv (n1 <= n2)) /\
+  (do_int_app (Greater) vs = SOME res ==>
+    ?n1 n2. vs = [Number n1;Number n2] /\ res = Boolv (n1 > n2)) /\
+  (do_int_app (GreaterEq) vs = SOME res ==>
+    ?n1 n2. vs = [Number n1;Number n2] /\ res = Boolv (n1 >= n2)) /\
+  (!n. do_int_app (LessConstSmall n) vs = SOME res ==>
+    ?i. vs = [Number i] /\ 0 <= i /\ i <= 1000000 /\ n < 1000000 /\ res = Boolv (i < &n))
+Proof
+  simp [oneline do_int_app_def] \\ rpt CASE_TAC \\ rw []
+QED
+
 (* same as closSem$do_word_app *)
 Definition do_word_app_def:
   (do_word_app (WordOpw W8 opw) [Number n1; Number n2] =

@@ -175,24 +175,19 @@ Proof
   simp [SmartOp2_def] \\
   reverse (Cases_on `op = BlockOp Equal`)
   >- (
-    Cases_on `dest_simple x1` \\ fs [] \\
-    Cases_on `dest_simple x2` \\ fs [] \\
-    Cases_on `case_op_const x1` \\ fs [] \\
-    Cases_on `case_op_const x2` \\ fs [] \\
+    rpt TOP_CASE_TAC \\
     fs [dest_simple_eq, case_op_const_eq] \\
-    rveq \\
-    rw [case_eq_thms] \\
+    rveq \\ disch_then strip_assume_tac \\
     qpat_x_assum `evaluate _ = _` mp_tac \\
     fs [dest_simple_eq, case_op_const_eq] \\
-    simp [evaluate_def, do_app_def,oneline do_int_app_def] \\
-    fsrw_tac [DNF_ss] [case_eq_thms] \\
-    rw [REVERSE_DEF]
-    \\ (
-      imp_res_tac evaluate_SING  \\
-      fs [] \\ rveq \\
-      intLib.COOPER_TAC
-        ORELSE metis_tac [intLib.COOPER_PROVE
-                           ``!(a : int) b. 0 ≤ a ∧ a < &b ⇒ Num a < b``]))
+    simp [evaluate_def, do_app_def] \\
+    fsrw_tac [DNF_ss] [case_eq_thms] \\ rw [] \\
+    imp_res_tac evaluate_SING \\ fs [] \\ rveq \\
+    rpt (first_x_assum (fn h => MAP_FIRST (fn th => fn g =>
+      mp_tac (MATCH_MP th h) g) (CONJUNCTS do_int_app_eq_some))) \\ rw [] \\
+    simp [do_int_app_def] \\
+    intLib.COOPER_TAC ORELSE metis_tac [
+      intLib.COOPER_PROVE ``!(a : int) b. 0 ≤ a ∧ a < &b ⇒ Num a < b``])
   \\ fs []
   \\ every_case_tac \\ fs []
   \\ fs [dest_simple_eq] \\ rveq

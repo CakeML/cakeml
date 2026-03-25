@@ -55,4 +55,8 @@ Quote add_cakeml:
           abort());
 End
 
+Quote add_cakeml:
+  fun customFFI str_arg arr_arg = #(custom) str_arg arr_arg;
+End
+
 val _ = ml_prog_update (close_module NONE);
