@@ -82,9 +82,9 @@ End
 Definition input_condition_def:
   input_condition next prog ⇔
     EVERY (free_names next o FST) prog ∧
-   ALL_DISTINCT (MAP FST prog) ∧
-   EVERY ($~ o in_ns_2 o FST) (FILTER ((<=) bvl_num_stubs o FST) prog) ∧
-   bvl_num_stubs ≤ next ∧ in_ns_2 next
+    ALL_DISTINCT (MAP FST prog) ∧
+    EVERY ($~ o in_ns_2 o FST) (FILTER ((<=) bvl_num_stubs o FST) prog) ∧
+    bvl_num_stubs ≤ next ∧ in_ns_2 next
 End
 
 Definition state_ref_rel_def:
@@ -514,33 +514,37 @@ Proof
   >> gvs [backend_commonTheory.tuple_tag_def]
 QED
 
+Theorem ry:
+  rewrite_opt loc next arity (arity + 1) (arity + 2) exp = opt
+  ⇒
+  FLOOKUP s'.refs hole_ptr = SOME (MutBlock tag l c r) ∧
+  hole_idx = &LENGTH l
+Proof
+  cheat
+QED
+
 Theorem evaluate_mem_op_update_cons2:
-  ∀f n i j hole_ptr hole_idx tag l c r v env env' s s' t t'.
+  ∀f n i j tag l c r v env env' s s' t t'.
     env_rel T f env env' ∧
     n < LENGTH env ∧
     i = LENGTH env ∧
     j = LENGTH env + 1 ∧
-    (*env'❲i❳ = RefPtr F hole_ptr ∧*)
-    (*env'❲j❳ = Number hole_idx ∧*)
     (*FLOOKUP s'.refs hole_ptr = SOME (MutBlock tag l c r) ∧*)
     (*hole_idx = &LENGTH l ∧*)
-
+    (*t' = s' with refs := s'.refs⟨hole_ptr ↦ MutBlock tag l env❲n❳ r⟩*)
     evaluate ([Var n], env, s) = (Rval v, t) ∧
-    state_rel f s s' ∧
-             
-    t' = s' with refs := s'.refs⟨hole_ptr ↦ MutBlock tag l env❲n❳ r⟩ ⇒
+    state_rel f s s' ⇒
     evaluate ([Op (MemOp UpdateCons) [Var n; Var j; Var i]],env',s') = (Rval [Block 0 []],t')
 (* state rel?*)
 Proof
   rw []
-  >> gvs [evaluate_def]
   >> imp_res_tac env_rel_length_opt
-  >> gvs []
+  >> drule env_rel_extras_opt
+  >> strip_tac
+  >> simp [evaluate_def]
   >> gvs [do_app_def]
   >> gvs [do_app_aux_def]
-                
-  >> gvs [env_rel_def]
-  >> gvs [APPEND_def]
+  >> cheat
 QED
 
 Theorem evaluate_rewrite_tmc:
@@ -562,8 +566,9 @@ Theorem evaluate_rewrite_tmc:
              evaluate ([exp_aux], env2, s') = (r',t1) ∧
              state_rel f' t t1) ∧
         (∀loc loc_opt i j k exp_aux exp_opt.
-           i < LENGTH env2 ∧
-           j < LENGTH env2 ∧
+           i = LENGTH env1 ∧
+           j = LENGTH env1 + 1 ∧
+           k = LENGTH env1 + 2 ∧
            rewrite_opt loc loc_opt i j k (HD xs) = exp_opt ⇒
            ∃rrr t2.
              evaluate ([exp_opt], env2, s') = (rrr,t2) ∧
@@ -626,18 +631,27 @@ Proof
     >> conj_tac
     >- (rpt gen_tac >> gvs [rewrite_aux_def])
     >> rpt gen_tac
-    >> strip_tac
-    >> goal_assum $ drule_at Any
     >> gvs [opt_res_rel_def]
+    >> goal_assum $ drule_at Any
     >> gvs [rewrite_opt_def]
     (* Lemma for evaluating Op (MemOp UpdateCons)? *)
     >> gvs [evaluate_def]
+    >> drule env_rel_length_opt
+    >> gvs []
+    >> strip_tac
+
     >> gvs [do_app_def]
     >> gvs [do_app_aux_def]
-    >> gvs [case_eq_thms]
-    >> qexists ‘SOME (Block 0 [],s')’
+    >> drule env_rel_extras_opt
+    >> strip_tac
     >> gvs []
-    >> 
+    >> gvs [case_eq_thms]
+    >> gvs [PULL_EXISTS]
+
+    >> Cases_on ‘env2❲n❳’ >> gvs []
+    >- (gvs [bvlSemTheory.do_app_def]
+        >> gvs [bvi_to_bvl_def]
+        >> )
    )
   >~ [‘If x1 x2 x3’] >-
    (gvs [evaluate_def]
