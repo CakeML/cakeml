@@ -1746,33 +1746,11 @@ Proof
 QED
 
 
-Definition fts_child_head_is_min_def:
-  (fts_child_head_is_min [] <=> T) /\
-  (fts_child_head_is_min (FibTree k v l::fts) <=>
-    fts_head_is_min l /\ fts_child_head_is_min l /\ fts_child_head_is_min fts)
-End
-
 
 Definition every_fts_def:
   every_fts P xs <=>
     P xs /\ !k v l. MEM(FibTree k v l) xs ==> every_fts P l
 End
-
-
-
-Theorem fts_child_head_is_min_append_thm:
-  !xs ys.
-    fts_child_head_is_min xs /\ fts_child_head_is_min ys ==>
-    fts_child_head_is_min (xs ++ ys)
-Proof
-  ho_match_mp_tac fts_child_head_is_min_ind >>
-  rpt strip_tac
-  >- simp[fts_child_head_is_min_def] >>
-  simp[fts_child_head_is_min_def] >>
-  qpat_x_assum `fts_child_head_is_min (FibTree k xs xs'::xs'')` mp_tac >>
-  simp[fts_child_head_is_min_def]
-QED
-
 
 
 
