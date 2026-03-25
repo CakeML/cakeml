@@ -65,7 +65,7 @@ local
      ("unit", oneSyntax.one_ty),
      ("pair", pairSyntax.mk_prod(alpha,beta)),
      ("num", numSyntax.num),
-     ("poly_M_type", alpha --> pairSyntax.mk_prod(ml_monadBaseSyntax.mk_exc_ty(beta,gamma), alpha)),
+     ("poly_M_type", ml_monadBaseSyntax.M_ty),
      ("v_bool_ty", semanticPrimitivesSyntax.v_ty --> bool),
      ("hprop_ty", cfHeapsBaseSyntax.hprop_ty),
      ("recclosure_exp_ty",

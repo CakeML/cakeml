@@ -3,7 +3,7 @@
   state-and-exception monad defined in ml_monadBase.
 *)
 structure ml_monadBaseSyntax :> ml_monadBaseSyntax = struct
-  open HolKernel boolLib;
+  open HolKernel boolLib pairSyntax ml_monadBaseTheory;
   val s1 = HolKernel.syntax_fns1 "ml_monadBase"
   val s2 = HolKernel.syntax_fns2 "ml_monadBase"
   val s3 = HolKernel.syntax_fns3 "ml_monadBase"
@@ -12,7 +12,7 @@ structure ml_monadBaseSyntax :> ml_monadBaseSyntax = struct
     mk_thy_type{Thy="ml_monadBase",Tyop="exc",Args=[a,b]};
   val exc_ty = mk_exc_ty(alpha, beta);
   fun mk_M_ty (a, b, c) =
-    mk_thy_type{Thy="ml_monadBase",Tyop="M",Args=[a,b,c]};
+    a --> mk_prod(mk_exc_ty(b, c), a);
   val M_ty = mk_M_ty(alpha, beta, gamma);
   (* exc constructors *)
   val (M_success_tm, mk_M_success, dest_M_success, is_M_success) =
