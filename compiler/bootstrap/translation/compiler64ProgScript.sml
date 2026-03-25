@@ -563,7 +563,10 @@ val _ = (next_ml_names := ["select_parse"]);
 val r = translate select_parse_def;
 
 Definition init_next_string_def:
-  init_next_string cl = if MEM «--candle» cl then «candle» else «»
+  init_next_string cl =
+    case find_str «--boot=» cl of
+      SOME fname => fname
+    | NONE => if MEM «--candle» cl then «candle_boot.ml» else «repl_boot.cml»
 End
 
 val _ = (next_ml_names := ["init_next_string"]);

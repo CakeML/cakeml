@@ -175,8 +175,7 @@ Quote add_cakeml:
   fun init_readNextString () =
     let
       val _ = TextIO.print "Welcome to the CakeML read-eval-print loop.\n"
-      val fname = (if !nextString = "candle" then "candle_boot.ml" else "repl_boot.cml")
-      val str = charsFrom fname
+      val str = charsFrom (!nextString)
     in
       (isEOF := False; nextString := String.implode str)
     end;

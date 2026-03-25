@@ -38,6 +38,9 @@ OPTIONS:
 
   --repl        starts an interactive read-eval-print loop; all other
                 flags are ignored, when the --repl flag is present
+  --boot=F      F is a filename for the boot file to load at REPL
+                startup (default: repl_boot.cml, or candle_boot.ml
+                when --candle is used)
 
   --reg_alg=N   N is a natural number that specifies the register
                 allocation algorithm to use:
