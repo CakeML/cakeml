@@ -822,8 +822,8 @@ Proof
     >> imp_res_tac evaluate_SING_IMP
     >> gvs [])
   >~ [‘Op op xs’] >-
-
-   (gvs [evaluate_def]
+   cheat
+   (*gvs [evaluate_def]
     >> gvs [CaseEq "prod", PULL_EXISTS]
     >> rename [‘evaluate (xs,env,s) = (rs,u)’]
     >> first_x_assum $ qspec_then ‘F’ mp_tac
@@ -895,14 +895,22 @@ Proof
                 >> cheat)
             >> cheat)
         >> cheat)
-    >> cheat)
+    >> cheat*)
   >~ [‘Tick x’] >-
    (gvs [evaluate_def]
     >> ‘s'.clock = s.clock’ by gvs [state_rel_def]
     >> gvs []
     >> Cases_on ‘s.clock’
     >> gvs []
-    >- (cheat) (* Prove timeout error? *)
+    >- (goal_assum $ drule_at Any
+        >> gvs []
+        >> rw []
+        >- (goal_assum $ drule_at Any
+            >> drule aux_strip_tick
+            >> strip_tac
+            >> gvs [evaluate_def])
+        >> (goal_assum $ drule_at Any
+            >> gvs [rewrite_opt_def, evaluate_def, opt_res_rel_def]))
     >> Cases_on ‘opt’
     >> gvs []
     (* Opt *)
