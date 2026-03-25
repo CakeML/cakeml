@@ -510,7 +510,7 @@ Proof
   >> gvs [evaluate_def]
   >> gvs [do_app_def]
   >> gvs [do_app_aux_def]
-  >> gvs [bvlSemTheory.Unit_def]
+  >> gvs [bvlSemTheory.Unit_def, backend_commonTheory.tuple_tag_def]
   >> gvs [backend_commonTheory.tuple_tag_def]
 QED
 
@@ -647,11 +647,8 @@ Proof
     >> gvs []
     >> gvs [case_eq_thms]
     >> gvs [PULL_EXISTS]
-
-    >> Cases_on ‘env2❲n❳’ >> gvs []
-    >- (gvs [bvlSemTheory.do_app_def]
-        >> gvs [bvi_to_bvl_def]
-        >> )
+    >> gvs [bvlSemTheory.Unit_def, backend_commonTheory.tuple_tag_def]
+    >> cheat
    )
   >~ [‘If x1 x2 x3’] >-
    (gvs [evaluate_def]
@@ -706,7 +703,7 @@ Proof
                         >> goal_assum $ drule_at Any
                         >> gvs [evaluate_def])
                     >> gvs [evaluate_def])
-                >> first_x_assum $ qspecl_then [‘loc’, ‘loc_opt’, ‘i’, ‘j’, ‘k’] mp_tac
+                >> first_x_assum $ qspecl_then [‘loc’, ‘loc_opt’] mp_tac
                 >> strip_tac
                 >> gvs [rewrite_opt_def, evaluate_def])
             (* Then inductive hypothesis *) (* TODO - maybe some of this can be factored out *)
@@ -741,7 +738,7 @@ Proof
                     >> goal_assum $ drule_at Any
                     >> gvs [evaluate_def])
                 >> gvs [evaluate_def])
-            >> first_x_assum $ qspecl_then [‘loc’, ‘loc_opt’, ‘i’, ‘j’, ‘k’] mp_tac
+            >> first_x_assum $ qspecl_then [‘loc’, ‘loc_opt’] mp_tac
             >> strip_tac
             >> gvs [rewrite_opt_def, evaluate_def])
         >> strip_tac
@@ -806,7 +803,7 @@ Proof
         >> imp_res_tac SUBMAP_TRANS)
     >> qexists ‘f''’
     >> gvs [])
-  >~ [‘Let xs x2’] >-
+  >~ [‘Let xs x2’] >-     
    (gvs [evaluate_def]
     >> gvs [CaseEq "prod", PULL_EXISTS]
     >> rename [‘evaluate (xs,env,s) = (rs,u)’]
@@ -853,8 +850,9 @@ Proof
                 >> last_x_assum drule
                 >> strip_tac
                 >> gvs [evaluate_def])
-            >> first_x_assum $ qspecl_then [‘loc’, ‘loc_opt’, ‘i + LENGTH xs’, ‘j + LENGTH xs’, ‘k + LENGTH xs’] mp_tac
+            >> first_x_assum $ qspecl_then [‘loc’, ‘loc_opt’] mp_tac
             >> strip_tac
+            >> rev_drule evaluate_IMP_LENGTH
             >> gvs [rewrite_opt_def, evaluate_def])
         >> strip_tac
         >> rename [‘evaluate (xs,env2,s') = (r',t')’]
@@ -1040,7 +1038,7 @@ Proof
             >> strip_tac
             >> qexists ‘t1’
             >> gvs [evaluate_def])
-        >> pop_assum $ qspecl_then [‘loc’, ‘loc_opt’, ‘i’, ‘j’, ‘k’] mp_tac             
+        >> pop_assum $ qspecl_then [‘loc’, ‘loc_opt’] mp_tac             
         >> strip_tac
         >> qexistsl [‘rrr’, ‘t2’]
         >> gvs [rewrite_opt_def, evaluate_def])

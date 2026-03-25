@@ -197,7 +197,7 @@ Definition rewrite_opt_def:
   (rewrite_opt loc loc_opt i_old_hole_ptr i_old_hole_idx i_new_hole_ptr expr =
     let arg_hole_ptr = Var i_old_hole_ptr in
     let arg_hole_idx = Var i_old_hole_idx in
-      Op (MemOp UpdateCons) [arg_hole_ptr; arg_hole_idx; expr])
+      Op (MemOp UpdateCons) [expr; arg_hole_idx; arg_hole_ptr])
 End
 
 Definition compile_exp_def:
@@ -254,7 +254,7 @@ val append_expected = “(9:num,
                 (Op (MemOp FinaliseCons) [Var 4]))));
        (6,4,
         If (Op (BlockOp (TagLenEq 0 0)) [Var 0])
-          (Op (MemOp UpdateCons) [Var 2; Var 3; Var 1])
+          (Op (MemOp UpdateCons) [Var 1; Var 3; Var 2])
           (Let [mk_elem_at (Var 0) 0; mk_elem_at (Var 0) 1]
              (Let
                 [Op (MemOp (MutCons 0 0)) [Op (IntOp (Const 0)) []; Var 2];
