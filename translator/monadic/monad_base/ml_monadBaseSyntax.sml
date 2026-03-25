@@ -3,12 +3,10 @@
   state-and-exception monad defined in ml_monadBase.
 *)
 structure ml_monadBaseSyntax :> ml_monadBaseSyntax = struct
-  local
   open HolKernel boolLib;
   val s1 = HolKernel.syntax_fns1 "ml_monadBase"
   val s2 = HolKernel.syntax_fns2 "ml_monadBase"
   val s3 = HolKernel.syntax_fns3 "ml_monadBase"
-  in
   (* types *)
   fun mk_exc_ty (a, b) =
     mk_thy_type{Thy="ml_monadBase",Tyop="exc",Args=[a,b]};
@@ -46,5 +44,4 @@ structure ml_monadBaseSyntax :> ml_monadBaseSyntax = struct
   (* Marray_update has 5 args — no syntax_fns5, so just provide the constant *)
   val Marray_update_tm =
     prim_mk_const{Thy="ml_monadBase",Name="Marray_update"};
-  end
 end
