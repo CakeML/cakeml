@@ -1031,14 +1031,18 @@ fun let_n2w_rw_once th =
   let val let_terms = find_terms (can (match_term “LET _ _”)) (th |> concl)
       val let_n2w_terms = filter (fn x =>
                                     (is_comb (rand x))
-                                    andalso ((same_const (rator (rand x)) “n2w”))) let_terms
-      val let_rw_thms = map (QCONV (PURE_REWRITE_CONV [LET_THM])) let_n2w_terms
+                                    andalso ((same_const (rator (rand x)) “n2w”)
+                                             orelse ((not (same_const (rator (rand x)) “THE”))
+                                                     andalso (not (same_const (rator (rand x)) “word_of_val”))
+                                                     andalso (not (same_const (rator (rand x)) “struct_of_val”))))) let_terms
+      val let_rw_thms = map (QCONV (PURE_REWRITE_CONV [Once LET_THM])) let_n2w_terms
   in
     if null let_rw_thms then
       raise Domain
     else
-      PURE_REWRITE_RULE let_rw_thms th
+      SIMP_RULE (srw_ss ()) let_rw_thms th
     end
+
 
 fun let_n2w_rw th = let_n2w_rw (let_n2w_rw_once th)
                                handle _ => th
@@ -1571,6 +1575,7 @@ fun decompile_2 file_name extra_assms fundec =
                                                   GSYM res_var_list_def, res_var_list_thm]@tree_simp_rules)
                        |> eval_some_rw
                        |> let_non_comb_rw
+		       |> let_n2w_rw
                        |> SIMP_RULE (srw_ss ()) [shape_of_def, size_of_shape_def]
               , map (fn x => x |> DISCH_ALL
                                |> UNDISCH_COMP_CONJUNCTS_ALL
@@ -1582,6 +1587,7 @@ fun decompile_2 file_name extra_assms fundec =
                                                           GSYM res_var_list_def, res_var_list_thm]@tree_simp_rules)
                                |> eval_some_rw
                                |> let_non_comb_rw
+		               |> let_n2w_rw
                                |> SIMP_RULE (srw_ss ()) [shape_of_def, size_of_shape_def]) inner_thms, inner_defs)
            end
         )
@@ -1612,6 +1618,7 @@ fun decompile_2_reduce file_name extra_assms fundec =
                                                   GSYM res_var_list_def, res_var_list_thm]@tree_simp_rules)
                        |> eval_some_rw
                        |> let_non_comb_rw
+		       |> let_n2w_rw
                        |> SIMP_RULE (srw_ss ()) [shape_of_def, size_of_shape_def]
                        |> conj_safe_spin_wbisim_lifting
               , map (fn x => x |> DISCH_ALL
@@ -1624,6 +1631,7 @@ fun decompile_2_reduce file_name extra_assms fundec =
                                                           GSYM res_var_list_def, res_var_list_thm]@tree_simp_rules)
                                |> eval_some_rw
                                |> let_non_comb_rw
+		               |> let_n2w_rw
                                |> SIMP_RULE (srw_ss ()) [shape_of_def, size_of_shape_def]
                                |> conj_safe_spin_wbisim_lifting
                     ) inner_thms, inner_defs)
