@@ -3,7 +3,7 @@
 *)
 Theory bvi_tmcProof
 Ancestors
-  bvi_tmc bviProps bviSem
+  bvi_tmc bviProps bviSem bvlSem[qualified] backend_common[qualified]
 Libs
   preamble
 
@@ -173,16 +173,49 @@ Proof
   >> gvs [LIST_REL_APPEND_suff]
 QED
 
+Theorem env_rel_length_opt:
+  ∀f env env'.
+    env_rel T f env env' ⇒
+    LENGTH env' = LENGTH env + 2
+Proof
+  rw [env_rel_def]
+  >> drule LIST_REL_LENGTH
+  >> gvs [APPEND_LENGTH_EQ]
+QED
+
+Theorem env_rel_length_non_opt:
+  ∀f env env'.
+    env_rel F f env env' ⇒
+    LENGTH env' = LENGTH env
+Proof
+  rw [env_rel_def]
+  >> drule LIST_REL_LENGTH
+  >> gvs []
+QED
+
 Theorem env_rel_length:
   ∀opt f env1 env2.
     env_rel opt f env1 env2 ⇒ LENGTH env2 >= LENGTH env1
 Proof
   rw []
-  >> gvs [env_rel_def]
-  >> drule LIST_REL_LENGTH
-  >> gvs []
+  >> Cases_on ‘opt’
+  >- (drule env_rel_length_opt >> gvs [])
+  >> drule env_rel_length_non_opt >> gvs []
 QED
-        
+
+Theorem env_rel_extras_opt:
+  ∀f env env'.
+    env_rel T f env env' ⇒
+    ∃hole_ptr hole_idx.
+      env'❲LENGTH env❳ = RefPtr F hole_ptr ∧
+      env'❲LENGTH env + 1❳ = Number hole_idx
+Proof
+  rw [env_rel_def]
+  >> drule LIST_REL_LENGTH
+  >> strip_tac
+  >> gvs [EL_APPEND_EQN]
+QED
+
 Theorem env_rel_el_v_rel:
   ∀opt f env1 env2 n.
     env_rel opt f env1 env2 ∧
@@ -477,7 +510,37 @@ Proof
   >> gvs [evaluate_def]
   >> gvs [do_app_def]
   >> gvs [do_app_aux_def]
-  >> cheat (* easy *)
+  >> gvs [bvlSemTheory.Unit_def]
+  >> gvs [backend_commonTheory.tuple_tag_def]
+QED
+
+Theorem evaluate_mem_op_update_cons2:
+  ∀f n i j hole_ptr hole_idx tag l c r v env env' s s' t t'.
+    env_rel T f env env' ∧
+    n < LENGTH env ∧
+    i = LENGTH env ∧
+    j = LENGTH env + 1 ∧
+    (*env'❲i❳ = RefPtr F hole_ptr ∧*)
+    (*env'❲j❳ = Number hole_idx ∧*)
+    (*FLOOKUP s'.refs hole_ptr = SOME (MutBlock tag l c r) ∧*)
+    (*hole_idx = &LENGTH l ∧*)
+
+    evaluate ([Var n], env, s) = (Rval v, t) ∧
+    state_rel f s s' ∧
+             
+    t' = s' with refs := s'.refs⟨hole_ptr ↦ MutBlock tag l env❲n❳ r⟩ ⇒
+    evaluate ([Op (MemOp UpdateCons) [Var n; Var j; Var i]],env',s') = (Rval [Block 0 []],t')
+(* state rel?*)
+Proof
+  rw []
+  >> gvs [evaluate_def]
+  >> imp_res_tac env_rel_length_opt
+  >> gvs []
+  >> gvs [do_app_def]
+  >> gvs [do_app_aux_def]
+                
+  >> gvs [env_rel_def]
+  >> gvs [APPEND_def]
 QED
 
 Theorem evaluate_rewrite_tmc:
