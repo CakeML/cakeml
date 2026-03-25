@@ -461,6 +461,25 @@ Proof
   >> fs []
 QED
 
+Theorem evaluate_mem_op_update_cons:
+  ∀i j n hole_ptr hole_idx hole_val tag l c r env s s'.
+    i < LENGTH env ∧
+    j < LENGTH env ∧
+    n < LENGTH env ∧
+    env❲j❳ = Number hole_idx ∧
+    env❲n❳ = RefPtr F hole_ptr ∧
+    FLOOKUP s.refs hole_ptr = SOME (MutBlock tag l c r) ∧
+    hole_idx = &LENGTH l ∧
+    s' = s with refs := s.refs⟨hole_ptr ↦ MutBlock tag l env❲i❳ r⟩ ⇒
+    evaluate ([Op (MemOp UpdateCons) [Var i; Var j; Var n]],env,s) = (Rval [Block 0 []],s')
+Proof
+  rw []
+  >> gvs [evaluate_def]
+  >> gvs [do_app_def]
+  >> gvs [do_app_aux_def]
+  >> cheat (* easy *)
+QED
+
 Theorem evaluate_rewrite_tmc:
    ∀xs env1 ^s r t opt f s' env2.
      evaluate (xs, env1, s) = (r, t) ∧
@@ -480,6 +499,8 @@ Theorem evaluate_rewrite_tmc:
              evaluate ([exp_aux], env2, s') = (r',t1) ∧
              state_rel f' t t1) ∧
         (∀loc loc_opt i j k exp_aux exp_opt.
+           i < LENGTH env2 ∧
+           j < LENGTH env2 ∧
            rewrite_opt loc loc_opt i j k (HD xs) = exp_opt ⇒
            ∃rrr t2.
              evaluate ([exp_opt], env2, s') = (rrr,t2) ∧
@@ -528,9 +549,9 @@ Proof
     >> qexists ‘f3’ >> fs []
     >> imp_res_tac SUBMAP_TRANS)
   >~ [‘Var n’] >-
+     
    (gvs [evaluate_def]
-    >> Cases_on ‘n < LENGTH env’
-    >> gvs []
+    >> Cases_on ‘n < LENGTH env’ >> gvs []
     >> ‘n < LENGTH env2’ by (drule_all env_rel_length >> gvs [])                  
     >> gvs []
     >> drule_all env_rel_el_v_rel
@@ -538,13 +559,22 @@ Proof
     >> goal_assum $ drule_at Any
     >> gvs []
     >> strip_tac
+    >> gvs []
     >> conj_tac
     >- (rpt gen_tac >> gvs [rewrite_aux_def])
     >> rpt gen_tac
-    >> gvs []
+    >> strip_tac
     >> goal_assum $ drule_at Any
-    >> gvs [rewrite_opt_def, evaluate_def]
-    >> cheat
+    >> gvs [opt_res_rel_def]
+    >> gvs [rewrite_opt_def]
+    (* Lemma for evaluating Op (MemOp UpdateCons)? *)
+    >> gvs [evaluate_def]
+    >> gvs [do_app_def]
+    >> gvs [do_app_aux_def]
+    >> gvs [case_eq_thms]
+    >> qexists ‘SOME (Block 0 [],s')’
+    >> gvs []
+    >> 
    )
   >~ [‘If x1 x2 x3’] >-
    (gvs [evaluate_def]
