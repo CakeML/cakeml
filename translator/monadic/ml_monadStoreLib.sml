@@ -114,7 +114,14 @@ fun mk_get_refs state = let
     val get_refs = mk_comb(get_refs, state) |> BETA_CONV |> concl |> rand
 in get_refs end
 
-
+(* wrap ISPECL to give more detailed error. *)
+fun ISPECL terms thm = Drule.ISPECL terms thm
+  handle HOL_ERR err => (
+    print "ISPECL failed:\n";
+    List.app print_term terms;
+    print_thm thm;
+    Drule.ISPECL terms thm
+  )
 
 fun mk_REF_REL TYPE r x =
   ISPECL [TYPE, r, x] REF_REL_def |> concl |> dest_eq |> fst
@@ -1008,6 +1015,8 @@ fun prove_store_access_specs refs_manip_list
         in (eval_th, true) end
         handle HOL_ERR _ => (TRUTH, false)
 
+        (* Handle annoying situations where ``\st. st with <| arr := xs |>``
+           gets type ``: 'a state => 'b state``. FIXME: same fix for farray? *)
         val set_subst =
           let val set_type = type_of set_arr |> dom_rng |> snd |> dom_rng
           in match_type (snd set_type) (fst set_type) end
@@ -1024,7 +1033,7 @@ fun prove_store_access_specs refs_manip_list
           in rewrite_thm th end
           else let
             val th =
-              ISPECL[name_v,loc,TYPE,EXN_TYPE,H_part,get_arr,set_arr,
+              ISPECL[name_v,loc,TYPE,EXN_TYPE,H_part,get_arr,set_arr',
                      update_exn,update_rexp] EvalM_R_Marray_update_handle
             val th = SPEC_ALL th |> UNDISCH |> UNDISCH
             val th = remove_assumption th |> remove_assumption

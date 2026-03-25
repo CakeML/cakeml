@@ -33,6 +33,7 @@ translator/monadic/monad_base
 profiler
 
 # basis library
+basis/monadic
 basis
 
 # compiler

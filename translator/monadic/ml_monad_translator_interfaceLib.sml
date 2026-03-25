@@ -15,16 +15,29 @@ open preamble ml_monadBaseLib ml_monadStoreLib ml_monad_translatorLib
 
 ******************************************************************************)
 
-fun set_up_monadic_translator () = let
+(* Sidestep setting up "syntax" libraries, fetch const from def. *)
+fun left_const thm = concl thm
+    |> strip_conj |> hd |> strip_forall |> snd |> lhs
+    |> strip_comb |> fst
+
+fun minimal_set_up_monadic_translator () = let
   (* Add monadic syntax: do x <- f y; ... od *)
-  val _ = ParseExtras.temp_loose_equality();
   val _ = monadsyntax.temp_add_monadsyntax()
 
   (* Parser overloadings *)
-  val _ = Parse.temp_overload_on("monad_bind",``st_ex_bind``);
-  val _ = Parse.temp_overload_on("monad_unitbind",``st_ex_ignore_bind``);
-  val _ = Parse.temp_overload_on("monad_ignore_bind",``st_ex_ignore_bind``);
-  val _ = Parse.temp_overload_on("return",``st_ex_return``);
+  open ml_monadBaseTheory
+  val _ = Parse.temp_overload_on("monad_bind", left_const st_ex_bind_def);
+  val ign_c = left_const st_ex_ignore_bind_def;
+  val _ = Parse.temp_overload_on("monad_unitbind", ign_c);
+  val _ = Parse.temp_overload_on("monad_ignore_bind", ign_c);
+  val _ = Parse.temp_overload_on("return", left_const st_ex_return_def);
+in () end
+
+fun set_up_monadic_translator () = let
+  (* Take all steps taken by a previous version. *)
+  val _ = ParseExtras.temp_loose_equality();
+
+  val _ = minimal_set_up_monadic_translator();
 
   (* Hide "state" due to semanticPrimitives *)
   val _ = hide "state";
@@ -39,7 +52,7 @@ in () end
 
 ******************************************************************************)
 
-fun toUppers(str) = String.implode (map Char.toUpper (String.explode str));
+val unit_ty = type_of (left_const oneTheory.one_DEF);
 val unit_ty = oneSyntax.one_ty;
 
 
@@ -56,8 +69,6 @@ datatype translator_mode = GLOBAL | LOCAL;
 type state = {
   state_access_funs         : (string * thm * thm) list ref,
                                 (* (name, get, set) *)
-  store_invariant_name      : string ref,
-  store_exn_invariant_name  : string ref,
   exn_type_def              : thm ref,
   additional_type_theories  : string list ref,
   hprop_field_names         : (term * string) list ref,
@@ -71,8 +82,6 @@ type state = {
 (* Initial internal state *)
 val internal_state : state = {
   state_access_funs        = ref [],
-  store_invariant_name     = ref "STATE_STORE",
-  store_exn_invariant_name = ref "STATE_EXN",
   exn_type_def             = ref ml_translatorTheory.UNIT_TYPE_def,
   additional_type_theories = ref [],
   hprop_field_names        = ref [],
@@ -139,27 +148,27 @@ fun with_state state_type (translator_config : config) =
   let val accessors = define_monad_access_funs state_type
   in
     #state_type internal_state := state_type;
-    #store_invariant_name internal_state :=
-      (state_type |> dest_type |> fst |> toUppers);
     #state_access_funs internal_state := accessors;
     translator_config
   end;
+
+(* This hack also used in ml_translatorLib. *)
+fun guess_const_def tm = let
+    val stuff = dest_thy_const tm
+  in DB.fetch (#Thy stuff) (#Name stuff ^ "_def") end
 
 (*
  *  Register the exception type and return the type definition
  *)
 fun register_exception_type exn_type =
-  let val exn_name = (exn_type |> dest_type |> fst |> toUppers)
-      val exn_type_def_name = exn_name ^ "_TYPE_def"
-  in (
-    register_type ``:unit``;
-    register_type ``:'a # 'b``;
-    register_type ``:'a list``;
-    register_type ``:'a option``;
+  (
+    register_type unit_ty;
+    register_type (pairSyntax.mk_prod (alpha, beta));
+    register_type (listSyntax.mk_list_type alpha);
+    register_type (optionSyntax.mk_option alpha);
     register_exn_type exn_type;
-    #store_exn_invariant_name internal_state := exn_name;
-    theorem exn_type_def_name
-  ) end;
+    guess_const_def (get_type_inv exn_type)
+  );
 
 (*
  *  Set the exception type, and get monadic exception functions
@@ -341,10 +350,28 @@ fun extract_rarrays_manip_funs (name, init, get, set, len, sub, upd, alloc) =
 fun extract_farrays_manip_funs (name, init, get, set, len, sub, upd) =
       (name, get, set, len, sub, upd);
 
+fun get_store_inv_name state_type = let
+    val _ = is_type state_type orelse (print_type state_type;
+        failwith ("get_store_inv_name: not a type constructor")
+      )
+    val (nm, _) = dest_type state_type
+  in
+    nm ^ "_STORE_INV"
+  end
+
+fun get_store_inv state_type = let
+    val nm = get_store_inv_name state_type
+    (* This is a bit of a hack. The call to start_translation will call to the
+       store library (ml_monadStoreLib) to define the store inv. We then fetch
+       it back via naming scheme to do follow-up proofs. *)
+    val def_thm = DB.fetch "-" (nm ^ "_def")
+    val const = left_const def_thm
+  in (const, def_thm) end
+
 local
 
   val IMP_STAR_GC = Q.prove(
-      `(STAR a x) s ∧ (y = GC) ⇒ (STAR a y) s`,
+      `(STAR a x) s ∧ (y = cfHeapsBase$GC) ⇒ (STAR a y) s`,
       fs [set_sepTheory.STAR_def] >>
       rw [] >> asm_exists_tac >> fs [] >>
       EVAL_TAC >>
@@ -356,13 +383,20 @@ local
 in
 
   fun add_field_access_patterns (hprop_comb, field_name) = let
-    val store_inv_name = ( !(#store_invariant_name internal_state) )
     val state_ty = ( !(#state_type internal_state) )
-    val state_predicate =
-      if state_ty = unit_ty then ``UNIT_TYPE``
-      else Term [QUOTE store_inv_name]
-    val field = Term [QUOTE field_name]
-    val st_field = Term [QUOTE "st.", QUOTE field_name]
+    val (store_inv, store_inv_def) = get_store_inv state_ty
+
+    val liftM_const = left_const ml_monadBaseTheory.liftM_def
+    val field_gen = Term [QUOTE field_name]
+    val _ = same_const liftM_const (fst (strip_comb field_gen))
+        orelse failwith ("add_field_access_patterns: " ^
+            "syntax conflict with liftM: " ^ field_name)
+
+    val st_var = mk_var ("st", state_ty)
+    val f_var = mk_var ("f", fst (dom_rng (type_of field_gen)))
+    val field = mk_icomb (mk_comb (field_gen, f_var), st_var) |> rator |> rator
+    val st_field = case strip_comb field of (_, [acc, _]) => mk_comb (acc, st_var)
+      | _ => failwith ("add_field_access_patterns: field format issue")
 
     val HPROP_COMB_STAR_COMM = Q.prove(
       `∀ p q . p * ^(hprop_comb) q = ^(hprop_comb) q * p`,
@@ -376,13 +410,13 @@ in
         ⇒
           (∀st. EvalM ro env st exp
             (MONAD ret_ty exc_ty (^field f))
-              (^state_predicate, p:'ffi ffi_proj))`,
+              (^store_inv, p:'ffi ffi_proj))`,
         fs [ml_monad_translatorTheory.EvalM_def] >> rw [] >>
         first_x_assum (qspecl_then [`^st_field`,`s`] mp_tac) >>
         impl_tac
         >- (
           fs [ml_monad_translatorBaseTheory.REFS_PRED_def] >>
-          fs [fetch "-" (store_inv_name ^ "_def")] >>
+          fs [store_inv_def] >>
           qabbrev_tac `a = ^hprop_comb ^st_field` >>
           qabbrev_tac `b = GC` >>
           fs [AC set_sepTheory.STAR_ASSOC set_sepTheory.STAR_COMM] >>
@@ -397,18 +431,16 @@ in
         Cases_on `f ^st_field` >> fs [] >>
         EVERY_CASE_TAC >>
         rveq >> fs [] >>
-        fs [fetch "-" (store_inv_name ^ "_def")] >>
+        fs [store_inv_def] >>
         fs [ml_monadBaseTheory.liftM_def] >>
         rw [] >>
         rfs[] >>
         fs[HPROP_COMB_STAR_COMM, set_sepTheory.STAR_ASSOC] >>
         metis_tac[set_sepTheory.STAR_ASSOC]
       )
-    val state_exn_name = ( !(#store_exn_invariant_name internal_state) )
+
     val state_exn_ty = ( !(#exn_type internal_state) )
-    val state_exn_predicate =
-      if state_exn_ty = unit_ty then ``UNIT_TYPE``
-      else Term [QUOTE state_exn_name, QUOTE "_TYPE"]
+    val state_exn_predicate = get_type_inv state_exn_ty
 
     val access_thm_list = mapfilter
       (fn ((_, name), (thm, Thm, _)) => (name^"_"^field_name, thm)
@@ -464,7 +496,7 @@ fun start_translation (translator_config : config) =
           ((!(#refs                     c) ) |> map from_named_tuple_refs)
           ((!(#resizeable_arrays        c) ) |> map from_named_tuple_rarray)
           ((!(#fixed_arrays             c) ) |> map from_named_tuple_farray)
-          ( !(#store_invariant_name     s) )
+          ((!(#state_type               c) ) |> get_store_inv_name)
           ( !(#state_type               c) )
           ( !(#exn_type_def             s) )
           ((!(#exn_access_funs          c) ) |> map from_named_tuple_exn)
@@ -485,7 +517,7 @@ fun start_translation (translator_config : config) =
                                                 map extract_rarrays_manip_funs)
           ((!(#fixed_arrays             c) ) |> map from_named_tuple_farray |>
                                                 map extract_farrays_manip_funs)
-          ( !(#store_invariant_name     s) )
+          ((!(#state_type               c) ) |> get_store_inv_name)
           ( !(#state_type               c) )
           ( !(#exn_type_def             s) )
           ((!(#exn_access_funs          c) ) |> map from_named_tuple_exn)
