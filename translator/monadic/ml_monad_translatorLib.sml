@@ -1789,7 +1789,7 @@ fun prove_EvalMPatBind goal = let
   val all_assums = append vs assums
   fun delete_assum tm =
     if tmem tm (all_assums) then
-      MATCH_MP ml_monad_translatorTheory.IMP_EQ_T (ASSUME tm)
+      EQT_INTRO (ASSUME tm)
     else NO_CONV tm
   val th = CONV_RULE ((RATOR_CONV) (DEPTH_CONV delete_assum)) th
   val th = CONV_RULE ((RATOR_CONV) (SIMP_CONV bool_ss [])) th
@@ -2088,7 +2088,7 @@ and m2deep_normal_fun_app tm = let
     val assums = find_terms is_var_lookup_eqtype_assum (concl thx)
     fun delete_assums tm =
       if tmem tm assums then
-        MATCH_MP ml_monad_translatorTheory.IMP_EQ_T (ASSUME tm)
+        EQT_INTRO (ASSUME tm)
       else NO_CONV tm
     val thx = CONV_RULE ((RATOR_CONV) (DEPTH_CONV delete_assums)) thx
     val thx = CONV_RULE ((RATOR_CONV o RAND_CONV)
@@ -3224,7 +3224,7 @@ fun update_local_precondition new_pre = let
         val (new_pre,th1) =
           (if is_imp (concl (SPEC_ALL new_pre))
            then (* case: new_pre is an induction theorem *)
-             (((MATCH_MP IMP_EQ_T (MP (disch_asms new_pre) TRUTH)
+             (((EQT_INTRO (MP (disch_asms new_pre) TRUTH)
                handle HOL_ERR _ => new_pre)
                |> PURE_REWRITE_RULE [GSYM CONJ_ASSOC]),
               PURE_REWRITE_RULE [GSYM CONJ_ASSOC] th1)
