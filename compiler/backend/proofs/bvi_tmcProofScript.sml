@@ -211,7 +211,7 @@ Proof
   >> cheat
 QED
 
-Definition build_v_rel_def:
+(*Definition build_v_rel_def:
   (build_v_rel _ (Number i) = Number i) ∧
   (build_v_rel _ (Word64 w) = Word64 w) ∧
   (build_v_rel f (Block n xs) =
@@ -221,7 +221,7 @@ Definition build_v_rel_def:
   (build_v_rel f (RefPtr b n) =
    case FLOOKUP f n of
    | SOME m => RefPtr b m) ∧
-End
+End*)
 
 Theorem v_rel_functional:
   ∀f x y z.
@@ -378,13 +378,48 @@ Theorem do_app_rewrite_tmc:
   ∀f op vs vs' s s' r.
     bviSem$do_app op (REVERSE vs) s = r ∧
     LIST_REL (v_rel f) vs vs' ∧
-    state_rel f s s' ⇒
+    state_rel f s s' ∧
+    r ≠ Rerr (Rabort Rtype_error) ⇒
     ∃r' f'.
       bviSem$do_app op (REVERSE vs') s' = r' ∧
       result_rel (PAIR_REL (v_rel f') (state_rel f')) (v_rel f') r r' ∧
       f SUBMAP f'
 Proof
   rw [] >> cheat
+QED
+
+Theorem state_rel_do_app_aux:
+  ∀f op vs vs' s s' t r.
+    do_app_aux op vs s = r ∧
+    LIST_REL (v_rel f) vs vs' ∧
+    state_rel f s s' ∧
+    op ≠ Install ∧
+    (∀n. op ≠ Label n) ⇒
+    ∃r' f' t'.
+      do_app_aux op vs' s' = r' ∧
+      state_rel f' t t' ∧
+      f SUBMAP f'
+Proof
+  cheat
+QED
+
+Theorem state_rel_do_app:
+  ∀f op vs vs' s s' t r.
+    do_app op vs s = Rval (r,t) ∧
+    LIST_REL (v_rel f) vs vs' ∧
+    state_rel f s s' ∧
+    op ≠ Install ∧
+    (∀n. op ≠ Label n) ⇒
+    ∃r' f' t'.
+      do_app op vs' s' = Rval (r',t') ∧
+      state_rel f' t t' ∧
+      f SUBMAP f'
+Proof
+  rw [do_app_def]
+  >> imp_res_tac state_rel_do_app_aux
+  >> gvs []
+  >> gvs [case_eq_thms]
+  >> cheat
 QED
 
 (* Rename this *)
@@ -812,7 +847,12 @@ Proof
             >> strip_tac
             >> gvs []                        
             >> Cases_on ‘do_app op (REVERSE vs) u’ >> gvs []
-            >- (drule_all do_app_rewrite_tmc
+            >- (Cases_on ‘a’ >> gvs []
+                >> rename [‘do_app op (REVERSE vs) u = Rval (v,t)’]
+                >> drule state_rel_do_app
+                >> disch_then drule
+
+             drule_all do_app_rewrite_tmc
                 >> strip_tac
                 >> rename [‘f' ⊑ f''’]
                 >> Cases_on ‘r'’ >> gvs []
@@ -830,10 +870,25 @@ Proof
                     >- (drule_all aux_strip_op
                         >> strip_tac
                         >> gvs [evaluate_def]
+                        (* HERE *)
+                                
                         >> Cases_on ‘i < LENGTH env2 + 2’ >> gvs []
                         >- (Cases_on ‘j < LENGTH env2 + 2’ >> gvs []
-                            >- (gvs [do_app_def]
-                                >> cheat)
+                            >- (
+
+
+                             CASE_TAC >> gvs []
+
+                                                        
+                                >> Cases_on ‘a’ >> gvs []
+                                >> Cases_on ‘v’ >> Cases_on ‘v'’ >> gvs [v_rel_cases]
+                                >> gvs [do_app_def]
+                                   
+                                >> gvs [do_app_def, do_app_aux_def]
+                               
+                               gvs [do_app_def]
+                                >> 
+                                        cheat)
                             >> cheat)
                         >> cheat)
                     >> cheat)
