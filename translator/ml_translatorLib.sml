@@ -194,12 +194,27 @@ fun mk_tid name =
       (mlstringSyntax.mk_mlstring name))
 val true_tid = mk_tid "true"
 val false_tid = mk_tid "false"
-val true_exp_tm = (Eval_Val_BOOL_TRUE |> concl |> rator |> rand)
-val false_exp_tm = (Eval_Val_BOOL_FALSE |> concl |> rator |> rand)
+val true_exp_tm = ml_translatorSyntax.TRUE
+val false_exp_tm = ml_translatorSyntax.FALSE
 
+(*
 fun D th = let
   val th = th |> DISCH_ALL |> PURE_REWRITE_RULE [AND_IMP_INTRO]
   in if is_imp (concl th) then th else DISCH T th end
+*)
+local
+val conv = REWR_CONV AND_IMP_INTRO
+in
+fun D th =
+  let
+    val th = HOLset.foldl (fn(asm,th) => DISCH asm th |>
+                                         CONV_RULE (TRY_CONV conv)) th (hypset th)
+  in
+    if is_imp (concl th)
+      then th
+      else DISCH T th
+  end
+end
 
 fun is_const_str str = can prim_mk_const {Thy=current_theory(), Name=str};
 
@@ -991,7 +1006,7 @@ fun get_nchotomy_of ty = let (* ensures that good variables names are used *)
 
 fun find_mutrec_types ty = let (* e.g. input ``:v`` gives [``:exp``,``:v``]  *)
   fun is_pair_ty ty = can pairSyntax.dest_prod ty
-  val xs = TypeBase.axiom_of ty |> SPEC_ALL  |> concl |> strip_exists |> #1 |> map (#1 o dest_fun_type o type_of) |> (fn ls => filter (fn ty => intersect ((#2 o dest_type) ty) ls = []) ls)
+  val xs = TypeBase.axiom_of ty |> SPEC_ALL  |> concl |> strip_exists |> #1 |> map (#1 o Type.dom_rng o type_of) |> (fn ls => filter (fn ty => intersect ((#2 o dest_type) ty) ls = []) ls)
   in if is_pair_ty ty then [ty] else if length xs = 0 then [ty] else xs end
 
 (*
@@ -1244,10 +1259,11 @@ fun mk_EqualityType_ind typ = let
         |> map (fst o strip_comb)
         |> filter is_const
         |> HOLset.fromList Term.compare |> HOLset.listItems
-        |> map guess_const_def
-    val ss = list_ss ++ simpLib.type_ssfrag v_ty ++ optionSimps.OPTION_ss
+        |> mapfilter guess_const_def
+    val ty_inv_defs = ml_translatorTheory.LIST_TYPE_def :: ty_inv_defs 
+    val ss = list_ss ++ simpLib.type_ssfrag semanticPrimitivesSyntax.v_ty ++ optionSimps.OPTION_ss
         ++ simpLib.type_ssfrag (pairSyntax.mk_prod (alpha, beta))
-        ++ simpLib.type_ssfrag stamp_ty ++ stringSimps.STRING_ss
+        ++ simpLib.type_ssfrag semanticPrimitivesSyntax.stamp_ty ++ stringSimps.STRING_ss
         ++ BasicProvers.thy_ssfrag "mlstring" ++ simpLib.type_ssfrag mlstringSyntax.mlstring_ty
     fun adj tm = if not (is_Conv tm) then snd (strip_comb tm)
         else dest_Conv tm |> snd |> listSyntax.dest_list |> fst
@@ -1264,8 +1280,26 @@ fun mk_EqualityType_ind typ = let
       in insts (hd ys) (tl ys) end)
     val gl = map (ml_translatorSyntax.mk_EqualityType o get_type_inv) proof_tys
         |> list_mk_conj
+    fun is_same (asl,g) = 
+        let  val case_tm = g
+                         |> strip_forall |> snd
+                         |> dest_imp |> fst
+             val xs = (pairSyntax.spine_pair o markerSyntax.dest_Case) case_tm
+             val (l,r) = ((fst o strip_comb) ## (fst o strip_comb)) (el 1 xs,el 2 xs)
+             val () = if is_const l andalso is_const r
+                      then () else failwith("is_different expected 2 constants")
+        in
+             if same_const l r then ALL_TAC (asl,g)
+             else NO_TAC (asl,g)
+        end
     val assums = map (ml_translatorSyntax.mk_EqualityType o get_type_inv) ex_assum_tys
     val prop = mk_imp (list_mk_conj (T :: assums), gl)
+    val typs = find_mutrec_types typ
+    val inj_ss = List.foldl (fn (typ,acc) => acc ++ simpLib.type_ssfrag typ)
+                 (bool_ss) (listSyntax.mk_list_type Type.alpha :: typs)
+    (*
+    val _ = set_goal ([],prop)
+    *)
     val thm = prove (prop,
         disch_tac
         \\ REWRITE_TAC [EqualityType_eq_at]
@@ -1273,16 +1307,23 @@ fun mk_EqualityType_ind typ = let
         \\ rpt strip_tac
         \\ REWRITE_TAC [EqualityType_at_eq_Case_rearranged]
         \\ Cases
-        \\ simp_tac ss (ty_inv_defs @ [PULL_EXISTS, types_match_def,
-            semanticPrimitivesTheory.ctor_same_type_def,
-            semanticPrimitivesTheory.lit_same_type_def,
-            semanticPrimitivesTheory.same_type_def, no_closures_def])
-        \\ TRY (simp_tac (bool_ss ++ simpLib.type_ssfrag typ) [] \\ NO_TAC)
-        \\ rpt (gen_tac ORELSE disch_tac)
-        \\ full_simp_tac ss []
-        \\ rpt fiddle_case_tac
-        \\ full_simp_tac ss [EqualityType_eq_at, markerTheory.Case_def]
-        \\ simp_tac (bool_ss ++ simpLib.type_ssfrag typ) []
+        \\ IF is_same
+            (simp_tac ss (ty_inv_defs @ [PULL_EXISTS, types_match_def,
+             semanticPrimitivesTheory.ctor_same_type_def,
+             semanticPrimitivesTheory.lit_same_type_def,
+             semanticPrimitivesTheory.same_type_def, no_closures_def])
+             \\ TRY (simp_tac (inj_ss) [] \\ NO_TAC)
+             \\ rpt (gen_tac ORELSE disch_tac)
+             \\ full_simp_tac ss []
+             \\ rpt fiddle_case_tac
+             \\ full_simp_tac ss [EqualityType_eq_at, markerTheory.Case_def]
+             \\ simp_tac (inj_ss) [])
+            (rpt gen_tac
+             \\ simp_tac (inj_ss) []
+             \\ disch_tac
+             \\ CONV_TAC (LAND_CONV (PURE_ONCE_REWRITE_CONV ty_inv_defs))
+             \\ DISCH_THEN (REPEAT_TCL STRIP_THM_THEN (fn x => SUBST_ALL_TAC x ORELSE ASSUME_TAC x))
+             \\ EVAL_TAC)
     )
   in (assums, thm) end
   handle
@@ -1346,7 +1387,7 @@ fun define_v_fun ty = let
         |> map (fst o strip_comb)
         |> filter is_const
         |> HOLset.fromList Term.compare |> HOLset.listItems
-        |> map guess_const_def
+        |> mapfilter guess_const_def
     fun name ty = get_type_inv ty |> strip_comb |> fst |> dest_const |> fst
         |> Portable.replace_string {from = "_TYPE", to = "_v"}
     fun is_aux ty = exists (not o is_vartype) (snd (dest_type ty))
@@ -1393,6 +1434,7 @@ fun define_v_fun ty = let
         |> map (fn ty => mk_imp (asms, mk_is_tr ty))
         |> map (fn gl => prove (gl, disch_tac \\ mp_tac thm \\ asm_simp_tac bool_ss []))
   end
+  handle (e as HOL_ERR _) => raise (wrap_exn "ml_translatorLib" "define_v_fun" e);
 
 fun define_type_reps [] = []
   | define_type_reps (ty :: tys) = let
@@ -1884,11 +1926,16 @@ val (n,f,fxs,pxs,tm,exp,xs) = el 1 ts
     val goal = mk_imp(type_assum,mk_imp(tt,mk_imp(hyps,result)))
     val Mat_lemma = ISPEC (rator x) IMP_Eval_Mat_cases |> SPEC input_var
     val is_simple_case = name = "PAIR_TYPE" orelse name = "UNIT_TYPE"
+    fun TAG_X_ASSUM tm ttac =
+        PRED_ASSUM (fn x => is_TAG x andalso dest_TAG x |> fst |> same_const tm)
+                   (ttac o CONV_RULE (REWR_CONV TAG_def))
 (*
-  set_goal([],goal)
+    val _ = set_goal([],goal)
 *)
+
     val case_lemma = auto_prove "case-of-proof" (goal,
-      rpt strip_tac
+      disch_then (markerLib.assume_named_tac "lookup_cons")
+      \\ rpt strip_tac
       \\ match_mp_tac Mat_lemma
       \\ conj_tac THEN1
        (pop_assum mp_tac
@@ -1901,17 +1948,36 @@ val (n,f,fxs,pxs,tm,exp,xs) = el 1 ts
       \\ CONV_TAC (DEPTH_CONV BETA_CONV)
       \\ (if is_simple_case then all_tac else (conj_tac THEN1 EVAL_TAC))
       \\ conj_tac THEN1
-       (asm_simp_tac std_ss [good_cons_env_def,EVERY_DEF,LENGTH,
-          HD,LET_THM,pat_bindings_def,MAP]
-        \\ once_rewrite_tac [GSYM ALL_DISTINCT_REVERSE]
-        \\ asm_simp_tac std_ss [REVERSE_DEF,APPEND] \\ EVAL_TAC)
-      \\ Cases_on `^input_var` \\ rewrite_tac [inv_def]
+       (if is_simple_case
+          then 
+          (asm_simp_tac std_ss [EVERY_DEF,LENGTH,
+          HD,LET_THM,pat_bindings_def,MAP,markerLib.L "lookup_cons"]
+          \\ once_rewrite_tac [GSYM ALL_DISTINCT_REVERSE]
+          \\ asm_simp_tac std_ss [REVERSE_DEF,APPEND] \\ EVAL_TAC)
+          else
+          ((CONV_TAC (REWR_CONV good_cons_env_def))
+          \\ conj_tac
+          THEN1
+          (asm_simp_tac std_ss [EVERY_DEF,LENGTH,
+          HD,LET_THM,pat_bindings_def,MAP,markerLib.L "lookup_cons"]
+          \\ once_rewrite_tac [GSYM ALL_DISTINCT_REVERSE]
+          \\ asm_simp_tac std_ss [REVERSE_DEF,APPEND] \\ EVAL_TAC)
+          \\ EVAL_TAC)
+          )
+      \\ Cases_on `^input_var`
+      \\ GEN_TAC
+      \\ CONV_TAC (LAND_CONV (PURE_ONCE_REWRITE_CONV [inv_def]))
+      \\ DISCH_THEN (REPEAT_TCL STRIP_THM_THEN (fn x => SUBST_ALL_TAC x ORELSE ASSUME_TAC x))
+      \\ irule_at (Pos hd) EQ_REFL
+      \\ CONV_TAC (STRIP_QUANT_CONV (LAND_CONV EVAL))
       \\ simp_tac std_ss [mlstringTheory.mlstring_11,v_11,MEM,stamp_11,CONS_11,ZIP,write_list_def,
-           stringTheory.CHR_11,LENGTH,NOT_NIL_CONS,NOT_CONS_NIL,PULL_EXISTS]
+           stringTheory.CHR_11,LENGTH,NOT_NIL_CONS,NOT_CONS_NIL]
       \\ simp_tac (srw_ss()) [cases_th]
-      \\ rpt (pop_assum mp_tac) \\ rewrite_tac [TAG_def,CONTAINER_def]
-      \\ rpt strip_tac
-      \\ first_x_assum match_mp_tac \\ fs [])
+      \\ first_x_assum (match_mp_tac o CONV_RULE (REWR_CONV TAG_def))
+      \\ TAG_X_ASSUM oneSyntax.one_tm  
+             (asm_simp_tac (srw_ss()) o single o
+              PURE_REWRITE_RULE[CONTAINER_def])
+      \\ full_simp_tac(srw_ss()) [])
     val case_lemma = case_lemma |> PURE_REWRITE_RULE [TAG_def,Mat_cases_def,MAP]
                        |> CONV_RULE (DEPTH_CONV (PairRules.PBETA_CONV))
     val _ = end_timing start
