@@ -1942,6 +1942,8 @@ Definition fib_heap2_def:
       cond (fib_heap_inv2 fh fts /\ a = head_key fts)
 End
 
+Theorem lemma_flookup_disjoint_split
+
 
 
 
@@ -1958,7 +1960,15 @@ Proof
   >- (
     fs[all_disjoint_def] >>
     fs[fib_heap_inv_strong_def] >>
-    cheat
+    rpt strip_tac
+    >- fs[FLOOKUP_SIMP]
+    >- (
+      iff_tac >> strip_tac >>
+      rfs[FLOOKUP_SIMP] >>
+      first_x_assum(qspecl_then[`k`,`v`,`e`] assume_tac) >> rfs[] >>
+      cheat
+      ) >>
+      cheat
     ) >>
   simp[fh_union_def,FUNION_ASSOC]
 QED
@@ -1973,15 +1983,29 @@ QED
 
 
 Theorem lemma_funion_fh_union_comm:
+  !xs ys.
   (all_disjoint xs /\ all_disjoint ys /\
   ∀x y. MEM x xs ∧ MEM y ys ==> DISJOINT (FDOM (FST x)) (FDOM (FST y))) ==>
-  FUNION (fh_union xs) (fh_union ys) = FUNION (fh_union ys) (fh_union xs)
+  DISJOINT (FDOM (fh_union xs)) (FDOM (fh_union ys))
 Proof
- rpt strip_tac >>
- Cases_on `xs` >> fs[fh_union_def] >>
- Cases_on `h` >>
- fs[all_disjoint_def,fh_union_def] >>
- cheat
+  Induct >> fs[fh_union_def] >>
+  strip_tac >>
+  Cases_on `h`>> fs[fh_union_def] >>
+  fs[all_disjoint_def] >>
+  Induct >> fs[fh_union_def] >>
+  strip_tac >>
+  Cases_on `h`  >> fs[fh_union_def] >>
+  fs[all_disjoint_def] >>
+  rpt strip_tac
+  >- (
+    first_x_assum(qspecl_then [`(q,r)`,`(q',r')`] assume_tac) >>
+    fs[] >>
+    fs[pred_setTheory.DISJOINT_SYM]
+    ) >>
+  `(∀x y. (x = (q,r) ∨ MEM x xs) ∧ MEM y ys ⇒
+   DISJOINT (FDOM (FST x)) (FDOM (FST y))) ⇒
+   DISJOINT (FDOM q) (FDOM (fh_union ys))` by res_tac >>
+  cheat
 
 (*TODO: show comm on list -> all_disjoint t /\ EVERY(DISJIONT q (FST t)) t ==>
     FUNION q fh_union t = FUNION fh_union t q*)
@@ -1990,13 +2014,13 @@ QED
 
 
 Theorem lemma_fib_heap_union_reord:
-  fib_heap_inv_union fh (cs ++ xs ++ ms ++ ys ++ qs) <=>
+  fib_heap_inv_union fh (cs ++ xs ++ ms ++ ys ++ qs) ==>
   fib_heap_inv_union fh (cs ++ ys ++ ms ++ xs ++ qs)
 Proof
   fs[fib_heap_inv_union_def] >>
   fs[fh_union_append_thm,all_disjoint_append_thm] >>
-  iff_tac >> rpt strip_tac >> fs[] >> res_tac >> fs[pred_setTheory.DISJOINT_SYM] >>
-  fs[fh_union_def] >>
+  rpt strip_tac >> fs[] >> res_tac >> fs[pred_setTheory.DISJOINT_SYM] >>
+  fs[GSYM EVERY_MEM] >>
   cheat
 QED
 
@@ -2196,6 +2220,23 @@ Proof
   drule_all lemma_fib_heap_new_min >> simp[]
 QED
 
+Theorem lemma_flookup_funion_comm:
+  !fh1 fh2 k.
+    DISJOINT (FDOM fh1) (FDOM fh2) ==>
+    FLOOKUP (FUNION fh1 fh2) k = FLOOKUP (FUNION fh2 fh1) k
+Proof
+  rpt strip_tac >>
+  simp[FLOOKUP_SIMP] >>
+  Cases_on `k IN (FDOM fh1)`
+  >- (
+    fs[FLOOKUP_DEF] >>
+    fs[pred_setTheory.DISJOINT_ALT]
+    ) >>
+  fs[FLOOKUP_DEF] >>
+  Cases_on `k IN (FDOM fh2)` >> fs[]
+QED
+
+
 
 Theorem lemma_merge_heaps_new_min_inv:
   !fh1 fh2 xs ys.
@@ -2222,6 +2263,7 @@ Proof
       ) >>
     fs[fts_has_append_thm] >> res_tac
     >- (
+      (*drule_all lemma_flookup_funion_comm >> strip_tac >>*)
      (* drule_all FUNION_COMM >> *)
       cheat
       ) >>
