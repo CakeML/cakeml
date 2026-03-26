@@ -178,13 +178,13 @@ QED
 
 CoInductive branch_satisfy:
   (P_k (Ret v) ⇒ branch_satisfy P_e_res P_k (Ret v)) ∧
-  (branch_satisfy P_e_res P_k t ⇒ branch_satisfy P_e_res P_k (Tau t)) ∧
-  (∀r. P_e_res e r ∧ P_k (k r) ∧ branch_satisfy P_e_res P_k (k r) ⇒ branch_satisfy P_e_res P_k (Vis e k))
+  (P_k (Tau t) ∧ branch_satisfy P_e_res P_k t ⇒ branch_satisfy P_e_res P_k (Tau t)) ∧
+  (∀r. P_k (Vis e k) ∧ P_e_res e r ∧ branch_satisfy P_e_res P_k (k r) ⇒ branch_satisfy P_e_res P_k (Vis e k))
 End
 
 
 Theorem branch_satisfy_Tau:
-  branch_satisfy P_e_res P_k (Tau t) ⇔ branch_satisfy P_e_res P_k t
+  branch_satisfy P_e_res P_k (Tau t) ⇔ P_k (Tau t) ∧ branch_satisfy P_e_res P_k t
 Proof
   iff_tac
   \\ gvs[branch_satisfy_rules]
@@ -194,10 +194,29 @@ Proof
 QED
     
 Theorem branch_satisfy_FUNPOW:
-  branch_satisfy P_e_res P_k (FUNPOW Tau n t) ⇔ branch_satisfy P_e_res P_k  t
+  ∀t. branch_satisfy P_e_res P_k (FUNPOW Tau n t) ⇔ (∀n'. n' ≤ n ⇒ P_k (FUNPOW Tau n' t)) ∧ branch_satisfy P_e_res P_k t
 Proof
   Induct_on ‘n’
   \\ gvs[FUNPOW_SUC, branch_satisfy_Tau]
+  \\ rpt strip_tac
+  >- (iff_tac
+      \\ rpt strip_tac
+      >- (pop_assum $ assume_tac o SRULE[Once branch_satisfy_cases]
+          \\ gvs[]
+         )
+      \\ pop_assum $ irule
+     )
+  \\ iff_tac
+  >- (rpt strip_tac
+      >- (Cases_on ‘n'’ \\ gvs[FUNPOW, GSYM FUNPOW_SUC]
+          \\ ‘branch_satisfy P_e_res P_k (Tau (FUNPOW Tau n t))’ by rw[branch_satisfy_Tau, GSYM FUNPOW_SUC, FUNPOW]
+          \\ pop_assum $ assume_tac o SRULE[GSYM FUNPOW_SUC, FUNPOW]
+          \\ last_x_assum $ qspec_then ‘Tau t’ assume_tac
+          \\ gvs[]
+         )
+      \\ pop_assum $ irule
+     )
+  \\ rw[GSYM FUNPOW_SUC]
 QED
         
 Theorem itree_wbisim_impl_branch_satisfy:
@@ -214,35 +233,84 @@ Proof
       \\ gvs[branch_satisfy_FUNPOW, strip_tau_FUNPOW_cancel]
       \\ pop_assum $ irule o SRULE[Once branch_satisfy_cases]
      )
-  >- metis_tac[]
+  >- (conj_tac
+      >- (pop_assum $ assume_tac o SRULE[Once branch_satisfy_cases]
+          \\ first_x_assum $ qspecl_then [‘Tau u’, ‘t''’] assume_tac
+          \\ gvs[]
+         )
+      \\ metis_tac[]
+     )
   \\ qpat_x_assum ‘Vis _ _ ≈ _’ $ assume_tac o SRULE[Once itree_wbisim_cases]
   \\ gvs[]
   \\ imp_res_tac strip_tau_FUNPOW
   \\ gvs[strip_tau_FUNPOW_cancel, branch_satisfy_FUNPOW]
   \\ drule_then assume_tac $ iffLR branch_satisfy_cases
   \\ gvs[]
+  \\ qexists ‘r’ \\ rw[]
+  >- (last_x_assum $ qspecl_then [‘Vis a g’, ‘Vis a k'’] assume_tac
+      \\ gvs[]
+      \\ pop_assum $ assume_tac o SRULE[Once itree_wbisim_cases]
+      \\ gvs[]
+     )
   \\ metis_tac[]
 QED
 
+Theorem itree_wbisim_nonret_bind_nonret:
+  (∀v. ¬(t ≈ Ret v)) ⇒ (∀v. ¬(t >>= k ≈ Ret v))
+Proof
+  rpt strip_tac
+  \\ dxrule_then assume_tac itree_wbisim_Ret_FUNPOW
+  \\ gvs[]
+  \\ pop_assum $ assume_tac o SRULE[Once itree_bind_cases]
+  \\ gvs[]
+  >- (‘FUNPOW Tau n' (Ret r) ≈ Ret r’ by metis_tac[FUNPOW_Tau_wbisim, itree_wbisim_sym]
+      \\ gvs[]
+     )
+  \\ gvs[FUNPOW_Ret_spin_F]
+QED
+
 Theorem branch_satisfy_non_ret_bind:
-  (∀t' v k. (P_k t' ⇒ ¬(t' ≈ Ret v)) ∧ (P_k t' ⇒ P_k (t' >>= k))) ⇒ branch_satisfy P_e_res P_k t ⇒ branch_satisfy P_e_res P_k (t >>= k)
+  (∀t' k. (∀v. P_k t' ⇒ ¬(t' ≈ Ret v)) ∧ (P_k t' ⇒ P_k (t' >>= k))) ⇒ branch_satisfy P_e_res P_k t ⇒ branch_satisfy P_e_res P_k (t >>= k)
 Proof
   rpt strip_tac
   \\ irule branch_satisfy_coind
-  \\ qexists ‘λt'. ∃t k. t' = t >>= k ∧ branch_satisfy P_e_res P_k t’ \\ rw[]
-  >- metis_tac[]
-  \\ Cases_on ‘t'’
+  \\ qexists ‘λt'. ∃t k. t' = t >>= k ∧ branch_satisfy P_e_res P_k t ∧ (∀v. ¬(t' ≈ Ret v))’ \\ rw[]
   >- (pop_assum $ assume_tac o SRULE[Once branch_satisfy_cases]
+      \\ gvs[]
+      >- (first_x_assum $ qspec_then ‘Ret v’ assume_tac
+          \\ gvs[]
+          \\ pop_assum $ assume_tac o SRULE[Once itree_wbisim_cases]
+          \\ rw[]
+         )
+      >- (qexistsl [‘Tau t'’, ‘k’]
+          \\ rw[branch_satisfy_Tau]
+         )
+      >- (qexistsl [‘Vis e k'’, ‘k’]
+          \\ rw[Once branch_satisfy_cases]
+          \\ metis_tac[]
+         )
+     )
+  \\ Cases_on ‘t'’
+  >- (qpat_x_assum ‘branch_satisfy _ _ (Ret _)’ $ assume_tac o SRULE[Once branch_satisfy_cases]
       \\ res_tac
       \\ qpat_x_assum ‘∀_. ¬_’ $ assume_tac o SRULE[Once itree_wbisim_cases]
       \\ gvs[]
      )
   >- (gvs[itree_bind_thm, branch_satisfy_Tau]
-      \\ metis_tac[]
+      \\ last_x_assum $ qspecl_then [‘Tau u’, ‘k’] assume_tac
+      \\ gvs[]
+      \\ qexistsl [‘u’, ‘k’]
+      \\ rw[itree_wbisim_nonret_bind_nonret]
      )
-  \\ pop_assum $ assume_tac o SRULE[Once branch_satisfy_cases]
+  \\ qpat_x_assum ‘branch_satisfy _ _ (Vis _ _)’ $ assume_tac o SRULE[Once branch_satisfy_cases]
   \\ gvs[itree_bind_thm]
-  \\ metis_tac[]
+  \\ last_assum $ qspecl_then [‘Vis a g’, ‘k’] (assume_tac o SRULE[])
+  \\ gvs[]
+  \\ qexists ‘r’ \\ rw[]
+  \\ qexistsl [‘g r’, ‘k’]
+  \\ rw[]
+  \\ qpat_x_assum ‘branch_satisfy _ _ (_ _)’ $ assume_tac o SRULE[Once branch_satisfy_cases]
+  \\ gvs[itree_wbisim_nonret_bind_nonret]
 QED
 
 Theorem yes_while_1_liveness:
@@ -271,16 +339,18 @@ Proof
       >- (pop_assum $ irule_at Any
           \\ rw[write_bytearray_def]
          )
-      \\ irule_at Any itree_wbisim_trans
-      \\ pop_assum $ irule_at Any
-      \\ first_x_assum $ irule_at Any
+      \\ metis_tac[itree_wbisim_refl]
      )
   \\ rw[FUNPOW_SUC]
+  >- (irule_at Any itree_wbisim_trans
+      \\ irule_at Any FUNPOW_Tau_wbisim
+      \\ metis_tac[itree_wbisim_refl]
+     )
   \\ irule_at Any itree_wbisim_trans
   \\ irule_at Any FUNPOW_Tau_wbisim
   \\ irule_at Any itree_wbisim_sym
   \\ irule_at Any itree_wbisim_trans
-  \\ first_assum $ irule_at Any
+  \\ first_assum $ irule_at (Pos hd)
   \\ rw[Once itree_wbisim_cases]
   \\ irule itree_wbisim_sym
   \\ first_assum $ irule_at Any
