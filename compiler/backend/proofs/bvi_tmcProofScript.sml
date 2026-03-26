@@ -617,7 +617,6 @@ Proof
     >> qexists ‘f3’ >> fs []
     >> imp_res_tac SUBMAP_TRANS)
   >~ [‘Var n’] >-
-     
    (gvs [evaluate_def]
     >> Cases_on ‘n < LENGTH env’ >> gvs []
     >> ‘n < LENGTH env2’ by (drule_all env_rel_length >> gvs [])                  
@@ -639,7 +638,6 @@ Proof
     >> drule env_rel_length_opt
     >> gvs []
     >> strip_tac
-
     >> gvs [do_app_def]
     >> gvs [do_app_aux_def]
     >> drule env_rel_extras_opt
