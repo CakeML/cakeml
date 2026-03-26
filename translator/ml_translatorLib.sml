@@ -857,6 +857,7 @@ fun timing_message msg = case ! trace_timing_to of
 
 fun start_timing nm = case ! trace_timing_to of
   SOME fname => let
+    val nm = nm ()
     val time = Portable.timestamp ()
     val f = TextIO.openAppend fname
     val time_s = Portable.time_to_string time
@@ -1649,7 +1650,7 @@ fun avoid_v_subst ty = let
 
 fun derive_thms_for_type is_exn_type ty = let
 
-  val start = start_timing "derive_thms_for_type"
+  val start = start_timing (fn () => "derive_thms_for_type")
   val tsubst = avoid_v_subst ty;
   val ty = type_subst tsubst ty;
   val is_word_type = wordsSyntax.is_word_type ty
@@ -1768,7 +1769,7 @@ val th = inv_defs |> map #2 |> hd
 *)
   (* prove lemma for case_of *)
   fun prove_case_of_lemma (ty,case_th,inv_lhs,inv_def) = let
-    val start = start_timing ("prove_case_of_lemma for "
+    val start = start_timing (fn () => "prove_case_of_lemma for "
         ^ Parse.type_to_string ty)
     val cases_th = TypeBase.case_def_of ty |> INST_TYPE tsubst
     val (x1,x2) = cases_th |> CONJUNCTS |> hd |> concl |> repeat (snd o dest_forall)
@@ -1796,7 +1797,7 @@ val th = inv_defs |> map #2 |> hd
     fun add_nums xs = mapi (fn i => fn x => (x,i + 1)) xs
     val ys = add_nums (zip (map snd vs) xs)
     fun str_tl s = implode (tl (explode s))
-    val start_mk_vars = start_timing "mk_vars"
+    val start_mk_vars = start_timing (fn () => "mk_vars")
     fun mk_vars ((f,tm),n) = let
       val xs = rev (free_vars tm)
       val fxs = list_mk_comb(f, xs)
@@ -2038,7 +2039,7 @@ local
     (* if abstract_mode then add_deferred_dprog dprog else *)
     ml_prog_update (add_prog dprog I)
   fun add_type abstract_mode ty = let
-    val start = start_timing ("adding type " ^ Parse.type_to_string ty)
+    val start = start_timing (fn () => "adding type " ^ Parse.type_to_string ty)
     val fcps = ((filter fcpSyntax.is_numeric_type) o snd o dest_type) ty
     val (rws1,rws2,res,tr_lemmas,dprog) = derive_thms_for_type false ty
     val (rws1,rws2) =
@@ -2082,11 +2083,11 @@ in
     in (case_lemma) end
   fun store_eq_thm th = (add_eq_lemma th; th)
   fun register_exn_type_main abstract_mode ty = let
-    val start = start_timing ("adding exn type " ^ Parse.type_to_string ty)
+    val start = start_timing (fn () => "adding exn type " ^ Parse.type_to_string ty)
     val (rws1,rws2,res,tr_lemmas,dprog) = derive_thms_for_type true ty
     val _ = store_dprog abstract_mode dprog
-    val _ = do_timing "add_type_thms" add_type_thms (rws1,rws2,res,tr_lemmas)
-    val _ = do_timing "map do_translate rws1" (map do_translate) rws1
+    val _ = do_timing (fn () => "add_type_thms") add_type_thms (rws1,rws2,res,tr_lemmas)
+    val _ = do_timing (fn () => "map do_translate rws1") (map do_translate) rws1
     val _ = end_timing start
     in () end
   val register_exn_type = register_exn_type_main false
@@ -2896,7 +2897,7 @@ val builtin_terops =
   [Eval_substring,
    Eval_FLOAT_FMA]
   |> map (fn th =>
-      let th = SPEC_ALL th in
+      let val th = SPEC_ALL th in
       (th |> UNDISCH_ALL |> concl |> rand |> rand |> rator |> rator |> rator, th) end)
 
 val builtin_binops =
@@ -3230,7 +3231,7 @@ val be_quiet = true
 *)
 
 fun clean_assumptions_aux be_quiet th = let
-  val start = start_timing "clean assumptions"
+  val start = start_timing (fn () => "clean assumptions")
   val lhs1 = get_term "nsLookup_pat"
   val pattern1 = mk_eq(lhs1,mk_var("_",type_of lhs1))
   val lhs2 = lookup_cons_def (*lookup_cons_thm*) |> SPEC_ALL |> concl |> dest_eq |> fst
@@ -3432,7 +3433,7 @@ fun is_float_literal tm =
 
 fun hol2deep tm =
   let
-    val _ = trace(4, LZ_TEXT (fn () => "hol2deep: " ^ Parse.term_to_string tm))
+    val _ = ml_translatorTrace.trace(4, LZ_TEXT (fn () => "hol2deep: " ^ Parse.term_to_string tm))
   in
   (* variables *)
   if is_var tm then let
@@ -4043,7 +4044,7 @@ val last_const = ref T;
 fun find_def_for_const_wrapper tm = let
     val _ = last_const := tm;
     val _ = is_const tm orelse raise (UnableToTranslate tm)
-    val msg = "find_def_for_const: " ^ fst (dest_const tm)
+    val msg = (fn () => "find_def_for_const: " ^ fst (dest_const tm))
     val def = do_timing msg (! find_def_for_const) tm
     val _ = can (find_term (same_const tm)) (concl def)
         orelse failwith ("find_def_for_const_wrapper: bad def: " ^
@@ -4333,11 +4334,11 @@ val def = (miscTheory.arith_shift_right_def
 
 fun translate_main options translate register_type def = (let
 
-  val start = start_timing "translate_main"
+  val start = start_timing (fn () => "translate_main")
   val original_def = def
   fun the (SOME x) = x | the _ = failwith("the of NONE")
   (* preprocessing: reformulate def, read off info and register types *)
-  val prep_start = start_timing "preprocessing+registering"
+  val prep_start = start_timing (fn () => "preprocessing+registering")
   val _ = register_term_types register_type (concl def)
   val (is_rec,defs,ind) = preprocess_def def
   (* this is usually a no-op, but preprocess_def might have introduced pairs *)
@@ -4365,8 +4366,8 @@ val _ = map (fn (fname,ml_name,lhs,_,_) => install_rec_pattern lhs fname) info
 val (fname,ml_name,lhs,rhs,def) = el 1 info
 can (find_term is_arb) (rhs |> rand |> rator)
 *)
-  val thms = do_timing "doing loop" loop info
-  val thms = do_timing "instantiating cons names"
+  val thms = do_timing (fn () => "doing loop") loop info
+  val thms = do_timing (fn () => "instantiating cons names")
     (map (fn (x0,x1,th,x2) => (x0,x1,instantiate_cons_name th,x2))) thms
 
   val _ = print ("Translating " ^ msg ^ "\n")
@@ -4389,9 +4390,9 @@ val (fname,ml_fname,th,def) = hd thms
                     last rev_params)
     in (fname,ml_fname,def,th,v) end
     handle (e as HOL_ERR _) => raise (wrap_exn "ml_translatorLib" "optimise_and_abstract" e)
-  val thms = do_timing "optimise+abstract" (map optimise_and_abstract) thms
+  val thms = do_timing (fn () => "optimise+abstract") (map optimise_and_abstract) thms
   (* final phase: extract precondition, perform induction, store cert *)
-  val start_fin = start_timing "translate_main final phase"
+  val start_fin = start_timing (fn () => "translate_main final phase")
 
   val (is_fun,results) = if not is_rec then let
     (* non-recursive case *)
@@ -4574,20 +4575,20 @@ val options = [NoInd]
 
 fun translate_options options def =
   let
-    val start = start_timing "translation"
+    val start = start_timing (fn () => "translation")
 
     val (is_rec,is_fun,results) =
       translate_main options (translate_options options) register_type def
 
     val () =
       if !generate_sigs then
-        let val _ = do_timing "generate_sig_thms" generate_sig_thms results
+        let val _ = do_timing (fn () => "generate_sig_thms") generate_sig_thms results
         in () end
       else ()
   in
     if is_rec then
     let
-      val start_rec = start_timing "processing rec case"
+      val start_rec = start_timing (fn () => "processing rec case")
       val recc = results |> map (fn (fname,_,def,th,pre) => th) |> hd |> hyp
         |> first (can (find_term (aconv Recclosure_tm)))
         |> rand |> rator |> rand
@@ -4619,7 +4620,7 @@ fun translate_options options def =
       val (fname,ml_fname,def,th,pre) = hd results
     in
       if is_fun then let
-        val start_fun = start_timing "processing fun case"
+        val start_fun = start_timing (fn () => "processing fun case")
         val th = th |> INST [cl_env_tm |-> get_curr_env()]
         val n = ml_fname |> mlstringSyntax.mk_mlstring
         val lookup_var_assum = th |> hyp
@@ -4640,7 +4641,7 @@ fun translate_options options def =
         in allowing_rebind save_thm(fname ^ "_v_thm",v_thm) end
       else let (* not is_fun *)
 
-        val start_v = start_timing "processing val case"
+        val start_v = start_timing (fn () => "processing val case")
         val th = th |> INST [env_tm |-> get_curr_env()]
         val th = UNDISCH_ALL (clean_assumptions (D th))
         val curr_state = get_curr_state()
