@@ -3579,182 +3579,228 @@ Theorem locals_rel_evaluate_thm:
       evaluate (prog,st with locals:=loc) = (res,rst with locals:=loc') ∧
       case res of
       | NONE => locals_rel temp rst.locals loc'
-      (* TODO:
       | SOME (Break _) => locals_rel temp rst.locals loc'
-      | SOME (Continue _) => locals_rel temp rst.locals loc' *)
+      | SOME (Continue _) => locals_rel temp rst.locals loc'
       | SOME _ => rst.locals = loc'
 Proof
   completeInduct_on`prog_size (K 0) prog`>>
   rpt strip_tac>>
   Cases_on`prog` >> fs[every_var_def]
-  >~[`Move`]
-  >-
-    (
-    fs[evaluate_def]>>
-    DEP_REWRITE_TAC[locals_rel_get_vars_simp] >> fs[] >>
-    gvs[AllCaseEqs()] >> fs[set_vars_def] >>
-    irule locals_rel_alist_insert >> fs[])
-  >~ [`Inst`]
-  >-  (
-    fs[evaluate_def] >>
-    gvs[inst_def,every_var_def,every_var_inst_def,
-    assign_def,AllCaseEqs()] >>
-    TRY (DEP_REWRITE_TAC[locals_rel_word_exp_simp] >> fs[every_var_exp_def]) >>
-    TRY (rename1 `every_var_imm _ R` >> Cases_on `R` >>
-    fs[every_var_imm_def,every_var_exp_def]) >>
-    TRY (DEP_REWRITE_TAC[locals_rel_get_vars_simp] >> fs[]) >>
-    TRY (DEP_REWRITE_TAC[locals_rel_get_var_simp] >> fs[]) >>
-    simp[set_var_def] >>
-    rpt (irule locals_rel_set_var >> fs[])
-    >-(drule_then assume_tac mem_store_const >> gvs[])
-    >-(pairarg_tac >> gvs[])
-    )
-  >~[`Store`]
-  >-(
-    fs[evaluate_def]>>
-    DEP_REWRITE_TAC[locals_rel_word_exp_simp] >> fs[] >>
-    DEP_REWRITE_TAC[locals_rel_get_var_simp] >> fs[] >>
-    gvs[AllCaseEqs()] >> simp[set_var_def] >>
-    drule mem_store_const >> fs[])
-  >~[`MustTerminate`]
-  >- (
-    fs[evaluate_def] >>
-    full_simp_tac(srw_ss())[PULL_FORALL,GSYM AND_IMP_INTRO]>>
-    qpat_x_assum`A=(res,rst)` mp_tac>>
-    IF_CASES_TAC>>simp[]>>
-    pairarg_tac>>simp[]>>
-    IF_CASES_TAC>>simp[]>>
-    first_x_assum(qspec_then`p` mp_tac)>>
-    simp[prog_size_def]>>srw_tac[][]>>full_simp_tac(srw_ss())[every_var_def]>>
-    res_tac>>full_simp_tac(srw_ss())[]>>
-    first_x_assum(qspec_then`loc` mp_tac)>>
-    pop_assum kall_tac>>
-    simp[]>>strip_tac>>
-    simp[])
-  >~[`Call`]
-  >-(
-    fs[evaluate_def] >>
-    DEP_REWRITE_TAC[locals_rel_get_vars_simp] >> fs[] >>
-    TOP_CASE_TAC >- gvs[] >>
-    TOP_CASE_TAC >- gvs[] >>
-    TOP_CASE_TAC >- gvs[] >>
-    PairCases_on `x'` >> fs[] >>
-    TOP_CASE_TAC
-    >-(
-      gvs[AllCaseEqs()]
-      >- fs[flush_state_def] >>
-      gvs[call_env_def,flush_state_def,dec_clock_def,
-        oneline bad_fun_return_def, AllCasePreds()]>>
-      simp[state_component_equality]>>
-      rename1`res = SOME _`>>
-      Cases_on`res`>>gvs[]
-    )
-    >>
-      PairCases_on`x'`>>full_simp_tac(srw_ss())[]>>
-      IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
-      qmatch_goalsub_rename_tac`cut_envs (x1, x2)` >>
-      Cases_on `cut_envs (x1, x2) st.locals` >>
-      imp_res_tac locals_rel_cut_envs>>full_simp_tac(srw_ss())[]>>
-      IF_CASES_TAC
-       >-(gvs[] >> simp[state_component_equality]) >>
-      full_simp_tac(srw_ss())[]>>
-      fs[dec_clock_def] >> simp[state_component_equality] >>
-      TOP_CASE_TAC >> simp[locals_rel_def])
-  >~[`Seq`]
-  >- (
-    fs[evaluate_def] >>
-    full_simp_tac(srw_ss())[PULL_FORALL,GSYM AND_IMP_INTRO]>>
-    Cases_on`evaluate (p,st)`>>full_simp_tac(srw_ss())[]>>
-    first_assum(qspec_then`p` mp_tac)>>
-    first_x_assum(qspec_then`p0` mp_tac)>>
-    `q ≠ SOME Error` by (every_case_tac >> full_simp_tac(srw_ss())[])>>
-    simp[prog_size_def]>>srw_tac[][]>>full_simp_tac(srw_ss())[every_var_def]>>res_tac>>
-    simp[]>>IF_CASES_TAC>>full_simp_tac(srw_ss())[state_component_equality]>>
-    res_tac>>
-    first_x_assum(qspec_then`loc` assume_tac)>>rev_full_simp_tac(srw_ss())[locals_rel_def])
-  >~[`If`]
-  >-(
-    gvs[evaluate_def] >>
-    DEP_REWRITE_TAC[locals_rel_get_var_simp,
-    locals_rel_get_var_imm_simp] >> fs[] >>
-    gvs[AllCaseEqs(),prog_size_def])
-  >~[`Loop`]
-  >-(
-    gvs[evaluate_def, AllCaseEqs(), UNCURRY_EQ] >>
-    cheat)
-  >~[`Alloc`]
-  >-(
-    gvs[evaluate_def] >>
-    DEP_REWRITE_TAC[locals_rel_get_var_simp] >> fs[] >>
-    gvs[AllCaseEqs()] >>
-    fs[alloc_def] >> qpat_x_assum`A=(res,rst)` mp_tac>>
-    ntac 6 (full_case_tac>>full_simp_tac(srw_ss())[])>>srw_tac[][]>>
-    imp_res_tac  locals_rel_cut_envs>> fs[] >> gvs[] >>
-    simp[state_component_equality] >>
-    simp[locals_rel_def]
-    )
-  >~[`StoreConsts`]
-  >- (
-    gvs[evaluate_def] >>
-    DEP_REWRITE_TAC[locals_rel_get_var_simp] >> fs[] >>
-    gvs[AllCaseEqs()] >> simp[set_var_def,unset_var_def] >>
-    irule locals_rel_set_var >> fs[] >>
-    irule locals_rel_set_var >> fs[] >>
-    irule locals_rel_delete >> fs[] >>
-    irule locals_rel_delete >> fs[])
-  >~[`Raise`]
-  >- (
-    gvs[evaluate_def] >>
-    DEP_REWRITE_TAC[locals_rel_get_var_simp] >> fs[] >>
-    gvs[AllCaseEqs()] >>
-    fs[jump_exc_def] >>
-    simp[state_component_equality])
-  >~[`OpCurrHeap`]
-  >-(
-    gvs[evaluate_def] >>
-    DEP_REWRITE_TAC[locals_rel_word_exp_simp] >> fs[every_var_exp_def] >>
-    gvs[AllCaseEqs()] >> fs[set_var_def] >>
-    irule locals_rel_set_var >> fs[])
-  >~[`Install`]
-  >- (
-    gvs[evaluate_def] >>
-    DEP_REWRITE_TAC[locals_rel_get_var_simp] >> fs[] >>
-    gvs[AllCaseEqs()] >>
-    imp_res_tac locals_rel_cut_env>> fs[] >>
-    pairarg_tac >> fs[] >>
-    gvs[AllCaseEqs()] >>
-    irule locals_rel_set_var >> fs[locals_rel_def])
-  >~[`FFI`]
-  >- (
-    gvs[evaluate_def] >>
-    DEP_REWRITE_TAC[locals_rel_get_var_simp] >> fs[] >>
-    gvs[AllCaseEqs()] >>
-    imp_res_tac locals_rel_cut_env>>
-    simp[locals_rel_def,state_component_equality])
-  >~[`ShareInst`]
-  >- (
-    gvs[evaluate_def,oneline share_inst_def] >>
-    DEP_REWRITE_TAC[locals_rel_word_exp_simp] >> fs[] >>
-    DEP_REWRITE_TAC[locals_rel_get_var_simp] >> fs[] >>
-    gvs[AllCaseEqs()]
-    >>~- ([`sh_mem_set_var`],
-      fs[oneline sh_mem_set_var_def] >>
-      gvs[AllCaseEqs()] >> fs[set_var_def]
-      >-(irule locals_rel_set_var >> fs[]) >>
-     simp[state_component_equality]) >>
-    fs[sh_mem_store_def,sh_mem_store_byte_def,sh_mem_store32_def,
-       sh_mem_store16_def] >>
-    gvs[AllCaseEqs()] >> simp[state_component_equality])
-  >~[`Break`] >- cheat (* not true *)
-  >~[`Continue`] >- cheat (* not true *)
-  >>
-    gvs[evaluate_def] >>
-    DEP_REWRITE_TAC[locals_rel_get_var_simp,locals_rel_get_vars_simp,
-    locals_rel_word_exp_simp] >> fs[] >>
-    gvs[AllCaseEqs()] >> simp[state_component_equality] >>
-    simp[set_var_def] >>
-    rpt (irule locals_rel_set_var >> fs[])
+  >~[`Move`] >- suspend "Move"
+  >~[`Inst`] >- suspend "Inst"
+  >~[`Store`] >- suspend "Store"
+  >~[`MustTerminate`] >- suspend "MustTerminate"
+  >~[`Call`] >- suspend "Call"
+  >~[`Seq`] >- suspend "Seq"
+  >~[`If`] >- suspend "If"
+  >~[`Loop`] >- suspend "Loop"
+  >~[`Alloc`] >- suspend "Alloc"
+  >~[`StoreConsts`] >- suspend "StoreConsts"
+  >~[`Raise`] >- suspend "Raise"
+  >~[`OpCurrHeap`] >- suspend "OpCurrHeap"
+  >~[`Install`] >- suspend "Install"
+  >~[`FFI`] >- suspend "FFI"
+  >~[`ShareInst`] >- suspend "ShareInst"
+  >~[`Break`] >- suspend "Break"
+  >~[`Continue`] >- suspend "Continue"
+  >> suspend "remaining"
 QED
+
+Resume locals_rel_evaluate_thm[Move]:
+  fs[evaluate_def]>>
+  DEP_REWRITE_TAC[locals_rel_get_vars_simp] >> fs[] >>
+  gvs[AllCaseEqs()] >> fs[set_vars_def] >>
+  irule locals_rel_alist_insert >> fs[]
+QED
+
+Resume locals_rel_evaluate_thm[Inst]:
+  fs[evaluate_def] >>
+  gvs[inst_def,every_var_def,every_var_inst_def,
+  assign_def,AllCaseEqs()] >>
+  TRY (DEP_REWRITE_TAC[locals_rel_word_exp_simp] >> fs[every_var_exp_def]) >>
+  TRY (rename1 `every_var_imm _ R` >> Cases_on `R` >>
+  fs[every_var_imm_def,every_var_exp_def]) >>
+  TRY (DEP_REWRITE_TAC[locals_rel_get_vars_simp] >> fs[]) >>
+  TRY (DEP_REWRITE_TAC[locals_rel_get_var_simp] >> fs[]) >>
+  simp[set_var_def] >>
+  rpt (irule locals_rel_set_var >> fs[])
+  >-(drule_then assume_tac mem_store_const >> gvs[])
+  >-(pairarg_tac >> gvs[])
+QED
+
+Resume locals_rel_evaluate_thm[Store]:
+  fs[evaluate_def]>>
+  DEP_REWRITE_TAC[locals_rel_word_exp_simp] >> fs[] >>
+  DEP_REWRITE_TAC[locals_rel_get_var_simp] >> fs[] >>
+  gvs[AllCaseEqs()] >> simp[set_var_def] >>
+  drule mem_store_const >> fs[]
+QED
+
+Resume locals_rel_evaluate_thm[MustTerminate]:
+  fs[evaluate_def] >>
+  full_simp_tac(srw_ss())[PULL_FORALL,GSYM AND_IMP_INTRO]>>
+  qpat_x_assum`A=(res,rst)` mp_tac>>
+  IF_CASES_TAC>>simp[]>>
+  pairarg_tac>>simp[]>>
+  IF_CASES_TAC>>simp[]>>
+  first_x_assum(qspec_then`p` mp_tac)>>
+  simp[prog_size_def]>>srw_tac[][]>>full_simp_tac(srw_ss())[every_var_def]>>
+  res_tac>>full_simp_tac(srw_ss())[]>>
+  first_x_assum(qspec_then`loc` mp_tac)>>
+  pop_assum kall_tac>>
+  simp[]>>strip_tac>>
+  simp[]
+QED
+
+Resume locals_rel_evaluate_thm[Call]:
+  (* old proof:
+  fs[evaluate_def] >>
+  DEP_REWRITE_TAC[locals_rel_get_vars_simp] >> fs[] >>
+  TOP_CASE_TAC >- gvs[] >>
+  TOP_CASE_TAC >- gvs[] >>
+  TOP_CASE_TAC >- gvs[] >>
+  PairCases_on `x'` >> fs[] >>
+  TOP_CASE_TAC
+  >-(
+    gvs[AllCaseEqs()]
+    >- fs[flush_state_def] >>
+    gvs[call_env_def,flush_state_def,dec_clock_def,
+      oneline bad_fun_return_def, AllCasePreds()]>>
+    simp[state_component_equality]>>
+    rename1`res = SOME _`>>
+    Cases_on`res`>>gvs[]
+  )
+  >>
+    PairCases_on`x'`>>full_simp_tac(srw_ss())[]>>
+    IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
+    qmatch_goalsub_rename_tac`cut_envs (x1, x2)` >>
+    Cases_on `cut_envs (x1, x2) st.locals` >>
+    imp_res_tac locals_rel_cut_envs>>full_simp_tac(srw_ss())[]>>
+    IF_CASES_TAC
+     >-(gvs[] >> simp[state_component_equality]) >>
+    full_simp_tac(srw_ss())[]>>
+    fs[dec_clock_def] >> simp[state_component_equality] >>
+    TOP_CASE_TAC >> simp[locals_rel_def]
+  *)
+  cheat
+QED
+
+Resume locals_rel_evaluate_thm[Seq]:
+  (* old proof:
+  fs[evaluate_def] >>
+  full_simp_tac(srw_ss())[PULL_FORALL,GSYM AND_IMP_INTRO]>>
+  Cases_on`evaluate (p,st)`>>full_simp_tac(srw_ss())[]>>
+  first_assum(qspec_then`p` mp_tac)>>
+  first_x_assum(qspec_then`p0` mp_tac)>>
+  `q ≠ SOME Error` by (every_case_tac >> full_simp_tac(srw_ss())[])>>
+  simp[prog_size_def]>>srw_tac[][]>>full_simp_tac(srw_ss())[every_var_def]>>res_tac>>
+  simp[]>>IF_CASES_TAC>>full_simp_tac(srw_ss())[state_component_equality]>>
+  res_tac>>
+  first_x_assum(qspec_then`loc` assume_tac)>>rev_full_simp_tac(srw_ss())[locals_rel_def]
+  *)
+  cheat
+QED
+
+Resume locals_rel_evaluate_thm[If]:
+  gvs[evaluate_def] >>
+  DEP_REWRITE_TAC[locals_rel_get_var_simp,
+  locals_rel_get_var_imm_simp] >> fs[] >>
+  gvs[AllCaseEqs(),prog_size_def]
+QED
+
+Resume locals_rel_evaluate_thm[Loop]:
+  cheat
+QED
+
+Resume locals_rel_evaluate_thm[Alloc]:
+  gvs[evaluate_def] >>
+  DEP_REWRITE_TAC[locals_rel_get_var_simp] >> fs[] >>
+  gvs[AllCaseEqs()] >>
+  fs[alloc_def] >> qpat_x_assum`A=(res,rst)` mp_tac>>
+  ntac 6 (full_case_tac>>full_simp_tac(srw_ss())[])>>srw_tac[][]>>
+  imp_res_tac  locals_rel_cut_envs>> fs[] >> gvs[] >>
+  simp[state_component_equality] >>
+  simp[locals_rel_def]
+QED
+
+Resume locals_rel_evaluate_thm[StoreConsts]:
+  gvs[evaluate_def] >>
+  DEP_REWRITE_TAC[locals_rel_get_var_simp] >> fs[] >>
+  gvs[AllCaseEqs()] >> simp[set_var_def,unset_var_def] >>
+  irule locals_rel_set_var >> fs[] >>
+  irule locals_rel_set_var >> fs[] >>
+  irule locals_rel_delete >> fs[] >>
+  irule locals_rel_delete >> fs[]
+QED
+
+Resume locals_rel_evaluate_thm[Raise]:
+  gvs[evaluate_def] >>
+  DEP_REWRITE_TAC[locals_rel_get_var_simp] >> fs[] >>
+  gvs[AllCaseEqs()] >>
+  fs[jump_exc_def] >>
+  simp[state_component_equality]
+QED
+
+Resume locals_rel_evaluate_thm[OpCurrHeap]:
+  gvs[evaluate_def] >>
+  DEP_REWRITE_TAC[locals_rel_word_exp_simp] >> fs[every_var_exp_def] >>
+  gvs[AllCaseEqs()] >> fs[set_var_def] >>
+  irule locals_rel_set_var >> fs[]
+QED
+
+Resume locals_rel_evaluate_thm[Install]:
+  gvs[evaluate_def] >>
+  DEP_REWRITE_TAC[locals_rel_get_var_simp] >> fs[] >>
+  gvs[AllCaseEqs()] >>
+  imp_res_tac locals_rel_cut_env>> fs[] >>
+  pairarg_tac >> fs[] >>
+  gvs[AllCaseEqs()] >>
+  irule locals_rel_set_var >> fs[locals_rel_def]
+QED
+
+Resume locals_rel_evaluate_thm[FFI]:
+  gvs[evaluate_def] >>
+  DEP_REWRITE_TAC[locals_rel_get_var_simp] >> fs[] >>
+  gvs[AllCaseEqs()] >>
+  imp_res_tac locals_rel_cut_env>>
+  simp[locals_rel_def,state_component_equality]
+QED
+
+Resume locals_rel_evaluate_thm[ShareInst]:
+  gvs[evaluate_def,oneline share_inst_def] >>
+  DEP_REWRITE_TAC[locals_rel_word_exp_simp] >> fs[] >>
+  DEP_REWRITE_TAC[locals_rel_get_var_simp] >> fs[] >>
+  gvs[AllCaseEqs()]
+  >>~- ([`sh_mem_set_var`],
+    fs[oneline sh_mem_set_var_def] >>
+    gvs[AllCaseEqs()] >> fs[set_var_def]
+    >-(irule locals_rel_set_var >> fs[]) >>
+   simp[state_component_equality]) >>
+  fs[sh_mem_store_def,sh_mem_store_byte_def,sh_mem_store32_def,
+     sh_mem_store16_def] >>
+  gvs[AllCaseEqs()] >> simp[state_component_equality]
+QED
+
+Resume locals_rel_evaluate_thm[Break]:
+  fs[evaluate_def] >> gvs[]
+QED
+
+Resume locals_rel_evaluate_thm[Continue]:
+  fs[evaluate_def] >> gvs[]
+QED
+
+Resume locals_rel_evaluate_thm[remaining]:
+  (* remaining cases: Skip, Assign, Get, Set, Tick, LocValue, CodeBufferWrite, DataBufferWrite, Return *)
+  gvs[evaluate_def] >>
+  DEP_REWRITE_TAC[locals_rel_get_var_simp,locals_rel_get_vars_simp,
+  locals_rel_word_exp_simp] >> fs[] >>
+  gvs[AllCaseEqs(),flush_state_def] >> simp[state_component_equality] >>
+  simp[set_var_def] >>
+  TRY (rpt (irule locals_rel_set_var >> fs[]) >> NO_TAC) >>
+  cheat
+QED
+
+Finalise locals_rel_evaluate_thm;
 
 Definition gc_fun_ok_def:
   gc_fun_ok (f:'a gc_fun_type) =
