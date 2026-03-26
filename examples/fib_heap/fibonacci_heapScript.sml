@@ -1942,8 +1942,6 @@ Definition fib_heap2_def:
       cond (fib_heap_inv2 fh fts /\ a = head_key fts)
 End
 
-Theorem lemma_flookup_disjoint_split
-
 
 
 
