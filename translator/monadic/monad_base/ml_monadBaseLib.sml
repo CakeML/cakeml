@@ -18,10 +18,10 @@ val terms_alist = [
      ("unit", oneSyntax.one_tm),
      ("M_failure", mk_thy_const{Name="M_failure",Thy="ml_monadBase",Ty=alpha --> mk_exc_ty(beta,alpha)}),
      ("M_success", mk_thy_const{Name="M_success",Thy="ml_monadBase",Ty=alpha --> mk_exc_ty(alpha,beta)}),
-     ("Marray_length", Marray_length_tm),
+     ("Marray_length", inst [gamma |-> beta, beta |-> gamma] Marray_length_tm),
      ("Marray_sub", Marray_sub_tm),
-     ("Marray_update", Marray_update_tm),
-     ("Marray_alloc", Marray_alloc_tm),
+     ("Marray_update", inst [gamma |-> beta, beta |-> gamma] Marray_update_tm),
+     ("Marray_alloc", inst [delta |-> alpha, alpha |-> beta] Marray_alloc_tm),
      ("run", run_tm)
     ]
 
