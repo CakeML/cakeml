@@ -3603,7 +3603,15 @@ Proof
   >~[`ShareInst`] >- suspend "ShareInst"
   >~[`Break`] >- suspend "Break"
   >~[`Continue`] >- suspend "Continue"
-  >> suspend "remaining"
+  >~[`Return`] >- suspend "Return"
+  >~[`Assign`] >- suspend "Assign"
+  >~[`Get`] >- suspend "Get"
+  >~[`Set`] >- suspend "Set"
+  >~[`Tick`] >- suspend "Tick"
+  >~[`LocValue`] >- suspend "LocValue"
+  >~[`Skip`] >- suspend "Skip"
+  >~[`CodeBufferWrite`] >- suspend "CodeBufferWrite"
+  >~[`DataBufferWrite`] >- suspend "DataBufferWrite"
 QED
 
 Resume locals_rel_evaluate_thm[Move]:
@@ -3653,7 +3661,6 @@ Resume locals_rel_evaluate_thm[MustTerminate]:
 QED
 
 Resume locals_rel_evaluate_thm[Call]:
-  (* old proof:
   fs[evaluate_def] >>
   DEP_REWRITE_TAC[locals_rel_get_vars_simp] >> fs[] >>
   TOP_CASE_TAC >- gvs[] >>
@@ -3668,7 +3675,8 @@ Resume locals_rel_evaluate_thm[Call]:
       oneline bad_fun_return_def, AllCasePreds()]>>
     simp[state_component_equality]>>
     rename1`res = SOME _`>>
-    Cases_on`res`>>gvs[]
+    Cases_on`res`>>gvs[locals_rel_def]>>
+    Cases_on`x'`>>gvs[]
   )
   >>
     PairCases_on`x'`>>full_simp_tac(srw_ss())[]>>
@@ -3680,13 +3688,10 @@ Resume locals_rel_evaluate_thm[Call]:
      >-(gvs[] >> simp[state_component_equality]) >>
     full_simp_tac(srw_ss())[]>>
     fs[dec_clock_def] >> simp[state_component_equality] >>
-    TOP_CASE_TAC >> simp[locals_rel_def]
-  *)
-  cheat
+    TOP_CASE_TAC >> gvs[locals_rel_def] >> every_case_tac
 QED
 
 Resume locals_rel_evaluate_thm[Seq]:
-  (* old proof:
   fs[evaluate_def] >>
   full_simp_tac(srw_ss())[PULL_FORALL,GSYM AND_IMP_INTRO]>>
   Cases_on`evaluate (p,st)`>>full_simp_tac(srw_ss())[]>>
@@ -3695,10 +3700,7 @@ Resume locals_rel_evaluate_thm[Seq]:
   `q ≠ SOME Error` by (every_case_tac >> full_simp_tac(srw_ss())[])>>
   simp[prog_size_def]>>srw_tac[][]>>full_simp_tac(srw_ss())[every_var_def]>>res_tac>>
   simp[]>>IF_CASES_TAC>>full_simp_tac(srw_ss())[state_component_equality]>>
-  res_tac>>
-  first_x_assum(qspec_then`loc` assume_tac)>>rev_full_simp_tac(srw_ss())[locals_rel_def]
-  *)
-  cheat
+  Cases_on `q` >> gvs[]
 QED
 
 Resume locals_rel_evaluate_thm[If]:
@@ -3709,6 +3711,10 @@ Resume locals_rel_evaluate_thm[If]:
 QED
 
 Resume locals_rel_evaluate_thm[Loop]:
+  (* BLOCKED: every_var for Loop is always T in wordLangScript.sml.
+     Needs every_var P (Loop names c exit_names) =
+       every_name P names ∧ every_var P c ∧ every_name P exit_names
+     to be fixed in wordLangScript.sml first. *)
   cheat
 QED
 
@@ -3789,15 +3795,55 @@ Resume locals_rel_evaluate_thm[Continue]:
   fs[evaluate_def] >> gvs[]
 QED
 
-Resume locals_rel_evaluate_thm[remaining]:
-  (* remaining cases: Skip, Assign, Get, Set, Tick, LocValue, CodeBufferWrite, DataBufferWrite, Return *)
+Resume locals_rel_evaluate_thm[Get]:
   gvs[evaluate_def] >>
-  DEP_REWRITE_TAC[locals_rel_get_var_simp,locals_rel_get_vars_simp,
-  locals_rel_word_exp_simp] >> fs[] >>
-  gvs[AllCaseEqs(),flush_state_def] >> simp[state_component_equality] >>
-  simp[set_var_def] >>
-  TRY (rpt (irule locals_rel_set_var >> fs[]) >> NO_TAC) >>
-  cheat
+  gvs[AllCaseEqs()] >> simp[set_var_def] >>
+  irule locals_rel_set_var >> fs[]
+QED
+
+Resume locals_rel_evaluate_thm[Set]:
+  gvs[evaluate_def] >>
+  DEP_REWRITE_TAC[locals_rel_word_exp_simp] >> fs[] >>
+  gvs[AllCaseEqs(),state_component_equality]
+QED
+
+Resume locals_rel_evaluate_thm[Tick]:
+  gvs[evaluate_def,AllCaseEqs(),dec_clock_def] >>
+  simp[state_component_equality,flush_state_def]
+QED
+
+Resume locals_rel_evaluate_thm[Assign]:
+  gvs[evaluate_def] >>
+  DEP_REWRITE_TAC[locals_rel_word_exp_simp] >> fs[] >>
+  gvs[AllCaseEqs()] >> simp[set_var_def] >>
+  irule locals_rel_set_var >> fs[]
+QED
+
+Resume locals_rel_evaluate_thm[Return]:
+  gvs[evaluate_def] >>
+  DEP_REWRITE_TAC[locals_rel_get_var_simp,locals_rel_get_vars_simp] >> fs[] >>
+  gvs[AllCaseEqs(),flush_state_def,state_component_equality]
+QED
+
+Resume locals_rel_evaluate_thm[LocValue]:
+  gvs[evaluate_def,AllCaseEqs()] >> simp[set_var_def] >>
+  irule locals_rel_set_var >> fs[]
+QED
+
+Resume locals_rel_evaluate_thm[Skip]:
+  gvs[evaluate_def]
+QED
+
+Resume locals_rel_evaluate_thm[CodeBufferWrite]:
+  gvs[evaluate_def] >>
+  DEP_REWRITE_TAC[locals_rel_get_var_simp] >> fs[] >>
+  gvs[AllCaseEqs(),state_component_equality]
+QED
+
+Resume locals_rel_evaluate_thm[DataBufferWrite]:
+  gvs[evaluate_def] >>
+  DEP_REWRITE_TAC[locals_rel_get_var_simp] >> fs[] >>
+  gvs[AllCaseEqs(),state_component_equality]
 QED
 
 Finalise locals_rel_evaluate_thm;
