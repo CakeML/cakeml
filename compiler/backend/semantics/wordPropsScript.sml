@@ -1690,7 +1690,35 @@ Proof
            >> drule_then assume_tac pop_env_const >> fs[])))
   >~[`Loop`]
   >-(
-    cheat)
+    PURE_ONCE_REWRITE_TAC[evaluate_def] >>
+    Cases_on `cut_state (names,LN) s` >> simp[] >>
+    imp_res_tac cut_state_const >> gvs[] >>
+    Cases_on `evaluate (c,s with locals := l)` >>
+    Cases_on `evaluate (c,s with <|locals := l; clock := extra + s.clock|>)` >>
+    simp[] >> fs[] >>
+    Cases_on `q = SOME TimeOut` >> fs[]
+    (* Timeout: body timed out, use body IH + transitivity *)
+    >- (first_x_assum(qspec_then`extra` mp_tac) >> simp[] >> strip_tac >>
+        irule IS_PREFIX_TRANS >> first_x_assum (irule_at Any) >>
+        Cases_on `cont_loop q'` >> gvs[]
+        >- (Cases_on `r'.clock = 0` >> gvs[flush_state_def] >>
+            Cases_on `evaluate (STOP (Loop names c exit_names), dec_clock r')` >>
+            imp_res_tac evaluate_io_events_mono >> gvs[dec_clock_def])
+        >- (Cases_on `q' = SOME (Break 0)` >> gvs[] >>
+            Cases_on `cut_state (exit_names,LN) r'` >> gvs[] >>
+            imp_res_tac cut_state_const >> gvs[]))
+    (* Non-timeout: evaluate_add_clock unifies both sides *)
+    >- (imp_res_tac evaluate_add_clock >> fs[] >>
+        first_x_assum(qspec_then`extra`mp_tac) >> simp[] >> strip_tac >> gvs[] >>
+        Cases_on `cont_loop q` >> gvs[]
+        >- (Cases_on `r.clock = 0` >> gvs[flush_state_def,dec_clock_def] >>
+            Cases_on `extra = 0` >> gvs[] >>
+            Cases_on `evaluate (STOP (Loop names c exit_names),
+                                r with clock := extra − 1)` >>
+            imp_res_tac evaluate_io_events_mono >> gvs[])
+        >- (Cases_on `q = SOME (Break 0)` >> gvs[] >>
+            Cases_on `cut_state (exit_names,LN) r` >> gvs[] >>
+            imp_res_tac cut_state_const >> gvs[])))
   >> fs[evaluate_clock_with_const] >> gvs[SND_alt_def]
   >> rpt (pairarg_tac >> gvs[])
   >> fs[evaluate_def] >>
@@ -2496,8 +2524,308 @@ Proof
     full_simp_tac(srw_ss())[evaluate_def] >> every_case_tac >>
     fs[] >>
     metis_tac [])
-  >~[`Loop`] >-
-    cheat
+  >~[`Loop`] >- (
+    fs[evaluate_def] >>
+    Cases_on `cut_state (names,LN) s` >> gvs[AllCaseEqs()] >>
+    Cases_on `evaluate(c',x)` >> gvs[] >>
+    rename1 `evaluate(c',x) = (bres,bs)` >>
+    `x.stack = s.stack ∧ x.handler = s.handler` by
+      (gvs[cut_state_def, AllCaseEqs()]) >>
+    Cases_on `bres` >> gvs[]
+    >- (* bres = NONE: cont_loop *)
+    (IF_CASES_TAC >> gvs[flush_state_def]
+     >- (* clock=0: TimeOut *)
+     (rpt strip_tac >>
+      first_x_assum(qspec_then `xs` mp_tac) >> simp[] >> strip_tac >>
+      gvs[flush_state_def, cut_state_def, AllCaseEqs()])
+     >- (* clock>0: recursive *)
+     (gvs[STOP_def] >>
+      Cases_on `evaluate(Loop names c' exit_names, dec_clock bs)` >> gvs[] >>
+      Cases_on `q` >> gvs[]
+      >- (* recursive returns NONE *)
+      (conj_tac >- metis_tac[s_key_eq_trans] >>
+       gen_tac >> strip_tac >>
+       `∃q' r'. evaluate(c', x with stack := xs) = (q',r')` by
+          metis_tac[PAIR] >>
+       qpat_x_assum `∀xs. s_val_eq s.stack xs ⇒ _`
+         (qspec_then `xs` mp_tac) >>
+       impl_tac >- simp[] >> strip_tac >> gvs[dec_clock_def] >>
+       qpat_x_assum `∀xs. s_val_eq bs.stack xs ⇒ _`
+         (qspec_then `st` mp_tac) >>
+       simp[] >> strip_tac >>
+       qexists_tac `st'` >> simp[] >>
+       metis_tac[s_key_eq_trans])
+      >- (* recursive returns SOME *)
+      (Cases_on `x'` >> gvs[]
+       >- (* Result *)
+       (conj_tac >- metis_tac[s_key_eq_trans] >>
+        gen_tac >> strip_tac >>
+        `∃q' r'. evaluate(c', x with stack := xs) = (q',r')` by
+           metis_tac[PAIR] >>
+        qpat_x_assum `∀xs. s_val_eq s.stack xs ⇒ _`
+          (qspec_then `xs` mp_tac) >>
+        impl_tac >- simp[] >> strip_tac >> gvs[dec_clock_def] >>
+        qpat_x_assum `∀xs. s_val_eq bs.stack xs ⇒ _`
+          (qspec_then `st` mp_tac) >>
+        simp[] >> strip_tac >>
+        qexists_tac `st'` >> simp[] >>
+        metis_tac[s_key_eq_trans])
+       >- (* Exception: LASTN composition, following Seq pattern *)
+       (`s_key_eq bs.stack s.stack` by fs[Once s_key_eq_sym] >>
+        drule_all s_key_eq_LASTN_exists >> strip_tac >>
+        CONJ_TAC >- (imp_res_tac s_key_eq_length >> fs[]) >>
+        rename1 `LASTN _ s.stack = StackFrame _ _ e_s _ :: ls_s` >>
+        qexistsl [`e0`, `e_s`, `(r.handler, v1)`, `ls_s`, `lss`] >> simp[] >>
+        CONJ_TAC >- metis_tac[s_key_eq_trans] >>
+        rpt strip_tac >>
+        `∃q'' r''. evaluate(c', x with stack := xs) = (q'',r'')` by
+           (Cases_on `evaluate(c', x with stack := xs)` >> simp[]) >>
+        qpat_x_assum `∀xs. s_val_eq s.stack xs ⇒ _`
+          (qspec_then `xs` mp_tac) >>
+        impl_tac >- simp[] >> strip_tac >> gvs[dec_clock_def] >>
+        imp_res_tac s_val_eq_LASTN_exists >>
+        fs[] >> res_tac >> fs[] >>
+        rpt (pop_assum mp_tac) >> gvs[] >>
+        rpt (disch_tac >> gvs[]) >>
+        fs[state_component_equality] >> gvs[] >>
+        CONJ_TAC >-
+        (qexists_tac `lss'` >> simp[] >>
+         imp_res_tac s_key_eq_LASTN_exists >> fs[] >> metis_tac[]) >>
+        imp_res_tac s_key_eq_trans >>
+        first_x_assum match_mp_tac >>
+        imp_res_tac s_key_eq_LASTN_exists >> fs[] >> metis_tac[])
+       >- (* Break *)
+       (conj_tac >- metis_tac[s_key_eq_trans] >>
+        gen_tac >> strip_tac >>
+        `∃q' r'. evaluate(c', x with stack := xs) = (q',r')` by
+           metis_tac[PAIR] >>
+        qpat_x_assum `∀xs. s_val_eq s.stack xs ⇒ _`
+          (qspec_then `xs` mp_tac) >>
+        impl_tac >- simp[] >> strip_tac >> gvs[dec_clock_def] >>
+        qpat_x_assum `∀xs. s_val_eq bs.stack xs ⇒ _`
+          (qspec_then `st` mp_tac) >>
+        simp[] >> strip_tac >>
+        qexists_tac `st'` >> simp[] >>
+        metis_tac[s_key_eq_trans])
+       >- (* Continue *)
+       (conj_tac >- metis_tac[s_key_eq_trans] >>
+        gen_tac >> strip_tac >>
+        `∃q' r'. evaluate(c', x with stack := xs) = (q',r')` by
+           metis_tac[PAIR] >>
+        qpat_x_assum `∀xs. s_val_eq s.stack xs ⇒ _`
+          (qspec_then `xs` mp_tac) >>
+        impl_tac >- simp[] >> strip_tac >> gvs[dec_clock_def] >>
+        qpat_x_assum `∀xs. s_val_eq bs.stack xs ⇒ _`
+          (qspec_then `st` mp_tac) >>
+        simp[] >> strip_tac >>
+        qexists_tac `st'` >> simp[] >>
+        metis_tac[s_key_eq_trans])
+       >- (* TimeOut *)
+       (gen_tac >> strip_tac >>
+        `∃q' r'. evaluate(c', x with stack := xs) = (q',r')` by
+           metis_tac[PAIR] >>
+        qpat_x_assum `∀xs. s_val_eq s.stack xs ⇒ _`
+          (qspec_then `xs` mp_tac) >>
+        impl_tac >- simp[] >> strip_tac >> gvs[dec_clock_def] >>
+        qpat_x_assum `∀xs. s_val_eq bs.stack xs ⇒ _`
+          (qspec_then `st` mp_tac) >> simp[])
+       >- (* NotEnoughSpace *)
+       (gen_tac >> strip_tac >>
+        `∃q' r'. evaluate(c', x with stack := xs) = (q',r')` by
+           metis_tac[PAIR] >>
+        qpat_x_assum `∀xs. s_val_eq s.stack xs ⇒ _`
+          (qspec_then `xs` mp_tac) >>
+        impl_tac >- simp[] >> strip_tac >> gvs[dec_clock_def] >>
+        qpat_x_assum `∀xs. s_val_eq bs.stack xs ⇒ _`
+          (qspec_then `st` mp_tac) >> simp[])
+       >- (* FinalFFI *)
+       (gen_tac >> strip_tac >>
+        `∃q' r'. evaluate(c', x with stack := xs) = (q',r')` by
+           metis_tac[PAIR] >>
+        qpat_x_assum `∀xs. s_val_eq s.stack xs ⇒ _`
+          (qspec_then `xs` mp_tac) >>
+        impl_tac >- simp[] >> strip_tac >> gvs[dec_clock_def] >>
+        qpat_x_assum `∀xs. s_val_eq bs.stack xs ⇒ _`
+          (qspec_then `st` mp_tac) >> simp[])
+       )))
+    >- (* bres = SOME r: body returned SOME x' *)
+    (Cases_on `x'` >> gvs[]
+     >- (* Result: simple swap *)
+     (gen_tac >> strip_tac >>
+      `∃q' r'. evaluate(c', x with stack := xs) = (q',r')` by
+           (Cases_on `evaluate(c', x with stack := xs)` >> simp[]) >>
+      qpat_x_assum `∀xs. s_val_eq s.stack xs ⇒ _`
+        (qspec_then `xs` mp_tac) >>
+      impl_tac >- simp[] >> strip_tac >> gvs[] >>
+      qexists_tac `st` >> simp[])
+     >- (* Exception *)
+     (qexists_tac `lss` >> simp[] >>
+      rpt strip_tac >>
+      `∃q' r'. evaluate(c', x with stack := xs) = (q',r')` by
+           (Cases_on `evaluate(c', x with stack := xs)` >> simp[]) >>
+      first_x_assum(qspecl_then [`xs`,`e0'`,`e'`,`ls'`] mp_tac) >>
+      simp[] >> strip_tac >> gvs[] >>
+      simp[state_component_equality] >>
+      qexists_tac `lss'` >> simp[])
+     >- (* Break *)
+     (Cases_on `n = 0` >> gvs[]
+      >- (* Break 0: cut_state exit_names *)
+      (Cases_on `cut_state (exit_names,LN) bs` >> gvs[] >>
+       `x'.stack = bs.stack ∧ x'.handler = bs.handler` by
+         (qpat_x_assum `cut_state _ _ = SOME _` mp_tac >>
+          simp[cut_state_def,AllCaseEqs()] >> strip_tac >> gvs[]) >>
+       gvs[] >>
+       gen_tac >> strip_tac >>
+       `∃q' r'. evaluate(c', x with stack := xs) = (q',r')` by
+           (Cases_on `evaluate(c', x with stack := xs)` >> simp[]) >>
+       qpat_x_assum `∀xs. s_val_eq s.stack xs ⇒ _`
+         (qspec_then `xs` mp_tac) >>
+       impl_tac >- simp[] >> strip_tac >> gvs[] >>
+       qpat_x_assum `cut_state _ _ = SOME _` mp_tac >>
+       simp[cut_state_def,AllCaseEqs()] >> strip_tac >> gvs[] >>
+       qexists_tac `st` >> gvs[state_component_equality])
+      >- (* Break n>0 *)
+      (gen_tac >> strip_tac >>
+       `∃q' r'. evaluate(c', x with stack := xs) = (q',r')` by
+           (Cases_on `evaluate(c', x with stack := xs)` >> simp[]) >>
+       qpat_x_assum `∀xs. s_val_eq s.stack xs ⇒ _`
+         (qspec_then `xs` mp_tac) >>
+       impl_tac >- simp[] >> strip_tac >> gvs[] >>
+       qexists_tac `st` >> simp[]))
+     >- (* Continue *)
+     (Cases_on `n = 0` >> gvs[]
+      >- (* Continue 0: recursive *)
+      (IF_CASES_TAC >> gvs[flush_state_def]
+       >- (rpt strip_tac >>
+           `∃q' r'. evaluate(c', x with stack := xs) = (q',r')` by
+           (Cases_on `evaluate(c', x with stack := xs)` >> simp[]) >>
+           qpat_x_assum `∀xs. s_val_eq s.stack xs ⇒ _`
+             (qspec_then `xs` mp_tac) >>
+           impl_tac >- simp[] >> strip_tac >>
+           gvs[flush_state_def, cut_state_def, AllCaseEqs()])
+       >- (gvs[STOP_def] >>
+           Cases_on `evaluate(Loop names c' exit_names, dec_clock bs)` >>
+           gvs[] >> Cases_on `q` >> gvs[]
+           >- (conj_tac >- metis_tac[s_key_eq_trans] >>
+               gen_tac >> strip_tac >>
+               `∃q' r'. evaluate(c', x with stack := xs) = (q',r')` by
+           (Cases_on `evaluate(c', x with stack := xs)` >> simp[]) >>
+               qpat_x_assum `∀xs. s_val_eq s.stack xs ⇒ _`
+                 (qspec_then `xs` mp_tac) >>
+               impl_tac >- simp[] >> strip_tac >> gvs[dec_clock_def] >>
+               qpat_x_assum `∀xs. s_val_eq bs.stack xs ⇒ _`
+                 (qspec_then `st` mp_tac) >>
+               simp[] >> strip_tac >>
+               qexists_tac `st'` >> simp[] >>
+               metis_tac[s_key_eq_trans])
+           >- (* recursive SOME for Continue 0 — same as bres=NONE *)
+           (Cases_on `x'` >> gvs[]
+            >- (* Result *)
+            (conj_tac >- metis_tac[s_key_eq_trans] >>
+             gen_tac >> strip_tac >>
+             `∃q' r'. evaluate(c', x with stack := xs) = (q',r')` by
+                (Cases_on `evaluate(c', x with stack := xs)` >> simp[]) >>
+             qpat_x_assum `∀xs. s_val_eq s.stack xs ⇒ _`
+               (qspec_then `xs` mp_tac) >>
+             impl_tac >- simp[] >> strip_tac >> gvs[dec_clock_def] >>
+             qpat_x_assum `∀xs. s_val_eq bs.stack xs ⇒ _`
+               (qspec_then `st` mp_tac) >>
+             simp[] >> strip_tac >>
+             qexists_tac `st'` >> simp[] >>
+             metis_tac[s_key_eq_trans])
+            >- (* Exception *)
+            (`s_key_eq bs.stack s.stack` by fs[Once s_key_eq_sym] >>
+             drule_all s_key_eq_LASTN_exists >> strip_tac >>
+             CONJ_TAC >- (imp_res_tac s_key_eq_length >> fs[]) >>
+             rename1 `LASTN _ s.stack = StackFrame _ _ e_s _ :: ls_s` >>
+             qexistsl [`e0`, `e_s`, `(r.handler, v1)`, `ls_s`, `lss`] >> simp[] >>
+             CONJ_TAC >- metis_tac[s_key_eq_trans] >>
+             rpt strip_tac >>
+             `∃q'' r''. evaluate(c', x with stack := xs) = (q'',r'')` by
+                (Cases_on `evaluate(c', x with stack := xs)` >> simp[]) >>
+             qpat_x_assum `∀xs. s_val_eq s.stack xs ⇒ _`
+               (qspec_then `xs` mp_tac) >>
+             impl_tac >- simp[] >> strip_tac >> gvs[dec_clock_def] >>
+             imp_res_tac s_val_eq_LASTN_exists >>
+             fs[] >> res_tac >> fs[] >>
+             rpt (pop_assum mp_tac) >> gvs[] >>
+             rpt (disch_tac >> gvs[]) >>
+             fs[state_component_equality] >> gvs[] >>
+             CONJ_TAC >-
+             (qexists_tac `lss'` >> simp[] >>
+              imp_res_tac s_key_eq_LASTN_exists >> fs[] >> metis_tac[]) >>
+             imp_res_tac s_key_eq_trans >>
+             first_x_assum match_mp_tac >>
+             imp_res_tac s_key_eq_LASTN_exists >> fs[] >> metis_tac[])
+            >- (* Break *)
+            (conj_tac >- metis_tac[s_key_eq_trans] >>
+             gen_tac >> strip_tac >>
+             `∃q' r'. evaluate(c', x with stack := xs) = (q',r')` by
+                (Cases_on `evaluate(c', x with stack := xs)` >> simp[]) >>
+             qpat_x_assum `∀xs. s_val_eq s.stack xs ⇒ _`
+               (qspec_then `xs` mp_tac) >>
+             impl_tac >- simp[] >> strip_tac >> gvs[dec_clock_def] >>
+             qpat_x_assum `∀xs. s_val_eq bs.stack xs ⇒ _`
+               (qspec_then `st` mp_tac) >>
+             simp[] >> strip_tac >>
+             qexists_tac `st'` >> simp[] >>
+             metis_tac[s_key_eq_trans])
+            >- (* Continue *)
+            (conj_tac >- metis_tac[s_key_eq_trans] >>
+             gen_tac >> strip_tac >>
+             `∃q' r'. evaluate(c', x with stack := xs) = (q',r')` by
+                (Cases_on `evaluate(c', x with stack := xs)` >> simp[]) >>
+             qpat_x_assum `∀xs. s_val_eq s.stack xs ⇒ _`
+               (qspec_then `xs` mp_tac) >>
+             impl_tac >- simp[] >> strip_tac >> gvs[dec_clock_def] >>
+             qpat_x_assum `∀xs. s_val_eq bs.stack xs ⇒ _`
+               (qspec_then `st` mp_tac) >>
+             simp[] >> strip_tac >>
+             qexists_tac `st'` >> simp[] >>
+             metis_tac[s_key_eq_trans])
+            >- (* TimeOut *)
+            (gen_tac >> strip_tac >>
+             `∃q' r'. evaluate(c', x with stack := xs) = (q',r')` by
+                (Cases_on `evaluate(c', x with stack := xs)` >> simp[]) >>
+             qpat_x_assum `∀xs. s_val_eq s.stack xs ⇒ _`
+               (qspec_then `xs` mp_tac) >>
+             impl_tac >- simp[] >> strip_tac >> gvs[dec_clock_def] >>
+             qpat_x_assum `∀xs. s_val_eq bs.stack xs ⇒ _`
+               (qspec_then `st` mp_tac) >> simp[])
+            >- (* NotEnoughSpace *)
+            (gen_tac >> strip_tac >>
+             `∃q' r'. evaluate(c', x with stack := xs) = (q',r')` by
+                (Cases_on `evaluate(c', x with stack := xs)` >> simp[]) >>
+             qpat_x_assum `∀xs. s_val_eq s.stack xs ⇒ _`
+               (qspec_then `xs` mp_tac) >>
+             impl_tac >- simp[] >> strip_tac >> gvs[dec_clock_def] >>
+             qpat_x_assum `∀xs. s_val_eq bs.stack xs ⇒ _`
+               (qspec_then `st` mp_tac) >> simp[])
+            >- (* FinalFFI *)
+            (gen_tac >> strip_tac >>
+             `∃q' r'. evaluate(c', x with stack := xs) = (q',r')` by
+                (Cases_on `evaluate(c', x with stack := xs)` >> simp[]) >>
+             qpat_x_assum `∀xs. s_val_eq s.stack xs ⇒ _`
+               (qspec_then `xs` mp_tac) >>
+             impl_tac >- simp[] >> strip_tac >> gvs[dec_clock_def] >>
+             qpat_x_assum `∀xs. s_val_eq bs.stack xs ⇒ _`
+               (qspec_then `st` mp_tac) >> simp[])
+            )
+           ))
+      >- (* Continue n>0 *)
+      (gen_tac >> strip_tac >>
+       `∃q' r'. evaluate(c', x with stack := xs) = (q',r')` by
+           (Cases_on `evaluate(c', x with stack := xs)` >> simp[]) >>
+       qpat_x_assum `∀xs. s_val_eq s.stack xs ⇒ _`
+         (qspec_then `xs` mp_tac) >>
+       impl_tac >- simp[] >> strip_tac >> gvs[] >>
+       qexists_tac `st` >> simp[]))
+     (* TimeOut/NotEnoughSpace/FinalFFI: body gives stack=[], so result is same *)
+     >> (gen_tac >> strip_tac >>
+         `∃q' r'. evaluate(c', x with stack := xs) = (q',r')` by
+             (Cases_on `evaluate(c', x with stack := xs)` >> simp[]) >>
+         first_x_assum(qspec_then `xs` mp_tac) >>
+         impl_tac >- simp[] >> strip_tac >> gvs[])))
   >~[`LocValue`] >- (
     fs[evaluate_def,flush_state_def]>>every_case_tac>>
     simp[]>>
@@ -2943,7 +3271,44 @@ Proof
      simp[state_component_equality])
   >~[`Loop`]
   >- (
-    cheat
+    qpat_x_assum `evaluate (Loop _ _ _, _) = _` mp_tac >>
+    PURE_ONCE_REWRITE_TAC[evaluate_def] >>
+    gvs[AllCaseEqs(),UNCURRY_EQ,flush_state_def,dec_clock_def] >>
+    rpt strip_tac >> imp_res_tac cut_state_const >> gvs[]
+    (* timeout: cont_loop, clock=0 *)
+    >- (`res' ≠ SOME Error` by
+          (Cases_on `res'` >> gvs[cont_loop_def] >>
+           Cases_on `x` >> gvs[cont_loop_def]) >>
+        last_x_assum(qspec_then`perm` assume_tac) >> gvs[] >>
+        rename1 `evaluate (prog,_ with <|locals := _; permute := bp|>) = _` >>
+        qexists_tac `bp` >> qexists_tac `res'` >>
+        qexists_tac `s1 with permute := perm` >>
+        gvs[flush_state_def,state_component_equality])
+    (* recursive: cont_loop, clock≠0 *)
+    >- (last_x_assum(qspec_then`perm` assume_tac) >> gvs[] >>
+        `res' ≠ SOME Error` by
+          (Cases_on `res'` >> gvs[cont_loop_def] >>
+           Cases_on `x` >> gvs[cont_loop_def]) >>
+        rename1 `evaluate (STOP _,_ with <|permute := rp; clock := _|>) = _` >>
+        last_x_assum(qspec_then`rp` assume_tac) >> gvs[] >>
+        rename1 `evaluate (prog,_ with <|locals := _; permute := bp|>) = _` >>
+        qexists_tac `bp` >> qexists_tac `res'` >>
+        qexists_tac `s1 with permute := rp` >>
+        gvs[dec_clock_def,state_component_equality])
+    (* break *)
+    >- (last_x_assum(qspec_then`perm` assume_tac) >> gvs[] >>
+        rename1 `evaluate (prog,_ with <|locals := _; permute := bp|>) = _` >>
+        qexists_tac `bp` >> qexists_tac `SOME (Break 0)` >>
+        qexists_tac `s1 with permute := perm` >>
+        gvs[] >> imp_res_tac cut_state_const >> gvs[state_component_equality])
+    (* exit_loop *)
+    >- (`res' ≠ SOME Error` by
+          (CCONTR_TAC >> gvs[exit_loop_def]) >>
+        last_x_assum(qspec_then`perm` assume_tac) >> gvs[] >>
+        rename1 `evaluate (prog,_ with <|locals := _; permute := bp|>) = _` >>
+        qexists_tac `bp` >> qexists_tac `res'` >>
+        qexists_tac `rst with permute := perm` >>
+        gvs[exit_loop_def,state_component_equality])
   )
   >~[`Call`]
   >- (
@@ -4097,8 +4462,13 @@ Proof
     imp_res_tac cut_state_const>>gvs[]>>
     first_x_assum drule_all >> gvs[]
     >> imp_res_tac evaluate_stack_max_le >> gvs[]
-    >> TRY (PROVE_TAC[option_le_trans]) >>
-    cheat
+    >> imp_res_tac evaluate_add_clock_body >> gvs[]
+    >> imp_res_tac cut_state_const >> gvs[]
+    >> rpt strip_tac
+    >> imp_res_tac evaluate_stack_max_le >> gvs[]
+    >> drule_all option_le_trans >> fs[]
+    >> strip_tac
+    >> last_x_assum (qspec_then `ck` mp_tac) >> gvs[dec_clock_def]
   )
   >> (* Every case except call *)
   fs[inc_clock_def, evaluate_clock_with_const] >> gvs[] >>
@@ -4398,8 +4768,7 @@ Proof
       simp[] >>
       disch_then $ ASSUME_TAC o GSYM >>
       simp[state_component_equality])
-  >~ [‘Loop’]
-  >- cheat
+  >~ [‘Loop’] >- suspend "Loop"
   >~ [‘Raise’]
   >- (gvs[evaluate_def,get_var_def,AllCaseEqs(),jump_exc_def,PULL_EXISTS] >>
       imp_res_tac LIST_REL_LENGTH >>
@@ -4663,6 +5032,30 @@ Proof
   full_simp_tac bool_ss [GSYM state_fupdcanon] >> fs[] >>
   simp[state_component_equality]
 QED
+
+Resume permute_swap_lemma2[Loop]:
+  fs[evaluate_def] >>
+  Cases_on `cut_state (names,LN) st` >> fs[] >>
+  `cut_state (names,LN) (st with <|permute := perm; stack := stack|>) =
+   SOME (x with <|permute := perm; stack := stack|>)` by
+    (fs[cut_state_def] >> every_case_tac >> gvs[]) >>
+  Cases_on `evaluate(prog,x)` >> fs[STOP_def] >>
+  first_x_assum(qspecl_then [`perm`,`stack`] mp_tac) >>
+  impl_tac >- (conj_tac >- (strip_tac >> gvs[]) >>
+               fs[cut_state_def] >> every_case_tac >> gvs[]) >>
+  strip_tac >>
+  qpat_x_assum `LIST_REL _ _ r.stack` mp_tac >>
+  gvs[AllCaseEqs(),flush_state_def,dec_clock_def,cut_state_def] >>
+  strip_tac >>
+  simp[state_component_equality] >>
+  TRY (first_x_assum(irule_at $ Pos last) >> simp[]) >>
+  last_x_assum(qspecl_then [`perm'`,`stack'`] mp_tac) >>
+  impl_tac >- (fs[] >> imp_res_tac no_install_evaluate_const_code >>
+               gvs[no_alloc_def,no_install_def]) >>
+  strip_tac >> gvs[dec_clock_def] >> simp[state_component_equality]
+QED
+
+Finalise permute_swap_lemma2;
 
 Theorem permute_swap_lemma3:
   ∀prog st perm stack.
