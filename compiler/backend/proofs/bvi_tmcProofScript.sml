@@ -586,7 +586,7 @@ Theorem evaluate_rewrite_tmc:
              opt_res_rel r' rrr ∧
              state_rel f' t t2 ∧
              ∀res_v.
-                r = Rval [res_v] ⇒
+                r' = Rval [res_v] ⇒
                 hole_has_val f env1 env2 t2.refs res_v))
 Proof
 
@@ -632,7 +632,6 @@ Proof
     >> qexists ‘f3’ >> fs []
     >> imp_res_tac SUBMAP_TRANS)
   >~ [‘Var n’] >-
-     
    (gvs [evaluate_def]
     >> Cases_on ‘n < LENGTH env’ >> gvs []
     >> ‘n < LENGTH env2’ by (drule_all env_rel_length >> gvs [])                 
@@ -647,7 +646,6 @@ Proof
     >- (rpt gen_tac >> gvs [rewrite_aux_def])
     >> rpt gen_tac
     >> gvs [opt_res_rel_def]
-    (*>> goal_assum $ drule_at Any*)
     >> gvs [rewrite_opt_def]
     (* Lemma for evaluating Op (MemOp UpdateCons)? *)
     >> gvs [evaluate_def]
@@ -663,13 +661,14 @@ Proof
     >> gvs [PULL_EXISTS]
     >> gvs [bvlSemTheory.Unit_def, backend_commonTheory.tuple_tag_def]
     >> gvs [hole_has_val_def, FLOOKUP_SIMP]
-    >> conj_tac
-    >-
-     (gvs [state_rel_def, state_ref_rel_def, FLOOKUP_SIMP]
-      >> rpt strip_tac
-      >> cheat)
-    >> cheat
-   )
+    >> gvs [state_rel_def, state_ref_rel_def, FLOOKUP_SIMP]
+    >> rpt strip_tac
+    >> last_x_assum drule
+    >> strip_tac
+    >> goal_assum $ drule_at Any
+    >> goal_assum $ drule_at Any
+    >> Cases_on ‘hole_ptr = j’
+    >> gvs [flookup_thm, FRANGE_DEF])
   >~ [‘If x1 x2 x3’] >-
    (gvs [evaluate_def]
     >> gvs [CaseEq "prod", PULL_EXISTS]
