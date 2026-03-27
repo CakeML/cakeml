@@ -160,7 +160,7 @@ End
 Definition rewrite_opt_BlockOp_Cons_def:
   rewrite_opt_BlockOp_Cons loc loc_opt i_old_hole_ptr i_old_hole_idx i_new_hole_ptr block_tag op_args =
     case cons_to_tc_and_hb loc block_tag op_args of
-    | TC (TCall t args h) (HoleBlock tag l hole r) =>
+    | TC (TCall t args h) (HoleBlock tag l hole r) => (*dest here again, see dest_Cons*)
         let hb               = HoleBlock tag l hole r in
         let i                = & LENGTH l in
         let arg_old_hole_ptr = Var i_old_hole_ptr in
@@ -174,6 +174,11 @@ Definition rewrite_opt_BlockOp_Cons_def:
     | _ => Op (BlockOp (Cons block_tag)) op_args
 End
 
+Definition dest_Cons_def:
+  dest_Cons (BlockOp (Cons block_tag)) = SOME block_tag /\
+  dest_Cons _ = NONE
+End
+
 (* Assumes that the function can and should be optimised - has been checked by rewrite_aux_def. *)
 Definition rewrite_opt_def:
   (rewrite_opt loc loc_opt i_old_hole_ptr i_old_hole_idx i_new_hole_ptr (If xi xt xe) =
@@ -185,9 +190,9 @@ Definition rewrite_opt_def:
       Let xs $ rewrite_opt loc loc_opt (i_old_hole_ptr + offset) (i_old_hole_idx + offset) (i_new_hole_ptr + offset) x) ∧
   (rewrite_opt loc loc_opt i_old_hole_ptr i_old_hole_idx i_new_hole_ptr (Raise x) = Raise x) ∧
   (rewrite_opt loc loc_opt i_old_hole_ptr i_old_hole_idx i_new_hole_ptr (Op op op_args) =
-    case op of
-    | BlockOp (Cons block_tag) => rewrite_opt_BlockOp_Cons loc loc_opt i_old_hole_ptr i_old_hole_idx i_new_hole_ptr block_tag op_args
-    | _ =>
+    case dest_Cons op of
+    | SOME block_tag => rewrite_opt_BlockOp_Cons loc loc_opt i_old_hole_ptr i_old_hole_idx i_new_hole_ptr block_tag op_args
+    | NONE =>
       let arg_hole_ptr = Var i_old_hole_ptr in
       let arg_hole_idx = Var i_old_hole_idx in
       let exp_hole_val = Op op op_args in

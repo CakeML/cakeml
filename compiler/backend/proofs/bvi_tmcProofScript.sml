@@ -547,12 +547,23 @@ Proof
   >> cheat
 QED
 
+Definition hole_has_val_def:
+  hole_has_val (f : num |-> num) (env1 : v list) (env2 : v list) (refs : num |-> v ref) c =
+  ∃hole_ptr tag left right.
+    env2❲LENGTH env1❳ = RefPtr F hole_ptr ∧
+    env2❲LENGTH env1 + 1❳ = Number (&LENGTH left) ∧
+    hole_ptr ∉ FRANGE f ∧
+    FLOOKUP refs hole_ptr = SOME (MutBlock tag left c right)
+End
+
 Theorem evaluate_rewrite_tmc:
    ∀xs env1 ^s r t opt f s' env2.
      evaluate (xs, env1, s) = (r, t) ∧
      env_rel opt f env1 env2 ∧
      state_rel f s s' ∧
-     (opt ⇒ LENGTH xs = 1) ∧
+     (opt ⇒
+      LENGTH xs = 1 ∧
+      ∃c. hole_has_val f env1 env2 s'.refs c) ∧
      r ≠ Rerr (Rabort Rtype_error) ⇒
      ∃t' f' r'.
        evaluate (xs, env2, s') = (r', t') ∧
@@ -573,7 +584,10 @@ Theorem evaluate_rewrite_tmc:
            ∃rrr t2.
              evaluate ([exp_opt], env2, s') = (rrr,t2) ∧
              opt_res_rel r' rrr ∧
-             state_rel f' t t2))
+             state_rel f' t t2 ∧
+             ∀res_v.
+                r = Rval [res_v] ⇒
+                hole_has_val f env1 env2 t2.refs res_v))
 Proof
 
   recInduct bviSemTheory.evaluate_ind
@@ -608,18 +622,20 @@ Proof
     >- (spose_not_then assume_tac >> fs [])
     >> strip_tac >> fs []
     >> Cases_on ‘r2’ >> gvs []
-    >- (rename [‘state_rel f3 s3 t3’]
-        >> qexists ‘f3’ >> fs []
-        >> imp_res_tac evaluate_SING_IMP >> gvs []
-        >> drule_all v_rel_submap >> rw []
-        >> imp_res_tac SUBMAP_TRANS)
+    >-
+     (rename [‘state_rel f3 s3 t3’]
+      >> qexists ‘f3’ >> fs []
+      >> imp_res_tac evaluate_SING_IMP >> gvs []
+      >> drule_all v_rel_submap >> rw []
+      >> imp_res_tac SUBMAP_TRANS)
     >> rename [‘state_rel f3 s3 t3’]
     >> qexists ‘f3’ >> fs []
     >> imp_res_tac SUBMAP_TRANS)
   >~ [‘Var n’] >-
+     
    (gvs [evaluate_def]
     >> Cases_on ‘n < LENGTH env’ >> gvs []
-    >> ‘n < LENGTH env2’ by (drule_all env_rel_length >> gvs [])                  
+    >> ‘n < LENGTH env2’ by (drule_all env_rel_length >> gvs [])                 
     >> gvs []
     >> drule_all env_rel_el_v_rel
     >> strip_tac
@@ -631,7 +647,7 @@ Proof
     >- (rpt gen_tac >> gvs [rewrite_aux_def])
     >> rpt gen_tac
     >> gvs [opt_res_rel_def]
-    >> goal_assum $ drule_at Any
+    (*>> goal_assum $ drule_at Any*)
     >> gvs [rewrite_opt_def]
     (* Lemma for evaluating Op (MemOp UpdateCons)? *)
     >> gvs [evaluate_def]
@@ -646,6 +662,12 @@ Proof
     >> gvs [case_eq_thms]
     >> gvs [PULL_EXISTS]
     >> gvs [bvlSemTheory.Unit_def, backend_commonTheory.tuple_tag_def]
+    >> gvs [hole_has_val_def, FLOOKUP_SIMP]
+    >> conj_tac
+    >-
+     (gvs [state_rel_def, state_ref_rel_def, FLOOKUP_SIMP]
+      >> rpt strip_tac
+      >> cheat)
     >> cheat
    )
   >~ [‘If x1 x2 x3’] >-
@@ -1049,8 +1071,8 @@ Proof
     >> disch_then drule
     >> fs [])
   >~ [‘Force force_loc n’] >-
-     
-   (gvs [evaluate_def]
+     cheat
+   (*gvs [evaluate_def]
     >> Cases_on ‘n < LENGTH env’ >> gvs []
     >> drule env_rel_length
     >> strip_tac
@@ -1111,7 +1133,7 @@ Proof
 
     >> 
        
-    )
+    *)
   >~ [‘Call ticks dest xs handler’] >-
    (gvs [evaluate_def] >> cheat)
 QED
