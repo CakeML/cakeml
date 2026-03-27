@@ -110,25 +110,53 @@ local
                 v_ok ctxt' v
             | _ => EVERY ok_event s'.ffi.io_events’]
     |> CONV_RULE (DEPTH_CONV BETA_CONV);
-  val ind_goals = ind_thm |> concl |> dest_imp |> fst |> helperLib.list_dest dest_conj
 in
-  fun get_goal s = first (can (find_term (can (match_term (Term [QUOTE s]))))) ind_goals
-    |> helperLib.list_dest dest_forall
-    |> last
   fun evaluate_v_ok () = ind_thm |> concl |> rand
   fun the_ind_thm () = ind_thm
 end
 
-Theorem evaluate_v_ok_Nil:
-  ^(get_goal "[]")
+Theorem evaluate_v_ok:
+  ^(evaluate_v_ok ())
 Proof
+  match_mp_tac (the_ind_thm ())
+  \\ rpt conj_tac
+  >~ [`[] : exp list`] >- suspend "Nil"
+  >~ [`_::_::_ : exp list`] >- suspend "Cons"
+  >~ [`Lit`] >- suspend "Lit"
+  >~ [`Raise`] >- suspend "Raise"
+  >~ [`Handle`] >- suspend "Handle"
+  >~ [`Con`] >- suspend "Con"
+  >~ [`ast$Var`] >- suspend "Var"
+  >~ [`ast$Fun`] >- suspend "Fun"
+  >~ [`ast$App`] >- suspend "App"
+  >~ [`Log`] >- suspend "Log"
+  >~ [`ast$If`] >- suspend "If"
+  >~ [`Mat`] >- suspend "Mat"
+  >~ [`ast$Let`] >- suspend "Let"
+  >~ [`Letrec`] >- suspend "Letrec"
+  >~ [`Tannot`] >- suspend "Tannot"
+  >~ [`Lannot`] >- suspend "Lannot"
+  >~ [`[] : (pat # exp) list`] >- suspend "pmatch_Nil"
+  >~ [`_::_ : (pat # exp) list`] >- suspend "pmatch_Cons"
+  >~ [`[]:dec list`] >- suspend "decs_Nil"
+  >~ [`_::_::_:dec list`] >- suspend "decs_Cons"
+  >~ [`Dlet`] >- suspend "decs_Dlet"
+  >~ [`Dletrec`] >- suspend "decs_Dletrec"
+  >~ [`Dtype`] >- suspend "decs_Dtype"
+  >~ [`Dtabbrev`] >- suspend "decs_Dtabbrev"
+  >~ [`Denv`] >- suspend "decs_Denv"
+  >~ [`Dexn`] >- suspend "decs_Dexn"
+  >~ [`Dmod`] >- suspend "decs_Dmod"
+  >~ [`Dlocal`] >- suspend "decs_Dlocal"
+  \\ simp []
+QED
+
+Resume evaluate_v_ok[Nil]:
   rw [evaluate_def]
   \\ first_assum (irule_at Any) \\ gs []
 QED
 
-Theorem evaluate_v_ok_Cons:
-  ^(get_goal "_::_::_")
-Proof
+Resume evaluate_v_ok[Cons]:
   rw [evaluate_def]
   \\ gvs [CaseEqs ["semanticPrimitives$result", "prod"]]
   \\ drule_then strip_assume_tac evaluate_sing \\ gvs []
@@ -141,17 +169,13 @@ Proof
   \\ first_assum (irule_at Any) \\ gs [SF SFY_ss]
 QED
 
-Theorem evaluate_v_ok_Lit:
-  ^(get_goal "Lit l")
-Proof
+Resume evaluate_v_ok[Lit]:
   rw [evaluate_def] \\ gs []
   \\ first_assum (irule_at Any)
   \\ simp [v_ok_Lit]
 QED
 
-Theorem evaluate_v_ok_Raise:
-  ^(get_goal "Raise e")
-Proof
+Resume evaluate_v_ok[Raise]:
   rw [evaluate_def] \\ gs []
   \\ gvs [AllCaseEqs()]
   \\ drule_then strip_assume_tac evaluate_sing \\ gvs []
@@ -163,9 +187,7 @@ Proof
   qexists_tac ‘a’ \\ gs []
 QED
 
-Theorem evaluate_v_ok_Handle:
-  ^(get_goal "Handle e")
-Proof
+Resume evaluate_v_ok[Handle]:
   rw [evaluate_def]
   \\ gvs [AllCaseEqs(), EVERY_MAP]
   \\ first_x_assum (drule_all_then (qx_choose_then ‘ctxt1’ assume_tac)) \\ gs []
@@ -177,9 +199,7 @@ Proof
   \\ first_assum (irule_at Any) \\ gs []
 QED
 
-Theorem evaluate_v_ok_Con:
-  ^(get_goal "Con cn es")
-Proof
+Resume evaluate_v_ok[Con]:
   rw [evaluate_def]
   \\ gvs [AllCaseEqs(), EVERY_MAP]
   >~ [‘¬do_con_check _ _ _’] >- (
@@ -195,9 +215,7 @@ Proof
   \\ strip_tac \\ gs [env_ok_def]
 QED
 
-Theorem evaluate_v_ok_Var:
-  ^(get_goal "ast$Var n")
-Proof
+Resume evaluate_v_ok[Var]:
   rw [evaluate_def]
   \\ gvs [CaseEqs ["option"]]
   >- (
@@ -206,18 +224,23 @@ Proof
   \\ gs [env_ok_def, SF SFY_ss]
 QED
 
-Theorem evaluate_v_ok_Fun:
-  ^(get_goal "ast$Fun n e")
-Proof
+Resume evaluate_v_ok[Fun]:
   rw [evaluate_def]
   \\ gvs [CaseEqs ["option"]]
   \\ first_assum (irule_at Any) \\ gs []
   \\ irule v_ok_Closure \\ gs []
 QED
 
-Theorem evaluate_v_ok_Eval:
-  op = Eval ⇒ ^(get_goal "ast$App")
-Proof
+Resume evaluate_v_ok[App]:
+  rpt gen_tac
+  \\ Cases_on `op = Eval`
+  >- suspend "App_Eval"
+  \\ Cases_on `op = Opapp`
+  >- suspend "App_Opapp"
+  >- suspend "App_Op"
+QED
+
+Resume evaluate_v_ok[App_Eval]:
   rw [evaluate_def]
   \\ gvs [AllCaseEqs(), evaluateTheory.do_eval_res_def]
   \\ first_x_assum (drule_all_then strip_assume_tac) \\ gs []
@@ -656,9 +679,7 @@ Proof
   >- gvs [ref_ok_def]
 QED
 
-Theorem evaluate_v_ok_Op:
-  op ≠ Opapp ∧ op ≠ Eval ⇒ ^(get_goal "ast$App")
-Proof
+Resume evaluate_v_ok[App_Op]:
   rw [evaluate_def] \\ Cases_on ‘getOpClass op’ \\ gs[]
   >~ [‘EvalOp’] >- (Cases_on ‘op’ \\ gs[] \\ Cases_on ‘t’ \\ gs[])
   >~ [‘FunApp’] >- (Cases_on ‘op’ \\ gs[] \\ Cases_on ‘t’ \\ gs[])
@@ -772,9 +793,7 @@ Proof
     \\ first_assum (irule_at Any) \\ gs [])
 QED
 
-Theorem evaluate_v_ok_Opapp:
-  op = Opapp ⇒ ^(get_goal "ast$App")
-Proof
+Resume evaluate_v_ok[App_Opapp]:
   rw [evaluate_def]
   \\ gvs [AllCaseEqs()]
   >~ [‘do_opapp _ = NONE’] >- (
@@ -838,17 +857,7 @@ Proof
   \\ gs [SF SFY_ss]
 QED
 
-Theorem evaluate_v_ok_App:
-  ^(get_goal "ast$App")
-Proof
-  Cases_on ‘op = Opapp’ >- (match_mp_tac evaluate_v_ok_Opapp \\ gs [])
-  \\ Cases_on ‘op = Eval’ >- (match_mp_tac evaluate_v_ok_Eval \\ gs [])
-  \\ match_mp_tac evaluate_v_ok_Op \\ gs []
-QED
-
-Theorem evaluate_v_ok_Log:
-  ^(get_goal "Log")
-Proof
+Resume evaluate_v_ok[Log]:
   rw [evaluate_def]
   \\ gvs [AllCaseEqs(), do_log_def]
   \\ drule_then strip_assume_tac evaluate_sing \\ gvs []
@@ -866,9 +875,7 @@ Proof
   \\ gs [env_ok_def, SF SFY_ss]
 QED
 
-Theorem evaluate_v_ok_If:
-  ^(get_goal "ast$If")
-Proof
+Resume evaluate_v_ok[If]:
   rw [evaluate_def]
   \\ gvs [AllCaseEqs(), do_if_def]
   \\ drule_then strip_assume_tac evaluate_sing \\ gvs []
@@ -886,9 +893,7 @@ Proof
   \\ gs [env_ok_def, SF SFY_ss]
 QED
 
-Theorem evaluate_v_ok_Mat:
-  ^(get_goal "Mat")
-Proof
+Resume evaluate_v_ok[Mat]:
   rw [evaluate_def]
   \\ gvs [AllCaseEqs()]
   \\ drule_then strip_assume_tac evaluate_sing \\ gvs []
@@ -905,9 +910,7 @@ Proof
   \\ gs [env_ok_def, SF SFY_ss]
 QED
 
-Theorem evaluate_v_ok_Let:
-  ^(get_goal "ast$Let")
-Proof
+Resume evaluate_v_ok[Let]:
   rw [evaluate_def]
   \\ gvs [AllCaseEqs()]
   \\ first_x_assum (drule_all_then strip_assume_tac) \\ gs []
@@ -925,9 +928,7 @@ Proof
   \\ rw [] \\ gs [SF SFY_ss]
 QED
 
-Theorem evaluate_v_ok_Letrec:
-  ^(get_goal "Letrec")
-Proof
+Resume evaluate_v_ok[Letrec]:
   rw [evaluate_def]
   \\ gvs [AllCaseEqs()]
   >~ [‘¬ALL_DISTINCT _’] >- (
@@ -948,28 +949,20 @@ Proof
   \\ rw [DISJ_EQ_IMP, env_ok_def] \\ gs [SF SFY_ss]
 QED
 
-Theorem evaluate_v_ok_Tannot:
-  ^(get_goal "Tannot")
-Proof
+Resume evaluate_v_ok[Tannot]:
   rw [evaluate_def]
 QED
 
-Theorem evaluate_v_ok_Lannot:
-  ^(get_goal "Lannot")
-Proof
+Resume evaluate_v_ok[Lannot]:
   rw [evaluate_def]
 QED
 
-Theorem evaluate_v_ok_pmatch_Nil:
-  ^(get_goal "[]:(pat # exp) list")
-Proof
+Resume evaluate_v_ok[pmatch_Nil]:
   rw [evaluate_def] \\ gs []
   \\ first_assum (irule_at Any) \\ gs []
 QED
 
-Theorem evaluate_v_ok_pmatch_Cons:
-  ^(get_goal "_::_:(pat # exp) list")
-Proof
+Resume evaluate_v_ok[pmatch_Cons]:
   rw [evaluate_def] \\ gs []
   \\ gvs [AllCaseEqs()]
   >~ [‘Match env1’] >- (
@@ -990,16 +983,12 @@ Proof
   \\ first_assum (irule_at Any) \\ gs []
 QED
 
-Theorem evaluate_v_ok_decs_Nil:
-  ^(get_goal "[]:dec list")
-Proof
+Resume evaluate_v_ok[decs_Nil]:
   rw [evaluate_decs_def, extend_dec_env_def]
   \\ first_assum (irule_at Any) \\ gs []
 QED
 
-Theorem evaluate_v_ok_decs_Cons:
-  ^(get_goal "_::_::_:dec list")
-Proof
+Resume evaluate_v_ok[decs_Cons]:
   rw [evaluate_decs_def]
   \\ gvs [AllCaseEqs()]
   \\ first_x_assum (drule_all_then strip_assume_tac)
@@ -1017,9 +1006,7 @@ Proof
   \\ rw [] \\ gs [SF SFY_ss]
 QED
 
-Theorem evaluate_v_ok_decs_Dlet:
-  ^(get_goal "Dlet")
-Proof
+Resume evaluate_v_ok[decs_Dlet]:
   reverse $ rw [evaluate_decs_def]
   >- (gs [state_ok_def]
       \\ first_assum (irule_at Any) \\ gs [SF SFY_ss])
@@ -1037,9 +1024,7 @@ Proof
          EVERY_MEM, FORALL_PROD]
 QED
 
-Theorem evaluate_v_ok_decs_Dletrec:
-  ^(get_goal "Dletrec")
-Proof
+Resume evaluate_v_ok[decs_Dletrec]:
   reverse $ rw [evaluate_decs_def]
   >- (gs [state_ok_def]
       \\ first_assum (irule_at Any) \\ gs [SF SFY_ss])
@@ -1054,9 +1039,7 @@ Proof
   \\ rw [] \\ gs [env_ok_def, SF SFY_ss]
 QED
 
-Theorem evaluate_v_ok_decs_Dtype:
-  ^(get_goal "Dtype")
-Proof
+Resume evaluate_v_ok[decs_Dtype]:
   rw [evaluate_decs_def]
   >~ [‘¬EVERY check_dup_ctors _’] >- (
     gs [state_ok_def]
@@ -1086,17 +1069,13 @@ Proof
   \\ first_x_assum drule_all \\ gs []
 QED
 
-Theorem evaluate_v_ok_decs_Dtabbrev:
-  ^(get_goal "Dtabbrev")
-Proof
+Resume evaluate_v_ok[decs_Dtabbrev]:
   rw [evaluate_decs_def]
   \\ first_assum (irule_at Any)
   \\ gs [env_ok_def, extend_dec_env_def, SF SFY_ss]
 QED
 
-Theorem evaluate_v_ok_decs_Denv:
-  ^(get_goal "Denv")
-Proof
+Resume evaluate_v_ok[decs_Denv]:
   rw [evaluate_decs_def]
   \\ gvs [CaseEqs ["option", "prod"]]
   \\ gs [state_ok_def]
@@ -1108,9 +1087,7 @@ Proof
   \\ rw [] \\ gs [v_ok_def, env_ok_def, nat_to_v_def, SF SFY_ss]
 QED
 
-Theorem evaluate_v_ok_decs_Dexn:
-  ^(get_goal "Dexn")
-Proof
+Resume evaluate_v_ok[decs_Dexn]:
   rw [evaluate_decs_def]
   \\ gvs [CaseEqs ["option", "prod"], state_ok_def]
   \\ first_assum (irule_at Any) \\ gs []
@@ -1119,9 +1096,7 @@ Proof
   \\ rw [] \\ gs [SF SFY_ss]
 QED
 
-Theorem evaluate_v_ok_decs_Dmod:
-  ^(get_goal "Dmod")
-Proof
+Resume evaluate_v_ok[decs_Dmod]:
   rw [evaluate_decs_def]
   \\ gvs [CaseEqs ["option", "prod", "semanticPrimitives$result"]]
   \\ first_x_assum (drule_all_then strip_assume_tac)
@@ -1138,9 +1113,7 @@ Proof
   \\ rw [] \\ gs [SF SFY_ss]
 QED
 
-Theorem evaluate_v_ok_decs_Dlocal:
-  ^(get_goal "Dlocal")
-Proof
+Resume evaluate_v_ok[decs_Dlocal]:
   rw [evaluate_decs_def]
   \\ gvs [CaseEqs ["option", "prod", "semanticPrimitives$result"]]
   \\ first_x_assum (drule_all_then strip_assume_tac)
@@ -1154,24 +1127,4 @@ Proof
   \\ rw [] \\ gs [SF SFY_ss]
 QED
 
-Theorem evaluate_v_ok:
-  ^(evaluate_v_ok ())
-Proof
-  match_mp_tac (the_ind_thm ())
-  \\ rpt conj_tac \\ rpt gen_tac
-  \\ rewrite_tac [evaluate_v_ok_Nil, evaluate_v_ok_Cons,
-                  evaluate_v_ok_Lit, evaluate_v_ok_Raise,
-                  evaluate_v_ok_Handle, evaluate_v_ok_Con,
-                  evaluate_v_ok_Var, evaluate_v_ok_Fun,
-                  evaluate_v_ok_App, evaluate_v_ok_Log,
-                  evaluate_v_ok_If, evaluate_v_ok_Mat,
-                  evaluate_v_ok_Let, evaluate_v_ok_Letrec,
-                  evaluate_v_ok_Tannot, evaluate_v_ok_Lannot,
-                  evaluate_v_ok_pmatch_Nil, evaluate_v_ok_pmatch_Cons,
-                  evaluate_v_ok_decs_Nil, evaluate_v_ok_decs_Cons,
-                  evaluate_v_ok_decs_Dlet, evaluate_v_ok_decs_Dletrec,
-                  evaluate_v_ok_decs_Dtype,
-                  evaluate_v_ok_decs_Dtabbrev,
-                  evaluate_v_ok_decs_Denv, evaluate_v_ok_decs_Dexn,
-                  evaluate_v_ok_decs_Dmod, evaluate_v_ok_decs_Dlocal]
-QED
+Finalise evaluate_v_ok;

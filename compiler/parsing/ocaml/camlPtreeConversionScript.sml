@@ -812,9 +812,7 @@ Definition ptree_Literal_def:
 End
 
 Definition bool2id_def:
-  (* Desugaring into True/False becomes a problem if the user shadows these
-     constructors... *)
-  bool2id b = mk_id [«Cake»; «Bool»] (if b then «true» else «false»)
+  bool2id b = Short (if b then «True» else «False»)
 End
 
 Definition ptree_Bool_def:
