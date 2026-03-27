@@ -667,7 +667,7 @@ Proof
     >> strip_tac
     >> goal_assum $ drule_at Any
     >> goal_assum $ drule_at Any
-    >> Cases_on ‘hole_ptr = j’
+    >> IF_CASES_TAC
     >> gvs [flookup_thm, FRANGE_DEF])
   >~ [‘If x1 x2 x3’] >-
    (gvs [evaluate_def]
