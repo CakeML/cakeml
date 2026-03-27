@@ -204,6 +204,26 @@ Proof
   fs[inst_def] >> every_case_tac >> fs[]
 QED
 
+Theorem cut_state_compile_state[simp]:
+   cut_state names (compile_state clk c s) =
+   OPTION_MAP (compile_state clk c) (cut_state names s)
+Proof
+  simp[cut_state_def] >>
+  Cases_on `cut_env names s.locals` >> simp[]
+QED
+
+Theorem evaluate_add_clock_compile_state[local]:
+  evaluate (p, compile_state clk c s) = (res, compile_state 0 c s') ∧
+  res ≠ SOME TimeOut ⇒
+  ∀extra. evaluate (p, compile_state (clk + extra) c s) =
+          (res, compile_state extra c s')
+Proof
+  strip_tac >>
+  drule (GEN_ALL evaluate_add_clock) >> simp[] >>
+  disch_then (fn th => gen_tac >> mp_tac (SPEC_ALL th)) >>
+  simp[compile_state_def,state_component_equality]
+QED
+
 Theorem compile_state_dec_clock[simp]:
    s.clock ≠ 0 ⇒ (compile_state clk c (dec_clock s) = dec_clock (compile_state clk c s))
 Proof
@@ -252,6 +272,7 @@ Proof
      fs[case_eq_thms,UNCURRY_EQ] \\ rveq \\
      fs[domain_map] \\
      metis_tac[] >> NO_TAC)
+  >~ [`cont_loop`] >- suspend "Loop"
   THEN1 ( (* MustTerminate *)
     qmatch_goalsub_rename_tac`remove_must_terminate _` \\
     pairarg_tac \\ fs[] \\
@@ -374,4 +395,35 @@ Proof
   \\ `sa = sb` by ( unabbrev_all_tac \\ simp[state_component_equality] )
   \\ rw[]
 QED
+
+Resume word_remove_correct[Loop]:
+  Cases_on `cut_state (names,LN) s` \\ fs[] \\
+  pairarg_tac \\ fs[] \\
+  `x.compile = s.compile` by
+    (fs[cut_state_def,cut_env_def] \\ every_case_tac \\ gvs[]) \\
+  reverse (Cases_on `cont_loop res'` \\ fs[])
+  >- ( (* not cont_loop *)
+    Cases_on `res' = SOME Error` \\
+    gvs[exit_loop_def,cont_loop_def] \\
+    fs[] \\ qexists_tac `clk` \\ fs[cont_loop_def] \\
+    every_case_tac \\ gvs[cont_loop_def,exit_loop_def] )
+  >- ( (* cont_loop *)
+    `res' <> SOME Error /\ res' <> SOME TimeOut` by
+      (Cases_on `res'` \\ gvs[cont_loop_def] \\
+       Cases_on `x'` \\ gvs[cont_loop_def]) \\
+    `s1.compile = x.compile` by (imp_res_tac evaluate_consts \\ fs[]) \\
+    fs[] \\
+    reverse (Cases_on `s1.clock = 0` \\ fs[])
+    >- ( (* clock <> 0, recursive *)
+      fs[STOP_def,remove_must_terminate_def] \\
+      qexists_tac `clk + clk'` \\
+      drule_all evaluate_add_clock_compile_state \\
+      disch_then (qspec_then `clk'` (fn th => simp[th]))  \\
+      simp[cont_loop_def])
+    >- ( (* clock = 0, TimeOut *)
+      qexists_tac `clk` \\ simp[cont_loop_def] \\
+      every_case_tac \\ gvs[cont_loop_def]) )
+QED
+
+Finalise word_remove_correct;
 

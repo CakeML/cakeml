@@ -292,6 +292,10 @@ Definition max_var_def:
   (max_var (LocValue r l1) = r) ∧
   (max_var (Set n exp) = max_var_exp exp) ∧
   (max_var (ShareInst op num exp) = MAX num (max_var_exp exp)) /\
+  (max_var (Loop names body exit_names) =
+    max3 (MAX_LIST (MAP FST (toAList names)))
+         (max_var body)
+         (MAX_LIST (MAP FST (toAList exit_names)))) /\
   (max_var p = 0)
 End
 
