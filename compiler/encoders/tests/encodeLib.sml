@@ -6,24 +6,24 @@ structure encodeLib :> encodeLib =
 struct
 
 open HolKernel boolLib bossLib
-open arm6_targetLib arm8_targetLib x64_targetLib mips_targetLib riscv_targetLib
+open arm7_targetLib arm8_targetLib x64_targetLib mips_targetLib riscv_targetLib
 open armAssemblerLib arm8AssemblerLib x64AssemblerLib mips riscv
 
 (* ------------------------------------------------------------------------- *)
 
 val () =
  ( computeLib.del_consts
-     [``arm6_target$arm6_enc``, ``arm8_target$arm8_enc``,
+     [``arm7_target$arm7_enc``, ``arm8_target$arm8_enc``,
       ``x64_target$x64_enc``, ``mips_target$mips_enc``,
       ``riscv_target$riscv_enc``,
-      ``arm6_target$arm6_config``, ``arm8_target$arm8_config``,
+      ``arm7_target$arm7_config``, ``arm8_target$arm8_config``,
       ``x64_target$x64_config``, ``mips_target$mips_config``,
       ``riscv_target$riscv_config``,
       ``arm8_target$valid_immediate``,
       ``asm$asm_ok : 'a asm -> 'a asm_config -> bool``]
  ; computeLib.extend_compset
     [computeLib.Extenders
-       [arm6_targetLib.add_arm6_encode_compset,
+       [arm7_targetLib.add_arm7_encode_compset,
         arm8_targetLib.add_arm8_encode_compset,
         x64_targetLib.add_x64_encode_compset,
         mips_targetLib.add_mips_encode_compset,
@@ -43,14 +43,14 @@ fun ok tm = Lib.equal boolSyntax.T o eval o mk_asm_ok tm
 
 fun mk s = #2 (HolKernel.syntax_fns1 (s ^ "_target") (s ^ "_enc"))
 
-val mk_arm6_enc = mk "arm6"
+val mk_arm7_enc = mk "arm7"
 val mk_arm8_enc = mk "arm8"
 val mk_x64_enc = mk "x64"
 val mk_mips_enc = mk "mips"
 val mk_riscv_enc = mk "riscv"
 
 fun config_tm s = Term.prim_mk_const {Name = s ^ "_config", Thy = s ^ "_target"}
-val arm6_config = config_tm "arm6"
+val arm7_config = config_tm "arm7"
 val arm8_config = config_tm "arm8"
 val mips_config = config_tm "mips"
 val riscv_config = config_tm "riscv"
@@ -138,10 +138,10 @@ fun encoding q =
              | NONE =>
                  if asm32 = asm64 then print asm32
                  else print ("32 asm: " ^ asm32 ^ "\n64 asm: " ^ asm64),
-      arm6 = fn () =>
-              if ok tm32 arm6_config
+      arm7 = fn () =>
+              if ok tm32 arm7_config
                 then let
-                       val l = eval (mk_arm6_enc tm32)
+                       val l = eval (mk_arm7_enc tm32)
                      in
                        armAssemblerLib.print_arm_disassemble
                          (string_quotation (split32 false l))
@@ -195,11 +195,11 @@ fun encodings arches l =
               fun pr h a f = if yes a then (print_heading h; f ()) else ()
             in
               List.app
-                (fn {arm6, arm8, asm, mips, riscv, x64} =>
+                (fn {arm7, arm8, asm, mips, riscv, x64} =>
                         ( print_heading "ASM"
                         ; asm NONE
                         ; print "\n"
-                        ; pr "ARMv7" ARMv7 arm6
+                        ; pr "ARMv7" ARMv7 arm7
                         ; pr "ARMv8" ARMv8 arm8
                         ; pr "MIPS-64" MIPS mips
                         ; pr "RISC-V" RISCV riscv
@@ -219,7 +219,7 @@ fun encodings arches l =
                     )
              else ()
          in
-           pr "ARMv7" ARMv7 (#arm6)
+           pr "ARMv7" ARMv7 (#arm7)
          ; pr "ARMv8" ARMv8 (#arm8)
          ; pr "MIPS-64" MIPS (#mips)
          ; pr "RISC-V" RISCV (#riscv)

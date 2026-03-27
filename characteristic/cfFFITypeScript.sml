@@ -4,7 +4,7 @@
 *)
 Theory cfFFIType
 Ancestors
-  string
+  mlstring
 Libs
   preamble
 
@@ -12,7 +12,7 @@ Libs
 
 This file defines a type that behaves like the following one:
 
-  ffi = Str string
+  ffi = Str mlstring
       | Num num
       | Cons ffi ffi
       | List (ffi list)
@@ -20,7 +20,7 @@ This file defines a type that behaves like the following one:
       | Fun (ffi_inner -> ffi)
       | Inner ffi_inner
 
-  ffi_inner = iStr string
+  ffi_inner = iStr mlstring
             | iNum num
             | iCons ffi_inner ffi_inner
             | iList (ffi_inner list)
@@ -32,7 +32,7 @@ important injectivity (suffix: "_11") are here.
 *)
 
 Datatype:
-  ffi_inner = iStr string
+  ffi_inner = iStr mlstring
             | iNum num
             | iCons ffi_inner ffi_inner
             | iList (ffi_inner list)

@@ -1,4 +1,4 @@
-Monadic implementation of encoder.
+Monadic implementation of the encoder.
 
 [monadic_enc32Script.sml](monadic_enc32Script.sml):
 Implement and prove correct monadic version of encoder

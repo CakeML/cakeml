@@ -1,7 +1,7 @@
-Improving the LRAT checker with arrays (manually)
+Improving the LPR checker with arrays (manually).
 
 [compilation](compilation):
-An LRAT checker built on CakeML with arrays
+An LPR checker built on CakeML with arrays.
 
 [lpr_arrayFullProgScript.sml](lpr_arrayFullProgScript.sml):
 This builds the cake_lpr proof checker

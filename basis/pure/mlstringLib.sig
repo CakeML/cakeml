@@ -6,4 +6,5 @@ signature mlstringLib = sig
 
   val mlstring_case_conv : conv
 
+  val add_mlstring_compset : computeLib.compset -> computeLib.compset
 end

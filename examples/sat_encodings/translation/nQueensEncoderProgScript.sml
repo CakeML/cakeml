@@ -113,8 +113,9 @@ val res = translate main_function_def;
 val _ = type_of “main_function” = “:mlstring -> mlstring app_list”
         orelse failwith "The main_function has the wrong type.";
 
-val main = process_topdecs
-  `print_app_list (main_function (TextIO.inputAll TextIO.stdIn));`;
+Quote main = cakeml:
+  print_app_list (main_function (TextIO.inputAll (TextIO.openStdIn ())));
+End
 
 val prog =
   get_ml_prog_state ()

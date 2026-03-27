@@ -26,9 +26,9 @@ val names_tac =
   \\ rpt strip_tac \\ rveq \\ EVAL_TAC
 
 Theorem x64_backend_config_ok':
-  backend_config_ok (set_asm_conf x64_config' x64_config)
+  backend_config_ok x64_config x64_config'
 Proof
-  simp[backend_config_ok_def,backendTheory.set_asm_conf_def,x64_config'_def]>>
+  simp[backend_config_ok_def,x64_config'_def]>>
   rw[]>>TRY(EVAL_TAC>>NO_TAC)
   >- fs[x64_configTheory.x64_backend_config_def]
   >- (EVAL_TAC>> blastLib.FULL_BBLAST_TAC)
@@ -55,16 +55,10 @@ QED
 
 Theorem x64_init_ok':
    is_x64_machine_config mc ⇒
-    mc_init_ok (set_asm_conf x64_config' x64_config) mc
+    mc_init_ok x64_config x64_config' mc
 Proof
   rw[mc_init_ok_def] \\
   fs[is_x64_machine_config_def] \\
-  EVAL_TAC
-QED
-
-Theorem set_asm_conf_stack_conf:
-  (set_asm_conf x y).stack_conf = x.stack_conf
-Proof
   EVAL_TAC
 QED
 
@@ -79,7 +73,7 @@ val compile_correct_applied =
   |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO]
   |> C MATCH_MP cake_scpog_not_fail
   |> C MATCH_MP x64_backend_config_ok'
-  |> REWRITE_RULE[set_asm_conf_stack_conf,x64_config'_stack_conf]
+  |> REWRITE_RULE[x64_config'_stack_conf]
   |> REWRITE_RULE[cake_scpog_sem_sing,AND_IMP_INTRO]
   |> REWRITE_RULE[Once (GSYM AND_IMP_INTRO)]
   |> C MATCH_MP (CONJ(UNDISCH x64_machine_config_ok)(UNDISCH x64_init_ok'))
@@ -94,7 +88,7 @@ Theorem cake_scpog_compiled_thm =
 (* Prettifying the standard parts of all the theorems *)
 Definition installed_x64_def:
   installed_x64 ((code, data, cfg) :
-      (word8 list # word64 list # 64 backend$config))
+      (word8 list # word64 list # backend$config))
     mc ms
   <=>
     ?cbspace data_sp.

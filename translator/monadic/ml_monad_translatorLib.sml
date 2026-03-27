@@ -11,7 +11,8 @@ open preamble
      ml_translatorTheory ml_progTheory ml_progLib
      ml_pmatchTheory ml_monadBaseTheory ml_monad_translatorBaseTheory
      ml_monad_translatorTheory evaluateTheory cfTacticsLib
-     Net List packLib stringSimps
+     Net List packLib
+local open simpLib stringSimps mlstringSyntax mlstringTheory in end
 open ml_monadBaseLib
 
 open ml_monadStoreLib
@@ -135,6 +136,16 @@ local
     ]
 
 in
+
+(* TODO If same in ml_translatorLib.sml, move to mlstringLib and replace occurrences. *)
+val mlstring_EQ_CONV = REWR_CONV mlstringTheory.mlstring_11 THENC stringLib.string_EQ_CONV
+
+val mlstring_rewrites = simpLib.frag_rewrites $
+  simpLib.named_merge_ss "mlstring" [
+    stringSimps.STRING_ss,
+    BasicProvers.thy_ssfrag "mlstring",
+    simpLib.type_ssfrag mlstringSyntax.mlstring_ty
+  ]
 
 val get_term = fn str => assoc str term_alist
 val get_type = fn str => assoc str type_alist
@@ -450,7 +461,7 @@ fun abbrev_nsLookup_code th = let
                          can (match_term pat2) tm
   val lookup_assums = List.filter can_match_pat (hyp th)
   val get_fun_name =
-    stringSyntax.fromHOLstring o rand o rand o rand o rator
+    mlstringSyntax.dest_mlstring o rand o rand o rand o rator
   fun get_code tm =
     if can (match_term pat1) tm then (rand o rand o rand) tm
     else (rand o rator o rand o rand) tm
@@ -476,8 +487,8 @@ fun lookup_dynamic_v_thm tm = let
         (fn (_, _, _, x, _, _) => (concl x |> rator |> rand |> same_const tm))
         matches
     val th = MATCH_MP Eval_Var_Short th
-    val v_name = stringSyntax.fromMLstring ml_name
-    val th = SPECL [stringSyntax.fromMLstring ml_name, v_env] th |> UNDISCH_ALL
+    val v_name = mlstringSyntax.mk_mlstring ml_name
+    val th = SPECL [v_name, v_env] th |> UNDISCH_ALL
 in th end;
 
 
@@ -531,7 +542,7 @@ local
       val exn_param_types = (fst o ml_monadBaseLib.dest_fun_type o type_of) cons
       val refin_invs = List.map smart_get_type_inv exn_param_types
 
-      val cons_name = fst (dest_const cons) |> stringSyntax.fromMLstring
+      val cons_name = fst (dest_const cons) |> mlstringSyntax.mk_mlstring
 
       val raise_fun = raise_fun_def |> concl |> strip_forall |> snd |> lhs
       val E = raise_fun_def |> concl |> strip_forall |> snd |> rhs |> dest_abs
@@ -546,7 +557,7 @@ local
       val exprs = listSyntax.mk_list (exprs_vars, exp_ty)
 
       (* Instantiate the raise specification *)
-      val cv = mk_var (mk_cons_name cons, astSyntax.str_id_ty)
+      val cv = mk_var (mk_cons_name cons, astSyntax.ml_str_id_ty)
       val raise_spec = ISPECL [cv, stamp, EXN_RI_tm, EVAL_CONDS,
                                arity_tm, E, exprs, raise_fun] EvalM_raise
       val free_vars = strip_forall (concl raise_spec) |> fst
@@ -610,7 +621,7 @@ local
       val handle_fun = concl handle_fun_def |> strip_forall |> snd |> lhs
       val exn_type = type_of EXN_RI_tm |> dest_type |> snd |> List.hd
 
-      val cons_name = fst (dest_const cons) |> stringSyntax.fromMLstring
+      val cons_name = fst (dest_const cons) |> mlstringSyntax.mk_mlstring
 
       (* Instantiate the EvalM specification *)
       val CORRECT_CONS = let
@@ -724,7 +735,7 @@ local
       in a2_alt end
 
       (* Instantiate the specification *)
-      val cv = mk_var (mk_cons_name cons, astSyntax.str_id_ty)
+      val cv = mk_var (mk_cons_name cons, astSyntax.ml_str_id_ty)
       val handle_spec = ISPECL ([cv, stamp, CORRECT_CONS, PARAMS_CONDITIONS,
                                 EXN_RI_tm, alt_handle_fun, alt_x1, alt_x2,
                                 arity_tm])
@@ -1231,7 +1242,7 @@ fun var_hol2deep tm =
     val (name,ty) = dest_var tm
     val inv = get_arrow_type_inv ty
     val inv = ONCE_REWRITE_CONV [ArrowM_def] inv |> concl |> rand |> rand
-    val str = stringSyntax.fromMLstring name
+    val str = mlstringSyntax.mk_mlstring name
     val result = ISPECL_TM [str,mk_comb(inv,tm)] Eval_name_RI_abs |> ASSUME
     in check_inv "var" tm result end
   else hol2deep tm;
@@ -1417,6 +1428,7 @@ local
         \\ rpt strip_tac \\ rveq
         \\ simp_tac std_ss [v_11,MEM,stamp_11,CONS_11,ZIP,
              ml_translatorTheory.write_list_def,
+             mlstringTheory.mlstring_11,
              stringTheory.CHR_11,LENGTH,NOT_NIL_CONS,NOT_CONS_NIL,PULL_EXISTS]
         \\ simp_tac (srw_ss()) []
         \\ rpt (pop_assum mp_tac) \\ rewrite_tac [TAG_def,CONTAINER_def]
@@ -1502,7 +1514,7 @@ in
         val aa = snd (first (fn (pat,_) => can (match_term tm) pat) ns)
         in zip aa xs end) ts |> flatten
     val ms = List.map
-      (fn (b,(x,n,v)) => n |-> stringSyntax.fromMLstring (fst (dest_var b))) ns
+      (fn (b,(x,n,v)) => n |-> mlstringSyntax.mk_mlstring (fst (dest_var b))) ns
     val th = INST ms th
     val ks = List.map
               (fn (b,(x,n,v)) => (fst (dest_var x), fst (dest_var b))) ns @
@@ -1553,7 +1565,7 @@ in result end
 fun inst_EvalM_env v th =
     let val thx = th
       val name = fst (dest_var v)
-      val str = stringLib.fromMLstring name
+      val str = mlstringSyntax.mk_mlstring name
       val inv = smart_get_type_inv (type_of v)
       val tys = Type.match_type (type_of v)
         (type_of inv |> dest_type |> snd |> List.hd)
@@ -1565,7 +1577,7 @@ fun inst_EvalM_env v th =
       fun simp_EvalM_env tm =
         if can (match_term EvalM_pat) tm then
             REPEATC ((PURE_ONCE_REWRITE_CONV [EvalM_Var_SIMP]) THENC
-            (DEPTH_CONV stringLib.string_EQ_CONV) THENC
+            (DEPTH_CONV mlstring_EQ_CONV) THENC
             (SIMP_CONV bool_ss [])) tm
         else NO_CONV tm
       val th = thx |> UNDISCH_ALL |> REWRITE_RULE [GSYM SafeVar_def]
@@ -1574,7 +1586,7 @@ fun inst_EvalM_env v th =
                    |> INST [old_env|->new_env]
                    |> SIMP_RULE bool_ss [Eval_Var_SIMP,lookup_var_write]
                    |> REWRITE_RULE [lookup_cons_write,lookup_var_write]
-                   |> CONV_RULE (DEPTH_CONV stringLib.string_EQ_CONV)
+                   |> CONV_RULE (DEPTH_CONV mlstring_EQ_CONV)
                    |> SIMP_RULE bool_ss [SafeVar_def]
       val new_assum = fst (dest_imp (concl th))
       (**)
@@ -1610,8 +1622,8 @@ in th3 end;
 
 fun apply_EvalM_Recclosure recc fname v th = let
   val vname = fst (dest_var v)
-  val vname_str = stringLib.fromMLstring vname
-  val fname_str = stringLib.fromMLstring fname
+  val vname_str = mlstringSyntax.mk_mlstring vname
+  val fname_str = mlstringSyntax.mk_mlstring fname
   val FORALL_CONV = RAND_CONV o ABS_CONV
   val is_monad_only = not
     (can (match_term (SPEC_ALL ArrowM_def |> concl |> dest_eq |> fst))
@@ -1646,7 +1658,7 @@ fun apply_EvalM_Recclosure recc fname v th = let
                     EvalM_Var_SIMP_ArrowM, Eval_Var_SIMP,
                     lookup_var_write, lookup_cons_write
                   ]
-               |> CONV_RULE (DEPTH_CONV stringLib.string_EQ_CONV)
+               |> CONV_RULE (DEPTH_CONV mlstring_EQ_CONV)
                |> REWRITE_RULE [SafeVar_def]
   val new_assum = fst (dest_imp (concl thx))
   val th1 = thx |> UNDISCH |> REWRITE_RULE [ASSUME new_assum]
@@ -1681,7 +1693,7 @@ fun apply_EvalM_Recclosure recc fname v th = let
                       Eval_Var_SIMP, EvalM_Var_SIMP_ArrowM,
                       lookup_var_write,FOLDR
                      ]
-                  |> CONV_RULE (DEPTH_CONV stringLib.string_EQ_CONV)
+                  |> CONV_RULE (DEPTH_CONV mlstring_EQ_CONV)
                   |> REWRITE_RULE [SafeVar_def]
   val lemma = UNDISCH EvalM_Eq_Recclosure |> INST_ro
   val lemma_lhs = lemma |> concl |> dest_eq |> fst
@@ -1700,7 +1712,7 @@ fun inst_list_EvalM_env xl th = let
 
     fun make_new_env ((x,v),env) = let
         val name = fst (dest_var x)
-        val str = stringLib.fromMLstring name
+        val str = mlstringSyntax.mk_mlstring name
         val new_env = mk_write str v env
     in new_env end
     val old_env =
@@ -1717,7 +1729,7 @@ fun inst_list_EvalM_env xl th = let
     fun simp_EvalM_env tm =
       if can (match_term EvalM_pat) tm then
           REPEATC ((PURE_ONCE_REWRITE_CONV [EvalM_Var_SIMP])
-          THENC (DEPTH_CONV stringLib.string_EQ_CONV)
+          THENC (DEPTH_CONV mlstring_EQ_CONV)
           THENC (SIMP_CONV bool_ss [])) tm
       else NO_CONV tm
 
@@ -1728,7 +1740,7 @@ fun inst_list_EvalM_env xl th = let
                  |> INST [old_env|->new_env]
                  |> SIMP_RULE bool_ss [Eval_Var_SIMP,lookup_var_write]
                  |> REWRITE_RULE [lookup_cons_write,lookup_var_write]
-                 |> CONV_RULE (DEPTH_CONV stringLib.string_EQ_CONV)
+                 |> CONV_RULE (DEPTH_CONV mlstring_EQ_CONV)
                  |> SIMP_RULE bool_ss [SafeVar_def]
                  |> disch_asms
 
@@ -1910,7 +1922,7 @@ and inst_case_thm tm = let
     if can (match_term EvalM_pat) tm then
         REPEATC (
           (PURE_ONCE_REWRITE_CONV [EvalM_Var_SIMP]) THENC
-          (SIMP_CONV list_ss string_rewrites)) tm
+          (SIMP_CONV list_ss mlstring_rewrites)) tm
     else NO_CONV tm
   fun sat_hyp tm = let
     val (vs,x) = list_dest_forall tm
@@ -1931,7 +1943,7 @@ and inst_case_thm tm = let
              ONCE_REWRITE_CONV [EvalM_Var_SIMP] THENC
              ONCE_REWRITE_CONV [EvalM_Var_SIMP] THENC
              REWRITE_CONV [lookup_cons_write,lookup_var_write] THENC
-             DEPTH_CONV stringLib.string_EQ_CONV THENC
+             DEPTH_CONV mlstring_EQ_CONV THENC
              SIMP_CONV std_ss []) z1 |> DISCH x1
     val lemma = MATCH_MP sat_hyp_lemma (CONJ thz lemma)
     val bs = take (length vs div 2) vs
@@ -1973,7 +1985,7 @@ and inst_EvalM_handle EvalM_th tm = let
     val thy2 = inst_list_EvalM_env vars thy
     val inv = get_type_inv (#2 (dest_monad_type (type_of x)))
 
-    val var_to_HOL_name = stringLib.fromMLstring o fst o dest_var
+    val var_to_HOL_name = mlstringSyntax.mk_mlstring o fst o dest_var
     val HOL_names = List.map var_to_HOL_name vars
     val bind_names = listSyntax.mk_list (HOL_names, string_ty)
     val lemma1 = ISPECL [bind_names, inv, !(#H translator_state)] EvalM_th |>
@@ -2013,16 +2025,16 @@ and inst_EvalM_otherwise tm = let
   fun simp_EvalM_env tm =
     if can (match_term EvalM_pat) tm then
         REPEATC ((PURE_ONCE_REWRITE_CONV [EvalM_Var_SIMP]) THENC
-          (DEPTH_CONV stringLib.string_EQ_CONV) THENC (SIMP_CONV bool_ss [])) tm
+          (DEPTH_CONV mlstring_EQ_CONV) THENC (SIMP_CONV bool_ss [])) tm
     else NO_CONV tm
     val th2 = th2 |> UNDISCH_ALL |> REWRITE_RULE [GSYM SafeVar_def]
-                  |> DISCH_ALL |> Q.INST [`env`|->`write "v" i env`]
+                  |> DISCH_ALL |> Q.INST [`env`|->`write «v» i env`]
                   |> REWRITE_RULE [Eval_Var_SIMP,lookup_cons_write]
                   |> UNDISCH_ALL
                   |> HYP_CONV_RULE (fn x => true) (DEPTH_CONV simp_EvalM_env)
                   |> DISCH_ALL
                   |> REWRITE_RULE [lookup_cons_write,lookup_var_write]
-                  |> CONV_RULE (DEPTH_CONV stringLib.string_EQ_CONV)
+                  |> CONV_RULE (DEPTH_CONV mlstring_EQ_CONV)
                   |> REWRITE_RULE []
                   |> REWRITE_RULE [SafeVar_def] |> disch_asms
     val st2 = concl th2 |> dest_imp |> snd |> get_EvalM_state
@@ -2114,7 +2126,7 @@ and m2deep tm =
     val (name,ty) = dest_var tm
     val inv = get_arrow_type_inv ty
               |> ONCE_REWRITE_CONV [ArrowM_def] |> concl |> rand |> rand
-    val str = stringSyntax.fromMLstring name
+    val str = mlstringSyntax.mk_mlstring name
     val result = ISPECL_TM [str,mk_ucomb(inv,tm)] Eval_name_RI_abs |> ASSUME
                  |> MY_MATCH_MP (SPEC_ALL (ISPEC_EvalM Eval_IMP_PURE)) |>
                  REWRITE_RULE [GSYM ArrowM_def]
@@ -2292,7 +2304,7 @@ and m2deep tm =
     fun dest_args tm = rand tm :: dest_args (rator tm) handle HOL_ERR _ => []
     val xs = dest_args tm
     val f = repeat rator lhs
-    val str = stringLib.fromMLstring fname
+    val str = mlstringSyntax.mk_mlstring fname
     fun mk_fix tm =
       let
         val inv_type = type_of tm
@@ -3075,7 +3087,7 @@ fun m_translate_main def =
               |> PURE_REWRITE_RULE[ArrowM_def, code_def]
               |> MATCH_MP EvalM_Fun_Var_intro
               |> PURE_REWRITE_RULE[GSYM ArrowM_def]
-              |> SPEC (stringSyntax.fromMLstring ml_fname)
+              |> SPEC (mlstringSyntax.mk_mlstring ml_fname)
               |> UNDISCH
               |> remove_local_code_abbrevs
             else let
@@ -3093,8 +3105,8 @@ fun m_translate_main def =
           (* introduce Recclosure *)
           fun mk_Recclosure_part (fname,ml_fname,def,th,v) =
             let
-              val fname = ml_fname |> stringLib.fromMLstring
-              val name = v |> dest_var |> fst |> stringLib.fromMLstring
+              val fname = ml_fname |> mlstringSyntax.mk_mlstring
+              val name = v |> dest_var |> fst |> mlstringSyntax.mk_mlstring
               val body = th |> UNDISCH_ALL |> concl |> rator |> rator |> rand
             in pairSyntax.list_mk_pair[fname,name,body] end
           val parts = List.map mk_Recclosure_part thms
@@ -3312,7 +3324,7 @@ fun m_translate def =
     in
       if is_fun then let
         val th = th |> INST [cl_env_tm |-> get_curr_env()]
-        val n = ml_fname |> stringSyntax.fromMLstring
+        val n = ml_fname |> mlstringSyntax.mk_mlstring
         val lookup_var_assum = th |> hyp |>
           first (can (match_term(LOOKUP_VAR_def |> SPEC n |>
             SPEC_ALL |> concl |> lhs)))
@@ -3386,7 +3398,7 @@ fun clean_lookup_assums th = let
     val th = HYP_CONV_RULE (fn x => true)
       (SIMP_CONV list_ss
         (build_rec_env_def :: lookup_var_write :: LOOKUP_ASSUM_SIMP ::
-          FOLDR :: string_rewrites)) th
+          FOLDR :: mlstring_rewrites)) th
     val th = HYP_CONV_RULE (fn x => true)
       (PURE_REWRITE_CONV (List.map GSYM
         (!(#local_code_abbrevs translator_state)))) th
@@ -3570,7 +3582,7 @@ fun create_local_references init_state th = let
             get_field_access_eval_thm (mk_comb (accessor, init_state))
 
         val get_ref_exp = concl Eval_state_field |> get_Eval_exp
-        val st_name = stringLib.fromMLstring (dest_var state_var |> fst)
+        val st_name = mlstringSyntax.mk_mlstring (dest_var state_var |> fst)
         val env = concl th |> rator |> rator |> rator |> rator |> rand
 
         val nenv = mk_write loc_name loc env
@@ -3687,7 +3699,7 @@ fun m_translate_run def =
 
     val fname = repeat rator def_lhs |> dest_const |> fst |> get_unique_name
     val _ = print ("Translating monadic run: " ^ fname ^ "\n")
-    val fname_str = stringLib.fromMLstring fname
+    val fname_str = mlstringSyntax.mk_mlstring fname
 
     val state = rand def_rhs
     val monad_tm = rand (rator def_rhs)
@@ -3724,7 +3736,7 @@ fun m_translate_run def =
       let
         val (name,ty) = dest_var tm
         val inv = get_type_inv ty
-        val str = stringSyntax.fromMLstring name
+        val str = mlstringSyntax.mk_mlstring name
         val result = ISPECL_TM [str,mk_comb(inv,tm)] Eval_name_RI_abs |> ASSUME
         val result = HO_MATCH_MP (ISPEC_EvalM Eval_IMP_PURE) result
         val st = concl result |> get_EvalM_state

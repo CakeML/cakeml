@@ -20,10 +20,10 @@ Type dfy_exp_res[pp] = “:'a dafny_semanticPrimitives$exp_result”
 
 Type cml_state[pp] = “:'ffi semanticPrimitives$state”
 Type cml_env[pp] = “:v semanticPrimitives$sem_env”
-Type cml_envc[pp] = “:(string, string, num # stamp) namespace”
+Type cml_envc[pp] = “:(mlstring, mlstring, num # stamp) namespace”
 Type cml_exp[pp] = “:ast$exp”
 Type cml_res[pp] = “:(v list, v) semanticPrimitives$result”
-Type cml_ns[pp] = “:(string, string, v) namespace”
+Type cml_ns[pp] = “:(mlstring, mlstring, v) namespace”
 
 (* Some general simps *)
 
@@ -93,13 +93,13 @@ Definition cml_dec_to_string_clos_def:
 End
 
 Definition dec_to_string_def:
-  dec_to_string n = [CHR (48 + n)]
+  dec_to_string n = str (CHR (48 + n))
 End
 
 Definition has_list_cons_def:
   has_list_cons env ⇔
-    nsLookup env.c (Short "[]") = SOME (0, TypeStamp "[]" list_type_num) ∧
-    nsLookup env.c (Short "::") = SOME (2, TypeStamp "::" list_type_num)
+    nsLookup env.c (Short «[]») = SOME (0, TypeStamp «[]» list_type_num) ∧
+    nsLookup env.c (Short «::») = SOME (2, TypeStamp «::» list_type_num)
 End
 
 Theorem cml_dec_to_string_correct:
@@ -118,12 +118,13 @@ Proof
   \\ disch_then $ qspec_then ‘1’ assume_tac \\ gvs []
   \\ simp [evaluate_def, cml_dec_to_string_clos_def, do_opapp_def,
            evaluateTheory.dec_clock_def]
-  \\ simp [cml_dec_to_string_body_def, cml_list_def, evaluate_def,
-           do_con_check_def, build_conv_def, do_app_def, opn_lookup_def]
+  \\ simp [cml_dec_to_string_body_def, cml_list_def, evaluate_def, do_conversion_def,
+           do_con_check_def, build_conv_def, do_app_def, do_arith_def, check_type_def]
   \\ ‘¬((48: int) + &n < 0 ∨ (48: int) + &n > 255)’ by (intLib.COOPER_TAC)
   \\ simp [v_to_char_list_def]
-  \\ simp [dec_to_string_def]
-  \\ AP_TERM_TAC \\ intLib.COOPER_TAC
+  \\ gvs [dec_to_string_def, str_def]
+  \\ AP_TERM_TAC \\ AP_THM_TAC \\ ntac 2 AP_TERM_TAC
+  \\ intLib.COOPER_TAC
 QED
 
 Definition cml_nat_to_string_clos_def:
@@ -136,7 +137,7 @@ End
 Definition nat_to_string_def:
   nat_to_string n =
   if n < 10 then dec_to_string n
-  else nat_to_string (n DIV 10) ++ dec_to_string (n MOD 10)
+  else nat_to_string (n DIV 10) ^ dec_to_string (n MOD 10)
 End
 
 Theorem evaluate_Strcat[local]:
@@ -145,7 +146,7 @@ Theorem evaluate_Strcat[local]:
   has_list_cons env
   ⇒
   evaluate s env [App Strcat [cml_list [le; re]]] =
-    (s₂, Rval [Litv (StrLit (ls ++ rs))])
+    (s₂, Rval [Litv (StrLit (ls ^ rs))])
 Proof
   simp [has_list_cons_def] \\ rpt strip_tac
   \\ simp [evaluate_def, cml_list_def, do_con_check_def,
@@ -175,7 +176,7 @@ Proof
   \\ dxrule_then assume_tac evaluate_add_to_clock \\ gvs []
   \\ simp [cml_nat_to_string_clos_def, Once find_recfun_def, build_rec_env_def]
   \\ qrefine ‘ck + 1’ \\ simp [evaluateTheory.dec_clock_def]
-  \\ simp [evaluate_def, do_app_def, do_if_def, opb_lookup_def,
+  \\ simp [evaluate_def, do_app_def, do_if_def, do_test_def,
            cml_nat_to_string_body_def]
   \\ IF_CASES_TAC \\ gvs []
   >- (* n < 10 *)
@@ -193,7 +194,7 @@ Proof
         mp_tac cml_dec_to_string_correct
   \\ impl_tac >-
    (unabbrev_all_tac
-    \\ simp [evaluate_def, do_app_def, opn_lookup_def])
+    \\ simp [evaluate_def, do_app_def, do_arith_def, check_type_def])
   \\ disch_then $ qx_choose_then ‘ck’ assume_tac
   \\ last_x_assum $
        qspecl_then
@@ -202,7 +203,7 @@ Proof
    (unabbrev_all_tac
     \\ simp [cml_nat_to_string_clos_def, cml_nat_to_string_body_def]
     \\ simp [has_list_cons_def]
-    \\ simp [evaluate_def, do_app_def, opn_lookup_def])
+    \\ simp [evaluate_def, do_app_def, do_arith_def, check_type_def])
   \\ disch_then $ qx_choose_then ‘ck₁’ assume_tac
   \\ rev_drule evaluate_add_to_clock
   \\ disch_then $ qspec_then ‘ck₁’ assume_tac \\ gvs []
@@ -219,7 +220,7 @@ End
 
 Definition int_to_string_def:
   int_to_string (i: int) =
-    if i < 0 then ("-" ++ nat_to_string (Num (-i))) else nat_to_string (Num i)
+    if i < 0 then («-» ^ nat_to_string (Num (-i))) else nat_to_string (Num i)
 End
 
 Definition int_to_string_env_def:
@@ -258,7 +259,7 @@ Proof
   \\ simp [evaluate_def, cml_int_to_string_clos_def, do_opapp_def,
            evaluateTheory.dec_clock_def]
   \\ simp [cml_int_to_string_body_def, evaluate_def, do_app_def, do_if_def,
-           opb_lookup_def]
+           do_test_def]
   \\ simp [int_to_string_def]
   \\ reverse IF_CASES_TAC \\ gvs []
   >-
@@ -275,13 +276,9 @@ Proof
      [‘Num (-i)’, ‘s₁’, ‘call_env’, ‘arg’, ‘s₁’, ‘clos_env₁’, ‘clos_env₂’] mp_tac
        cml_nat_to_string_correct
   \\ impl_tac >-
-   (unabbrev_all_tac \\ simp [evaluate_def, do_app_def, opn_lookup_def])
+   (unabbrev_all_tac \\ simp [evaluate_def, do_app_def, do_arith_def, check_type_def])
   \\ disch_then $ qx_choose_then ‘ck’ assume_tac
   \\ qexists ‘ck’
-  \\ ‘#"-"::(nat_to_string (Num (-i))) = "-" ++ nat_to_string (Num (-i))’ by
-    (simp [])
-  \\ asm_rewrite_tac []
-  \\ pop_assum kall_tac
   \\ irule evaluate_Strcat \\ gvs []
   \\ gvs [Abbr ‘call_env’, has_list_cons_def]
   \\ simp [evaluate_def]
@@ -351,9 +348,9 @@ End
 
 Definition has_cons_def:
   has_cons (envc: cml_envc) ⇔
-    nsLookup envc (Short "True") = SOME (0, TypeStamp "True" 0) ∧
-    nsLookup envc (Short "False") = SOME (0, TypeStamp "False" 0) ∧
-    nsLookup envc (Short "Return") = SOME (0, ret_stamp)
+    nsLookup envc (Short «True») = SOME (0, TypeStamp «True» 0) ∧
+    nsLookup envc (Short «False») = SOME (0, TypeStamp «False» 0) ∧
+    nsLookup envc (Short «Return») = SOME (0, ret_stamp)
 End
 
 (* TODO Move to dafny_ast? *)
@@ -388,7 +385,7 @@ Inductive callable_rel:
     SOME (cml_int_to_string_clos clos_env) ∧
   int_to_string_env clos_env
   ⇒
-  callable_rel prog name (Recclosure env cml_funs ("dfy_" ++ (explode name)))
+  callable_rel prog name (Recclosure env cml_funs («dfy_» ^ name))
 End
 
 Definition env_rel_def:
@@ -404,7 +401,7 @@ Definition env_rel_def:
       no_shadow_method member ∧
       no_assert_member member ∧
       ∃reclos.
-        nsLookup env_cml.v (Short ("dfy_" ++ (explode name))) = SOME reclos ∧
+        nsLookup env_cml.v (Short («dfy_» ^ name)) = SOME reclos ∧
         callable_rel env_dfy.prog name reclos
 End
 
@@ -414,7 +411,7 @@ Inductive val_rel:
 [~int:]
   val_rel m (IntV i) (Litv (IntLit i))
 [~str:]
-  val_rel m (StrV s) (Litv (StrLit (explode s)))
+  val_rel m (StrV s) (Litv (StrLit s))
 [~arr:]
   FLOOKUP m loc = SOME loc' ⇒
   val_rel m (ArrV len loc ty) (Conv NONE [Litv (IntLit (&len)); Loc T loc'])
@@ -453,7 +450,7 @@ Definition locals_rel_def:
         FLOOKUP l var = SOME loc ∧
         (* locals map to references in CakeML *)
         store_lookup loc t_refs = SOME (Refv cml_v) ∧
-        nsLookup env_v (Short (explode var)) = SOME (Loc T loc) ∧
+        nsLookup env_v (Short var) = SOME (Loc T loc) ∧
         (∀dfy_v. dfy_ov = SOME dfy_v ⇒ val_rel m dfy_v cml_v)
 End
 
@@ -562,7 +559,7 @@ Theorem read_local_some_imp[local]:
     FLOOKUP l name = SOME loc ∧
     store_lookup loc t.refs = SOME (Refv cml_v) ∧
     val_rel m dfy_v cml_v ∧
-    nsLookup env.v (Short (explode name)) = SOME (Loc T loc)
+    nsLookup env.v (Short name) = SOME (Loc T loc)
 Proof
   gvs [state_rel_def, read_local_def, locals_rel_def, CaseEq "option"]
   \\ rpt strip_tac
@@ -590,7 +587,7 @@ QED
 
 Theorem state_rel_env_push_not_fresh[local]:
   state_rel m l s (t: 'ffi cml_state) env ∧ ¬(is_fresh n) ⇒
-  state_rel m l s t (env with v := (nsBind (explode n) v env.v))
+  state_rel m l s t (env with v := (nsBind n v env.v))
 Proof
   gvs [state_rel_def, locals_rel_def]
   \\ rpt strip_tac
@@ -603,7 +600,7 @@ QED
 Theorem state_rel_env_pop_not_fresh[local]:
   ¬(is_fresh n) ∧
   state_rel m l s (t: 'ffi cml_state)
-            (env with v := (nsBind (explode n) v env.v)) ⇒
+            (env with v := (nsBind n v env.v)) ⇒
   state_rel m l s t env
 Proof
   gvs [state_rel_def, locals_rel_def]
@@ -615,39 +612,35 @@ Proof
 QED
 
 Theorem is_fresh_not_dfy_pfx[local]:
-  is_fresh (implode n) ⇒ n ≠ ("dfy_" ++ explode sfx)
+  is_fresh n ⇒ n ≠ («dfy_» ^ sfx)
 Proof
   Cases_on ‘n’ \\ simp [is_fresh_def, isprefix_thm]
 QED
 
 Theorem every_is_fresh_not_dfy[local]:
   EVERY (λn. is_fresh n) ns ⇒
-  ∀sfx. EVERY (λn. n ≠ "dfy_" ++ (explode sfx)) (MAP explode ns)
+  ∀sfx. EVERY (λn. n ≠ «dfy_» ^ sfx) ns
 Proof
   simp [EVERY_MEM, MEM_MAP]
   \\ rpt strip_tac
   \\ last_x_assum $ drule_then assume_tac
-  \\ rename [‘_ = explode y’]
-  \\ Cases_on ‘explode y’
   \\ fs [is_fresh_def, isprefix_thm]
 QED
 
 Theorem every_is_fresh_not_int_to_string[local]:
   EVERY (λn. is_fresh n) ns ⇒
-  EVERY (λn. n ≠ cml_int_to_string_name) (MAP explode ns)
+  EVERY (λn. n ≠ cml_int_to_string_name) ns
 Proof
   simp [EVERY_MEM, MEM_MAP]
   \\ rpt strip_tac
   \\ last_x_assum $ drule_then assume_tac
-  \\ rename [‘explode y = _’]
-  \\ Cases_on ‘explode y’
   \\ fs [is_fresh_def, isprefix_thm]
 QED
 
 Theorem locals_rel_env_change[local]:
   (∀n. is_fresh n ⇒
-       nsLookup env_v (Short (explode n)) =
-       nsLookup env_v' (Short (explode n))) ∧
+       nsLookup env_v (Short n) =
+       nsLookup env_v' (Short n)) ∧
   locals_rel m l s_locals t_refs env_v ⇒
   locals_rel m l s_locals t_refs env_v'
 Proof
@@ -662,8 +655,8 @@ QED
 
 Theorem state_rel_env_change[local]:
   (∀n. is_fresh n ⇒
-       nsLookup env.v (Short (explode n)) =
-       nsLookup env'.v (Short (explode n))) ∧
+       nsLookup env.v (Short n) =
+       nsLookup env'.v (Short n)) ∧
   state_rel m l s t env ⇒
   state_rel m l s t env'
 Proof
@@ -673,16 +666,16 @@ Proof
 QED
 
 Theorem env_rel_env_change[local]:
-  (∀n. "dfy_" ≼ n ⇒
+  (∀n. isPrefix «dfy_» n ⇒
        nsLookup env_cml.v (Short n) = nsLookup env_cml'.v (Short n)) ∧
   (∃clos_env.
-     nsLookup env_cml'.v (Short "int_to_string") =
+     nsLookup env_cml'.v (Short «int_to_string») =
      SOME (cml_int_to_string_clos clos_env) ∧ int_to_string_env clos_env) ∧
   has_cons env_cml'.c ∧
   env_rel env_dfy env_cml ⇒
   env_rel env_dfy env_cml'
 Proof
-  simp [env_rel_def]
+  simp [env_rel_def, isprefix_strcat]
   \\ rpt strip_tac
   \\ first_x_assum drule \\ gvs []
 QED
@@ -706,8 +699,8 @@ Theorem find_recfun_some_aux[local]:
     result_mmap from_member_decl members = INR cml_funs ⇒
     ∃cml_param cml_body.
       from_member_decl member =
-        INR ("dfy_" ++ explode name, cml_param, cml_body) ∧
-      find_recfun ("dfy_" ++ explode name) cml_funs =
+        INR («dfy_» ^ name, cml_param, cml_body) ∧
+      find_recfun («dfy_» ^ name) cml_funs =
         SOME (cml_param, cml_body)
 Proof
   Induct_on ‘members’ \\ gvs [get_member_aux_def]
@@ -725,8 +718,8 @@ Theorem find_recfun_some[local]:
   result_mmap from_member_decl (dest_program prog) = INR cml_funs ⇒
   ∃cml_param cml_body.
     from_member_decl member =
-      INR ("dfy_" ++ explode name, cml_param, cml_body) ∧
-    find_recfun ("dfy_" ++ explode name) cml_funs =
+      INR («dfy_» ^ name, cml_param, cml_body) ∧
+    find_recfun («dfy_» ^ name) cml_funs =
       SOME (cml_param, cml_body)
 Proof
   rpt strip_tac
@@ -738,7 +731,7 @@ QED
 Theorem callable_rel_inversion[local]:
   callable_rel prog name reclos ⇒
   ∃clos_env env cml_funs member.
-    reclos = (Recclosure env cml_funs ("dfy_" ++ (explode name))) ∧
+    reclos = (Recclosure env cml_funs («dfy_» ^ name)) ∧
     get_member name prog = SOME member ∧
     result_mmap from_member_decl (dest_program prog) = INR cml_funs ∧
     ALL_DISTINCT (MAP (λ(f,x,e). f) cml_funs) ∧
@@ -770,8 +763,8 @@ Theorem nslookup_build_rec_env_reclos_aux[local]:
     nsLookup
       (FOLDR (λ(f,x,e) env₁. nsBind f (Recclosure env cml_funs' f) env₁)
              env₂_v cml_funs)
-      (Short ("dfy_" ++ (explode name))) =
-    SOME (Recclosure env cml_funs' ("dfy_" ++ (explode name)))
+      (Short («dfy_» ^ name)) =
+    SOME (Recclosure env cml_funs' («dfy_» ^ name))
 Proof
   Induct_on ‘members’ \\ gvs [get_member_aux_def]
   \\ qx_genl_tac [‘member'’, ‘name’] \\ rpt strip_tac
@@ -788,15 +781,15 @@ Theorem nslookup_build_rec_env_reclos[local]:
   result_mmap from_member_decl (dest_program prog) = INR cml_funs ∧
   ALL_DISTINCT (MAP (λ(f,x,e). f) cml_funs) ∧
   has_cons env.c ∧
-  nsLookup env.v (Short "int_to_string") =
+  nsLookup env.v (Short «int_to_string») =
     SOME (cml_int_to_string_clos clos_env) ∧
   int_to_string_env clos_env ⇒
   ∃reclos.
     nsLookup
       (build_rec_env cml_funs env env'_v)
-      (Short ("dfy_" ++ (explode name))) = SOME reclos ∧
+      (Short («dfy_» ^ name)) = SOME reclos ∧
     callable_rel prog name reclos ∧
-    reclos = Recclosure env cml_funs ("dfy_" ++ (explode name))
+    reclos = Recclosure env cml_funs («dfy_» ^ name)
 Proof
   rpt strip_tac
   \\ namedCases_on ‘prog’ ["members"]
@@ -922,7 +915,7 @@ Theorem env_rel_nsLookup[local]:
   get_member name env_dfy.prog = SOME member ⇒
   is_fresh_member member ∧ no_shadow_method member ∧ no_assert_member member ∧
   ∃reclos.
-    nsLookup env_cml.v (Short ("dfy_" ++ (explode name))) = SOME reclos ∧
+    nsLookup env_cml.v (Short («dfy_» ^ name)) = SOME reclos ∧
     callable_rel env_dfy.prog name reclos
 Proof
   rpt strip_tac \\ gvs [env_rel_def] \\ res_tac
@@ -984,7 +977,7 @@ Proof
 QED
 
 Definition add_refs_to_env_def:
-  add_refs_to_env (env_v: (string, string, v) namespace) ns offset =
+  add_refs_to_env (env_v: (mlstring, mlstring, v) namespace) ns offset =
     nsAppend
       (alist_to_ns
          (REVERSE (MAP (λ(n, i). (n, Loc T i)) (enumerate_from offset ns))))
@@ -1192,8 +1185,8 @@ Theorem nsLookup_add_refs_to_env[local]:
   ALL_DISTINCT ns ∧
   i < LENGTH ns ⇒
   nsLookup
-    (add_refs_to_env env_v (MAP explode ns) offset)
-    (Short (explode (EL i ns))) =
+    (add_refs_to_env env_v ns offset)
+    (Short (EL i ns)) =
   SOME (Loc T (i + offset))
 Proof
   rpt strip_tac
@@ -1203,9 +1196,7 @@ Proof
   \\ gvs [nsLookup_alist_to_ns_some]
   \\ DEP_REWRITE_TAC [alookup_distinct_reverse]
   \\ strip_tac >- (gvs [MAP_MAP_o])
-  \\ gvs [ALOOKUP_MAP]
-  \\ ‘explode (EL i ns) = EL i (MAP explode ns)’ by gvs [EL_MAP]
-  \\ simp [ALOOKUP_enumerate_from]
+  \\ gvs [ALOOKUP_MAP, ALOOKUP_enumerate_from]
 QED
 
 Theorem LIST_REL_store_lookup[local]:
@@ -1266,7 +1257,7 @@ QED
 
 (* TODO Upstream? *)
 Theorem LIST_REL_nsLookup_nsAppend[local]:
-  ∀names vals (ns: (string, string, v) namespace).
+  ∀names vals (ns: (mlstring, mlstring, v) namespace).
     ALL_DISTINCT names ∧
     LENGTH names = LENGTH vals ⇒
     LIST_REL
@@ -1286,7 +1277,7 @@ QED
 
 (* TODO better way to write this? *)
 Theorem LIST_REL_nsLookup_nsAppend_REVERSE[local]:
-  ∀names vals (ns: (string, string, v) namespace).
+  ∀names vals (ns: (mlstring, mlstring, v) namespace).
     ALL_DISTINCT names ∧
     LENGTH names = LENGTH vals ⇒
     LIST_REL
@@ -1306,7 +1297,7 @@ QED
 
 (* TODO better way to write this? *)
 Theorem LIST_REL_nsLookup_nsAppend_REVERSE1[local]:
-  ∀names vals (ns: (string, string, v) namespace).
+  ∀names vals (ns: (mlstring, mlstring, v) namespace).
     ALL_DISTINCT names ∧
     LENGTH names = LENGTH vals ⇒
     LIST_REL
@@ -1330,9 +1321,9 @@ Theorem alookup_nslookup_store_lookup[local]:
     LENGTH in_vs = LENGTH ins ⇒
     ∃loc cml_v.
       nsLookup
-        (add_refs_to_env env.v ((MAP (explode ∘ FST) ins))
+        (add_refs_to_env env.v (MAP FST ins)
            (LENGTH s.refs))
-        (Short (explode var)) = SOME (Loc T loc) ∧
+        (Short var) = SOME (Loc T loc) ∧
       FLOOKUP (mk_locals_map (MAP FST ins) (LENGTH s.refs)) var = SOME loc ∧
       store_lookup loc (s.refs ++ MAP Refv cml_vs) = SOME (Refv cml_v) ∧
       val_rel m dfy_v cml_v
@@ -1363,7 +1354,7 @@ QED
 Theorem nslookup_build_rec_env_int_to_string_aux[local]:
   ∀members cml_funs' cml_funs (env_v: cml_ns) clos_env.
     result_mmap from_member_decl members = INR cml_funs ∧
-    nsLookup env_v (Short "int_to_string") =
+    nsLookup env_v (Short «int_to_string») =
       SOME (cml_int_to_string_clos clos_env) ∧
     int_to_string_env clos_env
     ⇒
@@ -1380,11 +1371,12 @@ Proof
   \\ gvs [from_member_decl_def, oneline bind_def, set_up_cml_fun_def,
           AllCaseEqs()]
   \\ rpt (pairarg_tac \\ gvs [])
+  \\ gvs [strcat_def, concat_def]
 QED
 
 Theorem nslookup_build_rec_env_int_to_string[local]:
   result_mmap from_member_decl (dest_program prog) = INR cml_funs ∧
-  nsLookup env.v (Short "int_to_string") =
+  nsLookup env.v (Short «int_to_string») =
     SOME (cml_int_to_string_clos clos_env) ∧
   int_to_string_env clos_env
   ⇒
@@ -1438,7 +1430,7 @@ Proof
     \\ drule get_member_some_fun_name \\ rpt strip_tac \\ gvs []
     \\ drule_all env_rel_nsLookup \\ rpt strip_tac
     \\ gvs [cml_fapp_def, mk_id_def]
-    \\ qabbrev_tac ‘fname = "dfy_" ++ (explode name)’ \\ gvs []
+    \\ qabbrev_tac ‘fname = «dfy_» ^ name’ \\ gvs []
     \\ drule map_from_exp_len \\ rpt strip_tac \\ gvs []
     \\ namedCases_on ‘evaluate_exps s env_dfy args’ ["s₁ r"] \\ gvs []
     \\ Cases_on ‘r = Rerr Rfail’ \\ gvs []
@@ -1467,7 +1459,7 @@ Proof
       \\ Cases_on ‘cml_args = []’ \\ gvs []
       \\ DEP_REWRITE_TAC [cml_apps_apps] \\ gvs []
       (* Preparing ns for evaluate_Apps *)
-      \\ qabbrev_tac ‘params = MAP (explode ∘ FST) ins’
+      \\ qabbrev_tac ‘params = MAP FST ins’
       \\ ‘LENGTH (REVERSE params) = LENGTH ins’ by (unabbrev_all_tac \\ gvs [])
       \\ ‘SUC (LENGTH (TL (REVERSE params))) = LENGTH ins’ by
         (Cases_on ‘REVERSE params’ \\ gvs [])
@@ -1513,7 +1505,7 @@ Proof
            qspecl_then
              [‘dec_clock t’,
               ‘env with v :=
-                 nsBind "" (Conv NONE []) (build_rec_env cml_funs env env.v)’,
+                 nsBind «» (Conv NONE []) (build_rec_env cml_funs env env.v)’,
               ‘m’, ‘l’]
              mp_tac
       \\ impl_tac
@@ -1527,7 +1519,7 @@ Proof
         >- res_tac
         >- res_tac
         >- res_tac
-        >- (drule_all nslookup_build_rec_env_reclos \\ gvs []))
+        >- (drule_all nslookup_build_rec_env_reclos \\ gvs [strcat_def, concat_def]))
       \\ rpt strip_tac
       \\ rename [‘evaluate (_ with clock := ck' + _) _ _ = _’]
       \\ qexists ‘ck'’
@@ -1545,7 +1537,7 @@ Proof
     \\ DEP_REWRITE_TAC [cml_apps_apps] \\ gvs []
     (* TODO Maybe we should case distinction on args earlier? *)
     (* Preparing ns for evaluate_Apps *)
-    \\ qabbrev_tac ‘params = (MAP (explode ∘ FST) ins)’
+    \\ qabbrev_tac ‘params = (MAP FST ins)’
     \\ ‘ALL_DISTINCT params’ by
       (simp [Abbr ‘params’, GSYM MAP_MAP_o, ALL_DISTINCT_MAP_explode])
     \\ ‘LENGTH (REVERSE params) = LENGTH ins’ by (unabbrev_all_tac \\ gvs [])
@@ -1606,10 +1598,10 @@ Proof
               by gvs [MAP_ZIP]
             \\ gvs [alookup_distinct_reverse]
             \\ drule ALOOKUP_ZIP_MAP_SOME_SOME \\ rpt strip_tac \\ gvs []
-            \\ drule alookup_nslookup_store_lookup
+            \\ gvs [Abbr ‘params’] \\ drule alookup_nslookup_store_lookup
             \\ disch_then drule \\ gvs []
             \\ disch_then $ qspecl_then [‘t₁’, ‘call_env₁’] mp_tac
-            \\ rpt strip_tac \\ gvs [Abbr ‘call_env₂’, Abbr ‘params’])
+            \\ rpt strip_tac \\ gvs [Abbr ‘call_env₂’])
         \\ gvs [env_rel_def] \\ rpt strip_tac
         >- (unabbrev_all_tac \\ gvs [has_cons_def])
         >-
@@ -1637,7 +1629,7 @@ Proof
         >- res_tac
         >- res_tac
         \\ rename [‘get_member name' _ = SOME _’]
-        \\ ‘EVERY (λn. n ≠ STRCAT "dfy_" (explode name')) (REVERSE params)’ by
+        \\ ‘EVERY (λn. n ≠ «dfy_» ^ name') (REVERSE params)’ by
           (drule every_is_fresh_not_dfy
            \\ disch_then $ qspec_then ‘name'’ assume_tac
            \\ gvs [Abbr ‘params’, MAP_MAP_o])
@@ -1741,10 +1733,8 @@ Proof
     \\ qexists ‘ck’
     \\ Cases_on ‘uop’ \\ gvs [from_un_op_def, evaluate_def]
     \\ reverse $ namedCases_on ‘r’ ["v", "err"] \\ gvs []
-    \\ gvs [do_uop_def, CaseEqs ["value", "option"]]
-    \\ rename [‘Boolv b’] \\ Cases_on ‘b’ \\ gvs []
-    \\ gvs [do_if_def, evaluate_def, do_con_check_def, build_conv_def,
-            env_rel_def, has_cons_def, Boolv_def, bool_type_num_def])
+    \\ gvs [do_uop_def, CaseEqs ["value", "option"], do_app_def,check_type_def]
+    \\ rename [‘Boolv b’] \\ Cases_on ‘b’ \\ gvs [do_arith_def])
   >~ [‘BinOp bop e₀ e₁’] >-
    (gvs [evaluate_exp_def, from_exp_def, oneline bind_def, CaseEq "sum"]
     \\ namedCases_on ‘evaluate_exp s env_dfy e₀’ ["s₁ r"] \\ gvs []
@@ -1770,7 +1760,7 @@ Proof
     \\ last_x_assum drule
     \\ impl_tac >-
      (gvs [env_rel_def, has_cons_def] \\ rpt strip_tac \\ res_tac
-      \\ first_assum $ irule_at (Pos last) \\ simp [])
+      \\ first_assum $ irule_at (Pos last) \\ simp [strcat_def, concat_def])
     \\ rpt strip_tac
     \\ rename [‘evaluate (_ with clock := ck' + _) _ _ = (t₂, _)’]
     \\ ‘store_preserve_all t.refs t₂.refs’ by
@@ -1791,16 +1781,16 @@ Proof
     \\ Cases_on ‘bop = Div’ \\ gvs [] >-
      (gvs [do_bop_def, AllCaseEqs()]
       \\ gvs [from_bin_op_def, EDIV_DEF]
-      \\ gvs [evaluate_def, do_app_def, do_if_def, opb_lookup_def]
+      \\ gvs [evaluate_def, do_app_def, do_if_def, do_test_def]
       \\ Cases_on ‘0 < i₁’
-      \\ gvs [evaluate_def, do_app_def, opn_lookup_def, Boolv_def]
+      \\ gvs [evaluate_def, do_app_def, do_arith_def, check_type_def, Boolv_def]
       \\ gvs [cml_state_preserved_def, state_rel_def])
     \\ Cases_on ‘bop = Mod’ \\ gvs [] >-
      (gvs [do_bop_def, CaseEq "value"]
       \\ gvs [from_bin_op_def, EMOD_DEF]
-      \\ gvs [evaluate_def, do_app_def, do_if_def, opb_lookup_def]
+      \\ gvs [evaluate_def, do_app_def, do_if_def, do_test_def]
       \\ Cases_on ‘i₁ < 0’
-      \\ gvs [evaluate_def, do_app_def, opn_lookup_def, INT_ABS]
+      \\ gvs [evaluate_def, do_app_def, do_arith_def, check_type_def, INT_ABS]
       \\ gvs [cml_state_preserved_def])
     \\ Cases_on ‘bop = Eq’ \\ gvs [] >-
      (gvs [do_bop_def]
@@ -1865,7 +1855,7 @@ Proof
         \\ gvs [cml_state_preserved_def]))
     \\ gvs [oneline do_bop_def, do_sc_def, AllCaseEqs()]
     \\ gvs [from_bin_op_def]
-    \\ gvs [evaluate_def, do_app_def, opb_lookup_def, opn_lookup_def,
+    \\ gvs [evaluate_def, do_app_def, do_test_def, do_arith_def, check_type_def,
               do_log_def, do_if_def]
     \\ gvs [cml_state_preserved_def])
   >~ [‘ArrLen arr’] >-
@@ -1907,7 +1897,7 @@ Proof
     \\ last_x_assum drule
     \\ impl_tac >-
      (gvs [env_rel_def, has_cons_def] \\ rpt strip_tac \\ res_tac
-      \\ first_assum $ irule_at (Pos last) \\ simp [])
+      \\ first_assum $ irule_at (Pos last) \\ simp [strcat_def, concat_def])
     \\ rpt strip_tac
     \\ rename [‘evaluate (_ with clock := ck' + _) _ _ = (t₂, _)’]
     \\ qexists ‘ck' + ck’
@@ -2158,7 +2148,7 @@ Proof
     \\ disch_then $
          qspecl_then
            [‘t₁’,
-            ‘env_cml with v := nsBind " len" cml_v env_cml.v’ ,
+            ‘env_cml with v := nsBind « len» cml_v env_cml.v’ ,
             ‘m’, ‘l’]
            mp_tac
     \\ ‘¬is_fresh « len»’ by gvs [is_fresh_def, isprefix_thm]
@@ -2171,7 +2161,7 @@ Proof
         >- (gvs [env_rel_def, has_cons_def])
         \\ first_assum $ irule_at (Pos last)
         \\ rpt gen_tac \\ disch_tac
-        \\ ‘n ≠ " len"’ by (Cases_on ‘n’ \\ gvs [])
+        \\ ‘n ≠ « len»’ by (gvs [isprefix_strcat, strcat_def, concat_def])
         \\ simp [])
     \\ disch_then $ qx_choosel_then [‘ck'’, ‘t₂’] mp_tac
     \\ rpt strip_tac \\ gvs []
@@ -2202,8 +2192,7 @@ Proof
         \\ irule locals_rel_env_change
         \\ first_assum $ irule_at (Pos last)
         \\ rpt gen_tac \\ disch_tac
-        \\ ‘explode n ≠ " len"’ by
-          (Cases_on ‘explode n’ \\ gvs [is_fresh_def, isprefix_thm])
+        \\ ‘n ≠ « len»’ by (gvs [is_fresh_def, strcat_def, concat_def])
         \\ simp [])
     >- gvs [cml_state_preserved_def]
     >- intLib.COOPER_TAC
@@ -2427,7 +2416,7 @@ Theorem lookup_locals_some[local]:
   ∃loc cml_v.
     FLOOKUP l var = SOME loc ∧
     store_lookup loc t.refs = SOME (Refv cml_v) ∧
-    nsLookup env_cml.v (Short (explode var)) = SOME (Loc T loc)
+    nsLookup env_cml.v (Short var) = SOME (Loc T loc)
 Proof
   rpt strip_tac
   \\ gvs [state_rel_def, locals_rel_def]
@@ -2459,7 +2448,7 @@ Theorem update_local_state_rel[local]:
   state_rel m l s t env_cml ∧
   FLOOKUP l var = SOME loc ∧
   store_lookup loc t.refs = SOME (Refv old_v_cml) ∧
-  nsLookup env_cml.v (Short (explode var)) = SOME (Loc T loc) ∧
+  nsLookup env_cml.v (Short var) = SOME (Loc T loc) ∧
   val_rel m new_v_dfy new_v_cml
   ⇒
   state_rel m l s'
@@ -2513,7 +2502,7 @@ Theorem evaluate_assign_values[local]:
     LIST_REL (val_rel m) rhs_vs cml_vs ∧
     LIST_REL (λn v. nsLookup env_cml.v (Short n) = SOME v) names cml_vs ∧
     EVERY (λlhs. is_fresh_lhs_exp lhs) lhss ∧
-    EVERY (λn. " arr" ≠ n) names ∧
+    EVERY (λn. « arr» ≠ n) names ∧
     base_at_most base t.refs l ∧
     r_dfy ≠ Rstop (Serr Rfail) ⇒
     ∃ck t' r_cml.
@@ -2578,7 +2567,7 @@ Proof
   \\ disch_then $
        qspecl_then
          [‘t₁’,
-          ‘env_cml with v := nsBind " arr" cml_v env_cml.v’ ,
+          ‘env_cml with v := nsBind « arr» cml_v env_cml.v’ ,
           ‘m’, ‘l’]
        mp_tac
   \\ ‘¬is_fresh « arr»’ by gvs [is_fresh_def, isprefix_thm]
@@ -2591,8 +2580,8 @@ Proof
       >- (gvs [env_rel_def, has_cons_def])
       \\ first_assum $ irule_at (Pos last)
       \\ rpt gen_tac \\ disch_tac
-      \\ rename [‘"dfy_" ≼ n’]
-      \\ ‘n ≠ " arr"’ by (Cases_on ‘n’ \\ gvs [])
+      \\ rename [‘isPrefix «dfy_» n’]
+      \\ ‘n ≠ « arr»’ by (gvs [isprefix_strcat, strcat_def, concat_def])
       \\ simp [])
   \\ disch_then $ qx_choosel_then [‘ck₁’, ‘t₂’] mp_tac
   \\ rpt strip_tac \\ gvs []
@@ -2667,11 +2656,12 @@ QED
 
 (* TODO Why does this work *)
 Theorem cml_tup_vname_neq_arr[local]:
-  cml_tup_vname n ≠ " arr"
+  cml_tup_vname n ≠ « arr»
 Proof
   simp [cml_tup_vname_def]
   \\ Cases_on ‘toString n’
-  \\ imp_res_tac num_to_str_imp_cons \\ simp []
+  \\ imp_res_tac num_to_str_imp_cons
+  \\ simp [strcat_def, concat_def]
   \\ strip_tac \\ fs []
 QED
 
@@ -2692,12 +2682,12 @@ QED
 
 Theorem state_rel_pop_env_while[local]:
   state_rel m l s t
-    (env with v := nsBind "" v₀ (nsBind (loop_name lvl) v₁ env.v)) ⇒
+    (env with v := nsBind «» v₀ (nsBind (loop_name lvl) v₁ env.v)) ⇒
   state_rel m l s t env
 Proof
   rpt strip_tac
   \\ irule state_rel_env_pop_not_fresh
-  \\ ‘¬is_fresh (implode (loop_name lvl))’ by
+  \\ ‘¬is_fresh (loop_name lvl)’ by
     gvs [loop_name_def, is_fresh_def, isprefix_thm]
   \\ first_assum $ irule_at (Pos hd) \\ gvs []
   \\ irule_at (Pos hd) state_rel_env_pop_not_fresh
@@ -2731,12 +2721,6 @@ Proof
   \\ gvs [ALOOKUP_NONE, MAP_REVERSE]
 QED
 
-Theorem MEM_explode_MAP[local,simp]:
-  ∀xs x. MEM (explode x) (MAP explode xs) ⇔ MEM x xs
-Proof
-  Induct \\ simp []
-QED
-
 Theorem locals_rel_decl_uninit_vars[local]:
   locals_rel m l s_locals t_refs env_v ∧
   ALL_DISTINCT vars ∧
@@ -2744,7 +2728,7 @@ Theorem locals_rel_decl_uninit_vars[local]:
   locals_rel m (l |++ enumerate_from (LENGTH t_refs) vars)
     ((REVERSE (ZIP (vars, REPLICATE (LENGTH vars) NONE))) ++ s_locals)
     (t_refs ++ REPLICATE (LENGTH vars) (Refv init))
-    (add_refs_to_env env_v (MAP explode vars) (LENGTH t_refs))
+    (add_refs_to_env env_v vars (LENGTH t_refs))
 Proof
   gvs [locals_rel_def, ALL_DISTINCT_APPEND]
   \\ rpt strip_tac
@@ -2809,7 +2793,7 @@ Theorem locals_rel_decl_uninit_var[local]:
   ¬MEM n (MAP FST s.locals) ⇒
   locals_rel m (l |+ (n,LENGTH t.refs)) ((n,NONE)::s.locals)
     (t.refs ++ [Refv (Litv (IntLit 0))])
-    (nsBind (explode n) (Loc T (LENGTH t.refs)) env_v)
+    (nsBind n (Loc T (LENGTH t.refs)) env_v)
 Proof
   rpt strip_tac
   \\ drule locals_rel_decl_uninit_vars
@@ -2824,7 +2808,7 @@ Theorem locals_rel_mk_locals_map_outs[local]:
   locals_rel m (mk_locals_map (MAP FST outs) (LENGTH t_refs))
     (REVERSE (ZIP (MAP FST outs, REPLICATE (LENGTH outs) NONE)))
     (t_refs ++ REPLICATE (LENGTH outs) (Refv (Litv (IntLit 0))))
-    (add_refs_to_env env_v (MAP (explode ∘ FST) outs) (LENGTH t_refs))
+    (add_refs_to_env env_v (MAP FST outs) (LENGTH t_refs))
 Proof
   gvs [mk_locals_map_def]
   \\ ‘locals_rel m FEMPTY [] t_refs env_v’ by gvs [locals_rel_def]
@@ -2840,7 +2824,7 @@ Theorem locals_rel_mk_locals_map_ins[local]:
   locals_rel m (mk_locals_map (MAP FST ins) (LENGTH t_refs))
     (REVERSE (ZIP (MAP FST ins, MAP SOME in_vs)))
     (t_refs ++ MAP Refv in_vs_cml)
-    (add_refs_to_env env_v (MAP (explode ∘ FST) ins) (LENGTH t_refs))
+    (add_refs_to_env env_v (MAP FST ins) (LENGTH t_refs))
 Proof
   (* The only time where we add a variable and initialize it at the same
      is when initializing the in-parameters when setting up a call. Thus,
@@ -2877,8 +2861,8 @@ Theorem locals_mk_locals_map_ins_outs[local]:
     (t.refs ++ MAP Refv cml_vs ++
        REPLICATE (LENGTH outs) (Refv (Litv (IntLit 0))))
     (add_refs_to_env
-       (add_refs_to_env env.v (MAP (explode ∘ FST) ins) (LENGTH t.refs))
-       (MAP (explode ∘ FST) outs)
+       (add_refs_to_env env.v (MAP FST ins) (LENGTH t.refs))
+       (MAP FST outs)
        (LENGTH t.refs + LENGTH cml_vs))
 Proof
   rpt strip_tac
@@ -2916,7 +2900,7 @@ Theorem evaluate_cml_read_var[local]:
   state_rel m l s (t: 'ffi cml_state) env ∧
   is_fresh var ⇒
   ∃val_cml.
-    evaluate t env [cml_read_var (explode var)] =
+    evaluate t env [cml_read_var var] =
     (t, Rval [val_cml]) ∧ val_rel m val val_cml
 Proof
   rpt strip_tac
@@ -2931,7 +2915,7 @@ Theorem evaluate_map_cml_read_var[local]:
     state_rel m l s (t: 'ffi cml_state) env ∧
     EVERY (λv. is_fresh v) vars ⇒
     ∃val_cmls.
-      evaluate t env (REVERSE (MAP (cml_read_var ∘ explode) vars)) =
+      evaluate t env (REVERSE (MAP cml_read_var vars)) =
       (t, Rval val_cmls) ∧ LIST_REL (val_rel m) vals (REVERSE val_cmls)
 Proof
   Induct_on ‘vars’ \\ gvs []
@@ -3003,16 +2987,6 @@ Proof
   \\ gvs [evaluate_def]
 QED
 
-Theorem MEM_explode_implode[local]:
-  ∀xs x. MEM (implode x) xs ⇔ MEM x (MAP explode xs)
-Proof
-  Induct \\ gvs []
-  \\ rpt strip_tac
-  \\ rename [‘implode _ = y’]
-  \\ ‘implode x = y ⇔ x = explode y’ by (eq_tac \\ rpt strip_tac \\ gvs [])
-  \\ simp []
-QED
-
 Theorem evaluate_Apps_with_clock[local]:
   ∀xs (st:'ffi cml_state) env s1 s2 vs ck.
     evaluate st env xs = (s1,Rval vs) ∧
@@ -3042,33 +3016,32 @@ Proof
 QED
 
 Theorem is_fresh_cml_tup_vname_neq[local]:
-  is_fresh n ⇒ explode n ≠ cml_tup_vname i
+  is_fresh n ⇒ n ≠ cml_tup_vname i
 Proof
   rpt strip_tac \\ gvs [is_fresh_def, isprefix_thm, cml_tup_vname_def]
 QED
 
 Theorem dfy_pfx_cml_tup_vname_neq[local]:
-  "dfy_" ≼ n ⇒ n ≠ cml_tup_vname i
+  isPrefix «dfy_» n ⇒ n ≠ cml_tup_vname i
 Proof
-  rpt strip_tac \\ gvs [cml_tup_vname_def]
+  rpt strip_tac \\ gvs [cml_tup_vname_def, isprefix_thm]
 QED
 
 Theorem is_fresh_neq_cml_tup_vname[local]:
-  is_fresh n ⇒ explode n ≠ cml_tup_vname i
+  is_fresh n ⇒ n ≠ cml_tup_vname i
 Proof
-  Cases_on ‘explode n’
-  \\ simp [cml_tup_vname_def, is_fresh_def, isprefix_thm]
+  simp [cml_tup_vname_def, is_fresh_def, isprefix_thm]
 QED
 
 Theorem is_fresh_not_mem_genlist[local]:
-  ∀n. is_fresh n ⇒ ¬MEM (explode n) (GENLIST (λn. cml_tup_vname n) len)
+  ∀n. is_fresh n ⇒ ¬MEM n (GENLIST (λn. cml_tup_vname n) len)
 Proof
   rpt strip_tac
   \\ gvs [MEM_GENLIST, cml_tup_vname_def, is_fresh_def, isprefix_thm]
 QED
 
 Theorem dfy_pfx_not_mem_genlist[local]:
-  ∀n. "dfy_" ≼ n ⇒ ¬MEM n (GENLIST (λn. cml_tup_vname n) len)
+  ∀n. isPrefix «dfy_» n ⇒ ¬MEM n (GENLIST (λn. cml_tup_vname n) len)
 Proof
   rpt strip_tac
   \\ gvs [MEM_GENLIST, cml_tup_vname_def, is_fresh_def, isprefix_thm]
@@ -3077,7 +3050,7 @@ QED
 Theorem int_to_string_not_mem_genlist[local]:
   ∀len. ¬MEM cml_int_to_string_name (GENLIST (λn. cml_tup_vname n) len)
 Proof
-  gvs [MEM_GENLIST, cml_tup_vname_def]
+  gvs [MEM_GENLIST, cml_tup_vname_def, strcat_def, concat_def]
 QED
 
 Theorem MEM_LAST[local]:
@@ -3114,7 +3087,7 @@ Proof
 QED
 
 Theorem is_fresh_not_int_to_string[local]:
-  is_fresh n ⇒ explode n ≠ cml_int_to_string_name
+  is_fresh n ⇒ n ≠ cml_int_to_string_name
 Proof
   simp [is_fresh_def, isprefix_thm]
   \\ CASE_TAC \\ gvs []
@@ -3131,6 +3104,12 @@ Proof
   \\ Cases_on ‘i ∈ FRANGE m₁’ \\ gvs []
   \\ first_x_assum $ drule_then assume_tac \\ gvs []
   \\ gvs [store_lookup_def]
+QED
+
+Theorem isPrefix_dfy_v_neq[local]:
+  isPrefix «dfy_» n₁ ∧ isPrefix «v» n₂ ⇒ n₁ ≠ n₂
+Proof
+  rpt strip_tac \\ gvs [isprefix_strcat, strcat_def, concat_def]
 QED
 
 (* TODO split up cases into separate trivialities like other compiler proofs *)
@@ -3247,7 +3226,7 @@ Proof
          qspecl_then
            [‘t with refs := t.refs ++ [Refv (Litv (IntLit 0))]’,
             ‘env_cml with v :=
-               nsBind (explode n) (Loc T (LENGTH t.refs)) env_cml.v’,
+               nsBind n (Loc T (LENGTH t.refs)) env_cml.v’,
             ‘m’,
             ‘l |+ (n, (LENGTH t.refs))’,
             ‘base’]
@@ -3265,11 +3244,8 @@ Proof
         >- (gvs [env_rel_def, has_cons_def])
         \\ first_assum $ irule_at (Pos last)
         \\ rpt strip_tac
-        \\ rename [‘"dfy_" ≼ n'’]
-        \\ ‘n' ≠ (explode n)’ by
-          (Cases_on ‘explode n’
-           \\ Cases_on ‘n'’
-           \\ gvs [is_fresh_def, isprefix_thm])
+        \\ rename [‘isPrefix «dfy_» n'’]
+        \\ ‘n' ≠ n’ by (gvs [is_fresh_def] \\ imp_res_tac isPrefix_dfy_v_neq)
         \\ simp [])
     \\ disch_then $ qx_choosel_then [‘ck’, ‘t₂’, ‘m₁’] mp_tac
     \\ rpt strip_tac \\ gvs []
@@ -3318,22 +3294,22 @@ Proof
       \\ gvs [can_pmatch_all_def, pmatch_def, pat_bindings_def]
       \\ drule_then assume_tac evaluate_rhs_exps_len_eq \\ gvs [LENGTH_EQ_1]
       \\ rename [‘val_rel _ rhs_v rhs_v_cml’]
-      \\ ‘¬is_fresh (implode (cml_tup_vname 0))’ by
-        gvs [is_fresh_def, implode_def, cml_tup_vname_def, isprefix_thm]
+      \\ ‘¬is_fresh (cml_tup_vname 0)’ by
+        gvs [is_fresh_def, cml_tup_vname_def, isprefix_thm]
       \\ drule_all state_rel_env_push_not_fresh \\ gvs []
       \\ disch_then $ qspec_then ‘rhs_v_cml’ assume_tac
       \\ drule evaluate_assign_values \\ gvs []
       \\ disch_then $ drule_at $ Pos (el 2) \\ gvs []
       \\ disch_then $ qspec_then ‘[cml_tup_vname 0]’ mp_tac \\ gvs []
       \\ disch_then $ qspec_then ‘base’ mp_tac \\ gvs []
-      \\ ‘cml_tup_vname 0 ≠ " arr"’ by (gvs [cml_tup_vname_neq_arr]) \\ gvs []
+      \\ ‘cml_tup_vname 0 ≠ « arr»’ by (gvs [cml_tup_vname_neq_arr]) \\ gvs []
       \\ impl_tac >-
        (gvs [base_at_most_def, store_preserve_all_def, store_preserve_def]
         \\ irule env_rel_env_change
         \\ rpt conj_tac
         >- (simp [cml_tup_vname_def]
             \\ fs [env_rel_def]
-            \\ first_assum $ irule_at (Pos last) \\ simp [])
+            \\ first_assum $ irule_at (Pos last) \\ simp [strcat_def, concat_def])
         >- (gvs [env_rel_def, has_cons_def])
         \\ first_assum $ irule_at (Pos last)
         \\ rpt strip_tac
@@ -3358,13 +3334,13 @@ Proof
         \\ first_x_assum $ irule_at Any
         \\ gvs [store_preserve_all_def, store_preserve_def, base_at_most_def])
     \\ qmatch_asmsub_abbrev_tac ‘MAP (Var ∘ Short) names’
-    \\ ‘EVERY (λn. " arr" ≠ n) names’ by
+    \\ ‘EVERY (λn. « arr» ≠ n) names’ by
       gvs [Abbr ‘names’, EVERY_GENLIST, cml_tup_vname_neq_arr]
     \\ ‘LENGTH names = LENGTH cml_vs’ by
       (imp_res_tac evaluate_length \\ simp [Abbr ‘names’])
-    \\ ‘EVERY (λn. ¬("dfy_" ≼ n)) names’ by
-      (simp [Abbr ‘names’, EVERY_GENLIST, cml_tup_vname_def])
-    \\ ‘∀n. is_fresh n ⇒ ¬MEM (explode n) names’ by
+    \\ ‘EVERY (λn. ¬(isPrefix «dfy_» n)) names’ by
+      (simp [Abbr ‘names’, EVERY_GENLIST, cml_tup_vname_def, isprefix_thm])
+    \\ ‘∀n. is_fresh n ⇒ ¬MEM n names’ by
       (simp [Abbr ‘names’, MAP_ZIP, is_fresh_not_mem_genlist])
     \\ ‘¬MEM cml_int_to_string_name names’ by
       (simp [Abbr ‘names’, int_to_string_not_mem_genlist])
@@ -3463,10 +3439,10 @@ Proof
     \\ qabbrev_tac
        ‘env_cml₁ =
           env_cml with v :=
-            nsBind "" (Conv NONE [])
+            nsBind «» (Conv NONE [])
               (nsBind (loop_name lvl)
                  (Recclosure env_cml
-                    [(loop_name lvl,"",
+                    [(loop_name lvl,«»,
                       If cml_grd
                         (Let NONE cml_body
                            (App Opapp
@@ -3476,22 +3452,21 @@ Proof
       (irule env_rel_env_change
        \\ rpt conj_tac
        >- (gvs [Abbr‘env_cml₁’, env_rel_def, loop_name_def]
-           \\ first_assum $ irule_at (Pos last) \\ simp [])
+           \\ first_assum $ irule_at (Pos last)
+           \\ simp [strcat_def, concat_def])
        >- (gvs [env_rel_def, has_cons_def, Abbr ‘env_cml₁’])
        \\ first_x_assum $ irule_at (Pos last)
        \\ rpt strip_tac
        \\ simp [Abbr ‘env_cml₁’]
        \\ DEP_REWRITE_TAC [neq_nslookup_nsbind]
        \\ rpt strip_tac
-       \\ gvs [loop_name_def])
+       \\ gvs [loop_name_def, isprefix_thm])
     \\ drule (cj 1 correct_from_exp) \\ gvs []
     \\ disch_then $ qspecl_then [‘dec_clock t’, ‘env_cml₁’, ‘m’, ‘l’] mp_tac
-    \\ ‘∀n. is_fresh n ⇒ explode n ≠ ""’ by
-      (rpt strip_tac
-       \\ Cases_on ‘explode n’ \\ gvs [is_fresh_def, isprefix_thm])
-    \\ ‘∀n lvl. is_fresh n ⇒ explode n ≠ loop_name lvl’ by
+    \\ ‘∀n. is_fresh n ⇒ n ≠ «»’ by
+      (rpt strip_tac \\ gvs [is_fresh_def, isprefix_thm])
+    \\ ‘∀n lvl. is_fresh n ⇒ n ≠ loop_name lvl’ by
       (ntac 2 (strip_tac)
-       \\ Cases_on ‘explode n’
        \\ gvs [is_fresh_def, isprefix_thm, loop_name_def])
     \\ impl_tac >-
      (gvs [state_rel_def, evaluateTheory.dec_clock_def, dec_clock_def]
@@ -3587,6 +3562,7 @@ Proof
     \\ simp [build_rec_env_def, cml_fapp_def, cml_apps_def, Apps_def, mk_id_def]
     \\ simp [evaluate_def, do_con_check_def, build_conv_def, Abbr ‘env_cml₁’,
              loop_name_def]
+    \\ simp [strcat_def, concat_def]
     \\ disch_then kall_tac
     \\ irule_at (Pos hd) store_preserve_trans
     \\ irule_at (Pos hd) store_preserve_all_weaken
@@ -3690,7 +3666,7 @@ Proof
     \\ rename [‘Method name ins _ _ _ _ outs _ body’]
     \\ drule get_member_some_met_name \\ rpt strip_tac \\ gvs []
     \\ drule_all env_rel_nsLookup \\ rpt strip_tac \\ gvs []
-    \\ qabbrev_tac ‘mname = "dfy_" ++ (explode name)’ \\ gvs []
+    \\ qabbrev_tac ‘mname = «dfy_» ^ name’ \\ gvs []
     (* "Simulate" evaluating arguments *)
     \\ gvs [from_stmt_def, oneline bind_def, CaseEq "sum"]
     \\ gvs [cml_fapp_def, mk_id_def]
@@ -3719,28 +3695,16 @@ Proof
     \\ gvs [set_up_call_def, safe_zip_def]
     \\ ‘LENGTH ins = LENGTH args’ by (spose_not_then assume_tac \\ gvs [])
     \\ gvs [cml_tup_case_def, evaluate_def]
-    \\ ‘∀n. "dfy_" ≼ n ⇒ ¬MEM n (MAP (explode ∘ FST) outs)’ by
+    \\ ‘∀n. isPrefix «dfy_» n ⇒ ¬MEM n (MAP FST outs)’ by
       (rpt strip_tac
-       \\ ‘is_fresh (implode n)’ by
-         (fs [EVERY_MEM]
-          \\ first_assum irule
-          \\ fs [GSYM MAP_MAP_o]
-          \\ first_x_assum $ qspec_then ‘implode n’ mp_tac
-          \\ gvs [MEM_explode_implode])
-       \\ gvs [is_fresh_def, isprefix_thm]
-       \\ Cases_on ‘n’ \\ gvs [])
-    \\ ‘¬MEM cml_int_to_string_name (MAP (explode ∘ FST) outs)’ by
+       \\ ‘isPrefix «v» n’ by fs [EVERY_MEM, is_fresh_def]
+       \\ drule_all isPrefix_dfy_v_neq \\ simp [])
+    \\ ‘¬MEM cml_int_to_string_name (MAP FST outs)’ by
       (drule every_is_fresh_not_int_to_string \\ simp [EVERY_MEM, MAP_MAP_o])
-    \\‘∀n. "dfy_" ≼ n ⇒ ¬MEM n (MAP (explode ∘ FST) ins)’ by
+    \\‘∀n. isPrefix «dfy_» n ⇒ ¬MEM n (MAP FST ins)’ by
       (rpt strip_tac
-       \\ ‘is_fresh (implode n)’ by
-         (fs [EVERY_MEM]
-          \\ last_assum irule
-          \\ fs [GSYM MAP_MAP_o]
-          \\ first_x_assum $ qspec_then ‘implode n’ mp_tac
-          \\ gvs [MEM_explode_implode])
-       \\ gvs [is_fresh_def, isprefix_thm]
-       \\ Cases_on ‘n’ \\ gvs [])
+       \\ ‘isPrefix «v» n’ by fs [EVERY_MEM, is_fresh_def]
+       \\ drule_all isPrefix_dfy_v_neq \\ simp [])
     \\ namedCases_on ‘args’ ["", "arg args'"] \\ gvs [] >-
      (* No arguments passed *)
      (drule callable_rel_inversion \\ rpt strip_tac \\ gvs []
@@ -3807,12 +3771,13 @@ Proof
           \\ first_x_assum drule
           \\ strip_tac
           \\ simp [Abbr ‘call_env₁’]
-          \\ DEP_REWRITE_TAC [not_mem_nslookup_add_refs_to_env] \\ simp []
+          \\ DEP_REWRITE_TAC [not_mem_nslookup_add_refs_to_env]
+          \\ conj_tac >- (first_assum $ irule_at (Pos hd) \\ simp [isprefix_thm])
           \\ simp [Abbr ‘call_env’]
           \\ drule_all nslookup_build_rec_env_reclos
           \\ disch_then $ qspec_then ‘env.v’ mp_tac
           \\ rpt strip_tac
-          \\ first_assum $ irule_at (Pos last) \\ gvs [])
+          \\ first_assum $ irule_at (Pos last) \\ gvs [strcat_def,concat_def])
         >- (gvs [dec_clock_def, Abbr ‘dfy_locals’, REVERSE_ZIP, MAP_ZIP])
         >- fs [no_assert_member_def])
       \\ disch_then $ qx_choosel_then [‘ck₁’, ‘t₂’, ‘m₁’] mp_tac
@@ -3873,7 +3838,7 @@ Proof
       >- (* Assigning a single value (no tuple used) *)
        (gvs [LENGTH_EQ_1, Stuple_def, Pstuple_def]
         \\ gvs [par_assign_def, oneline bind_def, CaseEq "sum"]
-        \\ rename [‘explode (FST out)’]
+        \\ rename [‘read_local _ (FST out)’]
         \\ namedCases_on ‘out’ ["out_n out_v"] \\ gvs []
         \\ drule_all evaluate_cml_read_var \\ rpt strip_tac \\ gvs []
         \\ rename [‘val_rel _ out_v out_v_cml’]
@@ -3908,7 +3873,8 @@ Proof
            (irule env_rel_env_change
             \\ rpt conj_tac
             >- (simp [cml_tup_vname_def] \\ fs [env_rel_def]
-                \\ last_assum $ irule_at (Pos last) \\ simp [])
+                \\ last_assum $ irule_at (Pos last)
+                \\ simp [strcat_def, concat_def])
             >- (gvs [env_rel_def, has_cons_def, cml_tup_vname_def])
             \\ first_assum $ irule_at (Pos last)
             \\ rpt strip_tac
@@ -4029,7 +3995,7 @@ Proof
     \\ ‘cml_args ≠ []’ by (spose_not_then assume_tac \\ gvs []) \\ gvs []
     \\ DEP_REWRITE_TAC [cml_apps_apps] \\ gvs []
     (* Preparing ns for evaluate_Apps *)
-    \\ qabbrev_tac ‘params = MAP (explode ∘ FST) ins’
+    \\ qabbrev_tac ‘params = MAP FST ins’
     \\ ‘ALL_DISTINCT params’ by
       (simp [Abbr ‘params’, GSYM MAP_MAP_o, ALL_DISTINCT_MAP_explode]
        \\ gvs [ALL_DISTINCT_APPEND])
@@ -4069,7 +4035,7 @@ Proof
       (Cases_on ‘REVERSE params’ \\ gvs [cml_fun_def])
     (* Start chipping away at the compilation of a method *)
     \\ qmatch_goalsub_abbrev_tac ‘evaluate _ call_env₁’
-    \\ ‘nsLookup call_env₁.c (mk_id [] "Return") = SOME (0, ret_stamp)’
+    \\ ‘nsLookup call_env₁.c (mk_id [] «Return») = SOME (0, ret_stamp)’
       by gvs [Abbr ‘call_env₁’, Abbr ‘call_env’, mk_id_def, has_cons_def]
     \\ ‘LIST_REL (λn v. nsLookup call_env₁.v (Short n) = SOME v) params cml_vs’ by
       (gvs [Abbr ‘call_env₁’, Abbr ‘call_env’]
@@ -4161,15 +4127,9 @@ Proof
       \\ DEP_REWRITE_TAC [NOT_MEM_TL] \\ simp []
       \\ DEP_REWRITE_TAC [neq_nslookup_nsbind] \\ simp []
       \\ strip_tac
-      >- (‘is_fresh (implode (HD (REVERSE params)))’ by
-            (fs [EVERY_MEM]
-             \\ last_assum irule
-             \\ fs [GSYM MAP_MAP_o]
-             \\ first_x_assum $
-                  qspec_then ‘(implode (HD (REVERSE params)))’ mp_tac
-             \\ gvs [MEM_explode_implode])
+      >- (‘is_fresh (HD (REVERSE params))’ by fs [EVERY_MEM]
           \\ drule is_fresh_not_dfy_pfx \\ simp [])
-      \\ gvs [])
+      \\ gvs [isprefix_thm])
     \\ disch_then $ qx_choosel_then [‘ck₁’, ‘t₂’, ‘m₁’] mp_tac
     \\ rpt strip_tac \\ gvs []
     \\ qrefine ‘ck₁ + ck₂’ \\ gvs []
@@ -4224,7 +4184,7 @@ Proof
     \\ Cases_on ‘LENGTH outs = 1’ \\ gvs []
     >- (* Method returns value directly, instead of a tuple *)
      (gvs [LENGTH_EQ_1]
-      \\ rename [‘explode (FST out)’]
+      \\ rename [‘read_local _ (FST out)’]
       \\ gvs [Stuple_def, Pstuple_def]
       \\ drule_all evaluate_cml_read_var \\ rpt strip_tac \\ gvs []
       \\ rename [‘val_rel _ out_v out_v_cml’]
@@ -4260,7 +4220,8 @@ Proof
             \\ rpt conj_tac
             >- (simp [cml_tup_vname_def]
                 \\ fs [env_rel_def]
-                \\ last_assum $ irule_at (Pos last) \\ simp [])
+                \\ last_assum $ irule_at (Pos last)
+                \\ simp [strcat_def, concat_def])
             >- (gvs [env_rel_def, has_cons_def, cml_tup_vname_def])
             \\ first_assum $ irule_at (Pos last)
             \\ rpt gen_tac \\ disch_tac
@@ -4380,7 +4341,7 @@ QED
 
 Theorem from_member_decl_name[local]:
   from_member_decl member = INR cml_f ⇒
-  (λ(x,y,z). x) $ cml_f = "dfy_" ++ explode (member_name member)
+  (λ(x,y,z). x) $ cml_f = «dfy_» ^ member_name member
 Proof
   rpt strip_tac
   \\ gvs [from_member_decl_def, oneline bind_def, set_up_cml_fun_def,
@@ -4392,7 +4353,7 @@ Theorem map_from_member_decl_name[local]:
   ∀members cml_fs.
     result_mmap from_member_decl members = INR cml_fs ⇒
     MAP (λ(x,y,z). x) cml_fs =
-    MAP (STRCAT "dfy_" ∘ explode ∘ member_name) members
+    MAP (strcat «dfy_» ∘ member_name) members
 Proof
   Induct \\ rpt strip_tac
   \\ gvs [result_mmap_def, oneline bind_def, CaseEq "sum"]
@@ -4400,7 +4361,7 @@ Proof
 QED
 
 Theorem MEM_dfy_MAP[local]:
-  ∀xs x. MEM ("dfy_" ++ x) (MAP (λx. "dfy_" ++ x) xs) = MEM x xs
+  ∀xs x. MEM («dfy_» ^ x) (MAP (λx. «dfy_» ^ x) xs) = MEM x xs
 Proof
   Induct \\ gvs []
 QED
@@ -4418,7 +4379,7 @@ Proof
   \\ gvs []
   \\ rename [‘from_member_decl member’]
   \\ qspecl_then
-       [‘MAP (explode ∘ member_name) members’, ‘explode (member_name member)’]
+       [‘MAP member_name members’, ‘member_name member’]
        assume_tac MEM_dfy_MAP
   \\ gvs [MAP_MAP_o, o_DEF]
   \\ simp [GSYM o_DEF, GSYM MAP_MAP_o]
@@ -4730,11 +4691,11 @@ Theorem find_recfun_main[local]:
       is_fresh_stmt body ∧
       no_shadow ∅ body ∧
       no_assert_stmt body ∧
-      ¬("dfy" ≼ cml_param) ∧
+      ¬(isPrefix «dfy» cml_param) ∧
       cml_param ≠ cml_int_to_string_name ∧
-      find_recfun "dfy_Main" cml_funs =
+      find_recfun «dfy_Main» cml_funs =
         SOME (cml_param,
-              Handle cml_body [(Pcon (SOME (Short "Return")) [], Unit)])
+              Handle cml_body [(Pcon (SOME (Short «Return»)) [], Unit)])
 Proof
   Induct
   \\ simp [get_member_aux_def]
@@ -4743,13 +4704,13 @@ Proof
   \\ rename [‘m = «Main»’]
   >- (* Function *)
    (IF_CASES_TAC \\ simp []
-    \\ ‘explode m ≠ "Main"’ by
-      (spose_not_then assume_tac \\ Cases_on ‘m’ \\ gvs [])
+    \\ ‘m ≠ «Main»’ by (spose_not_then assume_tac \\ fs [])
     \\ disch_tac
     \\ gvs [result_mmap_def, oneline bind_def, from_member_decl_def,
             CaseEq "sum"]
     \\ simp [Once find_recfun_def, set_up_cml_fun_def]
-    \\ rpt (pairarg_tac \\ gvs []))
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ simp [strcat_def, concat_def, CaseEq "mlstring"])
   (* Method *)
   \\ IF_CASES_TAC
   \\ disch_tac
@@ -4757,12 +4718,13 @@ Proof
           CaseEq "sum"]
   >- (* found main at head *)
    (fs [set_up_cml_fun_def, cml_fun_def, set_up_in_refs_def, cml_new_refs_def,
-        mk_id_def, Stuple_def, Once find_recfun_def, no_assert_member_def])
+        mk_id_def, Stuple_def, Once find_recfun_def, no_assert_member_def,
+        strcat_def, concat_def, isprefix_thm])
   (* main is in tail *)
-  \\ ‘explode m ≠ "Main"’ by
-    (spose_not_then assume_tac \\ Cases_on ‘m’ \\ gvs [])
+  \\ ‘m ≠ «Main»’ by (spose_not_then assume_tac \\ fs [])
   \\ simp [set_up_cml_fun_def, Once find_recfun_def]
   \\ rpt (pairarg_tac \\ gvs [])
+  \\ simp [strcat_def, concat_def, CaseEq "mlstring"]
 QED
 
 Theorem valid_main_nslookup[local]:
@@ -4777,14 +4739,14 @@ Theorem valid_main_nslookup[local]:
     is_fresh_stmt body ∧
     no_shadow ∅ body ∧
     no_assert_stmt body ∧
-    ¬("dfy" ≼ cml_param) ∧
+    ¬(isPrefix «dfy» cml_param) ∧
     cml_param ≠ cml_int_to_string_name ∧
-    find_recfun "dfy_Main" cml_funs =
+    find_recfun «dfy_Main» cml_funs =
       SOME (cml_param,
-            Handle cml_body [(Pcon (SOME (Short "Return")) [], Unit)]) ∧
+            Handle cml_body [(Pcon (SOME (Short «Return»)) [], Unit)]) ∧
     nsLookup (nsAppend (build_rec_env cml_funs cl_env env) env₁v)
-      (Short "dfy_Main") =
-    SOME (Recclosure cl_env cml_funs "dfy_Main")
+      (Short «dfy_Main») =
+    SOME (Recclosure cl_env cml_funs «dfy_Main»)
 Proof
   rpt strip_tac
   \\ fs [get_member_def]
@@ -4793,7 +4755,8 @@ Proof
   \\ simp [nsLookup_nsAppend_some]
   \\ disj1_tac
   \\ simp [build_rec_env_def]
-  \\ drule_all nslookup_build_rec_env_reclos_aux \\ simp []
+  \\ drule_all nslookup_build_rec_env_reclos_aux
+  \\ simp [strcat_def, concat_def]
 QED
 
 Theorem get_member_MEM_aux[local]:
@@ -4814,10 +4777,10 @@ QED
 
 Definition has_basic_cons_def:
   has_basic_cons env ⇔
-    nsLookup env.c (Short "True") = SOME (0, TypeStamp "True" 0) ∧
-    nsLookup env.c (Short "False") = SOME (0, TypeStamp "False" 0) ∧
-    nsLookup env.c (Short "[]") = SOME (0, TypeStamp "[]" list_type_num) ∧
-    nsLookup env.c (Short "::") = SOME (2, TypeStamp "::" list_type_num)
+    nsLookup env.c (Short «True») = SOME (0, TypeStamp «True» 0) ∧
+    nsLookup env.c (Short «False») = SOME (0, TypeStamp «False» 0) ∧
+    nsLookup env.c (Short «[]») = SOME (0, TypeStamp «[]» list_type_num) ∧
+    nsLookup env.c (Short «::») = SOME (2, TypeStamp «::» list_type_num)
 End
 
 Theorem correct_from_program:
@@ -4854,21 +4817,21 @@ Proof
   \\ simp [Ntimes evaluate_decs_def 2, extend_dec_env_def]
   \\ simp [cml_list_def, do_con_check_def, pat_bindings_def]
   \\ simp [evaluate_def, pmatch_def]
-  \\ qmatch_goalsub_abbrev_tac ‘nsBind "dec_to_string" dts_clos’
+  \\ qmatch_goalsub_abbrev_tac ‘nsBind «dec_to_string» dts_clos’
   (* nat_to_string *)
   \\ simp [cml_nat_to_string_dletrec_def, cml_nat_to_string_body_def]
   \\ simp [Ntimes evaluate_decs_def 2, extend_dec_env_def]
   \\ simp [cml_list_def, do_con_check_def, build_rec_env_def]
-  \\ qmatch_goalsub_abbrev_tac ‘nsBind "nat_to_string" nts_clos’
+  \\ qmatch_goalsub_abbrev_tac ‘nsBind «nat_to_string» nts_clos’
   (* int_to_string *)
   \\ simp [cml_int_to_string_dlet_def, cml_int_to_string_body_def]
   \\ simp [Ntimes evaluate_decs_def 2, extend_dec_env_def]
   \\ simp [cml_list_def, do_con_check_def, pat_bindings_def]
   \\ simp [evaluate_def, pmatch_def]
   \\ qmatch_goalsub_abbrev_tac
-       ‘nsBind "int_to_string" (Closure its_clos_env _ _)’
+       ‘nsBind «int_to_string» (Closure its_clos_env _ _)’
   \\ qmatch_goalsub_abbrev_tac
-       ‘nsBind "int_to_string" its_clos’
+       ‘nsBind «int_to_string» its_clos’
   (* compiled function *)
   \\ simp [Ntimes evaluate_decs_def 2, extend_dec_env_def]
   \\ drule_all_then assume_tac ALL_DISTINCT_member_name \\ simp []
@@ -4932,7 +4895,7 @@ Proof
       \\ drule get_member_MEM
       \\ gvs [EVERY_MEM]
       \\ disch_then kall_tac
-      \\ ‘∀n. cml_param ≠ "dfy_" ++ explode n’ by (rpt strip_tac \\ gvs [])
+      \\ ‘∀n. cml_param ≠ «dfy_» ^ n’ by (rpt strip_tac \\ fs [isprefix_thm])
       \\ gvs []
       \\ qmatch_goalsub_abbrev_tac ‘build_rec_env _ env_cml₁ env_cml₂’
       \\ drule nslookup_build_rec_env_reclos

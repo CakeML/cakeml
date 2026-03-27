@@ -11,7 +11,6 @@ open to_data_cvTheory;
 
 type arch_thms =
   { default_config_def       : thm
-  , default_config_simp      : thm
   , to_livesets_def          : thm
   , compile_cake_def         : thm
   , compile_cake_imp         : thm
@@ -54,14 +53,13 @@ fun eval_cake_compile_general (arch : arch_thms) (input : comp_input) = let
                     Date.toString (Date.fromTimeLocal (Time.now())),"\n"])
   val { prefix, conf_def, prog_def, run_as_explorer
       , output_filename , output_conf_filename } = input
-  val { default_config_def, default_config_simp, to_livesets_def, compile_cake_explore_def
+  val { default_config_def, to_livesets_def, compile_cake_explore_def
       , compile_cake_def, compile_cake_imp, cv_export_def } = arch
   fun define_abbrev name tm =
     Feedback.trace ("Theory.allow_rebinds", 1)
       (mk_abbrev (prefix ^ name)) tm
   val conf = conf_def |> concl |> lhs
-  val c = backendTheory.config_to_inc_config_def
-            |> ISPEC conf |> CONV_RULE (RAND_CONV EVAL)
+  val c = conf_def |> CONV_RULE (RAND_CONV EVAL)
   val _ = report "config EVAL-ed"
   val _ = allowing_rebind (cv_trans_deep_embedding EVAL) prog_def
   val _ = report "cv_trans_deep_embedding prog_def finished"
@@ -82,8 +80,7 @@ fun eval_cake_compile_general (arch : arch_thms) (input : comp_input) = let
   val _ = allowing_rebind (cv_trans_deep_embedding EVAL) oracle_def
   val _ = report "cv_trans_deep_embedding oracle_def finished"
   val oracle_tm = oracle_def |> concl |> lhs
-  val c_tm = c |> concl |> lhs
-  val c_oracle_tm = backendTheory.inc_set_oracle_def
+  val c_oracle_tm = backendTheory.set_oracle_def
                       |> SPEC (c |> concl |> rhs)
                       |> SPEC oracle_tm |> concl |> lhs
   val def = if run_as_explorer then compile_cake_explore_def else compile_cake_def
@@ -129,9 +126,7 @@ fun eval_cake_compile_general (arch : arch_thms) (input : comp_input) = let
     new_specification(prefix ^ "compiled",
                       [prefix ^ "oracle", prefix ^ "info"], th)
   val result_th = MATCH_MP compile_cake_imp th
-    |> REWRITE_RULE [backendTheory.inc_set_oracle_pull,
-                     backendTheory.inc_config_to_config_config_to_inc_config]
-    |> REWRITE_RULE [default_config_simp,LENGTH_NIL]
+    |> REWRITE_RULE [LENGTH_NIL]
     |> CONV_RULE (UNBETA_CONV oracle_tm)
     |> MATCH_MP backend_asmTheory.exists_oracle
     |> CONV_RULE (PATH_CONV "b" BETA_CONV)

@@ -242,6 +242,7 @@ Definition compile_top_def:
                               |> nds';
           params = MAP (Var Local o FST) args;
           new_main = Function <| name   := start
+                               ;  inline := F
                                ;  export := F
                                ;  params := args
                                ;  body := Seq (nested_seq decls) (TailCall start' params)

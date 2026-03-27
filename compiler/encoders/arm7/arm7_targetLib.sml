@@ -35,7 +35,7 @@ in
   val arm7_encode_conv =
    Conv.memoize dst (Redblackmap.mkDict Term.compare) listSyntax.is_list
      (ERR "arm7_encode_conv" "")
-     (computeLib.compset_conv (wordsLib.words_compset())
+     (computeLib.compset_conv (wordsLib.words_compset)
       [computeLib.Defs
        [arm7_bop_def, arm7_sh_def, arm7_cmp_def, EncodeImmShift_def,
         EncodeARMImmediate_def, EncodeARMImmediate_aux_def,
@@ -54,7 +54,7 @@ val add_arm7_encode_compset = computeLib.extend_compset
                     EncodeARMImmediate_def, EncodeARMImmediate_aux_def,
                     valid_immediate_def]]
 
-val arm7_encode_conv = computeLib.compset_conv (wordsLib.words_compset())
+val arm7_encode_conv = computeLib.compset_conv (wordsLib.words_compset)
   [computeLib.Extenders
     [utilsLib.add_base_datatypes, asmLib.add_asm_compset,
      add_arm7_encode_compset]]

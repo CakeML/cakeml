@@ -202,6 +202,12 @@ Proof
     rw[strcat_def,concat_def]
 QED
 
+Theorem strcat_o:
+  strcat x ∘ strcat y = strcat (x ^ y)
+Proof
+  simp [FUN_EQ_THM]
+QED
+
 Theorem strcat_nil[simp]:
    (strcat (strlit "") s = s) ∧
    (strcat s (strlit "") = s)
@@ -213,6 +219,13 @@ Theorem mlstring_common_prefix[simp]:
   ∀s t1 t2. s ^ t1 = s ^ t2 ⇔ t1 = t2
 Proof
   rpt Cases \\ gvs [strcat_thm,implode_def]
+QED
+
+Theorem mlstring_common_char_prefix[simp]:
+  ∀c1 s1 s2 t2 t2. (strlit (c1 :: s1) ^ t1) = (strlit (c2 :: s2) ^ t2) ⇔
+    c1 = c2 ∧ strlit s1 ^ t1 = strlit s2 ^ t2
+Proof
+  rw [strcat_thm, implode_def]
 QED
 
 Theorem mlstring_common_suffix[simp]:
@@ -964,10 +977,39 @@ Definition mlstring_ge_def:
   mlstring_ge s1 s2 ⇔ (compare s1 s2 <> LESS)
 End
 
+Theorem compare_thm:
+  compare s1 s2 =
+    if mlstring_lt s1 s2 then LESS else
+    if mlstring_le s1 s2 then EQUAL else GREATER
+Proof
+  fs [mlstring_lt_def,mlstring_le_def]
+  \\ Cases_on ‘compare s1 s2’ \\ gvs []
+QED
+
 Overload "<" = ``λx y. mlstring_lt x y``
 Overload "<=" = ``λx y. mlstring_le x y``
 Overload ">" = ``λx y. mlstring_gt x y``
 Overload ">=" = ``λx y. mlstring_ge x y``
+
+Definition fast_lt_def:
+  fast_lt s1 s2 =
+    if strlen s1 = strlen s2 then mlstring_lt s1 s2 else strlen s1 < strlen s2
+End
+
+Definition fast_le_def:
+  fast_le s1 s2 =
+    if strlen s1 = strlen s2 then mlstring_le s1 s2 else strlen s1 ≤ strlen s2
+End
+
+Definition fast_gt_def:
+  fast_gt s1 s2 =
+    if strlen s1 = strlen s2 then mlstring_gt s1 s2 else strlen s1 > strlen s2
+End
+
+Definition fast_ge_def:
+  fast_ge s1 s2 =
+    if strlen s1 = strlen s2 then mlstring_ge s1 s2 else strlen s1 ≥ strlen s2
+End
 
 (* Properties of string orderings *)
 
@@ -1458,6 +1500,14 @@ Theorem concat_sing[simp]:
 Proof
   Cases_on ‘x’ \\ gvs [concat_def]
 QED
+
+Definition char_to_word8_def[simp]:
+  char_to_word8 (c:char) = n2w (ORD c) :word8
+End
+
+Definition word8_to_char_def[simp]:
+  word8_to_char (w:word8) = CHR (w2n w) : char
+End
 
 (* The translator turns each `empty_ffi s` into a call to the FFI with
    an empty name and passing `s` as the argument. The empty FFI is

@@ -9,7 +9,7 @@ Ancestors
 Libs
   preamble
 
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 Definition is_pure_def:
   (is_pure (FFI _) = F) /\
@@ -53,7 +53,7 @@ End
 Theorem is_pure_pmatch:
   !op.
   is_pure op =
-    case op of
+    pmatch op of
     | FFI _ => F
     | GlobOp (SetGlobal _) => F
     | GlobOp SetGlobalsPtr => F

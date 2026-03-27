@@ -91,6 +91,7 @@ End
 Datatype:
   fun_decl =
   <| name        : mlstring
+   ; inline      : bool
    ; export      : bool
    ; params      : (varname # shape) list
    ; body        : 'a prog
@@ -298,4 +299,9 @@ Definition free_var_ids_def:
   (free_var_ids (panLang$Call NONE _ args) = FLAT (MAP var_exp args)) ∧
   (free_var_ids (DecCall vn _ _ args p) = vn::free_var_ids p ++ FLAT (MAP var_exp args)) ∧
   (free_var_ids _ = [])
+End
+
+Definition inlinable_def:
+  inlinable (Function fi) = fi.inline ∧
+  inlinable (Decl _ _ _) = F
 End

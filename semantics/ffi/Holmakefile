@@ -1,4 +1,4 @@
-INCLUDES = ../../misc
+INCLUDES = ../../misc $(CAKEMLDIR)/basis/pure
 
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all

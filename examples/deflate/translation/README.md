@@ -1,7 +1,7 @@
-Translation scripts for Defalte.
+Translation scripts for Deflate.
 
 [compilation](compilation):
-Scripts for compilation of Deflate
+Scripts for compilation of Deflate.
 
 [compressionProgScript.sml](compressionProgScript.sml):
 Encoding program for simple compression

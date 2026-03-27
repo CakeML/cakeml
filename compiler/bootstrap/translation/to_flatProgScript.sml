@@ -67,9 +67,6 @@ val _ = (find_def_for_const := def_of_const);
 
 val _ = use_long_names:=true;
 
-(* use CakeML's string type for HOL's char list *)
-val _ = ml_translatorLib.use_string_type true;
-
 (* ------------------------------------------------------------------------- *)
 (* source_to_flat                                                            *)
 (* ------------------------------------------------------------------------- *)

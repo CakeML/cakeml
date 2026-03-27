@@ -3,12 +3,13 @@
 *)
 Theory sexp_to_dafnyProg
 Ancestors
-  dafny_sexpProg sexp_to_dafny
+  sexp_to_dafny
+  result_monadProg
 Libs
   preamble ml_translatorLib
 
 
-val _ = translation_extends "dafny_sexpProg";
+val _ = translation_extends "result_monadProg";
 
 val r = translate sexp_to_dafnyTheory.to_mlstring_def;
 val r = translate sexp_to_dafnyTheory.to_bool_def;

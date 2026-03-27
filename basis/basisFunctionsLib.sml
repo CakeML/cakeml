@@ -13,8 +13,13 @@ fun allowing_rebind f = Feedback.trace ("Theory.allow_rebinds", 1) f;
 fun get_module_prefix () = let
   val mods = ml_progLib.get_open_modules (get_ml_prog_state ())
   in case mods of [] => ""
-    | (m :: ms) => m ^ "_"
+    | (m :: ms) => (String.concatWith "_" mods) ^ "_"
   end
+
+fun get_exn_conv name =
+  EVAL “ml_prog$lookup_cons (namespace$Short ^name)
+          ^(get_env (get_ml_prog_state ()))”
+  |> concl |> rand |> rand |> rand
 
 fun trans ml_name rhs = let
   val prefix = get_module_prefix ()

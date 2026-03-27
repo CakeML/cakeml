@@ -64,4 +64,10 @@ fun mlstring_case_conv tm =
     TRANS th1 sth
   end
 
+local open mlstringTheory in
+val add_mlstring_compset = computeLib.extend_compset
+  [computeLib.Tys [“:mlstring$mlstring”],
+   computeLib.Defs [implode_def, str_def, concat_thm, explode_thm]]
+end
+
 end

@@ -181,11 +181,4 @@ val _ = cv_trans backend_ag32Theory.to_livesets_ag32_def;
 val _ = cv_trans backend_ag32Theory.compile_cake_ag32_def;
 val _ = cv_auto_trans backend_ag32Theory.compile_cake_explore_ag32_def;
 
-(* lemma used by automation *)
-
-Theorem set_asm_conf_ag32_backend_config:
-  set_asm_conf ag32_backend_config ag32_config = ag32_backend_config
-Proof
-  irule backendTheory.set_asm_conf_id \\ EVAL_TAC
-QED
 

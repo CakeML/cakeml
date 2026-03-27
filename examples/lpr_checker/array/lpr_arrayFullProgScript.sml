@@ -14,8 +14,6 @@ val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val _ = translation_extends"lpr_arrayParsingProg";
 
-val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
-
 val _ = translate parse_header_line_def;
 
 val parse_header_line_side = Q.prove(`
@@ -36,8 +34,8 @@ End
 
 val _ = translate format_dimacs_failure_def;
 
-val b_inputLineTokens_specialize =
-  b_inputLineTokens_spec_lines
+val inputLineTokens_specialize =
+  inputLineTokens_spec_lines
   |> Q.GEN `f` |> Q.SPEC`blanks`
   |> Q.GEN `fv` |> Q.SPEC`blanks_v`
   |> Q.GEN `g` |> Q.ISPEC`tokenize`
@@ -45,16 +43,17 @@ val b_inputLineTokens_specialize =
   |> Q.GEN `a` |> Q.ISPEC`SUM_TYPE STRING_TYPE INT`
   |> SIMP_RULE std_ss [blanks_v_thm,tokenize_v_thm,blanks_def] ;
 
-val parse_dimacs_body_arr = process_topdecs`
+Quote add_cakeml:
   fun parse_dimacs_body_arr lno maxvar fd acc =
-  case TextIO.b_inputLineTokens #"\n" fd blanks tokenize of
+  case TextIO.inputLineTokens #"\n" fd blanks tokenize of
     None => Inr (List.rev acc)
   | Some l =>
     if nocomment_line l then
       (case parse_clause maxvar l of
         None => Inl (format_dimacs_failure lno "failed to parse line")
       | Some cl => parse_dimacs_body_arr (lno+1) maxvar fd (cl::acc))
-    else parse_dimacs_body_arr (lno+1) maxvar fd acc` |> append_prog;
+    else parse_dimacs_body_arr (lno+1) maxvar fd acc
+End
 
 Theorem parse_dimacs_body_arr_spec:
   !lines fd fdv fs maxvar maxvarv acc accv lno lnov.
@@ -85,7 +84,7 @@ Proof
                 INSTREAM_LINES #"\n" fd fdv [] (forwardFD fs fd k) *
                 &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NONE v)’
     THEN1 (
-      xapp_spec b_inputLineTokens_specialize
+      xapp_spec inputLineTokens_specialize
       \\ qexists_tac `emp`
       \\ qexists_tac ‘[]’
       \\ qexists_tac ‘fs’
@@ -104,7 +103,7 @@ Proof
                 INSTREAM_LINES #"\n" fd fdv lines (forwardFD fs fd k) *
                 & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (SOME (toks h)) v)’
     THEN1 (
-      xapp_spec b_inputLineTokens_specialize
+      xapp_spec inputLineTokens_specialize
       \\ qexists_tac `emp`
       \\ qexists_tac ‘h::lines’
       \\ qexists_tac ‘fs’
@@ -162,9 +161,9 @@ Proof
   metis_tac[]
 QED
 
-val parse_dimacs_toks_arr = process_topdecs`
+Quote add_cakeml:
   fun parse_dimacs_toks_arr lno fd =
-  case TextIO.b_inputLineTokens #"\n" fd blanks tokenize of
+  case TextIO.inputLineTokens #"\n" fd blanks tokenize of
     None => Inl (format_dimacs_failure lno "failed to find header")
   | Some l =>
     if nocomment_line l then
@@ -178,7 +177,8 @@ val parse_dimacs_toks_arr = process_topdecs`
             Inr (vars,(clauses,acc))
           else
             Inl (format_dimacs_failure lno "incorrect number of clauses")))
-    else parse_dimacs_toks_arr (lno+1) fd` |> append_prog;
+    else parse_dimacs_toks_arr (lno+1) fd
+End
 
 Theorem parse_dimacs_toks_arr_spec:
   !lines fd fdv fs lno lnov.
@@ -207,7 +207,7 @@ Proof
                 INSTREAM_LINES #"\n" fd fdv [] (forwardFD fs fd k) *
                 &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NONE v)’
     THEN1 (
-      xapp_spec b_inputLineTokens_specialize
+      xapp_spec inputLineTokens_specialize
       \\ qexists_tac `emp`
       \\ qexists_tac ‘[]’
       \\ qexists_tac ‘fs’
@@ -227,7 +227,7 @@ Proof
                 INSTREAM_LINES #"\n" fd fdv lines (forwardFD fs fd k) *
                 & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (SOME (toks h)) v)’
     THEN1 (
-      xapp_spec b_inputLineTokens_specialize
+      xapp_spec inputLineTokens_specialize
       \\ qexists_tac `emp`
       \\ qexists_tac ‘h::lines’
       \\ qexists_tac ‘fs’
@@ -323,21 +323,22 @@ Proof
 QED
 
 (* parse_dimacs_toks with simple wrapper *)
-val parse_dimacs_full = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun parse_dimacs_full fname =
   let
-    val fd = TextIO.b_openIn fname
+    val fd = TextIO.openIn fname
     val res = parse_dimacs_toks_arr 0 fd
-    val close = TextIO.b_closeIn fd;
+    val close = TextIO.closeIn fd;
   in
     res
   end
-  handle TextIO.BadFileName => Inl (notfound_string fname)`;
+  handle TextIO.BadFileName => Inl (notfound_string fname)
+End
 
 Definition get_fml_def:
   get_fml fs f =
   if inFS_fname fs f then
-    parse_dimacs_toks (MAP toks (all_lines fs f))
+    parse_dimacs_toks (MAP toks (all_lines_file fs f))
   else NONE
 End
 
@@ -369,7 +370,7 @@ Proof
       &(~inFS_fname fs f) *
       STDIO fs`
     >-
-      (xlet_auto_spec (SOME b_openIn_STDIO_spec) \\ xsimpl)
+      (xlet_auto_spec (SOME openIn_STDIO_spec) \\ xsimpl)
     >>
       fs[BadFileName_exn_def]>>
       xcases>>rw[]>>
@@ -379,7 +380,7 @@ Proof
   qmatch_goalsub_abbrev_tac`$POSTv Qval`>>
   xhandle`$POSTv Qval` \\ xsimpl >>
   qunabbrev_tac`Qval`>>
-  xlet_auto_spec (SOME (b_openIn_spec_lines |> Q.GEN`c0` |> Q.SPEC`#"\n"`)) \\ xsimpl >>
+  xlet_auto_spec (SOME (openIn_spec_lines |> Q.GEN`c0` |> Q.SPEC`#"\n"`)) \\ xsimpl >>
   qmatch_goalsub_abbrev_tac`STDIO fss`>>
   qmatch_goalsub_abbrev_tac`INSTREAM_LINES _ fdd fddv lines fss`>>
   xlet`(POSTv v.
@@ -398,7 +399,7 @@ Proof
     metis_tac[])>>
   xlet `POSTv v. STDIO fs`
   >- (
-    xapp_spec b_closeIn_spec_lines >>
+    xapp_spec closeIn_spec_lines >>
     qexists_tac `emp`>>
     qexists_tac `lines'` >>
     qexists_tac `forwardFD fss fdd k` >>
@@ -464,7 +465,7 @@ val _ = register_type``:step``;
 
 val LPR_STEP_TYPE_def = fetch "-" "LPR_STEP_TYPE_def";
 
-val run_proof_arr = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun run_proof_arr fml inds earr hm n mv steps =
   case steps of [] => (fml,inds,earr,n,mv)
   | step::rest =>
@@ -483,7 +484,8 @@ val run_proof_arr = (append_prog o process_topdecs) `
     in
       run_proof_arr (Array.updateResize fml None n (Some c))
         (sorted_insert n inds) earr hm (n+1) mv rest
-    end)`
+    end)
+End
 
 Theorem run_proof_arr_spec:
   ∀sts stsv ls lsv fmlls fmllsv earliest earliestv n nv fmlv Earrv h hv mv mvv.
@@ -560,7 +562,7 @@ Proof
 QED
 
 (* Only run proof on the hash table *)
-val run_proof_hash_arr = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun run_proof_hash_arr hm n steps =
   case steps of [] => ()
   | step::rest =>
@@ -570,7 +572,8 @@ val run_proof_hash_arr = (append_prog o process_topdecs) `
        run_proof_hash_arr hm n rest)
   | Add c =>
       (hash_ins hm c n;
-      run_proof_hash_arr hm (n+1) rest))`
+      run_proof_hash_arr hm (n+1) rest))
+End
 
 Theorem run_proof_hash_arr_spec:
   ∀sts stsv n nv h hv a b c d.
@@ -627,7 +630,7 @@ End
 
 val _ = translate mapf_def;
 
-val check_lpr_range_arr = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun check_lpr_range_arr fname fml inds earr mv n pf i j =
   let
     val hm = (Hashtable.empty (2 * n) hash_func order_lists)
@@ -643,7 +646,8 @@ val check_lpr_range_arr = (append_prog o process_topdecs) `
     in
       check_unsat' 0 fml' inds' earr' fname mv' cls
     end
-  end`
+  end
+End
 
 Theorem bounded_fml_run_proof_list:
   ∀pf fmlls ls earliest fm n mv fmlls' ls' earliest' fm' n' mv'.
@@ -744,7 +748,7 @@ Proof
   >- (
     xapp>>xsimpl>>
     qexists_tac`STDIO fs * ARRAY Earrv earliestv`>>xsimpl>>
-    `BOOL F (Conv (SOME (TypeStamp "False" 0)) [])` by EVAL_TAC>>
+    `BOOL F (Conv (SOME (TypeStamp «False» 0)) [])` by EVAL_TAC>>
     rpt (asm_exists_tac>>simp[])>>
     qexists_tac`FEMPTY`>>xsimpl)>>
   rpt xlet_autop>>
@@ -825,22 +829,24 @@ End
 val r = translate noparse_string_def;
 
 (* parse_proof with simple wrapper *)
-val parse_proof_full = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun parse_proof_full f =
-  (case TextIO.b_inputAllTokensFrom #"\n" f blanks tokenize of
+  (case TextIO.inputAllTokensFile #"\n" f blanks tokenize of
     None => Inl (notfound_string f)
   | Some lines =>
   (case parse_proof_toks lines of
     None => Inl (noparse_string f "Proof")
-  | Some x => Inr x))`
+  | Some x => Inr x))
+End
 
-val check_unsat_1 = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun check_unsat_1 f1 =
   case parse_dimacs_full f1 of
     Inl err => TextIO.output TextIO.stdErr err
-  | Inr (mv,(ncl,fml)) => TextIO.print_list (print_dimacs fml)`
+  | Inr (mv,(ncl,fml)) => TextIO.print_list (print_dimacs fml)
+End
 
-val check_unsat_2 = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun check_unsat_2 f1 f2 =
   case parse_dimacs_full f1 of
     Inl err => TextIO.output TextIO.stdErr err
@@ -857,7 +863,8 @@ val check_unsat_2 = (append_prog o process_topdecs) `
       Inl err => TextIO.output TextIO.stdErr err
     | Inr None => TextIO.print "s VERIFIED UNSAT\n"
     | Inr (Some l) => TextIO.output TextIO.stdErr "c empty clause not derived at end of proof\n"
-  end`
+  end
+End
 
 Definition transformation_err_def:
   transformation_err cl =
@@ -866,7 +873,7 @@ End
 
 val _ = translate transformation_err_def;
 
-val check_unsat_3 = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun check_unsat_3 f1 f2 f3 =
   case parse_dimacs_full f1 of
     Inl err => TextIO.output TextIO.stdErr err
@@ -886,7 +893,8 @@ val check_unsat_3 = (append_prog o process_topdecs) `
       Inl err => TextIO.output TextIO.stdErr err
     | Inr None => TextIO.print "s VERIFIED TRANSFORMATION\n"
     | Inr (Some cl) => TextIO.output TextIO.stdErr (transformation_err cl)
-  end`
+  end
+End
 
 Definition check_cond_def:
   check_cond i j pf = (i ≤ j ∧ j ≤ LENGTH pf)
@@ -910,7 +918,7 @@ val _ = translate parse_rng_or_check_def;
 
 val _ = translate print_rng_def;
 
-val check_unsat_4 = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun check_unsat_4 f1 f2 rng f3 =
   case parse_dimacs_full f1 of
     Inl err => TextIO.output TextIO.stdErr err
@@ -944,20 +952,22 @@ val check_unsat_4 = (append_prog o process_topdecs) `
             | Some proof_md5 => TextIO.print (success_str cnf_md5 proof_md5 (print_rng i j)))
       | Inr (Some cl) => TextIO.output TextIO.stdErr (transformation_err cl)
     end
-    else TextIO.output TextIO.stdErr "c Invalid range specification: range a-b must satisfy a <= b <= num lines in proof file\n"`
+    else TextIO.output TextIO.stdErr "c Invalid range specification: range a-b must satisfy a <= b <= num lines in proof file\n"
+End
 
-val check_unsat = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun check_unsat u =
   case CommandLine.arguments () of
     [f1] => check_unsat_1 f1
   | [f1,f2] => check_unsat_2 f1 f2
   | [f1,f2,f3] => check_unsat_3 f1 f2 f3
   | [f1,f2,rng,f3] => check_unsat_4 f1 f2 rng f3
-  | _ => TextIO.output TextIO.stdErr usage_string`
+  | _ => TextIO.output TextIO.stdErr usage_string
+End
 
 (* We verify each argument type separately *)
-val b_inputAllTokensFrom_spec_specialize =
-  b_inputAllTokensFrom_spec
+val inputAllTokensFile_spec_specialize =
+  inputAllTokensFile_spec
   |> Q.GEN `f` |> Q.SPEC`blanks`
   |> Q.GEN `fv` |> Q.SPEC`blanks_v`
   |> Q.GEN `g` |> Q.ISPEC`tokenize`
@@ -1066,12 +1076,12 @@ Proof
   rpt xlet_autop>>
   (* help instantiate fill_arr_spec *)
   `LIST_REL (OPTION_TYPE (LIST_TYPE INT)) (REPLICATE (2 * x1) NONE)
-        (REPLICATE (2 * x1) (Conv (SOME (TypeStamp "None" 2)) []))` by
+        (REPLICATE (2 * x1) (Conv (SOME (TypeStamp «None» 2)) []))` by
     simp[LIST_REL_REPLICATE_same,OPTION_TYPE_def]>>
   rpt xlet_autop >>
   (* help instantiate fill_earliest_spec *)
   `LIST_REL (OPTION_TYPE NUM) (REPLICATE (2 * x0 + 3) NONE)
-          (REPLICATE (2 * x0 + 3) (Conv (SOME (TypeStamp "None" 2)) []))` by
+          (REPLICATE (2 * x0 + 3) (Conv (SOME (TypeStamp «None» 2)) []))` by
     simp[LIST_REL_REPLICATE_same,OPTION_TYPE_def]>>
   rpt xlet_autop>>
   simp[check_lpr_unsat_list_def]>>
@@ -1220,12 +1230,12 @@ Proof
   rpt(xlet_autop)>>
   (* help instantiate fill_arr_spec *)
   `LIST_REL (OPTION_TYPE (LIST_TYPE INT)) (REPLICATE (2 * x1) NONE)
-        (REPLICATE (2 * x1) (Conv (SOME (TypeStamp "None" 2)) []))` by
+        (REPLICATE (2 * x1) (Conv (SOME (TypeStamp «None» 2)) []))` by
     simp[LIST_REL_REPLICATE_same,OPTION_TYPE_def]>>
   rpt (xlet_autop) >>
   (* help instantiate fill_earliest_spec *)
   `LIST_REL (OPTION_TYPE NUM) (REPLICATE (2 * x0 + 3) NONE)
-          (REPLICATE (2 * x0 + 3) (Conv (SOME (TypeStamp "None" 2)) []))` by
+          (REPLICATE (2 * x0 + 3) (Conv (SOME (TypeStamp «None» 2)) []))` by
     simp[LIST_REL_REPLICATE_same,OPTION_TYPE_def]>>
   rpt xlet_autop>>
   simp[check_lpr_sat_equiv_list_def]>>
@@ -1317,7 +1327,7 @@ QED
 Definition get_proof_def:
   get_proof fs f =
   if inFS_fname fs f then
-    parse_proof_toks (MAP toks (all_lines fs f))
+    parse_proof_toks (MAP toks (all_lines_file fs f))
   else NONE
 End
 
@@ -1334,7 +1344,7 @@ Definition check_unsat_4_sem_def:
   | SOME (INL ()) =>
      if inFS_fname fs f3 then
       case check_lines (implode (md5 (THE (file_content fs f1)))) (implode (md5 (THE (file_content fs f2))))
-        (all_lines fs f3) (LENGTH pf) of
+        (all_lines_file fs f3) (LENGTH pf) of
         INL _ => out = strlit ""
       | INR s => out = s
     else
@@ -1376,10 +1386,10 @@ Proof
     \\ xpull \\ metis_tac[]) >>
   xlet`(POSTv sv. &OPTION_TYPE (LIST_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)))
             (if inFS_fname fs f then
-               SOME(MAP (MAP tokenize o tokens blanks) (all_lines fs f))
+               SOME(MAP (MAP tokenize o tokens blanks) (all_lines_file fs f))
              else NONE) sv * STDIO fs)`
   >- (
-    xapp_spec b_inputAllTokensFrom_spec_specialize >>
+    xapp_spec inputAllTokensFile_spec_specialize >>
     xsimpl>>
     fs[FILENAME_def,validArg_def]>>
     qexists_tac`emp`>>
@@ -1416,12 +1426,12 @@ Proof
   metis_tac[ALOOKUP_NONE,option_CASES]
 QED
 
-Theorem all_lines_lines_of:
+Theorem all_lines_file_lines_of:
   file_content fs f = SOME c ⇒
-  all_lines fs f = lines_of (strlit c)
+  all_lines_file fs f = lines_of (strlit c)
 Proof
   fs[file_content_def]>>
-  rw[all_lines_def,lines_of_def]>>
+  rw[all_lines_file_def,lines_of_def]>>
   every_case_tac>>fs[]
 QED
 
@@ -1518,7 +1528,7 @@ Proof
     xapp>>xsimpl>>fs[]>>
     gvs[get_fml_def,get_proof_def,AllCaseEqs()]>>
     imp_res_tac inFS_fname_file_content>>fs[]>>rw[]>>
-    imp_res_tac all_lines_lines_of>>simp[]>>
+    imp_res_tac all_lines_file_lines_of>>simp[]>>
     fs[FILENAME_def,validArg_def]>>
     first_x_assum (irule_at (Pos (el 1)))>>
     first_x_assum (irule_at (Pos (el 1)))>>
@@ -1529,7 +1539,7 @@ Proof
     first_x_assum (irule_at (Pos (el 2)))>>
     rpt(first_x_assum (irule_at (Pos (el 1))))>>
     qexists_tac`emp`>>xsimpl>>rw[]>>
-    (* relate all_lines and lines_of *)
+    (* relate all_lines_file and lines_of *)
     gs[]>>
     drule parse_proof_toks_LENGTH>>
     simp[]>>
@@ -1564,12 +1574,12 @@ Proof
   rpt(xlet_autop)>>
   (* help instantiate fill_arr_spec *)
   `LIST_REL (OPTION_TYPE (LIST_TYPE INT)) (REPLICATE (2 * x1) NONE)
-        (REPLICATE (2 * x1) (Conv (SOME (TypeStamp "None" 2)) []))` by
+        (REPLICATE (2 * x1) (Conv (SOME (TypeStamp «None» 2)) []))` by
     simp[LIST_REL_REPLICATE_same,OPTION_TYPE_def]>>
   rpt (xlet_autop) >>
   (* help instantiate fill_earliest_spec *)
   `LIST_REL (OPTION_TYPE NUM) (REPLICATE (2 * x0 + 3) NONE)
-          (REPLICATE (2 * x0 + 3) (Conv (SOME (TypeStamp "None" 2)) []))` by
+          (REPLICATE (2 * x0 + 3) (Conv (SOME (TypeStamp «None» 2)) []))` by
     simp[LIST_REL_REPLICATE_same,OPTION_TYPE_def]>>
   rpt xlet_autop >>
   xlet_auto

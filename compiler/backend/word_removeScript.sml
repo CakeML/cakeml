@@ -9,7 +9,7 @@ Ancestors
 Libs
   preamble
 
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 (*Removes MustTerminate*)
 
@@ -19,10 +19,10 @@ Definition remove_must_terminate_def:
     If cmp r1 ri (remove_must_terminate e2) (remove_must_terminate e3)) ∧
   (remove_must_terminate (MustTerminate p) = remove_must_terminate p) ∧
   (remove_must_terminate (Call ret dest args h) =
-    let ret = dtcase ret of NONE => NONE
+    let ret = case ret of NONE => NONE
                         | SOME (v,cutset,ret_handler,l1,l2) =>
                           SOME (v,cutset,remove_must_terminate ret_handler,l1,l2) in
-    let h = dtcase h of NONE => NONE
+    let h = case h of NONE => NONE
                     | SOME (v,prog,l1,l2) => SOME (v,remove_must_terminate prog,l1,l2) in
       Call ret dest args h) ∧
   (remove_must_terminate prog = prog)
@@ -31,16 +31,16 @@ End
 Theorem remove_must_terminate_pmatch:
   !prog.
   remove_must_terminate prog =
-  case prog of
+  pmatch prog of
   | (Seq p0 p1) => Seq (remove_must_terminate p0) (remove_must_terminate p1)
   | (If cmp r1 ri e2 e3) =>
     If cmp r1 ri (remove_must_terminate e2) (remove_must_terminate e3)
   | (MustTerminate p) => remove_must_terminate p
   | (Call ret dest args h) =>
-    (let ret = case ret of NONE => NONE
+    (let ret = pmatch ret of NONE => NONE
                         | SOME (v,cutset,ret_handler,l1,l2) =>
                           SOME (v,cutset,remove_must_terminate ret_handler,l1,l2) in
-    let h = case h of NONE => NONE
+    let h = pmatch h of NONE => NONE
                     | SOME (v,prog,l1,l2) => SOME (v,remove_must_terminate prog,l1,l2) in
       Call ret dest args h)
   | prog => prog

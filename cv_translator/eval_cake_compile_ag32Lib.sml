@@ -10,7 +10,6 @@ local
 
   val ag32_arch_thms =
     { default_config_def       = ag32_configTheory.ag32_backend_config_def
-    , default_config_simp      = backend_ag32_cvTheory.set_asm_conf_ag32_backend_config
     , to_livesets_def          = backend_ag32Theory.to_livesets_ag32_def
     , compile_cake_def         = backend_ag32Theory.compile_cake_ag32_def
     , compile_cake_imp         = backend_ag32Theory.compile_cake_ag32_thm

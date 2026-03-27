@@ -20,7 +20,6 @@ open basisProgTheory
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
 val _ = translation_extends "pancake_parseProg";
-val _ = ml_translatorLib.use_string_type true;
 val _ = ml_translatorLib.use_sub_check true;
 (*
 val _ = translation_extends "basisProg";
@@ -186,6 +185,7 @@ val _ = m_translate (consistency_ok_def |> REWRITE_RULE [MEMBER_INTRO,
                            METIS_PROVE [] ``~(b1 /\ b2) <=> ~b1 \/ ~b2``]);
 
 val _ = m_translate coalesce_parent_def;
+val _ = m_translate coalesce_root_def;
 val _ = m_translate canonize_move_def;
 val _ = m_translate st_ex_FIRST_def;
 val _ = m_translate (respill_def |> REWRITE_RULE [MEMBER_INTRO]);
@@ -426,10 +426,9 @@ val explode = String.explode;
 open ml_progLib cfLib basis
 open astPP
 
-val main = process_topdecs`
-  fun main u = ()`
-
-val res = append_prog main;
+Quote add_cakeml:
+  fun main u = ()
+End
 
 val st =  get_ml_prog_state ();
 

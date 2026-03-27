@@ -1905,7 +1905,12 @@ fun xlet_auto (g as (asl, w)) =
   handle HOL_ERR e
          => raise (ERR "xlet_auto" (message_of e));
 
+(* A version of xlet_auto that tries to generate less side goals.
+   The heuristics are derived from common patterns seen in the wild. *)
+val xlet_autop = xlet_auto >- (TRY xcon \\ xsimpl);
+
 end
+
 
 (******** DEBUG ********)
 

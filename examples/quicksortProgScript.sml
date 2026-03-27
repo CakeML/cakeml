@@ -181,7 +181,7 @@ QED
 
 fun basis_st () = get_ml_prog_state ()
 
-val partition = process_topdecs `
+Quote add_cakeml:
 fun partition cmp a pivot lower upper =
 let
   fun scan_lower lower =
@@ -223,8 +223,7 @@ let
 in
   part_loop (lower - 1) (upper + 1)
 end;
-`;
-val _ = append_prog partition;
+End
 
 Definition partition_pred_def:
   partition_pred cmp offset p_v pivot elems elem_vs part1 part2 ⇔
@@ -995,7 +994,7 @@ Proof
   >- metis_tac []
 QED
 
-val quicksort = process_topdecs `
+Quote add_cakeml:
 fun quicksort cmp a =
 let
   fun quicksort_help lower upper =
@@ -1013,8 +1012,7 @@ in
     if l = 0 then () else quicksort_help 0 (l - 1)
   end
 end;
-`;
-val _ = append_prog quicksort;
+End
 
 val eq_int_v_thm =
   MATCH_MP

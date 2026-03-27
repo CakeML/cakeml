@@ -5,7 +5,7 @@ Theory patchProg
 Ancestors
   charset diff cfApp basis_ffi
 Libs
-  preamble basis
+  preamble basis basisFunctionsLib
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
@@ -115,17 +115,18 @@ End
 
 val r = translate rejected_patch_string_def;
 
-val _ = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun patch' fname1 fname2 =
-    case TextIO.inputLinesFrom fname1 of
+    case TextIO.inputLinesFile #"\n" fname1 of
         None => TextIO.output TextIO.stdErr (notfound_string fname1)
       | Some lines1 =>
-        case TextIO.inputLinesFrom fname2 of
+        case TextIO.inputLinesFile #"\n" fname2 of
             None => TextIO.output TextIO.stdErr (notfound_string fname2)
           | Some lines2 =>
             case patch_alg lines2 lines1 of
                 None => TextIO.output TextIO.stdErr (rejected_patch_string)
-              | Some s => TextIO.print_list s`
+              | Some s => TextIO.print_list s
+End
 
 Theorem patch'_spec:
    FILENAME f1 fv1 ∧ FILENAME f2 fv2 /\ hasFreeFD fs
@@ -137,7 +138,7 @@ Theorem patch'_spec:
        STDIO
        (if inFS_fname fs f1 then
         if inFS_fname fs f2 then
-        case patch_alg (all_lines fs f2) (all_lines fs f1) of
+        case patch_alg (all_lines_file fs f2) (all_lines_file fs f1) of
         | NONE => add_stderr fs rejected_patch_string
         | SOME s => add_stdout fs (concat s)
         else add_stderr fs (notfound_string f2)
@@ -161,19 +162,20 @@ Proof
   \\ xapp \\ rw[]
 QED
 
-val _ = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun patch u =
     case CommandLine.arguments () of
         (f1::f2::[]) => patch' f1 f2
-      | _ => TextIO.output TextIO.stdErr usage_string`
+      | _ => TextIO.output TextIO.stdErr usage_string
+End
 
 Definition patch_sem_def:
   patch_sem cl fs =
     if (LENGTH cl = 3) then
     if inFS_fname fs (EL 1 cl) then
     if inFS_fname fs (EL 2 cl) then
-     case patch_alg (all_lines fs (EL 2 cl))
-                    (all_lines fs (EL 1 cl)) of
+     case patch_alg (all_lines_file fs (EL 2 cl))
+                    (all_lines_file fs (EL 1 cl)) of
        NONE => add_stderr fs (rejected_patch_string)
      | SOME s => add_stdout fs (concat s)
     else add_stderr fs (notfound_string (EL 2 cl))

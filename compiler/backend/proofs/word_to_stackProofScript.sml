@@ -29,7 +29,7 @@ val _ = numLib.temp_prefer_num();
 val get_labels_def = stackSemTheory.get_labels_def;
 val extract_labels_def = stackPropsTheory.extract_labels_def
 Type state[pp] = “:(α,β,γ)wordSem$state”
-Overload word_cmp[local] = “labSem$word_cmp”;
+Overload word_cmp[local] = “wordSem$word_cmp”;
 val _ = Parse.hide "B"
 
 val nn = ``(NONE:(num # 'a wordLang$prog # num # num) option)``
@@ -475,16 +475,20 @@ Proof
     Cases_on`n'`>>fs[LUPDATE_def]
 QED
 
-local
-  val DROP_LUPDATE_lemma1 = Q.prove(
-    `!xs n m h. n <= m ==>
-                 DROP n (LUPDATE h m xs) = LUPDATE h (m - n) (DROP n xs)`,
-    MATCH_ACCEPT_TAC DROP_LUPDATE)
-  val DROP_LUPDATE_lemma2 = Q.prove(
-    `!xs n m h. m < n ==> DROP n (LUPDATE h m xs) = DROP n xs`,
-    Induct \\ fs [LUPDATE_def] \\ rw []
-    \\ Cases_on `m` \\ fs [LUPDATE_def])
-in
+Theorem DROP_LUPDATE_lemma1[local]:
+  !xs n m h. n <= m ==>
+               DROP n (LUPDATE h m xs) = LUPDATE h (m - n) (DROP n xs)
+Proof
+  MATCH_ACCEPT_TAC DROP_LUPDATE
+QED
+
+Theorem DROP_LUPDATE_lemma2[local]:
+  !xs n m h. m < n ==> DROP n (LUPDATE h m xs) = DROP n xs
+Proof
+  Induct \\ fs [LUPDATE_def] \\ rw []
+  \\ Cases_on `m` \\ fs [LUPDATE_def]
+QED
+
 Theorem DROP_LUPDATE:
      !n h m xs.
         DROP n (LUPDATE h m xs) =
@@ -494,7 +498,6 @@ Proof
     \\ match_mp_tac DROP_LUPDATE_lemma1
     \\ fs [NOT_LESS]
 QED
-end
 
 Theorem MIN_ADD[local]:
   MIN m1 m2 + n = MIN (m1 + n) (m2 + n)
@@ -4001,7 +4004,7 @@ Definition map_var_def[simp]:
   (map_var f (Var num) = Var (f num)) ∧
   (map_var f (Load exp) = Load (map_var f exp)) ∧
   (map_var f (Op wop ls) = Op wop (MAP (map_var f) ls)) ∧
-  (map_var f (Shift sh e1 e2) = Shift sh (map_var f e1) e2) ∧
+  (map_var f (Shift sh e1 e2) = Shift sh (map_var f e1) (map_var f e2)) ∧
   (map_var f (Const c) = Const c) ∧
   (map_var f (Lookup v) = Lookup v)
 Termination
@@ -4058,8 +4061,8 @@ Proof
     \\ disch_then drule
     \\ impl_tac
     >- (
-      qmatch_asmsub_abbrev_tac`list_max ls`
-      \\ qspec_then`ls`mp_tac list_max_max
+      qmatch_asmsub_abbrev_tac`MAX_LIST ls`
+      \\ qspec_then`ls`mp_tac MAX_LIST_max
       \\ simp[EVERY_MEM,Abbr`ls`,EVERY_MAP]
       \\ disch_then drule
       \\ qspec_then`2`mp_tac DIV_LE_MONOTONE
@@ -4075,8 +4078,8 @@ Proof
     \\ first_x_assum old_drule \\ simp[]
     \\ impl_tac
     >- (
-      qmatch_asmsub_abbrev_tac`list_max ls`
-      \\ qspec_then`ls`mp_tac list_max_max
+      qmatch_asmsub_abbrev_tac`MAX_LIST ls`
+      \\ qspec_then`ls`mp_tac MAX_LIST_max
       \\ simp[EVERY_MEM,Abbr`ls`,EVERY_MAP]
       \\ disch_then drule
       \\ qspec_then`2`mp_tac DIV_LE_MONOTONE
@@ -4106,8 +4109,8 @@ Proof
   \\ simp[MAP_EQ_f,MAP_MAP_o]
   \\ rw[]
   \\ res_tac \\ simp[]
-  \\ qmatch_asmsub_abbrev_tac`list_max ls`
-  \\ qspec_then`ls`mp_tac list_max_max
+  \\ qmatch_asmsub_abbrev_tac`MAX_LIST ls`
+  \\ qspec_then`ls`mp_tac MAX_LIST_max
   \\ simp[EVERY_MEM,Abbr`ls`,EVERY_MAP]
   \\ disch_then drule
   \\ qspec_then`2`mp_tac DIV_LE_MONOTONE
@@ -4766,20 +4769,47 @@ Proof
             by simp[MAX_DEF,max3_def] >>
         fs[])
     >- ( (* Shift *)
-        gvs[assign_def,word_exp_def,AllCaseEqs()] >>
-        simp[wInst_def] >>
-        (pairarg_tac >> fs[]) >>
-        simp[evaluate_wStackLoad_seq] >>
-        dxrule_all evaluate_wStackLoad_wReg1 >>
-        strip_tac >> simp[Once stackSemTheory.evaluate_def] >>
-        simp[evaluate_wRegWrite1_seq] >>
-        pairarg_tac >> simp[] >>
-        fs[stackSemTheory.evaluate_def,stackSemTheory.inst_def,
-           stackSemTheory.assign_def,stackSemTheory.word_exp_def] >>
-        (*TODO remove this line by changing word_exp_def*)
-        fs[GSYM stackSemTheory.get_var_def] >>
-        match_mp_tac evaluate_wStackStore_wReg1 >>
-        fs[])
+        full_simp_tac(bool_ss)[GSYM max3_def] >>
+        `!a b c. max3 a b c = MAX a (MAX b c)`
+            by simp[MAX_DEF,max3_def] >>
+        fs[] >>
+        Cases_on `r` >> fs[]
+        >- ( (* Shift Reg *)
+            fs[reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,
+            wordLangTheory.every_var_imm_def] >>
+            gvs[assign_def,word_exp_def,AllCaseEqs()] >>
+            simp[wInst_def] >>
+            ntac 2 (pairarg_tac >> fs[]) >>
+            simp[wStackLoad_append] >>
+            simp[evaluate_wStackLoad_seq] >>
+            dxrule_all evaluate_wStackLoad_wReg1 >>
+            strip_tac >> simp[Once stackSemTheory.evaluate_def] >>
+            simp[evaluate_wStackLoad_seq] >>
+            dxrule_all evaluate_wStackLoad_wReg2 >>
+            strip_tac >> simp[Once stackSemTheory.evaluate_def] >>
+            simp[evaluate_wRegWrite1_seq] >>
+            pairarg_tac >> simp[] >>
+            fs[stackSemTheory.evaluate_def,stackSemTheory.inst_def,
+            stackSemTheory.assign_def,stackSemTheory.word_exp_def] >>
+            fs[GSYM stackSemTheory.get_var_def] >>
+            match_mp_tac evaluate_wStackStore_wReg1 >>
+            fs[])
+        >- ( (* Shift Imm *)
+            fs[reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,
+            wordLangTheory.every_var_imm_def] >>
+            gvs[assign_def,word_exp_def,AllCaseEqs()] >>
+            simp[wInst_def] >>
+            (pairarg_tac >> fs[]) >>
+            simp[evaluate_wStackLoad_seq] >>
+            dxrule_all evaluate_wStackLoad_wReg1 >>
+            strip_tac >> simp[Once stackSemTheory.evaluate_def] >>
+            simp[evaluate_wRegWrite1_seq] >>
+            pairarg_tac >> simp[] >>
+            fs[stackSemTheory.evaluate_def,stackSemTheory.inst_def,
+               stackSemTheory.assign_def,stackSemTheory.word_exp_def] >>
+            fs[GSYM stackSemTheory.get_var_def] >>
+            match_mp_tac evaluate_wStackStore_wReg1 >>
+            fs[]))
     (* Binop *)
     \\ full_simp_tac(bool_ss)[GSYM max3_def]
     \\ `!x y z. max3 x y z = (MAX (MAX x y) z)`
@@ -5492,13 +5522,6 @@ Proof
   EVERY_CASE_TAC>>fs[]
 QED
 
-Theorem word_cmp_Word_Word[local]:
-  word_cmp cmp (Word c) (Word c') = SOME (word_cmp cmp c c')
-Proof
-  Cases_on `cmp`
-  \\ rw [labSemTheory.word_cmp_def,asmTheory.word_cmp_def]
-QED
-
 Theorem ALL_DISTINCT_MEM_toAList_fromAList[local]:
   ALL_DISTINCT (MAP FST ls) ⇒
   (MEM x (toAList (fromAList ls)) ⇔
@@ -5675,19 +5698,40 @@ val goal = ``
            FLOOKUP t1.regs 1 = SOME y
          | SOME _ => s1.ffi = t1.ffi /\ s1.clock = t1.clock``
 
-local
-  val gst = goal |> Ho_Rewrite.PURE_ONCE_REWRITE_CONV [Once PFORALL_THM] |> concl |> rhs
-  val ind_thm = evaluate_ind |> ISPEC goal |> GEN_BETA_RULE
-  val ind_goals = ind_thm |> concl |> dest_imp |> fst |> helperLib.list_dest dest_conj
-in
-  fun get_goal s = first (can (find_term (can (match_term (Term [QUOTE s]))))) ind_goals
-  fun compile_correct_tm () = ind_thm |> concl |> rand
-  fun the_ind_thm () = ind_thm
-end
+val ind_thm = evaluate_ind |> ISPEC goal |> GEN_BETA_RULE;
 
-Theorem comp_Skip_correct:
-  ^(get_goal "Skip")
+Theorem comp_correct:
+  ^(ind_thm |> concl |> rand)
 Proof
+  match_mp_tac ind_thm
+  \\ rpt conj_tac
+  >~ [`Skip`] >- suspend "Skip"
+  >~ [`Alloc`] >- suspend "Alloc"
+  >~ [`StoreConsts`] >- suspend "StoreConsts"
+  >~ [`Move`] >- suspend "Move"
+  >~ [`Inst`] >- suspend "Inst"
+  >~ [`Assign`] >- suspend "Assign"
+  >~ [`Get`] >- suspend "Get"
+  >~ [`wordLang$Set`] >- suspend "Set"
+  >~ [`OpCurrHeap`] >- suspend "OpCurrHeap"
+  >~ [`Store`] >- suspend "Store"
+  >~ [`Tick`] >- suspend "Tick"
+  >~ [`MustTerminate`] >- suspend "MustTerminate"
+  >~ [`wordLang$Seq`] >- suspend "Seq"
+  >~ [`Return`] >- suspend "Return"
+  >~ [`wordLang$Raise`] >- suspend "Raise"
+  >~ [`wordLang$If`] >- suspend "If"
+  >~ [`wordLang$LocValue`] >- suspend "LocValue"
+  >~ [`wordLang$Install`] >- suspend "Install"
+  >~ [`wordLang$CodeBufferWrite`] >- suspend "CodeBufferWrite"
+  >~ [`wordLang$DataBufferWrite`] >- suspend "DataBufferWrite"
+  >~ [`wordLang$FFI`] >- suspend "FFI"
+  >~ [`wordLang$ShareInst`] >- suspend "ShareInst"
+  >~ [`wordLang$Call`] >- suspend "Call"
+QED
+
+
+Resume comp_correct[Skip]:
   REPEAT STRIP_TAC \\ fs[get_labels_def] \\
   qexists_tac `0` \\
   fs[comp_def] \\ rw[] \\
@@ -5695,9 +5739,7 @@ Proof
                          stackSemTheory.evaluate_def,comp_def] \\ rw []
 QED
 
-Theorem comp_Alloc_correct:
-  ^(get_goal "Alloc")
-Proof
+Resume comp_correct[Alloc]:
   REPEAT STRIP_TAC \\ fs[get_labels_def] \\
   qexists_tac `0`
   \\ fs [wordSemTheory.evaluate_def,stackSemTheory.evaluate_def,comp_def]
@@ -5952,9 +5994,7 @@ Proof
   \\ qexists_tac ‘h::ys'’ \\ fs []
 QED *)
 
-Theorem comp_StoreConsts_correct:
-  ^(get_goal "StoreConsts")
-Proof
+Resume comp_correct[StoreConsts]:
   gvs [wordSemTheory.evaluate_def,AllCaseEqs(),PULL_EXISTS]
   \\ rpt strip_tac \\ gvs [comp_def]
   \\ pairarg_tac \\ gvs []
@@ -6033,9 +6073,7 @@ Proof
   \\ qexists_tac ‘h::ys'’ \\ fs []
 QED *)
 
-Theorem comp_Move_correct:
-  ^(get_goal "Move")
-Proof
+Resume comp_correct[Move]:
   REPEAT STRIP_TAC \\ fs[get_labels_def]
   \\ fs[comp_def] \\ rveq
   \\ fs[evaluate_def]
@@ -6218,9 +6256,7 @@ Proof
   \\ metis_tac[parmove_preserves_moves]
 QED
 
-Theorem comp_Inst_correct:
-  ^(get_goal "Inst")
-Proof
+Resume comp_correct[Inst]:
   REPEAT STRIP_TAC \\ fs[get_labels_def] \\
   fs[comp_def,wordSemTheory.evaluate_def]
   \\ last_x_assum mp_tac
@@ -6233,16 +6269,12 @@ Proof
   \\ strip_tac \\ simp[]
 QED
 
-Theorem comp_Assign_correct:
-  ^(get_goal "Assign")
-Proof
+Resume comp_correct[Assign]:
   REPEAT STRIP_TAC \\ fs[get_labels_def] \\
   fs[flat_exp_conventions_def]
 QED
 
-Theorem comp_Get_correct:
-  ^(get_goal "Get")
-Proof
+Resume comp_correct[Get]:
   REPEAT STRIP_TAC \\ fs[get_labels_def] \\
   fs[flat_exp_conventions_def]
   \\ fs[comp_def]
@@ -6265,9 +6297,7 @@ Proof
   \\ metis_tac[]
 QED
 
-Theorem comp_Set_correct:
-  ^(get_goal "wordLang$Set")
-Proof
+Resume comp_correct[Set]:
   REPEAT STRIP_TAC \\ qexists_tac `0`
   \\ fs[get_labels_def]
   \\ Cases_on`exp`>>fs[convs_def]
@@ -6287,9 +6317,7 @@ Proof
   \\ irule state_rel_set_store \\ fs[]
 QED
 
-Theorem comp_OpCurrHeap_correct:
-  ^(get_goal "OpCurrHeap")
-Proof
+Resume comp_correct[OpCurrHeap]:
   REPEAT STRIP_TAC \\ qexists_tac `0`
   \\ fs[get_labels_def]
   \\ fs[convs_def]
@@ -6318,16 +6346,12 @@ Proof
   \\ simp[]
 QED
 
-Theorem comp_Store_correct:
-  ^(get_goal "Store")
-Proof
+Resume comp_correct[Store]:
   REPEAT STRIP_TAC \\ fs[get_labels_def] \\
   fs[flat_exp_conventions_def]
 QED
 
-Theorem comp_Tick_correct:
-  ^(get_goal "Tick")
-Proof
+Resume comp_correct[Tick]:
   REPEAT STRIP_TAC \\
   fs [comp_def] \\ rw[] \\
   fs[get_labels_def] \\
@@ -6339,18 +6363,14 @@ Proof
   \\ metis_tac[]
 QED
 
-Theorem comp_MustTerminate_correct:
-  ^(get_goal "MustTerminate")
-Proof
+Resume comp_correct[MustTerminate]:
   REPEAT STRIP_TAC \\ fs[get_labels_def] \\
   fs [wordSemTheory.evaluate_def,LET_DEF,
       stackSemTheory.evaluate_def,comp_def]
   \\ Cases_on `s.termdep = 0` \\ fs [state_rel_def]
 QED
 
-Theorem comp_Seq_correct:
-  ^(get_goal "wordLang$Seq")
-Proof
+Resume comp_correct[Seq]:
   REPEAT STRIP_TAC \\ fs[get_labels_def] \\
   fs [wordSemTheory.evaluate_def,LET_DEF,
         stackSemTheory.evaluate_def,comp_def]
@@ -6415,9 +6435,7 @@ Proof
   \\ fs[]
 QED
 
-Theorem comp_Return_correct:
-  ^(get_goal "Return")
-Proof
+Resume comp_correct[Return]:
   REPEAT STRIP_TAC \\ fs[get_labels_def] \\
   qexists_tac `0` \\
   gvs[wordSemTheory.evaluate_def,AllCaseEqs()] \\
@@ -6549,9 +6567,7 @@ Proof
   PairCases_on `h` >> Cases_on `h0` >> fs[handler_val_def]
 QED
 
-Theorem comp_Raise_correct:
-  ^(get_goal "wordLang$Raise")
-Proof
+Resume comp_correct[Raise]:
   REPEAT STRIP_TAC \\ fs[get_labels_def] \\
   fs [wordSemTheory.evaluate_def,jump_exc_def]
   \\ `1 < k` by (fs [state_rel_def] \\ decide_tac)
@@ -6693,9 +6709,7 @@ Proof
   fs[]
 QED
 
-Theorem comp_If_correct:
-  ^(get_goal "wordLang$If")
-Proof
+Resume comp_correct[If]:
   rw[] >> fs[comp_def]>>
   rpt(pairarg_tac>>gvs[])>>
   rename1`_ = (q1,bss)`>>
@@ -6723,8 +6737,8 @@ Proof
     strip_tac >>
     simp[Once stackSemTheory.evaluate_def,evaluate_wStackLoad_clock]>>
     simp[stackSemTheory.evaluate_def,evaluate_wStackLoad_clock] >>
-    simp[stackSemTheory.get_var_imm_def,word_cmp_Word_Word]>>
-    gvs[markerTheory.Abbrev_def,word_cmp_Word_Word,convs_def,wordLangTheory.max_var_def] >>
+    simp[stackSemTheory.get_var_imm_def]>>
+    gvs[markerTheory.Abbrev_def,convs_def,wordLangTheory.max_var_def] >>
     `!a b c. max3 a b c = MAX a (MAX b c)`
        by simp[max3_def,MAX_DEF] >>
     fs[]
@@ -6759,7 +6773,6 @@ Proof
     rw[]>>
     simp[Once stackSemTheory.evaluate_def,evaluate_wStackLoad_clock]>>
     simp[stackSemTheory.evaluate_def,evaluate_wStackLoad_clock,stackSemTheory.get_var_imm_def]>>
-    simp[word_cmp_Word_Word] >>
     gvs[markerTheory.Abbrev_def,convs_def,wordLangTheory.max_var_def] >>
     `!a b c. max3 a b c = MAX a (MAX b c)`
        by simp[max3_def,MAX_DEF] >>
@@ -6799,7 +6812,7 @@ Proof
     rw[]>>
     simp[Once stackSemTheory.evaluate_def,evaluate_wStackLoad_clock]>>
     simp[stackSemTheory.evaluate_def,evaluate_wStackLoad_clock]>>
-    simp[stackSemTheory.get_var_imm_def,word_cmp_Word_Word] >>
+    simp[stackSemTheory.get_var_imm_def] >>
     gvs[markerTheory.Abbrev_def,convs_def,wordLangTheory.max_var_def] >>
     `!a b c. max3 a b c = MAX a (MAX b c)`
        by simp[max3_def,MAX_DEF] >>
@@ -6834,9 +6847,7 @@ Proof
      )
 QED
 
-Theorem comp_LocValue_correct:
-  ^(get_goal "wordLang$LocValue")
-Proof
+Resume comp_correct[LocValue]:
   REPEAT STRIP_TAC \\ fs[get_labels_def] \\
   fs[comp_def,wordSemTheory.evaluate_def]
   \\ fs[convs_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]
@@ -6874,9 +6885,7 @@ Proof
 PairCases_on `P` >> simp[]
 QED
 
-Theorem comp_Install_correct:
-  ^(get_goal "wordLang$Install")
-Proof
+Resume comp_correct[Install]:
   REPEAT STRIP_TAC \\ fs[get_labels_def] \\
   qexists_tac`0` \\
   fs[comp_def,wordSemTheory.evaluate_def]
@@ -7006,9 +7015,7 @@ Proof
   \\ rfs[]
 QED
 
-Theorem comp_CodeBufferWrite_correct:
-  ^(get_goal "wordLang$CodeBufferWrite")
-Proof
+Resume comp_correct[CodeBufferWrite]:
   REPEAT STRIP_TAC \\ qexists_tac `0`
   \\ fs[get_labels_def]
   \\ fs[convs_def]
@@ -7034,9 +7041,7 @@ Proof
   \\ metis_tac[]
 QED
 
-Theorem comp_DataBufferWrite_correct:
-  ^(get_goal "wordLang$DataBufferWrite")
-Proof
+Resume comp_correct[DataBufferWrite]:
   REPEAT STRIP_TAC \\ qexists_tac `0`
   \\ fs[get_labels_def]
   \\ fs[convs_def]
@@ -7063,9 +7068,7 @@ Proof
   \\ metis_tac[]
 QED
 
-Theorem comp_FFI_correct:
-  ^(get_goal "wordLang$FFI")
-Proof
+Resume comp_correct[FFI]:
   REPEAT STRIP_TAC \\ fs[get_labels_def] \\
   fs [EVAL ``post_alloc_conventions k (FFI ffi_index ptr1 len1 ptr2 len2 names)``]
   \\ rw [] \\ fs [] \\ rw []
@@ -7468,9 +7471,7 @@ Proof
   metis_tac[]
 QED
 
-Theorem comp_ShareInst_correct:
-  ^(get_goal "wordLang$ShareInst")
-Proof
+Resume comp_correct[ShareInst]:
   rpt strip_tac >>
   gvs[EVAL ``post_alloc_conventions k (ShareInst op v exp)``,comp_def] >>
   old_drule flat_exp_conventions_ShareInst_exp_simp >>
@@ -7666,9 +7667,7 @@ fun uncurry_case_rand x = x
 
 fun note_tac s g = (print ("comp_Call_correct: " ^ s ^ "\n"); ALL_TAC g);
 
-Theorem comp_Call_correct:
- ^(get_goal "wordLang$Call")
-Proof
+Resume comp_correct[Call]:
   REPEAT GEN_TAC \\
   DISCH_THEN $ ASSUME_NAMED_TAC "IND" \\
   REPEAT STRIP_TAC \\
@@ -7892,6 +7891,11 @@ Proof
     \\ qunabbrev_tac `t5` \\ fsrw_tac[] []
     \\ `ck + (s.clock - 1) = ck + s.clock - 1` by decide_tac
     \\ qexists_tac `ck` \\ fsrw_tac[] []
+    \\ IF_CASES_TAC
+    >- (fsrw_tac[] [PULL_EXISTS]
+        \\ Cases_on `res1` \\ fsrw_tac[] [PULL_EXISTS]
+        \\ Cases_on ‘x’ \\ gvs []
+        \\ Cases_on ‘res'’ \\ gvs [])
     \\ Cases_on `res1` \\ fsrw_tac[] [PULL_EXISTS])
   \\ note_tac "comp_correct returning call case(s)"
   \\ fs[UNCURRY_EQ,TypeBase.case_eq_of ``:'a # 'b``] \\ rveq
@@ -9773,52 +9777,16 @@ Proof
     Q.EXISTS_TAC `ck'` >> fs[])
 QED
 
-Theorem comp_correct:
-   !(prog:'a wordLang$prog) (s:('a,num # 'c,'ffi) wordSem$state) k f f' res s1 t bs lens.
-     (wordSem$evaluate (prog,s) = (res,s1)) /\ res <> SOME Error /\
-     state_rel ac k f f' s t lens 0 /\
-     post_alloc_conventions k prog /\
-     flat_exp_conventions prog /\
-     comp ac prog (bs,n) (k,f,f') = (sprog, (bs',n')) /\
-     LENGTH (append bs) ≤ n ∧ n - LENGTH (append bs) ≤ LENGTH t.bitmaps ∧
-     isPREFIX (append bs') (DROP (n - LENGTH (append bs)) t.bitmaps) ∧
-     get_labels sprog SUBSET loc_check t.code /\
-     max_var prog < 2 * f' + 2 * k ==>
-     ?ck t1:('a,'c,'ffi) stackSem$state res1.
-       (stackSem$evaluate (sprog,t with clock := t.clock + ck) = (res1,t1)) /\
-       if OPTION_MAP compile_result res <> res1
-       then res1 = SOME (Halt (Word 2w)) /\
-            t1.ffi.io_events ≼ s1.ffi.io_events /\
-            the (s1.stack_limit + 1) s1.stack_max > s1.stack_limit
-       else
-         case res of
-         | NONE => state_rel ac k f f' s1 t1 lens 0
-         | SOME (Result _ ys) =>
-            (state_rel ac k 0 0 s1 t1 lens (LENGTH ys - (k - 1)) /\
-            (∀i. i < LENGTH ys ⇒
-              if i + 1 < k then
-                FLOOKUP t1.regs (i + 1) = SOME (EL i ys)
-              else
-                LLOOKUP (DROP t1.stack_space t1.stack)
-                  (LENGTH ys − (i + 1)) = SOME (EL i ys)))
-         | SOME (Exception _ y) =>
-             ∃l0 l.
-             (state_rel ac k 0 0 (push_locals l0 l s1) t1 (LASTN (s.handler+1) lens) 0 /\
-             s1.locals = union (fromAList l) (fromAList l0) ∧
-             FLOOKUP t1.regs 1 = SOME y)
-         | SOME _ => s1.ffi = t1.ffi /\ s1.clock = t1.clock
-Proof
-  match_mp_tac (the_ind_thm()) >>
-  rpt conj_tac >>
-  MAP_FIRST MATCH_ACCEPT_TAC [comp_Skip_correct, comp_Alloc_correct,
-    comp_StoreConsts_correct, comp_Move_correct, comp_Inst_correct,
-    comp_Assign_correct, comp_Get_correct, comp_Set_correct,
-    comp_Store_correct, comp_Tick_correct, comp_MustTerminate_correct,
-    comp_Seq_correct, comp_Return_correct, comp_Raise_correct,
-    comp_If_correct, comp_LocValue_correct, comp_Install_correct,
-    comp_CodeBufferWrite_correct, comp_DataBufferWrite_correct,
-    comp_FFI_correct, comp_OpCurrHeap_correct, comp_Call_correct,comp_ShareInst_correct]
-QED
+Finalise comp_correct;
+
+(* match original comp_correct shape: n, sprog, bs', n' are free *)
+val comp_correct = let
+  val th = REWRITE_RULE [FORALL_PROD] comp_correct
+  val vs = th |> concl |> strip_forall |> #1
+  val drops = List.filter (fn v => let val n = #1 (dest_var v) in
+    n = "n" orelse n = "sprog" orelse n = "bs'" orelse n = "n'" end) vs
+  val keeps = List.filter (fn v => not (List.exists (fn d => Term.compare(v,d) = EQUAL) drops)) vs
+  in GENL keeps (SPECL vs th) end;
 
 Theorem evaluate_Seq_Skip[local]:
   stackSem$evaluate (Seq Skip p,s) = evaluate (p,s)
@@ -10513,7 +10481,7 @@ Proof
   >-
     (Cases_on`i`>>TRY(Cases_on`m`)>>TRY(Cases_on`a`)>>
     TRY(Cases_on`f`)>>
-    TRY(Cases_on`b`>>Cases_on`r`)>>EVAL_TAC>>
+    TRY(Cases_on`b`>>Cases_on`r`)>>TRY(Cases_on`r`)>>EVAL_TAC>>
     EVERY_CASE_TAC>>EVAL_TAC)
   >- rpt (EVERY_CASE_TAC>>EVAL_TAC)
   >- rpt (EVERY_CASE_TAC>>EVAL_TAC)
@@ -10713,7 +10681,7 @@ Proof
     EVAL_TAC>>fs[])
   >- (
     Cases_on`i`>>TRY(Cases_on`m`)>>TRY(Cases_on`a`)>>
-    TRY(Cases_on`b`>>Cases_on`r`)>>
+    TRY(Cases_on`b`>>Cases_on`r`)>>TRY(Cases_on`r`)>>
     TRY(Cases_on`f`)>>
     fs wconvs>>
     fs[inst_ok_less_def,inst_arg_convention_def,every_inst_def,two_reg_inst_def,wordLangTheory.every_var_inst_def,reg_allocTheory.is_phy_var_def,asmTheory.fp_reg_ok_def] >>
@@ -10878,7 +10846,7 @@ Proof
   >- (
     Cases_on`i`>>TRY(Cases_on`m`)>>TRY(Cases_on`a`)>>
     TRY(Cases_on`f`)>>
-    TRY(Cases_on`b`>>Cases_on`r`)>>
+    TRY(Cases_on`b`>>Cases_on`r`)>>TRY(Cases_on`r`)>>
     rpt(EVAL_TAC>>rw[]))
   >- (rpt(EVAL_TAC>>rw[]))
   >- (rpt(EVAL_TAC>>rw[]))

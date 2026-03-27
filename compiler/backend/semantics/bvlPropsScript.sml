@@ -31,11 +31,10 @@ Proof
   EVAL_TAC
 QED
 
-fun get_thms ty = { case_def = TypeBase.case_def_of ty, nchotomy = TypeBase.nchotomy_of ty }
 val case_eq_thms = LIST_CONJ
   (CaseEq "eq_result" :: CaseEq "const_part" :: CaseEq "word_size" ::
    CaseEq "result" :: CaseEq "error_result" ::
-   map (prove_case_eq_thm o get_thms)
+   map TypeBase.case_eq_of
   [``:v``, ``:'a ref``, ``:'a option``, ``:'a list``, ``:'a + 'b``,
    ``:closLang$op``, ``:closLang$mem_op``, ``:closLang$int_op``,
    ``:closLang$word_op``, ``:closLang$block_op``, ``:closLang$glob_op``,

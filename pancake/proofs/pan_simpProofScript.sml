@@ -186,23 +186,38 @@ val goal =
     FST (evaluate (prog,s)) <> SOME Error ==>
     evaluate (ret_to_tail prog, s) = evaluate (prog,s)``
 
-local
-  val ind_thm = panSemTheory.evaluate_ind
-    |> ISPEC goal
-    |> CONV_RULE (DEPTH_CONV PairRules.PBETA_CONV) |> REWRITE_RULE [];
-  fun list_dest_conj tm = if not (is_conj tm) then [tm] else let
-    val (c1,c2) = dest_conj tm in list_dest_conj c1 @ list_dest_conj c2 end
-  val ind_goals = ind_thm |> concl |> dest_imp |> fst |> list_dest_conj
-in
-  fun get_goal s = first (can (find_term (can (match_term (Term [QUOTE s]))))) ind_goals
-  fun ret_to_tail_tm () = ind_thm |> concl |> rand
-  fun the_ind_thm () = ind_thm
-end
+val ind_thm = panSemTheory.evaluate_ind
+  |> ISPEC goal
+  |> CONV_RULE (DEPTH_CONV PairRules.PBETA_CONV) |> REWRITE_RULE [];
 
-
-Theorem ret_to_tail_Dec:
-  ^(get_goal "panLang$Dec")
+Theorem ret_to_tail_correct:
+  ^(ind_thm |> concl |> rand)
 Proof
+  match_mp_tac ind_thm
+  \\ rpt conj_tac
+  >~ [`panLang$Skip`] >- suspend "Skip"
+  >~ [`panLang$Break`] >- suspend "Break"
+  >~ [`panLang$Continue`] >- suspend "Continue"
+  >~ [`panLang$Annot`] >- suspend "Annot"
+  >~ [`panLang$Tick`] >- suspend "Tick"
+  >~ [`panLang$Assign`] >- suspend "Assign"
+  >~ [`panLang$Dec`] >- suspend "Dec"
+  >~ [`panLang$Store`] >- suspend "Store"
+  >~ [`panLang$Store32`] >- suspend "Store32"
+  >~ [`panLang$StoreByte`] >- suspend "StoreByte"
+  >~ [`panLang$ShMemLoad`] >- suspend "ShMemLoad"
+  >~ [`panLang$ShMemStore`] >- suspend "ShMemStore"
+  >~ [`panLang$Return`] >- suspend "Return"
+  >~ [`panLang$Raise`] >- suspend "Raise"
+  >~ [`panLang$ExtCall`] >- suspend "ExtCall"
+  >~ [`panLang$Seq`] >- suspend "Seq"
+  >~ [`panLang$If`] >- suspend "If"
+  >~ [`panLang$While`] >- suspend "While"
+  >~ [`panLang$Call`] >- suspend "Call"
+  >~ [`panLang$DecCall`] >- suspend "DecCall"
+QED
+
+Resume ret_to_tail_correct[Dec]:
   rw [ret_to_tail_def] >>
   fs [evaluate_def] >>
   TOP_CASE_TAC >> fs [] >>
@@ -210,9 +225,7 @@ Proof
 QED
 
 
-Theorem ret_to_tail_Seq:
-  ^(get_goal "panLang$Seq")
-Proof
+Resume ret_to_tail_correct[Seq]:
   rw [ret_to_tail_def] >>
   qmatch_goalsub_abbrev_tac ‘seq_call_ret sprog’ >>
   ‘evaluate (seq_call_ret sprog,s) = evaluate (sprog,s)’ by (
@@ -230,18 +243,14 @@ Proof
   fs [evaluate_def]
 QED
 
-Theorem ret_to_tail_If:
-  ^(get_goal "panLang$If")
-Proof
+Resume ret_to_tail_correct[If]:
   rw [ret_to_tail_def] >>
   fs [evaluate_def] >>
   every_case_tac >> fs [] >>
   rpt (pairarg_tac >> fs [] >> rveq)
 QED
 
-Theorem ret_to_tail_While:
-  ^(get_goal "panLang$While")
-Proof
+Resume ret_to_tail_correct[While]:
   rw [] >>
   fs [ret_to_tail_def] >>
   once_rewrite_tac [evaluate_def] >>
@@ -260,18 +269,14 @@ Proof
   fs []
 QED
 
-Theorem ret_to_tail_Call:
-  ^(get_goal "panLang$Call")
-Proof
+Resume ret_to_tail_correct[Call]:
   rw [] >>
   fs [ret_to_tail_def, evaluate_def] >>
   every_case_tac >>
   fs [evaluate_def, ret_to_tail_def]
 QED
 
-Theorem ret_to_tail_DecCall:
-  ^(get_goal "panLang$DecCall")
-Proof
+Resume ret_to_tail_correct[DecCall]:
   rw [] >>
   fs [ret_to_tail_def, evaluate_def] >>
   every_case_tac >>
@@ -279,35 +284,63 @@ Proof
   pairarg_tac >> gvs[]
 QED
 
-Theorem ret_to_tail_Others:
-  ^(get_goal "panLang$Skip") /\
-  ^(get_goal "panLang$Assign") /\
-  ^(get_goal "panLang$Store") /\
-  ^(get_goal "panLang$Store32") /\
-  ^(get_goal "panLang$StoreByte") /\
-  ^(get_goal "panLang$Break") /\
-  ^(get_goal "panLang$Continue") /\
-  ^(get_goal "panLang$ExtCall") /\
-  ^(get_goal "panLang$Raise") /\
-  ^(get_goal "panLang$ShMemLoad") /\
-  ^(get_goal "panLang$ShMemStore") /\
-  ^(get_goal "panLang$Return") /\
-  ^(get_goal "panLang$Annot") /\
-  ^(get_goal "panLang$Tick")
-Proof
+Resume ret_to_tail_correct[Skip]:
   rw [ret_to_tail_def]
 QED
 
-Theorem ret_to_tail_correct:
-  ^(ret_to_tail_tm())
-Proof
-  match_mp_tac (the_ind_thm()) >>
-  EVERY (map strip_assume_tac
-         [ret_to_tail_Dec, ret_to_tail_Seq,
-          ret_to_tail_If, ret_to_tail_While, ret_to_tail_Call,
-          ret_to_tail_DecCall, ret_to_tail_Others]) >>
-  asm_rewrite_tac [] >> rw [] >> rpt (pop_assum kall_tac)
+Resume ret_to_tail_correct[Assign]:
+  rw [ret_to_tail_def]
 QED
+
+Resume ret_to_tail_correct[Store]:
+  rw [ret_to_tail_def]
+QED
+
+Resume ret_to_tail_correct[Store32]:
+  rw [ret_to_tail_def]
+QED
+
+Resume ret_to_tail_correct[StoreByte]:
+  rw [ret_to_tail_def]
+QED
+
+Resume ret_to_tail_correct[Break]:
+  rw [ret_to_tail_def]
+QED
+
+Resume ret_to_tail_correct[Continue]:
+  rw [ret_to_tail_def]
+QED
+
+Resume ret_to_tail_correct[ExtCall]:
+  rw [ret_to_tail_def]
+QED
+
+Resume ret_to_tail_correct[Raise]:
+  rw [ret_to_tail_def]
+QED
+
+Resume ret_to_tail_correct[ShMemLoad]:
+  rw [ret_to_tail_def]
+QED
+
+Resume ret_to_tail_correct[ShMemStore]:
+  rw [ret_to_tail_def]
+QED
+
+Resume ret_to_tail_correct[Return]:
+  rw [ret_to_tail_def]
+QED
+
+Resume ret_to_tail_correct[Annot]:
+  rw [ret_to_tail_def]
+QED
+
+Resume ret_to_tail_correct[Tick]:
+  rw [ret_to_tail_def]
+QED
+
+Finalise ret_to_tail_correct;
 
 Theorem compile_correct_same_state:
   FST (evaluate (p,s)) <> SOME Error ==>
@@ -608,24 +641,39 @@ val goal =
       ∃t1. evaluate (comp prog,t) = (res,t1) /\
       state_rel s1 t1 t1.code``
 
-local
-  val goal = beta_conv ``^goal (pan_simp$seq_assoc Skip)``
-  val ind_thm = panSemTheory.evaluate_ind
-    |> ISPEC goal
-    |> CONV_RULE (DEPTH_CONV PairRules.PBETA_CONV) |> REWRITE_RULE [];
-  fun list_dest_conj tm = if not (is_conj tm) then [tm] else let
-    val (c1,c2) = dest_conj tm in list_dest_conj c1 @ list_dest_conj c2 end
-  val ind_goals = ind_thm |> concl |> dest_imp |> fst |> list_dest_conj
-in
-  fun get_goal s = first (can (find_term (can (match_term (Term [QUOTE s]))))) ind_goals
-  fun compile_tm () = ind_thm |> concl |> rand
-  fun the_ind_thm () = ind_thm
-end
+val goal2 = beta_conv ``^goal (pan_simp$seq_assoc Skip)``
+val ind_thm2 = panSemTheory.evaluate_ind
+  |> ISPEC goal2
+  |> CONV_RULE (DEPTH_CONV PairRules.PBETA_CONV) |> REWRITE_RULE [];
 
-
-Theorem compile_Seq:
-  ^(get_goal "panLang$Seq")
+Theorem compile_correct:
+  ^(ind_thm2 |> concl |> rand)
 Proof
+  match_mp_tac ind_thm2
+  \\ rpt conj_tac
+  >~ [`panLang$Skip`] >- suspend "Skip"
+  >~ [`panLang$Break`] >- suspend "Break"
+  >~ [`panLang$Continue`] >- suspend "Continue"
+  >~ [`panLang$Annot`] >- suspend "Annot"
+  >~ [`panLang$Tick`] >- suspend "Tick"
+  >~ [`panLang$Assign`] >- suspend "Assign"
+  >~ [`panLang$Dec`] >- suspend "Dec"
+  >~ [`panLang$Store`] >- suspend "Store"
+  >~ [`panLang$Store32`] >- suspend "Store32"
+  >~ [`panLang$StoreByte`] >- suspend "StoreByte"
+  >~ [`panLang$ShMemLoad`] >- suspend "ShMemLoad"
+  >~ [`panLang$ShMemStore`] >- suspend "ShMemStore"
+  >~ [`panLang$Return`] >- suspend "Return"
+  >~ [`panLang$Raise`] >- suspend "Raise"
+  >~ [`panLang$ExtCall`] >- suspend "ExtCall"
+  >~ [`panLang$Seq`] >- suspend "Seq"
+  >~ [`panLang$If`] >- suspend "If"
+  >~ [`panLang$While`] >- suspend "While"
+  >~ [`panLang$Call`] >- suspend "Call"
+  >~ [`panLang$DecCall`] >- suspend "DecCall"
+QED
+
+Resume compile_correct[Seq]:
   rw [] >>
   fs [evaluate_seq_assoc, evaluate_skip_seq] >>
   fs [evaluate_def] >>
@@ -646,9 +694,7 @@ Proof
   rveq >> fs []
 QED
 
-Theorem compile_Dec:
-  ^(get_goal "panLang$Dec")
-Proof
+Resume compile_correct[Dec]:
   rw [] >>
   fs [evaluate_seq_assoc, evaluate_skip_seq] >>
   fs [evaluate_def] >>
@@ -667,9 +713,7 @@ Proof
   fs [state_component_equality]
 QED
 
-Theorem compile_If:
-  ^(get_goal "panLang$If")
-Proof
+Resume compile_correct[If]:
   rw [] >>
   fs [evaluate_seq_assoc, evaluate_skip_seq] >>
   fs [evaluate_def] >>
@@ -683,9 +727,7 @@ Proof
 QED
 
 
-Theorem compile_Call:
-  ^(get_goal "panLang$Call")
-Proof
+Resume compile_correct[Call]:
   rw [] >>
   fs [evaluate_seq_assoc, evaluate_skip_seq] >>
   fs [evaluate_def] >>
@@ -765,9 +807,7 @@ Proof
   fs [state_rel_def, state_component_equality]
 QED
 
-Theorem compile_DecCall:
-  ^(get_goal "panLang$DecCall")
-Proof
+Resume compile_correct[DecCall]:
   rw [] >>
   fs [evaluate_seq_assoc, evaluate_skip_seq] >>
   fs [evaluate_def] >>
@@ -810,9 +850,7 @@ Proof
   simp[]
 QED
 
-Theorem compile_While:
-  ^(get_goal "panLang$While")
-Proof
+Resume compile_correct[While]:
   rw [] >>
   fs [evaluate_seq_assoc, evaluate_skip_seq] >>
   qpat_x_assum ‘ evaluate (While e c,s) = (res,s1)’ mp_tac >>
@@ -847,9 +885,7 @@ Proof
   fs []
 QED
 
-Theorem compile_ExtCall:
-  ^(get_goal "panLang$ExtCall")
-Proof
+Resume compile_correct[ExtCall]:
   rw [] >>
   fs [evaluate_seq_assoc, evaluate_skip_seq] >>
   fs [evaluate_def] >> rveq >> fs [] >>
@@ -862,9 +898,7 @@ Proof
   strip_tac >> fs []
 QED
 
-Theorem compile_ShMemLoad:
-  ^(get_goal "panLang$ShMemLoad")
-Proof
+Resume compile_correct[ShMemLoad]:
   rw [] >>
   gvs [evaluate_seq_assoc, evaluate_skip_seq,
        oneline nb_op_def,sh_mem_load_def,sh_mem_store_def,
@@ -876,9 +910,7 @@ Proof
        empty_locals_def, dec_clock_def]
 QED
 
-Theorem compile_ShMemStore:
-  ^(get_goal "panLang$ShMemStore")
-Proof
+Resume compile_correct[ShMemStore]:
   rw [] >>
   fs [evaluate_seq_assoc, evaluate_skip_seq] >>
   Cases_on ‘op’>>
@@ -894,19 +926,7 @@ Proof
   strip_tac >> fs []
 QED
 
-Theorem compile_Others:
-  ^(get_goal "panLang$Skip") /\
-  ^(get_goal "panLang$Assign") /\
-  ^(get_goal "panLang$Store") /\
-  ^(get_goal "panLang$Store32") /\
-  ^(get_goal "panLang$StoreByte") /\
-  ^(get_goal "panLang$Break") /\
-  ^(get_goal "panLang$Continue") /\
-  ^(get_goal "panLang$Raise") /\
-  ^(get_goal "panLang$Return") /\
-  ^(get_goal "panLang$Annot") /\
-  ^(get_goal "panLang$Tick")
-Proof
+val compile_Others_tac =
   rw [] >>
   fs [evaluate_seq_assoc, evaluate_skip_seq] >>
   fs [evaluate_def] >> rveq >> fs [kvar_defs] >>
@@ -914,19 +934,53 @@ Proof
   every_case_tac >> gvs [] >>
   imp_res_tac compile_eval_correct >>
   gvs [state_rel_def, state_component_equality,
-       empty_locals_def, dec_clock_def])
+       empty_locals_def, dec_clock_def]);
+
+Resume compile_correct[Skip]:
+  compile_Others_tac
 QED
 
-Theorem compile_correct:
-  ^(compile_tm())
-Proof
-  match_mp_tac (the_ind_thm()) >>
-  EVERY (map strip_assume_tac
-         [compile_Dec, compile_Seq, compile_ShMemLoad, compile_ShMemStore,
-          compile_If, compile_While, compile_Call, compile_DecCall,
-          compile_ExtCall, compile_Call,compile_Others]) >>
-  asm_rewrite_tac [] >> rw [] >> rpt (pop_assum kall_tac)
+Resume compile_correct[Assign]:
+  compile_Others_tac
 QED
+
+Resume compile_correct[Store]:
+  compile_Others_tac
+QED
+
+Resume compile_correct[Store32]:
+  compile_Others_tac
+QED
+
+Resume compile_correct[StoreByte]:
+  compile_Others_tac
+QED
+
+Resume compile_correct[Break]:
+  compile_Others_tac
+QED
+
+Resume compile_correct[Continue]:
+  compile_Others_tac
+QED
+
+Resume compile_correct[Raise]:
+  compile_Others_tac
+QED
+
+Resume compile_correct[Return]:
+  compile_Others_tac
+QED
+
+Resume compile_correct[Annot]:
+  compile_Others_tac
+QED
+
+Resume compile_correct[Tick]:
+  compile_Others_tac
+QED
+
+Finalise compile_correct;
 
 Theorem functions_compile_prog:
   functions(pan_simp$compile_prog prog) =

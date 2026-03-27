@@ -87,12 +87,6 @@ Theorem v_rel_simps[simp] =
   prove(``v_rel Unit x <=> x = Unit``,
         fs [closSemTheory.Unit_def,Once v_rel_cases])]
 
-Definition opt_rel_def[simp]:
-  opt_rel f NONE NONE = T /\
-  opt_rel f (SOME x) (SOME y) = f x y /\
-  opt_rel f _ _ = F
-End
-
 (* state relation *)
 
 Inductive ref_rel:
@@ -338,9 +332,9 @@ QED
 
 Theorem state_rel_opt_rel_refs[local]:
   (state_rel s1 s2 ∧ FLOOKUP s1.refs n = r1 ⇒
-     ∃r2. FLOOKUP s2.refs n = r2 ∧ opt_rel ref_rel r1 r2) ∧
+     ∃r2. FLOOKUP s2.refs n = r2 ∧ OPTREL ref_rel r1 r2) ∧
   (state_rel s1 s2 ∧ FLOOKUP s2.refs n = r2 ⇒
-     ∃r1. FLOOKUP s1.refs n = r1 ∧ opt_rel ref_rel r1 r2)
+     ∃r1. FLOOKUP s1.refs n = r1 ∧ OPTREL ref_rel r1 r2)
 Proof
   rw [] \\ gvs [state_rel_def, FMAP_REL_def, FLOOKUP_DEF] \\ rw []
 QED
@@ -373,7 +367,7 @@ Proof
     gvs [Once v_rel_cases, oneline store_thunk_def, AllCaseEqs(), PULL_EXISTS]
     \\ rpt (
       imp_res_tac state_rel_opt_rel_refs \\ rw []
-      \\ gvs [oneline opt_rel_def]
+      \\ gvs [oneline OPTREL_THM]
       \\ FULL_CASE_TAC \\ gvs []
       \\ rgs [Once ref_rel_cases])
     \\ gvs [state_rel_def, FMAP_REL_def, FLOOKUP_UPDATE] \\ rw []
@@ -535,8 +529,8 @@ Proof
       \\ (
         gvs [oneline dest_thunk_def, AllCaseEqs()]
         \\ imp_res_tac (cj 1 state_rel_opt_rel_refs)
-        \\ qpat_x_assum `opt_rel ref_rel _ _` mp_tac
-        \\ simp [oneline opt_rel_def] \\ CASE_TAC \\ gvs [PULL_EXISTS]
+        \\ qpat_x_assum `OPTREL ref_rel _ _` mp_tac
+        \\ simp [oneline OPTREL_THM] \\ CASE_TAC \\ gvs [PULL_EXISTS]
         \\ rgs [Once ref_rel_cases]
         \\ imp_res_tac state_rel_clocks_eqs \\ gvs [PULL_EXISTS]
         \\ imp_res_tac state_rel_dec_clock \\ gvs []

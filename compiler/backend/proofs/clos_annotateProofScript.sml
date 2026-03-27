@@ -237,12 +237,6 @@ Proof
   \\ fs [rich_listTheory.EL_APPEND2]
 QED
 
-Definition opt_rel_def[simp]:
-  opt_rel f NONE NONE = T /\
-  opt_rel f (SOME x) (SOME y) = f x y /\
-  opt_rel f _ _ = F
-End
-
 Definition state_rel_def:
   state_rel (s:('c,'ffi) closSem$state) (t:('c,'ffi) closSem$state) <=>
     (s.clock = t.clock) /\
@@ -591,9 +585,9 @@ val code_tac =
 
 Theorem state_rel_opt_rel_refs[local]:
   (state_rel s1 s2 ∧ FLOOKUP s1.refs n = r1 ⇒
-     ∃r2. FLOOKUP s2.refs n = r2 ∧ opt_rel (ref_rel v_rel) r1 r2) ∧
+     ∃r2. FLOOKUP s2.refs n = r2 ∧ OPTREL (ref_rel v_rel) r1 r2) ∧
   (state_rel s1 s2 ∧ FLOOKUP s2.refs n = r2 ⇒
-     ∃r1. FLOOKUP s1.refs n = r1 ∧ opt_rel (ref_rel v_rel) r1 r2)
+     ∃r1. FLOOKUP s1.refs n = r1 ∧ OPTREL (ref_rel v_rel) r1 r2)
 Proof
   rw [] \\ gvs [state_rel_def, FLOOKUP_DEF] \\ rw []
 QED
@@ -618,7 +612,7 @@ Proof
     gvs [Once v_rel_cases, oneline store_thunk_def, AllCaseEqs(), PULL_EXISTS]
     \\ rpt (
       imp_res_tac state_rel_opt_rel_refs \\ rw []
-      \\ gvs [oneline opt_rel_def]
+      \\ gvs [oneline OPTREL_THM]
       \\ FULL_CASE_TAC \\ gvs [])
     \\ gvs [state_rel_def, FLOOKUP_UPDATE] \\ rw []
     \\ simp [ref_rel_def, Once v_rel_cases]
@@ -883,8 +877,8 @@ Proof
       gvs [oneline dest_thunk_def, AllCaseEqs(), PULL_EXISTS]
       \\ rgs [Once v_rel_cases]
       \\ imp_res_tac (cj 1 state_rel_opt_rel_refs)
-      \\ qpat_x_assum `opt_rel (ref_rel v_rel) _ _` mp_tac
-      \\ simp [oneline opt_rel_def] \\ CASE_TAC \\ gvs [PULL_EXISTS]
+      \\ qpat_x_assum `OPTREL (ref_rel v_rel) _ _` mp_tac
+      \\ simp [oneline OPTREL_THM] \\ CASE_TAC \\ gvs [PULL_EXISTS]
       \\ imp_res_tac state_rel_clocks_eqs \\ gvs [PULL_EXISTS]
       \\ last_x_assum $ qspecl_then [`[b]`, `t2`, `0`, `1`, `i`] mp_tac
       \\ (

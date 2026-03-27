@@ -1,6 +1,6 @@
 (*
   Abstract syntax of Crepe language
-  Crepe: instrctuons are similar to that of
+  Crepe: instructions are similar to that of
   Pancake, but we flatten locals from
   struct-layout to word-layout
 *)

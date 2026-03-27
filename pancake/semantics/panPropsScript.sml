@@ -336,13 +336,13 @@ Theorem all_distinct_alist_ctxt_max:
   ALL_DISTINCT (ns:num list) /\
   LENGTH ns = size_of_shape (Comb sh) ∧
   LENGTH vs = LENGTH sh ⇒
-   ctxt_max (list_max ns)
+   ctxt_max (MAX_LIST ns)
       (alist_to_fmap (ZIP (vs,ZIP (sh,with_shape sh ns))))
 Proof
   rw [] >> fs [ctxt_max_def] >>
   rw [] >>
   ‘MEM x ns’ suffices_by (
-             assume_tac list_max_max >>
+             assume_tac MAX_LIST_max >>
              pop_assum (qspec_then ‘ns’ assume_tac) >>
              fs [EVERY_MEM]) >>
   drule ALOOKUP_MEM >>
@@ -1358,7 +1358,7 @@ Theorem eval_swap_memaddrs:
     eval (s with memaddrs := memaddrs) exp = SOME v
 Proof
   recInduct eval_ind >>
-  rw[eval_def,AllCaseEqs(),PULL_EXISTS,mem_load_byte_def,mem_load_32_def] >>
+  rw[eval_def,AllCaseEqs(),PULL_EXISTS,mem_load_byte_def,mem_load_32_alt] >>
   rpt $ irule_at (Pos last) EQ_REFL >>
   rpt $ first_assum $ irule_at (Pos last) >>
   fs[]
@@ -1397,7 +1397,7 @@ Theorem eval_swap_memory:
     eval (s with memory := mry) exp = SOME v
 Proof
   recInduct eval_ind >>
-  rw[eval_def,AllCaseEqs(),PULL_EXISTS,mem_load_byte_def,mem_load_32_def] >>
+  rw[eval_def,AllCaseEqs(),PULL_EXISTS,mem_load_byte_def,mem_load_32_alt] >>
   rpt $ irule_at (Pos last) EQ_REFL >>
   rpt $ first_assum $ irule_at (Pos last) >>
   fs[]

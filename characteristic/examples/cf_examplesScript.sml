@@ -203,10 +203,10 @@ Theorem example_raise_spec[local]:
   !uv.
     UNIT_TYPE () uv ==>
     app (p:'ffi ffi_proj) example_raise_v [uv]
-      emp (POSTe v. & (v = Conv (SOME (ExnStamp 8)) []))
+      emp (POSTe v. & (v = Conv (SOME (ExnStamp 9)) []))
 Proof
   rpt strip_tac \\ xcf' "example_raise" \\
-  xlet `POSTv ev. & (ev = Conv (SOME (ExnStamp 8)) [])`
+  xlet `POSTv ev. & (ev = Conv (SOME (ExnStamp 9)) [])`
   THEN1 (xcon \\ xsimpl) \\
   xraise \\ xsimpl
 QED
@@ -228,9 +228,9 @@ Theorem example_handle_spec[local]:
 Proof
   rpt strip_tac \\
   xcf' "example_handle" \\
-  xhandle `POSTe v. & Foo_exn 9 3 v`
+  xhandle `POSTe v. & Foo_exn 10 3 v`
   THEN1 (
-    xlet `POSTv v. & Foo_exn 9 3 v`
+    xlet `POSTv v. & Foo_exn 10 3 v`
     THEN1 (xcon \\ fs [Foo_exn_def] \\ xsimpl) \\
     xraise \\ xsimpl
   ) \\
@@ -255,7 +255,7 @@ Theorem example_handle2_spec[local]:
 Proof
   rpt strip_tac \\ xcf' "example_handle2" \\
   xhandle ‘POSTve (\v. & (x > 0 /\ INT 1 v))
-                  (\e. & (x <= 0 /\ Foo_exn 10 (-1) e))’
+                  (\e. & (x <= 0 /\ Foo_exn 11 (-1) e))’
   THEN1 (
     xlet `POSTv bv. & (BOOL (x > 0) bv)`
     THEN1 (xapp \\ fs []) \\
@@ -265,7 +265,7 @@ Proof
       irule FALSITY \\ intLib.ARITH_TAC
     )
     THEN1 (
-      xlet `POSTv ev. & Foo_exn 10 (-1) ev`
+      xlet `POSTv ev. & Foo_exn 11 (-1) ev`
       THEN1 (xret \\ fs [Foo_exn_def] \\ xsimpl) \\
       xraise \\ xsimpl \\ intLib.ARITH_TAC
     )
@@ -373,9 +373,9 @@ QED
 (* Quote add_cakeml: *)
 (*   fun strcat_foo r = r := !r ^ "foo" *)
 (* End *)
-(* TODO Try new syntax using Quote once #1313 on HOL has been resolved *)
-val strcat_foo = (append_prog o process_topdecs)
-  `fun strcat_foo r = r := !r ^ "foo"`
+Quote add_cakeml:
+  fun strcat_foo r = r := !r ^ "foo"
+End
 
 val xlet_auto = cfLetAutoLib.xlet_auto
 
@@ -385,13 +385,13 @@ Theorem strcat_foo_spec[local]:
     app (p:'ffi ffi_proj) strcat_foo_v [rv]
       (REF rv sv)
       (POSTv uv. SEP_EXISTS sv'.
-           &(UNIT_TYPE () uv /\ STRING_TYPE (s ^ implode "foo") sv') *
+           &(UNIT_TYPE () uv /\ STRING_TYPE (s ^ «foo») sv') *
            REF rv sv')
 Proof
   rpt strip_tac >>
   xcf' "strcat_foo" >>
   xlet_auto >- xsimpl >>
-  xlet `POSTv sv'. &(STRING_TYPE (s ^ implode "foo") sv') * rv ~~> sv`
+  xlet `POSTv sv'. &(STRING_TYPE (s ^ «foo») sv') * rv ~~> sv`
   >- (xapp >> xsimpl >> simp[mlstringTheory.implode_def] >> metis_tac[]) >>
   rveq >> xapp >> xsimpl
 QED
@@ -408,7 +408,7 @@ Theorem example_ffidiv_spec[local]:
       (POST
          (λuv. &(UNIT_TYPE () uv) * &(¬b) * RUNTIME)
          (λev. &F)
-         (λn conf bytes. &b * &(n = "exit" /\ conf = [] /\ bytes = [1w])
+         (λn conf bytes. &b * &(n = «exit» /\ conf = [] /\ bytes = [1w])
                   * RUNTIME)
          (λio. F))
 Proof
@@ -469,4 +469,3 @@ Proof
   xsimpl>>
   rw[]>>simp[Once even_odd_def]
 QED
-

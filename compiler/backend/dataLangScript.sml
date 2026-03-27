@@ -1,5 +1,5 @@
 (*
-  The dataLang intermediate lannguage is the last language with a
+  The dataLang intermediate language is the last language with a
   functional-programming-style data abstraction.
 
   dataLang is the next step from BVL/BVI: (1) dataLang is an
@@ -58,6 +58,7 @@ Definition op_requires_names_def:
   op_requires_names op = (op_space_reset op ∨ (∃n. op = FFI n) ∨
                          (∃new_flag. op = (MemOp (CopyByte new_flag))) ∨
                          (op = MemOp XorByte) ∨
+                         (∃b cmp. op = MemOp (StringCmp b cmp)) ∨
                          (op = Install))
 End
 

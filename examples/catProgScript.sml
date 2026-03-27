@@ -5,155 +5,168 @@
 *)
 Theory catProg
 Ancestors
-  cfApp basis_ffi
+  cfApp TextIOProof basis_ffi
 Libs
-  preamble basis
+  preamble basis basisFunctionsLib
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
 val _ = translation_extends"basisProg";
 
-val _ = process_topdecs `
-  fun do_onefile fname =
-    let
-      val fd = TextIO.openIn fname
-      fun recurse () =
-        case TextIO.input1 fd of None => ()
-        | Some c => (TextIO.output1 TextIO.stdOut c; recurse())
-    in
-      recurse () ;
-      TextIO.closeIn fd
-    end
+Quote add_cakeml:
+  fun print_stream is =
+    case TextIO.input1 is of
+      None => ()
+    | Some c => (TextIO.output1 TextIO.stdOut c; print_stream is)
+End
 
-  fun cat fnames =
-    case fnames of
-      [] => ()
-    | f::fs => (do_onefile f ; cat fs)
-` |> append_prog
+Quote add_cakeml:
+  fun do_onefile fname = let
+    val is = TextIO.openIn fname
+  in print_stream is; TextIO.closeIn is end
+End
 
-(* TODO: move *)
-Theorem SEP_EXISTS_UNWIND1:
-   (SEP_EXISTS x. &(a = x) * P x) = P a
+(* Prints one file, ignoring it if it does not exist. *)
+Quote add_cakeml:
+  fun cat1 f = do_onefile f handle TextIO.BadFileName => ()
+End
+
+Quote add_cakeml:
+  fun cat fnames = case fnames of
+    [] => ()
+  | f::fs => (do_onefile f; cat fs)
+End
+
+Quote add_cakeml:
+  fun cat_main _ = cat (CommandLine.arguments())
+End
+
+val st = get_ml_prog_state ();
+
+Theorem print_stream_spec:
+  ∀p is fs fd s.
+    app (p:'ffi ffi_proj) print_stream_v [is]
+      (STDIO fs * INSTREAM_STR fd is s fs)
+      (POSTv u.
+         STDIO (add_stdout (fastForwardFD fs fd) (implode s)) *
+         INSTREAM_STR fd is "" (fastForwardFD fs fd) *
+         &(UNIT_TYPE () u))
 Proof
-  rw[Once FUN_EQ_THM,SEP_EXISTS_THM,STAR_def,Once EQ_IMP_THM,cond_def,SPLIT_def]
+  Induct_on ‘s’ \\ rpt strip_tac
+  \\ xcf "print_stream" st
+  >-
+   (once_rewrite_tac [STDIO_STD_streams] \\ xpull
+    \\ drule INSTREAM_STR_fd_neq
+    \\ disch_then $ once_rewrite_tac o sing \\ xpull
+    \\ xlet
+       ‘POSTv chv. SEP_EXISTS k.
+          STDIO (forwardFD fs fd k) *
+          INSTREAM_STR fd is "" (forwardFD fs fd k) *
+          &(OPTION_TYPE CHAR NONE chv)’
+    >-
+     (xapp_spec input1_spec_str
+      \\ qexistsl [‘emp’, ‘""’, ‘fs’, ‘fd’] \\ xsimpl)
+    \\ gvs [OPTION_TYPE_def]
+    \\ xmatch \\ xcon \\ xsimpl
+    \\ simp [implode_def]
+    \\ DEP_REWRITE_TAC [add_stdout_nil, STD_streams_fastForwardFD] \\ xsimpl
+    \\ simp [INSTREAM_STR_fastForwardFD])
+  \\ once_rewrite_tac [STDIO_STD_streams] \\ xpull
+  \\ drule INSTREAM_STR_fd_neq
+  \\ disch_then $ once_rewrite_tac o sing \\ xpull
+  \\ rename [‘INSTREAM_STR _ _ (c::rest)’]
+  \\ xlet
+       ‘POSTv chv. SEP_EXISTS k.
+          STDIO (forwardFD fs fd k) *
+          INSTREAM_STR fd is rest (forwardFD fs fd k) *
+          &(OPTION_TYPE CHAR (SOME c) chv)’
+  >-
+   (xapp_spec input1_spec_str
+    \\ qexistsl [‘emp’, ‘c::rest’, ‘fs’, ‘fd’] \\ xsimpl)
+  \\ gvs [OPTION_TYPE_def]
+  \\ xmatch
+  \\ xlet ‘POSTv uv.
+             &UNIT_TYPE () uv *
+             STDIO (add_stdout (forwardFD fs fd k) (str c)) *
+             INSTREAM_STR fd is rest (forwardFD fs fd k)’
+  >-
+   (xapp_spec output1_stdOut_spec
+    \\ qexistsl
+       [‘INSTREAM_STR fd is rest (forwardFD fs fd k)’,
+        ‘forwardFD fs fd k’, ‘c’]
+    \\ simp [] \\ xsimpl)
+  \\ once_rewrite_tac [INSTREAM_STR_get_file_content] \\ xpull
+  \\ xapp
+  \\ qexistsl [‘emp’, ‘add_stdout (forwardFD fs fd k) (str c)’, ‘fd’]
+  \\ xsimpl
+  \\ ‘STD_streams (forwardFD fs fd k)’ by
+    (DEP_REWRITE_TAC [STD_streams_forwardFD] \\ simp [])
+  \\ ‘STD_streams (fastForwardFD fs fd)’ by
+    (DEP_REWRITE_TAC [STD_streams_fastForwardFD] \\ simp [])
+  \\ conj_tac
+  >- (DEP_REWRITE_TAC [INSTREAM_STR_add_stdout] \\ simp [] \\ xsimpl)
+  \\ conj_tac >- (DEP_REWRITE_TAC [STD_streams_add_stdout] \\ simp [])
+  \\ DEP_REWRITE_TAC [GSYM add_stdout_fastForwardFD]
+  \\ conj_tac >- simp []
+  \\ DEP_REWRITE_TAC [fastForwardFD_forwardFD]
+  \\ conj_tac >- simp []
+  \\ drule STD_streams_stdout \\ strip_tac
+  \\ drule_then assume_tac add_stdo_o \\ simp []
+  \\ simp [implode_cons_str] \\ xsimpl
+  \\ DEP_REWRITE_TAC [INSTREAM_STR_add_stdout]
+  \\ simp [] \\ xsimpl
 QED
-
-Theorem SEP_EXISTS_UNWIND2:
-   (SEP_EXISTS x. &(x = a) * P x) = P a
-Proof
-  rw[Once FUN_EQ_THM,SEP_EXISTS_THM,STAR_def,Once EQ_IMP_THM,cond_def,SPLIT_def]
-QED
-(* -- *)
 
 Theorem do_onefile_spec:
-   ∀fnm fnv fs.
-      FILENAME fnm fnv ∧ hasFreeFD fs
-    ⇒
-      app (p:'ffi ffi_proj) ^(fetch_v "do_onefile" (get_ml_prog_state())) [fnv]
-       (STDIO fs)
-       (POSTve
-         (\u. SEP_EXISTS content ino.
-              &UNIT_TYPE () u *
-              &(ALOOKUP fs.files fnm = SOME ino) *
-              &(ALOOKUP fs.inode_tbl (File ino) = SOME content) *
-              STDIO (add_stdout fs (implode content)))
-         (\e. &BadFileName_exn e *
-              &(~inFS_fname fs fnm) *
-              STDIO fs))
+  FILENAME fnm fnv ∧ hasFreeFD fs
+  ⇒
+  app (p:'ffi ffi_proj) do_onefile_v [fnv]
+    (STDIO fs)
+    (POSTve
+     (λu. SEP_EXISTS content.
+        &(UNIT_TYPE () u) *
+        &(file_content fs fnm = SOME content) *
+        STDIO (add_stdout fs (implode content)))
+     (λe. &BadFileName_exn e *
+          &(~inFS_fname fs fnm) *
+          STDIO fs))
 Proof
-  rpt strip_tac >> xcf "do_onefile" (get_ml_prog_state()) >>
-  reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull) \\
-  reverse(Cases_on`consistentFS fs`)
-  >-(fs[STDIO_def,IOFS_def,wfFS_def] \\ xpull \\ fs[consistentFS_def] \\ res_tac)
-  \\ xlet_auto_spec (SOME (SPEC_ALL openIn_STDIO_spec))
-  >- xsimpl
-  >- xsimpl
-  \\ imp_res_tac nextFD_ltX
-  \\ progress inFS_fname_ALOOKUP_EXISTS
-  \\ progress ALOOKUP_inFS_fname_openFileFS_nextFD
-  \\ rfs[]
-  \\ pop_assum(qspec_then`0`strip_assume_tac)
-  \\ imp_res_tac STD_streams_nextFD
-  \\ qabbrev_tac`fd = nextFD fs` \\
-  xfun_spec `recurse`
-    `!m n fs00 uv.
-       UNIT_TYPE () uv ∧ m = LENGTH content - n ∧ n ≤ LENGTH content ∧
-       STD_streams fs00 ∧ get_file_content fs00 fd = SOME (content, n) ∧
-       get_mode fs00 fd = SOME ReadMode
-         ==>
-       app p recurse [uv]
-         (STDIO fs00)
-         (POSTv u.
-            &UNIT_TYPE () u *
-            STDIO (add_stdout (fastForwardFD fs00 fd) (implode (DROP n content))))`
-
-  >- (Induct
-      >- ((* base case *)
-          rpt strip_tac >> `n = LENGTH content` by simp[] >> fs[] >> rveq >>
-          xapp >> fs[UNIT_TYPE_def] >> xmatch >>
-          imp_res_tac get_file_content_eof >> fs[] >>
-          xlet_auto >- xsimpl \\
-          fs[OPTION_TYPE_def] \\ xmatch \\
-          xcon
-          \\ imp_res_tac STD_streams_stdout
-          \\ simp[DROP_LENGTH_NIL,add_stdout_fastForwardFD,implode_def]
-          \\ imp_res_tac add_stdo_nil \\ xsimpl
-          \\ simp[fastForwardFD_0]
-          \\ xsimpl) >>
-      rpt strip_tac >> fs[] >> last_assum xapp_spec >>
-      qpat_x_assum `UNIT_TYPE () _` mp_tac >> simp[UNIT_TYPE_def] >>
-      strip_tac >> xmatch >>
-      imp_res_tac get_file_content_eof >> rfs[] >>
-      xlet_auto >- xsimpl \\
-      fs[OPTION_TYPE_def] \\ xmatch \\
-      xlet_auto_spec (SOME (Q.SPEC`forwardFD fs00 fd 1`(Q.GEN`fs`output1_stdout_spec)))
-      >- xsimpl
-      \\ xlet_auto >- ( xcon \\ xsimpl )
-      \\ xapp
-      \\ qmatch_goalsub_abbrev_tac`STDIO fs01`
-      \\ map_every qexists_tac [`emp`,`n+1`,`fs01`]
-      \\ xsimpl
-      \\ simp[Abbr`fs01`,STD_streams_add_stdout,
-              STD_streams_forwardFD,get_file_content_add_stdout]
-      \\ simp[add_stdo_forwardFD,add_stdout_fastForwardFD,
-              STD_streams_forwardFD,STD_streams_fastForwardFD,STD_streams_add_stdout]
-      \\ simp[fastForwardFD_forwardFD,get_file_content_add_stdout,STD_streams_add_stdout]
-      \\ simp[UNIT_TYPE_def]
-      \\ imp_res_tac STD_streams_stdout
-      \\ imp_res_tac add_stdo_o
-      \\ xsimpl
-      \\ simp[DROP_CONS_EL,ADD1,strcat_thm]
-      \\ xsimpl) >>
-  xlet_auto >- (xret >> xsimpl) >>
-  (* calling recurse *)
-  (*
-  srw_tac[star_ss][SEP_EXISTS_UNWIND1]
-  \\ first_x_assum(qspecl_then[`LENGTH content`,`0`]mp_tac)
-  \\ simp[UNIT_TYPE_def]
-  \\ simp[fsFFITheory.get_file_content_def,PULL_EXISTS,FORALL_PROD]
-  \\ disch_then(first_assum o (mp_then (Pos (el 2)) mp_tac))
-  \\ simp[STD_streams_openFileFS] \\ strip_tac
-  (* TODO: xlet_auto fails here - not enough information for the heuristics   *)
-  *)
-  xlet `POSTv u3. &(u3 = Conv NONE []) *
-                  STDIO (add_stdout (fastForwardFD (openFileFS fnm fs ReadMode 0) fd) (implode content))`
-  >- (xapp >>
-      simp[fsFFITheory.get_file_content_def,PULL_EXISTS,EXISTS_PROD] >>
-      first_x_assum(qspec_then`ReadMode`strip_assume_tac) >>
-      goal_assum(first_assum o (mp_then (Pos(el 4)) mp_tac)) >>
-      xsimpl >>
-      fs[UNIT_TYPE_def,STD_streams_openFileFS]
-      \\ simp[get_mode_def]) >>
-  (* calling close *)
-  xapp_spec closeIn_STDIO_spec >>
-  xsimpl >> instantiate >>
-  qmatch_goalsub_abbrev_tac`STDIO fs0` >>
-  CONV_TAC SWAP_EXISTS_CONV >>
-  qexists_tac`fs0` \\ xsimpl \\
-  simp[Abbr`fs0`,UNIT_TYPE_def,add_stdout_fastForwardFD,STD_streams_openFileFS] \\
-  simp[GSYM add_stdo_ADELKEY,Abbr`fd`,openFileFS_ADELKEY_nextFD] \\
-  xsimpl \\
-  simp[validFileFD_def]
+  rpt strip_tac
+  \\ xcf "do_onefile" st
+  \\ once_rewrite_tac [STDIO_consistentFS] \\ xpull
+  \\ once_rewrite_tac [STDIO_STD_streams] \\ xpull
+  \\ drule_then assume_tac STD_streams_nextFD
+  \\ drule_then assume_tac nextFD_maxFD
+  \\ Cases_on ‘inFS_fname fs fnm’
+  >-
+   (drule_all inFS_fname_file_content_SOME \\ strip_tac
+    \\ rename [‘file_content _ _ = SOME content’]
+    \\ drule_all_then assume_tac validFileFD_nextFD
+    \\ xlet_auto_spec (SOME openIn_spec_str) >- xsimpl
+    \\ qmatch_goalsub_abbrev_tac ‘INSTREAM_STR fd₁ _ _ fs₁’
+    \\ xlet ‘POSTv u.
+               STDIO (add_stdout (fastForwardFD fs₁ fd₁) (implode content)) *
+               INSTREAM_STR fd₁ is "" (fastForwardFD fs₁ fd₁) *
+               &(UNIT_TYPE () u)’
+    >- (xapp \\ qexistsl [‘emp’, ‘content’, ‘fs₁’, ‘fd₁’] \\ xsimpl)
+    \\ xapp_spec closeIn_spec_str \\ xsimpl
+    \\ qmatch_goalsub_abbrev_tac ‘STDIO fs₂’
+    \\ qexistsl [‘emp’, ‘""’, ‘fs₂’, ‘fd₁’] \\ xsimpl
+    \\ unabbrev_all_tac \\ simp []
+    \\ conj_tac >-
+     (DEP_REWRITE_TAC [
+         INSTREAM_STR_add_stdout,
+         STD_streams_fastForwardFD,
+         STD_streams_openFileFS
+       ]
+      \\ xsimpl)
+    \\ DEP_REWRITE_TAC [STD_streams_add_stdout]
+    \\ simp [consistentFS_add_stdout]
+    \\ DEP_REWRITE_TAC [add_stdout_fastForwardFD, STD_streams_openFileFS]
+    \\ simp[GSYM add_stdo_ADELKEY, openFileFS_ADELKEY_nextFD]
+    \\ xsimpl)
+  \\ xlet_auto_spec (SOME openIn_STDIO_spec) >- xsimpl
+  \\ xsimpl
 QED
 
 Definition file_contents_def:
@@ -183,14 +196,14 @@ Theorem cat_spec0[local]:
      EVERY (inFS_fname fs) fns ∧
      hasFreeFD fs
     ⇒
-     app (p:'ffi ffi_proj) ^(fetch_v "cat" (get_ml_prog_state())) [fnsv]
+     app (p:'ffi ffi_proj) cat_v [fnsv]
        (STDIO fs)
        (POSTv u.
           &UNIT_TYPE () u *
           STDIO (add_stdout fs (catfiles_string fs fns)))
 Proof
   Induct >>
-  rpt strip_tac >> xcf "cat" (get_ml_prog_state()) >>
+  rpt strip_tac >> xcf "cat" st >>
   fs[LIST_TYPE_def] >>
   (reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull))
   >- (xmatch >> xret >> simp[catfiles_string_def, file_contents_def] >>
@@ -213,17 +226,12 @@ Proof
   imp_res_tac add_stdo_o \\
   simp[Abbr`fs0`] \\
   simp[Once file_contents_def,SimpR``(==>>)``,concat_cons] \\
-  simp[file_contents_add_stdout] \\ xsimpl
+  simp[file_contents_add_stdout] \\ xsimpl \\
+  gvs [file_content_def, AllCaseEqs()] \\ xsimpl
 QED
 
 Theorem cat_spec =
   cat_spec0 |> SIMP_RULE (srw_ss()) []
-
-val _ = process_topdecs `
-  fun cat1 f =
-    (do_onefile f)
-    handle TextIO.BadFileName => ()
-` |> append_prog
 
 Definition catfile_string_def:
   catfile_string fs fnm =
@@ -234,23 +242,25 @@ End
 Theorem cat1_spec:
    !fnm fnmv.
      FILENAME fnm fnmv /\ hasFreeFD fs ==>
-     app (p:'ffi ffi_proj) ^(fetch_v "cat1" (get_ml_prog_state())) [fnmv]
+     app (p:'ffi ffi_proj) cat1_v [fnmv]
        (STDIO fs)
        (POSTv u.
           &UNIT_TYPE () u *
           STDIO (add_stdout fs (catfile_string fs fnm)))
 Proof
   rpt strip_tac >>
-  xcf "cat1" (get_ml_prog_state()) >>
-  xhandle `POSTve
-             (\u. SEP_EXISTS content ino. &UNIT_TYPE () u *
-               &(ALOOKUP fs.files fnm = SOME ino) *
-               &(ALOOKUP fs.inode_tbl (File ino) = SOME content) *
-               STDIO (add_stdout fs (implode content)))
-             (\e. &BadFileName_exn e * &(~inFS_fname fs fnm) *
-               STDIO fs)` >> fs[]
-  >- ((*xapp_prepare_goal*) xapp >> fs[])
+  xcf "cat1" st >>
+  xhandle ‘POSTve
+             (λu. SEP_EXISTS content.
+                &(UNIT_TYPE () u) *
+                &(file_content fs fnm = SOME content) *
+                STDIO (add_stdout fs (implode content)))
+             (λe. &BadFileName_exn e *
+                &(~inFS_fname fs fnm) *
+                STDIO fs)’ >> fs[]
+  >- (xapp >> fs[])
   >- (xsimpl >> rpt strip_tac >>
+      gvs [file_content_def, AllCaseEqs()] >>
       imp_res_tac ALOOKUP_SOME_inFS_fname >>
       simp[catfile_string_def, file_contents_def] >>
       xsimpl) >>
@@ -262,16 +272,10 @@ Proof
   xsimpl
 QED
 
-val cat_main = process_topdecs`
-  fun cat_main _ = cat (CommandLine.arguments())`;
-val _ = append_prog cat_main;
-
-val st = get_ml_prog_state();
-
 Theorem cat_main_spec:
    EVERY (inFS_fname fs) (TL cl) ∧ hasFreeFD fs
    ⇒
-   app (p:'ffi ffi_proj) ^(fetch_v"cat_main"st) [Conv NONE []]
+   app (p:'ffi ffi_proj) cat_main_v [Conv NONE []]
      (STDIO fs * COMMANDLINE cl)
      (POSTv uv. &UNIT_TYPE () uv * (STDIO (add_stdout fs (catfiles_string fs (TL cl)))
                                     * (COMMANDLINE cl)))
@@ -297,7 +301,7 @@ QED
 
 Theorem cat_whole_prog_spec:
    EVERY (inFS_fname fs) (TL cl) ∧ hasFreeFD fs ⇒
-   whole_prog_spec ^(fetch_v"cat_main"st) cl fs NONE
+   whole_prog_spec cat_main_v cl fs NONE
     ((=) (add_stdout fs (catfiles_string fs (TL cl))))
 Proof
   disch_then assume_tac

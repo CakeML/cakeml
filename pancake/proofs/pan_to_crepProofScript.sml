@@ -1,8 +1,9 @@
 (*
-  Correctness proof for --
+  Correctness proof for pan_to_crep
 *)
 Theory pan_to_crepProof
 Ancestors
+  crep_inlineProof[qualified]
   panSem panProps crepLang crepSem pan_common
   listRange crepProps pan_commonProps pan_to_crep
 Libs
@@ -24,7 +25,7 @@ End
 Definition ctxt_fc_def:
   ctxt_fc cvs em vs shs ns =
     <|vars := FEMPTY |++ ZIP (vs, ZIP (shs, with_shape shs ns));
-      funcs := cvs; eids := em; vmax := list_max ns |>
+      funcs := cvs; eids := em; vmax := MAX_LIST ns |>
 End
 
 
@@ -419,71 +420,88 @@ Definition globals_lookup_def:
 End
 
 
-val gen_goal =
-  ``λ comp (prog, s). ∀res s1 t ctxt.
-      evaluate (prog,s) = (res,s1) ∧ res ≠ SOME Error ∧
-      state_rel s t ∧ code_rel ctxt s.code t.code /\
-      excp_rel ctxt.eids s.eshapes /\
-      locals_rel ctxt s.locals t.locals /\
-      localised_prog prog ⇒
-      ∃res1 t1. evaluate (comp ctxt prog,t) = (res1,t1) /\
-      state_rel s1 t1 ∧ code_rel ctxt s1.code t1.code /\
-      excp_rel ctxt.eids s1.eshapes /\
+Theorem pc_compile_correct:
+  ∀v v1 res s1 t ctxt.
+    evaluate (v,v1) = (res,s1) ∧ res ≠ SOME Error ∧ state_rel v1 t ∧
+    code_rel ctxt v1.code t.code ∧ excp_rel ctxt.eids v1.eshapes ∧
+    locals_rel ctxt v1.locals t.locals ∧ localised_prog v ⇒
+    ∃res1 t1.
+      evaluate (compile ctxt v,t) = (res1,t1) ∧ state_rel s1 t1 ∧
+      code_rel ctxt s1.code t1.code ∧ excp_rel ctxt.eids s1.eshapes ∧
       case res of
-       | NONE => res1 = NONE /\ locals_rel ctxt s1.locals t1.locals
-       | SOME Break => res1 = SOME Break /\
-                       locals_rel ctxt s1.locals t1.locals
-       | SOME Continue => res1 = SOME Continue /\
-                       locals_rel ctxt s1.locals t1.locals
-       | SOME (Return v) =>
-          (size_of_shape (shape_of v) = 0 ==> res1 = SOME (Return (Word 0w))) ∧
-          (size_of_shape (shape_of v) = 1 ==> res1 = SOME (Return (HD(flatten v)))) ∧
-          (1 < size_of_shape (shape_of v) ==>
-               res1 = SOME (Return (Word 0w)) /\ globals_lookup t1 v = SOME (flatten v) ∧
-               size_of_shape (shape_of v) <= 32)
-       | SOME (Exception eid v) =>
-         (case FLOOKUP ctxt.eids eid of
-           | SOME n => res1 = SOME (Exception n) ∧
-             (1 <= size_of_shape (shape_of v) ==>
-                  globals_lookup t1 v = SOME (flatten v) ∧
-                  size_of_shape (shape_of v) <= 32)
-           | NONE => F)
-       | SOME TimeOut => res1 = SOME TimeOut
-       | SOME (FinalFFI f) => res1 = SOME (FinalFFI f)
-       | _ => F``
-
-local
-  val goal = beta_conv ``^gen_goal pan_to_crep$compile``
-  val ind_thm = panSemTheory.evaluate_ind
-    |> ISPEC goal
-    |> CONV_RULE (DEPTH_CONV PairRules.PBETA_CONV) |> REWRITE_RULE [];
-  fun list_dest_conj tm = if not (is_conj tm) then [tm] else let
-    val (c1,c2) = dest_conj tm in list_dest_conj c1 @ list_dest_conj c2 end
-  val ind_goals = ind_thm |> concl |> dest_imp |> fst |> list_dest_conj
-in
-  fun get_goal s = first (can (find_term (can (match_term (Term [QUOTE s]))))) ind_goals
-  fun compile_tm () = ind_thm |> concl |> rand
-  fun the_ind_thm () = ind_thm
-  val fgoal = beta_conv ``^gen_goal pan_to_crep$compile``
-end
-
-
-
-Theorem compile_Skip_Break_Continue_Annot:
-  ^(get_goal "compile _ panLang$Skip") /\
-  ^(get_goal "compile _ panLang$Break") /\
-  ^(get_goal "compile _ panLang$Continue") /\
-  ^(get_goal "compile _ (panLang$Annot _ _)")
+        NONE => res1 = NONE ∧ locals_rel ctxt s1.locals t1.locals
+      | SOME Error => F
+      | SOME TimeOut => res1 = SOME TimeOut
+      | SOME Break => res1 = SOME Break ∧ locals_rel ctxt s1.locals t1.locals
+      | SOME Continue =>
+        res1 = SOME Continue ∧ locals_rel ctxt s1.locals t1.locals
+      | SOME (Return v) =>
+        (size_of_shape (shape_of v) = 0 ⇒ res1 = SOME (Return (Word 0w))) ∧
+        (size_of_shape (shape_of v) = 1 ⇒
+         res1 = SOME (Return (HD (flatten v)))) ∧
+        (1 < size_of_shape (shape_of v) ⇒
+         res1 = SOME (Return (Word 0w)) ∧
+         globals_lookup t1 v = SOME (flatten v) ∧
+         size_of_shape (shape_of v) ≤ 32)
+      | SOME (Exception eid v') =>
+        (case FLOOKUP ctxt.eids eid of
+           NONE => F
+         | SOME n =>
+           res1 = SOME (Exception n) ∧
+           (1 ≤ size_of_shape (shape_of v') ⇒
+            globals_lookup t1 v' = SOME (flatten v') ∧
+            size_of_shape (shape_of v') ≤ 32))
+      | SOME (FinalFFI f) => res1 = SOME (FinalFFI f)
 Proof
+  recInduct panSemTheory.evaluate_ind
+  \\ rpt conj_tac
+  >~ [`panLang$Skip`] >- suspend "Skip"
+  >~ [`panLang$Break`] >- suspend "Break"
+  >~ [`panLang$Continue`] >- suspend "Continue"
+  >~ [`panLang$Annot`] >- suspend "Annot"
+  >~ [`panLang$Tick`] >- suspend "Tick"
+  >~ [`panLang$Assign`] >- suspend "Assign"
+  >~ [`panLang$Dec`] >- suspend "Dec"
+  >~ [`panLang$Store`] >- suspend "Store"
+  >~ [`panLang$Store32`] >- suspend "Store32"
+  >~ [`panLang$StoreByte`] >- suspend "StoreByte"
+  >~ [`panLang$ShMemLoad`] >- suspend "ShMemLoad"
+  >~ [`panLang$ShMemStore`] >- suspend "ShMemStore"
+  >~ [`panLang$Return`] >- suspend "Return"
+  >~ [`panLang$Raise`] >- suspend "Raise"
+  >~ [`panLang$ExtCall`] >- suspend "ExtCall"
+  >~ [`panLang$Seq`] >- suspend "Seq"
+  >~ [`panLang$If`] >- suspend "If"
+  >~ [`panLang$While`] >- suspend "While"
+  >~ [`panLang$Call`] >- suspend "Call"
+  >~ [`panLang$DecCall`] >- suspend "DecCall"
+QED
+
+Resume pc_compile_correct[Skip]:
   rpt strip_tac >>
   fs [panSemTheory.evaluate_def, evaluate_def,
       compile_def,localised_prog_def] >> rveq >> fs []
 QED
 
+Resume pc_compile_correct[Break]:
+  rpt strip_tac >>
+  fs [panSemTheory.evaluate_def, evaluate_def,
+      compile_def,localised_prog_def] >> rveq >> fs []
+QED
 
-Theorem compile_Tick:
-  ^(get_goal "compile _ panLang$Tick")
-Proof
+Resume pc_compile_correct[Continue]:
+  rpt strip_tac >>
+  fs [panSemTheory.evaluate_def, evaluate_def,
+      compile_def,localised_prog_def] >> rveq >> fs []
+QED
+
+Resume pc_compile_correct[Annot]:
+  rpt strip_tac >>
+  fs [panSemTheory.evaluate_def, evaluate_def,
+      compile_def,localised_prog_def] >> rveq >> fs []
+QED
+
+Resume pc_compile_correct[Tick]:
   rpt strip_tac >>
   fs [panSemTheory.evaluate_def, evaluate_def,
       compile_def] >> rveq >> fs [] >>
@@ -824,9 +842,7 @@ Proof
 QED
 
 
-Theorem compile_Assign:
-  ^(get_goal "compile _ (panLang$Assign _ _ _)")
-Proof
+Resume pc_compile_correct[Assign]:
   rpt gen_tac >>
   rpt strip_tac >>
   rename [‘Assign vk vr e’] >> Cases_on ‘vk’>>
@@ -1207,9 +1223,7 @@ Proof
 QED
 
 
-Theorem compile_Dec:
-  ^(get_goal "compile _ (panLang$Dec _ _ _ _)")
-Proof
+Resume pc_compile_correct[Dec]:
   rpt gen_tac >>
   rpt strip_tac >>
   fs [panSemTheory.evaluate_def] >>
@@ -1429,9 +1443,7 @@ Proof
   rw [] >> fs [globals_lookup_def]
 QED
 
-Theorem compile_Store:
-  ^(get_goal "compile _ (panLang$Store _ _)")
-Proof
+Resume pc_compile_correct[Store]:
   rpt gen_tac >> rpt strip_tac >>
   fs [panSemTheory.evaluate_def, CaseEq "option", CaseEq "v", CaseEq "word_lab"] >>
   rveq >>
@@ -1563,9 +1575,7 @@ Proof
    fs []
 QED
 
-Theorem compile_Store32:
-  ^(get_goal "compile _ (panLang$Store32 _ _)")
-Proof
+Resume pc_compile_correct[Store32]:
   rpt gen_tac >> rpt strip_tac >>
   fs [panSemTheory.evaluate_def, CaseEq "option", CaseEq "v", CaseEq "word_lab",
       localised_prog_def] >>
@@ -1589,9 +1599,7 @@ Proof
   TOP_CASE_TAC >> fs [] >>
   fs [state_rel_def]
 QED
-Theorem compile_StoreByte:
-  ^(get_goal "compile _ (panLang$StoreByte _ _)")
-Proof
+Resume pc_compile_correct[StoreByte]:
   rpt gen_tac >> rpt strip_tac >>
   fs [panSemTheory.evaluate_def, CaseEq "option", CaseEq "v", CaseEq "word_lab"] >>
   rveq >>
@@ -1621,9 +1629,7 @@ Proof
   Cases >> rw[panSemTheory.shape_of_def]
 QED
 
-Theorem compile_ShMemLoad:
-  ^(get_goal "compile _ (panLang$ShMemLoad _ _ _ _)")
-Proof
+Resume pc_compile_correct[ShMemLoad]:
   rpt gen_tac >> rpt strip_tac >>
   rename1 ‘ShMemLoad _ vk’ >> Cases_on ‘vk’ >>
   gvs[AllCaseEqs(),panSemTheory.evaluate_def,compile_def,
@@ -1671,9 +1677,7 @@ Proof
   res_tac >> rfs[] >> rveq >> rfs[]
 QED
 
-Theorem compile_ShMemStore:
-  ^(get_goal "compile _ (panLang$ShMemStore _ _ _)")
-Proof
+Resume pc_compile_correct[ShMemStore]:
   rpt gen_tac >> rpt strip_tac >>
   Cases_on ‘op’ >>
   gvs[AllCaseEqs(),panSemTheory.evaluate_def,compile_def,
@@ -1711,7 +1715,7 @@ Proof
       miscTheory.UNCURRY_eq_pair,PULL_EXISTS
      ] >>
   dep_rewrite.DEP_ONCE_REWRITE_TAC[update_locals_not_vars_eval_eq'] >>
-  simp[FOLDR_MAX_0_list_max,list_max_add_not_mem,FLOOKUP_UPDATE,
+  simp[FOLDR_MAX_0_MAX_LIST,MAX_LIST_add_not_mem,FLOOKUP_UPDATE,
        sh_mem_op_def,sh_mem_store_def] >>
   gvs[state_rel_def] >>
   gvs[locals_rel_def] >>
@@ -1769,9 +1773,7 @@ Proof
   metis_tac[MEM,PAIR]
 QED
 
-Theorem compile_Return:
-  ^(get_goal "compile _ (panLang$Return _)")
-Proof
+Resume pc_compile_correct[Return]:
   rpt gen_tac >> rpt strip_tac >>
   fs [panSemTheory.evaluate_def, CaseEq "option", CaseEq "bool"] >>
   rveq >> fs [] >>
@@ -1875,9 +1877,7 @@ Proof
   rfs []
 QED
 
-Theorem compile_Raise:
-  ^(get_goal "compile _ (panLang$Raise _ _)")
-Proof
+Resume pc_compile_correct[Raise]:
   rpt gen_tac >> rpt strip_tac >>
   fs [panSemTheory.evaluate_def, CaseEq "option", CaseEq "bool"] >>
   rveq >> fs [] >>
@@ -1949,9 +1949,7 @@ Proof
 QED
 
 
-Theorem compile_Seq:
-  ^(get_goal "compile _ (panLang$Seq _ _)")
-Proof
+Resume pc_compile_correct[Seq]:
   rpt gen_tac >> rpt strip_tac >>
   fs [compile_def] >>
   fs [panSemTheory.evaluate_def,localised_prog_def] >>
@@ -1974,9 +1972,7 @@ Proof
 QED
 
 
-Theorem compile_If:
-  ^(get_goal "compile _ (panLang$If _ _ _)")
-Proof
+Resume pc_compile_correct[If]:
   rpt gen_tac >> rpt strip_tac >>
   fs [panSemTheory.evaluate_def] >>
   fs [compile_def,localised_prog_def] >>
@@ -1998,9 +1994,7 @@ Proof
   rveq  >> fs []
 QED
 
-Theorem compile_While:
-  ^(get_goal "compile _ (panLang$While _ _)")
-Proof
+Resume pc_compile_correct[While]:
   rpt gen_tac >> rpt strip_tac >>
   qpat_x_assum ‘evaluate (While e c,s) = (res,s1)’ mp_tac >>
   once_rewrite_tac [panSemTheory.evaluate_def] >>
@@ -2149,7 +2143,7 @@ Proof
 QED
 
 Theorem ctxt_fc_vmax:
-    (ctxt_fc ctxt.funcs em vs shs ns).vmax = list_max ns
+    (ctxt_fc ctxt.funcs em vs shs ns).vmax = MAX_LIST ns
 Proof
   rw [ctxt_fc_def]
 QED
@@ -2896,9 +2890,7 @@ Proof
   rw[EQ_IMP_THM,GSYM length_flatten_eq_size_of_shape]
 QED
 
-Theorem compile_Call:
-  ^(get_goal "compile _ (panLang$Call _ _ _)")
-Proof
+Resume pc_compile_correct[Call]:
   rpt gen_tac >> rpt strip_tac >>
   fs [panSemTheory.evaluate_def] >>
   fs [compile_def] >>
@@ -3334,9 +3326,7 @@ Proof
   rw[ELIM_UNCURRY]
 QED
 
-Theorem compile_DecCall:
-  ^(get_goal "compile _ (panLang$DecCall _ _ _ _ _)")
-Proof
+Resume pc_compile_correct[DecCall]:
   rpt strip_tac >>
   gvs[panSemTheory.evaluate_def,compile_def,evaluate_def,localised_prog_def] >>
   gvs[shape_of_def,panLangTheory.size_of_shape_def,flatten_def] >>
@@ -4371,22 +4361,20 @@ Proof
   gvs[panSemTheory.dec_clock_def]
 QED
 
-Theorem list_max_APPEND:
-  list_max(a ++ b) = MAX (list_max a) (list_max b)
+Theorem MAX_LIST_APPEND:
+  MAX_LIST(a ++ b) = MAX (MAX_LIST a) (MAX_LIST b)
 Proof
-  Induct_on ‘a’ \\ rw[list_max_def] \\
+  Induct_on ‘a’ \\ rw[MAX_LIST_def] \\
   intLib.COOPER_TAC
 QED
 
-Theorem list_max_NOT_MEM:
-  x > list_max l ⇒ ¬MEM x l
+Theorem MAX_LIST_NOT_MEM:
+  x > MAX_LIST l ⇒ ¬MEM x l
 Proof
-  Induct_on ‘l’ \\ gvs[list_max_def]
+  Induct_on ‘l’ \\ gvs[MAX_LIST_def,MAX_DEF]
 QED
 
-Theorem compile_ExtCall:
-  ^(get_goal "compile _ (panLang$ExtCall _ _ _ _ _)")
-Proof
+Resume pc_compile_correct[ExtCall]:
   rpt gen_tac >> rpt strip_tac >>
   fs [panSemTheory.evaluate_def,localised_prog_def] >>
   fs[CaseEq"bool"]>>
@@ -4402,38 +4390,38 @@ Proof
   qmatch_goalsub_abbrev_tac ‘Dec (freshv + 2)’ \\
   rename1 ‘var_cexp e1 ++ var_cexp e2 ++ var_cexp e3 ++ var_cexp e4’ \\
   ‘¬MEM (freshv + 1) (var_cexp e2)’
-    by(simp[Abbr ‘freshv’,FOLDR_MAX_0_list_max,list_max_APPEND] \\
+    by(simp[Abbr ‘freshv’,FOLDR_MAX_0_MAX_LIST,MAX_LIST_APPEND] \\
        rw[MAX_DEF] \\
-       match_mp_tac list_max_NOT_MEM \\
+       match_mp_tac MAX_LIST_NOT_MEM \\
        intLib.COOPER_TAC) \\
   simp[Once evaluate_def] \\
   simp[update_locals_not_vars_eval_eq'] \\
   ‘¬MEM (freshv + 1) (var_cexp e3)’
-    by(simp[Abbr ‘freshv’,FOLDR_MAX_0_list_max,list_max_APPEND] \\
+    by(simp[Abbr ‘freshv’,FOLDR_MAX_0_MAX_LIST,MAX_LIST_APPEND] \\
        rw[MAX_DEF] \\
-       match_mp_tac list_max_NOT_MEM \\
+       match_mp_tac MAX_LIST_NOT_MEM \\
        intLib.COOPER_TAC) \\
   ‘¬MEM (freshv + 2) (var_cexp e3)’
-    by(simp[Abbr ‘freshv’,FOLDR_MAX_0_list_max,list_max_APPEND] \\
+    by(simp[Abbr ‘freshv’,FOLDR_MAX_0_MAX_LIST,MAX_LIST_APPEND] \\
        rw[MAX_DEF] \\
-       match_mp_tac list_max_NOT_MEM \\
+       match_mp_tac MAX_LIST_NOT_MEM \\
        intLib.COOPER_TAC) \\
   simp[Once evaluate_def] \\
   simp[update_locals_not_vars_eval_eq',update_locals_not_vars_eval_eq''] \\
   ‘¬MEM (freshv + 1) (var_cexp e4)’
-    by(simp[Abbr ‘freshv’,FOLDR_MAX_0_list_max,list_max_APPEND] \\
+    by(simp[Abbr ‘freshv’,FOLDR_MAX_0_MAX_LIST,MAX_LIST_APPEND] \\
        rw[MAX_DEF] \\
-       match_mp_tac list_max_NOT_MEM \\
+       match_mp_tac MAX_LIST_NOT_MEM \\
        intLib.COOPER_TAC) \\
   ‘¬MEM (freshv + 2) (var_cexp e4)’
-    by(simp[Abbr ‘freshv’,FOLDR_MAX_0_list_max,list_max_APPEND] \\
+    by(simp[Abbr ‘freshv’,FOLDR_MAX_0_MAX_LIST,MAX_LIST_APPEND] \\
        rw[MAX_DEF] \\
-       match_mp_tac list_max_NOT_MEM \\
+       match_mp_tac MAX_LIST_NOT_MEM \\
        intLib.COOPER_TAC) \\
   ‘¬MEM (freshv + 3) (var_cexp e4)’
-    by(simp[Abbr ‘freshv’,FOLDR_MAX_0_list_max,list_max_APPEND] \\
+    by(simp[Abbr ‘freshv’,FOLDR_MAX_0_MAX_LIST,MAX_LIST_APPEND] \\
        rw[MAX_DEF] \\
-       match_mp_tac list_max_NOT_MEM \\
+       match_mp_tac MAX_LIST_NOT_MEM \\
        intLib.COOPER_TAC) \\
   simp[Once evaluate_def] \\
   simp[update_locals_not_vars_eval_eq',update_locals_not_vars_eval_eq''] \\
@@ -4456,35 +4444,36 @@ Proof
 QED
 
 
-Theorem pc_compile_correct:
-   ^(compile_tm ())
-Proof
-  match_mp_tac (the_ind_thm()) >>
-  EVERY (map strip_assume_tac
-         [compile_Skip_Break_Continue_Annot,compile_Store32,
-          compile_Dec, compile_ShMemLoad, compile_ShMemStore,
-          compile_Assign, compile_Store, compile_StoreByte, compile_Seq,
-          compile_If, compile_While, compile_Call, compile_ExtCall,
-          compile_Raise, compile_Return, compile_Tick, compile_DecCall]) >>
-  asm_rewrite_tac [] >> rw [] >> rpt (pop_assum kall_tac)
-QED
+Finalise pc_compile_correct;
 
 Theorem first_compile_prog_all_distinct:
   ALL_DISTINCT (MAP FST (functions prog)) ==>
   ALL_DISTINCT (MAP FST (pan_to_crep$compile_prog prog))
 Proof
-  fs [pan_to_crepTheory.compile_prog_def,MAP_MAP_o,ELIM_UNCURRY,o_DEF,ETA_AX]
+  fs [pan_to_crepTheory.compile_prog_def,MAP_MAP_o,ELIM_UNCURRY,o_DEF,ETA_AX,
+      pan_to_crepTheory.compile_to_crep_def,
+      crep_inlineTheory.compile_inl_top_def,
+      crep_inlineTheory.compile_inl_prog_def]
+QED
+
+Theorem first_compile_to_crep_all_distinct:
+  ALL_DISTINCT (MAP FST (functions prog)) ==>
+  ALL_DISTINCT (MAP FST (pan_to_crep$compile_to_crep prog))
+Proof
+  fs [pan_to_crepTheory.compile_prog_def,MAP_MAP_o,ELIM_UNCURRY,o_DEF,ETA_AX,
+      pan_to_crepTheory.compile_to_crep_def,
+      crep_inlineTheory.compile_inl_prog_def]
 QED
 
 Theorem alookup_compile_prog_code:
   ALL_DISTINCT (MAP FST (functions pan_code)) ∧
   ALOOKUP (functions pan_code) start = SOME ([],prog) ==>
-  ALOOKUP (compile_prog pan_code) start =
+  ALOOKUP (compile_to_crep pan_code) start =
   SOME ([],
         comp_func (make_funcs(functions pan_code))
                   (get_eids(functions pan_code)) [] prog)
 Proof
-  rw[compile_prog_def, ctxt_fc_def,ELIM_UNCURRY,
+  rw[compile_to_crep_def, ctxt_fc_def,ELIM_UNCURRY,
      SIMP_RULE std_ss [ELIM_UNCURRY] ALOOKUP_MAP, crep_vars_def,
      panLangTheory.size_of_shape_def]
 QED
@@ -4492,7 +4481,7 @@ QED
 
 Theorem el_compile_prog_el_prog_eq:
   !prog n start cprog p.
-   EL n (compile_prog prog) = (start,[],cprog) /\
+   EL n (compile_to_crep prog) = (start,[],cprog) /\
    ALL_DISTINCT (MAP FST (functions prog)) /\ n < LENGTH(functions prog) /\
    ALOOKUP (functions prog) start = SOME ([],p) ==>
      EL n (functions prog) = (start,[],p)
@@ -4500,7 +4489,7 @@ Proof
   rw[] >>
   drule ALOOKUP_MEM >>
   strip_tac >>
-  gvs[compile_prog_def,EL_MAP,UNCURRY_eq_pair,
+  gvs[compile_to_crep_def,EL_MAP,UNCURRY_eq_pair,
       MEM_EL,EL_ALL_DISTINCT_EL_EQ,EL_MAP,SF DNF_ss] >>
   metis_tac[FST,SND,PAIR]
 QED
@@ -4511,14 +4500,14 @@ Theorem mk_ctxt_code_imp_code_rel:
   ⇒
   code_rel (mk_ctxt FEMPTY (make_funcs (functions pan_code)) 0 (get_eids (functions pan_code)))
            (alist_to_fmap (functions pan_code))
-           (alist_to_fmap (pan_to_crep$compile_prog pan_code))
+           (alist_to_fmap (pan_to_crep$compile_to_crep pan_code))
 Proof
   rw [code_rel_def, mk_ctxt_def] >>
   imp_res_tac ALOOKUP_MEM >>
   gvs[make_funcs_def,MAP2_MAP,ZIP_MAP_MAP,MAP_MAP_o,o_DEF,
       SIMP_RULE std_ss [ELIM_UNCURRY] ALOOKUP_MAP,ELIM_UNCURRY,
-      compile_prog_def,crep_vars_def,EVERY_MEM,comp_func_def,
-      mk_ctxt_def,ctxt_fc_def,make_vmap_def,list_max_i_genlist,EVERY_MEM] >>
+      compile_to_crep_def,crep_vars_def,EVERY_MEM,comp_func_def,
+      mk_ctxt_def,ctxt_fc_def,make_vmap_def,MAX_LIST_i_genlist,EVERY_MEM] >>
   res_tac >> fs[]
 QED
 
@@ -4575,15 +4564,18 @@ Theorem compile_prog_distinct_params:
     EVERY (λ(name,params,body). ALL_DISTINCT params) (compile_prog prog)
 Proof
   rw[EVERY_MEM] >>
-  gvs[compile_prog_def,MEM_MAP,UNCURRY_eq_pair,crep_vars_def,ALL_DISTINCT_GENLIST]
+  gvs[compile_prog_def,MEM_MAP,UNCURRY_eq_pair,crep_vars_def,ALL_DISTINCT_GENLIST,
+      crep_inlineTheory.compile_inl_prog_def,
+      crep_inlineTheory.compile_inl_top_def,
+      pan_to_crepTheory.compile_to_crep_def]
 QED
 
-Theorem state_rel_imp_semantics:
+Theorem state_rel_imp_semantics_to_crep:
   !(s:('a,'b) panSem$state) (t:('a,'b) crepSem$state) pan_code start.
     state_rel s t ∧
     ALL_DISTINCT (MAP FST (functions pan_code)) ∧
     s.code = alist_to_fmap(functions pan_code) ∧
-    t.code = alist_to_fmap (pan_to_crep$compile_prog pan_code) ∧
+    t.code = alist_to_fmap (pan_to_crep$compile_to_crep pan_code) ∧
     s.locals = FEMPTY ∧
     EVERY (localised_prog ∘ SND ∘ SND) (functions pan_code) ∧
     panLang$size_of_eids pan_code < dimword (:'a) /\
@@ -4845,6 +4837,71 @@ Proof
   cases_on ‘q’ >> fs [] >>
   cases_on ‘x’ >> fs [] >> rveq >> fs [] >>
    fs [state_rel_def, IS_PREFIX_THM]
+QED
+
+Theorem state_rel_imp_semantics_decls_to_crep:
+  !(s:('a,'b) panSem$state) (t:('a,'b) crepSem$state) pan_code start.
+    state_rel s t ∧
+    ALL_DISTINCT (MAP FST (functions pan_code)) ∧
+    s.code = FEMPTY ∧
+    t.code = alist_to_fmap (pan_to_crep$compile_to_crep pan_code) ∧
+    s.locals = FEMPTY ∧
+    EVERY (localised_prog ∘ SND ∘ SND) (functions pan_code) ∧
+    EVERY is_function pan_code ∧
+    panLang$size_of_eids pan_code < dimword (:'a) /\
+    FDOM s.eshapes =  FDOM (get_eids(functions pan_code)) ∧
+    semantics_decls s start pan_code <> Fail ==>
+      semantics t start = semantics_decls s start pan_code
+Proof
+  rw [semantics_decls_def] >>
+  gvs[AllCaseEqs(), GSYM IS_SOME_EQ_NOT_NONE, IS_SOME_EXISTS] >>
+  drule_all_then (gvs o single) evaluate_decls_only_functions >>
+  irule EQ_SYM >>
+  irule state_rel_imp_semantics_to_crep >>
+  simp[PULL_EXISTS] >>
+  first_assum $ irule_at $ Pos hd >>
+  simp[] >>
+  conj_tac
+  >- (rw[fmap_eq_flookup,FLOOKUP_FUPDATE_LIST,alookup_distinct_reverse] >>
+      TOP_CASE_TAC >> simp[]) >>
+  gvs[state_rel_def]
+QED
+
+Theorem state_rel_imp_semantics:
+  !(s:('a,'b) panSem$state) (t:('a,'b) crepSem$state) pan_code start.
+    state_rel s t ∧
+    ALL_DISTINCT (MAP FST (functions pan_code)) ∧
+    s.code = alist_to_fmap(functions pan_code) ∧
+    t.code = alist_to_fmap (pan_to_crep$compile_prog pan_code) ∧
+    s.locals = FEMPTY ∧
+    EVERY (localised_prog ∘ SND ∘ SND) (functions pan_code) ∧
+    panLang$size_of_eids pan_code < dimword (:'a) /\
+    FDOM s.eshapes =  FDOM (get_eids(functions pan_code)) ∧
+    semantics s start <> Fail ==>
+      semantics t start = semantics s start
+Proof
+  rw[pan_to_crepTheory.compile_prog_def] >>
+  qabbrev_tac `inl_funcs = MAP FST (functions (FILTER inlinable pan_code))` >>
+  qabbrev_tac `crep_code = compile_to_crep pan_code` >>
+  drule_at (Pos $ el 3) state_rel_imp_semantics_to_crep >>
+  disch_then $ drule_at (Pos last) >> fs[] >>
+  disch_then $ qspec_then `t with code := alist_to_fmap crep_code` mp_tac >> impl_tac
+  >- fs[state_rel_def] >>
+  disch_tac >>
+  qabbrev_tac `t_uninline = t with code := alist_to_fmap crep_code` >>
+  `semantics t_uninline start ≠ Fail` by fs[] >>
+  drule_at (Pos last) crep_inlineProofTheory.state_rel_imp_semantics >>
+  Cases_on `FLOOKUP t_uninline.code start` >> fs[]
+  >- fs[semantics_def, evaluate_def, lookup_code_def] >>
+  PairCases_on `x` >> fs[] >>
+  disch_then $ qspecl_then [`t`, `crep_code`, `inl_funcs`] mp_tac >> impl_tac
+  >- (
+    fs[crep_inlineProofTheory.state_rel_code_def, state_rel_def,
+       crep_inlineProofTheory.locals_strong_rel_def, Abbr `t_uninline`] >>
+    imp_res_tac first_compile_to_crep_all_distinct >>
+    fs[Abbr `crep_code`]
+  ) >>
+  rpt strip_tac >> fs[]
 QED
 
 Theorem state_rel_imp_semantics_decls:

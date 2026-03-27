@@ -29,53 +29,53 @@ Theorem get_token_eqn:
              if c ≤ #")" then
                if c ≤ #"'" then
                  if c = #"#" then HashT else
-                 if c = #"'" then TyvarT s else
-                 SymbolT s
+                 if c = #"'" then TyvarT (implode s) else
+                 SymbolT (implode s)
                else
                  if c = #"(" then LparT else
                  if c = #")" then RparT else
-                 SymbolT s
+                 SymbolT (implode s)
              else
                if c ≤ #"," then
                  if c = #"*" then StarT else
                  if c = #"," then CommaT else
-                 SymbolT s
+                 SymbolT (implode s)
                else
                  if c = #":" then ColonT else
                  if c = #";" then SemicolonT else
-                 SymbolT s
+                 SymbolT (implode s)
            else
              if c ≤ #"]" then
                if c ≤ #"Z" then
-                 if #"A" ≤ c ∧ c ≤ #"Z" then AlphaT s else
+                 if #"A" ≤ c ∧ c ≤ #"Z" then AlphaT (implode s) else
                  if c = #"=" then EqualsT else
-                 SymbolT s
+                 SymbolT (implode s)
                else
                  if c = #"[" then LbrackT else
                  if c = #"]" then RbrackT else
-                 SymbolT s
+                 SymbolT (implode s)
              else
                if c ≤ #"{" then
                  if c = #"_" then UnderbarT else
-                 if #"a" ≤ c ∧ c ≤ #"z" then AlphaT s else
+                 if #"a" ≤ c ∧ c ≤ #"z" then AlphaT (implode s) else
                  if c = #"{" then LbraceT else
-                 SymbolT s
+                 SymbolT (implode s)
                else
                  if c = #"|" then BarT else
                  if c = #"}" then RbraceT else
-                 SymbolT s
+                 SymbolT (implode s)
        | c::s' =>
            if c < #"a" then
              if c ≤ #"." then
-               if c = #"'" then TyvarT s else
+               if c = #"'" then TyvarT (implode s) else
                if s = "->" then ArrowT else
                if s = "..." then DotsT else
-               SymbolT s
+               SymbolT (implode s)
              else
                if s = ":>" then SealT else
                if s = "=>" then DarrowT else
-               if #"A" ≤ c ∧ c ≤ #"Z" then AlphaT s else
-               SymbolT s
+               if #"A" ≤ c ∧ c ≤ #"Z" then AlphaT (implode s) else
+               SymbolT (implode s)
            else if c ≤ #"z" then
              if c ≤ #"i" then
                if c ≤ #"e" then
@@ -85,40 +85,40 @@ Theorem get_token_eqn:
                    if s = "as" then AsT else
                    if s = "case" then CaseT else
                    if s = "datatype" then DatatypeT else
-                   AlphaT s
+                   AlphaT (implode s)
                  else
                    if s = "else" then ElseT else
                    if s = "end" then EndT else
                    if s = "eqtype" then EqtypeT else
                    if s = "exception" then ExceptionT else
-                   AlphaT s
+                   AlphaT (implode s)
                else
                  if c ≤ #"h" then
                    if s = "fn" then FnT else
                    if s = "fun" then FunT else
                    if s = "handle" then HandleT else
-                   AlphaT s
+                   AlphaT (implode s)
                  else
                    if s = "if" then IfT else
                    if s = "in" then InT else
                    if s = "include" then IncludeT else
-                   AlphaT s
+                   AlphaT (implode s)
              else
                if c ≤ #"r" then
                  if c = #"l" then
                    if s = "let" then LetT else
                    if s = "local" then LocalT else
-                   AlphaT s
+                   AlphaT (implode s)
                  else if c = #"o" then
                    if s = "of" then OfT else
                    if s = "op" then OpT else
                    if s = "open" then OpenT else
                    if s = "orelse" then OrelseT else
-                   AlphaT s
+                   AlphaT (implode s)
                  else
                    if s = "raise" then RaiseT else
                    if s = "rec" then RecT else
-                   AlphaT s
+                   AlphaT (implode s)
                else
                  if c = #"s" then
                    if s = "sharing" then SharingT else
@@ -126,19 +126,19 @@ Theorem get_token_eqn:
                    if s = "signature" then SignatureT else
                    if s = "struct" then StructT else
                    if s = "structure" then StructureT else
-                   AlphaT s
+                   AlphaT (implode s)
                  else if c < #"w" then
                    if s = "then" then ThenT else
                    if s = "type" then TypeT else
                    if s = "val" then ValT else
-                   AlphaT s
+                   AlphaT (implode s)
                  else
                    if s = "where" then WhereT else
                    if s = "with" then WithT else
                    if s = "withtype" then WithtypeT else
-                   AlphaT s
+                   AlphaT (implode s)
            else
-             SymbolT s
+             SymbolT (implode s)
 Proof
  strip_tac >>
  Cases_on `s` >>
@@ -176,71 +176,71 @@ End
 
 Definition next_sym_alt_def:
   (next_sym_alt "" _ = NONE) /\
-  (next_sym_alt (c::str) loc =
+  (next_sym_alt (c::strng) loc =
      if c = #"\n" then (* skip new line *)
-        next_sym_alt str (next_line loc)
+        next_sym_alt strng (next_line loc)
      else if isSpace c then (* skip blank space *)
-       next_sym_alt str (next_loc 1 loc)
+       next_sym_alt strng (next_loc 1 loc)
      else if isDigit c then (* read number *)
-       if str ≠ "" ∧ c = #"0" ∧ HD str = #"w" then
-         if TL str = "" then SOME (ErrorS, Locs loc loc, "")
-         else if isDigit (HD (TL str)) then
-           let (n,rest) = read_while isDigit (TL str) [] in
+       if strng ≠ "" ∧ c = #"0" ∧ HD strng = #"w" then
+         if TL strng = "" then SOME (ErrorS, Locs loc loc, "")
+         else if isDigit (HD (TL strng)) then
+           let (n,rest) = read_while isDigit (TL strng) [] in
              SOME (WordS (num_from_dec_string_alt n),
                    Locs loc (next_loc (LENGTH n + 1) loc),
                    rest)
-         else if HD(TL str) = #"x" then
-           let (n,rest) = read_while isHexDigit (TL (TL str)) [] in
+         else if HD(TL strng) = #"x" then
+           let (n,rest) = read_while isHexDigit (TL (TL strng)) [] in
              SOME (WordS (num_from_hex_string_alt n),
                    Locs loc (next_loc (LENGTH n + 2) loc),
                    rest)
-         else SOME (ErrorS, Locs loc loc, TL str)
+         else SOME (ErrorS, Locs loc loc, TL strng)
        else
-         if str ≠ "" ∧ c = #"0" ∧ HD str = #"x" then
-           let (n,rest) = read_while isHexDigit (TL str) [] in
+         if strng ≠ "" ∧ c = #"0" ∧ HD strng = #"x" then
+           let (n,rest) = read_while isHexDigit (TL strng) [] in
              SOME (NumberS (& num_from_hex_string_alt n),
                    Locs loc (next_loc (LENGTH n) loc),
                    rest)
          else
-           let (n,rest) = read_while isDigit str [] in
+           let (n,rest) = read_while isDigit strng [] in
              SOME (NumberS (&(num_from_dec_string_alt (c::n))),
                    Locs loc (next_loc (LENGTH n) loc),
                    rest)
-     else if c = #"~" /\ str <> "" /\ isDigit (HD str) then (* read negative number *)
-       let (n,rest) = read_while isDigit str [] in
+     else if c = #"~" /\ strng <> "" /\ isDigit (HD strng) then (* read negative number *)
+       let (n,rest) = read_while isDigit strng [] in
          SOME (NumberS (0- &(num_from_dec_string_alt n)),
                Locs loc (next_loc (LENGTH n + 1) loc),
                rest)
      else if c = #"'" then (* read type variable *)
-       let (n,rest) = read_while isAlphaNumPrime str [c] in
+       let (n,rest) = read_while isAlphaNumPrime strng [c] in
          SOME (OtherS n,
                Locs loc (next_loc (LENGTH n - 1) loc),
                rest)
      else if c = #"\"" then (* read string *)
-       let (t, loc', rest) = read_string str "" (next_loc 1 loc) in
+       let (t, loc', rest) = read_string strng "" (next_loc 1 loc) in
          SOME (t, Locs loc loc', rest)
-     else if isPREFIX "*)" (c::str) then
-       SOME (ErrorS, Locs loc (next_loc 2 loc), TL str)
-     else if isPREFIX "#\"" (c::str) then
-       let (t, loc', rest) = read_string (TL str) "" (next_loc 2 loc) in
+     else if isPREFIX "*)" (c::strng) then
+       SOME (ErrorS, Locs loc (next_loc 2 loc), TL strng)
+     else if isPREFIX "#\"" (c::strng) then
+       let (t, loc', rest) = read_string (TL strng) "" (next_loc 2 loc) in
          SOME (mkCharS t, Locs loc loc', rest)
-     else if isPREFIX "#(" (c::str) then
+     else if isPREFIX "#(" (c::strng) then
        let (t, loc', rest) =
-             read_FFIcall (TL str) "" (next_loc 2 loc)
+             read_FFIcall (TL strng) "" (next_loc 2 loc)
        in
          SOME (t, Locs loc loc', rest)
-     else if isPREFIX "(*" (c::str) then
-       case skip_comment (TL str) (0:num) (next_loc 2 loc) of
+     else if isPREFIX "(*" (c::strng) then
+       case skip_comment (TL strng) (0:num) (next_loc 2 loc) of
        | NONE => SOME (ErrorS, Locs loc (next_loc 2 loc), "")
        | SOME (rest, loc') => next_sym_alt rest loc'
-     else if c = #"_" then SOME (OtherS "_", Locs loc loc, str) else
-       let (tok,end_loc,rest) = read_Ident (STRING c str) loc [] in
+     else if c = #"_" then SOME (OtherS "_", Locs loc loc, strng) else
+       let (tok,end_loc,rest) = read_Ident (STRING c strng) loc [] in
          SOME (tok,Locs loc end_loc,rest))
 Termination
    WF_REL_TAC `measure (LENGTH o FST) ` THEN REPEAT STRIP_TAC
    THEN IMP_RES_TAC (GSYM read_while_thm)
    THEN IMP_RES_TAC (GSYM read_string_thm)
-   THEN IMP_RES_TAC skip_comment_thm THEN Cases_on `str`
+   THEN IMP_RES_TAC skip_comment_thm THEN Cases_on `strng`
    THEN FULL_SIMP_TAC (srw_ss()) [LENGTH] THEN DECIDE_TAC
 End
 
@@ -633,4 +633,3 @@ Theorem lexer_correct:
 Proof
   SIMP_TAC std_ss [lex_impl_all_tokens_thm,split_top_level_semi_thm]
 QED
-

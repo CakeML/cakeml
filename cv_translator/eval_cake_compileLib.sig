@@ -6,7 +6,6 @@ sig
 
   type arch_thms =
     { default_config_def       : thm
-    , default_config_simp      : thm
     , to_livesets_def          : thm
     , compile_cake_def         : thm
     , compile_cake_imp         : thm

@@ -28,4 +28,5 @@ Hashtable
 CommandLine
 Double
 TextIO
+Sexp
 basis

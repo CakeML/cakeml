@@ -3,171 +3,128 @@
 *)
 Theory print_thm
 Ancestors
-  holKernel mlstring lisp_values lisp_parsing lisp_printing
-  lisp_parsing_proofs
+  holKernel mlstring mlint mlsexp
 Libs
   preamble
 
 (* encoding into v *)
 
-Definition nil_list_def[simp]:
-  nil_list [] = Name "nil" ∧
-  nil_list (x::xs) = Pair x (nil_list xs)
-End
-
-Definition str_to_v_def:
-  str_to_v (s:mlstring) =
-    let xs = explode s in
-    let n = name xs in
-      if ~NULL xs ∧ name2str n = xs then
-        Num n
-      else
-        list [Num (name "'"); list (MAP (λc. Num (ORD c)) xs)]
-End
-
 Definition ty_to_v_def:
-  ty_to_v (Tyvar s) = list [Name "Tyvar"; str_to_v s] ∧
-  ty_to_v (Tyapp s tys) =
-    list (Name "Tyapp" :: str_to_v s :: (MAP ty_to_v tys))
+  ty_to_v (Tyvar s) = Expr [Atom «Tyvar»; Atom s] ∧
+  ty_to_v (Tyapp s tys) = Expr (Atom «Tyapp» :: Atom s :: (MAP ty_to_v tys))
 Termination
   WF_REL_TAC ‘measure type_size’
 End
 
 Definition term_to_v_def:
-  term_to_v (Var s ty) = list [Name "Var"; str_to_v s; ty_to_v ty] ∧
-  term_to_v (Const s ty) = list [Name "Const"; str_to_v s; ty_to_v ty] ∧
-  term_to_v (Comb f x) = list [Name "Comb"; term_to_v f; term_to_v x] ∧
-  term_to_v (Abs f x) = list [Name "Abs"; term_to_v f; term_to_v x]
+  term_to_v (Var s ty) = Expr [Atom «Var»; Atom s; ty_to_v ty] ∧
+  term_to_v (Const s ty) = Expr [Atom «Const»; Atom s; ty_to_v ty] ∧
+  term_to_v (Comb f x) = Expr [Atom «Comb»; term_to_v f; term_to_v x] ∧
+  term_to_v (Abs f x) = Expr [Atom «Abs»; term_to_v f; term_to_v x]
 End
 
 Definition thm_to_v_def:
   thm_to_v (Sequent ts t) =
-    list [Name "Sequent"; nil_list (MAP term_to_v ts); term_to_v t]
+    Expr [Atom «Sequent»; Expr (MAP term_to_v ts); term_to_v t]
 End
 
 Definition update_to_v_def:
   update_to_v (ConstSpec xs t) =
-    list [Name "ConstSpec";
-          list (MAP (λ(s,t). list [str_to_v s; term_to_v t]) xs);
+    Expr [Atom «ConstSpec»;
+          Expr (MAP (λ(s,t). Expr [Atom s; term_to_v t]) xs);
           term_to_v t] ∧
   update_to_v (TypeDefn s1 t s2 s3) =
-    list [Name "TypeDefn";
-          str_to_v s1; term_to_v t; str_to_v s2; str_to_v s3] ∧
+    Expr [Atom «TypeDefn»;
+          Atom s1; term_to_v t; Atom s2; Atom s3] ∧
   update_to_v (NewType s n) =
-    list [Name "NewType"; str_to_v s; Num n] ∧
+    Expr [Atom «NewType»; Atom s; Atom (mlint$num_to_str n)] ∧
   update_to_v (NewConst s ty) =
-    list [Name "NewConst"; str_to_v s; ty_to_v ty] ∧
+    Expr [Atom «NewConst»; Atom s; ty_to_v ty] ∧
   update_to_v (NewAxiom t) =
-    list [Name "NewAxiom"; term_to_v t]
+    Expr [Atom «NewAxiom»; term_to_v t]
 End
 
 (* decoding from v *)
 
-Definition v2list_def[simp]:
-  v2list (Num n) = [] ∧
-  v2list (Pair x y) = x :: v2list y
-End
-
-Definition v_to_str_def:
-  v_to_str (Num n) = implode (name2str n) ∧
-  v_to_str x = implode (MAP (λv. CHR (getNum v)) (v2list (el1 x)))
-End
-
-Theorem v2list_lisp_v_size[local]:
-  ∀x a. MEM a (v2list x) ⇒ lisp_v_size a < lisp_v_size x
+Theorem MEM_IMP_sexp_size_LESS:
+  ∀xs a. MEM a xs ⇒ sexp_size a < list_size sexp_size xs
 Proof
-  Induct \\ simp [Once v2list_def] \\ rw [] \\ fs [] \\ res_tac \\ fs []
+  Induct \\ rw [] \\ simp [] \\ res_tac \\ fs []
 QED
 
+Definition v_to_str_def[simp]:
+  v_to_str (Atom s) = s
+End
+
 Definition v_to_ty_def:
-  v_to_ty v =
-    let n = getNum (head v) in
-      if n = name "Tyapp" then
-        Tyapp (v_to_str (el1 v)) (MAP v_to_ty (v2list (tail (tail v))))
-      else Tyvar (v_to_str (el1 v))
+  v_to_ty (Expr xs) =
+    if HD xs = Atom «Tyvar» then
+      Tyvar (v_to_str (EL 1 xs))
+    else if LENGTH xs < 2 then ARB else
+      Tyapp (v_to_str (EL 1 xs)) (MAP v_to_ty (TL (TL xs)))
 Termination
-  WF_REL_TAC ‘measure lisp_v_size’
-  \\ rw [isNum_def,head_def,tail_def,lisp_v_size_def]
-  \\ imp_res_tac v2list_lisp_v_size
-  \\ Cases_on ‘v’ \\ fs []
-  \\ Cases_on ‘l0’ \\ fs []
+  WF_REL_TAC ‘measure sexp_size’
+  \\ Cases \\ simp []
+  \\ Cases_on ‘t’ \\ simp [] \\ rw []
+  \\ imp_res_tac MEM_IMP_sexp_size_LESS \\ fs []
 End
 
 Definition v_to_term_def:
-  v_to_term v =
-    let n = getNum (head v) in
-      if n = name "Comb" ∧ ~isNum v then
-        Comb (v_to_term (el1 v)) (v_to_term (el2 v))
-      else if n = name "Abs" ∧ ~isNum v then
-        Abs (v_to_term (el1 v)) (v_to_term (el2 v))
-      else if n = name "Var" ∧ ~isNum v then
-        Var (v_to_str (el1 v)) (v_to_ty (el2 v))
-      else
-        Const (v_to_str (el1 v)) (v_to_ty (el2 v))
+  v_to_term (Expr xs) =
+    if LENGTH xs < 3 then ARB
+    else if HD xs = Atom «Comb» then
+      Comb (v_to_term (EL 1 xs)) (v_to_term (EL 2 xs))
+    else if HD xs = Atom «Abs» then
+      Abs (v_to_term (EL 1 xs)) (v_to_term (EL 2 xs))
+    else if HD xs = Atom «Var» then
+      Var (v_to_str (EL 1 xs)) (v_to_ty (EL 2 xs))
+    else
+      Const (v_to_str (EL 1 xs)) (v_to_ty (EL 2 xs))
 Termination
-  WF_REL_TAC ‘measure lisp_v_size’
-  \\ rw [isNum_def,head_def,tail_def,lisp_v_size_def]
-  \\ Cases_on ‘v’ \\ fs []
-  \\ Cases_on ‘l0’ \\ fs []
-  \\ Cases_on ‘l0'’ \\ fs []
+  WF_REL_TAC  ‘measure sexp_size’ \\ rw []
+  \\ rpt (rename [‘LENGTH xs’] \\ Cases_on ‘xs’ \\ gvs [])
 End
 
 Definition v_to_thm_def:
-  v_to_thm v =
-    Sequent (MAP v_to_term (v2list (el1 v))) (v_to_term (el2 v))
+  v_to_thm (Expr xs) =
+    Sequent
+      (case EL 1 xs of Expr ys => MAP v_to_term ys)
+      (v_to_term (EL 2 xs))
 End
 
 Definition v_to_update_def:
-  v_to_update v =
-    let n = getNum (head v) in
-      if n = name "ConstSpec" then
-        ConstSpec (MAP ((λxs. (v_to_str (HD xs), v_to_term (EL 1 xs))) o v2list)
-                     (v2list (el1 v))) (v_to_term (el2 v))
-      else if n = name "TypeDefn" then
-        TypeDefn (v_to_str (el1 v)) (v_to_term (el2 v))
-                 (v_to_str (el3 v)) (v_to_str (el3 (tail v)))
-      else if n = name "NewType" then
-        NewType (v_to_str (el1 v)) (getNum (el2 v))
-      else if n = name "NewConst" then
-        NewConst (v_to_str (el1 v)) (v_to_ty (el2 v))
-      else
-        NewAxiom (v_to_term (el1 v))
+  v_to_update (Expr xs) =
+    if HD xs = Atom «ConstSpec» then
+      ConstSpec
+        (case EL 1 xs of Expr ys =>
+           MAP (λy. case y of Expr zs =>
+                     (v_to_str (EL 0 zs), v_to_term (EL 1 zs))) ys)
+        (v_to_term (EL 2 xs))
+    else if HD xs = Atom «TypeDefn» then
+      TypeDefn (v_to_str (EL 1 xs))
+               (v_to_term (EL 2 xs))
+               (v_to_str (EL 3 xs))
+               (v_to_str (EL 4 xs))
+    else if HD xs = Atom «NewType» then
+      NewType (v_to_str (EL 1 xs)) (THE (fromNatString (v_to_str (EL 2 xs))))
+    else if HD xs = Atom «NewConst» then
+      NewConst (v_to_str (EL 1 xs)) (v_to_ty (EL 2 xs))
+    else
+      NewAxiom (v_to_term (EL 1 xs))
 End
-
-Theorem v2list_nil_thm[simp]:
-  ∀xs. v2list (nil_list xs) = xs
-Proof
-  Induct \\ simp [Once v2list_def]
-QED
-
-Theorem v2list_thm[simp]:
-  ∀xs. v2list (list xs) = xs
-Proof
-  Induct \\ simp [Once v2list_def]
-QED
-
-Theorem str_to_v_thm[simp]:
-  ∀s. v_to_str (str_to_v s) = s
-Proof
-  Cases \\ fs [str_to_v_def]
-  \\ rw [v_to_str_def,mlstringTheory.implode_def]
-  \\ fs [MAP_MAP_o,miscTheory.MAP_EQ_ID,CHR_ORD]
-QED
 
 Theorem ty_to_v_thm[simp]:
   ∀ty. v_to_ty (ty_to_v ty) = ty
 Proof
   ho_match_mp_tac ty_to_v_ind \\ rw []
-  \\ simp [ty_to_v_def,Once v_to_ty_def]
-  \\ fs [name_def,MAP_MAP_o,miscTheory.MAP_EQ_ID]
+  \\ simp [ty_to_v_def,v_to_ty_def]
+  \\ fs [MAP_MAP_o,miscTheory.MAP_EQ_ID]
 QED
 
 Theorem term_to_v_thm[simp]:
   ∀t. v_to_term (term_to_v t) = t
 Proof
-  Induct
-  \\ simp [term_to_v_def,Once v_to_term_def]
-  \\ fs [name_def,MAP_MAP_o,miscTheory.MAP_EQ_ID]
+  Induct \\ simp [term_to_v_def,Once v_to_term_def]
 QED
 
 Theorem thm_to_v_thm[simp]:
@@ -175,7 +132,7 @@ Theorem thm_to_v_thm[simp]:
 Proof
   Cases
   \\ simp [thm_to_v_def,Once v_to_thm_def]
-  \\ fs [name_def,MAP_MAP_o,miscTheory.MAP_EQ_ID]
+  \\ fs [MAP_MAP_o,miscTheory.MAP_EQ_ID]
 QED
 
 Theorem update_to_v_update[simp]:
@@ -183,34 +140,62 @@ Theorem update_to_v_update[simp]:
 Proof
   Cases
   \\ simp [update_to_v_def,Once v_to_update_def]
-  \\ fs [name_def,MAP_MAP_o,miscTheory.MAP_EQ_ID,FORALL_PROD]
-  \\ rpt (simp [Once v2list_def])
+  \\ fs [MAP_MAP_o,miscTheory.MAP_EQ_ID,FORALL_PROD]
 QED
 
 (* main definition *)
 
 Definition thm_to_string_def:
   thm_to_string (ctxt:update list) (th:thm) =
-    let vs = thm_to_v th :: MAP update_to_v ctxt in
-      implode (vs2str vs
-                 ["# The following is a theorem of higher-order logic\n";
-                  "\n# which is proved in the following context\n"])
+    concat
+      ([strlit "# The following is a theorem of higher-order logic\n\n"] ++
+       [sexp_to_pretty_string (thm_to_v th)] ++
+       [strlit "\n# which is proved in the following context\n"] ++
+       FLAT (MAP (λdef. [«\n»; sexp_to_pretty_string (update_to_v def)]) ctxt))
 End
 
 (* it has an inverse: *)
 
+Definition char_list_to_defs_def:
+  char_list_to_defs input =
+    case mlsexp$parse input of
+    | INL _ => []
+    | INR (x,rest) => v_to_update x :: char_list_to_defs rest
+Termination
+  WF_REL_TAC ‘measure LENGTH’ \\ rw []
+  \\ drule parse_IMP_LENGTH_LESS \\ simp []
+End
+
 Definition string_to_thm_def:
   string_to_thm s =
-    let vs = v2list (parse (lexer (explode s)) (Num 0) []) in
-      (MAP v_to_update (TL vs), v_to_thm (HD vs))
+    let rest = dropWhile (λc. c ≠ #"\n") (explode s) in
+    let (th_v, rest) = OUTR $ mlsexp$parse rest in
+    let rest = dropWhile (λc. c ≠ #"\n") (TL (TL rest)) in
+      (char_list_to_defs rest, v_to_thm th_v)
 End
+
+Theorem to_explode[local]:
+  (case s of strlit t => t) = explode s
+Proof
+  Cases_on ‘s’ \\ simp []
+QED
 
 Theorem string_to_thm_thm_to_string:
   string_to_thm (thm_to_string ctxt th) = (ctxt,th)
 Proof
-  fs [parse_lexer_vs2str,thm_to_string_def,string_to_thm_def]
-  \\ once_rewrite_tac [v2list_def] \\ fs []
-  \\ fs [MAP_MAP_o,miscTheory.MAP_EQ_ID,FORALL_PROD]
+  fs [thm_to_string_def,concat_append]
+  \\ simp [string_to_thm_def,parse_space]
+  \\ simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ rewrite_tac [parse_sexp_to_pretty_string, OUTR]
+  \\ simp_tac std_ss [thm_to_v_thm] \\ simp []
+  \\ simp [Once char_list_to_defs_def,parse_space]
+  \\ simp [GSYM char_list_to_defs_def]
+  \\ Induct_on ‘ctxt’ >- EVAL_TAC
+  \\ rw [] \\ fs [concat_def,to_explode]
+  \\ simp [Once char_list_to_defs_def,parse_space]
+  \\ rewrite_tac [parse_sexp_to_pretty_string] \\ simp []
+  \\ simp [Once char_list_to_defs_def,parse_space]
+  \\ simp [GSYM char_list_to_defs_def]
 QED
 
 Theorem thm_to_string_injective:
@@ -243,4 +228,3 @@ val _ =
   |> concl |> rand |> rand |> stringSyntax.fromHOLstring |> print;
 
 end
-

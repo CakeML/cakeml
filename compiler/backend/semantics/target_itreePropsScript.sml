@@ -152,7 +152,7 @@ Definition eval_to'_def:
                            (case read_ffi_bytearrays mc ms of
                             | (SOME bytes, SOME bytes2) =>
                                 let mc1 = mc with ffi_interfer := shift_seq 1 mc.ffi_interfer in
-                                  if EL ffi_index mc.ffi_names = ExtCall "" then
+                                  if EL ffi_index mc.ffi_names = ExtCall «» then
                                     eval_to' (k - 1) mc1 (mc.ffi_interfer 0 (ffi_index,bytes2,ms))
                                   else (Vis' (EL ffi_index mc.ffi_names, bytes, bytes2)
                                              (λnew_bytes. (mc1, mc.ffi_interfer 0 (ffi_index,new_bytes,ms))),
@@ -338,7 +338,7 @@ Theorem eval_to'_1_Vis:
       (∃t. s = ExtCall t /\
         ALOOKUP mc.mmio_info n = NONE ∧
         read_ffi_bytearrays mc ms = (SOME conf,SOME ws))) ∧
-      s ≠ ExtCall "" ∧ s = EL n mc.ffi_names ∧
+      s ≠ ExtCall «» ∧ s = EL n mc.ffi_names ∧
       mc' = mc with ffi_interfer := shift_seq 1 mc.ffi_interfer ∧ ms' = ms ∧
       f = (λnew_bytes. (mc', mc.ffi_interfer 0 (n,new_bytes,ms)))
 Proof
@@ -428,7 +428,7 @@ Theorem eval:
                    case read_ffi_bytearrays mc ms of
                    | (SOME bytes, SOME bytes2) =>
                        let mc1 = mc with ffi_interfer := shift_seq 1 mc.ffi_interfer in
-                         if EL ffi_index mc.ffi_names = ExtCall "" then
+                         if EL ffi_index mc.ffi_names = ExtCall «» then
                            eval (mc1, mc.ffi_interfer 0 (ffi_index,bytes2,ms))
                          else Vis' (EL ffi_index mc.ffi_names, bytes, bytes2)
                                    (λnew_bytes. (mc1, mc.ffi_interfer 0 (ffi_index,new_bytes,ms)))
@@ -496,4 +496,3 @@ Proof
 QED
 
 (**********)
-

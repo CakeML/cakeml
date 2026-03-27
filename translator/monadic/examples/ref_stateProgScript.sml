@@ -11,9 +11,9 @@ Ancestors
 val _ = set_up_monadic_translator ();
 
 (* Pattern matching
- * Note that `dtcase` has to be used from now on in the function definitions (and not `case`)
+ * Note that `case` has to be used from now on in the function definitions (and not `case`)
  *)
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 (* Create the data type to handle the references.
    In this example, the data type has only one field, which means that
@@ -40,7 +40,7 @@ End
 
 (* A recursive monadic function *)
 Definition rec_fun_def:
-  rec_fun l = dtcase l of [] => return (0 : num)
+  rec_fun l = case l of [] => return (0 : num)
                    | x::l' => do x <- rec_fun l'; return (1+x) od
 End
 

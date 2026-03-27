@@ -16,7 +16,7 @@ val _ = ml_prog_update (open_module "Word64");
 val () = generate_sigs := true;
 
 val _ = ml_prog_update (add_dec
-  ``Dtabbrev unknown_loc [] "word" (Atapp [] (Short "word64"))`` I);
+  ``Dtabbrev unknown_loc [] «word» (Atapp [] (Short «word64»))`` I);
 
 (* to/from int *)
 val _ = trans "fromInt" ``n2w:num->word64``;
@@ -120,8 +120,7 @@ Proof
   rw [fcpTheory.CART_EQ,word_ror_def,word_or_def,word_lsl_def,
       word_lsr_def,fcpTheory.FCP_BETA]
   \\ ‘0 < dimindex (:α)’ by fs []
-  \\ drule MOD_PLUS
-  \\ disch_then $ once_rewrite_tac o single o GSYM
+  \\ once_rewrite_tac[GSYM MOD_PLUS]
   \\ qabbrev_tac ‘k = n MOD dimindex (:α)’ \\ simp []
   \\ Cases_on ‘i + k < dimindex (:'a)’ \\ simp []
   \\ gvs [NOT_LESS]

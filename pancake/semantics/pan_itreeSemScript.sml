@@ -382,20 +382,20 @@ Definition h_prog_ext_call_def:
             read_bytearray array_ptr_adr (w2n array_sz) (mem_load_byte s.memory s.memaddrs s.be)) of
         (SOME conf_bytes,SOME array_bytes) =>
          (if explode ffi_name ≠ "" then
-           Vis (INR (ExtCall (explode ffi_name), conf_bytes, array_bytes))
+           Vis (INR (ExtCall ffi_name, conf_bytes, array_bytes))
                (λres. Ret (INR
                            (case res of
                               INL x =>
                                 (case x of
                                    INL outcome =>
-                                     (SOME (FinalFFI (Final_event (ExtCall (explode ffi_name)) conf_bytes array_bytes outcome)),empty_locals s)
+                                     (SOME (FinalFFI (Final_event (ExtCall ffi_name) conf_bytes array_bytes outcome)),empty_locals s)
                                  | INR new_bytes =>
                                      (if LENGTH new_bytes = LENGTH array_bytes
                                       then
                                         (let nmem = write_bytearray array_ptr_adr new_bytes s.memory s.memaddrs s.be in
                                            (NONE,s with memory := nmem))
                                       else
-                                        (SOME (FinalFFI (Final_event (ExtCall (explode ffi_name)) conf_bytes array_bytes FFI_failed)),empty_locals s)))
+                                        (SOME (FinalFFI (Final_event (ExtCall ffi_name) conf_bytes array_bytes FFI_failed)),empty_locals s)))
                             | INR _ => (SOME Error,s))))
           else Ret (INR
                     (NONE, s with memory := write_bytearray array_ptr_adr array_bytes s.memory s.memaddrs s.be)))
@@ -1437,7 +1437,7 @@ Theorem mrec_ExtCall:
               SOME x =>
                 if explode ffiname ≠ ""
                 then
-                   Vis (ExtCall (explode ffiname),x',x)
+                   Vis (ExtCall ffiname,x',x)
                       (Tau o mrec h_prog o
                            (λres.
                               (Ret
@@ -1446,7 +1446,7 @@ Theorem mrec_ExtCall:
                                    INL (INL outcome) =>
                                      (SOME
                                       (FinalFFI
-                                       (Final_event (ExtCall (explode ffiname)) x' x outcome)),empty_locals s)
+                                       (Final_event (ExtCall ffiname) x' x outcome)),empty_locals s)
                                  | INL (INR new_bytes) =>
                                      if LENGTH new_bytes = LENGTH x then
                                        (NONE,
@@ -1457,7 +1457,7 @@ Theorem mrec_ExtCall:
                                      else
                                        (SOME
                                         (FinalFFI
-                                         (Final_event (ExtCall (explode ffiname)) x' x FFI_failed)),empty_locals s)
+                                         (Final_event (ExtCall ffiname) x' x FFI_failed)),empty_locals s)
                                  | INR _ => (SOME Error,s))))))
                 else Ret (INR (NONE, s with memory := write_bytearray c' x s.memory s.memaddrs s.be))
             | _ => Ret (INR (SOME Error,s)))

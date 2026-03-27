@@ -42,6 +42,5 @@ QED
 
 Definition runtime_ffi_part_def:
   runtime_ffi_part = (encode,decode,
-    [("exit",ffi_exit)])
+    [(«exit»,ffi_exit)])
 End
-

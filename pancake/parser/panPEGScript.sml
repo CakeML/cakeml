@@ -144,7 +144,8 @@ Definition pancake_peg_def[nocompute]:
                                  seql [mknt FunNT; mknt TopDecListNT] (mksubtree TopDecListNT);
                                  seql [mknt GlobalDecNT; mknt TopDecListNT] (mksubtree TopDecListNT);
                                  seql [keep_annot; mknt TopDecListNT] (mksubtree TopDecListNT)]);
-        (INL FunNT, seql [try_default (keep_kw ExportK) StaticT;
+        (INL FunNT, seql [try_default (keep_kw InlineK) NoinlineT;
+                          try_default (keep_kw ExportK) StaticT;
                           consume_kw FunK;
                           try_default (mknt ShapeNT) DefaultShT;
                           keep_ident;

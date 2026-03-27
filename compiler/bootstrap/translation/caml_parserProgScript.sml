@@ -72,11 +72,7 @@ fun def_of_const tm = let
 
 val _ = (find_def_for_const := def_of_const);
 
-val _ = ml_translatorLib.use_string_type false;
-
 val r = translate string_lt_def;
-
-val _ = ml_translatorLib.use_string_type true;
 
 (* -------------------------------------------------------------------------
  * Ptree conversion

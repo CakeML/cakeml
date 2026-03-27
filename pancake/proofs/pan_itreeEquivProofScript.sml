@@ -6,13 +6,19 @@ Theory pan_itreeEquivProof
 Libs
   preamble
 Ancestors
-panProps itreeTau panSem pan_itreeSem pan_itreeProps panLang ffi
+ mlstring panProps itreeTau panSem pan_itreeSem pan_itreeProps panLang ffi
 
 val _ = gen_remove_ovl_mapping "mrec_sem";
 
 (**************************)
 
 val evaluate_invariant_oracle = cj 7 panPropsTheory.evaluate_invariants;
+
+Theorem explode_eq_implode[local]:
+  ∀x y. explode x = y ⇔ x = implode y
+Proof
+  rpt Cases \\ simp [implode_def]
+QED
 
 Theorem nondiv_evaluate:
   ltree (s.ffi.oracle,s.ffi.ffi_state) (mrec h_prog (h_prog (p,bst s))) =
@@ -35,7 +41,8 @@ Proof
          Cases_on ‘n’>>fs[FUNPOW_SUC])>>
     TRY (rename [‘_ = FUNPOW Tau n _’]>>
          Cases_on ‘n’>>fs[FUNPOW_SUC])>>
-    gvs[set_var_defs,bst_def,empty_locals_defs])>>
+    gvs[set_var_defs,bst_def,empty_locals_defs,
+        explode_eq_implode,implode_def])>>
   fs[mrec_prog_simps,mrec_Seq,mrec_If,Once mrec_While,mrec_Call,
      mrec_DecCall,call_FFI_def,mrec_ShMemLoad,mrec_ShMemStore,
      empty_locals_defs,dec_clock_def,kvar_defs2]>>gvs[FUNPOW_SUC]>>
@@ -119,7 +126,6 @@ Proof
       drule nondiv_ltree_bind_lemma'>>simp[]>>
       strip_tac>>fs[FUNPOW_Tau_bind]>>
       imp_res_tac nondiv_INR>>fs[]>>gs[]>>
-
       rename [‘ltree (_,s.ffi.ffi_state) _ = FUNPOW Tau n _’]>>
       last_assum $ qspec_then ‘n’ mp_tac>>simp[]>>
       disch_then $ drule_at Any>>
@@ -286,7 +292,7 @@ Proof
    (simp[mrec_ExtCall]>>
     fs[sh_mem_store_def,call_FFI_def,set_var_defs,AllCaseEqs()]>>
     rpt (TOP_CASE_TAC>>fs[])>>
-    gvs[empty_locals_defs,bst_def]>>
+    gvs[empty_locals_defs,bst_def,explode_eq_implode,implode_def]>>
     metis_tac[FUNPOW])
   >- (* Seq *)
    (rpt (pairarg_tac>>fs[])>>
@@ -501,7 +507,7 @@ Proof
    (fs[Once evaluate_def,mrec_ExtCall,call_FFI_def,
        panPropsTheory.eval_upd_clock_eq]>>
     rpt (PURE_CASE_TAC>>fs[])>>gvs[]>>
-    gvs[dec_clock_def,empty_locals_defs]>>
+    gvs[dec_clock_def,empty_locals_defs,explode_eq_implode,implode_def]>>
     rpt (rename [‘FUNPOW Tau n _’]>>
          Cases_on ‘n’>>gvs[FUNPOW_SUC])>>
     simp[bst_def,empty_locals_defs,set_var_defs])>>
@@ -772,7 +778,7 @@ Proof
     rpt (PURE_CASE_TAC>>fs[])>>
     strip_tac>>gvs[LAPPEND_NIL_2ND]>>
     fs[LAPPEND_NIL_2ND,dec_clock_def,
-       empty_locals_defs,GSYM LAPPEND_fromList])>>
+       empty_locals_defs,GSYM LAPPEND_fromList,explode_eq_implode,implode_def])>>
   simp[mrec_prog_simps,
        mrec_If,
        Once evaluate_def,kvar_defs2,
@@ -1183,7 +1189,7 @@ Proof
    (simp[Once evaluate_def]>>
     pop_assum mp_tac>>
     rpt (PURE_CASE_TAC>>fs[])>>rw[]>>
-    gvs[ext_def,call_FFI_def])
+    gvs[ext_def,call_FFI_def,explode_eq_implode,implode_def])
   >~[‘While’]>-
    (simp[Once evaluate_def]>>
     pop_assum mp_tac>>
@@ -2268,13 +2274,17 @@ Proof
   simp[mrec_prog_simps,mrec_Dec,mrec_If,mrec_ExtCall,
        mrec_ShMemLoad,mrec_ShMemStore]>>
   fs[panPropsTheory.eval_upd_clock_eq,call_FFI_def,kvar_defs2,
-     panPropsTheory.opt_mmap_eval_upd_clock_eq1]>>
+     panPropsTheory.opt_mmap_eval_upd_clock_eq1,explode_eq_implode,implode_def]>>
+  (* TODO Remove TRY; it is easy for a subgoal to slide past this TRY silently,
+     causing situations were ones tries to debug at the wrong place :( *)
+  (* 10 subgoals *)
   TRY (rpt (TOP_CASE_TAC>>fs[])>>
        rpt (pairarg_tac>>fs[])>>
        rw[]>>gvs[iterateTheory.LAMBDA_PAIR]>>
        imp_res_tac trace_prefix_bind_div>>
        fs[LFINITE_fromList,GSYM LAPPEND_fromList,
           LAPPEND_NIL_2ND,empty_locals_defs]>>NO_TAC)
+  (* 6 subgoals *)
 (* Dec *)
   >- (rpt (TOP_CASE_TAC>>fs[])>>
       rpt (pairarg_tac>>fs[])>>
@@ -2574,7 +2584,6 @@ Proof
           pop_assum $ assume_tac o GSYM>>fs[]>>
           drule_then (assume_tac o GSYM) evaluate_invariant_oracle>>
           fs[]>>
-
           imp_res_tac evaluate_nondiv_trace_eq>>fs[]>>
           imp_res_tac trace_prefix_bind_append>>fs[]>>
           imp_res_tac panPropsTheory.evaluate_io_events_mono>>
@@ -2809,7 +2818,6 @@ Proof
       pop_assum $ assume_tac o GSYM>>fs[]>>
       drule_then (assume_tac o GSYM) evaluate_invariant_oracle>>
       fs[]>>
-
       imp_res_tac evaluate_nondiv_trace_eq>>fs[]>>
       imp_res_tac trace_prefix_bind_append>>fs[]>>
       imp_res_tac panPropsTheory.evaluate_io_events_mono>>
@@ -2922,7 +2930,6 @@ Proof
       fs[GSYM LAPPEND_fromList,LPREFIX_APPEND]>>
       fs[Once LAPPEND_ASSOC]>>
       fs[LFINITE_fromList,LAPPEND11_FINITE1]>>gvs[]>>
-
       last_assum $ qspec_then ‘k''’ (mp_tac o SIMP_RULE (srw_ss()) [])>>
       qpat_x_assum ‘evaluate (q,_) = _’ assume_tac>>
       first_assum (fn h => rewrite_tac[h])>>simp[]>>
@@ -2936,7 +2943,6 @@ Proof
       first_x_assum irule>>
       strip_tac>>
       last_x_assum $ qspec_then ‘k'''’ mp_tac>>gvs[]>>
-
       rev_drule panPropsTheory.evaluate_add_clock_eq>>
       disch_then $ qspec_then ‘k''' + p’ assume_tac>>rw[]>>
       ‘k' + k''' + p = k''' + s.clock - 1’ by gvs[]>>gvs[]>>

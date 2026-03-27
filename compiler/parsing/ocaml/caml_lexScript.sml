@@ -10,6 +10,8 @@ Libs
 
 val _ = numLib.prefer_num ();
 
+val _ = patternMatchesSyntax.temp_enable_pmatch();
+
 (* -------------------------------------------------------------------------
  * Tokens
  * ------------------------------------------------------------------------- *)
@@ -36,14 +38,14 @@ Datatype:
     | THEN_T | THENC_T | THENL_T | THEN_TCL_T
     | ORELSE_T | ORELSEC_T | ORELSE_TCL_T
     (* CakeML pragma *)
-    | PragmaT string
+    | PragmaT mlstring
     (* literals and identifiers: *)
     | IntT int
-    | FloatT string
+    | FloatT mlstring
     | CharT char
-    | StringT string
-    | IdentT string
-    | SymbolT string    (* symbols *)
+    | StringT mlstring
+    | IdentT mlstring
+    | SymbolT mlstring    (* symbols *)
     | LexErrorT
 End
 
@@ -827,19 +829,19 @@ Definition get_token_def:
     if s = "ORELSE_TCL" then ORELSE_TCL_T else
     (* identifiers or symbols *)
       let c = HD s in
-        if isAlpha c ∨ c = #"_" then IdentT s else
-          SymbolT s
+        if isAlpha c ∨ c = #"_" then IdentT (implode s) else
+          SymbolT (implode s)
 End
 
 Definition sym2token_def:
   sym2token s =
     case s of
       NumberS i => IntT i
-    | FloatS s => FloatT s
-    | StringS s => StringT s
+    | FloatS s => FloatT (implode s)
+    | StringS s => StringT (implode s)
     | CharS c => CharT c
     | ErrorS => LexErrorT
-    | PragmaS s => PragmaT s
+    | PragmaS s => PragmaT (implode s)
     | OtherS s => get_token s
 End
 
@@ -900,12 +902,11 @@ EVAL “lexer_fun "4;;\n(*CML code *)"”
  * PMATCH
  * ------------------------------------------------------------------------- *)
 
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES ();
 val PMCONV = patternMatchesLib.PMATCH_ELIM_CONV;
 
 Theorem isInt_PMATCH:
   ∀x. isInt x =
-        case x of
+        pmatch x of
           IntT i => T
         | _ => F
 Proof
@@ -915,7 +916,7 @@ QED
 
 Theorem destInt_PMATCH:
   ∀x. destInt x =
-        case x of
+        pmatch x of
           IntT i => SOME i
         | _ => NONE
 Proof
@@ -925,7 +926,7 @@ QED
 
 Theorem isFloat_PMATCH:
   ∀x. isFloat x =
-        case x of
+        pmatch x of
           FloatT i => T
         | _ => F
 Proof
@@ -935,7 +936,7 @@ QED
 
 Theorem destFloat_PMATCH:
   ∀x. destFloat x =
-        case x of
+        pmatch x of
           FloatT i => SOME i
         | _ => NONE
 Proof
@@ -945,7 +946,7 @@ QED
 
 Theorem isChar_PMATCH:
   ∀x. isChar x =
-        case x of
+        pmatch x of
           CharT c => T
         | _ => F
 Proof
@@ -955,7 +956,7 @@ QED
 
 Theorem destChar_PMATCH:
   ∀x. destChar x =
-        case x of
+        pmatch x of
           CharT c => SOME c
         | _ => NONE
 Proof
@@ -965,7 +966,7 @@ QED
 
 Theorem isString_PMATCH:
   ∀x. isString x =
-        case x of
+        pmatch x of
           StringT s => T
         | _ => F
 Proof
@@ -975,7 +976,7 @@ QED
 
 Theorem destString_PMATCH:
   ∀x. destString x =
-        case x of
+        pmatch x of
           StringT s => SOME s
         | _ => NONE
 Proof
@@ -985,7 +986,7 @@ QED
 
 Theorem isSymbol_PMATCH:
   ∀x. isSymbol x =
-        case x of
+        pmatch x of
           SymbolT s => T
         | _ => F
 Proof
@@ -995,7 +996,7 @@ QED
 
 Theorem destSymbol_PMATCH:
   ∀x. destSymbol x =
-        case x of
+        pmatch x of
           SymbolT s => SOME s
         | _ => NONE
 Proof
@@ -1005,7 +1006,7 @@ QED
 
 Theorem isIdent_PMATCH:
   ∀x. isIdent x =
-        case x of
+        pmatch x of
           IdentT s => T
         | _ => F
 Proof
@@ -1015,7 +1016,7 @@ QED
 
 Theorem destIdent_PMATCH:
   ∀x. destIdent x =
-        case x of
+        pmatch x of
           IdentT s => SOME s
         | _ => NONE
 Proof
@@ -1025,7 +1026,7 @@ QED
 
 Theorem isPragma_PMATCH:
   ∀x. isPragma x =
-        case x of
+        pmatch x of
           PragmaT s => T
         | _ => F
 Proof
@@ -1035,11 +1036,10 @@ QED
 
 Theorem destPragma_PMATCH:
   ∀x. destPragma x =
-        case x of
+        pmatch x of
           PragmaT s => SOME s
         | _ => NONE
 Proof
   CONV_TAC (DEPTH_CONV PMCONV)
   \\ Cases \\ rw []
 QED
-

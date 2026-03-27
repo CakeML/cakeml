@@ -1,5 +1,5 @@
 (*
-  Compilation from crepLang to panLang.
+  Compilation from crepLang to loopLang.
 *)
 Theory crep_to_loop
 Ancestors
@@ -195,7 +195,7 @@ Definition compile_def:
     case (FLOOKUP ctxt.vars ptr1, FLOOKUP ctxt.vars len1,
           FLOOKUP ctxt.vars ptr2, FLOOKUP ctxt.vars len2) of
      | (SOME pc, SOME lc, SOME pc', SOME lc') =>
-         FFI (explode f) pc lc pc' lc' l
+         FFI f pc lc pc' lc' l
      | _ => Skip)
 End
 
@@ -228,7 +228,7 @@ Definition comp_func_def:
 End
 
 Definition first_name_def:
-  first_name = 62:num
+  first_name = 64:num
 End
 
 Definition make_funcs_def:
@@ -251,5 +251,3 @@ Definition compile_prog_def:
           loop_live$optimise (comp params (crep_arith$simp_prog body))))
    fnums prog
 End
-
-

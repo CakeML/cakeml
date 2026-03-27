@@ -114,7 +114,7 @@ val _ = ml_prog_update (open_module "Set");
 
 (* provides the Set.set name for the set type *)
 val _ = ml_prog_update (add_dec
-  ``Dtabbrev unknown_loc ["'a"] "set" (Atapp [Atvar "'a"] (Short "mlset"))`` I);
+  ``Dtabbrev unknown_loc [«'a»] «set» (Atapp [Atvar «'a»] (Short «mlset»))`` I);
 
 val _ = next_ml_names := ["singleton"];
 val _ = translate mlsetTheory.singleton_def;
@@ -156,7 +156,7 @@ val _ = translate mlsetTheory.insert_def;
 val _ = ml_prog_update (close_module NONE);
 
 val _ = ml_prog_update (add_dec
-  ``Dtabbrev unknown_loc ["'a"] "set" (Atapp [Atvar "'a"] (Short "mlset"))`` I);
+  ``Dtabbrev unknown_loc [«'a»] «set» (Atapp [Atvar «'a»] (Short «mlset»))`` I);
 
 val _ = ml_prog_update close_local_block;
 

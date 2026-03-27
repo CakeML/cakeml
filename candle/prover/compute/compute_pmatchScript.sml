@@ -10,15 +10,15 @@ Libs
 
 val _ = numLib.temp_prefer_num ();
 
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES ();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 Theorem dest_num_PMATCH:
   ∀tm.
     dest_num tm =
-      case tm of
+      pmatch tm of
         Const n t => if tm = _0 then SOME 0 else NONE
       | Comb (Const nm t) r =>
-          (dtcase dest_num r of
+          (case dest_num r of
           | NONE => NONE
           | SOME n => if Const nm t = _BIT0_TM then SOME (2 * n)
                       else if Const nm t = _BIT1_TM then SOME (2 * n + 1)
@@ -32,10 +32,10 @@ QED
 Theorem dest_numeral_PMATCH:
   ∀tm.
     dest_numeral tm =
-      case tm of
+      pmatch tm of
         Comb (Const n t) r =>
           if Const n t = _NUMERAL_TM then
-            dtcase dest_num r of
+            case dest_num r of
             | NONE => raise_Failure «dest_numeral»
             | SOME n => st_ex_return n
           else
@@ -49,7 +49,7 @@ QED
 Theorem dest_binary_PMATCH:
   ∀tm' tm.
     dest_binary tm' tm =
-      case tm of
+      pmatch tm of
         Comb (Comb (Const n t) l) r =>
           if tm' = Const n t then st_ex_return (l, r)
           else raise_Failure «dest_binary»
@@ -62,10 +62,10 @@ QED
 Theorem dest_numeral_opt_PMATCH:
   ∀tm.
     dest_numeral_opt tm =
-      case tm of
+      pmatch tm of
         Comb (Const n t) r =>
           if Const n t = _NUMERAL_TM then
-            dtcase dest_num r of
+            case dest_num r of
             | NONE => NONE
             | SOME n => SOME n
           else
@@ -79,13 +79,13 @@ QED
 Theorem do_arith_PMATCH:
   ∀t1 t2.
     do_arith op t1 t2 =
-      case t1 of
+      pmatch t1 of
       | Num n =>
-        (case t2 of
+        (pmatch t2 of
          | Num m => return (Num (op n m))
          | _ => return (Num (op n 0)))
       | _ =>
-        (case t2 of
+        (pmatch t2 of
          | Num m => return (Num (op 0 m))
          | _ => return (Num 0))
 Proof
@@ -98,9 +98,9 @@ QED
 Theorem do_reln_PMATCH:
   ∀t1 t2.
     do_reln op t1 t2 =
-      case t1 of
+      pmatch t1 of
       | Num n =>
-        (case t2 of
+        (pmatch t2 of
          | Num m => return (Num (if op n m then SUC 0 else 0))
          | _ => return (Num 0))
       | _ => return (Num 0)

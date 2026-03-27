@@ -9,12 +9,12 @@ Libs
   preamble
 
 Theorem with_clos_conf_simp[local]:
-    (mc_init_ok (arm8_backend_config with <| clos_conf := z ; bvl_conf updated_by
+    (mc_init_ok arm8_config (arm8_backend_config with <| clos_conf := z ; bvl_conf updated_by
                     (λc. c with <|inline_size_limit := t1; exp_cut := t2|>) |>) =
-     mc_init_ok arm8_backend_config) /\
+     mc_init_ok arm8_config arm8_backend_config) /\
     (x.max_app <> 0 /\ (case x.known_conf of NONE => T | SOME k => k.val_approx_spt = LN) ==>
-     (backend_config_ok (arm8_backend_config with clos_conf := x) =
-      backend_config_ok arm8_backend_config))
+     (backend_config_ok arm8_config (arm8_backend_config with clos_conf := x) =
+      backend_config_ok arm8_config arm8_backend_config))
 Proof
   fs [mc_init_ok_def,FUN_EQ_THM,backend_config_ok_def]
   \\ rw [] \\ eq_tac \\ rw [] \\ EVAL_TAC
@@ -22,29 +22,20 @@ QED
 
 Definition compiler_instance_def:
   compiler_instance =
-    <| init_state := config_to_inc_config info;
+    <| init_state := info;
        compiler_fun := compile_inc_progs_for_eval arm8_config ;
        config_dom := UNIV ;
-       config_v := BACKEND_INC_CONFIG_v ;
+       config_v := BACKEND_CONFIG_v ;
        decs_dom := decs_allowed ;
        decs_v := LIST_v AST_DEC_v |>
 End
 
 Theorem compiler_instance_lemma[local]:
-  INJ compiler_instance.config_v 𝕌(:inc_config) 𝕌(:semanticPrimitives$v) ∧
-  compiler_instance.init_state = config_to_inc_config info ∧
+  INJ compiler_instance.config_v 𝕌(:backend$config) 𝕌(:semanticPrimitives$v) ∧
+  compiler_instance.init_state = info ∧
   compiler_instance.compiler_fun = compile_inc_progs_for_eval arm8_config
 Proof
   fs [compiler_instance_def]
-QED
-
-Theorem info_asm_conf:
-  info.lab_conf.asm_conf = arm8_config
-Proof
-  assume_tac $ cj 1 compiler64_compiled
-  \\ drule compile_asm_config_eq
-  \\ gvs [backendTheory.set_oracle_def]
-  \\ strip_tac \\ EVAL_TAC
 QED
 
 val cake_io_events_def = new_specification("cake_io_events_def",["cake_io_events"],
@@ -66,7 +57,7 @@ val compile_correct_applied =
                          GSYM AND_IMP_INTRO,with_clos_conf_simp]
   |> Q.INST [‘ev’|->‘SOME compiler_instance’]
   |> SIMP_RULE (srw_ss()) [add_eval_state_def,opt_eval_config_wf_def,
-                           compiler_instance_lemma,info_asm_conf]
+                           compiler_instance_lemma]
   |> C MATCH_MP cake_not_fail
   |> C MATCH_MP arm8_backend_config_ok
   |> REWRITE_RULE[cake_sem_sing,AND_IMP_INTRO]

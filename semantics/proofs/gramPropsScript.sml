@@ -333,7 +333,7 @@ Proof
   simp[Once relationTheory.RTC_CASES1, MAP_EQ_SING, cmlG_FDOM] >>
   dsimp[MAP_EQ_SING,cmlG_applied] >>
   simp[EXTENSION, EQ_IMP_THM] >> qx_gen_tac `t` >> rpt strip_tac >>
-  fs[] >> qexists_tac `[AlphaT "foo"]` >>
+  fs[] >> qexists_tac `[AlphaT «foo»]` >>
   simp[stringTheory.isUpper_def]
 QED
 
@@ -348,4 +348,3 @@ Theorem parsing_ind =
     |> SIMP_RULE (srw_ss()) [pairTheory.WF_LEX, relationTheory.WF_inv_image]
     |> SIMP_RULE (srw_ss()) [relationTheory.inv_image_def,
                              pairTheory.LEX_DEF]
-

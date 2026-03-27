@@ -25,7 +25,7 @@ val names_tac =
   \\ rpt strip_tac \\ rveq \\ EVAL_TAC
 
 Theorem riscv_backend_config_ok:
-    backend_config_ok riscv_backend_config
+    backend_config_ok riscv_config riscv_backend_config
 Proof
   simp[backend_config_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
   >- fs[riscv_backend_config_def]
@@ -67,7 +67,7 @@ QED
 
 Theorem riscv_init_ok:
    is_riscv_machine_config mc ⇒
-    mc_init_ok riscv_backend_config mc
+    mc_init_ok riscv_config riscv_backend_config mc
 Proof
   rw[mc_init_ok_def] \\
   fs[is_riscv_machine_config_def] \\
@@ -78,8 +78,8 @@ val is_riscv_machine_config_mc = riscv_init_ok |> concl |> dest_imp |> #1
 
 Theorem riscv_compile_correct =
   compile_correct
-  |> Q.GENL[`c`,`mc`]
-  |> Q.ISPECL[`riscv_backend_config`, `^(rand is_riscv_machine_config_mc)`]
+  |> Q.GENL[`asm_conf`,`c`,`mc`]
+  |> Q.ISPECL[`riscv_config`, `riscv_backend_config`, `^(rand is_riscv_machine_config_mc)`]
   |> ADD_ASSUM is_riscv_machine_config_mc
   |> SIMP_RULE (srw_ss()) [riscv_backend_config_ok,UNDISCH riscv_machine_config_ok,UNDISCH riscv_init_ok]
   |> CONV_RULE (ONCE_DEPTH_CONV(EVAL o (assert(same_const``heap_regs``o fst o strip_comb))))

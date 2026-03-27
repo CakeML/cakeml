@@ -1,5 +1,5 @@
 This directory contains definitions used for miscellaneous translator
-examples from used in the original ICFP paper about the translator.
+examples used in the original ICFP paper about the translator.
 
 [copying_gcScript.sml](copying_gcScript.sml):
 Algorithm of a copying garbage collector.

@@ -424,7 +424,7 @@ Definition compute_eval_def:
       case x of
       | Num 0 => compute_eval ck ceqs r
       | Num _ => compute_eval ck ceqs q
-      | Pair _ _ => compute_eval ck ceqs q
+      | Pair _ _ => compute_eval ck ceqs r
       | _ => error
     od ∧
   compute_eval ck ceqs (Let s p q) =
@@ -480,7 +480,7 @@ Definition compute_eval_ind_def:
       case x of
       | Num 0 => compute_eval_ind ck ceqs r
       | Num _ => compute_eval_ind ck ceqs q
-      | Pair _ _ => compute_eval_ind ck ceqs q
+      | Pair _ _ => compute_eval_ind ck ceqs r
       | _ => error
     od ∧
   compute_eval_ind ck ceqs (Let s p q) =
@@ -503,4 +503,3 @@ Termination
 End
 
 val _ = Theory.delete_binding "compute_eval_ind_def"
-

@@ -948,6 +948,13 @@ QED
 
 val print_tac = asmLib.print_tac "";
 
+Theorem word_extract_6:
+  w <+ 64w ⇒
+  ((5 >< 0) (w:word64)):word6 = (w2w w)
+Proof
+  blastLib.FULL_BBLAST_TAC
+QED
+
 Theorem x64_encoder_correct:
     encoder_correct x64_target
 Proof
@@ -956,7 +963,6 @@ Proof
    \\ rw [x64_target_def, x64_config, asmSemTheory.asm_step_def]
    \\ qunabbrev_tac `state_rel`
    \\ Cases_on `i`
-
    >- (
       (*--------------
           Inst
@@ -1022,9 +1028,32 @@ Proof
                 Shift
               --------------*)
             print_tac "Shift"
-            \\ Cases_on `s`
-            \\ Cases_on `n1 = 1`
-            \\ next_tac []
+            \\ reverse (Cases_on`r`)
+            >- (
+              rename1`Imm c`
+              \\ Cases_on `c` \\ gvs[]
+              \\ rename1`Imm (n2w nn)`
+              \\ Cases_on `nn = 1`
+              >- (
+                Cases_on `s`
+                \\ next_tac [])
+              \\ ` (0xFFFFFFFFFFFFFF80w):word64 ≤ n2w nn ∧
+                  n2w nn ≤ (127w:word64)` by
+                fs enc_rwts
+              \\ Cases_on `s`
+              \\ next_tac []
+            )
+            >- (
+              `n' = 1` by
+                fs enc_rwts
+              \\ `w2n ((5 >< 0) (s1.regs 1):word6) = w2n (s1.regs 1)` by (
+                fs enc_rwts
+                \\ `s1.regs 1 <+ 64w` by (
+                  Cases_on`s1.regs 1`
+                  \\ fs[wordsTheory.WORD_LO])
+                \\ simp[word_extract_6,wordsTheory.w2w_def])
+              \\ Cases_on`s`
+              \\ next_tac [])
             )
          >- (
             (*--------------

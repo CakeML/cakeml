@@ -120,7 +120,7 @@ Theorem case_elim_thms =
 
 Theorem case_eq_thms =
   CONJ
-  (prove_case_eq_thm {nchotomy = bviTheory.exp_nchotomy, case_def = bviTheory.exp_case_def})
+  (TypeBase.case_eq_of ``:bvi$exp``)
   bvlPropsTheory.case_eq_thms
 
 val evaluate_LENGTH = Q.prove(

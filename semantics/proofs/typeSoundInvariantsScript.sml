@@ -181,18 +181,18 @@ End
 (* The global constructor type environment has the list primitives in it *)
 Definition ctMap_has_lists_def:
   ctMap_has_lists ctMap ⇔
-    FLOOKUP ctMap (TypeStamp "[]" list_type_num) = SOME (["'a"],[],Tlist_num) ∧
-    FLOOKUP ctMap (TypeStamp "::" list_type_num) =
-      SOME (["'a"],[Tvar "'a"; Tlist (Tvar "'a")],Tlist_num) ∧
-    (!cn. cn ≠ "::" ∧ cn ≠ "[]" ⇒ FLOOKUP ctMap (TypeStamp cn list_type_num) = NONE)
+    FLOOKUP ctMap (TypeStamp «[]» list_type_num) = SOME ([«'a»],[],Tlist_num) ∧
+    FLOOKUP ctMap (TypeStamp «::» list_type_num) =
+      SOME ([«'a»],[Tvar «'a»; Tlist (Tvar «'a»)],Tlist_num) ∧
+    (!cn. cn ≠ «::» ∧ cn ≠ «[]» ⇒ FLOOKUP ctMap (TypeStamp cn list_type_num) = NONE)
 End
 
 (* The global constructor type environment has the bool primitives in it *)
 Definition ctMap_has_bools_def:
   ctMap_has_bools ctMap ⇔
-    FLOOKUP ctMap (TypeStamp "True" bool_type_num) = SOME ([],[],Tbool_num) ∧
-    FLOOKUP ctMap (TypeStamp "False" bool_type_num) = SOME ([],[],Tbool_num) ∧
-    (!cn. cn ≠ "True" ∧ cn ≠ "False" ⇒ FLOOKUP ctMap (TypeStamp cn bool_type_num) = NONE)
+    FLOOKUP ctMap (TypeStamp «True» bool_type_num) = SOME ([],[],Tbool_num) ∧
+    FLOOKUP ctMap (TypeStamp «False» bool_type_num) = SOME ([],[],Tbool_num) ∧
+    (!cn. cn ≠ «True» ∧ cn ≠ «False» ⇒ FLOOKUP ctMap (TypeStamp cn bool_type_num) = NONE)
 End
 
 Definition good_ctMap_def:
@@ -254,5 +254,3 @@ type_sound_invariant st env ctMap tenvS type_idents tenv ⇔
   type_all_env ctMap tenvS env tenv ∧
   type_s ctMap st.refs tenvS
 End
-
-

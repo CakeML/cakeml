@@ -26,7 +26,7 @@ in
   val mips_encode_conv =
     Conv.memoize dst (Redblackmap.mkDict Term.compare) listSyntax.is_list
       (ERR "mips_encode_conv" "")
-      (computeLib.compset_conv (wordsLib.words_compset())
+      (computeLib.compset_conv (wordsLib.words_compset)
         [computeLib.Defs
            [mips_enc, mips_ast_def, mips_encode_def, Encode_def, COP1Encode_def,
             mips_bop_r_def, mips_bop_i_def, mips_sh_def, mips_fp_cmp_def,
@@ -41,7 +41,7 @@ val add_mips_encode_compset = computeLib.extend_compset
    computeLib.Defs [mips_targetTheory.mips_config,
                     mips_targetTheory.mips_reg_ok_def]]
 
-val mips_encode_decode_conv = computeLib.compset_conv (wordsLib.words_compset())
+val mips_encode_decode_conv = computeLib.compset_conv (wordsLib.words_compset)
   [computeLib.Extenders
      [bitstringLib.add_bitstring_compset,
       integer_wordLib.add_integer_word_compset,

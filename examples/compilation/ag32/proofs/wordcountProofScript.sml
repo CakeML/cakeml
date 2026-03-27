@@ -5,7 +5,7 @@
 *)
 Theory wordcountProof
 Ancestors
-  semanticsProps backendProof ag32_configProof ag32_memory
+  mlstring semanticsProps backendProof ag32_configProof ag32_memory
   ag32_memoryProof ag32_ffi_codeProof ag32_machine_config
   ag32_basis_ffiProof wordcountProg wordcountCompile
 Libs
@@ -21,21 +21,25 @@ Proof
 QED
 (* -- *)
 
-Theorem wordcount_stdin_semantics = Q.prove(
-  `∃io_events.
-     semantics_prog (init_state (basis_ffi [strlit"wordcount"] (stdin_fs input))) init_env
-       wordcount_prog (Terminate Success io_events) ∧
-     (extract_fs (stdin_fs input) io_events =
-      SOME (add_stdout (fastForwardFD (stdin_fs input) 0)
-             (concat
-               [mlint$toString (&LENGTH (TOKENS isSpace input)); strlit " ";
-                mlint$toString (&LENGTH (splitlines input)); strlit "\n"])))`,
+Theorem wordcount_stdin_semantics_raw[local]:
+  ∃io_events.
+    semantics_prog (init_state (basis_ffi [strlit"wordcount"] (stdin_fs input))) init_env
+      wordcount_prog (Terminate Success io_events) ∧
+    (extract_fs (stdin_fs input) io_events =
+       SOME (add_stdout (fastForwardFD (stdin_fs input) 0)
+              (concat
+                [mlint$toString (&LENGTH (TOKENS isSpace input)); strlit " ";
+                 mlint$toString (&LENGTH (splitlines input)); strlit "\n"])))
+Proof
   simp [wordcount_compiled, GSYM ml_progTheory.prog_syntax_ok_semantics]
   \\ match_mp_tac (GEN_ALL wordcount_semantics)
   \\ simp[wordcount_precond_def, CommandLineProofTheory.wfcl_def, clFFITheory.validArg_def]
   \\ simp[wfFS_stdin_fs, STD_streams_stdin_fs]
-  \\ simp[stdin_fs_def])
-  |> SIMP_RULE std_ss[int_toString_num]
+  \\ simp[stdin_fs_def, TextIOProofTheory.stdin_content_def]
+QED
+
+Theorem wordcount_stdin_semantics =
+  SIMP_RULE std_ss[int_toString_num] wordcount_stdin_semantics_raw
 
 val wordcount_io_events_def =
   new_specification("wordcount_io_events_def",["wordcount_io_events"],
@@ -145,6 +149,7 @@ Proof
   \\ disch_then drule
   \\ strip_tac
   \\ simp[]
+  \\ conj_tac >- (EVAL_TAC)
   \\ conj_tac >- (simp[LENGTH_code] \\ EVAL_TAC)
   \\ conj_tac >- (simp[LENGTH_code, LENGTH_data] \\ EVAL_TAC)
   \\ conj_tac >- (EVAL_TAC)
@@ -173,7 +178,7 @@ Proof
   \\ simp[STD_streams_stdin_fs]
   \\ simp[TextIOProofTheory.add_stdo_def]
   \\ SELECT_ELIM_TAC
-  \\ simp[TextIOProofTheory.stdo_def]
+  \\ simp[TextIOProofTheory.stdo_def,implode_def]
   \\ conj_tac
   >- (
     simp[stdin_fs_def]
@@ -220,7 +225,7 @@ Proof
   \\ disch_then drule
   \\ strip_tac
   \\ irule ag32_next
-  \\ conj_tac >- simp[ffi_names,extcalls_def]
+  \\ conj_tac >- (simp[ffi_names,extcalls_def] \\ EVAL_TAC)
   \\ conj_tac >- (simp[ffi_names,extcalls_def, LENGTH_code, LENGTH_data] \\ EVAL_TAC)
   \\ conj_tac >- (simp[ffi_names,extcalls_def] \\ EVAL_TAC)
   \\ rpt $ goal_assum $ drule_at Any
@@ -233,4 +238,3 @@ Proof
   \\ qexists_tac`clk` \\ simp[]
   \\ EVAL_TAC
 QED
-

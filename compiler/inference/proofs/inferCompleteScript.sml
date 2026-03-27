@@ -241,7 +241,7 @@ Proof
       metis_tac [MEM_EL]) >>
     simp [] >>
     disch_then kall_tac >>
-    `MAP (\(x,y). (x:string, unconvert_t y)) = MAP (\p. (FST p, unconvert_t (SND p)))`
+    `MAP (\(x,y). (x:mlstring, unconvert_t y)) = MAP (\p. (FST p, unconvert_t (SND p)))`
       by (AP_TERM_TAC >> rw [LAMBDA_PROD]) >>
     simp [GSYM ZIP_MAP, LENGTH_GENLIST, MAP_GENLIST, combinTheory.o_DEF, unconvert_t_def] >>
     EXISTS_TAC ``GENLIST (\n. case find_index (EL n (fvs:tvarN list)) (nub fvs') 0
@@ -279,7 +279,7 @@ Proof
       metis_tac [MEM_EL]) >>
     simp [] >>
     disch_then kall_tac >>
-    `MAP (\(x,y). (x:string, unconvert_t y)) = MAP (\p. (FST p, unconvert_t (SND p)))`
+    `MAP (\(x,y). (x:mlstring, unconvert_t y)) = MAP (\p. (FST p, unconvert_t (SND p)))`
       by (AP_TERM_TAC >> rw [LAMBDA_PROD]) >>
     simp [GSYM ZIP_MAP, LENGTH_GENLIST, MAP_GENLIST, combinTheory.o_DEF, unconvert_t_def] >>
     EXISTS_TAC ``GENLIST (\n. case find_index (EL n (nub fvs':tvarN list)) fvs 0
@@ -1158,8 +1158,8 @@ Proof
       pairarg_tac>>fs[]>>
       `t_walkstar last_sub (Infer_Tuvar n) = t_walkstar last_sub t'` by
         (fs[Once LIST_EQ_REWRITE]>>
-        first_x_assum(qspec_then`n` kall_tac)>>
-        first_x_assum(qspec_then`n` assume_tac)>>
+         qpat_x_assum ‘∀_. _ ⇒ EL _ (MAP (t_walkstar _) _) = _’ $
+           qspec_then`n` assume_tac>>
         rfs[EL_MAP,EL_COUNT_LIST,EL_ZIP]>>fs[])>>
       imp_res_tac ALOOKUP_ALL_DISTINCT_EL >>res_tac>>fs[]>>
       Cases_on`EL n bindings`>>fs[]>>

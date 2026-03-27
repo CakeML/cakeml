@@ -593,10 +593,10 @@ val def = holSyntaxTheory.dependency_compute_def
           |> PURE_REWRITE_RULE[GSYM sort_type_vars_in_term,GSYM allTypes_ty_def]
           |> translate
 
-val def = list_max_def |> translate
+val def = MAX_LIST_def |> translate
 
-(*Theorem list_max_strlen_lemma:
-  list_max (MAP strlen (tyvars ty)) = list_max (MAP strlen (type_vars_in_term ty))
+(*Theorem MAX_LIST_strlen_lemma:
+  MAX_LIST (MAP strlen (tyvars ty)) = MAX_LIST (MAP strlen (type_vars_in_term ty))
 Proof
 QED*)
 

@@ -90,21 +90,256 @@ val to_fun =
                   (to_sptree_spt to_unit)
                   )))));
 
+val int_list_to_string = String.concatWith "," o map Int.toString;
+
+val kv_list_to_string = String.concatWith "," o map (fn (k,v) => Int.toString k ^" -> "^Int.toString v);
+
+val unit_spt_to_string : unit sptree_spt -> string = int_list_to_string o sort (fn i => fn j => i <= j) o map fst o toalist;
+
+val int_spt_to_string : int sptree_spt -> string = kv_list_to_string o sort (fn (ki,_) => fn (kj,_) => ki <= kj) o toalist;
+
+fun apply_spt f spt =
+  fromalist (map (fn i => (f i,())) (map fst (toalist spt)));
+
+fun apply_clash_tree f ct =
+  case ct of
+    Delta (ws,rs) => Delta (map f ws, map f rs)
+  | Set ns => Set (apply_spt f ns)
+  | Seq (ct1,ct2) => Seq (apply_clash_tree f ct1, apply_clash_tree f ct2)
+  | Branch (topt,ct1,ct2) => (
+    let val
+      topt' =
+        case topt of
+          NONE => NONE
+        | SOME t => SOME (apply_spt f t) in
+      Branch (topt',apply_clash_tree f ct1, apply_clash_tree f ct2)
+    end);
+
+fun pr_clash_tree pr indent ct =
+  let val pri = (fn s => pr (indent ^ s)) in
+  case ct of
+    Delta (ws,rs) => (
+    pri "wr: {";
+    pr (int_list_to_string ws);
+    pr "} {";
+    pr (int_list_to_string rs);
+    pr "};\n")
+  | Set ns => (
+    pri "st: {";
+    pr (unit_spt_to_string ns);
+    pr"};\n")
+  | Seq (ct1,ct2) => (
+    pr_clash_tree pr indent ct1;
+    pr_clash_tree pr indent ct2
+  )
+  | Branch (topt,ct1,ct2) => (
+    case topt of
+      NONE => (
+      pri "ifn:\n";
+      pri "{\n";
+      pr_clash_tree pr (indent^"  ") ct1;
+      pri "}\n";
+      pri "{\n";
+      pr_clash_tree pr (indent^"  ") ct2;
+      pri "}\n")
+    | SOME t => (
+      pri "ifa: {";
+      pr (unit_spt_to_string t);
+      pr "}\n";
+      pri "{\n";
+      pr_clash_tree pr (indent^"  ") ct1;
+      pri "}\n";
+      pri "{\n";
+      pr_clash_tree pr (indent^"  ") ct2;
+      pri "}\n")
+  )
+  end;
+
+fun pair_str (x,y) = "(" ^ Int.toString x ^ "," ^ Int.toString y ^ ")";
+fun trip_str (p,(x,y)) = "(" ^ Int.toString p ^ "," ^ Int.toString x ^ "," ^ Int.toString y ^ ")";
+
+fun pr_force pr force =
+  pr ("force: {" ^ (String.concatWith "," (map pair_str force)) ^"}\n");
+
+fun pr_moves pr mvs =
+  pr ("moves: {" ^ (String.concatWith "," (map trip_str mvs)) ^"}\n");
+
+fun pr_k pr k =
+  pr ("regs: " ^ Int.toString k ^"\n");
+
+fun pr_fs pr fs =
+  pr ("fs: {" ^ unit_spt_to_string fs ^ "}\n");
+
+fun pr_sol pr s =
+  pr ("sol: {" ^ int_spt_to_string s ^ "}\n");
+
+fun pr_clash_graph pr ct =
+let
+  val (ta,(fa,n)) = mk_bij ct;
+  val adj_ls = Array.array (n, ([]:int list));
+
+  val insert_edge =
+    (fn  v4 =>
+      (fn  v5 =>
+        let val  v3 = Array.sub ( adj_ls, v4)
+            val  v2 = Array.sub ( adj_ls, v5)
+            val  v1 =
+          Array.update ( adj_ls, v4, (sorted_insert v5 [] v3))
+        in
+          Array.update ( adj_ls, v5, (sorted_insert v4 [] v2))
+        end));
+
+  fun list_insert_edge v5 v4 =
+    case  v4
+    of  []  =>  ()
+    |   v3::v2 =>  (let val  v1 = insert_edge v5 v3
+     in
+      list_insert_edge v5 v2
+     end);
+
+  fun clique_insert_edge v4 =
+    case  v4
+    of  []  =>  ()
+    |   v3::v2 =>  (let val  v1 = list_insert_edge v3 v2
+     in
+      clique_insert_edge v2
+     end)
+        fun  extend_clique v5 v4 =
+    case  v5
+    of  []  =>  v4
+    |   v3::v2 =>  (if  (member v3 v4)
+    then  (extend_clique v2 v4)
+    else  (let val  v1 = list_insert_edge v3 v4
+     in
+      extend_clique v2 (v3::v4)
+    end));
+
+  fun mk_graph v26 v25 v24 =
+    case  v25
+    of  Delta(v8,v7) =>  (let val  v6 = map v26 v8
+        val  v5 = map v26 v7
+        val  v4 = extend_clique v6 v24
+        val  v3 =
+      filter (fn  v1 => ((member v1 v6) = (0 < 0))) v4
+        val  v2 = extend_clique v5 v3
+     in
+      v2
+     end)
+    |   Set(v11) =>  (let val  v10 =
+      map v26 (map fst (toalist v11))
+        val  v9 = clique_insert_edge v10
+     in
+      v10
+     end)
+    |   Branch(v20,v19,v18) =>  (let val  v17 =
+      mk_graph v26 v19 v24
+        val  v16 = mk_graph v26 v18 v24
+     in
+      case  v20
+    of  NONE =>  (let val  v12 = extend_clique v17 v16
+     in
+      v12
+     end)
+    |   SOME(v15) =>  (let val  v14 =
+      map v26 (map fst (toalist v15))
+        val  v13 = clique_insert_edge v14
+     in
+      v14
+     end)
+    end)
+    |   Seq(v23,v22) =>  (let val  v21 = mk_graph v26 v22 v24
+     in
+      mk_graph v26 v23 v21
+     end)
+        fun  extend_graph v6 v7 =
+    case  v7
+    of  []  =>  ()
+    |   v5::v4 =>  (case  v5
+    of  (v3,v2) =>  (let val  v1 = insert_edge (v6 v3) (v6 v2)
+    in
+      extend_graph v6 v4
+     end))
+  val u = mk_graph (sp_default ta) ct []
+  val f = sp_default fa in
+  Array.appi (fn(i,x) =>
+    (pr (Int.toString (f i)); pr ": {"; pr (int_list_to_string (sort (fn a => fn b => a <= b) (map f x))); pr"}\n")) adj_ls
+end;
+
+val dump_to_file = ref NONE : string option ref;
+
+
+fun dump_clash_graph_raw path ctp =
+    let
+      val fd = TextIO.openOut path
+      val _ = pr_clash_graph (fn s => TextIO.output(fd,s)) ctp
+    in
+      TextIO.closeOut fd
+    end;
+
+fun dump_clash_tree_raw path n k ctp moves force fs s =
+    let
+      val fd = TextIO.openOut path
+      val _ = pr_k (fn s => TextIO.output(fd,s)) k
+      val _ = pr_moves (fn s => TextIO.output(fd,s)) moves
+      val _ = pr_force (fn s => TextIO.output(fd,s)) force
+      val _ = pr_fs (fn s => TextIO.output(fd,s)) fs
+      val _ = pr_sol (fn s => TextIO.output(fd,s)) s
+      val _ = pr_clash_tree (fn s => TextIO.output(fd,s)) "" ctp
+    in
+      TextIO.closeOut fd
+    end;
+
+fun dump_clash_tree n k ctp moves force fs =
+  case !dump_to_file of
+    NONE => ()
+  | SOME prefix =>
+    (dump_clash_tree_raw (prefix ^ Int.toString n ^".txt")
+      n k ctp moves force fs Ln;
+     dump_clash_graph_raw (prefix ^ Int.toString n ^".graph") ctp);
+
+fun apply_moves f moves =
+  map (fn (p,(x,y)) => (p,(f x, f y))) moves;
+
+fun apply_force f force =
+  map (fn (x,y) => (f x, f y)) force;
+
+fun dump_clash_tree_sol n k ctp moves force fs s =
+  case !dump_to_file of
+    NONE => ()
+  | SOME prefix =>
+    let
+      val f = (fn i => case lookup_1 i s of NONE => ~1 | SOME v => v)
+      val ctp_s = apply_clash_tree f ctp
+      val moves_s = apply_moves f moves
+      val force_s = apply_force f force
+      val fs_s = apply_spt f fs
+    in
+      (dump_clash_tree_raw (prefix ^ Int.toString n ^"_allocated.txt")
+        n k ctp_s moves_s force_s fs_s s;
+       dump_clash_graph_raw (prefix ^ Int.toString n ^"_allocated.graph") ctp_s)
+    end;
+
 (* --- direct version --- *)
 
-fun alloc_aux alg k [] n = (print"\n"; [])
+fun alloc_aux alg k [] n = (if !verbose then print"\n" else (); [])
   | alloc_aux alg k ((clash_tree,(moves,(sc,(force,fs))))::xs) n =
       let
-        val _ = print (strcat (Int.toString n) " ")
+        val () = if !verbose then print (strcat (Int.toString n) " ") else ()
         val clash_tree_poly = clash_tree
         val moves_poly = moves
         val force_poly = force
         val fs_poly = fs
+        val () = dump_clash_tree n k clash_tree_poly moves_poly force_poly fs_poly
         val sc_poly = sc
         val res = reg_alloc alg sc_poly k moves_poly clash_tree_poly force_poly fs_poly
       in
         case res of
-          Success s => s :: alloc_aux alg k xs (n + 1)
+          Success s =>
+          let
+            val () = dump_clash_tree_sol n k clash_tree_poly moves_poly force_poly fs_poly s
+          in
+            s :: alloc_aux alg k xs (n + 1)
+          end
         | Failure e => raise ERR "reg_alloc" "failure"
       end
   | alloc_aux _ _ _ _ = raise General.Bind;
@@ -120,7 +355,7 @@ fun alg_to_str Simple = "Simple"
 fun alloc_all_raw alg graphs_raw =
   let
     val (k,datals) = cv_of_term (rand graphs_raw) |> to_fun;
-    val _ = print ("Num regs: "^Int.toString k ^" Alg: "^alg_to_str alg^ "\n")
+    val _ = if !verbose then print ("Num regs: "^Int.toString k ^" Alg: "^alg_to_str alg^ "\n") else ()
   in
     alloc_aux alg k datals 0
   end
@@ -300,9 +535,9 @@ fun dest_forced tm =
 
 fun dest_fs tm = dest_unit_sptree tm
 
-fun alloc_aux alg k [] n = (print"\n";[])
+fun alloc_aux alg k [] n = (if !verbose then print"\n" else ();[])
 |   alloc_aux alg k ([clash_tree,moves,sc,force,fs]::xs) n =
-  let val _ = print (strcat (Int.toString n) " ")
+  let val () = if !verbose then print (strcat (Int.toString n) " ") else ()
       val clash_tree_poly = dest_clash_tree clash_tree
       val moves_poly = dest_moves moves
       val force_poly = dest_forced force
@@ -325,7 +560,7 @@ fun alg_to_str Simple = "Simple" |
 
 fun alloc_all alg t =
   let val (k,ls) = pairSyntax.dest_pair t
-      val _ = print ("Num regs: "^Int.toString (int_of_term k) ^" Alg: "^alg_to_str alg^ "\n")
+      val _ = if !verbose then print ("Num regs: "^Int.toString (int_of_term k) ^" Alg: "^alg_to_str alg^ "\n") else ()
     val datals = map pairSyntax.strip_pair (fst(listSyntax.dest_list ls)) in
     alloc_aux alg (int_of_term k) datals 0
   end
@@ -340,7 +575,14 @@ fun get_oracle alg t =
   end
 
 (*
-  get_oracle 3 ``(5n,[(Seq (Delta [1;2;3][]) (Set LN),[],[(1n,2n)]);Set LN,[(1n,1n,2n)],[]])``
+  val tr = rhs (concl (EVAL
+    ``Branch (SOME (fromList [();();();()]))
+      (Branch NONE
+        (Seq (Delta [1;2;3][4;5;6]) (Set (fromList [();();();()])))
+        (Seq (Delta [1;2;3][4;5;6]) (Set (fromList [();();();()]))))
+      (Seq (Seq (Delta [][]) (Branch NONE (Set LN) (Set LN))) (Seq (Set LN) (Delta [][])))``));
+  val clash_tree_poly = pr_clash_tree print ""
+  pr_clash_graph ct;
 *)
 
 end

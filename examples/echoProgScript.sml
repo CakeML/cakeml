@@ -9,15 +9,14 @@ Libs
 
 val _ = translation_extends"basisProg";
 
-val echo = process_topdecs
-  `fun echo u =
+Quote add_cakeml:
+  fun echo u =
       let
         val cl = CommandLine.arguments ()
         val cls = String.concatWith " " cl
         val ok = TextIO.print cls
-      in TextIO.output1 TextIO.stdOut #"\n" end`;
-
-val () = append_prog echo;
+      in TextIO.output1 TextIO.stdOut #"\n" end
+End
 
 val st = get_ml_prog_state();
 

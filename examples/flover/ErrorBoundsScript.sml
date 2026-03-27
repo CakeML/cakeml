@@ -1,7 +1,7 @@
 (**
 Proofs of general bounds on the error of arithmetic Expressions.
 This shortens soundness proofs later.
-Bounds are exprlained in section 5, Deriving Computable Error Bounds
+Bounds are explained in section 5, Deriving Computable Error Bounds
 **)
 Theory ErrorBounds
 Ancestors

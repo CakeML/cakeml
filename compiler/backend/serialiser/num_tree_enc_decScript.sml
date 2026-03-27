@@ -327,3 +327,18 @@ Proof
   fs [word64_dec'_def,word64_enc'_def]
 QED
 
+(* mlstring *)
+
+Definition mlstring_enc'_def:
+  mlstring_enc' (strlit s) = list_enc' chr_enc' s
+End
+
+Definition mlstring_dec'_def:
+  mlstring_dec' = implode o (list_dec' chr_dec')
+End
+
+Theorem mlstring_dec_enc'[simp]:
+  mlstring_dec' (mlstring_enc' s) = s
+Proof
+  Cases_on ‘s’ \\ fs [mlstring_dec'_def, mlstring_enc'_def, implode_def]
+QED

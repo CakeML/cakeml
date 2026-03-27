@@ -38,7 +38,7 @@ Theorem cake_pb_cnf_compiled_thm =
 (* Prettifying the standard parts of all the theorems *)
 Definition installed_x64_def:
   installed_x64 ((code, data, cfg) :
-      (word8 list # word64 list # 64 backend$config))
+      (word8 list # word64 list # backend$config))
     mc ms
   <=>
     ?cbspace data_sp.
@@ -76,11 +76,11 @@ Theorem machine_code_sound:
       (
         (LENGTH cl = 2 ∧
         ∃fml.
-          parse_dimacs (all_lines fs (EL 1 cl)) = SOME fml ∧
+          parse_dimacs (all_lines_file fs (EL 1 cl)) = SOME fml ∧
           out = concat (print_npbf (fml_to_pbf fml))) ∨
         (LENGTH cl = 3 ∧
         ∃fml.
-          parse_dimacs (all_lines fs (EL 1 cl)) = SOME fml ∧
+          parse_dimacs (all_lines_file fs (EL 1 cl)) = SOME fml ∧
           (
           out = UNSAT_string ∧ unsatisfiable (interp fml) ∨
           out = SAT_string ∧ satisfiable (interp fml) ∨

@@ -49,7 +49,7 @@ val add_basic_compset =
    , miscTheory.least_from_thm
    , miscTheory.lookup_any_def
    , miscTheory.UPDATE_LIST_THM
-   , miscTheory.list_max_def
+   , rich_listTheory.MAX_LIST_def
    , miscTheory.anub_def
    , miscTheory.zlookup_def
    , miscTheory.tlookup_def

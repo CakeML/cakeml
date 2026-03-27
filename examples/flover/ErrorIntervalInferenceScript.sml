@@ -4,7 +4,7 @@
    validator from the certificate checking process. Under the assumption that a
    valid range arithmetic result has been computed, it can validate error bounds
    encoded in the analysis result. The validator is used in the file
-   CertificateChecker.v to build the complete checker.
+   CertificateCheckerScript.sml to build the complete checker.
  **)
 Theory ErrorIntervalInference
 Ancestors

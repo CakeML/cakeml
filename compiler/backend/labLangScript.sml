@@ -1,6 +1,6 @@
 (*
   The labLang intermediate language is a target-neutral assembly
-  language at the bottom end of the compielr backend.
+  language at the bottom end of the compiler backend.
 *)
 Theory labLang
 Ancestors
@@ -26,7 +26,7 @@ Datatype:
                | Call lab
                | LocValue reg lab
                (* following have no label, but have similar semantics *)
-               | CallFFI string
+               | CallFFI mlstring
                | Install
                | Halt
 End

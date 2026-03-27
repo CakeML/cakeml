@@ -34,7 +34,7 @@ in
   val x64_encode_conv =
    Conv.memoize dst (Redblackmap.mkDict Term.compare) listSyntax.is_list
      (ERR "x64_encode_conv" "")
-     (computeLib.compset_conv (wordsLib.words_compset())
+     (computeLib.compset_conv (wordsLib.words_compset)
       [computeLib.Defs
          [x64_bop_def, x64_cmp_def, x64_sh_def, e_gen_rm_reg_def,
           e_ModRM_def, e_opsize_def, rex_prefix_def, e_opc_def, e_rm_imm8_def,
@@ -50,7 +50,7 @@ val add_x64_encode_compset = computeLib.extend_compset
   [computeLib.Convs [(``x64_target$x64_enc``, 1, x64_encode_conv)],
    computeLib.Defs [x64_targetTheory.x64_config]]
 
-val x64_encode_conv = computeLib.compset_conv (wordsLib.words_compset())
+val x64_encode_conv = computeLib.compset_conv (wordsLib.words_compset)
   [computeLib.Extenders
      [utilsLib.add_base_datatypes, asmLib.add_asm_compset,
       add_x64_encode_compset]]

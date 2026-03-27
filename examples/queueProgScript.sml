@@ -17,8 +17,8 @@ Datatype:
 End
 val _ = register_exn_type ``:exn_type``;
 
-val queue_decls = process_topdecs
-   ‘fun empty_queue sz err = Ref (Array.array sz err, 0, 0, 0)
+Quote add_cakeml:
+   fun empty_queue sz err = Ref (Array.array sz err, 0, 0, 0)
 
     fun full q =
       case !q of (a,f,r,c) => c = Array.length a
@@ -39,9 +39,8 @@ val queue_decls = process_topdecs
                 in
                   q := (a, (f + 1) mod Array.length a, r, c - 1);
                   e
-                end’;
-
-val _ = append_prog queue_decls;
+                end
+End
 
 Definition EmptyQueue_exn_def:
   EmptyQueue_exn v = QUEUEPROG_EXN_TYPE_TYPE EmptyQueue v

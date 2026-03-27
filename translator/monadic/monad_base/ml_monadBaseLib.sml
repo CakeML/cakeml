@@ -25,11 +25,11 @@ val Marray_update_const =
 val Marray_alloc_const =
   ``Marray_alloc:(α list -> β -> γ) -> num -> α -> β -> (unit, δ) exc # γ``
 val terms_alist = [
-     ("K", ``K : 'a -> 'b -> 'a``),
-     ("FST", ``FST : 'a # 'b -> 'a``),
-     ("SND", ``SND : 'a # 'b -> 'b``),
+     ("K", combinSyntax.K_tm),
+     ("FST", pairSyntax.fst_tm),
+     ("SND", pairSyntax.snd_tm),
      ("REPLICATE", ``REPLICATE : num -> 'a -> 'a list``),
-     ("unit", ``()``),
+     ("unit", oneSyntax.one_tm),
      ("M_failure", ``M_failure : 'a -> ('b, 'a) exc``),
      ("M_success", ``M_success : 'a -> ('a, 'b) exc``),
      ("Marray_length", Marray_length_const),

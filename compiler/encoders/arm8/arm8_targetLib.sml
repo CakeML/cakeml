@@ -30,7 +30,7 @@ in
   val arm8_encode_conv =
    Conv.memoize dst (Redblackmap.mkDict Term.compare) listSyntax.is_list
      (ERR "arm8_encode_conv" "")
-     (computeLib.compset_conv (wordsLib.words_compset())
+     (computeLib.compset_conv (wordsLib.words_compset)
       [computeLib.Defs
        [arm8_enc, arm8_ast, arm8_load_store_ast_def, arm8_encode_def,
         bop_enc_def, cmp_cond_def, arm8_enc_mov_imm_def, CountTrailing_def,
@@ -60,7 +60,7 @@ in
     Conv.memoize dst (Redblackmap.mkDict Term.compare)
       (fn tm => Teq tm orelse Feq tm)
       (ERR "valid_immediate_conv" "")
-      (computeLib.compset_conv (wordsLib.words_compset())
+      (computeLib.compset_conv (wordsLib.words_compset)
         [computeLib.Defs
            [valid_immediate_def, EncodeBitMask_def, EncodeBitMaskAux_def,
             CountTrailing_def, DecodeBitMasks_def, HighestSetBit_def, Ones_def,
@@ -75,7 +75,7 @@ val add_arm8_encode_compset = computeLib.extend_compset
       (``arm8_target$valid_immediate``, 2, valid_immediate_conv)],
    computeLib.Defs [arm8_targetTheory.arm8_config]]
 
-val arm8_encode_decode_conv = computeLib.compset_conv (wordsLib.words_compset())
+val arm8_encode_decode_conv = computeLib.compset_conv (wordsLib.words_compset)
   [computeLib.Extenders
      [utilsLib.add_base_datatypes, asmLib.add_asm_compset,
       add_arm8_encode_compset]]

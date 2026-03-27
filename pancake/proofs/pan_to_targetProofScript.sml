@@ -315,12 +315,12 @@ Definition pan_installed_def:
     (fun2set (m,byte_aligned ∩ bitmaps_dm)) ∧
     ffi_names = SOME mc_conf.ffi_names ∧
     (!i. mmio_pcs_min_index mc_conf.ffi_names = SOME i ==>
-         MAP (\rec. rec.entry_pc + mc_conf.target.get_pc ms) shmem_extra =
-         DROP i mc_conf.ffi_entry_pcs ∧
+         MAP (\rec. w2n (mc_conf.target.get_pc ms) + rec.entry_pc) shmem_extra =
+         DROP i (MAP w2n mc_conf.ffi_entry_pcs) ∧
          mc_conf.mmio_info =
          ZIP (GENLIST (λindex. index + i) (LENGTH shmem_extra),
-             (MAP (λrec. (rec.nbytes, rec.access_addr, rec.reg,
-                        rec.exit_pc + mc_conf.target.get_pc ms))
+             (MAP (λrec. (rec.nbytes, Addr rec.addr_reg (n2w rec.addr_off), rec.reg,
+                        n2w rec.exit_pc + mc_conf.target.get_pc ms))
                                                            shmem_extra)) ∧
     cbspace + LENGTH bytes + ffi_offset * (i + 3) < dimword (:'a))
 End
@@ -401,7 +401,7 @@ Theorem mem_load_32_const_memory[simp]:
   fun2set (m,dm) = fun2set (m',dm) ⇒
   wordSem$mem_load_32 m dm be ad = mem_load_32 m' dm be ad
 Proof
-  strip_tac>>gs[wordSemTheory.mem_load_32_def]>>
+  strip_tac>>gs[wordSemTheory.mem_load_32_alt]>>
   rpt (TOP_CASE_TAC>>gs[set_sepTheory.fun2set_eq])>>
   last_x_assum $ qspec_then ‘byte_align ad’ assume_tac>>gvs[]
 QED
@@ -412,7 +412,7 @@ Theorem mem_store_32_const_memory:
   (fun2set (THE (mem_store_32 m dm be ad hw), dm) =
     fun2set (THE (wordSem$mem_store_32 m' dm be ad hw), dm))
 Proof
-  strip_tac>>gs[wordSemTheory.mem_store_32_def]>>
+  strip_tac>>gs[wordSemTheory.mem_store_32_alt]>>
   rpt (TOP_CASE_TAC>>gs[set_sepTheory.fun2set_eq])>>
   rpt strip_tac>>
   simp[APPLY_UPDATE_THM]
@@ -994,9 +994,9 @@ QED
 
 Theorem share_inst_modifies:
   wordSem$share_inst op v ad s = (res, t) ==>
-  ? ls ffi stk lsz.
+  ? ls ffi stk lsz st.
   t = (s with <| locals := ls; ffi := ffi;
-        stack := stk; locals_size := lsz |>)
+        stack := stk; locals_size := lsz; store := st |>)
 Proof
   Cases_on ‘op’>>
   gs[wordSemTheory.share_inst_def,
@@ -1055,11 +1055,12 @@ QED
 
 Definition compile_prog_max_def:
   compile_prog_max c mc prog =
-    let prog = pan_to_word$compile_prog mc.target.config.ISA prog in
-    let (col,wprog) = word_to_word$compile c.word_to_word_conf c.lab_conf.asm_conf prog in
-    let (bm,c',fs,p) = word_to_stack$compile c.lab_conf.asm_conf wprog in
+    let asm_conf = mc.target.config in
+    let prog = pan_to_word$compile_prog asm_conf.ISA prog in
+    let (col,wprog) = word_to_word$compile c.word_to_word_conf asm_conf prog in
+    let (bm,c',fs,p) = word_to_stack$compile asm_conf wprog in
     let max = max_depth c'.stack_frame_size (full_call_graph InitGlobals_location (fromAList wprog)) in
-      (from_stack c LN p bm, max)
+      (from_stack asm_conf c LN p bm, max)
 End
 
 Definition option_lt_def[simp]:
@@ -1155,6 +1156,12 @@ Proof
   intLib.COOPER_TAC
 QED
 
+Theorem InitGlobals_location_eq_first_name:
+  InitGlobals_location = first_name
+Proof
+  EVAL_TAC
+QED
+
 (* resource_limit' *)
 Theorem pan_to_target_compile_semantics:
   compile_prog_max c mc pan_code = (SOME (bytes, bitmaps, c'), stack_max) ∧
@@ -1166,8 +1173,8 @@ Theorem pan_to_target_compile_semantics:
   s.globals = FEMPTY ∧
   size_of_eids pan_code < dimword (:α) ∧
   FDOM s.eshapes = FDOM ((get_eids(functions pan_code)):mlstring |-> 'a word) ∧
-  backend_config_ok c ∧ lab_to_targetProof$mc_conf_ok mc ∧
-  mc_init_ok c mc ∧ mc.target.config.ISA ≠ Ag32 ∧
+  backend_config_ok mc.target.config c ∧ lab_to_targetProof$mc_conf_ok mc ∧
+  mc_init_ok mc.target.config c mc ∧ mc.target.config.ISA ≠ Ag32 ∧
   0w <₊ mc.target.get_reg ms mc.len_reg ∧
   globals_size = SUM (MAP size_of_shape (dec_shapes (compile_prog pan_code))) ∧
   mc.target.get_reg ms mc.len_reg  <₊ mc.target.get_reg ms mc.ptr2_reg ∧
@@ -1196,9 +1203,10 @@ Theorem pan_to_target_compile_semantics:
   semantics_decls s start pan_code ≠ Fail ⇒
   machine_sem (mc:(α,β,γ) machine_config) (ffi:'ffi ffi_state) ms ⊆
               extend_with_resource_limit'
-              (option_lt stack_max (SOME (FST (read_limits c mc ms))))
+              (option_lt stack_max (SOME (FST (read_limits mc.target.config c mc ms))))
               {semantics_decls (s:('a,'ffi) panSem$state) start pan_code}
 Proof
+
   strip_tac>>
   last_x_assum mp_tac>>
   rewrite_tac[compile_prog_max_def]>>
@@ -1209,7 +1217,7 @@ Proof
   pairarg_tac>>gs[]>>
   rename1 ‘_ = (col, wprog)’>>
   qmatch_asmsub_abbrev_tac ‘attach_bitmaps _ _ _ tprog = _’>>
-  qmatch_asmsub_abbrev_tac ‘Abbrev (_ = compile _ lprog)’>>
+  qmatch_asmsub_abbrev_tac ‘Abbrev (_ = compile _ _ lprog)’>>
   (* unfolding done *)
 
   (* apply lab_to_target *)
@@ -1221,8 +1229,8 @@ Proof
   qpat_x_assum ‘Abbrev (tprog = _)’
                (assume_tac o GSYM o REWRITE_RULE[markerTheory.Abbrev_def])>>
   Cases_on ‘tprog’>>gs[backendTheory.attach_bitmaps_def]>>
-  rename1 ‘compile _ _ = SOME x’>>Cases_on ‘x’>>
-  rename1 ‘compile _ _ = SOME (tprog, ltconf)’>>
+  rename1 ‘compile _ _ _ = SOME x’>>Cases_on ‘x’>>
+  rename1 ‘compile _ _ _ = SOME (tprog, ltconf)’>>
   gs[]>>
   qabbrev_tac ‘hp = heap_regs c.stack_conf.reg_names’>>
   Cases_on ‘hp’>>gs[]>>
@@ -1261,14 +1269,10 @@ Proof
     by (
     gs[Abbr ‘sorac’]>>gs[Abbr ‘lorac’]>>
     simp [lab_to_targetProofTheory.compiler_oracle_ok_def]>>
-    ‘ltconf.pos = LENGTH bytes ∧
-     ltconf.asm_conf = mc.target.config’
+    ‘ltconf.pos = LENGTH bytes’
       by (gs[lab_to_targetTheory.compile_def]>>
-          drule backendProofTheory.compile_lab_lab_conf>>
-          strip_tac>>gs[]>>
           drule backendProofTheory.compile_lab_LENGTH>>
-          strip_tac>>gs[]>>
-          rveq>>gs[])>>gs[]>>
+          strip_tac>>gs[])>>gs[]>>
     gvs[stack_to_labTheory.compile_no_stubs_def]>>
     gs[stack_namesTheory.compile_def]>>
     gs[lab_to_targetProofTheory.good_code_def]>>
@@ -1282,7 +1286,7 @@ Proof
 
   ‘good_code mc.target.config (LN:num sptree$num_map sptree$num_map) lprog’
     by (
-    irule (INST_TYPE [beta|->alpha] pan_to_lab_good_code_lemma)>>
+    irule (INST_TYPE [beta|-> ``:num``] pan_to_lab_good_code_lemma)>>
     gs[]>>
     rpt (first_assum $ irule_at Any)>>
     qpat_x_assum ‘Abbrev (lprog = _)’
@@ -1328,7 +1332,7 @@ Proof
   qexists_tac ‘sorac’>>fs[]>>
   ‘ltconf = c'.lab_conf’ by gvs[]>>gs[]>>
 
-  qpat_assum ‘compile _ lprog = SOME _’ mp_tac>>
+  qpat_assum ‘compile _ _ lprog = SOME _’ mp_tac>>
   rewrite_tac[lab_to_targetTheory.compile_def]>>strip_tac>>
   drule_all backendProofTheory.compile_lab_IMP_mmio_pcs_min_index>>
   strip_tac>>
@@ -1338,7 +1342,7 @@ Proof
   qmatch_goalsub_abbrev_tac ‘labSem$semantics labst’>>
 
   mp_tac (GEN_ALL stack_to_labProofTheory.full_make_init_semantics
-            |> INST_TYPE [beta|-> “:α lab_to_target$config”, gamma|-> “:'ffi”])>>
+            |> INST_TYPE [beta|-> “:lab_to_target$config”, gamma|-> “:'ffi”])>>
 
   gs[lab_to_targetProofTheory.mc_conf_ok_def]>>
   disch_then (qspec_then ‘labst’ mp_tac)>>gs[]>>
@@ -1577,7 +1581,7 @@ Proof
   pop_assum $ irule_at Any>>
 
   (* word_to_word *)
-  drule (word_to_wordProofTheory.word_to_word_compile_semantics |> INST_TYPE [beta |-> “: num # 'a lab_to_target$config”])>>
+  drule (word_to_wordProofTheory.word_to_word_compile_semantics |> INST_TYPE [beta |-> “: num # lab_to_target$config”])>>
 
   disch_then (qspecl_then [‘wst’, ‘InitGlobals_location’, ‘wst with code := fromAList (pan_to_word_compile_prog mc.target.config.ISA pan_code)’] mp_tac)>>
   gs[]>>
@@ -2002,11 +2006,11 @@ Proof
 
   (* pan_to_word *)
 
-  Q.SUBGOAL_THEN ‘InitGlobals_location = first_name’ SUBST_ALL_TAC >- EVAL_TAC >>
+  fs [InitGlobals_location_eq_first_name]>>
   ‘wst0.code = fromAList (pan_to_word_compile_prog mc.target.config.ISA pan_code)’
     by gs[Abbr ‘wst0’, wordSemTheory.state_component_equality]>>
 
-  drule_at Any (INST_TYPE [beta|-> “:num # α lab_to_target$config”]
+  drule_at Any (INST_TYPE [beta|-> “:num # lab_to_target$config”]
                 pan_to_wordProofTheory.state_rel_imp_semantics)>>gs[]>>
   rpt $ disch_then $ drule_at Any>>gs[]>>
   simp[GSYM PULL_EXISTS] >>
@@ -2403,3 +2407,5 @@ Proof
   rewrite_tac[LE_MULT_RCANCEL]>>
   rw[]
 QED
+
+val _ = check_thm pan_to_target_compile_semantics;

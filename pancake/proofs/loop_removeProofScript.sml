@@ -36,49 +36,72 @@ Definition breaks_ok_def:
   breaks_ok (p:'a loopLang$prog,q:'a loopLang$prog) <=> break_ok p ∧ break_ok q
 End
 
-val goal =
-  ``λ(prog, s). ∀res s1 t p.
-    evaluate (prog,s) = (res,s1) ∧ state_rel s t ∧ res ≠ SOME Error ∧
+Theorem compile_correct:
+  ∀v v1 res s1 t p.
+    evaluate (v,v1) = (res,s1) ∧ state_rel v1 t ∧ res ≠ SOME Error ∧
     breaks_ok p ⇒
-    (syntax_ok prog ⇒
-      ∀cont s q s'.
-        comp_with_loop p prog cont s = (q,s') ∧
-        has_code s' t.code ∧ break_ok cont ⇒
-        ∃t1.
-         (let result = evaluate (q,t) in
+    (syntax_ok v ⇒
+     ∀cont s q s'.
+       comp_with_loop p v cont s = (q,s') ∧
+       has_code s' t.code ∧ break_ok cont ⇒
+       ∃t1.
+         (let
+            result = evaluate (q,t)
+          in
             state_rel s1 t1 ∧ t1.code = t.code ∧
             case res of
-            | NONE => result = evaluate (cont,t1)
+              NONE => result = evaluate (cont,t1)
+            | SOME (Result v5) => result = (res,t1)
+            | SOME (Exception v6) => result = (res,t1)
             | SOME Break => result = evaluate (FST p,t1)
             | SOME Continue => result = evaluate (SND p,t1)
-            | _ => result = (res,t1))) ∧
-    (no_Loop prog ⇒
-        ∃t1.
-         (let result = evaluate (comp_no_loop p prog,t) in
-            state_rel s1 t1 ∧ t1.code = t.code ∧
-            case res of
-            | SOME Continue => result = evaluate (SND p,t1)
-            | SOME Break => result = evaluate (FST p,t1)
-            | _ => result = (res,t1)))``
-
-local
-  val ind_thm = loopSemTheory.evaluate_ind
-    |> ISPEC goal
-    |> CONV_RULE (DEPTH_CONV PairRules.PBETA_CONV) |> REWRITE_RULE [];
-  fun list_dest_conj tm = if not (is_conj tm) then [tm] else let
-    val (c1,c2) = dest_conj tm in list_dest_conj c1 @ list_dest_conj c2 end
-  val ind_goals = ind_thm |> concl |> dest_imp |> fst |> list_dest_conj
-in
-  fun get_goal s = first (can (find_term (can (match_term (Term [QUOTE s]))))) ind_goals
-  fun compile_correct_tm () = ind_thm |> concl |> rand
-  fun the_ind_thm () = ind_thm
-end
-
-Theorem compile_Skip:
-  ^(get_goal "loopLang$Skip") ∧
-  ^(get_goal "loopLang$Fail") ∧
-  ^(get_goal "loopLang$Tick")
+            | SOME TimeOut => result = (res,t1)
+            | SOME (FinalFFI v7) => result = (res,t1)
+            | SOME Error => result = (res,t1))) ∧
+    (no_Loop v ⇒
+     ∃t1.
+       (let
+          result = evaluate (comp_no_loop p v,t)
+        in
+          state_rel s1 t1 ∧ t1.code = t.code ∧
+          case res of
+            NONE => result = (res,t1)
+          | SOME (Result v5) => result = (res,t1)
+          | SOME (Exception v6) => result = (res,t1)
+          | SOME Break => result = evaluate (FST p,t1)
+          | SOME Continue => result = evaluate (SND p,t1)
+          | SOME TimeOut => result = (res,t1)
+          | SOME (FinalFFI v7) => result = (res,t1)
+          | SOME Error => result = (res,t1)))
 Proof
+  recInduct loopSemTheory.evaluate_ind
+  \\ rpt conj_tac
+  >~ [`loopLang$Skip`] >- suspend "Skip"
+  >~ [`loopLang$Fail`] >- suspend "Fail"
+  >~ [`loopLang$Tick`] >- suspend "Tick"
+  >~ [`loopLang$Continue`] >- suspend "Continue"
+  >~ [`loopLang$Break`] >- suspend "Break"
+  >~ [`loopLang$Mark`] >- suspend "Mark"
+  >~ [`loopLang$Return`] >- suspend "Return"
+  >~ [`loopLang$Raise`] >- suspend "Raise"
+  >~ [`loopLang$Seq`] >- suspend "Seq"
+  >~ [`loopLang$Loop`] >- suspend "Loop"
+  >~ [`loopLang$Assign`] >- suspend "Assign"
+  >~ [`loopLang$SetGlobal`] >- suspend "SetGlobal"
+  >~ [`loopLang$LocValue`] >- suspend "LocValue"
+  >~ [`loopLang$If`] >- suspend "If"
+  >~ [`loopLang$Call`] >- suspend "Call"
+  >~ [`loopLang$Store`] >- suspend "Store"
+  >~ [`loopLang$Store32`] >- suspend "Store32"
+  >~ [`loopLang$StoreByte`] >- suspend "StoreByte"
+  >~ [`loopLang$Load32`] >- suspend "Load32"
+  >~ [`loopLang$LoadByte`] >- suspend "LoadByte"
+  >~ [`loopLang$FFI`] >- suspend "FFI"
+  >~ [`loopLang$Arith`] >- suspend "Arith"
+  >~ [`loopLang$ShMem`] >- suspend "ShMem"
+QED
+
+Resume compile_correct[Skip]:
   fs [syntax_ok_def,comp_no_loop_def,evaluate_def]
   \\ rw [] \\ fs []
   \\ fs [state_rel_def,call_env_def,dec_clock_def]
@@ -86,10 +109,29 @@ Proof
   \\ rw [] \\ res_tac
 QED
 
-Theorem compile_Continue:
-  ^(get_goal "loopLang$Continue") ∧
-  ^(get_goal "loopLang$Break")
-Proof
+Resume compile_correct[Fail]:
+  fs [syntax_ok_def,comp_no_loop_def,evaluate_def]
+  \\ rw [] \\ fs []
+  \\ fs [state_rel_def,call_env_def,dec_clock_def]
+  \\ rveq \\ fs [state_component_equality]
+  \\ rw [] \\ res_tac
+QED
+
+Resume compile_correct[Tick]:
+  fs [syntax_ok_def,comp_no_loop_def,evaluate_def]
+  \\ rw [] \\ fs []
+  \\ fs [state_rel_def,call_env_def,dec_clock_def]
+  \\ rveq \\ fs [state_component_equality]
+  \\ rw [] \\ res_tac
+QED
+
+Resume compile_correct[Continue]:
+  fs [syntax_ok_def,comp_no_loop_def,evaluate_def]
+  \\ rw [] \\ fs []
+  \\ asm_exists_tac \\ fs []
+QED
+
+Resume compile_correct[Break]:
   fs [syntax_ok_def,comp_no_loop_def,evaluate_def]
   \\ rw [] \\ fs []
   \\ asm_exists_tac \\ fs []
@@ -110,9 +152,7 @@ Proof
   \\ gvs []
 QED
 
-Theorem compile_Mark:
-  ^(get_goal "syntax_ok (Mark _)")
-Proof
+Resume compile_correct[Mark]:
   simp_tac std_ss [evaluate_def,syntax_ok_def]
   \\ full_simp_tac std_ss [no_Loop_def,every_prog_def]
   \\ full_simp_tac std_ss [GSYM no_Loop_def,comp_with_loop_def]
@@ -129,10 +169,14 @@ Proof
   \\ imp_res_tac evaluate_break_ok \\ fs []
 QED
 
-Theorem compile_Return:
-  ^(get_goal "loopLang$Return") ∧
-  ^(get_goal "loopLang$Raise")
-Proof
+Resume compile_correct[Return]:
+  fs [syntax_ok_def,comp_no_loop_def,evaluate_def]
+  \\ rw [] \\ fs [CaseEq"option"] \\ rveq \\ fs []
+  \\ fs [state_rel_def,call_env_def,state_component_equality]
+  \\ metis_tac []
+QED
+
+Resume compile_correct[Raise]:
   fs [syntax_ok_def,comp_no_loop_def,evaluate_def]
   \\ rw [] \\ fs [CaseEq"option"] \\ rveq \\ fs []
   \\ fs [state_rel_def,call_env_def,state_component_equality]
@@ -185,9 +229,7 @@ Proof
   \\ fs [break_ok_def,every_prog_def]
 QED
 
-Theorem compile_Loop:
-  ^(get_goal "loopLang$Loop")
-Proof
+Resume compile_correct[Loop]:
   fs [no_Loop_def,every_prog_def]
   \\ fs [GSYM no_Loop_def]
   \\ rpt strip_tac
@@ -352,9 +394,7 @@ Proof
   fs [state_rel_def] \\ rw [] \\ rveq \\ fs []
 QED
 
-Theorem compile_Call:
-  ^(get_goal "syntax_ok (loopLang$Call _ _ _ _)")
-Proof
+Resume compile_correct[Call]:
   fs [no_Loop_def,every_prog_def]
   \\ fs [GSYM no_Loop_def]
   \\ reverse (rpt strip_tac)
@@ -713,9 +753,7 @@ Proof
     \\ TOP_CASE_TAC \\ fs [cut_res_def])
 QED
 
-Theorem compile_If:
-  ^(get_goal "loopLang$If")
-Proof
+Resume compile_correct[If]:
   fs [no_Loop_def,every_prog_def]
   \\ fs [GSYM no_Loop_def]
   \\ reverse (rpt strip_tac)
@@ -812,9 +850,7 @@ Proof
     \\ rpt strip_tac \\ fs [state_component_equality] \\ rw [] \\ res_tac)
 QED
 
-Theorem compile_Seq:
-  ^(get_goal "syntax_ok (loopLang$Seq _ _)")
-Proof
+Resume compile_correct[Seq]:
   reverse (rpt strip_tac)
   THEN1
    (fs [comp_no_loop_def,no_Loop_def,every_prog_def]
@@ -892,10 +928,7 @@ Proof
   \\ fs [wordSemTheory.the_words_def,CaseEq"option",CaseEq"word_loc"] \\ rw []
 QED
 
-Theorem compile_Assign:
-  ^(get_goal "loopLang$Assign") ∧
-  ^(get_goal "loopLang$LocValue")
-Proof
+Resume compile_correct[Assign]:
   fs [syntax_ok_def,no_Loop_def,every_prog_def]
   \\ fs [evaluate_def,CaseEq"option",CaseEq"word_loc",PULL_EXISTS]
   \\ rw [] \\ fs [comp_no_loop_def]
@@ -912,13 +945,24 @@ Proof
   \\ fs [has_code_def]
 QED
 
-Theorem compile_Store:
-  ^(get_goal "loopLang$Store") ∧
-  ^(get_goal "loopLang$Store32") ∧
-  ^(get_goal "loopLang$StoreByte") ∧
-  ^(get_goal "loopLang$Load32") ∧
-  ^(get_goal "loopLang$LoadByte")
-Proof
+Resume compile_correct[LocValue]:
+  fs [syntax_ok_def,no_Loop_def,every_prog_def]
+  \\ fs [evaluate_def,CaseEq"option",CaseEq"word_loc",PULL_EXISTS]
+  \\ rw [] \\ fs [comp_no_loop_def]
+  \\ fs [evaluate_def,CaseEq"option",CaseEq"word_loc",PULL_EXISTS]
+  \\ fs [set_var_def]
+  \\ imp_res_tac eval_lemma \\ fs []
+  \\ fs [state_rel_def]
+  \\ fs [state_component_equality]
+  \\ rw [] \\ res_tac \\ fs []
+  \\ fs [domain_lookup] \\ res_tac
+  \\ PairCases_on ‘v’ \\ res_tac \\ fs []
+  \\ fs [comp_def,has_code_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ fs [has_code_def]
+QED
+
+Resume compile_correct[Store]:
   fs [syntax_ok_def,no_Loop_def,every_prog_def]
   \\ fs [evaluate_def,CaseEq"option",CaseEq"word_loc",PULL_EXISTS]
   \\ rw [] \\ fs [comp_no_loop_def]
@@ -933,9 +977,67 @@ Proof
   \\ res_tac \\ fs []
 QED
 
-Theorem compile_ShMem:
-  ^(get_goal "loopLang$ShMem")
-Proof
+Resume compile_correct[Store32]:
+  fs [syntax_ok_def,no_Loop_def,every_prog_def]
+  \\ fs [evaluate_def,CaseEq"option",CaseEq"word_loc",PULL_EXISTS]
+  \\ rw [] \\ fs [comp_no_loop_def]
+  \\ fs [evaluate_def,CaseEq"option",CaseEq"word_loc",PULL_EXISTS]
+  \\ imp_res_tac eval_lemma \\ fs []
+  \\ fs [state_rel_def]
+  \\ fs [state_component_equality]
+  \\ fs [mem_store_def]
+  \\ rveq \\ fs []
+  \\ rw [] \\ res_tac
+  \\ fs [set_var_def]
+  \\ res_tac \\ fs []
+QED
+
+Resume compile_correct[StoreByte]:
+  fs [syntax_ok_def,no_Loop_def,every_prog_def]
+  \\ fs [evaluate_def,CaseEq"option",CaseEq"word_loc",PULL_EXISTS]
+  \\ rw [] \\ fs [comp_no_loop_def]
+  \\ fs [evaluate_def,CaseEq"option",CaseEq"word_loc",PULL_EXISTS]
+  \\ imp_res_tac eval_lemma \\ fs []
+  \\ fs [state_rel_def]
+  \\ fs [state_component_equality]
+  \\ fs [mem_store_def]
+  \\ rveq \\ fs []
+  \\ rw [] \\ res_tac
+  \\ fs [set_var_def]
+  \\ res_tac \\ fs []
+QED
+
+Resume compile_correct[Load32]:
+  fs [syntax_ok_def,no_Loop_def,every_prog_def]
+  \\ fs [evaluate_def,CaseEq"option",CaseEq"word_loc",PULL_EXISTS]
+  \\ rw [] \\ fs [comp_no_loop_def]
+  \\ fs [evaluate_def,CaseEq"option",CaseEq"word_loc",PULL_EXISTS]
+  \\ imp_res_tac eval_lemma \\ fs []
+  \\ fs [state_rel_def]
+  \\ fs [state_component_equality]
+  \\ fs [mem_store_def]
+  \\ rveq \\ fs []
+  \\ rw [] \\ res_tac
+  \\ fs [set_var_def]
+  \\ res_tac \\ fs []
+QED
+
+Resume compile_correct[LoadByte]:
+  fs [syntax_ok_def,no_Loop_def,every_prog_def]
+  \\ fs [evaluate_def,CaseEq"option",CaseEq"word_loc",PULL_EXISTS]
+  \\ rw [] \\ fs [comp_no_loop_def]
+  \\ fs [evaluate_def,CaseEq"option",CaseEq"word_loc",PULL_EXISTS]
+  \\ imp_res_tac eval_lemma \\ fs []
+  \\ fs [state_rel_def]
+  \\ fs [state_component_equality]
+  \\ fs [mem_store_def]
+  \\ rveq \\ fs []
+  \\ rw [] \\ res_tac
+  \\ fs [set_var_def]
+  \\ res_tac \\ fs []
+QED
+
+Resume compile_correct[ShMem]:
   fs [syntax_ok_def,no_Loop_def,every_prog_def]
   \\ fs [evaluate_def,CaseEq"option",CaseEq"word_loc",PULL_EXISTS]
   \\ rw [] \\ fs [comp_no_loop_def]
@@ -951,9 +1053,7 @@ Proof
   rfs[state_component_equality]
 QED
 
-Theorem compile_SetGlobal:
-  ^(get_goal "loopLang$SetGlobal")
-Proof
+Resume compile_correct[SetGlobal]:
   fs [syntax_ok_def,no_Loop_def,every_prog_def]
   \\ fs [evaluate_def,CaseEq"option",CaseEq"word_loc",PULL_EXISTS]
   \\ rw [] \\ fs [comp_no_loop_def]
@@ -965,9 +1065,7 @@ Proof
   \\ rw [] \\ res_tac \\ fs []
 QED
 
-Theorem compile_FFI:
-  ^(get_goal "loopLang$FFI")
-Proof
+Resume compile_correct[FFI]:
   fs [syntax_ok_def,no_Loop_def,every_prog_def]
   \\ fs [evaluate_def,CaseEq"option",CaseEq"word_loc",PULL_EXISTS]
   \\ rw [] \\ fs [comp_no_loop_def]
@@ -979,9 +1077,7 @@ Proof
   \\ fs [call_env_def]
 QED
 
-Theorem compile_Arith:
-  ^(get_goal "loopLang$Arith")
-Proof
+Resume compile_correct[Arith]:
   fs [syntax_ok_def,no_Loop_def,every_prog_def] \\ rpt strip_tac
   \\ gvs[evaluate_def,AllCaseEqs(),DefnBase.one_line_ify NONE loop_arith_def,
          comp_no_loop_def,PULL_EXISTS
@@ -989,16 +1085,7 @@ Proof
   \\ gvs[state_rel_def,set_var_def,state_component_equality] \\ metis_tac[]
 QED
 
-Theorem compile_correct:
-  ^(compile_correct_tm())
-Proof
-  match_mp_tac (the_ind_thm())
-  \\ EVERY (map strip_assume_tac [compile_Skip, compile_Continue, compile_ShMem,
-       compile_Mark, compile_Return, compile_Assign, compile_Store,
-       compile_SetGlobal, compile_Call, compile_Seq, compile_If,
-       compile_FFI, compile_Loop,compile_Arith])
-  \\ asm_rewrite_tac [] \\ rw [] \\ rpt (pop_assum kall_tac)
-QED
+Finalise compile_correct;
 
 Theorem comp_no_loop_no_loop:
   !p prog.

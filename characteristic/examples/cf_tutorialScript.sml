@@ -21,8 +21,8 @@ Libs
 val _ = translation_extends "basisProg"
 
 (* We use basisFunctionsLib for managing the state resulting from
-   the evaluation of several toplevel declarations, and the append_prog
-   function to add program definitions to the stored state
+   the evaluation of several toplevel declarations, and use the
+   Quote add_cakeml functionality to add program definitions to the stored state
 *)
 (* Then, write the code for the programs we want to specify.
 

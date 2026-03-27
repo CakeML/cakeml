@@ -733,6 +733,8 @@ Proof
   >- (Cases_on `i` >> simp[oneline do_int_app_def,case_eq_thms,PULL_EXISTS])
   >~ [`WordOp`]
   >- (Cases_on `w` >> dsimp[oneline do_word_app_def,AllCaseEqs(),PULL_EXISTS])
+  >~ [`BoolNot`]
+  >- (rw [] >> gvs [])
   >>~- ([`WordShift`], dsimp[])
   >>~- ([`WordFromWord`], dsimp[])
   >>~- ([`BoundsCheckByte`], dsimp[])
@@ -5844,4 +5846,3 @@ Proof
   \\ rw[]
   \\ rw[Once clos_knownTheory.mk_Ticks_def]
 QED
-
