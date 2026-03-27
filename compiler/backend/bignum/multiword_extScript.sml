@@ -139,6 +139,17 @@ Proof
   Induct >> fs [bits_bitwise_def]
 QED
 
+Theorem bits_bitwise_empty_result:
+  ∀f xs b₁ ys b₂.
+    bits_bitwise f (xs,b₁) (ys,b₂) = ([],b₃) ⇔
+    (xs = [] ∧ ys = [] ∧ b₃ = f b₁ b₂)
+Proof
+  recInduct bits_bitwise_ind >> rw []
+  >- (eq_tac >> rw [])
+  >> simp [bits_bitwise_def]
+  >> rpt (pairarg_tac >> gvs [])
+QED
+
 Theorem bits_bitwise_sym:
   ∀f bs₁ r₁ bs₂ r₂.
     (∀x y. f x y = f y x) ⇒
@@ -810,17 +821,42 @@ Proof
     >> metis_tac [TAKE_DROP, APPEND])
 QED
 
-Theorem foo:
-  bits_bitwise $/\ (TAKE (dimindex (:α)) (MAP $¬ xs),T)
-          (TAKE (dimindex (:α)) ys,F) =
-                   (TAKE (dimindex (:α)) zs,F) ⇒
-  w2n
-  (n2w (num_of_bits (TAKE (dimindex (:α)) ys)) &&
-   -n2w (SUC (num_of_bits (TAKE (dimindex (:α)) xs)))) =
-  num_of_bits (TAKE (dimindex (:α)) zs)
+Theorem MAP_AND_T:
+  ∀xs. MAP ($/\ T) xs = xs
 Proof
-  cheat
+  Induct >> simp []
 QED
+
+Theorem MAP_LAMBDA_F:
+  MAP (λx. F) xs = REPLICATE (LENGTH xs) F
+Proof
+  metis_tac [K_DEF, MAP_K_REPLICATE]
+QED
+
+Theorem bits_bitwise_and_not_w2n:
+  ∀xs ys zs.
+    bits_bitwise $/\ (MAP $¬ xs,T) (ys,F) = (zs,F) ∧
+    LENGTH ys ≤ dimindex (:α) ⇒
+    w2n
+      ((n2w (num_of_bits ys) :α word) &&
+      -(n2w (SUC (num_of_bits xs)) :α word)) =
+    num_of_bits zs
+Proof
+  Induct >> rw [num_of_bits_def]
+  >-
+   (simp [MAP_AND_T]
+    >> irule LESS_LESS_EQ_TRANS
+    >> irule_at (Pos hd) num_of_bits_lt
+    >> simp [dimword_def, LENGTH_TAKE_EQ])
+  >> Cases_on ‘ys’ >> gvs [num_of_bits_def]
+  >- simp [MAP_LAMBDA_F, Req0 EVERY_F_num_of_bits]
+  >> Cases_on ‘zs’ >> gvs [num_of_bits_def]
+  >- gvs [bits_bitwise_empty_result]
+  >> gvs [bits_bitwise_def] >> rpt (pairarg_tac >> gvs [])
+  >> rename1 ‘num_of_bits ((¬a ∧ b)::_)’
+  >> cheat
+QED
+
 
 Theorem mw2n_mw_and_keep_not:
   ∀l xs ys zs.
@@ -835,8 +871,7 @@ Proof
   >-
    (simp [Once b2mw'_def]
     >> gvs [mw_and_keep_nil_left, mw2n_b2mw, b2mw_nil]
-    >> ‘∀xs. MAP ($/\ T) xs = xs’ by (Induct >> simp [])
-    >> simp [])
+    >> simp [MAP_AND_T])
   >> once_rewrite_tac [b2mw'_def, b2mw_def] >> simp []
   >> Cases_on ‘ys = []’ >> gvs []
   >-
@@ -846,12 +881,16 @@ Proof
   >> simp [mw_and_keep_def, mw2n_def]
   >> drule $ iffLR bits_bitwise_TAKE_DROP
   >> disch_then $ qspec_then ‘dimindex (:α)’ assume_tac
-  >> fs [MAP_DROP]
-  >> first_assum drule
+
+  >> fs [MAP_DROP] >> first_assum drule
   >> impl_tac >- cheat
   >> strip_tac >> simp []
-  >> DEP_REWRITE_TAC [foo]
-  >> conj_tac >- simp []
+
+  >> gvs [GSYM MAP_DROP, GSYM MAP_TAKE]
+  >> qspec_then ‘TAKE (dimindex (:α)) xs’ mp_tac bits_bitwise_and_not_w2n
+  >> disch_then drule
+  >> impl_tac >- simp [LENGTH_TAKE_EQ]
+
   >> simp [num_of_bits_TAKE_DROP_dimindex]
 QED
 
