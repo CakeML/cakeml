@@ -202,7 +202,7 @@ QED
 Theorem num_of_bits_TAKE_DROP_dimindex:
   num_of_bits (TAKE (dimindex (:α)) xs) +
   dimword (:α) * num_of_bits (DROP (dimindex (:α)) xs) =
-  num_of_bits zs
+  num_of_bits xs
 Proof
   cheat
 QED
@@ -833,30 +833,99 @@ Proof
   metis_tac [K_DEF, MAP_K_REPLICATE]
 QED
 
+Theorem neg_n2w_SUC:
+  -n2w (SUC k) = ¬n2w (k)
+Proof
+  simp []
+QED
+
+Theorem num_of_bits_DIV_2:
+  num_of_bits (x::xs) DIV 2 = num_of_bits xs
+Proof
+  Cases_on ‘x’ >> simp [num_of_bits_def]
+QED
+
+Theorem ODD_num_of_bits:
+  ODD (num_of_bits (x::xs)) = x
+Proof
+  Cases_on ‘x’ >> simp [num_of_bits_def]
+  >- simp [ODD_DOUBLE, GSYM ADD1]
+  >- simp [ODD_EVEN, EVEN_DOUBLE]
+QED
+
+Theorem n2w_and_not_BITWISE:
+  n2w n && ¬n2w m = n2w (BITWISE (dimindex (:α)) (λa b. a ∧ ¬b) n m) : α word
+Proof
+  simp [CART_EQ, word_and_def, FCP_BETA]
+  >> rewrite_tac [neg_n2w_SUC, word_1comp_def]
+  >> simp [FCP_BETA, n2w_def, BITWISE_THM]
+QED
+
+Theorem BITWISE_AND_NOT_zero_left:
+  ∀k n. BITWISE k (λa b. a ∧ ¬b) 0 n = 0
+Proof
+  Induct >> rw [BITWISE_def, SBIT_def]
+QED
+
+Theorem BITWISE_AND_NOT_zero:
+  ∀k. BITWISE k (λa b. a ∧ ¬b) 0 0 = 0
+Proof
+  Induct >> rw [BITWISE_def, SBIT_def]
+QED
+
+Theorem BITWISE_AND_NOT_zero_right:
+  ∀xs k.
+    LENGTH xs ≤ k ⇒
+    BITWISE k (λa b. a ∧ ¬b) (num_of_bits xs) 0 = (num_of_bits xs)
+Proof
+  Induct >> rw [BITWISE_def, num_of_bits_def]
+  >- simp [BITWISE_AND_NOT_zero]
+  >> Cases_on ‘k’ >> fs []
+  >> simp [BITWISE_EVAL, ODD_num_of_bits, num_of_bits_DIV_2, SBIT_def]
+  >> rw [num_of_bits_def]
+QED
+
+Theorem bits_bitwise_and_not_BITWISE:
+  ∀ys xs zs k.
+    bits_bitwise $/\ (MAP $¬ xs,T) (ys,F) = (zs,F) ∧
+    LENGTH ys ≤ k
+    ⇒
+    BITWISE k (λa b. a ∧ ¬b) (num_of_bits ys) (num_of_bits xs) =
+    num_of_bits zs
+Proof
+  Induct >> rw []
+  >- simp [num_of_bits_def, MAP_LAMBDA_F, num_of_bits_REPLICATE_F,
+            BITWISE_AND_NOT_zero_left]
+  >> Cases_on ‘xs’
+  >- gvs [num_of_bits_def, MAP_AND_T, BITWISE_AND_NOT_zero_right]
+  >> Cases_on ‘k’ >> fs []
+  >> simp [BITWISE_EVAL]
+  >> gvs [bits_bitwise_def]
+  >> rpt (pairarg_tac >> gvs [])
+  >> simp [num_of_bits_DIV_2, ODD_num_of_bits]
+  >> first_x_assum drule_all >> rw []
+  >> once_rewrite_tac [num_of_bits_cons]
+  >> simp []
+  >> simp [oneline num_of_bits_def]
+  >> rw [SBIT_def] >> fs []
+QED
+
 Theorem bits_bitwise_and_not_w2n:
   ∀xs ys zs.
     bits_bitwise $/\ (MAP $¬ xs,T) (ys,F) = (zs,F) ∧
-    LENGTH ys ≤ dimindex (:α) ⇒
-    w2n
-      ((n2w (num_of_bits ys) :α word) &&
-      -(n2w (SUC (num_of_bits xs)) :α word)) =
-    num_of_bits zs
+    LENGTH ys ≤ dimindex (:α) ∧
+    num_of_bits zs < dimword (:α) ⇒
+    w2n ((n2w (num_of_bits ys) :α word) &&
+    -(n2w (SUC (num_of_bits xs)) :α word)) =
+    (num_of_bits zs)
 Proof
-  Induct >> rw [num_of_bits_def]
-  >-
-   (simp [MAP_AND_T]
-    >> irule LESS_LESS_EQ_TRANS
-    >> irule_at (Pos hd) num_of_bits_lt
-    >> simp [dimword_def, LENGTH_TAKE_EQ])
-  >> Cases_on ‘ys’ >> gvs [num_of_bits_def]
-  >- simp [MAP_LAMBDA_F, Req0 EVERY_F_num_of_bits]
-  >> Cases_on ‘zs’ >> gvs [num_of_bits_def]
-  >- gvs [bits_bitwise_empty_result]
-  >> gvs [bits_bitwise_def] >> rpt (pairarg_tac >> gvs [])
-  >> rename1 ‘num_of_bits ((¬a ∧ b)::_)’
-  >> cheat
+  rw []
+  >> rewrite_tac [neg_n2w_SUC, n2w_and_not_BITWISE]
+  >> simp []
+  >> drule bits_bitwise_and_not_BITWISE
+  >> disch_then $ DEP_REWRITE_TAC o single
+  >> simp []
 QED
-
 
 Theorem mw2n_mw_and_keep_not:
   ∀l xs ys zs.
@@ -881,16 +950,13 @@ Proof
   >> simp [mw_and_keep_def, mw2n_def]
   >> drule $ iffLR bits_bitwise_TAKE_DROP
   >> disch_then $ qspec_then ‘dimindex (:α)’ assume_tac
-
   >> fs [MAP_DROP] >> first_assum drule
-  >> impl_tac >- cheat
+  >> impl_tac >- gvs [LENGTH_b2mw, SUB_CEILING_DIV]
   >> strip_tac >> simp []
-
   >> gvs [GSYM MAP_DROP, GSYM MAP_TAKE]
   >> qspec_then ‘TAKE (dimindex (:α)) xs’ mp_tac bits_bitwise_and_not_w2n
   >> disch_then drule
-  >> impl_tac >- simp [LENGTH_TAKE_EQ]
-
+  >> impl_tac >- simp [num_of_bits_TAKE_dimindex_lt, LENGTH_TAKE_EQ]
   >> simp [num_of_bits_TAKE_DROP_dimindex]
 QED
 
