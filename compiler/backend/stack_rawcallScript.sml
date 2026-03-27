@@ -74,7 +74,7 @@ val q = `
     case p of
     | Seq p1 p2 => comp_seq p1 p2 i (Seq (comp i p1) (comp i p2))
     | If c r ri p1 p2 => If c r ri (comp i p1) (comp i p2)
-    | While c r ri p1 => While c r ri (comp i p1)
+    | Loop p1 => Loop (comp i p1)
     | Call (SOME (p1,lr,l1,l2)) dest NONE =>
         Call (SOME (comp i p1,lr,l1,l2)) dest NONE
     | Call (SOME (p1,lr,l1,l2)) dest (SOME (p2,k1,k2)) =>
@@ -110,4 +110,3 @@ Definition compile_def:
     let i = collect_info prog LN in
       MAP (\(n,b:'a stackLang$prog). (n,comp_top i b)) prog
 End
-

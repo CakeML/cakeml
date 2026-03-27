@@ -7911,6 +7911,11 @@ Proof
     \\ qunabbrev_tac `t5` \\ fsrw_tac[] []
     \\ `ck + (s.clock - 1) = ck + s.clock - 1` by decide_tac
     \\ qexists_tac `ck` \\ fsrw_tac[] []
+    \\ IF_CASES_TAC
+    >- (fsrw_tac[] [PULL_EXISTS]
+        \\ Cases_on `res1` \\ fsrw_tac[] [PULL_EXISTS]
+        \\ Cases_on ‘x’ \\ gvs []
+        \\ Cases_on ‘res'’ \\ gvs [])
     \\ Cases_on `res1` \\ fsrw_tac[] [PULL_EXISTS])
   \\ note_tac "comp_correct returning call case(s)"
   \\ fs[UNCURRY_EQ,TypeBase.case_eq_of ``:'a # 'b``] \\ rveq

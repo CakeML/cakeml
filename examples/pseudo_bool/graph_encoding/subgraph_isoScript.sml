@@ -471,7 +471,7 @@ QED
 Theorem full_encode_sem_concl:
   good_graph gp ∧
   good_graph gt ∧
-  sem_concl (set (MAP SND (full_encode gp gt))) NONE concl
+  sem_concl (set (MAP SND (full_encode gp gt))) NONE {} concl
   ⇒
   case concl of
     DSat => has_subgraph_iso gp gt
@@ -480,7 +480,7 @@ Theorem full_encode_sem_concl:
 Proof
   rw[]>>
   assume_tac full_encode_correct>>gs[]>>
-  every_case_tac>>fs[sem_concl_def,unsatisfiable_def]
+  every_case_tac>>fs[sem_concl_def,unsatisfiable_def,proj_pres_def]
 QED
 
 Theorem full_encode_eq =

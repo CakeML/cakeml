@@ -283,7 +283,6 @@ val res = translate wfml_to_pbf_def;
 
 val res = translate enc_string_def;
 
-val _ = translate pbcTheory.map_obj_def;
 val _ = translate full_encode_def;
 
 (* parse input from f1 and run encoder into npbc *)
@@ -545,7 +544,8 @@ Proof
     xsimpl>>
     rw[]>>
     qexists_tac`x`>>simp[maxsat_sem_def]>>
-    every_case_tac>>fs[mk_prob_def]
+    every_case_tac>>
+    fs[mk_prob_def,pbcTheory.pres_set_list_def]
     >- (
       (drule_at Any) full_encode_sem_concl_opt_cost>>
       metis_tac[PAIR])
@@ -783,7 +783,7 @@ Proof
   rw[]>>
   qexists_tac`x`>>qexists_tac`x'`>>simp[maxsat_output_sem_def]>>
   CONJ_TAC >- (
-    fs[maxsat_sem_def,mk_prob_def]>>
+    fs[maxsat_sem_def,mk_prob_def,pbcTheory.pres_set_list_def]>>
     every_case_tac>>fs[]
     >- (
       (drule_at Any) full_encode_sem_concl_opt_cost>>
@@ -821,7 +821,7 @@ Quote add_cakeml:
     [f1] => check_unsat_1 f1
   | [f1,f2] => check_unsat_2 f1 f2
   | [f1,f2,f3] => check_unsat_3 f1 f2 f3
-  | _ => TextIO.output TextIO.stdErr usage_string
+  | _ => TextIO.output TextIO.stdErr (mk_usage_string usage_string)
 End
 
 Definition main_sem_def:
@@ -863,11 +863,13 @@ Proof
   Cases_on`t`>>fs[LIST_TYPE_def]
   >- (
     xmatch>>
+    assume_tac (theorem "usage_string_v_thm")>>
+    xlet_autop>>
     xapp_spec output_stderr_spec \\ xsimpl>>
     rename1`COMMANDLINE cl`>>
     qexists_tac`COMMANDLINE cl`>>xsimpl>>
-    qexists_tac `usage_string` >>
-    simp [theorem "usage_string_v_thm"] >>
+    qexists_tac `mk_usage_string usage_string` >>
+    simp [] >>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -900,11 +902,13 @@ Proof
     fs[wfcl_def]>>xsimpl>>
     rw[]>>metis_tac[STDIO_refl])>>
   xmatch>>
+  assume_tac (theorem "usage_string_v_thm")>>
+  xlet_autop>>
   xapp_spec output_stderr_spec \\ xsimpl>>
   rename1`COMMANDLINE cl`>>
   qexists_tac`COMMANDLINE cl`>>xsimpl>>
-  qexists_tac `usage_string` >>
-  simp [theorem "usage_string_v_thm"] >>
+  qexists_tac `mk_usage_string usage_string` >>
+  simp [] >>
   qexists_tac`fs`>>xsimpl>>
   rw[]>>
   fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>

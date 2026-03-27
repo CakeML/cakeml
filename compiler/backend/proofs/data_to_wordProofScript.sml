@@ -2411,22 +2411,31 @@ Proof
   rw [] \\ drule word_get_code_labels_StoreAnyConsts \\ fs []
 QED
 
-(* slow... *)
+(* semi-slow... *)
 Theorem word_get_code_labels_assign[local]:
   ∀x.
-    word_get_code_labels (FST (assign c secn v w x y z)) SUBSET
+    assign c secn v w x y z = (res1,res2) ⇒
+    word_get_code_labels res1 SUBSET
     closLang$assign_get_code_label x ∪ (set(MAP FST (stubs (:α) c)))
 Proof
-  ho_match_mp_tac (closLangTheory.assign_get_code_label_ind)>>
+  ho_match_mp_tac closLangTheory.assign_get_code_label_ind>>
   rw[assign_def,all_assign_defs,arg1_def,arg2_def,arg3_def,arg4_def,
      closLangTheory.assign_get_code_label_def, oneline AssignCmp_def, SetBool_def]>>
   fs[list_Seq_def,word_get_code_labels_StoreEach,word_get_code_labels_MemEqList]>>
-  ntac 3 (every_case_tac>>fs[] >>
-  TRY (irule SUBSET_TRANS >>
-       drule_then (irule_at Any) const_parts_to_words_labels) >>
-  fs[list_Seq_def,word_get_code_labels_StoreEach,word_get_code_labels_MemEqList,
-     closLangTheory.assign_get_code_label_def]>>
-  EVAL_TAC)
+  gvs[AllCaseEqs()]>>
+  rw[]>>
+  simp[stubs_def,list_Seq_def,wordConvsTheory.get_code_labels_def,
+    word_get_code_labels_StoreEach,word_get_code_labels_MemEqList,
+    closLangTheory.assign_get_code_label_def,GiveUp_def]>>
+  EVAL_TAC>>
+  rw[]>>simp[list_Seq_def]>>
+  every_case_tac>>fs[list_Seq_def]>>
+  drule const_parts_to_words_labels>>
+  simp[adjust_var_def]>>
+  strip_tac>>
+  irule SUBSET_TRANS >>
+  pop_assum (irule_at Any)>>
+  EVAL_TAC
 QED
 
 Theorem data_to_word_comp_code_labels[local]:
@@ -2443,8 +2452,10 @@ Proof
     rpt(pairarg_tac>>fs[])>>
     fs[SUBSET_DEF]>>fs[]>>
     metis_tac[])
-  >-
-    fs[word_get_code_labels_assign]
+  >- (
+    simp[Once (GSYM FST_pair)]>> pairarg_tac>>
+    drule word_get_code_labels_assign>>
+    simp[])
   >-
     (fs[SUBSET_DEF]>>metis_tac[])
   >-
@@ -2481,15 +2492,21 @@ QED
 (* slow... *)
 Theorem word_good_handlers_assign[local]:
   ∀x.
-    word_good_handlers secn (FST (assign c secn v w x y z))
+    assign c secn v w x y z = (res1,res2) ⇒
+    word_good_handlers secn res1
 Proof
-  ho_match_mp_tac (closLangTheory.assign_get_code_label_ind)>>
+  ho_match_mp_tac closLangTheory.assign_get_code_label_ind>>
   rw[assign_def,all_assign_defs,arg1_def,arg2_def,arg3_def,arg4_def,
-     oneline AssignCmp_def, SetBool_def]>>
-  rpt(
-  every_case_tac>>fs[list_Seq_def,word_good_handlers_StoreEach,
-                     word_good_handlers_StoreAnyConsts,word_good_handlers_MemEqList]>>
-  rw[]>>EVAL_TAC)
+     closLangTheory.assign_get_code_label_def, oneline AssignCmp_def, SetBool_def]>>
+  fs[list_Seq_def,word_good_handlers_StoreEach,word_good_handlers_MemEqList]>>
+  gvs[AllCaseEqs()]>>
+  rw[]>>
+  simp[stubs_def,list_Seq_def,wordConvsTheory.good_handlers_def,
+    word_good_handlers_StoreEach,word_good_handlers_MemEqList,
+    closLangTheory.assign_get_code_label_def,GiveUp_def,word_good_handlers_StoreAnyConsts]>>
+  EVAL_TAC>>
+  rw[]>>simp[list_Seq_def]>>
+  every_case_tac>>fs[list_Seq_def]
 QED
 
 Theorem data_to_word_comp_good_handlers[local]:
@@ -2505,8 +2522,10 @@ Proof
     rpt(pairarg_tac>>fs[])>>
     fs[SUBSET_DEF]>>fs[]>>
     metis_tac[])
-  >-
-    fs[word_good_handlers_assign]
+  >- (
+    simp[Once (GSYM FST_pair)]>> pairarg_tac>>
+    drule word_good_handlers_assign>>
+    simp[])
   >~ [‘force_thunk’] >- (
     gvs [force_thunk_def]
     \\ every_case_tac \\ gvs [GiveUp_def]

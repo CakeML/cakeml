@@ -231,7 +231,7 @@ Proof
     qexists_tac`strlit ""`>>
     simp[STD_streams_stderr,add_stdo_nil]>>
     xsimpl>>
-    fs[pb_parseTheory.strip_annot_prob_def]>>
+    fs[pb_parseTheory.strip_annot_prob_def,pbcTheory.pres_set_list_def]>>
     (drule_at Any) full_encode_sem_concl>>
     fs[]>>
     impl_tac >-
@@ -246,7 +246,7 @@ Proof
     qexists_tac`strlit ""`>>
     simp[STD_streams_stderr,add_stdo_nil]>>
     xsimpl>>
-    fs[pb_parseTheory.strip_annot_prob_def]>>
+    fs[pb_parseTheory.strip_annot_prob_def,pbcTheory.pres_set_list_def]>>
     (drule_at Any) full_encode_sem_concl>>
     fs[]>>
     impl_tac >-
@@ -341,7 +341,7 @@ Quote add_cakeml:
   case CommandLine.arguments () of
     [f1,f2] => check_unsat_2 f1 f2
   | [f1,f2,f3] => check_unsat_3 f1 f2 f3
-  | _ => TextIO.output TextIO.stdErr usage_string
+  | _ => TextIO.output TextIO.stdErr (mk_usage_string usage_string)
 End
 
 Definition main_sem_def:
@@ -381,11 +381,13 @@ Proof
   Cases_on`t`>>fs[LIST_TYPE_def]
   >- (
     xmatch>>
+    assume_tac (theorem "usage_string_v_thm")>>
+    xlet_autop>>
     xapp_spec output_stderr_spec \\ xsimpl>>
     rename1`COMMANDLINE cl`>>
     qexists_tac`COMMANDLINE cl`>>xsimpl>>
-    qexists_tac `usage_string` >>
-    simp [theorem "usage_string_v_thm"] >>
+    qexists_tac `mk_usage_string usage_string` >>
+    simp [] >>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -393,11 +395,13 @@ Proof
   Cases_on`t'`>>fs[LIST_TYPE_def]
   >- (
     xmatch>>
+    assume_tac (theorem "usage_string_v_thm")>>
+    xlet_autop>>
     xapp_spec output_stderr_spec \\ xsimpl>>
     rename1`COMMANDLINE cl`>>
     qexists_tac`COMMANDLINE cl`>>xsimpl>>
-    qexists_tac `usage_string` >>
-    simp [theorem "usage_string_v_thm"] >>
+    qexists_tac `mk_usage_string usage_string` >>
+    simp [] >>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -417,11 +421,13 @@ Proof
     fs[wfcl_def]>>
     rw[]>>metis_tac[STDIO_refl])>>
   xmatch>>
+  assume_tac (theorem "usage_string_v_thm")>>
+  xlet_autop>>
   xapp_spec output_stderr_spec \\ xsimpl>>
   rename1`COMMANDLINE cl`>>
   qexists_tac`COMMANDLINE cl`>>xsimpl>>
-  qexists_tac `usage_string` >>
-  simp [theorem "usage_string_v_thm"] >>
+  qexists_tac `mk_usage_string usage_string` >>
+  simp [] >>
   qexists_tac`fs`>>xsimpl>>
   rw[]>>
   fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
