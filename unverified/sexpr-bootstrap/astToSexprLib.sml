@@ -84,7 +84,7 @@ val AltCompare_tm = prim_mk_const{Thy="ast",Name="AltCompare"};
 val WordT_tm = prim_mk_const{Thy="ast",Name="WordT"};
 val wordT_W8 = mk_comb(WordT_tm, astSyntax.W8);
 val wordT_W64 = mk_comb(WordT_tm, astSyntax.W64);
-val test_eq = astSyntax.Equality
+val test_eq = prim_mk_const{Thy="ast",Name="Equal"};
 val test_lt = mk_comb(Compare_tm, astSyntax.Lt)
 val test_leq = mk_comb(Compare_tm, astSyntax.Leq)
 val test_gt = mk_comb(Compare_tm, astSyntax.Gt)
