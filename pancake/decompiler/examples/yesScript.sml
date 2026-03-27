@@ -115,7 +115,7 @@ QED
     
 Theorem yes_while_1_safety:
   read_bytearray 0w 4 (mem_load_byte s.memory s.memaddrs s.be) = SOME x ⇒
-  event_satisfy (λe. ∃x'. e = (ExtCall "putChar", x, x')) (yes_while_1 s)
+  event_satisfy (λe. ∃x'. e = (ExtCall «putChar», x, x')) (yes_while_1 s)
 Proof
   rpt strip_tac
   \\ irule event_satisfy_coind
@@ -155,7 +155,7 @@ QED
 
 Theorem yes_safety:
   0w ∈ s.memaddrs ⇒
-  event_satisfy (λe. ∃x'. e = (ExtCall "putChar", word_to_bytes (121w:word32) s.be, x')) (yes_body [] s)
+  event_satisfy (λe. ∃x'. e = (ExtCall «putChar», word_to_bytes (121w:word32) s.be, x')) (yes_body [] s)
 Proof
   rpt strip_tac
   \\ assume_tac yes_shallow
@@ -315,8 +315,8 @@ QED
 
 Theorem yes_while_1_liveness:
   read_bytearray 0w 4 (mem_load_byte s.memory s.memaddrs s.be) = SOME x ⇒
-  branch_satisfy (λe res. ∃x'. e = (ExtCall "putChar", x, x') ⇒ (∃new_bytes. res = INL (INR new_bytes) ∧ LENGTH new_bytes = LENGTH x'))
-                 (λt. ∃x' k'. t ≈ Vis (ExtCall "putChar", x, x') k') (yes_while_1 s)
+  branch_satisfy (λe res. ∃x'. e = (ExtCall «putChar», x, x') ⇒ (∃new_bytes. res = INL (INR new_bytes) ∧ LENGTH new_bytes = LENGTH x'))
+                 (λt. ∃x' k'. t ≈ Vis (ExtCall «putChar», x, x') k') (yes_while_1 s)
 Proof
   rpt strip_tac
   \\ irule branch_satisfy_coind
@@ -359,9 +359,9 @@ QED
 
 Theorem yes2_liveness:
   0w ∈ s.memaddrs ⇒
-  branch_satisfy (λe res. ∃x'. e = (ExtCall "putChar", word_to_bytes (121w:word32) s.be, x') ⇒
+  branch_satisfy (λe res. ∃x'. e = (ExtCall «putChar», word_to_bytes (121w:word32) s.be, x') ⇒
                                (∃new_bytes. res = INL (INR new_bytes) ∧ LENGTH new_bytes = LENGTH x'))
-                 (λt. ∃x' k'. t ≈ Vis (ExtCall "putChar", word_to_bytes (121w:word32) s.be, x') k') (yes_body [] s)
+                 (λt. ∃x' k'. t ≈ Vis (ExtCall «putChar», word_to_bytes (121w:word32) s.be, x') k') (yes_body [] s)
 Proof
   rpt strip_tac
   \\ irule itree_wbisim_impl_branch_satisfy
