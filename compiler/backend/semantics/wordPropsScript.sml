@@ -3711,11 +3711,24 @@ Resume locals_rel_evaluate_thm[If]:
 QED
 
 Resume locals_rel_evaluate_thm[Loop]:
-  (* BLOCKED: every_var for Loop is always T in wordLangScript.sml.
-     Needs every_var P (Loop names c exit_names) =
-       every_name P names ∧ every_var P c ∧ every_name P exit_names
-     to be fixed in wordLangScript.sml first. *)
-  cheat
+  simp[every_name_def] >>
+  `every_name (\x. x < temp) (s0,LN)` by (simp[every_name_def] >> EVAL_TAC) >>
+  `cut_env (s0,LN) loc = cut_env (s0,LN) st.locals` by (
+    qpat_x_assum `evaluate _ = _` mp_tac >>
+    simp[evaluate_def,cut_state_def] >>
+    Cases_on `cut_env (s0,LN) st.locals` >> fs[] >>
+    strip_tac >>
+    imp_res_tac locals_rel_cut_env >> fs[]) >>
+  `evaluate (Loop s0 p s, st with locals := loc) =
+   evaluate (Loop s0 p s, st)` suffices_by (
+    disch_then (fn th => rewrite_tac[th]) >> fs[] >>
+    qexists_tac `rst.locals` >>
+    fs[state_component_equality] >>
+    every_case_tac >> simp[locals_rel_def]) >>
+  simp[Once evaluate_def, cut_state_def] >>
+  qpat_x_assum `evaluate (Loop _ _ _, st) = _` mp_tac >>
+  simp[Once evaluate_def, cut_state_def] >>
+  Cases_on `cut_env (s0,LN) st.locals` >> simp[]
 QED
 
 Resume locals_rel_evaluate_thm[Alloc]:
