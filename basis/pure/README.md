@@ -6,6 +6,12 @@ from these by the translator.
 [basis_cvScript.sml](basis_cvScript.sml):
 Translation of basis types and functions for use with cv_compute.
 
+[heap_list_sortScript.sml](heap_list_sortScript.sml):
+A heap-sort variant that builds a list of exactly-balanced heaps.
+
+[merge_run_sortScript.sml](merge_run_sortScript.sml):
+Verified run-finding (natural) merge sort.
+
 [mlintScript.sml](mlintScript.sml):
 Pure functions for the Int module.
 
