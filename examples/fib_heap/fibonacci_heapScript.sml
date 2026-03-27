@@ -1810,6 +1810,12 @@ Definition fib_heap_inv_strong_def:
 End
 
 
+
+(*
+Maybe add:
+!k v e. FLOOKUP fh k = SOME(v,e) <=> ?m. fts_has k (fill_dnode v e m) fts
+
+*)
 Definition all_disjoint_def:
   (all_disjoint [] <=> T ) /\
   (all_disjoint ((fh,fts)::rest) <=>
@@ -1843,6 +1849,7 @@ Proof
   pairarg_tac >> gvs[]
 QED
 
+
 Theorem lemma_every_true:
   !list. EVERY (\(x,y). T) list = T
 Proof
@@ -1850,10 +1857,13 @@ Proof
 QED
 
 
+
+
 Theorem all_disjoint_split_thm:
   !fh xs ys rest.
   all_disjoint ((fh,xs ++ ys)::rest) <=>
-  ?fhx fhy. all_disjoint ((fhx,xs)::(fhy,ys)::rest) /\ fh = FUNION fhx fhy
+  ?fhx fhy.
+  all_disjoint ((fhx,xs)::(fhy,ys)::rest) /\ fh = FUNION fhx fhy /\
 Proof
   rpt strip_tac >>
   iff_tac >> strip_tac
@@ -1890,6 +1900,7 @@ Proof
 QED
 
 
+
 Definition fib_heap_inv_union_def:
   fib_heap_inv_union fh fh_fts ⇔
     EVERY (\(fh,fts). fib_heap_inv_strong fh fts) fh_fts /\
@@ -1904,7 +1915,7 @@ Theorem fib_heap_inv_union_append_thm:
     fib_heap_inv_union fh (xs ++ ys) <=>
     ?fhx fhy. fib_heap_inv_union fhx xs /\ fib_heap_inv_union fhy ys /\
     all_disjoint (xs ++ ys) /\
-    (fh = fh_union (xs ++ ys))
+    (fh = FUNION fhx fhy)
 Proof
   rpt strip_tac >>
   fs[fib_heap_inv_union_def] >>
@@ -1942,6 +1953,73 @@ Definition fib_heap2_def:
       cond (fib_heap_inv2 fh fts /\ a = head_key fts)
 End
 
+Theorem fib_heap_inv_strong_split_last_thm:
+  all_disjoint ((fhx,xs)::(fhy,[y])::rest) /\
+  fib_heap_inv_strong (FUNION fhx fhy) (xs ++ [y]) ==>
+  fib_heap_inv_strong (FUNION fhx fhy) (xs ++ [y]) =
+  fib_heap_inv_strong fhx xs /\ fib_heap_inv_strong fhy [y]
+Proof
+  fs[all_disjoint_def] >>
+  rpt strip_tac >>
+
+  cheat
+QED
+
+Theorem lemma_fh_union_split:
+  !fhx xs fhy y rest.
+  all_disjoint ((fhx,xs)::(fhy, [y])::rest) ==>
+  fh_union ((FUNION fhx fhy, xs ++ [y])::rest)  =
+  fh_union ((fhx,xs)::(fhy,[y])::rest)
+Proof
+  rpt gen_tac >>
+  simp[all_disjoint_def] >>
+  strip_tac >>
+  simp[fh_union_def] >>
+  simp[FUNION_ASSOC]
+QED
+
+
+Definition map_from_fts_def:
+  map_from_fts (n:num) map (FibTree k v l) =
+    (FOLDR (\t acc. map_from_fts (n-1) acc t) map l) |+ (k,v.value,v.edges)
+End
+
+Theorem lemma_fts_finite_map_split_last:
+  !fh xs y.
+  (!k v e. FLOOKUP fh k = SOME (v,e) ⇔
+  ∃m. fts_has k (fill_dnode v e m) (xs ++ [y])) ==>
+  ?fhx fhy.
+    (!k v e. FLOOKUP fhx k = SOME (v,e) <=>
+     ?m. fts_has k (fill_dnode v e m) xs) /\
+    (!k v e. FLOOKUP fhy k = SOME (v,e) <=>
+     ?m. fts_has k (fill_dnode v e m) [y]) /\
+    fh = FUNION fhx fhy /\
+    DISJOINT (FDOM fhx) (FDOM fhy)
+Proof
+  rpt strip_tac >>
+  fs[fts_has_append_thm] >>
+  qexistsl [`fhx`,`fhy`] >>
+  rpt strip_tac >>
+
+
+QED
+
+
+
+
+
+Theorem lemma_fib_heap_inv_strong_split_last:
+  fib_heap_inv_strong fh (xs ++ [y]) ==>
+  ?fhx fhy.
+  fib_heap_inv_strong fhx xs /\ fib_heap_inv_strong fhy [y] /\
+  fh = FUNION fhx fhy /\ DISJOINT (FDOM fhx) (FDOM fhy)
+Proof
+  simp[fib_heap_inv_strong_def] >>
+  rpt strip_tac >>
+
+
+  cheat
+QED
 
 
 
@@ -1951,24 +2029,14 @@ Theorem lemma_fib_heap_union_split_last:
 Proof
   fs[fib_heap_inv_union_def] >>
   rpt strip_tac >>
-  fs[all_disjoint_split_thm] >>
-  gvs[] >>
-  qexistsl [`fhx`,`fhy`] >>
-  strip_tac
-  >- (
-    fs[all_disjoint_def] >>
-    fs[fib_heap_inv_strong_def] >>
-    rpt strip_tac
-    >- fs[FLOOKUP_SIMP]
-    >- (
-      iff_tac >> strip_tac >>
-      rfs[FLOOKUP_SIMP] >>
-      first_x_assum(qspecl_then[`k`,`v`,`e`] assume_tac) >> rfs[] >>
-      cheat
-      ) >>
-      cheat
-    ) >>
-  simp[fh_union_def,FUNION_ASSOC]
+  drule lemma_fib_heap_inv_strong_split_last >>
+  strip_tac >> gvs[] >>
+  first_x_assum $ irule_at $ Pos hd >>
+  first_x_assum $ irule_at $ Pos hd >>
+  fs[all_disjoint_def,fh_union_def] >>
+  fs[FUNION_ASSOC] >>
+  fs[EVERY_MEM,FORALL_PROD] >>
+  metis_tac[]
 QED
 
 
@@ -1981,7 +2049,7 @@ QED
 
 
 Theorem lemma_funion_fh_union_comm:
-  !xs ys.
+  !xs.
   (all_disjoint xs /\ all_disjoint ys /\
   ∀x y. MEM x xs ∧ MEM y ys ==> DISJOINT (FDOM (FST x)) (FDOM (FST y))) ==>
   DISJOINT (FDOM (fh_union xs)) (FDOM (fh_union ys))
@@ -1990,6 +2058,16 @@ Proof
   strip_tac >>
   Cases_on `h`>> fs[fh_union_def] >>
   fs[all_disjoint_def] >>
+  rpt strip_tac >>
+  Cases_on `ys`>> fs[fh_union_def] >>
+  Cases_on `h` >> fs[fh_union_def] >>
+  first_assum(qspecl_then [`(q,r)`,`(q',r')`] assume_tac) >>
+  fs[all_disjoint_def]
+
+
+
+
+
   Induct >> fs[fh_union_def] >>
   strip_tac >>
   Cases_on `h`  >> fs[fh_union_def] >>
@@ -2003,6 +2081,7 @@ Proof
   `(∀x y. (x = (q,r) ∨ MEM x xs) ∧ MEM y ys ⇒
    DISJOINT (FDOM (FST x)) (FDOM (FST y))) ⇒
    DISJOINT (FDOM q) (FDOM (fh_union ys))` by res_tac >>
+  fs[PULL_FORALL]
   cheat
 
 (*TODO: show comm on list -> all_disjoint t /\ EVERY(DISJIONT q (FST t)) t ==>
