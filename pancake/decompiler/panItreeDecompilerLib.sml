@@ -372,11 +372,11 @@ fun mk_eval_word_op_exps trm_some =
           val v_list = list_mk_var_ty "v" [] w_ty (length exp_terms)                                               
           val eval_biimpl_list = map (fn x => “∃wv. eval ^state ^x = SOME (ValWord wv)”) exp_terms
           val eval_impl_hyps = “∃wv. ^trm = SOME (ValWord wv)”
-          val v_op = if same_const w_op “Add” then inst [alpha |-> ty_arg] “word_add”
-                     else if same_const w_op “And” then inst [alpha |-> ty_arg] “word_and”
-                     else if same_const w_op “Xor” then inst [alpha |-> ty_arg] “word_xor”
-                     else if same_const w_op “Or” then inst [alpha |-> ty_arg] “word_or”
-                     else if same_const w_op “Sub” then inst [alpha |-> ty_arg] “word_sub”
+          val v_op = if same_const w_op “asm$Add” then inst [alpha |-> ty_arg] “word_add”
+                     else if same_const w_op “asm$And” then inst [alpha |-> ty_arg] “word_and”
+                     else if same_const w_op “asm$Xor” then inst [alpha |-> ty_arg] “word_xor”
+                     else if same_const w_op “asm$Or” then inst [alpha |-> ty_arg] “word_or”
+                     else if same_const w_op “asm$Sub” then inst [alpha |-> ty_arg] “word_sub”
                      else raise Domain
           val v_result = foldl (fn (v, accu_v) => “^v_op ^accu_v ^v”) (hd v_list) (tl v_list)
           val some_v_result = “SOME (ValWord ^v_result)”
@@ -417,14 +417,14 @@ fun mk_eval_let_exps_term trm_some =
             val exp_terms = dest_list exps |> fst
             val [ty_arg] = state |> type_of |> dest_type |> snd
             val w_ty = mk_type ("cart", [“:bool”, ty_arg])
-            val v_list = list_mk_var_ty "v" [] w_ty (length exp_terms)                                               
+            val v_list = list_mk_var_ty "v" [] w_ty (length exp_terms)
             val eval_biimpl_list = map (fn x => “eval ^state ^x = SOME (ValWord wv)”) exp_terms
             val eval_impl_hyps = “∃wv. ^trm = SOME (ValWord wv)”
-            val v_op = if same_const w_op “Add” then inst [alpha |-> ty_arg] “word_add”
-                       else if same_const w_op “And” then inst [alpha |-> ty_arg] “word_and”
-                       else if same_const w_op “Xor” then inst [alpha |-> ty_arg] “word_xor”
-                       else if same_const w_op “Or” then inst [alpha |-> ty_arg] “word_or”
-                       else if same_const w_op “Sub” then inst [alpha |-> ty_arg] “word_sub”
+            val v_op = if same_const w_op “asm$Add” then inst [alpha |-> ty_arg] “word_add”
+                       else if same_const w_op “asm$And” then inst [alpha |-> ty_arg] “word_and”
+                       else if same_const w_op “asm$Xor” then inst [alpha |-> ty_arg] “word_xor”
+                       else if same_const w_op “asm$Or” then inst [alpha |-> ty_arg] “word_or”
+                       else if same_const w_op “asm$Sub” then inst [alpha |-> ty_arg] “word_sub”
                        else raise Domain
             val v_result = foldl (fn (v, accu_v) => “^v_op ^accu_v ^v”) (hd v_list) (tl v_list)
             val some_v_result = “SOME (ValWord ^v_result)”

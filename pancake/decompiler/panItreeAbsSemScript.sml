@@ -890,7 +890,7 @@ Theorem itree_semantics_ExtCall_with_pre:
         x = THE (read_bytearray c' (w2n c) mb)
       in
         if explode ffiname ≠ "" then
-          Vis (ExtCall (explode ffiname),x',x)
+          Vis (ExtCall ffiname,x',x)
             (λres.
                  Tau
                    (Ret
@@ -899,7 +899,7 @@ Theorem itree_semantics_ExtCall_with_pre:
                             INL (INL outcome) =>
                               (SOME
                                  (FinalFFI
-                                    (Final_event (ExtCall (explode ffiname))
+                                    (Final_event (ExtCall ffiname)
                                        x' x outcome)),empty_locals s)
                           | INL (INR new_bytes) =>
                             if LENGTH new_bytes = LENGTH x then
@@ -911,7 +911,7 @@ Theorem itree_semantics_ExtCall_with_pre:
                             else
                               (SOME
                                  (FinalFFI
-                                    (Final_event (ExtCall (explode ffiname))
+                                    (Final_event (ExtCall ffiname)
                                        x' x FFI_failed)),empty_locals s)
                           | INR v1 => (SOME Error,s)))))
         else
@@ -939,7 +939,7 @@ Theorem itree_semantics_ExtCall:
               SOME x =>
                 if explode ffiname ≠ ""
                 then
-                   Vis (ExtCall (explode ffiname),x',x)
+                   Vis (ExtCall ffiname,x',x)
                        (λres.
                           Tau (Ret
                                (INR
@@ -947,7 +947,7 @@ Theorem itree_semantics_ExtCall:
                                    INL (INL outcome) =>
                                      (SOME
                                       (FinalFFI
-                                       (Final_event (ExtCall (explode ffiname)) x' x outcome)),empty_locals s)
+                                       (Final_event (ExtCall ffiname) x' x outcome)),empty_locals s)
                                  | INL (INR new_bytes) =>
                                      if LENGTH new_bytes = LENGTH x then
                                        (NONE,
@@ -958,7 +958,7 @@ Theorem itree_semantics_ExtCall:
                                      else
                                        (SOME
                                         (FinalFFI
-                                         (Final_event (ExtCall (explode ffiname)) x' x FFI_failed)),empty_locals s)
+                                         (Final_event (ExtCall ffiname) x' x FFI_failed)),empty_locals s)
                                  | INR _ => (SOME Error,s)))))
                 else Ret (INR (NONE, s with memory := write_bytearray c' x s.memory s.memaddrs s.be))
             | _ => Ret (INR (SOME Error,s)))
@@ -2061,6 +2061,7 @@ CoInductive itree_wbisim_up_to_ev_res:
   (t ≈ t' ⇒ itree_wbisim_up_to_ev_res P t t') ∧
   ((∀r. P e r ⇒ itree_wbisim_up_to_ev_res P (k r) (k' r)) ⇒ itree_wbisim_up_to_ev_res P (Vis e k) (Vis e k'))
 End
+
 (*
 Theorem itree_semantics_ShMemLoad_with_pre:
   (∀e r. P e r ⇔ ∃nb. r = INL (INR nb) ∧ LENGTH nb = dimindex (:α) DIV 8) ⇒
@@ -3270,9 +3271,9 @@ Proof
       \\ EVERY_CASE_TAC \\ gvs[word_of_val_def]
      )
   >- (rpt strip_tac
-      \\ gvs[eval_def, word_of_val_def, mem_load_32_def]
+      \\ gvs[eval_def, word_of_val_def, mem_load_32_alt]
       \\ EVERY_CASE_TAC \\ gvs[word_of_val_def, word_of_Word_def]
-      \\ rw[]
+      \\ rw[w2w_def]
      )
   >- (rpt strip_tac
       \\ gvs[eval_def, word_of_val_def, mem_load_byte_def]
