@@ -547,9 +547,9 @@ Proof
 QED
 
 
-Definition fib_heap_size_def:
-  (fib_heap_size [] = 0:num) /\
-  (fib_heap_size (FibTree _ _ ts::rest) = 1 + fib_heap_size ts + fib_heap_size rest)
+Definition fts_size_def:
+  (fts_size [] = 0:num) /\
+  (fts_size (FibTree _ _ ts::rest) = 1 + fts_size ts + fts_size rest)
 End
 
 Definition fib_num_def:
@@ -564,7 +564,7 @@ End
 Definition fib_heap_shape_ok_def:
   (fib_heap_shape_ok [] = T) /\
   (fib_heap_shape_ok ((FibTree k v ys)::ts) <=>
-    (fib_num ((LENGTH ys) + 2) <= 1 + fib_heap_size ys) /\
+    (fib_num ((LENGTH ys) + 2) <= 1 + fts_size ys) /\
     fib_heap_shape_ok ys /\
     fib_heap_shape_ok ts)
 End
@@ -926,7 +926,7 @@ Proof
     dxrule_all lemma_fib_heap_new_min >> simp[]
   ) >>
   fs[fib_heap_shape_ok_def] >>
-  simp[fib_heap_size_def, Ntimes fib_num_def 3] >>
+  simp[fts_size_def, Ntimes fib_num_def 3] >>
   simp[Once fib_num_def]
 QED
 
@@ -1019,7 +1019,7 @@ Proof
     ) >>
   simp[fib_heap_shape_ok_append_thm] >>
   simp[fib_heap_shape_ok_def] >>
-  simp[Ntimes fib_num_def 3, fib_heap_size_def] >>
+  simp[Ntimes fib_num_def 3, fts_size_def] >>
   simp[Once fib_num_def]
 QED
 
@@ -2541,7 +2541,7 @@ Proof
     )
   >- fs[fts_is_min_def,fts_min_def]
   >- fs[every_fts_def, fts_head_is_min_def] >>
-  fs[fib_heap_shape_ok_def, fib_heap_size_def, Ntimes fib_num_def 2] >>
+  fs[fib_heap_shape_ok_def, fts_size_def, Ntimes fib_num_def 2] >>
   fs[Once fib_num_def]
 QED
 
@@ -2900,7 +2900,7 @@ End
 Theorem fts_merge_trees:
   !c map fts k v l.
     MEM(FibTree k v l) fts /\
-    fib_heap_size fts < c /\
+    fts_size fts < c /\
     ?fh. fib_heap_inv_strong fh [FibTree k v l] /\
     fts_merge_trees c (map, LENGTH l, FibTree k v l) = map' ==>
     (!k v l. FLOOKUP map' (LENGTH l) = SOME(k,v,l) ==>
@@ -2919,7 +2919,7 @@ End
 
 Theorem fts_reb_trees:
   !c map fts k v l.
-    fib_heap_size fts < c /\
+    fts_size fts < c /\
     ?fh. fib_heap_inv_strong fh fts /\
     fts_reb_trees c (map,fts) = map' ==>
     (!k v l. FLOOKUP map' (LENGTH l) = SOME(k,v,l) ==>
