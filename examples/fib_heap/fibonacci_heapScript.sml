@@ -1924,7 +1924,7 @@ Theorem all_disjoint_split_thm:
   !fh xs ys rest.
   all_disjoint ((fh,xs ++ ys)::rest) <=>
   ?fhx fhy.
-  all_disjoint ((fhx,xs)::(fhy,ys)::rest) /\ fh = FUNION fhx fhy /\
+  all_disjoint ((fhx,xs)::(fhy,ys)::rest) /\ fh = FUNION fhx fhy
 Proof
   rpt strip_tac >>
   iff_tac >> strip_tac
@@ -1981,7 +1981,8 @@ Proof
   rpt strip_tac >>
   fs[fib_heap_inv_union_def] >>
   iff_tac >> rpt strip_tac >> fs[] >>
-  fs[all_disjoint_append_thm]
+  fs[all_disjoint_append_thm] >>
+  cheat
 QED
 
 
@@ -2000,7 +2001,7 @@ Definition fib_heap_inv2_def:
     (!k v. FLOOKUP fh k = SOME v ==> k <> 0w) /\
     (∀k v e. FLOOKUP fh k = SOME (v,e) <=>
       ?m. fts_has k (fill_dnode v e m) fts) /\
-    (*(fts_all_dist fts) /\ *)
+    (fts_all_dist fts) /\
     (fts_is_min (fts_min fts) fts) /\
     (every_fts fts_head_is_min fts) /\
     (fib_heap_shape_ok fts)
@@ -2025,6 +2026,9 @@ Proof
 
   cheat
 QED
+
+
+
 
 Theorem lemma_fh_union_split:
   !fhx xs fhy y rest.
@@ -2068,7 +2072,7 @@ Proof
   fs[fts_has_append_thm] >>
   qexistsl [`map_from_fts xs`,`map_from_fts [y]`] >>
   rpt strip_tac >>
-
+  cheat
 
 QED
 
@@ -2130,12 +2134,13 @@ Proof
   Cases_on `ys`>> fs[fh_union_def] >>
   Cases_on `h` >> fs[fh_union_def] >>
   first_assum(qspecl_then [`(q,r)`,`(q',r')`] assume_tac) >>
-  fs[all_disjoint_def]
+  fs[all_disjoint_def] >>
+  cheat
 
 
 
 
-
+  (*
   Induct >> fs[fh_union_def] >>
   strip_tac >>
   Cases_on `h`  >> fs[fh_union_def] >>
@@ -2151,7 +2156,7 @@ Proof
    DISJOINT (FDOM q) (FDOM (fh_union ys))` by res_tac >>
   fs[PULL_FORALL]
   cheat
-
+*)
 (*TODO: show comm on list -> all_disjoint t /\ EVERY(DISJIONT q (FST t)) t ==>
     FUNION q fh_union t = FUNION fh_union t q*)
 (*TODO: maybe induct on xs?*)
@@ -2292,6 +2297,8 @@ Proof
   simp[FLOOKUP_SIMP]
 QED
 
+
+
 Theorem lemma_map_extract_head:
   !fts fh k n l v e.
     fts_all_dist (FibTree k n l::fts) /\ FLOOKUP fh k = NONE /\
@@ -2307,6 +2314,8 @@ Proof
   strip_tac >>
   fs[fill_dnode_def,node_data_component_equality]
 QED
+
+
 
 Theorem lemma_list_upd_not_null:
   !fts fh.
@@ -2349,6 +2358,15 @@ Proof
 QED
 
 
+(*---------------------------------------------------------
+
+  OPERATION MERGE HEAPS
+
+-----------------------------------------------------------*)
+
+
+
+
 
 Theorem lemma_merge_heaps_new_min:
   fts_min xs <=+ fts_min ys /\
@@ -2382,6 +2400,75 @@ Proof
 QED
 
 
+Theorem lemma_merge_all_dist:
+  (!k v e. FLOOKUP fh1 k = SOME (v,e) ⇔ ∃m. fts_has k (fill_dnode v e m) xs) /\
+  (∀k v e. FLOOKUP fh2 k = SOME (v,e) ⇔ ∃m. fts_has k (fill_dnode v e m) ys) /\
+  fts_all_dist xs /\
+  fts_all_dist ys /\
+  DISJOINT (FDOM fh1) (FDOM fh2) ==>
+  fts_all_dist (xs ++ ys)
+Proof
+  simp[fts_all_dist_append_thm] >>
+  Cases_on `xs` >>
+  rpt strip_tac >> fs[]
+  >- (
+    Cases_on `ys` >> fs[fts_has_inj_def]
+    >- simp[Once fts_has_cases] >>
+    Cases_on `h` >> fs[fts_all_dist_def,fts_has_inj_def]
+    )
+  >- fs[Once fts_has_cases]
+  >- (
+    Cases_on `h` >>
+    pure_rewrite_tac[GSYM(cj 2 APPEND)] >>
+    simp[fts_has_inj_append] >>
+    fs[fts_all_dist_def] >>
+    strip_tac
+    >- (
+      Cases_on `ys` >> fs[fts_has_inj_def]
+      >- simp[Once fts_has_cases] >>
+      Cases_on `h` >>
+      fs[fts_all_dist_def,fts_has_inj_def]
+      ) >>
+    rpt strip_tac >>
+    fs[EQ_IMP_THM] >>
+    first_x_assum $ qspecl_then [`k'`,`v''.value`,`v''.edges`] assume_tac >>
+    first_x_assum $ qspecl_then [`k'`,`v'.value`,`v'.edges`] assume_tac >>
+    fs[] >>
+    fs[PULL_EXISTS] >>
+    first_x_assum $ qspec_then `v'.mark` assume_tac >>
+    first_x_assum $ qspec_then `v''.mark` assume_tac >>
+    `FLOOKUP fh1 k' = SOME (v'.value,v'.edges)` by cheat >>
+    `FLOOKUP fh2 k' = SOME (v''.value,v''.edges)` by cheat >>
+    fs[FLOOKUP_DEF] >>
+    fs[pred_setTheory.DISJOINT_ALT] >>
+    res_tac
+    ) >>
+  pop_assum mp_tac >> simp[] >>
+  Cases_on `h` >>
+  last_assum(qspecl_then [`k`,`v.value`,`v.edges`] assume_tac) >>
+  fs[EQ_IMP_THM] >>
+  fs[PULL_EXISTS] >>
+  first_x_assum (qspec_then `v.mark` assume_tac) >> fs[] >>
+  pop_assum mp_tac >>
+  simp[fill_dnode_def, node_data_component_equality] >>
+  strip_tac >>
+  `FLOOKUP fh1 k = SOME (v.value,v.edges)` by cheat >>
+  pop_assum mp_tac >>
+  simp[FLOOKUP_DEF] >>
+  strip_tac >>
+  fs[pred_setTheory.DISJOINT_ALT] >>
+  `k ∉ FDOM fh2` by res_tac >>
+  first_x_assum $ qspecl_then [`k`,`v.value`,`v.edges`] assume_tac >>
+  pop_assum mp_tac >>
+  simp[FLOOKUP_DEF] >>
+  strip_tac >>
+  first_x_assum $ qspec_then `v.mark` assume_tac >>
+  cheat
+QED
+
+
+
+
 
 Theorem lemma_merge_heaps_new_min_inv:
   !fh1 fh2 xs ys.
@@ -2408,11 +2495,18 @@ Proof
       ) >>
     fs[fts_has_append_thm] >> res_tac
     >- (
-      (*drule_all lemma_flookup_funion_comm >> strip_tac >>*)
-     (* drule_all FUNION_COMM >> *)
-      cheat
+      drule_all lemma_flookup_funion_comm >> strip_tac >>
+      res_tac >>
+      first_x_assum $ qspec_then `k` assume_tac >>
+      fs[FLOOKUP_SIMP] >>
+      Cases_on `FLOOKUP fh2 k` >> gvs[]
       ) >>
     simp[FLOOKUP_SIMP]
+    )
+  >- (
+    drule_all lemma_merge_all_dist >>
+    strip_tac >>
+    fs[fts_all_dist_append_sym_thm]
     )
   >- (drule_all lemma_merge_heaps_new_min >> simp[])
   >- (
