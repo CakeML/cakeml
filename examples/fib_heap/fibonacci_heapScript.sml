@@ -1668,12 +1668,29 @@ Proof
   rpt strip_tac >> res_tac >> simp[]
 QED
 
+
+
 Theorem fts_has_inj_append_sym:
   fts_has_inj (xs ++ ys) <=> fts_has_inj (ys ++ xs)
 Proof
   simp[fts_has_inj_def,fts_has_inj_append] >>
   iff_tac >> rpt strip_tac >> res_tac >> simp[]
 QED
+
+
+Theorem lemma_fts_has_inj_pop:
+  !x xs. fts_has_inj (x::xs) ==> fts_has_inj xs
+Proof
+  rpt strip_tac >>
+  Cases_on `x` >>
+  fs[fts_has_inj_def] >>
+  rpt strip_tac >>
+  first_x_assum(qspecl_then [`k'`,`v'`,`v''`] assume_tac) >>
+  pop_assum mp_tac >>
+  simp[Once fts_has_cases] >>
+  simp[Once fts_has_cases]
+QED
+
 
 Definition fts_all_dist_def:
   (fts_all_dist [] <=> T) /\
@@ -1685,8 +1702,8 @@ Definition fts_all_dist_def:
 End
 
 
-(*
-Theorem lemma_other_side:
+
+Theorem lemma_fts_all_dist_append_rl:
   !xs ys.
     fts_has_inj (xs ++ ys) /\
     fts_all_dist xs /\ fts_all_dist ys /\
@@ -1697,7 +1714,7 @@ Proof
   rpt strip_tac >> fs[] >>
   fs[fts_all_dist_def] >>
   rpt strip_tac >>
-  rename [`(FibTree k n l::xs)`] >>
+  rename [`(FibTree k n l::xs)`]
   >- (
     fs[fts_has_append_thm]
     >- res_tac >>
@@ -1714,21 +1731,45 @@ Proof
     pop_assum mp_tac >>
     pure_rewrite_tac[Once fts_has_cases] >>
     simp[]
+    )
+  >- (
+    pop_assum mp_tac >>
+    simp[Once fts_has_cases] >>
+    strip_tac >> fs[] >>
+    qspecl_then [`FibTree k n l`,`xs ++ ys`] assume_tac lemma_fts_has_inj_pop >>
+    `fts_has_inj (xs ++ ys)` by res_tac >>
+    `(!k v. fts_has k v xs ⇒ ¬fts_has k v ys)
+     ⇒ fts_all_dist (xs ++ ys)` by res_tac >>
+    fs[]
     ) >>
-  cheat
+  fs[fts_has_append_thm]
+  >- res_tac >>
+  first_x_assum (qspecl_then [`k'`,`v`] assume_tac) >>
+  qpat_x_assum `fts_has k' v (FibTree k n l::xs) ⇒
+    ¬fts_has k' v ys` mp_tac >>
+  pure_rewrite_tac[Once fts_has_cases] >>
+  strip_tac >> fs[] >>
+  res_tac
 QED
-*)
 
-Theorem fts_all_dist_append_thm:
+
+Theorem lemma_fts_all_dist_append_lr:
   !xs ys.
     fts_all_dist (xs ++ ys) ==>
+    (fts_has_inj (xs ++ ys) /\
     fts_all_dist xs /\ fts_all_dist ys /\
-    (!k v. fts_has k v xs ==> ~fts_has k v ys)
+    (!k v. fts_has k v xs ==> ~fts_has k v ys))
 Proof
   ho_match_mp_tac fts_all_dist_ind >>
   rpt strip_tac >> fs[]
+  >- (
+    Cases_on `ys`
+    >- fs[fts_has_inj_def, Once fts_has_cases] >>
+    Cases_on `h` >> fs[fts_all_dist_def]
+    )
   >- simp[fts_all_dist_def]
   >- fs[Once fts_has_cases]
+  >- fs[fts_all_dist_def]
   >- (
     fs[fts_all_dist_def] >>
     res_tac >> simp[] >>
@@ -1753,6 +1794,26 @@ Proof
   pure_rewrite_tac[fts_has_append_thm] >>
   simp[]
 QED
+
+Theorem fts_all_dist_append_thm:
+  !xs ys.
+    fts_all_dist (xs ++ ys) <=>
+    (fts_has_inj (xs ++ ys) /\
+    fts_all_dist xs /\ fts_all_dist ys /\
+    (!k v. fts_has k v xs ==> ~fts_has k v ys))
+Proof
+  rpt gen_tac >>
+  iff_tac
+  >- (
+    strip_tac >>
+    drule_all lemma_fts_all_dist_append_lr >>
+    rpt strip_tac >> fs[] >> res_tac
+    ) >>
+ fs[lemma_fts_all_dist_append_rl]
+QED
+
+
+
 
 Theorem fts_all_dist_append_sym_thm:
   !xs ys. fts_all_dist (xs ++ ys) ==> fts_all_dist (ys ++ xs)
@@ -1979,10 +2040,17 @@ Proof
 QED
 
 
-Definition map_from_fts_def:
-  map_from_fts (n:num) map (FibTree k v l) =
-    (FOLDR (\t acc. map_from_fts (n-1) acc t) map l) |+ (k,v.value,v.edges)
+Definition map_from_ft_def:
+  map_from_ft map (FibTree k v l) =
+    (FOLDR (\t acc. map_from_ft acc t) map l) |+ (k,v.value,v.edges)
+Termination
+  cheat
 End
+
+Definition map_from_fts_def:
+  map_from_fts fts = FOLDR FUNION FEMPTY $ MAP (map_from_ft FEMPTY) fts
+End
+
 
 Theorem lemma_fts_finite_map_split_last:
   !fh xs y.
@@ -1998,7 +2066,7 @@ Theorem lemma_fts_finite_map_split_last:
 Proof
   rpt strip_tac >>
   fs[fts_has_append_thm] >>
-  qexistsl [`fhx`,`fhy`] >>
+  qexistsl [`map_from_fts xs`,`map_from_fts [y]`] >>
   rpt strip_tac >>
 
 
