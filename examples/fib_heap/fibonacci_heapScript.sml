@@ -232,8 +232,6 @@ QED
 
 
 
-
-
 Definition ann_fts_def:
   (ann_fts p [] = []) /\
   (ann_fts p (x::xs) =
@@ -278,6 +276,7 @@ Proof
   simp[head_key_t_append_thm,head_key_t_def] >>
   simp[last_key_t_pull_thm, REVERSE_APPEND,head_key_t_def,head_key_def]
 QED
+
 
 
 
@@ -330,6 +329,7 @@ Definition ft_seg_def:
             n2w n.rank] *
     edges_ones (FST n.data.edges) (SND n.data.edges) * cond(k <> 0w)
 End
+
 
 Definition fts_mem_def:
   (fts_mem [] = emp ) /\
@@ -1414,9 +1414,6 @@ Proof
 QED
 
 
-
-
-
 Theorem lemma_fib_heap_insert_empty:
   !frame xs p m dm a' m' b.
     (fts_mem (ann_fts p xs) * fts_mem (ann_fts p []) * frame) (fun2set (m,dm)) /\
@@ -1442,6 +1439,7 @@ Proof
   strip_tac >> gvs[] >>
   SEP_R_TAC
 QED
+
 
 
 Theorem lemma_fib_heap_insert_NintoN:
@@ -1507,6 +1505,73 @@ Proof
   SEP_W_TAC >> fs[last_key_t_append_thm,last_key_t_def,head_key_t_def] >>
   strip_tac >> gvs[]
 QED
+
+
+
+Theorem lemma_fib_heap_insert_NintoN2:
+  !frame xs ys p m dm a' m' b.
+    (fts_mem (ann_fts p xs) * fts_mem (ann_fts p ys) * frame)(fun2set (m,dm)) /\
+    fib_heap_insert_list (head_key ys, head_key xs, m, dm) = (a', m', b) ==>
+    (fts_mem(ann_fts p (xs ++ ys)) * frame)
+      (fun2set (m',dm)) /\ b
+Proof
+  rpt gen_tac >> strip_tac >>
+  pop_assum mp_tac >>
+  Cases_on `ys`
+  >- (
+    qspecl_then [`frame`,`ys`,`p`,`m`,`dm`,`a'`,`m'`,`b`]
+      assume_tac lemma_fib_heap_insert_empty >>
+    fs[ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def,fts_mem_def,
+       SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
+       fill_dnode_def, head_key_t_def, ones_def, STAR_ASSOC]
+    ) >>
+  Cases_on `xs`
+  >- (
+    qspecl_then [`frame`,`(h::t)`,`p`,`m`,`dm`,`a'`,`m'`,`b`]
+      assume_tac lemma_fib_heap_insert_empty >>
+    gvs[AC STAR_ASSOC STAR_COMM] >>
+    Cases_on `h` >>
+    fs[head_key_t_def,head_key_def] >>
+    simp[fib_heap_insert_list_def] >>
+    fs[ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def,fts_mem_def,
+       SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
+       fill_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
+    full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR] >>
+    strip_tac >> gvs[] >>
+    SEP_R_TAC
+    ) >>
+  Cases_on `t'` using SNOC_CASES
+  >- (
+    qspecl_then [`frame`, `h'`,`(h::t)`,`p`,`m`,`dm`,`m'`,`b`]
+      assume_tac lemma_fib_heap_insert_1intoN >>
+    gvs[]
+    ) >>
+  fs[SNOC_APPEND] >>
+  Cases_on `t` using SNOC_CASES
+  >- (
+    qspecl_then [`frame`,`(h'::(l ++ [x]))`,`h`,`p`,`m`,`dm`,`m'`,`b`]
+      assume_tac lemma_fib_heap_insert_Ninto1 >>
+    gvs[]
+    ) >>
+  fs[SNOC_APPEND]>>
+  Cases_on `h` >> Cases_on `h'` >> Cases_on `x` >> Cases_on `x'` >>
+  simp[head_key_def,head_key_t_def] >>
+  fs[ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def, fts_mem_def,
+     SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,fill_dnode_def,
+     head_key_t_def, ones_def, STAR_ASSOC,REVERSE_APPEND,
+     fts_mem_append_thm,ann_fts_seg_append_thm,head_key_t_pull_last_thm] >>
+  fs[head_key_t_append_thm] >>
+  fs[head_key_t_pull_last_thm] >>
+  fs[last_key_t_append_thm] >>
+  full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR] >>
+  simp[fib_heap_insert_list_def,next_off_def,before_off_def] >>
+  IF_CASES_TAC >>
+  SEP_R_TAC >> simp[] >>
+  SEP_R_TAC >> simp[] >>
+  SEP_W_TAC >> fs[last_key_t_append_thm,last_key_t_def,head_key_t_def] >>
+  strip_tac >> gvs[]
+QED
+
 
 
 (*
@@ -2365,6 +2430,19 @@ QED
 -----------------------------------------------------------*)
 
 
+Definition fts_merge_def:
+  (fts_merge [] ys = ys) /\
+  (fts_merge xs [] = xs) /\
+  (fts_merge (FibTree k1 v1 l1::xs) (FibTree k2 v2 l2::ys) =
+    if v1.value <=+ v2.value then
+      (FibTree k1 v1 l1::(xs ++ (FibTree k2 v2 l2::ys)))
+    else
+      (FibTree k2 v2 l2::(ys ++ (FibTree k1 v1 l1::xs))))
+End
+
+
+
+
 
 
 
@@ -2437,6 +2515,8 @@ Proof
     fs[PULL_EXISTS] >>
     first_x_assum $ qspec_then `v'.mark` assume_tac >>
     first_x_assum $ qspec_then `v''.mark` assume_tac >>
+    fs[fill_dnode_def]
+    rfs[node_data_component_equality]
     `FLOOKUP fh1 k' = SOME (v'.value,v'.edges)` by cheat >>
     `FLOOKUP fh2 k' = SOME (v''.value,v''.edges)` by cheat >>
     fs[FLOOKUP_DEF] >>
@@ -2619,6 +2699,16 @@ Proof
 QED
 
 
+Theorem logical_fib_heap_merge:
+  fib_heap_inv2 fhx xs /\
+  fib_heap_inv2 fhy ys /\
+  DISJOINT (FDOM fhx) (FDOM fhy) /\
+  fts_merge xs ys = fts ==>
+  fib_heap_inv2 (FUNION fhx fhy) fts
+Proof
+  cheat
+QED
+
 
 (* TODO: Verify invariant. *)
 Theorem fib_heap_merge_heaps:
@@ -2660,10 +2750,42 @@ Proof
        fill_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
     full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR]
     ) >>
-  qspecl_then [`frame`,`(h'::t')`,`(h::t)`,`0w`,`m`,`dm`,`a'`,`m'`,`c`]
+  qspecl_then [`frame`,`(h::t')`,`(FibTree b v l::t)`,`0w`,`m`,`dm`,`a'`,`m'`,`c`]
     assume_tac lemma_fib_heap_insert_NintoN >>
-  strip_tac >> gvs[] >>
+  strip_tac >>
+  rfs[head_key_def,head_key_t_def] >>
+  pop_assum mp_tac >>
+  Cases_on `h` >>
+  fs[fib_heap_insert_list_def] >>
+  fs[before_off_def, next_off_def, head_key_t_def, head_key_def] >>
+  pop_assum mp_tac >>
   cheat
+(*
+  fs[ann_fts_def, ann_fts_seg_def, last_key_def,fts_mem_def,
+     SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
+     fill_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
+  full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR] >>
+  SEP_R_TAC >>
+  IF_CASES_TAC >>
+  Cases_on `t` using SNOC_CASES >>
+  Cases_on `t'` using SNOC_CASES >>
+  fs[last_key_t_def,head_key_t_def] >> SEP_R_TAC
+  >- (
+    strip_tac >> gvs[] >>
+    SEP_W_TAC >>
+    SEP_R_TAC >>
+
+  qspecl_then [`frame`,`(h::t')`,`(FibTree b v l::t)`,`0w`,`m`,`dm`,`a'`,`m'`,`c`]
+    assume_tac lemma_fib_heap_insert_NintoN >>
+  rfs[head_key_def,head_key_t_def] >>
+
+(* TODO: WORKING *)
+
+
+
+
+  strip_tac >> gvs[] >>
+  cheat*)
 QED
 
 
