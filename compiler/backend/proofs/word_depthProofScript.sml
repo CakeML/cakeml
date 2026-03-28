@@ -252,6 +252,10 @@ Proof
   THEN1 (* Raise *)
    (gvs [wordSemTheory.evaluate_def,AllCaseEqs()]
     \\ fs[jump_exc_def] \\ gvs[AllCaseEqs()]) (*FIXME this should be done by jump_exc_const*)
+  THEN1 (* Break *)
+   (gvs [wordSemTheory.evaluate_def,AllCaseEqs()])
+  THEN1 (* Continue *)
+   (gvs [wordSemTheory.evaluate_def,AllCaseEqs()])
   THEN1 (* If *)
    (gvs [wordSemTheory.evaluate_def,AllCaseEqs()]
    \\ rpt strip_tac \\ fs [call_graph_def,max_depth_mk_Branch,max_depth_def]
@@ -259,6 +263,7 @@ Proof
     \\ fs[] \\ rpt strip_tac \\ fs[]
     \\ irule option_le_trans >> first_x_assum (irule_at Any)
     \\ simp[option_le_max,option_le_max_right,option_le_eq_eqns])
+  >~ [`Loop`] >- suspend "Loop"
   THEN1 (* LocValue *)
    (gvs [wordSemTheory.evaluate_def,AllCaseEqs()])
   THEN1 (* Install *)
@@ -278,7 +283,11 @@ Proof
       oneline sh_mem_set_var_def,
       flush_state_def]) (*FIXME should be using share_inst_const*)
   (* Call *)
-  \\ rpt gen_tac
+  >~ [`Call`] >- suspend "Call"
+QED
+
+Resume max_depth_call_graph_lemma[Call]:
+  rpt gen_tac
   \\ Cases_on `call_graph funs n ns (size funs2)
                   (Call ret dest args handler) = Unknown`
   THEN1 (simp [max_depth_def] \\ simp [OPTION_MAP2_DEF])
@@ -321,14 +330,14 @@ Proof
         \\ reverse conj_tac THEN1 (match_mp_tac MEM_max_depth_graphs \\ fs [])
         \\ fs [max_depth_graphs_def])
       \\ qmatch_assum_abbrev_tac `option_le (_ _ x1) x2`
-      \\ Cases_on `x2` THEN1 fs [OPTION_MAP2_DEF]
-      \\ Cases_on `x1` THEN1 fs [OPTION_MAP2_DEF]
-      \\ Cases_on `lookup name s.stack_size` THEN1 fs [OPTION_MAP2_DEF]
-      \\ Cases_on `lookup n s.stack_size` THEN1 fs [OPTION_MAP2_DEF]
-      \\ Cases_on `s.stack_max` THEN1 fs [OPTION_MAP2_DEF]
-      \\ Cases_on `stack_size s.stack` THEN1 fs [OPTION_MAP2_DEF]
-      \\ Cases_on `s'.stack_max` THEN1 fs [OPTION_MAP2_DEF]
-      \\ fs [])
+      \\ Cases_on `x2` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
+      \\ Cases_on `x1` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
+      \\ Cases_on `lookup name s.stack_size` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
+      \\ Cases_on `lookup n s.stack_size` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
+      \\ Cases_on `s.stack_max` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
+      \\ Cases_on `stack_size s.stack` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
+      \\ Cases_on `s'.stack_max` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
+      \\ fs [] \\ rpt strip_tac \\ fs [])
   \\ TOP_CASE_TAC \\ simp []
   \\ TOP_CASE_TAC \\ simp []
   \\ rename [`lookup name funs = SOME (a,body)`]
@@ -361,20 +370,20 @@ Proof
     \\ fs [max_depth_graphs_def,lookup_delete]
     \\ Cases_on `(max_depth s.stack_size
          (call_graph funs name (name::ns) (size funs2) body))`
-    THEN1 fs [OPTION_MAP2_DEF] \\ simp []
+    THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs []) \\ simp []
     \\ fs [subspt_lookup] \\ res_tac \\ fs [] \\ rveq
     \\ `option_le
          (max_depth_graphs s.stack_size ns (name::ns) funs funs2)
          (max_depth_graphs s.stack_size ns ns funs funs2)` by
       (match_mp_tac option_le_max_depth_graphs \\ fs [] \\ rw [])
     \\ qmatch_assum_abbrev_tac `option_le x1 x2`
-    \\ Cases_on `x2` THEN1 fs [OPTION_MAP2_DEF]
-    \\ Cases_on `x1` THEN1 fs [OPTION_MAP2_DEF]
-    \\ Cases_on `lookup name s.stack_size` THEN1 fs [OPTION_MAP2_DEF]
-    \\ Cases_on `s.stack_max` THEN1 fs [OPTION_MAP2_DEF]
-    \\ Cases_on `stack_size s.stack` THEN1 fs [OPTION_MAP2_DEF]
-    \\ Cases_on `s1.stack_max` THEN1 fs [OPTION_MAP2_DEF]
-    \\ fs [OPTION_MAP2_DEF,MAX_DEF])
+    \\ Cases_on `x2` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
+    \\ Cases_on `x1` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
+    \\ Cases_on `lookup name s.stack_size` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
+    \\ Cases_on `s.stack_max` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
+    \\ Cases_on `stack_size s.stack` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
+    \\ Cases_on `s1.stack_max` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
+    \\ fs [OPTION_MAP2_DEF,MAX_DEF] \\ rpt strip_tac \\ fs [])
   (* non-tail-call case *)
   \\ PairCases_on `x` \\ simp []
   \\ TOP_CASE_TAC \\ simp []
@@ -388,17 +397,17 @@ Proof
       \\ fs [stack_size_def,stack_size_frame_def]
       \\ fs [GSYM stack_size_def,max_depth_def,
              max_depth_mk_Branch]
-      \\ Cases_on `lookup name s.stack_size` THEN1 fs [OPTION_MAP2_DEF]
-      \\ Cases_on `s.stack_max` THEN1 fs [OPTION_MAP2_DEF]
-      \\ Cases_on `lookup n s.stack_size` THEN1 fs [OPTION_MAP2_DEF]
-      \\ Cases_on `stack_size s.stack` THEN1 fs [OPTION_MAP2_DEF]
+      \\ Cases_on `lookup name s.stack_size` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
+      \\ Cases_on `s.stack_max` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
+      \\ Cases_on `lookup n s.stack_size` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
+      \\ Cases_on `stack_size s.stack` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
       \\ Cases_on `max_depth s.stack_size
                     (call_graph (delete name funs) name [name] (size funs2) body)`
-      THEN1 fs [OPTION_MAP2_DEF]
+      THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
       \\ Cases_on `max_depth_graphs s.stack_size ns ns funs funs2`
-      THEN1 fs [OPTION_MAP2_DEF]
+      THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
       \\ Cases_on `max_depth s.stack_size (call_graph funs n ns (size funs2) x3)`
-      THEN1 fs [OPTION_MAP2_DEF]
+      THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
       \\ fs [] \\ rw [MAX_DEF])
     \\ rename [`_ = (SOME res,s2)`]
     \\ reverse (Cases_on `?x y. res = Result x y`) \\ fs [] \\ fs []
@@ -420,20 +429,20 @@ Proof
       \\ fs [GSYM stack_size_def,max_depth_def,
                max_depth_mk_Branch,backendPropsTheory.option_map2_max_add]
       \\ fs [subspt_lookup] \\ res_tac \\ fs [] \\ rveq \\ fs []
-      \\ Cases_on `lookup name s.stack_size` THEN1 fs [OPTION_MAP2_DEF]
-      \\ Cases_on `lookup n s.stack_size` THEN1 fs [OPTION_MAP2_DEF]
+      \\ Cases_on `lookup name s.stack_size` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
+      \\ Cases_on `lookup n s.stack_size` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
       \\ Cases_on `max_depth s.stack_size (call_graph
                       (delete name funs) name [name] (size funs2) body)`
-      THEN1 fs [OPTION_MAP2_DEF]
+      THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
       \\ Cases_on `max_depth s.stack_size (call_graph funs n ns (size funs2) x3)`
-      THEN1 fs [OPTION_MAP2_DEF]
+      THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
       \\ Cases_on `max_depth_graphs s.stack_size ns ns funs funs2`
-      THEN1 fs [OPTION_MAP2_DEF]
+      THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
       \\ `res' = NONE ⇒ s1.locals_size = s.locals_size` by
         (strip_tac \\ fs [CaseEq"wordSem$result"]) \\ fs []
-      \\ Cases_on `stack_size s.stack` THEN1 fs [OPTION_MAP2_DEF]
-      \\ Cases_on `s.stack_max` THEN1 fs [OPTION_MAP2_DEF]
-      \\ Cases_on `s1.stack_max` THEN1 fs [OPTION_MAP2_DEF]
+      \\ Cases_on `stack_size s.stack` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
+      \\ Cases_on `s.stack_max` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
+      \\ Cases_on `s1.stack_max` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
       \\ fs [] \\ rw [MAX_DEF])
     \\ rveq \\ fs [CaseEq"bool",CaseEq"option"] \\ rveq \\ fs [find_code_def]
     \\ rename [`evaluate (_,set_vars _ y s2) = (res3,s3)`]
@@ -451,10 +460,10 @@ Proof
     \\ `s1.stack_max = s2.stack_max` by (imp_res_tac pop_env_const \\ fs [])
     \\ fs [max_depth_def,max_depth_mk_Branch,backendPropsTheory.option_map2_max_add]
     \\ fs [] \\ rveq \\ fs []
-    \\ Cases_on `lookup name s.stack_size` THEN1 fs [OPTION_MAP2_DEF]
+    \\ Cases_on `lookup name s.stack_size` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
     \\ Cases_on `max_depth s.stack_size
             (call_graph (delete name funs) name [name] (size funs2) body)`
-    THEN1 fs [OPTION_MAP2_DEF] \\ fs []
+    THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs []) \\ fs []
     \\ Cases_on `s1.stack_size = s.stack_size` \\ fs []
     \\ last_x_assum (qspecl_then [`funs`,`n`,`ns`,`funs2`] mp_tac)
     \\ `stack_size s2.stack = stack_size s.stack /\
@@ -476,9 +485,9 @@ Proof
     \\ `s2.stack_size = s1.stack_size` by (imp_res_tac pop_env_const \\ fs [])
     \\ fs []
     \\ Cases_on `max_depth_graphs s.stack_size ns ns funs funs2`
-    THEN1 fs [OPTION_MAP2_DEF] \\ fs []
+    THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs []) \\ fs []
     \\ Cases_on `max_depth s.stack_size (call_graph funs n ns (size funs2) x3)`
-    THEN1 fs [OPTION_MAP2_DEF] \\ fs []
+    THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs []) \\ fs []
     \\ rpt strip_tac
     \\ match_mp_tac backendPropsTheory.option_le_trans
     \\ goal_assum (first_x_assum o mp_then Any mp_tac)
@@ -486,10 +495,10 @@ Proof
     \\ fs [push_env_def] \\ pairarg_tac \\ fs []
     \\ fs [stack_size_def,stack_size_frame_def]
     \\ fs [GSYM stack_size_def]
-    \\ Cases_on `lookup n s.stack_size` THEN1 fs [OPTION_MAP2_DEF]
-    \\ Cases_on `stack_size s.stack` THEN1 fs [OPTION_MAP2_DEF]
-    \\ Cases_on `s.stack_max` THEN1 fs [OPTION_MAP2_DEF]
-    \\ Cases_on `s2.stack_max` THEN1 fs [OPTION_MAP2_DEF]
+    \\ Cases_on `lookup n s.stack_size` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
+    \\ Cases_on `stack_size s.stack` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
+    \\ Cases_on `s.stack_max` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
+    \\ Cases_on `s2.stack_max` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
     \\ fs [OPTION_MAP2_DEF] \\ fs [] \\ rw [MAX_DEF])
   \\ rename [`Call _ _ _ (SOME h)`]
   \\ PairCases_on `h`
@@ -503,19 +512,19 @@ Proof
     \\ fs [stack_size_def,stack_size_frame_def]
     \\ fs [GSYM stack_size_def,max_depth_def,
            max_depth_mk_Branch]
-    \\ Cases_on `lookup name s.stack_size` THEN1 fs [OPTION_MAP2_DEF]
-    \\ Cases_on `s.stack_max` THEN1 fs [OPTION_MAP2_DEF]
-    \\ Cases_on `lookup n s.stack_size` THEN1 fs [OPTION_MAP2_DEF]
-    \\ Cases_on `stack_size s.stack` THEN1 fs [OPTION_MAP2_DEF]
+    \\ Cases_on `lookup name s.stack_size` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
+    \\ Cases_on `s.stack_max` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
+    \\ Cases_on `lookup n s.stack_size` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
+    \\ Cases_on `stack_size s.stack` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
     \\ Cases_on `max_depth s.stack_size
                   (call_graph (delete name funs) name [name] (size funs2) body)`
-    THEN1 fs [OPTION_MAP2_DEF]
+    THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
     \\ Cases_on `max_depth_graphs s.stack_size ns ns funs funs2`
-    THEN1 fs [OPTION_MAP2_DEF]
+    THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
     \\ Cases_on `max_depth s.stack_size (call_graph funs n ns (size funs2) x3)`
-    THEN1 fs [OPTION_MAP2_DEF]
+    THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
     \\ Cases_on `max_depth s.stack_size (call_graph funs n ns (size funs2) h1)`
-    THEN1 fs [OPTION_MAP2_DEF]
+    THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
     \\ fs [] \\ rw [MAX_DEF])
   \\ rename [`_ = (SOME res,s2)`]
   \\ reverse (Cases_on `(?x y. res = Result x y) \/ (∃x y. res = Exception x y)`)
@@ -542,22 +551,22 @@ Proof
     \\ fs [GSYM stack_size_def,max_depth_def,
              max_depth_mk_Branch,backendPropsTheory.option_map2_max_add]
     \\ fs [subspt_lookup] \\ res_tac \\ fs [] \\ rveq \\ fs []
-    \\ Cases_on `lookup name s.stack_size` THEN1 fs [OPTION_MAP2_DEF]
-    \\ Cases_on `lookup n s.stack_size` THEN1 fs [OPTION_MAP2_DEF]
+    \\ Cases_on `lookup name s.stack_size` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
+    \\ Cases_on `lookup n s.stack_size` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
     \\ Cases_on `max_depth s.stack_size (call_graph
                     (delete name funs) name [name] (size funs2) body)`
-    THEN1 fs [OPTION_MAP2_DEF]
+    THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
     \\ Cases_on `max_depth s.stack_size (call_graph funs n ns (size funs2) x3)`
-    THEN1 fs [OPTION_MAP2_DEF]
+    THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
     \\ Cases_on `max_depth_graphs s.stack_size ns ns funs funs2`
-    THEN1 fs [OPTION_MAP2_DEF]
+    THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
     \\ `res' = NONE ⇒ s1.locals_size = s.locals_size` by
       (strip_tac \\ fs [CaseEq"wordSem$result"]) \\ fs []
-    \\ Cases_on `stack_size s.stack` THEN1 fs [OPTION_MAP2_DEF]
-    \\ Cases_on `s.stack_max` THEN1 fs [OPTION_MAP2_DEF]
-    \\ Cases_on `s1.stack_max` THEN1 fs [OPTION_MAP2_DEF]
+    \\ Cases_on `stack_size s.stack` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
+    \\ Cases_on `s.stack_max` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
+    \\ Cases_on `s1.stack_max` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
     \\ Cases_on `max_depth s.stack_size (call_graph funs n ns (size funs2) h1)`
-    THEN1 fs [OPTION_MAP2_DEF]
+    THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
     \\ fs [] \\ rw [MAX_DEF])
   \\ strip_tac
   THEN1
@@ -580,10 +589,10 @@ Proof
     \\ `s1.stack_max = s2.stack_max` by (imp_res_tac pop_env_const \\ fs [])
     \\ fs [max_depth_def,max_depth_mk_Branch,backendPropsTheory.option_map2_max_add]
     \\ fs [] \\ rveq \\ fs []
-    \\ Cases_on `lookup name s.stack_size` THEN1 fs [OPTION_MAP2_DEF]
+    \\ Cases_on `lookup name s.stack_size` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
     \\ Cases_on `max_depth s.stack_size
             (call_graph (delete name funs) name [name] (size funs2) body)`
-    THEN1 fs [OPTION_MAP2_DEF] \\ fs []
+    THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs []) \\ fs []
     \\ Cases_on `s1.stack_size = s.stack_size` \\ fs []
     \\ last_x_assum (qspecl_then [`funs`,`n`,`ns`,`funs2`] mp_tac)
     \\ `stack_size s2.stack = stack_size s.stack /\
@@ -606,9 +615,9 @@ Proof
     \\ `s2.stack_size = s1.stack_size` by (imp_res_tac pop_env_const \\ fs [])
     \\ fs []
     \\ Cases_on `max_depth_graphs s.stack_size ns ns funs funs2`
-    THEN1 fs [OPTION_MAP2_DEF] \\ fs []
+    THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs []) \\ fs []
     \\ Cases_on `max_depth s.stack_size (call_graph funs n ns (size funs2) x3)`
-    THEN1 fs [OPTION_MAP2_DEF] \\ fs []
+    THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs []) \\ fs []
     \\ rpt strip_tac
     \\ match_mp_tac backendPropsTheory.option_le_trans
     \\ goal_assum (first_x_assum o mp_then Any mp_tac)
@@ -616,12 +625,12 @@ Proof
     \\ fs [push_env_def] \\ pairarg_tac \\ fs []
     \\ fs [stack_size_def,stack_size_frame_def]
     \\ fs [GSYM stack_size_def]
-    \\ Cases_on `lookup n s.stack_size` THEN1 fs [OPTION_MAP2_DEF]
-    \\ Cases_on `stack_size s.stack` THEN1 fs [OPTION_MAP2_DEF]
-    \\ Cases_on `s.stack_max` THEN1 fs [OPTION_MAP2_DEF]
-    \\ Cases_on `s2.stack_max` THEN1 fs [OPTION_MAP2_DEF]
+    \\ Cases_on `lookup n s.stack_size` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
+    \\ Cases_on `stack_size s.stack` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
+    \\ Cases_on `s.stack_max` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
+    \\ Cases_on `s2.stack_max` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
     \\ Cases_on `max_depth s.stack_size (call_graph funs n ns (size funs2) h1)`
-    THEN1 fs [OPTION_MAP2_DEF] \\ fs []
+    THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs []) \\ fs []
     \\ fs [OPTION_MAP2_DEF] \\ fs [] \\ rw [MAX_DEF])
   THEN1 (* exception with handler *)
    (qpat_x_assum `_ = (_,_)` mp_tac \\ asm_rewrite_tac []
@@ -642,10 +651,10 @@ Proof
     \\ rveq \\ fs []
     \\ fs [max_depth_def,max_depth_mk_Branch,backendPropsTheory.option_map2_max_add]
     \\ fs [] \\ rveq \\ fs []
-    \\ Cases_on `lookup name s.stack_size` THEN1 fs [OPTION_MAP2_DEF]
+    \\ Cases_on `lookup name s.stack_size` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
     \\ Cases_on `max_depth s.stack_size
             (call_graph (delete name funs) name [name] (size funs2) body)`
-    THEN1 fs [OPTION_MAP2_DEF] \\ fs []
+    THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs []) \\ fs []
     \\ Cases_on `s2.stack_size = s.stack_size` \\ fs []
     \\ last_x_assum (qspecl_then [`funs`,`n`,`ns`,`funs2`] mp_tac)
     \\ `stack_size s2.stack = stack_size s.stack /\
@@ -661,11 +670,11 @@ Proof
         \\ imp_res_tac subspt_trans \\ imp_res_tac pop_env_const \\ fs []
         \\ fs [set_var_def]) \\ fs []
     \\ Cases_on `max_depth_graphs s.stack_size ns ns funs funs2`
-    THEN1 fs [OPTION_MAP2_DEF] \\ fs []
+    THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs []) \\ fs []
     \\ Cases_on `max_depth s.stack_size (call_graph funs n ns (size funs2) x3)`
-    THEN1 fs [OPTION_MAP2_DEF] \\ fs []
+    THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs []) \\ fs []
     \\ Cases_on `max_depth s.stack_size (call_graph funs n ns (size funs2) h1)`
-    THEN1 fs [OPTION_MAP2_DEF] \\ fs []
+    THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs []) \\ fs []
     \\ rpt strip_tac
     \\ match_mp_tac backendPropsTheory.option_le_trans
     \\ goal_assum (first_x_assum o mp_then Any mp_tac)
@@ -673,12 +682,56 @@ Proof
     \\ fs [push_env_def] \\ pairarg_tac \\ fs []
     \\ fs [stack_size_def,stack_size_frame_def]
     \\ fs [GSYM stack_size_def]
-    \\ Cases_on `lookup n s.stack_size` THEN1 fs [OPTION_MAP2_DEF]
-    \\ Cases_on `stack_size s.stack` THEN1 fs [OPTION_MAP2_DEF]
-    \\ Cases_on `s.stack_max` THEN1 fs [OPTION_MAP2_DEF]
-    \\ Cases_on `s2.stack_max` THEN1 fs [OPTION_MAP2_DEF]
+    \\ Cases_on `lookup n s.stack_size` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
+    \\ Cases_on `stack_size s.stack` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
+    \\ Cases_on `s.stack_max` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
+    \\ Cases_on `s2.stack_max` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
     \\ fs [OPTION_MAP2_DEF] \\ fs [] \\ rw [MAX_DEF])
 QED
+
+Resume max_depth_call_graph_lemma[Loop]:
+  rpt gen_tac \\ simp [evaluate_def, call_graph_def]
+  \\ TOP_CASE_TAC \\ fs [] THEN1 (rw [])
+  \\ pairarg_tac \\ fs [] \\ strip_tac
+  \\ qpat_x_assum `cut_state _ _ = _` mp_tac
+  \\ simp [cut_state_def, AllCaseEqs()] \\ strip_tac \\ gvs []
+  \\ `res' <> SOME Error` by
+    (CCONTR_TAC \\ fs [cont_loop_def, exit_loop_def] \\ gvs [AllCaseEqs()])
+  \\ first_x_assum (qspecl_then [`funs`,`n`,`ns`,`funs2`] mp_tac)
+  \\ (impl_tac >- fs []) \\ strip_tac
+  \\ Cases_on `max_depth s.stack_size (call_graph funs n ns (size funs2) c)`
+  THEN1 (fs [OPTION_MAP2_DEF]
+    \\ gvs [AllCaseEqs(), exit_loop_def, cut_state_def, flush_state_def])
+  \\ Cases_on `max_depth_graphs s.stack_size ns ns funs funs2`
+  THEN1 (fs [OPTION_MAP2_DEF]
+    \\ gvs [AllCaseEqs(), exit_loop_def, cut_state_def, flush_state_def])
+  \\ fs []
+  \\ gvs [AllCaseEqs(), exit_loop_def, cut_state_def, flush_state_def,
+          STOP_def, call_graph_def, dec_clock_def]
+  (* cont_loop case: res' = NONE or Continue 0 *)
+  >- (qspecl_then [`c`,`s with locals := env`] mp_tac evaluate_stack_swap
+     \\ fs [] \\ strip_tac \\ gvs [cont_loop_def]
+     \\ Cases_on `res'` \\ gvs [cont_loop_def]
+     (* res' = NONE *)
+     >- (first_x_assum (qspecl_then [`funs`,`n`,`ns`,`funs2`] mp_tac)
+        \\ simp [STOP_def, call_graph_def, dec_clock_def]
+        \\ (impl_tac >-
+          (imp_res_tac evaluate_code_only_grows
+           \\ fs [] \\ imp_res_tac subspt_trans \\ fs []))
+        \\ strip_tac
+        \\ imp_res_tac s_key_eq_stack_size \\ gvs []
+        \\ irule option_le_trans \\ first_x_assum (irule_at Any)
+        \\ fs [option_le_max, option_le_max_right, option_le_eq_eqns])
+     (* res' = SOME (Continue 0) — needs locals_size preservation lemma *)
+     >- cheat)
+  (* Break 0 case *)
+  >- (fs [] \\ cheat (* TODO: s1'.locals_size for Break 0 *))
+  (* exit_loop case *)
+  >- (Cases_on `res'` \\ gvs [cont_loop_def, exit_loop_def]
+     \\ Cases_on `x''` \\ gvs [exit_loop_def])
+QED
+
+Finalise max_depth_call_graph_lemma;
 
 Theorem max_depth_call_graph:
   !prog s res s1 funs n a.
