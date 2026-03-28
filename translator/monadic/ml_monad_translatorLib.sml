@@ -60,37 +60,40 @@ local
   open Parse
 
   val type_alist =
-    [("exp",``:ast$exp``),
-     ("string_ty",``:tvarN``),
-     ("unit",``:unit``),
-     ("pair", ``:'a # 'b``),
-     ("num", ``:num``),
-     ("poly_M_type",``:'a -> ('b, 'c) exc # 'a``),
-     ("v_bool_ty",``:v -> bool``),
-     ("hprop_ty",``:hprop``),
-     ("recclosure_exp_ty",``:(tvarN, tvarN # ast$exp) alist``),
-     ("register_pure_type_pat",``:('a, 'b) ml_monadBase$exc``),
-     ("exc_ty",``:('a, 'b) exc``),
-     ("ffi",``:'ffi``),
-     ("v_list", ``:v list``)
+    [("exp", astSyntax.exp_ty),
+     ("string_ty", mlstringSyntax.mlstring_ty),
+     ("unit", oneSyntax.one_ty),
+     ("pair", pairSyntax.mk_prod(alpha,beta)),
+     ("num", numSyntax.num),
+     ("poly_M_type", ml_monadBaseSyntax.M_ty),
+     ("v_bool_ty", semanticPrimitivesSyntax.v_ty --> bool),
+     ("hprop_ty", cfHeapsBaseSyntax.hprop_ty),
+     ("recclosure_exp_ty",
+       listSyntax.mk_list_type
+         (pairSyntax.mk_prod(mlstringSyntax.mlstring_ty,
+            pairSyntax.mk_prod(mlstringSyntax.mlstring_ty, astSyntax.exp_ty)))),
+     ("register_pure_type_pat", ml_monadBaseSyntax.exc_ty),
+     ("exc_ty", ml_monadBaseSyntax.exc_ty),
+     ("ffi", mk_vartype "'ffi"),
+     ("v_list", listSyntax.mk_list_type semanticPrimitivesSyntax.v_ty)
     ]
 
   val term_alist =[("EqSt remove",``!a st. EqSt a st = (a : ('a, 'b) H)``),
      ("PURE ArrowP ro eq", ``PURE(ArrowP ro H (PURE (Eq a x)) b)``),
      ("ArrowP ro PURE", ``ArrowP ro H a (PURE b)``),
      ("ArrowP ro EqSt", ``ArrowP ro H (EqSt a st) b``),
-     ("ArrowM_const",``ArrowM``),
-     ("Eval_const",``Eval``),
-     ("EvalM_const",``EvalM``),
+     ("ArrowM_const",prim_mk_const{Thy="ml_monad_translator",Name="ArrowM"}),
+     ("Eval_const",ml_translatorSyntax.Eval),
+     ("EvalM_const",prim_mk_const{Thy="ml_monad_translator",Name="EvalM"}),
      ("MONAD_const",``MONAD : (α->v->bool) -> (β->v->bool) -> ((γ,α,β)M,γ) H``),
      ("PURE_const",``PURE : (α -> v -> bool) -> (α, β) H``),
-     ("FST_const",``FST : 'a # 'b -> 'a``),
-     ("SND_const",``SND : 'a # 'b -> 'b``),
-     ("LENGTH_const", ``LENGTH : 'a list -> num``),
-     ("EL_const", ``EL : num -> 'a list -> 'a``),
-     ("Fun_const",``ast$Fun``),
-     ("Var_const",``ast$Var``),
-     ("Closure_const",``semanticPrimitives$Closure``),
+     ("FST_const",pairSyntax.fst_tm),
+     ("SND_const",pairSyntax.snd_tm),
+     ("LENGTH_const", listSyntax.length_tm),
+     ("EL_const", listSyntax.el_tm),
+     ("Fun_const",astSyntax.Fun_tm),
+     ("Var_const",astSyntax.Var_tm),
+     ("Closure_const",semanticPrimitivesSyntax.Closure_tm),
      ("failure_pat",``\v. (M_failure(C v), state_var)``),
      ("Eval_pat",``Eval env exp (P (res:'a))``),
      ("Eval_pat2",``Eval env exp P``),
@@ -98,11 +101,11 @@ local
       ``\EXN_TYPE res (H:('a -> hprop) # 'ffi ffi_proj).
           EvalM ro env st exp (MONAD P EXN_TYPE res) H``),
      ("Eval_name_RI_abs",``\name RI. Eval env (Var (Short name)) RI``),
-     ("write_const",``write``),
-     ("RARRAY_REL_const",``RARRAY_REL``),
-     ("ARRAY_REL_const",``ARRAY_REL``),
-     ("run_const",``ml_monadBase$run``),
-     ("EXC_TYPE_aux_const",``EXC_TYPE_aux``),
+     ("write_const",ml_translatorSyntax.write),
+     ("RARRAY_REL_const",prim_mk_const{Thy="ml_monad_translatorBase",Name="RARRAY_REL"}),
+     ("ARRAY_REL_const",prim_mk_const{Thy="ml_monad_translatorBase",Name="ARRAY_REL"}),
+     ("run_const",ml_monadBaseSyntax.run_tm),
+     ("EXC_TYPE_aux_const",prim_mk_const{Thy="ml_monad_translator",Name="EXC_TYPE_aux"}),
      ("return_pat",``st_ex_return x``),
      ("bind_pat",``st_ex_bind x y``),
      ("pure_seq_pat",``pure_seq x y``),
@@ -112,7 +115,7 @@ local
       ``\a name RI f (H: ('a -> hprop) # 'ffi ffi_proj).
           PreImp a (!st. EvalM ro env st (Var (Short name)) (RI f) H)``),
      ("refs_emp",``\refs. emp``),
-     ("UNIT_TYPE",``UNIT_TYPE``),
+     ("UNIT_TYPE",ml_translatorSyntax.UNIT_TYPE),
      ("nsLookup_val_pat",
         ``nsLookup (env : env_val) (Short (vname : tvarN)) = SOME (loc : v)``),
      ("CONTAINER",``ml_translator$CONTAINER (b:bool)``),
@@ -131,7 +134,7 @@ local
      ("PRECONDITION_pat",``ml_translator$PRECONDITION x``),
      ("LOOKUP_VAR_pat",``LOOKUP_VAR name env exp``),
      ("nsLookup_pat",``nsLookup (env : v sem_env).v (Short name) = SOME exp``),
-     ("emp_tm",``set_sep$emp``),
+     ("emp_tm",cfHeapsBaseSyntax.emp_tm),
      ("ffi_ffi_proj", ``p:'ffi ffi_proj``)
     ]
 
@@ -1006,7 +1009,7 @@ fun compute_dynamic_refs_bindings all_access_specs = let
     val store_varsl =
       strip_comb ((!(#H translator_state)) |> dest_pair |> fst) |> snd
     val store_varsl = store_varsl |>
-      filter (fn t => not (can (match_type ``:'a -> v -> bool``) (type_of t)))
+      filter (fn t => not (can (match_type (alpha --> semanticPrimitivesSyntax.v_ty --> bool)) (type_of t)))
     val final_bindings =
       List.map (fn x => (Redblackmap.find (bindings_map, x), x)) store_varsl
 in final_bindings end
