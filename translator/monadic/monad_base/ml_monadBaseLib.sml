@@ -21,7 +21,7 @@ val terms_alist = [
      ("Marray_length", inst [gamma |-> beta, beta |-> gamma] Marray_length_tm),
      ("Marray_sub", Marray_sub_tm),
      ("Marray_update", inst [gamma |-> beta, beta |-> gamma] Marray_update_tm),
-     ("Marray_alloc", inst [delta |-> alpha, alpha |-> beta] Marray_alloc_tm),
+     ("Marray_alloc", inst [delta |-> alpha, alpha |-> beta, beta |-> delta] Marray_alloc_tm),
      ("run", run_tm)
     ]
 
