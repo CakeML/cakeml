@@ -30,10 +30,52 @@ Proof
   fs [evaluate_def]
 QED
 
+Theorem evaluate_Loop_body_cong:
+  ∀(s:('a,'c,'ffi) wordSem$state) names c c' exit_names.
+  (∀(v:('a,'c,'ffi) wordSem$state). evaluate (c', v) = evaluate (c, v)) ⇒
+  evaluate (Loop names c' exit_names, s) = evaluate (Loop names c exit_names, s)
+Proof
+  ntac 5 gen_tac \\ strip_tac
+  \\ completeInduct_on `s.clock` \\ rw []
+  \\ once_rewrite_tac [evaluate_def]
+  \\ simp [cut_state_def, UNCURRY, STOP_def]
+  \\ TOP_CASE_TAC \\ simp [] \\ fs [] \\ rw []
+  \\ Cases_on `evaluate (c, x)`
+  \\ first_x_assum irule
+  \\ imp_res_tac evaluate_clock
+  \\ gvs [cut_state_def, AllCaseEqs(), dec_clock_def]
+QED
+
+Theorem evaluate_Loop_body_cong_gc:
+  ∀(s:('a,'c,'ffi) wordSem$state) names c c' exit_names.
+  (∀(v:('a,'c,'ffi) wordSem$state). R v.gc_fun ⇒ evaluate (c', v) = evaluate (c, v)) ⇒
+  R s.gc_fun ⇒
+  evaluate (Loop names c' exit_names, s) = evaluate (Loop names c exit_names, s)
+Proof
+  ntac 5 gen_tac \\ strip_tac
+  \\ completeInduct_on `s.clock` \\ rw []
+  \\ once_rewrite_tac [evaluate_def]
+  \\ simp [cut_state_def, UNCURRY, STOP_def]
+  \\ TOP_CASE_TAC \\ simp []
+  \\ `R x.gc_fun` by gvs [cut_state_def, AllCaseEqs()]
+  \\ fs [] \\ rw []
+  \\ Cases_on `evaluate (c, x)`
+  \\ first_x_assum irule
+  \\ imp_res_tac evaluate_consts
+  \\ imp_res_tac evaluate_clock
+  \\ gvs [cut_state_def, AllCaseEqs(), dec_clock_def]
+QED
+
 Theorem evaluate_Seq_assoc_lemma:
    !p1 p2 s. evaluate (Seq_assoc p1 p2,s) = evaluate (Seq p1 p2,^s)
 Proof
   HO_MATCH_MP_TAC Seq_assoc_ind \\ fs [] \\ rw []
+  >~ [`Loop`] >-
+    (simp [evaluate_SmartSeq, Seq_assoc_def, evaluate_Seq_Skip]
+     \\ simp [evaluate_def] \\ rpt (pairarg_tac \\ fs []) \\ rw []
+     \\ simp [UNCURRY, evaluate_Seq_Skip] \\ rw [STOP_def] \\ rw []
+     \\ TOP_CASE_TAC \\ simp [] \\ rw []
+     \\ irule evaluate_Loop_body_cong \\ rw [evaluate_Skip_Seq])
   \\ fs [evaluate_SmartSeq,Seq_assoc_def,evaluate_Seq_Skip,evaluate_def]
   \\ (rpt (pairarg_tac \\ fs [] \\ rw [] \\ fs []))
   \\ Cases_on `get_vars args s1` \\ fs []
@@ -661,89 +703,17 @@ Theorem evaluate_sf_gc_consts:
       s.handler < LENGTH s.stack ==>
       LIST_REL sf_gc_consts (LASTN s.handler s.stack) s'.stack /\
       s'.handler = get_above_handler s
+    | SOME (Break _) =>
+      LIST_REL sf_gc_consts s.stack s'.stack /\
+      s'.handler = s.handler
+    | SOME (Continue _) =>
+      LIST_REL sf_gc_consts s.stack s'.stack /\
+      s'.handler = s.handler
     | _ => T)
 Proof
   recInduct evaluate_ind \\ reverse (rpt conj_tac)
-  >- (** Call **)
-  (rpt gen_tac \\ rpt DISCH_TAC \\ rpt gen_tac \\ DISCH_TAC \\ fs [evaluate_def] \\
-  qpat_x_assum `_ = (res,s')` mp_tac \\
-  ntac 3 (TOP_CASE_TAC >- (rw [] \\ rw [])) \\
-  PairCases_on `x'` \\ fs [] \\
-  TOP_CASE_TAC
-    >- (every_case_tac \\ rw [] \\ fs [call_env_def, flush_state_def, dec_clock_def, get_above_handler_def]) \\
-
-  PairCases_on `x'` \\ fs [] \\
-  ntac 3 (TOP_CASE_TAC >- (rw [] \\ rw [])) \\
-  TOP_CASE_TAC \\
-  TOP_CASE_TAC >- (rw [] \\ rw []) \\
-  TOP_CASE_TAC
-    >- (* Result from fun call *)
-    (ntac 2 (TOP_CASE_TAC >- (rw [] \\ rw [])) \\
-    reverse TOP_CASE_TAC >- (rw [] \\ rw []) \\
-    fs [call_env_def, flush_state_def, dec_clock_def, set_var_def] \\
-
-    rfs [] \\
-    imp_res_tac evaluate_gc_fun_const_ok \\
-    rfs [] \\
-    imp_res_tac pop_env_gc_fun_const_ok \\
-
-    imp_res_tac LIST_REL_call_Result \\
-    DISCH_TAC \\ TOP_CASE_TAC
-      >- (* NONE from ret_handler *)
-      (res_tac \\ fs [] \\ irule EVERY2_trans \\ conj_tac >- ACCEPT_TAC sf_gc_consts_trans \\
-      asm_exists_tac \\ rw []) \\
-
-    TOP_CASE_TAC
-      >- (* Result from ret_handler *)
-      (res_tac \\ fs[] \\ irule EVERY2_trans \\ conj_tac >- ACCEPT_TAC sf_gc_consts_trans \\
-      asm_exists_tac \\ rw [])
-
-      >- (* Exception from ret_handler *)
-      (DISCH_TAC \\ res_tac \\
-      `x''.handler < LENGTH x''.stack` by (metis_tac [LIST_REL_LENGTH]) \\ fs [] \\ conj_tac
-        >-
-        (irule EVERY2_trans_LASTN_sf_gc_consts \\ conj_tac >- rw [] \\ rfs [] \\ asm_exists_tac \\ rw [])
-        >-
-        rw [sf_gc_consts_get_above_handler]))
-
-    >- (* Exception from fun call *)
-    (TOP_CASE_TAC
-      >- (* NONE, no handler *)
-      (rw [] \\ fs [call_env_def, flush_state_def, push_env_def, dec_clock_def] \\ pairarg_tac \\ fs [] \\
-      DISCH_TAC \\ res_tac \\ `s.handler < SUC (LENGTH s.stack)` by DECIDE_TAC \\ fs [] \\ conj_tac
-        >-
-        fs [LASTN_CONS]
-        >-
-        (rw [get_above_handler_def, ADD1] \\
-        `(LENGTH s.stack − s.handler) = SUC (LENGTH s.stack − (s.handler + 1))` by (fs[]) \\ fs []))
-
-      >- (* SOME, has handler *)
-      (PairCases_on `x''` \\ fs [] \\
-      TOP_CASE_TAC >- (rw [] \\ rw []) \\
-      reverse (TOP_CASE_TAC) >- (rw [] \\ rw []) \\
-
-      imp_res_tac evaluate_gc_fun_const_ok \\
-      fs [call_env_def, flush_state_def, push_env_def, dec_clock_def, set_var_def] \\ pairarg_tac \\ fs [] \\ res_tac \\ fs [] \\
-
-      fs [LASTN_LENGTH_CONS] \\
-
-      DISCH_TAC \\ TOP_CASE_TAC \\ TRY (TOP_CASE_TAC)
-        \\ TRY ( (* NONE or Result from handler *)
-        res_tac \\ fs [] \\ rw []
-          >- (irule EVERY2_trans
-            \\ conj_tac >- ACCEPT_TAC sf_gc_consts_trans
-            >- (asm_exists_tac \\ rw []))
-          >- (rw [get_above_handler_def] \\ rw [ADD1]))
-
-        >- (* Exception from handler *)
-        (DISCH_TAC \\ res_tac \\ fs [get_above_handler_def, ADD1] \\
-        `r.handler < LENGTH r.stack` by (metis_tac [LIST_REL_LENGTH]) \\
-        fs [] \\ conj_tac
-          >- (irule EVERY2_trans_LASTN_sf_gc_consts \\ conj_tac >- rw [] \\ asm_exists_tac \\ rw [])
-          >- metis_tac [sf_gc_consts_get_above_handler, get_above_handler_def])))
-
-    \\ (* Other cases *)
-    (rw [] \\ rw []))
+  >~ [`Call`] >- suspend "Call"
+  >~ [`Loop`] >- suspend "Loop"
   >~ [`ShareInst`]
   >- (gvs[evaluate_def,oneline share_inst_def,
       sh_mem_store_def,sh_mem_store_byte_def,sh_mem_store32_def,
@@ -787,6 +757,122 @@ Proof
   pairarg_tac \\ fs [] \\ res_tac \\ Cases_on `y` \\ fs [sf_gc_consts_def] \\
   rveq \\ fs [] \\ imp_res_tac gc_handler \\ rw [])
 QED
+
+Resume evaluate_sf_gc_consts[Call]:
+  rpt gen_tac \\ rpt DISCH_TAC \\ rpt gen_tac \\ DISCH_TAC \\ fs [evaluate_def]
+  \\ qpat_x_assum `_ = (res,s')` mp_tac
+  \\ ntac 3 (TOP_CASE_TAC >- (rw [] \\ rw []))
+  \\ PairCases_on `x'` \\ fs [] \\
+  TOP_CASE_TAC
+    >- (every_case_tac \\ rw [] \\ gvs [call_env_def, flush_state_def, dec_clock_def, get_above_handler_def, bad_fun_return_def]) \\
+  PairCases_on `x'` \\ fs [] \\
+  ntac 3 (TOP_CASE_TAC >- (rw [] \\ rw [])) \\
+  TOP_CASE_TAC \\
+  TOP_CASE_TAC >- (rw [] \\ rw []) \\
+  TOP_CASE_TAC
+    >~ [`Result`] >- suspend "Result"
+    >~ [`set_var`] >- suspend "Exception"
+    \\ (* Other cases: NONE/Break/Continue errors + catch-all *)
+    (rw [] \\ rw [])
+QED
+
+Resume evaluate_sf_gc_consts[Result]:
+  ntac 2 (TOP_CASE_TAC >- (rw [] \\ rw []))
+  \\ reverse TOP_CASE_TAC >- (rw [] \\ rw [])
+  \\ fs [call_env_def, flush_state_def, dec_clock_def, set_var_def]
+  \\ rfs []
+  \\ imp_res_tac evaluate_gc_fun_const_ok
+  \\ rfs []
+  \\ imp_res_tac pop_env_gc_fun_const_ok
+  \\ imp_res_tac LIST_REL_call_Result
+  \\ strip_tac
+  \\ TOP_CASE_TAC \\ fs [] \\ res_tac \\ fs []
+  >- (irule EVERY2_trans \\ rpt conj_tac
+     >- ACCEPT_TAC sf_gc_consts_trans
+     >- (asm_exists_tac \\ rw []))
+  \\ TOP_CASE_TAC \\ fs []
+  >- (irule EVERY2_trans \\ rpt conj_tac
+     >- ACCEPT_TAC sf_gc_consts_trans
+     >- (asm_exists_tac \\ rw []))
+  >- (DISCH_TAC
+     \\ `s.handler < LENGTH x''.stack` by (imp_res_tac LIST_REL_LENGTH \\ fs [])
+     \\ `get_above_handler (set_vars $var$(x'0') l x'') = get_above_handler s` by
+        (irule sf_gc_consts_get_above_handler \\ fs [set_vars_def])
+     \\ res_tac \\ fs [set_vars_def]
+     \\ irule EVERY2_trans_LASTN_sf_gc_consts
+     \\ conj_tac >- rw [] \\ asm_exists_tac \\ rw [])
+  \\ ntac 2 (irule EVERY2_trans \\ rpt conj_tac
+  >- ACCEPT_TAC sf_gc_consts_trans
+  >- (asm_exists_tac \\ rw []))
+QED
+
+Resume evaluate_sf_gc_consts[Exception]:
+  TOP_CASE_TAC
+  >- (* NONE, no handler *)
+  (rw [] \\ fs [call_env_def, flush_state_def, push_env_def, dec_clock_def] \\ pairarg_tac \\ fs []
+  \\ DISCH_TAC \\ res_tac \\ `s.handler < SUC (LENGTH s.stack)` by DECIDE_TAC \\ fs [] \\ conj_tac
+    >- fs [LASTN_CONS]
+    >- (rw [get_above_handler_def, ADD1]
+       \\ `(LENGTH s.stack - s.handler) = SUC (LENGTH s.stack - (s.handler + 1))` by (fs[]) \\ fs []))
+  >- (* SOME, has handler *)
+  (PairCases_on `x''` \\ fs []
+  \\ TOP_CASE_TAC >- (rw [] \\ rw [])
+  \\ reverse (TOP_CASE_TAC) >- (rw [] \\ rw [])
+  \\ imp_res_tac evaluate_gc_fun_const_ok
+  \\ fs [call_env_def, flush_state_def, push_env_def, dec_clock_def, set_var_def]
+  \\ pairarg_tac \\ fs [] \\ res_tac \\ fs []
+  \\ fs [LASTN_LENGTH_CONS]
+  \\ DISCH_TAC \\ TOP_CASE_TAC \\ TRY (TOP_CASE_TAC)
+    \\ TRY (
+    res_tac \\ fs [] \\ rw []
+      >- (irule EVERY2_trans
+        \\ conj_tac >- ACCEPT_TAC sf_gc_consts_trans
+        >- (asm_exists_tac \\ rw []))
+      >- (rw [get_above_handler_def] \\ rw [ADD1]))
+    >- (DISCH_TAC \\ res_tac \\ fs [get_above_handler_def, ADD1]
+    \\ `r.handler < LENGTH r.stack` by (metis_tac [LIST_REL_LENGTH])
+    \\ fs [] \\ conj_tac
+      >- (irule EVERY2_trans_LASTN_sf_gc_consts \\ conj_tac >- rw [] \\ asm_exists_tac \\ rw [])
+      >- metis_tac [sf_gc_consts_get_above_handler, get_above_handler_def]))
+QED
+
+Resume evaluate_sf_gc_consts[Loop]:
+  rpt gen_tac \\ rpt DISCH_TAC \\ rpt gen_tac
+  \\ fs [evaluate_def] \\ TOP_CASE_TAC \\ fs []
+  \\ strip_tac \\ gvs []
+  \\ pairarg_tac \\ fs []
+  \\ qpat_x_assum `cut_state _ _ = _` mp_tac
+  \\ simp [cut_state_def, AllCaseEqs()] \\ strip_tac \\ gvs []
+  \\ imp_res_tac evaluate_gc_fun_const_ok \\ fs []
+  \\ Cases_on `res'` \\ fs [cont_loop_def]
+  >- (* NONE cont_loop *)
+   (Cases_on `s1.clock = 0` \\ gvs [flush_state_def]
+    \\ qpat_x_assum `case _ of NONE => _ | SOME _ => _` mp_tac
+    \\ Cases_on `res` \\ fs [] \\ strip_tac
+    \\ TRY (irule EVERY2_trans \\ conj_tac >- metis_tac [sf_gc_consts_trans] \\ qexists_tac `s1.stack` \\ fs [] \\ NO_TAC)
+    \\ Cases_on `x` \\ fs []
+    \\ TRY (irule EVERY2_trans \\ conj_tac >- metis_tac [sf_gc_consts_trans] \\ qexists_tac `s1.stack` \\ fs [] \\ NO_TAC)
+    \\ strip_tac \\ `s.handler < LENGTH s1.stack` by (imp_res_tac LIST_REL_LENGTH \\ fs []) \\ fs []
+    \\ conj_tac >- (match_mp_tac (SRULE [] EVERY2_trans_LASTN_sf_gc_consts) \\ qexists_tac `s1.stack` \\ fs [])
+    \\ irule sf_gc_consts_get_above_handler \\ fs [dec_clock_def])
+  \\ Cases_on `x` \\ fs [cont_loop_def, exit_loop_def] \\ gvs []
+  >~ [`Exception`] >- gvs [get_above_handler_def]
+  >~ [`Break`]
+  >- (Cases_on `n = 0` \\ gvs [cut_state_def, AllCaseEqs()] \\ rw [])
+  >~ [`Continue`]
+  >- (Cases_on `n = 0` \\ gvs [flush_state_def]
+      \\ Cases_on `s1.clock = 0` \\ gvs [flush_state_def]
+      \\ qpat_x_assum `case _ of NONE => _ | SOME _ => _` mp_tac
+      \\ Cases_on `res` \\ fs [] \\ strip_tac
+      \\ TRY (irule EVERY2_trans \\ conj_tac >- metis_tac [sf_gc_consts_trans] \\ qexists_tac `s1.stack` \\ fs [] \\ NO_TAC)
+      \\ Cases_on `x` \\ fs []
+      \\ TRY (irule EVERY2_trans \\ conj_tac >- metis_tac [sf_gc_consts_trans] \\ qexists_tac `s1.stack` \\ fs [] \\ NO_TAC)
+      \\ strip_tac \\ `s.handler < LENGTH s1.stack` by (imp_res_tac LIST_REL_LENGTH \\ fs []) \\ fs []
+      \\ conj_tac >- (match_mp_tac (SRULE [] EVERY2_trans_LASTN_sf_gc_consts) \\ qexists_tac `s1.stack` \\ fs [])
+      \\ irule sf_gc_consts_get_above_handler \\ fs [dec_clock_def])
+QED
+
+Finalise evaluate_sf_gc_consts;
 
 Theorem evaluate_drop_consts_1:
   ∀vs rest s.
@@ -832,6 +918,7 @@ Theorem evaluate_const_fp_loop:
   (res = NONE ==> (!v w. lookup v cs' = SOME w ==> get_var v s' = SOME (Word w)))
 Proof
   ho_match_mp_tac const_fp_loop_ind \\ (rpt conj_tac)
+  >~ [`Loop`] >- suspend "Loop"
   >- (** Move **)
   (fs [const_fp_loop_def, evaluate_def] \\ rw [const_fp_move_cs_def] \\
   every_case_tac \\ fs [] \\
@@ -1040,6 +1127,17 @@ Proof
     rw[dec_clock_def]
 QED
 
+Resume evaluate_const_fp_loop[Loop]:
+  rw [const_fp_loop_def] \\ rpt (pairarg_tac \\ fs []) \\ gvs []
+  \\ Cases_on `const_fp_loop p LN` \\ gvs []
+  \\ `evaluate (Loop names q exit_names, s) = evaluate (Loop names p exit_names, s)` suffices_by fs []
+  \\ irule evaluate_Loop_body_cong_gc
+  \\ qexists_tac `gc_fun_const_ok` \\ rw []
+  \\ Cases_on `evaluate (p, v)` \\ res_tac
+QED
+
+Finalise evaluate_const_fp_loop;
+
 Theorem evaluate_const_fp:
    !p s. gc_fun_const_ok s.gc_fun ==> evaluate (const_fp p, s) = evaluate (p, s)
 Proof
@@ -1142,6 +1240,7 @@ Proof
       \\ simp []
     )
   )
+  >~ [`Loop`] >- (irule evaluate_Loop_body_cong_gc \\ qexists_tac `gc_fun_const_ok` \\ simp [])
   \\ simp [evaluate_def]
 QED
 
@@ -1178,6 +1277,8 @@ Proof
   \\ simp_tac(srw_ss())[Once push_out_if_aux_def]
   \\ rpt GEN_TAC \\ disch_then (strip_assume_tac o SRULE[AllCaseEqs()])
   \\ rveq \\ simp[] \\ fs[]
+  >~[`Loop`]
+  >- (irule evaluate_Loop_body_cong \\ rw [] \\ Cases_on `push_out_if_aux body` \\ res_tac \\ fs [])
   >~[`MustTerminate`]
   >- (simp[evaluate_def])
   >~[`Seq`]
