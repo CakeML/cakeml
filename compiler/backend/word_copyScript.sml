@@ -372,6 +372,13 @@ Definition copy_prop_prog_def:
     let exp' = copy_prop_share exp cs in
     (ShareInst op v exp',
       remove_eq cs v)) ∧
+  (* Conservative: optimizes body from empty state. Could be smarter by
+     tracking copy facts across iterations via Break/Continue flow. *)
+  (copy_prop_prog (Loop names c exit_names) cs =
+     let (c', _) = copy_prop_prog c empty_eq in
+       (Loop names c' exit_names, empty_eq)) ∧
+  (copy_prop_prog (Break k) cs = (Break k, cs)) ∧
+  (copy_prop_prog (Continue k) cs = (Continue k, cs)) ∧
   (copy_prop_prog prog cs = (prog, empty_eq))
   (* impossible? *)
 End
