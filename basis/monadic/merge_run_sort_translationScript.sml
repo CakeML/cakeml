@@ -12,7 +12,7 @@ val _ = ml_prog_update (open_module "Sort_Post_Translation");
 
 val () = generate_sigs := true;
 
-(* Little bits of List translation that are needed. *)
+(* Little bits of List translation that might be needed. *)
 
 val r = translate NULL;
 
