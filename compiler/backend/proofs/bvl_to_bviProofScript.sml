@@ -2431,6 +2431,11 @@ Resume compile_exps_correct[Op]:
         \\ qunabbrev_tac `b3` \\ gvs [APPLY_UPDATE_THM]
         \\ rw [] \\ gvs [])
       \\ gvs []
+      \\ conj_tac >- (
+        gvs [bad_thunk_update_def, oneline bvlSemTheory.dest_thunk_def,
+             AllCaseEqs(), adjust_bv_def]
+        >- metis_tac [state_rel_FLOOKUP_valueArray]
+        >- metis_tac [state_rel_FLOOKUP_byteArray])
       \\ conj_tac >- (qunabbrev_tac `b3` \\ rw [])
       \\ reverse conj_tac >- (
         rpt strip_tac \\ unabbrev_all_tac
@@ -2452,6 +2457,11 @@ Resume compile_exps_correct[Op]:
       \\ gvs [bvlSemTheory.do_app_def, AllCaseEqs(), PULL_EXISTS]
       \\ Cases_on `a` \\ gvs [adjust_bv_def]
       \\ drule_all state_rel_FLOOKUP_Thunk \\ rw []
+      >- (
+        gvs [bad_thunk_update_def, oneline bvlSemTheory.dest_thunk_def,
+             AllCaseEqs(), adjust_bv_def]
+        >- metis_tac [state_rel_FLOOKUP_valueArray]
+        >- metis_tac [state_rel_FLOOKUP_byteArray])
       \\ simp [bvl_to_bvi_def, bvi_to_bvl_def]
       \\ qmatch_goalsub_abbrev_tac `state_rel _ _ tt`
       \\ `tt = t2 with refs := t2.refs |+ (b2 ptr,Thunk m (adjust_bv b2 h))` by (

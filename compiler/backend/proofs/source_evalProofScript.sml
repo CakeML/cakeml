@@ -672,11 +672,22 @@ Proof
     gvs [AllCaseEqs(), PULL_EXISTS, thunk_op_def]
     >- (
       rpt (pairarg_tac \\ gvs [])
-      \\ gvs [store_alloc_def, LIST_REL_EL_EQN])
+      \\ gvs [store_alloc_def, LIST_REL_EL_EQN]
+      \\ gvs [bad_thunk_update_def] \\ rw []
+      \\ reverse $ gvs [oneline dest_thunk_def, AllCaseEqs(), store_lookup_def]
+      >- (gvs [v_to_env_id_def] \\ Cases_on `y` \\ gvs [])
+      \\ last_x_assum drule \\ gvs []
+      \\ simp [oneline sv_rel_def]
+      \\ TOP_CASE_TAC \\ gvs [])
     \\ Cases_on ‘xs’ \\ gvs []
     \\ drule_then (drule_then (qsubterm_then `store_assign _ _` mp_tac))
          store_assign \\ rw []
-    \\ gvs [])
+    \\ gvs [bad_thunk_update_def, LIST_REL_EL_EQN] \\ rw []
+    \\ reverse $ gvs [oneline dest_thunk_def, AllCaseEqs(), store_lookup_def]
+    >- (gvs [v_to_env_id_def] \\ Cases_on `y` \\ gvs [])
+    \\ last_x_assum drule \\ gvs []
+    \\ simp [oneline sv_rel_def]
+    \\ TOP_CASE_TAC \\ gvs [])
   \\ simp [div_exn_v_def, sub_exn_v_def, chr_exn_v_def,
         EVERY2_refl, MEM_MAP, PULL_EXISTS]
   \\ TRY (drule_then imp_res_tac (CONJUNCT1 do_eq))

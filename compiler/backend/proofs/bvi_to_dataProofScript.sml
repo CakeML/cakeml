@@ -624,10 +624,14 @@ Proof
   >- (rename1 `FFI «»` \\ rw[])
   >~ [`ThunkOp (AllocThunk t)`]
   >- (rw [data_to_bvi_ref_def]
-      \\ gvs [refs_rel_LEAST_eq, lookup_map, map_replicate])
+      \\ gvs [bvlSemTheory.bad_thunk_update_def, bad_thunk_update_def] \\ rw []
+      \\ gvs [oneline bvlSemTheory.dest_thunk_def, oneline dest_thunk_def,
+              AllCaseEqs()])
   >~ [`ThunkOp (UpdateThunk t)`]
   >- (rw [data_to_bvi_ref_def]
-      \\ gvs [refs_rel_LEAST_eq, lookup_map, map_replicate])
+      \\ gvs [bvlSemTheory.bad_thunk_update_def, bad_thunk_update_def] \\ rw []
+      \\ gvs [oneline bvlSemTheory.dest_thunk_def, oneline dest_thunk_def,
+              AllCaseEqs()])
 QED
 
 Theorem state_rel_peak_safe:

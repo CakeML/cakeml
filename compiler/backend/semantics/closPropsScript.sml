@@ -2411,16 +2411,73 @@ Proof
   \\ Cases_on `?i. opp = ThunkOp i`
   THEN1
    (Cases_on `do_app opp ys t` \\ fs[] \\ rveq \\ pop_assum mp_tac
-    \\ rw [do_app_def, case_eq_thms, pair_case_eq, bool_case_eq, PULL_EXISTS]
-    \\ gvs [AllCaseEqs(), PULL_EXISTS]
-    \\ gvs [simple_val_rel_def, Unit_def, AllCaseEqs(), PULL_EXISTS]
-    \\ rveq \\ fs []
-    \\ `FDOM s.refs = FDOM t.refs` by fs [simple_state_rel_def] \\ fs []
-    \\ drule (GEN_ALL simple_state_rel_FLOOKUP_refs_IMP)
-    \\ disch_then drule \\ disch_then imp_res_tac \\ fs []
-    \\ TRY (res_tac \\ fs [isClos_cases] \\ NO_TAC)
+    \\ simp [do_app_def]
+    \\ ntac 2 (TOP_CASE_TAC \\ gvs [])
+    >>~ [`AllocThunk m`]
+    >- (
+      ntac 2 (TOP_CASE_TAC \\ gvs [])
+      \\ rpt (strip_tac \\ gvs [])
+      \\ IF_CASES_TAC \\ gvs []
+      >- (
+        gvs [bad_thunk_update_def, oneline dest_thunk_def, AllCaseEqs()]
+        \\ Cases_on `x` \\ gvs [simple_val_rel_def]
+        \\ res_tac \\ gvs []
+        \\ drule_all simple_state_rel_FLOOKUP_refs_IMP \\ gvs []
+        \\ metis_tac [])
+      \\ gvs [simple_val_rel_def]
+      \\ `FDOM s.refs = FDOM t.refs` by fs [simple_state_rel_def] \\ gvs []
+      \\ match_mp_tac (GEN_ALL simple_state_rel_update_thunks)
+      \\ asm_exists_tac \\ fs [])
+    >- (
+      TOP_CASE_TAC \\ gvs []
+      >- (
+        IF_CASES_TAC \\ gvs []
+        \\ rpt (strip_tac \\ gvs [])
+        \\ IF_CASES_TAC \\ gvs []
+        \\ gvs [bad_thunk_update_def, oneline dest_thunk_def, AllCaseEqs()]
+        \\ Cases_on `h` \\ gvs [simple_val_rel_def]
+        \\ Cases_on `FLOOKUP t.refs n` \\ gvs []
+        \\ drule_all simple_state_rel_FLOOKUP_refs_IMP \\ gvs []
+        \\ TOP_CASE_TAC \\ gvs [])
+      \\ rpt (strip_tac \\ gvs []))
+    >>~ [`UpdateThunk m`]
+    >- (
+     ntac 8 (TOP_CASE_TAC \\ gvs [])
+     \\ rpt (strip_tac \\ gvs [])
+     \\ `x = RefPtr F n` by gvs [simple_val_rel_def] \\ gvs []
+     \\ IF_CASES_TAC \\ gvs []
+     >- (
+      gvs [bad_thunk_update_def, oneline dest_thunk_def, AllCaseEqs()]
+      \\ Cases_on `x'` \\ gvs [simple_val_rel_def]
+      \\ res_tac \\ gvs []
+      \\ imp_res_tac simple_state_rel_FLOOKUP_refs_IMP \\ gvs []
+      \\ metis_tac [])
+    \\ drule_all_then assume_tac simple_state_rel_FLOOKUP_refs_IMP \\ gvs []
+    \\ conj_tac >- gvs [Unit_def, simple_val_rel_def]
+    \\ `FDOM s.refs = FDOM t.refs` by fs [simple_state_rel_def] \\ gvs []
     \\ match_mp_tac (GEN_ALL simple_state_rel_update_thunks)
     \\ asm_exists_tac \\ fs [])
+    >- (
+      TOP_CASE_TAC \\ gvs []
+      >- (rpt (strip_tac \\ gvs []))
+      \\ rpt (strip_tac \\ gvs [])
+      \\ TOP_CASE_TAC \\ gvs []
+      \\ Cases_on `h` \\ gvs [simple_val_rel_def]
+      >- (
+        ntac 2 (TOP_CASE_TAC \\ gvs [])
+        \\ IF_CASES_TAC \\ gvs []
+        >- (gvs [bad_thunk_update_def, oneline dest_thunk_def, AllCaseEqs()])
+        \\ Cases_on `FLOOKUP t.refs n` \\ gvs []
+        \\ drule_all_then assume_tac simple_state_rel_FLOOKUP_refs_IMP \\ gvs []
+        \\ Cases_on `x` \\ gvs []
+        \\ TOP_CASE_TAC \\ gvs []
+        \\ gvs [bad_thunk_update_def, oneline dest_thunk_def, AllCaseEqs()]
+        \\ Cases_on `h'` \\ gvs []
+        \\ Cases_on `FLOOKUP t.refs n'` \\ gvs []
+        \\ drule_all simple_state_rel_FLOOKUP_refs_IMP \\ gvs []
+        \\ TOP_CASE_TAC \\ gvs [])
+      >- (res_tac \\ gvs [])
+      >- (res_tac \\ gvs [])))
   \\ Cases_on `?w. opp = WordOp w`
   THEN1
    (Cases_on `do_app opp ys t` \\ fs[] \\ rveq \\ pop_assum mp_tac

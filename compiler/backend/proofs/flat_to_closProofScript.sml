@@ -1585,6 +1585,13 @@ Proof
     \\ pairarg_tac \\ gvs []
     \\ rw []
     >- (
+      gvs [flatSemTheory.bad_thunk_update_def, bad_thunk_update_def]
+      \\ gvs [oneline flatSemTheory.dest_thunk_def, oneline dest_thunk_def,
+              AllCaseEqs()]
+      \\ Cases_on `y` \\ gvs [Once v_rel_cases]
+      \\ gvs [state_rel_def, store_rel_def, store_lookup_def]
+      \\ last_x_assum $ qspec_then `n'` assume_tac \\ gvs [])
+    >- (
       gvs [store_alloc_def]
       \\ drule state_rel_LEAST \\ rw []
       \\ gvs [state_rel_def, store_rel_def] \\ rw []
@@ -1600,6 +1607,13 @@ Proof
   \\ qpat_x_assum `store_assign _ _ _ = _` mp_tac
   \\ simp [store_assign_def, store_v_same_type_def]
   \\ ntac 2 CASE_TAC \\ rw [GSYM PULL_EXISTS]
+  >- (
+    gvs [flatSemTheory.bad_thunk_update_def, bad_thunk_update_def] \\ rw []
+    \\ gvs [oneline flatSemTheory.dest_thunk_def, oneline dest_thunk_def,
+            AllCaseEqs()]
+    \\ Cases_on `y'` \\ gvs [Once v_rel_cases]
+    \\ gvs [state_rel_def, store_rel_def, store_lookup_def]
+    \\ last_x_assum $ qspec_then `n` assume_tac \\ gvs [])
   >- (
     gvs [state_rel_def, store_rel_def]
     \\ first_x_assum (qspec_then `lnum` mp_tac) \\ gvs [] \\ rw []

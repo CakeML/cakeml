@@ -5336,6 +5336,7 @@ Theorem do_app_AllocThunk:
     case consume_space (1 + 1) x of
       NONE => Rerr (Rabort Rtype_error)
     | SOME s1 =>
+      if bad_thunk_update m v s1.refs then Rerr (Rabort Rtype_error) else
       Rval
       (RefPtr F (LEAST ptr. ptr ∉ domain s1.refs),
          s1 with <|
@@ -5365,6 +5366,7 @@ Proof
   \\ Cases_on `consume_space (LENGTH vals + 1) x` \\ fs [] \\ rveq
   \\ Cases_on `vals` \\ gvs []
   \\ Cases_on `t'` \\ gvs []
+  \\ Cases_on `bad_thunk_update ev h x'.refs` \\ gvs []
   \\ gvs [dataLangTheory.op_requires_names_def,
           dataLangTheory.op_space_reset_def]
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ clean_tac
@@ -5397,7 +5399,7 @@ Proof
   \\ `new ∉ domain x.refs` by metis_tac [LEAST_NOTIN_spt_DOMAIN]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ rpt_drule0 memory_rel_AllocThunk
-  \\ impl_tac >- cheat
+  \\ impl_tac >- gvs [bad_thunk_update_def]
   \\ strip_tac
   \\ `shift_length c - shift (:'a) < dimword (:'a)` by
        (assume_tac dimindex_lt_dimword \\
@@ -5442,7 +5444,6 @@ Proof
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
   \\ imp_res_tac get_vars_IMP_LENGTH \\ fs []
   \\ gvs [do_app,allowed_op_def,AllCaseEqs()]
-  \\ `v41 = F` by cheat
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs [bvlSemTheory.Unit_def] \\ rveq
   \\ fs [GSYM bvlSemTheory.Unit_def] \\ rveq
@@ -5481,7 +5482,7 @@ Proof
           consume_space_def, arch_size_def]
     \\ rfs[NOT_LESS])
   \\ drule0 (memory_rel_UpdateThunk_Evaluated |> GEN_ALL) \\ fs []
-  \\ impl_tac >- cheat
+  \\ impl_tac >- gvs [bad_thunk_update_def]
   \\ strip_tac \\ clean_tac
   \\ `word_exp t (real_addr c (adjust_var h)) = SOME (Word x'')` by
         metis_tac [get_real_offset_lemma,get_real_addr_lemma]

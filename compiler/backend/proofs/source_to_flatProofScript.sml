@@ -1456,7 +1456,13 @@ Proof
       ntac 2 (pairarg_tac >> gvs[]) >>
       gvs[store_alloc_def] >>
       srw_tac[][sv_rel_cases, result_rel_cases, v_rel_eqns] >>
-      gvs[LIST_REL_EL_EQN])
+      gvs[LIST_REL_EL_EQN] >>
+      gvs[semanticPrimitivesTheory.bad_thunk_update_def,
+          bad_thunk_update_def] >>
+      gvs[oneline semanticPrimitivesTheory.dest_thunk_def,
+           oneline dest_thunk_def, AllCaseEqs()] >>
+      gvs[Once v_rel_cases, store_lookup_def] >>
+      first_x_assum drule >> gvs[sv_rel_cases, EL_CONS, PRE_SUB1, SF DNF_ss])
     >- (
       gvs[store_assign_def, store_v_same_type_def] >>
       Cases_on `EL lnum q` >> gvs[] >> Cases_on `t'` >> gvs[] >>
@@ -1464,6 +1470,14 @@ Proof
       gvs [LIST_REL_EL_EQN, REWRITE_RULE [ADD1] LUPDATE_def, EL_LUPDATE]
       >- (rw[] >> simp [Once sv_rel_cases])
       >- simp[Once result_rel_cases, Once v_rel_cases]
+      >- (
+        gvs[semanticPrimitivesTheory.bad_thunk_update_def,
+            bad_thunk_update_def] >>
+        gvs[oneline semanticPrimitivesTheory.dest_thunk_def,
+             oneline dest_thunk_def, AllCaseEqs()] >>
+        gvs[Once v_rel_cases, store_lookup_def] >>
+        first_x_assum $ qspec_then `n` assume_tac >>
+        gvs[sv_rel_cases, EL_CONS, PRE_SUB1, SF DNF_ss])
       >- (
         rw[REWRITE_RULE [ADD1] EL] >>
         first_x_assum drule >> gvs[] >>

@@ -1226,11 +1226,25 @@ Proof
     >-
      (drule_then (drule_then drule) simple_state_rel_store_alloc
       \\ simp [Once sv_rel_cases,PULL_EXISTS]
-      \\ disch_then drule \\ strip_tac \\ gvs [])
+      \\ disch_then drule \\ strip_tac \\ gvs []
+      \\ gvs [bad_thunk_update_def, oneline dest_thunk_def, AllCaseEqs()]
+      >>~- ([`simple_val_rel vr`, `vr _ y`],
+        Cases_on `y` \\ gvs [simple_val_rel_def]
+        \\ res_tac \\ gvs [])
+      \\ (
+        drule_all simple_state_rel_store_lookup \\ rw [] \\ gvs []
+        \\ Cases_on `y` \\ gvs []))
     >-
      (drule_then (drule_then drule) simple_state_rel_store_assign
       \\ simp [Once sv_rel_cases,PULL_EXISTS]
-      \\ disch_then drule \\ strip_tac \\ gvs []))
+      \\ disch_then drule \\ strip_tac \\ gvs []
+      \\ gvs [bad_thunk_update_def, oneline dest_thunk_def, AllCaseEqs()]
+      >>~- ([`simple_val_rel vr`, `vr _ y`],
+        Cases_on `y` \\ gvs [simple_val_rel_def]
+        \\ res_tac \\ gvs [])
+      \\ (
+        drule_all simple_state_rel_store_lookup \\ rw [] \\ gvs []
+        \\ Cases_on `y` \\ gvs [])))
   >~ [`Src (FFI _)`] >- (
     rpt strip_tac
     \\ gvs [do_app_def, AllCaseEqs(), SF DNF_ss]

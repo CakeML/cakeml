@@ -3422,6 +3422,20 @@ Proof
       \\ drule_all state_rel_refs_lookup \\ rw [] \\ gvs [])
 QED
 
+Theorem rel_dest_thunk_NotThunk:
+  state_rel f s t ∧
+  v_rel s.max_app f t.refs t.code h y ∧
+  dest_thunk [h] s.refs = NotThunk ⇒
+    dest_thunk y t.refs = NotThunk
+Proof
+  rw []
+  \\ gvs [oneline closSemTheory.dest_thunk_def, oneline dest_thunk_def,
+          AllCaseEqs(), PULL_EXISTS]
+  \\ (qpat_x_assum `v_rel _ _ _ _ _ y` mp_tac
+      \\ rw [Once v_rel_cases]
+      \\ drule_all state_rel_refs_lookup \\ rw [] \\ gvs [])
+QED
+
 Theorem compile_exps_correct:
   (!tmp xs env ^s1 aux1 (t1:('c,'ffi) bvlSem$state) env' f1 res s2 ys aux2.
     (tmp = (xs,env,s1)) ∧
@@ -4086,6 +4100,11 @@ Proof
         \\ (
           simp [force_thunk_code_def, evaluate_def, do_app_def, EL_APPEND,
                 find_code_def, AllCaseEqs(), PULL_EXISTS, dec_clock_def]
+          \\ simp [GSYM PULL_EXISTS]
+          \\ conj_tac >- cheat
+          \\ conj_tac >- (
+            gvs [bad_thunk_update_def]
+            \\ metis_tac [rel_dest_thunk_NotThunk])
           \\ rw [] \\ gvs []
           \\ drule_then old_drule (GEN_ALL state_rel_refs_lookup) \\ rw []
           \\ metis_tac []))
@@ -4743,6 +4762,11 @@ Proof
       Cases_on `t` \\ gvs []
       >- (
         gvs [closSemTheory.do_app_def, do_app_def, AllCaseEqs(), PULL_EXISTS]
+        \\ simp [GSYM PULL_EXISTS]
+        \\ conj_tac >- (
+          gvs [closSemTheory.bad_thunk_update_def, bad_thunk_update_def]
+          \\ `s.max_app = p1.max_app` by metis_tac [evaluate_const] \\ gvs []
+          \\ drule_all rel_dest_thunk_NotThunk \\ gvs [])
         \\ qabbrev_tac `pp = LEAST ptr. ptr NOTIN FDOM p1.refs`
         \\ qabbrev_tac `qq = LEAST ptr. ptr NOTIN FDOM t2.refs`
         \\ qexists `f2 |+ (pp,qq)` \\ gvs []
@@ -4806,6 +4830,10 @@ Proof
         >- rgs [Once cl_rel_cases]
         \\ drule_all (GEN_ALL state_rel_refs_lookup) \\ rw [] \\ gvs []
         \\ goal_assum $ drule_at Any \\ gvs [] \\ rw []
+        >- (
+          gvs [closSemTheory.bad_thunk_update_def, bad_thunk_update_def]
+          \\ `s.max_app = p1.max_app` by metis_tac [evaluate_const] \\ gvs []
+          \\ drule_all rel_dest_thunk_NotThunk \\ gvs [])
         >- (
           old_drule (GEN_ALL state_rel_UPDATE_REF)
           \\ rpt (disch_then old_drule)

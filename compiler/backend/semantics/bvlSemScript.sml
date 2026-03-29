@@ -269,6 +269,28 @@ Definition do_word_app_def:
   do_word_app (op:closLang$word_op) (vs:bvlSem$v list) = NONE
 End
 
+Datatype:
+  dest_thunk_ret
+    = BadRef
+    | NotThunk
+    | IsThunk thunk_mode v
+End
+
+Definition dest_thunk_def:
+  dest_thunk (RefPtr _ ptr) refs =
+    (case FLOOKUP refs ptr of
+     | NONE => BadRef
+     | SOME (Thunk Evaluated v) => IsThunk Evaluated v
+     | SOME (Thunk NotEvaluated v) => IsThunk NotEvaluated v
+     | SOME _ => NotThunk) ∧
+  dest_thunk _ refs = NotThunk
+End
+
+Definition bad_thunk_update_def:
+  bad_thunk_update m v refs ⇔
+    m = Evaluated ∧ dest_thunk v refs ≠ NotThunk
+End
+
 (* same as closSem$do_app, except:
     - LengthByteVec and DerefByteVec are removed
     - FromListByte, ToListByte, String, ConcatByteVec, and
@@ -509,10 +531,12 @@ Definition do_app_def:
     | (ThunkOp th_op, vs) =>
         (case (th_op,vs) of
          | (AllocThunk m, [v]) =>
-             (let ptr = (LEAST ptr. ~(ptr IN FDOM s.refs)) in
+             (if bad_thunk_update m v s.refs then Error else
+              let ptr = (LEAST ptr. ~(ptr IN FDOM s.refs)) in
                 Rval (RefPtr F ptr, s with refs := s.refs |+ (ptr,Thunk m v)))
-         | (UpdateThunk m, [RefPtr _ ptr; v]) =>
-             (case FLOOKUP s.refs ptr of
+         | (UpdateThunk m, [RefPtr F ptr; v]) =>
+             (if bad_thunk_update m v s.refs then Error else
+              case FLOOKUP s.refs ptr of
               | SOME (Thunk NotEvaluated _) =>
                  Rval (Unit, s with refs := s.refs |+ (ptr,Thunk m v))
               | _ => Error)
@@ -542,25 +566,6 @@ Definition find_code_def:
                                   then SOME (FRONT args,exp)
                                   else NONE)
        | other => NONE)
-End
-
-(* Functions for working with thunks *)
-
-Datatype:
-  dest_thunk_ret
-    = BadRef
-    | NotThunk
-    | IsThunk thunk_mode v
-End
-
-Definition dest_thunk_def:
-  dest_thunk (RefPtr _ ptr) refs =
-    (case FLOOKUP refs ptr of
-     | NONE => BadRef
-     | SOME (Thunk Evaluated v) => IsThunk Evaluated v
-     | SOME (Thunk NotEvaluated v) => IsThunk NotEvaluated v
-     | SOME _ => NotThunk) ∧
-  dest_thunk _ refs = NotThunk
 End
 
 (* The evaluation is defined as a clocked functional version of

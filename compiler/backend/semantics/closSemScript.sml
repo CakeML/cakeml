@@ -251,6 +251,28 @@ Definition do_word_app_def:
   do_word_app (op:closLang$word_op) (vs:closSem$v list) = NONE
 End
 
+Datatype:
+  dest_thunk_ret
+    = BadRef
+    | NotThunk
+    | IsThunk thunk_mode v
+End
+
+Definition dest_thunk_def:
+  dest_thunk [RefPtr _ ptr] refs =
+    (case FLOOKUP refs ptr of
+     | NONE => BadRef
+     | SOME (Thunk Evaluated v) => IsThunk Evaluated v
+     | SOME (Thunk NotEvaluated v) => IsThunk NotEvaluated v
+     | SOME _ => NotThunk) ∧
+  dest_thunk vs refs = NotThunk
+End
+
+Definition bad_thunk_update_def:
+  bad_thunk_update m v refs ⇔
+    m = Evaluated ∧ dest_thunk [v] refs ≠ NotThunk
+End
+
 Definition do_app_def:
   do_app (op:closLang$op) (vs:closSem$v list) ^s =
     case (op,vs) of
@@ -464,10 +486,12 @@ Definition do_app_def:
     | (ThunkOp th_op, vs) =>
         (case (th_op,vs) of
          | (AllocThunk m, [v]) =>
-             (let ptr = (LEAST ptr. ~(ptr IN FDOM s.refs)) in
+             (if bad_thunk_update m v s.refs then Error else
+              let ptr = (LEAST ptr. ~(ptr IN FDOM s.refs)) in
                 Rval (RefPtr F ptr, s with refs := s.refs |+ (ptr,Thunk m v)))
-         | (UpdateThunk m, [RefPtr _ ptr; v]) =>
-             (case FLOOKUP s.refs ptr of
+         | (UpdateThunk m, [RefPtr F ptr; v]) =>
+             (if bad_thunk_update m v s.refs then Error else
+              case FLOOKUP s.refs ptr of
               | SOME (Thunk NotEvaluated _) =>
                  Rval (Unit, s with refs := s.refs |+ (ptr,Thunk m v))
               | _ => Error)
@@ -620,23 +644,6 @@ Proof
   rw[do_install_def,case_eq_thms] \\ fs []
   \\ pairarg_tac \\ gvs[case_eq_thms,pair_case_eq,bool_case_eq]
 QED
-
-Datatype:
-  dest_thunk_ret
-    = BadRef
-    | NotThunk
-    | IsThunk thunk_mode v
-End
-
-Definition dest_thunk_def:
-  dest_thunk [RefPtr _ ptr] refs =
-    (case FLOOKUP refs ptr of
-     | NONE => BadRef
-     | SOME (Thunk Evaluated v) => IsThunk Evaluated v
-     | SOME (Thunk NotEvaluated v) => IsThunk NotEvaluated v
-     | SOME _ => NotThunk) ∧
-  dest_thunk vs refs = NotThunk
-End
 
 Definition store_thunk_def:
   store_thunk ptr v refs =
