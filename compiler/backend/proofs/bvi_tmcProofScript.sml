@@ -368,9 +368,8 @@ Theorem aux_strip_op:
       aux = Op (MemOp UpdateCons) [Var i; Var j; Op op xs]
 Proof
   rw []>> gvs [is_block_op_cons_def, rewrite_aux_def]
-  >> Cases_on ‘op’ >> gvs []
-  >> gvs [rewrite_aux_BlockOp_Cons_def]
-  >> Cases_on ‘b’ >> gvs []                
+  >> Cases_on ‘op’ >> gvs [rewrite_aux_BlockOp_Cons_def]
+  >> cheat
 QED
 
 Theorem aux_strip_op_BlockOpCons:
@@ -556,6 +555,33 @@ Definition hole_has_val_def:
     FLOOKUP refs hole_ptr = SOME (MutBlock tag left c right)
 End
 
+Theorem ry:
+  evaluate ([x],env2,s) = (Rval [v],s1) ∧
+  hole_has_val f env (env2) s.refs c
+  ⇒
+  hole_has_val f env (env2) s1.refs c
+Proof
+  rw [hole_has_val_def]
+  >> gvs []
+  >> qexistsl [‘tag’, ‘left’, ‘right’]
+  >> gvs []
+QED
+
+Theorem hole_has_val_submap:
+  ∀f f' env1 env2 refs c.
+    hole_has_val f env1 env2 refs c ∧
+    f' ⊑ f ⇒
+    hole_has_val f' env1 env2 refs c
+Proof
+  rw [hole_has_val_def]
+  >> qexistsl [‘hole_ptr’, ‘tag’, ‘left’, ‘right’]
+  >> gvs []
+  >> drule SUBMAP_FRANGE
+  >> strip_tac
+  >> spose_not_then assume_tac
+  >> gvs [SUBSET_DEF]
+QED
+
 Theorem evaluate_rewrite_tmc:
    ∀xs env1 ^s r t opt f s' env2.
      evaluate (xs, env1, s) = (r, t) ∧
@@ -709,6 +735,13 @@ Proof
                 >> drule_all env_rel_submap
                 >> strip_tac
                 >> disch_then drule
+                >> gvs []
+                >> impl_tac
+                >- (* TODO: hole_has_val  - also this should be lemma *)
+                 (qexists ‘c’
+                  >> gvs [hole_has_val_def]
+                  >> cheat
+                        )
                 >> strip_tac
                 >> gvs []
                 >> goal_assum $ drule_at Any
@@ -724,7 +757,14 @@ Proof
                     >> gvs [evaluate_def])
                 >> first_x_assum $ qspecl_then [‘loc’, ‘loc_opt’] mp_tac
                 >> strip_tac
-                >> gvs [rewrite_opt_def, evaluate_def])
+                >> gvs [rewrite_opt_def, evaluate_def]
+                >> gen_tac
+                >> strip_tac
+                >> first_x_assum $ qspec_then ‘res_v’ mp_tac
+                >> gvs []
+                >> strip_tac
+                >> drule_all hole_has_val_submap
+                >> gvs [])
             (* Then inductive hypothesis *) (* TODO - maybe some of this can be factored out *)
             >> strip_tac
             >> rename [‘v_rel f'' v1 v1'’]

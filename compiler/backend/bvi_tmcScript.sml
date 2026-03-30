@@ -67,6 +67,11 @@ Datatype:
                                    *)
 End
 
+Definition dest_Cons_def:
+  dest_Cons (BlockOp (Cons block_tag)) = SOME block_tag ∧
+  dest_Cons _ = NONE
+End
+
 (* ‘cons_to_tc_and_mut_cons loc tag op_args’ finds a unique recursive call of index ‘loc’ nested within the args of a ‘BlockOp’ ‘Cons’
     block of the form ‘Op (BlockOp (Cons tag)) op_args’. If such a call is found, then the block is converted to a (possibily nested)
     ‘MemOp’ ‘MutCons’ hole block, where the hole is to be filled by the result of the recursive call.
@@ -76,20 +81,32 @@ End
       ‘TC call mut_cons’ if ‘call’ is the only matching call and ‘mut_cons’ has a single hole to be filled by ‘call’. *)
 Definition cons_to_tc_and_hb_def:
   (cons_to_tc_and_hb loc tag [] = NoTC) ∧
-  (cons_to_tc_and_hb loc tag ((Op (BlockOp (Cons tag')) op_args')::op_args) =
-    case (cons_to_tc_and_hb loc tag' op_args', cons_to_tc_and_hb loc tag op_args) of
-    | (Invalid, _) => Invalid
-    | (_, Invalid) => Invalid
-    | (TC _ _, TC _ _) => Invalid
-    | (NoTC, NoTC) => NoTC
-    | (TC call' hb', NoTC) =>
-        let hb = HoleBlock tag [] (SOME hb') op_args in
-          TC call' hb
-    | (NoTC, TC call hb) =>
-        let cons = Op (BlockOp (Cons tag')) op_args' in
-        if effectful_exp cons then Invalid else
-          let hb'  = push_left hb cons in
-            TC call hb') ∧
+  (cons_to_tc_and_hb loc tag ((Op op op_args')::op_args) =
+   case dest_Cons op of
+   | SOME tag' =>
+       (case (cons_to_tc_and_hb loc tag' op_args', cons_to_tc_and_hb loc tag op_args) of
+        | (Invalid, _) => Invalid
+        | (_, Invalid) => Invalid
+        | (TC _ _, TC _ _) => Invalid
+        | (NoTC, NoTC) => NoTC
+        | (TC call' hb', NoTC) =>
+            (let hb = HoleBlock tag [] (SOME hb') op_args in
+               TC call' hb)
+        | (NoTC, TC call hb) =>
+            let cons = Op (BlockOp (Cons tag')) op_args' in
+              if effectful_exp cons then Invalid else
+                let hb'  = push_left hb cons in
+                  TC call hb')
+   | NONE =>
+       (* TODO: helper *)
+       case cons_to_tc_and_hb loc tag op_args of
+       | Invalid => Invalid
+       | NoTC => NoTC
+       | TC call hb =>
+           let op_arg = Op op op_args' in
+           if effectful_exp op_arg then Invalid else
+             let hb' = push_left hb op_arg in
+               TC call hb') ∧
   (cons_to_tc_and_hb loc tag (Call t' (SOME loc') args' h'::op_args) =
     if loc=loc' then
       (* found the recursive call *)
@@ -107,6 +124,7 @@ Definition cons_to_tc_and_hb_def:
       | NoTC => NoTC
       | TC call hb => Invalid (* Call is effectful *)) ∧
   (cons_to_tc_and_hb loc tag (op_arg::op_args) =
+   (* TODO: helper *)
     case cons_to_tc_and_hb loc tag op_args of
     | Invalid => Invalid
     | NoTC => NoTC
@@ -150,9 +168,9 @@ Definition rewrite_aux_def:
   (rewrite_aux loc loc_opt i_hole_ptr (Force _ n) = NONE) ∧
   (rewrite_aux loc loc_opt i_hole_ptr (Call t d args h) = NONE) ∧
   (rewrite_aux loc loc_opt i_hole_ptr (Op op op_args) =
-    case op of
-    | BlockOp (Cons block_tag) => rewrite_aux_BlockOp_Cons loc loc_opt i_hole_ptr block_tag op_args
-    | _ => NONE) ∧
+    case dest_Cons op of
+    | SOME block_tag => rewrite_aux_BlockOp_Cons loc loc_opt i_hole_ptr block_tag op_args
+    | NONE => NONE) ∧
   (rewrite_aux loc loc_opt i_hole_ptr _ = NONE)
 End
 
@@ -160,7 +178,7 @@ End
 Definition rewrite_opt_BlockOp_Cons_def:
   rewrite_opt_BlockOp_Cons loc loc_opt i_old_hole_ptr i_old_hole_idx i_new_hole_ptr block_tag op_args =
     case cons_to_tc_and_hb loc block_tag op_args of
-    | TC (TCall t args h) (HoleBlock tag l hole r) => (*dest here again, see dest_Cons*)
+    | TC (TCall t args h) (HoleBlock tag l hole r) =>
         let hb               = HoleBlock tag l hole r in
         let i                = & LENGTH l in
         let arg_old_hole_ptr = Var i_old_hole_ptr in
@@ -168,15 +186,10 @@ Definition rewrite_opt_BlockOp_Cons_def:
         let var_new_hole_ptr = Var i_new_hole_ptr in
         let exp_new_hole_idx = Op (IntOp (Const i)) [] in
         let exp_mut_cons     = to_mut_cons hb in
-        let exp_update_hole  = Op (MemOp UpdateCons) [arg_old_hole_ptr; arg_old_hole_idx; var_new_hole_ptr] in
+        let exp_update_hole  = Op (MemOp UpdateCons) [var_new_hole_ptr; arg_old_hole_idx; arg_old_hole_ptr] in
         let exp_tail_call    = Call t (SOME loc_opt) (exp_new_hole_idx :: var_new_hole_ptr :: args) h in
           Let [exp_mut_cons; exp_update_hole] $ exp_tail_call
     | _ => Op (BlockOp (Cons block_tag)) op_args
-End
-
-Definition dest_Cons_def:
-  dest_Cons (BlockOp (Cons block_tag)) = SOME block_tag /\
-  dest_Cons _ = NONE
 End
 
 (* Assumes that the function can and should be optimised - has been checked by rewrite_aux_def. *)
@@ -196,7 +209,7 @@ Definition rewrite_opt_def:
       let arg_hole_ptr = Var i_old_hole_ptr in
       let arg_hole_idx = Var i_old_hole_idx in
       let exp_hole_val = Op op op_args in
-        Op (MemOp UpdateCons) [arg_hole_ptr; arg_hole_idx; exp_hole_val]) ∧
+        Op (MemOp UpdateCons) [exp_hole_val; arg_hole_idx; arg_hole_ptr]) ∧
   (rewrite_opt loc loc_opt i_old_hole_ptr i_old_hole_idx i_new_hole_ptr (Tick x) =
     Tick $ rewrite_opt loc loc_opt i_old_hole_ptr i_old_hole_idx i_new_hole_ptr x) ∧
   (rewrite_opt loc loc_opt i_old_hole_ptr i_old_hole_idx i_new_hole_ptr expr =
@@ -263,7 +276,7 @@ val append_expected = “(9:num,
           (Let [mk_elem_at (Var 0) 0; mk_elem_at (Var 0) 1]
              (Let
                 [Op (MemOp (MutCons 0 0)) [Op (IntOp (Const 0)) []; Var 2];
-                 Op (MemOp UpdateCons) [Var 4; Var 5; Var 6]]
+                 Op (MemOp UpdateCons) [Var 6; Var 5; Var 4]]
                 (Call 0 (SOME 6) [Op (IntOp (Const 0)) []; Var 6; Var 1; Var 3] NONE))))])”;
 
 Theorem append_check:
@@ -351,7 +364,7 @@ val map_expected = “(9:num,
                                         [Var 3; Var 0; mk_elem_at (Var 0) 0]
                                         NONE)
                                      (Call 0 (SOME 5432) [Var 3; Var 0] NONE))];
-                             Op (MemOp UpdateCons) [Var 7; Var 8; Var 9]]
+                             Op (MemOp UpdateCons) [Var 9; Var 8; Var 7]]
                             (Call 0 (SOME 6) [Op (IntOp (Const 0)) []; Var 9; Var 4; Var 0] NONE))))))))])”;
 
 Theorem map_check:
