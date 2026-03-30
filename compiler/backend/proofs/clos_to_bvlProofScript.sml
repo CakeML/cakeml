@@ -4101,7 +4101,6 @@ Proof
           simp [force_thunk_code_def, evaluate_def, do_app_def, EL_APPEND,
                 find_code_def, AllCaseEqs(), PULL_EXISTS, dec_clock_def]
           \\ simp [GSYM PULL_EXISTS]
-          \\ conj_tac >- cheat
           \\ conj_tac >- (
             gvs [bad_thunk_update_def]
             \\ metis_tac [rel_dest_thunk_NotThunk])

@@ -2011,10 +2011,10 @@ Proof
     \\ ‘state_rel (s with clock := s.clock - 1) (s' with clock := s'.clock - 1)’
       by gvs [state_rel_def]
     \\ disch_then $ drule_at (Pat ‘state_rel _ _’) \\ gvs []
-    \\ ‘ty_rel [RefPtr v0 ptr; v] [Any; Any]’ by gvs [ty_rel_def]
+    \\ ‘ty_rel [RefPtr F ptr; v] [Any; Any]’ by gvs [ty_rel_def]
     \\ disch_then $ drule_at (Pat ‘ty_rel _ _’) \\ gvs []
     \\ disch_then $ qspec_then ‘F’ mp_tac \\ simp [env_rel_def]
-    \\ disch_then $ qspec_then ‘[RefPtr v0 ptr; v]’ mp_tac \\ rw []
+    \\ disch_then $ qspec_then ‘[RefPtr F ptr; v]’ mp_tac \\ rw []
     \\ ‘EL n env2 = EL n env1’ by (
       gvs [env_rel_def] \\ drule_then drule is_prefix_el \\ rw [])
     \\ gvs [PULL_EXISTS]
@@ -2027,7 +2027,7 @@ Proof
     \\ pairarg_tac \\ gvs []
     \\ imp_res_tac scan_expr_not_Noop
     \\ drule evaluate_let_wrap
-    \\ qabbrev_tac ‘a = [RefPtr v0 ptr; v]’
+    \\ qabbrev_tac ‘a = [RefPtr F ptr; v]’
     \\ disch_then $ qspecl_then [‘opt'’, ‘a’,
                                  ‘s' with clock := s'.clock - 1’] assume_tac
     \\ ‘LENGTH a = 2’ by (unabbrev_all_tac \\ gvs []) \\ gvs []

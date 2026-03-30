@@ -286,13 +286,23 @@ Datatype:
 End
 
 Definition dest_thunk_def:
-  dest_thunk [Loc _ n] st =
+  dest_thunk [Loc b n] st =
     (case store_lookup n st of
      | NONE => BadRef
-     | SOME (Thunk Evaluated v) => IsThunk Evaluated v
-     | SOME (Thunk NotEvaluated v) => IsThunk NotEvaluated v
+     | SOME (Thunk Evaluated v) =>
+         if b then BadRef else IsThunk Evaluated v
+     | SOME (Thunk NotEvaluated v) =>
+         if b then BadRef else IsThunk NotEvaluated v
      | SOME _ => NotThunk) ∧
   dest_thunk vs st = NotThunk
+End
+
+Definition update_thunk_def:
+  update_thunk [Loc F n] st [v] =
+    (case dest_thunk [v] st of
+     | NotThunk => store_assign n (Thunk Evaluated v) st
+     | _ => NONE) ∧
+  update_thunk _ st _ = NONE
 End
 
 Definition bad_thunk_update_def:
@@ -741,14 +751,6 @@ Definition do_eval_def:
           | _ => NONE)
        | _ => NONE)
     | _ => NONE)
-End
-
-Definition update_thunk_def:
-  update_thunk [Loc _ n] st [v] =
-    (case dest_thunk [v] st of
-     | NotThunk => store_assign n (Thunk Evaluated v) st
-     | _ => NONE) ∧
-  update_thunk _ st _ = NONE
 End
 
 Definition AppUnit_def:

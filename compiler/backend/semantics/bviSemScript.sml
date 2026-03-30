@@ -170,11 +170,13 @@ Datatype:
 End
 
 Definition dest_thunk_def:
-  dest_thunk (RefPtr _ ptr) refs =
+  dest_thunk (RefPtr b ptr) refs =
     (case FLOOKUP refs ptr of
      | NONE => BadRef
-     | SOME (Thunk Evaluated v) => IsThunk Evaluated v
-     | SOME (Thunk NotEvaluated v) => IsThunk NotEvaluated v
+     | SOME (Thunk Evaluated v) =>
+         if b then BadRef else IsThunk Evaluated v
+     | SOME (Thunk NotEvaluated v) =>
+         if b then BadRef else IsThunk NotEvaluated v
      | SOME _ => NotThunk) ∧
   dest_thunk vs refs = NotThunk
 End

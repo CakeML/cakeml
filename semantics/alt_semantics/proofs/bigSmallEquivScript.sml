@@ -971,9 +971,12 @@ Proof
           ) >>
         once_rewrite_tac[cj 2 evaluate_cases] >> simp[] >>
         gvs[evaluate_ctxts_cons] >>
-        gvs[evaluate_ctxt_cases, update_thunk_def, AllCaseEqs(), SF SFY_ss] >>
+        gvs[evaluate_ctxt_cases, oneline update_thunk_def, AllCaseEqs(),
+            SF SFY_ss] >>
         gvs[Once $ cj 2 evaluate_cases] >>
-        gvs[opClass_cases] >> metis_tac[]
+        gvs[opClass_cases] >>
+        Cases_on `b` >> gvs[oneline dest_thunk_def, AllCaseEqs()] >>
+        metis_tac[]
         ) >>
       once_rewrite_tac[cj 2 evaluate_cases] >> simp[] >>
       every_case_tac >> gvs[SF DNF_ss, SF SFY_ss] >>

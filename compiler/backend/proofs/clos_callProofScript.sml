@@ -3196,7 +3196,7 @@ Proof
           \\ first_x_assum old_drule \\ gvs []) \\ gvs []
         \\ qrefinel [`_`, `ck'' + ck`]
         \\ `∀ck''. evaluate (e1,env2,t0 with clock := ck + ck'' + t0.clock) =
-              (Rval [RefPtr v0 ptr],t with clock := ck'' + t.clock)` by (
+              (Rval [RefPtr F ptr],t with clock := ck'' + t.clock)` by (
           imp_res_tac evaluate_add_clock \\ gvs [])
         \\ gvs [PULL_EXISTS]
         \\ imp_res_tac state_rel_clock \\ gvs [PULL_EXISTS, dec_clock_def]
@@ -3237,7 +3237,7 @@ Proof
         \\ `l1 ⊆ l2'` by (imp_res_tac SUBSET_TRANS \\ gvs []) \\ gvs []
         \\ qrefine `ck'' + ck`
         \\ `∀ck''. evaluate (e1,env2,t0 with clock := ck + ck'' + t0.clock) =
-              (Rval [RefPtr v0 ptr],t with clock := ck'' + t.clock)` by (
+              (Rval [RefPtr F ptr],t with clock := ck'' + t.clock)` by (
           imp_res_tac evaluate_add_clock \\ gvs [])
         \\ gvs [PULL_EXISTS]
         \\ imp_res_tac state_rel_clock \\ gvs [PULL_EXISTS, dec_clock_def]

@@ -259,13 +259,30 @@ Datatype:
 End
 
 Definition dest_thunk_def:
-  dest_thunk [RefPtr _ ptr] refs =
+  dest_thunk [RefPtr b ptr] refs =
     (case FLOOKUP refs ptr of
      | NONE => BadRef
-     | SOME (Thunk Evaluated v) => IsThunk Evaluated v
-     | SOME (Thunk NotEvaluated v) => IsThunk NotEvaluated v
+     | SOME (Thunk Evaluated v) =>
+         if b then BadRef else IsThunk Evaluated v
+     | SOME (Thunk NotEvaluated v) =>
+         if b then BadRef else IsThunk NotEvaluated v
      | SOME _ => NotThunk) ∧
   dest_thunk vs refs = NotThunk
+End
+
+Definition store_thunk_def:
+  store_thunk ptr v refs =
+    case FLOOKUP refs ptr of
+    | SOME (Thunk NotEvaluated _) => SOME (refs |+ (ptr,v))
+    | _ => NONE
+End
+
+Definition update_thunk_def:
+  update_thunk [RefPtr F ptr] refs [v] =
+    (case dest_thunk [v] refs of
+     | NotThunk => store_thunk ptr (Thunk Evaluated v) refs
+     | _ => NONE) ∧
+  update_thunk _ _ _ = NONE
 End
 
 Definition bad_thunk_update_def:
@@ -644,21 +661,6 @@ Proof
   rw[do_install_def,case_eq_thms] \\ fs []
   \\ pairarg_tac \\ gvs[case_eq_thms,pair_case_eq,bool_case_eq]
 QED
-
-Definition store_thunk_def:
-  store_thunk ptr v refs =
-    case FLOOKUP refs ptr of
-    | SOME (Thunk NotEvaluated _) => SOME (refs |+ (ptr,v))
-    | _ => NONE
-End
-
-Definition update_thunk_def:
-  update_thunk [RefPtr _ ptr] refs [v] =
-    (case dest_thunk [v] refs of
-     | NotThunk => store_thunk ptr (Thunk Evaluated v) refs
-     | _ => NONE) ∧
-  update_thunk _ _ _ = NONE
-End
 
 Definition AppUnit_def:
   AppUnit x = closLang$App None NONE x [Op None (BlockOp (Cons 0)) []]

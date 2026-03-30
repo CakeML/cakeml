@@ -270,6 +270,8 @@ Proof
     \\ Cases_on ‘x'’ \\ gvs []
     \\ Cases_on ‘lookup n' s.refs’ \\ gvs []
     \\ Cases_on ‘x'’ \\ gvs []
+    \\ Cases_on ‘b’ \\ gvs []
+    >- (Cases_on ‘t''’ \\ gvs [])
     \\ ‘IsThunk t' v = IsThunk t'' a’ by (Cases_on ‘t''’ \\ gvs []) \\ gvs []
     \\ qpat_x_assum ‘_ = IsThunk t' a’ kall_tac
     \\ drule_all state_rel_get_var_IMP \\ strip_tac \\ gvs []
@@ -433,7 +435,7 @@ Proof
     \\ simp [wordSemTheory.word_exp_def, wordSemTheory.get_var_def,
              lookup_insert, wordSemTheory.the_words_def, word_op_def,
              wordSemTheory.mem_load_def, wordSemTheory.set_var_def]
-    \\ Cases_on ‘find_code (SOME loc) [RefPtr b n'; a] s.code
+    \\ Cases_on ‘find_code (SOME loc) [RefPtr F n'; a] s.code
                            s.stack_frame_sizes’ \\ gvs []
     \\ Cases_on ‘x''’ \\ gvs []
     \\ Cases_on ‘r’ \\ gvs []
