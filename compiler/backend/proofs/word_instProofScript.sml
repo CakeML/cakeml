@@ -1246,26 +1246,167 @@ Resume inst_select_thm[If]:
 QED
 
 
+Theorem locals_rel_cut_envs_local[local]:
+  locals_rel temp loc loc' ∧
+  every_name (λx. x < temp) names ∧
+  cut_envs names loc = SOME x ⇒
+  cut_envs names loc' = SOME x
+Proof
+  rw[locals_rel_def,every_name_def,cut_envs_def,cut_names_def]>>
+  full_simp_tac(srw_ss())[SUBSET_DEF,EVERY_MEM,toAList_domain] >>
+  fs[cut_envs_def,cut_names_def]
+  >- (
+    simp[lookup_inter]>>
+    rw[]>>every_case_tac>>fs[]>>
+    fs[domain_lookup]>>
+    res_tac >> fs[] >>
+    res_tac >> fs[])
+  >>
+  res_tac >> fs[] >>
+  PURE_REWRITE_TAC[GSYM NOT_EVERY,EVERY_MEM,toAList_domain] >>
+  metis_tac[domain_lookup]
+QED
+
 Resume inst_select_thm[Call]:
+  gvs [inst_select_def, every_var_def] >>
+  Cases_on `ret` >> gvs [add_ret_loc_def]
+  (* ret=NONE: tail call — handler not used *)
+  >- suspend "TailCall"
+  (* ret=SOME: full call *)
+  >> suspend "FullCall"
+QED
+
+Resume inst_select_thm[TailCall]:
+  fs [evaluate_def] >>
+  DEP_REWRITE_TAC [locals_rel_get_vars_simp] >> fs [] >>
+  TOP_CASE_TAC >> gvs [] >>
+  TOP_CASE_TAC >> gvs [] >>
+  TOP_CASE_TAC >> gvs [] >>
+  PairCases_on `x'` >> gvs [] >>
+  Cases_on `handler` >>
+  gvs [AllCaseEqs(), call_env_def, flush_state_def, dec_clock_def,
+       oneline bad_fun_return_def, AllCasePreds()] >>
+  simp [state_component_equality] >>
+  Cases_on `res` >> gvs [locals_rel_def] >>
+  rename1 `SOME xx` >> Cases_on `xx` >> gvs []
+QED
+
+Resume inst_select_thm[FullCall]:
+  (* Original master proof (before while-branch changes) for reference:
+      PairCases_on`x'`>>full_simp_tac(srw_ss())[add_ret_loc_def]>>
+      ntac 6 (TOP_CASE_TAC>>full_simp_tac(srw_ss())[]) >-
+        (Cases_on `handler` >>
+        fs [call_env_def, flush_state_def,state_component_equality,locals_rel_def] >>
+        Cases_on `x''` >> fs [] >> Cases_on `r` >> fs [] >> Cases_on `r''` >>
+          fs [push_env_def, state_component_equality] >>  metis_tac [])
+      >>
+      full_simp_tac(srw_ss())[]>>
+      qpat_x_assum`A=(res,rst with locals:=loc')` mp_tac>>
+      qpat_abbrev_tac`st = call_env B lsz C`>>
+      qpat_abbrev_tac`st' = call_env B lsz C`>>
+      `st' = st''` by
+        (unabbrev_all_tac>>
+        Cases_on`handler`>>TRY(PairCases_on`x''`)>>
+        full_simp_tac(srw_ss())[call_env_def, flush_state_def,push_env_def,dec_clock_def,push_env_def,LET_THM,
+         env_to_list_def,state_component_equality])>>
+      Cases_on`evaluate(q',st'')`>>
+      Cases_on`q''`>>full_simp_tac(srw_ss())[]>>
+      Cases_on`x''`>>full_simp_tac(srw_ss())[]
+      >-
+        (IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
+        FULL_CASE_TAC>>full_simp_tac(srw_ss())[]>>
+        IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
+        ntac 2 (FULL_CASE_TAC>>full_simp_tac(srw_ss())[])>>srw_tac[][]>>
+        res_tac>>full_simp_tac(srw_ss())[]>>
+        qpat_abbrev_tac`D = set_vars A B C`>>
+        first_x_assum(qspec_then`D.locals` assume_tac)>>full_simp_tac(srw_ss())[locals_rel_def]>>
+        full_simp_tac(srw_ss())[locals_rm,state_component_equality])
+      >-
+        (Cases_on`handler`>>full_simp_tac(srw_ss())[state_component_equality]>>
+        PairCases_on`x''`>>full_simp_tac(srw_ss())[]>>
+        IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
+        IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
+        srw_tac[][]>>
+        res_tac>>
+        qpat_abbrev_tac`D = set_var A B C`>>
+        first_x_assum(qspec_then`D.locals` assume_tac)>>full_simp_tac(srw_ss())[locals_rel_def]>>
+        full_simp_tac(srw_ss())[locals_rm,state_component_equality]>>
+        Cases_on`res`>>full_simp_tac(srw_ss())[]>>
+        qexists_tac`loc''`>>metis_tac[])
+      >>
+        full_simp_tac(srw_ss())[state_component_equality]
+     Adapting for while-branch: the proof structure is the same, but
+     (1) the Resume context has PairCases already done on ret (x0,...,x5)
+     (2) fs[evaluate_def] must NOT expand the hypothesis - use simp_tac for goal only
+     (3) the st'=st'' equality needs pairarg_tac for push_env's env_to_list
+     (4) bad_fun_return changes don't affect the full call path
+     The >- for clock=0 timeout needs flush_state+push_env stack_max equality. *)
   cheat
 QED
 
 Resume inst_select_thm[Loop]:
-  (* Loop requires clock induction because inst_select_ind only gives a body IH,
-     not a recursive IH for loop iteration. The argument:
-     - cut_state normalizes locals (inter loc names = inter st.locals names)
-     - Body IH with identity locals_rel gives inst_selected body result
-     - For cont_loop recursive case: locals_rel temp s1.locals loc' from body IH,
-       clock decreases, so clock IH applies
-     - For Break 0: same inter argument on exit_names
-     - For exit_loop: direct from body IH
-     Need qid_spec_tac on loc/rst/res/st before completeInduct_on st.clock *)
+  (* Step 1: use locals_rel_evaluate_thm on the original Loop hypothesis
+     to get evaluate (Loop names prog exit_names, st with locals := loc) result *)
+  gvs [every_var_def, inst_select_def] >>
+  drule locals_rel_evaluate_thm >>
+  disch_then drule >>
+  disch_then (qspecl_then [`loc`, `temp`] mp_tac) >>
+  impl_tac >- gvs [every_var_def] >>
+  strip_tac >>
+  (* WRONG APPROACH: locals_rel_evaluate_thm gives loc' for the ORIGINAL Loop,
+     but the inst_select Loop gives a DIFFERENT loc' because the body changes
+     locals differently (by locals_rel, not identity). So we can't witness
+     with the same loc'. Need a full clock induction helper that independently
+     computes the inst_select Loop result with locals_rel threading.
+
+     Correct approach: write a standalone helper theorem:
+       inst_select_Loop_helper:
+         ∀s names prog exit_names res rst c temp loc.
+           body_IH ∧ evaluate (Loop names prog exit_names, s) = (res, rst) ∧
+           res ≠ SOME Error ∧ every_var ... ∧ locals_rel temp s.locals loc ⇒
+           ∃loc'. evaluate (Loop names (inst_select c temp prog) exit_names,
+                           s with locals := loc) = (res, rst with locals := loc') ∧
+                  RESULT_PROP res rst.locals loc'
+     This uses completeInduct_on s.clock. At each iteration:
+     1. cut_state normalizes locals (same result for both by locals_rel)
+     2. Body IH with trivial locals_rel gives body result (same q, different locals)
+     3. For cont_loop: locals_rel preserved, apply locals_rel_evaluate_thm on
+        recursive Loop hypothesis, then clock IH
+     4. For Break 0: cut_state on exit_names preserves locals_rel
+     5. For exit_loop: direct from body result *)
   cheat
 QED
 
 Finalise inst_select_thm;
 
 (* three_to_two_reg semantics *)
+
+Theorem three_to_two_reg_Loop:
+  ∀(s:('a,'c,'ffi) wordSem$state) names prog exit_names res s'.
+    (∀(v:('a,'c,'ffi) wordSem$state) res s'.
+       evaluate (prog, v) = (res, s') ∧ res ≠ SOME Error ⇒
+       evaluate (three_to_two_reg prog, v) = (res, s')) ∧
+    evaluate (Loop names prog exit_names, s) = (res, s') ∧ res ≠ SOME Error ⇒
+    evaluate (Loop names (three_to_two_reg prog) exit_names, s) = (res, s')
+Proof
+  gen_tac \\ completeInduct_on `s.clock` \\ rw []
+  \\ qpat_x_assum `evaluate (Loop _ _ _, _) = _` mp_tac
+  \\ once_rewrite_tac [evaluate_def]
+  \\ simp [cut_state_def, UNCURRY, STOP_def]
+  \\ TOP_CASE_TAC \\ simp []
+  \\ Cases_on `evaluate (prog, x)` \\ simp []
+  \\ strip_tac
+  \\ `q <> SOME Error` by
+    (CCONTR_TAC \\ gvs [cont_loop_def, exit_loop_def, AllCaseEqs()])
+  \\ `evaluate (three_to_two_reg prog, x) = (q, r)` by res_tac
+  \\ qpat_x_assum `(if _ then _ else _) = _` mp_tac
+  \\ fs [] \\ strip_tac \\ gvs []
+  \\ IF_CASES_TAC \\ gvs []
+  \\ IF_CASES_TAC \\ gvs []
+  \\ first_x_assum irule
+  \\ imp_res_tac evaluate_clock
+  \\ gvs [dec_clock_def, AllCaseEqs()]
+QED
 
 (*Semantics preservation*)
 Theorem three_to_two_reg_correct:
@@ -1323,8 +1464,22 @@ Proof
     gvs[call_env_def,push_env_def])
   >~ [`Loop`]
   >- (
-    (* Same clock induction issue as inst_select_thm[Loop] *)
-    cheat)
+    gvs [every_inst_def]
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ pairarg_tac \\ gvs []
+    \\ Cases_on `evaluate (prog, x)` \\ gvs []
+    \\ `q <> SOME Error` by
+      (CCONTR_TAC \\ gvs [cont_loop_def, exit_loop_def, AllCaseEqs()])
+    \\ `evaluate (three_to_two_reg prog, x) = (q, r)` by
+      (first_assum (qspecl_then [`x`,`q`,`r`] mp_tac) \\ simp [])
+    \\ gvs []
+    \\ qpat_x_assum `(if _ then _ else _) = _` mp_tac
+    \\ simp [STOP_def] \\ strip_tac \\ gvs []
+    \\ IF_CASES_TAC \\ gvs []
+    \\ IF_CASES_TAC \\ gvs []
+    \\ irule three_to_two_reg_Loop
+    \\ gvs [] \\ imp_res_tac evaluate_clock
+    \\ gvs [dec_clock_def])
 QED
 
 Theorem evaluate_three_to_two_reg_prog:
