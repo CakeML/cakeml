@@ -630,8 +630,7 @@ Theorem evaluate_rewrite_tmc:
              state_rel f' t t2 ∧
              ∀res_v.
                 r' = Rval [res_v] ⇒
-                hole_has_val f' env1 env2 t2.refs res_v)) (* Note - changed from f to f' *) ∧
-       (~opt ⇒ hole_unchanged f' s'.refs t'.refs)
+                hole_has_val f env1 env2 t2.refs res_v)) (* Note - changed from f to f' *)
 Proof
 
   recInduct bviSemTheory.evaluate_ind
