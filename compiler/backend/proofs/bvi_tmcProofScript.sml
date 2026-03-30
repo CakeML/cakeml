@@ -594,12 +594,9 @@ Theorem hole_unchanged_val:
 Proof
   rw [hole_has_val_def, hole_unchanged_def]
   >> gvs []
-
-  >> first_x_assum $ qspec ‘hole_ptr’
-                
-  >> qexistsl [‘tag’, ‘left’, ‘right’]
+  >> ‘hole_ptr ∉ FRANGE f'’ by cheat
+  >> first_x_assum drule
   >> gvs []
-  >> 
 QED
 
 Theorem evaluate_rewrite_tmc:
@@ -760,7 +757,7 @@ Proof
                 >> gvs []
                 >> impl_tac
                 >- (* TODO: hole_has_val  - also this should be lemma *)
-                 (ho_match_mp_tac hole_unchanged_val
+                 (drule_at Any hole_unchanged_val
 
                   >> qexists ‘c’
                   >> gvs [hole_has_val_def]
