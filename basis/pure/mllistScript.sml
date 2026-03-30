@@ -6,7 +6,7 @@ Libs
   preamble
 Ancestors
   indexedLists[qualified] toto[qualified]
-  sorting heap_list_sort mergesort
+  sorting mergesort
 
 (* ===== TODO: TO BE PORTED TO HOL (better theorems for mergesort_tail) ===== *)
 Theorem merge_tail_MEM:
@@ -282,11 +282,11 @@ Definition mergesort_def:
 End
 
 Definition sort_def:
-  sort = heap_list_sort$heap_list_sort
+  sort = mergesort$mergesort_tail
 End
 
 Theorem sort_thm:
-  !R l. sort R l = heap_list_sort$heap_list_sort R l
+  !R l. sort R l = mergesort$mergesort_tail R l
 Proof
   rw[sort_def]
 QED
@@ -301,14 +301,15 @@ QED
 Theorem sort_SORTED:
   !R L. transitive R ∧ total R ==> sorting$SORTED R (sort R L)
 Proof
-  simp[sort_def, heap_list_sort_sorted, total_reflexive]
+  simp [mergesort_tail_correct, sort_def, mergesort_sorted]
 QED
 
 Theorem sort_PERM:
   !R L. sorting$PERM L (sort R L)
 Proof
-  simp[sort_def]
-  \\ metis_tac [sortingTheory.PERM_SYM, heap_list_sort_PERM]
+  rw [sort_def, mergesort_tail_def]
+  \\ irule PERM_TRANS \\ irule_at Any mergesortN_tail_PERM
+  \\ simp []
 QED
 
 Theorem sort_MEM[simp]:
