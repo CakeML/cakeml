@@ -202,9 +202,12 @@ Definition conv_Shape_def:
           else
             SOME $ Comb $ REPLICATE (Num n) One
       | NONE =>
-          (case argsNT tree ShapeCombNT of
-            SOME ts => lift Comb $ OPT_MMAP conv_Shape ts
-          | _ => NONE)
+          case conv_ident tree of
+            SOME id => SOME $ Named id
+          | NONE =>
+              (case argsNT tree ShapeCombNT of
+                SOME ts => lift Comb $ OPT_MMAP conv_Shape ts
+              | _ => NONE)
 Termination
   WF_REL_TAC ‘measure ptree_size’ >> rw[]
   >> Cases_on ‘tree’
@@ -249,17 +252,41 @@ Definition conv_Exp_def:
     case argsNT tree ArgListNT of
       SOME (t::ts) => OPT_MMAP conv_Exp (t::ts)
     | _ => NONE) ∧
+  (conv_FieldList tree =
+    case argsNT tree NmdFieldListNT of
+      SOME (t::ts) => OPT_MMAP conv_Field (t::ts)
+    | _ => NONE) ∧
+  (conv_Field tree =
+    case argsNT tree NmdFieldNT of
+      SOME [t1;t2] => do fld <- conv_ident t1;
+                         exp <- conv_Exp t2;
+                         SOME (fld, exp)
+                      od
+    | _ => NONE) ∧
   (conv_Exp (Nd nodeNT args) =
-    if isNT nodeNT EBaseNT then
+    if isNT nodeNT EFieldNT then
       case args of
         [] => NONE
-      | [t] => conv_const t ++ conv_var t ++ conv_Exp t
-      | t::ts => FOLDL (λe t. lift2 Field (conv_nat t) e) (conv_var t ++ conv_Exp t) ts
-    else if isNT nodeNT StructNT then
+      | [t] => conv_Exp t
+      | t::ts => FOLDL (λe t.
+                        case conv_nat t of
+                          SOME n => lift2 RField (SOME n) e
+                        | NONE => (case conv_ident t of
+                                    SOME i => lift2 NField (SOME i) e
+                                  | NONE => NONE)
+                       ) (conv_Exp t) ts
+    else if isNT nodeNT RawStructNT then
       case args of
         [ts] => do es <- conv_ArgList ts;
-                   SOME $ Struct es
+                   SOME $ RStruct es
                 od
+      | _ => NONE
+    else if isNT nodeNT NmdStructNT then
+      case args of
+        [t1;t2] => do nm <- conv_ident t1;
+                      flds <- conv_FieldList t2;
+                      SOME $ NStruct nm flds
+                   od
       | _ => NONE
     else if isNT nodeNT NotNT then
       case args of
@@ -322,7 +349,7 @@ Definition conv_Exp_def:
                    else if tokcheck leaf (kw BiwK) then SOME BytesInWord
                    else if tokcheck leaf (kw TrueK) then SOME $ Const 1w
                    else if tokcheck leaf (kw FalseK) then SOME $ Const 0w
-                  else NONE) ∧
+                   else conv_const leaf ++ conv_var leaf) ∧
   conv_binaryExps [] e = SOME e ∧
   (conv_binaryExps (t1::t2::ts) res =
     do op <- conv_binop t1;
@@ -345,10 +372,12 @@ Definition conv_Exp_def:
   conv_panops _ _ = NONE (* Impossible: ruled out by grammar. *)
 Termination
   WF_REL_TAC ‘measure (λx. case x of
-                           | INR (INL x) => ptree_size x
                            | INL x => ptree_size x
-                           | INR (INR(INL x)) => list_size ptree_size (FST x)
-                           | INR (INR(INR x)) => list_size ptree_size (FST x))’ >> rw[]
+                           | INR(INL x) => ptree_size x
+                           | INR(INR(INL x)) => ptree_size x
+                           | INR(INR(INR(INL x))) => ptree_size x
+                           | INR(INR(INR(INR(INL x)))) => list_size ptree_size (FST x)
+                           | INR(INR(INR(INR(INR x)))) => list_size ptree_size (FST x))’ >> rw[]
   >> simp[]
   >- (
     drule MEM_list_size
@@ -707,6 +736,28 @@ Definition conv_export_def:
     | _ => NONE
 End
 
+Definition conv_FieldNameList_def:
+  (conv_FieldNameList tree =
+    case argsNT tree FieldNameListNT of
+      SOME args => conv_params args
+    | _ => NONE)
+End
+
+Definition conv_StructName_def:
+  (conv_StructName (^Nd nodeNT args) =
+    if isNT nodeNT StructNameNT then
+      case args of
+        [id; flds] =>
+          do nm <- conv_ident id;
+             flds' <- conv_FieldNameList flds;
+             SOME (nm, flds')
+          od
+      | _ => NONE
+    else
+      NONE) ∧
+  conv_StructName _ = NONE
+End
+
 Definition conv_TopDec_def:
   conv_TopDec tree =
   case argsNT tree FunNT of
@@ -724,8 +775,10 @@ Definition conv_TopDec_def:
        | _ => NONE)
   | _ =>
       (case conv_GlobalDec tree of
-         NONE => NONE
-       | SOME (sh,v,e) => SOME $ Decl sh v e)
+       | SOME (sh,v,e) => SOME $ Decl sh v e
+       | _ => (case conv_StructName tree of
+               | SOME (nm,flds) => SOME $ Name nm flds
+               | _ => NONE))
 End
 
 Definition conv_TopDecList_def:
@@ -769,9 +822,11 @@ Definition localise_exp_def:
    case lookup ls varname of
      NONE   => Var varkind varname
    | SOME _ => Var Local varname) ∧
-  localise_exp ls (Struct exps) = Struct (localise_exps ls exps) ∧
-  localise_exp ls (Field index exp) = Field index (localise_exp ls exp) ∧
-  localise_exp ls (Load shape exp) = Load shape (localise_exp ls exp)∧
+  localise_exp ls (RStruct exps) = RStruct (localise_exps ls exps) ∧
+  localise_exp ls (RField index exp) = RField index (localise_exp ls exp) ∧
+  localise_exp ls (NStruct nm flds) = NStruct nm (MAP (\fld, e. (fld, localise_exp ls e)) flds) ∧
+  localise_exp ls (NField fld exp) = NField fld (localise_exp ls exp) ∧
+  localise_exp ls (Load shape exp) = Load shape (localise_exp ls exp) ∧
   localise_exp ls (LoadByte exp) = LoadByte (localise_exp ls exp) ∧
   localise_exp ls (Op binop exps) = Op binop (localise_exps ls exps) ∧
   localise_exp ls (Panop panop exps) = Panop panop (localise_exps ls exps) ∧
@@ -839,6 +894,7 @@ End
 
 Definition localise_topdec_def:
   localise_topdec ls (Decl sh v e) = Decl sh v e ∧
+  localise_topdec ls (Name nm fld) = Name nm fld ∧
   localise_topdec ls (Function fi) =
   Function $ fi with body := localise_prog (FOLDL (\m p. insert m p ()) ls (MAP FST fi.params)) fi.body
 End
