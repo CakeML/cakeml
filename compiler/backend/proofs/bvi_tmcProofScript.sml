@@ -513,15 +513,6 @@ Proof
   >> gvs [backend_commonTheory.tuple_tag_def]
 QED
 
-Theorem ry:
-  rewrite_opt loc next arity (arity + 1) (arity + 2) exp = opt
-  ⇒
-  FLOOKUP s'.refs hole_ptr = SOME (MutBlock tag l c r) ∧
-  hole_idx = &LENGTH l
-Proof
-  cheat
-QED
-
 Theorem evaluate_mem_op_update_cons2:
   ∀f n i j tag l c r v env env' s s' t t'.
     env_rel T f env env' ∧
@@ -555,16 +546,21 @@ Definition hole_has_val_def:
     FLOOKUP refs hole_ptr = SOME (MutBlock tag left c right)
 End
 
-Theorem ry:
-  evaluate ([x],env2,s) = (Rval [v],s1) ∧
-  hole_has_val f env (env2) s.refs c
-  ⇒
-  hole_has_val f env (env2) s1.refs c
+(* TODO unused *)
+Theorem evaluate_preserves_hole_val:
+  evaluate ([x],env2,s) = (Rval [v],t) ∧
+  env_rel T f env (env2 ++ [RefPtr F hole_ptr; Number hole_idx]) ∧
+  hole_has_val f env (env2 ++ [RefPtr F hole_ptr; Number hole_idx]) s.refs c ⇒
+  hole_has_val f env (env2 ++ [RefPtr F hole_ptr; Number hole_idx]) t.refs c
 Proof
   rw [hole_has_val_def]
-  >> gvs []
+
+  >> drule env_rel_length_opt
+  >> strip_tac
+  >> gvs [EL_APPEND_EQN]
   >> qexistsl [‘tag’, ‘left’, ‘right’]
   >> gvs []
+  >> 
 QED
 
 Theorem hole_has_val_submap:
@@ -580,6 +576,30 @@ Proof
   >> strip_tac
   >> spose_not_then assume_tac
   >> gvs [SUBSET_DEF]
+QED
+
+Definition hole_unchanged_def:
+  hole_unchanged f refs refs' ⇔
+    ∀hole_ptr.
+      hole_ptr ∉ FRANGE f ⇒
+      FLOOKUP refs' hole_ptr = FLOOKUP refs hole_ptr
+End
+
+Theorem hole_unchanged_val:
+  ∀f f' env env' refs refs' c.
+    hole_has_val f env env' refs c ∧
+    hole_unchanged f' refs refs' ∧
+    f ⊑ f' ⇒
+    hole_has_val f' env env' refs' c
+Proof
+  rw [hole_has_val_def, hole_unchanged_def]
+  >> gvs []
+
+  >> first_x_assum $ qspec ‘hole_ptr’
+                
+  >> qexistsl [‘tag’, ‘left’, ‘right’]
+  >> gvs []
+  >> 
 QED
 
 Theorem evaluate_rewrite_tmc:
@@ -613,7 +633,8 @@ Theorem evaluate_rewrite_tmc:
              state_rel f' t t2 ∧
              ∀res_v.
                 r' = Rval [res_v] ⇒
-                hole_has_val f env1 env2 t2.refs res_v))
+                hole_has_val f' env1 env2 t2.refs res_v)) (* Note - changed from f to f' *) ∧
+       (~opt ⇒ hole_unchanged f' s'.refs t'.refs)
 Proof
 
   recInduct bviSemTheory.evaluate_ind
@@ -696,9 +717,10 @@ Proof
     >> IF_CASES_TAC
     >> gvs [flookup_thm, FRANGE_DEF])
   >~ [‘If x1 x2 x3’] >-
+     
    (gvs [evaluate_def]
     >> gvs [CaseEq "prod", PULL_EXISTS]
-    >> rename [‘evaluate ([x1],env,s) = (r1,s1)’]
+    >> rename [‘evaluate ([x1],env,s) = (r1,u)’]
     >> Cases_on ‘opt’
     >> gvs []
     (* Opt *)
@@ -715,13 +737,13 @@ Proof
         >> gvs []
         >- (imp_res_tac evaluate_SING_IMP
             >> gvs []
-            >> rename [‘evaluate ([x1],env,s) = (Rval [v1],s1)’]
+            >> rename [‘evaluate ([x1],env,s) = (Rval [v1],u)’]
             >> Cases_on ‘v1 = Boolv T’
             >> gvs []
             (* Then inductive hypothesis *)
             >- (strip_tac
-                >> rename [‘v_rel f'' (Boolv T) v1'’]
-                >> rename [‘evaluate ([x1],env2,s') = (r1',s1')’]
+                >> rename [‘v_rel f' (Boolv T) v1'’]
+                >> rename [‘evaluate ([x1],env2,s') = (r1',u')’]
                 >> gvs []
                 >> drule evaluate_pad_env_val
                 >> disch_then $ qspec_then ‘[RefPtr F hole_ptr; Number hole_idx]’ mp_tac
@@ -738,9 +760,22 @@ Proof
                 >> gvs []
                 >> impl_tac
                 >- (* TODO: hole_has_val  - also this should be lemma *)
-                 (qexists ‘c’
+                 (ho_match_mp_tac hole_unchanged_val
+
+                  >> qexists ‘c’
                   >> gvs [hole_has_val_def]
-                  >> cheat
+                  >> drule env_rel_length_opt
+                  >> strip_tac
+                  >> gvs [EL_APPEND_EQN]
+                  >> qexistsl [‘tag’, ‘left’, ‘right’]
+                  >> gvs []
+                  >> conj_tac
+                  >- cheat
+                  >> first_x_assum $ qspec_then ‘hole_ptr’ mp_tac
+                  >> impl_tac >> gvs []
+                  >-
+                   (cheat)
+
                         )
                 >> strip_tac
                 >> gvs []
