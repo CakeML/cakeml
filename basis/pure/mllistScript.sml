@@ -277,6 +277,10 @@ Proof
 QED
 (* ^^^^^ TO BE PORTED TO HOL ^^^^^ *)
 
+Definition mergesort_def:
+  mergesort = mergesort$mergesort_tail
+End
+
 Definition sort_def:
   sort = mergesort$mergesort_tail
 End
@@ -287,26 +291,31 @@ Proof
   rw[sort_def]
 QED
 
+Theorem total_reflexive[local]:
+  total R ==> reflexive R
+Proof
+  simp [total_def, reflexive_def]
+  \\ metis_tac []
+QED
+
 Theorem sort_SORTED:
   !R L. transitive R ∧ total R ==> sorting$SORTED R (sort R L)
 Proof
-  simp[sort_def, mergesort_tail_def, mergesortN_correct, mergesortN_sorted]
-QED
-
-Theorem sort_MEM[simp]:
-  !R L. MEM x (sort R L) ⇔ MEM x L
-Proof
-  simp[sort_def, mergesort_tail_MEM]
+  simp [mergesort_tail_correct, sort_def, mergesort_sorted]
 QED
 
 Theorem sort_PERM:
   !R L. sorting$PERM L (sort R L)
 Proof
-  simp[sort_def, mergesort_tail_def]
-  \\ rpt strip_tac
-  \\ `L = TAKE (LENGTH L) L` by rw[]
-  \\ pop_assum (fn x => pure_rewrite_tac [Once $ x])
-  \\ rw[mergesortN_tail_PERM]
+  rw [sort_def, mergesort_tail_def]
+  \\ irule PERM_TRANS \\ irule_at Any mergesortN_tail_PERM
+  \\ simp []
+QED
+
+Theorem sort_MEM[simp]:
+  !R L. MEM x (sort R L) ⇔ MEM x L
+Proof
+  metis_tac [sort_PERM, PERM_MEM_EQ]
 QED
 
 Theorem sort_LENGTH[simp]:

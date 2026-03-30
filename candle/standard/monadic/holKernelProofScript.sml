@@ -1685,32 +1685,50 @@ Proof
   \\ IMP_RES_TAC TERM_Var \\ FULL_SIMP_TAC std_ss [pred_setTheory.IN_UNION]
 QED
 
-Theorem sort_type_vars_in_term[local]:
-  TERM defs P ==>
-    (sort $<= (MAP explode (type_vars_in_term P)) = STRING_SORT (MAP explode (tvars P)))
+Overload candle_sort[local] = ``mllist$mergesort``
+
+Theorem string_le_ok[local]:
+  total string_le /\ antisymmetric string_le /\ transitive string_le
 Proof
-  REPEAT STRIP_TAC \\
-  MATCH_MP_TAC (MP_CANON sortingTheory.SORTED_PERM_EQ) \\
-  qexists_tac`$<=` >>
-  conj_asm1_tac >- (
-    simp[relationTheory.transitive_def,relationTheory.antisymmetric_def,stringTheory.string_le_def] >>
-    METIS_TAC[stringTheory.string_lt_antisym,stringTheory.string_lt_trans] ) >>
-  conj_tac >- (
-    MATCH_MP_TAC sort_SORTED >>
-    simp[relationTheory.total_def,stringTheory.string_le_def] >>
-    METIS_TAC[stringTheory.string_lt_cases] ) >>
-  conj_tac >- (
+  simp[relationTheory.total_def, relationTheory.transitive_def,
+    relationTheory.antisymmetric_def, stringTheory.string_le_def] >>
+  METIS_TAC[stringTheory.string_lt_cases, stringTheory.string_lt_antisym,
+    stringTheory.string_lt_trans]
+QED
+
+Theorem candle_sort_ok[local]:
+  SORTED string_le (candle_sort string_le xs) /\
+  (PERM (candle_sort string_le xs) ys = PERM xs ys)
+Proof
+  simp [mllistTheory.mergesort_def, mergesortTheory.mergesort_tail_correct,
+    string_le_ok, mergesortTheory.mergesort_sorted]
+  \\ metis_tac [mergesortTheory.mergesort_perm, sortingTheory.PERM_TRANS,
+        sortingTheory.PERM_SYM]
+QED
+
+Theorem LENGTH_candle_sort[local]:
+  LENGTH (candle_sort string_le xs) = LENGTH xs
+Proof
+  irule sortingTheory.PERM_LENGTH
+  \\ simp [candle_sort_ok]
+QED
+
+Theorem candle_sort_type_vars_in_term[local]:
+  TERM defs P ==>
+    (candle_sort $<= (MAP explode (type_vars_in_term P)) = STRING_SORT (MAP explode (tvars P)))
+Proof
+  rw []
+  \\ irule sortingTheory.SORTED_PERM_EQ
+  \\ irule_at Any (hd (BODY_CONJUNCTS candle_sort_ok))
+  \\ simp [string_le_ok, candle_sort_ok]
+  \\ reverse conj_tac >- (
     MATCH_MP_TAC sortingTheory.SORTED_weaken >>
     qexists_tac`$<` >>
     simp[STRING_SORT_SORTED,stringTheory.string_le_def] ) >>
-  MATCH_MP_TAC (MP_CANON sortingTheory.PERM_ALL_DISTINCT) >>
-  conj_tac >- (
-    METIS_TAC[sortingTheory.ALL_DISTINCT_PERM
-             ,sort_PERM
-             ,ALL_DISTINCT_type_vars_in_term
-             ,ALL_DISTINCT_MAP_explode] ) >>
-  simp[ALL_DISTINCT_STRING_SORT] >>
-  METIS_TAC[MEM_type_vars_in_term,MEM_MAP]
+     irule sortingTheory.PERM_ALL_DISTINCT
+  \\ simp [ALL_DISTINCT_MAP_explode, ALL_DISTINCT_type_vars_in_term]
+  \\ simp [MEM_MAP]
+  \\ metis_tac [MEM_type_vars_in_term]
 QED
 
 (* ------------------------------------------------------------------------- *)
@@ -2673,7 +2691,7 @@ Proof
   impl_tac >- METIS_TAC[STATE_def,TERM_Comb,THM] >>
   simp[] >> disch_then kall_tac >>
   simp[Once st_ex_bind_def] >>
-  Q.PAT_ABBREV_TAC`vs:string list = sort R X` >>
+  Q.PAT_ABBREV_TAC`vs:string list = candle_sort R X` >>
   simp[add_type_def,can_def,otherwise_def,st_ex_return_def] >>
   ntac 2 (simp[Once st_ex_bind_def]) >>
   simp[Once st_ex_bind_def,get_the_type_constants_def] >>
@@ -2685,6 +2703,7 @@ Proof
   `get_type_arity tyname s1 = (M_success (LENGTH vs), s1)` by (
     simp[get_type_arity_def,st_ex_bind_def,Abbr`s1`] >>
     simp[Abbr`vs`]>>
+    simp[LENGTH_candle_sort]>>
     EVAL_TAC)>>
 
   simp[mk_type_def,try_def,otherwise_def,raise_Failure_def,st_ex_return_def,Once st_ex_bind_def] >>
@@ -2730,15 +2749,11 @@ Proof
       imp_res_tac freesin_IMP >>
       rfs[TERM_def] >> METIS_TAC[]) >>
     imp_res_tac THM >> rfs[TERM_Comb] >>
-    imp_res_tac sort_type_vars_in_term >>
+    imp_res_tac candle_sort_type_vars_in_term >>
     imp_res_tac THM_term_ok_bool >>
     fs[term_ok_def] >>
     rfs[WELLTYPED] >>
     simp[Abbr`s2`,Abbr`s1`,Abbr`vs`,Abbr`l1`] >>
-    CONJ_TAC >- (
-      qpat_x_assum`_ = STRING_SORT _` (mp_tac o Q.AP_TERM`LENGTH`)>>
-      qpat_x_assum`_ = STRING_SORT _` (mp_tac o Q.AP_TERM`LENGTH`)>>
-      simp[LENGTH_QSORT,LENGTH_STRING_SORT,LENGTH_MAP,tvars_ALL_DISTINCT]) >>
     METIS_TAC[term_type]) >>
   qmatch_assum_abbrev_tac`Abbrev(l1 = [(absname,absty);(repname,repty)])` >>
   `mk_const (repname,[]) s2 = (M_success (Const repname repty), s2)` by (
@@ -2914,7 +2929,7 @@ Proof
     \\ conj_tac
     >- METIS_TAC[STATE_def,CONTEXT_def,extends_theory_ok,init_theory_ok]
     \\ simp [Abbr`s2`,conexts_of_upd_def]
-    \\ imp_res_tac sort_type_vars_in_term
+    \\ imp_res_tac candle_sort_type_vars_in_term
     \\ simp [equation_def,Abbr`vs`,MAP_MAP_o,combinTheory.o_DEF,ETA_AX])
   \\ conj_tac
   >-
@@ -2922,7 +2937,7 @@ Proof
     \\ conj_tac
     >- METIS_TAC[STATE_def,CONTEXT_def,extends_theory_ok,init_theory_ok]
     \\ simp [Abbr`s2`,conexts_of_upd_def]
-    \\ imp_res_tac sort_type_vars_in_term
+    \\ imp_res_tac candle_sort_type_vars_in_term
     \\ simp [equation_def,Abbr`vs`,MAP_MAP_o,combinTheory.o_DEF,ETA_AX])
   \\ Cases
   \\ once_rewrite_tac [THM_def]
