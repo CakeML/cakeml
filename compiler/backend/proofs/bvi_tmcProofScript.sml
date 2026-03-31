@@ -797,7 +797,7 @@ Proof
                 >> gvs []
                 >> impl_tac
                 >- (* TODO: hole_has_val  - also this should be lemma *)
-                 (drule_at Any hole_unchanged_val
+                 (
 
                   >> qexists ‘c’
                   >> gvs [hole_has_val_def]
@@ -807,7 +807,13 @@ Proof
                   >> qexistsl [‘tag’, ‘left’, ‘right’]
                   >> gvs []
                   >> conj_tac
-                  >- cheat
+                  >-
+                   (gvs [only_fresh_def]
+                    >> spose_not_then assume_tac
+                    >> first_x_assum drule_all
+                    >> strip_tac
+                    >> gvs [FLOOKUP_DEF])
+                        
                   >> first_x_assum $ qspec_then ‘hole_ptr’ mp_tac
                   >> impl_tac >> gvs []
                   >-
