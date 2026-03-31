@@ -13,17 +13,17 @@ Definition encode_proper_index_def:
   let
     (Y,offset) = Yi;
     (lb,ub) =
-      case Y of
-        INL vY => bnd vY
-      | INR cY => (cY,cY);
+    case Y of
+      INL vY => bnd vY
+    | INR cY => (cY,cY);
     lbc =
-      if lb < offset
-      then [mk_constraint_one_ge 1 Y offset]
-      else [];
+    if lb < offset
+    then [mk_constraint_one_ge 1 Y offset]
+    else [];
     ubc =
-      if ub > offset + n - 1
-      then [mk_constraint_one_ge (-1) Y (1 - n - offset)]
-      else []
+    if ub > offset + n - 1
+    then [mk_constraint_one_ge (-1) Y (1 - n - offset)]
+    else []
   in
     lbc ++ ubc
 End
@@ -157,6 +157,30 @@ Proof
     intLib.ARITH_TAC
 QED
 
+Theorem encode_element_sem_2_aux:
+  valid_assignment bnd wi ∧
+  EVERY (λx. iconstraint_sem x (wi,wb))
+    (encode_proper_index bnd (Y,offset) (&len)) ⇒
+  0 ≤ varc wi Y − offset ∧ Num (varc wi Y − offset) < len
+Proof
+  Cases_on ‘Y’>>
+  strip_tac
+  >-(
+    rename1 ‘INL vY’>>
+    Cases_on ‘bnd vY’>>
+    fs[valid_assignment_def]>>
+    last_x_assum $ drule_then assume_tac>>
+    gs[encode_proper_index_def,varc_def]>>
+    every_case_tac>>
+    fs[varc_def]>>
+    intLib.ARITH_TAC)
+  >-(
+    gs[encode_proper_index_def,varc_def]>>
+    every_case_tac>>
+    fs[varc_def]>>
+    intLib.ARITH_TAC)
+QED
+
 Theorem encode_element_sem_2:
   valid_assignment bnd wi ∧
   EVERY (λx. iconstraint_sem x (wi,wb))
@@ -165,42 +189,16 @@ Theorem encode_element_sem_2:
 Proof
   PairCases_on ‘Yi’>>
   rename1 ‘element_sem _ (Y,offset) _ _’>>
-  Cases_on ‘Y’
-  >-(
-    rename1 ‘INL vY’>>
-    Cases_on ‘bnd vY’>>
-    strip_tac>>
-    gs[EVERY_FLAT,element_sem_def,mk_array_ind_def,encode_element_def,
-      MEM_FLAT,SF DNF_ss,EVERY_GENLIST]>>
-    simp[CONJ_ASSOC]>>
-    CONJ_ASM1_TAC
-    >-(
-      gs[encode_proper_index_def,valid_assignment_def,varc_def]>>
-      last_x_assum $ drule_then assume_tac>>
-      every_case_tac>>
-      fs[SF DNF_ss,varc_def]>>
-      intLib.ARITH_TAC)
-    >-(
-      fs[encode_element_aux_def,EVERY_FLAT,SF DNF_ss]>>
-      gvs[MEM_MAPi,SF DNF_ss,EVERY_MEM]>>
-      rpt (last_x_assum $ drule_then assume_tac)>>
-      intLib.ARITH_TAC))
-  >-(
-    strip_tac>>
-    gs[EVERY_FLAT,element_sem_def,mk_array_ind_def,encode_element_def,
-      MEM_FLAT,SF DNF_ss,EVERY_GENLIST]>>
-    simp[CONJ_ASSOC]>>
-    CONJ_ASM1_TAC
-    >-(
-      gs[encode_proper_index_def,varc_def]>>
-      every_case_tac>>
-      fs[SF DNF_ss,varc_def]>>
-      intLib.ARITH_TAC)
-    >-(
-      fs[encode_element_aux_def,EVERY_FLAT,SF DNF_ss]>>
-      gvs[MEM_MAPi,SF DNF_ss,EVERY_MEM]>>
-      rpt (last_x_assum $ drule_then assume_tac)>>
-      intLib.ARITH_TAC))
+  strip_tac>>
+  gs[EVERY_FLAT,element_sem_def,mk_array_ind_def,encode_element_def,
+    MEM_FLAT,SF DNF_ss,EVERY_GENLIST]>>
+  simp[CONJ_ASSOC]>>
+  CONJ_ASM1_TAC
+  >-metis_tac[encode_element_sem_2_aux]>>
+  fs[encode_element_aux_def,EVERY_FLAT,SF DNF_ss]>>
+  gvs[MEM_MAPi,SF DNF_ss,EVERY_MEM]>>
+  rpt (last_x_assum $ drule_then assume_tac)>>
+  intLib.ARITH_TAC
 QED
 
 Theorem cencode_element_sem:
@@ -220,13 +218,12 @@ Proof
   irule enc_rel_Append>>
   simp[cencode_proper_index_def,cencode_element_aux_def]>>
   Cases_on ‘Y’
+  >~[‘INL vY’]
   >-(
-    rename1 ‘INL vY’>>
     Cases_on ‘bnd vY’>>
     rw[]>>
     metis_tac[enc_rel_List_mk_annotate])
   >-(
-    rename1 ‘INR cY’>>
     rw[]>>
     metis_tac[enc_rel_List_mk_annotate])
 QED
@@ -392,18 +389,13 @@ Proof
   simp[CONJ_ASSOC]>>
   CONJ_ASM1_TAC
   >-(
-    gs[encode_proper_index_def,valid_assignment_def]>>
-    rpt (pairarg_tac>>fs[])>>
     ‘LENGTH (HD Xss) = len’ by (
       Cases_on ‘Xss’>>
       fs[])>>
-    pop_assum SUBST_ALL_TAC>>
-    every_case_tac>>
-    gvs[EVERY_MEM,mk_constraint_one_ge_sem]>>
-    fs[varc_def]>>
-    last_assum $ drule_then assume_tac>>
-    last_assum $ rev_drule_then assume_tac>>
-    intLib.ARITH_TAC)
+    gs[]>>
+    simp[Once $ GSYM CONJ_ASSOC]>>
+    CONJ_TAC>>
+    metis_tac[encode_element_sem_2_aux])
   >-(
     ‘Xss ≠ []’ by simp[GSYM LENGTH_NON_NIL]>>
     drule_then assume_tac HEAD_MEM>>
