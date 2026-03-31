@@ -580,11 +580,12 @@ Proof
 QED
 
 Theorem unchanged_hole_has_val:
-  hole_has_val f env (env2 ++ [RefPtr F hole_ptr; Number hole_idx]) refs c ∧
-  only_fresh f f' refs ∧
-  hole_unchanged f refs refs' ∧
-  env_rel T f env (env2 ++ [RefPtr F hole_ptr; Number hole_idx]) ⇒
-  hole_has_val f' env (env2 ++ [RefPtr F hole_ptr; Number hole_idx]) refs' c
+  ∀f f' env env' hole_ptr hole_idx refs refs' c.
+    hole_has_val f env (env' ++ [RefPtr F hole_ptr; Number hole_idx]) refs c ∧
+    only_fresh f f' refs ∧
+    hole_unchanged f refs refs' ∧
+    env_rel T f env (env' ++ [RefPtr F hole_ptr; Number hole_idx]) ⇒
+    hole_has_val f' env (env' ++ [RefPtr F hole_ptr; Number hole_idx]) refs' c
 Proof
   rw [hole_has_val_def]
   >> drule env_rel_length_opt
@@ -814,36 +815,24 @@ Proof
                 >> disch_then drule
                 >> gvs []
                 >> impl_tac
-                >- (* TODO: hole_has_val  - also this should be lemma *)
-                 (
-
-                  >> qexists ‘c’
-                  >> gvs [hole_has_val_def]
-                  >> drule env_rel_length_opt
-                  >> strip_tac
-                  >> gvs [EL_APPEND_EQN]
-                  >> qexistsl [‘tag’, ‘left’, ‘right’]
-                  >> gvs []
-                  >> conj_tac
-                  >-
-                   (gvs [only_fresh_def]
-                    >> spose_not_then assume_tac
-                    >> first_x_assum drule_all
-                    >> strip_tac
-                    >> gvs [FLOOKUP_DEF])
-                        
-                  >> first_x_assum $ qspec_then ‘hole_ptr’ mp_tac
-                  >> impl_tac >> gvs []
-                  >-
-                   (cheat)
-
-                        )
+                >-
+                 (qexists ‘c’
+                  >> irule unchanged_hole_has_val
+                  >> goal_assum $ drule_at $ Pos hd
+                  >> gvs [])
                 >> strip_tac
                 >> gvs []
                 >> goal_assum $ drule_at Any
                 >> gvs []
                 >> rw []
                 >- (imp_res_tac SUBMAP_TRANS)
+                >-
+                 (irule only_fresh_trans
+                  >> goal_assum $ drule_at $ Pos $ el 2
+                  >> goal_assum $ drule_at Any
+                  >> irule evaluate_refs_SUBSET
+                  >> qexistsl [‘env2’, ‘Rval [Boolv T]’, ‘[x1]’]
+                  >> gvs [])
                 >- (drule aux_strip_if_then
                     >> strip_tac
                     >- (first_x_assum drule
