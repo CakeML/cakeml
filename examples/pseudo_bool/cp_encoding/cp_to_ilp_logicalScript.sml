@@ -56,13 +56,6 @@ Definition cencode_and_def:
       ec'')
 End
 
-Theorem iSUM_MAP_b2i_ge_0:
-  iSUM (MAP (λX. b2i (f X)) Xs) ≥ 0
-Proof
-  irule pbc_encodeTheory.iSUM_ge_0>>
-  simp[MEM_MAP,SF DNF_ss,pbc_encodeTheory.b2i_ge_0]
-QED
-
 Theorem encode_and_sem_1:
   valid_assignment bnd wi ∧
   and_sem Xs Y wi ⇒
@@ -83,9 +76,10 @@ Proof
   unabbrev_all_tac>>
   Cases_on ‘varc wi Y ≥ 1’>>
   gs[EVERY_MEM,EXISTS_MEM]
-  >-simp[iSUM_MAP_b2i_ge_0]
-  >-simp[iSUM_MAP_b2i_ge_0]
-  >-metis_tac[]
+  >~[‘∃X. MEM X _ ∧ ¬(varc _ X ≥ _)’]
+  >-metis_tac[]>>
+  irule pbc_encodeTheory.iSUM_ge_0>>
+  simp[MEM_MAP,SF DNF_ss,pbc_encodeTheory.b2i_ge_0]
 QED
 
 Theorem encode_and_sem_2:
@@ -198,10 +192,12 @@ Proof
   unabbrev_all_tac>>
   Cases_on ‘varc wi Y ≥ 1’>>
   gs[EVERY_MEM,EXISTS_MEM]
+  >~[‘∃X. MEM X _ ∧ varc _ X ≥ _’]
   >-metis_tac[]
-  >-simp[iSUM_MAP_b2i_ge_0]
-  >-simp[iSUM_MAP_b2i_ge_0]
-  >-metis_tac[]
+  >~[‘∀X. MEM X _ ⇒ ¬(varc _ X ≥ _)’]
+  >-metis_tac[]>>
+  irule pbc_encodeTheory.iSUM_ge_0>>
+  simp[MEM_MAP,SF DNF_ss,pbc_encodeTheory.b2i_ge_0]
 QED
 
 Theorem encode_or_sem_2:
