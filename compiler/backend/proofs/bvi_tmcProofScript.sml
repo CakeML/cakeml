@@ -546,21 +546,58 @@ Definition hole_has_val_def:
     FLOOKUP refs hole_ptr = SOME (MutBlock tag left c right)
 End
 
-(* TODO unused *)
-Theorem evaluate_preserves_hole_val:
-  evaluate ([x],env2,s) = (Rval [v],t) ∧
-  env_rel T f env (env2 ++ [RefPtr F hole_ptr; Number hole_idx]) ∧
-  hole_has_val f env (env2 ++ [RefPtr F hole_ptr; Number hole_idx]) s.refs c ⇒
-  hole_has_val f env (env2 ++ [RefPtr F hole_ptr; Number hole_idx]) t.refs c
+Definition hole_unchanged_def:
+  hole_unchanged f refs refs' ⇔
+    ∀hole_ptr hole_val.
+      hole_ptr ∉ FRANGE f ∧
+      FLOOKUP refs hole_ptr = SOME hole_val ⇒
+      FLOOKUP refs' hole_ptr = SOME hole_val
+End
+
+Definition only_fresh_def:
+  only_fresh (f : num |-> num) (f' : num |-> num) (refs_old : num |-> v ref) =
+  ∀n. n ∈ FRANGE f' ∧ ~(n ∈ FRANGE f) ⇒ ~(n ∈ FDOM refs_old)
+End
+
+Theorem hole_unchanged_trans:
+  ∀f f' refs refs' refs''.
+    hole_unchanged f refs refs' ∧
+    hole_unchanged f' refs' refs'' ∧
+    only_fresh f f' refs ∧
+    f ⊑ f' ⇒
+    hole_unchanged f refs refs''
+Proof
+  rw [hole_unchanged_def]
+  >> rpt $ first_x_assum $ qspecl_then [‘hole_ptr’, ‘hole_val’] mp_tac
+  >> rpt strip_tac
+  >> gvs []
+  >> first_x_assum irule
+  >> spose_not_then assume_tac
+  >> gvs [only_fresh_def]
+  >> first_x_assum drule_all
+  >> strip_tac
+  >> gvs [FLOOKUP_DEF]
+QED
+
+Theorem unchanged_hole_has_val:
+  hole_has_val f env (env2 ++ [RefPtr F hole_ptr; Number hole_idx]) refs c ∧
+  only_fresh f f' refs ∧
+  hole_unchanged f refs refs' ∧
+  env_rel T f env (env2 ++ [RefPtr F hole_ptr; Number hole_idx]) ⇒
+  hole_has_val f' env (env2 ++ [RefPtr F hole_ptr; Number hole_idx]) refs' c
 Proof
   rw [hole_has_val_def]
-
   >> drule env_rel_length_opt
   >> strip_tac
-  >> gvs [EL_APPEND_EQN]
-  >> qexistsl [‘tag’, ‘left’, ‘right’]
+  >> gvs [EL_APPEND_EQN, hole_unchanged_def]
+  >> first_x_assum drule_all
+  >> strip_tac
   >> gvs []
-  >> cheat
+  >> spose_not_then assume_tac
+  >> gvs [only_fresh_def]
+  >> first_x_assum drule_all
+  >> strip_tac
+  >> gvs [FLOOKUP_DEF]
 QED
 
 Theorem hole_has_val_submap:
@@ -577,32 +614,6 @@ Proof
   >> spose_not_then assume_tac
   >> gvs [SUBSET_DEF]
 QED
-
-Definition hole_unchanged_def:
-  hole_unchanged f refs refs' ⇔
-    ∀hole_ptr.
-      hole_ptr ∉ FRANGE f ⇒
-      FLOOKUP refs' hole_ptr = FLOOKUP refs hole_ptr
-End
-
-Theorem hole_unchanged_val:
-  ∀f f' env env' refs refs' c.
-    hole_has_val f env env' refs c ∧
-    hole_unchanged f' refs refs' ∧
-    f ⊑ f' ⇒
-    hole_has_val f' env env' refs' c
-Proof
-  rw [hole_has_val_def, hole_unchanged_def]
-  >> gvs []
-  >> ‘hole_ptr ∉ FRANGE f'’ by cheat
-  >> first_x_assum drule
-  >> gvs []
-QED
-
-Definition only_fresh_def:
-  only_fresh (f : num |-> num) (f' : num |-> num) (refs_old : num |-> v ref) =
-  ∀n. n ∈ FRANGE f' ∧ ~(n ∈ FRANGE f) ⇒ ~(n ∈ FDOM refs_old)
-End
 
 Theorem only_fresh_trans:
   ∀f f' f'' refs refs'.
@@ -656,13 +667,14 @@ Theorem evaluate_rewrite_tmc:
              state_rel f' t t2 ∧
              ∀res_v.
                 r' = Rval [res_v] ⇒
-                hole_has_val f env1 env2 t2.refs res_v)) (* Note - changed from f to f' *)
+                hole_has_val f env1 env2 t2.refs res_v)) (* Note - changed from f to f' *) ∧
+       (~opt ⇒ hole_unchanged f s'.refs t'.refs)
 Proof
 
   recInduct bviSemTheory.evaluate_ind
   >> rpt strip_tac
   >~ [‘evaluate ([],_,_)’] >-
-   (gvs [evaluate_def] >> first_x_assum $ irule_at Any >> fs [only_fresh_def])
+   (gvs [evaluate_def] >> first_x_assum $ irule_at Any >> fs [only_fresh_def, hole_unchanged_def])
   >~ [‘evaluate (x::y::xs,_,_)’] >-
    (gvs [evaluate_def]
     (* First inductive hypothesis *)
@@ -677,7 +689,7 @@ Proof
     >> strip_tac >> fs []
     >> rename [‘evaluate ([x],env2,s') = (rx',u')’]
     >> reverse $ Cases_on ‘rx’ >> gvs []
-    >- (pop_assum $ irule_at Any >> fs [])
+    >- (first_x_assum $ irule_at Any >> fs [])
     (* Second inductive hypothesis *)
     >> gvs [CaseEq "prod", PULL_EXISTS]
     >> qpat_x_assum ‘_ = _’ mp_tac
@@ -703,18 +715,24 @@ Proof
       >> rename [‘v_rel f'' vx vx'’]
       >> drule_all v_rel_submap >> rw []
       >- imp_res_tac SUBMAP_TRANS
-      >> irule only_fresh_trans
-      >> rpt $ goal_assum $ drule_at Any
-      >> irule evaluate_refs_SUBSET
-      >> goal_assum $ drule_at Any)
+      >-
+       (irule only_fresh_trans
+        >> rpt $ goal_assum $ drule_at Any
+        >> irule evaluate_refs_SUBSET
+        >> goal_assum $ drule_at Any)
+      >> irule hole_unchanged_trans
+      >> rpt $ goal_assum $ drule_at Any)
     >> rename [‘state_rel f3 t t'’]
     >> qexists ‘f3’ >> fs []
     >> rw []
     >- imp_res_tac SUBMAP_TRANS
-    >> irule only_fresh_trans
-    >> rpt $ goal_assum $ drule_at Any
-    >> irule evaluate_refs_SUBSET
-    >> goal_assum $ drule_at Any)
+    >-
+     (irule only_fresh_trans
+      >> rpt $ goal_assum $ drule_at Any
+      >> irule evaluate_refs_SUBSET
+      >> goal_assum $ drule_at Any)
+    >> irule hole_unchanged_trans
+    >> rpt $ goal_assum $ drule_at Any)
   >~ [‘Var n’] >-
    (gvs [evaluate_def]
     >> Cases_on ‘n < LENGTH env’ >> gvs []
