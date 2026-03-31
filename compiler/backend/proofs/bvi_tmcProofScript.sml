@@ -560,7 +560,7 @@ Proof
   >> gvs [EL_APPEND_EQN]
   >> qexistsl [‘tag’, ‘left’, ‘right’]
   >> gvs []
-  >> 
+  >> cheat
 QED
 
 Theorem hole_has_val_submap:
@@ -599,6 +599,31 @@ Proof
   >> gvs []
 QED
 
+Definition only_fresh_def:
+  only_fresh (f : num |-> num) (f' : num |-> num) (refs_old : num |-> v ref) =
+  ∀n. n ∈ FRANGE f' ∧ ~(n ∈ FRANGE f) ⇒ ~(n ∈ FDOM refs_old)
+End
+
+Theorem only_fresh_trans:
+  ∀f f' f'' refs refs'.
+    only_fresh f f' refs ∧
+    only_fresh f' f'' refs' ∧
+    FDOM refs SUBSET FDOM refs' ⇒
+    only_fresh f f'' refs
+Proof
+  rw [only_fresh_def]
+  >> rpt $ first_x_assum $ qspec_then ‘n’ mp_tac
+  >> rpt strip_tac
+  >> gvs [SUBSET_DEF]
+QED
+
+(* This was copied from bvlPropsScript but I don't see it for bviPropsScript. Consider putting it there *)
+Theorem evaluate_refs_SUBSET:
+  (evaluate (xs,env,s) = (res,t)) ==> FDOM s.refs SUBSET FDOM t.refs
+Proof
+  cheat
+QED
+
 Theorem evaluate_rewrite_tmc:
    ∀xs env1 ^s r t opt f s' env2.
      evaluate (xs, env1, s) = (r, t) ∧
@@ -613,6 +638,7 @@ Theorem evaluate_rewrite_tmc:
        result_rel (LIST_REL (v_rel f')) (v_rel f') r r' ∧
        state_rel f' t t' ∧
        f SUBMAP f' ∧
+       only_fresh f f' s'.refs ∧
        (opt ⇒
         (∀loc loc_opt arity exp_aux exp_opt.
            rewrite_aux loc loc_opt arity (HD xs) = SOME exp_aux ⇒
@@ -636,12 +662,12 @@ Proof
   recInduct bviSemTheory.evaluate_ind
   >> rpt strip_tac
   >~ [‘evaluate ([],_,_)’] >-
-   (gvs [evaluate_def] >> first_x_assum $ irule_at Any >> fs [])
+   (gvs [evaluate_def] >> first_x_assum $ irule_at Any >> fs [only_fresh_def])
   >~ [‘evaluate (x::y::xs,_,_)’] >-
    (gvs [evaluate_def]
     (* First inductive hypothesis *)
     >> gvs [CaseEq "prod", PULL_EXISTS]
-    >> rename[‘evaluate ([x],env,s) = (r1,s1)’]
+    >> rename[‘evaluate ([x],env,s) = (rx,u)’]
     >> first_x_assum $ qspec_then ‘F’ mp_tac
     >> simp []
     >> disch_then drule
@@ -649,12 +675,15 @@ Proof
     >> impl_tac
     >- (spose_not_then assume_tac >> fs [])
     >> strip_tac >> fs []
-    >> reverse $ Cases_on ‘r1’ >> gvs []
+    >> rename [‘evaluate ([x],env2,s') = (rx',u')’]
+    >> reverse $ Cases_on ‘rx’ >> gvs []
     >- (pop_assum $ irule_at Any >> fs [])
     (* Second inductive hypothesis *)
     >> gvs [CaseEq "prod", PULL_EXISTS]
-    >> qpat_x_assum ‘_ = _’ kall_tac
-    >> rename[‘evaluate (y::xs,env,s1) = (r2,s2)’]
+    >> qpat_x_assum ‘_ = _’ mp_tac
+    >> rename [‘evaluate (y::xs,env,u) = (ry,w)’]
+    >> strip_tac
+    >> rename [‘LIST_REL (v_rel f'') vx vx'’]
     >> first_x_assum $ qspec_then ‘F’ mp_tac
     >> simp []
     >> drule_all env_rel_submap
@@ -664,16 +693,28 @@ Proof
     >> impl_tac
     >- (spose_not_then assume_tac >> fs [])
     >> strip_tac >> fs []
-    >> Cases_on ‘r2’ >> gvs []
+    >> rename [‘evaluate (y::xs,env2,u') = (ry',w')’]
+    >> Cases_on ‘ry’ >> gvs []
     >-
-     (rename [‘state_rel f3 s3 t3’]
+     (rename [‘state_rel f3 t t'’]
+      >> rename [‘LIST_REL (v_rel f3) vy vy'’]
       >> qexists ‘f3’ >> fs []
-      >> imp_res_tac evaluate_SING_IMP >> gvs []
+      >> imp_res_tac evaluate_SING_IMP >> gvs []            
+      >> rename [‘v_rel f'' vx vx'’]
       >> drule_all v_rel_submap >> rw []
-      >> imp_res_tac SUBMAP_TRANS)
-    >> rename [‘state_rel f3 s3 t3’]
+      >- imp_res_tac SUBMAP_TRANS
+      >> irule only_fresh_trans
+      >> rpt $ goal_assum $ drule_at Any
+      >> irule evaluate_refs_SUBSET
+      >> goal_assum $ drule_at Any)
+    >> rename [‘state_rel f3 t t'’]
     >> qexists ‘f3’ >> fs []
-    >> imp_res_tac SUBMAP_TRANS)
+    >> rw []
+    >- imp_res_tac SUBMAP_TRANS
+    >> irule only_fresh_trans
+    >> rpt $ goal_assum $ drule_at Any
+    >> irule evaluate_refs_SUBSET
+    >> goal_assum $ drule_at Any)
   >~ [‘Var n’] >-
    (gvs [evaluate_def]
     >> Cases_on ‘n < LENGTH env’ >> gvs []
