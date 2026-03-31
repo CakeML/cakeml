@@ -104,26 +104,30 @@ fun subset_basis_st st precond sets sets_thm =
     foldl (uncurry PROVE_HYP) th length_hyps
   end;
 
+val whole_prog_spec_tm' = prim_mk_const{Thy="basis_ffi",Name="whole_prog_spec"}
+val whole_prog_spec2_tm = prim_mk_const{Thy="basis_ffi",Name="whole_prog_spec2"}
+val whole_prog_ffidiv_spec_tm = prim_mk_const{Thy="basis_ffi",Name="whole_prog_ffidiv_spec"}
+
 fun whole_prog_thm st name spec =
   let
     val call_ERR = ERR "whole_prog_thm"
     val whole_prog_spec_tm = spec |> concl |> strip_imp |> snd |> strip_comb |> fst
     val (whole_prog_spec_thm,sets_term,sets_theorem) =
-        if same_const whole_prog_spec_tm ``whole_prog_spec`` orelse
-           same_const whole_prog_spec_tm ``whole_prog_spec2``
+        if same_const whole_prog_spec_tm whole_prog_spec_tm' orelse
+           same_const whole_prog_spec_tm whole_prog_spec2_tm
         then
           let
             val sets_thm = mk_user_sets_thm ()
             val sets     = rand (concl sets_thm)
             val thm =
-              if same_const whole_prog_spec_tm ``whole_prog_spec`` then
+              if same_const whole_prog_spec_tm whole_prog_spec_tm' then
                 whole_prog_spec_semantics_prog
               else
                 whole_prog_spec2_semantics_prog
           in
             (thm, sets, sets_thm)
           end
-        else if same_const whole_prog_spec_tm ``whole_prog_ffidiv_spec`` then
+        else if same_const whole_prog_spec_tm whole_prog_ffidiv_spec_tm then
           (whole_prog_spec_semantics_prog_ffidiv,sets2,sets_thm2)
        else raise(call_ERR "Conclusion must be a whole_prog_spec or whole_prog_spec2 or whole_prog_ffidiv_spec")
     val ffi_v = st |> get_Decls_thm |> concl |> free_vars
