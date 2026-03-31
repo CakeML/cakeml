@@ -72,13 +72,10 @@ Theorem encode_lin_equal_sem_1:
 Proof
   rw[reify_sem_def,encode_lin_equal_def]>>
   gvs[AllCasePreds(),reify_avar_def,reify_reif_def,reify_flag_def,
-    eval_iclin_term_def,eval_iclin_term_CONS]
-  >-intLib.ARITH_TAC
-  >-intLib.ARITH_TAC
-  >-(
-    simp[SF DNF_ss,eval_iclin_term_def,
-      reify_avar_def,reify_reif_def,reify_flag_def]>>
-    intLib.ARITH_TAC)
+    eval_iclin_term_def,eval_iclin_term_CONS]>>
+  simp[SF DNF_ss,eval_iclin_term_def,
+    reify_avar_def,reify_reif_def,reify_flag_def]>>
+  intLib.ARITH_TAC
 QED
 
 Theorem encode_lin_equal_sem_2:
@@ -145,8 +142,7 @@ Theorem encode_lin_not_equal_sem_1:
 Proof
   rw[reify_sem_def,encode_lin_not_equal_def]>>
   gvs[AllCasePreds(),eval_iclin_term_CONS,
-    reify_avar_def,reify_reif_def,reify_flag_def]
-  >-intLib.ARITH_TAC>>
+    reify_avar_def,reify_reif_def,reify_flag_def]>>
   simp[SF DNF_ss,reify_avar_def,reify_reif_def,reify_flag_def]>>
   intLib.ARITH_TAC
 QED
@@ -243,8 +239,8 @@ Theorem encode_lin_sem_1:
 Proof
   rw[encode_lin_def,lin_sem_def]
   >-gs[encode_lin_equal_sem_1,cmpop_val_def]
-  >-gs[encode_lin_not_equal_sem_1,cmpop_val_def]>>
-  metis_tac[encode_lin_order_cmpops_sem_1]
+  >-gs[encode_lin_not_equal_sem_1,cmpop_val_def]
+  >-metis_tac[encode_lin_order_cmpops_sem_1]
 QED
 
 Theorem encode_lin_sem_2:
@@ -259,8 +255,8 @@ Proof
     metis_tac[encode_lin_equal_sem_2])
   >-(
     simp[cmpop_val_def]>>
-    metis_tac[encode_lin_not_equal_sem_2])>>
-  metis_tac[encode_lin_order_cmpops_sem_2]
+    metis_tac[encode_lin_not_equal_sem_2])
+  >-metis_tac[encode_lin_order_cmpops_sem_2]
 QED
 
 Definition encode_linear_constr_def:
@@ -435,6 +431,6 @@ Proof
   rename1 ‘Lin Zr cmp cXs Y’>>
   rw[cencode_linear_constr_def,encode_linear_constr_def,encode_lin_def]
   >-simp[cencode_lin_equal_sem]
-  >-simp[cencode_lin_not_equal_sem]>>
-  metis_tac[cencode_lin_order_cmpops_sem]
+  >-simp[cencode_lin_not_equal_sem]
+  >-metis_tac[cencode_lin_order_cmpops_sem]
 QED
