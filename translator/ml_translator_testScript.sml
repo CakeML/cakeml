@@ -21,11 +21,12 @@ val _ = register_type “:a_ty”;
 val ty = “:a_ty”;
 
 Definition dest_A2_def:
-  dest_A2 (A2 a) = SOME a ∧
+  dest_A2 (A2 a) = (if a = A1 then NONE else SOME a) ∧
   dest_A2 _ = NONE
 End
 
 val r = translate dest_A2_def;
+val _ = (List.null $ Thm.hyp r) orelse fail()
 
 Datatype:
   tyAST = tyOp string (tyAST list)
