@@ -559,6 +559,12 @@ Definition only_fresh_def:
   ∀n. n ∈ FRANGE f' ∧ ~(n ∈ FRANGE f) ⇒ ~(n ∈ FDOM refs_old)
 End
 
+Theorem hole_unchanged_refl:
+  ∀f refs. hole_unchanged f refs refs
+Proof
+  rw [hole_unchanged_def]
+QED
+        
 Theorem hole_unchanged_trans:
   ∀f f' refs refs' refs''.
     hole_unchanged f refs refs' ∧
@@ -614,6 +620,12 @@ Proof
   >> strip_tac
   >> spose_not_then assume_tac
   >> gvs [SUBSET_DEF]
+QED
+
+Theorem only_fresh_refl:
+  ∀f refs. only_fresh f f refs
+Proof
+  rw [only_fresh_def]
 QED
 
 Theorem only_fresh_trans:
@@ -743,35 +755,42 @@ Proof
     >> strip_tac
     >> goal_assum $ drule_at Any
     >> gvs []
-    >> strip_tac
-    >> gvs []
     >> conj_tac
-    >- (rpt gen_tac >> gvs [rewrite_aux_def])
-    >> rpt gen_tac
-    >> gvs [opt_res_rel_def]
-    >> gvs [rewrite_opt_def]
-    (* Lemma for evaluating Op (MemOp UpdateCons)? *)
-    >> gvs [evaluate_def]
-    >> drule env_rel_length_opt
+    >- (irule only_fresh_refl)
+    >> conj_tac
+    >-
+     (strip_tac
+      >> gvs []
+      >> conj_tac
+      >- (rpt gen_tac >> gvs [rewrite_aux_def])
+      >> rpt gen_tac
+      >> gvs [opt_res_rel_def]
+      >> gvs [rewrite_opt_def]
+      (* Lemma for evaluating Op (MemOp UpdateCons)? *)
+      >> gvs [evaluate_def]
+      >> drule env_rel_length_opt
+      >> gvs []
+      >> strip_tac
+      >> gvs [do_app_def]
+      >> gvs [do_app_aux_def]
+      >> drule env_rel_extras_opt
+      >> strip_tac
+      >> gvs []
+      >> gvs [case_eq_thms]
+      >> gvs [PULL_EXISTS]
+      >> gvs [bvlSemTheory.Unit_def, backend_commonTheory.tuple_tag_def]
+      >> gvs [hole_has_val_def, FLOOKUP_SIMP]
+      >> gvs [state_rel_def, state_ref_rel_def, FLOOKUP_SIMP]
+      >> rpt strip_tac
+      >> last_x_assum drule
+      >> strip_tac
+      >> goal_assum $ drule_at Any
+      >> goal_assum $ drule_at Any
+      >> IF_CASES_TAC
+      >> gvs [flookup_thm, FRANGE_DEF])
+    >> strip_tac
     >> gvs []
-    >> strip_tac
-    >> gvs [do_app_def]
-    >> gvs [do_app_aux_def]
-    >> drule env_rel_extras_opt
-    >> strip_tac
-    >> gvs []
-    >> gvs [case_eq_thms]
-    >> gvs [PULL_EXISTS]
-    >> gvs [bvlSemTheory.Unit_def, backend_commonTheory.tuple_tag_def]
-    >> gvs [hole_has_val_def, FLOOKUP_SIMP]
-    >> gvs [state_rel_def, state_ref_rel_def, FLOOKUP_SIMP]
-    >> rpt strip_tac
-    >> last_x_assum drule
-    >> strip_tac
-    >> goal_assum $ drule_at Any
-    >> goal_assum $ drule_at Any
-    >> IF_CASES_TAC
-    >> gvs [flookup_thm, FRANGE_DEF])
+    >> irule hole_unchanged_refl)
   >~ [‘If x1 x2 x3’] >-
      
    (gvs [evaluate_def]
@@ -853,7 +872,7 @@ Proof
             (* Then inductive hypothesis *) (* TODO - maybe some of this can be factored out *)
             >> strip_tac
             >> rename [‘v_rel f'' v1 v1'’]
-            >> rename [‘evaluate ([x1],env2,s') = (r1',s1')’]
+            >> rename [‘evaluate ([x1],env2,s') = (r1',u')’]
             >> gvs []
             >> drule evaluate_pad_env_val
             >> disch_then $ qspec_then ‘[RefPtr F hole_ptr; Number hole_idx]’ mp_tac
