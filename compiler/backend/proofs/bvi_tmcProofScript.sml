@@ -564,7 +564,24 @@ Theorem hole_unchanged_refl:
 Proof
   rw [hole_unchanged_def]
 QED
-        
+
+Theorem hole_unchanged_submap:
+  ∀f f' refs refs'.
+    hole_unchanged f refs refs' ∧
+    f ⊑ f' ⇒
+    hole_unchanged f' refs refs'
+Proof
+  rw [hole_unchanged_def]
+  >> first_x_assum $ qspecl_then [‘hole_ptr’, ‘hole_val’] mp_tac
+  >> strip_tac
+  >> gvs []
+  >> pop_assum irule
+  >> spose_not_then assume_tac
+  >> drule SUBMAP_FRANGE
+  >> strip_tac
+  >> gvs [SUBSET_DEF]
+QED
+
 Theorem hole_unchanged_trans:
   ∀f f' refs refs' refs''.
     hole_unchanged f refs refs' ∧
@@ -607,11 +624,20 @@ Proof
   >> gvs [FLOOKUP_DEF]
 QED
 
+(* WIP - unused *)
+Theorem changed_hole_has_val:
+  hole_has_val f env (env2 ++ [RefPtr F hole_ptr; Number hole_idx]) s'.refs c
+  hole_has_val f' (vs ++ env) (vs' ++ env2 ++ [RefPtr F hole_ptr; Number hole_idx]) t2.refs res_v
+  hole_has_val f env (env2 ++ [RefPtr F hole_ptr; Number hole_idx]) t2.refs res_v
+Proof
+  cheat
+QED
+
 Theorem hole_has_val_submap:
   ∀f f' env1 env2 refs c.
-    hole_has_val f env1 env2 refs c ∧
-    f' ⊑ f ⇒
-    hole_has_val f' env1 env2 refs c
+    hole_has_val f' env1 env2 refs c ∧
+    f ⊑ f' ⇒
+    hole_has_val f env1 env2 refs c
 Proof
   rw [hole_has_val_def]
   >> qexistsl [‘hole_ptr’, ‘tag’, ‘left’, ‘right’]
@@ -620,6 +646,30 @@ Proof
   >> strip_tac
   >> spose_not_then assume_tac
   >> gvs [SUBSET_DEF]
+QED
+
+Theorem hole_has_val_append:
+  ∀f.
+    hole_has_val f env env' refs c ∧
+    LIST_REL (v_rel f) vs vs' ⇒
+    hole_has_val f (vs ++ env) (vs' ++ env') refs c
+Proof
+  rw [hole_has_val_def]
+  >> drule LIST_REL_LENGTH
+  >> strip_tac
+  >> gvs [EL_APPEND_EQN]
+QED
+
+Theorem hole_has_val_unappend:
+  ∀f.
+    hole_has_val f (vs ++ env) (vs' ++ env') refs c ∧
+    LIST_REL (v_rel f) vs vs' ⇒
+    hole_has_val f env env' refs c
+Proof
+  rw [hole_has_val_def]
+  >> drule LIST_REL_LENGTH
+  >> strip_tac
+  >> gvs [EL_APPEND_EQN]
 QED
 
 Theorem only_fresh_refl:
@@ -680,7 +730,7 @@ Theorem evaluate_rewrite_tmc:
              state_rel f' t t2 ∧
              ∀res_v.
                 r' = Rval [res_v] ⇒
-                hole_has_val f env1 env2 t2.refs res_v)) (* Note - changed from f to f' *) ∧
+                hole_has_val f env1 env2 t2.refs res_v)) ∧
        (~opt ⇒ hole_unchanged f s'.refs t'.refs)
 Proof
 
@@ -1025,7 +1075,7 @@ Proof
         >- (rename [‘evaluate (xs,env,s) = (Rval vs,u)’]
             >> strip_tac
             >> rename [‘evaluate (xs, env2, s') = (rs', u')’]
-            >> rename [‘LIST_REL (v_rel f'') vs vs'’]
+            >> rename [‘LIST_REL (v_rel f') vs vs'’]
             >> first_x_assum $ qspec_then ‘T’ mp_tac
             >> gvs []
             >> disch_then $ drule_at $ Pos $ el 2
@@ -1035,6 +1085,24 @@ Proof
                 >> drule_all env_rel_submap
                 >> strip_tac
                 >> drule_all env_rel_append
+                >> gvs []
+                >> strip_tac                        
+                >> qexists ‘c’
+                >> irule unchanged_hole_has_val
+                >> drule_all hole_unchanged_submap
+                >> strip_tac
+                >> goal_assum $ drule_at $ Pos hd
+                >> rw []
+                >- irule only_fresh_refl
+                >> drule_at Any hole_has_val_append
+                >> disch_then $ qspecl_then [‘s'.refs’, ‘env2 ++ [RefPtr F hole_ptr; Number hole_idx]’, ‘env’, ‘c’] mp_tac
+                >> impl_tac
+                >-
+                 (irule unchanged_hole_has_val
+                  >> goal_assum $ drule_at $ Pos $ el 4
+                  >> gvs []
+                  >> simp [hole_unchanged_def])
+                >> strip_tac
                 >> gvs [])
             >> strip_tac
             >> drule evaluate_pad_env_val
@@ -1044,16 +1112,30 @@ Proof
             >> qexists ‘f'³'’
             >> gvs []
             >> rw []
-            >- (imp_res_tac SUBMAP_TRANS)
-            >- (drule aux_strip_let
-                >> strip_tac
-                >> last_x_assum drule
-                >> strip_tac
-                >> gvs [evaluate_def])
+            >- imp_res_tac SUBMAP_TRANS
+            >- (
+             irule only_fresh_trans
+             >> rpt $ goal_assum $ drule_at Any
+             >> irule evaluate_refs_SUBSET
+             >> rpt $ goal_assum $ drule_at Any)
+            >-
+             (drule aux_strip_let
+              >> strip_tac
+              >> last_x_assum drule
+              >> strip_tac
+              >> gvs [evaluate_def])
             >> first_x_assum $ qspecl_then [‘loc’, ‘loc_opt’] mp_tac
             >> strip_tac
             >> rev_drule evaluate_IMP_LENGTH
-            >> gvs [rewrite_opt_def, evaluate_def])
+            >> gvs [rewrite_opt_def, evaluate_def]
+            >> rpt strip_tac
+            >> first_x_assum drule
+            >> strip_tac
+            >> irule hole_has_val_submap
+            >> goal_assum $ drule_at Any
+            >> irule hole_has_val_unappend
+            >> rpt $ goal_assum $ drule_at Any
+            >> gvs [])
         >> strip_tac
         >> rename [‘evaluate (xs,env2,s') = (r',t')’]
         >> gvs []
