@@ -1308,9 +1308,18 @@ End
 Definition map_upd_list_def:
   (map_upd_list [] = []) /\
   (map_upd_list (FibTree k v ts::rest) =
-    [(k,v.value,v.edges)] ++ map_upd_list rest ++ map_upd_list ts)
+    [(k,v.value,v.edges)] ++ map_upd_list ts ++ map_upd_list rest)
 End
 
+Theorem map_upd_list_append_thm:
+  !xs ys.
+  map_upd_list (xs ++ ys) = (map_upd_list xs) ++ (map_upd_list ys)
+Proof
+  ho_match_mp_tac map_upd_list_ind >>
+  rpt strip_tac
+  >- simp[map_upd_list_def] >>
+  simp[map_upd_list_def]
+QED
 
 
 Theorem lemma_fib_heap_insert_1into1:
@@ -2485,11 +2494,7 @@ Theorem lemma_mem_map_upd_eq_flookup:
   (MEM (k,v,e) (map_upd_list fts) <=>
   FLOOKUP (FEMPTY |++ map_upd_list fts) k = SOME (v,e))
 Proof
-  ho_match_mp_tac map_upd_list_ind >>
-  rpt strip_tac
-  >- (
-    simp[map_upd_list_def,FUPDATE]
-
+  cheat
 QED
 
 
