@@ -355,6 +355,16 @@ Proof
   simp[STAR_ASSOC]
 QED
 
+
+Theorem fts_mem_sym_thm:
+  !xs ys. fts_mem (xs ++ ys) = fts_mem (ys ++ xs)
+Proof
+  simp[fts_mem_append_thm] >>
+  simp[AC STAR_ASSOC STAR_COMM]
+QED
+
+
+
 Theorem lemma_ann_fts_seg_MEM:
   !fts x v l p s b n frame.
     (fts_mem (ann_fts_seg p s b n fts) * frame) (fun2set(m,dm))  /\
@@ -1825,7 +1835,10 @@ QED
 Theorem fts_all_dist_append_sym_thm:
   !xs ys. fts_all_dist (xs ++ ys) ==> fts_all_dist (ys ++ xs)
 Proof
-  cheat
+  simp[fts_all_dist_append_thm] >>
+  rpt strip_tac >>
+  fs[fts_has_inj_append] >> rpt strip_tac >> res_tac >> simp[] >>
+  res_tac >> simp[]
 QED
 
 
@@ -1871,10 +1884,10 @@ Definition fib_heap_inv_strong_def:
     (!k v. FLOOKUP fh k = SOME v ==> k <> 0w) /\
     (!k v e. FLOOKUP fh k = SOME (v,e) <=>
       ?m. fts_has k (fill_dnode v e m) fts) /\
+    fts_all_dist fts /\
     fts_is_min (fts_min fts) fts /\
     every_fts fts_head_is_min fts /\
     fib_heap_shape_ok fts
-    (* fts_all_dist fts /\ *)
 End
 
 
@@ -2232,20 +2245,276 @@ Proof
   rpt disj2_tac >> qexists `m` >> simp[]
 QED
 
+Theorem lemma_map_upd_mem_fst:
+  !xs k.
+    (?v e. MEM (k,v,e) (map_upd_list xs)) <=>
+    MEM k (MAP FST (map_upd_list xs))
+Proof
+  ho_match_mp_tac map_upd_list_ind >>
+  rpt strip_tac
+  >- simp[map_upd_list_def] >>
+  simp[map_upd_list_def] >>
+  iff_tac >> rpt strip_tac
+  >- simp[]
+  >- (
+    last_x_assum(qspec_then `k'` assume_tac) >>
+    fs[EQ_IMP_THM] >> fs[PULL_EXISTS] >>
+    res_tac >> simp[]
+    )
+  >- (
+    last_x_assum(qspec_then `k'` assume_tac) >>
+    fs[EQ_IMP_THM] >> fs[PULL_EXISTS] >>
+    res_tac >> simp[]
+    )
+  >- (qexistsl [`xs.value`,`xs.edges`] >> simp[]) >>
+  res_tac >> qexistsl [`v`,`e`] >> simp[]
+QED
 
-Theorem lemma_map_upd_eq_fts_has:
-  !fts fh k v e.
-    (FLOOKUP (fh |++ (map_upd_list fts)) k = SOME (v,e)) /\
-     (FLOOKUP fh k = NONE) ==>
-   ?m. fts_has k (fill_dnode v e m) fts
+
+Theorem lemma_fts_has_inj_imp_mem_upd_inj:
+  fts_has_inj xs ==>
+  (MEM(k,v) (map_upd_list xs) /\
+   MEM(k,v') (map_upd_list xs) ==>
+   v = v')
 Proof
   rpt strip_tac >>
+  Cases_on `xs`
+  >- fs[map_upd_list_def] >>
+  Cases_on `h` >>
+  rpt strip_tac >>
+  Cases_on `v` >> Cases_on `v'` >>
+  imp_res_tac lemma_mem_eq_fts_has >>
+  fs[fts_has_inj_def] >>
+  res_tac >>
+  fs[fill_dnode_def]
+QED
+
+
+(*
+
+Theorem lemma_fts_all_dist_mem_inj:
+  !xs.
+  fts_all_dist xs ==>
+  (!k v v'. MEM (k,v) (map_upd_list xs) /\ MEM (k,v') (map_upd_list xs) ==>
+    v = v')
+Proof
+  ho_match_mp_tac map_upd_list_ind >>
+  rpt strip_tac
+  >- fs[map_upd_list_def] >>
+  fs[fts_all_dist_def] >>
+  Cases_on `v'` >> Cases_on `v` >>
+  gvs[map_upd_list_def]
+  >- (imp_res_tac lemma_mem_eq_fts_has >> rfs[])
+  >- (imp_res_tac lemma_mem_eq_fts_has >> rfs[])
+  >- (imp_res_tac lemma_mem_eq_fts_has >> rfs[])
+  >- (res_tac >> rfs[])
+  >- (
+    imp_res_tac lemma_mem_eq_fts_has >> rfs[] >>
+    fs[fts_has_inj_def] >>
+    first_x_assum(qspecl_then [`k'`,`fill_dnode q r m`,`fill_dnode q' r' m'`]
+      assume_tac) >>
+    pop_assum mp_tac >>
+    simp[Once fts_has_cases] >> simp[Once fts_has_cases] >>
+    simp[fill_dnode_def]
+    )
+  >- (imp_res_tac lemma_mem_eq_fts_has >> rfs[])
+  >- (
+    imp_res_tac lemma_mem_eq_fts_has >> rfs[] >>
+    fs[fts_has_inj_def] >>
+    first_x_assum(qspecl_then [`k'`,`fill_dnode q r m`,`fill_dnode q' r' m'`]
+      assume_tac) >>
+    pop_assum mp_tac >>
+    simp[Once fts_has_cases] >> simp[Once fts_has_cases] >>
+    simp[fill_dnode_def]
+    ) >>
+  imp_res_tac lemma_mem_eq_fts_has >> rfs[] >>
+  fs[fts_has_inj_def] >>
+  first_x_assum(qspecl_then [`k'`,`fill_dnode q r m`,`fill_dnode q' r' m'`]
+    assume_tac) >>
+  pop_assum mp_tac >>
+  simp[Once fts_has_cases] >> simp[Once fts_has_cases] >>
+  simp[fill_dnode_def]
+QED
+
+*)
+
+
+Theorem lemma_fts_all_dist_imp_map_upd_all_distinct:
+  !xs.
+  fts_all_dist xs ==>
+  ALL_DISTINCT (map_upd_list xs) /\
+  (!k v v'. MEM (k,v) (map_upd_list xs) /\ MEM (k,v') (map_upd_list xs) ==>
+    v = v')
+Proof
+  ho_match_mp_tac map_upd_list_ind >>
+  rpt strip_tac
+  >- simp[map_upd_list_def]
+  >- fs[map_upd_list_def]
+  >- (
+    fs[fts_all_dist_def,map_upd_list_def] >>
+    rpt strip_tac
+    >- (
+      qspecl_then [`xs''`,`k`,`xs.value`,`xs.edges`]
+        assume_tac lemma_mem_eq_fts_has >> rfs[]
+      )
+    >- (
+      qspecl_then [`xs'`,`k`,`xs.value`,`xs.edges`]
+        assume_tac lemma_mem_eq_fts_has >> rfs[]
+      ) >>
+    simp[ALL_DISTINCT_APPEND] >>
+    rpt strip_tac >>
+    Cases_on `e` >> Cases_on `r` >>
+    rename [`MEM (k,v,e) (map_upd_list xs')`] >>
+    imp_res_tac lemma_mem_eq_fts_has >>
+    fs[fts_has_inj_def] >>
+    first_x_assum (qspecl_then [`k`,`(fill_dnode v e m)`,`(fill_dnode v e m')`]
+      assume_tac) >>
+    pop_assum mp_tac >>
+    pure_rewrite_tac[Once fts_has_cases] >> disch_tac >> rfs[] >>
+    pop_assum mp_tac >>
+    pure_rewrite_tac[Once fts_has_cases] >> disch_tac >> rfs[] >>
+    gvs[]
+  ) >>
+  fs[fts_all_dist_def] >>
+  imp_res_tac lemma_fts_has_inj_imp_mem_upd_inj
+QED
+
+
+
+Theorem lemma_map_upd_all_distinct:
+  !xs.
+  fts_all_dist xs ==>
+  ALL_DISTINCT (MAP FST (map_upd_list xs))
+Proof
+  ho_match_mp_tac map_upd_list_ind >>
+  rpt strip_tac
+  >- simp[map_upd_list_def] >>
+  simp[map_upd_list_def] >>
+  fs[fts_all_dist_def] >>
+  rpt conj_tac
+  >- (
+    spose_not_then assume_tac >>
+    qspecl_then [`xs''`,`k`] assume_tac lemma_map_upd_mem_fst >>
+    res_tac >>
+    qspecl_then [`xs''`,`k`,`v`,`e`] assume_tac lemma_mem_eq_fts_has >>
+    res_tac >>
+    last_x_assum(qspec_then `fill_dnode v e m` assume_tac) >>
+    fs[]
+    )
+  >- (
+    spose_not_then assume_tac >>
+    qspecl_then [`xs'`,`k`] assume_tac lemma_map_upd_mem_fst >>
+    res_tac >>
+    qspecl_then [`xs'`,`k`,`v`,`e`] assume_tac lemma_mem_eq_fts_has >>
+    res_tac >>
+    last_x_assum(qspec_then `fill_dnode v e m` assume_tac) >>
+    fs[]
+    ) >>
+  simp[ALL_DISTINCT_APPEND] >>
+  rpt strip_tac >>
+  rename [`MEM k' (MAP FST (map_upd_list xs'))`] >>
+  qspecl_then [`xs'`,`k'`] assume_tac lemma_map_upd_mem_fst >> rfs[] >>
+  qspecl_then [`xs''`,`k'`] assume_tac lemma_map_upd_mem_fst >> rfs[] >>
+  qspecl_then [`xs'`,`k'`,`v`,`e`] assume_tac lemma_mem_eq_fts_has >> rfs[] >>
+  qspecl_then [`xs''`,`k'`,`v'`,`e'`] assume_tac lemma_mem_eq_fts_has >> rfs[] >>
+  qpat_x_assum `fts_has_inj (FibTree k xs xs'::xs'')` mp_tac >>
+  pure_rewrite_tac[fts_has_inj_def] >>
+  disch_tac >>
+  first_x_assum (qspecl_then [`k'`,`(fill_dnode v e m)`,`(fill_dnode v' e' m')`]
+    assume_tac) >>
+  pop_assum mp_tac >>
+  pure_rewrite_tac[Once fts_has_cases] >>
+  disch_tac >> rfs[] >>
+  pop_assum mp_tac >>
+  pure_rewrite_tac[Once fts_has_cases] >>
+  disch_tac >> rfs[] >>
+  gvs[]
+QED
+
+
+
+Theorem lemma_disjoint_alist_imp_disjoint_fmap:
+  DISJOINT (set xs) (set ys) ==>
+  DISJIONT (FDOM alist_to_fmap xs) (FDOM alist_to_fmap ys)
+Proof
+  cheat
+QED
+
+
+Theorem lemma_alist_to_fmap_disjoint:
+  fts_all_dist (xs ++ ys) ==>
+  DISJOINT (FDOM $ alist_to_fmap $ map_upd_list xs)
+           (FDOM $ alist_to_fmap $ map_upd_list ys)
+Proof
+  strip_tac >>
+  imp_res_tac lemma_fts_all_dist_imp_map_upd_all_distinct >>
+  fs[map_upd_list_append] >>
+  cheat
+QED
+
+
+
+
+
+
+(*TODO: Current Goal
+ - use alist_to_fmap
+ - Theorem: alistTheory.ALOOKUP_EQ_FLOOKUP
+print_find "ALOOKUP"
+*)
+Theorem lemma_forest_split:
+  fts_all_dist (xs ++ ys) /\
+  !k v e. FLOOKUP fh k = SOME(v,e) <=> ?m. fts_has k (fill_dnode v e m) (xs ++ ys)
+  <=>
+  ?fhx fhy.
+    !k v e. FLOOKUP fhx k = SOME(v,e) <=> ?m. fts_has k (fill_dnode v e m) xs /\
+    fts_all_dist xs /\
+    !k v e. FLOOKUP fhy k = SOME(v,e) <=> ?m. fts_has k (fill_dnode v e m) ys
+    fts_all_dist ys /\
+    DISJOINT (FDOM fhx) (FDOM fhy) /\ fh = FUNION fhx fhy
+Proof
+  cheat
+QED
+
+
+
+
+Theorem lemma_mem_map_upd_eq_flookup:
+  !fts k v e.
+  fts_all_dist fts ==>
+  (MEM (k,v,e) (map_upd_list fts) <=>
+  FLOOKUP (FEMPTY |++ map_upd_list fts) k = SOME (v,e))
+Proof
+  ho_match_mp_tac map_upd_list_ind >>
+  rpt strip_tac
+  >- (
+    simp[map_upd_list_def,FUPDATE]
+
+QED
+
+
+
+Theorem lemma_map_upd_eq_fts_has:
+  !fts k v e.
+    fts_all_dist fts ==>
+    (FLOOKUP (FEMPTY |++ (map_upd_list fts)) k = SOME (v,e)  <=>
+    ?m. fts_has k (fill_dnode v e m) fts)
+Proof
+  rpt strip_tac >>
+  iff_tac >>
+  rpt strip_tac
+  >- (
   gvs[miscTheory.flookup_update_list_some] >>
   imp_res_tac ALOOKUP_MEM >> fs[] >>
   assume_tac lemma_mem_eq_fts_has >>
   res_tac >>
   pop_assum $ irule_at Any
+   ) >>
+  >- (
 QED
+
+print_find "ALOOKUP_MEM"
+
 
 Theorem lemma_flookup_list_append_update:
   !x xs ys fh.
