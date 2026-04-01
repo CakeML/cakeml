@@ -624,15 +624,6 @@ Proof
   >> gvs [FLOOKUP_DEF]
 QED
 
-(* WIP - unused *)
-Theorem changed_hole_has_val:
-  hole_has_val f env (env2 ++ [RefPtr F hole_ptr; Number hole_idx]) s'.refs c
-  hole_has_val f' (vs ++ env) (vs' ++ env2 ++ [RefPtr F hole_ptr; Number hole_idx]) t2.refs res_v
-  hole_has_val f env (env2 ++ [RefPtr F hole_ptr; Number hole_idx]) t2.refs res_v
-Proof
-  cheat
-QED
-
 Theorem hole_has_val_submap:
   ∀f f' env1 env2 refs c.
     hole_has_val f' env1 env2 refs c ∧
@@ -849,146 +840,154 @@ Proof
     >> gvs []
     (* Opt *)
     (* First inductive hypothesis *)
-    >- (first_x_assum $ qspec_then ‘F’ mp_tac
-        >> simp []
-        >> disch_then $ drule_at $ Pos $ el 2
-        >> drule env_rel_non_opt
-        >> strip_tac
+    >-
+     (first_x_assum $ qspec_then ‘F’ mp_tac
+      >> simp []
+      >> disch_then $ drule_at $ Pos $ el 2
+      >> drule env_rel_non_opt
+      >> strip_tac
+      >> gvs []
+      >> rename [‘env_rel F f env env2’]
+      >> disch_then drule
+      >> Cases_on ‘r1’
+      >> gvs []
+      >-
+       (imp_res_tac evaluate_SING_IMP
         >> gvs []
-        >> rename [‘env_rel F f env env2’]
-        >> disch_then drule
-        >> Cases_on ‘r1’
+        >> rename [‘evaluate ([x1],env,s) = (Rval [v1],u)’]
+        >> Cases_on ‘v1 = Boolv T’
         >> gvs []
-        >- (imp_res_tac evaluate_SING_IMP
-            >> gvs []
-            >> rename [‘evaluate ([x1],env,s) = (Rval [v1],u)’]
-            >> Cases_on ‘v1 = Boolv T’
-            >> gvs []
-            (* Then inductive hypothesis *)
-            >- (strip_tac
-                >> rename [‘v_rel f' (Boolv T) v1'’]
-                >> rename [‘evaluate ([x1],env2,s') = (r1',u')’]
-                >> gvs []
-                >> drule evaluate_pad_env_val
-                >> disch_then $ qspec_then ‘[RefPtr F hole_ptr; Number hole_idx]’ mp_tac
-                >> gvs []
-                >> strip_tac
-                >> ‘v1' = Boolv T’ by (drule $ iffLR v_rel_cases >> gvs [bvlSemTheory.Boolv_def])
-                >> gvs []
-                >> last_x_assum $ qspec_then ‘T’ mp_tac
-                >> disch_then $ drule_at $ Pos $ el 2
-                >> qpat_x_assum ‘env_rel F f env env2’ kall_tac
-                >> drule_all env_rel_submap
-                >> strip_tac
-                >> disch_then drule
-                >> gvs []
-                >> impl_tac
-                >-
-                 (qexists ‘c’
-                  >> irule unchanged_hole_has_val
-                  >> goal_assum $ drule_at $ Pos hd
-                  >> gvs [])
-                >> strip_tac
-                >> gvs []
-                >> goal_assum $ drule_at Any
-                >> gvs []
-                >> rw []
-                >- (imp_res_tac SUBMAP_TRANS)
-                >-
-                 (irule only_fresh_trans
-                  >> goal_assum $ drule_at $ Pos $ el 2
-                  >> goal_assum $ drule_at Any
-                  >> irule evaluate_refs_SUBSET
-                  >> qexistsl [‘env2’, ‘Rval [Boolv T]’, ‘[x1]’]
-                  >> gvs [])
-                >- (drule aux_strip_if_then
-                    >> strip_tac
-                    >- (first_x_assum drule
-                        >> strip_tac
-                        >> goal_assum $ drule_at Any
-                        >> gvs [evaluate_def])
-                    >> gvs [evaluate_def])
-                >> first_x_assum $ qspecl_then [‘loc’, ‘loc_opt’] mp_tac
-                >> strip_tac
-                >> gvs [rewrite_opt_def, evaluate_def]
-                >> gen_tac
-                >> strip_tac
-                >> first_x_assum $ qspec_then ‘res_v’ mp_tac
-                >> gvs []
-                >> strip_tac
-                >> drule_all hole_has_val_submap
-                >> gvs [])
-            (* Then inductive hypothesis *) (* TODO - maybe some of this can be factored out *)
-            >> strip_tac
-            >> rename [‘v_rel f'' v1 v1'’]
-            >> rename [‘evaluate ([x1],env2,s') = (r1',u')’]
-            >> gvs []
-            >> drule evaluate_pad_env_val
-            >> disch_then $ qspec_then ‘[RefPtr F hole_ptr; Number hole_idx]’ mp_tac
-            >> gvs []
-            >> strip_tac
-            >> Cases_on ‘v1 = Boolv F’
-            >> gvs []
-            >> ‘v1' = Boolv F’ by (drule $ iffLR v_rel_cases >> gvs [bvlSemTheory.Boolv_def])
-            >> gvs []
-            >> last_x_assum $ qspec_then ‘T’ mp_tac
-            >> disch_then $ drule_at $ Pos $ el 2
-            >> qpat_x_assum ‘env_rel F f env env2’ kall_tac
-            >> drule_all env_rel_submap
-            >> strip_tac
-            >> disch_then drule
-            >> gvs []
-            >> impl_tac
-            >-
-             (qexists ‘c’
-              >> irule unchanged_hole_has_val
-              >> goal_assum $ drule_at $ Pos hd
-              >> gvs [])
-            >> strip_tac
-            >> gvs []
-            >> goal_assum $ drule_at Any
-            >> gvs []
-            >> rw []
-            >- (imp_res_tac SUBMAP_TRANS)
-            >-
-             (irule only_fresh_trans
-              >> goal_assum $ drule_at $ Pos $ el 2
-              >> goal_assum $ drule_at Any
-              >> irule evaluate_refs_SUBSET
-              >> qexistsl [‘env2’, ‘Rval [Boolv F]’, ‘[x1]’]
-              >> gvs [])
-            >- (drule aux_strip_if_else
-                >> strip_tac
-                >- (first_x_assum drule
-                    >> strip_tac
-                    >> goal_assum $ drule_at Any
-                    >> gvs [evaluate_def])
-                >> gvs [evaluate_def])
-            >> first_x_assum $ qspecl_then [‘loc’, ‘loc_opt’] mp_tac
-            >> strip_tac
-            >> gvs [rewrite_opt_def, evaluate_def]
-            >> gen_tac
-            >> strip_tac
-            >> first_x_assum $ qspec_then ‘res_v’ mp_tac
-            >> gvs []
-            >> strip_tac
-            >> drule_all hole_has_val_submap
+        (* Then inductive hypothesis *)
+        >-
+         (strip_tac
+          >> rename [‘v_rel f' (Boolv T) v1'’]
+          >> rename [‘evaluate ([x1],env2,s') = (r1',u')’]
+          >> gvs []
+          >> drule evaluate_pad_env_val
+          >> disch_then $ qspec_then ‘[RefPtr F hole_ptr; Number hole_idx]’ mp_tac
+          >> gvs []
+          >> strip_tac
+          >> ‘v1' = Boolv T’ by (drule $ iffLR v_rel_cases >> gvs [bvlSemTheory.Boolv_def])
+          >> gvs []
+          >> last_x_assum $ qspec_then ‘T’ mp_tac
+          >> disch_then $ drule_at $ Pos $ el 2
+          >> qpat_x_assum ‘env_rel F f env env2’ kall_tac
+          >> drule_all env_rel_submap
+          >> strip_tac
+          >> disch_then drule
+          >> gvs []
+          >> impl_tac
+          >-
+           (qexists ‘c’
+            >> irule unchanged_hole_has_val
+            >> goal_assum $ drule_at $ Pos hd
             >> gvs [])
+          >> strip_tac
+          >> gvs []
+          >> goal_assum $ drule_at Any
+          >> gvs []
+          >> rw []
+          >- imp_res_tac SUBMAP_TRANS
+          >-
+           (irule only_fresh_trans
+            >> goal_assum $ drule_at $ Pos $ el 2
+            >> goal_assum $ drule_at Any
+            >> irule evaluate_refs_SUBSET
+            >> qexistsl [‘env2’, ‘Rval [Boolv T]’, ‘[x1]’]
+            >> gvs [])
+          >-
+           (drule aux_strip_if_then
+            >> strip_tac
+            >-
+             (first_x_assum drule
+              >> strip_tac
+              >> goal_assum $ drule_at Any
+              >> gvs [evaluate_def])
+            >> gvs [evaluate_def])
+          >> first_x_assum $ qspecl_then [‘loc’, ‘loc_opt’] mp_tac
+          >> strip_tac
+          >> gvs [rewrite_opt_def, evaluate_def]
+          >> gen_tac
+          >> strip_tac
+          >> first_x_assum $ qspec_then ‘res_v’ mp_tac
+          >> gvs []
+          >> strip_tac
+          >> drule_all hole_has_val_submap
+          >> gvs [])
+        (* Then inductive hypothesis *) (* TODO - maybe some of this can be factored out *)
         >> strip_tac
+        >> rename [‘v_rel f'' v1 v1'’]
         >> rename [‘evaluate ([x1],env2,s') = (r1',u')’]
         >> gvs []
-        >> ‘e' ≠ Rabort Rtype_error’ by (spose_not_then assume_tac >> gvs [])
-        >> drule_all evaluate_pad_env_err
+        >> drule evaluate_pad_env_val
         >> disch_then $ qspec_then ‘[RefPtr F hole_ptr; Number hole_idx]’ mp_tac
         >> gvs []
         >> strip_tac
+        >> Cases_on ‘v1 = Boolv F’
+        >> gvs []
+        >> ‘v1' = Boolv F’ by (drule $ iffLR v_rel_cases >> gvs [bvlSemTheory.Boolv_def])
+        >> gvs []
+        >> last_x_assum $ qspec_then ‘T’ mp_tac
+        >> disch_then $ drule_at $ Pos $ el 2
+        >> qpat_x_assum ‘env_rel F f env env2’ kall_tac
+        >> drule_all env_rel_submap
+        >> strip_tac
+        >> disch_then drule
+        >> gvs []
+        >> impl_tac
+        >-
+         (qexists ‘c’
+          >> irule unchanged_hole_has_val
+          >> goal_assum $ drule_at $ Pos hd
+          >> gvs [])
+        >> strip_tac
+        >> gvs []
         >> goal_assum $ drule_at Any
         >> gvs []
         >> rw []
-        >- (drule aux_strip_if_then
+        >- imp_res_tac SUBMAP_TRANS
+        >-
+         (irule only_fresh_trans
+          >> goal_assum $ drule_at $ Pos $ el 2
+          >> goal_assum $ drule_at Any
+          >> irule evaluate_refs_SUBSET
+          >> qexistsl [‘env2’, ‘Rval [Boolv F]’, ‘[x1]’]
+          >> gvs [])
+        >-
+         (drule aux_strip_if_else
+          >> strip_tac
+          >-
+           (first_x_assum drule
             >> strip_tac
+            >> goal_assum $ drule_at Any
             >> gvs [evaluate_def])
-        >> gvs [rewrite_opt_def, evaluate_def, opt_res_rel_def])
+          >> gvs [evaluate_def])
+        >> first_x_assum $ qspecl_then [‘loc’, ‘loc_opt’] mp_tac
+        >> strip_tac
+        >> gvs [rewrite_opt_def, evaluate_def]
+        >> gen_tac
+        >> strip_tac
+        >> first_x_assum $ qspec_then ‘res_v’ mp_tac
+        >> gvs []
+        >> strip_tac
+        >> drule_all hole_has_val_submap
+        >> gvs [])
+      >> strip_tac
+      >> rename [‘evaluate ([x1],env2,s') = (r1',u')’]
+      >> gvs []
+      >> ‘e' ≠ Rabort Rtype_error’ by (spose_not_then assume_tac >> gvs [])
+      >> drule_all evaluate_pad_env_err
+      >> disch_then $ qspec_then ‘[RefPtr F hole_ptr; Number hole_idx]’ mp_tac
+      >> gvs []
+      >> strip_tac
+      >> goal_assum $ drule_at Any
+      >> gvs []
+      >> rw []
+      >-
+       (drule aux_strip_if_then
+        >> strip_tac
+        >> gvs [evaluate_def])
+      >> gvs [rewrite_opt_def, evaluate_def, opt_res_rel_def])
     (* Non opt *)
     (* First inductive hypothesis *)
     >> first_x_assum $ qspec_then ‘F’ mp_tac
@@ -1003,44 +1002,24 @@ Proof
     >> gvs []
     >> Cases_on ‘r1’
     >> gvs []
-    >- (imp_res_tac evaluate_SING_IMP
-        >> gvs []
-        >> rename [‘v_rel f'' v1 v1'’]
-        >> Cases_on ‘v1 = Boolv T’
-        >> gvs []
-        (* then inductive hypothesis *)
-        >- (first_x_assum $ qspec_then ‘F’ mp_tac
-            >> simp []
-            >> drule_all env_rel_submap
-            >> strip_tac
-            >> disch_then drule_all
-            >> strip_tac
-            >> ‘v1' = Boolv T’ by (drule $ iffLR v_rel_cases >> gvs [bvlSemTheory.Boolv_def])
-            >> gvs []
-            >> qexists ‘f'³'’
-            >> gvs []
-            >> rw []
-            >- imp_res_tac SUBMAP_TRANS
-            >-
-             (irule only_fresh_trans
-              >> rpt $ goal_assum $ drule_at Any
-              >> irule evaluate_refs_SUBSET
-              >> rpt $ goal_assum $ drule_at Any)
-            >> irule hole_unchanged_trans
-            >> rpt $ goal_assum $ drule_at Any)
-        (* else inductive hypothesis *)
-        >> Cases_on ‘v1 = Boolv F’
-        >> gvs []
-        >> first_x_assum $ qspec_then ‘F’ mp_tac
+    >-
+     (imp_res_tac evaluate_SING_IMP
+      >> gvs []
+      >> rename [‘v_rel f'' v1 v1'’]
+      >> Cases_on ‘v1 = Boolv T’
+      >> gvs []
+      (* then inductive hypothesis *)
+      >-
+       (first_x_assum $ qspec_then ‘F’ mp_tac
         >> simp []
         >> drule_all env_rel_submap
         >> strip_tac
         >> disch_then drule_all
         >> strip_tac
-        >> ‘v1' = Boolv F’ by (drule $ iffLR v_rel_cases >> gvs [bvlSemTheory.Boolv_def])
+        >> ‘v1' = Boolv T’ by (drule $ iffLR v_rel_cases >> gvs [bvlSemTheory.Boolv_def])
         >> gvs []
         >> qexists ‘f'³'’
-        >> gvs []
+            >> gvs []
         >> rw []
         >- imp_res_tac SUBMAP_TRANS
         >-
@@ -1050,6 +1029,28 @@ Proof
           >> rpt $ goal_assum $ drule_at Any)
         >> irule hole_unchanged_trans
         >> rpt $ goal_assum $ drule_at Any)
+      (* else inductive hypothesis *)
+      >> Cases_on ‘v1 = Boolv F’
+      >> gvs []
+      >> first_x_assum $ qspec_then ‘F’ mp_tac
+      >> simp []
+      >> drule_all env_rel_submap
+      >> strip_tac
+      >> disch_then drule_all
+      >> strip_tac
+      >> ‘v1' = Boolv F’ by (drule $ iffLR v_rel_cases >> gvs [bvlSemTheory.Boolv_def])
+      >> gvs []
+      >> qexists ‘f'³'’
+      >> gvs []
+      >> rw []
+      >- imp_res_tac SUBMAP_TRANS
+      >-
+       (irule only_fresh_trans
+        >> rpt $ goal_assum $ drule_at Any
+        >> irule evaluate_refs_SUBSET
+        >> rpt $ goal_assum $ drule_at Any)
+      >> irule hole_unchanged_trans
+      >> rpt $ goal_assum $ drule_at Any)
     >> qexists ‘f''’
     >> gvs [])
   >~ [‘Let xs x2’] >-
@@ -1060,95 +1061,98 @@ Proof
     >> gvs []
     (* Opt *)
     (* First inductive hypothesis *)
-    >- (first_x_assum $ qspec_then ‘F’ mp_tac
-        >> simp []
+    >-
+     (first_x_assum $ qspec_then ‘F’ mp_tac
+      >> simp []
+      >> disch_then $ drule_at $ Pos $ el 2
+      >> drule env_rel_non_opt
+      >> strip_tac
+      >> gvs []
+      >> rename [‘env_rel F f env env2’]
+      >> disch_then drule
+      >> Cases_on ‘rs’
+      >> gvs []
+      (* Second inductive hypothesis *)
+      >-
+       (rename [‘evaluate (xs,env,s) = (Rval vs,u)’]
+        >> strip_tac
+        >> rename [‘evaluate (xs, env2, s') = (rs', u')’]
+        >> rename [‘LIST_REL (v_rel f') vs vs'’]
+        >> first_x_assum $ qspec_then ‘T’ mp_tac
+        >> gvs []
         >> disch_then $ drule_at $ Pos $ el 2
-        >> drule env_rel_non_opt
-        >> strip_tac
-        >> gvs []
-        >> rename [‘env_rel F f env env2’]
-        >> disch_then drule
-        >> Cases_on ‘rs’
-        >> gvs []
-        (* Second inductive hypothesis *)
-        >- (rename [‘evaluate (xs,env,s) = (Rval vs,u)’]
-            >> strip_tac
-            >> rename [‘evaluate (xs, env2, s') = (rs', u')’]
-            >> rename [‘LIST_REL (v_rel f') vs vs'’]
-            >> first_x_assum $ qspec_then ‘T’ mp_tac
+        >> disch_then $ qspec_then ‘vs' ++ env2 ++ [RefPtr F hole_ptr; Number hole_idx]’ mp_tac
+        >> impl_tac
+        >-
+         (qpat_x_assum ‘env_rel F f env env2’ kall_tac
+          >> drule_all env_rel_submap
+          >> strip_tac
+          >> drule_all env_rel_append
+          >> gvs []
+          >> strip_tac                        
+          >> qexists ‘c’
+          >> irule unchanged_hole_has_val
+          >> drule_all hole_unchanged_submap
+          >> strip_tac
+          >> goal_assum $ drule_at $ Pos hd
+          >> rw []
+          >- irule only_fresh_refl
+          >> drule_at Any hole_has_val_append
+          >> disch_then $ qspecl_then [‘s'.refs’, ‘env2 ++ [RefPtr F hole_ptr; Number hole_idx]’, ‘env’, ‘c’] mp_tac
+          >> impl_tac
+          >-
+           (irule unchanged_hole_has_val
+            >> goal_assum $ drule_at $ Pos $ el 4
             >> gvs []
-            >> disch_then $ drule_at $ Pos $ el 2
-            >> disch_then $ qspec_then ‘vs' ++ env2 ++ [RefPtr F hole_ptr; Number hole_idx]’ mp_tac
-            >> impl_tac
-            >- (qpat_x_assum ‘env_rel F f env env2’ kall_tac
-                >> drule_all env_rel_submap
-                >> strip_tac
-                >> drule_all env_rel_append
-                >> gvs []
-                >> strip_tac                        
-                >> qexists ‘c’
-                >> irule unchanged_hole_has_val
-                >> drule_all hole_unchanged_submap
-                >> strip_tac
-                >> goal_assum $ drule_at $ Pos hd
-                >> rw []
-                >- irule only_fresh_refl
-                >> drule_at Any hole_has_val_append
-                >> disch_then $ qspecl_then [‘s'.refs’, ‘env2 ++ [RefPtr F hole_ptr; Number hole_idx]’, ‘env’, ‘c’] mp_tac
-                >> impl_tac
-                >-
-                 (irule unchanged_hole_has_val
-                  >> goal_assum $ drule_at $ Pos $ el 4
-                  >> gvs []
-                  >> simp [hole_unchanged_def])
-                >> strip_tac
-                >> gvs [])
-            >> strip_tac
-            >> drule evaluate_pad_env_val
-            >> disch_then $ qspec_then ‘[RefPtr F hole_ptr; Number hole_idx]’ mp_tac
-            >> gvs []
-            >> strip_tac
-            >> qexists ‘f'³'’
-            >> gvs []
-            >> rw []
-            >- imp_res_tac SUBMAP_TRANS
-            >- (
-             irule only_fresh_trans
-             >> rpt $ goal_assum $ drule_at Any
-             >> irule evaluate_refs_SUBSET
-             >> rpt $ goal_assum $ drule_at Any)
-            >-
-             (drule aux_strip_let
-              >> strip_tac
-              >> last_x_assum drule
-              >> strip_tac
-              >> gvs [evaluate_def])
-            >> first_x_assum $ qspecl_then [‘loc’, ‘loc_opt’] mp_tac
-            >> strip_tac
-            >> rev_drule evaluate_IMP_LENGTH
-            >> gvs [rewrite_opt_def, evaluate_def]
-            >> rpt strip_tac
-            >> first_x_assum drule
-            >> strip_tac
-            >> irule hole_has_val_submap
-            >> goal_assum $ drule_at Any
-            >> irule hole_has_val_unappend
-            >> rpt $ goal_assum $ drule_at Any
-            >> gvs [])
+            >> simp [hole_unchanged_def])
+          >> strip_tac
+          >> gvs [])
         >> strip_tac
-        >> rename [‘evaluate (xs,env2,s') = (r',t')’]
+        >> drule evaluate_pad_env_val
+        >> disch_then $ qspec_then ‘[RefPtr F hole_ptr; Number hole_idx]’ mp_tac
         >> gvs []
-        >> ‘e' ≠ Rabort Rtype_error’ by (spose_not_then assume_tac >> gvs [])
-        >> drule_all evaluate_pad_env_err
         >> strip_tac
-        >> gvs []
-        >> goal_assum $ drule_at Any
+        >> qexists ‘f'³'’
         >> gvs []
         >> rw []
-        >- (drule aux_strip_let
-            >> strip_tac
-            >> gvs [evaluate_def])
-        >> gvs [rewrite_opt_def, evaluate_def, opt_res_rel_def])
+        >- imp_res_tac SUBMAP_TRANS
+        >-
+         (irule only_fresh_trans
+          >> rpt $ goal_assum $ drule_at Any
+          >> irule evaluate_refs_SUBSET
+          >> rpt $ goal_assum $ drule_at Any)
+        >-
+         (drule aux_strip_let
+          >> strip_tac
+          >> last_x_assum drule
+          >> strip_tac
+          >> gvs [evaluate_def])
+        >> first_x_assum $ qspecl_then [‘loc’, ‘loc_opt’] mp_tac
+        >> strip_tac
+        >> rev_drule evaluate_IMP_LENGTH
+        >> gvs [rewrite_opt_def, evaluate_def]
+        >> rpt strip_tac
+        >> first_x_assum drule
+        >> strip_tac
+        >> irule hole_has_val_submap
+        >> goal_assum $ drule_at Any
+        >> irule hole_has_val_unappend
+        >> rpt $ goal_assum $ drule_at Any
+        >> gvs [])
+      >> strip_tac
+      >> rename [‘evaluate (xs,env2,s') = (r',t')’]
+      >> gvs []
+      >> ‘e' ≠ Rabort Rtype_error’ by (spose_not_then assume_tac >> gvs [])
+      >> drule_all evaluate_pad_env_err
+      >> strip_tac
+      >> gvs []
+      >> goal_assum $ drule_at Any
+      >> gvs []
+      >> rw []
+      >- (drule aux_strip_let
+          >> strip_tac
+          >> gvs [evaluate_def])
+      >> gvs [rewrite_opt_def, evaluate_def, opt_res_rel_def])
     (* Non-opt *)
     (* First inductive hypothesis *)
     >> first_x_assum $ qspec_then ‘F’ mp_tac
@@ -1187,19 +1191,20 @@ Proof
     >> gvs [CaseEq "prod", PULL_EXISTS]
     >> rename [‘evaluate ([x],env,s) = (v,u)’]
     >> Cases_on ‘opt’ >> gvs[]
-    >- (first_x_assum $ qspec_then ‘T’ mp_tac
-        >> disch_then drule
-        >> disch_then drule
-        >> impl_tac >> gvs []
-        >- (Cases_on ‘v’ >> gvs [] >> qexists ‘c’ >> gvs [])
-        >> strip_tac
-        >> rename [‘evaluate ([x],env2,s') = (v',u')’]
-        >> goal_assum $ drule_at Any
-        >> goal_assum $ drule_at Any
-        >> Cases_on ‘v’
-        >> gvs [rewrite_aux_def, rewrite_opt_def, evaluate_def, opt_res_rel_def]
-        >> imp_res_tac evaluate_SING_IMP
-        >> gvs [])
+    >-
+     (first_x_assum $ qspec_then ‘T’ mp_tac
+      >> disch_then drule
+      >> disch_then drule
+      >> impl_tac >> gvs []
+      >- (Cases_on ‘v’ >> gvs [] >> qexists ‘c’ >> gvs [])
+      >> strip_tac
+      >> rename [‘evaluate ([x],env2,s') = (v',u')’]
+      >> goal_assum $ drule_at Any
+      >> goal_assum $ drule_at Any
+      >> Cases_on ‘v’
+      >> gvs [rewrite_aux_def, rewrite_opt_def, evaluate_def, opt_res_rel_def]
+      >> imp_res_tac evaluate_SING_IMP
+      >> gvs [])
     >> first_x_assum $ qspec_then ‘F’ mp_tac
     >> gvs []
     >> disch_then drule
@@ -1294,41 +1299,45 @@ Proof
     >> gvs []
     >> Cases_on ‘s.clock’
     >> gvs []
-    >- (goal_assum $ drule_at Any
-        >> gvs []
-        >> rw []
-        >- (goal_assum $ drule_at Any
-            >> drule aux_strip_tick
-            >> strip_tac
-            >> gvs [evaluate_def])
-        >> (goal_assum $ drule_at Any
-            >> gvs [rewrite_opt_def, evaluate_def, opt_res_rel_def]))
+    >-
+     (goal_assum $ drule_at Any
+      >> gvs []
+      >> rw []
+      >-
+       (goal_assum $ drule_at Any
+        >> drule aux_strip_tick
+        >> strip_tac
+        >> gvs [evaluate_def])
+      >> goal_assum $ drule_at Any
+      >> gvs [rewrite_opt_def, evaluate_def, opt_res_rel_def])
     >> Cases_on ‘opt’
     >> gvs []
     (* Opt *)
-    >- (first_x_assum $ qspec_then ‘T’ mp_tac
-        >> simp []
-        >> disch_then drule
-        >> drule_all state_rel_dec
+    >-
+     (first_x_assum $ qspec_then ‘T’ mp_tac
+      >> simp []
+      >> disch_then drule
+      >> drule_all state_rel_dec
+      >> strip_tac
+      >> disch_then drule
+      >> strip_tac
+      >> gvs []
+      >> qexists ‘f''’
+      >> gvs []
+      >> rpt gen_tac
+      >> rw []
+      >> gvs []
+      >-
+       (drule aux_strip_tick
         >> strip_tac
-        >> disch_then drule
+        >> last_x_assum drule
         >> strip_tac
-        >> gvs []
-        >> qexists ‘f''’
-        >> gvs []
-        >> rpt gen_tac
-        >> rw []
-        >> gvs []
-        >- (drule aux_strip_tick
-            >> strip_tac
-            >> last_x_assum drule
-            >> strip_tac
-            >> qexists ‘t1’
-            >> gvs [evaluate_def])
-        >> pop_assum $ qspecl_then [‘loc’, ‘loc_opt’] mp_tac             
-        >> strip_tac
-        >> qexistsl [‘rrr’, ‘t2’]
-        >> gvs [rewrite_opt_def, evaluate_def])
+        >> qexists ‘t1’
+        >> gvs [evaluate_def])
+      >> pop_assum $ qspecl_then [‘loc’, ‘loc_opt’] mp_tac             
+      >> strip_tac
+      >> qexistsl [‘rrr’, ‘t2’]
+      >> gvs [rewrite_opt_def, evaluate_def])
     (* Non-opt *)
     >> first_x_assum $ qspec_then ‘F’ mp_tac
     >> simp []
@@ -1339,68 +1348,6 @@ Proof
     >> fs [])
   >~ [‘Force force_loc n’] >-
      cheat
-   (*gvs [evaluate_def]
-    >> Cases_on ‘n < LENGTH env’ >> gvs []
-    >> drule env_rel_length
-    >> strip_tac
-    >> gvs []
-    >> Cases_on ‘dest_thunk env❲n❳ s.refs’ >> gvs []
-    >> rename [‘dest_thunk env❲n❳ s.refs = IsThunk tm v’]
-
-    >> drule_all env_rel_el_v_rel
-    >> strip_tac
-
-        (* SKip *)
-    >> drule_at (Pos last) dest_thunk_tmc
-    >> rpt (disch_then drule)
-    >> strip_tac
-
-    >> Cases_on ‘env❲n❳’ >> gvs [dest_thunk_def]
-    >> rename [‘env❲n❳ = RefPtr b ptr’]
-    >> Cases_on ‘env2❲n❳’ >> gvs [v_rel_cases]
-    >> rename [‘env2❲n❳ = RefPtr b ptr'’]
-    >> Cases_on ‘tm’ >> gvs []
-    >- (Cases_on ‘FLOOKUP s.refs ptr’ >> gvs []
-        >> Cases_on ‘x’ >> gvs []
-        >> Cases_on ‘t’ >> gvs []
-        >> cheat)
-    >> Cases_on ‘FLOOKUP s.refs ptr’ >> gvs []
-    >> Cases_on ‘x’ >> gvs []
-    >> Cases_on ‘t'’ >> gvs []
-    >> rename [‘FLOOKUP s.refs ptr = SOME (Thunk NotEvaluated v)’]
-    >> Cases_on ‘find_code (SOME force_loc) [RefPtr b ptr; v] s.code’ >> gvs []
-    >> Cases_on ‘x’ >> gvs []
-    >> rename [‘find_code (SOME force_loc) [RefPtr b ptr; v] s.code = SOME (thunk_env, thunk_exp)’]
-    >> ‘s'.clock = s.clock’ by gvs [state_rel_def]
-    >> Cases_on ‘s.clock’ >> gvs []
-    >- (cheat)
-    >> last_x_assum $ qspec_then ‘F’ mp_tac
-    >> gvs []
-    >> drule state_rel_dec
-    >> gvs []
-    >> strip_tac
-    >> disch_then $ drule_at $ Pos $ el 2
-    >> disch_then 
-
-                       
-
-    >> drule_at (Pos last) dest_thunk_tmc
-    >> rpt (disch_then drule)
-    >> strip_tac
-    >> Cases_on ‘tm’ >> gvs []
-    >- (gvs [state_rel_def]
-        >> gvs [dest_thunk_def]
-        >> )
-
-                           
-    >> Cases_on ‘dest_thunk env2❲n❳ s'.refs’ >> gvs []
-    >- ()
-
-
-
-    >> 
-       
-    *)
   >~ [‘Call ticks dest xs handler’] >-
    (gvs [evaluate_def] >> cheat)
 QED
