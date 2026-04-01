@@ -791,8 +791,7 @@ Proof
     >> strip_tac
     >> gvs []
     >> irule hole_unchanged_refl)
-  >~ [‘If x1 x2 x3’] >-
-     
+  >~ [‘If x1 x2 x3’] >-     
    (gvs [evaluate_def]
     >> gvs [CaseEq "prod", PULL_EXISTS]
     >> rename [‘evaluate ([x1],env,s) = (r1,u)’]
@@ -888,12 +887,26 @@ Proof
             >> drule_all env_rel_submap
             >> strip_tac
             >> disch_then drule
+            >> gvs []
+            >> impl_tac
+            >-
+             (qexists ‘c’
+              >> irule unchanged_hole_has_val
+              >> goal_assum $ drule_at $ Pos hd
+              >> gvs [])
             >> strip_tac
             >> gvs []
             >> goal_assum $ drule_at Any
             >> gvs []
             >> rw []
             >- (imp_res_tac SUBMAP_TRANS)
+            >-
+             (irule only_fresh_trans
+              >> goal_assum $ drule_at $ Pos $ el 2
+              >> goal_assum $ drule_at Any
+              >> irule evaluate_refs_SUBSET
+              >> qexistsl [‘env2’, ‘Rval [Boolv F]’, ‘[x1]’]
+              >> gvs [])
             >- (drule aux_strip_if_else
                 >> strip_tac
                 >- (first_x_assum drule
@@ -903,9 +916,16 @@ Proof
                 >> gvs [evaluate_def])
             >> first_x_assum $ qspecl_then [‘loc’, ‘loc_opt’] mp_tac
             >> strip_tac
-            >> gvs [rewrite_opt_def, evaluate_def])
+            >> gvs [rewrite_opt_def, evaluate_def]
+            >> gen_tac
+            >> strip_tac
+            >> first_x_assum $ qspec_then ‘res_v’ mp_tac
+            >> gvs []
+            >> strip_tac
+            >> drule_all hole_has_val_submap
+            >> gvs [])
         >> strip_tac
-        >> rename [‘evaluate ([x1],env2,s') = (r1',s1')’]
+        >> rename [‘evaluate ([x1],env2,s') = (r1',u')’]
         >> gvs []
         >> ‘e' ≠ Rabort Rtype_error’ by (spose_not_then assume_tac >> gvs [])
         >> drule_all evaluate_pad_env_err
@@ -929,7 +949,7 @@ Proof
     >> gvs []
     >- (spose_not_then assume_tac >> fs [])
     >> strip_tac
-    >> rename [‘evaluate ([x1],env2,s') = (r1',s1')’]
+    >> rename [‘evaluate ([x1],env2,s') = (r1',u')’]
     >> gvs []
     >> Cases_on ‘r1’
     >> gvs []
@@ -949,7 +969,15 @@ Proof
             >> gvs []
             >> qexists ‘f'³'’
             >> gvs []
-            >> imp_res_tac SUBMAP_TRANS)
+            >> rw []
+            >- imp_res_tac SUBMAP_TRANS
+            >-
+             (irule only_fresh_trans
+              >> rpt $ goal_assum $ drule_at Any
+              >> irule evaluate_refs_SUBSET
+              >> rpt $ goal_assum $ drule_at Any)
+            >> irule hole_unchanged_trans
+            >> rpt $ goal_assum $ drule_at Any)
         (* else inductive hypothesis *)
         >> Cases_on ‘v1 = Boolv F’
         >> gvs []
@@ -963,10 +991,19 @@ Proof
         >> gvs []
         >> qexists ‘f'³'’
         >> gvs []
-        >> imp_res_tac SUBMAP_TRANS)
+        >> rw []
+        >- imp_res_tac SUBMAP_TRANS
+        >-
+         (irule only_fresh_trans
+          >> rpt $ goal_assum $ drule_at Any
+          >> irule evaluate_refs_SUBSET
+          >> rpt $ goal_assum $ drule_at Any)
+        >> irule hole_unchanged_trans
+        >> rpt $ goal_assum $ drule_at Any)
     >> qexists ‘f''’
     >> gvs [])
-  >~ [‘Let xs x2’] >-     
+  >~ [‘Let xs x2’] >-
+     
    (gvs [evaluate_def]
     >> gvs [CaseEq "prod", PULL_EXISTS]
     >> rename [‘evaluate (xs,env,s) = (rs,u)’]
