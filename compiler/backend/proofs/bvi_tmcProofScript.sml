@@ -1053,7 +1053,6 @@ Proof
     >> qexists ‘f''’
     >> gvs [])
   >~ [‘Let xs x2’] >-
-     
    (gvs [evaluate_def]
     >> gvs [CaseEq "prod", PULL_EXISTS]
     >> rename [‘evaluate (xs,env,s) = (rs,u)’]
@@ -1160,19 +1159,27 @@ Proof
     >> Cases_on ‘rs’
     >> gvs []
     (* Second inductive hypothesis *)
-    >- (first_x_assum $ qspec_then ‘F’ mp_tac
-        >> simp []
-        >> drule_all env_rel_submap
-        >> strip_tac
-        >> strip_tac
-        >> drule_all env_rel_append
-        >> strip_tac
-        >> first_x_assum drule_all
-        >> strip_tac
-        >> gvs []
-        >> qexists ‘f'³'’
-        >> rw []
-        >> imp_res_tac SUBMAP_TRANS)
+    >-
+     (first_x_assum $ qspec_then ‘F’ mp_tac
+      >> simp []
+      >> drule_all env_rel_submap
+      >> strip_tac
+      >> strip_tac
+      >> drule_all env_rel_append
+      >> strip_tac
+      >> first_x_assum drule_all
+      >> strip_tac
+      >> gvs []
+      >> qexists ‘f'³'’
+      >> rw []
+      >- imp_res_tac SUBMAP_TRANS
+      >- (* TODO: this could be a lemma i think *)
+       (irule only_fresh_trans
+        >> rpt $ goal_assum $ drule_at Any
+        >> irule evaluate_refs_SUBSET
+        >> rpt $ goal_assum $ drule_at Any)
+      >> irule hole_unchanged_trans
+      >> rpt $ goal_assum $ drule_at Any)
     >> goal_assum $ drule_at Any
     >> gvs [])
   >~ [‘Raise x’] >-
@@ -1183,9 +1190,8 @@ Proof
     >- (first_x_assum $ qspec_then ‘T’ mp_tac
         >> disch_then drule
         >> disch_then drule
-        >> impl_tac
-        >- (Cases_on ‘v’ >> gvs [])
-        >> gvs []
+        >> impl_tac >> gvs []
+        >- (Cases_on ‘v’ >> gvs [] >> qexists ‘c’ >> gvs [])
         >> strip_tac
         >> rename [‘evaluate ([x],env2,s') = (v',u')’]
         >> goal_assum $ drule_at Any
@@ -1202,13 +1208,12 @@ Proof
     >- (Cases_on ‘v’ >> gvs [])
     >> strip_tac
     >> rename [‘evaluate ([x],env2,s') = (v',u')’]
-    >> goal_assum $ drule_at Any
-    >> goal_assum $ drule_at Any
-    >> Cases_on ‘v’
-    >> gvs [rewrite_aux_def, rewrite_opt_def, evaluate_def, opt_res_rel_def]
+    >> rpt $ goal_assum $ drule_at Any
+    >> Cases_on ‘v’ >> gvs []
     >> imp_res_tac evaluate_SING_IMP
     >> gvs [])
   >~ [‘Op op xs’] >-
+
    cheat
    (*gvs [evaluate_def]
     >> gvs [CaseEq "prod", PULL_EXISTS]
