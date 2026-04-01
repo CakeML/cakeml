@@ -663,6 +663,15 @@ Proof
   >> gvs [EL_APPEND_EQN]
 QED
 
+Theorem hole_has_val_dec:
+  ∀f env env' s c n.
+    hole_has_val f env env' s.refs c ∧
+    s.clock = SUC n ⇒
+    hole_has_val f env env' (dec_clock 1 s).refs c
+Proof
+  rw [hole_has_val_def]
+QED
+
 Theorem only_fresh_refl:
   ∀f refs. only_fresh f f refs
 Proof
@@ -1303,15 +1312,17 @@ Proof
      (goal_assum $ drule_at Any
       >> gvs []
       >> rw []
+      >- gvs [only_fresh_refl]
       >-
        (goal_assum $ drule_at Any
         >> drule aux_strip_tick
         >> strip_tac
         >> gvs [evaluate_def])
-      >> goal_assum $ drule_at Any
-      >> gvs [rewrite_opt_def, evaluate_def, opt_res_rel_def])
-    >> Cases_on ‘opt’
-    >> gvs []
+      >-
+        (goal_assum $ drule_at Any
+         >> gvs [rewrite_opt_def, evaluate_def, opt_res_rel_def])
+      >> gvs [hole_unchanged_refl])
+    >> Cases_on ‘opt’ >> gvs []
     (* Opt *)
     >-
      (first_x_assum $ qspec_then ‘T’ mp_tac
@@ -1320,6 +1331,10 @@ Proof
       >> drule_all state_rel_dec
       >> strip_tac
       >> disch_then drule
+      >> drule_all hole_has_val_dec
+      >> strip_tac
+      >> impl_tac
+      >- (qexists ‘c’ >> gvs [hole_has_val_dec])
       >> strip_tac
       >> gvs []
       >> qexists ‘f''’
