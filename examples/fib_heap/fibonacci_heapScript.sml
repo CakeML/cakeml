@@ -2224,7 +2224,7 @@ Proof
   rename [`(k,v,e)`] >>
   Cases_on `FLOOKUP (fh |+ (k,v,e)) 0w = NONE`
   >- (
-    last_x_assum(qspec_then `(fh |+ (k,v,e))` assume_tac) >>
+    first_x_assum(qspec_then `(fh |+ (k,v,e))` assume_tac) >>
     rfs[]
     ) >>
   fs[FLOOKUP_SIMP]
@@ -2250,9 +2250,11 @@ Proof
   pop_assum mp_tac >> simp[Once fts_has_cases] >>
   disch_tac >> fs[]
   >- fs[fill_dnode_def, node_data_component_equality]
-  >- (disj2_tac >> disj1_tac >> qexists `m` >> simp[]) >>
-  rpt disj2_tac >> qexists `m` >> simp[]
+  >- (disj2_tac >> disj2_tac >> qexists `m` >> simp[]) >>
+  disj2_tac >> disj1_tac >> qexists `m` >> simp[]
 QED
+
+
 
 Theorem lemma_map_upd_mem_fst:
   !xs k.
@@ -2363,11 +2365,11 @@ Proof
     fs[fts_all_dist_def,map_upd_list_def] >>
     rpt strip_tac
     >- (
-      qspecl_then [`xs''`,`k`,`xs.value`,`xs.edges`]
+      qspecl_then [`xs'`,`k`,`xs.value`,`xs.edges`]
         assume_tac lemma_mem_eq_fts_has >> rfs[]
       )
     >- (
-      qspecl_then [`xs'`,`k`,`xs.value`,`xs.edges`]
+      qspecl_then [`xs''`,`k`,`xs.value`,`xs.edges`]
         assume_tac lemma_mem_eq_fts_has >> rfs[]
       ) >>
     simp[ALL_DISTINCT_APPEND] >>
@@ -2403,40 +2405,30 @@ Proof
   rpt conj_tac
   >- (
     spose_not_then assume_tac >>
-    qspecl_then [`xs''`,`k`] assume_tac lemma_map_upd_mem_fst >>
-    res_tac >>
-    qspecl_then [`xs''`,`k`,`v`,`e`] assume_tac lemma_mem_eq_fts_has >>
-    res_tac >>
-    last_x_assum(qspec_then `fill_dnode v e m` assume_tac) >>
-    fs[]
+    imp_res_tac lemma_map_upd_mem_fst >>
+    imp_res_tac lemma_mem_eq_fts_has >>
+    rfs[]
     )
   >- (
     spose_not_then assume_tac >>
-    qspecl_then [`xs'`,`k`] assume_tac lemma_map_upd_mem_fst >>
-    res_tac >>
-    qspecl_then [`xs'`,`k`,`v`,`e`] assume_tac lemma_mem_eq_fts_has >>
-    res_tac >>
-    last_x_assum(qspec_then `fill_dnode v e m` assume_tac) >>
-    fs[]
+    imp_res_tac lemma_map_upd_mem_fst >>
+    imp_res_tac lemma_mem_eq_fts_has >>
+    rfs[]
     ) >>
   simp[ALL_DISTINCT_APPEND] >>
   rpt strip_tac >>
   rename [`MEM k' (MAP FST (map_upd_list xs'))`] >>
-  qspecl_then [`xs'`,`k'`] assume_tac lemma_map_upd_mem_fst >> rfs[] >>
-  qspecl_then [`xs''`,`k'`] assume_tac lemma_map_upd_mem_fst >> rfs[] >>
-  qspecl_then [`xs'`,`k'`,`v`,`e`] assume_tac lemma_mem_eq_fts_has >> rfs[] >>
-  qspecl_then [`xs''`,`k'`,`v'`,`e'`] assume_tac lemma_mem_eq_fts_has >> rfs[] >>
-  qpat_x_assum `fts_has_inj (FibTree k xs xs'::xs'')` mp_tac >>
+  imp_res_tac lemma_map_upd_mem_fst >>
+  imp_res_tac lemma_mem_eq_fts_has >>
+  qpat_x_assum `fts_has_inj (FibTree k xs xs''::xs')` mp_tac >>
   pure_rewrite_tac[fts_has_inj_def] >>
   disch_tac >>
-  first_x_assum (qspecl_then [`k'`,`(fill_dnode v e m)`,`(fill_dnode v' e' m')`]
+  first_x_assum (qspecl_then [`k'`,`(fill_dnode v e m')`,`(fill_dnode v' e' m)`]
     assume_tac) >>
   pop_assum mp_tac >>
-  pure_rewrite_tac[Once fts_has_cases] >>
-  disch_tac >> rfs[] >>
+  pure_rewrite_tac[Once fts_has_cases] >> disch_tac >> rfs[] >>
   pop_assum mp_tac >>
-  pure_rewrite_tac[Once fts_has_cases] >>
-  disch_tac >> rfs[] >>
+  pure_rewrite_tac[Once fts_has_cases] >> disch_tac >> rfs[] >>
   gvs[]
 QED
 
@@ -2444,7 +2436,7 @@ QED
 
 Theorem lemma_disjoint_alist_imp_disjoint_fmap:
   DISJOINT (set xs) (set ys) ==>
-  DISJIONT (FDOM alist_to_fmap xs) (FDOM alist_to_fmap ys)
+  DISJOINT (FDOM $ alist_to_fmap xs) (FDOM $ alist_to_fmap ys)
 Proof
   cheat
 QED
@@ -2457,7 +2449,6 @@ Theorem lemma_alist_to_fmap_disjoint:
 Proof
   strip_tac >>
   imp_res_tac lemma_fts_all_dist_imp_map_upd_all_distinct >>
-  fs[map_upd_list_append] >>
   cheat
 QED
 
@@ -2476,9 +2467,9 @@ Theorem lemma_forest_split:
   !k v e. FLOOKUP fh k = SOME(v,e) <=> ?m. fts_has k (fill_dnode v e m) (xs ++ ys)
   <=>
   ?fhx fhy.
-    !k v e. FLOOKUP fhx k = SOME(v,e) <=> ?m. fts_has k (fill_dnode v e m) xs /\
+    (!k v e. FLOOKUP fhx k = SOME(v,e) <=> ?m. fts_has k (fill_dnode v e m) xs) /\
     fts_all_dist xs /\
-    !k v e. FLOOKUP fhy k = SOME(v,e) <=> ?m. fts_has k (fill_dnode v e m) ys
+    (!k v e. FLOOKUP fhy k = SOME(v,e) <=> ?m. fts_has k (fill_dnode v e m) ys) /\
     fts_all_dist ys /\
     DISJOINT (FDOM fhx) (FDOM fhy) /\ fh = FUNION fhx fhy
 Proof
@@ -2515,10 +2506,9 @@ Proof
   res_tac >>
   pop_assum $ irule_at Any
    ) >>
-  >- (
-QED
+  cheat
 
-print_find "ALOOKUP_MEM"
+QED
 
 
 Theorem lemma_flookup_list_append_update:
@@ -2579,7 +2569,7 @@ Proof
 QED
 
 
-
+(*
 Theorem lemma_map_extract_head:
   !fts fh k n l v e.
     fts_all_dist (FibTree k n l::fts) /\ FLOOKUP fh k = NONE /\
@@ -2595,7 +2585,7 @@ Proof
   strip_tac >>
   fs[fill_dnode_def,node_data_component_equality]
 QED
-
+*)
 
 
 Theorem lemma_list_upd_not_null:
@@ -2610,7 +2600,7 @@ Proof
   simp[map_upd_list_def,lemma_flookup_list_append_update] >>
   fs[list_keys_not_null_def] >>
   Cases_on `FLOOKUP (fh |+ (k,n.value,n.edges)) 0w = NONE`
-  >- (last_x_assum(qspec_then `(fh |+ (k,n.value,n.edges))` assume_tac) >> rfs[]) >>
+  >- (first_x_assum(qspec_then `(fh |+ (k,n.value,n.edges))` assume_tac) >> rfs[]) >>
   fs[FLOOKUP_SIMP]
 QED
 
@@ -2629,13 +2619,12 @@ Proof
   pure_rewrite_tac[lemma_flookup_list_append_update] >>
   strip_tac >>
   rename[`fh |+ (k,n.value,n.edges)`] >>
-  first_x_assum(qspecl_then [`(fh |+ (k,n.value,n.edges) |++ map_upd_list fts'')`,
+  last_x_assum(qspecl_then [`(fh |+ (k,n.value,n.edges) |++ map_upd_list fts')`,
     `k'`,`v`,`e`] assume_tac) >>
   rfs[] >>
   first_x_assum(qspecl_then[`(fh |+ (k,n.value,n.edges))`,`k'`,`v`,`e`] assume_tac) >>
   rfs[] >>
-  Cases_on `k = k'` >>
-  fs[FLOOKUP_SIMP]
+  Cases_on `k = k'` >> fs[FLOOKUP_SIMP]
 QED
 
 
@@ -3088,6 +3077,15 @@ Proof
       fs[Once fts_has_cases]
      ) >>
     simp[FLOOKUP_SIMP] >>
+    simp[Once fts_has_cases] >>
+    simp[Once fts_has_cases]
+    )
+  >- (
+    fs[fts_all_dist_def,fts_has_inj_def] >>
+    simp[Once fts_has_cases] >>
+    simp[Once fts_has_cases] >>
+    simp[Once fts_has_cases] >>
+    simp[Once fts_has_cases] >>
     simp[Once fts_has_cases] >>
     simp[Once fts_has_cases]
     )
