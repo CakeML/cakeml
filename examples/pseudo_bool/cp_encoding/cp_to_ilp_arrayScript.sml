@@ -380,42 +380,34 @@ Theorem encode_element2d_sem_2:
 Proof
   PairCases_on ‘Y1i’>>
   PairCases_on ‘Y2i’>>
-  rename1 ‘element2d_sem _ (Y1,offset1) (Y2,offset2) _ _’>>
-  rw[encode_element2d_def]>>
-  gs[EVERY_FLAT,element2d_sem_def,mk_array_ind_def,encode_element2d_def,
-    MEM_FLAT,SF DNF_ss,EVERY_GENLIST]>>
-  rename1 ‘EVERY (λXs. LENGTH Xs = len) _’>>
-  qexists ‘len’>>
+  rename1 ‘element2d_sem _ (Y1,offset1) _ _ _’>>
+  rw[encode_element2d_def,element2d_sem_def,mk_array_ind_def,
+    EVERY_FLAT,MEM_FLAT,EVERY_GENLIST,SF DNF_ss]>>
+  ‘EVERY (λXs. LENGTH Xs = LENGTH (HD Xss)) Xss’ by (
+    Cases_on ‘Xss’>>
+    fs[])>>
+  qexists ‘LENGTH (HD Xss)’>>
   simp[CONJ_ASSOC]>>
   CONJ_ASM1_TAC
   >-(
-    ‘LENGTH (HD Xss) = len’ by (
-      Cases_on ‘Xss’>>
-      fs[])>>
     gs[]>>
     simp[Once $ GSYM CONJ_ASSOC]>>
     CONJ_TAC>>
-    metis_tac[encode_element_sem_2_aux])
-  >-(
-    ‘Xss ≠ []’ by simp[GSYM LENGTH_NON_NIL]>>
-    drule_then assume_tac HEAD_MEM>>
-    fs[encode_element2d_aux_def,EVERY_FLAT]>>
-    qmatch_asmsub_abbrev_tac ‘EVERY P (MAPi _ _)’>>
-    gvs[MEM_MAPi,SF DNF_ss,EVERY_MEM]>>
-    unabbrev_all_tac>>
-    fs[EVERY_FLAT]>>
-    qmatch_asmsub_abbrev_tac ‘EVERY P (MAPi _ _)’>>
-    gvs[MEM_MAPi,SF DNF_ss,EVERY_MEM]>>
-    qmatch_asmsub_abbrev_tac ‘i < LENGTH Xss’>>
-    drule_then assume_tac EL_MEM>>
-    first_x_assum $ drule>>
-    first_x_assum $ drule_then assume_tac>>
-    disch_then $ (fn thm => fs[thm])>>
-    qmatch_asmsub_abbrev_tac ‘j < len’>>
-    rpt (first_x_assum $ drule_then assume_tac)>>
-    unabbrev_all_tac>>
-    gvs[EVERY_MEM,bits_imply_sem]>>
-    intLib.ARITH_TAC)
+    metis_tac[encode_element_sem_2_aux])>>
+  fs[encode_element2d_aux_def,EVERY_FLAT]>>
+  qmatch_asmsub_abbrev_tac ‘EVERY P (MAPi _ _)’>>
+  fs[MEM_MAPi,SF DNF_ss,EVERY_MEM]>>
+  first_x_assum $ drule_then assume_tac>>
+  fs[Abbr‘P’,EVERY_FLAT]>>
+  qmatch_asmsub_abbrev_tac ‘EVERY P (MAPi _ _)’>>
+  fs[EVERY_MEM,MEM_MAPi,SF DNF_ss]>>
+  ‘LENGTH (EL (Num (varc wi Y1 − offset1)) Xss) =
+    LENGTH (HD Xss)’ by simp[EL_MEM]>>
+  fs[]>>
+  rpt (first_x_assum $ drule_then assume_tac)>>
+  unabbrev_all_tac>>
+  gs[]>>
+  intLib.ARITH_TAC
 QED
 
 Theorem cencode_element2d_sem:
