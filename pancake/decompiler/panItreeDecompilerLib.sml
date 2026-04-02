@@ -453,8 +453,9 @@ fun mk_eval_let_exps_term_loop trm_some =
       let val (let_term, inner_eval_some_terms) = valOf eval_let_exps
           val (eq_terms, leaf_terms) = ListPair.unzip (map mk_eval_let_exps_term_loop inner_eval_some_terms)
           val subst_term_list = map eq_term_to_subst $ List.concat eq_terms
+          val subst_leaf_list = map (subst subst_term_list) $ List.concat leaf_terms
       in
-        ([subst subst_term_list let_term], List.concat leaf_terms)
+        ([subst subst_term_list let_term], subst_leaf_list)
         end
     else
       ([], [trm_some])
@@ -1609,6 +1610,8 @@ fun decompile_2_reduce file_name extra_assms fundec =
                decompile_body_no_sep (mlstring_term_to_string x) body_thms body_thms [] extra_assms scode lookup_thms fundec 0 y
            in
              (body_thm |> DISCH_ALL
+                       |> (fn x => (SIMP_RULE (srw_ss ()) tree_simp_rules) x)
+                       |> DISCH_ALL
                        |> UNDISCH_COMP_CONJUNCTS_ALL
                        |> eval_simp_with_hyp_rpt
                        |> eq_val_struct_eq_some_simp
@@ -1622,7 +1625,9 @@ fun decompile_2_reduce file_name extra_assms fundec =
                        |> SIMP_RULE (srw_ss ()) [shape_of_def, size_of_shape_def]
                        |> conj_safe_spin_wbisim_lifting
               , map (fn x => x |> DISCH_ALL
-                               |> UNDISCH_COMP_CONJUNCTS_ALL
+                               |> (fn x => (SIMP_RULE (srw_ss ()) tree_simp_rules) x)
+                               |> DISCH_ALL
+                               |> UNDISCH_COMP_CONJUNCTS_ALL 
                                |> eval_simp_with_hyp_rpt
                                |> eq_val_struct_eq_some_simp
                                |> DISCH_ALL

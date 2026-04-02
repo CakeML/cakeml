@@ -1,0 +1,22 @@
+fun reverse (1 base_addr, 1 len) {
+  if (len <=+ 1) {
+    return 0;
+  }
+  var xt = 0;
+  var yt = len - 1;
+  while (xt <+ yt) {
+    var xv = lds 1 (base_addr + (xt * 8));
+    var yv = lds 1 (base_addr + (yt * 8));
+    st (base_addr + (xt * 8)), yv;
+    st (base_addr + (yt * 8)), xv;
+    xt = xt + 1;
+    yt = yt - 1;
+  }
+  return 0;
+}
+
+fun reverse_twice (1 base_addr, 1 len) {
+  reverse (base_addr, len);
+  reverse (base_addr, len);
+  return 0;
+}
