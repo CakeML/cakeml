@@ -62,7 +62,7 @@ Definition pres_string_def:
   pres_string pres =
   let c_string =
     concatWith (strlit" ") pres in
-  strlit"preserve_init " ^ c_string ^ strlit" \n"
+  strlit"preserved: " ^ c_string ^ strlit" ;\n"
 End
 
 (* Problem without annotation *)
@@ -73,7 +73,7 @@ Definition print_prob_def:
     obstr ++ presstr ++ MAP pbc_string fml
 End
 
-(* Problem without annotation *)
+(* Problem with annotation *)
 Definition print_annot_prob_def:
   print_annot_prob (pres,obj,fml) =
   let obstr = case obj of NONE => [] | SOME fc => [obj_string fc] in
@@ -292,14 +292,14 @@ End
 Definition parse_pres_def:
   (parse_pres [] = NONE) ∧
   (parse_pres (x::xs) =
-    if x = INL (strlit "preserve_init") then
+    if x = INL (strlit "preserved:") then
       OPTION_BIND (strip_term_line xs) parse_vars_raw
     else NONE)
 End
 
 (*
-  EVAL``parse_pres (toks (strlit"preserve_init x1 x2 x2 a b c ;"))``
-  EVAL``parse_pres (toks (strlit"preserve_init x1 x2 x2 a b c;"))``
+  EVAL``parse_pres (toks (strlit"preserved: x1 x2 x2 a b c ;"))``
+  EVAL``parse_pres (toks (strlit"preserved: x1 x2 x2 a b c;"))``
 *)
 
 (* parse optional objective line *)
@@ -434,6 +434,13 @@ Definition parse_lit_num_def:
     | SOME l => apply_lit f_ns l
 End
 
+Definition binopc_def:
+  binopc stack =
+  case stack of
+    Id a::b::rest => SOME (a,b,rest)
+  | _ => NONE
+End
+
 (* Parsing cutting planes in polish notation (header "pol", ";" stripped) *)
 Definition parse_cutting_aux_def:
   (parse_cutting_aux f_ns (x::xs) stack =
@@ -442,26 +449,43 @@ Definition parse_cutting_aux_def:
       parse_cutting_aux f_ns xs (Id (Num n) :: stack)
     else NONE
   | INL s =>
-  if s = str #"+" then
-    (case stack of
-      a::b::rest => parse_cutting_aux f_ns xs (Add b a::rest)
-    | _ => NONE)
-  else if s = str #"*" then
-    (case stack of
-      Id a::b::rest => parse_cutting_aux f_ns xs (Mul b a::rest)
-    | _ => NONE)
-  else if s = str #"d" then
-    (case stack of
-      Id a::b::rest => parse_cutting_aux f_ns xs (Div b a::rest)
-    | _ => NONE)
-  else if s = str #"s" then
-    (case stack of
-      a::rest => parse_cutting_aux f_ns xs (Sat a::rest)
-    | _ => NONE)
-  else if s = str #"w" then
-    (case stack of
-      Lit (Pos v)::a::rest => parse_cutting_aux f_ns xs (Weak a [v]::rest)
-    | _ => NONE)
+  if strlen s = 1
+  then
+    let c = strsub s 0 in
+      if c = #"+" then
+        (case stack of
+          a::b::rest => parse_cutting_aux f_ns xs (Add b a::rest)
+        | _ => NONE)
+      else if c = #"*" then
+        (case binopc stack of NONE => NONE
+        | SOME (a,b,rest) => parse_cutting_aux f_ns xs (Mul b a::rest))
+      else if c = #"w" then
+        (case stack of
+          Lit (Pos v)::a::rest => parse_cutting_aux f_ns xs (Weak a [v]::rest)
+        | _ => NONE)
+      else if c = #"s" then
+        (case stack of
+          a::rest => parse_cutting_aux f_ns xs (Sat a::rest)
+        | _ => NONE)
+     else if c = #"c" then
+      (case binopc stack of NONE => NONE
+      | SOME (a,b,rest) => parse_cutting_aux f_ns xs (Div Cd b a::rest))
+     else if c = #"d" then
+      (case binopc stack of NONE => NONE
+      | SOME (a,b,rest) => parse_cutting_aux f_ns xs (Div Dd b a::rest))
+     else if c = #"m" then
+      (case binopc stack of NONE => NONE
+      | SOME (a,b,rest) => parse_cutting_aux f_ns xs (Div Md b a::rest))
+     else if c = #"n" then
+      (case binopc stack of NONE => NONE
+      | SOME (a,b,rest) => parse_cutting_aux f_ns xs (Div Nd b a::rest))
+     else if c = #"-" then
+      (case binopc stack of NONE => NONE
+      | SOME (a,b,rest) => parse_cutting_aux f_ns xs (Minus b a::rest))
+     else
+      (case parse_lit_num f_ns s of
+      | SOME (l,f_ns1)=> parse_cutting_aux f_ns1 xs (Lit l::stack)
+      | NONE => NONE)
   else
     case parse_lit_num f_ns s of
     | SOME (l,f_ns1)=> parse_cutting_aux f_ns1 xs (Lit l::stack)
@@ -475,7 +499,7 @@ Definition parse_cutting_def:
 End
 
 (*
-  EVAL ``parse_cutting (plainVar_nf,()) (toks_fast (strlit "8 2 + 3 + 1 s + 9 2 d + x5 2 * +"))``;
+  EVAL ``parse_cutting (plainVar_nf,()) (toks_fast (strlit "8 2 + 3 + 1 s + 9 2 n + x5 2 * + 5 -"))``;
 *)
 
 (* Parse a pseudo-Boolean constraint *)
@@ -615,6 +639,22 @@ Definition parse_lstep_aux_def:
       else if r = INL (strlit "rup") then
         (case parse_rup f_ns rs of NONE => NONE
         | SOME (c,ns,f_ns') => SOME (INL (Rup c ns),f_ns'))
+      else if r = INL (strlit "e") then
+        (case parse_constraint_npbc f_ns rs of
+          NONE => NONE
+        | SOME (c,rest,f_ns') =>
+          case colon_id_opt rest of
+          | SOME (SOME res) =>
+            SOME (INL (Check res c), f_ns')
+          | _ => NONE)
+      else if r = INL (strlit "ia") then
+        (case parse_constraint_npbc f_ns rs of
+          NONE => NONE
+        | SOME (c,rest,f_ns') =>
+          case colon_id_opt rest of
+          | SOME (SOME res) =>
+            SOME (INL (ImplyAdd res c), f_ns')
+          | _ => NONE)
       else if r = INL (strlit "e") then
         (case parse_constraint_npbc f_ns rs of
           NONE => NONE
@@ -1593,6 +1633,18 @@ EVAL ``parse_sol (plainVar_nf,()) (INL (strlit "sol")) (toks_fast (strlit "x1 ~x
 EVAL ``parse_sol (plainVar_nf,()) (INL (strlit "soli")) (toks_fast (strlit "x1 ~x2 ~x3"))``
 *)
 
+Definition parse_solx_def:
+  (parse_solx f_ns rs =
+  case parse_assg f_ns rs [] of
+  | SOME (assg,NONE,f_ns') =>
+      SOME (Done (Sol assg),f_ns')
+  | _ => NONE)
+End
+
+(*
+EVAL ``parse_solx (plainVar_nf,()) (toks_fast (strlit "x1 ~x2 ~x3"))``
+*)
+
 Definition parse_obj_term_npbc_def:
   parse_obj_term_npbc f_ns rest =
   case parse_obj_term rest of NONE => NONE
@@ -1666,23 +1718,36 @@ End
 EVAL``parse_b_obj_term_npbc (plainVar_nf,()) (toks_fast (strlit "new 1 x1 2 : subproof"))``
 *)
 
-(* TODO: preserve *)
+(* preserve_add and remove steps *)
 Definition parse_preserve_def:
-  (parse_preserve f_ns (INL c::cs) =
-    case parse_var f_ns c of
+  (parse_preserve f_ns rest =
+   case strip_obju_end rest of
+   | SOME (INL c::cs) =>
+    (case parse_var f_ns c of
       NONE => NONE
     | SOME (x,f_ns') =>
     (case parse_constraint_npbc f_ns' cs of
-      SOME (constr,rest,f_ns'') =>
-        (case rest of
-          [INL beg] =>
-            if beg = strlit"subproof" then
-              SOME (x,constr,f_ns'')
-            else NONE
-        | _ => NONE)
-      | NONE => NONE)) ∧
-  (parse_preserve f_ns _ = NONE)
+      SOME (constr,[],f_ns'') =>
+        SOME (x,constr,f_ns'')
+      | _ => NONE))
+  | _ => NONE)
 End
+
+(*
+  EVAL``parse_preserve (plainVar_nf,()) (toks_fast (strlit "x1 1 x1 2 x2 >= 5 : subproof"))``
+*)
+
+Definition parse_epres_def:
+  parse_epres f_ns rs =
+  case parse_vars_line_aux f_ns rs of
+    SOME (vs,f_ns') =>
+      SOME (Done (CheckPres (list_to_num_set vs)), f_ns')
+  | _ => NONE
+End
+
+(*
+  EVAL``parse_epres (plainVar_nf,()) (toks_fast (strlit "x4 x2 x3"))``
+*)
 
 (* Parse the first line of a cstep, sstep supported differently later
   Here we first parse the multi-line, then the single line steps *)
@@ -1708,11 +1773,11 @@ Definition parse_cstep_head_def:
       (case parse_b_obj_term_npbc f_ns rs of NONE => NONE
       | SOME (b,f',f_ns') =>
         SOME (ChangeObjpar b f', f_ns'))
-    else if r = INL (strlit "preserve_add") ∨
-            r = INL (strlit "preserve_remove") then
+    else if r = INL (strlit "preserved_add") ∨
+            r = INL (strlit "preserved_rm") then
       case parse_preserve f_ns rs of NONE => NONE
       | SOME (x, c, f_ns') =>
-        let b = (r = INL(strlit "preserve_add")) in
+        let b = (r = INL(strlit "preserved_add")) in
           SOME (ChangePrespar b x c,f_ns')
     else
     case strip_term_line rs of NONE => NONE
@@ -1725,10 +1790,15 @@ Definition parse_cstep_head_def:
       parse_load_order f_ns rs
     else if r = INL (strlit "soli") ∨ r = INL (strlit "sol") then
       parse_sol f_ns r rs
+    else if r = INL (strlit "solx") then
+      parse_solx f_ns rs
     else if r = INL (strlit "obji") then
       parse_obji f_ns rs
     else if r = INL (strlit "eobj") then
       parse_eobj f_ns rs
+    else if
+      r = INL (strlit "epreserved") then
+      parse_epres f_ns rs
     else NONE
 End
 
@@ -1755,10 +1825,16 @@ EVAL
 ``parse_cstep_head (plainVar_nf,()) (toks_fast (strlit"soli ~x1 ~x2 ~x3 ~x4 ~x5 ~x6 x7 ~x8 x9 ~x10 ~x11 x12 : 50;"))``;
 
 EVAL
+``parse_cstep_head (plainVar_nf,()) (toks_fast (strlit"solx ~x1 ~x2 ~x3 ~x4 ~x5 ~x6 x7 ~x8 x9 ~x10 ~x11 x12 ;"))``;
+
+EVAL
 ``parse_cstep_head (plainVar_nf,()) (toks_fast (strlit"obji -100 ;"))``;
 
 EVAL
 ``parse_cstep_head (plainVar_nf,()) (toks_fast (strlit"eobj 1 x1 -100 ;"))``;
+
+EVAL
+``parse_cstep_head (plainVar_nf,()) (toks_fast (strlit"epreserved x3 x2 x5;"))``;
 
 EVAL
 ``parse_cstep_head (plainVar_nf,()) (toks_fast (strlit"obju new 1 x1 2 : subproof"))``;
@@ -1808,15 +1884,14 @@ Definition parse_cstep_def:
         (case check_mark_qed_id_opt (INL (strlit"obju")) s of
             SOME NONE => SOME (INR (ChangeObj b f pf), f_ns''', rest)
         | _ => NONE))
-      | SOME (ChangePrespar b x c, f_ns'') => NONE
-        (* TODO
-        (case parse_red_aux f_ns'' rest [] of
+      | SOME (ChangePrespar b x c, f_ns'') =>
+        (case parse_subproof f_ns'' rest of
           NONE => NONE
-        | SOME (res,pf,f_ns'',rest) =>
-          case res of NONE =>
-            SOME (INR (ChangePres b x c pf), f_ns'', rest)
-          | _ => NONE
-        ) *)
+        | SOME (pf,f_ns''',s,rest) =>
+        (case check_mark_qed_id_opt
+          (if b then INL (strlit"preserved_add") else INL (strlit"preserved_rm")) s of
+            SOME NONE => SOME (INR (ChangePres b x c pf), f_ns''', rest)
+        | _ => NONE))
   )
 End
 
@@ -1884,6 +1959,21 @@ Definition parse_bounds_def:
     | SOME (ub,a) => SOME (lb,ub,n,a))
 End
 
+Definition parse_enum_def:
+  parse_enum s =
+  case s of
+    INR n :: rest =>
+      if n < 0 then NONE
+      else
+        (case rest of [] => SOME(Num n, NONE)
+        | INL s::INR i :: rest =>
+          if s = strlit":" ∧ i ≥ 0 then
+              SOME (Num n, SOME (Num i))
+          else NONE
+        | _ => NONE)
+    | _ => NONE
+End
+
 Definition parse_concl_def:
   parse_concl f_ns s =
   case strip_term_line s of NONE => NONE
@@ -1899,6 +1989,12 @@ Definition parse_concl_def:
     else if y = INL (strlit"BOUNDS") then
       case parse_bounds f_ns rest of NONE => NONE
       | SOME (lb,ub,n,a) => SOME (HOBounds lb ub n a)
+    else if y = INL (strlit"ENUMERATION_COMPLETE") then
+      (case parse_enum rest of NONE => NONE
+      | SOME (n, hint) => SOME (HEEnum n T hint))
+    else if y = INL (strlit"ENUMERATION_PARTIAL") then
+      (case parse_enum rest of NONE => NONE
+      | SOME (n, hint) => SOME (HEEnum n F hint))
     else NONE
   else NONE
   | _ => NONE
@@ -1912,9 +2008,15 @@ EVAL
 EVAL
 ``parse_concl (plainVar_nf,()) (toks_fast (strlit"conclusion UNSAT : 1234 ;"))``;
 
+EVAL
+``parse_concl (plainVar_nf,()) (toks_fast (strlit"conclusion ENUMERATION_PARTIAL 5 ;"))``;
+
+EVAL
+``parse_concl (plainVar_nf,()) (toks_fast (strlit"conclusion ENUMERATION_COMPLETE 5 ;"))``;
 *)
 
-(* Parse a PBC output line *)
+(* Parse a PBC output line.
+  TODO: equienumerable currently aliases equisolvable *)
 Definition parse_output_def:
   parse_output s =
   case strip_term_line s of NONE => NONE
@@ -1930,6 +2032,7 @@ Definition parse_output_def:
       if y = INL(strlit"DERIVABLE") then SOME Derivable
       else if y = INL(strlit"EQUISATISFIABLE") then SOME Equisatisfiable
       else if y = INL(strlit"EQUIOPTIMAL") then SOME Equioptimal
+      else if y = INL(strlit"EQUIENUMERABLE") then SOME Equisolvable
       else if y = INL(strlit"EQUISOLVABLE") then SOME Equisolvable
       else NONE)
     else NONE

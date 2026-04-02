@@ -5,46 +5,32 @@
 
 structure ml_monadBaseLib :> ml_monadBaseLib = struct
 
-open preamble ml_monadBaseTheory TypeBase ParseDatatype Datatype packLib
-
+open preamble ml_monadBaseTheory ml_monadBaseSyntax
+     TypeBase ParseDatatype Datatype packLib
 
 local
-  structure Parse = struct
-    open Parse
-     val (Type,Term) =
-         parse_from_grammars (valOf (grammarDB {thyname="ml_monadBase"}))
-  end
-  open Parse
 
-(* Terms used by the ml_monadBaseLib *)
-val Marray_length_const = ``Marray_length:(α -> β list) -> (α, num, γ) M``
-val Marray_sub_const = ``Marray_sub:(α -> β list) -> γ -> num -> (α, β, γ) M``
-val Marray_update_const =
-  ``Marray_update:(α -> β list) ->
-    (β list -> α -> α) -> γ -> num -> β -> (α, unit, γ) M``
-val Marray_alloc_const =
-  ``Marray_alloc:(α list -> β -> γ) -> num -> α -> β -> (unit, δ) exc # γ``
 val terms_alist = [
-     ("K", ``K : 'a -> 'b -> 'a``),
-     ("FST", ``FST : 'a # 'b -> 'a``),
-     ("SND", ``SND : 'a # 'b -> 'b``),
-     ("REPLICATE", ``REPLICATE : num -> 'a -> 'a list``),
-     ("unit", ``()``),
-     ("M_failure", ``M_failure : 'a -> ('b, 'a) exc``),
-     ("M_success", ``M_success : 'a -> ('a, 'b) exc``),
-     ("Marray_length", Marray_length_const),
-     ("Marray_sub", Marray_sub_const),
-     ("Marray_update", Marray_update_const),
-     ("Marray_alloc", Marray_alloc_const),
-     ("run", ``run``)
+     ("K", combinSyntax.K_tm),
+     ("FST", pairSyntax.fst_tm),
+     ("SND", pairSyntax.snd_tm),
+     ("REPLICATE", rich_listSyntax.replicate_tm),
+     ("unit", oneSyntax.one_tm),
+     ("M_failure", mk_thy_const{Name="M_failure",Thy="ml_monadBase",Ty=alpha --> mk_exc_ty(beta,alpha)}),
+     ("M_success", mk_thy_const{Name="M_success",Thy="ml_monadBase",Ty=alpha --> mk_exc_ty(alpha,beta)}),
+     ("Marray_length", inst [gamma |-> beta, beta |-> gamma] Marray_length_tm),
+     ("Marray_sub", Marray_sub_tm),
+     ("Marray_update", inst [gamma |-> beta, beta |-> gamma] Marray_update_tm),
+     ("Marray_alloc", inst [delta |-> alpha, alpha |-> beta, beta |-> delta] Marray_alloc_tm),
+     ("run", run_tm)
     ]
 
 (* Types used by the ml_monadBaseLib *)
 val types_alist = [
-      ("exc",``:('a, 'b) exc``),
-      ("pair", ``:'a # 'b``),
-      ("num", ``:num``),
-      ("M", ``:('a, 'b, 'c) M``)
+      ("exc", exc_ty),
+      ("pair", pairSyntax.mk_prod(alpha,beta)),
+      ("num", numSyntax.num),
+      ("M", M_ty)
     ]
 in
 

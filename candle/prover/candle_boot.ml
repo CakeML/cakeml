@@ -3,17 +3,34 @@
  * ------------------------------------------------------------------------- *)
 
 (* This is pointer equality, which is missing from CakeML.
-   || x = y is just to get the type variables right:
+   The way we want to implement this is by using (=) for mutable types such as
+   references, and false otherwise.
+   By defining (==) as follows, we get the correct behavior for reference types,
+   and type errors everywhere else. Those need to be manually fixed, using (=)
+   for mutable types, and false otherwise. The hope is that the type error
+   messages make this decision easier.
  *)
-let (==) x y = false || x = y;;
+let (==) x y = !x; !y; x = y
 
 let ref x = Ref x;;
 
-let (/) = div;;
-let (-.) = Double.(-);;
-let (+.) = Double.(+);;
-let ( *.) = Double.( * );;
-let (/.) = Double.(/);;
+let (/) x y = div x y;;
+let (-.) x y = Double.(-) x y;;
+let (+.) x y = Double.(+) x y;;
+let ( *.) x y = Double.( * ) x y;;
+let (/.) x y = Double.(/) x y;;
+let ( ** ) x y = Double.pow x y;;
+let (||) x y = x || y;;
+
+let log x = Double.ln x;;
+
+(* OCaml parser doesn't like ~, and the CakeML parser doesn't like ~- nor ~-. *)
+(*CML
+val negint = Int.~;
+val negfloat = Double.~;
+*)
+let (~-) x = negint x;;
+let (~-.) x = negfloat x;;
 
 let failwith msg = raise (Failure msg);;
 
@@ -65,6 +82,13 @@ let (lsr) x y =
 
 let (land) x y =
   Word64.toInt (Word64.andb (Word64.fromInt x) (Word64.fromInt y));;
+let (lor) x y =
+  Word64.toInt (Word64.orb (Word64.fromInt x) (Word64.fromInt y));;
+let (lxor) x y =
+  Word64.toInt (Word64.xorb (Word64.fromInt x) (Word64.fromInt y));;
+let lnot x =
+  Word64.toInt (Word64.notb (Word64.fromInt x));;
+
 
 (* TODO Need a better string escaping thing. *)
 let string_escaped =
@@ -104,6 +128,17 @@ let rec rev_append xs acc =
   match xs with
   | [] -> acc
   | x::xs -> rev_append xs (x::acc);;
+
+let concat_map f =
+  let rec concat acc xs =
+    match acc with
+    | [] -> map xs
+    | a::acc -> a::concat acc xs
+  and map xs =
+    match xs with
+    | [] -> []
+    | x::xs -> concat (f x) xs in
+  map;;
 
 (* ------------------------------------------------------------------------- *
  * Helpful banner
@@ -262,7 +297,7 @@ type token =
   | T_char of string
   | T_number of string
   | T_spaces of string
-  | T_done (* pseudo-token at switch from loading to user input *)
+  | T_done (* pseudo-token after loading a file *)
 ;;
 
 let string_of_token unquote tok =
@@ -505,6 +540,15 @@ exception Repl_error;;
 
 let () =
   let prompt = ref (!prompt2) in
+  let pushLoad, popLoad, clearLoadStack =
+    let stack = ref ([]: string list) in
+    let pushLoad fname = stack := fname :: !stack in
+    let popLoad () =
+      match !stack with
+      | fname :: rest as res -> stack := rest; Some (fname, rest)
+      | _ -> None in
+    let clearLoadStack () = stack := [] in
+    pushLoad, popLoad, clearLoadStack in
   let peekChar, nextChar =
     let lookahead = ref (None: char option) in
     let peek () =
@@ -600,10 +644,9 @@ let () =
     let scan = Lexer.scan nextChar peekChar in
     let rec nom acc =
       match scan () with
-      | None -> List.app (Buffer.push_front input_buffer) acc
+      | None -> List.app (Buffer.push_front input_buffer) (Lexer.T_done :: acc)
       | Some tok -> nom (tok::acc) in
-    nom [];
-    Buffer.push_back input_buffer Lexer.T_done in
+    nom [] in
   let next () =
     match Buffer.dequeue input_buffer with
     | Some tok -> Some tok
@@ -639,6 +682,7 @@ let () =
                         let lines = load dir fname in
                         if List.null lines then scan level else
                           begin
+                            pushLoad fname;
                             userInput := false;
                             scan_lines lines;
                             scan level
@@ -662,7 +706,11 @@ let () =
                        " double semicolon [;;].\n"])
             end
         | Some (Lexer.T_done) ->
-            userInput := true;
+            (match popLoad () with
+             | Some (fname, rest) -> (
+               print ("- Finished loading " ^ fname ^ "\n");
+               if List.null rest then userInput := true)
+             | None -> failwith "candle_boot.ml: scan - should be unreachable");
             scan level
         | Some tok ->
             Buffer.push_back output_buffer tok;
@@ -700,6 +748,7 @@ let () =
       if not (!userInput) then print (!prompt1);
       Buffer.flush input_buffer;
       Buffer.flush output_buffer;
+      clearLoadStack ();
       Repl.nextString := "";
       userInput := true in
   Repl.readNextString := (fun () ->

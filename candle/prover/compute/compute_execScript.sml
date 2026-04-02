@@ -96,7 +96,9 @@ Definition exec_def:
   exec funs env ck (If x y z) =
     do
       v <- exec funs env ck x;
-      exec funs env ck (if v = Num 0 then z else y)
+      exec funs env ck (case v of
+                        | Num n    => if n = 0 then z else y
+                        | Pair _ _ => z)
     od ∧
   exec_list funs env ck [] acc =
     return acc ∧
@@ -109,7 +111,7 @@ Termination
   WF_REL_TAC ‘inv_image ($< LEX $<) $
               λx. case x of INL (_,_,ck,cv) => (ck, ce_size cv)
                           | INR (_,_,ck,cv,_) => (ck, list_size ce_size cv)’
-  \\ rw [] \\ fs []
+  \\ rw [] \\ fs [] \\ rpt (TOP_CASE_TAC \\ fs [])
 End
 
 Definition monop_fst_def:
@@ -221,4 +223,3 @@ Definition cv2term_def:
   cv2term ((Num n):cv) = _CEXP_NUM (_NUMERAL (num2bit n)) ∧
   cv2term (Pair p q)   = _CEXP_PAIR (cv2term p) (cv2term q)
 End
-

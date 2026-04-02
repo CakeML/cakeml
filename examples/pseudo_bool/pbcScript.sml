@@ -27,13 +27,13 @@ End
 *)
 
 (* A linear term over variables *)
-Type lin_term = ``:(int # 'a lit) list``;
+Type lin_term[pp] = ``:(int # 'a lit) list``;
 
 Datatype:
   pbop = Equal | GreaterEqual | Greater | LessEqual | Less
 End
 
-Type pbc = ``:(pbop # 'a lin_term # int)``
+Type pbc[pp] = ``:(pbop # 'a lin_term # int)``
 
 (* 0-1 integer-valued semantics *)
 Definition b2i_def[simp]:
@@ -405,14 +405,33 @@ Definition eval_obj_def:
       eval_lin_term w f + c
 End
 
-(* Conclusions about a pseudoboolean formula and objective.
-  TODO: support for enumeration of solutions on preserved variable set *)
+(* projecting set ws of solutions onto preserved set *)
+Definition proj_pres_def:
+  proj_pres pres ws =
+    IMAGE (λw. pres ∩ w) ws
+End
+
+Theorem FINITE_proj_pres:
+  FINITE pres ⇒
+  FINITE (proj_pres pres ws)
+Proof
+  rw[proj_pres_def]>>
+  `IMAGE (λw. pres ∩ w) ws ⊆ {s | s ⊆ pres}` by
+    (rw[SUBSET_DEF]>>fs[IN_INTER])>>
+  `FINITE {s | s ⊆ pres}` by
+    (irule iterateTheory.FINITE_POWERSET>>
+    fs[])>>
+  metis_tac[SUBSET_FINITE]
+QED
+
+(* Conclusions about a pseudoboolean formula and objective. *)
 Datatype:
   concl =
   | NoConcl
   | DSat
   | DUnsat
   | OBounds (int option) (int option)
+  | EEnum num bool (* number of sols, bool indicates whether it is complete *)
 End
 
 (* Semantics of a conclusion
@@ -426,10 +445,10 @@ End
   else, ubi = SOME ub where ub is attained by some assignment
 *)
 Definition sem_concl_def:
-  (sem_concl pbf obj NoConcl = T) ∧
-  (sem_concl pbf obj DSat = satisfiable pbf) ∧
-  (sem_concl pbf obj DUnsat = unsatisfiable pbf) ∧
-  (sem_concl pbf obj (OBounds lbi ubi) =
+  (sem_concl pbf obj pres NoConcl = T) ∧
+  (sem_concl pbf obj pres DSat = satisfiable pbf) ∧
+  (sem_concl pbf obj pres DUnsat = unsatisfiable pbf) ∧
+  (sem_concl pbf obj pres (OBounds lbi ubi) =
     ((case lbi of
       NONE => unsatisfiable pbf
     | SOME lb =>
@@ -437,7 +456,11 @@ Definition sem_concl_def:
     (case ubi of
       NONE => T
     | SOME ub =>
-      (∃w. satisfies w pbf ∧ eval_obj obj w ≤ ub))))
+      (∃w. satisfies w pbf ∧ eval_obj obj w ≤ ub)))) ∧
+  (sem_concl pbf obj pres (EEnum n complete) =
+    (n ≤ CARD (proj_pres pres {w | satisfies w pbf}) ∧
+    (complete ⇒
+      CARD (proj_pres pres {w | satisfies w pbf}) ≤ n)))
 End
 
 Theorem eval_lin_term_cong:
@@ -497,22 +520,132 @@ Proof
   Cases_on`p_2`>>fs[]
 QED
 
+(* take x, y, z -> bool
+  f x, f y, f z -> bool *)
+Theorem image_sol_set:
+  INJ f (pbf_vars pbf ∪ obj_vars obj ∪ pres) UNIV ∧
+  (∀x y. x ∈ pres ∧ f x = f y ⇒ x = y) ⇒
+  IMAGE (λpfw. pfw o f)
+  (proj_pres (IMAGE f pres)
+    {fw | satisfies fw (IMAGE (map_pbc f) pbf) ∧
+           eval_obj (map_obj f obj) fw ≤ v}) =
+  proj_pres pres
+    {w | satisfies w pbf ∧ eval_obj obj w ≤ v}
+Proof
+  rw[proj_pres_def,Once EXTENSION,EQ_IMP_THM]
+  >- (
+    rename1`eval_obj _ fw`>>
+    gvs[eval_obj_map_obj,FORALL_AND_THM,IMP_CONJ_THM]>>
+    drule satisfies_map_pbf>>
+    strip_tac>>
+    first_x_assum (irule_at Any)>>simp[]>>
+    simp[o_DEF,EXTENSION]>>
+    rw[EQ_IMP_THM]>>gvs[IN_DEF]>>
+    metis_tac[])
+  >- (
+    drule satisfies_INJ>>
+    disch_then (drule_at Any)>>
+    simp[SUBSET_DEF]>>
+    disch_then (irule_at Any)>>
+    simp[eval_obj_map_obj]>>
+    CONJ_TAC >- (
+      simp[o_DEF,EXTENSION]>>
+      rw[EQ_IMP_THM]
+      >- metis_tac[]
+      >- (
+        DEP_REWRITE_TAC[LINV_DEF]>>
+        gvs[IN_DEF]>>
+        metis_tac[])
+      >- metis_tac[]
+      >- (
+        pop_assum mp_tac>>
+        simp[]>>
+        DEP_REWRITE_TAC[LINV_DEF]>>
+        gvs[IN_DEF]>>
+        metis_tac[]))>>
+    pop_assum mp_tac>>
+    qmatch_goalsub_abbrev_tac`A ≤ _ ⇒ B ≤ _`>>
+    qsuff_tac`A=B`
+    >-
+      rw[]>>
+    unabbrev_all_tac>>
+    match_mp_tac eval_obj_cong>>rw[]>>
+    DEP_REWRITE_TAC[LINV_DEF]>>
+    fs[]>>metis_tac[])
+QED
+
+(* TODO: could be unified with above *)
+Theorem image_sol_set':
+  INJ f (pbf_vars pbf ∪ pres) UNIV ∧
+  (∀x y. x ∈ pres ∧ f x = f y ⇒ x = y) ⇒
+  IMAGE (λpfw. pfw o f)
+  (proj_pres (IMAGE f pres)
+    {fw | satisfies fw (IMAGE (map_pbc f) pbf)}) =
+  proj_pres pres {w | satisfies w pbf}
+Proof
+  rw[proj_pres_def,Once EXTENSION,EQ_IMP_THM]
+  >- (
+    drule satisfies_map_pbf>>
+    strip_tac>>
+    first_x_assum (irule_at Any)>>simp[]>>
+    simp[o_DEF,EXTENSION]>>
+    rw[EQ_IMP_THM]>>gvs[IN_DEF]>>
+    metis_tac[])
+  >- (
+    drule satisfies_INJ>>
+    disch_then (drule_at Any)>>
+    simp[SUBSET_DEF]>>
+    disch_then (irule_at Any)>>
+    simp[]>>
+    simp[o_DEF,EXTENSION]>>
+    rw[EQ_IMP_THM]
+    >- metis_tac[]
+    >- (
+      DEP_REWRITE_TAC[LINV_DEF]>>
+      gvs[IN_DEF]>>
+      metis_tac[])
+    >- metis_tac[]
+    >- (
+      pop_assum mp_tac>>
+      simp[]>>
+      DEP_REWRITE_TAC[LINV_DEF]>>
+      gvs[IN_DEF]>>
+      metis_tac[]))
+QED
+
+Theorem BIJ_IMAGE_proj_pres:
+  BIJ (λpfw. pfw o f)
+  (proj_pres (IMAGE f pres) ws)
+  (IMAGE (λpfw. pfw o f)
+  (proj_pres (IMAGE f pres) ws))
+Proof
+  match_mp_tac INJ_IMAGE_BIJ>>
+  qexists_tac`UNIV`>>
+  simp[INJ_DEF,proj_pres_def,PULL_EXISTS]>>rw[EXTENSION]>>
+  gvs[o_DEF,PULL_EXISTS]>>
+  metis_tac[]
+QED
+
 Theorem concl_INJ_iff:
-  INJ f (pbf_vars pbf ∪ obj_vars obj) UNIV
+  INJ f (pbf_vars pbf ∪ obj_vars obj ∪ pres) UNIV ∧
+  FINITE pres ∧
+  (∀x y. x ∈ pres ∧ f x = f y ⇒ x = y)
   ⇒
-  sem_concl pbf obj concl =
-  sem_concl (IMAGE (map_pbc f) pbf) (map_obj f obj) concl
+  sem_concl pbf obj pres concl =
+  sem_concl (IMAGE (map_pbc f) pbf) (map_obj f obj) (IMAGE f pres) concl
 Proof
   Cases_on`concl`>>rw[sem_concl_def]
   >- (
     match_mp_tac (GSYM satisfiable_INJ_iff)>>
     match_mp_tac INJ_SUBSET>>
-    asm_exists_tac>>simp[])
+    first_x_assum (irule_at Any)>>
+    simp[SUBSET_DEF])
   >- (
     simp[unsatisfiable_def]>>
     match_mp_tac (GSYM satisfiable_INJ_iff)>>
     match_mp_tac INJ_SUBSET>>
-    asm_exists_tac>>simp[])
+    first_x_assum (irule_at Any)>>
+    simp[SUBSET_DEF])
   >- (
     simp[eval_obj_map_obj]>>
     match_mp_tac
@@ -524,13 +657,15 @@ Proof
         simp[unsatisfiable_def]>>
         match_mp_tac (GSYM satisfiable_INJ_iff)>>
         match_mp_tac INJ_SUBSET>>
-        asm_exists_tac>>simp[])>>
+        first_x_assum (irule_at Any)>>
+        simp[SUBSET_DEF])>>
       rw[EQ_IMP_THM]
       >- (
         first_x_assum match_mp_tac>>
         metis_tac[satisfies_map_pbf])>>
       (drule_at Any) satisfies_INJ>>
       disch_then drule>>simp[]>>
+      impl_tac >- simp[SUBSET_DEF]>>
       rw[]>>
       first_x_assum drule>>
       qmatch_goalsub_abbrev_tac`_ ≤ A ⇒ _ ≤ B`>>
@@ -546,6 +681,7 @@ Proof
     >- (
       (drule_at Any) satisfies_INJ>>
       disch_then drule>>simp[]>>
+      impl_tac >- simp[SUBSET_DEF]>>
       rw[]>>
       asm_exists_tac>>simp[]>>
       qpat_x_assum`_ ≤ _` mp_tac>>
@@ -558,21 +694,24 @@ Proof
       DEP_REWRITE_TAC[LINV_DEF]>>
       fs[]>>metis_tac[])>>
     metis_tac[satisfies_map_pbf])
+  >- (
+    qmatch_goalsub_abbrev_tac`_ ≤ A ∧ _ ⇔ _ ≤ B ∧ _`>>
+    `A = B` by (
+      unabbrev_all_tac>>
+      irule FINITE_BIJ_CARD>>
+      simp[FINITE_proj_pres]>>
+      DEP_ONCE_REWRITE_TAC[GSYM image_sol_set']>>
+      CONJ_TAC >- (
+        fs[INJ_DEF]>>
+        metis_tac[] )>>
+      simp[Once BIJ_SYM]>>
+      metis_tac[BIJ_IMAGE_proj_pres])>>
+    simp[])
 QED
 
-(* More convenient input representation as lists *)
-Definition pres_set_list_def:
-  pres_set_list pres =
-    case pres of NONE => {} | SOME pres => set pres
-End
-
-(* projecting set ws of solutions onto preserved set *)
-Definition proj_pres_def:
-  proj_pres pres ws =
-    IMAGE (λw. pres ∩ w) ws
-End
-
-(* Output section for a pseudoboolean formula *)
+(* Output section for a pseudoboolean formula.
+  Note: equisolvable is generalization of equienumerability.
+    see sem_output_equisolvable_NONE *)
 Datatype:
   output =
   | NoOutput
@@ -775,73 +914,6 @@ Proof
   rw[]
 QED
 
-(* take x, y, z -> bool
-  f x, f y, f z -> bool *)
-Theorem image_sol_set:
-  INJ f (pbf_vars pbf ∪ obj_vars obj ∪ pres) UNIV ∧
-  (∀x y. x ∈ pres ∧ f x = f y ⇒ x = y) ⇒
-  IMAGE (λpfw. pfw o f)
-  (proj_pres (IMAGE f pres)
-    {fw | satisfies fw (IMAGE (map_pbc f) pbf) ∧
-           eval_obj (map_obj f obj) fw ≤ v}) =
-  proj_pres pres
-    {w | satisfies w pbf ∧ eval_obj obj w ≤ v}
-Proof
-  rw[proj_pres_def,Once EXTENSION,EQ_IMP_THM]
-  >- (
-    rename1`eval_obj _ fw`>>
-    gvs[eval_obj_map_obj,FORALL_AND_THM,IMP_CONJ_THM]>>
-    drule satisfies_map_pbf>>
-    strip_tac>>
-    first_x_assum (irule_at Any)>>simp[]>>
-    simp[o_DEF,EXTENSION]>>
-    rw[EQ_IMP_THM]>>gvs[IN_DEF]>>
-    metis_tac[])
-  >- (
-    drule satisfies_INJ>>
-    disch_then (drule_at Any)>>
-    simp[SUBSET_DEF]>>
-    disch_then (irule_at Any)>>
-    simp[eval_obj_map_obj]>>
-    CONJ_TAC >- (
-      simp[o_DEF,EXTENSION]>>
-      rw[EQ_IMP_THM]
-      >- metis_tac[]
-      >- (
-        DEP_REWRITE_TAC[LINV_DEF]>>
-        gvs[IN_DEF]>>
-        metis_tac[])
-      >- metis_tac[]
-      >- (
-        pop_assum mp_tac>>
-        simp[]>>
-        DEP_REWRITE_TAC[LINV_DEF]>>
-        gvs[IN_DEF]>>
-        metis_tac[]))>>
-    pop_assum mp_tac>>
-    qmatch_goalsub_abbrev_tac`A ≤ _ ⇒ B ≤ _`>>
-    qsuff_tac`A=B`
-    >-
-      rw[]>>
-    unabbrev_all_tac>>
-    match_mp_tac eval_obj_cong>>rw[]>>
-    DEP_REWRITE_TAC[LINV_DEF]>>
-    fs[]>>metis_tac[])
-QED
-
-Theorem BIJ_IMAGE_proj_pres:
-  BIJ (λpfw. pfw o f)
-  (proj_pres (IMAGE f pres) ws)
-  (IMAGE (λpfw. pfw o f)
-  (proj_pres (IMAGE f pres) ws))
-Proof
-  match_mp_tac INJ_IMAGE_BIJ>>
-  qexists_tac`UNIV`>>
-  simp[INJ_DEF,proj_pres_def,PULL_EXISTS]>>rw[EXTENSION]>>
-  gvs[o_DEF,PULL_EXISTS]>>
-  metis_tac[]
-QED
-
 (* Applying an injection on variables for input/output problems preserves their semantic output relation *)
 Theorem output_INJ_iff:
   INJ f (pbf_vars pbf ∪ obj_vars obj ∪ pres) UNIV ∧
@@ -997,3 +1069,15 @@ Proof
       metis_tac[BIJ_SYM,BIJ_TRANS]))
 QED
 
+(* More convenient input representation as lists, used downstream *)
+Definition pres_set_list_def:
+  pres_set_list pres =
+    case pres of NONE => {} | SOME pres => set pres
+End
+
+Theorem FINITE_pres_set_list:
+  FINITE (pres_set_list pres)
+Proof
+  rw[pres_set_list_def]>>
+  every_case_tac>>simp[]
+QED

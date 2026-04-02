@@ -1174,15 +1174,16 @@ Definition stack_prog_to_display_def:
         [Tuple [asm_cmp_to_display c; num_to_display n; asm_reg_imm_to_display to];
          stack_prog_to_display k ns x;
          stack_prog_to_display k ns y] ∧
-   stack_prog_to_display (SUC k) ns (While c n to x) = Item NONE «while»
-        [Tuple [asm_cmp_to_display c; num_to_display n; asm_reg_imm_to_display to];
-         stack_prog_to_display k ns x] ∧
+   stack_prog_to_display (SUC k) ns (Loop x) = Item NONE «loop»
+        [stack_prog_to_display k ns x] ∧
    stack_prog_to_display (SUC k) ns (JumpLower n1 n2 n3) =
      item_with_nums «jump_lower» [n1; n2; n3] ∧
    stack_prog_to_display (SUC k) ns (Alloc n) = item_with_num «alloc» n ∧
    stack_prog_to_display (SUC k) ns (StoreConsts n1 n2 _) = item_with_nums «store_consts» [n1; n2] ∧
    stack_prog_to_display (SUC k) ns (Raise n) = item_with_num «raise» n ∧
    stack_prog_to_display (SUC k) ns (Return n) = item_with_num «return» n ∧
+   stack_prog_to_display (SUC k) ns (Break n) = item_with_num «break» n ∧
+   stack_prog_to_display (SUC k) ns (Continue n) = item_with_num «continue» n ∧
    stack_prog_to_display (SUC k) ns (FFI nm cp cl ap al ra) = Item NONE «ffi»
         (string_imp nm :: MAP num_to_display [cp; cl; ap; al; ra]) ∧
    stack_prog_to_display (SUC k) ns (Tick) = empty_item «tick» ∧

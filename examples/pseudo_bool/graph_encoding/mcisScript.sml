@@ -1938,7 +1938,7 @@ Theorem full_encode_mccis_sem_concl:
   good_graph gp ∧
   good_graph gt ∧
   full_encode_mccis gp gt = (obj,pbf) ∧
-  sem_concl (set (MAP SND pbf)) obj concl ∧
+  sem_concl (set (MAP SND pbf)) obj {} concl ∧
   conv_concl (FST gp) concl = SOME (lbg, ubg) ⇒
   (lbg = ubg ⇒ max_ccis_size gp gt = lbg) ∧
   (∀vs. is_ccis vs gp gt ⇒ CARD vs ≤ ubg) ∧
@@ -1946,11 +1946,14 @@ Theorem full_encode_mccis_sem_concl:
 Proof
   strip_tac>>
   gvs[full_encode_mccis_def]>>
-  qpat_x_assum`sem_concl _ _ _` mp_tac>>
+  qpat_x_assum`sem_concl _ _ _ _` mp_tac>>
   simp[LIST_TO_SET_MAP,IMAGE_IMAGE]>>
   simp[Once (GSYM IMAGE_IMAGE)]>>
+  `{} = IMAGE enc_string {}` by fs[]>>
+  pop_assum SUBST1_TAC>>
   DEP_REWRITE_TAC[GSYM concl_INJ_iff]>>
   CONJ_TAC >- (
+    simp[]>>
     assume_tac enc_string_INJ>>
     drule INJ_SUBSET>>
     disch_then match_mp_tac>>
@@ -2029,7 +2032,7 @@ Theorem full_encode_mcis_sem_concl:
   good_graph gp ∧
   good_graph gt ∧
   full_encode_mcis gp gt = (obj,pbf) ∧
-  sem_concl (set (MAP SND pbf)) obj concl ∧
+  sem_concl (set (MAP SND pbf)) obj {} concl ∧
   conv_concl (FST gp) concl = SOME (lbg, ubg) ⇒
   (lbg = ubg ⇒ max_cis_size gp gt = lbg) ∧
   (∀vs. is_cis vs gp gt ⇒ CARD vs ≤ ubg) ∧
@@ -2037,11 +2040,14 @@ Theorem full_encode_mcis_sem_concl:
 Proof
   strip_tac>>
   gvs[full_encode_mcis_def]>>
-  qpat_x_assum`sem_concl _ _ _` mp_tac>>
+  qpat_x_assum`sem_concl _ _ _ _` mp_tac>>
   simp[LIST_TO_SET_MAP,IMAGE_IMAGE]>>
   simp[Once (GSYM IMAGE_IMAGE)]>>
+  `{} = IMAGE enc_string {}` by fs[]>>
+  pop_assum SUBST1_TAC>>
   DEP_REWRITE_TAC[GSYM concl_INJ_iff]>>
   CONJ_TAC >- (
+    simp[]>>
     assume_tac enc_string_INJ>>
     drule INJ_SUBSET>>
     disch_then match_mp_tac>>
