@@ -770,14 +770,6 @@ QED
 
 val reverse_shallow = List.nth (fst rev_array_result, 0) |> (fn (x,y,z) => x)
 
-Theorem itree_bind_resp_wbisim_compose_intro:
-  t ≈ t' ⇒ (∀r. k r ≈ k' r) ⇒ t'' = t' >>= k' ⇒ t >>= k ≈ t''
-Proof
-  rw[]
-  \\ irule itree_bind_resp_wbisim
-  \\ gvs[]
-QED
-
         
 Theorem reverse_correctness:
   ∀s.
