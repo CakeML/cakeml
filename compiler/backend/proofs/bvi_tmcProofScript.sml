@@ -719,6 +719,36 @@ Proof
   cheat
 QED
 
+Theorem do_app_aux_op_rel:
+  ∀f op vs vs' s s' v v'.
+    do_app_aux op vs s = v ∧
+    LIST_REL (v_rel f) vs vs' ∧
+    state_rel f s s' ⇒
+    ∃v'.
+      do_app_aux op vs' s' = v' ∧
+      OPTREL (OPTREL (PAIR_REL (v_rel f) (state_rel f))) v v'
+Proof
+  cheat
+QED
+
+Theorem do_app_op_rel:
+  ∀f op vs vs' s s' v.
+    do_app op vs s = Rval v ∧
+    LIST_REL (v_rel f) vs vs' ∧
+    state_rel f s s' ⇒
+    ∃v'.
+      do_app op vs' s' = Rval v' ∧
+      PAIR_REL (v_rel f) (state_rel f) v v'
+Proof
+  rw [do_app_def] >> cheat
+QED
+
+Theorem list_rel_reverse:
+  ∀r l1 l2. LIST_REL r l1 l2 ⇔ LIST_REL r (REVERSE l1) (REVERSE l2)
+Proof
+  rw []
+QED
+
 Theorem evaluate_rewrite_tmc:
    ∀xs env1 ^s r t opt f s' env2.
      evaluate (xs, env1, s) = (r, t) ∧
@@ -1231,7 +1261,6 @@ Proof
     >> goal_assum $ drule_at Any
     >> gvs []) *)
   >~ [‘Raise x’] >-
-     
    (gvs [evaluate_def]
     >> gvs [CaseEq "prod", PULL_EXISTS]
     >> rename [‘evaluate ([x],env,s) = (v,u)’]
@@ -1279,9 +1308,23 @@ Proof
     >> qpat_assum ‘f ⊑ _’ $ irule_at Any
     >> reverse $ Cases_on ‘rs’ >> gvs []
     >- cheat
-    >> reverse $ Cases_on ‘do_app op (REVERSE a) u’ >> gvs []
+    >> rename [‘LIST_REL (v_rel f'') vs vs'’]
+    >> reverse $ Cases_on ‘do_app op (REVERSE vs) u’ >> gvs []
     >- cheat (* Use bviProps do_app_err *)
-    >> (* lemma that do_app op (REVERSE a) u = Rval a' implies do_app op (REVERSE v') u' equals some other Rval that is v_rel related to a' *)
+    (* lemma that do_app op (REVERSE a) u = Rval a' implies do_app op (REVERSE v') u' equals some other Rval that is v_rel related to a' *)
+    >> rename [‘do_app op (REVERSE vs) u = Rval v’]
+    >> drule $ iffLR list_rel_reverse
+    >> strip_tac
+    >> drule_all do_app_op_rel
+    >> strip_tac
+    >> gvs []
+    >> first_assum $ irule_at Any
+    >> Cases_on ‘v’ >> gvs []
+    >> Cases_on ‘v'’ >> gvs []
+    >> rename [‘state_rel f'' t t'’]
+    >> rename [‘v_rel f'' v v'’]
+    >> 
+                                
 
 
 
