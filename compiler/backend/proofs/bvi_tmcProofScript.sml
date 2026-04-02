@@ -554,6 +554,15 @@ Definition hole_unchanged_def:
       FLOOKUP refs' hole_ptr = SOME hole_val
 End
 
+Definition hole_unchanged'_def:
+  hole_unchanged' f refs refs' hole_ptr ⇔
+    ∀ptr val.
+      ptr ∉ FRANGE f ∧
+      (∀b. RefPtr b ptr ≠ hole_ptr) ∧
+      FLOOKUP refs ptr = SOME val ⇒
+      FLOOKUP refs' ptr = SOME val
+End
+
 Definition only_fresh_def:
   only_fresh (f : num |-> num) (f' : num |-> num) (refs_old : num |-> v ref) =
   ∀n. n ∈ FRANGE f' ∧ ~(n ∈ FRANGE f) ⇒ ~(n ∈ FDOM refs_old)
@@ -600,6 +609,18 @@ Proof
   >> first_x_assum drule_all
   >> strip_tac
   >> gvs [FLOOKUP_DEF]
+QED
+
+(* TODO *)
+Theorem hole_unchanged'_trans:
+  ∀f f' refs refs' refs''.
+    hole_unchanged f refs refs' ∧
+    hole_unchanged f' refs' refs'' ∧
+    only_fresh f f' refs ∧
+    f ⊑ f' ⇒
+    hole_unchanged f refs refs''
+Proof
+  cheat
 QED
 
 Theorem unchanged_hole_has_val:
@@ -713,6 +734,7 @@ Theorem evaluate_rewrite_tmc:
        state_rel f' t t' ∧
        f SUBMAP f' ∧
        only_fresh f f' s'.refs ∧
+       hole_unchanged f s'.refs t'.refs ∧
        (opt ⇒
         (∀loc loc_opt arity exp_aux exp_opt.
            rewrite_aux loc loc_opt arity (HD xs) = SOME exp_aux ⇒
@@ -728,14 +750,14 @@ Theorem evaluate_rewrite_tmc:
              evaluate ([exp_opt], env2, s') = (rrr,t2) ∧
              opt_res_rel r' rrr ∧
              state_rel f' t t2 ∧
+             hole_unchanged' f s'.refs t2.refs (EL i env2) ∧
              ∀res_v.
                 r' = Rval [res_v] ⇒
-                hole_has_val f env1 env2 t2.refs res_v)) ∧
-       (~opt ⇒ hole_unchanged f s'.refs t'.refs)
+                hole_has_val f env1 env2 t2.refs res_v))
 Proof
 
   recInduct bviSemTheory.evaluate_ind
-  >> rpt strip_tac
+  >> rpt strip_tac (*
   >~ [‘evaluate ([],_,_)’] >-
    (gvs [evaluate_def] >> first_x_assum $ irule_at Any >> fs [only_fresh_def, hole_unchanged_def])
   >~ [‘evaluate (x::y::xs,_,_)’] >-
@@ -832,12 +854,17 @@ Proof
       >> gvs [hole_has_val_def, FLOOKUP_SIMP]
       >> gvs [state_rel_def, state_ref_rel_def, FLOOKUP_SIMP]
       >> rpt strip_tac
-      >> last_x_assum drule
-      >> strip_tac
-      >> goal_assum $ drule_at Any
-      >> goal_assum $ drule_at Any
-      >> IF_CASES_TAC
-      >> gvs [flookup_thm, FRANGE_DEF])
+      >-
+        (last_x_assum drule
+         >> strip_tac
+         >> goal_assum $ drule_at Any
+         >> goal_assum $ drule_at Any
+         >> IF_CASES_TAC
+         >> gvs [flookup_thm, FRANGE_DEF])
+      >> gvs [hole_unchanged'_def]
+      >> gvs [FLOOKUP_SIMP]
+      >> rw []
+      >> metis_tac [])
     >> strip_tac
     >> gvs []
     >> irule hole_unchanged_refl)
@@ -916,6 +943,9 @@ Proof
           >> first_x_assum $ qspecl_then [‘loc’, ‘loc_opt’] mp_tac
           >> strip_tac
           >> gvs [rewrite_opt_def, evaluate_def]
+          >> conj_tac
+          >-
+           (cheat)
           >> gen_tac
           >> strip_tac
           >> first_x_assum $ qspec_then ‘res_v’ mp_tac
@@ -974,6 +1004,8 @@ Proof
         >> first_x_assum $ qspecl_then [‘loc’, ‘loc_opt’] mp_tac
         >> strip_tac
         >> gvs [rewrite_opt_def, evaluate_def]
+        >> conj_tac
+        >- cheat
         >> gen_tac
         >> strip_tac
         >> first_x_assum $ qspec_then ‘res_v’ mp_tac
@@ -996,7 +1028,8 @@ Proof
        (drule aux_strip_if_then
         >> strip_tac
         >> gvs [evaluate_def])
-      >> gvs [rewrite_opt_def, evaluate_def, opt_res_rel_def])
+      >> gvs [rewrite_opt_def, evaluate_def, opt_res_rel_def]
+      >> gvs [hole_unchanged_def, hole_unchanged'_def]) (* TODO lemma *)
     (* Non opt *)
     (* First inductive hypothesis *)
     >> first_x_assum $ qspec_then ‘F’ mp_tac
@@ -1141,6 +1174,7 @@ Proof
         >> rev_drule evaluate_IMP_LENGTH
         >> gvs [rewrite_opt_def, evaluate_def]
         >> rpt strip_tac
+        >- (cheat)
         >> first_x_assum drule
         >> strip_tac
         >> irule hole_has_val_submap
@@ -1161,7 +1195,8 @@ Proof
       >- (drule aux_strip_let
           >> strip_tac
           >> gvs [evaluate_def])
-      >> gvs [rewrite_opt_def, evaluate_def, opt_res_rel_def])
+      >> gvs [rewrite_opt_def, evaluate_def, opt_res_rel_def]
+      >> gvs [hole_unchanged_def, hole_unchanged'_def])
     (* Non-opt *)
     (* First inductive hypothesis *)
     >> first_x_assum $ qspec_then ‘F’ mp_tac
@@ -1194,8 +1229,9 @@ Proof
       >> irule hole_unchanged_trans
       >> rpt $ goal_assum $ drule_at Any)
     >> goal_assum $ drule_at Any
-    >> gvs [])
+    >> gvs []) *)
   >~ [‘Raise x’] >-
+     
    (gvs [evaluate_def]
     >> gvs [CaseEq "prod", PULL_EXISTS]
     >> rename [‘evaluate ([x],env,s) = (v,u)’]
@@ -1213,7 +1249,8 @@ Proof
       >> Cases_on ‘v’
       >> gvs [rewrite_aux_def, rewrite_opt_def, evaluate_def, opt_res_rel_def]
       >> imp_res_tac evaluate_SING_IMP
-      >> gvs [])
+      >> gvs []
+      >> gvs [hole_unchanged_def, hole_unchanged'_def])
     >> first_x_assum $ qspec_then ‘F’ mp_tac
     >> gvs []
     >> disch_then drule
@@ -1227,81 +1264,97 @@ Proof
     >> imp_res_tac evaluate_SING_IMP
     >> gvs [])
   >~ [‘Op op xs’] >-
-
-   cheat
-   (*gvs [evaluate_def]
+     
+   (gvs [evaluate_def]
     >> gvs [CaseEq "prod", PULL_EXISTS]
     >> rename [‘evaluate (xs,env,s) = (rs,u)’]
-    >> first_x_assum $ qspec_then ‘F’ mp_tac
-    >> gvs []
+    >> first_assum $ qspecl_then [‘F’, ‘f’, ‘s'’, ‘env2’] mp_tac
+    >> impl_tac
+    >-
+     (gvs []
+      >> cheat (* TODO: env_rel may need to be relaxed so that true case implies false case*))
     >> strip_tac
+    >> gvs []
+    >> rename [‘evaluate (xs,env2,s') = (rs',u')’]
+    >> qpat_assum ‘f ⊑ _’ $ irule_at Any
+    >> reverse $ Cases_on ‘rs’ >> gvs []
+    >- cheat
+    >> reverse $ Cases_on ‘do_app op (REVERSE a) u’ >> gvs []
+    >- cheat (* Use bviProps do_app_err *)
+    >> (* lemma that do_app op (REVERSE a) u = Rval a' implies do_app op (REVERSE v') u' equals some other Rval that is v_rel related to a' *)
+
+
+
+       
+    >> gvs []
+    >> strip_tac        
     >> Cases_on ‘opt’ >> gvs []
     (* Opt *)
     (* First inductive hypothesis *)                   
-    >- (first_x_assum $ drule_at Any
-        >> drule env_rel_non_opt
+    >-
+     (first_x_assum $ drule_at Any
+      >> drule env_rel_non_opt
+      >> strip_tac
+      >> gvs []
+      >> rename [‘env_rel F f env env2’]
+      >> Cases_on ‘rs’ >> gvs []
+      >-
+       (rename [‘evaluate (xs,env,s) = (Rval vs,u)’]
+        >> disch_then drule
         >> strip_tac
         >> gvs []
-        >> rename [‘env_rel F f env env2’]
-        >> Cases_on ‘rs’ >> gvs []
-        >- (rename [‘evaluate (xs,env,s) = (Rval vs,u)’]
-            >> disch_then drule
+        >> rename [‘evaluate (xs,env2,s') = (Rval vs',u')’]
+        >> drule evaluate_pad_env_val
+        >> strip_tac
+        >> gvs []                        
+        >> Cases_on ‘do_app op (REVERSE vs) u’ >> gvs []
+        >-
+         (Cases_on ‘a’ >> gvs []
+          >> rename [‘do_app op (REVERSE vs) u = Rval (v,t)’]
+          >> drule state_rel_do_app
+          >> disch_then drule
+                        
+          >> drule_all do_app_rewrite_tmc
+          >> strip_tac
+          >> rename [‘f' ⊑ f''’]
+          >> Cases_on ‘r'’ >> gvs []
+          >> Cases_on ‘a’ >> gvs []
+          >> Cases_on ‘a'’ >> gvs []
+          >> rename [‘state_rel f'' t t'’]
+          >> rename [‘v_rel f'' v v'’]
+          >> goal_assum $ drule_at Any
+          >> gvs []
+          >> conj_tac
+          >- imp_res_tac SUBMAP_TRANS
+          >> rw []
+          >- goal_assum $ drule_at Any
+          >> reverse $ Cases_on ‘is_block_op_cons op’ >> gvs[]
+          >-
+           (drule_all aux_strip_op
             >> strip_tac
-            >> gvs []
-            >> rename [‘evaluate (xs,env2,s') = (Rval vs',u')’]
-            >> drule evaluate_pad_env_val
-            >> strip_tac
-            >> gvs []                        
-            >> Cases_on ‘do_app op (REVERSE vs) u’ >> gvs []
-            >- (Cases_on ‘a’ >> gvs []
-                >> rename [‘do_app op (REVERSE vs) u = Rval (v,t)’]
-                >> drule state_rel_do_app
-                >> disch_then drule
-
-             drule_all do_app_rewrite_tmc
-                >> strip_tac
-                >> rename [‘f' ⊑ f''’]
-                >> Cases_on ‘r'’ >> gvs []
-                >> Cases_on ‘a’ >> gvs []
-                >> Cases_on ‘a'’ >> gvs []
-                >> rename [‘state_rel f'' t t'’]
-                >> rename [‘v_rel f'' v v'’]
-                >> goal_assum $ drule_at Any
-                >> gvs []
-                >> conj_tac
-                >- (imp_res_tac SUBMAP_TRANS)
-                >> rw []
-                >- (goal_assum $ drule_at Any
-                    >> reverse $ Cases_on ‘is_block_op_cons op’ >> gvs[]
-                    >- (drule_all aux_strip_op
-                        >> strip_tac
-                        >> gvs [evaluate_def]
-                        (* HERE *)
-                                
-                        >> Cases_on ‘i < LENGTH env2 + 2’ >> gvs []
-                        >- (Cases_on ‘j < LENGTH env2 + 2’ >> gvs []
-                            >- (
-
-
-                             CASE_TAC >> gvs []
-
+            >> gvs [evaluate_def]
+            (* HERE *)
+                   
+            >> Cases_on ‘i < LENGTH env2 + 2’ >> gvs []
+            >- (Cases_on ‘j < LENGTH env2 + 2’ >> gvs []
+                >-
+                 (CASE_TAC >> gvs []
+                                  
                                                         
-                                >> Cases_on ‘a’ >> gvs []
-                                >> Cases_on ‘v’ >> Cases_on ‘v'’ >> gvs [v_rel_cases]
-                                >> gvs [do_app_def]
-                                   
-                                >> gvs [do_app_def, do_app_aux_def]
+                  >> Cases_on ‘a’ >> gvs []
+                  >> Cases_on ‘v’ >> Cases_on ‘v'’ >> gvs [v_rel_cases]
+                  >> gvs [do_app_def]
+                         
+                  >> gvs [do_app_def, do_app_aux_def]
                                
-                               gvs [do_app_def]
-                                >> 
-                                        cheat)
-                            >> cheat)
-                        >> cheat)
-                    >> cheat)
+                  >> gvs [do_app_def]
+                  >> cheat)
                 >> cheat)
             >> cheat)
+          >> cheat)
         >> cheat)
-    >> cheat*)
+      >> cheat)
+    >> cheat)
   >~ [‘Tick x’] >-
    (gvs [evaluate_def]
     >> ‘s'.clock = s.clock’ by gvs [state_rel_def]
