@@ -18,42 +18,9 @@ End
 
 Definition encode_and_def:
   encode_and bnd Xs Y =
-  if LENGTH Xs = 0
-  then [encode_ge_aux Y 1]
-  else
-    FLAT (MAP (λX. encode_ge bnd X 1) Xs) ++
-    encode_ge bnd Y 1 ++
-    encode_and_aux bnd Xs Y
-End
-
-Definition cencode_and_aux_def:
-  cencode_and_aux bnd Xs Y name =
-  List $ mk_annotate
-    [mk_name name $ strlit"pos"; mk_name name $ strlit"neg"]
-    (encode_and_aux bnd Xs Y)
-End
-
-Definition cencode_and_def:
-  cencode_and bnd Xs Y name ec =
-  if LENGTH Xs = 0
-  then
-    (List $ mk_annotate
-      [mk_name name $ strlit"emp"]
-      [encode_ge_aux Y 1],
-    ec)
-  else
-    let
-      (xs,ec') =
-        fold_cenc
-          (λX ec. cencode_ge bnd X 1 ec)
-          Xs
-          ec;
-      (xs',ec'') = cencode_ge bnd Y 1 ec'
-    in
-      (Append
-        (Append xs xs')
-        (cencode_and_aux bnd Xs Y name),
-      ec'')
+  FLAT (MAP (λX. encode_ge bnd X 1) Xs) ++
+  encode_ge bnd Y 1 ++
+  encode_and_aux bnd Xs Y
 End
 
 Theorem encode_and_sem_1:
@@ -63,7 +30,6 @@ Theorem encode_and_sem_1:
     (encode_and bnd Xs Y)
 Proof
   rw[encode_and_def,encode_and_aux_def,and_sem_def,reify_sem_def]
-  >-intLib.ARITH_TAC
   >-simp[EVERY_FLAT,EVERY_MAP,reify_avar_def,reify_reif_def]
   >-simp[reify_avar_def,reify_reif_def]>>
   simp[iconstraint_sem_def,reify_avar_def,reify_reif_def,
@@ -88,8 +54,7 @@ Theorem encode_and_sem_2:
     (encode_and bnd Xs Y) ⇒
   and_sem Xs Y wi
 Proof
-  rw[encode_and_def,encode_and_aux_def,and_sem_def,reify_sem_def,EVERY_FLAT]
-  >-intLib.ARITH_TAC>>
+  rw[encode_and_def,encode_and_aux_def,and_sem_def,reify_sem_def,EVERY_FLAT]>>
   qmatch_asmsub_abbrev_tac ‘EVERY P (MAP _ _)’>>
   fs[EVERY_MAP,EVERY_MEM]>>
   gs[Abbr‘P’,iconstraint_sem_def,eval_lin_term_def,MAP_MAP_o,o_ABS_R]>>
@@ -108,16 +73,32 @@ Proof
     metis_tac[])
 QED
 
+Definition cencode_and_aux_def:
+  cencode_and_aux bnd Xs Y name =
+  List $ mk_annotate
+    [mk_name name $ strlit"pos"; mk_name name $ strlit"neg"]
+    (encode_and_aux bnd Xs Y)
+End
+
+Definition cencode_and_def:
+  cencode_and bnd Xs Y name ec =
+  let
+    (xs,ec') = fold_cenc (λX ec. cencode_ge bnd X 1 ec) Xs ec;
+    (xs',ec'') = cencode_ge bnd Y 1 ec'
+  in
+    (Append
+      (Append xs xs')
+      (cencode_and_aux bnd Xs Y name),
+    ec'')
+End
+
 Theorem cencode_and_sem:
   valid_assignment bnd wi ∧
   cencode_and bnd Xs Y name ec = (es, ec') ⇒
   enc_rel wi es (encode_and bnd Xs Y) ec ec'
 Proof
   rw[cencode_and_def,encode_and_def]>>
-  gvs[AllCaseEqs(),UNCURRY_EQ]
-  >-(
-    irule enc_rel_List_refl_mul>>
-    simp[mk_annotate_def])>>
+  gvs[AllCaseEqs(),UNCURRY_EQ]>>
   irule enc_rel_Append>>
   irule_at Any enc_rel_Append>>
   rename1 ‘cencode_ge _ _ _ ec''’>>
@@ -145,31 +126,11 @@ Definition encode_or_aux_def:
   ]
 End
 
-Definition encode_le_aux_def:
-  encode_le_aux Xi i =
-    case Xi of
-      INL X => ([(-1,X)],[],-i)
-    | INR v => ([],[],1 - b2i (v ≤ i))
-End
-
-Theorem encode_le_aux_sem[simp]:
-  iconstraint_sem (encode_le_aux X n) (wi,wb) ⇔ varc wi X ≤ n
-Proof
-  rw[encode_le_aux_def]>>
-  TOP_CASE_TAC>>
-  simp[iconstraint_sem_def,eval_ilin_term_def,iSUM_def,varc_def]
-  >-intLib.ARITH_TAC>>
-  rw[pbc_encodeTheory.b2i_alt]
-QED
-
 Definition encode_or_def:
   encode_or bnd Xs Y =
-  if LENGTH Xs = 0
-  then [encode_le_aux Y 0]
-  else
-    FLAT (MAP (λX. encode_ge bnd X 1) Xs) ++
-    encode_ge bnd Y 1 ++
-    encode_or_aux bnd Xs Y
+  FLAT (MAP (λX. encode_ge bnd X 1) Xs) ++
+  encode_ge bnd Y 1 ++
+  encode_or_aux bnd Xs Y
 End
 
 Theorem encode_or_sem_1:
@@ -179,7 +140,6 @@ Theorem encode_or_sem_1:
     (encode_or bnd Xs Y)
 Proof
   rw[encode_or_def,encode_or_aux_def,or_sem_def,reify_sem_def]
-  >-intLib.ARITH_TAC
   >-simp[EVERY_FLAT,EVERY_MAP,reify_avar_def,reify_reif_def]
   >-simp[reify_avar_def,reify_reif_def]>>
   simp[iconstraint_sem_def,reify_avar_def,reify_reif_def,
@@ -206,8 +166,7 @@ Theorem encode_or_sem_2:
     (encode_or bnd Xs Y) ⇒
   or_sem Xs Y wi
 Proof
-  rw[encode_or_def,encode_or_aux_def,or_sem_def,reify_sem_def,EVERY_FLAT]
-  >-intLib.ARITH_TAC>>
+  rw[encode_or_def,encode_or_aux_def,or_sem_def,reify_sem_def,EVERY_FLAT]>>
   qmatch_asmsub_abbrev_tac ‘EVERY P (MAP _ _)’>>
   fs[EVERY_MAP,EVERY_MEM]>>
   gs[Abbr‘P’,iconstraint_sem_def,eval_lin_term_def,MAP_MAP_o,o_ABS_R]>>
@@ -233,25 +192,14 @@ End
 
 Definition cencode_or_def:
   cencode_or bnd Xs Y name ec =
-  if LENGTH Xs = 0
-  then
-    (List $ mk_annotate
-      [mk_name name $ strlit"emp"]
-      [encode_le_aux Y 0],
-    ec)
-  else
-    let
-      (xs,ec') =
-        fold_cenc
-          (λX ec. cencode_ge bnd X 1 ec)
-          Xs
-          ec;
-      (xs',ec'') = cencode_ge bnd Y 1 ec'
-    in
-      (Append
-        (Append xs xs')
-        (cencode_or_aux bnd Xs Y name),
-      ec'')
+  let
+    (xs,ec') = fold_cenc (λX ec. cencode_ge bnd X 1 ec) Xs ec;
+    (xs',ec'') = cencode_ge bnd Y 1 ec'
+  in
+    (Append
+      (Append xs xs')
+      (cencode_or_aux bnd Xs Y name),
+    ec'')
 End
 
 Theorem cencode_or_sem:
@@ -260,10 +208,7 @@ Theorem cencode_or_sem:
   enc_rel wi es (encode_or bnd Xs Y) ec ec'
 Proof
   rw[cencode_or_def,encode_or_def]>>
-  gvs[AllCaseEqs(),UNCURRY_EQ]
-  >-(
-    irule enc_rel_List_refl_mul>>
-    simp[mk_annotate_def])>>
+  gvs[AllCaseEqs(),UNCURRY_EQ]>>
   irule enc_rel_Append>>
   irule_at Any enc_rel_Append>>
   rename1 ‘cencode_ge _ _ _ ec''’>>
@@ -356,7 +301,7 @@ Theorem cencode_logical_constr_sem:
 Proof
   Cases_on‘c’>>
   rw[cencode_logical_constr_def,encode_logical_constr_def]
-  >-metis_tac[cencode_and_sem]
-  >-metis_tac[cencode_or_sem]
-  >-cheat
+  >- metis_tac[cencode_and_sem]
+  >- metis_tac[cencode_or_sem]
+  >- cheat
 QED
