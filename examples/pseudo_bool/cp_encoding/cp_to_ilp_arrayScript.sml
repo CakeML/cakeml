@@ -417,8 +417,8 @@ Theorem cencode_element2d_sem:
 Proof
   PairCases_on ‘Y1i’>>
   PairCases_on ‘Y2i’>>
-  rename1 ‘encode_element2d _ _ (Y1,offset1) (Y2,offset2) _ ’>>
-  rw[cencode_element2d_def,encode_element2d_def,UNCURRY_EQ,SYM MAP_COUNT_LIST]>>
+  rw[cencode_element2d_def,encode_element2d_def,
+    UNCURRY_EQ,SYM MAP_COUNT_LIST]>>
   pure_rewrite_tac[METIS_PROVE[APPEND_ASSOC]
     “a ++ b ++ c ++ d ++ e = a ++ b ++ (c ++ d ++ e)”]>>
   rpt (irule_at Any enc_rel_Append)>>
@@ -426,15 +426,12 @@ Proof
   disch_then $ irule_at Any>>
   rev_drule_at Any enc_rel_fold_cenc>>
   disch_then $ irule_at Any>>
-  simp[enc_rel_encode_full_eq]>>
-  simp[cencode_proper_index_def]>>
+  simp[enc_rel_encode_full_eq,cencode_proper_index_def]>>
   ntac 2 (qexists ‘ec'’)>>
   every_case_tac>>
   rpt (pairarg_tac>>fs[])>>
   rpt IF_CASES_TAC>>
-  simp[enc_rel_List_mk_annotate]>>
-  simp[cencode_element2d_aux_def]>>
-  simp[enc_rel_List_mk_annotate]
+  simp[enc_rel_List_mk_annotate,cencode_element2d_aux_def]
 QED
 
 Definition arri_def[simp]:
