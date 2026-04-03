@@ -548,8 +548,6 @@ Resume max_depth_call_graph_lemma[NoHandler]:
 QED
 
 Resume max_depth_call_graph_lemma[WithHandler]:
-  cheat
-  (* OLD PROOF — needs adaptation for strengthened 2nd conjunct
   rename [`Call _ _ _ (SOME h)`]
   \\ PairCases_on `h`
   \\ simp_tac (srw_ss()) [evaluate_def,CaseEq"option",CaseEq"bool",pair_case_eq,find_code_def]
@@ -580,7 +578,7 @@ Resume max_depth_call_graph_lemma[WithHandler]:
   \\ reverse (Cases_on `(?x y. res = Result x y) \/ (∃x y. res = Exception x y)`)
   \\ pop_assum mp_tac \\ simp_tac std_ss []
   THEN1
-   (strip_tac \\ fs []
+   (strip_tac 
     \\ `s1 = s2 /\ res <> Error` by
      (rpt (qpat_x_assum `!x y z. _` kall_tac)
       \\ fs [CaseEq"bool",CaseEq"option",CaseEq"wordSem$result"] \\ rfs [])
@@ -617,7 +615,9 @@ Resume max_depth_call_graph_lemma[WithHandler]:
     \\ Cases_on `s1.stack_max` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
     \\ Cases_on `max_depth s.stack_size (call_graph funs n ns (size funs2) h1)`
     THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
-    \\ fs [] \\ rw [MAX_DEF])
+    \\ fs []
+      \\ qmatch_goalsub_abbrev_tac`xxxx ∧ _`
+      \\ rpt strip_tac \\ gvs[])
   \\ strip_tac
   THEN1
    (qpat_x_assum `_ = (_,_)` mp_tac \\ asm_rewrite_tac []
@@ -668,7 +668,9 @@ Resume max_depth_call_graph_lemma[WithHandler]:
     THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs []) \\ fs []
     \\ Cases_on `max_depth s.stack_size (call_graph funs n ns (size funs2) x3)`
     THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs []) \\ fs []
-    \\ rpt strip_tac
+    \\ ntac 2 strip_tac
+    \\ reverse conj_tac
+    >- ( strip_tac >> gvs[] )
     \\ match_mp_tac backendPropsTheory.option_le_trans
     \\ goal_assum (first_x_assum o mp_then Any mp_tac)
     \\ pop_assum mp_tac
@@ -680,8 +682,7 @@ Resume max_depth_call_graph_lemma[WithHandler]:
     \\ Cases_on `s.stack_max` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
     \\ Cases_on `s2.stack_max` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
     \\ Cases_on `max_depth s.stack_size (call_graph funs n ns (size funs2) h1)`
-    THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs []) \\ fs []
-    \\ fs [OPTION_MAP2_DEF] \\ fs [] \\ rw [MAX_DEF])
+    THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs []) \\ fs [])
   THEN1 (* exception with handler *)
    (qpat_x_assum `_ = (_,_)` mp_tac \\ asm_rewrite_tac []
     \\ simp_tac (srw_ss()) [CaseEq"bool",CaseEq"option"]
@@ -725,7 +726,8 @@ Resume max_depth_call_graph_lemma[WithHandler]:
     THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs []) \\ fs []
     \\ Cases_on `max_depth s.stack_size (call_graph funs n ns (size funs2) h1)`
     THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs []) \\ fs []
-    \\ rpt strip_tac
+    \\ ntac 2 strip_tac
+    \\ reverse conj_tac >- (strip_tac \\ gvs[])
     \\ match_mp_tac backendPropsTheory.option_le_trans
     \\ goal_assum (first_x_assum o mp_then Any mp_tac)
     \\ pop_assum mp_tac
@@ -736,8 +738,7 @@ Resume max_depth_call_graph_lemma[WithHandler]:
     \\ Cases_on `stack_size s.stack` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
     \\ Cases_on `s.stack_max` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
     \\ Cases_on `s2.stack_max` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
-    \\ fs [OPTION_MAP2_DEF] \\ fs [] \\ rw [MAX_DEF])
-  *)
+    \\ fs [OPTION_MAP2_DEF])
 QED
 
 Resume max_depth_call_graph_lemma[Loop]:
