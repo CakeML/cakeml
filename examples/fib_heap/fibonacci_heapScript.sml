@@ -1136,7 +1136,7 @@ Proof
   pop_assum mp_tac >>
   Cases_on `xs`
   >- (
-    fs[map_upd_list_def, fts_mem_def, ann_fts_def,SEP_CLAUSES,head_key_def] >>
+    fs[flat_fts_def, fts_mem_def, ann_fts_def,SEP_CLAUSES,head_key_def] >>
     simp[fib_heap_insert_list_def] >>
     strip_tac >>
     qexists `fts` >> gvs[]
@@ -2346,20 +2346,20 @@ QED
 ----------------------------------------------------------*)
 
 
-Definition map_upd_list_def:
-  (map_upd_list [] = []) /\
-  (map_upd_list (FibTree k v ts::rest) =
-    [(k,v.value,v.edges)] ++ map_upd_list ts ++ map_upd_list rest)
+Definition flat_fts_def:
+  (flat_fts [] = []) /\
+  (flat_fts (FibTree k v ts::rest) =
+    [(k,v.value,v.edges)] ++ flat_fts ts ++ flat_fts rest)
 End
 
-Theorem map_upd_list_append_thm:
+Theorem flat_fts_append_thm:
   !xs ys.
-  map_upd_list (xs ++ ys) = (map_upd_list xs) ++ (map_upd_list ys)
+  flat_fts (xs ++ ys) = (flat_fts xs) ++ (flat_fts ys)
 Proof
-  ho_match_mp_tac map_upd_list_ind >>
+  ho_match_mp_tac flat_fts_ind >>
   rpt strip_tac
-  >- simp[map_upd_list_def] >>
-  simp[map_upd_list_def]
+  >- simp[flat_fts_def] >>
+  simp[flat_fts_def]
 QED
 
 Definition fib_heap_inv_strong_def:
@@ -2668,15 +2668,15 @@ Currently, not used!
 Theorem lemma_map_update_not_null:
   !fts fh.
     list_keys_not_null fts /\ (FLOOKUP fh 0w = NONE) ==>
-    FLOOKUP (fh |++ map_upd_list fts) 0w = NONE
+    FLOOKUP (fh |++ flat_fts fts) 0w = NONE
 Proof
-  ho_match_mp_tac map_upd_list_ind >>
+  ho_match_mp_tac flat_fts_ind >>
   simp[Once list_keys_not_null_def] >>
-  simp[Once map_upd_list_def] >>
+  simp[Once flat_fts_def] >>
   rpt strip_tac
   >- simp[FUPDATE_LIST] >>
   fs[list_keys_not_null_def] >>
-  pure_rewrite_tac[map_upd_list_def] >>
+  pure_rewrite_tac[flat_fts_def] >>
   simp[FUPDATE_LIST_APPEND] >>
   simp[GSYM FUPDATE_EQ_FUPDATE_LIST] >>
   rename [`(k,v,e)`] >>
@@ -2692,11 +2692,11 @@ QED
 
 Theorem lemma_mem_eq_fts_has:
  !fts k v e.
-    MEM (k,v,e) (map_upd_list fts) <=>
+    MEM (k,v,e) (flat_fts fts) <=>
     ?m. fts_has k (fill_dnode v e m) fts
 Proof
-  ho_match_mp_tac map_upd_list_ind >>
-  rpt strip_tac >> fs[map_upd_list_def]
+  ho_match_mp_tac flat_fts_ind >>
+  rpt strip_tac >> fs[flat_fts_def]
   >- simp[Once fts_has_cases] >>
   iff_tac >> rpt strip_tac
   >- (
@@ -2714,15 +2714,15 @@ QED
 
 
 
-Theorem lemma_map_upd_mem_fst:
+Theorem lemma_flat_fts_mem_eq_fst:
   !xs k.
-    (?v e. MEM (k,v,e) (map_upd_list xs)) <=>
-    MEM k (MAP FST (map_upd_list xs))
+    (?v e. MEM (k,v,e) (flat_fts xs)) <=>
+    MEM k (MAP FST (flat_fts xs))
 Proof
-  ho_match_mp_tac map_upd_list_ind >>
+  ho_match_mp_tac flat_fts_ind >>
   rpt strip_tac
-  >- simp[map_upd_list_def] >>
-  simp[map_upd_list_def] >>
+  >- simp[flat_fts_def] >>
+  simp[flat_fts_def] >>
   iff_tac >> rpt strip_tac
   >- simp[]
   >- (
@@ -2742,13 +2742,13 @@ QED
 
 Theorem lemma_fts_has_inj_imp_mem_upd_inj:
   fts_has_inj xs ==>
-  (MEM(k,v) (map_upd_list xs) /\
-   MEM(k,v') (map_upd_list xs) ==>
+  (MEM(k,v) (flat_fts xs) /\
+   MEM(k,v') (flat_fts xs) ==>
    v = v')
 Proof
   rpt strip_tac >>
   Cases_on `xs`
-  >- fs[map_upd_list_def] >>
+  >- fs[flat_fts_def] >>
   Cases_on `h` >>
   rpt strip_tac >>
   Cases_on `v` >> Cases_on `v'` >>
@@ -2759,19 +2759,19 @@ Proof
 QED
 
 
-Theorem lemma_fts_all_dist_imp_map_upd_all_distinct:
+Theorem lemma_fts_all_dist_imp_flat_fts_all_dist:
   !xs.
   fts_all_dist xs ==>
-  ALL_DISTINCT (map_upd_list xs) /\
-  (!k v v'. MEM (k,v) (map_upd_list xs) /\ MEM (k,v') (map_upd_list xs) ==>
+  ALL_DISTINCT (flat_fts xs) /\
+  (!k v v'. MEM (k,v) (flat_fts xs) /\ MEM (k,v') (flat_fts xs) ==>
     v = v')
 Proof
-  ho_match_mp_tac map_upd_list_ind >>
+  ho_match_mp_tac flat_fts_ind >>
   rpt strip_tac
-  >- simp[map_upd_list_def]
-  >- fs[map_upd_list_def]
+  >- simp[flat_fts_def]
+  >- fs[flat_fts_def]
   >- (
-    fs[fts_all_dist_def,map_upd_list_def] >>
+    fs[fts_all_dist_def,flat_fts_def] >>
     rpt strip_tac
     >- (
       qspecl_then [`xs'`,`k`,`xs.value`,`xs.edges`]
@@ -2784,7 +2784,7 @@ Proof
     simp[ALL_DISTINCT_APPEND] >>
     rpt strip_tac >>
     Cases_on `e` >> Cases_on `r` >>
-    rename [`MEM (k,v,e) (map_upd_list xs')`] >>
+    rename [`MEM (k,v,e) (flat_fts xs')`] >>
     imp_res_tac lemma_mem_eq_fts_has >>
     fs[fts_has_inj_def] >>
     first_x_assum (qspecl_then [`k`,`(fill_dnode v e m)`,`(fill_dnode v e m')`]
@@ -2801,33 +2801,33 @@ QED
 
 
 
-Theorem lemma_map_upd_all_distinct:
+Theorem lemma_flat_fts_all_distinct:
   !xs.
   fts_all_dist xs ==>
-  ALL_DISTINCT (MAP FST (map_upd_list xs))
+  ALL_DISTINCT (MAP FST (flat_fts xs))
 Proof
-  ho_match_mp_tac map_upd_list_ind >>
+  ho_match_mp_tac flat_fts_ind >>
   rpt strip_tac
-  >- simp[map_upd_list_def] >>
-  simp[map_upd_list_def] >>
+  >- simp[flat_fts_def] >>
+  simp[flat_fts_def] >>
   fs[fts_all_dist_def] >>
   rpt conj_tac
   >- (
     spose_not_then assume_tac >>
-    imp_res_tac lemma_map_upd_mem_fst >>
+    imp_res_tac lemma_flat_fts_mem_eq_fst >>
     imp_res_tac lemma_mem_eq_fts_has >>
     rfs[]
     )
   >- (
     spose_not_then assume_tac >>
-    imp_res_tac lemma_map_upd_mem_fst >>
+    imp_res_tac lemma_flat_fts_mem_eq_fst >>
     imp_res_tac lemma_mem_eq_fts_has >>
     rfs[]
     ) >>
   simp[ALL_DISTINCT_APPEND] >>
   rpt strip_tac >>
-  rename [`MEM k' (MAP FST (map_upd_list xs'))`] >>
-  imp_res_tac lemma_map_upd_mem_fst >>
+  rename [`MEM k' (MAP FST (flat_fts xs'))`] >>
+  imp_res_tac lemma_flat_fts_mem_eq_fst >>
   imp_res_tac lemma_mem_eq_fts_has >>
   qpat_x_assum `fts_has_inj (FibTree k xs xs''::xs')` mp_tac >>
   pure_rewrite_tac[fts_has_inj_def] >>
@@ -2853,13 +2853,13 @@ QED
 
 Theorem lemma_alist_to_fmap_disjoint:
   fts_all_dist (xs ++ ys) ==>
-  DISJOINT (FDOM $ alist_to_fmap $ map_upd_list xs)
-           (FDOM $ alist_to_fmap $ map_upd_list ys)
+  DISJOINT (FDOM $ alist_to_fmap $ flat_fts xs)
+           (FDOM $ alist_to_fmap $ flat_fts ys)
 Proof
   strip_tac >>
   irule lemma_disjoint_alist_imp_disjoint_fmap >>
-  imp_res_tac lemma_map_upd_all_distinct >>
-  fs[map_upd_list_append_thm] >>
+  imp_res_tac lemma_flat_fts_all_distinct >>
+  fs[flat_fts_append_thm] >>
   fs[ALL_DISTINCT_APPEND']
 QED
 
@@ -2890,21 +2890,21 @@ QED
 
 
 
-Theorem lemma_mem_map_upd_eq_flookup:
+Theorem lemma_mem_flat_fts_eq_flookup:
   !fts k v e.
   fts_all_dist fts ==>
-  (MEM (k,v,e) (map_upd_list fts) <=>
-  FLOOKUP (FEMPTY |++ map_upd_list fts) k = SOME (v,e))
+  (MEM (k,v,e) (flat_fts fts) <=>
+  FLOOKUP (FEMPTY |++ flat_fts fts) k = SOME (v,e))
 Proof
   cheat
 QED
 
 
 
-Theorem lemma_map_upd_eq_fts_has:
+Theorem lemma_flat_fts_eq_fts_has:
   !fts k v e.
     fts_all_dist fts ==>
-    (FLOOKUP (FEMPTY |++ (map_upd_list fts)) k = SOME (v,e)  <=>
+    (FLOOKUP (FEMPTY |++ (flat_fts fts)) k = SOME (v,e)  <=>
     ?m. fts_has k (fill_dnode v e m) fts)
 Proof
   rpt strip_tac >>
@@ -2937,12 +2937,12 @@ QED
 Theorem lemma_flookup_fts_is_none:
   !fts fh k.
     (FLOOKUP fh k = NONE /\ !n. ~fts_has k n fts)  ==>
-    FLOOKUP (fh |++ map_upd_list fts) k = NONE
+    FLOOKUP (fh |++ flat_fts fts) k = NONE
 Proof
-  ho_match_mp_tac map_upd_list_ind >>
+  ho_match_mp_tac flat_fts_ind >>
   rpt strip_tac
-  >- simp[map_upd_list_def,FUPDATE_LIST] >>
-  simp[map_upd_list_def] >>
+  >- simp[flat_fts_def,FUPDATE_LIST] >>
+  simp[flat_fts_def] >>
   simp[lemma_flookup_list_append_update] >>
   rename [`!n. ~fts_has k n (FibTree k' n' fts'::fts'')`] >>
   pop_assum mp_tac >>
@@ -2960,20 +2960,20 @@ QED
 
 Theorem lemma_apply_list_upd:
   !xs fh x v e.
-    fts_all_dist xs /\ FLOOKUP (fh |++ map_upd_list xs) x = SOME (v,e) /\
+    fts_all_dist xs /\ FLOOKUP (fh |++ flat_fts xs) x = SOME (v,e) /\
     FLOOKUP fh x = NONE ==>
     FLOOKUP (fh |+ (x,v,e)) x = SOME(v,e)
 Proof
-  ho_match_mp_tac map_upd_list_ind >>
+  ho_match_mp_tac flat_fts_ind >>
   rpt strip_tac
   >- (
-    fs[map_upd_list_def,FUPDATE_LIST]
+    fs[flat_fts_def,FUPDATE_LIST]
     ) >>
   rename [`(FibTree k n xs'::xs'')`] >>
-  qpat_x_assum `FLOOKUP (fh |++ map_upd_list (FibTree k n xs'::xs'')) x =
+  qpat_x_assum `FLOOKUP (fh |++ flat_fts (FibTree k n xs'::xs'')) x =
     SOME (v,e)` mp_tac >>
   fs[fts_all_dist_def] >>
-  simp[map_upd_list_def] >>
+  simp[flat_fts_def] >>
   simp[lemma_flookup_list_append_update] >>
   fs[FORALL_AND_THM] >>
   simp[FLOOKUP_SIMP]
@@ -2984,11 +2984,11 @@ QED
 Theorem lemma_map_extract_head:
   !fts fh k n l v e.
     fts_all_dist (FibTree k n l::fts) /\ FLOOKUP fh k = NONE /\
-    FLOOKUP (fh |++ map_upd_list (FibTree k n l::fts)) k = SOME(v,e) ==>
+    FLOOKUP (fh |++ flat_fts (FibTree k n l::fts)) k = SOME(v,e) ==>
     n.value = v /\ n.edges = e
 Proof
   rpt strip_tac >>
-  drule_all lemma_map_upd_eq_fts_has >>
+  drule_all lemma_flat_fts_eq_fts_has >>
   strip_tac >> fs[] >>
   fs[fts_all_dist_def] >>
   pop_assum mp_tac >>
@@ -3006,13 +3006,13 @@ Currently, not used!
 Theorem lemma_list_upd_not_null:
   !fts fh.
     list_keys_not_null fts /\ FLOOKUP fh 0w = NONE ==>
-    FLOOKUP (fh |++ map_upd_list fts) 0w = NONE
+    FLOOKUP (fh |++ flat_fts fts) 0w = NONE
 Proof
-  ho_match_mp_tac map_upd_list_ind >>
+  ho_match_mp_tac flat_fts_ind >>
   rpt strip_tac
-  >- (fs[map_upd_list_def,FUPDATE_LIST]) >>
+  >- (fs[flat_fts_def,FUPDATE_LIST]) >>
   rename [`list_keys_not_null (FibTree k n l::fts)`] >>
-  simp[map_upd_list_def,lemma_flookup_list_append_update] >>
+  simp[flat_fts_def,lemma_flookup_list_append_update] >>
   fs[list_keys_not_null_def] >>
   Cases_on `FLOOKUP (fh |+ (k,n.value,n.edges)) 0w = NONE`
   >- (first_x_assum(qspec_then `(fh |+ (k,n.value,n.edges))` assume_tac) >> rfs[]) >>
@@ -3024,19 +3024,19 @@ QED
 
 Theorem lemma_flookup_in_map_or_upd:
   !fts fh k v e.
-    FLOOKUP(fh |++ map_upd_list fts) k = SOME (v,e) ==>
-      FLOOKUP fh k = SOME (v,e) \/ MEM (k,v,e) (map_upd_list fts)
+    FLOOKUP(fh |++ flat_fts fts) k = SOME (v,e) ==>
+      FLOOKUP fh k = SOME (v,e) \/ MEM (k,v,e) (flat_fts fts)
 Proof
-  ho_match_mp_tac map_upd_list_ind >>
+  ho_match_mp_tac flat_fts_ind >>
   rpt strip_tac
-  >- fs[map_upd_list_def,FUPDATE_LIST] >>
-  simp[map_upd_list_def] >>
+  >- fs[flat_fts_def,FUPDATE_LIST] >>
+  simp[flat_fts_def] >>
   pop_assum mp_tac >>
-  simp[Once map_upd_list_def] >>
+  simp[Once flat_fts_def] >>
   pure_rewrite_tac[lemma_flookup_list_append_update] >>
   strip_tac >>
   rename[`fh |+ (k,n.value,n.edges)`] >>
-  last_x_assum(qspecl_then [`(fh |+ (k,n.value,n.edges) |++ map_upd_list fts')`,
+  last_x_assum(qspecl_then [`(fh |+ (k,n.value,n.edges) |++ flat_fts fts')`,
     `k'`,`v`,`e`] assume_tac) >>
   rfs[] >>
   first_x_assum(qspecl_then[`(fh |+ (k,n.value,n.edges))`,`k'`,`v`,`e`] assume_tac) >>
@@ -3052,7 +3052,7 @@ Theorem lemma_insert_list_new_min_inv:
     (fts_all_dist (fts ++ xs)) /\
     (list_keys_not_null xs) /\
     (fts_min xs <=+ fts_min fts) ==>
-    (fib_heap_inv2 (fh |++ map_upd_list xs) (xs ++ fts))
+    (fib_heap_inv2 (fh |++ flat_fts xs) (xs ++ fts))
 Proof
   rpt strip_tac >>
   Cases_on `fts`
@@ -3064,20 +3064,20 @@ Proof
     strip_tac >>
     fs[lemma_empty_map] >>
     Cases_on `xs`
-    >- fs[map_upd_list_def,FUPDATE_LIST] >>
+    >- fs[flat_fts_def,FUPDATE_LIST] >>
     Cases_on `h` >>
     gvs[fts_is_min_def,fts_min_def,head_key_def] >>
     rpt strip_tac
     >- (dxrule lemma_map_update_not_null >> strip_tac >>fs[])
     >- (
       qspecl_then [`(FibTree k v l::t)`,`FEMPTY`,`k'`, `v'`, `e`]
-        assume_tac lemma_map_upd_eq_fts_has >> fs[]
+        assume_tac lemma_flat_fts_eq_fts_has >> fs[]
       )
    ) >>
   Cases_on `h` >>
   fs[fib_heap_inv2_def] >>
   Cases_on `xs`
-  >- (rpt strip_tac >> fs[] >> fs[map_upd_list_def,FUPDATE_LIST]) >>
+  >- (rpt strip_tac >> fs[] >> fs[flat_fts_def,FUPDATE_LIST]) >>
   Cases_on `h` >>
   rpt strip_tac
   >- (
