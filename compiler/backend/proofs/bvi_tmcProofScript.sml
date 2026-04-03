@@ -1398,7 +1398,27 @@ Proof
   >~ [‘Force force_loc n’] >-
      cheat
   >~ [‘Call ticks dest xs handler’] >-
-   (gvs [evaluate_def] >> cheat)
+     
+   (gvs [evaluate_def]
+    >> Cases_on ‘dest’ >> gvs [] >> Cases_on ‘handler’ >> gvs []
+    >- (*  *)
+     (gvs [CaseEq "prod", PULL_EXISTS]
+      >> rename [‘evaluate (xs,env,s) = (vs,u)’]
+      >> Cases_on ‘vs’ >> gvs []
+      >-
+       (rename [‘evaluate (xs,env,s) = (Rval vs,u)’]
+        >> Cases_on ‘find_code NONE vs u.code’ >> gvs []
+        >> Cases_on ‘x’ >> gvs []
+        >> rename [‘find_code NONE vs u.code = SOME (args,exp)’]
+        >> Cases_on ‘u.clock < ticks + 1’ >> gvs []
+        >- (* Clock ran out *) (* First inductive hypothesis *)
+         (first_x_assum $ qspec_then ‘F’ mp_tac
+          >> gvs []
+          >> cheat (*disch_then*) (* I think at this point we need to relax env_rel so that true case implies false case *)
+         )
+       )
+     )
+   )
 QED
 
 Theorem evaluate_compile_prog:
