@@ -1292,56 +1292,47 @@ Resume inst_select_thm[TailCall]:
 QED
 
 Resume inst_select_thm[FullCall]:
-  (* Original master proof (before while-branch changes) for reference:
-      PairCases_on`x'`>>full_simp_tac(srw_ss())[add_ret_loc_def]>>
-      ntac 6 (TOP_CASE_TAC>>full_simp_tac(srw_ss())[]) >-
-        (Cases_on `handler` >>
-        fs [call_env_def, flush_state_def,state_component_equality,locals_rel_def] >>
-        Cases_on `x''` >> fs [] >> Cases_on `r` >> fs [] >> Cases_on `r''` >>
-          fs [push_env_def, state_component_equality] >>  metis_tac [])
-      >>
-      full_simp_tac(srw_ss())[]>>
-      qpat_x_assum`A=(res,rst with locals:=loc')` mp_tac>>
-      qpat_abbrev_tac`st = call_env B lsz C`>>
-      qpat_abbrev_tac`st' = call_env B lsz C`>>
-      `st' = st''` by
-        (unabbrev_all_tac>>
-        Cases_on`handler`>>TRY(PairCases_on`x''`)>>
-        full_simp_tac(srw_ss())[call_env_def, flush_state_def,push_env_def,dec_clock_def,push_env_def,LET_THM,
-         env_to_list_def,state_component_equality])>>
-      Cases_on`evaluate(q',st'')`>>
-      Cases_on`q''`>>full_simp_tac(srw_ss())[]>>
-      Cases_on`x''`>>full_simp_tac(srw_ss())[]
-      >-
-        (IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
-        FULL_CASE_TAC>>full_simp_tac(srw_ss())[]>>
-        IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
-        ntac 2 (FULL_CASE_TAC>>full_simp_tac(srw_ss())[])>>srw_tac[][]>>
-        res_tac>>full_simp_tac(srw_ss())[]>>
-        qpat_abbrev_tac`D = set_vars A B C`>>
-        first_x_assum(qspec_then`D.locals` assume_tac)>>full_simp_tac(srw_ss())[locals_rel_def]>>
-        full_simp_tac(srw_ss())[locals_rm,state_component_equality])
-      >-
-        (Cases_on`handler`>>full_simp_tac(srw_ss())[state_component_equality]>>
-        PairCases_on`x''`>>full_simp_tac(srw_ss())[]>>
-        IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
-        IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
-        srw_tac[][]>>
-        res_tac>>
-        qpat_abbrev_tac`D = set_var A B C`>>
-        first_x_assum(qspec_then`D.locals` assume_tac)>>full_simp_tac(srw_ss())[locals_rel_def]>>
-        full_simp_tac(srw_ss())[locals_rm,state_component_equality]>>
-        Cases_on`res`>>full_simp_tac(srw_ss())[]>>
-        qexists_tac`loc''`>>metis_tac[])
-      >>
-        full_simp_tac(srw_ss())[state_component_equality]
-     Adapting for while-branch: the proof structure is the same, but
-     (1) the Resume context has PairCases already done on ret (x0,...,x5)
-     (2) fs[evaluate_def] must NOT expand the hypothesis - use simp_tac for goal only
-     (3) the st'=st'' equality needs pairarg_tac for push_env's env_to_list
-     (4) bad_fun_return changes don't affect the full call path
-     The >- for clock=0 timeout needs flush_state+push_env stack_max equality. *)
-  cheat
+  PairCases_on`x` >> fs[add_ret_loc_def] >>
+  drule locals_rel_evaluate_thm >>
+  simp[every_var_def] >>
+  disch_then drule >> simp[] >>
+  disch_then drule >> strip_tac >>
+  qhdtm_x_assum`evaluate`mp_tac >>
+  simp[evaluate_def] >>
+  simp[CaseEq"prod",CaseEq"option",CaseEq"bool",PULL_EXISTS] >>
+  rpt gen_tac >> strip_tac >> gvs[]
+  >- (
+    gvs[add_ret_loc_def] >>
+    gvs[flush_state_def, call_env_def, state_component_equality] >>
+    Cases_on`handler` >> gvs[] >>
+    PairCases_on`x` >> gvs[push_env_def] ) >>
+  gvs[add_ret_loc_def, PULL_EXISTS] >>
+  qmatch_goalsub_abbrev_tac`call_env args1 ss hhh` >>
+  qmatch_asmsub_abbrev_tac`call_env args1 ss hhh1` >>
+  `hhh = hhh1` by (
+    Cases_on`handler` \\ gvs[Abbr`hhh`,Abbr`hhh1`, push_env_def] >>
+    PairCases_on`x` \\ gvs[push_env_def] ) >>
+  gvs[Abbr`hhh`] >>
+  TOP_CASE_TAC >> gvs[]
+  >- (
+    gvs[CaseEq"bool",CaseEq"option"] >>
+    first_x_assum drule >> gvs[] >>
+    gvs[set_vars_def] >>
+    qmatch_goalsub_abbrev_tac`s1 with locals := lll` >>
+    disch_then(qspec_then`lll`mp_tac) >>
+    impl_tac >- rw[locals_rel_def] >>
+    strip_tac >> simp[] >>
+    CASE_TAC >> gvs[locals_rel_def] >>
+    CASE_TAC >> gvs[locals_rel_def] ) >>
+  gvs[CaseEq"option",CaseEq"prod",CaseEq"bool"] >>
+  first_x_assum drule >> gvs[] >>
+  qmatch_goalsub_abbrev_tac`locals_rel _ ll1.locals` >>
+  disch_then(qspec_then`ll1.locals`mp_tac) >>
+  `ll1 with locals := ll1.locals = ll1` by simp[state_component_equality] >>
+  impl_tac >- gvs[locals_rel_def] >>
+  strip_tac >> gvs[] >>
+  CASE_TAC >> gvs[locals_rel_def] >>
+  CASE_TAC >> gvs[locals_rel_def]
 QED
 
 Resume inst_select_thm[Loop]:
