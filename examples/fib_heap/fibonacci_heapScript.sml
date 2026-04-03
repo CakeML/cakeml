@@ -1627,8 +1627,8 @@ End
 
 
 
-Definition fib_heap_inv2_def:
-  fib_heap_inv2 fh (fts: ('a word, 'a node_data) fts) ⇔
+Definition fib_heap_inv_def:
+  fib_heap_inv fh (fts: ('a word, 'a node_data) fts) ⇔
     (!k v. FLOOKUP fh k = SOME v ==> k <> 0w) /\
     (∀k v e. FLOOKUP fh k = SOME (v,e) <=>
       ?m. fts_has k (fill_dnode v e m) fts) /\
@@ -1643,7 +1643,7 @@ Definition fib_heap2_def:
   fib_heap2 a fh =
     SEP_EXISTS fts.
       fts_mem (ann_fts 0w fts) *
-      cond (fib_heap_inv2 fh fts /\ a = head_key fts)
+      cond (fib_heap_inv fh fts /\ a = head_key fts)
 End
 
 
@@ -1670,10 +1670,10 @@ End
 
 
 Theorem lemma_empty_list2:
-  !fh fts.  (fib_heap_inv2 fh fts /\ head_key fts = 0w) ==> fts = []
+  !fh fts.  (fib_heap_inv fh fts /\ head_key fts = 0w) ==> fts = []
 Proof
   rpt strip_tac >>
-  fs[fib_heap_inv2_def] >>
+  fs[fib_heap_inv_def] >>
   Cases_on `fts` >> fs[] >>
   Cases_on `h` >>
   Cases_on `FLOOKUP fh 0w` >> fs[] >>
@@ -1699,14 +1699,14 @@ QED
 
 Theorem lemma_empty_heap2:
   !fh fts.
-  (fib_heap_inv2 fh fts /\ head_key fts = 0w) ==>
+  (fib_heap_inv fh fts /\ head_key fts = 0w) ==>
       (fts = [] /\ fh = FEMPTY)
 Proof
   assume_tac lemma_empty_list2 >>
   rpt gen_tac >>
   strip_tac >>
   res_tac >> gvs[] >>
-  fs[fib_heap_inv2_def] >>
+  fs[fib_heap_inv_def] >>
   Cases_on `fh` >> rw[] >>
   Cases_on `y` >>
   rename [`x,(v,e)`] >>
@@ -1715,9 +1715,9 @@ Proof
 QED
 
 Theorem lemma_empty_heap[allow_rebind]:
-  fib_heap_inv2 fh [] ==> fh = FEMPTY
+  fib_heap_inv fh [] ==> fh = FEMPTY
 Proof
-  simp[fib_heap_inv2_def] >>
+  simp[fib_heap_inv_def] >>
   rpt strip_tac >>
   fs[Once fts_has_cases] >>
   Cases_on `fh` >> fs[] >>
@@ -1844,13 +1844,13 @@ QED
 
 Theorem lemma_merge_heaps_inv:
   !fh1 fh2 xs ys.
-  (fib_heap_inv2 fh1 xs) /\
-  (fib_heap_inv2 fh2 ys) /\
+  (fib_heap_inv fh1 xs) /\
+  (fib_heap_inv fh2 ys) /\
   (DISJOINT (FDOM fh1) (FDOM fh2)) /\
   (fts_min ys <=+ fts_min xs) ==>
-  (fib_heap_inv2 (FUNION fh1 fh2) (ys ++ xs))
+  (fib_heap_inv (FUNION fh1 fh2) (ys ++ xs))
 Proof
-  fs[fib_heap_inv2_def] >>
+  fs[fib_heap_inv_def] >>
   rpt strip_tac
   >- (
     fs[FLOOKUP_FUNION] >>
@@ -1895,20 +1895,20 @@ QED
 
 
 Theorem logical_fib_heap_merge:
-  fib_heap_inv2 fhx xs /\
-  fib_heap_inv2 fhy ys /\
+  fib_heap_inv fhx xs /\
+  fib_heap_inv fhy ys /\
   DISJOINT (FDOM fhx) (FDOM fhy) /\
   fts_merge xs ys = fts ==>
-  fib_heap_inv2 (FUNION fhx fhy) fts
+  fib_heap_inv (FUNION fhx fhy) fts
 Proof
   rpt strip_tac >>
   Cases_on `xs` >> Cases_on `ys`
   >- (
     fs[fts_merge_def] >>
-    simp[fib_heap_inv2_def] >>
+    simp[fib_heap_inv_def] >>
     drule_all lemma_empty_heap >>
     disch_tac >> gvs[] >>
-    fs[fib_heap_inv2_def]
+    fs[fib_heap_inv_def]
     )
   >- (
     drule_all lemma_empty_heap >>
@@ -2303,7 +2303,7 @@ Proof
   fs[ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def,fts_mem_def,
      SEP_CLAUSES, head_key_def, ft_seg_def, fill_anode_def,
      fill_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
-  simp[fib_heap_inv2_def] >>
+  simp[fib_heap_inv_def] >>
   rpt strip_tac
   >- fs[FLOOKUP_SIMP]
   >- (
@@ -2352,6 +2352,7 @@ Definition flat_fts_def:
     [(k,v.value,v.edges)] ++ flat_fts ts ++ flat_fts rest)
 End
 
+
 Theorem flat_fts_append_thm:
   !xs ys.
   flat_fts (xs ++ ys) = (flat_fts xs) ++ (flat_fts ys)
@@ -2361,6 +2362,7 @@ Proof
   >- simp[flat_fts_def] >>
   simp[flat_fts_def]
 QED
+
 
 Definition fib_heap_inv_strong_def:
   fib_heap_inv_strong fh (fts: ('a word, 'a node_data) fts) ⇔
@@ -3048,16 +3050,16 @@ QED
 Theorem lemma_insert_list_new_min_inv:
   !fts fh fh2 xs.
     (fib_heap_inv( fh fts) /\
-    (fib_heap_inv2 fh2 xs) /\
+    (fib_heap_inv fh2 xs) /\
     (fts_all_dist (fts ++ xs)) /\
     (list_keys_not_null xs) /\
     (fts_min xs <=+ fts_min fts) ==>
-    (fib_heap_inv2 (fh |++ flat_fts xs) (xs ++ fts))
+    (fib_heap_inv (fh |++ flat_fts xs) (xs ++ fts))
 Proof
   rpt strip_tac >>
   Cases_on `fts`
   >- (
-    fs[fib_heap_inv2_def] >>
+    fs[fib_heap_inv_def] >>
     qpat_x_assum `∀k v e.FLOOKUP fh k = SOME (v,e) ==>
                   ∃m. fts_has k (fill_dnode v e m) []` mp_tac >>
     simp[Once fts_has_cases] >>
@@ -3075,7 +3077,7 @@ Proof
       )
    ) >>
   Cases_on `h` >>
-  fs[fib_heap_inv2_def] >>
+  fs[fib_heap_inv_def] >>
   Cases_on `xs`
   >- (rpt strip_tac >> fs[] >> fs[flat_fts_def,FUPDATE_LIST]) >>
   Cases_on `h` >>
