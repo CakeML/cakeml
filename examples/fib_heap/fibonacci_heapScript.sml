@@ -7,6 +7,20 @@ Ancestors
 Libs
   wordsLib helperLib
 
+
+
+
+(*-------------------------------------------------------------------*
+   Auxilary Helper Functions
+ *-------------------------------------------------------------------*)
+
+Theorem lemma_cons_eq_append:
+  (x::xs) = [x] ++ xs
+Proof
+  simp[]
+QED
+
+
 (*-------------------------------------------------------------------*
    Datatypes
  *-------------------------------------------------------------------*)
@@ -285,8 +299,6 @@ Proof
 QED
 
 
-
-
 Definition ann_ft_def:
   ann_ft p (FibTree k n xs) =
     FibTree k (fill_anode n k k p (head_key xs) (LENGTH xs))
@@ -356,13 +368,27 @@ Proof
 QED
 
 
-Theorem fts_mem_sym_thm:
-  !xs ys. fts_mem (xs ++ ys) = fts_mem (ys ++ xs)
+Theorem fts_mem_ann_sym_thm:
+  fts_mem (ann_fts p (xs ++ ys)) = fts_mem (ann_fts p (ys ++ xs))
 Proof
+  Cases_on `xs` >> Cases_on `ys` >> fs[]>>
+  Cases_on `h` >> Cases_on `h'` >>
+  pure_rewrite_tac[GSYM (cj 2 APPEND)] >>
+  qspecl_then [`(FibTree k v l::t)`,`(FibTree k' v' l'::t')`,`p`]
+    assume_tac ann_fts_append_thm >>
+  qspecl_then [`(FibTree k' v' l'::t')`,`(FibTree k v l::t)`,`p`]
+    assume_tac ann_fts_append_thm >>
+  pop_assum mp_tac >>
+  pop_assum mp_tac >>
+  pure_rewrite_tac[Once (GSYM APPEND_ASSOC),APPEND] >> disch_tac >>
+  pure_rewrite_tac[Once (GSYM APPEND_ASSOC),APPEND] >> disch_tac >>
+  simp[] >>
   simp[fts_mem_append_thm] >>
+  simp[head_key_def,head_key_t_def] >>
+  once_rewrite_tac[lemma_cons_eq_append] >>
+  simp[head_key_t_append_thm,head_key_t_pull_last_thm] >>
   simp[AC STAR_ASSOC STAR_COMM]
 QED
-
 
 
 Theorem lemma_ann_fts_seg_MEM:
@@ -1617,6 +1643,27 @@ QED
 
 
 
+Definition fts_parent_lower_eq_def:
+  (fts_parent_lower_eq [] <=> T) /\
+  (fts_parent_lower_eq (FibTree k v l::ts) <=>
+    (fts_is_min v.value l) /\ fts_parent_lower_eq ts)
+End
+
+
+Theorem fts_parent_lower_eq_append_thm:
+  !xs.
+  fts_parent_lower_eq (xs ++ ys) <=> fts_parent_lower_eq xs /\ fts_parent_lower_eq ys
+Proof
+  ho_match_mp_tac fts_parent_lower_eq_ind >>
+  rpt strip_tac
+  >- fs[fts_parent_lower_eq_def] >>
+  simp[fts_parent_lower_eq_def] >>
+  simp[CONJ_ASSOC]
+QED
+
+
+
+
 Definition every_fts_def:
   every_fts P xs <=>
     P xs /\ !k v l. MEM(FibTree k v l) xs ==> every_fts P l
@@ -1634,7 +1681,8 @@ Definition fib_heap_inv_def:
       ?m. fts_has k (fill_dnode v e m) fts) /\
     (fts_all_dist fts) /\
     (fts_is_min (fts_min fts) fts) /\
-    (every_fts fts_head_is_min fts) /\
+    (every_fts fts_parent_lower_eq fts) /\
+    (*(every_fts fts_head_is_min fts) /\*)
     (fib_heap_shape_ok fts)
 End
 
@@ -1697,6 +1745,19 @@ Proof
   fs[FLOOKUP_SIMP]
 QED
 
+
+Theorem lemma_empty_heap[allow_rebind]:
+  fib_heap_inv fh [] ==> fh = FEMPTY
+Proof
+  simp[fib_heap_inv_def] >>
+  rpt strip_tac >>
+  fs[Once fts_has_cases] >>
+  Cases_on `fh` >> fs[] >>
+  first_x_assum(qspecl_then [`x`,`FST y`,`SND y`] assume_tac) >>
+  fs[FLOOKUP_SIMP]
+QED
+
+
 Theorem lemma_empty_heap2:
   !fh fts.
   (fib_heap_inv fh fts /\ head_key fts = 0w) ==>
@@ -1713,18 +1774,6 @@ Proof
   last_x_assum (qspecl_then [`x`,`v`,`e`] assume_tac) >>
   fs[Once fts_has_cases, FLOOKUP_DEF]
 QED
-
-Theorem lemma_empty_heap[allow_rebind]:
-  fib_heap_inv fh [] ==> fh = FEMPTY
-Proof
-  simp[fib_heap_inv_def] >>
-  rpt strip_tac >>
-  fs[Once fts_has_cases] >>
-  Cases_on `fh` >> fs[] >>
-  first_x_assum(qspecl_then [`x`,`FST y`,`SND y`] assume_tac) >>
-  fs[FLOOKUP_SIMP]
-QED
-
 
 
 Theorem lemma_fib_heap_new_min:
@@ -1754,6 +1803,7 @@ Proof
   pop_assum kall_tac >>
   drule_all lemma_fib_heap_new_min >> simp[]
 QED
+
 
 Theorem lemma_flookup_funion_comm:
   !fh1 fh2 k.
@@ -1882,6 +1932,11 @@ Proof
     )
   >- (drule_all lemma_merge_heaps_new_min >> simp[])
   >- (
+    fs[Once every_fts_def] >>
+    simp[fts_parent_lower_eq_append_thm] >>
+    rpt strip_tac >> res_tac >> simp[]
+    ) >>
+  (*>- (
     simp[Once every_fts_def] >>
     qpat_x_assum `every_fts fts_head_is_min fts` mp_tac >>
     simp[Once every_fts_def] >> strip_tac >>
@@ -1889,7 +1944,7 @@ Proof
     simp[Once every_fts_def] >> strip_tac >>
     simp[fts_head_is_min_append_thm] >>
     rpt strip_tac >> res_tac >> simp[]
-    ) >>
+    ) >> *)
   simp[fib_heap_shape_ok_append_thm]
 QED
 
