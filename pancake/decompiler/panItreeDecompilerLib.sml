@@ -1551,6 +1551,117 @@ fun mk_body_abbr_var_exp name_term params_list arg_ty body =
   end
 
 
+   
+           
+fun let_inner_subst let_term =
+  let val value = let_term |> rand
+      val func = let_term |> rator |> rand
+      val (lambda_var, inner_term) = func |> dest_abs
+      val new_inner_term = subst [value |-> lambda_var] inner_term
+      val new_func = mk_abs (lambda_var, new_inner_term)
+      val new_let_term = “LET ^new_func ^value”
+  in
+    if term_eq new_let_term let_term then
+      NONE
+    else
+      let val new_thm = prove (mk_eq (let_term, new_let_term), gvs[LET_THM])
+      in
+        SOME new_thm
+        end
+    end
+
+  
+fun let_capture_once th =
+  let val trm = th |> concl
+      val let_terms = find_terms (can (match_term “LET _ _”)) trm
+      val rw_thms = map valOf (filter hurdUtils.is_some (map let_inner_subst let_terms))
+      val _ = if null rw_thms then raise Domain else "still in loop"
+  in
+    SIMP_RULE (srw_ss ()) rw_thms th
+    end
+
+  
+fun let_capture th = let_capture (let_capture_once th)
+                                 handle Domain => th
+
+fun let_conj_merge_subst let_conj_trm =
+  let val (llet, rlet) = dest_conj let_conj_trm
+  in
+    if is_let llet andalso is_let rlet then
+      let val ((llet_lambda_var, llet_inner_term), llet_val) = llet |> dest_let |> (fn (x, y) => (dest_abs x, y))
+          val ((rlet_lambda_var, rlet_inner_term), rlet_val) = rlet |> dest_let |> (fn (x, y) => (dest_abs x, y))
+          val llet_avoids = flatten (map free_vars [llet_inner_term, llet_val,
+                                                    rlet_lambda_var, rlet_inner_term, rlet_val])
+          val new_llet_lambda_var = variant llet_avoids llet_lambda_var
+          val new_llet_inner_term = subst [llet_lambda_var |-> new_llet_lambda_var] llet_inner_term
+          val rlet_avoids = flatten (map free_vars [rlet_inner_term, rlet_val,
+                                                    new_llet_lambda_var, new_llet_inner_term, llet_val])
+          val new_rlet_lambda_var = variant rlet_avoids rlet_lambda_var
+          val new_rlet_inner_term = subst [rlet_lambda_var |-> new_rlet_lambda_var] rlet_inner_term
+          val new_inner_term = mk_conj (new_llet_inner_term, new_rlet_inner_term)
+          val new_inner_let = mk_let (mk_abs (new_rlet_lambda_var, new_inner_term), rlet_val)
+          val outer_let = mk_let (mk_abs (new_llet_lambda_var, new_inner_let), llet_val)
+      in
+        SOME $ prove (mk_eq (let_conj_trm, outer_let), gvs[CONJ_ASSOC, LET_THM])
+        end
+    else if is_let llet then
+      let val ((llet_lambda_var, llet_inner_term), llet_val) = llet |> dest_let |> (fn (x, y) => (dest_abs x, y))
+          val llet_avoids = flatten (map free_vars [llet_inner_term, llet_val, rlet])
+          val new_llet_lambda_var = variant llet_avoids llet_lambda_var
+          val new_llet_inner_term = subst [llet_lambda_var |-> new_llet_lambda_var] llet_inner_term
+          val new_inner_term = mk_conj (new_llet_inner_term, rlet)
+          val outer_let = mk_let (mk_abs (new_llet_lambda_var, new_inner_term), llet_val)
+      in
+        SOME $ prove (mk_eq (let_conj_trm, outer_let), gvs[CONJ_ASSOC, LET_THM])
+        end
+    else if is_let rlet then
+      let val ((rlet_lambda_var, rlet_inner_term), rlet_val) = rlet |> dest_let |> (fn (x, y) => (dest_abs x, y))
+          val rlet_avoids = flatten (map free_vars [rlet_inner_term, rlet_val, llet])
+          val new_rlet_lambda_var = variant rlet_avoids rlet_lambda_var
+          val new_rlet_inner_term = subst [rlet_lambda_var |-> new_rlet_lambda_var] rlet_inner_term
+          val new_inner_term = mk_conj (llet, new_rlet_inner_term)
+          val outer_let = mk_let (mk_abs (new_rlet_lambda_var, new_inner_term), rlet_val)
+      in
+        SOME $ prove (mk_eq (let_conj_trm, outer_let), gvs[CONJ_COMM, LET_THM])
+        end
+    else
+      NONE
+    end
+  
+
+
+fun let_conj_merge_once th =
+  let val trm = th |> concl
+      val let_terms = find_terms (fn x => is_conj x
+                                                  andalso exists is_let (strip_conj x)
+                                                  andalso length (strip_conj x) = 2) trm
+      val rw_thms = map valOf (filter hurdUtils.is_some (map let_conj_merge_subst let_terms))
+      val _ = if null rw_thms then raise Domain else "still in loop"
+  in
+    SIMP_RULE (srw_ss ()) rw_thms th
+    end
+
+  
+fun let_conj_merge th = let_conj_merge (let_conj_merge_once th)
+                                 handle Domain => th
+
+                       
+fun let_reduce_asm_conj th =
+  if is_conj (concl th) then
+    LIST_CONJ (map let_reduce_asm_conj (CONJUNCTS th))
+  else
+    th  |> SPEC_ALL
+        |> UNDISCH_ALL
+        |> hurdUtils.DISCH_CONJUNCTS_FILTER is_let
+        |> let_conj_merge
+        |> UNDISCH_ALL
+        |> hurdUtils.DISCH_CONJUNCTS_ALL
+        |> let_capture
+        |> eval_some_rw
+        |> let_n2w_rw
+        |> let_non_comb_rw
+        |> GEN_ALL
+           handle _ => th
   
 fun decompile_2 file_name extra_assms fundec =
   let val (code_thm, lookup_thms) = codes_lookup_funcs_assms file_name fundec
@@ -1578,6 +1689,7 @@ fun decompile_2 file_name extra_assms fundec =
                        |> let_non_comb_rw
 		       |> let_n2w_rw
                        |> SIMP_RULE (srw_ss ()) [shape_of_def, size_of_shape_def]
+		       |> let_reduce_asm_conj
               , map (fn x => x |> DISCH_ALL
                                |> UNDISCH_COMP_CONJUNCTS_ALL
                                |> eval_simp_with_hyp_rpt
@@ -1589,7 +1701,8 @@ fun decompile_2 file_name extra_assms fundec =
                                |> eval_some_rw
                                |> let_non_comb_rw
 		               |> let_n2w_rw
-                               |> SIMP_RULE (srw_ss ()) [shape_of_def, size_of_shape_def]) inner_thms, inner_defs)
+                               |> SIMP_RULE (srw_ss ()) [shape_of_def, size_of_shape_def]
+		               |> let_reduce_asm_conj) inner_thms, inner_defs)
            end
         )
         bodies, body_thms)
@@ -1624,6 +1737,7 @@ fun decompile_2_reduce file_name extra_assms fundec =
 		       |> let_n2w_rw
                        |> SIMP_RULE (srw_ss ()) [shape_of_def, size_of_shape_def]
                        |> conj_safe_spin_wbisim_lifting
+		       |> let_reduce_asm_conj
               , map (fn x => x |> DISCH_ALL
                                |> (fn x => (SIMP_RULE (srw_ss ()) tree_simp_rules) x)
                                |> DISCH_ALL
@@ -1639,6 +1753,7 @@ fun decompile_2_reduce file_name extra_assms fundec =
 		               |> let_n2w_rw
                                |> SIMP_RULE (srw_ss ()) [shape_of_def, size_of_shape_def]
                                |> conj_safe_spin_wbisim_lifting
+		               |> let_reduce_asm_conj
                     ) inner_thms, inner_defs)
            end
         )
