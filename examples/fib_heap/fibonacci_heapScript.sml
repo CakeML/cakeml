@@ -1152,7 +1152,7 @@ Theorem lemma_fib_heap_insert_mem:
   !frame xs fts k a.
     (fts_mem (ann_fts xs) * fts_mem (ann_fts fts) * frame *
      cond(head_key xs = k /\ head_key fts = a))
-      (fun2set (m,dm)) /\ fib_heap_insert_list (a, k, m, dm) = (a', m', b) ==>
+      (fun2set (m,dm)) /\ fib_heap_merge (a, k, m, dm) = (a', m', b) ==>
     ?fts'.
     (fts_mem(ann_fts (fts')) * frame * cond(a' = head_key (fts')))
       (fun2set (m',dm)) /\ b
@@ -1163,7 +1163,7 @@ Proof
   Cases_on `xs`
   >- (
     fs[flat_fts_def, fts_mem_def, ann_fts_def,SEP_CLAUSES,head_key_def] >>
-    simp[fib_heap_insert_list_def] >>
+    simp[fib_heap_merge_def] >>
     strip_tac >>
     qexists `fts` >> gvs[]
     ) >>
@@ -1174,7 +1174,7 @@ Proof
        SEP_CLAUSES, head_key_def, ft_mem_def, fill_anode_def,
        fill_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
     full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR] >>
-    fs[fib_heap_insert_list_def] >>
+    fs[fib_heap_merge_def] >>
     SEP_R_TAC >> simp[] >>
     strip_tac >> gvs[] >>
     qexists `(FibTree a' v l::t)` >>
@@ -1203,7 +1203,7 @@ Proof
     ) >>
   Cases_on `x` >> fs[SNOC_APPEND] >>
   Cases_on `h` >>
-  rename [`fib_heap_insert_list (head_key (FibTree fk fv fl::(fts ++
+  rename [`fib_heap_merge (head_key (FibTree fk fv fl::(fts ++
     [FibTree lk lv ll])),xk,m,dm)`] >>
   simp[head_key_def] >>
   fs[ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def, fts_mem_def,
@@ -1211,7 +1211,7 @@ Proof
      head_key_t_def, ones_def, STAR_ASSOC,REVERSE_APPEND,
      fts_mem_append_thm,ann_fts_seg_append_thm,head_key_t_pull_last_thm] >>
   full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR] >>
-  simp[fib_heap_insert_list_def,before_off_def,next_off_def,
+  simp[fib_heap_merge_def,before_off_def,next_off_def,
        last_key_t_def,head_key_def] >>
   IF_CASES_TAC >>
   SEP_R_TAC >> simp[] >>
@@ -1687,8 +1687,8 @@ Definition fib_heap_inv_def:
 End
 
 
-Definition fib_heap2_def:
-  fib_heap2 a fh =
+Definition fib_heap_def:
+  fib_heap a fh =
     SEP_EXISTS fts.
       fts_mem (ann_fts 0w fts) *
       cond (fib_heap_inv fh fts /\ a = head_key fts)
@@ -2010,8 +2010,8 @@ QED
 
 
 (*assumption: both heads are the smallest element*)
-Definition fib_heap_insert_list_def:
-  fib_heap_insert_list
+Definition fib_heap_merge_def:
+  fib_heap_merge
     (a:'a word,t:'a word,m:'a word -> 'a word, dm: 'a word set)
   =
     if t = 0w then (a,m,T) else
@@ -2046,7 +2046,7 @@ End
 Theorem lemma_fib_heap_insert_1into1:
   !frame x t p a' m dm m' b.
     (fts_mem (ann_fts p [x]) * fts_mem (ann_fts p [t]) * frame) (fun2set (m,dm)) /\
-    fib_heap_insert_list(head_key [x],head_key [t],m,dm) = (a',m',b) ==>
+    fib_heap_merge(head_key [x],head_key [t],m,dm) = (a',m',b) ==>
     (fts_mem(ann_fts p ([x] ++ [t])) * frame)
     (fun2set (m',dm)) /\ b
 Proof
@@ -2060,7 +2060,7 @@ Proof
      SEP_CLAUSES, head_key_def, ft_mem_def, fill_anode_def,
      fill_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
   full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR] >>
-  simp[fib_heap_insert_list_def,before_off_def,next_off_def] >>
+  simp[fib_heap_merge_def,before_off_def,next_off_def] >>
   IF_CASES_TAC >>
   SEP_R_TAC >> simp[] >>
   SEP_R_TAC >> simp[] >>
@@ -2071,7 +2071,7 @@ QED
 Theorem lemma_fib_heap_insert_1intoN:
   !frame x fts p m dm m' b.
     (fts_mem (ann_fts p [x]) * fts_mem (ann_fts p fts) * frame) (fun2set (m,dm)) /\
-    fib_heap_insert_list(head_key [x],head_key fts,m,dm) = (a',m',b) ==>
+    fib_heap_merge(head_key [x],head_key fts,m,dm) = (a',m',b) ==>
     (fts_mem(ann_fts p ([x] ++ fts)) * frame)
     (fun2set (m',dm)) /\ b
 Proof
@@ -2085,7 +2085,7 @@ Proof
     fs[ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def,fts_mem_def,
        SEP_CLAUSES, head_key_def, ft_mem_def, fill_anode_def,
        fill_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
-    simp[fib_heap_insert_list_def] >>
+    simp[fib_heap_merge_def] >>
     full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR] >>
     SEP_R_TAC >> simp[] >>
     strip_tac >> gvs[]
@@ -2105,7 +2105,7 @@ Proof
      head_key_t_def, ones_def, STAR_ASSOC, REVERSE_APPEND,
      fts_mem_append_thm,ann_fts_seg_append_thm,head_key_t_pull_last_thm] >>
   full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR] >>
-  simp[fib_heap_insert_list_def,before_off_def,next_off_def] >>
+  simp[fib_heap_merge_def,before_off_def,next_off_def] >>
   IF_CASES_TAC >>
   SEP_R_TAC >> simp[] >>
   SEP_R_TAC >> simp[] >>
@@ -2119,7 +2119,7 @@ QED
 Theorem lemma_fib_heap_insert_Ninto1:
   !frame xs y p m dm m' b.
     (fts_mem (ann_fts p xs) * fts_mem (ann_fts p [y]) * frame) (fun2set (m,dm)) /\
-    fib_heap_insert_list(head_key xs,head_key [y],m,dm) = (a',m',b) ==>
+    fib_heap_merge(head_key xs,head_key [y],m,dm) = (a',m',b) ==>
     (fts_mem(ann_fts p (xs ++ [y])) * frame)
     (fun2set (m',dm)) /\ b
 Proof
@@ -2132,7 +2132,7 @@ Proof
     fs[ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def,fts_mem_def,
        SEP_CLAUSES, head_key_def, ft_mem_def, fill_anode_def,
        fill_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
-    simp[fib_heap_insert_list_def] >>
+    simp[fib_heap_merge_def] >>
     full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR] >>
     SEP_R_TAC >> simp[] >>
     strip_tac >> gvs[]
@@ -2152,7 +2152,7 @@ Proof
      head_key_t_def, ones_def, STAR_ASSOC, REVERSE_APPEND,
      fts_mem_append_thm,ann_fts_seg_append_thm,head_key_t_pull_last_thm] >>
   full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR] >>
-  simp[fib_heap_insert_list_def,before_off_def,next_off_def] >>
+  simp[fib_heap_merge_def,before_off_def,next_off_def] >>
   IF_CASES_TAC >>
   SEP_R_TAC >> simp[] >>
   SEP_R_TAC >> simp[] >>
@@ -2164,7 +2164,7 @@ QED
 Theorem lemma_fib_heap_insert_empty:
   !frame xs p m dm a' m' b.
     (fts_mem (ann_fts p xs) * fts_mem (ann_fts p []) * frame) (fun2set (m,dm)) /\
-    fib_heap_insert_list (head_key xs, head_key [],m,dm) = (a',m',b) ⇒
+    fib_heap_merge (head_key xs, head_key [],m,dm) = (a',m',b) ⇒
     (fts_mem (ann_fts p (xs)) * frame) (fun2set (m',dm)) ∧ b
 Proof
   rpt gen_tac >> strip_tac >>
@@ -2174,14 +2174,14 @@ Proof
     fs[ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def,fts_mem_def,
        SEP_CLAUSES, head_key_def, ft_mem_def, fill_anode_def,
        fill_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
-    simp[fib_heap_insert_list_def] >>
+    simp[fib_heap_merge_def] >>
     strip_tac >> gvs[]
     ) >>
   Cases_on`h` >>
   fs[ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def,fts_mem_def,
      SEP_CLAUSES, head_key_def, ft_mem_def, fill_anode_def,
      fill_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
-  simp[fib_heap_insert_list_def] >>
+  simp[fib_heap_merge_def] >>
   full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR] >>
   strip_tac >> gvs[] >>
   SEP_R_TAC
@@ -2192,7 +2192,7 @@ QED
 Theorem lemma_fib_heap_insert_NintoN:
   !frame xs ys p m dm a' m' b.
     (fts_mem (ann_fts p xs) * fts_mem (ann_fts p ys) * frame)(fun2set (m,dm)) /\
-    fib_heap_insert_list (head_key xs, head_key ys, m, dm) = (a', m', b) ==>
+    fib_heap_merge (head_key xs, head_key ys, m, dm) = (a', m', b) ==>
     (fts_mem(ann_fts p (xs ++ ys)) * frame)
       (fun2set (m',dm)) /\ b
 Proof
@@ -2213,7 +2213,7 @@ Proof
     gvs[AC STAR_ASSOC STAR_COMM] >>
     Cases_on `h` >>
     fs[head_key_t_def,head_key_def] >>
-    simp[fib_heap_insert_list_def] >>
+    simp[fib_heap_merge_def] >>
     fs[ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def,fts_mem_def,
        SEP_CLAUSES, head_key_def, ft_mem_def, fill_anode_def,
        fill_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
@@ -2245,7 +2245,7 @@ Proof
   fs[head_key_t_pull_last_thm] >>
   fs[last_key_t_append_thm] >>
   full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR] >>
-  simp[fib_heap_insert_list_def,next_off_def,before_off_def] >>
+  simp[fib_heap_merge_def,next_off_def,before_off_def] >>
   IF_CASES_TAC >>
   SEP_R_TAC >> simp[] >>
   SEP_R_TAC >> simp[] >>
@@ -2262,13 +2262,13 @@ QED
 (* TODO: Verify invariant. *)
 Theorem fib_heap_merge_heaps:
   ∀frame.
-    (fib_heap2 a fh1 * fib_heap2 b fh2 * frame)
+    (fib_heap a fh1 * fib_heap b fh2 * frame)
       (fun2set (m,dm)) ∧
     DISJOINT (FDOM fh1) (FDOM fh2) /\
-    fib_heap_insert_list (a, b, m, dm) = (a', m', c) ⇒
-    (fib_heap2 a' (FUNION fh1 fh2) * frame) (fun2set (m',dm)) ∧ c
+    fib_heap_merge (a, b, m, dm) = (a', m', c) ⇒
+    (fib_heap a' (FUNION fh1 fh2) * frame) (fun2set (m',dm)) ∧ c
 Proof
-  fs[fib_heap2_def] >>
+  fs[fib_heap_def] >>
   fs[SEP_CLAUSES, STAR_ASSOC, SEP_EXISTS_THM] >>
   full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR] >>
   rpt gen_tac >> strip_tac >>
@@ -2279,7 +2279,7 @@ Proof
     fs[head_key_def,head_key_t_def] >>
     qspecl_then [`fh2`,`[]`] assume_tac lemma_empty_heap2 >>
     fs[fts_mem_def, ann_fts_def,SEP_CLAUSES,head_key_def,head_key_t_def] >>
-    simp[fib_heap_insert_list_def] >>
+    simp[fib_heap_merge_def] >>
     strip_tac >>
     qexists `fts` >> gvs[]
     ) >>
@@ -2293,7 +2293,7 @@ Proof
     strip_tac >> gvs[] >>
     qexists `(FibTree b v l::t)` >> simp[] >>
     pop_assum mp_tac >>
-    simp[fib_heap_insert_list_def] >>
+    simp[fib_heap_merge_def] >>
     fs[ann_fts_def, ann_fts_seg_def, last_key_def,fts_mem_def,
        SEP_CLAUSES, head_key_def, ft_mem_def, fill_anode_def,
        fill_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
@@ -2305,7 +2305,7 @@ Proof
   rfs[head_key_def,head_key_t_def] >>
   pop_assum mp_tac >>
   Cases_on `h` >>
-  fs[fib_heap_insert_list_def] >>
+  fs[fib_heap_merge_def] >>
   fs[before_off_def, next_off_def, head_key_t_def, head_key_def] >>
   pop_assum mp_tac >>
   cheat
@@ -2349,10 +2349,10 @@ QED
 Theorem fib_heap_insert:
   !frame k v e.
     (empty_node k (v,e) * frame) (fun2set(m,dm)) ==>
-    (fib_heap2 k (FEMPTY |+ (k,v,e)) * frame) (fun2set(m,dm))
+    (fib_heap k (FEMPTY |+ (k,v,e)) * frame) (fun2set(m,dm))
 Proof
   rpt strip_tac >>
-  fs[fib_heap2_def, empty_node_def] >>
+  fs[fib_heap_def, empty_node_def] >>
   fs[SEP_CLAUSES, STAR_ASSOC, SEP_EXISTS_THM] >>
   full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR] >>
   fs[ones_def,STAR_ASSOC] >>
@@ -2430,18 +2430,19 @@ Definition fts_link_trees_def:
         (rm |+ (r,k,v,l))
 End
 
+(*
 Theorem fts_link_trees:
   !c map fts k v l.
     MEM(FibTree k v l) fts /\
     fts_size fts < c /\
     ?fh. fib_heap_inv_strong fh [FibTree k v l] /\
-    fts_merge_trees c (map, LENGTH l, FibTree k v l) = map' ==>
+    fts_link_trees c (map, LENGTH l, FibTree k v l) = map' ==>
     (!k v l. FLOOKUP map' (LENGTH l) = SOME(k,v,l) ==>
       ?fh. fib_heap_inv_strong fh [FibTree k v l])
 Proof
   cheat
 QED
-
+*)
 
 
 Definition fts_link_root_list_def:
@@ -2451,7 +2452,7 @@ Definition fts_link_root_list_def:
 End
 
 
-
+(*
 Theorem fts_reb_trees:
   !c map fts k v l.
     fts_size fts < c /\
@@ -2462,7 +2463,7 @@ Theorem fts_reb_trees:
 Proof
   cheat
 QED
-
+*)
 
 
 
@@ -3560,13 +3561,13 @@ Definition fib_heap_extract_min_def:
     let c = (a + next_off IN dm /\ c) in
     let sec = m (a + next_off) in
     if a = sec then
-      let (a',m,c') = fib_heap_insert_list(0w,min,m,dm) in
+      let (a',m,c') = fib_heap_merge(0w,min,m,dm) in
         (a,a',m,c' /\ c)
     else
       let c = (a + before_off IN dm /\ c) in
       let a_b = m (a + before_off) in
       let (min2,m,c) = (fib_heap_find_min n (a,a_b,a) (m,dm,c)) in
-      let (a',m,c') = fib_heap_insert_list(min2,min,m,dm) in
+      let (a',m,c') = fib_heap_merge(min2,min,m,dm) in
         (a,a',m, c' /\ c)
 End
 
@@ -3660,7 +3661,7 @@ Definition merge_trees_def:
       if k_v <=+ t_v then
         let c = (k + child_off IN dm /\ c) in
         let k_c = m (k + child_off) in
-        let (_,m,c') = fib_heap_insert_list(k_c,t,m,dm) in
+        let (_,m,c') = fib_heap_merge(k_c,t,m,dm) in
         let c = (c' /\ c) in
         let m = ((k + rank_off) =+ n2w(w2n k_r + 1)) m in
         let m = (off =+ 0w) m in
@@ -3668,7 +3669,7 @@ Definition merge_trees_def:
       else
         let c = (t + child_off IN dm /\ c) in
         let t_c = m (k + child_off) in
-        let (_,m,c') = fib_heap_insert_list(t_c,k,m,dm) in
+        let (_,m,c') = fib_heap_merge(t_c,k,m,dm) in
         let c = (c' /\ c) in
         let c = (t + rank_off IN dm /\ c) in
         let t_r = m (t + rank_off) in
