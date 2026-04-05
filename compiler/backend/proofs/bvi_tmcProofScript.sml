@@ -362,24 +362,35 @@ End
 
 Theorem aux_strip_op:
   ∀loc loc_opt arity op xs aux.
-    ~is_block_op_cons op ∧
     rewrite_aux loc loc_opt arity (Op op xs) = SOME aux ⇒
-    ∃aux' i j.
-      aux = Op (MemOp UpdateCons) [Var i; Var j; Op op xs]
-Proof
-  rw []>> gvs [is_block_op_cons_def, rewrite_aux_def]
-  >> Cases_on ‘op’ >> gvs [rewrite_aux_BlockOp_Cons_def]
-  >> cheat
-QED
-
-Theorem aux_strip_op_BlockOpCons:
-  ∀loc loc_opt arity block_tag op xs aux.
     is_block_op_cons op ∧
-    rewrite_aux loc loc_opt arity (Op op xs) = SOME aux ⇒
-    ∃aux'.
-      aux = ARB
+    ∃mut_cons tail_call finalise tag i l hole r hole_ptr hole_idx t args h.
+      mut_cons = Op (MemOp (MutCons tag i)) (l ++ [hole] ++ r) ∧
+      tail_call = Call t (SOME loc_opt) (Op (IntOp (Const (&LENGTH l))) [] :: Var hole_ptr :: args) h ∧
+      finalise = Op (MemOp FinaliseCons) [Var hole_ptr] ∧
+      aux = Let [mut_cons; tail_call] $ finalise
 Proof
-  rw [] >> cheat
+  rw []
+  >-
+   (gvs [rewrite_aux_def, is_block_op_cons_def]
+    >> pop_assum mp_tac
+    >> CASE_TAC
+    >> strip_tac
+    >> Cases_on ‘op’ >> gvs [dest_Cons_def]
+    >> Cases_on ‘b’ >> gvs [dest_Cons_def])
+  >> gvs [rewrite_aux_def]
+  >> pop_assum mp_tac
+  >> CASE_TAC
+  >> strip_tac
+  >> gvs [rewrite_aux_BlockOp_Cons_def]
+  >> pop_assum mp_tac
+  >> CASE_TAC
+  >> Cases_on ‘h’ >> gvs []
+  >> Cases_on ‘t’ >> gvs []
+  >> strip_tac
+  >> Cases_on ‘to_mut_cons (HoleBlock n l0 o' l)’ >> gvs [to_mut_cons]
+  >> rename [‘cons_to_tc_and_hb loc x xs = (TCall n args h)⁺ (HoleBlock i l hole r)’]
+  >> qexists ‘l’ >> gvs []
 QED
 
 Theorem evaluate_pad_env_val:
@@ -394,7 +405,7 @@ Proof
   >~ [‘evaluate (x::y::xs,_,_)’] >-
    (cheat)
   >> cheat
-QED
+dQED
 
 (* This could probably be combined with the above *)
 Theorem evaluate_pad_env_err:
@@ -1335,7 +1346,36 @@ Proof
     >> Cases_on ‘v'’ >> gvs []
     >> rename [‘state_rel f'' t t'’]
     >> rename [‘v_rel f'' v v'’]
-    >> cheat
+    >> conj_asm1_tac
+    >- cheat (* Prove that the state doesn't change? *)
+    >> gvs []
+    >> strip_tac
+    >> first_x_assum $ qspec_then ‘F’ mp_tac
+    >> gvs []
+    >> strip_tac
+    >> conj_tac
+    >-
+     (rpt gen_tac
+      >> strip_tac
+      >> drule aux_strip_op
+      >> strip_tac
+      >> gvs [is_block_op_cons_def]
+      >> gvs [Once evaluate_def]
+      >> CASE_TAC >> gvs []
+      >> Cases_on ‘q’ >> gvs []
+      >-
+       (simp [Once evaluate_def]
+        >> CASE_TAC >> gvs []
+        >> Cases_on ‘q’ >> gvs []
+        >-
+         (simp [Once evaluate_def]
+          >> CASE_TAC >> gvs []
+          >> Cases_on ‘a''’ >> gvs []
+          >-
+           ()
+          )
+            )
+      )
    )
   >~ [‘Tick x’] >-
    (gvs [evaluate_def]
