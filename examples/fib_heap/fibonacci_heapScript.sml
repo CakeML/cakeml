@@ -2403,6 +2403,93 @@ QED
 
 ----------------------------------------------------------*)
 
+Definition fts_rm_min_def:
+  (fts_rm_min [] = (0w,[])) /\
+  (fts_rm_min (FibTree k v l::ts) =
+    (k,fts_merge l ts))
+End
+
+
+Definition fts_merge_trees_def:
+  fts_merge_trees (FibTree k1 v1 l1) (FibTree k2 v2 l2) =
+    if v1.value <=+ v2.value then
+      FibTree k1 v1 (fts_merge l1 [FibTree k2 v2 l2])
+    else
+      FibTree k2 v2 (fts_merge [FibTree k1 v1 l1] l2)
+End
+
+
+Definition fts_link_trees_def:
+  fts_link_trees (c:num) (rm, (r:num), FibTree (k:'a word) v l) =
+    if c = 0 then rm else
+    case FLOOKUP rm r of
+      SOME(k',v',l') =>
+        fts_link_trees (c-1) ((rm \\ r),(r + 1),
+          fts_merge_trees (FibTree k v l) (FibTree k' v' l'))
+     |NONE =>
+        (rm |+ (r,k,v,l))
+End
+
+Theorem fts_link_trees:
+  !c map fts k v l.
+    MEM(FibTree k v l) fts /\
+    fts_size fts < c /\
+    ?fh. fib_heap_inv_strong fh [FibTree k v l] /\
+    fts_merge_trees c (map, LENGTH l, FibTree k v l) = map' ==>
+    (!k v l. FLOOKUP map' (LENGTH l) = SOME(k,v,l) ==>
+      ?fh. fib_heap_inv_strong fh [FibTree k v l])
+Proof
+  cheat
+QED
+
+
+
+Definition fts_link_root_list_def:
+  (fts_link_root_list (c:num) (rm, []) = rm) /\
+  (fts_link_root_list c (rm, (FibTree k v l::fts)) =
+    fts_link_root_list c (fts_link_trees c (rm, LENGTH l, FibTree k v l), fts))
+End
+
+
+
+Theorem fts_reb_trees:
+  !c map fts k v l.
+    fts_size fts < c /\
+    ?fh. fib_heap_inv_strong fh fts /\
+    fts_link_root_list c (map,fts) = map' ==>
+    (!k v l. FLOOKUP map' (LENGTH l) = SOME(k,v,l) ==>
+      ?fh. fib_heap_inv_strong fh [FibTree k v l])
+Proof
+  cheat
+QED
+
+
+
+
+Definition fts_collect_list_def:
+  (fts_collect_list (r:num) mp acc =
+    if r = 0 then
+      case FLOOKUP mp r of
+        SOME (k,v,l) => fts_merge [FibTree k v l] acc
+       |NONE => acc
+    else
+      case FLOOKUP mp r of
+        SOME (k,v,l) => fts_collect_list (r-1) mp (fts_merge [FibTree k v l] acc)
+       |NONE => fts_collect_list (r-1) mp acc)
+End
+
+
+
+Definition fts_reb_def:
+  (fts_reb n xs =
+    fts_collect_list n (fts_link_root_list n (FEMPTY, xs)) )
+End
+
+
+
+
+
+
 
 Definition flat_fts_def:
   (flat_fts [] = []) /\
@@ -3505,83 +3592,6 @@ Definition of 'Rebalancing' (separated from extract minimum
 *---------------------------------------------------------*)
 
 
-Definition fts_merge_trees_def:
-  fts_merge_trees (c:num) (rm, (r:num), FibTree (k:'a word) v l) =
-    if c = 0 then rm else
-    case FLOOKUP rm r of
-      SOME(k',v',l') =>
-        let rm = rm \\ r in
-          if v.value <=+ v'.value then
-            fts_merge_trees (c-1) (rm,(r + 1),(FibTree k v (FibTree k' v' l'::l)))
-          else
-            fts_merge_trees (c-1) (rm,(r + 1),(FibTree k' v' (FibTree k v l::l')))
-     |NONE =>
-        (rm |+ (r,k,v,l))
-End
-
-Theorem fts_merge_trees:
-  !c map fts k v l.
-    MEM(FibTree k v l) fts /\
-    fts_size fts < c /\
-    ?fh. fib_heap_inv_strong fh [FibTree k v l] /\
-    fts_merge_trees c (map, LENGTH l, FibTree k v l) = map' ==>
-    (!k v l. FLOOKUP map' (LENGTH l) = SOME(k,v,l) ==>
-      ?fh. fib_heap_inv_strong fh [FibTree k v l])
-Proof
-  cheat
-QED
-
-
-
-Definition fts_reb_trees_def:
-  (fts_reb_trees (c:num) (rm, []) = rm) /\
-  (fts_reb_trees c (rm, (FibTree k v l::fts)) =
-    fts_reb_trees c (fts_merge_trees c (rm, LENGTH l, FibTree k v l), fts))
-End
-
-Theorem fts_reb_trees:
-  !c map fts k v l.
-    fts_size fts < c /\
-    ?fh. fib_heap_inv_strong fh fts /\
-    fts_reb_trees c (map,fts) = map' ==>
-    (!k v l. FLOOKUP map' (LENGTH l) = SOME(k,v,l) ==>
-      ?fh. fib_heap_inv_strong fh [FibTree k v l])
-Proof
-  cheat
-QED
-
-
-
-
-
-
-
-
-
-
-Definition map_to_list_def:
-  (map_to_list (r:num) mp =
-    if r = 0 then
-      case FLOOKUP mp r of
-        SOME (k,v,l) => [FibTree k v l]
-       |NONE => []
-    else
-      case FLOOKUP mp r of
-        SOME (k,v,l) => (FibTree k v l::map_to_list (r-1) mp)
-       |NONE => map_to_list (r-1) mp )
-End
-
-Definition fts_bal_def:
-  (fts_bal n [] = []) /\
-  (fts_bal n (t::ts) =
-    map_to_list n (fts_reb_trees (LENGTH ts +1) (FEMPTY, (t::ts))) )
-End
-
-Definition fts_reb_def:
-  fts_reb n fts = (
-    let list = fts_bal n fts in
-      fts_set_min_hd (fts_find_min (HD list) list) [] list)
-End
 
 Definition map_mem_empty_def:
   map_mem_empty (a:'a word) (n:num) =
