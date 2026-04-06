@@ -2012,34 +2012,34 @@ QED
 (*assumption: both heads are the smallest element*)
 Definition fib_heap_merge_def:
   fib_heap_merge
-    (a:'a word,t:'a word,m:'a word -> 'a word, dm: 'a word set)
+    (a1:'a word,a2:'a word,m:'a word -> 'a word, dm: 'a word set)
   =
-    if t = 0w then (a,m,T) else
-    let c = (t IN dm) in
-    if a = 0w then (*list a is empty*)
-      (t,m,c)
+    if a2 = 0w then (a1,m,T) else
+    let c = (a2 IN dm) in
+    if a1 = 0w then (*list a is empty*)
+      (a2,m,c)
     else
-      let c = (a IN dm /\ c) in
+      let c = (a1 IN dm /\ c) in
 
-      let c = (a + before_off IN dm /\ c) in
-      let l_a = m (a + before_off) in
-      let c = (l_a + next_off IN dm /\ c) in
+      let c = (a1 + before_off IN dm /\ c) in
+      let l_a1 = m (a1 + before_off) in
+      let c = (l_a1 + next_off IN dm /\ c) in
 
-      let c = (t + before_off IN dm /\ c) in
-      let l_t = m (t + before_off) in
-      let c = (l_t + next_off IN dm /\ c) in
+      let c = (a2 + before_off IN dm /\ c) in
+      let l_a2 = m (a2 + before_off) in
+      let c = (l_a2 + next_off IN dm /\ c) in
 
-      let m = ((l_a + next_off) =+ t) m in
-      let m = ((t + before_off) =+ l_a) m in
-      let m = ((l_t + next_off) =+ a) m in
-      let m = ((a + before_off) =+ l_t) m in
+      let m = ((l_a1 + next_off) =+ a2) m in
+      let m = ((a2 + before_off) =+ l_a1) m in
+      let m = ((l_a2 + next_off) =+ a1) m in
+      let m = ((a1 + before_off) =+ l_a2) m in
 
-      let v_t = m t in
-      let v_a = m a in
-      if v_t <=+ v_a then
-        (t,m,c)
+      let v_a2 = m a2 in
+      let v_a1 = m a1 in
+      if v_a2 <=+ v_a1 then
+        (a2,m,c)
       else
-        (a,m,c)
+        (a1,m,c)
 End
 
 
