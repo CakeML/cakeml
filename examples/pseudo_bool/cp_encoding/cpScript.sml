@@ -39,7 +39,8 @@ Datatype:
   | LessEqual | LessThan
 End
 
-Type reify[pp] = ``: ('a varc + 'a varc) option``;
+Type reify_cmp[pp] = ``: ('a varc # cmpop # int)``;
+Type reify[pp] = ``: ('a reify_cmp + 'a reify_cmp) option``;
 
 (* For binary operations, we have the arguments
   to the operations followed by the RHS,
@@ -236,8 +237,18 @@ Definition reify_sem_def:
   reify_sem Zr w b =
   case Zr of
     NONE => b
-  | SOME (INL Z) => varc w Z > 0 ⇒ b
-  | SOME (INR Z) => varc w Z > 0 ⇔ b
+  | SOME (INL (Z,Equal,v)) => varc w Z = v ⇒ b
+  | SOME (INL (Z,NotEqual,v)) => varc w Z ≠ v ⇒ b
+  | SOME (INL (Z,GreaterEqual,v)) => varc w Z ≥ v ⇒ b
+  | SOME (INL (Z,GreaterThan,v)) => varc w Z > v ⇒ b
+  | SOME (INL (Z,LessEqual,v)) => varc w Z ≤ v ⇒ b
+  | SOME (INL (Z,LessThan,v)) => varc w Z < v ⇒ b
+  | SOME (INR (Z,Equal,v)) => varc w Z = v ⇒ b
+  | SOME (INR (Z,NotEqual,v)) => varc w Z ≠ v ⇒ b
+  | SOME (INR (Z,GreaterEqual,v)) => varc w Z ≥ v ⇒ b
+  | SOME (INR (Z,GreaterThan,v)) => varc w Z > v ⇒ b
+  | SOME (INR (Z,LessEqual,v)) => varc w Z ≤ v ⇒ b
+  | SOME (INR (Z,LessThan,v)) => varc w Z < v ⇒ b
 End
 
 Definition cmpop_sem_def:
@@ -489,13 +500,13 @@ End
 ***)
 Definition and_sem_def:
   and_sem Xs Y w =
-   reify_sem (SOME (INR Y)) w
+   reify_sem (SOME (INR (Y, GreaterThan, 0))) w
     (EVERY (λX. varc w X > 0) Xs)
 End
 
 Definition or_sem_def:
   or_sem Xs Y w =
-   reify_sem (SOME (INR Y)) w
+   reify_sem (SOME (INR (Y, GreaterThan, 0))) w
     (EXISTS (λX. varc w X > 0) Xs)
 End
 
