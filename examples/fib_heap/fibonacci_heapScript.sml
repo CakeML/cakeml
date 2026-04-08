@@ -2998,7 +2998,6 @@ Proof
 QED
 
 
-
 Theorem lemma_flat_fts_mem_eq_fst:
   !xs k.
     (?v e. MEM (k,v,e) (flat_fts xs)) <=>
@@ -3149,6 +3148,74 @@ Proof
 QED
 
 
+Theorem lemma_ALOOKUP_eq_MEM:
+  !xs.
+  fts_all_dist xs ==>
+  (ALOOKUP (flat_fts xs) k = SOME (v,e) <=> MEM(k,v,e) (flat_fts xs))
+Proof
+  ho_match_mp_tac flat_fts_ind >>
+  rpt strip_tac
+  >- simp[flat_fts_def] >>
+  rename [`fts_all_dist (FibTree k1 v1 l1::xs)`] >>
+  fs[fts_all_dist_def] >>
+  iff_tac >> strip_tac
+  >- fs[ALOOKUP_MEM] >>
+  pop_assum mp_tac >>
+  simp[flat_fts_def] >>
+  rpt strip_tac >> fs[]
+  >- (
+    fs[lemma_mem_eq_fts_has] >>
+    Cases_on `k1 = k` >> gvs[] >>
+    simp[ALOOKUP_APPEND]
+    ) >>
+  fs[lemma_mem_eq_fts_has] >>
+  Cases_on `k1 = k` >> gvs[] >>
+  simp[ALOOKUP_APPEND] >>
+  fs[Once MONO_NOT_EQ] >>
+  res_tac >>
+  Cases_on `ALOOKUP (flat_fts l1) k` >> fs[] >>
+  `MEM (k,x) (flat_fts l1)` by imp_res_tac ALOOKUP_MEM >>
+  Cases_on `x` >>
+  fs[lemma_mem_eq_fts_has] >>
+  fs[fts_all_dist_def,fts_has_inj_def] >>
+  last_x_assum (qspecl_then [`k`,`fill_dnode v e m`,`fill_dnode q r m'`]
+    assume_tac) >>
+  pop_assum mp_tac >>
+  simp[Once fts_has_cases] >>
+  simp[Once fts_has_cases] >>
+  simp[fill_dnode_def,data_node_component_equality] >>
+  strip_tac >> fs[]
+QED
+
+Theorem __needs_name:
+  fts_all_dist (xs ++ ys) /\
+  (∀k v e.
+    FLOOKUP fh k = SOME (v,e) ⇔
+    ∃m. fts_has k (fill_dnode v e m) (xs ++ ys)) ==>
+  ∀k v e.
+    ALOOKUP (flat_fts xs) k = SOME (v,e) ⇔
+    ∃m. fts_has k (fill_dnode v e m) xs
+Proof
+  rpt strip_tac >>
+  iff_tac >> strip_tac >>
+  >- (
+    fs[fts_has_append_thm] >>
+    res_tac >>
+    fs[fts_all_dist_append_thm] >>
+    iff_tac
+    >- (strip_tac >> qexists `m` >> simp[]) >>
+    strip_tac >>
+    simp[lemma_ALOOKUP_eq_MEM] >>
+    fs[lemma_mem_eq_fts_has] >>
+    qexists `m` >> simp[]
+    ) >>
+  fs[fts_has_append_thm] >>
+  res_tac >>
+
+
+
+QED
+
 
 
 
@@ -3160,7 +3227,7 @@ print_find "ALOOKUP"
 *)
 Theorem lemma_forest_split:
   fts_all_dist (xs ++ ys) /\
-  !k v e. FLOOKUP fh k = SOME(v,e) <=> ?m. fts_has k (fill_dnode v e m) (xs ++ ys)
+  (!k v e. FLOOKUP fh k = SOME(v,e) <=> ?m. fts_has k (fill_dnode v e m) (xs ++ ys))
   <=>
   ?fhx fhy.
     (!k v e. FLOOKUP fhx k = SOME(v,e) <=> ?m. fts_has k (fill_dnode v e m) xs) /\
@@ -3169,6 +3236,13 @@ Theorem lemma_forest_split:
     fts_all_dist ys /\
     DISJOINT (FDOM fhx) (FDOM fhy) /\ fh = FUNION fhx fhy
 Proof
+  iff_tac
+  >- (
+    rpt strip_tac >>
+    qexistsl [`alist_to_fmap (flat_fts xs)`,`alist_to_fmap (flat_fts ys)`] >>
+    simp[lemma_alist_to_fmap_disjoint] >>
+    conj_tac >>
+
   cheat
 QED
 
