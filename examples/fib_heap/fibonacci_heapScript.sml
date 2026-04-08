@@ -1316,7 +1316,7 @@ Proof
 QED
 
 
-Theorem lemma_fts_has_ul:
+Theorem fts_has_sym_thm:
   !k' v' e xs ys.
     (∃m. fts_has k' (fill_dnode v' e m) (xs ++ ys)) ⇔
     ∃m. fts_has k' (fill_dnode v' e m) (ys ++ xs)
@@ -1596,13 +1596,24 @@ Proof
 QED
 
 
-Theorem fts_all_dist_append_sym_thm:
-  !xs ys. fts_all_dist (xs ++ ys) ==> fts_all_dist (ys ++ xs)
+Theorem fts_all_dist_sym_thm:
+  !xs ys. fts_all_dist (xs ++ ys) <=> fts_all_dist (ys ++ xs)
 Proof
   simp[fts_all_dist_append_thm] >>
   rpt strip_tac >>
   fs[fts_has_inj_append] >> rpt strip_tac >> res_tac >> simp[] >>
-  res_tac >> simp[]
+  res_tac >> simp[] >>
+  iff_tac
+  >- (
+    disch_tac >>
+    simp[AC CONJ_ASSOC CONJ_COMM] >> fs[] >>
+    pop_assum mp_tac >>
+    rpt strip_tac >> res_tac >> simp[]
+    ) >>
+  disch_tac >>
+  simp[AC CONJ_ASSOC CONJ_COMM] >> fs[] >>
+  pop_assum mp_tac >>
+  rpt strip_tac >> res_tac >> simp[]
 QED
 
 
@@ -1661,6 +1672,13 @@ Proof
   simp[CONJ_ASSOC]
 QED
 
+Theorem fts_parent_lower_eq_sym_thm:
+  fts_parent_lower_eq (xs ++ ys) <=> fts_parent_lower_eq (ys ++ xs)
+Proof
+  simp[fts_parent_lower_eq_append_thm] >>
+  simp[CONJ_COMM]
+QED
+
 
 
 
@@ -1671,7 +1689,14 @@ End
 
 
 
-
+Theorem lemma_every_fts_parent_lower_eq_sym:
+  every_fts fts_parent_lower_eq (xs ++ ys) <=>
+  every_fts fts_parent_lower_eq (ys ++ xs)
+Proof
+  once_rewrite_tac[every_fts_def] >>
+  simp[fts_parent_lower_eq_sym_thm] >>
+  iff_tac >> rpt strip_tac >> fs[] >> res_tac >> simp[]
+QED
 
 
 Definition fib_heap_inv_def:
@@ -1928,7 +1953,7 @@ Proof
   >- (
     drule_all lemma_merge_all_dist >>
     strip_tac >>
-    fs[fts_all_dist_append_sym_thm]
+    fs[fts_all_dist_sym_thm]
     )
   >- (drule_all lemma_merge_heaps_new_min >> simp[])
   >- (
@@ -2067,6 +2092,7 @@ Proof
   SEP_W_TAC >>
   strip_tac >> gvs[]
 QED
+
 
 Theorem lemma_fib_heap_insert_1intoN:
   !frame x fts p m dm m' b.
@@ -2403,11 +2429,262 @@ QED
 
 ----------------------------------------------------------*)
 
+Definition fib_heap_inv_strong_def:
+  fib_heap_inv_strong fh (fts: ('a word, 'a data_node) fts) ⇔
+    (!k v. FLOOKUP fh k = SOME v ==> k <> 0w) /\
+    (!k v e. FLOOKUP fh k = SOME (v,e) <=>
+      ?m. fts_has k (fill_dnode v e m) fts) /\
+    fts_all_dist fts /\
+    every_fts fts_parent_lower_eq fts /\
+    fib_heap_shape_ok fts
+End
+
+
+
 Definition fts_rm_min_def:
   (fts_rm_min [] = (0w,[])) /\
   (fts_rm_min (FibTree k v l::ts) =
     (k,fts_merge l ts))
 End
+
+
+Theorem lemma_fts_all_dist_rm_hd:
+  fts_all_dist
+    (FibTree k v (FibTree k' v' l::t')::FibTree k'' v'' l'::t'') ==>
+  fts_all_dist (FibTree k' v' l::(t' ++ [FibTree k'' v'' l'] ++ t''))
+Proof
+  once_rewrite_tac[GSYM APPEND_ASSOC] >>
+  pure_rewrite_tac[GSYM lemma_cons_eq_append] >>
+  once_rewrite_tac[GSYM APPEND] >>
+  disch_tac >>
+  simp[fts_all_dist_append_thm] >>
+  fs[] >>
+  fs[fts_all_dist_def] >>
+  once_rewrite_tac[GSYM APPEND_ASSOC] >>
+  pure_rewrite_tac[GSYM lemma_cons_eq_append] >>
+  once_rewrite_tac[GSYM APPEND] >>
+  fs[fts_has_inj_append] >>
+  rpt strip_tac >>
+  fs[fts_has_inj_def] >>
+  rename [`v3 = v4`, `fts_has k3 v3 (FibTree k' v' l::t')`,
+    `fts_has k3 v4 (FibTree k'' v'' l'::t'')`] >>
+  last_x_assum (qspecl_then [`k3`,`v3`,`v4`] assume_tac) >>
+  pop_assum mp_tac >>
+  simp[Once fts_has_cases] >>
+  simp[Once fts_has_cases]
+QED
+
+
+Theorem lemma_fts_parent_lower_eq_rm_hd:
+  every_fts fts_parent_lower_eq
+    (FibTree k v (FibTree k' v' l::t')::FibTree k'' v'' l'::t'') ==>
+  every_fts fts_parent_lower_eq
+    (FibTree k' v' l::(t' ++ [FibTree k'' v'' l'] ++ t''))
+Proof
+  disch_tac >>
+  fs[Once every_fts_def] >>
+  once_rewrite_tac[GSYM APPEND_ASSOC] >>
+  pure_rewrite_tac[GSYM lemma_cons_eq_append] >>
+  once_rewrite_tac[GSYM APPEND] >>
+  simp[fts_parent_lower_eq_append_thm] >>
+  rpt strip_tac
+  >- (
+    first_x_assum(qspecl_then[`k`,`v`,`(FibTree k' v' l::t')`] assume_tac) >>
+    fs[Once every_fts_def]
+    )
+  >- (
+    qpat_x_assum `fts_parent_lower_eq
+      (FibTree k v (FibTree k' v' l::t')::FibTree k'' v'' l'::t'')` mp_tac >>
+    pure_rewrite_tac[Once lemma_cons_eq_append] >>
+    simp[fts_parent_lower_eq_append_thm]
+    )
+  >- (
+    gvs[] >>
+    first_x_assum(qspecl_then[`k`,`v`,`(FibTree k' v' l::t')`] assume_tac) >> fs[] >>
+    pop_assum mp_tac >> simp[Once every_fts_def]
+    )
+  >- (
+    first_x_assum(qspecl_then[`k`,`v`,`(FibTree k' v' l::t')`] assume_tac) >> fs[] >>
+     pop_assum mp_tac >> simp[Once every_fts_def] >>
+    rpt strip_tac >>
+    res_tac
+    )
+  >- gvs[] >>
+  res_tac
+QED
+
+
+
+
+Theorem lemma_fh_eq_fts_has_rm_hd:
+  (!k3 v3 e.
+    FLOOKUP fhx k3 = SOME (v3,e) ⇔
+    ∃m. fts_has k3 (fill_dnode v3 e m)
+      (FibTree k v (FibTree k' v' l::t')::FibTree k'' v'' l'::t'')) /\
+    fts_all_dist
+      (FibTree k v (FibTree k' v' l::t')::FibTree k'' v'' l'::t'')
+  ==>
+  !k3 v e. FLOOKUP (fhx \\ k) k3 = SOME (v,e) ⇔
+    ∃m. fts_has k3 (fill_dnode v e m)
+      (FibTree k' v' l::(t' ++ [FibTree k'' v'' l'] ++ t''))
+Proof
+  rpt strip_tac >>
+  once_rewrite_tac[GSYM APPEND_ASSOC] >>
+  pure_rewrite_tac[GSYM lemma_cons_eq_append] >>
+  once_rewrite_tac[GSYM APPEND] >>
+  simp[fts_has_append_thm] >>
+  simp[DOMSUB_FLOOKUP_THM] >>
+  pure_rewrite_tac[Once lemma_cons_eq_append] >>
+  simp[fts_has_append_thm] >>
+  iff_tac
+  >- (
+    simp[Once fts_has_cases] >>
+    simp[Once fts_has_cases] >>
+    disch_tac >> gvs[] >> qexists `m` >> simp[]
+    ) >>
+  disch_tac >>
+  conj_tac
+  >- (spose_not_then assume_tac >> gvs[fts_all_dist_def]) >>
+  simp[Once fts_has_cases] >>
+  simp[Once fts_has_cases] >>
+  fs[] >> qexists `m` >> simp[]
+QED
+
+
+
+
+Theorem fts_rm_min:
+  fib_heap_inv fhx xs /\
+  fts_rm_min xs = (min,ys) ==>
+  ?fhy. fib_heap_inv_strong fhy ys
+Proof
+  Cases_on `xs`
+  >- (
+    simp[fts_rm_min_def] >>
+    rpt strip_tac >>
+    fs[fib_heap_inv_strong_def,fib_heap_inv_def] >>
+    simp[Once fts_has_cases] >>
+    rpt gen_tac >>
+    fs[Once fts_has_cases] >>
+    qexists `fhx` >>
+    simp[]
+    ) >>
+  Cases_on `h` >>
+  fs[fib_heap_inv_def,fib_heap_inv_strong_def] >>
+  rpt strip_tac >>
+  fs[fts_rm_min_def] >>
+  Cases_on `l` >> Cases_on `t`>> fs[fts_merge_def]
+  >- (
+    simp[every_fts_def, fts_parent_lower_eq_def, fts_all_dist_def] >>
+    simp[fib_heap_shape_ok_def, Once fts_has_cases] >>
+    qexists `FEMPTY` >> simp[FLOOKUP_SIMP]
+    )
+  >- (
+    Cases_on `h` >> gvs[] >>
+    qexists `fhx \\ k` >>
+    rpt strip_tac
+    >- (
+      pop_assum mp_tac >> simp[] >>
+      simp[DOMSUB_FLOOKUP_THM]
+      )
+    >- (
+      simp[DOMSUB_FLOOKUP_THM] >>
+      simp[Once fts_has_cases] >>
+      iff_tac >> rpt strip_tac
+      >- (qexists `m` >> simp[])
+      >- (pop_assum mp_tac >> simp[Once fts_has_cases])
+      >- (
+        fs[fts_all_dist_def] >>
+        last_x_assum(qspec_then `fill_dnode v'' e m` assume_tac) >> fs[]
+        ) >>
+      qexists `m` >> simp[]
+     )
+    >- fs[fts_all_dist_def]
+    >- (
+      fs[Once every_fts_def,fts_parent_lower_eq_def] >>
+      rpt gen_tac >>
+      rpt strip_tac >> res_tac >> simp[]
+      ) >>
+    fs[fib_heap_shape_ok_def]
+   )
+  >- (
+    Cases_on `h` >>
+    qexists `fhx \\ k` >>
+    rpt strip_tac
+    >- fs[DOMSUB_FLOOKUP_THM]
+    >- (
+      simp[DOMSUB_FLOOKUP_THM] >>
+      iff_tac
+      >- (
+        simp[Once fts_has_cases] >>
+        simp[Once fts_has_cases] >>
+        disch_tac >> gvs[] >>
+        qexists `m` >> simp[]
+        ) >>
+      disch_tac >> fs[] >>
+      fs[fts_all_dist_def] >>
+      strip_tac
+      >- (spose_not_then assume_tac >> gvs[]) >>
+      qexists `m` >> simp[Once fts_has_cases]
+      )
+    >- fs[fts_all_dist_def]
+    >- fs[Once every_fts_def] >>
+    fs[fib_heap_shape_ok_def]
+    ) >>
+  qexists `fhx \\ k` >>
+  Cases_on `h` >> Cases_on `h'` >>
+  fs[fts_merge_def] >>
+  pop_assum mp_tac >>
+  IF_CASES_TAC >> strip_tac >> gvs[]
+  >- (
+    rpt conj_tac
+    >- simp[DOMSUB_FLOOKUP_THM]
+    >- (imp_res_tac lemma_fh_eq_fts_has_rm_hd >> simp[])
+    >- imp_res_tac lemma_fts_all_dist_rm_hd
+    >- imp_res_tac lemma_fts_parent_lower_eq_rm_hd >>
+    fs[fib_heap_shape_ok_def] >>
+    pure_rewrite_tac[GSYM APPEND_ASSOC] >>
+    simp[fib_heap_shape_ok_append_thm] >>
+    simp[fib_heap_shape_ok_def]
+  ) >>
+  rpt conj_tac
+  >- simp[DOMSUB_FLOOKUP_THM]
+  >- (
+    once_rewrite_tac[GSYM APPEND_ASSOC] >>
+    pure_rewrite_tac[GSYM lemma_cons_eq_append] >>
+    once_rewrite_tac[GSYM APPEND] >>
+    simp[fts_has_sym_thm] >>
+    imp_res_tac lemma_fh_eq_fts_has_rm_hd >> fs[] >>
+    once_rewrite_tac[GSYM APPEND_ASSOC] >>
+    pure_rewrite_tac[GSYM lemma_cons_eq_append] >>
+    simp[]
+    )
+  >- (
+    once_rewrite_tac[GSYM APPEND_ASSOC] >>
+    pure_rewrite_tac[GSYM lemma_cons_eq_append] >>
+    once_rewrite_tac[GSYM APPEND] >>
+    simp[fts_all_dist_sym_thm] >>
+    imp_res_tac lemma_fts_all_dist_rm_hd >>
+    pop_assum mp_tac >>
+    once_rewrite_tac[GSYM APPEND_ASSOC] >>
+    pure_rewrite_tac[GSYM lemma_cons_eq_append] >>
+    simp[]
+    )
+  >- (
+    imp_res_tac lemma_fts_parent_lower_eq_rm_hd >>
+    pop_assum mp_tac >>
+    once_rewrite_tac[GSYM APPEND_ASSOC] >>
+    pure_rewrite_tac[GSYM lemma_cons_eq_append] >>
+    once_rewrite_tac[GSYM APPEND] >>
+    pure_rewrite_tac[Once lemma_every_fts_parent_lower_eq_sym] >>
+    simp[]
+    ) >>
+  fs[fib_heap_shape_ok_def] >>
+  pure_rewrite_tac[GSYM APPEND_ASSOC] >>
+  simp[fib_heap_shape_ok_append_thm] >>
+  simp[fib_heap_shape_ok_def]
+QED
+
 
 
 Definition fts_merge_trees_def:
@@ -2510,16 +2787,6 @@ Proof
 QED
 
 
-Definition fib_heap_inv_strong_def:
-  fib_heap_inv_strong fh (fts: ('a word, 'a data_node) fts) ⇔
-    (!k v. FLOOKUP fh k = SOME v ==> k <> 0w) /\
-    (!k v e. FLOOKUP fh k = SOME (v,e) <=>
-      ?m. fts_has k (fill_dnode v e m) fts) /\
-    fts_all_dist fts /\
-    fts_is_min (fts_hd_value fts) fts /\
-    every_fts fts_head_is_min fts /\
-    fib_heap_shape_ok fts
-End
 
 
 
@@ -2631,9 +2898,9 @@ Theorem fib_heap_inv_union_append_thm:
 Proof
   rpt strip_tac >>
   fs[fib_heap_inv_union_def] >>
-  iff_tac >> rpt strip_tac >> fs[] >>
-  fs[all_disjoint_append_thm] >>
-  cheat
+  simp[fh_union_append_thm] >>
+  simp[all_disjoint_append_thm] >>
+  iff_tac >> fs[]
 QED
 
 
@@ -2647,19 +2914,20 @@ Definition fib_heap_inv_list_def:
 End
 
 
-
+(*
 Theorem fib_heap_inv_strong_split_last_thm:
   all_disjoint ((fhx,xs)::(fhy,[y])::rest) /\
   fib_heap_inv_strong (FUNION fhx fhy) (xs ++ [y]) ==>
   fib_heap_inv_strong (FUNION fhx fhy) (xs ++ [y]) =
   fib_heap_inv_strong fhx xs /\ fib_heap_inv_strong fhy [y]
 Proof
+  fs[fib_heap_inv_strong_def] >>
   fs[all_disjoint_def] >>
   rpt strip_tac >>
 
   cheat
 QED
-
+*)
 
 
 
@@ -2677,18 +2945,8 @@ Proof
 QED
 
 
-Definition map_from_ft_def:
-  map_from_ft map (FibTree k v l) =
-    (FOLDR (\t acc. map_from_ft acc t) map l) |+ (k,v.value,v.edges)
-Termination
-  cheat
-End
 
-Definition map_from_fts_def:
-  map_from_fts fts = FOLDR FUNION FEMPTY $ MAP (map_from_ft FEMPTY) fts
-End
-
-
+(*
 Theorem lemma_fts_finite_map_split_last:
   !fh xs y.
   (!k v e. FLOOKUP fh k = SOME (v,e) ⇔
@@ -2708,16 +2966,39 @@ Proof
   cheat
 
 QED
+*)
+
+
+
+(*
+  TODO: lemmas about spliting here!
+*)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
 
 
 Theorem lemma_fib_heap_inv_strong_split_last:
-  fib_heap_inv_strong fh (xs ++ [y]) ==>
-  ?fhx fhy.
-  fib_heap_inv_strong fhx xs /\ fib_heap_inv_strong fhy [y] /\
-  fh = FUNION fhx fhy /\ DISJOINT (FDOM fhx) (FDOM fhy)
+  fib_heap_inv_strong fh ([x] ++ xs) ==>
+  ?fhx fhxs.
+  fib_heap_inv fhx [x]  /\ fib_heap_inv_strong fhxs xs /\
+  fh = FUNION fhx fhxs /\ DISJOINT (FDOM fhx) (FDOM fhxs)
 Proof
   simp[fib_heap_inv_strong_def] >>
   rpt strip_tac >>
@@ -2728,9 +3009,9 @@ QED
 
 
 
-Theorem lemma_fib_heap_union_split_last:
-  fib_heap_inv_union fh ((fh_xy,xs ++ [y])::rest) ==>
-    ?fhx fhy. fib_heap_inv_union fh ((fhx,xs)::(fhy,[y])::rest)
+Theorem lemma_fib_heap_union_split:
+  fib_heap_inv_union fh ((fh_xy,[x] ++ [ys])::rest) ==>
+    ?fhx fhy. fib_heap_inv_union fh ((fhx,[x])::(fhy,ys)::rest)
 Proof
   fs[fib_heap_inv_union_def] >>
   rpt strip_tac >>
