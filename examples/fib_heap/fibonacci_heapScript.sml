@@ -2975,150 +2975,6 @@ QED
 *)
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Theorem lemma_fib_heap_inv_strong_split_last:
-  fib_heap_inv_strong fh ([x] ++ xs) ==>
-  ?fhx fhxs.
-  fib_heap_inv fhx [x]  /\ fib_heap_inv_strong fhxs xs /\
-  fh = FUNION fhx fhxs /\ DISJOINT (FDOM fhx) (FDOM fhxs)
-Proof
-  simp[fib_heap_inv_strong_def] >>
-  rpt strip_tac >>
-
-
-  cheat
-QED
-
-
-
-Theorem lemma_fib_heap_union_split:
-  fib_heap_inv_union fh ((fh_xy,[x] ++ [ys])::rest) ==>
-    ?fhx fhy. fib_heap_inv_union fh ((fhx,[x])::(fhy,ys)::rest)
-Proof
-  fs[fib_heap_inv_union_def] >>
-  rpt strip_tac >>
-  drule lemma_fib_heap_inv_strong_split_last >>
-  strip_tac >> gvs[] >>
-  first_x_assum $ irule_at $ Pos hd >>
-  first_x_assum $ irule_at $ Pos hd >>
-  fs[all_disjoint_def,fh_union_def] >>
-  fs[FUNION_ASSOC] >>
-  fs[EVERY_MEM,FORALL_PROD] >>
-  metis_tac[]
-QED
-
-
-Theorem lemma_fib_heap_union_merge:
-  fib_heap_inv_union fh ((fhx,xs)::(fhy,ys)::rest) ==>
-    fib_heap_inv_union fh (((FUNION fhx fhy),xs ++ ys)::rest)
-Proof
-  cheat
-QED
-
-
-Theorem lemma_funion_fh_union_comm:
-  !xs.
-  (all_disjoint xs /\ all_disjoint ys /\
-  ∀x y. MEM x xs ∧ MEM y ys ==> DISJOINT (FDOM (FST x)) (FDOM (FST y))) ==>
-  DISJOINT (FDOM (fh_union xs)) (FDOM (fh_union ys))
-Proof
-  Induct >> fs[fh_union_def] >>
-  strip_tac >>
-  Cases_on `h`>> fs[fh_union_def] >>
-  fs[all_disjoint_def] >>
-  rpt strip_tac >>
-  Cases_on `ys`>> fs[fh_union_def] >>
-  Cases_on `h` >> fs[fh_union_def] >>
-  first_assum(qspecl_then [`(q,r)`,`(q',r')`] assume_tac) >>
-  fs[all_disjoint_def] >>
-  cheat
-
-
-
-
-  (*
-  Induct >> fs[fh_union_def] >>
-  strip_tac >>
-  Cases_on `h`  >> fs[fh_union_def] >>
-  fs[all_disjoint_def] >>
-  rpt strip_tac
-  >- (
-    first_x_assum(qspecl_then [`(q,r)`,`(q',r')`] assume_tac) >>
-    fs[] >>
-    fs[pred_setTheory.DISJOINT_SYM]
-    ) >>
-  `(∀x y. (x = (q,r) ∨ MEM x xs) ∧ MEM y ys ⇒
-   DISJOINT (FDOM (FST x)) (FDOM (FST y))) ⇒
-   DISJOINT (FDOM q) (FDOM (fh_union ys))` by res_tac >>
-  fs[PULL_FORALL]
-  cheat
-*)
-(*TODO: show comm on list -> all_disjoint t /\ EVERY(DISJIONT q (FST t)) t ==>
-    FUNION q fh_union t = FUNION fh_union t q*)
-(*TODO: maybe induct on xs?*)
-QED
-
-
-Theorem lemma_fib_heap_union_reord:
-  fib_heap_inv_union fh (cs ++ xs ++ ms ++ ys ++ qs) ==>
-  fib_heap_inv_union fh (cs ++ ys ++ ms ++ xs ++ qs)
-Proof
-  fs[fib_heap_inv_union_def] >>
-  fs[fh_union_append_thm,all_disjoint_append_thm] >>
-  rpt strip_tac >> fs[] >> res_tac >> fs[pred_setTheory.DISJOINT_SYM] >>
-  fs[GSYM EVERY_MEM] >>
-  cheat
-QED
-
-
-
-(*
-
-Currently, not used!
-
-Theorem lemma_map_update_not_null:
-  !fts fh.
-    list_keys_not_null fts /\ (FLOOKUP fh 0w = NONE) ==>
-    FLOOKUP (fh |++ flat_fts fts) 0w = NONE
-Proof
-  ho_match_mp_tac flat_fts_ind >>
-  simp[Once list_keys_not_null_def] >>
-  simp[Once flat_fts_def] >>
-  rpt strip_tac
-  >- simp[FUPDATE_LIST] >>
-  fs[list_keys_not_null_def] >>
-  pure_rewrite_tac[flat_fts_def] >>
-  simp[FUPDATE_LIST_APPEND] >>
-  simp[GSYM FUPDATE_EQ_FUPDATE_LIST] >>
-  rename [`(k,v,e)`] >>
-  Cases_on `FLOOKUP (fh |+ (k,v,e)) 0w = NONE`
-  >- (
-    first_x_assum(qspec_then `(fh |+ (k,v,e))` assume_tac) >>
-    rfs[]
-    ) >>
-  fs[FLOOKUP_SIMP]
-QED
-
-*)
-
 Theorem lemma_mem_eq_fts_has:
  !fts k v e.
     MEM (k,v,e) (flat_fts fts) <=>
@@ -3315,6 +3171,150 @@ Theorem lemma_forest_split:
 Proof
   cheat
 QED
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Theorem lemma_fib_heap_inv_strong_split_last:
+  fib_heap_inv_strong fh ([x] ++ xs) ==>
+  ?fhx fhxs.
+  fib_heap_inv fhx [x]  /\ fib_heap_inv_strong fhxs xs /\
+  fh = FUNION fhx fhxs /\ DISJOINT (FDOM fhx) (FDOM fhxs)
+Proof
+  simp[fib_heap_inv_strong_def] >>
+  rpt strip_tac >>
+
+
+  cheat
+QED
+
+
+
+Theorem lemma_fib_heap_union_split:
+  fib_heap_inv_union fh ((fh_xy,[x] ++ [ys])::rest) ==>
+    ?fhx fhy. fib_heap_inv_union fh ((fhx,[x])::(fhy,ys)::rest)
+Proof
+  fs[fib_heap_inv_union_def] >>
+  rpt strip_tac >>
+  drule lemma_fib_heap_inv_strong_split_last >>
+  strip_tac >> gvs[] >>
+  first_x_assum $ irule_at $ Pos hd >>
+  first_x_assum $ irule_at $ Pos hd >>
+  fs[all_disjoint_def,fh_union_def] >>
+  fs[FUNION_ASSOC] >>
+  fs[EVERY_MEM,FORALL_PROD] >>
+  metis_tac[]
+QED
+
+
+Theorem lemma_fib_heap_union_merge:
+  fib_heap_inv_union fh ((fhx,xs)::(fhy,ys)::rest) ==>
+    fib_heap_inv_union fh (((FUNION fhx fhy),xs ++ ys)::rest)
+Proof
+  cheat
+QED
+
+
+Theorem lemma_funion_fh_union_comm:
+  !xs.
+  (all_disjoint xs /\ all_disjoint ys /\
+  ∀x y. MEM x xs ∧ MEM y ys ==> DISJOINT (FDOM (FST x)) (FDOM (FST y))) ==>
+  DISJOINT (FDOM (fh_union xs)) (FDOM (fh_union ys))
+Proof
+  Induct >> fs[fh_union_def] >>
+  strip_tac >>
+  Cases_on `h`>> fs[fh_union_def] >>
+  fs[all_disjoint_def] >>
+  rpt strip_tac >>
+  Cases_on `ys`>> fs[fh_union_def] >>
+  Cases_on `h` >> fs[fh_union_def] >>
+  first_assum(qspecl_then [`(q,r)`,`(q',r')`] assume_tac) >>
+  fs[all_disjoint_def] >>
+  cheat
+
+
+
+
+  (*
+  Induct >> fs[fh_union_def] >>
+  strip_tac >>
+  Cases_on `h`  >> fs[fh_union_def] >>
+  fs[all_disjoint_def] >>
+  rpt strip_tac
+  >- (
+    first_x_assum(qspecl_then [`(q,r)`,`(q',r')`] assume_tac) >>
+    fs[] >>
+    fs[pred_setTheory.DISJOINT_SYM]
+    ) >>
+  `(∀x y. (x = (q,r) ∨ MEM x xs) ∧ MEM y ys ⇒
+   DISJOINT (FDOM (FST x)) (FDOM (FST y))) ⇒
+   DISJOINT (FDOM q) (FDOM (fh_union ys))` by res_tac >>
+  fs[PULL_FORALL]
+  cheat
+*)
+(*TODO: show comm on list -> all_disjoint t /\ EVERY(DISJIONT q (FST t)) t ==>
+    FUNION q fh_union t = FUNION fh_union t q*)
+(*TODO: maybe induct on xs?*)
+QED
+
+
+Theorem lemma_fib_heap_union_reord:
+  fib_heap_inv_union fh (cs ++ xs ++ ms ++ ys ++ qs) ==>
+  fib_heap_inv_union fh (cs ++ ys ++ ms ++ xs ++ qs)
+Proof
+  fs[fib_heap_inv_union_def] >>
+  fs[fh_union_append_thm,all_disjoint_append_thm] >>
+  rpt strip_tac >> fs[] >> res_tac >> fs[pred_setTheory.DISJOINT_SYM] >>
+  fs[GSYM EVERY_MEM] >>
+  cheat
+QED
+
+
+
+(*
+
+Currently, not used!
+
+Theorem lemma_map_update_not_null:
+  !fts fh.
+    list_keys_not_null fts /\ (FLOOKUP fh 0w = NONE) ==>
+    FLOOKUP (fh |++ flat_fts fts) 0w = NONE
+Proof
+  ho_match_mp_tac flat_fts_ind >>
+  simp[Once list_keys_not_null_def] >>
+  simp[Once flat_fts_def] >>
+  rpt strip_tac
+  >- simp[FUPDATE_LIST] >>
+  fs[list_keys_not_null_def] >>
+  pure_rewrite_tac[flat_fts_def] >>
+  simp[FUPDATE_LIST_APPEND] >>
+  simp[GSYM FUPDATE_EQ_FUPDATE_LIST] >>
+  rename [`(k,v,e)`] >>
+  Cases_on `FLOOKUP (fh |+ (k,v,e)) 0w = NONE`
+  >- (
+    first_x_assum(qspec_then `(fh |+ (k,v,e))` assume_tac) >>
+    rfs[]
+    ) >>
+  fs[FLOOKUP_SIMP]
+QED
+
+*)
+
 
 
 
