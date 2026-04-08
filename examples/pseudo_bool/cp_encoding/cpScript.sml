@@ -243,12 +243,12 @@ Definition reify_sem_def:
   | SOME (INL (Z,GreaterThan,v)) => varc w Z > v ⇒ b
   | SOME (INL (Z,LessEqual,v)) => varc w Z ≤ v ⇒ b
   | SOME (INL (Z,LessThan,v)) => varc w Z < v ⇒ b
-  | SOME (INR (Z,Equal,v)) => varc w Z = v ⇒ b
-  | SOME (INR (Z,NotEqual,v)) => varc w Z ≠ v ⇒ b
-  | SOME (INR (Z,GreaterEqual,v)) => varc w Z ≥ v ⇒ b
-  | SOME (INR (Z,GreaterThan,v)) => varc w Z > v ⇒ b
-  | SOME (INR (Z,LessEqual,v)) => varc w Z ≤ v ⇒ b
-  | SOME (INR (Z,LessThan,v)) => varc w Z < v ⇒ b
+  | SOME (INR (Z,Equal,v)) => varc w Z = v ⇔ b
+  | SOME (INR (Z,NotEqual,v)) => varc w Z ≠ v ⇔ b
+  | SOME (INR (Z,GreaterEqual,v)) => varc w Z ≥ v ⇔ b
+  | SOME (INR (Z,GreaterThan,v)) => varc w Z > v ⇔ b
+  | SOME (INR (Z,LessEqual,v)) => varc w Z ≤ v ⇔ b
+  | SOME (INR (Z,LessThan,v)) => varc w Z < v ⇔ b
 End
 
 Definition cmpop_sem_def:

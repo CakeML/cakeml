@@ -24,6 +24,20 @@ Definition reify_reif_def:
   | Eq X i => varc wi X = i
 End
 
+(* Generators for general reified variables involving comparison
+  operations
+*)
+Definition reif_gen_def:
+  reif_gen (Zc: 'a reify_cmp) =
+  case Zc of
+    (Z, Equal, v) => Pos (INL (Eq Z v))
+  | (Z, NotEqual, v) => Neg (INL (Eq Z v))
+  | (Z, GreaterEqual, v) => Pos (INL (Ge Z v))
+  | (Z, GreaterThan, v) => Pos (INL (Ge Z (v + 1)))
+  | (Z, LessEqual, v) => Neg (INL (Ge Z (v + 1)))
+  | (Z, LessThan, v) => Neg (INL (Ge Z v))
+End
+
 (* The datatype for flags in the ILP encoding.
   Each flag comes with a (separate) name for
     the constraint it belongs to.
@@ -270,6 +284,36 @@ Theorem encode_full_eq_sem[simp]:
 Proof
   rw[encode_full_eq_def]>>
   metis_tac[encode_eq_sem]
+QED
+
+(* Encoding a single variable Z cmp v, where cmp is among
+   =, ≠, ≥, >, ≤, < and v is an integer
+*)
+Definition encode_reif_gen_def:
+  encode_reif_gen bnd (Zc: 'a reify_cmp) =
+    case Zc of
+    (Z, Equal, v) => encode_full_eq bnd Z v
+  | (Z, NotEqual, v) => encode_full_eq bnd Z v
+  | (Z, GreaterEqual, v) => encode_ge bnd Z v
+  | (Z, GreaterThan, v) => encode_ge bnd Z (v + 1)
+  | (Z, LessEqual, v) => encode_ge bnd Z (v + 1)
+  | (Z, LessThan, v) => encode_ge bnd Z v
+End
+
+Theorem encode_reif_gen_sem[simp]:
+  valid_assignment bnd wi ⇒
+  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_reif_gen bnd (Z, cmp, v)) =
+  ((cmp = Equal ∨ cmp = NotEqual ⇒
+    (wb (INL (Eq Z v)) ⇔ varc wi Z = v)) ∧
+   (cmp = Equal ∨ cmp = NotEqual ∨ cmp = GreaterEqual ∨ cmp = LessThan ⇒
+    (wb (INL (Ge Z v)) ⇔ varc wi Z ≥ v)) ∧
+   (cmp = Equal ∨ cmp = NotEqual ∨ cmp = GreaterThan ∨ cmp = LessEqual ⇒
+    (wb (INL (Ge Z (v + 1))) ⇔ varc wi Z ≥ v + 1)))
+Proof
+  simp[encode_reif_gen_def]>>
+  every_case_tac>>
+  simp[]>>
+  metis_tac[]
 QED
 
 (*
@@ -676,6 +720,17 @@ Definition cencode_full_eq_def:
     (x3,ec''') = cencode_eq bnd Y n ec''
   in
     (Append (Append x1 x2) x3, ec''')
+End
+
+Definition cencode_reif_gen_def:
+  cencode_reif_gen bnd Zc ec =
+    case Zc of
+    (Z, Equal, v) => cencode_full_eq bnd Z v ec
+  | (Z, NotEqual, v) => cencode_full_eq bnd Z v ec
+  | (Z, GreaterEqual, v) => cencode_ge bnd Z v ec
+  | (Z, GreaterThan, v) => cencode_ge bnd Z (v + 1) ec
+  | (Z, LessEqal, v) => cencode_ge bnd Z (v + 1) ec
+  | (Z, LessThan, v) => cencode_ge bnd Z v ec
 End
 
 (* TODO: lemmas *)
