@@ -102,7 +102,6 @@ Proof
   \\ rw[]
 QED
 
-(*
 Theorem itree_semantics_While:
   ((itree_semantics (While e p,s)):'a ptree) =
   case eval s e of
@@ -128,7 +127,6 @@ Proof
   \\ rw[FUN_EQ_THM]
   \\ rpt (CASE_TAC \\ fs[GSYM h_prog_while_def,h_prog_def])
 QED
-*)
 
 Theorem itree_semantics_While_with_pre:
   (∃w. eval s e = SOME (ValWord w)) ⇒
@@ -157,7 +155,6 @@ Proof
   \\ rpt (CASE_TAC \\ fs[GSYM h_prog_while_def,h_prog_def])
 QED
 
-
 Theorem itree_semantics_Seq:
   ((itree_semantics (Seq p q, s)):'a ptree) =
   Tau (itree_bind
@@ -182,7 +179,6 @@ Proof
   \\ rw[FUN_EQ_THM]
 QED
 
-(*
 Theorem itree_semantics_Dec:
   ((itree_semantics (Dec x sh e p, s)):'a ptree) =
   case eval s e of
@@ -201,7 +197,6 @@ Proof
   \\ irule itree_bind_bisim_intro
   \\ rw[FUN_EQ_THM]
 QED
-*)
 
 Theorem itree_semantics_Dec_with_pre:
   (∃v. eval s e = SOME v) ⇒
@@ -221,7 +216,7 @@ Proof
   \\ rw[FUN_EQ_THM]
 QED
 
-(*
+
 Theorem itree_semantics_Assign:
   ((itree_semantics (Assign vk x v, s)):'a ptree) =
   case eval s v of
@@ -235,7 +230,7 @@ Proof
   \\ fs[SimpLHS, h_prog_def, h_prog_assign_def, Once itree_iter_thm]
   \\ rpt (CASE_TAC \\ fs[])
 QED
-*)
+
 (*
 Theorem itree_semantics_Assign_with_pre_bu:
   (∃v. eval s e = SOME v ∧ is_valid_value s vk x v) ⇒
@@ -263,7 +258,7 @@ Proof
   \\ rw[]
 QED
 
-(*
+
 Theorem itree_semantics_If:
   ((itree_semantics (If e p q, s)):'a ptree) =
   case eval s e of
@@ -280,7 +275,6 @@ Proof
   \\ irule itree_bind_bisim_intro
   \\ rw[FUN_EQ_THM]
 QED
-*)
 
 Theorem itree_semantics_If_with_pre:
   (∃vw. eval s e = SOME (ValWord vw)) ⇒
@@ -304,7 +298,7 @@ Proof
   \\ rw[FUN_EQ_THM]
 QED
 
-(*
+        
 Theorem itree_semantics_Store:
   ((itree_semantics (Store dst src, s)):'a ptree) =
   Ret (INR (case (eval s dst, eval s src) of
@@ -320,7 +314,7 @@ Proof
   \\ fs[SimpLHS, h_prog_def, h_prog_store_def, Once itree_iter_thm]
   \\ rpt (CASE_TAC \\ fs[])
 QED
-*)
+
 (*
 Theorem itree_semantics_Store_with_pre_bu:
   (∃ad v m. eval s dst = SOME (ValWord ad) ∧
@@ -359,8 +353,6 @@ Proof
   \\ rpt (CASE_TAC \\ fs[word_of_val_def])
 QED
 
-        
-(*
 Theorem itree_semantics_StoreByte:
   itree_semantics (StoreByte dst src,s) =
   Ret
@@ -379,8 +371,6 @@ Proof
   \\ fs[SimpLHS, h_prog_def, h_prog_store_byte_def, Once itree_iter_thm]
   \\ rpt (CASE_TAC \\ fs[word_of_val_def])
 QED
-
-*)
 
 Theorem itree_semantics_StoreByte_with_pre:
   (∃ad. eval s dst = SOME (ValWord ad)) ⇒
@@ -403,8 +393,6 @@ Proof
   \\ rpt (CASE_TAC \\ fs[word_of_val_def])
 QED
 
-
-(*
 Theorem itree_semantics_Store32:
   ((itree_semantics (Store32 dst src, s)):'a ptree) =
   Ret (INR (case (eval s dst, eval s src) of
@@ -420,7 +408,6 @@ Proof
   \\ fs[SimpLHS, h_prog_def, h_prog_store_32_def, Once itree_iter_thm]
   \\ rpt (CASE_TAC \\ fs[])
 QED
-*)
 
 
 Theorem itree_semantics_Store32_with_pre:
@@ -444,7 +431,7 @@ Proof
   \\ rpt (CASE_TAC \\ fs[word_of_val_def])
 QED
 
-
+        
 Theorem itree_semantics_ShMemLoad_with_pre:
   (∃ad. eval s addr = SOME (ValWord ad)) ⇒
   (∃vl. lookup_kvar vk v s = SOME (Val vl)) ⇒
@@ -482,8 +469,7 @@ Proof
   \\ rpt (CASE_TAC \\ fs[word_of_val_def])
   \\ rw[FUN_EQ_THM]
 QED
-
-(*
+        
 Theorem itree_semantics_ShMemLoad:
   ((itree_semantics (ShMemLoad op vk v addr, s)):'a ptree) =  case (eval s addr, lookup_kvar vk v s) of
     (SOME (ValWord ad), SOME (Val _)) =>
@@ -545,7 +531,6 @@ Proof
   \\ rpt (CASE_TAC \\ fs[])
   \\ rw[FUN_EQ_THM]
 QED
-*)
 
 Theorem itree_semantics_ShMemStore_with_pre:
   (∃ad. eval s addr = SOME (ValWord ad)) ⇒
@@ -614,7 +599,6 @@ Proof
   \\ rw[FUN_EQ_THM]
 QED
 
-(*
 Theorem itree_semantics_ShMemStore:
   ((itree_semantics (ShMemStore op addr e, s)):'a ptree) =
   case (eval s addr, eval s e) of
@@ -681,7 +665,6 @@ Proof
   \\ rpt (CASE_TAC \\ fs[])
   \\ rw[FUN_EQ_THM]
 QED
-*)
 
 Theorem itree_semantics_Skip:
   itree_semantics (Skip,s) = Ret (INR (NONE,s))
@@ -718,7 +701,6 @@ Proof
   \\ simp[h_prog_def]
 QED
 
-(*
 Theorem itree_semantics_Return:
   itree_semantics (Return e,s) =
     Ret (INR (case eval s e of
@@ -731,7 +713,7 @@ Proof
   PURE_REWRITE_TAC[itree_semantics_def, o_DEF] \\ BETA_TAC
   \\ simp[h_prog_def, h_prog_return_def]
 QED
-*)
+
 (*
 Theorem itree_semantics_Return_with_pre_bu:
   (∃v. eval s e = SOME v ∧ size_of_shape (shape_of v) ≤ 32) ⇒
@@ -760,7 +742,7 @@ Proof
   \\ gvs[h_prog_def, h_prog_return_def]
 QED
 
-(*
+  
 Theorem itree_semantics_Raise:
   itree_semantics (Raise eid e,s) =
   Ret (INR (case (FLOOKUP s.eshapes eid, eval s e) of
@@ -773,7 +755,7 @@ Proof
   PURE_REWRITE_TAC[itree_semantics_def, o_DEF] \\ BETA_TAC
   \\ simp[h_prog_def, h_prog_raise_def]
 QED
-*)
+
 (*
 Theorem itree_semantics_Raise_with_pre_bu:
   (∃sh v. FLOOKUP s.eshapes eid = SOME sh ∧
@@ -808,7 +790,7 @@ Proof
   \\ gvs[h_prog_def, h_prog_raise_def]
 QED
 
-(*
+
 Theorem itree_semantics_Call:
  ((itree_semantics (Call calltyp fname aexps,s)):'a ptree) =
    (case OPT_MMAP (eval s) aexps of
@@ -830,7 +812,7 @@ Proof
   \\ EVERY_CASE_TAC \\ rw[h_handle_call_ret_def]
   \\ irule itree_bind_bisim_intro \\ rw[FUN_EQ_THM]
 QED
-*)
+
         
 Theorem itree_semantics_Call_with_pre:
   (∃args q r. OPT_MMAP (eval s) aexps = SOME args ∧ lookup_code s.code fname args = SOME (q,r)) ⇒
@@ -849,7 +831,7 @@ Proof
   \\ irule itree_bind_bisim_intro \\ rw[FUN_EQ_THM]
 QED
 
-(*
+
 Theorem itree_semantics_DecCall:
   (itree_semantics (DecCall rt sh fname aexps prog,s)):'a ptree =
   (case OPT_MMAP (eval s) aexps of
@@ -887,7 +869,6 @@ Proof
   \\ EVERY_CASE_TAC \\ rw[h_handle_deccall_ret_def, o_DEF]
   \\ irule itree_bind_bisim_intro \\ rw[FUN_EQ_THM]
 QED
-*)
 
 Theorem itree_semantics_ExtCall_with_pre:
   (∃c3 c2 x'.
@@ -947,7 +928,7 @@ Proof
   \\ rw[FUN_EQ_THM, word_of_val_def]
 QED
 
-(*
+
 Theorem itree_semantics_ExtCall:
   (itree_semantics (ExtCall ffiname cptr clen aptr alen, s)) =
   case (eval s cptr, eval s clen, eval s aptr, eval s alen) of
@@ -989,7 +970,7 @@ Proof
   \\ rpt (PURE_CASE_TAC \\ fs[])
   \\ rw[FUN_EQ_THM]
 QED
-*)
+
 (*
 Definition vesp_valword_def:
   (vesp_valword (s:('a, 'b) state) (Var Local v) = [∃lw. FLOOKUP s.locals v = SOME (ValWord lw)]) ∧
@@ -2352,10 +2333,8 @@ Theorem ret_satisfy_INR_itree_semantics:
   ∀prog s. ret_satisfy (λx. ∃rv. x = INR rv) (itree_semantics (prog,s))
 Proof
   ho_match_mp_tac panprog_induct
-  \\ rw[ret_satisfy_rules, itree_semantics_Annot, itree_semantics_Tick, itree_semantics_Raise,
-        itree_semantics_Return, itree_semantics_Skip, itree_semantics_StoreByte,
-        itree_semantics_Store32, itree_semantics_Store, itree_semantics_Continue,
-        itree_semantics_Break]
+  \\ rw[ret_satisfy_rules, itree_semantics_Annot, itree_semantics_Tick, itree_semantics_Raise, itree_semantics_Return, itree_semantics_Skip,
+        itree_semantics_StoreByte, itree_semantics_Store32, itree_semantics_Store, itree_semantics_Continue, itree_semantics_Break]
   >- (rw[itree_semantics_Dec]
       \\ FULL_CASE_TAC \\ fs[ret_satisfy_rules]
       \\ irule $ cj 2 ret_satisfy_rules
