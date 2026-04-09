@@ -3148,11 +3148,12 @@ Proof
 QED
 
 
-Theorem lemma_ALOOKUP_eq_MEM:
-  !xs.
+Theorem lemma_alookup_eq_mem:
+  !k v e xs.
   fts_all_dist xs ==>
   (ALOOKUP (flat_fts xs) k = SOME (v,e) <=> MEM(k,v,e) (flat_fts xs))
 Proof
+  gen_tac >> gen_tac >> gen_tac >>
   ho_match_mp_tac flat_fts_ind >>
   rpt strip_tac
   >- simp[flat_fts_def] >>
@@ -3187,7 +3188,8 @@ Proof
   strip_tac >> fs[]
 QED
 
-Theorem __needs_name:
+
+Theorem lemma_fts_has_split :
   fts_all_dist (xs ++ ys) /\
   (∀k v e.
     FLOOKUP fh k = SOME (v,e) ⇔
@@ -3197,26 +3199,83 @@ Theorem __needs_name:
     ∃m. fts_has k (fill_dnode v e m) xs
 Proof
   rpt strip_tac >>
-  iff_tac >> strip_tac >>
+  iff_tac >> strip_tac
   >- (
     fs[fts_has_append_thm] >>
-    res_tac >>
-    fs[fts_all_dist_append_thm] >>
-    iff_tac
-    >- (strip_tac >> qexists `m` >> simp[]) >>
-    strip_tac >>
-    simp[lemma_ALOOKUP_eq_MEM] >>
-    fs[lemma_mem_eq_fts_has] >>
+    imp_res_tac ALOOKUP_MEM >>
+    imp_res_tac lemma_mem_eq_fts_has >>
     qexists `m` >> simp[]
     ) >>
-  fs[fts_has_append_thm] >>
-  res_tac >>
+  fs[fts_all_dist_append_thm] >>
+  simp[lemma_alookup_eq_mem] >>
+  imp_res_tac lemma_mem_eq_fts_has
+QED
 
-
-
+Theorem lemma_key_not_in_fts:
+  ~MEM x (MAP FST (flat_fts xs)) ==>
+  !v e m. ~fts_has x (fill_dnode v e m) xs
+Proof
+  rpt strip_tac >>
+  fs[MEM_MAP] >>
+  imp_res_tac lemma_mem_eq_fts_has >>
+  first_x_assum(qspec_then `(x,v,e)` assume_tac) >>
+  fs[]
 QED
 
 
+Theorem lemma_flookup_in_split:
+  fts_all_dist xs /\
+  (∀v e. FLOOKUP fh x = SOME (v,e) ⇔
+    ∃m. fts_has x (fill_dnode v e m) (xs ++ ys)) /\
+  ALOOKUP (flat_fts xs) x = SOME x' ==>
+  FLOOKUP fh x = SOME x'
+Proof
+  rpt strip_tac >>
+  Cases_on `x'` >>
+  rename [`FLOOKUP fh x = SOME (v,e)`] >>
+  first_x_assum(qspecl_then [`v`,`e`] assume_tac) >>
+  `MEM (x,v,e) (flat_fts xs)` by imp_res_tac lemma_alookup_eq_mem >>
+  imp_res_tac lemma_mem_eq_fts_has >>
+  fs[fts_has_append_thm] >>
+  qexists `m` >>
+  simp[]
+QED
+
+
+Theorem lemma_finite_map_split:
+  fts_all_dist (xs ++ ys) /\
+  (∀k v e. FLOOKUP fh k = SOME (v,e) ⇔
+    ∃m. fts_has k (fill_dnode v e m) (xs ++ ys)) ==>
+  fh = alist_to_fmap (flat_fts xs) ⊌ alist_to_fmap (flat_fts ys)
+Proof
+  rpt strip_tac >>
+  pure_rewrite_tac[fmap_eq_flookup] >>
+  gen_tac >>
+  simp[FLOOKUP_SIMP] >>
+  first_x_assum(qspecl_then [`x`] assume_tac) >>
+  gvs[] >>
+  Cases_on `ALOOKUP (flat_fts xs) x` >> fs[]
+  >- (
+    Cases_on `ALOOKUP (flat_fts ys) x`
+    >- (
+      fs[fts_all_dist_append_thm] >>
+      fs[ALOOKUP_NONE] >>
+      imp_res_tac lemma_key_not_in_fts >>
+      fs[fts_has_append_thm] >>
+      Cases_on `FLOOKUP fh x` >> fs[] >>
+      Cases_on `x'` >>
+      first_x_assum(qspecl_then [`q`,`r`] assume_tac) >> fs[]
+      ) >>
+    qpat_x_assum `∀v e. FLOOKUP fh x = SOME (v,e) ⇔
+      ∃m. fts_has x (fill_dnode v e m) (xs ++ ys)` mp_tac >>
+    once_rewrite_tac[fts_has_sym_thm] >>
+    disch_tac >>
+    fs[fts_all_dist_append_thm] >>
+    imp_res_tac lemma_flookup_in_split
+   )>>
+  fs[fts_all_dist_append_thm] >>
+  imp_res_tac lemma_flookup_in_split
+QED
 
 
 
@@ -3241,22 +3300,27 @@ Proof
     rpt strip_tac >>
     qexistsl [`alist_to_fmap (flat_fts xs)`,`alist_to_fmap (flat_fts ys)`] >>
     simp[lemma_alist_to_fmap_disjoint] >>
-    conj_tac >>
-
+    conj_tac
+    >- (imp_res_tac lemma_fts_has_split >> simp[]) >>
+    conj_tac
+    >- fs[fts_all_dist_append_thm] >>
+    conj_tac
+    >- (
+      imp_res_tac fts_all_dist_sym_thm >>
+      qpat_x_assum `∀k v e. FLOOKUP fh k = SOME (v,e) ⇔
+        ∃m. fts_has k (fill_dnode v e m) (xs ++ ys)` mp_tac >>
+      fs[fts_has_append_thm] >>
+      pure_rewrite_tac[Once DISJ_COMM] >>
+      simp[GSYM fts_has_append_thm] >>
+      disch_tac >>
+      imp_res_tac lemma_fts_has_split >> simp[]
+      ) >>
+    conj_tac
+    >- fs[fts_all_dist_append_thm] >>
+    imp_res_tac lemma_finite_map_split
+    ) >>
   cheat
 QED
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
