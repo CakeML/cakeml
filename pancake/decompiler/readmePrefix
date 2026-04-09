@@ -1,1 +1,2 @@
-The proof-producing Pancake decompiler into Interaction trees, i.e. a shallow-embedding extractor that generate interaction trees representing the program with their correspondance proofs.
+The proof-producing Pancake decompiler into Interaction trees,
+i.e. a shallow-embedding extractor that generate interaction trees representing the program with their correspondance proofs.
