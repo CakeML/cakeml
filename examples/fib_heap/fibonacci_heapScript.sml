@@ -3284,7 +3284,7 @@ QED
  - Theorem: alistTheory.ALOOKUP_EQ_FLOOKUP
 print_find "ALOOKUP"
 *)
-Theorem lemma_forest_split:
+Theorem lemma_fts_split:
   fts_all_dist (xs ++ ys) /\
   (!k v e. FLOOKUP fh k = SOME(v,e) <=> ?m. fts_has k (fill_dnode v e m) (xs ++ ys))
   <=>
@@ -3328,8 +3328,8 @@ QED
 
 
 
-Theorem lemma_fib_heap_inv_strong_split_last:
-  fib_heap_inv_strong fh ([x] ++ xs) ==>
+Theorem lemma_fib_heap_inv_strong_split:
+  fib_heap_inv_strong fh (x::xs) ==>
   ?fhx fhxs.
   fib_heap_inv fhx [x]  /\ fib_heap_inv_strong fhxs xs /\
   fh = FUNION fhx fhxs /\ DISJOINT (FDOM fhx) (FDOM fhxs)
@@ -3341,23 +3341,35 @@ Proof
   cheat
 QED
 
+Theorem lemma_inv_imp_inv_strong:
+  fib_heap_inv fh xs ==> fib_heap_inv_strong fh xs
+Proof
+  simp[fib_heap_inv_def,fib_heap_inv_strong_def]
+QED
+
 
 
 Theorem lemma_fib_heap_union_split:
-  fib_heap_inv_union fh ((fh_xy,[x] ++ [ys])::rest) ==>
+  fib_heap_inv_union fh ((fh_xy,[x] ++ ys)::rest) ==>
     ?fhx fhy. fib_heap_inv_union fh ((fhx,[x])::(fhy,ys)::rest)
 Proof
   fs[fib_heap_inv_union_def] >>
   rpt strip_tac >>
-  drule lemma_fib_heap_inv_strong_split_last >>
+  drule lemma_fib_heap_inv_strong_split >>
   strip_tac >> gvs[] >>
-  first_x_assum $ irule_at $ Pos hd >>
-  first_x_assum $ irule_at $ Pos hd >>
+  qexistsl [`fhx`,`fhxs`] >>
   fs[all_disjoint_def,fh_union_def] >>
   fs[FUNION_ASSOC] >>
+  imp_res_tac lemma_inv_imp_inv_strong >> simp[] >>
   fs[EVERY_MEM,FORALL_PROD] >>
   metis_tac[]
 QED
+(*
+  first_x_assum $ irule_at $ Pos hd >>
+  first_x_assum $ irule_at $ Pos hd >>
+  fs[EVERY_MEM,FORALL_PROD] >>
+  metis_tac[]
+*)
 
 
 Theorem lemma_fib_heap_union_merge:
