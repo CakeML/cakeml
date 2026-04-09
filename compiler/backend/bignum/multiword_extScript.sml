@@ -204,7 +204,12 @@ Theorem num_of_bits_TAKE_DROP_dimindex:
   dimword (:α) * num_of_bits (DROP (dimindex (:α)) xs) =
   num_of_bits xs
 Proof
-  cheat
+  ‘num_of_bits xs =
+   num_of_bits (TAKE (dimindex (:α)) xs ++ DROP (dimindex (:α)) xs)’ by simp []
+  >> pop_assum SUBST_ALL_TAC
+  >> rewrite_tac [num_of_bits_append]
+  >> simp [LENGTH_TAKE_EQ, dimword_def]
+  >> IF_CASES_TAC >> simp [DROP_LENGTH_TOO_LONG, num_of_bits_def]
 QED
 
 Theorem num_of_bits_cons:
