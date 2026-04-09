@@ -1,4 +1,5 @@
-
+(* Example of proving the correctness of a function that calculate the fibonacci number. *)
+        
 Theory fib
 Ancestors
   itreeTau panLang panSem

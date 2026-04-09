@@ -1,3 +1,5 @@
+(* The decompiler implementation *)
+
 structure panItreeDecompilerLib =
 struct
 

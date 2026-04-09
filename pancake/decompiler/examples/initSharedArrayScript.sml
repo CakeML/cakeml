@@ -1,4 +1,5 @@
-
+(* Example on program dealing with shared memory *)
+        
 Theory initSharedArray
 Ancestors
   itreeTau panLang panSem

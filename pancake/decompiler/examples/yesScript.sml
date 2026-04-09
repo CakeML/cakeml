@@ -1,4 +1,5 @@
-
+(* Example of the infinite program yes. *)
+        
 Theory yes
 Ancestors
   itreeTau panLang panSem

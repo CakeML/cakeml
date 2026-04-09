@@ -1,4 +1,5 @@
-
+(* Example of proving the correctness of reversing an array. *)
+        
 Theory revArray
 Ancestors
   itreeTau panLang panSem

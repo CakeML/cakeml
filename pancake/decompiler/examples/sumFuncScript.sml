@@ -1,3 +1,4 @@
+(* Example of sum functions that giving the same tree representations. *)
 
 Theory sumFunc
 Ancestors
