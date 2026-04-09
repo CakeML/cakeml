@@ -405,7 +405,7 @@ Proof
   >~ [‘evaluate (x::y::xs,_,_)’] >-
    (cheat)
   >> cheat
-dQED
+QED
 
 (* This could probably be combined with the above *)
 Theorem evaluate_pad_env_err:
@@ -1370,13 +1370,11 @@ Proof
         >-
          (simp [Once evaluate_def]
           >> CASE_TAC >> gvs []
-          >> Cases_on ‘a''’ >> gvs []
-          >-
-           ()
-          )
-            )
-      )
-   )
+          >- (Cases_on ‘a''’ >> gvs [] >> cheat)
+          >> cheat)
+        >> cheat)
+      >> cheat)
+    >> cheat)
   >~ [‘Tick x’] >-
    (gvs [evaluate_def]
     >> ‘s'.clock = s.clock’ by gvs [state_rel_def]
@@ -1456,8 +1454,9 @@ Proof
           >> gvs []
           >> cheat (*disch_then*) (* I think at this point we need to relax env_rel so that true case implies false case *)
          )
-       )
-     )
+        >> cheat)
+     >> cheat)
+    >> cheat
    )
 QED
 
@@ -1500,9 +1499,10 @@ Proof
             >> strip_tac
             >> gvs []
             >> CASE_TAC
-            >- ()
-            )
-        )
+            >- (cheat)
+            >> cheat
+           )
+        >> cheat)
     >> rpt strip_tac
     >> pairarg_tac
     >> gvs []
