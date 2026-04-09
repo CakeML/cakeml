@@ -1,5 +1,6 @@
 (*
-  Theorems of Pancake interaction tree semantics with preconditions of expressions.
+  Theorems of Pancake interaction tree semantics
+  with preconditions of expressions.
 *)
 Theory panItreeAbsSem
 Ancestors
@@ -31,7 +32,7 @@ val ret_func = “Ret:(ffi_outcome + word8 list) + 'a result option # 'a bstate 
 Definition itree_semantics_def:
   itree_semantics:('a panLang$prog # 'a bstate -> 'a ptree) = mrec h_prog o h_prog
 End
-        
+
 Definition itree_deccall_handler_def:
   itree_deccall_handler rt shape s ^res tree1 =
   case res of
@@ -94,7 +95,7 @@ Definition word_of_val_def:
   word_of_val (ValWord w) = w ∧
   word_of_val _ = ARB
 End
-                
+
 Theorem itree_bind_bisim_intro:
   t = t' ∧ k = k' ⇒ (t >>= k) = (t' >>= k')
 Proof
@@ -245,7 +246,7 @@ Proof
 QED
 
 *)
-        
+
 Theorem itree_semantics_Assign_with_pre:
   (∃v. eval s e = SOME v) ⇒
   (let v = THE (eval s e) in is_valid_value s vk x v) ⇒
@@ -298,7 +299,7 @@ Proof
   \\ rw[FUN_EQ_THM]
 QED
 
-        
+
 Theorem itree_semantics_Store:
   ((itree_semantics (Store dst src, s)):'a ptree) =
   Ret (INR (case (eval s dst, eval s src) of
@@ -414,7 +415,7 @@ Proof
   \\ rpt (CASE_TAC \\ fs[word_of_val_def])
 QED
 
-        
+
 Theorem itree_semantics_ShMemLoad_with_pre:
   (∃ad. eval s addr = SOME (ValWord ad)) ⇒
   (∃vl. lookup_kvar vk v s = SOME (Val vl)) ⇒
@@ -452,7 +453,7 @@ Proof
   \\ rpt (CASE_TAC \\ fs[word_of_val_def])
   \\ rw[FUN_EQ_THM]
 QED
-        
+
 Theorem itree_semantics_ShMemLoad:
   ((itree_semantics (ShMemLoad op vk v addr, s)):'a ptree) =  case (eval s addr, lookup_kvar vk v s) of
     (SOME (ValWord ad), SOME (Val _)) =>
@@ -696,7 +697,7 @@ Proof
   PURE_REWRITE_TAC[itree_semantics_def, o_DEF] \\ BETA_TAC
   \\ simp[h_prog_def, h_prog_return_def]
 QED
-        
+
 Theorem itree_semantics_Return_with_pre:
   (∃v. eval s e = SOME v) ⇒
   (let
@@ -712,7 +713,7 @@ Proof
   \\ gvs[h_prog_def, h_prog_return_def]
 QED
 
-  
+
 Theorem itree_semantics_Raise:
   itree_semantics (Raise eid e,s) =
   Ret (INR (case (FLOOKUP s.eshapes eid, eval s e) of
@@ -736,7 +737,7 @@ Theorem itree_semantics_Raise_with_pre:
      shape_of v = sh ∧ size_of_shape (shape_of v) ≤ 32) ⇒
   itree_semantics (Raise eid e,s) =
   let sh = THE (FLOOKUP s.eshapes eid) in
-    let v = THE (eval s e) in        
+    let v = THE (eval s e) in
       Ret (INR ((SOME (Exception eid v), empty_locals s)))
 Proof
   rw[]
@@ -767,7 +768,7 @@ Proof
   \\ irule itree_bind_bisim_intro \\ rw[FUN_EQ_THM]
 QED
 
-        
+
 Theorem itree_semantics_Call_with_pre:
   (∃args q r. OPT_MMAP (eval s) aexps = SOME args ∧ lookup_code s.code fname args = SOME (q,r)) ⇒
   ((itree_semantics (Call calltyp fname aexps,s)):'a ptree) =
@@ -1175,7 +1176,7 @@ Proof
   iff_tac \\ fs[ret_vis_satisfy_rules]
   \\ rw[Once ret_vis_satisfy_cases]
 QED
-        
+
 Theorem ret_satisfy_Tau:
   ret_satisfy P (Tau u) ⇔ ret_satisfy P u
 Proof
@@ -1218,7 +1219,7 @@ Theorem res_var_list_thm:
 Proof
   rw[res_var_list_def, res_var_def]
 QED
-                
+
 
 Definition del_annot_def:
   del_annot (Seq (Annot _ _) (p : 'a panLang$prog)) = del_annot p ∧
@@ -1258,7 +1259,7 @@ Proof
   \\ Cases_on ‘x’ \\ gvs[]
   \\ metis_tac[weak_bisim_upfrom_abs_rules, strip_tau_simps2, GSYM FUNPOW_SUC, GSYM FUNPOW]
 QED
-        
+
 Theorem while_bisim:
   (∀s. itree_semantics (p, s) ≈ itree_semantics (p', s))
    ⇒ ∀s. itree_semantics (While g p, s) ≈ itree_semantics (While g p', s)
@@ -1538,7 +1539,7 @@ Theorem state_update_locals_locals:
 Proof
   EVAL_TAC
 QED
-        
+
 Theorem empty_locals_with_locals:
   empty_locals s with locals := new_locals = s with locals := new_locals
 Proof
@@ -1616,7 +1617,7 @@ Theorem itree_bind_result_case_def:
   result_CASE rs (v >>= k) (v1 >>= k) (v2 >>= k) (v3 >>= k) (λx. f x >>= k) (λx y. f1 x y >>= k) (λx. f2 x >>= k)
 Proof FULL_CASE_TAC
 QED
-        
+
 Theorem con_dif:
   ((if bexp then t else e) ≠ 0w) ⇔ (if bexp then (t ≠ 0w) else (e ≠ 0w))
 Proof
@@ -1655,14 +1656,14 @@ Proof
   Cases_on ‘res’ \\ fs[ffiTheory.ffi_result_case_def]
 QED
 
-        
+
 Theorem pair_CASE_same:
   pair_CASE x (λres s'. (res,s')) = x
 Proof
   Cases_on ‘x’ \\ gvs[]
 QED
 
-        
+
 Theorem itree_semantics_Seq_ret_satisfy_pres:
   ((∀s. itree_semantics (p1, s) = t1 s) ⇒
   (∀s. itree_semantics (p2, s) = t2 s) ⇒
@@ -1737,7 +1738,7 @@ Proof
   \\ EVERY_CASE_TAC \\ gvs[]
 QED
 
-        
+
 Theorem ret_satisfy_T:
   ret_satisfy (λx. T) t
 Proof
@@ -1971,7 +1972,7 @@ Proof
   FULL_CASE_TAC
 QED
 
-    
+
 Theorem EXISTS_COND_THM:
   (∃x. COND b (P x) (Q x)) ⇔ COND b (∃x. P x) (∃x. Q x)
 Proof
@@ -1998,21 +1999,21 @@ Proof
   rw[]
 QED
 
-        
+
 Theorem eval_SOME_Val_impl_eval_SOME:
   (∃v. eval s e = SOME (ValWord v)) ⇒ (∃vv. eval s e = SOME vv)
 Proof
   metis_tac[]
 QED
 
-    
+
 Theorem pair_LET_pair:
   LET f (v1, v2) =  f (v1, v2)
 Proof
   rw[]
 QED
 
-           
+
 Theorem itree_semantics_DecCall_with_pre_ret_satisfy:
   ((∀s. itree_semantics (prog1,s) = t s) ∧
   (∃args q r.
@@ -2067,7 +2068,7 @@ Proof
   FULL_CASE_TAC
 QED
 
-        
+
 Theorem eval_simps:
   (∀w s. eval s (Const w) = SOME (ValWord w)) ∧
   (∀v s. eval s (Var Local v) = FLOOKUP s.locals v) ∧
@@ -2262,21 +2263,21 @@ Theorem val_mem_valword:
 Proof
   Cases_on ‘s.memory wa’ \\ rw[]
 QED
-        
+
 Theorem val_mem_valword_LET:
   let v = Val (s.memory wa) in
     ∃wv. v = ValWord wv
 Proof
   Cases_on ‘s.memory wa’ \\ rw[]
 QED
-        
+
 Theorem THE_LET_in:
   THE (LET f v) = LET (λx. THE (f x)) v
 Proof
   rw[]
 QED
 
-        
+
 Theorem word_of_val_LET_in:
   word_of_val (LET f v) = LET (λx. word_of_val (f x)) v
 Proof
@@ -2308,7 +2309,7 @@ Theorem LET_concrete:
 Proof
   rw[]
 QED
-        
+
 Theorem LET_v_LET_in:
   LET f (LET f' v) = LET (λx. LET f (f' x)) v
 Proof
@@ -2417,7 +2418,7 @@ Proof
 QED
 
 
-  
+
 Theorem itree_semantics_While_with_pre_conj:
   (∀s. P_loop s ⇒ itree_semantics (p,s) = loop_t s) ⇒
   ((let
@@ -2512,9 +2513,9 @@ Proof
   \\ rw[FUNPOW_SUC, GSYM FUNPOW_Tau_bind]
 QED
 
-        
+
 Theorem itree_bisim_FUNPOW_Tau_SUC_self_bind_spin:
-  t = FUNPOW Tau (SUC n) (t >>= k) ⇔ t = spin 
+  t = FUNPOW Tau (SUC n) (t >>= k) ⇔ t = spin
 Proof
   iff_tac
   >- (rpt strip_tac
@@ -2611,13 +2612,13 @@ Proof
   rw[]
 QED
 
-        
+
 Theorem itree_eq_imp_wbisim:
   t = t' ⇒ t ≈ t'
 Proof
   rw[itree_wbisim_refl]
 QED
-  
+
 
 Theorem FUNPOW_Tau_2:
   FUNPOW Tau (SUC 1) x = Tau (Tau x)
@@ -2625,7 +2626,7 @@ Proof
   rw[FUNPOW]
 QED
 
-        
+
 Theorem funpow_tau_conv_thm:
    t ≈ FUNPOW Tau n x ⇒ t ≈ x
 Proof
@@ -2641,7 +2642,7 @@ Theorem tau_conv_thm:
 Proof
   rw[]
 QED
-        
+
 Theorem tau_ret_conv_thm:
   b ≈ (Tau (Ret a)) ⇒ b ≈ (Ret a)
 Proof
@@ -2651,7 +2652,7 @@ Proof
 QED
 
 
-        
+
 Theorem tau_vis_conv_thm:
   b ≈ (Tau (Vis e k)) ⇒ b ≈ (Vis e k)
 Proof

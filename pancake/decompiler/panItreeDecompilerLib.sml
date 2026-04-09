@@ -1,4 +1,6 @@
-(* The decompiler implementation *)
+(*
+  The decompiler implementation.
+*)
 
 structure panItreeDecompilerLib =
 struct
@@ -29,7 +31,7 @@ Overload ">>=" = “itree_bind”;
 Overload "case" = “itree_CASE”;
 
 
-        
+
 val tree_simp_rules = [mem_stores_def, mem_store_def, pair_case_def, flatten_def, DOMSUB_FEMPTY, DOMSUB_FUPDATE,
                        FUPDATE_EQ, DOMSUB_FUPDATE_THM, v_case_def, OPTION_BIND_def, word_lab_case_def,
                        locals_emmpty_locals, empty_locals_with_locals, upds_multi_locals,
@@ -53,7 +55,7 @@ val tree_simp_rules = [mem_stores_def, mem_store_def, pair_case_def, flatten_def
                        val_mem_valword, val_mem_valword_LET, if_then_else_word_simp, COND_ID,
                        eval_exists_strengthen, ret_satisfy_if, word_lab_exists_word]
 
-         
+
 fun mk_var_from_shape_once avoid_names [] ty_arg = []
   | mk_var_from_shape_once avoid_names (shape_term::shape_terms) ty_arg =
     if same_const shape_term “One” then
@@ -68,7 +70,7 @@ fun mk_var_from_shape_once avoid_names [] ty_arg = []
       in
         “Struct ^new_struct”::mk_var_from_shape_once (new_struct::avoid_names) shape_terms ty_arg
       end
-    
+
 fun mk_args_from_aexps avoid_names [] = []
   | mk_args_from_aexps avoid_names (aexp::aexps) =
     let val aexp_type = type_of aexp
@@ -102,7 +104,7 @@ fun mk_eval_val_term vstv st exp =
     else
       “struct_of_val (THE (eval ^st ^exp))”
     end
-    
+
 fun eval_some_rw th =
   let val eval_term = find_terms (can (match_term “eval _ _”)) (th |> concl)
       val eval_rules = filter (fn x => x |> concl |> rhs |> is_some) (map (QCONV (SIMP_CONV (srw_ss ()) (eval_def::tree_simp_rules))) eval_term)
@@ -137,7 +139,7 @@ fun UNDISCH_COMP_CONJUNCTS_ALL th =
 
 val fsdacsc = ASSUME “(a ∧ c) ∧ d ⇒ b” |> UNDISCH_COMP_CONJUNCTS_ALL |> DISCH_ALL
 
-    
+
 fun mk_call_pre_thm_with_argexps scode fundecs code_thm te =
   let val all_v_list = all_vars te
       val tree_ty = type_of te
@@ -148,7 +150,7 @@ fun mk_call_pre_thm_with_argexps scode fundecs code_thm te =
       val (itc, [progst]) = te |> strip_comb
       val (_, [prog, state]) = progst |> strip_comb
       val (_, [calty, fname, aexps_term]) = prog |> strip_comb
-      val (aexps, aexp_type) = aexps_term |> dest_list                         
+      val (aexps, aexp_type) = aexps_term |> dest_list
       val (_, [ty_arg]) = dest_type aexp_type
       val fpb = EVAL “funcname_params_list ^fundecs” |> concl |> rhs
       val fpb_l = fpb |> dest_list |> fst |> map dest_pair |> map (fn (x, y) => (x, dest_pair y))
@@ -206,7 +208,7 @@ fun mk_call_pre_thm_with_argexps scode fundecs code_thm te =
     code_tree_thm
     end
 
-        
+
 fun mk_deccall_pre_thm_with_argexps scode fundecs code_thm te =
   let val all_v_list = all_vars te
       val tree_ty = type_of te
@@ -217,7 +219,7 @@ fun mk_deccall_pre_thm_with_argexps scode fundecs code_thm te =
       val (itc, [progst]) = te |> strip_comb
       val (_, [prog, state]) = progst |> strip_comb
       val (_, [rt, sh, fname, aexps_term, prog1]) = prog |> strip_comb
-      val (aexps, aexp_type) = aexps_term |> dest_list                         
+      val (aexps, aexp_type) = aexps_term |> dest_list
       val (_, [ty_arg]) = dest_type aexp_type
       val fpb = EVAL “funcname_params_list ^fundecs” |> concl |> rhs
       val fpb_l = fpb |> dest_list |> fst |> map dest_pair |> map (fn (x, y) => (x, dest_pair y))
@@ -300,7 +302,7 @@ fun mk_deccall_pre_thm_with_argexps scode fundecs code_thm te =
     CONJ code_tree_thm_non_pre code_tree_thm_with_pre
     end
 
-        
+
 fun inst_match_concl_lhs th trm_some =
   let val (_, [trm, res]) = trm_some |> strip_comb
   in
@@ -318,7 +320,7 @@ fun inst_match_concl_lhs th trm_some =
     else
       raise Domain
   end
-        
+
 
 fun inst_match_concl_lhs_in_list [] trm = raise Domain
   | inst_match_concl_lhs_in_list (th::ths) trm = inst_match_concl_lhs th trm
@@ -328,7 +330,7 @@ fun inst_match_concl_lhs_list_list ths [] = []
   | inst_match_concl_lhs_list_list ths (trm::trms) = inst_match_concl_lhs_in_list ths trm::inst_match_concl_lhs_list_list ths trms
                                                                                   handle _ => inst_match_concl_lhs_list_list ths trms
 
-  
+
 val teac = inst_match_concl_lhs_list_list (map UNDISCH_ALL (CONJUNCTS eval_eq_SOME_eval_to_let))
                                           [“eval s (Cmp Less (Var Local «i») (Var Local «len»)) = SOME (ValWord v)”] |> map DISCH_ALL
 
@@ -371,7 +373,7 @@ fun mk_eval_word_op_exps trm_some =
           val exp_terms = dest_list exps |> fst
           val [ty_arg] = state |> type_of |> dest_type |> snd
           val w_ty = mk_type ("cart", [“:bool”, ty_arg])
-          val v_list = list_mk_var_ty "v" [] w_ty (length exp_terms)                                               
+          val v_list = list_mk_var_ty "v" [] w_ty (length exp_terms)
           val eval_biimpl_list = map (fn x => “∃wv. eval ^state ^x = SOME (ValWord wv)”) exp_terms
           val eval_impl_hyps = “∃wv. ^trm = SOME (ValWord wv)”
           val v_op = if same_const w_op “asm$Add” then inst [alpha |-> ty_arg] “word_add”
@@ -462,10 +464,10 @@ fun mk_eval_let_exps_term_loop trm_some =
     else
       ([], [trm_some])
       end
-      
+
 
 fun mk_exists_rhs_var trm = list_mk_exists (all_vars (rhs trm), trm)
-                                 
+
 
 fun mk_eval_let_exps_thms exists_trm =
   let val trm_some = (snd o boolSyntax.dest_exists) exists_trm
@@ -516,7 +518,7 @@ fun map_opt f [] = []
 
 
 
-                        
+
 fun eval_simp_with_hyp_bu th =
   let val th_only_eval_hyp = th |> SPEC_ALL
                                 |> UNDISCH_ALL
@@ -548,7 +550,7 @@ fun eval_simp_with_hyp_bu_rpt th = eval_simp_with_hyp_bu_rpt (eval_simp_with_hyp
                                                        handle _ => th
 
 
-       
+
 fun eval_simp_with_hyp_rpt th =
   let val th_only_eval_hyp = th |> SPEC_ALL
                                 |> UNDISCH_ALL
@@ -557,10 +559,10 @@ fun eval_simp_with_hyp_rpt th =
       val simp_options = map mk_eval_let_exps_thms eval_hyps
       val (impl_thms, biim_thms) = foldl (fn (z, (x, y)) =>
                                        if isSome z then
-				       	 ((fst (valOf z))::x, (snd (valOf z))::y)
-				       else
-				         (x, y))
-			          ([], []) simp_options
+                                         ((fst (valOf z))::x, (snd (valOf z))::y)
+                                       else
+                                         (x, y))
+                                  ([], []) simp_options
       val simpler_evals_th = th_only_eval_hyp
                                |> PURE_REWRITE_RULE (map UNDISCH_ALL impl_thms)
                                |> DISCH_ALL
@@ -584,7 +586,7 @@ fun topdecs_to_fundecs topdecs =
   end
 
 
-    
+
 fun codes_lookup_funcs_assms fname fundecs =
   let val funcnames_list = funcname_bodies_list fundecs |> map fst
       val file_code_decs = EVAL “file_code ^fundecs” |> concl |> rhs
@@ -596,7 +598,7 @@ fun codes_lookup_funcs_assms fname fundecs =
     (codes_abbr_def, map (fn x => EVAL “FLOOKUP ^codes_abbr ^x”) funcnames_list)
   end
 
-    
+
 fun mlstring_term_to_string mlt =
   let val mlstring_chrlist = mlt |> term_to_string |> explode
       val mlstring_clean_chrlist = filter (fn x => not (mem x [#"\194", #"\171", #"\187"])) mlstring_chrlist
@@ -625,7 +627,7 @@ fun no_assms_thm th =
     false
   else
     null $ hyp th
-  
+
 fun mk_abs_impl th avar =
   let val conj_impl = th |> SPEC_ALL |> UNDISCH_ALL |> hurdUtils.DISCH_CONJUNCTS_ALL
       val att = conj_impl |> concl |> rator |> rand
@@ -656,7 +658,7 @@ fun mk_abs_rhs th avar =
   end
 
 
-  
+
 
 
 
@@ -670,7 +672,7 @@ fun eq_match_simp_rule simp_set extra_thms ori_thm mterm =
     PURE_ONCE_REWRITE_CONV ((UNDISCH_ALL matched_thm)::extra_thms) mterm
   end
 
- 
+
 fun hide_vis t =
   let val vis_terms = find_terms (can (match_term “Vis _ _”)) t
       val hide_vars = map (genvar o type_of) vis_terms
@@ -684,7 +686,7 @@ fun is_vis t = is_comb t andalso same_const “Vis” ((fst o strip_comb) t)
 
 fun term_mem t [] = false
   | term_mem t (x::xs) = term_eq t x orelse term_mem t xs
-    
+
 fun safe_replace_recursive rec_call t =
   let val call_vars = all_vars rec_call
   in
@@ -802,7 +804,7 @@ fun replace_non_sub_vis_spin bisim_thm =
 
 
 
-        
+
 fun to_funpow_conv t =
   ((PURE_ONCE_REWRITE_CONV [GSYM FUNPOW_Tau_2]) THENC (PURE_REWRITE_CONV [GSYM (cj 2 FUNPOW)])) t
 
@@ -828,7 +830,7 @@ fun to_min_tau_conv t =
     t_min_tau
   end
 
-  
+
 fun tau_ret_reduce_conv t =
   let val refl_t = REFL t;
       val t_wb = MATCH_MP (GEN_ALL itree_eq_imp_wbisim) refl_t;
@@ -928,7 +930,7 @@ fun once_reduce_tau_bu ext_thm thrm =
   in
     if term_eq rhs new_rhs then
       raise Domain
-    else  
+    else
       MATCH_MP itree_wbisim_trans conj_thm
   end
 
@@ -945,7 +947,7 @@ fun once_reduce_tau ext_thm thrm =
   in
     if term_eq rhs new_rhs then
       raise Domain
-    else  
+    else
       MATCH_MP itree_wbisim_trans conj_thm
   end
 
@@ -954,14 +956,14 @@ fun once_reduce_tau ext_thm thrm =
 fun reduce_tau extt thrm = reduce_tau extt (once_reduce_tau extt thrm)
                                       handle _ => thrm
 
- 
+
 fun once_reduce_tau_ret extt thrm =
   let val rhs = thrm |> concl |> rand;
       val wbsim_call = thrm |> concl |> strip_comb |> fst;
       val tau_ret_term = find_term (can (match_term “Tau (Ret _)”)) rhs;
       val rep_thm = tau_ret_reduce_conv tau_ret_term;
       val [from, to] = rep_thm |> concl |> strip_comb |> snd;
-      val new_rhs = depth_abs_subst from to rhs; 
+      val new_rhs = depth_abs_subst from to rhs;
       val wb_term = list_mk_comb (wbsim_call, [rhs, new_rhs]);
       val wb_thm = prove (wb_term, rpt (wbisim_cong_tactic (rep_thm::extt@[LET_THM, word_of_val_def, struct_of_val_def, FUN_EQ_THM])));
       val conj_thm = CONJ thrm wb_thm;
@@ -976,14 +978,14 @@ fun reduce_tau_ret extt thrm = reduce_tau_ret extt (once_reduce_tau_ret extt thr
                                          handle _ => thrm
 
 
- 
+
 fun once_reduce_tau_vis extt thrm =
   let val rhs = thrm |> concl |> rand;
       val wbsim_call = thrm |> concl |> strip_comb |> fst;
       val tau_vis_term = find_term (can (match_term “Tau (Vis _ _)”)) rhs;
       val rep_thm = tau_vis_reduce_conv tau_vis_term;
       val [from, to] = rep_thm |> concl |> strip_comb |> snd;
-      val new_rhs = depth_abs_subst from to rhs; 
+      val new_rhs = depth_abs_subst from to rhs;
       val wb_term = list_mk_comb (wbsim_call, [rhs, new_rhs]);
       val wb_thm = prove (wb_term, rpt (wbisim_cong_tactic (rep_thm::extt@[LET_THM, word_of_val_def, struct_of_val_def, FUN_EQ_THM])));
       val conj_thm = CONJ thrm wb_thm;
@@ -1029,7 +1031,7 @@ fun let_non_comb_rw_once th =
 
 fun let_non_comb_rw th = let_non_comb_rw (let_non_comb_rw_once th)
                                handle _ => th
-    
+
 fun let_n2w_rw_once th =
   let val let_terms = find_terms (can (match_term “LET _ _”)) (th |> concl)
       val let_n2w_terms = filter (fn x =>
@@ -1050,7 +1052,7 @@ fun let_n2w_rw_once th =
 fun let_n2w_rw th = let_n2w_rw (let_n2w_rw_once th)
                                handle _ => th
 
-    
+
 fun safe_spin_wbisim_lifting gen_bisim_thm =
   let val bisim_thm = gen_bisim_thm |> SPEC_ALL
                                     |> UNDISCH_ALL
@@ -1062,24 +1064,24 @@ fun safe_spin_wbisim_lifting gen_bisim_thm =
                      |> DISCH_ALL
                      |> GEN_ALL
                      |> reduce_to_view []
-                     |> SIMP_RULE (srw_ss ()) ([FLOOKUP_SIMP, 
+                     |> SIMP_RULE (srw_ss ()) ([FLOOKUP_SIMP,
                                                 GSYM res_var_list_def, res_var_list_thm]@tree_simp_rules)
     else
       spin_bisim_thm |> PURE_REWRITE_RULE [FUNPOW]
                      |> DISCH_ALL
                      |> GEN_ALL
-                     |> SIMP_RULE (srw_ss ()) ([FLOOKUP_SIMP, 
+                     |> SIMP_RULE (srw_ss ()) ([FLOOKUP_SIMP,
                                                 GSYM res_var_list_def, res_var_list_thm]@tree_simp_rules)
     end
 
-        
+
 fun conj_safe_spin_wbisim_lifting gen_bisim_thm =
   if is_conj (concl gen_bisim_thm) then
     LIST_CONJ (map safe_spin_wbisim_lifting (CONJUNCTS gen_bisim_thm))
   else
     safe_spin_wbisim_lifting gen_bisim_thm
 
-    
+
 
 
 fun inst_exists_term_impl_lhs_th th trm =
@@ -1110,7 +1112,7 @@ fun eq_val_struct_eq_some_simp th =
       |> SIMP_RULE (srw_ss ()) tree_simp_rules
       |> UNDISCH_ALL
     end
-        
+
 
 fun decompile_body_no_sep fname curr_names lhs_names rhs_names extra_assms scode code_thms fundecs n prog_tree =
   let fun decompile_while_no_sep curr_names lhs_names rhs_names extra_assms scode code_thms fundecs n prog_tree =
@@ -1126,7 +1128,7 @@ fun decompile_body_no_sep fname curr_names lhs_names rhs_names extra_assms scode
                              |> DISCH_ALL
                              |> (fn x => (SIMP_RULE (srw_ss ()) tree_simp_rules) x)
                              |> DISCH_ALL
-                             |> UNDISCH_COMP_CONJUNCTS_ALL 
+                             |> UNDISCH_COMP_CONJUNCTS_ALL
                              |> eval_simp_with_hyp_rpt
                              |> eq_val_struct_eq_some_simp
           val true_abs = mk_abs_all_impl true_thm new_st
@@ -1185,7 +1187,7 @@ fun decompile_body_no_sep fname curr_names lhs_names rhs_names extra_assms scode
                              |> DISCH_ALL
                              |> (fn x => (SIMP_RULE (srw_ss ()) tree_simp_rules) x)
                              |> DISCH_ALL
-                             |> UNDISCH_COMP_CONJUNCTS_ALL 
+                             |> UNDISCH_COMP_CONJUNCTS_ALL
                              |> eval_simp_with_hyp_rpt
                              |> eq_val_struct_eq_some_simp
           val (false_nsimp_thm, false_inner_thms, false_inner_def, _, new_num) =
@@ -1196,7 +1198,7 @@ fun decompile_body_no_sep fname curr_names lhs_names rhs_names extra_assms scode
                              |> DISCH_ALL
                              |> (fn x => (SIMP_RULE (srw_ss ()) tree_simp_rules) x)
                              |> DISCH_ALL
-                             |> UNDISCH_COMP_CONJUNCTS_ALL 
+                             |> UNDISCH_COMP_CONJUNCTS_ALL
                              |> eval_simp_with_hyp_rpt
                              |> eq_val_struct_eq_some_simp
           val true_thm_simp =  true_thm
@@ -1223,7 +1225,7 @@ fun decompile_body_no_sep fname curr_names lhs_names rhs_names extra_assms scode
                            |> eq_val_struct_eq_some_simp
                            |> eval_simp_with_hyp_rpt
                            |> DISCH_ALL
-                           |> GEN_ALL                          
+                           |> GEN_ALL
       in
         (cond_thm, true_inner_thms@false_inner_thms, true_inner_def@false_inner_def, new_num)
         end
@@ -1359,7 +1361,7 @@ fun decompile_body_no_sep fname curr_names lhs_names rhs_names extra_assms scode
                              |> DISCH_ALL
                              |> (fn x => (SIMP_RULE (srw_ss ()) tree_simp_rules) x)
                              |> DISCH_ALL
-                             |> UNDISCH_COMP_CONJUNCTS_ALL 
+                             |> UNDISCH_COMP_CONJUNCTS_ALL
                              |> eval_simp_with_hyp_rpt
                              |> eq_val_struct_eq_some_simp
       in
@@ -1428,7 +1430,7 @@ fun decompile_body_no_sep fname curr_names lhs_names rhs_names extra_assms scode
                                              @tree_simp_rules)) prog_tree)
                            |> UNDISCH_ALL
       in
-        (call_thm, [], [], true, n) 
+        (call_thm, [], [], true, n)
         end
     else if can (match_term “itree_semantics (DecCall _ _ _ _ _, _)”) prog_tree then
       let val call_name_rule = PURE_REWRITE_RULE (map GSYM (rhs_names@lhs_names))
@@ -1444,7 +1446,7 @@ fun decompile_body_no_sep fname curr_names lhs_names rhs_names extra_assms scode
                                        |> DISCH_ALL
                                        |> (fn x => (SIMP_RULE (srw_ss ()) tree_simp_rules) x)
                                        |> DISCH_ALL
-                                       |> UNDISCH_COMP_CONJUNCTS_ALL 
+                                       |> UNDISCH_COMP_CONJUNCTS_ALL
                                        |> eval_simp_with_hyp_rpt
                                        |> eq_val_struct_eq_some_simp
       in
@@ -1483,7 +1485,7 @@ fun decompile_body_no_sep fname curr_names lhs_names rhs_names extra_assms scode
                              |> DISCH_ALL
                              |> (fn x => (SIMP_RULE (srw_ss ()) tree_simp_rules) x)
                              |> DISCH_ALL
-                             |> UNDISCH_COMP_CONJUNCTS_ALL 
+                             |> UNDISCH_COMP_CONJUNCTS_ALL
                              |> eval_simp_with_hyp_rpt
                              |> eq_val_struct_eq_some_simp
           val (inner2_nsimp_thm, inner2_inner_thms, inner2_inner_def, inner2_nondet, inner2_new_num) =
@@ -1494,13 +1496,13 @@ fun decompile_body_no_sep fname curr_names lhs_names rhs_names extra_assms scode
                              |> DISCH_ALL
                              |> (fn x => (SIMP_RULE (srw_ss ()) tree_simp_rules) x)
                              |> DISCH_ALL
-                             |> UNDISCH_COMP_CONJUNCTS_ALL 
+                             |> UNDISCH_COMP_CONJUNCTS_ALL
                              |> eval_simp_with_hyp_rpt
                              |> eq_val_struct_eq_some_simp
       in
         let val tree_abs1 = (if null (hyp inner1_thm) then mk_abs_rhs else mk_abs_impl) inner1_thm new_st
             val tree_abs2 = (if null (hyp inner2_thm) then mk_abs_rhs else mk_abs_impl) inner2_thm new_st
-            val itree_seq_with_pre_thm = if null (hyp inner1_thm) then                                      
+            val itree_seq_with_pre_thm = if null (hyp inner1_thm) then
                                            if null (hyp inner2_thm) then
                                              cj 1 itree_semantics_Seq_ret_satisfy_pres
                                            else
@@ -1553,8 +1555,8 @@ fun mk_body_abbr_var_exp name_term params_list arg_ty body =
   end
 
 
-   
-           
+
+
 fun let_inner_subst let_term =
   let val value = let_term |> rand
       val func = let_term |> rator |> rand
@@ -1572,7 +1574,7 @@ fun let_inner_subst let_term =
         end
     end
 
-  
+
 fun let_capture_once th =
   let val trm = th |> concl
       val let_terms = find_terms (can (match_term “LET _ _”)) trm
@@ -1582,7 +1584,7 @@ fun let_capture_once th =
     SIMP_RULE (srw_ss ()) rw_thms th
     end
 
-  
+
 fun let_capture th = let_capture (let_capture_once th)
                                  handle Domain => th
 
@@ -1629,7 +1631,7 @@ fun let_conj_merge_subst let_conj_trm =
     else
       NONE
     end
-  
+
 
 
 fun let_conj_merge_once th =
@@ -1643,11 +1645,11 @@ fun let_conj_merge_once th =
     SIMP_RULE (srw_ss ()) rw_thms th
     end
 
-  
+
 fun let_conj_merge th = let_conj_merge (let_conj_merge_once th)
                                  handle Domain => th
 
-                       
+
 fun let_reduce_asm_conj th =
   if is_conj (concl th) then
     LIST_CONJ (map let_reduce_asm_conj (CONJUNCTS th))
@@ -1664,7 +1666,7 @@ fun let_reduce_asm_conj th =
         |> let_non_comb_rw
         |> GEN_ALL
            handle _ => th
-  
+
 fun decompile_2 file_name extra_assms fundec =
   let val (code_thm, lookup_thms) = codes_lookup_funcs_assms file_name fundec
       val ty_arg = fundec |> type_of |> dest_type |> snd |> hd |> dest_type |> snd |> hd
@@ -1685,26 +1687,26 @@ fun decompile_2 file_name extra_assms fundec =
                        |> eq_val_struct_eq_some_simp
                        |> DISCH_ALL
                        |> GEN_ALL
-                       |> SIMP_RULE (srw_ss ()) ([FLOOKUP_SIMP, 
+                       |> SIMP_RULE (srw_ss ()) ([FLOOKUP_SIMP,
                                                   GSYM res_var_list_def, res_var_list_thm]@tree_simp_rules)
                        |> eval_some_rw
                        |> let_non_comb_rw
-		       |> let_n2w_rw
+                       |> let_n2w_rw
                        |> SIMP_RULE (srw_ss ()) [shape_of_def, size_of_shape_def]
-		       |> let_reduce_asm_conj
+                       |> let_reduce_asm_conj
               , map (fn x => x |> DISCH_ALL
                                |> UNDISCH_COMP_CONJUNCTS_ALL
                                |> eval_simp_with_hyp_rpt
                                |> eq_val_struct_eq_some_simp
                                |> DISCH_ALL
                                |> GEN_ALL
-                               |> SIMP_RULE (srw_ss ()) ([FLOOKUP_SIMP, 
+                               |> SIMP_RULE (srw_ss ()) ([FLOOKUP_SIMP,
                                                           GSYM res_var_list_def, res_var_list_thm]@tree_simp_rules)
                                |> eval_some_rw
                                |> let_non_comb_rw
-		               |> let_n2w_rw
+                               |> let_n2w_rw
                                |> SIMP_RULE (srw_ss ()) [shape_of_def, size_of_shape_def]
-		               |> let_reduce_asm_conj) inner_thms, inner_defs)
+                               |> let_reduce_asm_conj) inner_thms, inner_defs)
            end
         )
         bodies, body_thms)
@@ -1732,34 +1734,34 @@ fun decompile_2_reduce file_name extra_assms fundec =
                        |> eq_val_struct_eq_some_simp
                        |> DISCH_ALL
                        |> GEN_ALL
-                       |> SIMP_RULE (srw_ss ()) ([FLOOKUP_SIMP, 
+                       |> SIMP_RULE (srw_ss ()) ([FLOOKUP_SIMP,
                                                   GSYM res_var_list_def, res_var_list_thm]@tree_simp_rules)
                        |> eval_some_rw
                        |> let_non_comb_rw
-		       |> let_n2w_rw
+                       |> let_n2w_rw
                        |> SIMP_RULE (srw_ss ()) [shape_of_def, size_of_shape_def]
                        |> conj_safe_spin_wbisim_lifting
-		       |> let_reduce_asm_conj
+                       |> let_reduce_asm_conj
               , map (fn x => x |> DISCH_ALL
                                |> (fn x => (SIMP_RULE (srw_ss ()) tree_simp_rules) x)
                                |> DISCH_ALL
-                               |> UNDISCH_COMP_CONJUNCTS_ALL 
+                               |> UNDISCH_COMP_CONJUNCTS_ALL
                                |> eval_simp_with_hyp_rpt
                                |> eq_val_struct_eq_some_simp
                                |> DISCH_ALL
                                |> GEN_ALL
-                               |> SIMP_RULE (srw_ss ()) ([FLOOKUP_SIMP, 
+                               |> SIMP_RULE (srw_ss ()) ([FLOOKUP_SIMP,
                                                           GSYM res_var_list_def, res_var_list_thm]@tree_simp_rules)
                                |> eval_some_rw
                                |> let_non_comb_rw
-		               |> let_n2w_rw
+                               |> let_n2w_rw
                                |> SIMP_RULE (srw_ss ()) [shape_of_def, size_of_shape_def]
                                |> conj_safe_spin_wbisim_lifting
-		               |> let_reduce_asm_conj
+                               |> let_reduce_asm_conj
                     ) inner_thms, inner_defs)
            end
         )
         bodies, body_thms)
    end
-   
+
 end;
