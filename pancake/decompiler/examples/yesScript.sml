@@ -1,5 +1,7 @@
-(* Example of the infinite program yes. *)
-        
+(*
+  Example of the infinite program yes.
+*)
+
 Theory yes
 Ancestors
   itreeTau panLang panSem
@@ -37,7 +39,7 @@ Overload ">>=" = “itree_bind”;
 Overload "case" = “itree_CASE”;
 
 
-                                                   
+
 fun read_file fname = let
     val s = TextIO.openIn fname
     fun get ss = case TextIO.inputLine s of
@@ -62,7 +64,7 @@ fun parse_pancake_code word_ty str =
 fun parse_pancake_file word_ty fname =
   parse_pancake_code word_ty (read_file fname)
 
-                     
+
 
 val (yes_topdecs, _) = parse_pancake_file “:32” "yes.pnk"
 
@@ -85,7 +87,7 @@ Proof
   \\ pop_assum $ assume_tac o SRULE[Once event_satisfy_cases]
   \\ gvs[]
 QED
-    
+
 Theorem event_satisfy_FUNPOW:
   event_satisfy P (FUNPOW Tau n t) ⇔ event_satisfy P t
 Proof
@@ -93,7 +95,7 @@ Proof
   \\ gvs[FUNPOW_SUC, event_satisfy_Tau]
 QED
 
-    
+
 Theorem itree_wbisim_impl_event_satisfy:
   t ≈ t' ⇒ event_satisfy P t ⇒ event_satisfy P t'
 Proof
@@ -113,7 +115,7 @@ Proof
   \\ metis_tac[]
 QED
 
-    
+
 Theorem yes_while_1_safety:
   read_bytearray 0w 4 (mem_load_byte s.memory s.memaddrs s.be) = SOME x ⇒
   event_satisfy (λe. ∃x'. e = (ExtCall «putChar», x, x')) (yes_while_1 s)
@@ -193,7 +195,7 @@ Proof
   \\ pop_assum $ assume_tac o SRULE[Once branch_satisfy_cases]
   \\ gvs[]
 QED
-    
+
 Theorem branch_satisfy_FUNPOW:
   ∀t. branch_satisfy P_e_res P_k (FUNPOW Tau n t) ⇔ (∀n'. n' ≤ n ⇒ P_k (FUNPOW Tau n' t)) ∧ branch_satisfy P_e_res P_k t
 Proof
@@ -219,7 +221,7 @@ Proof
      )
   \\ rw[GSYM FUNPOW_SUC]
 QED
-        
+
 Theorem itree_wbisim_impl_branch_satisfy:
   t ≈ t' ⇒ (∀t t'. t ≈ t' ⇒ P_k t = P_k t') ⇒ branch_satisfy P_e_res P_k t ⇒ branch_satisfy P_e_res P_k t'
 Proof

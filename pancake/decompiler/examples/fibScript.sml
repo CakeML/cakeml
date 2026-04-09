@@ -1,5 +1,8 @@
-(* Example of proving the correctness of a function that calculate the fibonacci number. *)
-        
+(*
+  Example of proving the correctness of a function that
+  calculate the fibonacci number.
+*)
+
 Theory fib
 Ancestors
   itreeTau panLang panSem
@@ -37,7 +40,7 @@ Overload ">>=" = “itree_bind”;
 Overload "case" = “itree_CASE”;
 
 
-                                                   
+
 fun read_file fname = let
     val s = TextIO.openIn fname
     fun get ss = case TextIO.inputLine s of
@@ -62,7 +65,7 @@ fun parse_pancake_code word_ty str =
 fun parse_pancake_file word_ty fname =
   parse_pancake_code word_ty (read_file fname)
 
-                     
+
 
 val (fib_topdecs, _) = parse_pancake_file “:32” "fib.pnk"
 
@@ -72,7 +75,7 @@ val fib_result = decompile_2_reduce "fib" [] fib_fundecs
 
 
 val fib_shallow = List.nth (fst fib_result, 0) |> (fn (x,y,z) => x)
-                                           
+
 
 Theorem itree_bind_resp_wbisim_compose_intro:
   t ≈ t' ⇒ (∀r. k r ≈ k' r) ⇒ t'' = t' >>= k' ⇒ t >>= k ≈ t''

@@ -1,5 +1,7 @@
-(* Example on program dealing with shared memory *)
-        
+(*
+  Example on program dealing with shared memory.
+*)
+
 Theory initSharedArray
 Ancestors
   itreeTau panLang panSem
@@ -37,7 +39,7 @@ Overload ">>=" = “itree_bind”;
 Overload "case" = “itree_CASE”;
 
 
-                                                   
+
 fun read_file fname = let
     val s = TextIO.openIn fname
     fun get ss = case TextIO.inputLine s of
@@ -62,7 +64,7 @@ fun parse_pancake_code word_ty str =
 fun parse_pancake_file word_ty fname =
   parse_pancake_code word_ty (read_file fname)
 
-                     
+
 
 val (initSharedArray_topdecs, _) = parse_pancake_file “:32” "initSharedArray.pnk"
 
@@ -74,7 +76,7 @@ val initSharedArray_result = decompile_2_reduce "initSharedArray" [] initSharedA
 
 
 
-                                                                  
+
 
 Theorem itree_bind_resp_wbisim_compose_intro:
   t ≈ t' ⇒ (∀r. k r ≈ k' r) ⇒ t'' = t' >>= k' ⇒ t >>= k ≈ t''
@@ -93,7 +95,7 @@ Proof
   \\ pop_assum $ assume_tac o SRULE[Once event_satisfy_cases]
   \\ gvs[]
 QED
-    
+
 Theorem event_satisfy_FUNPOW:
   event_satisfy P (FUNPOW Tau n t) ⇔ event_satisfy P t
 Proof
@@ -101,7 +103,7 @@ Proof
   \\ gvs[FUNPOW_SUC, event_satisfy_Tau]
 QED
 
-    
+
 Theorem itree_wbisim_impl_event_satisfy:
   t ≈ t' ⇒ event_satisfy P t ⇒ event_satisfy P t'
 Proof
@@ -137,14 +139,14 @@ Proof
   \\ pop_assum $ assume_tac o SRULE[Once branch_satisfy_cases]
   \\ gvs[]
 QED
-    
+
 Theorem branch_satisfy_FUNPOW:
   branch_satisfy P_e_res P_k (FUNPOW Tau n t) ⇔ branch_satisfy P_e_res P_k  t
 Proof
   Induct_on ‘n’
   \\ gvs[FUNPOW_SUC, branch_satisfy_Tau]
 QED
-        
+
 Theorem itree_wbisim_impl_branch_satisfy:
   t ≈ t' ⇒ (∀t t'. t ≈ t' ⇒ P_k t = P_k t') ⇒ branch_satisfy P_e_res P_k t ⇒ branch_satisfy P_e_res P_k t'
 Proof
@@ -189,7 +191,7 @@ Proof
   \\ gvs[itree_bind_thm]
   \\ metis_tac[]
 QED
-                                                                       
+
 Inductive w_list:
   ((~ (i:'a word < x)) ⇒ w_list i x []) ∧
   (((i:'a word < x) ∧ w_list (i + 1w) x l) ⇒ w_list i x (i :: l))
@@ -221,7 +223,7 @@ Proof
   \\ pop_assum $ assume_tac o SRULE[Once branch_terminate_satisfy_cases]
   \\ gvs[]
 QED
-    
+
 Theorem branch_terminate_satisfy_FUNPOW:
   branch_terminate_satisfy P_e_res P_r (FUNPOW Tau n t) ⇔ branch_terminate_satisfy P_e_res P_r  t
 Proof
@@ -301,7 +303,7 @@ Proof
   \\ metis_tac[]
 QED
 
-        
+
 Theorem exists_list_LENGTH:
   ∃x. LENGTH x = n
 Proof
@@ -328,8 +330,8 @@ QED
 val [init_sh_array_while] = List.nth (fst initSharedArray_result, 0) |> (fn (x,y,z) => y)
 
 val init_sh_array_shallow = List.nth (fst initSharedArray_result, 0) |> (fn (x,y,z) => x)
-     
-        
+
+
 Theorem ret_satisfy_init_shared_while:
   ∀curr_i len base_addr s.
     w_list curr_i len w_arr ∧
@@ -478,12 +480,12 @@ Proof
   \\ irule $ cj 1 branch_terminate_satisfy_rules
   \\ rw[]
 QED
-        
+
 val [sum_sh_array_while] = List.nth (fst initSharedArray_result, 1) |> (fn (x,y,z) => y)
 
 val sum_sh_array_shallow = List.nth (fst initSharedArray_result, 1) |> (fn (x,y,z) => x)
 
-                                                                           
+
 Theorem FOLDR_word_add_init_val:
   FOLDR $+ ((init_value:'a word) + extra) l = extra + FOLDR $+ init_value l
 Proof

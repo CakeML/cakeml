@@ -1,5 +1,7 @@
-(* Example of proving the correctness of reversing an array. *)
-        
+(*
+  Example of proving the correctness of reversing an array.
+*)
+
 Theory revArray
 Ancestors
   itreeTau panLang panSem
@@ -37,7 +39,7 @@ Overload ">>=" = “itree_bind”;
 Overload "case" = “itree_CASE”;
 
 
-                                                   
+
 fun read_file fname = let
     val s = TextIO.openIn fname
     fun get ss = case TextIO.inputLine s of
@@ -62,7 +64,7 @@ fun parse_pancake_code word_ty str =
 fun parse_pancake_file word_ty fname =
   parse_pancake_code word_ty (read_file fname)
 
-                     
+
 
 val (rev_array_topdecs, _) = parse_pancake_file “:64” "revArray.pnk"
 
@@ -71,7 +73,7 @@ val rev_array_fundecs = topdecs_to_fundecs rev_array_topdecs
 val rev_array_result = decompile_2_reduce "revArray" [] rev_array_fundecs
 
 val reverse_while = List.nth (fst rev_array_result, 0) |> (fn (x,y,z) => hd y) |> reduce_to_view []
-    
+
 Theorem LET_same_CONJ:
   (LET f v ∧ LET g v) = LET (λx. f x ∧ g x) v
 Proof
@@ -83,7 +85,7 @@ Theorem LET_capture:
 Proof
   rw[]
 QED
-        
+
 Theorem itree_bind_resp_wbisim_compose_intro:
   t ≈ t' ⇒ (∀r. k r ≈ k' r) ⇒ t'' = t' >>= k' ⇒ t >>= k ≈ t''
 Proof
@@ -302,7 +304,7 @@ Proof
   \\ Induct_on ‘kvl1’
   \\ rw[UPDATE_LIST_THM]
 QED
-        
+
 Theorem UPDATE_UPDATE_LIST_COMMUTES:
   ¬MEM k (MAP FST kvl) ⇒ fm⦇k ↦ v⦈ =++ kvl = (fm =++ kvl)⦇k ↦ v⦈
 Proof
@@ -426,8 +428,8 @@ Proof
   \\ Cases_on ‘t’ using SNOC_CASES \\ rw[SNOC_APPEND]
 QED
 
-        
-        
+
+
 Theorem reverse_while_correctness:
   ∀xt yt s.
     MAP (\i. base_addr + (i * 8w)) (w_count xt (yt + 1w)) = addrs ∧
@@ -781,7 +783,7 @@ QED
 
 val reverse_shallow = List.nth (fst rev_array_result, 0) |> (fn (x,y,z) => x)
 
-        
+
 Theorem reverse_correctness:
   ∀s.
     MAP (\i. base_addr + (i * 8w)) (w_count 0w len) = addrs ∧
@@ -883,7 +885,7 @@ Proof
 QED
 
 
-      
+
 val reverse_twice_shallow = List.nth (fst rev_array_result, 1) |> (fn (x,y,z) => x)
 
 
@@ -896,8 +898,8 @@ Proof
   \\ imp_res_tac MEM_ZIP2
   \\ fs [EL_MEM]
 QED
-        
-    
+
+
 Theorem update_list_reverse_reverse:
   ALL_DISTINCT l ⇒ m =++ ZIP (l, REVERSE (MAP (m =++ ZIP (l, REVERSE (MAP m l))) l)) = m
 Proof
@@ -952,7 +954,7 @@ QED
 
 Theorem reverse_twice_correctness:
   ∀s.
-    s.code = rev_array_codes ∧
+    s.code = revArray_codes ∧
     MAP (\i. base_addr + (i * 8w)) (w_count 0w len) = addrs ∧
     set addrs ⊆ s.memaddrs ∧
     ALL_DISTINCT addrs ⇒
@@ -1027,5 +1029,3 @@ Proof
   \\ irule $ GSYM update_list_reverse_reverse
   \\ gvs[]
 QED
-
-             

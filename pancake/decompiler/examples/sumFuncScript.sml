@@ -1,4 +1,6 @@
-(* Example of sum functions that giving the same tree representations. *)
+(*
+  Example of sum functions that giving the same tree representations.
+*)
 
 Theory sumFunc
 Ancestors
@@ -37,7 +39,7 @@ Overload ">>=" = “itree_bind”;
 Overload "case" = “itree_CASE”;
 
 
-                                                   
+
 fun read_file fname = let
     val s = TextIO.openIn fname
     fun get ss = case TextIO.inputLine s of
@@ -62,11 +64,10 @@ fun parse_pancake_code word_ty str =
 fun parse_pancake_file word_ty fname =
   parse_pancake_code word_ty (read_file fname)
 
-                     
+
 
 val (sum_topdecs, _) = parse_pancake_file “:32” "sum.pnk"
 
 val sum_fundecs = topdecs_to_fundecs sum_topdecs
 
 val sum_result = time (decompile_2_reduce "sum" []) sum_fundecs
-
