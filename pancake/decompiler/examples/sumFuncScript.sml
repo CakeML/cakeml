@@ -67,5 +67,5 @@ val (sum_topdecs, _) = parse_pancake_file “:32” "sum.pnk"
 
 val sum_fundecs = topdecs_to_fundecs sum_topdecs
 
-val sum_result = decompile_2_reduce "sum" [] sum_fundecs
+val sum_result = time (decompile_2_reduce "sum" []) sum_fundecs
 

@@ -1,5 +1,5 @@
 
-Theory rev_array
+Theory revArray
 Ancestors
   itreeTau panLang panSem
   pan_itreeSem pan_itreeProps
@@ -63,16 +63,26 @@ fun parse_pancake_file word_ty fname =
 
                      
 
-val (rev_array_topdecs, _) = parse_pancake_file “:64” "rev_array.pnk"
+val (rev_array_topdecs, _) = parse_pancake_file “:64” "revArray.pnk"
 
 val rev_array_fundecs = topdecs_to_fundecs rev_array_topdecs
 
-val rev_array_result = decompile_2_reduce "rev_array" [] rev_array_fundecs
-
+val rev_array_result = decompile_2_reduce "revArray" [] rev_array_fundecs
 
 val reverse_while = List.nth (fst rev_array_result, 0) |> (fn (x,y,z) => hd y) |> reduce_to_view []
+    
+Theorem LET_same_CONJ:
+  (LET f v ∧ LET g v) = LET (λx. f x ∧ g x) v
+Proof
+  rw[]
+QED
 
-
+Theorem LET_capture:
+  LET (λx. f v) v = LET (λx. f x) v
+Proof
+  rw[]
+QED
+        
 Theorem itree_bind_resp_wbisim_compose_intro:
   t ≈ t' ⇒ (∀r. k r ≈ k' r) ⇒ t'' = t' >>= k' ⇒ t >>= k ≈ t''
 Proof

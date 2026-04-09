@@ -71,6 +71,10 @@ val initSharedArray_result = decompile_2_reduce "initSharedArray" [] initSharedA
 
 
 
+
+
+                                                                  
+
 Theorem itree_bind_resp_wbisim_compose_intro:
   t ≈ t' ⇒ (∀r. k r ≈ k' r) ⇒ t'' = t' >>= k' ⇒ t >>= k ≈ t''
 Proof
@@ -773,3 +777,161 @@ Proof
   \\ rw[]
 QED
 
+
+
+Inductive branch_terminate_effect_satisfy:
+  (P_fs_r fs v ⇒ branch_terminate_effect_satisfy P_e_res fs P_fs_r (Ret v)) ∧
+  (branch_terminate_effect_satisfy P_e_res fs P_fs_r t ⇒ branch_terminate_effect_satisfy P_e_res fs P_fs_r (Tau t)) ∧
+  (∀res fs. P_e_res e res fs fs' ∧ branch_terminate_effect_satisfy P_e_res fs' P_fs_r (k res)
+            ⇒ branch_terminate_effect_satisfy P_e_res fs P_fs_r (Vis e k))
+End
+
+        
+Theorem branch_terminate_effect_satisfy_Tau:
+  branch_terminate_effect_satisfy P_e_res fs P_r (Tau t) ⇔ branch_terminate_effect_satisfy P_e_res fs P_r t
+Proof
+  iff_tac
+  \\ gvs[branch_terminate_effect_satisfy_rules]
+  \\ strip_tac
+  \\ pop_assum $ assume_tac o SRULE[Once branch_terminate_effect_satisfy_cases]
+  \\ gvs[]
+QED
+
+Theorem branch_terminate_effect_satisfy_Ret:
+  branch_terminate_effect_satisfy P_e_res fs P_fs_r (Ret v) ⇔ P_fs_r fs v
+Proof
+  iff_tac
+  \\ gvs[branch_terminate_effect_satisfy_rules]
+  \\ strip_tac
+  \\ pop_assum $ assume_tac o SRULE[Once branch_terminate_effect_satisfy_cases]
+  \\ gvs[]
+QED
+    
+Theorem branch_terminate_effect_satisfy_FUNPOW:
+  branch_terminate_effect_satisfy P_e_res fs P_fs_r (FUNPOW Tau n t) ⇔ branch_terminate_effect_satisfy P_e_res fs P_fs_r  t
+Proof
+  Induct_on ‘n’
+  \\ gvs[FUNPOW_SUC, branch_terminate_effect_satisfy_Tau]
+QED
+
+Theorem itree_wbisim_impl_branch_terminate_effect_satisfy:
+  ∀fs P_fs_r t.
+    branch_terminate_effect_satisfy P_e_res fs P_fs_r t ⇒
+    ∀t'. t ≈ t' ⇒ branch_terminate_effect_satisfy P_e_res fs P_fs_r t'
+Proof
+  ho_match_mp_tac branch_terminate_effect_satisfy_ind
+  \\ rpt strip_tac
+  >- (pop_assum $ assume_tac o SRULE[Once itree_wbisim_cases]
+      \\ imp_res_tac strip_tau_FUNPOW
+      \\ gvs[branch_terminate_effect_satisfy_FUNPOW]
+      \\ irule $ cj 1 branch_terminate_effect_satisfy_rules
+      \\ last_assum $ irule
+     )
+  >- gvs[]
+  \\ pop_assum $ assume_tac o SRULE[Once itree_wbisim_cases]
+  \\ gvs[]
+  \\ imp_res_tac strip_tau_FUNPOW
+  \\ gvs[strip_tau_FUNPOW_cancel, branch_terminate_effect_satisfy_FUNPOW]
+  \\ irule $ cj 3 branch_terminate_effect_satisfy_rules
+  \\ first_assum $ irule_at Any
+  \\ metis_tac[]
+QED
+
+Theorem branch_terminate_effect_satisfy_ret_cond_impl:
+  ∀fs P_fs_r t.
+    branch_terminate_effect_satisfy P_e_res fs P_fs_r t ⇒
+    (∀fs r. P_fs_r fs r ⇒ P_fs_r' fs r) ⇒ branch_terminate_effect_satisfy P_e_res fs P_fs_r' t
+Proof
+  ho_match_mp_tac branch_terminate_effect_satisfy_ind
+  \\ rpt strip_tac
+  >- (irule $ cj 1 branch_terminate_effect_satisfy_rules
+      \\ gvs[]
+     )
+  >- (irule $ cj 2 branch_terminate_effect_satisfy_rules
+      \\ gvs[]
+     )
+  \\ irule $ cj 3 branch_terminate_effect_satisfy_rules
+  \\ metis_tac[]
+QED
+
+Theorem branch_terminate_effect_satisfy_branch_cond_impl:
+  ∀fs P_fs_r t.
+    branch_terminate_effect_satisfy P_e_res fs P_fs_r t ⇒
+    (∀e res fs fs'. P_e_res e res fs fs' ⇒ P_e_res' e res fs fs') ⇒ branch_terminate_effect_satisfy P_e_res' fs P_fs_r t
+Proof
+   ho_match_mp_tac branch_terminate_effect_satisfy_ind
+  \\ rpt strip_tac
+  >- (irule $ cj 1 branch_terminate_effect_satisfy_rules
+      \\ gvs[]
+     )
+  >- (irule $ cj 2 branch_terminate_effect_satisfy_rules
+      \\ gvs[]
+     )
+  \\ irule $ cj 3 branch_terminate_effect_satisfy_rules
+  \\ metis_tac[]
+QED
+
+
+Theorem branch_terminate_effect_satisfy_bind:
+  ∀fs P_fs_r t.
+    branch_terminate_effect_satisfy P_e_res fs P_fs_r t ⇒
+    (∀fs r. P_fs_r fs r ⇒ branch_terminate_effect_satisfy P_e_res fs P_k_fs_r (k r)) ⇒
+    branch_terminate_effect_satisfy P_e_res fs P_k_fs_r (t >>= k)
+Proof
+  ho_match_mp_tac branch_terminate_effect_satisfy_ind
+  \\ rw[itree_bind_thm]
+  >- (irule $ cj 2 branch_terminate_effect_satisfy_rules
+      \\ gvs[]
+     )
+  \\ irule $ cj 3 branch_terminate_effect_satisfy_rules
+  \\ metis_tac[]
+QED
+
+
+Theorem init_sh_array_while_correctness_effect:
+  ∀curr_i base_addr s.
+    w_list curr_i len w_arr ∧
+    set (MAP (\i. (base_addr + (i * 8w))) w_arr) ⊆ s.sh_memaddrs ∧
+    ALL_DISTINCT (MAP (\i. (base_addr + (i * 8w))) w_arr) ∧
+    FLOOKUP s.locals «i» = SOME (ValWord curr_i) ∧
+    FLOOKUP s.locals «len» = SOME (ValWord len) ∧
+    FLOOKUP s.locals «base_addr» = SOME (ValWord base_addr) ∧
+    (∀i. MEM i w_arr ⇒ LENGTH (nb_func (SharedMem MappedWrite,[0w],
+                                      word_to_bytes i F ++ word_to_bytes (base_addr + 8w * i) F)) =
+                     LENGTH (word_to_bytes i F ++ word_to_bytes (base_addr + 8w * i) F)) ⇒
+    let
+      s' = if ¬(curr_i < len) then s else s with locals := s.locals |+ («i», ValWord len)
+    in
+    branch_terminate_effect_satisfy (λe res fs fs'. res = INL (INR (nb_func e)) ∧ fs = fs') fs
+                   (λret_fs v. ret_fs = fs ∧ v = INR (NONE, s')) (init_shared_array_while_0 s)
+Proof
+  Induct_on ‘w_arr’
+  >- (rpt strip_tac
+      \\ gvs[Once w_list_cases]
+      \\ irule itree_wbisim_impl_branch_terminate_effect_satisfy
+      \\ irule_at Any itree_wbisim_sym
+      \\ irule_at Any $ cj 1 init_sh_array_while
+      \\ rw[word_of_val_def]
+      \\ irule $ cj 1 branch_terminate_effect_satisfy_rules
+      \\ rw[]
+     )
+  \\ rpt strip_tac
+  \\ qpat_x_assum ‘w_list _ _ _’ $ assume_tac o SRULE[Once w_list_cases]
+  \\ gvs[]
+  \\ irule itree_wbisim_impl_branch_terminate_effect_satisfy
+  \\ irule_at Any itree_wbisim_sym
+  \\ irule_at Any $ cj 2 init_sh_array_while
+  \\ rw[word_of_val_def]
+  \\ first_assum $ qspec_then ‘curr_i’ (assume_tac o SRULE[])
+  \\ irule $ cj 3 branch_terminate_effect_satisfy_rules
+  \\ rw[]
+  \\ irule branch_terminate_effect_satisfy_ret_cond_impl
+  \\ last_x_assum $ irule_at Any
+  \\ gvs[FLOOKUP_SIMP, eval_def, FUNPOW_Tau_bind, word_of_val_def, FUPDATE_LIST_THM]
+  \\ FULL_CASE_TAC \\ gvs[]
+  \\ dxrule_then assume_tac $ iffLR WORD_NOT_LESS
+  \\ dxrule_then assume_tac word_plus_one_le
+  \\ dxrule_all WORD_LESS_EQUAL_ANTISYM
+  \\ strip_tac
+  \\ rw[]
+QED

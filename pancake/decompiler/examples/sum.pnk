@@ -14,3 +14,48 @@ fun sum_redundant (1 x, 1 y) {
   return x + y;
 }
 
+fun f (1 x, 1 y) {
+  /@ annot @/
+  /@ annot @/
+  /@ annot @/
+  /@ annot @/
+  /@ annot @/
+  /@ annot @/
+  /@ annot @/
+  /@ annot @/
+  /@ annot @/
+  /@ annot @/
+  /@ annot @/
+  /@ annot @/
+  /@ annot @/
+  /@ annot @/
+  /@ annot @/
+  /@ annot @/
+  /@ annot @/
+  /@ annot @/
+  /@ annot @/
+  /@ annot @/
+  /@ annot @/
+  /@ annot @/
+  /@ annot @/
+  /@ annot @/
+  /@ annot @/
+  /@ annot @/
+  /@ annot @/
+  /@ annot @/
+  /@ annot @/
+  /@ annot @/
+  /@ annot @/
+  /@ annot @/
+  /@ annot @/
+  /@ annot @/
+  /@ annot @/
+  /@ annot @/
+  x = 10;
+  if (x < y) {
+    return 10;
+  }
+  else {
+    return 2 * y;
+  }
+}
