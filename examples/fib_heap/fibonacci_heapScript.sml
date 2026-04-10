@@ -1913,6 +1913,33 @@ Proof
   fs[fill_dnode_def,lemma_data_node_cases]
 QED
 
+Theorem lemma_merge_fts_has:
+  (∀k v e. FLOOKUP fh1 k = SOME (v,e) ⇔ ∃m. fts_has k (fill_dnode v e m) xs) /\
+  (∀k v e. FLOOKUP fh2 k = SOME (v,e) ⇔ ∃m. fts_has k (fill_dnode v e m) ys) /\
+  DISJOINT (FDOM fh1) (FDOM fh2) ==>
+  (FLOOKUP (fh1 ⊌ fh2) k = SOME (v,e) ⇔
+  ∃m. fts_has k (fill_dnode v e m) (ys ++ xs))
+
+Proof
+  disch_tac >>
+  iff_tac >> strip_tac
+  >- (
+    fs[FLOOKUP_FUNION] >>
+    Cases_on `FLOOKUP fh1 k` >> gvs[] >>
+    simp[fts_has_append_thm] >>
+    res_tac >>
+    qexists `m` >> simp[]
+    ) >>
+  fs[fts_has_append_thm] >> res_tac
+  >- (
+    drule_all lemma_flookup_funion_comm >> strip_tac >>
+    res_tac >>
+    first_x_assum $ qspec_then `k` assume_tac >>
+    fs[FLOOKUP_SIMP] >>
+    Cases_on `FLOOKUP fh2 k` >> gvs[]
+    ) >>
+  simp[FLOOKUP_SIMP]
+QED
 
 
 
@@ -1931,25 +1958,7 @@ Proof
     fs[FLOOKUP_FUNION] >>
     Cases_on `FLOOKUP fh1 0w` >> fs[]
     )
-  >- (
-    iff_tac >> strip_tac
-    >- (
-      fs[FLOOKUP_FUNION] >>
-      Cases_on `FLOOKUP fh1 k` >> gvs[] >>
-      simp[fts_has_append_thm] >>
-      res_tac >>
-      qexists `m` >> simp[]
-      ) >>
-    fs[fts_has_append_thm] >> res_tac
-    >- (
-      drule_all lemma_flookup_funion_comm >> strip_tac >>
-      res_tac >>
-      first_x_assum $ qspec_then `k` assume_tac >>
-      fs[FLOOKUP_SIMP] >>
-      Cases_on `FLOOKUP fh2 k` >> gvs[]
-      ) >>
-    simp[FLOOKUP_SIMP]
-    )
+  >- (imp_res_tac lemma_merge_fts_has >> simp[])
   >- (
     drule_all lemma_merge_all_dist >>
     strip_tac >>
@@ -3319,12 +3328,15 @@ Proof
     >- fs[fts_all_dist_append_thm] >>
     imp_res_tac lemma_finite_map_split
     ) >>
-  cheat
+  disch_tac >> fs[] >>
+  `fts_all_dist (xs ++ ys)` by imp_res_tac lemma_merge_all_dist >> simp[] >>
+  rpt gen_tac >>
+  drule_all lemma_merge_fts_has >>
+  simp[Once fts_has_sym_thm]
 QED
 
 
-
-
+print_find "fts_all_dist"
 
 
 
