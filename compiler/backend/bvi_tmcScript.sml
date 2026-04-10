@@ -191,7 +191,7 @@ Definition rewrite_opt_BlockOp_Cons_def:
         let exp_update_hole  = Op (MemOp UpdateCons) [var_new_hole_ptr; arg_old_hole_idx; arg_old_hole_ptr] in
         let exp_tail_call    = Call t (SOME loc_opt) (exp_new_hole_idx :: var_new_hole_ptr :: args) h in
           Let [exp_mut_cons; exp_update_hole] $ exp_tail_call
-    | _ => Op (BlockOp (Cons block_tag)) op_args
+    | _ => Op (BlockOp (Cons block_tag)) op_args (* Is this right?? Or does it need to be UpdateCons? *)
 End
 
 (* Assumes that the function can and should be optimised - has been checked by rewrite_aux_def. *)
