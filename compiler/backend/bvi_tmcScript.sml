@@ -49,7 +49,7 @@ Definition push_left_def:
   push_left (HoleBlock t l h r) e = HoleBlock t (e::l) h r
 End
 
-Definition to_mut_cons:
+Definition to_mut_cons_def:
   to_mut_cons (HoleBlock t l h r) =
     let hole = case h of
       | SOME h' => to_mut_cons h'
@@ -133,6 +133,8 @@ Definition cons_to_tc_and_hb_def:
          let hb' = push_left hb op_arg in
            TC call hb')
 End
+
+
 
 Definition rewrite_aux_BlockOp_Cons_def:
   rewrite_aux_BlockOp_Cons loc loc_opt i_hole_ptr block_tag op_args =
