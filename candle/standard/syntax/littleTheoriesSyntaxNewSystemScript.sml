@@ -11,7 +11,7 @@ val _ = new_theory"littleTheoriesSyntaxNewSystem"
 val _ = monadsyntax.enable_monadsyntax();
 val _ = monadsyntax.enable_monad("error");
 
-    
+
 fun rC q = rename [q] >> Cases_on q >> simp[]
 
 val cpn_distinct = TypeBase.distinct_of ``:ordering``
@@ -26,7 +26,7 @@ Theorem term_ok'_imp_term_ok:
 Proof
   Induct_on ‘tm’ >> rw[term_ok'_def, term_ok_def]
 QED
-        
+
 
 Theorem esubst_has_type_bool_alt:
   ∀tm.
@@ -160,13 +160,13 @@ Proof
 QED
 
 val contrapos_tac = CONV_TAC (REWR_CONV (DECIDE “p ⇒ q ⇔ ¬q ⇒ ¬p”)) THEN strip_tac
-        
+
 Theorem ty_esubst_o_f_thy_tms:
   ∀thy. theory_ok' thy ∧ esubsts_ok' thy σ ⇒ ty_esubst σ o_f thy.tms = thy.tms
 Proof
   cheat
 QED
-        
+
 Theorem proves'_imp_proves:
   ∀thy' c h used_eaxs.
     (thy', used_eaxs, h) |-' c ⇒ (drop_thy used_eaxs thy', h) |- c
@@ -207,7 +207,8 @@ Proof
                           ‘h2’, ‘c’, ‘c'’]
                          assume_tac axioms_eliminable
           >> gvs[]))
-  >- (gvs[drop_thy] >> drule proves_theory_ok >> drule esubsts_ok'_esubsts_ok >> rw[] 
+  >- (gvs[drop_thy] >> drule proves_theory_ok >> drule esubsts_ok'_esubsts_ok >> rw[]
+      >> ‘∀tm. MEM tm h ∨ tm = c ⇒ no_var_collapse σ tm’ by metis_tac[]
       >> drule_all proves_substitutable >> rw[esubst_thy_def, esubst_sig_def, ctms_def, ctys_def, o_f_FUNION]
       >> gvs[ty_esubst_o_f_thy_tms] >> imp_res_tac proves_theory_ok >> irule axiom_weakening
       >> first_x_assum $ irule_at Any >> gvs[theory_ok'_def] >> rw[SUBSET_DEF, DISJ_IMP_THM]
@@ -219,4 +220,3 @@ QED
 
 
 val _ = export_theory();
-

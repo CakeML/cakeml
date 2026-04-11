@@ -328,6 +328,13 @@ Definition esubsts_total_def:
     (∀tmn. tmn ∈ FDOM θ ⇔ tmn ∈ FDOM thy.etms)
 End
 
+Definition no_var_collapse:
+  no_var_collapse σ tm ⇔
+    ∀x ty1 ty2.
+      VFREE_IN (Var x ty1) tm ∧ VFREE_IN (Var x ty2) tm ∧ ty1 ≠ ty2 ⇒
+      ty_esubst σ ty1 ≠ ty_esubst σ ty2
+End
+
 Inductive proves':
 [~ABS:]
   (¬(EXISTS (VFREE_IN (Var x ty)) h) ∧ type_ok thy.ctys ty ∧
@@ -388,7 +395,8 @@ Inductive proves':
 [~elim_inst:]
   ((thy, es, h) |-' c ∧
    theory_ok' thy ∧
-   esubsts_ok' thy σ
+   esubsts_ok' thy σ ∧
+   (∀tm. tm ∈ es ∨ MEM tm h ∨ tm = c ⇒ no_var_collapse σ tm)
    ⇒ (esubst_thy σ thy, IMAGE (esubst σ []) es, term_image (esubst σ []) h) |-'
      esubst σ (FLAT (MAP tm_names h)) c)
 
