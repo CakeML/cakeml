@@ -353,7 +353,7 @@ QED
        EL n xs = block_op_cons ∧
        has_tmc_call loc block_op_cons)
 End *)
-        
+
 Definition is_block_op_cons_def:
   is_block_op_cons op ⇔
     ∃block_tag.
@@ -388,7 +388,7 @@ Proof
   >> Cases_on ‘h’ >> gvs []
   >> Cases_on ‘t’ >> gvs []
   >> strip_tac
-  >> Cases_on ‘to_mut_cons (HoleBlock n l0 o' l)’ >> gvs [to_mut_cons]
+  >> Cases_on ‘to_mut_cons (HoleBlock n l0 o' l)’ >> gvs [to_mut_cons_def]
   >> rename [‘cons_to_tc_and_hb loc x xs = (TCall n args h)⁺ (HoleBlock i l hole r)’]
   >> qexists ‘l’ >> gvs []
 QED
