@@ -2855,10 +2855,10 @@ Proof
 QED
 
 Definition red_cond_check_def:
-  red_cond_check bortcb fml inds c extra
+  red_cond_check b fml inds c extra
     pfs (rsubs:((int # num) list # int) list list) goals skipped =
   let (l,r) = extract_scoped_pids pfs LN LN in
-  let fmlls = revalue bortcb fml inds in
+  let fmlls = revalue b fml inds in
   split_goals_hash fmlls extra l goals ∧
   check_hash_goals c skipped r rsubs
 End
@@ -2906,11 +2906,11 @@ Definition red_cond_check_pure_def:
 End
 
 Theorem red_cond_check_eq:
-  red_cond_check bortcb fml inds c extra pfs rsubs goals skipped =
+  red_cond_check b fml inds c extra pfs rsubs goals skipped =
   case red_cond_check_pure c extra pfs rsubs goals skipped of
     NONE => F
   | SOME (x,ls) =>
-    let fmlls = revalue bortcb fml inds in
+    let fmlls = revalue b fml inds in
     let hs = mk_hashset fmlls (mk_hashset x (REPLICATE splim [])) in
     EVERY (λc. in_hashset c hs) ls
 Proof
@@ -2927,13 +2927,13 @@ val res = translate npbc_checkTheory.extract_scoped_pids_def;
 val res = translate red_cond_check_pure_def;
 
 Quote add_cakeml:
-  fun red_cond_check bortcb fml inds c extra pfs rsubs goals skipped =
+  fun red_cond_check b fml inds c extra pfs rsubs goals skipped =
   case red_cond_check_pure c extra pfs rsubs goals skipped of
     None => Some "not all # subgoals present"
   | Some (x,ls) =>
     case ls of [] => None
     | _ =>
-    let val fmlls = revalue_arr bortcb fml inds in
+    let val fmlls = revalue_arr b fml inds in
       hash_check fmlls x ls
     end
 End
@@ -3797,7 +3797,7 @@ Quote add_cakeml:
            case skip_ord_subgoal s ord of (untouched,skipped) =>
            if cond_check_fresh_aspo_arr hs untouched c s ord vimap' vomap
            then
-             case red_cond_check bortcb fml' inds' c nc pfs rsubs goals skipped
+             case red_cond_check b fml' inds' c nc pfs rsubs goals skipped
                of None =>
                (fml', (inds', (vimap', (id', zeros'))))
              | Some err =>

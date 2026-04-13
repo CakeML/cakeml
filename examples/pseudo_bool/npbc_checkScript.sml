@@ -1404,10 +1404,11 @@ Definition check_red_def:
         let chk =
           (case idopt of
             NONE =>
-              let gfml = mk_core_fml (b ∨ tcb) fml in
+              let cf = mk_core_fml (b ∨ tcb) fml in
               let (untouched,skipped) = skip_ord_subgoal s ordsub in
-              let goals = toAList (map_opt (subst_opt w) gfml) in
+              let goals = toAList (map_opt (subst_opt w) cf) in
               let (l,r) = extract_scoped_pids pfs LN LN in
+              let gfml = mk_core_fml b fml in
                 (* Freshness check needed if scope is used or
                   if the order is touched *)
                 (hs ∨ ¬ untouched ⇒
@@ -2255,8 +2256,7 @@ Proof
      \\ irule imp_unsatisfiable
      \\ simp[]
      \\ metis_tac[not_not]))
-  \\ CONJ_TAC >-
-   metis_tac[check_pres_subst_fun]
+  \\ CONJ_TAC >- metis_tac[check_pres_subst_fun]
   \\ fs[EVERY_MEM,MEM_MAP,EXISTS_PROD,LAMBDA_PROD,FORALL_PROD]
   \\ `id ∉ domain fml` by fs[id_ok_def]
   \\ `(core_only_fml (b ∨ tcb) fml ∪ {not c} ∪ set gs) ⊨
@@ -2270,7 +2270,7 @@ Proof
     rw [] \\ irule IMP_subst_funs_NONE
     \\ gvs [IN_DISJOINT]
     \\ metis_tac [])
-    \\ reverse (rw [])
+  \\ reverse (rw [])
   >- (
     (* objective *)
     Cases_on`obj`>> gvs[]>>
@@ -2359,7 +2359,6 @@ Proof
   >- (
     fs[satisfiable_def,not_thm,satisfies_def]>>
     drule subst_opt_SOME >>
-    simp[]>>
     metis_tac[range_mk_core_fml,in_core_only_fml_or_left])
   >- (
     fs[satisfiable_def,not_thm,satisfies_def]>>

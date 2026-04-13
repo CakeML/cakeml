@@ -1294,7 +1294,7 @@ Definition do_red_check_def:
   case idopt of NONE =>
     let goals = subst_indexes s (b ∨ tcb) rfml rinds in
     let (l,r) = extract_scoped_pids pfs LN LN in
-    let fmlls = revalue (b ∨ tcb) rfml inds in
+    let fmlls = revalue b rfml inds in
       cond ∧
       split_goals_hash fmlls extra l goals ∧
       check_hash_goals c skipped r rsubs
@@ -3150,7 +3150,7 @@ Proof
         CONJ_TAC >-
           metis_tac[vimap_rel_vomap_rel_check_fresh_aspo_list]>>
         (drule_at Any) split_goals_hash_imp_split_goals>>
-        disch_then (qspec_then`mk_core_fml (b ∨ tcb) fml` mp_tac)>>
+        disch_then (qspec_then`mk_core_fml b fml` mp_tac)>>
         impl_tac >- (
           simp[range_mk_core_fml]>>
           gvs[get_set_indices_def] >>
