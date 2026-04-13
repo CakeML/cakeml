@@ -92,7 +92,7 @@ Proof
 QED
 
 Theorem two_byte_sum[local]:
-    k < 65536 ==> k MOD 256 + 256 * (k DIV 256) MOD 256 = k
+    k < 65536 ==> k MOD 256 + 256 * ((k DIV 256) MOD 256) = k
 Proof
   rw []
   \\ `(k DIV 256) MOD 256 = k DIV 256` by

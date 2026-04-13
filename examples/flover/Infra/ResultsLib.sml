@@ -8,9 +8,9 @@ open monadsyntax;
 open ResultsTheory;
 
 val res_monad = declare_monad ("Results",
-    {bind = ``result_bind``,
-     ignorebind = SOME ``result_ignore_bind``,
-     unit = ``result_return``,
+    {bind = prim_mk_const{Thy="Results",Name="result_bind"},
+     ignorebind = SOME (prim_mk_const{Thy="Results",Name="result_ignore_bind"}),
+     unit = prim_mk_const{Thy="Results",Name="result_return"},
      fail = NONE, choice = NONE, guard = NONE});
 
 val _ = monadsyntax.enable_monadsyntax();

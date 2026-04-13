@@ -13,28 +13,40 @@ Definition labels_in_def:
     !n x. lookup n l = SOME x ==> lookup n locals = SOME (Loc x 0)
 End
 
-val goal =
-  “λ(prog, s). ∀res s1 l p nl.
-    evaluate (prog,s) = (res,s1) ∧ res ≠ SOME Error ∧
-    comp l prog = (p, nl) /\ labels_in l s.locals ==>
-    evaluate (p,s) = (res,s1) /\ labels_in nl s1.locals”
-
-local
-  val ind_thm = loopSemTheory.evaluate_ind |> ISPEC goal
-    |> CONV_RULE (DEPTH_CONV PairRules.PBETA_CONV) |> REWRITE_RULE [];
-  fun list_dest_conj tm = if not (is_conj tm) then [tm] else let
-    val (c1,c2) = dest_conj tm in list_dest_conj c1 @ list_dest_conj c2 end
-  val ind_goals = ind_thm |> concl |> dest_imp |> fst |> list_dest_conj
-in
-  fun get_goal s = first (can (find_term (can (match_term (Term [QUOTE s]))))) ind_goals
-  fun compile_correct_tm () = ind_thm |> concl |> rand
-  fun the_ind_thm () = ind_thm
-end
-
-
-Theorem compile_Seq:
-  ^(get_goal "comp _ (loopLang$Seq _ _)")
+Theorem compile_correct:
+  ∀v v1 res s1 l p nl.
+    evaluate (v,v1) = (res,s1) ∧ res ≠ SOME Error ∧
+    comp l v = (p,nl) ∧ labels_in l v1.locals ⇒
+    evaluate (p,v1) = (res,s1) ∧ labels_in nl s1.locals
 Proof
+  recInduct loopSemTheory.evaluate_ind
+  \\ rpt conj_tac
+  >~ [`loopLang$Skip`] >- suspend "Skip"
+  >~ [`loopLang$Fail`] >- suspend "Fail"
+  >~ [`loopLang$Tick`] >- suspend "Tick"
+  >~ [`loopLang$Continue`] >- suspend "Continue"
+  >~ [`loopLang$Break`] >- suspend "Break"
+  >~ [`loopLang$Mark`] >- suspend "Mark"
+  >~ [`loopLang$Return`] >- suspend "Return"
+  >~ [`loopLang$Raise`] >- suspend "Raise"
+  >~ [`loopLang$Seq`] >- suspend "Seq"
+  >~ [`loopLang$Loop`] >- suspend "Loop"
+  >~ [`loopLang$Assign`] >- suspend "Assign"
+  >~ [`loopLang$SetGlobal`] >- suspend "SetGlobal"
+  >~ [`loopLang$LocValue`] >- suspend "LocValue"
+  >~ [`loopLang$If`] >- suspend "If"
+  >~ [`loopLang$Call`] >- suspend "Call"
+  >~ [`loopLang$Store`] >- suspend "Store"
+  >~ [`loopLang$Store32`] >- suspend "Store32"
+  >~ [`loopLang$StoreByte`] >- suspend "StoreByte"
+  >~ [`loopLang$Load32`] >- suspend "Load32"
+  >~ [`loopLang$LoadByte`] >- suspend "LoadByte"
+  >~ [`loopLang$FFI`] >- suspend "FFI"
+  >~ [`loopLang$Arith`] >- suspend "Arith"
+  >~ [`loopLang$ShMem`] >- suspend "ShMem"
+QED
+
+Resume compile_correct[Seq]:
   rpt gen_tac >> strip_tac >>
   rpt gen_tac >> strip_tac >>
   fs [loopSemTheory.evaluate_def, labels_in_def] >>
@@ -63,9 +75,7 @@ Proof
 QED
 
 
-Theorem compile_LocValue:
-  ^(get_goal "comp _ (loopLang$LocValue _ _)")
-Proof
+Resume compile_correct[LocValue]:
   rpt gen_tac >>
   strip_tac >>
   fs [evaluate_def, labels_in_def, comp_def] >>
@@ -81,9 +91,7 @@ Proof
 QED
 
 
-Theorem compile_Assign:
-  ^(get_goal "comp _ (loopLang$Assign _ _)")
-Proof
+Resume compile_correct[Assign]:
   rpt gen_tac >>
   strip_tac >>
   cases_on ‘exp’ >>
@@ -119,9 +127,7 @@ Proof
   rveq >> fs [lookup_delete]
 QED
 
-Theorem compile_Load32:
-  ^(get_goal "comp _ (loopLang$Load32 _ _)")
-Proof
+Resume compile_correct[Load32]:
   rpt gen_tac >>
   strip_tac >>
   fs [evaluate_def,labels_in_def, comp_def] >>
@@ -137,9 +143,7 @@ Proof
   rveq >> fs [lookup_delete]
 QED
 
-Theorem compile_LoadByte:
-  ^(get_goal "comp _ (loopLang$LoadByte _ _)")
-Proof
+Resume compile_correct[LoadByte]:
   rpt gen_tac >>
   strip_tac >>
   fs [evaluate_def,labels_in_def, comp_def] >>
@@ -156,9 +160,7 @@ Proof
 QED
 
 
-Theorem compile_Mark:
-  ^(get_goal "comp _ (loopLang$Mark _)")
-Proof
+Resume compile_correct[Mark]:
   rpt gen_tac >>
   strip_tac >>
   rpt gen_tac >>
@@ -172,9 +174,7 @@ Proof
 QED
 
 
-Theorem compile_FFI:
-  ^(get_goal "comp _ (loopLang$FFI _ _ _ _ _ _)")
-Proof
+Resume compile_correct[FFI]:
   rpt gen_tac >>
   strip_tac >>
   rpt gen_tac >>
@@ -188,9 +188,7 @@ Proof
 QED
 
 
-Theorem compile_If:
-  ^(get_goal "comp _ (loopLang$If _ _ _ _ _ _)")
-Proof
+Resume compile_correct[If]:
   rpt gen_tac >>
   strip_tac >>
   rpt gen_tac >>
@@ -235,9 +233,7 @@ Proof
   fs [cut_res_def]
 QED
 
-Theorem compile_Store32:
-  ^(get_goal "comp _ (loopLang$Store32 _ _)")
-Proof
+Resume compile_correct[Store32]:
   rpt gen_tac >>
   strip_tac >>
   fs [evaluate_def, labels_in_def, comp_def] >>
@@ -249,9 +245,7 @@ Proof
   rveq >> fs []
 QED
 
-Theorem compile_StoreByte:
-  ^(get_goal "comp _ (loopLang$StoreByte _ _)")
-Proof
+Resume compile_correct[StoreByte]:
   rpt gen_tac >>
   strip_tac >>
   fs [evaluate_def, labels_in_def, comp_def] >>
@@ -263,9 +257,7 @@ Proof
   rveq >> fs []
 QED
 
-Theorem compile_Store:
-  ^(get_goal "comp _ (loopLang$Store _ _)")
-Proof
+Resume compile_correct[Store]:
   rpt gen_tac >>
   strip_tac >>
   fs [evaluate_def, labels_in_def, comp_def] >>
@@ -330,9 +322,7 @@ Proof
   every_case_tac >> fs []
 QED
 
-Theorem compile_Call:
-  ^(get_goal "comp _ (loopLang$Call _ _ _ _)")
-Proof
+Resume compile_correct[Call]:
   rpt gen_tac >>
   strip_tac >>
   rpt gen_tac >>
@@ -377,9 +367,7 @@ Proof
 QED
 
 
-Theorem compile_Loop:
-  ^(get_goal "comp _ (loopLang$Loop _ _ _)")
-Proof
+Resume compile_correct[Loop]:
   rpt gen_tac >> strip_tac >>
   rpt gen_tac >> strip_tac >>
   fs [comp_def] >>
@@ -401,9 +389,7 @@ Proof
   fs [labels_in_def, lookup_def]
 QED
 
-Theorem compile_Arith:
-  ^(get_goal "comp _ (loopLang$Arith _)")
-Proof
+Resume compile_correct[Arith]:
   rpt conj_tac >>
   rpt gen_tac >> strip_tac >>
   gvs [evaluate_def, labels_in_def, comp_def,AllCaseEqs(),
@@ -436,9 +422,7 @@ Proof
   rveq>>fs[]
 QED
 
-Theorem compile_ShMem:
-  ^(get_goal "comp _ (loopLang$ShMem _ _ _)")
-Proof
+Resume compile_correct[ShMem]:
   rpt conj_tac >>
   rpt gen_tac >> strip_tac >>
   fs [evaluate_def, labels_in_def, comp_def] >>
@@ -447,17 +431,7 @@ Proof
   rpt strip_tac>>every_case_tac>>fs[]
 QED
 
-Theorem compile_others:
-  ^(get_goal "comp _ loopLang$Skip") ∧
-  ^(get_goal "comp _ loopLang$Fail") ∧
-  ^(get_goal "comp _ (loopLang$SetGlobal _ _)") ∧
-  ^(get_goal "comp _ loopLang$Tick") ∧
-  ^(get_goal "comp _ loopLang$Break") ∧
-  ^(get_goal "comp _ loopLang$Continue") ∧
-  ^(get_goal "comp _ (loopLang$Return _)") ∧
-  ^(get_goal "comp _ (loopLang$Raise _)")
-Proof
-  rpt conj_tac >>
+Resume compile_correct[Skip]:
   rpt gen_tac >> strip_tac >>
   fs [evaluate_def, labels_in_def, comp_def] >>
   rveq >> fs [] >>
@@ -467,17 +441,76 @@ Proof
   rveq >> fs [set_globals_def, lookup_def]
 QED
 
-
-Theorem compile_correct:
-  ^(compile_correct_tm())
-Proof
-  match_mp_tac (the_ind_thm()) >>
-  EVERY (map strip_assume_tac
-         [compile_others,compile_LocValue,compile_LoadByte,compile_StoreByte,
-          compile_Mark, compile_Assign, compile_Store, compile_Arith,
-          compile_ShMem, compile_Load32, compile_Store32,
-          compile_Call, compile_Seq, compile_If, compile_FFI, compile_Loop]) >>
-  asm_rewrite_tac [] >> rw [] >> rpt (pop_assum kall_tac)
+Resume compile_correct[Fail]:
+  rpt gen_tac >> strip_tac >>
+  fs [evaluate_def, labels_in_def, comp_def] >>
+  rveq >> fs [] >>
+  fs [evaluate_def] >>
+  every_case_tac >> fs [dec_clock_def] >>
+  last_x_assum (assume_tac o GSYM) >>
+  rveq >> fs [set_globals_def, lookup_def]
 QED
+
+Resume compile_correct[SetGlobal]:
+  rpt gen_tac >> strip_tac >>
+  fs [evaluate_def, labels_in_def, comp_def] >>
+  rveq >> fs [] >>
+  fs [evaluate_def] >>
+  every_case_tac >> fs [dec_clock_def] >>
+  last_x_assum (assume_tac o GSYM) >>
+  rveq >> fs [set_globals_def, lookup_def]
+QED
+
+Resume compile_correct[Tick]:
+  rpt gen_tac >> strip_tac >>
+  fs [evaluate_def, labels_in_def, comp_def] >>
+  rveq >> fs [] >>
+  fs [evaluate_def] >>
+  every_case_tac >> fs [dec_clock_def] >>
+  last_x_assum (assume_tac o GSYM) >>
+  rveq >> fs [set_globals_def, lookup_def]
+QED
+
+Resume compile_correct[Break]:
+  rpt gen_tac >> strip_tac >>
+  fs [evaluate_def, labels_in_def, comp_def] >>
+  rveq >> fs [] >>
+  fs [evaluate_def] >>
+  every_case_tac >> fs [dec_clock_def] >>
+  last_x_assum (assume_tac o GSYM) >>
+  rveq >> fs [set_globals_def, lookup_def]
+QED
+
+Resume compile_correct[Continue]:
+  rpt gen_tac >> strip_tac >>
+  fs [evaluate_def, labels_in_def, comp_def] >>
+  rveq >> fs [] >>
+  fs [evaluate_def] >>
+  every_case_tac >> fs [dec_clock_def] >>
+  last_x_assum (assume_tac o GSYM) >>
+  rveq >> fs [set_globals_def, lookup_def]
+QED
+
+Resume compile_correct[Return]:
+  rpt gen_tac >> strip_tac >>
+  fs [evaluate_def, labels_in_def, comp_def] >>
+  rveq >> fs [] >>
+  fs [evaluate_def] >>
+  every_case_tac >> fs [dec_clock_def] >>
+  last_x_assum (assume_tac o GSYM) >>
+  rveq >> fs [set_globals_def, lookup_def]
+QED
+
+Resume compile_correct[Raise]:
+  rpt gen_tac >> strip_tac >>
+  fs [evaluate_def, labels_in_def, comp_def] >>
+  rveq >> fs [] >>
+  fs [evaluate_def] >>
+  every_case_tac >> fs [dec_clock_def] >>
+  last_x_assum (assume_tac o GSYM) >>
+  rveq >> fs [set_globals_def, lookup_def]
+QED
+
+Finalise compile_correct;
 
 
