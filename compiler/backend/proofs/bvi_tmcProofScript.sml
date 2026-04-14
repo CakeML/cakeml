@@ -542,13 +542,6 @@ Proof
   >> gvs [SUBSET_DEF]
 QED
 
-(* This was copied from bvlPropsScript but I don't see it for bviPropsScript. Consider putting it there *)
-Theorem evaluate_refs_SUBSET:
-  (evaluate (xs,env,s) = (res,t)) ==> FDOM s.refs SUBSET FDOM t.refs
-Proof
-  cheat
-QED
-
 Theorem do_app_aux_op_rel:
   ∀f op vs vs' s s' v v'.
     do_app_aux op vs s = v ∧
@@ -571,6 +564,15 @@ Theorem do_app_op_rel:
       PAIR_REL (v_rel f) (state_rel f) v v'
 Proof
   rw [do_app_def] >> cheat
+QED
+
+Theorem do_app_op_err_rel:
+  do_app (FFI i) vs u = Rerr (Rabort (Rffi_error e)) ∧
+  state_rel f u u' ∧
+  LIST_REL (v_rel f) vs vs' ⇒
+  do_app (FFI i) vs' u' = Rerr (Rabort (Rffi_error e))
+Proof
+  cheat
 QED
 
 Theorem aux_strip_if_then:
@@ -640,6 +642,31 @@ Definition is_block_op_cons_def:
       op = BlockOp (Cons block_tag)
 End
 
+Theorem ry:
+  ∀loc tag xs n args h i l hole r.
+    cons_to_tc_and_hb loc tag xs = (TCall n args h)⁺ (HoleBlock i l hole r) ⇒
+    xs = l ++ [Call n (SOME loc) args h] ++ r
+Proof
+  cheat
+QED
+
+(* This was copied from bvlPropsScript but I don't see it for bviPropsScript. Consider putting it there *)
+Theorem evaluate_refs_SUBSET:
+  (evaluate (xs,env,s) = (res,t)) ==> FDOM s.refs SUBSET FDOM t.refs
+Proof
+  cheat
+QED
+
+Theorem evaluate_err:
+  evaluate (xs,env,s) = (Rerr e,t) ⇒
+  ∃l x r v u.
+    xs = l ++ [x] ++ r ∧
+    evaluate (l, env,s) = (Rval v,u) ∧
+    evaluate ([x],env,u) = (Rerr e,t)
+Proof
+  cheat
+QED
+
 Theorem aux_strip_op:
   ∀loc loc_opt arity op xs aux.
     rewrite_aux loc loc_opt arity (Op op xs) = SOME aux ⇒
@@ -648,7 +675,8 @@ Theorem aux_strip_op:
       mut_cons = Op (MemOp (MutCons tag i)) (l ++ [hole] ++ r) ∧
       tail_call = Call t (SOME loc_opt) (Op (IntOp (Const (&LENGTH l))) [] :: Var hole_ptr :: args) h ∧
       finalise = Op (MemOp FinaliseCons) [Var hole_ptr] ∧
-      aux = Let [mut_cons; tail_call] $ finalise
+      aux = Let [mut_cons; tail_call] $ finalise ∧
+      xs = l ++ [Call t (SOME loc) args h] ++ r
 Proof
   rw []
   >-
@@ -669,10 +697,27 @@ Proof
   >> Cases_on ‘t’ >> gvs []
   >> strip_tac
   >> Cases_on ‘to_mut_cons (HoleBlock n l0 o' l)’ >> gvs [to_mut_cons_def]
-  >> rename [‘cons_to_tc_and_hb loc x xs = (TCall n args h)⁺ (HoleBlock i l hole r)’]
-  >> qexists ‘l’ >> gvs []
+  >> rename [‘cons_to_tc_and_hb loc tag xs = (TCall n args h)⁺ (HoleBlock i l hole r)’]
+  >> qexists ‘l’
+  >> gvs []
+  >> drule ry
+  >> gvs []
 QED
-        
+
+Theorem rewrite_aux_args_err:
+  rewrite_aux loc loc_opt arity (Op op xs) = SOME exp_aux ∧
+  evaluate (xs,env2,s') = (Rerr e',t'') ⇒
+  evaluate ([exp_aux],env2,s') = (Rerr e',t'')
+Proof
+  rw []
+  >> drule aux_strip_op
+  >> strip_tac
+  >> gvs [is_block_op_cons_def]
+  >> simp [Once evaluate_def]
+  >> simp [Once evaluate_def]
+  >> simp [Once evaluate_def]
+QED
+
 Theorem list_rel_reverse:
   ∀r l1 l2. LIST_REL r l1 l2 ⇔ LIST_REL r (REVERSE l1) (REVERSE l2)
 Proof
@@ -1188,15 +1233,33 @@ Proof
       >-
        (rw []
         >> qexists ‘t''’
+        >> gvs []
         >> drule aux_strip_op
         >> strip_tac
         >> gvs [is_block_op_cons_def]
-        >> 
-        )
-     )
+        >> cheat)
+      >> cheat)
     >> rename [‘LIST_REL (v_rel f'') vs vs'’]
     >> reverse $ Cases_on ‘do_app op (REVERSE vs) u’ >> gvs []
-    >- cheat (* Use bviProps do_app_err *)
+    >- (* FFI *)
+     (drule do_app_err
+      >> strip_tac >> gvs []
+      >> rename [‘do_app (FFI i) (REVERSE vs) u = Rerr (Rabort (Rffi_error e))’]
+      >> drule do_app_op_err_rel
+      >> disch_then $ qspecl_then [‘REVERSE vs'’, ‘u'’, ‘f''’] mp_tac
+      >> disch_then drule
+      >> drule $ iffLR list_rel_reverse
+      >> gvs []
+      >> strip_tac
+      >> strip_tac
+      >> conj_tac
+      >-
+       (rw []
+        >> drule aux_strip_op
+        >> strip_tac
+        >> gvs [is_block_op_cons_def])
+      (* PROBLEM! Not possible to optimize here, but we lose that information without knowing rewrite_aux returns NONE *)
+      >> cheat)
     (* lemma that do_app op (REVERSE a) u = Rval a' implies do_app op (REVERSE v') u' equals some other Rval that is v_rel related to a' *)
     >> rename [‘do_app op (REVERSE vs) u = Rval v’]
     >> drule $ iffLR list_rel_reverse
