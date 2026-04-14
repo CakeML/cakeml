@@ -59,15 +59,34 @@ End
 
 Definition code_rel_def:
   code_rel c1 c2 ⇔
-    ∀loc arity exp exp_aux exp_opt.
+    ∀loc arity exp.
+      lookup loc c1 = SOME (arity, exp) ⇒
       ∃n.
-        lookup loc c1 = SOME (arity, exp) ⇒
-        (compile_exp loc n arity exp = NONE ⇒
-         lookup loc c2 = SOME (arity, exp)) ∧
-        (compile_exp loc n arity exp = SOME (exp_aux, exp_opt) ⇒
-         lookup loc c2 = SOME (arity, exp_aux) ∧
-         lookup n c2 = SOME (arity + 1, exp_opt))
+        ∀exp_aux exp_opt.
+          (compile_exp loc n arity exp = NONE ⇒
+           lookup loc c2 = SOME (arity, exp)) ∧
+          (compile_exp loc n arity exp = SOME (exp_aux,exp_opt) ⇒
+           lookup loc c2 = SOME (arity, exp_aux) ∧
+           lookup n c2 = SOME (arity + 2, exp_opt))
 End
+
+Theorem code_rel_domain:
+   ∀c1 c2.
+     code_rel c1 c2 ⇒ domain c1 ⊆ domain c2
+Proof
+  simp [code_rel_def, SUBSET_DEF]
+  >> CCONTR_TAC >> fs []
+  >> Cases_on `lookup x c1`
+  >- fs [lookup_NONE_domain]
+  >> fs [GSYM lookup_NONE_domain]
+  >> rename1 `SOME z`
+  >> PairCases_on `z`
+  >> rename [‘lookup x c1 = SOME (arity,exp)’]
+  >> first_x_assum drule
+  >> fs [compile_exp_def]
+  >> strip_tac
+  >> CASE_TAC
+QED
 
 Definition free_names_def:
   free_names n (name: num) ⇔ ∀k. n + bvl_to_bvi_namespaces*k ≠ name
@@ -560,7 +579,7 @@ Proof
   >> gvs [SUBSET_DEF]
 QED
 
-Theorem do_app_aux_op_rel:
+Theorem do_app_aux_rel:
   ∀f op vs vs' s s' v.
     do_app_aux op vs s = v ∧
     LIST_REL (v_rel f) vs vs' ∧
@@ -569,7 +588,18 @@ Theorem do_app_aux_op_rel:
       do_app_aux op vs' s' = v' ∧
       OPTREL (OPTREL (PAIR_REL (v_rel f) (state_rel f))) v v'
 Proof
-  cheat
+  rw []
+  >> simp [Once do_app_aux_def]
+  >> Cases_on ‘do_app_aux op vs s’ >> gvs []
+  >-
+   (Cases_on ‘op’ >> gvs [do_app_aux_def]
+    >-
+     (Cases_on ‘vs’ >> gvs []
+      >> gvs [state_rel_def]
+      >> first_x_assum $ qspec_then ‘n’ mp_tac
+      >> strip_tac
+      >> spose_not_then assume_tac
+      >> cheat))
 QED
 
 Theorem do_app_op_rel:
