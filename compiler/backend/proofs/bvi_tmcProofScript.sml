@@ -639,6 +639,18 @@ Proof
   >> cheat
 QED
 
+Theorem do_app_holes_unchanged:
+  ∀f s t u changed vs v t op.
+    holes_unchanged_except f s.refs t.refs changed ∧
+    do_app op vs t = Rval (v,u) ⇒
+    holes_unchanged_except f s.refs u.refs changed
+Proof
+  rw [holes_unchanged_except_def]
+  >> gvs [do_app_def]
+  >> Cases_on ‘op’ >> gvs []
+  >> cheat
+QED
+
 Theorem aux_strip_if_then:
   rewrite_aux loc loc_opt arity (If x1 x2 x3) = SOME aux ⇒
   ∃aux2 aux3.
@@ -787,6 +799,44 @@ Theorem list_rel_reverse:
   ∀r l1 l2. LIST_REL r l1 l2 ⇔ LIST_REL r (REVERSE l1) (REVERSE l2)
 Proof
   rw []
+QED
+
+Theorem list_rel_last:
+  ∀r l1 l2.
+    LIST_REL r l1 l2 ∧
+    l1 ≠ [] ⇒
+    r (LAST l1) (LAST l2)
+Proof
+  rw []
+  >> cheat
+     (* Can't set up induction on this *)
+QED
+
+Theorem find_code_rel:
+  ∀f vs vs' s s' args exp.
+    find_code NONE vs s.code = SOME (args,exp) ∧
+    LIST_REL (v_rel f) vs vs' ∧
+    state_rel f s s' ⇒
+    ∃args' exp'.
+      find_code NONE vs' s'.code = SOME (args',exp')
+Proof
+  rw [bvlSemTheory.find_code_def]
+  >> Cases_on ‘vs' = []’ >> gvs []
+  >> Cases_on ‘LAST vs’ >> gvs []
+  >> Cases_on ‘LAST vs'’ >> gvs []
+  >> drule_all list_rel_last
+  >> strip_tac
+  >> gvs [v_rel_cases]
+  >> Cases_on ‘lookup n s.code’ >> gvs []
+  >> Cases_on ‘x’ >> gvs []
+  >> rename [‘lookup n s.code = SOME (arity,exp)’]
+  >> gvs [state_rel_def, code_rel_def]
+  >> last_x_assum $ drule
+  >> strip_tac
+  >> Cases_on ‘compile_exp n n' arity exp’ >> gvs []
+  >- (drule LIST_REL_LENGTH >> gvs [])
+  >> Cases_on ‘x’ >> gvs []
+  >> drule LIST_REL_LENGTH >> gvs []
 QED
 
 Theorem evaluate_rewrite_tmc:
@@ -1357,10 +1407,9 @@ Proof
     >> rename [‘state_rel f3 u u'’]
     >> rename [‘LIST_REL (v_rel f3) vs vs'’]
     >> conj_tac
-    >- cheat (* I think we need "do_app doesn't change hole":
-                holes_unchanged_except f s'.refs u'.refs ∅ ∧
-                do_app op (REVERSE vs') u' = Rval (v',t') ⇒
-                holes_unchanged_except f s'.refs t'.refs ∅ *)
+    >- (irule do_app_holes_unchanged
+        >> first_assum $ irule_at Any
+        >> gvs [])
     >> strip_tac
     >> gvs []
     >> conj_tac
@@ -1436,7 +1485,7 @@ Proof
      
    (gvs [evaluate_def]
     >> Cases_on ‘dest’ >> gvs [] >> Cases_on ‘handler’ >> gvs []
-    >- (*  *)
+    >- (* What case is this? *)
      (gvs [CaseEq "prod", PULL_EXISTS]
       >> rename [‘evaluate (xs,env,s) = (vs,u)’]
       >> Cases_on ‘vs’ >> gvs []
@@ -1449,12 +1498,34 @@ Proof
         >- (* Clock ran out *) (* First inductive hypothesis *)
          (first_x_assum $ qspec_then ‘F’ mp_tac
           >> gvs []
-          >> cheat (*disch_then*) (* I think at this point we need to relax env_rel so that true case implies false case *)
-         )
+          >> drule env_rel_relax_opt
+          >> strip_tac
+          >> disch_then drule
+          >> disch_then drule
+          >> strip_tac
+          >> first_assum $ irule_at $ Pos hd
+          >> gvs []
+          >> rename [‘state_rel f'' u u'’]
+          >> rename [‘LIST_REL (v_rel f'') vs vs'’]
+          >> ‘u'.clock = u.clock’ by (gvs [state_rel_def])
+          >> gvs []
+          >> drule_all find_code_rel
+          >> strip_tac
+          >> gvs []
+          >> first_assum $ irule_at $ Pos $ el 3
+          >> gvs []
+          >> conj_tac
+          >- (gvs [state_rel_def])
+          >> strip_tac
+          >> gvs []
+          >> conj_tac
+          >- (rw []
+              >> cheat)
+          >> rpt gen_tac
+          >> cheat)
         >> cheat)
      >> cheat)
-    >> cheat
-   )
+    >> cheat)
 QED
 
 Theorem evaluate_compile_prog:
