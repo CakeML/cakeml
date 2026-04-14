@@ -2609,6 +2609,12 @@ Proof
   >> gvs[] >> metis_tac[ACONV_db]
 QED
 
+Theorem ACONV_EQ:
+  ∀x y. x = y ⇒ ACONV x y
+Proof
+  rw[ACONV_def]
+QED
+        
 Theorem esubst_ty0_env_aconv:
   ∀tm subst_tm1 subst_tm2 env1 env2.
     esubsts_ok sig σ ∧
@@ -3850,6 +3856,8 @@ Resume proves_substitutable_aux[INST]:
   >> qabbrev_tac ‘avds1 = FLAT (MAP tm_names (term_image (VSUBST ilist) h))’
   >> qabbrev_tac ‘avds2 = FLAT (MAP tm_names h)’
   >> qabbrev_tac ‘ilist' = MAP (λ(s',s). (esubst (σ,θ) [] s', esubst_ty (σ,θ) [] s)) ilist’
+  >> qabbrev_tac ‘ilist_f = FILTER (λ(s',s). VFREE_IN s c) ilist’
+  >> qabbrev_tac ‘ilist_f' = MAP (λ(s',s). (esubst (σ,θ) [] s', esubst_ty (σ,θ) [] s)) ilist_f’
   >> ‘term_image (esubst (σ,θ) []) (term_image (VSUBST ilist) h)
       = term_image (esubst (σ,θ) [] ∘ VSUBST ilist) h’
     by (irule term_image_comp >> metis_tac[nproves_hypset_ok])
@@ -3860,16 +3868,12 @@ Resume proves_substitutable_aux[INST]:
       >> rw[] >> first_x_assum irule >> rw[] >> simp[]
       >> first_x_assum $ irule_at Any >> simp[])
   >> strip_tac
-  >> drule_at Any proves_INST >> disch_then $ qspec_then ‘ilist'’ mp_tac
+  >> drule_at Any proves_INST >> disch_then $ qspec_then ‘ilist_f'’ mp_tac
   >> impl_tac
-  >- (simp[Abbr‘ilist'’, MEM_MAP, FORALL_PROD]
-      >> rw[] >> pairarg_tac >> gvs[]
-      >> first_x_assum drule >> rw[] >> gvs[esubst_ty_var]
-      >> conj_tac
-      >- (irule esubst_has_type >> simp[SF SFY_ss]
-          >> ‘ty = typeof s''’ by metis_tac[has_type_typeof]
-          >> first_x_assum SUBST1_TAC
-          >> irule esubst_ty_has_type >> simp[SF SFY_ss])
+  >- (simp[Abbr‘ilist_f'’, MEM_MAP, FORALL_PROD]
+      >> rw[] >> pairarg_tac >> gvs[MEM_FILTER, Abbr‘ilist_f’]
+      >> first_x_assum drule >> rw[] >> rw[esubst_ty_var]
+      >- (irule esubst_has_type1 >> simp[SF SFY_ss])
       >> irule esubst_term_ok >> simp[SF SFY_ss])
   >> rw[]
   >> ‘term_image (VSUBST ilist') (term_image (esubst (σ,θ) []) h)
@@ -3886,11 +3890,10 @@ Resume proves_substitutable_aux[INST]:
       >> irule esubst_VSUBST_has_type >> simp[SF SFY_ss]
       >> rev_dxrule nproves_term_ok1 >> rw[EVERY_MEM]
       >> rpt $ first_x_assum $ irule_at Any >> rw[])
-  >> qexistsl [‘VSUBST ilist' (esubst (σ,θ) avds2 c)’,
-               ‘term_image (VSUBST ilist' ∘ esubst (σ,θ) []) h’]
+  >> qexistsl [‘VSUBST ilist_f' (esubst (σ,θ) avds2 c)’,
+               ‘term_image (VSUBST ilist_f' ∘ esubst (σ,θ) []) h’]
   >> rw[]
-  >- (qabbrev_tac ‘ilist_f = FILTER (λ(s',s). VFREE_IN s c) ilist’
-      >> ‘term_ok sig c’ by (rev_dxrule nproves_term_ok >> rw[EVERY_MEM])
+  >- (‘term_ok sig c’ by (rev_dxrule nproves_term_ok >> rw[EVERY_MEM])
       >> ‘no_var_collapse (σ,θ) c’
         by (first_x_assum $ qspecl_then [‘n’,‘h’,‘c’] mp_tac >> simp[])
       >> ‘VSUBST ilist c = VSUBST ilist_f c’ by metis_tac[VSUBST_FILTER_VFREE]
@@ -3898,38 +3901,18 @@ Resume proves_substitutable_aux[INST]:
       >> qexists ‘VSUBST (MAP (λ(s',s). (esubst (σ,θ) [] s', esubst_ty (σ,θ) [] s)) ilist_f)
                   (esubst (σ,θ) avds2 c)’
       >> conj_tac
-      >- (suspend "INSTComm")
+      >- (irule ACONV_EQ >> metis_tac[])
       >> first_x_assum SUBST1_TAC
       >> irule esubst_VSUBST_comm >> rw[]
       >> simp[Abbr‘ilist_f’] >> rw[MEM_FILTER]
       >> rpt $ first_x_assum $ irule_at Any >> metis_tac[])
-  >> rw[EVERY_MEM, EXISTS_MEM] >> cheat
+  >- (rw[EVERY_MEM, EXISTS_MEM]
+      >> suspend "InstCommEvery")
+  >> metis_tac[term_image_comp, nproves_hypset_ok]
 QED
 
-Theorem ACONV_EQ:
-  ∀x y. x = y ⇒ ACONV x y
-Proof
-  rw[ACONV_def]
-QED
-
-Resume proves_substitutable_aux[INSTComm]:
-  irule ACONV_EQ
-  >> drule_all esubst_term_ok >> disch_then $ qspec_then ‘avds2’ assume_tac
-  >> drule $ GEN_ALL VSUBST_FILTER_VFREE
-  >> disch_then $ qspec_then ‘ilist'’ mp_tac
-  >> rw[Abbr‘ilist'’, Abbr‘ilist_f’]
-  >> qabbrev_tac ‘fσ = (λ(s',s). (esubst (σ,θ) [] s',esubst_ty (σ,θ) [] s))’
-  >> cong_tac $ SOME 1
-  >> ‘(λ(s',s). VFREE_IN s c) =
-      ((λ(s',s). VFREE_IN s (esubst (σ,θ) avds2 c)) ∘ fσ)’
-    suffices_by metis_tac[FILTER_MAP]
-  >> simp[Abbr‘fσ’] >> simp[LAMBDA_PROD, o_DEF, SF ETA_ss]
-  >> ‘∀x typ. VFREE_IN (Var x typ) c ⇔
-                VFREE_IN (esubst_ty (σ,θ) [] (Var x typ)) (esubst (σ,θ) [] c)’
-    suffices_by cheat
-  >> rw[] >> iff_tac
-  >- (strip_tac >> irule VFREE_IN_esubst >> simp[SF SFY_ss])
-  >> cheat
+Resume proves_substitutable_aux[InstCommEvery]:
+  cheat
 QED
 
 Resume proves_substitutable_aux[INST_TYPE]:
