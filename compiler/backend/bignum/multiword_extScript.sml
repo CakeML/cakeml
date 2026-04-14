@@ -1044,14 +1044,124 @@ Proof
   >> imp_res_tac LENGTH_mw_sub >> simp []
 QED
 
-Theorem mw2n_mw_int_of_bits_mw_and_keep_not:
-  bits_bitwise $/\ (MAP $¬ xs,T) (MAP $¬ ys,T) = (zs,T) ∧ l ≤ l' ⇒
-  mw2n
-    (mw_int_of_bits
-       (mw_and_keep (MAP $¬ (b2mw' l xs)) (MAP $¬ (b2mw' l' ys)))) =
-  num_of_bits (MAP $¬ zs) + 1
+Theorem b2mw'_0:
+  b2mw' 0 xs = []
+Proof
+  simp [Once b2mw'_def]
+QED
+
+Theorem MAP_NOT_NOT:
+  MAP $¬ (MAP $¬ xs) = xs
+Proof
+  Induct_on ‘xs’ >> rw []
+QED
+
+Theorem MAP_word1_comp_word1_comp:
+  MAP $¬ (MAP $¬ xs : 'a word list) = xs
+Proof
+  Induct_on ‘xs’ >> rw []
+QED
+
+Theorem mw_int_of_bits_nil:
+  mw_int_of_bits [] = [1w]
+Proof
+  simp [mw_int_of_bits_def, mw_add_def]
+QED
+
+Theorem K_LAMBDA:
+  K x = λy. x
+Proof
+  simp [K_DEF]
+QED
+
+(* TODO HOL has a more restrictive version - replace it with this one *)
+Theorem mw_add_F:
+  ∀xs ys.
+    LENGTH ys = LENGTH xs ⇒
+    mw_add xs (MAP (\x. 0x0w) ys) F = (xs,F)
+Proof
+  Induct >> rw [mw_add_def]
+  >> rpt (pairarg_tac >> gvs [])
+  >> Cases_on ‘ys’ >> gvs []
+  >> rename1 ‘single_add y’
+  >> gvs [single_add_def, b2w_def, b2n_def]
+  >> ‘w2n y < dimword (:α)’ by simp [w2n_lt]
+  >> last_x_assum $ drule_then assume_tac >> gvs[]
+QED
+
+Theorem w2n_b2w_T:
+  w2n (b2w T) = 1
+Proof
+  simp [b2w_def, b2n_def]
+QED
+
+Theorem mw2n_mw_int_of_bits_MAP_NOT:
+  ∀xs. mw2n (mw_int_of_bits (MAP $¬ xs)) = mw2n xs + 1
+Proof
+  Induct_on ‘xs’
+  >- simp [mw_int_of_bits_nil, mw2n_def]
+  >> strip_tac >> rename1 ‘x::xs’
+  >> gvs [mw2n_def, mw_int_of_bits_def, mw_add_def]
+  >> rpt (pairarg_tac >> gvs [])
+  >> gvs [MAP_word1_comp_word1_comp, single_add_def]
+  >> Cases_on ‘dimword (:α) ≤ b2n T + w2n x’
+  >> gvs [b2n_def]
+  >-
+   (‘w2n x = dimword (:α) - 1’ by (qspec_then ‘x’ assume_tac w2n_lt >> simp [])
+    >> simp []
+    >> ‘x + b2w T = 0w’ by
+      simp [word_add_def, b2n_def, b2w_def, ZERO_LT_dimword]
+    >> simp []
+    >> IF_CASES_TAC >> gvs [mw2n_def, ZERO_LT_dimword])
+  >> qspec_then ‘MAP $¬ xs’ assume_tac mw_add_F >> gvs []
+  >> gvs [K_LAMBDA, mw_add_F, mw2n_def]
+  >> DEP_REWRITE_TAC [w2n_add_2]
+  >> simp [b2w_def, b2n_def]
+QED
+
+(* Theorem bits_of_num_num_of_bits: *)
+(*   ∀xs. ∃k. bits_of_num (num_of_bits xs) ++ REPLICATE k F = xs *)
+(* Proof *)
+(*   cheat *)
+(* QED *)
+
+Theorem mw2n_b2mw':
+  LENGTH (b2mw xs : 'a word list) ≤ l ⇒
+  mw2n (b2mw' l xs : 'a word list) = num_of_bits xs
 Proof
   cheat
+  (* ‘∃n. xs = bits_of_num n’ by simp [bits_of_num_num_of_bits] *)
+  (* >> rw [] *)
+  (* >> DEP_REWRITE_TAC [b2mw'_n2mw] *)
+  (* >> conj_tac >- simp [n2mw_eq_b2mw] *)
+  (* >> simp [mw2n_APPEND, mw2n_REPLICATE] *)
+  (* >> simp [mw2n_n2mw, num_of_bits_bits_of_num] *)
+QED
+
+Theorem mw2n_mw_int_of_bits_MAP_NOT:
+  LENGTH (b2mw xs : 'a word list) ≤ l ⇒
+  mw2n (mw_int_of_bits (MAP $¬ (b2mw' l xs)) : 'a word list) = num_of_bits xs + 1
+Proof
+  simp [mw2n_mw_int_of_bits_MAP_NOT, mw2n_b2mw']
+QED
+
+Theorem mw2n_mw_int_of_bits_mw_and_keep_not:
+  ∀l xs l' ys zs.
+    bits_bitwise $/\ (MAP $¬ xs,T) (MAP $¬ ys,T) = (zs,T) ∧ l ≤ l' ∧
+    LENGTH (b2mw xs : 'a word list) ≤ l ∧ LENGTH (b2mw ys : 'a word list) ≤ l' ⇒
+    mw2n
+      (mw_int_of_bits
+         (mw_and_keep
+            (MAP $¬ (b2mw' l xs : 'a word list))
+            (MAP $¬ (b2mw' l' ys : 'a word list)))) =
+    num_of_bits (MAP $¬ zs) + 1
+Proof
+  recInduct b2mw'_ind >> rw []
+  >> Cases_on ‘k = 0’ >> gvs []
+  >-
+   (gvs [b2mw_nil, b2mw'_0, mw_and_keep_nil_left, MAP_AND_T, MAP_MAP_o,
+         MAP_NOT_NOT, mw2n_mw_int_of_bits_MAP_NOT])
+  >> cheat
 QED
 
 Theorem mwi_and_neg:
@@ -1072,6 +1182,11 @@ Proof
   >> simp [mw_bits_of_int_b2mw,int_not_def,integerTheory.int_calculate]
   >> irule mw2n_mw_int_of_bits_mw_and_keep_not
   >> fs [GSYM n2mw_eq_b2mw, LENGTH_mw_bits_of_int, bits_bitwise_and_sym]
+  >> ‘Num (&n - 1) = n - 1’ by (DEP_REWRITE_TAC [INT_SUB] >> simp [])
+  >> pop_assum SUBST_ALL_TAC
+  >> ‘Num (&n' - 1) = n' - 1’ by (DEP_REWRITE_TAC [INT_SUB] >> simp [])
+  >> pop_assum SUBST_ALL_TAC
+  >> simp [LENGTH_n2mw_LESS_LENGTH_n2mw]
 QED
 
 Theorem selftest_2[local]:
