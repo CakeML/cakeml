@@ -453,6 +453,24 @@ Proof
   >> gvs [FLOOKUP_DEF]
 QED
 
+Theorem holes_unchanged_except_subset:
+  ∀f refs refs' changed changed'.
+    holes_unchanged_except f refs refs' changed ∧
+    changed SUBSET changed' ⇒
+    holes_unchanged_except f refs refs' changed'
+Proof
+  rw [holes_unchanged_except_def]
+  >> first_x_assum irule
+  >> gvs []
+  >> gen_tac
+  >> first_x_assum $ qspec_then ‘b’ mp_tac
+  >> strip_tac
+  >> gvs [SUBSET_DEF]
+  >> first_x_assum $ qspec_then ‘RefPtr b ptr’ mp_tac
+  >> strip_tac
+  >> gvs []
+QED
+
 Theorem unchanged_hole_has_val:
   ∀f f' env env' hole_ptr hole_idx refs refs' c changed.
     hole_has_val f env (env' ++ [RefPtr F hole_ptr; Number hole_idx]) refs c ∧
@@ -716,6 +734,7 @@ Proof
   >> simp [Once evaluate_def]
   >> simp [Once evaluate_def]
   >> simp [Once evaluate_def]
+  >> cheat
 QED
 
 Theorem list_rel_reverse:
@@ -1258,8 +1277,17 @@ Proof
         >> drule aux_strip_op
         >> strip_tac
         >> gvs [is_block_op_cons_def])
-      (* PROBLEM! Not possible to optimize here, but we lose that information without knowing rewrite_aux returns NONE *)
-      >> cheat)
+      >> gvs []
+      >> rpt gen_tac
+      >> qexists ‘(Rerr (Rabort (Rffi_error e)))’
+      >> gvs [opt_res_rel_def]
+      >> qexists ‘u'’
+      >> gvs []
+      >> drule holes_unchanged_except_subset
+      >> strip_tac
+      >> pop_assum $ irule_at Any
+      >> irule_at Any EMPTY_SUBSET
+      >> simp [rewrite_opt_def, dest_Cons_def, evaluate_def])
     (* lemma that do_app op (REVERSE a) u = Rval a' implies do_app op (REVERSE v') u' equals some other Rval that is v_rel related to a' *)
     >> rename [‘do_app op (REVERSE vs) u = Rval v’]
     >> drule $ iffLR list_rel_reverse
