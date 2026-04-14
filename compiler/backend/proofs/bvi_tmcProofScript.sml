@@ -1164,7 +1164,10 @@ Proof
     >> impl_tac
     >-
      (gvs []
-      >> cheat (* TODO: env_rel may need to be relaxed so that true case implies false case*))
+      >> conj_tac
+      >- (irule env_rel_relax_opt >> first_assum $ irule_at Any)
+      >> spose_not_then assume_tac
+      >> gvs [])
     >> strip_tac
     >> gvs []
     >> rename [‘evaluate (xs,env2,s') = (rs',u')’]
