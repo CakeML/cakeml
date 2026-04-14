@@ -561,7 +561,7 @@ Proof
 QED
 
 Theorem do_app_aux_op_rel:
-  ∀f op vs vs' s s' v v'.
+  ∀f op vs vs' s s' v.
     do_app_aux op vs s = v ∧
     LIST_REL (v_rel f) vs vs' ∧
     state_rel f s s' ⇒
@@ -584,13 +584,24 @@ Proof
   rw [do_app_def] >> cheat
 QED
 
+(* This could be unified with the above using res_rel *)
 Theorem do_app_op_err_rel:
   do_app (FFI i) vs u = Rerr (Rabort (Rffi_error e)) ∧
   state_rel f u u' ∧
   LIST_REL (v_rel f) vs vs' ⇒
   do_app (FFI i) vs' u' = Rerr (Rabort (Rffi_error e))
 Proof
-  cheat
+  rw [do_app_def]
+  >> Cases_on ‘do_app_aux (FFI i) vs u’ >> gvs []
+  >> drule do_app_aux_op_rel
+  >> disch_then drule
+  >> disch_then drule
+  >> strip_tac
+  >> gvs []
+  >> Cases_on ‘do_app_aux (FFI i) vs' u'’ >> gvs []
+  >> reverse $ Cases_on ‘x’ >> gvs []
+  >- (Cases_on ‘x''’ >> gvs [])
+  >> cheat
 QED
 
 Theorem aux_strip_if_then:
@@ -1295,39 +1306,36 @@ Proof
     >> drule_all do_app_op_rel
     >> strip_tac
     >> gvs []
-    >> first_assum $ irule_at Any
     >> Cases_on ‘v’ >> gvs []
     >> Cases_on ‘v'’ >> gvs []
     >> rename [‘state_rel f'' t t'’]
     >> rename [‘v_rel f'' v v'’]
-    >> conj_asm1_tac
-    >- cheat (* Prove that the state doesn't change? *)
-    >> gvs []
-    >> strip_tac
+
     >> first_x_assum $ qspec_then ‘F’ mp_tac
     >> gvs []
+    >> drule env_rel_relax_opt
     >> strip_tac
+    >> disch_then drule
+    >> disch_then drule
+    >> strip_tac
+    >> gvs []
+    >> rename [‘state_rel f3 u u'’]
+    >> rename [‘LIST_REL (v_rel f3) vs vs'’]
+    >> conj_tac
+    >- cheat (* I think we need "do_app doesn't change hole":
+                holes_unchanged_except f s'.refs u'.refs ∅ ∧
+                do_app op (REVERSE vs') u' = Rval (v',t') ⇒
+                holes_unchanged_except f s'.refs t'.refs ∅ *)
+    >> strip_tac
+    >> gvs []
     >> conj_tac
     >-
-     (rpt gen_tac
-      >> strip_tac
+     (rw []
       >> drule aux_strip_op
       >> strip_tac
       >> gvs [is_block_op_cons_def]
-      >> gvs [Once evaluate_def]
-      >> CASE_TAC >> gvs []
-      >> Cases_on ‘q’ >> gvs []
-      >-
-       (simp [Once evaluate_def]
-        >> CASE_TAC >> gvs []
-        >> Cases_on ‘q’ >> gvs []
-        >-
-         (simp [Once evaluate_def]
-          >> CASE_TAC >> gvs []
-          >- (Cases_on ‘a''’ >> gvs [] >> cheat)
-          >> cheat)
-        >> cheat)
       >> cheat)
+    >> rpt gen_tac
     >> cheat)
   >~ [‘Tick x’] >-
    (gvs [evaluate_def]
