@@ -1119,23 +1119,19 @@ Proof
   >> simp [b2w_def, b2n_def]
 QED
 
-(* Theorem bits_of_num_num_of_bits: *)
-(*   ∀xs. ∃k. bits_of_num (num_of_bits xs) ++ REPLICATE k F = xs *)
-(* Proof *)
-(*   cheat *)
-(* QED *)
-
 Theorem mw2n_b2mw':
-  LENGTH (b2mw xs : 'a word list) ≤ l ⇒
-  mw2n (b2mw' l xs : 'a word list) = num_of_bits xs
+  ∀l xs.
+    LENGTH (b2mw xs : 'a word list) ≤ l ⇒
+    mw2n (b2mw' l xs : 'a word list) = num_of_bits xs
 Proof
-  cheat
-  (* ‘∃n. xs = bits_of_num n’ by simp [bits_of_num_num_of_bits] *)
-  (* >> rw [] *)
-  (* >> DEP_REWRITE_TAC [b2mw'_n2mw] *)
-  (* >> conj_tac >- simp [n2mw_eq_b2mw] *)
-  (* >> simp [mw2n_APPEND, mw2n_REPLICATE] *)
-  (* >> simp [mw2n_n2mw, num_of_bits_bits_of_num] *)
+  recInduct b2mw'_ind >> rw []
+  >> Cases_on ‘k = 0’ >> gvs []
+  >- fs [b2mw_nil, b2mw'_0, mw2n_def, num_of_bits_def]
+  >> once_rewrite_tac [b2mw'_def]
+  >> simp [mw2n_def]
+  >> qpat_x_assum ‘ _ ⇒ _’ $ DEP_REWRITE_TAC o single
+  >> conj_tac >- gvs [LENGTH_b2mw, SUB_CEILING_DIV]
+  >> simp [num_of_bits_TAKE_dimindex_lt, num_of_bits_TAKE_DROP_dimindex]
 QED
 
 Theorem mw2n_mw_int_of_bits_MAP_NOT:
