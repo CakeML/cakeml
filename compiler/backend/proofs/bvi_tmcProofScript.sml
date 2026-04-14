@@ -599,7 +599,9 @@ Proof
       >> first_x_assum $ qspec_then ‘n’ mp_tac
       >> strip_tac
       >> spose_not_then assume_tac
-      >> cheat))
+      >> cheat)
+    >> cheat)
+  >> cheat
 QED
 
 Theorem do_app_op_rel:
@@ -614,7 +616,7 @@ Proof
   rw [do_app_def] >> cheat
 QED
 
-(* This could be unified with the above using res_rel *)
+(* This could be unified with non err case using res_rel *)
 Theorem do_app_op_err_rel:
   do_app (FFI i) vs u = Rerr (Rabort (Rffi_error e)) ∧
   state_rel f u u' ∧
@@ -623,7 +625,7 @@ Theorem do_app_op_err_rel:
 Proof
   rw [do_app_def]
   >> Cases_on ‘do_app_aux (FFI i) vs u’ >> gvs []
-  >> drule do_app_aux_op_rel
+  >> drule do_app_aux_rel
   >> disch_then drule
   >> disch_then drule
   >> strip_tac
@@ -631,6 +633,9 @@ Proof
   >> Cases_on ‘do_app_aux (FFI i) vs' u'’ >> gvs []
   >> reverse $ Cases_on ‘x’ >> gvs []
   >- (Cases_on ‘x''’ >> gvs [])
+  >> Cases_on ‘bvlSem$do_app (FFI i) vs (bvi_to_bvl u)’ >> gvs []
+  >- (Cases_on ‘a’ >> gvs [])
+  >> Cases_on ‘bvlSem$do_app (FFI i) vs' (bvi_to_bvl u')’ >> gvs []
   >> cheat
 QED
 
