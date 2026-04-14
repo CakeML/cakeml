@@ -271,106 +271,6 @@ Proof
   >> cheat
 QED
 
-Theorem aux_strip_if_then:
-  rewrite_aux loc loc_opt arity (If x1 x2 x3) = SOME aux ⇒
-  ∃aux2 aux3.
-    aux = If x1 aux2 aux3 ∧
-    (rewrite_aux loc loc_opt arity x2 = SOME aux2 ∨
-     aux2 = x2)
-Proof
-  rw []
-  >> gvs [rewrite_aux_def]
-  >> Cases_on ‘rewrite_aux loc loc_opt arity x2’
-  >> Cases_on ‘rewrite_aux loc loc_opt arity x3’
-  >> gvs []
-QED
-
-Theorem aux_strip_if_else:
-  rewrite_aux loc loc_opt arity (If x1 x2 x3) = SOME aux ⇒
-  ∃aux2 aux3.
-    aux = If x1 aux2 aux3 ∧
-    (rewrite_aux loc loc_opt arity x3 = SOME aux3 ∨
-     aux3 = x3)
-Proof
-  rw []
-  >> gvs [rewrite_aux_def]
-  >> Cases_on ‘rewrite_aux loc loc_opt arity x2’
-  >> Cases_on ‘rewrite_aux loc loc_opt arity x3’
-  >> gvs []
-QED
-
-Theorem aux_strip_let:
-  ∀loc loc_opt arity xs x aux.
-    rewrite_aux loc loc_opt arity (Let xs x) = SOME aux ⇒
-    ∃aux'.
-      aux = Let xs aux' ∧
-      rewrite_aux loc loc_opt (arity + LENGTH xs) x = SOME aux'
-Proof
-  rw []
-  >> gvs [rewrite_aux_def]
-  >> Cases_on ‘rewrite_aux loc loc_opt (arity + LENGTH xs) x’
-  >> gvs []
-QED
-
-Theorem aux_strip_tick:
-  ∀loc loc_opt arity x aux.
-    rewrite_aux loc loc_opt arity (Tick x) = SOME aux ⇒
-    ∃aux'.
-      aux = Tick aux' ∧
-      rewrite_aux loc loc_opt arity x = SOME aux'
-Proof
-  rw [] >> gvs [rewrite_aux_def]
-QED
-
-(* TODO: uniqueness, effectfulness *)
-(* Definition has_tmc_call_def:
-  has_tmc_call loc (Op (BlockOp (Cons tag)) xs) ⇔
-    (∃t args h n.
-       EL n xs = Call t loc args h) ∨
-    (∃n block_op_cons.
-       EL n xs = block_op_cons ∧
-       has_tmc_call loc block_op_cons)
-End *)
-
-Definition is_block_op_cons_def:
-  is_block_op_cons op ⇔
-    ∃block_tag.
-      op = BlockOp (Cons block_tag)
-End
-
-Theorem aux_strip_op:
-  ∀loc loc_opt arity op xs aux.
-    rewrite_aux loc loc_opt arity (Op op xs) = SOME aux ⇒
-    is_block_op_cons op ∧
-    ∃mut_cons tail_call finalise tag i l hole r hole_ptr hole_idx t args h.
-      mut_cons = Op (MemOp (MutCons tag i)) (l ++ [hole] ++ r) ∧
-      tail_call = Call t (SOME loc_opt) (Op (IntOp (Const (&LENGTH l))) [] :: Var hole_ptr :: args) h ∧
-      finalise = Op (MemOp FinaliseCons) [Var hole_ptr] ∧
-      aux = Let [mut_cons; tail_call] $ finalise
-Proof
-  rw []
-  >-
-   (gvs [rewrite_aux_def, is_block_op_cons_def]
-    >> pop_assum mp_tac
-    >> CASE_TAC
-    >> strip_tac
-    >> Cases_on ‘op’ >> gvs [dest_Cons_def]
-    >> Cases_on ‘b’ >> gvs [dest_Cons_def])
-  >> gvs [rewrite_aux_def]
-  >> pop_assum mp_tac
-  >> CASE_TAC
-  >> strip_tac
-  >> gvs [rewrite_aux_BlockOp_Cons_def]
-  >> pop_assum mp_tac
-  >> CASE_TAC
-  >> Cases_on ‘h’ >> gvs []
-  >> Cases_on ‘t’ >> gvs []
-  >> strip_tac
-  >> Cases_on ‘to_mut_cons (HoleBlock n l0 o' l)’ >> gvs [to_mut_cons_def]
-  >> rename [‘cons_to_tc_and_hb loc x xs = (TCall n args h)⁺ (HoleBlock i l hole r)’]
-  >> qexists ‘l’ >> gvs []
-QED
-
 Theorem evaluate_pad_env_val:
   ∀xs env s t vs extra.
     evaluate (xs, env, s) = (Rval vs, t) ⇒
@@ -673,6 +573,106 @@ Proof
   rw [do_app_def] >> cheat
 QED
 
+Theorem aux_strip_if_then:
+  rewrite_aux loc loc_opt arity (If x1 x2 x3) = SOME aux ⇒
+  ∃aux2 aux3.
+    aux = If x1 aux2 aux3 ∧
+    (rewrite_aux loc loc_opt arity x2 = SOME aux2 ∨
+     aux2 = x2)
+Proof
+  rw []
+  >> gvs [rewrite_aux_def]
+  >> Cases_on ‘rewrite_aux loc loc_opt arity x2’
+  >> Cases_on ‘rewrite_aux loc loc_opt arity x3’
+  >> gvs []
+QED
+
+Theorem aux_strip_if_else:
+  rewrite_aux loc loc_opt arity (If x1 x2 x3) = SOME aux ⇒
+  ∃aux2 aux3.
+    aux = If x1 aux2 aux3 ∧
+    (rewrite_aux loc loc_opt arity x3 = SOME aux3 ∨
+     aux3 = x3)
+Proof
+  rw []
+  >> gvs [rewrite_aux_def]
+  >> Cases_on ‘rewrite_aux loc loc_opt arity x2’
+  >> Cases_on ‘rewrite_aux loc loc_opt arity x3’
+  >> gvs []
+QED
+
+Theorem aux_strip_let:
+  ∀loc loc_opt arity xs x aux.
+    rewrite_aux loc loc_opt arity (Let xs x) = SOME aux ⇒
+    ∃aux'.
+      aux = Let xs aux' ∧
+      rewrite_aux loc loc_opt (arity + LENGTH xs) x = SOME aux'
+Proof
+  rw []
+  >> gvs [rewrite_aux_def]
+  >> Cases_on ‘rewrite_aux loc loc_opt (arity + LENGTH xs) x’
+  >> gvs []
+QED
+
+Theorem aux_strip_tick:
+  ∀loc loc_opt arity x aux.
+    rewrite_aux loc loc_opt arity (Tick x) = SOME aux ⇒
+    ∃aux'.
+      aux = Tick aux' ∧
+      rewrite_aux loc loc_opt arity x = SOME aux'
+Proof
+  rw [] >> gvs [rewrite_aux_def]
+QED
+
+(* TODO: uniqueness, effectfulness *)
+(* Definition has_tmc_call_def:
+  has_tmc_call loc (Op (BlockOp (Cons tag)) xs) ⇔
+    (∃t args h n.
+       EL n xs = Call t loc args h) ∨
+    (∃n block_op_cons.
+       EL n xs = block_op_cons ∧
+       has_tmc_call loc block_op_cons)
+End *)
+
+Definition is_block_op_cons_def:
+  is_block_op_cons op ⇔
+    ∃block_tag.
+      op = BlockOp (Cons block_tag)
+End
+
+Theorem aux_strip_op:
+  ∀loc loc_opt arity op xs aux.
+    rewrite_aux loc loc_opt arity (Op op xs) = SOME aux ⇒
+    is_block_op_cons op ∧
+    ∃mut_cons tail_call finalise tag i l hole r hole_ptr hole_idx t args h.
+      mut_cons = Op (MemOp (MutCons tag i)) (l ++ [hole] ++ r) ∧
+      tail_call = Call t (SOME loc_opt) (Op (IntOp (Const (&LENGTH l))) [] :: Var hole_ptr :: args) h ∧
+      finalise = Op (MemOp FinaliseCons) [Var hole_ptr] ∧
+      aux = Let [mut_cons; tail_call] $ finalise
+Proof
+  rw []
+  >-
+   (gvs [rewrite_aux_def, is_block_op_cons_def]
+    >> pop_assum mp_tac
+    >> CASE_TAC
+    >> strip_tac
+    >> Cases_on ‘op’ >> gvs [dest_Cons_def]
+    >> Cases_on ‘b’ >> gvs [dest_Cons_def])
+  >> gvs [rewrite_aux_def]
+  >> pop_assum mp_tac
+  >> CASE_TAC
+  >> strip_tac
+  >> gvs [rewrite_aux_BlockOp_Cons_def]
+  >> pop_assum mp_tac
+  >> CASE_TAC
+  >> Cases_on ‘h’ >> gvs []
+  >> Cases_on ‘t’ >> gvs []
+  >> strip_tac
+  >> Cases_on ‘to_mut_cons (HoleBlock n l0 o' l)’ >> gvs [to_mut_cons_def]
+  >> rename [‘cons_to_tc_and_hb loc x xs = (TCall n args h)⁺ (HoleBlock i l hole r)’]
+  >> qexists ‘l’ >> gvs []
+QED
+        
 Theorem list_rel_reverse:
   ∀r l1 l2. LIST_REL r l1 l2 ⇔ LIST_REL r (REVERSE l1) (REVERSE l2)
 Proof
@@ -1173,7 +1173,27 @@ Proof
     >> rename [‘evaluate (xs,env2,s') = (rs',u')’]
     >> qpat_assum ‘f ⊑ _’ $ irule_at Any
     >> reverse $ Cases_on ‘rs’ >> gvs []
-    >- cheat
+    >-
+     (strip_tac
+      >> gvs []
+      >> first_x_assum $ qspec_then ‘F’ mp_tac
+      >> gvs []
+      >> drule env_rel_relax_opt
+      >> strip_tac
+      >> disch_then drule
+      >> disch_then drule
+      >> strip_tac
+      >> gvs []
+      >> conj_tac
+      >-
+       (rw []
+        >> qexists ‘t''’
+        >> drule aux_strip_op
+        >> strip_tac
+        >> gvs [is_block_op_cons_def]
+        >> 
+        )
+     )
     >> rename [‘LIST_REL (v_rel f'') vs vs'’]
     >> reverse $ Cases_on ‘do_app op (REVERSE vs) u’ >> gvs []
     >- cheat (* Use bviProps do_app_err *)
