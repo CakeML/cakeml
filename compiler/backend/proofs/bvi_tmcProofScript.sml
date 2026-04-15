@@ -1421,7 +1421,7 @@ Proof
       >> cheat)
     >> rpt gen_tac
     >> cheat)
-  >~ [‘Tick x’] >-
+  >~ [‘Tick x’] >-     
    (gvs [evaluate_def]
     >> ‘s'.clock = s.clock’ by gvs [state_rel_def]
     >> gvs []
@@ -1440,45 +1440,34 @@ Proof
         >> gvs [evaluate_def])
       >> goal_assum $ drule_at Any
       >> gvs [rewrite_opt_def, evaluate_def, opt_res_rel_def, holes_unchanged_except_refl])
-    >> Cases_on ‘opt’ >> gvs []
-    (* Opt *)
-    >-
-     (first_x_assum $ qspec_then ‘T’ mp_tac
-      >> simp []
-      >> disch_then drule
-      >> drule_all state_rel_dec
-      >> strip_tac
-      >> disch_then drule
-      >> drule_all hole_has_val_dec
-      >> strip_tac
-      >> impl_tac
-      >- (qexists ‘c’ >> gvs [hole_has_val_dec])
-      >> strip_tac
-      >> gvs []
-      >> qexists ‘f''’
-      >> gvs []
-      >> rpt gen_tac
-      >> rw []
-      >> gvs []
-      >-
-       (drule aux_strip_tick
-        >> strip_tac
-        >> last_x_assum drule
-        >> strip_tac
-        >> qexists ‘t1’
-        >> gvs [evaluate_def])
-      >> pop_assum $ qspecl_then [‘loc’, ‘loc_opt’] mp_tac             
-      >> strip_tac
-      >> qexistsl [‘rrr’, ‘t2’]
-      >> gvs [rewrite_opt_def, evaluate_def])
-    (* Non-opt *)
-    >> first_x_assum $ qspec_then ‘F’ mp_tac
+    >> first_x_assum $ qspec_then ‘opt’ mp_tac
     >> simp []
     >> disch_then drule
-    >> drule_all state_rel_dec
+    >> drule state_rel_dec
+    >> gvs []
+    >> disch_then $ qspec_then ‘1’ mp_tac
     >> strip_tac
+    >> gvs []
     >> disch_then drule
-    >> fs [])
+    >> impl_tac
+    >- rw []
+    >> strip_tac
+    >> gvs []
+    >> rename [‘evaluate ([x],env2,dec_clock 1 s') = (r',t')’]
+    >> first_assum $ irule_at Any
+    >> gvs []
+    >> strip_tac
+    >> gvs []
+    >> conj_tac
+    >-
+     (rw []
+      >> drule aux_strip_tick
+      >> strip_tac
+      >> gvs [evaluate_def]
+      >> first_x_assum $ irule_at Any
+      >> qexistsl [‘arity’, ‘loc’, ‘loc_opt’]
+      >> gvs [])
+    >> rw [rewrite_opt_def, evaluate_def])
   >~ [‘Force force_loc n’] >-
      cheat
   >~ [‘Call ticks dest xs handler’] >-
