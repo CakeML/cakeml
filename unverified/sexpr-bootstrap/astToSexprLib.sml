@@ -56,11 +56,11 @@ fun loc_to_exp xs =
     exp_list [exp_str (join (map loc_to_str xs))]
   end
 
-val int_lit = ``ast$IntLit``;
-val char_lit = ``ast$Char``;
-val word8_lit = ``ast$Word8``;
-val word64_lit = ``ast$Word64``;
-val float64_lit = prim_mk_const{Thy = "ast", Name = "Float64"}
+val int_lit = astSyntax.IntLit_tm;
+val char_lit = astSyntax.Char_tm;
+val word8_lit = astSyntax.Word8_tm;
+val word64_lit = astSyntax.Word64_tm;
+val float64_lit = prim_mk_const{Thy = "ast", Name = "Float64"};
 fun lit_to_exp t =
   let
     val (x, xs) = strip_comb t
@@ -74,22 +74,25 @@ fun lit_to_exp t =
     else string_to_exp h
   end
 
-val shift_op = ``ast$Shift``;
-val test_op = ``ast$Test``;
-val arith_op = ``ast$Arith``;
-val from_to_op = ``ast$FromTo``;
-val ffi_op = ``ast$FFI``;
-val wordT_W8 = ``WordT W8``;
-val wordT_W64 = ``WordT W64``;
-val test_eq = ``ast$Equal``
-val test_lt = ``ast$Compare Lt``
-val test_leq = ``ast$Compare Leq``
-val test_gt = ``ast$Compare Gt``
-val test_geq = ``ast$Compare Geq``
-val test_alt_lt = ``ast$AltCompare Lt``
-val test_alt_leq = ``ast$AltCompare Leq``
-val test_alt_gt = ``ast$AltCompare Gt``
-val test_alt_geq = ``ast$AltCompare Geq``
+val shift_op = astSyntax.Shift_tm;
+val test_op = prim_mk_const{Thy="ast",Name="Test"};
+val arith_op = prim_mk_const{Thy="ast",Name="Arith"};
+val from_to_op = prim_mk_const{Thy="ast",Name="FromTo"};
+val ffi_op = astSyntax.FFI_tm;
+val Compare_tm = prim_mk_const{Thy="ast",Name="Compare"};
+val AltCompare_tm = prim_mk_const{Thy="ast",Name="AltCompare"};
+val WordT_tm = prim_mk_const{Thy="ast",Name="WordT"};
+val wordT_W8 = mk_comb(WordT_tm, astSyntax.W8);
+val wordT_W64 = mk_comb(WordT_tm, astSyntax.W64);
+val test_eq = prim_mk_const{Thy="ast",Name="Equal"};
+val test_lt = mk_comb(Compare_tm, astSyntax.Lt)
+val test_leq = mk_comb(Compare_tm, astSyntax.Leq)
+val test_gt = mk_comb(Compare_tm, astSyntax.Gt)
+val test_geq = mk_comb(Compare_tm, astSyntax.Geq)
+val test_alt_lt = mk_comb(AltCompare_tm, astSyntax.Lt)
+val test_alt_leq = mk_comb(AltCompare_tm, astSyntax.Leq)
+val test_alt_gt = mk_comb(AltCompare_tm, astSyntax.Gt)
+val test_alt_geq = mk_comb(AltCompare_tm, astSyntax.Geq)
 fun op_to_exp arg =
   let
     val underscore_filter =
@@ -142,15 +145,15 @@ fun op_to_exp arg =
     else exp_str (String.concat (map filtered_string (x::xs)))
   end
 
-val cons = ``CONS : 'a -> 'a list -> 'a list``;
-val comma = ``$, : 'a -> 'b -> 'a # 'b``;
-val pvar = ``ast$Pvar``;
-val pany = ``ast$Pany``;
-val locs = ``Locs``;
-val nil_l = ``[] : 'a list``;
-val app = ``ast$App``;
-val lit = ``ast$Lit``;
-val plit = ``ast$Plit``;
+val cons = listSyntax.cons_tm;
+val comma = pairSyntax.comma_tm;
+val pvar = astSyntax.Pvar_tm;
+val pany = astSyntax.Pany;
+val locs = prim_mk_const{Thy="location",Name="Locs"};
+val nil_l = listSyntax.nil_tm;
+val app = astSyntax.App_tm;
+val lit = astSyntax.Lit_tm;
+val plit = astSyntax.Plit_tm;
 fun ast_to_exp term =
   let
     val list_to_exp = map ast_to_exp

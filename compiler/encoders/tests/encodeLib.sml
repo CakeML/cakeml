@@ -13,14 +13,18 @@ open armAssemblerLib arm8AssemblerLib x64AssemblerLib mips riscv
 
 val () =
  ( computeLib.del_consts
-     [``arm7_target$arm7_enc``, ``arm8_target$arm8_enc``,
-      ``x64_target$x64_enc``, ``mips_target$mips_enc``,
-      ``riscv_target$riscv_enc``,
-      ``arm7_target$arm7_config``, ``arm8_target$arm8_config``,
-      ``x64_target$x64_config``, ``mips_target$mips_config``,
-      ``riscv_target$riscv_config``,
-      ``arm8_target$valid_immediate``,
-      ``asm$asm_ok : 'a asm -> 'a asm_config -> bool``]
+     [prim_mk_const{Thy="arm7_target",Name="arm7_enc"},
+      prim_mk_const{Thy="arm8_target",Name="arm8_enc"},
+      prim_mk_const{Thy="x64_target",Name="x64_enc"},
+      prim_mk_const{Thy="mips_target",Name="mips_enc"},
+      prim_mk_const{Thy="riscv_target",Name="riscv_enc"},
+      prim_mk_const{Thy="arm7_target",Name="arm7_config"},
+      prim_mk_const{Thy="arm8_target",Name="arm8_config"},
+      prim_mk_const{Thy="x64_target",Name="x64_config"},
+      prim_mk_const{Thy="mips_target",Name="mips_config"},
+      prim_mk_const{Thy="riscv_target",Name="riscv_config"},
+      prim_mk_const{Thy="arm8_target",Name="valid_immediate"},
+      prim_mk_const{Thy="asm",Name="asm_ok"}]
  ; computeLib.extend_compset
     [computeLib.Extenders
        [arm7_targetLib.add_arm7_encode_compset,

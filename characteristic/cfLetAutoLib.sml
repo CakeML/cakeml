@@ -767,11 +767,11 @@ fun xlet_subst_parameters env app_info asl let_pre app_spec  =
       (* Retrieve the type variables *)
       val asl_atoms = all_atomsl (app_info::let_pre::asl) empty_tmset
       val asl_typevars =
-          HOLset.foldr (fn (a, ts) => HOLset.addList(ts, type_vars (type_of a)))
+          HOLset.foldr (fn (a, ts) => HOLset.addList(ts, List.rev (type_vars (type_of a))))
                        (HOLset.empty Type.compare) asl_atoms
       val spec_atoms = all_atoms (concl (DISCH_ALL app_spec))
       val spec_typevars =
-          HOLset.foldr (fn (a, ts) => HOLset.addList(ts, type_vars (type_of a)))
+          HOLset.foldr (fn (a, ts) => HOLset.addList(ts, List.rev (type_vars (type_of a))))
                        (HOLset.empty Type.compare) spec_atoms
       val redundant_typevars = HOLset.intersection(asl_typevars, spec_typevars)
                                                        |> HOLset.listItems
@@ -1113,7 +1113,7 @@ fun find_possible_instantiations tmsl0 tmsl1  =
       (* Retrieve the type variables present in tmsl0 *)
       val atoms = all_atomsl tmsl0 empty_tmset
       val knwn_typevarset =
-          HOLset.foldr (fn (a, ts) => HOLset.addList(ts, type_vars (type_of a)))
+          HOLset.foldr (fn (a, ts) => HOLset.addList(ts, List.rev (type_vars (type_of a))))
                        (HOLset.empty Type.compare) atoms
       val knwn_typevars = HOLset.listItems knwn_typevarset
 
@@ -1151,7 +1151,7 @@ fun find_possible_instantiations_from_eqs tmsl0 tmsl1 = let
     (* Retrieve the type variables present in tmsl0 *)
     val atoms = all_atomsl tmsl0 empty_tmset
     val knwn_typevarset =
-        HOLset.foldr (fn (a, ts) => HOLset.addList(ts, type_vars (type_of a)))
+        HOLset.foldr (fn (a, ts) => HOLset.addList(ts, List.rev (type_vars (type_of a))))
                      (HOLset.empty Type.compare) atoms
     val knwn_typevars = HOLset.listItems knwn_typevarset
 
