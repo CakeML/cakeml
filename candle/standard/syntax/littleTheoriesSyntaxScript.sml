@@ -396,7 +396,7 @@ Inductive proves':
   ((thy, es, h) |-' c ∧
    theory_ok' thy ∧
    esubsts_ok' thy σ ∧
-   (∀tm. tm ∈ es ∨ MEM tm h ∨ tm = c ⇒ no_var_collapse σ tm)
+   (∀ax. ax ∈ es ⇒ no_var_collapse σ ax)
    ⇒ (esubst_thy σ thy, IMAGE (esubst σ []) es, term_image (esubst σ []) h) |-'
      esubst σ (FLAT (MAP tm_names h)) c)
 
