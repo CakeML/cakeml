@@ -280,14 +280,14 @@ Proof
 QED
 
 Theorem state_rel_dec:
-  ∀n f s s'.
+  ∀n t f s s'.
     state_rel f s s' ∧
     s.clock = SUC n ∧
-    s'.clock = SUC n ⇒
-    state_rel f (dec_clock 1 s) (dec_clock 1 s')
+    s'.clock = SUC n ∧
+    SUC n >= t ⇒
+    state_rel f (dec_clock t s) (dec_clock t s')
 Proof
   rw [] >> gvs [state_rel_def, dec_clock_def]
-  >> cheat
 QED
 
 Theorem evaluate_pad_env_val:
@@ -1533,14 +1533,37 @@ Proof
         >> strip_tac
         >> rename [‘state_rel f'' u u'’]
         >> rename [‘LIST_REL (v_rel f'') vs vs'’]
+        >> ‘u'.clock = u.clock’ by (gvs [state_rel_def])
         >> gvs []
+
+        >> Cases_on ‘evaluate ([exp],args,dec_clock (ticks + 1) u)’ >> gvs []
+        >> rename [‘evaluate ([exp],args,dec_clock (ticks + 1) u) = (r', t')’]
+        >> first_x_assum $ qspec_then ‘opt’ mp_tac
+
+
+        >> drule state_rel_dec
+        >> Cases_on ‘u.clock’ >> gvs []
+        >> disch_then $ qspec_then ‘ticks + 1’ mp_tac
+        >> gvs []
+        >> strip_tac
+
         >> drule_all find_code_rel
         >> strip_tac
         >> gvs []
-        >> ‘u'.clock = u.clock’ by (gvs [state_rel_def])
+        >> disch_then $ qspecl_then [‘f''’, ‘dec_clock (ticks + 1) u'’, ‘args'’] mp_tac
         >> gvs []
-        >> first_assum $ irule_at $ Pos $ el 4
-        >> cheat (* I think find_code_rel now needs to extract more information about what it finds *)
+        >> impl_tac
+        >-
+         (code_rel_def)
+
+                
+        >> CASE_TAC
+        >> rename [‘evaluate ([exp'],args',dec_clock (ticks + 1) u') = (r',t')’]
+
+
+                             
+        (* looked-up code inductive hypothesis *)
+        >> 
         )
      >> cheat)
     >> cheat)
