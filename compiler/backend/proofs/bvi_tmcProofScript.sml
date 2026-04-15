@@ -62,12 +62,12 @@ Definition code_rel_def:
     ∀loc arity exp.
       lookup loc c1 = SOME (arity, exp) ⇒
       ∃n.
+        (compile_exp loc n arity exp = NONE ⇒
+         lookup loc c2 = SOME (arity, exp)) ∧
         ∀exp_aux exp_opt.
-          (compile_exp loc n arity exp = NONE ⇒
-           lookup loc c2 = SOME (arity, exp)) ∧
-          (compile_exp loc n arity exp = SOME (exp_aux,exp_opt) ⇒
-           lookup loc c2 = SOME (arity, exp_aux) ∧
-           lookup n c2 = SOME (arity + 2, exp_opt))
+          compile_exp loc n arity exp = SOME (exp_aux,exp_opt) ⇒
+          lookup loc c2 = SOME (arity, exp_aux) ∧
+          lookup n c2 = SOME (arity + 2, exp_opt)
 End
 
 Theorem code_rel_domain:
@@ -288,6 +288,14 @@ Theorem state_rel_dec:
     state_rel f (dec_clock t s) (dec_clock t s')
 Proof
   rw [] >> gvs [state_rel_def, dec_clock_def]
+QED
+
+Theorem state_rel_with_clock:
+  ∀n f s s'.
+    state_rel f s s' ⇒
+    state_rel f (s with clock := n) (s' with clock := n)
+Proof
+  rw [state_rel_def]
 QED
 
 Theorem evaluate_pad_env_val:
@@ -813,29 +821,39 @@ Proof
 QED
 
 Theorem find_code_rel:
-  ∀f vs vs' s s' args exp.
-    find_code NONE vs s.code = SOME (args,exp) ∧
+  ∀f vs vs' s s' dest args exp.
+    find_code dest vs s.code = SOME (args,exp) ∧
     LIST_REL (v_rel f) vs vs' ∧
     state_rel f s s' ⇒
     ∃args' exp'.
-      find_code NONE vs' s'.code = SOME (args',exp')
+      find_code dest vs' s'.code = SOME (args',exp')
 Proof
-  rw [bvlSemTheory.find_code_def]
-  >> Cases_on ‘vs' = []’ >> gvs []
-  >> Cases_on ‘LAST vs’ >> gvs []
-  >> Cases_on ‘LAST vs'’ >> gvs []
-  >> drule_all list_rel_last
+  rw []
+  >> Cases_on ‘dest’ >> gvs [bvlSemTheory.find_code_def]
+  >-
+   (Cases_on ‘vs' = []’ >> gvs []
+    >> Cases_on ‘LAST vs’ >> gvs []
+    >> Cases_on ‘LAST vs'’ >> gvs []
+    >> drule_all list_rel_last
+    >> strip_tac
+    >> gvs [v_rel_cases]
+    >> Cases_on ‘lookup n s.code’ >> gvs []
+    >> Cases_on ‘x’ >> gvs []
+    >> rename [‘lookup n s.code = SOME (arity,exp)’]
+    >> gvs [state_rel_def, code_rel_def]
+    >> last_x_assum drule
+    >> strip_tac
+    >> Cases_on ‘compile_exp n n' arity exp’ >> gvs []
+    >- (drule LIST_REL_LENGTH >> gvs [])
+    >> Cases_on ‘x’ >> gvs []
+    >> drule LIST_REL_LENGTH >> gvs [])
+  >> Cases_on ‘lookup x s.code’ >> gvs []
+  >> Cases_on ‘x'’ >> gvs [state_rel_def, code_rel_def]
+  >> last_x_assum drule
   >> strip_tac
-  >> gvs [v_rel_cases]
-  >> Cases_on ‘lookup n s.code’ >> gvs []
-  >> Cases_on ‘x’ >> gvs []
-  >> rename [‘lookup n s.code = SOME (arity,exp)’]
-  >> gvs [state_rel_def, code_rel_def]
-  >> last_x_assum $ drule
-  >> strip_tac
-  >> Cases_on ‘compile_exp n n' arity exp’ >> gvs []
+  >> Cases_on ‘compile_exp x n (LENGTH args) exp’ >> gvs []
   >- (drule LIST_REL_LENGTH >> gvs [])
-  >> Cases_on ‘x’ >> gvs []
+  >> Cases_on ‘x'’ >> gvs []
   >> drule LIST_REL_LENGTH >> gvs []
 QED
 
@@ -1473,88 +1491,88 @@ Proof
   >~ [‘Call ticks dest xs handler’] >-
      
    (gvs [evaluate_def]
-    >> Cases_on ‘dest’ >> gvs [] >> Cases_on ‘handler’ >> gvs []
-    >- (* What case is this? *)
-     (gvs [CaseEq "prod", PULL_EXISTS]
-      >> rename [‘evaluate (xs,env,s) = (vs,u)’]
-      >> Cases_on ‘vs’ >> gvs []
-      >-
-       (rename [‘evaluate (xs,env,s) = (Rval vs,u)’]
-        >> Cases_on ‘find_code NONE vs u.code’ >> gvs []
-        >> Cases_on ‘x’ >> gvs []
-        >> rename [‘find_code NONE vs u.code = SOME (args,exp)’]
-        >> Cases_on ‘u.clock < ticks + 1’ >> gvs []
-        >- (* Clock ran out *) (* First inductive hypothesis *)
-         (first_x_assum $ qspec_then ‘F’ mp_tac
-          >> gvs []
-          >> drule env_rel_relax_opt
-          >> strip_tac
-          >> disch_then drule
-          >> disch_then drule
-          >> strip_tac
-          >> first_assum $ irule_at $ Pos hd
-          >> gvs []
-          >> rename [‘state_rel f'' u u'’]
-          >> rename [‘LIST_REL (v_rel f'') vs vs'’]
-          >> ‘u'.clock = u.clock’ by (gvs [state_rel_def])
-          >> gvs []
-          >> drule_all find_code_rel
-          >> strip_tac
-          >> gvs []
-          >> first_assum $ irule_at $ Pos $ el 3
-          >> gvs []
-          >> conj_tac
-          >- (gvs [state_rel_def])
-          >> strip_tac
-          >> gvs []
-          >> conj_tac
-          >- (rw []
-              >> cheat)
-          >> rpt gen_tac
-          >> cheat)
-        (* Clock didn't run out *) (* xs inductive hypothesis *)
-        >> first_x_assum $ qspec_then ‘F’ mp_tac
-        >> drule env_rel_relax_opt
+    >> IF_CASES_TAC >> gvs []
+    >> gvs [CaseEq "prod", PULL_EXISTS]
+    >> rename [‘evaluate (xs,env,s) = (v_xs,u)’]
+    (* xs inductive hypothesis *)
+    >> first_x_assum $ qspec_then ‘F’ mp_tac
+    >> drule env_rel_relax_opt
+    >> gvs []
+    >> strip_tac
+    >> rpt $ disch_then drule
+    >> Cases_on ‘v_xs’ >> gvs []
+    >-
+     (rename [‘evaluate (xs,env,s) = (Rval v_xs,u)’]
+      >> Cases_on ‘find_code dest v_xs u.code’ >> gvs []
+      >> Cases_on ‘x’ >> gvs []
+      >> rename [‘find_code dest v_xs u.code = SOME (args,exp)’]
+      >> strip_tac
+      >> gvs []
+      >> rename [‘evaluate (xs,env2,s') = (Rval v_xs',u')’]
+      >> drule_all find_code_rel
+      >> strip_tac
+      >> gvs []
+      >> ‘u'.clock = u.clock’ by (gvs [state_rel_def])
+      >> gvs []
+      >> IF_CASES_TAC >> gvs []
+      >- (* Clock ran out *)
+       (drule_all state_rel_with_clock
+        >> disch_then $ qspec_then ‘0’ mp_tac
         >> strip_tac
-        >> disch_then drule
-        >> disch_then drule
+        >> first_assum $irule_at $ Pos hd
         >> gvs []
         >> strip_tac
-        >> rename [‘state_rel f'' u u'’]
-        >> rename [‘LIST_REL (v_rel f'') vs vs'’]
-        >> ‘u'.clock = u.clock’ by (gvs [state_rel_def])
         >> gvs []
-
-        >> Cases_on ‘evaluate ([exp],args,dec_clock (ticks + 1) u)’ >> gvs []
-        >> rename [‘evaluate ([exp],args,dec_clock (ticks + 1) u) = (r', t')’]
-        >> first_x_assum $ qspec_then ‘opt’ mp_tac
-
-
-        >> drule state_rel_dec
-        >> Cases_on ‘u.clock’ >> gvs []
-        >> disch_then $ qspec_then ‘ticks + 1’ mp_tac
+        >> conj_tac
+        >- (rw [] >> gvs [rewrite_aux_def])
+        >> rw []
+        >> simp [rewrite_opt_def]
+        >> pop_assum $ irule_at Any
+        >> qexists ‘Rerr (Rabort Rtimeout_error)’
+        >> gvs [opt_res_rel_def]
+        >> irule_at Any holes_unchanged_except_subset
+        >> first_assum $ irule_at $ Pos hd
         >> gvs []
-        >> strip_tac
-
-        >> drule_all find_code_rel
-        >> strip_tac
-        >> gvs []
-        >> disch_then $ qspecl_then [‘f''’, ‘dec_clock (ticks + 1) u'’, ‘args'’] mp_tac
-        >> gvs []
-        >> impl_tac
-        >- cheat
-
-                
-        >> CASE_TAC
-        >> rename [‘evaluate ([exp'],args',dec_clock (ticks + 1) u') = (r',t')’]
-
-
-                             
-        (* looked-up code inductive hypothesis *)
-        >> cheat
-        )
-     >> cheat)
-    >> cheat)
+        >> cheat)
+      (* Clock did not run out *)
+      >> Cases_on ‘evaluate ([exp],args,dec_clock (ticks + 1) u)’ >> gvs []
+      >> rename [‘evaluate ([exp],args,dec_clock (ticks + 1) u) = (v_exp, w)’]
+      (* exp inductive hypothesis *)
+      >> first_x_assum $ qspec_then ‘opt’ mp_tac
+      >> drule state_rel_dec
+      >> Cases_on ‘u.clock’ >> gvs []
+      >> disch_then $ qspec_then ‘ticks + 1’ mp_tac
+      >> gvs []
+      >> strip_tac
+      >> gvs []
+      >> disch_then $ drule_at Any
+      >> disch_then $ qspec_then ‘args'’ mp_tac
+      >> gvs []
+      >> impl_tac >> gvs []
+      >- cheat
+      >> strip_tac
+      >> rename [‘evaluate ([exp],args',dec_clock (ticks + 1) u') = (v_exp',w')’]
+      >> gvs []
+      >> cheat
+      )
+    (* Error case *)
+    >> strip_tac
+    >> gvs []
+    >> rename [‘evaluate (xs,env2,s') = (Rerr e',t')’]
+    >> first_assum $ irule_at $ Pos hd
+    >> gvs []
+    >> strip_tac
+    >> conj_tac
+    >- rw [rewrite_aux_def]
+    >> rw []
+    >> gvs []
+    >> qexistsl [‘Rerr e'’, ‘t'’]
+    >> gvs [opt_res_rel_def]
+    >> conj_tac
+    >- cheat
+    >> irule holes_unchanged_except_subset
+    >> pop_assum $ irule_at Any
+    >> gvs [])
 QED
 
 Theorem evaluate_compile_prog:
