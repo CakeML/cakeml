@@ -237,18 +237,8 @@ Definition reify_sem_def:
   reify_sem Zr w b =
   case Zr of
     NONE => b
-  | SOME (INL (Z,Equal,v)) => varc w Z = v ⇒ b
-  | SOME (INL (Z,NotEqual,v)) => varc w Z ≠ v ⇒ b
-  | SOME (INL (Z,GreaterEqual,v)) => varc w Z ≥ v ⇒ b
-  | SOME (INL (Z,GreaterThan,v)) => varc w Z > v ⇒ b
-  | SOME (INL (Z,LessEqual,v)) => varc w Z ≤ v ⇒ b
-  | SOME (INL (Z,LessThan,v)) => varc w Z < v ⇒ b
-  | SOME (INR (Z,Equal,v)) => varc w Z = v ⇔ b
-  | SOME (INR (Z,NotEqual,v)) => varc w Z ≠ v ⇔ b
-  | SOME (INR (Z,GreaterEqual,v)) => varc w Z ≥ v ⇔ b
-  | SOME (INR (Z,GreaterThan,v)) => varc w Z > v ⇔ b
-  | SOME (INR (Z,LessEqual,v)) => varc w Z ≤ v ⇔ b
-  | SOME (INR (Z,LessThan,v)) => varc w Z < v ⇔ b
+  | SOME (INL (Z,cmp,v)) => cmpop_val cmp (varc w Z) v ⇒ b
+  | SOME (INR (Z,cmp,v)) => cmpop_val cmp (varc w Z) v ⇔ b
 End
 
 Definition cmpop_sem_def:

@@ -300,20 +300,27 @@ Definition encode_reif_gen_def:
   | (Z, LessThan, v) => encode_ge bnd Z v
 End
 
-Theorem encode_reif_gen_sem[simp]:
+Theorem encode_reif_gen_sem:
   valid_assignment bnd wi ⇒
   EVERY (λx. iconstraint_sem x (wi,wb)) (encode_reif_gen bnd (Z, cmp, v)) =
-  ((cmp = Equal ∨ cmp = NotEqual ⇒
-    (wb (INL (Eq Z v)) ⇔ varc wi Z = v)) ∧
-   (cmp = Equal ∨ cmp = NotEqual ∨ cmp = GreaterEqual ∨ cmp = LessThan ⇒
-    (wb (INL (Ge Z v)) ⇔ varc wi Z ≥ v)) ∧
-   (cmp = Equal ∨ cmp = NotEqual ∨ cmp = GreaterThan ∨ cmp = LessEqual ⇒
+  ((lit wb (reif_gen (Z, cmp, v)) ⇔ cmpop_val cmp (varc wi Z) v) ∧
+   (cmp = Equal ∨ cmp = NotEqual ⇒
+    (wb (INL (Ge Z v)) ⇔ varc wi Z ≥ v) ∧
     (wb (INL (Ge Z (v + 1))) ⇔ varc wi Z ≥ v + 1)))
 Proof
-  simp[encode_reif_gen_def]>>
+  simp[encode_reif_gen_def,reif_gen_def]>>
   every_case_tac>>
-  simp[]>>
-  metis_tac[]
+  rw[cmpop_val_def]
+  >-metis_tac[]
+  >-metis_tac[]>>
+  qmatch_goalsub_abbrev_tac ‘(_ ⇔ P) ⇔ (_ ⇔ Q)’
+  >-(
+    ‘P ⇔ Q’ suffices_by simp[]>>
+    unabbrev_all_tac>>
+    intLib.ARITH_TAC)>>
+  ‘P ⇔ ¬Q’ suffices_by metis_tac[]>>
+  unabbrev_all_tac>>
+  intLib.ARITH_TAC
 QED
 
 (*
