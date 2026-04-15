@@ -821,7 +821,7 @@ Proof
 QED
 
 Theorem find_code_rel:
-  ∀f vs vs' s s' dest args exp.
+  ∀opt f vs vs' s s' dest args exp.
     find_code dest vs s.code = SOME (args,exp) ∧
     LIST_REL (v_rel f) vs vs' ∧
     state_rel f s s' ⇒
@@ -1371,7 +1371,35 @@ Proof
         >> strip_tac
         >> gvs [is_block_op_cons_def]
         >> cheat)
-      >> cheat)
+      >> rw []
+      >> gvs [rewrite_opt_def, evaluate_def]
+      >> CASE_TAC >> gvs []
+      >-
+       (gvs [evaluate_def, opt_res_rel_def]
+        >> irule holes_unchanged_except_subset
+        >> first_assum $ irule_at Any
+        >> gvs [])
+      >> gvs [evaluate_def, rewrite_opt_BlockOp_Cons_def]
+      >> CASE_TAC >> gvs []
+      >-
+       (gvs [evaluate_def, opt_res_rel_def]
+        >> irule holes_unchanged_except_subset
+        >> first_assum $ irule_at Any
+        >> gvs [])
+      >-
+       (gvs [evaluate_def, opt_res_rel_def]
+        >> irule holes_unchanged_except_subset
+        >> first_assum $ irule_at Any
+        >> gvs [])
+      >> Cases_on ‘h’ >> gvs []
+      >> Cases_on ‘t'’ >> gvs []
+      >> rename [‘cons_to_tc_and_hb loc x xs = (TCall ticks args handler')⁺ (HoleBlock tag l hole r)’]
+      >> gvs [Once evaluate_def]
+      >> CASE_TAC >> gvs []
+      >> CASE_TAC >> gvs []
+      >> gvs [evaluate_def]
+      >> cheat
+      )
     >> rename [‘LIST_REL (v_rel f'') vs vs'’]
     >> reverse $ Cases_on ‘do_app op (REVERSE vs) u’ >> gvs []
     >- (* FFI *)
@@ -1538,24 +1566,7 @@ Proof
       (* Clock did not run out *)
       >> Cases_on ‘evaluate ([exp],args,dec_clock (ticks + 1) u)’ >> gvs []
       >> rename [‘evaluate ([exp],args,dec_clock (ticks + 1) u) = (v_exp, w)’]
-      (* exp inductive hypothesis *)
-      >> first_x_assum $ qspec_then ‘opt’ mp_tac
-      >> drule state_rel_dec
-      >> Cases_on ‘u.clock’ >> gvs []
-      >> disch_then $ qspec_then ‘ticks + 1’ mp_tac
-      >> gvs []
-      >> strip_tac
-      >> gvs []
-      >> disch_then $ drule_at Any
-      >> disch_then $ qspec_then ‘args'’ mp_tac
-      >> gvs []
-      >> impl_tac >> gvs []
-      >- cheat
-      >> strip_tac
-      >> rename [‘evaluate ([exp],args',dec_clock (ticks + 1) u') = (v_exp',w')’]
-      >> gvs []
-      >> cheat
-      )
+      >> cheat)
     (* Error case *)
     >> strip_tac
     >> gvs []
