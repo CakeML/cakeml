@@ -1533,7 +1533,8 @@ Proof
         >> irule_at Any holes_unchanged_except_subset
         >> first_assum $ irule_at $ Pos hd
         >> gvs []
-        >> cheat)
+        >> gvs [evaluate_def]
+        >> IF_CASES_TAC >> gvs [])
       (* Clock did not run out *)
       >> Cases_on ‘evaluate ([exp],args,dec_clock (ticks + 1) u)’ >> gvs []
       >> rename [‘evaluate ([exp],args,dec_clock (ticks + 1) u) = (v_exp, w)’]
@@ -1569,7 +1570,7 @@ Proof
     >> qexistsl [‘Rerr e'’, ‘t'’]
     >> gvs [opt_res_rel_def]
     >> conj_tac
-    >- cheat
+    >- (gvs [rewrite_opt_def, evaluate_def] >> IF_CASES_TAC >> gvs [])
     >> irule holes_unchanged_except_subset
     >> pop_assum $ irule_at Any
     >> gvs [])
