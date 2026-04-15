@@ -1542,8 +1542,7 @@ Proof
         >> disch_then $ qspecl_then [‘f''’, ‘dec_clock (ticks + 1) u'’, ‘args'’] mp_tac
         >> gvs []
         >> impl_tac
-        >-
-         (code_rel_def)
+        >- cheat
 
                 
         >> CASE_TAC
@@ -1552,7 +1551,7 @@ Proof
 
                              
         (* looked-up code inductive hypothesis *)
-        >> 
+        >> cheat
         )
      >> cheat)
     >> cheat)
