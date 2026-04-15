@@ -1523,7 +1523,25 @@ Proof
               >> cheat)
           >> rpt gen_tac
           >> cheat)
-        >> cheat)
+        (* Clock didn't run out *) (* xs inductive hypothesis *)
+        >> first_x_assum $ qspec_then ‘F’ mp_tac
+        >> drule env_rel_relax_opt
+        >> strip_tac
+        >> disch_then drule
+        >> disch_then drule
+        >> gvs []
+        >> strip_tac
+        >> rename [‘state_rel f'' u u'’]
+        >> rename [‘LIST_REL (v_rel f'') vs vs'’]
+        >> gvs []
+        >> drule_all find_code_rel
+        >> strip_tac
+        >> gvs []
+        >> ‘u'.clock = u.clock’ by (gvs [state_rel_def])
+        >> gvs []
+        >> first_assum $ irule_at $ Pos $ el 4
+        >> cheat (* I think find_code_rel now needs to extract more information about what it finds *)
+        )
      >> cheat)
     >> cheat)
 QED
