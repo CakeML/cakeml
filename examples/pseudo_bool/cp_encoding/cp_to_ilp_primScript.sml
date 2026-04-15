@@ -647,21 +647,19 @@ Theorem cencode_equal_sem:
   cencode_equal bnd Zr X Y name ec = (es, ec') ⇒
   enc_rel wi es (encode_equal bnd Zr X Y name) ec ec'
 Proof
-  cheat
-  (*
   rw[cencode_equal_def,encode_equal_def]>>
   gvs[AllCaseEqs(),UNCURRY_EQ]
-  >- simp[enc_rel_List_refl_mul]
-  >- (
+  >-simp[enc_rel_List_refl_mul]
+  >-(
     irule enc_rel_Append>>
-    irule_at Any enc_rel_encode_ge>>
+    irule_at Any enc_rel_encode_reif_gen>>
     simp[enc_rel_List_refl_mul])
-  >- (
+  >-(
     irule enc_rel_Append>>
-    irule_at Any enc_rel_encode_ge>>
+    irule_at Any enc_rel_encode_reif_gen>>
     simp[]>>
     irule enc_rel_abstr_cong>>
-    simp[])*)
+    simp[])
 QED
 
 Definition cencode_not_equal_def:
@@ -687,19 +685,17 @@ Theorem cencode_not_equal_sem:
   cencode_not_equal bnd Zr X Y name ec = (es, ec') ⇒
   enc_rel wi es (encode_not_equal bnd Zr X Y name) ec ec'
 Proof
-  cheat
-  (*
   rw[cencode_not_equal_def,encode_not_equal_def]>>
   gvs[AllCaseEqs(),UNCURRY_EQ]
-  >- (
+  >-(
     irule enc_rel_abstr_cong>>
     simp[])>>
   pure_rewrite_tac[GSYM APPEND_ASSOC]>>
   irule enc_rel_Append>>
-  irule_at Any enc_rel_encode_ge>>
+  irule_at Any enc_rel_encode_reif_gen>>
   simp[]>>
   irule enc_rel_abstr_cong>>
-  simp[]*)
+  simp[]
 QED
 
 Definition cencode_order_cmpops_def:
@@ -734,24 +730,22 @@ Theorem cencode_order_cmpops_sem:
   cencode_order_cmpops bnd Zr cmp X Y name ec = (es, ec') ⇒
   enc_rel wi es (encode_order_cmpops bnd Zr cmp X Y) ec ec'
 Proof
-  cheat
-  (*
   rw[cencode_order_cmpops_def,encode_order_cmpops_def]>>
   gvs[AllCaseEqs(),UNCURRY_EQ]
-  >- (
+  >-(
     irule enc_rel_abstr_cong>>
     simp[])
-  >- (
+  >-(
     irule enc_rel_Append>>
-    irule_at Any enc_rel_encode_ge>>
+    irule_at Any enc_rel_encode_reif_gen>>
     simp[]>>
     irule enc_rel_abstr_cong>>
     simp[])
-  >- (
+  >-(
     irule enc_rel_Append>>
-    irule_at Any enc_rel_encode_ge>>
+    irule_at Any enc_rel_encode_reif_gen>>
     simp[]>>
-    irule enc_rel_List_mk_annotate)*)
+    irule enc_rel_List_mk_annotate)
 QED
 
 Definition cencode_negative_def:

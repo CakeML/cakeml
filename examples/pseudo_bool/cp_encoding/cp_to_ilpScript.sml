@@ -736,7 +736,7 @@ Definition cencode_reif_gen_def:
   | (Z, NotEqual, v) => cencode_full_eq bnd Z v ec
   | (Z, GreaterEqual, v) => cencode_ge bnd Z v ec
   | (Z, GreaterThan, v) => cencode_ge bnd Z (v + 1) ec
-  | (Z, LessEqal, v) => cencode_ge bnd Z (v + 1) ec
+  | (Z, LessEqual, v) => cencode_ge bnd Z (v + 1) ec
   | (Z, LessThan, v) => cencode_ge bnd Z v ec
 End
 
@@ -1043,6 +1043,16 @@ Proof
   simp[]>> first_x_assum $ irule_at Any>>
   irule enc_rel_Append>>
   metis_tac[enc_rel_encode_ge]
+QED
+
+Theorem enc_rel_encode_reif_gen:
+  valid_assignment bnd wi ∧ cencode_reif_gen bnd Zc ec = (x1,ec') ⇒
+  enc_rel wi x1 (encode_reif_gen bnd Zc) ec ec'
+Proof
+  simp[cencode_reif_gen_def]>>
+  every_case_tac>>
+  simp[encode_reif_gen_def,enc_rel_encode_ge,
+    enc_rel_encode_eq,enc_rel_encode_full_eq]
 QED
 
 Definition init_ec_def:
