@@ -820,15 +820,37 @@ Proof
      (* Can't set up induction on this *)
 QED
 
+Theorem list_rel_front:
+  ∀r l1 l2.
+    LIST_REL r l1 l2 ⇒
+    LIST_REL r (FRONT l1) (FRONT l2)
+Proof
+  cheat
+QED
+
+Theorem list_rel_env_rel:
+  ∀f env1 env2.
+    LIST_REL (v_rel f) env1 env2 ⇒
+    env_rel F f env1 env2
+Proof
+  rw [LIST_REL_def, env_rel_def]
+  >> qexistsl [‘env2’, ‘[]’]
+  >> gvs []
+QED
+
 Theorem find_code_rel:
-  ∀opt f vs vs' s s' dest args exp.
+  ∀f vs vs' s s' dest args exp.
     find_code dest vs s.code = SOME (args,exp) ∧
     LIST_REL (v_rel f) vs vs' ∧
     state_rel f s s' ⇒
     ∃args' exp'.
-      find_code dest vs' s'.code = SOME (args',exp')
+      find_code dest vs' s'.code = SOME (args',exp') ∧
+      env_rel F f args args'
 Proof
   rw []
+  >> drule LIST_REL_LENGTH
+  >> strip_tac
+  >> gvs []
   >> Cases_on ‘dest’ >> gvs [bvlSemTheory.find_code_def]
   >-
    (Cases_on ‘vs' = []’ >> gvs []
@@ -840,21 +862,23 @@ Proof
     >> Cases_on ‘lookup n s.code’ >> gvs []
     >> Cases_on ‘x’ >> gvs []
     >> rename [‘lookup n s.code = SOME (arity,exp)’]
+    >> drule list_rel_front
+    >> strip_tac
+    >> drule list_rel_env_rel
+    >> disch_then $ irule_at Any
     >> gvs [state_rel_def, code_rel_def]
     >> last_x_assum drule
     >> strip_tac
     >> Cases_on ‘compile_exp n n' arity exp’ >> gvs []
-    >- (drule LIST_REL_LENGTH >> gvs [])
-    >> Cases_on ‘x’ >> gvs []
-    >> drule LIST_REL_LENGTH >> gvs [])
+    >> Cases_on ‘x’ >> gvs [])
   >> Cases_on ‘lookup x s.code’ >> gvs []
   >> Cases_on ‘x'’ >> gvs [state_rel_def, code_rel_def]
+  >> irule_at Any list_rel_env_rel
+  >> gvs []
   >> last_x_assum drule
   >> strip_tac
   >> Cases_on ‘compile_exp x n (LENGTH args) exp’ >> gvs []
-  >- (drule LIST_REL_LENGTH >> gvs [])
   >> Cases_on ‘x'’ >> gvs []
-  >> drule LIST_REL_LENGTH >> gvs []
 QED
 
 Theorem evaluate_rewrite_tmc:
@@ -1566,7 +1590,22 @@ Proof
       (* Clock did not run out *)
       >> Cases_on ‘evaluate ([exp],args,dec_clock (ticks + 1) u)’ >> gvs []
       >> rename [‘evaluate ([exp],args,dec_clock (ticks + 1) u) = (v_exp, w)’]
-      >> cheat)
+      >> first_x_assum $ qspec_then ‘F’ mp_tac
+      >> gvs []
+      >> disch_then drule
+      >> drule state_rel_dec
+      >> disch_then drule
+      >> Cases_on ‘u.clock’ >> gvs []
+      >> disch_then $ qspec_then ‘ticks + 1’ mp_tac
+      >> gvs []
+      >> strip_tac
+      >> disch_then drule
+      >> impl_tac
+      >- (spose_not_then assume_tac >> gvs [])
+      >> strip_tac
+      >> rename [‘evaluate ([exp],args',dec_clock (ticks + 1) u') = (v_exp',w')’]
+      >> 
+        cheat)
     (* Error case *)
     >> strip_tac
     >> gvs []
