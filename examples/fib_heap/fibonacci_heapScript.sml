@@ -8,8 +8,6 @@ Libs
   wordsLib helperLib
 
 
-
-
 (*-------------------------------------------------------------------*
    Auxilary Helper Functions
  *-------------------------------------------------------------------*)
@@ -816,7 +814,7 @@ Proof
     last_assum (qspecl_then [`v''.value`, `v''.edges`] assume_tac) >>
     gvs[head_key_def,head_key_t_def] >>
     fs[fts_hd_value_def] >>
-    dxrule_all lemma_fib_heap_new_min >> simp[]
+    dxrule_all lemma_lower_eq_fts_is_min >> simp[]
   ) >>
   fs[fib_heap_shape_ok_def] >>
   simp[fts_size_def, Ntimes fib_num_def 3] >>
@@ -1461,11 +1459,14 @@ Proof
 QED
 
 
-Theorem lemma_fts_has_inj_pop:
-  !x xs. fts_has_inj (x::xs) ==> fts_has_inj xs
+
+Theorem lemma_fts_has_inj_ts:
+  !k v l xs.
+  fts_has_inj (FibTree k v l::xs) ==>
+  fts_has_inj l /\
+  fts_has_inj xs
 Proof
   rpt strip_tac >>
-  Cases_on `x` >>
   fs[fts_has_inj_def] >>
   rpt strip_tac >>
   first_x_assum(qspecl_then [`k'`,`v'`,`v''`] assume_tac) >>
@@ -1518,7 +1519,7 @@ Proof
     pop_assum mp_tac >>
     simp[Once fts_has_cases] >>
     strip_tac >> fs[] >>
-    qspecl_then [`FibTree k n l`,`xs ++ ys`] assume_tac lemma_fts_has_inj_pop >>
+    qspecl_then [`k`,`n`, `l`,`xs ++ ys`] assume_tac lemma_fts_has_inj_ts >>
     `fts_has_inj (xs ++ ys)` by res_tac >>
     `(!k v. fts_has k v xs ⇒ ¬fts_has k v ys)
      ⇒ fts_all_dist (xs ++ ys)` by res_tac >>
@@ -1801,7 +1802,7 @@ Proof
 QED
 
 
-Theorem lemma_fib_heap_new_min:
+Theorem lemma_lower_eq_fts_is_min:
   !v v' fts. v <=+ v' /\ fts_is_min v' fts ==> fts_is_min v fts
 Proof
   gen_tac >>
@@ -1826,7 +1827,7 @@ Proof
   simp[fts_hd_value_def] >>
   rpt strip_tac >>
   pop_assum kall_tac >>
-  drule_all lemma_fib_heap_new_min >> simp[]
+  drule_all lemma_lower_eq_fts_is_min >> simp[]
 QED
 
 
@@ -2063,10 +2064,10 @@ Definition fib_heap_merge_def:
       let l_a2 = m (a2 + before_off) in
       let c = (l_a2 + next_off IN dm /\ c) in
 
-      let m = ((l_a1 + next_off) =+ a2) m in
-      let m = ((a2 + before_off) =+ l_a1) m in
-      let m = ((l_a2 + next_off) =+ a1) m in
-      let m = ((a1 + before_off) =+ l_a2) m in
+      let m = m (| (l_a1 + next_off) |-> a2|) in
+      let m = m (| (a2 + before_off) |-> l_a1|) in
+      let m = m (| (l_a2 + next_off) |-> a1|) in
+      let m = m (| (a1 + before_off) |-> l_a2|) in
 
       let v_a2 = m a2 in
       let v_a1 = m a1 in
@@ -2696,81 +2697,6 @@ QED
 
 
 
-Definition fts_merge_trees_def:
-  fts_merge_trees (FibTree k1 v1 l1) (FibTree k2 v2 l2) =
-    if v1.value <=+ v2.value then
-      FibTree k1 v1 (fts_merge l1 [FibTree k2 v2 l2])
-    else
-      FibTree k2 v2 (fts_merge [FibTree k1 v1 l1] l2)
-End
-
-
-Definition fts_link_trees_def:
-  fts_link_trees (c:num) (rm, (r:num), FibTree (k:'a word) v l) =
-    if c = 0 then rm else
-    case FLOOKUP rm r of
-      SOME(k',v',l') =>
-        fts_link_trees (c-1) ((rm \\ r),(r + 1),
-          fts_merge_trees (FibTree k v l) (FibTree k' v' l'))
-     |NONE =>
-        (rm |+ (r,k,v,l))
-End
-
-(*
-Theorem fts_link_trees:
-  !c map fts k v l.
-    MEM(FibTree k v l) fts /\
-    fts_size fts < c /\
-    ?fh. fib_heap_inv_strong fh [FibTree k v l] /\
-    fts_link_trees c (map, LENGTH l, FibTree k v l) = map' ==>
-    (!k v l. FLOOKUP map' (LENGTH l) = SOME(k,v,l) ==>
-      ?fh. fib_heap_inv_strong fh [FibTree k v l])
-Proof
-  cheat
-QED
-*)
-
-
-Definition fts_link_root_list_def:
-  (fts_link_root_list (c:num) (rm, []) = rm) /\
-  (fts_link_root_list c (rm, (FibTree k v l::fts)) =
-    fts_link_root_list c (fts_link_trees c (rm, LENGTH l, FibTree k v l), fts))
-End
-
-
-(*
-Theorem fts_reb_trees:
-  !c map fts k v l.
-    fts_size fts < c /\
-    ?fh. fib_heap_inv_strong fh fts /\
-    fts_link_root_list c (map,fts) = map' ==>
-    (!k v l. FLOOKUP map' (LENGTH l) = SOME(k,v,l) ==>
-      ?fh. fib_heap_inv_strong fh [FibTree k v l])
-Proof
-  cheat
-QED
-*)
-
-
-
-Definition fts_collect_list_def:
-  (fts_collect_list (r:num) mp acc =
-    if r = 0 then
-      case FLOOKUP mp r of
-        SOME (k,v,l) => fts_merge [FibTree k v l] acc
-       |NONE => acc
-    else
-      case FLOOKUP mp r of
-        SOME (k,v,l) => fts_collect_list (r-1) mp (fts_merge [FibTree k v l] acc)
-       |NONE => fts_collect_list (r-1) mp acc)
-End
-
-
-
-Definition fts_reb_def:
-  (fts_reb n xs =
-    fts_collect_list n (fts_link_root_list n (FEMPTY, xs)) )
-End
 
 
 
@@ -2978,10 +2904,6 @@ QED
 *)
 
 
-
-(*
-  TODO: lemmas about spliting here!
-*)
 
 
 Theorem lemma_mem_eq_fts_has:
@@ -3198,27 +3120,23 @@ Proof
 QED
 
 
-Theorem lemma_fts_has_split :
-  fts_all_dist (xs ++ ys) /\
-  (∀k v e.
-    FLOOKUP fh k = SOME (v,e) ⇔
-    ∃m. fts_has k (fill_dnode v e m) (xs ++ ys)) ==>
-  ∀k v e.
-    ALOOKUP (flat_fts xs) k = SOME (v,e) ⇔
-    ∃m. fts_has k (fill_dnode v e m) xs
+
+Theorem lemma_alookup_eq_fts_has:
+  !xs k v e.
+  fts_all_dist xs ==>
+  (ALOOKUP (flat_fts xs) k = SOME (v,e) <=> ?m. fts_has k (fill_dnode v e m) xs)
 Proof
   rpt strip_tac >>
   iff_tac >> strip_tac
   >- (
-    fs[fts_has_append_thm] >>
     imp_res_tac ALOOKUP_MEM >>
     imp_res_tac lemma_mem_eq_fts_has >>
     qexists `m` >> simp[]
     ) >>
-  fs[fts_all_dist_append_thm] >>
   simp[lemma_alookup_eq_mem] >>
   imp_res_tac lemma_mem_eq_fts_has
 QED
+
 
 Theorem lemma_key_not_in_fts:
   ~MEM x (MAP FST (flat_fts xs)) ==>
@@ -3288,12 +3206,8 @@ QED
 
 
 
-(*TODO: Current Goal
- - use alist_to_fmap
- - Theorem: alistTheory.ALOOKUP_EQ_FLOOKUP
-print_find "ALOOKUP"
-*)
 Theorem lemma_fts_split:
+  !xs ys fh.
   fts_all_dist (xs ++ ys) /\
   (!k v e. FLOOKUP fh k = SOME(v,e) <=> ?m. fts_has k (fill_dnode v e m) (xs ++ ys))
   <=>
@@ -3304,13 +3218,17 @@ Theorem lemma_fts_split:
     fts_all_dist ys /\
     DISJOINT (FDOM fhx) (FDOM fhy) /\ fh = FUNION fhx fhy
 Proof
+  rpt gen_tac >>
   iff_tac
   >- (
     rpt strip_tac >>
     qexistsl [`alist_to_fmap (flat_fts xs)`,`alist_to_fmap (flat_fts ys)`] >>
     simp[lemma_alist_to_fmap_disjoint] >>
     conj_tac
-    >- (imp_res_tac lemma_fts_has_split >> simp[]) >>
+    >- (
+      fs[fts_all_dist_append_thm] >>
+      imp_res_tac lemma_alookup_eq_fts_has >> simp[]
+      ) >>
     conj_tac
     >- fs[fts_all_dist_append_thm] >>
     conj_tac
@@ -3322,7 +3240,8 @@ Proof
       pure_rewrite_tac[Once DISJ_COMM] >>
       simp[GSYM fts_has_append_thm] >>
       disch_tac >>
-      imp_res_tac lemma_fts_has_split >> simp[]
+      fs[fts_all_dist_append_thm] >>
+      imp_res_tac lemma_alookup_eq_fts_has >> simp[]
       ) >>
     conj_tac
     >- fs[fts_all_dist_append_thm] >>
@@ -3336,22 +3255,69 @@ Proof
 QED
 
 
-print_find "fts_all_dist"
-
-
 
 Theorem lemma_fib_heap_inv_strong_split:
+  !x xs fh.
   fib_heap_inv_strong fh (x::xs) ==>
-  ?fhx fhxs.
-  fib_heap_inv fhx [x]  /\ fib_heap_inv_strong fhxs xs /\
-  fh = FUNION fhx fhxs /\ DISJOINT (FDOM fhx) (FDOM fhxs)
+  ?fh1 fh2.
+  fib_heap_inv_strong fh1 [x]  /\ fib_heap_inv_strong fh2 xs /\
+  fh = FUNION fh1 fh2 /\ DISJOINT (FDOM fh1) (FDOM fh2)
 Proof
+  rpt gen_tac >>
   simp[fib_heap_inv_strong_def] >>
   rpt strip_tac >>
-
-
-  cheat
+  qpat_x_assum `fts_all_dist(x::xs)` mp_tac >>
+  pure_rewrite_tac[Once lemma_cons_eq_append] >>
+  disch_tac >>
+  qpat_x_assum `∀k v e. FLOOKUP fh k = SOME (v,e) ⇔
+    ∃m. fts_has k (fill_dnode v e m) (x::xs)` mp_tac >>
+  pure_rewrite_tac[Once lemma_cons_eq_append] >>
+  disch_tac >>
+  qspecl_then [`[x]`,`xs`,`fh`] assume_tac lemma_fts_split >>
+  gvs[] >>
+  rename [`DISJOINT (FDOM fh1) (FDOM fh2)`] >>
+  qexistsl [`fh1`,`fh2`] >>
+  simp[] >>
+  rpt conj_tac
+  >- (Cases_on `FLOOKUP fh1 0w`>> fs[FLOOKUP_SIMP])
+  >- (Cases_on `x` >> fs[Once every_fts_def, fts_parent_lower_eq_def])
+  >- (Cases_on `x` >> fs[fib_heap_shape_ok_def])
+  >- (
+    imp_res_tac lemma_flookup_funion_comm >>
+    Cases_on `FLOOKUP fh2 0w` >> fs[FLOOKUP_SIMP] >>
+    first_x_assum(qspec_then `0w` assume_tac) >> rfs[]
+    )
+  >- (
+    Cases_on `x` >> fs[Once every_fts_def, fts_parent_lower_eq_def] >>
+    rpt strip_tac >> res_tac
+    ) >>
+  Cases_on `x` >> fs[fib_heap_shape_ok_def]
 QED
+
+
+Theorem lemma_fib_heap_union_split:
+  fib_heap_inv_union fh ((fh_xys,[x] ++ ys)::rest) ==>
+    ?fh1 fh2. fib_heap_inv_union fh ((fh1,[x])::(fh2,ys)::rest)
+Proof
+  fs[fib_heap_inv_union_def] >>
+  rpt strip_tac >>
+  drule lemma_fib_heap_inv_strong_split >>
+  strip_tac >> gvs[] >>
+  qexistsl [`fh1`,`fh2`] >>
+  fs[all_disjoint_def,fh_union_def] >>
+  fs[FUNION_ASSOC] >>
+  fs[EVERY_MEM,FORALL_PROD] >>
+  metis_tac[]
+QED
+
+
+
+
+(*
+Invariant conversions!
+*)
+
+
 
 Theorem lemma_inv_imp_inv_strong:
   fib_heap_inv fh xs ==> fib_heap_inv_strong fh xs
@@ -3360,22 +3326,25 @@ Proof
 QED
 
 
-
-Theorem lemma_fib_heap_union_split:
-  fib_heap_inv_union fh ((fh_xy,[x] ++ ys)::rest) ==>
-    ?fhx fhy. fib_heap_inv_union fh ((fhx,[x])::(fhy,ys)::rest)
+Theorem lemma_inv_strong_imp_inv:
+  fib_heap_inv_strong fh [x] ==> fib_heap_inv fh [x]
 Proof
-  fs[fib_heap_inv_union_def] >>
+  Cases_on `x` >> fs[fib_heap_inv_strong_def, fib_heap_inv_def] >>
   rpt strip_tac >>
-  drule lemma_fib_heap_inv_strong_split >>
-  strip_tac >> gvs[] >>
-  qexistsl [`fhx`,`fhxs`] >>
-  fs[all_disjoint_def,fh_union_def] >>
-  fs[FUNION_ASSOC] >>
-  imp_res_tac lemma_inv_imp_inv_strong >> simp[] >>
-  fs[EVERY_MEM,FORALL_PROD] >>
-  metis_tac[]
+  simp[fts_is_min_def] >>
+  fs[Once every_fts_def,fts_parent_lower_eq_def] >>
+  simp[fts_hd_value_def]
 QED
+
+Theorem lemma_strong_inv_imp_inv_union:
+  fib_heap_inv_strong fh xs ==> fib_heap_inv_union fh [(fh,xs)]
+Proof
+  strip_tac >>
+  fs[fib_heap_inv_strong_def,fib_heap_inv_union_def] >>
+  simp[all_disjoint_def,fh_union_def]
+QED
+
+
 (*
   first_x_assum $ irule_at $ Pos hd >>
   first_x_assum $ irule_at $ Pos hd >>
@@ -3447,6 +3416,306 @@ Proof
 QED
 
 
+(*-------------------------------------------------------------------
+ Rebalancing of Trees
+-------------------------------------------------------------------*)
+
+
+
+
+Definition fts_merge_trees_def:
+  fts_merge_trees (FibTree k1 v1 l1) (FibTree k2 v2 l2) =
+    if v1.value <=+ v2.value then
+      FibTree k1 v1 (fts_merge l1 [FibTree k2 v2 l2])
+    else
+      FibTree k2 v2 (fts_merge [FibTree k1 v1 l1] l2)
+End
+
+
+Theorem lemma_alookup_in_disjoint:
+  fts_all_dist (FibTree k3 v3 l::t) /\
+  fts_all_dist [FibTree k' v' ys] /\
+  DISJOINT (FDOM fh1) (FDOM fh2) /\
+  (∀k' v' e.
+    FLOOKUP fh1 k' = SOME (v',e) ⇔
+    ∃m. fts_has k' (fill_dnode v' e m) [FibTree k v (FibTree k3 v3 l::t)]) /\
+  (∀k v e.
+    FLOOKUP fh2 k = SOME (v,e) ⇔
+    ∃m. fts_has k (fill_dnode v e m) [FibTree k' v' ys]) /\
+  fts_has k'' (fill_dnode v'' e m) [FibTree k' v' ys] /\
+  ALOOKUP (flat_fts (FibTree k3 v3 l::t)) k'' = SOME x ==>
+  F
+Proof
+  strip_tac >>
+  res_tac >> pop_assum mp_tac >>
+  pure_rewrite_tac[flookup_thm] >>
+  strip_tac >>
+  fs[pred_setTheory.DISJOINT_ALT] >>
+  fs[Once MONO_NOT_EQ] >>
+  last_x_assum (qspec_then `k''` assume_tac) >> rfs[] >>
+  Cases_on `x` >>
+  last_x_assum (qspecl_then [`k''`,`q`,`r`] assume_tac) >> fs[] >>
+  rfs[FLOOKUP_DEF] >>
+  `fts_all_dist (FibTree k3 v3 l::t)` by fs[fts_all_dist_def] >>
+  pop_assum mp_tac >> pure_rewrite_tac[Once fts_has_cases] >>
+  strip_tac >> fs[] >>
+  imp_res_tac lemma_alookup_eq_fts_has >>
+  first_x_assum (qspec_then `m'''` assume_tac) >> fs[]
+QED
+
+
+
+
+Theorem lemma_fts_has_merge_trees:
+  !xs ys fh1 fh2 k v k' v'.
+  fts_all_dist [FibTree k v xs] /\
+  fts_all_dist [FibTree k' v' ys] /\
+  DISJOINT (FDOM fh1) (FDOM fh2) /\
+  (∀k' v' e.
+    FLOOKUP fh1 k' = SOME (v',e) ⇔
+    ∃m. fts_has k' (fill_dnode v' e m) [FibTree k v xs]) /\
+  (∀k v e.
+    FLOOKUP fh2 k = SOME (v,e) ⇔
+    ∃m. fts_has k (fill_dnode v e m) [FibTree k' v' ys]) ==>
+  ∀k'' v'' e.
+    FLOOKUP (alist_to_fmap (flat_fts xs) ⊌ fh2) k'' = SOME (v'',e) ⇔
+    ∃m. fts_has k'' (fill_dnode v'' e m)  (fts_merge xs [FibTree k' v' ys])
+Proof
+  rpt strip_tac >>
+  Cases_on `xs`
+  >- (
+    simp[fts_merge_def] >>
+    iff_tac
+    >- (
+      fs[FLOOKUP_SIMP] >>
+      CASE_TAC
+      >- (
+        strip_tac >> rfs[] >>
+        qexists `m` >> simp[Once fts_has_cases]
+        ) >>
+      fs[flat_fts_def]
+      ) >>
+    strip_tac >>
+    simp[flat_fts_def] >>
+    qexists `m` >> simp[]
+    ) >>
+  Cases_on `h` >>
+  rename [`[FibTree k v (FibTree k3 v3 l::t)]`] >>
+  simp[fts_merge_def] >>
+  iff_tac
+  >- (
+    fs[FLOOKUP_SIMP] >>
+    CASE_TAC >> strip_tac >> gvs[]
+    >- (
+      qexists `m` >>
+      IF_CASES_TAC
+      >- (pure_rewrite_tac[Once (GSYM APPEND)] >> simp[fts_has_append_thm]) >>
+      fs[Once fts_has_cases] >>
+      fs[Once fts_has_cases]
+      ) >>
+    `fts_all_dist (FibTree k3 v3 l::t)` by fs[fts_all_dist_def] >>
+    imp_res_tac lemma_alookup_eq_fts_has >>
+    qexists `m'` >>
+    qpat_x_assum `fts_has k'' (fill_dnode v'' e m') (FibTree k3 v3 l::t)` mp_tac >>
+    IF_CASES_TAC >> once_rewrite_tac[GSYM APPEND]  >> simp[fts_has_append_thm]
+    >- simp[Once fts_has_cases] >>
+    simp[Once fts_has_cases] >>
+    disch_tac >> simp[Once fts_has_cases] >>
+    once_rewrite_tac[lemma_cons_eq_append] >>
+    simp[fts_has_append_thm]
+    ) >>
+  `fts_all_dist (FibTree k3 v3 l::t)` by fs[fts_all_dist_def] >>
+  IF_CASES_TAC
+  >- (
+    once_rewrite_tac[GSYM APPEND] >>
+    simp[fts_has_append_thm] >>
+    strip_tac
+    >- (
+      simp[FLOOKUP_SIMP] >>
+      CASE_TAC >> imp_res_tac lemma_alookup_eq_fts_has >> gvs[]
+      ) >>
+    simp[FLOOKUP_SIMP] >>
+    CASE_TAC
+    >- res_tac >>
+    imp_res_tac lemma_alookup_in_disjoint
+    ) >>
+  once_rewrite_tac[lemma_cons_eq_append] >>
+  simp[fts_has_append_thm] >>
+  strip_tac
+  >- (
+    res_tac >> simp[FLOOKUP_SIMP] >>
+    CASE_TAC >>
+    imp_res_tac lemma_alookup_in_disjoint
+    ) >>
+  simp[FLOOKUP_SIMP] >>
+  CASE_TAC
+  >- (
+    qspecl_then [`(FibTree k3 v3 l::t)`,`k''`,`v''`,`e`]
+      assume_tac lemma_alookup_eq_fts_has >>
+    res_tac >> gvs[]
+    ) >>
+  Cases_on `x` >> gvs[] >>
+  `fts_has_inj (FibTree k3 v3 l::t)` by fs[fts_all_dist_def] >>
+  qspecl_then [`(FibTree k3 v3 l::t)`,`k''`,`q`,`r`]
+    assume_tac lemma_alookup_eq_fts_has >>
+  rfs[fts_has_inj_def] >>
+  res_tac >>
+  fs[fill_dnode_def,data_node_component_equality]
+QED
+
+
+
+
+
+Theorem logical_fts_merge_trees:
+  !xs ys fh1 fh2.
+  fib_heap_inv fh1 [FibTree k v xs] /\
+  fib_heap_inv fh2 [FibTree k' v' ys] /\
+  DISJOINT (FDOM fh1) (FDOM fh2) /\
+  v.value <=+ v'.value ==>
+  ?fh. fib_heap_inv fh [FibTree k v (fts_merge xs [FibTree k' v' ys])]
+Proof
+  rpt strip_tac >>
+  Cases_on `xs`
+  >- (
+    simp[fts_merge_def] >>
+    fs[fib_heap_inv_def] >>
+    fs[fts_is_min_def,fts_hd_value_def] >>
+    imp_res_tac lemma_lower_eq_fts_is_min >> simp[] >>
+    qexists `FUNION fh1 fh2` >>
+    rpt conj_tac
+    >- (
+      strip_tac >>
+      simp[FLOOKUP_SIMP] >>
+      CASE_TAC >> simp[FLOOKUP_SIMP] >>
+      first_x_assum (qspec_then `x` assume_tac) >> fs[]
+      )
+    >- (
+      rpt gen_tac >>
+      qspecl_then [`[]`,`ys`,`fh1`,`fh2`,`k`,`v`,`k'`,`v'`]
+        assume_tac lemma_fts_has_merge_trees >>
+      rfs[]
+
+      simp[Once fts_has_cases] >>
+
+
+      iff_tac >>
+
+QED
+
+
+
+
+Theorem fts_merge_trees:
+  fib_heap_inv fh1 [t1] /\
+  fib_heap_inv fh2 [t2] /\
+  DISJOINT (FDOM fh1) (FDOM fh2) /\
+  fts_merge_trees t1 t2 = t ==>
+  ?fh. fib_heap_inv fh [t]
+Proof
+  strip_tac >>
+  Cases_on `t1` >> Cases_on `t2` >>
+  pop_assum mp_tac >>
+  simp[fts_merge_trees_def] >>
+  IF_CASES_TAC >> strip_tac >> gvs[]
+  >- (
+    Cases_on `l`
+    >- (
+      simp[fts_merge_def] >>
+      fs[fts_is_min_def,fts_hd_value_def] >>
+      fs[
+
+print_match [] “fts_is_min”
+
+      fs[fib_heap_shape_ok_def]
+    >-
+
+
+QED
+
+print_find "merge"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Definition fts_link_trees_def:
+  fts_link_trees (c:num) (rm, (r:num), FibTree (k:'a word) v l) =
+    if c = 0 then rm else
+    case FLOOKUP rm r of
+      SOME(k',v',l') =>
+        fts_link_trees (c-1) ((rm \\ r),(r + 1),
+          fts_merge_trees (FibTree k v l) (FibTree k' v' l'))
+     |NONE =>
+        (rm |+ (r,k,v,l))
+End
+
+(*
+Theorem fts_link_trees:
+  !c map fts k v l.
+    MEM(FibTree k v l) fts /\
+    fts_size fts < c /\
+    ?fh. fib_heap_inv_strong fh [FibTree k v l] /\
+    fts_link_trees c (map, LENGTH l, FibTree k v l) = map' ==>
+    (!k v l. FLOOKUP map' (LENGTH l) = SOME(k,v,l) ==>
+      ?fh. fib_heap_inv_strong fh [FibTree k v l])
+Proof
+  cheat
+QED
+*)
+
+
+Definition fts_link_root_list_def:
+  (fts_link_root_list (c:num) (rm, []) = rm) /\
+  (fts_link_root_list c (rm, (FibTree k v l::fts)) =
+    fts_link_root_list c (fts_link_trees c (rm, LENGTH l, FibTree k v l), fts))
+End
+
+
+(*
+Theorem fts_reb_trees:
+  !c map fts k v l.
+    fts_size fts < c /\
+    ?fh. fib_heap_inv_strong fh fts /\
+    fts_link_root_list c (map,fts) = map' ==>
+    (!k v l. FLOOKUP map' (LENGTH l) = SOME(k,v,l) ==>
+      ?fh. fib_heap_inv_strong fh [FibTree k v l])
+Proof
+  cheat
+QED
+*)
+
+
+
+Definition fts_collect_list_def:
+  (fts_collect_list (r:num) mp acc =
+    if r = 0 then
+      case FLOOKUP mp r of
+        SOME (k,v,l) => fts_merge [FibTree k v l] acc
+       |NONE => acc
+    else
+      case FLOOKUP mp r of
+        SOME (k,v,l) => fts_collect_list (r-1) mp (fts_merge [FibTree k v l] acc)
+       |NONE => fts_collect_list (r-1) mp acc)
+End
+
+
+
+Definition fts_reb_def:
+  (fts_reb n xs =
+    fts_collect_list n (fts_link_root_list n (FEMPTY, xs)) )
+End
 
 (*
 
@@ -3512,7 +3781,7 @@ Proof
 
 QED
 
-
+(*
 Theorem lemma_flookup_list_append_update:
   !x xs ys fh.
     FLOOKUP (fh |++ (x::(xs ++ ys))) = FLOOKUP (fh |+ x |++ xs |++ ys)
@@ -3569,7 +3838,7 @@ Proof
   fs[FORALL_AND_THM] >>
   simp[FLOOKUP_SIMP]
 QED
-
+*)
 
 (*
 Theorem lemma_map_extract_head:
