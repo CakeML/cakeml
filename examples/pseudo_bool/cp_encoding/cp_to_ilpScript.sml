@@ -190,6 +190,16 @@ Definition reify_avar_def:
   | INR nflag => reify_flag cs wi nflag
 End
 
+Theorem lit_reify_avar_reif_gen:
+  lit (reify_avar cs wi) (reif_gen (Z,cmp,v)) ⇔
+    cmpop_val cmp (varc wi Z) v
+Proof
+  simp[reif_gen_def]>>
+  every_case_tac>>
+  simp[reify_avar_def,reify_reif_def,cmpop_val_def]>>
+  intLib.ARITH_TAC
+QED
+
 (***
   Helper encoding functions
 ***)

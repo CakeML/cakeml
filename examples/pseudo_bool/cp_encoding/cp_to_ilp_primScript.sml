@@ -46,16 +46,6 @@ Definition encode_equal_def:
     abstr (cencode_equal_2 bnd Zc X Y name)
 End
 
-Theorem lit_reify_avar_reif_gen:
-  lit (reify_avar cs wi) (reif_gen (Z,cmp,v)) ⇔
-    cmpop_val cmp (varc wi Z) v
-Proof
-  simp[reif_gen_def]>>
-  every_case_tac>>
-  simp[reify_avar_def,reify_reif_def,cmpop_val_def]>>
-  intLib.ARITH_TAC
-QED
-
 Theorem encode_equal_sem_1:
   valid_assignment bnd wi ∧
   ALOOKUP cs name = SOME (Prim (Cmpop reif cmp X Y)) ∧
@@ -94,16 +84,10 @@ Proof
     ntac 2 (first_x_assum drule)>>
     intLib.ARITH_TAC)
   >-(
-    gs[EVERY_APPEND,encode_reif_gen_sem]
-    >-(
-      rename1 ‘P ⇔ _’>>
-      Cases_on ‘P’>>
-      intLib.ARITH_TAC)
-    >-(
-      rename1 ‘P ⇔ _’>>
-      Cases_on ‘P’>>
-      intLib.ARITH_TAC)
-    >-intLib.ARITH_TAC)
+    gs[EVERY_APPEND,encode_reif_gen_sem]>>
+    rename1 ‘P ⇔ _’>>
+    Cases_on ‘P’>>
+    intLib.ARITH_TAC)
 QED
 
 Definition cencode_not_equal_1_def[simp]:
@@ -190,16 +174,10 @@ Proof
     strip_tac>>
     intLib.ARITH_TAC)
   >-(
-    gs[EVERY_APPEND,encode_reif_gen_sem]
-    >-(
-      rename1 ‘P ⇔ _’>>
-      Cases_on ‘P’>>
-      intLib.ARITH_TAC)
-    >-(
-      rename1 ‘P ⇔ _’>>
-      Cases_on ‘P’>>
-      intLib.ARITH_TAC)
-    >-intLib.ARITH_TAC)
+    gs[EVERY_APPEND,encode_reif_gen_sem]>>
+    rename1 ‘P ⇔ _’>>
+    Cases_on ‘P’>>
+    intLib.ARITH_TAC)
 QED
 
 (* this encompasses ≥, >, ≤, < *)
