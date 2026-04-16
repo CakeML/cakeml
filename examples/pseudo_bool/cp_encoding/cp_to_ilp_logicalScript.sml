@@ -32,8 +32,8 @@ Proof
   rw[encode_and_def,encode_and_aux_def,and_sem_def,reify_sem_def]
   >-simp[EVERY_FLAT,EVERY_MAP,reify_avar_def,reify_reif_def]
   >-simp[reify_avar_def,reify_reif_def]>>
-  simp[iconstraint_sem_def,reify_avar_def,reify_reif_def,
-    eval_lin_term_def,MAP_MAP_o,o_ABS_R]>>
+  gs[iconstraint_sem_def,reify_avar_def,reify_reif_def,
+    eval_lin_term_def,MAP_MAP_o,o_ABS_R,cmpop_val_def]>>
   pop_assum mp_tac>>
   pure_rewrite_tac[intLib.ARITH_PROVE “(v:int) > 0 ⇔ v ≥ 1”]>>
   qmatch_goalsub_abbrev_tac ‘-b * c + a ≥ 0’>>
@@ -41,7 +41,7 @@ Proof
   ‘a ≥ b * c’ suffices_by intLib.ARITH_TAC>>
   unabbrev_all_tac>>
   Cases_on ‘varc wi Y ≥ 1’>>
-  gs[EVERY_MEM,EXISTS_MEM]
+  gs[EVERY_MEM,EXISTS_MEM,cmpop_val_def]
   >~[‘∃X. MEM X _ ∧ ¬(varc _ X ≥ _)’]
   >-metis_tac[]>>
   irule pbc_encodeTheory.iSUM_ge_0>>
@@ -58,7 +58,7 @@ Proof
   qmatch_asmsub_abbrev_tac ‘EVERY P (MAP _ _)’>>
   fs[EVERY_MAP,EVERY_MEM]>>
   gs[Abbr‘P’,iconstraint_sem_def,eval_lin_term_def,MAP_MAP_o,o_ABS_R]>>
-  simp[intLib.ARITH_PROVE “(v:int) > 0 ⇔ v ≥ 1”]>>
+  simp[intLib.ARITH_PROVE “(v:int) > 0 ⇔ v ≥ 1”,cmpop_val_def]>>
   Cases_on ‘varc wi Y ≥ 1’>>
   gvs[]>>
   qmatch_asmsub_abbrev_tac ‘-b + a ≥ 0’>>
@@ -139,7 +139,7 @@ Theorem encode_or_sem_1:
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
     (encode_or bnd Xs Y)
 Proof
-  rw[encode_or_def,encode_or_aux_def,or_sem_def,reify_sem_def]
+  rw[encode_or_def,encode_or_aux_def,or_sem_def,reify_sem_def,cmpop_val_def]
   >-simp[EVERY_FLAT,EVERY_MAP,reify_avar_def,reify_reif_def]
   >-simp[reify_avar_def,reify_reif_def]>>
   simp[iconstraint_sem_def,reify_avar_def,reify_reif_def,
@@ -166,7 +166,7 @@ Theorem encode_or_sem_2:
     (encode_or bnd Xs Y) ⇒
   or_sem Xs Y wi
 Proof
-  rw[encode_or_def,encode_or_aux_def,or_sem_def,reify_sem_def,EVERY_FLAT]>>
+  rw[encode_or_def,encode_or_aux_def,or_sem_def,reify_sem_def,EVERY_FLAT,cmpop_val_def]>>
   qmatch_asmsub_abbrev_tac ‘EVERY P (MAP _ _)’>>
   fs[EVERY_MAP,EVERY_MEM]>>
   gs[Abbr‘P’,iconstraint_sem_def,eval_lin_term_def,MAP_MAP_o,o_ABS_R]>>

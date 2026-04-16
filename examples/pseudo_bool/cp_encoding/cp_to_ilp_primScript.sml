@@ -64,12 +64,13 @@ Theorem encode_equal_sem_1:
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
     (encode_equal bnd Zr X Y name)
 Proof
-  rw[reify_sem_def,encode_equal_def]>>
-  gvs[AllCasePreds()]
+  rw[encode_equal_def]>>
+  every_case_tac>>
+  fs[reify_sem_def]>>
+  every_case_tac
   >-intLib.ARITH_TAC>>
-  rpt CONJ_TAC>>
-  rw[reify_avar_def,reify_reif_def,reify_flag_def,
-    lit_reify_avar_reif_gen,SF DNF_ss,encode_reif_gen_sem]>>
+  rw[encode_reif_gen_sem,lit_reify_avar_reif_gen,
+    reify_avar_def,reify_reif_def,reify_flag_def,SF DNF_ss]>>
   intLib.ARITH_TAC
 QED
 
@@ -80,10 +81,29 @@ Theorem encode_equal_sem_2:
   reify_sem Zr wi
     (varc wi X = varc wi Y)
 Proof
-  rw[reify_sem_def,encode_equal_def,cmpop_val_def]>>
+  rw[encode_equal_def]>>
   every_case_tac>>
-  gvs[cmpop_val_def,reif_gen_def,encode_reif_gen_sem]>>
-  intLib.ARITH_TAC
+  simp[reify_sem_def]>>
+  every_case_tac
+  >-(
+    gs[EVERY_APPEND]>>
+    intLib.ARITH_TAC)
+  >-(
+    gs[EVERY_APPEND,encode_reif_gen_sem]>>
+    strip_tac>>
+    ntac 2 (first_x_assum drule)>>
+    intLib.ARITH_TAC)
+  >-(
+    gs[EVERY_APPEND,encode_reif_gen_sem]
+    >-(
+      rename1 ‘P ⇔ _’>>
+      Cases_on ‘P’>>
+      intLib.ARITH_TAC)
+    >-(
+      rename1 ‘P ⇔ _’>>
+      Cases_on ‘P’>>
+      intLib.ARITH_TAC)
+    >-intLib.ARITH_TAC)
 QED
 
 Definition cencode_not_equal_1_def[simp]:
@@ -135,24 +155,17 @@ Theorem encode_not_equal_sem_1:
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
     (encode_not_equal bnd Zr X Y name)
 Proof
-  rw[reify_sem_def,encode_not_equal_def]>>
-  gvs[reify_avar_def,reify_reif_def,reify_flag_def,
-    lit_reify_avar_reif_gen,AllCasePreds(),SF DNF_ss]
+  rw[encode_not_equal_def]>>
+  every_case_tac>>
+  fs[reify_sem_def,reify_avar_def,reify_flag_def]>>
+  every_case_tac
   >-intLib.ARITH_TAC>>
-  simp[CONJ_ASSOC,encode_reif_gen_sem]>>
-  qmatch_goalsub_abbrev_tac ‘(P ∧ Q1) ∨ (P ∧ Q2) ∨ (P ∧ Q3)’>>
-  ‘P ∧ (Q1 ∨ Q2 ∨ Q3)’ suffices_by simp[]>>
-  unabbrev_all_tac>>
-  CONJ_TAC
-  >~[‘¬cmpop_val _ _ _’]
+  rw[encode_reif_gen_sem,lit_reify_avar_reif_gen,
+     reify_avar_def,reify_reif_def,reify_flag_def,SF DNF_ss]
+  >~[‘_ ∨ _ ∨ ¬P’]
   >-(
-    rename1 ‘_ ∨ _ ∨ ¬P’>>
     Cases_on ‘P’>>
-    simp[]>>
     intLib.ARITH_TAC)>>
-  rename1 ‘cmpop_val cmp' _ _’>>
-  Cases_on ‘cmp'’>>
-  gvs[cmpop_val_def,reify_avar_def,reify_reif_def,reify_flag_def,reif_gen_def]>>
   intLib.ARITH_TAC
 QED
 
@@ -164,28 +177,29 @@ Theorem encode_not_equal_sem_2:
     (varc wi X ≠ varc wi Y)
 Proof
   rw[encode_not_equal_def]>>
+  every_case_tac>>
+  simp[reify_sem_def]>>
   every_case_tac
   >-(
-    gvs[EVERY_APPEND,reify_sem_def]>>
-    qmatch_asmsub_abbrev_tac ‘¬P’>>
+    gs[EVERY_APPEND]>>
+    rename1 ‘¬P ⇒ _’>>
     Cases_on ‘P’>>
-    gs[]>>
     intLib.ARITH_TAC)
   >-(
-    gvs[EVERY_APPEND,reify_sem_def]>>
-    every_case_tac>>
+    gs[EVERY_APPEND,encode_reif_gen_sem]>>
     strip_tac>>
-    rfs[encode_reif_gen_sem]>>
     intLib.ARITH_TAC)
   >-(
-    gvs[EVERY_APPEND,reify_sem_def]>>
-    every_case_tac>>
-    rw[]>>
-    rfs[encode_reif_gen_sem]>>
-    qmatch_asmsub_abbrev_tac ‘¬P’>>
-    Cases_on ‘P’>>
-    gs[]>>
-    intLib.ARITH_TAC)
+    gs[EVERY_APPEND,encode_reif_gen_sem]
+    >-(
+      rename1 ‘P ⇔ _’>>
+      Cases_on ‘P’>>
+      intLib.ARITH_TAC)
+    >-(
+      rename1 ‘P ⇔ _’>>
+      Cases_on ‘P’>>
+      intLib.ARITH_TAC)
+    >-intLib.ARITH_TAC)
 QED
 
 (* this encompasses ≥, >, ≤, < *)
@@ -213,17 +227,6 @@ Definition encode_order_cmpops_def:
       bimply_bits bnd [reif_gen Zc] constr
 End
 
-Theorem encode_reif_gen_reify_avar:
-    valid_assignment bnd wi ⇒
-    EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi)) (encode_reif_gen bnd (Z,cmp,v))
-Proof
-  rw[]>>
-  simp[encode_reif_gen_sem]>>
-  simp[reify_avar_def,reify_reif_def,reif_gen_def]>>
-  Cases_on ‘cmp’>>
-  simp[reify_avar_def,reify_reif_def,cmpop_val_def]>>
-  intLib.ARITH_TAC
-QED
 
 Theorem encode_cmp_aux_cmpop_val:
   cmp ≠ Equal ∧
@@ -234,16 +237,6 @@ Proof
   rw[cmpop_val_def,encode_cmp_aux_def]>>
   every_case_tac>>
   fs[]>>
-  intLib.ARITH_TAC
-QED
-
-Theorem cmpop_val_reif_gen:
-  cmpop_val z1 (varc wi z0) z2 ⇔
-    lit (reify_avar cs wi) (reif_gen (z0,z1,z2))
-Proof
-  simp[cmpop_val_def,reif_gen_def]>>
-  every_case_tac>>
-  simp[reify_avar_def,reify_reif_def]>>
   intLib.ARITH_TAC
 QED
 
@@ -262,20 +255,10 @@ Proof
     intLib.ARITH_TAC)>>
   rename1 ‘reif_gen z’>>
   PairCases_on ‘z’>>
-  simp[EVERY_APPEND,encode_reif_gen_reify_avar]>>
+  simp[EVERY_APPEND,reify_avar_def,reify_reif_def,
+    encode_reif_gen_sem,lit_reify_avar_reif_gen]>>
   simp[encode_cmp_aux_cmpop_val]>>
-  fs[reify_sem_def]>>
-  pop_assum mp_tac
-  >-(
-    qmatch_goalsub_abbrev_tac ‘(P ⇒ _) ⇒ (Q ⇒ _)’>>
-    ‘P ⇔ Q’ suffices_by simp[]>>
-    unabbrev_all_tac>>
-    simp[cmpop_val_reif_gen])
-  >-(
-    qmatch_goalsub_abbrev_tac ‘(P ⇔ _) ⇒ (_ ⇔ Q)’>>
-    ‘P ⇔ Q’ suffices_by simp[]>>
-    unabbrev_all_tac>>
-    simp[cmpop_val_reif_gen])
+  fs[reify_sem_def]
 QED
 
 Theorem encode_order_cmpops_sem_2:
