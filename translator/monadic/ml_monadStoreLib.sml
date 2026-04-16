@@ -511,7 +511,7 @@ fun create_store_X_hprop refs_manip_list
     fun mk_hprop_type n t = if n = 0 then t else mk_type("fun", [v_ty, mk_hprop_type (n-1) t])
     val store_hprop_type = mk_hprop_type num_vars store_hprop_type
 
-    val free_type_vars = type_vars store_hprop_type
+    val free_type_vars = List.rev (type_vars store_hprop_type)
     val tyvars_ref_invs = List.map get_type_inv free_type_vars
 
     fun mk_fun_type [] ret_ty = ret_ty

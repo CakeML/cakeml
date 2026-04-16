@@ -5,6 +5,7 @@ Runtime.debugMsg: string -> unit
 Runtime.exit: int -> unit
 Runtime.abort: unit -> unit
 Runtime.assert: bool -> string -> unit
+Runtime.customFFI: string -> byte_array -> unit
 Option.getOpt: 'a option -> 'a -> 'a
 Option.isSome: 'a option -> bool
 Option.valOf: 'a option -> 'a
@@ -373,7 +374,8 @@ TextIO.closeIn: TextIO.instream -> unit
 TextIO.input: TextIO.instream -> byte_array -> int -> int -> int
 TextIO.peekChar: TextIO.instream -> char option
 TextIO.input1: TextIO.instream -> char option
-TextIO.inputLine: char -> TextIO.instream -> string option
+TextIO.inputLineWith: char -> TextIO.instream -> string option
+TextIO.inputLine: TextIO.instream -> string option
 TextIO.inputLineTokens: char -> TextIO.instream -> (char -> bool) -> (string -> 'a) -> 'a list option
 TextIO.inputLines: char -> TextIO.instream -> string list
 TextIO.inputLinesFile: char -> string -> string list option
@@ -453,3 +455,4 @@ print: string -> unit
 print_app_list: string app_list -> unit
 print_int: int -> unit
 print_pp: PrettyPrinter.pp_data -> unit
+
