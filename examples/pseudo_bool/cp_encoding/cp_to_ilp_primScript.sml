@@ -191,6 +191,18 @@ Definition encode_cmp_aux_def:
   | _            => false_constr
 End
 
+Theorem encode_cmp_aux_cmpop_val:
+  cmp ≠ Equal ∧
+  cmp ≠ NotEqual ⇒
+  (iconstraint_sem (encode_cmp_aux cmp X Y) (wi,wb) ⇔
+  cmpop_val cmp (varc wi X) (varc wi Y))
+Proof
+  rw[cmpop_val_def,encode_cmp_aux_def]>>
+  every_case_tac>>
+  fs[]>>
+  intLib.ARITH_TAC
+QED
+
 Definition encode_order_cmpops_def:
   encode_order_cmpops bnd Zr cmp X Y =
   let constr = encode_cmp_aux cmp X Y
@@ -204,19 +216,6 @@ Definition encode_order_cmpops_def:
       encode_reif_gen bnd Zc ++
       bimply_bits bnd [reif_gen Zc] constr
 End
-
-
-Theorem encode_cmp_aux_cmpop_val:
-  cmp ≠ Equal ∧
-  cmp ≠ NotEqual ⇒
-  (iconstraint_sem (encode_cmp_aux cmp X Y) (wi,wb) ⇔
-  cmpop_val cmp (varc wi X) (varc wi Y))
-Proof
-  rw[cmpop_val_def,encode_cmp_aux_def]>>
-  every_case_tac>>
-  fs[]>>
-  intLib.ARITH_TAC
-QED
 
 Theorem encode_order_cmpops_sem_1:
   valid_assignment bnd wi ∧ cmp ≠ Equal ∧ cmp ≠ NotEqual ∧
@@ -246,13 +245,13 @@ Theorem encode_order_cmpops_sem_2:
   reify_sem Zr wi (cmpop_val cmp (varc wi X) (varc wi Y))
 Proof
   rw[encode_order_cmpops_def]>>
-  every_case_tac
+  every_case_tac>>
+  simp[reify_sem_def]
   >-(
-    fs[reify_sem_def,encode_cmp_aux_def,cmpop_val_def]>>
+    fs[encode_cmp_aux_def,cmpop_val_def]>>
     every_case_tac>>
     fs[iconstraint_sem_def]>>
     intLib.ARITH_TAC)>>
-  simp[reify_sem_def]>>
   every_case_tac>>
   gvs[EVERY_APPEND,encode_reif_gen_sem]>>
   metis_tac[encode_cmp_aux_cmpop_val]
