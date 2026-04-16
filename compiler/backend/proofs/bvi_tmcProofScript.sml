@@ -1604,7 +1604,16 @@ Proof
       >- (spose_not_then assume_tac >> gvs [])
       >> strip_tac
       >> rename [‘evaluate ([exp],args',dec_clock (ticks + 1) u') = (v_exp',w')’]
-      >> 
+      (* Now I think we need to know something about exp' *)
+      >> Cases_on ‘evaluate ([exp'],args',dec_clock (ticks + 1) u')’ >> gvs []
+      >> Cases_on ‘q’ >> gvs []
+      >-
+       (Cases_on ‘v_exp’ >> gvs []
+        >-
+         (rename [‘LIST_REL (v_rel f'³') v_exp v_exp'’]
+          >> cheat)
+        >> cheat)
+      >>
         cheat)
     (* Error case *)
     >> strip_tac
