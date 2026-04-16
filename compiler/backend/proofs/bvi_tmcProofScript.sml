@@ -587,6 +587,20 @@ Proof
   >> gvs [SUBSET_DEF]
 QED
 
+Theorem only_fresh_submap:
+  ∀f f' f'' refs.
+    only_fresh f f'' refs ∧
+    f' ⊑ f'' ⇒
+    only_fresh f f' refs
+Proof
+  rw [only_fresh_def]
+  >> first_assum $ irule_at Any
+  >> gvs []                
+  >> drule SUBMAP_FRANGE
+  >> strip_tac
+  >> gvs [SUBSET_DEF]
+QED
+
 Theorem do_app_aux_rel:
   ∀f op vs vs' s s' v.
     do_app_aux op vs s = v ∧
@@ -845,7 +859,10 @@ Theorem find_code_rel:
     state_rel f s s' ⇒
     ∃args' exp'.
       find_code dest vs' s'.code = SOME (args',exp') ∧
-      env_rel F f args args'
+      env_rel F f args args' ∧
+      (exp ≠ exp' ⇒
+       ∃loc loc_opt i.
+         rewrite_aux loc loc_opt i exp = SOME exp')
 Proof
   rw []
   >> drule LIST_REL_LENGTH
@@ -870,7 +887,14 @@ Proof
     >> last_x_assum drule
     >> strip_tac
     >> Cases_on ‘compile_exp n n' arity exp’ >> gvs []
-    >> Cases_on ‘x’ >> gvs [])
+    >> Cases_on ‘x’ >> gvs []
+    >> pop_assum mp_tac
+    >> gvs [compile_exp_def]
+    >> CASE_TAC >> gvs []
+    >> strip_tac
+    >> strip_tac
+    >> gvs []
+    >> first_assum $ irule_at Any)
   >> Cases_on ‘lookup x s.code’ >> gvs []
   >> Cases_on ‘x'’ >> gvs [state_rel_def, code_rel_def]
   >> irule_at Any list_rel_env_rel
@@ -879,6 +903,52 @@ Proof
   >> strip_tac
   >> Cases_on ‘compile_exp x n (LENGTH args) exp’ >> gvs []
   >> Cases_on ‘x'’ >> gvs []
+  >> pop_assum mp_tac
+  >> gvs [compile_exp_def]
+  >> CASE_TAC >> gvs []
+  >> strip_tac
+  >> strip_tac
+  >> gvs []
+  >> first_assum $ irule_at Any
+QED
+
+(* Not used, not sure how useful *)
+Theorem rewrite_opt_base:
+  ∀loc loc_opt arity exp env1 env2 s s' t t' v v' f c.
+    arity = &LENGTH env1 ∧
+    rewrite_aux loc loc_opt arity exp = NONE ∧
+    evaluate ([exp],env1,s) = (Rval [v],t) ∧
+    evaluate ([exp],env2,s') = (Rval [v'],t') ∧
+    hole_has_val f env1 env2 s'.refs c ∧
+    state_rel f s s' ∧
+    env_rel T f env1 env2
+    ⇒
+    ∃exp_opt hole_ptr tag left c right t'_filled.
+      exp_opt = rewrite_opt loc loc_opt arity (arity + 1) (arity + 2) exp ∧
+
+      env2❲LENGTH env1❳ = RefPtr F hole_ptr ∧
+      env2❲LENGTH env1 + 1❳ = Number (&LENGTH left) ∧
+      hole_ptr ∉ FRANGE f ∧
+      FLOOKUP s'.refs hole_ptr = SOME (MutBlock tag left c right) ∧
+      
+      t'_filled = t' with refs := t'.refs⟨hole_ptr ↦ MutBlock tag left v' right⟩ ∧
+      evaluate ([exp_opt],env2,s') = (Rval [Block 0 []],t'_filled)
+Proof
+  rw []
+  >> drule env_rel_length_opt
+  >> strip_tac
+  >> drule env_rel_extras_opt
+  >> strip_tac
+  >> gvs [hole_has_val_def]
+  >> Cases_on ‘exp’ >> gvs [rewrite_aux_def]
+  >~ [‘rewrite_opt _ _ _ _ _ (Var n)’] >-
+   (gvs [rewrite_opt_def, evaluate_def]
+    >> Cases_on ‘n < LENGTH env1’
+    >> gvs [do_app_def, do_app_aux_def, bvlSemTheory.Unit_def, backend_commonTheory.tuple_tag_def])
+  >~ [‘rewrite_opt _ _ _ _ _ (Call ticks dest xs handler)’] >-
+   (gvs [rewrite_opt_def, evaluate_def]
+    >> gvs [do_app_def, do_app_aux_def]
+    >> cheat
 QED
 
 Theorem evaluate_rewrite_tmc:
@@ -1594,7 +1664,6 @@ Proof
       >> gvs []
       >> disch_then drule
       >> drule state_rel_dec
-      >> disch_then drule
       >> Cases_on ‘u.clock’ >> gvs []
       >> disch_then $ qspec_then ‘ticks + 1’ mp_tac
       >> gvs []
@@ -1603,8 +1672,61 @@ Proof
       >> impl_tac
       >- (spose_not_then assume_tac >> gvs [])
       >> strip_tac
+      >> gvs []
       >> rename [‘evaluate ([exp],args',dec_clock (ticks + 1) u') = (v_exp',w')’]
-      (* Now I think we need to know something about exp' *)
+
+      >> Cases_on ‘v_exp’ >> gvs []
+      >-
+       (rename [‘state_rel f3 t t'’]
+        >> rename [‘LIST_REL (v_rel f3) v_exp v_exp'’]
+        >> Cases_on ‘exp = exp'’ >> gvs []
+        >-
+         (first_assum $ irule_at $ Pos hd
+          >> gvs []
+          >> conj_tac
+          >- (irule SUBMAP_TRANS >> first_assum $ irule_at Any >> gvs [])
+          >> conj_tac
+          >- cheat (* not sure *)
+          >> conj_tac
+          >- (irule_at Any holes_unchanged_except_trans
+              >> first_assum $ irule_at $ Pos $ el 4
+              >> gvs [])
+          >> strip_tac
+          >> gvs []
+          >> conj_tac
+          >- rw [rewrite_aux_def]
+          >> rw []
+(* HERE *)
+          >> gvs [opt_res_rel_def]
+
+          >> gvs [rewrite_opt_def, evaluate_def]
+          >> IF_CASES_TAC >> gvs []
+          >> drule env_rel_length_opt
+          >> strip_tac
+          >> IF_CASES_TAC >> gvs []
+          >> gvs [do_app_def, do_app_aux_def]
+          >> gvs [case_eq_thms]
+          >> gvs [env_rel_def]
+                 )
+                           
+      >> Cases_on ‘exp = exp'’ >> gvs []
+      >-
+       (Cases_on ‘v_exp’ >> gvs []
+        >-
+         (rename [‘LIST_REL (v_rel f'³') v v'’]
+          >> first_assum $ irule_at $ Pos $ el 4
+          >> gvs []
+
+          >> v_rel_submap
+                        
+          >> drule_all SUBMAP_TRANS
+          >> strip_tac
+          >> gvs []
+          >> drule_all only_fresh_submap
+                 )
+                 )
+
+                     
       >> Cases_on ‘evaluate ([exp'],args',dec_clock (ticks + 1) u')’ >> gvs []
       >> Cases_on ‘q’ >> gvs []
       >-
