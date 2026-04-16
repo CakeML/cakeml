@@ -1335,37 +1335,78 @@ Resume inst_select_thm[FullCall]:
   CASE_TAC >> gvs[locals_rel_def]
 QED
 
-Resume inst_select_thm[Loop]:
-  (* Step 1: use locals_rel_evaluate_thm on the original Loop hypothesis
-     to get evaluate (Loop names prog exit_names, st with locals := loc) result *)
-  gvs [every_var_def, inst_select_def] >>
-  drule locals_rel_evaluate_thm >>
-  disch_then drule >>
-  disch_then (qspecl_then [`loc`, `temp`] mp_tac) >>
-  impl_tac >- gvs [every_var_def] >>
-  strip_tac >>
-  (* WRONG APPROACH: locals_rel_evaluate_thm gives loc' for the ORIGINAL Loop,
-     but the inst_select Loop gives a DIFFERENT loc' because the body changes
-     locals differently (by locals_rel, not identity). So we can't witness
-     with the same loc'. Need a full clock induction helper that independently
-     computes the inst_select Loop result with locals_rel threading.
+Theorem inst_select_Loop_helper:
+  !(s:('a,'c,'ffi) wordSem$state) names prog exit_names res rst c temp loc.
+    (!(st:('a,'c,'ffi) wordSem$state) res rst loc.
+       evaluate (prog, st) = (res, rst) /\ res <> SOME Error /\
+       locals_rel temp st.locals loc ==>
+       ?loc'.
+         evaluate (inst_select c temp prog, st with locals := loc) =
+           (res, rst with locals := loc') /\
+         case res of
+           NONE => locals_rel temp rst.locals loc'
+         | SOME (Break _) => locals_rel temp rst.locals loc'
+         | SOME (Continue _) => locals_rel temp rst.locals loc'
+         | SOME _ => rst.locals = loc') /\
+    evaluate (Loop names prog exit_names, s) = (res, rst) /\
+    res <> SOME Error /\
+    every_var (\x. x < temp) prog /\
+    every_name (\x. x < temp) (names, LN) /\
+    every_name (\x. x < temp) (exit_names, LN) /\
+    locals_rel temp s.locals loc ==>
+    ?loc'.
+      evaluate (Loop names (inst_select c temp prog) exit_names,
+                s with locals := loc) = (res, rst with locals := loc') /\
+      case res of
+        NONE => locals_rel temp rst.locals loc'
+      | SOME (Break _) => locals_rel temp rst.locals loc'
+      | SOME (Continue _) => locals_rel temp rst.locals loc'
+      | SOME _ => rst.locals = loc'
+Proof
+  gen_tac \\ completeInduct_on `s.clock` \\ rw []
+  \\ qpat_x_assum `evaluate (Loop _ _ _, _) = _` mp_tac
+  \\ once_rewrite_tac [evaluate_def]
+  \\ simp [cut_state_def, UNCURRY, STOP_def]
+  \\ Cases_on `cut_env (names,LN) s.locals` \\ gvs[]
+  \\ `cut_env (names,LN) loc = SOME x` by (
+    irule locals_rel_cut_env \\ metis_tac[])
+  \\ Cases_on `evaluate (prog,s with locals := x)` \\ simp []
+  \\ strip_tac
+  \\ `q <> SOME Error` by (
+    CCONTR_TAC \\ gvs [cont_loop_def, exit_loop_def, AllCaseEqs()])
+  \\ qpat_assum `!st. _`
+    (qspecl_then [`s with locals := x`,`q`,`r`,`x`] mp_tac)
+  \\ impl_tac >- gvs[locals_rel_def]
+  \\ strip_tac
+  \\ gvs[state_component_equality]
+  \\ qpat_x_assum `(if _ then _ else _) = _` mp_tac
+  \\ fs [] \\ strip_tac \\ gvs []
+  \\ IF_CASES_TAC \\ gvs []
+  >- (
+    IF_CASES_TAC \\ gvs []
+    >- simp[state_component_equality]
+    \\ imp_res_tac evaluate_clock
+    \\ gvs [dec_clock_def]
+    \\ first_x_assum irule
+    \\ gvs [AllCaseEqs()]
+    \\ Cases_on `q` \\ gvs[cont_loop_def]
+    \\ Cases_on `x'` \\ gvs[cont_loop_def])
+  \\ IF_CASES_TAC \\ gvs []
+  >- (
+    Cases_on `cut_env (exit_names,LN) r.locals` \\ gvs[]
+    \\ `cut_env (exit_names,LN) loc' = SOME x'` by (
+      irule locals_rel_cut_env \\ metis_tac[])
+    \\ gvs[]
+    \\ simp[state_component_equality, locals_rel_def])
+  \\ Cases_on `q` \\ gvs[exit_loop_def, cont_loop_def]
+  \\ Cases_on `x'` \\ gvs[exit_loop_def, cont_loop_def]
+QED
 
-     Correct approach: write a standalone helper theorem:
-       inst_select_Loop_helper:
-         ∀s names prog exit_names res rst c temp loc.
-           body_IH ∧ evaluate (Loop names prog exit_names, s) = (res, rst) ∧
-           res ≠ SOME Error ∧ every_var ... ∧ locals_rel temp s.locals loc ⇒
-           ∃loc'. evaluate (Loop names (inst_select c temp prog) exit_names,
-                           s with locals := loc) = (res, rst with locals := loc') ∧
-                  RESULT_PROP res rst.locals loc'
-     This uses completeInduct_on s.clock. At each iteration:
-     1. cut_state normalizes locals (same result for both by locals_rel)
-     2. Body IH with trivial locals_rel gives body result (same q, different locals)
-     3. For cont_loop: locals_rel preserved, apply locals_rel_evaluate_thm on
-        recursive Loop hypothesis, then clock IH
-     4. For Break 0: cut_state on exit_names preserves locals_rel
-     5. For exit_loop: direct from body result *)
-  cheat
+Resume inst_select_thm[Loop]:
+  gvs [every_var_def, inst_select_def] >>
+  irule inst_select_Loop_helper >>
+  gvs [every_name_def] >>
+  simp[sptreeTheory.toAList_def, sptreeTheory.foldi_def]
 QED
 
 Finalise inst_select_thm;

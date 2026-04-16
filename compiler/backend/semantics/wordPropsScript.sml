@@ -3532,7 +3532,7 @@ Proof
   rw[locals_rel_def,lookup_delete]
 QED
 
-Theorem locals_rel_cut_envs[local]:
+Theorem locals_rel_cut_envs:
   locals_rel temp loc loc' ∧
   every_name (λx. x < temp) names ∧
   cut_envs names loc = SOME x ⇒
@@ -3553,7 +3553,7 @@ Proof
   metis_tac[domain_lookup]
 QED
 
-Theorem locals_rel_cut_env[local]:
+Theorem locals_rel_cut_env:
   locals_rel temp loc loc' ∧
   every_name (λx. x < temp) names ∧
   cut_env names loc = SOME x ⇒
