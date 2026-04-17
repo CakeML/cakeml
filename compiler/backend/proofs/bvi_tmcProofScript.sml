@@ -308,6 +308,33 @@ Proof
   rw [state_rel_def]
 QED
 
+Theorem state_ref_rel_filled:
+  ∀f refs refs' k v.
+    state_ref_rel f refs refs' ∧
+    k ∉ FRANGE f ⇒
+    state_ref_rel f refs refs'⟨k ↦ v⟩
+Proof
+  rw [state_ref_rel_def]
+  >> gvs [FLOOKUP_SIMP]
+  >> first_x_assum drule
+  >> strip_tac
+  >> gvs []
+  >> first_assum $ irule_at Any
+  >> IF_CASES_TAC >> gvs []
+  >> gvs [FLOOKUP_DEF, FRANGE_DEF]
+QED
+
+Theorem state_rel_filled:
+  ∀f s s' k v.
+    state_rel f s s' ∧
+    k ∉ FRANGE f ⇒
+    state_rel f s (s' with refs := s'.refs⟨k ↦ v⟩)
+Proof
+  rw [state_rel_def]
+  >> irule state_ref_rel_filled
+  >> gvs []
+QED
+
 Theorem evaluate_pad_env_val:
   ∀xs env s t vs extra.
     evaluate (xs, env, s) = (Rval vs, t) ⇒
@@ -609,6 +636,18 @@ Proof
   >> drule SUBMAP_FRANGE
   >> strip_tac
   >> gvs [SUBSET_DEF]
+QED
+
+Theorem non_fresh_not_in_frange:
+  ptr ∈ FDOM refs_old ∧
+  ptr ∉ FRANGE f ∧
+  only_fresh f f' refs_old ⇒
+  ptr ∉ FRANGE f'
+Proof
+  rw [only_fresh_def]
+  >> first_x_assum $ drule_at Concl
+  >> strip_tac
+  >> gvs []
 QED
 
 Theorem do_app_aux_rel:
@@ -1763,7 +1802,20 @@ Resume evaluate_rewrite_tmc[call]:
       >> strip_tac
       >> gvs [EL_APPEND_EQN, bvlSemTheory.Unit_def, backend_commonTheory.tuple_tag_def]
       >> conj_tac
-      >- cheat
+      >-
+       (irule state_rel_filled
+        >> conj_tac
+        >- (irule non_fresh_not_in_frange
+            >> qexistsl [‘f’, ‘s'.refs’]
+            >> gvs []
+            >> conj_tac
+            >- gvs [hole_has_val_def, FLOOKUP_DEF, EL_APPEND_EQN]
+            >> imp_res_tac only_fresh_trans
+            >> imp_res_tac evaluate_refs_SUBSET
+            >> gvs [])
+        >> gvs [state_rel_def, state_ref_rel_def]
+        >> rw []
+        >> )
       >> conj_tac
       >-
        (drule_all holes_unchanged_except_changed
@@ -1800,10 +1852,78 @@ Resume evaluate_rewrite_tmc[call]:
       >> rename [‘v_rel f3 v v'’]
       >> first_x_assum $ qspec_then ‘F’ mp_tac
       >> gvs []
-      >> (* HERE *)
-
-
-         
+      >> disch_then $ drule_at $ Pos $ el 2
+      >> gvs []
+      >> disch_then $ qspec_then ‘v'::env2’ mp_tac
+      >> impl_tac
+      >-
+       (irule env_rel_cons
+        >> gvs []
+        >> irule env_rel_submap
+        >> first_assum $ irule_at $ Pos $ el 2
+        >> imp_res_tac SUBMAP_TRANS)
+      >> strip_tac
+      >> gvs []
+      >> rename [‘evaluate ([x],v'::env2,w') = (v_x',t')’]
+      >> rename [‘result_rel (LIST_REL (v_rel f4)) (v_rel f4) v_x v_x'’]
+      >> first_assum $ irule_at Any
+      >> gvs []
+      >> conj_tac
+      >- (imp_res_tac SUBMAP_TRANS >> gvs [])
+      >> conj_tac
+      >-
+       (imp_res_tac only_fresh_trans
+        >> imp_res_tac evaluate_refs_SUBSET
+        >> imp_res_tac SUBSET_TRANS
+        >> gvs [])
+      >> conj_tac
+      >- imp_res_tac holes_unchanged_except_trans
+      >> strip_tac
+      >> gvs [rewrite_aux_def]
+      >> rw []
+      >> gvs [rewrite_opt_def, evaluate_def]
+      >> drule env_rel_length_opt
+      >> strip_tac
+      >> gvs []
+      >> drule env_rel_strip_extras
+      >> strip_tac
+      >> gvs [EL_APPEND_EQN, opt_res_rel_def]
+      >> rename [‘env_rel F f env env2’]
+      >> ‘hole_has_val f env (env2 ++ [RefPtr F hole_ptr; Number hole_idx]) t'.refs c’ by
+        (irule unchanged_hole_has_val
+         >> first_assum $ irule_at $ Pos $ el 4
+         >> gvs [only_fresh_refl]
+         >> imp_res_tac holes_unchanged_except_trans)
+      >> CASE_TAC >> gvs []
+      >-
+       (gvs [do_app_def, do_app_aux_def]
+        >> gvs [hole_has_val_def, EL_APPEND_EQN, bvlSemTheory.Unit_def, backend_commonTheory.tuple_tag_def]
+        >> conj_tac
+        >-
+         (irule state_rel_filled
+          >> gvs []
+          >> ‘only_fresh f f4 s'.refs’ by
+            (irule only_fresh_trans
+             >> first_assum $ irule_at $ Pos $ el 2
+             >> irule_at (Pos (el 2)) only_fresh_trans
+             >> first_assum $ irule_at $ Pos $ el 1
+             >> first_assum $ irule_at $ Pos $ el 1
+             >> imp_res_tac evaluate_refs_SUBSET
+             >> gvs [])
+          >> irule non_fresh_not_in_frange
+          >> rpt $ first_assum $ irule_at Any
+          >> gvs [FLOOKUP_DEF])
+        >> conj_tac
+        >-
+         (qspecl_then [‘f’, ‘s'.refs’, ‘t'.refs’, ‘∅’, ‘hole_ptr’, ‘MutBlock tag' left' (HD a) right'’, ‘F’] mp_tac holes_unchanged_except_changed
+          (* TODO rename HD a and primed vars *)
+          >> impl_tac >> gvs []
+          >> imp_res_tac holes_unchanged_except_trans)
+        >> rw []
+        >> gvs [FLOOKUP_SIMP])
+      >> cheat)
+    >> cheat)
+  >> cheat
 QED
 
 Finalise evaluate_rewrite_tmc
