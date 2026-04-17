@@ -256,6 +256,13 @@ Proof
   qexists_tac`SUC i`>>rw[]
 QED
 
+Theorem b2i_1_minus:
+  b2i (¬b) = 1 − b2i b
+Proof
+  Cases_on ‘b’>>
+  simp[]
+QED
+
 Theorem encode_correct:
   good_graph (vp,ep) ∧
   good_graph (vt,et) ∧
@@ -267,7 +274,7 @@ Proof
   >- (
     fs[has_subgraph_iso_def]>>
     simp[satisfiable_def]>>
-    qexists_tac` λ(a,u). f a = u` >>
+    qexists_tac `λ(a,u). f a = u` >>
     rw[encode_def]
     >- (
       rename1`all_has_mapping`>>
@@ -281,7 +288,7 @@ Proof
         qexists_tac`f a`>>
         CONJ_ASM1_TAC>>fs[EL_GENLIST,INJ_DEF])>>
       rw[]>>first_x_assum drule>>
-      simp[satisfies_pbc_def,has_mapping_al1_def,eval_lin_term_def,MAP_GENLIST,o_DEF,has_mapping_am1_def])
+        simp[satisfies_pbc_def,has_mapping_al1_def,eval_lin_term_def,MAP_GENLIST,o_DEF,has_mapping_am1_def])
     >- (
       rename1`all_one_one`>>
       simp[all_one_one_def,satisfies_def,MEM_GENLIST,one_one_def,MEM_MAP,PULL_EXISTS]>>
@@ -294,8 +301,10 @@ Proof
       simp[]>>
       DEP_REWRITE_TAC[iSUM_sub_b2i_geq]>>
       simp[Abbr`ls`]>>
-      CONJ_TAC>- (
+      CONJ_TAC
+      >- (
         simp[MEM_GENLIST]>>
+        simp[b2i_1_minus]>>
         metis_tac[])>>
       rw[]>>
       gs[EL_GENLIST]>>
@@ -303,8 +312,9 @@ Proof
         metis_tac[]>>
       simp[])
     >- (
-      rename1`all_edge_map`>>
-      simp[all_edge_map_def,satisfies_def,MEM_GENLIST,MEM_FLAT,edge_map_def,MEM_MAP,PULL_EXISTS]>>
+      rename1 `all_edge_map` >>
+      simp[all_edge_map_def,satisfies_def,MEM_GENLIST,MEM_FLAT,
+        edge_map_def,MEM_MAP,PULL_EXISTS]>>
       rw[]>>
       gvs[MEM_FLAT,MEM_GENLIST,MEM_MAP]>>
       fs[MEM_neighbours]>>
@@ -370,6 +380,7 @@ Proof
     simp[Abbr`ls`]>>
     CONJ_TAC>- (
       simp[MEM_GENLIST]>>
+      simp[b2i_1_minus]>>
       metis_tac[])>>
     rw[]>>
     first_x_assum drule>>
