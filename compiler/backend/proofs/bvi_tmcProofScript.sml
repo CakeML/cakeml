@@ -1919,7 +1919,39 @@ Resume evaluate_rewrite_tmc[call]:
       >> qexists ‘∅’
       >> gvs []
       >> imp_res_tac holes_unchanged_except_trans)
-    >> cheat)
+    >> first_assum $ irule_at Any
+    >> conj_tac
+    >- imp_res_tac SUBMAP_TRANS
+    >> conj_tac
+    >-
+     (irule only_fresh_trans
+      >> first_assum $ irule_at Any
+      >> conj_tac
+      >- imp_res_tac evaluate_refs_SUBSET
+      >> gvs [])
+    >> conj_tac
+    >- imp_res_tac holes_unchanged_except_trans
+    >> strip_tac
+    >> gvs [rewrite_aux_def]
+    >> rw []
+    >> gvs [opt_res_rel_def]
+    >> gvs [rewrite_opt_def, evaluate_def]
+    >> IF_CASES_TAC >> gvs []
+    >> drule env_rel_length_opt
+    >> strip_tac
+    >> gvs []
+    >> drule env_rel_strip_extras
+    >> strip_tac
+    >> gvs [EL_APPEND_EQN]
+    >> gvs [do_app_def, do_app_aux_def]
+    >> gvs [case_eq_thms]
+    >> rename [‘env_rel F f env env2’]
+    >> drule_all holes_unchanged_except_trans
+    >> strip_tac
+    >> gvs []
+    >> irule holes_unchanged_except_subset
+    >> qexists ‘∅’
+    >> gvs [])
   >> cheat
 QED
 
