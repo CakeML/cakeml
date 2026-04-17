@@ -1813,9 +1813,7 @@ Resume evaluate_rewrite_tmc[call]:
             >> imp_res_tac only_fresh_trans
             >> imp_res_tac evaluate_refs_SUBSET
             >> gvs [])
-        >> gvs [state_rel_def, state_ref_rel_def]
-        >> rw []
-        >> )
+        >> gvs [state_rel_def, state_ref_rel_def])
       >> conj_tac
       >-
        (drule_all holes_unchanged_except_changed
@@ -1835,7 +1833,10 @@ Resume evaluate_rewrite_tmc[call]:
          >> conj_tac
          >- (imp_res_tac SUBMAP_TRANS >> gvs [])
          >> conj_tac
-         >- cheat
+         >-
+          (imp_res_tac only_fresh_trans
+           >> imp_res_tac evaluate_refs_SUBSET
+           >> gvs [])
          >> strip_tac
          >> gvs []
          >> conj_tac
@@ -1896,8 +1897,9 @@ Resume evaluate_rewrite_tmc[call]:
          >> imp_res_tac holes_unchanged_except_trans)
       >> CASE_TAC >> gvs []
       >-
-       (gvs [do_app_def, do_app_aux_def]
-        >> gvs [hole_has_val_def, EL_APPEND_EQN, bvlSemTheory.Unit_def, backend_commonTheory.tuple_tag_def]
+       (gvs [do_app_def, do_app_aux_def, hole_has_val_def, EL_APPEND_EQN, bvlSemTheory.Unit_def, backend_commonTheory.tuple_tag_def]
+        >> Cases_on ‘v_x’ >> gvs []
+        >> rename [‘LIST_REL (v_rel f4) v_x v_x'’]
         >> conj_tac
         >-
          (irule state_rel_filled
@@ -1915,8 +1917,7 @@ Resume evaluate_rewrite_tmc[call]:
           >> gvs [FLOOKUP_DEF])
         >> conj_tac
         >-
-         (qspecl_then [‘f’, ‘s'.refs’, ‘t'.refs’, ‘∅’, ‘hole_ptr’, ‘MutBlock tag' left' (HD a) right'’, ‘F’] mp_tac holes_unchanged_except_changed
-          (* TODO rename HD a and primed vars *)
+         (qspecl_then [‘f’, ‘s'.refs’, ‘t'.refs’, ‘∅’, ‘hole_ptr’, ‘MutBlock tag' left' (HD v_x') right'’, ‘F’] mp_tac holes_unchanged_except_changed
           >> impl_tac >> gvs []
           >> imp_res_tac holes_unchanged_except_trans)
         >> rw []
