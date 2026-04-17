@@ -192,6 +192,16 @@ Proof
   >> gvs []
 QED
 
+Theorem env_rel_cons:
+  env_rel opt f env1 env2 ∧
+  v_rel f a b ⇒
+  env_rel opt f (a::env1) (b::env2)
+Proof
+  rw [env_rel_def]
+  >> qexistsl [‘b::xs’, ‘ys’]
+  >> gvs []
+QED
+
 Theorem env_rel_append:
   env_rel opt f env1 env2 ∧
   LIST_REL (v_rel f) a b ⇒
@@ -1787,8 +1797,10 @@ Resume evaluate_rewrite_tmc[call]:
          >> irule holes_unchanged_except_subset
          >> first_x_assum $ irule_at Any
          >> gvs [])
+      >> rename [‘v_rel f3 v v'’]
       >> first_x_assum $ qspec_then ‘F’ mp_tac
       >> gvs []
+      >> (* HERE *)
 
 
          
