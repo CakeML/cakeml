@@ -1765,29 +1765,33 @@ Resume evaluate_rewrite_tmc[call]:
     >> Cases_on ‘e’ >> gvs []
     >-
      (Cases_on ‘handler’ >> gvs []
-      >> irule_at Any holes_unchanged_except_trans
-      >> first_assum $ irule_at Any
-      >> first_assum $ irule_at Any
+      >-
+        (irule_at Any holes_unchanged_except_trans
+         >> first_assum $ irule_at Any
+         >> first_assum $ irule_at Any
+         >> gvs []
+         >> conj_tac
+         >- (imp_res_tac SUBMAP_TRANS >> gvs [])
+         >> conj_tac
+         >- cheat
+         >> strip_tac
+         >> gvs []
+         >> conj_tac
+         >> rw [rewrite_aux_def]
+         >> rw []
+         >> gvs [rewrite_opt_def, evaluate_def]
+         >> gvs [opt_res_rel_def]
+         >> drule_all holes_unchanged_except_trans
+         >> gvs []
+         >> strip_tac
+         >> irule holes_unchanged_except_subset
+         >> first_x_assum $ irule_at Any
+         >> gvs [])
+      >> first_x_assum $ qspec_then ‘F’ mp_tac
       >> gvs []
-      >> conj_tac
-      >- (imp_res_tac SUBMAP_TRANS >> gvs [])
-      >> conj_tac
-      >-
-       ((* HERE *)
 
 
-           
-      >-
-       (irule only_fresh_trans
-        >> rpt $ goal_assum $ drule_at Any
-        >> irule evaluate_refs_SUBSET
-        >> goal_assum $ drule_at Any)
-
-       drule evaluate_refs_SUBSET
-        >> strip_tac
-        imp_res_tac only_fresh_trans >> gvs []
-        )
-        )
+         
 QED
 
 Finalise evaluate_rewrite_tmc
