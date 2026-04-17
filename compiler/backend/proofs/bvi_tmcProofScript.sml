@@ -141,6 +141,13 @@ Proof
   cheat
 QED
 
+Definition opt_res_rel_def:
+  opt_res_rel (r1 : (v list, v) result) (r2 : (v list, v) result) =
+  case r1 of
+  | Rval v1 => r2 = Rval [Block 0 []]
+  | _ => r1 = r2
+End
+
 Theorem v_rel_submap:
   ∀f v1 v2 f'. v_rel f v1 v2 ∧ f SUBMAP f' ⇒ v_rel f' v1 v2
 Proof
