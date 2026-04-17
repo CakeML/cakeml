@@ -1000,10 +1000,10 @@ Proof
     >> cheat
 QED *)
 
-Theorem holes_unchanged_except_changed:
-  ∀f refs refs' changed k v b.
-    holes_unchanged_except f refs refs' changed ⇒
-    holes_unchanged_except f refs refs'⟨k ↦ v⟩ (changed ∪ {RefPtr b k})
+Theorem holes_unchanged_except_filled:
+  ∀f refs refs' k v b.
+    holes_unchanged_except f refs refs' ∅ ⇒
+    holes_unchanged_except f refs refs'⟨k ↦ v⟩ {RefPtr b k}
 Proof
   rw [holes_unchanged_except_def] >> gvs [FLOOKUP_SIMP]
 QED
@@ -1815,11 +1815,7 @@ Resume evaluate_rewrite_tmc[call]:
             >> gvs [])
         >> gvs [state_rel_def, state_ref_rel_def])
       >> conj_tac
-      >-
-       (drule_all holes_unchanged_except_changed
-        >> disch_then $ qspecl_then [‘hole_ptr’, ‘MutBlock tag left (HD v_exp') right’, ‘F’] mp_tac
-        >> strip_tac
-        >> gvs [])
+      >- (irule holes_unchanged_except_filled >> gvs [])
       >> rw []
       >> gvs [FLOOKUP_SIMP])
     >> Cases_on ‘e’ >> gvs []
@@ -1916,13 +1912,13 @@ Resume evaluate_rewrite_tmc[call]:
           >> rpt $ first_assum $ irule_at Any
           >> gvs [FLOOKUP_DEF])
         >> conj_tac
-        >-
-         (qspecl_then [‘f’, ‘s'.refs’, ‘t'.refs’, ‘∅’, ‘hole_ptr’, ‘MutBlock tag' left' (HD v_x') right'’, ‘F’] mp_tac holes_unchanged_except_changed
-          >> impl_tac >> gvs []
-          >> imp_res_tac holes_unchanged_except_trans)
+        >- (irule holes_unchanged_except_filled >> imp_res_tac holes_unchanged_except_trans)
         >> rw []
         >> gvs [FLOOKUP_SIMP])
-      >> cheat)
+      >> irule holes_unchanged_except_subset
+      >> qexists ‘∅’
+      >> gvs []
+      >> imp_res_tac holes_unchanged_except_trans)
     >> cheat)
   >> cheat
 QED
