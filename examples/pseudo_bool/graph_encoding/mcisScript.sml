@@ -242,6 +242,15 @@ Proof
   simp[]
 QED
 
+Theorem iSUM_ge_zero:
+  (∀x. MEM x ls ⇒ x ≥ 0) ⇒ iSUM ls ≥ 0
+Proof
+  Induct_on ‘ls’>>
+  rw[iSUM_def,SF DNF_ss]>>
+  last_x_assum (drule_then assume_tac)>>
+  intLib.ARITH_TAC
+QED
+
 Theorem b2i_iSUM_eq_0:
   (∀x. MEM x ls ⇒ ∃y. x = b2i y) ⇒
   (iSUM ls = 0 ⇔
