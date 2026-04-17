@@ -141,13 +141,6 @@ Proof
   cheat
 QED
 
-Definition opt_res_rel_def:
-  opt_res_rel (r1 : (v list, v) result) (r2 : (v list, v) result) =
-    case r1 of
-    | Rval v1 => r2 = Rval [Block 0 []]
-    | _ => r1 = r2
-End
-
 Theorem v_rel_submap:
   ∀f v1 v2 f'. v_rel f v1 v2 ∧ f SUBMAP f' ⇒ v_rel f' v1 v2
 Proof
@@ -499,7 +492,7 @@ Proof
 QED
 
 Theorem unchanged_hole_has_val:
-  ∀f f' env env' hole_ptr hole_idx refs refs' c changed.
+  ∀f f' env env' hole_ptr hole_idx refs refs' c.
     hole_has_val f env (env' ++ [RefPtr F hole_ptr; Number hole_idx]) refs c ∧
     only_fresh f f' refs ∧
     holes_unchanged_except f refs refs' ∅ ∧
@@ -913,7 +906,7 @@ Proof
 QED
 
 (* Not used, not sure how useful *)
-Theorem rewrite_opt_base:
+(* Theorem rewrite_opt_base:
   ∀loc loc_opt arity exp env1 env2 s s' t t' v v' f c.
     arity = &LENGTH env1 ∧
     rewrite_aux loc loc_opt arity exp = NONE ∧
@@ -949,15 +942,16 @@ Proof
    (gvs [rewrite_opt_def, evaluate_def]
     >> gvs [do_app_def, do_app_aux_def]
     >> cheat
+QED *)
+
+Theorem holes_unchanged_except_changed:
+  ∀f refs refs' changed k v b.
+    holes_unchanged_except f refs refs' changed ⇒
+    holes_unchanged_except f refs refs'⟨k ↦ v⟩ (changed ∪ {RefPtr b k})
+Proof
+  rw [holes_unchanged_except_def] >> gvs [FLOOKUP_SIMP]
 QED
 
-Theorem evaluate_fdom_refs_mono:
-  evaluate (xs,env,s) = (r,t) ⇒
-  FDOM s.refs ⊆ FDOM t.refs
-Proof
-  cheat
-QED
-        
 Theorem evaluate_rewrite_tmc:
    ∀xs env1 ^s r t opt f s' env2.
      evaluate (xs, env1, s) = (r, t) ∧
@@ -1620,11 +1614,8 @@ Proof
   >~ [‘Call ticks dest xs handler’] >- suspend "call"
 QED
 
-
-
-
 Resume evaluate_rewrite_tmc[call]:
-  cheat (*
+
   gvs [evaluate_def]
   >> IF_CASES_TAC >> gvs []
   >> gvs [CaseEq "prod", PULL_EXISTS]
@@ -1635,7 +1626,6 @@ Resume evaluate_rewrite_tmc[call]:
   >> gvs []
   >> strip_tac
   >> rpt $ disch_then drule
-
   >> impl_tac
   >- (CCONTR_TAC >> gvs [])
   >> strip_tac
@@ -1657,21 +1647,13 @@ Resume evaluate_rewrite_tmc[call]:
     >> irule holes_unchanged_except_subset
     >> pop_assum $ irule_at Any
     >> gvs [])
-
   >> qpat_x_assum ‘evaluate (_,env2,_) = (Rval _, _)’ $ mk_asm "eval_xs'"
   >> rename [‘evaluate (xs,env,s) = (Rval v_xs,u)’]
   >> Cases_on ‘find_code dest v_xs u.code’ >> gvs []
   >> Cases_on ‘x’ >> gvs []
   >> rename [‘find_code dest v_xs u.code = SOME (args,exp)’]
   >> asm_x "eval_xs'" assume_tac
-  >> rename [‘evaluate (xs,env2,s') = (Rval v_xs',u')’]
-
-  (*                          
-    >> strip_tac
-    >> gvs []
-    >> rename [‘evaluate (xs,env2,s') = (Rval v_xs',u')’]
-    *)
-            
+  >> rename [‘evaluate (xs,env2,s') = (Rval v_xs',u')’]  
   >> drule_all find_code_rel
   >> strip_tac
   >> gvs []
@@ -1698,7 +1680,6 @@ Resume evaluate_rewrite_tmc[call]:
     >> gvs []
     >> gvs [evaluate_def]
     >> IF_CASES_TAC >> gvs [])
-
   (* Clock did not run out *)
   >> Cases_on ‘evaluate ([exp],args,dec_clock (ticks + 1) u)’ >> gvs []
   >> rename [‘evaluate ([exp],args,dec_clock (ticks + 1) u) = (v_exp, w)’]
@@ -1716,8 +1697,8 @@ Resume evaluate_rewrite_tmc[call]:
   >> strip_tac
   >> gvs []
   >> rename [‘evaluate ([exp],args',dec_clock (ticks + 1) u') = (v_exp',w')’]
-
   >> Cases_on ‘exp = exp'’ >> gvs []
+
   >-
    (Cases_on ‘v_exp’ >> gvs []
     >-
@@ -1729,7 +1710,7 @@ Resume evaluate_rewrite_tmc[call]:
       >- (irule SUBMAP_TRANS >> first_assum $ irule_at Any >> gvs [])
       >> conj_tac
       >-
-       (imp_res_tac evaluate_fdom_refs_mono
+       (imp_res_tac evaluate_refs_SUBSET
         >> drule_all only_fresh_trans
         >> gvs [])
       >> conj_tac
@@ -1741,88 +1722,65 @@ Resume evaluate_rewrite_tmc[call]:
       >> conj_tac
       >- rw [rewrite_aux_def]
       >> rw []
-      (* HERE *)
       >> gvs [opt_res_rel_def]
-
       >> gvs [rewrite_opt_def, evaluate_def]
       >> IF_CASES_TAC >> gvs []
       >> drule env_rel_length_opt
       >> strip_tac
       >> gvs []
-      >> drule env_rel_extras_opt
+      >> drule env_rel_strip_extras
       >> strip_tac
-      >> gvs []
+      >> gvs [EL_APPEND_EQN]
       >> gvs [do_app_def, do_app_aux_def]
       >> gvs [case_eq_thms]
-      >> 
-     )
-   )
-
-  >> Cases_on ‘v_exp’ >> gvs []
-  >-
-   (rename [‘state_rel f3 t t'’]
-    >> rename [‘LIST_REL (v_rel f3) v_exp v_exp'’]
-    >> Cases_on ‘exp = exp'’ >> gvs []
-    >-
-     (first_assum $ irule_at $ Pos hd
-      >> gvs []
-      >> conj_tac
-      >- (irule SUBMAP_TRANS >> first_assum $ irule_at Any >> gvs [])
-      >> conj_tac
-      >- cheat (* not sure *)
-      >> conj_tac
-      >- (irule_at Any holes_unchanged_except_trans
-          >> first_assum $ irule_at $ Pos $ el 4
-          >> gvs [])
+      >> rename [‘env_rel F f env env2’]
+      >> drule_all holes_unchanged_except_trans
       >> strip_tac
       >> gvs []
+      >> ‘hole_has_val f env (env2 ++ [RefPtr F hole_ptr; Number hole_idx]) t'.refs c’ by
+        (irule unchanged_hole_has_val
+         >> first_assum $ irule_at $ Pos $ el 4
+         >> gvs [only_fresh_def])
+      >> pop_assum mp_tac
+      >> simp [hole_has_val_def]
+      >> strip_tac
+      >> gvs [EL_APPEND_EQN, bvlSemTheory.Unit_def, backend_commonTheory.tuple_tag_def]
       >> conj_tac
-      >- rw [rewrite_aux_def]
-      >> rw []
-      (* HERE *)
-      >> gvs [opt_res_rel_def]
-
-      >> gvs [rewrite_opt_def, evaluate_def]
-      >> IF_CASES_TAC >> gvs []
-      >> drule env_rel_length_opt
-      >> strip_tac
-      >> gvs []
-      >> drule env_rel_extras_opt
-      >> strip_tac
-      >> gvs []
-      >> gvs [do_app_def, do_app_aux_def]
-      >> gvs [case_eq_thms]
-      >> 
-     )
-     
-    >> Cases_on ‘exp = exp'’ >> gvs []
-    >-
-     (Cases_on ‘v_exp’ >> gvs []
+      >- cheat
+      >> conj_tac
       >-
-       (rename [‘LIST_REL (v_rel f'³') v v'’]
-        >> first_assum $ irule_at $ Pos $ el 4
-        >> gvs []
-
-        >> v_rel_submap
-           
-        >> drule_all SUBMAP_TRANS
+       (drule_all holes_unchanged_except_changed
+        >> disch_then $ qspecl_then [‘hole_ptr’, ‘MutBlock tag left (HD v_exp') right’, ‘F’] mp_tac
         >> strip_tac
-        >> gvs []
-        >> drule_all only_fresh_submap
-       )
-     )
-
-     
-    >> Cases_on ‘evaluate ([exp'],args',dec_clock (ticks + 1) u')’ >> gvs []
-    >> Cases_on ‘q’ >> gvs []
+        >> gvs [])
+      >> rw []
+      >> gvs [FLOOKUP_SIMP])
+    >> Cases_on ‘e’ >> gvs []
     >-
-     (Cases_on ‘v_exp’ >> gvs []
+     (Cases_on ‘handler’ >> gvs []
+      >> irule_at Any holes_unchanged_except_trans
+      >> first_assum $ irule_at Any
+      >> first_assum $ irule_at Any
+      >> gvs []
+      >> conj_tac
+      >- (imp_res_tac SUBMAP_TRANS >> gvs [])
+      >> conj_tac
       >-
-       (rename [‘LIST_REL (v_rel f'³') v_exp v_exp'’]
-        >> cheat)
-      >> cheat)
-    >>
-    cheat)*)
+       ((* HERE *)
+
+
+           
+      >-
+       (irule only_fresh_trans
+        >> rpt $ goal_assum $ drule_at Any
+        >> irule evaluate_refs_SUBSET
+        >> goal_assum $ drule_at Any)
+
+       drule evaluate_refs_SUBSET
+        >> strip_tac
+        imp_res_tac only_fresh_trans >> gvs []
+        )
+        )
 QED
 
 Finalise evaluate_rewrite_tmc
