@@ -134,8 +134,6 @@ Definition cons_to_tc_and_hb_def:
            TC call hb')
 End
 
-
-
 Definition rewrite_aux_BlockOp_Cons_def:
   rewrite_aux_BlockOp_Cons loc loc_opt i_hole_ptr block_tag op_args =
     case cons_to_tc_and_hb loc block_tag op_args of
@@ -148,7 +146,7 @@ Definition rewrite_aux_BlockOp_Cons_def:
         let exp_tail_call = Call t (SOME loc_opt) (exp_hole_idx :: var_hole_ptr :: args) h in
         let exp_finalise  = Op (MemOp FinaliseCons) [var_hole_ptr] in
         SOME $ Let [exp_mut_cons; exp_tail_call] exp_finalise
-    | _ => NONE
+    | _ => NONE (* I think this should fill the hole... *)
 End
 
 Definition rewrite_aux_def:

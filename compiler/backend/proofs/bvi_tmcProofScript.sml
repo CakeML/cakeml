@@ -1717,6 +1717,18 @@ Resume evaluate_rewrite_tmc[op]:
       >> imp_res_tac non_fresh_not_in_frange)
     >> irule holes_unchanged_except_filled
     >> gvs [])
+  (* Cons *)
+  >> gvs [opt_res_rel_def, evaluate_def, rewrite_opt_BlockOp_Cons_def]
+  >> CASE_TAC >> gvs []
+  >- (* Duplicated branch *)
+   (simp [evaluate_def, do_app_def, do_app_aux_def, bviPropsTheory.bvl_to_bvi_id]
+    >> cheat (* Code is wrong *))
+  >- (* Duplicated branch *)
+   cheat
+  >> Cases_on ‘h’ >> gvs []
+  >> Cases_on ‘t''’ >> gvs []
+  >> rename [‘cons_to_tc_and_hb loc x xs = (TCall ticks args handler')⁺ (HoleBlock tag l hole r)’]
+  >> gvs [evaluate_def]
   >> cheat
 QED
 
