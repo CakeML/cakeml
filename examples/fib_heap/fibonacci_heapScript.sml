@@ -3832,6 +3832,95 @@ Proof
   imp_res_tac lemma_arithm_add_tree
 QED
 
+Theorem lemma_fts_has_first:
+  (FLOOKUP fh k = SOME (v.value,v.edges) ⇔
+   ∃m. fts_has k (fill_dnode v.value v.edges m) (FibTree k v l::rest))
+  ==>
+  FLOOKUP fh k = SOME (v.value,v.edges)
+Proof
+  strip_tac >>
+  fs[fts_all_dist_def] >>
+  Cases_on `?m. fts_has k (fill_dnode v.value v.edges m) (FibTree k v l::rest)` >>
+  fs[]
+  >- (qexists `m` >> simp[]) >>
+  first_x_assum(qspec_then `v.mark` assume_tac) >>
+  pop_assum mp_tac >>
+  simp[Once fts_has_cases,fill_dnode_def,data_node_component_equality]
+QED
+
+Theorem lemma_fts_has_in_map:
+  (!k' v' e'. FLOOKUP fh k' = SOME (v',e') ⇔
+   ∃m. fts_has k' (fill_dnode v' e' m) xs) /\
+  fts_has k' v' xs
+  ==>
+  FLOOKUP fh k' = SOME (v'.value,v'.edges)
+Proof
+  strip_tac >>
+  spose_not_then assume_tac >>
+  first_x_assum(qspecl_then [`k'`,`v'.value`,`v'.edges`] assume_tac) >>
+  fs[] >>
+  first_x_assum(qspec_then `v'.mark` assume_tac) >>
+  fs[fill_dnode_def,lemma_data_node_cases]
+QED
+
+
+
+
+Theorem lemma_fts_has_both_maps_first_contra:
+  fts_has k v2 ys /\
+  (∀k' v' e.
+    FLOOKUP fh1 k' = SOME (v',e) ⇔
+    ∃m. fts_has k' (fill_dnode v' e m) [FibTree k v xs]) /\
+  (∀k v e.
+    FLOOKUP fh2 k = SOME (v,e) ⇔
+    ∃m. fts_has k (fill_dnode v e m) ys) /\
+  fts_all_dist ys /\
+  DISJOINT (FDOM fh1) (FDOM fh2) ==>
+  F
+Proof
+  strip_tac >>
+  `FLOOKUP fh2 k = SOME (v2.value,v2.edges)` by
+    imp_res_tac lemma_fts_has_in_map >>
+  last_x_assum(qspecl_then [`k`,`v.value`,`v.edges`] assume_tac) >>
+  imp_res_tac lemma_fts_has_first >>
+  fs[FLOOKUP_DEF,pred_setTheory.DISJOINT_ALT] >> res_tac
+QED
+
+
+Theorem lemma_fts_has_child_in_map:
+  fts_has k3 v3 (FibTree k2 v2 l::t) /\
+  (∀k' v' e. FLOOKUP fh k' = SOME (v',e) ⇔
+    ∃m. fts_has k' (fill_dnode v' e m) [FibTree k v (FibTree k2 v2 l::t)]) ==>
+  FLOOKUP fh k3 = SOME (v3.value,v3.edges)
+Proof
+  rpt strip_tac >>
+  spose_not_then assume_tac >>
+  first_x_assum(qspecl_then [`k3`,`v3.value`,`v3.edges`] assume_tac) >> fs[] >>
+  first_x_assum(qspec_then `v3.mark` assume_tac) >>
+  fs[fill_dnode_def,lemma_data_node_cases] >>
+  pop_assum mp_tac >> simp[Once fts_has_cases]
+QED
+
+
+Theorem lemma_fts_has_both_maps_child_contra:
+  fts_has k3 v3 (FibTree k2 v2 l::t) /\
+  fts_has k3 v4 ys /\
+  DISJOINT (FDOM fh1) (FDOM fh2) /\
+  (∀k' v' e.
+    FLOOKUP fh1 k' = SOME (v',e) ⇔
+    ∃m. fts_has k' (fill_dnode v' e m) [FibTree k v (FibTree k2 v2 l::t)]) /\
+  (∀k v e.
+    FLOOKUP fh2 k = SOME (v,e) ⇔
+    ∃m. fts_has k (fill_dnode v e m) ys) ==>
+  F
+Proof
+  rpt strip_tac >>
+  imp_res_tac lemma_fts_has_child_in_map >>
+  imp_res_tac lemma_fts_has_in_map >>
+  fs[FLOOKUP_DEF,pred_setTheory.DISJOINT_ALT] >> res_tac
+QED
+
+
 Theorem lemma_fts_all_dist_merge_trees:
   fts_all_dist [FibTree k v xs] /\
   (∀k' v' e.
@@ -3845,7 +3934,142 @@ Theorem lemma_fts_all_dist_merge_trees:
   DISJOINT (FDOM fh1) (FDOM fh2) ==>
   fts_all_dist [FibTree k v (fts_merge xs [FibTree k' v' ys])]
 Proof
-  cheat
+  strip_tac >>
+  Cases_on `xs`
+  >- (
+    simp[fts_merge_def] >>
+    simp[fts_all_dist_def] >>
+    rpt conj_tac
+    >- (
+      simp[fts_has_inj_def] >> rpt gen_tac >>
+      once_rewrite_tac[fts_has_cases] >> simp[] >>
+      simp[Once fts_has_cases] >>
+      rename[`(k = k2 ∧ v = v2 ∨ fts_has k2 v2 [FibTree k' v' ys]) ∧
+        (k = k2 ∧ v = v3 ∨ fts_has k2 v3 [] ∨
+         fts_has k2 v3 [FibTree k' v' ys])`] >>
+      rpt strip_tac >> gvs[]
+      >- fs[Once fts_has_cases]
+      >- imp_res_tac lemma_fts_has_both_maps_first_contra
+      >- imp_res_tac lemma_fts_has_both_maps_first_contra
+      >- fs[Once fts_has_cases] >>
+      fs[fts_all_dist_def,fts_has_inj_def] >>
+      res_tac
+      )
+    >- (
+      rpt strip_tac
+      >- imp_res_tac lemma_fts_has_both_maps_first_contra >>
+      fs[Once fts_has_cases]
+      ) >>
+    rpt strip_tac >>
+    fs[Once fts_has_cases]
+    ) >>
+  Cases_on `h` >> simp[fts_merge_def] >>
+  IF_CASES_TAC >> simp[fts_all_dist_def]
+  >- (
+    rpt conj_tac
+    >- (
+      simp[fts_has_inj_def] >> rpt gen_tac >>
+      once_rewrite_tac[fts_has_cases] >> simp[] >>
+      simp[Once fts_has_cases] >>
+      rename[`(k = k3 ∧ v = v3 ∨ fts_has k3 v3
+        (FibTree k2 v2 l::(t ++ [FibTree k' v' ys]))) ∧
+        (k = k3 ∧ v = v4 ∨ fts_has k3 v4 [] ∨
+         fts_has k3 v4 (FibTree k2 v2 l::(t ++ [FibTree k' v' ys])))`] >>
+      rpt strip_tac >> gvs[]
+      >- fs[Once fts_has_cases]
+      >- (
+        pop_assum mp_tac >>
+        once_rewrite_tac[GSYM APPEND] >>
+        simp[fts_has_append_thm] >>
+        rpt strip_tac
+        >- (fs[fts_all_dist_def] >> res_tac) >>
+        imp_res_tac lemma_fts_has_both_maps_first_contra
+        ) >>
+      pop_assum mp_tac >>
+      once_rewrite_tac[GSYM APPEND] >>
+      simp[fts_has_append_thm] >>
+      rpt strip_tac
+      >- (fs[fts_all_dist_def] >> res_tac) >>
+      imp_res_tac lemma_fts_has_both_maps_first_contra
+      )
+    >- fs[Once fts_has_cases]
+    pop_assum mp_tac >> pop_assum mp_tac >>
+    once_rewrite_tac[GSYM APPEND] >>
+    simp[fts_has_append_thm] >>
+    rpt strip_tac
+    >- (
+      `fts_has_inj [FibTree k v (FibTree k2 v2 l::t)]` by fs[fts_all_dist_def] >>
+      fs[fts_has_inj_def] >>
+      first_x_assum(qspecl_then [`k3`,`v3`,`v4`] assume_tac) >>
+      pop_assum mp_tac >>
+      once_rewrite_tac[fts_has_cases] >> simp[]
+      )
+    >- imp_res_tac lemma_fts_has_both_maps_child_contra
+    >- imp_res_tac lemma_fts_has_both_maps_child_contra >>
+    `fts_has_inj [FibTree k' v' ys]` by fs[fts_all_dist_def] >>
+    fs[fts_has_inj_def] >>
+    first_x_assum(qspecl_then [`k3`,`v3`,`v4`] assume_tac) >> res_tac
+    )
+  >- (
+    gen_tac >>
+    once_rewrite_tac[GSYM APPEND] >> simp[fts_has_append_thm] >>
+    rpt conj_tac >>
+    >- fs[fts_all_dist_def]
+    >- (
+      spose_not_then assume_tac >>
+      imp_res_tac lemma_fts_has_both_maps_first_contra
+      ) >>
+    fs[fts_all_dist_def]
+    )
+  >- (
+    once_rewrite_tac[GSYM APPEND] >> simp[fts_has_inj_append] >>
+    `fts_has_inj [FibTree k' v' ys]` by fs[fts_all_dist_def] >>
+    `fts_has_inj (FibTree k'' v'' l::t)` by fs[fts_all_dist_def] >>
+    fs[] >> rpt strip_tac >>
+    imp_res_tac lemma_fts_has_both_maps_child_contra
+    )
+  >- (
+    gen_tac >>
+    simp[fts_has_append_thm] >>
+    rpt conj_tac >>
+    >- fs[fts_all_dist_def]
+    >- fs[fts_all_dist_def] >>
+    spose_not_then assume_tac >>
+    qspecl_then [`k''`, `v''`,`t`,`l`] assume_tac (cj 1 fts_has_rules) >>
+    imp_res_tac lemma_fts_has_both_maps_child_contra
+    )
+  >- fs[fts_all_dist_def]
+  >- (
+    simp[fts_all_dist_append_thm] >>
+    simp[fts_has_inj_append] >>
+    rpt strip_tac
+    >- (fs[fts_all_dist_def] >> imp_res_tac lemma_fts_has_inj_ts)
+    >- fs[fts_all_dist_def]
+    >- (
+      rename [`fts_has k3 v3 t`,`fts_has k3 v4 [FibTree k' v' ys]`] >>
+      qspecl_then [`k3`,`v3`,`k''`,`t`,`l`,`v''`] assume_tac (cj 2 fts_has_rules) >>
+      res_tac >>
+      imp_res_tac lemma_fts_has_both_maps_child_contra
+      )
+    >- fs[fts_all_dist_def] >>
+    rename [`fts_has k3 v3 t`,`fts_has k3 v4 [FibTree k' v' ys]`] >>
+    qspecl_then [`k3`,`v4`,`k''`,`t`,`l`,`v''`] assume_tac (cj 2 fts_has_rules) >>
+    res_tac >>
+    imp_res_tac lemma_fts_has_both_maps_child_contra
+    )
+  >- (
+    rpt strip_tac >>
+    pop_assum mp_tac >> simp[fts_has_append_thm] >>
+    rpt strip_tac
+    >- (fs[fts_all_dist_def] >> res_tac) >>
+    rename [`fts_has k3 v3 l`,`fts_has k3 v4 [FibTree k' v' ys]`] >>
+    qspecl_then [`k3`,`v4`,`k''`,`t`,`l`,`v''`] assume_tac (cj 3 fts_has_rules) >>
+    res_tac >>
+    imp_res_tac lemma_fts_has_both_maps_child_contra
+    ) >>
+  rpt strip_tac >> fs[Once fts_has_cases]
+ ) >>
+ cheat
 QED
 
 
