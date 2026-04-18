@@ -578,7 +578,7 @@ Resume max_depth_call_graph_lemma[WithHandler]:
   \\ reverse (Cases_on `(?x y. res = Result x y) \/ (∃x y. res = Exception x y)`)
   \\ pop_assum mp_tac \\ simp_tac std_ss []
   THEN1
-   (strip_tac 
+   (strip_tac
     \\ `s1 = s2 /\ res <> Error` by
      (rpt (qpat_x_assum `!x y z. _` kall_tac)
       \\ fs [CaseEq"bool",CaseEq"option",CaseEq"wordSem$result"] \\ rfs [])
