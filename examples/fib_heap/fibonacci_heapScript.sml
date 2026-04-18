@@ -1391,6 +1391,17 @@ Definition fts_size_def:
   (fts_size (FibTree _ _ ts::rest) = 1 + fts_size ts + fts_size rest)
 End
 
+Theorem fts_size_append_thm:
+  !xs ys.
+  fts_size (xs ++ ys) = (fts_size xs) + (fts_size ys)
+Proof
+  ho_match_mp_tac fts_size_ind >>
+  rpt strip_tac >> simp[fts_size_def]
+QED
+
+
+
+
 
 Definition fib_num_def:
   fib_num n:num =
@@ -3679,11 +3690,168 @@ Proof
 QED
 
 
+Theorem lemma_fts_is_min_merge_trees:
+  v.value <=+ v'.value /\
+  fts_is_min v.value xs /\
+  fts_is_min v'.value ys ==>
+  fts_is_min v.value (fts_merge xs [FibTree k' v' ys])
+Proof
+  strip_tac >>
+  Cases_on `xs`
+  >- (
+    simp[fts_merge_def] >>
+    simp[fts_is_min_def] >>
+    drule_all lemma_lower_eq_fts_is_min >> fs[]
+    ) >>
+  Cases_on `h` >>
+  simp[fts_merge_def] >>
+  IF_CASES_TAC
+  >- (
+    fs[fts_is_min_def] >>
+    simp[fts_is_min_append_thm] >>
+    simp[fts_is_min_def] >>
+    irule lemma_lower_eq_fts_is_min >>
+    qexists `v'.value` >> fs[]
+    ) >>
+  once_rewrite_tac[fts_is_min_def] >>
+  drule_all lemma_lower_eq_fts_is_min >> fs[]
+QED
 
+
+Theorem lemma_fts_parent_lower_eq_merge_trees:
+  every_fts fts_parent_lower_eq [FibTree k v xs] /\
+  every_fts fts_parent_lower_eq [FibTree k' v' ys] /\
+  v.value ≤₊ v'.value ==>
+  every_fts fts_parent_lower_eq
+   [FibTree k v (fts_merge xs [FibTree k' v' ys])]
+Proof
+  fs[Once every_fts_def] >>
+  strip_tac >>
+  Cases_on `xs`
+  >- (
+    simp[fts_merge_def] >>
+    fs[Once every_fts_def] >>
+    fs[Once every_fts_def,fts_parent_lower_eq_def] >>
+    simp[Once every_fts_def,fts_is_min_def] >>
+    gvs[fts_is_min_def] >>
+    imp_res_tac lemma_lower_eq_fts_is_min >> fs[] >>
+    rpt strip_tac >> res_tac
+    ) >>
+  Cases_on `h` >> simp[fts_merge_def] >>
+  IF_CASES_TAC
+  >- (
+    fs[Once every_fts_def,fts_parent_lower_eq_def] >>
+    fs[fts_is_min_def] >>
+    simp[fts_is_min_append_thm] >>
+    simp[fts_is_min_def] >>
+    conj_tac
+    >- (irule lemma_lower_eq_fts_is_min >> qexists `v'.value` >> fs[]) >>
+    simp[Once every_fts_def,fts_parent_lower_eq_def] >>
+    simp[fts_parent_lower_eq_append_thm] >>
+    simp[fts_parent_lower_eq_def] >>
+    rpt strip_tac >> gvs[] >>
+    res_tac
+    ) >>
+  fs[Once every_fts_def,fts_parent_lower_eq_def] >>
+  once_rewrite_tac[lemma_cons_eq_append] >>
+  simp[fts_is_min_append_thm] >>
+  simp[fts_is_min_def] >>
+  conj_tac
+  >- (irule lemma_lower_eq_fts_is_min >> qexists `v'.value` >> fs[]) >>
+  simp[Once every_fts_def,fts_parent_lower_eq_def] >>
+  rpt strip_tac >> gvs[] >>
+  res_tac
+QED
+
+
+Theorem lemma_fts_add_successor:
+  fib_num (LENGTH t + 3) <=  fts_size ys + 1 /\
+  fib_num (LENGTH t + 2) <= fts_size l + fts_size t + 2 ==>
+  fib_num (LENGTH t + 3) + fib_num (LENGTH t + 2) ≤
+  fts_size l + (fts_size t + (fts_size ys + 3))
+Proof
+  strip_tac >>
+  simp[]
+  imp_res_tac EQ_SYM >>
+  qpat_x_assum `LENGTH t + 1 = LENGTH ys` kall_tac >>
+  simp[]
+  simp[EQ_SYM]
+QED
+
+Theorem lemma_arithm_add_tree:
+  LENGTH t + 1 = LENGTH ys /\
+  fib_num (LENGTH t + 3) ≤ fts_size l + (fts_size t + 2) /\
+  fib_num (LENGTH ys + 2) ≤ fts_size ys + 1 ==>
+  fib_num (LENGTH ys + 3) ≤
+  fts_size l + (fts_size t + (fts_size ys + 3))
+Proof
+  strip_tac >>
+  imp_res_tac EQ_SYM >>
+  qpat_x_assum `LENGTH t + 1 = LENGTH ys` kall_tac >>
+  simp[Once fib_num_def] >> gvs[] >>
+  qpat_x_assum `fib_num (LENGTH t + 3) ≤ fts_size t + (fts_size l + 2)` mp_tac >>
+  simp[Once fib_num_def]
+QED
+
+
+
+Theorem lemma_fib_heap_shape_ok_merge_trees:
+  LENGTH xs = LENGTH ys /\
+  fib_heap_shape_ok [FibTree k v xs] /\
+  fib_heap_shape_ok [FibTree k' v' ys] ==>
+  fib_heap_shape_ok [FibTree k v (fts_merge xs [FibTree k' v' ys])]
+Proof
+  strip_tac >>
+  Cases_on `xs`
+  >- (
+    simp[fts_merge_def] >>
+    fs[fib_heap_shape_ok_def] >>
+    simp[fts_size_def] >>
+    simp[Ntimes fib_num_def 5] >>
+    simp[Once fib_num_def] >>
+    simp[Once fib_num_def]
+    ) >>
+  Cases_on `h` >>
+  simp[fts_merge_def] >>
+  IF_CASES_TAC
+  >- (
+    fs[fib_heap_shape_ok_def] >>
+    simp[fib_heap_shape_ok_append_thm] >>
+    fs[fib_heap_shape_ok_def] >>
+    once_rewrite_tac[GSYM APPEND] >>
+    simp[fts_size_append_thm] >>
+    fs[SUC_ONE_ADD] >>
+    fs[fts_size_def] >>
+    imp_res_tac lemma_arithm_add_tree
+    ) >>
+  fs[fib_heap_shape_ok_def] >>
+  once_rewrite_tac[lemma_cons_eq_append] >>
+  simp[fts_size_append_thm] >>
+  fs[fts_size_def] >>
+  fs[SUC_ONE_ADD] >>
+  imp_res_tac lemma_arithm_add_tree
+QED
+
+Theorem lemma_fts_all_dist_merge_trees:
+  fts_all_dist [FibTree k v xs] /\
+  (∀k' v' e.
+    FLOOKUP fh1 k' = SOME (v',e) ⇔
+    ∃m. fts_has k' (fill_dnode v' e m) [FibTree k v xs]) /\
+  fts_all_dist [FibTree k v xs] /\
+  (∀k v e.
+     FLOOKUP fh2 k = SOME (v,e) ⇔
+    ∃m. fts_has k (fill_dnode v e m) [FibTree k' v' ys]) /\
+  fts_all_dist [FibTree k' v' ys] /\
+  DISJOINT (FDOM fh1) (FDOM fh2) ==>
+  fts_all_dist [FibTree k v (fts_merge xs [FibTree k' v' ys])]
+Proof
+  cheat
+QED
 
 
 Theorem logical_fts_merge_trees:
   !xs ys fh1 fh2.
+  LENGTH xs = LENGTH ys /\
   fib_heap_inv fh1 [FibTree k v xs] /\
   fib_heap_inv fh2 [FibTree k' v' ys] /\
   DISJOINT (FDOM fh1) (FDOM fh2) /\
@@ -3691,31 +3859,19 @@ Theorem logical_fts_merge_trees:
   ?fh. fib_heap_inv fh [FibTree k v (fts_merge xs [FibTree k' v' ys])]
 Proof
   rpt strip_tac >>
-  Cases_on `xs`
-  >- (
-    simp[fts_merge_def] >>
-    fs[fib_heap_inv_def] >>
-    fs[fts_is_min_def,fts_hd_value_def] >>
-    imp_res_tac lemma_lower_eq_fts_is_min >> simp[] >>
-    qexists `FUNION fh1 fh2` >>
-    rpt conj_tac
-    >- (
-      strip_tac >>
-      simp[FLOOKUP_SIMP] >>
-      CASE_TAC >> simp[FLOOKUP_SIMP] >>
-      first_x_assum (qspec_then `x` assume_tac) >> fs[]
-      )
-    >- (
-      rpt gen_tac >>
-      qspecl_then [`[]`,`ys`,`fh1`,`fh2`,`k`,`v`,`k'`,`v'`]
-        assume_tac lemma_fts_has_merge_trees >>
-      rfs[]
-
-      simp[Once fts_has_cases] >>
-
-
-      iff_tac >>
-
+  fs[fib_heap_inv_def] >>
+  drule_all lemma_fts_has_merge_trees >>
+  strip_tac >>
+  qexists `FUNION fh1 fh2` >>
+  fs[] >>
+  simp[FLOOKUP_SIMP] >>
+  CASE_TAC >> fs[] >>
+  fs[fts_is_min_def,fts_hd_value_def] >>
+  fs[lemma_lower_eq_fts_is_min] >>
+  fs[lemma_fts_is_min_merge_trees] >>
+  fs[lemma_fts_parent_lower_eq_merge_trees] >>
+  fs[lemma_fib_heap_shape_ok_merge_trees] >>
+  cheat
 QED
 
 
@@ -3725,30 +3881,13 @@ Theorem fts_merge_trees:
   fib_heap_inv fh1 [t1] /\
   fib_heap_inv fh2 [t2] /\
   DISJOINT (FDOM fh1) (FDOM fh2) /\
+  (* Needs statement about rank being equal! *)
   fts_merge_trees t1 t2 = t ==>
   ?fh. fib_heap_inv fh [t]
 Proof
-  strip_tac >>
-  Cases_on `t1` >> Cases_on `t2` >>
-  pop_assum mp_tac >>
-  simp[fts_merge_trees_def] >>
-  IF_CASES_TAC >> strip_tac >> gvs[]
-  >- (
-    Cases_on `l`
-    >- (
-      simp[fts_merge_def] >>
-      fs[fts_is_min_def,fts_hd_value_def] >>
-      fs[
-
-print_match [] “fts_is_min”
-
-      fs[fib_heap_shape_ok_def]
-    >-
-
-
+  cheat
 QED
 
-print_find "merge"
 
 
 
