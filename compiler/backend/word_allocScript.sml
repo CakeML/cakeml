@@ -788,10 +788,11 @@ Definition get_live_def:
       if mop = Store ∨ mop = Store8 ∨ mop = Store16 ∨ mop = Store32
       then union sub (insert v () live)
       else union sub (delete v live)) ∧
-  (*Loop: body's live-after is names (for loop-back).
+  (*Loop: entry-live is names (for cut_state). Body's entry-live must be
+    covered by cut state (domain names), handled via strong_locals_rel
+    extension at proof time.
     Break/Continue handle exit_names/names via lt.*)
-  (get_live (Loop names body exit_names) live lt =
-    get_live body names ((names,exit_names)::lt)) ∧
+  (get_live (Loop names body exit_names) live lt = names) ∧
   (*Break n: exit_names from enclosing Loop at nesting level n*)
   (get_live (Break n) live lt =
     case oEL n lt of
