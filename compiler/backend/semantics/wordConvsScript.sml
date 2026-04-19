@@ -367,7 +367,7 @@ Definition wf_cutsets_def:
   (wf_cutsets (Seq s1 s2) =
     (wf_cutsets s1 ∧ wf_cutsets s2)) ∧
   (wf_cutsets (Loop names p exit_names) ⇔
-    wf_cutsets p) ∧
+    wf names ∧ wf exit_names ∧ wf_cutsets p) ∧
   (wf_cutsets (If cmp r1 ri e2 e3) =
     (wf_cutsets e2 ∧
      wf_cutsets e3)) ∧

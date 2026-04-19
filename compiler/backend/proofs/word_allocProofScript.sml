@@ -2248,6 +2248,7 @@ Resume evaluate_apply_colour[ShareInst]:
   metis_tac[SUBSET_UNION])
 QED
 
+Finalise evaluate_apply_colour;
 
 (* TODO: get_clash_sets, made redundant by clash tree *)
 
@@ -2793,9 +2794,10 @@ Proof
 QED
 
 Theorem clash_tree_colouring_ok:
-  ∀prog f live flive livein flivein lt.
+  ∀prog lt f live flive livein flivein.
   wf_cutsets prog ∧
   wf live ∧
+  EVERY (λ(n,e). wf n ∧ wf e) lt ∧
   domain flive = IMAGE f (domain live) ∧
   INJ f (domain live) UNIV ∧
   check_clash_tree f (get_clash_tree prog lt) live flive = SOME (livein,flivein) ⇒
@@ -3204,6 +3206,9 @@ Proof
       simp[DELETE_DEF]) >>
     irule numset_list_insert_eq_UNION >>
     simp[get_reads_exp_get_live_exp,wf_get_live_exp,wf_delete] )
+  >- ((*Loop*) suspend "Loop")
+  >- ((*Break*) suspend "Break")
+  >- ((*Continue*) suspend "Continue")
   >- (*Call*)
     (Cases_on`ret`>>fs[]
     >-
@@ -3245,6 +3250,44 @@ Proof
       )
 QED
 
+Resume clash_tree_colouring_ok[Loop]:
+  fs[wf_cutsets_def]>>
+  every_case_tac>>fs[]>>
+  imp_res_tac check_col_INJ>>
+  rveq>>
+  Cases_on `x`>>Cases_on `x'`>>
+  last_x_assum (qspecl_then [`f`,`livein`,`flivein`,`q`,`r`] mp_tac)>>
+  impl_tac>- fs[]>>
+  strip_tac>>
+  fs[hide_def,colouring_ok_def]>>
+  drule check_col_INJ>>
+  rw[]>>fs[]
+QED
+
+Resume clash_tree_colouring_ok[Break]:
+  every_case_tac>>fs[check_clash_tree_def]>>
+  imp_res_tac check_col_INJ>>
+  rveq>>
+  fs[hide_def,wf_def]>>
+  fs[EVERY_EL,LLOOKUP_EQ_EL]>>
+  first_x_assum drule>>
+  pairarg_tac>>fs[]>>
+  rw[]>>gvs[]
+QED
+
+Resume clash_tree_colouring_ok[Continue]:
+  every_case_tac>>fs[check_clash_tree_def]>>
+  imp_res_tac check_col_INJ>>
+  rveq>>
+  fs[hide_def,wf_def]>>
+  fs[EVERY_EL,LLOOKUP_EQ_EL]>>
+  first_x_assum drule>>
+  pairarg_tac>>fs[]>>
+  rw[]>>gvs[]
+QED
+
+Finalise clash_tree_colouring_ok;
+
 (*Actually, it should probably be exactly 0,2,4,6...*)
 Definition even_starting_locals_def:
   even_starting_locals (locs:'a word_loc num_map) ⇔
@@ -3280,8 +3323,8 @@ Proof
 QED
 
 Theorem get_forced_in_get_clash_tree[local]:
-  ∀prog c.
-  EVERY (λx,y.in_clash_tree (get_clash_tree prog) x ∧ in_clash_tree (get_clash_tree prog) y) (get_forced c prog [])
+  ∀prog lt c.
+  EVERY (λx,y.in_clash_tree (get_clash_tree prog lt) x ∧ in_clash_tree (get_clash_tree prog lt) y) (get_forced c prog [])
 Proof
   ho_match_mp_tac get_clash_tree_ind>>
   fs[]>>rw[get_clash_tree_def,get_forced_def,in_clash_tree_def]
@@ -3299,6 +3342,8 @@ Proof
     rw[]>>
     fs[EVERY_MEM,FORALL_PROD]>>
     metis_tac[])
+  >-
+    ((* Loop *) fs[EVERY_MEM,FORALL_PROD]>>metis_tac[])
   >-
     (every_case_tac>>fs[in_clash_tree_def,get_forced_def]>>
     Cases_on`r`>>
@@ -3352,6 +3397,8 @@ Theorem word_alloc_correct:
     word_state_eq_rel rst rcst ∧
     case res of
       NONE => T
+    | SOME (Break _) => T
+    | SOME (Continue _) => T
     | SOME _ => rst.locals = rcst.locals
 Proof
   srw_tac[][]>>
@@ -3364,7 +3411,7 @@ Proof
     EVERY_CASE_TAC>>fs[]>>
     fs[GSYM quantHeuristicsTheory.IS_SOME_EQ_NOT_NONE,IS_SOME_EXISTS]>>
     Cases_on`x''`>>
-    Q.ISPECL_THEN [`prog`,`total_colour x'`,`LN:num_set`,`LN:num_set`,`q`,`r`,`[]:(num_set#num_set) list`] mp_tac clash_tree_colouring_ok>>
+    Q.ISPECL_THEN [`prog`,`[]:(num_set#num_set) list`,`total_colour x'`,`LN:num_set`,`LN:num_set`,`q`,`r`] mp_tac clash_tree_colouring_ok>>
     fs[wf_def,hide_def]>> rw[]>>
     Q.ISPECL_THEN[`prog`,`st`,`st`,`total_colour x'`,`LN:num_set`,`[]:(num_set#num_set) list`] mp_tac evaluate_apply_colour>>
     impl_tac>-
@@ -3381,7 +3428,7 @@ Proof
     srw_tac[][]>>
     qexists_tac`perm'`>>srw_tac[][]>>
     full_simp_tac(srw_ss())[LET_THM]>>
-    FULL_CASE_TAC>>full_simp_tac(srw_ss())[])
+    every_case_tac>>full_simp_tac(srw_ss())[])
   >>
   `EVERY (λx,y.in_clash_tree tree x ∧ in_clash_tree tree y) forced` by
     (unabbrev_all_tac>>fs[get_forced_in_get_clash_tree])>>
@@ -3398,7 +3445,7 @@ Proof
       rfs[]>>
       drule clash_tree_colouring_ok>>
       fs[GSYM total_colour_alt]>>
-      disch_then(qspecl_then[`total_colour spcol`,`LN`,`LN`,`livein`,`gliveout`,`[]`] assume_tac)>>
+      disch_then(qspecl_then[`[]:(num_set#num_set) list`,`total_colour spcol`,`LN`,`LN`,`livein`,`gliveout`] assume_tac)>>
       rfs[wf_def]>>
       fs[hide_def])
     >-
@@ -3414,7 +3461,7 @@ Proof
   rw[]>>
   qexists_tac`perm'`>>rw[]>>
   fs[]>>
-  FULL_CASE_TAC>>fs[]
+  every_case_tac>>fs[]
 QED
 
 Theorem apply_colour_exp_I[local]:

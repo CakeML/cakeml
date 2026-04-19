@@ -1116,16 +1116,19 @@ Definition get_clash_tree_def:
     then Delta [] (v::get_reads_exp exp)
     else Delta [v] $ get_reads_exp exp) ∧
   (get_clash_tree (Loop names body exit_names) lt =
-    Seq (Set names) (get_clash_tree body ((names,exit_names)::lt))) ∧
+    Seq (Set names)
+      (Seq (Set exit_names)
+        (Seq (get_clash_tree body ((names,exit_names)::lt))
+          (Set names)))) ∧
   (*Break n: exit_names vars must all be live*)
   (get_clash_tree (Break n) lt =
     case oEL n lt of
-      NONE => Delta [] []
+      NONE => Set LN
     | SOME (names,exit_names) => Set exit_names) ∧
   (*Continue n: names vars must all be live*)
   (get_clash_tree (Continue n) lt =
     case oEL n lt of
-      NONE => Delta [] []
+      NONE => Set LN
     | SOME (names,exit_names) => Set names) ∧
   (get_clash_tree (Call ret dest args h) lt =
     let args_set = numset_list_insert args LN in
