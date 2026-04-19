@@ -805,14 +805,6 @@ Definition is_block_op_cons_def:
       op = BlockOp (Cons block_tag)
 End
 
-Theorem ry:
-  ∀loc tag xs n args h i l hole r.
-    cons_to_tc_and_hb loc tag xs = (TCall n args h)⁺ (HoleBlock i l hole r) ⇒
-    xs = l ++ [Call n (SOME loc) args h] ++ r
-Proof
-  cheat
-QED
-
 (* This was copied from bvlPropsScript but I don't see it for bviPropsScript. Consider putting it there *)
 Theorem evaluate_refs_SUBSET:
   (evaluate (xs,env,s) = (res,t)) ==> FDOM s.refs SUBSET FDOM t.refs
@@ -835,11 +827,10 @@ Theorem aux_strip_op:
     rewrite_aux loc loc_opt arity (Op op xs) = SOME aux ⇒
     is_block_op_cons op ∧
     ∃mut_cons tail_call finalise tag i l hole r hole_ptr hole_idx t args h.
-      mut_cons = Op (MemOp (MutCons tag i)) (l ++ [hole] ++ r) ∧
+      mut_cons = to_mut_cons (HoleBlock tag l hole r) ∧
       tail_call = Call t (SOME loc_opt) (Op (IntOp (Const (&LENGTH l))) [] :: Var hole_ptr :: args) h ∧
       finalise = Op (MemOp FinaliseCons) [Var hole_ptr] ∧
-      aux = Let [mut_cons; tail_call] $ finalise ∧
-      xs = l ++ [Call t (SOME loc) args h] ++ r
+      aux = Let [mut_cons; tail_call] $ finalise
 Proof
   rw []
   >-
@@ -859,11 +850,8 @@ Proof
   >> Cases_on ‘h’ >> gvs []
   >> Cases_on ‘t’ >> gvs []
   >> strip_tac
-  >> Cases_on ‘to_mut_cons (HoleBlock n l0 o' l)’ >> gvs [to_mut_cons_def]
-  >> rename [‘cons_to_tc_and_hb loc tag xs = (TCall n args h)⁺ (HoleBlock i l hole r)’]
-  >> qexists ‘l’
   >> gvs []
-  >> drule ry
+  >> qexistsl [‘n’, ‘l0’, ‘o'’, ‘l’]
   >> gvs []
 QED
 
@@ -1569,7 +1557,10 @@ Resume evaluate_rewrite_tmc[op]:
       >> drule aux_strip_op
       >> strip_tac
       >> gvs [is_block_op_cons_def]
+      >> gvs [to_mut_cons_def]
       >> simp [evaluate_def]
+      >> cheat)
+      (*
       >> CASE_TAC
       >> CASE_TAC >> gvs []
       >-
@@ -1585,12 +1576,22 @@ Resume evaluate_rewrite_tmc[op]:
         >> imp_res_tac evaluate_IMP_LENGTH
         >> gvs [LENGTH_APPEND]
         >> ‘small_enough_int (&LENGTH l')’ by cheat
+        >> simp [Once evaluate_CONS]
+        >> simp [Once evaluate_def]
         >> gvs []
-        >> simp [evaluate_def]
-        >> CASE_TAC >> gvs []
-        >> Cases_on ‘q’ >> gvs []
+        >> ‘arity < LENGTH env2’ by cheat
+        >> gvs []
         >> cheat (* HERE *))
-      >> cheat)
+      >> rename [‘state_rel f3 t t'’]
+      >> rename [‘e'' = e' ∧ t'' = t'’]
+      >> gvs [evaluate_APPEND]
+      >> Cases_on ‘evaluate (l,env,s)’ >> gvs []
+      >> reverse $ Cases_on ‘q’ >> gvs []
+      >- (* Error evaluating l *)
+       (cheat (* show ‘evaluate (l,env2,s')’ gives same error *))
+      >> rename [‘evaluate (l,env,s) = (Rval vl,ul)’]
+      >> gvs [Once evaluate_CONS]
+      >> *)
     >> rw []
     >> gvs [rewrite_opt_def, evaluate_def]
     >> CASE_TAC >> gvs []
@@ -1614,10 +1615,9 @@ Resume evaluate_rewrite_tmc[op]:
     >> Cases_on ‘h’ >> gvs []
     >> Cases_on ‘t'’ >> gvs []
     >> rename [‘cons_to_tc_and_hb loc x xs = (TCall ticks args handler')⁺ (HoleBlock tag l hole r)’]
-    >> gvs [Once evaluate_def]
+    >> gvs [Once evaluate_def, opt_res_rel_def]
     >> CASE_TAC >> gvs []
     >> CASE_TAC >> gvs []
-    >> gvs [evaluate_def]
     >> cheat)
   >> rename [‘LIST_REL (v_rel f'') vs vs'’]
   >> reverse $ Cases_on ‘do_app op (REVERSE vs) u’ >> gvs []
@@ -1686,7 +1686,7 @@ Resume evaluate_rewrite_tmc[op]:
     >> gvs [is_block_op_cons_def]
     >> cheat)
   >> rpt gen_tac
-  >> gvs [evaluate_def, rewrite_opt_def]
+  >> gvs [evaluate_def, rewrite_opt_def, opt_res_rel_def]
   >> CASE_TAC >> gvs []
   >-
    (gvs [opt_res_rel_def]
@@ -1718,7 +1718,7 @@ Resume evaluate_rewrite_tmc[op]:
     >> irule holes_unchanged_except_filled
     >> gvs [])
   (* Cons *)
-  >> gvs [opt_res_rel_def, evaluate_def, rewrite_opt_BlockOp_Cons_def]
+  >> gvs [evaluate_def, rewrite_opt_BlockOp_Cons_def]
   >> CASE_TAC >> gvs []
   >- (* Duplicated branch *)
    (simp [evaluate_def, do_app_def, do_app_aux_def, bviPropsTheory.bvl_to_bvi_id]
@@ -1728,7 +1728,19 @@ Resume evaluate_rewrite_tmc[op]:
   >> Cases_on ‘h’ >> gvs []
   >> Cases_on ‘t''’ >> gvs []
   >> rename [‘cons_to_tc_and_hb loc x xs = (TCall ticks args handler')⁺ (HoleBlock tag l hole r)’]
-  >> gvs [evaluate_def]
+  >> gvs [Once to_mut_cons_def, evaluate_def, evaluate_APPEND]
+  >> cheat
+QED
+
+Theorem renameme:
+  ∀loc tag op_args ticks args handler tag' l hole r.
+    cons_to_tc_and_hb loc tag op_args = (TCall ticks args handler)⁺ (HoleBlock tag' l hole r) ⇒
+    ∃hole'. xs = l ++ hole' ++ r
+Proof
+  recInduct cons_to_tc_and_hb_ind
+  >> rw [cons_to_tc_and_hb_def]
+  >-
+   (Cases_on ‘dest_Cons op’ >> gvs [] >> cheat)
   >> cheat
 QED
 
