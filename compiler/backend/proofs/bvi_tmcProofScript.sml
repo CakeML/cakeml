@@ -1156,6 +1156,7 @@ Resume evaluate_rewrite_tmc[var]:
   >> rpt gen_tac
   >> gvs [opt_res_rel_def]
   >> gvs [rewrite_opt_def]
+  >> gvs [fill_hole_def]
   (* Lemma for evaluating Op (MemOp UpdateCons)? *)
   >> gvs [evaluate_def]
   >> drule env_rel_length_opt
@@ -1596,26 +1597,26 @@ Resume evaluate_rewrite_tmc[op]:
     >> gvs [rewrite_opt_def, evaluate_def]
     >> CASE_TAC >> gvs []
     >-
-     (gvs [evaluate_def, opt_res_rel_def]
+     (gvs [evaluate_def, fill_hole_def, opt_res_rel_def]
       >> irule holes_unchanged_except_subset
       >> first_assum $ irule_at Any
       >> gvs [])
     >> gvs [evaluate_def, rewrite_opt_BlockOp_Cons_def]
     >> CASE_TAC >> gvs []
     >-
-     (gvs [evaluate_def, opt_res_rel_def]
+     (gvs [evaluate_def, fill_hole_def, opt_res_rel_def]
       >> irule holes_unchanged_except_subset
       >> first_assum $ irule_at Any
       >> gvs [])
     >-
-     (gvs [evaluate_def, opt_res_rel_def]
+     (gvs [evaluate_def, fill_hole_def, opt_res_rel_def]
       >> irule holes_unchanged_except_subset
       >> first_assum $ irule_at Any
       >> gvs [])
     >> Cases_on ‘h’ >> gvs []
     >> Cases_on ‘t'’ >> gvs []
     >> rename [‘cons_to_tc_and_hb loc x xs = (TCall ticks args handler')⁺ (HoleBlock tag l hole r)’]
-    >> gvs [Once evaluate_def, opt_res_rel_def]
+    >> gvs [Once evaluate_def, fill_hole_def, opt_res_rel_def]
     >> CASE_TAC >> gvs []
     >> CASE_TAC >> gvs []
     >> cheat)
@@ -1648,7 +1649,7 @@ Resume evaluate_rewrite_tmc[op]:
     >> strip_tac
     >> pop_assum $ irule_at Any
     >> irule_at Any EMPTY_SUBSET
-    >> simp [rewrite_opt_def, dest_Cons_def, evaluate_def])
+    >> simp [rewrite_opt_def, dest_Cons_def, fill_hole_def, evaluate_def])
   (* lemma that do_app op (REVERSE a) u = Rval a' implies do_app op (REVERSE v') u' equals some other Rval that is v_rel related to a' *)
   >> rename [‘do_app op (REVERSE vs) u = Rval v’]
   >> drule $ iffLR list_rel_reverse
@@ -1690,7 +1691,7 @@ Resume evaluate_rewrite_tmc[op]:
   >> CASE_TAC >> gvs []
   >-
    (gvs [opt_res_rel_def]
-    >> gvs [evaluate_def]
+    >> gvs [fill_hole_def, fill_hole_def, evaluate_def]
     >> drule env_rel_length_opt
     >> strip_tac
     >> gvs []
@@ -1718,7 +1719,7 @@ Resume evaluate_rewrite_tmc[op]:
     >> irule holes_unchanged_except_filled
     >> gvs [])
   (* Cons *)
-  >> gvs [evaluate_def, rewrite_opt_BlockOp_Cons_def]
+  >> gvs [evaluate_def, fill_hole_def, rewrite_opt_BlockOp_Cons_def]
   >> CASE_TAC >> gvs []
   >- (* Duplicated branch *)
    (simp [evaluate_def, do_app_def, do_app_aux_def, bviPropsTheory.bvl_to_bvi_id]
@@ -1826,7 +1827,7 @@ Resume evaluate_rewrite_tmc[call]:
     >> qexistsl [‘Rerr e'’, ‘t'’]
     >> gvs [opt_res_rel_def]
     >> conj_tac
-    >- (gvs [rewrite_opt_def, evaluate_def] >> IF_CASES_TAC >> gvs [])
+    >- (gvs [rewrite_opt_def, fill_hole_def, evaluate_def] >> IF_CASES_TAC >> gvs [])
     >> irule holes_unchanged_except_subset
     >> pop_assum $ irule_at Any
     >> gvs [])
@@ -1857,7 +1858,7 @@ Resume evaluate_rewrite_tmc[call]:
     >> simp [rewrite_opt_def]
     >> pop_assum $ irule_at Any
     >> qexists ‘Rerr (Rabort Rtimeout_error)’
-    >> gvs [opt_res_rel_def]
+    >> gvs [opt_res_rel_def, fill_hole_def]
     >> irule_at Any holes_unchanged_except_subset
     >> first_assum $ irule_at $ Pos hd
     >> gvs []
@@ -1907,7 +1908,7 @@ Resume evaluate_rewrite_tmc[call]:
       >- rw [rewrite_aux_def]
       >> rw []
       >> gvs [opt_res_rel_def]
-      >> gvs [rewrite_opt_def, evaluate_def]
+      >> gvs [rewrite_opt_def, fill_hole_def, evaluate_def]
       >> IF_CASES_TAC >> gvs []
       >> drule env_rel_length_opt
       >> strip_tac
@@ -1966,7 +1967,7 @@ Resume evaluate_rewrite_tmc[call]:
         >> conj_tac
         >> rw [rewrite_aux_def]
         >> rw []
-        >> gvs [rewrite_opt_def, evaluate_def]
+        >> gvs [rewrite_opt_def, fill_hole_def, evaluate_def]
         >> gvs [opt_res_rel_def]
         >> drule_all holes_unchanged_except_trans
         >> gvs []
@@ -2006,7 +2007,7 @@ Resume evaluate_rewrite_tmc[call]:
       >> strip_tac
       >> gvs [rewrite_aux_def]
       >> rw []
-      >> gvs [rewrite_opt_def, evaluate_def]
+      >> gvs [rewrite_opt_def, fill_hole_def, evaluate_def]
       >> drule env_rel_length_opt
       >> strip_tac
       >> gvs []
@@ -2063,7 +2064,7 @@ Resume evaluate_rewrite_tmc[call]:
     >> gvs [rewrite_aux_def]
     >> rw []
     >> gvs [opt_res_rel_def]
-    >> gvs [rewrite_opt_def, evaluate_def]
+    >> gvs [rewrite_opt_def, fill_hole_def, evaluate_def]
     >> IF_CASES_TAC >> gvs []
     >> drule env_rel_length_opt
     >> strip_tac
@@ -2137,7 +2138,7 @@ Resume evaluate_rewrite_tmc[call]:
       >> strip_tac
       >> gvs [rewrite_aux_def]
       >> rw []
-      >> gvs [rewrite_opt_def, evaluate_def]
+      >> gvs [rewrite_opt_def, fill_hole_def, evaluate_def]
       >> IF_CASES_TAC >> gvs []
       >> rev_drule env_rel_length_opt
       >> strip_tac

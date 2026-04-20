@@ -196,7 +196,9 @@ Definition rewrite_opt_BlockOp_Cons_def:
         let exp_update_hole  = Op (MemOp UpdateCons) [var_new_hole_ptr; arg_old_hole_idx; arg_old_hole_ptr] in
         let exp_tail_call    = Call t (SOME loc_opt) (exp_new_hole_idx :: var_new_hole_ptr :: args) h in
           Let [exp_mut_cons; exp_update_hole] $ exp_tail_call
-    | _ => Op (BlockOp (Cons block_tag)) op_args (* Is this right?? Or does it need to be UpdateCons? *)
+    | _ =>
+        let expr = Op (BlockOp (Cons block_tag)) op_args in
+          fill_hole i_old_hole_ptr i_old_hole_idx expr
 End
 
 (* Assumes that the function can and should be optimised - has been checked by rewrite_aux_def. *)
@@ -349,7 +351,8 @@ val map_expected = “(9:num,
                             (Op (MemOp FinaliseCons) [Var 7]))))))));
        (6,4,
         Let [Op (IntOp (Const 0)) []]
-          (If (Op (BlockOp (TagLenEq 0 0)) [Var 1]) mk_unit
+            (If (Op (BlockOp (TagLenEq 0 0)) [Var 1])
+             (Op (MemOp UpdateCons) [mk_unit; Var 4; Var 3])
              (Let [mk_elem_at (Var 1) 0]
                 (Let [mk_elem_at (Var 1) 1]
                    (Let [Op (IntOp (Const 0)) []]
