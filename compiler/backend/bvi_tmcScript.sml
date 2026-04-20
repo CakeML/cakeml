@@ -146,7 +146,7 @@ Definition rewrite_aux_BlockOp_Cons_def:
         let exp_tail_call = Call t (SOME loc_opt) (exp_hole_idx :: var_hole_ptr :: args) h in
         let exp_finalise  = Op (MemOp FinaliseCons) [var_hole_ptr] in
         SOME $ Let [exp_mut_cons; exp_tail_call] exp_finalise
-    | _ => NONE (* I think this should fill the hole... *)
+    | _ => NONE
 End
 
 Definition rewrite_aux_def:
@@ -172,6 +172,13 @@ Definition rewrite_aux_def:
     | SOME block_tag => rewrite_aux_BlockOp_Cons loc loc_opt i_hole_ptr block_tag op_args
     | NONE => NONE) ∧
   (rewrite_aux loc loc_opt i_hole_ptr _ = NONE)
+End
+
+Definition fill_hole_def:
+  fill_hole i_old_hole_ptr i_old_hole_idx expr =
+    let arg_hole_ptr = Var i_old_hole_ptr in
+    let arg_hole_idx = Var i_old_hole_idx in
+    Op (MemOp UpdateCons) [expr; arg_hole_idx; arg_hole_ptr]
 End
 
 (* Assumes that the function can and should be optimised - has been checked by rewrite_aux_def. *)
@@ -206,17 +213,12 @@ Definition rewrite_opt_def:
     case dest_Cons op of
     | SOME block_tag => rewrite_opt_BlockOp_Cons loc loc_opt i_old_hole_ptr i_old_hole_idx i_new_hole_ptr block_tag op_args
     | NONE =>
-      let arg_hole_ptr = Var i_old_hole_ptr in
-      let arg_hole_idx = Var i_old_hole_idx in
-      let exp_hole_val = Op op op_args in
-        Op (MemOp UpdateCons) [exp_hole_val; arg_hole_idx; arg_hole_ptr]) ∧
+        fill_hole i_old_hole_ptr i_old_hole_idx (Op op op_args)) ∧
   (rewrite_opt loc loc_opt i_old_hole_ptr i_old_hole_idx i_new_hole_ptr (Tick x) =
     Tick $ rewrite_opt loc loc_opt i_old_hole_ptr i_old_hole_idx i_new_hole_ptr x) ∧
-  (rewrite_opt loc loc_opt i_old_hole_ptr i_old_hole_idx i_new_hole_ptr expr =
-    (* This should check if it's a recursive call *)
-    let arg_hole_ptr = Var i_old_hole_ptr in
-    let arg_hole_idx = Var i_old_hole_idx in
-      Op (MemOp UpdateCons) [expr; arg_hole_idx; arg_hole_ptr])
+  (rewrite_opt loc loc_opt i_old_hole_ptr i_old_hole_idx _ expr =
+   (* This should check if it's a recursive call *)
+   fill_hole i_old_hole_ptr i_old_hole_idx expr)
 End
 
 Definition compile_exp_def:
