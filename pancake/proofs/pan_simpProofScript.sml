@@ -206,9 +206,9 @@ Proof
   rw [ret_to_tail_def] >>
   fs [evaluate_def] >>
   TOP_CASE_TAC >> fs [] >>
+  rw [] >>
   rpt (pairarg_tac >> fs [] >> rveq)
 QED
-
 
 Theorem ret_to_tail_Seq:
   ^(get_goal "panLang$Seq")
@@ -349,6 +349,21 @@ Proof
   rw [state_rel_def]
 QED
 
+Theorem state_rel_upd_inv[local]:
+  state_rel s t code ==> ?s_code. s = t with <| code := s_code |>
+Proof
+  rw [state_rel_def]
+  \\ simp [state_component_equality]
+QED
+
+Theorem opt_mmap_eq_some_helper[local]:
+  !xs zs. OPT_MMAP f xs = SOME zs /\
+  (!x. MEM x xs ==> !y. f x = SOME y ==> g x = SOME y) ==>
+  OPT_MMAP g xs = SOME zs
+Proof
+  Induct_on `xs`
+  \\ rw []
+QED
 
 Theorem compile_eval_correct:
   ∀s e v t.
@@ -370,20 +385,29 @@ Proof
    fs [panSemTheory.eval_def] >> rveq >>
    fs [state_rel_def, state_component_equality])
   >- (
-   rename [‘eval s (Struct es)’] >>
+   rename [‘eval s (RStruct es)’] >>
    rpt gen_tac >> strip_tac >> fs [] >>
    fs [panSemTheory.eval_def, option_case_eq] >> rveq >>
-   rpt (pop_assum mp_tac) >>
-   MAP_EVERY qid_spec_tac [‘vs’, ‘es’] >>
-   Induct >>
-   rpt gen_tac >> strip_tac >> fs [OPT_MMAP_def] >>
-   rewrite_tac [AND_IMP_INTRO] >> strip_tac >> rveq >>
-   rename [‘_ = SOME vs’] >>
-   fs [])
+   drule_then (irule_at Any) opt_mmap_eq_some_helper >>
+   simp [])
   >- (
-   rename [‘eval s (Field index e)’] >>
+   rename [‘eval s (RField index e)’] >>
    rpt gen_tac >> strip_tac >> fs [] >>
    fs [panSemTheory.eval_def, option_case_eq, v_case_eq] >> rveq >>
+   fs [])
+  >- (
+   rename [‘eval s (NStruct nm nm_es)’] >>
+   rpt gen_tac >> strip_tac >> fs [] >>
+   fs [panSemTheory.eval_def, option_case_eq, UNZIP_MAP] >> rveq >>
+   drule_then (irule_at Any) opt_mmap_eq_some_helper >>
+   imp_res_tac state_rel_upd_inv >>
+   fs []
+  )
+  >- (
+   rename [‘eval s (NField nm e)’] >>
+   rpt gen_tac >> strip_tac >> fs [] >>
+   fs [panSemTheory.eval_def, option_case_eq, v_case_eq] >> rveq >>
+   imp_res_tac state_rel_upd_inv >>
    fs [])
   >- (
    rename [‘eval s (Load sh e)’] >>
@@ -466,6 +490,7 @@ Proof
   \\ metis_tac [compile_eval_correct]
 QED
 
+(*
 Theorem compile_eval_correct_none:
   ∀s e t.
       eval s e = NONE /\
@@ -600,6 +625,7 @@ Proof
   imp_res_tac compile_eval_correct >>
   fs []
 QED
+*)
 
 val goal =
   ``λ comp (prog, s). ∀res s1 t ctxt.
@@ -656,7 +682,7 @@ Proof
   drule compile_eval_correct >>
   disch_then drule >>
   strip_tac >>
-  fs [] >>
+  fs [bool_case_eq] >>
   pairarg_tac >> fs [] >> rveq >> fs [] >>
   pairarg_tac >> fs [] >> rveq >> fs [] >>
   first_x_assum (qspec_then ‘t with locals := t.locals |+ (v,x)’ mp_tac) >>
@@ -853,13 +879,10 @@ Proof
   rw [] >>
   fs [evaluate_seq_assoc, evaluate_skip_seq] >>
   fs [evaluate_def] >> rveq >> fs [] >>
-  last_x_assum mp_tac >>
-  rpt (TOP_CASE_TAC >> fs []) >>
-  MAP_EVERY imp_res_tac [compile_eval_correct,compile_eval_correct_none] >> gvs[] >>
-  rfs [state_rel_def, state_component_equality,
-       empty_locals_def, dec_clock_def] >> rveq >> fs [] >>
-  rveq >> fs [] >> rveq >> rfs [] >>
-  strip_tac >> fs []
+  fs [AllCaseEqs()] >> gvs [] >>
+  imp_res_tac compile_eval_correct >> gvs[] >>
+  imp_res_tac state_rel_upd_inv >> fs [] >>
+  fs [state_rel_def, empty_locals_def, state_component_equality]
 QED
 
 Theorem compile_ShMemLoad:
@@ -871,7 +894,7 @@ Proof
        kvar_defs,empty_locals_def, evaluate_def,
        AllCaseEqs(), lookup_kvar_def, PULL_EXISTS
       ] >>
-  MAP_EVERY imp_res_tac [compile_eval_correct,compile_eval_correct_none] >> gvs[] >>
+  imp_res_tac compile_eval_correct >> gvs[] >>
   gvs [state_rel_def, state_component_equality,
        empty_locals_def, dec_clock_def]
 QED
@@ -886,12 +909,11 @@ Proof
   fs [nb_op_def,sh_mem_load_def,sh_mem_store_def,
       set_var_def,empty_locals_def] >>
   last_x_assum mp_tac >>
-  rpt (TOP_CASE_TAC >> fs []) >>
-  MAP_EVERY imp_res_tac [compile_eval_correct,compile_eval_correct_none] >> gvs[] >>
-  rfs [state_rel_def, state_component_equality,
-       empty_locals_def, dec_clock_def] >> rveq >> fs [] >>
-  rveq >> fs [] >> rveq >> rfs [] >>
-  strip_tac >> fs []
+  fs [AllCaseEqs()] >> gvs [] >>
+  rw [] >>
+  imp_res_tac compile_eval_correct >> gvs[] >>
+  imp_res_tac state_rel_upd_inv >> fs [] >>
+  fs [state_rel_def, empty_locals_def, state_component_equality]
 QED
 
 Theorem compile_Others:
@@ -1229,10 +1251,23 @@ Proof
       conj_tac
       >- (gvs[state_rel_def,state_component_equality]) >>
       first_x_assum match_mp_tac >>
-      gvs[state_rel_def,state_component_equality]) >>
-  first_x_assum match_mp_tac >>
-  gvs[state_rel_def,state_component_equality,FLOOKUP_UPDATE] >>
-  rw[]
+      gvs[state_rel_def,state_component_equality])
+  >- (
+      `t.structs = s.structs` by ( imp_res_tac state_rel_upd_inv >> fs [] ) >>
+      simp [] >>
+      first_x_assum match_mp_tac >>
+      gvs[state_rel_def,state_component_equality,FLOOKUP_UPDATE] >>
+      rw[]
+  )
+QED
+
+Theorem evaluate_stcnames_compile_prog:
+  !s pan_code s'. evaluate_stcnames s pan_code = SOME s' ==>
+  !s''. (s'' = s \/ T) ==> evaluate_stcnames s'' (compile_prog pan_code) = SOME s''
+Proof
+  recInduct evaluate_stcnames_ind >>
+  simp [compile_prog_def, evaluate_stcnames_def, named_structs_ok_def] >>
+  simp [option_case_eq]
 QED
 
 Theorem state_rel_imp_semantics_decls:
@@ -1246,6 +1281,9 @@ Theorem state_rel_imp_semantics_decls:
 Proof
   rw [semantics_decls_def] >>
   gvs[AllCaseEqs(),GSYM IS_SOME_EQ_NOT_NONE,IS_SOME_EXISTS] >>
+  imp_res_tac evaluate_stcnames_compile_prog >>
+  imp_res_tac evaluate_stcnames_no_named_structs >>
+  fs [] >>
   drule_at (Pos last) state_rel_imp_evaluate_decls >>
   disch_then $ qspec_then ‘t’ mp_tac >>
   simp[] >>

@@ -218,7 +218,8 @@ Definition eval_def:
     (if named_structs_ok
     then (case eval s e of
      | SOME (NStruct nm vflds) =>
-       ALOOKUP vflds fld
+       if ALOOKUP s.structs nm <> NONE
+       then ALOOKUP vflds fld else NONE
      | _ => NONE)
     else NONE)) /\
   (eval s (Load shape addr) =
@@ -541,7 +542,7 @@ Definition evaluate_def:
         if sh = shape_of value then
           let (res,st) = evaluate (prog,s with locals := s.locals |+ (v,value)) in
           (res, st with locals := res_var st.locals (v, FLOOKUP s.locals v))
-        else (NONE,s)
+        else (SOME Error, s)
      | NONE => (SOME Error, s)) /\
   (evaluate (Assign vk v src,s) =
     case (eval s src) of
@@ -806,7 +807,7 @@ Definition evaluate_stcnames_def:
     (case ALOOKUP s.structs nm of
     | SOME info => NONE
     | NONE =>
-      if ALL_DISTINCT $ MAP FST flds then
+      if named_structs_ok /\ ALL_DISTINCT $ MAP FST flds then
         let shs = MAP SND flds in
         if EVERY (is_wf_shape s.structs) shs then
           let info = <| fields := flds
@@ -822,12 +823,12 @@ End
 
 Definition semantics_decls_def:
   semantics_decls ^s start decls =
-  case evaluate_decls s decls of
+  case evaluate_stcnames s decls of
   | NONE => Fail
   | SOME s' =>
-    case evaluate_decls s decls of
+    case evaluate_decls s' decls of
     | NONE => Fail
-    | SOME s' => semantics s' start
+    | SOME s'' => semantics s'' start
 End
 
 val _ = map delete_binding ["evaluate_AUX_def", "evaluate_primitive_def"];

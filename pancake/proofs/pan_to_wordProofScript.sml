@@ -5,7 +5,7 @@ Theory pan_to_wordProof
 Ancestors
   crep_inline[qualified]
   pan_to_word pan_simpProof pan_to_crepProof crep_to_loopProof
-  loop_to_wordProof pan_globalsProof
+  loop_to_wordProof pan_globalsProof pan_structsProof
 Libs
   preamble
 
@@ -136,8 +136,7 @@ Theorem compile_decs_exp_ids:
 Proof
   recInduct pan_globalsTheory.compile_decs_ind >>
   rw[pan_globalsTheory.compile_decs_def,ELIM_UNCURRY,panLangTheory.exp_ids_def,
-     panLangTheory.functions_def,exp_ids_compile_globals
-    ]
+     panLangTheory.functions_def,exp_ids_compile_globals]
 QED
 
 Theorem fperm_exp_ids:
@@ -169,7 +168,7 @@ Theorem FDOM_get_eids_pan_globals_compile_eq:
   ∀pan_code main args body.
     ALOOKUP (functions pan_code) main = SOME (args,body) ⇒
     FDOM(get_eids (functions (compile_top pan_code main))) =
-    FDOM(get_eids(functions pan_code))
+    FDOM(get_eids (functions pan_code))
 Proof
   rw[pan_globalsTheory.compile_top_def,ELIM_UNCURRY,panLangTheory.functions_def,
      pan_to_crepTheory.get_eids_def,map_map2_fst_lemma,
@@ -179,21 +178,20 @@ Proof
      fperm_exp_ids,
      functions_resort_decls
     ] >>
-  qmatch_goalsub_abbrev_tac ‘a1 ∪ _ = _’ >>
-  ‘a1 = {}’ suffices_by simp[] >>
-  unabbrev_all_tac >> rw[FLAT_EQ_NIL,EVERY_MAP,compile_decs_no_exp_ids_main]
+  simp [last (RES_CANON FLAT_EQ_NIL),EVERY_MAP,compile_decs_no_exp_ids_main]
 QED
 
 Definition globals_allocatable_def:
   globals_allocatable (s:('a,'ffi) panSem$state) pan_code ⇔
+  let dec_shs = dec_shapes pan_code;
+    struct_ctxt = decl_structs pan_code;
+    sz = SUM (MAP (size_of_sh_with_ctxt (THE struct_ctxt)) dec_shs)
+  in
+  struct_ctxt <> NONE ∧
   DISJOINT s.memaddrs
-           (addresses s.top_addr
-                      (SUM (MAP size_of_shape (dec_shapes (compile_prog pan_code))))) ∧
-  s.top_addr +
-        bytes_in_word:'a word *
-        n2w (SUM (MAP size_of_shape (dec_shapes pan_code))) ∉
-        s.memaddrs ∧
-  SUM (MAP size_of_shape (dec_shapes pan_code)) * w2n(bytes_in_word:'a word) < dimword (:α)
+           (addresses s.top_addr sz) ∧
+  s.top_addr + bytes_in_word:'a word * n2w sz ∉ s.memaddrs ∧
+  sz * w2n(bytes_in_word:'a word) < dimword (:α)
 End
 
 Theorem dec_shapes_compile_prog:
@@ -208,6 +206,29 @@ Theorem function_names_compile_prog:
 Proof
   Induct using panLangTheory.functions_ind >>
   gvs[pan_simpTheory.compile_prog_def,panLangTheory.functions_def]
+QED
+
+Theorem function_names_structs_compile_decs[local]:
+  ∀ctxt pan_code. MAP FST (functions(FST (pan_structs$compile_decs ctxt pan_code))) =
+  MAP FST (functions pan_code)
+Proof
+  recInduct pan_structsTheory.compile_decs_ind >>
+  simp [pan_structsTheory.compile_decs_def, panLangTheory.functions_def, ELIM_UNCURRY]
+QED
+
+Theorem function_names_structs_compile_top:
+  ∀pan_code. MAP FST (functions(pan_structs$compile_top pan_code)) = MAP FST (functions pan_code)
+Proof
+  simp [pan_structsTheory.compile_top_def, function_names_structs_compile_decs]
+QED
+
+Theorem no_names_compile_prog:
+  EVERY (λd. is_function d ∨ is_decl d) pan_code ⇒
+  EVERY (λd. is_function d ∨ is_decl d) (pan_simp$compile_prog pan_code)
+Proof
+  simp [pan_simpTheory.compile_prog_def, EVERY_MAP] >>
+  match_mp_tac MONO_EVERY >>
+  Cases >> simp [panLangTheory.is_function_def, is_decl_def]
 QED
 
 Theorem semantics_decls_has_main':
@@ -268,6 +289,58 @@ Proof
     ]
 QED
 
+(* FIXME: flip these around. evaluate_stcnames shouldn't use the whole state. *)
+Definition decl_structs_def:
+  decl_structs decs = (case evaluate_stcnames ((ARB with structs := []) : (32, unit) panSem$state) decs of
+    NONE => NONE
+  | SOME s => SOME s.structs)
+End
+
+Theorem evaluate_stcnames_structs_field_only:
+  !s decs. evaluate_stcnames s decs =
+  (case evaluate_stcnames (ARB with structs := s.structs) decs of
+    NONE => NONE
+  | SOME s' => SOME (s with structs := s'.structs)
+  )
+Proof
+  recInduct panSemTheory.evaluate_stcnames_ind
+  >> simp [panSemTheory.evaluate_stcnames_def]
+  >> rw []
+  >> TRY TOP_CASE_TAC >> fs []
+  >> simp [panSemTheory.state_component_equality]
+QED
+
+(* this should be the defn (or replacement in semantics_decls)  *)
+Theorem evaluate_stcnames_eq_decl_structs:
+  s.structs = [] ==>
+  evaluate_stcnames s decs = (case decl_structs decs of
+    NONE => NONE | SOME ss => SOME (s with structs := ss)
+  )
+Proof
+  ONCE_REWRITE_TAC [evaluate_stcnames_structs_field_only] >>
+  simp [decl_structs_def] >>
+  every_case_tac >>
+  fs [] >>
+  cheat
+  (* hah not true because of type nonsense *)
+QED
+
+Theorem dec_shapes_compile_structs:
+  MAP size_of_shape (dec_shapes (pan_structs$compile_top pan_code)) =
+  MAP (size_of_sh_with_ctxt (case decl_structs pan_code of NONE => [] | SOME ctxt => ctxt))
+    (dec_shapes pan_code)
+Proof
+  cheat
+QED
+
+Theorem semantics_decls_decl_structs:
+  semantics_decls s start pan_code <> Fail /\ s.structs = [] ==>
+  ?s_ctxt. decl_structs pan_code = SOME s_ctxt
+Proof
+  rw [panSemTheory.semantics_decls_def]
+  >> every_case_tac >> fs []
+  >> gs [evaluate_stcnames_eq_decl_structs, option_case_eq]
+QED
 
 Theorem state_rel_imp_semantics:
   (∀addr'. addr' ∈ s.memaddrs ⇒ t.memory addr' = wlab_wloc(s.memory addr')) ∧
@@ -285,9 +358,11 @@ Theorem state_rel_imp_semantics:
   ALL_DISTINCT (MAP FST (functions pan_code)) ∧
   byte_aligned s.top_addr ∧
   globals_allocatable s pan_code ∧
+  EVERY (λd. is_function d ∨ is_decl d) pan_code ⇒
   s.code = FEMPTY ∧
   t.code = fromAList (pan_to_word$compile_prog c pan_code) ∧
   s.globals = FEMPTY ∧
+  s.structs = [] ∧
   s.locals = FEMPTY ∧ size_of_eids pan_code < dimword (:α) ∧
   FDOM s.eshapes = FDOM (get_eids(functions pan_code)) ∧
   lookup 0 t.locals = SOME (Loc 1 0) /\ good_dimindex (:'a) ∧
@@ -295,6 +370,7 @@ Theorem state_rel_imp_semantics:
   semantics (t:('a,'b, 'ffi) wordSem$state) (first_name) =
   semantics_decls (s:('a,'ffi) panSem$state) start pan_code
 Proof
+
   rw [] >>
   drule_at (Pos last) pan_simpProofTheory.state_rel_imp_semantics_decls >>
   disch_then $ qspec_then ‘s’ mp_tac >>
@@ -302,18 +378,25 @@ Proof
   >- simp[pan_simpProofTheory.state_rel_def,
           panSemTheory.state_component_equality] >>
   strip_tac >>
+  fs [] >>
+
+  drule pan_structsProofTheory.compile_top_semantics_decls >>
+  strip_tac >>
+
   gvs[] >>
   drule_at (Pos last) pan_globalsProofTheory.compile_top_semantics_decls >>
   simp[] >>
   disch_then $ qspecl_then [‘wloc_wlab o t.memory’,‘s.locals’] mp_tac >>
   simp[] >>
   impl_keep_tac
-  >- (gvs[globals_allocatable_def,dec_shapes_compile_prog,function_names_compile_prog]) >>
+  >- (gvs[globals_allocatable_def,dec_shapes_compile_prog,function_names_compile_prog,
+         compile_top_no_names, function_names_structs_compile_top, dec_shapes_compile_structs]) >>
   strip_tac >> gvs[] >>
   drule_at (Pos last) pan_to_crepProofTheory.state_rel_imp_semantics_decls >>
   simp[] >>
   qmatch_goalsub_abbrev_tac ‘state_rel s1’ >>
   disch_then $ qspec_then ‘crep_state s1 (compile_top (compile_prog pan_code) «main») s1.memory’ mp_tac >>
+
   impl_keep_tac
   >- (simp[compile_top_only_functions,compile_top_localised] >>
       dep_rewrite.DEP_ONCE_REWRITE_TAC [FDOM_get_eids_pan_globals_compile_eq] >>
@@ -323,7 +406,10 @@ Proof
           simp[]) >>
       simp[GSYM FDOM_get_eids_pan_simp_compile_eq] >>
       conj_tac
-      >- gvs[crep_state_def,pan_to_crepProofTheory.state_rel_def] >>
+      >- (
+        gvs[crep_state_def,pan_to_crepProofTheory.state_rel_def] >>
+        gs[markerTheory.Abbrev_def]
+      ) >>
       conj_tac
       >- (gvs[pan_globalsTheory.compile_top_def,ELIM_UNCURRY,
               panLangTheory.functions_def,new_main_name_correct,
@@ -369,6 +455,9 @@ Proof
       drule_then irule semantics_decls_has_main' >>
       simp[]) >>
   disch_then $ assume_tac o GSYM >> gvs[] >>
+
+(* hv *)
+
   irule fstate_rel_imp_semantics >>
   unabbrev_all_tac >>
   simp[crep_state_def] >>
@@ -376,9 +465,13 @@ Proof
     by(drule_then irule semantics_decls_has_main' >>
        simp[]) >>
   conj_asm1_tac
+
   >- (simp[lookup_fromAList] >>
       irule_at Any ALOOKUP_ALL_DISTINCT_MEM >>
       irule_at Any crep_to_loopProofTheory.first_compile_prog_all_distinct >>
+      simp [MEM_EL, PAIR_FST_SND_EQ] >>
+      csimp [crep_to_loopTheory.compile_prog_def, EL_MAP2] >>
+      simp [ELIM_UNCURRY] >>
       simp [pan_to_crepTheory.compile_prog_def, pan_globalsTheory.compile_top_def,
             pan_to_crepTheory.compile_to_crep_def, crep_inlineTheory.compile_inl_prog_def,
             crep_inlineTheory.compile_inl_top_def,
@@ -387,12 +480,14 @@ Proof
             crep_to_loopTheory.compile_prog_def,
             crep_to_loopTheory.make_funcs_def,
             pan_to_crepTheory.make_funcs_def,FLOOKUP_UPDATE,
+            pan_structsTheory.compile_top_def,
             GENLIST_CONS
-           ] >>
-      metis_tac[]) >>
+           ]) >>
+
   conj_asm1_tac
   >- simp[loop_state_def] >>
   irule_at (Pos hd) EQ_REFL >>
+
   simp[st_rel_def,pan_to_wordTheory.compile_prog_def] >>
   conj_tac
   >- (simp[loop_removeProofTheory.state_rel_def,loop_state_def] >>

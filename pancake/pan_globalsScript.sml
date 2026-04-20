@@ -176,7 +176,7 @@ Definition compile_decs_def:
     (compile_decs ctxt (Function fi::ds) =
      let (decs,funs,ctxt'') = compile_decs ctxt ds
      in (decs,Function (fi with body := compile ctxt fi.body)::funs,ctxt'')) ∧
-    (compile_decs ctxt (Name nm flds::ds) = ([],[],ctxt)) (* should never happen *)
+    (compile_decs ctxt (Name nm flds::ds) = compile_decs ctxt ds) (* should never happen *)
 End
 
 Definition resort_decls_def:
@@ -231,7 +231,7 @@ End
 Definition dec_shapes_def:
   dec_shapes(Function _::ds) = dec_shapes ds ∧
   dec_shapes(Decl sh _ _::ds) = sh::dec_shapes ds ∧
-  dec_shapes(Name _ _::ds) = [] (* should never happen *) ∧
+  dec_shapes(Name _ _::ds) = dec_shapes ds ∧
   dec_shapes [] = []
 End
 

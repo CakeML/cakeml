@@ -101,8 +101,6 @@ Definition old_exp_shape_def:
   (old_exp_shapes ctxt [] = []) ∧
   (old_exp_shapes ctxt (e::es) =
       (old_exp_shape ctxt e)::(old_exp_shapes ctxt es))
-Termination
-  cheat (* TODO: replace cheat *)
 End
 
 (* Returns converted expression *)
@@ -112,9 +110,11 @@ Definition compile_exp_def:
   (compile_exp ctxt (RField index e) =
     RField index $ compile_exp ctxt e) ∧
   (compile_exp ctxt (NStruct nm eflds) =
-    let es' =
-      case ALOOKUP ctxt.structs nm of
-      | SOME flds => compile_fields ctxt flds eflds
+    let eflds' = compile_fields ctxt eflds;
+        es' = case ALOOKUP ctxt.structs nm of
+      | SOME flds => FLAT (MAP (\(nm', sh). case ALOOKUP eflds' nm' of
+          | NONE => [] | SOME e => [e]) flds
+      )
       | NONE => [] (* should never happen *) in
     RStruct es') ∧
   (compile_exp ctxt (NField fld e) =
@@ -148,15 +148,9 @@ Definition compile_exp_def:
   (compile_exps ctxt [] = []) ∧
   (compile_exps ctxt (e::es) =
       (compile_exp ctxt e)::(compile_exps ctxt es)) ∧
-  (compile_fields ctxt [] _ = []) ∧
-  (compile_fields ctxt ((fld,sh)::flds) eflds =
-    case ALOOKUP eflds fld of
-    | SOME exp =>
-      (compile_exp ctxt exp)::(compile_fields ctxt flds eflds)
-      (* (compile_exp ctxt exp)::(compile_fields ctxt flds (ADELKEY fld eflds))) *)
-    | NONE => [] (* should never happen *))
-Termination
-  cheat (* TODO: replace cheat *)
+  (compile_fields ctxt [] = []) ∧
+  (compile_fields ctxt ((fld, exp) :: eflds) =
+      (fld, compile_exp ctxt exp) :: compile_fields ctxt eflds)
 End
 
 (* Returns converted statement *)

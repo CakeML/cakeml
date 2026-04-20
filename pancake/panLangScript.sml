@@ -218,7 +218,7 @@ End
 
 Definition size_of_eids_def:
   size_of_eids prog =
-  let eids = FLAT (MAP (λp. case p of Decl _ _ _ => [] | Function fi => exp_ids fi.body) prog) in
+  let eids = FLAT (MAP (λp. case p of Function fi => exp_ids fi.body | _ => []) prog) in
    LENGTH (nub eids)
 End
 
@@ -366,5 +366,5 @@ End
 
 Definition inlinable_def:
   inlinable (Function fi) = fi.inline ∧
-  inlinable (Decl _ _ _) = F
+  inlinable _ = F
 End
