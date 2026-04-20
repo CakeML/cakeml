@@ -1879,18 +1879,20 @@ Resume evaluate_rewrite_tmc[call]:
     >> rename [‘evaluate ([exp],args',dec_clock (ticks + 1) u') = (v_exp',w')’]
     >> Cases_on ‘v_exp’ >> gvs []
     >-
-     (rename [‘state_rel f3 t t'’]
-      >> rename [‘LIST_REL (v_rel f3) v_exp v_exp'’]
+     (imp_res_tac evaluate_SING_IMP
+      >> gvs []
+      >> rename [‘state_rel f3 t t'’]
+      >> rename [‘v_rel f3 v_exp v_exp'’]
       >> first_assum $ irule_at $ Pos hd
       >> gvs []
-      >> conj_tac
+      >> conj_asm1_tac
       >- (irule SUBMAP_TRANS >> first_assum $ irule_at Any >> gvs [])
-      >> conj_tac
+      >> conj_asm1_tac
       >-
        (imp_res_tac evaluate_refs_SUBSET
         >> drule_all only_fresh_trans
         >> gvs [])
-      >> conj_tac
+      >> conj_asm1_tac
       >- (irule_at Any holes_unchanged_except_trans
           >> first_assum $ irule_at $ Pos $ el 4
           >> gvs [])
@@ -1899,46 +1901,11 @@ Resume evaluate_rewrite_tmc[call]:
       >> conj_tac
       >- rw [rewrite_aux_def]
       >> rw []
-      >> gvs [opt_res_rel_def]
-      >> gvs [rewrite_opt_def, fill_hole_def, evaluate_def]
+      >> gvs [rewrite_opt_def]
+      >> ho_match_mp_tac evaluate_fill_hole
+      >> gvs [evaluate_def]
       >> IF_CASES_TAC >> gvs []
-      >> drule env_rel_length_opt
-      >> strip_tac
-      >> gvs []
-      >> drule env_rel_strip_extras
-      >> strip_tac
-      >> gvs [EL_APPEND_EQN]
-      >> gvs [do_app_def, do_app_aux_def]
-      >> gvs [case_eq_thms]
-      >> rename [‘env_rel F f env env2’]
-      >> drule_all holes_unchanged_except_trans
-      >> strip_tac
-      >> gvs []
-      >> ‘hole_has_val f env (env2 ++ [RefPtr F hole_ptr; Number hole_idx]) t'.refs c’ by
-        (irule unchanged_hole_has_val
-         >> first_assum $ irule_at $ Pos $ el 4
-         >> gvs [only_fresh_def])
-      >> pop_assum mp_tac
-      >> simp [hole_has_val_def]
-      >> strip_tac
-      >> gvs [EL_APPEND_EQN, bvlSemTheory.Unit_def, backend_commonTheory.tuple_tag_def]
-      >> conj_tac
-      >-
-       (irule state_rel_filled
-        >> conj_tac
-        >- (irule non_fresh_not_in_frange
-            >> qexistsl [‘f’, ‘s'.refs’]
-            >> gvs []
-            >> conj_tac
-            >- gvs [hole_has_val_def, FLOOKUP_DEF, EL_APPEND_EQN]
-            >> imp_res_tac only_fresh_trans
-            >> imp_res_tac evaluate_refs_SUBSET
-            >> gvs [])
-        >> gvs [state_rel_def, state_ref_rel_def])
-      >> conj_tac
-      >- (irule holes_unchanged_except_filled >> gvs [])
-      >> rw []
-      >> gvs [FLOOKUP_SIMP])
+      >> rpt $ first_assum $ irule_at Any)
     >> Cases_on ‘e’ >> gvs []
     >-
      (Cases_on ‘handler’ >> gvs []
