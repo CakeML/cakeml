@@ -944,10 +944,23 @@ Definition remove_dead_def:
   (remove_dead (Return a b) live nlive lt =
     let prog = Return a b in
       (prog, get_live prog live lt, [])) ∧
+  (* Conservative: nlive reset to [] at Loop boundary so all stores are
+     treated as live across loop iterations (otherwise backward nlive
+     analysis could eliminate Sets whose overwrites live on a later
+     iteration).  Cost: no store-DCE across Loops; ordinary locals-DCE
+     inside the body still applies. *)
   (remove_dead (Loop names body exit_names) live nlive lt =
     let lt' = (names,exit_names)::lt in
-    let (body', _, body_nlive) = remove_dead body names nlive lt' in
-    (Loop names body' exit_names, names, body_nlive)) ∧
+    let (body', _, _) = remove_dead body names [] lt' in
+    (Loop names body' exit_names, names, [])) ∧
+  (* Break/Continue reset nlive to [] because they jump past whatever
+     follows, so store-DCE cannot propagate dead-set info across them. *)
+  (remove_dead (Break n) live nlive lt =
+    let prog = Break n in
+      (prog, get_live prog live lt, [])) ∧
+  (remove_dead (Continue n) live nlive lt =
+    let prog = Continue n in
+      (prog, get_live prog live lt, [])) ∧
   (remove_dead prog live nlive lt = (prog,get_live prog live lt,nlive))
 End
 
