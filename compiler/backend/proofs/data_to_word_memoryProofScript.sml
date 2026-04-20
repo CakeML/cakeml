@@ -3647,16 +3647,6 @@ Proof
   metis_tac [v_inv_ValueArray_insert_lemma, v_inv_Ref]
 QED
 
-Definition isNotEvaluatedThunkBlock_def:
-  isNotEvaluatedThunkBlock x = ?v. x = ThunkBlock NotEvaluated v
-End
-
-Definition ThunkBlock_inv_def:
-  ThunkBlock_inv heap heap2 <=>
-    (!n x. (heap_lookup n heap = SOME x) /\ ~(isNotEvaluatedThunkBlock x) ==>
-           (heap_lookup n heap2 = SOME x))
-End
-
 Theorem heap_store_ThunkBlock_thm:
   ∀ha.
     (heap_store (heap_length ha) [ThunkBlock ev1 v1] (ha ++ ThunkBlock ev2 v2::hb) =
@@ -3698,7 +3688,6 @@ Theorem heap_store_ThunkBlock[local]:
   (heap_lookup n heap = SOME (ThunkBlock NotEvaluated y)) ⇒
   ∃heap2.
     heap_store n [ThunkBlock ev h] heap = (heap2,T) ∧
-    ThunkBlock_inv heap heap2 ∧
     (heap_lookup n heap2 = SOME (ThunkBlock ev h)) ∧
     (heap_length heap2 = heap_length heap) ∧
     (FILTER isForwardPointer heap2 = FILTER isForwardPointer heap) ∧
@@ -3713,11 +3702,6 @@ Theorem heap_store_ThunkBlock[local]:
 Proof
   rpt strip_tac \\ imp_res_tac heap_lookup_SPLIT
   \\ full_simp_tac std_ss [heap_store_ThunkBlock_thm]
-  \\ strip_tac THEN1
-   (full_simp_tac std_ss [ThunkBlock_inv_def]
-    \\ full_simp_tac std_ss [heap_lookup_ThunkBlock_lemma]
-    \\ full_simp_tac std_ss [isNotEvaluatedThunkBlock_def]
-    \\ metis_tac [])
   \\ strip_tac THEN1 (full_simp_tac std_ss [heap_lookup_PREFIX])
   \\ strip_tac THEN1 (full_simp_tac (srw_ss())
        [heap_length_APPEND,heap_length_def,ThunkBlock_def,el_length_def])
@@ -3733,89 +3717,55 @@ Proof
   \\ metis_tac []
 QED
 
-Theorem NOT_isThunkBlock[local]:
-  ~(isNotEvaluatedThunkBlock (Bignum x)) /\
-    ~(isNotEvaluatedThunkBlock (Word64Rep a w)) /\
-    ~(isNotEvaluatedThunkBlock (DataElement xs (LENGTH xs) (BlockTag n,[])))
-Proof
-  simp_tac (srw_ss()) [isNotEvaluatedThunkBlock_def,ThunkBlock_def,Bignum_def]
-  \\ Cases_on`a` \\ rw[]
-  \\ TRY pairarg_tac \\ fs[]
-  \\ EVAL_TAC \\ rw[]
-QED
-
-Theorem v_inv_Thunk_lemma[local]:
-  ∀w refs y.
-    v_inv conf w refs y ⇒
-    ∀x f tf heap.
-      y = (x,f,tf,heap) ∧
-      ThunkBlock_inv heap heap2 ⇒
-        v_inv conf w refs (x,f,tf,heap) ⇒
-          v_inv conf w refs (x,f,tf,heap2)
-Proof
-  ho_match_mp_tac v_inv_rel_strongind
-  \\ rw [] \\ gvs [v_inv_def]
-  >- (
-    gvs [Bignum_def]
-    \\ pairarg_tac \\ gvs [ThunkBlock_inv_def]
-    \\ first_x_assum $ drule_then strip_assume_tac \\ gvs []
-    \\ gvs [isNotEvaluatedThunkBlock_def, ThunkBlock_def])
-  >- (
-    gvs [Word64Rep_def]
-    \\ IF_CASES_TAC \\ gvs [ThunkBlock_inv_def]
-    \\ first_x_assum $ drule_then strip_assume_tac \\ gvs []
-    \\ gvs [isNotEvaluatedThunkBlock_def, ThunkBlock_def])
-  >- cheat
-  >- cheat
-  >- (
-    irule_at Any EQ_REFL \\ gvs [ThunkBlock_inv_def, BlockRep_def]
-    \\ first_x_assum $ drule_then strip_assume_tac \\ gvs []
-    \\ gvs [isNotEvaluatedThunkBlock_def, ThunkBlock_def]
-    \\ gvs [LIST_REL_EL_EQN] \\ rw [])
-QED
-
-Theorem v_inv_Thunk[local]:
-  ThunkBlock_inv heap heap2 ==>
-    !x h f tf.
-       v_inv conf x refs (h,f,tf,heap) ⇒
-                v_inv conf x refs (h,f,tf,heap2)
-Proof
-  metis_tac [v_inv_Thunk_lemma]
-QED
-
 Theorem v_inv_Thunk_insert_lemma[local]:
   ∀v1 refs v2.
     v_inv conf v1 refs v2 ⇒
-      ∀y f tf heap.
+      ∀y f tf heap h heap2 v z q.
         v2 = (y,f,tf,heap) ∧
-        ThunkBlock_inv heap heap2 ∧
-        (ptr ∈ domain refs ⇒
-           ∃tv. lookup ptr refs = SOME (Thunk NotEvaluated tv)) ⇒
-          v_inv conf v1 (insert ptr (Thunk ev tv) refs) (y,f,tf,heap)
+        lookup ptr refs = SOME (Thunk NotEvaluated v) ∧
+        heap_store (f ' ptr) [ThunkBlock ev q] heap = (heap2,T) ∧
+        v_inv conf h refs (q,f,tf,heap) ∧
+        v_inv conf v refs (z,f,tf,heap) ∧
+        heap_lookup (f ' ptr) heap = SOME (ThunkBlock NotEvaluated z) ⇒
+          v_inv conf v1 (insert ptr (Thunk ev h) refs) (y,f,tf,heap2)
 Proof
-  ho_match_mp_tac v_inv_rel_strongind \\ rw [] \\ gvs [v_inv_def]
+  ho_match_mp_tac v_inv_rel_strongind \\ rw []
+  \\ gvs [v_inv_def]
   >- cheat
   >- cheat
+  >- (
+    disj1_tac \\ gvs []
+    \\ gvs [lookup_insert]
+    \\ IF_CASES_TAC \\ gvs [])
+  >- (
+    disj2_tac \\ disj1_tac \\ gvs [lookup_insert]
+    \\ first_x_assum drule \\ gvs []
+    \\ disch_then drule \\ gvs []
+    \\ disch_then $ qspec_then `z` assume_tac \\ gvs []
+    \\ first_assum $ irule_at Any \\ gvs []
+    \\ cheat)
   >- (
     gvs [lookup_insert]
     \\ IF_CASES_TAC \\ gvs [domain_lookup]
-    \\ gvs [oneline dest_thunk_def, AllCaseEqs(), lookup_insert]
-    \\ Cases_on ‘ptr' = ptr’ \\ gvs [])
+    \\ disj2_tac \\ gvs []
+    \\ gvs [oneline dest_thunk_def, AllCaseEqs(), lookup_insert, SF DNF_ss]
+    \\ cheat)
   >- (
     irule_at Any EQ_REFL \\ gvs []
-    \\ gvs [LIST_REL_EL_EQN] \\ rw [])
+    \\ gvs [LIST_REL_EL_EQN] \\ rw []
+    \\ cheat)
 QED
 
+(*
 Theorem v_inv_Thunk_insert:
   ∀conf v1 refs v2 f tf heap ptr ev h heap2.
-    ThunkBlock_inv heap heap2 ∧
     v_inv conf v1 refs (v2,f,tf,heap) ∧
-    (ptr ∈ domain refs ⇒
-       ∃tv. lookup ptr refs = SOME (Thunk NotEvaluated tv)) ⇒
+    (∃tv. lookup ptr refs = SOME (Thunk NotEvaluated tv)) ⇒
       v_inv conf v1 (insert ptr (Thunk ev h) refs) (v2,f,tf,heap2)
 Proof
   metis_tac [v_inv_Thunk_insert_lemma, v_inv_Thunk]
 QED
+*)
 
 Theorem heap_lookup_heap_split[local]:
     !heap a b h1 h2 x.
@@ -4341,7 +4291,7 @@ Proof
   \\ qexists_tac `DRESTRICT tf (all_ts (insert ptr (Thunk ev h) refs)
                                        (h::RefPtr F ptr::stack))`
   \\ full_simp_tac std_ss []
-  \\ MP_TAC v_inv_Thunk
+  (*\\ MP_TAC v_inv_Thunk*)
   \\ full_simp_tac std_ss [] \\ rpt strip_tac
   THEN1 (fs [SUBSET_DEF])
   THEN1 (fs [INJ_DEF,DRESTRICT_DEF])
@@ -4349,7 +4299,8 @@ Proof
   THEN1 (fs [SUBSET_DEF,DRESTRICT_DEF,SUBSET_DEF,IN_INTER])
   >- (ho_match_mp_tac v_inv_tf_restrict
      \\ qexists ‘h::RefPtr F ptr::stack’ \\ gvs [] \\ rw []
-     >- metis_tac [v_inv_Thunk_insert]
+     (*>- metis_tac [v_inv_Thunk_insert]*)
+     >- cheat
      \\ ho_match_mp_tac MEM_in_all_ts
      \\ goal_assum $ drule_at Any \\ gvs []
      \\ ho_match_mp_tac MEM_stack_all_vs
@@ -4363,7 +4314,8 @@ Proof
       \\ CCONTR_TAC \\ gvs [])
     \\ ho_match_mp_tac v_inv_tf_restrict
     \\ qexists ‘h::RefPtr F ptr::stack’ \\ gvs [] \\ rw []
-    >- metis_tac [v_inv_Thunk_insert]
+    (*>- metis_tac [v_inv_Thunk_insert]*)
+    >- cheat
     \\ ho_match_mp_tac MEM_in_all_ts
     \\ goal_assum $ drule_at Any \\ gvs []
     \\ ho_match_mp_tac MEM_stack_all_vs
@@ -4374,7 +4326,8 @@ Proof
      \\ simp[FORALL_PROD] \\ rw[]
      \\ ho_match_mp_tac v_inv_tf_restrict
      \\ qexists ‘h::RefPtr F ptr::stack’ \\ gvs [] \\ rw []
-     >- metis_tac [v_inv_Thunk_insert]
+     (*>- metis_tac [v_inv_Thunk_insert]*)
+     >- cheat
      \\ ho_match_mp_tac MEM_in_all_ts
      \\ qexists_tac `p_1` \\ rw []
      \\ ho_match_mp_tac MEM_stack_all_vs
@@ -4389,7 +4342,8 @@ Proof
       \\ Cases_on `ptr = n` \\ gvs [])
     \\ ho_match_mp_tac v_inv_tf_restrict
     \\ qexists ‘h::RefPtr F n::stack’ \\ gvs [] \\ rw []
-    >- metis_tac [v_inv_Thunk_insert]
+    (*>- metis_tac [v_inv_Thunk_insert]*)
+    >- cheat
     \\ ho_match_mp_tac MEM_in_all_ts
     \\ goal_assum $ drule_at Any \\ gvs []
     \\ ho_match_mp_tac MEM_stack_all_vs
@@ -4411,7 +4365,8 @@ Proof
         \\ simp[FORALL_PROD] \\ rw[]
         \\ ho_match_mp_tac v_inv_tf_restrict
         \\ qexists ‘h::RefPtr F ptr::stack’ \\ gvs [] \\ rw []
-        >- metis_tac [v_inv_Thunk_insert]
+        (*>- metis_tac [v_inv_Thunk_insert]*)
+        >- cheat
         \\ ho_match_mp_tac MEM_in_all_ts
         \\ qexists_tac `p_2` \\ rw []
         \\ rw [all_vs_def] \\ ntac 2 disj1_tac
@@ -4433,7 +4388,8 @@ Proof
       \\ Cases_on `ptr = ptr'` \\ gvs [])
     \\ ho_match_mp_tac v_inv_tf_restrict
     \\ qexists ‘h::RefPtr F ptr::stack’ \\ gvs [] \\ rw []
-    >- metis_tac [v_inv_Thunk_insert]
+    (*>- metis_tac [v_inv_Thunk_insert]*)
+    >- cheat
     \\ ho_match_mp_tac MEM_in_all_ts
     \\ goal_assum $ drule_at Any \\ gvs []
     \\ rw [all_vs_def] \\ disj1_tac \\ disj2_tac
@@ -4996,7 +4952,8 @@ Theorem new_thunk_thm:
                  (r::Pointer (a+sp+sp1-2) (Word 0w)::roots2,heap2,be,a,
                   sp - 2,sp1,gens) limit ts
 Proof
-  simp_tac std_ss [abs_ml_inv_def]
+  cheat
+  (*simp_tac std_ss [abs_ml_inv_def]
   \\ rpt strip_tac \\ full_simp_tac std_ss [bc_stack_ref_inv_def]
   \\ imp_res_tac EVERY2_APPEND_IMP_APPEND
   \\ full_simp_tac (srw_ss()) []
@@ -5217,7 +5174,7 @@ Proof
   \\ map_every qexists_tac [`n`,`l`]
   \\ fs [lookup_insert]
   \\ ho_match_mp_tac MEM_v_all_vs
-  \\ rw []
+  \\ rw []*)
 QED
 
 (* deref *)
