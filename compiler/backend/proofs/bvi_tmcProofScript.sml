@@ -1025,6 +1025,43 @@ Proof
   rw [holes_unchanged_except_def] >> gvs [FLOOKUP_SIMP]
 QED
 
+Theorem evaluate_fill_hole:
+  ∀exp f f' env1 env2 v s t s' t' c.
+    evaluate ([exp],env2,s') = (Rval [v],t') ∧
+    env_rel T f env1 env2 ∧
+    state_rel f s s' ∧
+    f ⊑ f' ∧
+    hole_has_val f env1 env2 s'.refs c ∧
+    holes_unchanged_except f s'.refs t'.refs ∅ ∧
+    only_fresh f f' s'.refs ∧
+    state_rel f' t t' ⇒
+    ∃r t''.
+      evaluate ([fill_hole (LENGTH env1) (LENGTH env1 + 1) exp],env2,s') = (r,t'') ∧
+      opt_res_rel (Rval [v]) r ∧
+      state_rel f' t t'' ∧
+      holes_unchanged_except f s'.refs t''.refs {env2❲LENGTH env1❳} ∧
+      hole_has_val f env1 env2 t''.refs v
+Proof
+  rw []
+  >> drule env_rel_length_opt
+  >> strip_tac
+  >> drule env_rel_extras_opt
+  >> strip_tac
+  >> gvs [evaluate_def, fill_hole_def, do_app_def, do_app_aux_def, hole_has_val_def, holes_unchanged_except_def,
+          case_eq_thms, PULL_EXISTS, FLOOKUP_SIMP, bvlSemTheory.Unit_def, backend_commonTheory.tuple_tag_def, opt_res_rel_def]
+  >> first_x_assum $ drule_all
+  >> strip_tac
+  >> gvs []
+  >> conj_tac
+  >-
+   (irule state_rel_filled
+    >> gvs []
+    >> irule non_fresh_not_in_frange
+    >> first_assum $ irule_at Any
+    >> gvs [FLOOKUP_DEF])
+  >> metis_tac []
+QED
+
 Theorem evaluate_rewrite_tmc:
    ∀xs env1 ^s r t opt f s' env2.
      evaluate (xs, env1, s) = (r, t) ∧
@@ -1145,45 +1182,17 @@ Resume evaluate_rewrite_tmc[var]:
   >> strip_tac
   >> goal_assum $ drule_at Any
   >> gvs []
-  >> conj_tac
-  >- (irule only_fresh_refl)
-  >> conj_tac
+  >> conj_asm1_tac
+  >- irule only_fresh_refl
+  >> conj_asm1_tac
   >- irule holes_unchanged_except_refl
   >> strip_tac
-  >> gvs []
-  >> conj_tac
-  >- (rpt gen_tac >> gvs [rewrite_aux_def])
+  >> gvs [rewrite_aux_def]
   >> rpt gen_tac
-  >> gvs [opt_res_rel_def]
   >> gvs [rewrite_opt_def]
-  >> gvs [fill_hole_def]
-  (* Lemma for evaluating Op (MemOp UpdateCons)? *)
+  >> ho_match_mp_tac evaluate_fill_hole
   >> gvs [evaluate_def]
-  >> drule env_rel_length_opt
-  >> gvs []
-  >> strip_tac
-  >> gvs [do_app_def]
-  >> gvs [do_app_aux_def]
-  >> drule env_rel_extras_opt
-  >> strip_tac
-  >> gvs []
-  >> gvs [case_eq_thms]
-  >> gvs [PULL_EXISTS]
-  >> gvs [bvlSemTheory.Unit_def, backend_commonTheory.tuple_tag_def]
-  >> gvs [hole_has_val_def, FLOOKUP_SIMP]
-  >> gvs [state_rel_def, state_ref_rel_def, FLOOKUP_SIMP]
-  >> rpt strip_tac
-  >-
-   (last_x_assum drule
-    >> strip_tac
-    >> goal_assum $ drule_at Any
-    >> goal_assum $ drule_at Any
-    >> IF_CASES_TAC
-    >> gvs [flookup_thm, FRANGE_DEF])
-  >> gvs [holes_unchanged_except_def]
-  >> gvs [FLOOKUP_SIMP]
-  >> rw []
-  >> metis_tac []
+  >> rpt $ first_assum $ irule_at Any
 QED
         
 Resume evaluate_rewrite_tmc[if]:
@@ -1719,6 +1728,12 @@ Resume evaluate_rewrite_tmc[op]:
     >> irule holes_unchanged_except_filled
     >> gvs [])
   (* Cons *)
+  >> gvs [rewrite_opt_BlockOp_Cons_def]
+  >> CASE_TAC >> gvs []
+  >-
+   ((* HERE *)
+        )
+     
   >> gvs [evaluate_def, fill_hole_def, rewrite_opt_BlockOp_Cons_def]
   >> CASE_TAC >> gvs []
   >- (* Duplicated branch *)
