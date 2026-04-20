@@ -1532,6 +1532,7 @@ Resume evaluate_rewrite_tmc[raise]:
 QED
 
 Resume evaluate_rewrite_tmc[op]:
+
   gvs [evaluate_def]
   >> gvs [CaseEq "prod", PULL_EXISTS]
   >> rename [‘evaluate (xs,env,s) = (rs,u)’]
@@ -1602,7 +1603,7 @@ Resume evaluate_rewrite_tmc[op]:
       >> rename [‘evaluate (l,env,s) = (Rval vl,ul)’]
       >> gvs [Once evaluate_CONS]
       >> *)
-    >> rw []
+    >> rw []    
     >> gvs [rewrite_opt_def, evaluate_def]
     >> CASE_TAC >> gvs []
     >-
@@ -1681,7 +1682,7 @@ Resume evaluate_rewrite_tmc[op]:
   >> gvs []
   >> rename [‘state_rel f3 u u'’]
   >> rename [‘LIST_REL (v_rel f3) vs vs'’]
-  >> conj_tac
+  >> conj_asm1_tac
   >-
    (irule do_app_holes_unchanged
     >> first_assum $ irule_at Any
@@ -1696,51 +1697,27 @@ Resume evaluate_rewrite_tmc[op]:
     >> gvs [is_block_op_cons_def]
     >> cheat)
   >> rpt gen_tac
-  >> gvs [evaluate_def, rewrite_opt_def, opt_res_rel_def]
+  >> gvs [rewrite_opt_def]
   >> CASE_TAC >> gvs []
   >-
-   (gvs [opt_res_rel_def]
-    >> gvs [fill_hole_def, fill_hole_def, evaluate_def]
-    >> drule env_rel_length_opt
-    >> strip_tac
-    >> gvs []
-    >> drule env_rel_strip_extras
-    >> strip_tac
-    >> gvs [EL_APPEND_EQN]
-    >> rename [‘env_rel F f env env2’]
-    >> simp [do_app_def, do_app_aux_def]
-    >> ‘holes_unchanged_except f u'.refs t'.refs ∅’ by cheat (* lemma that do_app preserves state *)
-    >> ‘holes_unchanged_except f s'.refs t'.refs ∅’ by
-      (irule holes_unchanged_except_trans
-       >> first_assum $ irule_at $ Pos $ el 3
-       >> first_assum $ irule_at $ Pos $ el 3
-       >> gvs [only_fresh_refl])
-    >> ‘hole_has_val f env (env2 ++ [RefPtr F hole_ptr; Number hole_idx]) t'.refs c’ by
-      (irule unchanged_hole_has_val
-       >> first_assum $ irule_at $ Pos $ el 4
-       >> gvs [only_fresh_refl])
-    >> gvs [hole_has_val_def, FLOOKUP_DEF, EL_APPEND_EQN, bvlSemTheory.Unit_def, backend_commonTheory.tuple_tag_def]
-    >> conj_tac
-    >-
-     (irule state_rel_filled
-      >> gvs []
-      >> imp_res_tac non_fresh_not_in_frange)
-    >> irule holes_unchanged_except_filled
-    >> gvs [])
+   (ho_match_mp_tac evaluate_fill_hole
+    >> gvs [evaluate_def]
+    >> rpt $ first_assum $ irule_at Any)
   (* Cons *)
   >> gvs [rewrite_opt_BlockOp_Cons_def]
-  >> CASE_TAC >> gvs []
-  >-
-   ((* HERE *)
-        )
-     
-  >> gvs [evaluate_def, fill_hole_def, rewrite_opt_BlockOp_Cons_def]
+  >> ‘op = BlockOp (Cons x)’ by
+    (spose_not_then assume_tac
+     >> Cases_on ‘op’ >> gvs [dest_Cons_def]
+     >> Cases_on ‘b’ >> gvs [dest_Cons_def])
   >> CASE_TAC >> gvs []
   >- (* Duplicated branch *)
-   (simp [evaluate_def, do_app_def, do_app_aux_def, bviPropsTheory.bvl_to_bvi_id]
-    >> cheat (* Code is wrong *))
+   (ho_match_mp_tac evaluate_fill_hole
+    >> gvs [evaluate_def]
+    >> rpt $ first_assum $ irule_at Any)
   >- (* Duplicated branch *)
-   cheat
+   (ho_match_mp_tac evaluate_fill_hole
+    >> gvs [evaluate_def]
+    >> rpt $ first_assum $ irule_at Any)
   >> Cases_on ‘h’ >> gvs []
   >> Cases_on ‘t''’ >> gvs []
   >> rename [‘cons_to_tc_and_hb loc x xs = (TCall ticks args handler')⁺ (HoleBlock tag l hole r)’]
