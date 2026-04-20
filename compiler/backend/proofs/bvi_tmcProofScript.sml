@@ -1062,6 +1062,32 @@ Proof
   >> metis_tac []
 QED
 
+Theorem evaluate_fill_hole_err:
+  ∀exp f f' env1 env2 e s t s' t' c.
+    evaluate ([exp],env2,s') = (Rerr e,t') ∧
+    env_rel T f env1 env2 ∧
+    state_rel f s s' ∧
+    f ⊑ f' ∧
+    hole_has_val f env1 env2 s'.refs c ∧
+    holes_unchanged_except f s'.refs t'.refs ∅ ∧
+    only_fresh f f' s'.refs ∧
+    state_rel f' t t' ⇒
+    ∃r t''.
+      evaluate ([fill_hole (LENGTH env1) (LENGTH env1 + 1) exp],env2,s') = (r,t'') ∧
+      opt_res_rel (Rerr e) r ∧
+      state_rel f' t t'' ∧
+      holes_unchanged_except f s'.refs t''.refs {env2❲LENGTH env1❳}
+Proof
+  rw []
+  >> drule env_rel_length_opt
+  >> strip_tac
+  >> drule env_rel_extras_opt
+  >> strip_tac
+  >> gvs [fill_hole_def, evaluate_def]
+  >> gvs [evaluate_def, fill_hole_def, do_app_def, do_app_aux_def, hole_has_val_def, holes_unchanged_except_def,
+          case_eq_thms, PULL_EXISTS, FLOOKUP_SIMP, bvlSemTheory.Unit_def, backend_commonTheory.tuple_tag_def, opt_res_rel_def]
+QED
+
 Theorem evaluate_rewrite_tmc:
    ∀xs env1 ^s r t opt f s' env2.
      evaluate (xs, env1, s) = (r, t) ∧
@@ -1953,93 +1979,50 @@ Resume evaluate_rewrite_tmc[call]:
       >> rename [‘result_rel (LIST_REL (v_rel f4)) (v_rel f4) v_x v_x'’]
       >> first_assum $ irule_at Any
       >> gvs []
-      >> conj_tac
+      >> conj_asm1_tac
       >- (imp_res_tac SUBMAP_TRANS >> gvs [])
-      >> conj_tac
+      >> conj_asm1_tac
       >-
        (imp_res_tac only_fresh_trans
         >> imp_res_tac evaluate_refs_SUBSET
         >> imp_res_tac SUBSET_TRANS
         >> gvs [])
-      >> conj_tac
+      >> conj_asm1_tac
       >- imp_res_tac holes_unchanged_except_trans
       >> strip_tac
       >> gvs [rewrite_aux_def]
       >> rw []
-      >> gvs [rewrite_opt_def, fill_hole_def, evaluate_def]
-      >> drule env_rel_length_opt
-      >> strip_tac
-      >> gvs []
-      >> drule env_rel_strip_extras
-      >> strip_tac
-      >> gvs [EL_APPEND_EQN, opt_res_rel_def]
-      >> rename [‘env_rel F f env env2’]
-      >> ‘hole_has_val f env (env2 ++ [RefPtr F hole_ptr; Number hole_idx]) t'.refs c’ by
-        (irule unchanged_hole_has_val
-         >> first_assum $ irule_at $ Pos $ el 4
-         >> gvs [only_fresh_refl]
-         >> imp_res_tac holes_unchanged_except_trans)
-      >> CASE_TAC >> gvs []
+      >> gvs [rewrite_opt_def]
+      >> Cases_on ‘v_x'’ >> gvs []
       >-
-       (gvs [do_app_def, do_app_aux_def, hole_has_val_def, EL_APPEND_EQN, bvlSemTheory.Unit_def, backend_commonTheory.tuple_tag_def]
-        >> Cases_on ‘v_x’ >> gvs []
-        >> rename [‘LIST_REL (v_rel f4) v_x v_x'’]
-        >> conj_tac
-        >-
-         (irule state_rel_filled
-          >> gvs []
-          >> ‘only_fresh f f4 s'.refs’ by
-            (irule only_fresh_trans
-             >> first_assum $ irule_at $ Pos $ el 2
-             >> irule_at (Pos (el 2)) only_fresh_trans
-             >> first_assum $ irule_at $ Pos $ el 1
-             >> first_assum $ irule_at $ Pos $ el 1
-             >> imp_res_tac evaluate_refs_SUBSET
-             >> gvs [])
-          >> irule non_fresh_not_in_frange
-          >> rpt $ first_assum $ irule_at Any
-          >> gvs [FLOOKUP_DEF])
-        >> conj_tac
-        >- (irule holes_unchanged_except_filled >> imp_res_tac holes_unchanged_except_trans)
-        >> rw []
-        >> gvs [FLOOKUP_SIMP])
-      >> irule holes_unchanged_except_subset
-      >> qexists ‘∅’
-      >> gvs []
-      >> imp_res_tac holes_unchanged_except_trans)
+       (imp_res_tac evaluate_SING_IMP
+        >> gvs []
+        >> ho_match_mp_tac evaluate_fill_hole
+        >> gvs [evaluate_def]
+        >> rpt $ first_assum $ irule_at Any)
+      >> ho_match_mp_tac evaluate_fill_hole_err
+      >> gvs [evaluate_def]
+      >> rpt $ first_assum $ irule_at Any)
     >> first_assum $ irule_at Any
-    >> conj_tac
+    >> conj_asm1_tac
     >- imp_res_tac SUBMAP_TRANS
-    >> conj_tac
+    >> conj_asm1_tac
     >-
      (irule only_fresh_trans
       >> first_assum $ irule_at Any
       >> conj_tac
       >- imp_res_tac evaluate_refs_SUBSET
       >> gvs [])
-    >> conj_tac
+    >> conj_asm1_tac
     >- imp_res_tac holes_unchanged_except_trans
     >> strip_tac
     >> gvs [rewrite_aux_def]
     >> rw []
-    >> gvs [opt_res_rel_def]
-    >> gvs [rewrite_opt_def, fill_hole_def, evaluate_def]
+    >> gvs [rewrite_opt_def]
+    >> ho_match_mp_tac evaluate_fill_hole_err
+    >> gvs [evaluate_def]
     >> IF_CASES_TAC >> gvs []
-    >> drule env_rel_length_opt
-    >> strip_tac
-    >> gvs []
-    >> drule env_rel_strip_extras
-    >> strip_tac
-    >> gvs [EL_APPEND_EQN]
-    >> gvs [do_app_def, do_app_aux_def]
-    >> gvs [case_eq_thms]
-    >> rename [‘env_rel F f env env2’]
-    >> drule_all holes_unchanged_except_trans
-    >> strip_tac
-    >> gvs []
-    >> irule holes_unchanged_except_subset
-    >> qexists ‘∅’
-    >> gvs [])
+    >> rpt $ first_assum $ irule_at Any)
 
     
   >> rename [‘exp ≠ exp_aux’]
@@ -2076,59 +2059,30 @@ Resume evaluate_rewrite_tmc[call]:
     >-
      (imp_res_tac evaluate_SING_IMP
       >> gvs []
-
-
       >> drule evaluate_pad_env_val
       >> disch_then $ qspec_then ‘extras’ assume_tac
       >> gvs []
       >> first_assum $ irule_at Any
       >> gvs []
-      >> conj_tac
+      >> conj_asm1_tac
       >- (imp_res_tac SUBMAP_TRANS >> gvs [])
-      >> conj_tac
+      >> conj_asm1_tac
       >-
        (irule only_fresh_trans
         >> first_assum $ irule_at Any
         >> conj_tac
         >- imp_res_tac evaluate_refs_SUBSET
         >> gvs [])
-      >> conj_tac
+      >> conj_asm1_tac
       >- cheat (* t' vs t'' *)
       >> strip_tac
       >> gvs [rewrite_aux_def]
       >> rw []
-      >> gvs [rewrite_opt_def, fill_hole_def, evaluate_def]
+      >> gvs [rewrite_opt_def]
+      >> irule evaluate_fill_hole
+      >> gvs [evaluate_def]
       >> IF_CASES_TAC >> gvs []
-      >> rev_drule env_rel_length_opt
-      >> strip_tac
-      >> gvs []
-      >> rev_drule env_rel_strip_extras
-      >> strip_tac
-      >> gvs [EL_APPEND_EQN, opt_res_rel_def, do_app_def, do_app_aux_def]
-      >> ‘hole_has_val f env (env2' ++ [RefPtr F hole_ptr'; Number hole_idx']) t'.refs c’ by
-        (irule unchanged_hole_has_val
-         >> first_assum $ irule_at $ Pos $ el 4
-         >> gvs [only_fresh_refl]
-         >> imp_res_tac holes_unchanged_except_trans
-         >> cheat) (* t' vs t'' *)
-      >> CASE_TAC >> gvs [do_app_def, do_app_aux_def, hole_has_val_def, EL_APPEND_EQN, bvlSemTheory.Unit_def, backend_commonTheory.tuple_tag_def]
-      >> conj_tac
-      >-
-       (irule state_rel_filled
-        >> gvs []
-        >> ‘only_fresh f f3 s'.refs’ by
-          (irule only_fresh_trans
-           >> first_assum $ irule_at $ Pos $ el 2
-           >> first_assum $ irule_at (Pos (el 2))
-           >> imp_res_tac evaluate_refs_SUBSET)
-        >> irule non_fresh_not_in_frange
-        >> rpt $ first_assum $ irule_at Any
-        >> gvs [FLOOKUP_DEF])
-      >> conj_tac
-      >-
-       (irule holes_unchanged_except_filled >> imp_res_tac holes_unchanged_except_trans >> cheat) (* t' vs t'' *)
-      >> rw []
-      >> gvs [FLOOKUP_SIMP])
+      >> rpt $ first_assum $ irule_at Any)
     >> cheat)
   >> cheat
 QED
