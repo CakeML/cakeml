@@ -7741,149 +7741,74 @@ Proof
   \\ simp[DROP_REPLICATE]
 QED
 
-Theorem inputAll_spec:
-  get_file_content fs fd = SOME (content,pos) ⇒
-  get_mode fs fd = SOME ReadMode ⇒
-  app (p:'ffi ffi_proj) TextIO_inputAll_v [is]
-    (STDIO fs * INSTREAM_BUFFERED_FD bactive fd is)
-    (POSTv v.
-       &STRING_TYPE (implode (DROP pos content)) v *
-       STDIO (fastForwardFD fs fd))
+Theorem inputBuff_spec[local]:
+  ∀fd is text fs ne ie.
+    app (p:'ffi ffi_proj) TextIO_inputBuff_v [is]
+      (STDIO fs * INSTREAM_STR' fd is text fs ne ie)
+      (POSTv v.
+             SEP_EXISTS xs ys.
+             & (text = xs ++ ys ∧ STRING_TYPE (implode xs) v ∧
+                (ne ⇒ LENGTH ys < LENGTH text)) *
+       INSTREAM_STR' fd is ys fs F T *
+       STDIO fs)
 Proof
-  rpt strip_tac \\
-  xcf_with_def TextIO_inputAll_v_def \\
-  simp[INSTREAM_BUFFERED_FD_def] \\ xpull \\ xmatch \\
-  reverse(Cases_on`pos ≤ LENGTH content`)
-  >- (
-    xfun_spec `inputAll_aux`
-    `∀iv arr arrv. NUM 0 iv ∧ arr ≠ [] ⇒
-     app (p:'ffi ffi_proj) inputAll_aux [arrv; iv]
-       (STDIO fs * W8ARRAY arrv arr)
-       (POSTv v. &STRING_TYPE (strlit"") v * STDIO fs)`
-    >- (
-      rw[] \\
-      first_x_assum match_mp_tac \\
-      xlet_auto >- xsimpl \\
-      xlet_auto >- xsimpl \\
-      xif \\ gvs [] \\
-      xlet_auto >- xsimpl \\
-      xlet_auto_spec(SOME raw_input_spec)
-      >- xsimpl \\
-      xlet_auto >- xsimpl \\
-      xif \\ instantiate \\
-      xapp \\
-      simp[DROP_LENGTH_TOO_LONG,insert_atI_NIL] \\
-      xsimpl \\ instantiate \\
-      simp[STRING_TYPE_def] \\
-      simp[MAX_DEF] \\
-      simp[fsupdate_unchanged] \\
-      simp[implode_def] \\
-      xsimpl )
-    \\ xapp \\ xsimpl
-    \\ simp[DROP_LENGTH_TOO_LONG,implode_def]
-    \\ simp[fastForwardFD_0]
-    \\ xsimpl
-    \\ fs [instream_buffered_inv_def]
-    \\ CCONTR_TAC \\ fs [])
-  \\ qabbrev_tac`arrmax = SUC (MAX (256**2) (2 * (LENGTH content - pos)))`
-  \\ reverse (xfun_spec `inputAll_aux`
-    `∀i arr arrv iv fs.
-     arr ≠ [] ∧ i ≤ LENGTH arr ∧ LENGTH arr < arrmax ∧
-     NUM i iv ∧ pos + i ≤ LENGTH content ∧
-     get_file_content fs fd = SOME (content,pos+i) ∧
-     get_mode fs fd = SOME ReadMode ∧
-     MAP (CHR o w2n) (TAKE i arr) = TAKE i (DROP pos content)
-     ⇒
-     app (p:'ffi ffi_proj) inputAll_aux [arrv; iv]
-       (STDIO fs * W8ARRAY arrv arr)
-       (POSTv v.
-        &(STRING_TYPE (implode(DROP pos content)) v) *
-        STDIO (fastForwardFD fs fd))`)
-  >- (
-  xapp
-  \\ qpat_x_assum ‘get_mode _ _ = _’ $ irule_at Any \\ xsimpl
-  \\ fs [instream_buffered_inv_def]
-  \\ conj_tac >- (CCONTR_TAC \\ fs [])
-  \\ fs [Abbr ‘arrmax’]
-  \\ intLib.COOPER_TAC) \\
-  qx_gen_tac`i` \\
-  `WF (inv_image ($< LEX $<) (λ(i,(arr:word8 list)). (arrmax - LENGTH arr, LENGTH content - i)))`
-  by (
-    match_mp_tac WF_inv_image \\
-    match_mp_tac WF_LEX \\
-    simp[] ) \\
-  gen_tac \\
-  qho_match_abbrev_tac`PC i arr` \\
-  qabbrev_tac`P = λ(i,arr). PC i arr` \\
-  `∀x. P x` suffices_by simp[FORALL_PROD,Abbr`P`] \\
-  qunabbrev_tac`PC` \\
-  match_mp_tac(MP_CANON WF_INDUCTION_THM) \\
-  asm_exists_tac \\ fs[] \\
-  simp[FORALL_PROD,Abbr`P`] \\
-  rpt strip_tac \\
-  last_x_assum match_mp_tac \\
-  xlet_auto >- xsimpl \\
-  xlet_auto >- xsimpl \\
-  reverse xif \\ fs[]
-  >- (
-    xlet_auto >- xsimpl
-    \\ xapp
-    \\ simp[Abbr`arrmax`]
-    \\ xsimpl
-    \\ instantiate
-    \\ simp[LEX_DEF,TAKE_APPEND]
-    \\ xsimpl
-    \\ fs[MAX_DEF]
-    \\ CCONTR_TAC \\ fs[])
-  \\ xlet_auto >- xsimpl
-  \\ xlet_auto_spec(SOME raw_input_spec) >- xsimpl
-  \\ xlet_auto >- xsimpl
-  \\ xif \\ fs[] \\ rfs[]
-  >- (
-    pop_assum mp_tac \\ rw[] \\ fs[]
-    \\ xapp
-    \\ xsimpl
-    \\ simp[DROP_LENGTH_TOO_LONG,insert_atI_NIL]
-    \\ instantiate
-    \\ simp[TAKE_LENGTH_TOO_LONG,implode_def,MAX_DEF,STRING_TYPE_def]
-    \\ simp[fsupdate_unchanged,fastForwardFD_0]
-    \\ xsimpl )
-  \\ xlet_auto >- xsimpl
-  \\ simp[MAX_DEF]
+  cheat
+QED
+
+Theorem inputAll_aux_spec[local]:
+  ∀text acc is fd fs ne ie accv.
+    LIST_TYPE STRING_TYPE acc accv ⇒
+    app (p:'ffi ffi_proj) TextIO_inputAll_aux_v [is; accv]
+      (STDIO fs * INSTREAM_STR' fd is text fs ne ie)
+      (POSTv v.
+         & STRING_TYPE (concat (REVERSE acc ++ [implode text])) v *
+         INSTREAM_STR fd is [] (fastForwardFD fs fd) *
+         STDIO (fastForwardFD fs fd))
+Proof
+  strip_tac
+  \\ completeInduct_on ‘2 * LENGTH text + if ne then 0 else 1’
+  \\ rpt strip_tac
+  \\ gvs [PULL_FORALL]
+  \\ xcf_with_def TextIO_inputAll_aux_v_def
+  \\ qspecl_then [‘fd’,‘is’,‘text’,‘fs’,‘ne’,‘ie’] mp_tac inputBuff_spec
+  \\ strip_tac
+  \\ xlet_auto
+  >- (xsimpl \\ cheat)
+  \\ xlet_auto >- (xcon \\ xsimpl)
+  \\ assume_tac (refillBuffer_with_read_guard_spec_STR |> Q.INST [‘input’|->‘ys’])
+  \\ xlet_auto >- (xsimpl \\ rw [] \\ qexists ‘x’ \\ xsimpl)
+  \\ Cases_on ‘ys = []’ \\ gvs []
+  \\ xif \\ first_assum $ irule_at Any \\ simp []
+  >- cheat
   \\ xapp
   \\ xsimpl
-  \\ simp[LENGTH_insert_atI,LENGTH_TAKE_EQ]
-  \\ qmatch_goalsub_abbrev_tac`STDIO fs2`
-  \\ CONV_TAC SWAP_EXISTS_CONV
-  \\ qexists_tac`fs2` \\ xsimpl
-  \\ first_assum(mp_then Any mp_tac get_file_content_fsupdate)
-  \\ qmatch_asmsub_abbrev_tac`fs2 = fsupdate fs' fd 0 i content`
-  \\ disch_then(qspecl_then[`0`,`i`,`content`]mp_tac) \\ rw[]
-  \\ qmatch_assum_rename_tac`MAP _ (TAKE j arr) = TAKE j _`
-  \\ simp[LEX_DEF]
-  \\ `i ≤ LENGTH content` by rw[Abbr`i`]
-  \\ `j + pos < i` by rw[Abbr`i`]
-  \\ `i ≤ pos + LENGTH arr` by rw[Abbr`i`]
-  \\ `NUM (i-pos) nv2` by ( rw[Abbr`i`] \\ fs[] )
-  \\ qexists_tac`i - pos`
-  \\ simp[]
-  \\ `fs2 = forwardFD fs' fd (i - pos - j)`
-  by (
-    simp[Abbr`fs2`,forwardFD_def,fsupdate_def]
-    \\ fs[get_file_content_def]
-    \\ rpt (pairarg_tac \\ fs[])
-    \\ fs[IO_fs_component_equality,AFUPDKEY_unchanged,AFUPDKEY_eq] )
-  \\ qunabbrev_tac`fs2` \\ pop_assum SUBST_ALL_TAC
-  \\ simp[fastForwardFD_forwardFD]
+  \\ qexistsl [‘emp’,‘ys’,‘T’,‘F’,‘forwardFD fs fd nr’,‘fd’,‘implode xs :: acc’]
   \\ xsimpl
   \\ conj_tac
-  >- (
-    rewrite_tac[GSYM LENGTH_NIL]
-    \\ asm_simp_tac(std_ss++ARITH_ss)[LENGTH_insert_atI,LENGTH_TAKE_EQ,LENGTH_DROP,LENGTH_MAP] )
-  \\ qpat_x_assum`_ = TAKE _ _`mp_tac
-  \\ simp[LIST_EQ_REWRITE,LENGTH_TAKE_EQ,EL_MAP,EL_TAKE,EL_DROP,insert_atI_def,EL_APPEND_EQN]
-  \\ rw[]
-  \\ rw[ORD_BOUND,CHR_ORD]
+  >- (simp [LIST_TYPE_def] \\ rw [] \\ gvs [])
+  \\ simp [implode_def,concat_def]
+  \\ rw []
+  \\ cheat (* fsFFIPropsTheory.fastForwardFD_forwardFD
+              -- might need more info in postcondition of inputBuff_spec *)
+QED
+
+Theorem inputAll_spec:
+  app (p:'ffi ffi_proj) TextIO_inputAll_v [is]
+    (STDIO fs * INSTREAM_STR fd is text fs)
+    (POSTv v.
+       & STRING_TYPE (implode text) v *
+       INSTREAM_STR fd is [] (fastForwardFD fs fd) *
+       STDIO (fastForwardFD fs fd))
+Proof
+  xcf_with_def TextIO_inputAll_v_def
+  \\ simp [GSYM INSTREAM_STR'_F_F]
+  \\ xlet_auto >- (xcon \\ xsimpl)
+  \\ qspecl_then [‘text’,‘[]’,‘is’,‘fd’,‘fs’,‘F’,‘F’] mp_tac inputAll_aux_spec
+  \\ simp [LIST_TYPE_def]
+  \\ strip_tac
+  \\ xapp
+  \\ simp [GSYM INSTREAM_STR'_F_F]
+  \\ xsimpl
 QED
 
 Theorem fold_chars_loop_thm:

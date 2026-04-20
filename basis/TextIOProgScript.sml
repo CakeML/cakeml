@@ -538,6 +538,30 @@ Quote add_cakeml:
     | Some c => fold_tokens_loop c0 tokP mp fld is (fld c y);
 End
 
+Quote add_cakeml:
+  fun inputBuff is =
+    case is of InstreamBuffered fd rref wref surplus =>
+    let
+      val r = (!rref)
+      val w = (!wref)
+      val u = (r := w)
+    in
+      Word8Array.substring surplus r (w - r)
+    end
+End
+
+Quote add_cakeml:
+  fun inputAll_aux is acc =
+    let
+      val new_acc = inputBuff is :: acc
+    in
+      if refillBuffer_with_read_guard is then
+        String.concat (rev new_acc)
+      else
+        inputAll_aux is new_acc
+    end
+End
+
 val _ = ml_prog_update open_local_in_block;
 
 Quote add_cakeml:
@@ -565,20 +589,7 @@ Quote add_cakeml:
 End
 
 Quote add_cakeml:
-  fun inputAll is = case is of InstreamBuffered fd rref wref surplus =>
-    let
-      fun inputAll_aux arr i =
-        let val len = Word8Array.length arr in
-          if i < len then
-            let
-              val n = raw_input fd arr i (len - i)
-            in
-              if n = 0 then Word8Array.substring arr 0 i
-              else inputAll_aux arr (i + n)
-            end
-          else inputAll_aux (extend_array arr) i
-        end
-      in inputAll_aux surplus 0 end
+  fun inputAll is = inputAll_aux is []
 End
 
 Quote add_cakeml:
