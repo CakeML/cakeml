@@ -354,6 +354,16 @@ Definition mw_int_of_bits_def:
       if c then ys ++ [1w] else ys
 End
 
+Theorem LENGTH_mw_bits_of_int:
+  LENGTH (mw_bits_of_int xs) = LENGTH xs
+Proof
+  Induct_on ‘xs’ >> rw []
+  >- simp [mw_bits_of_int_def, mw_sub_def]
+  >> fs [mw_bits_of_int_def, mw_sub_def]
+  >> rpt (pairarg_tac >> gvs [])
+  >> imp_res_tac LENGTH_mw_sub >> simp []
+QED
+
 (* Computes the bitwise and of two non-negative multiwords.
  *
  * If the multiwords have different lengths, the length of the result will be
@@ -398,6 +408,169 @@ Definition mwi_and_def:
 Termination
   WF_REL_TAC ‘measure $ λ((s,xs),(t,ys)). if t then 1 else 0n’
 End
+
+
+Theorem mw_and_keep_nil_left:
+  ∀xs. mw_and_keep [] xs = xs
+Proof
+  Induct >> simp [mw_and_keep_def]
+QED
+
+Theorem mw_and_nil_left:
+  ∀xs. mw_and [] xs = []
+Proof
+  Induct >> simp [mw_and_def]
+QED
+
+
+Definition mwi_and_neg_neg_def:
+  (mwi_and_neg_neg c d e (x₁::xs) (y₁::ys) =
+   let
+     (x₂, c₁) = single_sub x₁ 0w c;
+     (y₂, d₁) = single_sub y₁ 0w d;
+     z₁ = x₂ || y₂;
+     (z₂, e₁) = single_add z₁ 0w e;
+   in
+     z₂::mwi_and_neg_neg c₁ d₁ e₁ xs ys) ∧
+  (mwi_and_neg_neg c d e xs (y₁::ys) =
+   let
+     (y₂, d₁) = single_sub y₁ 0w d;
+     (z, e₁) = single_add y₂ 0w e;
+   in
+     z::mwi_and_neg_neg c d₁ e₁ xs ys) ∧
+  (mwi_and_neg_neg c d e xs [] =
+   if e then [1w] else [])
+End
+
+Theorem LENGTH_mw_and_keep:
+  ∀xs ys. LENGTH (mw_and_keep xs ys) = LENGTH ys
+Proof
+  recInduct mw_and_keep_ind >> rw [mw_and_keep_def]
+QED
+
+Theorem mwi_and_neg_neg_eq:
+  ∀c d e xs ys.
+    mwi_and_neg_neg c d e xs ys =
+    let
+      xs₂ = (let (xs₁,c') = mw_sub xs [] c in MAP $¬ xs₁);
+      ys₂ = (let (ys₁,d') = mw_sub ys [] d in MAP $¬ ys₁);
+      zs = mw_and_keep xs₂ ys₂;
+      (zs₁, e') = mw_add (MAP $¬ zs) (MAP (K 0w) zs) e
+    in
+      if e' then zs₁ ++ [1w] else zs₁
+Proof
+  recInduct mwi_and_neg_neg_ind >> rw []
+  >> gvs [mwi_and_neg_neg_def, mw_and_keep_def, mw_sub_def, mw_add_def,
+          mw_and_keep_def]
+  >> rpt (pairarg_tac >> gvs [])
+  >> gvs [mw_and_keep_def, mw_add_def]
+  >- gvs [COND_RAND]
+  >> rpt (pairarg_tac >> gvs [])
+  >> gvs [mw_and_keep_nil_left, COND_RAND]
+QED
+
+Theorem mwi_and_neg_neg_thm:
+  (if LENGTH xs ≤ LENGTH ys
+   then mwi_and_neg_neg F F T xs ys
+   else mwi_and_neg_neg F F T ys xs)
+  =
+  (mw_int_of_bits (mw_and_keep_flip (mw_bits_of_int xs) (mw_bits_of_int ys)))
+Proof
+  simp [mw_and_keep_flip_def, LENGTH_mw_bits_of_int, COND_RAND]
+  >> IF_CASES_TAC
+  >> simp [mwi_and_neg_neg_eq, mw_int_of_bits_def, mw_bits_of_int_def]
+  >> rpt (pairarg_tac >> gvs [])
+QED
+
+(* Used when LENGTH xs >= LENGTH ys. *)
+Definition mwi_and_neg_pos_geq_def:
+  (mwi_and_neg_pos_geq c (x::xs) (y₁::ys) =
+   let
+     (y₂,c₁) = single_sub y₁ 0w c;
+     z = x && ¬y₂;
+   in
+     z::mwi_and_neg_pos_geq c₁ xs ys) ∧
+  (mwi_and_neg_pos_geq _ _ _ = [])
+End
+
+Theorem mwi_and_neg_pos_geq_eq:
+  ∀c xs ys.
+    mwi_and_neg_pos_geq c xs ys =
+    mw_and xs (let (ys',c') = mw_sub ys [] c in MAP $¬ ys')
+Proof
+  recInduct mwi_and_neg_pos_geq_ind >> rw []
+  >> gvs [mwi_and_neg_pos_geq_def, mw_sub_def, mw_and_nil_left,
+          mw_and_def]
+  >> rpt (pairarg_tac >> gvs [])
+  >> gvs [mw_and_def]
+QED
+
+Theorem mwi_and_neg_pos_geq_thm:
+  mwi_and_neg_pos_geq F xs ys = mw_and xs (mw_bits_of_int ys)
+Proof
+  simp [mw_bits_of_int_def, mwi_and_neg_pos_geq_eq]
+QED
+
+(* Used when LENGTH xs < LENGTH ys. *)
+Definition mwi_and_neg_pos_lt_def:
+  (mwi_and_neg_pos_lt c (x₁::xs) (y::ys) =
+   let
+     (x₂,c₁) = single_sub x₁ 0w c;
+     x₃ = ¬x₂;
+     z = x₃ && y;
+   in
+     z::mwi_and_neg_pos_lt c₁ xs ys) ∧
+  (mwi_and_neg_pos_lt _ xs ys = ys)
+End
+
+Theorem mwi_and_neg_pos_lt_eq:
+  ∀c xs ys.
+    mwi_and_neg_pos_lt c xs ys =
+    mw_and_keep (let (xs',c') = mw_sub xs [] c in MAP $¬ xs') ys
+Proof
+  recInduct mwi_and_neg_pos_lt_ind >> rw []
+  >> gvs [mwi_and_neg_pos_lt_def, mw_sub_def, mw_and_keep_nil_left,
+          mw_and_keep_def]
+  >> rpt (pairarg_tac >> gvs [])
+  >> Cases_on ‘c’
+  >> gvs [single_sub_def, single_add_def, mw_and_keep_def]
+QED
+
+Theorem mwi_and_neg_pos_lt_thm:
+  mwi_and_neg_pos_lt F xs ys = mw_and_keep (mw_bits_of_int xs) ys
+Proof
+  simp [mw_bits_of_int_def, mwi_and_neg_pos_lt_eq]
+QED
+
+Definition mwi_and_fused_def:
+  mwi_and_fused (s, xs) (t, ys) =
+  if ¬(s ∨ t) then
+    (F, mw_fix (mw_and_flip xs ys))
+  else if s ∧ ~t then
+    (F, mw_fix (if LENGTH xs < LENGTH ys
+                then mwi_and_neg_pos_lt F xs ys
+                else mwi_and_neg_pos_geq F ys xs))
+  else if ~s ∧ t then
+    (F, mw_fix (if LENGTH ys < LENGTH xs
+                then mwi_and_neg_pos_lt F ys xs
+                else mwi_and_neg_pos_geq F xs ys))
+  else
+    (T, mw_fix (if LENGTH xs ≤ LENGTH ys
+                then mwi_and_neg_neg F F T xs ys
+                else mwi_and_neg_neg F F T ys xs))
+End
+
+Theorem mwi_and_fused_thm:
+  mwi_and_fused x y = mwi_and x y
+Proof
+  PairCases_on ‘x’ >> PairCases_on ‘y’
+  >> simp [Ntimes mwi_and_def 2]
+  >> simp [mwi_and_fused_def]
+  >> IF_CASES_TAC >- simp []
+  >> IF_CASES_TAC >- simp [mwi_and_neg_pos_lt_thm, mwi_and_neg_pos_geq_thm]
+  >> IF_CASES_TAC >- simp [mwi_and_neg_pos_lt_thm, mwi_and_neg_pos_geq_thm]
+  >> simp [mwi_and_neg_neg_thm]
+QED
 
 (* verification *)
 
@@ -795,18 +968,6 @@ Proof
   >> TRY (EVAL_TAC >> NO_TAC)
 QED
 
-Theorem mw_and_nil_left:
-  ∀xs. mw_and [] xs = []
-Proof
-  Induct >> simp [mw_and_def]
-QED
-
-Theorem mw_and_keep_nil_left:
-  ∀xs. mw_and_keep [] xs = xs
-Proof
-  Induct >> simp [mw_and_keep_def]
-QED
-
 Theorem b2mw_nil:
   ∀xs. b2mw xs = [] ⇔ xs = []
 Proof
@@ -1065,16 +1226,6 @@ Proof
   >> simp [i2mw_def, mw_and_flip_def, Req0 int_and_sign, INT_ABS]
   >> rw [] >> rpt AP_TERM_TAC
   >> simp [Once int_and_sym]
-QED
-
-Theorem LENGTH_mw_bits_of_int:
-  LENGTH (mw_bits_of_int xs) = LENGTH xs
-Proof
-  Induct_on ‘xs’ >> rw []
-  >- simp [mw_bits_of_int_def, mw_sub_def]
-  >> fs [mw_bits_of_int_def, mw_sub_def]
-  >> rpt (pairarg_tac >> gvs [])
-  >> imp_res_tac LENGTH_mw_sub >> simp []
 QED
 
 Theorem b2mw'_0:
