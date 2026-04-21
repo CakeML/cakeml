@@ -2015,7 +2015,6 @@ Resume evaluate_rewrite_tmc[call]:
   >> drule env_rel_extras_opt
   >> strip_tac
   >> gvs [EL_APPEND_EQN]
-                  
   >> impl_tac
   >- (spose_not_then assume_tac >> gvs [])
   >> strip_tac
@@ -2026,7 +2025,7 @@ Resume evaluate_rewrite_tmc[call]:
   >> gvs []
   >> Cases_on ‘v_exp’ >> gvs []
   >-
-   (rename [‘state_rel f3 t t'’]
+   (rename [‘state_rel f3 t t_aux’]
     >> imp_res_tac evaluate_SING_IMP
     >> gvs []
     >> rename [‘v_rel f3 v_exp v_exp'’]
@@ -2050,6 +2049,7 @@ Resume evaluate_rewrite_tmc[call]:
         >> conj_tac
         >- imp_res_tac evaluate_refs_SUBSET
         >> gvs [])
+      (* HERE *)
       >> conj_asm1_tac
       >- cheat (* t' vs t'' *)
       >> strip_tac
