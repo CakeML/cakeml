@@ -7883,6 +7883,64 @@ Proof
   \\ xsimpl
 QED
 
+Theorem inputAllFrom_SOME_spec:
+   ∀p fs fname fnamev.
+   OPTION_TYPE FILENAME (SOME fname) fnamev ∧ hasFreeFD fs
+   ⇒
+   app (p:'ffi ffi_proj) TextIO_inputAllFrom_v [fnamev]
+     (STDIO fs)
+     (POSTv sv.
+        &OPTION_TYPE STRING_TYPE
+           (OPTION_BIND (file_content fs fname) (SOME o implode)) sv *
+        STDIO fs)
+Proof
+    rw[]  >> xcf_with_def TextIO_inputAllFrom_v_def >>
+    reverse $ cases_on ‘inFS_fname fs fname’
+    >- (xlet ‘POSTv sv. (SEP_EXISTS TYPE. &OPTION_TYPE TYPE NONE sv) * STDIO fs’
+        >- (xapp_spec open_option_SOME_fail >>
+            qexistsl [‘emp’,‘fs’,‘ARB’] >> xsimpl >>
+            qexists ‘fname’ >> simp[] >> metis_tac[]) >>
+        gs[std_preludeTheory.OPTION_TYPE_def] >>
+        xmatch >> xcon >> xsimpl >>
+        gs[inFS_fname_def,file_content_def] >>
+        cases_on ‘ALOOKUP fs.files fname’ >> gs[] >>
+        simp[std_preludeTheory.OPTION_TYPE_def]) >>
+    reverse $ cases_on ‘consistentFS fs’
+    >- (gs[STDIO_def, IOFS_def, wfFS_def] >> xpull >>
+        gs[consistentFS_def] >> metis_tac[]) >>
+    reverse $ cases_on ‘STD_streams fs’
+    >- (gs[STDIO_def] >> xpull) >>
+    ‘∃text. file_content fs fname = SOME text’ by (
+        drule_all_then assume_tac inFS_fname_ALOOKUP_EXISTS >> gs[] >>
+        simp[file_content_def]) >>
+    xlet_auto_spec (SOME open_option_SOME)
+    >- (gvs[std_preludeTheory.OPTION_TYPE_def,PAIR_TYPE_def] >> xsimpl) >>
+    qpat_x_assum ‘OPTION_TYPE _ _ _’ mp_tac >>
+    simp[Once std_preludeTheory.OPTION_TYPE_def,PAIR_TYPE_def] >> rw[] >> xmatch >>
+    reverse $ xhandle
+        ‘POSTv sv. &OPTION_TYPE STRING_TYPE (SOME (implode text)) sv * STDIO fs’
+    >- xsimpl >>
+    qmatch_goalsub_abbrev_tac ‘INSTREAM_STR fd _ _ ofs’ >>
+    xlet ‘POSTv sv. &STRING_TYPE (implode text) sv *
+        INSTREAM_STR fd is [] (fastForwardFD ofs fd) *
+        STDIO (fastForwardFD ofs fd)’
+    >- (xapp_spec inputAll_spec >>
+        qexistsl [‘emp’,‘text’,‘ofs’,‘fd’] >> xsimpl) >>
+    qmatch_goalsub_abbrev_tac ‘INSTREAM_STR _ _ _ rofs’ >>
+    xlet_auto >- (xcon >> xsimpl) >>
+    gvs[sub_spec_def] >>
+    xlet ‘POSTv uv. &UNIT_TYPE () uv * STDIO (rofs with infds updated_by ADELKEY fd)’
+    >- (first_x_assum $ xapp_spec >>
+        qexistsl [‘emp’,‘[]’,‘rofs’] >> xsimpl >>
+        unabbrev_all_tac >> simp[validFileFD_fastForwardFD] >>
+        irule_at Any validFileFD_nextFD >>
+        simp[nextFD_leX,GE,STD_streams_nextFD]) >>
+    xcon >> simp[std_preludeTheory.OPTION_TYPE_def] >> xsimpl >>
+    unabbrev_all_tac >>
+    simp[fastForwardFD_ADELKEY_same,nextFD_leX,openFileFS_ADELKEY_nextFD] >>
+    xsimpl
+QED
+
 Theorem fold_chars_loop_thm:
   ∀is a f fv s y yv fs fd.
     (CHAR --> a --> a) f fv ∧ a y yv ⇒
