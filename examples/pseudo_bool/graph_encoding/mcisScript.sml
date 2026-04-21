@@ -194,7 +194,7 @@ End
 Definition unmapped_obj_def:
   unmapped_obj vp =
   SOME((GENLIST (λb. (1, Pos (Unmapped b))) vp), 0)
-    : ((enc lin_term # int) option)
+  : ((enc lin_term # int) option)
 End
 
 Definition encode_base_def:
@@ -455,6 +455,28 @@ Proof
   rw[]
 QED
 
+Theorem iSUM_MAP_b2i_ge_0:
+  iSUM (MAP (λv. b2i (P v)) ls) ≥ 0
+Proof
+  induct_on ‘ls’>>
+  rw[iSUM_def]>>
+  Cases_on ‘P h’>>
+  fs[]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem iSUM_MAP_b2i_ge_1:
+  iSUM (MAP (λv. b2i (P v)) ls) ≥ 1 ⇔ ∃v. MEM v ls ∧ P v
+Proof
+  induct_on ‘ls’>>
+  rw[iSUM_def]>>
+  rename1 ‘P h’>>
+  Cases_on ‘P h’>>
+  fs[SF DNF_ss]>>
+  ‘iSUM (MAP (λv. b2i (P v)) ls) ≥ 0’ suffices_by intLib.ARITH_TAC>>
+  simp[iSUM_MAP_b2i_ge_0]
+QED
+
 Theorem encode_base_correct:
   good_graph (vp,ep) ∧
   good_graph (vt,et) ∧
@@ -469,16 +491,16 @@ Theorem encode_base_correct:
   )
 Proof
   rw[EQ_IMP_THM]
-  >- (
+  >-(
     fs[injective_partial_map_eq]>>
     simp[satisfiable_def]>>
-    qexists_tac`λenc.
+    qexists_tac‘λenc.
       case enc of
         Unmapped a => a ∉ vs
       | Mapped a u => a ∈ vs ∧ f a = u
-      | _ => ARB` >>
+      | _ => ARB’ >>
     rw[encode_base_def]
-    >- (
+    >-(
       rename1`all_has_mapping`>>
       simp[all_has_mapping_def,satisfies_def,MEM_GENLIST,MEM_MAP]>>
       `∀a. a < vp ∧ a ∈ vs ⇒
@@ -493,8 +515,8 @@ Proof
       simp[satisfies_pbc_def,MAP_GENLIST,o_DEF,eval_lin_term_def,
         has_mapping_al1_def,has_mapping_am1_def]>>
       Cases_on`a ∈ vs`>>simp[iSUM_def,iSUM_GENLIST_const])
-    >- (
-      rename1`all_one_one`>>
+    >-(
+      rename1‘all_one_one’>>
       simp[all_one_one_def,satisfies_def,MEM_GENLIST,one_one_def,MEM_MAP,PULL_EXISTS]>>
       rw[]>>
       simp[satisfies_pbc_def,MAP_GENLIST,o_DEF,eval_lin_term_def]>>
@@ -505,21 +527,25 @@ Proof
       simp[]>>
       DEP_REWRITE_TAC[iSUM_sub_b2i_geq]>>
       simp[Abbr`ls`]>>
-      CONJ_TAC>- (
+      CONJ_TAC
+      >-(
         simp[MEM_GENLIST]>>
+        rw[neg_b2i]>>
+        rename1‘b2i P = _’>>
+        qexists‘¬P’>>
         metis_tac[])>>
       rw[]>>
       gs[EL_GENLIST]>>
       metis_tac[])
-    >- (
-      rename1`all_full_edge_map`>>
+    >-(
+      rename1‘all_full_edge_map’>>
       simp[all_full_edge_map_def,satisfies_def,MEM_GENLIST,MEM_FLAT]>>
       rw[]>>
       gvs[MEM_FLAT,MEM_GENLIST,MEM_MAP]>>
       pop_assum mp_tac>>
-      qmatch_goalsub_abbrev_tac`if P then _ else _`>>
+      qmatch_goalsub_abbrev_tac‘if P then _ else _’>>
       IF_CASES_TAC
-      >- (
+      >-(
         rw[Abbr`P`]>>
         simp[satisfies_pbc_def,iSUM_def,eval_lin_term_def]>>
         Cases_on`a ∈ vs`>>simp[iSUM_def]>>
@@ -527,7 +553,7 @@ Proof
         simp[])>>
       simp[MEM_FLAT,MEM_MAP,PULL_EXISTS,MEM_if]>>
       rw[]
-      >- (
+      >-(
         (* edge_map constraint *)
         gvs[edge_map_def,MEM_if,MEM_neighbours]>>
         simp[satisfies_pbc_def,MAP_MAP_o,o_DEF,eval_lin_term_def]>>
@@ -536,70 +562,62 @@ Proof
           metis_tac[])>>
         simp[]>>
         reverse (Cases_on`b ∈ vs`)>>fs[]
-        >- (
-          simp[iSUM_def,iSUM_MAP_const]>>
-          Cases_on`a ∈ vs ∧ f a = u`>>simp[])>>
+        >-(
+          simp[iSUM_def,npbcTheory.iSUM_CONST]>>
+          rename1 ‘b2i P + _’>>
+          Cases_on ‘P’>>
+          simp[])>>
         reverse (Cases_on`f a = u`>>rw[]>>simp[iSUM_def])
         >- (
           simp[intLib.COOPER_PROVE``!n:int. 1 + n ≥ 1 ⇔ n ≥ 0``]>>
-          match_mp_tac iSUM_zero>>
+          match_mp_tac iSUM_ge_zero>>
           simp[MEM_MAP,MEM_neighbours]>>
           rw[]>>
           simp[])>>
         Cases_on`a ∈ vs`>>fs[]
-        >- (
-          match_mp_tac iSUM_ge>>
-          rw[]
-          >-
-            (fs[MEM_MAP]>>pairarg_tac>>simp[])>>
-          simp[MEM_MAP,MEM_FILTER,LAMBDA_PROD,PULL_EXISTS,EXISTS_PROD,MEM_neighbours]>>
-          qexists_tac`f b`>>simp[]>>
-          fs[INJ_DEF])>>
+        >-simp[iSUM_MAP_b2i_ge_1,MEM_neighbours]>>
         simp[intLib.COOPER_PROVE``!n:int. 1 + n ≥ 1 ⇔ n ≥ 0``]>>
-        match_mp_tac iSUM_zero>>
+        match_mp_tac iSUM_ge_zero>>
         simp[MEM_MAP,MEM_neighbours]>>
         rw[]>>
         simp[])
-      >- (
+      >-(
         (* not_edge_map constraint *)
         gvs[not_edge_map_def,MEM_if,MEM_not_neighbours]>>
         simp[satisfies_pbc_def,MAP_MAP_o,o_DEF,eval_lin_term_def]>>
         reverse (Cases_on`b ∈ vs`)>>fs[]
         >- (
-          simp[iSUM_def,iSUM_MAP_const]>>
-          Cases_on`a ∈ vs ∧ f a = u`>>simp[])>>
+          simp[iSUM_def,npbcTheory.iSUM_CONST]>>
+          rename1 ‘b2i P + _’>>
+          Cases_on ‘P’>>
+          simp[])>>
         reverse (Cases_on`f a = u`>>rw[]>>simp[iSUM_def])
         >- (
           simp[intLib.COOPER_PROVE``!n:int. 1 + n ≥ 1 ⇔ n ≥ 0``]>>
-          match_mp_tac iSUM_zero>>
+          match_mp_tac iSUM_ge_zero>>
           simp[MEM_MAP,MEM_not_neighbours]>>
           rw[]>>
           simp[])>>
         Cases_on`a ∈ vs`>>fs[]
         >- (
-          match_mp_tac iSUM_ge>>
-          rw[]
-          >-
-            (fs[MEM_MAP]>>pairarg_tac>>simp[])>>
-          simp[MEM_MAP,MEM_FILTER,LAMBDA_PROD,PULL_EXISTS,EXISTS_PROD,MEM_not_neighbours]>>
+          simp[iSUM_MAP_b2i_ge_1,MEM_not_neighbours]>>
           fs[INJ_DEF])>>
         simp[intLib.COOPER_PROVE``!n:int. 1 + n ≥ 1 ⇔ n ≥ 0``]>>
-        match_mp_tac iSUM_zero>>
+        match_mp_tac iSUM_ge_zero>>
         simp[MEM_MAP,MEM_not_neighbours]>>
         rw[]>>
         simp[]))
-    >- (
+    >-(
       simp[eval_obj_def,unmapped_obj_def,MAP_GENLIST, o_DEF,eval_lin_term_def]>>
       DEP_REWRITE_TAC[iSUM_GENLIST_eq_k]>>
-      fs[])
-  )>>
+      fs[]))>>
   fs[satisfiable_def,injective_partial_map_eq]>>
-  qexists_tac`λn. @m. m < vt ∧ w (Mapped n m)`>>
-  qabbrev_tac`dom = {n | n < vp ∧ ¬ w (Unmapped n)}`>>
-  qexists_tac `dom`>>
+  qexists_tac ‘λn. @m. m < vt ∧ w (Mapped n m)’>>
+  qabbrev_tac ‘dom = {n | n < vp ∧ ¬ w (Unmapped n)}’>>
+  qexists_tac ‘dom’>>
   simp[]>>
-  reverse CONJ_TAC >-
-    (
+  reverse CONJ_TAC
+  >-(
     fs[eval_obj_def,unmapped_obj_def,MAP_GENLIST,o_DEF,neg_b2i,eval_lin_term_def]>>
     qpat_x_assum`_ = _` mp_tac>>
     `GENLIST (λb. b2i (w (Unmapped b))) vp =
@@ -611,33 +629,33 @@ Proof
     >-
       fs[Abbr`dom`,SUBSET_DEF]>>
     intLib.ARITH_TAC)>>
-  CONJ_TAC>-
-    simp[Abbr`dom`,SUBSET_DEF]>>
+  CONJ_TAC
+  >-simp[Abbr`dom`,SUBSET_DEF]>>
   fs[satisfies_def,encode_base_def,SF DNF_ss]>>
-  `∀n. n < vp ∧ ¬w (Unmapped n) ⇒
+  ‘∀n. n < vp ∧ ¬w (Unmapped n) ⇒
    ∃m. m < vt ∧ w (Mapped n m) ∧
-   ∀m'. m' < vt ∧ w (Mapped n m') ⇔ m = m'` by (
-     fs[all_has_mapping_def,MEM_GENLIST,has_mapping_al1_def,
+   ∀m'. m' < vt ∧ w (Mapped n m') ⇔ m = m'’ by (
+    fs[all_has_mapping_def,MEM_GENLIST,has_mapping_al1_def,
       has_mapping_am1_def,PULL_EXISTS,MEM_MAP,PULL_EXISTS,SF DNF_ss]>>
-     rw[]>>
-     first_x_assum drule>>
-     first_x_assum drule>>
-     simp[satisfies_pbc_def,MAP_GENLIST,o_DEF,eval_lin_term_def]>>
-     simp[iSUM_def]>>
-     rw[]>>
-     `iSUM (GENLIST (λv. b2i (w (Mapped n v))) vt) = 1` by intLib.ARITH_TAC>>
-     pop_assum mp_tac>>
-     DEP_REWRITE_TAC[iSUM_eq_1]>>
-     CONJ_TAC>-
-       (simp[MEM_GENLIST]>>metis_tac[])>>
-     rw[]>>gs[EL_GENLIST]>>
-     asm_exists_tac>>fs[]>>
-     CCONTR_TAC>>gs[]>>
-     Cases_on`i=m'`>>gs[]>>
-     first_x_assum drule>>
-     fs[])>>
+    rw[]>>
+    first_x_assum drule>>
+    first_x_assum drule>>
+    simp[satisfies_pbc_def,MAP_GENLIST,o_DEF,eval_lin_term_def]>>
+    simp[iSUM_def]>>
+    rw[]>>
+    ‘iSUM (GENLIST (λv. b2i (w (Mapped n v))) vt) = 1’ by intLib.ARITH_TAC>>
+    pop_assum mp_tac>>
+    DEP_REWRITE_TAC[iSUM_eq_1]>>
+    CONJ_TAC>-
+     (simp[MEM_GENLIST]>>metis_tac[])>>
+    rw[]>>gs[EL_GENLIST]>>
+    asm_exists_tac>>fs[]>>
+    CCONTR_TAC>>gs[]>>
+    Cases_on`i=m'`>>gs[]>>
+    first_x_assum drule>>
+    fs[])>>
   rw[]
-  >- (
+  >-(
     fs[Abbr`dom`]>>
     rw[INJ_DEF]
     >- (
@@ -654,15 +672,17 @@ Proof
     simp[]>>
     DEP_REWRITE_TAC[iSUM_sub_b2i_geq]>>
     simp[Abbr`ls`]>>
-    CONJ_TAC>- (
+    CONJ_TAC
+    >-(
       simp[MEM_GENLIST]>>
-      metis_tac[])>>
+      rw[]>>
+      metis_tac[SYM neg_b2i])>>
     rw[]>>
     first_x_assum drule>>
     simp[EL_GENLIST]>>
     disch_then(qspec_then`n` mp_tac)>>
     simp[])
-  >- (
+  >-(
     fs[Abbr`dom`,good_graph_eq]>>
     first_assum(qspec_then`a` mp_tac)>>
     first_x_assum(qspec_then`b` drule)>>
