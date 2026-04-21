@@ -700,7 +700,16 @@ Theorem do_app_op_rel:
       do_app op vs' s' = Rval v' ∧
       PAIR_REL (v_rel f) (state_rel f) v v'
 Proof
-  rw [do_app_def] >> cheat
+  rw [do_app_def]
+  >- cheat
+  >> Cases_on ‘∃i. op = IntOp i’
+  >-
+   (gvs []
+    >> Cases_on ‘i’ >> gvs []
+    >> gvs [do_app_aux_def, bvlSemTheory.do_app_def, AllCaseEqs ()]
+    >> imp_res_tac LIST_REL_LENGTH
+    >> cheat)
+  >> cheat
 QED
 
 (* This could be unified with non err case using res_rel *)
@@ -883,8 +892,9 @@ Theorem list_rel_last:
     r (LAST l1) (LAST l2)
 Proof
   rw []
-  >> cheat
-     (* Can't set up induction on this *)
+  >> Cases_on ‘l1’ using SNOC_CASES >> gvs []
+  >> Cases_on ‘l2’ using SNOC_CASES >> gvs []
+  >> gvs [LIST_REL_SNOC]
 QED
 
 Theorem list_rel_front:
@@ -892,7 +902,10 @@ Theorem list_rel_front:
     LIST_REL r l1 l2 ⇒
     LIST_REL r (FRONT l1) (FRONT l2)
 Proof
-  cheat
+  rw []
+  >> Cases_on ‘l1’ using SNOC_CASES >> gvs []
+  >> Cases_on ‘l2’ using SNOC_CASES >> gvs []
+  >> gvs [LIST_REL_SNOC]
 QED
 
 Theorem list_rel_env_rel:
@@ -1095,6 +1108,7 @@ Theorem evaluate_rewrite_tmc:
      state_rel f s s' ∧
      (opt ⇒
       LENGTH xs = 1 ∧
+      (* move this inside the opt implication *)
       ∃c. hole_has_val f env1 env2 s'.refs c) ∧
      r ≠ Rerr (Rabort Rtype_error) ⇒
      ∃t' f' r'.
@@ -1721,6 +1735,12 @@ Resume evaluate_rewrite_tmc[op]:
     >> drule aux_strip_op
     >> strip_tac
     >> gvs [is_block_op_cons_def]
+    >> pop_assum mp_tac
+    >> simp [Once rewrite_aux_def, CaseEq "option"]
+    >> simp [dest_Cons_def]
+    >> simp [rewrite_aux_BlockOp_Cons_def, CaseEq "tc_and_hb"]
+    >> simp [CaseEq "hole_block", CaseEq "tcall"]
+    >> 
     >> cheat)
   >> rpt gen_tac
   >> gvs [rewrite_opt_def]
@@ -1751,10 +1771,16 @@ Resume evaluate_rewrite_tmc[op]:
   >> cheat
 QED
 
+Theorem evaluate_to_mut_cons:
+  evaluate ()
+Proof
+
+QED
+        
 Theorem renameme:
   ∀loc tag op_args ticks args handler tag' l hole r.
-    cons_to_tc_and_hb loc tag op_args = (TCall ticks args handler)⁺ (HoleBlock tag' l hole r) ⇒
-    ∃hole'. xs = l ++ hole' ++ r
+    cons_to_tc_and_hb loc tag op_args = ((TCall ticks args handler), (HoleBlock tag' l hole r)) ⇒
+    ∃hole'. op_args = l ++ hole' ++ r
 Proof
   recInduct cons_to_tc_and_hb_ind
   >> rw [cons_to_tc_and_hb_def]

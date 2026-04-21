@@ -8,6 +8,8 @@ Libs
   preamble
 
 (* TODO: Read only MemOps *)
+(* This needs to be very strict - nothing should be able to fail here *)
+(* Only IntOps/IntOp Const/BlockOp Cons (as long as all internal ones don't fail) *)
 Definition effectful_op_def:
   (effectful_op (Label _) = F) ∧
   (effectful_op (FFI _) = T) ∧
