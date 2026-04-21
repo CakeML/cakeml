@@ -1,59 +1,166 @@
 (*
   Formalization of And-Inverter Graphs
 *)
-
 Theory aig
 Ancestors
-  misc
-  mlstring
+  misc mlstring
 Libs
   preamble
 
 val _ = numLib.prefer_num();
 
+(* Things that appear in base positions *)
 Datatype:
-  lit = Name 'n | Latch 'l | Input 'i | Const bool
+  bvar = Ff | Input 'i | Latch 'l
 End
-Type node[pp] = “:('n,'l,'i) lit # bool”
-Type and[pp] = “:'n # (('n,'l,'i) node # ('n,'l,'i) node)”
-Type circuit[pp] = “:('n,'l,'i) and list”
 
-Type state = “:'l -> bool”
+Datatype:
+  var = Name 'a | Base (('i,'l) bvar)
+End
+
 Type inputs = “:'i -> bool”
+Type state = “:'l -> bool”
 
-Datatype:
-  ext = Orig 'a | Ext mlstring
+Definition eval_bvar_def:
+  (eval_bvar (is: 'i inputs, ls: 'l state) Ff = F) ∧
+  (eval_bvar (is,ls) (Input i) = is i) ∧
+  (eval_bvar (is,ls) (Latch l) = ls l)
 End
-Type iext[pp] = “:'a ext + num”
+
+Type lit[pp] = “:('a,'i,'l) var # bool”
+Type and[pp] = “:'a # (('a,'i,'l) lit # ('a,'i,'l) lit)”
+Type circuit[pp] = “:('a,'i,'l) and list”
+
+Overload TT =``(Base Ff, T)``
+Overload FF =``(Base Ff, F)``
 
 Definition eval_circuit_def:
-  (eval_circuit
-   (s: 'l state, is: 'i inputs) (circ: ('n, 'l, 'i) circuit) (Const b) = b) ∧
-  (eval_circuit (s, is) circ (Latch l) = s l) ∧
-  (eval_circuit (s, is) circ (Input i) = is i) ∧
-  (eval_circuit (s, is) [] (Name _) = F) ∧
-  (eval_circuit (s, is) (h::tl) (Name n) =
-   let (n', ((in₁, pos₁), (in₂, pos₂))) = h in
+  (eval_lit (ss : 'i inputs # 'l state)
+    circ ((v,b):('a,'i,'l) lit) =
+    case v of
+    | Base bv => b ⇎ eval_bvar ss bv
+    | Name n => eval_circuit ss circ n) ∧
+  (eval_circuit ss ([]:('a,'i,'l) circuit) n = F) ∧
+  (eval_circuit ss (h::tl) n =
+   let (n', (in₁, in₂)) = h in
      if n' = n then
-       (pos₁ ⇔ eval_circuit (s, is) tl in₁) ∧
-       (pos₂ ⇔ eval_circuit (s, is) tl in₂)
+       (eval_lit ss tl in₁) ∧
+       (eval_lit ss tl in₂)
      else
-       eval_circuit (s, is) tl (Name n))
+       eval_circuit ss tl n)
+End
+
+(*
+EVAL``eval_lit (is,ls) circ TT``
+EVAL``eval_lit (is,ls) circ FF``
+*)
+
+Definition next_state_def:
+  next_state ss (circ: ('a, 'i, 'l) circuit)
+    (next: 'l -> ('a,'i,'l) lit) =
+  eval_lit ss circ ∘ next
 End
 
 Definition preds_hold_def:
-  preds_hold sis (circ: ('n, 'l, 'i) circuit) (ns: 'n set) =
-  ∀n. n ∈ ns ⇒ eval_circuit sis circ (Name n)
+  preds_hold ss (circ: ('a, 'i, 'l) circuit)
+    (ns: ('a,'i,'l) lit set) =
+  (∀n. n ∈ ns ⇒ eval_lit ss circ n)
 End
 
 Definition is_reset_def:
-  is_reset (s, is) (circ: ('n, 'l, 'i) circuit) (reset: 'l -> 'n) (ls: 'l set) =
+  is_reset ss (circ: ('a, 'i, 'l) circuit)
+    (reset: 'l -> ('a,'i,'l) lit) (ls: 'l set) =
   ∀l. l ∈ ls ⇒
-      eval_circuit (s, is) circ (Name (reset l)) =
-      eval_circuit (s, is) circ (Latch l)
+      eval_lit ss circ (reset l) =
+      eval_lit ss circ (Base (Latch l), T)
+End
+
+(* Extension types for names *)
+Datatype:
+  ext = Orig 'a | Ext mlstring
+End
+
+Type iext[pp] = “:'a ext + num”
+
+Definition iname_def:
+  iname (v,b) =
+    case v of Name (INR n) => n
+    | _ => 0
+End
+
+Definition maxn_def:
+  maxn (ls : ('a iext,'i,'l) lit list) =
+    MAX_LIST (MAP iname ls) + 1
 End
 
 (* TODO conj_def *)
+Definition conj_aux_def:
+  (conj_aux (n: num) ([]: ('a iext,'i,'l) lit list) =
+    [ (INR n, TT, TT) ]:('a iext,'i,'l) circuit) ∧
+  (conj_aux (n: num) (x::xs) =
+    (INR n, x, (Name (INR (n+1)),T))
+      ::conj_aux (n + 1) xs )
+End
+
+Definition conj_def:
+  conj (circ: ('a iext, 'i, 'l) circuit) name xs =
+    let n = maxn xs in
+    ((INL (Ext name), (Name (INR n), T), (Name (INR n), T))
+      ::conj_aux n xs) ++ circ
+End
+
+Theorem eval_circuit_conj_aux_INL[simp]:
+  ∀xs n.
+    eval_circuit ss (conj_aux n xs ++ circ) (INL out) ⇔
+    eval_circuit ss circ (INL out)
+Proof
+  Cases_on ‘ss’ >> Induct >> rw [conj_aux_def, eval_circuit_def]
+QED
+
+Theorem eval_circuit_conj_aux_INR:
+  ∀xs n.
+    m < n ⇒
+    (eval_circuit ss (conj_aux n xs ++ circ) (INR m) ⇔
+    eval_circuit ss circ (INR m))
+Proof
+  Cases_on ‘ss’
+  >> Induct
+  >> rw [conj_aux_def, eval_circuit_def, eval_bvar_def]
+QED
+
+Theorem eval_circuit_conj_aux_INR:
+  ∀xs n.
+    EVERY (λx. iname x < n) xs ⇒
+    (eval_circuit ss (conj_aux n xs ++ circ) (INR n) ⇔
+    EVERY (eval_lit ss circ) xs)
+Proof
+  Cases_on ‘ss’
+  >> Induct
+  >> rw [conj_aux_def, eval_circuit_def, eval_bvar_def]
+  >> first_x_assum (qspec_then `n+1` mp_tac)
+  >> impl_tac >-
+    (drule_at_then Any irule EVERY_MONOTONIC>>rw[])
+  >> rw[]
+  >> fs[oneline iname_def]
+  >> every_case_tac>>simp[eval_circuit_def]
+  >> DEP_REWRITE_TAC[eval_circuit_conj_aux_INR]
+  >> gvs[]
+QED
+
+Theorem eval_circuit_conj_INL:
+  eval_circuit ss (conj circ name xs) (INL n) =
+  if n = Ext name then
+    EVERY (eval_lit ss circ) xs
+  else eval_circuit ss circ (INL n)
+Proof
+  Cases_on ‘ss’ >>
+  rw [eval_circuit_def, conj_def]>>
+  irule eval_circuit_conj_aux_INR>>
+  rw[maxn_def,EVERY_MEM]>>
+  `MEM (iname x) (MAP iname xs)` by metis_tac[MEM_MAP]>>
+  drule MAX_LIST_PROPERTY>>
+  simp[]
+QED
 
 (* --- old --- *)
 
