@@ -1106,10 +1106,7 @@ Theorem evaluate_rewrite_tmc:
      evaluate (xs, env1, s) = (r, t) ∧
      env_rel opt f env1 env2 ∧
      state_rel f s s' ∧
-     (opt ⇒
-      LENGTH xs = 1 ∧
-      (* move this inside the opt implication *)
-      ∃c. hole_has_val f env1 env2 s'.refs c) ∧
+     (opt ⇒ LENGTH xs = 1) ∧
      r ≠ Rerr (Rabort Rtype_error) ⇒
      ∃t' f' r'.
        evaluate (xs, env2, s') = (r', t') ∧
@@ -1128,6 +1125,7 @@ Theorem evaluate_rewrite_tmc:
            i = LENGTH env1 ∧
            j = LENGTH env1 + 1 ∧
            k = LENGTH env1 + 2 ∧
+           (∃c. hole_has_val f env1 env2 s'.refs c) ∧
            rewrite_opt loc loc_opt i j k (HD xs) = exp_opt ⇒
            ∃rrr t2.
              evaluate ([exp_opt], env2, s') = (rrr,t2) ∧
@@ -1228,7 +1226,7 @@ Resume evaluate_rewrite_tmc[var]:
   >- irule holes_unchanged_except_refl
   >> strip_tac
   >> gvs [rewrite_aux_def]
-  >> rpt gen_tac
+  >> rw []
   >> gvs [rewrite_opt_def]
   >> ho_match_mp_tac evaluate_fill_hole
   >> gvs [evaluate_def]
@@ -1271,17 +1269,6 @@ Resume evaluate_rewrite_tmc[if]:
       >> strip_tac
       >> disch_then drule
       >> gvs []
-      >> impl_tac
-      >-
-       (strip_tac
-        >> gvs []
-        >> qexists ‘c’
-        >> drule env_rel_strip_extras
-        >> strip_tac
-        >> gvs []
-        >> irule unchanged_hole_has_val
-        >> goal_assum $ drule_at $ Pos hd
-        >> gvs [])
       >> strip_tac
       >> gvs []
       >> goal_assum $ drule_at Any
@@ -1308,7 +1295,15 @@ Resume evaluate_rewrite_tmc[if]:
           >> goal_assum $ drule_at Any
           >> gvs [evaluate_def])
         >> gvs [evaluate_def])
-      >> first_x_assum $ qspecl_then [‘loc’, ‘loc_opt’] mp_tac
+      >> first_x_assum $ qspecl_then [‘loc’, ‘loc_opt’, ‘c’] mp_tac
+      >> impl_tac
+      >-
+       (drule env_rel_strip_extras
+        >> strip_tac
+        >> gvs []
+        >> irule unchanged_hole_has_val
+        >> first_assum $ irule_at $ Pos hd
+        >> gvs [])
       >> strip_tac
       >> gvs [rewrite_opt_def, evaluate_def]
       >> drule_all env_rel_length_opt
@@ -1319,12 +1314,9 @@ Resume evaluate_rewrite_tmc[if]:
        (irule holes_unchanged_except_trans
         >> first_assum $ irule_at Any
         >> gvs [holes_unchanged_except_def])
-      >> gen_tac
-      >> strip_tac
-      >> first_x_assum $ qspec_then ‘res_v’ mp_tac
-      >> gvs []
-      >> strip_tac
-      >> drule_all hole_has_val_submap
+      >> rw []
+      >> irule hole_has_val_submap
+      >> first_assum $ irule_at Any
       >> gvs [])
     (* Else inductive hypothesis *)
     >> strip_tac
@@ -1345,23 +1337,11 @@ Resume evaluate_rewrite_tmc[if]:
     >> strip_tac
     >> disch_then drule
     >> gvs []
-    >> impl_tac
-    >-
-     (strip_tac
-      >> gvs []
-      >> qexists ‘c’
-      >> drule env_rel_strip_extras
-      >> strip_tac
-      >> gvs []
-      >> irule unchanged_hole_has_val
-      >> goal_assum $ drule_at $ Pos hd
-      >> gvs [])
     >> strip_tac
     >> gvs []
     >> goal_assum $ drule_at Any
     >> gvs []
-    >> rw []
-    >> gvs []
+    >> rw [] >> gvs []
     >- imp_res_tac SUBMAP_TRANS
     >-
      (irule only_fresh_trans
@@ -1383,7 +1363,15 @@ Resume evaluate_rewrite_tmc[if]:
         >> goal_assum $ drule_at Any
         >> gvs [evaluate_def])
       >> gvs [evaluate_def])
-    >> first_x_assum $ qspecl_then [‘loc’, ‘loc_opt’] mp_tac
+    >> first_x_assum $ qspecl_then [‘loc’, ‘loc_opt’, ‘c’] mp_tac
+    >> impl_tac
+    >-
+     (drule env_rel_strip_extras
+      >> strip_tac
+      >> gvs []
+      >> irule unchanged_hole_has_val
+      >> first_assum $ irule_at $ Pos hd
+      >> gvs [])        
     >> strip_tac
     >> gvs [rewrite_opt_def, evaluate_def]
     >> drule_all env_rel_length_opt
@@ -1394,12 +1382,9 @@ Resume evaluate_rewrite_tmc[if]:
      (irule holes_unchanged_except_trans
       >> first_assum $ irule_at Any
       >> gvs [holes_unchanged_except_def])
-    >> gen_tac
-    >> strip_tac
-    >> first_x_assum $ qspec_then ‘res_v’ mp_tac
-    >> gvs []
-    >> strip_tac
-    >> drule_all hole_has_val_submap
+    >> rw []
+    >> irule hole_has_val_submap
+    >> first_assum $ irule_at $ Pos $ el 2
     >> gvs [])
   >> strip_tac
   >> rename [‘evaluate ([x1],env2,s') = (r1',u')’]
@@ -1441,38 +1426,15 @@ Resume evaluate_rewrite_tmc[lett]:
     (* Second inductive hypothesis *)
     >> first_x_assum $ qspec_then ‘opt’ mp_tac
     >> gvs []
-    >> disch_then $ drule_at $ Pos $ el 2
+    >> disch_then $ drule_at $ Pos $ el 2   
     >> disch_then $ qspec_then ‘vs' ++ env2’ mp_tac
     >> impl_tac
     >-
-     (qpat_x_assum ‘env_rel F f env env2’ kall_tac
-      >> drule_all env_rel_submap
-      >> strip_tac
-      >> drule_all env_rel_append
+     (irule env_rel_append
       >> gvs []
-      >> strip_tac
-      >> strip_tac
-      >> gvs []
-      >> qexists ‘c’
-      >> pop_assum mp_tac
-      >> drule_all env_rel_strip_extras
-      >> strip_tac
-      >> gvs []
-      >> strip_tac
-      >> irule unchanged_hole_has_val
-      >> drule_all holes_unchanged_except_submap
-      >> strip_tac
-      >> goal_assum $ drule_at $ Pos $ el 2
-      >> goal_assum $ drule_at $ Pos $ el 2
-      >> rw []
-      >- irule only_fresh_refl
-      >> drule_at Any hole_has_val_append
-      >> disch_then $ qspecl_then [‘s'.refs’, ‘env2' ++ [RefPtr F hole_ptr; Number hole_idx]’, ‘env’, ‘c’] mp_tac
-      >> impl_tac >> gvs []
-      >> irule unchanged_hole_has_val
-      >> goal_assum $ drule_at $ Pos $ el 4
-      >> gvs []
-      >> simp [holes_unchanged_except_def])
+      >> irule env_rel_submap
+      >> first_assum $ irule_at Any
+      >> gvs [])
     >> strip_tac
     >> drule evaluate_pad_env_val
     >> disch_then $ qspec_then ‘[RefPtr F hole_ptr; Number hole_idx]’ mp_tac
@@ -1497,7 +1459,17 @@ Resume evaluate_rewrite_tmc[lett]:
       >> last_x_assum drule
       >> strip_tac
       >> gvs [evaluate_def])
-    >> first_x_assum $ qspecl_then [‘loc’, ‘loc_opt’] mp_tac
+    >> first_x_assum $ qspecl_then [‘loc’, ‘loc_opt’, ‘c’] mp_tac
+    >> impl_tac
+    >-
+     (irule hole_has_val_append
+      >> gvs []
+      >> drule_all env_rel_strip_extras
+      >> strip_tac
+      >> gvs []
+      >> irule unchanged_hole_has_val
+      >> first_assum $ irule_at Any
+      >> gvs [])
     >> strip_tac
     >> rev_drule evaluate_IMP_LENGTH
     >> gvs [rewrite_opt_def, evaluate_def]
@@ -1512,14 +1484,11 @@ Resume evaluate_rewrite_tmc[lett]:
      (irule holes_unchanged_except_trans
       >> first_x_assum $ irule_at Any
       >> gvs [holes_unchanged_except_def])
-    >> strip_tac
-    >> strip_tac
-    >> first_x_assum drule
-    >> strip_tac
+    >> rw []
     >> irule hole_has_val_submap
-    >> goal_assum $ drule_at Any
+    >> first_assum $ irule_at Any         
     >> irule hole_has_val_unappend
-    >> rpt $ goal_assum $ drule_at Any
+    >> first_assum $ irule_at Any
     >> gvs [])
   >> strip_tac
   >> rename [‘evaluate (xs,env2,s') = (r',t')’]
@@ -1817,8 +1786,6 @@ Resume evaluate_rewrite_tmc[tick]:
   >> strip_tac
   >> gvs []
   >> disch_then drule
-  >> impl_tac
-  >- rw []
   >> strip_tac
   >> gvs []
   >> rename [‘evaluate ([x],env2,dec_clock 1 s') = (r',t')’]
@@ -1863,17 +1830,13 @@ Resume evaluate_rewrite_tmc[call]:
    (rename [‘evaluate (xs,env2,s') = (Rerr e',t')’]
     >> first_assum $ irule_at $ Pos hd
     >> gvs []
-    >> strip_tac
-    >> conj_tac
-    >- rw [rewrite_aux_def]
-    >> rw []
-    >> gvs []
+    >> rw [rewrite_aux_def]
     >> qexistsl [‘Rerr e'’, ‘t'’]
     >> gvs [opt_res_rel_def]
     >> conj_tac
     >- (gvs [rewrite_opt_def, fill_hole_def, evaluate_def] >> IF_CASES_TAC >> gvs [])
     >> irule holes_unchanged_except_subset
-    >> pop_assum $ irule_at Any
+    >> first_assum $ irule_at Any
     >> gvs [])
   >> qpat_x_assum ‘evaluate (_,env2,_) = (Rval _, _)’ $ mk_asm "eval_xs'"
   >> rename [‘evaluate (xs,env,s) = (Rval v_xs,u)’]
@@ -1895,19 +1858,14 @@ Resume evaluate_rewrite_tmc[call]:
     >> first_assum $irule_at $ Pos hd
     >> gvs []
     >> strip_tac
-    >> gvs []
-    >> conj_tac
-    >- (rw [] >> gvs [rewrite_aux_def])
+    >> gvs [rewrite_aux_def]
     >> rw []
     >> simp [rewrite_opt_def]
-    >> pop_assum $ irule_at Any
-    >> qexists ‘Rerr (Rabort Rtimeout_error)’
-    >> gvs [opt_res_rel_def, fill_hole_def]
-    >> irule_at Any holes_unchanged_except_subset
-    >> first_assum $ irule_at $ Pos hd
-    >> gvs []
+    >> ho_match_mp_tac evaluate_fill_hole_err
+    >> first_assum $ irule_at Any
     >> gvs [evaluate_def]
-    >> IF_CASES_TAC >> gvs [])
+    >> IF_CASES_TAC >> gvs []
+    >> first_assum $ irule_at Any)
   (* Clock did not run out *)
   >> Cases_on ‘evaluate ([exp],args,dec_clock (ticks + 1) u)’ >> gvs []
   >> rename [‘evaluate ([exp],args,dec_clock (ticks + 1) u) = (v_exp, w)’]
@@ -2059,14 +2017,7 @@ Resume evaluate_rewrite_tmc[call]:
   >> gvs [EL_APPEND_EQN]
                   
   >> impl_tac
-  >-
-   (conj_tac
-    >-
-     (simp [hole_has_val_def]
-      >> gvs [EL_APPEND_EQN]
-      >> cheat (* I am not sure *))
-    >> spose_not_then assume_tac
-    >> gvs [])
+  >- (spose_not_then assume_tac >> gvs [])
   >> strip_tac
   >> gvs []
   >> rename [‘evaluate ([exp],args_exp ++ extras,dec_clock (ticks + 1) u') = (v_exp',t')’]
