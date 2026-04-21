@@ -5,8 +5,57 @@
 Theory aig
 Ancestors
   misc
+  mlstring
 Libs
   preamble
+
+val _ = numLib.prefer_num();
+
+Datatype:
+  lit = Name 'n | Latch 'l | Input 'i | Const bool
+End
+Type node[pp] = “:('n,'l,'i) lit # bool”
+Type and[pp] = “:'n # (('n,'l,'i) node # ('n,'l,'i) node)”
+Type circuit[pp] = “:('n,'l,'i) and list”
+
+Type state = “:'l -> bool”
+Type inputs = “:'i -> bool”
+
+Datatype:
+  ext = Orig 'a | Ext mlstring
+End
+Type iext[pp] = “:'a ext + num”
+
+Definition eval_circuit_def:
+  (eval_circuit
+   (s: 'l state, is: 'i inputs) (circ: ('n, 'l, 'i) circuit) (Const b) = b) ∧
+  (eval_circuit (s, is) circ (Latch l) = s l) ∧
+  (eval_circuit (s, is) circ (Input i) = is i) ∧
+  (eval_circuit (s, is) [] (Name _) = F) ∧
+  (eval_circuit (s, is) (h::tl) (Name n) =
+   let (n', ((in₁, pos₁), (in₂, pos₂))) = h in
+     if n' = n then
+       (pos₁ ⇔ eval_circuit (s, is) tl in₁) ∧
+       (pos₂ ⇔ eval_circuit (s, is) tl in₂)
+     else
+       eval_circuit (s, is) tl (Name n))
+End
+
+Definition preds_hold_def:
+  preds_hold sis (circ: ('n, 'l, 'i) circuit) (ns: 'n set) =
+  ∀n. n ∈ ns ⇒ eval_circuit sis circ (Name n)
+End
+
+Definition is_reset_def:
+  is_reset (s, is) (circ: ('n, 'l, 'i) circuit) (reset: 'l -> 'n) (ls: 'l set) =
+  ∀l. l ∈ ls ⇒
+      eval_circuit (s, is) circ (Name (reset l)) =
+      eval_circuit (s, is) circ (Latch l)
+End
+
+(* TODO conj_def *)
+
+(* --- old --- *)
 
 Datatype:
   gate = And ('a # bool) ('a # bool) | Latch 'l | Input 'i | Const bool
