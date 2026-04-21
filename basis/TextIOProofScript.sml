@@ -7841,14 +7841,14 @@ Proof
   >-
    (xlet_auto >- xsimpl
     \\ xapp
-    \\ xsimpl
-    \\ rw []
+    \\ xsimpl \\ rw []
+    \\ pop_assum $ irule_at Any \\ rw []
+    \\ irule SEP_IMP_TRANS
+    \\ assume_tac (INSTREAM_STR_fastForwardFD |> Q.INST [‘x’|->‘nr’])
+    \\ fs [AC STAR_ASSOC STAR_COMM]
     \\ pop_assum $ irule_at Any
-    \\ rw [] (*
-    \\ simp [INSTREAM_STR'_def]
-    \\ xpull
-    \\ gvs [] *)
-    \\ cheat)
+    \\ simp [INSTREAM_STR'_def,INSTREAM_STR_def]
+    \\ xpull \\ xsimpl \\ gvs [])
   \\ simp [Once INSTREAM_STR'_get_file_content]
   \\ xpull
   \\ xapp
