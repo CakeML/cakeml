@@ -544,7 +544,7 @@ Quote add_cakeml:
     let
       val r = (!rref)
       val w = (!wref)
-      val u = (r := w)
+      val u = (rref := w)
     in
       Word8Array.substring surplus r (w - r)
     end
@@ -556,7 +556,7 @@ Quote add_cakeml:
       val new_acc = inputBuff is :: acc
     in
       if refillBuffer_with_read_guard is then
-        String.concat (rev new_acc)
+        String.concat (List.rev new_acc)
       else
         inputAll_aux is new_acc
     end
