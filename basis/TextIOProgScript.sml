@@ -593,6 +593,16 @@ Quote add_cakeml:
 End
 
 Quote add_cakeml:
+  fun inputAllFrom stdin_or_fname =
+    case open_option stdin_or_fname of
+      None => None
+    | Some (is,close) => let
+        val content = inputAll is
+      in close (); Some content end
+      handle e => (close (); raise e)
+End
+
+Quote add_cakeml:
   fun inputAllTokens c0 is f g =
     inputAllTokens_aux c0 is f g []
 End
