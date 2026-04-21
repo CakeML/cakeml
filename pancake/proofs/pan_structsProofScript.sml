@@ -230,166 +230,22 @@ Proof
   )
 QED
 
-Theorem semantics_stcnames_get_names_none:
-  !s decs. evaluate_stcnames s decs = SOME s' ==>
+Theorem decs_stcnames_get_names_no_named_structs:
+  !st_ctxt decs st_ctxt'. decs_stcnames st_ctxt decs = SOME st_ctxt' ==>
   get_names ctxt decs = ctxt
 Proof
-  recInduct (name_ind_cases [] evaluate_stcnames_ind)
-  >> rw [evaluate_stcnames_def, get_names_def]
+  recInduct (name_ind_cases [] decs_stcnames_ind)
+  >> rw [decs_stcnames_def, get_names_def]
   >> fs [named_structs_ok_def, option_case_eq]
 QED
 
-Theorem semantics_stcnames_compile:
-  !s decs ctxt. evaluate_stcnames s decs = SOME s' ==>
-  evaluate_stcnames s (FST (compile_decs ctxt decs)) = SOME s' /\
-  s' = s
+Theorem decs_stcnames_compile_no_named_structs:
+  !st_ctxt decs st_ctxt'. decs_stcnames st_ctxt decs = SOME st_ctxt' ==>
+  !st_ctxt2. decs_stcnames st_ctxt (FST (compile_decs st_ctxt2 decs)) = SOME st_ctxt
 Proof
-  recInduct (name_ind_cases [] evaluate_stcnames_ind)
-  >> rw [evaluate_stcnames_def, compile_decs_def, UNCURRY]
+  recInduct (name_ind_cases [] decs_stcnames_ind)
+  >> rw [decs_stcnames_def, compile_decs_def, ELIM_UNCURRY]
   >> fs [named_structs_ok_def, option_case_eq]
-QED
-
-(* copied from crep_to_loop. TODO: put somewhere useful *)
-Datatype:
-  semantics_run_res =
-    RunError | CompleteResult 'a | Incomplete
-End
-
-Definition semantics_wrapper_def:
-  semantics_wrapper f = (if ?k v. f k = (RunError, v) then Fail
-    else case some res. ?k r ev. f k = (CompleteResult r, ev) /\ res = Terminate r ev
-      of SOME res => res
-        | NONE => Diverge (LUB (IMAGE (fromList o SND o f) (UNIV : num set))))
-End
-
-Theorem semantics_wrapper_eq:
-  semantics_wrapper absf <> Fail ==>
-  (! k r ev. absf k = (r, ev) /\ r <> RunError ==>
-    ?k'. concf (k + k') = (r, ev)) ==>
-  (!k k' r ev. concf k = (r, ev) ==>
-    r <> Incomplete ==>
-    concf (k + k') = (r, ev)) ==>
-  (!k k' r ev. absf k = (r, ev) ==>
-    r <> Incomplete ==>
-    absf (k + k') = (r, ev)) ==>
-  (!k k' ev. absf (k + k') = (Incomplete, ev) ==>
-    ?r' ev'. absf k = (r', ev') /\ IS_PREFIX ev ev') ==>
-  (!k k' ev. concf (k + k') = (Incomplete, ev) ==>
-    ?r' ev'. concf k = (r', ev') /\ IS_PREFIX ev ev') ==>
-  semantics_wrapper concf = semantics_wrapper absf
-Proof
-  rw []
-  \\ Cases_on `semantics_wrapper absf` \\ fs []
-  >- (
-    fs [semantics_wrapper_def, CaseEq "bool"]
-    \\ pop_assum mp_tac
-    \\ DEEP_INTRO_TAC some_intro \\ simp []
-    \\ disch_tac
-    \\ reverse (qsuff_tac `?abs2. absf = (\k. (Incomplete, abs2 k))`)
-    >- (
-      qexists_tac `SND o absf`
-      \\ rw [FUN_EQ_THM]
-      \\ Cases_on `FST (absf k)` \\ Cases_on `absf k` \\ gs []
-    )
-    \\ strip_tac \\ fs []
-    \\ reverse (qsuff_tac `?conc2. concf = (\k. (Incomplete, conc2 k))`)
-    >- (
-      qexists_tac `SND o concf`
-      \\ rw [FUN_EQ_THM]
-      \\ last_x_assum (qspec_then `k` mp_tac)
-      \\ strip_tac
-      \\ last_x_assum (qspecl_then [`k`, `k'`] mp_tac)
-      \\ simp []
-      \\ simp [PAIR_FST_SND_EQ]
-    )
-    \\ rw [] \\ fs []
-    \\ qmatch_abbrev_tac `build_lprefix_lub l1 = build_lprefix_lub l2`
-    \\ `(lprefix_chain l1 ∧ lprefix_chain l2) ∧ equiv_lprefix_chain l1 l2`
-      suffices_by metis_tac[build_lprefix_lub_thm,lprefix_lub_new_chain,unique_lprefix_lub]
-    \\ conj_asm1_tac
-    >- (
-      UNABBREV_ALL_TAC
-      \\ conj_tac
-      \\ REWRITE_TAC[IMAGE_COMPOSE]
-      \\ match_mp_tac prefix_chain_lprefix_chain
-      \\ simp [prefix_chain_def, PULL_EXISTS]
-      \\ qx_genl_tac [‘k1’, ‘k2’]
-      \\ qspecl_then [‘k1’, ‘k2’] mp_tac LESS_EQ_CASES
-      \\ simp[LESS_EQ_EXISTS]
-      \\ rw []
-      \\ metis_tac [ADD_COMM]
-    )
-    \\ simp [equiv_lprefix_chain_thm]
-    \\ UNABBREV_ALL_TAC
-    \\ simp[LNTH_fromList,PULL_EXISTS]
-    \\ conj_tac
-    >- (
-      rw []
-      \\ last_x_assum (qspec_then `x'` mp_tac)
-      \\ strip_tac
-      \\ pop_assum (assume_tac o GSYM)
-      \\ qexists_tac `x'`
-      \\ fs []
-      \\ metis_tac [IS_PREFIX_THM, LESS_LESS_EQ_TRANS, ADD_COMM]
-    )
-    >- (
-      rw []
-      \\ metis_tac []
-    )
-  )
-  \\ fs [semantics_wrapper_def, CaseEq "bool", CaseEq "option"]
-  \\ pop_assum mp_tac
-  \\ DEEP_INTRO_TAC some_intro \\ simp []
-  \\ strip_tac
-  \\ last_x_assum drule
-  \\ simp [] \\ strip_tac
-  \\ rename [`concf a_k = _`]
-  \\ qsuff_tac `!k2 r v. concf k2 = (r, v) ==> (r, v) = concf a_k \/ (r = Incomplete)`
-  >- (
-    simp []
-    \\ disch_tac
-    \\ DEEP_INTRO_TAC some_intro \\ simp []
-    \\ rw [] \\ fsrw_tac [SATISFY_ss] []
-    \\ CCONTR_TAC \\ fs [] \\ res_tac \\ fs []
-  )
-  \\ rw []
-  \\ qspecl_then [`a_k`, `k2`] mp_tac LESS_EQ_CASES
-  \\ simp [LESS_EQ_EXISTS] \\ strip_tac \\ fs []
-  \\ res_tac \\ fs []
-  \\ rw [] \\ res_tac \\ fs []
-  \\ CCONTR_TAC \\ fs []
-  \\ res_tac \\ full_simp_tac bool_ss []
-  \\ gs []
-QED
-
-Theorem pan_sem_is_wrapper:
-  panSem$semantics s start =
-  let prog = TailCall start [] in
-  semantics_wrapper (((\res. case res of
-    | SOME TimeOut => Incomplete
-    | SOME (FinalFFI e) => CompleteResult (FFI_outcome e)
-    | SOME (Return _) => CompleteResult Success
-    | _ => RunError) ## (\s. s.ffi.io_events)) o
-    (\k. evaluate (prog, s with clock := k)))
-Proof
-  simp [panSemTheory.semantics_def, semantics_wrapper_def]
-  \\ irule COND_CONG
-  \\ rw []
-  >- (
-    ho_match_mp_tac ConseqConvTheory.exists_eq_thm>>
-    strip_tac>>
-    simp[totoTheory.SPLIT_PAIRS,AllCasePreds()]>>
-    simp[AllCaseEqs()]
-  )
-  >- (
-    irule optionTheory.option_case_cong
-    \\ simp [o_DEF]
-    \\ (* both "some" *) AP_TERM_TAC
-    \\ rw [FUN_EQ_THM]
-    \\ ho_match_mp_tac ConseqConvTheory.exists_eq_thm
-    \\ rw [] \\ EQ_TAC \\ rw []
-    \\ every_case_tac \\ fs []
-  )
 QED
 
 Theorem semantics_eq:
@@ -476,16 +332,18 @@ Proof
   rw [semantics_decls_def]
   >> TOP_CASE_TAC >> fs []
   >> TOP_CASE_TAC >> fs []
-  >> imp_res_tac semantics_stcnames_get_names_none
-  >> imp_res_tac semantics_stcnames_compile
+  >> imp_res_tac decs_stcnames_no_named_structs
+  >> imp_res_tac decs_stcnames_compile_no_named_structs
+  >> imp_res_tac decs_stcnames_get_names_no_named_structs
   >> simp [compile_top_def]
   >> qmatch_goalsub_abbrev_tac `compile_decs nm_ctxt`
   >> drule_then (qspecl_then [`nm_ctxt`, `FEMPTY`] mp_tac) compile_decs_correct
   >> fs [markerTheory.Abbrev_def]
   >> simp [FEVERY_FEMPTY, Q.SPEC `FEMPTY` code_rel_def]
   >> rw []
-  >> subgoal `(s with code := FEMPTY) = s` >- ( simp [state_component_equality] )
-  >> fs []
+  >> subgoal `!s. s.code = FEMPTY ==> (s with code := FEMPTY) = s`
+  >- ( simp [state_component_equality] )
+  >> gs []
   >> irule (GSYM semantics_eq)
   >> simp []
   >> imp_res_tac evaluate_decls_invariant
@@ -494,10 +352,17 @@ Proof
   >> simp []
 QED
 
+Theorem compile_decs_no_names[local]:
+  !ctxt decs. EVERY (λd. is_function d ∨ is_decl d)
+    (FST (compile_decs ctxt decs))
+Proof
+  recInduct (name_ind_cases [] compile_decs_ind)
+  >> rw [compile_decs_def, ELIM_UNCURRY, is_function_def, is_decl_def]
+QED
+
 Theorem compile_top_no_names:
   EVERY (λd. is_function d ∨ is_decl d) (pan_structs$compile_top pan_code)
 Proof
-  cheat
+  simp [compile_top_def, compile_decs_no_names]
 QED
-
 

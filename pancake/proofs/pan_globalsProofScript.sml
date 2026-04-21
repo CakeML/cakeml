@@ -1837,11 +1837,6 @@ Proof
   rpt (TOP_CASE_TAC >> fs [])
 QED
 
-Definition is_decl_def:
-  is_decl (Decl sh v e) = T /\
-  is_decl _ = F
-End
-
 Theorem resort_decls_evaluate:
   ∀s decs. EVERY (\d. is_function d \/ is_decl d) decs ⇒
   evaluate_decls s (resort_decls decs) = evaluate_decls s decs
@@ -2734,13 +2729,19 @@ Proof
 QED
 
 Theorem evaluate_stcnames_only_functions:
-  !s code. EVERY is_function code ==>
-  evaluate_stcnames s code = SOME s
+  !ctxt code. EVERY is_function code ==>
+  decs_stcnames ctxt code = SOME ctxt
 Proof
-  recInduct evaluate_stcnames_ind
-  >> simp [evaluate_stcnames_def, is_function_def, is_decl_def]
+  recInduct decs_stcnames_ind
+  >> simp [decs_stcnames_def, is_function_def]
 QED
 
+Theorem functions_filter_nil[local]:
+  !decls. functions (FILTER ($¬ ∘ is_function) decls) = []
+Proof
+  ONCE_REWRITE_TAC [GSYM functions_FILTER]
+  \\ simp [FILTER_FILTER, functions_def]
+QED
 
 Theorem compile_top_semantics_decls:
   ALL_DISTINCT (MAP FST (functions code)) ∧
@@ -2771,8 +2772,10 @@ Proof
       alookup_distinct_reverse] >>
   gvs[semantics_decls_def, evaluate_stcnames_only_functions, compile_top_only_functions] >>
   PURE_TOP_CASE_TAC >> gvs[] >>
-  imp_res_tac evaluate_stcnames_no_named_structs >>
+  imp_res_tac decs_stcnames_no_named_structs >>
   PURE_TOP_CASE_TAC >> gvs[] >>
+  drule compile_top_shape_wf >>
+  rw [] >>
   drule evaluate_decls_compile_top >>
   disch_then drule >>
   qmatch_goalsub_abbrev_tac ‘a1 = (_,_,_)’ >>
@@ -2781,6 +2784,7 @@ Proof
   pop_assum $ assume_tac o GSYM >>
   gvs[] >>
   strip_tac >>
+  (* this needs to rewrite the goal to a semantics equality *)
   gvs[evaluate_decls_only_functions_SOME,compile_top_only_functions,compile_top_shape_wf,
     compile_top_shape_wf_nil, SF SFY_ss] >>
   pop_assum mp_tac >>
@@ -2807,7 +2811,8 @@ Proof
   irule_at (Pos hd) semantics_init_call' >>
   simp[FLOOKUP_UPDATE,FLOOKUP_FUPDATE_LIST] >>
   qmatch_goalsub_abbrev_tac ‘(nested_seq _, aa)’ >>
-  ‘evaluate_decls s (FILTER ($¬ ∘ is_function) (fperm_decs start (new_main_name code) (resort_decls code))) = SOME s'’
+  ‘evaluate_decls (s with structs := [])
+        (FILTER ($¬ ∘ is_function) (fperm_decs start (new_main_name code) (resort_decls code))) = SOME s'’
    by(irule EQ_TRANS >>
       first_x_assum $ irule_at $ Any >>
       AP_TERM_TAC >>
@@ -2847,15 +2852,8 @@ Proof
   irule EQ_TRANS >>
   irule_at (Pos hd) $ GSYM semantics_fperm >>
   qexistsl [‘new_main_name code’,‘start’] >>
-  ‘s'.code = s.code’
-    by(qpat_x_assum ‘evaluate_decls _ _ = SOME _’ kall_tac >>
-       qpat_x_assum ‘evaluate_decls _ _ = SOME _’ mp_tac >>
-       rpt $ pop_assum kall_tac >>
-       MAP_EVERY qid_spec_tac [‘s’,‘s'’] >>
-       Induct_on ‘code’ using functions_ind >>
-       rw[is_function_def,evaluate_decls_def,AllCaseEqs()] >>
-       res_tac >>
-       fs[]) >>
+  imp_res_tac evaluate_decls_functions >>
+  fs [functions_filter_nil, FUPDATE_LIST_THM] >>
   fs[fperm_code_FUPDATE_LIST_functions,fperm_code_FEMPTY] >>
   simp[fperm_name_def] >>
   qmatch_goalsub_abbrev_tac ‘code_fupd(K cc)’ >>

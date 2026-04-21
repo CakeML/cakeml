@@ -800,35 +800,34 @@ Definition evaluate_decls_def:
     else NONE
 End
 
-Definition evaluate_stcnames_def:
-  evaluate_stcnames ^s [] =
-    SOME s ∧
-  evaluate_stcnames s (Name nm flds::ds) =
-    (case ALOOKUP s.structs nm of
+Definition decs_stcnames_def:
+  decs_stcnames st_ctxt [] = SOME st_ctxt ∧
+  decs_stcnames st_ctxt (Name nm flds::ds) =
+    (case ALOOKUP st_ctxt nm of
     | SOME info => NONE
     | NONE =>
       if named_structs_ok /\ ALL_DISTINCT $ MAP FST flds then
         let shs = MAP SND flds in
-        if EVERY (is_wf_shape s.structs) shs then
+        if EVERY (is_wf_shape st_ctxt) shs then
           let info = <| fields := flds
-                      ; size := size_of_sh_with_ctxt s.structs (Comb shs) |> in
-            evaluate_stcnames (s with structs := (nm,info)::s.structs) ds
+                      ; size := size_of_sh_with_ctxt st_ctxt (Comb shs) |> in
+            decs_stcnames ((nm,info)::st_ctxt) ds
         else NONE
       else NONE) ∧
-  evaluate_stcnames s (Decl sh v e::ds) =
-    (evaluate_stcnames s ds) ∧
-  evaluate_stcnames s (Function fi::ds) =
-    (evaluate_stcnames s ds)
+  decs_stcnames st_ctxt (Decl sh v e::ds) =
+    (decs_stcnames st_ctxt ds) ∧
+  decs_stcnames st_ctxt (Function fi::ds) =
+    (decs_stcnames st_ctxt ds)
 End
 
 Definition semantics_decls_def:
   semantics_decls ^s start decls =
-  case evaluate_stcnames s decls of
+  case decs_stcnames [] decls of
   | NONE => Fail
-  | SOME s' =>
-    case evaluate_decls s' decls of
+  | SOME st_ctxt =>
+    case evaluate_decls (s with structs := st_ctxt) decls of
     | NONE => Fail
-    | SOME s'' => semantics s'' start
+    | SOME s' => semantics s' start
 End
 
 val _ = map delete_binding ["evaluate_AUX_def", "evaluate_primitive_def"];

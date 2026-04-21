@@ -7,6 +7,10 @@ Ancestors
 Libs
   preamble
 
+Definition is_decl_def:
+  is_decl (Decl sh v e) = T /\
+  is_decl _ = F
+End
 
 Definition v2word_def:
   v2word (ValWord v) = Word v
@@ -1452,21 +1456,14 @@ Proof
 QED
 
 (* This will have to be removed and fixed when named structs are in use. *)
-Theorem evaluate_stcnames_no_named_structs:
-  !s code s'. evaluate_stcnames s code = SOME s' ==>
-  (!s2. s2 = s \/ T ==> evaluate_stcnames s2 code = SOME s2)
+Theorem decs_stcnames_no_named_structs:
+  !st_ctxt code st_ctxt'. decs_stcnames st_ctxt code = SOME st_ctxt' ==>
+  st_ctxt' = st_ctxt
 Proof
-  recInduct evaluate_stcnames_ind
-  >> simp [evaluate_stcnames_def, named_structs_ok_def]
+  recInduct decs_stcnames_ind
+  >> simp [decs_stcnames_def, named_structs_ok_def]
   >> rw []
   >> fs [option_case_eq]
-QED
-
-Theorem evaluate_stcnames_no_named_structs2:
-  !s code s'. evaluate_stcnames s code = SOME s' ==>
-  s' = s
-Proof
-  metis_tac [evaluate_stcnames_no_named_structs, SOME_11]
 QED
 
 Theorem semantics_decls_has_main:
@@ -1477,7 +1474,7 @@ Proof
   rw[semantics_decls_def] >>
   rpt (PURE_FULL_CASE_TAC >> gvs[]) >>
   imp_res_tac evaluate_decls_functions >>
-  imp_res_tac evaluate_stcnames_no_named_structs2 >>
+  imp_res_tac decs_stcnames_no_named_structs >>
   gvs[semantics_def] >>
   PURE_FULL_CASE_TAC >>
   gvs[AllCaseEqs()] >>
@@ -1495,7 +1492,7 @@ Proof
   rw[semantics_decls_def] >>
   rpt (PURE_FULL_CASE_TAC >> gvs[]) >>
   imp_res_tac evaluate_decls_functions >>
-  imp_res_tac evaluate_stcnames_no_named_structs2 >>
+  imp_res_tac decs_stcnames_no_named_structs >>
   gvs[semantics_def] >>
   PURE_FULL_CASE_TAC >>
   gvs[AllCaseEqs()] >>
@@ -1675,3 +1672,149 @@ Proof
   irule_at Any evaluate_add_clock_io_events_mono>>
   qexists ‘p'’>>simp[]
 QED
+
+(* FIXME: port this or something like it to CakeML more broadly. *)
+
+Datatype:
+  semantics_run_res =
+    RunError | CompleteResult 'a | Incomplete
+End
+
+
+Definition semantics_wrapper_def:
+  semantics_wrapper f = (if ?k v. f k = (RunError, v) then Fail
+    else case some res. ?k r ev. f k = (CompleteResult r, ev) /\ res = Terminate r ev
+      of SOME res => res
+        | NONE => Diverge (LUB (IMAGE (fromList o SND o f) (UNIV : num set))))
+End
+
+Theorem semantics_wrapper_eq:
+  semantics_wrapper absf <> Fail ==>
+  (! k r ev. absf k = (r, ev) /\ r <> RunError ==>
+    ?k'. concf (k + k') = (r, ev)) ==>
+  (!k k' r ev. concf k = (r, ev) ==>
+    r <> Incomplete ==>
+    concf (k + k') = (r, ev)) ==>
+  (!k k' r ev. absf k = (r, ev) ==>
+    r <> Incomplete ==>
+    absf (k + k') = (r, ev)) ==>
+  (!k k' ev. absf (k + k') = (Incomplete, ev) ==>
+    ?r' ev'. absf k = (r', ev') /\ IS_PREFIX ev ev') ==>
+  (!k k' ev. concf (k + k') = (Incomplete, ev) ==>
+    ?r' ev'. concf k = (r', ev') /\ IS_PREFIX ev ev') ==>
+  semantics_wrapper concf = semantics_wrapper absf
+Proof
+  rw []
+  \\ Cases_on `semantics_wrapper absf` \\ fs []
+  >- (
+    fs [semantics_wrapper_def, CaseEq "bool"]
+    \\ pop_assum mp_tac
+    \\ DEEP_INTRO_TAC some_intro \\ simp []
+    \\ disch_tac
+    \\ reverse (qsuff_tac `?abs2. absf = (\k. (Incomplete, abs2 k))`)
+    >- (
+      qexists_tac `SND o absf`
+      \\ rw [FUN_EQ_THM]
+      \\ Cases_on `FST (absf k)` \\ Cases_on `absf k` \\ gs []
+    )
+    \\ strip_tac \\ fs []
+    \\ reverse (qsuff_tac `?conc2. concf = (\k. (Incomplete, conc2 k))`)
+    >- (
+      qexists_tac `SND o concf`
+      \\ rw [FUN_EQ_THM]
+      \\ last_x_assum (qspec_then `k` mp_tac)
+      \\ strip_tac
+      \\ last_x_assum (qspecl_then [`k`, `k'`] mp_tac)
+      \\ simp []
+      \\ simp [PAIR_FST_SND_EQ]
+    )
+    \\ rw [] \\ fs []
+    \\ qmatch_abbrev_tac `build_lprefix_lub l1 = build_lprefix_lub l2`
+    \\ `(lprefix_chain l1 ∧ lprefix_chain l2) ∧ equiv_lprefix_chain l1 l2`
+      suffices_by metis_tac[build_lprefix_lub_thm,lprefix_lub_new_chain,unique_lprefix_lub]
+    \\ conj_asm1_tac
+    >- (
+      UNABBREV_ALL_TAC
+      \\ conj_tac
+      \\ REWRITE_TAC[IMAGE_COMPOSE]
+      \\ match_mp_tac prefix_chain_lprefix_chain
+      \\ simp [prefix_chain_def, PULL_EXISTS]
+      \\ qx_genl_tac [‘k1’, ‘k2’]
+      \\ qspecl_then [‘k1’, ‘k2’] mp_tac LESS_EQ_CASES
+      \\ simp[LESS_EQ_EXISTS]
+      \\ rw []
+      \\ metis_tac [ADD_COMM]
+    )
+    \\ simp [equiv_lprefix_chain_thm]
+    \\ UNABBREV_ALL_TAC
+    \\ simp[LNTH_fromList,PULL_EXISTS]
+    \\ conj_tac
+    >- (
+      rw []
+      \\ last_x_assum (qspec_then `x'` mp_tac)
+      \\ strip_tac
+      \\ pop_assum (assume_tac o GSYM)
+      \\ qexists_tac `x'`
+      \\ fs []
+      \\ metis_tac [IS_PREFIX_THM, LESS_LESS_EQ_TRANS, ADD_COMM]
+    )
+    >- (
+      rw []
+      \\ metis_tac []
+    )
+  )
+  \\ fs [semantics_wrapper_def, CaseEq "bool", CaseEq "option"]
+  \\ pop_assum mp_tac
+  \\ DEEP_INTRO_TAC some_intro \\ simp []
+  \\ strip_tac
+  \\ last_x_assum drule
+  \\ simp [] \\ strip_tac
+  \\ rename [`concf a_k = _`]
+  \\ qsuff_tac `!k2 r v. concf k2 = (r, v) ==> (r, v) = concf a_k \/ (r = Incomplete)`
+  >- (
+    simp []
+    \\ disch_tac
+    \\ DEEP_INTRO_TAC some_intro \\ simp []
+    \\ rw [] \\ fsrw_tac [SATISFY_ss] []
+    \\ CCONTR_TAC \\ fs [] \\ res_tac \\ fs []
+  )
+  \\ rw []
+  \\ qspecl_then [`a_k`, `k2`] mp_tac LESS_EQ_CASES
+  \\ simp [LESS_EQ_EXISTS] \\ strip_tac \\ fs []
+  \\ res_tac \\ fs []
+  \\ rw [] \\ res_tac \\ fs []
+  \\ CCONTR_TAC \\ fs []
+  \\ res_tac \\ full_simp_tac bool_ss []
+  \\ gs []
+QED
+
+Theorem pan_sem_is_wrapper:
+  panSem$semantics s start =
+  let prog = TailCall start [] in
+  semantics_wrapper (((\res. case res of
+    | SOME TimeOut => Incomplete
+    | SOME (FinalFFI e) => CompleteResult (FFI_outcome e)
+    | SOME (Return _) => CompleteResult Success
+    | _ => RunError) ## (\s. s.ffi.io_events)) o
+    (\k. evaluate (prog, s with clock := k)))
+Proof
+  simp [panSemTheory.semantics_def, semantics_wrapper_def]
+  \\ irule COND_CONG
+  \\ rw []
+  >- (
+    ho_match_mp_tac ConseqConvTheory.exists_eq_thm>>
+    strip_tac>>
+    simp[totoTheory.SPLIT_PAIRS,AllCasePreds()]>>
+    simp[AllCaseEqs()]
+  )
+  >- (
+    irule optionTheory.option_case_cong
+    \\ simp [o_DEF]
+    \\ (* both "some" *) AP_TERM_TAC
+    \\ rw [FUN_EQ_THM]
+    \\ ho_match_mp_tac ConseqConvTheory.exists_eq_thm
+    \\ rw [] \\ EQ_TAC \\ rw []
+    \\ every_case_tac \\ fs []
+  )
+QED
+

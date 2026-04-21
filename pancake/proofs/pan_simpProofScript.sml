@@ -1261,13 +1261,13 @@ Proof
   )
 QED
 
-Theorem evaluate_stcnames_compile_prog:
-  !s pan_code s'. evaluate_stcnames s pan_code = SOME s' ==>
-  !s''. (s'' = s \/ T) ==> evaluate_stcnames s'' (compile_prog pan_code) = SOME s''
+Theorem decs_stcnames_compile_prog:
+  !ctxt pan_code. decs_stcnames ctxt (compile_prog pan_code) = decs_stcnames ctxt pan_code
 Proof
-  recInduct evaluate_stcnames_ind >>
-  simp [compile_prog_def, evaluate_stcnames_def, named_structs_ok_def] >>
-  simp [option_case_eq]
+  recInduct decs_stcnames_ind >>
+  simp [compile_prog_def, decs_stcnames_def] >>
+  rw [] >>
+  every_case_tac >> fs []
 QED
 
 Theorem state_rel_imp_semantics_decls:
@@ -1279,14 +1279,14 @@ Theorem state_rel_imp_semantics_decls:
   semantics_decls s start pan_code =
   semantics_decls t start (pan_simp$compile_prog pan_code)
 Proof
-  rw [semantics_decls_def] >>
+  rw [semantics_decls_def, decs_stcnames_compile_prog] >>
   gvs[AllCaseEqs(),GSYM IS_SOME_EQ_NOT_NONE,IS_SOME_EXISTS] >>
-  imp_res_tac evaluate_stcnames_compile_prog >>
-  imp_res_tac evaluate_stcnames_no_named_structs >>
   fs [] >>
   drule_at (Pos last) state_rel_imp_evaluate_decls >>
-  disch_then $ qspec_then ‘t’ mp_tac >>
+  rename [`decs_stcnames _ _ = SOME st_ctxt`] >>
+  disch_then $ qspec_then `t with structs := st_ctxt` mp_tac >>
   simp[] >>
+  impl_tac >- ( fs [state_rel_def] ) >>
   strip_tac >>
   simp[] >>
   irule state_rel_imp_semantics >>
