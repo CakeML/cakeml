@@ -292,6 +292,7 @@ Definition cencode_logical_constr_def:
   case c of
   | And Xs Y => cencode_and bnd Xs Y name ec
   | Or Xs Y => cencode_or bnd Xs Y name ec
+  | _ => (List [], ec)
 End
 
 Theorem cencode_logical_constr_sem:

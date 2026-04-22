@@ -279,46 +279,53 @@ End
 
 Definition cencode_element2d_def:
   cencode_element2d bnd Xss Y1i Y2i Z name ec =
-  if 0 < LENGTH Xss ∧ ∃l. EVERY (λXs. LENGTH Xs = l) Xss
+  let
+    len1 = LENGTH Xss
+  in
+  if 0 < len1
   then
     let
-      len1 = LENGTH Xss;
-      len2 = LENGTH $ HD Xss;
-      (Y1,offset1) = Y1i;
-      (Y2,offset2) = Y2i;
-      (lb1,ub1) =
-        case Y1 of
-          INL vY1 => bnd vY1
-        | INR cY1 => (cY1,cY1);
-      (lb2,ub2) =
-        case Y2 of
-          INL vY2 => bnd vY2
-        | INR cY2 => (cY2,cY2);
-      (xs',ec') =
-        fold_cenc
-          (λi ec. cencode_full_eq bnd Y1 (offset1 + &i) ec)
-          (COUNT_LIST len1)
-          ec;
-      (xs'',ec'') =
-        fold_cenc
-          (λj ec. cencode_full_eq bnd Y2 (offset2 + &j) ec)
-          (COUNT_LIST len2)
-          ec'
+      len2 = LENGTH $ HD Xss
     in
-      (Append
-        (Append xs' xs'')
-        (Append
+      if EVERY (λXs. LENGTH Xs = len2) Xss
+      then
+      let
+        (Y1,offset1) = Y1i;
+        (Y2,offset2) = Y2i;
+        (lb1,ub1) =
+          case Y1 of
+            INL vY1 => bnd vY1
+          | INR cY1 => (cY1,cY1);
+        (lb2,ub2) =
+          case Y2 of
+            INL vY2 => bnd vY2
+          | INR cY2 => (cY2,cY2);
+        (xs',ec') =
+          fold_cenc
+            (λi ec. cencode_full_eq bnd Y1 (offset1 + &i) ec)
+            (COUNT_LIST len1)
+            ec;
+        (xs'',ec'') =
+          fold_cenc
+            (λj ec. cencode_full_eq bnd Y2 (offset2 + &j) ec)
+            (COUNT_LIST len2)
+            ec'
+        in
           (Append
-            (cencode_proper_index bnd Y1i (&len1) name)
-            (cencode_proper_index bnd Y2i (&len2) name))
-          (cencode_element2d_aux
-            bnd
-            Xss
-            Y1i
-            Y2i
-            Z
-            name)),
-      ec'')
+            (Append xs' xs'')
+            (Append
+              (Append
+                (cencode_proper_index bnd Y1i (&len1) name)
+                (cencode_proper_index bnd Y2i (&len2) name))
+              (cencode_element2d_aux
+                bnd
+                Xss
+                Y1i
+                Y2i
+                Z
+                name)),
+          ec'')
+    else (cfalse_constr,ec)
   else (cfalse_constr,ec)
 End
 
@@ -410,6 +417,14 @@ Proof
   intLib.ARITH_TAC
 QED
 
+Theorem cencode_element2d_len_lem[local]:
+  (0 < LENGTH Xss ∧ ∃l. EVERY (λXs. LENGTH Xs = l) Xss) ⇔
+  (0 < LENGTH Xss ∧ EVERY (λXs. LENGTH Xs = LENGTH (HD Xss)) Xss)
+Proof
+  Cases_on`Xss`>>
+  rw[]
+QED
+
 Theorem cencode_element2d_sem:
   valid_assignment bnd wi ∧
   cencode_element2d bnd Xss Y1i Y2i Z name ec = (es,ec') ⇒
@@ -417,8 +432,9 @@ Theorem cencode_element2d_sem:
 Proof
   PairCases_on ‘Y1i’>>
   PairCases_on ‘Y2i’>>
-  rw[cencode_element2d_def,encode_element2d_def,
-    UNCURRY_EQ,SYM MAP_COUNT_LIST]>>
+  simp[cencode_element2d_def,encode_element2d_def,cencode_element2d_len_lem]>>
+  rw[UNCURRY_EQ,SYM MAP_COUNT_LIST]>>
+  gvs[]>>
   pure_rewrite_tac[METIS_PROVE[APPEND_ASSOC]
     “a ++ b ++ c ++ d ++ e = a ++ b ++ (c ++ d ++ e)”]>>
   rpt (irule_at Any enc_rel_Append)>>
