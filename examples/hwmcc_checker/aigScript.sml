@@ -9,6 +9,9 @@ Libs
 
 val _ = numLib.prefer_num();
 
+(* Remove automatic left-association of ++ *)
+val _ = temp_delsimps ["APPEND_ASSOC"];
+
 (* Things that appear in base positions.
    Ff corresponds to the constant false. *)
 Datatype:
@@ -188,58 +191,54 @@ Proof
   Cases_on ‘x’ >> simp [not_def, eval_lit_flip]
 QED
 
-(* Implication *)
 
-(* (x ⇒ y) ⇔ (¬x ∨ y) ⇔ ¬(x ∧ ¬y) *)
-Definition imply_aux_def:
-  imply_aux (n: num) (x: ('a iext,'i,'l) lit) (y: ('a iext,'i,'l) lit) =
+(* Equivalence *)
+
+(* x ⇔ y = ¬(x ∧ ¬y) ∧ ¬(¬x ∧ y) *)
+Definition equiv_aux_def:
+  equiv_aux (n: num) (x: ('a iext,'i,'l) lit) (y: ('a iext,'i,'l) lit) =
   [
-    (INR n, (Name (INR (n + 1)), T), (Name (INR (n + 1)), T));
-    (INR (n + 1), x, not y)
+    (INR n, (Name (INR (n + 1)), T), (Name (INR (n + 2)), T));
+    (INR (n + 1), x, not y);
+    (INR (n + 2), not x, y);
   ]: ('a iext,'i,'l) circuit
 End
 
-Definition imply_def:
-  imply circ name x y =
-  let n = maxn [x; y] in
-  ((INL (Ext name), (Name (INR n), F), (Name (INR n), F))
-    ::imply_aux n x y) ++ circ
-End
-
-Theorem eval_circuit_imply_aux_INL[simp]:
-  eval_circuit ss (imply_aux n x y ++ circ) (INL out) ⇔
+Theorem eval_circuit_equiv_aux_INL[simp]:
+  eval_circuit ss (equiv_aux n x y ++ circ) (INL out) ⇔
   eval_circuit ss circ (INL out)
 Proof
-  Cases_on ‘ss’ >> simp [imply_aux_def, eval_circuit_def]
+  Cases_on ‘ss’ >> simp [equiv_aux_def, eval_circuit_def]
 QED
 
-Theorem eval_circuit_imply_aux_INR_lt:
+Theorem eval_circuit_equiv_aux_INR_lt:
   m < n ⇒
-  (eval_circuit ss (imply_aux n x y ++ circ) (INR m) ⇔
+  (eval_circuit ss (equiv_aux n x y ++ circ) (INR m) ⇔
   eval_circuit ss circ (INR m))
 Proof
-  Cases_on ‘ss’ >> simp [imply_aux_def, eval_circuit_def]
+  Cases_on ‘ss’ >> simp [equiv_aux_def, eval_circuit_def]
 QED
 
-Theorem eval_circuit_imply_aux_INR_eq:
-  eval_circuit ss (imply_aux n x y ++ circ) (INR n) ⇔
-  (eval_lit ss circ x ⇒ eval_lit ss circ y)
+Theorem eval_lit_INR:
+  iname m ≠ n ⇒
+  (eval_lit ss ((INR n, x, y)::circ) m ⇔ eval_lit ss circ m)
 Proof
-  Cases_on ‘ss’
-  >> simp [imply_aux_def, eval_circuit_def, eval_lit_not]
-  >> metis_tac []
+  simp [oneline iname_def] >> every_case_tac >> rw [eval_circuit_def]
 QED
 
-Theorem eval_circuit_imply_INL:
-  eval_circuit ss (imply circ name x y) (INL n) =
-  if n = Ext name then
-    (eval_lit ss circ x ⇒ eval_lit ss circ y)
-  else eval_circuit ss circ (INL n)
+Theorem eval_circuit_equiv_aux_INR_eq:
+  iname x < n ∧ iname y < n ⇒
+  (eval_circuit ss (equiv_aux n x y ++ circ) (INR n) ⇔
+     (eval_lit ss circ x ⇔ eval_lit ss circ y))
 Proof
   Cases_on ‘ss’
-  >> rw [imply_def, eval_circuit_def]
-  >> irule eval_circuit_imply_aux_INR_eq
+  >> rw [equiv_aux_def, eval_circuit_def]
+  >> DEP_REWRITE_TAC [eval_lit_INR]
+  >> conj_tac
+  >- (gvs [oneline iname_def, oneline not_def] >> every_case_tac >> gvs [])
+  >> metis_tac [eval_lit_not]
 QED
+
 
 (* --- old --- *)
 
