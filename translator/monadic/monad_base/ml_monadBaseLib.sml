@@ -498,7 +498,7 @@ fun define_run state array_fields new_state_name =
     (* OLD:
     val new_state = mk_type(new_state_name, [])
     *)
-    val new_state = mk_type(new_state_name, type_vars state)
+    val new_state = mk_type(new_state_name, List.rev (type_vars state))
     val state_cons = List.hd (constructors_of state)
     val new_fields = fields_of new_state
     val new_state_var = mk_var("state", new_state)
