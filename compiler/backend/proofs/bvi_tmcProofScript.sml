@@ -351,6 +351,20 @@ Proof
   >> gvs []
 QED
 
+Theorem evaluate_expand_env:
+  ∀xs env s t r extra.
+    evaluate (xs, env, s) = (r, t) ⇒
+    evaluate (xs, env ++ extra, s) = (r, t)
+Proof
+  recInduct bviSemTheory.evaluate_ind
+  >> rpt strip_tac
+  >~ [‘evaluate ([],_,_)’] >-
+   (gvs [evaluate_def])
+  >~ [‘evaluate (x::y::xs,_,_)’] >-
+   (simp [Once evaluate_CONS] >> cheat)
+  >> cheat
+QED
+
 Theorem evaluate_pad_env_val:
   ∀xs env s t vs extra.
     evaluate (xs, env, s) = (Rval vs, t) ⇒
@@ -1660,15 +1674,11 @@ Resume evaluate_rewrite_tmc[op]:
       >> gvs [is_block_op_cons_def])
     >> gvs []
     >> rpt gen_tac
-    >> qexists ‘(Rerr (Rabort (Rffi_error e)))’
-    >> gvs [opt_res_rel_def]
-    >> qexists ‘u'’
-    >> gvs []
-    >> drule holes_unchanged_except_subset
     >> strip_tac
-    >> pop_assum $ irule_at Any
-    >> irule_at Any EMPTY_SUBSET
-    >> simp [rewrite_opt_def, dest_Cons_def, fill_hole_def, evaluate_def])
+    >> gvs [rewrite_opt_def, dest_Cons_def]
+    >> ho_match_mp_tac evaluate_fill_hole_err
+    >> gvs [evaluate_def]
+    >> rpt $ first_assum $ irule_at Any)
   (* lemma that do_app op (REVERSE a) u = Rval a' implies do_app op (REVERSE v') u' equals some other Rval that is v_rel related to a' *)
   >> rename [‘do_app op (REVERSE vs) u = Rval v’]
   >> drule $ iffLR list_rel_reverse
@@ -1709,9 +1719,8 @@ Resume evaluate_rewrite_tmc[op]:
     >> simp [dest_Cons_def]
     >> simp [rewrite_aux_BlockOp_Cons_def, CaseEq "tc_and_hb"]
     >> simp [CaseEq "hole_block", CaseEq "tcall"]
-    >> 
     >> cheat)
-  >> rpt gen_tac
+  >> rw []
   >> gvs [rewrite_opt_def]
   >> CASE_TAC >> gvs []
   >-
@@ -1738,12 +1747,6 @@ Resume evaluate_rewrite_tmc[op]:
   >> rename [‘cons_to_tc_and_hb loc x xs = (TCall ticks args handler')⁺ (HoleBlock tag l hole r)’]
   >> gvs [Once to_mut_cons_def, evaluate_def, evaluate_APPEND]
   >> cheat
-QED
-
-Theorem evaluate_to_mut_cons:
-  evaluate ()
-Proof
-
 QED
         
 Theorem renameme:
@@ -2012,54 +2015,71 @@ Resume evaluate_rewrite_tmc[call]:
   >> rename [‘exp ≠ exp_aux’]
   >> rename [‘env_rel F f'' args args_exp’]
   >> disch_then drule
+  >> impl_tac
+  >- (spose_not_then assume_tac >> gvs [])
   >> drule env_rel_extras_opt
   >> strip_tac
   >> gvs [EL_APPEND_EQN]
-  >> impl_tac
-  >- (spose_not_then assume_tac >> gvs [])
   >> strip_tac
   >> gvs []
   >> rename [‘evaluate ([exp],args_exp ++ extras,dec_clock (ticks + 1) u') = (v_exp',t')’]
   >> last_x_assum drule
   >> strip_tac
   >> gvs []
+  >> rename [‘state_rel f3 t t_aux’]
   >> Cases_on ‘v_exp’ >> gvs []
   >-
-   (rename [‘state_rel f3 t t_aux’]
-    >> imp_res_tac evaluate_SING_IMP
+   (imp_res_tac evaluate_SING_IMP
     >> gvs []
     >> rename [‘v_rel f3 v_exp v_exp'’]
     >> Cases_on ‘evaluate ([exp_aux],args_exp,dec_clock (ticks + 1) u')’ >> gvs []
-    >> rename [‘evaluate ([exp_aux],args_exp,dec_clock (ticks + 1) u') = (v_exp_aux',t_aux')’]                         
-    >> Cases_on ‘v_exp_aux'’ >> gvs []
+    >> rename [‘evaluate ([exp_aux],args_exp,dec_clock (ticks + 1) u') = (v_exp_aux',t_aux')’]
+    >> drule evaluate_expand_env
+    >> disch_then $ qspec_then ‘extras’ assume_tac
+    >> gvs []
+    >> first_assum $ irule_at Any
+    >> gvs []
+    >> conj_asm1_tac
+    >- imp_res_tac SUBMAP_TRANS
+    >> conj_asm1_tac
     >-
-     (imp_res_tac evaluate_SING_IMP
-      >> gvs []
-      >> drule evaluate_pad_env_val
-      >> disch_then $ qspec_then ‘extras’ assume_tac
-      >> gvs []
-      >> first_assum $ irule_at Any
+     (irule only_fresh_trans
+      >> rpt $ first_assum $ irule_at Any
+      >> imp_res_tac evaluate_refs_SUBSET)
+    >> conj_asm1_tac
+    >- cheat
+    >> rw [rewrite_aux_def, rewrite_opt_def]
+    >> irule evaluate_fill_hole
+    >> gvs []
+    >> rpt $ first_assum $ irule_at Any
+    >> gvs [evaluate_def]
+    >> IF_CASES_TAC >> gvs [])
+  >> Cases_on ‘evaluate ([exp_aux],args_exp,dec_clock (ticks + 1) u')’ >> gvs []
+  >> rename [‘evaluate ([exp_aux],args_exp,dec_clock (ticks + 1) u') = (v_exp_aux',t_aux')’]
+  >> drule evaluate_expand_env
+  >> disch_then $ qspec_then ‘extras’ assume_tac
+  >> gvs []
+  >> Cases_on ‘e’ >> gvs []
+  >-
+   (CASE_TAC >> gvs []
+    >-
+     (first_assum $ irule_at Any
       >> gvs []
       >> conj_asm1_tac
-      >- (imp_res_tac SUBMAP_TRANS >> gvs [])
+      >- imp_res_tac SUBMAP_TRANS
       >> conj_asm1_tac
       >-
        (irule only_fresh_trans
-        >> first_assum $ irule_at Any
-        >> conj_tac
-        >- imp_res_tac evaluate_refs_SUBSET
-        >> gvs [])
-      (* HERE *)
+        >> rpt $ first_assum $ irule_at Any
+        >> imp_res_tac evaluate_refs_SUBSET)
       >> conj_asm1_tac
-      >- cheat (* t' vs t'' *)
-      >> strip_tac
-      >> gvs [rewrite_aux_def]
-      >> rw []
-      >> gvs [rewrite_opt_def]
-      >> irule evaluate_fill_hole
-      >> gvs [evaluate_def]
-      >> IF_CASES_TAC >> gvs []
-      >> rpt $ first_assum $ irule_at Any)
+      >- cheat
+      >> rw [rewrite_aux_def, rewrite_opt_def]
+      >> ho_match_mp_tac evaluate_fill_hole_err
+      >> gvs []
+      >> rpt $ first_assum $ irule_at Any
+      >> gvs [evaluate_def])
+    >> first_x_assum $ qspec_then ‘F’ mp_tac
     >> cheat)
   >> cheat
 QED
