@@ -157,7 +157,7 @@ QED
 Theorem good_reif_init_ec:
   good_reif wb wi init_ec
 Proof
-  rw[good_reif_def,init_ec_def,has_ge_def,has_eq_def]
+  rw[good_reif_def,init_ec_def,has_ge_def,has_eq_def,lookup_ht_def]
 QED
 
 Theorem cencode_constraints_thm_1:
