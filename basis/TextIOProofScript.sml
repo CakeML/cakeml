@@ -7894,7 +7894,7 @@ Theorem inputAllFrom_SOME_spec:
            (OPTION_BIND (file_content fs fname) (SOME o implode)) sv *
         STDIO fs)
 Proof
-    rw[]  >> xcf_with_def TextIO_inputAllFrom_v_def >>
+    rw[] >> xcf_with_def TextIO_inputAllFrom_v_def >>
     reverse $ cases_on ‘inFS_fname fs fname’
     >- (xlet ‘POSTv sv. (SEP_EXISTS TYPE. &OPTION_TYPE TYPE NONE sv) * STDIO fs’
         >- (xapp_spec open_option_SOME_fail >>
@@ -7939,6 +7939,38 @@ Proof
     unabbrev_all_tac >>
     simp[fastForwardFD_ADELKEY_same,nextFD_leX,openFileFS_ADELKEY_nextFD] >>
     xsimpl
+QED
+
+Theorem inputAllFrom_NONE_spec:
+   ∀p fs TYPE fnamev text.
+   OPTION_TYPE TYPE NONE fnamev ∧ stdin_content fs = SOME text
+   ⇒
+   app (p:'ffi ffi_proj) TextIO_inputAllFrom_v [fnamev]
+     (STDIO fs)
+     (POSTv sv.
+        &OPTION_TYPE STRING_TYPE (SOME (implode text)) sv *
+        STDIO (fastForwardFD fs 0))
+Proof
+    rw[] >> xcf_with_def TextIO_inputAllFrom_v_def >>
+    reverse $ cases_on ‘STD_streams fs’
+    >- (gs[STDIO_def] >> xpull) >>
+    xlet_auto_spec (SOME open_option_NONE)
+    >- (xsimpl >> qx_genl_tac [‘retv’,‘is’,‘f’] >> rw[] >>
+        first_assum $ irule_at Any >> xsimpl) >>
+    gvs[std_preludeTheory.OPTION_TYPE_def,PAIR_TYPE_def] >>
+    xmatch >>
+    reverse $ xhandle ‘POSTv sv. STDIO (fastForwardFD fs 0) *
+        &OPTION_TYPE STRING_TYPE (SOME (implode text)) sv’
+    >- (simp[std_preludeTheory.OPTION_TYPE_def] >> xsimpl) >>
+    xlet ‘POSTv sv. &STRING_TYPE (implode text) sv *
+        STDIO (fastForwardFD fs 0) * INSTREAM_STR 0 is [] (fastForwardFD fs 0)’
+    >- (xapp >> qexistsl [‘emp’,‘text’,‘fs’,‘0’] >> xsimpl) >>
+    xlet_auto >- (xcon >> xsimpl) >>
+    gs[sub_spec_none_def] >>
+    xlet ‘POSTv v. STDIO (fastForwardFD fs 0)’
+    >- (first_x_assum $ xapp_spec >> qrefinel [‘emp’,‘[]’,‘_’,‘fs’] >>
+        xsimpl >> metis_tac [STDIO_INSTREAM_STR_fastForwardFD_forwardFD]) >>
+    xcon >> xsimpl >> simp[std_preludeTheory.OPTION_TYPE_def]
 QED
 
 Theorem fold_chars_loop_thm:
