@@ -113,6 +113,13 @@ Definition optimal_val_def:
       NONE
 End
 
+Theorem lit_negate:
+  lit w (negate v) = ¬lit w v
+Proof
+  Cases_on ‘v’>>
+  simp[]
+QED
+
 Theorem NUM_LE:
   0 ≤ x ∧ 0 ≤ y ⇒
   (Num x ≤ Num y ⇔ x ≤ y)
