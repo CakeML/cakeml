@@ -113,6 +113,12 @@ Definition optimal_val_def:
       NONE
 End
 
+Theorem neg_b2i:
+  1 - b2i p = b2i (~ p)
+Proof
+  Cases_on`p`>>simp[]
+QED
+
 Theorem lit_negate:
   lit w (negate v) = ¬lit w v
 Proof

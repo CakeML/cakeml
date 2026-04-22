@@ -442,12 +442,6 @@ Proof
   intLib.ARITH_TAC
 QED
 
-Theorem neg_b2i:
-  1 - b2i p = b2i (~ p)
-Proof
-  Cases_on`p`>>simp[]
-QED
-
 Theorem MEM_if:
   MEM x (if P then A else B) ⇔
   if P then MEM x A else MEM x B
