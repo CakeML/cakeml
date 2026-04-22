@@ -5020,7 +5020,7 @@ QED
 
 Theorem state_rel_imp_semantics_decls_to_crep:
   !(s:('a,'b) panSem$state) (t:('a,'b) crepSem$state) pan_code start.
-    state_rel s t ∧
+    state_rel (s with structs := []) t ∧
     ALL_DISTINCT (MAP FST (functions pan_code)) ∧
     s.code = FEMPTY ∧
     t.code = alist_to_fmap (pan_to_crep$compile_to_crep pan_code) ∧
@@ -5028,7 +5028,7 @@ Theorem state_rel_imp_semantics_decls_to_crep:
     EVERY (localised_prog ∘ SND ∘ SND) (functions pan_code) ∧
     EVERY is_function pan_code ∧
     panLang$size_of_eids pan_code < dimword (:'a) /\
-    FDOM s.eshapes =  FDOM (get_eids(functions pan_code)) ∧
+    FDOM s.eshapes = FDOM (get_eids(functions pan_code)) ∧
     semantics_decls s start pan_code <> Fail ==>
       semantics t start = semantics_decls s start pan_code
 Proof
@@ -5087,7 +5087,7 @@ QED
 
 Theorem state_rel_imp_semantics_decls:
   !(s:('a,'b) panSem$state) (t:('a,'b) crepSem$state) pan_code start.
-    state_rel s t ∧
+    state_rel (s with structs := []) t ∧
     ALL_DISTINCT (MAP FST (functions pan_code)) ∧
     s.code = FEMPTY ∧
     t.code = alist_to_fmap (pan_to_crep$compile_prog pan_code) ∧

@@ -2752,7 +2752,6 @@ Theorem compile_top_semantics_decls:
              |> ∧
   s.code = FEMPTY ∧
   s.globals = FEMPTY ∧
-  s.structs = [] ∧
   byte_aligned s.top_addr ∧
   good_dimindex(:'a) ∧
   mgs = bytes_in_word*n2w(SUM(MAP size_of_shape(dec_shapes code))) ∧

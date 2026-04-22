@@ -324,7 +324,7 @@ QED
 
 Theorem compile_top_semantics_decls:
   semantics_decls s start code <> Fail ∧
-  s.structs = [] ∧ s.locals = FEMPTY ∧ s.code = FEMPTY ∧
+  s.locals = FEMPTY ∧ s.code = FEMPTY ∧
   s.globals = FEMPTY ⇒
   semantics_decls s start code =
   semantics_decls s start (compile_top code)

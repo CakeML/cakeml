@@ -442,11 +442,9 @@ Theorem state_rel_imp_semantics:
   ALL_DISTINCT (MAP FST (functions pan_code)) ∧
   byte_aligned s.top_addr ∧
   globals_allocatable s pan_code ∧
-  EVERY (λd. is_function d ∨ is_decl d) pan_code ⇒
   s.code = FEMPTY ∧
   t.code = fromAList (pan_to_word$compile_prog c pan_code) ∧
   s.globals = FEMPTY ∧
-  s.structs = [] ∧
   s.locals = FEMPTY ∧ size_of_eids pan_code < dimword (:α) ∧
   FDOM s.eshapes = FDOM (get_eids(functions pan_code)) ∧
   lookup 0 t.locals = SOME (Loc 1 0) /\ good_dimindex (:'a) ∧
