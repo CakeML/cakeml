@@ -1907,20 +1907,19 @@ Theorem eval_obj_unmapped_obj_bounds:
   eval_obj (unmapped_obj q) w ≥ 0 ∧
   eval_obj (unmapped_obj q) w ≤ &q
 Proof
-  cheat
-  (*
   fs[unmapped_obj_def,eval_obj_def,eval_lin_term_def]>>
   CONJ_ASM1_TAC
   >- (
-    match_mp_tac iSUM_zero>>
-    simp[MEM_MAP,MEM_GENLIST,PULL_EXISTS])>>
+    match_mp_tac iSUM_ge_zero>>
+    rw[MEM_MAP,MEM_GENLIST]>>
+    simp[eval_term_def,eval_lit_def])>>
   qmatch_goalsub_abbrev_tac`iSUM ls`>>
   `q = LENGTH ls` by
     fs[Abbr`ls`]>>
   rw[]>>
   DEP_REWRITE_TAC[iSUM_sub_b2i_geq_0']>>
   simp[Abbr`ls`,MEM_MAP,MEM_GENLIST,PULL_EXISTS]>>rw[]>>
-  Cases_on`w (Unmapped b)`>>rw[]*)
+  Cases_on`w (Unmapped b)`>>rw[]
 QED
 
 Theorem MAX_SET_eq_intro:
@@ -1958,8 +1957,6 @@ Theorem full_encode_mccis_sem_concl:
   (∀vs. is_ccis vs gp gt ⇒ CARD vs ≤ ubg) ∧
   (∃vs. is_ccis vs gp gt ∧ lbg ≤ CARD vs)
 Proof
-  cheat
-  (*
   strip_tac>>
   gvs[full_encode_mccis_def]>>
   qpat_x_assum`sem_concl _ _ _ _` mp_tac>>
@@ -2019,11 +2016,10 @@ Proof
   (* Upper bound optimization *)
   Cases_on`ubi`>>
   fs[SF DNF_ss,EQ_IMP_THM,is_ccis_def,is_cis_def,LIST_TO_SET_MAP]
-  >-
-    metis_tac[injective_partial_map_exists,SND]>>
-  `eval_obj (unmapped_obj q) w ≥ 0` by
-    (fs[unmapped_obj_def,eval_obj_def,eval_lin_term_def]>>
-    match_mp_tac iSUM_zero>>
+  >-metis_tac[injective_partial_map_exists,SND]>>
+  ‘eval_obj (unmapped_obj q) w ≥ 0’ by (
+    fs[unmapped_obj_def,eval_obj_def,eval_lin_term_def]>>
+    match_mp_tac iSUM_ge_zero>>
     simp[MEM_MAP,MEM_GENLIST,PULL_EXISTS])>>
   first_x_assum drule>>
   disch_then(qspec_then`q - Num (eval_obj (unmapped_obj q) w)` mp_tac)>>
@@ -2034,7 +2030,6 @@ Proof
   rw[]>>
   asm_exists_tac>>simp[]>>
   intLib.ARITH_TAC
-  *)
 QED
 
 (* The simpler, full encoding for MCIS (unconnected) *)
@@ -2055,8 +2050,6 @@ Theorem full_encode_mcis_sem_concl:
   (∀vs. is_cis vs gp gt ⇒ CARD vs ≤ ubg) ∧
   (∃vs. is_cis vs gp gt ∧ lbg ≤ CARD vs)
 Proof
-  cheat
-  (*
   strip_tac>>
   gvs[full_encode_mcis_def]>>
   qpat_x_assum`sem_concl _ _ _ _` mp_tac>>
@@ -2115,11 +2108,10 @@ Proof
   (* Upper bound optimization *)
   Cases_on`ubi`>>
   fs[SF DNF_ss,EQ_IMP_THM,is_cis_def,LIST_TO_SET_MAP]
-  >-
-    metis_tac[injective_partial_map_exists]>>
-  `eval_obj (unmapped_obj q) w ≥ 0` by
-    (fs[unmapped_obj_def,eval_obj_def,eval_lin_term_def]>>
-    match_mp_tac iSUM_zero>>
+  >-metis_tac[injective_partial_map_exists]>>
+  ‘eval_obj (unmapped_obj q) w ≥ 0’ by (
+    fs[unmapped_obj_def,eval_obj_def,eval_lin_term_def]>>
+    match_mp_tac iSUM_ge_zero>>
     simp[MEM_MAP,MEM_GENLIST,PULL_EXISTS])>>
   first_x_assum drule>>
   disch_then(qspec_then`q - Num (eval_obj (unmapped_obj q) w)` mp_tac)>>
@@ -2129,7 +2121,7 @@ Proof
     intLib.ARITH_TAC)>>
   rw[]>>
   asm_exists_tac>>simp[]>>
-  intLib.ARITH_TAC*)
+  intLib.ARITH_TAC
 QED
 
 Theorem full_encode_mcis_eq =
