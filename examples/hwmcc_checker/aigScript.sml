@@ -9,9 +9,6 @@ Libs
 
 val _ = numLib.prefer_num();
 
-(* Remove automatic left-association of ++ *)
-val _ = temp_delsimps ["APPEND_ASSOC"];
-
 (* Things that appear in base positions.
    Ff corresponds to the constant false. *)
 Datatype:
@@ -38,12 +35,15 @@ Proof
 QED
 
 Type lit[pp] = “:('a,'i,'l) var # bool”
-Type and[pp] = “:'a # (('a,'i,'l) lit # ('a,'i,'l) lit)”
+Type and[pp] = “:'a # (('a,'i,'l) lit list)”
 Type circuit[pp] = “:('a,'i,'l) and list”
 
 Overload TT = “(Base Ff, T)”
 Overload FF = “(Base Ff, F)”
 
+(* Note that we can conjunction over a list of literals as opposed to a pair.
+   If needed, we can apply a reduction at the end, allowing for simpler
+   definitions for operations such as equivalence.  *)
 Definition eval_circuit_def:
   (eval_lit (ss : 'i inputs # 'l state)
     circ ((v,b):('a,'i,'l) lit) =
@@ -52,12 +52,9 @@ Definition eval_circuit_def:
     | Name n => b ⇎ eval_circuit ss circ n) ∧
   (eval_circuit ss ([]:('a,'i,'l) circuit) n = F) ∧
   (eval_circuit ss (h::tl) n =
-   let (n', (in₁, in₂)) = h in
-     if n' = n then
-       (eval_lit ss tl in₁) ∧
-       (eval_lit ss tl in₂)
-     else
-       eval_circuit ss tl n)
+   let (n', ins) = h in
+     if n' = n then EVERY (eval_lit ss tl) ins
+     else eval_circuit ss tl n)
 End
 
 Theorem eval_lit_flip:
@@ -104,86 +101,27 @@ Definition iname_def:
     | _ => 0
 End
 
+Theorem eval_lit_INR_neq:
+  iname m ≠ n ⇒
+  (eval_lit ss ((INR n, xs)::circ) m ⇔ eval_lit ss circ m)
+Proof
+  simp [oneline iname_def] >> every_case_tac >> rw [eval_circuit_def]
+QED
+
 Definition maxn_def:
   maxn (ls : ('a iext,'i,'l) lit list) =
     MAX_LIST (MAP iname ls) + 1
 End
 
-(* Conjunction *)
-
-Definition conj_aux_def:
-  (conj_aux (n: num) ([]: ('a iext,'i,'l) lit list) =
-    [ (INR n, TT, TT) ]:('a iext,'i,'l) circuit) ∧
-  (conj_aux (n: num) (x::xs) =
-    (INR n, x, (Name (INR (n+1)), F))
-      ::conj_aux (n + 1) xs )
-End
-
-Definition conj_def:
-  conj (circ: ('a iext, 'i, 'l) circuit) name xs =
-    let n = maxn xs in
-    ((INL (Ext name), (Name (INR n), F), (Name (INR n), F))
-      ::conj_aux n xs) ++ circ
-End
-
-Theorem eval_circuit_conj_aux_INL[simp]:
-  ∀xs n.
-    eval_circuit ss (conj_aux n xs ++ circ) (INL out) ⇔
-    eval_circuit ss circ (INL out)
-Proof
-  Cases_on ‘ss’ >> Induct >> rw [conj_aux_def, eval_circuit_def]
-QED
-
-Theorem eval_circuit_conj_aux_INR_lt:
-  ∀xs n.
-    m < n ⇒
-    (eval_circuit ss (conj_aux n xs ++ circ) (INR m) ⇔
-    eval_circuit ss circ (INR m))
-Proof
-  Cases_on ‘ss’
-  >> Induct
-  >> rw [conj_aux_def, eval_circuit_def]
-QED
-
-Theorem eval_circuit_conj_aux_INR_eq:
-  ∀xs n.
-    EVERY (λx. iname x < n) xs ⇒
-    (eval_circuit ss (conj_aux n xs ++ circ) (INR n) ⇔
-    EVERY (eval_lit ss circ) xs)
-Proof
-  Cases_on ‘ss’
-  >> Induct
-  >> rw [conj_aux_def, eval_circuit_def]
-  >> first_x_assum (qspec_then `n+1` mp_tac)
-  >> impl_tac >-
-    (drule_at_then Any irule EVERY_MONOTONIC>>rw[])
-  >> rw[]
-  >> fs[oneline iname_def]
-  >> every_case_tac>>simp[eval_circuit_def]
-  >> DEP_REWRITE_TAC[eval_circuit_conj_aux_INR_lt]
-  >> gvs[]
-QED
-
-Theorem eval_circuit_conj_INL:
-  eval_circuit ss (conj circ name xs) (INL n) =
-  if n = Ext name then
-    EVERY (eval_lit ss circ) xs
-  else eval_circuit ss circ (INL n)
-Proof
-  Cases_on ‘ss’ >>
-  rw [eval_circuit_def, conj_def]>>
-  irule eval_circuit_conj_aux_INR_eq>>
-  rw[maxn_def,EVERY_MEM]>>
-  `MEM (iname x) (MAP iname xs)` by metis_tac[MEM_MAP]>>
-  drule MAX_LIST_PROPERTY>>
-  simp[]
-QED
-
-(* Negation *)
-
 Definition not_def:
   not ((v, b): ('a,'i,'l) lit) = (v, ¬b)
 End
+
+Theorem iname_not[simp]:
+  iname (not x) = iname x
+Proof
+  Cases_on ‘x’ >> simp [not_def, iname_def]
+QED
 
 Theorem eval_lit_not:
   eval_lit ss circ (not x) ⇔ ¬eval_lit ss circ x
@@ -191,54 +129,89 @@ Proof
   Cases_on ‘x’ >> simp [not_def, eval_lit_flip]
 QED
 
-
-(* Equivalence *)
-
-(* x ⇔ y = ¬(x ∧ ¬y) ∧ ¬(¬x ∧ y) *)
 Definition equiv_aux_def:
-  equiv_aux (n: num) (x: ('a iext,'i,'l) lit) (y: ('a iext,'i,'l) lit) =
-  [
-    (INR n, (Name (INR (n + 1)), T), (Name (INR (n + 2)), T));
-    (INR (n + 1), x, not y);
-    (INR (n + 2), not x, y);
-  ]: ('a iext,'i,'l) circuit
+  (equiv_aux (n: num) [] = [(INR n, [])]: ('a iext,'i,'l) circuit) ∧
+  (equiv_aux n (xy::xys) =
+   let (x, y) = xy in [
+    (INR n, [
+        (Name (INR (n + 1)), T);
+        (Name (INR (n + 2)), T);
+        (Name (INR (n + 3)), F)
+      ]);
+    (INR (n + 1), [x; not y]);
+    (INR (n + 2), [not x; y]);
+   ] ++ equiv_aux (n + 3) xys)
+End
+
+Definition equiv_def:
+  equiv (circ: ('a iext, 'i, 'l) circuit) name xys =
+    let n = MAX (maxn (MAP FST xys)) (maxn (MAP SND xys)) in
+      ((INL (Ext name), [(Name (INR n), F)])::equiv_aux n xys) ++ circ
 End
 
 Theorem eval_circuit_equiv_aux_INL[simp]:
-  eval_circuit ss (equiv_aux n x y ++ circ) (INL out) ⇔
-  eval_circuit ss circ (INL out)
+  ∀xys n.
+    eval_circuit ss (equiv_aux n xys ++ circ) (INL out) ⇔
+    eval_circuit ss circ (INL out)
 Proof
-  Cases_on ‘ss’ >> simp [equiv_aux_def, eval_circuit_def]
+  Induct
+  >> rw [equiv_aux_def, eval_circuit_def]
+  >> rpt (pairarg_tac >> gvs [])
+  >> simp [eval_circuit_def]
 QED
 
-Theorem eval_circuit_equiv_aux_INR_lt:
-  m < n ⇒
-  (eval_circuit ss (equiv_aux n x y ++ circ) (INR m) ⇔
-  eval_circuit ss circ (INR m))
+Theorem eval_lit_equiv_aux_neq:
+  ∀xys n.
+    iname m < n ⇒
+    (eval_lit ss (equiv_aux n xys ++ circ) m ⇔
+     eval_lit ss circ m)
 Proof
-  Cases_on ‘ss’ >> simp [equiv_aux_def, eval_circuit_def]
-QED
-
-Theorem eval_lit_INR:
-  iname m ≠ n ⇒
-  (eval_lit ss ((INR n, x, y)::circ) m ⇔ eval_lit ss circ m)
-Proof
-  simp [oneline iname_def] >> every_case_tac >> rw [eval_circuit_def]
+  Induct >> rw [equiv_aux_def]
+  >> rpt (pairarg_tac >> gvs [])
+  >> simp [eval_lit_INR_neq]
 QED
 
 Theorem eval_circuit_equiv_aux_INR_eq:
-  iname x < n ∧ iname y < n ⇒
-  (eval_circuit ss (equiv_aux n x y ++ circ) (INR n) ⇔
-     (eval_lit ss circ x ⇔ eval_lit ss circ y))
+  ∀xys n.
+    EVERY (λ(x, y). iname x < n ∧ iname y < n) xys ⇒
+    (eval_circuit ss (equiv_aux n xys ++ circ) (INR n) ⇔
+    EVERY (λ(x,y). eval_lit ss circ x ⇔ eval_lit ss circ y) xys)
 Proof
   Cases_on ‘ss’
+  >> Induct
   >> rw [equiv_aux_def, eval_circuit_def]
-  >> DEP_REWRITE_TAC [eval_lit_INR]
-  >> conj_tac
-  >- (gvs [oneline iname_def, oneline not_def] >> every_case_tac >> gvs [])
+  >> rpt (pairarg_tac >> gvs [])
+  >> simp [eval_circuit_def]
+  >> DEP_REWRITE_TAC [eval_lit_INR_neq]
+  >> conj_tac >- simp []
+  >> DEP_REWRITE_TAC [eval_lit_equiv_aux_neq]
+  >> conj_tac >- simp []
+  >> first_x_assum $ qspec_then ‘n + 3’ mp_tac
+  >> impl_tac
+  >-
+   (gvs [EVERY_MEM]
+    >> rpt strip_tac
+    >> first_x_assum drule >> simp []
+    >> rpt (pairarg_tac >> gvs []))
+  >> strip_tac >> simp []
   >> metis_tac [eval_lit_not]
 QED
 
+Theorem eval_circuit_equiv_INL:
+  eval_circuit ss (equiv circ name xys) (INL n) =
+  if n = Ext name then
+    EVERY (λ(x,y). eval_lit ss circ x ⇔ eval_lit ss circ y) xys
+  else eval_circuit ss circ (INL n)
+Proof
+  Cases_on ‘ss’ >> rw [eval_circuit_def, equiv_def]
+  >> irule eval_circuit_equiv_aux_INR_eq
+  >> rw [maxn_def, EVERY_MEM]
+  >> rpt (pairarg_tac >> gvs [])
+  >> ‘MEM (iname x) (MAP iname (MAP FST xys)) ∧
+      MEM (iname y) (MAP iname (MAP SND xys))’
+    by metis_tac[MEM_MAP, FST, SND]
+  >> imp_res_tac MAX_LIST_PROPERTY >> simp []
+QED
 
 (* --- old --- *)
 
