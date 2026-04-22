@@ -675,7 +675,8 @@ Definition cp_has_ub_def:
 End
 
 (* We reuse the conclusion type from PBC to define the meaning of a CP problem.
-  The important case is for OBounds, where it depends on the CP problem
+  The important case is for OBounds, where it depends on the CP problem.
+  TODO: what is the semantics of enumeration?
 *)
 Definition cp_sem_concl_def:
   (cp_sem_concl bnd cs obj NoConcl ⇔ T) ∧
@@ -690,7 +691,8 @@ Definition cp_sem_concl_def:
     | Maximize v =>
       cp_has_lb bnd cs v lbi ∧
       cp_is_ub bnd cs v ubi
-  )
+  ) ∧
+  (cp_sem_concl bnd cs obj (EEnum n complete) ⇔ T)
 End
 
 (* The minimal value for a CP minimization instance *)

@@ -33,9 +33,9 @@ End
 Definition encode_ivar_def:
   encode_ivar bnd (X:'a) =
   let (comp,h) = bit_width bnd X in
-  let bits = GENLIST (λi. (2**i,Pos (Bit X i))) h in
+  let bits = GENLIST (λi. (&(2**i),Pos (Bit X i))) h in
   if comp then
-      (-(2**h),Pos(Sign X)):: bits
+      (-&(2**h),Pos(Sign X)):: bits
   else (bits:('a,'b) epb lin_term)
 End
 

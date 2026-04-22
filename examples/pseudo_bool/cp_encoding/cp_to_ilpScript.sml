@@ -560,32 +560,99 @@ End
   The mlstring option is an annotation.
 *)
 
-(* TODO: replace ge/eq trackers with faster representations. *)
 Datatype:
   enc_conf =
     <|
-       ge : ( (mlstring varc) # int list) list
-     ; eq : ( (mlstring varc) # int list) list
+       ge : ( (mlstring varc list) num_map) num_map
+     ; eq : ( (mlstring varc list) num_map) num_map
     |>
 End
 
-(***
-  (Mostly) semantic tools
-***)
+(* bijection 0, -1, 1, -2, 2,... ⇔ 0, 1, 2, 3, 4,... and its inverse next *)
+Definition intnum_def:
+  intnum (n: int) =
+  if n < 0 then 2 * Num (-n) - 1
+  else 2 * Num n
+End
+
+Definition numint_def:
+  numint (n: num): int =
+  if EVEN n then &((n + 1) DIV 2)
+  else -&((n + 1) DIV 2)
+End
+
+Theorem numint_inj:
+  numint m = numint n ⇒ m = n
+Proof
+  simp[numint_def]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem numint_intnum:
+  numint (intnum x) = x
+Proof
+  simp[intnum_def,numint_def]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem intnum_numint:
+  intnum (numint x) = x
+Proof
+  simp[intnum_def,numint_def]>>
+  intLib.ARITH_TAC
+QED
+
+Definition lookup_int_def:
+  lookup_int i t =
+  lookup (intnum i) t
+End
+
+Definition insert_int_def:
+  insert_int i v t =
+  insert (intnum i) v t
+End
+
+Definition hash_varc_def:
+  hash_varc (s: mlstring varc) =
+  case s of
+    INL v =>
+      let l = strlen v in
+      if l > 0 then ORD (strsub v 0) + l else 0
+  | INR c => intnum c
+End
+
+Definition lookup_ht_def:
+  lookup_ht (k:mlstring varc) (n:int) ht =
+  let h = hash_varc k in
+  case lookup h ht of
+    NONE => F
+  | SOME t =>
+    (case lookup_int n t of
+      NONE => F
+    | SOME ls => MEM k ls)
+End
+
+Definition insert_ht_def:
+  insert_ht k n ht =
+  let h = hash_varc k in
+  case lookup h ht of
+    NONE =>
+    insert h (insert_int n [k] LN) ht
+  | SOME t =>
+    (case lookup_int n t of
+      NONE =>
+      insert h (insert_int n [k] t) ht
+    | SOME ls =>
+      insert h (insert_int n (k::ls) t) ht)
+End
 
 (* lookup for when the given ge for a variable has been encoded *)
 Definition has_ge_def:
-  has_ge Y n ec =
-  case ALOOKUP ec.ge Y of
-    NONE => F
-  | SOME ls => MEM n ls
+  has_ge Y n ec = lookup_ht Y n ec.ge
 End
 
 Definition has_eq_def:
-  has_eq Y n ec =
-  case ALOOKUP ec.eq Y of
-    NONE => F
-  | SOME ls => MEM n ls
+  has_eq Y n ec = lookup_ht Y n ec.eq
 End
 
 Definition good_reif_def:
@@ -653,35 +720,47 @@ QED
 ***)
 Definition add_ge_def:
   add_ge Y n ec =
-  let tt =
-    (case ALOOKUP ec.ge Y of
-      NONE => []
-    | SOME ls => ls) in
-  ec with ge := (Y,n::tt)::ec.ge
+  ec with ge := insert_ht Y n ec.ge
 End
 
 Definition add_eq_def:
   add_eq Y n ec =
-  let tt =
-    (case ALOOKUP ec.eq Y of
-      NONE => []
-    | SOME ls => ls) in
-  ec with eq := (Y,n::tt)::ec.eq
+  ec with eq := insert_ht Y n ec.eq
 End
+
+Theorem lookup_int_insert_int:
+  lookup_int k1 (insert_int k2 v t) =
+    if k1 = k2 then SOME v else lookup_int k1 t
+Proof
+  rw[lookup_int_def,insert_int_def,lookup_insert]>>
+  metis_tac[numint_intnum]
+QED
+
+Theorem lookup_ht_insert_ht:
+  lookup_ht X n (insert_ht Y m ht) ⇔ X = Y ∧ n = m ∨ lookup_ht X n ht
+Proof
+  rw[lookup_ht_def,insert_ht_def]>>
+  every_case_tac>>rw[]>>
+  gvs[lookup_insert,lookup_int_insert_int,AllCaseEqs()]>>
+  gvs[lookup_int_def]>>
+  metis_tac[]
+QED
 
 Theorem has_ge_add_ge[simp]:
   has_ge X n (add_ge Y m ec) ⇔
   X = Y ∧ n = m ∨
   has_ge X n ec
 Proof
-  rw[has_ge_def,add_ge_def]>>every_case_tac>>simp[]
+  rw[has_ge_def,add_ge_def]>>every_case_tac>>
+  simp[lookup_ht_insert_ht]
 QED
 
 Theorem has_ge_add_eq[simp]:
   has_ge X n (add_eq Y m ec) ⇔
   has_ge X n ec
 Proof
-  rw[has_ge_def,add_eq_def]>>every_case_tac>>simp[]
+  rw[has_ge_def,add_eq_def]>>every_case_tac>>
+  simp[lookup_ht_insert_ht]
 QED
 
 Theorem has_eq_add_eq[simp]:
@@ -689,14 +768,16 @@ Theorem has_eq_add_eq[simp]:
   X = Y ∧ n = m ∨
   has_eq X n ec
 Proof
-  rw[has_eq_def,add_eq_def]>>every_case_tac>>simp[]
+  rw[has_eq_def,add_eq_def]>>every_case_tac>>
+  simp[lookup_ht_insert_ht]
 QED
 
 Theorem has_eq_add_ge[simp]:
   has_eq X n (add_ge Y m ec) ⇔
   has_eq X n ec
 Proof
-  rw[has_eq_def,add_ge_def]>>every_case_tac>>simp[]
+  rw[has_eq_def,add_ge_def]>>every_case_tac>>
+  simp[lookup_ht_insert_ht]
 QED
 
 Type ciconstraint[pp] = ``:(mlstring, mlstring avar) iconstraint``
@@ -831,40 +912,6 @@ Proof
   res_tac
   >-intLib.ARITH_TAC>>
   qexists ‘Num (wi x - q)’>>
-  intLib.ARITH_TAC
-QED
-
-(* bijection 0, -1, 1, -2, 2,... ⇔ 0, 1, 2, 3, 4,... and its inverse next *)
-Definition intnum_def:
-  intnum (n: int) =
-  if n < 0 then 2 * Num (-n) - 1
-  else 2 * Num n
-End
-
-Definition numint_def:
-  numint (n: num): int =
-  if EVEN n then &((n + 1) DIV 2)
-  else -&((n + 1) DIV 2)
-End
-
-Theorem numint_inj:
-  numint m = numint n ⇒ m = n
-Proof
-  simp[numint_def]>>
-  intLib.ARITH_TAC
-QED
-
-Theorem numint_intnum:
-  numint (intnum x) = x
-Proof
-  simp[intnum_def,numint_def]>>
-  intLib.ARITH_TAC
-QED
-
-Theorem intnum_numint:
-  intnum (numint x) = x
-Proof
-  simp[intnum_def,numint_def]>>
   intLib.ARITH_TAC
 QED
 
@@ -1066,7 +1113,7 @@ Proof
 QED
 
 Definition init_ec_def:
-  init_ec = <| ge := [] ; eq := [] |>
+  init_ec = <| ge := LN ; eq := LN |>
 End
 
 Theorem enc_rel_abstr[simp]:

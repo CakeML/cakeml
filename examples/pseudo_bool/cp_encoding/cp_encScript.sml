@@ -145,17 +145,20 @@ End
 Theorem full_encode_sem_concl:
   ALL_DISTINCT (MAP FST (FST (SND inst))) ∧
   full_encode inst = (obj,pbf) ∧
-  sem_concl (set (MAP SND pbf)) obj concl ⇒
+  sem_concl (set (MAP SND pbf)) obj {} concl ⇒
   cp_inst_sem_concl inst (conv_concl inst concl)
 Proof
   `∃bnd cs v. inst = (bnd,cs,v)` by metis_tac[PAIR]>>
   strip_tac>>
   gvs[full_encode_def]>>
-  qpat_x_assum`sem_concl _ _ _` mp_tac>>
+  qpat_x_assum`sem_concl _ _ _ _` mp_tac>>
   simp[LIST_TO_SET_MAP,IMAGE_IMAGE]>>
   simp[GSYM IMAGE_IMAGE, GSYM (Once LIST_TO_SET_MAP)]>>
+  `{} = IMAGE format_string {}` by fs[]>>
+  pop_assum SUBST1_TAC>>
   DEP_REWRITE_TAC[GSYM concl_INJ_iff]>>
   CONJ_TAC >- (
+    simp[]>>
     assume_tac format_string_INJ>>
     drule INJ_SUBSET>>
     disch_then match_mp_tac>>
@@ -173,6 +176,8 @@ Proof
     fs[cp_inst_sem_concl_def,cp_sem_concl_def,sem_concl_def]>>
     simp[cp_unsatisfiable_def,cp_satisfiable_def,unsatisfiable_def,satisfiable_def]>>
     metis_tac[encode_sem_1,encode_sem_2,PAIR])
+  >~[`EEnum _ _`]
+  >- fs[cp_inst_sem_concl_def,cp_sem_concl_def]
   >~[`OBounds lbi ubi`]
   >- (
     Cases_on`v`>>
