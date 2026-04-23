@@ -1745,8 +1745,79 @@ Resume evaluate_rewrite_tmc[op]:
   >> Cases_on ‘h’ >> gvs []
   >> Cases_on ‘t''’ >> gvs []
   >> rename [‘cons_to_tc_and_hb loc x xs = (TCall ticks args handler')⁺ (HoleBlock tag l hole r)’]
+  >> gvs [evaluate_def]
+  >> drule conditions_i_need
+  >> strip_tac
   >> gvs [Once to_mut_cons_def, evaluate_def, evaluate_APPEND]
+  >> Cases_on ‘evaluate (l,env2,s')’ >> gvs []
+  >> Cases_on ‘q’ >> gvs []
+  >> imp_res_tac env_rel_strip_extras
+  >> gvs []
+  >> imp_res_tac env_rel_length_opt (* try opt *)
+  >> gvs []
+  >> Induct_on ‘hole’
+  >-
+   (strip_tac
+    >> gvs [evaluate_def, do_app_def, do_app_aux_def, backend_commonTheory.small_enough_int_def]
+    (* Should be a value I think *)
+    >> Cases_on ‘evaluate (r,env2' ++ [RefPtr F hole_ptr; Number hole_idx],r')’ >> gvs []
+    >> reverse $ Cases_on ‘q’ >> gvs [] >- cheat
+    >> imp_res_tac evaluate_IMP_LENGTH
+    >> gvs []
+    >> Cases_on ‘LENGTH env + 1’ >> gvs [EL_APPEND_EQN]
+    >> ‘n = LENGTH env’ by gvs []
+    >> gvs []
+    >> Cases_on ‘LENGTH env + 2’ >> gvs [EL_APPEND_EQN]
+    >> ‘n = LENGTH env + 1’ by gvs []
+    >> gvs []
+    >> ‘hole_ptr = LEAST ptr. ptr ∉ FDOM r''.refs’ by cheat (* I think we need to put this somewhere *)
+    >> simp [FLOOKUP_SIMP]
+    >> 
+    >> gvs [FLOOKUP_SIMP]
+    >> ‘hole_idx = &LENGTH a’ by cheat
+    >> gvs []
+    >> ‘LENGTH a ≤ 268435457’ by cheat
+    >> gvs []
+    >> cheat
+   )
   >> cheat
+QED
+
+Theorem conditions_i_need:
+  ∀loc x xs ticks args handler tag l hole r.
+    cons_to_tc_and_hb loc x xs = TC (TCall ticks args handler) (HoleBlock tag l hole r) ⇒
+    x = tag ∧
+    ∃call'.
+      xs = l ++ [call'] ++ r
+Proof
+  cheat
+QED
+
+(*
+Theorem evaluate_rewrite_opt_BlockOp_Cons: loc loc_opt tag args
+  ∀exp f f' env1 env2 v s t s' t' c.
+    exp = Op (BlockOp (Cons tag)) args ∧
+    cons_to_tc_and_hb loc x xs = TC (TCall ticks args handler) (HoleBlock tag l hole r) ∧
+    evaluate ([exp],env2,s') = (Rval [v],t') ∧
+    env_rel T f env1 env2 ∧
+    state_rel f s s' ∧
+    f ⊑ f' ∧
+    hole_has_val f env1 env2 s'.refs c ∧
+    holes_unchanged_except f s'.refs t'.refs ∅ ∧
+    only_fresh f f' s'.refs ∧
+    state_rel f' t t' ⇒
+    ∃r t''.
+      evaluate ([rewrite_opt_BlockOp_Cons loc (LENGTH env1) (LENGTH env1 + 1) (LENGTH env1 + 2) tag args],env2,s') = (r,t'') ∧
+      opt_res_rel (Rval [v]) r ∧
+      state_rel f' t t'' ∧
+      holes_unchanged_except f s'.refs t''.refs {env2❲LENGTH env1❳} ∧
+      hole_has_val f env1 env2 t''.refs v
+        
+
+  exp_opt = rewrite_opt_BlockOp_Cons loc l (l + 1) (l + 2) tag args ∧
+  evaluate ([xs],env,s) = 
+Proof
+  cheat
 QED
         
 Theorem renameme:
@@ -1760,6 +1831,7 @@ Proof
    (Cases_on ‘dest_Cons op’ >> gvs [] >> cheat)
   >> cheat
 QED
+*)
 
 Resume evaluate_rewrite_tmc[tick]:
   gvs [evaluate_def]

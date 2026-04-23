@@ -39,6 +39,131 @@ Definition effectful_exp_def:
   (effectful_exp e = effectful_exps [e])
 End
 
+(*
+Definition extract_binder_def:
+  extract_binder env_len exp = ([exp],[bvi$Var env_len])
+End
+        
+Definition extract_binders_def:
+  (extract_binders _ _ [] = ([],[])) ∧
+  (extract_binders _ env_len [Var n] = ([],[Var n])) ∧
+  (extract_binders loc env_len [Op op args] =
+   case dest_Cons op of
+   | NONE => extract_binder env_len (Op op args)
+   | SOME tag =>
+       case extract_binders loc env_len args of
+       | (bs,args') =>
+           (bs,[bvi$Op (BlockOp (Cons tag)) args'])) ∧
+  (extract_binders loc env_len [Call t l args h] =
+   case l of
+   | SOME loc' =>
+       if (loc = loc') then
+         case extract_binders loc env_len args of
+         | (bs,args') =>
+             (bs,[Call t l args' h])
+       else
+         extract_binder env_len (Call t l args h)) ∧
+  (extract_binders loc env_len [exp] = extract_binder env_len exp) ∧
+  (extract_binders loc env_len (exp::exps) =
+   case extract_binders loc env_len [exp] of
+   | (bs,exp') =>
+       case extract_binders loc (env_len + LENGTH bs) exps of
+       | (bs',exps') => (bs ++ bs',exp' ++ exps'))
+End
+
+Definition extract_to_let_def:
+  extract_to_let loc env_len tag args =
+  case extract_binders loc env_len [Op (BlockOp (Cons tag)) args] of
+  | (bs,op') => Let bs $ HD op'
+End
+
+Theorem evaluate_extract_binders:
+  ∀xs env s bs xs' loc t u r.
+    extract_binders loc (LENGTH env) xs = (bs,xs') ⇒
+    evaluate (xs,env,s) =
+    case evaluate (bs,env,s) of
+    | (Rval vs,t) =>
+        evaluate (xs',vs ++ env,t)
+    | (Rerr e,t) => (Rerr e,t)
+Proof
+  recInduct bviSemTheory.evaluate_ind
+  >> rpt strip_tac
+  >~ [‘evaluate ([],_,_)’] >-
+   (gvs [extract_binders_def, evaluate_def])
+  >~ [‘evaluate (x::y::xs,env,s)’] >-
+   (simp [Once evaluate_CONS]
+    >> cheat)
+  >~ [‘evaluate ([Var n],_,_)’] >-
+   (gvs [evaluate_def, extract_binders_def, extract_binder_def])
+  >~ [‘evaluate ([If _ _ _],_,_)’] >-
+   (gvs [evaluate_def]
+    >> Cases_on ‘extract_binders loc (LENGTH env) [x1]’ >> gvs []
+    >> rename [‘extract_binders loc (LENGTH env) [x1] = (bs1,x1')’]
+    >> first_x_assum drule
+    >> strip_tac
+    >> gvs []
+    >> Cases_on ‘evaluate (bs1,env,s)’ >> gvs []
+    >> cheat)
+  >> cheat
+QED
+
+Theorem evaluate_extract_to_let:
+  ∀xs env s xs' tag args loc t r.
+    xs = [Op (BlockOp (Cons tag)) args] ∧
+    xs' = [extract_to_let loc (LENGTH env) tag args] ⇒
+    evaluate(xs,env,s) = evaluate(xs',env,s)
+Proof
+  rw []
+  >> gvs [extract_to_let_def, extract_binders_def, dest_Cons_def]
+  >> ‘dest_Cons (BlockOp (Cons tag)) = SOME tag’ by cheat (* Why won't this simp away *)
+  >> gvs []
+  >> CASE_TAC >> gvs []
+  >> rename [‘extract_binders loc (LENGTH env) args = (bs,args')’]
+  >> gvs [evaluate_def]
+  >> drule evaluate_extract_binders
+  >> gvs []
+  >> disch_then $ qspec_then ‘s’ assume_tac
+  >> gvs []
+  >> CASE_TAC >> gvs []
+  >> Cases_on ‘q’ >> gvs []
+QED   
+
+
+
+
+Datatype:
+  hole_block = RecCall num (num list) (exp option) (* ticks, args (de Bruijn), handler *)
+             | HoleBlock num (num list) (hole_block) (num list) (* tag, args left of hole (de Bruijn), hole, args right of hole *)
+End
+
+Definition to_hole_block_def:
+  to_hole_block_def [Op op op_args] =
+  case dest_Cons op of
+  | NONE => [Op op op_args]
+  | SOME tag =>
+      case to_hole_block op_args of
+      | 
+End
+
+        
+Datatype:
+  tmc_exp = LetVar (exp list) num       (* Let bound variable; binders, de Bruijn index *)
+          | LetHb (exp list) hole_block (* Let bound hole block; binders, hole block *)
+End
+
+Definition to_tmc_exp_BlockOp_Cons_def:
+  (to_tmc_exp_BlockOp_Cons env_len tag [] =
+   LetVar [Op (BlockOp (Cons tag)) []] env_len) ∧
+  (to_tmc_exp_BlockOp_Cons env_len tag (op_arg::op_args) =
+   case to_tmc_exp_BlockOp_Cons env_len tag op_args of
+   | LetVar (b::bs) n =>
+       let op = Op () 
+       LetVar (new_thing::bs) n
+                           )
+End
+
+*)      
+
 Datatype:
   tcall = TCall num (exp list) (exp option) (* loc is not needed here, as it is known in function body *)
 End
@@ -190,14 +315,15 @@ Definition rewrite_opt_BlockOp_Cons_def:
     | TC (TCall t args h) (HoleBlock tag l hole r) =>
         let hb               = HoleBlock tag l hole r in
         let i                = & LENGTH l in
-        let arg_old_hole_ptr = Var i_old_hole_ptr in
-        let arg_old_hole_idx = Var i_old_hole_idx in
-        let var_new_hole_ptr = Var i_new_hole_ptr in
+        let arg_old_hole_ptr = Var (i_old_hole_ptr + 1) in
+        let arg_old_hole_idx = Var (i_old_hole_idx + 1) in
+        let var_new_hole_ptr = Var 0 in
         let exp_new_hole_idx = Op (IntOp (Const i)) [] in
         let exp_mut_cons     = to_mut_cons hb in
         let exp_update_hole  = Op (MemOp UpdateCons) [var_new_hole_ptr; arg_old_hole_idx; arg_old_hole_ptr] in
         let exp_tail_call    = Call t (SOME loc_opt) (exp_new_hole_idx :: var_new_hole_ptr :: args) h in
-          Let [exp_mut_cons; exp_update_hole] $ exp_tail_call
+          Let [exp_mut_cons] $
+              Let [exp_update_hole] $ exp_tail_call
     | _ =>
         let expr = Op (BlockOp (Cons block_tag)) op_args in
           fill_hole i_old_hole_ptr i_old_hole_idx expr
@@ -263,7 +389,7 @@ End
                      (g <- (op (Const 0)))
                      (op (Cons 0) (call my_append@465 (var b) (var e)) (var d)))))))))
 *)
-
+(*
 val append_exp = “If (Op (BlockOp (TagLenEq 0 0)) [Var 0]) (Var 1) $
                   Let [Op (BlockOp (ElemAt 0)) [Var 0];
                        Op (BlockOp (ElemAt 1)) [Var 0]] $
@@ -437,4 +563,4 @@ Theorem tail_cons_check4:
 Proof
   EVAL_TAC
 QED
-
+*)
