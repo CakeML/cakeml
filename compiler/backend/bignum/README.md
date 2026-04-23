@@ -13,5 +13,8 @@ Various programs written in bignumLang.
 [bignumSemScript.sml](bignumSemScript.sml):
 The formal semantics of bignumLang
 
+[bignum_andScript.sml](bignum_andScript.sml):
+Bignum and operation implementation in Pancake
+
 [multiword_extScript.sml](multiword_extScript.sml):
 Extensions to multiword that should be upstreamed.
