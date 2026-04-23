@@ -290,6 +290,147 @@ Definition pair_state_def:
   pair_state (is₁,ls₁) (is₂,ls₂) =
     ((λi. sum_CASE i is₁ is₂), (λl. sum_CASE l ls₁ ls₂))
 End
+
+Theorem pair_circuits_left_cons:
+  pair_circuits (a::circ₁) circ₂ =
+  left_and a::(pair_circuits circ₁ circ₂)
+Proof
+  simp [pair_circuits_def]
+QED
+
+Theorem pair_circuits_left_nil_right_cons:
+  pair_circuits [] (a::circ₂) =
+  right_and a::(pair_circuits [] circ₂)
+Proof
+  simp [pair_circuits_def]
+QED
+
+Theorem eval_circuit_pair_left_nil_INL[local]:
+  ¬eval_circuit ss (pair_circuits [] circ) (INL n)
+Proof
+  Induct_on ‘circ’ >> rw []
+  >> gvs [pair_circuits_def, eval_circuit_def]
+  >> rename1 ‘right_and a’ >> Cases_on ‘a’
+  >> simp [right_and_def]
+QED
+
+Theorem eval_circuit_pair_left_nil_INR[local]:
+  (∀n.
+     eval_circuit (pair_state ss₁ ss₂)
+       (pair_circuits ([]: ('a, 'i, 'l) circuit) circ) (INR n) =
+     eval_circuit ss₂ circ n) ∧
+  (∀m.
+     eval_lit (pair_state ss₁ ss₂)
+       (pair_circuits ([]: ('a, 'i, 'l) circuit) circ) (right_lit m) =
+     eval_lit ss₂ circ m)
+Proof
+  Induct_on ‘circ’ >> rw []
+  >- simp [pair_circuits_def, eval_circuit_def]
+  >-
+   (Cases_on ‘m’ >> simp [pair_circuits_def, right_lit_def]
+    >> rename1 ‘right_var x’ >> Cases_on ‘x’
+    >> simp [right_var_def, eval_circuit_def]
+    >> Cases_on ‘ss₁’ >> Cases_on ‘ss₂’ >> simp [pair_state_def]
+    >> rename1 ‘right_bvar b’ >> Cases_on ‘b’
+    >> simp [right_bvar_def, eval_bvar_def])
+  >> simp [pair_circuits_left_nil_right_cons]
+  >-
+   (rename1 ‘right_and a’ >> Cases_on ‘a’
+    >> simp [right_and_def, eval_circuit_def]
+    >> IF_CASES_TAC >> gvs []
+    >> simp [EVERY_MEM, MEM_MAP, PULL_EXISTS])
+  >> rename1 ‘right_lit m’ >> Cases_on ‘m’
+  >> simp [right_lit_def]
+  >> rename1 ‘right_var x’ >> Cases_on ‘x’
+  >> simp [right_var_def, eval_circuit_def]
+  >-
+   (rename1 ‘right_and y’ >> Cases_on ‘y’
+    >> simp [right_and_def]
+    >> IF_CASES_TAC >> gvs []
+    >> simp [EVERY_MEM, MEM_MAP, PULL_EXISTS])
+  >> Cases_on ‘ss₁’ >> Cases_on ‘ss₂’ >> simp [pair_state_def]
+  >> rename1 ‘right_bvar b’ >> Cases_on ‘b’
+  >> simp [right_bvar_def, eval_bvar_def]
+QED
+
+Theorem eval_lit_pair_left_nil_left[local]:
+  eval_lit (pair_state ss₁ ss₂) (pair_circuits [] circ₂) (left_lit n) =
+  eval_lit ss₁ [] n
+Proof
+  Cases_on ‘ss₁’ >> Cases_on ‘ss₂’ >> simp [pair_state_def]
+  >> Induct_on ‘circ₂’ >> gvs [pair_circuits_def]
+  >> Cases_on ‘n’ >> gvs [left_lit_def]
+  >-
+   (rename1 ‘left_var v’ >> Cases_on ‘v’
+    >> simp [left_var_def, eval_circuit_def]
+    >> rename1 ‘left_bvar b’ >> Cases_on ‘b’
+    >> simp [left_bvar_def, eval_bvar_def])
+  >> Cases >> simp [right_and_def]
+  >> rename1 ‘left_var v’ >> Cases_on ‘v’
+  >> gvs [left_var_def, eval_circuit_def]
+  >> rename1 ‘left_bvar b’ >> Cases_on ‘b’
+  >> simp [left_bvar_def, eval_bvar_def]
+QED
+
+Theorem eval_pair_left[simp]:
+  (∀n.
+     eval_circuit (pair_state ss₁ ss₂) (pair_circuits circ₁ circ₂) (INL n) =
+     eval_circuit ss₁ circ₁ n) ∧
+  (∀m.
+     eval_lit (pair_state ss₁ ss₂) (pair_circuits circ₁ circ₂) (left_lit m) =
+     eval_lit ss₁ circ₁ m)
+Proof
+  Induct_on ‘circ₁’ >> rw [eval_circuit_def]
+  >- simp [eval_circuit_pair_left_nil_INL]
+  >- simp [eval_lit_pair_left_nil_left]
+  >> simp [pair_circuits_left_cons]
+  >-
+   (simp [eval_circuit_def]
+    >> rename1 ‘left_and a’ >> Cases_on ‘a’
+    >> simp [left_and_def]
+    >> IF_CASES_TAC >> gvs []
+    >> simp [EVERY_MEM, MEM_MAP, PULL_EXISTS])
+  >> rename1 ‘left_lit m’ >> Cases_on ‘m’
+  >> simp [left_lit_def]
+  >> rename1 ‘left_var v’ >> Cases_on ‘v’
+  >> simp [eval_circuit_def, left_var_def]
+  >-
+   (rename1 ‘left_and b’ >> Cases_on ‘b’
+    >> simp [eval_circuit_def, left_and_def]
+    >> IF_CASES_TAC >> gvs []
+    >> simp [EVERY_MEM, MEM_MAP, PULL_EXISTS])
+  >> Cases_on ‘ss₁’ >> Cases_on ‘ss₂’ >> gvs [pair_state_def]
+  >> rename1 ‘left_bvar b’ >> Cases_on ‘b’
+  >> simp [left_bvar_def, eval_bvar_def]
+QED
+
+Theorem eval_pair_right[simp]:
+  (∀n.
+    eval_circuit (pair_state ss₁ ss₂) (pair_circuits circ₁ circ₂) (INR n) =
+    eval_circuit ss₂ circ₂ n) ∧
+  (∀m.
+    eval_lit (pair_state ss₁ ss₂) (pair_circuits circ₁ circ₂) (right_lit m) =
+    eval_lit ss₂ circ₂ m)
+Proof
+  Induct_on ‘circ₁’ >> rw [eval_circuit_def]
+  >- simp [eval_circuit_pair_left_nil_INR]
+  >- simp [eval_circuit_pair_left_nil_INR]
+  >> simp [pair_circuits_left_cons]
+  >-
+   (rename1 ‘left_and a’ >> Cases_on ‘a’
+    >> simp [left_and_def, eval_circuit_def])
+  >> rename1 ‘right_lit m’ >> Cases_on ‘m’
+  >> simp [right_lit_def]
+  >> rename1 ‘right_var x’ >> Cases_on ‘x’
+  >> simp [eval_circuit_def, right_var_def]
+  >-
+   (rename1 ‘left_and g’ >> Cases_on ‘g’
+    >> simp [left_and_def, eval_circuit_def])
+  >> Cases_on ‘ss₁’ >> Cases_on ‘ss₂’ >> gvs [pair_state_def]
+  >> rename1 ‘right_bvar b’ >> Cases_on ‘b’
+  >> simp [right_bvar_def, eval_bvar_def]
+QED
+
 (* Transition Function ********************************************************)
 
 Definition is_transition_def:
