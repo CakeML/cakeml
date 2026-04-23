@@ -213,6 +213,31 @@ Proof
   >> imp_res_tac MAX_LIST_PROPERTY >> simp []
 QED
 
+Definition encode_is_reset_def:
+  encode_is_reset ss (circ: ('a iext, 'i, 'l) circuit) name
+    (reset: 'l -> ('a iext,'i,'l) lit) (ls: 'l list) =
+  equiv circ name (ZIP (MAP (λl. (Base (Latch l), T)) ls, MAP reset ls))
+End
+
+Theorem eval_circuit_encode_is_reset_INL:
+  eval_circuit ss (encode_is_reset ss circ name reset ls) (INL n) =
+  if n = Ext name then
+    is_reset ss circ reset (set ls)
+  else eval_circuit ss circ (INL n)
+Proof
+  Cases_on ‘ss’
+  >> rw [eval_circuit_def, encode_is_reset_def, eval_circuit_equiv_INL]
+  >> simp [is_reset_def]
+  >> eq_tac >> rw []
+  >-
+   (gvs [EVERY_MEM]
+    >> rename1 ‘MEM l _’
+    >> first_x_assum $ qspec_then ‘((Base (Latch l), T), reset l)’ mp_tac
+    >> impl_tac >- simp [ZIP_MAP, MEM_MAP, PULL_EXISTS]
+    >> simp [])
+  >> rw [EVERY_MEM, ZIP_MAP, MEM_MAP] >> simp []
+QED
+
 (* --- old --- *)
 
 Datatype:
