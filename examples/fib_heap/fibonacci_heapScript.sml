@@ -3,7 +3,7 @@
 *)
 Theory fibonacci_heap
 Ancestors
-  misc words arithmetic list alist set_sep pair finite_map combin
+  misc words arithmetic list alist set_sep pair finite_map combin pred_set
 Libs
   wordsLib helperLib
 
@@ -1929,7 +1929,7 @@ Proof
   Cases_on `k IN (FDOM fh1)`
   >- (
     fs[FLOOKUP_DEF] >>
-    fs[pred_setTheory.DISJOINT_ALT]
+    fs[DISJOINT_ALT]
     ) >>
   fs[FLOOKUP_DEF] >>
   Cases_on `k IN (FDOM fh2)` >> fs[]
@@ -1976,7 +1976,7 @@ Proof
     fs[fill_dnode_def] >>
     rfs[lemma_data_node_cases] >>
     fs[FLOOKUP_DEF] >>
-    fs[pred_setTheory.DISJOINT_ALT] >>
+    fs[DISJOINT_ALT] >>
     res_tac
     ) >>
   pop_assum mp_tac >> simp[] >>
@@ -1992,7 +1992,7 @@ Proof
   pop_assum mp_tac >>
   simp[FLOOKUP_DEF] >>
   strip_tac >>
-  fs[pred_setTheory.DISJOINT_ALT] >>
+  fs[DISJOINT_ALT] >>
   `k ∉ FDOM fh2` by res_tac >>
   first_x_assum $ qspecl_then [`k`,`v.value`,`v.edges`] assume_tac >>
   pop_assum mp_tac >>
@@ -2107,7 +2107,7 @@ Proof
     qspecl_then [`fhy`,`fhx`,`(FibTree k' v' l'::t')`,`(FibTree k v l::t)`]
       assume_tac lemma_merge_heaps_inv >>
     fs[fts_hd_value_def] >>
-    fs[FUNION_COMM,pred_setTheory.DISJOINT_SYM] >>
+    fs[FUNION_COMM,DISJOINT_SYM] >>
     gvs[] >>
     pure_rewrite_tac[GSYM APPEND_ASSOC] >>
     pure_rewrite_tac[APPEND] >>
@@ -2879,7 +2879,7 @@ Proof
   strip_tac >>
   first_x_assum(qspec_then `f i` assume_tac) >>
   fs[MEM_GENLIST] >>
-  res_tac >> fs[pred_setTheory.DISJOINT_SYM]
+  res_tac >> fs[DISJOINT_SYM]
 QED
 
 
@@ -2903,10 +2903,10 @@ Proof
     drule_all LESS_EQUAL_ANTISYM >> strip_tac
     >- (
       imp_res_tac lemma_mem_genlist_imp_disjoint >>
-      gvs[pred_setTheory.DISJOINT_SYM]
+      gvs[DISJOINT_SYM]
       ) >>
     imp_res_tac lemma_mem_genlist_imp_disjoint >>
-    gvs[pred_setTheory.DISJOINT_SYM]
+    gvs[DISJOINT_SYM]
     ) >>
   simp[SUC_ONE_ADD] >>
   simp[lemma_genlist_append] >>
@@ -2942,7 +2942,7 @@ Proof
   strip_tac >> fs[] >>
   Cases_on `i = 0` >> Cases_on `j = 0` >> fs[]
   >- (Cases_on `j` >> fs[EL_MEM])
-  >- (Cases_on `i` >> fs[EL_MEM,pred_setTheory.DISJOINT_SYM]) >>
+  >- (Cases_on `i` >> fs[EL_MEM,DISJOINT_SYM]) >>
   Cases_on `j` >> Cases_on `i` >> fs[]
 QED
 
@@ -3010,7 +3010,7 @@ Proof
   pop_assum mp_tac >> once_rewrite_tac[lemma_cons_eq_append] >>
   simp[all_disjoint_append_thm] >> rpt strip_tac >>
   res_tac >> fs[] >>
-  fs[SUBMAP_FUNION,pred_setTheory.DISJOINT_SYM]
+  fs[SUBMAP_FUNION,DISJOINT_SYM]
 QED
 
 
@@ -3318,7 +3318,7 @@ Theorem lemma_disjoint_alist_imp_disjoint_fmap:
   DISJOINT (set $ MAP FST xs) (set $ MAP FST ys) ==>
   DISJOINT (FDOM $ alist_to_fmap xs) (FDOM $ alist_to_fmap ys)
 Proof
-  simp[pred_setTheory.IN_DISJOINT]
+  simp[IN_DISJOINT]
 QED
 
 
@@ -3580,7 +3580,7 @@ Proof
   first_assum (qspec_then `(q,r)` assume_tac) >> fs[] >>
   first_x_assum (qspecl_then [`fh`,`x`] assume_tac) >>
   rfs[all_disjoint_def] >>
-  fs[pred_setTheory.DISJOINT_SYM]
+  fs[DISJOINT_SYM]
 QED
 
 
@@ -3608,13 +3608,13 @@ Proof
   once_rewrite_tac[lemma_cons_eq_append] >>
   strip_tac >>
   imp_res_tac lemma_all_disjoint_split_first >>
-  fs[pred_setTheory.DISJOINT_SYM] >>
+  fs[DISJOINT_SYM] >>
   qspecl_then [`ys`,`fh`,`x`] mp_tac lemma_all_disjoint_split_first  >>
   simp[all_disjoint_append_thm] >>
   strip_tac >>
   fs[all_disjoint_def] >>
   imp_res_tac lemma_mem_imp_disjoint_gen >>
-  pop_assum mp_tac >> simp[Once pred_setTheory.DISJOINT_SYM]
+  pop_assum mp_tac >> simp[Once DISJOINT_SYM]
 QED
 
 
@@ -3757,7 +3757,7 @@ Proof
   >- (
     first_x_assum(qspecl_then [`(q,r)`,`(q',r')`] assume_tac) >>
     fs[] >>
-    fs[pred_setTheory.DISJOINT_SYM]
+    fs[DISJOINT_SYM]
     ) >>
   `(∀x y. (x = (q,r) ∨ MEM x xs) ∧ MEM y ys ⇒
    DISJOINT (FDOM (FST x)) (FDOM (FST y))) ⇒
@@ -3777,7 +3777,7 @@ Theorem lemma_fib_heap_union_reord:
 Proof
   fs[fib_heap_inv_union_def] >>
   fs[fh_union_append_thm,all_disjoint_append_thm] >>
-  rpt strip_tac >> fs[] >> res_tac >> fs[pred_setTheory.DISJOINT_SYM] >>
+  rpt strip_tac >> fs[] >> res_tac >> fs[DISJOINT_SYM] >>
   fs[GSYM EVERY_MEM] >>
   cheat
 QED
@@ -3786,8 +3786,6 @@ QED
 (*-------------------------------------------------------------------
  Rebalancing of Trees
 -------------------------------------------------------------------*)
-
-
 
 
 Definition fts_merge_trees_def:
@@ -3817,7 +3815,7 @@ Proof
   res_tac >> pop_assum mp_tac >>
   pure_rewrite_tac[flookup_thm] >>
   strip_tac >>
-  fs[pred_setTheory.DISJOINT_ALT] >>
+  fs[DISJOINT_ALT] >>
   fs[Once MONO_NOT_EQ] >>
   last_x_assum (qspec_then `k''` assume_tac) >> rfs[] >>
   Cases_on `x` >>
@@ -3934,7 +3932,7 @@ Proof
     >- fs[Once fts_has_cases] >>
     res_tac >>
     simp[FLOOKUP_SIMP] >> CASE_TAC >>
-    fs[FLOOKUP_DEF,pred_setTheory.DISJOINT_ALT] >> res_tac
+    fs[FLOOKUP_DEF,DISJOINT_ALT] >> res_tac
     ) >>
   Cases_on `h` >> fs[fts_merge_def] >>
   pop_assum mp_tac >> IF_CASES_TAC
@@ -3978,7 +3976,7 @@ Proof
       ) >>
     res_tac >>
     simp[FLOOKUP_SIMP] >> CASE_TAC >>
-    fs[FLOOKUP_DEF,pred_setTheory.DISJOINT_ALT] >> res_tac
+    fs[FLOOKUP_DEF,DISJOINT_ALT] >> res_tac
   ) >>
   simp[Once fts_has_cases] >>
   simp[Once fts_has_cases] >>
@@ -4004,7 +4002,7 @@ Proof
   >- (
     res_tac >>
     simp[FLOOKUP_SIMP] >> CASE_TAC >>
-    fs[FLOOKUP_DEF,pred_setTheory.DISJOINT_ALT] >> res_tac
+    fs[FLOOKUP_DEF,DISJOINT_ALT] >> res_tac
     ) >>
   simp[FLOOKUP_SIMP] >> CASE_TAC
   >- (
@@ -4231,7 +4229,7 @@ Proof
     imp_res_tac lemma_fts_has_in_map >>
   last_x_assum(qspecl_then [`k`,`v.value`,`v.edges`] assume_tac) >>
   imp_res_tac lemma_fts_has_first >>
-  fs[FLOOKUP_DEF,pred_setTheory.DISJOINT_ALT] >> res_tac
+  fs[FLOOKUP_DEF,DISJOINT_ALT] >> res_tac
 QED
 
 
@@ -4265,7 +4263,7 @@ Proof
   rpt strip_tac >>
   imp_res_tac lemma_fts_has_child_in_map >>
   imp_res_tac lemma_fts_has_in_map >>
-  fs[FLOOKUP_DEF,pred_setTheory.DISJOINT_ALT] >> res_tac
+  fs[FLOOKUP_DEF,DISJOINT_ALT] >> res_tac
 QED
 
 
@@ -4515,7 +4513,7 @@ Proof
   irule logical_fts_merge_trees >> fs[] >>
   fs[WORD_NOT_LOWER_EQUAL] >>
   fs[WORD_LOWER_IMP_LOWER_OR_EQ] >>
-  qexistsl[`fh2`,`fh1`] >> fs[pred_setTheory.DISJOINT_SYM]
+  qexistsl[`fh2`,`fh1`] >> fs[DISJOINT_SYM]
 QED
 
 
@@ -4532,7 +4530,35 @@ Definition fts_link_trees_def:
         (LUPDATE (SOME(FibTree k v l)) (LENGTH l) rl,T)
 End
 
+Theorem a_lemma:
+  LENGTH (fts_merge l [FibTree k' v' l']) = if l = [] then 1 else LENGTH l + 1
+Proof
+  Cases_on `l` >> gvs[fts_merge_def] >>
+  Cases_on `h` >> gvs[fts_merge_def] >>
+  rw[]
+QED
 
+fts_link_trees2_ind
+
+Definition fts_link_trees2_def:
+  fts_link_trees2 rl (FibTree k v l) =
+    if 196 <= (LENGTH l) then (rl,F) else
+    case EL (LENGTH l) rl of
+     |SOME(FibTree k' v' l') =>
+        if LENGTH l <> LENGTH l' then (rl,F) else
+        fts_link_trees2 (LUPDATE NONE (LENGTH l) rl)
+          (fts_merge_trees (FibTree k v l) (FibTree k' v' l'))
+     |NONE =>
+        (LUPDATE (SOME(FibTree k v l)) (LENGTH l) rl,T)
+Termination
+  WF_REL_TAC `measure $ \(rl,ft). case ft of FibTree k v l => 196 - LENGTH l` >>
+  rw[] >>
+  CASE_TAC >> gvs[] >>
+  fs[fts_merge_trees_def,AllCaseEqs()] >> gvs[] >>
+  rw[a_lemma] >> gvs[]
+End
+
+fts_merge_def
 
 Definition fhts_to_ts_def:
   fhts_to_ts fhts = GENLIST (\n. SND (EL n fhts)) (LENGTH fhts)
@@ -4547,6 +4573,21 @@ Definition ts_to_fhts_def:
              |SOME(t) => (alist_to_fmap (flat_fts [t]), SOME(t)))
       (LENGTH ts)
 End
+
+
+Theorem lemma_ts_to_fhts_to_map:
+  ts_to_fhts ts =
+    MAP
+      (\n. case n of
+             |NONE => (FEMPTY,NONE)
+             |SOME(t) => (alist_to_fmap (flat_fts [t]), SOME(t)))
+      ts
+Proof
+  rewrite_tac[ts_to_fhts_def] >>
+  rewrite_tac[LIST_EQ_REWRITE] >>
+  simp[EL_MAP]
+QED
+
 
 (*
 Theorem lemma_nested_ts_to_fhts_fhts_to_ts:
@@ -4620,7 +4661,7 @@ Theorem lemma_fh_eq_alist_to_fmap:
     (FDOM fh) = (FDOM (alist_to_fmap (flat_fts fts)))
 Proof
   rpt strip_tac >>
-  simp[pred_setTheory.EXTENSION] >>
+  simp[EXTENSION] >>
   strip_tac >>
   Cases_on `FLOOKUP fh x`
   >- (
@@ -4655,13 +4696,13 @@ Theorem lemma_alist_to_fmap_mem:
   !fts.
   fts_all_dist fts /\
   FLOOKUP (alist_to_fmap (flat_fts (fts))) x = SOME (v,e) ==>
+  MEM (x,v,e) (flat_fts fts)
   ?m. fts_has x (fill_dnode v e m) fts
 Proof
   cheat (*HELP?*)
 QED
 
-
-
+print_find "to_FLOOKUP"
 
 Theorem lemma_fh_submap_alist_to_fmap:
   !fh fts.
@@ -4671,31 +4712,13 @@ Theorem lemma_fh_submap_alist_to_fmap:
     fh SUBMAP (alist_to_fmap (flat_fts fts))
 Proof
   rpt strip_tac >>
-  simp[SUBMAP_DEF] >>
-  gen_tac >>
-  disch_tac >>
-  Cases_on `FLOOKUP fh x`
-  >- fs[FLOOKUP_DEF] >>
-  Cases_on `x'` >>
-  res_tac >>
-  imp_res_tac lemma_fts_has_eq_mem_fst_flat_fts >> fs[] >>
-  fs[FLOOKUP_DEF] >>
-  imp_res_tac lemma_alist_to_fmap_flookup >>
-  rfs[FLOOKUP_DEF] >>
-  Cases_on `y` >> fs[] >>
-  Cases_on `x'` >>
-  Cases_on `fts`
-  >- fs[flat_fts_def] >>
-  Cases_on `h` >>
-  fs[fts_all_dist_def] >>
-  cheat
-(*
-  Cases_on `fts`
-    first_x_assum(qspec_then `x` assume_tac) >>
-    gvs[] >>
-    irule lemma_fts_has_eq_mem_fst_flat_fts
-    qspecl_then [`x`,`(fill_dnode v e m)`,`fts`]
-      assume_tac lemma_fts_has_eq_mem_fst_flat_fts >> *)
+  simp[TO_FLOOKUP] >>
+  simp[FORALL_PROD] >>
+  rpt strip_tac >>
+  dep_rewrite.DEP_REWRITE_TAC[GSYM MEM_ALOOKUP] >>
+  simp[lemma_flat_fts_all_distinct] >>
+  simp[lemma_mem_eq_fts_has] >>
+  pop_assum $ irule_at Any
 QED
 
 
@@ -4742,7 +4765,7 @@ Proof
   drule_all EL_MEM >> strip_tac >>
   gvs[] >>
   drule_all fh_union_mem_submap_thm >> strip_tac >>
-  fs[SUBMAP_FUNION,pred_setTheory.DISJOINT_SYM]
+  fs[SUBMAP_FUNION,DISJOINT_SYM]
 QED
 
 
@@ -4830,11 +4853,11 @@ Proof
   imp_res_tac lemma_fh_union_el_snd >>
   fs[fib_heap_inv_union2_def] >> gvs[] >>
   imp_res_tac SUBMAP_FDOM_SUBSET >>
-  imp_res_tac pred_setTheory.DISJOINT_SUBSET >>
+  imp_res_tac DISJOINT_SUBSET >>
   qpat_x_assum `fib_heap_inv fh [x]` mp_tac >>
   simp[fib_heap_inv_def] >> strip_tac >>
   drule lemma_fh_eq_alist_to_fmap >>
-  strip_tac >> fs[pred_setTheory.DISJOINT_SYM]
+  strip_tac >> fs[DISJOINT_SYM]
 QED
 
 
@@ -4864,13 +4887,13 @@ Proof
     `j < LENGTH rl` by gvs[] >>
     fs[EL_LUPDATE] >>
     drule_all lemma_fts_link_list_upd_all_disjoint_lupdate >>
-    gvs[pred_setTheory.DISJOINT_SYM]
+    gvs[DISJOINT_SYM]
     )
   >- (
     `i < LENGTH rl` by gvs[] >>
     fs[EL_LUPDATE] >>
     drule_all lemma_fts_link_list_upd_all_disjoint_lupdate >>
-    gvs[pred_setTheory.DISJOINT_SYM]
+    gvs[DISJOINT_SYM]
     ) >>
   fs[EL_LUPDATE] >>
   rfs[EL_MAP] >>
@@ -4923,15 +4946,30 @@ Proof
   strip_tac >>
   pure_rewrite_tac[fhts_to_ts_def] >>
   pure_rewrite_tac[GENLIST_EL_MAP] >>
-  pure_rewrite_tac[ts_to_fhts_def] >>
+  pure_rewrite_tac[lemma_ts_to_fhts_to_map] >>
+  `LENGTH l < LENGTH rl` by gvs[] >>
+  drule LESS_LENGTH >> strip_tac >> gvs[] >>
+  rewrite_tac[GSYM APPEND_ASSOC,APPEND] >>
+  `LENGTH l = LENGTH (MAP SND ys1)` by simp[] >>
+  asm_rewrite_tac[LUPDATE_LENGTH] >>
+  asm_rewrite_tac[MAP_APPEND,MAP] >>
+  simp[fh_union_append_thm,fh_union_def] >>
+
+  rewrite_tac[MAP_MAP_o]
   pure_rewrite_tac[LENGTH_LUPDATE,LENGTH_MAP] >>
   qpat_abbrev_tac `xs = (MAP SND rl)❲LENGTH l ↦ SOME (FibTree k v l)❳` >>
+
   pure_rewrite_tac[fh_union_genlist_thm] >>
   pure_rewrite_tac[EL_GENLIST] >>
   cheat
 QED
 
+print_match [] “LUPDATE _ (LENGTH xs) (xs ++ _)”
 
+print_match [] “_ < LENGTH _ ==> ? _ _ _. _ = _ ++ _::_ /\ LENGTH _ =_ ”
+
+fh_union_def
+fh_union_foldl_thm
 
 Theorem lemma_fts_link_list_upd:
   fib_heap_inv_strong fh1 [FibTree k v l] /\
@@ -4953,12 +4991,7 @@ Proof
 QED
 
 
-
-
-
-
-
-
+fts_link_trees_def
 
 
 Theorem fts_link_trees:
@@ -5016,13 +5049,14 @@ Proof
 QED
 *)
 
-
+(*
+TODO: finish fts_link_list
 Definition fts_link_root_list_def:
   (fts_link_root_list (c:num) (rm, []) = rm) /\
   (fts_link_root_list c (rm, (FibTree k v l::fts)) =
     fts_link_root_list c (fts_link_trees c (rm, LENGTH l, FibTree k v l), fts))
 End
-
+*)
 
 (*
 Theorem fts_reb_trees:
@@ -5038,7 +5072,8 @@ QED
 *)
 
 
-
+(*
+TODO: Finish linking!
 Definition fts_collect_list_def:
   (fts_collect_list (r:num) mp acc =
     if r = 0 then
@@ -5057,7 +5092,7 @@ Definition fts_reb_def:
   (fts_reb n xs =
     fts_collect_list n (fts_link_root_list n (FEMPTY, xs)) )
 End
-
+*)
 (*
 
 Currently, not used!
@@ -5119,7 +5154,6 @@ Proof
   pop_assum $ irule_at Any
    ) >>
   cheat
-
 QED
 
 (*
@@ -5222,7 +5256,7 @@ QED
 
 
 *)
-
+(*
 Theorem lemma_flookup_in_map_or_upd:
   !fts fh k v e.
     FLOOKUP(fh |++ flat_fts fts) k = SOME (v,e) ==>
@@ -5244,7 +5278,7 @@ Proof
   rfs[] >>
   Cases_on `k = k'` >> fs[FLOOKUP_SIMP]
 QED
-
+*)
 (*
 Theorem lemma_insert_list_new_min_inv:
   !fts fh fh2 xs.
