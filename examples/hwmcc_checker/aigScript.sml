@@ -84,8 +84,8 @@ Definition is_reset_def:
   is_reset ss (circ: ('a, 'i, 'l) circuit)
     (reset: 'l -> ('a,'i,'l) lit) (ls: 'l set) =
   ∀l. l ∈ ls ⇒
-      eval_lit ss circ (reset l) =
-      eval_lit ss circ (Base (Latch l), T)
+      eval_lit ss circ (Base (Latch l), F) =
+      eval_lit ss circ (reset l)
 End
 
 (* Extension types for names *)
@@ -216,7 +216,7 @@ QED
 Definition encode_is_reset_def:
   encode_is_reset ss (circ: ('a iext, 'i, 'l) circuit) name
     (reset: 'l -> ('a iext,'i,'l) lit) (ls: 'l list) =
-  equiv circ name (ZIP (MAP (λl. (Base (Latch l), T)) ls, MAP reset ls))
+  equiv circ name (ZIP (MAP (λl. (Base (Latch l), F)) ls, MAP reset ls))
 End
 
 Theorem eval_circuit_encode_is_reset_INL:
@@ -232,10 +232,99 @@ Proof
   >-
    (gvs [EVERY_MEM]
     >> rename1 ‘MEM l _’
-    >> first_x_assum $ qspec_then ‘((Base (Latch l), T), reset l)’ mp_tac
+    >> first_x_assum $ qspec_then ‘((Base (Latch l), F), reset l)’ mp_tac
     >> impl_tac >- simp [ZIP_MAP, MEM_MAP, PULL_EXISTS]
     >> simp [])
   >> rw [EVERY_MEM, ZIP_MAP, MEM_MAP] >> simp []
+QED
+
+(* Pairing circuits ***********************************************************)
+
+(* Combines two circuits into one, keeping them separate using the sum type. *)
+
+Definition left_bvar_def:
+  (left_bvar (Input i) = Input (INL i)) ∧
+  (left_bvar (Latch l) = Latch (INL l)) ∧
+  (left_bvar Ff        = Ff)
+End
+
+Definition left_var_def:
+  (left_var (Name a)  = Name (INL a)) ∧
+  (left_var (Base bv) = Base (left_bvar bv))
+End
+
+Definition left_lit_def:
+  left_lit (v, b) = (left_var v, b)
+End
+
+Definition left_and_def:
+  left_and (n, ins) = (INL n, MAP left_lit ins)
+End
+
+Definition right_bvar_def:
+  (right_bvar (Input i) = Input (INR i)) ∧
+  (right_bvar (Latch l) = Latch (INR l)) ∧
+  (right_bvar Ff        = Ff)
+End
+
+Definition right_var_def:
+  (right_var (Name a)  = Name (INR a)) ∧
+  (right_var (Base bv) = Base (right_bvar bv))
+End
+
+Definition right_lit_def:
+  right_lit (v, b) = (right_var v, b)
+End
+
+Definition right_and_def:
+  right_and (n, ins) = (INR n, MAP right_lit ins)
+End
+
+Definition pair_circuits_def:
+  pair_circuits (circ₁: ('a₁, 'i₁, 'l₁) circuit)
+    (circ₂: ('a₂, 'i₂, 'l₂) circuit) =
+  MAP left_and circ₁ ++ MAP right_and circ₂
+End
+
+Definition pair_state_def:
+  pair_state (is₁,ls₁) (is₂,ls₂) =
+    ((λi. sum_CASE i is₁ is₂), (λl. sum_CASE l ls₁ ls₂))
+End
+(* Transition Function ********************************************************)
+
+Definition is_transition_def:
+  is_transition ss (circ: ('a, 'i, 'l + 'l) circuit)
+    (next: 'l + 'l -> ('a, 'i, 'l + 'l) lit) (ls: 'l set) =
+  ∀l. l ∈ ls ⇒
+      (eval_lit ss circ (Base (Latch (INR l)), F) ⇔
+       next_state ss circ next (INL l))
+End
+
+Definition encode_is_transition_def:
+  encode_is_transition ss (circ: ('a iext, 'i, 'l + 'l) circuit) name
+    (next: 'l + 'l -> ('a iext, 'i, 'l + 'l) lit) (ls: 'l list) =
+  equiv circ name
+    (ZIP (MAP (λl. (Base (Latch (INR l)), F)) ls, MAP (next ∘ INL) ls))
+End
+
+Theorem eval_circuit_encode_is_reset_INL:
+  eval_circuit ss (encode_is_transition ss circ name next ls) (INL n) =
+  if n = Ext name then
+    is_transition ss circ next (set ls)
+  else eval_circuit ss circ (INL n)
+Proof
+  Cases_on ‘ss’
+  >> rw [eval_circuit_def, encode_is_transition_def, eval_circuit_equiv_INL]
+  >> simp [is_transition_def]
+  >> eq_tac >> rw []
+  >-
+   (gvs [EVERY_MEM]
+    >> rename1 ‘MEM l _’
+    >> first_x_assum $ qspec_then
+         ‘((Base (Latch (INR l)), F), next (INL l))’ mp_tac
+    >> impl_tac >- simp [ZIP_MAP, MEM_MAP, PULL_EXISTS]
+    >> simp [next_state_def])
+  >> rw [EVERY_MEM, ZIP_MAP, MEM_MAP] >> simp [next_state_def]
 QED
 
 (* --- old --- *)
