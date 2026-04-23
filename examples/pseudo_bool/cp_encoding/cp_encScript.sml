@@ -135,18 +135,18 @@ Definition full_encode_def:
 End
 
 Definition conv_concl_def:
-  (conv_concl inst (OBounds lbi ubi) =
-  case SND (SND inst) of
+  (conv_concl cpobj (OBounds lbi ubi) =
+  case cpobj of
     Maximize v => OBounds (OPTION_MAP (λv. -v) ubi) (OPTION_MAP (λv. -v) lbi)
   | _ => (OBounds lbi ubi)) ∧
-  (conv_concl inst concl = concl)
+  (conv_concl cpobj concl = concl)
 End
 
 Theorem full_encode_sem_concl:
   ALL_DISTINCT (MAP FST (FST (SND inst))) ∧
   full_encode inst = (obj,pbf) ∧
   sem_concl (set (MAP SND pbf)) obj {} concl ⇒
-  cp_inst_sem_concl inst (conv_concl inst concl)
+  cp_inst_sem_concl inst (conv_concl (SND (SND inst)) concl)
 Proof
   `∃bnd cs v. inst = (bnd,cs,v)` by metis_tac[PAIR]>>
   strip_tac>>
@@ -222,23 +222,3 @@ Proof
       fs[cp_sat_def]>>
       intLib.ARITH_TAC))
 QED
-
-(*
-open pb_parseTheory
-
-(rconc (EVAL ``
-  concat
-  (print_annot_prob
-  (NONE,
-  (full_encode
-  ([strlit "X", (-5,10);
-   strlit "Y", (-5,5);
-   strlit "Z", (0,100)],
-  [
-    (strlit"foo",
-      Extensional (Table [[SOME 1; NONE; SOME 2]; [SOME 1; NONE; SOME 3]]
-        [INL (strlit "X"); INL (strlit "Y"); INL (strlit "Z")]))
-  ],
-  Maximize (strlit "Z")))))``));
-
-*)

@@ -4,19 +4,11 @@
 *)
 Theory cpProg
 Ancestors
-  basis_ffi pbc pbc_encode pbc_normalise npbc_parseProg cp cp_parse
-  int_bitwise ilp ilp_to_pb cp_enc
-  cp_to_ilp
-  cp_to_ilp_prim
-  cp_to_ilp_counting
-  cp_to_ilp_linear
-  cp_to_ilp_array
-  cp_to_ilp_extensional
-  cp_to_ilp_logical
-  cp_to_ilp_lexicographical
-  cp_to_ilp_channeling
-  cp_to_ilp_misc
-  cp_to_ilp_all
+  basis_ffi pbc pbc_encode pbc_normalise npbc_parseProg
+  int_bitwise ilp ilp_to_pb cp cp_parse cp_enc cp_to_ilp
+  cp_to_ilp_prim cp_to_ilp_counting cp_to_ilp_linear cp_to_ilp_array
+  cp_to_ilp_extensional cp_to_ilp_logical cp_to_ilp_lexicographical
+  cp_to_ilp_channeling cp_to_ilp_misc cp_to_ilp_all
 Libs
   preamble basis
 
@@ -444,7 +436,13 @@ val res = translate format_string_def;
 val res = translate full_encode_def;
 val res = translate conv_concl_def;
 
-(* Actual CakeML setup *)
+(* CF CakeML setup *)
+Overload "cp_inst_TYPE" = ``
+  PAIR_TYPE
+    (LIST_TYPE (PAIR_TYPE vomap_TYPE (PAIR_TYPE INT INT)))
+  (PAIR_TYPE
+    (LIST_TYPE (PAIR_TYPE vomap_TYPE (CP_CONSTRAINT_TYPE vomap_TYPE)))
+    (CP_OBJECTIVE_TYPE vomap_TYPE))``
 
 Definition get_cp_inst_def:
   get_cp_inst fs f =
@@ -468,11 +466,32 @@ Quote add_cakeml:
     handle TextIO.BadFileName => Inl (notfound_string f)
 End
 
+Theorem parse_cp_file_spec:
+  STRING_TYPE f fv ∧
+  validArg f ∧
+  hasFreeFD fs
+  ⇒
+  app (p:'ffi ffi_proj) ^(fetch_v"parse_cp_file"(get_ml_prog_state()))
+    [fv]
+    (STDIO fs)
+    (POSTv v.
+    STDIO fs *
+    & ∃res.
+       SUM_TYPE STRING_TYPE cp_inst_TYPE res v ∧
+       case res of
+        INL err =>
+          get_cp_inst fs f = NONE
+      | INR inst =>
+          get_cp_inst fs f = SOME inst)
+Proof
+  cheat
+QED
+
 Quote add_cakeml:
   fun parse_and_enc f =
   case parse_cp_file f of
     Inl err => Inl err
-  | Inr inst => Inr (inst, full_encode inst)
+  | Inr inst => Inr (snd (snd inst), full_encode inst)
 End
 
 Theorem parse_and_enc_spec:
@@ -487,7 +506,8 @@ Theorem parse_and_enc_spec:
     STDIO fs *
     & ∃res.
        SUM_TYPE STRING_TYPE
-         (PAIR_TYPE CP_INST_TYPE (PAIR_TYPE
+         (PAIR_TYPE (CP_OBJECTIVE_TYPE STRING_TYPE)
+         (PAIR_TYPE
             (OPTION_TYPE (PAIR_TYPE
               (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE)))
             INT))
@@ -499,11 +519,24 @@ Theorem parse_and_enc_spec:
        case res of
         INL err =>
           get_cp_inst fs f = NONE
-      | INR (inst,objf) =>
+      | INR (cpobj,objf) =>
+          ∃inst.
           get_cp_inst fs f = SOME inst ∧
+          SND (SND inst) = cpobj ∧
           full_encode inst = objf)
 Proof
-  cheat
+  rw[]>>
+  xcf"parse_and_enc"(get_ml_prog_state())>>
+  xlet_autop>>
+  Cases_on`res`>>gvs[SUM_TYPE_def]>>
+  xmatch
+  >- (
+    xcon>>xsimpl>>
+    simp[AllCasePreds(),PULL_EXISTS,SUM_TYPE_def]>>
+    metis_tac[])>>
+  rpt xlet_autop>>
+  xcon>>xsimpl>>
+  simp[AllCasePreds(),PULL_EXISTS,SUM_TYPE_def,PAIR_TYPE_def]
 QED
 
 Definition cp_no_concl_str_def:
@@ -543,9 +576,9 @@ val res = translate cp_no_concl_str_def;
 val res = translate print_cp_concl_str_def;
 
 Definition map_concl_to_string_def:
-  (map_concl_to_string inst (INL s) = (INL s)) ∧
-  (map_concl_to_string inst (INR (out,bnd,c)) =
-    INR (print_cp_concl_str (conv_concl inst c)))
+  (map_concl_to_string cpobj (INL s) = (INL s)) ∧
+  (map_concl_to_string cpobj (INR (out,bnd,c)) =
+    INR (print_cp_concl_str (conv_concl cpobj c)))
 End
 
 val res = translate map_concl_to_string_def;
@@ -597,7 +630,68 @@ Theorem check_unsat_2_spec:
       STDIO (add_stdout (add_stderr fs err) out) *
       &(check_unsat_2_sem fs f1 out))
 Proof
-  cheat
+  rw[check_unsat_2_sem_def]>>
+  xcf "check_unsat_2" (get_ml_prog_state ())>>
+  reverse (Cases_on `STD_streams fs`) >- (fs [TextIOProofTheory.STDIO_def] \\ xpull) >>
+  xlet_autop>>
+  Cases_on`res`>>fs[SUM_TYPE_def]
+  >- (
+    xmatch>>
+    xapp_spec output_stderr_spec \\ xsimpl>>
+    asm_exists_tac>>xsimpl>>
+    qexists_tac`emp`>>xsimpl>>
+    qexists_tac`fs`>>xsimpl>>
+    rw[]>>
+    qexists_tac`x`>>xsimpl>>rw[]>>
+    fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
+    xsimpl)>>
+  Cases_on`y`>>fs[PAIR_TYPE_def]>>
+  xmatch>>
+  xlet_autop>>
+  xlet_autop>>
+  assume_tac npbc_parseProgTheory.default_prob_v_thm>>
+  xlet`POSTv v.
+    STDIO fs *
+    &prob_TYPE default_prob v`
+  >-
+    (xvar>>xsimpl)>>
+  xlet`POSTv v. STDIO fs * &BOOL F v`
+  >-
+    (xcon>>xsimpl)>>
+  drule npbc_parseProgTheory.check_unsat_top_norm_spec>>
+  qpat_x_assum`prob_TYPE (strip_annot_prob (mk_prob _)) _`assume_tac>>
+  disch_then drule>>
+  qpat_x_assum`prob_TYPE default_prob _`assume_tac>>
+  disch_then drule>>
+  strip_tac>>
+  xlet_auto
+  >- (
+    xsimpl>>
+    fs[validArg_def]>>
+    metis_tac[])>>
+  xlet_autop>>
+  every_case_tac>>gvs[SUM_TYPE_def]
+  >- (
+    fs[map_concl_to_string_def,SUM_TYPE_def]>>
+    xmatch>>
+    xapp_spec output_stderr_spec \\ xsimpl>>
+    asm_exists_tac>>xsimpl>>
+    qexists_tac`emp`>>xsimpl>>
+    qexists_tac`fs`>>xsimpl>>
+    rw[]>>
+    qexists_tac`strlit ""`>>
+    rename1`add_stderr _ err`>>
+    qexists_tac`err`>>xsimpl>>rw[]>>
+    fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
+    xsimpl)>>
+  fs[map_concl_to_string_def]>>
+  every_case_tac>>fs[SUM_TYPE_def]>>xmatch
+  >- (
+    xapp>>xsimpl>>
+    asm_exists_tac>>simp[]>>
+    qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
+    rw[]>>
+    cheat)
 QED
 
 (* Emit just the PB encoding on stdout. *)
@@ -613,7 +707,7 @@ Quote add_cakeml:
   fun check_unsat_1 f1 =
   case parse_and_enc f1 of
     Inl err => TextIO.output TextIO.stdErr err
-  | Inr (inst,objf) =>
+  | Inr (cpobj,objf) =>
     TextIO.print_list (print_annot_prob (mk_prob objf))
 End
 
@@ -629,7 +723,30 @@ Theorem check_unsat_1_spec:
       STDIO (add_stdout (add_stderr fs err) out) *
       &(check_unsat_1_sem fs f1 out))
 Proof
-  cheat
+  rw[check_unsat_1_sem_def]>>
+  xcf "check_unsat_1" (get_ml_prog_state ())>>
+  reverse (Cases_on `STD_streams fs`) >- (fs [TextIOProofTheory.STDIO_def] \\ xpull) >>
+  xlet_autop>>
+  Cases_on`res`>>fs[SUM_TYPE_def]
+  >- (
+    xmatch>>
+    xapp_spec output_stderr_spec \\ xsimpl>>
+    asm_exists_tac>>xsimpl>>
+    qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
+    fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
+    rw[]>>
+    qexists_tac`x`>>xsimpl)>>
+  Cases_on`y`>>gvs[PAIR_TYPE_def]>>
+  xmatch>>
+  xlet_autop>>
+  xlet_autop>>
+  xapp_spec print_list_spec>>xsimpl>>
+  asm_exists_tac>>xsimpl>>
+  qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
+  rw[]>>
+  qexists_tac`strlit ""`>>
+  simp[STD_streams_stderr,add_stdo_nil]>>
+  xsimpl
 QED
 
 Definition usage_string_def:
