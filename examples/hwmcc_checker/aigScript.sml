@@ -468,6 +468,47 @@ Proof
   >> rw [EVERY_MEM, ZIP_MAP, MEM_MAP] >> simp [next_state_def]
 QED
 
+(* Lifting to iext ************************************************************)
+
+Definition iext_var_def:
+  (iext_var (Name (a: 'a))  = Name ((INL (Orig a)): 'a iext)) ∧
+  (iext_var (Base bv) = Base bv)
+End
+
+Definition iext_lit_def:
+  iext_lit (v, b) = (iext_var v, b)
+End
+
+Definition iext_and_def:
+  iext_and ((n, ins): ('a, 'i, 'l) and) =
+  (INL (Orig n), MAP iext_lit ins): ('a iext, 'i, 'l) and
+End
+
+Definition iext_circuit_def:
+  iext_circuit circ = MAP iext_and circ
+End
+
+Theorem eval_circuit_iext_circuit[simp]:
+  (∀n.
+     eval_circuit ss (iext_circuit circ) (INL (Orig n)) =
+     eval_circuit ss circ n) ∧
+  ∀l. eval_lit ss (iext_circuit circ) (iext_lit l) = eval_lit ss circ l
+Proof
+  Induct_on ‘circ’ >> rw [iext_circuit_def, eval_circuit_def]
+  >-
+   (Cases_on ‘l’ >> simp [iext_lit_def]
+    >> rename1 ‘iext_var v’ >> Cases_on ‘v’ >> simp [iext_var_def]
+    >> simp [eval_circuit_def])
+  >-
+   (rename1 ‘iext_and a’ >> Cases_on ‘a’ >> simp [iext_and_def]
+    >> IF_CASES_TAC >> gvs [EVERY_MAP])
+  >> Cases_on ‘l’ >> simp [iext_lit_def]
+  >> rename1 ‘iext_var v’ >> Cases_on ‘v’ >> simp [iext_var_def]
+  >> simp [eval_circuit_def]
+  >> rename1 ‘iext_and b’ >> Cases_on ‘b’ >> simp [iext_and_def]
+  >> IF_CASES_TAC >> gvs [EVERY_MAP]
+QED
+
 (* --- old --- *)
 
 Datatype:
