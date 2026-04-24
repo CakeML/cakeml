@@ -57,6 +57,12 @@ Definition eval_circuit_def:
      else eval_circuit ss tl n)
 End
 
+Theorem eval_circuit_nil[simp]:
+  ¬eval_circuit ss [] n
+Proof
+  simp [eval_circuit_def]
+QED
+
 Theorem eval_lit_flip:
   eval_lit ss circ (v,¬b) ⇔ ¬eval_lit ss circ (v,b)
 Proof
@@ -507,6 +513,147 @@ Proof
   >> simp [eval_circuit_def]
   >> rename1 ‘iext_and b’ >> Cases_on ‘b’ >> simp [iext_and_def]
   >> IF_CASES_TAC >> gvs [EVERY_MAP]
+QED
+
+(* Merging circuit ************************************************************)
+(* Merging two circuits results in a new circuit where the inputs and latches
+   are shared. *)
+
+Definition left_name_var_def:
+  (left_name_var (Name a)  = Name (INL a)) ∧
+  (left_name_var (Base bv) = Base bv)
+End
+
+Definition left_name_lit_def:
+  left_name_lit (v, b) = (left_name_var v, b)
+End
+
+Definition left_name_and_def:
+  left_name_and (n, ins) = (INL n, MAP left_name_lit ins)
+End
+
+Definition right_name_var_def:
+  (right_name_var (Name a)  = Name (INR a)) ∧
+  (right_name_var (Base bv) = Base bv)
+End
+
+Definition right_name_lit_def:
+  right_name_lit (v, b) = (right_name_var v, b)
+End
+
+Definition right_name_and_def:
+  right_name_and (n, ins) = (INR n, MAP right_name_lit ins)
+End
+
+Definition merge_circuits_def:
+  merge_circuits (circ₁: ('a₁, 'i, 'l) circuit) (circ₂: ('a₂, 'i, 'l) circuit) =
+    (MAP left_name_and circ₁ ++ MAP right_name_and circ₂)
+    :('a₁ + 'a₂, 'i, 'l) circuit
+End
+
+Theorem merge_circuits_left_cons:
+  merge_circuits (a::circ₁) circ₂ =
+  left_name_and a::(merge_circuits circ₁) circ₂
+Proof
+  simp [merge_circuits_def]
+QED
+
+Theorem merge_circuits_left_nil_right_cons:
+  merge_circuits [] (a::circ) =
+  right_name_and a::(merge_circuits [] circ)
+Proof
+  simp [merge_circuits_def]
+QED
+
+Theorem eval_circuit_merge_circuits_left_nil_INL[local]:
+  ¬eval_circuit ss (merge_circuits [] circ) (INL n)
+Proof
+  Induct_on ‘circ’ >> rw [merge_circuits_def, eval_circuit_def]
+  >> rpt (pairarg_tac >> gvs [])
+  >> rename1 ‘right_name_and a’
+  >> Cases_on ‘a’ >> gvs [right_name_and_def, merge_circuits_def]
+QED
+
+Theorem eval_lit_merge_circuits_left_nil_left[local]:
+  eval_lit ss (merge_circuits [] circ) (left_name_lit m) ⇔
+  eval_lit ss [] m
+Proof
+  Induct_on ‘circ’
+  >> Cases_on ‘m’ >> fs [left_name_lit_def]
+  >> rename1 ‘left_name_var x’ >> Cases_on ‘x’ >> fs [left_name_var_def]
+  >> fs [merge_circuits_def, eval_circuit_def]
+  >> Cases >> simp [right_name_and_def]
+QED
+
+Theorem eval_circuit_merge_circuits_left_nil_INR[local]:
+  (∀n.
+     eval_circuit ss (merge_circuits ([]: ('a, 'i, 'l) circuit) circ) (INR n) =
+     eval_circuit ss circ n) ∧
+  (∀m.
+     eval_lit ss (merge_circuits ([]: ('a, 'i, 'l) circuit) circ) (right_name_lit m) =
+     eval_lit ss circ m)
+Proof
+  Induct_on ‘circ’ >> rw []
+  >- simp [merge_circuits_def]
+  >-
+   (simp [merge_circuits_def]
+    >> Cases_on ‘m’ >> simp [right_name_lit_def]
+    >> rename1 ‘right_name_var v’ >> Cases_on ‘v’ >> simp [right_name_var_def]
+    >> simp [eval_circuit_def])
+  >> simp [merge_circuits_left_nil_right_cons]
+  >-
+   (simp [eval_circuit_def]
+    >> rename1 ‘right_name_and h’ >> Cases_on ‘h’ >> simp [right_name_and_def]
+    >> IF_CASES_TAC >> gvs [EVERY_MAP])
+  >> Cases_on ‘m’ >> simp [right_name_lit_def]
+  >> rename1 ‘right_name_var v’ >> Cases_on ‘v’ >> simp [right_name_var_def]
+  >> simp [eval_circuit_def]
+  >> rename1 ‘right_name_and h’ >> Cases_on ‘h’ >> simp [right_name_and_def]
+  >> IF_CASES_TAC >> gvs [EVERY_MAP]
+QED
+
+Theorem eval_circuit_merge_circuits_left:
+  (∀n.
+     eval_circuit ss (merge_circuits circ₁ circ₂) (INL n) =
+     eval_circuit ss circ₁ n) ∧
+  (∀m.
+     eval_lit ss (merge_circuits circ₁ circ₂) (left_name_lit m) =
+     eval_lit ss circ₁ m)
+Proof
+  Induct_on ‘circ₁’ >> rw []
+  >- simp [eval_circuit_merge_circuits_left_nil_INL]
+  >- simp [eval_lit_merge_circuits_left_nil_left]
+  >> simp [merge_circuits_left_cons]
+  >-
+   (simp [eval_circuit_def]
+    >> rename1 ‘left_name_and a’ >> Cases_on ‘a’ >> simp [left_name_and_def]
+    >> IF_CASES_TAC >> gvs [EVERY_MAP])
+  >> rename1 ‘left_name_lit m’ >> Cases_on ‘m’ >> simp [left_name_lit_def]
+  >> rename1 ‘left_name_var v’ >> Cases_on ‘v’ >> simp [left_name_var_def]
+  >> simp [eval_circuit_def]
+  >> rename1 ‘left_name_and b’ >> Cases_on ‘b’ >> simp [left_name_and_def]
+  >> IF_CASES_TAC >> gvs [EVERY_MAP]
+QED
+
+Theorem eval_circuit_merge_circuits_right:
+  (∀n.
+     eval_circuit ss (merge_circuits circ₁ circ₂) (INR n) =
+     eval_circuit ss circ₂ n) ∧
+  (∀m.
+     eval_lit ss (merge_circuits circ₁ circ₂) (right_name_lit m) =
+     eval_lit ss circ₂ m)
+Proof
+  Induct_on ‘circ₁’ >> rw []
+  >- simp [eval_circuit_merge_circuits_left_nil_INR]
+  >- simp [eval_circuit_merge_circuits_left_nil_INR]
+  >> simp [merge_circuits_left_cons]
+  >-
+   (rename1 ‘left_name_and a’ >> Cases_on ‘a’ >> simp [left_name_and_def]
+    >> simp [eval_circuit_def])
+  >> Cases_on ‘m’ >> simp [right_name_lit_def]
+  >> rename1 ‘right_name_var v’ >> Cases_on ‘v’ >> simp [right_name_var_def]
+  >> rename1 ‘left_name_and h’ >> Cases_on ‘h’ >> simp [left_name_and_def]
+  >> simp [eval_circuit_def]
 QED
 
 (* --- old --- *)
