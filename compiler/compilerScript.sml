@@ -53,6 +53,8 @@ OPTIONS:
                    genN   - a generational Cheney garbage collector is
                             used; the size of the nursery generation is
                             N machine words (example: --gc=gen5000)
+                This option has no effect under --pancake; the Pancake
+                compiler always uses gc=none.
 
   --target=T    specifies that compilation should produce code for target
                 T, where T can be one of x64, arm8, mips, riscv for
@@ -710,6 +712,11 @@ Definition compile_64_def:
     (List[], error_to_str (ConfigError (concat [get_err_str confexp;get_err_str topconf])))
 End
 
+Definition pancake_backend_conf_def:
+  pancake_backend_conf c =
+    c with data_conf := (c.data_conf with gc_kind := None)
+End
+
 Definition compile_pancake_64_def:
   compile_pancake_64 cl input =
   let confexp = parse_target_64 cl in
@@ -725,6 +732,7 @@ Definition compile_pancake_64_def:
           | INR err =>
               (List[], error_to_str (ConfigError (get_err_str ext_conf)))
           | INL ext_conf =>
+              let ext_conf = pancake_backend_conf ext_conf in
               case compiler$compile_pancake aconf ext_conf input of
               | (Failure err, td, warns) =>
                   (List[], concat (MAP error_to_str (err::(if nowarn then [] else warns))))
@@ -800,6 +808,7 @@ Definition compile_pancake_32_def:
           | INR err =>
               (List[], error_to_str (ConfigError (get_err_str ext_conf)))
           | INL ext_conf =>
+              let ext_conf = pancake_backend_conf ext_conf in
               case compiler$compile_pancake aconf ext_conf input of
               | (Failure err, td, warns) =>
                   (List[], concat (MAP error_to_str (err::(if nowarn then [] else warns))))
