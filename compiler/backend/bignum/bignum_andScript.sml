@@ -52,6 +52,48 @@ Definition one_list_def:
   one_list a (x::xs) = one (a,x) * one_list (a + bytes_in_word) xs
 End
 
+Theorem evaluate_Annot[simp]:
+  evaluate (Annot s₁ s₂, s) = (NONE, s)
+Proof
+  simp [evaluate_def]
+QED
+
+Theorem evaluate_Seq_Annot[simp]:
+  evaluate (Seq (Annot s₁ s₂) c, s) = evaluate (c, s) ∧
+  evaluate (Seq c (Annot s₁ s₂), s) = evaluate (c, s)
+Proof
+  simp [evaluate_def]
+  >> rpt (pairarg_tac >> gvs [])
+  >> IF_CASES_TAC >> simp []
+QED
+
+Theorem dec_clock_eq[simp]:
+  (dec_clock s).locals = s.locals ∧
+  (dec_clock s).memaddrs = s.memaddrs ∧
+  (dec_clock s).memory = s.memory
+Proof
+  simp [dec_clock_def]
+QED
+
+(* Theorem evaluate_Dec: *)
+(*   eval s e = SOME value ⇒ *)
+(*   evaluate (Dec v shape e prog, s) = *)
+(*   let (res,st) = evaluate (prog,s with locals := s.locals |+ (v,value)) in *)
+(*     (res, st with locals := res_var st.locals (v, FLOOKUP s.locals v)) *)
+(* Proof *)
+(*   simp [evaluate_def] *)
+(* QED *)
+
+(* Theorem evaluate_While_True_NONE: *)
+(*   eval s e = SOME (ValWord w) ∧ w ≠ 0w ∧ s.clock ≠ 0 ∧ *)
+(*   evaluate (c, dec_clock s) = (NONE, s₁) *)
+(*   ⇒ *)
+(*   (evaluate (While e c,s) = (NONE, s') ⇔ *)
+(*    evaluate (While e c, s₁) = (NONE, s')) *)
+(* Proof *)
+(*   rw [Once evaluate_def] *)
+(* QED *)
+
 Theorem and_pos_pos_thm:
   ∀xs ys zs rs x y z dm m frame s s1.
     mw_and xs ys = zs ∧ LENGTH xs ≤ LENGTH ys ∧
@@ -76,17 +118,18 @@ Theorem and_pos_pos_thm:
        frame) (fun2set (m, s.memaddrs))
 Proof
   simp []
-  \\ Induct \\ rw [mw_and_def]
+  >> Induct >> rw [mw_and_def]
   >-
    (simp [and_pos_pos_loop_def]
-    \\ simp [Once evaluate_def,eval_def,asmTheory.word_cmp_def]
-    \\ simp [state_component_equality])
-  \\ simp [and_pos_pos_loop_def]
-  \\ simp [Once evaluate_def,eval_def,asmTheory.word_cmp_def]
-  \\ simp [GSYM and_pos_pos_loop_def]
-  \\ ‘SUC (LENGTH xs) < dimword (:α)’ by cheat
-  \\ gvs []
-  \\ cheat
+    >> simp [Once evaluate_def,eval_def,asmTheory.word_cmp_def]
+    >> simp [state_component_equality])
+  >> simp [and_pos_pos_loop_def]
+  >> simp [Once evaluate_def,eval_def,asmTheory.word_cmp_def]
+  >> simp [GSYM and_pos_pos_loop_def]
+  >> ‘SUC (LENGTH xs) < dimword (:α)’ by cheat
+  >> gvs []
+  >> simp [Once evaluate_def, eval_def]
+  >> cheat
 QED
 
 (*
