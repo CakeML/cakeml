@@ -74,12 +74,6 @@ EVAL``eval_lit (is,ls) circ TT``
 EVAL``eval_lit (is,ls) circ FF``
 *)
 
-Definition next_state_def:
-  next_state ss (circ: ('a, 'i, 'l) circuit)
-    (next: 'l -> ('a,'i,'l) lit) =
-  eval_lit ss circ ∘ next
-End
-
 Definition preds_hold_def:
   preds_hold ss (circ: ('a, 'i, 'l) circuit)
     (ns: ('a,'i,'l) lit set) =
@@ -92,6 +86,172 @@ Definition is_reset_def:
   ∀l. l ∈ ls ⇒
       eval_lit ss circ (Base (Latch l), F) =
       eval_lit ss circ (reset l)
+End
+
+Definition is_next_def:
+  is_next ss₀ (circ: ('a, 'i, 'l) circuit)
+    (next: 'l -> ('a,'i,'l) lit) (latches: 'l set) ls₁ =
+  ∀l. l ∈ latches ⇒
+      eval_lit ss₀ circ (next l) = ls₁ l
+End
+
+Definition is_trace_def:
+  is_trace (circ: ('a, 'i, 'l) circuit)
+    (reset: 'l -> ('a,'i,'l) lit) (next: 'l -> ('a,'i,'l) lit)
+    (cnstrs: ('a,'i,'l) lit set)
+    (is: 'i inputs) (tr: num -> 'i inputs # 'l state) (n: num)
+  ⇔
+    (let (is₀, ls) = tr 0 in is_reset (is, ls) circ reset 𝕌(:'l)) ∧
+    ∀i. i < n ⇒
+      let (is, s) = tr (i + 1) in
+      is_next (tr i) circ next 𝕌(:'l) s ∧
+      preds_hold (tr i) circ cnstrs
+End
+
+Definition is_unsafe_def:
+  is_unsafe (circ: ('a, 'i, 'l) circuit)
+    (reset: 'l -> ('a,'i,'l) lit) (next: 'l -> ('a,'i,'l) lit)
+    (cnstrs: ('a,'i,'l) lit set) (safe: ('a,'i,'l) lit set)
+  =
+  ∃(is: 'i inputs) (tr: num -> 'i inputs # 'l state) (n: num).
+    is_trace circ reset next cnstrs is tr n ∧
+    ¬preds_hold (tr n) circ safe
+End
+
+Definition is_safe_def:
+  is_safe (circ: ('a, 'i, 'l) circuit)
+    (reset: 'l -> ('a,'i,'l) lit) (next: 'l -> ('a,'i,'l) lit)
+    (cnstrs: ('a,'i,'l) lit set) (safe: ('a,'i,'l) lit set) ⇔
+  ¬is_unsafe circ reset next cnstrs safe
+End
+
+(* Soundness ******************************************************************)
+
+Definition is_witness_reset_def:
+  is_witness_reset
+    mcirc mreset mnext mpreds mcnstrs mlatches
+    wcirc wreset wnext wpreds wcnstrs wlatches
+  ⇔
+  ∀ss.
+    (is_reset ss mcirc mreset (mlatches ∩ wlatches) ∧
+     preds_hold ss mcirc mcnstrs
+     ⇒
+     is_reset ss wcirc wreset (mlatches ∩ wlatches) ∧
+     preds_hold ss wcirc wcnstrs)
+End
+
+Definition is_witness_transition_def:
+  is_witness_transition
+    mcirc mreset mnext mpreds mcnstrs mlatches
+    wcirc wreset wnext wpreds wcnstrs wlatches
+  ⇔
+  ∀ss₀ ss₁.
+    (is_next ss₀ mcirc mnext (mlatches ∩ wlatches) (SND ss₁) ∧
+     preds_hold ss₀ mcirc mcnstrs ∧
+     preds_hold ss₁ mcirc mcnstrs ∧
+     preds_hold ss₀ wcirc wcnstrs)
+    ⇒
+    (is_next ss₀ wcirc wnext (mlatches ∩ wlatches) (SND ss₁) ∧
+     preds_hold ss₁ wcirc wcnstrs)
+End
+
+Definition is_witness_property_def:
+  is_witness_property
+    mcirc mreset mnext mpreds mcnstrs mlatches
+    wcirc wreset wnext wpreds wcnstrs wlatches
+  ⇔
+  ∀ss.
+    (preds_hold ss mcirc mcnstrs ∧
+     preds_hold ss wcirc wcnstrs)
+    ⇒
+    (preds_hold ss mcirc mpreds ∧
+     preds_hold ss wcirc wpreds)
+End
+
+Definition is_witness_base_def:
+  is_witness_base
+    mcirc mreset mnext mpreds mcnstrs mlatches
+    wcirc wreset wnext wpreds wcnstrs wlatches
+  ⇔
+    ∀ss.
+      (is_reset ss wcirc wreset wlatches ∧
+       preds_hold ss wcirc wcnstrs)
+      ⇒
+      preds_hold ss wcirc wpreds
+End
+
+Definition is_witness_step_def:
+  is_witness_step
+    mcirc mreset mnext mpreds mcnstrs mlatches
+    wcirc wreset wnext wpreds wcnstrs wlatches
+  ⇔
+    ∀ss₀ ss₁.
+      (preds_hold ss₀ wcirc wpreds ∧
+       is_next ss₀ wcirc wnext wlatches (SND ss₁) ∧
+       preds_hold ss₀ wcirc wcnstrs ∧
+       preds_hold ss₁ wcirc wcnstrs)
+      ⇒
+      preds_hold ss₁ wcirc wpreds
+End
+
+Definition is_witness_def:
+  is_witness
+    mcirc mreset mnext mpreds mcnstrs mlatches
+    wcirc wreset wnext wpreds wcnstrs wlatches
+  ⇔
+  is_witness_reset
+    mcirc mreset mnext mpreds mcnstrs mlatches
+    wcirc wreset wnext wpreds wcnstrs wlatches
+  ∧
+  is_witness_transition
+    mcirc mreset mnext mpreds mcnstrs mlatches
+    wcirc wreset wnext wpreds wcnstrs wlatches
+  ∧
+  is_witness_property
+    mcirc mreset mnext mpreds mcnstrs mlatches
+    wcirc wreset wnext wpreds wcnstrs wlatches
+  ∧
+  is_witness_base
+    mcirc mreset mnext mpreds mcnstrs mlatches
+    wcirc wreset wnext wpreds wcnstrs wlatches
+  ∧
+  is_witness_step
+    mcirc mreset mnext mpreds mcnstrs mlatches
+    wcirc wreset wnext wpreds wcnstrs wlatches
+End
+
+Theorem is_reset_subset:
+  is_reset ss circ reset ls ∧ ls' ⊆ ls ⇒
+  is_reset ss circ reset ls'
+Proof
+  rw [is_reset_def] >> metis_tac [SUBSET_DEF]
+QED
+
+Theorem is_witness_is_safe:
+  is_witness
+    mcirc mreset mnext mpreds mcnstrs mlatches
+    wcirc wreset wnext wpreds wcnstrs wlatches
+  ⇒
+  is_safe
+    mcirc mreset mnext mpreds mcnstrs
+Proof
+  rw [is_witness_def, is_safe_def]
+  >> CCONTR_TAC >> fs [is_unsafe_def]
+  >> rename1 ‘is_trace _ _ _ _ is₀ tr n’
+  >> namedCases_on ‘tr 0’ ["is₁ s₀"]
+  >> ‘is_reset (is₀, s₀) mcirc mreset (mlatches ∩ wlatches)’ by
+    (fs [is_trace_def] >> drule is_reset_subset >> simp [])
+  >> cheat
+QED
+
+(* Implementation *************************************************************)
+
+Definition is_transition_def:
+  is_transition ss (circ: ('a, 'i, 'l + 'l) circuit)
+    (next: 'l + 'l -> ('a, 'i, 'l + 'l) lit) (ls: 'l set) =
+  ∀l. l ∈ ls ⇒
+      (eval_lit ss circ (Base (Latch (INR l)), F) ⇔
+       eval_lit ss circ (next (INL l)))
 End
 
 (* Extension types for names *)
@@ -439,14 +599,6 @@ QED
 
 (* Transition Function ********************************************************)
 
-Definition is_transition_def:
-  is_transition ss (circ: ('a, 'i, 'l + 'l) circuit)
-    (next: 'l + 'l -> ('a, 'i, 'l + 'l) lit) (ls: 'l set) =
-  ∀l. l ∈ ls ⇒
-      (eval_lit ss circ (Base (Latch (INR l)), F) ⇔
-       next_state ss circ next (INL l))
-End
-
 Definition encode_is_transition_def:
   encode_is_transition ss (circ: ('a iext, 'i, 'l + 'l) circuit) name
     (next: 'l + 'l -> ('a iext, 'i, 'l + 'l) lit) (ls: 'l list) =
@@ -470,8 +622,8 @@ Proof
     >> first_x_assum $ qspec_then
          ‘((Base (Latch (INR l)), F), next (INL l))’ mp_tac
     >> impl_tac >- simp [ZIP_MAP, MEM_MAP, PULL_EXISTS]
-    >> simp [next_state_def])
-  >> rw [EVERY_MEM, ZIP_MAP, MEM_MAP] >> simp [next_state_def]
+    >> simp [])
+  >> rw [EVERY_MEM, ZIP_MAP, MEM_MAP] >> simp []
 QED
 
 (* Lifting to iext ************************************************************)
@@ -694,24 +846,6 @@ End
 Definition preds_hold_def:
   preds_hold sis (circ: ('a, 'l, 'i) circuit) (xs: 'a set) =
   ∀x. x ∈ xs ⇒ eval_circuit sis circ x
-End
-
-Definition is_trace_def:
-  is_trace (circ: ('a, 'l, 'i) circuit) (reset: 'l -> 'a) (next: 'l -> 'a)
-    (cnstr: 'a set) (tr: num -> 'l state # 'i inputs)
-  ⇔
-    (∃is. let (s, _) = tr 0 in is_reset (s, is) circ reset) ∧
-    ∀i.
-      let (s, _) = tr (i + 1) in
-      next_state (tr i) circ next = s ∧
-      preds_hold (tr i) circ cnstr
-End
-
-Definition is_safe_def:
-  is_safe (circ: ('a, 'l, 'i) circuit) (reset: 'l -> 'a) (next: 'l -> 'a)
-    (cnstr: 'a set) (safe: 'a set) ⇔
-    ∀tr.
-      is_trace circ reset next cnstr tr ⇒ ∀i. preds_hold (tr i) circ safe
 End
 
 (* Cs ∧ C′s ∧ P′s → Ps *)
