@@ -1269,7 +1269,7 @@ Proof
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
       imp_res_tac v_to_char_list >>
       srw_tac[][] >>
-      namedCases_on ‘strng’ ["s"] >>
+      namedCases_on ‘str’ ["s"] >>
       fs [] >>
       Induct_on `s` >>
       fs [semanticPrimitivesTheory.list_to_v_def,flatSemTheory.list_to_v_def] >>
@@ -1282,7 +1282,7 @@ Proof
       srw_tac[][markerTheory.Abbrev_def] >>
       srw_tac[][markerTheory.Abbrev_def] >>
       full_simp_tac(srw_ss())[v_rel_lems]
-      >> rename1 ‘explode strng’ >> Cases_on ‘strng’ >> fs [])
+      >> rename1 ‘explode str’ >> Cases_on ‘str’ >> fs [])
   >~ [‘Strlen’] >- (
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems])

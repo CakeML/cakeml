@@ -28,14 +28,14 @@ QED
 
 Theorem splitwords_concat:
    isSpace sp ⇒
-   splitwords (s1 ^ str sp ^ s2) = splitwords s1 ++ splitwords s2
+   splitwords (s1 ^ toString sp ^ s2) = splitwords s1 ++ splitwords s2
 Proof
   rewrite_tac [GSYM strcat_assoc]
   \\ rw[splitwords_def,mlstringTheory.tokens_append,mlstringTheory.strcat_assoc]
 QED
 
 Theorem splitwords_concat_space:
-   isSpace sp ⇒ splitwords (s1 ^ str sp) = splitwords s1
+   isSpace sp ⇒ splitwords (s1 ^ toString sp) = splitwords s1
 Proof
   rw[] \\ qspec_then`implode ""`mp_tac(Q.GEN`s2`splitwords_concat) \\
   fs[mlstringTheory.strcat_thm]
@@ -47,7 +47,7 @@ Theorem splitwords_lines_of:
 Proof
   `isSpace #"\n"` by EVAL_TAC \\
   rw[all_lines_file_def,lines_of_def,MAP_MAP_o,o_DEF,
-     GSYM mlstringTheory.str_def,splitwords_concat_space] \\
+     GSYM mlstringTheory.chr_to_str_def,splitwords_concat_space] \\
   rw[splitwords_def,mlstringTheory.TOKENS_eq_tokens_sym] \\
   srw_tac[ETA_ss][GSYM o_DEF,GSYM MAP_MAP_o] \\
   simp[GSYM MAP_FLAT] \\ AP_TERM_TAC \\
@@ -91,13 +91,13 @@ QED
 
 Theorem frequency_concat:
    isSpace sp ⇒
-   frequency (s1 ^ str sp ^ s2) w = frequency s1 w + frequency s2 w
+   frequency (s1 ^ toString sp ^ s2) w = frequency s1 w + frequency s2 w
 Proof
   rw[frequency_def,splitwords_concat,FILTER_APPEND]
 QED
 
 Theorem frequency_concat_space:
-   isSpace sp ⇒ frequency (s1 ^ str sp) = frequency s1
+   isSpace sp ⇒ frequency (s1 ^ toString sp) = frequency s1
 Proof
   rw[FUN_EQ_THM,frequency_def,splitwords_concat_space]
 QED

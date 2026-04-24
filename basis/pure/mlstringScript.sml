@@ -287,20 +287,22 @@ Proof
     rw[concatWith_def, CONCAT_WITH_def, concatWith_CONCAT_WITH_aux]
 QED
 
-Definition str_def:
-  str (c: char) = implode [c]
+Definition chr_to_str_def:
+  chr_to_str (c: char) = implode [c]
 End
 
-Theorem explode_str[simp]:
-   explode (str c) = [c]
+Overload toString = “chr_to_str”
+
+Theorem explode_toString[simp]:
+   explode (toString c) = [c]
 Proof
-  rw[str_def]
+  rw[chr_to_str_def]
 QED
 
-Theorem strlen_str[simp]:
-   strlen (str c) = 1
+Theorem strlen_toString[simp]:
+   strlen (toString c) = 1
 Proof
-rw[str_def]
+rw[chr_to_str_def]
 QED
 
 Definition translate_aux_def:
@@ -517,7 +519,7 @@ Theorem TOKENS_eq_tokens_sym =
 Theorem tokens_append:
    !P s1 x s2.
     P x ==>
-      (tokens P (strcat (strcat s1 (str x)) s2) = tokens P s1 ++ tokens P s2)
+      (tokens P (strcat (strcat s1 (toString x)) s2) = tokens P s1 ++ tokens P s2)
 Proof
     rw[TOKENS_eq_tokens_sym] \\ Cases_on `s1` \\ Cases_on `s2`
     \\ rewrite_tac[GSYM MAP_APPEND] \\ AP_TERM_TAC
@@ -546,11 +548,11 @@ End
 
 Theorem substring_1_strsub:
   i < strlen s ⇒
-  substring s i 1 = str (strsub s i)
+  substring s i 1 = toString (strsub s i)
 Proof
   Cases_on`s`>>rw[substring_def]>>
   DEP_REWRITE_TAC[SEG1]>>
-  gvs[str_def,implode_def]
+  gvs[chr_to_str_def,implode_def]
 QED
 
 Theorem substring_0[simp]:

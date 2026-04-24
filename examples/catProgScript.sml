@@ -87,7 +87,7 @@ Proof
   \\ xmatch
   \\ xlet ‘POSTv uv.
              &UNIT_TYPE () uv *
-             STDIO (add_stdout (forwardFD fs fd k) (str c)) *
+             STDIO (add_stdout (forwardFD fs fd k) (toString c)) *
              INSTREAM_STR fd is rest (forwardFD fs fd k)’
   >-
    (xapp_spec output1_stdOut_spec
@@ -97,7 +97,7 @@ Proof
     \\ simp [] \\ xsimpl)
   \\ once_rewrite_tac [INSTREAM_STR_get_file_content] \\ xpull
   \\ xapp
-  \\ qexistsl [‘emp’, ‘add_stdout (forwardFD fs fd k) (str c)’, ‘fd’]
+  \\ qexistsl [‘emp’, ‘add_stdout (forwardFD fs fd k) (toString c)’, ‘fd’]
   \\ xsimpl
   \\ ‘STD_streams (forwardFD fs fd k)’ by
     (DEP_REWRITE_TAC [STD_streams_forwardFD] \\ simp [])
