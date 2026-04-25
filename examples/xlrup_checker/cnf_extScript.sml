@@ -405,7 +405,7 @@ Theorem print_lit_alt:
   (print_lit (Neg n) = int_to_string (#"-") (-&n))
 Proof
   rw[print_lit_def,int_to_string_thm,num_to_str_thm]>>
-  simp[strcat_def,concat_def,implode_def]
+  simp[strcat_def,concat_def]
 QED
 
 Overload nz_lit = ``(λl. var_lit l ≠ 0)``

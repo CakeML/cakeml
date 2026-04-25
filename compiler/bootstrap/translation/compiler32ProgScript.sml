@@ -235,12 +235,11 @@ val res = translate
 ( data_section_def
   |> SIMP_RULE std_ss [MAP]
   |> CONV_RULE(DEPTH_CONV(EVAL o (assert is_strcat_lits)))
-  |> SIMP_RULE std_ss [mlstringTheory.implode_STRCAT |> REWRITE_RULE[mlstringTheory.implode_def]]
+  |> SIMP_RULE std_ss [mlstringTheory.implode_STRCAT]
   |> SIMP_RULE std_ss [mlstringTheory.strcat_assoc]
-  |> SIMP_RULE std_ss [GSYM(mlstringTheory.implode_STRCAT |> REWRITE_RULE[mlstringTheory.implode_def])]
+  |> SIMP_RULE std_ss [GSYM mlstringTheory.implode_STRCAT]
   |> CONV_RULE(DEPTH_CONV(EVAL o (assert is_strcat_lits)))
-  |> SIMP_RULE std_ss [mlstringTheory.implode_STRCAT |> REWRITE_RULE[mlstringTheory.implode_def]]
-  |> CONV_RULE(DEPTH_CONV(RATOR_CONV (REWR_CONV (SYM mlstringTheory.implode_def)) o (assert is_strlit_var))))
+  |> SIMP_RULE std_ss [mlstringTheory.implode_STRCAT])
 (* -- *)
 
 val res = translate comm_strlit_def;

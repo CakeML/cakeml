@@ -163,7 +163,7 @@ Definition clos_interpreter_body_def:
         (Op None (GlobOp (Global 0)) [GetEl 0 $ V 0]) $
       IsCase 0 1 (* Var *)
         (Letrec [] NONE NONE
-           [(1,Fn (mlstring$strlit "") NONE NONE 1 clos_interp_el)] $
+           [(1,Fn (implode "") NONE NONE 1 clos_interp_el)] $
            App None NONE (App None NONE (V 0) [GetEl 0 $ V 1]) [V 3]) $
       IsCase 1 2 (* Let *)
         (Let None [CallInterpList (V 2) (GetEl 0 $ V 0)] $
@@ -182,7 +182,7 @@ Definition clos_interpreter_body_def:
       (* Cons for non-empty payload *)
       Let None [CallInterpList (V 2) (GetEl 0 $ V 0)] $
       Letrec [] NONE NONE
-        [(1,Fn (mlstring$strlit "") NONE NONE 1 clos_interp_rev)] $
+        [(1,Fn (implode "") NONE NONE 1 clos_interp_rev)] $
       Let None [App None NONE (App None NONE (V 0) [V 1]) [Op None (BlockOp (Cons 0)) []]] $
       Let None [V 3] $
       IsCase 5 1 (* Cons 0 *) (Op None (BlockOp (FromList 0)) [V 1]) $
@@ -193,8 +193,8 @@ End
 
 Definition clos_interpreter_def:
   clos_interpreter =
-    Fn (mlstring$strlit "env") NONE NONE 1 $
-    Fn (mlstring$strlit "exp") NONE NONE 1 $
+    Fn (implode "env") NONE NONE 1 $
+    Fn (implode "exp") NONE NONE 1 $
       clos_interpreter_body
 End
 
@@ -228,7 +228,7 @@ Definition compile_init_def:
   compile_init b =
     Let None [Op None (GlobOp AllocGlobal) [Op None (IntOp (Const 1)) []];
               if b then
-                Fn (mlstring$strlit "clos_interpreter") NONE NONE 1 clos_interpreter
+                Fn (implode "clos_interpreter") NONE NONE 1 clos_interpreter
               else
                 Op None (BlockOp (Cons 0)) []]
       (Op None (GlobOp (SetGlobal 0)) [Var None 1])
@@ -283,4 +283,3 @@ Proof
   CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
   \\ rpt CASE_TAC \\ fs [to_constant_op_def]
 QED
-

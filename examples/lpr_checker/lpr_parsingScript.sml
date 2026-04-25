@@ -875,8 +875,7 @@ Proof
       metis_tac[ASCIInumbersTheory.EVERY_isDigit_num_to_dec_string]>>
     pop_assum mp_tac>>match_mp_tac MONO_EVERY>>
     EVAL_TAC>>rw[])>>
-  simp[SPLITP,mlstringTheory.implode_def,mlstringTheory.substring_def]>>
-  simp[GSYM mlstringTheory.implode_def]>>
+  simp[SPLITP,mlstringTheory.substring_def]>>
   `1:num = SUC 0` by simp[]>>
   pop_assum SUBST_ALL_TAC>>
   simp[Once SEG_SUC_CONS]>>

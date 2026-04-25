@@ -93,7 +93,7 @@ Proof
     qmatch_goalsub_abbrev_tac `GENLIST f ` >>
     qexists_tac `ZIP (l,MAP Tyvar (GENLIST f (LENGTH l)))` >>
     `ALL_DISTINCT (GENLIST f (LENGTH l))` by (
-      rw[ALL_DISTINCT_GENLIST,Abbr`f`,implode_def]
+      rw[ALL_DISTINCT_GENLIST,Abbr`f`]
       >> imp_res_tac REPLICATE_inj
     ) >>
     drule TYPE_SUBST_ZIP_ident >> fs[]
@@ -531,7 +531,7 @@ Proof
       >> fs[MAP_GENLIST,MEM_GENLIST,o_DEF,ALL_DISTINCT_GENLIST]
       >> conj_tac
       >- (
-        rw[REPLICATE_GENLIST,implode_def]
+        rw[REPLICATE_GENLIST]
         >> qmatch_asmsub_abbrev_tac `GENLIST f`
         >> qspec_then `f` mp_tac LENGTH_GENLIST
         >> disch_then (fn x => ONCE_REWRITE_TAC[GSYM x])

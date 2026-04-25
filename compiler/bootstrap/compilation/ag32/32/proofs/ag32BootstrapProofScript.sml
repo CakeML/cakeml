@@ -263,7 +263,7 @@ Proof
   \\ simp[AFUPDKEY_ALOOKUP]
   \\ TOP_CASE_TAC
   \\ TOP_CASE_TAC
-  \\ fs[mlstringTheory.implode_def]
+  \\ fs[]
 QED
 
 Theorem ALOOKUP_add_stderr_inode_tbl:
@@ -286,7 +286,7 @@ Proof
   \\ simp[AFUPDKEY_ALOOKUP]
   \\ TOP_CASE_TAC
   \\ TOP_CASE_TAC
-  \\ fs[mlstringTheory.implode_def]
+  \\ fs[]
 QED
 
 Theorem ALOOKUP_add_stdout_infds:
@@ -374,7 +374,7 @@ Proof
     >- (
       simp[stdin_fs_def]
       \\ qexists_tac`implode""`
-      \\ simp[mlstringTheory.implode_def] )
+      \\ simp[] )
     \\ simp[Once stdin_fs_def, AFUPDKEY_def]
     \\ Cases \\ simp[] \\ strip_tac \\ rveq
     \\ pop_assum mp_tac
@@ -387,7 +387,7 @@ Proof
       \\ simp[AFUPDKEY_ALOOKUP]
       \\ disch_then match_mp_tac
       \\ rw[fsFFIPropsTheory.inFS_fname_def]
-      \\ fs[mlstringTheory.implode_def]
+      \\ fs[]
       >- (
         fs[CaseEq"option",CaseEq"bool",FORALL_PROD]
         \\ rw[] \\ CCONTR_TAC \\ fs[]
@@ -396,7 +396,7 @@ Proof
         pop_assum mp_tac
         \\ rw[] \\ fs[] \\ rw[]
         \\ pop_assum mp_tac \\ rw[]
-        \\ fs[mlstringTheory.implode_def])
+        \\ fs[])
       >- ( rw[] \\ rw[OPTREL_def]))))>>
   IF_CASES_TAC>>fs[]
   \\ (simp[TextIOProofTheory.add_stdout_fastForwardFD, STD_streams_stdin_fs]

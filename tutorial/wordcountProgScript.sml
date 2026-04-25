@@ -189,8 +189,8 @@ Proof
     \\ Cases_on`t` \\ fs[] \\ xsimpl
     \\ Cases_on`t'` \\ fs[] \\ xsimpl ) \\
   simp[Abbr`output`,Abbr`output'`] \\
-  fs [mlintTheory.toString_thm,implode_def,strcat_def,concat_def] \\
-  simp[wc_lines_def,chr_to_str_def,implode_def] \\
+  fs [mlintTheory.toString_thm,strcat_def,concat_def] \\
+  simp[wc_lines_def,chr_to_str_def] \\
   qmatch_abbrev_tac`s1 ++ " " ++ s2 = t1 ++ " " ++ t2` \\
   `s1 = t1 ∧ s2 = t2` suffices_by rw[] \\
   simp[Abbr`s1`,Abbr`t1`,Abbr`s2`,Abbr`t2`] \\

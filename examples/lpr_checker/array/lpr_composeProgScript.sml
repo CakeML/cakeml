@@ -221,7 +221,7 @@ Proof
   \\ gvs [std_preludeTheory.OPTION_TYPE_def]
   \\ first_x_assum $ irule_at $ Pos hd
   \\ xsimpl
-  \\ gvs [std_preludeTheory.OPTION_TYPE_def,implode_def]
+  \\ gvs [std_preludeTheory.OPTION_TYPE_def]
   \\ rw []
   \\ qsuff_tac ‘∀xs n. foldl add_one n xs = LENGTH xs + n’
   THEN1 (rw [] \\ gvs [])
@@ -290,8 +290,8 @@ Proof
          \\ first_assum $ irule_at (Pos hd) \\ fs []
          \\ xsimpl
          \\ fs [file_content_def,AllCaseEqs(),inFS_fname_def,all_lines_file_def]
-         \\ fs [std_preludeTheory.OPTION_TYPE_def,implode_def])
-  \\ fs [std_preludeTheory.OPTION_TYPE_def,implode_def]
+         \\ fs [std_preludeTheory.OPTION_TYPE_def])
+  \\ fs [std_preludeTheory.OPTION_TYPE_def]
   \\ xmatch
   \\ qpat_x_assum ‘file_content fs proof_fname = SOME proof’ assume_tac
   \\ drule_at (Pos $ el 2) line_count_of_spec
@@ -299,7 +299,7 @@ Proof
   \\ disch_then (qspec_then ‘p’ assume_tac)
   \\ gvs []
   \\ xlet_auto THEN1 xsimpl
-  \\ fs [std_preludeTheory.OPTION_TYPE_def,implode_def]
+  \\ fs [std_preludeTheory.OPTION_TYPE_def]
   \\ xmatch
   \\ xlet_auto THEN1 xsimpl
   \\ TOP_CASE_TAC \\ fs[SUM_TYPE_def] \\ xmatch
@@ -388,7 +388,7 @@ Proof
          \\ res_tac
          \\ fs []
          \\ imp_res_tac ALOOKUP_NONE)
-  \\ fs [std_preludeTheory.OPTION_TYPE_def,implode_def]
+  \\ fs [std_preludeTheory.OPTION_TYPE_def]
   \\ xmatch
   \\ xlet_auto THEN1 xsimpl
   \\ xapp_spec output_stderr_spec \\ xsimpl>>
