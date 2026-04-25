@@ -1058,8 +1058,7 @@ Proof
   `s = implode (explode s)` by fs [explode_implode] \\
   qabbrev_tac `ls = explode s`
   \\ pop_assum kall_tac \\ rveq \\
-  Induct_on`splitlines ls` \\ rw[]
-  >- EVAL_TAC \\
+  Induct_on`splitlines ls` \\ rw[] \\
   pop_assum(assume_tac o SYM) \\
   fs[splitlines_eq_nil,concat_cons] \\
   imp_res_tac splitlines_next \\ rw[] \\
@@ -1068,15 +1067,13 @@ Proof
   >- (
     Cases_on`LENGTH h < LENGTH ls` \\ fs[] >- (
       disj1_tac \\
-      rw[strcat_thm] \\ AP_TERM_TAC \\
+      rw[strcat_thm] \\
       fs[IS_PREFIX_APPEND,DROP_APPEND,DROP_LENGTH_TOO_LONG,ADD1] ) \\
     fs[DROP_LENGTH_TOO_LONG] \\
-    fs[IS_PREFIX_APPEND,strcat_thm] \\ rw[] \\ fs[] \\
-    EVAL_TAC )
+    fs[IS_PREFIX_APPEND,strcat_thm] \\ rw[] \\ fs[])
   >- (
     disj2_tac \\
     rw[strcat_thm] \\
-    AP_TERM_TAC \\ rw[] \\
     Cases_on`LENGTH h < LENGTH ls` \\
     fs[IS_PREFIX_APPEND,DROP_APPEND,ADD1,DROP_LENGTH_TOO_LONG]  \\
     qpat_x_assum`strlit [] = _`mp_tac \\ EVAL_TAC )

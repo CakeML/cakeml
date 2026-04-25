@@ -631,7 +631,7 @@ Theorem normalise_tyvars_subst_alt_eqn:
 Proof
   ho_match_mp_tac holSyntaxExtraTheory.normalise_tyvars_subst_ind >>
   rw[normalise_tyvars_subst_alt_def,holSyntaxExtraTheory.normalise_tyvars_subst_def] >>
-  gvs[mlstringTheory.implode_def] >>
+  gvs[] >>
   gvs[EVERY_MEM,EXISTS_MEM] >>
   MAP_EVERY qid_spec_tac [‘n’,‘subst’] >>
   Induct_on ‘tys’ >>

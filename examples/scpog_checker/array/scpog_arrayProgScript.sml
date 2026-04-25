@@ -1684,7 +1684,7 @@ QED
 
 val _ = to_flat_chr_ind |> update_precondition;
 
-val res = translate (to_lit_string_def |> SIMP_RULE std_ss [GSYM implode_def]);
+val res = translate to_lit_string_def;
 
 val to_lit_string_side_def = fetch "-" "to_lit_string_side_def";
 

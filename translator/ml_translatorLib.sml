@@ -553,8 +553,7 @@ fun word_ty_ok ty =
     end
   else false;
 
-val mlstring_ty = mlstringTheory.implode_def |> concl |> rand
-  |> type_of |> dest_type |> snd |> last;
+val mlstring_ty = mlstringSyntax.mlstring_ty;
 
 local
   val prim_exn_list = get_term "prim_exn_list"

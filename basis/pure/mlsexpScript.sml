@@ -479,7 +479,7 @@ Proof
   >-
    (simp [Once lex_aux_def, EVAL “isSpace #"\""”]
     \\ simp [Once read_string_def]
-    \\ simp [Once read_string_aux_def, implode_def])
+    \\ simp [Once read_string_aux_def])
   \\ IF_CASES_TAC \\ fs []
   >-
    (dxrule str_every_thm \\ simp []
@@ -491,8 +491,8 @@ Proof
     \\ Cases_on ‘input’ \\ gvs []
     \\ gvs [lex_aux_def,is_safe_char_def]
     \\ DEP_REWRITE_TAC [read_symbol_thm]
-    \\ simp [implode_def])
-  \\ simp [escape_str_def,implode_def]
+    \\ simp [])
+  \\ simp [escape_str_def]
   \\ simp [Once lex_aux_def, EVAL “isSpace #"\""”]
   \\ simp [read_string_def,read_string_aux_thm]
 QED

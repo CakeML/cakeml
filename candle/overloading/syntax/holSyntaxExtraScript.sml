@@ -3405,15 +3405,15 @@ val fresh_term_def = new_specification("fresh_term_def",["fresh_term"],
     conj_tac >- metis_tac[rename_bvars_welltyped] >>
     conj_tac >- (
       match_mp_tac rename_bvars_ACONV >>
-      fs[IN_DISJOINT,MEM_MAP,implode_def] >>
+      fs[IN_DISJOINT,MEM_MAP] >>
       Cases >> simp[] >>
-      metis_tac[explode_implode,implode_def] ) >>
+      metis_tac[explode_implode] ) >>
     qspecl_then[`MAP implode names`,`[]`,`tm`]mp_tac bv_names_rename_bvars >>
     simp[TAKE_LENGTH_ID_rwt] >>
-    fs[IN_DISJOINT,MEM_MAP,implode_def] >>
+    fs[IN_DISJOINT,MEM_MAP] >>
     strip_tac >>
     Cases >> simp[] >>
-    metis_tac[explode_implode,implode_def] ))
+    metis_tac[explode_implode] ))
 
 (* Alternative characterisation of VARIANT, and thereby of VSUBST and INST_CORE.
    Better for evaluation. *)
@@ -3449,7 +3449,7 @@ Termination
   WF_REL_TAC `measure (\(avoid,v).
      let n = SUM_SET (BIGUNION (set (MAP (λa. {strlen x + 1 | ∃ty. VFREE_IN (Var x ty) a}) avoid))) in
        n - (case v of Var x ty => strlen x | _ => 0))` >>
-   gen_tac >> Cases >> srw_tac[][strlen_def,strcat_thm,implode_def] >>
+   gen_tac >> Cases >> srw_tac[][strlen_def,strcat_thm] >>
    qsuff_tac`STRLEN s' < n` >- simp[] >>
    simp[Abbr`n`] >> fs[GSYM vfree_in_thm,EXISTS_MEM] >>
    match_mp_tac SUM_SET_IN_LT >>
@@ -14695,13 +14695,13 @@ Proof
     (qmatch_goalsub_abbrev_tac `GENLIST g _` >>
      `ALL_DISTINCT (MAP FST (GENLIST g m))`
        by(rw[ALL_DISTINCT_GENLIST,MAP_GENLIST,Abbr `g`,
-             mlstring_11 |> REWRITE_RULE [GSYM implode_def]] >>
+             mlstring_11] >>
           first_x_assum (assume_tac o Q.AP_TERM `LENGTH`) >>
           fs[]) >>
      first_x_assum (mp_then (Pos last) mp_tac ALOOKUP_ALL_DISTINCT_EL) >>
      simp[] >> disch_then drule >>
      simp[Abbr `g`]) >>
-  rw[ALOOKUP_NONE,MAP_GENLIST,o_DEF,MEM_GENLIST,mlstring_11 |> REWRITE_RULE [GSYM implode_def]] >>
+  rw[ALOOKUP_NONE,MAP_GENLIST,o_DEF,MEM_GENLIST,mlstring_11] >>
   spose_not_then strip_assume_tac >>
   first_x_assum (assume_tac o Q.AP_TERM `LENGTH`) >>
   fs[]
@@ -14725,8 +14725,8 @@ Proof
     (qmatch_goalsub_abbrev_tac `GENLIST g m` >>
      `ALL_DISTINCT (MAP FST (GENLIST g m))`
        by(rw[ALL_DISTINCT_GENLIST,MAP_GENLIST,Abbr `g`,Abbr `m`,EL_MAP,
-             mlstring_11 |> REWRITE_RULE [GSYM implode_def]] >>
-          rfs[EL_MAP,mlstring_11 |> REWRITE_RULE [GSYM implode_def]] >>
+             mlstring_11] >>
+          rfs[EL_MAP,mlstring_11] >>
           `ALL_DISTINCT (STRING_SORT (MAP explode (tvars pred)))`
             by(fs[]) >>
           FULL_SIMP_TAC std_ss [EL_ALL_DISTINCT_EL_EQ] >>

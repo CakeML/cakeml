@@ -258,8 +258,7 @@ Proof
     xffi \\ xsimpl \\ fs [SIO_def]
     \\ MAP_EVERY qexists_tac
       [`[n2w (ORD c)]`, `emp`, `State input`, `update`, `names`, `events`]
-    \\ fs [update_def, put_char_event_def, names_def, SNOC_APPEND,
-           implode_def, STRING_TYPE_def, State_def]
+    \\ fs [update_def, put_char_event_def, names_def, SNOC_APPEND, STRING_TYPE_def, State_def]
     \\ xsimpl)
   \\ xcon \\ xsimpl
 QED
@@ -288,7 +287,7 @@ Proof
        `names`, `events`]
     \\ fs [update_def, put_str_event_def, names_def, SNOC_APPEND,
            STRING_TYPE_def, State_def, strlit_STRCAT, MAP_MAP_o, o_DEF,
-           CHR_ORD, ORD_BOUND, implode_def]
+           CHR_ORD, ORD_BOUND]
     \\ xsimpl)
   \\ xcon \\ xsimpl
 QED
@@ -328,8 +327,7 @@ Proof
       \\ MAP_EVERY qexists_tac [‘[]’, `emp`, `s`, `update`, `names`, `events`]
       \\ unabbrev_all_tac
       \\ fs [update_def, get_char_event_def, get_char_eof_event_def,
-             names_def, SNOC_APPEND, EVAL ``REPLICATE 2 0w``, State_def,
-             implode_def]
+             names_def, SNOC_APPEND, EVAL ``REPLICATE 2 0w``, State_def]
       \\ xsimpl)
     \\ rpt (xlet_auto THEN1 xsimpl)
     \\ assume_tac eq_v_WORD8_thm
