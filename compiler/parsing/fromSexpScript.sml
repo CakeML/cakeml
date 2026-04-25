@@ -1800,8 +1800,7 @@ Theorem sexplit_litsexp[simp]:
    sexplit (litsexp l) = SOME l
 Proof
   Cases_on`l`>>simp[sexplit_def,litsexp_def]
-  >- (rw[] >> intLib.ARITH_TAC )
-  >- EVAL_TAC >>
+  >- (rw[] >> intLib.ARITH_TAC ) >>
   ONCE_REWRITE_TAC[GSYM wordsTheory.dimword_8] >>
   ONCE_REWRITE_TAC[GSYM wordsTheory.dimword_64] >>
   ONCE_REWRITE_TAC[wordsTheory.w2n_lt]
