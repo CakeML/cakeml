@@ -140,7 +140,7 @@ Theorem lines_of_gen_lines_of:
   lines_of_gen #"\n" xs =
   lines_of xs
 Proof
-  rw[lines_of_def,lines_of_gen_def,splitlines_at_def,splitlines_def,str_def]
+  rw[lines_of_def,lines_of_gen_def,splitlines_at_def,splitlines_def,chr_to_str_def]
 QED
 
 Theorem main_spec_stdin:

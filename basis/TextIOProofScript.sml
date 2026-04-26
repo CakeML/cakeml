@@ -457,12 +457,12 @@ QED
 Theorem fsupdate_add_stdout_str:
   STD_streams fs ∧ get_file_content fs 1 = SOME (content,pos) ⇒
   (fsupdate fs 1 0 (pos + 1) (insert_atI [c] pos content)) =
-  (add_stdout fs (str c))
+  (add_stdout fs (toString c))
 Proof
   rpt strip_tac
   \\ drule_all fsupdate_add_stdout_implode
   \\ disch_then $ qspec_then ‘[c]’ assume_tac
-  \\ gvs [str_def]
+  \\ gvs [chr_to_str_def]
 QED
 
 Theorem fsupdate_add_stderr_implode:
@@ -1049,7 +1049,7 @@ Proof
         simp[Abbr`f`,Abbr`st`,Abbr`ns`, mk_ffi_next_def,
              ffi_open_in_def, (* decode_encode_FS, *) Abbr`fd0`,
              getNullTermStr_add_null, MEM_MAP, ORD_BOUND, ORD_eq_0,
-             dimword_8, MAP_MAP_o, o_DEF, char_BIJ,str_def,strcat_thm,
+             dimword_8, MAP_MAP_o, o_DEF, char_BIJ,chr_to_str_def,strcat_thm,
              LENGTH_explode,REPLICATE_compute,LUPDATE_compute,explode_implode] >>
         imp_res_tac inFS_fname_ALOOKUP_EXISTS >>
         imp_res_tac nextFD_ltX >>
@@ -1081,7 +1081,7 @@ Proof
       simp[Abbr`f`,Abbr`st`,Abbr`ns`, mk_ffi_next_def,
            ffi_open_in_def, (* decode_encode_FS, *) Abbr`fd0`,
            getNullTermStr_add_null, MEM_MAP, ORD_BOUND, ORD_eq_0,
-           dimword_8, MAP_MAP_o, o_DEF, char_BIJ,str_def,strcat_thm,
+           dimword_8, MAP_MAP_o, o_DEF, char_BIJ,chr_to_str_def,strcat_thm,
            implode_explode, LENGTH_explode] >>
       fs[not_inFS_fname_openFile,STRING_TYPE_def] \\ xsimpl >>
       qpat_abbrev_tac `new_events = events ++ _` >>
@@ -1518,7 +1518,7 @@ Theorem output1_stdOut_spec:
   CHAR c cv ⇒
   app (p:'ffi ffi_proj) TextIO_output1_v [stdout_v; cv]
     (STDIO fs)
-    (POSTv uv. &UNIT_TYPE () uv * STDIO (add_stdout fs (str c)))
+    (POSTv uv. &UNIT_TYPE () uv * STDIO (add_stdout fs (toString c)))
 Proof
   strip_tac
   \\ rewrite_tac [Once STDIO_STD_streams] \\ xpull
@@ -1546,7 +1546,7 @@ Theorem output1_stdout_spec:
    CHAR c cv ∧ fdv = stdout_v ==>
    app (p:'ffi ffi_proj) TextIO_output1_v
      [fdv; cv] (STDIO fs)
-     (POSTv uv. &UNIT_TYPE () uv * STDIO (add_stdout fs (str c)))
+     (POSTv uv. &UNIT_TYPE () uv * STDIO (add_stdout fs (toString c)))
 Proof
   reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ strip_tac \\ xpull)
   \\ strip_tac
@@ -1558,7 +1558,7 @@ Theorem output1_stderr_spec:
    CHAR c cv ∧ fdv = stderr_v ==>
    app (p:'ffi ffi_proj) TextIO_output1_v
      [fdv; cv] (STDIO fs)
-     (POSTv uv. &UNIT_TYPE () uv * STDIO (add_stderr fs (str c)))
+     (POSTv uv. &UNIT_TYPE () uv * STDIO (add_stderr fs (toString c)))
 Proof
   reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ strip_tac \\ xpull)
   \\ strip_tac
@@ -3552,7 +3552,7 @@ QED
 Theorem exists_chr_isSuffix:
   !P l.
       EXISTS ($= c) l ==>
-        (isSuffix (str c) (implode (takeUntilIncl ($= c) l)) <=>
+        (isSuffix (toString c) (implode (takeUntilIncl ($= c) l)) <=>
           ($= c) (LAST (takeUntilIncl ($= c) l)))
 Proof
   strip_tac
@@ -3561,21 +3561,21 @@ Proof
   \\ Cases_on `l`
   >-(rfs[EXISTS_DEF])
   >-(Cases_on `($= c) h`
-    >-(simp[takeUntilIncl_def, isSuffix_def, str_def, implode_def, NOT_NIL_EQ_LENGTH_NOT_0,
+    >-(simp[takeUntilIncl_def, isSuffix_def, chr_to_str_def, implode_def, NOT_NIL_EQ_LENGTH_NOT_0,
               isStringThere_SEG, LAST_DEF])
-    >-(simp[takeUntilIncl_def, isSuffix_def, str_def, implode_def, NOT_NIL_EQ_LENGTH_NOT_0,
+    >-(simp[takeUntilIncl_def, isSuffix_def, chr_to_str_def, implode_def, NOT_NIL_EQ_LENGTH_NOT_0,
               isStringThere_SEG, LAST_DEF]
       \\ fs[EXISTS_DEF]
       \\ `t <> []` by (imp_res_tac EXISTS_MEM \\ imp_res_tac NOT_NULL_MEM \\ fs[NULL_EQ])
       \\ CASE_TAC
       >-(imp_res_tac takeUntilIncl_length_gt_0 \\ rfs[NOT_NIL_EQ_LENGTH_NOT_0])
       \\ simp[GSYM isStringThere_SEG]
-      \\ fs[isSuffix_def, GSYM implode_def, GSYM str_def]
+      \\ fs[isSuffix_def, GSYM implode_def, GSYM chr_to_str_def]
       \\ imp_res_tac LENGTH_takeUntilIncl_exists_geq_1
       \\ last_assum (qspecl_then [`t`] mp_tac)
       \\ disch_tac \\ fs[] \\ res_tac \\ rfs[]
       \\ eq_tac
-      >-(rfs[isStringThere_SEG, str_def, implode_def]
+      >-(rfs[isStringThere_SEG, chr_to_str_def, implode_def]
       \\ rfs[SEG1]
       \\ Cases_on `takeUntilIncl ($= c) t`
       >-fs[LAST_DEF]
@@ -3583,7 +3583,7 @@ Proof
         EL (STRLEN (STRING h' t') − 1) (STRING h' t')` by fs[STRLEN_THM, STRLEN_DEF]
       \\ rw[]
       \\ fs[EL, LAST_DEF]))
-      >-(rfs[isStringThere_SEG, str_def, implode_def]
+      >-(rfs[isStringThere_SEG, chr_to_str_def, implode_def]
       \\ rfs[SEG1]
       \\ Cases_on `takeUntilIncl ($= c) t`
       >-fs[LAST_DEF]
@@ -3596,13 +3596,13 @@ Theorem not_exists_chr_not_isSuffix:
   !l.
       0 < LENGTH l /\
       ~(EXISTS ($= c) l) ==>
-        ~(isSuffix (str c) (implode l))
+        ~(isSuffix (toString c) (implode l))
 Proof
   completeInduct_on `LENGTH (l:string)`
   \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\ Cases_on `l`
   >-(rfs[isSuffix_def])
-  >-(fs[takeUntilIncl_def, isSuffix_def, str_def, implode_def, NOT_NIL_EQ_LENGTH_NOT_0,
+  >-(fs[takeUntilIncl_def, isSuffix_def, chr_to_str_def, implode_def, NOT_NIL_EQ_LENGTH_NOT_0,
               isStringThere_SEG]
     \\ `1 + STRLEN t <= STRLEN t + 1` by decide_tac
     \\ Cases_on `0 < STRLEN t`
@@ -3616,17 +3616,17 @@ QED
 
 Theorem isSuffix_char_strlen_gt_0:
   !P l.
-        isSuffix (str c) (implode l) ==> 0 < STRLEN l
+        isSuffix (toString (c: char)) (implode l) ==> 0 < STRLEN l
 Proof
   strip_tac
   \\ completeInduct_on `LENGTH (l:string)`
   \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
   \\ Cases_on `l`
-  >-(fs[isSuffix_def, implode_def, str_def])
+  >-(fs[isSuffix_def, implode_def, chr_to_str_def])
   >-(Cases_on `($= c) h`
-    >-(simp[takeUntilIncl_def, isSuffix_def, str_def, implode_def, NOT_NIL_EQ_LENGTH_NOT_0,
+    >-(simp[takeUntilIncl_def, isSuffix_def, chr_to_str_def, implode_def, NOT_NIL_EQ_LENGTH_NOT_0,
               isStringThere_SEG])
-    >-(simp[takeUntilIncl_def, isSuffix_def, str_def, implode_def, NOT_NIL_EQ_LENGTH_NOT_0,
+    >-(simp[takeUntilIncl_def, isSuffix_def, chr_to_str_def, implode_def, NOT_NIL_EQ_LENGTH_NOT_0,
               isStringThere_SEG]))
 QED
 
@@ -3644,12 +3644,12 @@ Proof
 QED
 
 Theorem isSuffix_char_implode_strcat:
-  !l r c.
+  !l r (c: char).
         0 < STRLEN r ==>
-          (isSuffix (str c) (implode r) <=> isSuffix (str c) (implode (STRCAT l r)))
+          (isSuffix (toString c) (implode r) <=> isSuffix (toString c) (implode (STRCAT l r)))
 Proof
   rpt strip_tac
-  \\ fs[isSuffix_def, implode_def, str_def, SUC_ONE_ADD, isStringThere_SEG, SEG1]
+  \\ fs[isSuffix_def, implode_def, chr_to_str_def, SUC_ONE_ADD, isStringThere_SEG, SEG1]
   \\ eq_tac
   >-(strip_tac
     \\ fs[EL_APPEND_EQN,MAP_MAP_o, CHR_w2n_n2w_ORD]
@@ -5541,7 +5541,7 @@ End
 
 Definition lines_of_gen_def:
   lines_of_gen c0 s =
-    MAP (λx. implode x ^ (str c0)) (splitlines_at c0 (explode s))
+    MAP (λx. implode x ^ (toString c0)) (splitlines_at c0 (explode s))
 End
 
 (* TODO Maybe splitlines should be defined exactly like this. *)
@@ -5555,7 +5555,7 @@ QED
 Theorem lines_of_gen_lines_of:
   lines_of_gen #"\n" s = lines_of s
 Proof
-  simp [lines_of_gen_def, lines_of_def, splitlines_at_splitlines, str_def]
+  simp [lines_of_gen_def, lines_of_def, splitlines_at_splitlines, chr_to_str_def]
 QED
 
 Definition INSTREAM_LINES_def:
@@ -6024,8 +6024,8 @@ Proof
   \\ xsimpl
 QED
 
-Theorem str_STRING:
-  str h = implode (STRING h "")
+Theorem toString_STRING:
+  toString h = implode (STRING h "")
 Proof
   EVAL_TAC
 QED
@@ -6077,7 +6077,7 @@ Theorem all_lines_file_gen_all_lines_file[simp]:
   all_lines_file fs f
 Proof
   rw[all_lines_file_def,all_lines_file_gen_def,lines_of_def,lines_of_gen_def,
-     splitlines_at_def,splitlines_def,str_def]
+     splitlines_at_def,splitlines_def,chr_to_str_def]
 QED
 
 (* TODO Move to fsFFIProps? *)
@@ -6617,10 +6617,10 @@ Proof
     \\ xlet_auto >- (xcon \\ xsimpl)
     \\ xlet_auto >- xsimpl
     \\ xlet_auto >- (xcon \\ xsimpl)
-    \\ ‘LIST_TYPE STRING_TYPE (str c :: implode bs1 :: acc) v'’ by gvs [LIST_TYPE_def]
+    \\ ‘LIST_TYPE STRING_TYPE (toString c :: implode bs1 :: acc) v'’ by gvs [LIST_TYPE_def]
     \\ xlet ‘POSTv retv. INSTREAM_STR' fd is "" (forwardFD fs fd nr) F T *
            STDIO (forwardFD fs fd nr) *
-           & LIST_TYPE STRING_TYPE (REVERSE (str c::implode bs1::acc)) retv’
+           & LIST_TYPE STRING_TYPE (REVERSE (toString c::implode bs1::acc)) retv’
     >-
      (xapp_spec (ListProgTheory.reverse_v_thm |> GEN_ALL |> ISPEC “STRING_TYPE”)
       \\ gvs [] \\ pop_assum $ irule_at $ Pos hd \\ xsimpl)
@@ -6636,7 +6636,7 @@ Proof
     \\ drule gen_inputLine_lem1
     \\ disch_then $ qspec_then ‘[]’ mp_tac \\ gvs []
     \\ gvs [dropUntilIncl_def,mllistTheory.dropUntil_def,gen_inputLine_def]
-    \\ gvs [str_def,implode_def] \\ strip_tac
+    \\ gvs [chr_to_str_def,implode_def] \\ strip_tac
     \\ gvs [INSTREAM_STR_def,INSTREAM_STR'_def]
     \\ xsimpl \\ rpt gen_tac \\ strip_tac
     \\ gvs [] \\ xsimpl)
@@ -6713,10 +6713,10 @@ Proof
     \\ xlet_auto >- (xcon \\ xsimpl)
     \\ xlet_auto >- xsimpl
     \\ xlet_auto >- (xcon \\ xsimpl)
-    \\ ‘LIST_TYPE STRING_TYPE (str c :: implode bs1 :: []) v'’ by gvs [LIST_TYPE_def]
+    \\ ‘LIST_TYPE STRING_TYPE (toString c :: implode bs1 :: []) v'’ by gvs [LIST_TYPE_def]
     \\ xlet ‘POSTv retv. INSTREAM_STR' fd is "" (forwardFD fs fd nr) F T *
            STDIO (forwardFD fs fd nr) *
-           & LIST_TYPE STRING_TYPE (REVERSE (str c::implode bs1::[])) retv’
+           & LIST_TYPE STRING_TYPE (REVERSE (toString c::implode bs1::[])) retv’
     >-
      (xapp_spec (ListProgTheory.reverse_v_thm |> GEN_ALL |> ISPEC “STRING_TYPE”)
       \\ gvs [] \\ pop_assum $ irule_at $ Pos hd \\ xsimpl)
@@ -6726,7 +6726,7 @@ Proof
     \\ gvs [concat_append,concat_sing]
     \\ xif
     >-
-     (xcon \\ xsimpl \\ gvs [concat_def,implode_def,str_def]
+     (xcon \\ xsimpl \\ gvs [concat_def,implode_def,chr_to_str_def]
       \\ gvs [std_preludeTheory.OPTION_TYPE_def]
       \\ gvs [dropUntilIncl_def,mllistTheory.dropUntil_def,gen_inputLine_def]
       \\ gvs [INSTREAM_STR_def,INSTREAM_STR'_def]
@@ -6734,14 +6734,14 @@ Proof
       \\ rpt gen_tac \\ strip_tac
       \\ gvs [] \\ xsimpl)
     \\ xcon \\ xsimpl
-    \\ ‘bs1 ≠ []’ by (Cases_on ‘bs1’ \\ gvs [concat_def,str_def,implode_def])
+    \\ ‘bs1 ≠ []’ by (Cases_on ‘bs1’ \\ gvs [concat_def,chr_to_str_def,implode_def])
     \\ gvs [std_preludeTheory.OPTION_TYPE_def]
     \\ qexists_tac ‘nr’
     \\ drule gen_inputLine_lem1
     \\ disch_then $ qspec_then ‘[]’ mp_tac \\ gvs []
     \\ strip_tac \\ gvs []
     \\ gvs [dropUntilIncl_def,mllistTheory.dropUntil_def,gen_inputLine_def]
-    \\ gvs [str_def,implode_def,concat_def,strcat_def]
+    \\ gvs [chr_to_str_def,implode_def,concat_def,strcat_def]
     \\ gvs [INSTREAM_STR_def,INSTREAM_STR'_def]
     \\ xsimpl \\ rpt gen_tac \\ strip_tac
     \\ gvs [] \\ xsimpl)
@@ -6791,19 +6791,19 @@ Proof
 QED
 
 Theorem implode_cons_str:
-  str c ^ implode cs =
+  toString c ^ implode cs =
   implode (c::cs)
 Proof
-  rw[implode_def,strcat_def,concat_def,str_def]>>
+  rw[implode_def,strcat_def,concat_def,chr_to_str_def]>>
   TOP_CASE_TAC>>rw[]
 QED
 
 Theorem gen_inputLine_cons:
   gen_inputLine c (x::xs) =
-  if x = c then str c else str x ^ gen_inputLine c xs
+  if x = c then toString c else toString x ^ gen_inputLine c xs
 Proof
   rw[gen_inputLine_def]>>
-  gvs[takeUntilIncl_cons2,str_def,implode_cons_str]>>
+  gvs[takeUntilIncl_cons2,chr_to_str_def,implode_cons_str]>>
   gvs[EVERY_MEM,EXISTS_MEM]
 QED
 
@@ -6816,7 +6816,7 @@ Theorem inputLineWith_spec_STR[local]:
     (POSTv v. SEP_EXISTS k.
                 cond (OPTION_TYPE STRING_TYPE
                         (case to_read of
-                         | [] => (if text = "" then NONE else SOME (str c0))
+                         | [] => (if text = "" then NONE else SOME (toString c0))
                          | _ => SOME (implode (to_read ++ [c0]))) v) *
                 STDIO (forwardFD fs fd k) *
                 INSTREAM_STR fd is (TL text) (forwardFD fs fd k))
@@ -6847,16 +6847,16 @@ Proof
   every_case_tac>>gvs[]
   >- (
     Cases_on`text`>>gvs[gen_inputLine_def]>>
-    fs[takeUntilIncl_def,dropUntilIncl_def,mllistTheory.dropUntil_def,str_def]>>
+    fs[takeUntilIncl_def,dropUntilIncl_def,mllistTheory.dropUntil_def,chr_to_str_def]>>
     xsimpl)>>
   gvs[gen_inputLine_cons,dropUntilIncl_cons]>>
   drule gen_inputLine_lem1>>
   disch_then(qspec_then`text` assume_tac)>>gvs[]>>
   Cases_on`text`>>gvs[gen_inputLine_def]>>
-  fs[takeUntilIncl_def,dropUntilIncl_def,mllistTheory.dropUntil_def,str_def]>>
+  fs[takeUntilIncl_def,dropUntilIncl_def,mllistTheory.dropUntil_def,chr_to_str_def]>>
   xsimpl>>
   simp[GSYM implode_cons_str]>>
-  simp[str_def]>>
+  simp[chr_to_str_def]>>
   fs[implode_STRCAT,implode_def]
 QED
 
@@ -6948,7 +6948,7 @@ Proof
   THEN1
    (‘~EXISTS ($= c0) to_read’ by fs [EXISTS_MEM,EVERY_MEM]
     \\ drule splitlines_at_not_exists2 \\ fs []
-    \\ fs [strcat_def,concat_def,implode_def,str_def]
+    \\ fs [strcat_def,concat_def,implode_def,chr_to_str_def]
     \\ fs [TOKENS_eq_tokens_sym,o_DEF]
     \\ fs [stringTheory.TOKENS_APPEND,stringTheory.TOKENS_def]
     \\ Cases_on ‘to_read’ \\ fs [])
@@ -7518,12 +7518,12 @@ Proof
   THEN1
    (‘~EXISTS ($= c0) to_read’ by fs [EXISTS_MEM,EVERY_MEM]
     \\ drule splitlines_at_not_exists2 \\ fs []
-    \\ fs [strcat_def,concat_def,implode_def,str_def]
+    \\ fs [strcat_def,concat_def,implode_def,chr_to_str_def]
     \\ Cases_on ‘to_read’ \\ fs [])
   \\ Cases_on ‘to_read = []’ \\ fs []
   THEN1
    (Cases_on ‘text’ \\ fs [] \\ fs [splitlines_at_hd_c0]
-    \\ fs [strcat_def,concat_def,implode_def,str_def])
+    \\ fs [strcat_def,concat_def,implode_def,chr_to_str_def])
   \\ ‘EXISTS ($= c0) rest’ by (fs [] \\ Cases_on ‘text’ \\ fs [])
   \\ drule splitlines_at_takeUntil_exists2 \\ fs []
   \\ ‘takeUntil ($= c0) (STRCAT to_read text) = to_read’ by
@@ -7535,7 +7535,7 @@ Proof
     \\ qmatch_goalsub_abbrev_tac ‘DROP k (xs ++ ys)’
     \\ qsuff_tac ‘k = LENGTH xs’ \\ fs [DROP_LENGTH_APPEND]
     \\ unabbrev_all_tac \\ fs [])
-  \\ fs [] \\ Cases_on ‘to_read’ \\ fs [strcat_def,concat_def,implode_def,str_def]
+  \\ fs [] \\ Cases_on ‘to_read’ \\ fs [strcat_def,concat_def,implode_def,chr_to_str_def]
 QED
 
 
