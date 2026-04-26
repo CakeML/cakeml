@@ -68,7 +68,21 @@ sig
   val set_eval_state : term (* new eval_state *) -> ml_prog_state -> ml_prog_state
 
   val nsLookup_conv : conv
-  val nsLookup_pf_conv : conv
+
+  (* New env_tree infrastructure.
+     derive_nsLookup_tree produces  |- !k. nsLookup_all env = tree_lookup T
+     and registers (env, T, equiv) in the internal map. Raises HOL_ERR if the
+     def's shape is unsupported or the base env hasn't been registered. *)
+  val derive_nsLookup_tree : thm -> thm
+
+  (* Tree-backed lookup conv, fires on
+       nsLookup_Short env.v k / env.c k / nsLookup_Mod1 env.v k / env.c k
+     for env registered by derive_nsLookup_tree and concrete strlit key. *)
+  val nsLookup_tree_conv : conv
+
+  (* Test hook: check whether env_tree_map has an entry for env_const,
+     triggering lazy-load from saved theorems if needed. *)
+  val env_tree_has : term -> bool
 
   val remove_snocs : ml_prog_state -> ml_prog_state
   val clean_state  : ml_prog_state -> ml_prog_state
@@ -90,4 +104,16 @@ sig
   val define_abbrev : bool -> string -> term -> thm
 
   val pick_name : string -> string
+
+  (* Profiling: per-phase wall time for let_env_abbrev and nsLookup_conv. *)
+  val print_let_env_profile : unit -> unit
+
+  (* Debug-only accessors for live counters. *)
+  val get_nslookup_conv_calls : unit -> int
+  val get_nslookup_conv_time  : unit -> real
+  val reset_nslookup_conv_counters : unit -> unit
+
+  (* Runtime toggle: when true, nsLookup_conv uses the legacy alist
+     (orig HEAD) path; when false (default), the new env_tree path. *)
+  val use_alist_conv : bool ref
 end
