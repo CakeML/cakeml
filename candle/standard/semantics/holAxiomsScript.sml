@@ -104,7 +104,7 @@ Proof
       fs[is_interpretation_def,is_term_assignment_def,FEVERY_ALL_FLOOKUP,FLOOKUP_UPDATE] >>
       rw[] >> rw[combinTheory.APPLY_UPDATE_THM] >>
       rw[typesem_def,tyvars_def,STRING_SORT_def,LIST_UNION_def,INORDER_INSERT_def,LIST_INSERT_def] >>
-      fs[is_std_type_assignment_def,mlstringTheory.implode_def] >>
+      fs[is_std_type_assignment_def] >>
       match_mp_tac (UNDISCH abstract_in_funspace) >>
       rw[holds_def] >> fs[is_type_valuation_def]) >>
     conj_tac >- (
@@ -152,7 +152,7 @@ Proof
       imp_res_tac typesem_Bool >>
       simp[type_ok_def,typesem_def] >>
       imp_res_tac theory_ok_sig >>
-      fs[is_std_sig_def,mlstringTheory.implode_def] ) >>
+      fs[is_std_sig_def] ) >>
     `fz <: bs` by (
       unabbrev_all_tac >>
       match_mp_tac (UNDISCH apply_in_rng) >>
@@ -406,7 +406,7 @@ Proof
     simp[REV_ASSOCD] >> disch_then kall_tac >>
     ntac 2 (disch_then kall_tac) >>
     CHANGED_TAC EVAL_STRING_SORT >>
-    simp[typesem_def,combinTheory.APPLY_UPDATE_THM,REV_ASSOCD,mlstringTheory.implode_def] >>
+    simp[typesem_def,combinTheory.APPLY_UPDATE_THM,REV_ASSOCD] >>
     `(∀x y. tyaof int (strlit "fun") [x;y] = Funspace x y) ∧
      (tyaof int (strlit "ind") [] = inf)` by (
       simp[Abbr`int`,combinTheory.APPLY_UPDATE_THM] >>
@@ -446,7 +446,7 @@ Proof
     ntac 2 (pop_assum mp_tac) >>
     simp[REV_ASSOCD] >> ntac 2 (disch_then kall_tac) >>
     EVAL_STRING_SORT >>
-    simp[TYPE_SUBST_def,REV_ASSOCD,typesem_def,mlstringTheory.implode_def] >>
+    simp[TYPE_SUBST_def,REV_ASSOCD,typesem_def] >>
     simp[Abbr`int`] >>
     fs[interprets_def] >>
     first_x_assum(qspec_then`K boolset`mp_tac) >>
@@ -501,7 +501,7 @@ Proof
     EVAL_STRING_SORT >>
     `(τ(strlit "A") = inf) ∧ (τ(strlit "B") = inf)` by (
       simp[Abbr`τ`,combinTheory.APPLY_UPDATE_THM] ) >>
-    simp[mlstringTheory.implode_def] >> disch_then kall_tac >>
+    simp[] >> disch_then kall_tac >>
     `(tyaof i1 (strlit "bool") [] = boolset) ∧
      (∀x y. tyaof i1 (strlit "fun") [x;y] = Funspace x y)` by (
       fs[is_std_type_assignment_def] ) >>
@@ -520,7 +520,7 @@ Proof
     simp[SIMP_RULE std_ss [] termsem_equation,Abbr`eq`,boolean_eq_true] >>
     simp[Once termsem_def,identity_instance] >>
     EVAL_STRING_SORT >>
-    simp[mlstringTheory.implode_def] >> disch_then kall_tac >>
+    simp[] >> disch_then kall_tac >>
     ntac 2 (last_x_assum(qspec_then`τ`mp_tac)) >>
     impl_tac >- rw[] >> strip_tac >>
     impl_tac >- rw[] >> strip_tac >>
@@ -531,7 +531,7 @@ Proof
     disch_then(qspec_then`[B,A]`mp_tac) >>
     simp[REV_ASSOCD] >>
     EVAL_STRING_SORT >>
-    simp[typesem_def,REV_ASSOCD,mlstringTheory.implode_def] >>
+    simp[typesem_def,REV_ASSOCD] >>
     disch_then kall_tac >>
     first_x_assum(qspec_then`τ`mp_tac) >>
     simp[] >> disch_then kall_tac >>

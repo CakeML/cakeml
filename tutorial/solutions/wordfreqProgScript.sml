@@ -219,7 +219,7 @@ Proof
   qspecl_then[`lines_of file_contents`,`empty compare`]mp_tac FOLDL_insert_line \\
   simp[empty_thm,mlstringTheory.TotOrd_compare] \\
   impl_tac >- (
-    simp[lines_of_def,EVERY_MAP,implode_def,strcat_def] \\
+    simp[lines_of_def,EVERY_MAP,strcat_def] \\
     simp[EVERY_MEM] \\ metis_tac[explode_implode] ) \\
   strip_tac \\
   simp[Abbr`ls`] \\

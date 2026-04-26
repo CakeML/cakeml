@@ -178,7 +178,7 @@ Proof
   \\ simp[STD_streams_stdin_fs]
   \\ simp[TextIOProofTheory.add_stdo_def]
   \\ SELECT_ELIM_TAC
-  \\ simp[TextIOProofTheory.stdo_def,implode_def]
+  \\ simp[TextIOProofTheory.stdo_def]
   \\ conj_tac
   >- (
     simp[stdin_fs_def]

@@ -1564,7 +1564,7 @@ Proof
   xapp>>
   xsimpl>>
   first_x_assum (irule_at Any)>>
-  simp[conv_rawxor_list_def,implode_def]>>
+  simp[conv_rawxor_list_def]>>
   rw[]>>
   `fromByte = (CHR o w2n)` by
     rw[FUN_EQ_THM,fromByte_def]>>

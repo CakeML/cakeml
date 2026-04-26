@@ -146,9 +146,9 @@ Proof
   \\ simp [Once escape_str_app_list_def]
   \\ Cases_on `s`
   \\ EVERY_CASE_TAC \\ fs []
-  \\ rw [substring_def, SEG_TAKE_DROP, mlstringTheory.concat_def, implode_def]
+  \\ rw [substring_def, SEG_TAKE_DROP, mlstringTheory.concat_def]
   \\ imp_res_tac str_findi_range
-  \\ fs [mlstringTheory.concat_def, implode_def]
+  \\ fs [mlstringTheory.concat_def]
   \\ imp_res_tac (Q.prove (`!s. x = SOME s ==> ?xs. s = strlit xs`, Cases \\ simp []))
   \\ simp []
 QED
@@ -162,7 +162,7 @@ Theorem pp_string_thm:
 Proof
   simp [pp_string_def, pp_contents_def, app_list_wrap_def, concat_cons,
     escape_str_app_list_thm, concat_append, escape_str_def]
-  \\ simp [implode_def, strcat_def, mlstringTheory.concat_def]
+  \\ simp [strcat_def, mlstringTheory.concat_def]
 QED
 
 Definition pp_bool_def:
@@ -193,7 +193,7 @@ Theorem pp_char_thm:
 Proof
   simp [pp_char_def, escape_char_def, char_escaped_def]
   \\ every_case_tac
-  \\ simp [pp_contents_def, mlstringTheory.concat_def, implode_def]
+  \\ simp [pp_contents_def, mlstringTheory.concat_def]
   \\ every_case_tac \\ simp []
 QED
 

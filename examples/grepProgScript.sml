@@ -973,7 +973,7 @@ Proof
     \\ simp[Abbr`s1`,Abbr`s2`]
     \\ AP_TERM_TAC
     \\ simp[FILTER_MAP,concat_cons,MAP_MAP_o,o_DEF,
-            all_lines_file_def,lines_of_def,implode_def]
+            all_lines_file_def,lines_of_def]
     \\ AP_TERM_TAC
     \\ simp[FILTER_EQ,build_matcher_def,FRONT_APPEND]
     \\ gen_tac
@@ -1009,7 +1009,7 @@ Proof
     \\ Cases_on`n` \\ fs[] )
   \\ `FILENAME f xv`
   by (
-    fs[FILENAME_def,validArg_def,Abbr`f`,explode_implode,implode_def]
+    fs[FILENAME_def,validArg_def,Abbr`f`,explode_implode]
     \\ fs[EVERY_MEM] )
   \\ first_x_assum drule
   \\ `TAKE (n+1) fls = (TAKE n fls) ++ [EL n fls]` by ( simp[TAKE_EL_SNOC] )

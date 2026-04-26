@@ -679,7 +679,7 @@ Theorem strsub_implode:
   strsub (implode s) n =
   EL n s
 Proof
-  fs[strsub_def,implode_def]
+  fs[strsub_def]
 QED
 
 Theorem flip_bit_list_flip_bit:

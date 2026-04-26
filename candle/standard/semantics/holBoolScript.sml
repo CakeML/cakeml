@@ -405,8 +405,7 @@ Proof
     qspecl_then[`tmsof sig`,`i`,`strlit "!"`,`Fun (Fun Bool Bool) Bool`,`Fun (Fun A Bool) Bool`,`[(Bool,A)]`]mp_tac instance_def >>
     impl_tac >- (fs[is_bool_sig_def,is_exists_sig_def,is_forall_sig_def] >> EVAL_TAC) >>
     simp[] >> disch_then kall_tac >>
-    simp[tyvars_def,STRING_SORT_def,LIST_UNION_def,LIST_INSERT_def,INORDER_INSERT_def,REV_ASSOCD,
-         mlstringTheory.implode_def] >>
+    simp[tyvars_def,STRING_SORT_def,LIST_UNION_def,LIST_INSERT_def,INORDER_INSERT_def,REV_ASSOCD] >>
     fs[interprets_def] >>
     qpat_x_assum`∀t. is_type_valuation t ⇒ Z`(fn th => assume_tac th >> (qspec_then`(strlit "A" =+ boolset)τ`mp_tac) th) >>
     impl_tac >- (
@@ -462,7 +461,7 @@ Proof
     qspecl_then[`tmsof sig`,`i`,`strlit "!"`,`Fun (Fun Bool Bool) Bool`,`Fun (Fun A Bool) Bool`,`[(Bool,A)]`]mp_tac instance_def >>
     impl_tac >- (fs[is_bool_sig_def,is_forall_sig_def] >> EVAL_TAC) >>
     simp[] >> disch_then kall_tac >>
-    simp[tyvars_def,STRING_SORT_def,LIST_UNION_def,LIST_INSERT_def,INORDER_INSERT_def,REV_ASSOCD,mlstringTheory.implode_def] >>
+    simp[tyvars_def,STRING_SORT_def,LIST_UNION_def,LIST_INSERT_def,INORDER_INSERT_def,REV_ASSOCD] >>
     fs[interprets_def] >>
     qpat_x_assum`∀t. is_type_valuation t ⇒ tmaof i (strlit "!") Z = Y`(fn th => assume_tac th >> (qspec_then`(strlit "A" =+ boolset)τ`mp_tac) th) >>
     impl_tac >- (
@@ -500,7 +499,7 @@ Proof
     qspecl_then[`tmsof sig`,`i`,`strlit "!"`,`Fun (Fun Bool Bool) Bool`,`Fun (Fun A Bool) Bool`,`[(Bool,A)]`]mp_tac instance_def >>
     impl_tac >- (fs[is_bool_sig_def,is_forall_sig_def] >> EVAL_TAC) >>
     simp[] >> disch_then kall_tac >>
-    simp[tyvars_def,STRING_SORT_def,LIST_UNION_def,LIST_INSERT_def,INORDER_INSERT_def,REV_ASSOCD,mlstringTheory.implode_def] >>
+    simp[tyvars_def,STRING_SORT_def,LIST_UNION_def,LIST_INSERT_def,INORDER_INSERT_def,REV_ASSOCD] >>
     fs[interprets_def] >>
     qpat_x_assum`∀t. is_type_valuation t ⇒ tmaof i (strlit "!") Z = Y`(fn th => assume_tac th >> (qspec_then`(strlit "A" =+ boolset)τ`mp_tac) th) >>
     impl_tac >- (

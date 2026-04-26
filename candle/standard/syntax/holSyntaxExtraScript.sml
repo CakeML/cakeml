@@ -2798,15 +2798,15 @@ val fresh_term_def = new_specification("fresh_term_def",["fresh_term"],
     conj_tac >- metis_tac[rename_bvars_welltyped] >>
     conj_tac >- (
       match_mp_tac rename_bvars_ACONV >>
-      fs[IN_DISJOINT,MEM_MAP,implode_def] >>
+      fs[IN_DISJOINT,MEM_MAP] >>
       Cases >> simp[] >>
-      metis_tac[explode_implode,implode_def] ) >>
+      metis_tac[explode_implode] ) >>
     qspecl_then[`MAP implode names`,`[]`,`tm`]mp_tac bv_names_rename_bvars >>
     simp[TAKE_LENGTH_ID_rwt] >>
-    fs[IN_DISJOINT,MEM_MAP,implode_def] >>
+    fs[IN_DISJOINT,MEM_MAP] >>
     strip_tac >>
     Cases >> simp[] >>
-    metis_tac[explode_implode,implode_def] ))
+    metis_tac[explode_implode] ))
 
 (* Alternative characterisation of VARIANT, and thereby of VSUBST and INST_CORE.
    Better for evaluation. *)
@@ -2842,7 +2842,7 @@ Termination
   WF_REL_TAC `measure (\(avoid,v).
      let n = SUM_SET (BIGUNION (set (MAP (λa. {strlen x + 1 | ∃ty. VFREE_IN (Var x ty) a}) avoid))) in
        n - (case v of Var x ty => strlen x | _ => 0))` >>
-   gen_tac >> Cases >> srw_tac[][strlen_def,strcat_thm,implode_def] >>
+   gen_tac >> Cases >> srw_tac[][strlen_def,strcat_thm] >>
    qsuff_tac`STRLEN s' < n` >- simp[] >>
    simp[Abbr`n`] >> fs[GSYM vfree_in_thm,EXISTS_MEM] >>
    match_mp_tac SUM_SET_IN_LT >>

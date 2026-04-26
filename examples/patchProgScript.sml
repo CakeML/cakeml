@@ -35,7 +35,7 @@ Proof
   >> PURE_ONCE_REWRITE_TAC[TOKENS_eq_tokens_sym]
   >> recInduct TOKENS_ind >> rpt strip_tac
   >> fs[TOKENS_def] >> pairarg_tac >> reverse(Cases_on `l`) >> rw[]
-  >- (drule SPLITP_JOIN >> fs[implode_def,strlen_def])
+  >- (drule SPLITP_JOIN >> fs[strlen_def])
   >> fs[SPLITP_NIL_FST,SPLITP] >> every_case_tac >> fs[]
   >- (`!x. (λx. strlen x <= STRLEN r) x ==> (λx. strlen x <= SUC (STRLEN t)) x`
        by(rpt strip_tac >> PURE_ONCE_REWRITE_TAC[GSYM SPLITP_LENGTH] >> fs[])
@@ -63,7 +63,7 @@ Proof
   >> PURE_REWRITE_TAC[TOKENS_eq_tokens_sym,explode_thm]
   >> recInduct TOKENS_ind >> rpt strip_tac
   >> rw[TOKENS_def] >> pairarg_tac >> fs[] >> reverse(Cases_on `l`)
-  >> fs[implode_def]
+  >> fs[]
 QED
 
 Theorem tokens_two_less[local]:

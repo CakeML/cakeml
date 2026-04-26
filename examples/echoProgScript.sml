@@ -46,7 +46,7 @@ Proof
   unabbrev_all_tac \\
   xsimpl >> fs[] >>
   imp_res_tac STD_streams_stdout >>
-  simp[str_def,implode_def] >>
+  simp[str_def] >>
   imp_res_tac add_stdo_o >> xsimpl
 QED
 

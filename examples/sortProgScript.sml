@@ -105,7 +105,7 @@ Theorem LIST_REL_STRING_TYPE:
    LIST_REL STRING_TYPE ls vs ⇒ ls = MAP v_to_string vs
 Proof
   rw[LIST_REL_EL_EQN,LIST_EQ_REWRITE,EL_MAP] \\ rfs[] \\ res_tac \\
-  Cases_on`EL x ls` \\ fs[STRING_TYPE_def,v_to_string_def,implode_def]
+  Cases_on`EL x ls` \\ fs[STRING_TYPE_def,v_to_string_def]
 QED
 (* -- *)
 
@@ -407,7 +407,7 @@ Proof
   xsimpl >>
   qexists_tac `\l n. STDIO (add_stdout fss (concat (MAP v_to_string (TAKE n l))))` >>
   xsimpl >>
-  simp [implode_def] >>
+  simp [] >>
   DEP_REWRITE_TAC[GEN_ALL add_stdo_nil] >>
   conj_asm1_tac
   >- (

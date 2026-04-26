@@ -353,7 +353,7 @@ Proof
   rw [] \\ eq_tac \\ rw [encode_inode_tbl_def]
   \\ drule encode_list_11
   \\ impl_tac
-  >- (ntac 2 PairCases \\ fs [encode_pair_def, implode_def])
+  >- (ntac 2 PairCases \\ fs [encode_pair_def])
   \\ simp []
 QED
 

@@ -72,7 +72,7 @@ Theorem dec_enc_aux:
 Proof
   measureInduct_on `I i`
   \\ simp [Once enc_num_to_name_aux_def]
-  \\ CASE_TAC \\ simp [dec_name_to_num_def, sum_string_ords_eq, implode_def]
+  \\ CASE_TAC \\ simp [dec_name_to_num_def, sum_string_ords_eq]
 QED
 
 Theorem dec_enc:

@@ -1482,7 +1482,7 @@ Theorem is_emp_xor_eq:
   (x = extend_s (strlit "") (strlen x))
 Proof
   rw[extend_s_def,is_emp_xor_def]>>
-  Cases_on`x`>>fs[implode_def]>>
+  Cases_on`x`>>fs[]>>
   rw[LIST_EQ_REWRITE,EL_REPLICATE]>>
   fs[EVERY_EL]
 QED

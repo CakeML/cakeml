@@ -5616,7 +5616,7 @@ Proof
   rpt xlet_autop>>
   xapp>>xsimpl>>
   first_x_assum (irule_at Any)>> rw[]>>
-  Cases_on`fc`>>fs[mk_vomap_def, implode_def]>>
+  Cases_on`fc`>>fs[mk_vomap_def]>>
   qmatch_asmsub_abbrev_tac`strlit A`>>
   qmatch_goalsub_abbrev_tac`strlit B`>>
   qsuff_tac`A = B`>- metis_tac[]>>

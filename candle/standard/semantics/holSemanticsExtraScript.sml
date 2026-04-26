@@ -219,7 +219,7 @@ Proof
   qunabbrev_tac`aa` >>
   fs[is_std_interpretation_def,interprets_def] >>
   `MAP implode (STRING_SORT ["A"]) = [strlit "A"]` by
-    simp[STRING_SORT_def,INORDER_INSERT_def,mlstringTheory.implode_def] >>
+    simp[STRING_SORT_def,INORDER_INSERT_def] >>
   simp[] >> simp[Abbr`tt`,REV_ASSOCD]
 QED
 

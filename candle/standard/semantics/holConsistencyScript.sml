@@ -72,7 +72,7 @@ Proof
   rw[FEVERY_FUPDATE,Abbr`y2`,Abbr`y3`,FEVERY_FEMPTY,Abbr`z3`] >>
   rw[typesem_def,tyvars_def] >- metis_tac[boolean_in_boolset] >>
   TRY (
-    rw[INORDER_INSERT_def,STRING_SORT_def,LIST_UNION_def,LIST_INSERT_def,mlstringTheory.implode_def] >>
+    rw[INORDER_INSERT_def,STRING_SORT_def,LIST_UNION_def,LIST_INSERT_def] >>
     match_mp_tac (UNDISCH abstract_in_funspace) >> rw[] >>
     match_mp_tac (UNDISCH abstract_in_funspace) >> rw[boolean_in_boolset] ) >>
   Cases_on`ls`>>fs[]>>Cases_on`t`>>fs[listTheory.LENGTH_NIL] >>
