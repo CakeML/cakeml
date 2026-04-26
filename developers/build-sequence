@@ -33,6 +33,7 @@ translator/monadic/monad_base
 profiler
 
 # basis library
+basis/monadic
 basis
 
 # compiler
@@ -129,6 +130,7 @@ compiler/scheme/proofs
 characteristic/examples
 tutorial/solutions
 translator/monadic/examples
+translator/monadic/examples/in_array_sorts
 
 examples
 examples/compilation
