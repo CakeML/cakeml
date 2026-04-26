@@ -4,6 +4,16 @@ Pancake Changelog
 User-facing changes to the Pancake language and compiler are
 documented here when they are merged into `master`.
 
+April 24th 2026
+-------------------
+
+### Garbage collector always disabled
+
+The Pancake compiler now unconditionally compiles with GC set to `none`; any
+`--gc=...` flag passed alongside `--pancake` is silently ignored. This removes
+the unused GC runtime that Zhewen Shen's BSc thesis (p. 35) noted was being
+linked into every Pancake binary.
+
 August 26th 2025
 -------------------
 

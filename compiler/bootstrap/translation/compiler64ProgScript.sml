@@ -388,6 +388,8 @@ val _ = res |> hyp |> null orelse
 
 val res = translate $ spec64 compile_pancake_def;
 
+val res = translate pancake_backend_conf_def;
+
 val res = translate compile_pancake_64_def;
 
 val _ = res |> hyp |> null orelse

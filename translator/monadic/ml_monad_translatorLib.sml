@@ -1334,7 +1334,7 @@ local
       val state_ty = !(#refs_type translator_state)
       val state_ty' =
         type_subst
-        (List.map (fn ty => (ty |-> gen_tyvar ())) (type_vars state_ty))
+        (List.map (fn ty => (ty |-> gen_tyvar ())) (List.rev (type_vars state_ty)))
         state_ty
       val H_var =
         mk_var("H",

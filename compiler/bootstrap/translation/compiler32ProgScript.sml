@@ -372,6 +372,8 @@ val res = translate nonzero_exit_code_for_error_msg_def;
 
 val res = translate $ spec32 compile_pancake_def;
 
+val res = translate pancake_backend_conf_def;
+
 val res = translate compile_pancake_32_def;
 
 val _ = res |> hyp |> null orelse

@@ -1351,7 +1351,7 @@ fun define_v_fun ty = let
     val ind = matching_induction_of ty
     val args = concl ind |> strip_forall |> snd |> dest_imp |> snd
         |> strip_conj |> map (fst o dest_forall)
-    val param_tys = type_vars_in_term (concl ind) |> map (fst o fetch_v_fun)
+    val param_tys = List.rev (type_vars_in_term (concl ind)) |> map (fst o fetch_v_fun)
     val ty_inv_defs = map (get_type_inv o type_of) args
         |> map (fst o strip_comb)
         |> filter is_const
@@ -1460,7 +1460,7 @@ fun define_ref_inv is_exn_type tys = let
   fun mk_lhs (name,ty,case_th) = let
     val xs = map rand (find_terms is_eq (concl case_th))
     val ty = type_of (hd (SPEC_ALL case_th |> concl |> free_vars))
-    val vars = type_vars ty
+    val vars = List.rev (type_vars ty)
     val ss = map get_type_inv vars
     val input = mk_var("input",ty)
     val ml_ty_name = smart_full_name_of_type ty
@@ -1645,7 +1645,7 @@ val res = derive_thms_for_type is_exn_type ty
 *)
 
 fun avoid_v_subst ty = let
-  val tyargs = (ty::find_mutrec_types ty) |> map type_vars |> List.concat |> map dest_vartype
+  val tyargs = (ty::find_mutrec_types ty) |> map (List.rev o type_vars) |> List.concat |> map dest_vartype
   fun prime_v v =
     if exists (curry op = v) tyargs then
       prime_v (v^"w")
@@ -4283,7 +4283,7 @@ fun hide_ind_goal_rule name th1 =
     val name_ind = name ^ "_ind"
     val ind_goal = th1 |> concl |> dest_imp |> fst
     fun mk_itself a = mk_type("itself",[a])
-    val tys = type_vars_in_term ind_goal
+    val tys = List.rev (type_vars_in_term ind_goal)
     val vs = map mk_itself tys
     val ty = foldr (uncurry mk_fun_type) bool vs
     val args = map (curry mk_const "the_value") vs
