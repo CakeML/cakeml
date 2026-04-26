@@ -510,14 +510,14 @@ Theorem parse_header_cancel[local]:
        else
          SOME(n'+LENGTH l'))
 Proof
-  rw[diff_single_header_def,parse_patch_header_def,
-     option_case_eq,list_case_eq,PULL_EXISTS,
-     strsub_strcat,tokens_append_right_strlit,GSYM str_def,
-     tokens_append,acd_simps,tokens_comma_lemma,
-     tokens_comma_lemma]
-  \\ rw[line_numbers_def,tokens_toString_comma,
-        fromNatString_toString,
-        GSYM str_def,tokens_append,strsub_str]
+  rw []
+  >> simp [diff_single_header_def, parse_patch_header_def,
+           CaseEqs ["list", "option"], PULL_EXISTS, acd_simps]
+  >> simp [strsub_strcat,tokens_append_right_strlit,GSYM str_def,
+           tokens_append,
+           tokens_comma_lemma]
+  >> simp [line_numbers_def,tokens_toString_comma,
+           GSYM str_def,tokens_append]
 QED
 
 Theorem patch_aux_cancel_base_case[local]:
