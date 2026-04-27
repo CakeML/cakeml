@@ -615,11 +615,13 @@ End
 
 Type constraints[pp] = ``: 'a constraint set``;
 
+(* The syntactic problem type *)
 Datatype:
-  objective =
-    NoObjective
+  prob_type =
+    Decision
   | Minimize 'a
   | Maximize 'a
+  | Enumerate ('a list)
 End
 
 Definition cp_sat_def:
@@ -674,25 +676,44 @@ Definition cp_has_ub_def:
       (∃w. cp_sat bnd cs w ∧ w v ≤ ub)
 End
 
-(* We reuse the conclusion type from PBC to define the meaning of a CP problem.
-  The important case is for OBounds, where it depends on the CP problem.
-  TODO: what is the semantics of enumeration?
-*)
+(* Projection of w onto the list of variables vs *)
+Definition cp_proj_def:
+  cp_proj vs ws = IMAGE (λw. MAP w vs) ws
+End
+
+(* We reuse the conclusion type from PBC to define the syntactic meaning of a
+  CP problem.
+
+  NoConcl, DSat, DUnsat can be used for any problem type.
+
+  But there are special cases for:
+
+  - OBounds, where the CP problem type must be either a maximization or
+    minimization problem.
+
+  - EEnum, where the CP problem type must also be enumeration.
+
+  The important case is for OBounds, where it depends on the CP problem. *)
 Definition cp_sem_concl_def:
-  (cp_sem_concl bnd cs obj NoConcl ⇔ T) ∧
-  (cp_sem_concl bnd cs obj DSat ⇔ cp_satisfiable bnd cs) ∧
-  (cp_sem_concl bnd cs obj DUnsat ⇔ cp_unsatisfiable bnd cs) ∧
-  (cp_sem_concl bnd cs obj (OBounds lbi ubi) =
-    case obj of
-      NoObjective => T
+  (cp_sem_concl bnd cs ty NoConcl ⇔ T) ∧
+  (cp_sem_concl bnd cs ty DSat ⇔ cp_satisfiable bnd cs) ∧
+  (cp_sem_concl bnd cs ty DUnsat ⇔ cp_unsatisfiable bnd cs) ∧
+  (cp_sem_concl bnd cs ty (OBounds lbi ubi) ⇔
+    case ty of
     | Minimize v =>
       cp_is_lb bnd cs v lbi ∧
       cp_has_ub bnd cs v ubi
     | Maximize v =>
       cp_has_lb bnd cs v lbi ∧
       cp_is_ub bnd cs v ubi
-  ) ∧
-  (cp_sem_concl bnd cs obj (EEnum n complete) ⇔ T)
+    | _ => F) ∧
+  (cp_sem_concl bnd cs ty (EEnum n complete) ⇔
+    case ty of
+    | Enumerate vs =>
+      n ≤ CARD (cp_proj vs {w | cp_sat bnd cs w}) ∧
+      (complete ⇒
+        CARD (cp_proj vs {w | cp_sat bnd cs w}) ≤ n)
+    | _ => F)
 End
 
 (* The minimal value for a CP minimization instance *)
@@ -737,11 +758,11 @@ QED
 
 - bnd : (mlstring, int # int) alist
 - cs : mlstring constraint list
-- obj : mlstring objective
+- prob_ty: mlstring prob_type
 *)
 
 Type cp_inst[pp] = ``:(mlstring, int # int) alist #
-  (mlstring # mlstring constraint) list # mlstring objective``;
+  (mlstring # mlstring constraint) list # mlstring prob_type``;
 
 (* For any unspecified variable, default to (0,0) *)
 Definition bnd_lookup_def:
@@ -753,8 +774,20 @@ End
 
 Definition cp_inst_sem_concl_def:
   cp_inst_sem_concl (inst:cp_inst) concl ⇔
-  case inst of (bnd,cs,obj) =>
-    cp_sem_concl (bnd_lookup bnd) (set (MAP SND cs)) obj concl
+  case inst of (bnd,cs,pty) =>
+    cp_sem_concl (bnd_lookup bnd) (set (MAP SND cs)) pty concl
 End
 
+(* The solution set is FINITE, as long as the
+  bound is a function with finite support
+  (here, finite support is such that the function is constant
+    except on a finite set). *)
+Theorem FINITE_cp_proj_cp_sat:
+  FINITE (cp_proj vs {w | cp_sat bnd cs w})
+Proof
+  rw[cp_proj_def]>>
+  cheat
+  (* TODO: the projected set is a subset of lists of length = LENGTH vs
+    and where each entry i is bounded by the bounds of the corresponding v *)
+QED
 

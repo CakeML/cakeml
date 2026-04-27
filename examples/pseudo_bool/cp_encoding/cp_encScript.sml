@@ -27,8 +27,7 @@ Definition cencode_bound_all_def:
 End
 
 Definition encode_def:
-  encode (inst:cp_inst) =
-  case inst of (bnd,cs,_) =>
+  encode bnd cs =
   let bndm = bnd_lookup bnd in
   let cs = append (FST (cencode_constraints bndm cs init_ec)) in
   let cs' = MAP (I ## encode_iconstraint_one bndm) cs in
@@ -41,13 +40,27 @@ Definition encode_nivar_def:
   mul_lin_term (-1) (encode_ivar bnd V)
 End
 
-Definition encode_obj_def:
-  encode_obj inst =
-  case inst of (bnd,cs,obj) =>
-  case obj of
-    NoObjective => NONE
-  | Minimize v => SOME (encode_ivar (bnd_lookup bnd) v, 0i)
-  | Maximize v => SOME (encode_nivar (bnd_lookup bnd) v, 0i)
+(* The projection variables for X *)
+Definition proj_ivar_def:
+  proj_ivar bnd (X:'a) =
+  let (comp,h) = bit_width bnd X in
+  let bits = GENLIST (λi. (Bit X i)) h in
+  if comp then
+      (Sign X :: bits)
+  else bits
+End
+
+(* Returns the optional preserved set and the objective *)
+Definition encode_prob_type_def:
+  encode_prob_type bnd pty =
+  case pty of
+    Decision => (NONE, NONE)
+  | Minimize v => (NONE, SOME (encode_ivar (bnd_lookup bnd) v, 0i))
+  | Maximize v => (NONE, SOME (encode_nivar (bnd_lookup bnd) v, 0i))
+  | Enumerate vs =>
+    (SOME
+      (FLAT (MAP (proj_ivar (bnd_lookup bnd)) vs)),
+    NONE)
 End
 
 Theorem MAP_SND_MAP_I_FST:
@@ -73,7 +86,7 @@ Theorem encode_sem_1:
   cp_sat (bnd_lookup bnd) (set (MAP SND cs)) wi ⇒
   ∃wb.
   satisfies (reify_epb (wi,wb))
-    (set (MAP SND (encode (bnd,cs,v))))
+    (set (MAP SND (encode bnd cs)))
 Proof
   `∃es ec'. cencode_constraints (bnd_lookup bnd) cs init_ec = (es,ec')` by metis_tac[PAIR]>>
   rw[encode_def,cp_sat_def,MAP_SND_MAP_I_FST]>>
@@ -86,7 +99,7 @@ Proof
 QED
 
 Theorem encode_sem_2:
-  satisfies w (set (MAP SND (encode (bnd,cs,v)))) ⇒
+  satisfies w (set (MAP SND (encode bnd cs))) ⇒
   cp_sat (bnd_lookup bnd) (set (MAP SND cs))
     (unreify_epb (bnd_lookup bnd) w)
 Proof
@@ -128,42 +141,57 @@ Proof
 QED
 
 Definition full_encode_def:
-  full_encode inst =
-  (map_obj format_string
-    (encode_obj inst),
-  MAP (I ## map_pbc format_string) (encode inst))
+  full_encode (bnd,cs,pty) =
+  let (pres,obj) = encode_prob_type bnd pty in
+  (OPTION_MAP (MAP format_string) pres,
+    map_obj format_string obj,
+    MAP (I ## map_pbc format_string) (encode bnd cs))
 End
 
+(* Check validity and convert a PB conclusion into a CP one *)
 Definition conv_concl_def:
-  (conv_concl cpobj (OBounds lbi ubi) =
-  case cpobj of
-    Maximize v => OBounds (OPTION_MAP (λv. -v) ubi) (OPTION_MAP (λv. -v) lbi)
-  | _ => (OBounds lbi ubi)) ∧
-  (conv_concl cpobj concl = concl)
+  (conv_concl pty (OBounds lbi ubi) =
+    case pty of
+      Maximize v =>
+        SOME (OBounds (OPTION_MAP (λv. -v) ubi) (OPTION_MAP (λv. -v) lbi))
+    | Minimize v => SOME (OBounds lbi ubi)
+    | _ => NONE) ∧
+  (conv_concl pty (EEnum n complete) =
+    case pty of
+      Enumerate vs => SOME (EEnum n complete)
+    | _ => NONE) ∧
+  (conv_concl pty concl = SOME concl)
 End
 
 Theorem full_encode_sem_concl:
-  ALL_DISTINCT (MAP FST (FST (SND inst))) ∧
-  full_encode inst = (obj,pbf) ∧
-  sem_concl (set (MAP SND pbf)) obj {} concl ⇒
-  cp_inst_sem_concl inst (conv_concl (SND (SND inst)) concl)
+  ALL_DISTINCT (MAP FST cs) ∧
+  full_encode (bnd,cs,pty) = (pres,obj,pbf) ∧
+  sem_concl (set (MAP SND pbf)) obj (pres_set_list pres) concl ∧
+  conv_concl pty concl = SOME concl' ⇒
+  cp_inst_sem_concl (bnd,cs,pty) concl'
 Proof
-  `∃bnd cs v. inst = (bnd,cs,v)` by metis_tac[PAIR]>>
   strip_tac>>
   gvs[full_encode_def]>>
   qpat_x_assum`sem_concl _ _ _ _` mp_tac>>
+  gvs[UNCURRY_EQ]>>
+  rename1`_ = (pres,obj)`>>
   simp[LIST_TO_SET_MAP,IMAGE_IMAGE]>>
   simp[GSYM IMAGE_IMAGE, GSYM (Once LIST_TO_SET_MAP)]>>
-  `{} = IMAGE format_string {}` by fs[]>>
+  `pres_set_list (OPTION_MAP (MAP format_string) pres) =
+    IMAGE format_string(pres_set_list pres)` by
+      (simp[pres_set_list_def]>>
+      every_case_tac>>fs[LIST_TO_SET_MAP])>>
   pop_assum SUBST1_TAC>>
   DEP_REWRITE_TAC[GSYM concl_INJ_iff]>>
   CONJ_TAC >- (
-    simp[]>>
+    simp[FINITE_pres_set_list]>>
     assume_tac format_string_INJ>>
-    drule INJ_SUBSET>>
-    disch_then match_mp_tac>>
-    simp[])>>
-  Cases_on`concl`>>fs[conv_concl_def]
+    CONJ_TAC>- (
+      drule INJ_SUBSET>>
+      disch_then match_mp_tac>>
+      simp[])>>
+    gvs[INJ_DEF])>>
+  Cases_on`concl`>>gvs[conv_concl_def]
   >~[`NoConcl`]
   >- fs[cp_inst_sem_concl_def,cp_sem_concl_def]
   >~[`DSat`]
@@ -176,12 +204,10 @@ Proof
     fs[cp_inst_sem_concl_def,cp_sem_concl_def,sem_concl_def]>>
     simp[cp_unsatisfiable_def,cp_satisfiable_def,unsatisfiable_def,satisfiable_def]>>
     metis_tac[encode_sem_1,encode_sem_2,PAIR])
-  >~[`EEnum _ _`]
-  >- fs[cp_inst_sem_concl_def,cp_sem_concl_def]
   >~[`OBounds lbi ubi`]
   >- (
-    Cases_on`v`>>
-    fs[cp_inst_sem_concl_def,cp_sem_concl_def,sem_concl_def]>>
+    gvs[AllCaseEqs(),cp_inst_sem_concl_def,cp_sem_concl_def,
+      sem_concl_def,encode_prob_type_def]>>
     strip_tac
     >- (
       simp[cp_is_lb_def,cp_has_ub_def]>>
@@ -192,22 +218,22 @@ Proof
           metis_tac[encode_sem_1,encode_sem_2,PAIR])>>
         rw[]>>
         drule_all encode_sem_1>>
-        disch_then (qspec_then`Minimize a` assume_tac)>>fs[]>>
+        strip_tac>>fs[]>>
         first_x_assum drule>>
-        simp[encode_obj_def,eval_obj_def]>>
+        simp[eval_obj_def]>>
         DEP_REWRITE_TAC[encode_ivar_sem_1]>>
         fs[cp_sat_def])>>
       Cases_on`ubi`>>fs[]>>
       drule encode_sem_2>>
       disch_then (irule_at Any)>>
-      fs[GSYM encode_ivar_sem_2,encode_obj_def,eval_obj_def])
+      fs[GSYM encode_ivar_sem_2,eval_obj_def])
     >- (
       simp[cp_is_ub_def,cp_has_lb_def]>>
       CONJ_TAC >- (
         Cases_on`ubi`>>fs[]>>
         drule encode_sem_2>>
         disch_then (irule_at Any)>>
-        fs[GSYM encode_ivar_sem_2,encode_obj_def,eval_obj_def,encode_nivar_def]>>
+        fs[GSYM encode_ivar_sem_2,eval_obj_def,encode_nivar_def]>>
         intLib.ARITH_TAC)>>
       Cases_on`lbi`>>fs[]
       >- (
@@ -215,10 +241,23 @@ Proof
         metis_tac[encode_sem_1,encode_sem_2,PAIR])>>
       rw[]>>
       drule_all encode_sem_1>>
-      disch_then (qspec_then`Maximize a` assume_tac)>>fs[]>>
+      rw[]>>fs[]>>
       first_x_assum drule>>
-      simp[encode_obj_def,eval_obj_def,encode_nivar_def]>>
+      simp[eval_obj_def,encode_nivar_def]>>
       DEP_REWRITE_TAC[encode_ivar_sem_1]>>
       fs[cp_sat_def]>>
       intLib.ARITH_TAC))
+  >~[`EEnum n b`]
+  >- (
+    gvs[AllCaseEqs(),cp_inst_sem_concl_def,cp_sem_concl_def,
+      sem_concl_def,encode_prob_type_def]>>
+    qmatch_goalsub_abbrev_tac`CARD proj_pb_sols`>>
+    qmatch_goalsub_abbrev_tac`_ ⇒ n ≤ CARD proj_cp_sols ∧ _`>>
+    `?f. BIJ f proj_pb_sols proj_cp_sols` by cheat>>
+    drule_at Any FINITE_BIJ_CARD>>
+    impl_tac >- (
+      fs[Abbr`proj_pb_sols`]>>
+      irule FINITE_proj_pres>>
+      irule FINITE_pres_set_list)>>
+    rw[])
 QED

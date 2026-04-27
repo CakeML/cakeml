@@ -24,8 +24,10 @@ Ancestors
     (...)
     (...)
   )
-  // the third (if it exists) indicates the variable to minimize/maximize
-  (min x) | (max x)
+  // the third (if it exists) indicates the variable to minimize/maximize, or
+  // it is the keyword "enumerate", which means to enumerate over all the
+  // variables specified in the bounds
+  (minimize x) | (maximize x) | enumerate
 )
 *)
 
@@ -680,16 +682,20 @@ Definition sexp_constraints_def:
     od)
 End
 
-Definition sexp_obj_def:
-  (sexp_obj [] = return NoObjective) ∧
-  (sexp_obj [Expr [Atom x; Atom y]] =
+Definition sexp_prob_type_def:
+  (sexp_prob_type vs [] = return Decision) ∧
+  (sexp_prob_type vs [Expr [Atom x]] =
+      if x = strlit "enumerate"
+      then return (Enumerate vs)
+      else fail (strlit "invalid problem type sexpression\n")) ∧
+  (sexp_prob_type vs [Expr [Atom x; Atom y]] =
     if x = strlit "minimize"
     then return (Minimize y)
     else
     if x = strlit "maximize"
     then return (Maximize y)
-    else fail (strlit "invalid objective sexpression\n")) ∧
-  (sexp_obj _ = fail (strlit "invalid objective sexpression\n"))
+    else fail (strlit "invalid problem type sexpression\n")) ∧
+  (sexp_prob_type _ _ = fail (strlit "invalid problem type sexpression\n"))
 End
 
 Definition sexp_cp_inst_def:
@@ -697,10 +703,10 @@ Definition sexp_cp_inst_def:
   case e of
     Expr (Expr bnds::Expr constraints::mopt) =>
     do
-      bb <- sexp_bnds bnds;
-      cs <- sexp_constraints constraints;
-      obj <- sexp_obj mopt;
-      return ((bb,cs,obj):cp_inst)
+      (bb:(mlstring, int # int) alist) <- sexp_bnds bnds;
+      (cs:(mlstring # mlstring constraint) list) <- sexp_constraints constraints;
+      (pty:mlstring prob_type) <- sexp_prob_type (MAP FST bb) mopt;
+      return ((bb,cs,pty ):cp_inst)
     od
   | _ => fail (strlit "invalid sexpression for top-level CP instance\n")
 End
@@ -923,9 +929,16 @@ Theorem test_cp_inst:
          [(«c1», Prim (Binop Plus (INL «X») (INL «Y») (INL «X»)));
           («c2», Prim (Cmpop NONE Equal (INL «X») (INR 3)))],
          Minimize «X») ∧
+  (* enumeration *)
+  parse_cp_inst (strlit
+    "(((X 0 10) (Y 0 10)) ((c1 plus X Y X) (c2 equals X 3)) (enumerate))") =
+    INR ([(«X»,0,10); («Y»,0,10)],
+         [(«c1», Prim (Binop Plus (INL «X») (INL «Y») (INL «X»)));
+          («c2», Prim (Cmpop NONE Equal (INL «X») (INR 3)))],
+         Enumerate [«X»;«Y»]) ∧
   (* no objective (only 2 top-level entries) *)
   parse_cp_inst (strlit "(() ())") =
-    INR ([], [], NoObjective) ∧
+    INR ([], [], Decision) ∧
   (* maximize *)
   parse_cp_inst (strlit
     "(((A 0 5)) ((c all_different (A))) (maximize A))") =
@@ -937,7 +950,7 @@ Theorem test_cp_inst:
     INL (strlit "unsupported constraint: unknown\n") ∧
   (* malformed objective wrapper *)
   parse_cp_inst (strlit "(() () minimize X)") =
-    INL (strlit "invalid objective sexpression\n") ∧
+    INL (strlit "invalid problem type sexpression\n") ∧
   (* top-level sexpression must be an Expr of bounds/constraints/obj *)
   parse_cp_inst (strlit "foo") =
     INL (strlit "invalid sexpression for top-level CP instance\n") ∧
@@ -947,5 +960,4 @@ Theorem test_cp_inst:
 Proof
   EVAL_TAC
 QED
-
 
