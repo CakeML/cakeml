@@ -1,4 +1,8 @@
-INCLUDES = $(CAKEMLDIR)/misc $(HOLDIR)/examples/machine-code/hoare-triple
+INCLUDES = $(CAKEMLDIR)/misc \
+	   $(HOLDIR)/examples/machine-code/hoare-triple \
+	   $(CAKEMLDIR)/pancake \
+	   $(CAKEMLDIR)/pancake/semantics \
+	   $(CAKEMLDIR)/pancake/parser 
 
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
