@@ -139,7 +139,7 @@ val _ = update_precondition strip_prefix_side;
 val res = translate sexp_constraint_dispatch_def;
 val res = translate sexp_constraint_def;
 val res = translate sexp_constraints_def;
-val res = translate sexp_obj_def;
+val res = translate sexp_prob_type_def;
 val res = translate sexp_cp_inst_def;
 val res = translate parse_cp_inst_def;
 
@@ -431,18 +431,18 @@ val res = translate cencode_bound_all_def;
 
 val res = translate cp_encTheory.encode_def;
 val res = translate encode_nivar_def;
-val res = translate encode_obj_def;
+val res = translate proj_ivar_def;
+val res = translate encode_prob_type_def;
 val res = translate format_string_def;
 val res = translate full_encode_def;
 val res = translate conv_concl_def;
 
 (* CF CakeML setup *)
 Overload "cp_inst_TYPE" = ``
-  PAIR_TYPE
-    (LIST_TYPE (PAIR_TYPE vomap_TYPE (PAIR_TYPE INT INT)))
-  (PAIR_TYPE
-    (LIST_TYPE (PAIR_TYPE vomap_TYPE (CP_CONSTRAINT_TYPE vomap_TYPE)))
-    (CP_OBJECTIVE_TYPE vomap_TYPE))``
+  PAIR_TYPE (LIST_TYPE (PAIR_TYPE vomap_TYPE (PAIR_TYPE INT INT)))
+     (PAIR_TYPE
+        (LIST_TYPE (PAIR_TYPE vomap_TYPE (CP_CONSTRAINT_TYPE vomap_TYPE)))
+        (CP_PROB_TYPE_TYPE vomap_TYPE)) ``
 
 Definition get_cp_inst_def:
   get_cp_inst fs f =
@@ -506,24 +506,16 @@ Theorem parse_and_enc_spec:
     STDIO fs *
     & ∃res.
        SUM_TYPE STRING_TYPE
-         (PAIR_TYPE (CP_OBJECTIVE_TYPE STRING_TYPE)
-         (PAIR_TYPE
-            (OPTION_TYPE (PAIR_TYPE
-              (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE)))
-            INT))
-            (LIST_TYPE
-              (PAIR_TYPE
-              (OPTION_TYPE STRING_TYPE)
-              (PAIR_TYPE PBC_PBOP_TYPE (PAIR_TYPE (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE))) INT))))
-            )) res v ∧
+         (PAIR_TYPE (CP_PROB_TYPE_TYPE STRING_TYPE)
+         annot_prob_TYPE) res v ∧
        case res of
         INL err =>
           get_cp_inst fs f = NONE
-      | INR (cpobj,objf) =>
+      | INR (cpobj,prob) =>
           ∃inst.
           get_cp_inst fs f = SOME inst ∧
           SND (SND inst) = cpobj ∧
-          full_encode inst = objf)
+          full_encode inst = prob)
 Proof
   rw[]>>
   xcf"parse_and_enc"(get_ml_prog_state())>>
@@ -561,35 +553,39 @@ Definition cp_bound_str_def:
     strlit "\n"]
 End
 
+Definition cp_enum_str_def:
+  cp_enum_str (n:num) b =
+    if b
+    then
+      strlit "s VERIFIED COMPLETE ENUMERATION OF " ^ toString n ^ strlit " SOLUTIONS\n"
+    else
+      strlit "s VERIFIED PARTIAL ENUMERATION OF " ^ toString n ^ strlit " SOLUTIONS\n"
+End
+
 Definition print_cp_concl_str_def:
   (print_cp_concl_str NoConcl = cp_no_concl_str) ∧
   (print_cp_concl_str DSat = cp_sat_str) ∧
   (print_cp_concl_str DUnsat = cp_unsat_str) ∧
   (print_cp_concl_str (OBounds lbi ubi) = cp_bound_str lbi ubi) ∧
-  (print_cp_concl_str (EEnum n complete) = cp_no_concl_str)
+  (print_cp_concl_str (EEnum n complete) = cp_enum_str n complete)
 End
 
 val res = translate cp_sat_str_def;
 val res = translate cp_unsat_str_def;
 val res = translate cp_bound_str_def;
 val res = translate cp_no_concl_str_def;
+val res = translate cp_enum_str_def;
 val res = translate print_cp_concl_str_def;
 
 Definition map_concl_to_string_def:
   (map_concl_to_string cpobj (INL s) = (INL s)) ∧
   (map_concl_to_string cpobj (INR (out,bnd,c)) =
-    INR (print_cp_concl_str (conv_concl cpobj c)))
+    case conv_concl cpobj c of
+      NONE => INL (strlit "invalid conclusion type for CP problem\n")
+    | SOME concl => INR (print_cp_concl_str concl))
 End
 
 val res = translate map_concl_to_string_def;
-
-Definition mk_prob_def:
-  mk_prob objf = (NONE,objf):mlstring list option #
-    ((int # mlstring pbc$lit) list # int) option #
-    (mlstring option # (pbop # (int # mlstring pbc$lit) list # int)) list
-End
-
-val res = translate mk_prob_def;
 
 Definition check_unsat_2_sem_def:
   check_unsat_2_sem fs f out ⇔
@@ -604,9 +600,8 @@ Quote add_cakeml:
   fun check_unsat_2 f1 f2 =
   case parse_and_enc f1 of
     Inl err => TextIO.output TextIO.stdErr err
-  | Inr (inst,objf) =>
+  | Inr (inst,prob) =>
     let
-      val prob = mk_prob objf
       val prob = strip_annot_prob prob
       val probt = default_prob in
       (case
@@ -648,7 +643,6 @@ Proof
   Cases_on`y`>>fs[PAIR_TYPE_def]>>
   xmatch>>
   xlet_autop>>
-  xlet_autop>>
   assume_tac npbc_parseProgTheory.default_prob_v_thm>>
   xlet`POSTv v.
     STDIO fs *
@@ -659,7 +653,7 @@ Proof
   >-
     (xcon>>xsimpl)>>
   drule npbc_parseProgTheory.check_unsat_top_norm_spec>>
-  qpat_x_assum`prob_TYPE (strip_annot_prob (mk_prob _)) _`assume_tac>>
+  qpat_x_assum`prob_TYPE (strip_annot_prob _) _`assume_tac>>
   disch_then drule>>
   qpat_x_assum`prob_TYPE default_prob _`assume_tac>>
   disch_then drule>>
@@ -688,9 +682,9 @@ Proof
   every_case_tac>>fs[SUM_TYPE_def]>>xmatch
   >- (
     xapp>>xsimpl>>
-    asm_exists_tac>>simp[]>>
-    qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
-    rw[]>>
+    cheat)
+  >- (
+    xapp>>xsimpl>>
     cheat)
 QED
 
@@ -700,15 +694,15 @@ Definition check_unsat_1_sem_def:
   case get_cp_inst fs f1 of
     NONE => out = strlit ""
   | SOME inst =>
-    out = concat (print_annot_prob (mk_prob (full_encode inst)))
+    out = concat (print_annot_prob (full_encode inst))
 End
 
 Quote add_cakeml:
   fun check_unsat_1 f1 =
   case parse_and_enc f1 of
     Inl err => TextIO.output TextIO.stdErr err
-  | Inr (cpobj,objf) =>
-    TextIO.print_list (print_annot_prob (mk_prob objf))
+  | Inr (cpobj,prob) =>
+    TextIO.print_list (print_annot_prob prob)
 End
 
 Theorem check_unsat_1_spec:
@@ -738,7 +732,6 @@ Proof
     qexists_tac`x`>>xsimpl)>>
   Cases_on`y`>>gvs[PAIR_TYPE_def]>>
   xmatch>>
-  xlet_autop>>
   xlet_autop>>
   xapp_spec print_list_spec>>xsimpl>>
   asm_exists_tac>>xsimpl>>
