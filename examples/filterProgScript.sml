@@ -272,7 +272,7 @@ QED
 Definition cut_at_null_def:
   cut_at_null s =
   case null_index s 0 of
-      NONE => strcat s (str(CHR 0))
+      NONE => strcat s (toString(CHR 0))
     | SOME n => substring s 0 (SUC n)
 End
 

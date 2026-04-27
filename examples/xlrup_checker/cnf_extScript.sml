@@ -293,7 +293,7 @@ Definition print_lit_def:
 End
 
 Definition print_lits_def:
-  (print_lits e [] = str #"0" ^ str e) ∧
+  (print_lits (e: char) [] = toString #"0" ^ toString e) ∧
   (print_lits e (x::xs) =
     print_lit x ^ strlit(" ") ^ print_lits e xs)
 End
@@ -434,10 +434,10 @@ Proof
   Induct>>rw[print_lits_def]
   >- (
     drule mlstringTheory.tokens_append>>simp[]>>
-    `strlit (STRING #"0" (STRING c "")) = strlit"0" ^ str c` by EVAL_TAC>>
+    `strlit (STRING #"0" (STRING c "")) = strlit"0" ^ toString c` by EVAL_TAC>>
     simp[]>>
     EVAL_TAC)>>
-  `blanks #" " ∧ str #" " = strlit " "` by EVAL_TAC>>
+  `blanks #" " ∧ toString #" " = strlit " "` by EVAL_TAC>>
   drule mlstringTheory.tokens_append>>simp[]>>
   PURE_REWRITE_TAC[GSYM strcat_assoc]>>
   disch_then (fn th => simp[th])>>
@@ -471,7 +471,7 @@ Theorem fix_hd_toks:
   SOME (toks rest)
 Proof
   rw[toks_def]>>
-  `blanks #" " ∧ str #" " = strlit " "` by EVAL_TAC>>
+  `blanks #" " ∧ toString #" " = strlit " "` by EVAL_TAC>>
   drule mlstringTheory.tokens_append>>simp[]>>
   qmatch_goalsub_abbrev_tac`aa ^ bb`>>
   `aa = strlit[c] ^ strlit" "` by
@@ -535,8 +535,8 @@ Theorem parse_bnn_tail_print_tail:
   parse_bnn_tail (toks (print_tail k oy)) = SOME (k,oy)
 Proof
   rw[print_tail_def,toks_def]>>
-  `« 0\n» = str #" " ^ strlit"0\n"` by EVAL_TAC>>
-  `blanks #" " ∧ str #" " = strlit " "` by EVAL_TAC>>
+  `« 0\n» = toString #" " ^ strlit"0\n"` by EVAL_TAC>>
+  `blanks #" " ∧ toString #" " = strlit " "` by EVAL_TAC>>
   drule mlstringTheory.tokens_append>>
   simp[tokens_blanks_toString]>>
   `MAP tokenize (tokens blanks «0\n») = [INR 0]` by
@@ -577,7 +577,7 @@ Theorem parse_header_line_print_header_line:
 Proof
   rw[print_header_line_def, toks_def]>>
   qmatch_goalsub_abbrev_tac`aa ^ bb ^ _ ^ cc ^ dd`>>
-  `blanks #" " ∧ str #" " = strlit " "` by EVAL_TAC>>
+  `blanks #" " ∧ toString #" " = strlit " "` by EVAL_TAC>>
   drule mlstringTheory.tokens_append>>simp[]>>
   `aa = strlit"p" ^ strlit" " ^ strlit"cnf" ^ strlit" "` by
     (fs[Abbr`aa`]>>EVAL_TAC)>>
@@ -585,7 +585,7 @@ Proof
   first_assum(qspecl_then[`aa ^ bb`,`cc ^ dd`] assume_tac)>>fs[]>>
   `cc ^ dd = cc ^ dd ^ strlit""` by EVAL_TAC>>
   pop_assum SUBST_ALL_TAC>>
-  `blanks #"\n" ∧ str #"\n" = strlit "\n"` by EVAL_TAC>>
+  `blanks #"\n" ∧ toString #"\n" = strlit "\n"` by EVAL_TAC>>
   drule mlstringTheory.tokens_append>>simp[]>>
   unabbrev_all_tac>>
   rw[]>>
@@ -610,7 +610,7 @@ Proof
   simp[]>>
   PURE_REWRITE_TAC[GSYM mlstringTheory.strcat_assoc]>>
   PURE_REWRITE_TAC[Once mlstringTheory.strcat_assoc]>>
-  `blanks #" " ∧ str #" " = strlit " "` by EVAL_TAC>>
+  `blanks #" " ∧ toString #" " = strlit " "` by EVAL_TAC>>
   drule mlstringTheory.tokens_append>>simp[]>>
   `tokens blanks (strlit "p") = [strlit "p"]` by EVAL_TAC>>
   simp[]
@@ -626,7 +626,7 @@ Proof
   rw[]>>
   Cases_on`x`>>simp[print_clause_def]
   >- EVAL_TAC >>
-  `blanks #" " ∧ str #" " = strlit " "` by EVAL_TAC>>
+  `blanks #" " ∧ toString #" " = strlit " "` by EVAL_TAC>>
   first_x_assum drule>>
   simp[DISJ_IMP_THM,FORALL_AND_THM]>>rw[]>>
   simp[toks_def,print_lits_def]>>
@@ -678,7 +678,7 @@ Proof
   rw[parse_lits_def,print_xor_def,toks_def]>>
   `strlit "x " = strlit"x" ^ strlit" "` by EVAL_TAC>>
   pop_assum SUBST_ALL_TAC>>
-  `blanks #" " ∧ str #" " = strlit " "` by EVAL_TAC>>
+  `blanks #" " ∧ toString #" " = strlit " "` by EVAL_TAC>>
   drule mlstringTheory.tokens_append>>simp[]>>
   rw[]>>
   EVAL_TAC>>
@@ -706,7 +706,7 @@ Proof
   rw[parse_lits_def,print_bnn_def,toks_def]>>
   `strlit "b " = strlit"b" ^ strlit" "` by EVAL_TAC>>
   pop_assum SUBST_ALL_TAC>>
-  `blanks #" " ∧ str #" " = strlit " "` by EVAL_TAC>>
+  `blanks #" " ∧ toString #" " = strlit " "` by EVAL_TAC>>
   drule mlstringTheory.tokens_append>>simp[]>>
   PURE_REWRITE_TAC[GSYM strcat_assoc]>>
   DISCH_THEN (fn th => simp[th])>>
@@ -721,7 +721,7 @@ Proof
   rw[parse_xor_def,print_bnn_def,toks_def]>>
   `strlit "b " = strlit"b" ^ strlit" "` by EVAL_TAC>>
   pop_assum SUBST_ALL_TAC>>
-  `blanks #" " ∧ str #" " = strlit " "` by EVAL_TAC>>
+  `blanks #" " ∧ toString #" " = strlit " "` by EVAL_TAC>>
   drule mlstringTheory.tokens_append>>simp[]>>
   PURE_REWRITE_TAC[GSYM strcat_assoc]>>
   DISCH_THEN (fn th => simp[th])>>

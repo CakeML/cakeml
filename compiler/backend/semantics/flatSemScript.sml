@@ -381,16 +381,16 @@ Definition do_app_def:
               | NONE => NONE
               | SOME s' => SOME (s with refs := s', Rval Unitv))
      | _ => NONE)
-  | (Src CopyStrStr, [Litv(StrLit strng);Litv(IntLit off);Litv(IntLit len)]) =>
+  | (Src CopyStrStr, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len)]) =>
       SOME (s,
-      (case copy_array (explode strng,off) len NONE of
+      (case copy_array (explode str,off) len NONE of
         NONE => Rerr (Rraise subscript_exn_v)
       | SOME cs => Rval (Litv(StrLit(implode cs)))))
-  | (Src CopyStrAw8, [Litv(StrLit strng);Litv(IntLit off);Litv(IntLit len);
+  | (Src CopyStrAw8, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len);
                   Loc _ dst;Litv(IntLit dstoff)]) =>
       (case store_lookup dst s.refs of
         SOME (W8array ws) =>
-          (case copy_array (explode strng,off) len (SOME(ws_to_chars ws,dstoff)) of
+          (case copy_array (explode str,off) len (SOME(ws_to_chars ws,dstoff)) of
             NONE => SOME (s, Rerr (Rraise subscript_exn_v))
           | SOME cs =>
             (case store_assign dst (W8array (chars_to_ws cs)) s.refs of
@@ -431,25 +431,25 @@ Definition do_app_def:
      | SOME ls =>
        SOME (s, Rval (Litv (StrLit (implode ls))))
      | NONE => NONE)
-  | (Src Explode, [Litv (StrLit strng)]) =>
-    (SOME (s, Rval (list_to_v (MAP (\c. Litv (Char c)) (explode strng)))))
-  | (Src Strsub, [Litv (StrLit strng); Litv (IntLit i)]) =>
+  | (Src Explode, [Litv (StrLit str)]) =>
+    (SOME (s, Rval (list_to_v (MAP (\c. Litv (Char c)) (explode str)))))
+  | (Src Strsub, [Litv (StrLit str); Litv (IntLit i)]) =>
     if i < 0 then
       SOME (s, Rerr (Rraise subscript_exn_v))
     else
       let n = (Num (ABS i)) in
-        if n >= strlen strng then
+        if n >= strlen str then
           SOME (s, Rerr (Rraise subscript_exn_v))
         else
-          SOME (s, Rval (Litv (Char (strsub strng n))))
-  | (Src Strlen, [Litv (StrLit strng)]) =>
-    SOME (s, Rval (Litv(IntLit(int_of_num(strlen strng)))))
+          SOME (s, Rval (Litv (Char (strsub str n))))
+  | (Src Strlen, [Litv (StrLit str)]) =>
+    SOME (s, Rval (Litv(IntLit(int_of_num(strlen str)))))
   | (Src Strcat, [v]) =>
       (case v_to_list v of
         SOME vs =>
           (case vs_to_string vs of
-            SOME strng =>
-              SOME (s, Rval (Litv(StrLit strng)))
+            SOME str =>
+              SOME (s, Rval (Litv(StrLit str)))
           | _ => NONE)
       | _ => NONE)
   | (Src VfromList, [v]) =>

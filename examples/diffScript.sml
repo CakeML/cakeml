@@ -268,7 +268,7 @@ End
 Theorem tokens_append_strlit:
   ∀P s1 x s2. P x ⇒ tokens P (s1 ^ strlit [x] ^ s2) = tokens P s1 ++ tokens P s2
 Proof
-  rw[] >> drule tokens_append >> rw[str_def,implode_def]
+  rw[] >> drule tokens_append >> rw[chr_to_str_def,implode_def]
 QED
 
 Theorem tokens_append_right_strlit:
@@ -376,9 +376,9 @@ Proof
 QED
 
 Theorem strsub_str[local]:
-   strsub (str c) 0 = c
+   strsub (toString c) 0 = c
 Proof
-  rw[str_def,implode_def,strsub_def]
+  rw[chr_to_str_def,implode_def,strsub_def]
 QED
 
 Theorem acd_simps[local]:
@@ -512,12 +512,12 @@ Theorem parse_header_cancel[local]:
 Proof
   rw[diff_single_header_def,parse_patch_header_def,
      option_case_eq,list_case_eq,PULL_EXISTS,
-     strsub_strcat,tokens_append_right_strlit,GSYM str_def,
+     strsub_strcat,tokens_append_right_strlit,GSYM chr_to_str_def,
      tokens_append,acd_simps,tokens_comma_lemma,
      tokens_comma_lemma]
   \\ rw[line_numbers_def,tokens_toString_comma,
         fromNatString_toString,
-        GSYM str_def,tokens_append,strsub_str]
+        GSYM chr_to_str_def,tokens_append,strsub_str]
 QED
 
 Theorem patch_aux_cancel_base_case[local]:
