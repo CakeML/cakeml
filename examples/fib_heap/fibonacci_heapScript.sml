@@ -5478,15 +5478,9 @@ Proof
   `LENGTH l < LENGTH rl` by gvs[] >>
   drule lemma_fib_heap_inv_union2_imp_lupdate_fempty >>
   strip_tac >> gvs[lemma_fhts_to_ts_empty_upd] >>
-  cheat
-(*
-  `LENGTH l < LENGTH rl` by fs[] >>
-  qpat_x_assum `DISJOINT (FDOM fh1) (FDOM (fh_union rl))` mp_tac >> strip_tac >>
-  drule lemma_fh_union_disjoint_fempty_upd >>
-  drule_all lemma_fh_union_disjoint_fempty_upd >>
-  qspecl_then [`LENGTH l`,`fh1`,`rl`]
-    assume_tac lemma_fh_union_disjoint_fempty_upd >>
-*)
+  first_x_assum irule >>
+  irule lemma_fh_union_disjoint_fempty_upd >> simp[] >>
+  fs[fib_heap_inv_union2_def]
 QED
 
 
@@ -5662,6 +5656,30 @@ print_find "lupdate"
     qspecl_then [`
   *)
 QED
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 (*
 Definition fts_reb_def:
