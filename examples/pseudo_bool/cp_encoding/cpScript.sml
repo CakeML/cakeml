@@ -618,7 +618,7 @@ Theorem circuit_sem_eq:
 
 Definition misc_constr_sem_def:
   misc_constr_sem c w ⇔
-  case c of Circut Xs =>
+  case c of Circuit Xs =>
     circuit_sem Xs w
 End
 
@@ -818,6 +818,6 @@ Proof
   rw[cp_proj_def]>>
   cheat
   (* TODO: the projected set is a subset of lists of length = LENGTH vs
-    and where each entry i is bounded by the bounds of the corresponding v *)
+    and where each entry i is bounded by the bounds of the corresponding v. *)
 QED
 

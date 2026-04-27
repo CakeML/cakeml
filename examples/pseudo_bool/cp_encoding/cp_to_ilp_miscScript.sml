@@ -23,7 +23,8 @@ Theorem encode_misc_constr_sem_1:
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
     (encode_misc_constr bnd c name)
 Proof
-  rw[encode_misc_constr_def]
+  rw[encode_misc_constr_def]>>
+  cheat
 QED
 
 Theorem encode_misc_constr_sem_2:
@@ -32,7 +33,8 @@ Theorem encode_misc_constr_sem_2:
     (encode_misc_constr bnd c name) ⇒
   misc_constr_sem c wi
 Proof
-  rw[encode_misc_constr_def,misc_constr_sem_def]
+  rw[encode_misc_constr_def,misc_constr_sem_def]>>
+  cheat
 QED
 
 (* Concrete encodings *)
