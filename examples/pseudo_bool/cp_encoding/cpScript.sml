@@ -585,11 +585,41 @@ Definition channeling_constr_sem_def:
 End
 
 (***
-  misc_constr TODO
+  misc_constr
 ***)
+
+(* The idea of this definition:
+
+  For each initial var X in the list,
+    consider the infinite sequence
+
+  w(X), w(w(X)), w(w(w(X))), ...
+
+  The image of this must be {0,1,2,...,n-1}
+
+  (λn.
+    FUNPOW (λi. Num (varc w (EL i Xs))) n)
+
+*)
+Definition circuit_sem_def:
+  circuit_sem Xs w ⇔
+  EVERY (λX. 0 ≤ varc w X ∧ Num (varc w X) < LENGTH Xs) Xs ∧
+  EVERY (λX.
+     IMAGE (λn.
+        FUNPOW (λi. Num (varc w (EL i Xs))) n
+          (Num (varc w X))) UNIV =
+      count (LENGTH Xs)) Xs
+End
+
+(* Prove some sanity checks
+Theorem circuit_sem_eq:
+  circuit_sem Xs w ⇔ ...
+*)
+
 Definition misc_constr_sem_def:
   misc_constr_sem c w ⇔
-  T
+  case c of Circut Xs =>
+    circuit_sem Xs w
 End
 
 Definition constraint_sem_def:
