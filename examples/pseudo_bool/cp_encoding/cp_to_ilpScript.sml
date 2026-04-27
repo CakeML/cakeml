@@ -107,10 +107,52 @@ Definition reify_flag_def:
       MEM (HD vs) $ MAP (varc wi) Xs)
 End
 
+(* char 91 is [, char 92 is backslash *)
+Definition has_char_to_escape_def:
+  has_char_to_escape s n =
+    if n = 0:num then F else
+      let n = n - 1 in
+      let c = strsub s n in
+        (c = CHR 91) ∨ (c = CHR 92) ∨ has_char_to_escape s n
+End
+
+Theorem has_char_to_escape_thm:
+  has_char_to_escape s (strlen s) =
+  EXISTS (λc. (c = CHR 91) ∨ (c = CHR 92)) (explode s)
+Proof
+  qsuff_tac ‘
+    ∀xs ys.
+      has_char_to_escape (strlit (xs ++ ys)) (LENGTH xs) =
+      EXISTS (λc. (c = CHR 91) ∨ (c = CHR 92)) xs’
+  >-
+   (Cases_on ‘s’ \\ simp [] \\ rename [‘strlit xs’]
+    \\ disch_then $ qspecl_then [‘xs’,‘[]’] mp_tac \\ fs [])
+  \\ Induct using SNOC_INDUCT \\ gvs []
+  \\ simp [Once has_char_to_escape_def]
+  \\ rewrite_tac [SNOC_APPEND, GSYM APPEND_ASSOC]
+  \\ simp [EL_APPEND2]
+  \\ simp [AC DISJ_COMM DISJ_ASSOC]
+QED
+
+Definition escape_chars_def:
+  escape_chars [] = [] ∧
+  escape_chars (c::cs) =
+    if (c = CHR 91) ∨ (c = CHR 92) then
+      CHR 92 :: c :: escape_chars cs
+    else c :: escape_chars cs
+End
+
+Definition escape_open_bracket_def:
+  escape_open_bracket (s:mlstring) =
+    if has_char_to_escape s (strlen s) then
+      implode (escape_chars (explode s))
+    else s
+End
+
 Definition format_varc_def:
   format_varc X =
   case X of
-    INL s => strlit"i[" ^ s ^ strlit "]"
+    INL s => strlit"i[" ^ escape_open_bracket s ^ strlit "]"
   | INR i => strlit"n[" ^ int_to_string #"-" i ^ strlit"]"
 End
 
@@ -127,7 +169,7 @@ End
 
 Definition format_annot_def:
   (format_annot NONE = strlit"") ∧
-  (format_annot (SOME s) = strlit"[" ^ s ^ strlit"]")
+  (format_annot (SOME s) = strlit"[" ^ escape_open_bracket s ^ strlit"]")
 End
 
 Definition format_num_list_def:
@@ -142,11 +184,14 @@ Definition format_flag_def:
   format_flag (name,flag) =
   case flag of
     Flag ann =>
-      strlit"b[" ^ name ^ strlit"][" ^ ann ^ strlit "]"
+      strlit"b[" ^ escape_open_bracket name ^ strlit"][" ^
+                   escape_open_bracket ann ^ strlit "]"
   | Indices ns annot =>
-      strlit"x[" ^ name ^ strlit"][" ^ format_num_list ns ^ strlit"]" ^ format_annot annot
+      strlit"x[" ^ escape_open_bracket name ^ strlit"][" ^
+                   format_num_list ns ^ strlit"]" ^ format_annot annot
   | Values ns annot =>
-      strlit"v[" ^ name ^ strlit"][" ^ format_int_list ns ^ strlit"]" ^ format_annot annot
+      strlit"v[" ^ escape_open_bracket name ^ strlit"][" ^
+                   format_int_list ns ^ strlit"]" ^ format_annot annot
 End
 
 Definition format_var_def:
@@ -1243,4 +1288,3 @@ Theorem abstr_cencode_bitsum[simp]:
 Proof
   rw[cencode_bitsum_def]
 QED
-

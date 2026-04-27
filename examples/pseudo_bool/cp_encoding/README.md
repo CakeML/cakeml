@@ -1,7 +1,7 @@
 CP semantics and encoders
 
 [array](array):
-CakeML frontends for the CP encoder.
+CakeML frontend for the CP encoder.
 
 [cpScript.sml](cpScript.sml):
 Definition of CP problem syntax and semantics
