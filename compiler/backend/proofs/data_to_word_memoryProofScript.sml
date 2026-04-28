@@ -168,12 +168,74 @@ Proof
   \\ rpt strip_tac \\ res_tac \\ full_simp_tac std_ss [] \\ DECIDE_TAC
 QED
 
+(* v_inv conf v refs (x,f,tf,heap)
+   v    : the dataSem value
+   x    : the abstract gc value
+   f    : reference values in dataLang to gc address (sort of like the content of the pointer)
+   tf   : time-stamps in dataLang to gc addresses
+   heap : is the gc abstract heap
+ *)
+
+Inductive v_inv_ck:
+[~NumberSmall:]
+  small_int (:'a) i ⇒
+    v_inv_ck ck conf (Number i) (refs :v ref sptree$num_map)
+               (Data (Word (Smallnum i)),f,tf,heap:'a ml_heap)
+[~NumberBig:]
+  ¬small_int (:'a) i ∧
+  heap_lookup ptr heap = SOME (Bignum i) ⇒
+    v_inv_ck ck conf (Number i) refs (Pointer ptr (Word 0w),f,tf,heap:'a ml_heap)
+[~Word64:]
+  heap_lookup ptr heap = SOME (Word64Rep (:'a) w) ⇒
+    v_inv_ck ck conf (Word64 w) refs (Pointer ptr (Word 0w),f,tf,heap:'a ml_heap)
+[~CodePtr:]
+  v_inv_ck ck conf (CodePtr n) refs (Data (Loc n 0),f,tf,heap:'a ml_heap)
+[~RefPtr:]
+  n ∈ FDOM f ∧
+  (∀ev v. lookup n refs ≠ SOME (Thunk ev v)) ⇒
+    v_inv_ck ck conf (RefPtr b n) refs
+               (Pointer (f ' n) (Word 0w),f,tf,heap:'a ml_heap)
+[~RefPtrThunk:]
+  lookup n refs = SOME (Thunk ev v) ∧
+  (ev = Evaluated ⇒ dest_thunk v refs = NotThunk) ∧
+  n ∈ FDOM f ∧
+  heap_lookup (f ' n) heap = SOME (ThunkBlock ev x) ∧
+  (ck ≠ 0:num ⇒ v_inv_ck (ck-1) conf v refs (x,f,tf,heap)) ⇒
+    v_inv_ck ck conf (RefPtr F n) refs
+               (Pointer (f ' n) (Word 0w),f,tf,heap:'a ml_heap)
+[~RefPtrThunkInlined:]
+  lookup n refs = SOME (Thunk Evaluated v) ∧
+  dest_thunk v refs = NotThunk ∧
+  (ck ≠ 0 ⇒ v_inv_ck (ck-1) conf v refs (x,f,tf,heap)) ⇒
+    v_inv_ck ck conf (RefPtr F n) refs (x,f,tf,heap:'a ml_heap)
+[~BlockNil:]
+  vs = [] ∧
+  n < dimword(:'a) DIV 16 ∧
+  ts = 0 ⇒
+    v_inv_ck ck conf (Block ts n vs) refs
+               (Data (Word (BlockNil n)),f,tf,heap:'a ml_heap)
+[~BlockCons:]
+  vs ≠ [] ∧
+  (ck ≠ 0 ⇒ EVERY2 (\v x. v_inv_ck (ck-1) conf v refs (x,f,tf,heap)) vs xs) ∧
+  FLOOKUP tf ts = SOME ptr ∧
+  heap_lookup ptr heap = SOME (BlockRep n xs) ⇒
+    v_inv_ck ck conf (Block ts n vs) refs
+               (Pointer ptr (Word (ptr_bits conf n (LENGTH xs))),
+                f,tf,heap:'a ml_heap)
+End
+
+Definition v_inv_eq:
+  v_inv conf v refs (x,f,tf,heap) =
+    ∀ck. v_inv_ck ck conf v refs (x,f,tf,heap)
+End
+
 (*
   code pointers (i.e. Locs) will end in ...0
   small numbers end in ...00
   NIL-like constructors end in ...10
 *)
 
+(*
 Inductive v_inv_rel:
   (* v_inv conf v refs (x,f,tf,heap)
      v    : the dataSem value
@@ -238,6 +300,21 @@ Theorem v_inv_rel_strongind_alt = v_inv_rel_strongind
   |> Q.SPECL [‘v’,‘refs’,‘x’,‘f’,‘tf’,‘heap’]
   |> Q.GENL [‘v’,‘refs’,‘x’,‘f’,‘tf’,‘heap’]
   |> DISCH_ALL |> Q.GENL [‘conf’,‘P’];
+*)
+
+Theorem ThunkBlock_11[simp]:
+  ThunkBlock ev1 x1 = ThunkBlock ev2 x2 ⇔
+    ev1 = ev2 ∧ x1 = x2
+Proof
+  cheat
+QED
+
+Theorem v_inv_ck_mono:
+  v_inv_ck ck conf v refs (x,f,tf,heap) ⇒
+    ∀ck'. ck' ≤ ck ⇒ v_inv_ck ck' conf v refs (x,f,tf,heap)
+Proof
+  cheat
+QED
 
 Theorem v_inv_def:
   (v_inv conf (Number i) (refs :v ref sptree$num_map)
@@ -280,9 +357,42 @@ Theorem v_inv_def:
          (heap_lookup ptr heap = SOME (BlockRep n xs)))
 Proof
   rw []
-  \\ simp [Once v_inv_rel_cases]
-  \\ iff_tac \\ rw [] \\ gvs []
-  \\ metis_tac []
+  >- simp [v_inv_eq, Once v_inv_ck_cases]
+  >- simp [v_inv_eq, Once v_inv_ck_cases]
+  >- simp [v_inv_eq, Once v_inv_ck_cases]
+  >- simp [v_inv_eq, Once v_inv_ck_cases]
+  >- (
+    simp [v_inv_eq]
+    \\ iff_tac \\ rw [] \\ gvs []
+    >- (
+      pop_assum mp_tac
+      \\ simp [Once v_inv_ck_cases]
+      \\ rw [] \\ gvs []
+      \\ first_assum $ qspec_then `0` strip_assume_tac \\ gvs []
+      >- (
+        simp [PULL_FORALL]
+        \\ CCONTR_TAC \\ gvs []
+        >- (first_x_assum $ qspec_then `ck+1` assume_tac \\ gvs [])
+        >- (first_x_assum $ qspec_then `ck+1` assume_tac \\ gvs [])
+        \\ first_x_assum $ qspec_then `ck+ck'+1` assume_tac \\ gvs []
+        \\ drule v_inv_ck_mono
+        >- (disch_then $ qspec_then `ck` assume_tac \\ gvs [])
+        \\ disch_then $ qspec_then `ck'` assume_tac \\ gvs [])
+      >- (
+        simp [PULL_FORALL]
+        \\ CCONTR_TAC \\ gvs []
+        \\ Cases_on `x = Pointer (f ' n) (Word 0w)` \\ gvs []
+        >- cheat
+        \\ last_x_assum $ qspec_then `ck + 1` assume_tac \\ gvs []))
+    \\ simp [Once v_inv_ck_cases])
+  >- (simp [v_inv_eq, Once v_inv_ck_cases] \\ iff_tac \\ gvs [])
+  >- (
+    simp [v_inv_eq, Once v_inv_ck_cases]
+    \\ iff_tac \\ rw [] \\ gvs []
+    >- cheat
+    \\ irule_at Any EQ_REFL \\ gvs [] \\ rw []
+    \\ irule LIST_REL_mono \\ gvs []
+    \\ first_x_assum $ irule_at Any \\ gvs [])
 QED
 
 Theorem MEM_IMP_v_size[local]:
