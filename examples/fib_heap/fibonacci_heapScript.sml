@@ -3,7 +3,7 @@
 *)
 Theory fibonacci_heap
 Ancestors
-  misc words arithmetic list alist set_sep pair finite_map combin pred_set
+  misc words arithmetic list alist set_sep pair finite_map combin pred_set rich_list
 Libs
   wordsLib helperLib
 
@@ -2987,6 +2987,47 @@ Definition fh_union_def:
 End
 
 
+Theorem lemma_fh_union_empty_ind_IH:
+  (!x. x < SUC (LENGTH list) ==> EL x (h::list) = (FEMPTY,NONE))
+  ==>
+  !x. x < LENGTH list ==> EL x list = (FEMPTY,NONE)
+Proof
+  rpt strip_tac >>
+  first_x_assum (qspec_then `SUC x` assume_tac) >>
+  gvs[]
+QED
+
+
+Theorem fh_union_empty_thm:
+  !list.
+  (!x. x < LENGTH list ==> EL x list = (FEMPTY,NONE))
+  ==>
+  fh_union list = FEMPTY
+Proof
+  Induct >> fs[]
+  >- simp[fh_union_def] >>
+  rpt strip_tac >>
+  Cases_on `h` >>
+  first_assum (qspec_then `0` assume_tac) >> fs[] >>
+  drule lemma_fh_union_empty_ind_IH >>
+  strip_tac >>
+  res_tac >>
+  simp[fh_union_def]
+QED
+
+
+Theorem fh_union_replicate_empty_thm:
+  !x.
+  fh_union (REPLICATE x (FEMPTY,NONE)) = FEMPTY
+Proof
+  Induct
+  >- simp[fh_union_def] >>
+  simp[fh_union_def]
+QED
+
+
+
+
 Theorem fh_union_append_thm:
   !xs ys.
   fh_union (xs ++ ys) =
@@ -3193,6 +3234,21 @@ Definition fib_heap_inv_union2_def:
     ==> LENGTH l = n
 End
 
+
+Theorem fib_heap_inv_union2_empty_thm:
+  !x.
+  fib_heap_inv_union2 FEMPTY (REPLICATE x (FEMPTY,NONE))
+Proof
+  Induct
+  >- simp[fib_heap_inv_union2_def,fh_union_def,all_disjoint_def] >>
+  simp[fib_heap_inv_union2_def] >>
+  simp[fh_union_def,fh_union_replicate_empty_thm,fib_heap_inv_empty_thm] >>
+  simp[all_disjoint_def] >>
+  fs[fib_heap_inv_union2_def] >>
+  rpt strip_tac >>
+  Cases_on `n` >> fs[] >>
+  gvs[rich_listTheory.EL_REPLICATE]
+QED
 
 
 Definition fib_heap_inv_list_def:
@@ -5470,15 +5526,15 @@ End
 
 
 Theorem fts_link_root_list:
-  !rl fts fh1 fh2.
+  !rl' rl fts fh1 fh2.
   fib_heap_inv_strong fh1 fts /\
   fib_heap_inv_union2 fh2 (ts_to_fhts rl) /\
   DISJOINT (FDOM fh1) (FDOM fh2) /\
   fts_link_root_list rl fts = (rl',T)
   ==>
-  ?fh. fib_heap_inv_union2 fh (ts_to_fhts rl')
+  ?fh. fib_heap_inv_union2 fh (ts_to_fhts rl') /\ LENGTH rl = LENGTH rl'
 Proof
-  ho_match_mp_tac fts_link_root_list_ind >>
+  strip_tac >> ho_match_mp_tac fts_link_root_list_ind >>
   rpt strip_tac
   >- (
     fs[fts_link_root_list_def] >>
@@ -5501,17 +5557,17 @@ QED
 
 
 Definition fts_collect_array_def:
-  (fts_collect_array (r:num) rl acc =
+  fts_collect_array (r:num) rl acc =
     if r = 0 then
       case EL r rl of
-        SOME (FibTree k v l) => fts_merge [FibTree k v l] acc
-       |NONE => acc
+       |SOME (FibTree k v l) => (fts_merge [FibTree k v l] acc,(LUPDATE NONE r rl))
+       |NONE => (acc,rl)
     else
       case EL r rl of
-        SOME (FibTree k v l) =>
+       |SOME (FibTree k v l) =>
           fts_collect_array (r-1) (LUPDATE (NONE) r rl)
             (fts_merge [FibTree k v l] acc)
-       |NONE => fts_collect_array (r-1) rl acc)
+       |NONE => fts_collect_array (r-1) rl acc
 End
 
 
@@ -5618,6 +5674,7 @@ Proof
   simp[lupdate_append2]
 QED
 
+
 Theorem lemma_ts_to_fhts_lupdate_none:
   !x rl.
   x < LENGTH rl
@@ -5646,28 +5703,150 @@ Proof
 QED
 
 
+Theorem lemma_rl_ind_lupdate_none:
+  (!x. x < 196 /\ SUC r < x ==> EL x rl = NONE) /\
+  EL (SUC r) rl = NONE
+  ==>
+  !x. x < 196 /\ r < x ==> EL x rl = NONE
+Proof
+  rpt strip_tac >>
+  res_tac >>
+  Cases_on `SUC r < x` >> fs[] >>
+  `x = SUC r` by fs[] >>
+  simp[]
+QED
+
+
+Theorem lemma_rl_ind_lupdate_some:
+  LENGTH rl = 196 /\
+  (!x. x < 196 /\ SUC r < x ==> EL x rl = NONE) /\
+  EL (SUC r) rl = SOME t
+  ==>
+  !x. x < 196 /\ r < x ==> EL x (LUPDATE NONE (SUC r) rl) = NONE
+Proof
+  rpt strip_tac >>
+  res_tac >>
+  Cases_on `SUC r < x` >> fs[]
+  >- simp[EL_LUPDATE] >>
+  `x = SUC r` by fs[] >>
+  simp[EL_LUPDATE]
+QED
+
+
+Theorem lemma_rl_all_none_base:
+  !x.
+  LENGTH rl = 196 /\
+  x < LENGTH rl /\
+  (!x. x < 196 /\ 0 < x ==> EL x rl = NONE) /\
+  HD rl = NONE
+  ==>
+  EL x rl = NONE
+Proof
+  rpt strip_tac >> fs[] >>
+  Cases_on `x` >> fs[]
+QED
+
+
+
+
+
+(*
+Theorem lemma_fh_union_ts_to_fhts_map_empty:
+  !x.
+    LENGTH rl = 196 /\
+    x < LENGTH rl /\
+    EL x rl = NONE /\
+    fib_heap_inv_union2 fh (ts_to_fhts rl) ==>
+    fh = FEMPTY
+Proof
+  rpt strip_tac >>
+  fs[fib_heap_inv_union2_def] >>
+  simp[lemma_ts_to_fhts_to_map,fh_union_def] >>
+  simp[
+
+
+  Cases_on `h`
+  >- (
+    rw[]
+    simp[lemma_ts_to_fhts_to_map,fh_union_def] >>
+
+
+QED
+
+
+Theorem lemma_ts_to_fhts_index_empty:
+    LENGTH rl = 196 /\
+    (!x. x < 196 /\ 0 < x ==> EL x rl = NONE) /\
+    HD rl =  NONE /\
+    ==>
+
+Proof
+  strip_tac >>
+  fs[fib_heap_inv_union2_def] >>
+  rewrite_tac[lemma_ts_to_fhts_to_map] >>
+  drule lemma_rl_all_none_base >> strip_tac >>
+  res_tac >>
+  simp[]
+  fs[FORALL_PROD]
+  simp[]
+
+
+  `!x. x < 196 ==> EL x rl = NONE` by fs[] >>
+  Cases_on `EL 0 rl` >> fs[]
+  >- (
+    fs[ts_to_fhts_def] >>
+
+
+print_find "fh_union"
+
+  pop_assum mp_tac >>
+  simp[fib_heap_inv_union2_def] >>
+  simp[Once lemma_ts_to_fhts_to_map,EVERY_MAP] >>
+  strip_tac >>
+  CASE_TAC >> fs[] >>
+  Cases_on `x'` >>
+  qsuff_tac `F` >> simp[] >>
+  Cases_on `SUC r < x` >> rfs[]
+  >- gvs[] >>
+  `x = SUC r` by fs[] >> gvs[]
+
+  res_tac
+
+QED
+
+  !x. x < 196 /\ r < x ==> EL x (LUPDATE NONE (SUC r) rl) = NONE
+*)
+
+
 
 
 Theorem fts_collect_array:
-  !fts r fh2 rl fh1 acc.
+  !fts rl' r rl acc fh2 fh1 acc.
     fib_heap_inv fh1 acc /\
     fib_heap_inv_union2 fh2 (ts_to_fhts rl) /\
     DISJOINT (FDOM fh1) (FDOM fh2) /\
     LENGTH rl = 196 /\
     r < LENGTH rl /\
-    (fts_collect_array r rl acc = fts)
+    (!x. x < LENGTH rl /\ r < x ==> EL x rl = NONE) /\
+    fts_collect_array r rl acc = (fts,rl')
     ==>
-    ?fh. fib_heap_inv fh fts
+    ?fh. fib_heap_inv fh fts /\
+    (!x. x < LENGTH rl' ==> EL x rl' = NONE) /\
+    LENGTH rl = LENGTH rl'
 Proof
-  strip_tac >> Induct >> rpt strip_tac
+  strip_tac >> strip_tac >>
+  Induct >> rpt gen_tac >> disch_tac >> fs[]
   >- (
     pop_assum mp_tac >>
     simp[Once fts_collect_array_def] >>
     CASE_TAC
     >- (
       strip_tac >> gvs[] >>
-      qexists `fh1` >>
-      simp[]
+      simp[] >>
+      rpt strip_tac >>
+      qexists `fh1` >> simp[] >>
+      rpt strip_tac >> res_tac >>
+      Cases_on `x` >> fs[]
       ) >>
     CASE_TAC >>
     Cases_on `acc`
@@ -5676,19 +5855,29 @@ Proof
       rpt strip_tac >> gvs[] >>
       drule_all lemma_hd_ts_to_fhts >>
       strip_tac >>
-      qexists `fh2'` >> simp[]
+      qexists `fh2'` >> simp[] >>
+      rpt strip_tac >>
+      res_tac >>
+      Cases_on `x` >> fs[]
+      >- (Cases_on `rl` >> fs[LUPDATE_DEF]) >>
+      simp[EL_LUPDATE]
       ) >>
     Cases_on `h` >>
-    drule_all lemma_hd_ts_to_fhts >>
-    strip_tac >>
+    drule_all lemma_hd_ts_to_fhts >> strip_tac >>
     drule SUBMAP_FDOM_SUBSET >> strip_tac >> fs[] >>
     imp_res_tac DISJOINT_SUBSET >>
     strip_tac >>
-    qspecl_then [`fh2'`,`[FibTree k v l]`,`fh1`,`(FibTree k' v' l'::t)`]
+    qspecl_then [`fh2'`,`[FibTree k v l]`,`fh1`,`(FibTree k' v' l'::t)`,`fts`]
       assume_tac fts_merge >>
     rfs[] >>
     rfs[DISJOINT_SYM] >>
-    qexists `FUNION fh2' fh1` >> simp[]
+    qexists `FUNION fh2' fh1` >> simp[] >>
+    rpt strip_tac >>
+    gvs[] >>
+    res_tac >>
+    Cases_on `x` >> fs[]
+    >- (Cases_on `rl` >> fs[LUPDATE_DEF]) >>
+    simp[EL_LUPDATE]
     ) >>
   pop_assum mp_tac >>
   simp[Once fts_collect_array_def] >>
@@ -5696,24 +5885,26 @@ Proof
   >- (
     strip_tac >>
     `r < LENGTH rl` by fs[] >>
-    first_x_assum(qspecl_then [`fh2`,`rl`,`fh1`,`acc`] assume_tac) >> rfs[] >>
-    qexists `fh` >> simp[]
+    first_x_assum(qspecl_then [`rl`,`fh2`,`fh1`,`acc`] assume_tac) >> rfs[] >>
+    first_x_assum irule >>
+    drule lemma_rl_ind_lupdate_none >> strip_tac >> fs[]
     ) >>
   CASE_TAC >>
   Cases_on `acc`
   >- (
     simp[fts_merge_def] >> strip_tac >>
     drule_all lemma_rm_ts_to_fhts >> strip_tac >>
-    first_x_assum(qspecl_then [`fh2'`,`LUPDATE NONE (SUC r) rl`,
+    first_x_assum(qspecl_then [`LUPDATE NONE (SUC r) rl`,`fh2'`,
       `fh1'`,`[FibTree k v l]`] assume_tac) >>
     gvs[] >>
-    metis_tac[]
+    first_x_assum irule >>
+    drule lemma_rl_ind_lupdate_some >> strip_tac >> fs[]
     ) >>
   Cases_on `h` >>
-    drule_all lemma_rm_ts_to_fhts >> strip_tac >>
-    first_x_assum(qspecl_then [`fh2'`,`LUPDATE NONE (SUC r) rl`,
-      `FUNION fh1' fh1`,`fts_merge [FibTree k v l] (FibTree k' v' l' ::t)`]
-      assume_tac) >>
+  drule_all lemma_rm_ts_to_fhts >> strip_tac >>
+  first_x_assum(qspecl_then [`LUPDATE NONE (SUC r) rl`,`fh2'`,
+    `FUNION fh1' fh1`,`fts_merge [FibTree k v l] (FibTree k' v' l' ::t)`]
+    assume_tac) >>
   gvs[] >>
   qspecl_then [`fh1'`,`[FibTree k v l]`,`fh1`,`(FibTree k' v' l'::t)`,
     `fts_merge [FibTree k v l] (FibTree k' v' l'::t)`]
@@ -5732,20 +5923,75 @@ Proof
   simp[] >> strip_tac >>
   drule SUBMAP_FDOM_SUBSET >> strip_tac >>
   drule_all DISJOINT_SUBSET >> strip_tac >>
-  metis_tac[]
+  fs[DISJOINT_SYM] >>
+  drule lemma_rl_ind_lupdate_some >> strip_tac >> fs[]
+QED
+
+
+Definition alg_rl_def:
+  alg_rl = REPLICATE 196 NONE
+End
+
+
+Definition fts_reb_def:
+  fts_reb rl fts =
+    let (l_rl,flag) = fts_link_root_list rl fts in
+    let (fts',e_rl) = fts_collect_array (LENGTH l_rl - 1) l_rl [] in
+      (fts',e_rl,flag)
+End
+
+
+
+
+
+Theorem lemma_fib_heap_inv_union2_replicate_imp_fempty:
+  fib_heap_inv_union2 fh2 (ts_to_fhts alg_rl)
+  ==>
+  fh2 = FEMPTY
+Proof
+  simp[alg_rl_def,lemma_ts_to_fhts_to_map] >>
+  strip_tac >>
+  fs[fib_heap_inv_union2_def] >>
+  simp[fh_union_replicate_empty_thm]
 QED
 
 
 
+Theorem fts_reb:
+  !fh1 fts fh2.
+    fib_heap_inv_strong fh1 fts /\
+    fib_heap_inv_union2 fh2 (ts_to_fhts alg_rl) /\
+    fts_reb alg_rl fts = (fts',e_rl,T)
+    ==>
+    ?fh. fib_heap_inv fh fts' /\ e_rl = alg_rl
+Proof
+  rpt strip_tac >>
+  pop_assum mp_tac >>
+  simp[fts_reb_def] >>
+  pairarg_tac >> simp[] >>
+  pairarg_tac >> simp[] >>
+  strip_tac >> gvs[] >>
+  drule lemma_fib_heap_inv_union2_replicate_imp_fempty >> strip_tac >>
+  drule fts_link_root_list >> strip_tac >>
+  first_x_assum(qspecl_then [`l_rl`,`alg_rl`,`FEMPTY`] assume_tac) >>
+  gvs[] >>
+  pop_assum mp_tac >>
+  rewrite_tac[Once lemma_ts_to_fhts_to_map,alg_rl_def] >>
+  rewrite_tac[rich_listTheory.map_replicate] >>
+  simp[fib_heap_inv_union2_empty_thm] >>
+  strip_tac >> fs[] >>
+  cheat
 
-
+(*TODO: keep union of fh until this point to prove that all
+  elements are still there*)
 
 (*
-Definition fts_reb_def:
-  (fts_reb n xs =
-    fts_collect_list n (fts_link_root_list n (FEMPTY, xs)) )
-End
+  fts_link_root_list
+  fts_collect_array
 *)
+QED
+
+
 (*
 
 Currently, not used!
