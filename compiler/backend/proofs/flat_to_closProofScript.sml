@@ -974,8 +974,8 @@ Proof
         v_to_list x = SOME vs /\ vs_to_string vs = SOME s₁ /\ v_rel x y ==>
         ?wss. v_to_list y = SOME (MAP ByteVector wss) /\
               MAP (CHR o w2n) (FLAT wss) = explode s₁`
-  \\ rename1 ‘vs_to_string _ = SOME strng’
-  \\ Cases_on ‘strng’
+  \\ rename1 ‘vs_to_string _ = SOME str’
+  \\ Cases_on ‘str’
   THEN1
    (rpt (disch_then drule \\ fs []) \\ strip_tac \\ fs []
     \\ `!xs ys. MAP ByteVector xs = MAP ByteVector ys <=> xs = ys` by

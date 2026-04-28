@@ -1269,7 +1269,7 @@ Proof
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
       imp_res_tac v_to_char_list >>
       srw_tac[][] >>
-      namedCases_on ‘strng’ ["s"] >>
+      namedCases_on ‘str’ ["s"] >>
       fs [] >>
       Induct_on `s` >>
       fs [semanticPrimitivesTheory.list_to_v_def,flatSemTheory.list_to_v_def] >>
@@ -1282,7 +1282,7 @@ Proof
       srw_tac[][markerTheory.Abbrev_def] >>
       srw_tac[][markerTheory.Abbrev_def] >>
       full_simp_tac(srw_ss())[v_rel_lems]
-      >> rename1 ‘explode strng’ >> Cases_on ‘strng’ >> fs [])
+      >> rename1 ‘explode str’ >> Cases_on ‘str’ >> fs [])
   >~ [‘Strlen’] >- (
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems])
@@ -2493,10 +2493,8 @@ Proof
   ho_match_mp_tac compile_decs_ind >>
   rw [compile_decs_def, idx_prev_def] >>
   rw [] >>
-  pairarg_tac >>
-  fs [] >>
-  pairarg_tac >>
-  fs []
+  rpt (pairarg_tac >> fs []) >>
+  gvs [CaseEq"option",CaseEq"prod",CaseEq"var_name"]
 QED
 
 Theorem inc_compile_prog_idx_prev:
@@ -2519,10 +2517,8 @@ Proof
   ho_match_mp_tac compile_decs_ind >>
   rw [compile_decs_def, idx_prev_def] >>
   rw [] >>
-  pairarg_tac >>
-  fs [] >>
-  pairarg_tac >>
-  fs []
+  rpt (pairarg_tac >> fs []) >>
+  gvs [CaseEq"option",CaseEq"prod",CaseEq"var_name"]
 QED
 
 Theorem compile_decs_env_gen_inv:
@@ -2537,6 +2533,7 @@ Proof
   rw [compile_decs_def, idx_prev_def] >>
   rw [] >>
   rpt (pairarg_tac >> fs []) >>
+  gvs [CaseEq"option",CaseEq"prod",CaseEq"var_name"] >>
   fs [env_gen_inv_def] >>
   fsrw_tac [SATISFY_ss] [subspt_trans] >>
   rw [subspt_def, lookup_insert] >>
@@ -4794,6 +4791,27 @@ Resume compile_correct[cons_decs]:
 QED
 
 Resume compile_correct[Dlet]:
+  rename [‘simple_dlet p e’] >>
+  reverse $ Cases_on ‘simple_dlet p e’
+  >-
+   (rename [‘simple_dlet p e = SOME p_’] >>
+    PairCases_on ‘p_’ >> gvs [] >>
+    pop_assum mp_tac >>
+    simp [simple_dlet_def, AllCaseEqs()] >>
+    strip_tac >> gvs [evaluateTheory.evaluate_def] >>
+    qpat_x_assum ‘_ = (s',r)’ mp_tac >>
+    simp [AllCaseEqs(),semanticPrimitivesTheory.pmatch_def] >>
+    strip_tac >> gvs [] >>
+    ‘∃t1 i1. nsLookup comp_map.v p_1 = SOME (Glob t1 i1)’ by
+      (gvs [v_rel_global_eqn] >> res_tac >> gvs []) >>
+    gvs [flatSemTheory.evaluate_def] >>
+    first_x_assum $ irule_at $ Pos hd >>
+    simp [subglobals_refl] >>
+    conj_tac >- simp [env_domain_eq_def] >>
+    gvs [v_rel_global_eqn] >>
+    gvs [nsLookup_nsBind_If] >>
+    res_tac \\ gvs []) >>
+  pop_assum $ full_simp_tac std_ss o single >>
   rw [] >> fs [pair_case_eq] >> fs [] >>
   `env_all_rel genv comp_map env <|v := []|> []`
     by (simp [env_all_rel_cases] \\ simp [v_rel_rules]) >>
@@ -4802,12 +4820,13 @@ Resume compile_correct[Dlet]:
   simp [bind_locals_def] >>
   simp [Q.prove (`(x with v := x.v) = (x : source_to_flat$environment)`,
       simp [source_to_flatTheory.environment_component_equality])] >>
-  disch_then (qsubterm_then `evaluate _ _ _` mp_tac) >>
+  disch_then $ qspec_then ‘(REVERSE (pat_bindings p []) ++ path)’ mp_tac >>
   (impl_tac >- (CCONTR_TAC >> fs [])) >>
   rw [] >>
   simp [] >>
   imp_res_tac not_abort_IMP_cases >> fs [result_rel_eqns] >>
   rveq >> fs [] >>
+  simp [evaluate_def] >>
   TRY (asm_exists_tac >> simp [result_rel_eqns]) >>
   fs [] >>
   drule invariant_idx_range_shrink >>
@@ -5682,6 +5701,7 @@ Proof
   ho_match_mp_tac compile_decs_ind
   \\ rw [compile_decs_def]
   \\ rpt (pairarg_tac \\ fs [])
+  \\ gvs [AllCaseEqs()]
   \\ rw []
   \\ fs [compile_exp_esgc_free, make_varls_esgc_free]
   \\ fs [EVERY_MAP, EVERY_FILTER, MAP_FILTER]
@@ -5763,7 +5783,8 @@ Proof
 QED
 
 Definition num_bindings_def[simp]:
-   (num_bindings (Dlet _ p _) = LENGTH (pat_bindings p [])) ∧
+   (num_bindings (Dlet _ p e) =
+     case simple_dlet p e of SOME _ => 0 | _ => LENGTH (pat_bindings p [])) ∧
    (num_bindings (Dletrec _ f) = LENGTH f) ∧
    (num_bindings (Dmod _ ds) = SUM (MAP num_bindings ds)) ∧
    (num_bindings (Dlocal lds ds) = SUM (MAP num_bindings lds)
@@ -5785,6 +5806,7 @@ Proof
   \\ simp [markerTheory.Abbrev_def]
   \\ rw[]
   \\ rpt (pairarg_tac \\ fs [])
+  \\ gvs [AllCaseEqs()]
   \\ rw []
   \\ fsrw_tac [ETA_ss] []
   \\ DECIDE_TAC
@@ -5806,7 +5828,7 @@ Theorem compile_decs_elist_globals:
       LIST_TO_BAG (MAP ((+) next.vidx) (COUNT_LIST (SUM (MAP num_bindings decs))))
 Proof
   recInduct source_to_flatTheory.compile_decs_ind
-  \\ rw[source_to_flatTheory.compile_decs_def]
+  \\ rw[source_to_flatTheory.compile_decs_def,AllCaseEqs()]
   \\ rw[set_globals_make_varls]
   \\ rpt (pairarg_tac \\ fs [])
   \\ rw[compile_exp_esgc_free, EVAL ``COUNT_LIST 0``]

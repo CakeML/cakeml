@@ -215,7 +215,8 @@ Proof
                     , explode_def]
   in recInduct fromChars_ind
   \\ CONJ_TAC >- rw tactics
-  \\ rw [] \\ Cases_on `str'`
+  \\ rw []
+  \\ rename1 ‘fromChars _ str’ \\ Cases_on ‘str’
   \\ rw tactics
   \\ fs tactics
   end
@@ -513,8 +514,9 @@ Proof
   \\ fs[IS_SOME_EXISTS, PULL_EXISTS]
   \\ fs[EQ_IMP_THM] \\ fs[PULL_EXISTS]
   \\ rw[] \\ fs[]
+  \\ rename1 ‘fromChars _ str’
   >- (
-    qspecl_then[`str'`,`SUC v2 - padLen_DEC`,`padLen_DEC`]mp_tac fromChars_range_IS_SOME_IFF
+    qspecl_then[`str`,`SUC v2 - padLen_DEC`,`padLen_DEC`]mp_tac fromChars_range_IS_SOME_IFF
     \\ simp[]
     \\ fs[EVERY_MEM,MEM_EL,PULL_EXISTS,EL_TAKE,EL_DROP]
     \\ rw[]
@@ -525,7 +527,7 @@ Proof
   \\ impl_tac
   >- ( fs[EVERY_MEM, MEM_EL, PULL_EXISTS, LENGTH_TAKE_EQ, EL_TAKE] )
   \\ strip_tac \\ fs[]
-  \\ qspecl_then[`str'`,`SUC v2 - padLen_DEC`,`padLen_DEC`]mp_tac fromChars_range_IS_SOME_IFF
+  \\ qspecl_then[`str`,`SUC v2 - padLen_DEC`,`padLen_DEC`]mp_tac fromChars_range_IS_SOME_IFF
   \\ simp[IS_SOME_EXISTS]
   \\ fs[EVERY_MEM, MEM_EL, PULL_EXISTS, LENGTH_TAKE_EQ, EL_TAKE, EL_DROP]
 QED

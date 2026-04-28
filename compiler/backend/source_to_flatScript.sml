@@ -332,18 +332,32 @@ Definition env_id_tuple_def:
     [Lit None (IntLit (& gen)); Lit None (IntLit (& id))]
 End
 
+Definition simple_dlet_def:
+  simple_dlet p e =
+    case p of
+    | ast$Pvar pv => (case e of ast$Var v => SOME (pv,v) | _ => NONE)
+    | _ => NONE
+End
+
 Definition compile_decs_def:
   (compile_decs (t:mlstring list) n next env envs [ast$Dlet locs p e] =
-     let n' = n + 4 in
-     let xs = REVERSE (pat_bindings p []) in
-     let e' = compile_exp (xs++t) env e in
-     let l = LENGTH xs in
-     let n'' = n' + l in
-       (n'', (next with vidx := next.vidx + l),
-        <| v := alist_to_ns (alloc_defs n' next.vidx xs); c := nsEmpty |>,
-        envs,
-        [flatLang$Mat None e'
-          [(compile_pat env p, make_varls 0 None next.vidx xs)]])) ∧
+     case simple_dlet p e of
+     | SOME (pv,v) =>
+         (case nsLookup env.v v of
+          | SOME (Glob t i) =>
+                 (n, next, <| v := alist_to_ns [(pv, Glob t i)]; c := nsEmpty |>, envs, [])
+          | _ => (n, next, <| v := nsEmpty; c := nsEmpty |>, envs, []))
+     | NONE =>
+         let n' = n + 4 in
+         let xs = REVERSE (pat_bindings p []) in
+         let e' = compile_exp (xs++t) env e in
+         let l = LENGTH xs in
+         let n'' = n' + l in
+           (n'', (next with vidx := next.vidx + l),
+            <| v := alist_to_ns (alloc_defs n' next.vidx xs); c := nsEmpty |>,
+            envs,
+            [Mat None e'
+               [(compile_pat env p, make_varls 0 None next.vidx xs)]])) ∧
   (compile_decs t n next env envs [ast$Dletrec locs funs] =
      let fun_names = MAP FST funs in
      let new_env = nsBindList (MAP (\x. (x, Local None x)) fun_names) env.v in

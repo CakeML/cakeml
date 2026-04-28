@@ -53,7 +53,8 @@ val _ = ml_prog_update open_local_in_block;
 val _ = next_ml_names := ["concatWith"];
 val result = translate concatWith_def;
 
-val result = translate str_def;
+val _ = next_ml_names := ["str"];
+val result = translate chr_to_str_def;
 
 val _ = ml_prog_update open_local_block;
 val result = translate translate_aux_def;

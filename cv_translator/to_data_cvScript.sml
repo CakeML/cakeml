@@ -130,16 +130,23 @@ val _ = cv_auto_trans (source_to_flatTheory.alloc_tags_def
 
 Definition compile_decs_alt_def:
   (compile_dec_alt (t:mlstring list) n next env envs (ast$Dlet locs p e) =
-     let n' = n + 4 in
-     let xs = REVERSE (pat_bindings p []) in
-     let e' = compile_exp (xs++t) env e in
-     let l = LENGTH xs in
-     let n'' = n' + l in
-       (n'', (next with vidx := next.vidx + l),
-        <| v := alist_to_ns (alloc_defs n' next.vidx xs); c := nsEmpty |>,
-        envs,
-        [ (Mat None e'
-          [(compile_pat env p, make_varls 0 None next.vidx xs)])])) ∧
+     case simple_dlet p e of
+     | SOME (pv,v) =>
+         (case nsLookup env.v v of
+          | SOME (Glob t i) =>
+                 (n, next, <| v := alist_to_ns [(pv, Glob t i)]; c := nsEmpty |>, envs, [])
+          | _ => (n, next, <| v := nsEmpty; c := nsEmpty |>, envs, []))
+     | NONE =>
+         let n' = n + 4 in
+         let xs = REVERSE (pat_bindings p []) in
+         let e' = compile_exp (xs++t) env e in
+         let l = LENGTH xs in
+         let n'' = n' + l in
+           (n'', (next with vidx := next.vidx + l),
+            <| v := alist_to_ns (alloc_defs n' next.vidx xs); c := nsEmpty |>,
+            envs,
+            [(Mat None e'
+              [(compile_pat env p, make_varls 0 None next.vidx xs)])])) ∧
   (compile_dec_alt t n next env envs (ast$Dletrec locs funs) =
      let fun_names = MAP FST funs in
      let new_env = nsBindList (MAP (\x. (x, Local None x)) fun_names) env.v in
@@ -216,7 +223,11 @@ Theorem compile_decs_thm:
 Proof
   ho_match_mp_tac source_to_flatTheory.compile_decs_ind >>
   PURE_ONCE_REWRITE_TAC[compile_decs_cons] >>
-  rw[source_to_flatTheory.compile_decs_def,compile_decs_alt_def,source_to_flatTheory.extend_env_def,source_to_flatTheory.empty_env_def,UNCURRY_eq_pair,PULL_EXISTS,source_to_flatTheory.lift_env_def]
+  rw[source_to_flatTheory.compile_decs_def, compile_decs_alt_def,
+     source_to_flatTheory.extend_env_def,
+     source_to_flatTheory.empty_env_def, UNCURRY_eq_pair, PULL_EXISTS,
+     source_to_flatTheory.lift_env_def]
+  >- (rpt (TOP_CASE_TAC \\ gvs []))
   >- metis_tac[FST,SND,PAIR]
   >- metis_tac[FST,SND,PAIR] >>
   res_tac >>
