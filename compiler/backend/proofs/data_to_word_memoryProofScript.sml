@@ -306,14 +306,19 @@ Theorem ThunkBlock_11[simp]:
   ThunkBlock ev1 x1 = ThunkBlock ev2 x2 ⇔
     ev1 = ev2 ∧ x1 = x2
 Proof
-  cheat
+  rewrite_tac [ThunkBlock_def] \\ simp [AC CONJ_ASSOC CONJ_COMM]
 QED
 
 Theorem v_inv_ck_mono:
-  v_inv_ck ck conf v refs (x,f,tf,heap) ⇒
-    ∀ck'. ck' ≤ ck ⇒ v_inv_ck ck' conf v refs (x,f,tf,heap)
+  ∀ck conf v refs x f tf heap.
+    v_inv_ck ck conf v refs (x,f,tf,heap) ⇒
+      ∀ck'. ck' ≤ ck ⇒ v_inv_ck ck' conf v refs (x,f,tf,heap)
 Proof
-  cheat
+  Induct \\ rw []
+  \\ ntac 2 $ pop_assum mp_tac
+  \\ once_rewrite_tac [v_inv_ck_cases] \\ rw []
+  \\ simp [BlockRep_def]
+  \\ fs [LIST_REL_EL_EQN, PULL_FORALL] \\ rw []
 QED
 
 Theorem v_inv_def:
@@ -363,36 +368,41 @@ Proof
   >- simp [v_inv_eq, Once v_inv_ck_cases]
   >- (
     simp [v_inv_eq]
-    \\ iff_tac \\ rw [] \\ gvs []
-    >- (
-      pop_assum mp_tac
-      \\ simp [Once v_inv_ck_cases]
-      \\ rw [] \\ gvs []
-      \\ first_assum $ qspec_then `0` strip_assume_tac \\ gvs []
-      >- (
-        simp [PULL_FORALL]
-        \\ CCONTR_TAC \\ gvs []
-        >- (first_x_assum $ qspec_then `ck+1` assume_tac \\ gvs [])
-        >- (first_x_assum $ qspec_then `ck+1` assume_tac \\ gvs [])
-        \\ first_x_assum $ qspec_then `ck+ck'+1` assume_tac \\ gvs []
-        \\ drule v_inv_ck_mono
-        >- (disch_then $ qspec_then `ck` assume_tac \\ gvs [])
-        \\ disch_then $ qspec_then `ck'` assume_tac \\ gvs [])
-      >- (
-        simp [PULL_FORALL]
-        \\ CCONTR_TAC \\ gvs []
-        \\ Cases_on `x = Pointer (f ' n) (Word 0w)` \\ gvs []
-        >- cheat
-        \\ last_x_assum $ qspec_then `ck + 1` assume_tac \\ gvs []))
-    \\ simp [Once v_inv_ck_cases])
+    \\ reverse iff_tac \\ rw [] \\ gvs []
+    >- simp [Once v_inv_ck_cases]
+    >- simp [Once v_inv_ck_cases]
+    >- simp [Once v_inv_ck_cases]
+    \\ pop_assum mp_tac
+    \\ simp [Once v_inv_ck_cases]
+    \\ rw [] \\ gvs []
+    \\ first_assum $ qspec_then `0` strip_assume_tac \\ gvs []
+    >-
+     (simp [PULL_FORALL]
+      \\ CCONTR_TAC \\ gvs []
+      >- (first_x_assum $ qspec_then `ck+1` assume_tac \\ gvs [])
+      >- (first_x_assum $ qspec_then `ck+1` assume_tac \\ gvs [])
+      \\ first_x_assum $ qspec_then `ck+ck'+1` assume_tac \\ gvs []
+      \\ drule v_inv_ck_mono
+      >- (disch_then $ qspec_then `ck` assume_tac \\ gvs [])
+      \\ disch_then $ qspec_then `ck'` assume_tac \\ gvs [])
+    \\ CCONTR_TAC \\ gvs []
+    \\ last_assum $ qspec_then ‘ck+1’ assume_tac
+    \\ fs [] \\ fs [] \\ fs []
+    \\ first_x_assum $ qspec_then `ck+ck'+1` assume_tac \\ gvs []
+    \\ drule v_inv_ck_mono
+    >- (disch_then $ qspec_then `ck'` assume_tac \\ gvs [])
+    \\ disch_then $ qspec_then `ck` assume_tac \\ gvs []    )
   >- (simp [v_inv_eq, Once v_inv_ck_cases] \\ iff_tac \\ gvs [])
-  >- (
-    simp [v_inv_eq, Once v_inv_ck_cases]
-    \\ iff_tac \\ rw [] \\ gvs []
-    >- cheat
-    \\ irule_at Any EQ_REFL \\ gvs [] \\ rw []
-    \\ irule LIST_REL_mono \\ gvs []
-    \\ first_x_assum $ irule_at Any \\ gvs [])
+  \\ simp [v_inv_eq, Once v_inv_ck_cases]
+  \\ reverse iff_tac \\ rw [] \\ gvs []
+  >- (irule_at Any EQ_REFL \\ gvs [] \\ rw []
+      \\ irule LIST_REL_mono \\ gvs []
+      \\ first_x_assum $ irule_at Any \\ gvs [])
+  \\ first_assum $ qspec_then `0` strip_assume_tac \\ gvs []
+  \\ qexists ‘xs’ \\ fs []
+  \\ fs [BlockRep_def]
+  \\ fs [LIST_REL_EL_EQN, PULL_FORALL] \\ rw []
+  \\ first_assum $ qspec_then `ck+1` strip_assume_tac \\ gvs []
 QED
 
 Theorem MEM_IMP_v_size[local]:
