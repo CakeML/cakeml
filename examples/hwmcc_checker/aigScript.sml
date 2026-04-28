@@ -45,8 +45,7 @@ Overload FF = “(Base Ff, F)”
    If needed, we can apply a reduction at the end, allowing for simpler
    definitions for operations such as equivalence.  *)
 Definition eval_circuit_def:
-  (eval_lit (ss : 'i inputs # 'l state)
-    circ ((v,b):('a,'i,'l) lit) =
+  (eval_lit (ss : 'i inputs # 'l state) circ ((v,b):('a,'i,'l) lit) =
     case v of
     | Base bv => b ⇎ eval_bvar ss bv
     | Name n => b ⇎ eval_circuit ss circ n) ∧
@@ -99,11 +98,13 @@ Definition is_trace_def:
   is_trace (circ: ('a, 'i, 'l) circuit)
     (reset: 'l -> ('a,'i,'l) lit) (next: 'l -> ('a,'i,'l) lit)
     (cnstrs: ('a,'i,'l) lit set)
-    (is: 'i inputs) (tr: num -> 'i inputs # 'l state) (n: num)
+    (is₀: 'i inputs) (tr: num -> 'i inputs # 'l state) (n: num)
   ⇔
-    (let (is₀, ls) = tr 0 in is_reset (is, ls) circ reset 𝕌(:'l)) ∧
+    (let (_, ls) = tr 0 in
+       is_reset (is₀, ls) circ reset 𝕌(:'l) ∧
+       preds_hold (is₀, ls) circ cnstrs) ∧
     ∀i. i < n ⇒
-      let (is, s) = tr (i + 1) in
+      let (_, s) = tr (i + 1) in
       is_next (tr i) circ next 𝕌(:'l) s ∧
       preds_hold (tr i) circ cnstrs
 End
@@ -220,6 +221,130 @@ Definition is_witness_def:
     wcirc wreset wnext wpreds wcnstrs wlatches
 End
 
+(* Latch Dependencies *********************************************************)
+
+(* While state is defined over the entirety of the (potentially infinite) domain
+   'l, a circuit only depends on a finite subset of 'l.
+   We formalize this notion in dep_latches. *)
+
+Definition dep_latches_def:
+  dep_latches latches circ =
+  ∀n is ls ls'.
+    (∀l. l ∈ latches ⇒ ls' l = ls l) ⇒
+    eval_circuit (is, ls') circ n = eval_circuit (is, ls) circ n
+End
+
+Definition dep_bvar_def[simp]:
+  (dep_bvar latches Ff        ⇔ T) ∧
+  (dep_bvar latches (Input i) ⇔ T) ∧
+  (dep_bvar latches (Latch l) ⇔ l ∈ latches)
+End
+
+Definition dep_var_def[simp]:
+  (dep_var latches (Name _)  = T) ∧
+  (dep_var latches (Base bv) = dep_bvar latches bv)
+End
+
+Definition dep_lit_def[simp]:
+  dep_lit latches (v, b) = dep_var latches v
+End
+
+Definition dep_lits_def:
+  dep_lits latches (lits: ('a,'i,'l) lit set) ⇔
+    ∀lit. lit ∈ lits ⇒ dep_lit latches lit
+End
+
+Theorem dep_eval_lit_eq:
+  dep_latches latches circ ∧ dep_lit latches n ∧
+  (∀l. l ∈ latches ⇒ (ls' l ⇔ ls l)) ⇒
+  (eval_lit (is,ls') circ n ⇔ eval_lit (is,ls) circ n)
+Proof
+  namedCases_on ‘n’ ["v b"]
+  >> Cases_on ‘v’ >> rw [eval_circuit_def]
+  >-
+   (fs [dep_latches_def]
+    >> rename1 ‘eval_circuit _ _ a’
+    >> last_x_assum $ qspecl_then [‘a’, ‘is’, ‘ls’, ‘ls'’] mp_tac
+    >> simp [])
+  >> rename1 ‘eval_bvar _ b₁’
+  >> Cases_on ‘b₁’
+  >> fs [eval_bvar_def]
+QED
+
+Definition false_outside_def:
+  false_outside latches s l ⇔ l ∈ latches ∧ s l
+End
+
+Theorem eval_lit_false_outside_eq:
+  dep_latches latches circ ∧ dep_lit latches n ⇒
+  (eval_lit (is,false_outside latches ls) circ n ⇔
+   eval_lit (is,ls) circ n)
+Proof
+  rw []
+  >> irule dep_eval_lit_eq
+  >> qexists ‘latches’ >> simp []
+  >> simp [false_outside_def]
+QED
+
+Theorem preds_hold_false_outside_eq:
+  dep_latches latches circ ∧
+  dep_lits latches cnstrs
+  ⇒
+  preds_hold (is, false_outside latches ls) circ cnstrs =
+  preds_hold (is, ls) circ cnstrs
+Proof
+  simp [preds_hold_def, dep_lits_def, eval_lit_false_outside_eq]
+QED
+
+Definition dep_reset_def:
+  dep_reset latches (reset: 'l -> ('a,'i,'l) lit) ⇔
+    (∀l. l ∈ latches ⇒ dep_lit latches (reset l)) ∧
+    (∀l. l ∉ latches ⇒ reset l = FF)
+End
+
+Theorem is_reset_false_outside_univ:
+  is_reset (is₀,s₀') circ reset latches ∧
+  dep_latches latches circ ∧
+  dep_reset latches reset
+  ⇒
+  is_reset (is₀,false_outside latches s₀') circ reset 𝕌(:γ)
+Proof
+  rw [is_reset_def, dep_reset_def]
+  >> Cases_on ‘l ∈ latches’ >> gvs []
+  >- simp [eval_lit_false_outside_eq]
+  >> gvs [eval_circuit_def, false_outside_def]
+QED
+
+Theorem extend_model_trace_to_witness:
+  is_trace mcirc mreset mnext mcnstrs is₀ tr n ∧
+  tr 0 = (is₁,s₀) ∧
+  (* R₀{K} ∧ C₀ *)
+  is_reset (is₀,s₀) mcirc mreset (mlatches ∩ wlatches) ∧
+  preds_hold (is₀,s₀) mcirc mcnstrs ∧
+  (* R'₀{L'} ∧ C' *)
+  (∀l. l ∈ mlatches ∩ wlatches ⇒ s₀' l = s₀ l) ∧
+  is_reset (is₀, s₀') wcirc wreset wlatches ∧
+  preds_hold (is₀, s₀') wcirc wcnstrs
+  ∧
+  dep_latches wlatches wcirc ∧
+  dep_lits wlatches wcnstrs ∧
+  dep_reset wlatches wreset
+  ⇒
+  ∃tr'.
+    is_trace wcirc wreset wnext wcnstrs is₀ tr' n ∧
+    (∀l. l ∈ wlatches ⇒ SND (tr' 0) l = s₀' l)
+Proof
+  Induct_on ‘n’ >> rw []
+  >-
+   (qexists ‘λn. if n = 0 then (is₁, false_outside wlatches s₀') else ARB’
+    >> simp [is_trace_def]
+    >> rpt conj_tac
+    >- simp [is_reset_false_outside_univ]
+    >- simp [preds_hold_false_outside_eq]
+    >- simp [false_outside_def])
+  >> cheat
+QED
+
 Theorem is_reset_subset:
   is_reset ss circ reset ls ∧ ls' ⊆ ls ⇒
   is_reset ss circ reset ls'
@@ -233,14 +358,22 @@ Theorem is_witness_is_safe:
     wcirc wreset wnext wpreds wcnstrs wlatches
   ⇒
   is_safe
-    mcirc mreset mnext mpreds mcnstrs
+    mcirc mreset mnext mcnstrs mpreds
 Proof
   rw [is_witness_def, is_safe_def]
   >> CCONTR_TAC >> fs [is_unsafe_def]
   >> rename1 ‘is_trace _ _ _ _ is₀ tr n’
   >> namedCases_on ‘tr 0’ ["is₁ s₀"]
-  >> ‘is_reset (is₀, s₀) mcirc mreset (mlatches ∩ wlatches)’ by
+  (* R₀{K} ∧ C₀ *)
+  >> ‘is_reset (is₀, s₀) mcirc mreset (mlatches ∩ wlatches) ∧
+      preds_hold (is₀, s₀) mcirc mcnstrs’ by
     (fs [is_trace_def] >> drule is_reset_subset >> simp [])
+  (* R'₀{L'} ∧ C' *)
+  >> ‘∃s₀'.
+        (∀l. l ∈ mlatches ∩ wlatches ⇒ s₀' l = s₀ l) ∧
+        is_reset (is₀, s₀') wcirc wreset wlatches ∧
+        preds_hold (is₀, s₀') wcirc wcnstrs’ by cheat
+  (* TODO use extend_model_trace_to_witness*)
   >> cheat
 QED
 
@@ -606,7 +739,7 @@ Definition encode_is_transition_def:
     (ZIP (MAP (λl. (Base (Latch (INR l)), F)) ls, MAP (next ∘ INL) ls))
 End
 
-Theorem eval_circuit_encode_is_reset_INL:
+Theorem eval_circuit_encode_is_transition_INL:
   eval_circuit ss (encode_is_transition ss circ name next ls) (INL n) =
   if n = Ext name then
     is_transition ss circ next (set ls)
