@@ -727,39 +727,44 @@ QED
   (λn.
     FUNPOW (λi. Num (varc w (EL i Xs))) n)
 
+*)
+
 Theorem circuit_sem_eq_2:
   circuit_sem Xs w ⇔
+  Xs ≠ [] ∧
   EVERY (λX. 0 ≤ varc w X ∧ Num (varc w X) < LENGTH Xs) Xs ∧
   EVERY (λX.
      IMAGE (λn.
-        FUNPOW (λi. Num (varc w (EL i Xs))) n
-          (Num (varc w X))) UNIV =
+        Num $ FUNPOW (λi. varc w (EL (Num i) Xs)) n
+          (varc w X)) UNIV =
       count (LENGTH Xs)) Xs
 Proof
-  simp[circuit_sem_def]>>
-  irule cooperTheory.simple_conj_congruence>>
-  rw[EVERY_MEM]>>
+  qmatch_goalsub_abbrev_tac‘FUNPOW f _ _’>>
+  simp[circuit_sem_eq_1,EVERY_MEM]>>
+  ntac 2 (
+    irule cooperTheory.simple_conj_congruence>>
+    strip_tac)>>
   iff_tac>>
   strip_tac
+  >-(
+    rw[]>>
+    qmatch_goalsub_abbrev_tac‘a = b’>>
+    ‘a ⊆ b ∧ b ⊆ a’ suffices_by simp[SET_EQ_SUBSET]>>
+    CONJ_TAC>>
+    rw[SUBSET_DEF,Abbr‘a’,Abbr‘b’]
+    >-(
+      Induct_on‘n’
+      >-simp[FUNPOW]>>
+      simp[FUNPOW_SUC]>>
+      qmatch_goalsub_abbrev_tac‘Num (_ v)’>>
+      simp[Abbr‘f’]>>
+      ‘MEM (EL (Num v) Xs) Xs’ suffices_by gs[]>>
+      simp[MEM_EL]>>
+      qexists‘Num v’>>
+      simp[])
+    >-cheat)
   >-cheat
-  >-(
-    Induct>>
-    simp[FUNPOW]
-  )
-
-  (**)
-
-  >-(
-    rw[]>>
-    simp[SET_EQ_SUBSET,SUBSET_DEF]>>
-    CONJ_TAC
-    rw[]>>
-    Induct_on ‘n’>>
-    simp[FUNPOW]
-  )
-  >-()
 QED
-*)
 
 Definition misc_constr_sem_def:
   misc_constr_sem c w ⇔
