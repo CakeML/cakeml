@@ -98,31 +98,32 @@ End
 Definition is_trace_def:
   is_trace (circ: ('a, 'i, 'l) circuit)
     (reset: 'l -> ('a,'i,'l) lit) (next: 'l -> ('a,'i,'l) lit)
-    (cnstrs: ('a,'i,'l) lit set)
+    (cnstrs: ('a,'i,'l) lit set) (latches: 'l set)
     (tr: ('i, 'l) trace) (n: num)
   ⇔
-    (is_reset (tr 0) circ reset 𝕌(:'l) ∧
+    (is_reset (tr 0) circ reset latches ∧
      preds_hold (tr 0) circ cnstrs) ∧
     ∀i. i < n ⇒
-      is_next (tr i) circ next 𝕌(:'l) (SND (tr (i + 1))) ∧
+      is_next (tr i) circ next latches (SND (tr (i + 1))) ∧
       preds_hold (tr (i + 1)) circ cnstrs
 End
 
 Definition is_unsafe_def:
   is_unsafe (circ: ('a, 'i, 'l) circuit)
     (reset: 'l -> ('a,'i,'l) lit) (next: 'l -> ('a,'i,'l) lit)
-    (cnstrs: ('a,'i,'l) lit set) (safe: ('a,'i,'l) lit set)
+    (cnstrs: ('a,'i,'l) lit set) (latches: 'l set) (safe: ('a,'i,'l) lit set)
   =
   ∃(tr: ('i, 'l) trace) (n: num).
-    is_trace circ reset next cnstrs tr n ∧
+    is_trace circ reset next cnstrs latches tr n ∧
     ¬preds_hold (tr n) circ safe
 End
 
 Definition is_safe_def:
   is_safe (circ: ('a, 'i, 'l) circuit)
     (reset: 'l -> ('a,'i,'l) lit) (next: 'l -> ('a,'i,'l) lit)
-    (cnstrs: ('a,'i,'l) lit set) (safe: ('a,'i,'l) lit set) ⇔
-  ¬is_unsafe circ reset next cnstrs safe
+    (cnstrs: ('a,'i,'l) lit set) (latches: 'l set)
+    (safe: ('a,'i,'l) lit set) ⇔
+  ¬is_unsafe circ reset next cnstrs latches safe
 End
 
 (* Soundness ******************************************************************)
@@ -136,7 +137,7 @@ Definition is_witness_reset_def:
     (is_reset ss mcirc mreset mlatches ∧
      preds_hold ss mcirc mcnstrs
      ⇒
-     is_reset ss wcirc wreset mlatches ∧
+     is_reset ss wcirc wreset (mlatches ∩ wlatches) ∧
      preds_hold ss wcirc wcnstrs)
 End
 
@@ -151,7 +152,7 @@ Definition is_witness_transition_def:
      preds_hold ss₁ mcirc mcnstrs ∧
      preds_hold ss₀ wcirc wcnstrs)
     ⇒
-    (is_next ss₀ wcirc wnext mlatches (SND ss₁) ∧
+    (is_next ss₀ wcirc wnext (mlatches ∩ wlatches) (SND ss₁) ∧
      preds_hold ss₁ wcirc wcnstrs)
 End
 
@@ -170,7 +171,6 @@ End
 
 Definition is_witness_base_def:
   is_witness_base
-    mcirc mreset mnext mpreds mcnstrs mlatches
     wcirc wreset wnext wpreds wcnstrs wlatches
   ⇔
     ∀ss.
@@ -182,7 +182,6 @@ End
 
 Definition is_witness_step_def:
   is_witness_step
-    mcirc mreset mnext mpreds mcnstrs mlatches
     wcirc wreset wnext wpreds wcnstrs wlatches
   ⇔
     ∀ss₀ ss₁.
@@ -212,11 +211,9 @@ Definition is_witness_def:
     wcirc wreset wnext wpreds wcnstrs wlatches
   ∧
   is_witness_base
-    mcirc mreset mnext mpreds mcnstrs mlatches
     wcirc wreset wnext wpreds wcnstrs wlatches
   ∧
   is_witness_step
-    mcirc mreset mnext mpreds mcnstrs mlatches
     wcirc wreset wnext wpreds wcnstrs wlatches
 End
 
@@ -257,6 +254,36 @@ Definition dep_latch_lit_def:
   dep_latch_lit latches (latch_lit: 'l -> ('a,'i,'l) lit) ⇔
     ∀l. l ∈ latches ⇒ dep_lit latches (latch_lit l)
 End
+
+(* TODO can dep_ family be merged with is_stratified? *)
+Definition is_stratified_def:
+  is_stratified lt circ reset latches ⇔
+    ∀l is ls' ls.
+      l ∈ latches ∧ (∀l. l ∈ { l' | lt l' l } ⇒ (ls' l ⇔ ls l)) ⇒
+      eval_lit (is,ls') circ (reset l) ⇔ eval_lit (is,ls) circ (reset l)
+End
+
+Definition patch_def:
+  (patch circ reset is (ls: 'l state) ([]: 'l list) = ls) ∧
+  (patch circ reset is ls (latch::rest) =
+   patch circ reset is
+     (λl. if l = latch then eval_lit (is, ls) circ (reset l) else ls l)
+     rest)
+End
+
+Theorem not_mem_patch_eq:
+  ¬MEM l xs ⇒ (patch circ reset is ls xs) l = ls l
+Proof
+  cheat
+QED
+
+Theorem mem_patch:
+  is_stratified lt circ reset latches ∧
+  set xs ⊆ latches ∧ SORTED lt xs
+  ⇒ is_reset (is, patch circ reset is ls xs) circ reset (set xs)
+Proof
+  cheat
+QED
 
 Theorem dep_eval_lit_eq:
   dep_circuit latches circ ∧ dep_lit latches n ∧
@@ -319,30 +346,56 @@ Proof
   cheat
 QED
 
+Theorem preds_hold_dep_circuit:
+  preds_hold ss circ ns ∧
+  dep_circuit latches circ ∧
+  dep_lits latches ns ∧
+  FST ss = FST ss' ∧
+  (∀l. l ∈ latches ⇒ SND ss l = SND ss' l)
+  ⇒
+  preds_hold ss' circ ns
+Proof
+  cheat
+QED
+
+Theorem is_trace_preds_hold_n:
+  is_trace circ reset next cnstrs latches tr n
+  ⇒
+  preds_hold (tr n) circ cnstrs
+Proof
+  rw [is_trace_def] >> Cases_on ‘n’ >> fs [ADD1]
+QED
+
 Theorem extend_model_trace_to_witness:
-  is_trace mcirc mreset mnext mcnstrs tr n ∧
-  (* latch dependencies of model *)
+  is_trace mcirc mreset mnext mcnstrs mlatches tr n ∧
+  (* TODO revisit whether dep_ family is needed with new trace definition *)
   dep_circuit mlatches mcirc ∧
   dep_latch_lit mlatches mreset ∧
   dep_latch_lit mlatches mnext ∧
-  dep_lits mlatches mcnstrs
+  dep_lits mlatches mcnstrs ∧
+  is_witness_reset
+    mcirc mreset mnext mpreds mcnstrs mlatches
+    wcirc wreset wnext wpreds wcnstrs wlatches ∧
+  is_witness_transition
+    mcirc mreset mnext mpreds mcnstrs mlatches
+    wcirc wreset wnext wpreds wcnstrs wlatches
   ⇒
   ∃tr'.
-    is_trace mcirc mreset mnext mcnstrs tr' n ∧
-    is_trace wcirc wreset wnext wcnstrs tr' n ∧
+    is_trace mcirc mreset mnext mcnstrs mlatches tr' n ∧  (* TODO redundant with last two *)
+    is_trace wcirc wreset wnext wcnstrs wlatches tr' n ∧
     inputs_agree (n + 1) tr' tr ∧
     states_agree (n + 1) mlatches tr' tr
 Proof
-
   Induct_on ‘n’ >> rw []
   >- cheat  (* TODO stratification *)
-  >> ‘is_trace mcirc mreset mnext mcnstrs tr n’ by gvs [is_trace_def]
+  >> ‘is_trace mcirc mreset mnext mcnstrs mlatches tr n’ by gvs [is_trace_def]
   >> fs []
   >> qrefine ‘λn'. if n' ≤ n then tr' n' else step’
+  (* TODO prove a lemma for is_trace mcirc mreset mnext mcnstrs tr (SUC n) *)
   >> ‘∃step.
-        is_next (tr' n) mcirc mnext UNIV (SND step) ∧
+        is_next (tr' n) mcirc mnext mlatches (SND step) ∧
         preds_hold step mcirc mcnstrs ∧
-        is_next (tr' n) wcirc wnext UNIV (SND step) ∧
+        is_next (tr' n) wcirc wnext wlatches (SND step) ∧
         preds_hold step wcirc wcnstrs ∧
         FST step = FST (tr (n + 1)) ∧
         (∀l. l ∈ mlatches ⇒ (SND step) l = (SND (tr (n + 1))) l)’
@@ -358,16 +411,34 @@ Proof
                           λl. if l ∈ mlatches then (SND (tr (n + 1))) l
                               else eval_lit (tr' n) wcirc (wnext l))’
   >> qexists ‘step’
-  (* F'{K} (or equivalently (?) F'{L}) *)
+  (* F'{K} -- or equivalently (?) F'{L} *)
   >> ‘is_next (tr' n) mcirc mnext mlatches (SND step)’ by
     (‘is_next (tr n) mcirc mnext mlatches (SND (tr (n + 1)))’ by
-       (irule is_next_subset >> qexists ‘UNIV’ >> fs [is_trace_def])
+       (irule is_next_subset >> qexists ‘mlatches’ >> fs [is_trace_def])
      >> drule is_next_dep_circuit
      >> disch_then irule
      >> gvs [states_agree_def, inputs_agree_def, Abbr ‘step’])
   >> conj_tac
   >- (drule is_next_dep_circuit >> disch_then irule >> simp [])
-  >> cheat
+  (* C' on model *)
+  >> ‘preds_hold step mcirc mcnstrs’ by
+    (‘preds_hold (tr (n + 1)) mcirc mcnstrs’ by fs [is_trace_def]
+     >> drule preds_hold_dep_circuit
+     >> disch_then drule
+     >> disch_then irule
+     >> gvs [Abbr ‘step’])
+  >> conj_tac >- simp []
+  >> ‘preds_hold (tr' n) mcirc mcnstrs’ by metis_tac [is_trace_preds_hold_n]
+  >> ‘preds_hold (tr' n) wcirc wcnstrs’ by metis_tac [is_trace_preds_hold_n]
+  (* According to the paper proof, we can now invoke the transition check and
+     extend these two facts to the witness. *)
+  >> fs [is_witness_transition_def]
+  >> first_x_assum $ drule_all_then assume_tac >> fs []
+  >> conj_tac
+  >-
+   (fs [is_next_def] >> rw []
+    >> Cases_on ‘l ∈ mlatches’ >> gvs [Abbr ‘step’])
+  >> fs [Abbr ‘step’]
 QED
 
 Theorem is_witness_is_safe:
@@ -376,10 +447,14 @@ Theorem is_witness_is_safe:
     wcirc wreset wnext wpreds wcnstrs wlatches
   ⇒
   is_safe
-    mcirc mreset mnext mcnstrs mpreds
+    mcirc mreset mnext mcnstrs mlatches mpreds
 Proof
   rw [is_witness_def, is_safe_def]
   >> CCONTR_TAC >> fs [is_unsafe_def]
+  >> drule_at (Pos last) extend_model_trace_to_witness
+  >> disch_then drule
+  >> impl_tac >- cheat
+  >> strip_tac
   >> cheat
 QED
 
