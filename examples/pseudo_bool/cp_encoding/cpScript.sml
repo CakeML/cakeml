@@ -590,6 +590,133 @@ End
 
 (* The idea of this definition:
 
+  1. Xs is nonempty
+  2. For X ∈ Xs, we have varc w X ∈ {0,1,2,...n-1}, where n = LENGTH Xs
+  3. FUNPOW f k 0 = 0 iff k MOD n = 0, where f = λk. varc w (EL (Num k) Xs)
+
+  The above 2. and 3. together imply that for all (i:num) and (j:num),
+  we have FUNPOW f i 0 = FUNPOW f j 0 iff i MOD n = j MOD n; in particular,
+  {FUNPOW f k 0 | 0 ≤ k ≤ n-1} = {0,1,2,...,n-1}. Hence, the function f (viewed
+  as a directed-edge binary relation) gives rise to a Hamiltonian cycle for the
+  nodes 0,1,2,...n-1.
+
+  Note: The above reasoning can be made more precise as follows:
+
+      w is not a valid assignment
+  iff f doesn't give rise to a Hamiltonian cycle for the nodes 0,1,2,...,n-1
+  iff {FUNPOW f k 0 | 0 ≤ k} forms a cycle of length < n
+
+*)
+
+Definition circuit_sem_def:
+  circuit_sem Xs w ⇔
+  Xs ≠ [] ∧
+  EVERY (λX. 0 ≤ varc w X ∧ Num (varc w X) < LENGTH Xs) Xs ∧
+  ∀n. (FUNPOW (λi. varc w (EL (Num i) Xs)) n 0 = 0 ⇔ n MOD (LENGTH Xs) = 0)
+End
+
+Theorem MINUS_MOD_MOD:
+  b > 0 ⇒ (a - a MOD b) MOD b = 0
+Proof
+  strip_tac>>
+  DEP_REWRITE_TAC[gcdTheory.MOD_EQ]>>
+  simp[MOD_LESS_EQ]
+QED
+
+Theorem PLUS_MINUS_MOD:
+  c > 0 ⇒ ((a + (c - b MOD c)) MOD c = 0 ⇔ a MOD c = b MOD c)
+Proof
+  strip_tac>>
+  iff_tac>>
+  strip_tac
+  >-(
+    ‘(a + c) MOD c = b MOD c MOD c’ suffices_by simp[ADD_MODULUS_LEFT,MOD_MOD]>>
+    DEP_REWRITE_TAC[GSYM gcdTheory.MOD_EQ]>>
+    simp[]>>
+    CONJ_TAC
+    >-(
+      ‘b MOD c < c’ suffices_by intLib.ARITH_TAC>>
+      simp[MOD_LESS])
+    >-(
+      qmatch_asmsub_abbrev_tac‘d MOD _’>>
+      qmatch_goalsub_abbrev_tac‘e MOD _’>>
+      ‘e = d’ suffices_by simp[]>>
+      unabbrev_all_tac>>
+      irule LESS_EQ_ADD_SUB>>
+      ‘b MOD c < c’ suffices_by intLib.ARITH_TAC>>
+      simp[MOD_LESS]))
+  >-(
+    pop_assum (fn thm => simp[SYM thm])>>
+    ‘a + (c - a MOD c) = a - a MOD c + c’ by (
+      irule (intLib.COOPER_PROVE“(b:num) ≤ a ∧ b < c ⇒ a + (c - b) = a - b + c”)>>
+      simp[MOD_LESS,MOD_LESS_EQ]
+      )>>
+    simp[]>>
+    irule MINUS_MOD_MOD>>
+    simp[])
+QED
+
+Theorem circuit_sem_eq_1:
+  circuit_sem Xs w ⇔
+  Xs ≠ [] ∧
+  EVERY (λX. 0 ≤ varc w X ∧ Num (varc w X) < LENGTH Xs) Xs ∧
+  ∀m n. (
+    FUNPOW (λi. varc w (EL (Num i) Xs)) m 0 =
+    FUNPOW (λi. varc w (EL (Num i) Xs)) n 0 ⇔
+    m MOD (LENGTH Xs) = n MOD (LENGTH Xs))
+Proof
+  qmatch_goalsub_abbrev_tac‘FUNPOW f _ _’>>
+  simp[circuit_sem_def,CONJ_ASSOC]>>
+  irule cooperTheory.simple_conj_congruence>>
+  rw[EVERY_MEM]>>
+  iff_tac>>
+  rw[]
+  >-(
+    ‘∀k. FUNPOW f (k MOD LENGTH Xs) 0 = FUNPOW f k 0’ by (
+      rw[Once EQ_SYM_EQ]>>
+      ‘(k - k MOD LENGTH Xs) MOD LENGTH Xs = 0’ by (
+        irule MINUS_MOD_MOD>>
+        fs[GSYM LENGTH_NON_NIL])>>
+      pop_assum mp_tac>>
+      pop_assum (fn thm => simp[GSYM thm])>>
+      strip_tac>>
+      ‘FUNPOW f (k MOD LENGTH Xs + (k - k MOD LENGTH Xs)) 0 =
+       FUNPOW f (k MOD LENGTH Xs) 0’ by simp[FUNPOW_ADD]>>
+      pop_assum (fn thm => simp[GSYM thm])>>
+      cong_tac NONE>>
+      simp[Once EQ_SYM_EQ]>>
+      irule (intLib.ARITH_PROVE“(b:num) ≤ a ⇒ b + (a - b) = a”)>>
+      irule MOD_LESS_EQ>>
+      fs[GSYM LENGTH_NON_NIL])>>
+    iff_tac>>
+    strip_tac
+    >-(
+      DEP_REWRITE_TAC[GSYM PLUS_MINUS_MOD]>>
+      fs[GSYM LENGTH_NON_NIL]>>
+      ‘FUNPOW f (m + (LENGTH Xs − n MOD LENGTH Xs)) 0 = 0’ suffices_by simp[]>>
+      PURE_REWRITE_TAC[Once ADD_COMM]>>
+      PURE_REWRITE_TAC[FUNPOW_ADD]>>
+      simp[]>>
+      simp[GSYM FUNPOW_ADD]>>
+      qmatch_goalsub_abbrev_tac‘(b - c + a)’>>
+      ‘(a - c + b) MOD b = 0’ suffices_by (
+        ‘b - c + a = a - c + b’ suffices_by simp[]>>
+        irule (intLib.ARITH_PROVE“(c:num) ≤ a ∧ c < b ⇒ b - c + a = a - c + b”)>>
+        simp[Abbr‘a’,Abbr‘b’,Abbr‘c’,MOD_LESS_EQ])>>
+      simp[Abbr‘b’,Abbr‘a’,Abbr‘c’]>>
+      irule MINUS_MOD_MOD>>
+      fs[GSYM LENGTH_NON_NIL])
+    >-(
+      ‘FUNPOW f (m MOD LENGTH Xs) 0 =
+       FUNPOW f (n MOD LENGTH Xs) 0’ suffices_by simp[]>>
+      cong_tac NONE))
+  >-(
+    pop_assum $ qspecl_then[‘n’,‘0’] mp_tac>>
+    simp[FUNPOW])
+QED
+
+(* The idea of this equivalence:
+
   For each initial var X in the list,
     consider the infinite sequence
 
@@ -600,8 +727,7 @@ End
   (λn.
     FUNPOW (λi. Num (varc w (EL i Xs))) n)
 
-*)
-Definition circuit_sem_def:
+Theorem circuit_sem_eq_2:
   circuit_sem Xs w ⇔
   EVERY (λX. 0 ≤ varc w X ∧ Num (varc w X) < LENGTH Xs) Xs ∧
   EVERY (λX.
@@ -609,11 +735,30 @@ Definition circuit_sem_def:
         FUNPOW (λi. Num (varc w (EL i Xs))) n
           (Num (varc w X))) UNIV =
       count (LENGTH Xs)) Xs
-End
+Proof
+  simp[circuit_sem_def]>>
+  irule cooperTheory.simple_conj_congruence>>
+  rw[EVERY_MEM]>>
+  iff_tac>>
+  strip_tac
+  >-cheat
+  >-(
+    Induct>>
+    simp[FUNPOW]
+  )
 
-(* Prove some sanity checks
-Theorem circuit_sem_eq:
-  circuit_sem Xs w ⇔ ...
+  (**)
+
+  >-(
+    rw[]>>
+    simp[SET_EQ_SUBSET,SUBSET_DEF]>>
+    CONJ_TAC
+    rw[]>>
+    Induct_on ‘n’>>
+    simp[FUNPOW]
+  )
+  >-()
+QED
 *)
 
 Definition misc_constr_sem_def:
