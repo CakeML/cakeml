@@ -165,7 +165,7 @@ Proof
   >-
     EVAL_TAC
   >>
-  `blanks #" " ∧ str #" " = strlit " "` by EVAL_TAC>>
+  `blanks #" " ∧ toString #" " = strlit " "` by EVAL_TAC>>
   drule mlstringTheory.tokens_append>>simp[]
 QED
 
@@ -181,7 +181,7 @@ Proof
   >-
     EVAL_TAC
   >>
-  `blanks #" " ∧ str #" " = strlit " "` by EVAL_TAC>>
+  `blanks #" " ∧ toString #" " = strlit " "` by EVAL_TAC>>
   drule mlstringTheory.tokens_append>>simp[]>>
   disch_then kall_tac>>
   simp[tokens_blanks_toStdString]>>
@@ -231,7 +231,7 @@ Theorem parse_header_line_print_header_line:
 Proof
   rw[print_header_line_def, toks_def]>>
   qmatch_goalsub_abbrev_tac`aa ^ bb ^ _ ^ cc ^ dd`>>
-  `blanks #" " ∧ str #" " = strlit " "` by EVAL_TAC>>
+  `blanks #" " ∧ toString #" " = strlit " "` by EVAL_TAC>>
   drule mlstringTheory.tokens_append>>simp[]>>
   `aa = strlit"p" ^ strlit" " ^ strlit"cnf" ^ strlit" "` by
     (fs[Abbr`aa`]>>EVAL_TAC)>>
@@ -239,7 +239,7 @@ Proof
   first_assum(qspecl_then[`aa ^ bb`,`cc ^ dd`] assume_tac)>>fs[]>>
   `cc ^ dd = cc ^ dd ^ strlit""` by EVAL_TAC>>
   pop_assum SUBST_ALL_TAC>>
-  `blanks #"\n" ∧ str #"\n" = strlit "\n"` by EVAL_TAC>>
+  `blanks #"\n" ∧ toString #"\n" = strlit "\n"` by EVAL_TAC>>
   drule mlstringTheory.tokens_append>>simp[]>>
   unabbrev_all_tac>>
   simp[tokens_blanks_toStdString]>>
@@ -370,7 +370,7 @@ Proof
   rw[]>>
   Cases_on`x`>>simp[print_clause_def]
   >- EVAL_TAC >>
-  `blanks #" " ∧ str #" " = strlit " "` by EVAL_TAC>>
+  `blanks #" " ∧ toString #" " = strlit " "` by EVAL_TAC>>
   simp[toks_def]>>
   drule mlstringTheory.tokens_append>>simp[]>>
   simp[tokens_blanks_toStdString,tokenize_def,nocomment_line_def]
@@ -398,7 +398,7 @@ Proof
   simp[]>>
   PURE_REWRITE_TAC[GSYM mlstringTheory.strcat_assoc]>>
   PURE_REWRITE_TAC[Once mlstringTheory.strcat_assoc]>>
-  `blanks #" " ∧ str #" " = strlit " "` by EVAL_TAC>>
+  `blanks #" " ∧ toString #" " = strlit " "` by EVAL_TAC>>
   drule mlstringTheory.tokens_append>>simp[]>>
   `tokens blanks (strlit "p") = [strlit "p"]` by EVAL_TAC>>
   simp[]
@@ -765,7 +765,7 @@ Theorem toks_strcat_d:
   toks (strlit"d " ^ y) = INL (strlit"d"):: toks y
 Proof
   simp[toks_def]>>
-  `strlit"d " = strlit"d" ^ str(#" ")` by
+  `strlit"d " = strlit"d" ^ toString(#" ")` by
     EVAL_TAC>>
   simp[]>>
   DEP_REWRITE_TAC [mlstringTheory.tokens_append]>>simp[]>>
@@ -785,7 +785,7 @@ Proof
   >-
     EVAL_TAC
   >>
-  `strlit" " = str #" "` by EVAL_TAC>>
+  `strlit" " = toString #" "` by EVAL_TAC>>
   simp[]>>
   DEP_REWRITE_TAC[mlstringTheory.tokens_append]>>simp[]>>
   CONJ_TAC >- EVAL_TAC>>
@@ -816,7 +816,7 @@ Proof
     Cases_on`l`>>simp[print_clause_def]
     >-
       EVAL_TAC>>
-    `strlit" " = str #" "` by EVAL_TAC>>
+    `strlit" " = toString #" "` by EVAL_TAC>>
     simp[toks_def]>>
     DEP_REWRITE_TAC[mlstringTheory.tokens_append]>>
     simp[tokens_blanks_toStdString,tokenize_def]>>

@@ -325,7 +325,7 @@ Definition odestSXNUM_def[simp]:
 End
 
 Theorem odestSXNUM_SEXSTR[simp]:
-  odestSXNUM (SEXSTR strng) = NONE
+  odestSXNUM (SEXSTR str) = NONE
 Proof
   simp[SEXSTR_def]
 QED
@@ -362,7 +362,7 @@ Theorem sexplist_thm[simp]:
     do ph <- p h ; pt <- sexplist p t; return (ph::pt) od ∧
   (sexplist p (SX_SYM s) = if s = "nil" then return [] else fail) ∧
   sexplist p (&n) = fail ∧
-  sexplist p (SX_STR strng) = fail
+  sexplist p (SX_STR str) = fail
 Proof
   rpt strip_tac >> simp[Once sexplist_def]
 QED
@@ -411,7 +411,7 @@ QED
 Theorem strip_sxcons_thm[simp]:
   strip_sxcons ⟪ h • t ⟫ = lift (CONS h) (strip_sxcons t) ∧
   strip_sxcons (&n) = NONE ∧
-  strip_sxcons (SX_STR strng) = NONE ∧
+  strip_sxcons (SX_STR str) = NONE ∧
   strip_sxcons (SX_SYM s) = if s = "nil" then SOME [] else NONE
 Proof
   rpt strip_tac >> simp[]
@@ -1496,11 +1496,11 @@ QED
 Theorem dstrip_sexp_thm[simp]:
   dstrip_sexp ⟪SX_SYM s • args⟫ = lift (λt. (s,t)) (strip_sxcons args) ∧
   dstrip_sexp ⟪ &n • args⟫ = NONE ∧
-  dstrip_sexp ⟪SX_STR strng • args⟫ = NONE ∧
+  dstrip_sexp ⟪SX_STR str • args⟫ = NONE ∧
   dstrip_sexp ⟪ ⟪s1 • s2⟫ • args⟫ = NONE ∧
   dstrip_sexp (&n) = NONE ∧
   dstrip_sexp (SX_SYM s) = NONE ∧
-  dstrip_sexp (SX_STR strng) = NONE
+  dstrip_sexp (SX_STR str) = NONE
 Proof
   simp[dstrip_sexp_def]
 QED
@@ -1872,8 +1872,8 @@ Proof
 QED
 
 Theorem odestSXSYM_EQ_SOME[simp]:
-  (odestSXSYM s = SOME strng ⇔ s = SX_SYM (explode strng)) ∧
-  (SOME strng = odestSXSYM s ⇔ s = SX_SYM (explode strng))
+  (odestSXSYM s = SOME str ⇔ s = SX_SYM (explode str)) ∧
+  (SOME str = odestSXSYM s ⇔ s = SX_SYM (explode str))
 Proof
   Cases_on‘s’ >> simp[odestSXSYM_def] >>
   metis_tac[implode_explode,explode_implode]
@@ -1937,7 +1937,7 @@ Proof
     simp[litsexp_def, listsexp_def, PULL_EXISTS, AllCaseEqs(), SF CONJ_ss] >~
     [‘i < 0i’] >- (Cases_on ‘i’ >> simp[]) >~
     [‘STRING c ""’] >- (
-      qexists_tac ‘str c’ >> simp []>>
+      qexists_tac ‘toString c’ >> simp []>>
       EVAL_TAC) >~
     [‘w2n (c : word8)’]
     >- (Cases_on ‘c’ using ranged_word_nchotomy >> gs[dimword_def]) >>~-

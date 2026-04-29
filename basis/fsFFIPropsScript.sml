@@ -1052,7 +1052,7 @@ End
 
 Theorem concat_lines_of:
    !s. concat (lines_of s) = s ∨
-        concat (lines_of s) = s ^ str #"\n"
+        concat (lines_of s) = s ^ toString #"\n"
 Proof
   rw[lines_of_def] \\
   `s = implode (explode s)` by fs [explode_implode] \\
@@ -1084,7 +1084,7 @@ QED
 
 Theorem concat_all_lines_file:
    concat (all_lines_file fs fname) = implode (THE (ALOOKUP fs.inode_tbl (File (THE (ALOOKUP fs.files fname))))) ∨
-   concat (all_lines_file fs fname) = implode (THE (ALOOKUP fs.inode_tbl (File (THE (ALOOKUP fs.files fname))))) ^ str #"\n"
+   concat (all_lines_file fs fname) = implode (THE (ALOOKUP fs.inode_tbl (File (THE (ALOOKUP fs.files fname))))) ^ toString #"\n"
 Proof
   fs [all_lines_file_def,concat_lines_of]
 QED
