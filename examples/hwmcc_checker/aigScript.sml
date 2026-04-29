@@ -21,6 +21,7 @@ End
 
 Type inputs = “:'i -> bool”
 Type state = “:'l -> bool”
+Type trace[pp] = “:num -> 'i inputs # 'l state”
 
 Definition eval_bvar_def[simp]:
   (eval_bvar (is: 'i inputs, ls: 'l state) Ff = F) ∧
@@ -98,15 +99,13 @@ Definition is_trace_def:
   is_trace (circ: ('a, 'i, 'l) circuit)
     (reset: 'l -> ('a,'i,'l) lit) (next: 'l -> ('a,'i,'l) lit)
     (cnstrs: ('a,'i,'l) lit set)
-    (is₀: 'i inputs) (tr: num -> 'i inputs # 'l state) (n: num)
+    (tr: ('i, 'l) trace) (n: num)
   ⇔
-    (let (_, ls) = tr 0 in
-       is_reset (is₀, ls) circ reset 𝕌(:'l) ∧
-       preds_hold (is₀, ls) circ cnstrs) ∧
+    (is_reset (tr 0) circ reset 𝕌(:'l) ∧
+     preds_hold (tr 0) circ cnstrs) ∧
     ∀i. i < n ⇒
-      let (_, s) = tr (i + 1) in
-      is_next (tr i) circ next 𝕌(:'l) s ∧
-      preds_hold (tr i) circ cnstrs
+      is_next (tr i) circ next 𝕌(:'l) (SND (tr (i + 1))) ∧
+      preds_hold (tr (i + 1)) circ cnstrs
 End
 
 Definition is_unsafe_def:
@@ -114,8 +113,8 @@ Definition is_unsafe_def:
     (reset: 'l -> ('a,'i,'l) lit) (next: 'l -> ('a,'i,'l) lit)
     (cnstrs: ('a,'i,'l) lit set) (safe: ('a,'i,'l) lit set)
   =
-  ∃(is: 'i inputs) (tr: num -> 'i inputs # 'l state) (n: num).
-    is_trace circ reset next cnstrs is tr n ∧
+  ∃(tr: ('i, 'l) trace) (n: num).
+    is_trace circ reset next cnstrs tr n ∧
     ¬preds_hold (tr n) circ safe
 End
 
@@ -134,10 +133,10 @@ Definition is_witness_reset_def:
     wcirc wreset wnext wpreds wcnstrs wlatches
   ⇔
   ∀ss.
-    (is_reset ss mcirc mreset (mlatches ∩ wlatches) ∧
+    (is_reset ss mcirc mreset mlatches ∧
      preds_hold ss mcirc mcnstrs
      ⇒
-     is_reset ss wcirc wreset (mlatches ∩ wlatches) ∧
+     is_reset ss wcirc wreset mlatches ∧
      preds_hold ss wcirc wcnstrs)
 End
 
@@ -147,12 +146,12 @@ Definition is_witness_transition_def:
     wcirc wreset wnext wpreds wcnstrs wlatches
   ⇔
   ∀ss₀ ss₁.
-    (is_next ss₀ mcirc mnext (mlatches ∩ wlatches) (SND ss₁) ∧
+    (is_next ss₀ mcirc mnext mlatches (SND ss₁) ∧
      preds_hold ss₀ mcirc mcnstrs ∧
      preds_hold ss₁ mcirc mcnstrs ∧
      preds_hold ss₀ wcirc wcnstrs)
     ⇒
-    (is_next ss₀ wcirc wnext (mlatches ∩ wlatches) (SND ss₁) ∧
+    (is_next ss₀ wcirc wnext mlatches (SND ss₁) ∧
      preds_hold ss₁ wcirc wcnstrs)
 End
 
@@ -225,10 +224,10 @@ End
 
 (* While state is defined over the entirety of the (potentially infinite) domain
    'l, a circuit only depends on a finite subset of 'l.
-   We formalize this notion in dep_latches. *)
+   We formalize this notion in dep_circuit. *)
 
-Definition dep_latches_def:
-  dep_latches latches circ =
+Definition dep_circuit_def:
+  dep_circuit latches circ =
   ∀n is ls ls'.
     (∀l. l ∈ latches ⇒ ls' l = ls l) ⇒
     eval_circuit (is, ls') circ n = eval_circuit (is, ls) circ n
@@ -254,15 +253,20 @@ Definition dep_lits_def:
     ∀lit. lit ∈ lits ⇒ dep_lit latches lit
 End
 
+Definition dep_latch_lit_def:
+  dep_latch_lit latches (latch_lit: 'l -> ('a,'i,'l) lit) ⇔
+    ∀l. l ∈ latches ⇒ dep_lit latches (latch_lit l)
+End
+
 Theorem dep_eval_lit_eq:
-  dep_latches latches circ ∧ dep_lit latches n ∧
+  dep_circuit latches circ ∧ dep_lit latches n ∧
   (∀l. l ∈ latches ⇒ (ls' l ⇔ ls l)) ⇒
   (eval_lit (is,ls') circ n ⇔ eval_lit (is,ls) circ n)
 Proof
   namedCases_on ‘n’ ["v b"]
   >> Cases_on ‘v’ >> rw [eval_circuit_def]
   >-
-   (fs [dep_latches_def]
+   (fs [dep_circuit_def]
     >> rename1 ‘eval_circuit _ _ a’
     >> last_x_assum $ qspecl_then [‘a’, ‘is’, ‘ls’, ‘ls'’] mp_tac
     >> simp [])
@@ -271,85 +275,99 @@ Proof
   >> fs [eval_bvar_def]
 QED
 
-Definition false_outside_def:
-  false_outside latches s l ⇔ l ∈ latches ∧ s l
+(* Extending a trace for the model to a trace for the witness *****************)
+
+Definition is_trace_ext_def:
+  is_trace_ext latches tr' tr n ⇔
+    ∀i. i ≤ n ⇒
+        FST (tr' i) = FST (tr i) ∧
+        ∀l. l ∈ latches ⇒ SND (tr' i) l = SND (tr i) l
 End
 
-Theorem eval_lit_false_outside_eq:
-  dep_latches latches circ ∧ dep_lit latches n ⇒
-  (eval_lit (is,false_outside latches ls) circ n ⇔
-   eval_lit (is,ls) circ n)
-Proof
-  rw []
-  >> irule dep_eval_lit_eq
-  >> qexists ‘latches’ >> simp []
-  >> simp [false_outside_def]
-QED
-
-Theorem preds_hold_false_outside_eq:
-  dep_latches latches circ ∧
-  dep_lits latches cnstrs
-  ⇒
-  preds_hold (is, false_outside latches ls) circ cnstrs =
-  preds_hold (is, ls) circ cnstrs
-Proof
-  simp [preds_hold_def, dep_lits_def, eval_lit_false_outside_eq]
-QED
-
-Definition dep_reset_def:
-  dep_reset latches (reset: 'l -> ('a,'i,'l) lit) ⇔
-    (∀l. l ∈ latches ⇒ dep_lit latches (reset l)) ∧
-    (∀l. l ∉ latches ⇒ reset l = FF)
+(* First n + 1 inputs of the trace agree. *)
+Definition inputs_agree_def:
+  inputs_agree n (tr': ('i, 'l) trace) (tr: ('i, 'l) trace) ⇔
+    ∀i. i < n ⇒ FST (tr' i) = FST (tr i)
 End
 
-Theorem is_reset_false_outside_univ:
-  is_reset (is₀,s₀') circ reset latches ∧
-  dep_latches latches circ ∧
-  dep_reset latches reset
-  ⇒
-  is_reset (is₀,false_outside latches s₀') circ reset 𝕌(:γ)
+(* First n + 1 states of the trace agree. *)
+Definition states_agree_def:
+  states_agree n latches (tr': ('i, 'l) trace) (tr: ('i, 'l) trace) ⇔
+    ∀i l. i < n ∧ l ∈ latches ⇒ (SND (tr' i)) l = (SND (tr i)) l
+End
+
+
+Theorem is_next_subset:
+  is_next ss circ next latches  ls ∧ latches' ⊆ latches ⇒
+  is_next ss circ next latches' ls
 Proof
-  rw [is_reset_def, dep_reset_def]
-  >> Cases_on ‘l ∈ latches’ >> gvs []
-  >- simp [eval_lit_false_outside_eq]
-  >> gvs [eval_circuit_def, false_outside_def]
+  rw [is_next_def] >> metis_tac [SUBSET_DEF]
+QED
+
+(* TODO Should this be written as a congruence (i.e., ⇔ in the conclusion)? *)
+Theorem is_next_dep_circuit:
+  is_next ss₀ circ next latches ls₁ ∧
+  (∀l. l ∈ latches ⇒ SND ss₀ l = SND ss₀' l) ∧
+  (∀l. l ∈ latches ⇒ ls₁ l = ls₁' l) ∧
+  latches ⊆ latches' ∧
+  dep_circuit latches circ ∧
+  dep_latch_lit latches next ∧
+  FST ss₀ = FST ss₀'
+  ⇒
+  is_next ss₀' circ next latches' ls₁'
+Proof
+  cheat
 QED
 
 Theorem extend_model_trace_to_witness:
-  is_trace mcirc mreset mnext mcnstrs is₀ tr n ∧
-  tr 0 = (is₁,s₀) ∧
-  (* R₀{K} ∧ C₀ *)
-  is_reset (is₀,s₀) mcirc mreset (mlatches ∩ wlatches) ∧
-  preds_hold (is₀,s₀) mcirc mcnstrs ∧
-  (* R'₀{L'} ∧ C' *)
-  (∀l. l ∈ mlatches ∩ wlatches ⇒ s₀' l = s₀ l) ∧
-  is_reset (is₀, s₀') wcirc wreset wlatches ∧
-  preds_hold (is₀, s₀') wcirc wcnstrs
-  ∧
-  dep_latches wlatches wcirc ∧
-  dep_lits wlatches wcnstrs ∧
-  dep_reset wlatches wreset
+  is_trace mcirc mreset mnext mcnstrs tr n ∧
+  (* latch dependencies of model *)
+  dep_circuit mlatches mcirc ∧
+  dep_latch_lit mlatches mreset ∧
+  dep_latch_lit mlatches mnext ∧
+  dep_lits mlatches mcnstrs
   ⇒
   ∃tr'.
-    is_trace wcirc wreset wnext wcnstrs is₀ tr' n ∧
-    (∀l. l ∈ wlatches ⇒ SND (tr' 0) l = s₀' l)
+    is_trace mcirc mreset mnext mcnstrs tr' n ∧
+    is_trace wcirc wreset wnext wcnstrs tr' n ∧
+    inputs_agree (n + 1) tr' tr ∧
+    states_agree (n + 1) mlatches tr' tr
 Proof
-  Induct_on ‘n’ >> rw []
-  >-
-   (qexists ‘λn. if n = 0 then (is₁, false_outside wlatches s₀') else ARB’
-    >> simp [is_trace_def]
-    >> rpt conj_tac
-    >- simp [is_reset_false_outside_univ]
-    >- simp [preds_hold_false_outside_eq]
-    >- simp [false_outside_def])
-  >> cheat
-QED
 
-Theorem is_reset_subset:
-  is_reset ss circ reset ls ∧ ls' ⊆ ls ⇒
-  is_reset ss circ reset ls'
-Proof
-  rw [is_reset_def] >> metis_tac [SUBSET_DEF]
+  Induct_on ‘n’ >> rw []
+  >- cheat  (* TODO stratification *)
+  >> ‘is_trace mcirc mreset mnext mcnstrs tr n’ by gvs [is_trace_def]
+  >> fs []
+  >> qrefine ‘λn'. if n' ≤ n then tr' n' else step’
+  >> ‘∃step.
+        is_next (tr' n) mcirc mnext UNIV (SND step) ∧
+        preds_hold step mcirc mcnstrs ∧
+        is_next (tr' n) wcirc wnext UNIV (SND step) ∧
+        preds_hold step wcirc wcnstrs ∧
+        FST step = FST (tr (n + 1)) ∧
+        (∀l. l ∈ mlatches ⇒ (SND step) l = (SND (tr (n + 1))) l)’
+    suffices_by
+    (rw [] >> qexists ‘step’
+     >> gvs [is_trace_def, inputs_agree_def, states_agree_def]
+     >> rw []
+     >- (‘n' = n’ by simp [] >> simp [])
+     >- (‘n' = n’ by simp [] >> simp [])
+     >- (‘n' = n + 1’ by simp [] >> simp [])
+     >- (‘n' = n + 1’ by simp [] >> simp []))
+  >> qabbrev_tac ‘step = (FST (tr (n + 1)),
+                          λl. if l ∈ mlatches then (SND (tr (n + 1))) l
+                              else eval_lit (tr' n) wcirc (wnext l))’
+  >> qexists ‘step’
+  (* F'{K} (or equivalently (?) F'{L}) *)
+  >> ‘is_next (tr' n) mcirc mnext mlatches (SND step)’ by
+    (‘is_next (tr n) mcirc mnext mlatches (SND (tr (n + 1)))’ by
+       (irule is_next_subset >> qexists ‘UNIV’ >> fs [is_trace_def])
+     >> drule is_next_dep_circuit
+     >> disch_then irule
+     >> gvs [states_agree_def, inputs_agree_def, Abbr ‘step’])
+  >> conj_tac
+  >- (drule is_next_dep_circuit >> disch_then irule >> simp [])
+  >> cheat
 QED
 
 Theorem is_witness_is_safe:
@@ -362,18 +380,6 @@ Theorem is_witness_is_safe:
 Proof
   rw [is_witness_def, is_safe_def]
   >> CCONTR_TAC >> fs [is_unsafe_def]
-  >> rename1 ‘is_trace _ _ _ _ is₀ tr n’
-  >> namedCases_on ‘tr 0’ ["is₁ s₀"]
-  (* R₀{K} ∧ C₀ *)
-  >> ‘is_reset (is₀, s₀) mcirc mreset (mlatches ∩ wlatches) ∧
-      preds_hold (is₀, s₀) mcirc mcnstrs’ by
-    (fs [is_trace_def] >> drule is_reset_subset >> simp [])
-  (* R'₀{L'} ∧ C' *)
-  >> ‘∃s₀'.
-        (∀l. l ∈ mlatches ∩ wlatches ⇒ s₀' l = s₀ l) ∧
-        is_reset (is₀, s₀') wcirc wreset wlatches ∧
-        preds_hold (is₀, s₀') wcirc wcnstrs’ by cheat
-  (* TODO use extend_model_trace_to_witness*)
   >> cheat
 QED
 
