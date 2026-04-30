@@ -391,7 +391,7 @@ Proof
     \\ first_x_assum $ qspec_then `ck+ck'+1` assume_tac \\ gvs []
     \\ drule v_inv_ck_mono
     >- (disch_then $ qspec_then `ck'` assume_tac \\ gvs [])
-    \\ disch_then $ qspec_then `ck` assume_tac \\ gvs []    )
+    \\ disch_then $ qspec_then `ck` assume_tac \\ gvs [])
   >- (simp [v_inv_eq, Once v_inv_ck_cases] \\ iff_tac \\ gvs [])
   \\ simp [v_inv_eq, Once v_inv_ck_cases]
   \\ reverse iff_tac \\ rw [] \\ gvs []
@@ -715,56 +715,99 @@ Definition evaluated_thunk_ptr_def:
   evaluated_thunk_ptr refs n ⇔ ∃v. lookup n refs = SOME (Thunk Evaluated v)
 End
 
+Definition visit_v_def:
+  visit_v (Block a0 a1 a2) = K 0 (MAP visit_v a2) ∧
+  visit_v _ = 0:num
+End
+
 Theorem v_inv_related_lemma[local]:
-  ∀w refs y.
-    v_inv conf w refs y ⇒
-      ∀x f tf heap1.
-        y = (x,f,tf,heap1) ∧
-        gc_shared$gc_related g heap1 (heap2:'a ml_heap) ∧
-        (∀ptr u. (x = Pointer ptr u) ⇒ ptr ∈ FDOM g) ⇒
-      v_inv conf w refs (ADDR_APPLY (FAPPLY g) x,g f_o_f f,g f_o_f tf,heap2) ∧
+  ∀ck w refs x f tf heap1.
+    v_inv conf w refs (x,f,tf,heap1) ∧
+    gc_shared$gc_related g heap1 (heap2:'a ml_heap) ∧
+    (∀ptr u. (x = Pointer ptr u) ⇒ ptr ∈ FDOM g) ⇒
+      v_inv_ck ck conf w refs (ADDR_APPLY (FAPPLY g) x,g f_o_f f,g f_o_f tf,heap2) ∧
       EVERY (λn. n ∉ evaluated_thunk_ptr refs ⇒ f ' n ∈ FDOM g) (get_refs w)
 Proof
-  ho_match_mp_tac v_inv_rel_strongind \\ rw []
-  \\ gvs [ADDR_APPLY_def, get_refs_def]
-  >- gvs [v_inv_def]
+  completeInduct_on `ck` \\ gvs []
+  \\ ho_match_mp_tac visit_v_ind \\ rpt conj_tac
+  \\ ntac 2 (rpt gen_tac \\ rpt disch_tac) \\ gvs []
   >- (
-    gvs [v_inv_def, gc_related_def, Bignum_def]
+    reverse conj_tac
+    >- (
+      gvs [get_refs_def, EVERY_FLAT, EVERY_MAP]
+      \\ gvs [EVERY_MEM] \\ rw []
+      \\ first_x_assum drule \\ gvs [v_inv_def]
+      \\ Cases_on `a2 = []` \\ gvs []
+      \\ drule_all LIST_REL_MEM_IMP \\ simp [] \\ strip_tac
+      \\ ntac 2 (disch_then drule) \\ simp []
+      \\ impl_tac \\ gvs []
+      \\ rw []
+      \\ gvs [gc_related_def]
+      \\ first_x_assum drule \\ simp [BlockRep_def] \\ rw []
+      \\ res_tac \\ gvs [])
+    \\ qpat_x_assum `∀w. MEM w _ ⇒ _` kall_tac
+    \\ gvs [v_inv_def]
+    \\ Cases_on `a2 = []` \\ gvs [ADDR_APPLY_def]
+    \\ simp [Once v_inv_ck_cases]
+    \\ gvs [gc_related_def, BlockRep_def]
+    \\ first_assum drule_all \\ strip_tac \\ fs []
+    \\ simp [LENGTH_ADDR_MAP]
+    \\ gvs [FLOOKUP_DEF, f_o_f_DEF]
+    \\ strip_tac
+    \\ gvs [LIST_REL_EL_EQN, LENGTH_ADDR_MAP] \\ rw []
+    \\ last_x_assum $ qspec_then `ck - 1` mp_tac \\ gvs []
+    \\ last_x_assum $ drule_then assume_tac
+    \\ disch_then drule \\ gvs []
+    \\ impl_tac \\ gvs [EL_ADDR_MAP]
+    \\ reverse conj_tac
+    >- metis_tac [MEM_EL]
+    \\ rw []
+    \\ first_x_assum drule_all \\ rw []
+    \\ res_tac \\ gvs [])
+  >- (
+    simp [get_refs_def]
+    \\ gvs [v_inv_def]
+    \\ Cases_on `small_int (:α) w` \\ gvs []
+    \\ simp [Once v_inv_ck_cases, ADDR_APPLY_def]
+    \\ gvs [gc_related_def, Bignum_def]
     \\ pairarg_tac \\ gvs []
     \\ first_x_assum drule_all \\ rw []
-    \\ gvs [ADDR_MAP_def])
+    \\ simp [ADDR_MAP_def])
   >- (
-    gvs [v_inv_def, gc_related_def, Word64Rep_def]
+    simp [get_refs_def]
+    \\ gvs [v_inv_def]
+    \\ simp [Once v_inv_ck_cases, ADDR_APPLY_def]
+    \\ gvs [gc_related_def, Word64Rep_def]
     \\ IF_CASES_TAC \\ gvs []
     \\ first_x_assum drule_all \\ rw []
-    \\ gvs [ADDR_MAP_def])
-  >- gvs [v_inv_def]
-  >- gvs [v_inv_def, f_o_f_DEF]
+    \\ simp [ADDR_MAP_def])
   >- (
-    gvs [v_inv_def, f_o_f_DEF, gc_related_def, ThunkBlock_def]
+    simp [get_refs_def]
+    \\ gvs [v_inv_def]
+    \\ simp [Once v_inv_ck_cases, ADDR_APPLY_def])
+  \\ gvs [v_inv_def, get_refs_def]
+  >- simp [Once v_inv_ck_cases,ADDR_APPLY_def, f_o_f_DEF]
+  >- (
+    simp [Once v_inv_ck_cases]
+    \\ simp [ADDR_APPLY_def, f_o_f_DEF]
     \\ disj1_tac \\ gvs []
-    \\ first_x_assum drule_all \\ rw [] \\ gvs []
-    \\ first_x_assum $ irule_at Any \\ gvs []
-    \\ Cases_on `x` \\ gvs [ADDR_MAP_def, ADDR_APPLY_def])
-  >- gvs [v_inv_def]
+    \\ qpat_assum `gc_related _ _ _` mp_tac
+    \\ rewrite_tac [gc_related_def] \\ strip_tac
+    \\ gvs [ThunkBlock_def]
+    \\ first_x_assum drule_all \\ strip_tac \\ gvs []
+    \\ qexists `ADDR_APPLY (FAPPLY g) y` \\ gvs []
+    \\ conj_tac
+    >- (Cases_on `y` \\ gvs [ADDR_MAP_def, ADDR_APPLY_def])
+    \\ strip_tac \\ gvs []
+    \\ last_x_assum $ qspec_then `ck - 1` mp_tac \\ gvs []
+    \\ rpt (disch_then drule)
+    \\ impl_tac \\ gvs [])
+  \\ reverse conj_tac
   >- gvs [IN_DEF, evaluated_thunk_ptr_def]
-  >- gvs [v_inv_def]
-  >- (
-    gvs [v_inv_def, gc_related_def, BlockRep_def]
-    \\ first_x_assum $ drule_all_then assume_tac \\ gvs []
-    \\ gvs [LENGTH_ADDR_MAP, FLOOKUP_DEF, f_o_f_DEF, LIST_REL_EL_EQN] \\ rw []
-    \\ last_x_assum $ drule_then assume_tac \\ gvs [EL_ADDR_MAP]
-    \\ pop_assum mp_tac \\ impl_tac \\ gvs [] \\ rw []
-    \\ gvs [MEM_EL, PULL_EXISTS]
-    \\ metis_tac [])
-  >- (
-    gvs [EVERY_FLAT]
-    \\ simp [Once EVERY_EL] \\ rw []
-    \\ gvs [LIST_REL_EL_EQN] \\ first_x_assum $ drule_then assume_tac \\ gvs []
-    \\ gvs [EL_MAP]
-    \\ pop_assum mp_tac \\ impl_tac \\ gvs [] \\ rw []
-    \\ gvs [gc_related_def, BlockRep_def]
-    \\ metis_tac [MEM_EL])
+  \\ simp [Once v_inv_ck_cases]
+  \\ rpt disj2_tac \\ rw []
+  \\ last_x_assum $ qspec_then `ck - 1` mp_tac \\ gvs []
+  \\ disch_then drule \\ gvs []
 QED
 
 Theorem v_inv_related[local]:
@@ -776,7 +819,7 @@ Theorem v_inv_related[local]:
     EVERY (λn. n ∉ evaluated_thunk_ptr refs ⇒ f ' n ∈ FDOM g)
           (get_refs w)
 Proof
-  metis_tac [v_inv_related_lemma]
+  metis_tac [v_inv_eq, v_inv_related_lemma]
 QED
 
 Theorem EVERY2_ADDR_MAP[local]:
@@ -891,19 +934,71 @@ Proof
 QED
 
 Theorem gc_heap_inline_rel_v_inv_lemma[local]:
-  ∀v refs y.
-    v_inv conf v refs y ⇒
-      ∀x1 x2 f tf heap1 heap2.
-        y = (x1,f,tf,heap1) ∧
-        LIST_REL (gc_heap_inline_rel dest_evaluated_thunk_rel heap1) heap1 heap2 ∧
-        (∀n.
-          n ∈ FDOM f ∧
-          reachable_refs [v] refs n ⇒
-            bc_ref_inv conf n refs (f,tf,heap1,be)) ∧
-        gc_inline_rel dest_evaluated_thunk_rel heap1 x1 x2 ⇒
-          v_inv conf v refs (x2,f,tf,heap2)
+  ∀ck v refs x1 x2 f tf heap1 heap2.
+    v_inv conf v refs (x1,f,tf,heap1) ⇒
+      LIST_REL (gc_heap_inline_rel dest_evaluated_thunk_rel heap1) heap1 heap2 ∧
+      (∀n.
+        n ∈ FDOM f ∧
+        reachable_refs [v] refs n ⇒
+          bc_ref_inv conf n refs (f,tf,heap1,be)) ∧
+      gc_inline_rel dest_evaluated_thunk_rel heap1 x1 x2 ⇒
+        v_inv_ck ck conf v refs (x2,f,tf,heap2)
 Proof
-  ho_match_mp_tac v_inv_rel_strongind \\ rw [] \\ gvs []
+  completeInduct_on `ck` \\ gvs []
+  \\ rpt gen_tac \\ rpt disch_tac
+  \\ rw [Once v_inv_ck_cases]
+  \\ Cases_on `v` \\ gvs []
+  >- (
+    gvs [v_inv_def]
+    \\ Cases_on `small_int (:α) i` \\ gvs [gc_inline_rel_cases]
+    >- (
+      gvs [Bignum_def]
+      \\ pairarg_tac \\ gvs []
+      \\ drule_all LIST_REL_gc_heap_inline_DataElement \\ rw [])
+    \\ gvs [Bignum_def]
+    \\ pairarg_tac \\ gvs [dest_evaluated_thunk_rel_cases, ThunkBlock_def])
+  >- (
+    gvs [v_inv_def]
+    \\ gvs [gc_inline_rel_cases]
+    >- (
+      gvs [Word64Rep_def]
+      \\ IF_CASES_TAC \\ gvs []
+      \\ drule_all LIST_REL_gc_heap_inline_DataElement \\ rw [])
+    \\ gvs [Word64Rep_def]
+    \\ IF_CASES_TAC \\ gvs [dest_evaluated_thunk_rel_cases, ThunkBlock_def])
+  >- (
+    gvs [v_inv_def]
+    \\ Cases_on `l = []` \\ gvs [] \\ rgs [Once gc_inline_rel_cases]
+    >- (
+      gvs [BlockRep_def]
+      \\ drule_all LIST_REL_gc_heap_inline_DataElement \\ rw []
+      \\ qexists `ys` \\ gvs [LIST_REL_EL_EQN] \\ rw []
+      \\ last_x_assum $ qspec_then `ck - 1` mp_tac \\ gvs []
+      \\ last_x_assum drule \\ strip_tac \\ gvs []
+      \\ disch_then drule \\ gvs []
+      \\ first_x_assum drule \\ strip_tac
+      \\ disch_then $ qspec_then `EL n' ys` mp_tac \\ gvs []
+      \\ disch_then $ qspec_then `heap2` mp_tac \\ gvs []
+      \\ impl_tac \\ gvs [] \\ rw []
+      \\ first_x_assum irule \\ gvs [reachable_refs_def, get_refs_def]
+      \\ simp [MEM_FLAT, MEM_MAP, PULL_EXISTS]
+      \\ metis_tac [MEM_EL])
+    \\ gvs [BlockRep_def]
+    \\ drule_all LIST_REL_gc_heap_inline_DataElement \\ rw []
+    \\ qexists `ys` \\ gvs [LIST_REL_EL_EQN] \\ rw []
+    >- gvs [dest_evaluated_thunk_rel_cases, ThunkBlock_def]
+    \\ last_x_assum $ qspec_then `ck - 1` mp_tac \\ gvs []
+    \\ last_x_assum drule \\ strip_tac \\ gvs []
+    \\ disch_then drule \\ gvs []
+    \\ disch_then $ qspecl_then [`EL n' ys`, `heap2`] mp_tac \\ gvs []
+    \\ impl_tac \\ gvs [] \\ rw []
+    \\ first_x_assum irule \\ gvs [reachable_refs_def, get_refs_def]
+    \\ simp [MEM_FLAT, MEM_MAP, PULL_EXISTS]
+    \\ metis_tac [MEM_EL])
+  >- gvs [v_inv_def, gc_inline_rel_cases]
+  \\ cheat
+
+  (*ho_match_mp_tac v_inv_rel_strongind \\ rw [] \\ gvs []
   >- gvs [v_inv_def, gc_inline_rel_cases]
   >- (
     gvs [v_inv_def, gc_inline_rel_cases, dest_evaluated_thunk_rel_cases,
@@ -969,7 +1064,7 @@ Proof
       \\ simp [MEM_FLAT, MEM_MAP, PULL_EXISTS]
       \\ metis_tac [MEM_EL])
     \\ first_x_assum drule \\ rw [gc_inline_rel_cases] \\ gvs []
-    \\ gvs [dest_evaluated_thunk_rel_cases])
+    \\ gvs [dest_evaluated_thunk_rel_cases])*)
 QED
 
 Theorem gc_heap_inline_rel_v_inv[local]:
