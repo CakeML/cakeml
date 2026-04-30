@@ -313,11 +313,12 @@ Proof
 QED
 
 Theorem dep_eval_lit_eq:
-  dep_circuit latches circ ∧ dep_lit latches n ∧
-  (∀l. l ∈ latches ⇒ (ls' l ⇔ ls l)) ⇒
-  (eval_lit (is,ls') circ n ⇔ eval_lit (is,ls) circ n)
+  ∀n is ls ls'.
+    dep_circuit latches circ ∧ dep_lit latches n ∧
+    (∀l. l ∈ latches ⇒ (ls' l ⇔ ls l)) ⇒
+    (eval_lit (is,ls') circ n ⇔ eval_lit (is,ls) circ n)
 Proof
-  namedCases_on ‘n’ ["v b"]
+  namedCases ["v b"]
   >> Cases_on ‘v’ >> rw [eval_circuit_def]
   >-
    (fs [dep_circuit_def]
@@ -363,14 +364,17 @@ Theorem is_next_dep_circuit:
   is_next ss₀ circ next latches ls₁ ∧
   (∀l. l ∈ latches ⇒ SND ss₀ l = SND ss₀' l) ∧
   (∀l. l ∈ latches ⇒ ls₁ l = ls₁' l) ∧
-  latches ⊆ latches' ∧
   dep_circuit latches circ ∧
   dep_latch_lit latches next ∧
   FST ss₀ = FST ss₀'
   ⇒
-  is_next ss₀' circ next latches' ls₁'
+  is_next ss₀' circ next latches ls₁'
 Proof
-  cheat
+  rw [is_next_def, dep_latch_lit_def]
+  >> namedCases_on ‘ss₀’ ["is ls₀"]
+  >> namedCases_on ‘ss₀'’ ["is' ls₀'"]
+  >> gvs []
+  >> metis_tac [dep_eval_lit_eq]
 QED
 
 Theorem preds_hold_dep_circuit:
@@ -382,7 +386,11 @@ Theorem preds_hold_dep_circuit:
   ⇒
   preds_hold ss' circ ns
 Proof
-  cheat
+  rw [preds_hold_def, dep_lits_def]
+  >> namedCases_on ‘ss’ ["is ls"]
+  >> namedCases_on ‘ss'’ ["is' ls'"]
+  >> gvs []
+  >> metis_tac [dep_eval_lit_eq]
 QED
 
 Theorem is_trace_preds_hold_n:
