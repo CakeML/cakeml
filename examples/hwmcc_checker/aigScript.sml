@@ -272,9 +272,9 @@ Definition patch_def:
 End
 
 Theorem not_mem_patch_eq:
-  ¬MEM l xs ⇒ (patch circ reset is ls xs) l = ls l
+  ∀xs ls. ¬MEM l xs ⇒ (patch circ reset is ls xs) l = ls l
 Proof
-  cheat
+  Induct >> rw [patch_def]
 QED
 
 Theorem mem_patch:
