@@ -288,6 +288,13 @@ Proof
   rw [is_reset_def] >> metis_tac []
 QED
 
+Theorem is_reset_union:
+  is_reset ss circ reset (xs ∪ ys) ⇔
+    is_reset ss circ reset xs ∧ is_reset ss circ reset ys
+Proof
+  rw [is_reset_def] >> metis_tac []
+QED
+
 (* TODO Is assuming irreflexive ok? How to express
    "latch is always in reset state"? *)
 Theorem mem_patch:
@@ -437,11 +444,16 @@ QED
 
 Theorem extend_model_trace_to_witness:
   is_trace mcirc mreset mnext mcnstrs mlatches tr n ∧
-  (* TODO revisit whether dep_ family is needed with new trace definition *)
+  (* model latches constraints *)
   dep_circuit mlatches mcirc ∧
   dep_latch_lit mlatches mreset ∧
   dep_latch_lit mlatches mnext ∧
   dep_lits mlatches mcnstrs ∧
+  (* witness latches constraints *)
+  FINITE wlatches ∧
+  irreflexive lt ∧
+  transitive lt ∧
+  is_stratified lt wcirc wreset wlatches ∧
   is_witness_reset
     mcirc mreset mnext mpreds mcnstrs mlatches
     wcirc wreset wnext wpreds wcnstrs wlatches ∧
@@ -455,7 +467,34 @@ Theorem extend_model_trace_to_witness:
     states_agree n mlatches tr' tr
 Proof
   Induct_on ‘n’ >> rw []
-  >- cheat  (* TODO stratification *)
+  >-
+   (fs [is_trace_def, is_witness_reset_def]
+    >> first_x_assum $ drule_all_then assume_tac
+    >> namedCases_on ‘tr 0’ ["is ls"] >> fs []
+    >> qabbrev_tac ‘xs = SET_TO_LIST (wlatches DIFF (mlatches ∩ wlatches))’
+    >> qexists ‘λ_. (is, patch wcirc wreset is ls xs)’ >> simp []
+    >> rpt conj_tac
+    (* wlatches are in reset in patched state *)
+    >-
+     (‘wlatches = (mlatches ∩ wlatches) ∪ (set xs)’ by
+        (simp [Abbr ‘xs’, Req0 SET_TO_LIST_INV] >> SET_TAC [])
+      >> pop_assum SUBST1_TAC
+      >> simp [is_reset_union]
+      >> conj_tac
+      (* unpatched latches are still in reset *)
+      >- (cheat)
+      >> irule mem_patch
+      >> first_assum $ irule_at (Pos last)  (* is_stratified *)
+      >> simp [Abbr ‘xs’, Req0 SET_TO_LIST_INV]
+      (* TODO Need to do SET_TO_LIST while maintaining an order *)
+      >> cheat)
+    (* wcnstrs are satisfied in patched state *)
+    >- (cheat)
+    >- simp [inputs_agree_def]
+    >-
+     (rw [states_agree_def]
+      >> rename1 ‘patch _ _ _ _ _ l’ >> ‘¬MEM l xs’ by simp [Abbr ‘xs’]
+      >> simp [not_mem_patch_eq]))
   >> gvs [is_trace_SUC, inputs_agree_SUC, states_agree_SUC]
   >> qrefine ‘λn'. if n' ≤ n then tr' n' else step’
   >> ‘∃step.
