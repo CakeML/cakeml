@@ -277,12 +277,36 @@ Proof
   Induct >> rw [patch_def]
 QED
 
-Theorem mem_patch:
-  is_stratified lt circ reset latches ∧
-  set xs ⊆ latches ∧ SORTED lt xs
-  ⇒ is_reset (is, patch circ reset is ls xs) circ reset (set xs)
+Theorem is_reset_insert:
+  is_reset ss circ reset (l INSERT ls) ⇔
+    is_reset ss circ reset ls ∧
+    (eval_lit ss circ (Base (Latch l),F) ⇔ eval_lit ss circ (reset l))
 Proof
-  cheat
+  rw [is_reset_def] >> metis_tac []
+QED
+
+(* TODO Is assuming irreflexive ok? How to express
+   "latch is always in reset state"? *)
+Theorem mem_patch:
+  ∀xs ls.
+    is_stratified lt circ reset latches ∧ set xs ⊆ latches ∧
+    SORTED lt xs ∧ irreflexive lt ∧ transitive lt
+    ⇒
+    is_reset (is, patch circ reset is ls xs) circ reset (set xs)
+Proof
+  Induct >> rw [patch_def]
+  >- simp [is_reset_def]
+  >> simp [is_reset_insert]
+  >> conj_tac
+  >- (last_x_assum irule >> drule SORTED_TL >> simp [])
+  >> simp [eval_circuit_def]
+  >> rename1 ‘l::xs’
+  >> ‘¬MEM l xs’ by (drule_all SORTED_ALL_DISTINCT >> simp [])
+  >> drule_then assume_tac not_mem_patch_eq >> simp []
+  >> fs [is_stratified_def]
+  >> qmatch_goalsub_abbrev_tac ‘_ ⇔ eval_lit (is, ls') _ _’
+  >> last_x_assum $ qspecl_then [‘l’, ‘is’, ‘ls'’, ‘ls’] mp_tac
+  >> fs [irreflexive_def]
 QED
 
 Theorem dep_eval_lit_eq:
