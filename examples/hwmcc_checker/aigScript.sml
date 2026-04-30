@@ -128,6 +128,9 @@ End
 
 (* Soundness ******************************************************************)
 
+(* NOTE We use R{L} and F{L} on the left-hand side of implications
+   instead of R{K} and F{K}, allowing us to prove soundness a bit easier. *)
+
 Definition is_witness_reset_def:
   is_witness_reset
     mcirc mreset mnext mpreds mcnstrs mlatches
@@ -335,16 +338,16 @@ Definition is_trace_ext_def:
         ∀l. l ∈ latches ⇒ SND (tr' i) l = SND (tr i) l
 End
 
-(* First n + 1 inputs of the trace agree. *)
+(* Inputs 0 to n in the trace agree. *)
 Definition inputs_agree_def:
   inputs_agree n (tr': ('i, 'l) trace) (tr: ('i, 'l) trace) ⇔
-    ∀i. i < n ⇒ FST (tr' i) = FST (tr i)
+    ∀i. i ≤ n ⇒ FST (tr' i) = FST (tr i)
 End
 
-(* First n + 1 states of the trace agree. *)
+(* States 0 to n in the trace agree. *)
 Definition states_agree_def:
   states_agree n latches (tr': ('i, 'l) trace) (tr: ('i, 'l) trace) ⇔
-    ∀i l. i < n ∧ l ∈ latches ⇒ (SND (tr' i)) l = (SND (tr i)) l
+    ∀i l. i ≤ n ∧ l ∈ latches ⇒ (SND (tr' i)) l = (SND (tr i)) l
 End
 
 
@@ -390,6 +393,40 @@ Proof
   rw [is_trace_def] >> Cases_on ‘n’ >> fs [ADD1]
 QED
 
+Theorem is_trace_SUC:
+  is_trace mcirc mreset mnext mcnstrs mlatches tr (SUC n)
+  ⇔
+  is_trace mcirc mreset mnext mcnstrs mlatches tr n ∧
+  is_next (tr n) mcirc mnext mlatches (SND (tr (n + 1))) ∧
+  preds_hold (tr (n + 1)) mcirc mcnstrs
+Proof
+  eq_tac >> rw [is_trace_def]
+  >> rename1 ‘i < SUC n’ >> Cases_on ‘i < n’ >> gvs []
+  >> ‘i = n’ by simp []
+  >> simp []
+QED
+
+Theorem inputs_agree_SUC:
+  inputs_agree (SUC n) tr' tr ⇔
+  inputs_agree n tr' tr ∧ FST (tr' (n + 1)) = FST (tr (n + 1))
+Proof
+  eq_tac >> rw [inputs_agree_def]
+  >> rename1 ‘i ≤ SUC n’ >> Cases_on ‘i ≤ n’ >> gvs []
+  >> ‘i = n + 1’ by simp []
+  >> simp []
+QED
+
+Theorem states_agree_SUC:
+  states_agree (SUC n) latches tr' tr ⇔
+  states_agree n latches tr' tr ∧
+  (∀l. l ∈ latches ⇒ (SND (tr' (n + 1))) l = (SND (tr (n + 1))) l)
+Proof
+  eq_tac >> rw [states_agree_def]
+  >> rename1 ‘i ≤ SUC n’ >> Cases_on ‘i ≤ n’ >> gvs []
+  >> ‘i = n + 1’ by simp []
+  >> simp []
+QED
+
 Theorem extend_model_trace_to_witness:
   is_trace mcirc mreset mnext mcnstrs mlatches tr n ∧
   (* TODO revisit whether dep_ family is needed with new trace definition *)
@@ -405,63 +442,46 @@ Theorem extend_model_trace_to_witness:
     wcirc wreset wnext wpreds wcnstrs wlatches
   ⇒
   ∃tr'.
-    is_trace mcirc mreset mnext mcnstrs mlatches tr' n ∧  (* TODO redundant with last two *)
     is_trace wcirc wreset wnext wcnstrs wlatches tr' n ∧
-    inputs_agree (n + 1) tr' tr ∧
-    states_agree (n + 1) mlatches tr' tr
+    inputs_agree n tr' tr ∧
+    states_agree n mlatches tr' tr
 Proof
   Induct_on ‘n’ >> rw []
   >- cheat  (* TODO stratification *)
-  >> ‘is_trace mcirc mreset mnext mcnstrs mlatches tr n’ by gvs [is_trace_def]
-  >> fs []
+  >> gvs [is_trace_SUC, inputs_agree_SUC, states_agree_SUC]
   >> qrefine ‘λn'. if n' ≤ n then tr' n' else step’
-  (* TODO prove a lemma for is_trace mcirc mreset mnext mcnstrs tr (SUC n) *)
   >> ‘∃step.
-        is_next (tr' n) mcirc mnext mlatches (SND step) ∧
-        preds_hold step mcirc mcnstrs ∧
         is_next (tr' n) wcirc wnext wlatches (SND step) ∧
         preds_hold step wcirc wcnstrs ∧
         FST step = FST (tr (n + 1)) ∧
         (∀l. l ∈ mlatches ⇒ (SND step) l = (SND (tr (n + 1))) l)’
     suffices_by
     (rw [] >> qexists ‘step’
-     >> gvs [is_trace_def, inputs_agree_def, states_agree_def]
-     >> rw []
-     >- (‘n' = n’ by simp [] >> simp [])
-     >- (‘n' = n’ by simp [] >> simp [])
-     >- (‘n' = n + 1’ by simp [] >> simp [])
-     >- (‘n' = n + 1’ by simp [] >> simp []))
+     >> gvs [is_trace_def, inputs_agree_def, states_agree_def])
   >> qabbrev_tac ‘step = (FST (tr (n + 1)),
                           λl. if l ∈ mlatches then (SND (tr (n + 1))) l
                               else eval_lit (tr' n) wcirc (wnext l))’
   >> qexists ‘step’
-  (* F'{K} -- or equivalently (?) F'{L} *)
   >> ‘is_next (tr' n) mcirc mnext mlatches (SND step)’ by
-    (‘is_next (tr n) mcirc mnext mlatches (SND (tr (n + 1)))’ by
-       (irule is_next_subset >> qexists ‘mlatches’ >> fs [is_trace_def])
-     >> drule is_next_dep_circuit
+    (drule is_next_dep_circuit
      >> disch_then irule
      >> gvs [states_agree_def, inputs_agree_def, Abbr ‘step’])
-  >> conj_tac
-  >- (drule is_next_dep_circuit >> disch_then irule >> simp [])
-  (* C' on model *)
-  >> ‘preds_hold step mcirc mcnstrs’ by
-    (‘preds_hold (tr (n + 1)) mcirc mcnstrs’ by fs [is_trace_def]
+  >> ‘preds_hold (tr' n) mcirc mcnstrs’ by
+    (‘preds_hold (tr n) mcirc mcnstrs’ by metis_tac [is_trace_preds_hold_n]
      >> drule preds_hold_dep_circuit
-     >> disch_then drule
-     >> disch_then irule
+     >> disch_then drule >> disch_then irule
+     >> gvs [inputs_agree_def, states_agree_def])
+  >> ‘preds_hold step mcirc mcnstrs’ by
+    (rev_drule preds_hold_dep_circuit
+     >> disch_then drule >> disch_then irule
      >> gvs [Abbr ‘step’])
-  >> conj_tac >- simp []
-  >> ‘preds_hold (tr' n) mcirc mcnstrs’ by metis_tac [is_trace_preds_hold_n]
   >> ‘preds_hold (tr' n) wcirc wcnstrs’ by metis_tac [is_trace_preds_hold_n]
-  (* According to the paper proof, we can now invoke the transition check and
+  (* Following the paper proof, we can now invoke the transition check and
      extend these two facts to the witness. *)
   >> fs [is_witness_transition_def]
   >> first_x_assum $ drule_all_then assume_tac >> fs []
   >> conj_tac
-  >-
-   (fs [is_next_def] >> rw []
-    >> Cases_on ‘l ∈ mlatches’ >> gvs [Abbr ‘step’])
+  >- (fs [is_next_def] >> rw [] >> Cases_on ‘l ∈ mlatches’ >> gvs [Abbr ‘step’])
   >> fs [Abbr ‘step’]
 QED
 
