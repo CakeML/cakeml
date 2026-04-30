@@ -96,9 +96,9 @@ Theorem wordcount_spec:
      (POSTv uv. &UNIT_TYPE () uv *
                  STDIO (add_stdout fs'
                    (concat [mlint$toString (&(LENGTH (TOKENS isSpace contents)));
-                            strlit " ";
+                            « »;
                             mlint$toString (&(LENGTH (splitlines contents)));
-                            strlit "\n"]))
+                            «\n»]))
                 * COMMANDLINE cl)
 Proof
   simp [concat_def] \\
@@ -220,9 +220,9 @@ Theorem wordcount_whole_prog_spec:
    ((=)
      (add_stdout fs'
        (concat [mlint$toString (&(LENGTH (TOKENS isSpace contents)));
-                strlit " ";
+                « »;
                 mlint$toString (&(LENGTH (splitlines contents)));
-                strlit "\n"])))
+                «\n»])))
 Proof
   disch_then assume_tac
   \\ imp_res_tac wordcount_precond_numchars

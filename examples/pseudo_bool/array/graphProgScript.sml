@@ -44,7 +44,7 @@ val inputAllTokensFile_spec_specialize =
   |> REWRITE_RULE [blanks_v_thm,tokenize_num_v_thm] ;
 
 Definition noparse_string_def:
-  noparse_string f s = concat[strlit"c Input file: ";f;strlit" unable to parse in format: "; s;strlit"\n"]
+  noparse_string f s = concat[«c Input file: »;f;« unable to parse in format: »; s;«\n»]
 End
 
 val r = translate noparse_string_def;

@@ -72,7 +72,7 @@ QED
 Theorem FOLDL_insert_line:
    ∀ls t t' s.
     map_ok t ∧ t' = FOLDL insert_line t ls ∧
-    EVERY (λw. ∃x. w = strcat x (strlit "\n")) ls ∧
+    EVERY (λw. ∃x. w = strcat x «\n») ls ∧
     s = concat ls
     ⇒
     map_ok t' ∧
@@ -83,7 +83,7 @@ Proof
   Induct \\ simp[concat_nil,concat_cons] \\ ntac 3 strip_tac \\
   rename1`insert_line t w` \\
   imp_res_tac insert_line_thm \\ fs[] \\
-  `strlit "\n" = toString #"\n"` by EVAL_TAC \\
+  `«\n» = toString #"\n"` by EVAL_TAC \\
   `isSpace #"\n"` by EVAL_TAC \\
   first_x_assum drule \\
   rw[frequency_concat,splitwords_concat,frequency_concat_space,splitwords_concat_space] \\
@@ -98,7 +98,7 @@ val res = translate insert_word_def;
 val res = translate (insert_line_def |> REWRITE_RULE[splitwords_def]);
 
 Definition format_output_def:
-  format_output (k,v) = concat [k; strlit": "; toString (&v); strlit"\n"]
+  format_output (k,v) = concat [k; «: »; toString (&v); «\n»]
 End
 
 val res = translate format_output_def;

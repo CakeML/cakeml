@@ -110,7 +110,7 @@ QED
 (* -- *)
 
 Definition usage_string_def:
-  usage_string = strlit"Usage: sort <file> <file>...\n"
+  usage_string = «Usage: sort <file> <file>...\n»
 End
 
 val r = translate usage_string_def;
@@ -277,7 +277,7 @@ Definition valid_sort_result_def:
         PERM output lines ∧
         SORTED mlstring_le output ∧
         result_fs = add_stdout fs (concat output)
-    else result_fs = add_stderr init_fs (strlit "Cannot open file")
+    else result_fs = add_stderr init_fs «Cannot open file»
 End
 
 Theorem valid_sort_result_unique:

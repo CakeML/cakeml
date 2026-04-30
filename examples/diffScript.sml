@@ -49,12 +49,12 @@ Definition diff_single_def:
   diff_single l n l' n' =
     diff_single_header l n l' n'::
     if l = [] then (* add *)
-      diff_add_prefix l' (strlit "> ")
+      diff_add_prefix l' «> »
     else if l' = [] then (* delete *)
-      diff_add_prefix l (strlit "< ")
+      diff_add_prefix l «< »
     else (* change *)
-      diff_add_prefix l (strlit "< ")
-      ++ (strlit "---\n")::diff_add_prefix l' (strlit "> ")
+      diff_add_prefix l «< »
+      ++ «---\n»::diff_add_prefix l' «> »
 End
 
 Definition diff_with_lcs_def:
@@ -187,7 +187,7 @@ End
 Definition depatch_line_def:
   depatch_line s =
   if strlen s > 1 then
-    if substring s 0 2 = strlit "> " then
+    if substring s 0 2 = «> » then
       SOME(substring s 2 (strlen s - 2))
     else
       NONE
@@ -275,7 +275,7 @@ Theorem tokens_append_right_strlit:
   ∀NP s x. P x ⇒ tokens P (s ^ strlit [x]) = tokens P s
 Proof
   rw[] >> drule tokens_append_strlit >>
-  disch_then $ qspecl_then [`s`,`strlit ""`] mp_tac >>
+  disch_then $ qspecl_then [`s`,`«»`] mp_tac >>
   rw[tokens_def,tokens_aux_def]
 QED
 
@@ -350,7 +350,7 @@ Theorem tokens_strcat[local]:
   l ≠ [] ==>
   (tokens (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n")
           (toString (n:num) ^
-                    strlit (STRING (acd l r) "") ^ toString (m:num) ^ strlit "\n")
+                    strlit (STRING (acd l r) "") ^ toString (m:num) ^ «\n»)
    = [toString n; toString m])
 Proof
   Cases_on `l` >> Cases_on `r` >> fs[acd_def] >>
@@ -361,7 +361,7 @@ Theorem tokens_strcat'[local]:
   r ≠ [] ==>
   (tokens (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n")
           (toString (n:num) ^
-                    strlit (STRING (acd l r) "") ^ toString (m:num) ^ strlit "\n")
+                    strlit (STRING (acd l r) "") ^ toString (m:num) ^ «\n»)
    = [toString n; toString m])
 Proof
   Cases_on `l` >> Cases_on `r` >>
@@ -418,10 +418,10 @@ QED
 
 Theorem substring_adhoc_simps[local]:
   ∀h.
-   substring (strlit "> " ^ h) 0 2 = strlit "> " ∧
-   substring (strlit "> " ^ h) 2 (strlen h) = h ∧
-   substring (strlit "< " ^ h) 0 2 = strlit "< " ∧
-   substring (strlit "< " ^ h) 2 (strlen h) = h
+   substring («> » ^ h) 0 2 = «> » ∧
+   substring («> » ^ h) 2 (strlen h) = h ∧
+   substring («< » ^ h) 0 2 = «< » ∧
+   substring («< » ^ h) 2 (strlen h) = h
 Proof
   Induct >> rpt strip_tac >> fs[strcat_thm,substring_def,strlen_def]
   >> fs[ADD1,MIN_DEF] >> fs[SEG_compute] >> simp_tac pure_ss [ONE,TWO,SEG_SUC_CONS]
@@ -429,13 +429,13 @@ Proof
 QED
 
 Theorem depatch_lines_strcat_cancel[local]:
-  ∀r. depatch_lines (MAP (strcat (strlit "> ")) r) = SOME r
+  ∀r. depatch_lines (MAP (strcat «> ») r) = SOME r
 Proof
   Induct >> fs[depatch_lines_def,depatch_line_def,strlen_strcat,substring_adhoc_simps]
 QED
 
 Theorem depatch_lines_diff_add_prefix_cancel[local]:
-   depatch_lines (diff_add_prefix l (strlit "> ")) = SOME l
+   depatch_lines (diff_add_prefix l «> ») = SOME l
 Proof
   fs[diff_add_prefix_def,depatch_lines_strcat_cancel]
 QED
@@ -447,7 +447,7 @@ Proof
 QED
 
 Theorem line_numbers_not_empty[local]:
-  ∀l n . line_numbers l n <> strlit ""
+  ∀l n . line_numbers l n <> «»
 Proof
   fs[line_numbers_def, num_to_str_thm]
   \\ rw []
@@ -456,7 +456,7 @@ Proof
 QED
 
 Theorem tokens_eq_sing:
-   ∀s f. EVERY ($¬ ∘ f) (explode s) ∧ s <> strlit "" ⇒ tokens f s = [s]
+   ∀s f. EVERY ($¬ ∘ f) (explode s) ∧ s <> «» ⇒ tokens f s = [s]
 Proof
   Cases
   \\ fs[TOKENS_eq_tokens_sym,toString_thm,explode_implode]
@@ -805,7 +805,7 @@ Proof
 QED
 
 Theorem parse_nonheader_lemma[local]:
-  ∀f r. EVERY (OPTION_ALL f) (MAP parse_patch_header (diff_add_prefix r (strlit "> ")))
+  ∀f r. EVERY (OPTION_ALL f) (MAP parse_patch_header (diff_add_prefix r «> »))
 Proof
   strip_tac >> Induct
   >- fs[diff_add_prefix_def]
@@ -821,7 +821,7 @@ Proof
 QED
 
 Theorem parse_nonheader_lemma2[local]:
-  ∀f r. EVERY (OPTION_ALL f) (MAP parse_patch_header (diff_add_prefix r (strlit "< ")))
+  ∀f r. EVERY (OPTION_ALL f) (MAP parse_patch_header (diff_add_prefix r «< »))
 Proof
   strip_tac >> Induct
   >- fs[diff_add_prefix_def]
@@ -837,7 +837,7 @@ Proof
 QED
 
 Theorem parse_nonheader_lemma3[local]:
-  parse_patch_header (strlit "---\n") = NONE
+  parse_patch_header «---\n» = NONE
 Proof
   fs[parse_patch_header_def]
   >> every_case_tac
@@ -1223,17 +1223,17 @@ QED
 Definition is_patch_line_def:
   is_patch_line s =
   if strlen s > 1 then
-    if substring s 0 2 = strlit "> " then
+    if substring s 0 2 = «> » then
       T
-    else substring s 0 2 = strlit "< "
+    else substring s 0 2 = «< »
   else
       F
 End
 
 Theorem is_patch_line_simps[local]:
   ∀r.
-  FILTER is_patch_line (MAP (strcat (strlit "> ")) r) = (MAP (strcat (strlit "> ")) r) ∧
-  FILTER is_patch_line (MAP (strcat (strlit "< ")) r) = MAP (strcat (strlit "< ")) r
+  FILTER is_patch_line (MAP (strcat «> ») r) = (MAP (strcat «> ») r) ∧
+  FILTER is_patch_line (MAP (strcat «< ») r) = MAP (strcat «< ») r
 Proof
   Induct_on `r` >> fs[] >> Induct
   >> fs[is_patch_line_def,strlen_def,strcat_thm,substring_def,MIN_DEF]

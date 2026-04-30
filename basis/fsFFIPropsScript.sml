@@ -1267,19 +1267,19 @@ QED
 (* Property ensuring that standard streams are correctly opened *)
 Definition STD_streams_def:
   STD_streams fs = ?inp out err.
-    (ALOOKUP fs.inode_tbl (UStream(strlit "stdout")) = SOME out) ∧
-    (ALOOKUP fs.inode_tbl (UStream(strlit "stderr")) = SOME err) ∧
-    (∀fd md off. ALOOKUP fs.infds fd = SOME (UStream(strlit "stdin"),md,off) ⇔ fd = 0 ∧ md = ReadMode ∧ off = inp) ∧
-    (∀fd md off. ALOOKUP fs.infds fd = SOME (UStream(strlit "stdout"),md,off) ⇔ fd = 1 ∧ md = WriteMode ∧ off = LENGTH out) ∧
-    (∀fd md off. ALOOKUP fs.infds fd = SOME (UStream(strlit "stderr"),md,off) ⇔ fd = 2 ∧ md = WriteMode ∧ off = LENGTH err)
+    (ALOOKUP fs.inode_tbl (UStream «stdout») = SOME out) ∧
+    (ALOOKUP fs.inode_tbl (UStream «stderr») = SOME err) ∧
+    (∀fd md off. ALOOKUP fs.infds fd = SOME (UStream «stdin»,md,off) ⇔ fd = 0 ∧ md = ReadMode ∧ off = inp) ∧
+    (∀fd md off. ALOOKUP fs.infds fd = SOME (UStream «stdout»,md,off) ⇔ fd = 1 ∧ md = WriteMode ∧ off = LENGTH out) ∧
+    (∀fd md off. ALOOKUP fs.infds fd = SOME (UStream «stderr»,md,off) ⇔ fd = 2 ∧ md = WriteMode ∧ off = LENGTH err)
 End
 
 Theorem STD_streams_fsupdate:
    ! fs fd k pos c.
    ((fd = 1 \/ fd = 2) ==> LENGTH c = pos) /\
    (*
-   (fd >= 3 ==> (FST(THE (ALOOKUP fs.infds fd)) <> UStream(strlit "stdout") /\
-                 FST(THE (ALOOKUP fs.infds fd)) <> UStream(strlit "stderr"))) /\
+   (fd >= 3 ==> (FST(THE (ALOOKUP fs.infds fd)) <> UStream «stdout» /\
+                 FST(THE (ALOOKUP fs.infds fd)) <> UStream «stderr»)) /\
    *)
     STD_streams fs ==>
     STD_streams (fsupdate fs fd k pos c)
@@ -1289,7 +1289,7 @@ Proof
   \\ CASE_TAC \\ fs[AFUPDKEY_ALOOKUP]
   \\ qmatch_goalsub_abbrev_tac`out' = SOME _ ∧ (err' = SOME _ ∧ _)`
   \\ qmatch_assum_rename_tac`_ = SOME (fnm,_)`
-  \\ map_every qexists_tac[`if fnm = UStream(strlit"stdin") then pos else inp`,`THE out'`,`THE err'`]
+  \\ map_every qexists_tac[`if fnm = UStream «stdin» then pos else inp`,`THE out'`,`THE err'`]
   \\ conj_tac >- rw[Abbr`out'`]
   \\ conj_tac >- rw[Abbr`err'`]
   \\ unabbrev_all_tac
@@ -1316,9 +1316,9 @@ Proof
 QED
 
 Theorem lemma[local]:
-  UStream (strlit "stdin") ≠ UStream (strlit "stdout") ∧
-   UStream (strlit "stdin") ≠ UStream (strlit "stderr") ∧
-   UStream (strlit "stdout") ≠ UStream (strlit "stderr")
+  UStream «stdin» ≠ UStream «stdout» ∧
+   UStream «stdin» ≠ UStream «stderr» ∧
+   UStream «stdout» ≠ UStream «stderr»
 Proof
   rw[]
 QED

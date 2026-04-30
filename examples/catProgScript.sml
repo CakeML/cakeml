@@ -236,7 +236,7 @@ Theorem cat_spec =
 Definition catfile_string_def:
   catfile_string fs fnm =
     if inFS_fname fs fnm then file_contents fnm fs
-    else (strlit"")
+    else «»
 End
 
 Theorem cat1_spec:

@@ -23,16 +23,16 @@ Definition pp_token_def:
 End
 
 Definition pp_fun_def:
-  pp_fun = pp_token (strlit "<fun>")
+  pp_fun = pp_token «<fun>»
 End
 
 Definition pp_unprintable_def:
-  pp_unprintable s = PP_Data F (List [strlit "<val of unprintable type "; s; strlit ">"])
+  pp_unprintable s = PP_Data F (List [«<val of unprintable type »; s; «>»])
 End
 
 (* there is a plan to replace this with an impure extensible implementation *)
 Definition pp_exn_def:
-  pp_exn e = pp_token (strlit "<exn>")
+  pp_exn e = pp_token «<exn>»
 End
 
 Definition app_intersperse_def:
@@ -55,19 +55,19 @@ End
 
 Definition pp_paren_contents_def:
   pp_paren_contents (PP_Data F xs) = xs /\
-  pp_paren_contents (PP_Data T xs) = app_list_wrap (strlit "(") xs (strlit ")")
+  pp_paren_contents (PP_Data T xs) = app_list_wrap «(» xs «)»
 End
 
 Definition pp_paren_tuple_def:
-  pp_paren_tuple pps = PP_Data F (app_list_wrap (strlit "(")
-    (app_intersperse (strlit ", ") (MAP pp_contents pps))
-    (strlit ")")
+  pp_paren_tuple pps = PP_Data F (app_list_wrap «(»
+    (app_intersperse «, » (MAP pp_contents pps))
+    «)»
   )
 End
 
 Definition pp_spaced_block_def:
   pp_spaced_block xs = PP_Data (LENGTH xs > 1)
-    (app_intersperse (strlit " ") (MAP pp_paren_contents xs))
+    (app_intersperse « » (MAP pp_paren_contents xs))
 End
 
 Definition pp_app_block_def:
@@ -76,36 +76,36 @@ End
 
 Definition pp_val_eq_def:
   pp_val_eq nm pp_f v ty = PP_Data F (Append
-    (List [strlit "val "; nm; strlit " = "])
-    (Append (pp_contents (pp_f v)) (List [strlit ": "; ty; strlit "\n"])))
+    (List [«val »; nm; « = »])
+    (Append (pp_contents (pp_f v)) (List [«: »; ty; «\n»])))
 End
 
 Definition pp_val_hidden_type_def:
   pp_val_hidden_type nm ty = PP_Data F
-    (List [strlit "val "; nm; strlit " <not printable> : "; ty; strlit "\n"])
+    (List [«val »; nm; « <not printable> : »; ty; «\n»])
 End
 
 Definition pp_failure_message_def:
   pp_failure_message s = PP_Data F
-    (List [strlit "<failure: "; s; strlit ">\n"])
+    (List [«<failure: »; s; «>\n»])
 End
 
 Definition pp_list_def:
-  pp_list f xs = PP_Data F (app_list_wrap (strlit "[")
-    (app_intersperse (strlit "; ") (MAP (\x. pp_contents (f x)) xs))
-    (strlit "]")
+  pp_list f xs = PP_Data F (app_list_wrap «[»
+    (app_intersperse «; » (MAP (\x. pp_contents (f x)) xs))
+    «]»
   )
 End
 
 Definition pp_unit_def:
-  pp_unit u = pp_token (strlit "()")
+  pp_unit u = pp_token «()»
 End
 
 Definition escape_str_app_list_def:
   escape_str_app_list i s = case str_findi (\c. IS_SOME (char_escape_seq c)) i s of
     NONE => List [substring s i (strlen s - i)]
   | SOME j => Append (List [substring s i (j - i);
-        case char_escape_seq (strsub s j) of NONE => strlit "" | SOME s => s])
+        case char_escape_seq (strsub s j) of NONE => «» | SOME s => s])
     (escape_str_app_list (j + 1) s)
 Termination
   WF_REL_TAC `measure (\(i, s). strlen s - i)`
@@ -166,20 +166,20 @@ Proof
 QED
 
 Definition pp_bool_def:
-  pp_bool b = PP_Data F (List [if b then (strlit "True") else (strlit "False")])
+  pp_bool b = PP_Data F (List [if b then «True» else «False»])
 End
 
 (* pretty-printers for the pretty-printer types *)
 Definition pp_app_list_def:
-  pp_app_list f (List xs) = pp_app_block (strlit "List")
+  pp_app_list f (List xs) = pp_app_block «List»
     [pp_list f xs] /\
-  pp_app_list f Nil = pp_token (strlit "Nil") /\
-  pp_app_list f (Append x y) = pp_app_block (strlit "Append")
+  pp_app_list f Nil = pp_token «Nil» /\
+  pp_app_list f (Append x y) = pp_app_block «Append»
     [pp_app_list f x; pp_app_list f y]
 End
 
 Definition pp_pp_data_def:
-  pp_pp_data (PP_Data b d) = pp_app_block (strlit "PP_Data")
+  pp_pp_data (PP_Data b d) = pp_app_block «PP_Data»
     [pp_bool b; pp_app_list pp_string d]
 End
 
@@ -202,28 +202,28 @@ Definition pp_int_def:
 End
 
 Definition pp_word8_def:
-  pp_word8 (w : 8 word) = pp_app_block (strlit "Word8.fromInt") [pp_int (w2i w)]
+  pp_word8 (w : 8 word) = pp_app_block «Word8.fromInt» [pp_int (w2i w)]
 End
 
 Definition pp_word64_def:
-  pp_word64 (w : 64 word) = pp_app_block (strlit "Word64.fromInt") [pp_int (w2i w)]
+  pp_word64 (w : 64 word) = pp_app_block «Word64.fromInt» [pp_int (w2i w)]
 End
 
 (* these initial pure and useless pps might be replaced later *)
 Definition pp_array_def:
-  pp_array f arr = pp_token (strlit "<array>")
+  pp_array f arr = pp_token «<array>»
 End
 
 Definition pp_ref_def:
-  pp_ref f r = pp_token (strlit "<ref>")
+  pp_ref f r = pp_token «<ref>»
 End
 
 Definition pp_word8array_def:
-  pp_word8array arr = pp_token (strlit "<w8array>")
+  pp_word8array arr = pp_token «<w8array>»
 End
 
 Definition pp_vector_def:
-  pp_vector f v = pp_app_block (strlit "Vector.fromList")
+  pp_vector f v = pp_app_block «Vector.fromList»
     [pp_list f (mlvector$toList v)]
 End
 
@@ -236,18 +236,18 @@ End
 
 Definition pp_default_type_def:
   pp_default_type v = case v of Default_Type =>
-    pp_token (strlit "<val of default type: this should be impossible>")
+    pp_token «<val of default type: this should be impossible>»
 End
 
 Definition fromRat_def:
   fromRat (n:int, d:num) =
   if d = 1 then List [mlint$toString n]
-  else List [mlint$toString n; strlit "/"; mlint$toString (& d)]
+  else List [mlint$toString n; «/»; mlint$toString (& d)]
 End
 
 Definition fromOption_def:
   fromOption f opt =
   case opt of
-      NONE => List [strlit "NONE"]
-    | SOME x => Append (List [strlit "SOME "]) (f x)
+      NONE => List [«NONE»]
+    | SOME x => Append (List [«SOME »]) (f x)
 End

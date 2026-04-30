@@ -57,7 +57,7 @@ Proof
 QED
 
 Theorem tokens_not_nil[local]:
-  !s f. EVERY (\x. x <> strlit "") (tokens f s)
+  !s f. EVERY (\x. x <> «») (tokens f s)
 Proof
   Induct >> Ho_Rewrite.PURE_ONCE_REWRITE_TAC[SWAP_FORALL_THM]
   >> PURE_REWRITE_TAC[TOKENS_eq_tokens_sym,explode_thm]
@@ -98,19 +98,19 @@ val _ = translate(patch_aux_def |> REWRITE_RULE (map GSYM [mllistTheory.take_def
 val _ = translate patch_alg_def;
 
 Definition notfound_string_def:
-  notfound_string f = concat[strlit"cake_patch: ";f;strlit": No such file or directory\n"]
+  notfound_string f = concat[«cake_patch: »;f;«: No such file or directory\n»]
 End
 
 val r = translate notfound_string_def;
 
 Definition usage_string_def:
-  usage_string = strlit"Usage: patch <file> <patch>\n"
+  usage_string = «Usage: patch <file> <patch>\n»
 End
 
 val r = translate usage_string_def;
 
 Definition rejected_patch_string_def:
-  rejected_patch_string = strlit"cake_patch: Patch rejected\n"
+  rejected_patch_string = «cake_patch: Patch rejected\n»
 End
 
 val r = translate rejected_patch_string_def;

@@ -23,13 +23,13 @@ QED
 
 Theorem wordcount_stdin_semantics_raw[local]:
   ∃io_events.
-    semantics_prog (init_state (basis_ffi [strlit"wordcount"] (stdin_fs input))) init_env
+    semantics_prog (init_state (basis_ffi [«wordcount»] (stdin_fs input))) init_env
       wordcount_prog (Terminate Success io_events) ∧
     (extract_fs (stdin_fs input) io_events =
        SOME (add_stdout (fastForwardFD (stdin_fs input) 0)
               (concat
-                [mlint$toString (&LENGTH (TOKENS isSpace input)); strlit " ";
-                 mlint$toString (&LENGTH (splitlines input)); strlit "\n"])))
+                [mlint$toString (&LENGTH (TOKENS isSpace input)); « »;
+                 mlint$toString (&LENGTH (splitlines input)); «\n»])))
 Proof
   simp [wordcount_compiled, GSYM ml_progTheory.prog_syntax_ok_semantics]
   \\ match_mp_tac (GEN_ALL wordcount_semantics)
@@ -162,7 +162,7 @@ Theorem wordcount_machine_sem =
   |> C MATCH_MP (
        wordcount_installed
        |> Q.GEN `cl`
-       |> Q.SPEC `[strlit"wordcount"]`
+       |> Q.SPEC `[«wordcount»]`
        |> SIMP_RULE(srw_ss())[cline_size_def]
        |> UNDISCH)
   |> DISCH_ALL
@@ -170,8 +170,8 @@ Theorem wordcount_machine_sem =
 Theorem wordcount_extract_writes_stdout:
    (extract_writes 1 (MAP get_output_io_event (wordcount_io_events input)) =
     explode (
-      concat [toString (LENGTH (TOKENS isSpace input)); strlit" ";
-              toString (LENGTH (splitlines input)); strlit "\n"]))
+      concat [toString (LENGTH (TOKENS isSpace input)); « »;
+              toString (LENGTH (splitlines input)); «\n»]))
 Proof
   qspec_then`input`mp_tac(GEN_ALL(DISCH_ALL wordcount_output))
   \\ DEP_REWRITE_TAC[TextIOProofTheory.add_stdout_fastForwardFD]
@@ -209,7 +209,7 @@ QED
 
 Theorem wordcount_ag32_next:
    LENGTH inp ≤ stdin_size ∧
-   is_ag32_init_state (init_memory code data (extcalls info.lab_conf.ffi_names) ([strlit"wordcount"],inp)) ms0
+   is_ag32_init_state (init_memory code data (extcalls info.lab_conf.ffi_names) ([«wordcount»],inp)) ms0
   ⇒
    ∃k1. ∀k. k1 ≤ k ⇒
      let ms = FUNPOW Next k ms0 in

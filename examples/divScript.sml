@@ -324,7 +324,7 @@ Proof
     THEN1 (
       xffi \\ xsimpl \\ fs [SIO_def]
       \\ qpat_abbrev_tac `s = State _`
-      \\ MAP_EVERY qexists_tac [‘[]’, `emp`, `s`, `update`, `names`, `events`]
+      \\ MAP_EVERY qexists_tac [`emp`, `s`, `update`, `names`, `events`]
       \\ unabbrev_all_tac
       \\ fs [update_def, get_char_event_def, get_char_eof_event_def,
              names_def, SNOC_APPEND, EVAL ``REPLICATE 2 0w``, State_def]

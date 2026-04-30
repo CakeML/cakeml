@@ -1939,7 +1939,7 @@ Definition type_interpretation_ext_of0_def:
    else
      case mapPartial (type_matches ty) (upd::ctxt) of
      | [] =>
-       if ty = Tyapp (strlit "ind") [] then
+       if ty = Tyapp «ind» [] then
          ind
        else
          One
@@ -2026,9 +2026,9 @@ Definition type_interpretation_ext_of0_def:
                            type_interpretation_ext_of0 ^mem ind upd ctxt Δ Γ ty'
                          else One)
              in
-               if name = strlit "@" /\ MEM ^select_ax (upd::ctxt) /\
-                  FLOOKUP (tmsof (upd::ctxt)) (strlit "==>") = SOME (Fun Bool (Fun Bool Bool)) /\
-                  FLOOKUP (tmsof (upd::ctxt)) (strlit "@") = SOME(^select_ty)
+               if name = «@» /\ MEM ^select_ax (upd::ctxt) /\
+                  FLOOKUP (tmsof (upd::ctxt)) «==>» = SOME (Fun Bool (Fun Bool Bool)) /\
+                  FLOOKUP (tmsof (upd::ctxt)) «@» = SOME(^select_ty)
                 then
                  Abstract (ext_type_frag_builtins δ (domain ty))
                           (ext_type_frag_builtins δ (codomain ty))
@@ -3311,7 +3311,7 @@ Theorem type_interpretation_ext_of_alt:
    else
      case mapPartial (type_matches ty) ctxt of
      | [] =>
-       if ty = Tyapp (strlit "ind") [] then
+       if ty = Tyapp «ind» [] then
          ind
        else
          One
@@ -3386,9 +3386,9 @@ Theorem type_interpretation_ext_of_alt:
              | NONE => One (* cannot happen *))
         | _ =>
           let δ = type_interpretation_ext_of0 ^mem ind (HD ctxt) (TL ctxt) Δ Γ in
-            if name = strlit "@" /\ MEM ^select_ax ctxt /\
-               FLOOKUP (tmsof ctxt) (strlit "==>") = SOME (Fun Bool (Fun Bool Bool)) /\
-               FLOOKUP (tmsof ctxt) (strlit "@") = SOME(^select_ty)
+            if name = «@» /\ MEM ^select_ax ctxt /\
+               FLOOKUP (tmsof ctxt) «==>» = SOME (Fun Bool (Fun Bool Bool)) /\
+               FLOOKUP (tmsof ctxt) «@» = SOME(^select_ty)
              then
               Abstract (ext_type_frag_builtins δ (domain ty))
                        (ext_type_frag_builtins δ (codomain ty))
@@ -3490,10 +3490,10 @@ Proof
             drule extends_APPEND_NIL >> simp[] >> strip_tac >>
             dxrule extends_NIL_CONS_updates >>
             simp[updates_cases] >> rpt strip_tac >> rveq >> fs[] >>
-            `q' <> strlit "fun"`
+            `q' <> «fun»`
               by(drule_then strip_assume_tac extends_appends >>
                  CCONTR_TAC >> fs[init_ctxt_def]) >>
-            `q' <> strlit "bool"`
+            `q' <> «bool»`
               by(drule_then strip_assume_tac extends_appends >>
                  CCONTR_TAC >> fs[init_ctxt_def]) >>
             simp[allTypes'_defn] >>
@@ -6321,11 +6321,11 @@ Proof
           rw[] >> simp[apply_abstract])
       >- ((* Axiom of choice *)
           fs[mk_select_ctxt_def] >> rveq >>
-          `ALOOKUP (const_list ctxt1) (strlit "@") = NONE`
+          `ALOOKUP (const_list ctxt1) «@» = NONE`
             by(drule_then (assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
                drule extends_NIL_DISJOINT >>
                simp[ALOOKUP_NONE]) >>
-          `ALOOKUP (const_list ctxt1) (strlit "==>") = NONE`
+          `ALOOKUP (const_list ctxt1) «==>» = NONE`
             by(drule_then (assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
                drule extends_NIL_DISJOINT >>
                simp[ALOOKUP_NONE,holBoolSyntaxTheory.mk_bool_ctxt_def]) >>
@@ -6391,13 +6391,13 @@ Proof
           strip_tac >> rveq >>
           simp[] >>
           simp[ext_term_frag_builtins_def] >>
-          `γ (strlit "@",Fun (Fun (sigma(strlit "A")) Bool) (sigma(strlit "A"))) =
-           Abstract (ext_type_frag_builtins δ (Fun (sigma(strlit "A")) Bool))
-                          (ext_type_frag_builtins δ (sigma(strlit "A")))
+          `γ («@»,Fun (Fun (sigma «A») Bool) (sigma «A»)) =
+           Abstract (ext_type_frag_builtins δ (Fun (sigma «A») Bool))
+                          (ext_type_frag_builtins δ (sigma «A»))
                           (λp.
-                            case some x. (^mem x (ext_type_frag_builtins δ (sigma(strlit "A"))) ∧
+                            case some x. (^mem x (ext_type_frag_builtins δ (sigma «A»)) ∧
                                          p ' x = True) of
-                              NONE => (@x. ^mem x (ext_type_frag_builtins δ (sigma(strlit "A"))))
+                              NONE => (@x. ^mem x (ext_type_frag_builtins δ (sigma «A»)))
                             | SOME x => x)`
             by(rw[Abbr `γ`,Abbr `δ`] >>
                dep_rewrite.DEP_ONCE_REWRITE_TAC[CONJUNCT2 type_interpretation_ext_of_alt] >>
@@ -6504,7 +6504,7 @@ Proof
                   drule_then (assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
                   drule NewConst_no_abs_rep >>
                   disch_then(mp_tac o CONV_RULE(RESORT_FORALL_CONV rev)) >>
-                  disch_then(qspecl_then[`strlit "@"`,`^select_ty`] mp_tac) >>
+                  disch_then(qspecl_then[`«@»`,`^select_ty`] mp_tac) >>
                   impl_tac >- rw[Abbr `ctxt`] >>
                   strip_tac >> fs[]) >>
                simp[Abbr `ctxt`,ALOOKUP_APPEND] >>
@@ -6534,29 +6534,29 @@ Proof
              simp[]) >>
           fs[] >> rveq >>
           rw[satisfies_t_def,satisfies_def] >>
-          `ALOOKUP (type_list ctxt1) (strlit "ind") = NONE`
+          `ALOOKUP (type_list ctxt1) «ind» = NONE`
             by(drule_then (assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
                drule extends_NIL_DISJOINT >>
                simp[ALOOKUP_NONE,mk_infinity_ctxt_def]) >>
-          `ALOOKUP (const_list ctxt1) (strlit "ONE_ONE") = NONE`
+          `ALOOKUP (const_list ctxt1) «ONE_ONE» = NONE`
             by(drule_then (assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
                drule extends_NIL_DISJOINT >>
                simp[ALOOKUP_NONE,mk_infinity_ctxt_def]) >>
-          `ALOOKUP (const_list ctxt1) (strlit "ONTO") = NONE`
+          `ALOOKUP (const_list ctxt1) «ONTO» = NONE`
             by(drule_then (assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
                drule extends_NIL_DISJOINT >>
                simp[ALOOKUP_NONE,mk_infinity_ctxt_def]) >>
-          `ALOOKUP (const_list ctxt1) (strlit "!") = NONE`
+          `ALOOKUP (const_list ctxt1) «!» = NONE`
             by(drule_then (assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
                drule extends_NIL_DISJOINT >>
                simp[ALOOKUP_NONE,mk_infinity_ctxt_def,holBoolSyntaxTheory.mk_bool_ctxt_def,
                     mk_select_ctxt_def]) >>
-          `ALOOKUP (const_list ctxt1) (strlit "?") = NONE`
+          `ALOOKUP (const_list ctxt1) «?» = NONE`
             by(drule_then (assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
                drule extends_NIL_DISJOINT >>
                simp[ALOOKUP_NONE,mk_infinity_ctxt_def,holBoolSyntaxTheory.mk_bool_ctxt_def,
                     mk_select_ctxt_def]) >>
-          `ALOOKUP (const_list ctxt1) (strlit "==>") = NONE`
+          `ALOOKUP (const_list ctxt1) «==>» = NONE`
             by(drule_then (assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
                drule extends_NIL_DISJOINT >>
                simp[ALOOKUP_NONE,mk_infinity_ctxt_def,holBoolSyntaxTheory.mk_bool_ctxt_def,
@@ -6699,7 +6699,7 @@ Proof
                pop_assum kall_tac >>
                drule_then (assume_tac o C MATCH_MP init_ctxt_extends) extends_trans >>
                drule NewType_no_type_match >>
-               disch_then(qspecl_then [`[]`,`strlit "ind"`,`0`] mp_tac) >>
+               disch_then(qspecl_then [`[]`,`«ind»`,`0`] mp_tac) >>
                impl_tac >- (rw[Abbr `ctxt`] >> EVAL_TAC) >>
                disch_then SUBST_ALL_TAC >>
                simp[]) >>
@@ -6766,7 +6766,7 @@ Proof
              conj_asm1_tac >-
                (qpat_x_assum `is_frag_interpretation _ _ _` mp_tac >>
                 rw[is_frag_interpretation_def,total_fragment_def,GSYM PFORALL_THM] >>
-                pop_assum(qspecl_then [`strlit"ONTO"`,`Fun (Fun Ind Ind) Bool`] mp_tac) >>
+                pop_assum(qspecl_then [`«ONTO»`,`Fun (Fun Ind Ind) Bool`] mp_tac) >>
                 simp[ext_type_frag_builtins_Fun,ext_type_frag_builtins_Bool] >>
                 disch_then match_mp_tac >>
                 rw[ground_consts_def,nonbuiltin_constinsts_def,ground_types_def,tyvars_def,
@@ -6870,7 +6870,7 @@ Proof
              conj_asm1_tac >-
                (qpat_x_assum `is_frag_interpretation _ _ _` mp_tac >>
                 disch_then(strip_assume_tac o Ho_Rewrite.REWRITE_RULE[is_frag_interpretation_def,total_fragment_def,GSYM PFORALL_THM]) >>
-                pop_assum(qspecl_then [`strlit"ONE_ONE"`,`Fun (Fun Ind Ind) Bool`] mp_tac) >>
+                pop_assum(qspecl_then [`«ONE_ONE»`,`Fun (Fun Ind Ind) Bool`] mp_tac) >>
                 simp[ext_type_frag_builtins_Fun,ext_type_frag_builtins_Bool] >>
                 disch_then match_mp_tac >>
                 rw[ground_consts_def,nonbuiltin_constinsts_def,ground_types_def,tyvars_def,
@@ -7255,7 +7255,7 @@ Proof
              simp[Abbr `ll`,MAP_MAP_o,o_DEF,ELIM_UNCURRY] >>
              drule_then(drule_then (fn thm => simp[thm])) orth_ctxt_ALOOKUP_eqs >>
              simp[termsem_def] >>
-             `s <> strlit "="`
+             `s <> «=»`
                by(fs[constspec_ok_def,is_builtin_name_def,is_reserved_name_def] >> metis_tac[]) >>
              simp[SimpL``$=``,ext_term_frag_builtins_def] >>
              qmatch_goalsub_abbrev_tac `type_interpretation_ext_of ind (HD ctxt)` >>
@@ -7504,7 +7504,7 @@ Proof
              drule_then drule ALOOKUP_ALL_DISTINCT_MEM >>
              simp[] >> disch_then kall_tac >>
              simp[termsem_def] >>
-             `s <> strlit "="`
+             `s <> «=»`
                by(fs[constspec_ok_def] >>
                   qpat_x_assum `ctxt2 extends init_ctxt` assume_tac >>
                   drule_then strip_assume_tac extends_appends >>
@@ -7768,7 +7768,7 @@ Proof
       disch_then kall_tac >>
       rw[boolean_eq_true] >>
       rw[termsem_def] >>
-      `~MEM (strlit "=") (MAP FST (const_list ctxt1))`
+      `~MEM «=» (MAP FST (const_list ctxt1))`
         by(drule_then strip_assume_tac extends_appends >>
            fs[APPEND_EQ_APPEND,init_ctxt_def] >>
            rveq >> fs[] >>
@@ -7778,10 +7778,10 @@ Proof
                      extends_trans >>
            drule extends_NIL_DISJOINT >>
            rw[]) >>
-      `MEM (strlit "=") (MAP FST (const_list ctxt2))`
+      `MEM «=» (MAP FST (const_list ctxt2))`
         by(imp_res_tac extends_appends >> rw[init_ctxt_def]) >>
-      `abs <> strlit "="` by(CCONTR_TAC >> fs[]) >>
-      `rep <> strlit "="` by(CCONTR_TAC >> fs[]) >>
+      `abs <> «=»` by(CCONTR_TAC >> fs[]) >>
+      `rep <> «=»` by(CCONTR_TAC >> fs[]) >>
       simp[ext_term_frag_builtins_def] >>
       qmatch_asmsub_abbrev_tac `total_fragment (tyenv,tmenv)` >>
       `models (type_interpretation_ext_of ind (HD (ctxt1 ++ TypeDefn name pred abs rep::ctxt2)) (TL (ctxt1 ++ TypeDefn name pred abs rep::ctxt2)) Δ Γ)
@@ -8584,7 +8584,7 @@ Proof
       disch_then kall_tac >>
       rw[boolean_eq_true] >>
       rw[termsem_def] >>
-      `~MEM (strlit "=") (MAP FST (const_list ctxt1))`
+      `~MEM «=» (MAP FST (const_list ctxt1))`
         by(drule_then strip_assume_tac extends_appends >>
            fs[APPEND_EQ_APPEND,init_ctxt_def] >>
            rveq >> fs[] >>
@@ -8594,10 +8594,10 @@ Proof
                      extends_trans >>
            drule extends_NIL_DISJOINT >>
            rw[]) >>
-      `MEM (strlit "=") (MAP FST (const_list ctxt2))`
+      `MEM «=» (MAP FST (const_list ctxt2))`
         by(imp_res_tac extends_appends >> rw[init_ctxt_def]) >>
-      `abs <> strlit "="` by(CCONTR_TAC >> fs[]) >>
-      `rep <> strlit "="` by(CCONTR_TAC >> fs[]) >>
+      `abs <> «=»` by(CCONTR_TAC >> fs[]) >>
+      `rep <> «=»` by(CCONTR_TAC >> fs[]) >>
       simp[ext_term_frag_builtins_def] >>
       qmatch_asmsub_abbrev_tac `total_fragment (tyenv,tmenv)` >>
       `models (type_interpretation_ext_of ind (HD(ctxt1 ++ TypeDefn name pred abs rep::ctxt2))

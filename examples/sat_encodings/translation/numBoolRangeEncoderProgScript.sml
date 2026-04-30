@@ -122,20 +122,20 @@ End
 Definition numVarAssignment_to_output_def:
   numVarAssignment_to_output (w':numVarAssignment) [] = List [] ∧
   numVarAssignment_to_output w' (rangeListVariable::rangeList) =
-  Append (List [num_to_str (FST rangeListVariable); strlit " = " ;num_to_str (w' (FST rangeListVariable)); strlit "\n"])
+  Append (List [num_to_str (FST rangeListVariable); « = » ;num_to_str (w' (FST rangeListVariable)); «\n»])
          (numVarAssignment_to_output w' rangeList)
 End
 
 Definition bool_to_str_def:
-  bool_to_str T = strlit "T" ∧
-  bool_to_str F = strlit "F"
+  bool_to_str T = «T» ∧
+  bool_to_str F = «F»
 End
 
 Definition assignment_to_output_def:
   assignment_to_output (w:assignment) [] = List [] ∧
   assignment_to_output w (boolVar::boolVarList) = Append
-    (List [num_to_str (boolVar); strlit " = ";
-           bool_to_str (w boolVar) ; strlit "\n"])
+    (List [num_to_str (boolVar); « = »;
+           bool_to_str (w boolVar) ; «\n»])
    (assignment_to_output w boolVarList)
 End
 
@@ -143,11 +143,11 @@ Definition main_function2_def:
   main_function2 v_exp sat sat_exists =
   let numBoolRange = parse_to_numBoolRange v_exp in
     case (rangeList_ok (SND numBoolRange)) of
-    | F => (List [strlit "Invalid rangeList input"])
+    | F => (List [«Invalid rangeList input»])
     | T =>
         case (exp_rangeList_ok
               (SND numBoolRange) (FST numBoolRange)) of
-        | F => (List [strlit "Invalid expression and rangeList"])
+        | F => (List [«Invalid expression and rangeList»])
         | T =>
             let cnf_exp =
                 (numBoolRange_to_cnf
@@ -162,10 +162,10 @@ Definition main_function2_def:
        (FST numBoolRange))
    in if numVarAssignment_range_ok w' (SND numBoolRange) then
         Append (assignment_to_output w (get_boolVar_list (FST numBoolRange))) (numVarAssignment_to_output w' (SND numBoolRange))
-      else List [strlit "Invalid numVarAssignment"]
+      else List [«Invalid numVarAssignment»]
       else
           Append
-          (List [strlit "p cnf  "; num_to_str (max_var); strlit " "; num_to_str clauses; strlit "\n"])
+          (List [«p cnf  »; num_to_str (max_var); « »; num_to_str clauses; «\n»])
           (cnf_to_output cnf_exp)
 End
 

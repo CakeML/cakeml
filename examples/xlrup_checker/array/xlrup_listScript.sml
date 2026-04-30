@@ -844,7 +844,7 @@ Proof
   drule add_xors_aux_c_add_xors_aux>>
   simp[strxor_aux_c_strxor_aux,MAP_MAP_o,o_DEF]>>
   `implode (REPLICATE def (fromByte w8z)) =
-    extend_s (strlit "") def` by
+    extend_s «» def` by
     (rw[extend_s_def]>>fs[]>>
     EVAL_TAC)>>
   rw[]>>
@@ -873,7 +873,7 @@ Proof
   drule add_xors_aux_c_add_xors_aux>>
   simp[]>>
   `implode (REPLICATE def (fromByte w8z)) =
-    extend_s (strlit "") def` by
+    extend_s «» def` by
     (rw[extend_s_def]>>fs[]>>
     EVAL_TAC)>>
   rw[]>>

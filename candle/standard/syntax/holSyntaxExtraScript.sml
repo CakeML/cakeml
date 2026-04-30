@@ -1722,7 +1722,7 @@ Proof
   imp_res_tac term_ok_welltyped >>
   imp_res_tac term_ok_type_ok >>
   fs[is_std_sig_def,type_ok_def] >>
-  qexists_tac`[(typeof s,Tyvar (strlit "A"))]` >>
+  qexists_tac`[(typeof s,Tyvar «A»)]` >>
   rw[holSyntaxLibTheory.REV_ASSOCD_def]
 QED
 
@@ -1741,7 +1741,7 @@ Proof
   fs[is_std_sig_def] >>
   TRY (
     rw[EQ_IMP_THM] >>
-    qexists_tac`[(ty,Tyvar(strlit"A"))]` >>
+    qexists_tac`[(ty,Tyvar «A»)]` >>
     EVAL_TAC >> NO_TAC) >>
   metis_tac[]
 QED
@@ -2836,7 +2836,7 @@ Definition variant_def:
   variant avoid v =
     if EXISTS (vfree_in v) avoid then
     case v of
-       Var s ty => variant avoid (Var(s ^ (strlit "'")) ty)
+       Var s ty => variant avoid (Var(s ^ «'») ty)
     | _ => v else v
 Termination
   WF_REL_TAC `measure (\(avoid,v).
@@ -2883,7 +2883,7 @@ Theorem variant_vsubst_thm =
   THEN1 (REPEAT STRIP_TAC \\ `SUC m < SUC n` by DECIDE_TAC \\ RES_TAC \\ FULL_SIMP_TAC std_ss [rich_listTheory.REPLICATE_GENLIST]
          \\ FULL_SIMP_TAC std_ss [mlstringTheory.strcat_thm,mlstringTheory.explode_implode])
   \\ FULL_SIMP_TAC (srw_ss()) [rich_listTheory.REPLICATE_GENLIST,GENLIST_CONS]
-  \\ MP_TAC (VARIANT_PRIMES_def |> Q.SPECL [`x`,`explode (name ^ strlit "'")`,`ty`])
+  \\ MP_TAC (VARIANT_PRIMES_def |> Q.SPECL [`x`,`explode (name ^ «'»)`,`ty`])
   \\ FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND,mlstringTheory.strcat_thm,explode_implode,explode_thm]
   \\ Cases_on `VARIANT_PRIMES x (STRCAT (explode name) "'") (ty) = n`
   \\ FULL_SIMP_TAC std_ss []
@@ -3584,7 +3584,7 @@ Proof
     metis_tac[type_ok_extend,term_ok_type_ok] ) >>
   simp[] >>
   imp_res_tac WELLTYPED_LEMMA >>
-  `name ∉ {strlit "fun";strlit "bool"}` by (
+  `name ∉ {«fun»;«bool»}` by (
     fs[is_std_sig_def] >>
     imp_res_tac ALOOKUP_MEM >>
     fs[MEM_MAP,EXISTS_PROD] >>
@@ -3942,7 +3942,7 @@ Proof
 QED
 
 Theorem subterm_typeof_types_in:
-   ∀t1 t2 name args. (Tyapp name args) subtype (typeof t1) ∧ t1 subterm t2 ∧ welltyped t2 ∧ name ≠ (strlit"fun") ⇒
+   ∀t1 t2 name args. (Tyapp name args) subtype (typeof t1) ∧ t1 subterm t2 ∧ welltyped t2 ∧ name ≠ «fun» ⇒
       ∃ty2. Tyapp name args subtype ty2 ∧ ty2 ∈ types_in t2
 Proof
   ho_match_mp_tac term_induction >>

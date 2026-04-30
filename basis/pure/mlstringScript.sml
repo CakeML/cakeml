@@ -46,7 +46,7 @@ Definition concat_def:
 End
 
 Theorem concat_nil[simp]:
-   concat [] = strlit ""
+   concat [] = «»
 Proof
 EVAL_TAC
 QED
@@ -170,7 +170,7 @@ Proof
 QED
 
 Theorem substring_too_long:
-   strlen s <= i ==> substring s i j = strlit ""
+   strlen s <= i ==> substring s i j = «»
 Proof
   Cases_on`s` \\ rw[substring_def,DROP_NIL] \\
   `j = 0` by decide_tac \\ fs[SEG]
@@ -209,8 +209,8 @@ Proof
 QED
 
 Theorem strcat_nil[simp]:
-   (strcat (strlit "") s = s) ∧
-   (strcat s (strlit "") = s)
+   (strcat «» s = s) ∧
+   (strcat s «» = s)
 Proof
   rw[strcat_def,concat_def] \\ CASE_TAC \\ rw[]
 QED
@@ -555,7 +555,7 @@ Proof
 QED
 
 Theorem substring_0[simp]:
-  substring s i 0 = strlit ""
+  substring s i 0 = «»
 Proof
   Cases_on`s`>>rw[substring_def]>>
   EVAL_TAC
@@ -1383,11 +1383,11 @@ QED
 Definition char_escape_seq_def:
   char_escape_seq c =
     if c = #"\t"
-    then SOME (strlit "\\t")
+    then SOME «\\t»
     else if c = #"\n"
-    then SOME (strlit "\\n")
+    then SOME «\\n»
     else if c = #"\\"
-    then SOME (strlit "\\\\")
+    then SOME «\\\\»
     else if c = #"\""
     then SOME (strlit "\\\"")
     else NONE
@@ -1470,9 +1470,9 @@ Definition str_app_list_opt_def:
 End
 
 Theorem str_app_list_opt_test[local]:
-  str_app_list_opt (Append (List [strlit "Hello"; strlit " there"])
-                           (List [strlit "!"])) =
-  List [strlit "Hello there!"]
+  str_app_list_opt (Append (List [«Hello»; « there»])
+                           (List [«!»])) =
+  List [«Hello there!»]
 Proof
   EVAL_TAC
 QED

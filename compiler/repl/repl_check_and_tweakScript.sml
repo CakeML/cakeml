@@ -17,9 +17,9 @@ Definition check_and_tweak_def:
     case add_print_then_read types decs of
     | Success (new_decs,new_types) =>
         if decs_allowed new_decs then INR (new_decs, new_types)
-        else INL (strlit "ERROR: input contains reserved constructor/FFI names")
+        else INL «ERROR: input contains reserved constructor/FFI names»
     | Failure (loc,msg) =>
-        INL (concat [strlit "ERROR: "; msg; strlit " at ";
+        INL (concat [«ERROR: »; msg; « at »;
                      locs_to_string input_str loc])
 End
 

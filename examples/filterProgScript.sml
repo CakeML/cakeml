@@ -882,7 +882,7 @@ Proof
            ))` >-
        (xffi >> xsimpl >>
         qmatch_goalsub_abbrev_tac `one(FFI_part s u ns events)` >>
-        MAP_EVERY qexists_tac [‘[]’, `W8ARRAY dummyarr_loc []`,`s`,`u`,`ns`,`events`] >>
+        MAP_EVERY qexists_tac [`W8ARRAY dummyarr_loc []`,`s`,`u`,`ns`,`events`] >>
         unabbrev_all_tac >> xsimpl >>
         simp[filter_cf_oracle,decode_encode_oracle_state_11,filter_oracle] >>
         `?i1 input'. LDROP i input = SOME(i1:::input')`
@@ -1171,7 +1171,7 @@ Proof
         xsimpl >>
         simp[seL4_IO_def] >>
         qmatch_goalsub_abbrev_tac `one(FFI_part s u ns events)` >>
-        MAP_EVERY qexists_tac [‘[]’, `W8ARRAY dummyarr_loc []`,`s`,`u`,`ns`,`events`] >>
+        MAP_EVERY qexists_tac [`W8ARRAY dummyarr_loc []`,`s`,`u`,`ns`,`events`] >>
         unabbrev_all_tac >> xsimpl >>
         simp[filter_cf_oracle,decode_encode_oracle_state_11,filter_oracle] >>
         xsimpl) >>
@@ -1187,7 +1187,7 @@ Proof
     (xffi >> xsimpl >>
      simp[seL4_IO_def,Abbr `newinit`] >>
      qmatch_goalsub_abbrev_tac `one(FFI_part s u ns events)` >>
-     MAP_EVERY qexists_tac [‘[]’, `W8ARRAY dummyarr_loc []`,`s`,`u`,`ns`,`events`] >>
+     MAP_EVERY qexists_tac [`W8ARRAY dummyarr_loc []`,`s`,`u`,`ns`,`events`] >>
      unabbrev_all_tac >> simp[] >> xsimpl >>
      simp[filter_cf_oracle,decode_encode_oracle_state_11,filter_oracle] >>
      xsimpl >>

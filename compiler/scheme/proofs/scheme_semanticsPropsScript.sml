@@ -366,7 +366,7 @@ Theorem sadd_not_num_exception:
   ! v vs n .
     (! i . v <> SNum i)
     ==>
-    sadd (v::vs) n = Exception $ strlit "Arith-op applied to non-number"
+    sadd (v::vs) n = Exception $ «Arith-op applied to non-number»
 Proof
   Cases >> simp[sadd_def]
 QED
@@ -386,7 +386,7 @@ Theorem smul_not_num_exception:
   ! v vs n .
     (! i . v <> SNum i)
     ==>
-    smul (v::vs) n = Exception $ strlit "Arith-op applied to non-number"
+    smul (v::vs) n = Exception $ «Arith-op applied to non-number»
 Proof
   Cases >> simp[smul_def]
 QED
@@ -409,7 +409,7 @@ Theorem sminus_not_num_exception:
   ! v vs .
     (! i . v <> SNum i)
     ==>
-    sminus (v::vs) = Exception $ strlit "Arith-op applied to non-number"
+    sminus (v::vs) = Exception $ «Arith-op applied to non-number»
 Proof
   Cases >> simp[sminus_def]
 QED
@@ -461,7 +461,7 @@ Theorem car_not_pairp_exception:
     ==>
     (case v of
     | PairP l => (store,ks,Val (FST (pair_entry (EL l store))))
-    | _ => (store, ks, Exception $ strlit "Can't take car of non-pair")) = (store, ks, Exception $ strlit "Can't take car of non-pair")
+    | _ => (store, ks, Exception $ «Can't take car of non-pair»)) = (store, ks, Exception $ «Can't take car of non-pair»)
 Proof
   Cases >> simp[]
 QED
@@ -472,7 +472,7 @@ Theorem cdr_not_pairp_exception:
     ==>
     (case v of
     | PairP l => (store,ks,Val (SND (pair_entry (EL l store))))
-    | _ => (store, ks, Exception $ strlit "Can't take cdr of non-pair")) = (store, ks, Exception $ strlit "Can't take cdr of non-pair")
+    | _ => (store, ks, Exception $ «Can't take cdr of non-pair»)) = (store, ks, Exception $ «Can't take cdr of non-pair»)
 Proof
   Cases >> simp[]
 QED

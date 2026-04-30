@@ -86,8 +86,8 @@ Theorem machine_code_sound:
           out = concat (print_dimacs fml) ∧
           (unsatisfiable (interp fml) ⇒
             ∀f. ¬ is_plane_packing_col f k)
-    | NONE => out = strlit ""
-  else out = strlit ""
+    | NONE => out = «»
+  else out = «»
 Proof
   strip_tac>>
   fs[installed_x64_def,main_code_def,packing_run_def]>>
@@ -114,8 +114,8 @@ Proof
   >- metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
   PairCases_on`x`>>simp[]>>
   qmatch_goalsub_abbrev_tac`add_stdout fs ls`>>
-  qexists_tac`ls`>>qexists_tac`strlit ""`>>
-  `add_stderr fs (strlit "") = fs` by
+  qexists_tac`ls`>>qexists_tac`«»`>>
+  `add_stderr fs «» = fs` by
     (match_mp_tac (GEN_ALL add_stdo_nil)>>
     metis_tac[STD_streams_stderr])>>
   simp[Abbr`ls`]>>

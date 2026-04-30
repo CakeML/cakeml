@@ -315,7 +315,7 @@ Proof
 QED
 
 Theorem add_stdo_nil:
-   stdo fd nm fs out ⇒ add_stdo fd nm fs (strlit "") = fs
+   stdo fd nm fs out ⇒ add_stdo fd nm fs «» = fs
 Proof
   rw[add_stdo_def]
   \\ SELECT_ELIM_TAC
@@ -808,8 +808,8 @@ Proof
 QED
 
 Definition stdin_def:
-  stdin fs inp pos = (ALOOKUP fs.infds 0 = SOME(UStream(strlit"stdin"),ReadMode,pos) /\
-                     ALOOKUP fs.inode_tbl (UStream(strlit"stdin"))= SOME inp)
+  stdin fs inp pos = (ALOOKUP fs.infds 0 = SOME(UStream «stdin»,ReadMode,pos) /\
+                     ALOOKUP fs.inode_tbl (UStream «stdin»)= SOME inp)
 End
 
 Definition up_stdin_def:
@@ -5950,8 +5950,8 @@ End
 
 Definition stdin_content_def:
   stdin_content fs =
-    if ALOOKUP fs.infds 0 = SOME (UStream(strlit "stdin"),ReadMode,0) then
-      SOME (THE (ALOOKUP fs.inode_tbl (UStream(strlit "stdin"))))
+    if ALOOKUP fs.infds 0 = SOME (UStream «stdin»,ReadMode,0) then
+      SOME (THE (ALOOKUP fs.inode_tbl (UStream «stdin»)))
     else NONE
 End
 
@@ -7831,7 +7831,7 @@ Proof
   \\ xlet_auto >- (xcon \\ xsimpl)
   \\ assume_tac (refillBuffer_with_read_guard_spec_STR |> Q.INST [‘input’|->‘ys’])
   \\ xlet_auto >- (xsimpl \\ rw [] \\ qexists ‘x’ \\ xsimpl)
-  \\ rename [‘nsBind (strlit "new_acc") new_acc_v’]
+  \\ rename [‘nsBind «new_acc» new_acc_v’]
   \\ ‘LIST_TYPE STRING_TYPE (implode xs :: acc) new_acc_v’ by gvs [LIST_TYPE_def]
   \\ gvs []
   \\ Cases_on ‘ys = []’ \\ gvs []
