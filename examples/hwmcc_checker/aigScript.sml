@@ -297,7 +297,7 @@ QED
 
 (* TODO Is assuming irreflexive ok? How to express
    "latch is always in reset state"? *)
-Theorem mem_patch:
+Theorem subset_is_reset_patch:
   ∀xs ls.
     is_stratified lt circ reset latches ∧ set xs ⊆ latches ∧
     SORTED lt xs ∧ irreflexive lt ∧ transitive lt
@@ -442,6 +442,13 @@ Proof
   >> simp []
 QED
 
+
+Theorem set_QSORT[local,simp]:
+  ∀R ls. set (QSORT R ls) = set ls
+Proof
+  metis_tac [QSORT_PERM, PERM_LIST_TO_SET]
+QED
+
 Theorem extend_model_trace_to_witness:
   is_trace mcirc mreset mnext mcnstrs mlatches tr n ∧
   (* model latches constraints *)
@@ -453,6 +460,7 @@ Theorem extend_model_trace_to_witness:
   FINITE wlatches ∧
   irreflexive lt ∧
   transitive lt ∧
+  total lt ∧  (* for QSORT_SORTED *)
   is_stratified lt wcirc wreset wlatches ∧
   is_witness_reset
     mcirc mreset mnext mpreds mcnstrs mlatches
@@ -471,7 +479,8 @@ Proof
    (fs [is_trace_def, is_witness_reset_def]
     >> first_x_assum $ drule_all_then assume_tac
     >> namedCases_on ‘tr 0’ ["is ls"] >> fs []
-    >> qabbrev_tac ‘xs = SET_TO_LIST (wlatches DIFF (mlatches ∩ wlatches))’
+    >> qabbrev_tac
+         ‘xs = QSORT lt (SET_TO_LIST (wlatches DIFF (mlatches ∩ wlatches)))’
     >> qexists ‘λ_. (is, patch wcirc wreset is ls xs)’ >> simp []
     >> rpt conj_tac
     (* wlatches are in reset in patched state *)
@@ -483,11 +492,9 @@ Proof
       >> conj_tac
       (* unpatched latches are still in reset *)
       >- (cheat)
-      >> irule mem_patch
+      >> irule subset_is_reset_patch
       >> first_assum $ irule_at (Pos last)  (* is_stratified *)
-      >> simp [Abbr ‘xs’, Req0 SET_TO_LIST_INV]
-      (* TODO Need to do SET_TO_LIST while maintaining an order *)
-      >> cheat)
+      >> simp [Abbr ‘xs’, Req0 SET_TO_LIST_INV, Req0 QSORT_SORTED])
     (* wcnstrs are satisfied in patched state *)
     >- (cheat)
     >- simp [inputs_agree_def]
@@ -543,9 +550,6 @@ Proof
   rw [is_witness_def, is_safe_def]
   >> CCONTR_TAC >> fs [is_unsafe_def]
   >> drule_at (Pos last) extend_model_trace_to_witness
-  >> disch_then drule
-  >> impl_tac >- cheat
-  >> strip_tac
   >> cheat
 QED
 
