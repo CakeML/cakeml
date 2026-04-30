@@ -8,14 +8,11 @@ Ancestors
   flat_pattern misc[qualified] ffi[qualified] bag[qualified]
   flatProps backendProps backend_common[qualified]
   pattern_semantics
-Ancestors[ignore_grammar]
   semanticPrimitives semanticPrimitivesProps flatLang
   flatSem mlstring
 
-(* Set up ML bindings *)
-open flat_patternTheory semanticPrimitivesTheory
-     semanticPrimitivesPropsTheory flatLangTheory flatSemTheory
-     flatPropsTheory backendPropsTheory pattern_semanticsTheory
+val build_rec_env_merge = flatPropsTheory.build_rec_env_merge;
+val pat_bindings_accum = flatPropsTheory.pat_bindings_accum;
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
@@ -574,7 +571,7 @@ Proof
   >- (
     gs [pat_bindings_def]
     \\ qpat_x_assum ‘EVERY _ (pat_bindings _ [_])’ mp_tac
-    \\ rw [Once pat_bindings_accum]
+    \\ rw [Once flatPropsTheory.pat_bindings_accum]
     \\ gvs [CaseEq "match_result"]
     \\ rpt (pairarg_tac \\ gvs [])
     \\ qpat_x_assum `!env. _ ==> pure_eval_to _ _ x _` mp_tac
@@ -1176,14 +1173,14 @@ Proof
   \\ rpt strip_tac
   \\ fs [encode_pat_def, encode_val_def,
     Q.ISPEC `encode_val` ETA_THM, Q.ISPEC `encode_pat` ETA_THM]
-  \\ fs [flatSemTheory.pmatch_def, pmatch_def]
+  \\ fs [flatSemTheory.pmatch_def, pattern_semanticsTheory.pmatch_def]
   \\ TRY (fs [bool_case_eq] \\ rveq \\ fs [] \\ NO_TAC)
   >- (
     (* conses *)
     fs [Q.GEN `t1` bool_case_eq |> Q.ISPEC `Match_type_error`] \\  fs []
     \\ gvs [pmatch_stamps_ok_cases]
     \\ fs [AllCaseEqs()] \\ rveq \\ fs []
-    \\ simp [pmatch_def, is_sibling_def]
+    \\ simp [pattern_semanticsTheory.pmatch_def, is_sibling_def]
     \\ rfs []
     \\ every_case_tac \\ fs []
   )
