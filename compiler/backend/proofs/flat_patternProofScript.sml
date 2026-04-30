@@ -1890,7 +1890,7 @@ Proof
     \\ metis_tac []
   )
   >- (
-    rename [`compile_dec cfg (Dlet e)`]
+    rename [`compile_dec cfg e`]
     \\ fs [compile_dec_def] \\ rveq \\ fs []
     \\ `?N sg exps. compile_exp cfg e = (N, sg, exps)`
         by metis_tac [pair_CASES]
@@ -2154,12 +2154,11 @@ QED
 
 Theorem compile_decs_elist_globals:
   !decs.
-  elist_globals (MAP dest_Dlet (FILTER is_Dlet (MAP (compile_dec cfg) decs))) ≤
-  elist_globals (MAP dest_Dlet (FILTER is_Dlet decs))
+  elist_globals (MAP (compile_dec cfg) decs) ≤
+  elist_globals decs
 Proof
   Induct
-  \\ rw []
-  \\ Cases_on `h` \\ fs [compile_dec_def]
+  \\ rw [] \\ fs [compile_dec_def]
   \\ simp [FST_SND_EQ_CASE]
   \\ rpt (pairarg_tac \\ fs [])
   \\ rveq \\ fs []
@@ -2293,15 +2292,14 @@ Proof
 QED
 
 Theorem compile_decs_esgc_free:
-  !decs. EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet decs))
+  !decs. EVERY esgc_free decs
   ==>
-  EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet (MAP (compile_dec cfg) decs)))
+  EVERY esgc_free (MAP (compile_dec cfg) decs)
 Proof
   Induct
   \\ rw []
   \\ rpt (pairarg_tac \\ fs [])
-  \\ rveq \\ fs []
-  \\ Cases_on `h` \\ fs [compile_dec_def]
+  \\ rveq \\ fs [compile_dec_def]
   \\ simp [FST_SND_EQ_CASE]
   \\ rpt (pairarg_tac \\ fs [])
   \\ rveq \\ fs []

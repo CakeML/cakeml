@@ -357,9 +357,9 @@ Definition decs_closed_def:
 End
 
 Theorem decs_closed_reduce:
-     ∀ reachable h t . decs_closed reachable (h::t) ⇒ decs_closed reachable t
+     ∀ reachable e t . decs_closed reachable (e::t) ⇒ decs_closed reachable t
 Proof
-    fs[decs_closed_def] >> rw[] >> Cases_on `h` >> fs[analyse_code_def]
+    fs[decs_closed_def] >> rw[] >> fs[analyse_code_def]
     >- (Cases_on `analyse_exp e` >> fs[code_analysis_union_def, domain_union])
     >- (
         Cases_on `analyse_exp e` >> fs[code_analysis_union_def, domain_union] >>
@@ -371,10 +371,10 @@ Proof
 QED
 
 Theorem decs_closed_reduce_HD:
-     ∀ reachable h t .
-        decs_closed reachable (h::t) ⇒ decs_closed reachable [h]
+     ∀ reachable e t .
+        decs_closed reachable (e::t) ⇒ decs_closed reachable [e]
 Proof
-    fs[decs_closed_def] >> rw[] >> Cases_on `h` >> fs[analyse_code_def] >>
+    fs[decs_closed_def] >> rw[] >> fs[analyse_code_def] >>
     Cases_on `analyse_exp e` >>
     fs[code_analysis_union_def, domain_union] >> rveq >> fs[domain_def]
     >- (Cases_on `analyse_code t` >> fs[code_analysis_union_def, domain_union])
@@ -1161,7 +1161,7 @@ Theorem evaluate_sing_keep_flat_state_rel_eq:
       flatSem$evaluate (env with v := []) state exprL = (new_state, result) ∧
       flat_state_rel reachable state removed_state ∧
       exprL = [expr] ∧
-      keep reachable (Dlet expr) ∧
+      keep reachable expr ∧
       domain(find_lookups expr) ⊆ domain reachable ∧
       ~ has_Eval expr ∧
       result ≠ Rerr (Rabort Rtype_error)
@@ -1195,25 +1195,24 @@ Theorem evaluate_dec_flat_state_rel:
       flat_state_rel reachable new_state new_removed_state
 Proof
   rw[] >> qpat_x_assum `evaluate_dec _ _ = _` mp_tac >>
-  reverse(Induct_on `dec`) >> fs[evaluate_def] >> strip_tac >>
-  strip_tac >>
+  fs[evaluate_def] >> strip_tac >>
   fs[keep_def] >>
   rpt strip_tac >>
   fs [pair_case_eq] >>
   drule_then drule evaluate_sing_keep_flat_state_rel_eq >>
   fs [keep_def, has_Eval_dec_def] >>
-  `domain (find_lookups e) ⊆ domain reachable` by (
+  `domain (find_lookups dec) ⊆ domain reachable` by (
     fs[decs_closed_def] >> fs[analyse_code_def] >>
     fs[analyse_exp_def] >>
-    reverse(Cases_on `is_pure e`) >> fs[]
+    reverse(Cases_on `is_pure dec`) >> fs[]
     >- (fs[code_analysis_union_def] >> fs[domain_union]) >>
-    reverse(Cases_on `is_hidden e`) >> fs[] >>
+    reverse(Cases_on `is_hidden dec`) >> fs[] >>
     fs[code_analysis_union_def, domain_union] >>
     fs[Once num_set_tree_union_sym, num_set_tree_union_def] >>
     simp[SUBSET_DEF] >>
     rw[] >> first_x_assum match_mp_tac >>
     fs[spt_eq_thm, lookup_inter_alt] >>
-    fs[lookup_def] >> Cases_on `lookup n (find_loc e)` >> fs[] >>
+    fs[lookup_def] >> Cases_on `lookup n (find_loc dec)` >> fs[] >>
     fs[domain_lookup] >>
     asm_exists_tac >> fs[] >> fs[is_reachable_def] >>
     match_mp_tac RTC_SINGLE >> fs[is_adjacent_def] >>
@@ -1557,7 +1556,7 @@ Theorem evaluate_sing_notKeep_flat_state_rel:
       flatSem$evaluate (env with v := []) state exprL = (new_state, result) ∧
       exprL = [expr] ∧
       ~ has_Eval expr ∧
-      ¬keep reachable (Dlet expr) ∧
+      ¬keep reachable expr ∧
       flat_state_rel reachable state removed_state ∧
       result ≠ Rerr (Rabort Rtype_error)
   ⇒ flat_state_rel reachable new_state removed_state ∧
@@ -1572,12 +1571,6 @@ QED
 
 
 (******************************* MAIN PROOFS ******************************)
-
-Theorem keep_Dlet:
-     ∀ (reachable:num_set) h . ¬ keep reachable h ⇒ ∃ x . h = Dlet x
-Proof
-   Cases_on `h` >> rw[keep_def]
-QED
 
 Theorem flat_decs_removal_lemma:
      ∀ ^state decs new_state result
@@ -1596,21 +1589,24 @@ Proof
     Induct_on `decs`
     >- (rw[evaluate_def, remove_unreachable_def] >>
         fs[evaluate_def, find_result_globals_def, flat_state_rel_def])
-    >>  fs[evaluate_def, remove_unreachable_def] >> rw[] >>
+    >> simp [Once evaluate_def]
+    >>  fs[remove_unreachable_def] >> rw[] >>
+        fs [pair_case_eq] >>
         qpat_assum `flat_state_rel _ _ _` mp_tac >>
         SIMP_TAC std_ss [Once flat_state_rel_def] >> strip_tac
         >- (
-          fs[evaluate_def] >>
           fs [pair_case_eq] >>
           rveq >> fs [] >>
           rename [`evaluate_dec _ _ = (_, r1)`] >>
           `r1 ≠ SOME (Rabort Rtype_error)` by (CCONTR_TAC >> fs[]) >>
-          drule evaluate_dec_flat_state_rel >> rpt (disch_then drule) >>
+          drule (evaluate_dec_flat_state_rel) >> rpt (disch_then drule) >>
           rw[] >> fs[] >>
           pop_assum (qspecl_then [`reachable`, `removed_state`] mp_tac) >>
           fs[] >>
           `decs_closed reachable [h]` by imp_res_tac decs_closed_reduce_HD >>
           fs[] >>
+          strip_tac >>
+          simp [Once evaluate_def] >>
           reverse(Cases_on `r1` >> fs[] >> rw[] >> rveq >> EVERY_CASE_TAC)
           >- fs[flat_state_rel_def] >>
           fs[] >> first_x_assum drule >> fs[] >> rveq >> strip_tac >>
@@ -1620,7 +1616,6 @@ Proof
           imp_res_tac decs_closed_reduce >> fs[]
           )
         >>  reverse(EVERY_CASE_TAC) >> fs[] >> rveq >>
-            imp_res_tac keep_Dlet >> rveq >>
             fs[Once evaluate_def] >> EVERY_CASE_TAC >> fs[] >>
             rveq >> rw[UNION_EMPTY]
             >- (
@@ -1685,49 +1680,49 @@ Theorem flat_remove_semantics =
 (* syntactic results *)
 
 Theorem elist_globals_filter[local]:
-  elist_globals (MAP dest_Dlet (FILTER is_Dlet ds)) = {||}
+  elist_globals ds = {||}
    ==>
-   elist_globals (MAP dest_Dlet (FILTER is_Dlet (FILTER P ds))) = {||}
+   elist_globals (FILTER P ds) = {||}
 Proof
   Induct_on `ds` \\ rw [] \\ fs [SUB_BAG_UNION]
 QED
 
 Theorem esgc_free_filter[local]:
-  EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet ds))
+  EVERY esgc_free ds
    ==>
-   EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet (FILTER P ds)))
+   EVERY esgc_free (FILTER P ds)
 Proof
   Induct_on `ds` \\ rw []
 QED
 
 Theorem elist_globals_filter_SUB_BAG[local]:
-  elist_globals (MAP dest_Dlet (FILTER is_Dlet (FILTER P ds))) <=
-   elist_globals (MAP dest_Dlet (FILTER is_Dlet ds))
+  elist_globals (FILTER P ds) <=
+   elist_globals ds
 Proof
   Induct_on `ds` \\ rw [] \\ fs [SUB_BAG_UNION]
 QED
 
 Theorem remove_flat_prog_elist_globals_eq_empty:
-   elist_globals (MAP dest_Dlet (FILTER is_Dlet ds)) = {||}
+   elist_globals ds = {||}
    ==>
-   elist_globals (MAP dest_Dlet (FILTER is_Dlet (remove_flat_prog ds))) = {||}
+   elist_globals (remove_flat_prog ds) = {||}
 Proof
   simp [remove_flat_prog_def, remove_unreachable_def, UNCURRY]
   \\ metis_tac [elist_globals_filter]
 QED
 
 Theorem remove_flat_prog_esgc_free:
-   EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet ds))
+   EVERY esgc_free ds
    ==>
-   EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet (remove_flat_prog ds)))
+   EVERY esgc_free (remove_flat_prog ds)
 Proof
   simp [remove_flat_prog_def, remove_unreachable_def, UNCURRY]
   \\ metis_tac [esgc_free_filter]
 QED
 
 Theorem remove_flat_prog_sub_bag:
-   elist_globals (MAP dest_Dlet (FILTER is_Dlet (remove_flat_prog ds))) <=
-   elist_globals (MAP dest_Dlet (FILTER is_Dlet ds))
+   elist_globals (remove_flat_prog ds) <=
+   elist_globals ds
 Proof
   simp [remove_flat_prog_def, remove_unreachable_def, UNCURRY]
   \\ rw []
@@ -1735,10 +1730,9 @@ Proof
 QED
 
 Theorem remove_flat_prog_distinct_globals:
-   BAG_ALL_DISTINCT (elist_globals (MAP dest_Dlet (FILTER is_Dlet ds)))
+   BAG_ALL_DISTINCT (elist_globals ds)
    ==>
-   BAG_ALL_DISTINCT (elist_globals
-     (MAP dest_Dlet (FILTER is_Dlet (remove_flat_prog ds))))
+   BAG_ALL_DISTINCT (elist_globals (remove_flat_prog ds))
 Proof
   metis_tac [remove_flat_prog_sub_bag, BAG_ALL_DISTINCT_SUB_BAG]
 QED

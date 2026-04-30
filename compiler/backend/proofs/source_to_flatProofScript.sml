@@ -5696,7 +5696,7 @@ Theorem compile_decs_esgc_free:
   !t n next env envs decs n' next' env' envs' decs'.
     compile_decs t n next env envs decs = (n', next', env', envs', decs')
      ==>
-     EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet decs'))
+     EVERY esgc_free decs'
 Proof
   ho_match_mp_tac compile_decs_ind
   \\ rw [compile_decs_def]
@@ -5713,7 +5713,7 @@ QED
 Theorem compile_prog_esgc_free:
    compile_prog c p = (c1, p1)
    ==>
-   EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet p1))
+   EVERY esgc_free p1
 Proof
   rw [compile_prog_def]
   \\ rpt (pairarg_tac \\ fs [])
@@ -5724,9 +5724,9 @@ QED
 
 Theorem compile_flat_esgc_free:
    compile_flat cfg ds = ds' /\
-   EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet ds))
+   EVERY esgc_free ds
    ==>
-   EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet ds'))
+   EVERY esgc_free ds'
 Proof
   rw [compile_flat_def, compile_def]
   \\ irule flat_patternProofTheory.compile_decs_esgc_free
@@ -5734,7 +5734,7 @@ Proof
 QED
 
 Theorem compile_esgc_free:
-   EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet (SND (compile c p))))
+   EVERY esgc_free (SND (compile c p))
 Proof
   rw [compile_def]
   \\ rpt (pairarg_tac \\ fs [])
@@ -5742,7 +5742,7 @@ Proof
 QED
 
 Theorem inc_compile_prog_esgc_free:
-   EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet (SND (inc_compile_prog env_id c p))))
+   EVERY esgc_free (SND (inc_compile_prog env_id c p))
 Proof
   rw [inc_compile_prog_def]
   \\ rpt (pairarg_tac \\ fs [])
@@ -5752,7 +5752,7 @@ Proof
 QED
 
 Theorem inc_compile_esgc_free:
-   EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet (SND (inc_compile env_id c p))))
+   EVERY esgc_free (SND (inc_compile env_id c p))
 Proof
   rw [inc_compile_def]
   \\ rpt (pairarg_tac \\ fs [])
@@ -5824,7 +5824,7 @@ QED
 Theorem compile_decs_elist_globals:
   !t n next env envs decs n' next' env' envs' decs'.
     compile_decs t n next env envs decs = (n', next', env', envs', decs') ⇒
-    elist_globals (MAP dest_Dlet (FILTER is_Dlet decs')) =
+    elist_globals decs' =
       LIST_TO_BAG (MAP ((+) next.vidx) (COUNT_LIST (SUM (MAP num_bindings decs))))
 Proof
   recInduct source_to_flatTheory.compile_decs_ind
@@ -5863,8 +5863,8 @@ Proof
 QED
 
 Theorem compile_flat_sub_bag:
-  elist_globals (MAP dest_Dlet (FILTER is_Dlet (compile_flat cfg p))) <=
-  elist_globals (MAP dest_Dlet (FILTER is_Dlet p))
+  elist_globals (compile_flat cfg p) <=
+  elist_globals p
 Proof
   fs [source_to_flatTheory.compile_flat_def]
   \\ metis_tac [
@@ -5878,7 +5878,7 @@ Theorem compile_flat_BAG_ALL_DISTINCT[local] = MATCH_MP
     compile_flat_sub_bag
 
 Theorem compile_globals_BAG_ALL_DISTINCT:
-  BAG_ALL_DISTINCT (elist_globals (MAP dest_Dlet (FILTER is_Dlet (SND (compile c prog)))))
+  BAG_ALL_DISTINCT (elist_globals (SND (compile c prog)))
 Proof
   rw []
   \\ fs [compile_def, compile_prog_def]
@@ -5895,8 +5895,7 @@ Proof
 QED
 
 Theorem inc_compile_globals_BAG_ALL_DISTINCT:
-  BAG_ALL_DISTINCT (elist_globals (MAP dest_Dlet (FILTER is_Dlet
-    (SND (inc_compile env_id c prog)))))
+  BAG_ALL_DISTINCT (elist_globals (SND (inc_compile env_id c prog)))
 Proof
   rw []
   \\ fs [inc_compile_def, inc_compile_prog_def]
@@ -5927,10 +5926,8 @@ Theorem monotonic_globals_state_co_compile:
   compile conf prog = (conf',p) ∧ FST (FST (orac 0)) = conf' ∧
   is_state_oracle (\c (env_id, decs). inc_compile env_id c (f decs)) orac ⇒
   oracle_monotonic
-    (IMAGE SUC ∘ SET_OF_BAG ∘ elist_globals ∘ MAP flatProps$dest_Dlet ∘
-      FILTER flatProps$is_Dlet ∘ SND) $<
-    (0 INSERT IMAGE SUC (SET_OF_BAG (elist_globals (MAP flatProps$dest_Dlet
-                (FILTER flatProps$is_Dlet p)))))
+    (IMAGE SUC ∘ SET_OF_BAG ∘ elist_globals ∘ SND) $<
+    (0 INSERT IMAGE SUC (SET_OF_BAG (elist_globals p)))
     (state_co (\c (env_id, decs). inc_compile env_id c (f decs)) orac)
 Proof
   rw []

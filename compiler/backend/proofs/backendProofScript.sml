@@ -711,9 +711,8 @@ Theorem oracle_monotonic_globals_flat_to_clos:
   flatProps$no_Mat_decs p /\
   (!n. flatProps$no_Mat_decs (SND (orac n))) /\
   oracle_monotonic (IMAGE SUC ∘ SET_OF_BAG ∘ flatProps$elist_globals
-        ∘ MAP flatProps$dest_Dlet ∘ FILTER flatProps$is_Dlet ∘ SND) $<
-    (0 INSERT IMAGE SUC (SET_OF_BAG (flatProps$elist_globals
-      (MAP flatProps$dest_Dlet (FILTER flatProps$is_Dlet p)))))
+        ∘ SND) $<
+    (0 INSERT IMAGE SUC (SET_OF_BAG (flatProps$elist_globals p)))
     orac ==>
   oracle_monotonic (SET_OF_BAG ∘ closProps$elist_globals ∘ FST ∘ SND) $<
     (SET_OF_BAG (closProps$elist_globals (compile_prog p)))
@@ -4164,4 +4163,3 @@ Proof
   \\ rw [extend_with_resource_limit'_def]
   \\ fs [extend_with_resource_limit_def,SUBSET_DEF]
 QED
-

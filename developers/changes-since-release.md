@@ -8,6 +8,8 @@ Changes since release v3304:
 
 ## Compiler backend and runtime
 
+FlatLang has been simplified slightly (#1380).
+
 ## Pancake
 
 ### Garbage collector always disabled

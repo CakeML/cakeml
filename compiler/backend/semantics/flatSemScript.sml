@@ -47,8 +47,8 @@ End
 
 Datatype:
   install_config =
-   <| compile : 'c -> flatLang$dec list -> (word8 list # word64 list # 'c) option
-    ; compile_oracle : num -> 'c # flatLang$dec list
+   <| compile : 'c -> flatLang$exp list -> (word8 list # word64 list # 'c) option
+    ; compile_oracle : num -> 'c # flatLang$exp list
     |>
 End
 
@@ -800,7 +800,7 @@ Proof
 QED
 
 Definition dec_alt_size_def[simp]:
-  dec_alt_size (Dlet a) = 1 + exp_alt_size a
+  dec_alt_size a = 1 + exp_alt_size a
 End
 
 Definition evaluate_def:
@@ -907,7 +907,7 @@ Definition evaluate_def:
    if ALL_DISTINCT (MAP FST funs)
    then evaluate (env with v := build_rec_env funs env env.v) s [e]
    else (s, Rerr(Rabort Rtype_error))) ∧
-  (evaluate_dec s (Dlet e) =
+  (evaluate_dec s e =
    case evaluate <| v := [] |> s [e] of
    | (s, Rval x) =>
      if x = [Unitv] then
