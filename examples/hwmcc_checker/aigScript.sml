@@ -166,10 +166,9 @@ Definition is_witness_property_def:
   ⇔
   ∀ss.
     (preds_hold ss mcirc mcnstrs ∧
-     preds_hold ss wcirc wcnstrs)
-    ⇒
-    (preds_hold ss mcirc mpreds ∧
-     preds_hold ss wcirc wpreds)
+     preds_hold ss wcirc wcnstrs) ⇒
+    preds_hold ss wcirc wpreds ⇒
+    preds_hold ss mcirc mpreds
 End
 
 Definition is_witness_base_def:
@@ -570,18 +569,76 @@ Proof
   >> fs [Abbr ‘step’]
 QED
 
+Theorem is_witness_base_step_safe:
+  is_trace circ reset next cnstrs latches tr n ∧
+  is_witness_base
+    circ reset next preds cnstrs latches ∧
+  is_witness_step
+    circ reset next preds cnstrs latches
+  ⇒
+  preds_hold (tr n) circ preds
+Proof
+  Induct_on`n`>>rw[]
+  >-
+    gvs[is_witness_base_def,is_trace_def]>>
+  gvs[is_trace_SUC] >>
+  gvs[is_witness_step_def,ADD1]>>
+  first_x_assum irule>>
+  rw[]>>
+  first_x_assum (irule_at (Pos last))>>
+  simp[]>>
+  metis_tac[is_trace_preds_hold_n]
+QED
+
+Definition dep_model_def:
+  dep_model
+    circ reset next preds cnstrs latches ⇔
+  dep_circuit latches circ ∧
+  dep_latch_lit latches reset ∧
+  dep_latch_lit latches next ∧
+  dep_lits latches preds ∧
+  dep_lits latches cnstrs
+End
+
+Definition is_stratified_full_def:
+  is_stratified_full lt circ reset latches ⇔
+  FINITE latches ∧
+  irreflexive lt ∧
+  transitive lt ∧
+  total lt ∧
+  is_stratified lt circ reset latches
+End
+
 Theorem is_witness_is_safe:
   is_witness
     mcirc mreset mnext mpreds mcnstrs mlatches
-    wcirc wreset wnext wpreds wcnstrs wlatches
+    wcirc wreset wnext wpreds wcnstrs wlatches ∧
+  dep_model
+    mcirc mreset mnext mpreds mcnstrs mlatches ∧
+  is_stratified_full lt wcirc wreset wlatches
   ⇒
   is_safe
     mcirc mreset mnext mcnstrs mlatches mpreds
 Proof
   rw [is_witness_def, is_safe_def]
-  >> CCONTR_TAC >> fs [is_unsafe_def]
-  >> drule_at (Pos last) extend_model_trace_to_witness
-  >> cheat
+  >> CCONTR_TAC
+  >> fs [is_unsafe_def, dep_model_def,is_stratified_full_def]
+  >> pop_assum mp_tac >> simp[]
+  >> drule_at_then (Pos last) drule extend_model_trace_to_witness
+  >> rpt (disch_then $ drule_at Any)
+  >> strip_tac
+  >> drule_all is_witness_base_step_safe
+  >> strip_tac
+  >> drule_at_then Any irule preds_hold_dep_circuit
+  >> rename1`inputs_agree n tr' tr`
+  >> fs[inputs_agree_def,states_agree_def]
+  >> qexists_tac`tr' n`
+  >> gvs[is_witness_property_def]
+  >> first_x_assum irule
+  >> gvs[]
+  (* TODO: this is easy but should refactor the agree defs first *)
+  >> `is_trace mcirc mreset mnext mcnstrs mlatches tr' n` by cheat
+  >> metis_tac[is_trace_preds_hold_n]
 QED
 
 (* Implementation *************************************************************)
