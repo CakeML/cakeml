@@ -449,6 +449,22 @@ Proof
   metis_tac [QSORT_PERM, PERM_LIST_TO_SET]
 QED
 
+Theorem is_reset_dep_latch_lit:
+  is_reset ss circ reset latches ∧
+  dep_circuit latches circ ∧
+  dep_latch_lit latches reset ∧
+  FST ss = FST ss' ∧
+  (∀l. l ∈ latches ⇒ SND ss l = SND ss' l)
+  ⇒
+  is_reset ss' circ reset latches
+Proof
+  rw [is_reset_def, dep_latch_lit_def]
+  >> namedCases_on ‘ss’ ["is ls"]
+  >> namedCases_on ‘ss'’ ["is' ls'"]
+  >> gvs[eval_circuit_def]
+  >> metis_tac [dep_eval_lit_eq, SND, PAIR]
+QED
+
 Theorem extend_model_trace_to_witness:
   is_trace mcirc mreset mnext mcnstrs mlatches tr n ∧
   (* model latches constraints *)
@@ -477,27 +493,42 @@ Proof
   Induct_on ‘n’ >> rw []
   >-
    (fs [is_trace_def, is_witness_reset_def]
-    >> first_x_assum $ drule_all_then assume_tac
+    >> first_assum $ drule_all_then assume_tac
     >> namedCases_on ‘tr 0’ ["is ls"] >> fs []
     >> qabbrev_tac
          ‘xs = QSORT lt (SET_TO_LIST (wlatches DIFF (mlatches ∩ wlatches)))’
-    >> qexists ‘λ_. (is, patch wcirc wreset is ls xs)’ >> simp []
-    >> rpt conj_tac
-    (* wlatches are in reset in patched state *)
-    >-
-     (‘wlatches = (mlatches ∩ wlatches) ∪ (set xs)’ by
-        (simp [Abbr ‘xs’, Req0 SET_TO_LIST_INV] >> SET_TAC [])
+    >> qabbrev_tac `ss0 = (is, patch wcirc wreset is ls xs)`
+    >> qexists ‘λ_. ss0’ >> simp []
+    >> CONJ_TAC
+      (* wlatches are in reset and wcnstrs
+        are satisfied in patched state *)
+    >- (
+      first_x_assum (qspec_then ‘ss0’ mp_tac)
+      >> impl_tac
+      >- (
+        CONJ_TAC
+        >- (
+          drule_then irule is_reset_dep_latch_lit>>
+          simp[Abbr`ss0`]>>
+          rw[]>>
+          irule (GSYM not_mem_patch_eq)>>
+          simp[Abbr`xs`])
+        >>
+          drule_then irule preds_hold_dep_circuit>>
+          simp[Abbr`ss0`]>>
+          first_x_assum $ irule_at Any>>
+          rw[]>>
+          irule (GSYM not_mem_patch_eq)>>
+          simp[Abbr`xs`])
+      >> rw[]
+      >> ‘wlatches = (mlatches ∩ wlatches) ∪ (set xs)’ by
+          (simp [Abbr ‘xs’, Req0 SET_TO_LIST_INV] >> SET_TAC [])
       >> pop_assum SUBST1_TAC
-      >> simp [is_reset_union]
-      >> conj_tac
-      (* unpatched latches are still in reset *)
-      >- (cheat)
+      >> simp [is_reset_union,Abbr`ss0`]
       >> irule subset_is_reset_patch
       >> first_assum $ irule_at (Pos last)  (* is_stratified *)
       >> simp [Abbr ‘xs’, Req0 SET_TO_LIST_INV, Req0 QSORT_SORTED])
-    (* wcnstrs are satisfied in patched state *)
-    >- (cheat)
-    >- simp [inputs_agree_def]
+    >> simp [inputs_agree_def, Abbr`ss0`]
     >-
      (rw [states_agree_def]
       >> rename1 ‘patch _ _ _ _ _ l’ >> ‘¬MEM l xs’ by simp [Abbr ‘xs’]
