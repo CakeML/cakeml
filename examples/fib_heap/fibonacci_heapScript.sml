@@ -4707,16 +4707,6 @@ Definition ts_to_fhts_def:
 End
 
 
-Theorem lemma_fhts_to_ts_absorp:
-  fhts_to_ts (ts_to_fhts rl) = rl
-Proof
-  rewrite_tac[lemma_ts_to_fhts_to_map,fhts_to_ts_def] >>
-  rewrite_tac[GENLIST_EL_MAP] >>
-  simp[MAP_MAP_o] >>
-  simp[MAP_EQ_ID] >>
-  rpt strip_tac >>
-  CASE_TAC >> fs[]
-QED
 
 
 Theorem lemma_ts_to_fhts_to_map:
@@ -4732,6 +4722,17 @@ Proof
   simp[EL_MAP]
 QED
 
+
+Theorem lemma_fhts_to_ts_absorp:
+  fhts_to_ts (ts_to_fhts rl) = rl
+Proof
+  rewrite_tac[lemma_ts_to_fhts_to_map,fhts_to_ts_def] >>
+  rewrite_tac[GENLIST_EL_MAP] >>
+  simp[MAP_MAP_o] >>
+  simp[MAP_EQ_ID] >>
+  rpt strip_tac >>
+  CASE_TAC >> fs[]
+QED
 
 (*
 Theorem lemma_nested_ts_to_fhts_fhts_to_ts:
@@ -5545,17 +5546,20 @@ Theorem fts_link_trees:
       (FibTree k v l) =
       (rl',T)
     ==>
-    fib_heap_inv_union2 (FUNION fh1 fh2) (ts_to_fhts rl')
+    fib_heap_inv_union2 (FUNION fh1 fh2) (ts_to_fhts rl') /\ LENGTH rl = LENGTH rl'
 Proof
-  strip_tac >> Induct >> rpt strip_tac
+  strip_tac >> Induct >> strip_tac
   >- fs[Once fts_link_trees_def] >>
+  rpt gen_tac >> disch_tac >> fs[] >>
   pop_assum mp_tac >>
   simp[Once fts_link_trees_def] >>
   IF_CASES_TAC >> fs[] >>
   CASE_TAC
   >- (
     strip_tac >> gvs[]  >>
-    irule lemma_fts_link_list_upd >> fs[]
+    conj_tac
+    >- ( irule lemma_fts_link_list_upd >> fs[]) >>
+    rewrite_tac[fhts_to_ts_def,LENGTH_GENLIST] >> simp[]
     ) >>
   CASE_TAC >> strip_tac >>
   Cases_on `fts_merge_trees (FibTree k v l) (FibTree k' v' l')` >>
@@ -5642,9 +5646,21 @@ Proof
   rfs[] >>
   first_x_assum(qspecl_then [`fh2'`,`FUNION fh1' fh2`] assume_tac) >>
   rfs[DISJOINT_SYM] >>
-  cheat
+  fs[FUNION_ASSOC] >>
+  pop_assum mp_tac >>
+  simp[fib_heap_inv_union2_def] >>
+  strip_tac >>
+  drule_all EQ_SYM >>
+  qpat_x_assum `fh2' ⊌ fh1' ⊌ fh2 = fh_union (ts_to_fhts rl'')` kall_tac >>
+  strip_tac >> simp[] >>
+  simp[GSYM FUNION_ASSOC] >>
+  qspecl_then [`fh2'`,`FUNION fh1' fh2`] assume_tac FUNION_COMM >>
+  rfs[DISJOINT_SYM] >>
+  simp[GSYM FUNION_ASSOC] >>
+  simp[FUNION_COMM] >>
+  qspecl_then [`fh2'`,`fh2`] assume_tac FUNION_COMM >>
+  rfs[DISJOINT_SYM]
 QED
-
 
 
 
@@ -6145,8 +6161,9 @@ Proof
 QED
 
 
+
 Theorem fts_reb:
-  !fh1 fts fh2.
+  !fh1 fts fh2 fts' e_rl.
     fib_heap_inv_strong fh1 fts /\
     fib_heap_inv_union2 fh2 (ts_to_fhts alg_rl) /\
     fts_reb alg_rl fts = (fts',e_rl,T)
@@ -6160,27 +6177,19 @@ Proof
   pairarg_tac >> simp[] >>
   strip_tac >> gvs[] >>
   drule lemma_fib_heap_inv_union2_replicate_imp_fempty >> strip_tac >>
-  drule fts_link_root_list >> strip_tac >>
-  first_x_assum(qspecl_then [`l_rl`,`alg_rl`,`FEMPTY`] assume_tac) >>
   gvs[] >>
+  qspecl_then [`alg_rl`,`fts`,`l_rl`,`fh1`,`FEMPTY`] assume_tac fts_link_root_list >>
+  rfs[] >>
   pop_assum mp_tac >>
-  rewrite_tac[Once lemma_ts_to_fhts_to_map,alg_rl_def] >>
-  rewrite_tac[rich_listTheory.map_replicate] >>
-  simp[fib_heap_inv_union2_empty_thm] >>
-  strip_tac >> fs[] >>
-  qspecl_then [`fts'`,`e_rl`,`195`,`l_rl`,`fh`,`FEMPTY`,`[]`]
-    assume_tac fts_collect_array >> rfs[fib_heap_inv_empty_thm] >>
-  imp_res_tac lemma_e_rl_eq_replicate >> gvs[] >>
-
-  cheat
-
-(*TODO: keep union of fh until this point to prove that all
-  elements are still there*)
-
-(*
-  fts_link_root_list
-  fts_collect_array
-*)
+  rewrite_tac[alg_rl_def,LENGTH_REPLICATE] >>
+  rewrite_tac[Once lemma_ts_to_fhts_to_map,map_replicate] >>
+  simp[fib_heap_inv_union2_empty_thm] >> strip_tac >>
+  gvs[] >>
+  qspecl_then [`fts'`,`e_rl`,`195`,`l_rl`,`fh1`,`FEMPTY`,`[]`]
+    assume_tac fts_collect_array >>
+  rfs[fib_heap_inv_empty_thm] >>
+  imp_res_tac lemma_e_rl_eq_replicate >>
+  gvs[]
 QED
 
 
