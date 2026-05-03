@@ -1115,6 +1115,27 @@ Proof
           case_eq_thms, PULL_EXISTS, FLOOKUP_SIMP, bvlSemTheory.Unit_def, backend_commonTheory.tuple_tag_def, opt_res_rel_def]
 QED
 
+Theorem evaluate_call_block:
+  ∀exp exp' loc tag args bs cb env s t r vs.
+    exp = Op (BlockOp (Cons tag)) args ∧
+    to_call_block loc tag args = SOME (bs,cb) ∧
+    exp' = cb_to_bvi loc cb ∧
+    bviSem$evaluate (bs,env,s) = (Rval vs,s) ∧
+    bviSem$evaluate ([exp],env,s) = (r,t) ⇒
+    evaluate ([exp'],vs ++ env,s) = (r,t)
+Proof
+  rw []
+  >> 
+QED
+
+
+
+
+
+
+
+
+
 Theorem evaluate_rewrite_tmc:
    ∀xs env1 ^s r t opt f s' env2.
      evaluate (xs, env1, s) = (r, t) ∧

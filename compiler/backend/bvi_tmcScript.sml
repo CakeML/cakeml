@@ -39,137 +39,271 @@ Definition effectful_exp_def:
   (effectful_exp e = effectful_exps [e])
 End
 
-(*
-Definition extract_binder_def:
-  extract_binder env_len exp = ([exp],[bvi$Var env_len])
+Definition dest_Cons_def:
+  dest_Cons (BlockOp (Cons block_tag)) = SOME block_tag ∧
+  dest_Cons _ = NONE
 End
-        
-Definition extract_binders_def:
-  (extract_binders _ _ [] = ([],[])) ∧
-  (extract_binders _ env_len [Var n] = ([],[Var n])) ∧
-  (extract_binders loc env_len [Op op args] =
+
+(* PHASE 1: extract everything into a let bound "call block" *)
+(* TODO: binders are messed up *)
+
+(* Recursive call - loc is in scope during transformation and not included in the constructor *)
+Datatype:
+  rcall = RCall num (num list) (exp option)
+End
+
+(* I could not find this in std lib *)
+Datatype:
+  either = Left 'a | Right 'b
+End
+
+(* CallBlock tag left child right
+   This is the "skeleton" of the BlockOp Cons
+   - with the same tag,
+   - where the recursive call is at the bottom of child,
+   - where left and right are de Bruijn indeces of the other args, positions preserved,
+     with the original expressions assumed to be let bound.
+ *)
+Datatype:
+  call_block = CallBlock num (num list) ((rcall, call_block) either) (num list)
+End
+
+(* Returns a tuple of expressions to be in let binders and a list of corresponding de Bruijn indeces,
+   for the purpose of buidling left and right above.
+   I don't think I am doing de Bruijn indexing correctly yet. *)
+Definition to_binder_def:
+  (to_binder binders (Var n) = ([],binders + n)) ∧
+  (to_binder binders exp = ([exp],binders))
+End
+
+(* Same as above, but for multiple expressions. Used only for arguments to recursive call. Same indexing problem. *)
+Definition to_binders_def:
+  (to_binders binders [] = ([],[])) ∧
+  (to_binders binders (h::t) =
+   case to_binder binders h of
+   | (b,n) =>
+       case to_binders binders t of
+       | (bs,ns) => (b ++ bs,n::ns))
+End
+
+(* Attempts to build a CallBlock from a BlockOp Cons.
+   If no recursive call found, returns each op arg expression in a list and (Left) a list of corresponding de Bruijn indeces.
+   If a recursive call is found, returns all extracted/let-bound expressions and (Right) the call block.
+   If multiple recursive calls are found, all but the last are let bound. *)
+Definition to_binders_or_cb_def:
+  (to_binders_or_cb _ _ _ [] = ([],Left [])) ∧
+  (to_binders_or_cb binders loc tag [Call t loc' args h] =
+   if loc' = SOME loc then
+     (* Recursive call found - base case of CallBlock *)
+     case to_binders binders args of
+     | (bs,ns) => (bs,Right (CallBlock tag [] (Left (RCall t ns h)) []))
+   else
+     (* Not a recursive call - gets let-bound *)
+     case to_binder binders (Call t loc' args h) of
+     | (bs,n) => (bs,Left [n])) ∧
+  (to_binders_or_cb binders loc tag [Op op args] =
    case dest_Cons op of
-   | NONE => extract_binder env_len (Op op args)
-   | SOME tag =>
-       case extract_binders loc env_len args of
-       | (bs,args') =>
-           (bs,[bvi$Op (BlockOp (Cons tag)) args'])) ∧
-  (extract_binders loc env_len [Call t l args h] =
-   case l of
-   | SOME loc' =>
-       if (loc = loc') then
-         case extract_binders loc env_len args of
-         | (bs,args') =>
-             (bs,[Call t l args' h])
-       else
-         extract_binder env_len (Call t l args h)) ∧
-  (extract_binders loc env_len [exp] = extract_binder env_len exp) ∧
-  (extract_binders loc env_len (exp::exps) =
-   case extract_binders loc env_len [exp] of
-   | (bs,exp') =>
-       case extract_binders loc (env_len + LENGTH bs) exps of
-       | (bs',exps') => (bs ++ bs',exp' ++ exps'))
+   | SOME _ =>
+       (* BlockOp Cons - try to recurse *)
+       (case to_binders_or_cb binders loc tag args of
+        | (bs,Left ns) =>
+            (* No recursive call - whole thing gets let-bound *)
+            (case to_binder binders (Op op args) of
+             | (bs,n) => (bs,Left [n]))
+        | (bs,Right cb) =>
+            (* Recursive call - inductive case of CallBlock *)
+            (bs, Right (CallBlock tag [] (Right cb) [])))
+   | NONE =>
+       (* Not a BlockOp Cons - whole thing gets let-bound *)
+       (case to_binder binders (Op op args) of
+        | (bs,n) => (bs,Left [n]))) ∧
+  (to_binders_or_cb binders _ _ [exp] =
+   (* Some other expression - whole thing gets let-bound *)
+   case to_binder binders exp of
+   | (bs,n) => (bs,Left [n])) ∧
+  (to_binders_or_cb binders loc tag (h::t) =
+   (* Recurse right to left to find last occurence of recursive call *)
+   case to_binders_or_cb binders loc tag t of
+   | (bs2,Left ns2) =>
+       (* No recursive call to the right. See if the first has one. *)
+       (case to_binders_or_cb (binders + LENGTH bs2) loc tag [h] of
+        | (bs1,Left ns1) =>
+            (* No recursive call, keep building binders. *)
+            (bs1 ++ bs2,Left (ns1 ++ ns2))
+        | (bs1,Right (CallBlock tag l child r)) =>
+            (* Recursive call found, build a call block with ns2 on the right *)
+            (bs1 ++ bs2,Right (CallBlock tag l child (r ++ ns2))))
+   | (bs2,Right (CallBlock tag l child r)) =>
+       (* Recursive call found, first is let bound and added to the left *)
+       case to_binder (binders + LENGTH bs2) h of
+       | (bs1,n1) =>
+           (bs1 ++ bs2,Right (CallBlock tag (n1::l) child r)))
 End
 
-Definition extract_to_let_def:
-  extract_to_let loc env_len tag args =
-  case extract_binders loc env_len [Op (BlockOp (Cons tag)) args] of
-  | (bs,op') => Let bs $ HD op'
+(* Calls the above but throws away an unoptimisable BlockOp Cons. *)
+Definition to_call_block_def:
+  to_call_block loc tag args =
+  case to_binders_or_cb 0 loc tag args of
+  | (_,Left _) => NONE
+  | (bs,Right cb) => SOME (bs,cb)
 End
 
-Theorem evaluate_extract_binders:
-  ∀xs env s bs xs' loc t u r.
-    extract_binders loc (LENGTH env) xs = (bs,xs') ⇒
-    evaluate (xs,env,s) =
-    case evaluate (bs,env,s) of
-    | (Rval vs,t) =>
-        evaluate (xs',vs ++ env,t)
-    | (Rerr e,t) => (Rerr e,t)
+(* Convert back to BlockOp Cons for comparing semantics *)
+Definition cb_to_BlockOp_Cons_def:
+  cb_to_BlockOp_Cons loc (CallBlock tag l child r) =
+  let l' = MAP (λn. Var n) l in
+  let child' =
+      case child of
+      | Left (RCall t args h) =>
+          let args' = MAP (λn. Var n) args in
+          bvi$Call t (SOME loc) args' h
+      | Right cb => cb_to_BlockOp_Cons loc cb in
+  let r' = MAP (λn. Var n) r in
+  Op (BlockOp (Cons tag)) $ l' ++ [child'] ++ r'
+End
+
+(* Let bind the result of the above for a semantically equivalent BVI expression. *)
+Definition rewrite_lb_BlockOp_Cons_def:
+  rewrite_lb_BlockOp_Cons loc tag args =
+    case to_call_block loc tag args of
+    | NONE => Op (BlockOp (Cons tag)) args
+    | SOME (bs,cb) =>
+        Let bs $ cb_to_BlockOp_Cons loc cb
+End
+
+(* Prove they are semantically equivalent - this will need to move but easier here for now. *)
+(*
+Theorem evaluate_rewrite_lb_BlockOp_Cons:
+  ∀exp exp' loc tag args env s t r.
+    exp = Op (BlockOp (Cons tag)) args ∧
+    exp' = rewrite_lb_BlockOp_Cons loc tag args ∧
+    r ≠ Rerr (Rabort Rtype_error) ∧
+    evaluate ([exp],env,s) = (r,t) ⇒
+    evaluate ([exp'],env,s) = (r,t)
 Proof
-  recInduct bviSemTheory.evaluate_ind
-  >> rpt strip_tac
-  >~ [‘evaluate ([],_,_)’] >-
-   (gvs [extract_binders_def, evaluate_def])
-  >~ [‘evaluate (x::y::xs,env,s)’] >-
-   (simp [Once evaluate_CONS]
-    >> cheat)
-  >~ [‘evaluate ([Var n],_,_)’] >-
-   (gvs [evaluate_def, extract_binders_def, extract_binder_def])
-  >~ [‘evaluate ([If _ _ _],_,_)’] >-
-   (gvs [evaluate_def]
-    >> Cases_on ‘extract_binders loc (LENGTH env) [x1]’ >> gvs []
-    >> rename [‘extract_binders loc (LENGTH env) [x1] = (bs1,x1')’]
-    >> first_x_assum drule
-    >> strip_tac
-    >> gvs []
-    >> Cases_on ‘evaluate (bs1,env,s)’ >> gvs []
+  rw []
+  >> gvs [rewrite_lb_BlockOp_Cons_def]
+  >> CASE_TAC >> gvs []
+  >> CASE_TAC >> gvs []
+  >> rename [‘to_call_block loc tag args = SOME (bs,block_op_cons)’]
+  >> gvs [evaluate_def]
+  >> CASE_TAC >> gvs []
+  >> rename [‘evaluate (bs,env,s) = (vs,t')’]
+  >> Induct_on ‘bs’
+  >-
+   (gvs [to_call_block_def]
+    >> CASE_TAC >> gvs []
+    >> CASE_TAC >> gvs []
+    >> rw []
+    >> gvs [evaluate_def]
+    >> Cases_on ‘b’ >> gvs []
+    >> rename [‘to_binders_or_cb 0 loc tag args = ([],Right (CallBlock tag' l c r))’]
+    >> gvs [cb_to_BlockOp_Cons_def, evaluate_def]
+    >> Cases_on ‘args’ >> gvs [to_binders_or_cb_def]
+    >> Cases_on ‘t'’ >> gvs [to_binders_or_cb_def]
     >> cheat)
   >> cheat
 QED
+ *)
 
-Theorem evaluate_extract_to_let:
-  ∀xs env s xs' tag args loc t r.
-    xs = [Op (BlockOp (Cons tag)) args] ∧
-    xs' = [extract_to_let loc (LENGTH env) tag args] ⇒
-    evaluate(xs,env,s) = evaluate(xs',env,s)
-Proof
-  rw []
-  >> gvs [extract_to_let_def, extract_binders_def, dest_Cons_def]
-  >> ‘dest_Cons (BlockOp (Cons tag)) = SOME tag’ by cheat (* Why won't this simp away *)
-  >> gvs []
-  >> CASE_TAC >> gvs []
-  >> rename [‘extract_binders loc (LENGTH env) args = (bs,args')’]
-  >> gvs [evaluate_def]
-  >> drule evaluate_extract_binders
-  >> gvs []
-  >> disch_then $ qspec_then ‘s’ assume_tac
-  >> gvs []
-  >> CASE_TAC >> gvs []
-  >> Cases_on ‘q’ >> gvs []
-QED   
+(* Phase 2 - Convert call block into a hole block, where the hole is filled by the optimised version of recursive call. *)
 
-
-
-
+(* Like call_block, but base case is NONE instead of RCall *)
 Datatype:
-  hole_block = RecCall num (num list) (exp option) (* ticks, args (de Bruijn), handler *)
-             | HoleBlock num (num list) (hole_block) (num list) (* tag, args left of hole (de Bruijn), hole, args right of hole *)
+  hole_block = HoleBlock num (num list) (hole_block option) (num list)
 End
 
+(* Convert a call_block to a hole_block, and return the RCall to be replaced with optimised version. *)
 Definition to_hole_block_def:
-  to_hole_block_def [Op op op_args] =
-  case dest_Cons op of
-  | NONE => [Op op op_args]
-  | SOME tag =>
-      case to_hole_block op_args of
-      | 
+  to_hole_block (CallBlock tag l child r) =
+    case child of
+    | Left rcall => (HoleBlock tag l NONE r,rcall)
+    | Right cb =>
+        case to_hole_block cb of
+        | (hb,rcall) => (HoleBlock tag l (SOME hb) r,rcall)
 End
 
-        
+(* Convert hole block to a MutCons allocation with hole represented as Const 0 *)
+Definition hb_to_MemOp_MutCons_def:
+  hb_to_MemOp_MutCons (HoleBlock t l h r) =
+    let l' = MAP (λn. Var n) l in
+    let h' =
+        case h of
+        | SOME hb => hb_to_MemOp_MutCons hb
+        | NONE => Op (IntOp (Const 0)) [] in
+    let r' = MAP (λn. Var n) r in
+    let i = LENGTH l in
+      Op (MemOp (MutCons t i)) (l' ++ [h'] ++ r')
+End
+
+
+
+(* New attempt at phase 1 *)
+
 Datatype:
-  tmc_exp = LetVar (exp list) num       (* Let bound variable; binders, de Bruijn index *)
-          | LetHb (exp list) hole_block (* Let bound hole block; binders, hole block *)
+  lb_exp = LbVar num
+         (*| LbLet (bvi$exp list) lb_exp*)
+         | LbRCall num (lb_exp list) (bvi$exp option)
+         | LbCons num (lb_exp list)
 End
 
-Definition to_tmc_exp_BlockOp_Cons_def:
-  (to_tmc_exp_BlockOp_Cons env_len tag [] =
-   LetVar [Op (BlockOp (Cons tag)) []] env_len) ∧
-  (to_tmc_exp_BlockOp_Cons env_len tag (op_arg::op_args) =
-   case to_tmc_exp_BlockOp_Cons env_len tag op_args of
-   | LetVar (b::bs) n =>
-       let op = Op () 
-       LetVar (new_thing::bs) n
-                           )
+Definition bind_def:
+  (bind next (bvi$Var n) = ([],[LbVar (n + next)])) ∧
+  (bind next exp = ([exp],[LbVar next]))
 End
 
-*)      
+Definition bind_all_def:
+  (bind_all next [] = ([],[])) ∧
+  (bind_all next (x::xs) =
+   case bind next x of
+   | (b,v) =>
+       case bind_all (next + LENGTH b) xs of
+       | (bs,vs) => (b ++ bs,v ++ vs))
+End
+
+Definition bvi_to_bvi_lb_def:
+  (bvi_to_bvi_lb _ _ [] = ([],[])) ∧
+  (bvi_to_bvi_lb loc next [Call t l args h] =
+   if l = SOME loc then
+     case bind_all next args of
+     | (bs,args') => (bs, [LbRCall t args' h])
+   else
+     bind next $ Call t l args h) ∧
+  (bvi_to_bvi_lb loc next [Op op args] =
+   case dest_Cons op of
+   | SOME tag =>
+       (case bvi_to_bvi_lb loc next (REVERSE args) of
+        | (bs,args') =>
+            (REVERSE bs,[LbCons tag (REVERSE args')]))
+   | NONE => bind next $ Op op args) ∧
+  (bvi_to_bvi_lb _ next [exp] = bind next exp) ∧
+  (bvi_to_bvi_lb loc_opt next (x::xs) =
+   (case bvi_to_bvi_lb loc_opt next [x] of
+    | (bs1,[LbRCall t args h]) =>
+        (case bind_all next xs of
+         | (bs2,vs2) => (bs1 ++ bs2,(LbRCall t args h)::vs2))
+    | (bs1,[LbCons tag args]) =>
+        (case bind_all next xs of
+         | (bs2,vs2) => (bs1 ++ bs2,(LbCons tag args)::vs2))
+    | (bs1,[LbVar n]) =>
+        (case bvi_to_bvi_lb loc_opt next xs of
+         | (bs2,vs2) => (bs1 ++ bs2,(LbVar n)::vs2))))
+End
+
+
+
+
+
+
+
+(* Old way - there are conflicting definitions (hole_block) so stuff below here doesn't compile currently *)
+
+Datatype:
+  hole_block = HoleBlock num (num list) (hole_block option) (num list)
+End
 
 Datatype:
   tcall = TCall num (exp list) (exp option) (* loc is not needed here, as it is known in function body *)
-End
-
-Datatype:
-  hole_block = HoleBlock num (exp list) (hole_block option) (exp list)
 End
 
 Definition push_left_def:
@@ -192,11 +326,6 @@ Datatype:
             | TC tcall hole_block (* One recursive tail call.
                                      tcall fills the final ‘NONE’ hole nested in hole_block.
                                    *)
-End
-
-Definition dest_Cons_def:
-  dest_Cons (BlockOp (Cons block_tag)) = SOME block_tag ∧
-  dest_Cons _ = NONE
 End
 
 (* ‘cons_to_tc_and_mut_cons loc tag op_args’ finds a unique recursive call of index ‘loc’ nested within the args of a ‘BlockOp’ ‘Cons’
