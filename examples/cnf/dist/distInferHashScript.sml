@@ -303,7 +303,7 @@ Proof
   res_tac
 QED
 
-Triviality DISJOINTD2:
+Theorem DISJOINTD2[local]:
   x ∈ Q ∧ DISJOINT P Q ⇒ x ∉ P
 Proof
   metis_tac[IN_DISJOINT]

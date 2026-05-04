@@ -150,8 +150,6 @@ examples/xlrup_checker/array/compilation/proofs
 
 examples/cnf
 examples/cnf/array
-examples/cnf/lrup
-examples/cnf/lrup/array
 examples/cnf/dist
 examples/cnf/dist/array
 examples/cnf/dist/array/compilation
