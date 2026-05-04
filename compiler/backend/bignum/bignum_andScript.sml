@@ -52,6 +52,18 @@ Definition one_list_def:
   one_list a (x::xs) = one (a,x) * one_list (a + bytes_in_word) xs
 End
 
+Theorem eval_Const[simp]:
+  eval s (Const w) = SOME (ValWord w)
+Proof
+  simp [eval_def]
+QED
+
+Theorem eval_Var_Local[simp]:
+  eval s (Var Local n) = FLOOKUP s.locals n
+Proof
+  simp [eval_def]
+QED
+
 Theorem evaluate_Annot[simp]:
   evaluate (Annot s₁ s₂, s) = (NONE, s)
 Proof
@@ -67,6 +79,15 @@ Proof
   >> IF_CASES_TAC >> simp []
 QED
 
+Theorem evaluate_Seq_assoc[simp]:
+  evaluate (Seq (Seq s₁ s₂) (Seq s₃ s₄), s) =
+  evaluate (Seq s₁ (Seq s₂ (Seq s₃ s₄)), s)
+Proof
+  simp [evaluate_def]
+  >> rpt (pairarg_tac >> gvs [])
+  >> rpt (IF_CASES_TAC >> gvs [])
+QED
+
 Theorem dec_clock_eq[simp]:
   (dec_clock s).locals = s.locals ∧
   (dec_clock s).memaddrs = s.memaddrs ∧
@@ -75,27 +96,46 @@ Proof
   simp [dec_clock_def]
 QED
 
-(* Theorem evaluate_Dec: *)
-(*   eval s e = SOME value ⇒ *)
-(*   evaluate (Dec v shape e prog, s) = *)
-(*   let (res,st) = evaluate (prog,s with locals := s.locals |+ (v,value)) in *)
-(*     (res, st with locals := res_var st.locals (v, FLOOKUP s.locals v)) *)
-(* Proof *)
-(*   simp [evaluate_def] *)
-(* QED *)
+Theorem evaluate_While_True_NONE:
+  eval s e = SOME (ValWord w) ∧ w ≠ 0w ∧ s.clock ≠ 0 ∧
+  evaluate (c, dec_clock s) = (NONE, s₁) ∧
+  evaluate (While e c, s₁) = (NONE, s')
+  ⇒
+  evaluate (While e c,s) = (NONE, s')
+Proof
+  rw [] >> simp [Once evaluate_def]
+QED
 
-(* Theorem evaluate_While_True_NONE: *)
-(*   eval s e = SOME (ValWord w) ∧ w ≠ 0w ∧ s.clock ≠ 0 ∧ *)
-(*   evaluate (c, dec_clock s) = (NONE, s₁) *)
-(*   ⇒ *)
-(*   (evaluate (While e c,s) = (NONE, s') ⇔ *)
-(*    evaluate (While e c, s₁) = (NONE, s')) *)
-(* Proof *)
-(*   rw [Once evaluate_def] *)
-(* QED *)
+Theorem evaluate_Dec_NONE:
+  eval s e = SOME value ∧
+  evaluate (prog,s with locals := s.locals |+ (v,value)) = (NONE,s₁)
+  ⇒
+  evaluate (Dec v shape e prog, s) =
+    (NONE, s₁ with locals := res_var s₁.locals (v, FLOOKUP s.locals v))
+Proof
+  rw [] >> simp [Once evaluate_def]
+QED
+
+Theorem eval_Op_And_SOME:
+  eval s x₁ = SOME (ValWord v₁) ∧
+  eval s x₂ = SOME (ValWord v₂)
+  ⇒
+  eval s (Op And [x₁; x₂]) = SOME (ValWord (v₁ && v₂))
+Proof
+  simp [eval_def, wordLangTheory.word_op_def]
+QED
+
+Theorem eval_Cmp_NotEqual_SOME:
+  eval s e₁ = SOME (ValWord v₁) ∧
+  eval s e₂ = SOME (ValWord v₂)
+  ⇒
+  eval s (Cmp NotEqual e₁ e₂) = SOME (ValWord (if v₁ ≠ v₂ then 1w else 0w))
+Proof
+  simp [eval_def, asmTheory.word_cmp_def]
+QED
 
 Theorem and_pos_pos_thm:
-  ∀xs ys zs rs x y z dm m frame s s1.
+  ∀xs ys zs rs x y z frame s s1.
     mw_and xs ys = zs ∧ LENGTH xs ≤ LENGTH ys ∧
     LENGTH rs = LENGTH xs ∧ LENGTH xs ≤ s.clock ∧
     FLOOKUP s.locals (strlit "x_len") = SOME (Val (Word (n2w (LENGTH xs)))) ∧
@@ -124,11 +164,28 @@ Proof
     >> simp [Once evaluate_def,eval_def,asmTheory.word_cmp_def]
     >> simp [state_component_equality])
   >> simp [and_pos_pos_loop_def]
-  >> simp [Once evaluate_def,eval_def,asmTheory.word_cmp_def]
-  >> simp [GSYM and_pos_pos_loop_def]
+
+  >> irule_at (Pos hd) evaluate_While_True_NONE
+  >> simp [eval_def, asmTheory.word_cmp_def]
   >> ‘SUC (LENGTH xs) < dimword (:α)’ by cheat
-  >> gvs []
-  >> simp [Once evaluate_def, eval_def]
+  >> simp []
+
+  >> irule_at (Pos hd) evaluate_Dec_NONE
+  >> simp [eval_def, mem_load_def]
+  >> ‘x ∈ s.memaddrs’ by cheat
+  >> simp []
+
+  >> irule_at (Pos hd) evaluate_Dec_NONE
+  >> simp [eval_def, mem_load_def]
+  >> simp [FLOOKUP_SIMP]
+  >> ‘y ∈ s.memaddrs’ by cheat
+  >> simp []
+
+  >> irule_at (Pos hd) evaluate_Dec_NONE
+  >> irule_at (Pos hd) eval_Op_And_SOME
+  >> irule_at (Pos hd) eval_Cmp_NotEqual_SOME
+  >> simp [FLOOKUP_SIMP]
+
   >> cheat
 QED
 
