@@ -50,7 +50,6 @@ Definition env_rel_def:
     env2 = xs ++ ys ∧
     LIST_REL (v_rel f) env1 xs ∧
     (opt ⇒
-     (*if ~opt then ys = [] else*)
       LENGTH ys = 2 ∧
       ∃hole_ptr hole_idx.
         EL 0 ys = RefPtr F hole_ptr ∧
@@ -64,10 +63,10 @@ Definition code_rel_def:
       ∃n.
         (compile_exp loc n arity exp = NONE ⇒
          lookup loc c2 = SOME (arity, exp)) ∧
-        ∀exp_aux exp_opt.
-          compile_exp loc n arity exp = SOME (exp_aux,exp_opt) ⇒
-          lookup loc c2 = SOME (arity, exp_aux) ∧
-          lookup n c2 = SOME (arity + 2, exp_opt)
+        ∀wrap work.
+          compile_exp loc n arity exp = SOME (wrap,work) ⇒
+          lookup loc c2 = SOME (arity, wrap) ∧
+          lookup n c2 = SOME (arity + 2, work)
 End
 
 Theorem code_rel_domain:
@@ -288,22 +287,6 @@ Proof
   >> gvs []
   >> cheat (* this is easy but i'm not quite sure how to do it *)
 QED
-
-(* Not sure if true or needed *)
-(*Theorem state_ref_rel_functional:
-  ∀f refs1 refs2 refs3.
-    state_ref_rel f refs1 refs2 ∧
-    state_ref_rel f refs1 refs3 ⇒
-    refs2 = refs3
-Proof
-  rw [state_ref_rel_def]
-  >> irule $ iffLR fmap_EQ_THM
-  >> conj_asm2_tac
-  >-
-   (rw []
-    >> Cases_on ‘FLOOKUP refs1 x’ >> gvs []
-        )
-QED*)
 
 Theorem state_rel_dec:
   ∀n t f s s'.
@@ -761,66 +744,56 @@ Proof
   >> cheat
 QED
 
-Theorem aux_strip_if_then:
-  rewrite_aux loc loc_opt arity (If x1 x2 x3) = SOME aux ⇒
-  ∃aux2 aux3.
-    aux = If x1 aux2 aux3 ∧
-    (rewrite_aux loc loc_opt arity x2 = SOME aux2 ∨
-     aux2 = x2)
+Theorem wrapper_strip_if_then:
+  rewrite_wrapper loc loc_opt arity (If x1 x2 x3) = SOME w ⇒
+  ∃w2 w3.
+    w = If x1 w2 w3 ∧
+    (rewrite_wrapper loc loc_opt arity x2 = SOME w2 ∨
+     w2 = x2)
 Proof
   rw []
-  >> gvs [rewrite_aux_def]
-  >> Cases_on ‘rewrite_aux loc loc_opt arity x2’
-  >> Cases_on ‘rewrite_aux loc loc_opt arity x3’
+  >> gvs [rewrite_wrapper_def]
+  >> Cases_on ‘rewrite_wrapper loc loc_opt arity x2’
+  >> Cases_on ‘rewrite_wrapper loc loc_opt arity x3’
   >> gvs []
 QED
 
-Theorem aux_strip_if_else:
-  rewrite_aux loc loc_opt arity (If x1 x2 x3) = SOME aux ⇒
-  ∃aux2 aux3.
-    aux = If x1 aux2 aux3 ∧
-    (rewrite_aux loc loc_opt arity x3 = SOME aux3 ∨
-     aux3 = x3)
+Theorem wrapper_strip_if_else:
+  rewrite_wrapper loc loc_opt arity (If x1 x2 x3) = SOME w ⇒
+  ∃w2 w3.
+    w = If x1 w2 w3 ∧
+    (rewrite_wrapper loc loc_opt arity x3 = SOME w3 ∨
+     w3 = x3)
 Proof
   rw []
-  >> gvs [rewrite_aux_def]
-  >> Cases_on ‘rewrite_aux loc loc_opt arity x2’
-  >> Cases_on ‘rewrite_aux loc loc_opt arity x3’
+  >> gvs [rewrite_wrapper_def]
+  >> Cases_on ‘rewrite_wrapper loc loc_opt arity x2’
+  >> Cases_on ‘rewrite_wrapper loc loc_opt arity x3’
   >> gvs []
 QED
 
-Theorem aux_strip_let:
-  ∀loc loc_opt arity xs x aux.
-    rewrite_aux loc loc_opt arity (Let xs x) = SOME aux ⇒
-    ∃aux'.
-      aux = Let xs aux' ∧
-      rewrite_aux loc loc_opt (arity + LENGTH xs) x = SOME aux'
+Theorem wrapper_strip_let:
+  ∀loc loc_opt arity xs x w.
+    rewrite_wrapper loc loc_opt arity (Let xs x) = SOME w ⇒
+    ∃w'.
+      w = Let xs w' ∧
+      rewrite_wrapper loc loc_opt (arity + LENGTH xs) x = SOME w'
 Proof
   rw []
-  >> gvs [rewrite_aux_def]
-  >> Cases_on ‘rewrite_aux loc loc_opt (arity + LENGTH xs) x’
+  >> gvs [rewrite_wrapper_def]
+  >> Cases_on ‘rewrite_wrapper loc loc_opt (arity + LENGTH xs) x’
   >> gvs []
 QED
 
-Theorem aux_strip_tick:
-  ∀loc loc_opt arity x aux.
-    rewrite_aux loc loc_opt arity (Tick x) = SOME aux ⇒
-    ∃aux'.
-      aux = Tick aux' ∧
-      rewrite_aux loc loc_opt arity x = SOME aux'
+Theorem wrapper_strip_tick:
+  ∀loc loc_opt arity x w.
+    rewrite_wrapper loc loc_opt arity (Tick x) = SOME w ⇒
+    ∃w'.
+      w = Tick w' ∧
+      rewrite_wrapper loc loc_opt arity x = SOME w'
 Proof
-  rw [] >> gvs [rewrite_aux_def]
+  rw [] >> gvs [rewrite_wrapper_def]
 QED
-
-(* TODO: uniqueness, effectfulness *)
-(* Definition has_tmc_call_def:
-  has_tmc_call loc (Op (BlockOp (Cons tag)) xs) ⇔
-    (∃t args h n.
-       EL n xs = Call t loc args h) ∨
-    (∃n block_op_cons.
-       EL n xs = block_op_cons ∧
-       has_tmc_call loc block_op_cons)
-End *)
 
 Definition is_block_op_cons_def:
   is_block_op_cons op ⇔
@@ -843,54 +816,6 @@ Theorem evaluate_err:
     evaluate ([x],env,u) = (Rerr e,t)
 Proof
   cheat
-QED
-
-Theorem aux_strip_op:
-  ∀loc loc_opt arity op xs aux.
-    rewrite_aux loc loc_opt arity (Op op xs) = SOME aux ⇒
-    is_block_op_cons op ∧
-    ∃mut_cons tail_call finalise tag i l hole r hole_ptr hole_idx t args h.
-      mut_cons = to_mut_cons (HoleBlock tag l hole r) ∧
-      tail_call = Call t (SOME loc_opt) (Op (IntOp (Const (&LENGTH l))) [] :: Var hole_ptr :: args) h ∧
-      finalise = Op (MemOp FinaliseCons) [Var hole_ptr] ∧
-      aux = Let [mut_cons; tail_call] $ finalise
-Proof
-  rw []
-  >-
-   (gvs [rewrite_aux_def, is_block_op_cons_def]
-    >> pop_assum mp_tac
-    >> CASE_TAC
-    >> strip_tac
-    >> Cases_on ‘op’ >> gvs [dest_Cons_def]
-    >> Cases_on ‘b’ >> gvs [dest_Cons_def])
-  >> gvs [rewrite_aux_def]
-  >> pop_assum mp_tac
-  >> CASE_TAC
-  >> strip_tac
-  >> gvs [rewrite_aux_BlockOp_Cons_def]
-  >> pop_assum mp_tac
-  >> CASE_TAC
-  >> Cases_on ‘h’ >> gvs []
-  >> Cases_on ‘t’ >> gvs []
-  >> strip_tac
-  >> gvs []
-  >> qexistsl [‘n’, ‘l0’, ‘o'’, ‘l’]
-  >> gvs []
-QED
-
-Theorem rewrite_aux_args_err:
-  rewrite_aux loc loc_opt arity (Op op xs) = SOME exp_aux ∧
-  evaluate (xs,env2,s') = (Rerr e',t'') ⇒
-  evaluate ([exp_aux],env2,s') = (Rerr e',t'')
-Proof
-  rw []
-  >> drule aux_strip_op
-  >> strip_tac
-  >> gvs [is_block_op_cons_def]
-  >> simp [Once evaluate_def]
-  >> simp [Once evaluate_def]
-  >> simp [Once evaluate_def]
-  >> cheat
 QED
 
 Theorem list_rel_reverse:
@@ -944,7 +869,7 @@ Theorem find_code_rel:
       LENGTH args = LENGTH args' ∧
       (opt ⇒
        ∃loc loc_opt i extras.
-         rewrite_aux loc loc_opt i exp = SOME exp' ∧
+         rewrite_wrapper loc loc_opt i exp = SOME exp' ∧
          env_rel T f args (args' ++ extras))
 Proof
   rw []
@@ -974,10 +899,10 @@ Proof
     >> strip_tac
     >> Cases_on ‘compile_exp n n' arity exp’ >> gvs []
     >> Cases_on ‘x’ >> gvs []
-    >> rename [‘compile_exp n n' arity exp = SOME (exp_aux, exp_opt)’]
+    >> rename [‘compile_exp n n' arity exp = SOME (exp_wrap, exp_work)’]
     >> strip_tac
     >> gvs [compile_exp_def]
-    >> Cases_on ‘rewrite_aux n n' arity exp’ >> gvs []
+    >> Cases_on ‘rewrite_wrapper n n' arity exp’ >> gvs []
     >> pop_assum $ irule_at Any
     >> gvs [env_rel_def]
     >> first_assum $ irule_at $ Pos $ el 2
@@ -993,10 +918,10 @@ Proof
   >> strip_tac
   >> Cases_on ‘compile_exp n n' (LENGTH args) exp’ >> gvs []
   >> Cases_on ‘x’ >> gvs []
-  >> rename [‘compile_exp n n' (LENGTH args) exp = SOME (exp_aux,exp_opt)’]
+  >> rename [‘compile_exp n n' (LENGTH args) exp = SOME (exp_wrap,exp_work)’]
   >> strip_tac
   >> gvs [compile_exp_def]
-  >> Cases_on ‘rewrite_aux n n' (LENGTH args) exp’ >> gvs []
+  >> Cases_on ‘rewrite_wrapper n n' (LENGTH args) exp’ >> gvs []
   >> pop_assum $ irule_at Any
   >> gvs [env_rel_def]
   >> first_assum $ irule_at $ Pos $ el 2
@@ -1004,45 +929,6 @@ Proof
   >> qexists ‘[RefPtr F hole_ptr; Number hole_idx]’
   >> gvs []
 QED
-
-(* Not used, not sure how useful *)
-(* Theorem rewrite_opt_base:
-  ∀loc loc_opt arity exp env1 env2 s s' t t' v v' f c.
-    arity = &LENGTH env1 ∧
-    rewrite_aux loc loc_opt arity exp = NONE ∧
-    evaluate ([exp],env1,s) = (Rval [v],t) ∧
-    evaluate ([exp],env2,s') = (Rval [v'],t') ∧
-    hole_has_val f env1 env2 s'.refs c ∧
-    state_rel f s s' ∧
-    env_rel T f env1 env2
-    ⇒
-    ∃exp_opt hole_ptr tag left c right t'_filled.
-      exp_opt = rewrite_opt loc loc_opt arity (arity + 1) (arity + 2) exp ∧
-
-      env2❲LENGTH env1❳ = RefPtr F hole_ptr ∧
-      env2❲LENGTH env1 + 1❳ = Number (&LENGTH left) ∧
-      hole_ptr ∉ FRANGE f ∧
-      FLOOKUP s'.refs hole_ptr = SOME (MutBlock tag left c right) ∧
-      
-      t'_filled = t' with refs := t'.refs⟨hole_ptr ↦ MutBlock tag left v' right⟩ ∧
-      evaluate ([exp_opt],env2,s') = (Rval [Block 0 []],t'_filled)
-Proof
-  rw []
-  >> drule env_rel_length_opt
-  >> strip_tac
-  >> drule env_rel_extras_opt
-  >> strip_tac
-  >> gvs [hole_has_val_def]
-  >> Cases_on ‘exp’ >> gvs [rewrite_aux_def]
-  >~ [‘rewrite_opt _ _ _ _ _ (Var n)’] >-
-   (gvs [rewrite_opt_def, evaluate_def]
-    >> Cases_on ‘n < LENGTH env1’
-    >> gvs [do_app_def, do_app_aux_def, bvlSemTheory.Unit_def, backend_commonTheory.tuple_tag_def])
-  >~ [‘rewrite_opt _ _ _ _ _ (Call ticks dest xs handler)’] >-
-   (gvs [rewrite_opt_def, evaluate_def]
-    >> gvs [do_app_def, do_app_aux_def]
-    >> cheat
-QED *)
 
 Theorem holes_unchanged_except_filled:
   ∀f refs refs' k v b.
@@ -1115,27 +1001,6 @@ Proof
           case_eq_thms, PULL_EXISTS, FLOOKUP_SIMP, bvlSemTheory.Unit_def, backend_commonTheory.tuple_tag_def, opt_res_rel_def]
 QED
 
-Theorem evaluate_call_block:
-  ∀exp exp' loc tag args bs cb env s t r vs.
-    exp = Op (BlockOp (Cons tag)) args ∧
-    to_call_block loc tag args = SOME (bs,cb) ∧
-    exp' = cb_to_bvi loc cb ∧
-    bviSem$evaluate (bs,env,s) = (Rval vs,s) ∧
-    bviSem$evaluate ([exp],env,s) = (r,t) ⇒
-    evaluate ([exp'],vs ++ env,s) = (r,t)
-Proof
-  rw []
-  >> cheat
-QED
-
-
-
-
-
-
-
-
-
 Theorem evaluate_rewrite_tmc:
    ∀xs env1 ^s r t opt f s' env2.
      evaluate (xs, env1, s) = (r, t) ∧
@@ -1151,19 +1016,18 @@ Theorem evaluate_rewrite_tmc:
        only_fresh f f' s'.refs ∧
        holes_unchanged_except f s'.refs t'.refs ∅ ∧
        (opt ⇒
-        (∀loc loc_opt arity exp_aux exp_opt.
-           rewrite_aux loc loc_opt arity (HD xs) = SOME exp_aux ⇒
+        (∀loc loc_opt arity wrap work.
+           rewrite_wrapper loc loc_opt arity (HD xs) = SOME wrap ⇒
            ∃t1.
-             evaluate ([exp_aux], env2, s') = (r',t1) ∧
+             evaluate ([wrap], env2, s') = (r',t1) ∧
              state_rel f' t t1) ∧
-        (∀loc loc_opt i j k exp_aux exp_opt.
+        (∀loc loc_opt i j wrap work.
            i = LENGTH env1 ∧
            j = LENGTH env1 + 1 ∧
-           k = LENGTH env1 + 2 ∧
            (∃c. hole_has_val f env1 env2 s'.refs c) ∧
-           rewrite_opt loc loc_opt i j k (HD xs) = exp_opt ⇒
+           rewrite_worker loc loc_opt i j (HD xs) = work ⇒
            ∃rrr t2.
-             evaluate ([exp_opt], env2, s') = (rrr,t2) ∧
+             evaluate ([work], env2, s') = (rrr,t2) ∧
              opt_res_rel r' rrr ∧
              state_rel f' t t2 ∧
              holes_unchanged_except f s'.refs t2.refs {EL i env2} ∧
@@ -1266,9 +1130,9 @@ Resume evaluate_rewrite_tmc[var]:
   >> conj_asm1_tac
   >- irule holes_unchanged_except_refl
   >> strip_tac
-  >> gvs [rewrite_aux_def]
+  >> gvs [rewrite_wrapper_def]
   >> rw []
-  >> gvs [rewrite_opt_def]
+  >> gvs [rewrite_worker_def]
   >> ho_match_mp_tac evaluate_fill_hole
   >> gvs [evaluate_def]
   >> rpt $ first_assum $ irule_at Any
@@ -1328,7 +1192,7 @@ Resume evaluate_rewrite_tmc[if]:
         >> first_assum $ irule_at Any
         >> gvs [])
       >-
-       (drule aux_strip_if_then
+       (drule wrapper_strip_if_then
         >> strip_tac
         >-
          (first_x_assum drule
@@ -1346,7 +1210,7 @@ Resume evaluate_rewrite_tmc[if]:
         >> first_assum $ irule_at $ Pos hd
         >> gvs [])
       >> strip_tac
-      >> gvs [rewrite_opt_def, evaluate_def]
+      >> gvs [rewrite_worker_def, evaluate_def]
       >> drule_all env_rel_length_opt
       >> strip_tac
       >> gvs [EL_APPEND_EQN]
@@ -1396,7 +1260,7 @@ Resume evaluate_rewrite_tmc[if]:
       >> first_assum $ irule_at Any
       >> gvs [])
     >-
-     (drule aux_strip_if_else
+     (drule wrapper_strip_if_else
       >> strip_tac
       >-
        (first_x_assum drule
@@ -1414,7 +1278,7 @@ Resume evaluate_rewrite_tmc[if]:
       >> first_assum $ irule_at $ Pos hd
       >> gvs [])        
     >> strip_tac
-    >> gvs [rewrite_opt_def, evaluate_def]
+    >> gvs [rewrite_worker_def, evaluate_def]
     >> drule_all env_rel_length_opt
     >> strip_tac
     >> gvs [EL_APPEND_EQN]
@@ -1439,10 +1303,10 @@ Resume evaluate_rewrite_tmc[if]:
   >> gvs []
   >> rw []
   >-
-   (drule aux_strip_if_then
+   (drule wrapper_strip_if_then
     >> strip_tac
     >> gvs [evaluate_def])
-  >> gvs [rewrite_opt_def, evaluate_def, opt_res_rel_def, holes_unchanged_except_def]
+  >> gvs [rewrite_worker_def, evaluate_def, opt_res_rel_def, holes_unchanged_except_def]
 QED
 
 Resume evaluate_rewrite_tmc[lett]:
@@ -1495,7 +1359,7 @@ Resume evaluate_rewrite_tmc[lett]:
       >> first_assum $ irule_at Any
       >> gvs [])
     >-
-     (drule aux_strip_let
+     (drule wrapper_strip_let
       >> strip_tac
       >> last_x_assum drule
       >> strip_tac
@@ -1513,7 +1377,7 @@ Resume evaluate_rewrite_tmc[lett]:
       >> gvs [])
     >> strip_tac
     >> rev_drule evaluate_IMP_LENGTH
-    >> gvs [rewrite_opt_def, evaluate_def]
+    >> gvs [rewrite_worker_def, evaluate_def]
     >> strip_tac
     >> drule_all env_rel_length_opt
     >> strip_tac
@@ -1541,10 +1405,10 @@ Resume evaluate_rewrite_tmc[lett]:
   >> goal_assum $ drule_at Any
   >> gvs []
   >> rw []
-  >- (drule aux_strip_let
+  >- (drule wrapper_strip_let
       >> strip_tac
       >> gvs [evaluate_def])
-  >> gvs [rewrite_opt_def, evaluate_def, opt_res_rel_def]
+  >> gvs [rewrite_worker_def, evaluate_def, opt_res_rel_def]
   >> gvs [holes_unchanged_except_def]
 QED
 
@@ -1564,7 +1428,7 @@ Resume evaluate_rewrite_tmc[raise]:
     >> goal_assum $ drule_at Any
     >> goal_assum $ drule_at Any
     >> Cases_on ‘v’
-    >> gvs [rewrite_aux_def, rewrite_opt_def, evaluate_def, opt_res_rel_def]
+    >> gvs [rewrite_wrapper_def, rewrite_worker_def, evaluate_def, opt_res_rel_def]
     >> imp_res_tac evaluate_SING_IMP
     >> gvs [holes_unchanged_except_def])
   >> first_x_assum $ qspec_then ‘F’ mp_tac
@@ -1615,53 +1479,21 @@ Resume evaluate_rewrite_tmc[op]:
      (rw []
       >> qexists ‘t''’
       >> gvs []
-      >> drule aux_strip_op
+      >> drule wrapper_strip_op
       >> strip_tac
       >> gvs [is_block_op_cons_def]
       >> gvs [to_mut_cons_def]
       >> simp [evaluate_def]
       >> cheat)
-      (*
-      >> CASE_TAC
-      >> CASE_TAC >> gvs []
-      >-
-       (rename [‘evaluate (l ++ [hole] ++ r,env2,s') = (Rval v_args,u')’]
-        >> gvs [do_app_def, do_app_aux_def]
-        >> gvs [rewrite_aux_def, dest_Cons_def, rewrite_aux_BlockOp_Cons_def]
-        >> Cases_on ‘cons_to_tc_and_hb loc block_tag (l ++ [Call t' (SOME loc) args h] ++ r)’ >> gvs []
-        >> Cases_on ‘t'³'’ >> gvs []
-        >> Cases_on ‘h'’ >> gvs []
-        >> rename [‘to_mut_cons (HoleBlock tag' l' hole' r') = Op (MemOp (MutCons tag i)) (l ++ [hole] ++ r)’]
-        (*>> ‘e' ≠ Rabort Rtype_error’ by (spose_not_then assume_tac >> gvs [semanticPrimitivesPropsTheory.exc_rel_def])*)
-        >> gvs [to_mut_cons_def]
-        >> imp_res_tac evaluate_IMP_LENGTH
-        >> gvs [LENGTH_APPEND]
-        >> ‘small_enough_int (&LENGTH l')’ by cheat
-        >> simp [Once evaluate_CONS]
-        >> simp [Once evaluate_def]
-        >> gvs []
-        >> ‘arity < LENGTH env2’ by cheat
-        >> gvs []
-        >> cheat (* HERE *))
-      >> rename [‘state_rel f3 t t'’]
-      >> rename [‘e'' = e' ∧ t'' = t'’]
-      >> gvs [evaluate_APPEND]
-      >> Cases_on ‘evaluate (l,env,s)’ >> gvs []
-      >> reverse $ Cases_on ‘q’ >> gvs []
-      >- (* Error evaluating l *)
-       (cheat (* show ‘evaluate (l,env2,s')’ gives same error *))
-      >> rename [‘evaluate (l,env,s) = (Rval vl,ul)’]
-      >> gvs [Once evaluate_CONS]
-      >> *)
     >> rw []    
-    >> gvs [rewrite_opt_def, evaluate_def]
+    >> gvs [rewrite_worker_def, evaluate_def]
     >> CASE_TAC >> gvs []
     >-
      (gvs [evaluate_def, fill_hole_def, opt_res_rel_def]
       >> irule holes_unchanged_except_subset
       >> first_assum $ irule_at Any
       >> gvs [])
-    >> gvs [evaluate_def, rewrite_opt_BlockOp_Cons_def]
+    >> gvs [evaluate_def, rewrite_worker_cons_def]
     >> CASE_TAC >> gvs []
     >-
      (gvs [evaluate_def, fill_hole_def, opt_res_rel_def]
@@ -1696,13 +1528,13 @@ Resume evaluate_rewrite_tmc[op]:
     >> conj_tac
     >-
      (rw []
-      >> drule aux_strip_op
+      >> drule wrapper_strip_op
       >> strip_tac
       >> gvs [is_block_op_cons_def])
     >> gvs []
     >> rpt gen_tac
     >> strip_tac
-    >> gvs [rewrite_opt_def, dest_Cons_def]
+    >> gvs [rewrite_worker_def, dest_Cons_def]
     >> ho_match_mp_tac evaluate_fill_hole_err
     >> gvs [evaluate_def]
     >> rpt $ first_assum $ irule_at Any)
@@ -1738,24 +1570,24 @@ Resume evaluate_rewrite_tmc[op]:
   >> conj_tac
   >-
    (rw []
-    >> drule aux_strip_op
+    >> drule wrapper_strip_op
     >> strip_tac
     >> gvs [is_block_op_cons_def]
     >> pop_assum mp_tac
-    >> simp [Once rewrite_aux_def, CaseEq "option"]
+    >> simp [Once rewrite_wrapper_def, CaseEq "option"]
     >> simp [dest_Cons_def]
-    >> simp [rewrite_aux_BlockOp_Cons_def, CaseEq "tc_and_hb"]
+    >> simp [rewrite_wrapper_cons_def, CaseEq "tc_and_hb"]
     >> simp [CaseEq "hole_block", CaseEq "tcall"]
     >> cheat)
   >> rw []
-  >> gvs [rewrite_opt_def]
+  >> gvs [rewrite_worker_def]
   >> CASE_TAC >> gvs []
   >-
    (ho_match_mp_tac evaluate_fill_hole
     >> gvs [evaluate_def]
     >> rpt $ first_assum $ irule_at Any)
   (* Cons *)
-  >> gvs [rewrite_opt_BlockOp_Cons_def]
+  >> gvs [rewrite_worker_cons_def]
   >> ‘op = BlockOp (Cons x)’ by
     (spose_not_then assume_tac
      >> Cases_on ‘op’ >> gvs [dest_Cons_def]
@@ -1810,56 +1642,6 @@ Resume evaluate_rewrite_tmc[op]:
   >> cheat
 QED
 
-Theorem conditions_i_need:
-  ∀loc x xs ticks args handler tag l hole r.
-    cons_to_tc_and_hb loc x xs = TC (TCall ticks args handler) (HoleBlock tag l hole r) ⇒
-    x = tag ∧
-    ∃call'.
-      xs = l ++ [call'] ++ r
-Proof
-  cheat
-QED
-
-(*
-Theorem evaluate_rewrite_opt_BlockOp_Cons: loc loc_opt tag args
-  ∀exp f f' env1 env2 v s t s' t' c.
-    exp = Op (BlockOp (Cons tag)) args ∧
-    cons_to_tc_and_hb loc x xs = TC (TCall ticks args handler) (HoleBlock tag l hole r) ∧
-    evaluate ([exp],env2,s') = (Rval [v],t') ∧
-    env_rel T f env1 env2 ∧
-    state_rel f s s' ∧
-    f ⊑ f' ∧
-    hole_has_val f env1 env2 s'.refs c ∧
-    holes_unchanged_except f s'.refs t'.refs ∅ ∧
-    only_fresh f f' s'.refs ∧
-    state_rel f' t t' ⇒
-    ∃r t''.
-      evaluate ([rewrite_opt_BlockOp_Cons loc (LENGTH env1) (LENGTH env1 + 1) (LENGTH env1 + 2) tag args],env2,s') = (r,t'') ∧
-      opt_res_rel (Rval [v]) r ∧
-      state_rel f' t t'' ∧
-      holes_unchanged_except f s'.refs t''.refs {env2❲LENGTH env1❳} ∧
-      hole_has_val f env1 env2 t''.refs v
-        
-
-  exp_opt = rewrite_opt_BlockOp_Cons loc l (l + 1) (l + 2) tag args ∧
-  evaluate ([xs],env,s) = 
-Proof
-  cheat
-QED
-        
-Theorem renameme:
-  ∀loc tag op_args ticks args handler tag' l hole r.
-    cons_to_tc_and_hb loc tag op_args = ((TCall ticks args handler), (HoleBlock tag' l hole r)) ⇒
-    ∃hole'. op_args = l ++ hole' ++ r
-Proof
-  recInduct cons_to_tc_and_hb_ind
-  >> rw [cons_to_tc_and_hb_def]
-  >-
-   (Cases_on ‘dest_Cons op’ >> gvs [] >> cheat)
-  >> cheat
-QED
-*)
-
 Resume evaluate_rewrite_tmc[tick]:
   gvs [evaluate_def]
   >> ‘s'.clock = s.clock’ by gvs [state_rel_def]
@@ -1874,11 +1656,11 @@ Resume evaluate_rewrite_tmc[tick]:
     >- irule holes_unchanged_except_refl
     >-
      (goal_assum $ drule_at Any
-      >> drule aux_strip_tick
+      >> drule wrapper_strip_tick
       >> strip_tac
       >> gvs [evaluate_def])
     >> goal_assum $ drule_at Any
-    >> gvs [rewrite_opt_def, evaluate_def, opt_res_rel_def, holes_unchanged_except_refl])
+    >> gvs [rewrite_worker_def, evaluate_def, opt_res_rel_def, holes_unchanged_except_refl])
   >> first_x_assum $ qspec_then ‘opt’ mp_tac
   >> simp []
   >> disch_then drule
@@ -1898,13 +1680,13 @@ Resume evaluate_rewrite_tmc[tick]:
   >> conj_tac
   >-
    (rw []
-    >> drule aux_strip_tick
+    >> drule wrapper_strip_tick
     >> strip_tac
     >> gvs [evaluate_def]
     >> first_x_assum $ irule_at Any
     >> qexistsl [‘arity’, ‘loc’, ‘loc_opt’]
     >> gvs [])
-  >> rw [rewrite_opt_def, evaluate_def]
+  >> rw [rewrite_worker_def, evaluate_def]
 QED
 
 Resume evaluate_rewrite_tmc[force]:
@@ -1932,11 +1714,11 @@ Resume evaluate_rewrite_tmc[call]:
    (rename [‘evaluate (xs,env2,s') = (Rerr e',t')’]
     >> first_assum $ irule_at $ Pos hd
     >> gvs []
-    >> rw [rewrite_aux_def]
+    >> rw [rewrite_wrapper_def]
     >> qexistsl [‘Rerr e'’, ‘t'’]
     >> gvs [opt_res_rel_def]
     >> conj_tac
-    >- (gvs [rewrite_opt_def, fill_hole_def, evaluate_def] >> IF_CASES_TAC >> gvs [])
+    >- (gvs [rewrite_worker_def, fill_hole_def, evaluate_def] >> IF_CASES_TAC >> gvs [])
     >> irule holes_unchanged_except_subset
     >> first_assum $ irule_at Any
     >> gvs [])
@@ -1960,9 +1742,9 @@ Resume evaluate_rewrite_tmc[call]:
     >> first_assum $irule_at $ Pos hd
     >> gvs []
     >> strip_tac
-    >> gvs [rewrite_aux_def]
+    >> gvs [rewrite_wrapper_def]
     >> rw []
-    >> simp [rewrite_opt_def]
+    >> simp [rewrite_worker_def]
     >> ho_match_mp_tac evaluate_fill_hole_err
     >> first_assum $ irule_at Any
     >> gvs [evaluate_def]
@@ -2011,9 +1793,9 @@ Resume evaluate_rewrite_tmc[call]:
       >> strip_tac
       >> gvs []
       >> conj_tac
-      >- rw [rewrite_aux_def]
+      >- rw [rewrite_wrapper_def]
       >> rw []
-      >> gvs [rewrite_opt_def]
+      >> gvs [rewrite_worker_def]
       >> ho_match_mp_tac evaluate_fill_hole
       >> gvs [evaluate_def]
       >> IF_CASES_TAC >> gvs []
@@ -2036,9 +1818,9 @@ Resume evaluate_rewrite_tmc[call]:
         >> strip_tac
         >> gvs []
         >> conj_tac
-        >> rw [rewrite_aux_def]
+        >> rw [rewrite_wrapper_def]
         >> rw []
-        >> gvs [rewrite_opt_def, fill_hole_def, evaluate_def]
+        >> gvs [rewrite_worker_def, fill_hole_def, evaluate_def]
         >> gvs [opt_res_rel_def]
         >> drule_all holes_unchanged_except_trans
         >> gvs []
@@ -2076,9 +1858,9 @@ Resume evaluate_rewrite_tmc[call]:
       >> conj_asm1_tac
       >- imp_res_tac holes_unchanged_except_trans
       >> strip_tac
-      >> gvs [rewrite_aux_def]
+      >> gvs [rewrite_wrapper_def]
       >> rw []
-      >> gvs [rewrite_opt_def]
+      >> gvs [rewrite_worker_def]
       >> Cases_on ‘v_x'’ >> gvs []
       >-
        (imp_res_tac evaluate_SING_IMP
@@ -2102,16 +1884,16 @@ Resume evaluate_rewrite_tmc[call]:
     >> conj_asm1_tac
     >- imp_res_tac holes_unchanged_except_trans
     >> strip_tac
-    >> gvs [rewrite_aux_def]
+    >> gvs [rewrite_wrapper_def]
     >> rw []
-    >> gvs [rewrite_opt_def]
+    >> gvs [rewrite_worker_def]
     >> ho_match_mp_tac evaluate_fill_hole_err
     >> gvs [evaluate_def]
     >> IF_CASES_TAC >> gvs []
     >> rpt $ first_assum $ irule_at Any)
 
     
-  >> rename [‘exp ≠ exp_aux’]
+  >> rename [‘exp ≠ wrap’]
   >> rename [‘env_rel F f'' args args_exp’]
   >> disch_then drule
   >> impl_tac
@@ -2125,14 +1907,14 @@ Resume evaluate_rewrite_tmc[call]:
   >> last_x_assum drule
   >> strip_tac
   >> gvs []
-  >> rename [‘state_rel f3 t t_aux’]
+  >> rename [‘state_rel f3 t t_wrap’]
   >> Cases_on ‘v_exp’ >> gvs []
   >-
    (imp_res_tac evaluate_SING_IMP
     >> gvs []
     >> rename [‘v_rel f3 v_exp v_exp'’]
-    >> Cases_on ‘evaluate ([exp_aux],args_exp,dec_clock (ticks + 1) u')’ >> gvs []
-    >> rename [‘evaluate ([exp_aux],args_exp,dec_clock (ticks + 1) u') = (v_exp_aux',t_aux')’]
+    >> Cases_on ‘evaluate ([wrap],args_exp,dec_clock (ticks + 1) u')’ >> gvs []
+    >> rename [‘evaluate ([wrap],args_exp,dec_clock (ticks + 1) u') = (v_wrap',t_wrap')’]
     >> drule evaluate_expand_env
     >> disch_then $ qspec_then ‘extras’ assume_tac
     >> gvs []
@@ -2147,14 +1929,14 @@ Resume evaluate_rewrite_tmc[call]:
       >> imp_res_tac evaluate_refs_SUBSET)
     >> conj_asm1_tac
     >- cheat
-    >> rw [rewrite_aux_def, rewrite_opt_def]
+    >> rw [rewrite_wrapper_def, rewrite_worker_def]
     >> irule evaluate_fill_hole
     >> gvs []
     >> rpt $ first_assum $ irule_at Any
     >> gvs [evaluate_def]
     >> IF_CASES_TAC >> gvs [])
-  >> Cases_on ‘evaluate ([exp_aux],args_exp,dec_clock (ticks + 1) u')’ >> gvs []
-  >> rename [‘evaluate ([exp_aux],args_exp,dec_clock (ticks + 1) u') = (v_exp_aux',t_aux')’]
+  >> Cases_on ‘evaluate ([wrap],args_exp,dec_clock (ticks + 1) u')’ >> gvs []
+  >> rename [‘evaluate ([wrap],args_exp,dec_clock (ticks + 1) u') = (v_wrap',t_wrap')’]
   >> drule evaluate_expand_env
   >> disch_then $ qspec_then ‘extras’ assume_tac
   >> gvs []
@@ -2173,7 +1955,7 @@ Resume evaluate_rewrite_tmc[call]:
         >> imp_res_tac evaluate_refs_SUBSET)
       >> conj_asm1_tac
       >- cheat
-      >> rw [rewrite_aux_def, rewrite_opt_def]
+      >> rw [rewrite_wrapper_def, rewrite_worker_def]
       >> ho_match_mp_tac evaluate_fill_hole_err
       >> gvs []
       >> rpt $ first_assum $ irule_at Any
