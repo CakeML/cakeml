@@ -1125,7 +1125,7 @@ Theorem evaluate_call_block:
     evaluate ([exp'],vs ++ env,s) = (r,t)
 Proof
   rw []
-  >> 
+  >> cheat
 QED
 
 
@@ -1171,6 +1171,12 @@ Theorem evaluate_rewrite_tmc:
                 r' = Rval [res_v] ⇒
                 hole_has_val f env1 env2 t2.refs res_v))
 Proof
+  (*
+  completeInduct_on ‘s.clock’
+  >> completeInduct_on ‘list_size exp_size xs’
+  >> Cases_on ‘xs’
+  *)
+        
   recInduct bviSemTheory.evaluate_ind
   >> rpt strip_tac
   >~ [‘evaluate ([],_,_)’] >-

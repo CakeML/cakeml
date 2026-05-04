@@ -47,16 +47,6 @@ End
 (* PHASE 1: extract everything into a let bound "call block" *)
 (* TODO: binders are messed up *)
 
-(* Recursive call - loc is in scope during transformation and not included in the constructor *)
-Datatype:
-  rcall = RCall num (num list) (exp option)
-End
-
-(* I could not find this in std lib *)
-Datatype:
-  either = Left 'a | Right 'b
-End
-
 (* CallBlock tag left child right
    This is the "skeleton" of the BlockOp Cons
    - with the same tag,
@@ -64,81 +54,92 @@ End
    - where left and right are de Bruijn indeces of the other args, positions preserved,
      with the original expressions assumed to be let bound.
  *)
+(* Two cases instead of the SUM type *)
 Datatype:
-  call_block = CallBlock num (num list) ((rcall, call_block) either) (num list)
+  call_block = CallBlock num (num list) call_block (num list)
+             | RCall num (num list)
 End
 
 (* Returns a tuple of expressions to be in let binders and a list of corresponding de Bruijn indeces,
    for the purpose of buidling left and right above.
    I don't think I am doing de Bruijn indexing correctly yet. *)
 Definition to_binder_def:
-  (to_binder binders (Var n) = ([],binders + n)) ∧
-  (to_binder binders exp = ([exp],binders))
+  (to_binder next (Var n) = ([],next + n)) ∧
+  (to_binder next exp = ([exp],next))
 End
 
 (* Same as above, but for multiple expressions. Used only for arguments to recursive call. Same indexing problem. *)
 Definition to_binders_def:
-  (to_binders binders [] = ([],[])) ∧
-  (to_binders binders (h::t) =
-   case to_binder binders h of
+  (to_binders next [] = ([],[])) ∧
+  (to_binders next (h::t) =
+   case to_binder next h of
    | (b,n) =>
-       case to_binders binders t of
+       case to_binders next t of
        | (bs,ns) => (b ++ bs,n::ns))
 End
 
-(* Attempts to build a CallBlock from a BlockOp Cons.
-   If no recursive call found, returns each op arg expression in a list and (Left) a list of corresponding de Bruijn indeces.
-   If a recursive call is found, returns all extracted/let-bound expressions and (Right) the call block.
+(* Attempts to build a CallBlock from the tag and args of a BlockOp Cons.
+   If no recursive call found, returns each op arg expression in a list and (INL) a list of corresponding de Bruijn indeces.
+   If a recursive call is found, returns all extracted/let-bound expressions and (INR) the call block.
+   If an effectful operation appears right of the recursive call, the expression is not eligible for transformation and NONE is returned.
    If multiple recursive calls are found, all but the last are let bound. *)
 Definition to_binders_or_cb_def:
-  (to_binders_or_cb _ _ _ [] = ([],Left [])) ∧
-  (to_binders_or_cb binders loc tag [Call t loc' args h] =
-   if loc' = SOME loc then
+  (to_binders_or_cb _ _ _ [] = SOME ([],INL [])) ∧
+  (to_binders_or_cb next loc tag [Call t loc' args h] =
+   if loc' = SOME loc ∧ h = NONE then
      (* Recursive call found - base case of CallBlock *)
-     case to_binders binders args of
-     | (bs,ns) => (bs,Right (CallBlock tag [] (Left (RCall t ns h)) []))
+     case to_binders next args of
+     | (bs,ns) => SOME (bs,INR (CallBlock tag [] (RCall t ns) []))
    else
      (* Not a recursive call - gets let-bound *)
-     case to_binder binders (Call t loc' args h) of
-     | (bs,n) => (bs,Left [n])) ∧
-  (to_binders_or_cb binders loc tag [Op op args] =
+     case to_binder next (Call t loc' args h) of
+     | (bs,n) => SOME (bs,INL [n])) ∧
+  (to_binders_or_cb next loc tag [Op op args] =
    case dest_Cons op of
    | SOME _ =>
        (* BlockOp Cons - try to recurse *)
-       (case to_binders_or_cb binders loc tag args of
-        | (bs,Left ns) =>
+       (case to_binders_or_cb next loc tag args of
+        | NONE => NONE
+        | SOME (bs,INL ns) =>
             (* No recursive call - whole thing gets let-bound *)
-            (case to_binder binders (Op op args) of
-             | (bs,n) => (bs,Left [n]))
-        | (bs,Right cb) =>
+            (case to_binder next (Op op args) of
+             | (bs,n) => SOME (bs,INL [n]))
+        | SOME (bs,INR cb) =>
             (* Recursive call - inductive case of CallBlock *)
-            (bs, Right (CallBlock tag [] (Right cb) [])))
+            SOME (bs, INR (CallBlock tag [] cb [])))
    | NONE =>
        (* Not a BlockOp Cons - whole thing gets let-bound *)
-       (case to_binder binders (Op op args) of
-        | (bs,n) => (bs,Left [n]))) ∧
-  (to_binders_or_cb binders _ _ [exp] =
+       (case to_binder next (Op op args) of
+        | (bs,n) => SOME (bs,INL [n]))) ∧
+  (to_binders_or_cb next _ _ [exp] =
    (* Some other expression - whole thing gets let-bound *)
-   case to_binder binders exp of
-   | (bs,n) => (bs,Left [n])) ∧
-  (to_binders_or_cb binders loc tag (h::t) =
+   case to_binder next exp of
+   | (bs,n) => SOME (bs,INL [n])) ∧
+  (to_binders_or_cb next loc tag (h::t) =
    (* Recurse right to left to find last occurence of recursive call *)
-   case to_binders_or_cb binders loc tag t of
-   | (bs2,Left ns2) =>
+   case to_binders_or_cb next loc tag t of
+   | NONE => NONE
+   | SOME (bs2,INL ns2) =>
        (* No recursive call to the right. See if the first has one. *)
-       (case to_binders_or_cb (binders + LENGTH bs2) loc tag [h] of
-        | (bs1,Left ns1) =>
+       (case to_binders_or_cb (next + LENGTH bs2) loc tag [h] of
+        | NONE => NONE
+        | SOME (bs1,INL ns1) =>
             (* No recursive call, keep building binders. *)
-            (bs1 ++ bs2,Left (ns1 ++ ns2))
-        | (bs1,Right (CallBlock tag l child r)) =>
-            (* Recursive call found, build a call block with ns2 on the right *)
-            (bs1 ++ bs2,Right (CallBlock tag l child (r ++ ns2))))
-   | (bs2,Right (CallBlock tag l child r)) =>
+            SOME (bs1 ++ bs2,INL (ns1 ++ ns2))
+        | SOME (bs1,INR (CallBlock _ [] cb [])) =>
+            (* We've constructed a CallBlock at this level with just h, pad the other args *)
+            (* l and r are always empty if args is a singleton! *)
+            SOME (bs1 ++ bs2,INR (CallBlock tag [] cb ns2)))
+   | SOME (bs2,INR (CallBlock tag l child r)) =>
        (* Recursive call found, first is let bound and added to the left *)
-       case to_binder (binders + LENGTH bs2) h of
+       case to_binder (next + LENGTH bs2) h of
        | (bs1,n1) =>
-           (bs1 ++ bs2,Right (CallBlock tag (n1::l) child r)))
+           SOME (bs1 ++ bs2,INR (CallBlock tag (n1::l) child r)))
 End
+
+val ex1 = “[Op (IntOp (Const 1)) []; Call 0 (SOME 0) [] NONE; Call 0 (SOME 7) [] NONE; Op (IntOp (Const 3)) []]”
+val ex1_call = “to_binders_or_cb 0 0 99 ^ex1”
+EVAL ex1_call
 
 (* Calls the above but throws away an unoptimisable BlockOp Cons. *)
 Definition to_call_block_def:
@@ -149,6 +150,7 @@ Definition to_call_block_def:
 End
 
 (* Convert back to BlockOp Cons for comparing semantics *)
+(* Pattern match child at top level *)
 Definition cb_to_BlockOp_Cons_def:
   cb_to_BlockOp_Cons loc (CallBlock tag l child r) =
   let l' = MAP (λn. Var n) l in
@@ -163,6 +165,7 @@ Definition cb_to_BlockOp_Cons_def:
 End
 
 (* Let bind the result of the above for a semantically equivalent BVI expression. *)
+(* Return OPTION *)
 Definition rewrite_lb_BlockOp_Cons_def:
   rewrite_lb_BlockOp_Cons loc tag args =
     case to_call_block loc tag args of
