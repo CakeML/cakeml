@@ -54,7 +54,6 @@ End
    - where left and right are de Bruijn indeces of the other args, positions preserved,
      with the original expressions assumed to be let bound.
  *)
-(* Two cases instead of the SUM type *)
 Datatype:
   call_block = CallBlock num (num list) call_block (num list)
              | RCall num (num list)
@@ -139,39 +138,32 @@ End
 
 val ex1 = “[Op (IntOp (Const 1)) []; Call 0 (SOME 0) [] NONE; Call 0 (SOME 7) [] NONE; Op (IntOp (Const 3)) []]”
 val ex1_call = “to_binders_or_cb 0 0 99 ^ex1”
-EVAL ex1_call
+(* EVAL ex1_call *)
 
 (* Calls the above but throws away an unoptimisable BlockOp Cons. *)
 Definition to_call_block_def:
   to_call_block loc tag args =
   case to_binders_or_cb 0 loc tag args of
-  | (_,Left _) => NONE
-  | (bs,Right cb) => SOME (bs,cb)
+  | SOME (bs,INR cb) => SOME (bs,cb)
+  | _ => NONE
 End
 
 (* Convert back to BlockOp Cons for comparing semantics *)
-(* Pattern match child at top level *)
 Definition cb_to_BlockOp_Cons_def:
   cb_to_BlockOp_Cons loc (CallBlock tag l child r) =
   let l' = MAP (λn. Var n) l in
-  let child' =
-      case child of
-      | Left (RCall t args h) =>
-          let args' = MAP (λn. Var n) args in
-          bvi$Call t (SOME loc) args' h
-      | Right cb => cb_to_BlockOp_Cons loc cb in
+  let child' = cb_to_BlockOp_Cons loc child in
   let r' = MAP (λn. Var n) r in
   Op (BlockOp (Cons tag)) $ l' ++ [child'] ++ r'
 End
 
 (* Let bind the result of the above for a semantically equivalent BVI expression. *)
-(* Return OPTION *)
 Definition rewrite_lb_BlockOp_Cons_def:
   rewrite_lb_BlockOp_Cons loc tag args =
     case to_call_block loc tag args of
-    | NONE => Op (BlockOp (Cons tag)) args
     | SOME (bs,cb) =>
-        Let bs $ cb_to_BlockOp_Cons loc cb
+        SOME $ Let bs $ cb_to_BlockOp_Cons loc cb
+    | NONE => NONE
 End
 
 (* Prove they are semantically equivalent - this will need to move but easier here for now. *)
@@ -213,97 +205,69 @@ QED
 
 (* Like call_block, but base case is NONE instead of RCall *)
 Datatype:
-  hole_block = HoleBlock num (num list) (hole_block option) (num list)
+  hole_block = HoleBlock num (num list) hole_block (num list)
+             | Hole
 End
 
-(* Convert a call_block to a hole_block, and return the RCall to be replaced with optimised version. *)
-Definition to_hole_block_def:
-  to_hole_block (CallBlock tag l child r) =
-    case child of
-    | Left rcall => (HoleBlock tag l NONE r,rcall)
-    | Right cb =>
-        case to_hole_block cb of
-        | (hb,rcall) => (HoleBlock tag l (SOME hb) r,rcall)
-End
-
-(* Convert hole block to a MutCons allocation with hole represented as Const 0 *)
+(* Convert a hole_block to a MutCons allocation with hole represented as Const 0 *)
 Definition hb_to_MemOp_MutCons_def:
-  hb_to_MemOp_MutCons (HoleBlock t l h r) =
-    let l' = MAP (λn. Var n) l in
-    let h' =
-        case h of
-        | SOME hb => hb_to_MemOp_MutCons hb
-        | NONE => Op (IntOp (Const 0)) [] in
-    let r' = MAP (λn. Var n) r in
-    let i = LENGTH l in
-      Op (MemOp (MutCons t i)) (l' ++ [h'] ++ r')
+  (hb_to_MemOp_MutCons (HoleBlock t l hb r) =    
+     let l' = MAP (λn. Var n) l in
+     let hb' = hb_to_MemOp_MutCons hb in
+     let r' = MAP (λn. Var n) r in
+     let i = LENGTH l in
+       Op (MemOp (MutCons t i)) (l' ++ [hb'] ++ r')) ∧
+  (hb_to_MemOp_MutCons Hole = Op (IntOp (Const 0)) [])
 End
 
-
-
-(* New attempt at phase 1 *)
-
-Datatype:
-  lb_exp = LbVar num
-         (*| LbLet (bvi$exp list) lb_exp*)
-         | LbRCall num (lb_exp list) (bvi$exp option)
-         | LbCons num (lb_exp list)
+Definition optimised_call_def:
+  optimised_call loc idx ptr ts args = bvi$Call ts (SOME loc) (idx::ptr::[(* args *)]) NONE
 End
 
-Definition bind_def:
-  (bind next (bvi$Var n) = ([],[LbVar (n + next)])) ∧
-  (bind next exp = ([exp],[LbVar next]))
+(* Convert a call_block to a hole_block, and return the RCall ingredients to be replaced with optimised version. *)
+Definition cb_to_hb_def:
+  (cb_to_hb (CallBlock tag l child r) =
+     case cb_to_hb child of
+     | (hb,ts,args) => (HoleBlock tag l hb r,ts,args)) ∧
+  (cb_to_hb (RCall ts args) = (Hole,ts,args))
 End
 
-Definition bind_all_def:
-  (bind_all next [] = ([],[])) ∧
-  (bind_all next (x::xs) =
-   case bind next x of
-   | (b,v) =>
-       case bind_all (next + LENGTH b) xs of
-       | (bs,vs) => (b ++ bs,v ++ vs))
+Definition cb_to_bvi_opt_def:
+  cb_to_bvi_opt loc loc_opt i_ptr i_idx cb =
+    case cb_to_hb cb of
+    | (HoleBlock tag l hole r,ts,args) =>
+        let hb               = HoleBlock tag l hole r in
+        let i                = & LENGTH l in
+        let arg_old_ptr      = Var (i_ptr + 1) in
+        let arg_old_idx      = Var (i_idx + 1) in
+        let var_new_ptr      = Var 0 in
+        let exp_new_idx      = Op (IntOp (Const i)) [] in
+        let exp_mut_cons     = hb_to_MemOp_MutCons hb in
+        let exp_update_hole  = Op (MemOp UpdateCons) [var_new_ptr; arg_old_idx; arg_old_ptr] in
+        let exp_tail_call    = optimised_call loc_opt exp_new_idx var_new_ptr ts args in
+          Let [exp_mut_cons] $
+              Let [exp_update_hole] $ exp_tail_call
 End
 
-Definition bvi_to_bvi_lb_def:
-  (bvi_to_bvi_lb _ _ [] = ([],[])) ∧
-  (bvi_to_bvi_lb loc next [Call t l args h] =
-   if l = SOME loc then
-     case bind_all next args of
-     | (bs,args') => (bs, [LbRCall t args' h])
-   else
-     bind next $ Call t l args h) ∧
-  (bvi_to_bvi_lb loc next [Op op args] =
-   case dest_Cons op of
-   | SOME tag =>
-       (case bvi_to_bvi_lb loc next (REVERSE args) of
-        | (bs,args') =>
-            (REVERSE bs,[LbCons tag (REVERSE args')]))
-   | NONE => bind next $ Op op args) ∧
-  (bvi_to_bvi_lb _ next [exp] = bind next exp) ∧
-  (bvi_to_bvi_lb loc_opt next (x::xs) =
-   (case bvi_to_bvi_lb loc_opt next [x] of
-    | (bs1,[LbRCall t args h]) =>
-        (case bind_all next xs of
-         | (bs2,vs2) => (bs1 ++ bs2,(LbRCall t args h)::vs2))
-    | (bs1,[LbCons tag args]) =>
-        (case bind_all next xs of
-         | (bs2,vs2) => (bs1 ++ bs2,(LbCons tag args)::vs2))
-    | (bs1,[LbVar n]) =>
-        (case bvi_to_bvi_lb loc_opt next xs of
-         | (bs2,vs2) => (bs1 ++ bs2,(LbVar n)::vs2))))
+Definition fill_hole_def:
+  fill_hole i_old_hole_ptr i_old_hole_idx expr =
+    let arg_hole_ptr = Var i_old_hole_ptr in
+    let arg_hole_idx = Var i_old_hole_idx in
+    Op (MemOp UpdateCons) [expr; arg_hole_idx; arg_hole_ptr]
 End
 
-
-
-
-
-
+(* Assumes that the function can and should be optimised - has been checked by rewrite_aux_def. *)
+Definition rewrite_opt_BlockOp_Cons_def:
+  rewrite_opt_BlockOp_Cons loc loc_opt i_ptr i_idx tag args =
+    case to_call_block loc tag args of
+    | SOME (bs,cb) =>
+        Let bs $ cb_to_bvi_opt loc loc_opt i_ptr i_idx cb
+    | NONE =>
+        let expr = Op (BlockOp (Cons tag)) args in
+          fill_hole i_ptr i_idx expr
+End
 
 (* Old way - there are conflicting definitions (hole_block) so stuff below here doesn't compile currently *)
-
-Datatype:
-  hole_block = HoleBlock num (num list) (hole_block option) (num list)
-End
 
 Datatype:
   tcall = TCall num (exp list) (exp option) (* loc is not needed here, as it is known in function body *)
@@ -433,13 +397,16 @@ Definition rewrite_aux_def:
   (rewrite_aux loc loc_opt i_hole_ptr _ = NONE)
 End
 
+(*
 Definition fill_hole_def:
   fill_hole i_old_hole_ptr i_old_hole_idx expr =
     let arg_hole_ptr = Var i_old_hole_ptr in
     let arg_hole_idx = Var i_old_hole_idx in
     Op (MemOp UpdateCons) [expr; arg_hole_idx; arg_hole_ptr]
 End
+*)
 
+(*
 (* Assumes that the function can and should be optimised - has been checked by rewrite_aux_def. *)
 Definition rewrite_opt_BlockOp_Cons_def:
   rewrite_opt_BlockOp_Cons loc loc_opt i_old_hole_ptr i_old_hole_idx i_new_hole_ptr block_tag op_args =
@@ -460,6 +427,7 @@ Definition rewrite_opt_BlockOp_Cons_def:
         let expr = Op (BlockOp (Cons block_tag)) op_args in
           fill_hole i_old_hole_ptr i_old_hole_idx expr
 End
+*)
 
 (* Assumes that the function can and should be optimised - has been checked by rewrite_aux_def. *)
 Definition rewrite_opt_def:
@@ -473,7 +441,7 @@ Definition rewrite_opt_def:
   (rewrite_opt loc loc_opt i_old_hole_ptr i_old_hole_idx i_new_hole_ptr (Raise x) = Raise x) ∧
   (rewrite_opt loc loc_opt i_old_hole_ptr i_old_hole_idx i_new_hole_ptr (Op op op_args) =
     case dest_Cons op of
-    | SOME block_tag => rewrite_opt_BlockOp_Cons loc loc_opt i_old_hole_ptr i_old_hole_idx i_new_hole_ptr block_tag op_args
+    | SOME block_tag => rewrite_opt_BlockOp_Cons loc loc_opt i_old_hole_ptr i_old_hole_idx block_tag op_args
     | NONE =>
         fill_hole i_old_hole_ptr i_old_hole_idx (Op op op_args)) ∧
   (rewrite_opt loc loc_opt i_old_hole_ptr i_old_hole_idx i_new_hole_ptr (Tick x) =
