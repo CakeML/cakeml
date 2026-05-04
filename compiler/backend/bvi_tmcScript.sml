@@ -82,9 +82,9 @@ End
    If a recursive call is found, returns all extracted/let-bound expressions and (INR) the call block.
    If an effectful operation appears right of the recursive call, the expression is not eligible for transformation and NONE is returned.
    If multiple recursive calls are found, all but the last are let bound. *)
-Definition to_binders_or_cb_def:
-  (to_binders_or_cb _ _ _ [] = SOME ([],INL [])) ∧
-  (to_binders_or_cb next loc tag [Call t loc' args h] =
+Definition cons_to_cb_aux_def:
+  (cons_to_cb_aux _ _ _ [] = SOME ([],INL [])) ∧
+  (cons_to_cb_aux next loc tag [Call t loc' args h] =
    if loc' = SOME loc ∧ h = NONE then
      (* Recursive call found - base case of CallBlock *)
      case to_binders next args of
@@ -93,11 +93,11 @@ Definition to_binders_or_cb_def:
      (* Not a recursive call - gets let-bound *)
      case to_binder next (Call t loc' args h) of
      | (bs,n) => SOME (bs,INL [n])) ∧
-  (to_binders_or_cb next loc tag [Op op args] =
+  (cons_to_cb_aux next loc tag [Op op args] =
    case dest_Cons op of
    | SOME _ =>
        (* BlockOp Cons - try to recurse *)
-       (case to_binders_or_cb next loc tag args of
+       (case cons_to_cb_aux next loc tag args of
         | NONE => NONE
         | SOME (bs,INL ns) =>
             (* No recursive call - whole thing gets let-bound *)
@@ -110,17 +110,17 @@ Definition to_binders_or_cb_def:
        (* Not a BlockOp Cons - whole thing gets let-bound *)
        (case to_binder next (Op op args) of
         | (bs,n) => SOME (bs,INL [n]))) ∧
-  (to_binders_or_cb next _ _ [exp] =
+  (cons_to_cb_aux next _ _ [exp] =
    (* Some other expression - whole thing gets let-bound *)
    case to_binder next exp of
    | (bs,n) => SOME (bs,INL [n])) ∧
-  (to_binders_or_cb next loc tag (h::t) =
+  (cons_to_cb_aux next loc tag (h::t) =
    (* Recurse right to left to find last occurence of recursive call *)
-   case to_binders_or_cb next loc tag t of
+   case cons_to_cb_aux next loc tag t of
    | NONE => NONE
    | SOME (bs2,INL ns2) =>
        (* No recursive call to the right. See if the first has one. *)
-       (case to_binders_or_cb (next + LENGTH bs2) loc tag [h] of
+       (case cons_to_cb_aux (next + LENGTH bs2) loc tag [h] of
         | NONE => NONE
         | SOME (bs1,INL ns1) =>
             (* No recursive call, keep building binders. *)
@@ -137,65 +137,65 @@ Definition to_binders_or_cb_def:
 End
 
 val ex1 = “[Op (IntOp (Const 1)) []; Call 0 (SOME 0) [] NONE; Call 0 (SOME 7) [] NONE; Op (IntOp (Const 3)) []]”
-val ex1_call = “to_binders_or_cb 0 0 99 ^ex1”
+val ex1_call = “cons_to_cb_aux 0 0 99 ^ex1”
 (* EVAL ex1_call *)
 
 (* Calls the above but throws away an unoptimisable BlockOp Cons. *)
-Definition to_call_block_def:
-  to_call_block loc tag args =
-  case to_binders_or_cb 0 loc tag args of
+Definition cons_to_cb_def:
+  cons_to_cb loc tag args =
+  case cons_to_cb_aux 0 loc tag args of
   | SOME (bs,INR cb) => SOME (bs,cb)
   | _ => NONE
 End
 
 (* Convert back to BlockOp Cons for comparing semantics *)
-Definition cb_to_BlockOp_Cons_def:
-  cb_to_BlockOp_Cons loc (CallBlock tag l child r) =
+Definition cb_to_cons_def:
+  cb_to_cons loc (CallBlock tag l child r) =
   let l' = MAP (λn. Var n) l in
-  let child' = cb_to_BlockOp_Cons loc child in
+  let child' = cb_to_cons loc child in
   let r' = MAP (λn. Var n) r in
   Op (BlockOp (Cons tag)) $ l' ++ [child'] ++ r'
 End
 
 (* Let bind the result of the above for a semantically equivalent BVI expression. *)
-Definition rewrite_lb_BlockOp_Cons_def:
-  rewrite_lb_BlockOp_Cons loc tag args =
-    case to_call_block loc tag args of
+Definition cb_to_bvi_def:
+  cb_to_bvi loc tag args =
+    case cons_to_cb loc tag args of
     | SOME (bs,cb) =>
-        SOME $ Let bs $ cb_to_BlockOp_Cons loc cb
+        SOME $ Let bs $ cb_to_cons loc cb
     | NONE => NONE
 End
 
 (* Prove they are semantically equivalent - this will need to move but easier here for now. *)
 (*
-Theorem evaluate_rewrite_lb_BlockOp_Cons:
+Theorem evaluate_cb_to_bvi:
   ∀exp exp' loc tag args env s t r.
     exp = Op (BlockOp (Cons tag)) args ∧
-    exp' = rewrite_lb_BlockOp_Cons loc tag args ∧
+    exp' = cb_to_bvi loc tag args ∧
     r ≠ Rerr (Rabort Rtype_error) ∧
     evaluate ([exp],env,s) = (r,t) ⇒
     evaluate ([exp'],env,s) = (r,t)
 Proof
   rw []
-  >> gvs [rewrite_lb_BlockOp_Cons_def]
+  >> gvs [cb_to_bvi_def]
   >> CASE_TAC >> gvs []
   >> CASE_TAC >> gvs []
-  >> rename [‘to_call_block loc tag args = SOME (bs,block_op_cons)’]
+  >> rename [‘cons_to_cb loc tag args = SOME (bs,block_op_cons)’]
   >> gvs [evaluate_def]
   >> CASE_TAC >> gvs []
   >> rename [‘evaluate (bs,env,s) = (vs,t')’]
   >> Induct_on ‘bs’
   >-
-   (gvs [to_call_block_def]
+   (gvs [cons_to_cb_def]
     >> CASE_TAC >> gvs []
     >> CASE_TAC >> gvs []
     >> rw []
     >> gvs [evaluate_def]
     >> Cases_on ‘b’ >> gvs []
-    >> rename [‘to_binders_or_cb 0 loc tag args = ([],Right (CallBlock tag' l c r))’]
-    >> gvs [cb_to_BlockOp_Cons_def, evaluate_def]
-    >> Cases_on ‘args’ >> gvs [to_binders_or_cb_def]
-    >> Cases_on ‘t'’ >> gvs [to_binders_or_cb_def]
+    >> rename [‘cons_to_cb_aux 0 loc tag args = ([],Right (CallBlock tag' l c r))’]
+    >> gvs [cb_to_cons_def, evaluate_def]
+    >> Cases_on ‘args’ >> gvs [cons_to_cb_aux_def]
+    >> Cases_on ‘t'’ >> gvs [cons_to_cb_aux_def]
     >> cheat)
   >> cheat
 QED
@@ -210,18 +210,18 @@ Datatype:
 End
 
 (* Convert a hole_block to a MutCons allocation with hole represented as Const 0 *)
-Definition hb_to_MemOp_MutCons_def:
-  (hb_to_MemOp_MutCons (HoleBlock t l hb r) =    
+Definition hb_to_mutcons_def:
+  (hb_to_mutcons (HoleBlock t l hb r) =    
      let l' = MAP (λn. Var n) l in
-     let hb' = hb_to_MemOp_MutCons hb in
+     let hb' = hb_to_mutcons hb in
      let r' = MAP (λn. Var n) r in
      let i = LENGTH l in
        Op (MemOp (MutCons t i)) (l' ++ [hb'] ++ r')) ∧
-  (hb_to_MemOp_MutCons Hole = Op (IntOp (Const 0)) [])
+  (hb_to_mutcons Hole = Op (IntOp (Const 0)) [])
 End
 
-Definition optimised_call_def:
-  optimised_call loc idx ptr ts args = bvi$Call ts (SOME loc) (idx::ptr::[(* args *)]) NONE
+Definition optimise_call_def:
+  optimise_call loc idx ptr ts args = bvi$Call ts (SOME loc) (idx::ptr::[(* args *)]) NONE
 End
 
 (* Convert a call_block to a hole_block, and return the RCall ingredients to be replaced with optimised version. *)
@@ -242,24 +242,40 @@ Definition cb_to_bvi_opt_def:
         let arg_old_idx      = Var (i_idx + 1) in
         let var_new_ptr      = Var 0 in
         let exp_new_idx      = Op (IntOp (Const i)) [] in
-        let exp_mut_cons     = hb_to_MemOp_MutCons hb in
+        let exp_mut_cons     = hb_to_mutcons hb in
         let exp_update_hole  = Op (MemOp UpdateCons) [var_new_ptr; arg_old_idx; arg_old_ptr] in
-        let exp_tail_call    = optimised_call loc_opt exp_new_idx var_new_ptr ts args in
+        let exp_tail_call    = optimise_call loc_opt exp_new_idx var_new_ptr ts args in
           Let [exp_mut_cons] $
               Let [exp_update_hole] $ exp_tail_call
 End
 
 Definition fill_hole_def:
-  fill_hole i_old_hole_ptr i_old_hole_idx expr =
-    let arg_hole_ptr = Var i_old_hole_ptr in
-    let arg_hole_idx = Var i_old_hole_idx in
+  fill_hole i_old_ptr i_old_idx expr =
+    let arg_hole_ptr = Var i_old_ptr in
+    let arg_hole_idx = Var i_old_idx in
     Op (MemOp UpdateCons) [expr; arg_hole_idx; arg_hole_ptr]
 End
 
-(* Assumes that the function can and should be optimised - has been checked by rewrite_aux_def. *)
-Definition rewrite_opt_BlockOp_Cons_def:
-  rewrite_opt_BlockOp_Cons loc loc_opt i_ptr i_idx tag args =
-    case to_call_block loc tag args of
+(* TODO *)
+Definition rewrite_wrapper_cons_def:
+  rewrite_wrapper_cons loc loc_opt i_ptr block_tag op_args = NONE
+    (*case cons_to_tc_and_hb loc block_tag op_args of
+    | TC (TCall t args h) (HoleBlock tag l hole r) =>
+        let hb            = HoleBlock tag l hole r in
+        let i             = & LENGTH l in
+        let var_ptr       = Var i_ptr in
+        let exp_idx       = Op (IntOp (Const i)) [] in
+        let exp_mut_cons  = to_mut_cons hb in
+        let exp_tail_call = Call t (SOME loc_opt) (exp_idx :: var_ptr :: args) h in
+        let exp_finalise  = Op (MemOp FinaliseCons) [var_ptr] in
+        SOME $ Let [exp_mut_cons; exp_tail_call] exp_finalise
+    | _ => NONE*)
+End
+
+(* Assumes that the function can and should be optimised - has been checked by rewrite_wrapper. *)
+Definition rewrite_worker_cons_def:
+  rewrite_worker_cons loc loc_opt i_ptr i_idx tag args =
+    case cons_to_cb loc tag args of
     | SOME (bs,cb) =>
         Let bs $ cb_to_bvi_opt loc loc_opt i_ptr i_idx cb
     | NONE =>
@@ -267,197 +283,62 @@ Definition rewrite_opt_BlockOp_Cons_def:
           fill_hole i_ptr i_idx expr
 End
 
-(* Old way - there are conflicting definitions (hole_block) so stuff below here doesn't compile currently *)
+(* Expression rewriting *)
 
-Datatype:
-  tcall = TCall num (exp list) (exp option) (* loc is not needed here, as it is known in function body *)
-End
-
-Definition push_left_def:
-  push_left (HoleBlock t l h r) e = HoleBlock t (e::l) h r
-End
-
-Definition to_mut_cons_def:
-  to_mut_cons (HoleBlock t l h r) =
-    let hole = case h of
-      | SOME h' => to_mut_cons h'
-      | NONE => Op (IntOp (Const 0)) [] in
-    let i = LENGTH l in
-    Op (MemOp (MutCons t i)) (l ++ [hole] ++ r)
-End
-
-Datatype:
-  tc_and_hb = Invalid             (* Duplicate recursive tail calls. TODO: we can handle this - lift all but last into ‘Let’s.
-                                     OR effectful expressions after the tail call. *)
-            | NoTC                (* No recursive tail call. *)
-            | TC tcall hole_block (* One recursive tail call.
-                                     tcall fills the final ‘NONE’ hole nested in hole_block.
-                                   *)
-End
-
-(* ‘cons_to_tc_and_mut_cons loc tag op_args’ finds a unique recursive call of index ‘loc’ nested within the args of a ‘BlockOp’ ‘Cons’
-    block of the form ‘Op (BlockOp (Cons tag)) op_args’. If such a call is found, then the block is converted to a (possibily nested)
-    ‘MemOp’ ‘MutCons’ hole block, where the hole is to be filled by the result of the recursive call.
-    Returns:
-      ‘DupTC’            if multiple matching recursive calls were found.
-      ‘NoTC’             if no matching recursive call was found.
-      ‘TC call mut_cons’ if ‘call’ is the only matching call and ‘mut_cons’ has a single hole to be filled by ‘call’. *)
-Definition cons_to_tc_and_hb_def:
-  (cons_to_tc_and_hb loc tag [] = NoTC) ∧
-  (cons_to_tc_and_hb loc tag ((Op op op_args')::op_args) =
-   case dest_Cons op of
-   | SOME tag' =>
-       (case (cons_to_tc_and_hb loc tag' op_args', cons_to_tc_and_hb loc tag op_args) of
-        | (Invalid, _) => Invalid
-        | (_, Invalid) => Invalid
-        | (TC _ _, TC _ _) => Invalid
-        | (NoTC, NoTC) => NoTC
-        | (TC call' hb', NoTC) =>
-            (let hb = HoleBlock tag [] (SOME hb') op_args in
-               TC call' hb)
-        | (NoTC, TC call hb) =>
-            let cons = Op (BlockOp (Cons tag')) op_args' in
-              if effectful_exp cons then Invalid else
-                let hb'  = push_left hb cons in
-                  TC call hb')
-   | NONE =>
-       (* TODO: helper *)
-       case cons_to_tc_and_hb loc tag op_args of
-       | Invalid => Invalid
-       | NoTC => NoTC
-       | TC call hb =>
-           let op_arg = Op op op_args' in
-           if effectful_exp op_arg then Invalid else
-             let hb' = push_left hb op_arg in
-               TC call hb') ∧
-  (cons_to_tc_and_hb loc tag (Call t' (SOME loc') args' h'::op_args) =
-    if loc=loc' then
-      (* found the recursive call *)
-      case cons_to_tc_and_hb loc tag op_args of
-      | Invalid => Invalid
-      | TC _ _ => Invalid
-      | NoTC =>
-         let call = TCall t' args' h' in
-         let hb   = HoleBlock tag [] NONE op_args in
-           TC call hb
-    else
-      (* found a different call *)
-      case cons_to_tc_and_hb loc tag op_args of
-      | Invalid => Invalid
-      | NoTC => NoTC
-      | TC call hb => Invalid (* Call is effectful *)) ∧
-  (cons_to_tc_and_hb loc tag (op_arg::op_args) =
-   (* TODO: helper *)
-    case cons_to_tc_and_hb loc tag op_args of
-    | Invalid => Invalid
-    | NoTC => NoTC
-    | TC call hb =>
-       if effectful_exp op_arg then Invalid else
-         let hb' = push_left hb op_arg in
-           TC call hb')
-End
-
-Definition rewrite_aux_BlockOp_Cons_def:
-  rewrite_aux_BlockOp_Cons loc loc_opt i_hole_ptr block_tag op_args =
-    case cons_to_tc_and_hb loc block_tag op_args of
-    | TC (TCall t args h) (HoleBlock tag l hole r) =>
-        let hb            = HoleBlock tag l hole r in
-        let i             = & LENGTH l in
-        let var_hole_ptr  = Var i_hole_ptr in
-        let exp_hole_idx  = Op (IntOp (Const i)) [] in
-        let exp_mut_cons  = to_mut_cons hb in
-        let exp_tail_call = Call t (SOME loc_opt) (exp_hole_idx :: var_hole_ptr :: args) h in
-        let exp_finalise  = Op (MemOp FinaliseCons) [var_hole_ptr] in
-        SOME $ Let [exp_mut_cons; exp_tail_call] exp_finalise
-    | _ => NONE
-End
-
-Definition rewrite_aux_def:
-  (rewrite_aux loc loc_opt i_hole_ptr (Var n) = NONE) ∧
-  (rewrite_aux loc loc_opt i_hole_ptr (If xi xt xe) =
-    let opt_t = rewrite_aux loc loc_opt i_hole_ptr xt in
-    let opt_e = rewrite_aux loc loc_opt i_hole_ptr xe in
+Definition rewrite_wrapper_def:
+  (rewrite_wrapper loc loc_opt i_ptr (Var n) = NONE) ∧
+  (rewrite_wrapper loc loc_opt i_ptr (If xi xt xe) =
+    let opt_t = rewrite_wrapper loc loc_opt i_ptr xt in
+    let opt_e = rewrite_wrapper loc loc_opt i_ptr xe in
     case (opt_t, opt_e) of
     | (NONE, NONE) => NONE
     | (SOME yt, NONE) => SOME $ If xi yt xe
     | (NONE, SOME ye) => SOME $ If xi xt ye
     | (SOME yt, SOME ye) => SOME $ If xi yt ye) ∧
-  (rewrite_aux loc loc_opt i_hole_ptr (Let xs x) =
-    case rewrite_aux loc loc_opt (i_hole_ptr + LENGTH xs) x of
+  (rewrite_wrapper loc loc_opt i_ptr (Let xs x) =
+    case rewrite_wrapper loc loc_opt (i_ptr + LENGTH xs) x of
     | NONE => NONE
     | SOME y => SOME $ Let xs y) ∧
-  (rewrite_aux loc loc_opt i_hole_ptr (Raise x) = NONE) ∧
-  (rewrite_aux loc loc_opt i_hole_ptr (Tick x) = OPTION_MAP Tick $ rewrite_aux loc loc_opt i_hole_ptr x) ∧
-  (rewrite_aux loc loc_opt i_hole_ptr (Force _ n) = NONE) ∧
-  (rewrite_aux loc loc_opt i_hole_ptr (Call t d args h) = NONE) ∧
-  (rewrite_aux loc loc_opt i_hole_ptr (Op op op_args) =
+  (rewrite_wrapper loc loc_opt i_ptr (Raise x) = NONE) ∧
+  (rewrite_wrapper loc loc_opt i_ptr (Tick x) = OPTION_MAP Tick $ rewrite_wrapper loc loc_opt i_ptr x) ∧
+  (rewrite_wrapper loc loc_opt i_ptr (Force _ n) = NONE) ∧
+  (rewrite_wrapper loc loc_opt i_ptr (Call t d args h) = NONE) ∧
+  (rewrite_wrapper loc loc_opt i_ptr (Op op op_args) =
     case dest_Cons op of
-    | SOME block_tag => rewrite_aux_BlockOp_Cons loc loc_opt i_hole_ptr block_tag op_args
+    | SOME block_tag => rewrite_wrapper_cons loc loc_opt i_ptr block_tag op_args
     | NONE => NONE) ∧
-  (rewrite_aux loc loc_opt i_hole_ptr _ = NONE)
+  (rewrite_wrapper loc loc_opt i_ptr _ = NONE)
 End
 
-(*
-Definition fill_hole_def:
-  fill_hole i_old_hole_ptr i_old_hole_idx expr =
-    let arg_hole_ptr = Var i_old_hole_ptr in
-    let arg_hole_idx = Var i_old_hole_idx in
-    Op (MemOp UpdateCons) [expr; arg_hole_idx; arg_hole_ptr]
-End
-*)
-
-(*
-(* Assumes that the function can and should be optimised - has been checked by rewrite_aux_def. *)
-Definition rewrite_opt_BlockOp_Cons_def:
-  rewrite_opt_BlockOp_Cons loc loc_opt i_old_hole_ptr i_old_hole_idx i_new_hole_ptr block_tag op_args =
-    case cons_to_tc_and_hb loc block_tag op_args of
-    | TC (TCall t args h) (HoleBlock tag l hole r) =>
-        let hb               = HoleBlock tag l hole r in
-        let i                = & LENGTH l in
-        let arg_old_hole_ptr = Var (i_old_hole_ptr + 1) in
-        let arg_old_hole_idx = Var (i_old_hole_idx + 1) in
-        let var_new_hole_ptr = Var 0 in
-        let exp_new_hole_idx = Op (IntOp (Const i)) [] in
-        let exp_mut_cons     = to_mut_cons hb in
-        let exp_update_hole  = Op (MemOp UpdateCons) [var_new_hole_ptr; arg_old_hole_idx; arg_old_hole_ptr] in
-        let exp_tail_call    = Call t (SOME loc_opt) (exp_new_hole_idx :: var_new_hole_ptr :: args) h in
-          Let [exp_mut_cons] $
-              Let [exp_update_hole] $ exp_tail_call
-    | _ =>
-        let expr = Op (BlockOp (Cons block_tag)) op_args in
-          fill_hole i_old_hole_ptr i_old_hole_idx expr
-End
-*)
-
-(* Assumes that the function can and should be optimised - has been checked by rewrite_aux_def. *)
-Definition rewrite_opt_def:
-  (rewrite_opt loc loc_opt i_old_hole_ptr i_old_hole_idx i_new_hole_ptr (If xi xt xe) =
-    let yt = rewrite_opt loc loc_opt i_old_hole_ptr i_old_hole_idx i_new_hole_ptr xt in
-    let ye = rewrite_opt loc loc_opt i_old_hole_ptr i_old_hole_idx i_new_hole_ptr xe in
+(* Assumes that the function can and should be optimised - has been checked by rewrite_wrapper. *)
+Definition rewrite_worker_def:
+  (rewrite_worker loc loc_opt i_old_ptr i_old_idx (If xi xt xe) =
+    let yt = rewrite_worker loc loc_opt i_old_ptr i_old_idx xt in
+    let ye = rewrite_worker loc loc_opt i_old_ptr i_old_idx xe in
     If xi yt ye) ∧
-  (rewrite_opt loc loc_opt i_old_hole_ptr i_old_hole_idx i_new_hole_ptr (Let xs x) =
+  (rewrite_worker loc loc_opt i_old_ptr i_old_idx (Let xs x) =
     let offset = LENGTH xs in
-      Let xs $ rewrite_opt loc loc_opt (i_old_hole_ptr + offset) (i_old_hole_idx + offset) (i_new_hole_ptr + offset) x) ∧
-  (rewrite_opt loc loc_opt i_old_hole_ptr i_old_hole_idx i_new_hole_ptr (Raise x) = Raise x) ∧
-  (rewrite_opt loc loc_opt i_old_hole_ptr i_old_hole_idx i_new_hole_ptr (Op op op_args) =
+      Let xs $ rewrite_worker loc loc_opt (i_old_ptr + offset) (i_old_idx + offset) x) ∧
+  (rewrite_worker loc loc_opt i_old_ptr i_old_idx (Raise x) = Raise x) ∧
+  (rewrite_worker loc loc_opt i_old_ptr i_old_idx (Op op op_args) =
     case dest_Cons op of
-    | SOME block_tag => rewrite_opt_BlockOp_Cons loc loc_opt i_old_hole_ptr i_old_hole_idx block_tag op_args
+    | SOME block_tag => rewrite_worker_cons loc loc_opt i_old_ptr i_old_idx block_tag op_args
     | NONE =>
-        fill_hole i_old_hole_ptr i_old_hole_idx (Op op op_args)) ∧
-  (rewrite_opt loc loc_opt i_old_hole_ptr i_old_hole_idx i_new_hole_ptr (Tick x) =
-    Tick $ rewrite_opt loc loc_opt i_old_hole_ptr i_old_hole_idx i_new_hole_ptr x) ∧
-  (rewrite_opt loc loc_opt i_old_hole_ptr i_old_hole_idx _ expr =
+        fill_hole i_old_ptr i_old_idx (Op op op_args)) ∧
+  (rewrite_worker loc loc_opt i_old_ptr i_old_idx (Tick x) =
+    Tick $ rewrite_worker loc loc_opt i_old_ptr i_old_idx x) ∧
+  (rewrite_worker loc loc_opt i_old_ptr i_old_idx expr =
    (* This should check if it's a recursive call *)
-   fill_hole i_old_hole_ptr i_old_hole_idx expr)
+   fill_hole i_old_ptr i_old_idx expr)
 End
 
 Definition compile_exp_def:
   compile_exp (loc:num) (next:num) (arity:num) (exp:bvi$exp) =
-    case rewrite_aux loc next arity exp of
+    case rewrite_wrapper loc next arity exp of
     | NONE => NONE
-    | SOME exp_aux =>
-      let exp_opt = rewrite_opt loc next arity (arity + 1) (arity + 2) exp in
-      SOME (exp_aux, exp_opt)
+    | SOME exp_wrapper =>
+      let exp_worker = rewrite_worker loc next arity (arity + 1) exp in
+      SOME (exp_wrapper, exp_worker)
 End
 
 Definition compile_prog_def:
@@ -467,9 +348,9 @@ Definition compile_prog_def:
     | NONE =>
         let (n, ys) = compile_prog next xs in
           (n, (loc, arity, exp)::ys)
-    | SOME (exp_aux, exp_opt) =>
+    | SOME (exp_wrapper, exp_worker) =>
         let (n, ys) = compile_prog (next + bvl_to_bvi_namespaces) xs in
-        (n, (loc, arity, exp_aux)::(next, arity + 2, exp_opt)::ys))
+        (n, (loc, arity, exp_wrapper)::(next, arity + 2, exp_worker)::ys))
 End
 
 (* --- Test rewriting --- *)
