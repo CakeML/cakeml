@@ -675,6 +675,32 @@ Proof
   >> metis_tac[is_trace_preds_hold_n]
 QED
 
+(* Liveness *******************************************************************)
+
+Definition is_inf_trace_def:
+  is_inf_trace (circ: ('a, 'i, 'l) circuit)
+    (reset: 'l -> ('a,'i,'l) lit) (next: 'l -> ('a,'i,'l) lit)
+    (cnstrs: ('a,'i,'l) lit set) (latches: 'l set)
+    (tr: ('i, 'l) trace)
+  ⇔
+    (is_reset (tr 0) circ reset latches ∧
+     preds_hold (tr 0) circ cnstrs) ∧
+    ∀i.
+      is_next (tr i) circ next latches (SND (tr (i + 1))) ∧
+      preds_hold (tr (i + 1)) circ cnstrs
+End
+
+Theorem is_inf_trace_eq:
+  is_inf_trace circ reset next cnstrs latches tr ⇔
+  ∀n. is_trace circ reset next cnstrs latches tr n
+Proof
+  eq_tac>>
+  rw[is_inf_trace_def,is_trace_def]>>
+  first_x_assum(qspec_then`i+1` mp_tac)>>
+  rw[]
+QED
+
+
 (* Implementation *************************************************************)
 
 Definition is_transition_def:
