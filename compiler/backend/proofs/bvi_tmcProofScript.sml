@@ -1479,11 +1479,6 @@ Resume evaluate_rewrite_tmc[op]:
      (rw []
       >> qexists ‘t''’
       >> gvs []
-      >> drule wrapper_strip_op
-      >> strip_tac
-      >> gvs [is_block_op_cons_def]
-      >> gvs [to_mut_cons_def]
-      >> simp [evaluate_def]
       >> cheat)
     >> rw []    
     >> gvs [rewrite_worker_def, evaluate_def]
@@ -1500,17 +1495,6 @@ Resume evaluate_rewrite_tmc[op]:
       >> irule holes_unchanged_except_subset
       >> first_assum $ irule_at Any
       >> gvs [])
-    >-
-     (gvs [evaluate_def, fill_hole_def, opt_res_rel_def]
-      >> irule holes_unchanged_except_subset
-      >> first_assum $ irule_at Any
-      >> gvs [])
-    >> Cases_on ‘h’ >> gvs []
-    >> Cases_on ‘t'’ >> gvs []
-    >> rename [‘cons_to_tc_and_hb loc x xs = (TCall ticks args handler')⁺ (HoleBlock tag l hole r)’]
-    >> gvs [Once evaluate_def, fill_hole_def, opt_res_rel_def]
-    >> CASE_TAC >> gvs []
-    >> CASE_TAC >> gvs []
     >> cheat)
   >> rename [‘LIST_REL (v_rel f'') vs vs'’]
   >> reverse $ Cases_on ‘do_app op (REVERSE vs) u’ >> gvs []
@@ -1528,9 +1512,7 @@ Resume evaluate_rewrite_tmc[op]:
     >> conj_tac
     >-
      (rw []
-      >> drule wrapper_strip_op
-      >> strip_tac
-      >> gvs [is_block_op_cons_def])
+      >> cheat)
     >> gvs []
     >> rpt gen_tac
     >> strip_tac
@@ -1538,7 +1520,6 @@ Resume evaluate_rewrite_tmc[op]:
     >> ho_match_mp_tac evaluate_fill_hole_err
     >> gvs [evaluate_def]
     >> rpt $ first_assum $ irule_at Any)
-  (* lemma that do_app op (REVERSE a) u = Rval a' implies do_app op (REVERSE v') u' equals some other Rval that is v_rel related to a' *)
   >> rename [‘do_app op (REVERSE vs) u = Rval v’]
   >> drule $ iffLR list_rel_reverse
   >> strip_tac
@@ -1570,14 +1551,14 @@ Resume evaluate_rewrite_tmc[op]:
   >> conj_tac
   >-
    (rw []
-    >> drule wrapper_strip_op
+    (*>> drule wrapper_strip_op
     >> strip_tac
     >> gvs [is_block_op_cons_def]
     >> pop_assum mp_tac
     >> simp [Once rewrite_wrapper_def, CaseEq "option"]
     >> simp [dest_Cons_def]
     >> simp [rewrite_wrapper_cons_def, CaseEq "tc_and_hb"]
-    >> simp [CaseEq "hole_block", CaseEq "tcall"]
+    >> simp [CaseEq "hole_block", CaseEq "tcall"]*)
     >> cheat)
   >> rw []
   >> gvs [rewrite_worker_def]
@@ -1593,52 +1574,10 @@ Resume evaluate_rewrite_tmc[op]:
      >> Cases_on ‘op’ >> gvs [dest_Cons_def]
      >> Cases_on ‘b’ >> gvs [dest_Cons_def])
   >> CASE_TAC >> gvs []
-  >- (* Duplicated branch *)
-   (ho_match_mp_tac evaluate_fill_hole
-    >> gvs [evaluate_def]
-    >> rpt $ first_assum $ irule_at Any)
-  >- (* Duplicated branch *)
-   (ho_match_mp_tac evaluate_fill_hole
-    >> gvs [evaluate_def]
-    >> rpt $ first_assum $ irule_at Any)
-  >> Cases_on ‘h’ >> gvs []
-  >> Cases_on ‘t''’ >> gvs []
-  >> rename [‘cons_to_tc_and_hb loc x xs = (TCall ticks args handler')⁺ (HoleBlock tag l hole r)’]
-  >> gvs [evaluate_def]
-  >> drule conditions_i_need
-  >> strip_tac
-  >> gvs [Once to_mut_cons_def, evaluate_def, evaluate_APPEND]
-  >> Cases_on ‘evaluate (l,env2,s')’ >> gvs []
-  >> Cases_on ‘q’ >> gvs []
-  >> imp_res_tac env_rel_strip_extras
-  >> gvs []
-  >> imp_res_tac env_rel_length_opt (* try opt *)
-  >> gvs []
-  >> Induct_on ‘hole’
   >-
-   (strip_tac
-    >> gvs [evaluate_def, do_app_def, do_app_aux_def, backend_commonTheory.small_enough_int_def]
-    (* Should be a value I think *)
-    >> Cases_on ‘evaluate (r,env2' ++ [RefPtr F hole_ptr; Number hole_idx],r')’ >> gvs []
-    >> reverse $ Cases_on ‘q’ >> gvs [] >- cheat
-    >> imp_res_tac evaluate_IMP_LENGTH
-    >> gvs []
-    >> Cases_on ‘LENGTH env + 1’ >> gvs [EL_APPEND_EQN]
-    >> ‘n = LENGTH env’ by gvs []
-    >> gvs []
-    >> Cases_on ‘LENGTH env + 2’ >> gvs [EL_APPEND_EQN]
-    >> ‘n = LENGTH env + 1’ by gvs []
-    >> gvs []
-    >> ‘hole_ptr = LEAST ptr. ptr ∉ FDOM r''.refs’ by cheat (* I think we need to put this somewhere *)
-    >> simp [FLOOKUP_SIMP]
-    >> 
-    >> gvs [FLOOKUP_SIMP]
-    >> ‘hole_idx = &LENGTH a’ by cheat
-    >> gvs []
-    >> ‘LENGTH a ≤ 268435457’ by cheat
-    >> gvs []
-    >> cheat
-   )
+   (ho_match_mp_tac evaluate_fill_hole
+    >> gvs [evaluate_def]
+    >> rpt $ first_assum $ irule_at Any)
   >> cheat
 QED
 
