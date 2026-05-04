@@ -77,8 +77,8 @@ End
 Definition mk_trusted_def:
   mk_trusted b s =
   if b
-  then str (CHR 1) ^ s
-  else str (CHR 0) ^ s
+  then toString (CHR 1) ^ s
+  else toString (CHR 0) ^ s
 End
 
 val res = translate mk_trusted_def;
