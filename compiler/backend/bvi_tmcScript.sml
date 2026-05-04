@@ -232,8 +232,22 @@ Definition cb_to_hb_def:
   (cb_to_hb (RCall ts args) = (Hole,ts,args))
 End
 
-Definition cb_to_bvi_opt_def:
-  cb_to_bvi_opt loc loc_opt i_ptr i_idx cb =
+Definition cb_to_bvi_wrapper_def:
+  cb_to_bvi_wrapper loc loc_opt i_ptr cb =
+    case cb_to_hb cb of
+    | (HoleBlock tag l hole r,ts,args) =>
+        let hb            = HoleBlock tag l hole r in
+        let i             = & LENGTH l in
+        let var_ptr       = Var i_ptr in
+        let exp_idx       = Op (IntOp (Const i)) [] in
+        let exp_mut_cons  = hb_to_mutcons hb in
+        let exp_tail_call = optimise_call loc_opt exp_idx var_ptr ts args in
+        let exp_finalise  = Op (MemOp FinaliseCons) [var_ptr] in
+          Let [exp_mut_cons; exp_tail_call] exp_finalise
+End
+
+Definition cb_to_bvi_worker_def:
+  cb_to_bvi_worker loc loc_opt i_ptr i_idx cb =
     case cb_to_hb cb of
     | (HoleBlock tag l hole r,ts,args) =>
         let hb               = HoleBlock tag l hole r in
@@ -256,20 +270,12 @@ Definition fill_hole_def:
     Op (MemOp UpdateCons) [expr; arg_hole_idx; arg_hole_ptr]
 End
 
-(* TODO *)
 Definition rewrite_wrapper_cons_def:
-  rewrite_wrapper_cons loc loc_opt i_ptr block_tag op_args = NONE
-    (*case cons_to_tc_and_hb loc block_tag op_args of
-    | TC (TCall t args h) (HoleBlock tag l hole r) =>
-        let hb            = HoleBlock tag l hole r in
-        let i             = & LENGTH l in
-        let var_ptr       = Var i_ptr in
-        let exp_idx       = Op (IntOp (Const i)) [] in
-        let exp_mut_cons  = to_mut_cons hb in
-        let exp_tail_call = Call t (SOME loc_opt) (exp_idx :: var_ptr :: args) h in
-        let exp_finalise  = Op (MemOp FinaliseCons) [var_ptr] in
-        SOME $ Let [exp_mut_cons; exp_tail_call] exp_finalise
-    | _ => NONE*)
+  rewrite_wrapper_cons loc loc_opt i_ptr tag args =
+    case cons_to_cb loc tag args of
+    | SOME (bs,cb) =>
+        SOME $ Let bs $ cb_to_bvi_wrapper loc loc_opt i_ptr cb
+    | NONE => NONE
 End
 
 (* Assumes that the function can and should be optimised - has been checked by rewrite_wrapper. *)
@@ -277,7 +283,7 @@ Definition rewrite_worker_cons_def:
   rewrite_worker_cons loc loc_opt i_ptr i_idx tag args =
     case cons_to_cb loc tag args of
     | SOME (bs,cb) =>
-        Let bs $ cb_to_bvi_opt loc loc_opt i_ptr i_idx cb
+        Let bs $ cb_to_bvi_worker loc loc_opt i_ptr i_idx cb
     | NONE =>
         let expr = Op (BlockOp (Cons tag)) args in
           fill_hole i_ptr i_idx expr
