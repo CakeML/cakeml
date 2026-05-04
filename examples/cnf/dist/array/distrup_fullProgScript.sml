@@ -148,16 +148,16 @@ Definition pp_distrup_def:
   pp_distrup distrup =
   case distrup of
   | Del ls =>
-      strlit"Del: IDs [" ^ concatWith (strlit " ") (MAP toString ls) ^ strlit "]"
+      «Del: IDs [» ^ concatWith « » (MAP toString ls) ^ «]»
   | Lrup n vc hints =>
-      strlit"Lrup: ID " ^ toString n ^
-      strlit " Clause [" ^ concatWith (strlit " ") (MAP toString (toList vc)) ^ strlit "]"^
-      strlit " Hints [" ^ concatWith (strlit " ") (MAP toString hints) ^ strlit "]"
+      «Lrup: ID » ^ toString n ^
+      « Clause [» ^ concatWith « » (MAP toString (toList vc)) ^ «]»^
+      « Hints [» ^ concatWith « » (MAP toString hints) ^ «]»
   | Import n vc =>
-      strlit"Import: ID " ^ toString n ^
-      strlit " Clause [" ^ concatWith (strlit " ") (MAP toString (toList vc)) ^ strlit "]"
+      «Import: ID » ^ toString n ^
+      « Clause [» ^ concatWith « » (MAP toString (toList vc)) ^ «]»
   | ValidateUnsat =>
-      strlit"ValidateUnsat"
+      «ValidateUnsat»
 End
 
 val res = translate pp_distrup_def;
@@ -216,7 +216,7 @@ fun main () =
 
 End
 
-val main_call = ``Dlet unknown_loc Pany (App Opapp [Var (Short (strlit "main")); Con NONE []]) ``;;
+val main_call = ``Dlet unknown_loc Pany (App Opapp [Var (Short «main»); Con NONE []]) ``;;
 
 val prog = get_ml_prog_state () |> get_prog;
 
@@ -274,26 +274,26 @@ End
 Definition WaitFor_def:
   WaitFor wf =
     case wf of
-    | Step => Str (strlit "Step")
-    | Produce_clause xs ys => Cons (Str (strlit "Produce_clause")) (Cons (Bytes xs) (Bytes ys))
-    | Produce_hints xs => Cons (Str (strlit "Produce_hints")) (Bytes xs)
-    | Produce_callback => Str (strlit "Produce_callback")
-    | Import_clause xs => Cons (Str (strlit "Import_clause")) (Bytes xs)
-    | Import_callback => Str (strlit "Import_callback")
-    | Delete_hints xs => Cons (Str (strlit "Delete_hints")) (Bytes xs)
-    | Delete_callback => Str (strlit "Delete_callback")
-    | Validate_UNSAT_callback => Str (strlit "Validate_UNSAT_callback")
-    | Terminate => Str (strlit "Terminate")
+    | Step => Str «Step»
+    | Produce_clause xs ys => Cons (Str «Produce_clause») (Cons (Bytes xs) (Bytes ys))
+    | Produce_hints xs => Cons (Str «Produce_hints») (Bytes xs)
+    | Produce_callback => Str «Produce_callback»
+    | Import_clause xs => Cons (Str «Import_clause») (Bytes xs)
+    | Import_callback => Str «Import_callback»
+    | Delete_hints xs => Cons (Str «Delete_hints») (Bytes xs)
+    | Delete_callback => Str «Delete_callback»
+    | Validate_UNSAT_callback => Str «Validate_UNSAT_callback»
+    | Terminate => Str «Terminate»
 End
 
 Definition Input_def:
-  Input (Produce xs ys zs)  = Cons (Str (strlit "Produce"))
+  Input (Produce xs ys zs)  = Cons (Str «Produce»)
                                    (Cons (Bytes xs) (Cons (Bytes ys) (Bytes zs))) ∧
-  Input (Import xs ys)      = Cons (Str (strlit "Import"))
+  Input (Import xs ys)      = Cons (Str «Import»)
                                    (Cons (Bytes xs) (Bytes ys)) ∧
-  Input (Delete xs ys)      = Cons (Str (strlit "Delete"))
+  Input (Delete xs ys)      = Cons (Str «Delete»)
                                    (Cons (Bytes xs) (Bytes ys)) ∧
-  Input (Validate_UNSAT xs) = Cons (Str (strlit "Validate_UNSAT")) (Bytes xs)
+  Input (Validate_UNSAT xs) = Cons (Str «Validate_UNSAT») (Bytes xs)
 End
 
 Definition State_def:
@@ -442,13 +442,13 @@ Definition update_def:
     case dest_State s of
     | NONE => NONE
     | SOME (wait_for, inputs, tb) =>
-        if ffi_name = strlit "step" then
+        if ffi_name = «step» then
           update_step imm_arg arr_arg wait_for inputs tb
-        else if ffi_name = strlit "clause" then
+        else if ffi_name = «clause» then
           update_clause imm_arg arr_arg wait_for inputs tb
-        else if ffi_name = strlit "hints" then
+        else if ffi_name = «hints» then
           update_hints imm_arg arr_arg wait_for inputs tb
-        else if ffi_name = strlit "callback" then
+        else if ffi_name = «callback» then
           update_callback imm_arg arr_arg wait_for inputs tb
         else NONE
 End

@@ -74,7 +74,7 @@ End
 
 (* lines which are not comments don't start with a single "c" *)
 Definition nocomment_line_def:
-  (nocomment_line (INL c::cs) = (c ≠ strlit "c")) ∧
+  (nocomment_line (INL c::cs) = (c ≠ «c»)) ∧
   (nocomment_line _ = T)
 End
 
@@ -84,14 +84,14 @@ End
 
 Definition print_lit_def:
   (print_lit (Pos n) = toString n) ∧
-  (print_lit (Neg n) = strlit"-" ^ toString n)
+  (print_lit (Neg n) = «-» ^ toString n)
 End
 
 (* Print a list of literals with optional terminator char. *)
 Definition print_lits_def:
   print_lits (term:char) ls =
-    let ls = SNOC (strlit"0" ^ str term) (MAP print_lit ls) in
-    concatWith (strlit" ") ls
+    let ls = SNOC («0» ^ toString term) (MAP print_lit ls) in
+    concatWith « » ls
 End
 
 

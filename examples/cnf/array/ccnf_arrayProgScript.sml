@@ -20,8 +20,8 @@ Overload "vcclause_TYPE" = ``VECTOR_TYPE INT``
 
 Theorem OPTION_TYPE_SPLIT:
   OPTION_TYPE a x v ⇔
-  (x = NONE ∧ v = Conv (SOME (TypeStamp (strlit "None") 2)) []) ∨
-  (∃y vv. x = SOME y ∧ v = Conv (SOME (TypeStamp (strlit "Some") 2)) [vv] ∧ a y vv)
+  (x = NONE ∧ v = Conv (SOME (TypeStamp «None» 2)) []) ∨
+  (∃y vv. x = SOME y ∧ v = Conv (SOME (TypeStamp «Some» 2)) [vv] ∧ a y vv)
 Proof
   Cases_on`x`>>rw[OPTION_TYPE_def]
 QED
@@ -41,7 +41,7 @@ fun get_exn_conv name =
   EVAL ``lookup_cons (Short ^name) ^(get_env (get_ml_prog_state ()))``
   |> concl |> rand |> rand |> rand
 
-val fail = get_exn_conv ``strlit "Fail"``
+val fail = get_exn_conv ``«Fail»``
 
 Definition Fail_exn_def:
   Fail_exn v = (∃s sv. v = Conv (SOME ^fail) [sv] ∧ STRING_TYPE s sv)
@@ -49,7 +49,7 @@ End
 
 Definition format_failure_def:
   format_failure (lno:num) s =
-  strlit "c Checking failed at line: " ^ toString lno ^ strlit ". Reason: " ^ s
+  «c Checking failed at line: » ^ toString lno ^ «. Reason: » ^ s
 End
 
 val res = translate format_failure_def;
@@ -1045,7 +1045,7 @@ val fromchars_unsafe_side_def = theorem"fromchars_unsafe_side_def";
 val fromchars_range_unsafe_side_def = fetch "-" "fromchars_range_unsafe_side_def";
 
 Theorem fromchars_unsafe_side_thm[local]:
-   ∀n s. n ≤ LENGTH s ⇒ fromchars_unsafe_side n (strlit s)
+   ∀n s. n ≤ strlen s ⇒ fromchars_unsafe_side n s
 Proof
   completeInduct_on`n` \\ rw[]
   \\ rw[Once fromchars_unsafe_side_def,fromchars_range_unsafe_side_def,fromchars_range_unsafe_tail_side_def]
