@@ -1040,7 +1040,6 @@ Proof
   >> completeInduct_on ‘list_size exp_size xs’
   >> Cases_on ‘xs’
   *)
-        
   recInduct bviSemTheory.evaluate_ind
   >> rpt strip_tac
   >~ [‘evaluate ([],_,_)’] >-
@@ -1568,17 +1567,41 @@ Resume evaluate_rewrite_tmc[op]:
     >> gvs [evaluate_def]
     >> rpt $ first_assum $ irule_at Any)
   (* Cons *)
-  >> gvs [rewrite_worker_cons_def]
-  >> ‘op = BlockOp (Cons x)’ by
+  >> rename [‘dest_Cons op = SOME tag’]
+  >> ‘op = BlockOp (Cons tag)’ by
     (spose_not_then assume_tac
      >> Cases_on ‘op’ >> gvs [dest_Cons_def]
      >> Cases_on ‘b’ >> gvs [dest_Cons_def])
+  >> gvs [rewrite_worker_cons_def]
   >> CASE_TAC >> gvs []
   >-
    (ho_match_mp_tac evaluate_fill_hole
     >> gvs [evaluate_def]
     >> rpt $ first_assum $ irule_at Any)
+  >> Cases_on ‘x’ >> gvs []
+  >> rename [‘cons_to_cb loc tag args = SOME (bs,cb)’]
+
+  >> ‘evaluate ([Op (BlockOp (Cons tag)) args],env,s) = (Rval [v],t)’ by gvs [evaluate_def]
+  >> drule evaluate_cb_to_bvi
+  >> gvs [cb_to_bvi_def]
+  >> disch_then $ qspec_then ‘loc’ mp_tac
+  >> gvs []
+  >> strip_tac
+  >> gvs [evaluate_def]
+  >> Cases_on ‘evaluate (bs,env,s)’ >> gvs []
+  >> Cases_on ‘q’ >> gvs []
+  (* Complete induction inductive hypothesis? *)
   >> cheat
+QED
+
+Theorem evaluate_cb_to_bvi:
+  ∀loc tag args env s t r bs cb exp.
+    evaluate ([Op (BlockOp (Cons tag)) args],env,s) = (r,t) ∧
+    r ≠ Rerr (Rabort Rtype_error) ∧
+    cb_to_bvi loc tag args = SOME exp ⇒
+    evaluate ([exp],env,s) = (r,t)
+Proof
+  cheat
 QED
 
 Resume evaluate_rewrite_tmc[tick]:
