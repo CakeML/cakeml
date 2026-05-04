@@ -487,7 +487,7 @@ Theorem evaluate_dec_io_events_mono:
   ∀z y.
      y.ffi.io_events ≼ (FST (evaluate_dec y z)).ffi.io_events
 Proof
-  Cases \\ rw [evaluate_def] \\ every_case_tac \\ fs [] \\ rw []
+  rw [evaluate_def] \\ every_case_tac \\ fs [] \\ rw []
   \\ metis_tac [evaluate_io_events_mono, FST]
 QED
 
@@ -893,15 +893,6 @@ Theorem elist_globals_REVERSE:
 Proof
   Induct_on `es` \\ simp [elist_globals_append, COMM_BAG_UNION]
 QED
-
-Definition is_Dlet_def[simp]:
-  is_Dlet (d : flatLang$dec) <=> T
-End
-
-Definition dest_Dlet_def[simp]:
-  dest_Dlet (d : flatLang$dec) = case d of flatLang$Dlet e => e
-End
-
 
 Theorem initial_state_clock:
   (initial_state ffi k ec).clock = k /\
@@ -1497,7 +1488,7 @@ End
 
 Definition no_Mat_decs_def[simp]:
   no_Mat_decs [] = T /\
-  no_Mat_decs ((Dlet e)::xs) = (no_Mat e /\ no_Mat_decs xs)
+  no_Mat_decs (e::xs) = (no_Mat e /\ no_Mat_decs xs)
 End
 
 Definition mk_flat_install_conf_def:

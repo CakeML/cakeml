@@ -532,12 +532,6 @@ Definition flat_to_display_def:
         fun_flat_to_display_list xs)
 End
 
-Definition flat_to_display_dec_def:
-  flat_to_display_dec (d:flatLang$dec) =
-    case d of
-       | Dlet exp => Item NONE (strlit "dlet") [flat_to_display exp]
-End
-
 (* clos to displayLang *)
 
 Definition num_to_varn_aux_def:
@@ -1479,10 +1473,10 @@ Definition source_to_strs_def:
 End
 
 Definition flat_to_strs_def:
-  flat_to_strs (decs:flatLang$dec list) =
+  flat_to_strs (decs:flatLang$exp list) =
     map_to_append (str_tree_to_strs (strlit "\n\n") o
                    display_to_str_tree o
-                   flat_to_display_dec) decs
+                   flat_to_display) decs
 End
 
 Definition clos_to_strs_def:

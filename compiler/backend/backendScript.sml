@@ -531,7 +531,7 @@ Datatype:
   backend_progs =
   <| env_id : num # num
    ; source_prog : ast$dec list
-   ; flat_prog : flatLang$dec list
+   ; flat_prog : flatLang$exp list
    ; clos_prog : closLang$exp list # (num # num # closLang$exp) list
    ; bvl_prog : (num # num # bvl$exp) list
    ; bvi_prog : (num # num # bvi$exp) list
@@ -679,5 +679,3 @@ Definition set_oracle_def:
     c with
     word_to_word_conf := c.word_to_word_conf with col_oracle := oracle
 End
-
-
