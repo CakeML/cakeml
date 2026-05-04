@@ -732,7 +732,7 @@ Proof
     gvs[AllCaseEqs(),empty_eq_inv,set_store_eq_inv]
   )
   >- (
-    gvs[AllCaseEqs(),UNCURRY_EQ,remove_eq_inv]>>
+    gvs[AllCaseEqs(),UNCURRY_EQ,remove_eq_inv,set_store_eq_inv]>>
     metis_tac[copy_prop_move_inv])
 QED
 
@@ -1068,6 +1068,62 @@ Proof
   metis_tac[lookup_store_eq_set_store_eq_2,CPstate_modelsD]
 QED
 
+Theorem lookup_eq_remove_t_same:
+  lookup_eq (remove_eq cs t) t = t
+Proof
+  fs[lookup_eq_def, remove_eq_def]
+QED
+
+Theorem lookup_store_eq_set_store_eq_same:
+  lookup x cs.to_eq = NONE ∧
+  is_alloc_var x ⇒
+  lookup_store_eq (set_store_eq cs s x) s = SOME x
+Proof
+  fs[lookup_store_eq_def, set_store_eq_def]
+QED
+
+Theorem set_store_eq_model_set_var:
+  CPstate_inv cs ∧
+  CPstate_models cs st ∧
+  lookup_store_eq cs s = NONE ∧
+  get_store s st = SOME w ⇒
+  CPstate_models (set_store_eq (remove_eq cs n) s n) (set_var n w st)
+Proof
+  rw[] >>
+  reverse (Cases_on `is_alloc_var n`)
+  >- simp[set_store_eq_def, empty_eq_model]
+  >> irule CPstate_modelsI
+  >> simp[Once CONJ_ASSOC]
+  >> reverse CONJ_ASM2_TAC
+  >- simp[set_store_eq_inv, remove_eq_inv]
+  >> gvs[lookup_eq_set_store_eq]
+  >> `CPstate_inv (remove_eq cs n)` by simp[remove_eq_inv]
+  >> drule_all remove_eq_model_set_var
+  >> disch_then $ qspecl_then [`w`, `n`] assume_tac >> fs[]
+  >> drule lookup_eq_set_store_eq
+  >> disch_then imp_res_tac
+  >> simp[]
+  >> conj_tac
+  >- (
+    drule CPstate_modelsD >> disch_then imp_res_tac >> fs[]
+  )
+  >> rw[]
+  >> rev_drule CPstate_modelsD
+  >> disch_then imp_res_tac
+  >> Cases_on `s = x` >> gvs[]
+  >- (
+    simp[set_var_def, lookup_insert]
+    >> Cases_on `y = n` >> fs[lookup_eq_remove_t_same]
+    >- fs[get_store_def, lookup_insert1, set_var_def]
+    >> drule_at (Pos $ el 2) lookup_store_eq_set_store_eq_same
+    >> disch_then $ qspecl_then [`s`, `remove_eq cs n`] assume_tac >> gvs[]
+    >> metis_tac[lookup_eq_remove_eq_t]
+  )
+  >> drule CPstate_modelsD >> disch_then imp_res_tac >> fs[]
+  >> pop_assum irule
+  >> metis_tac[lookup_store_eq_set_store_eq_2]
+QED
+
 Theorem copy_prop_correct:
   ∀prog cs st prog' cs' err st'.
   CPstate_inv cs ∧
@@ -1100,7 +1156,8 @@ Proof
     gvs[copy_prop_prog_def,CaseEq "option"]
     >- (
       gvs[evaluate_def,AllCaseEqs()]>>
-      metis_tac[remove_eq_model_set_var])>>
+      metis_tac[set_store_eq_model_set_var]
+    )>>
     reverse (gvs[AllCaseEqs(),UNCURRY_EQ])
     >- ( (* v = n, Skip case *)
       drule_all lookup_store_eq_SOME>>
