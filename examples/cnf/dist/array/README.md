@@ -13,4 +13,4 @@ The full setup around distrup core
 Global view of distrup nodes
 
 [distrup_listScript.sml](distrup_listScript.sml):
-This refines the distributed RUP checker to a TODO
+This refines the distributed RUP checker to a list-based impl.

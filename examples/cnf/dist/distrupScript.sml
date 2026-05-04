@@ -35,4 +35,3 @@ Definition check_distrup_def:
       else NONE
 End
 
-(* TODO: soundness theorems *)
