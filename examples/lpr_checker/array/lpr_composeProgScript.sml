@@ -198,7 +198,7 @@ End
 Theorem line_of_gen_lines_of[simp]:
   lines_of_gen #"\n" = lines_of
 Proof
-  rw[FUN_EQ_THM,lines_of_gen_def,lines_of_def,splitlines_at_def,splitlines_def,str_def]
+  rw[FUN_EQ_THM,lines_of_gen_def,lines_of_def,splitlines_at_def,splitlines_def,chr_to_str_def]
 QED
 
 Theorem line_count_of_spec:

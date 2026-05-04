@@ -130,16 +130,23 @@ val _ = cv_auto_trans (source_to_flatTheory.alloc_tags_def
 
 Definition compile_decs_alt_def:
   (compile_dec_alt (t:mlstring list) n next env envs (ast$Dlet locs p e) =
-     let n' = n + 4 in
-     let xs = REVERSE (pat_bindings p []) in
-     let e' = compile_exp (xs++t) env e in
-     let l = LENGTH xs in
-     let n'' = n' + l in
-       (n'', (next with vidx := next.vidx + l),
-        <| v := alist_to_ns (alloc_defs n' next.vidx xs); c := nsEmpty |>,
-        envs,
-        [flatLang$Dlet (Mat None e'
-          [(compile_pat env p, make_varls 0 None next.vidx xs)])])) ∧
+     case simple_dlet p e of
+     | SOME (pv,v) =>
+         (case nsLookup env.v v of
+          | SOME (Glob t i) =>
+                 (n, next, <| v := alist_to_ns [(pv, Glob t i)]; c := nsEmpty |>, envs, [])
+          | _ => (n, next, <| v := nsEmpty; c := nsEmpty |>, envs, []))
+     | NONE =>
+         let n' = n + 4 in
+         let xs = REVERSE (pat_bindings p []) in
+         let e' = compile_exp (xs++t) env e in
+         let l = LENGTH xs in
+         let n'' = n' + l in
+           (n'', (next with vidx := next.vidx + l),
+            <| v := alist_to_ns (alloc_defs n' next.vidx xs); c := nsEmpty |>,
+            envs,
+            [(Mat None e'
+              [(compile_pat env p, make_varls 0 None next.vidx xs)])])) ∧
   (compile_dec_alt t n next env envs (ast$Dletrec locs funs) =
      let fun_names = MAP FST funs in
      let new_env = nsBindList (MAP (\x. (x, Local None x)) fun_names) env.v in
@@ -149,7 +156,7 @@ Definition compile_decs_alt_def:
                    c := nsEmpty |> in
        (n' + LENGTH funs, (next with vidx := next.vidx + LENGTH funs),
         env', envs,
-        [flatLang$Dlet (flatLang$Letrec (join_all_names t) flat_funs
+        [ (flatLang$Letrec (join_all_names t) flat_funs
            (make_varls 0 None next.vidx (REVERSE fun_names)))])) /\
   (compile_dec_alt t n next env envs (Dtype locs type_def) =
     let new_env = MAPi (\tid (_,_,constrs). alloc_tags (next.tidx + tid) constrs) type_def in
@@ -176,7 +183,7 @@ Definition compile_decs_alt_def:
         <| v := nsBind nenv (Glob None next.vidx) nsEmpty; c := nsEmpty |>,
         envs with <| next := envs.next + 1;
             envs := insert envs.next env envs.envs |>,
-        [flatLang$Dlet (App None (GlobalVarInit next.vidx)
+        [(App None (GlobalVarInit next.vidx)
             [env_id_tuple envs.generation envs.next])])) ∧
   (compile_decs_alt t n next env envs [] =
     (n, next, empty_env, envs, [])) ∧
@@ -216,7 +223,11 @@ Theorem compile_decs_thm:
 Proof
   ho_match_mp_tac source_to_flatTheory.compile_decs_ind >>
   PURE_ONCE_REWRITE_TAC[compile_decs_cons] >>
-  rw[source_to_flatTheory.compile_decs_def,compile_decs_alt_def,source_to_flatTheory.extend_env_def,source_to_flatTheory.empty_env_def,UNCURRY_eq_pair,PULL_EXISTS,source_to_flatTheory.lift_env_def]
+  rw[source_to_flatTheory.compile_decs_def, compile_decs_alt_def,
+     source_to_flatTheory.extend_env_def,
+     source_to_flatTheory.empty_env_def, UNCURRY_eq_pair, PULL_EXISTS,
+     source_to_flatTheory.lift_env_def]
+  >- (rpt (TOP_CASE_TAC \\ gvs []))
   >- metis_tac[FST,SND,PAIR]
   >- metis_tac[FST,SND,PAIR] >>
   res_tac >>

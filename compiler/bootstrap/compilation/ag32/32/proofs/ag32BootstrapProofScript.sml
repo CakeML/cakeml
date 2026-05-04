@@ -363,6 +363,8 @@ Proof
   \\ simp[wfFS_stdin_fs, STD_streams_stdin_fs]
   \\ simp[compilerTheory.full_compile_32_def]
   \\ pairarg_tac \\ simp[]
+  \\ impl_tac
+  >- (gvs [TextIOProofTheory.stdin_content_def, stdin_fs_def])
   \\ ntac 2 (IF_CASES_TAC \\ fs[]
   >- (
     simp[TextIOProofTheory.add_stdo_def]
@@ -535,7 +537,9 @@ Proof
   \\ disch_then drule
   \\ disch_then drule
   \\ disch_then(qspec_then`stdin_fs inp`mp_tac)
-  \\ impl_tac >- fs[STD_streams_stdin_fs, wfFS_stdin_fs]
+  \\ impl_tac >-
+   (fs[STD_streams_stdin_fs, wfFS_stdin_fs]
+    \\ gvs [TextIOProofTheory.stdin_content_def, stdin_fs_def])
   \\ strip_tac
   \\ irule ag32_next
   \\ rpt (conj_tac >- (simp[ffi_names,extcalls_def, LENGTH_code, LENGTH_data] \\ EVAL_TAC))

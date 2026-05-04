@@ -7,22 +7,17 @@ Ancestors
   semanticPrimitivesProps ffi[qualified] lprefix_lub[qualified]
   backend_common[qualified] misc[qualified] backendProps
   source_evalProof
-Ancestors[ignore_grammar]
   semanticPrimitives flatLang flatSem
   flat_elimProof[qualified] flat_patternProof[qualified]
 Libs
   preamble experimentalLib
 
-(* Set up ML bindings *)
-open preamble semanticsTheory namespacePropsTheory
-     semanticPrimitivesTheory semanticPrimitivesPropsTheory
-     source_to_flatTheory flatLangTheory flatSemTheory flatPropsTheory
-     backendPropsTheory experimentalLib source_evalProofTheory;
-
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj", "getOpClass_def"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
+
+val build_rec_env_merge = flatPropsTheory.build_rec_env_merge;
 
 Theorem compile_exps_length[local]:
   LENGTH (compile_exps t m es) = LENGTH es
@@ -1269,7 +1264,7 @@ Proof
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
       imp_res_tac v_to_char_list >>
       srw_tac[][] >>
-      namedCases_on ‘strng’ ["s"] >>
+      namedCases_on ‘str’ ["s"] >>
       fs [] >>
       Induct_on `s` >>
       fs [semanticPrimitivesTheory.list_to_v_def,flatSemTheory.list_to_v_def] >>
@@ -1282,7 +1277,7 @@ Proof
       srw_tac[][markerTheory.Abbrev_def] >>
       srw_tac[][markerTheory.Abbrev_def] >>
       full_simp_tac(srw_ss())[v_rel_lems]
-      >> rename1 ‘explode strng’ >> Cases_on ‘strng’ >> fs [])
+      >> rename1 ‘explode str’ >> Cases_on ‘str’ >> fs [])
   >~ [‘Strlen’] >- (
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems])
@@ -2493,10 +2488,8 @@ Proof
   ho_match_mp_tac compile_decs_ind >>
   rw [compile_decs_def, idx_prev_def] >>
   rw [] >>
-  pairarg_tac >>
-  fs [] >>
-  pairarg_tac >>
-  fs []
+  rpt (pairarg_tac >> fs []) >>
+  gvs [CaseEq"option",CaseEq"prod",CaseEq"var_name"]
 QED
 
 Theorem inc_compile_prog_idx_prev:
@@ -2519,10 +2512,8 @@ Proof
   ho_match_mp_tac compile_decs_ind >>
   rw [compile_decs_def, idx_prev_def] >>
   rw [] >>
-  pairarg_tac >>
-  fs [] >>
-  pairarg_tac >>
-  fs []
+  rpt (pairarg_tac >> fs []) >>
+  gvs [CaseEq"option",CaseEq"prod",CaseEq"var_name"]
 QED
 
 Theorem compile_decs_env_gen_inv:
@@ -2537,6 +2528,7 @@ Proof
   rw [compile_decs_def, idx_prev_def] >>
   rw [] >>
   rpt (pairarg_tac >> fs []) >>
+  gvs [CaseEq"option",CaseEq"prod",CaseEq"var_name"] >>
   fs [env_gen_inv_def] >>
   fsrw_tac [SATISFY_ss] [subspt_trans] >>
   rw [subspt_def, lookup_insert] >>
@@ -4794,6 +4786,27 @@ Resume compile_correct[cons_decs]:
 QED
 
 Resume compile_correct[Dlet]:
+  rename [‘simple_dlet p e’] >>
+  reverse $ Cases_on ‘simple_dlet p e’
+  >-
+   (rename [‘simple_dlet p e = SOME p_’] >>
+    PairCases_on ‘p_’ >> gvs [] >>
+    pop_assum mp_tac >>
+    simp [simple_dlet_def, AllCaseEqs()] >>
+    strip_tac >> gvs [evaluateTheory.evaluate_def] >>
+    qpat_x_assum ‘_ = (s',r)’ mp_tac >>
+    simp [AllCaseEqs(),semanticPrimitivesTheory.pmatch_def] >>
+    strip_tac >> gvs [] >>
+    ‘∃t1 i1. nsLookup comp_map.v p_1 = SOME (Glob t1 i1)’ by
+      (gvs [v_rel_global_eqn] >> res_tac >> gvs []) >>
+    gvs [flatSemTheory.evaluate_def] >>
+    first_x_assum $ irule_at $ Pos hd >>
+    simp [subglobals_refl] >>
+    conj_tac >- simp [env_domain_eq_def] >>
+    gvs [v_rel_global_eqn] >>
+    gvs [nsLookup_nsBind_If] >>
+    res_tac \\ gvs []) >>
+  pop_assum $ full_simp_tac std_ss o single >>
   rw [] >> fs [pair_case_eq] >> fs [] >>
   `env_all_rel genv comp_map env <|v := []|> []`
     by (simp [env_all_rel_cases] \\ simp [v_rel_rules]) >>
@@ -4802,12 +4815,13 @@ Resume compile_correct[Dlet]:
   simp [bind_locals_def] >>
   simp [Q.prove (`(x with v := x.v) = (x : source_to_flat$environment)`,
       simp [source_to_flatTheory.environment_component_equality])] >>
-  disch_then (qsubterm_then `evaluate _ _ _` mp_tac) >>
+  disch_then $ qspec_then ‘(REVERSE (pat_bindings p []) ++ path)’ mp_tac >>
   (impl_tac >- (CCONTR_TAC >> fs [])) >>
   rw [] >>
   simp [] >>
   imp_res_tac not_abort_IMP_cases >> fs [result_rel_eqns] >>
   rveq >> fs [] >>
+  simp [evaluate_def] >>
   TRY (asm_exists_tac >> simp [result_rel_eqns]) >>
   fs [] >>
   drule invariant_idx_range_shrink >>
@@ -5677,11 +5691,12 @@ Theorem compile_decs_esgc_free:
   !t n next env envs decs n' next' env' envs' decs'.
     compile_decs t n next env envs decs = (n', next', env', envs', decs')
      ==>
-     EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet decs'))
+     EVERY esgc_free decs'
 Proof
   ho_match_mp_tac compile_decs_ind
   \\ rw [compile_decs_def]
   \\ rpt (pairarg_tac \\ fs [])
+  \\ gvs [AllCaseEqs()]
   \\ rw []
   \\ fs [compile_exp_esgc_free, make_varls_esgc_free]
   \\ fs [EVERY_MAP, EVERY_FILTER, MAP_FILTER]
@@ -5693,7 +5708,7 @@ QED
 Theorem compile_prog_esgc_free:
    compile_prog c p = (c1, p1)
    ==>
-   EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet p1))
+   EVERY esgc_free p1
 Proof
   rw [compile_prog_def]
   \\ rpt (pairarg_tac \\ fs [])
@@ -5704,9 +5719,9 @@ QED
 
 Theorem compile_flat_esgc_free:
    compile_flat cfg ds = ds' /\
-   EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet ds))
+   EVERY esgc_free ds
    ==>
-   EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet ds'))
+   EVERY esgc_free ds'
 Proof
   rw [compile_flat_def, compile_def]
   \\ irule flat_patternProofTheory.compile_decs_esgc_free
@@ -5714,7 +5729,7 @@ Proof
 QED
 
 Theorem compile_esgc_free:
-   EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet (SND (compile c p))))
+   EVERY esgc_free (SND (compile c p))
 Proof
   rw [compile_def]
   \\ rpt (pairarg_tac \\ fs [])
@@ -5722,7 +5737,7 @@ Proof
 QED
 
 Theorem inc_compile_prog_esgc_free:
-   EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet (SND (inc_compile_prog env_id c p))))
+   EVERY esgc_free (SND (inc_compile_prog env_id c p))
 Proof
   rw [inc_compile_prog_def]
   \\ rpt (pairarg_tac \\ fs [])
@@ -5732,7 +5747,7 @@ Proof
 QED
 
 Theorem inc_compile_esgc_free:
-   EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet (SND (inc_compile env_id c p))))
+   EVERY esgc_free (SND (inc_compile env_id c p))
 Proof
   rw [inc_compile_def]
   \\ rpt (pairarg_tac \\ fs [])
@@ -5763,7 +5778,8 @@ Proof
 QED
 
 Definition num_bindings_def[simp]:
-   (num_bindings (Dlet _ p _) = LENGTH (pat_bindings p [])) ∧
+   (num_bindings (Dlet _ p e) =
+     case simple_dlet p e of SOME _ => 0 | _ => LENGTH (pat_bindings p [])) ∧
    (num_bindings (Dletrec _ f) = LENGTH f) ∧
    (num_bindings (Dmod _ ds) = SUM (MAP num_bindings ds)) ∧
    (num_bindings (Dlocal lds ds) = SUM (MAP num_bindings lds)
@@ -5773,7 +5789,6 @@ Definition num_bindings_def[simp]:
 Termination
   wf_rel_tac`measure dec_size`
 End
-
 
 Theorem compile_decs_num_bindings:
   !t n next env envs decs n' next' env' envs' decs'.
@@ -5786,6 +5801,7 @@ Proof
   \\ simp [markerTheory.Abbrev_def]
   \\ rw[]
   \\ rpt (pairarg_tac \\ fs [])
+  \\ gvs [AllCaseEqs()]
   \\ rw []
   \\ fsrw_tac [ETA_ss] []
   \\ DECIDE_TAC
@@ -5803,11 +5819,11 @@ QED
 Theorem compile_decs_elist_globals:
   !t n next env envs decs n' next' env' envs' decs'.
     compile_decs t n next env envs decs = (n', next', env', envs', decs') ⇒
-    elist_globals (MAP dest_Dlet (FILTER is_Dlet decs')) =
+    elist_globals decs' =
       LIST_TO_BAG (MAP ((+) next.vidx) (COUNT_LIST (SUM (MAP num_bindings decs))))
 Proof
   recInduct source_to_flatTheory.compile_decs_ind
-  \\ rw[source_to_flatTheory.compile_decs_def]
+  \\ rw[source_to_flatTheory.compile_decs_def,AllCaseEqs()]
   \\ rw[set_globals_make_varls]
   \\ rpt (pairarg_tac \\ fs [])
   \\ rw[compile_exp_esgc_free, EVAL ``COUNT_LIST 0``]
@@ -5842,8 +5858,8 @@ Proof
 QED
 
 Theorem compile_flat_sub_bag:
-  elist_globals (MAP dest_Dlet (FILTER is_Dlet (compile_flat cfg p))) <=
-  elist_globals (MAP dest_Dlet (FILTER is_Dlet p))
+  elist_globals (compile_flat cfg p) <=
+  elist_globals p
 Proof
   fs [source_to_flatTheory.compile_flat_def]
   \\ metis_tac [
@@ -5857,7 +5873,7 @@ Theorem compile_flat_BAG_ALL_DISTINCT[local] = MATCH_MP
     compile_flat_sub_bag
 
 Theorem compile_globals_BAG_ALL_DISTINCT:
-  BAG_ALL_DISTINCT (elist_globals (MAP dest_Dlet (FILTER is_Dlet (SND (compile c prog)))))
+  BAG_ALL_DISTINCT (elist_globals (SND (compile c prog)))
 Proof
   rw []
   \\ fs [compile_def, compile_prog_def]
@@ -5874,8 +5890,7 @@ Proof
 QED
 
 Theorem inc_compile_globals_BAG_ALL_DISTINCT:
-  BAG_ALL_DISTINCT (elist_globals (MAP dest_Dlet (FILTER is_Dlet
-    (SND (inc_compile env_id c prog)))))
+  BAG_ALL_DISTINCT (elist_globals (SND (inc_compile env_id c prog)))
 Proof
   rw []
   \\ fs [inc_compile_def, inc_compile_prog_def]
@@ -5906,10 +5921,8 @@ Theorem monotonic_globals_state_co_compile:
   compile conf prog = (conf',p) ∧ FST (FST (orac 0)) = conf' ∧
   is_state_oracle (\c (env_id, decs). inc_compile env_id c (f decs)) orac ⇒
   oracle_monotonic
-    (IMAGE SUC ∘ SET_OF_BAG ∘ elist_globals ∘ MAP flatProps$dest_Dlet ∘
-      FILTER flatProps$is_Dlet ∘ SND) $<
-    (0 INSERT IMAGE SUC (SET_OF_BAG (elist_globals (MAP flatProps$dest_Dlet
-                (FILTER flatProps$is_Dlet p)))))
+    (IMAGE SUC ∘ SET_OF_BAG ∘ elist_globals ∘ SND) $<
+    (0 INSERT IMAGE SUC (SET_OF_BAG (elist_globals p)))
     (state_co (\c (env_id, decs). inc_compile env_id c (f decs)) orac)
 Proof
   rw []
