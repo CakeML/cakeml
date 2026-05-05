@@ -304,13 +304,44 @@ Definition mk_prio_def:
   else NONE
 End
 
-(*Generate reconciliation moves from current ssa to target ssa for vars in ns*)
+(*Generate reconciliation moves from current ssa to target ssa for vars in ns.
+
+  For v ∈ ns ∩ domain cur_ssa: emit a Move from cur_ssa(v) to tgt_ssa(v)
+  (skipped if they happen to be the same register).
+
+  For v ∈ ns with v ∉ domain cur_ssa: emit nothing. Such v are vacuous
+  in strong_locals_rel (ssa_locals_rel ⇒ v ∉ domain st.locals), and when
+  the enclosing Loop's cut_state reads tgt_ssa(v), it either succeeds
+  because v was added to cur_ssa later (so Case 3 in the proof analysis
+  applies: position tgt_ssa(v) = v gets moved), or the source cut also
+  fails, making the theorem vacuous.*)
 Definition ssa_reconcile_def:
   ssa_reconcile cur_ssa tgt_ssa ns =
-    let ls = MAP FST (toAList ns) in
+    let vars = MAP FST (toAList ns) in
     let moves = FILTER (λ(a,b). a ≠ b)
-      (MAP (λv. (option_lookup tgt_ssa v, option_lookup cur_ssa v)) ls) in
+      (FLAT (MAP (λv.
+        case lookup v cur_ssa of
+        | NONE => []
+        | SOME cur_v => [(option_lookup tgt_ssa v, cur_v)]) vars)) in
     if moves = [] then (Skip:'a wordLang$prog) else Move 1 moves
+End
+
+(* Loop entry setup: refresh ssa for vars in (names ∪ exit_names) so that
+   option_lookup ssa_refreshed is INJ on each. For vars already in ssa we
+   emit a real Move; for vars not in ssa we allocate fresh ssa entries
+   and fake_move-initialise the corresponding target registers. *)
+Definition loop_setup_def:
+  loop_setup (names:unit num_map) (exit_names:unit num_map) ssa na =
+    let all_vars_ls = MAP FST (toAList (union names exit_names)) in
+    let extend_ls  = FILTER (λv. lookup v ssa = NONE) all_vars_ls in
+    let refresh_ls = FILTER (λv. IS_SOME (lookup v ssa)) all_vars_ls in
+    let (fresh_pos_ls, ssa_ext, na_ext) =
+      list_next_var_rename extend_ls ssa na in
+    let fake_prog = FOLDR Seq (Skip:'a wordLang$prog)
+      (MAP (λr. fake_move r) fresh_pos_ls) in
+    let (refresh_mov, ssa_refreshed, na_refreshed) =
+      list_next_var_rename_move ssa_ext na_ext refresh_ls in
+    (Seq fake_prog refresh_mov, ssa_refreshed, na_refreshed)
 End
 
 Definition ssa_cc_trans_def:
@@ -510,18 +541,24 @@ Definition ssa_cc_trans_def:
       else
         let (v',ssa',na') = next_var_rename v ssa na in
           (ShareInst op v' exp',ssa',na')) /\
-  (*Loop: transform body, add reconciliation moves for loop-back.
-    Break/Continue handle their own reconciliation via lt.*)
+  (*Loop: use loop_setup to refresh ssa for (names ∪ exit_names) before
+    the Loop, establishing INJ on their domains by construction. Body sees
+    ssa restricted to names; lt carries ssa_refreshed (full) for
+    Break/Continue reconciliation.*)
   (ssa_cc_trans (Loop names body exit_names) ssa na lt =
-    let ssa_names = apply_nummap_key (option_lookup ssa) names in
-    let ssa_exit = apply_nummap_key (option_lookup ssa) exit_names in
+    let (setup_prog, ssa_refreshed, na_refreshed) =
+      loop_setup names exit_names ssa na in
+    let ssa_names = apply_nummap_key (option_lookup ssa_refreshed) names in
+    let ssa_exit = apply_nummap_key (option_lookup ssa_refreshed) exit_names in
+    let ssa_body = inter ssa_refreshed names in
     let (body', ssa', na') =
-      ssa_cc_trans body ssa na ((ssa,names,exit_names)::lt) in
-    (*Reconciliation moves for loop-back on normal completion*)
-    let back_moves = ssa_reconcile ssa' ssa names in
+      ssa_cc_trans body ssa_body na_refreshed
+        ((ssa_refreshed, names, exit_names)::lt) in
+    let back_moves = ssa_reconcile ssa' ssa_refreshed names in
     let body_final = if back_moves = Skip then body'
                      else Seq body' back_moves in
-    (Loop ssa_names body_final ssa_exit, inter ssa exit_names, na')) /\
+    (Seq setup_prog (Loop ssa_names body_final ssa_exit),
+     inter ssa_refreshed exit_names, na')) /\
   (*Break n: reconcile current ssa with target exit ssa*)
   (ssa_cc_trans (Break n) ssa na lt =
     case oEL n lt of
