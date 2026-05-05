@@ -26,6 +26,7 @@ fun clear_cache_prover gtac  =
  end
 val _ = Tactical.set_prover clear_cache_prover;
 
+val _ = set_trace "guess overloads" 0;
 (* TOOD: move? *)
 val wf_rel_tac = WF_REL_TAC
 val induct_on = Induct_on
