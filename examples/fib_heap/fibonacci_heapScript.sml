@@ -2692,9 +2692,9 @@ QED
 
 
 Theorem fts_rm_min:
-  fib_heap_inv fhx xs /\
+  fib_heap_inv fh xs /\
   fts_rm_min xs = (min,ys) ==>
-  ?fhy. fib_heap_inv_strong fhy ys
+  fib_heap_inv_strong (fh \\ min) ys
 Proof
   Cases_on `xs`
   >- (
@@ -2702,24 +2702,29 @@ Proof
     rpt strip_tac >>
     fs[fib_heap_inv_strong_def,fib_heap_inv_def] >>
     simp[Once fts_has_cases] >>
-    rpt gen_tac >>
+    rpt strip_tac >>
     fs[Once fts_has_cases] >>
-    qexists `fhx` >>
-    simp[]
+    Cases_on `k = 0w` >> gvs[DOMSUB_FLOOKUP_THM]
     ) >>
   Cases_on `h` >>
   fs[fib_heap_inv_def,fib_heap_inv_strong_def] >>
-  rpt strip_tac >>
+  strip_tac >>
   fs[fts_rm_min_def] >>
   Cases_on `l` >> Cases_on `t`>> fs[fts_merge_def]
   >- (
+    gvs[] >>
     simp[every_fts_def, fts_parent_lower_eq_def, fts_all_dist_def] >>
     simp[fib_heap_shape_ok_def, Once fts_has_cases] >>
-    qexists `FEMPTY` >> simp[FLOOKUP_SIMP]
+    rpt strip_tac
+    >- fs[DOMSUB_FLOOKUP_THM] >>
+    fs[DOMSUB_FLOOKUP_THM] >>
+    res_tac >>
+    pop_assum mp_tac >>
+    simp[Once fts_has_cases] >>
+    simp[Once fts_has_cases]
     )
   >- (
     Cases_on `h` >> gvs[] >>
-    qexists `fhx \\ k` >>
     rpt strip_tac
     >- (
       pop_assum mp_tac >> simp[] >>
@@ -2747,7 +2752,6 @@ Proof
    )
   >- (
     Cases_on `h` >>
-    qexists `fhx \\ k` >>
     rpt strip_tac
     >- fs[DOMSUB_FLOOKUP_THM]
     >- (
@@ -2769,7 +2773,6 @@ Proof
     >- fs[Once every_fts_def] >>
     fs[fib_heap_shape_ok_def]
     ) >>
-  qexists `fhx \\ k` >>
   Cases_on `h` >> Cases_on `h'` >>
   fs[fts_merge_def] >>
   pop_assum mp_tac >>
@@ -6113,6 +6116,8 @@ Definition alg_rl_def:
 End
 
 
+
+
 Definition fts_reb_def:
   fts_reb rl fts =
     let (l_rl,flag) = fts_link_root_list rl fts in
@@ -6162,6 +6167,11 @@ QED
 
 
 
+
+
+
+
+
 Theorem fts_reb:
   !fh1 fts fh2 fts' e_rl.
     fib_heap_inv_strong fh1 fts /\
@@ -6191,6 +6201,52 @@ Proof
   imp_res_tac lemma_e_rl_eq_replicate >>
   gvs[]
 QED
+
+
+
+
+(*-------------------------------------------------------------
+  Extract Minimum
+--------------------------------------------------------------*)
+
+
+
+Definition fts_extract_min_def:
+  fts_extract_min fts =
+    let (min,fts) = fts_rm_min fts in
+    let (fts',e_rl,flag) = fts_reb alg_rl fts in
+      (min,fts',e_rl,flag)
+End
+
+
+
+
+Theorem lemma_fib_heap_inv_union2_alg_rl:
+  fib_heap_inv_union2 FEMPTY (ts_to_fhts alg_rl)
+Proof
+  simp[lemma_ts_to_fhts_to_map,alg_rl_def] >>
+  simp[fib_heap_inv_union2_empty_thm]
+QED
+
+
+Theorem fts_extract_min:
+  fib_heap_inv fh fts /\
+  fts_extract_min fts = (min,fts',alg_rl,T)
+  ==>
+  fib_heap_inv (fh \\ min) fts'
+Proof
+  strip_tac >>
+  pop_assum mp_tac >> simp[fts_extract_min_def] >>
+  pairarg_tac >> fs[] >>
+  pairarg_tac >> fs[] >>
+  strip_tac >> gvs[] >>
+  drule_all fts_rm_min >> strip_tac >>
+  assume_tac lemma_fib_heap_inv_union2_alg_rl >>
+  drule_all fts_reb >> fs[]
+QED
+
+
+
 
 
 (*
