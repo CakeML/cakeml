@@ -1002,49 +1002,51 @@ Proof
 QED
 
 Theorem evaluate_rewrite_tmc:
-   ∀xs env1 ^s r t opt f s' env2.
-     evaluate (xs, env1, s) = (r, t) ∧
-     env_rel opt f env1 env2 ∧
-     state_rel f s s' ∧
-     (opt ⇒ LENGTH xs = 1) ∧
-     r ≠ Rerr (Rabort Rtype_error) ⇒
-     ∃t' f' r'.
-       evaluate (xs, env2, s') = (r', t') ∧
-       result_rel (LIST_REL (v_rel f')) (v_rel f') r r' ∧
-       state_rel f' t t' ∧
-       f SUBMAP f' ∧
-       only_fresh f f' s'.refs ∧
-       holes_unchanged_except f s'.refs t'.refs ∅ ∧
-       (opt ⇒
-        (∀loc loc_opt arity wrap work.
-           rewrite_wrapper loc loc_opt arity (HD xs) = SOME wrap ⇒
-           ∃t1.
-             evaluate ([wrap], env2, s') = (r',t1) ∧
-             state_rel f' t t1) ∧
-        (∀loc loc_opt i j wrap work.
-           i = LENGTH env1 ∧
-           j = LENGTH env1 + 1 ∧
-           (∃c. hole_has_val f env1 env2 s'.refs c) ∧
-           rewrite_worker loc loc_opt i j (HD xs) = work ⇒
-           ∃rrr t2.
-             evaluate ([work], env2, s') = (rrr,t2) ∧
-             opt_res_rel r' rrr ∧
-             state_rel f' t t2 ∧
-             holes_unchanged_except f s'.refs t2.refs {EL i env2} ∧
-             ∀res_v.
-                r' = Rval [res_v] ⇒
-                hole_has_val f env1 env2 t2.refs res_v))
+  ∀n xs ^s env1 r t opt f s' env2.
+    evaluate (xs, env1, s) = (r, t) ∧
+    n = s.clock ∧
+    env_rel opt f env1 env2 ∧
+    state_rel f s s' ∧
+    (opt ⇒ LENGTH xs = 1) ∧
+    r ≠ Rerr (Rabort Rtype_error) ⇒
+    ∃t' f' r'.
+      evaluate (xs, env2, s') = (r', t') ∧
+      result_rel (LIST_REL (v_rel f')) (v_rel f') r r' ∧
+      state_rel f' t t' ∧
+      f SUBMAP f' ∧
+      only_fresh f f' s'.refs ∧
+      holes_unchanged_except f s'.refs t'.refs ∅ ∧
+      (opt ⇒
+       (∀loc loc_opt arity wrap work.
+          rewrite_wrapper loc loc_opt arity (HD xs) = SOME wrap ⇒
+          ∃t1.
+            evaluate ([wrap], env2, s') = (r',t1) ∧
+            state_rel f' t t1) ∧
+       (∀loc loc_opt i j wrap work.
+          i = LENGTH env1 ∧
+          j = LENGTH env1 + 1 ∧
+          (∃c. hole_has_val f env1 env2 s'.refs c) ∧
+          rewrite_worker loc loc_opt i j (HD xs) = work ⇒
+          ∃rrr t2.
+            evaluate ([work], env2, s') = (rrr,t2) ∧
+            opt_res_rel r' rrr ∧
+            state_rel f' t t2 ∧
+            holes_unchanged_except f s'.refs t2.refs {EL i env2} ∧
+            ∀res_v.
+              r' = Rval [res_v] ⇒
+              hole_has_val f env1 env2 t2.refs res_v))
 Proof
-  (*
-  completeInduct_on ‘s.clock’
+  gen_tac
+  >> completeInduct_on ‘n’
+  >> gen_tac
   >> completeInduct_on ‘list_size exp_size xs’
+  >> rw []
   >> Cases_on ‘xs’
-  *)
-  recInduct bviSemTheory.evaluate_ind
-  >> rpt strip_tac
   >~ [‘evaluate ([],_,_)’] >-
    (gvs [evaluate_def] >> first_x_assum $ irule_at Any >> fs [only_fresh_def, holes_unchanged_except_def])
+  >> reverse $ Cases_on ‘t'’
   >~ [‘evaluate (x::y::xs,_,_)’] >- suspend "list"
+  >> Cases_on ‘h’
   >~ [‘Var n’] >- suspend "var"
   >~ [‘If x1 x2 x3’] >- suspend "if"
   >~ [‘Let xs x2’] >- suspend "lett"
@@ -1060,6 +1062,45 @@ Resume evaluate_rewrite_tmc[list]:
   (* First inductive hypothesis *)
   >> gvs [CaseEq "prod", PULL_EXISTS]
   >> rename[‘evaluate ([x],env,s) = (rx,u)’]
+  >> reverse $ Cases_on ‘rx’ >> gvs []
+  >-
+   (first_assum $ qspec_then ‘list_size exp_size [x]’ mp_tac
+    >> impl_tac >- gvs []
+    >> disch_then $ qspec_then ‘[x]’ mp_tac
+    >> impl_tac >- gvs []
+    >> disch_then drule
+    >> gvs []
+    >> rpt $ disch_then drule
+    >> strip_tac
+    >> gvs []             
+    >> first_assum $ irule_at Any
+    >> gvs [])
+  >> Cases_on ‘evaluate (y::xs,env,u)’ >> gvs []
+  >> Cases_on ‘q’ >> gvs []
+  >> imp_res_tac evaluate_SING_IMP
+  >> gvs []
+  >> rename [‘evaluate ([x],env,s) = (Rval [vx],u)’]
+  >> rename [‘evaluate (y::xs,env,u) = (Rval vs,t)’]
+  >> first_assum $ qspec_then ‘list_size exp_size [x]’ mp_tac
+  >> impl_tac >- gvs []
+  >> disch_then $ qspec_then ‘[x]’ mp_tac
+  >> impl_tac >- gvs []
+  >> disch_then drule
+  >> gvs []
+  >> rpt $ disch_then drule
+  >> strip_tac
+  >> gvs []
+  >> first_assum $ qspec_then ‘list_size exp_size (y::xs)’ mp_tac
+  >> impl_tac >- gvs []
+  >> disch_then $ qspec_then ‘y::xs’ mp_tac
+  >> impl_tac >- gvs []
+  >> disch_then drule
+  >> Cases_on ‘s.clock = u.clock’ >> gvs []
+  >-
+   (rpt $ disch_then drule
+    >> 
+        )
+                      
   >> first_x_assum $ qspec_then ‘F’ mp_tac
   >> simp []
   >> disch_then drule
@@ -1596,12 +1637,25 @@ QED
 
 Theorem evaluate_cb_to_bvi:
   ∀loc tag args env s t r bs cb exp.
+    cb_to_bvi loc tag args = SOME exp ∧
     evaluate ([Op (BlockOp (Cons tag)) args],env,s) = (r,t) ∧
-    r ≠ Rerr (Rabort Rtype_error) ∧
-    cb_to_bvi loc tag args = SOME exp ⇒
+    r ≠ Rerr (Rabort Rtype_error) ⇒
     evaluate ([exp],env,s) = (r,t)
 Proof
-  cheat
+  (* Not sure how to set this up *)
+  rw []
+  >> gvs [cb_to_bvi_def]
+  >> gvs [CaseEq "option"]
+  >> Cases_on ‘v’ >> gvs []
+  >> imp_res_tac cons_to_cb_wf
+  >> gvs []
+  >> rename [‘cons_to_cb loc tag args = SOME (bs,CallBlock tag left child right)’]
+  >> gvs [cons_to_cb_def]
+  >> pop_assum mp_tac
+  >> rpt (CASE_TAC >> gvs [])
+  >> strip_tac
+  >> gvs []
+  >> cheat
 QED
 
 Resume evaluate_rewrite_tmc[tick]:
