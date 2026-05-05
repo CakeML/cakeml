@@ -45,7 +45,6 @@ Definition dest_Cons_def:
 End
 
 (* PHASE 1: extract everything into a let bound "call block" *)
-(* TODO: binders are messed up *)
 
 (* CallBlock tag left child right
    This is the "skeleton" of the BlockOp Cons
@@ -60,14 +59,13 @@ Datatype:
 End
 
 (* Returns a tuple of expressions to be in let binders and a list of corresponding de Bruijn indeces,
-   for the purpose of buidling left and right above.
-   I don't think I am doing de Bruijn indexing correctly yet. *)
+   for the purpose of buidling left and right above. *)
 Definition to_binder_def:
   (to_binder next (Var n) = ([],next + n)) ∧
   (to_binder next exp = ([exp],next))
 End
 
-(* Same as above, but for multiple expressions. Used only for arguments to recursive call. Same indexing problem. *)
+(* Same as above, but for multiple expressions. Used only for arguments to recursive call. *)
 Definition to_binders_def:
   (to_binders next [] = ([],[])) ∧
   (to_binders next (h::t) =
@@ -210,11 +208,24 @@ Proof
     >> gvs [])
 QED
 
+Definition reverse_idx_def:
+  reverse_idx len (n:num) = len - n - 1
+End
+
+Definition reverse_idxs_def:
+  (reverse_idxs len (CallBlock tag l child r) =
+     let l' = MAP (reverse_idx len) l in
+     let child' = reverse_idxs len child in
+     let r' = MAP (reverse_idx len) r in
+       CallBlock tag l' child' r') ∧
+  (reverse_idxs _ rcall = rcall)
+End
+
 (* Calls the above but throws away an unoptimisable BlockOp Cons. *)
 Definition cons_to_cb_def:
   cons_to_cb loc tag args =
   case cons_to_cb_aux 0 loc tag args of
-  | SOME (bs,INR cb) => SOME (bs,cb)
+  | SOME (bs,INR cb) => SOME (bs,reverse_idxs (LENGTH bs) cb)
   | _ => NONE
 End
 
@@ -228,7 +239,7 @@ Proof
   >> Cases_on ‘args’ >> gvs [cons_to_cb_def, cons_to_cb_aux_def]
   >> gvs [CaseEq "option", CaseEq "prod", CaseEq "sum"]
   >> imp_res_tac cons_to_cb_aux_wf
-  >> gvs []
+  >> gvs [reverse_idxs_def]
 QED
 
 val ex1 = “[Op (IntOp (Const 1)) []; Call 0 (SOME 7) [] NONE; Call 0 (SOME 4) [] NONE; Op (IntOp (Const 3)) []]”
