@@ -257,41 +257,6 @@ Definition cb_to_bvi_def:
     | NONE => NONE
 End
 
-(* Prove they are semantically equivalent - this will need to move but easier here for now. *)
-(*
-Theorem evaluate_cb_to_bvi:
-  ∀exp exp' loc tag args env s t r.
-    exp = Op (BlockOp (Cons tag)) args ∧
-    exp' = cb_to_bvi loc tag args ∧
-    r ≠ Rerr (Rabort Rtype_error) ∧
-    evaluate ([exp],env,s) = (r,t) ⇒
-    evaluate ([exp'],env,s) = (r,t)
-Proof
-  rw []
-  >> gvs [cb_to_bvi_def]
-  >> CASE_TAC >> gvs []
-  >> CASE_TAC >> gvs []
-  >> rename [‘cons_to_cb loc tag args = SOME (bs,block_op_cons)’]
-  >> gvs [evaluate_def]
-  >> CASE_TAC >> gvs []
-  >> rename [‘evaluate (bs,env,s) = (vs,t')’]
-  >> Induct_on ‘bs’
-  >-
-   (gvs [cons_to_cb_def]
-    >> CASE_TAC >> gvs []
-    >> CASE_TAC >> gvs []
-    >> rw []
-    >> gvs [evaluate_def]
-    >> Cases_on ‘b’ >> gvs []
-    >> rename [‘cons_to_cb_aux 0 loc tag args = ([],Right (CallBlock tag' l c r))’]
-    >> gvs [cb_to_cons_def, evaluate_def]
-    >> Cases_on ‘args’ >> gvs [cons_to_cb_aux_def]
-    >> Cases_on ‘t'’ >> gvs [cons_to_cb_aux_def]
-    >> cheat)
-  >> cheat
-QED
- *)
-
 (* Phase 2 - Convert call block into a hole block, where the hole is filled by the optimised version of recursive call. *)
 
 (* Like call_block, but base case is NONE instead of RCall *)
