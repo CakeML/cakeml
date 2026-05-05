@@ -125,24 +125,12 @@ Theorem state_rel_cut_env_IMP_cut_env =
   |> SRULE [get_vars_def,cut_state_opt_def,cut_state_def,
             CaseEq"option",PULL_EXISTS,wordSemTheory.get_vars_def];
 
-Theorem v_inv_Loc_lemma[local]:
-  ∀w refs y.
-    v_inv conf w refs y ⇒
-      ∀x f tf heap.
-        y = (x,f,tf,heap) ∧
-        word_addr conf x = Loc n1 n2 ⇒
-          n2 = 0
-Proof
-  ho_match_mp_tac v_inv_rel_strongind
-  \\ rw [] \\ gvs [v_inv_def, word_addr_def]
-QED
-
 Theorem v_inv_Loc[local]:
   v_inv c v1 s.refs (v2,f,tf,heap) ∧
   word_addr c v2 = Loc n1 n2 ⇒
     n2 = 0
 Proof
-  metis_tac [v_inv_Loc_lemma]
+  rw [] \\ gvs [oneline word_addr_def, AllCaseEqs()]
 QED
 
 Theorem state_rel_get_var_RefPtr_Loc[local]:
