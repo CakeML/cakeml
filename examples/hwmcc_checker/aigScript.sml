@@ -820,6 +820,7 @@ Proof
   >> fs [is_witness_closure_def]
   >> first_assum irule >> simp []
   >> qexists ‘tr (i + k)’ >> fs [ADD1]
+  >> rewrite_tac [ADD_ASSOC] >> simp[ADD_ASSOC]
   >> first_x_assum $ qspec_then ‘i + k’ mp_tac >> simp []
 QED
 
@@ -836,16 +837,23 @@ Theorem matching_transition_live:
 Proof
   rw []
   >> drule_then assume_tac is_inf_trace_cnstrs_hold
+  >> Cases_on ‘j = i + 1’ >> gvs []
+  >-
+   (fs [matching_transition_def, is_witness_decrease_def]
+    >> last_assum irule >> gvs [is_inf_trace_def]
+    >> last_x_assum $ qspec_then ‘i’ assume_tac
+    >> gvs [])
   >> drule_then assume_tac is_inf_trace_is_next
   >> ‘preds_hold (pair_state (tr (i + 2)) (tr (i + 1))) qcirc live’ by
     (fs [is_witness_decrease_def]
      >> last_assum irule >> simp []
      >> first_x_assum $ qspec_then ‘i + 1’ mp_tac >> simp [])
+  >> Cases_on ‘j = i + 2’ >> gvs []
+  >- (gvs [matching_transition_def])
+  >> gvs [matching_transition_def]
   >> drule_all is_witness_closure_preds_hold
-  (* probably need a case distinction on whether j = i + 1, j = i + 2 *)
-  (* probably want a lemma that given matching_transition we can swap things;
-     or maybe we just want to get rid of matching transition *)
-  >> cheat
+  >> disch_then $ qspec_then ‘j - i - 2’ mp_tac
+  >> simp []
 QED
 
 Theorem is_witness_is_live:
@@ -861,6 +869,23 @@ Theorem is_witness_is_live:
 Proof
   rw []
   >> drule_all_then assume_tac is_witness_is_safe
+  >> rw [is_live_def]
+  >> drule_all_then assume_tac is_safe_is_inf_trace_preds_hold
+  >> fs [is_witness_def]
+
+  (* TODO change to drule_all once we have all the parts *)
+  >> drule matching_transition_live
+  >> disch_then drule
+  >> disch_then drule
+  >> disch_then drule
+
+  (* model is finite
+     ⇒ there exists a k such that after it we loop
+     ⇒ since we loop, for any i we can find a matching transition
+        such that i -> i+1 is the same as j -> j+1
+     ⇒ use the theorem we proved (in assumptions)
+     QED?
+     *)
   >> cheat
 QED
 
