@@ -140,6 +140,84 @@ val ex1 = “[Op (IntOp (Const 1)) []; Call 0 (SOME 0) [] NONE; Call 0 (SOME 7) 
 val ex1_call = “cons_to_cb_aux 0 0 99 ^ex1”
 (* EVAL ex1_call *)
 
+Theorem cons_to_cb_aux_sing:
+  ∀next loc tag arg bs cb.
+    cons_to_cb_aux next loc tag [arg] = SOME (bs,INR cb) ⇒
+    ∃child.
+      cb = CallBlock tag [] child []
+Proof
+  rw []
+  >> Cases_on ‘arg’ >> gvs [cons_to_cb_aux_def, to_binder_def]
+  >-
+   (pop_assum mp_tac
+    >> IF_CASES_TAC >> gvs [CaseEq "prod"]
+    >> strip_tac
+    >> gvs [])
+  >> pop_assum mp_tac
+  >> CASE_TAC >> gvs []
+  >- (CASE_TAC >> gvs [])
+  >> CASE_TAC >> gvs []
+  >> CASE_TAC >> gvs []
+  >- (CASE_TAC >> gvs [])
+  >> CASE_TAC >> gvs []
+  >> strip_tac
+  >> gvs []
+QED
+
+Theorem cons_to_cb_aux_wf:
+  ∀next loc tag args bs cb.
+    cons_to_cb_aux next loc tag args = SOME (bs,INR cb) ⇒
+    ∃l child r.
+      cb = CallBlock tag l child r
+Proof
+  recInduct cons_to_cb_aux_ind
+  >> rw []
+  >~ [‘cons_to_cb_aux next loc tag []’] >-
+   gvs [cons_to_cb_aux_def]
+  >~ [‘cons_to_cb_aux next loc tag [Call t loc' args h]’] >-
+   (gvs [cons_to_cb_aux_def]
+    >> pop_assum mp_tac
+    >> reverse IF_CASES_TAC >> gvs [to_binder_def]
+    >> CASE_TAC >> gvs []
+    >> strip_tac
+    >> gvs [])
+  >~ [‘cons_to_cb_aux next loc tag [Op op args]’] >-
+   (gvs [cons_to_cb_aux_def]
+    >> pop_assum mp_tac
+    >> CASE_TAC >> gvs []
+    >> CASE_TAC >> gvs []
+    >- (CASE_TAC >> gvs [])
+    >> CASE_TAC >> gvs []
+    >> CASE_TAC >> gvs []
+    >- (CASE_TAC >> gvs [])
+    >> CASE_TAC >> gvs []
+    >> strip_tac
+    >> gvs [])
+  >~ [‘cons_to_cb_aux next loc tag [Var n]’] >-
+   (gvs [cons_to_cb_aux_def, to_binder_def])
+  >~ [‘cons_to_cb_aux next loc tag [If x1 x2 x3]’] >-
+   (gvs [cons_to_cb_aux_def, to_binder_def])
+  >~ [‘cons_to_cb_aux next loc tag [Let xs x]’] >-
+   (gvs [cons_to_cb_aux_def, to_binder_def])
+  >~ [‘cons_to_cb_aux next loc tag [Raise x]’] >-
+   (gvs [cons_to_cb_aux_def, to_binder_def])
+  >~ [‘cons_to_cb_aux next loc tag [Tick x]’] >-
+   (gvs [cons_to_cb_aux_def, to_binder_def])
+  >~ [‘cons_to_cb_aux next loc tag [Force _ _]’] >-
+   (gvs [cons_to_cb_aux_def, to_binder_def])
+  >~ [‘cons_to_cb_aux next loc tag (x::y::xs)’] >-
+   (gvs [cons_to_cb_aux_def]
+    >> Cases_on ‘cons_to_cb_aux next loc tag (y::xs)’ >> gvs []
+    >> Cases_on ‘x'’ >> gvs []
+    >> reverse $ Cases_on ‘r’ >> gvs []
+    >- gvs [CaseEq "prod"]
+    >> gvs [CaseEq "option"]
+    >> Cases_on ‘v’ >> gvs []
+    >> Cases_on ‘r’ >> gvs []
+    >> imp_res_tac cons_to_cb_aux_sing
+    >> gvs [])
+QED
+
 (* Calls the above but throws away an unoptimisable BlockOp Cons. *)
 Definition cons_to_cb_def:
   cons_to_cb loc tag args =
@@ -147,6 +225,19 @@ Definition cons_to_cb_def:
   | SOME (bs,INR cb) => SOME (bs,cb)
   | _ => NONE
 End
+
+Theorem cons_to_cb_wf:
+  ∀loc tag args bs cb.
+    cons_to_cb loc tag args = SOME (bs,cb) ⇒
+    ∃l child r.
+      cb = CallBlock tag l child r
+Proof
+  rw []
+  >> Cases_on ‘args’ >> gvs [cons_to_cb_def, cons_to_cb_aux_def]
+  >> gvs [CaseEq "option", CaseEq "prod", CaseEq "sum"]
+  >> imp_res_tac cons_to_cb_aux_wf
+  >> gvs []
+QED
 
 (* Convert back to BlockOp Cons for comparing semantics *)
 Definition cb_to_cons_def:
