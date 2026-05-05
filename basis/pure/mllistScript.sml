@@ -5,7 +5,7 @@ Theory mllist
 Libs
   preamble
 Ancestors
-  indexedLists[qualified] toto[qualified]
+  list indexedLists[qualified] toto[qualified]
   sorting mergesort
 
 (* ===== TODO: TO BE PORTED TO HOL (better theorems for mergesort_tail) ===== *)
@@ -376,13 +376,6 @@ Proof
   rw [(MAPI_thm_gen |> Q.SPECL[`f`,`l`,`0`]
   |> SIMP_RULE (srw_ss()++ETA_ss) [])]
 QED
-
-Definition mapPartial_def:
-  (mapPartial f [] = []) /\
-  (mapPartial f (h::t) = case (f h) of
-    NONE => mapPartial f t
-    |(SOME x) => x::mapPartial f t)
-End
 
 Theorem mapPartial_thm:
    !f l. mapPartial f l = MAP THE (FILTER IS_SOME (MAP f l))
