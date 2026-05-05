@@ -74,6 +74,11 @@ EVAL``eval_lit (is,ls) circ TT``
 EVAL``eval_lit (is,ls) circ FF``
 *)
 
+Definition pair_state_def:
+  pair_state (is₁,ls₁) (is₂,ls₂) =
+    ((λi. sum_CASE i is₁ is₂), (λl. sum_CASE l ls₁ ls₂))
+End
+
 Definition preds_hold_def:
   preds_hold ss (circ: ('a, 'i, 'l) circuit)
     (ns: ('a,'i,'l) lit set) =
@@ -108,6 +113,7 @@ Definition is_trace_def:
       preds_hold (tr (i + 1)) circ cnstrs
 End
 
+(* TODO Why not inline is_unsafe into is_safe? *)
 Definition is_unsafe_def:
   is_unsafe (circ: ('a, 'i, 'l) circuit)
     (reset: 'l -> ('a,'i,'l) lit) (next: 'l -> ('a,'i,'l) lit)
@@ -193,6 +199,55 @@ Definition is_witness_step_def:
        preds_hold ss₁ wcirc wcnstrs)
       ⇒
       preds_hold ss₁ wcirc wpreds
+End
+
+Definition is_witness_liveness_def:
+  is_witness_liveness
+    mcirc mreset mnext mpreds mcnstrs mlatches mqcirc mlive
+    wcirc wreset wnext wpreds wcnstrs wlatches wqcirc wlive
+  ⇔
+    ∀ss₀ ss₁.
+      (preds_hold ss₀ mcirc mcnstrs ∧
+       preds_hold ss₀ wcirc wcnstrs ∧
+       preds_hold ss₀ wcirc wcnstrs ∧
+       preds_hold ss₁ mcirc mcnstrs ∧
+       preds_hold ss₁ wcirc wcnstrs ∧
+       preds_hold ss₁ wcirc wcnstrs ∧
+       is_next ss₀ wcirc wnext wlatches (SND ss₁) ∧
+       preds_hold (pair_state ss₀ ss₁) wqcirc wlive)
+      ⇒
+      preds_hold (pair_state ss₀ ss₁) mqcirc mlive
+End
+
+Definition is_witness_decrease_def:
+  is_witness_decrease
+    mcirc mreset mnext mpreds mcnstrs mlatches mqcirc mlive
+  ⇔
+    ∀ss₀ ss₁.
+      (preds_hold ss₀ mcirc mcnstrs ∧
+       preds_hold ss₀ mcirc mpreds ∧
+       preds_hold ss₁ mcirc mcnstrs ∧
+       preds_hold ss₁ mcirc mpreds ∧
+       is_next ss₀ mcirc mnext mlatches (SND ss₁))
+       ⇒
+       preds_hold (pair_state ss₁ ss₀) mqcirc mlive
+End
+
+Definition is_witness_closure_def:
+  is_witness_closure
+    mcirc mreset mnext mpreds mcnstrs mlatches mqcirc mlive
+  ⇔
+    ∀ss₀ ss₁ ss₂.
+      (preds_hold ss₀ mcirc mcnstrs ∧
+       preds_hold ss₀ mcirc mpreds ∧
+       preds_hold ss₁ mcirc mcnstrs ∧
+       preds_hold ss₁ mcirc mpreds ∧
+       preds_hold ss₂ mcirc mcnstrs ∧
+       preds_hold ss₂ mcirc mpreds ∧
+       is_next ss₀ mcirc mnext mlatches (SND ss₁) ∧
+       preds_hold (pair_state ss₀ ss₂) mqcirc mlive)
+      ⇒
+      preds_hold (pair_state ss₁ ss₂) mqcirc mlive
 End
 
 Definition is_witness_def:
@@ -700,6 +755,16 @@ Proof
   rw[]
 QED
 
+Definition is_live_def:
+  is_live (circ: ('a, 'i, 'l) circuit) (reset: 'l -> ('a,'i,'l) lit)
+    (next: 'l -> ('a,'i,'l) lit) (cnstrs: ('a,'i,'l) lit set)
+    (latches: 'l set) (qcirc: ('b, 'i + 'i, 'l + 'l) circuit)
+    (live: ('b, 'i + 'i, 'l + 'l) lit set) =
+  ∀tr.
+    is_inf_trace circ reset next cnstrs latches tr ⇒
+    ∃k. ∀i. k ≤ i ⇒ preds_hold (pair_state (tr k) (tr (k + 1))) qcirc live
+End
+
 
 (* Implementation *************************************************************)
 
@@ -907,11 +972,6 @@ Definition pair_circuits_def:
   pair_circuits (circ₁: ('a₁, 'i₁, 'l₁) circuit)
     (circ₂: ('a₂, 'i₂, 'l₂) circuit) =
   MAP left_and circ₁ ++ MAP right_and circ₂
-End
-
-Definition pair_state_def:
-  pair_state (is₁,ls₁) (is₂,ls₂) =
-    ((λi. sum_CASE i is₁ is₂), (λl. sum_CASE l ls₁ ls₂))
 End
 
 Theorem pair_circuits_left_cons:
