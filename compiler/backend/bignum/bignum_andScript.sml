@@ -116,11 +116,29 @@ Proof
   rw [] >> simp [Once evaluate_def]
 QED
 
+Theorem evaluate_Seq_NONE:
+  evaluate (c₁, s) = (NONE, s₁) ∧
+  evaluate (c₂, s₁) = (NONE, s')
+  ⇒
+  evaluate (Seq c₁ c₂, s) = (NONE, s')
+Proof
+  rw [] >> simp [evaluate_def]
+QED
+
 Theorem eval_Op_And_SOME:
   eval s x₁ = SOME (ValWord v₁) ∧
   eval s x₂ = SOME (ValWord v₂)
   ⇒
   eval s (Op And [x₁; x₂]) = SOME (ValWord (v₁ && v₂))
+Proof
+  simp [eval_def, wordLangTheory.word_op_def]
+QED
+
+Theorem eval_Op_Sub_SOME:
+  eval s x₁ = SOME (ValWord v₁) ∧
+  eval s x₂ = SOME (ValWord v₂)
+  ⇒
+  eval s (Op Sub [x₁; x₂]) = SOME (ValWord (v₁ - v₂))
 Proof
   simp [eval_def, wordLangTheory.word_op_def]
 QED
@@ -132,6 +150,27 @@ Theorem eval_Cmp_NotEqual_SOME:
   eval s (Cmp NotEqual e₁ e₂) = SOME (ValWord (if v₁ ≠ v₂ then 1w else 0w))
 Proof
   simp [eval_def, asmTheory.word_cmp_def]
+QED
+
+Theorem evaluate_Store_Local_Local_Val:
+  FLOOKUP s.locals dst = SOME (ValWord addr) ∧
+  FLOOKUP s.locals src = SOME (Val v) ∧
+  addr ∈ s.memaddrs
+  ⇒
+  evaluate (Store (Var Local dst) (Var Local src), s) =
+    (NONE, s with memory := s.memory⦇addr ↦ v⦈)
+Proof
+  simp [evaluate_def, flatten_def, mem_stores_def, mem_store_def]
+QED
+
+Theorem evaluate_Assign_Local:
+  eval s src = SOME value ∧
+  FLOOKUP s.locals dst = SOME old_value ∧
+  shape_of value = shape_of old_value
+  ⇒
+  evaluate ((Assign Local dst src), s) = (NONE, set_var dst value s)
+Proof
+  simp [evaluate_def, is_valid_value_def]
 QED
 
 Theorem and_pos_pos_thm:
@@ -172,19 +211,36 @@ Proof
 
   >> irule_at (Pos hd) evaluate_Dec_NONE
   >> simp [eval_def, mem_load_def]
-  >> ‘x ∈ s.memaddrs’ by cheat
+  >> fs [one_list_def] >> SEP_R_TAC
   >> simp []
 
   >> irule_at (Pos hd) evaluate_Dec_NONE
   >> simp [eval_def, mem_load_def]
   >> simp [FLOOKUP_SIMP]
-  >> ‘y ∈ s.memaddrs’ by cheat
+  >> Cases_on ‘ys’ >> gvs []
+  >> fs [one_list_def] >> SEP_R_TAC
   >> simp []
 
   >> irule_at (Pos hd) evaluate_Dec_NONE
   >> irule_at (Pos hd) eval_Op_And_SOME
   >> irule_at (Pos hd) eval_Cmp_NotEqual_SOME
   >> simp [FLOOKUP_SIMP]
+
+  >> irule_at (Pos hd) eval_Cmp_NotEqual_SOME
+  >> simp [FLOOKUP_SIMP]
+
+  >> irule_at (Pos hd) evaluate_Seq_NONE
+  >> irule_at (Pos hd) evaluate_Store_Local_Local_Val
+  >> simp [FLOOKUP_SIMP]
+  >> Cases_on ‘rs’ >> gvs []
+  >> fs [one_list_def] >> SEP_R_TAC
+  >> simp []
+
+  >> irule_at (Pos hd) evaluate_Assign_Local
+  >> irule_at (Pos hd) eval_Op_Sub_SOME
+  >> simp [FLOOKUP_SIMP, shape_of_def]
+
+  >> simp [GSYM and_pos_pos_loop_def]
 
   >> cheat
 QED
