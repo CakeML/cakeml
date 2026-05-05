@@ -30,15 +30,17 @@ fun parse_pancake q =
 
 
 Quote and_pos_pos = parse_pancake:
-  fun and_pos_pos (x_len, x, y, z) {
-    while (x_len != 0) {
+  fun and_pos_pos(x_len, x, y, z) {
+    while x_len {
       var t1 = lds 1 x;
       var t2 = lds 1 y;
-      var t3 = t1 && t2;
-      st z, t3;
+      st z, t1 & t2;
+      x = x + @biw;
+      y = y + @biw;
+      z = z + @biw;
       x_len = x_len - 1;
     }
-    return x;
+    return 0;
   }
 End
 
@@ -173,8 +175,21 @@ Proof
   simp [evaluate_def, is_valid_value_def]
 QED
 
+Theorem FLOOKUP_res_var_neq[local,simp]:
+  n' ≠ n ⇒ FLOOKUP (res_var s (n, opt)) n' = FLOOKUP s n'
+Proof
+  Cases_on ‘opt’ >> rw [res_var_def, FLOOKUP_SIMP, DOMSUB_FLOOKUP_NEQ]
+QED
+
+Theorem FLOOKUP_res_var[simp]:
+  FLOOKUP (res_var s (n, NONE))   n = NONE ∧
+  FLOOKUP (res_var s (n, SOME v)) n = SOME v
+Proof
+  simp [res_var_def, FLOOKUP_SIMP]
+QED
+
 Theorem and_pos_pos_thm:
-  ∀xs ys zs rs x y z frame s s1.
+  ∀xs ys zs rs s x y z frame.
     mw_and xs ys = zs ∧ LENGTH xs ≤ LENGTH ys ∧
     LENGTH rs = LENGTH xs ∧ LENGTH xs ≤ s.clock ∧
     FLOOKUP s.locals (strlit "x_len") = SOME (Val (Word (n2w (LENGTH xs)))) ∧
@@ -221,26 +236,37 @@ Proof
   >> fs [one_list_def] >> SEP_R_TAC
   >> simp []
 
-  >> irule_at (Pos hd) evaluate_Dec_NONE
-  >> irule_at (Pos hd) eval_Op_And_SOME
-  >> irule_at (Pos hd) eval_Cmp_NotEqual_SOME
-  >> simp [FLOOKUP_SIMP]
+  (* >> irule_at (Pos hd) evaluate_Dec_NONE *)
+  (* >> irule_at (Pos hd) eval_Op_And_SOME *)
+  (* >> irule_at (Pos hd) eval_Cmp_NotEqual_SOME *)
+  (* >> simp [FLOOKUP_SIMP] *)
 
-  >> irule_at (Pos hd) eval_Cmp_NotEqual_SOME
-  >> simp [FLOOKUP_SIMP]
+  (* >> irule_at (Pos hd) eval_Cmp_NotEqual_SOME *)
+  (* >> simp [FLOOKUP_SIMP] *)
 
-  >> irule_at (Pos hd) evaluate_Seq_NONE
-  >> irule_at (Pos hd) evaluate_Store_Local_Local_Val
-  >> simp [FLOOKUP_SIMP]
-  >> Cases_on ‘rs’ >> gvs []
-  >> fs [one_list_def] >> SEP_R_TAC
-  >> simp []
+  (* >> irule_at (Pos hd) evaluate_Seq_NONE *)
+  (* >> irule_at (Pos hd) evaluate_Store_Local_Local_Val *)
+  (* >> simp [FLOOKUP_SIMP] *)
+  (* >> Cases_on ‘rs’ >> gvs [] *)
+  (* >> fs [one_list_def] >> SEP_R_TAC *)
+  (* >> simp [] *)
 
-  >> irule_at (Pos hd) evaluate_Assign_Local
-  >> irule_at (Pos hd) eval_Op_Sub_SOME
-  >> simp [FLOOKUP_SIMP, shape_of_def]
+  (* >> irule_at (Pos hd) evaluate_Assign_Local *)
+  (* >> irule_at (Pos hd) eval_Op_Sub_SOME *)
+  (* >> simp [FLOOKUP_SIMP, shape_of_def] *)
 
-  >> simp [GSYM and_pos_pos_loop_def]
+  (* >> simp [GSYM and_pos_pos_loop_def, set_var_def] *)
+  (* >> qmatch_goalsub_abbrev_tac ‘evaluate _ = (_, s')’ *)
+
+  (* >> last_x_assum drule >> disch_then drule *)
+
+  (* (* >> disch_then $ qspec_then ‘s'’ mp_tac *) *)
+  (* >> simp [Abbr ‘s'’, FLOOKUP_SIMP] *)
+  (* >> simp [dec_clock_def, n2w_SUC] *)
+
+
+  (* >> ‘n2w (SUC (LENGTH xs)) + -1w = n2w (LENGTH xs)’ by *)
+  (*   (simp [ADD1] >> Cases_on ‘-1w’ >> gvs [word_add_n2w] *)
 
   >> cheat
 QED
