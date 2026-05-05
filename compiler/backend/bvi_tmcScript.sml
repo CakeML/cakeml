@@ -208,20 +208,6 @@ Proof
     >> gvs [])
 QED
 
-Definition reverse_idx_def:
-  reverse_idx len (n:num) = len - n - 1
-End
-
-(* Since op args are parsed right to left, we need to reverse the indexes to match the binders *)
-Definition reverse_idxs_def:
-  (reverse_idxs len (CallBlock tag l child r) =
-     let l' = MAP (reverse_idx len) l in
-     let child' = reverse_idxs len child in
-     let r' = MAP (reverse_idx len) r in
-       CallBlock tag l' child' r') ∧
-  (reverse_idxs _ rcall = rcall) (* call args parsed left to right *)
-End
-
 Definition set_call_idxs_def:
   (set_call_idxs (n:num) [] = (n,[])) ∧
   (set_call_idxs (n:num) (_::t) =
@@ -344,7 +330,9 @@ Definition hb_to_mutcons_def:
 End
 
 Definition optimise_call_def:
-  optimise_call loc idx ptr ts args = bvi$Call ts (SOME loc) (idx::ptr::[(* args *)]) NONE
+  optimise_call loc idx ptr ts args =
+  let args' = MAP (λn. Var n) args in
+    bvi$Call ts (SOME loc) (idx::ptr::args') NONE
 End
 
 (* Convert a call_block to a hole_block, and return the RCall ingredients to be replaced with optimised version. *)
