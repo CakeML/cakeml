@@ -548,6 +548,19 @@ Proof
   >> gvs []
 QED
 
+Theorem holes_unchanged_except_changed:
+  ∀f s t k v k.
+    holes_unchanged_except f s.refs t.refs ∅ ⇒
+    holes_unchanged_except f s.refs t.refs⟨k ↦ v⟩ {RefPtr F k}
+Proof
+  rw []
+  >> gvs [holes_unchanged_except_def]
+  >> rw []
+  >> first_x_assum $ qspec_then ‘F’ mp_tac
+  >> strip_tac
+  >> gvs [FLOOKUP_SIMP]
+QED
+
 Theorem unchanged_hole_has_val:
   ∀f f' env env' hole_ptr hole_idx refs refs' c.
     hole_has_val f env (env' ++ [RefPtr F hole_ptr; Number hole_idx]) refs c ∧
@@ -948,31 +961,43 @@ Theorem evaluate_fill_hole:
     holes_unchanged_except f s'.refs t'.refs ∅ ∧
     only_fresh f f' s'.refs ∧
     state_rel f' t t' ⇒
-    ∃r t''.
+    ∃r t''. ∀res_v.
       evaluate ([fill_hole (LENGTH env1) (LENGTH env1 + 1) exp],env2,s') = (r,t'') ∧
       opt_res_rel (Rval [v]) r ∧
       state_rel f' t t'' ∧
       holes_unchanged_except f s'.refs t''.refs {env2❲LENGTH env1❳} ∧
-      hole_has_val f env1 env2 t''.refs v
+      (v = res_v ⇒ (* This is weird but I needed it for ho_match_mp_tac to work at the call site *)
+       hole_has_val f env1 env2 t''.refs res_v)
 Proof
   rw []
   >> drule env_rel_length_opt
   >> strip_tac
   >> drule env_rel_extras_opt
   >> strip_tac
-  >> gvs [evaluate_def, fill_hole_def, do_app_def, do_app_aux_def, hole_has_val_def, holes_unchanged_except_def,
-          case_eq_thms, PULL_EXISTS, FLOOKUP_SIMP, bvlSemTheory.Unit_def, backend_commonTheory.tuple_tag_def, opt_res_rel_def]
-  >> first_x_assum $ drule_all
+  >> imp_res_tac hole_has_val_def
+  >> imp_res_tac holes_unchanged_except_def
+  >> gvs [evaluate_def, fill_hole_def, do_app_def, do_app_aux_def, case_eq_thms, PULL_EXISTS,
+          FLOOKUP_SIMP, bvlSemTheory.Unit_def, backend_commonTheory.tuple_tag_def, opt_res_rel_def]
+  >> last_x_assum $ drule_all
   >> strip_tac
   >> gvs []
+  >> qexistsl [‘Rval [Block 0 []]’, ‘t' with refs := t'.refs⟨hole_ptr ↦ MutBlock tag left v right⟩’]
+  >> gvs []
+  >> gen_tac
   >> conj_tac
   >-
    (irule state_rel_filled
     >> gvs []
     >> irule non_fresh_not_in_frange
     >> first_assum $ irule_at Any
+    >> first_assum $ irule_at Any
     >> gvs [FLOOKUP_DEF])
-  >> metis_tac []
+  >> conj_tac
+  >- (irule holes_unchanged_except_changed >> gvs [])
+  >> strip_tac
+  >> gvs []
+  >> first_x_assum $ irule_at Any
+  >> gvs [FLOOKUP_SIMP]
 QED
 
 Theorem evaluate_fill_hole_err:
@@ -1151,12 +1176,15 @@ QED
 
 Resume evaluate_rewrite_tmc[var]:
   gvs [evaluate_def]
-  >> Cases_on ‘n < LENGTH env’ >> gvs []
+  >> Cases_on ‘n < LENGTH env1’ >> gvs []
   >> ‘n < LENGTH env2’ by (drule_all env_rel_length >> gvs [])
   >> gvs []
+  >> qexistsl [‘s'’, ‘f’, ‘Rval [env2❲n❳]’]
+  >> gvs []
+  >> rpt gen_tac
   >> drule_all env_rel_el_v_rel
   >> strip_tac
-  >> goal_assum $ drule_at Any
+  >> first_assum $ irule_at Any
   >> gvs []
   >> conj_asm1_tac
   >- irule only_fresh_refl
