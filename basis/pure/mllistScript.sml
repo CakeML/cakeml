@@ -34,6 +34,7 @@ Proof
       >- (
         gvs[]
         \\ simp[merge_tail_MEM]
+        \\ rename1 ‘DIV2 length’
         \\ `DIV2 length ≤ length` by (
             fs[DIV2_def]
             \\ qspecl_then [`length`, `2`] assume_tac DIV_LESS
