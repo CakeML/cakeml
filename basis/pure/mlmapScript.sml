@@ -560,7 +560,7 @@ Proof
 QED
 
 Theorem filter_lemma:
-  filter f t = filterWithKey (λk. f) t
+  filter f t = filterWithKey (λk. f) (t: (α, β) map)
 Proof
   Cases_on ‘t’
   \\ rw [filter_def, filterWithKey_def]
@@ -638,4 +638,3 @@ Proof
   \\ Cases_on `k ∈ FDOM (to_fmap (Map f b))` \\ fs []
   \\ fs [FLOOKUP_DEF]
 QED
-
