@@ -422,7 +422,7 @@ Proof
   metis_tac[]
 QED
 
-Theorem step_attacker_facts_ok:
+Theorem step_attacker_facts_ok_lem[local]:
   step infer st st' ∧
   attacker_facts_ok infer st ∧
   local_facts_ok infer st ∧
@@ -478,7 +478,7 @@ Proof
   rw[step_inv_def] >>
   metis_tac[step_disjoint_keys,
             step_finite_facts,
-            step_attacker_facts_ok,
+            step_attacker_facts_ok_lem,
             step_local_facts_ok,
             step_incoming_messages_ok
            ]
