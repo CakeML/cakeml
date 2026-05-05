@@ -78,7 +78,7 @@ Definition Delete_def:
   Delete cl = Tuple (String "delete") (Clause cl)
 End
 
-Definition Delete_def:
+Definition Import_def:
   Import id cl k =
   let msg = Tuple (Num id) (Clause cl) in
     Tuple (String "import")

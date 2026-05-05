@@ -3,6 +3,9 @@ An distributed RUP checker
 [array](array):
 A distributed RUP checker
 
+[distInferHashScript.sml](distInferHashScript.sml):
+Abstract specification including fingerprinting and an attacker
+
 [distInferRefineScript.sml](distInferRefineScript.sml):
 Specification of distributed inference instantiated for ccnf
 
