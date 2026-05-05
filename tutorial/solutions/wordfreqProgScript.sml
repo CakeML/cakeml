@@ -83,7 +83,7 @@ Proof
   Induct \\ simp[concat_nil,concat_cons] \\ ntac 3 strip_tac \\
   rename1`insert_line t w` \\
   imp_res_tac insert_line_thm \\ fs[] \\
-  `strlit "\n" = str #"\n"` by EVAL_TAC \\
+  `strlit "\n" = toString #"\n"` by EVAL_TAC \\
   `isSpace #"\n"` by EVAL_TAC \\
   first_x_assum drule \\
   rw[frequency_concat,splitwords_concat,frequency_concat_space,splitwords_concat_space] \\

@@ -11,7 +11,7 @@ Libs
 
 Datatype:
   any_prog = Source (ast$dec list)
-           | Flat (flatLang$dec list)
+           | Flat (flatLang$exp list)
            | Clos (closLang$exp list) ((num # num # closLang$exp) list)
            | Bvl ((num # num # bvl$exp) list) (mlstring sptree$num_map)
            | Bvi ((num # num # bvi$exp) list) (mlstring sptree$num_map)
@@ -518,4 +518,3 @@ Proof
   \\ mp_tac compile_eq_to_target_all
   \\ pairarg_tac \\ gvs []
 QED
-
