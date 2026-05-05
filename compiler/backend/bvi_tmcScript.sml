@@ -71,7 +71,7 @@ Definition to_binders_def:
   (to_binders next (h::t) =
    case to_binder next h of
    | (b,n) =>
-       case to_binders next t of
+       case to_binders (next + LENGTH b) t of
        | (bs,ns) => (b ++ bs,n::ns))
 End
 
@@ -212,13 +212,14 @@ Definition reverse_idx_def:
   reverse_idx len (n:num) = len - n - 1
 End
 
+(* Since op args are parsed right to left, we need to reverse the indexes to match the binders *)
 Definition reverse_idxs_def:
   (reverse_idxs len (CallBlock tag l child r) =
      let l' = MAP (reverse_idx len) l in
      let child' = reverse_idxs len child in
      let r' = MAP (reverse_idx len) r in
        CallBlock tag l' child' r') ∧
-  (reverse_idxs _ rcall = rcall)
+  (reverse_idxs _ rcall = rcall) (* call args parsed left to right *)
 End
 
 (* Calls the above but throws away an unoptimisable BlockOp Cons. *)
@@ -262,6 +263,18 @@ val ex3 = “[Op (IntOp (Const 1)) [];
             Op (IntOp (Const 4)) []]”
 val ex3_call = “cons_to_cb 7 99 ^ex3”
 (* EVAL ex3_call *)
+
+val ex4 = “[Op (IntOp (Const 1)) [];
+            Op (BlockOp (Cons 98)) [
+                   Op (IntOp (Const 2)) [];
+                   Call 0 (SOME 7) [
+                              Op (IntOp (Const 3)) [];
+                              Op (IntOp (Const 4)) []] NONE;
+                   Op (IntOp (Const 5)) []];
+            Call 0 (SOME 4) [] NONE;
+            Op (IntOp (Const 6)) []]”
+val ex4_call = “cons_to_cb 7 99 ^ex4”
+(* EVAL ex4_call *)
 
 (* Convert back to BlockOp Cons for comparing semantics *)
 Definition cb_to_cons_def:
