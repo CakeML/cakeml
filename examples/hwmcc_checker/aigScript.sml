@@ -131,6 +131,40 @@ Definition is_safe_def:
     (safe: ('a,'i,'l) lit set) ⇔
   ¬is_unsafe circ reset next cnstrs latches safe
 End
+(* Liveness *******************************************************************)
+
+Definition is_inf_trace_def:
+  is_inf_trace (circ: ('a, 'i, 'l) circuit)
+    (reset: 'l -> ('a,'i,'l) lit) (next: 'l -> ('a,'i,'l) lit)
+    (cnstrs: ('a,'i,'l) lit set) (latches: 'l set)
+    (tr: ('i, 'l) trace)
+  ⇔
+    (is_reset (tr 0) circ reset latches ∧
+     preds_hold (tr 0) circ cnstrs) ∧
+    ∀i.
+      is_next (tr i) circ next latches (SND (tr (i + 1))) ∧
+      preds_hold (tr (i + 1)) circ cnstrs
+End
+
+Theorem is_inf_trace_eq:
+  is_inf_trace circ reset next cnstrs latches tr ⇔
+  ∀n. is_trace circ reset next cnstrs latches tr n
+Proof
+  eq_tac>>
+  rw[is_inf_trace_def,is_trace_def]>>
+  first_x_assum(qspec_then`i+1` mp_tac)>>
+  rw[]
+QED
+
+Definition is_live_def:
+  is_live (circ: ('a, 'i, 'l) circuit) (reset: 'l -> ('a,'i,'l) lit)
+    (next: 'l -> ('a,'i,'l) lit) (cnstrs: ('a,'i,'l) lit set)
+    (latches: 'l set) (qcirc: ('b, 'i + 'i, 'l + 'l) circuit)
+    (live: ('b, 'i + 'i, 'l + 'l) lit set) =
+  ∀tr.
+    is_inf_trace circ reset next cnstrs latches tr ⇒
+    ∃k. ∀i. k ≤ i ⇒ preds_hold (pair_state (tr k) (tr (k + 1))) qcirc live
+End
 
 (* Soundness ******************************************************************)
 
@@ -740,6 +774,80 @@ Proof
   >> metis_tac[is_trace_preds_hold_n]
 QED
 
+Theorem is_safe_is_inf_trace_preds_hold:
+  is_safe circ reset next cnstrs latches preds ∧
+  is_inf_trace circ reset next cnstrs latches tr
+  ⇒
+  ∀n. preds_hold (tr n) circ preds
+Proof
+  rw [is_safe_def, is_unsafe_def, is_inf_trace_eq]
+  >> metis_tac []
+QED
+
+Theorem is_inf_trace_cnstrs_hold:
+  is_inf_trace circ reset next cnstrs latches tr
+  ⇒
+  ∀n. preds_hold (tr n) circ cnstrs
+Proof
+  rw [is_inf_trace_def] >> Cases_on ‘n’ >> gvs [ADD1]
+QED
+
+Theorem is_inf_trace_is_next:
+  is_inf_trace circ reset next cnstrs latches tr
+  ⇒
+  ∀n. is_next (tr n) circ next latches (SND (tr (n + 1)))
+Proof
+  rw [is_inf_trace_def]
+QED
+
+Definition matching_transition_def:
+  matching_transition tr i j ⇔
+    i < j ∧ tr j = tr i ∧ tr (j + 1) = tr (i + 1)
+End
+
+Theorem is_witness_closure_preds_hold[local]:
+  ∀k.
+    is_witness_closure
+      circ reset next preds cnstrs latches qcirc live ∧
+    preds_hold (pair_state (tr i) (tr j)) qcirc live ∧
+    (∀n. preds_hold (tr n) circ preds) ∧
+    (∀n. preds_hold (tr n) circ cnstrs) ∧
+    (∀n. is_next (tr n) circ next latches (SND (tr (n + 1))))
+    ⇒
+    preds_hold (pair_state (tr (i + k)) (tr j)) qcirc live
+Proof
+  Induct >> rw [] >> fs []
+  >> fs [is_witness_closure_def]
+  >> first_assum irule >> simp []
+  >> qexists ‘tr (i + k)’ >> fs [ADD1]
+  >> first_x_assum $ qspec_then ‘i + k’ mp_tac >> simp []
+QED
+
+Theorem matching_transition_live:
+  is_inf_trace circ reset next cnstrs latches tr ∧
+  (∀n. preds_hold (tr n) circ preds) ∧
+  is_witness_decrease
+    circ reset next preds cnstrs latches qcirc live ∧
+  is_witness_closure
+    circ reset next preds cnstrs latches qcirc live ∧
+  matching_transition tr i j
+  ⇒
+  preds_hold (pair_state (tr i) (tr (i + 1))) qcirc live
+Proof
+  rw []
+  >> drule_then assume_tac is_inf_trace_cnstrs_hold
+  >> drule_then assume_tac is_inf_trace_is_next
+  >> ‘preds_hold (pair_state (tr (i + 2)) (tr (i + 1))) qcirc live’ by
+    (fs [is_witness_decrease_def]
+     >> last_assum irule >> simp []
+     >> first_x_assum $ qspec_then ‘i + 1’ mp_tac >> simp [])
+  >> drule_all is_witness_closure_preds_hold
+  (* probably need a case distinction on whether j = i + 1, j = i + 2 *)
+  (* probably want a lemma that given matching_transition we can swap things;
+     or maybe we just want to get rid of matching transition *)
+  >> cheat
+QED
+
 Theorem is_witness_is_live:
   is_witness
     mcirc mreset mnext mpreds mcnstrs mlatches mqcirc mlive
@@ -752,46 +860,9 @@ Theorem is_witness_is_live:
     mcirc mreset mnext mcnstrs mlatches mqcirc mlive
 Proof
   rw []
-  >> drule_all is_witness_is_safe
+  >> drule_all_then assume_tac is_witness_is_safe
   >> cheat
 QED
-
-
-(* Liveness *******************************************************************)
-
-Definition is_inf_trace_def:
-  is_inf_trace (circ: ('a, 'i, 'l) circuit)
-    (reset: 'l -> ('a,'i,'l) lit) (next: 'l -> ('a,'i,'l) lit)
-    (cnstrs: ('a,'i,'l) lit set) (latches: 'l set)
-    (tr: ('i, 'l) trace)
-  ⇔
-    (is_reset (tr 0) circ reset latches ∧
-     preds_hold (tr 0) circ cnstrs) ∧
-    ∀i.
-      is_next (tr i) circ next latches (SND (tr (i + 1))) ∧
-      preds_hold (tr (i + 1)) circ cnstrs
-End
-
-Theorem is_inf_trace_eq:
-  is_inf_trace circ reset next cnstrs latches tr ⇔
-  ∀n. is_trace circ reset next cnstrs latches tr n
-Proof
-  eq_tac>>
-  rw[is_inf_trace_def,is_trace_def]>>
-  first_x_assum(qspec_then`i+1` mp_tac)>>
-  rw[]
-QED
-
-Definition is_live_def:
-  is_live (circ: ('a, 'i, 'l) circuit) (reset: 'l -> ('a,'i,'l) lit)
-    (next: 'l -> ('a,'i,'l) lit) (cnstrs: ('a,'i,'l) lit set)
-    (latches: 'l set) (qcirc: ('b, 'i + 'i, 'l + 'l) circuit)
-    (live: ('b, 'i + 'i, 'l + 'l) lit set) =
-  ∀tr.
-    is_inf_trace circ reset next cnstrs latches tr ⇒
-    ∃k. ∀i. k ≤ i ⇒ preds_hold (pair_state (tr k) (tr (k + 1))) qcirc live
-End
-
 
 (* Implementation *************************************************************)
 
