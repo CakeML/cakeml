@@ -1341,7 +1341,7 @@ Proof
         Cases_on`fd = 0` \\ fs[]
         >- (
           last_x_assum(qspecl_then[`fd`,`ReadMode`,`inp`]mp_tac)
-          \\ rw[] \\ rw[] \\ PairCases_on`v` \\ fs[]
+          \\ rw[] \\ rw[] \\ rename1 ‘SND (SND v)’ \\ PairCases_on`v` \\ fs[]
           \\ metis_tac[])
         \\ last_x_assum(qspecl_then[`fd`,`md`,`off`]mp_tac)
         \\ rw[] )
