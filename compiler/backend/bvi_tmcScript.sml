@@ -85,56 +85,56 @@ End
    If an effectful operation appears right of the recursive call, the expression is not eligible for transformation and NONE is returned.
    If multiple recursive calls are found, all but the last are let bound. *)
 Definition cons_to_cb_aux_def:
-  (cons_to_cb_aux n _ _ [] = SOME ([],INL [],n)) ∧
-  (cons_to_cb_aux n loc tag [Call t loc' args h] =
+  (cons_to_cb_aux _ _ [] = SOME ([],INL [])) ∧
+  (cons_to_cb_aux loc tag [Call t loc' args h] =
    if loc' = SOME loc ∧ h = NONE then
      (* Recursive call found - base case of CallBlock *)
-     case bind n args of
-     | (bs,vs,n') => SOME (bs,INR (CallBlock tag [] (RCall t vs) []),n')
+     case bind 0 args of
+     | (bs,vs,_) => SOME (bs,INR (CallBlock tag [] (RCall t vs) []))
    else
      (* Not a recursive call - gets let-bound *)
-     SOME ([Call t loc' args h],INL [n],n + 1)) ∧
-  (cons_to_cb_aux n loc tag [Op op args] =
+     SOME ([Call t loc' args h],INL [0])) ∧
+  (cons_to_cb_aux loc tag [Op op args] =
    case dest_Cons op of
    | SOME tag' =>
        (* BlockOp Cons - try to recurse *)
-       (case cons_to_cb_aux n loc tag' args of
+       (case cons_to_cb_aux loc tag' args of
         | NONE => NONE
-        | SOME (bs,INL vs,n') =>
+        | SOME (bs,INL vs) =>
             (* No recursive call - whole thing gets let-bound *)
-            SOME ([Op op args],INL [n'],n' + 1)
-        | SOME (bs,INR cb,n') =>
+            SOME ([Op op args],INL [0])
+        | SOME (bs,INR cb) =>
             (* Recursive call - inductive case of CallBlock *)
-            SOME (bs, INR (CallBlock tag [] cb []),n'))
+            SOME (bs, INR (CallBlock tag [] cb [])))
    | NONE =>
        (* Not a BlockOp Cons - whole thing gets let-bound *)
-       SOME ([Op op args],INL [n],n + 1)) ∧
-  (cons_to_cb_aux n _ _ [exp] =
+       SOME ([Op op args],INL [0])) ∧
+  (cons_to_cb_aux _ _ [exp] =
    (* Some other expression - whole thing gets let-bound *)
-   SOME ([exp],INL [n],n + 1)) ∧
-  (cons_to_cb_aux n loc tag (h::t) =
+   SOME ([exp],INL [0])) ∧
+  (cons_to_cb_aux loc tag (h::t) =
    (* Recurse right to left to find last occurence of recursive call *)
-   case cons_to_cb_aux n loc tag t of
+   case cons_to_cb_aux loc tag t of
    | NONE => NONE
-   | SOME (bs2,INL vs2,n') =>
+   | SOME (bs2,INL vs2) =>
        (* No recursive call to the right. See if the first has one. *)
-       (case cons_to_cb_aux n loc tag [h] of
+       (case cons_to_cb_aux loc tag [h] of
         | NONE => NONE
-        | SOME (bs1,INL vs1,n'') =>
+        | SOME (bs1,INL vs1) =>
             (* No recursive call, keep building binders. *)
             let vs2' = shift_vars (LENGTH bs1) vs2 in
-            SOME (bs1 ++ bs2,INL (vs1 ++ vs2'),LENGTH bs1 + LENGTH bs2)
-        | SOME (bs1,INR (CallBlock _ [] child []),n') =>
+            SOME (bs1 ++ bs2,INL (vs1 ++ vs2'))
+        | SOME (bs1,INR (CallBlock _ [] child [])) =>
             (* We've constructed a CallBlock at this level with just h, pad the other args *)
             (* l and r are always empty if args is a singleton *)
-            let cb = shift_cb (LENGTH bs1) (CallBlock tag [] child vs2) in
-            SOME (bs1 ++ bs2,INR cb,LENGTH bs1 + LENGTH bs2))
-   | SOME (bs2,INR cb,n') =>
+            let vs2' = shift_vars (LENGTH bs1) vs2 in
+            SOME (bs1 ++ bs2,INR (CallBlock tag [] child vs2')))
+   | SOME (bs2,INR cb) =>
        (* Recursive call found, first is let bound and added to the left *)
        case shift_cb 1 cb of
        | CallBlock tag l child r =>
-           let cb' = CallBlock tag (n'::l) child r in
-             SOME (h::bs2,INR cb',LENGTH bs2 + 1))
+           let cb' = CallBlock tag (0::l) child r in
+             SOME (h::bs2,INR cb'))
 End
 
 Theorem cons_to_cb_aux_sing:
@@ -214,8 +214,8 @@ QED
 (* Calls the above but throws away an unoptimisable BlockOp Cons. *)
 Definition cons_to_cb_def:
   cons_to_cb loc tag args =
-  case cons_to_cb_aux 0 loc tag args of
-  | SOME (bs,INR cb,_) => SOME (bs,cb)
+  case cons_to_cb_aux loc tag args of
+  | SOME (bs,INR cb) => SOME (bs,cb)
   | _ => NONE
 End
 
