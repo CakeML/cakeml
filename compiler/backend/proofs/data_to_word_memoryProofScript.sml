@@ -2801,20 +2801,24 @@ Proof
 QED
 
 Theorem v_inv_tf_update_thm_lemma:
-  ∀v refs x.
-    v_inv conf v refs x ⇒
-      ∀y f tf heap ts' a.
-        x = (y,f,tf,heap) ∧
-        ts' ∉ FDOM tf ⇒
-          v_inv conf v refs (y,f, tf |+ (ts',a),heap)
+  ∀ck v refs y f tf heap ts' a.
+    v_inv conf v refs (y,f,tf,heap) ∧
+    ts' ∉ FDOM tf ⇒
+      v_inv_ck ck conf v refs (y,f, tf |+ (ts',a),heap)
 Proof
-  cheat
-  (*ho_match_mp_tac v_inv_rel_strongind \\ rw [] \\ gvs [v_inv_def]
+  completeInduct_on `ck` \\ gvs []
+  \\ rpt gen_tac \\ rpt disch_tac \\ gvs []
+  \\ qpat_x_assum `v_inv _ _ _ _` mp_tac
+  \\ simp [Once v_inv_ck_cases]
+  \\ Cases_on `v` \\ gvs [v_inv_def]
+  >- (IF_CASES_TAC \\ gvs [])
   >- (
-    disj1_tac \\ gvs []
-    \\ irule_at Any EQ_REFL \\ gvs [FLOOKUP_UPDATE, FLOOKUP_DEF])
-  \\ irule_at Any EQ_REFL \\ gvs [FLOOKUP_UPDATE, FLOOKUP_DEF]
-  \\ IF_CASES_TAC \\ gvs [LIST_REL_EL_EQN] \\ rw []*)
+    IF_CASES_TAC \\ gvs [] \\ rw []
+    \\ irule_at Any EQ_REFL \\ gvs [FLOOKUP_UPDATE, FLOOKUP_DEF]
+    \\ gvs [LIST_REL_EL_EQN]
+    \\ IF_CASES_TAC \\ gvs [])
+  \\ rw []
+  \\ rpt disj2_tac \\ gvs []
 QED
 
 Theorem v_inv_tf_update_thm:
@@ -2822,39 +2826,41 @@ Theorem v_inv_tf_update_thm:
     v_inv conf v refs (y,f,tf,heap) ∧ ts' ∉ FDOM tf ⇒
     v_inv conf v refs (y,f, tf |+ (ts', a),heap)
 Proof
-  metis_tac [v_inv_tf_update_thm_lemma]
+  metis_tac [v_inv_eq, v_inv_tf_update_thm_lemma]
 QED
 
 Theorem v_inv_tf_update_thm_alt_lemma:
-  ∀v refs x.
-    v_inv conf v refs x ⇒
-      ∀y f tf heap ts' a.
-        x = (y,f,tf,heap) ∧
-        ts' ∉ (all_ts refs stack) ∧
-        ts' ∉ set (v_all_ts v) ⇒
-          v_inv conf v refs (y,f, tf |+ (ts', a),heap)
+  ∀ck v refs y f tf heap ts' a.
+    v_inv conf v refs (y,f,tf,heap) ∧
+      ts' ∉ (all_ts refs stack) ∧
+      ts' ∉ set (v_all_ts v) ⇒
+        v_inv_ck ck conf v refs (y,f, tf |+ (ts', a),heap)
 Proof
-  cheat
-  (*ho_match_mp_tac v_inv_rel_strongind \\ rw []
-  \\ gvs [v_inv_def, BlockRep_def, ThunkBlock_def, v_all_ts_def]
+  completeInduct_on `ck` \\ gvs []
+  \\ rpt gen_tac \\ rpt disch_tac \\ gvs []
+  \\ qpat_x_assum `v_inv _ _ _ _` mp_tac
+  \\ simp [Once v_inv_ck_cases]
+  \\ Cases_on `v` \\ gvs [v_inv_def, v_all_ts_def]
+  >- (IF_CASES_TAC \\ gvs [])
   >- (
-    disj1_tac \\ gvs []
-    \\ first_x_assum irule \\ gvs [all_ts_def]
-    \\ first_x_assum $ qspec_then ‘v’ assume_tac \\ gvs []
-    \\ first_x_assum $ qspec_then ‘n’ assume_tac \\ gvs [])
-  >- (
-    disj2_tac \\ gvs []
-    \\ first_x_assum irule \\ gvs [all_ts_def]
-    \\ first_x_assum $ qspec_then ‘v’ assume_tac \\ gvs []
-    \\ first_x_assum $ qspec_then ‘n’ assume_tac \\ gvs [])
-  >- (
-    gvs [FLOOKUP_UPDATE]
+    IF_CASES_TAC \\ gvs [] \\ rw []
+    \\ irule_at Any EQ_REFL \\ gvs [FLOOKUP_UPDATE, FLOOKUP_DEF] \\ rw []
     \\ qpat_x_assum `LIST_REL _ _ _` mp_tac
     \\ ONCE_REWRITE_TAC [LIST_REL_MEM]
     \\ ho_match_mp_tac  LIST_REL_mono
     \\ rw [] \\ fs []
     \\ first_x_assum irule \\ gvs []
-    \\ metis_tac [MEM_FLAT, MEM_MAP])*)
+    \\ metis_tac [MEM_FLAT, MEM_MAP])
+  \\ rw []
+  >- (
+    disj1_tac \\ gvs [] \\ rw []
+    \\ last_x_assum irule \\ gvs [all_ts_def]
+    \\ last_x_assum $ qspec_then `v` assume_tac \\ gvs []
+    \\ last_x_assum $ qspec_then `n` assume_tac \\ gvs [])
+  \\ rpt disj2_tac \\ gvs [] \\ rw []
+  \\ last_x_assum irule \\ gvs [all_ts_def]
+  \\ last_x_assum $ qspec_then `v` assume_tac \\ gvs []
+  \\ last_x_assum $ qspec_then `n` assume_tac \\ gvs []
 QED
 
 Theorem v_inv_tf_update_thm_alt:
@@ -2864,60 +2870,74 @@ Theorem v_inv_tf_update_thm_alt:
     ts' ∉ set (v_all_ts v) ⇒
     v_inv conf v refs (y,f, tf |+ (ts', a),heap)
 Proof
-  metis_tac [v_inv_tf_update_thm_alt_lemma]
+  metis_tac [v_inv_eq, v_inv_tf_update_thm_alt_lemma]
 QED
 
 Theorem v_inv_tf_update_lemma:
-  ∀v1 refs v2.
+  ∀ck v1 refs v2.
     v_inv conf v1 refs v2 ⇒
       ∀ts tag xs y f tf heap.
         v1 = (Block ts tag xs) ∧
         v2 = (y,f,tf,heap) ∧
         v1 ∈ (all_vs refs stack) ∧
         ts' ∉ all_ts refs stack ⇒
-          v_inv conf v1 refs (y,f,tf |+ (ts',a),heap)
+          v_inv_ck ck conf v1 refs (y,f,tf |+ (ts',a),heap)
 Proof
-  cheat
-  (*ho_match_mp_tac v_inv_rel_strongind \\ rw []
-  \\ gvs [v_inv_def, BlockRep_def]
+  completeInduct_on `ck` \\ gvs []
+  \\ ntac 2 (rpt gen_tac \\ rpt disch_tac) \\ gvs []
+  \\ simp [Once v_inv_ck_cases]
+  \\ gvs [v_inv_def]
+  \\ Cases_on `xs = []` \\ gvs []
+  \\ irule_at Any EQ_REFL \\ gvs []
   \\ ‘ts ∈ all_ts refs stack’ by (
     ho_match_mp_tac MEM_in_all_ts
-    \\ qexists_tac ‘Block ts n vs’ \\ fs [v_all_ts_def])
-  \\ conj_tac
-  >- (
-    qpat_x_assum `LIST_REL _ _ _` mp_tac
-    \\ ONCE_REWRITE_TAC [LIST_REL_MEM]
-    \\ ho_match_mp_tac  LIST_REL_mono
-    \\ rw [] \\ fs []
-    \\ Cases_on `x` \\ gvs [BlockRep_def, v_inv_def]
-    >- (
-      IF_CASES_TAC \\ gvs []
-      \\ first_x_assum irule
-      \\ ‘MEM (Block n0 n' l) (v_all_vs [Block ts n vs])’
-        by rw [v_all_vs_def,MEM_v_all_vs]
-      \\ metis_tac [MEM_in_all_vs])
-    >- (
-      disj1_tac \\ gvs []
-      \\ irule_at (Pos hd) EQ_REFL \\ gvs []
-      \\ irule v_inv_tf_update_thm_alt \\ gvs []
-      \\ first_assum $ irule_at Any \\ gvs []
-      \\ CCONTR_TAC \\ gvs []
-      \\ drule_at_then Any assume_tac MEM_in_all_ts \\ gvs []
-      \\ pop_assum $ qspecl_then [‘stack’, ‘refs’] assume_tac \\ gvs []
-      \\ gvs [all_vs_def]
-      \\ first_x_assum $ qspec_then ‘n'’ assume_tac \\ gvs [MEM_v_all_vs])
-    >- (
-      disj2_tac \\ gvs []
-      \\ irule v_inv_tf_update_thm_alt \\ gvs []
-      \\ first_assum $ irule_at Any \\ gvs []
-      \\ CCONTR_TAC \\ gvs []
-      \\ drule_at_then Any assume_tac MEM_in_all_ts \\ gvs []
-      \\ pop_assum $ qspecl_then [‘stack’, ‘refs’] assume_tac \\ gvs []
-      \\ gvs [all_vs_def]
-      \\ first_x_assum $ qspec_then ‘n'’ assume_tac \\ gvs [MEM_v_all_vs]))
+    \\ qexists_tac ‘Block ts tag xs’ \\ fs [v_all_ts_def])
+  \\ reverse $ rw []
   >- (
     gvs [FLOOKUP_UPDATE, AllCaseEqs()]
-    \\ metis_tac [EXTENSION])*)
+    \\ metis_tac [EXTENSION])
+  \\ qpat_x_assum `LIST_REL _ _ _` mp_tac
+  \\ ONCE_REWRITE_TAC [LIST_REL_MEM]
+  \\ ho_match_mp_tac  LIST_REL_mono
+  \\ rw [] \\ fs []
+  \\ Cases_on `x` \\ gvs [BlockRep_def, v_inv_def]
+  >- (
+    simp [Once v_inv_ck_cases]
+    \\ Cases_on `small_int (:α) i` \\ gvs [])
+  >- simp [Once v_inv_ck_cases]
+  >- (
+    first_x_assum irule \\ gvs [v_inv_def]
+    \\ conj_tac
+    >- (
+      ‘MEM (Block n0 n l) (v_all_vs [Block ts tag xs])’
+        by rw [v_all_vs_def,MEM_v_all_vs]
+      \\ metis_tac [MEM_in_all_vs])
+    \\ IF_CASES_TAC \\ gvs []
+    \\ irule_at Any EQ_REFL \\ gvs [BlockRep_def])
+  >- simp [Once v_inv_ck_cases]
+  >- simp [Once v_inv_ck_cases]
+  >- (
+    simp [Once v_inv_ck_cases]
+    \\ disj1_tac \\ gvs []
+    \\ rw []
+    \\ irule v_inv_tf_update_thm_alt_lemma \\ gvs []
+    \\ first_assum $ irule_at Any \\ gvs []
+    \\ CCONTR_TAC \\ gvs []
+    \\ drule_at_then Any assume_tac MEM_in_all_ts \\ gvs []
+    \\ pop_assum $ qspecl_then [‘stack’, ‘refs’] assume_tac \\ gvs []
+    \\ gvs [all_vs_def]
+    \\ first_x_assum $ qspec_then ‘n’ assume_tac \\ gvs [MEM_v_all_vs])
+  >- (
+    simp [Once v_inv_ck_cases]
+    \\ disj2_tac \\ gvs []
+    \\ rw []
+    \\ irule v_inv_tf_update_thm_alt_lemma \\ gvs []
+    \\ first_assum $ irule_at Any \\ gvs []
+    \\ CCONTR_TAC \\ gvs []
+    \\ drule_at_then Any assume_tac MEM_in_all_ts \\ gvs []
+    \\ pop_assum $ qspecl_then [‘stack’, ‘refs’] assume_tac \\ gvs []
+    \\ gvs [all_vs_def]
+    \\ first_x_assum $ qspec_then ‘n’ assume_tac \\ gvs [MEM_v_all_vs])
 QED
 
 Theorem v_inv_tf_update:
@@ -2927,53 +2947,53 @@ Theorem v_inv_tf_update:
      v_inv conf (Block ts tag xs) refs (y,f,tf,heap)
      ⇒ v_inv conf ((Block ts tag xs)) refs (y,f, tf |+ (ts', a),heap)
 Proof
-  metis_tac [v_inv_tf_update_lemma]
+  metis_tac [v_inv_eq, v_inv_tf_update_lemma]
 QED
 
 Theorem v_inv_tf_restrict_lemma:
-  ∀v1 refs v2.
-    v_inv conf v1 refs v2 ⇒
-      ∀y f tf heap.
-        v2 = (y,f,tf,heap) ∧
+  ∀ck v1 refs y f tf heap.
+    v_inv conf v1 refs (y,f,tf,heap) ⇒
         (∀x. MEM x (v_all_ts v1) ⇒ x ∈ P) ∧
         (∀x. x ∈ (all_ts refs stack) ⇒ x ∈ P) ⇒
-          v_inv conf v1 refs (y,f,DRESTRICT tf P,heap)
+          v_inv_ck ck conf v1 refs (y,f,DRESTRICT tf P,heap)
 Proof
-  cheat
-  (*ho_match_mp_tac v_inv_rel_strongind \\ rw [] \\ gvs [v_inv_def]
+  completeInduct_on `ck` \\ gvs []
+  \\ rpt gen_tac \\ rpt disch_tac
+  \\ simp [Once v_inv_ck_cases]
+  \\ Cases_on `v1` \\ gvs [v_inv_def]
+  >- (Cases_on `small_int (:α) i` \\ gvs [])
   >- (
-    disj1_tac \\ gvs [v_all_ts_def]
-    \\ irule_at (Pos hd) EQ_REFL \\ gvs []
-    \\ ntac 2 (first_x_assum irule \\ rw [])
+    Cases_on `l = []` \\ gvs []
+    \\ irule_at Any EQ_REFL \\ gvs []
+    \\ reverse $ rw []
+    >- gvs [v_all_ts_def, FLOOKUP_DRESTRICT]
+    \\ qpat_x_assum `LIST_REL _ _ _` mp_tac
+    \\ ONCE_REWRITE_TAC [LIST_REL_MEM]
+    \\ ho_match_mp_tac  LIST_REL_mono
+    \\ rw [] \\ fs []
+    \\ first_x_assum irule \\ rw []
+    \\ last_x_assum irule \\ rw []
+    \\ gvs [v_all_ts_def]
+    \\ Cases_on `x' = n0` \\ rw []
+    \\ drule_then assume_tac MEM_v_all_vs
+    \\ metis_tac [v_all_vs_ts_list])
+  >- (
+    disj1_tac \\ gvs [] \\ rw []
+    \\ last_x_assum irule \\ gvs [] \\ rw []
+    \\ gvs [v_all_ts_def]
+    \\ first_x_assum irule \\ rw []
     \\ gvs [all_ts_def]
     \\ first_assum $ irule_at Any \\ gvs []
     \\ disj1_tac \\ gvs []
     \\ first_x_assum $ irule_at Any \\ gvs [])
-  >- (
-    disj2_tac \\ gvs [v_all_ts_def]
-    \\ ntac 2 (first_x_assum irule \\ rw [])
-    \\ gvs [all_ts_def]
-    \\ first_assum $ irule_at Any \\ gvs []
-    \\ disj1_tac \\ gvs []
-    \\ first_x_assum $ irule_at Any \\ gvs [])
-  >- (
-    irule_at Any EQ_REFL \\ gvs []
-    \\ conj_tac
-    >- (
-      qpat_x_assum `LIST_REL _ _ _` mp_tac
-      \\ ONCE_REWRITE_TAC [LIST_REL_MEM]
-      \\ ho_match_mp_tac  LIST_REL_mono
-      \\ rw [] \\ fs []
-      \\ first_x_assum irule \\ rw []
-      \\ last_x_assum irule \\ rw []
-      \\ gvs [v_all_ts_def]
-      \\ Cases_on `x' = ts` \\ rw []
-      \\ drule_then assume_tac MEM_v_all_vs
-      \\ metis_tac [v_all_vs_ts_list])
-    >- (
-      gvs [v_all_ts_def]
-       \\ first_x_assum $ qspec_then `ts` assume_tac
-       \\ gvs [FLOOKUP_DRESTRICT]))*)
+  \\ disj2_tac \\ gvs [] \\ rw []
+  \\ last_x_assum irule \\ gvs [] \\ rw []
+  \\ gvs [v_all_ts_def]
+  \\ first_x_assum irule \\ rw []
+  \\ gvs [all_ts_def]
+  \\ first_assum $ irule_at Any \\ gvs []
+  \\ disj1_tac \\ gvs []
+  \\ first_x_assum $ irule_at Any \\ gvs []
 QED
 
 Theorem v_inv_tf_restrict:
@@ -2983,7 +3003,7 @@ Theorem v_inv_tf_restrict:
      (∀x. x ∈ (all_ts refs stack) ⇒ x ∈ P) ⇒
        v_inv conf v refs (y,f, DRESTRICT tf P,heap)
 Proof
-  metis_tac [v_inv_tf_restrict_lemma]
+  metis_tac [v_inv_eq, v_inv_tf_restrict_lemma]
 QED
 
 Theorem cons_thm_alt:
@@ -3536,21 +3556,27 @@ Proof
 QED
 
 Theorem v_inv_ByteArray_insert_lemma:
-  ∀v1 refs v2.
-    v_inv conf v1 refs v2 ⇒
-      ∀y f tf heap.
-        v2 = (y,f,tf,heap) ∧
-        (ptr ∈ domain refs ⇒ ∃a b. lookup ptr refs = SOME (ByteArray a b)) ⇒
-          v_inv conf v1 (insert ptr (ByteArray fl xs) refs) (y,f,tf,heap)
+  ∀ck v1 refs y f tf heap.
+    v_inv conf v1 refs (y,f,tf,heap) ∧
+      (ptr ∈ domain refs ⇒ ∃a b. lookup ptr refs = SOME (ByteArray a b)) ⇒
+        v_inv_ck ck conf v1 (insert ptr (ByteArray fl xs) refs) (y,f,tf,heap)
 Proof
-  cheat
-  (*ho_match_mp_tac v_inv_rel_strongind \\ rw [] \\ gvs [v_inv_def]
-  >- (gvs [lookup_insert] \\ IF_CASES_TAC \\ gvs [])
+  completeInduct_on `ck` \\ gvs []
+  \\ rpt gen_tac \\ rpt disch_tac
+  \\ simp [Once v_inv_ck_cases]
+  \\ Cases_on `v1` \\ gvs [v_inv_def]
+  >- (Cases_on `small_int (:α) i` \\ gvs [])
+  >- (
+    Cases_on `l = []` \\ gvs []
+    \\ irule_at Any EQ_REFL \\ gvs []
+    \\ gvs [LIST_REL_EL_EQN] \\ rw [])
+  >- (
+    gvs [lookup_insert]
+    \\ IF_CASES_TAC \\ gvs [])
   >- (
     gvs [lookup_insert]
     \\ IF_CASES_TAC \\ gvs []
-    \\ disj1_tac \\ gvs []
-    \\ irule_at Any EQ_REFL \\ gvs [] \\ rw []
+    \\ disj1_tac \\ gvs [] \\ rw []
     \\ gvs [oneline dest_thunk_def, AllCaseEqs(), lookup_insert]
     \\ Cases_on `ptr = ptr'` \\ gvs [])
   >- (
@@ -3560,9 +3586,6 @@ Proof
     \\ disj2_tac \\ gvs []
     \\ gvs [oneline dest_thunk_def, AllCaseEqs(), lookup_insert]
     \\ Cases_on ‘ptr' = ptr’ \\ gvs [])
-  >- (
-    irule_at Any EQ_REFL \\ gvs []
-    \\ gvs [LIST_REL_EL_EQN] \\ rw [])*)
 QED
 
 Theorem v_inv_ByteArray_insert:
@@ -3571,7 +3594,7 @@ Theorem v_inv_ByteArray_insert:
     (ptr ∈ domain refs ⇒ ∃a b. lookup ptr refs = SOME (ByteArray a b)) ⇒
       v_inv conf v1 (insert ptr (ByteArray fl xs) refs) (v2,f,tf,heap)
 Proof
-  metis_tac [v_inv_ByteArray_insert_lemma]
+  metis_tac [v_inv_eq, v_inv_ByteArray_insert_lemma]
 QED
 
 Definition isRefBlock_def:
@@ -3671,38 +3694,91 @@ Proof
 QED
 
 Theorem v_inv_Ref_lemma[local]:
-  ∀w refs y.
-    v_inv conf w refs y ⇒
-    ∀x f tf heap.
-      y = (x,f,tf,heap) ∧
-      RefBlock_inv heap heap2 ⇒
-        v_inv conf w refs (x,f,tf,heap) = v_inv conf w refs (x,f,tf,heap2)
+  ∀ck w refs x f tf heap.
+    v_inv conf w refs (x,f,tf,heap) ∧
+    RefBlock_inv heap heap2 ⇒
+      v_inv_ck ck conf w refs (x,f,tf,heap) = v_inv_ck ck conf w refs (x,f,tf,heap2)
 Proof
-  cheat
-  (*ho_match_mp_tac v_inv_rel_strongind
-  \\ rw [] \\ gvs [v_inv_def]
+  completeInduct_on `ck` \\ gvs []
+  \\ rpt gen_tac \\ rpt disch_tac
+  \\ simp [Once v_inv_ck_cases]
+  \\ Cases_on `w` \\ gvs [v_inv_def]
   >- (
-    gvs [Bignum_def]
-    \\ pairarg_tac \\ gvs [RefBlock_inv_def]
+    simp [Once v_inv_ck_cases]
+    \\ Cases_on `small_int (:α) i` \\ gvs [RefBlock_inv_def, Bignum_def]
+    \\ pairarg_tac \\ gvs []
     \\ first_x_assum $ drule_then strip_assume_tac \\ gvs []
     \\ gvs [isRefBlock_def, RefBlock_def])
   >- (
-    gvs [Word64Rep_def]
+    simp [Once v_inv_ck_cases]
+    \\ gvs [Word64Rep_def]
     \\ IF_CASES_TAC \\ gvs [RefBlock_inv_def]
     \\ first_x_assum $ drule_then strip_assume_tac \\ gvs []
     \\ gvs [isRefBlock_def, RefBlock_def])
   >- (
-    gvs [ThunkBlock_def]
-    \\ disj1_tac \\ gvs [RefBlock_inv_def]
-    \\ first_x_assum $ drule_then strip_assume_tac \\ gvs []
-    \\ gvs [isRefBlock_def, RefBlock_def])
-  >- (
-    iff_tac \\ rw []
-    \\ irule_at Any EQ_REFL \\ gvs [RefBlock_inv_def, BlockRep_def]
-    \\ first_x_assum $ drule_then strip_assume_tac \\ gvs []
-    \\ gvs [isRefBlock_def, RefBlock_def]
+    Cases_on `l = []` \\ gvs []
+    >- simp [Once v_inv_ck_cases]
+    \\ iff_tac \\ gvs [] \\ rw []
+    >- (
+      simp [Once v_inv_ck_cases]
+      \\ gvs [BlockRep_def]
+      \\ irule_at Any EQ_REFL \\ gvs [RefBlock_inv_def]
+      \\ rw [] \\ gvs [LIST_REL_EL_EQN]
+      \\ first_x_assum $ drule_then strip_assume_tac \\ gvs []
+      \\ gvs [isRefBlock_def, RefBlock_def])
+    \\ irule_at Any EQ_REFL \\ gvs []
     \\ gvs [LIST_REL_EL_EQN] \\ rw []
-    \\ last_x_assum $ drule_then strip_assume_tac \\ gvs [])*)
+    \\ last_x_assum $ qspec_then `ck - 1` mp_tac \\ gvs []
+    \\ gvs [Once v_inv_ck_cases, LIST_REL_EL_EQN]
+    \\ ntac 2 (first_x_assum $ drule_then assume_tac \\ gvs [])
+    \\ disch_then drule \\ gvs []
+    \\ rw [] \\ gvs [RefBlock_inv_def]
+    \\ first_x_assum drule \\ gvs [isRefBlock_def, RefBlock_def, BlockRep_def])
+  >- simp [Once v_inv_ck_cases]
+  >- simp [Once v_inv_ck_cases]
+  >- (
+    iff_tac \\ rw [] \\ gvs []
+    >- (
+      simp [Once v_inv_ck_cases]
+      \\ disj1_tac \\ gvs [RefBlock_inv_def]
+      \\ first_x_assum drule
+      \\ gvs [isRefBlock_def, RefBlock_def, ThunkBlock_def])
+    >- (
+      simp [Once v_inv_ck_cases]
+      \\ disj1_tac \\ gvs [RefBlock_inv_def]
+      \\ first_assum drule
+      \\ rewrite_tac [isRefBlock_def, RefBlock_def, ThunkBlock_def] \\ rw []
+      \\ last_x_assum $ qspec_then `ck - 1` mp_tac \\ gvs []
+      \\ disch_then drule \\ gvs [] \\ rw []
+      \\ drule (iffLR v_inv_eq)
+      \\ disch_then $ qspec_then `ck - 1` assume_tac \\ gvs [])
+    \\ pop_assum mp_tac
+    \\ rw [Once v_inv_ck_cases]
+    >- (
+      disj1_tac \\ rw [] \\ gvs []
+      \\ last_x_assum $ qspec_then `ck - 1` mp_tac \\ gvs []
+      \\ disch_then drule \\ gvs [] \\ rw []
+      \\ drule (iffLR v_inv_eq)
+      \\ disch_then $ qspec_then `ck - 1` assume_tac \\ gvs [])
+    \\ disj1_tac \\ rw [] \\ gvs []
+    \\ last_x_assum $ qspec_then `ck - 1` mp_tac \\ gvs []
+    \\ disch_then drule \\ gvs [] \\ rw []
+    \\ drule (iffLR v_inv_eq)
+    \\ disch_then $ qspec_then `ck - 1` assume_tac \\ gvs [])
+  \\ iff_tac \\ rw [] \\ gvs []
+  >- (
+    simp [Once v_inv_ck_cases]
+    \\ disj2_tac \\ rw [] \\ gvs []
+    \\ last_x_assum $ qspec_then `ck - 1` mp_tac \\ gvs []
+    \\ disch_then drule \\ gvs [] \\ rw []
+    \\ drule (iffLR v_inv_eq)
+    \\ disch_then $ qspec_then `ck - 1` assume_tac \\ gvs [])
+  >- simp [Once v_inv_ck_cases]
+  \\ disj2_tac \\ rw [] \\ gvs []
+  \\ last_x_assum $ qspec_then `ck - 1` mp_tac \\ gvs []
+  \\ disch_then drule \\ gvs [] \\ rw []
+  \\ drule (iffLR v_inv_eq)
+  \\ disch_then $ qspec_then `ck - 1` assume_tac \\ gvs []
 QED
 
 Theorem v_inv_Ref[local]:
@@ -3712,40 +3788,41 @@ Theorem v_inv_Ref[local]:
 Proof
   rw []
   \\ Cases_on ‘v_inv conf x refs (h,f,tf,heap)’ \\ gvs []
-  >- (old_drule v_inv_Ref_lemma \\ gvs [])
+  >- (old_drule v_inv_Ref_lemma \\ gvs [v_inv_eq])
   \\ strip_tac
   \\ old_drule v_inv_Ref_lemma \\ gvs []
-  \\ qexists ‘heap’ \\ gvs [RefBlock_inv_def]
+  \\ qexists ‘heap’ \\ gvs [RefBlock_inv_def, v_inv_eq]
+  \\ metis_tac []
 QED
 
 Theorem v_inv_ValueArray_insert_lemma:
-  ∀v1 refs v2.
-    v_inv conf v1 refs v2 ⇒
-      ∀y f tf heap.
-        v2 = (y,f,tf,heap) ∧
-        RefBlock_inv heap heap2 ∧
-        (ptr ∈ domain refs ⇒ ∃as. lookup ptr refs = SOME (ValueArray as)) ⇒
-          v_inv conf v1 (insert ptr (ValueArray xs) refs) (y,f,tf,heap)
+  ∀ck v1 refs y f tf heap.
+    v_inv conf v1 refs (y,f,tf,heap) ∧
+      RefBlock_inv heap heap2 ∧
+      (ptr ∈ domain refs ⇒ ∃as. lookup ptr refs = SOME (ValueArray as)) ⇒
+        v_inv_ck ck conf v1 (insert ptr (ValueArray xs) refs) (y,f,tf,heap)
 Proof
-  cheat
-  (*ho_match_mp_tac v_inv_rel_strongind \\ rw [] \\ gvs [v_inv_def]
+  completeInduct_on `ck` \\ gvs []
+  \\ rpt gen_tac \\ rpt disch_tac
+  \\ simp [Once v_inv_ck_cases]
+  \\ Cases_on `v1` \\ gvs [v_inv_def]
+  >- (Cases_on `small_int (:α) i` \\ gvs [])
+  >- (
+    Cases_on `l = []` \\ gvs []
+    \\ irule_at Any EQ_REFL \\ gvs []
+    \\ gvs [LIST_REL_EL_EQN])
   >- (gvs [lookup_insert] \\ IF_CASES_TAC \\ gvs [])
   >- (
     gvs [lookup_insert] \\ IF_CASES_TAC \\ gvs []
-    \\ disj1_tac \\ gvs []
-    \\ irule_at Any EQ_REFL \\ gvs [] \\ rw []
+    \\ disj1_tac \\ gvs [] \\ rw []
     \\ gvs [oneline dest_thunk_def, AllCaseEqs(), lookup_insert]
     \\ Cases_on ‘ptr' = ptr’ \\ gvs [])
   >- (
-    gvs [lookup_insert]
-    \\ IF_CASES_TAC \\ gvs []
+    gvs [lookup_insert] \\ IF_CASES_TAC \\ gvs []
     >- gvs [domain_lookup]
     \\ disj2_tac \\ gvs []
     \\ gvs [oneline dest_thunk_def, AllCaseEqs(), lookup_insert]
     \\ Cases_on ‘ptr' = ptr’ \\ gvs [])
-  >- (
-    irule_at Any EQ_REFL \\ gvs []
-    \\ gvs [LIST_REL_EL_EQN] \\ rw [])*)
 QED
 
 Theorem v_inv_ValueArray_insert:
@@ -3755,7 +3832,7 @@ Theorem v_inv_ValueArray_insert:
     (ptr ∈ domain refs ⇒ ∃as. lookup ptr refs = SOME (ValueArray as)) ⇒
       v_inv conf v1 (insert ptr (ValueArray xs) refs) (v2,f,tf,heap2)
 Proof
-  metis_tac [v_inv_ValueArray_insert_lemma, v_inv_Ref]
+  metis_tac [v_inv_eq, v_inv_ValueArray_insert_lemma, v_inv_Ref]
 QED
 
 Theorem heap_store_ThunkBlock_thm:
@@ -3843,7 +3920,6 @@ QED
 Theorem v_inv_Thunk_insert_lemma[local]:
   ∀ck v1 refs x f tf heap ptr v y q.
     v_inv conf v1 refs (x,f,tf,heap) ∧
-
     INJ (FAPPLY f) (FDOM f) {a | isSomeDataElement (heap_lookup a heap)} ∧
     ptr ∈ FDOM f ∧
     lookup ptr refs = SOME (Thunk NotEvaluated v) ∧
@@ -3855,18 +3931,31 @@ Theorem v_inv_Thunk_insert_lemma[local]:
     (∀m x.
        m ≠ f⟨ptr⟩ ∧ heap_lookup m heap = SOME x ⇒
        heap_lookup m heap2 = SOME x) ∧
-
     v_inv conf h refs (q,f,tf,heap) ⇒
-
       v_inv_ck ck conf v1 (insert ptr (Thunk ev h) refs) (x,f,tf,heap2)
 Proof
   completeInduct_on `ck` \\ gvs []
   \\ rpt gen_tac \\ rpt disch_tac
   \\ simp [Once v_inv_ck_cases]
   \\ Cases_on `v1` \\ gvs [v_inv_def]
-  >- cheat
-  >- cheat
-  >- cheat
+  >- (
+    Cases_on `small_int (:α) i` \\ gvs []
+    \\ first_x_assum irule \\ gvs []
+    \\ CCONTR_TAC \\ gvs [ThunkBlock_def, Bignum_def]
+    \\ pairarg_tac \\ gvs [])
+  >- (
+    first_x_assum irule \\ gvs []
+    \\ CCONTR_TAC \\ gvs [ThunkBlock_def, Word64Rep_def, AllCaseEqs()])
+  >- (
+    Cases_on `l = []` \\ gvs []
+    \\ irule_at Any EQ_REFL \\ gvs []
+    \\ reverse $ rw []
+    >- (
+      first_x_assum irule \\ gvs []
+      \\ CCONTR_TAC \\ gvs [ThunkBlock_def, BlockRep_def])
+    \\ gvs [LIST_REL_EL_EQN] \\ rw []
+    \\ first_x_assum irule \\ gvs []
+    \\ goal_assum drule \\ gvs [])
   >- (
     disj1_tac \\ gvs [lookup_insert]
     \\ Cases_on `n = ptr` \\ gvs [])
@@ -3905,17 +3994,6 @@ Theorem v_inv_Thunk_insert =
     |> SPEC_ALL
     |> Q.GEN `ck`
     |> SRULE [GSYM PULL_FORALL, GSYM v_inv_eq];
-
-(*
-Theorem v_inv_Thunk_insert:
-  ∀conf v1 refs v2 f tf heap ptr ev h heap2.
-    v_inv conf v1 refs (v2,f,tf,heap) ∧
-    (∃tv. lookup ptr refs = SOME (Thunk NotEvaluated tv)) ⇒
-      v_inv conf v1 (insert ptr (Thunk ev h) refs) (v2,f,tf,heap2)
-Proof
-  metis_tac [v_inv_Thunk_insert_lemma, v_inv_Thunk]
-QED
-*)
 
 Theorem heap_lookup_heap_split[local]:
     !heap a b h1 h2 x.
@@ -4577,16 +4655,18 @@ Proof
 QED
 
 Theorem v_inv_IMP_lemma[local]:
-  ∀w refs y.
-    v_inv conf w refs y ⇒
-      ∀x f tf.
-        y = (x,f,tf,ha ++ [Bytes be fl xs ws] ++ hb) ⇒
-          v_inv conf w refs (x,f,tf,ha ++ [Bytes be fl ys ws] ++ hb)
+  ∀ck w refs x f tf.
+    v_inv conf w refs (x,f,tf,ha ++ [Bytes be fl xs ws] ++ hb) ⇒
+      v_inv_ck ck conf w refs (x,f,tf,ha ++ [Bytes be fl ys ws] ++ hb)
 Proof
-  ho_match_mp_tac v_inv_rel_strongind \\ rw [] \\ gvs [v_inv_def]
+  completeInduct_on `ck` \\ gvs []
+  \\ rpt gen_tac \\ rpt disch_tac
+  \\ simp [Once v_inv_ck_cases]
+  \\ Cases_on `w` \\ gvs [v_inv_def]
   >- (
-    gvs [heap_lookup_APPEND, heap_length_APPEND, Bytes_def, heap_length_def,
-         el_length_def] \\ rw []
+    Cases_on `small_int (:α) i` \\ gvs []
+    \\ gvs [heap_lookup_APPEND, heap_length_APPEND, Bytes_def, heap_length_def,
+            el_length_def] \\ rw []
     \\ gvs [heap_lookup_def, Bignum_def, i2mw_def])
   >- (
     gvs [heap_lookup_APPEND, heap_length_APPEND, Bytes_def, heap_length_def,
@@ -4594,18 +4674,19 @@ Proof
     \\ gvs [heap_lookup_def, Word64Rep_def, i2mw_def]
     \\ IF_CASES_TAC \\ gvs [])
   >- (
-    disj1_tac \\ gvs []
-    \\ gvs [heap_lookup_APPEND, heap_length_APPEND, Bytes_def, heap_length_def,
-            el_length_def] \\ rw []
-    \\ gvs [heap_lookup_def, ThunkBlock_def])
-  \\ qexists_tac `xs'` \\ fs [PULL_FORALL,AND_IMP_INTRO]
-  \\ conj_tac
-  >- (
-    qpat_x_assum `LIST_REL _ _ _` mp_tac
-    \\ match_mp_tac LIST_REL_IMP_LIST_REL \\ gvs [])
-  \\ gvs [Bytes_def, heap_lookup_APPEND, heap_lookup_def, BlockRep_def,
-         heap_length_APPEND, heap_length_def, SUM_APPEND, el_length_def]
-  \\ rw [] \\ gvs []
+    Cases_on `l = []` \\ gvs []
+    \\ irule_at Any EQ_REFL \\ gvs []
+    \\ rw []
+    >- (
+      qpat_x_assum `LIST_REL _ _ _` mp_tac
+      \\ match_mp_tac LIST_REL_IMP_LIST_REL \\ gvs [])
+    \\ gvs [Bytes_def, heap_lookup_APPEND, heap_lookup_def, BlockRep_def,
+           heap_length_APPEND, heap_length_def, SUM_APPEND, el_length_def]
+    \\ rw [] \\ gvs [])
+  \\ disj1_tac \\ gvs []
+  \\ gvs [heap_lookup_APPEND, heap_length_APPEND, Bytes_def, heap_length_def,
+          el_length_def] \\ rw []
+  \\ gvs [heap_lookup_def, ThunkBlock_def]
 QED
 
 Theorem v_inv_IMP[local]:
@@ -4613,7 +4694,7 @@ Theorem v_inv_IMP[local]:
       v_inv conf y refs (x,f,tf,ha ++ [Bytes be fl xs ws] ++ hb) ⇒
       v_inv conf y refs (x,f,tf,ha ++ [Bytes be fl ys ws] ++ hb)
 Proof
-  metis_tac [v_inv_IMP_lemma]
+  metis_tac [v_inv_eq, v_inv_IMP_lemma]
 QED
 
 Theorem gen_state_ok_update_byte[local]:
@@ -5095,6 +5176,46 @@ Proof
   \\ rw []
 QED
 
+Theorem v_inv_new_Thunk_insert_lemma[local]:
+  ∀ck v refs x f tf heap ptr.
+    v_inv conf v refs (x,f,tf,heap) ∧
+    ptr ∉ FDOM f ∧
+    ptr ∉ domain refs ∧
+    (ev = Evaluated ⇒ dest_thunk h refs = NotThunk) ⇒
+      v_inv_ck ck conf v (insert ptr (Thunk ev h) refs) (x,f,tf,heap)
+Proof
+  completeInduct_on `ck` \\ gvs []
+  \\ rpt gen_tac \\ rpt disch_tac
+  \\ simp [Once v_inv_ck_cases]
+  \\ Cases_on `v` \\ gvs [v_inv_def]
+  >- (Cases_on `small_int (:α) i` \\ gvs [])
+  >- (
+    Cases_on `l = []` \\ gvs []
+    \\ irule_at Any EQ_REFL \\ gvs []
+    \\ rw []
+    \\ gvs [LIST_REL_EL_EQN] \\ rw [])
+  >- (
+    disj1_tac \\ gvs [lookup_insert]
+    \\ Cases_on `n = ptr` \\ gvs [])
+  >- (
+    gvs [lookup_insert]
+    \\ IF_CASES_TAC \\ gvs []
+    \\ disj1_tac \\ rw [] \\ gvs []
+    \\ gvs [oneline dest_thunk_def, AllCaseEqs(), lookup_insert]
+    \\ Cases_on `ptr = ptr'` \\ gvs [domain_lookup])
+  \\ gvs [lookup_insert]
+  \\ IF_CASES_TAC \\ gvs [domain_lookup]
+  \\ disj2_tac \\ gvs []
+  \\ gvs [oneline dest_thunk_def, AllCaseEqs(), lookup_insert]
+  \\ Cases_on `ptr = ptr'` \\ gvs [domain_lookup]
+QED
+
+Theorem v_inv_new_Thunk_insert =
+  v_inv_new_Thunk_insert_lemma
+    |> SPEC_ALL
+    |> Q.GEN `ck`
+    |> SRULE [GSYM PULL_FORALL, GSYM v_inv_eq];
+
 Theorem new_thunk_thm:
    abs_ml_inv conf (v::stack) refs (roots,heap,be,a,sp,sp1,gens) limit ts ∧
     ¬(ptr IN (domain refs)) ∧ 2 ≤ sp ∧
@@ -5106,8 +5227,7 @@ Theorem new_thunk_thm:
                  (r::Pointer (a+sp+sp1-2) (Word 0w)::roots2,heap2,be,a,
                   sp - 2,sp1,gens) limit ts
 Proof
-  cheat
-  (*simp_tac std_ss [abs_ml_inv_def]
+  simp_tac std_ss [abs_ml_inv_def]
   \\ rpt strip_tac \\ full_simp_tac std_ss [bc_stack_ref_inv_def]
   \\ imp_res_tac EVERY2_APPEND_IMP_APPEND
   \\ full_simp_tac (srw_ss()) []
@@ -5197,8 +5317,7 @@ Proof
       \\ ho_match_mp_tac v_inv_tf_restrict
       \\ qexists ‘v::RefPtr F ptr::stack’ \\ gvs [] \\ rw []
       >- (ho_match_mp_tac v_inv_SUBMAP \\ rw []
-         \\ irule v_inv_Thunk_insert \\ gvs []
-         \\ first_x_assum $ irule_at Any \\ gvs [ThunkBlock_inv_def])
+         \\ irule v_inv_new_Thunk_insert \\ gvs [])
       \\ ho_match_mp_tac MEM_in_all_ts
       \\ qexists_tac `v` \\ rw []
       \\ rw [all_vs_def] \\ disj2_tac
@@ -5212,8 +5331,7 @@ Proof
        \\ ho_match_mp_tac v_inv_tf_restrict
        \\ qexists ‘v::RefPtr F ptr::stack’ \\ gvs [] \\ rw []
        >- (ho_match_mp_tac v_inv_SUBMAP \\ rw []
-          \\ irule v_inv_Thunk_insert \\ gvs []
-          \\ first_x_assum $ irule_at Any \\ gvs [ThunkBlock_inv_def])
+          \\ irule v_inv_new_Thunk_insert \\ gvs [])
        \\ ho_match_mp_tac MEM_in_all_ts
        \\ qexists_tac `v` \\ rw []
        \\ rw [all_vs_def] \\ disj2_tac
@@ -5223,8 +5341,7 @@ Proof
        \\ ho_match_mp_tac v_inv_tf_restrict
        \\ qexists ‘v::RefPtr F ptr::stack’ \\ gvs [] \\ rw []
        >- (ho_match_mp_tac v_inv_SUBMAP \\ rw []
-           \\ irule v_inv_Thunk_insert \\ gvs []
-           \\ first_x_assum $ irule_at Any \\ gvs [ThunkBlock_inv_def])
+           \\ irule v_inv_new_Thunk_insert \\ gvs [])
        \\ ho_match_mp_tac MEM_in_all_ts
        \\ qexists_tac `EL n stack` \\ rw []
        \\ rw [all_vs_def] \\ disj2_tac
@@ -5242,8 +5359,7 @@ Proof
     \\ ho_match_mp_tac v_inv_tf_restrict
     \\ qexists ‘v::RefPtr F ptr::stack’ \\ gvs [] \\ rw []
     >- (ho_match_mp_tac v_inv_SUBMAP \\ rw []
-        \\ irule v_inv_Thunk_insert \\ gvs []
-        \\ first_x_assum $ irule_at Any \\ gvs [ThunkBlock_inv_def])
+        \\ irule v_inv_new_Thunk_insert \\ gvs [])
     \\ rw []
     \\ ho_match_mp_tac MEM_in_all_ts
     \\ qexists_tac `v` \\ rw []
@@ -5289,8 +5405,7 @@ Proof
     \\ qexists ‘v::RefPtr F ptr::stack’ \\ gvs [] \\ rw []
     >- (
       ho_match_mp_tac v_inv_SUBMAP \\ rw []
-      \\ irule v_inv_Thunk_insert \\ gvs []
-      \\ first_x_assum $ irule_at Any \\ gvs [ThunkBlock_inv_def])
+      \\ irule v_inv_new_Thunk_insert \\ gvs [])
     \\ rw []
     \\ ho_match_mp_tac MEM_in_all_ts
     \\ qexists_tac `a'` \\ rw []
@@ -5319,8 +5434,7 @@ Proof
   \\ qexists ‘v::RefPtr F ptr::stack’ \\ gvs [] \\ rw []
   >- (
     ho_match_mp_tac v_inv_SUBMAP \\ rw []
-    \\ irule v_inv_Thunk_insert \\ gvs []
-    \\ first_x_assum $ irule_at Any \\ gvs [ThunkBlock_inv_def])
+    \\ irule v_inv_new_Thunk_insert \\ gvs [])
   \\ rw []
   \\ ho_match_mp_tac MEM_in_all_ts
   \\ qexists_tac `y` \\ rw []
@@ -5328,7 +5442,7 @@ Proof
   \\ map_every qexists_tac [`n`,`l`]
   \\ fs [lookup_insert]
   \\ ho_match_mp_tac MEM_v_all_vs
-  \\ rw []*)
+  \\ rw []
 QED
 
 (* deref *)
@@ -5374,8 +5488,7 @@ Proof
   \\ rename1 `lookup ptr refs = SOME v'`
   \\ reverse (Cases_on `v'`) \\ full_simp_tac (srw_ss()) []
   >- (
-    strip_tac
-    \\ TOP_CASE_TAC \\ gvs []
+    TOP_CASE_TAC \\ gvs []
     \\ imp_res_tac EVERY2_IMP_LENGTH
     \\ asm_simp_tac (srw_ss()) [heap_el_def,RefBlock_def,ThunkBlock_def]
     \\ srw_tac [] [] THEN1
@@ -9297,7 +9410,7 @@ Proof
     \\ gvs [abs_ml_inv_def, bc_stack_ref_inv_def]
     \\ simp [Once CONJ_COMM]
     \\ rpt (goal_assum $ drule_at Any \\ gvs [])
-    \\ qrefinel [‘z’, ‘Pointer (f ' p) (Word 0w)’]
+    \\ qrefinel [‘y’, ‘Pointer (f ' p) (Word 0w)’]
     \\ simp [word_addr_def]
     \\ conj_tac >- (
       full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
@@ -16213,17 +16326,6 @@ Proof
             \\ qexistsl [`n`, `rv`] \\ gvs [Abbr`rv`]
             \\ CCONTR_TAC \\ gvs []))
           \\ metis_tac [])
-      \\ ‘∀v x. v_inv c v (insert p2 (ByteArray fl2 res_vals) refs)
-                        (x,f,tf,heap1) =
-          v_inv c v refs (x,f,tf,heap0)’ by
-        cheat
-        (*(ho_match_mp_tac v_inv_alt_ind
-         \\ simp [v_inv_def,Bignum_def,i2mw_def,Word64Rep_def]
-         \\ conj_tac >- gvs [good_dimindex_def]
-         \\ rw [] \\ gvs [BlockRep_def]
-         \\ gvs [LIST_REL_EL_EQN,MEM_EL,PULL_EXISTS]
-         \\ eq_tac \\ rw []
-         \\  metis_tac [])*)
       \\ ‘∀vs. reachable_refs vs (insert p2 (ByteArray fl2 res_vals) refs) =
                reachable_refs vs refs’ by
         (gen_tac
@@ -16242,6 +16344,11 @@ Proof
       \\ conj_tac >- (
         rpt strip_tac \\ gvs [lookup_insert]
         \\ Cases_on `p1 = p2` \\ gvs [])
+      \\ conj_tac
+      >- (
+        gvs [LIST_REL_EL_EQN] \\ rw []
+        \\ unabbrev_all_tac
+        \\ metis_tac [v_inv_IMP, v_inv_ByteArray_insert])
       \\ gen_tac \\ strip_tac
       \\ first_x_assum old_drule
       \\ simp [bc_ref_inv_def,lookup_insert]
@@ -16264,11 +16371,32 @@ Proof
       \\ rewrite_tac [APPEND,GSYM APPEND_ASSOC]
       \\ simp [heap_lookup_APPEND,heap_lookup_def,el_length_Bytes]
       \\ IF_CASES_TAC \\ gvs []
-      \\ (
-        rw [] \\ gvs []
-        \\ irule_at (Pos hd) EQ_REFL \\ gvs [] \\ rw []
-        \\ gvs [oneline dest_thunk_def, AllCaseEqs(), lookup_insert]
-        \\ Cases_on `ptr = p2` \\ gvs []))
+      \\ ntac 2 (rw [] \\ gvs [])
+      >- (
+        pop_assum mp_tac
+        \\ ho_match_mp_tac LIST_REL_mono \\ rpt gen_tac \\ simp []
+        \\ once_rewrite_tac [CONS_APPEND] \\ once_rewrite_tac [APPEND_ASSOC]
+        \\ metis_tac [v_inv_IMP, v_inv_ByteArray_insert])
+      >- (
+        pop_assum mp_tac
+        \\ ho_match_mp_tac LIST_REL_mono \\ rpt gen_tac \\ simp []
+        \\ once_rewrite_tac [CONS_APPEND] \\ once_rewrite_tac [APPEND_ASSOC]
+        \\ metis_tac [v_inv_IMP, v_inv_ByteArray_insert])
+      >- (
+        gvs [oneline dest_thunk_def, AllCaseEqs(), lookup_insert]
+        \\ Cases_on `ptr = p2` \\ gvs [])
+      >- (
+        pop_assum mp_tac
+        \\ once_rewrite_tac [CONS_APPEND] \\ once_rewrite_tac [APPEND_ASSOC]
+        \\ metis_tac [v_inv_IMP, v_inv_ByteArray_insert])
+      >- (
+        gvs [oneline dest_thunk_def, AllCaseEqs(), lookup_insert]
+        \\ Cases_on `ptr = p2` \\ gvs [])
+      >- (
+        pop_assum mp_tac
+        \\ once_rewrite_tac [CONS_APPEND] \\ once_rewrite_tac [APPEND_ASSOC]
+        \\ metis_tac [v_inv_IMP, v_inv_ByteArray_insert])
+    )
   \\ ‘heap_length heap1 = heap_length heap0’ by
     simp [Abbr‘heap1’,Abbr‘heap0’,heap_length_APPEND,heap_length_def,el_length_Bytes]
   \\ ‘LENGTH res_vals = LENGTH vals2’ by imp_res_tac xor_bytes_length
