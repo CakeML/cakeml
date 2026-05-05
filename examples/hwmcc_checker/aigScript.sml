@@ -209,10 +209,10 @@ Definition is_witness_liveness_def:
     ∀ss₀ ss₁.
       (preds_hold ss₀ mcirc mcnstrs ∧
        preds_hold ss₀ wcirc wcnstrs ∧
-       preds_hold ss₀ wcirc wcnstrs ∧
+       preds_hold ss₀ wcirc wpreds ∧
        preds_hold ss₁ mcirc mcnstrs ∧
        preds_hold ss₁ wcirc wcnstrs ∧
-       preds_hold ss₁ wcirc wcnstrs ∧
+       preds_hold ss₁ wcirc wpreds ∧
        is_next ss₀ wcirc wnext wlatches (SND ss₁) ∧
        preds_hold (pair_state ss₀ ss₁) wqcirc wlive)
       ⇒
@@ -252,8 +252,8 @@ End
 
 Definition is_witness_def:
   is_witness
-    mcirc mreset mnext mpreds mcnstrs mlatches
-    wcirc wreset wnext wpreds wcnstrs wlatches
+    mcirc mreset mnext mpreds mcnstrs mlatches mqcirc mlive
+    wcirc wreset wnext wpreds wcnstrs wlatches wqcirc wlive
   ⇔
   is_witness_reset
     mcirc mreset mnext mpreds mcnstrs mlatches
@@ -272,6 +272,16 @@ Definition is_witness_def:
   ∧
   is_witness_step
     wcirc wreset wnext wpreds wcnstrs wlatches
+  ∧
+  is_witness_liveness
+    mcirc mreset mnext mpreds mcnstrs mlatches mqcirc mlive
+    wcirc wreset wnext wpreds wcnstrs wlatches wqcirc wlive
+  ∧
+  is_witness_decrease
+    mcirc mreset mnext mpreds mcnstrs mlatches mqcirc mlive
+  ∧
+  is_witness_closure
+    mcirc mreset mnext mpreds mcnstrs mlatches mqcirc mlive
 End
 
 (* Latch Dependencies *********************************************************)
@@ -699,8 +709,8 @@ End
 
 Theorem is_witness_is_safe:
   is_witness
-    mcirc mreset mnext mpreds mcnstrs mlatches
-    wcirc wreset wnext wpreds wcnstrs wlatches ∧
+    mcirc mreset mnext mpreds mcnstrs mlatches mqcirc mlive
+    wcirc wreset wnext wpreds wcnstrs wlatches wqcirc wlive ∧
   dep_model
     mcirc mreset mnext mpreds mcnstrs mlatches ∧
   is_stratified_full lt wcirc wreset wlatches
@@ -729,6 +739,23 @@ Proof
   >> gvs[]
   >> metis_tac[is_trace_preds_hold_n]
 QED
+
+Theorem is_witness_is_live:
+  is_witness
+    mcirc mreset mnext mpreds mcnstrs mlatches mqcirc mlive
+    wcirc wreset wnext wpreds wcnstrs wlatches wqcirc wlive ∧
+  dep_model
+    mcirc mreset mnext mpreds mcnstrs mlatches ∧
+  is_stratified_full lt wcirc wreset wlatches
+  ⇒
+  is_live
+    mcirc mreset mnext mcnstrs mlatches mqcirc mlive
+Proof
+  rw []
+  >> drule_all is_witness_is_safe
+  >> cheat
+QED
+
 
 (* Liveness *******************************************************************)
 
