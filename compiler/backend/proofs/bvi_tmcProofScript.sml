@@ -279,7 +279,7 @@ Theorem env_rel_strip_extras:
       env2 = env2' ++ [RefPtr F hole_ptr; Number hole_idx]
 Proof
   rw []
-  >> gvs [env_rel_def]                
+  >> gvs [env_rel_def]
   >> qexistsl [‘xs’, ‘hole_ptr’, ‘hole_idx’]
   >> gvs []
   >> conj_tac
@@ -645,7 +645,7 @@ Theorem only_fresh_submap:
 Proof
   rw [only_fresh_def]
   >> first_assum $ irule_at Any
-  >> gvs []                
+  >> gvs []
   >> drule SUBMAP_FRANGE
   >> strip_tac
   >> gvs [SUBSET_DEF]
@@ -925,7 +925,7 @@ Proof
   >> pop_assum $ irule_at Any
   >> gvs [env_rel_def]
   >> first_assum $ irule_at $ Pos $ el 2
-  >> gvs []                
+  >> gvs []
   >> qexists ‘[RefPtr F hole_ptr; Number hole_idx]’
   >> gvs []
 QED
@@ -1001,10 +1001,16 @@ Proof
           case_eq_thms, PULL_EXISTS, FLOOKUP_SIMP, bvlSemTheory.Unit_def, backend_commonTheory.tuple_tag_def, opt_res_rel_def]
 QED
 
+Theorem WF_I_I[local]:
+  WF (measure I LEX measure I)
+Proof
+  irule WF_LEX >> simp [prim_recTheory.WF_measure]
+QED
+
 Theorem evaluate_rewrite_tmc:
   ∀n xs ^s env1 r t opt f s' env2.
     evaluate (xs, env1, s) = (r, t) ∧
-    n = s.clock ∧
+    n = (s.clock, list_size exp_size xs) ∧
     env_rel opt f env1 env2 ∧
     state_rel f s s' ∧
     (opt ⇒ LENGTH xs = 1) ∧
@@ -1036,11 +1042,15 @@ Theorem evaluate_rewrite_tmc:
               r' = Rval [res_v] ⇒
               hole_has_val f env1 env2 t2.refs res_v))
 Proof
-  gen_tac
-  >> completeInduct_on ‘n’
-  >> gen_tac
-  >> completeInduct_on ‘list_size exp_size xs’
-  >> rw []
+  ho_match_mp_tac $ MATCH_MP WF_INDUCTION_THM WF_I_I
+  >> simp [FORALL_PROD]
+  >> rpt gen_tac >> disch_tac
+  >> rpt gen_tac >> disch_tac
+  >> gvs [LEX_DEF,PULL_FORALL]
+  >> ‘∀n0 n1 b. n1 < n0 ∨ n1 = n0 ∧ b ⇔ n1 < n0 ∨ n1 ≤ n0:num ∧ b’ by
+    (rw [] >> eq_tac >> rw [] >> fs [])
+  >> pop_assum $ fs o single
+  (* -- at this point the indfuction is set up -- *)
   >> Cases_on ‘xs’
   >~ [‘evaluate ([],_,_)’] >-
    (gvs [evaluate_def] >> first_x_assum $ irule_at Any >> fs [only_fresh_def, holes_unchanged_except_def])
@@ -1072,7 +1082,7 @@ Resume evaluate_rewrite_tmc[list]:
     >> gvs []
     >> rpt $ disch_then drule
     >> strip_tac
-    >> gvs []             
+    >> gvs []
     >> first_assum $ irule_at Any
     >> gvs [])
   >> Cases_on ‘evaluate (y::xs,env,u)’ >> gvs []
@@ -1098,9 +1108,9 @@ Resume evaluate_rewrite_tmc[list]:
   >> Cases_on ‘s.clock = u.clock’ >> gvs []
   >-
    (rpt $ disch_then drule
-    >> 
+    >>
         )
-                      
+
   >> first_x_assum $ qspec_then ‘F’ mp_tac
   >> simp []
   >> disch_then drule
@@ -1132,7 +1142,7 @@ Resume evaluate_rewrite_tmc[list]:
    (rename [‘state_rel f3 t t'’]
     >> rename [‘LIST_REL (v_rel f3) vy vy'’]
     >> qexists ‘f3’ >> fs []
-    >> imp_res_tac evaluate_SING_IMP >> gvs []            
+    >> imp_res_tac evaluate_SING_IMP >> gvs []
     >> rename [‘v_rel f'' vx vx'’]
     >> drule_all v_rel_submap >> rw []
     >- imp_res_tac SUBMAP_TRANS
@@ -1159,7 +1169,7 @@ QED
 Resume evaluate_rewrite_tmc[var]:
   gvs [evaluate_def]
   >> Cases_on ‘n < LENGTH env’ >> gvs []
-  >> ‘n < LENGTH env2’ by (drule_all env_rel_length >> gvs [])                 
+  >> ‘n < LENGTH env2’ by (drule_all env_rel_length >> gvs [])
   >> gvs []
   >> drule_all env_rel_el_v_rel
   >> strip_tac
@@ -1177,7 +1187,7 @@ Resume evaluate_rewrite_tmc[var]:
   >> gvs [evaluate_def]
   >> rpt $ first_assum $ irule_at Any
 QED
-        
+
 Resume evaluate_rewrite_tmc[if]:
   gvs [evaluate_def]
   >> gvs [CaseEq "prod", PULL_EXISTS]
@@ -1316,7 +1326,7 @@ Resume evaluate_rewrite_tmc[if]:
       >> gvs []
       >> irule unchanged_hole_has_val
       >> first_assum $ irule_at $ Pos hd
-      >> gvs [])        
+      >> gvs [])
     >> strip_tac
     >> gvs [rewrite_worker_def, evaluate_def]
     >> drule_all env_rel_length_opt
@@ -1371,7 +1381,7 @@ Resume evaluate_rewrite_tmc[lett]:
     (* Second inductive hypothesis *)
     >> first_x_assum $ qspec_then ‘opt’ mp_tac
     >> gvs []
-    >> disch_then $ drule_at $ Pos $ el 2   
+    >> disch_then $ drule_at $ Pos $ el 2
     >> disch_then $ qspec_then ‘vs' ++ env2’ mp_tac
     >> impl_tac
     >-
@@ -1431,7 +1441,7 @@ Resume evaluate_rewrite_tmc[lett]:
       >> gvs [holes_unchanged_except_def])
     >> rw []
     >> irule hole_has_val_submap
-    >> first_assum $ irule_at Any         
+    >> first_assum $ irule_at Any
     >> irule hole_has_val_unappend
     >> first_assum $ irule_at Any
     >> gvs [])
@@ -1520,7 +1530,7 @@ Resume evaluate_rewrite_tmc[op]:
       >> qexists ‘t''’
       >> gvs []
       >> cheat)
-    >> rw []    
+    >> rw []
     >> gvs [rewrite_worker_def, evaluate_def]
     >> CASE_TAC >> gvs []
     >-
@@ -1744,7 +1754,7 @@ Resume evaluate_rewrite_tmc[call]:
   >> Cases_on ‘x’ >> gvs []
   >> rename [‘find_code dest v_xs u.code = SOME (args,exp)’]
   >> asm_x "eval_xs'" assume_tac
-  >> rename [‘evaluate (xs,env2,s') = (Rval v_xs',u')’]  
+  >> rename [‘evaluate (xs,env2,s') = (Rval v_xs',u')’]
   >> drule_all find_code_rel
   >> strip_tac
   >> gvs []
@@ -1908,7 +1918,7 @@ Resume evaluate_rewrite_tmc[call]:
     >> IF_CASES_TAC >> gvs []
     >> rpt $ first_assum $ irule_at Any)
 
-    
+
   >> rename [‘exp ≠ wrap’]
   >> rename [‘env_rel F f'' args args_exp’]
   >> disch_then drule
@@ -2053,4 +2063,3 @@ Theorem compile_prog_semantics:
 Proof
   cheat
 QED
-
