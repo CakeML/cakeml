@@ -126,7 +126,7 @@ Definition wf_def:
     EVERY IS_SOME (MAP FST σ) ∧
     path σ
 End
-Overload "⊢" = “wf”
+Overload "⊢" = “parmove$wf”
 
 Theorem wf_init:
    windmill μ ∧
