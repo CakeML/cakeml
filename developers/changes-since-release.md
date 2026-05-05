@@ -24,4 +24,8 @@ The Pancake compiler now unconditionally compiles with GC set to `none`; any `--
 
 ## Proof engineering and tooling
 
+### mlstring
+- HOL: `str` has been renamed to `chr_to_str`, freeing up `str` to be used for parameter names, for example. (#1307, #1372) 
+- HOL: Added `toString` overload for `chr_to_str` (#1307, #1372) 
+
 ## Miscellaneous
