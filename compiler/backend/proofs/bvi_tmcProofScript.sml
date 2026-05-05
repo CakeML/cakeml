@@ -1001,6 +1001,24 @@ Proof
           case_eq_thms, PULL_EXISTS, FLOOKUP_SIMP, bvlSemTheory.Unit_def, backend_commonTheory.tuple_tag_def, opt_res_rel_def]
 QED
 
+(* BVI props? *)
+Theorem evaluate_clock_non_increase:
+  ∀xs env s r t.
+    evaluate (xs,env,s) = (r,t) ⇒
+    t.clock ≤ s.clock
+Proof
+  recInduct bviSemTheory.evaluate_ind
+  >> rw [evaluate_def]
+  >-
+   (gvs [CaseEq "prod"]
+    >> rename [‘evaluate ([x],env,s) = (rx,u)’]
+    >> Cases_on ‘rx’ >> gvs []
+    >> gvs [CaseEq "prod"]
+    >> rename [‘evaluate (y::xs,env,u) = (ry,w)’]
+    >> Cases_on ‘ry’ >> gvs [])
+  >> cheat
+QED
+
 Theorem WF_I_I[local]:
   WF (measure I LEX measure I)
 Proof
@@ -1066,58 +1084,20 @@ Proof
   >~ [‘Force force_loc n’] >- suspend "force"
   >~ [‘Call ticks dest xs handler’] >- suspend "call"
 QED
-
+        
 Resume evaluate_rewrite_tmc[list]:
   gvs [evaluate_def]
   (* First inductive hypothesis *)
   >> gvs [CaseEq "prod", PULL_EXISTS]
   >> rename[‘evaluate ([x],env,s) = (rx,u)’]
-  >> reverse $ Cases_on ‘rx’ >> gvs []
-  >-
-   (first_assum $ qspec_then ‘list_size exp_size [x]’ mp_tac
-    >> impl_tac >- gvs []
-    >> disch_then $ qspec_then ‘[x]’ mp_tac
-    >> impl_tac >- gvs []
-    >> disch_then drule
-    >> gvs []
-    >> rpt $ disch_then drule
-    >> strip_tac
-    >> gvs []
-    >> first_assum $ irule_at Any
-    >> gvs [])
-  >> Cases_on ‘evaluate (y::xs,env,u)’ >> gvs []
-  >> Cases_on ‘q’ >> gvs []
-  >> imp_res_tac evaluate_SING_IMP
+  >> first_assum $ qspecl_then [‘[x]’, ‘s’, ‘env’] mp_tac
   >> gvs []
-  >> rename [‘evaluate ([x],env,s) = (Rval [vx],u)’]
-  >> rename [‘evaluate (y::xs,env,u) = (Rval vs,t)’]
-  >> first_assum $ qspec_then ‘list_size exp_size [x]’ mp_tac
-  >> impl_tac >- gvs []
-  >> disch_then $ qspec_then ‘[x]’ mp_tac
-  >> impl_tac >- gvs []
-  >> disch_then drule
-  >> gvs []
-  >> rpt $ disch_then drule
-  >> strip_tac
-  >> gvs []
-  >> first_assum $ qspec_then ‘list_size exp_size (y::xs)’ mp_tac
-  >> impl_tac >- gvs []
-  >> disch_then $ qspec_then ‘y::xs’ mp_tac
-  >> impl_tac >- gvs []
-  >> disch_then drule
-  >> Cases_on ‘s.clock = u.clock’ >> gvs []
-  >-
-   (rpt $ disch_then drule
-    >>
-        )
-
-  >> first_x_assum $ qspec_then ‘F’ mp_tac
-  >> simp []
   >> disch_then drule
   >> disch_then drule
   >> impl_tac
   >- (spose_not_then assume_tac >> fs [])
-  >> strip_tac >> fs []
+  >> strip_tac
+  >> gvs []
   >> rename [‘evaluate ([x],env2,s') = (rx',u')’]
   >> reverse $ Cases_on ‘rx’ >> gvs []
   >- (first_x_assum $ irule_at Any >> fs [])
@@ -1127,12 +1107,15 @@ Resume evaluate_rewrite_tmc[list]:
   >> rename [‘evaluate (y::xs,env,u) = (ry,w)’]
   >> strip_tac
   >> rename [‘LIST_REL (v_rel f'') vx vx'’]
-  >> first_x_assum $ qspec_then ‘F’ mp_tac
-  >> simp []
+  >> first_x_assum $ qspecl_then [‘y::xs’, ‘u’, ‘env’] mp_tac
+  >> gvs []
+  >> imp_res_tac evaluate_clock_non_increase
+  >> gvs []
   >> drule_all env_rel_submap
   >> strip_tac
   >> disch_then drule
   >> disch_then drule
+  >> gvs []
   >> impl_tac
   >- (spose_not_then assume_tac >> fs [])
   >> strip_tac >> fs []
