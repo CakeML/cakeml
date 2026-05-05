@@ -6,6 +6,7 @@ Ancestors
   mergesort std_prelude mllist ml_translator OptionProg
 Libs
   preamble ml_translatorLib ml_progLib cfLib basisFunctionsLib
+  ml_monad_translator_interfaceLib
 
 val _ = translation_extends "OptionProg"
 
@@ -339,6 +340,14 @@ val result = translate LUPDATE_eq;
 val _ = (next_ml_names := ["compare"]);
 val _ = translate mllistTheory.list_compare_def;
 
+(* Translation of conventional merge-sort.
+
+ * This is also List.sort, but is given the "mergesort" name too.
+
+ * (The mergesort name was used in an experiment to allow the Candle kernel
+ * to specifically request this sort, and not an array-based alternative whose
+ * use of stateful features clashes with the Candle proofs.)
+ *)
 val _ = ml_prog_update open_local_block;
 
 val result = translate sort2_tail_def;
@@ -347,6 +356,7 @@ val result = translate REV_DEF;
 val result = translate merge_tail_def;
 val result = translate DIV2_def;
 val result = translate DROP_def;
+
 val result = translate_no_ind mergesortN_tail_def;
 
 Theorem mergesortn_tail_ind[local]:
@@ -391,11 +401,15 @@ val result = translate mergesort_tail_def
 
 val _ = ml_prog_update open_local_in_block;
 
+val _ = next_ml_names := ["mergesort"];
+val result = translate mergesort_def;
+
 val _ = next_ml_names := ["sort"];
 
-val result = translate sort_def;
+val sort_v_thm = mllistTheory.sort_thm |> translate;
 
 val _ =  ml_prog_update close_local_blocks;
+
 val _ =  ml_prog_update (close_module NONE);
 
 (* finite maps -- depend on lists *)

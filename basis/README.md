@@ -149,6 +149,9 @@ Logical model of filesystem and I/O streams
 [mlbasicsProgScript.sml](mlbasicsProgScript.sml):
 Translates a variety of basic constructs.
 
+[monadic](monadic):
+Monadic definitions of stateful functions used in the basis
+
 [pure](pure):
 HOL definitions of the pure functions used in the CakeML basis.
 
