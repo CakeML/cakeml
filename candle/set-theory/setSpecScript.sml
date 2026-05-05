@@ -170,7 +170,7 @@ Proof
 QED
 
 Definition unit_def:
-  unit ^mem x = x + x
+  unit ^mem x : 'U = x + x
 End
 
 Overload Unit = ``unit ^mem``
@@ -227,7 +227,7 @@ Overload "," = ``pair ^mem``
 
 Theorem upair_inj:
    is_set_theory ^mem ⇒
-    ∀a b c d. a + b = c + d ⇔ a = c ∧ b = d ∨ a = d ∧ b = c
+    ∀(a: 'U) b c d. a + b = c + d ⇔ a = c ∧ b = d ∨ a = d ∧ b = c
 Proof
   strip_tac >>
   imp_res_tac is_extensional >>
@@ -247,7 +247,7 @@ QED
 
 Theorem pair_inj:
    is_set_theory ^mem ⇒
-    ∀a b c d. (a,b) = (c,d) ⇔ a = c ∧ b = d
+    ∀a b c d. ((a,b): 'U) = (c,d) ⇔ a = c ∧ b = d
 Proof
   strip_tac >> fs[pair_def] >> rw[] >>
   simp[upair_inj,unit_inj,unit_eq_upair] >>
@@ -311,7 +311,7 @@ Overload "'" = ``apply ^mem``
 Overload boolset = ``Two``
 
 Definition true_def:
-  true ^mem = ∅
+  true ^mem : 'U = ∅
 End
 
 Definition false_def:
