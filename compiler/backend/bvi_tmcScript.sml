@@ -222,11 +222,41 @@ Definition reverse_idxs_def:
   (reverse_idxs _ rcall = rcall) (* call args parsed left to right *)
 End
 
+Definition set_call_idxs_def:
+  (set_call_idxs (n:num) [] = (n,[])) ∧
+  (set_call_idxs (n:num) (_::t) =
+     case set_call_idxs (n + 1) t of
+     | (n',t') => (n',n::t'))
+End
+
+Definition set_op_idxs_def:
+  (set_op_idxs (n:num) [] = (n,[])) ∧
+  (set_op_idxs (n:num) (_::t) =
+   case set_op_idxs n t of
+   | (n',t') => (n' + 1,n'::t'))
+End
+
+Definition set_idxs_def:
+  (set_idxs n (RCall ts args) =
+   case set_call_idxs n args of
+   | (n',args') => (n',RCall ts args')) ∧
+  (set_idxs n (CallBlock tag l c r) =
+   case set_op_idxs n r of
+   | (nr,r') =>
+       (case set_idxs nr c of
+        | (nc,c') =>
+            case set_call_idxs nc l of
+            | (nl,l') =>
+                (nl,CallBlock tag l' c' r')))
+End
+
 (* Calls the above but throws away an unoptimisable BlockOp Cons. *)
 Definition cons_to_cb_def:
   cons_to_cb loc tag args =
   case cons_to_cb_aux 0 loc tag args of
-  | SOME (bs,INR cb) => SOME (bs,reverse_idxs (LENGTH bs) cb)
+  | SOME (bs,INR cb) =>
+      (case set_idxs 0 cb of
+       | (_,cb') => SOME (bs,cb'))
   | _ => NONE
 End
 
@@ -240,7 +270,7 @@ Proof
   >> Cases_on ‘args’ >> gvs [cons_to_cb_def, cons_to_cb_aux_def]
   >> gvs [CaseEq "option", CaseEq "prod", CaseEq "sum"]
   >> imp_res_tac cons_to_cb_aux_wf
-  >> gvs [reverse_idxs_def]
+  >> gvs [set_idxs_def, CaseEq "prod"]
 QED
 
 val ex1 = “[Op (IntOp (Const 1)) []; Call 0 (SOME 7) [] NONE; Call 0 (SOME 4) [] NONE; Op (IntOp (Const 3)) []]”
