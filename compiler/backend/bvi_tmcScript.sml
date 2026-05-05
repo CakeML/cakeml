@@ -58,21 +58,25 @@ Datatype:
              | RCall num (num list)
 End
 
-(* Returns a tuple of expressions to be in let binders and a list of corresponding de Bruijn indeces,
-   for the purpose of buidling left and right above. *)
-Definition to_binder_def:
-  (to_binder next (Var n) = ([],next + n)) ∧
-  (to_binder next exp = ([exp],next))
+Definition bind_def:
+  (bind (n:num) [] = ([],[],n)) ∧
+  (bind (n:num) (h::t) =
+   case bind (n + 1) t of
+   | (bs,vs,n') => (h::bs,n::vs,n'))
 End
 
-(* Same as above, but for multiple expressions. Used only for arguments to recursive call. *)
-Definition to_binders_def:
-  (to_binders next [] = ([],[])) ∧
-  (to_binders next (h::t) =
-   case to_binder next h of
-   | (b,n) =>
-       case to_binders (next + LENGTH b) t of
-       | (bs,ns) => (b ++ bs,n::ns))
+Definition shift_vars_def:
+  (shift_vars (n:num) [] = []) ∧
+  (shift_vars (n:num) (h::t) = (h + n : num)::shift_vars n t)
+End
+
+Definition shift_cb_def:
+  (shift_cb n (RCall ts args) = RCall ts (shift_vars n args)) ∧
+  (shift_cb n (CallBlock tag l c r) =
+   let l' = shift_vars n l in
+   let c' = shift_cb n c in
+   let r' = shift_vars n r in
+     CallBlock tag l' c' r')
 End
 
 (* Attempts to build a CallBlock from the tag and args of a BlockOp Cons.
@@ -81,57 +85,56 @@ End
    If an effectful operation appears right of the recursive call, the expression is not eligible for transformation and NONE is returned.
    If multiple recursive calls are found, all but the last are let bound. *)
 Definition cons_to_cb_aux_def:
-  (cons_to_cb_aux _ _ _ [] = SOME ([],INL [])) ∧
-  (cons_to_cb_aux next loc tag [Call t loc' args h] =
+  (cons_to_cb_aux n _ _ [] = SOME ([],INL [],n)) ∧
+  (cons_to_cb_aux n loc tag [Call t loc' args h] =
    if loc' = SOME loc ∧ h = NONE then
      (* Recursive call found - base case of CallBlock *)
-     case to_binders next args of
-     | (bs,ns) => SOME (bs,INR (CallBlock tag [] (RCall t ns) []))
+     case bind n args of
+     | (bs,vs,n') => SOME (bs,INR (CallBlock tag [] (RCall t vs) []),n')
    else
      (* Not a recursive call - gets let-bound *)
-     case to_binder next (Call t loc' args h) of
-     | (bs,n) => SOME (bs,INL [n])) ∧
-  (cons_to_cb_aux next loc tag [Op op args] =
+     SOME ([Call t loc' args h],INL [n],n + 1)) ∧
+  (cons_to_cb_aux n loc tag [Op op args] =
    case dest_Cons op of
    | SOME tag' =>
        (* BlockOp Cons - try to recurse *)
-       (case cons_to_cb_aux next loc tag' args of
+       (case cons_to_cb_aux n loc tag' args of
         | NONE => NONE
-        | SOME (bs,INL ns) =>
+        | SOME (bs,INL vs,n') =>
             (* No recursive call - whole thing gets let-bound *)
-            (case to_binder next (Op op args) of
-             | (bs,n) => SOME (bs,INL [n]))
-        | SOME (bs,INR cb) =>
+            SOME ([Op op args],INL [n'],n' + 1)
+        | SOME (bs,INR cb,n') =>
             (* Recursive call - inductive case of CallBlock *)
-            SOME (bs, INR (CallBlock tag [] cb [])))
+            SOME (bs, INR (CallBlock tag [] cb []),n'))
    | NONE =>
        (* Not a BlockOp Cons - whole thing gets let-bound *)
-       (case to_binder next (Op op args) of
-        | (bs,n) => SOME (bs,INL [n]))) ∧
-  (cons_to_cb_aux next _ _ [exp] =
+       SOME ([Op op args],INL [n],n + 1)) ∧
+  (cons_to_cb_aux n _ _ [exp] =
    (* Some other expression - whole thing gets let-bound *)
-   case to_binder next exp of
-   | (bs,n) => SOME (bs,INL [n])) ∧
-  (cons_to_cb_aux next loc tag (h::t) =
+   SOME ([exp],INL [n],n + 1)) ∧
+  (cons_to_cb_aux n loc tag (h::t) =
    (* Recurse right to left to find last occurence of recursive call *)
-   case cons_to_cb_aux next loc tag t of
+   case cons_to_cb_aux n loc tag t of
    | NONE => NONE
-   | SOME (bs2,INL ns2) =>
+   | SOME (bs2,INL vs2,n') =>
        (* No recursive call to the right. See if the first has one. *)
-       (case cons_to_cb_aux (next + LENGTH bs2) loc tag [h] of
+       (case cons_to_cb_aux n loc tag [h] of
         | NONE => NONE
-        | SOME (bs1,INL ns1) =>
+        | SOME (bs1,INL vs1,n'') =>
             (* No recursive call, keep building binders. *)
-            SOME (bs1 ++ bs2,INL (ns1 ++ ns2))
-        | SOME (bs1,INR (CallBlock _ [] cb [])) =>
+            let vs2' = shift_vars (LENGTH bs1) vs2 in
+            SOME (bs1 ++ bs2,INL (vs1 ++ vs2'),LENGTH bs1 + LENGTH bs2)
+        | SOME (bs1,INR (CallBlock _ [] child []),n') =>
             (* We've constructed a CallBlock at this level with just h, pad the other args *)
-            (* l and r are always empty if args is a singleton! *)
-            SOME (bs1 ++ bs2,INR (CallBlock tag [] cb ns2)))
-   | SOME (bs2,INR (CallBlock tag l child r)) =>
+            (* l and r are always empty if args is a singleton *)
+            let cb = shift_cb (LENGTH bs1) (CallBlock tag [] child vs2) in
+            SOME (bs1 ++ bs2,INR cb,LENGTH bs1 + LENGTH bs2))
+   | SOME (bs2,INR cb,n') =>
        (* Recursive call found, first is let bound and added to the left *)
-       case to_binder (next + LENGTH bs2) h of
-       | (bs1,n1) =>
-           SOME (bs1 ++ bs2,INR (CallBlock tag (n1::l) child r)))
+       case shift_cb 1 cb of
+       | CallBlock tag l child r =>
+           let cb' = CallBlock tag (n'::l) child r in
+             SOME (h::bs2,INR cb',LENGTH bs2 + 1))
 End
 
 Theorem cons_to_cb_aux_sing:
@@ -208,41 +211,11 @@ Proof
     >> gvs [])
 QED
 
-Definition set_call_idxs_def:
-  (set_call_idxs (n:num) [] = (n,[])) ∧
-  (set_call_idxs (n:num) (_::t) =
-     case set_call_idxs (n + 1) t of
-     | (n',t') => (n',n::t'))
-End
-
-Definition set_op_idxs_def:
-  (set_op_idxs (n:num) [] = (n,[])) ∧
-  (set_op_idxs (n:num) (_::t) =
-   case set_op_idxs n t of
-   | (n',t') => (n' + 1,n'::t'))
-End
-
-Definition set_idxs_def:
-  (set_idxs n (RCall ts args) =
-   case set_call_idxs n args of
-   | (n',args') => (n',RCall ts args')) ∧
-  (set_idxs n (CallBlock tag l c r) =
-   case set_op_idxs n r of
-   | (nr,r') =>
-       (case set_idxs nr c of
-        | (nc,c') =>
-            case set_call_idxs nc l of
-            | (nl,l') =>
-                (nl,CallBlock tag l' c' r')))
-End
-
 (* Calls the above but throws away an unoptimisable BlockOp Cons. *)
 Definition cons_to_cb_def:
   cons_to_cb loc tag args =
   case cons_to_cb_aux 0 loc tag args of
-  | SOME (bs,INR cb) =>
-      (case set_idxs 0 cb of
-       | (_,cb') => SOME (bs,cb'))
+  | SOME (bs,INR cb,_) => SOME (bs,cb)
   | _ => NONE
 End
 
@@ -280,16 +253,16 @@ val ex3 = “[Op (IntOp (Const 1)) [];
 val ex3_call = “cons_to_cb 7 99 ^ex3”
 (* EVAL ex3_call *)
 
-val ex4 = “[Op (IntOp (Const 1)) [];
+val ex4 = “[Op (IntOp (Const 0)) [];
             Op (BlockOp (Cons 98)) [
-                   Op (IntOp (Const 2)) [];
-                   Call 0 (SOME 7) [
-                              Op (IntOp (Const 3)) [];
-                              Op (IntOp (Const 4)) []] NONE;
-                   Op (IntOp (Const 5)) []];
-            Call 0 (SOME 4) [] NONE;
+                   Op (IntOp (Const 1)) [];
+                   Call 0 (SOME 100) [
+                              Op (IntOp (Const 2)) [];
+                              Op (IntOp (Const 3)) []] NONE;
+                   Op (IntOp (Const 4)) []];
+            Call 0 (SOME 5) [] NONE;
             Op (IntOp (Const 6)) []]”
-val ex4_call = “cons_to_cb 7 99 ^ex4”
+val ex4_call = “cons_to_cb 100 99 ^ex4”
 (* EVAL ex4_call *)
 
 (* Convert back to BlockOp Cons for comparing semantics *)
