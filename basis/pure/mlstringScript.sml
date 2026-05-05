@@ -1197,49 +1197,49 @@ Proof
 QED
 
 Theorem mlstring_lt_antisym:
-   ∀s t. ¬(s < t ∧ t < s)
+   ∀(s: mlstring) t. ¬(s < t ∧ t < s)
 Proof
   rw [mlstring_lt_def] >>
   metis_tac [TotOrd_compare, TotOrd, cpn_distinct]
 QED
 
 Theorem mlstring_lt_cases:
-   ∀s t. (s = t) ∨ s < t ∨ t < s
+   ∀(s: mlstring) t. (s = t) ∨ s < t ∨ t < s
 Proof
   rw [mlstring_lt_def] >>
   metis_tac [TotOrd_compare, TotOrd, cpn_nchotomy]
 QED
 
 Theorem mlstring_lt_nonrefl:
-   ∀s. ¬(s < s)
+   ∀(s: mlstring). ¬(s < s)
 Proof
   rw [mlstring_lt_def] >>
   metis_tac [TotOrd_compare, TotOrd, cpn_distinct]
 QED
 
 Theorem mlstring_lt_trans:
-   ∀s1 s2 s3. s1 < s2 ∧ s2 < s3 ⇒ s1 < s3
+   ∀(s1: mlstring) s2 s3. s1 < s2 ∧ s2 < s3 ⇒ s1 < s3
 Proof
   rw [mlstring_lt_def] >>
   metis_tac [TotOrd_compare, TotOrd]
 QED
 
 Theorem mlstring_le_thm:
-   !s1 s2. s1 ≤ s2 ⇔ (s1 = s2) ∨ s1 < s2
+   ∀(s1: mlstring) s2. s1 ≤ s2 ⇔ (s1 = s2) ∨ s1 < s2
 Proof
   rw [mlstring_le_def, mlstring_lt_def] >>
   metis_tac [TotOrd_compare, TotOrd, cpn_distinct, cpn_nchotomy]
 QED
 
 Theorem mlstring_gt_thm:
-   !s1 s2. s1 > s2 ⇔ s2 < s1
+   ∀(s1: mlstring) s2. s1 > s2 ⇔ s2 < s1
 Proof
   rw [mlstring_gt_def, mlstring_lt_def] >>
   metis_tac [TotOrd_compare, TotOrd]
 QED
 
 Theorem mlstring_ge_thm:
-   !s1 s2. s1 ≥ s2 ⇔ s2 ≤ s1
+   ∀(s1: mlstring) s2. s1 ≥ s2 ⇔ s2 ≤ s1
 Proof
   rw [mlstring_ge_def, mlstring_le_def] >>
   metis_tac [TotOrd_compare, TotOrd]
