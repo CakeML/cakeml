@@ -95,9 +95,9 @@ Definition cons_to_cb_aux_def:
      | (bs,n) => SOME (bs,INL [n])) ∧
   (cons_to_cb_aux next loc tag [Op op args] =
    case dest_Cons op of
-   | SOME _ =>
+   | SOME tag' =>
        (* BlockOp Cons - try to recurse *)
-       (case cons_to_cb_aux next loc tag args of
+       (case cons_to_cb_aux next loc tag' args of
         | NONE => NONE
         | SOME (bs,INL ns) =>
             (* No recursive call - whole thing gets let-bound *)
@@ -136,10 +136,6 @@ Definition cons_to_cb_aux_def:
            SOME (bs1 ++ bs2,INR (CallBlock tag (n1::l) child r)))
 End
 
-val ex1 = “[Op (IntOp (Const 1)) []; Call 0 (SOME 0) [] NONE; Call 0 (SOME 7) [] NONE; Op (IntOp (Const 3)) []]”
-val ex1_call = “cons_to_cb_aux 0 0 99 ^ex1”
-(* EVAL ex1_call *)
-
 Theorem cons_to_cb_aux_sing:
   ∀next loc tag arg bs cb.
     cons_to_cb_aux next loc tag [arg] = SOME (bs,INR cb) ⇒
@@ -155,10 +151,8 @@ Proof
     >> gvs [])
   >> pop_assum mp_tac
   >> CASE_TAC >> gvs []
-  >- (CASE_TAC >> gvs [])
   >> CASE_TAC >> gvs []
   >> CASE_TAC >> gvs []
-  >- (CASE_TAC >> gvs [])
   >> CASE_TAC >> gvs []
   >> strip_tac
   >> gvs []
@@ -186,10 +180,8 @@ Proof
     >> pop_assum mp_tac
     >> CASE_TAC >> gvs []
     >> CASE_TAC >> gvs []
-    >- (CASE_TAC >> gvs [])
     >> CASE_TAC >> gvs []
     >> CASE_TAC >> gvs []
-    >- (CASE_TAC >> gvs [])
     >> CASE_TAC >> gvs []
     >> strip_tac
     >> gvs [])
@@ -238,6 +230,27 @@ Proof
   >> imp_res_tac cons_to_cb_aux_wf
   >> gvs []
 QED
+
+val ex1 = “[Op (IntOp (Const 1)) []; Call 0 (SOME 7) [] NONE; Call 0 (SOME 4) [] NONE; Op (IntOp (Const 3)) []]”
+val ex1_call = “cons_to_cb 7 99 ^ex1”
+(* EVAL ex1_call *)
+
+val ex2 = “[Op (IntOp (Const 1)) [];
+            Op (BlockOp (Cons 98)) [Call 0 (SOME 7) [] NONE];
+            Call 0 (SOME 4) [] NONE;
+            Op (IntOp (Const 3)) []]”
+val ex2_call = “cons_to_cb 7 99 ^ex2”
+(* EVAL ex2_call *)
+
+val ex3 = “[Op (IntOp (Const 1)) [];
+            Op (BlockOp (Cons 98)) [
+                   Op (IntOp (Const 2)) [];
+                   Call 0 (SOME 7) [] NONE;
+                   Op (IntOp (Const 3)) []];
+            Call 0 (SOME 4) [] NONE;
+            Op (IntOp (Const 4)) []]”
+val ex3_call = “cons_to_cb 7 99 ^ex3”
+(* EVAL ex3_call *)
 
 (* Convert back to BlockOp Cons for comparing semantics *)
 Definition cb_to_cons_def:
