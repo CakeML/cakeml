@@ -1153,10 +1153,7 @@ Resume evaluate_rewrite_tmc[var]:
   gvs [evaluate_def]
   >> Cases_on ‘n < LENGTH env1’ >> gvs []
   >> ‘n < LENGTH env2’ by (drule_all env_rel_length >> gvs [])
-  >> gvs []
-  >> qexistsl [‘s'’, ‘f’, ‘Rval [env2❲n❳]’]
-  >> gvs []
-  >> rpt gen_tac
+  >> gvs [GSYM PULL_FORALL]
   >> drule_all env_rel_el_v_rel
   >> strip_tac
   >> first_assum $ irule_at Any
