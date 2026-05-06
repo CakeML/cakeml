@@ -5,7 +5,7 @@ Theory cp_to_ilp_logical
 Libs
   preamble
 Ancestors
-  pbc cp ilp cp_to_ilp
+  pbc pbc_encode cp ilp cp_to_ilp
 
 (* And constraint: Y > 0 ⇔ ∀i. Xs[i] > 0 *)
 Definition encode_and_aux_def:
@@ -227,6 +227,12 @@ Proof
   simp[cencode_or_aux_def,encode_or_aux_def,enc_rel_List_refl_mul]
 QED
 
+
+
+
+
+
+
 (* Parity constraint: ODD number of Xs[i] > 0 *)
 Definition cencode_parity_aux_def:
   cencode_parity_aux bnd Y Xs name =
@@ -239,8 +245,8 @@ Definition cencode_parity_aux_def:
         (SOME $ mk_name name (int_to_string #"-" 0 ^ strlit"le"),
           [], [(1, Pos (INL (Ge Y 1)));(-1, Pos (arri name 0))], 0)
       ])
-    (List $ FLAT $ MAPi
-      (λi X.
+    (flat_app $ MAPi
+      (λi X. List
         [
           (SOME $ mk_name name (int_to_string #"-" (&i+1) ^ strlit",(0,0)"),
             [],[(1,Pos (arri name i));(1,Pos (INL (Ge X 1)));(1,Neg (arri name $ i+1))], 1);
@@ -274,25 +280,66 @@ Definition cencode_parity_def:
 End
 
 (**
-Y <->    x[name][0]
-             |
-X0     - x[name][1]
-             |
-X1     - x[name][2]
-             |
+Y            = x[name][0]
+             /
+X0     - XOR = x[name][1]
+             /
+X1     - XOR = x[name][2]
+             /
       ...
-             |
-X(n-1) - x[name][n]
+             /
+X(n-1) - XOR = x[name][n]
 **)
-
 
 Theorem encode_parity_sem_1:
   valid_assignment bnd wi ∧
+  ALOOKUP cs name = SOME (Logical (Parity Xs Y)) ∧
   parity_sem Xs Y wi ⇒
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
     (encode_parity bnd Xs Y name)
 Proof
-  cheat
+  rw[parity_sem_def,encode_parity_def,reify_sem_def,cmpop_val_def]
+  >-simp[reify_avar_def,reify_reif_def]
+  >-simp[EVERY_FLAT,EVERY_MAP,reify_avar_def,reify_reif_def]>>
+  simp[encode_parity_aux_def,cencode_parity_aux_def,iconstraint_sem_def]>>
+  rpt CONJ_TAC
+  >>~[‘EVERY _ _’]
+  >-(
+    simp[EVERY_FLAT]>>
+    qmatch_goalsub_abbrev_tac‘EVERY P _’>>
+    rw[EVERY_MEM,MEM_MAPi,Abbr‘P’]>>
+    fs[MEM,iconstraint_sem_def,reify_avar_def,
+      reify_reif_def,reify_flag_def]>>
+    simp[TAKE_EL_SNOC,MAP_SNOC,SNOC_APPEND,SUM_APPEND,
+         intLib.ARITH_PROVE“(a:int) ≥ 1 ⇔ a > 0”]>>
+    qmatch_goalsub_abbrev_tac
+      ‘(s + (t + if b then 1 else 0))’>>
+    ‘∀P Q. b2i P + (1 + b2i Q) > 0’ by (
+      rw[]>>
+      qmatch_goalsub_abbrev_tac‘p + (1 + q)’>>
+      ‘p ≥ 0 ∧ q ≥ 0’ suffices_by intLib.ARITH_TAC>>
+      simp[Abbr‘p’,Abbr‘q’,b2i_ge_0])>>
+    Cases_on‘b’>>
+    fs[GSYM EVEN_ODD]>>
+    simp[ODD_EVEN,EVEN_ADD]>>
+    Cases_on‘EVEN s’>>
+    fs[ODD_EVEN]>>
+    simp[GSYM neg_b2i]
+  )
+  >>~[‘-1 * b2i _ ≥ 0’]>>
+  simp[reify_avar_def,reify_flag_def]>>
+  qmatch_asmsub_abbrev_tac‘ODD s’
+  >-(
+    ‘EVEN (s + if ODD s then 1 else 0)’ suffices_by (
+      simp[ODD_EVEN]>>
+      intLib.ARITH_TAC)>>
+    simp[EVEN_ADD,ODD_EVEN]>>
+    Cases_on‘EVEN s’>>
+    simp[])>>
+  simp[reify_reif_def]>>
+  simp[intLib.ARITH_PROVE“(a:int) ≥ 1 ⇔ a > 0”]>>
+  Cases_on‘EVEN s’>>
+  simp[ODD_EVEN]
 QED
 
 Theorem encode_parity_sem_2:
