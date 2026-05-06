@@ -1642,6 +1642,7 @@ Resume evaluate_rewrite_tmc[op]:
   >> rename [‘cb_to_hb cb = (hb,call_ts,call_args)’]
   >> gvs [evaluate_def]
   >> drule evaluate_hb_to_bvi_worker
+  >> disch_then drule
   >> imp_res_tac bvi_to_cb_wf
   >> gvs []
   >> disch_then drule
@@ -1662,10 +1663,9 @@ Resume evaluate_rewrite_tmc[op]:
   >> strip_tac
   >> gvs [APPEND_ASSOC]
   >> disch_then drule
-  >> disch_then $ qspecl_then [‘loc_opt'’, ‘hb’, ‘call_ts’, ‘call_args’] assume_tac
+  >> disch_then $ qspecl_then [‘loc_opt'’] assume_tac
   >> gvs []
   >> ‘LENGTH bs = LENGTH as’ by imp_res_tac evaluate_IMP_LENGTH
-  >> gvs []
   >> gvs [opt_res_rel_def]
   >> cheat
 QED
@@ -1756,6 +1756,7 @@ QED
 Theorem evaluate_hb_to_bvi_worker:
   ∀cb tag left cb' right loc loc_opt f f' env1 env2 r' s t s' t' c hb call_ts call_args.
     evaluate ([cb_to_bvi loc cb],env2,s') = (r',t') ∧
+    cb_to_hb cb = (hb,call_ts,call_args) ∧
     cb = CallBlock tag left cb' right ∧
     env_rel T f env1 env2 ∧
     state_rel f s s' ∧
