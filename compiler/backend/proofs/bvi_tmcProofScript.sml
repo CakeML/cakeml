@@ -1635,7 +1635,8 @@ Resume evaluate_rewrite_tmc[op]:
   >> strip_tac
   >> gvs []
   >> rename [‘evaluate ([cb_to_bvi loc cb],as' ++ env2,w') = (Rval [v''],t'')’]
-                  
+
+  (* Use the theorem *)
   >> Cases_on ‘cb_to_hb cb’
   >> Cases_on ‘r’ >> gvs []
   >> rename [‘cb_to_hb cb = (hb,call_ts,call_args)’]
@@ -1663,7 +1664,10 @@ Resume evaluate_rewrite_tmc[op]:
   >> disch_then drule
   >> disch_then $ qspecl_then [‘loc_opt'’, ‘hb’, ‘call_ts’, ‘call_args’] assume_tac
   >> gvs []
-  >> 
+  >> ‘LENGTH bs = LENGTH as’ by imp_res_tac evaluate_IMP_LENGTH
+  >> gvs []
+  >> gvs [opt_res_rel_def]
+  >> cheat
 QED
 
 Theorem evaluate_bvi_to_cb_to_bvi:

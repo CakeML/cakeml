@@ -357,7 +357,8 @@ Definition rewrite_wrapper_cons_def:
     | SOME (bs,cb) =>
         (case cb_to_hb cb of
          | (hb,ts,args) =>
-             SOME $ Let bs $ hb_to_bvi_wrapper loc loc_opt i_ptr hb ts args)
+             let offset = LENGTH bs in
+             SOME $ Let bs $ hb_to_bvi_wrapper loc loc_opt (offset + i_ptr) hb ts args)
     | NONE => NONE
 End
 
@@ -368,7 +369,8 @@ Definition rewrite_worker_cons_def:
     | SOME (bs,cb) =>
         (case cb_to_hb cb of
          | (hb,ts,args) =>
-             Let bs $ hb_to_bvi_worker loc loc_opt i_ptr i_idx hb ts args)
+             let offset = LENGTH bs in
+             Let bs $ hb_to_bvi_worker loc loc_opt (offset + i_ptr) (offset + i_idx) hb ts args)
     | NONE =>
         let expr = Op (BlockOp (Cons tag)) args in
           fill_hole i_ptr i_idx expr
