@@ -1478,7 +1478,7 @@ Resume evaluate_rewrite_tmc[op]:
   gvs [evaluate_def]
   >> gvs [CaseEq "prod", PULL_EXISTS]
   >> rename [‘evaluate (xs,env,s) = (rs,u)’]
-  >> first_x_assum $ qspecl_then [‘xs’, ‘s’, ‘env’] mp_tac
+  >> first_assum $ qspecl_then [‘xs’, ‘s’, ‘env’] mp_tac
   >> gvs []
   >> disch_then $ qspec_then ‘F’ mp_tac
   >> drule_all env_rel_relax_opt
@@ -1550,20 +1550,9 @@ Resume evaluate_rewrite_tmc[op]:
   >> gvs []
   >> Cases_on ‘v’ >> gvs []
   >> Cases_on ‘v'’ >> gvs []
-  >> rename [‘state_rel f'' t t'’]
-  >> rename [‘v_rel f'' v v'’]
-
-  (* Don't need? *)                    
-  >> first_x_assum $ qspec_then ‘F’ mp_tac
-  >> gvs []
-  >> drule env_rel_relax_opt
-  >> strip_tac
-  >> disch_then drule
-  >> disch_then drule
-  >> strip_tac
-  >> gvs []
-
-  >> rename [‘f ⊑ f'’]
+                                
+  >> rename [‘v_rel f' v v'’]
+  >> rename [‘state_rel f' t t'’]
   >> conj_asm1_tac
   >-
    (irule do_app_holes_unchanged
@@ -1604,7 +1593,6 @@ Resume evaluate_rewrite_tmc[op]:
     >> rpt $ first_assum $ irule_at Any)
   >> Cases_on ‘x’ >> gvs []
   >> rename [‘cons_to_cb loc tag args = SOME (bs,cb)’]
-
   >> ‘evaluate ([Op (BlockOp (Cons tag)) args],env,s) = (Rval [v],t)’ by gvs [evaluate_def]
   >> drule evaluate_cb_to_bvi
   >> gvs [cb_to_bvi_def]
