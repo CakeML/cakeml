@@ -1628,13 +1628,13 @@ QED
 Theorem evaluate_cb_to_bvi:
   ∀loc tag args env s t r bs cb exp.
     evaluate ([Op (BlockOp (Cons tag)) args],env,s) = (r,t) ∧
-    cb_to_bvi loc tag args = SOME exp ∧
+    bvi_to_cb_to_bvi loc tag args = SOME exp ∧
     r ≠ Rerr (Rabort Rtype_error) ⇒
     evaluate ([exp],env,s) = (r,t)
 Proof
   (* Not sure how to set this up *)
   rw []
-  >> gvs [cb_to_bvi_def]
+  >> gvs [bvi_to_cb_to_bvi_def]
   >> gvs [CaseEq "option"]
   >> Cases_on ‘v’ >> gvs []
   >> imp_res_tac cons_to_cb_wf

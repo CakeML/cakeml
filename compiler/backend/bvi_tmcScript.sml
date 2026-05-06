@@ -138,13 +138,13 @@ Definition cons_to_cb_aux_def:
 End
 
 Theorem cons_to_cb_aux_sing:
-  ∀next loc tag arg bs cb.
-    cons_to_cb_aux next loc tag [arg] = SOME (bs,INR cb) ⇒
+  ∀loc tag arg bs cb.
+    cons_to_cb_aux loc tag [arg] = SOME (bs,INR cb) ⇒
     ∃child.
       cb = CallBlock tag [] child []
 Proof
   rw []
-  >> Cases_on ‘arg’ >> gvs [cons_to_cb_aux_def, to_binder_def]
+  >> Cases_on ‘arg’ >> gvs [cons_to_cb_aux_def, bind_def]
   >-
    (pop_assum mp_tac
     >> IF_CASES_TAC >> gvs [CaseEq "prod"]
@@ -160,50 +160,48 @@ Proof
 QED
 
 Theorem cons_to_cb_aux_wf:
-  ∀next loc tag args bs cb.
-    cons_to_cb_aux next loc tag args = SOME (bs,INR cb) ⇒
+  ∀loc tag args bs cb.
+    cons_to_cb_aux loc tag args = SOME (bs,INR cb) ⇒
     ∃l child r.
       cb = CallBlock tag l child r
 Proof
   recInduct cons_to_cb_aux_ind
   >> rw []
-  >~ [‘cons_to_cb_aux next loc tag []’] >-
+  >~ [‘cons_to_cb_aux loc tag []’] >-
    gvs [cons_to_cb_aux_def]
-  >~ [‘cons_to_cb_aux next loc tag [Call t loc' args h]’] >-
+  >~ [‘cons_to_cb_aux loc tag [Call t loc' args h]’] >-
    (gvs [cons_to_cb_aux_def]
     >> pop_assum mp_tac
-    >> reverse IF_CASES_TAC >> gvs [to_binder_def]
+    >> reverse IF_CASES_TAC >> gvs [bind_def]
+    >> CASE_TAC >> gvs [CaseEq "prod"]
+    >> strip_tac
+    >> gvs [])
+  >~ [‘cons_to_cb_aux loc tag [Op op args]’] >-
+   (gvs [cons_to_cb_aux_def]
+    >> pop_assum mp_tac
+    >> CASE_TAC >> gvs []
+    >> CASE_TAC >> gvs []
+    >> CASE_TAC >> gvs []
     >> CASE_TAC >> gvs []
     >> strip_tac
     >> gvs [])
-  >~ [‘cons_to_cb_aux next loc tag [Op op args]’] >-
+  >~ [‘cons_to_cb_aux loc tag [Var n]’] >-
+   (gvs [cons_to_cb_aux_def])
+  >~ [‘cons_to_cb_aux loc tag [If x1 x2 x3]’] >-
+   (gvs [cons_to_cb_aux_def])
+  >~ [‘cons_to_cb_aux loc tag [Let xs x]’] >-
+   (gvs [cons_to_cb_aux_def])
+  >~ [‘cons_to_cb_aux loc tag [Raise x]’] >-
+   (gvs [cons_to_cb_aux_def])
+  >~ [‘cons_to_cb_aux loc tag [Tick x]’] >-
+   (gvs [cons_to_cb_aux_def])
+  >~ [‘cons_to_cb_aux loc tag [Force _ _]’] >-
+   (gvs [cons_to_cb_aux_def])
+  >~ [‘cons_to_cb_aux loc tag (x::y::xs)’] >-
    (gvs [cons_to_cb_aux_def]
-    >> pop_assum mp_tac
-    >> CASE_TAC >> gvs []
-    >> CASE_TAC >> gvs []
-    >> CASE_TAC >> gvs []
-    >> CASE_TAC >> gvs []
-    >> CASE_TAC >> gvs []
-    >> strip_tac
-    >> gvs [])
-  >~ [‘cons_to_cb_aux next loc tag [Var n]’] >-
-   (gvs [cons_to_cb_aux_def, to_binder_def])
-  >~ [‘cons_to_cb_aux next loc tag [If x1 x2 x3]’] >-
-   (gvs [cons_to_cb_aux_def, to_binder_def])
-  >~ [‘cons_to_cb_aux next loc tag [Let xs x]’] >-
-   (gvs [cons_to_cb_aux_def, to_binder_def])
-  >~ [‘cons_to_cb_aux next loc tag [Raise x]’] >-
-   (gvs [cons_to_cb_aux_def, to_binder_def])
-  >~ [‘cons_to_cb_aux next loc tag [Tick x]’] >-
-   (gvs [cons_to_cb_aux_def, to_binder_def])
-  >~ [‘cons_to_cb_aux next loc tag [Force _ _]’] >-
-   (gvs [cons_to_cb_aux_def, to_binder_def])
-  >~ [‘cons_to_cb_aux next loc tag (x::y::xs)’] >-
-   (gvs [cons_to_cb_aux_def]
-    >> Cases_on ‘cons_to_cb_aux next loc tag (y::xs)’ >> gvs []
+    >> Cases_on ‘cons_to_cb_aux loc tag (y::xs)’ >> gvs []
     >> Cases_on ‘x'’ >> gvs []
-    >> reverse $ Cases_on ‘r’ >> gvs []
-    >- gvs [CaseEq "prod"]
+    >> reverse $ Cases_on ‘r’ >> gvs [shift_cb_def]
     >> gvs [CaseEq "option"]
     >> Cases_on ‘v’ >> gvs []
     >> Cases_on ‘r’ >> gvs []
@@ -229,7 +227,7 @@ Proof
   >> Cases_on ‘args’ >> gvs [cons_to_cb_def, cons_to_cb_aux_def]
   >> gvs [CaseEq "option", CaseEq "prod", CaseEq "sum"]
   >> imp_res_tac cons_to_cb_aux_wf
-  >> gvs [set_idxs_def, CaseEq "prod"]
+  >> gvs []
 QED
 
 val ex1 = “[Op (IntOp (Const 1)) []; Call 0 (SOME 7) [] NONE; Call 0 (SOME 4) [] NONE; Op (IntOp (Const 3)) []]”
@@ -275,8 +273,8 @@ Definition cb_to_cons_def:
 End
 
 (* Let bind the result of the above for a semantically equivalent BVI expression. *)
-Definition cb_to_bvi_def:
-  cb_to_bvi loc tag args =
+Definition bvi_to_cb_to_bvi_def:
+  bvi_to_cb_to_bvi loc tag args =
     case cons_to_cb loc tag args of
     | SOME (bs,cb) =>
         SOME $ Let bs $ cb_to_cons loc cb
