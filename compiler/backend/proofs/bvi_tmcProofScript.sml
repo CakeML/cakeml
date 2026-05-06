@@ -1594,7 +1594,7 @@ Resume evaluate_rewrite_tmc[op]:
   >> Cases_on ‘x’ >> gvs []
   >> rename [‘cons_to_cb loc tag args = SOME (bs,cb)’]
   >> ‘evaluate ([Op (BlockOp (Cons tag)) args],env,s) = (Rval [v],t)’ by gvs [evaluate_def]
-                                                                                
+
   >> drule evaluate_cb_to_bvi
   >> gvs [bvi_to_cb_to_bvi_def]
   >> disch_then $ qspec_then ‘loc’ mp_tac
@@ -1616,6 +1616,11 @@ Resume evaluate_rewrite_tmc[op]:
   >> gvs []
   >> rename [‘state_rel f'' w w'’]
   >> rename [‘LIST_REL (v_rel f'') as as'’]
+
+  >> CASE_TAC >> gvs []
+  >> CASE_TAC >> gvs []
+  >> rename [‘cb_to_hb cb = (hb,call_ts,call_args)’]
+  >> gvs [evaluate_def]
                        
   >> gvs [cb_to_bvi_worker_def]
   >> imp_res_tac cons_to_cb_wf
@@ -1628,17 +1633,6 @@ Resume evaluate_rewrite_tmc[op]:
   >> rename [‘cb_to_hb (CallBlock tag l child r) = (HoleBlock n l0 h l',r')’]
 QED
 
-(* Move *)
-Theorem cb_to_hb_wf:
-  ∀tag l child r.
-    ∃hole call_args.
-      cb_to_hb (CallBlock tag l child r) = (HoleBlock tag l hole r,call_args)
-Proof
-  rw []
-  >> reverse $ Induct_on ‘child’
-  >> 
-QED
-        
 Theorem evaluate_cb_to_bvi:
   ∀loc tag args env s t r bs cb exp.
     evaluate ([Op (BlockOp (Cons tag)) args],env,s) = (r,t) ∧
@@ -1660,6 +1654,57 @@ Proof
   >> strip_tac
   >> gvs []
   >> cheat
+QED
+
+Theorem evaluate_hb_to_bvi_worker:
+  ∀exp f f' env1 env2 v s t s' t' c.
+    evaluate ([cb_to_cons loc cb],env2,s') = (Rval [v],t') ∧
+    env_rel T f env1 env2 ∧
+    state_rel f s s' ∧
+    f ⊑ f' ∧
+    hole_has_val f env1 env2 s'.refs c ∧
+    holes_unchanged_except f s'.refs t'.refs ∅ ∧
+    only_fresh f f' s'.refs ∧
+    state_rel f' t t' ⇒
+    ∃r t''.
+      evaluate ([hb_to_bvi_worker loc loc_opt (LENGTH env1) (LENGTH env1 + 1) hb call_ts call_args],env2,s') = (r,t'') ∧
+      opt_res_rel (Rval [v]) r ∧
+      state_rel f' t t'' ∧
+      holes_unchanged_except f s'.refs t''.refs {env2❲LENGTH env1❳} ∧
+      hole_has_val f env1 env2 t''.refs v
+Proof
+  cheat
+QED
+
+(* Move *)
+Theorem cb_to_hb_wf:
+  ∀tag l child r.
+    ∃hole ts args.
+      cb_to_hb (CallBlock tag l child r) = (HoleBlock tag l hole r,ts,args)
+Proof
+  rw []
+  >> reverse $ Induct_on ‘child’
+  >-
+   (rw []
+    >> gvs [cb_to_hb_def])
+  >> rw []
+  >> gvs [cb_to_hb_def]
+  >> CASE_TAC >> gvs []
+  >> CASE_TAC >> gvs []
+QED
+
+Theorem evaluate_hb_to_bvi_worker:
+  ∀cb env s t r loc loc_opt i_ptr i_idx hb call_ts call_args.
+    evaluate ([cb_to_cons loc cb],env,s) = (r,t) ∧
+    cb_to_hb cb = (hb,call_ts,call_args)
+    ⇒
+    ∃r' t'.
+      evaluate ([hb_to_bvi_worker loc loc_opt i_ptr i_idx hb call_ts call_args],env,s) = (r',t')
+Proof
+  rw []
+  >> Cases_on ‘cb’ >> gvs []
+  >> imp_res_tac cb_to_hb_wf
+  >> gvs [hb_to_bvi_worker_def]
 QED
 
 Resume evaluate_rewrite_tmc[tick]:

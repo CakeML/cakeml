@@ -265,11 +265,14 @@ val ex4_call = “cons_to_cb 100 99 ^ex4”
 
 (* Convert back to BlockOp Cons for comparing semantics *)
 Definition cb_to_cons_def:
-  cb_to_cons loc (CallBlock tag l child r) =
-  let l' = MAP (λn. Var n) l in
-  let child' = cb_to_cons loc child in
-  let r' = MAP (λn. Var n) r in
-  Op (BlockOp (Cons tag)) $ l' ++ [child'] ++ r'
+  (cb_to_cons loc (CallBlock tag l child r) =
+     let l' = MAP (λn. Var n) l in
+     let child' = cb_to_cons loc child in
+     let r' = MAP (λn. Var n) r in
+       Op (BlockOp (Cons tag)) $ l' ++ [child'] ++ r') ∧
+  (cb_to_cons loc (RCall ts args) =
+     let args' = MAP (λn. Var n) args in
+       bvi$Call ts (SOME loc) args' NONE)
 End
 
 (* Let bind the result of the above for a semantically equivalent BVI expression. *)
