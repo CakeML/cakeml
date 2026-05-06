@@ -1084,7 +1084,7 @@ Proof
   >~ [‘Force force_loc n’] >- suspend "force"
   >~ [‘Call ticks dest xs handler’] >- suspend "call"
 QED
-        
+
 Resume evaluate_rewrite_tmc[list]:
   gvs [evaluate_def]
   (* First inductive hypothesis *)
