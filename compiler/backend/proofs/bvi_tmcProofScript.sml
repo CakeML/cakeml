@@ -1602,8 +1602,27 @@ Resume evaluate_rewrite_tmc[op]:
   >> gvs [evaluate_def]
   >> Cases_on ‘evaluate (bs,env,s)’ >> gvs []
   >> Cases_on ‘q’ >> gvs []
-  (* Complete induction inductive hypothesis? *)
-  >> cheat
+  (* Inductive hypothesis for bs *)
+  >> first_assum $ qspecl_then [‘bs’, ‘s’] mp_tac
+  >> gvs []
+  >> impl_tac
+  >- cheat (* Possibly some lemma for bs being no larger than args *)
+  >> disch_then drule
+  >> disch_then drule
+  >> disch_then drule
+  >> gvs []
+  >> strip_tac
+  >> gvs []
+  >> rename [‘state_rel f'' w w'’]
+  >> rename [‘LIST_REL (v_rel f'') as as'’]
+                       
+  >> gvs [cb_to_bvi_worker_def]
+  >> imp_res_tac cons_to_cb_wf
+  >> gvs [CaseEq "hole_block"]
+  >> CASE_TAC
+  >> reverse $ Cases_on ‘q’ >> gvs []
+  >- gvs [cb_to_hb_def, CaseEq "prod"]
+  >> rename [‘cb_to_hb (CallBlock tag l child r) = (HoleBlock n l0 h l',r')’]
 QED
 
 Theorem evaluate_cb_to_bvi:
