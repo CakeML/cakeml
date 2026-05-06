@@ -49,10 +49,46 @@ Definition and_pos_pos_loop_def:
     ^(find_term (can $ match_term “panLang$While _ _”) and_pos_pos)
 End
 
+(* TODO move to set_sep *)
 Definition one_list_def:
   one_list a [] = emp ∧
   one_list a (x::xs) = one (a,x) * one_list (a + bytes_in_word) xs
 End
+
+(* TODO move to set_sep *)
+Theorem one_list_append:
+  ∀xs ys a.
+    one_list a (xs ++ ys) =
+    one_list a xs * one_list (a + n2w (LENGTH xs) * bytes_in_word) ys
+Proof
+  Induct
+  >> rw [one_list_def, SEP_CLAUSES]
+  >> simp [ADD1, WORD_LEFT_ADD_DISTRIB, GSYM word_add_n2w]
+  >> fs [AC STAR_ASSOC STAR_COMM]
+QED
+
+(* TODO move to set_sep *)
+Theorem one_list_SNOC:
+  one_list a (SNOC x xs) =
+  one_list a xs * one (a + n2w (LENGTH xs) * bytes_in_word, x)
+Proof
+  simp [SNOC_APPEND, one_list_append, one_list_def, SEP_CLAUSES]
+QED
+
+(* TODO move to set_sep *)
+Theorem one_list_LENGTH_leq_dimword:
+  (one_list (a: α word) xs) (fun2set (f, d)) ⇒ LENGTH xs ≤ dimword (:α)
+Proof
+  strip_tac >> CCONTR_TAC
+  >> qabbrev_tac ‘max_index = dimword (:α)’
+  >> ‘∃ys zs. xs = ys ++ zs ∧ LENGTH ys = max_index ∧ 1 ≤ LENGTH zs’ by (
+    qexistsl [‘TAKE max_index xs’, ‘DROP max_index xs’]
+    >> Cases_on ‘xs’ >> gvs [Abbr ‘max_index’])
+  >> Cases_on ‘zs’ >> gvs [one_list_append, one_list_def]
+  >> Cases_on ‘ys’ >> gvs [ZERO_LT_dimword, one_list_def]
+  >> ‘a ≠ a + bytes_in_word * n2w (dimword (:α))’ by SEP_NEQ_TAC
+  >> gvs [n2w_dimword]
+QED
 
 Theorem eval_Const[simp]:
   eval s (Const w) = SOME (ValWord w)
@@ -163,7 +199,7 @@ Proof
   simp [eval_def, asmTheory.word_cmp_def]
 QED
 
-Theorem evaluate_Store_Local_Op_And_NONE:
+Theorem evaluate_Store_Local_NONE:
   FLOOKUP s.locals dst = SOME (ValWord addr) ∧
   addr ∈ s.memaddrs ∧
   eval s e = SOME (Val v)
@@ -224,7 +260,15 @@ QED
 Theorem set_var_record[simp]:
   (set_var v value s).clock = s.clock ∧
   (set_var v value s).memaddrs = s.memaddrs ∧
-  (set_var v value s).memory = s.memory
+  (set_var v value s).memory = s.memory ∧
+  (set_var v value s).globals = s.globals ∧
+  (set_var v value s).code = s.code ∧
+  (set_var v value s).eshapes = s.eshapes ∧
+  (set_var v value s).sh_memaddrs = s.sh_memaddrs ∧
+  (set_var v value s).be = s.be ∧
+  (set_var v value s).ffi = s.ffi ∧
+  (set_var v value s).base_addr = s.base_addr ∧
+  (set_var v value s).top_addr = s.top_addr
 Proof
   simp [set_var_def]
 QED
@@ -233,10 +277,10 @@ Theorem and_pos_pos_thm:
   ∀xs ys zs rs s x y z frame.
     mw_and xs ys = zs ∧ LENGTH xs ≤ LENGTH ys ∧
     LENGTH rs = LENGTH xs ∧ LENGTH xs ≤ s.clock ∧
-    FLOOKUP s.locals (strlit "x_len") = SOME (Val (Word (n2w (LENGTH xs)))) ∧
-    FLOOKUP s.locals (strlit "x") = SOME (Val (Word x)) ∧
-    FLOOKUP s.locals (strlit "y") = SOME (Val (Word y)) ∧
-    FLOOKUP s.locals (strlit "z") = SOME (Val (Word z)) ∧
+    FLOOKUP s.locals «x_len» = SOME (Val (Word (n2w (LENGTH xs)))) ∧
+    FLOOKUP s.locals «x» = SOME (Val (Word x)) ∧
+    FLOOKUP s.locals «y» = SOME (Val (Word y)) ∧
+    FLOOKUP s.locals «z» = SOME (Val (Word z)) ∧
     (one_list x (MAP Word xs) *
      one_list y (MAP Word ys) *
      one_list z rs *
@@ -259,53 +303,56 @@ Proof
     >> simp [Once evaluate_def,eval_def,asmTheory.word_cmp_def]
     >> simp [state_component_equality])
   >> simp [and_pos_pos_loop_def]
-
+  (**)
   >> irule_at (Pos hd) evaluate_While_True_NONE
   >> simp [eval_def, asmTheory.word_cmp_def]
   >> ‘SUC (LENGTH xs) < dimword (:α)’ by cheat
   >> simp []
-
+  (**)
   >> irule_at (Pos hd) evaluate_Dec_NONE
   >> simp [eval_def, mem_load_def]
   >> fs [one_list_def] >> SEP_R_TAC
   >> simp []
-
+  (**)
   >> irule_at (Pos hd) evaluate_Dec_NONE
   >> simp [eval_def, mem_load_def]
   >> simp [FLOOKUP_SIMP]
   >> Cases_on ‘ys’ >> gvs []
   >> fs [one_list_def] >> SEP_R_TAC
   >> simp []
-
+  (**)
   >> irule_at (Pos hd) evaluate_Seq_NONE
-  >> irule_at (Pos hd) evaluate_Store_Local_Op_And_NONE
+  >> irule_at (Pos hd) evaluate_Store_Local_NONE
   >> simp [FLOOKUP_SIMP]
   >> Cases_on ‘rs’ >> gvs []
   >> fs [one_list_def] >> SEP_R_TAC >> simp []
   >> irule_at (Pos hd) eval_Op_And_SOME
   >> simp [FLOOKUP_SIMP]
-
+  >> qabbrev_tac ‘memory = s.memory’
+  >> SEP_W_TAC
+  >> simp [Abbr ‘memory’]
+  (**)
   >> irule_at (Pos hd) evaluate_Seq_NONE
   >> irule_at (Pos hd) evaluate_Assign_Local
   >> irule_at (Pos hd) eval_Op_Add_SOME
   >> simp [FLOOKUP_SIMP]
-
+  (**)
   >> irule_at (Pos hd) evaluate_Seq_NONE
   >> irule_at (Pos hd) evaluate_Assign_Local
   >> irule_at (Pos hd) eval_Op_Add_SOME
   >> simp [FLOOKUP_SIMP]
-
+  (**)
   >> irule_at (Pos hd) evaluate_Seq_NONE
   >> irule_at (Pos hd) evaluate_Assign_Local
   >> irule_at (Pos hd) eval_Op_Add_SOME
   >> simp [FLOOKUP_SIMP]
-
+  (**)
   >> irule_at (Pos hd) evaluate_Assign_Local
   >> irule_at (Pos hd) eval_Op_Sub_SOME
   >> simp [FLOOKUP_SIMP]
-
+  (**)
   >> simp [GSYM and_pos_pos_loop_def]
-
+  (**)
   >> last_x_assum drule
   >> disch_then drule
   >> qmatch_goalsub_abbrev_tac ‘evaluate (_, s')’
@@ -314,8 +361,11 @@ Proof
   >> simp [dec_clock_def]
   >> simp [n2w_SUC]
   >> simp [mw_and_def]
-
-  >> cheat
+  >> strip_tac >> SEP_F_TAC
+  >> disch_then $ qx_choosel_then [‘m’, ‘l’] assume_tac
+  >> qexistsl [‘m’, ‘l’]
+  >> fs [state_component_equality, one_list_def, ADD1]
+  >> fs [AC STAR_ASSOC STAR_COMM]
 QED
 
 (*
