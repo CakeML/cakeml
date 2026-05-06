@@ -4576,9 +4576,8 @@ Proof
   imp_res_tac WORD_LOWER_IMP_LOWER_OR_EQ >>
   qspecl_then [`l'`,`l`,`fh2`,`fh1`,`k'`,`v'`,`k`,`v`]
     assume_tac logical_fts_merge_trees >>
-  gvs[DISJOINT_SYM] >>
-  imp_res_tac FUNION_COMM >>
-  cheat
+  rfs[DISJOINT_SYM] >>
+  simp[DISJOINT_SYM,fib_heap_inv_comm_thm]
 QED
 
 
@@ -4875,7 +4874,7 @@ QED
 
 
 Theorem lemma_fts_link_list_upd_all_disjoint_lupdate:
-  fib_heap_inv_weak fh1 [FibTree k v l] /\
+  fib_heap_inv fh1 [FibTree k v l] /\
   fib_heap_inv_union fh2 rl /\
   DISJOINT (FDOM fh1) (FDOM fh2) /\
   (MAP SND rl)❲i❳ = SOME x /\
@@ -4886,7 +4885,7 @@ Theorem lemma_fts_link_list_upd_all_disjoint_lupdate:
 Proof
   strip_tac >>
   fs[EL_MAP] >>
-  fs[fib_heap_inv_weak_def] >>
+  fs[fib_heap_inv_def] >>
   imp_res_tac lemma_fdom_fh_eq_fdom_alist_to_fmap >> gvs[] >>
   imp_res_tac lemma_fh_union_el_snd >>
   fs[fib_heap_inv_union_def] >> gvs[] >>
@@ -4900,7 +4899,7 @@ QED
 
 
 Theorem lemma_fts_link_list_upd_all_disjoint:
-  fib_heap_inv_weak fh1 [FibTree k v l] /\
+  fib_heap_inv fh1 [FibTree k v l] /\
   fib_heap_inv_union fh2 rl /\
   DISJOINT (FDOM fh1) (FDOM fh2) /\
   LENGTH rl = 196 /\
@@ -4967,7 +4966,7 @@ QED
 
 
 Theorem lemma_fts_link_list_upd_inv:
-  fib_heap_inv_weak fh1 [FibTree k v l] /\
+  fib_heap_inv fh1 [FibTree k v l] /\
   fib_heap_inv_union fh2 rl /\
   DISJOINT (FDOM fh1) (FDOM fh2) /\
   LENGTH rl = 196 /\
@@ -4994,7 +4993,6 @@ Proof
   pop_assum mp_tac >> IF_CASES_TAC >> fs[]
   >- (
     strip_tac >> gvs[] >>
-    imp_res_tac lemma_inv_weak_imp_inv >>
     irule lemma_inv_imp_alist_to_fmap_inv >>
     qexists `fh1` >> simp[]
     ) >>
@@ -5064,7 +5062,7 @@ QED
 
 
 Theorem lemma_fts_link_list_upd_fh_union:
-  fib_heap_inv_weak fh1 [FibTree k v l] /\
+  fib_heap_inv fh1 [FibTree k v l] /\
   fib_heap_inv_union fh2 rl /\
   DISJOINT (FDOM fh1) (FDOM fh2) /\
   LENGTH rl = 196 /\
@@ -5098,18 +5096,11 @@ Proof
   fs[fh_union_def] >>
   fs[all_disjoint_append_thm,all_disjoint_def] >>
   imp_res_tac lemma_fh_union_eq_fh_union_alist_to_fmap >>
-  fs[fib_heap_inv_weak_def] >>
+  qpat_x_assum `fib_heap_inv fh1 [Fibtree k v l]` mp_tac >>
+  simp[Once fib_heap_inv_def] >>
+  strip_tac >>
   imp_res_tac lemma_fh_eq_alist_to_fmap >> gvs[] >>
-  qpat_abbrev_tac `ys' = (MAP (λn.
-    case n of
-      NONE => (FEMPTY,NONE)
-     | SOME t => (alist_to_fmap (flat_fts [t]),SOME t))
-  (MAP SND ys1))` >>
-  qpat_abbrev_tac `ys'' = (MAP (λn.
-    case n of
-      NONE => (FEMPTY,NONE)
-     | SOME t => (alist_to_fmap (flat_fts [t]),SOME t))
-  (MAP SND ys2))` >>
+  fs[MAP_MAP_o] >>
   drule lemma_fh_union_disjoint_rm_fst >> strip_tac >>
   drule_all lemma_fh_union_disjoint >> strip_tac >>
   gvs[] >>
@@ -5121,10 +5112,16 @@ Proof
   once_rewrite_tac[DISJOINT_SYM] >>
   rpt strip_tac >>
   simp[FUNION_ASSOC] >>
+  qabbrev_tac `ys' =
+        (MAP
+             ((λn.
+                   case n of
+                     NONE => (FEMPTY,NONE)
+                   | SOME t => (alist_to_fmap (flat_fts [t]),SOME t)) ∘ SND)
+             ys1)` >>
   qspecl_then [`alist_to_fmap (flat_fts [FibTree k v l])`,`fh_union ys'`]
     assume_tac FUNION_COMM >>
-  res_tac >>
-  simp[]
+  res_tac >> simp[]
 QED
 
 
@@ -5141,7 +5138,7 @@ QED
 
 
 Theorem lemma_fts_link_list_upd_array_inv:
-  fib_heap_inv_weak fh1 [FibTree k v l] /\
+  fib_heap_inv fh1 [FibTree k v l] /\
   fib_heap_inv_union fh2 rl /\
   DISJOINT (FDOM fh1) (FDOM fh2) /\
   LENGTH rl = 196 /\
@@ -5174,7 +5171,7 @@ QED
 
 
 Theorem lemma_fts_link_list_upd:
-  fib_heap_inv_weak fh1 [FibTree k v l] /\
+  fib_heap_inv fh1 [FibTree k v l] /\
   fib_heap_inv_union fh2 rl /\
   DISJOINT (FDOM fh1) (FDOM fh2) /\
   LENGTH rl = 196 /\
@@ -5471,7 +5468,7 @@ QED
 
 Theorem fts_link_trees:
   !rl' c rl fh1 fh2 k v l.
-    fib_heap_inv_weak fh1 [FibTree k v l] /\
+    fib_heap_inv fh1 [FibTree k v l] /\
     fib_heap_inv_union fh2 rl /\
     DISJOINT (FDOM fh1) (FDOM fh2) /\
     LENGTH rl = 196 /\
@@ -5491,7 +5488,7 @@ Proof
   >- (
     strip_tac >> gvs[]  >>
     conj_tac
-    >- ( irule lemma_fts_link_list_upd >> fs[]) >>
+    >- (irule lemma_fts_link_list_upd >> fs[]) >>
     rewrite_tac[fhts_to_ts_def,LENGTH_GENLIST] >> simp[]
     ) >>
   CASE_TAC >> strip_tac >>
@@ -5505,10 +5502,8 @@ Proof
   qpat_x_assum `EL (LENGTH l) rl = (m, SOME (FibTree k' v' l'))` kall_tac >>
   qspecl_then [`fh2`,`rl`,`k'`,`v'`,`l'`] assume_tac lemma_fib_heap_inv_union_el >>
   rfs[] >>
-  drule lemma_inv_weak_imp_inv >> strip_tac >>
   qspecl_then [`fh1`,`fh2'`,`k`,`v`,`l`,`k'`,`v'`,`l'`] assume_tac fts_merge_trees >>
   gvs[DISJOINT_SYM] >>
-  drule lemma_inv_imp_inv_weak >> strip_tac >>
   first_x_assum(qspecl_then [`LUPDATE (FEMPTY,NONE) (LENGTH l) rl`,`FUNION fh1 fh2'`,
     `fh_union (LUPDATE (FEMPTY,NONE) (LENGTH l) rl)`, `k''`,`v''`,`l''` ]
     assume_tac) >>
@@ -5543,7 +5538,6 @@ End
 
 
 
-(*TODO: ?fh should be FUNION fh1 fh2*)
 Theorem fts_link_root_list:
   !rl fts rl' fh1 fh2.
   LENGTH rl = 196 /\
@@ -5569,6 +5563,7 @@ Proof
   IF_CASES_TAC >> gvs[] >>
   disch_tac >>
   imp_res_tac lemma_fib_heap_inv_weak_split >>
+  drule_all lemma_inv_weak_imp_inv >> strip_tac >>
   qspecl_then [`q`,`196`,`ts_to_fhts rl`,`fh1'`, `fh2`, `k`,
     `arr`,`l`] assume_tac fts_link_trees >>
   gvs[] >>
