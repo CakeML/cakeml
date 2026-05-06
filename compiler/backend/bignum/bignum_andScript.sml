@@ -145,6 +145,15 @@ Proof
   simp [eval_def, wordLangTheory.word_op_def]
 QED
 
+Theorem eval_Op_Add_SOME:
+  eval s x₁ = SOME (ValWord v₁) ∧
+  eval s x₂ = SOME (ValWord v₂)
+  ⇒
+  eval s (Op Add [x₁; x₂]) = SOME (ValWord (v₁ + v₂))
+Proof
+  simp [eval_def, wordLangTheory.word_op_def]
+QED
+
 Theorem eval_Cmp_NotEqual_SOME:
   eval s e₁ = SOME (ValWord v₁) ∧
   eval s e₂ = SOME (ValWord v₂)
@@ -154,12 +163,12 @@ Proof
   simp [eval_def, asmTheory.word_cmp_def]
 QED
 
-Theorem evaluate_Store_Local_Local_Val:
+Theorem evaluate_Store_Local_Op_And_NONE:
   FLOOKUP s.locals dst = SOME (ValWord addr) ∧
-  FLOOKUP s.locals src = SOME (Val v) ∧
-  addr ∈ s.memaddrs
+  addr ∈ s.memaddrs ∧
+  eval s e = SOME (Val v)
   ⇒
-  evaluate (Store (Var Local dst) (Var Local src), s) =
+  evaluate (Store (Var Local dst) e, s) =
     (NONE, s with memory := s.memory⦇addr ↦ v⦈)
 Proof
   simp [evaluate_def, flatten_def, mem_stores_def, mem_store_def]
@@ -186,6 +195,38 @@ Theorem FLOOKUP_res_var[simp]:
   FLOOKUP (res_var s (n, SOME v)) n = SOME v
 Proof
   simp [res_var_def, FLOOKUP_SIMP]
+QED
+
+Theorem FLOOKUP_set_var_neq[local,simp]:
+  n' ≠ n ⇒ FLOOKUP (set_var n value s).locals n' = FLOOKUP s.locals n'
+Proof
+  simp [set_var_def, FLOOKUP_SIMP]
+QED
+
+Theorem FLOOKUP_set_var[simp]:
+  FLOOKUP (set_var n value s).locals n = SOME value
+Proof
+  simp [set_var_def, FLOOKUP_SIMP]
+QED
+
+Theorem eval_BytesInWord[simp]:
+  eval s BytesInWord = SOME (ValWord bytes_in_word)
+Proof
+  simp [eval_def]
+QED
+
+Theorem shape_of_ValWord[simp]:
+  shape_of (ValWord x) = One
+Proof
+  simp [shape_of_def]
+QED
+
+Theorem set_var_record[simp]:
+  (set_var v value s).clock = s.clock ∧
+  (set_var v value s).memaddrs = s.memaddrs ∧
+  (set_var v value s).memory = s.memory
+Proof
+  simp [set_var_def]
 QED
 
 Theorem and_pos_pos_thm:
@@ -236,37 +277,43 @@ Proof
   >> fs [one_list_def] >> SEP_R_TAC
   >> simp []
 
-  (* >> irule_at (Pos hd) evaluate_Dec_NONE *)
-  (* >> irule_at (Pos hd) eval_Op_And_SOME *)
-  (* >> irule_at (Pos hd) eval_Cmp_NotEqual_SOME *)
-  (* >> simp [FLOOKUP_SIMP] *)
+  >> irule_at (Pos hd) evaluate_Seq_NONE
+  >> irule_at (Pos hd) evaluate_Store_Local_Op_And_NONE
+  >> simp [FLOOKUP_SIMP]
+  >> Cases_on ‘rs’ >> gvs []
+  >> fs [one_list_def] >> SEP_R_TAC >> simp []
+  >> irule_at (Pos hd) eval_Op_And_SOME
+  >> simp [FLOOKUP_SIMP]
 
-  (* >> irule_at (Pos hd) eval_Cmp_NotEqual_SOME *)
-  (* >> simp [FLOOKUP_SIMP] *)
+  >> irule_at (Pos hd) evaluate_Seq_NONE
+  >> irule_at (Pos hd) evaluate_Assign_Local
+  >> irule_at (Pos hd) eval_Op_Add_SOME
+  >> simp [FLOOKUP_SIMP]
 
-  (* >> irule_at (Pos hd) evaluate_Seq_NONE *)
-  (* >> irule_at (Pos hd) evaluate_Store_Local_Local_Val *)
-  (* >> simp [FLOOKUP_SIMP] *)
-  (* >> Cases_on ‘rs’ >> gvs [] *)
-  (* >> fs [one_list_def] >> SEP_R_TAC *)
-  (* >> simp [] *)
+  >> irule_at (Pos hd) evaluate_Seq_NONE
+  >> irule_at (Pos hd) evaluate_Assign_Local
+  >> irule_at (Pos hd) eval_Op_Add_SOME
+  >> simp [FLOOKUP_SIMP]
 
-  (* >> irule_at (Pos hd) evaluate_Assign_Local *)
-  (* >> irule_at (Pos hd) eval_Op_Sub_SOME *)
-  (* >> simp [FLOOKUP_SIMP, shape_of_def] *)
+  >> irule_at (Pos hd) evaluate_Seq_NONE
+  >> irule_at (Pos hd) evaluate_Assign_Local
+  >> irule_at (Pos hd) eval_Op_Add_SOME
+  >> simp [FLOOKUP_SIMP]
 
-  (* >> simp [GSYM and_pos_pos_loop_def, set_var_def] *)
-  (* >> qmatch_goalsub_abbrev_tac ‘evaluate _ = (_, s')’ *)
+  >> irule_at (Pos hd) evaluate_Assign_Local
+  >> irule_at (Pos hd) eval_Op_Sub_SOME
+  >> simp [FLOOKUP_SIMP]
 
-  (* >> last_x_assum drule >> disch_then drule *)
+  >> simp [GSYM and_pos_pos_loop_def]
 
-  (* (* >> disch_then $ qspec_then ‘s'’ mp_tac *) *)
-  (* >> simp [Abbr ‘s'’, FLOOKUP_SIMP] *)
-  (* >> simp [dec_clock_def, n2w_SUC] *)
-
-
-  (* >> ‘n2w (SUC (LENGTH xs)) + -1w = n2w (LENGTH xs)’ by *)
-  (*   (simp [ADD1] >> Cases_on ‘-1w’ >> gvs [word_add_n2w] *)
+  >> last_x_assum drule
+  >> disch_then drule
+  >> qmatch_goalsub_abbrev_tac ‘evaluate (_, s')’
+  >> disch_then $ qspec_then ‘s'’ mp_tac
+  >> simp [Abbr ‘s'’]
+  >> simp [dec_clock_def]
+  >> simp [n2w_SUC]
+  >> simp [mw_and_def]
 
   >> cheat
 QED
