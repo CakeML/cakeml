@@ -124,8 +124,8 @@ Datatype:
     And ('a varc list) ('a varc)
     (* Or Xs Y : Y > 0 ⇔ Or_i (X_i > 0) *)
   | Or ('a varc list) ('a varc)
-    (* Parity Xs : Odd number of (X_i > 0) *)
-  | Parity ('a varc list)
+    (* Parity Xs Y : Y > 0 ⇔ Odd number of (X_i > 0) *)
+  | Parity ('a varc list) ('a varc)
 End
 
 (* The op is prefixed with "lex-", e.g.:
@@ -501,13 +501,9 @@ Definition or_sem_def:
 End
 
 Definition parity_sem_def:
-  parity_sem Xs w =
-   ODD
-   (SUM $
-      MAP
-      (λX.
-        if varc w X > 0 then 1n else 0n
-      ) Xs)
+  parity_sem Xs Y w =
+   reify_sem (SOME (INR (Y, GreaterThan, 0))) w
+    (ODD (SUM $ MAP (λX. if varc w X > 0 then 1n else 0n) Xs))
 End
 
 Definition logical_constr_sem_def:
@@ -515,7 +511,7 @@ Definition logical_constr_sem_def:
   case c of
     And Xs Y => and_sem Xs Y w
   | Or Xs Y => or_sem Xs Y w
-  | Parity Xs => parity_sem Xs w
+  | Parity Xs Y => parity_sem Xs Y w
 End
 
 (***

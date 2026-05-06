@@ -450,11 +450,6 @@ Proof
   simp[enc_rel_List_mk_annotate,cencode_element2d_aux_def]
 QED
 
-Definition arri_def[simp]:
-  arri name (i:num) =
-    INR (name, Indices [i] NONE)
-End
-
 (* ArrayMax: Y = max(Xs) *)
 Definition cencode_array_max_def:
   cencode_array_max bnd Xs Y name =

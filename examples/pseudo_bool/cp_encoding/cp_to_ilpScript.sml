@@ -81,6 +81,8 @@ Definition reify_flag_def:
       varc wi (EL (HD ids) Xs) ≥ varc wi Y
     | SOME (Array (ArrayMin Xs Y)) =>
       varc wi (EL (HD ids) Xs) ≤ varc wi Y
+    | SOME (Logical (Parity Xs Y)) =>
+      ODD (SUM $ MAP (λZ. if varc wi Z > 0 then 1n else 0n) (TAKE (HD ids + 1) (Y::Xs)))
     | SOME (Extensional (Table tss Xs)) =>
       match_row (EL (HD ids) tss) (MAP (varc wi) Xs))
   | Flag ann =>
@@ -218,6 +220,11 @@ End
 Definition nev_def[simp]:
   nev name =
     INR (name, Flag (strlit "ne"))
+End
+
+Definition arri_def[simp]:
+  arri name (i:num) =
+    INR (name, Indices [i] NONE)
 End
 
 (*

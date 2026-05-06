@@ -228,16 +228,69 @@ Proof
 QED
 
 (* Parity constraint: ODD number of Xs[i] > 0 *)
-Definition encode_parity_def:
-  encode_parity bnd Xs =
-  [false_constr]
+Definition cencode_parity_aux_def:
+  cencode_parity_aux bnd Y Xs name =
+  Append
+    (List
+      [
+        (SOME $ mk_name name $ strlit"acc", [], [(-1,Pos (arri name $ LENGTH Xs))], 0);
+        (SOME $ mk_name name (int_to_string #"-" 0 ^ strlit"ge"),
+          [], [(1, Pos (arri name 0));(-1, Pos (INL (Ge Y 1)))], 0);
+        (SOME $ mk_name name (int_to_string #"-" 0 ^ strlit"le"),
+          [], [(1, Pos (INL (Ge Y 1)));(-1, Pos (arri name 0))], 0)
+      ])
+    (List $ FLAT $ MAPi
+      (λi X.
+        [
+          (SOME $ mk_name name (int_to_string #"-" (&i+1) ^ strlit",(0,0)"),
+            [],[(1,Pos (arri name i));(1,Pos (INL (Ge X 1)));(1,Neg (arri name $ i+1))], 1);
+          (SOME $ mk_name name (int_to_string #"-" (&i+1) ^ strlit",(1,1)"),
+            [],[(1,Neg (arri name i));(1,Neg (INL (Ge X 1)));(1,Neg (arri name $ i+1))], 1);
+          (SOME $ mk_name name (int_to_string #"-" (&i+1) ^ strlit",(1,0)"),
+            [],[(1,Neg (arri name i));(1,Pos (INL (Ge X 1)));(1,Pos (arri name $ i+1))], 1);
+          (SOME $ mk_name name (int_to_string #"-" (&i+1) ^ strlit",(0,1)"),
+            [],[(1,Pos (arri name i));(1,Neg (INL (Ge X 1)));(1,Pos (arri name $ i+1))], 1)
+        ])
+      Xs)
 End
+
+Definition encode_parity_aux_def:
+  encode_parity_aux bnd Y Xs name =
+  abstr $ cencode_parity_aux bnd Y Xs name
+End
+
+Definition encode_parity_def:
+  encode_parity bnd Xs Y name =
+  FLAT (MAP (λX. encode_ge bnd X 1) (Y::Xs)) ++
+  encode_parity_aux bnd Y Xs name
+End
+
+Definition cencode_parity_def:
+  cencode_parity bnd Xs Y name ec =
+  let
+    (xs,ec') = fold_cenc (λX ec. cencode_full_eq bnd X 1 ec) (Y::Xs) ec
+  in
+    (Append xs (cencode_parity_aux bnd Y Xs name),ec')
+End
+
+(**
+Y <->    x[name][0]
+             |
+X0     - x[name][1]
+             |
+X1     - x[name][2]
+             |
+      ...
+             |
+X(n-1) - x[name][n]
+**)
+
 
 Theorem encode_parity_sem_1:
   valid_assignment bnd wi ∧
-  parity_sem Xs wi ⇒
+  parity_sem Xs Y wi ⇒
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
-    (encode_parity bnd Xs)
+    (encode_parity bnd Xs Y name)
 Proof
   cheat
 QED
@@ -245,8 +298,8 @@ QED
 Theorem encode_parity_sem_2:
   valid_assignment bnd wi ∧
   EVERY (λx. iconstraint_sem x (wi,wb))
-    (encode_parity bnd Xs) ⇒
-  parity_sem Xs wi
+    (encode_parity bnd Xs Y name) ⇒
+  parity_sem Xs Y wi
 Proof
   cheat
 QED
@@ -256,7 +309,7 @@ Definition encode_logical_constr_def:
   case c of
     And Xs Y => encode_and bnd Xs Y
   | Or Xs Y => encode_or bnd Xs Y
-  | Parity Xs => encode_parity bnd Xs
+  | Parity Xs Y => encode_parity bnd Xs Y name
 End
 
 Theorem encode_logical_constr_sem_1:
