@@ -548,6 +548,14 @@ Proof
   >> gvs []
 QED
 
+Theorem holes_unchanged_except_filled:
+  ∀f refs refs' k v b.
+    holes_unchanged_except f refs refs' ∅ ⇒
+    holes_unchanged_except f refs refs'⟨k ↦ v⟩ {RefPtr b k}
+Proof
+  rw [holes_unchanged_except_def] >> gvs [FLOOKUP_SIMP]
+QED
+
 Theorem unchanged_hole_has_val:
   ∀f f' env env' hole_ptr hole_idx refs refs' c.
     hole_has_val f env (env' ++ [RefPtr F hole_ptr; Number hole_idx]) refs c ∧
@@ -928,14 +936,6 @@ Proof
   >> gvs []
   >> qexists ‘[RefPtr F hole_ptr; Number hole_idx]’
   >> gvs []
-QED
-
-Theorem holes_unchanged_except_filled:
-  ∀f refs refs' k v b.
-    holes_unchanged_except f refs refs' ∅ ⇒
-    holes_unchanged_except f refs refs'⟨k ↦ v⟩ {RefPtr b k}
-Proof
-  rw [holes_unchanged_except_def] >> gvs [FLOOKUP_SIMP]
 QED
 
 Theorem evaluate_fill_hole:
@@ -1593,16 +1593,49 @@ Resume evaluate_rewrite_tmc[op]:
   >> Cases_on ‘x’ >> gvs []
   >> rename [‘bvi_to_cb loc tag args = SOME (bs,cb)’]
 
-  >> ‘evaluate ([Op (BlockOp (Cons tag)) args],env2,s') = (Rval [v'],t')’ by gvs [evaluate_def]
+  >> ‘evaluate ([Op (BlockOp (Cons tag)) args],env,s) = (Rval [v],t)’ by gvs [evaluate_def]
   >> drule evaluate_bvi_to_cb_to_bvi
   >> gvs [bvi_to_cb_to_bvi_def]
   >> disch_then $ qspec_then ‘loc’ mp_tac
   >> gvs []
   >> strip_tac
   >> gvs [evaluate_def]
-  >> Cases_on ‘evaluate (bs,env2,s')’ >> gvs []
+  >> Cases_on ‘evaluate (bs,env,s)’ >> gvs []
   >> Cases_on ‘q’ >> gvs []
-  >> rename [‘evaluate (bs,env2,s') = (Rval as,w')’]
+  >> rename [‘evaluate (bs,env,s) = (Rval as,w)’]
+
+  (* Hypothesis on bs *)
+  >> first_assum $ qspecl_then [‘bs’, ‘s’] mp_tac
+  >> gvs []
+  >> impl_tac >- cheat
+  >> disch_then drule
+  >> disch_then drule
+  >> disch_then drule
+  >> gvs []
+  >> strip_tac
+  >> gvs []
+  >> rename [‘evaluate (bs,env2,s') = (Rval as',w')’]
+  >> rename [‘f ⊑ f''’]
+
+  (* Hypothesis on cb_to_bvi loc cb *)
+  >> first_assum $ qspecl_then [‘[cb_to_bvi loc cb]’, ‘w’] mp_tac
+  >> impl_tac >- cheat
+  >> disch_then drule
+  >> disch_then $ drule_at $ Pos $ el 2
+  >> qpat_x_assum ‘env_rel F _ _ _’ kall_tac
+  >> drule env_rel_append
+  >> disch_then $ qspecl_then [‘as'’, ‘as’] mp_tac
+  >> impl_tac
+  >- cheat
+  >> strip_tac
+  >> drule_all env_rel_submap
+  >> strip_tac
+  >> disch_then drule
+  >> gvs []
+  >> strip_tac
+  >> gvs []
+  >> rename [‘evaluate ([cb_to_bvi loc cb],as' ++ env2,w') = (Rval [v''],t'')’]
+                  
   >> Cases_on ‘cb_to_hb cb’
   >> Cases_on ‘r’ >> gvs []
   >> rename [‘cb_to_hb cb = (hb,call_ts,call_args)’]
@@ -1610,18 +1643,27 @@ Resume evaluate_rewrite_tmc[op]:
   >> drule evaluate_hb_to_bvi_worker
   >> imp_res_tac bvi_to_cb_wf
   >> gvs []
-  >> qpat_x_assum ‘env_rel F _ _ _’ kall_tac
-  >> drule env_rel_append
-  >> disch_then $ qspecl_then [‘as’, ‘as’] mp_tac
-  >> impl_tac
-  >-
-   (cheat (* feel like i've done this *))
+  >> disch_then drule
+  >> disch_then drule
+  >> disch_then drule
+  >> disch_then $ drule_at Any
+  >> disch_then $ drule_at Any
+  >> disch_then $ drule_at Any
+  >> rev_drule_all env_rel_strip_extras
   >> strip_tac
-  >> drule env_rel_submap
-  >> disch_then drule
+  >> gvs []
+  >> drule unchanged_hole_has_val
+  >> disch_then $ drule_at Any
+  >> disch_then $ drule_at Any
+  >> gvs []
   >> strip_tac
+  >> drule_all hole_has_val_append
+  >> strip_tac
+  >> gvs [APPEND_ASSOC]
   >> disch_then drule
-  >> disch_then drule
+  >> disch_then $ qspecl_then [‘loc_opt'’, ‘hb’, ‘call_ts’, ‘call_args’] assume_tac
+  >> gvs []
+  >> 
 QED
 
 Theorem evaluate_bvi_to_cb_to_bvi:
