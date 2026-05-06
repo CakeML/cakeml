@@ -948,43 +948,31 @@ Theorem evaluate_fill_hole:
     holes_unchanged_except f s'.refs t'.refs ∅ ∧
     only_fresh f f' s'.refs ∧
     state_rel f' t t' ⇒
-    ∃r t''. ∀res_v.
+    ∃r t''.
       evaluate ([fill_hole (LENGTH env1) (LENGTH env1 + 1) exp],env2,s') = (r,t'') ∧
       opt_res_rel (Rval [v]) r ∧
       state_rel f' t t'' ∧
       holes_unchanged_except f s'.refs t''.refs {env2❲LENGTH env1❳} ∧
-      (v = res_v ⇒ (* This is weird but I needed it for ho_match_mp_tac to work at the call site *)
-       hole_has_val f env1 env2 t''.refs res_v)
+      hole_has_val f env1 env2 t''.refs v
 Proof
   rw []
   >> drule env_rel_length_opt
   >> strip_tac
   >> drule env_rel_extras_opt
   >> strip_tac
-  >> imp_res_tac hole_has_val_def
-  >> imp_res_tac holes_unchanged_except_def
-  >> gvs [evaluate_def, fill_hole_def, do_app_def, do_app_aux_def, case_eq_thms, PULL_EXISTS,
-          FLOOKUP_SIMP, bvlSemTheory.Unit_def, backend_commonTheory.tuple_tag_def, opt_res_rel_def]
-  >> last_x_assum $ drule_all
+  >> gvs [evaluate_def, fill_hole_def, do_app_def, do_app_aux_def, hole_has_val_def, holes_unchanged_except_def,
+          case_eq_thms, PULL_EXISTS, FLOOKUP_SIMP, bvlSemTheory.Unit_def, backend_commonTheory.tuple_tag_def, opt_res_rel_def]
+  >> first_x_assum $ drule_all
   >> strip_tac
   >> gvs []
-  >> qexistsl [‘Rval [Block 0 []]’, ‘t' with refs := t'.refs⟨hole_ptr ↦ MutBlock tag left v right⟩’]
-  >> gvs []
-  >> gen_tac
   >> conj_tac
   >-
    (irule state_rel_filled
     >> gvs []
     >> irule non_fresh_not_in_frange
     >> first_assum $ irule_at Any
-    >> first_assum $ irule_at Any
     >> gvs [FLOOKUP_DEF])
-  >> conj_tac
-  >- (irule holes_unchanged_except_filled >> gvs [])
-  >> strip_tac
-  >> gvs []
-  >> first_x_assum $ irule_at Any
-  >> gvs [FLOOKUP_SIMP]
+  >> metis_tac []
 QED
 
 Theorem evaluate_fill_hole_err:
@@ -1493,35 +1481,29 @@ Resume evaluate_rewrite_tmc[op]:
   gvs [evaluate_def]
   >> gvs [CaseEq "prod", PULL_EXISTS]
   >> rename [‘evaluate (xs,env,s) = (rs,u)’]
-  >> first_assum $ qspecl_then [‘F’, ‘f’, ‘s'’, ‘env2’] mp_tac
-  >> impl_tac
-  >-
-   (gvs []
-    >> conj_tac
-    >- (irule env_rel_relax_opt >> first_assum $ irule_at Any)
-    >> spose_not_then assume_tac
-    >> gvs [])
-  >> strip_tac
+  >> first_x_assum $ qspecl_then [‘xs’, ‘s’, ‘env’] mp_tac
   >> gvs []
+  >> disch_then $ qspec_then ‘F’ mp_tac
+  >> drule_all env_rel_relax_opt
+  >> strip_tac
+  >> disch_then drule
+  >> disch_then drule
+  >> gvs []
+  >> impl_tac
+  >- (spose_not_then assume_tac >> gvs [])
+  >> strip_tac
+  >> gvs [GSYM PULL_FORALL]
   >> rename [‘evaluate (xs,env2,s') = (rs',u')’]
   >> qpat_assum ‘f ⊑ _’ $ irule_at Any
   >> reverse $ Cases_on ‘rs’ >> gvs []
   >- (* Error evaluating args *)
-   (strip_tac
-    >> gvs []
-    >> first_x_assum $ qspec_then ‘F’ mp_tac
-    >> gvs []
-    >> drule env_rel_relax_opt
-    >> strip_tac
-    >> disch_then drule
-    >> disch_then drule
+   (rename [‘evaluate (xs,env2,s') = (Rerr e',t')’]
     >> strip_tac
     >> gvs []
     >> conj_tac
     >-
      (rw []
-      >> qexists ‘t''’
-      >> gvs []
+      >> first_assum $ irule_at Any
       >> cheat)
     >> rw []
     >> gvs [rewrite_worker_def, evaluate_def]
@@ -1574,6 +1556,7 @@ Resume evaluate_rewrite_tmc[op]:
   >> rename [‘state_rel f'' t t'’]
   >> rename [‘v_rel f'' v v'’]
 
+  (* Don't need? *)                    
   >> first_x_assum $ qspec_then ‘F’ mp_tac
   >> gvs []
   >> drule env_rel_relax_opt
@@ -1582,8 +1565,8 @@ Resume evaluate_rewrite_tmc[op]:
   >> disch_then drule
   >> strip_tac
   >> gvs []
-  >> rename [‘state_rel f3 u u'’]
-  >> rename [‘LIST_REL (v_rel f3) vs vs'’]
+
+  >> rename [‘f ⊑ f'’]
   >> conj_asm1_tac
   >-
    (irule do_app_holes_unchanged
@@ -1640,8 +1623,8 @@ QED
 
 Theorem evaluate_cb_to_bvi:
   ∀loc tag args env s t r bs cb exp.
-    cb_to_bvi loc tag args = SOME exp ∧
     evaluate ([Op (BlockOp (Cons tag)) args],env,s) = (r,t) ∧
+    cb_to_bvi loc tag args = SOME exp ∧
     r ≠ Rerr (Rabort Rtype_error) ⇒
     evaluate ([exp],env,s) = (r,t)
 Proof
