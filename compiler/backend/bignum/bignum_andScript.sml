@@ -77,17 +77,31 @@ QED
 
 (* TODO move to set_sep *)
 Theorem one_list_LENGTH_leq_dimword:
-  (one_list (a: α word) xs) (fun2set (f, d)) ⇒ LENGTH xs ≤ dimword (:α)
+  dimindex (:α) MOD 8 = 0 ∧ (one_list (a: α word) xs) (fun2set (f, d)) ⇒
+  LENGTH xs * w2n (bytes_in_word: α word) ≤ dimword (:α)
 Proof
-  strip_tac >> CCONTR_TAC
-  >> qabbrev_tac ‘max_index = dimword (:α)’
+  strip_tac
+  >> qabbrev_tac ‘bytes = w2n (bytes_in_word: α word)’
+  >> qabbrev_tac ‘max_index = dimword (:α) DIV bytes’
+  >> Cases_on ‘bytes = 0’ >- simp []
+  >> ‘1 ≤ max_index’ by
+    (unabbrev_all_tac >> simp [Req0 X_LE_DIV, w2n_lt, LESS_IMP_LESS_OR_EQ])
+  >> simp [Req0 $ GSYM X_LE_DIV]
+  >> CCONTR_TAC
   >> ‘∃ys zs. xs = ys ++ zs ∧ LENGTH ys = max_index ∧ 1 ≤ LENGTH zs’ by (
     qexistsl [‘TAKE max_index xs’, ‘DROP max_index xs’]
-    >> Cases_on ‘xs’ >> gvs [Abbr ‘max_index’])
+    >> unabbrev_all_tac >> Cases_on ‘xs’ >> gvs [])
+
   >> Cases_on ‘zs’ >> gvs [one_list_append, one_list_def]
-  >> Cases_on ‘ys’ >> gvs [ZERO_LT_dimword, one_list_def]
-  >> ‘a ≠ a + bytes_in_word * n2w (dimword (:α))’ by SEP_NEQ_TAC
-  >> gvs [n2w_dimword]
+  >> Cases_on ‘ys’ >> gvs [one_list_def]
+  >> qpat_x_assum ‘dimword _ DIV _ = _’ $ assume_tac o GSYM
+  >> fs []
+
+  >> qmatch_asmsub_abbrev_tac ‘one (a + more, _)’
+  >> ‘a ≠ a + more’ by SEP_NEQ_TAC
+
+  >> ‘more = 0w’ by cheat
+  >> gvs []
 QED
 
 Theorem eval_Const[simp]:
