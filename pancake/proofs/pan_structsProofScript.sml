@@ -44,24 +44,28 @@ End
 
 Definition v_flds_ok_def:
   v_flds_ok _ (Val x) = T /\
-  v_flds_ok sh_ctxt (RStruct vs) = EVERY (v_flds_ok sh_ctxt) vs /\
-  v_flds_ok sh_ctxt (NStruct nm flds) =
-    (EVERY (\(nm, v). v_flds_ok sh_ctxt v) flds /\
-        (case ALOOKUP sh_ctxt nm of NONE => F | SOME flds2 => MAP FST flds = MAP FST flds2)) 
+  v_flds_ok ctxt (RStruct vs) = EVERY (v_flds_ok ctxt) vs /\
+  v_flds_ok ctxt (NStruct nm flds) =
+    (EVERY (\(nm, v). v_flds_ok ctxt v) flds /\
+        (case ALOOKUP ctxt nm of NONE => F | SOME info =>
+            MAP FST flds = MAP FST info.fields /\
+            MAP (shape_of o SND) flds = MAP SND info.fields))
 End
 
 Definition convert_s_def:
-  convert_s s = s with <|
+  convert_s ctxt code s = s with <|
     locals := FMAP_MAP2 (\(nm, v). convert_v v) s.locals;
     globals := FMAP_MAP2 (\(nm, v). convert_v v) s.globals;
-    structs := []
+    structs := [];
+    code := code;
+    eshapes := FMAP_MAP2 (\(eid, sh). compile_shape ctxt.structs sh) s.eshapes
   |>
 End
 
 Definition s_contents_ok_def:
-  s_contents_ok sh_ctxt s = (
-    FEVERY (\(nm, v). v_flds_ok sh_ctxt v) s.locals /\
-    FEVERY (\(nm, v). v_flds_ok sh_ctxt v) s.globals
+  s_contents_ok ctxt s = (
+    FEVERY (\(nm, v). v_flds_ok ctxt v) s.locals /\
+    FEVERY (\(nm, v). v_flds_ok ctxt v) s.globals
   )
 End
 
@@ -95,7 +99,40 @@ Theorem alookup_drop_helper[local]:
   ALL_DISTINCT (MAP FST xs) ==>
   ~ MEM k (MAP FST (TAKE n xs)) /\ ALOOKUP xs k = SOME v
 Proof
-  cheat
+  strip_tac
+  >> subgoal `?ys zs. xs = ys ++ zs /\ LENGTH ys = n`
+  >- (
+    map_every qexists_tac [`TAKE n xs`, `DROP n xs`]
+    >> simp []
+    >> Cases_on `n < LENGTH xs`
+    >> fs [DROP_LENGTH_TOO_LONG]
+  )
+  >> fs [DROP_APPEND1, DROP_LENGTH_TOO_LONG, TAKE_APPEND1, TAKE_LENGTH_TOO_LONG]
+  >> csimp [ALOOKUP_APPEND, option_case_eq, ALOOKUP_NONE]
+  >> dxrule ALOOKUP_MEM
+  >> fs [ALL_DISTINCT_APPEND]
+  >> fs [MEM_MAP, PULL_EXISTS, FORALL_PROD]
+  >> metis_tac []
+QED
+
+Theorem v_flds_ok_append:
+  !ctxt v. v_flds_ok ctxt v /\ ALL_DISTINCT (MAP FST pfx ++ MAP FST ctxt) ==>
+  v_flds_ok (pfx ++ ctxt) v
+Proof
+  recInduct v_flds_ok_ind
+  >> simp [v_flds_ok_def]
+  >> rw []
+  >> fs [EVERY_MEM, FORALL_PROD]
+  >- (
+    metis_tac []
+  )
+  >- (
+    every_case_tac >> fs []
+    >> fs [ALOOKUP_APPEND, option_case_eq]
+    >> imp_res_tac ALOOKUP_MEM
+    >> fs [ALL_DISTINCT_APPEND, MEM_MAP, PULL_EXISTS, FORALL_PROD]
+    >> metis_tac []
+  )
 QED
 
 Theorem size_of_sh_with_ctxt_drop:
@@ -197,8 +234,8 @@ QED
 Theorem compile_exp_correct_mmap_helper[local]:
   !es vs. OPT_MMAP (eval s) es = SOME vs /\
   (!e. MEM e es ==> (!v. eval s e = SOME v ==>
-    eval (convert_s s) (compile_exp ctxt e) = SOME (convert_v v))) ==>
-  OPT_MMAP (eval (convert_s s)) (compile_exps ctxt es) = SOME (MAP convert_v vs)
+    eval (convert_s ctxt code s) (compile_exp ctxt e) = SOME (convert_v v))) ==>
+  OPT_MMAP (eval (convert_s ctxt code s)) (compile_exps ctxt es) = SOME (MAP convert_v vs)
 Proof
   Induct
   >> simp [compile_exp_def, DISJ_IMP_THM, FORALL_AND_THM]
@@ -232,13 +269,13 @@ Proof
 QED
 
 Theorem alookup_map_structs_ok[local]:
-  ALOOKUP s.structs nm = SOME info /\
-  structs_ok (MAP (λ(nm,info). (nm, info.fields)) s.structs) ==>
+  ALOOKUP s_ctxt nm = SOME info /\
+  struct_infos_ok s_ctxt ==>
   ALL_DISTINCT (MAP FST info.fields)
 Proof
   rw []
   >> imp_res_tac ALOOKUP_MEM
-  >> fs [structs_ok_def, EVERY_MAP]
+  >> fs [struct_infos_ok_def, EVERY_MAP]
   >> imp_res_tac EVERY_MEM
   >> fs []
 QED
@@ -283,10 +320,10 @@ Proof
   >> fs [EL_CONS, PRE_SUB1]
 QED
 
-Theorem is_wf_shape_nil_compile_shape:
-  (! ^sh_ctxt sh. is_wf_shape_nil (compile_shape sh_ctxt sh))
+Theorem is_wf_shape_compile_shape:
+  (! ^sh_ctxt sh. is_wf_shape str_ctxt (compile_shape sh_ctxt sh))
   ∧
-  (! ^sh_ctxt shs. EVERY is_wf_shape_nil (compile_shapes sh_ctxt shs))
+  (! ^sh_ctxt shs. EVERY (is_wf_shape str_ctxt) (compile_shapes sh_ctxt shs))
 Proof
   ho_match_mp_tac compile_shape_ind
   >> simp [compile_shape_def, is_wf_shape_def, SF ETA_ss]
@@ -302,8 +339,81 @@ Proof
   >> simp [compile_shape_def]
 QED
 
+Definition compile_shape_n_def:
+  compile_shape_n sctxt n One = One /\
+  compile_shape_n sctxt n (Comb shs) = Comb (MAP (compile_shape_n sctxt n) shs) /\
+  compile_shape_n sctxt n (Named nm) = (
+    case afindi nm (DROP n sctxt)
+    of NONE => One
+      | SOME j => let (nm', flds) = EL (n + j) sctxt
+      in Comb (MAP (compile_shape_n sctxt (n + j + 1)) (MAP SND flds))
+  )
+Termination
+  WF_REL_TAC `inv_image (measure I LEX measure shape_size)
+    (\(sctxt, n, v). (LENGTH sctxt - n, v))`
+  >> rw []
+  >> CCONTR_TAC
+  >> fs [DROP_LENGTH_TOO_LONG, afindi_def]
+End
+
+Theorem dropWhile_afindi:
+  dropWhile (\(k, v). k <> kx) xs = (case afindi kx xs of
+    NONE => []
+  | SOME n => DROP n xs)
+Proof
+  Induct_on `xs`
+  >> simp [afindi_def, FORALL_PROD]
+  >> rw []
+  >> every_case_tac >> fs []
+QED
+
+Theorem afindi_less_length:
+  !xs n. afindi kx xs = SOME n ==> n < LENGTH xs
+Proof
+  Induct
+  >> simp [afindi_def, FORALL_PROD]
+  >> rw []
+  >> fs [option_case_eq]
+  >> res_tac
+  >> simp []
+QED
+
+Theorem afindi_MAP_eq:
+  !xs. (!x y. MEM (x, y) xs ==> FST (f (x, y)) = x) ==>
+  afindi kx (MAP f xs) = afindi kx xs
+Proof
+  Induct
+  >> simp [afindi_def, FORALL_PROD]
+  >> rpt gen_tac
+  >> Cases_on `f (p_1, p_2)`
+  >> simp [DISJ_IMP_THM, FORALL_AND_THM, afindi_def]
+  >> rw []
+  >> fs [FORALL_PROD]
+QED
+
+Theorem compile_shape_n_eq:
+  !sctxt n sh. compile_shape_n sctxt n sh = compile_shape (DROP n sctxt) sh
+Proof
+  recInduct compile_shape_n_ind
+  >> simp [compile_shape_n_def, compile_shape_def]
+  >> simp [Cong MAP_CONG, compile_shapes_eq_map]
+  >> rw []
+  >> simp [dropWhile_afindi]
+  >> every_case_tac >> fs []
+  >> fs [DROP_LENGTH_TOO_LONG]
+  >> imp_res_tac afindi_less_length
+  >> fs []
+  >> first_x_assum (mp_tac o Q.AP_TERM `\xs. (EL 0 xs, DROP 1 xs)`)
+  >> fs [HD_DROP, EL_DROP, DROP_DROP, Cong MAP_CONG]
+QED
+
+Theorem compile_shape_n_eq_rev[local] =
+  Q.SPECL [`sctxt`, `0`] compile_shape_n_eq
+  |> SIMP_RULE list_ss []
+  |> GSYM
+
 Theorem mem_load_flds_eq:
-  ! fld_shs vflds x. mem_load_flds fld_shs x madd memry stcs = SOME vflds ==> 
+  ! fld_shs vflds x. mem_load_flds fld_shs x madd memry stcs = SOME vflds ==>
   ?vs. mem_loads (MAP SND fld_shs) x madd memry stcs = SOME vs /\
     LENGTH vs = LENGTH fld_shs /\ vflds = ZIP (MAP FST fld_shs, vs)
 Proof
@@ -361,6 +471,194 @@ Proof
     >> rw []
     >> fs [ALL_DISTINCT_APPEND]
   )
+QED
+
+Theorem compile_shape_append_equiv:
+  (!sctxt sh xs ys.
+  is_wf_shape ys sh /\
+  m = MAP (λ(nm,info). (nm, info.fields)) /\
+  sctxt = m xs ++ m ys /\
+  struct_infos_ok (xs ++ ys) ==>
+  compile_shape sctxt sh = compile_shape (m ys) sh)
+  /\
+  (!sctxt shs xs ys.
+  EVERY (is_wf_shape ys) shs /\
+  m = MAP (λ(nm,info). (nm, info.fields)) /\
+  sctxt = m xs ++ m ys /\
+  struct_infos_ok (xs ++ ys) ==>
+  compile_shapes sctxt shs = compile_shapes (m ys) shs)
+Proof
+  ho_match_mp_tac compile_shape_ind
+  >> simp [compile_shape_def, is_wf_shape_def, SF ETA_ss]
+  >> rw []
+  >> every_case_tac >> fs []
+  >- (
+    fs [dropWhile_eq_nil]
+    >> gs (RES_CANON dropWhile_eq_nil)
+  )
+  >- (
+    fs [dropWhile_eq_nil]
+    >> imp_res_tac ALOOKUP_MEM
+    >> fs [EVERY_MAP]
+    >> imp_res_tac EVERY_MEM
+    >> fs []
+  )
+  >- (
+    qpat_x_assum `dropWhile _ (_ ++ _) = _` mp_tac
+    >> dep_rewrite.DEP_REWRITE_TAC [dropWhile_APPEND_EVERY]
+    >> fs [struct_infos_ok_def, ALL_DISTINCT_APPEND, EVERY_MAP]
+    >> imp_res_tac ALOOKUP_MEM
+    >> simp [EVERY_MEM, FORALL_PROD]
+    >> fs [MEM_MAP, FORALL_PROD, PULL_EXISTS]
+    >> metis_tac []
+  )
+QED
+
+Theorem compile_shape_name_no_drop:
+  struct_infos_ok ctxt /\
+  comp_ctxt = MAP (λ(nm,info). (nm, info.fields)) ctxt ==>
+  compile_shape comp_ctxt (Named nm) =
+  (case ALOOKUP comp_ctxt nm of
+    NONE => One
+  | SOME flds => Comb (MAP (compile_shape comp_ctxt) (MAP SND flds)))
+Proof
+  rw [compile_shape_def, ALOOKUP_MAP]
+  >> Cases_on `ALOOKUP ctxt nm` >> simp []
+  >- (
+    simp [list_case_eq, dropWhile_eq_nil]
+    >> DISJ1_TAC
+    >> simp [EVERY_MAP]
+    >> rw [EVERY_MEM, FORALL_PROD]
+    >> fs [ALOOKUP_NONE, MEM_MAP]
+  )
+  >- (
+    drule_at (Pat `ALOOKUP _ _ = _`) ALOOKUP_ALL_DISTINCT_split
+    >> impl_tac
+    >- ( fs [struct_infos_ok_def] )
+    >> strip_tac
+    >> simp [dropWhile_APPEND_EXISTS]
+    >> dep_rewrite.DEP_REWRITE_TAC [dropWhile_APPEND_EVERY]
+    >> simp [compile_shapes_eq_map, EVERY_MAP]
+    >> simp [EVERY_MEM, FORALL_PROD]
+    >> fs [MEM_MAP]
+    >> simp [LIST_EQ_REWRITE, EL_MAP]
+    >> rw []
+    >> irule EQ_SYM
+    >> drule_at_then (Pat `struct_infos_ok _`)
+        irule (cj 1 compile_shape_append_equiv)
+    >> simp []
+    >> fs [struct_infos_ok_def]
+    >> first_x_assum (qspec_then `LENGTH xs1` mp_tac)
+    >> simp [EL_APPEND1, EL_APPEND2, DROP_APPEND2]
+    >> simp [EVERY_EL, EL_MAP]
+  )
+QED
+
+Theorem ALOOKUP_eq_afindi:
+  ALOOKUP xs nm = OPTION_MAP (\i. SND (EL i xs)) (afindi nm xs)
+Proof
+  Induct_on `xs`
+  >> simp [afindi_def, FORALL_PROD]
+  >> rpt gen_tac
+  >> TOP_CASE_TAC
+  >> simp []
+  >> TOP_CASE_TAC
+  >> simp [EL_CONS, PRE_SUB1]
+QED
+
+Theorem afindi_append:
+  !k xs ys. afindi k (xs ++ ys) = (case afindi k xs of
+    NONE => OPTION_MAP ((+) (LENGTH xs)) (afindi k ys)
+  | SOME i => SOME i
+  )
+Proof
+  rpt gen_tac
+  >> Induct_on `xs`
+  >> simp [afindi_def, FORALL_PROD]
+  >> rw []
+  >> every_case_tac >> fs []
+QED
+
+Theorem afindi_EL:
+  !xs i. afindi k xs = SOME i ==> FST (EL i xs) = k
+Proof
+  Induct_on `xs`
+  >> simp [afindi_def, FORALL_PROD]
+  >> rw []
+  >> fs [option_case_eq]
+  >> res_tac
+  >> gvs [EL_CONS, PRE_SUB1]
+QED
+
+Theorem wf_shape_struct_infos_ok_helper[local]:
+  ALOOKUP (DROP n ctxt) nm = SOME info /\
+  struct_infos_ok ctxt ==>
+  ?i.
+  afindi nm (DROP n ctxt) = SOME i /\
+  i + n < LENGTH ctxt /\
+  EL (i + n) ctxt = (nm, info) /\
+  afindi nm ctxt = SOME (i + n) /\
+  (!sh. MEM sh (MAP SND info.fields) ==> is_wf_shape (DROP (i + n + 1) ctxt) sh)
+Proof
+  rw [struct_infos_ok_def]
+  >> subgoal `?c1 c2. ctxt = c1 ++ c2 /\ LENGTH c1 = n`
+  >- (
+    map_every qexists_tac [`TAKE n ctxt`, `DROP n ctxt`]
+    >> simp []
+    >> Cases_on `n < LENGTH ctxt`
+    >> fs [DROP_LENGTH_TOO_LONG]
+  )
+  >> fs [DROP_APPEND2]
+  >> qspecl_then [`nm`, `c1`, `c2`] mp_tac afindi_append
+  >> simp []
+  >> Cases_on `ALOOKUP c1 nm`
+  >- (
+    fs [ALOOKUP_eq_afindi, EL_APPEND2]
+    >> imp_res_tac afindi_less_length
+    >> imp_res_tac afindi_EL
+    >> fs []
+    >> simp [PAIR_FST_SND_EQ]
+    >> rw []
+    >> first_x_assum (qspec_then `i + LENGTH c1` mp_tac)
+    >> simp [EL_APPEND2, PAIR_FST_SND_EQ, EVERY_MEM, DROP_APPEND2]
+  )
+  >- (
+    imp_res_tac ALOOKUP_MEM
+    >> fs [ALL_DISTINCT_APPEND, MEM_MAP, PULL_EXISTS, FORALL_PROD]
+    >> metis_tac []
+  )
+QED
+
+Theorem size_of_compile_shape_n[local]:
+  (! ^sh_ctxt n sh.
+    sh_ctxt = MAP (λ(nm,info). (nm, info.fields)) ctxt /\
+    is_wf_shape (DROP n ctxt) sh /\
+    struct_infos_ok ctxt ==>
+    size_of_sh_with_ctxt [] (compile_shape_n sh_ctxt n sh) = size_of_sh_with_ctxt ctxt sh
+  )
+Proof
+  recInduct compile_shape_n_ind
+  >> simp [compile_shape_n_def, size_of_sh_with_ctxt_def, is_wf_shape_def]
+  >> rw []
+  >- (
+    fs [EVERY_MEM]
+    >> simp [Cong MAP_CONG, MAP_MAP_o]
+    >> simp [SF ETA_ss]
+  )
+  >- (
+    fs [is_wf_shape_def, ALOOKUP_MAP]
+    >> fs [CasePred "option"]
+    >> drule_then drule wf_shape_struct_infos_ok_helper
+    >> strip_tac
+    >> fs [GSYM MAP_DROP, afindi_MAP_eq, EL_MAP, ALOOKUP_eq_afindi]
+    >> simp [size_of_sh_with_ctxt_def, MAP_MAP_o, o_DEF]
+    >> fs [MEM_MAP, PULL_EXISTS]
+    >> simp [MAP_MAP_o, o_DEF, Cong MAP_CONG]
+    >> fs [struct_infos_ok_def]
+    >> imp_res_tac EVERY_EL
+    >> gs []
+    >> simp [size_of_sh_with_ctxt_def, MAP_MAP_o, o_DEF]
+ )
 QED
 
 Theorem size_of_compile_shape_ind[local]:
@@ -434,10 +732,13 @@ Proof
   >> gs []
 QED
 
-
+Theorem UNCURRY_EQ_o_SND[local]:
+  UNCURRY (\x. f) = (f o SND)
+Proof
+  simp [FUN_EQ_THM, FORALL_PROD]
+QED
 
 val x = ``x : 'a word``
-
 
 Theorem mem_load_conversion:
   (! str2 shape ^x madd mem str v.
@@ -445,14 +746,16 @@ Theorem mem_load_conversion:
   str2 = MAP (λ(nm,info). (nm,info.fields)) str ∧
   is_wf_shape str shape ∧
   struct_infos_ok str ⇒
-  mem_load (compile_shape str2 shape) x madd mem [] = SOME (convert_v v)
+  mem_load (compile_shape str2 shape) x madd mem [] = SOME (convert_v v) ∧
+  v_flds_ok str v
   ) ∧
   (! str2 shapes ^x madd mem str vs.
   mem_loads shapes x madd mem str = SOME vs ∧
   str2 = MAP (λ(nm,info). (nm,info.fields)) str  ∧
   EVERY (is_wf_shape str) shapes ∧
   struct_infos_ok str ⇒
-  mem_loads (compile_shapes str2 shapes) x madd mem [] = SOME (MAP convert_v vs)
+  mem_loads (compile_shapes str2 shapes) x madd mem [] = SOME (MAP convert_v vs) ∧
+  EVERY (v_flds_ok str) vs
   )
 Proof
   ho_match_mp_tac compile_shape_ind
@@ -494,8 +797,11 @@ Proof
       >> simp [EL_APPEND2, EL_APPEND1, DROP_APPEND2]
     )
     >> strip_tac
+    >> simp [MAP_ZIP, UNCURRY_EQ_o_SND]
+    >> imp_res_tac mem_loads_some_shape_eq
     >> simp []
-    >> simp [LIST_EQ_REWRITE, EL_MAP, EL_ZIP]
+    >> qpat_x_assum `EVERY (v_flds_ok _) _` mp_tac
+    >> simp [EVERY_EL, EL_ZIP, v_flds_ok_append]
   )
   >- (
     gvs [compile_shape_def, mem_load_def, convert_v_def, v_flds_ok_def]
@@ -509,20 +815,26 @@ Proof
   )
 QED
 
+Theorem old_exp_shapes_eq:
+  old_exp_shapes ctxt es = MAP (old_exp_shape ctxt) es
+Proof
+  Induct_on `es` >> simp [old_exp_shape_def]
+QED
 
 Theorem compile_exp_correct:
-  ∀s e ctxt v.
+  ∀s e v.
   eval s e = SOME v ∧
-  MAP (\(nm, info). (nm, info.fields)) s.structs = ctxt.structs ∧
-  FEVERY (\(nm, v). v_flds_ok ctxt.structs v) s.locals ∧
-  FEVERY (\(nm, v). v_flds_ok ctxt.structs v) s.globals ∧
-  structs_ok ctxt.structs
-  ⇒
-  v_flds_ok ctxt.structs v ∧ 
-  eval (convert_s s) (compile_exp ctxt e) = SOME (convert_v v)
-
+  alist_to_fmap ctxt.locals = FMAP_MAP2 (shape_of o SND) s.locals ∧
+  alist_to_fmap ctxt.globals = FMAP_MAP2 (shape_of o SND ) s.globals ∧
+  ctxt.structs = MAP (\(nm, info). (nm, info.fields)) s.structs ∧
+  FEVERY (\(nm, v). v_flds_ok s.structs v) s.locals ∧
+  FEVERY (\(nm, v). v_flds_ok s.structs v) s.globals ∧
+  struct_infos_ok s.structs
+  ==>
+  old_exp_shape ctxt e = shape_of v ∧
+  v_flds_ok s.structs v ∧
+  eval (convert_s ctxt code s) (compile_exp ctxt e) = SOME (convert_v v)
 Proof
-
   recInduct (name_ind_cases [] eval_ind) >> rpt conj_tac
   >> rpt (gen_tac ORELSE disch_tac)
   >~ [`NStruct`]
@@ -530,80 +842,70 @@ Proof
     fs [eval_def, UNCURRY_EQ]
     >> fs [option_case_eq, UNCURRY_EQ, UNZIP_MAP]
     >> simp [compile_exp_def, eval_def, convert_v_def]
-    >> gvs [v_flds_ok_def]
-    >> qpat_x_assum `MAP _ _ = _.structs` (assume_tac o GSYM)
+    >> gvs [v_flds_ok_def, shape_of_def, old_exp_shape_def]
     >> fs [ALOOKUP_MAP]
     >> imp_res_tac opt_mmap_length_eq >> fs []
-    >> csimp [LIST_EQ_REWRITE, EL_MAP, EL_ZIP]
-    >> simp [SF ETA_ss]
-    >> conj_tac
-    >- (
-      ONCE_REWRITE_TAC [ELIM_UNCURRY]
-      >> simp [every_zip_snd]
-      >> drule_then (irule_at Any) opt_mmap_eq_every
-      >> simp []
-      >> metis_tac []
-    )
+    >> simp [MAP_ZIP]
     >> imp_res_tac alookup_map_structs_ok
     >> simp [fields_in_order_reorder_noop]
-    >> simp [GSYM MAP_MAP_o, GSYM compile_exps_eq_map]
     >> fs [SF ETA_ss]
-    >> dxrule compile_exp_correct_mmap_helper
-    >> simp [convert_v_def, LIST_EQ_REWRITE, EL_MAP, EL_ZIP]
+    >> rpt conj_tac
+    >- (
+      simp [UNCURRY_EQ_o_SND, o_DEF, GSYM EVERY_MAP, MAP_ZIP]
+      >> drule_then irule opt_mmap_eq_every
+      >> simp [SF SFY_ss]
+    )
+    >- (
+      gs [EVERY_EL, EL_ZIP, LIST_EQ_REWRITE, EL_MAP]
+    )
+    >- (
+      drule compile_exp_correct_mmap_helper
+      >> simp [GSYM MAP_MAP_o, GSYM compile_exps_eq_map]
+      >> simp [convert_v_def, UNCURRY_EQ_o_SND, MAP_ZIP, SF ETA_ss]
+    )
   )
   >~ [`NField`]
   >- (
     fs [eval_def, option_case_eq, bool_case_eq, v_case_eq, compile_exp_def]
-    >> subgoal `old_exp_shape ctxt e = shape_of (THE (eval s e))`
-    >- cheat
-    >> simp [shape_of_def, convert_v_def]
     >> Cases_on `ALOOKUP s.structs nm` >> fs []
-    >> qpat_x_assum `MAP _ _ = _.structs` (assume_tac o GSYM)
-    >> simp [alistTheory.ALOOKUP_MAP_2]
-    >> first_x_assum (drule_at (Pat `FEVERY _ _`))
-    >> simp [v_flds_ok_def, ALOOKUP_MAP_2]
-    >> strip_tac
+    >> simp [convert_v_def, shape_of_def, old_exp_shape_def, alistTheory.ALOOKUP_MAP_2]
+    >> fs [shape_of_def, v_flds_ok_def, ALOOKUP_MAP_2]
     >> drule_then drule map_fst_eq_alookup
     >> strip_tac
     >> fs [EL_MAP, EVERY_EL, convert_v_def]
     >> res_tac
-    >> fs [ELIM_UNCURRY]
+    >> fs [ELIM_UNCURRY, LIST_EQ_REWRITE, EL_MAP]
   )
   >~ [`Load`]
   >- (
     gvs [eval_def, option_case_eq, v_case_eq, word_lab_case_eq, compile_exp_def,
         is_wf_shape_v_def, convert_v_def]
-    >> simp [convert_s_def, is_wf_shape_nil_compile_shape]
-
-mem_load_def
-
-word_lab_case_eq
- 
-
-MEM_SPLIT_APPEND_first
-
-print_match [] ``afindi``
-
-DB.apropos ``MEM _ _`` |> DB.apropos_in ``(++)``
-
-    >> imp_res_tac ALOOKUP_MEM
- 
+    >> simp [convert_s_def, is_wf_shape_compile_shape]
+    >> drule (cj 1 mem_load_conversion)
+    >> imp_res_tac mem_loads_some_shape_eq
+    >> simp [old_exp_shape_def]
+  )
   >~ [`RStruct`]
   >- (
-    gvs [eval_def, compile_exp_def, convert_v_def, v_flds_ok_def, option_case_eq]
+    gvs [eval_def, compile_exp_def, convert_v_def, v_flds_ok_def,
+        option_case_eq, old_exp_shape_def, shape_of_def]
     >> fs [SF ETA_ss]
     >> drule_then (irule_at Any) opt_mmap_eq_every
     >> drule_then (irule_at Any) compile_exp_correct_mmap_helper
     >> simp [SF SFY_ss]
+    >> fs [old_exp_shapes_eq, LIST_EQ_REWRITE, EL_MAP,
+        opt_mmap_eq_some_el, EL_MEM]
   )
   >~ [`RField`]
   >- (
-    gvs [eval_def, option_case_eq, v_case_eq, compile_exp_def]
+    gvs [eval_def, option_case_eq, v_case_eq, compile_exp_def,
+        old_exp_shape_def, shape_of_def, LLOOKUP_THM]
     >> fs [EVERY_EL, convert_v_def, EL_MAP, v_flds_ok_def]
   )
   >~ [`Panop`]
   >- (
-    gvs [eval_def, option_case_eq, v_case_eq, compile_exp_def]
+    gvs [eval_def, option_case_eq, v_case_eq, compile_exp_def,
+        old_exp_shape_def, shape_of_def]
     >> fs [convert_v_def, v_flds_ok_def, SF ETA_ss]
     >> drule_then (simp o single) compile_exp_correct_mmap_helper
     >> imp_res_tac every_convert_v_eq
@@ -611,88 +913,20 @@ DB.apropos ``MEM _ _`` |> DB.apropos_in ``(++)``
   )
   >~ [`Op`]
   >- (
-    gvs [eval_def, option_case_eq, v_case_eq, compile_exp_def]
+    gvs [eval_def, option_case_eq, v_case_eq, compile_exp_def,
+        old_exp_shape_def, shape_of_def]
     >> fs [convert_v_def, v_flds_ok_def, SF ETA_ss]
     >> drule_then (simp o single) compile_exp_correct_mmap_helper
     >> imp_res_tac every_convert_v_eq
     >> fs []
   )
-
-
-
-  >> TRY (all_tac
   >> gvs [eval_def, compile_exp_def, convert_v_def, v_flds_ok_def,
-    convert_s_def, FLOOKUP_FMAP_MAP2, AllCaseEqs ()]
+    convert_s_def, FLOOKUP_FMAP_MAP2, AllCaseEqs (), old_exp_shape_def,
+    shape_of_def]
   >> simp [compile_exp_correct_mmap_helper, EL_MAP]
   >> drule_then drule FEVERY_FLOOKUP
+  >> asm_simp_tac bool_ss [GSYM (cj 1 ALOOKUP_EQ_FLOOKUP), FLOOKUP_FMAP_MAP2]
   >> simp []
-  >> NO_TAC)
-
-
-
-  >- (
-    gvs [eval_def, option_case_eq, v_case_eq, compile_exp_def]
-    >> fs [EVERY_EL, convert_v_def, EL_MAP, v_flds_ok_def, SF ETA_ss]
-    >> drule_then (simp o single) compile_exp_correct_mmap_helper
- 
-    >> simp [compile_exp_correct_mmap_helper, SF SFY_ss]
-    >> drule_then (irule_at Any) compile_exp_correct_mmap_helper
-    
-
-    >> fs [EVERY_EL, convert_v_def, EL_MAP, v_flds_ok_def]
-
-  >> TRY (all_tac
-  >> gvs [eval_def, compile_exp_def, convert_v_def, v_flds_ok_def,
-    convert_s_def, FLOOKUP_FMAP_MAP2, AllCaseEqs ()]
-  >> imp_res_tac every_convert_v_eq
-  >> simp [compile_exp_correct_mmap_helper, EL_MAP]
-  >> drule_then drule FEVERY_FLOOKUP
-  >> simp []
-  >> NO_TAC)
-
-print_find "fst_zip"
-print_find "map_fst"
-print_find "flookup_fmap"
-
-print_match [] ``ALOOKUP (MAP _ _)``;
-fs [Q.ISPEC `MAP _ _` EQ_SYM_EQ |> Q.SPEC `_.structs`]
-print_find "comm"
-EQ_COMM
-
-print_find "opt_mmap_el";
-
-  )
-  >~ [`NField`]
-  >- (
-    gs [eval_def, UNCURRY_EQ, v_case_eq, option_case_eq]
-  )
-  >~ [`RField`]
-  >- (
-    gvs [eval_def, option_case_eq, v_case_eq, compile_exp_def, is_wf_shape_v_def]
-    >> fs [FORALL_AND_THM, EVERY_EL]
-  )
-  >~ [`Load`]
-  >- (
-    gvs [eval_def, AllCaseEqs (), compile_exp_def, is_wf_shape_v_def]
-    >> simp [compile_shape_eq]
-  )
-  >> gvs [eval_def, compile_exp_def, AllCaseEqs (), is_wf_shape_v_def]
-  >> imp_res_tac FEVERY_FLOOKUP
-  >> fs []
-  >> dxrule compile_exp_correct_mmap_helper
-  >> simp []
-QED
-
-Theorem compile_exp_correct_eq[local]:
-  ∀s e v.
-  eval s e <> NONE /\ s.structs = []
-  ⇒
-  eval s (compile_exp ctxt e) = eval s e
-Proof
-  rw []
-  \\ Cases_on `eval s e` \\ fs []
-  \\ dxrule compile_exp_correct
-  \\ simp []
 QED
 
 Theorem evaluate_structs_code_inv[local]:
@@ -708,214 +942,746 @@ Proof
   simp [eval_upd_code_eq, FUN_EQ_THM]
 QED
 
+Theorem res_var_FMAP_MAP2:
+  (!y. x = SOME y ==> f (nm, y) = g y) ==>
+  res_var (FMAP_MAP2 f fmap) (nm, OPTION_MAP g x) =
+  FMAP_MAP2 f (res_var fmap (nm, x))
+Proof
+  Cases_on `x`
+  >> rw []
+  >> simp [res_var_def, DOMSUB_FMAP_MAP2, FMAP_MAP2_FUPDATE]
+QED
+
+Theorem res_var_FMAP_MAP2_rev:
+  FMAP_MAP2 f (res_var fmap (nm, x)) =
+  res_var (FMAP_MAP2 f fmap) (nm, OPTION_MAP (\y. f (nm, y)) x)
+Proof
+  Cases_on `x`
+  >> rw []
+  >> simp [res_var_def, DOMSUB_FMAP_MAP2, FMAP_MAP2_FUPDATE]
+QED
+
+
+Theorem FEVERY_res_var:
+  FEVERY P (res_var fmap (k, opt_v)) =
+  (FEVERY P (DRESTRICT fmap (COMPL {k})) /\
+    (!v. opt_v = SOME v ==> P (k, v)))
+Proof
+  Cases_on `opt_v`
+  >> simp [res_var_def, fmap_domsub, FEVERY_FUPDATE]
+  >> metis_tac []
+QED
+
+Theorem shape_of_convert_v_ind[local]:
+  ! str_ctxt n sh v.
+  struct_infos_ok ctxt /\
+  is_wf_shape (DROP n ctxt) sh /\
+  v_flds_ok ctxt v /\
+  str_ctxt = MAP (λ(nm,info). (nm, info.fields)) ctxt /\
+  shape_of v = sh ==>
+  compile_shape_n str_ctxt n sh = shape_of (convert_v v)
+Proof
+  recInduct compile_shape_n_ind
+  >> simp [convert_v_def, shape_of_def, compile_shape_n_def,
+        compile_shapes_eq_map, MAP_MAP_o, shape_of_val, v_flds_ok_def,
+        shape_of_def]
+  >> rw []
+  >> Cases_on `v`
+  >> fs [shape_of_def, shape_of_val, convert_v_def, v_flds_ok_def]
+  >- (
+    gvs [MAP_MAP_o, o_DEF, MEM_MAP, PULL_EXISTS, is_wf_shape_def, EVERY_MAP]
+    >> irule MAP_CONG
+    >> fs [v_flds_ok_def, EVERY_MEM]
+  )
+  >- (
+    fs [is_wf_shape_def, CasePred "option"]
+    >> drule_then drule wf_shape_struct_infos_ok_helper
+    >> strip_tac
+    >> fs [GSYM MAP_DROP, afindi_MAP_eq, EL_MAP, GSYM MAP_MAP_o]
+    >> gs [LIST_EQ_REWRITE, EL_MAP, ALOOKUP_eq_afindi]
+    >> rw []
+    >> irule EQ_TRANS
+    >> first_x_assum (irule_at Any)
+    >> first_x_assum (irule_at Any)
+    >> simp [ELIM_UNCURRY, EL_MEM, EL_MAP]
+    >> simp [MEM_MAP]
+    >> drule_then (irule_at Any) EL_MEM
+    >> fs [EVERY_EL, ELIM_UNCURRY]
+  )
+QED
+
+Theorem shape_of_convert_v:
+  ! v str_ctxt n. v_flds_ok ctxt v /\
+  str_ctxt = MAP (λ(nm,info). (nm, info.fields)) ctxt /\
+  is_wf_shape_v ctxt v /\
+  struct_infos_ok ctxt ==>
+  compile_shape str_ctxt (shape_of v) = shape_of (convert_v v)
+Proof
+  rw [compile_shape_n_eq_rev]
+  >> drule_then irule shape_of_convert_v_ind
+  >> simp [is_wf_shape_of_v]
+QED
+
+Theorem shape_of_convert_v_rev[local] =
+  SIMP_RULE std_ss [] (GSYM shape_of_convert_v)
+
+Theorem flatten_convert_v:
+  !v. flatten (convert_v v) = flatten v
+Proof
+  recInduct convert_v_ind
+  >> simp [convert_v_def, flatten_def, MAP_MAP_o, Cong MAP_CONG]
+  >> simp [SF ETA_ss]
+  >> rw []
+  >> AP_TERM_TAC
+  >> irule MAP_CONG
+  >> simp [FORALL_PROD, SF SFY_ss]
+QED
+
 Definition code_rel_def:
-  code_rel code1 code2 = (
-    !nm sh prog. FLOOKUP code1 nm = SOME (sh, prog) ==>
-      ?ctxt. FLOOKUP code2 nm = SOME (sh, compile ctxt prog))
+  code_rel ctxt code1 code2 = (
+    code2 = FMAP_MAP2 ((\(nm, (params, prog)).
+        (MAP (I ## compile_shape ctxt.structs) params, compile (ctxt with locals := params) prog)))
+        code1)
 End
 
 Theorem code_rel_imp[local] = hd (RES_CANON code_rel_def)
 
+Theorem map_uncurry_zip_again[local]:
+  LENGTH xs = LENGTH ys ==>
+  MAP (\(x, y). (f x, g y)) (ZIP (xs, ys)) = ZIP (MAP f xs, MAP g ys)
+Proof
+  simp [LIST_EQ_REWRITE, EL_MAP, EL_ZIP, FORALL_PROD]
+QED
+
+Theorem fupdate_elim2[local]:
+  FLOOKUP fm x = SOME y ==>
+  FUPDATE fm (x, y) = fm
+Proof
+  simp [FUPDATE_ELIM, TO_FLOOKUP]
+QED
+
+Theorem lookup_code_flds_ok[local]:
+  OPT_MMAP (eval s) argexps = SOME args ∧
+  lookup_code s.code fname args = SOME (prog, newlocals) ∧
+  code_rel orig_ctxt s.code code ∧
+  alist_to_fmap ctxt.locals = FMAP_MAP2 (shape_of o SND) s.locals ∧
+  alist_to_fmap ctxt.globals = FMAP_MAP2 (shape_of o SND ) s.globals ∧
+  ctxt.structs = MAP (\(nm, info). (nm, info.fields)) s.structs ∧
+  orig_ctxt.structs = MAP (\(nm, info). (nm, info.fields)) s.structs ∧
+  FEVERY (\(nm, v). v_flds_ok s.structs v) s.locals ∧
+  FEVERY (\(nm, v). v_flds_ok s.structs v) s.globals ∧
+  FEVERY (\(nm, v). is_wf_shape_v s.structs v) s.locals ∧
+  FEVERY (\(nm, v). is_wf_shape_v s.structs v) s.globals ∧
+  struct_infos_ok s.structs ⇒
+  OPT_MMAP (eval (convert_s ctxt code s)) (compile_exps ctxt argexps) =
+    SOME (MAP convert_v args) ∧
+  EVERY (\v. v_flds_ok s.structs v) args ∧
+  (? new_l.
+  lookup_code (convert_s ctxt code s).code fname (MAP convert_v args) =
+    SOME (compile (orig_ctxt with locals := new_l) prog,
+        FMAP_MAP2 (λ(nm,v). convert_v v) newlocals) ∧
+    alist_to_fmap new_l = FMAP_MAP2 (shape_of o SND) newlocals
+  ) ∧
+  FEVERY (\(nm, v). v_flds_ok s.structs v) newlocals ∧
+  FEVERY (\(nm, v). is_wf_shape_v s.structs v) newlocals
+Proof
+  strip_tac
+  >> subgoal `EVERY (\v. is_wf_shape_v s.structs v ∧ v_flds_ok s.structs v) args`
+  >- (
+    drule_then irule opt_mmap_eq_every
+    >> rw []
+    >> imp_res_tac eval_is_wf_shape_v
+    >> drule_then drule compile_exp_correct
+    >> simp []
+  )
+  >> subgoal `FEVERY (\(nm, v). MEM v args) newlocals`
+  >- (
+    gvs [lookup_code_def, option_case_eq, bool_case_eq, pair_case_eq]
+    >> rw [FEVERY_ALL_FLOOKUP, alistTheory.flookup_fupdate_list, option_case_eq]
+    >> dxrule ALOOKUP_MEM
+    >> rw []
+    >> dxrule_at Any MEM_ZIP_MEM_MAP
+    >> fs [LIST_REL_EL_EQN]
+  )
+  >> rpt conj_tac
+  >- (
+    irule compile_exp_correct_mmap_helper
+    >> simp [compile_exp_correct]
+  )
+  >- (
+    fs [EVERY_MEM]
+  )
+  >- (
+    gvs [lookup_code_def, option_case_eq, bool_case_eq, pair_case_eq]
+    >> fs [convert_s_def, code_rel_def, FLOOKUP_FMAP_MAP2,
+        FMAP_MAP2_FUPDATE_LIST, FMAP_MAP2_FEMPTY, LIST_REL_MAP]
+    >> irule_at Any EQ_REFL
+    >> fs [LIST_REL_EL_EQN, EVERY_EL]
+    >> simp [map_uncurry_zip_again, fm_empty_zip_alist]
+    >> drule_at (Pat `struct_infos_ok _`) shape_of_convert_v_rev
+    >> rw []
+    >> AP_TERM_TAC
+    >> irule LIST_EQ
+    >> simp [EL_MAP, EL_ZIP, PAIR_FST_SND_EQ]
+  )
+  >- (
+    fs [FEVERY_ALL_FLOOKUP, EVERY_MEM]
+    >> metis_tac []
+  )
+  >- (
+    fs [FEVERY_ALL_FLOOKUP, EVERY_MEM]
+    >> metis_tac []
+  )
+QED
+
+Definition is_cont_res_def:
+  is_cont_res NONE = T /\
+  is_cont_res (SOME Break) = T /\
+  is_cont_res (SOME Continue) = T /\
+  is_cont_res _ = F
+End
+
+Theorem is_cont_res_eq_disj[local]:
+  is_cont_res res = (res = NONE \/ res = SOME Break \/ res = SOME Continue)
+Proof
+  Cases_on `THE res` >> Cases_on `res` >> fs [is_cont_res_def]
+QED
+
+Definition convert_res_def:
+  convert_res (SOME Break) = SOME Break /\
+  convert_res (SOME (Return v)) = SOME (Return (convert_v v)) /\
+  convert_res (SOME (Exception eid ev)) = SOME (Exception eid (convert_v ev)) /\
+  convert_res res = res
+End
+
+Theorem convert_res_eq_case1[local]:
+  convert_res res = (case res of
+    SOME Break => convert_res (SOME Break)
+  | SOME x => convert_res (SOME x)
+  | NONE => NONE)
+Proof
+  every_case_tac >> simp [convert_res_def]
+QED
+
+Theorem convert_res_eq_case[local] =
+  REWRITE_RULE [convert_res_def] convert_res_eq_case1
+
+Theorem convert_res_eq_NONE[local] =
+  SIMP_CONV (srw_ss ()) [convert_res_eq_case, option_case_eq, result_case_eq]
+    ``convert_res res = NONE``
+
+Definition res_vs_def:
+  res_vs (SOME (Return v)) = [v] /\
+  res_vs (SOME (Exception eid ev)) = [ev] /\
+  res_vs _ = []
+End
+
 Theorem compile_correct:
   ∀ p s res s' ctxt.
   evaluate (p, s) = (res, s') ∧
-  code_rel s.code code ∧
-  s.structs = [] ∧
-  FEVERY (λ(nm,v). is_wf_shape_v_nil v) s.locals ∧
-  FEVERY (λ(nm,v). is_wf_shape_v_nil v) s.globals ∧
+  code_rel (ctxt with locals := []) s.code code ∧
+  ctxt.structs = MAP (\(nm, info). (nm, info.fields)) s.structs ∧
+  FEVERY (\(nm, v). v_flds_ok s.structs v) s.locals ∧
+  FEVERY (\(nm, v). v_flds_ok s.structs v) s.globals ∧
+  FEVERY (\(nm, v). is_wf_shape_v s.structs v) s.locals ∧
+  FEVERY (\(nm, v). is_wf_shape_v s.structs v) s.globals ∧
+  struct_infos_ok s.structs ∧
+  alist_to_fmap ctxt.locals = FMAP_MAP2 (shape_of o SND) s.locals ∧
+  alist_to_fmap ctxt.globals = FMAP_MAP2 (shape_of o SND ) s.globals ∧
   res ≠ SOME Error
   ⇒
-  evaluate (compile ctxt p, (s with code := code)) = (res, (s' with code := code))
+  evaluate (compile ctxt p, convert_s ctxt code s) =
+    (convert_res res, convert_s ctxt code s') ∧
+  FEVERY (\(nm, v). v_flds_ok s'.structs v) s'.locals ∧
+  FEVERY (\(nm, v). v_flds_ok s'.structs v) s'.globals ∧
+  alist_to_fmap ctxt.globals = FMAP_MAP2 (shape_of o SND ) s'.globals ∧
+  (is_cont_res res ==>
+    alist_to_fmap ctxt.locals = FMAP_MAP2 (shape_of o SND) s'.locals
+  ) ∧
+  EVERY (v_flds_ok s'.structs) (res_vs res) ∧
+  EVERY (is_wf_shape_v s'.structs) (res_vs res)
 Proof
   recInduct (name_ind_cases [] evaluate_ind) >> rpt conj_tac
-  >> rpt (gen_tac ORELSE disch_tac)
+  >> rpt (gen_tac ORELSE (disch_then strip_assume_tac))
+  >> rpt (qpat_x_assum `!x. _` (assume_named_tac "forall_IH"))
   >> fs [compile_def]
   >~ [`While`]
   >- (
     qpat_x_assum `evaluate _ = _` mp_tac
     >> ONCE_REWRITE_TAC [evaluate_def]
     >> strip_tac
-    >> gs [AllCaseEqs (), UNCURRY_EQ, eval_upd_code_eq]
+    >> gs [option_case_eq]
+    >> drule_then drule compile_exp_correct
+    >> gvs [v_case_eq, word_lab_case_eq, convert_v_def, bool_case_eq,
+        convert_s_def, empty_locals_def, FMAP_MAP2_FEMPTY, UNCURRY_EQ,
+        dec_clock_def, FEVERY_FEMPTY, convert_res_def, is_cont_res_def,
+        res_vs_def]
+    >> last_x_assum mp_tac
+    >> simp [markerTheory.label_def, dec_clock_def, convert_s_def]
+    >> disch_then (drule_at (Pat `code_rel _ _ _`))
+    >> gs [option_case_eq, result_case_eq, dec_clock_def, convert_s_def,
+        convert_res_def, is_cont_res_def, res_vs_def]
+    (* down to looping cases *)
+    >> rpt disch_tac
     >> imp_res_tac evaluate_structs_code_inv
     >> imp_res_tac evaluate_is_wf_shape_invariant
-    >> gvs [compile_exp_correct_eq, dec_clock_def, empty_locals_def]
+    >> imp_res_tac evaluate_structs_code_inv
+    >> gs [markerTheory.label_def, dec_clock_def, compile_def, convert_s_def,
+        is_cont_res_def, res_vs_def]
+    >> first_x_assum (drule_at (Pat `code_rel _ _ _`))
+    >> simp []
+    >> rpt disch_tac
+    >> gs []
   )
   >~ [`Dec`]
   >- (
     gs [evaluate_def, AllCaseEqs (), UNCURRY_EQ, eval_upd_code_eq]
+    >> drule_then drule compile_exp_correct
+    >> strip_tac
+    >> gs [markerTheory.label_def]
+    >> qmatch_goalsub_abbrev_tac `compile upd_ctxt _`
+    >> last_x_assum (qspec_then `upd_ctxt` mp_tac)
+    >> fs [markerTheory.Abbrev_def]
+    >> simp [FEVERY_FUPDATE, fevery_to_drestrict, FMAP_MAP2_FUPDATE]
+    >> simp [convert_s_def, FMAP_MAP2_FUPDATE, FLOOKUP_FMAP_MAP2, SF ETA_ss,
+        res_var_FMAP_MAP2_rev]
+    >> rpt disch_tac >> gs []
     >> imp_res_tac eval_is_wf_shape_v
+    >> gvs [FORALL_AND_THM]
+    >> simp [SIMP_RULE std_ss [] shape_of_convert_v]
     >> imp_res_tac evaluate_structs_code_inv
-    >> imp_res_tac evaluate_is_wf_shape_invariant
-    >> gvs [FEVERY_FUPDATE, fevery_to_drestrict]
-    >> simp [compile_exp_correct_eq, compile_shape_eq, is_wf_shape_v_nil]
+    >> fs []
+    >> simp [res_var_FMAP_MAP2_rev, FEVERY_res_var, fevery_to_drestrict,
+        SF ETA_ss, fmap_eq_flookup, FLOOKUP_pan_res_var_thm, FLOOKUP_FMAP_MAP2,
+        COND_ID]
+    >> rw [] >> rw []
+    >> imp_res_tac FEVERY_FLOOKUP
+    >> fs []
+    >> qpat_x_assum `FUPDATE _ _ = _` (mp_tac o GSYM)
+    >> simp [fmap_eq_flookup, FLOOKUP_FMAP_MAP2, SF ETA_ss, FLOOKUP_UPDATE]
+  )
+  >~ [`Assign`]
+  >- (
+    gvs [evaluate_def, option_case_eq, pair_case_eq, bool_case_eq]
+    >> imp_res_tac compile_exp_correct
+    >> simp [is_cont_res_def, res_vs_def]
+    >> simp [set_kvar_def]
+    >> every_case_tac
+    >> fs [set_var_def, is_valid_value_def, convert_s_def, FLOOKUP_FMAP_MAP2,
+        CasePred "option", FMAP_MAP2_FUPDATE, FEVERY_FUPDATE, fevery_to_drestrict,
+        set_global_def, convert_res_def]
+    >> simp [fupdate_elim2, FLOOKUP_FMAP_MAP2]
+    >> imp_res_tac eval_is_wf_shape_v
+    >> imp_res_tac FEVERY_FLOOKUP
+    >> fs []
+    >> imp_res_tac shape_of_convert_v_rev
+    >> simp []
   )
   >~ [`Call`]
   >- (
+    (* a bit fiddly, handles the cases in parallel *)
     every_case_tac
-    >> gvs [evaluate_def, option_case_eq, pair_case_eq, eval_upd_code_eq2]
-    >> drule_then (drule_then assume_tac) lookup_code_wf_shape_invariant_step
-    >> gs []
-    >> gvs [evaluate_def, lookup_code_def, AllCaseEqs (), UNCURRY_EQ,
-            compile_exp_correct_eq, eval_upd_code_eq2]
-    >> imp_res_tac code_rel_imp
-    >> drule_then (irule_at Any) (SIMP_RULE bool_ss [SF ETA_ss] compile_exp_correct_mmap_helper)
-    >> simp [compile_exp_correct_eq, FLOOKUP_FMAP_MAP2, empty_locals_def]
+    >> gvs [evaluate_def, option_case_eq, pair_case_eq]
+    >> drule_then (drule_then (drule_then drule)) lookup_code_flds_ok
+    >> simp [EVAL ``(convert_s _ _ _).clock``]
+    >> strip_tac
+    >> gvs [bool_case_eq, is_cont_res_def, convert_res_def, empty_locals_def,
+        FEVERY_FEMPTY, res_vs_def]
+    >> simp [convert_s_def, empty_locals_def, FMAP_MAP2_FEMPTY]
+    >> last_x_assum (mp_tac o REWRITE_RULE [markerTheory.label_def])
+    >> fs [pair_case_eq, option_case_eq] >> fs []
+    >> fs [dec_clock_def]
+    >> disch_then (qspec_then `ctxt with locals := new_l` mp_tac)
+    >> simp []
     >> imp_res_tac evaluate_structs_code_inv
-    >> imp_res_tac evaluate_is_wf_shape_invariant
-    >> gs [dec_clock_def, set_var_def, set_kvar_def, set_global_def, FEVERY_FUPDATE, fevery_to_drestrict]
-    >> every_case_tac >> simp []
+    >> gvs [bool_case_eq, convert_res_def, is_cont_res_def, empty_locals_def,
+        FEVERY_FEMPTY, convert_s_def, FMAP_MAP2_FEMPTY, dec_clock_def,
+        pair_case_eq, option_case_eq, result_case_eq, markerTheory.label_def,
+        res_vs_def]
+    (* Return and Exception cases remain *)
+    >~ [`evaluate _ = (SOME (Exception _ _), _)`]
+    >- (
+      (* Handler case with extra evaluate. *)
+      fs [set_var_def]
+      >> strip_tac
+      >> first_x_assum (drule_at (Pat `code_rel _ _ _`))
+      >> simp [FEVERY_FUPDATE, FMAP_MAP2_FUPDATE, fevery_to_drestrict]
+      >> impl_tac
+      >- (
+        fs []
+        >> imp_res_tac evaluate_is_wf_shape_invariant
+        >> gs [FEVERY_FUPDATE, fevery_to_drestrict]
+        >> fs [is_valid_value_def, CasePred "option"]
+        >> simp [FMAP_MAP2_FUPDATE, fupdate_elim2, FLOOKUP_FMAP_MAP2,
+            FLOOKUP_UPDATE]
+      )
+      >> strip_tac
+      >> fs [FLOOKUP_FMAP_MAP2, is_valid_value_def, CasePred "option"]
+      >> imp_res_tac FEVERY_FLOOKUP
+      >> fs []
+      >> imp_res_tac shape_of_convert_v_rev
+      >> gs [fupdate_elim2, FMAP_MAP2_FUPDATE, FLOOKUP_FMAP_MAP2]
+    )
+    >> strip_tac
+    >> simp [set_kvar_def] >> every_case_tac
+    >> fs [is_valid_value_def, CasePred "option"]
+    (* sigh @ repeating the "assign" argument again *)
+    >> fs [set_var_def, set_global_def, FEVERY_FUPDATE, FMAP_MAP2_FUPDATE,
+        fevery_to_drestrict, FLOOKUP_FMAP_MAP2, fupdate_elim2]
+    >> imp_res_tac FEVERY_FLOOKUP
+    >> fs []
+    >> imp_res_tac shape_of_convert_v_rev
+    >> qspecl_then [`p`, `_ with <|locals := _; clock := _|>`]
+        drule evaluate_global_shape_invariant
+    >> simp []
+    >> disch_then imp_res_tac
+    >> simp [fupdate_elim2, FLOOKUP_FMAP_MAP2]
   )
   >~ [`DecCall`]
   >- (
-    gvs [evaluate_def, option_case_eq, pair_case_eq, eval_upd_code_eq2]
-    >> drule_then (drule_then assume_tac) lookup_code_wf_shape_invariant_step
-    >> gs []
-    >> gvs [evaluate_def, lookup_code_def, AllCaseEqs (), UNCURRY_EQ, compile_exp_correct_eq]
-    >> imp_res_tac code_rel_imp
-    >> drule_then (irule_at Any) (SIMP_RULE bool_ss [SF ETA_ss] compile_exp_correct_mmap_helper)
-    >> simp [compile_exp_correct_eq, FLOOKUP_FMAP_MAP2, empty_locals_def]
+    (* here we go again *)
+    gvs [evaluate_def, option_case_eq, pair_case_eq]
+    >> drule_then (drule_then (drule_then drule)) lookup_code_flds_ok
+    >> simp [EVAL ``(convert_s _ _ _).clock``]
+    >> strip_tac
+    >> gvs [bool_case_eq, is_cont_res_def, convert_res_def, empty_locals_def,
+        FEVERY_FEMPTY, res_vs_def]
+    >> simp [convert_s_def, empty_locals_def, FMAP_MAP2_FEMPTY]
+    >> last_x_assum (mp_tac o REWRITE_RULE [markerTheory.label_def])
+    >> fs [pair_case_eq, option_case_eq] >> fs []
+    >> fs [dec_clock_def]
+    >> disch_then (qspec_then `ctxt with locals := new_l` mp_tac)
+    >> simp []
     >> imp_res_tac evaluate_structs_code_inv
+    >> gvs [bool_case_eq, convert_res_def, is_cont_res_def, empty_locals_def,
+        FEVERY_FEMPTY, convert_s_def, FMAP_MAP2_FEMPTY, dec_clock_def,
+        pair_case_eq, option_case_eq, result_case_eq, markerTheory.label_def,
+        res_vs_def]
+    >> simp [shape_of_convert_v_rev]
+    >> strip_tac
+    >> fs [UNCURRY_EQ] >> fs []
+    >> qmatch_goalsub_abbrev_tac `compile upd_ctxt _`
+    >> last_x_assum (qspec_then `upd_ctxt` mp_tac)
+    >> fs [markerTheory.Abbrev_def, set_var_def]
     >> imp_res_tac evaluate_is_wf_shape_invariant
-    >> gs [dec_clock_def, set_var_def, FEVERY_FUPDATE, fevery_to_drestrict,
-        compile_shape_eq, is_wf_shape_v_nil]
+    >> gs [FEVERY_FUPDATE, fevery_to_drestrict, FMAP_MAP2_FUPDATE]
+    >> strip_tac
+    >> gvs []
+    >> simp [res_var_FMAP_MAP2_rev, FEVERY_res_var, fevery_to_drestrict,
+        FLOOKUP_pan_res_var_thm, FLOOKUP_FMAP_MAP2]
+    >> conj_tac
+    >- (
+      rw []
+      >> imp_res_tac FEVERY_FLOOKUP
+      >> imp_res_tac evaluate_structs_code_inv
+      >> fs []
+    )
+    >> disch_tac
+    >> fs []
+    >> qpat_x_assum `FUPDATE _ _ = _` (mp_tac o GSYM)
+    >> simp [fmap_eq_flookup, FLOOKUP_pan_res_var_thm, FLOOKUP_FMAP_MAP2,
+        FLOOKUP_UPDATE]
+    >> rw [] >> rw []
   )
-  >> gs [evaluate_def, AllCaseEqs (), UNCURRY_EQ, compile_exp_correct_eq,
-        eval_upd_code_eq2, sh_mem_load_def, sh_mem_store_def]
-  >> simp [GSYM (Q.ISPEC `compile ctxt` boolTheory.COND_RAND)]
-  >> imp_res_tac evaluate_structs_code_inv
-  >> imp_res_tac evaluate_is_wf_shape_invariant
-  >> fs [set_kvar_def, set_var_def, set_global_def] >> every_case_tac
-  >> gvs [empty_locals_def, dec_clock_def]
-QED
-
-Theorem compile_decs_correct:
-  !s decs ctxt code. evaluate_decls s decs = SOME s' ∧
-  code_rel s.code code ∧
-  ctxt.structs = [] ∧ s.structs = [] ∧ s.locals = FEMPTY ∧
-  FEVERY (λ(nm,v). is_wf_shape_v_nil v) s.globals ==>
-  ?code'.
-  evaluate_decls (s with code := code) (FST (compile_decs ctxt decs)) =
-    SOME (s' with code := code') ∧
-  code_rel s'.code code'
-Proof
-  recInduct (name_ind_cases [] evaluate_decls_ind)
-  >> rw []
-  >> fs [compile_decs_def, evaluate_decls_def]
+  >~ [`ShMemLoad`]
   >- (
-    metis_tac []
+    gvs [evaluate_def, option_case_eq, pair_case_eq, bool_case_eq, v_case_eq,
+        word_lab_case_eq, flatten_convert_v]
+    >> imp_res_tac compile_exp_correct
+    >> simp [convert_v_def, convert_s_def, convert_res_def]
+    >> fs [lookup_kvar_def, varkind_case_eq, FLOOKUP_FMAP_MAP2, convert_v_def]
+    >> gvs [sh_mem_load_def, bool_case_eq, ffiTheory.ffi_result_case_eq,
+        set_var_def, set_global_def, is_cont_res_def, FEVERY_FUPDATE,
+        fevery_to_drestrict, FMAP_MAP2_FUPDATE, convert_v_def, v_flds_ok_def,
+        empty_locals_def, FMAP_MAP2_FEMPTY, FEVERY_FEMPTY, convert_res_def,
+        res_vs_def]
+    >> simp [fupdate_elim2, FLOOKUP_UPDATE, FLOOKUP_FMAP_MAP2, shape_of_val]
   )
+  >~ [`Seq`]
   >- (
-    gs [option_case_eq, bool_case_eq]
-    >> simp [UNCURRY]
-    >> fs [evaluate_decls_def, compile_exp_correct_eq,
-        eval_upd_code_eq |> Q.SPEC `st with locals := l` |> SIMP_RULE (srw_ss ()) []]
+    gvs [evaluate_def, UNCURRY_EQ]
+    >> rpt (label_x_assum "forall_IH" mp_tac)
+    >> simp []
+    >> disch_then drule
+    >> simp []
+    >> gs [bool_case_eq, convert_res_def, is_cont_res_def, convert_res_eq_NONE,
+        res_vs_def]
+    >> strip_tac
+    >> imp_res_tac evaluate_structs_code_inv
+    >> fs []
+    >> disch_then drule
+    >> imp_res_tac evaluate_is_wf_shape_invariant
+    >> gs [convert_s_def, is_cont_res_def, res_vs_def]
+  )
+  >~ [`If`]
+  >- (
+    gvs [evaluate_def, option_case_eq, v_case_eq, word_lab_case_eq]
+    >> imp_res_tac compile_exp_correct
+    >> imp_res_tac evaluate_is_wf_shape_invariant
+    >> imp_res_tac evaluate_structs_code_inv
+    >> gs [convert_v_def, GSYM (Q.ISPEC `compile c` COND_RAND),
+        markerTheory.label_def]
+    >> first_x_assum (drule_at (Pat `code_rel _ _ _`))
+    >> simp []
+  )
+  >~ [`Return`]
+  >- (
+    gvs [evaluate_def, option_case_eq, v_case_eq, word_lab_case_eq, bool_case_eq]
+    >> imp_res_tac compile_exp_correct
+    >> simp [convert_v_def, convert_s_def, flatten_convert_v, convert_res_def,
+        empty_locals_def, FMAP_MAP2_FEMPTY, FEVERY_FEMPTY, is_cont_res_def,
+        res_vs_def]
     >> imp_res_tac eval_is_wf_shape_v
-    >> gs [FEVERY_FEMPTY, compile_shape_eq, is_wf_shape_v_nil]
-    >> fs [FEVERY_FUPDATE, fevery_to_drestrict]
+    >> imp_res_tac is_wf_shape_of_v
+    >> imp_res_tac shape_of_convert_v_rev
+    >> simp [size_of_compile_shape]
+  )
+  >~ [`Raise`]
+  >- (
+    gvs [evaluate_def, option_case_eq, v_case_eq, word_lab_case_eq, bool_case_eq]
+    >> imp_res_tac compile_exp_correct
+    >> simp [convert_v_def, convert_s_def, flatten_convert_v, convert_res_def,
+        empty_locals_def, FMAP_MAP2_FEMPTY, FEVERY_FEMPTY, is_cont_res_def,
+        FLOOKUP_FMAP_MAP2, res_vs_def]
+    >> imp_res_tac eval_is_wf_shape_v
+    >> imp_res_tac is_wf_shape_of_v
+    >> imp_res_tac shape_of_convert_v_rev
+    >> simp [size_of_compile_shape]
+  )
+  >~ [`Tick`]
+  >- (
+    gvs [evaluate_def, option_case_eq, v_case_eq, word_lab_case_eq, bool_case_eq]
+    >> simp [convert_res_def, convert_s_def, empty_locals_def, FMAP_MAP2_FEMPTY,
+        FEVERY_FEMPTY, is_cont_res_def, dec_clock_def, res_vs_def]
+  )
+  >> gvs [evaluate_def, option_case_eq, pair_case_eq, bool_case_eq, v_case_eq,
+        word_lab_case_eq, flatten_convert_v, sh_mem_store_def,
+        ffiTheory.ffi_result_case_eq, is_cont_res_def]
+  >> rw []
+  >> imp_res_tac compile_exp_correct
+  >> simp [convert_v_def, convert_s_def, flatten_convert_v, convert_res_def,
+        empty_locals_def, FMAP_MAP2_FEMPTY, FEVERY_FEMPTY, res_vs_def]
+QED
+
+Theorem compile_decs_structs[local]:
+  ! ctxt decs decs' ctxt'.
+  compile_decs ctxt decs = (decs', ctxt') ==>
+  ctxt'.structs = ctxt.structs
+Proof
+  recInduct compile_decs_ind
+  >> simp [compile_decs_def]
+  >> rw []
+  >> fs [UNCURRY_EQ]
+QED
+
+Theorem compile_decls_correct:
+  ∀s decs ctxt code decs' ctxt'.
+  evaluate_decls s decs = SOME s' /\
+  ctxt.structs = MAP (\(nm, info). (nm, info.fields)) s.structs /\
+  ctxt.locals = [] /\
+  code_rel (SND (compile_decs ctxt decs)) s.code code /\
+  struct_infos_ok s.structs /\
+  FEVERY (\(nm, v). v_flds_ok s.structs v) s.globals /\
+  FEVERY (\(nm, v). is_wf_shape_v s.structs v) s.globals /\
+  alist_to_fmap ctxt.globals = FMAP_MAP2 (shape_of ∘ SND) s.globals /\
+  compile_decs ctxt decs = (decs', ctxt') ==>
+  ?code'.
+  evaluate_decls (convert_s ctxt' code s) decs' =
+    SOME (convert_s ctxt' code' s') /\
+  code_rel ctxt' s'.code code' /\
+  (?gb. ctxt' = (ctxt with globals := gb) /\
+  FEVERY (\(nm, v). v_flds_ok s.structs v) s'.globals /\
+  FEVERY (\(nm, v). is_wf_shape_v s.structs v) s'.globals /\
+  s'.structs = s.structs /\
+  s'.locals = s.locals /\
+  alist_to_fmap gb = FMAP_MAP2 (shape_of ∘ SND) s'.globals
+  )
+Proof
+  recInduct evaluate_decls_ind
+  >> rw []
+  >> fs [evaluate_decls_def, compile_decs_def]
+  >> rpt (pairarg_tac >> fs [])
+  >> gvs [evaluate_decls_def, compile_decs_def]
+  >- (
+    gvs [context_component_equality, code_rel_def, FMAP_MAP2_FEMPTY]
   )
   >- (
-    simp [UNCURRY]
-    >> fs [evaluate_decls_def]
-    >> simp [compile_shape_eq, EVERY_MAP, UNCURRY]
-    >> fs [EVERY_MEM, compile_shape_eq, UNCURRY, last (RES_CANON MAP_EQ_ID)]
-    >> fs [FMAP_MAP2_FUPDATE]
-    >> first_x_assum irule
-    >> fs [code_rel_def, FLOOKUP_UPDATE]
-    >> rw []
-    >> metis_tac []
+    fs [option_case_eq]
+    >> fs []
+    >> drule_then (qspecl_then [`ctxt`, `code`] mp_tac) compile_exp_correct
+    >> simp [FEVERY_FEMPTY, FMAP_MAP2_FEMPTY]
+    >> strip_tac
+    >> gs [convert_s_def, FMAP_MAP2_FEMPTY, FEVERY_FUPDATE, fevery_to_drestrict,
+        FEVERY_FEMPTY]
+    >> qmatch_asmsub_abbrev_tac `compile_decs glob_ctxt`
+    >> first_x_assum (qspec_then `glob_ctxt` mp_tac)
+    >> fs [markerTheory.Abbrev_def, FMAP_MAP2_FUPDATE]
+    >> disch_then drule
+    >> imp_res_tac eval_is_wf_shape_v
+    >> gs [FEVERY_FEMPTY]
+    >> strip_tac
+    >> simp []
+    >> rpt (irule_at Any EQ_REFL)
+    >> gs [code_rel_def, shape_of_convert_v_rev]
+  )
+  >- (
+    first_x_assum drule
+    >> simp []
+    >> imp_res_tac compile_decs_structs
+    >> qmatch_goalsub_abbrev_tac `(convert_s _ _ _) with code := upd_code`
+    >> disch_then (qspec_then `upd_code` mp_tac)
+    >> impl_tac
+    >- (
+      fs [code_rel_def, markerTheory.Abbrev_def, convert_s_def]
+      >> simp [fmap_eq_flookup, FLOOKUP_SIMP]
+      >> rw []
+      >> irule MAP_CONG
+      >> simp [FORALL_PROD]
+    )
+    >> strip_tac
+    >> fs [convert_s_def]
+    >> gs [is_wf_shape_compile_shape, EVERY_MAP, ELIM_UNCURRY]
+    >> rpt (irule_at Any EQ_REFL)
+    >> simp []
   )
 QED
 
-Theorem decs_stcnames_get_names_no_named_structs:
-  !st_ctxt decs st_ctxt'. decs_stcnames st_ctxt decs = SOME st_ctxt' ==>
-  get_names ctxt decs = ctxt
+Theorem decs_stcnames_compile_decs:
+  !ctxt decs.
+  decs_stcnames acc (FST (compile_decs ctxt decs)) = SOME acc
 Proof
-  recInduct (name_ind_cases [] decs_stcnames_ind)
-  >> rw [decs_stcnames_def, get_names_def]
-  >> fs [named_structs_ok_def, option_case_eq]
+  recInduct compile_decs_ind
+  >> simp [compile_decs_def, decs_stcnames_def]
+  >> rw []
+  >> rpt (pairarg_tac >> fs [])
+  >> fs [decs_stcnames_def]
 QED
 
-Theorem decs_stcnames_compile_no_named_structs:
-  !st_ctxt decs st_ctxt'. decs_stcnames st_ctxt decs = SOME st_ctxt' ==>
-  !st_ctxt2. decs_stcnames st_ctxt (FST (compile_decs st_ctxt2 decs)) = SOME st_ctxt
+Theorem decs_stcnames_to_get_names:
+  !acc code res ctxt. decs_stcnames acc code = SOME res /\
+  ctxt.structs = MAP (\(nm, info). (nm, info.fields)) acc ==>
+  get_names ctxt code = (ctxt with structs :=
+    MAP (\(nm, info). (nm, info.fields)) res)
 Proof
-  recInduct (name_ind_cases [] decs_stcnames_ind)
-  >> rw [decs_stcnames_def, compile_decs_def, ELIM_UNCURRY]
-  >> fs [named_structs_ok_def, option_case_eq]
+  recInduct decs_stcnames_ind
+  >> simp [decs_stcnames_def, get_names_def]
+  >> rw []
+  >> fs [option_case_eq]
+  >> simp [context_component_equality]
+QED
+
+Theorem struct_infos_ok_cons:
+  struct_infos_ok xs /\
+  ALL_DISTINCT (MAP FST info.fields) /\
+  ~ MEM nm (MAP FST xs) /\
+  EVERY (is_wf_shape xs) (MAP SND info.fields) /\
+  info.size = size_of_sh_with_ctxt xs (Comb (MAP SND info.fields))
+  ==>
+  struct_infos_ok ((nm, info) :: xs)
+Proof
+  rw []
+  >> fs [struct_infos_ok_def]
+  >> conj_asm1_tac
+  >- (
+    rw []
+    >> gs [LT_SUC]
+    >> res_tac
+    >> fs [ADD1]
+  )
+  >> first_x_assum (qspec_then `0` assume_tac)
+  >> gs []
+  >> simp [ (size_of_sh_with_ctxt_drop
+        |> Q.SPEC `x :: xs` |> Q.GEN `n` |> Q.SPEC `1`
+        |> SIMP_RULE list_ss []) , is_wf_shape_def, SF ETA_ss]
+  >> fs [EVERY_EL]
+  >> rw []
+  >> rpt (first_x_assum drule)
+  >> rpt (pairarg_tac >> fs [])
+  >> rw []
+  >> DEP_REWRITE_TAC [ (size_of_sh_with_ctxt_drop
+        |> Q.SPEC `x :: xs` |> Q.GEN `n` |> Q.SPEC `1`
+        |> SIMP_RULE list_ss [] |> GSYM)]
+  >> simp [is_wf_shape_def, EVERY_MAP]
+  >> simp [EVERY_EL]
+  >> fs [EL_MAP]
+  >> metis_tac [is_wf_shape_drop]
+QED
+
+Theorem decs_stcnames_infos_ok:
+  !acc code res ctxt. decs_stcnames acc code = SOME res /\
+  struct_infos_ok acc ==>
+  struct_infos_ok res
+Proof
+  recInduct decs_stcnames_ind
+  >> simp [decs_stcnames_def]
+  >> rw []
+  >> fs [option_case_eq, ALOOKUP_NONE]
+  >> first_x_assum irule
+  >> irule struct_infos_ok_cons
+  >> simp []
 QED
 
 Theorem semantics_eq:
   semantics s start <> Fail ∧
-  code_rel s.code code ∧
-  ctxt.structs = [] ∧ s.structs = [] ∧
-  FEVERY (λ(nm,v). is_wf_shape_v_nil v) s.locals ∧
-  FEVERY (λ(nm,v). is_wf_shape_v_nil v) s.globals ==>
-  semantics (s with code := code) start = semantics s start
+  code_rel ctxt s.code code ∧
+  ctxt.structs = MAP (λ(nm,info). (nm,info.fields)) s.structs ∧
+  s.locals = FEMPTY ∧
+  FEVERY (λ(nm,v). v_flds_ok s.structs v) s.globals ∧
+  FEVERY (λ(nm,v). is_wf_shape_v s.structs v) s.globals ∧
+  ctxt.locals = [] ∧
+  alist_to_fmap ctxt.globals = FMAP_MAP2 (shape_of ∘ SND) s.globals ∧
+  struct_infos_ok s.structs
+  ==>
+  semantics (convert_s ctxt code s) start = semantics s start
 Proof
   rw []
   >> fs [pan_sem_is_wrapper]
   >> drule_then irule semantics_wrapper_eq
   >> csimp []
   >> rw []
-  >> TRY (
-    rename [`option_CASE res _ _ <> Incomplete`] >>
-    Cases_on `res = SOME TimeOut` >> fs []
+  >- (
+    gvs [PAIR_FST_SND_EQ]
+    >> irule isPREFIX_TRANS
+    >> irule_at Any evaluate_add_clock_io_events_mono
+    >> simp []
+    >> metis_tac [ADD_COMM, isPREFIX_REFL]
   )
   >- (
-    gvs [PAIR_FST_SND_EQ] >>
-    irule isPREFIX_TRANS >>
-    irule_at Any evaluate_add_clock_io_events_mono >>
-    simp [] >>
-    metis_tac [ADD_COMM, isPREFIX_REFL]
+    gvs [PAIR_FST_SND_EQ]
+    >> irule isPREFIX_TRANS
+    >> irule_at Any evaluate_add_clock_io_events_mono
+    >> simp []
+    >> metis_tac [ADD_COMM, isPREFIX_REFL]
   )
   >- (
-    gvs [PAIR_FST_SND_EQ] >>
-    irule isPREFIX_TRANS >>
-    irule_at Any evaluate_add_clock_io_events_mono >>
-    simp [] >>
-    metis_tac [ADD_COMM, isPREFIX_REFL]
-  )
-  >- (
-    drule panPropsTheory.evaluate_add_clock_eq >>
-    simp [] >>
+    drule panPropsTheory.evaluate_add_clock_eq
+    >> simp []
     (* ugh at renaming a variable so it sorts to the right *)
-    disch_then (qspec_then `x` (mp_tac o Q.GEN `x`)) >>
-    simp []
+    >> disch_then (qspec_then `x` (mp_tac o Q.GEN `x`))
+    >> Cases_on `res = SOME TimeOut` >> fs []
   )
   >- (
-    drule panPropsTheory.evaluate_add_clock_eq >>
-    simp [] >>
+    drule panPropsTheory.evaluate_add_clock_eq
+    >> simp []
     (* ugh at renaming a variable so it sorts to the right *)
-    disch_then (qspec_then `x` (mp_tac o Q.GEN `x`)) >>
-    simp []
+    >> disch_then (qspec_then `x` (mp_tac o Q.GEN `x`))
+    >> Cases_on `res = SOME TimeOut` >> fs []
   )
   >- (
-    qexists_tac `0` >>
-    drule compile_correct >>
-    simp [compile_def, compile_exp_def] >>
-    disch_then drule >>
-    impl_tac >> strip_tac >> fs []
+    qexists_tac `0`
+    >> drule_then (qspecl_then [`code`, `ctxt`] mp_tac) compile_correct
+    >> simp [FEVERY_FEMPTY, FMAP_MAP2_FEMPTY]
+    >> impl_tac
+    >- (
+      fs [code_rel_def]
+      >> CCONTR_TAC >> fs []
+    )
+    >> simp [compile_def, compile_exp_def]
+    >> simp [convert_s_def]
+    >> rw []
+    >> simp [convert_res_eq_case]
+    >> rpt (TOP_CASE_TAC >> simp [])
   )
-QED
-
-Theorem evaluate_decls_invariant:
-  !s code. evaluate_decls s code = SOME s' /\
-  s.locals = FEMPTY /\
-  s.structs = [] ==>
-  s'.structs = [] /\
-  s'.locals = FEMPTY /\
-  (FEVERY (λ(nm,v). is_wf_shape_v_nil v) s.globals ==>
-    FEVERY (λ(nm,v). is_wf_shape_v_nil v) s'.globals)
-Proof
-  recInduct evaluate_decls_ind
-  >> simp [evaluate_decls_def]
-  >> rw []
-  >> fs [option_case_eq]
-  >> drule eval_is_wf_shape_v
-  >> fs []
-  >> rw [FEVERY_FEMPTY]
-  >> first_x_assum irule
-  >> simp [FEVERY_FUPDATE, fevery_to_drestrict]
 QED
 
 Theorem compile_top_semantics_decls:
@@ -923,29 +1689,34 @@ Theorem compile_top_semantics_decls:
   s.locals = FEMPTY ∧ s.code = FEMPTY ∧
   s.globals = FEMPTY ⇒
   semantics_decls s start code =
-  semantics_decls s start (compile_top code)
+  semantics_decls (s with eshapes :=
+        FMAP_MAP2 (\(eid, sh). compile_shape (get_names (<| structs := [] |>) code).structs
+            sh) s.eshapes)
+    start (compile_top code)
 Proof
   rw [semantics_decls_def]
   >> TOP_CASE_TAC >> fs []
   >> TOP_CASE_TAC >> fs []
-  >> imp_res_tac decs_stcnames_no_named_structs
-  >> imp_res_tac decs_stcnames_compile_no_named_structs
-  >> imp_res_tac decs_stcnames_get_names_no_named_structs
+  >> simp [EVAL ``decs_stcnames [] (compile_top c)``, decs_stcnames_compile_decs]
   >> simp [compile_top_def]
   >> qmatch_goalsub_abbrev_tac `compile_decs nm_ctxt`
-  >> drule_then (qspecl_then [`nm_ctxt`, `FEMPTY`] mp_tac) compile_decs_correct
+  >> Cases_on `compile_decs nm_ctxt code`
+  >> drule_then (qspecl_then [`nm_ctxt`, `FEMPTY`] mp_tac) compile_decls_correct
   >> fs [markerTheory.Abbrev_def]
-  >> simp [FEVERY_FEMPTY, Q.SPEC `FEMPTY` code_rel_def]
-  >> rw []
-  >> subgoal `!s. s.code = FEMPTY ==> (s with code := FEMPTY) = s`
-  >- ( simp [state_component_equality] )
-  >> gs []
-  >> irule (GSYM semantics_eq)
+  >> simp [FEVERY_FEMPTY, Q.SPECL [`_`, `FEMPTY`] code_rel_def,
+        FMAP_MAP2_FEMPTY]
+  >> imp_res_tac decs_stcnames_to_get_names
+  >> imp_res_tac decs_stcnames_infos_ok
+  >> fs [Q.SPEC `[]` struct_infos_ok_def]
+  >> strip_tac
+  >> subgoal `!s s' code res. evaluate_decls s code = SOME res /\
+        s = s' ==> evaluate_decls s' code = SOME res`
   >> simp []
-  >> imp_res_tac evaluate_decls_invariant
-  >> gs [FEVERY_FEMPTY]
-  >> qexists_tac `ARB with structs := []`
+  >> pop_assum (drule_then (DEP_REWRITE_TAC o single))
   >> simp []
+  >> DEP_REWRITE_TAC [semantics_eq]
+  >> fs [code_rel_def]
+  >> simp [convert_s_def, state_component_equality, FMAP_MAP2_FEMPTY]
 QED
 
 Theorem compile_decs_no_names[local]:
