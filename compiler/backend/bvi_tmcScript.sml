@@ -84,9 +84,9 @@ End
    If a recursive call is found, returns all extracted/let-bound expressions and (INR) the call block.
    If an effectful operation appears right of the recursive call, the expression is not eligible for transformation and NONE is returned.
    If multiple recursive calls are found, all but the last are let bound. *)
-Definition cons_to_cb_aux_def:
-  (cons_to_cb_aux _ _ [] = SOME ([],INL [])) ∧
-  (cons_to_cb_aux loc tag [Call t loc' args h] =
+Definition bvi_to_cb_aux_def:
+  (bvi_to_cb_aux _ _ [] = SOME ([],INL [])) ∧
+  (bvi_to_cb_aux loc tag [Call t loc' args h] =
    if loc' = SOME loc ∧ h = NONE then
      (* Recursive call found - base case of CallBlock *)
      case bind 0 args of
@@ -94,11 +94,11 @@ Definition cons_to_cb_aux_def:
    else
      (* Not a recursive call - gets let-bound *)
      SOME ([Call t loc' args h],INL [0])) ∧
-  (cons_to_cb_aux loc tag [Op op args] =
+  (bvi_to_cb_aux loc tag [Op op args] =
    case dest_Cons op of
    | SOME tag' =>
        (* BlockOp Cons - try to recurse *)
-       (case cons_to_cb_aux loc tag' args of
+       (case bvi_to_cb_aux loc tag' args of
         | NONE => NONE
         | SOME (bs,INL vs) =>
             (* No recursive call - whole thing gets let-bound *)
@@ -109,16 +109,16 @@ Definition cons_to_cb_aux_def:
    | NONE =>
        (* Not a BlockOp Cons - whole thing gets let-bound *)
        SOME ([Op op args],INL [0])) ∧
-  (cons_to_cb_aux _ _ [exp] =
+  (bvi_to_cb_aux _ _ [exp] =
    (* Some other expression - whole thing gets let-bound *)
    SOME ([exp],INL [0])) ∧
-  (cons_to_cb_aux loc tag (h::t) =
+  (bvi_to_cb_aux loc tag (h::t) =
    (* Recurse right to left to find last occurence of recursive call *)
-   case cons_to_cb_aux loc tag t of
+   case bvi_to_cb_aux loc tag t of
    | NONE => NONE
    | SOME (bs2,INL vs2) =>
        (* No recursive call to the right. See if the first has one. *)
-       (case cons_to_cb_aux loc tag [h] of
+       (case bvi_to_cb_aux loc tag [h] of
         | NONE => NONE
         | SOME (bs1,INL vs1) =>
             (* No recursive call, keep building binders. *)
@@ -137,14 +137,14 @@ Definition cons_to_cb_aux_def:
              SOME (h::bs2,INR cb'))
 End
 
-Theorem cons_to_cb_aux_sing:
+Theorem bvi_to_cb_aux_sing:
   ∀loc tag arg bs cb.
-    cons_to_cb_aux loc tag [arg] = SOME (bs,INR cb) ⇒
+    bvi_to_cb_aux loc tag [arg] = SOME (bs,INR cb) ⇒
     ∃child.
       cb = CallBlock tag [] child []
 Proof
   rw []
-  >> Cases_on ‘arg’ >> gvs [cons_to_cb_aux_def, bind_def]
+  >> Cases_on ‘arg’ >> gvs [bvi_to_cb_aux_def, bind_def]
   >-
    (pop_assum mp_tac
     >> IF_CASES_TAC >> gvs [CaseEq "prod"]
@@ -159,25 +159,25 @@ Proof
   >> gvs []
 QED
 
-Theorem cons_to_cb_aux_wf:
+Theorem bvi_to_cb_aux_wf:
   ∀loc tag args bs cb.
-    cons_to_cb_aux loc tag args = SOME (bs,INR cb) ⇒
+    bvi_to_cb_aux loc tag args = SOME (bs,INR cb) ⇒
     ∃l child r.
       cb = CallBlock tag l child r
 Proof
-  recInduct cons_to_cb_aux_ind
+  recInduct bvi_to_cb_aux_ind
   >> rw []
-  >~ [‘cons_to_cb_aux loc tag []’] >-
-   gvs [cons_to_cb_aux_def]
-  >~ [‘cons_to_cb_aux loc tag [Call t loc' args h]’] >-
-   (gvs [cons_to_cb_aux_def]
+  >~ [‘bvi_to_cb_aux loc tag []’] >-
+   gvs [bvi_to_cb_aux_def]
+  >~ [‘bvi_to_cb_aux loc tag [Call t loc' args h]’] >-
+   (gvs [bvi_to_cb_aux_def]
     >> pop_assum mp_tac
     >> reverse IF_CASES_TAC >> gvs [bind_def]
     >> CASE_TAC >> gvs [CaseEq "prod"]
     >> strip_tac
     >> gvs [])
-  >~ [‘cons_to_cb_aux loc tag [Op op args]’] >-
-   (gvs [cons_to_cb_aux_def]
+  >~ [‘bvi_to_cb_aux loc tag [Op op args]’] >-
+   (gvs [bvi_to_cb_aux_def]
     >> pop_assum mp_tac
     >> CASE_TAC >> gvs []
     >> CASE_TAC >> gvs []
@@ -185,60 +185,60 @@ Proof
     >> CASE_TAC >> gvs []
     >> strip_tac
     >> gvs [])
-  >~ [‘cons_to_cb_aux loc tag [Var n]’] >-
-   (gvs [cons_to_cb_aux_def])
-  >~ [‘cons_to_cb_aux loc tag [If x1 x2 x3]’] >-
-   (gvs [cons_to_cb_aux_def])
-  >~ [‘cons_to_cb_aux loc tag [Let xs x]’] >-
-   (gvs [cons_to_cb_aux_def])
-  >~ [‘cons_to_cb_aux loc tag [Raise x]’] >-
-   (gvs [cons_to_cb_aux_def])
-  >~ [‘cons_to_cb_aux loc tag [Tick x]’] >-
-   (gvs [cons_to_cb_aux_def])
-  >~ [‘cons_to_cb_aux loc tag [Force _ _]’] >-
-   (gvs [cons_to_cb_aux_def])
-  >~ [‘cons_to_cb_aux loc tag (x::y::xs)’] >-
-   (gvs [cons_to_cb_aux_def]
-    >> Cases_on ‘cons_to_cb_aux loc tag (y::xs)’ >> gvs []
+  >~ [‘bvi_to_cb_aux loc tag [Var n]’] >-
+   (gvs [bvi_to_cb_aux_def])
+  >~ [‘bvi_to_cb_aux loc tag [If x1 x2 x3]’] >-
+   (gvs [bvi_to_cb_aux_def])
+  >~ [‘bvi_to_cb_aux loc tag [Let xs x]’] >-
+   (gvs [bvi_to_cb_aux_def])
+  >~ [‘bvi_to_cb_aux loc tag [Raise x]’] >-
+   (gvs [bvi_to_cb_aux_def])
+  >~ [‘bvi_to_cb_aux loc tag [Tick x]’] >-
+   (gvs [bvi_to_cb_aux_def])
+  >~ [‘bvi_to_cb_aux loc tag [Force _ _]’] >-
+   (gvs [bvi_to_cb_aux_def])
+  >~ [‘bvi_to_cb_aux loc tag (x::y::xs)’] >-
+   (gvs [bvi_to_cb_aux_def]
+    >> Cases_on ‘bvi_to_cb_aux loc tag (y::xs)’ >> gvs []
     >> Cases_on ‘x'’ >> gvs []
     >> reverse $ Cases_on ‘r’ >> gvs [shift_cb_def]
     >> gvs [CaseEq "option"]
     >> Cases_on ‘v’ >> gvs []
     >> Cases_on ‘r’ >> gvs []
-    >> imp_res_tac cons_to_cb_aux_sing
+    >> imp_res_tac bvi_to_cb_aux_sing
     >> gvs [])
 QED
 
 (* Calls the above but throws away an unoptimisable BlockOp Cons. *)
-Definition cons_to_cb_def:
-  cons_to_cb loc tag args =
-  case cons_to_cb_aux loc tag args of
+Definition bvi_to_cb_def:
+  bvi_to_cb loc tag args =
+  case bvi_to_cb_aux loc tag args of
   | SOME (bs,INR cb) => SOME (bs,cb)
   | _ => NONE
 End
 
-Theorem cons_to_cb_wf:
+Theorem bvi_to_cb_wf:
   ∀loc tag args bs cb.
-    cons_to_cb loc tag args = SOME (bs,cb) ⇒
+    bvi_to_cb loc tag args = SOME (bs,cb) ⇒
     ∃l child r.
       cb = CallBlock tag l child r
 Proof
   rw []
-  >> Cases_on ‘args’ >> gvs [cons_to_cb_def, cons_to_cb_aux_def]
+  >> Cases_on ‘args’ >> gvs [bvi_to_cb_def, bvi_to_cb_aux_def]
   >> gvs [CaseEq "option", CaseEq "prod", CaseEq "sum"]
-  >> imp_res_tac cons_to_cb_aux_wf
+  >> imp_res_tac bvi_to_cb_aux_wf
   >> gvs []
 QED
 
 val ex1 = “[Op (IntOp (Const 1)) []; Call 0 (SOME 7) [] NONE; Call 0 (SOME 4) [] NONE; Op (IntOp (Const 3)) []]”
-val ex1_call = “cons_to_cb 7 99 ^ex1”
+val ex1_call = “bvi_to_cb 7 99 ^ex1”
 (* EVAL ex1_call *)
 
 val ex2 = “[Op (IntOp (Const 1)) [];
             Op (BlockOp (Cons 98)) [Call 0 (SOME 7) [] NONE];
             Call 0 (SOME 4) [] NONE;
             Op (IntOp (Const 3)) []]”
-val ex2_call = “cons_to_cb 7 99 ^ex2”
+val ex2_call = “bvi_to_cb 7 99 ^ex2”
 (* EVAL ex2_call *)
 
 val ex3 = “[Op (IntOp (Const 1)) [];
@@ -248,7 +248,7 @@ val ex3 = “[Op (IntOp (Const 1)) [];
                    Op (IntOp (Const 3)) []];
             Call 0 (SOME 4) [] NONE;
             Op (IntOp (Const 4)) []]”
-val ex3_call = “cons_to_cb 7 99 ^ex3”
+val ex3_call = “bvi_to_cb 7 99 ^ex3”
 (* EVAL ex3_call *)
 
 val ex4 = “[Op (IntOp (Const 0)) [];
@@ -260,17 +260,17 @@ val ex4 = “[Op (IntOp (Const 0)) [];
                    Op (IntOp (Const 4)) []];
             Call 0 (SOME 5) [] NONE;
             Op (IntOp (Const 6)) []]”
-val ex4_call = “cons_to_cb 100 99 ^ex4”
+val ex4_call = “bvi_to_cb 100 99 ^ex4”
 (* EVAL ex4_call *)
 
 (* Convert back to BlockOp Cons for comparing semantics *)
-Definition cb_to_cons_def:
-  (cb_to_cons loc (CallBlock tag l child r) =
+Definition cb_to_bvi_def:
+  (cb_to_bvi loc (CallBlock tag l child r) =
      let l' = MAP (λn. Var n) l in
-     let child' = cb_to_cons loc child in
+     let child' = cb_to_bvi loc child in
      let r' = MAP (λn. Var n) r in
        Op (BlockOp (Cons tag)) $ l' ++ [child'] ++ r') ∧
-  (cb_to_cons loc (RCall ts args) =
+  (cb_to_bvi loc (RCall ts args) =
      let args' = MAP (λn. Var n) args in
        bvi$Call ts (SOME loc) args' NONE)
 End
@@ -278,9 +278,9 @@ End
 (* Let bind the result of the above for a semantically equivalent BVI expression. *)
 Definition bvi_to_cb_to_bvi_def:
   bvi_to_cb_to_bvi loc tag args =
-    case cons_to_cb loc tag args of
+    case bvi_to_cb loc tag args of
     | SOME (bs,cb) =>
-        SOME $ Let bs $ cb_to_cons loc cb
+        SOME $ Let bs $ cb_to_bvi loc cb
     | NONE => NONE
 End
 
@@ -353,7 +353,7 @@ End
 
 Definition rewrite_wrapper_cons_def:
   rewrite_wrapper_cons loc loc_opt i_ptr tag args =
-    case cons_to_cb loc tag args of
+    case bvi_to_cb loc tag args of
     | SOME (bs,cb) =>
         (case cb_to_hb cb of
          | (hb,ts,args) =>
@@ -364,7 +364,7 @@ End
 (* Assumes that the function can and should be optimised - has been checked by rewrite_wrapper. *)
 Definition rewrite_worker_cons_def:
   rewrite_worker_cons loc loc_opt i_ptr i_idx tag args =
-    case cons_to_cb loc tag args of
+    case bvi_to_cb loc tag args of
     | SOME (bs,cb) =>
         (case cb_to_hb cb of
          | (hb,ts,args) =>
