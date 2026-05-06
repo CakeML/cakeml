@@ -1635,6 +1635,8 @@ Resume evaluate_rewrite_tmc[op]:
   >> strip_tac
   >> gvs []
   >> rename [‘evaluate ([cb_to_bvi loc cb],as' ++ env2,w') = (Rval [v''],t'')’]
+  >> pop_assum kall_tac
+  >> pop_assum kall_tac
 
   (* Use the theorem *)
   >> Cases_on ‘cb_to_hb cb’
@@ -1724,34 +1726,6 @@ Proof
    )
   >> cheat
 QED
-
-(*
-Theorem evaluate_hb_to_bvi_worker:
-  ∀cb tag left cb' right f env env2 s t r loc loc_opt i_ptr i_idx hb call_ts call_args.
-    cb = CallBlock tag left cb' right ∧
-    evaluate ([cb_to_bvi loc cb],env2,s) = (r,t) ∧
-    cb_to_hb cb = (hb,call_ts,call_args) ∧
-    hole_has_val f env env2 s.refs ⇒
-    ∃r' t'.
-      evaluate ([hb_to_bvi_worker loc loc_opt i_ptr i_idx hb call_ts call_args],env2,s) = (r',t')
-Proof
-  rw []
-  >> drule_at Any $ evaluate_hb_to_mutcons
-  >> gvs []
-  >> disch_then drule
-  >> strip_tac
-  >> gvs [cb_to_hb_def, CaseEq "prod"]
-  >> gvs [hb_to_bvi_worker_def, evaluate_def]
-  >> Cases_on ‘r'’ >> gvs []
-  >> CASE_TAC
-  >> CASE_TAC
-  >> CASE_TAC
-  >> gvs [do_app_def, do_app_aux_def]
-  >> imp_res_tac evaluate_SING_IMP
-  >> gvs [EL_APPEND_EQN]
-                
-QED
-*)
 
 Theorem evaluate_hb_to_bvi_worker:
   ∀cb tag left cb' right loc loc_opt f f' env1 env2 r' s t s' t' c hb call_ts call_args.
