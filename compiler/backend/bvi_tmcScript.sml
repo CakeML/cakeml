@@ -289,6 +289,14 @@ Datatype:
              | Hole
 End
 
+(* Convert a call_block to a hole_block, and return the RCall ingredients to be replaced with optimised version. *)
+Definition cb_to_hb_def:
+  (cb_to_hb (CallBlock tag l child r) =
+     case cb_to_hb child of
+     | (hb,ts,args) => (HoleBlock tag l hb r,ts,args)) ∧
+  (cb_to_hb (RCall ts args) = (Hole,ts,args))
+End
+
 (* Convert a hole_block to a MutCons allocation with hole represented as Const 0 *)
 Definition hb_to_mutcons_def:
   (hb_to_mutcons (HoleBlock t l hb r) =    
@@ -306,43 +314,31 @@ Definition optimise_call_def:
     bvi$Call ts (SOME loc) (idx::ptr::args') NONE
 End
 
-(* Convert a call_block to a hole_block, and return the RCall ingredients to be replaced with optimised version. *)
-Definition cb_to_hb_def:
-  (cb_to_hb (CallBlock tag l child r) =
-     case cb_to_hb child of
-     | (hb,ts,args) => (HoleBlock tag l hb r,ts,args)) ∧
-  (cb_to_hb (RCall ts args) = (Hole,ts,args))
+Definition hb_to_bvi_wrapper_def:
+  hb_to_bvi_wrapper loc loc_opt i_ptr (HoleBlock tag l hole r) ts args =
+    let hb            = HoleBlock tag l hole r in
+    let i             = & LENGTH l in
+    let var_ptr       = Var i_ptr in
+    let exp_idx       = Op (IntOp (Const i)) [] in
+    let exp_mut_cons  = hb_to_mutcons hb in
+    let exp_tail_call = optimise_call loc_opt exp_idx var_ptr ts args in
+    let exp_finalise  = Op (MemOp FinaliseCons) [var_ptr] in
+      Let [exp_mut_cons; exp_tail_call] exp_finalise
 End
 
-Definition cb_to_bvi_wrapper_def:
-  cb_to_bvi_wrapper loc loc_opt i_ptr cb =
-    case cb_to_hb cb of
-    | (HoleBlock tag l hole r,ts,args) =>
-        let hb            = HoleBlock tag l hole r in
-        let i             = & LENGTH l in
-        let var_ptr       = Var i_ptr in
-        let exp_idx       = Op (IntOp (Const i)) [] in
-        let exp_mut_cons  = hb_to_mutcons hb in
-        let exp_tail_call = optimise_call loc_opt exp_idx var_ptr ts args in
-        let exp_finalise  = Op (MemOp FinaliseCons) [var_ptr] in
-          Let [exp_mut_cons; exp_tail_call] exp_finalise
-End
-
-Definition cb_to_bvi_worker_def:
-  cb_to_bvi_worker loc loc_opt i_ptr i_idx cb =
-    case cb_to_hb cb of
-    | (HoleBlock tag l hole r,ts,args) =>
-        let hb               = HoleBlock tag l hole r in
-        let i                = & LENGTH l in
-        let arg_old_ptr      = Var (i_ptr + 1) in
-        let arg_old_idx      = Var (i_idx + 1) in
-        let var_new_ptr      = Var 0 in
-        let exp_new_idx      = Op (IntOp (Const i)) [] in
-        let exp_mut_cons     = hb_to_mutcons hb in
-        let exp_update_hole  = Op (MemOp UpdateCons) [var_new_ptr; arg_old_idx; arg_old_ptr] in
-        let exp_tail_call    = optimise_call loc_opt exp_new_idx var_new_ptr ts args in
-          Let [exp_mut_cons] $
-              Let [exp_update_hole] $ exp_tail_call
+Definition hb_to_bvi_worker_def:
+  hb_to_bvi_worker loc loc_opt i_ptr i_idx (HoleBlock tag l hole r) ts args =
+    let hb               = HoleBlock tag l hole r in
+    let i                = & LENGTH l in
+    let arg_old_ptr      = Var (i_ptr + 1) in
+    let arg_old_idx      = Var (i_idx + 1) in
+    let var_new_ptr      = Var 0 in
+    let exp_new_idx      = Op (IntOp (Const i)) [] in
+    let exp_mut_cons     = hb_to_mutcons hb in
+    let exp_update_hole  = Op (MemOp UpdateCons) [var_new_ptr; arg_old_idx; arg_old_ptr] in
+    let exp_tail_call    = optimise_call loc_opt exp_new_idx var_new_ptr ts args in
+      Let [exp_mut_cons] $
+          Let [exp_update_hole] $ exp_tail_call
 End
 
 Definition fill_hole_def:
@@ -356,7 +352,9 @@ Definition rewrite_wrapper_cons_def:
   rewrite_wrapper_cons loc loc_opt i_ptr tag args =
     case cons_to_cb loc tag args of
     | SOME (bs,cb) =>
-        SOME $ Let bs $ cb_to_bvi_wrapper loc loc_opt i_ptr cb
+        (case cb_to_hb cb of
+         | (hb,ts,args) =>
+             SOME $ Let bs $ hb_to_bvi_wrapper loc loc_opt i_ptr hb ts args)
     | NONE => NONE
 End
 
@@ -365,7 +363,9 @@ Definition rewrite_worker_cons_def:
   rewrite_worker_cons loc loc_opt i_ptr i_idx tag args =
     case cons_to_cb loc tag args of
     | SOME (bs,cb) =>
-        Let bs $ cb_to_bvi_worker loc loc_opt i_ptr i_idx cb
+        (case cb_to_hb cb of
+         | (hb,ts,args) =>
+             Let bs $ hb_to_bvi_worker loc loc_opt i_ptr i_idx hb ts args)
     | NONE =>
         let expr = Op (BlockOp (Cons tag)) args in
           fill_hole i_ptr i_idx expr

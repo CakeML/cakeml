@@ -1594,8 +1594,9 @@ Resume evaluate_rewrite_tmc[op]:
   >> Cases_on ‘x’ >> gvs []
   >> rename [‘cons_to_cb loc tag args = SOME (bs,cb)’]
   >> ‘evaluate ([Op (BlockOp (Cons tag)) args],env,s) = (Rval [v],t)’ by gvs [evaluate_def]
+                                                                                
   >> drule evaluate_cb_to_bvi
-  >> gvs [cb_to_bvi_def]
+  >> gvs [bvi_to_cb_to_bvi_def]
   >> disch_then $ qspec_then ‘loc’ mp_tac
   >> gvs []
   >> strip_tac
@@ -1622,9 +1623,22 @@ Resume evaluate_rewrite_tmc[op]:
   >> CASE_TAC
   >> reverse $ Cases_on ‘q’ >> gvs []
   >- gvs [cb_to_hb_def, CaseEq "prod"]
+                        
+  >> gvs [Once cb_to_hb_def]
   >> rename [‘cb_to_hb (CallBlock tag l child r) = (HoleBlock n l0 h l',r')’]
 QED
 
+(* Move *)
+Theorem cb_to_hb_wf:
+  ∀tag l child r.
+    ∃hole call_args.
+      cb_to_hb (CallBlock tag l child r) = (HoleBlock tag l hole r,call_args)
+Proof
+  rw []
+  >> reverse $ Induct_on ‘child’
+  >> 
+QED
+        
 Theorem evaluate_cb_to_bvi:
   ∀loc tag args env s t r bs cb exp.
     evaluate ([Op (BlockOp (Cons tag)) args],env,s) = (r,t) ∧
