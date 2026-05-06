@@ -1592,10 +1592,10 @@ Resume evaluate_rewrite_tmc[op]:
     >> gvs [evaluate_def]
     >> rpt $ first_assum $ irule_at Any)
   >> Cases_on ‘x’ >> gvs []
-  >> rename [‘cons_to_cb loc tag args = SOME (bs,cb)’]
+  >> rename [‘bvi_to_cb loc tag args = SOME (bs,cb)’]
   >> ‘evaluate ([Op (BlockOp (Cons tag)) args],env,s) = (Rval [v],t)’ by gvs [evaluate_def]
 
-  >> drule evaluate_cb_to_bvi
+  >> drule evaluate_bvi_to_cb_to_bvi
   >> gvs [bvi_to_cb_to_bvi_def]
   >> disch_then $ qspec_then ‘loc’ mp_tac
   >> gvs []
@@ -1621,19 +1621,11 @@ Resume evaluate_rewrite_tmc[op]:
   >> CASE_TAC >> gvs []
   >> rename [‘cb_to_hb cb = (hb,call_ts,call_args)’]
   >> gvs [evaluate_def]
-                       
-  >> gvs [cb_to_bvi_worker_def]
-  >> imp_res_tac cons_to_cb_wf
-  >> gvs [CaseEq "hole_block"]
-  >> CASE_TAC
-  >> reverse $ Cases_on ‘q’ >> gvs []
-  >- gvs [cb_to_hb_def, CaseEq "prod"]
-                        
-  >> gvs [Once cb_to_hb_def]
-  >> rename [‘cb_to_hb (CallBlock tag l child r) = (HoleBlock n l0 h l',r')’]
+  (* Important theorem *)
+  >> cheat
 QED
 
-Theorem evaluate_cb_to_bvi:
+Theorem evaluate_bvi_to_cb_to_bvi:
   ∀loc tag args env s t r bs cb exp.
     evaluate ([Op (BlockOp (Cons tag)) args],env,s) = (r,t) ∧
     bvi_to_cb_to_bvi loc tag args = SOME exp ∧
@@ -1645,35 +1637,15 @@ Proof
   >> gvs [bvi_to_cb_to_bvi_def]
   >> gvs [CaseEq "option"]
   >> Cases_on ‘v’ >> gvs []
-  >> imp_res_tac cons_to_cb_wf
+  >> imp_res_tac bvi_to_cb_wf
   >> gvs []
-  >> rename [‘cons_to_cb loc tag args = SOME (bs,CallBlock tag left child right)’]
-  >> gvs [cons_to_cb_def]
+  >> rename [‘bvi_to_cb loc tag args = SOME (bs,CallBlock tag left child right)’]
+  >> gvs [bvi_to_cb_def]
   >> pop_assum mp_tac
   >> rpt (CASE_TAC >> gvs [])
   >> strip_tac
   >> gvs []
   >> cheat
-QED
-
-Theorem evaluate_hb_to_bvi_worker:
-  ∀exp f f' env1 env2 v s t s' t' c.
-    evaluate ([cb_to_cons loc cb],env2,s') = (Rval [v],t') ∧
-    env_rel T f env1 env2 ∧
-    state_rel f s s' ∧
-    f ⊑ f' ∧
-    hole_has_val f env1 env2 s'.refs c ∧
-    holes_unchanged_except f s'.refs t'.refs ∅ ∧
-    only_fresh f f' s'.refs ∧
-    state_rel f' t t' ⇒
-    ∃r t''.
-      evaluate ([hb_to_bvi_worker loc loc_opt (LENGTH env1) (LENGTH env1 + 1) hb call_ts call_args],env2,s') = (r,t'') ∧
-      opt_res_rel (Rval [v]) r ∧
-      state_rel f' t t'' ∧
-      holes_unchanged_except f s'.refs t''.refs {env2❲LENGTH env1❳} ∧
-      hole_has_val f env1 env2 t''.refs v
-Proof
-  cheat
 QED
 
 (* Move *)
