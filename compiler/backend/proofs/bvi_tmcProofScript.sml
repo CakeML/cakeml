@@ -594,7 +594,7 @@ Proof
 QED
 
 Theorem hole_has_val_append:
-  ∀f.
+  ∀f env env' refs c vs vs'.
     hole_has_val f env env' refs c ∧
     LIST_REL (v_rel f) vs vs' ⇒
     hole_has_val f (vs ++ env) (vs' ++ env') refs c
@@ -1648,6 +1648,7 @@ Resume evaluate_rewrite_tmc[op]:
   >> Cases_on ‘r’ >> gvs []
   >> rename [‘cb_to_hb cb = (hb,call_ts,call_args)’]
   >> gvs [evaluate_def]
+  (* Try to irule this so we get the right variables. f is wrong currently. Need to fix v to do this *)
   >> drule evaluate_hb_to_bvi_worker
   >> disch_then drule
   >> imp_res_tac bvi_to_cb_wf
@@ -1674,7 +1675,13 @@ Resume evaluate_rewrite_tmc[op]:
   >> gvs []
   >> ‘LENGTH bs = LENGTH as’ by imp_res_tac evaluate_IMP_LENGTH
   >> gvs [opt_res_rel_def]
-  >> cheat
+  >> conj_tac >- cheat
+  >> conj_tac >- cheat
+  >> irule hole_has_val_submap
+  >> qexists ‘f''’
+  >> gvs []
+  >> irule hole_has_val_unappend
+  >> rpt $ first_assum $ irule_at Any
 QED
 
 Theorem evaluate_bvi_to_cb_to_bvi:
@@ -1750,7 +1757,7 @@ Theorem evaluate_hb_to_bvi_worker:
       state_rel f' t t'' ∧
       holes_unchanged_except f s'.refs t''.refs {env2❲LENGTH env1❳} ∧
       ∀v.
-        r'' = Rval [v] ⇒
+        r' = Rval [v] ⇒
         hole_has_val f env1 env2 t''.refs v
 Proof
   cheat
