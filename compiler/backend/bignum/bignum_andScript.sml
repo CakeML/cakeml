@@ -8,46 +8,7 @@ Ancestors
 Libs
   stringLib numLib intLib preamble helperLib
 
-(* Following copied from panConcreteExamples*)
-
-local
-  val f =
-    List.mapPartial
-       (fn s => case remove_whitespace s of "" => NONE | x => SOME x) o
-    String.tokens (fn c => c = #"\n")
-in
-  fun quote_to_strings q =
-    f (Portable.quote_to_string (fn _ => raise General.Bind) q)
-end
-
-(** Copied from panPtreeConversion *)
-fun parse_pancake q =
-  let
-    val code = quote_to_strings q |> String.concatWith "\n" |> fromMLstring
-  in
-    EVAL “parse_topdecs_to_ast ^code” |> concl |> rand |> rand |> rator |> rand
-  end
-
-
-Quote and_pos_pos = parse_pancake:
-  fun and_pos_pos(x_len, x, y, z) {
-    while x_len {
-      var t1 = lds 1 x;
-      var t2 = lds 1 y;
-      st z, t1 & t2;
-      x = x + @biw;
-      y = y + @biw;
-      z = z + @biw;
-      x_len = x_len - 1;
-    }
-    return 0;
-  }
-End
-
-Definition and_pos_pos_loop_def:
-  and_pos_pos_loop =
-    ^(find_term (can $ match_term “panLang$While _ _”) and_pos_pos)
-End
+(** set_sep and word helpers **************************************************)
 
 (* TODO move to set_sep *)
 Definition one_list_def:
@@ -166,6 +127,67 @@ Proof
   >> gvs []
 QED
 
+(** Pancake semantics rewrites ************************************************)
+
+(** misc **********************************************************************)
+
+Theorem FLOOKUP_res_var_neq[local,simp]:
+  n' ≠ n ⇒ FLOOKUP (res_var s (n, opt)) n' = FLOOKUP s n'
+Proof
+  Cases_on ‘opt’ >> rw [res_var_def, FLOOKUP_SIMP, DOMSUB_FLOOKUP_NEQ]
+QED
+
+Theorem FLOOKUP_res_var[simp]:
+  FLOOKUP (res_var s (n, NONE))   n = NONE ∧
+  FLOOKUP (res_var s (n, SOME v)) n = SOME v
+Proof
+  simp [res_var_def, FLOOKUP_SIMP]
+QED
+
+Theorem FLOOKUP_set_var_neq[local,simp]:
+  n' ≠ n ⇒ FLOOKUP (set_var n value s).locals n' = FLOOKUP s.locals n'
+Proof
+  simp [set_var_def, FLOOKUP_SIMP]
+QED
+
+Theorem FLOOKUP_set_var[simp]:
+  FLOOKUP (set_var n value s).locals n = SOME value
+Proof
+  simp [set_var_def, FLOOKUP_SIMP]
+QED
+
+Theorem shape_of_ValWord[simp]:
+  shape_of (ValWord x) = One
+Proof
+  simp [shape_of_def]
+QED
+
+Theorem set_var_record[simp]:
+  (set_var v value s).clock = s.clock ∧
+  (set_var v value s).memaddrs = s.memaddrs ∧
+  (set_var v value s).memory = s.memory ∧
+  (set_var v value s).globals = s.globals ∧
+  (set_var v value s).code = s.code ∧
+  (set_var v value s).eshapes = s.eshapes ∧
+  (set_var v value s).sh_memaddrs = s.sh_memaddrs ∧
+  (set_var v value s).be = s.be ∧
+  (set_var v value s).ffi = s.ffi ∧
+  (set_var v value s).base_addr = s.base_addr ∧
+  (set_var v value s).top_addr = s.top_addr
+Proof
+  simp [set_var_def]
+QED
+
+Theorem dec_clock_record[simp]:
+  (dec_clock s).locals = s.locals ∧
+  (dec_clock s).memaddrs = s.memaddrs ∧
+  (dec_clock s).memory = s.memory
+Proof
+  simp [dec_clock_def]
+QED
+
+(** eval **********************************************************************)
+
 Theorem eval_Const[simp]:
   eval s (Const w) = SOME (ValWord w)
 Proof
@@ -178,65 +200,10 @@ Proof
   simp [eval_def]
 QED
 
-Theorem evaluate_Annot[simp]:
-  evaluate (Annot s₁ s₂, s) = (NONE, s)
+Theorem eval_BytesInWord[simp]:
+  eval s BytesInWord = SOME (ValWord bytes_in_word)
 Proof
-  simp [evaluate_def]
-QED
-
-Theorem evaluate_Seq_Annot[simp]:
-  evaluate (Seq (Annot s₁ s₂) c, s) = evaluate (c, s) ∧
-  evaluate (Seq c (Annot s₁ s₂), s) = evaluate (c, s)
-Proof
-  simp [evaluate_def]
-  >> rpt (pairarg_tac >> gvs [])
-  >> IF_CASES_TAC >> simp []
-QED
-
-Theorem evaluate_Seq_assoc[simp]:
-  evaluate (Seq (Seq s₁ s₂) (Seq s₃ s₄), s) =
-  evaluate (Seq s₁ (Seq s₂ (Seq s₃ s₄)), s)
-Proof
-  simp [evaluate_def]
-  >> rpt (pairarg_tac >> gvs [])
-  >> rpt (IF_CASES_TAC >> gvs [])
-QED
-
-Theorem dec_clock_eq[simp]:
-  (dec_clock s).locals = s.locals ∧
-  (dec_clock s).memaddrs = s.memaddrs ∧
-  (dec_clock s).memory = s.memory
-Proof
-  simp [dec_clock_def]
-QED
-
-Theorem evaluate_While_True_NONE:
-  eval s e = SOME (ValWord w) ∧ w ≠ 0w ∧ s.clock ≠ 0 ∧
-  evaluate (c, dec_clock s) = (NONE, s₁) ∧
-  evaluate (While e c, s₁) = (NONE, s')
-  ⇒
-  evaluate (While e c,s) = (NONE, s')
-Proof
-  rw [] >> simp [Once evaluate_def]
-QED
-
-Theorem evaluate_Dec_NONE:
-  eval s e = SOME value ∧
-  evaluate (prog,s with locals := s.locals |+ (v,value)) = (NONE,s₁)
-  ⇒
-  evaluate (Dec v shape e prog, s) =
-    (NONE, s₁ with locals := res_var s₁.locals (v, FLOOKUP s.locals v))
-Proof
-  rw [] >> simp [Once evaluate_def]
-QED
-
-Theorem evaluate_Seq_NONE:
-  evaluate (c₁, s) = (NONE, s₁) ∧
-  evaluate (c₂, s₁) = (NONE, s')
-  ⇒
-  evaluate (Seq c₁ c₂, s) = (NONE, s')
-Proof
-  rw [] >> simp [evaluate_def]
+  simp [eval_def]
 QED
 
 Theorem eval_Op_And_SOME:
@@ -275,6 +242,70 @@ Proof
   simp [eval_def, asmTheory.word_cmp_def]
 QED
 
+Theorem eval_Load_One_Local_SOME:
+  FLOOKUP s.locals n = SOME (ValWord v) ∧
+  v ∈ s.memaddrs
+  ⇒
+  eval s (Load One (Var Local n)) = SOME (Val (s.memory v))
+Proof
+  simp [eval_def, mem_load_def]
+QED
+
+(** evaluate ******************************************************************)
+
+Theorem evaluate_Annot[simp]:
+  evaluate (Annot s₁ s₂, s) = (NONE, s)
+Proof
+  simp [evaluate_def]
+QED
+
+Theorem evaluate_Seq_Annot[simp]:
+  evaluate (Seq (Annot s₁ s₂) c, s) = evaluate (c, s) ∧
+  evaluate (Seq c (Annot s₁ s₂), s) = evaluate (c, s)
+Proof
+  simp [evaluate_def]
+  >> rpt (pairarg_tac >> gvs [])
+  >> IF_CASES_TAC >> simp []
+QED
+
+Theorem evaluate_Seq_assoc[simp]:
+  evaluate (Seq (Seq s₁ s₂) (Seq s₃ s₄), s) =
+  evaluate (Seq s₁ (Seq s₂ (Seq s₃ s₄)), s)
+Proof
+  simp [evaluate_def]
+  >> rpt (pairarg_tac >> gvs [])
+  >> rpt (IF_CASES_TAC >> gvs [])
+QED
+
+Theorem evaluate_While_True_NONE:
+  eval s e = SOME (ValWord w) ∧ w ≠ 0w ∧ s.clock ≠ 0 ∧
+  evaluate (c, dec_clock s) = (NONE, s₁) ∧
+  evaluate (While e c, s₁) = (NONE, s')
+  ⇒
+  evaluate (While e c,s) = (NONE, s')
+Proof
+  rw [] >> simp [Once evaluate_def]
+QED
+
+Theorem evaluate_Dec_NONE:
+  eval s e = SOME value ∧
+  evaluate (prog,s with locals := s.locals |+ (v,value)) = (NONE,s₁)
+  ⇒
+  evaluate (Dec v shape e prog, s) =
+    (NONE, s₁ with locals := res_var s₁.locals (v, FLOOKUP s.locals v))
+Proof
+  rw [] >> simp [Once evaluate_def]
+QED
+
+Theorem evaluate_Seq_NONE:
+  evaluate (c₁, s) = (NONE, s₁) ∧
+  evaluate (c₂, s₁) = (NONE, s')
+  ⇒
+  evaluate (Seq c₁ c₂, s) = (NONE, s')
+Proof
+  rw [] >> simp [evaluate_def]
+QED
+
 Theorem evaluate_Store_Local_NONE:
   FLOOKUP s.locals dst = SOME (ValWord addr) ∧
   addr ∈ s.memaddrs ∧
@@ -296,67 +327,50 @@ Proof
   simp [evaluate_def, is_valid_value_def]
 QED
 
-Theorem eval_Load_One_Local_SOME:
-  FLOOKUP s.locals n = SOME (ValWord v) ∧
-  v ∈ s.memaddrs
-  ⇒
-  eval s (Load One (Var Local n)) = SOME (Val (s.memory v))
-Proof
-  simp [eval_def, mem_load_def]
-QED
+(** Pancake implementation ****************************************************)
 
-Theorem FLOOKUP_res_var_neq[local,simp]:
-  n' ≠ n ⇒ FLOOKUP (res_var s (n, opt)) n' = FLOOKUP s n'
-Proof
-  Cases_on ‘opt’ >> rw [res_var_def, FLOOKUP_SIMP, DOMSUB_FLOOKUP_NEQ]
-QED
+(* Following copied from panConcreteExamples*)
 
-Theorem FLOOKUP_res_var[simp]:
-  FLOOKUP (res_var s (n, NONE))   n = NONE ∧
-  FLOOKUP (res_var s (n, SOME v)) n = SOME v
-Proof
-  simp [res_var_def, FLOOKUP_SIMP]
-QED
+local
+  val f =
+    List.mapPartial
+       (fn s => case remove_whitespace s of "" => NONE | x => SOME x) o
+    String.tokens (fn c => c = #"\n")
+in
+  fun quote_to_strings q =
+    f (Portable.quote_to_string (fn _ => raise General.Bind) q)
+end
 
-Theorem FLOOKUP_set_var_neq[local,simp]:
-  n' ≠ n ⇒ FLOOKUP (set_var n value s).locals n' = FLOOKUP s.locals n'
-Proof
-  simp [set_var_def, FLOOKUP_SIMP]
-QED
+(** Copied from panPtreeConversion *)
+fun parse_pancake q =
+  let
+    val code = quote_to_strings q |> String.concatWith "\n" |> fromMLstring
+  in
+    EVAL “parse_topdecs_to_ast ^code” |> concl |> rand |> rand |> rator |> rand
+  end
 
-Theorem FLOOKUP_set_var[simp]:
-  FLOOKUP (set_var n value s).locals n = SOME value
-Proof
-  simp [set_var_def, FLOOKUP_SIMP]
-QED
 
-Theorem eval_BytesInWord[simp]:
-  eval s BytesInWord = SOME (ValWord bytes_in_word)
-Proof
-  simp [eval_def]
-QED
+Quote and_pos_pos = parse_pancake:
+  fun and_pos_pos(x_len, x, y, z) {
+    while x_len {
+      var t1 = lds 1 x;
+      var t2 = lds 1 y;
+      st z, t1 & t2;
+      x = x + @biw;
+      y = y + @biw;
+      z = z + @biw;
+      x_len = x_len - 1;
+    }
+    return 0;
+  }
+End
 
-Theorem shape_of_ValWord[simp]:
-  shape_of (ValWord x) = One
-Proof
-  simp [shape_of_def]
-QED
+Definition and_pos_pos_loop_def:
+  and_pos_pos_loop =
+    ^(find_term (can $ match_term “panLang$While _ _”) and_pos_pos)
+End
 
-Theorem set_var_record[simp]:
-  (set_var v value s).clock = s.clock ∧
-  (set_var v value s).memaddrs = s.memaddrs ∧
-  (set_var v value s).memory = s.memory ∧
-  (set_var v value s).globals = s.globals ∧
-  (set_var v value s).code = s.code ∧
-  (set_var v value s).eshapes = s.eshapes ∧
-  (set_var v value s).sh_memaddrs = s.sh_memaddrs ∧
-  (set_var v value s).be = s.be ∧
-  (set_var v value s).ffi = s.ffi ∧
-  (set_var v value s).base_addr = s.base_addr ∧
-  (set_var v value s).top_addr = s.top_addr
-Proof
-  simp [set_var_def]
-QED
+(** Correctness ***************************************************************)
 
 Theorem and_pos_pos_thm:
   ∀(xs: α word list) ys zs rs s x y z frame.
@@ -462,9 +476,3 @@ Proof
   >> fs [state_component_equality, one_list_def, ADD1]
   >> fs [AC STAR_ASSOC STAR_COMM]
 QED
-
-(*
-  SEP_R_TAC
-  SEP_W_TAC
-  SEP_F_TAC
-*)
