@@ -1592,7 +1592,6 @@ Resume evaluate_rewrite_tmc[op]:
     >> rpt $ first_assum $ irule_at Any)
   >> Cases_on ‘x’ >> gvs []
   >> rename [‘bvi_to_cb loc tag args = SOME (bs,cb)’]
-
   (* Phase 1 theorem *)
   >> ‘evaluate ([Op (BlockOp (Cons tag)) args],env,s) = (Rval [v],t)’ by gvs [evaluate_def]
   >> drule evaluate_bvi_to_cb_to_bvi
@@ -1604,7 +1603,6 @@ Resume evaluate_rewrite_tmc[op]:
   >> Cases_on ‘evaluate (bs,env,s)’ >> gvs []
   >> Cases_on ‘q’ >> gvs []
   >> rename [‘evaluate (bs,env,s) = (Rval as,w)’]
-
   (* Hypothesis on bs *)
   >> first_assum $ qspecl_then [‘bs’, ‘s’] mp_tac
   >> gvs []
@@ -1618,7 +1616,6 @@ Resume evaluate_rewrite_tmc[op]:
   >> gvs []
   >> rename [‘evaluate (bs,env2,s') = (Rval as',w')’]
   >> rename [‘f ⊑ f''’]
-
   (* Hypothesis on cb_to_bvi loc cb *)
   >> first_assum $ qspecl_then [‘[cb_to_bvi loc cb]’, ‘w’] mp_tac
   >> impl_tac
@@ -1642,7 +1639,6 @@ Resume evaluate_rewrite_tmc[op]:
   >> rename [‘evaluate ([cb_to_bvi loc cb],as' ++ env2,w') = (Rval [v''],t'')’]
   >> pop_assum kall_tac
   >> pop_assum kall_tac
-
   (* Phase 1 theorem in optimised world to unify things *)
   >> ‘evaluate ([Op (BlockOp (Cons tag)) args],env2,s') = (Rval [v'],t')’ by gvs [evaluate_def]
   >> drule evaluate_bvi_to_cb_to_bvi
@@ -1651,7 +1647,6 @@ Resume evaluate_rewrite_tmc[op]:
   >> gvs []
   >> strip_tac
   >> gvs [evaluate_def]
-
   (* Phase 2 theorem *)
   >> Cases_on ‘cb_to_hb cb’
   >> Cases_on ‘r’ >> gvs []
@@ -1661,7 +1656,8 @@ Resume evaluate_rewrite_tmc[op]:
   >> disch_then drule
   >> imp_res_tac bvi_to_cb_wf
   >> gvs []
-  (* Are things instantiated correctly (f?) *)     
+  (* Are things instantiated correctly (f?) *)
+
   >> disch_then drule
   >> disch_then drule
   >> disch_then drule
@@ -1684,6 +1680,7 @@ Resume evaluate_rewrite_tmc[op]:
   >> gvs []
   >> ‘LENGTH bs = LENGTH as’ by imp_res_tac evaluate_IMP_LENGTH
   >> gvs [opt_res_rel_def]
+
   >> conj_tac >- cheat
   >> conj_tac
   >-
