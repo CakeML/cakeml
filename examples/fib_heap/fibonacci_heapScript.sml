@@ -4,6 +4,7 @@
 Theory fibonacci_heap
 Ancestors
   misc words arithmetic list alist set_sep pair finite_map combin pred_set rich_list
+  panSem
 Libs
   wordsLib helperLib
 
@@ -2151,6 +2152,22 @@ QED
   Memory Level Verification of Merging Heaps
 
 --------------------------------------------------*)
+
+Definition is_Word_def[simp]:
+  is_Word (Word _ : 'a word_lab) = T
+End
+
+Definition get_Word_def[simp]:
+  get_Word (Word w : 'a word_lab) = w
+End
+
+Definition read_mem_def:
+  read_mem m dm addr c =
+    let c' = (addr IN dm) in
+    let w  = m addr in
+    (c /\ c' /\ is_Word w, get_Word w)
+End
+
 
 
 (*assumption: both heads are the smallest element*)
