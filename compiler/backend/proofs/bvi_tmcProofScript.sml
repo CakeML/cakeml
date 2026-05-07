@@ -1685,7 +1685,21 @@ Resume evaluate_rewrite_tmc[op]:
   >> ‘LENGTH bs = LENGTH as’ by imp_res_tac evaluate_IMP_LENGTH
   >> gvs [opt_res_rel_def]
   >> conj_tac >- cheat
-  >> conj_tac >- cheat
+  >> conj_tac
+  >-
+   (irule holes_unchanged_except_trans
+    >> gvs [EL_APPEND_EQN]
+    >> rev_drule env_rel_length_opt
+    >> strip_tac
+    >> gvs []
+    >> drule env_rel_length_opt
+    >> strip_tac
+    >> gvs []
+    >> first_assum $ irule_at $ Pos $ el 4
+    >> gvs []
+    >> irule holes_unchanged_except_subset
+    >> qexists ‘∅’
+    >> gvs [])
   >> irule hole_has_val_submap
   >> qexists ‘f''’
   >> gvs []
