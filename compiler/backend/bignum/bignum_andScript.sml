@@ -81,31 +81,62 @@ Definition byte_dimindex_def:
 End
 
 (* TODO Move somewhere better *)
+Theorem dimindex_DIV_8_lt_dimword:
+  (dimindex (:α) DIV 8) < dimword (:α)
+Proof
+  simp [dimword_def]
+  >> irule LESS_TRANS
+  >> irule_at (Pos hd) DIV_LESS
+  >> simp []
+QED
+
+(* TODO Move somewhere better *)
+Theorem one_lt_w2n_bytes_in_word:
+  8 < dimindex (:α) ∧ byte_dimindex (:α) ⇒ 1 < w2n (bytes_in_word: α word)
+Proof
+  rw [byte_dimindex_def, bytes_in_word_def]
+  >> simp [dimindex_DIV_8_lt_dimword]
+  >> qpat_x_assum ‘2 ** k = _’ $ SUBST_ALL_TAC o GSYM >> simp []
+  >> ‘8n = 2 ** 3’ by simp []
+  >> pop_assum SUBST_ALL_TAC
+  >> DEP_REWRITE_TAC [GSYM EXP_SUB] >> simp []
+  >> Cases_on ‘k = 3’ >> gvs []
+QED
+
+(* TODO Move somewhere better *)
 Theorem dimword_MOD_bytes_in_word:
   byte_dimindex (:α) ⇒
   dimword (:α) MOD w2n (bytes_in_word: α word) = 0
 Proof
   rw [bytes_in_word_def]
   >> ‘(dimindex (:α) DIV 8) MOD dimword (:α) = dimindex (:α) DIV 8’ by
-    (simp [dimword_def]
-     >> irule LESS_TRANS
-     >> irule_at (Pos hd) DIV_LESS
-     >> simp [])
+    (simp [dimindex_DIV_8_lt_dimword])
   >> fs [byte_dimindex_def, dimword_def]
   >> ‘0 < dimindex (:α) DIV 8’ by
     (irule dividesTheory.DIV_POS >> simp []
      >> qpat_x_assum ‘2 ** k = _’ $ SUBST_ALL_TAC o GSYM >> simp [])
-  >> ‘∃k. 2 ** dimindex (:α) = k * (dimindex (:α) DIV 8)’ by cheat
+  >> ‘∃k. 2 ** dimindex (:α) = k * (dimindex (:α) DIV 8)’ by
+    (qpat_x_assum ‘2 ** _ = dimindex (:α)’ $ SUBST_ALL_TAC o GSYM
+     >> ‘8n = 2 ** 3’ by simp []
+     >> pop_assum SUBST_ALL_TAC
+     >> DEP_REWRITE_TAC [GSYM EXP_SUB] >> simp []
+     >> qexists ‘2 ** (2 ** k − (k − 3))’
+     >> rewrite_tac [GSYM EXP_ADD]
+     >> DEP_REWRITE_TAC [SUB_ADD]
+     >> irule LESS_EQ_TRANS
+     >> irule_at (Pos hd) LESS_IMP_LESS_OR_EQ
+     >> irule_at (Pos hd) LESS_2_EXP
+     >> simp [])
   >> simp []
 QED
 
-
 (* TODO move to set_sep *)
-Theorem one_list_LENGTH_leq_dimword:
-  byte_dimindex (:α) ∧ (one_list (a: α word) xs) (fun2set (f, d)) ⇒
-  LENGTH xs * w2n (bytes_in_word: α word) ≤ dimword (:α)
+Theorem one_list_leq_dimword:
+  ∀(frame: (α word # β -> bool) -> bool).
+    byte_dimindex (:α) ∧ (one_list a xs * frame) (fun2set (f, d)) ⇒
+    LENGTH xs * w2n (bytes_in_word: α word) ≤ dimword (:α)
 Proof
-  strip_tac
+  rw []
   >> qabbrev_tac ‘bytes = w2n (bytes_in_word: α word)’
   >> qabbrev_tac ‘max_index = dimword (:α) DIV bytes’
   >> Cases_on ‘bytes = 0’ >- simp []
@@ -319,7 +350,7 @@ Proof
 QED
 
 Theorem and_pos_pos_thm:
-  ∀xs ys zs rs s x y z frame.
+  ∀(xs: α word list) ys zs rs s x y z frame.
     mw_and xs ys = zs ∧ LENGTH xs ≤ LENGTH ys ∧
     LENGTH rs = LENGTH xs ∧ LENGTH xs ≤ s.clock ∧
     FLOOKUP s.locals «x_len» = SOME (Val (Word (n2w (LENGTH xs)))) ∧
@@ -329,7 +360,8 @@ Theorem and_pos_pos_thm:
     (one_list x (MAP Word xs) *
      one_list y (MAP Word ys) *
      one_list z rs *
-     frame) (fun2set (s.memory, s.memaddrs))
+     frame) (fun2set (s.memory, s.memaddrs)) ∧
+    byte_dimindex (:α) ∧ 8 < dimindex (:α)
     ⇒
     ∃m l.
       evaluate (and_pos_pos_loop,s) = (NONE,
@@ -351,7 +383,14 @@ Proof
   (**)
   >> irule_at (Pos hd) evaluate_While_True_NONE
   >> simp [eval_def, asmTheory.word_cmp_def]
-  >> ‘SUC (LENGTH xs) < dimword (:α)’ by cheat
+  >> ‘SUC (LENGTH xs) < dimword (:α)’ by
+    (drule_then assume_tac $
+       INST_TYPE [“:β” |-> “:α word_lab”] one_list_leq_dimword
+     >> SEP_F_TAC >> simp [] >> strip_tac
+     >> drule_all_then assume_tac one_lt_w2n_bytes_in_word
+     >> irule_at (Pos hd) LESS_LESS_EQ_TRANS
+     >> first_assum $ irule_at (Pos last)
+     >> simp [])
   >> simp []
   (**)
   >> irule_at (Pos hd) evaluate_Dec_NONE
