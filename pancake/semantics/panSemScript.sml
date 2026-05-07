@@ -65,14 +65,6 @@ Definition shape_of_def:
   shape_of (NStruct nm _) = Named nm
 End
 
-(* Switch which controls whether "named struct" features are enabled in
-   verified code. Disabled for now, to simplify the verification so that the
-   feature branch can be merged. The feature can be used informally but the
-   resulting code can't be verified. FIXME: verify the feature properly. *)
-Definition named_structs_ok_def:
-  named_structs_ok = F
-End
-
 Definition mem_load_byte_def:
   mem_load_byte m dm be w =
   case m (byte_align w) of
@@ -136,14 +128,12 @@ Definition mem_load_def:
       | SOME vs => SOME (RStruct vs)
       | NONE => NONE)
    | Named nm =>
-     if named_structs_ok
-     then (case dropWhile (\(n,i). ~(n = nm)) stcs of
+     (case dropWhile (\(n,i). ~(n = nm)) stcs of
       | (nm,info)::stcs' =>
           (case mem_load_flds info.fields addr dm m stcs' of
             | SOME vflds => SOME (NStruct nm vflds)
             | NONE => NONE)
-      | _ => NONE)
-     else NONE) /\
+      | _ => NONE) /\
   (mem_loads [] addr dm m stcs = SOME []) /\
   (mem_loads (shape::shapes) addr dm m stcs =
    case (mem_load shape addr dm m stcs,
@@ -200,8 +190,7 @@ Definition eval_def:
      | _ => NONE) /\
   (eval s (NStruct nm eflds) =
     let (field_names, field_exps) = UNZIP eflds in
-    (if named_structs_ok
-    then (case ALOOKUP s.structs nm of
+    (case ALOOKUP s.structs nm of
       | SOME info =>
         let (field_names', field_shapes) = UNZIP info.fields in
         if field_names' = field_names then (* assumed sorted *)
@@ -212,16 +201,13 @@ Definition eval_def:
             else NONE
           | NONE => NONE
         else NONE
-      | NONE => NONE)
-    else NONE)) /\
+      | NONE => NONE) /\
   (eval s (NField fld e) =
-    (if named_structs_ok
-    then (case eval s e of
+    (case eval s e of
      | SOME (NStruct nm vflds) =>
        if ALOOKUP s.structs nm <> NONE
        then ALOOKUP vflds fld else NONE
-     | _ => NONE)
-    else NONE)) /\
+     | _ => NONE)) /\
   (eval s (Load shape addr) =
     if is_wf_shape s.structs shape then
       case eval s addr of
@@ -806,7 +792,7 @@ Definition decs_stcnames_def:
     (case ALOOKUP st_ctxt nm of
     | SOME info => NONE
     | NONE =>
-      if named_structs_ok /\ ALL_DISTINCT $ MAP FST flds then
+      if ALL_DISTINCT $ MAP FST flds then
         let shs = MAP SND flds in
         if EVERY (is_wf_shape st_ctxt) shs then
           let info = <| fields := flds
