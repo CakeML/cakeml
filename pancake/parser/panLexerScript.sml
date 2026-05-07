@@ -259,7 +259,7 @@ Definition next_atom_def:
       let (n, rest) = read_while isAlphaNumOrWild cs [c] in
       SOME (WordA n, Locs loc (next_loc (LENGTH n) loc), rest)
     else (* input not recognised *)
-      SOME (ErrA $ concat [«Unrecognised symbol: »; str c], Locs loc loc, cs)
+      SOME (ErrA $ concat [«Unrecognised symbol: »; toString c], Locs loc loc, cs)
 Termination
   WF_REL_TAC `measure (LENGTH o FST)`
   \\ simp []

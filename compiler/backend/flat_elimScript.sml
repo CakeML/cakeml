@@ -202,7 +202,7 @@ End
 
 Definition analyse_code_def:
     analyse_code [] = (LN, LN) ∧
-    analyse_code ((Dlet e)::cs) =
+    analyse_code (e::cs) =
         code_analysis_union (analyse_exp e) (analyse_code cs)
 End
 
@@ -210,7 +210,7 @@ End
 (**************************** REMOVAL FUNCTIONS *****************************)
 
 Definition keep_def:
-    keep reachable (Dlet e) =
+    keep reachable e =
         (* if none of the global variables that e may assign to are in
            the reachable set, then e is candidate for removal
            -> if any are in, then keep e
@@ -224,7 +224,7 @@ Definition remove_unreachable_def:
 End
 
 Definition has_Eval_dec_def:
-  has_Eval_dec (Dlet e) = has_Eval e
+  has_Eval_dec e = has_Eval e
 End
 
 Definition remove_flat_prog_def:
@@ -236,4 +236,3 @@ Definition remove_flat_prog_def:
         let reachable = closure_spt r t in
         remove_unreachable reachable code
 End
-

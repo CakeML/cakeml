@@ -235,12 +235,11 @@ val res = translate
 ( data_section_def
   |> SIMP_RULE std_ss [MAP]
   |> CONV_RULE(DEPTH_CONV(EVAL o (assert is_strcat_lits)))
-  |> SIMP_RULE std_ss [mlstringTheory.implode_STRCAT |> REWRITE_RULE[mlstringTheory.implode_def]]
+  |> SIMP_RULE std_ss [mlstringTheory.implode_STRCAT]
   |> SIMP_RULE std_ss [mlstringTheory.strcat_assoc]
-  |> SIMP_RULE std_ss [GSYM(mlstringTheory.implode_STRCAT |> REWRITE_RULE[mlstringTheory.implode_def])]
+  |> SIMP_RULE std_ss [GSYM mlstringTheory.implode_STRCAT]
   |> CONV_RULE(DEPTH_CONV(EVAL o (assert is_strcat_lits)))
-  |> SIMP_RULE std_ss [mlstringTheory.implode_STRCAT |> REWRITE_RULE[mlstringTheory.implode_def]]
-  |> CONV_RULE(DEPTH_CONV(RATOR_CONV (REWR_CONV (SYM mlstringTheory.implode_def)) o (assert is_strlit_var))))
+  |> SIMP_RULE std_ss [mlstringTheory.implode_STRCAT])
 (* -- *)
 
 val res = translate comm_strlit_def;
@@ -372,6 +371,8 @@ val res = translate nonzero_exit_code_for_error_msg_def;
 
 val res = translate $ spec32 compile_pancake_def;
 
+val res = translate pancake_backend_conf_def;
+
 val res = translate compile_pancake_32_def;
 
 val _ = res |> hyp |> null orelse
@@ -403,6 +404,7 @@ End
 val main_v_def = fetch "-" "main_v_def";
 
 Theorem main_spec:
+   IS_SOME (stdin_content fs) ⇒
    app (p:'ffi ffi_proj) main_v
      [Conv NONE []] (STDIO fs * COMMANDLINE cl)
      (POSTv uv.
@@ -410,7 +412,8 @@ Theorem main_spec:
        * STDIO (full_compile_32 (TL cl) (get_stdin fs) fs)
        * COMMANDLINE cl)
 Proof
-  xcf_with_def main_v_def
+  strip_tac
+  \\ xcf_with_def main_v_def
   \\ xlet_auto >- (xcon \\ xsimpl)
   \\ xlet_auto
   >- (
@@ -463,18 +466,22 @@ Proof
     \\ CONV_TAC SWAP_EXISTS_CONV
     \\ qexists_tac`fs`
     \\ xsimpl)
-  >> xlet_auto>-xsimpl
+  >> xlet_auto >- xsimpl
+  \\ rename [‘stdin fs inp pos’]
+  \\ ‘stdin_content fs = SOME inp ∧ pos = 0’ by
+    (gvs [stdin_def,get_file_content_def]
+     \\ fs [stdin_content_def,IS_SOME_EXISTS])
+  \\ gvs []
   >> xif
   >- (
      xlet_auto >- (xcon \\ xsimpl)
-     \\ xlet_auto_spec (SOME openStdIn_STDIO_spec) >- xsimpl
-     \\ rename [‘get_file_content _ _ = SOME (inp,pos)’]
+     \\ xlet_auto_spec (SOME openStdIn_spec_str) >- xsimpl
      \\ xlet ‘POSTv v.
-         &STRING_TYPE (implode (DROP pos inp)) v *
+         &STRING_TYPE (implode inp) v *
          STDIO (fastForwardFD fs 0) * COMMANDLINE cl’
      >-
       (xapp
-       \\ qexistsl [‘COMMANDLINE cl’, ‘pos’, ‘fs’, ‘0’, ‘inp’, ‘[]’]
+       \\ qexistsl [‘COMMANDLINE cl’, ‘inp’, ‘fs’, ‘0’]
        \\ fs [STD_streams_get_mode] \\ xsimpl)
      \\ xlet_auto >- xsimpl
      \\ xlet_auto >- xsimpl
@@ -495,14 +502,13 @@ Proof
      \\ xapp
      \\ asm_exists_tac \\ simp [] \\ xsimpl)
   \\ xlet_auto >- (xcon \\ xsimpl)
-  \\ xlet_auto_spec (SOME openStdIn_STDIO_spec) >- xsimpl
-  \\ rename [‘get_file_content _ _ = SOME (inp,pos)’]
+  \\ xlet_auto_spec (SOME openStdIn_spec_str) >- xsimpl
   \\ xlet ‘POSTv v.
-       &STRING_TYPE (implode (DROP pos inp)) v *
+       &STRING_TYPE (implode inp) v *
        STDIO (fastForwardFD fs 0) * COMMANDLINE cl’
   >-
    (xapp
-    \\ qexistsl [‘COMMANDLINE cl’, ‘pos’, ‘fs’, ‘0’, ‘inp’, ‘[]’]
+    \\ qexistsl [‘COMMANDLINE cl’, ‘inp’, ‘fs’, ‘0’]
     \\ fs [STD_streams_get_mode] \\ xsimpl)
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
@@ -524,23 +530,25 @@ Proof
 QED
 
 Theorem main_whole_prog_spec:
+  IS_SOME (stdin_content fs) ⇒
    whole_prog_spec main_v cl fs NONE
     ((=) (full_compile_32 (TL cl) (get_stdin fs) fs))
 Proof
-  simp[whole_prog_spec_def,UNCURRY]
+  strip_tac
+  \\ simp[whole_prog_spec_def,UNCURRY]
   \\ qmatch_goalsub_abbrev_tac`fs1 = _ with numchars := _`
   \\ qexists_tac`fs1`
   \\ reverse conj_tac >-
-    rw[Abbr`fs1`,full_compile_32_def,UNCURRY,
-       GSYM fastForwardFD_with_numchars,
-       GSYM add_stdo_with_numchars, with_same_numchars]
+   rw[Abbr`fs1`,full_compile_32_def,UNCURRY,
+      GSYM fastForwardFD_with_numchars,
+      GSYM add_stdo_with_numchars, with_same_numchars]
   \\ simp [SEP_CLAUSES]
-  \\ match_mp_tac(MP_CANON(MATCH_MP app_wgframe main_spec))
+  \\ match_mp_tac (MP_CANON(MATCH_MP app_wgframe (UNDISCH main_spec)))
   \\ xsimpl
 QED
 
 val (semantics_thm,prog_tm) =
-  whole_prog_thm (get_ml_prog_state()) "main" main_whole_prog_spec;
+  whole_prog_thm (get_ml_prog_state()) "main" (main_whole_prog_spec |> UNDISCH);
 
 Definition compiler32_prog_def:
   compiler32_prog = ^prog_tm

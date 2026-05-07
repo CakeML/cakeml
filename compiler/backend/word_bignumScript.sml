@@ -122,7 +122,7 @@ fun get_exp x =
   val (_,name) = first (fn (pat,_) => can (match_term pat) x) shifts
   val x1 = get_exp (x |> rator |> rand)
   val x2 = x |> rand
-  in wordLangSyntax.mk_Shift(name,x1,``^x2``) end
+  in wordLangSyntax.mk_Shift(name,x1,``Const (n2w ^x2)``) end
   handle HOL_ERR _ =>
   (* ~ *) let
   val r = wordsSyntax.dest_word_1comp x
@@ -442,7 +442,7 @@ Definition compile_exp_def:
   compile_exp (Op b [x1;x2]) = Op b [compile_exp x1; compile_exp x2] /\
   compile_exp (Var n) = Lookup (Temp (n2w n)) /\
   compile_exp (Const w) = Const w /\
-  compile_exp (Shift sh x na) = Shift sh (compile_exp x) na /\
+  compile_exp (Shift sh x y) = Shift sh (compile_exp x) (compile_exp y) /\
   compile_exp _ = Const 0w
 End
 
@@ -475,7 +475,7 @@ Definition SeqIndex_def:
   SeqIndex i r arr p =
     let t = (case arr of Out => TempOut | In2 => TempIn2 | In1 => TempIn1) in
       Seq (Assign i (Op Add [Lookup t;
-           Shift Lsl (Lookup (Temp (n2w r))) (shift (:'a))])) p
+           ShiftN Lsl (Lookup (Temp (n2w r))) (shift (:'a))])) p
               :'a wordLang$prog
 End
 
@@ -575,4 +575,3 @@ End
 
 Theorem generated_bignum_stubs_eq =
   EVAL ``generated_bignum_stubs n`` |> SIMP_RULE std_ss [GSYM ADD_ASSOC]
-

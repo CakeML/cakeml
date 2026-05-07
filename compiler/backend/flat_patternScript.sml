@@ -320,5 +320,5 @@ Proof
 QED
 
 Definition compile_dec_def:
-  compile_dec cfg (Dlet exp) = Dlet (SND (SND (compile_exp cfg exp)))
+  compile_dec cfg exp = SND (SND (compile_exp cfg exp))
 End

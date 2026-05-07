@@ -64,7 +64,7 @@ Definition cake_lpr_run_def:
 End
 
 Theorem concat_success_str:
-  ∀a b c. concat [strlit "s VERIFIED INTERVALS COVER 0-"; toString (d:num); strlit "\n"] ≠ success_str a b c
+  ∀a b c. concat [«s VERIFIED INTERVALS COVER 0-»; toString (d:num); «\n»] ≠ success_str a b c
 Proof
   rw[]>>
   simp[success_str_def,expected_prefix_def]>>
@@ -76,7 +76,7 @@ QED
 
 Theorem check_lines_success_str:
   check_lines a b c d = INR y ⇒
-  y = concat [strlit "s VERIFIED INTERVALS COVER 0-"; toString d; strlit "\n"] ∧
+  y = concat [«s VERIFIED INTERVALS COVER 0-»; toString d; «\n»] ∧
   ∀a b c. y ≠ success_str a b c
 Proof
   simp[check_lines_def]>>
@@ -99,7 +99,7 @@ Theorem machine_code_sound:
   ∃out err.
     extract_fs fs (check_unsat_io_events cl fs) =
       SOME (add_stdout (add_stderr fs err) out) ∧
-  (out ≠ strlit "" ⇒
+  (out ≠ «» ⇒
   if LENGTH cl = 2 then
     inFS_fname fs (EL 1 cl) ∧
     ∃fml.
@@ -109,14 +109,14 @@ Theorem machine_code_sound:
     inFS_fname fs (EL 1 cl) ∧
     ∃fml.
       parse_dimacs (all_lines_file fs (EL 1 cl)) = SOME fml ∧
-      out = strlit "s VERIFIED UNSAT\n" ∧
+      out = «s VERIFIED UNSAT\n» ∧
       unsatisfiable (interp fml)
   else if LENGTH cl = 4 then
     inFS_fname fs (EL 1 cl) ∧ inFS_fname fs (EL 3 cl) ∧
     ∃fml fml2.
       parse_dimacs (all_lines_file fs (EL 1 cl)) = SOME fml ∧
       parse_dimacs (all_lines_file fs (EL 3 cl)) = SOME fml2 ∧
-      out = strlit "s VERIFIED TRANSFORMATION\n" ∧
+      out = «s VERIFIED TRANSFORMATION\n» ∧
       (satisfiable (interp fml) ⇒ satisfiable (interp fml2))
   else if LENGTH cl = 5 then
     case parse_rng_or_check (EL 3 cl) of NONE => F
@@ -130,7 +130,7 @@ Theorem machine_code_sound:
           (all_lines_file fs (EL 4 cl))
           (LENGTH (all_lines_file fs (EL 2 cl))) = INR out ∧
           ∃n:num.
-            out = concat [strlit "s VERIFIED INTERVALS COVER 0-"; toString n; strlit "\n"]
+            out = concat [«s VERIFIED INTERVALS COVER 0-»; toString n; «\n»]
     | SOME (INR (i,j)) =>
       inFS_fname fs (EL 1 cl) ∧ inFS_fname fs (EL 2 cl) ∧
       ∃fml pf.
@@ -235,7 +235,7 @@ Proof
 QED
 
 Theorem success_str_nonempty:
-  success_str a b c ≠ strlit ""
+  success_str a b c ≠ «»
 Proof
   EVAL_TAC
 QED
@@ -275,7 +275,7 @@ Proof
   ∃out err.
     extract_fs fs (check_unsat_io_events cl fs) =
       SOME (add_stdout (add_stderr fs err) out) ∧
-    (out ≠ strlit "" ⇒
+    (out ≠ «» ⇒
       ∃fml pf.
       parse_dimacs (all_lines_file fs (EL 1 cl)) = SOME fml ∧
       parse_proof (all_lines_file fs (EL 2 cl)) = SOME pf ∧

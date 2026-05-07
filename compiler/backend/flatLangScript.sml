@@ -148,11 +148,6 @@ Proof
   \\ decide_tac
 QED
 
-Datatype:
- dec =
-    Dlet exp
-End
-
 Definition bool_id_def:
   bool_id = 0n
 End

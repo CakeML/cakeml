@@ -835,7 +835,7 @@ val _=add_astPP("astlistprint",``x:ast$dec list``,genPrint astlistPrint);
 
 fun enable_astPP_verbose () = map temp_add_user_printer (!astPrettyPrinters);
 fun enable_astPP () = (enable_astPP_verbose();())
-fun disable_astPP_verbose () = map (fn (x,y,z) => temp_remove_user_printer x) (!astPrettyPrinters);
+fun disable_astPP_verbose () = map (fn (x,y,z) => temp_remove_user_printer (x,y)) (!astPrettyPrinters);
 fun disable_astPP () = (disable_astPP_verbose();())
 (*
 enable_astPP_verbose();

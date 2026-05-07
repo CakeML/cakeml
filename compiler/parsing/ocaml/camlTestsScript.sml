@@ -600,12 +600,12 @@ val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   "- fun x -> x"
-  (SOME “App Opapp [Var (Long «Int» (Short «~»)); Fun «x» (V «x»)]”)
+  (SOME “App Opapp [V «~-»; Fun «x» (V «x»)]”)
   ;
 
 val _ = parsetest0 “nENeg” “ptree_Expr nENeg”
   " - let y = z in y"
-  (SOME “App Opapp [Var (Long «Int» (Short «~»));
+  (SOME “App Opapp [V «~-»;
                     Let (SOME «y») (V «z») (V «y»)]”)
   ;
 
@@ -668,7 +668,7 @@ val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   "-1"
-  (SOME “App Opapp [Var (Long «Int» (Short «~»)); Lit (IntLit 1)]”)
+  (SOME “App Opapp [V «~-»; Lit (IntLit 1)]”)
   ;
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
@@ -1134,7 +1134,7 @@ val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   "- 3"
-  (SOME “App Opapp [Var (Long «Int» (Short «~»)); Lit (IntLit 3)]”)
+  (SOME “App Opapp [V «~-»; Lit (IntLit 3)]”)
   ;
 
 (* if without the else *)
@@ -1528,7 +1528,7 @@ val _ = parsetest0 “nStart” “ptree_Start”
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   "!s.[c]"
-  (SOME “App Opapp [App Opapp [Var (Long «String» (Short «sub»));
+  (SOME “App Opapp [App Opapp [Var (Long «String» (Short «get»));
                                App Opapp [V «!»; V «s»]];
                     V «c»]”)
   ;
@@ -1536,9 +1536,9 @@ val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   "-  a.( i) + 3"
   (SOME “vbinop (Short «+»)
-                (App Opapp [Var (Long «Int» (Short «~»));
+                (App Opapp [V «~-»;
                             App Opapp [
-                                App Opapp [Var (Long «Array» (Short «sub»));
+                                App Opapp [Var (Long «Array» (Short «get»));
                                            V «a»];
                                 V «i»]])
                 (Lit (IntLit 3))”)
@@ -1577,7 +1577,7 @@ val _ = parsetest0 “nPattern” “ptree_Pattern”
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   "-1"
-  (SOME “App Opapp [Var (Long «Int» (Short «~»)); Lit (IntLit 1)]”)
+  (SOME “App Opapp [V «~-»; Lit (IntLit 1)]”)
   ;
 
 (* 2023-08-25: Parse .( as two tokens and make sure structure projection of
@@ -1586,7 +1586,7 @@ val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   "a . ( i)"
-  (SOME “App Opapp [App Opapp [Var (Long «Array» (Short «sub»)); V «a»];
+  (SOME “App Opapp [App Opapp [Var (Long «Array» (Short «get»)); V «a»];
                                V «i»]”)
   ;
 

@@ -415,6 +415,7 @@ val _ = cv_auto_trans backend_asmTheory.attach_bitmaps_def;
 
 (* ------------------------------------------------------------------------ *)
 
+val _ = cv_trans stack_to_labTheory.find_lab_def;
 val _ = cv_trans stack_to_labTheory.negate_def;
 val _ = cv_trans stack_to_labTheory.is_gen_gc_def;
 val _ = stack_namesTheory.dest_find_name_def |> cv_trans;
@@ -913,7 +914,7 @@ val _ = cv_trans backendTheory.set_oracle_def;
 val _ = cv_trans (exportTheory.escape_sym_char_def |> SRULE [GREATER_EQ]);
 val _ = cv_auto_trans exportTheory.emit_symbol_def;
 val _ = cv_auto_trans exportTheory.emit_symbols_def;
-val _ = cv_auto_trans (exportTheory.data_section_def |> SRULE [GSYM mlstringTheory.implode_def]);
+val _ = cv_auto_trans exportTheory.data_section_def;
 val _ = cv_trans (exportTheory.data_buffer_def |> SRULE []);
 val _ = cv_trans (exportTheory.code_buffer_def |> SRULE []);
 

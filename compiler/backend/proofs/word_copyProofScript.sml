@@ -863,7 +863,8 @@ QED
 
 Theorem word_exp_cong_Shift:
   word_exp st e' = word_exp st e ⇒
-  word_exp st (Shift sh e' n) = word_exp st (Shift sh e n)
+  word_exp st e2' = word_exp st e2 ⇒
+  word_exp st (Shift sh e' e2') = word_exp st (Shift sh e e2)
 Proof
   rw[word_exp_def]
 QED

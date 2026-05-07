@@ -241,12 +241,11 @@ val res = translate
           ( data_section_def
               |> SIMP_RULE std_ss [MAP]
               |> CONV_RULE(DEPTH_CONV(EVAL o (assert is_strcat_lits)))
-              |> SIMP_RULE std_ss [mlstringTheory.implode_STRCAT |> REWRITE_RULE[mlstringTheory.implode_def]]
+              |> SIMP_RULE std_ss [mlstringTheory.implode_STRCAT]
               |> SIMP_RULE std_ss [mlstringTheory.strcat_assoc]
-              |> SIMP_RULE std_ss [GSYM(mlstringTheory.implode_STRCAT |> REWRITE_RULE[mlstringTheory.implode_def])]
+              |> SIMP_RULE std_ss [GSYM mlstringTheory.implode_STRCAT]
               |> CONV_RULE(DEPTH_CONV(EVAL o (assert is_strcat_lits)))
-              |> SIMP_RULE std_ss [mlstringTheory.implode_STRCAT |> REWRITE_RULE[mlstringTheory.implode_def]]
-              |> CONV_RULE(DEPTH_CONV(RATOR_CONV (REWR_CONV (SYM mlstringTheory.implode_def)) o (assert is_strlit_var))))
+              |> SIMP_RULE std_ss [mlstringTheory.implode_STRCAT])
 (* -- *)
 
 val res = translate comm_strlit_def;
@@ -388,6 +387,8 @@ val _ = res |> hyp |> null orelse
 
 val res = translate $ spec64 compile_pancake_def;
 
+val res = translate pancake_backend_conf_def;
+
 val res = translate compile_pancake_64_def;
 
 val _ = res |> hyp |> null orelse
@@ -458,7 +459,7 @@ val _ = register_type “:('a,'b,'c,'d,'e) eval_res”;
 Quote add_cakeml:
 fun eval ((s1,next_gen), (env,id), decs) =
 case compiler_for_eval ((id,0),(s1,decs)) of
-  None => Compile_error "ERROR: failed to compile input\n»"
+  None => Compile_error "ERROR: failed to compile input\n"
 | Some (s2,(bs,ws)) =>
     let
 val new_env = eval_prim (env,s1,decs,s2,bs,ws)
@@ -571,27 +572,27 @@ val res = translate (init_next_string_def |> REWRITE_RULE [MEMBER_INTRO]);
 
 Quote add_cakeml:
 fun start_repl (cl,s1) =
-let
-val parse = select_parse cl
-val types = init_types
-val conf = (s1,1)
-val env = (repl_init_env, 0)
-val decs = []
-val input_str = ""
-val _ = (Repl.nextString := init_next_string cl)
-in
-  repl (parse, types, conf, env, decs, input_str)
-       end
+  let
+    val parse = select_parse cl
+    val types = init_types
+    val conf = (s1,1)
+    val env = (repl_init_env, 0)
+    val decs = []
+    val input_str = ""
+    val _ = (Repl.nextString := init_next_string cl)
+  in
+    repl (parse, types, conf, env, decs, input_str)
+  end
 End
 
 Quote add_cakeml:
 fun run_interactive_repl cl =
-let
-val cs = Repl.charsFrom "config_enc_str.txt"
-val s1 = decodeProg.decode_backend_config cs
-in
-  start_repl (cl,s1)
-             end
+  let
+    val cs = Repl.charsFrom "config_enc_str.txt"
+    val s1 = decodeProg.decode_backend_config cs
+  in
+    start_repl (cl,s1)
+  end
 End
 
 Definition has_repl_flag_def:
@@ -606,7 +607,7 @@ val res = translate (has_pancake_flag_def |> SIMP_RULE (srw_ss()) [MEMBER_INTRO]
 Quote add_cakeml:
   fun main u =
   let
-  val cl = CommandLine.arguments ()
+    val cl = CommandLine.arguments ()
   in
     if compiler_has_repl_flag cl then
       run_interactive_repl cl
@@ -622,13 +623,13 @@ Quote add_cakeml:
       case compiler_compile_64 cl (String.explode (TextIO.inputAll (TextIO.openStdIn ())))  of
         (c, e) => (print_app_list c; TextIO.output TextIO.stdErr e;
                    compiler64prog_nonzero_exit_code_for_error_msg e)
-                  end
+  end
 End
 
 val main_v_def = fetch "-" "main_v_def";
 
 Theorem main_spec:
-  ¬has_repl_flag (TL cl) ⇒
+  ¬has_repl_flag (TL cl) ∧ IS_SOME (stdin_content fs) ⇒
   app (p:'ffi ffi_proj) main_v
       [Conv NONE []] (STDIO fs * COMMANDLINE cl)
       (POSTv uv.
@@ -646,12 +647,12 @@ Proof
              - make STD_streams assert "stdin" is in the files
              - make wfFS separate from wfFS, so STDIO fs will imply wfFS fs *)
   \\ reverse(Cases_on`∃inp pos. stdin fs inp pos`)
-  >- (
-  fs[STDIO_def,IOFS_def] \\ xpull \\ fs[stdin_def]
-  \\ `F` suffices_by fs[]
-  \\ fs[wfFS_def,STD_streams_def,MEM_MAP,Once EXISTS_PROD,PULL_EXISTS]
-  \\ fs[EXISTS_PROD]
-  \\ metis_tac[ALOOKUP_FAILS,ALOOKUP_MEM,NOT_SOME_NONE,SOME_11,PAIR_EQ,option_CASES] )
+  >-
+   (fs[STDIO_def,IOFS_def] \\ xpull \\ fs[stdin_def]
+    \\ `F` suffices_by fs[]
+    \\ fs[wfFS_def,STD_streams_def,MEM_MAP,Once EXISTS_PROD,PULL_EXISTS]
+    \\ fs[EXISTS_PROD]
+    \\ metis_tac[ALOOKUP_FAILS,ALOOKUP_MEM,NOT_SOME_NONE,SOME_11,PAIR_EQ,option_CASES])
   \\ fs[get_stdin_def]
   \\ SELECT_ELIM_TAC
   \\ simp[FORALL_PROD,EXISTS_PROD]
@@ -677,59 +678,67 @@ Proof
     \\ xsimpl)
   \\ xlet_auto >- xsimpl
   \\ xif
-  >- (
-  simp[full_compile_64_def]
-  \\ xapp
-  \\ CONV_TAC SWAP_EXISTS_CONV
-  \\ qexists_tac `current_build_info_str`
-  \\ fs [compilerTheory.current_build_info_str_def,
-         fetch "-" "compiler_current_build_info_str_v_thm"]
-  \\ xsimpl
-  \\ rename1 `add_stdout _ (strlit string)`
-  \\ CONV_TAC SWAP_EXISTS_CONV
-  \\ qexists_tac`fs`
-  \\ xsimpl)
+  >-
+   (simp[full_compile_64_def]
+    \\ xapp
+    \\ CONV_TAC SWAP_EXISTS_CONV
+    \\ qexists_tac `current_build_info_str`
+    \\ fs [compilerTheory.current_build_info_str_def,
+           fetch "-" "compiler_current_build_info_str_v_thm"]
+    \\ xsimpl
+    \\ rename1 `add_stdout _ (strlit string)`
+    \\ CONV_TAC SWAP_EXISTS_CONV
+    \\ qexists_tac`fs`
+    \\ xsimpl)
   >> xlet_auto>-xsimpl
   >> xif
-  >- (
-  xlet_auto >- (xcon \\ xsimpl)
-  \\ xlet_auto_spec (SOME openStdIn_STDIO_spec) >- xsimpl
-  \\ rename [‘get_file_content _ _ = SOME (inp,pos)’]
-  \\ xlet ‘POSTv v.
-       &STRING_TYPE (implode (DROP pos inp)) v *
-       STDIO (fastForwardFD fs 0) * COMMANDLINE cl’
   >-
-   (xapp
-    \\ qexistsl [‘COMMANDLINE cl’, ‘pos’, ‘fs’, ‘0’, ‘inp’, ‘[]’]
-    \\ fs [STD_streams_get_mode] \\ xsimpl)
-  \\ xlet_auto >- xsimpl
-  \\ xlet_auto >- xsimpl
-  \\ fs [full_compile_64_def]
-  \\ pairarg_tac
-  \\ fs[ml_translatorTheory.PAIR_TYPE_def]
-  \\ gvs[CaseEq "bool"]
-  \\ xmatch
-  \\ xlet_auto >- xsimpl
-  \\ qmatch_goalsub_abbrev_tac `STDIO fs'`
-  \\ xlet `POSTv uv. &UNIT_TYPE () uv * STDIO (add_stderr fs' err) *
-     COMMANDLINE cl`
-  THEN1
-   (xapp_spec output_stderr_spec \\ xsimpl
-    \\ qexists_tac `COMMANDLINE cl`
-    \\ asm_exists_tac \\ xsimpl
-    \\ qexists_tac `fs'` \\ xsimpl)
-  \\ xapp
-  \\ asm_exists_tac \\ simp [] \\ xsimpl)
+   (xlet_auto >- (xcon \\ xsimpl)
+    \\ rename [‘stdin fs inp pos’]
+    \\ ‘stdin_content fs = SOME inp ∧ pos = 0’ by
+     (gvs [stdin_def,get_file_content_def]
+      \\ fs [stdin_content_def,IS_SOME_EXISTS])
+    \\ gvs []
+    \\ xlet_auto_spec (SOME openStdIn_spec_str) >- xsimpl
+    \\ xlet ‘POSTv v.
+               &STRING_TYPE (implode inp) v *
+               STDIO (fastForwardFD fs 0) * COMMANDLINE cl’
+    >-
+     (xapp
+      \\ qexistsl [‘COMMANDLINE cl’, ‘inp’, ‘fs’, ‘0’]
+      \\ xsimpl)
+    \\ xlet_auto >- xsimpl
+    \\ xlet_auto >- xsimpl
+    \\ fs [full_compile_64_def]
+    \\ pairarg_tac
+    \\ fs[ml_translatorTheory.PAIR_TYPE_def]
+    \\ gvs[CaseEq "bool"]
+    \\ xmatch
+    \\ xlet_auto >- xsimpl
+    \\ qmatch_goalsub_abbrev_tac `STDIO fs'`
+    \\ xlet `POSTv uv. &UNIT_TYPE () uv * STDIO (add_stderr fs' err) *
+       COMMANDLINE cl`
+    THEN1
+     (xapp_spec output_stderr_spec \\ xsimpl
+      \\ qexists_tac `COMMANDLINE cl`
+      \\ asm_exists_tac \\ xsimpl
+      \\ qexists_tac `fs'` \\ xsimpl)
+    \\ xapp
+    \\ asm_exists_tac \\ simp [] \\ xsimpl)
   \\ xlet_auto >- (xcon \\ xsimpl)
-  \\ xlet_auto_spec (SOME openStdIn_STDIO_spec) >- xsimpl
-  \\ rename [‘get_file_content _ _ = SOME (inp,pos)’]
+  \\ rename [‘stdin fs inp pos’]
+  \\ ‘stdin_content fs = SOME inp ∧ pos = 0’ by
+    (gvs [stdin_def,get_file_content_def]
+     \\ fs [stdin_content_def,IS_SOME_EXISTS])
+  \\ gvs []
+  \\ xlet_auto_spec (SOME openStdIn_spec_str) >- xsimpl
   \\ xlet ‘POSTv v.
-       &STRING_TYPE (implode (DROP pos inp)) v *
-       STDIO (fastForwardFD fs 0) * COMMANDLINE cl’
+             &STRING_TYPE (implode inp) v *
+             STDIO (fastForwardFD fs 0) * COMMANDLINE cl’
   >-
    (xapp
-    \\ qexistsl [‘COMMANDLINE cl’, ‘pos’, ‘fs’, ‘0’, ‘inp’, ‘[]’]
-    \\ fs [STD_streams_get_mode] \\ xsimpl)
+    \\ qexistsl [‘COMMANDLINE cl’, ‘inp’, ‘fs’, ‘0’]
+    \\ xsimpl)
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
   \\ fs [full_compile_64_def]
@@ -751,7 +760,7 @@ Proof
 QED
 
 Theorem main_whole_prog_spec:
-  ¬has_repl_flag (TL cl) ⇒
+  ¬has_repl_flag (TL cl) ∧ IS_SOME (stdin_content fs) ⇒
   whole_prog_spec main_v cl fs NONE
                   ((=) (full_compile_64 (TL cl) (get_stdin fs) fs))
 Proof

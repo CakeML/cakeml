@@ -28,7 +28,7 @@ val r = translate parse_obj_pres_maybe_def;
 val r = translate parse_pbf_toks_def;
 
 Definition noparse_string_def:
-  noparse_string f s = concat[strlit"c Input file: ";f;strlit" unable to parse in format: "; s;strlit"\n"]
+  noparse_string f s = concat[«c Input file: »;f;« unable to parse in format: »; s;«\n»]
 End
 
 val r = translate noparse_string_def;
@@ -118,19 +118,25 @@ Proof
 QED
 
 Definition int_inf_to_string_def:
-  (int_inf_to_string NONE = strlit "INF") ∧
+  (int_inf_to_string NONE = «INF») ∧
   (int_inf_to_string (SOME (i:int)) =
     toString i)
 End
 
 Definition concl_to_string_def:
-  (concl_to_string NoConcl = strlit "s VERIFIED NO CONCLUSION\n") ∧
-  (concl_to_string DSat = strlit "s VERIFIED SATISFIABLE\n") ∧
-  (concl_to_string DUnsat = strlit "s VERIFIED UNSATISFIABLE\n") ∧
+  (concl_to_string NoConcl = «s VERIFIED NO CONCLUSION\n») ∧
+  (concl_to_string DSat = «s VERIFIED SATISFIABLE\n») ∧
+  (concl_to_string DUnsat = «s VERIFIED UNSATISFIABLE\n») ∧
   (concl_to_string (OBounds lbi ubi) =
     let lbs = int_inf_to_string lbi in
     let ubs = int_inf_to_string ubi in
-    strlit "s VERIFIED BOUNDS " ^ lbs ^ strlit " <= obj <= " ^ ubs ^ strlit"\n")
+    «s VERIFIED BOUNDS » ^ lbs ^ « <= obj <= » ^ ubs ^ «\n») ∧
+  (concl_to_string (EEnum n b) =
+    if b
+    then
+      «s VERIFIED COMPLETE ENUMERATION OF » ^ toString n ^ « SOLUTIONS\n»
+    else
+      «s VERIFIED PARTIAL ENUMERATION OF » ^ toString n ^ « SOLUTIONS\n»)
 End
 
 Definition get_fml_def:
@@ -140,12 +146,12 @@ End
 
 Definition check_unsat_2_sem_def:
   check_unsat_2_sem fs f1 out ⇔
-  (out ≠ strlit"" ⇒
+  (out ≠ «» ⇒
   ∃pres obj fml.
     get_fml fs f1 = SOME (pres,obj,fml) ∧
     ∃concl.
       out = concl_to_string concl ∧
-      pbc$sem_concl (set fml) obj concl)
+      pbc$sem_concl (set fml) obj (pres_set_list pres) concl)
 End
 
 (* Ignoring output section for 2-arg version *)
@@ -228,7 +234,7 @@ Proof
          res v ∧
        case res of
          INR (output,bound,concl) =>
-         sem_concl (set fml) obj concl
+         sem_concl (set fml) obj (pres_set_list pres) concl
       | INL l => T))`
   >- (
     xapp>>xsimpl>>
@@ -253,7 +259,7 @@ Proof
     qexists_tac`emp`>>xsimpl>>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
-    qexists_tac`strlit ""`>>
+    qexists_tac`«»`>>
     rename1`add_stderr _ err`>>
     qexists_tac`err`>>xsimpl>>rw[]>>
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -264,7 +270,7 @@ Proof
   qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
   rw[]>>
   qexists_tac`concl_to_string y2`>>simp[]>>
-  qexists_tac`strlit ""`>>
+  qexists_tac`«»`>>
   rw[]>>simp[STD_streams_stderr,add_stdo_nil]>>
   xsimpl>>
   fs[get_fml_def]>>
@@ -275,7 +281,7 @@ Definition check_unsat_1_sem_def:
   check_unsat_1_sem fs f1 out ⇔
   case get_annot_fml fs f1 of
     SOME prob => out = concat (print_annot_prob prob)
-  | NONE => out = strlit ""
+  | NONE => out = «»
 End
 
 Quote add_cakeml:
@@ -317,27 +323,27 @@ Proof
   asm_exists_tac>>xsimpl>>
   qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
   rw[]>>
-  qexists_tac`strlit ""`>>
+  qexists_tac`«»`>>
   simp[STD_streams_stderr,add_stdo_nil]>>
   xsimpl
 QED
 
 Definition output_to_string_def:
   (output_to_string bound NoOutput =
-    strlit "s VERIFIED NO OUTPUT GUARANTEE\n") ∧
+    «s VERIFIED NO OUTPUT GUARANTEE\n») ∧
   (output_to_string bound Derivable =
-    strlit "s VERIFIED OUTPUT DERIVABLE\n") ∧
+    «s VERIFIED OUTPUT DERIVABLE\n») ∧
   (output_to_string bound Equisatisfiable =
-    strlit "s VERIFIED OUTPUT EQUISATISFIABLE\n") ∧
+    «s VERIFIED OUTPUT EQUISATISFIABLE\n») ∧
   (output_to_string bound Equioptimal =
-    strlit "s VERIFIED OUTPUT EQUIOPTIMAL FOR obj < " ^ int_inf_to_string bound ^ strlit"\n") ∧
+    «s VERIFIED OUTPUT EQUIOPTIMAL FOR obj < » ^ int_inf_to_string bound ^ «\n») ∧
   (output_to_string bound Equisolvable =
-    strlit "s VERIFIED OUTPUT EQUISOLVABLE FOR obj < " ^ int_inf_to_string bound ^ strlit"\n")
+    «s VERIFIED OUTPUT EQUISOLVABLE FOR obj < » ^ int_inf_to_string bound ^ «\n»)
 End
 
 Definition check_unsat_3_sem_def:
   check_unsat_3_sem fs f1 f3 out ⇔
-  (out ≠ strlit"" ⇒
+  (out ≠ «» ⇒
   ∃pres obj fml prest objt fmlt.
     get_fml fs f1 = SOME (pres,obj,fml) ∧
     get_fml fs f3 = SOME (prest,objt,fmlt) ∧
@@ -345,7 +351,7 @@ Definition check_unsat_3_sem_def:
       out =
         (concl_to_string concl ^
         output_to_string bound output) ∧
-      pbc$sem_concl (set fml) obj concl ∧
+      pbc$sem_concl (set fml) obj (pres_set_list pres) concl ∧
       pbc$sem_output (set fml) obj (pres_set_list pres) bound
         (set fmlt) objt (pres_set_list prest) output
   )
@@ -444,7 +450,7 @@ Proof
          res v ∧
        case res of
          INR (output,bound,concl) =>
-         sem_concl (set fml) obj concl ∧
+         sem_concl (set fml) obj (pres_set_list pres) concl ∧
          sem_output (set fml) obj (pres_set_list pres) bound
           (set fmlt) objt (pres_set_list prest) output
        | INL l => T))`
@@ -471,7 +477,7 @@ Proof
     qexists_tac`emp`>>xsimpl>>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
-    qexists_tac`strlit ""`>>
+    qexists_tac`«»`>>
     rename1`add_stderr _ err`>>
     qexists_tac`err`>>xsimpl>>rw[]>>
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -482,7 +488,7 @@ Proof
   qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
   rw[]>>
   qexists_tac`concl_to_string y2 ^ output_to_string y1 y0`>>simp[]>>
-  qexists_tac`strlit ""`>>
+  qexists_tac`«»`>>
   rw[]>>simp[STD_streams_stderr,add_stdo_nil]>>
   xsimpl>>
   fs[get_fml_def]>>
@@ -490,7 +496,7 @@ Proof
 QED
 
 Definition usage_string_def:
-  usage_string = strlit "Usage: cake_pb <OPB file> <optional: PB proof file> <optional: output OPB file>\n"
+  usage_string = «Usage: cake_pb <OPB file> <optional: PB proof file> <optional: output OPB file>\n»
 End
 
 val r = translate usage_string_def;
@@ -501,7 +507,7 @@ Quote add_cakeml:
     [f1] => check_unsat_1 f1
   | [f1,f2] => check_unsat_2 f1 f2
   | [f1,f2,f3] => check_unsat_3 f1 f2 f3
-  | _ => TextIO.output TextIO.stdErr usage_string
+  | _ => TextIO.output TextIO.stdErr (mk_usage_string usage_string)
 End
 
 Definition main_sem_def:
@@ -512,7 +518,7 @@ Definition main_sem_def:
     check_unsat_2_sem fs (EL 1 cl) out
   else if LENGTH cl = 4 then
     check_unsat_3_sem fs (EL 1 cl) (EL 3 cl) out
-  else out = strlit ""
+  else out = «»
 End
 
 Theorem STDIO_refl:
@@ -543,11 +549,13 @@ Proof
   Cases_on`t`>>fs[LIST_TYPE_def]
   >- (
     xmatch>>
+    assume_tac (theorem "usage_string_v_thm")>>
+    xlet_autop>>
     xapp_spec output_stderr_spec \\ xsimpl>>
     rename1`COMMANDLINE cl`>>
     qexists_tac`COMMANDLINE cl`>>xsimpl>>
-    qexists_tac `usage_string` >>
-    simp [theorem "usage_string_v_thm"] >>
+    qexists_tac `mk_usage_string usage_string` >>
+    simp [] >>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -579,11 +587,13 @@ Proof
     fs[wfcl_def]>>
     rw[]>>metis_tac[STDIO_refl])>>
   xmatch>>
+  assume_tac (theorem "usage_string_v_thm")>>
+  xlet_autop>>
   xapp_spec output_stderr_spec \\ xsimpl>>
   rename1`COMMANDLINE cl`>>
   qexists_tac`COMMANDLINE cl`>>xsimpl>>
-  qexists_tac `usage_string` >>
-  simp [theorem "usage_string_v_thm"] >>
+  qexists_tac `mk_usage_string usage_string` >>
+  simp [] >>
   qexists_tac`fs`>>xsimpl>>
   rw[]>>
   fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>

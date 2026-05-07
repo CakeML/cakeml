@@ -29,7 +29,7 @@ local
 in
 fun hide_environments b =
   if b then app temp_add_user_printer printers
-  else app (ignore o temp_remove_user_printer) (map #1 printers)
+  else app (ignore o temp_remove_user_printer) (map (fn (a,b,_) => (a,b)) printers)
 end
 
 (*------------------------------------------------------------------*)

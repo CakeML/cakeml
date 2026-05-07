@@ -97,10 +97,15 @@ Definition wInst_def:
     let (l',n3) = wReg2 n3 kf in
     wStackLoad (l++l')
       (wRegWrite1 (\n1. Inst (Arith (Binop bop n1 n2 (Reg n3)))) n1 kf)) /\
-  (wInst (Arith (Shift sh n1 n2 a)) kf =
+  (wInst (Arith (Shift sh n1 n2 (Imm imm))) kf =
     let (l,n2) = wReg1 n2 kf in
     wStackLoad l
-      (wRegWrite1 (\n1. Inst (Arith (Shift sh n1 n2 a))) n1 kf)) /\
+      (wRegWrite1 (\n1. Inst (Arith (Shift sh n1 n2 (Imm imm)))) n1 kf)) /\
+  (wInst (Arith (Shift sh n1 n2 (Reg n3))) kf =
+    let (l,n2) = wReg1 n2 kf in
+    let (l',n3) = wReg2 n3 kf in
+    wStackLoad (l++l')
+      (wRegWrite1 (\n1. Inst (Arith (Shift sh n1 n2 (Reg n3)))) n1 kf)) /\
   (wInst (Arith (Div n1 n2 n3)) kf =
     let (l,n2) = wReg1 n2 kf in
     let (l',n3) = wReg2 n3 kf in
@@ -529,7 +534,6 @@ End
 
 Definition stub_names_def:
   stub_names () = [
-    (raise_stub_location,        mlstring$strlit "_Raise");
-    (store_consts_stub_location, mlstring$strlit "_StoreConsts")]
+    (raise_stub_location,        implode "_Raise");
+    (store_consts_stub_location, implode "_StoreConsts")]
 End
-

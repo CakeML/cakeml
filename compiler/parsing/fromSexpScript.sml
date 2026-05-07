@@ -257,7 +257,7 @@ Proof
   >- (`LOG 16 N = 0` by simp[logrootTheory.LOG_EQ_0] >>
       simp[Abbr`s`, LASTN_def, HEX_UNHEX, toUpper_def] >>
       simp[Abbr`N`] >> fs[s2n_def, l2n_def] >>
-      rename1`16 * UNHEX c1 MOD 16 + UNHEX c2 MOD 16 < 16` >>
+      rename1`16 * (UNHEX c1 MOD 16) + UNHEX c2 MOD 16 < 16` >>
       `UNHEX c1 MOD 16 = 0` by simp[] >>
       `UNHEX c1 < 16` by simp[UNHEX_lt16] >>
       `UNHEX c1 = 0` by intLib.ARITH_TAC >>
@@ -325,7 +325,7 @@ Definition odestSXNUM_def[simp]:
 End
 
 Theorem odestSXNUM_SEXSTR[simp]:
-  odestSXNUM (SEXSTR strng) = NONE
+  odestSXNUM (SEXSTR str) = NONE
 Proof
   simp[SEXSTR_def]
 QED
@@ -362,7 +362,7 @@ Theorem sexplist_thm[simp]:
     do ph <- p h ; pt <- sexplist p t; return (ph::pt) od ∧
   (sexplist p (SX_SYM s) = if s = "nil" then return [] else fail) ∧
   sexplist p (&n) = fail ∧
-  sexplist p (SX_STR strng) = fail
+  sexplist p (SX_STR str) = fail
 Proof
   rpt strip_tac >> simp[Once sexplist_def]
 QED
@@ -411,7 +411,7 @@ QED
 Theorem strip_sxcons_thm[simp]:
   strip_sxcons ⟪ h • t ⟫ = lift (CONS h) (strip_sxcons t) ∧
   strip_sxcons (&n) = NONE ∧
-  strip_sxcons (SX_STR strng) = NONE ∧
+  strip_sxcons (SX_STR str) = NONE ∧
   strip_sxcons (SX_SYM s) = if s = "nil" then SOME [] else NONE
 Proof
   rpt strip_tac >> simp[]
@@ -745,7 +745,7 @@ Definition sexpop_def:
   if s = "Strcat" then SOME Strcat else
   if s = "VfromList" then SOME VfromList else
   if s = "Vsub" then SOME Vsub else
-  if s = "Vsub_unsafe" then SOME Vsub_unsafe else
+  if s = "Vsubunsafe" then SOME Vsub_unsafe else
   if s = "Vlength" then SOME Vlength else
   if s = "ListAppend" then SOME ListAppend else
   if s = "Aalloc" then SOME Aalloc else
@@ -1496,11 +1496,11 @@ QED
 Theorem dstrip_sexp_thm[simp]:
   dstrip_sexp ⟪SX_SYM s • args⟫ = lift (λt. (s,t)) (strip_sxcons args) ∧
   dstrip_sexp ⟪ &n • args⟫ = NONE ∧
-  dstrip_sexp ⟪SX_STR strng • args⟫ = NONE ∧
+  dstrip_sexp ⟪SX_STR str • args⟫ = NONE ∧
   dstrip_sexp ⟪ ⟪s1 • s2⟫ • args⟫ = NONE ∧
   dstrip_sexp (&n) = NONE ∧
   dstrip_sexp (SX_SYM s) = NONE ∧
-  dstrip_sexp (SX_STR strng) = NONE
+  dstrip_sexp (SX_STR str) = NONE
 Proof
   simp[dstrip_sexp_def]
 QED
@@ -1570,7 +1570,7 @@ Definition opsexp_def:
   (opsexp Strcat = SX_SYM "Strcat") ∧
   (opsexp VfromList = SX_SYM "VfromList") ∧
   (opsexp Vsub = SX_SYM "Vsub") ∧
-  (opsexp Vsub_unsafe = SX_SYM "Vsub_unsafe") ∧
+  (opsexp Vsub_unsafe = SX_SYM "Vsubunsafe") ∧
   (opsexp Vlength = SX_SYM "Vlength") ∧
   (opsexp ListAppend = SX_SYM "ListAppend") ∧
   (opsexp Aalloc = SX_SYM "Aalloc") ∧
@@ -1800,8 +1800,7 @@ Theorem sexplit_litsexp[simp]:
    sexplit (litsexp l) = SOME l
 Proof
   Cases_on`l`>>simp[sexplit_def,litsexp_def]
-  >- (rw[] >> intLib.ARITH_TAC )
-  >- EVAL_TAC >>
+  >- (rw[] >> intLib.ARITH_TAC ) >>
   ONCE_REWRITE_TAC[GSYM wordsTheory.dimword_8] >>
   ONCE_REWRITE_TAC[GSYM wordsTheory.dimword_64] >>
   ONCE_REWRITE_TAC[wordsTheory.w2n_lt]
@@ -1872,8 +1871,8 @@ Proof
 QED
 
 Theorem odestSXSYM_EQ_SOME[simp]:
-  (odestSXSYM s = SOME strng ⇔ s = SX_SYM (explode strng)) ∧
-  (SOME strng = odestSXSYM s ⇔ s = SX_SYM (explode strng))
+  (odestSXSYM s = SOME str ⇔ s = SX_SYM (explode str)) ∧
+  (SOME str = odestSXSYM s ⇔ s = SX_SYM (explode str))
 Proof
   Cases_on‘s’ >> simp[odestSXSYM_def] >>
   metis_tac[implode_explode,explode_implode]
@@ -1937,7 +1936,7 @@ Proof
     simp[litsexp_def, listsexp_def, PULL_EXISTS, AllCaseEqs(), SF CONJ_ss] >~
     [‘i < 0i’] >- (Cases_on ‘i’ >> simp[]) >~
     [‘STRING c ""’] >- (
-      qexists_tac ‘str c’ >> simp []>>
+      qexists_tac ‘toString c’ >> simp []>>
       EVAL_TAC) >~
     [‘w2n (c : word8)’]
     >- (Cases_on ‘c’ using ranged_word_nchotomy >> gs[dimword_def]) >>~-

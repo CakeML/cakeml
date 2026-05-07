@@ -12,7 +12,6 @@ val _ = translation_extends"graphProg";
 (* The encoder *)
 val res = translate enc_string_def;
 
-val res = translate pbcTheory.map_obj_def;
 val res = translate unmapped_obj_def;
 
 val res = translate FOLDN_def;
@@ -87,15 +86,15 @@ QED
 (* Pretty print conclusion *)
 Definition mcis_eq_str_def:
   mcis_eq_str (n:num) =
-  strlit "s VERIFIED MAX CIS SIZE |CIS| = " ^
-    toString n ^ strlit"\n"
+  «s VERIFIED MAX CIS SIZE |CIS| = » ^
+    toString n ^ «\n»
 End
 
 Definition mcis_bound_str_def:
   mcis_bound_str (l:num) (u:num) =
-  strlit "s VERIFIED MAX CIS SIZE BOUND "^
-    toString l ^ strlit " <= |CIS| <= " ^
-    toString u ^ strlit"\n"
+  «s VERIFIED MAX CIS SIZE BOUND »^
+    toString l ^ « <= |CIS| <= » ^
+    toString u ^ «\n»
 End
 
 Definition print_mcis_str_def:
@@ -116,7 +115,7 @@ End
 
 Definition check_unsat_3_sem_def:
   check_unsat_3_sem fs f1 f2 out ⇔
-  (out ≠ strlit"" ⇒
+  (out ≠ «» ⇒
   ∃gp gt bounds.
     get_graph_lad fs f1 = SOME gp ∧
     get_graph_lad fs f2 = SOME gt ∧
@@ -129,7 +128,7 @@ Definition map_concl_to_string_def:
   (map_concl_to_string n (INR (out,bnd,c)) =
     case conv_concl n c of
       SOME bounds => INR (print_mcis_str bounds)
-    | NONE => INL (strlit "c Unexpected conclusion for MCIS problem.\n"))
+    | NONE => INL «c Unexpected conclusion for MCIS problem.\n»)
 End
 
 val res = translate (conv_concl_def |> REWRITE_RULE [GSYM sub_check_def]) ;
@@ -244,7 +243,7 @@ Proof
     qexists_tac`emp`>>xsimpl>>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
-    qexists_tac`strlit ""`>>
+    qexists_tac`«»`>>
     rename1`add_stderr _ err`>>
     qexists_tac`err`>>xsimpl>>rw[]>>
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -257,7 +256,7 @@ Proof
     qexists_tac`emp`>>xsimpl>>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
-    qexists_tac`strlit ""`>>
+    qexists_tac`«»`>>
     rename1`add_stderr _ err`>>
     qexists_tac`err`>>xsimpl>>rw[]>>
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -268,17 +267,16 @@ Proof
     qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
     rw[]>>
     qexists_tac`print_mcis_str x`>>simp[]>>
-    qexists_tac`strlit ""`>>
-    rw[]>>simp[STD_streams_stderr,add_stdo_nil]>>
+    qexists_tac`«»`>>
+    simp[STD_streams_stderr,add_stdo_nil]>>
     xsimpl>>
-    fs[oneline pb_parseTheory.strip_annot_prob_def]>>
-    every_case_tac>>gvs[]>>
+    gvs[oneline pb_parseTheory.strip_annot_prob_def, mk_prob_def]>>
+    rename1`full_encode_mcis gpp gtt`>>
+    Cases_on`full_encode_mcis gpp gtt`>>
+    gvs[pbcTheory.pres_set_list_def,get_graph_lad_def, AllCaseEqs()]>>
     (drule_at Any) full_encode_mcis_sem_concl>>
     fs[]>>
     Cases_on`x`>> disch_then (drule_at Any)>>
-    disch_then(qspec_then`gt'` mp_tac)>>
-    impl_tac>-
-      fs[get_graph_lad_def,AllCaseEqs(),mk_prob_def]>>
     rw[]>>
     rename1`(qq,rr)`>>
     qexists_tac`(qq,rr)`>>
@@ -289,10 +287,10 @@ QED
 Definition check_unsat_2_sem_def:
   check_unsat_2_sem fs f1 f2 out ⇔
   case get_graph_lad fs f1 of
-    NONE => out = strlit ""
+    NONE => out = «»
   | SOME gpp =>
   case get_graph_lad fs f2 of
-    NONE => out = strlit ""
+    NONE => out = «»
   | SOME gtt =>
     out = concat (print_annot_prob
       (mk_prob (full_encode_mcis gpp gtt)))
@@ -349,13 +347,13 @@ Proof
   asm_exists_tac>>xsimpl>>
   qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
   rw[]>>
-  qexists_tac`strlit ""`>>
+  qexists_tac`«»`>>
   simp[STD_streams_stderr,add_stdo_nil]>>
   xsimpl
 QED
 
 Definition usage_string_def:
-  usage_string = strlit "Usage: cake_pb_mcis <LAD file (pattern)> <LAD file (target)> <optional: PB proof file>\n"
+  usage_string = «Usage: cake_pb_mcis <LAD file (pattern)> <LAD file (target)> <optional: PB proof file>\n»
 End
 
 val r = translate usage_string_def;
@@ -365,7 +363,7 @@ Quote add_cakeml:
   case CommandLine.arguments () of
     [f1,f2] => check_unsat_2 f1 f2
   | [f1,f2,f3] => check_unsat_3 f1 f2 f3
-  | _ => TextIO.output TextIO.stdErr usage_string
+  | _ => TextIO.output TextIO.stdErr (mk_usage_string usage_string)
 End
 
 Definition main_sem_def:
@@ -374,7 +372,7 @@ Definition main_sem_def:
     check_unsat_2_sem fs (EL 1 cl) (EL 2 cl) out
   else if LENGTH cl = 4 then
     check_unsat_3_sem fs (EL 1 cl) (EL 2 cl) out
-  else out = strlit ""
+  else out = «»
 End
 
 Theorem STDIO_refl:
@@ -405,11 +403,13 @@ Proof
   Cases_on`t`>>fs[LIST_TYPE_def]
   >- (
     xmatch>>
+    assume_tac (theorem "usage_string_v_thm")>>
+    xlet_autop>>
     xapp_spec output_stderr_spec \\ xsimpl>>
     rename1`COMMANDLINE cl`>>
     qexists_tac`COMMANDLINE cl`>>xsimpl>>
-    qexists_tac `usage_string` >>
-    simp [theorem "usage_string_v_thm"] >>
+    qexists_tac `mk_usage_string usage_string` >>
+    simp [] >>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -417,11 +417,13 @@ Proof
   Cases_on`t'`>>fs[LIST_TYPE_def]
   >- (
     xmatch>>
+    assume_tac (theorem "usage_string_v_thm")>>
+    xlet_autop>>
     xapp_spec output_stderr_spec \\ xsimpl>>
     rename1`COMMANDLINE cl`>>
     qexists_tac`COMMANDLINE cl`>>xsimpl>>
-    qexists_tac `usage_string` >>
-    simp [theorem "usage_string_v_thm"] >>
+    qexists_tac `mk_usage_string usage_string` >>
+    simp [] >>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -441,11 +443,13 @@ Proof
     fs[wfcl_def]>>
     rw[]>>metis_tac[STDIO_refl])>>
   xmatch>>
+  assume_tac (theorem "usage_string_v_thm")>>
+  xlet_autop>>
   xapp_spec output_stderr_spec \\ xsimpl>>
   rename1`COMMANDLINE cl`>>
   qexists_tac`COMMANDLINE cl`>>xsimpl>>
-  qexists_tac `usage_string` >>
-  simp [theorem "usage_string_v_thm"] >>
+  qexists_tac `mk_usage_string usage_string` >>
+  simp [] >>
   qexists_tac`fs`>>xsimpl>>
   rw[]>>
   fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>

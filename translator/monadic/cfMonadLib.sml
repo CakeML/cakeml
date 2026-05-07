@@ -7,17 +7,8 @@ structure cfMonadLib (* :> cfMonadLib *) = struct
 open cfAppTheory cfTacticsLib ml_monad_translatorTheory cfMonadTheory packLib
 open ml_monad_translatorBaseTheory
 
-local
-  structure Parse = struct
-    open Parse
-     val (Type,Term) =
-         parse_from_grammars $ valOf $ grammarDB {thyname = "cfMonad"}
-  end
-  open Parse
-in
-val emp_tm = ``emp:hprop``
-val PURE_tm = ``PURE : ('a -> v -> bool) -> ('a, 'b) H``
-end
+val emp_tm = cfHeapsBaseSyntax.emp_tm
+val PURE_tm = prim_mk_const {Thy="ml_monad_translator", Name="PURE"}
 
 
 fun get_fun_const def =
@@ -203,7 +194,7 @@ val init_state_def = Define `
     do
       is_done <- get_has_init;
       if is_done then
-        raise_Fail (strlit"init")
+        raise_Fail «init»
       else
         do
           set_my_count 0;

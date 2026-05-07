@@ -22,6 +22,7 @@ type comp_input =
   , conf_def             : thm
   , prog_def             : thm
   , run_as_explorer      : bool
+  , main_return          : bool
   , output_filename      : string
   , output_conf_filename : string option }
 
@@ -51,7 +52,7 @@ fun eval_cake_compile_general (arch : arch_thms) (input : comp_input) = let
   val _ = (cv_memLib.verbosity_level := cv_memLib.Verbose)
   fun report s = print (String.concat ["eval_cake: ", s, " --- ",
                     Date.toString (Date.fromTimeLocal (Time.now())),"\n"])
-  val { prefix, conf_def, prog_def, run_as_explorer
+  val { prefix, conf_def, prog_def, run_as_explorer, main_return
       , output_filename , output_conf_filename } = input
   val { default_config_def, to_livesets_def, compile_cake_explore_def
       , compile_cake_def, compile_cake_imp, cv_export_def } = arch
@@ -145,10 +146,10 @@ fun eval_cake_compile_general (arch : arch_thms) (input : comp_input) = let
      get_one_subst "cv_data" data_def,
      get_one_subst "cv_bytes" code_def,
      get_one_subst "cv_syms" syms_def,
-     (* TODO: exp/ret/pk need to be passed as arguments for in-logic
-        Pancake compiler evaluation *)
      mk_var("cv_exp",cvSyntax.cv) |-> cvSyntax.mk_cv_num numSyntax.zero_tm,
-     mk_var("cv_ret",cvSyntax.cv) |-> cvSyntax.mk_cv_num numSyntax.zero_tm,
+     mk_var("cv_ret",cvSyntax.cv) |-> cvSyntax.mk_cv_num
+       (if main_return then (numSyntax.mk_numeral (Arbnum.fromInt 1))
+        else numSyntax.zero_tm),
      mk_var("cv_pk",cvSyntax.cv)  |-> cvSyntax.mk_cv_num numSyntax.zero_tm]
   val _ = null (free_vars export_tm) orelse failwith "failed to eval export"
   (*
@@ -177,6 +178,7 @@ fun eval_cake_compile_with_conf arch prefix conf_def prog_def filename =
     , conf_def             = conf_def
     , prog_def             = prog_def
     , run_as_explorer      = false
+    , main_return          = false
     , output_filename      = filename
     , output_conf_filename = NONE };
 
@@ -189,6 +191,7 @@ fun eval_cake_compile_explore_with_conf arch prefix conf_def prog_def filename =
     , conf_def             = conf_def
     , prog_def             = prog_def
     , run_as_explorer      = true
+    , main_return          = false
     , output_filename      = filename
     , output_conf_filename = NONE };
 
@@ -205,6 +208,7 @@ val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
        , conf_def             = #default_config_def x64_arch_thms
        , prog_def             = Define `prog = [] : ast$dec list`
        , run_as_explorer      = true
+       , main_return          = false
        , output_filename      = "test.S"
        , output_conf_filename = SOME "test_conf.txt" } : comp_input;
 *)

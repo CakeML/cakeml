@@ -198,6 +198,7 @@ Proof
   \\ TRY(rename1`Inst (Mem m _ ri) ` \\ Cases_on`m` \\ Cases_on`ri`)
   \\ TRY(rename1`Inst (Arith a) ` \\ Cases_on`a`)
   \\ TRY(rename1`Inst (Arith (Binop _ _ _ ri)) ` \\ Cases_on`ri`)
+  \\ TRY(rename1`Inst (Arith (Shift _ _ _ ri)) ` \\ Cases_on`ri`)
   \\  rw[ag32_targetTheory.ag32_enc_def,
          ag32_targetTheory.ag32_constant_def,
          ag32_targetTheory.ag32_jump_constant_def,
@@ -1309,4 +1310,3 @@ Proof
   \\ fs[ag32_targetTheory.ag32_target_def]
   \\ rfs[]
 QED
-

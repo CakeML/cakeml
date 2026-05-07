@@ -206,10 +206,8 @@ End
 Definition inst_ok_less_def:
   (inst_ok_less (c:'a asm_config) (Arith (Binop b r1 r2 (Imm w))) ⇔
     c.valid_imm (INL b) w) ∧
-  (inst_ok_less c (Arith (Shift l r1 r2 n)) ⇔
-    (((n = 0) ==> (l = Lsl)) ∧ n < dimindex(:'a))) ∧
-  (inst_ok_less c (Arith (Shift l r1 r2 n)) ⇔
-    (((n = 0) ==> (l = Lsl)) ∧ n < dimindex(:'a))) ∧
+  (inst_ok_less c (Arith (Shift l r1 r2 (Imm i))) ⇔
+    (((i = 0w) ==> (l = Lsl)) ∧ w2n i < dimindex(:'a))) ∧
   (inst_ok_less c (Arith (Div r1 r2 r3)) ⇔
     (c.ISA ∈ {ARMv8; MIPS; RISC_V})) ∧
   (inst_ok_less c (Arith (LongMul r1 r2 r3 r4)) ⇔
@@ -267,6 +265,8 @@ End
 Definition distinct_tar_reg_def:
   (distinct_tar_reg (Arith (Binop bop r1 r2 ri))
     ⇔ ri ≠ Reg r1) ∧
+  (distinct_tar_reg (Arith (Shift l r1 r2 ri))
+    ⇔ ri ≠ Reg r1) ∧
   (distinct_tar_reg (Arith (AddCarry r1 r2 r3 r4))
     ⇔ r1 ≠ r3 ∧ r1 ≠ r4) ∧
   (distinct_tar_reg (Arith (AddOverflow r1 r2 r3 r4))
@@ -282,7 +282,7 @@ End
 Definition two_reg_inst_def:
   (two_reg_inst (Arith (Binop bop r1 r2 ri))
     ⇔ (r1 = r2)) ∧
-  (two_reg_inst (Arith (Shift l r1 r2 n))
+  (two_reg_inst (Arith (Shift l r1 r2 ri))
     ⇔ (r1 = r2)) ∧
   (two_reg_inst (Arith (AddCarry r1 r2 r3 r4))
     ⇔ (r1 = r2)) ∧
@@ -369,6 +369,7 @@ End
 (*** Conventions for args to instructions ***)
 Definition inst_arg_convention_def:
   (inst_arg_convention (Arith (AddCarry r1 r2 r3 r4)) ⇔ r4 = 0) ∧
+  (inst_arg_convention (Arith (Shift _ _ _ (Reg r))) ⇔ r = 8) ∧
   (* Note: these are not necessary *)
   (inst_arg_convention (Arith (AddOverflow r1 r2 r3 r4)) ⇔ r4 = 0) ∧
   (inst_arg_convention (Arith (SubOverflow r1 r2 r3 r4)) ⇔ r4 = 0) ∧
@@ -452,9 +453,9 @@ Theorem max_var_exp_IMP[local]:
   P (max_var_exp exp)
 Proof
   ho_match_mp_tac max_var_exp_ind>>fs[max_var_exp_def,every_var_exp_def]>>
-  srw_tac[][]>>
-  match_mp_tac MAX_LIST_intro>>
-  fs[EVERY_MAP,EVERY_MEM]
+  srw_tac[][]
+  >- (match_mp_tac MAX_LIST_intro>> fs[EVERY_MAP,EVERY_MEM])
+  >> metis_tac [MAX_CASES]
 QED
 
 Theorem max_var_intro:
@@ -593,4 +594,3 @@ Theorem no_share_inst_def = not_created_subprogs_P_def
 Overload word_get_code_labels = ``wordConvs$get_code_labels``
 Overload word_good_handlers = ``wordConvs$good_handlers``
 Overload word_good_code_labels = ``wordConvs$good_code_labels``
-

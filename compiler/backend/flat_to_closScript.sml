@@ -235,7 +235,7 @@ End
 Definition join_strings_def:
   join_strings (x:mlstring$mlstring) y =
     if mlstring$strlen x = 0 then y
-    else mlstring$concat [x; mlstring$strlit "_"; y]
+    else mlstring$concat [x; implode "_"; y]
 End
 
 Definition dest_nop_def:
@@ -338,8 +338,7 @@ End
 
 Definition compile_decs_def:
   compile_decs [] = [] /\
-  compile_decs ((Dlet e)::xs) = compile [] [e] ++ compile_decs xs /\
-  compile_decs (_::xs) = compile_decs xs
+  compile_decs (e::xs) = compile [] [e] ++ compile_decs xs
 End
 
 Definition compile_prog_def:
@@ -349,7 +348,7 @@ End
 
 Definition inc_compile_decs_def:
   inc_compile_decs decs =
-    let xs = compile_decs decs ++ compile_decs [Dlet (Con None NONE [])] in
+    let xs = compile_decs decs ++ compile_decs [Con None NONE []] in
       (insert_interp xs,[])
 End
 

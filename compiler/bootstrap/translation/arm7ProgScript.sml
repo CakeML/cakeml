@@ -129,7 +129,10 @@ Proof
   srw_tac[wordsLib.WORD_BIT_EQ_ss][]
 QED
 *)
-val defaults = [arm7_encode_def,arm7_encode1_def,encode_def,e_data_def,EncodeImmShift_def,v2w_rw,e_load_def,arm7_encode_fail_def,e_multiply_def,e_branch_def,Aligned_def,Align_def,e_store_def];
+val defaults = [arm7_encode_def,arm7_encode1_def,encode_def,
+  e_data_def,EncodeImmShift_def,v2w_rw,e_load_def,
+  arm7_encode_fail_def,e_multiply_def,e_branch_def,
+  Aligned_def,Align_def,e_store_def,EncodeRegShift_def];
 
 val finish = fn th => th |> wc_simp |> we_simp |> SIMP_RULE (std_ss) [SHIFT_ZERO,notw]
 
@@ -150,56 +153,74 @@ fun replace_at i f =
     fth
   end
 
+(* Skip *)
 val arm7_enc1 = replace_at 1 (fn th => th |>finish|> SIMP_RULE (srw_ss()) [] )
 
+(* Const *)
 val arm7_enc2 = replace_at 2 (fn th => th |> finish |> gconv)
 
+(* Bop Reg *)
 val arm7_enc3 = replace_at 3 (fn th => th |> Q.GEN `bop` |> SIMP_RULE (srw_ss() ++ DatatypeSimps.expand_type_quants_ss [``:asm$binop``]) (LET_THM::arm7_bop_def::defaults) |> finish |> CONJUNCTS
 |> reconstruct_case ``arm7_enc (Inst (Arith (Binop bop r1 r2 (Reg r3))))`` (rand o rator o rator o rator o rand o rand o rand))
 
 (* TODO: Uses THE (EncodeARMImmediate)*)
+(* Bop Imm *)
 val arm7_enc4 = replace_at 4 (fn th => th |> Q.GEN `bop` |> SIMP_RULE (srw_ss() ++ DatatypeSimps.expand_type_quants_ss [``:asm$binop``]) (arm7_bop_def::defaults) |> finish
 |> SIMP_RULE (srw_ss())[word_2comp_def]
 |> CONJUNCTS
 |> reconstruct_case ``arm7_enc (Inst (Arith (Binop bop r1 r2 (Imm i))))`` (rand o rator o rator o rator o rand o rand o rand))
 
+(* Shift Imm *)
 val arm7_enc5 = replace_at 5 (fn th => th |> Q.GEN `sh` |> SIMP_RULE (srw_ss() ++ DatatypeSimps.expand_type_quants_ss [``:shift``]) (LET_THM::arm7_sh_def::defaults) |> finish
 |> SIMP_RULE (srw_ss())[word_2comp_def]
 |> CONJUNCTS
-|> reconstruct_case ``arm7_enc (Inst (Arith (Shift s r1 r2 n)))`` (rand o rator o rator o rator o rand o rand o rand))
+|> reconstruct_case ``arm7_enc (Inst (Arith (Shift s r1 r2 (Imm i))))`` (rand o rator o rator o rator o rand o rand o rand))
 
-val arm7_enc7 = replace_at 7 (fn th => th |> finish |> SIMP_RULE (srw_ss())[word_2comp_def])
+(* Shift Ref *)
+val arm7_enc6 = replace_at 6 (fn th => th |> Q.GEN `sh` |> SIMP_RULE (srw_ss() ++ DatatypeSimps.expand_type_quants_ss [``:shift``]) (LET_THM::arm7_sh_def::defaults) |> finish
+|> SIMP_RULE (srw_ss())[word_2comp_def]
+|> CONJUNCTS
+|> reconstruct_case ``arm7_enc (Inst (Arith (Shift s r1 r2 (Reg r3))))`` (rand o rator o rator o rator o rand o rand o rand))
 
-val arm7_enc9 = replace_at 9 (fn th => th |> finish |> SIMP_RULE (srw_ss())[word_2comp_def])
+(* Div: trivial *)
 
+(* LongMul *)
+val arm7_enc8 = replace_at 8 (fn th => th |> finish |> SIMP_RULE (srw_ss())[word_2comp_def])
+
+(* LongDiv: trivial *)
+
+(* AddCarry *)
 val arm7_enc10 = replace_at 10 (fn th => th |> finish |> SIMP_RULE (srw_ss())[word_2comp_def])
-val arm7_enc11 = replace_at 11 (fn th => th |> finish |> SIMP_RULE (srw_ss())[word_2comp_def])
 
-val arm7_enc12 = replace_at 12 (fn th => th |> SIMP_RULE (srw_ss())
+(* Add/SubOverflow *)
+val arm7_enc11 = replace_at 11 (fn th => th |> finish |> SIMP_RULE (srw_ss())[word_2comp_def])
+val arm7_enc12 = replace_at 12 (fn th => th |> finish |> SIMP_RULE (srw_ss())[word_2comp_def])
+
+(* Mem Load *)
+val arm7_enc13 = replace_at 13 (fn th => th |> SIMP_RULE (srw_ss())
   [WORD_LS,word_mul_def, Q.ISPEC`MachineCode_CASE`COND_RAND,
    MachineCode_case_def,COND_RATOR] |> SIMP_RULE std_ss[Once COND_RAND]
   |> finish |> SIMP_RULE (srw_ss())[word_2comp_def])
 
-val arm7_enc13 = replace_at 13 (fn th => th |> SIMP_RULE (srw_ss())
-  [WORD_LS,word_mul_def,Q.ISPEC`MachineCode_CASE`COND_RAND,
-  MachineCode_case_def,COND_RATOR,LET_THM] |> SIMP_RULE std_ss[Once
-  COND_RAND] |> finish |> SIMP_RULE (srw_ss())[word_2comp_def])
-
+(* Mem Load32 *)
 val arm7_enc14 = replace_at 14 (fn th => th |> SIMP_RULE (srw_ss())
   [WORD_LS,word_mul_def,Q.ISPEC`MachineCode_CASE`COND_RAND,
   MachineCode_case_def,COND_RATOR,LET_THM] |> SIMP_RULE std_ss[Once
   COND_RAND] |> finish |> SIMP_RULE (srw_ss())[word_2comp_def])
 
+(* Mem Load16 *)
 val arm7_enc15 = replace_at 15 (fn th => th |> SIMP_RULE (srw_ss())
   [WORD_LS,word_mul_def,Q.ISPEC`MachineCode_CASE`COND_RAND,
   MachineCode_case_def,COND_RATOR,LET_THM] |> SIMP_RULE std_ss[Once
   COND_RAND] |> finish |> SIMP_RULE (srw_ss())[word_2comp_def])
 
+(* Mem Load8 *)
 val arm7_enc16 = replace_at 16 (fn th => th |> SIMP_RULE (srw_ss())
   [WORD_LS,word_mul_def,Q.ISPEC`MachineCode_CASE`COND_RAND,
   MachineCode_case_def,COND_RATOR,LET_THM] |> SIMP_RULE std_ss[Once
   COND_RAND] |> finish |> SIMP_RULE (srw_ss())[word_2comp_def])
 
+(* Mem Store *)
 val arm7_enc17 = replace_at 17 (fn th => th |> SIMP_RULE (srw_ss())
   [WORD_LS,word_mul_def,Q.ISPEC`MachineCode_CASE`COND_RAND,
   MachineCode_case_def,COND_RATOR,LET_THM] |> SIMP_RULE std_ss[Once
@@ -215,21 +236,27 @@ val arm7_enc19 = replace_at 19 (fn th => th |> SIMP_RULE (srw_ss())
   MachineCode_case_def,COND_RATOR,LET_THM] |> SIMP_RULE std_ss[Once
   COND_RAND] |> finish |> SIMP_RULE (srw_ss())[word_2comp_def])
 
+val arm7_enc20 = replace_at 20 (fn th => th |> SIMP_RULE (srw_ss())
+  [WORD_LS,word_mul_def,Q.ISPEC`MachineCode_CASE`COND_RAND,
+  MachineCode_case_def,COND_RATOR,LET_THM] |> SIMP_RULE std_ss[Once
+  COND_RAND] |> finish |> SIMP_RULE (srw_ss())[word_2comp_def])
 
 (* FP *)
 val fp_defaults = [arm7_vfp_cmp_def,e_vfp_def,EncodeVFPReg_def]@defaults
 
-val arm7_enc20_to_35 = map (fn i => replace_at i (fn th => th |>
+val arm7_enc21_to_36 = map (fn i => replace_at i (fn th => th |>
   (SIMP_RULE (srw_ss()) fp_defaults) |> finish |> SIMP_RULE
   (srw_ss())[word_2comp_def]))
-  [20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35]
+  [21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36]
 
-val arm7_enc31 = replace_at 36 (fn th => th |> SIMP_RULE (srw_ss())
+(* Jump *)
+val arm7_enc37 = replace_at 37 (fn th => th |> SIMP_RULE (srw_ss())
   [WORD_LS,word_mul_def,Q.ISPEC`MachineCode_CASE`COND_RAND,
   MachineCode_case_def,COND_RATOR,LET_THM] |> finish |> SIMP_RULE
   (srw_ss())[word_2comp_def])
 
-val arm7_enc32 = replace_at 37 (fn th => th |> Q.GEN`cmp` |> SIMP_RULE
+(* JumpCmp Reg *)
+val arm7_enc38 = replace_at 38 (fn th => th |> Q.GEN`cmp` |> SIMP_RULE
   (srw_ss() ++ LET_ss ++ DatatypeSimps.expand_type_quants_ss[``:cmp``])
   [arm7_cmp_def,Q.ISPEC`MachineCode_CASE`COND_RAND,
   MachineCode_case_def,COND_RATOR,LET_THM] |> finish |> CONJUNCTS |>
@@ -237,7 +264,8 @@ val arm7_enc32 = replace_at 37 (fn th => th |> Q.GEN`cmp` |> SIMP_RULE
   ``arm7_enc (JumpCmp cmp r1 (Reg r2) a)`` (rand o funpow 3 rator o
   rand) )
 
-val arm7_enc33 = replace_at 38 (fn th => th |> Q.GEN`cmp` |> SIMP_RULE
+(* JumpCmp Imm *)
+val arm7_enc39 = replace_at 39 (fn th => th |> Q.GEN`cmp` |> SIMP_RULE
   (srw_ss() ++ LET_ss ++
   DatatypeSimps.expand_type_quants_ss[``:cmp``])
   [arm7_cmp_def,Q.ISPEC`MachineCode_CASE`COND_RAND,
@@ -246,23 +274,25 @@ val arm7_enc33 = replace_at 38 (fn th => th |> Q.GEN`cmp` |> SIMP_RULE
   ``arm7_enc (JumpCmp cmp r (Imm i) a)`` (rand o funpow 3 rator o
   rand) )
 
-val arm7_enc34 = replace_at 39 (fn th => th |> SIMP_RULE (srw_ss())
+(* Call *)
+val arm7_enc40 = replace_at 40 (fn th => th |> SIMP_RULE (srw_ss())
   [WORD_LS, word_mul_def, Q.ISPEC`MachineCode_CASE`COND_RAND,
   MachineCode_case_def, COND_RATOR] |> finish |> SIMP_RULE
   (srw_ss())[word_2comp_def])
 
-val arm7_enc35 = replace_at 40 (fn th => th |> SIMP_RULE (srw_ss())
+(* JumpReg *)
+val arm7_enc41 = replace_at 41 (fn th => th |> SIMP_RULE (srw_ss())
   [WORD_LS, word_mul_def, Q.ISPEC`MachineCode_CASE`COND_RAND,
   MachineCode_case_def, COND_RATOR] |> finish |> SIMP_RULE
   (srw_ss())[word_2comp_def])
 
-val arm7_enc36 = replace_at 41 (fn th => th |> SIMP_RULE (srw_ss())
+val arm7_enc42 = replace_at 42 (fn th => th |> SIMP_RULE (srw_ss())
   [WORD_LO, word_mul_def, Q.ISPEC`MachineCode_CASE`COND_RAND,
   MachineCode_case_def, COND_RATOR] |> SIMP_RULE std_ss[Once
   COND_RAND] |> finish |> SIMP_RULE (srw_ss())[word_2comp_def])
 
 val arm7_enc_thm =
-  List.tabulate (41, fn i => Array.sub(arm7_enc_thms,i)) |> LIST_CONJ
+  List.tabulate (42, fn i => Array.sub(arm7_enc_thms,i)) |> LIST_CONJ
 
 val _ = translate (EncodeARMImmediate_def |> SIMP_RULE (srw_ss())
   [Ntimes EncodeARMImmediate_aux_def 20] |> finish |> SIMP_RULE
@@ -384,17 +414,30 @@ val d1 = CONJ d1 $ Define ‘arm7_enc_Arith_LongDiv a b c d e =
 val d1 = CONJ d1 $ Define ‘arm7_enc_Arith_Div a b c =
                     arm7_enc (Inst (Arith (Div a b c)))’
   |> SIMP_RULE std_ss [arm7_enc_thm,cases_defs,APPEND]
-val d1 = CONJ d1 $ Define ‘arm7_enc_Arith_Shift_Ror a b c =
-                    arm7_enc (Inst (Arith (Shift Ror a b c)))’
+val d1 = CONJ d1 $ Define ‘arm7_enc_Arith_Ror_Imm a b c =
+                    arm7_enc (Inst (Arith (Shift Ror a b (Imm c))))’
   |> SIMP_RULE std_ss [arm7_enc_thm,cases_defs,APPEND]
-val d1 = CONJ d1 $ Define ‘arm7_enc_Arith_Shift_Asr a b c =
-                    arm7_enc (Inst (Arith (Shift Asr a b c)))’
+val d1 = CONJ d1 $ Define ‘arm7_enc_Arith_Asr_Imm a b c =
+                    arm7_enc (Inst (Arith (Shift Asr a b (Imm c))))’
   |> SIMP_RULE std_ss [arm7_enc_thm,cases_defs,APPEND]
-val d1 = CONJ d1 $ Define ‘arm7_enc_Arith_Shift_Lsr a b c =
-                    arm7_enc (Inst (Arith (Shift Lsr a b c)))’
+val d1 = CONJ d1 $ Define ‘arm7_enc_Arith_Lsr_Imm a b c =
+                    arm7_enc (Inst (Arith (Shift Lsr a b (Imm c))))’
   |> SIMP_RULE std_ss [arm7_enc_thm,cases_defs,APPEND]
-val d1 = CONJ d1 $ Define ‘arm7_enc_Arith_Shift_Lsl a b c =
-                    arm7_enc (Inst (Arith (Shift Lsl a b c)))’
+val d1 = CONJ d1 $ Define ‘arm7_enc_Arith_Lsl_Imm a b c =
+                    arm7_enc (Inst (Arith (Shift Lsl a b (Imm c))))’
+  |> SIMP_RULE std_ss [arm7_enc_thm,cases_defs,APPEND]
+
+val d1 = CONJ d1 $ Define ‘arm7_enc_Arith_Ror_Reg a b c =
+                    arm7_enc (Inst (Arith (Shift Ror a b (Reg c))))’
+  |> SIMP_RULE std_ss [arm7_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm7_enc_Arith_Asr_Reg a b c =
+                    arm7_enc (Inst (Arith (Shift Asr a b (Reg c))))’
+  |> SIMP_RULE std_ss [arm7_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm7_enc_Arith_Lsr_Reg a b c =
+                    arm7_enc (Inst (Arith (Shift Lsr a b (Reg c))))’
+  |> SIMP_RULE std_ss [arm7_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm7_enc_Arith_Lsl_Reg a b c =
+                    arm7_enc (Inst (Arith (Shift Lsl a b (Reg c))))’
   |> SIMP_RULE std_ss [arm7_enc_thm,cases_defs,APPEND]
 val d1 = CONJ d1 $ Define ‘arm7_enc_Arith_Add_Imm a b c =
                     arm7_enc (Inst (Arith (Binop Add a b (Imm c))))’

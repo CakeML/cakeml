@@ -103,9 +103,11 @@ Definition copy_prop_inst_def:
     let ri'' = if ri'=Reg r1 then ri else ri' in
     (Inst (Arith (Binop bop r1 r2' ri'')), cs')) ∧
   (copy_prop_inst (Arith (Shift shift r1 r2 n)) cs =
+    let cs' = remove_eq cs r1 in
     let r2' = lookup_eq cs r2 in
-      (Inst (Arith (Shift shift r1 r2' n)),
-        remove_eq cs r1)) ∧
+    let n' = lookup_eq_imm cs n in
+    let n'' = if n'=Reg r1 then n else n' in
+    (Inst (Arith (Shift shift r1 r2' n'')), cs')) ∧
   (copy_prop_inst (Arith (Div r1 r2 r3)) cs =
     let r2' = lookup_eq cs r2 in
     let r3' = lookup_eq cs r3 in
