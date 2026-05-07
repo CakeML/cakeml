@@ -984,6 +984,121 @@ Proof
   metis_tac[]
 QED
 
+Theorem fake_seq_no_labs[local]:
+  ∀ls. extract_labels (FOLDR Seq Skip (MAP (λr. fake_move r) ls)) = []
+Proof
+  Induct>>fs[extract_labels_def,fake_move_def]
+QED
+
+Theorem fake_seq_get_code_labels[local]:
+  ∀ls. word_get_code_labels (FOLDR Seq Skip (MAP (λr. fake_move r) ls)) = {}
+Proof
+  Induct>>fs[fake_move_def]
+QED
+
+Theorem fake_seq_good_handlers[local]:
+  ∀ls. word_good_handlers n (FOLDR Seq Skip (MAP (λr. fake_move r) ls))
+Proof
+  Induct>>fs[fake_move_def]
+QED
+
+Theorem fake_seq_flat_exp_conventions[local]:
+  ∀ls. flat_exp_conventions (FOLDR Seq Skip (MAP (λr. fake_move r) ls))
+Proof
+  Induct>>fs[flat_exp_conventions_def,fake_move_def]
+QED
+
+Theorem fake_seq_wf_cutsets[local]:
+  ∀ls. wf_cutsets (FOLDR Seq Skip (MAP (λr. fake_move r) ls))
+Proof
+  Induct>>fs[wf_cutsets_def,fake_move_def]
+QED
+
+Theorem ssa_reconcile_no_labs[local]:
+  extract_labels (ssa_reconcile cur_ssa tgt_ssa ns) = []
+Proof
+  rw[ssa_reconcile_def,extract_labels_def]
+QED
+
+Theorem ssa_reconcile_get_code_labels[local]:
+  word_get_code_labels (ssa_reconcile cur_ssa tgt_ssa ns) = {}
+Proof
+  rw[ssa_reconcile_def]
+QED
+
+Theorem ssa_reconcile_good_handlers[local]:
+  word_good_handlers n (ssa_reconcile cur_ssa tgt_ssa ns)
+Proof
+  rw[ssa_reconcile_def]
+QED
+
+Theorem ssa_reconcile_flat_exp_conventions[local]:
+  flat_exp_conventions (ssa_reconcile cur_ssa tgt_ssa ns)
+Proof
+  rw[ssa_reconcile_def,flat_exp_conventions_def]
+QED
+
+Theorem ssa_reconcile_wf_cutsets[local]:
+  wf_cutsets (ssa_reconcile cur_ssa tgt_ssa ns)
+Proof
+  rw[ssa_reconcile_def,wf_cutsets_def]
+QED
+
+Theorem loop_setup_no_labs[local]:
+  loop_setup names exit_names ssa na = (setup_prog,ssa',na') ⇒
+  extract_labels setup_prog = []
+Proof
+  rw[loop_setup_def]>>
+  rpt(pairarg_tac>>fs[])>>rveq>>
+  fs[extract_labels_def,list_next_var_rename_move_def]>>
+  rpt(pairarg_tac>>fs[])>>rveq>>
+  fs[extract_labels_def,fake_seq_no_labs]
+QED
+
+Theorem loop_setup_get_code_labels[local]:
+  loop_setup names exit_names ssa na = (setup_prog,ssa',na') ⇒
+  word_get_code_labels setup_prog = {}
+Proof
+  rw[loop_setup_def]>>
+  rpt(pairarg_tac>>fs[])>>rveq>>
+  fs[list_next_var_rename_move_def]>>
+  rpt(pairarg_tac>>fs[])>>rveq>>
+  fs[fake_seq_get_code_labels]
+QED
+
+Theorem loop_setup_good_handlers[local]:
+  loop_setup names exit_names ssa na = (setup_prog,ssa',na') ⇒
+  word_good_handlers n setup_prog
+Proof
+  rw[loop_setup_def]>>
+  rpt(pairarg_tac>>fs[])>>rveq>>
+  fs[list_next_var_rename_move_def]>>
+  rpt(pairarg_tac>>fs[])>>rveq>>
+  fs[fake_seq_good_handlers]
+QED
+
+Theorem loop_setup_flat_exp_conventions[local]:
+  loop_setup names exit_names ssa na = (setup_prog,ssa',na') ⇒
+  flat_exp_conventions setup_prog
+Proof
+  rw[loop_setup_def]>>
+  rpt(pairarg_tac>>fs[])>>rveq>>
+  fs[flat_exp_conventions_def,list_next_var_rename_move_def]>>
+  rpt(pairarg_tac>>fs[])>>rveq>>
+  fs[flat_exp_conventions_def,fake_seq_flat_exp_conventions]
+QED
+
+Theorem loop_setup_wf_cutsets[local]:
+  loop_setup names exit_names ssa na = (setup_prog,ssa',na') ⇒
+  wf_cutsets setup_prog
+Proof
+  rw[loop_setup_def]>>
+  rpt(pairarg_tac>>fs[])>>rveq>>
+  fs[wf_cutsets_def,list_next_var_rename_move_def]>>
+  rpt(pairarg_tac>>fs[])>>rveq>>
+  fs[wf_cutsets_def,fake_seq_wf_cutsets]
+QED
+
 Theorem full_ssa_cc_trans_lab_pres:
   ∀prog n.
   extract_labels prog =
@@ -1005,8 +1120,11 @@ Proof
     every_case_tac>>rw[]>>
     fs[extract_labels_def])
   >>
-  TRY (imp_res_tac fake_moves_no_labs>>fs[]>>NO_TAC)
-  >> gvs[ssa_reconcile_def]>>every_case_tac>>gvs[extract_labels_def]
+  TRY (imp_res_tac fake_moves_no_labs>>fs[]>>NO_TAC)>>
+  TRY (imp_res_tac loop_setup_no_labs>>
+       rw[]>>fs[extract_labels_def,ssa_reconcile_no_labs]>>NO_TAC)>>
+  TRY (fs[extract_labels_def,ssa_reconcile_no_labs]>>NO_TAC)>>
+  gvs[ssa_reconcile_def]>>every_case_tac>>gvs[extract_labels_def]
 QED
 
 Theorem ssa_cc_trans_inst_not_created_subprogs[local]:
@@ -1040,6 +1158,23 @@ Proof
            word_allocTheory.fake_move_def]>>metis_tac[]
 QED
 
+Theorem fake_seq_not_created_subprogs[local]:
+  ∀ls. not_created_subprogs P (FOLDR Seq Skip (MAP (λr. fake_move r) ls))
+Proof
+  Induct>>fs[not_created_subprogs_def,word_allocTheory.fake_move_def]
+QED
+
+Theorem loop_setup_not_created_subprogs[local]:
+  loop_setup names exit_names ssa na = (setup_prog,ssa',na') ⇒
+  not_created_subprogs P setup_prog
+Proof
+  rw[word_allocTheory.loop_setup_def]>>
+  rpt(pairarg_tac>>fs[])>>rveq>>
+  fs[not_created_subprogs_def,word_allocTheory.list_next_var_rename_move_def]>>
+  rpt(pairarg_tac>>fs[])>>rveq>>
+  fs[not_created_subprogs_def,fake_seq_not_created_subprogs]
+QED
+
 Theorem ssa_cc_trans_not_created_subprogs[local]:
   not_created_subprogs P prog ∧
   ssa_cc_trans prog ssa n lt = (prog', ssa', na)⇒
@@ -1063,9 +1198,8 @@ Proof
   >- (EVERY_CASE_TAC>>gs[]>>rveq>>gs[not_created_subprogs_def]>>
     rpt (pairarg_tac>>gs[])>>rveq>>gs[not_created_subprogs_def]>>
     drule fake_moves_not_created_subprogs>>rw[])
-  >- (EVERY_CASE_TAC>>gs[]>>rveq>>gs[not_created_subprogs_def]>>
-      rpt (pairarg_tac>>gs[])>>rveq>>gs[not_created_subprogs_def]>>
-      drule fake_moves_not_created_subprogs>>rw[])
+  >- (drule loop_setup_not_created_subprogs>>rw[]>>
+      every_case_tac>>fs[not_created_subprogs_def])
   >> gvs[CaseEq"option",CaseEq"prod"]>>rw[]>>simp[not_created_subprogs_def]
   >> every_case_tac>>simp[not_created_subprogs_def]
 QED
@@ -1153,7 +1287,8 @@ Proof
     \\ rveq \\ fs[]
     \\ imp_res_tac word_get_code_labels_fake_moves
     \\ fs[])
-  >- (every_case_tac \\ fs[ssa_reconcile_def] \\ rw[] \\ fs[])
+  >- (drule loop_setup_get_code_labels \\ rw[]
+      \\ rw[] \\ fs[ssa_reconcile_get_code_labels])
   >- (every_case_tac \\ fs[ssa_reconcile_def] \\ rw[] \\ fs[])
   >- (every_case_tac \\ fs[ssa_reconcile_def] \\ rw[] \\ fs[])
 QED
@@ -1232,7 +1367,8 @@ Proof
     \\ rveq \\ fs[]
     \\ imp_res_tac word_good_handlers_fake_moves
     \\ fs[])
-  >- (every_case_tac \\ fs[ssa_reconcile_def] \\ rw[] \\ fs[])
+  >- (drule loop_setup_good_handlers \\ rw[]
+      \\ rw[] \\ fs[ssa_reconcile_good_handlers])
   >- (every_case_tac \\ fs[ssa_reconcile_def] \\ rw[] \\ fs[])
   >- (every_case_tac \\ fs[ssa_reconcile_def] \\ rw[] \\ fs[])
 QED
@@ -1325,9 +1461,10 @@ Proof
     fs[flat_exp_conventions_ShareInst] >>
     simp[ssa_cc_trans_exp_def])
   >> (*Loop/Break/Continue*)
+    TRY (drule loop_setup_flat_exp_conventions>>strip_tac)>>
     TRY (Cases_on `LLOOKUP lt n`)>>
     TRY (PairCases_on `x`)>>
-    fs[]>>
+    fs[flat_exp_conventions_def]>>
     rpt IF_CASES_TAC>>gvs[ssa_reconcile_def,flat_exp_conventions_def]>>
     rw[]>>fs[flat_exp_conventions_def]
 QED
@@ -1366,8 +1503,9 @@ Proof
   gvs[wf_cutsets_def,wf_names_def,apply_nummaps_key_def,wf_fromAList]
   >> TRY (metis_tac[fake_moves_wf_cutsets])
   >> (*Loop/Break/Continue*)
+    TRY (drule loop_setup_wf_cutsets>>strip_tac)>>
     TRY (Cases_on `LLOOKUP lt n`)>>
-    TRY (PairCases_on `x`)>>fs[]>>
+    TRY (PairCases_on `x`)>>fs[wf_cutsets_def]>>
     rpt IF_CASES_TAC>>gvs[ssa_reconcile_def,wf_cutsets_def]>>
     rw[]>>fs[wf_cutsets_def]
 QED
