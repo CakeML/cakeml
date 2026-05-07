@@ -65,6 +65,23 @@ Definition bind_def:
    | (bs,vs,n') => (h::bs,n::vs,n'))
 End
 
+Theorem bind_size:
+  ∀args n bs vs n'.
+    bind n args = (bs,vs,n') ⇒
+    LENGTH args = LENGTH bs ∧
+    LENGTH args = LENGTH vs
+Proof
+  Induct >> gvs [bind_def]
+  >> rpt gen_tac
+  >> CASE_TAC
+  >> CASE_TAC
+  >> disch_then assume_tac
+  >> gvs []
+  >> rename [‘bind (n + 1) args = (bs,vs,n')’]
+  >> first_x_assum irule
+  >> first_assum $ irule_at Any
+QED
+
 Definition shift_vars_def:
   (shift_vars (n:num) [] = []) ∧
   (shift_vars (n:num) (h::t) = (h + n : num)::shift_vars n t)
@@ -284,6 +301,37 @@ Definition bvi_to_cb_to_bvi_def:
     | NONE => NONE
 End
 
+Theorem bvi_to_cb_aux_size:
+  ∀loc tag args bs sum.
+    bvi_to_cb_aux loc tag args = SOME (bs,sum) ⇒
+    list_size exp_size bs < exp_size (Op (BlockOp (Cons tag)) args) ∧
+    (∀vs.
+       sum = INL vs ⇒
+       LENGTH vs < exp_size (Op (BlockOp (Cons tag)) args)) ∧
+    (∀cb.
+       sum = INR cb ⇒
+       exp_size (cb_to_bvi loc cb) < exp_size (Op (BlockOp (Cons tag)) args))
+Proof
+  recInduct bvi_to_cb_aux_ind
+  >> rw [bvi_to_cb_aux_def]
+  >> cheat
+QED
+
+Theorem bvi_to_cb_size:
+  ∀loc tag args bs cb.
+    bvi_to_cb loc tag args = SOME (bs,cb) ⇒
+    list_size exp_size bs < exp_size (Op (BlockOp (Cons tag)) args) ∧
+    exp_size (cb_to_bvi loc cb) < exp_size (Op (BlockOp (Cons tag)) args)
+Proof
+  rpt gen_tac
+  >> strip_tac
+  >> imp_res_tac bvi_to_cb_wf
+  >> gvs [CaseEq "option", bvi_to_cb_def, CaseEq "option", CaseEq "prod", CaseEq "sum"]
+  >> drule_all bvi_to_cb_aux_size
+  >> strip_tac
+  >> gvs []
+QED
+
 (* Phase 2 - Convert call block into a hole block, where the hole is filled by the optimised version of recursive call. *)
 
 (* Like call_block, but base case is NONE instead of RCall *)
@@ -444,197 +492,3 @@ Definition compile_prog_def:
         let (n, ys) = compile_prog (next + bvl_to_bvi_namespaces) xs in
         (n, (loc, arity, exp_wrapper)::(next, arity + 2, exp_worker)::ys))
 End
-
-(* --- Test rewriting --- *)
-
-(*
-(func my_append@465 (b a)
-   (let
-      (c <- (op (Const 0)))
-      (if (op (TagLenEq 0 0) (var a)) (var b)
-         (let
-            (d <- (op (ElemAt 0) (var a)))
-            (let
-               (e <- (op (ElemAt 1) (var a)))
-           (let
-                  (f <- (op (Const 0)))
-                  (let
-                     (g <- (op (Const 0)))
-                     (op (Cons 0) (call my_append@465 (var b) (var e)) (var d)))))))))
-*)
-(*
-val append_exp = “If (Op (BlockOp (TagLenEq 0 0)) [Var 0]) (Var 1) $
-                  Let [Op (BlockOp (ElemAt 0)) [Var 0];
-                       Op (BlockOp (ElemAt 1)) [Var 0]] $
-                  Op (BlockOp (Cons 0)) [Call 0 (SOME 4000) [Var 1; Var 3] NONE; Var 2]”;
-val append_prog = “[(4000:num,2:num,^append_exp)]”;
-val append_expected = “(9:num,
-      [(4000:num,2:num,
-        If (Op (BlockOp (TagLenEq 0 0)) [Var 0]) (Var 1)
-          (Let [mk_elem_at (Var 0) 0; mk_elem_at (Var 0) 1]
-             (Let
-                [Op (MemOp (MutCons 0 0)) [Op (IntOp (Const 0)) []; Var 2];
-                 Call 0 (SOME 6) [Op (IntOp (Const 0)) []; Var 4; Var 1; Var 3] NONE]
-                (Op (MemOp FinaliseCons) [Var 4]))));
-       (6,4,
-        If (Op (BlockOp (TagLenEq 0 0)) [Var 0])
-          (Op (MemOp UpdateCons) [Var 1; Var 3; Var 2])
-          (Let [mk_elem_at (Var 0) 0; mk_elem_at (Var 0) 1]
-             (Let
-                [Op (MemOp (MutCons 0 0)) [Op (IntOp (Const 0)) []; Var 2];
-                 Op (MemOp UpdateCons) [Var 6; Var 5; Var 4]]
-                (Call 0 (SOME 6) [Op (IntOp (Const 0)) []; Var 6; Var 1; Var 3] NONE))))])”;
-
-Theorem append_check:
-  compile_prog 6 ^append_prog = ^append_expected
-Proof
-  EVAL_TAC
-QED
-
-(*
-let
-      (c <- (op (Const 0)))
-      (if (op (TagLenEq 0 0) (var b)) (op (Cons 0))
-         (let
-            (d <- (op (ElemAt 0) (var b)))
-            (let
-               (e <- (op (ElemAt 1) (var b)))
-               (let
-                  (f <- (op (Const 0)))
-                  (let
-                     (g <- (op (Const 0)))
-                     (op (Cons 0)
-                        (call my_map@471 (var e) (var a))
-                        (let
-                           (i <- (op (Const 0)))
-                           (h <- (op (Const 0)))
-                           (if
-                              (op (EqualConst (Int 0)) (op (ElemAt 1) (var a)))
-                              (call none (var d) (var a) (op (ElemAt 0) (var a)))
-                              (call bvl_stub@69 (var d) (var a))))))))))
- *)
-val map_exp = “Let [Op (IntOp (Const 0)) []] $
-               If (Op (BlockOp (TagLenEq 0 0)) [Var 1]) (Op (BlockOp (Cons 0)) []) $
-               Let [Op (BlockOp (ElemAt 0)) [Var 1]] $
-               Let [Op (BlockOp (ElemAt 1)) [Var 1]] $
-               Let [Op (IntOp (Const 0)) []] $
-               Let [Op (IntOp (Const 0)) []] $
-               Op (BlockOp (Cons 0))
-               [ Call 0 (SOME 4000) [Var 4; Var 0] NONE;
-                 Let [Op (IntOp (Const 0)) []; Op (IntOp (Const 0)) []] $
-                     If (Op (BlockOp (EqualConst (Int 0))) [Op (BlockOp (ElemAt 1)) [Var 0]])
-                     (Call 0 (SOME 1234) [Var 3; Var 0; Op (BlockOp (ElemAt 0)) [Var 0]] NONE)
-                     (Call 0 (SOME 5432) [Var 3; Var 0] NONE)
-                ]”;
-val map_prog = “[(4000:num,2:num,^map_exp)]”;
-val map_expected = “(9:num,
-      [(4000:num,2:num,
-        Let [Op (IntOp (Const 0)) []]
-          (If (Op (BlockOp (TagLenEq 0 0)) [Var 1]) mk_unit
-             (Let [mk_elem_at (Var 1) 0]
-                (Let [mk_elem_at (Var 1) 1]
-                   (Let [Op (IntOp (Const 0)) []]
-                      (Let [Op (IntOp (Const 0)) []]
-                         (Let
-                            [Op (MemOp (MutCons 0 0))
-                               [Op (IntOp (Const 0)) [];
-                                Let
-                                  [Op (IntOp (Const 0)) [];
-                                   Op (IntOp (Const 0)) []]
-                                  (If
-                                     (Op (BlockOp (EqualConst (Int 0)))
-                                        [mk_elem_at (Var 0) 1])
-                                     (Call 0 (SOME 1234)
-                                        [Var 3; Var 0; mk_elem_at (Var 0) 0]
-                                        NONE)
-                                     (Call 0 (SOME 5432) [Var 3; Var 0] NONE))];
-                             Call 0 (SOME 6) [Op (IntOp (Const 0)) []; Var 7; Var 4; Var 0] NONE]
-                            (Op (MemOp FinaliseCons) [Var 7]))))))));
-       (6,4,
-        Let [Op (IntOp (Const 0)) []]
-            (If (Op (BlockOp (TagLenEq 0 0)) [Var 1])
-             (Op (MemOp UpdateCons) [mk_unit; Var 4; Var 3])
-             (Let [mk_elem_at (Var 1) 0]
-                (Let [mk_elem_at (Var 1) 1]
-                   (Let [Op (IntOp (Const 0)) []]
-                      (Let [Op (IntOp (Const 0)) []]
-                         (Let
-                            [Op (MemOp (MutCons 0 0))
-                               [Op (IntOp (Const 0)) [];
-                                Let
-                                  [Op (IntOp (Const 0)) [];
-                                   Op (IntOp (Const 0)) []]
-                                  (If
-                                     (Op (BlockOp (EqualConst (Int 0)))
-                                        [mk_elem_at (Var 0) 1])
-                                     (Call 0 (SOME 1234)
-                                        [Var 3; Var 0; mk_elem_at (Var 0) 0]
-                                        NONE)
-                                     (Call 0 (SOME 5432) [Var 3; Var 0] NONE))];
-                             Op (MemOp UpdateCons) [Var 9; Var 8; Var 7]]
-                            (Call 0 (SOME 6) [Op (IntOp (Const 0)) []; Var 9; Var 4; Var 0] NONE))))))))])”;
-
-Theorem map_check:
-  compile_prog 6 ^map_prog = ^map_expected
-Proof
-  EVAL_TAC
-QED
-
-(* [1] :: [x] :: my_bar xs *)
-val tc_hb1 = “cons_to_tc_and_hb (4000:num) 12 [Op (BlockOp (Cons 0))
-                                                  [Call 0 (SOME 4000) [Var 3] NONE;
-                                                   Op (BlockOp (Cons 0)) [Op (BlockOp (Cons 0)) []; Var 2]];
-                                               Op (BlockOp (Build [Int 1; Con 0 []; Con 0 [0; 1]])) []]”;
-val tc_hb1_expected = “TC (TCall 0 [Var 3] NONE)
-                       (HoleBlock 12
-                                  []
-                                  (SOME (HoleBlock 0
-                                                   []
-                                                   NONE
-                                                   [Op (BlockOp (Cons 0)) [mk_unit; Var 2]]))
-                                  [Op (BlockOp (Build [Int 1; Con 0 []; Con 0 [0; 1]])) []])”;
-
-Theorem tc_check1:
-  ^tc_hb1 = ^tc_hb1_expected
-Proof
-  EVAL_TAC
-QED
-
-(*
-   (func my_foo@471 (a)
-   (if (op LessEq (op (Const 0)) (var a))
-      (op (Cons 0) (var a))
-      (op (Cons 0) (op (Cons 0) (var a))
-         (call my_foo@471 (var a)) (var a))))
-*)
-
-(* Node x (my_foo x) (Leaf x) *)
-val tc_hb2 = “cons_to_tc_and_hb (4000:num) 0 [Op (BlockOp (Cons 0)) [Var 0]; Call 0 (SOME 4000) [Var 0] NONE; Var 0]”;
-val tc_hb2_expected = “TC (TCall 0 [Var 0] NONE) (HoleBlock 0 [Op (BlockOp (Cons 0)) [Var 0]] NONE [Var 0])”;
-
-Theorem tail_cons_check2:
-  ^tc_hb2 = ^tc_hb2_expected
-Proof
-  EVAL_TAC
-QED
-
-(* Node x (my_foo x) (other x) *)
-val tc_hb3 = “cons_to_tc_and_hb (4000:num) 0 [Call 0 (SOME 4321) [Var 0] NONE; Call 0 (SOME 4000) [Var 0] NONE; Var 0]”;
-
-Theorem tail_cons_check3:
-  ^tc_hb3 = Invalid
-Proof
-  EVAL_TAC
-QED
-
-(* Node x (other x) (my_foo x) *)
-val tc_hb4 = “cons_to_tc_and_hb (4000:num) 0 [Call 0 (SOME 4000) [Var 0] NONE; Call 0 (SOME 4321) [Var 0] NONE; Var 0]”;
-val tc_hb4_expected = “TC (TCall 0 [Var 0] NONE) (HoleBlock 0 [] NONE [Call 0 (SOME 4321) [Var 0] NONE; Var 0])”;
-
-Theorem tail_cons_check4:
-  ^tc_hb4 = ^tc_hb4_expected
-Proof
-  EVAL_TAC
-QED
-*)
-

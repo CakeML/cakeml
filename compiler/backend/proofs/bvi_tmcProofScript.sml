@@ -1593,6 +1593,7 @@ Resume evaluate_rewrite_tmc[op]:
   >> Cases_on ‘x’ >> gvs []
   >> rename [‘bvi_to_cb loc tag args = SOME (bs,cb)’]
 
+  (* Phase 1 theorem *)
   >> ‘evaluate ([Op (BlockOp (Cons tag)) args],env,s) = (Rval [v],t)’ by gvs [evaluate_def]
   >> drule evaluate_bvi_to_cb_to_bvi
   >> gvs [bvi_to_cb_to_bvi_def]
@@ -1607,7 +1608,8 @@ Resume evaluate_rewrite_tmc[op]:
   (* Hypothesis on bs *)
   >> first_assum $ qspecl_then [‘bs’, ‘s’] mp_tac
   >> gvs []
-  >> impl_tac >- cheat
+  >> impl_tac
+  >- (imp_res_tac bvi_to_cb_size >> gvs [])
   >> disch_then drule
   >> disch_then drule
   >> disch_then drule
@@ -1619,7 +1621,11 @@ Resume evaluate_rewrite_tmc[op]:
 
   (* Hypothesis on cb_to_bvi loc cb *)
   >> first_assum $ qspecl_then [‘[cb_to_bvi loc cb]’, ‘w’] mp_tac
-  >> impl_tac >- cheat
+  >> impl_tac
+  >-
+   (imp_res_tac evaluate_clock_non_increase
+    >> imp_res_tac bvi_to_cb_size
+    >> gvs [])
   >> disch_then drule
   >> disch_then $ drule_at $ Pos $ el 2
   >> qpat_x_assum ‘env_rel F _ _ _’ kall_tac
@@ -1638,7 +1644,7 @@ Resume evaluate_rewrite_tmc[op]:
   >> pop_assum kall_tac
   >> pop_assum kall_tac
 
-  (* Use the theorem *)
+  (* Phase 2 theorem *)
   >> Cases_on ‘cb_to_hb cb’
   >> Cases_on ‘r’ >> gvs []
   >> rename [‘cb_to_hb cb = (hb,call_ts,call_args)’]
