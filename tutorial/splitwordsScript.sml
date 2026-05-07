@@ -12,7 +12,7 @@ Definition splitwords_def:
   splitwords s = tokens isSpace s
 End
 (*
-EVAL ``splitwords (strlit"hello there hello how are you one two one two three")``
+EVAL ``splitwords «hello there hello how are you one two one two three»``
 *)
 
 Theorem splitwords_nil[simp]:
@@ -21,7 +21,7 @@ Proof
 EVAL_TAC
 QED
 Theorem splitwords_nil_lit[simp]:
-   splitwords (strlit "") = []
+   splitwords «» = []
 Proof
 EVAL_TAC
 QED
@@ -72,10 +72,10 @@ Definition frequency_def:
   frequency s w = LENGTH (FILTER ($= w) (splitwords s))
 End
 (*
-EVAL``frequency (strlit"hello there hello how are you one two one two three") (strlit"hello")``
-EVAL``frequency (strlit"hello there hello how are you one two one two three") (strlit"one")``
-EVAL``frequency (strlit"hello there hello how are you one two one two three") (strlit"three")``
-EVAL``frequency (strlit"hello there hello how are you one two one two three") (strlit"four")``
+EVAL``frequency «hello there hello how are you one two one two three» «hello»``
+EVAL``frequency «hello there hello how are you one two one two three» «one»``
+EVAL``frequency «hello there hello how are you one two one two three» «three»``
+EVAL``frequency «hello there hello how are you one two one two three» «four»``
 *)
 
 Theorem frequency_nil[simp]:
@@ -84,7 +84,7 @@ Proof
 EVAL_TAC
 QED
 Theorem frequency_nil_lit[simp]:
-   frequency (strlit "") w = 0
+   frequency «» w = 0
 Proof
 EVAL_TAC
 QED

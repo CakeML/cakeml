@@ -17,13 +17,13 @@ val cpn_nchotomy = TypeBase.nchotomy_of ``:ordering``
    moved into HOL, either as its own theory, or as an addendum to stringTheory *)
 
 Datatype:
-  mlstring = strlit string
+  mlstring = implode string
 End
-val _ = add_strliteral_form{inj=``strlit``, ldelim = "«"};
+val _ = add_strliteral_form{inj=“implode”, ldelim = "«"};
 
-Definition implode_def:
-  implode = strlit
-End
+(* backwards compatibility: strlit used to be the mlstring constructor and
+   implode a simple wrapper. *)
+Overload strlit[inferior] = “implode”
 
 Definition strlen_def[simp]:
   strlen (strlit s) = LENGTH s
@@ -46,7 +46,7 @@ Definition concat_def:
 End
 
 Theorem concat_nil[simp]:
-   concat [] = strlit ""
+   concat [] = «»
 Proof
 EVAL_TAC
 QED
@@ -80,13 +80,13 @@ QED
 Theorem explode_implode[simp]:
    ∀x. explode (implode x) = x
 Proof
-  rw[implode_def]
+  rw[]
 QED
 
 Theorem implode_explode[simp]:
    ∀x. implode (explode x) = x
 Proof
-  Cases >> rw[implode_def]
+  Cases >> rw[]
 QED
 
 Theorem explode_11[simp]:
@@ -122,7 +122,7 @@ QED
 Theorem concat_thm:
    concat l = implode (FLAT (MAP explode l))
 Proof
-  rw[concat_def,implode_def] \\
+  rw[concat_def] \\
   rpt (AP_TERM_TAC ORELSE AP_THM_TAC) \\
   rw[FUN_EQ_THM] \\ CASE_TAC \\ simp[]
 QED
@@ -170,7 +170,7 @@ Proof
 QED
 
 Theorem substring_too_long:
-   strlen s <= i ==> substring s i j = strlit ""
+   strlen s <= i ==> substring s i j = «»
 Proof
   Cases_on`s` \\ rw[substring_def,DROP_NIL] \\
   `j = 0` by decide_tac \\ fs[SEG]
@@ -192,7 +192,7 @@ Theorem strcat_thm:
    strcat s1 s2 = implode (explode s1 ++ explode s2)
 Proof
   rw[strcat_def,concat_def]
-  \\ CASE_TAC \\ rw[] \\ CASE_TAC \\ rw[implode_def]
+  \\ CASE_TAC \\ rw[] \\ CASE_TAC \\ rw[]
 QED
 
 Theorem strcat_assoc[simp]:
@@ -209,8 +209,8 @@ Proof
 QED
 
 Theorem strcat_nil[simp]:
-   (strcat (strlit "") s = s) ∧
-   (strcat s (strlit "") = s)
+   (strcat «» s = s) ∧
+   (strcat s «» = s)
 Proof
   rw[strcat_def,concat_def] \\ CASE_TAC \\ rw[]
 QED
@@ -218,20 +218,20 @@ QED
 Theorem mlstring_common_prefix[simp]:
   ∀s t1 t2. s ^ t1 = s ^ t2 ⇔ t1 = t2
 Proof
-  rpt Cases \\ gvs [strcat_thm,implode_def]
+  rpt Cases \\ gvs [strcat_thm]
 QED
 
 Theorem mlstring_common_char_prefix[simp]:
   ∀c1 s1 s2 t2 t2. (strlit (c1 :: s1) ^ t1) = (strlit (c2 :: s2) ^ t2) ⇔
     c1 = c2 ∧ strlit s1 ^ t1 = strlit s2 ^ t2
 Proof
-  rw [strcat_thm, implode_def]
+  rw [strcat_thm]
 QED
 
 Theorem mlstring_common_suffix[simp]:
   ∀s t1 t2. t1 ^ s = t2 ^ s ⇔ t1 = t2
 Proof
-  rpt Cases \\ gvs [strcat_thm,implode_def]
+  rpt Cases \\ gvs [strcat_thm]
 QED
 
 Theorem concat_append:
@@ -244,7 +244,7 @@ Theorem implode_STRCAT:
    !l1 l2.
     implode(STRCAT l1 l2) = implode l1 ^ implode l2
 Proof
-    rw[implode_def, strcat_def, concat_def]
+    rw[strcat_def, concat_def]
 QED
 
 Theorem explode_strcat[simp]:
@@ -276,9 +276,9 @@ Theorem concatWith_CONCAT_WITH_aux[local]:
   !s l fl. (CONCAT_WITH_aux s l fl = REVERSE fl ++ explode (concatWith (implode s) (MAP implode l)))
 Proof
   ho_match_mp_tac CONCAT_WITH_aux_ind
-  \\ rw[CONCAT_WITH_aux_def, concatWith_def, implode_def, concatWith_aux_def, strcat_thm]
-  >-(Induct_on `l` \\ rw[MAP, implode_def, concatWith_aux_def, strcat_thm]
-  \\ Cases_on `l` \\ rw[concatWith_aux_def, explode_implode, strcat_thm, implode_def])
+  \\ rw[CONCAT_WITH_aux_def, concatWith_def, concatWith_aux_def, strcat_thm]
+  >-(Induct_on `l` \\ rw[MAP, concatWith_aux_def, strcat_thm]
+  \\ Cases_on `l` \\ rw[concatWith_aux_def, explode_implode, strcat_thm])
 QED
 
 Theorem concatWith_CONCAT_WITH:
@@ -359,7 +359,7 @@ Proof
     \\ simp[TAKE_LENGTH_TOO_LONG,LENGTH_explode]
     \\ simp[extract_def]
     \\ Cases_on`s` \\ fs[substring_def]
-    \\ rw[implode_def]
+    \\ rw[]
     \\ qmatch_goalsub_rename_tac`MIN (LENGTH s) i`
     \\ `MIN (LENGTH s) i = LENGTH s` by rw[MIN_DEF]
     \\ rw[SEG_LENGTH_ID] )
@@ -373,15 +373,14 @@ Proof
     \\ rfs[DROP_EL_CONS,LENGTH_explode]
     \\ rveq
     \\ Cases_on`SPLITP ($~ o P) (DROP (i+1) (explode s))` \\ fs[]
-    \\ AP_TERM_TAC
     \\ simp[LIST_EQ_REWRITE,LENGTH_TAKE,LENGTH_explode]
     \\ rw[]
     \\ Cases_on`x < i` \\ simp[EL_APPEND1,EL_APPEND2,LENGTH_explode,EL_TAKE]
-    \\ Cases_on`x < i+1` \\ simp[EL_APPEND1,EL_APPEND2,LENGTH_explode,EL_TAKE,EL_CONS,PRE_SUB1]
+    \\ Cases_on`x < i+1` \\ gvs[EL_APPEND1,EL_APPEND2,LENGTH_explode,EL_TAKE,EL_CONS,PRE_SUB1]
     \\ `x = i` by DECIDE_TAC
     \\ rw[] )
   \\ Cases_on`s`
-  \\ rw[extract_def,substring_def,implode_def] \\ fs[MIN_DEF]
+  \\ rw[extract_def,substring_def] \\ fs[MIN_DEF]
   \\ simp[TAKE_SEG] \\ rfs[]
   \\ rfs[DROP_SEG]
 QED
@@ -418,8 +417,8 @@ Theorem tokens_aux_filter[local]:
       implode (REVERSE ss++FILTER ($~ o f) (DROP n (explode s))))
 Proof
   Cases_on `s` \\ Induct_on `len` \\
-  rw [strlen_def, tokens_aux_def, concat_cons, DROP_LENGTH_NIL, strcat_thm, implode_def] \\
-  Cases_on `ss` \\ rw [tokens_aux_def, DROP_EL_CONS, concat_cons, strcat_thm, implode_def]
+  rw [strlen_def, tokens_aux_def, concat_cons, DROP_LENGTH_NIL, strcat_thm] \\
+  Cases_on `ss` \\ rw [tokens_aux_def, DROP_EL_CONS, concat_cons, strcat_thm]
 QED
 
 Theorem tokens_filter:
@@ -439,7 +438,7 @@ Theorem TOKENS_eq_tokens_aux:
         | [] => (TOKENS P (DROP n (explode ls))))
 Proof
     ho_match_mp_tac tokens_aux_ind \\ rw[] \\ Cases_on `s`
-    \\ rw[explode_thm, tokens_aux_def, TOKENS_def, implode_def, strlen_def, strsub_def]
+    \\ rw[explode_thm, tokens_aux_def, TOKENS_def, strlen_def, strsub_def]
     \\ fs[strsub_def, DROP_LENGTH_TOO_LONG, TOKENS_def]
     >-(rw[EQ_SYM_EQ, Once DROP_EL_CONS] \\ rw[TOKENS_def]
       \\ pairarg_tac  \\ fs[NULL_EQ] \\ rw[]
@@ -552,11 +551,11 @@ Theorem substring_1_strsub:
 Proof
   Cases_on`s`>>rw[substring_def]>>
   DEP_REWRITE_TAC[SEG1]>>
-  gvs[chr_to_str_def,implode_def]
+  gvs[chr_to_str_def]
 QED
 
 Theorem substring_0[simp]:
-  substring s i 0 = strlit ""
+  substring s i 0 = «»
 Proof
   Cases_on`s`>>rw[substring_def]>>
   EVAL_TAC
@@ -663,8 +662,7 @@ Theorem fields_aux_filter[local]:
   !f s ss n len. (n + len = strlen s) ==> (concat (fields_aux f s ss n len) =
       implode (REVERSE ss++FILTER ($~ o f) (DROP n (explode s))))
 Proof
-  Cases_on `s` \\ Induct_on `len` \\ rw [strlen_def, fields_aux_def, concat_cons,
-    implode_def, explode_thm, DROP_LENGTH_NIL, strcat_thm] \\
+  Cases_on `s` \\ Induct_on `len` \\ rw [strlen_def, fields_aux_def, concat_cons, explode_thm, DROP_LENGTH_NIL, strcat_thm] \\
   rw [DROP_EL_CONS]
 QED
 
@@ -853,8 +851,7 @@ Theorem isprefix_strcat:
   ∀s₁ s₂. isPrefix s₁ s₂ = ∃s₃. s₂ = s₁ ^ s₃
 Proof
   rpt gen_tac
-  \\ gvs [isprefix_thm, strcat_thm, isPREFIX_STRCAT, exists_mlstring,
-          implode_def]
+  \\ gvs [isprefix_thm, strcat_thm, isPREFIX_STRCAT, exists_mlstring]
   \\ Cases_on ‘s₂’ \\ simp []
 QED
 
@@ -1386,11 +1383,11 @@ QED
 Definition char_escape_seq_def:
   char_escape_seq c =
     if c = #"\t"
-    then SOME (strlit "\\t")
+    then SOME «\\t»
     else if c = #"\n"
-    then SOME (strlit "\\n")
+    then SOME «\\n»
     else if c = #"\\"
-    then SOME (strlit "\\\\")
+    then SOME «\\\\»
     else if c = #"\""
     then SOME (strlit "\\\"")
     else NONE
@@ -1415,7 +1412,7 @@ Theorem ALL_DISTINCT_MAP_implode[simp]:
 Proof
   strip_tac >>
   match_mp_tac ALL_DISTINCT_MAP_INJ >>
-  rw[implode_def]
+  rw[]
 QED
 
 Theorem ALL_DISTINCT_MAP_explode[simp]:
@@ -1473,9 +1470,9 @@ Definition str_app_list_opt_def:
 End
 
 Theorem str_app_list_opt_test[local]:
-  str_app_list_opt (Append (List [strlit "Hello"; strlit " there"])
-                           (List [strlit "!"])) =
-  List [strlit "Hello there!"]
+  str_app_list_opt (Append (List [«Hello»; « there»])
+                           (List [«!»])) =
+  List [«Hello there!»]
 Proof
   EVAL_TAC
 QED
