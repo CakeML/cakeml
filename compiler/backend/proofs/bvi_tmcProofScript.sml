@@ -1626,15 +1626,14 @@ Resume evaluate_rewrite_tmc[op]:
    (imp_res_tac evaluate_clock_non_increase
     >> imp_res_tac bvi_to_cb_size
     >> gvs [])
-  >> disch_then drule
+  >> disch_then drule   
   >> disch_then $ drule_at $ Pos $ el 2
   >> qpat_x_assum ‘env_rel F _ _ _’ kall_tac
+  >> drule_all env_rel_submap
+  >> strip_tac
   >> drule env_rel_append
   >> disch_then $ qspecl_then [‘as'’, ‘as’] mp_tac
-  >> impl_tac
-  >- cheat
-  >> strip_tac
-  >> drule_all env_rel_submap
+  >> disch_then drule
   >> strip_tac
   >> disch_then drule
   >> gvs []
