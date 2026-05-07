@@ -25,7 +25,14 @@ The Pancake compiler now unconditionally compiles with GC set to `none`; any `--
 ## Proof engineering and tooling
 
 ### mlstring
-- HOL: `str` has been renamed to `chr_to_str`, freeing up `str` to be used for parameter names, for example. (#1307, #1372) 
-- HOL: Added `toString` overload for `chr_to_str` (#1307, #1372) 
+- HOL: `str` has been renamed to `chr_to_str`, freeing up `str` to be used for parameter names, for example. (#1307, #1372)
+- HOL: Added `toString` overload for `chr_to_str` (#1307, #1372)
+- HOL: Fuse strlit and implode (#491, #1376)
+  - Incompatibilities
+    - `implode_def` has been removed, so any references to it in tactics and automation need to be removed in user files.
+    - A few proofs may break. In the cakeml repo the required fixes were relatively straightforward.
+  - Deprecations
+    - `strlit` has been added as an inferior overload for backwards compatibility, but may be removed in the future. It is recommended to use `implode` instead.
+    - `strlit_tm`, `mk_strlit`, `dest_strlit` and `is_strlit` are still available but may be removed in the future. It is recommended to use `implode_tm`, `mk_implode`, `dest_implode` and `is_implode` instead.
 
 ## Miscellaneous
