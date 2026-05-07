@@ -1643,16 +1643,25 @@ Resume evaluate_rewrite_tmc[op]:
   >> pop_assum kall_tac
   >> pop_assum kall_tac
 
+  (* Phase 1 theorem in optimised world to unify things *)
+  >> ‘evaluate ([Op (BlockOp (Cons tag)) args],env2,s') = (Rval [v'],t')’ by gvs [evaluate_def]
+  >> drule evaluate_bvi_to_cb_to_bvi
+  >> gvs [bvi_to_cb_to_bvi_def]
+  >> disch_then $ qspec_then ‘loc’ mp_tac
+  >> gvs []
+  >> strip_tac
+  >> gvs [evaluate_def]
+
   (* Phase 2 theorem *)
   >> Cases_on ‘cb_to_hb cb’
   >> Cases_on ‘r’ >> gvs []
   >> rename [‘cb_to_hb cb = (hb,call_ts,call_args)’]
   >> gvs [evaluate_def]
-  (* Try to irule this so we get the right variables. f is wrong currently. Need to fix v to do this *)
   >> drule evaluate_hb_to_bvi_worker
   >> disch_then drule
   >> imp_res_tac bvi_to_cb_wf
   >> gvs []
+  (* Are things instantiated correctly (f?) *)     
   >> disch_then drule
   >> disch_then drule
   >> disch_then drule
@@ -1682,6 +1691,7 @@ Resume evaluate_rewrite_tmc[op]:
   >> gvs []
   >> irule hole_has_val_unappend
   >> rpt $ first_assum $ irule_at Any
+  >> gvs []
 QED
 
 Theorem evaluate_bvi_to_cb_to_bvi:
