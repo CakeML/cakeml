@@ -75,9 +75,34 @@ Proof
   simp [SNOC_APPEND, one_list_append, one_list_def, SEP_CLAUSES]
 QED
 
+(* TODO Move somewhere better *)
+Definition byte_dimindex_def:
+  byte_dimindex (:α) ⇔ ∃k. dimindex(:α) = 2 ** k ∧ 3 ≤ k
+End
+
+(* TODO Move somewhere better *)
+Theorem dimword_MOD_bytes_in_word:
+  byte_dimindex (:α) ⇒
+  dimword (:α) MOD w2n (bytes_in_word: α word) = 0
+Proof
+  rw [bytes_in_word_def]
+  >> ‘(dimindex (:α) DIV 8) MOD dimword (:α) = dimindex (:α) DIV 8’ by
+    (simp [dimword_def]
+     >> irule LESS_TRANS
+     >> irule_at (Pos hd) DIV_LESS
+     >> simp [])
+  >> fs [byte_dimindex_def, dimword_def]
+  >> ‘0 < dimindex (:α) DIV 8’ by
+    (irule dividesTheory.DIV_POS >> simp []
+     >> qpat_x_assum ‘2 ** k = _’ $ SUBST_ALL_TAC o GSYM >> simp [])
+  >> ‘∃k. 2 ** dimindex (:α) = k * (dimindex (:α) DIV 8)’ by cheat
+  >> simp []
+QED
+
+
 (* TODO move to set_sep *)
 Theorem one_list_LENGTH_leq_dimword:
-  dimindex (:α) MOD 8 = 0 ∧ (one_list (a: α word) xs) (fun2set (f, d)) ⇒
+  byte_dimindex (:α) ∧ (one_list (a: α word) xs) (fun2set (f, d)) ⇒
   LENGTH xs * w2n (bytes_in_word: α word) ≤ dimword (:α)
 Proof
   strip_tac
@@ -91,16 +116,22 @@ Proof
   >> ‘∃ys zs. xs = ys ++ zs ∧ LENGTH ys = max_index ∧ 1 ≤ LENGTH zs’ by (
     qexistsl [‘TAKE max_index xs’, ‘DROP max_index xs’]
     >> unabbrev_all_tac >> Cases_on ‘xs’ >> gvs [])
-
   >> Cases_on ‘zs’ >> gvs [one_list_append, one_list_def]
   >> Cases_on ‘ys’ >> gvs [one_list_def]
   >> qpat_x_assum ‘dimword _ DIV _ = _’ $ assume_tac o GSYM
   >> fs []
-
   >> qmatch_asmsub_abbrev_tac ‘one (a + more, _)’
   >> ‘a ≠ a + more’ by SEP_NEQ_TAC
-
-  >> ‘more = 0w’ by cheat
+  >> ‘more = 0w’ by
+    (simp [Abbr ‘more’]
+     >> ‘bytes_in_word = n2w bytes’ by simp [Abbr ‘bytes’]
+     >> simp [word_mul_n2w]
+     >> ‘bytes * (dimword (:α) DIV bytes) = dimword (:α)’ by
+       (qspec_then ‘bytes’ mp_tac $ GSYM DIVISION >> simp []
+        >> disch_then $ qspec_then ‘dimword (:α)’ mp_tac
+        >> drule_then assume_tac dimword_MOD_bytes_in_word
+        >> simp [Abbr ‘bytes’])
+     >> simp [])
   >> gvs []
 QED
 
