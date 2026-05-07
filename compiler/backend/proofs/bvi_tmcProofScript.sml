@@ -420,50 +420,6 @@ Proof
   >> cheat
 QED
 
-Theorem evaluate_mem_op_update_cons:
-  ∀i j n hole_ptr hole_idx hole_val tag l c r env s s'.
-    i < LENGTH env ∧
-    j < LENGTH env ∧
-    n < LENGTH env ∧
-    env❲j❳ = Number hole_idx ∧
-    env❲n❳ = RefPtr F hole_ptr ∧
-    FLOOKUP s.refs hole_ptr = SOME (MutBlock tag l c r) ∧
-    hole_idx = &LENGTH l ∧
-    s' = s with refs := s.refs⟨hole_ptr ↦ MutBlock tag l env❲i❳ r⟩ ⇒
-    evaluate ([Op (MemOp UpdateCons) [Var i; Var j; Var n]],env,s) = (Rval [Block 0 []],s')
-Proof
-  rw []
-  >> gvs [evaluate_def]
-  >> gvs [do_app_def]
-  >> gvs [do_app_aux_def]
-  >> gvs [bvlSemTheory.Unit_def, backend_commonTheory.tuple_tag_def]
-  >> gvs [backend_commonTheory.tuple_tag_def]
-QED
-
-Theorem evaluate_mem_op_update_cons2:
-  ∀f n i j tag l c r v env env' s s' t t'.
-    env_rel T f env env' ∧
-    n < LENGTH env ∧
-    i = LENGTH env ∧
-    j = LENGTH env + 1 ∧
-    (*FLOOKUP s'.refs hole_ptr = SOME (MutBlock tag l c r) ∧*)
-    (*hole_idx = &LENGTH l ∧*)
-    (*t' = s' with refs := s'.refs⟨hole_ptr ↦ MutBlock tag l env❲n❳ r⟩*)
-    evaluate ([Var n], env, s) = (Rval v, t) ∧
-    state_rel f s s' ⇒
-    evaluate ([Op (MemOp UpdateCons) [Var n; Var j; Var i]],env',s') = (Rval [Block 0 []],t')
-(* state rel?*)
-Proof
-  rw []
-  >> imp_res_tac env_rel_length_opt
-  >> drule env_rel_extras_opt
-  >> strip_tac
-  >> simp [evaluate_def]
-  >> gvs [do_app_def]
-  >> gvs [do_app_aux_def]
-  >> cheat
-QED
-
 Definition hole_has_val_def:
   hole_has_val (f : num |-> num) (env1 : v list) (env2 : v list) (refs : num |-> v ref) c =
   ∃hole_ptr tag left right.
@@ -1592,17 +1548,31 @@ Resume evaluate_rewrite_tmc[op]:
     >> rpt $ first_assum $ irule_at Any)
   >> Cases_on ‘x’ >> gvs []
   >> rename [‘bvi_to_cb loc tag args = SOME (bs,cb)’]
-  (* Phase 1 theorem *)
+  (* Phase 1 theorem in s *)
   >> ‘evaluate ([Op (BlockOp (Cons tag)) args],env,s) = (Rval [v],t)’ by gvs [evaluate_def]
-  >> drule evaluate_bvi_to_cb_to_bvi
-  >> gvs [bvi_to_cb_to_bvi_def]
-  >> disch_then $ qspec_then ‘loc’ mp_tac
+  >> drule evaluate_bvi_to_cb
+  >> disch_then drule
   >> gvs []
   >> strip_tac
+  >> CASE_TAC
+  >> CASE_TAC
+  >> rename [‘cb_to_hb cb = (hb,call_ts,call_args)’]
   >> gvs [evaluate_def]
-  >> Cases_on ‘evaluate (bs,env,s)’ >> gvs []
-  >> Cases_on ‘q’ >> gvs []
-  >> rename [‘evaluate (bs,env,s) = (Rval as,w)’]
+  >> Cases_on ‘rs’ >> gvs []
+  >> rename [‘evaluate (bs,env,s) = (Rval as,s)’]
+  (* Phase 1 theorem in s' *)
+  >> ‘evaluate ([Op (BlockOp (Cons tag)) args],env2,s') = (Rval [v'],t')’ by gvs [evaluate_def]
+  >> drule evaluate_bvi_to_cb
+  >> disch_then drule
+  >> gvs []
+  >> strip_tac
+  >> gvs []
+  >> reverse CASE_TAC
+  >- (first_x_assum $ qspec_then ‘e’ assume_tac >> gvs [])
+  >> qpat_x_assum ‘∀e. Rval a ≠ Rerr e’ kall_tac
+  >> rename [‘evaluate (bs,env2,s') = (Rval as',s')’]
+  >> first_x_assum $ qspec_then ‘as'’ assume_tac
+  >> gvs []
   (* Hypothesis on bs *)
   >> first_assum $ qspecl_then [‘bs’, ‘s’] mp_tac
   >> gvs []
@@ -1614,10 +1584,14 @@ Resume evaluate_rewrite_tmc[op]:
   >> gvs []
   >> strip_tac
   >> gvs []
-  >> rename [‘evaluate (bs,env2,s') = (Rval as',w')’]
   >> rename [‘f ⊑ f''’]
+  (* Experimental - unify maps *)
+  >> rev_drule state_rel_unique_map
+  >> disch_then drule
+  >> strip_tac
+  >> gvs []
   (* Hypothesis on cb_to_bvi loc cb *)
-  >> first_assum $ qspecl_then [‘[cb_to_bvi loc cb]’, ‘w’] mp_tac
+  >> first_assum $ qspecl_then [‘[cb_to_bvi loc cb]’, ‘s’] mp_tac
   >> impl_tac
   >-
    (imp_res_tac evaluate_clock_non_increase
@@ -1626,8 +1600,6 @@ Resume evaluate_rewrite_tmc[op]:
   >> disch_then drule   
   >> disch_then $ drule_at $ Pos $ el 2
   >> qpat_x_assum ‘env_rel F _ _ _’ kall_tac
-  >> drule_all env_rel_submap
-  >> strip_tac
   >> drule env_rel_append
   >> disch_then $ qspecl_then [‘as'’, ‘as’] mp_tac
   >> disch_then drule
@@ -1636,28 +1608,19 @@ Resume evaluate_rewrite_tmc[op]:
   >> gvs []
   >> strip_tac
   >> gvs []
-  >> rename [‘evaluate ([cb_to_bvi loc cb],as' ++ env2,w') = (Rval [v''],t'')’]
   >> pop_assum kall_tac
   >> pop_assum kall_tac
-  (* Phase 1 theorem in optimised world to unify things *)
-  >> ‘evaluate ([Op (BlockOp (Cons tag)) args],env2,s') = (Rval [v'],t')’ by gvs [evaluate_def]
-  >> drule evaluate_bvi_to_cb_to_bvi
-  >> gvs [bvi_to_cb_to_bvi_def]
-  >> disch_then $ qspec_then ‘loc’ mp_tac
-  >> gvs []
+  (* Experimental - unify maps *)
+  >> drule state_rel_unique_map
+  >> disch_then rev_drule
   >> strip_tac
-  >> gvs [evaluate_def]
+  >> gvs []
   (* Phase 2 theorem *)
-  >> Cases_on ‘cb_to_hb cb’
-  >> Cases_on ‘r’ >> gvs []
-  >> rename [‘cb_to_hb cb = (hb,call_ts,call_args)’]
   >> gvs [evaluate_def]
   >> drule evaluate_hb_to_bvi_worker
   >> disch_then drule
   >> imp_res_tac bvi_to_cb_wf
   >> gvs []
-  (* Are things instantiated correctly (f?) *)
-
   >> disch_then drule
   >> disch_then drule
   >> disch_then drule
@@ -1666,12 +1629,7 @@ Resume evaluate_rewrite_tmc[op]:
   >> disch_then $ drule_at Any
   >> rev_drule_all env_rel_strip_extras
   >> strip_tac
-  >> gvs []
-  >> drule unchanged_hole_has_val
-  >> disch_then $ drule_at Any
-  >> disch_then $ drule_at Any
-  >> gvs []
-  >> strip_tac
+  >> gvs []       
   >> drule_all hole_has_val_append
   >> strip_tac
   >> gvs [APPEND_ASSOC]
@@ -1680,8 +1638,6 @@ Resume evaluate_rewrite_tmc[op]:
   >> gvs []
   >> ‘LENGTH bs = LENGTH as’ by imp_res_tac evaluate_IMP_LENGTH
   >> gvs [opt_res_rel_def]
-
-  >> conj_tac >- cheat
   >> conj_tac
   >-
    (irule holes_unchanged_except_trans
@@ -1697,12 +1653,47 @@ Resume evaluate_rewrite_tmc[op]:
     >> irule holes_unchanged_except_subset
     >> qexists ‘∅’
     >> gvs [])
-  >> irule hole_has_val_submap
-  >> qexists ‘f''’
-  >> gvs []
   >> irule hole_has_val_unappend
   >> rpt $ first_assum $ irule_at Any
   >> gvs []
+QED
+
+(* Is this true ? *)
+Theorem state_rel_unique_map:
+  ∀f f' s s'.
+    state_rel f s s' ∧
+    state_rel f' s s' ⇒
+    f = f'
+Proof
+  rw []
+  >> irule $ iffLR fmap_EQ_THM
+  >> gvs [state_rel_def, state_ref_rel_def]
+  >> rw []
+  >> Cases_on ‘FLOOKUP s.refs x’ >> gvs [FLOOKUP_DEF]
+  >> first_x_assum drule
+  >> strip_tac
+  >> last_x_assum drule
+  >> strip_tac
+  >> cheat
+QED
+
+Theorem evaluate_bvi_to_cb:
+  ∀loc tag args env s t r bs cb.
+    evaluate ([Op (BlockOp (Cons tag)) args],env,s) = (r,t) ∧
+    bvi_to_cb loc tag args = SOME (bs,cb) ∧
+    r ≠ Rerr (Rabort Rtype_error) ⇒
+    ∃rs.
+      evaluate (bs,env,s) = (rs,s) ∧
+      (∀as.
+         rs = Rval as ⇒
+         evaluate ([cb_to_bvi loc cb],as ++ env,s) = (r,t)) ∧
+      (∀e.
+         rs = Rerr e ⇒
+         (r,t) = (rs,s))
+Proof
+  rw []
+  >> gvs [state_rel_def, state_ref_rel_def]
+  >> cheat
 QED
 
 Theorem evaluate_bvi_to_cb_to_bvi:
