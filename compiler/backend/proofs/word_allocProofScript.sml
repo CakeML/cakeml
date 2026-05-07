@@ -10284,21 +10284,33 @@ Proof
   TOP_CASE_TAC >> simp []
 QED
 
+Theorem max3_eq[local]:
+  !x y z. max3 x y z = MAX x (MAX y z)
+Proof
+  simp[MAX_DEF,max3_def]
+QED
+
 Theorem max_var_max:
     ∀prog.
     every_var (λx. x ≤ max_var prog) prog
-Proof
-  cheat (* TODO: cake-while Loop/Break/Continue introduce additional case splits the original >~[Call]>- body doesn't handle *)
-QED
-
-(* Disabled original proof
 Proof[exclude_simps = max3_def]
   ho_match_mp_tac max_var_ind>>
   rpt strip_tac
-  >~[`Call`]
-  >- (full_simp_tac(std_ss)[every_var_def,max_var_def,every_name_def] >>
-     `!x y z. max3 x y z = MAX x (MAX y z)` by simp[MAX_DEF,max3_def] >>
-     pop_assum (simp o single) >> rpt TOP_CASE_TAC >> fs[] >>
+  >~[`Loop`] >- (
+    full_simp_tac(std_ss)[every_var_def,max_var_def,every_name_def,max3_eq] >>
+    rpt strip_tac
+    >>~-([`EVERY`],
+      fs[EVERY_MEM] >> srw_tac[][] >>
+      every_drule MAX_LIST_PROPERTY >>
+      simp[]) >>
+    match_mp_tac every_var_mono>>
+    first_x_assum (irule_at (Pos $ el 2)) >>
+    fs[])
+  >~[`Break`] >- simp[every_var_def]
+  >~[`Continue`] >- simp[every_var_def]
+  >~[`Call`] >- (
+    full_simp_tac(std_ss)[every_var_def,max_var_def,every_name_def,max3_eq] >>
+     rpt TOP_CASE_TAC >> fs[] >>
      rpt strip_tac
      >>~-([`EVERY`],
        fs[EVERY_MEM] >> srw_tac[][] >>
@@ -10308,27 +10320,24 @@ Proof[exclude_simps = max3_def]
        srw_tac[][] >> match_mp_tac every_var_mono>>
        first_x_assum (irule_at (Pos $ el 2)) >>
        fs[]))
-  >~[`If`]
-  >- (full_simp_tac(std_ss)[every_var_def,max_var_def,every_name_def] >>
-     `!x y z. max3 x y z = MAX x (MAX y z)` by simp[MAX_DEF,max3_def] >>
-     pop_assum (simp o single) >> TOP_CASE_TAC >> simp[every_var_imm_def] >>
+  >~[`If`] >- (
+    full_simp_tac(std_ss)[every_var_def,max_var_def,every_name_def,max3_eq] >>
+     TOP_CASE_TAC >> simp[every_var_imm_def] >>
      (srw_tac[][] >> match_mp_tac every_var_mono>>
      TRY(HINT_EXISTS_TAC)>>TRY(qexists_tac`λx. x ≤ max_var prog`)>>
      srw_tac[][]>>
      DECIDE_TAC)) >>
 
-  full_simp_tac(std_ss)[every_var_def,max_var_def,every_name_def] >>
-  `!x y z. max3 x y z = MAX x (MAX y z)` by simp[MAX_DEF,max3_def] >>
-  pop_assum (simp o single)
-  >~[`max_var_inst`]
-  >- (metis_tac[max_var_inst_max])
+  full_simp_tac(std_ss)[every_var_def,max_var_def,every_name_def,max3_eq] >>
+  simp[]
+  >~[`max_var_inst`] >- (metis_tac[max_var_inst_max])
   >>~-([`max_var_exp`],
     match_mp_tac every_var_exp_mono>>
     qexists_tac`λx. x ≤ max_var_exp exp`>>
     full_simp_tac(srw_ss())[max_var_exp_max]>>
     DECIDE_TAC)
-  >>~[`max_var`]
-  >-(srw_tac[][] >> match_mp_tac every_var_mono>>
+  >>~[`max_var`] >- (
+    srw_tac[][] >> match_mp_tac every_var_mono>>
     first_x_assum (irule_at (Pos $ el 2)) >>
     fs[])
   >>~-([`EVERY`],
@@ -10336,7 +10345,6 @@ Proof[exclude_simps = max3_def]
     every_drule MAX_LIST_PROPERTY >>
     simp[])
 QED
-*)
 
 Theorem limit_var_props[local]:
   limit_var prog = lim ⇒
@@ -10471,6 +10479,79 @@ Proof
   ONCE_REWRITE_TAC[LIST_TO_SET_MAP] >>
   simp[set_MAP_FST_toAList_domain] >>
   simp[domain_union]
+QED
+
+Theorem fake_seq_pre_alloc_conventions[local]:
+  ∀ls. pre_alloc_conventions (FOLDR Seq Skip (MAP (λr. fake_move r) ls))
+Proof
+  Induct>>
+  fs[pre_alloc_conventions_def,every_stack_var_def,call_arg_convention_def,
+    fake_move_def,inst_arg_convention_def]
+QED
+
+Theorem fake_seq_every_inst_distinct_tar_reg[local]:
+  ∀ls. every_inst distinct_tar_reg (FOLDR Seq Skip (MAP (λr. fake_move r) ls))
+Proof
+  Induct>>
+  fs[every_inst_def,fake_move_def,distinct_tar_reg_def]
+QED
+
+Theorem fake_seq_full_inst_ok_less[local]:
+  ∀c ls. full_inst_ok_less c (FOLDR Seq Skip (MAP (λr. fake_move r) ls))
+Proof
+  rpt strip_tac>>Induct_on`ls`>>
+  fs[full_inst_ok_less_def,fake_move_def,inst_ok_less_def]
+QED
+
+Theorem loop_setup_pre_alloc_conventions[local]:
+  loop_setup names exit_names ssa na = (setup_prog,ssa_refreshed,na_refreshed) ⇒
+  pre_alloc_conventions setup_prog
+Proof
+  rw[loop_setup_def]>>
+  rpt(pairarg_tac>>fs[])>>rveq>>
+  fs[pre_alloc_conventions_def,every_stack_var_def,call_arg_convention_def,
+    list_next_var_rename_move_def]>>
+  rpt(pairarg_tac>>fs[])>>rveq>>
+  fs[every_stack_var_def,call_arg_convention_def,inst_arg_convention_def]>>
+  qspec_then `fresh_pos_ls` mp_tac fake_seq_pre_alloc_conventions>>
+  fs[pre_alloc_conventions_def]
+QED
+
+Theorem loop_setup_props_local[local]:
+  loop_setup names exit_names ssa na = (setup_prog,ssa_refreshed,na_refreshed) ∧
+  ssa_map_ok na ssa ∧ is_alloc_var na ⇒
+  is_alloc_var na_refreshed ∧ ssa_map_ok na_refreshed ssa_refreshed ∧
+  na ≤ na_refreshed
+Proof
+  rw[loop_setup_def]>>
+  rpt(pairarg_tac>>fs[])>>rveq>>
+  drule list_next_var_rename_props>>simp[]>>strip_tac>>
+  qpat_x_assum `list_next_var_rename_move _ _ _ = _` assume_tac>>
+  drule list_next_var_rename_move_props>>simp[]
+QED
+
+Theorem loop_setup_every_inst_distinct_tar_reg[local]:
+  loop_setup names exit_names ssa na = (setup_prog,ssa_refreshed,na_refreshed) ⇒
+  every_inst distinct_tar_reg setup_prog
+Proof
+  rw[loop_setup_def]>>
+  rpt(pairarg_tac>>fs[])>>rveq>>
+  fs[every_inst_def,list_next_var_rename_move_def]>>
+  rpt(pairarg_tac>>fs[])>>rveq>>
+  fs[every_inst_def,distinct_tar_reg_def]>>
+  qspec_then `fresh_pos_ls` mp_tac fake_seq_every_inst_distinct_tar_reg>>fs[]
+QED
+
+Theorem loop_setup_full_inst_ok_less[local]:
+  loop_setup names exit_names ssa na = (setup_prog,ssa_refreshed,na_refreshed) ⇒
+  full_inst_ok_less c setup_prog
+Proof
+  rw[loop_setup_def]>>
+  rpt(pairarg_tac>>fs[])>>rveq>>
+  fs[full_inst_ok_less_def,list_next_var_rename_move_def]>>
+  rpt(pairarg_tac>>fs[])>>rveq>>
+  fs[full_inst_ok_less_def,inst_ok_less_def]>>
+  qspecl_then [`c`,`fresh_pos_ls`] mp_tac fake_seq_full_inst_ok_less>>fs[]
 QED
 
 (*Prove that the transform sets up arbitrary programs with
@@ -10683,15 +10764,30 @@ Proof
 QED
 
 Resume ssa_cc_trans_pre_alloc_conventions[Loop]:
-  cheat (* TODO: cake-while Loop case body broken — first_x_assum drule fails on the IH structure *)
+  fs[ssa_cc_trans_def,UNCURRY_EQ]>>rveq>>
+  rpt(pairarg_tac>>fs[])>>rveq>>
+  drule loop_setup_pre_alloc_conventions>>strip_tac>>
+  drule loop_setup_props_local>>simp[]>>strip_tac>>
+  qpat_x_assum `loop_setup _ _ _ _ = _` (assume_tac o GSYM)>>
+  last_x_assum drule>>disch_then drule>>strip_tac>>
+  qpat_x_assum `∀prog' _ _. _` (qspecl_then [`body'`,`ssa''`,`na'`] mp_tac)>>
+  impl_tac
+  >- (simp[]>>match_mp_tac ssa_map_ok_inter>>simp[])>>
+  strip_tac>>
+  fs[pre_alloc_conventions_def,every_stack_var_def,call_arg_convention_def]>>
+  IF_CASES_TAC>>fs[every_stack_var_def,call_arg_convention_def]>>
+  fs[ssa_reconcile_def]>>every_case_tac>>
+  fs[every_stack_var_def,call_arg_convention_def]
 QED
 
 Resume ssa_cc_trans_pre_alloc_conventions[Break]:
-  cheat (* TODO: cake-while Break case *)
+  fs[ssa_cc_trans_def,ssa_reconcile_def]>>every_case_tac>>fs[]>>rveq>>
+  fs[pre_alloc_conventions_def,every_stack_var_def,call_arg_convention_def]
 QED
 
 Resume ssa_cc_trans_pre_alloc_conventions[Continue]:
-  cheat (* TODO: cake-while Continue case *)
+  fs[ssa_cc_trans_def,ssa_reconcile_def]>>every_case_tac>>fs[]>>rveq>>
+  fs[pre_alloc_conventions_def,every_stack_var_def,call_arg_convention_def]
 QED
 
 Finalise ssa_cc_trans_pre_alloc_conventions;
@@ -10718,7 +10814,14 @@ Theorem full_ssa_cc_trans_pre_alloc_conventions:
  ∀n prog.
   pre_alloc_conventions (full_ssa_cc_trans n prog)
 Proof
-  cheat (* TODO: cake-while-specific failure, depends on cheated max_var_max / pre_alloc_conventions Loop case *)
+  full_simp_tac(srw_ss())[full_ssa_cc_trans_def,pre_alloc_conventions_def,list_next_var_rename_move_def]>>LET_ELIM_TAC>>
+  full_simp_tac(srw_ss())[Abbr`lim'`]>>
+  imp_res_tac limit_var_props>>
+  imp_res_tac setup_ssa_props_2>>
+  pop_assum(qspecl_then [`prog`,`n`] assume_tac)>>rev_full_simp_tac(srw_ss())[LET_THM]>>
+  imp_res_tac ssa_cc_trans_props>>
+  qspecl_then [`prog`,`ssa`,`na`,`[]`] assume_tac ssa_cc_trans_pre_alloc_conventions>>
+  rev_full_simp_tac(srw_ss())[pre_alloc_conventions_def,every_stack_var_def,call_arg_convention_def,LET_THM]
 QED
 
 Theorem fake_moves_distinct_tar_reg[local]:
@@ -10867,15 +10970,32 @@ Proof
 QED
 
 Resume ssa_cc_trans_distinct_tar_reg[Loop]:
-  cheat (* TODO: cake-while Loop case *)
+  fs[ssa_cc_trans_def,UNCURRY_EQ,every_var_def]>>rveq>>
+  rpt(pairarg_tac>>fs[])>>rveq>>
+  drule loop_setup_props_local>>simp[]>>strip_tac>>
+  drule loop_setup_every_inst_distinct_tar_reg>>strip_tac>>
+  last_x_assum mp_tac>>
+  impl_tac
+  >- (simp[]>>
+      conj_tac
+      >- (match_mp_tac every_var_mono>>
+          qexists_tac`λx. x < na`>>fs[]>>DECIDE_TAC)>>
+      match_mp_tac ssa_map_ok_inter>>simp[])>>
+  strip_tac>>
+  fs[every_inst_def]>>
+  IF_CASES_TAC>>fs[every_inst_def]>>
+  fs[ssa_reconcile_def]>>every_case_tac>>
+  fs[every_inst_def]
 QED
 
 Resume ssa_cc_trans_distinct_tar_reg[Break]:
-  cheat (* TODO: cake-while Break case *)
+  fs[ssa_cc_trans_def,ssa_reconcile_def]>>every_case_tac>>fs[]>>rveq>>
+  fs[every_inst_def,distinct_tar_reg_def]
 QED
 
 Resume ssa_cc_trans_distinct_tar_reg[Continue]:
-  cheat (* TODO: cake-while Continue case *)
+  fs[ssa_cc_trans_def,ssa_reconcile_def]>>every_case_tac>>fs[]>>rveq>>
+  fs[every_inst_def,distinct_tar_reg_def]
 QED
 
 Finalise ssa_cc_trans_distinct_tar_reg;
@@ -10884,7 +11004,31 @@ Theorem full_ssa_cc_trans_distinct_tar_reg:
   ∀n prog.
     every_inst distinct_tar_reg (full_ssa_cc_trans n prog)
 Proof
-  cheat (* TODO: depends on cheated ssa_cc_trans_distinct_tar_reg Loop case *)
+  srw_tac[][]>>
+  full_simp_tac(srw_ss())[full_ssa_cc_trans_def]>>
+  LET_ELIM_TAC>>
+  simp[every_inst_def]>>CONJ_TAC
+  >-
+    (full_simp_tac(srw_ss())[setup_ssa_def,list_next_var_rename_move_def,LET_THM]>>
+    pairarg_tac>>full_simp_tac(srw_ss())[]>>
+    metis_tac[every_inst_def])
+  >>
+  assume_tac limit_var_props>>
+  full_simp_tac(srw_ss())[markerTheory.Abbrev_def]>>
+  rev_full_simp_tac(srw_ss())[]>>
+  imp_res_tac setup_ssa_props_2>>
+  pop_assum(qspecl_then[`prog`,`n`] mp_tac)>>
+  LET_ELIM_TAC>>
+  gvs[]>>
+  drule ssa_cc_trans_distinct_tar_reg>>
+  disch_then (drule_at Any)>>
+  disch_then(qspecl_then[`prog`,`[]`] mp_tac)>>
+  impl_tac>- (
+    simp[]>>
+    match_mp_tac every_var_mono>>
+    first_x_assum (irule_at Any)>>
+    simp[])>>
+  simp[]
 QED
 
 Theorem exp_to_addr_ShareInst[local]:
@@ -11028,15 +11172,31 @@ Proof
 QED
 
 Resume ssa_cc_trans_full_inst_ok_less[Loop]:
-  cheat (* TODO: cake-while Loop case *)
+  qpat_x_assum `every_var _ _` mp_tac>>simp[every_var_def]>>strip_tac>>
+  drule loop_setup_props_local>>simp[]>>strip_tac>>
+  drule loop_setup_full_inst_ok_less>>strip_tac>>
+  last_x_assum (qspec_then `c` mp_tac)>>
+  impl_tac
+  >- (simp[]>>
+      conj_tac
+      >- (match_mp_tac every_var_mono>>
+          qexists_tac`λx. x < na`>>fs[]>>DECIDE_TAC)>>
+      match_mp_tac ssa_map_ok_inter>>simp[])>>
+  strip_tac>>
+  fs[full_inst_ok_less_def]>>
+  IF_CASES_TAC>>fs[full_inst_ok_less_def]>>
+  fs[ssa_reconcile_def]>>every_case_tac>>
+  fs[full_inst_ok_less_def,inst_ok_less_def]
 QED
 
 Resume ssa_cc_trans_full_inst_ok_less[Break]:
-  cheat (* TODO: cake-while Break case *)
+  fs[ssa_cc_trans_def,ssa_reconcile_def]>>every_case_tac>>fs[]>>rveq>>
+  fs[full_inst_ok_less_def]
 QED
 
 Resume ssa_cc_trans_full_inst_ok_less[Continue]:
-  cheat (* TODO: cake-while Continue case *)
+  fs[ssa_cc_trans_def,ssa_reconcile_def]>>every_case_tac>>fs[]>>rveq>>
+  fs[full_inst_ok_less_def]
 QED
 
 Finalise ssa_cc_trans_full_inst_ok_less;
@@ -11046,7 +11206,19 @@ Theorem full_ssa_cc_trans_full_inst_ok_less:
   full_inst_ok_less c prog ⇒
   full_inst_ok_less c (full_ssa_cc_trans n prog)
 Proof
-  cheat (* TODO: depends on cheated ssa_cc_trans_full_inst_ok_less Loop case *)
+  full_simp_tac(srw_ss())[full_ssa_cc_trans_def,list_next_var_rename_move_def]>>
+  LET_ELIM_TAC>>
+  fs[markerTheory.Abbrev_def]>>
+  imp_res_tac (GSYM limit_var_props)>>
+  imp_res_tac setup_ssa_props_2>>
+  pop_assum(qspecl_then [`prog`,`n`] assume_tac)>>
+  rfs[]>>
+  fs[setup_ssa_def,list_next_var_rename_move_def]>>
+  pairarg_tac>>fs[]>>rpt var_eq_tac>>fs[full_inst_ok_less_def]>>
+  qspecl_then [`prog`,`ssa`,`n'`,`[]`,`c`] mp_tac ssa_cc_trans_full_inst_ok_less>>
+  impl_tac>>fs[]>>
+  match_mp_tac every_var_mono>>
+  HINT_EXISTS_TAC>>fs[]
 QED
 
 (* word_alloc syntactic stuff *)
@@ -11100,13 +11272,57 @@ Proof
   full_simp_tac(srw_ss())[EVERY_MAP,EVERY_MEM]
 QED
 
+Theorem every_apply_nummap_key_helper[local]:
+  ∀f names P Q.
+  EVERY P (MAP FST (toAList names)) ∧ (∀x. P x ⇒ Q (f x)) ⇒
+  EVERY Q (MAP FST (toAList (fromAList (MAP (λ(x:num,y:unit). (f x,())) (toAList names)))))
+Proof
+  rw[EVERY_MEM, MEM_MAP, EXISTS_PROD, MEM_toAList, domain_lookup, lookup_fromAList]>>
+  imp_res_tac ALOOKUP_MEM>>
+  fs[MEM_MAP, EXISTS_PROD, MEM_toAList]>>
+  rw[]>>
+  metis_tac[]
+QED
+
 Theorem every_var_apply_colour:
     ∀P prog Q f.
   every_var P prog ∧
   (∀x. P x ⇒ Q (f x)) ⇒
   every_var Q (apply_colour f prog)
 Proof
-  cheat (* TODO: cake-while Loop induction case *)
+  ho_match_mp_tac every_var_ind>>srw_tac[][every_var_def]>>
+  full_simp_tac(srw_ss())[MAP_ZIP,(GEN_ALL o SYM o SPEC_ALL) MAP_MAP_o]>>
+  full_simp_tac(srw_ss())[EVERY_MAP,EVERY_MEM]
+  >- metis_tac[every_var_inst_apply_colour_inst]
+  >- metis_tac[every_var_exp_apply_colour_exp]
+  >- metis_tac[every_var_exp_apply_colour_exp]
+  >- (Cases_on `names` >>
+    full_simp_tac(srw_ss())[every_name_def,EVERY_MEM,toAList_domain,apply_nummaps_key_def]>>
+    full_simp_tac(srw_ss())[domain_fromAList,MEM_MAP,ZIP_MAP]>>srw_tac[][]>>
+    Cases_on`y'`>>full_simp_tac(srw_ss())[MEM_toAList,domain_lookup])
+  >- (Cases_on `names` >>
+    full_simp_tac(srw_ss())[every_name_def,EVERY_MEM,toAList_domain,apply_nummaps_key_def]>>
+    full_simp_tac(srw_ss())[domain_fromAList,MEM_MAP,ZIP_MAP]>>srw_tac[][]>>
+    Cases_on`y'`>>full_simp_tac(srw_ss())[MEM_toAList,domain_lookup])
+  >- (EVERY_CASE_TAC>>unabbrev_all_tac>>full_simp_tac(srw_ss())[every_var_def,EVERY_MAP,EVERY_MEM]>>
+    rename1 `(apply_nummaps_key f names)` >>
+    Cases_on `names` >>
+    full_simp_tac(srw_ss())[every_name_def,EVERY_MEM,toAList_domain,apply_nummaps_key_def]>>
+    srw_tac[][]>>full_simp_tac(srw_ss())[domain_fromAList,MEM_MAP,ZIP_MAP]>>
+    Cases_on`y'`>>full_simp_tac(srw_ss())[MEM_toAList,domain_lookup])
+  >- (Cases_on`ri`>>full_simp_tac(srw_ss())[every_var_imm_def])
+  >- (Cases_on `numset` >>
+    full_simp_tac(srw_ss())[every_name_def,EVERY_MEM,toAList_domain,apply_nummaps_key_def]>>
+    full_simp_tac(srw_ss())[domain_fromAList,MEM_MAP,ZIP_MAP]>>srw_tac[][]>>
+    Cases_on`y'`>>full_simp_tac(srw_ss())[MEM_toAList,domain_lookup])
+  >- metis_tac[every_var_exp_apply_colour_exp]
+  >- metis_tac[every_var_exp_apply_colour_exp]
+  >- (* Loop names *)
+    (rw[]>>Cases_on `x`>>fs[MEM_toAList, lookup_fromAList]>>
+    imp_res_tac ALOOKUP_MEM>>fs[MEM_MAP, EXISTS_PROD]>>rw[]>>res_tac>>fs[])
+  >- (* Loop exit_names *)
+    (rw[]>>Cases_on `x`>>fs[MEM_toAList, lookup_fromAList]>>
+    imp_res_tac ALOOKUP_MEM>>fs[MEM_MAP, EXISTS_PROD]>>rw[]>>res_tac>>fs[])
 QED
 
 Theorem every_stack_var_apply_colour:
@@ -11115,7 +11331,13 @@ Theorem every_stack_var_apply_colour:
   (∀x. P x ⇒ Q (f x)) ⇒
   every_stack_var Q (apply_colour f prog)
 Proof
-  cheat (* TODO: cake-while Loop induction case *)
+  ho_match_mp_tac every_stack_var_ind>>srw_tac[][every_stack_var_def]
+  >>
+  (EVERY_CASE_TAC>>unabbrev_all_tac>>full_simp_tac(srw_ss())[every_stack_var_def,EVERY_MAP,EVERY_MEM]>>
+    TRY (rename1 `(apply_nummaps_key f names)` >> Cases_on `names`) >>
+    full_simp_tac(srw_ss())[every_name_def,EVERY_MEM,toAList_domain,apply_nummaps_key_def]>>
+    srw_tac[][]>>full_simp_tac(srw_ss())[domain_fromAList,MEM_MAP,ZIP_MAP]>>
+    Cases_on`y'`>>full_simp_tac(srw_ss())[MEM_toAList,domain_lookup])
 QED
 
 Theorem every_var_exp_get_reads_exp[local]:
@@ -11136,7 +11358,26 @@ Theorem every_var_in_get_clash_tree[local]:
   ∀prog lt.
   every_var (in_clash_tree (get_clash_tree prog lt)) prog
 Proof
-  cheat (* TODO: cake-while changed get_clash_tree signature to take lt; proof needs updating *)
+  ho_match_mp_tac get_clash_tree_ind>>rw[get_clash_tree_def]
+  >~ [`wordLang$Loop names body exit_names`] >- (fs[every_var_def,in_clash_tree_def,EVERY_MEM,every_name_def,toAList_domain]>>metis_tac[every_var_mono,in_clash_tree_def])
+  >~ [`Break n`] >- fs[every_var_def]
+  >~ [`Continue n`] >- fs[every_var_def]
+  >>
+  fs[every_var_def,in_clash_tree_def,EVERY_MEM,every_name_def,toAList_domain]>>
+  TRY(exp_tac3)
+  >-
+    (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`r`)>>TRY(Cases_on`m`)>>TRY(Cases_on`f`)>>
+    fs[every_var_imm_def,get_delta_inst_def,every_var_inst_def,in_clash_tree_def])
+  >-
+    metis_tac[every_var_mono,in_clash_tree_def]
+  >-
+    (Cases_on`ri`>>fs[every_var_imm_def]>>
+    rw[]>>fs[in_clash_tree_def]>>
+    metis_tac[every_var_mono,in_clash_tree_def])
+  >>
+    EVERY_CASE_TAC>>
+    fs[in_clash_tree_def,domain_numset_list_insert,domain_union]>>
+    metis_tac[every_var_mono,in_clash_tree_def]
 QED
 
 Theorem every_var_T[local]:
@@ -11166,7 +11407,18 @@ Theorem oracle_colour_ok_conventions[local]:
   oracle_colour_ok k col_opt (get_clash_tree prog lt) prog ls = SOME x ⇒
   post_alloc_conventions k x
 Proof
-  cheat (* TODO: cake-while changed get_clash_tree signature *)
+  fs[oracle_colour_ok_def]>>EVERY_CASE_TAC>>
+  fs[post_alloc_conventions_def,pre_alloc_conventions_def]>>
+  rw[]>>fs[every_var_is_phy_var_total_colour]>>
+  match_mp_tac call_arg_convention_preservation>>fs[]>>
+  ho_match_mp_tac every_var_mono>>
+  qexists_tac`λx. T`>>fs[every_var_T]>>
+  rw[total_colour_def]>>FULL_CASE_TAC>>
+  fs[every_even_colour_def]>>
+  fs[GSYM MEM_toAList]>>
+  fs[EVERY_MEM,FORALL_PROD]>>
+  first_x_assum drule>>rw[]>>
+  metis_tac[is_phy_var_def,EVEN_MOD2,EVEN_EXISTS,TWOxDIV2]
 QED
 
 Theorem pre_post_conventions_word_alloc:
@@ -11174,7 +11426,41 @@ Theorem pre_post_conventions_word_alloc:
   pre_alloc_conventions prog ⇒
   post_alloc_conventions k (word_alloc fc c alg k prog col_opt)
 Proof
-  cheat (* TODO: cake-while changed get_clash_tree signature *)
+  rpt strip_tac>>fs[word_alloc_def]>>
+  TOP_CASE_TAC>>fs[]
+  >- (
+    qpat_abbrev_tac`forced = get_forced _ _ _`>>
+    qpat_abbrev_tac`tree = get_clash_tree _ _`>>
+    qpat_abbrev_tac`fs = get_stack_only _`>>
+    `EVERY (λx,y.in_clash_tree tree x ∧ in_clash_tree tree y) forced` by
+      (unabbrev_all_tac>>fs[get_forced_in_get_clash_tree])>>
+    pairarg_tac>>fs[]>>
+    drule select_reg_alloc_correct>>
+    disch_then(qspecl_then [`alg`,`spillcosts`,`k`,`heu_moves`,`fs`] assume_tac)>>rfs[]>>fs[]>>
+    assume_tac (Q.ISPECL[`prog:'a wordLang$prog`,`[]:(num_set # num_set) list`]every_var_in_get_clash_tree)>>
+    rfs[]>>
+    fs[post_alloc_conventions_def,pre_alloc_conventions_def]>>rw[]
+    >-
+      metis_tac[every_var_is_phy_var_total_colour]
+    >-
+      (match_mp_tac every_stack_var_apply_colour>>
+      imp_res_tac every_var_imp_every_stack_var>>
+      qexists_tac `λx. (in_clash_tree tree x ∧ is_stack_var x)` >>srw_tac[][]
+      >-
+        metis_tac[every_stack_var_conj,ETA_AX]
+      >>
+      first_x_assum drule>>fs[]>>
+      rw[total_colour_def,sp_default_def,domain_lookup]>>rfs[]>>
+      metis_tac[convention_partitions])
+    >>
+      match_mp_tac call_arg_convention_preservation>>
+      srw_tac[][]>>match_mp_tac every_var_mono>>
+      qexists_tac `in_clash_tree tree` >> rw[]>>
+      first_x_assum drule>>fs[]>>rw[]>>
+      fs[total_colour_def,sp_default_def,domain_lookup]>>rfs[]>>
+      metis_tac[is_phy_var_def,EVEN_MOD2,EVEN_EXISTS,TWOxDIV2])
+  >>
+  metis_tac[oracle_colour_ok_conventions]
 QED
 
 (*word_alloc preserves syntactic conventions*)
@@ -11227,5 +11513,22 @@ Theorem word_alloc_full_inst_ok_less:
   full_inst_ok_less c prog ⇒
   full_inst_ok_less c (word_alloc fc c alg k prog col_opt)
 Proof
-  cheat (* TODO: cake-while changed get_clash_tree signature *)
+  fs[word_alloc_def,oracle_colour_ok_def]>>
+  rpt strip_tac>>
+  pairarg_tac>>fs[]>>
+  qpat_abbrev_tac`forced = get_forced _ _ _`>>
+  qpat_abbrev_tac`tree = get_clash_tree _ _`>>
+  qpat_abbrev_tac`fs = get_stack_only _`>>
+  `EVERY (λx,y.in_clash_tree tree x ∧ in_clash_tree tree y) forced` by
+    (unabbrev_all_tac>>fs[get_forced_in_get_clash_tree])>>
+  EVERY_CASE_TAC>>fs[]>>
+  rw[]>>rveq>>
+  match_mp_tac word_alloc_full_inst_ok_less_lem>>fs[]>>
+  drule select_reg_alloc_correct>>
+  disch_then(qspecl_then [`alg`,`spillcosts`,`k`,`heu_moves`,`fs`] assume_tac)>>rfs[]>>
+  fs[]>>
+  match_mp_tac forced_distinct_col>>rfs[]>>
+  unabbrev_all_tac>>
+  match_mp_tac get_forced_pairwise_distinct>>
+  simp[]
 QED
