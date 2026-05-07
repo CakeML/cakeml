@@ -1696,36 +1696,17 @@ Proof
   >> cheat
 QED
 
-Theorem evaluate_bvi_to_cb_to_bvi:
-  ∀loc tag args env s t r bs cb exp.
-    evaluate ([Op (BlockOp (Cons tag)) args],env,s) = (r,t) ∧
-    bvi_to_cb_to_bvi loc tag args = SOME exp ∧
-    r ≠ Rerr (Rabort Rtype_error) ⇒
-    evaluate ([exp],env,s) = (r,t)
-Proof
-  (* Not sure how to set this up *)
-  rw []
-  >> gvs [bvi_to_cb_to_bvi_def]
-  >> gvs [CaseEq "option"]
-  >> Cases_on ‘v’ >> gvs []
-  >> imp_res_tac bvi_to_cb_wf
-  >> gvs []
-  >> rename [‘bvi_to_cb loc tag args = SOME (bs,CallBlock tag left child right)’]
-  >> gvs [bvi_to_cb_def]
-  >> pop_assum mp_tac
-  >> rpt (CASE_TAC >> gvs [])
-  >> strip_tac
-  >> gvs []
-  >> cheat
-QED
-
 Theorem evaluate_hb_to_mutcons:
-  ∀cb tag left child right loc env s r t hb ts args.
-    cb = CallBlock tag left child right ∧
+  ∀cb tag left child right loc env env2 s s' f r t hb ts args.
     evaluate ([cb_to_bvi loc cb],env,s) = (r,t) ∧
-    cb_to_hb cb = (hb,ts,args) ⇒
-    ∃r' t'.
-      evaluate ([hb_to_mutcons hb],env,s) = (r',t') ∧
+    cb = CallBlock tag left child right ∧
+    cb_to_hb cb = (hb,ts,args) ∧
+    env_rel T f env env2 ∧
+    state_rel f s s' ⇒
+    ∃r' t' f'.
+      evaluate ([hb_to_mutcons hb],env2,s') = (r',t') ∧
+      state_rel f' t t' ∧
+      f SUBMAP f' ∧
       opt_res_rel r r'
 Proof
   Induct_on ‘cb’ >> gvs []
@@ -1738,17 +1719,56 @@ Proof
   (* l *)
   >> gvs [evaluate_APPEND]
   >> CASE_TAC
-  >> rename [‘evaluate (MAP (λn. Var n) l,env,s) = (vl,sl)’]
-  >> Cases_on ‘vl’ >> gvs [opt_res_rel_def]
+  >> rename [‘evaluate (MAP (λn. Var n) l,env2,s') = (vl',sl')’]
+  >> Cases_on ‘vl'’ >> gvs [opt_res_rel_def]
   (* child *)
   >> CASE_TAC >> gvs []
-  >> rename [‘evaluate ([hb_to_mutcons hb],env,sl) = (vh,sh)’]
-  >> reverse $ Cases_on ‘cb’ >> gvs []
-  >- (* base case *)
-   (gvs [cb_to_bvi_def, cb_to_hb_def, hb_to_mutcons_def, evaluate_def, do_app_def, do_app_aux_def, backend_commonTheory.small_enough_int_def]
-    >> cheat
-   )
   >> cheat
+QED
+
+Theorem evaluate_hb_to_mutcons:
+  ∀cb tag left cb' right loc loc_opt f f' env1 env2 r' s t s' t' c hb call_ts call_args.
+    evaluate ([cb_to_bvi loc cb],env2,s') = (r',t') ∧
+    cb_to_hb cb = (hb,call_ts,call_args) ∧
+    cb = CallBlock tag left cb' right ∧
+    env_rel T f env1 env2 ∧
+    state_rel f s s' ∧
+    f ⊑ f' ∧
+    hole_has_val f env1 env2 s'.refs c ∧
+    holes_unchanged_except f s'.refs t'.refs ∅ ∧
+    only_fresh f f' s'.refs ∧
+    state_rel f' t t' ⇒
+    ∃r'' t''.
+      evaluate ([hb_to_mutcons hb],env2,s') = (r'',t'') ∧
+      opt_res_rel r' r'' ∧
+      state_rel f' t t'' ∧
+      holes_unchanged_except f s'.refs t''.refs ∅
+Proof
+  Induct_on ‘cb’ >> gvs []
+  >> cheat
+QED
+
+Theorem evaluate_optimise_call:
+  ∀args loc loc_opt f f' env1 env2 r' s t s' t' c idx ptr call_ts call_args.
+    evaluate ([Call call_ts (SOME loc) args NONE],env2,s') = (r',t') ∧
+    args = MAP (λn. Var n) call_args ∧
+    env_rel T f env1 env2 ∧
+    state_rel f s s' ∧
+    f ⊑ f' ∧
+    hole_has_val f env1 env2 s'.refs c ∧
+    holes_unchanged_except f s'.refs t'.refs ∅ ∧
+    only_fresh f f' s'.refs ∧
+    state_rel f' t t' ⇒
+    ∃r'' t''.
+      evaluate ([optimise_call loc_opt idx ptr call_ts call_args],env2,s') = (r'',t'') ∧
+      opt_res_rel r' r'' ∧
+      state_rel f' t t'' ∧
+      holes_unchanged_except f s'.refs t''.refs {env2❲LENGTH env1❳} ∧
+      ∀v.
+        r' = Rval [v] ⇒
+        hole_has_val f env1 env2 t''.refs v
+Proof
+  cheat
 QED
 
 Theorem evaluate_hb_to_bvi_worker:
@@ -1762,7 +1782,8 @@ Theorem evaluate_hb_to_bvi_worker:
     hole_has_val f env1 env2 s'.refs c ∧
     holes_unchanged_except f s'.refs t'.refs ∅ ∧
     only_fresh f f' s'.refs ∧
-    state_rel f' t t' ⇒
+    state_rel f' t t' ∧
+    r' ≠ Rerr (Rabort Rtype_error) ⇒
     ∃r'' t''.
       evaluate ([hb_to_bvi_worker loc loc_opt (LENGTH env1) (LENGTH env1 + 1) hb call_ts call_args],env2,s') = (r'',t'') ∧
       opt_res_rel r' r'' ∧
@@ -1772,7 +1793,57 @@ Theorem evaluate_hb_to_bvi_worker:
         r' = Rval [v] ⇒
         hole_has_val f env1 env2 t''.refs v
 Proof
-  cheat
+  rw []
+  >> drule evaluate_hb_to_mutcons
+  >> disch_then drule
+  >> disch_then $ qspecl_then [‘tag’, ‘left’, ‘cb'’, ‘right’] mp_tac
+  >> gvs []
+  >> disch_then drule_all
+  >> strip_tac
+  >> gvs [cb_to_hb_def, CaseEq "prod", hb_to_bvi_worker_def, evaluate_def]
+  >> imp_res_tac env_rel_strip_extras
+  >> gvs []
+  >> rename [‘env_rel F f env1 env2’]
+  >> imp_res_tac env_rel_length_opt
+  >> gvs []
+  >> reverse $ Cases_on ‘r'’ >> gvs [opt_res_rel_def]
+  >-
+   (irule holes_unchanged_except_subset
+    >> qexists ‘∅’
+    >> gvs [])
+  >> gvs [do_app_def, do_app_aux_def]
+  >> gvs [EL, EL_APPEND_EQN]
+  >> ‘(Block 0 []::(env2 ++ [RefPtr F hole_ptr; Number hole_idx]))❲LENGTH env1 + 1❳ = RefPtr F hole_ptr’ by
+    (Cases_on ‘LENGTH env1 + 1’ >> gvs []
+     >> gvs [EL_APPEND_EQN]
+     >> ‘n = LENGTH env1’ by gvs []
+     >> gvs [])
+  >> gvs []
+  >> ‘(Block 0 []::(env2 ++ [RefPtr F hole_ptr; Number hole_idx]))❲LENGTH env1 + 2❳ = Number hole_idx’ by
+    (Cases_on ‘LENGTH env1 + 2’ >> gvs []
+     >> gvs [EL_APPEND_EQN]
+     >> ‘n = LENGTH env1 + 1’ by gvs []
+     >> gvs [])
+  >> gvs []
+  >> pop_assum kall_tac
+  >> pop_assum kall_tac
+  >> drule_all unchanged_hole_has_val
+  >> simp [hole_has_val_def]
+  >> gvs [EL_APPEND_EQN]
+  >> strip_tac (* HERE is where tag' left' etc are introduced. New assumption to tie these to original? *)
+  >> gvs []
+
+  >> drule evaluate_optimise_call
+                
+  >> gvs [optimise_call_def]
+  >> gvs [evaluate_def]
+  >> gvs [do_app_def, do_app_aux_def]
+  >> reverse IF_CASES_TAC
+  >- (cheat) (* somehow this is a type error *)
+  >> gvs []
+  >> simp [Once evaluate_CONS]
+  >> gvs [evaluate_def]
+  >> 
 QED
         
 Resume evaluate_rewrite_tmc[tick]:
