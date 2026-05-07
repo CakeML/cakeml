@@ -11,29 +11,29 @@ Libs
 (** set_sep and word helpers **************************************************)
 
 (* TODO move to set_sep *)
-Definition one_list_def:
-  one_list a [] = emp ∧
-  one_list a (x::xs) = one (a,x) * one_list (a + bytes_in_word) xs
+Definition ones_def:
+  ones a [] = emp ∧
+  ones a (x::xs) = one (a,x) * ones (a + bytes_in_word) xs
 End
 
 (* TODO move to set_sep *)
-Theorem one_list_append:
+Theorem ones_append:
   ∀xs ys a.
-    one_list a (xs ++ ys) =
-    one_list a xs * one_list (a + n2w (LENGTH xs) * bytes_in_word) ys
+    ones a (xs ++ ys) =
+    ones a xs * ones (a + n2w (LENGTH xs) * bytes_in_word) ys
 Proof
   Induct
-  >> rw [one_list_def, SEP_CLAUSES]
+  >> rw [ones_def, SEP_CLAUSES]
   >> simp [ADD1, WORD_LEFT_ADD_DISTRIB, GSYM word_add_n2w]
   >> fs [AC STAR_ASSOC STAR_COMM]
 QED
 
 (* TODO move to set_sep *)
-Theorem one_list_SNOC:
-  one_list a (SNOC x xs) =
-  one_list a xs * one (a + n2w (LENGTH xs) * bytes_in_word, x)
+Theorem ones_SNOC:
+  ones a (SNOC x xs) =
+  ones a xs * one (a + n2w (LENGTH xs) * bytes_in_word, x)
 Proof
-  simp [SNOC_APPEND, one_list_append, one_list_def, SEP_CLAUSES]
+  simp [SNOC_APPEND, ones_append, ones_def, SEP_CLAUSES]
 QED
 
 (* TODO Move somewhere better *)
@@ -92,9 +92,9 @@ Proof
 QED
 
 (* TODO move to set_sep *)
-Theorem one_list_leq_dimword:
+Theorem ones_leq_dimword:
   ∀(frame: (α word # β -> bool) -> bool).
-    byte_dimindex (:α) ∧ (one_list a xs * frame) (fun2set (f, d)) ⇒
+    byte_dimindex (:α) ∧ (ones a xs * frame) (fun2set (f, d)) ⇒
     LENGTH xs * w2n (bytes_in_word: α word) ≤ dimword (:α)
 Proof
   rw []
@@ -108,8 +108,8 @@ Proof
   >> ‘∃ys zs. xs = ys ++ zs ∧ LENGTH ys = max_index ∧ 1 ≤ LENGTH zs’ by (
     qexistsl [‘TAKE max_index xs’, ‘DROP max_index xs’]
     >> unabbrev_all_tac >> Cases_on ‘xs’ >> gvs [])
-  >> Cases_on ‘zs’ >> gvs [one_list_append, one_list_def]
-  >> Cases_on ‘ys’ >> gvs [one_list_def]
+  >> Cases_on ‘zs’ >> gvs [ones_append, ones_def]
+  >> Cases_on ‘ys’ >> gvs [ones_def]
   >> qpat_x_assum ‘dimword _ DIV _ = _’ $ assume_tac o GSYM
   >> fs []
   >> qmatch_asmsub_abbrev_tac ‘one (a + more, _)’
@@ -380,9 +380,9 @@ Theorem and_pos_pos_thm:
     FLOOKUP s.locals «x» = SOME (Val (Word x)) ∧
     FLOOKUP s.locals «y» = SOME (Val (Word y)) ∧
     FLOOKUP s.locals «z» = SOME (Val (Word z)) ∧
-    (one_list x (MAP Word xs) *
-     one_list y (MAP Word ys) *
-     one_list z rs *
+    (ones x (MAP Word xs) *
+     ones y (MAP Word ys) *
+     ones z rs *
      frame) (fun2set (s.memory, s.memaddrs)) ∧
     byte_dimindex (:α) ∧ 8 < dimindex (:α)
     ⇒
@@ -391,9 +391,9 @@ Theorem and_pos_pos_thm:
         s with <| memory := m;
                   locals := l;
                   clock := s.clock - LENGTH xs |>) ∧
-      (one_list x (MAP Word xs) *
-       one_list y (MAP Word ys) *
-       one_list z (MAP Word zs) *
+      (ones x (MAP Word xs) *
+       ones y (MAP Word ys) *
+       ones z (MAP Word zs) *
        frame) (fun2set (m, s.memaddrs))
 Proof
   simp []
@@ -408,7 +408,7 @@ Proof
   >> simp []
   >> ‘SUC (LENGTH xs) < dimword (:α)’ by
     (drule_then assume_tac $
-       INST_TYPE [“:β” |-> “:α word_lab”] one_list_leq_dimword
+       INST_TYPE [“:β” |-> “:α word_lab”] ones_leq_dimword
      >> SEP_F_TAC >> simp [] >> strip_tac
      >> drule_all_then assume_tac one_lt_w2n_bytes_in_word
      >> irule_at (Pos hd) LESS_LESS_EQ_TRANS
@@ -419,21 +419,21 @@ Proof
   >> irule_at (Pos hd) evaluate_Dec_NONE
   >> irule_at (Pos hd) eval_Load_One_Local_SOME
   >> simp []
-  >> fs [one_list_def] >> SEP_R_TAC
+  >> fs [ones_def] >> SEP_R_TAC
   >> simp []
   (**)
   >> irule_at (Pos hd) evaluate_Dec_NONE
   >> irule_at (Pos hd) eval_Load_One_Local_SOME
   >> simp [FLOOKUP_SIMP]
   >> Cases_on ‘ys’ >> gvs []
-  >> fs [one_list_def] >> SEP_R_TAC
+  >> fs [ones_def] >> SEP_R_TAC
   >> simp []
   (**)
   >> irule_at (Pos hd) evaluate_Seq_NONE
   >> irule_at (Pos hd) evaluate_Store_Local_NONE
   >> simp [FLOOKUP_SIMP]
   >> Cases_on ‘rs’ >> gvs []
-  >> fs [one_list_def] >> SEP_R_TAC >> simp []
+  >> fs [ones_def] >> SEP_R_TAC >> simp []
   >> irule_at (Pos hd) eval_Op_And_SOME
   >> simp [FLOOKUP_SIMP]
   (* NOTE SEP_W_TAC seems to have an issue with this record access? *)
@@ -473,6 +473,6 @@ Proof
   >> strip_tac >> SEP_F_TAC
   >> disch_then $ qx_choosel_then [‘m’, ‘l’] assume_tac
   >> qexistsl [‘m’, ‘l’]
-  >> fs [state_component_equality, one_list_def, ADD1]
+  >> fs [state_component_equality, ones_def, ADD1]
   >> fs [AC STAR_ASSOC STAR_COMM]
 QED
