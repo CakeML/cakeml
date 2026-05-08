@@ -216,7 +216,11 @@ Definition sh_bd_from_sh_def:
       | NONE => NONE)
     | _ => NONE)
 Termination
-  cheat (* TODO: replace cheat *)
+  wf_rel_tac `measure LENGTH LEX measure (shape_size o SND)`
+  >> rw []
+  >> imp_res_tac (Q.prove (`dropWhile P xs = ys ==> LENGTH ys <= LENGTH xs`,
+        metis_tac [LENGTH_dropWhile_LESS_EQ]))
+  >> fs []
 End
 
 (* Builds a shaped based with the shape of a given shaped based and single based *)
