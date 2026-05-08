@@ -232,14 +232,14 @@ End
     (they are automatically made into undirected edges)
 *)
 Definition nocomment_line_def:
-  (nocomment_line (INL c::cs) = (c ≠ strlit "c")) ∧
+  (nocomment_line (INL c::cs) = (c ≠ «c»)) ∧
   (nocomment_line _ = T)
 End
 
 Definition parse_dimacs_header_def:
   (parse_dimacs_header [INL p; INL lab; INR v; INR e] =
-    if p = strlit"p" ∧
-       (lab = strlit "col" ∨ lab = strlit"edge")
+    if p = «p» ∧
+       (lab = «col» ∨ lab = «edge»)
     then SOME (v:num,e:num)
     else NONE) ∧
   parse_dimacs_header _ = NONE
@@ -250,7 +250,7 @@ End
 Definition parse_dimacs_edge_def:
   parse_dimacs_edge v ls =
     case ls of [INL e; INR (x:num); INR (y:num)] =>
-      if e = strlit"e" ∧ x > 0 ∧ x ≤ v ∧ y > 0 ∧ y ≤ v
+      if e = «e» ∧ x > 0 ∧ x ≤ v ∧ y > 0 ∧ y ≤ v
       then
         SOME (x - 1, y - 1)
       else NONE
@@ -409,12 +409,12 @@ Proof
 QED
 
 val ladraw = ``[
-  strlit"5";
-  strlit"3 1 3 4";
-  strlit"3 0 3 4";
-  strlit"1 3";
-  strlit"3 0 1 2";
-  strlit"2 0 1";
+  «5»;
+  «3 1 3 4»;
+  «3 0 3 4»;
+  «1 3»;
+  «3 0 1 2»;
+  «2 0 1»;
 ]``;
 
 val pattern = rconc (EVAL``check_good_graph (THE (parse_lad ^ladraw))``)
@@ -422,9 +422,9 @@ val pattern = rconc (EVAL``check_good_graph (THE (parse_lad ^ladraw))``)
 (* Odd cases with self-edges *)
 
 val ladraw = ``[
-  strlit"2";
-  strlit"2 0 1";
-  strlit"2 1 0";
+  «2»;
+  «2 0 1»;
+  «2 1 0»;
 ]``;
 
 val pattern = rconc (EVAL``check_good_graph (THE (parse_lad ^ladraw))``)
@@ -432,15 +432,15 @@ val pattern = rconc (EVAL``check_good_graph (THE (parse_lad ^ladraw))``)
 (* DIMACS *)
 
 val dimraw = ``[
-strlit"c edge density";
-strlit"c min degree";
-strlit"p col 125 6963";
-strlit"e 2 1";
-strlit"e 3 1";
-strlit"e 4 1";
-strlit"e 5 1";
-strlit"e 5 2";
-strlit"e 5 3";
+«c edge density»;
+«c min degree»;
+«p col 125 6963»;
+«e 2 1»;
+«e 3 1»;
+«e 4 1»;
+«e 5 1»;
+«e 5 2»;
+«e 5 3»;
 ]``;
 
 val pattern = rconc (EVAL``(THE (parse_dimacs ^dimraw))``)

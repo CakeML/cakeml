@@ -123,7 +123,7 @@ Proof
   \\ ‘¬((48: int) + &n < 0 ∨ (48: int) + &n > 255)’ by (intLib.COOPER_TAC)
   \\ simp [v_to_char_list_def]
   \\ gvs [dec_to_string_def, chr_to_str_def]
-  \\ AP_TERM_TAC \\ AP_THM_TAC \\ ntac 2 AP_TERM_TAC
+  \\ AP_TERM_TAC
   \\ intLib.COOPER_TAC
 QED
 

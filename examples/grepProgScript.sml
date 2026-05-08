@@ -565,7 +565,7 @@ Proof
 QED
 
 Definition notfound_string_def:
-  notfound_string f = concat[strlit"cake_grep: ";f;strlit": No such file or directory\n"]
+  notfound_string f = concat[«cake_grep: »;f;«: No such file or directory\n»]
 End
 
 val r = translate notfound_string_def;
@@ -590,7 +590,7 @@ Theorem print_matching_lines_in_file_spec:
                 STDIO (if inFS_fname fs f
                    then add_stdout fs
                       (concat
-                          (MAP (strcat f o strcat (strlit":"))
+                          (MAP (strcat f o strcat «:»)
                             (FILTER m (all_lines_file fs f))))
                    else add_stderr fs (notfound_string f)))
 Proof
@@ -621,7 +621,7 @@ Proof
     \\ instantiate \\ qexistsl [‘emp’, ‘#"\n"’] \\ xsimpl)
   \\ ntac 3 $ (xlet_auto >- (xcon \\ xsimpl))
   \\ qmatch_assum_rename_tac`lv = Conv _ [fv;_]`
-  \\ `LIST_TYPE STRING_TYPE [f;strlit":"] lv` by ( fs[LIST_TYPE_def,FILENAME_def] )
+  \\ `LIST_TYPE STRING_TYPE [f;«:»] lv` by ( fs[LIST_TYPE_def,FILENAME_def] )
   \\ rveq
   \\ xlet_auto >- xsimpl
   \\ qmatch_goalsub_abbrev_tac ‘STDIO fs₁ * _’
@@ -655,7 +655,7 @@ Proof
 QED
 
 Definition usage_string_def:
-  usage_string = strlit"Usage: grep <regex> <file> <file>...\n"
+  usage_string = «Usage: grep <regex> <file> <file>...\n»
 End
 
 val r = translate usage_string_def;
@@ -663,7 +663,7 @@ val r = translate usage_string_def;
 val usage_string_v_thm = theorem"usage_string_v_thm";
 
 Definition parse_failure_string_def:
-  parse_failure_string r = concat[strlit"Could not parse regexp: ";r;strlit"\n"]
+  parse_failure_string r = concat[«Could not parse regexp: »;r;«\n»]
 End
 
 val r = translate parse_failure_string_def;
@@ -742,7 +742,7 @@ Definition grep_sem_file_def:
         | SOME contents =>
         addout
           (concat
-            (MAP (λmatching_line. concat [filename;strlit":";implode matching_line;strlit"\n"])
+            (MAP (λmatching_line. concat [filename;«:»;implode matching_line;«\n»])
                (FILTER (λline. line ∈ L) (splitlines contents)))) fs
 End
 
@@ -973,7 +973,7 @@ Proof
     \\ simp[Abbr`s1`,Abbr`s2`]
     \\ AP_TERM_TAC
     \\ simp[FILTER_MAP,concat_cons,MAP_MAP_o,o_DEF,
-            all_lines_file_def,lines_of_def,implode_def]
+            all_lines_file_def,lines_of_def]
     \\ AP_TERM_TAC
     \\ simp[FILTER_EQ,build_matcher_def,FRONT_APPEND]
     \\ gen_tac
@@ -1009,7 +1009,7 @@ Proof
     \\ Cases_on`n` \\ fs[] )
   \\ `FILENAME f xv`
   by (
-    fs[FILENAME_def,validArg_def,Abbr`f`,explode_implode,implode_def]
+    fs[FILENAME_def,validArg_def,Abbr`f`,explode_implode]
     \\ fs[EVERY_MEM] )
   \\ first_x_assum drule
   \\ `TAKE (n+1) fls = (TAKE n fls) ++ [EL n fls]` by ( simp[TAKE_EL_SNOC] )

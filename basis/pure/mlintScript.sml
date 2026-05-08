@@ -304,7 +304,7 @@ Proof
         , numposrepTheory.l2n_def
         , MAP_REVERSE_STEP
         , substring_def
-        , MIN_DEF, implode_def
+        , MIN_DEF
         , EL_LENGTH_SNOC
         , fromChar_unsafe_thm
           |> computeLib.RESTR_EVAL_RULE [``fromChar_unsafe``,``isDigit``]
@@ -437,7 +437,7 @@ Theorem fromString_int_to_string[simp]:
   neg_char = #"~" \/ neg_char = #"-" ==>
   fromString (int_to_string neg_char i) = SOME i
 Proof
-  simp [int_to_string_thm,implode_def]
+  simp [int_to_string_thm]
   \\ disch_tac
   \\ DEP_REWRITE_TAC [fromString_thm]
   \\ CONJ_TAC >- (
@@ -536,7 +536,7 @@ Theorem fromString_EQ_NONE:
    ~isDigit c /\ c <> #"+" /\ c <> #"~" /\ c <> #"-" ==>
    fromString (implode (STRING c x)) = NONE
 Proof
-  rw [fromString_def,implode_def,strsub_def]
+  rw [fromString_def,strsub_def]
   \\ `(SUC (STRLEN x)) <= strlen (strlit (STRING c x))` by fs [strlen_def]
   \\ drule fromChars_IS_SOME_IFF \\ fs [explode_def]
 QED
@@ -570,13 +570,13 @@ End
 Theorem num_to_str_11:
   num_to_str n0 = num_to_str n1 ⇔ n0 = n1:num
 Proof
-  fs [num_to_str_def,toString_thm,mlstringTheory.implode_def]
+  fs [num_to_str_def,toString_thm]
 QED
 
 Theorem num_to_str_not_nil:
   num_to_str (i:num) = strlit s ⇒ s ≠ ""
 Proof
-  fs [num_to_str_def,toString_thm,mlstringTheory.implode_def]
+  fs [num_to_str_def,toString_thm]
   \\ rw [] \\ fs [num_to_dec_string_def]
 QED
 
@@ -595,7 +595,7 @@ QED
 Theorem num_to_str_every:
   num_to_str (i:num) = strlit s ⇒ EVERY (λx. 48 ≤ ORD x ∧ ORD x ≤ 57) s
 Proof
-  fs [num_to_str_def,toString_thm,mlstringTheory.implode_def]
+  fs [num_to_str_def,toString_thm]
   \\ rw [] \\ fs [num_to_dec_string_def] \\ fs [n2s_def,EVERY_MEM,MEM_MAP,PULL_EXISTS]
   \\ completeInduct_on ‘i’
   \\ once_rewrite_tac [numposrepTheory.n2l_def]

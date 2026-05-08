@@ -68,7 +68,7 @@ Proof
       \\ qexistsl [‘emp’, ‘""’, ‘fs’, ‘fd’] \\ xsimpl)
     \\ gvs [OPTION_TYPE_def]
     \\ xmatch \\ xcon \\ xsimpl
-    \\ simp [implode_def]
+    \\ simp []
     \\ DEP_REWRITE_TAC [add_stdout_nil, STD_streams_fastForwardFD] \\ xsimpl
     \\ simp [INSTREAM_STR_fastForwardFD])
   \\ once_rewrite_tac [STDIO_STD_streams] \\ xpull
@@ -236,7 +236,7 @@ Theorem cat_spec =
 Definition catfile_string_def:
   catfile_string fs fnm =
     if inFS_fname fs fnm then file_contents fnm fs
-    else (strlit"")
+    else «»
 End
 
 Theorem cat1_spec:

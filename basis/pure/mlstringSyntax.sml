@@ -20,8 +20,10 @@ val cbinop =
      {n = 2, dest = HolKernel.dest_binop, make = Lib.curry Term.mk_comb}
      "mlstring"
 
-val (strlit_tm,mk_strlit,dest_strlit,is_strlit) = monop "strlit"
 val (implode_tm,mk_implode,dest_implode,is_implode) = monop "implode"
+(* backwards compatibility: constructor used to be called strlit. *)
+val (strlit_tm,mk_strlit,dest_strlit,is_strlit) =
+  (implode_tm,mk_implode,dest_implode,is_implode)
 val (explode_tm,mk_explode,dest_explode,is_explode) = monop "explode"
 val (strlen_tm,mk_strlen,dest_strlen,is_strlen) = monop "strlen"
 val (strsub_tm,mk_strsub,dest_strsub,is_strsub) = binop "strsub"

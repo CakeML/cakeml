@@ -404,8 +404,8 @@ Theorem ty_var_name_eq:
     concat [«'»;
             if n < 28 then toString (CHR (n + ORD #"a")) else mlint$toString (&n)]
 Proof
-  rw [infer_tTheory.ty_var_name_def,mlstringTheory.implode_def]
-  \\ fs [mlstringTheory.concat_def,mlstringTheory.chr_to_str_def,mlstringTheory.implode_def]
+  rw [infer_tTheory.ty_var_name_def]
+  \\ fs [mlstringTheory.concat_def,mlstringTheory.chr_to_str_def]
 QED
 
 val _ = translate ty_var_name_eq;
