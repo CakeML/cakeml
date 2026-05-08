@@ -113,7 +113,6 @@ Definition is_trace_def:
       preds_hold (tr (i + 1)) circ cnstrs
 End
 
-(* TODO Why not inline is_unsafe into is_safe? *)
 Definition is_unsafe_def:
   is_unsafe (circ: ('a, 'i, 'l) circuit)
     (reset: 'l -> ('a,'i,'l) lit) (next: 'l -> ('a,'i,'l) lit)
@@ -356,7 +355,6 @@ Definition dep_latch_lit_def:
     ∀l. l ∈ latches ⇒ dep_lit latches (latch_lit l)
 End
 
-(* TODO can dep_ family be merged with is_stratified? *)
 Definition is_stratified_def:
   is_stratified lt circ reset latches ⇔
     ∀l is ls' ls.
