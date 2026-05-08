@@ -1197,6 +1197,8 @@ Resume evaluate_rewrite_tmc[if]:
         >> strip_tac
         >> gvs []
         >> irule unchanged_hole_has_val
+        >> qexists ‘EMPTY’
+        >> gvs []
         >> first_assum $ irule_at $ Pos hd
         >> gvs [])
       >> strip_tac
@@ -1262,6 +1264,8 @@ Resume evaluate_rewrite_tmc[if]:
       >> strip_tac
       >> gvs []
       >> irule unchanged_hole_has_val
+        >> qexists ‘EMPTY’
+        >> gvs []
       >> first_assum $ irule_at $ Pos hd
       >> gvs [])
     >> strip_tac
