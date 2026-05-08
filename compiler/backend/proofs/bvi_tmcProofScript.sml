@@ -513,11 +513,12 @@ Proof
 QED
 
 Theorem unchanged_hole_has_val:
-  ∀f f' env env' hole_ptr hole_idx refs refs' c.
+  ∀f f' env env' hole_ptr hole_idx refs refs' c changed.
     hole_has_val f env (env' ++ [RefPtr F hole_ptr; Number hole_idx]) refs c ∧
     only_fresh f f' refs ∧
-    holes_unchanged_except f refs refs' ∅ ∧
-    env_rel T f env (env' ++ [RefPtr F hole_ptr; Number hole_idx]) ⇒
+    holes_unchanged_except f refs refs' changed ∧
+    env_rel T f env (env' ++ [RefPtr F hole_ptr; Number hole_idx]) ∧
+    (∀b. RefPtr b hole_ptr ∉ changed) ⇒
     hole_has_val f' env (env' ++ [RefPtr F hole_ptr; Number hole_idx]) refs' c
 Proof
   rw [hole_has_val_def]
@@ -1785,11 +1786,11 @@ Theorem evaluate_hb_to_mutcons:
     only_fresh f f' s'.refs ∧
     state_rel f' t t' ∧
     r' ≠ Rerr (Rabort Rtype_error) ⇒
-    ∃r'' t'' hole_ptr.
-      evaluate ([hb_to_mutcons hb],env2,s') = (r'',t'') ∧
-      r'' = Rval [RefPtr F (LEAST ptr. ptr ∉ FDOM s'.refs)] ∧
+    ∃r_mc' t_mc' new_ptr.
+      evaluate ([hb_to_mutcons hb],env2,s') = (r_mc',t_mc') ∧
+      r_mc' = Rval [RefPtr F (LEAST ptr. ptr ∉ FDOM s'.refs)] ∧
       (*state_rel f' s t'' ∧*)
-      holes_unchanged_except f s'.refs t''.refs {hole_ptr}
+      holes_unchanged_except f s'.refs t_mc'.refs {new_ptr}
 Proof
   rw []
   >> gvs [cb_to_hb_def, CaseEq "prod"]
@@ -1876,7 +1877,6 @@ Proof
   >> gvs []
   >> disch_then drule_all
   >> strip_tac
-  >> rename [‘’]
   >> gvs [cb_to_hb_def, CaseEq "prod", hb_to_bvi_worker_def, evaluate_def]
   >> imp_res_tac env_rel_strip_extras
   >> gvs []
@@ -1885,13 +1885,13 @@ Proof
   >> gvs []
   >> gvs [do_app_def, do_app_aux_def]
   >> gvs [EL, EL_APPEND_EQN]
-  >> ‘(RefPtr F (LEAST ptr. ptr ∉ FDOM s'.refs)::(env2 ++ [RefPtr F hole_ptr'; Number hole_idx]))❲LENGTH env1 + 1❳ = RefPtr F hole_ptr'’ by
+  >> ‘(RefPtr F (LEAST ptr. ptr ∉ FDOM s'.refs)::(env2 ++ [RefPtr F hole_ptr; Number hole_idx]))❲LENGTH env1 + 1❳ = RefPtr F hole_ptr’ by
     (Cases_on ‘LENGTH env1 + 1’ >> gvs []
      >> gvs [EL_APPEND_EQN]
      >> ‘n = LENGTH env1’ by gvs []
      >> gvs [])
   >> gvs []
-  >> ‘(RefPtr F (LEAST ptr. ptr ∉ FDOM s'.refs)::(env2 ++ [RefPtr F hole_ptr'; Number hole_idx]))❲LENGTH env1 + 2❳ = Number hole_idx’ by
+  >> ‘(RefPtr F (LEAST ptr. ptr ∉ FDOM s'.refs)::(env2 ++ [RefPtr F hole_ptr; Number hole_idx]))❲LENGTH env1 + 2❳ = Number hole_idx’ by
     (Cases_on ‘LENGTH env1 + 2’ >> gvs []
      >> gvs [EL_APPEND_EQN]
      >> ‘n = LENGTH env1 + 1’ by gvs []
@@ -1899,7 +1899,13 @@ Proof
   >> gvs []
   >> pop_assum kall_tac
   >> pop_assum kall_tac
-  >> drule_all unchanged_hole_has_val
+  (* HERE *)
+  >> drule unchanged_hole_has_val
+  >> disch_then $ drule_at $ Pos $ el 2
+  >> disch_then drule
+  >> disch_then drule
+  >> ‘∀b. RefPtr b hole_ptr ≠ new_ptr’ by (cheat)
+  >> disch_then drule
   >> simp [hole_has_val_def]
   >> gvs [EL_APPEND_EQN]
   >> strip_tac (* HERE is where tag' left' etc are introduced. New assumption to tie these to original? *)
