@@ -1047,7 +1047,7 @@ QED
 
 (** Definition of mw_and ******************************************************)
 
-(* Computes the bitwise and of two non-negative multiwords.
+(* Computes the bitwise-and of two non-negative multiwords.
  *
  * If the multiwords have different lengths, the length of the result will be
  * the smaller of those lengths: if we were to pad the shorter word with 0s
@@ -1074,8 +1074,8 @@ Definition mw_and_keep_flip_def:
     if LENGTH xs ≤ LENGTH ys then mw_and_keep xs ys else mw_and_keep ys xs
 End
 
-(* Implements bitwise and on multiwords, accounting for two's complement in the
-   case of negative numbers. *)
+(* Implements bitwise-and on integer multiwords, accounting for the two's
+   complement representation of negative numbers. *)
 Definition mwi_and_def:
   mwi_and (s, xs) (t, ys) =
   if ¬(s ∨ t) then
@@ -1486,4 +1486,75 @@ Theorem mwi_and_thm:
 Proof
   Cases_on ‘i < 0’ >> Cases_on ‘j < 0’
   >> simp [mwi_and_neg_pos, mwi_and_pos_neg, mwi_and_pos, mwi_and_neg]
+QED
+
+(** Definition of mwi_or ******************************************************)
+
+(* Computes the bitwise-or of two multiwords. Assumes that xs is the shorter
+ * sequence, and has "imaginary" zero-padding (i.e., represents a non-negative
+ * multiword).
+ *
+ * The imaginary zero-padding means that we copy over the remainder of ys once
+ * xs run out, since 0 ∨ b = b. *)
+Definition mw_or_keep_def:
+  mw_or_keep (x::xs) (y::ys) = (x || y)::mw_or_keep xs ys ∧
+  mw_or_keep []      (y::ys) = y::mw_or_keep [] ys ∧
+  mw_or_keep _       []      = []
+End
+
+(* Computes the bitwise-or of two multiwords. Assumes that xs is the shorter
+ * sequence, and has "imaginary" one-padding (i.e., represents a negative
+ * multiword in two's complement).
+ *
+ * The imaginary one-padding means that we pad the result with ones, since
+ * 1 ∨ b = b. *)
+Definition mw_or_ones_def:
+  mw_or_ones (x::xs) (y::ys) = (x ‖ y)::mw_or_ones xs ys ∧
+  mw_or_ones []      (y::ys) = -1w::mw_or_ones [] ys ∧
+  mw_or_ones _      []       = []
+End
+
+(* Ensures the shorter sequence is on the left. *)
+Definition mw_or_keep_flip_def:
+  mw_or_keep_flip xs ys =
+    if LENGTH xs ≤ LENGTH ys then mw_or_keep xs ys else mw_or_keep ys xs
+End
+
+(* Ensures the shorter sequence is on the left. *)
+Definition mw_or_ones_flip_def:
+  mw_or_ones_flip xs ys =
+    if LENGTH xs ≤ LENGTH ys then mw_or_ones xs ys else mw_or_ones ys xs
+End
+
+(* Implements bitwise-or on integer multiwords, accounting for the two's
+   complement representation of negative numbers. *)
+Definition mwi_or_def:
+  mwi_or (s, xs) (t, ys) =
+  if ¬(s ∨ t) then
+    (F, mw_fix (mw_or_keep_flip xs ys))
+  else if s ∧ ~t then
+    (T, mw_fix (mw_int_of_bits
+                  (if LENGTH xs ≤ LENGTH ys
+                   then mw_or_ones (mw_bits_of_int xs) ys
+                   else mw_or_keep ys (mw_bits_of_int xs))))
+  else if ~s ∧ t then
+    mwi_or (t, ys) (s, xs)
+  else
+    (T, mw_fix (mw_int_of_bits (mw_or_ones_flip
+                                (mw_bits_of_int xs)
+                                (mw_bits_of_int ys))))
+Termination
+  WF_REL_TAC ‘measure $ λ((s,xs),(t,ys)). if t then 1 else 0n’
+End
+
+(* Testing mwi_or and int_or equivalence **************************************)
+
+Theorem selftest_mwi_or[local]:
+  EVERY
+    (λ(i,j). mw2i (mwi_or (i2mw i) (i2mw j : bool # word2 list)) = int_or i j)
+    (FLAT $ GENLIST (λi. GENLIST (λj. (&i - 5, &j - 5)) 10) 10)
+Proof
+  CONV_TAC (RAND_CONV EVAL)
+  >> rewrite_tac [EVERY_DEF] >> rpt strip_tac
+  >> TRY (EVAL_TAC >> NO_TAC)
 QED
