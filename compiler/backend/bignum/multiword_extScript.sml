@@ -1558,3 +1558,36 @@ Proof
   >> rewrite_tac [EVERY_DEF] >> rpt strip_tac
   >> TRY (EVAL_TAC >> NO_TAC)
 QED
+
+(* Proving mwi_or and int_or equivalence **************************************)
+
+Theorem mwi_or_pos:
+  ¬(i < 0) ∧ ¬(j < 0) ⇒ mwi_or (i2mw i) (i2mw j) = i2mw (int_or i j)
+Proof
+  cheat
+QED
+
+Theorem mwi_or_neg_pos:
+  (i < 0) ∧ ¬(j < 0) ⇒ mwi_or (i2mw i) (i2mw j) = i2mw (int_or i j)
+Proof
+  cheat
+QED
+
+Theorem mwi_or_pos_neg:
+  ¬(i < 0) ∧ (j < 0) ⇒ mwi_or (i2mw i) (i2mw j) = i2mw (int_or i j)
+Proof
+  cheat
+QED
+
+Theorem mwi_or_neg:
+  (i < 0) ∧ (j < 0) ⇒ mwi_or (i2mw i) (i2mw j) = i2mw (int_or i j)
+Proof
+  cheat
+QED
+
+Theorem mwi_or_thm:
+  mwi_or (i2mw i) (i2mw j) = i2mw (int_or i j)
+Proof
+  Cases_on ‘i < 0’ >> Cases_on ‘j < 0’
+  >> simp [mwi_or_neg_pos, mwi_or_pos_neg, mwi_or_pos, mwi_or_neg]
+QED
