@@ -130,6 +130,7 @@ Definition is_safe_def:
     (safe: ('a,'i,'l) lit set) ⇔
   ¬is_unsafe circ reset next cnstrs latches safe
 End
+
 (* Liveness *******************************************************************)
 
 Definition is_inf_trace_def:
@@ -158,8 +159,8 @@ QED
 Definition is_live_def:
   is_live (circ: ('a, 'i, 'l) circuit) (reset: 'l -> ('a,'i,'l) lit)
     (next: 'l -> ('a,'i,'l) lit) (cnstrs: ('a,'i,'l) lit set)
-    (latches: 'l set) (qcirc: ('b, 'i + 'i, 'l + 'l) circuit)
-    (live: ('b, 'i + 'i, 'l + 'l) lit set) =
+    (qcirc: ('b, 'i + 'i, 'l + 'l) circuit)
+    (live: ('b, 'i + 'i, 'l + 'l) lit set) (latches: 'l set) =
   ∀tr.
     is_inf_trace circ reset next cnstrs latches tr ⇒
     ∃k. ∀i. k ≤ i ⇒ preds_hold (pair_state (tr k) (tr (k + 1))) qcirc live
@@ -236,8 +237,8 @@ End
 
 Definition is_witness_liveness_def:
   is_witness_liveness
-    mcirc mreset mnext mpreds mcnstrs mlatches mqcirc mlive
-    wcirc wreset wnext wpreds wcnstrs wlatches wqcirc wlive
+    mcirc mreset mnext mpreds mcnstrs mqcirc mlive mlatches
+    wcirc wreset wnext wpreds wcnstrs wqcirc wlive wlatches
   ⇔
     ∀ss₀ ss₁.
       (preds_hold ss₀ mcirc mcnstrs ∧
@@ -254,39 +255,39 @@ End
 
 Definition is_witness_decrease_def:
   is_witness_decrease
-    mcirc mreset mnext mpreds mcnstrs mlatches mqcirc mlive
+    wcirc wreset wnext wpreds wcnstrs wqcirc wlive wlatches
   ⇔
     ∀ss₀ ss₁.
-      (preds_hold ss₀ mcirc mcnstrs ∧
-       preds_hold ss₀ mcirc mpreds ∧
-       preds_hold ss₁ mcirc mcnstrs ∧
-       preds_hold ss₁ mcirc mpreds ∧
-       is_next ss₀ mcirc mnext mlatches (SND ss₁))
+      (preds_hold ss₀ wcirc wcnstrs ∧
+       preds_hold ss₀ wcirc wpreds ∧
+       preds_hold ss₁ wcirc wcnstrs ∧
+       preds_hold ss₁ wcirc wpreds ∧
+       is_next ss₀ wcirc wnext wlatches (SND ss₁))
        ⇒
-       preds_hold (pair_state ss₁ ss₀) mqcirc mlive
+       preds_hold (pair_state ss₁ ss₀) wqcirc wlive
 End
 
 Definition is_witness_closure_def:
   is_witness_closure
-    mcirc mreset mnext mpreds mcnstrs mlatches mqcirc mlive
+    wcirc wreset wnext wpreds wcnstrs wqcirc wlive wlatches
   ⇔
     ∀ss₀ ss₁ ss₂.
-      (preds_hold ss₀ mcirc mcnstrs ∧
-       preds_hold ss₀ mcirc mpreds ∧
-       preds_hold ss₁ mcirc mcnstrs ∧
-       preds_hold ss₁ mcirc mpreds ∧
-       preds_hold ss₂ mcirc mcnstrs ∧
-       preds_hold ss₂ mcirc mpreds ∧
-       is_next ss₀ mcirc mnext mlatches (SND ss₁) ∧
-       preds_hold (pair_state ss₀ ss₂) mqcirc mlive)
+      (preds_hold ss₀ wcirc wcnstrs ∧
+       preds_hold ss₀ wcirc wpreds ∧
+       preds_hold ss₁ wcirc wcnstrs ∧
+       preds_hold ss₁ wcirc wpreds ∧
+       preds_hold ss₂ wcirc wcnstrs ∧
+       preds_hold ss₂ wcirc wpreds ∧
+       is_next ss₀ wcirc wnext wlatches (SND ss₁) ∧
+       preds_hold (pair_state ss₀ ss₂) wqcirc wlive)
       ⇒
-      preds_hold (pair_state ss₁ ss₂) mqcirc mlive
+      preds_hold (pair_state ss₁ ss₂) wqcirc wlive
 End
 
 Definition is_witness_def:
   is_witness
-    mcirc mreset mnext mpreds mcnstrs mlatches mqcirc mlive
-    wcirc wreset wnext wpreds wcnstrs wlatches wqcirc wlive
+    mcirc mreset mnext mpreds mcnstrs mqcirc mlive mlatches
+    wcirc wreset wnext wpreds wcnstrs wqcirc wlive wlatches
   ⇔
   is_witness_reset
     mcirc mreset mnext mpreds mcnstrs mlatches
@@ -307,14 +308,14 @@ Definition is_witness_def:
     wcirc wreset wnext wpreds wcnstrs wlatches
   ∧
   is_witness_liveness
-    mcirc mreset mnext mpreds mcnstrs mlatches mqcirc mlive
-    wcirc wreset wnext wpreds wcnstrs wlatches wqcirc wlive
+    mcirc mreset mnext mpreds mcnstrs mqcirc mlive mlatches
+    wcirc wreset wnext wpreds wcnstrs wqcirc wlive wlatches
   ∧
   is_witness_decrease
-    mcirc mreset mnext mpreds mcnstrs mlatches mqcirc mlive
+    wcirc wreset wnext wpreds wcnstrs wqcirc wlive wlatches
   ∧
   is_witness_closure
-    mcirc mreset mnext mpreds mcnstrs mlatches mqcirc mlive
+    wcirc wreset wnext wpreds wcnstrs wqcirc wlive wlatches
 End
 
 (* Latch Dependencies *********************************************************)
@@ -741,8 +742,8 @@ End
 
 Theorem is_witness_is_safe:
   is_witness
-    mcirc mreset mnext mpreds mcnstrs mlatches mqcirc mlive
-    wcirc wreset wnext wpreds wcnstrs wlatches wqcirc wlive ∧
+    mcirc mreset mnext mpreds mcnstrs mqcirc mlive mlatches
+    wcirc wreset wnext wpreds wcnstrs wqcirc wlive wlatches ∧
   dep_model
     mcirc mreset mnext mpreds mcnstrs mlatches ∧
   is_stratified_full lt wcirc wreset wlatches
@@ -806,7 +807,7 @@ End
 Theorem is_witness_closure_preds_hold[local]:
   ∀k.
     is_witness_closure
-      circ reset next preds cnstrs latches qcirc live ∧
+      circ reset next preds cnstrs qcirc live latches ∧
     preds_hold (pair_state (tr i) (tr j)) qcirc live ∧
     (∀n. preds_hold (tr n) circ preds) ∧
     (∀n. preds_hold (tr n) circ cnstrs) ∧
@@ -826,9 +827,9 @@ Theorem matching_transition_live:
   is_inf_trace circ reset next cnstrs latches tr ∧
   (∀n. preds_hold (tr n) circ preds) ∧
   is_witness_decrease
-    circ reset next preds cnstrs latches qcirc live ∧
+    circ reset next preds cnstrs qcirc live latches  ∧
   is_witness_closure
-    circ reset next preds cnstrs latches qcirc live ∧
+    circ reset next preds cnstrs qcirc live latches ∧
   matching_transition tr i j
   ⇒
   preds_hold (pair_state (tr i) (tr (i + 1))) qcirc live
@@ -856,34 +857,20 @@ QED
 
 Theorem is_witness_is_live:
   is_witness
-    mcirc mreset mnext mpreds mcnstrs mlatches mqcirc mlive
-    wcirc wreset wnext wpreds wcnstrs wlatches wqcirc wlive ∧
+    mcirc mreset mnext mpreds mcnstrs mqcirc mlive mlatches
+    wcirc wreset wnext wpreds wcnstrs wqcirc wlive wlatches ∧
   dep_model
     mcirc mreset mnext mpreds mcnstrs mlatches ∧
   is_stratified_full lt wcirc wreset wlatches
   ⇒
   is_live
-    mcirc mreset mnext mcnstrs mlatches mqcirc mlive
+    mcirc mreset mnext mcnstrs mqcirc mlive mlatches
 Proof
   rw []
   >> drule_all_then assume_tac is_witness_is_safe
   >> rw [is_live_def]
   >> drule_all_then assume_tac is_safe_is_inf_trace_preds_hold
   >> fs [is_witness_def]
-
-  (* TODO change to drule_all once we have all the parts *)
-  >> drule matching_transition_live
-  >> disch_then drule
-  >> disch_then drule
-  >> disch_then drule
-
-  (* model is finite
-     ⇒ there exists a k such that after it we loop
-     ⇒ since we loop, for any i we can find a matching transition
-        such that i -> i+1 is the same as j -> j+1
-     ⇒ use the theorem we proved (in assumptions)
-     QED?
-     *)
   >> cheat
 QED
 
