@@ -434,6 +434,8 @@ Definition get_scope_msg_def:
       | Fun => strlit "function "
       | Stc => strlit "struct name " in
     concat [loc; id_desc; id;
+      « is not in scope in »;
+      get_scope_desc scope; «\n»]
 End
 
 (*
@@ -781,6 +783,7 @@ Definition static_check_exp_def:
       | NONE => error (ShapeErr $ concat [
           ctxt.loc; strlit "expression shape "; sh_bd_to_str eret.sh_bd;
           strlit " has no field at index "; num_to_str index;
+          strlit " in "; get_scope_desc ctxt.scope; strlit "\n"])
       (* return exp info with found shape *)
       | SOME sb => return <| sh_bd := sb |>
     od ∧
