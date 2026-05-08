@@ -338,7 +338,7 @@ Definition copy_prop_prog_def:
   (copy_prop_prog (Get n name) cs =
     case lookup_store_eq cs name of
       NONE =>
-        (Get n name, remove_eq cs n)
+        (Get n name, set_store_eq (remove_eq cs n) name n)
     | SOME v =>
       if v ≠ n then
       let (xs',cs') = copy_prop_move [(n,v)] cs in
