@@ -259,9 +259,9 @@ Definition var_exp_def:
   (var_exp BytesInWord = [])
 Termination
   wf_rel_tac `measure (\e. exp_size ARB e)` >>
-	simp[MEM_MAP, EXISTS_PROD] >>
-	rw [MEM_SPLIT] >>
-	simp [list_size_append]
+    simp[MEM_MAP, EXISTS_PROD] >>
+    rw [MEM_SPLIT] >>
+    simp [list_size_append]
 End
 
 Definition global_var_exp_def:

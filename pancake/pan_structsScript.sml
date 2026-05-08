@@ -57,10 +57,10 @@ Termination
       (\x. case x of
         | INL x => (FST x, INL $ SND x)
         | INR x => (FST x, INR $ SND x))’ >>
-	rw[] >>
-	disj1_tac >>
-	irule LESS_LESS_EQ_TRANS >>
-	irule_at Any LENGTH_dropWhile_LESS_EQ >>
+        rw[] >>
+        disj1_tac >>
+        irule LESS_LESS_EQ_TRANS >>
+        irule_at Any LENGTH_dropWhile_LESS_EQ >>
   qmatch_asmsub_abbrev_tac `dropWhile ff` >>
   qexists `ff` >>
   rw[]
