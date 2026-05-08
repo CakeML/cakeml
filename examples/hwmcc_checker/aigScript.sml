@@ -866,11 +866,23 @@ Theorem is_witness_is_live:
   is_live
     mcirc mreset mnext mcnstrs mqcirc mlive mlatches
 Proof
-  rw []
-  >> drule_all_then assume_tac is_witness_is_safe
-  >> rw [is_live_def]
-  >> drule_all_then assume_tac is_safe_is_inf_trace_preds_hold
-  >> fs [is_witness_def]
+  rw [is_live_def]
+  (*
+     1. extend model inf trace to witness inf trace
+        (using/adjusting extend_model_trace_to_witness)
+     2. finiteness/projection argument on witness
+        circuit is fine
+        => only depend on finite latches/inputs
+        => number of unique projected transitions is finite
+        => there is some point, after which each projected transition
+           happens at least twice
+     3. get liveness on witness
+        => use matching_transition_live (needs to be adjusted for projection?)
+     4. get liveness on model
+        => use is_witness_liveness to go from witness to model
+        ^ maybe needs safety for assumptions that preds/constraints hold
+          (is_witness_is_safe)
+   *)
   >> cheat
 QED
 
