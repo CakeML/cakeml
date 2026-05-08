@@ -11,26 +11,26 @@ Libs
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
-Overload True = ``Const (strlit "T") Bool``
-Overload And = ``λp1 p2. Comb (Comb (Const (strlit "/\\") (Fun Bool (Fun Bool Bool))) p1) p2``
-Overload Implies = ``λp1 p2. Comb (Comb (Const (strlit "==>") (Fun Bool (Fun Bool Bool))) p1) p2``
-Overload Forall = ``λx ty p. Comb (Const (strlit "!") (Fun (Fun ty Bool) Bool)) (Abs (Var x ty) p)``
-Overload Exists = ``λx ty p. Comb (Const (strlit "?") (Fun (Fun ty Bool) Bool)) (Abs (Var x ty) p)``
-Overload Or = ``λp1 p2. Comb (Comb (Const (strlit "\\/") (Fun Bool (Fun Bool Bool))) p1) p2``
-Overload False = ``Const (strlit "F") Bool``
-Overload Not = ``λp. Comb (Const (strlit "~") (Fun Bool Bool)) p``
+Overload True = ``Const «T» Bool``
+Overload And = ``λp1 p2. Comb (Comb (Const «/\\» (Fun Bool (Fun Bool Bool))) p1) p2``
+Overload Implies = ``λp1 p2. Comb (Comb (Const «==>» (Fun Bool (Fun Bool Bool))) p1) p2``
+Overload Forall = ``λx ty p. Comb (Const «!» (Fun (Fun ty Bool) Bool)) (Abs (Var x ty) p)``
+Overload Exists = ``λx ty p. Comb (Const «?» (Fun (Fun ty Bool) Bool)) (Abs (Var x ty) p)``
+Overload Or = ``λp1 p2. Comb (Comb (Const «\\/» (Fun Bool (Fun Bool Bool))) p1) p2``
+Overload False = ``Const «F» Bool``
+Overload Not = ``λp. Comb (Const «~» (Fun Bool Bool)) p``
 
-Overload p[local] = ``Var (strlit "p") Bool``
-Overload FAp[local] = ``Forall (strlit "p") Bool``
-Overload q[local] = ``Var (strlit "q") Bool``
-Overload FAq[local] = ``Forall (strlit "q") Bool``
-Overload r[local] = ``Var (strlit "r") Bool``
-Overload FAr[local] = ``Forall (strlit "r") Bool``
-Overload f[local] = ``Var (strlit "f") (Fun Bool (Fun Bool Bool))``
-Overload A[local] = ``Tyvar (strlit "A")``
-Overload P[local] = ``Var (strlit "P") (Fun A Bool)``
-Overload x[local] = ``Var (strlit "x") A``
-Overload FAx[local] = ``Forall (strlit "x") A``
+Overload p[local] = ``Var «p» Bool``
+Overload FAp[local] = ``Forall «p» Bool``
+Overload q[local] = ``Var «q» Bool``
+Overload FAq[local] = ``Forall «q» Bool``
+Overload r[local] = ``Var «r» Bool``
+Overload FAr[local] = ``Forall «r» Bool``
+Overload f[local] = ``Var «f» (Fun Bool (Fun Bool Bool))``
+Overload A[local] = ``Tyvar «A»``
+Overload P[local] = ``Var «P» (Fun A Bool)``
+Overload x[local] = ``Var «x» A``
+Overload FAx[local] = ``Forall «x» A``
 
 Definition TrueDef_def:
   TrueDef = Abs p p === Abs p p
@@ -59,14 +59,14 @@ End
 val Defs = [TrueDef_def, AndDef_def, ImpliesDef_def, ForallDef_def, ExistsDef_def, OrDef_def, FalseDef_def, NotDef_def]
 Definition mk_bool_ctxt_def:
   mk_bool_ctxt ctxt =
-    ConstDef (strlit "~") NotDef ::
-    ConstDef (strlit "F") FalseDef ::
-    ConstDef (strlit "\\/") OrDef ::
-    ConstDef (strlit "?") ExistsDef ::
-    ConstDef (strlit "!") ForallDef ::
-    ConstDef (strlit "==>") ImpliesDef ::
-    ConstDef (strlit "/\\") AndDef ::
-    ConstDef (strlit "T")  TrueDef ::
+    ConstDef «~» NotDef ::
+    ConstDef «F» FalseDef ::
+    ConstDef «\\/» OrDef ::
+    ConstDef «?» ExistsDef ::
+    ConstDef «!» ForallDef ::
+    ConstDef «==>» ImpliesDef ::
+    ConstDef «/\\» AndDef ::
+    ConstDef «T»  TrueDef ::
     ctxt
 End
 
@@ -140,28 +140,28 @@ QED
 (* signatures of Boolean constants *)
 
 Definition is_true_sig_def:
-  is_true_sig tmsig ⇔ FLOOKUP tmsig (strlit "T") = SOME Bool
+  is_true_sig tmsig ⇔ FLOOKUP tmsig «T» = SOME Bool
 End
 Definition is_false_sig_def:
-  is_false_sig tmsig ⇔ FLOOKUP tmsig (strlit "F") = SOME Bool
+  is_false_sig tmsig ⇔ FLOOKUP tmsig «F» = SOME Bool
 End
 Definition is_implies_sig_def:
-  is_implies_sig tmsig ⇔ FLOOKUP tmsig (strlit "==>") = SOME (Fun Bool (Fun Bool Bool))
+  is_implies_sig tmsig ⇔ FLOOKUP tmsig «==>» = SOME (Fun Bool (Fun Bool Bool))
 End
 Definition is_and_sig_def:
-  is_and_sig tmsig ⇔ FLOOKUP tmsig (strlit "/\\") = SOME (Fun Bool (Fun Bool Bool))
+  is_and_sig tmsig ⇔ FLOOKUP tmsig «/\\» = SOME (Fun Bool (Fun Bool Bool))
 End
 Definition is_or_sig_def:
-  is_or_sig tmsig ⇔ FLOOKUP tmsig (strlit "\\/") = SOME (Fun Bool (Fun Bool Bool))
+  is_or_sig tmsig ⇔ FLOOKUP tmsig «\\/» = SOME (Fun Bool (Fun Bool Bool))
 End
 Definition is_not_sig_def:
-  is_not_sig tmsig ⇔ FLOOKUP tmsig (strlit "~") = SOME (Fun Bool Bool)
+  is_not_sig tmsig ⇔ FLOOKUP tmsig «~» = SOME (Fun Bool Bool)
 End
 Definition is_forall_sig_def:
-  is_forall_sig tmsig ⇔ FLOOKUP tmsig (strlit "!") = SOME (Fun (Fun A Bool) Bool)
+  is_forall_sig tmsig ⇔ FLOOKUP tmsig «!» = SOME (Fun (Fun A Bool) Bool)
 End
 Definition is_exists_sig_def:
-  is_exists_sig tmsig ⇔ FLOOKUP tmsig (strlit "?") = SOME (Fun (Fun A Bool) Bool)
+  is_exists_sig tmsig ⇔ FLOOKUP tmsig «?» = SOME (Fun (Fun A Bool) Bool)
 End
 val sigs = [is_true_sig_def, is_false_sig_def, is_implies_sig_def, is_and_sig_def,
             is_or_sig_def, is_not_sig_def, is_forall_sig_def, is_exists_sig_def]

@@ -96,9 +96,9 @@ Theorem wordcount_spec:
      (POSTv uv. &UNIT_TYPE () uv *
                  STDIO (add_stdout fs'
                    (concat [mlint$toString (&(LENGTH (TOKENS isSpace contents)));
-                            strlit " ";
+                            « »;
                             mlint$toString (&(LENGTH (splitlines contents)));
-                            strlit "\n"]))
+                            «\n»]))
                 * COMMANDLINE cl)
 Proof
   simp [concat_def] \\
@@ -189,8 +189,8 @@ Proof
     \\ Cases_on`t` \\ fs[] \\ xsimpl
     \\ Cases_on`t'` \\ fs[] \\ xsimpl ) \\
   simp[Abbr`output`,Abbr`output'`] \\
-  fs [mlintTheory.toString_thm,implode_def,strcat_def,concat_def] \\
-  simp[wc_lines_def,chr_to_str_def,implode_def] \\
+  fs [mlintTheory.toString_thm,strcat_def,concat_def] \\
+  simp[wc_lines_def,chr_to_str_def] \\
   qmatch_abbrev_tac`s1 ++ " " ++ s2 = t1 ++ " " ++ t2` \\
   `s1 = t1 ∧ s2 = t2` suffices_by rw[] \\
   simp[Abbr`s1`,Abbr`t1`,Abbr`s2`,Abbr`t2`] \\
@@ -220,9 +220,9 @@ Theorem wordcount_whole_prog_spec:
    ((=)
      (add_stdout fs'
        (concat [mlint$toString (&(LENGTH (TOKENS isSpace contents)));
-                strlit " ";
+                « »;
                 mlint$toString (&(LENGTH (splitlines contents)));
-                strlit "\n"])))
+                «\n»])))
 Proof
   disch_then assume_tac
   \\ imp_res_tac wordcount_precond_numchars

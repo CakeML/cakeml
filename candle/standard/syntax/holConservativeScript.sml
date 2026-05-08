@@ -111,7 +111,7 @@ Theorem updates_to_subst[local]:
   upd updates ctxt
   ⇒
   const_subst_ok (upd_to_subst upd) ∧
-  ALOOKUP (upd_to_subst upd) (strlit "=") = NONE
+  ALOOKUP (upd_to_subst upd) «=» = NONE
 Proof
   rw [updates_cases] >>
  rw [upd_to_subst_def, const_subst_ok_def] >>
@@ -158,7 +158,7 @@ Proof
 QED
 
 Theorem remove_const_eq[local]:
-  const_subst_ok s ∧ ALOOKUP s (strlit "=") = NONE ⇒
+  const_subst_ok s ∧ ALOOKUP s «=» = NONE ⇒
   remove_const thy s (tm1 === tm2) = remove_const thy s tm1 === remove_const thy s tm2
 Proof
   rw [equation_def, remove_const_def, typeof_remove_const]
