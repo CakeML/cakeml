@@ -4481,14 +4481,13 @@ Theorem evaluate_remove_dead_prog:
   flat_exp_conventions prog ∧
   evaluate (prog,st) = (res,rst) ∧
   res ≠ SOME Error ⇒
-  ∃t' tstore'.
-    evaluate(remove_dead_prog prog,st) =
-      (res,rst with <|locals := t'; store := tstore'|>) ∧
+  ∃t'.
+    evaluate(remove_dead_prog prog,st) = (res,rst with locals := t') ∧
     (case res of
        NONE => T
      | SOME (Break _) => T
      | SOME (Continue _) => T
-     | SOME _ => rst.locals = t' ∧ rst.store = tstore')
+     | SOME _ => rst.locals = t')
 Proof
   rw[remove_dead_prog_def]>>
   `?prog' livein nlivein.
@@ -4501,6 +4500,9 @@ Proof
   impl_tac >-
     simp[strong_locals_rel_def]>>
   rw[]>>
+  qexists_tac`t'`>>
+  `rst.store = tstore'` by
+    (every_case_tac>>fs[live_store_rel_def, fmap_eq_flookup])>>
   gvs[state_component_equality]>>
   every_case_tac>>gvs[]
 QED
