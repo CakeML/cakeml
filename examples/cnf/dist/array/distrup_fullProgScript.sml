@@ -502,7 +502,7 @@ Proof
     W8ARRAY step_arrv (write_bytes step_arr (fix_tb tb))’
   >-
    (xffi >>
-    gvs [CUSTOM_FFI_def,implode_def] >>
+    gvs [CUSTOM_FFI_def] >>
     xsimpl >>
     qexists_tac ‘emp’ >> xsimpl >>
     irule_at Any SEP_IMP_REFL >>
@@ -573,7 +573,7 @@ Proof
     W8ARRAY step_arrv (write_bytes step_arr (n2w (ORD #"V")::xs))’
   >-
    (xffi >>
-    gvs [CUSTOM_FFI_def,implode_def] >>
+    gvs [CUSTOM_FFI_def] >>
     xsimpl >>
     qexists_tac ‘emp’  >> xsimpl >>
     irule_at Any SEP_IMP_REFL >>
@@ -937,7 +937,7 @@ Theorem string_to_num_eq_bytes_to_num:
 Proof
   rw[LENGTH_EQ_NUM_compute]>>
   simp[string_to_num_def,bytes_to_num_def]>>
-  simp[strsub_def,implode_def]>>
+  simp[strsub_def]>>
   DEP_REWRITE_TAC[ORD_CHR_RWT]>>
   rw[w2n_lt_256]
 QED
@@ -968,7 +968,7 @@ Proof
       W8ARRAY step_arrv a1’
   >-
    (xffi >>
-    gvs [CUSTOM_FFI_def,implode_def] >>
+    gvs [CUSTOM_FFI_def] >>
     xsimpl >>
     qexists_tac ‘W8ARRAY buf_arrv buf_arr’ >> xsimpl >>
     irule_at Any SEP_IMP_REFL >>
@@ -1109,14 +1109,14 @@ Proof
        W8ARRAY step_arrv step_arr’
   >-
    (xffi >>
-    gvs [CUSTOM_FFI_def,implode_def] >>
+    gvs [CUSTOM_FFI_def] >>
     xsimpl >>
     qexists_tac`MAP (n2w o ORD) (explode res)`>>
     qexists_tac ‘emp’ >> xsimpl >>
     irule_at Any SEP_IMP_REFL >>
     conj_tac >- EVAL_TAC >>
     conj_tac >-
-      gvs[STRING_TYPE_def,MAP_MAP_o,CHR_w2n_n2w_ORD_I,GSYM implode_def]>>
+      gvs[STRING_TYPE_def,MAP_MAP_o,CHR_w2n_n2w_ORD_I]>>
     conj_tac >- EVAL_TAC >>
     simp [update_def,update_callback_def] >>
     gvs [names_def,SEP_CLAUSES] >>
@@ -1239,7 +1239,7 @@ Proof
       W8ARRAY step_arrv a1’
   >-
    (xffi >>
-    gvs [CUSTOM_FFI_def,implode_def] >>
+    gvs [CUSTOM_FFI_def] >>
     xsimpl >>
     qexists_tac ‘W8ARRAY buf_arrv buf_arr’ >> xsimpl >>
     irule_at Any SEP_IMP_REFL >>
@@ -1432,7 +1432,7 @@ Proof
       W8ARRAY step_arrv a1’
   >-
    (xffi >>
-    gvs [CUSTOM_FFI_def,implode_def] >>
+    gvs [CUSTOM_FFI_def] >>
     xsimpl >>
     qexists_tac ‘W8ARRAY buf_arrv buf_arr’ >> xsimpl >>
     irule_at Any SEP_IMP_REFL >>
@@ -1547,7 +1547,7 @@ Proof
       W8ARRAY step_arrv a1’
   >-
    (xffi >>
-    gvs [CUSTOM_FFI_def,implode_def] >>
+    gvs [CUSTOM_FFI_def] >>
     xsimpl >>
     qexists_tac ‘W8ARRAY buf_arrv buf_arr’ >> xsimpl >>
     irule_at Any SEP_IMP_REFL >>
