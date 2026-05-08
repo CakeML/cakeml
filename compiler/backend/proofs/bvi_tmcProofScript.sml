@@ -1726,25 +1726,101 @@ Proof
   >> cheat
 QED
 
+Theorem evaluate_var_list:
+  ∀ns env s t r.
+    evaluate (MAP (λn. Var n) ns,env,s) = (r,t) ∧
+    r ≠ Rerr (Rabort Rtype_error) ⇒
+    (r,t) = (Rval (MAP (λn. env❲n❳) ns),s)
+Proof
+  Induct_on ‘ns’
+  >- gvs [evaluate_def]
+  >> rpt gen_tac
+  >> strip_tac
+  >> gvs [Once evaluate_CONS, evaluate_def]
+  >> Cases_on ‘h < LENGTH env’ >> gvs []
+  >> gvs [CaseEq "prod"]
+  >> first_x_assum drule
+  >> strip_tac
+  >> Cases_on ‘v3’ >> gvs []
+QED
+
+Definition alloc_res_rel_def:
+  alloc_res_rel refs r1 r2 =
+    case r1 of
+    | Rval v1 => r2 = Rval [RefPtr F (LEAST ptr. ptr ∉ FDOM refs)]
+    | Rerr v4 => r1 = r2
+End
+
+Theorem rel_map_insert:
+  ∀s s' f k.
+    state_rel f s s' ∧
+    k ∉ FDOM f ⇒
+    ∃f'.
+      f SUBMAP f' ∧
+      state_rel f' s (s' with refs := s'.refs⟨k↦RefPtr b v⟩)
+Proof
+  rw []
+  >> qexists ‘f |+ (k ↦ v)’
+  >> conj_tac
+  >-
+   (gvs [SUBMAP_DEF]
+    >> rw []
+    >- (mp_tac FDOM_FUPDATE
+        >> disch_then $ qspec_then ‘f’ mp_tac
+       qspecl_then [‘f’, ‘k’, ‘v’] mp_tac FDOM_FUPDATE
+                    )
+        )
+QED
+
 Theorem evaluate_hb_to_mutcons:
   ∀cb tag left cb' right loc loc_opt f f' env1 env2 r' s t s' t' c hb call_ts call_args.
     evaluate ([cb_to_bvi loc cb],env2,s') = (r',t') ∧
     cb_to_hb cb = (hb,call_ts,call_args) ∧
     cb = CallBlock tag left cb' right ∧
-    env_rel T f env1 env2 ∧
+    env_rel T f env1 env2 ∧ (* Don't need ? *)
     state_rel f s s' ∧
     f ⊑ f' ∧
     hole_has_val f env1 env2 s'.refs c ∧
     holes_unchanged_except f s'.refs t'.refs ∅ ∧
     only_fresh f f' s'.refs ∧
-    state_rel f' t t' ⇒
-    ∃r'' t''.
+    state_rel f' t t' ∧
+    r' ≠ Rerr (Rabort Rtype_error) ⇒
+    ∃r'' t'' hole_ptr.
       evaluate ([hb_to_mutcons hb],env2,s') = (r'',t'') ∧
-      opt_res_rel r' r'' ∧
-      state_rel f' t t'' ∧
-      holes_unchanged_except f s'.refs t''.refs ∅
+      r'' = Rval [RefPtr F (LEAST ptr. ptr ∉ FDOM s'.refs)] ∧
+      (*state_rel f' s t'' ∧*)
+      holes_unchanged_except f s'.refs t''.refs {hole_ptr}
 Proof
-  Induct_on ‘cb’ >> gvs []
+  rw []
+  >> gvs [cb_to_hb_def, CaseEq "prod"]
+  >> last_x_assum assume_tac
+  >> gvs [cb_to_bvi_def, hb_to_mutcons_def]
+  >> gvs [evaluate_def]
+  >> gvs [evaluate_APPEND]
+  >> gvs [CaseEq "prod"]
+  >> drule evaluate_var_list
+  >> strip_tac
+  >> gvs []
+  >> Cases_on ‘v3' ≠ Rerr (Rabort Rtype_error)’ >> gvs []
+  >> reverse $ Induct_on ‘cb'’ >> gvs []
+  >-
+   (rw []
+    >> gvs [cb_to_hb_def]
+    >> gvs [hb_to_mutcons_def]
+    >> gvs [evaluate_def]
+    >> gvs [do_app_def, do_app_aux_def]
+    >> gvs [backend_commonTheory.small_enough_int_def]
+    >> CASE_TAC
+    >> reverse $ Cases_on ‘q’ >> gvs []
+    >- cheat (* right cannot fail! *)
+    >> drule evaluate_var_list
+    >> strip_tac
+    >> gvs []
+    >> rename [‘evaluate (MAP (λn. Var n) right,env2,s') = (Rval (MAP (λn. env2❲n❳) right),s')’]
+    >> irule_at Any holes_unchanged_except_filled
+    >> irule_at Any holes_unchanged_except_refl)
+  >> rw []
+  >> gvs [cb_to_hb_def]
   >> cheat
 QED
 
@@ -1800,26 +1876,22 @@ Proof
   >> gvs []
   >> disch_then drule_all
   >> strip_tac
+  >> rename [‘’]
   >> gvs [cb_to_hb_def, CaseEq "prod", hb_to_bvi_worker_def, evaluate_def]
   >> imp_res_tac env_rel_strip_extras
   >> gvs []
   >> rename [‘env_rel F f env1 env2’]
   >> imp_res_tac env_rel_length_opt
   >> gvs []
-  >> reverse $ Cases_on ‘r'’ >> gvs [opt_res_rel_def]
-  >-
-   (irule holes_unchanged_except_subset
-    >> qexists ‘∅’
-    >> gvs [])
   >> gvs [do_app_def, do_app_aux_def]
   >> gvs [EL, EL_APPEND_EQN]
-  >> ‘(Block 0 []::(env2 ++ [RefPtr F hole_ptr; Number hole_idx]))❲LENGTH env1 + 1❳ = RefPtr F hole_ptr’ by
+  >> ‘(RefPtr F (LEAST ptr. ptr ∉ FDOM s'.refs)::(env2 ++ [RefPtr F hole_ptr'; Number hole_idx]))❲LENGTH env1 + 1❳ = RefPtr F hole_ptr'’ by
     (Cases_on ‘LENGTH env1 + 1’ >> gvs []
      >> gvs [EL_APPEND_EQN]
      >> ‘n = LENGTH env1’ by gvs []
      >> gvs [])
   >> gvs []
-  >> ‘(Block 0 []::(env2 ++ [RefPtr F hole_ptr; Number hole_idx]))❲LENGTH env1 + 2❳ = Number hole_idx’ by
+  >> ‘(RefPtr F (LEAST ptr. ptr ∉ FDOM s'.refs)::(env2 ++ [RefPtr F hole_ptr'; Number hole_idx]))❲LENGTH env1 + 2❳ = Number hole_idx’ by
     (Cases_on ‘LENGTH env1 + 2’ >> gvs []
      >> gvs [EL_APPEND_EQN]
      >> ‘n = LENGTH env1 + 1’ by gvs []
@@ -1833,18 +1905,28 @@ Proof
   >> strip_tac (* HERE is where tag' left' etc are introduced. New assumption to tie these to original? *)
   >> gvs []
 
-  >> drule evaluate_optimise_call
+  >> reverse $ Induct_on ‘cb'’
+  >-
+   (rw []
                 
-  >> gvs [optimise_call_def]
-  >> gvs [evaluate_def]
-  >> gvs [do_app_def, do_app_aux_def]
-  >> reverse IF_CASES_TAC
-  >- (cheat) (* somehow this is a type error *)
-  >> gvs []
-  >> simp [Once evaluate_CONS]
-  >> gvs [evaluate_def]
-  >> 
-QED
+    >> gvs [optimise_call_def]
+    >> gvs [evaluate_def]
+    >> gvs [do_app_def, do_app_aux_def]
+    >> reverse IF_CASES_TAC
+    >- (cheat) (* somehow this is a type error *)
+    >> gvs []
+    >> simp [Once evaluate_CONS]
+    >> gvs [evaluate_def]
+    >> gvs [cb_to_bvi_def, evaluate_def]
+    >> gvs [evaluate_APPEND]
+    >> Cases_on ‘evaluate (MAP (λn. Var n) left, env2 ++ [RefPtr F hole_ptr; Number (&LENGTH left')],s')’
+    >> Cases_on ‘q’ >> gvs []
+    >> gvs [cb_to_hb_def]
+    >> gvs [evaluate_def]
+
+    >> gvs [CaseEq "prod"]
+    >> Cases_on ‘v5’ >> gvs []
+    >> 
         
 Resume evaluate_rewrite_tmc[tick]:
   gvs [evaluate_def]
