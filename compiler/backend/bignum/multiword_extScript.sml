@@ -1045,7 +1045,7 @@ Proof
   >> simp [b2w_def, b2n_def]
 QED
 
-(** Definition of mw_and ******************************************************)
+(** Definition of mwi_and *****************************************************)
 
 (* Computes the bitwise-and of two non-negative multiwords.
  *
@@ -1058,15 +1058,15 @@ Definition mw_and_def:
   mw_and _ _ = []
 End
 
-Definition mw_and_flip_def:
-  mw_and_flip xs ys =
-    if LENGTH xs ≤ LENGTH ys then mw_and xs ys else mw_and ys xs
-End
-
 Definition mw_and_keep_def:
   mw_and_keep (x::xs) (y::ys) = (x && y)::mw_and_keep xs ys ∧
   mw_and_keep _       []      = [] ∧
   mw_and_keep []      rest    = rest
+End
+
+Definition mw_and_flip_def:
+  mw_and_flip xs ys =
+    if LENGTH xs ≤ LENGTH ys then mw_and xs ys else mw_and ys xs
 End
 
 Definition mw_and_keep_flip_def:
@@ -1093,6 +1093,30 @@ Definition mwi_and_def:
 Termination
   WF_REL_TAC ‘measure $ λ((s,xs),(t,ys)). if t then 1 else 0n’
 End
+
+(* Testing mwi_and and its components *****************************************)
+
+Theorem selftest_mw_bits_of_int[local]:
+  EVERY
+    (λn. mw_bits_of_int (b2mw (bits_of_num n)) =
+         MAP $¬ (b2mw' (LENGTH (b2mw (bits_of_num n) : word3 list))
+                       (bits_of_num (Num (& n - 1)))) : word3 list)
+    (GENLIST (λn. n + 1) 10)
+Proof
+  CONV_TAC (RAND_CONV EVAL)
+  >> rewrite_tac [EVERY_DEF] >> rpt strip_tac >> simp []
+  >> TRY (EVAL_TAC >> NO_TAC)
+QED
+
+Theorem selftest_mwi_and[local]:
+  EVERY
+    (λ(i,j). mw2i (mwi_and (i2mw i) (i2mw j : bool # word2 list)) = int_and i j)
+    (FLAT $ GENLIST (λi. GENLIST (λj. (&i - 5, &j - 5)) 10) 10)
+Proof
+  CONV_TAC (RAND_CONV EVAL)
+  >> rewrite_tac [EVERY_DEF] >> rpt strip_tac
+  >> TRY (EVAL_TAC >> NO_TAC)
+QED
 
 (* Implements mwi_and for two negative numbers in a single pass. *)
 Definition mwi_and_neg_neg_def:
@@ -1262,30 +1286,6 @@ Proof
   >> IF_CASES_TAC >- simp [mwi_and_neg_pos_lt_thm, mwi_and_neg_pos_geq_thm]
   >> IF_CASES_TAC >- simp [mwi_and_neg_pos_lt_thm, mwi_and_neg_pos_geq_thm]
   >> simp [mwi_and_neg_neg_thm]
-QED
-
-(* Testing mwi_and and int_and equivalence ************************************)
-
-Theorem selftest_1[local]:
-  EVERY
-    (λn. mw_bits_of_int (b2mw (bits_of_num n)) =
-         MAP $¬ (b2mw' (LENGTH (b2mw (bits_of_num n) : word3 list))
-                       (bits_of_num (Num (& n - 1)))) : word3 list)
-    (GENLIST (λn. n + 1) 10)
-Proof
-  CONV_TAC (RAND_CONV EVAL)
-  >> rewrite_tac [EVERY_DEF] >> rpt strip_tac >> simp []
-  >> TRY (EVAL_TAC >> NO_TAC)
-QED
-
-Theorem selftest_2[local]:
-  EVERY
-    (λ(i,j). mw2i (mwi_and (i2mw i) (i2mw j : bool # word2 list)) = int_and i j)
-    (FLAT $ GENLIST (λi. GENLIST (λj. (&i - 5, &j - 5)) 10) 10)
-Proof
-  CONV_TAC (RAND_CONV EVAL)
-  >> rewrite_tac [EVERY_DEF] >> rpt strip_tac
-  >> TRY (EVAL_TAC >> NO_TAC)
 QED
 
 (* Proving mwi_and and int_and equivalence ************************************)
