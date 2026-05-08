@@ -5197,19 +5197,7 @@ Proof
   \\ imp_res_tac evaluate_exp_with_clock \\ fs []
 QED
 
-fun setup (q : term quotation, t : tactic) = let
-    val the_concl = Parse.typedTerm q bool
-    val t2 = (t \\ rpt (pop_assum mp_tac))
-    val (goals, validation) = t2 ([], the_concl)
-    fun get_goal q = first (can (rename [q])) goals |> snd
-    fun init thms st = if null (fst st) andalso aconv (snd st) the_concl
-      then ((K (goals, validation)) \\ TRY (MAP_FIRST ACCEPT_TAC thms)) st
-      else failwith "setup tactic: mismatching starting state"
-  in {get_goal = get_goal, concl = fn () => the_concl,
-      init = (init : thm list -> tactic),
-      all_goals = fn () => map snd goals} end
-
-val stmt_wp_sound_setup = setup (`
+Theorem stmt_wp_sound:
   ∀m reqs stmt post ens decs mods locals.
     stmt_wp m reqs stmt post ens decs mods locals ⇒
     ∀st env mod_locs.
@@ -5254,28 +5242,35 @@ val stmt_wp_sound_setup = setup (`
         | Rstop Sret => conditions_hold st' env ens
         | Rcont => conditions_hold st' env post
         | _ => F
-  `,
-  Induct_on ‘stmt_wp’ \\ rpt strip_tac)
-
-Theorem stmt_wp_sound_Skip:
-  ^(#get_goal stmt_wp_sound_setup `Skip`)
 Proof
+  Induct_on ‘stmt_wp’ \\ rpt strip_tac
+  >~ [`Skip`] >- suspend "Skip"
+  >~ [`Return`] >- suspend "Return"
+  >~ [`Assert`] >- suspend "Assert"
+  >~ [`Print`] >- suspend "Print"
+  >~ [`Then`] >- suspend "Then"
+  >~ [`If`] >- suspend "If"
+  >~ [`Dec`] >- suspend "Dec"
+  >~ [`Assign`] >- suspend "Assign"
+  >~ [`ArrSelLhs`] >- suspend "ArrSelLhs"
+  >~ [`ArrAlloc`] >- suspend "ArrAlloc"
+  >~ [`While`] >- suspend "While"
+  >~ [`MetCall`] >- suspend "MetCall"
+QED
+
+Resume stmt_wp_sound[Skip]:
   rpt strip_tac
   \\ irule_at (Pos hd) eval_stmt_Skip \\ simp []
   \\ irule valid_mod_refl \\ fs [state_inv_def]
 QED
 
-Theorem stmt_wp_sound_Return:
-  ^(#get_goal stmt_wp_sound_setup `Return`)
-Proof
+Resume stmt_wp_sound[Return]:
   rpt strip_tac
   \\ irule_at (Pos hd) eval_stmt_Return \\ simp []
   \\ irule valid_mod_refl \\ fs [state_inv_def]
 QED
 
-Theorem stmt_wp_sound_Assert:
-  ^(#get_goal stmt_wp_sound_setup `Assert`)
-Proof
+Resume stmt_wp_sound[Assert]:
   rpt strip_tac
   \\ rename [‘Assert e’]
   \\ irule_at (Pos hd) eval_stmt_Assert \\ simp []
@@ -5283,9 +5278,7 @@ Proof
   \\ irule valid_mod_refl \\ fs [state_inv_def]
 QED
 
-Theorem stmt_wp_sound_Print:
-  ^(#get_goal stmt_wp_sound_setup `Print`)
-Proof
+Resume stmt_wp_sound[Print]:
   rpt strip_tac
   \\ irule_at (Pos hd) eval_stmt_Print \\ simp []
   \\ fs [conditions_hold_cons]
@@ -5297,9 +5290,7 @@ Proof
   \\ irule valid_mod_refl \\ fs [state_inv_def]
 QED
 
-Theorem stmt_wp_sound_Then:
-  ^(#get_goal stmt_wp_sound_setup `Then`)
-Proof
+Resume stmt_wp_sound[Then]:
   rpt strip_tac
   \\ rename [‘Then stmt₁ stmt₂’]
   \\ last_x_assum drule \\ simp []
@@ -5336,9 +5327,7 @@ Proof
   \\ fs [state_inv_def]
 QED
 
-Theorem stmt_wp_sound_If:
-  ^(#get_goal stmt_wp_sound_setup `If`)
-Proof
+Resume stmt_wp_sound[If]:
   rpt strip_tac
   \\ rename [‘If grd thn els’]
   \\ dxrule conditions_hold_imp_case_split \\ strip_tac \\ gvs []
@@ -5388,9 +5377,7 @@ Proof
   \\ rw [] \\ metis_tac [IMP_MEM_EL]
 QED
 
-Theorem stmt_wp_sound_Dec:
-  ^(#get_goal stmt_wp_sound_setup `Dec`)
-Proof
+Resume stmt_wp_sound[Dec]:
   rpt strip_tac
   \\ rename [‘Dec (n,ty) stmt’]
   \\ irule_at (Pos hd) eval_stmt_Dec \\ simp []
@@ -5440,9 +5427,7 @@ Proof
   \\ rw [] \\ fs [SF DNF_ss] \\ res_tac
 QED
 
-Theorem stmt_wp_sound_Assign:
-  ^(#get_goal stmt_wp_sound_setup `Assign`)
-Proof
+Resume stmt_wp_sound[Assign]:
   rpt strip_tac
   \\ rename [‘Assign ass’]
   \\ irule_at (Pos hd) eval_stmt_Assign \\ simp []
@@ -5717,9 +5702,7 @@ Proof
   metis_tac [eval_exp_Let1]
 QED
 
-Theorem stmt_wp_sound_AssignArray:
-  ^(#get_goal stmt_wp_sound_setup `ArrSelLhs`)
-Proof
+Resume stmt_wp_sound[ArrSelLhs]:
   rpt strip_tac
   \\ qpat_x_assum ‘∀_ _ _ _. _’ kall_tac
   \\ gvs [conditions_hold_def]
@@ -5978,9 +5961,7 @@ Proof
   \\ fs [EL_APPEND1,SNOC_APPEND]
 QED
 
-Theorem stmt_wp_sound_ArrayAlloc:
-  ^(#get_goal stmt_wp_sound_setup `ArrAlloc`)
-Proof
+Resume stmt_wp_sound[ArrAlloc]:
   rpt strip_tac
   \\ rename [‘Then (Assign [(VarLhs arr_v,ArrAlloc len_e el_e el_ty)]) stmt’]
   \\ gvs [conditions_hold_def]
@@ -6200,9 +6181,7 @@ Proof
   \\ fs [oEL_THM,Abbr‘new_heap’] \\ fs [EL_APPEND1]
 QED
 
-Theorem stmt_wp_sound_While:
-  ^(#get_goal stmt_wp_sound_setup `While`)
-Proof
+Resume stmt_wp_sound[While]:
   rpt strip_tac
   \\ rename [‘While guard invs ds ms body’]
   \\ rename [‘dest_Vars ms = INR while_mods’]
@@ -7042,9 +7021,7 @@ Proof
   \\ simp [state_component_equality]
 QED
 
-Theorem stmt_wp_sound_MetCall:
-  ^(#get_goal stmt_wp_sound_setup `MetCall`)
-Proof
+Resume stmt_wp_sound[MetCall]:
   rpt strip_tac
   \\ rename [‘MetCall rets mname args’]
   \\ irule_at Any eval_stmt_MetCall \\ gvs []
@@ -7450,23 +7427,7 @@ Proof
   \\ strip_tac \\ fs []
 QED
 
-Theorem stmt_wp_sound:
-  ^(#concl stmt_wp_sound_setup ())
-Proof
-  #init stmt_wp_sound_setup [
-    stmt_wp_sound_Skip,
-    stmt_wp_sound_Return,
-    stmt_wp_sound_Assert,
-    stmt_wp_sound_Print,
-    stmt_wp_sound_Then,
-    stmt_wp_sound_If,
-    stmt_wp_sound_Dec,
-    stmt_wp_sound_Assign,
-    stmt_wp_sound_AssignArray,
-    stmt_wp_sound_ArrayAlloc,
-    stmt_wp_sound_While,
-    stmt_wp_sound_MetCall]
-QED
+Finalise stmt_wp_sound;
 
 Theorem evaluate_exp_total_old[local]:
   st.locals_old = st.locals ∧ st.heap_old = st.heap ⇒

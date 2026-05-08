@@ -83,7 +83,7 @@ val _ = stack_to_labTheory.is_Seq_def |> arch_spec |> cv_trans;
 
 val pre = stack_to_labTheory.flatten_def |> arch_spec |> cv_trans_pre "";
 Theorem stack_to_lab_flatten_pre[cv_pre,local]:
-  ∀t p n m. stack_to_lab_flatten_pre t p n m
+  ∀t p n m cs bs. stack_to_lab_flatten_pre t p n m cs bs
 Proof
   ho_match_mp_tac stack_to_labTheory.flatten_ind \\ rw [] \\ simp [Once pre]
 QED

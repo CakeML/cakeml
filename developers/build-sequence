@@ -209,3 +209,5 @@ compiler/bootstrap/compilation/arm8/64:cake-arm8-64.tar.gz
 compiler/bootstrap/compilation/arm8/64/proofs
 compiler/bootstrap/compilation/ag32/32
 compiler/bootstrap/compilation/ag32/32/proofs
+unverified/sexpr-bootstrap/x64/64
+unverified/sexpr-bootstrap/x64/32

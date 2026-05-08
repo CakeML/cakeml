@@ -432,39 +432,47 @@ Proof
   gvs [data_inv_def, empty_data_def] \\ EVAL_TAC
 QED
 
-(* setting up the goal *)
+Theorem comp_correct:
+  ∀v v1 res s' data p' data'.
+    evaluate (v,v1) = (res,s') ∧ flat_exp_conventions v ∧ data_inv data v1 ∧
+    res ≠ SOME Error ∧ word_cse data v = (data',p') ⇒
+    evaluate (p',v1) = (res,s') ∧ (res = NONE ⇒ data_inv data' s')
+Proof
+  recInduct evaluate_ind
+  \\ rpt conj_tac
+  >~ [`Skip`] >- suspend "Skip"
+  >~ [`Alloc`] >- suspend "Alloc"
+  >~ [`Move`] >- suspend "Move"
+  >~ [`Inst`] >- suspend "Inst"
+  >~ [`Assign`] >- suspend "Assign"
+  >~ [`Get`] >- suspend "Get"
+  >~ [`wordLang$Set`] >- suspend "Set"
+  >~ [`OpCurrHeap`] >- suspend "OpCurrHeap"
+  >~ [`Store`] >- suspend "Store"
+  >~ [`Tick`] >- suspend "Tick"
+  >~ [`MustTerminate`] >- suspend "MustTerminate"
+  >~ [`wordLang$Seq`] >- suspend "Seq"
+  >~ [`Return`] >- suspend "Return"
+  >~ [`wordLang$Raise`] >- suspend "Raise"
+  >~ [`wordLang$If`] >- suspend "If"
+  >~ [`wordLang$LocValue`] >- suspend "LocValue"
+  >~ [`wordLang$Install`] >- suspend "Install"
+  >~ [`wordLang$CodeBufferWrite`] >- suspend "CodeBufferWrite"
+  >~ [`wordLang$DataBufferWrite`] >- suspend "DataBufferWrite"
+  >~ [`wordLang$FFI`] >- suspend "FFI"
+  >~ [`wordLang$Call`] >- suspend "Call"
+  >~ [`wordLang$StoreConsts`] >- suspend "StoreConsts"
+  >~ [`wordLang$ShareInst`] >- suspend "ShareInst"
+QED
 
-val goal = “
- λ(p:'a wordLang$prog,s:('a,'c,'ffi) wordSem$state).
-   ∀res s' data p' data'.
-     evaluate (p, s) = (res, s') ∧ flat_exp_conventions p ∧
-     data_inv data s ∧
-     res ≠ SOME Error ∧
-     word_cse data p  = (data', p') ⇒
-     evaluate (p', s) = (res, s') ∧
-     (res = NONE ⇒ data_inv data' s')”
-
-local
-  val gst = goal |> Ho_Rewrite.PURE_ONCE_REWRITE_CONV [Once PFORALL_THM] |> concl |> rhs
-  val ind_thm = evaluate_ind |> ISPEC goal |> GEN_BETA_RULE
-  val ind_goals = ind_thm |> concl |> dest_imp |> fst |> helperLib.list_dest dest_conj
-in
-  fun get_goal s = first (can (find_term (can (match_term (Term [QUOTE s]))))) ind_goals
-  fun compile_correct_tm () = ind_thm |> concl |> rand
-  fun the_ind_thm () = ind_thm
-end;
 
 (* proof of the cases *)
 
-Theorem comp_Skip_correct:
-  ^(get_goal "Skip")
-Proof
+Resume comp_correct[Skip]:
   gvs[word_cse_def, evaluate_def]
 QED
 
-Theorem comp_Alloc_correct:
-  ^(get_goal "Alloc")
-Proof
+Resume comp_correct[Alloc]:
   gvs[word_cse_def, data_inv_def, empty_data_def, sptreeTheory.lookup_def]
 QED
 
@@ -686,9 +694,7 @@ Proof
   \\ gvs [get_var_def,word_exp_def, lookup_insert]
 QED
 
-Theorem comp_Move_correct:
-  ^(get_goal "Move")
-Proof
+Resume comp_correct[Move]:
   rpt gen_tac \\ strip_tac
   \\ gvs [evaluate_def, word_cse_def]
   \\ Cases_on ‘ALL_DISTINCT (MAP FST moves)’ \\ gvs [flat_exp_conventions_def]
@@ -1085,9 +1091,7 @@ Proof
   rw []
 QED
 
-Theorem comp_Inst_correct:
-  ^(get_goal "Inst")
-Proof
+Resume comp_correct[Inst]:
   rpt gen_tac
   \\ strip_tac
   \\ Cases_on ‘i’
@@ -1193,15 +1197,11 @@ Proof
           data_inv_def, empty_data_def, lookup_def ] )
 QED
 
-Theorem comp_Assign_correct:
-  ^(get_goal "Assign")
-Proof
+Resume comp_correct[Assign]:
   fs[flat_exp_conventions_def]
 QED
 
-Theorem comp_Get_correct:
-  ^(get_goal "Get")
-Proof
+Resume comp_correct[Get]:
   rpt gen_tac \\ strip_tac
   \\ gvs [word_cse_def]
   \\ Cases_on ‘is_seen v data’ \\ gvs []
@@ -1211,9 +1211,7 @@ Proof
 QED
 (* similare cases : Loc *)
 
-Theorem comp_Set_correct:
-  ^(get_goal "wordLang$Set")
-Proof
+Resume comp_correct[Set]:
   rpt gen_tac
   \\ strip_tac
   \\ gvs [word_cse_def, evaluate_def]
@@ -1243,9 +1241,7 @@ Proof
   \\ gvs [word_exp_def, the_words_def,get_store_def, FLOOKUP_UPDATE]
 QED
 
-Theorem comp_OpCurrHeap_correct:
-  ^(get_goal "OpCurrHeap")
-Proof
+Resume comp_correct[OpCurrHeap]:
   rpt gen_tac \\ strip_tac
   \\ gvs [word_cse_def]
   \\ Cases_on ‘is_seen dst data’ \\ gvs []
@@ -1323,15 +1319,11 @@ Proof
   \\ gvs [word_exp_def, the_words_def, get_var_def, set_var_def, lookup_insert]
 QED
 
-Theorem comp_Store_correct:
-  ^(get_goal "Store")
-Proof
+Resume comp_correct[Store]:
   fs[flat_exp_conventions_def]
 QED
 
-Theorem comp_Tick_correct:
-  ^(get_goal "Tick")
-Proof
+Resume comp_correct[Tick]:
   rpt gen_tac \\ strip_tac
   \\ gvs[word_cse_def, evaluate_def]
   \\ Cases_on ‘s.clock = 0’ \\ gvs []
@@ -1365,9 +1357,7 @@ Proof
   \\ gvs [get_var_def, word_exp_def]
 QED
 
-Theorem comp_MustTerminate_correct:
-  ^(get_goal "MustTerminate")
-Proof
+Resume comp_correct[MustTerminate]:
   rpt gen_tac
   \\ strip_tac
   \\ rpt gen_tac
@@ -1384,9 +1374,7 @@ Proof
   \\ rpt (strip_tac \\ gvs [data_inv_clock])
 QED
 
-Theorem comp_Seq_correct:
-  ^(get_goal "wordLang$Seq")
-Proof
+Resume comp_correct[Seq]:
   rpt gen_tac \\
   strip_tac \\
   rpt gen_tac \\
@@ -1403,25 +1391,19 @@ Proof
   fs []
 QED
 
-Theorem comp_Return_correct:
-  ^(get_goal "Return")
-Proof
+Resume comp_correct[Return]:
   fs[word_cse_def, evaluate_def, flat_exp_conventions_def]
   \\ rw []
   \\ gvs [AllCaseEqs()]
 QED
 
-Theorem comp_Raise_correct:
-  ^(get_goal "wordLang$Raise")
-Proof
+Resume comp_correct[Raise]:
   fs[word_cse_def, evaluate_def, flat_exp_conventions_def]
   \\ rw []
   \\ gvs [AllCaseEqs()]
 QED
 
-Theorem comp_If_correct:
-  ^(get_goal "wordLang$If")
-Proof
+Resume comp_correct[If]:
   rpt gen_tac
   \\ strip_tac
   \\ rpt gen_tac
@@ -1437,9 +1419,7 @@ Proof
   \\ simp [data_inv_def, empty_data_def, get_var_def, lookup_def]
 QED
 
-Theorem comp_LocValue_correct:
-  ^(get_goal "wordLang$LocValue")
-Proof
+Resume comp_correct[LocValue]:
   rpt gen_tac \\ strip_tac
   \\ gvs [word_cse_def]
   \\ Cases_on ‘is_seen v data’ \\ gvs []
@@ -1450,33 +1430,23 @@ QED
 
 (* DATA EMPTY *)
 
-Theorem comp_Install_correct:
-  ^(get_goal "wordLang$Install")
-Proof
+Resume comp_correct[Install]:
   gvs[word_cse_def, data_inv_def, empty_data_def, lookup_def]
 QED
 
-Theorem comp_CodeBufferWrite_correct:
-  ^(get_goal "wordLang$CodeBufferWrite")
-Proof
+Resume comp_correct[CodeBufferWrite]:
   gvs[word_cse_def, data_inv_def, empty_data_def, lookup_def]
 QED
 
-Theorem comp_DataBufferWrite_correct:
-  ^(get_goal "wordLang$DataBufferWrite")
-Proof
+Resume comp_correct[DataBufferWrite]:
   gvs[word_cse_def, data_inv_def, empty_data_def, lookup_def]
 QED
 
-Theorem comp_FFI_correct:
-  ^(get_goal "wordLang$FFI")
-Proof
+Resume comp_correct[FFI]:
   gvs[word_cse_def, data_inv_def, empty_data_def, lookup_def]
 QED
 
-Theorem comp_Call_correct:
-  ^(get_goal "wordLang$Call")
-Proof
+Resume comp_correct[Call]:
   rpt gen_tac \\ strip_tac
   \\ rpt (pop_assum kall_tac)
   \\ rpt gen_tac \\ strip_tac
@@ -1486,15 +1456,11 @@ Proof
   \\ gvs [AllCaseEqs(), add_ret_loc_def]
 QED
 
-Theorem comp_StoreConsts_correct:
-  ^(get_goal "wordLang$StoreConsts")
-Proof
+Resume comp_correct[StoreConsts]:
   gvs[word_cse_def, empty_data_def, lookup_def, data_inv_def]
 QED
 
-Theorem comp_ShareInst_correct:
-  ^(get_goal "wordLang$ShareInst")
-Proof
+Resume comp_correct[ShareInst]:
   rpt gen_tac >>
   strip_tac >>
   gvs[word_cse_def,empty_data_def,data_inv_def]
@@ -1502,23 +1468,7 @@ QED
 
 (* DATA EMPTY *)
 
-Theorem comp_correct:
-  ^(compile_correct_tm ())
-Proof
-  match_mp_tac (the_ind_thm()) >>
-  rpt conj_tac >>
-  MAP_FIRST MATCH_ACCEPT_TAC
-    [comp_Skip_correct, comp_Alloc_correct, comp_Move_correct,
-     comp_Inst_correct, comp_Assign_correct, comp_Get_correct,
-     comp_Set_correct, comp_Store_correct, comp_Tick_correct,
-     comp_MustTerminate_correct, comp_Seq_correct,
-     comp_Return_correct, comp_Raise_correct, comp_If_correct,
-     comp_LocValue_correct, comp_Install_correct,
-     comp_StoreConsts_correct, comp_CodeBufferWrite_correct,
-     comp_DataBufferWrite_correct, comp_FFI_correct,
-     comp_OpCurrHeap_correct, comp_Call_correct,
-     comp_ShareInst_correct ]
-QED
+Finalise comp_correct;
 
 Theorem word_common_subexp_elim_correct:
   evaluate (p, s) = (res,s1) ∧

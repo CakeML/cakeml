@@ -415,6 +415,7 @@ val _ = cv_auto_trans backend_asmTheory.attach_bitmaps_def;
 
 (* ------------------------------------------------------------------------ *)
 
+val _ = cv_trans stack_to_labTheory.find_lab_def;
 val _ = cv_trans stack_to_labTheory.negate_def;
 val _ = cv_trans stack_to_labTheory.is_gen_gc_def;
 val _ = stack_namesTheory.dest_find_name_def |> cv_trans;

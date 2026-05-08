@@ -1,5 +1,5 @@
 (*
-  Compilation from crepLang to panLang.
+  Compilation from crepLang to loopLang.
 *)
 Theory crep_to_loop
 Ancestors

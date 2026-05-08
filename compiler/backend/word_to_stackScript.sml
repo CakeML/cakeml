@@ -537,4 +537,3 @@ Definition stub_names_def:
     (raise_stub_location,        mlstring$strlit "_Raise");
     (store_consts_stub_location, mlstring$strlit "_StoreConsts")]
 End
-

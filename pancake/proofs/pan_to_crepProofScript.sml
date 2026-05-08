@@ -438,71 +438,88 @@ Definition globals_lookup_def:
 End
 
 
-val gen_goal =
-  ``λ comp (prog, s). ∀res s1 t ctxt.
-      evaluate (prog,s) = (res,s1) ∧ res ≠ SOME Error ∧
-      state_rel s t ∧ code_rel ctxt s.code t.code /\
-      excp_rel ctxt.eids s.eshapes /\
-      locals_rel ctxt s.locals t.locals /\
-      localised_prog prog ⇒
-      ∃res1 t1. evaluate (comp ctxt prog,t) = (res1,t1) /\
-      state_rel s1 t1 ∧ code_rel ctxt s1.code t1.code /\
-      excp_rel ctxt.eids s1.eshapes /\
+Theorem pc_compile_correct:
+  ∀v v1 res s1 t ctxt.
+    evaluate (v,v1) = (res,s1) ∧ res ≠ SOME Error ∧ state_rel v1 t ∧
+    code_rel ctxt v1.code t.code ∧ excp_rel ctxt.eids v1.eshapes ∧
+    locals_rel ctxt v1.locals t.locals ∧ localised_prog v ⇒
+    ∃res1 t1.
+      evaluate (compile ctxt v,t) = (res1,t1) ∧ state_rel s1 t1 ∧
+      code_rel ctxt s1.code t1.code ∧ excp_rel ctxt.eids s1.eshapes ∧
       case res of
-       | NONE => res1 = NONE /\ locals_rel ctxt s1.locals t1.locals
-       | SOME Break => res1 = SOME Break /\
-                       locals_rel ctxt s1.locals t1.locals
-       | SOME Continue => res1 = SOME Continue /\
-                       locals_rel ctxt s1.locals t1.locals
-       | SOME (Return v) =>
-          (size_of_shape (shape_of v) = 0 ==> res1 = SOME (Return (Word 0w))) ∧
-          (size_of_shape (shape_of v) = 1 ==> res1 = SOME (Return (HD(flatten v)))) ∧
-          (1 < size_of_shape (shape_of v) ==>
-               res1 = SOME (Return (Word 0w)) /\ globals_lookup t1 v = SOME (flatten v) ∧
-               size_of_shape (shape_of v) <= 32)
-       | SOME (Exception eid v) =>
-         (case FLOOKUP ctxt.eids eid of
-           | SOME n => res1 = SOME (Exception n) ∧
-             (1 <= size_of_shape (shape_of v) ==>
-                  globals_lookup t1 v = SOME (flatten v) ∧
-                  size_of_shape (shape_of v) <= 32)
-           | NONE => F)
-       | SOME TimeOut => res1 = SOME TimeOut
-       | SOME (FinalFFI f) => res1 = SOME (FinalFFI f)
-       | _ => F``
-
-local
-  val goal = beta_conv ``^gen_goal pan_to_crep$compile``
-  val ind_thm = panSemTheory.evaluate_ind
-    |> ISPEC goal
-    |> CONV_RULE (DEPTH_CONV PairRules.PBETA_CONV) |> REWRITE_RULE [];
-  fun list_dest_conj tm = if not (is_conj tm) then [tm] else let
-    val (c1,c2) = dest_conj tm in list_dest_conj c1 @ list_dest_conj c2 end
-  val ind_goals = ind_thm |> concl |> dest_imp |> fst |> list_dest_conj
-in
-  fun get_goal s = first (can (find_term (can (match_term (Term [QUOTE s]))))) ind_goals
-  fun compile_tm () = ind_thm |> concl |> rand
-  fun the_ind_thm () = ind_thm
-  val fgoal = beta_conv ``^gen_goal pan_to_crep$compile``
-end
-
-
-
-Theorem compile_Skip_Break_Continue_Annot:
-  ^(get_goal "compile _ panLang$Skip") /\
-  ^(get_goal "compile _ panLang$Break") /\
-  ^(get_goal "compile _ panLang$Continue") /\
-  ^(get_goal "compile _ (panLang$Annot _ _)")
+        NONE => res1 = NONE ∧ locals_rel ctxt s1.locals t1.locals
+      | SOME Error => F
+      | SOME TimeOut => res1 = SOME TimeOut
+      | SOME Break => res1 = SOME Break ∧ locals_rel ctxt s1.locals t1.locals
+      | SOME Continue =>
+        res1 = SOME Continue ∧ locals_rel ctxt s1.locals t1.locals
+      | SOME (Return v) =>
+        (size_of_shape (shape_of v) = 0 ⇒ res1 = SOME (Return (Word 0w))) ∧
+        (size_of_shape (shape_of v) = 1 ⇒
+         res1 = SOME (Return (HD (flatten v)))) ∧
+        (1 < size_of_shape (shape_of v) ⇒
+         res1 = SOME (Return (Word 0w)) ∧
+         globals_lookup t1 v = SOME (flatten v) ∧
+         size_of_shape (shape_of v) ≤ 32)
+      | SOME (Exception eid v') =>
+        (case FLOOKUP ctxt.eids eid of
+           NONE => F
+         | SOME n =>
+           res1 = SOME (Exception n) ∧
+           (1 ≤ size_of_shape (shape_of v') ⇒
+            globals_lookup t1 v' = SOME (flatten v') ∧
+            size_of_shape (shape_of v') ≤ 32))
+      | SOME (FinalFFI f) => res1 = SOME (FinalFFI f)
 Proof
+  recInduct panSemTheory.evaluate_ind
+  \\ rpt conj_tac
+  >~ [`panLang$Skip`] >- suspend "Skip"
+  >~ [`panLang$Break`] >- suspend "Break"
+  >~ [`panLang$Continue`] >- suspend "Continue"
+  >~ [`panLang$Annot`] >- suspend "Annot"
+  >~ [`panLang$Tick`] >- suspend "Tick"
+  >~ [`panLang$Assign`] >- suspend "Assign"
+  >~ [`panLang$Dec`] >- suspend "Dec"
+  >~ [`panLang$Store`] >- suspend "Store"
+  >~ [`panLang$Store32`] >- suspend "Store32"
+  >~ [`panLang$StoreByte`] >- suspend "StoreByte"
+  >~ [`panLang$ShMemLoad`] >- suspend "ShMemLoad"
+  >~ [`panLang$ShMemStore`] >- suspend "ShMemStore"
+  >~ [`panLang$Return`] >- suspend "Return"
+  >~ [`panLang$Raise`] >- suspend "Raise"
+  >~ [`panLang$ExtCall`] >- suspend "ExtCall"
+  >~ [`panLang$Seq`] >- suspend "Seq"
+  >~ [`panLang$If`] >- suspend "If"
+  >~ [`panLang$While`] >- suspend "While"
+  >~ [`panLang$Call`] >- suspend "Call"
+  >~ [`panLang$DecCall`] >- suspend "DecCall"
+QED
+
+Resume pc_compile_correct[Skip]:
   rpt strip_tac >>
   fs [panSemTheory.evaluate_def, evaluate_def,
       compile_def,localised_prog_def] >> rveq >> fs []
 QED
 
+Resume pc_compile_correct[Break]:
+  rpt strip_tac >>
+  fs [panSemTheory.evaluate_def, evaluate_def,
+      compile_def,localised_prog_def] >> rveq >> fs []
+QED
 
-Theorem compile_Tick:
-  ^(get_goal "compile _ panLang$Tick")
-Proof
+Resume pc_compile_correct[Continue]:
+  rpt strip_tac >>
+  fs [panSemTheory.evaluate_def, evaluate_def,
+      compile_def,localised_prog_def] >> rveq >> fs []
+QED
+
+Resume pc_compile_correct[Annot]:
+  rpt strip_tac >>
+  fs [panSemTheory.evaluate_def, evaluate_def,
+      compile_def,localised_prog_def] >> rveq >> fs []
+QED
+
+Resume pc_compile_correct[Tick]:
   rpt strip_tac >>
   fs [panSemTheory.evaluate_def, evaluate_def,
       compile_def] >> rveq >> fs [] >>
@@ -855,9 +872,7 @@ Proof
 QED
 
 
-Theorem compile_Assign:
-  ^(get_goal "compile _ (panLang$Assign _ _ _)")
-Proof
+Resume pc_compile_correct[Assign]:
   rpt gen_tac >>
   rpt strip_tac >>
   rename [‘Assign vk vr e’] >> Cases_on ‘vk’>>
@@ -1238,9 +1253,7 @@ Proof
 QED
 
 
-Theorem compile_Dec:
-  ^(get_goal "compile _ (panLang$Dec _ _ _ _)")
-Proof
+Resume pc_compile_correct[Dec]:
   rpt gen_tac >>
   rpt strip_tac >>
   fs [panSemTheory.evaluate_def] >>
@@ -1460,9 +1473,7 @@ Proof
   rw [] >> fs [globals_lookup_def]
 QED
 
-Theorem compile_Store:
-  ^(get_goal "compile _ (panLang$Store _ _)")
-Proof
+Resume pc_compile_correct[Store]:
   rpt gen_tac >> rpt strip_tac >>
   fs [panSemTheory.evaluate_def, CaseEq "option", CaseEq "v", CaseEq "word_lab"] >>
   rveq >>
@@ -1594,9 +1605,7 @@ Proof
    fs []
 QED
 
-Theorem compile_Store32:
-  ^(get_goal "compile _ (panLang$Store32 _ _)")
-Proof
+Resume pc_compile_correct[Store32]:
   rpt gen_tac >> rpt strip_tac >>
   fs [panSemTheory.evaluate_def, CaseEq "option", CaseEq "v", CaseEq "word_lab",
       localised_prog_def] >>
@@ -1620,9 +1629,7 @@ Proof
   TOP_CASE_TAC >> fs [] >>
   fs [state_rel_def]
 QED
-Theorem compile_StoreByte:
-  ^(get_goal "compile _ (panLang$StoreByte _ _)")
-Proof
+Resume pc_compile_correct[StoreByte]:
   rpt gen_tac >> rpt strip_tac >>
   fs [panSemTheory.evaluate_def, CaseEq "option", CaseEq "v", CaseEq "word_lab"] >>
   rveq >>
@@ -1652,9 +1659,7 @@ Proof
   Cases >> rw[panSemTheory.shape_of_def]
 QED
 
-Theorem compile_ShMemLoad:
-  ^(get_goal "compile _ (panLang$ShMemLoad _ _ _ _)")
-Proof
+Resume pc_compile_correct[ShMemLoad]:
   rpt gen_tac >> rpt strip_tac >>
   rename1 ‘ShMemLoad _ vk’ >> Cases_on ‘vk’ >>
   gvs[AllCaseEqs(),panSemTheory.evaluate_def,compile_def,
@@ -1702,9 +1707,7 @@ Proof
   res_tac >> rfs[] >> rveq >> rfs[]
 QED
 
-Theorem compile_ShMemStore:
-  ^(get_goal "compile _ (panLang$ShMemStore _ _ _)")
-Proof
+Resume pc_compile_correct[ShMemStore]:
   rpt gen_tac >> rpt strip_tac >>
   Cases_on ‘op’ >>
   gvs[AllCaseEqs(),panSemTheory.evaluate_def,compile_def,
@@ -1800,9 +1803,7 @@ Proof
   metis_tac[MEM,PAIR]
 QED
 
-Theorem compile_Return:
-  ^(get_goal "compile _ (panLang$Return _)")
-Proof
+Resume pc_compile_correct[Return]:
   rpt gen_tac >> rpt strip_tac >>
   fs [panSemTheory.evaluate_def, CaseEq "option", CaseEq "bool"] >>
   rveq >> fs [] >>
@@ -1906,9 +1907,7 @@ Proof
   rfs []
 QED
 
-Theorem compile_Raise:
-  ^(get_goal "compile _ (panLang$Raise _ _)")
-Proof
+Resume pc_compile_correct[Raise]:
   rpt gen_tac >> rpt strip_tac >>
   fs [panSemTheory.evaluate_def, CaseEq "option", CaseEq "bool"] >>
   rveq >> fs [] >>
@@ -1980,9 +1979,7 @@ Proof
 QED
 
 
-Theorem compile_Seq:
-  ^(get_goal "compile _ (panLang$Seq _ _)")
-Proof
+Resume pc_compile_correct[Seq]:
   rpt gen_tac >> rpt strip_tac >>
   fs [compile_def] >>
   fs [panSemTheory.evaluate_def,localised_prog_def] >>
@@ -2005,9 +2002,7 @@ Proof
 QED
 
 
-Theorem compile_If:
-  ^(get_goal "compile _ (panLang$If _ _ _)")
-Proof
+Resume pc_compile_correct[If]:
   rpt gen_tac >> rpt strip_tac >>
   fs [panSemTheory.evaluate_def] >>
   fs [compile_def,localised_prog_def] >>
@@ -2029,9 +2024,7 @@ Proof
   rveq  >> fs []
 QED
 
-Theorem compile_While:
-  ^(get_goal "compile _ (panLang$While _ _)")
-Proof
+Resume pc_compile_correct[While]:
   rpt gen_tac >> rpt strip_tac >>
   qpat_x_assum ‘evaluate (While e c,s) = (res,s1)’ mp_tac >>
   once_rewrite_tac [panSemTheory.evaluate_def] >>
@@ -3009,9 +3002,7 @@ Proof
   simp [panSemTheory.dec_clock_def, FEVERY_FEMPTY]
 QED
 
-Theorem compile_Call:
-  ^(get_goal "compile _ (panLang$Call _ _ _)")
-Proof
+Resume pc_compile_correct[Call]:
   rpt gen_tac >> rpt strip_tac >>
   fs [panSemTheory.evaluate_def] >>
   fs [compile_def] >>
@@ -3460,9 +3451,7 @@ Proof
   rw[ELIM_UNCURRY]
 QED
 
-Theorem compile_DecCall:
-  ^(get_goal "compile _ (panLang$DecCall _ _ _ _ _)")
-Proof
+Resume pc_compile_correct[DecCall]:
 
   rpt strip_tac >>
   gvs[panSemTheory.evaluate_def,compile_def,evaluate_def,localised_prog_def] >>
@@ -4541,9 +4530,7 @@ Proof
   Induct_on ‘l’ \\ gvs[MAX_LIST_def,MAX_DEF]
 QED
 
-Theorem compile_ExtCall:
-  ^(get_goal "compile _ (panLang$ExtCall _ _ _ _ _)")
-Proof
+Resume pc_compile_correct[ExtCall]:
   rpt gen_tac >> rpt strip_tac >>
   fs [panSemTheory.evaluate_def,localised_prog_def] >>
   fs[CaseEq"bool"]>>
@@ -4612,18 +4599,7 @@ Proof
 QED
 
 
-Theorem pc_compile_correct:
-   ^(compile_tm ())
-Proof
-  match_mp_tac (the_ind_thm()) >>
-  EVERY (map strip_assume_tac
-         [compile_Skip_Break_Continue_Annot,compile_Store32,
-          compile_Dec, compile_ShMemLoad, compile_ShMemStore,
-          compile_Assign, compile_Store, compile_StoreByte, compile_Seq,
-          compile_If, compile_While, compile_Call, compile_ExtCall,
-          compile_Raise, compile_Return, compile_Tick, compile_DecCall]) >>
-  asm_rewrite_tac [] >> rw [] >> rpt (pop_assum kall_tac)
-QED
+Finalise pc_compile_correct;
 
 Theorem first_compile_prog_all_distinct:
   ALL_DISTINCT (MAP FST (functions prog)) ==>

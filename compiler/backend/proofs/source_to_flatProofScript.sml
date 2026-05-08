@@ -3738,22 +3738,7 @@ Proof
   simp [abort_def]
 QED
 
-val is_app_case = can markerSyntax.dest_Case
-
-fun setup (q : term quotation, t : tactic) = let
-    val the_concl = Parse.typedTerm q bool
-    val t2 = (t \\ rpt (pop_assum mp_tac))
-    val (goals, validation) = t2 ([], the_concl)
-    fun get_goal q = first (can (rename [q])) goals |> snd
-    fun init thms st = if null (fst st) andalso aconv (snd st) the_concl
-      then ((K (goals, validation)) \\ TRY (MAP_FIRST ACCEPT_TAC thms)) st
-      else failwith "setup tactic: mismatching starting state"
-    val cases = map (find_terms is_app_case o snd) goals
-  in {get_goal = get_goal, concl = fn () => the_concl,
-    cases = cases, init = (init : thm list -> tactic),
-    all_goals = fn () => map snd goals} end
-
-val compile_correct_setup = setup (`
+Theorem compile_correct:
   (∀ ^s env es s' r genv comp_map env_i1 ^s_i1 es_i1 locals t ts gen idxs.
     evaluate$evaluate s env es = (s', r) ∧
     invariant interp g gen genv idxs s s_i1 ∧
@@ -3836,24 +3821,49 @@ val compile_correct_setup = setup (`
         r_i1 = SOME err_i1 ∧
         result_rel (\a b (c:'a). T) genv' (Rerr err) (Rerr err_i1))
   )
-  `,
+Proof
   ho_match_mp_tac (name_ind_cases [] evaluateTheory.full_evaluate_ind)
   \\ rw [evaluateTheory.full_evaluate_def, flat_evaluate_def,
     compile_exp_def, compile_decs_def]
   \\ imp_res_tac invariant_IMP_s_rel
   \\ fs [result_rel_eqns, v_rel_eqns_non_global]
-)
-
-(*
-  #all_goals compile_correct_setup ()
-*)
+  >~ [‘Case (_ :: _ :: _)’] >- suspend "seq"
+  >~ [‘Case [Raise _]’] >- suspend "Raise"
+  >~ [‘Case [Handle _ _]’] >- suspend "Handle"
+  >~ [‘Case [Con _ _]’] >- suspend "Con"
+  >~ [‘Case [Var _]’] >- suspend "Var"
+  >~ [‘Case [Fun _ _]’] >- suspend "Fun"
+  >~ [‘Case [App _ _]’] >- suspend "App"
+  >~ [‘Case [Log _ _ _]’] >- suspend "Log"
+  >~ [‘Case [If _ _ _]’] >- suspend "If"
+  >~ [‘Case [Mat _ _]’] >- suspend "Mat"
+  >~ [‘Case [Let _ _ _]’] >- suspend "Let"
+  >~ [‘Case [Letrec _ _]’] >- suspend "Letrec"
+  >~ [‘Case ((_, _) :: _)’] >- suspend "pattern"
+  >~ [‘Case ([] : ast$dec list)’] >- suspend "empty_decs"
+  >~ [‘Case ((_ :: _ :: _) : ast$dec list)’] >- suspend "cons_decs"
+  >~ [‘Case [Dlet _ _ _]’] >- suspend "Dlet"
+  >~ [‘Case [Dletrec _ _]’] >- suspend "Dletrec"
+  >~ [‘Case [Dtype _ _]’] >- suspend "Dtype"
+  >~ [‘Case [Dtabbrev _ _ _ _]’] >- suspend "Dtabbrev"
+  >~ [‘Case [Denv _]’] >- suspend "Denv"
+  >~ [‘Case [Dexn _ _ _]’] >- suspend "Dexn"
+  >~ [‘Case [Dmod _ _]’] >- suspend "Dmod"
+  >~ [‘Case [Dlocal _ _]’] >- suspend "Dlocal"
+  \\ TRY (
+    rw []
+    \\ goal_assum (first_assum o mp_then (Pat `invariant`) mp_tac)
+    \\ simp [subglobals_refl]
+    \\ NO_TAC
+  )
+  \\ TRY (Cases_on`l`>>fs[evaluate_def,compile_exp_def])
+  \\ fs[s_rel_cases]
+QED
 
 val trans_thms = [SUBMAP_TRANS, SUBSET_TRANS,
     subglobals_trans, orac_forward_rel_trans];
 
-Theorem compile_correct_seq[local]:
-  ^(#get_goal compile_correct_setup `Case (_ :: _ :: _)`)
-Proof
+Resume compile_correct[seq]:
   rw []
   \\ fs [pair_case_eq] \\ fs []
   \\ first_x_assum (drule_then (drule_then drule))
@@ -3880,9 +3890,7 @@ Proof
   \\ metis_tac (v_rel_weak :: trans_thms)
 QED
 
-Theorem compile_correct_Raise[local]:
-  ^(#get_goal compile_correct_setup `Case [Raise _]`)
-Proof
+Resume compile_correct[Raise]:
   rw []
   \\ fs [pair_case_eq]
   \\ rveq \\ fs []
@@ -3898,9 +3906,7 @@ Proof
   \\ asm_exists_tac \\ simp []
 QED
 
-Theorem compile_correct_Handle[local]:
-  ^(#get_goal compile_correct_setup `Case [Handle _ _]`)
-Proof
+Resume compile_correct[Handle]:
   rw []
   \\ fs [pair_case_eq] \\ fs []
   \\ first_x_assum (drule_then (drule_then drule))
@@ -3922,9 +3928,7 @@ Proof
   \\ metis_tac trans_thms
 QED
 
-Theorem compile_correct_Con[local]:
-  ^(#get_goal compile_correct_setup `Case [Con _ _]`)
-Proof
+Resume compile_correct[Con]:
   rw []
   \\ fs [pair_case_eq] \\ fs []
   \\ first_x_assum (drule_then (drule_then drule))
@@ -3957,9 +3961,7 @@ Proof
   \\ metis_tac [FLOOKUP_SUBMAP]
 QED
 
-Theorem compile_correct_Var[local]:
-  ^(#get_goal compile_correct_setup `Case [Var _]`)
-Proof
+Resume compile_correct[Var]:
   rw []
   \\ fs [option_case_eq]
   \\ fs [env_all_rel_cases]
@@ -4014,9 +4016,7 @@ Proof
       metis_tac [subglobals_refl, SUBMAP_REFL]))
 QED
 
-Theorem compile_correct_Fun[local]:
-  ^(#get_goal compile_correct_setup `Case [Fun _ _]`)
-Proof
+Resume compile_correct[Fun]:
   rw [Once v_rel_cases] >>
   goal_assum (first_assum o mp_then (Pat `invariant`) mp_tac) >>
   fs [env_all_rel_cases, subglobals_refl] >>
@@ -4136,9 +4136,7 @@ Proof
   \\ fs []
 QED
 
-Theorem compile_correct_App:
-  ^(#get_goal compile_correct_setup `Case [App _ _]`)
-Proof
+Resume compile_correct[App]:
   rpt disch_tac
   \\ fs [pair_case_eq] \\ fs []
   \\ first_x_assum (drule_then (drule_then drule))
@@ -4485,9 +4483,7 @@ Proof
   simp[ Once v_rel_rules]
 QED
 
-Theorem compile_correct_Log[local]:
-  ^(#get_goal compile_correct_setup `Case [Log _ _ _]`)
-Proof
+Resume compile_correct[Log]:
   rw [] >>
   fs [pair_case_eq] >> fs [] >>
   first_x_assum (drule_then (drule_then drule)) >>
@@ -4524,9 +4520,7 @@ Proof
   metis_tac trans_thms
 QED
 
-Theorem compile_correct_If[local]:
-  ^(#get_goal compile_correct_setup `Case [If _ _ _]`)
-Proof
+Resume compile_correct[If]:
   rw [] >> fs [pair_case_eq] >> fs [] >>
   first_x_assum (drule_then (drule_then drule)) >>
   disch_then (qspec_then ‘t’ mp_tac) >>
@@ -4549,9 +4543,7 @@ Proof
   metis_tac trans_thms
 QED
 
-Theorem compile_correct_Mat[local]:
-  ^(#get_goal compile_correct_setup `Case [Mat _ _]`)
-Proof
+Resume compile_correct[Mat]:
   rw [] \\ fs [pair_case_eq] \\ fs []
   \\ first_x_assum (drule_then (drule_then drule))
   \\ disch_then (qspec_then ‘t’ mp_tac)
@@ -4576,9 +4568,7 @@ Proof
   \\ metis_tac trans_thms
 QED
 
-Theorem compile_correct_Let[local]:
-  ^(#get_goal compile_correct_setup `Case [Let _ _ _]`)
-Proof
+Resume compile_correct[Let]:
   rw [] \\ fs [pair_case_eq] \\ fs []
   \\ first_x_assum (drule_then (drule_then drule))
   \\ simp [GSYM PULL_FORALL]
@@ -4626,9 +4616,7 @@ Proof
   \\ metis_tac trans_thms
 QED
 
-Theorem compile_correct_Letrec[local]:
-  ^(#get_goal compile_correct_setup `Case [Letrec _ _]`)
-Proof
+Resume compile_correct[Letrec]:
   rw [] >> fs [pair_case_eq] >>
   rw [evaluate_def] >>
   TRY (fs [compile_funs_map,MAP_MAP_o,o_DEF,UNCURRY] >>
@@ -4665,9 +4653,7 @@ Proof
   >- metis_tac [LENGTH_MAP]
 QED
 
-Theorem compile_correct_pattern[local]:
-  ^(#get_goal compile_correct_setup `Case ((_, _) :: _)`)
-Proof
+Resume compile_correct[pattern]:
   rw [] >> fs [pair_case_eq] >>
   drule_then drule pmatch_invariant >>
   disch_then (qsubterm_then `pmatch _ _ _ _` mp_tac) >>
@@ -4706,9 +4692,7 @@ Proof
     rw [])
 QED
 
-Theorem compile_correct_empty_decs[local]:
-  ^(#get_goal compile_correct_setup `Case ([] : ast$dec list)`)
-Proof
+Resume compile_correct[empty_decs]:
   (* no decs *)
   rw [] \\ asm_exists_tac \\ simp []
   \\ simp [v_rel_global_eqn, subglobals_refl,
@@ -4758,9 +4742,7 @@ Proof
   \\ simp []
 QED
 
-Theorem compile_correct_cons_decs[local]:
-  ^(#get_goal compile_correct_setup `Case ((_ :: _ :: _) : ast$dec list)`)
-Proof
+Resume compile_correct[cons_decs]:
   (* sequence of decs *)
   rw [] \\ fs [pair_case_eq]
   \\ rpt (pairarg_tac \\ fs [])
@@ -4811,9 +4793,7 @@ Proof
   )
 QED
 
-Theorem compile_correct_Dlet[local]:
-  ^(#get_goal compile_correct_setup `Case [Dlet _ _ _]`)
-Proof
+Resume compile_correct[Dlet]:
   rw [] >> fs [pair_case_eq] >> fs [] >>
   `env_all_rel genv comp_map env <|v := []|> []`
     by (simp [env_all_rel_cases] \\ simp [v_rel_rules]) >>
@@ -4879,9 +4859,7 @@ Proof
   )
 QED
 
-Theorem compile_correct_Dletrec[local]:
-  ^(#get_goal compile_correct_setup `Case [Dletrec _ _]`)
-Proof
+Resume compile_correct[Dletrec]:
   rpt disch_tac \\ fs [ELIM_UNCURRY, Q.ISPEC `FST` ETA_THM]
   \\ simp [compile_funs_dom2]
   \\ drule invariant_make_varls
@@ -4922,9 +4900,8 @@ Proof
   \\ simp [bind_locals_def, MAP2_MAP, ZIP_MAP, MAP_MAP_o, o_DEF, v_rel_rules]
 QED
 
-Theorem compile_correct_Dtype[local]:
-  ^(#get_goal compile_correct_setup `Case [Dtype _ _]`)
-Proof
+Resume compile_correct[Dtype]:
+  rpt $ pop_assum mp_tac >>
   simp [markerTheory.Case_def] >>
   MAP_EVERY qid_spec_tac [`genv`, `idx`, `comp_map`, `env`, `s`, `s_i1`] >>
   Induct_on `tds`
@@ -4985,17 +4962,13 @@ Proof
   )
 QED
 
-Theorem compile_correct_Dtabbrev[local]:
-  ^(#get_goal compile_correct_setup `Case [Dtabbrev _ _ _ _]`)
-Proof
+Resume compile_correct[Dtabbrev]:
   rw [] >>
   asm_exists_tac >>
   fs [v_rel_global_eqn, empty_env_def, env_domain_eq_def, subglobals_refl]
 QED
 
-Theorem compile_correct_Denv[local]:
-  ^(#get_goal compile_correct_setup `Case [Denv _]`)
-Proof
+Resume compile_correct[Denv]:
   rw []
   \\ fs [option_case_eq, pair_case_eq]
   \\ fs [declare_env_def, option_case_eq, CaseEq "eval_state"]
@@ -5099,9 +5072,7 @@ Proof
   )
 QED
 
-Theorem compile_correct_Dexn[local]:
-  ^(#get_goal compile_correct_setup `Case [Dexn _ _ _]`)
-Proof
+Resume compile_correct[Dexn]:
   reverse (rw [evaluate_def]) >>
   fs [v_rel_eqns, invariant_def, s_rel_cases] >>
   qexists_tac `genv with c := FUNION genv.c
@@ -5163,9 +5134,7 @@ Proof
   )
 QED
 
-Theorem compile_correct_Dmod[local]:
-  ^(#get_goal compile_correct_setup `Case [Dmod _ _]`)
-Proof
+Resume compile_correct[Dmod]:
   rw [] >> fs [pair_case_eq] >> fs [] >>
   rpt (pairarg_tac >> fs []) >>
   rw [] >>
@@ -5191,9 +5160,7 @@ Proof
     fs [])
 QED
 
-Theorem compile_correct_Dlocal[local]:
-  ^(#get_goal compile_correct_setup `Case [Dlocal _ _]`)
-Proof
+Resume compile_correct[Dlocal]:
   rw [] >> fs [pair_case_eq] >> fs [] >>
   rpt (pairarg_tac >> fs []) >>
   rveq >> fs [] >>
@@ -5233,28 +5200,7 @@ Proof
   metis_tac trans_thms
 QED
 
-Theorem compile_correct:
-  ^(#concl compile_correct_setup ())
-Proof
-  #init compile_correct_setup [
-    compile_correct_seq, compile_correct_Raise, compile_correct_Handle,
-    compile_correct_Con, compile_correct_Var, compile_correct_Fun,
-    compile_correct_App, compile_correct_Log, compile_correct_If,
-    compile_correct_Mat, compile_correct_Let, compile_correct_Letrec,
-    compile_correct_pattern, compile_correct_empty_decs,
-    compile_correct_cons_decs, compile_correct_Dlet, compile_correct_Dletrec,
-    compile_correct_Dtype, compile_correct_Dtabbrev, compile_correct_Denv,
-    compile_correct_Dexn, compile_correct_Dmod, compile_correct_Dlocal]
-  (* trivial cases *)
-  \\ TRY (
-    rw []
-    \\ goal_assum (first_assum o mp_then (Pat `invariant`) mp_tac)
-    \\ simp [subglobals_refl]
-    \\ NO_TAC
-  )
-  \\ TRY (Cases_on`l`>>fs[evaluate_def,compile_exp_def])
-  \\ fs[s_rel_cases]
-QED
+Finalise compile_correct;
 
 Definition init_eval_state_ok_def:
   (init_eval_state_ok NONE = T) /\

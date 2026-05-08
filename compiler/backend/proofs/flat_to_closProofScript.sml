@@ -258,39 +258,50 @@ Proof
   \\ every_case_tac
 QED
 
-val decs_goal =
-  ``\^s ds. !res1 s1 ^t.
-    evaluate_decs s ds = (s1,res1) ∧ state_rel s t ∧
-    no_Mat_decs ds /\ res1 ≠ SOME (Rabort Rtype_error) ⇒
+Theorem compile_correct:
+  (∀env ^s es m db res1 s1 t.
+     evaluate env s es = (s1,res1) ∧ state_rel s t ∧ env_rel env m db ∧
+     EVERY no_Mat es ∧ res1 ≠ Rerr (Rabort Rtype_error) ⇒
+     ∃res2 t1.
+       evaluate (compile m es,db,t) = (res2,t1) ∧ state_rel s1 t1 ∧
+       result_rel (LIST_REL v_rel) v_rel res1 res2) ∧
+  ∀^s ds res1 s1 t.
+    evaluate_decs s ds = (s1,res1) ∧ state_rel s t ∧ no_Mat_decs ds ∧
+    res1 ≠ SOME (Rabort Rtype_error) ⇒
     ∃res2 t1.
-      evaluate (compile_decs ds,[],t) = (res2,t1) ∧ state_rel s1 t1 /\
-      ?v.
-        let res1' = (case res1 of NONE => Rval v | SOME e => Rerr e) in
-          result_rel (LIST_REL (\x y. T)) v_rel res1' res2``
-
-local
-  val ind_thm = flatSemTheory.evaluate_ind
-    |> induct_tweakLib.list_single_induct
-    |> ISPEC exps_goal
-    |> ISPEC decs_goal
-    |> CONV_RULE (DEPTH_CONV BETA_CONV)
-    |> REWRITE_RULE [evaluate_decs_sing];
-  val ind_goals = ind_thm |> concl |> dest_imp |> fst |> helperLib.list_dest dest_conj
-in
-  fun get_goal s = first (can (find_term (can (match_term (Term [QUOTE s]))))) ind_goals
-  fun compile_correct_tm () = ind_thm |> concl |> rand
-  fun the_ind_thm () = ind_thm
-end
-
-Theorem compile_nil:
-  ^(get_goal "[]")
+      evaluate (compile_decs ds,[],t) = (res2,t1) ∧ state_rel s1 t1 ∧
+      ∃v. (let
+             res1' = case res1 of NONE => Rval v | SOME e => Rerr e
+           in
+             result_rel (LIST_REL (λx y. T)) v_rel res1' res2)
 Proof
+  ho_match_mp_tac (flatSemTheory.evaluate_ind |> induct_tweakLib.list_single_induct)
+  \\ rewrite_tac [evaluate_decs_sing]
+  \\ rpt conj_tac
+  >~ [`[] : flatLang$exp list`] >- suspend "nil"
+  >~ [`_::_::_`] >- suspend "cons"
+  >~ [`flatLang$Lit`] >- suspend "Lit"
+  >~ [`flatLang$Raise`] >- suspend "Raise"
+  >~ [`flatLang$Handle`] >- suspend "Handle"
+  >~ [`flatLang$Con _ NONE`] >- suspend "Con_NONE"
+  >~ [`flatLang$Con _ (SOME _)`] >- suspend "Con_SOME"
+  >~ [`flatLang$Var_local`] >- suspend "Var_local"
+  >~ [`flatLang$Fun`] >- suspend "Fun"
+  >~ [`flatLang$App`] >- suspend "App"
+  >~ [`flatLang$If`] >- suspend "If"
+  >~ [`flatLang$Mat`] >- suspend "Mat"
+  >~ [`flatLang$Let`] >- suspend "Let"
+  >~ [`flatLang$Letrec`] >- suspend "Letrec"
+  >~ [`evaluate_dec _ (Dlet _)`] >- suspend "Dlet"
+  >~ [`evaluate_decs _ []`] >- suspend "decs_nil"
+  >~ [`evaluate_decs _ (_ :: _)`] >- suspend "decs_cons"
+QED
+
+Resume compile_correct[nil]:
   fs [evaluate_def,flatSemTheory.evaluate_def,compile_def]
 QED
 
-Theorem compile_cons:
-  ^(get_goal "_::_::_")
-Proof
+Resume compile_correct[cons]:
   rpt strip_tac
   \\ fs [evaluate_def,compile_def,flatSemTheory.evaluate_def]
   \\ fs [pair_case_eq] \\ fs []
@@ -311,18 +322,14 @@ Proof
   \\ imp_res_tac evaluate_sing \\ fs []
 QED
 
-Theorem compile_Lit:
-  ^(get_goal "flatLang$Lit")
-Proof
+Resume compile_correct[Lit]:
   fs [flatSemTheory.evaluate_def,compile_def]
   \\ Cases_on `l` \\ fs [PULL_EXISTS]
   \\ once_rewrite_tac [CONJUNCT2 v_rel_cases] \\ fs []
   \\ fs [compile_lit_def,evaluate_def,do_app_def,do_int_app_def,make_const_def]
 QED
 
-Theorem compile_Raise:
-  ^(get_goal "flatLang$Raise")
-Proof
+Resume compile_correct[Raise]:
   fs [evaluate_def,flatSemTheory.evaluate_def,compile_def] \\ rw []
   \\ reverse (fs [pair_case_eq,result_case_eq]) \\ rveq \\ fs []
   \\ first_x_assum drule
@@ -337,9 +344,7 @@ Proof
   EVERY_CASE_TAC \\ simp [dest_pat_def]
 QED
 
-Theorem compile_Handle:
-  ^(get_goal "flatLang$Handle")
-Proof
+Resume compile_correct[Handle]:
   rpt strip_tac
   \\ fs [evaluate_def,compile_def,flatSemTheory.evaluate_def]
   \\ fs [pair_case_eq] \\ fs []
@@ -365,9 +370,7 @@ Proof
   \\ strip_tac \\ fs []
 QED
 
-Theorem compile_Let:
-  ^(get_goal "flatLang$Let")
-Proof
+Resume compile_correct[Let]:
   rpt strip_tac
   \\ fs [evaluate_def,compile_def,flatSemTheory.evaluate_def]
   \\ fs [pair_case_eq] \\ fs []
@@ -402,9 +405,7 @@ Proof
   \\ fs [SNOC_APPEND,EL_LENGTH_APPEND]
 QED
 
-Theorem compile_Letrec:
-  ^(get_goal "flatLang$Letrec")
-Proof
+Resume compile_correct[Letrec]:
   rpt strip_tac
   \\ fs [evaluate_def,compile_def,flatSemTheory.evaluate_def]
   \\ fs [EVERY_MAP]
@@ -426,9 +427,7 @@ Proof
   \\ simp [EVERY_MAP]
 QED
 
-Theorem compile_Fun:
-  ^(get_goal "flatLang$Fun")
-Proof
+Resume compile_correct[Fun]:
   fs [evaluate_def,flatSemTheory.evaluate_def,PULL_EXISTS,compile_def]
   \\ rpt strip_tac \\ `1 <= t.max_app` by fs [state_rel_def] \\ fs []
   \\ once_rewrite_tac [v_rel_cases] \\ fs []
@@ -485,10 +484,20 @@ Proof
   \\ fs [SF ETA_ss,MAP_REVERSE]
 QED
 
-Theorem compile_Con:
-  ^(get_goal "flatLang$Con _ NONE") /\
-  ^(get_goal "flatLang$Con _ (SOME _)")
-Proof
+Resume compile_correct[Con_NONE]:
+  rpt strip_tac
+  \\ fs [evaluate_def,compile_def,flatSemTheory.evaluate_def,evaluate_SmartCons]
+  \\ fs [pair_case_eq,CaseEq"bool"] \\ fs []
+  \\ first_x_assum drule
+  \\ fs [EVERY_REVERSE, Q.ISPEC `no_Mat` ETA_THM]
+  \\ (disch_then drule \\ impl_tac THEN1 (CCONTR_TAC \\ fs []))
+  \\ strip_tac \\ fs []
+  \\ fs [result_case_eq] \\ rveq \\ fs []
+  \\ rveq \\ fs [] \\ fs [do_app_def]
+  \\ once_rewrite_tac [v_rel_cases] \\ fs []
+QED
+
+Resume compile_correct[Con_SOME]:
   rpt strip_tac
   \\ fs [evaluate_def,compile_def,flatSemTheory.evaluate_def,evaluate_SmartCons]
   \\ fs [pair_case_eq,CaseEq"bool"] \\ fs []
@@ -502,9 +511,7 @@ Proof
   \\ PairCases_on `cn` \\ fs []
 QED
 
-Theorem compile_Var_local:
-  ^(get_goal "flatLang$Var_local")
-Proof
+Resume compile_correct[Var_local]:
   fs [evaluate_def,flatSemTheory.evaluate_def,compile_def] \\ rpt strip_tac
   \\ pop_assum mp_tac \\ TOP_CASE_TAC \\ fs [env_rel_def]
 QED
@@ -526,9 +533,7 @@ Proof
   Cases_on `z` \\ fs []
 QED
 
-Theorem compile_If:
-  ^(get_goal "flatLang$If")
-Proof
+Resume compile_correct[If]:
   rpt strip_tac
   \\ fs [evaluate_def,compile_def,flatSemTheory.evaluate_def]
   \\ fs [pair_case_eq] \\ fs []
@@ -548,9 +553,7 @@ Proof
   \\ once_rewrite_tac [v_rel_cases] \\ fs [Boolv_def]
 QED
 
-Theorem compile_Mat:
-  ^(get_goal "flatLang$Mat")
-Proof
+Resume compile_correct[Mat]:
   fs [no_Mat_def,dest_pat_thm]
 QED
 
@@ -1758,9 +1761,7 @@ Proof
       \\ last_x_assum $ qspec_then `idx` assume_tac \\ gvs []))
 QED
 
-Theorem compile_App:
-  ^(get_goal "flatLang$App")
-Proof
+Resume compile_correct[App]:
   rpt strip_tac
   \\ fs [evaluate_def,compile_def,flatSemTheory.evaluate_def]
   \\ rfs [pair_case_eq]
@@ -1933,9 +1934,7 @@ Proof
   \\ rw [] \\ fs [] \\ gvs []
 QED
 
-Theorem compile_Dlet:
-  ^(get_goal "Dlet")
-Proof
+Resume compile_correct[Dlet]:
   rw []
   \\ fs [flatSemTheory.evaluate_def, pair_case_eq]
   \\ fs [compile_decs_def]
@@ -1948,17 +1947,13 @@ Proof
   \\ rveq \\ fs []
 QED
 
-Theorem compile_decs_nil:
-  ^(get_goal "evaluate_decs _ []")
-Proof
+Resume compile_correct[decs_nil]:
   rw []
   \\ fs [compile_decs_def, flatSemTheory.evaluate_def, evaluate_def]
   \\ rveq \\ fs []
 QED
 
-Theorem compile_decs_cons:
-  ^(get_goal "evaluate_decs _ (_ :: ds)")
-Proof
+Resume compile_correct[decs_cons]:
   rw []
   \\ fs [compile_decs_def, flatSemTheory.evaluate_def, evaluate_def]
   \\ fs [pair_case_eq]
@@ -1983,17 +1978,7 @@ Proof
   \\ metis_tac [LIST_REL_APPEND_suff]
 QED
 
-Theorem compile_correct:
-  ^(compile_correct_tm())
-Proof
-  match_mp_tac (the_ind_thm())
-  \\ EVERY (map strip_assume_tac [compile_nil, compile_cons,
-       compile_Lit, compile_Handle, compile_Raise, compile_Let,
-       compile_Letrec, compile_Fun, compile_Con, compile_App,
-       compile_If, compile_Mat, compile_Var_local, compile_Dlet,
-       compile_decs_nil, compile_decs_cons])
-  \\ asm_rewrite_tac []
-QED
+Finalise compile_correct;
 
 Theorem compile_decs_correct = last (CONJUNCTS compile_correct)
 

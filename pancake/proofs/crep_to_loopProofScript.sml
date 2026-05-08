@@ -107,47 +107,57 @@ Definition locals_rel_def:
     lookup n t_locals = SOME (wlab_wloc v)
 End
 
-val goal =
-  ``λ(prog, s). ∀res s1 t ctxt l.
-      evaluate (prog,s) = (res,s1) ∧ res ≠ SOME Error ∧
-      state_rel s t ∧ mem_rel s.memory t.memory s.memaddrs ∧
-      globals_rel s.globals t.globals ∧
-      code_rel ctxt s.code t.code ∧
-      locals_rel ctxt l s.locals t.locals ⇒
-      ∃ck res1 t1. evaluate (compile ctxt l prog,
-                             t with clock := t.clock + ck) = (res1,t1) /\
+Theorem ncompile_correct:
+  ∀v v1 res s1 t ctxt l.
+    evaluate (v,v1) = (res,s1) ∧ res ≠ SOME Error ∧
+    state_rel v1 t ∧ mem_rel v1.memory t.memory v1.memaddrs ∧
+    globals_rel v1.globals t.globals ∧
+    code_rel ctxt v1.code t.code ∧
+    locals_rel ctxt l v1.locals t.locals ⇒
+    ∃ck res1 t1.
+      evaluate (compile ctxt l v,t with clock := t.clock + ck) = (res1,t1) ∧
       state_rel s1 t1 ∧ mem_rel s1.memory t1.memory s1.memaddrs ∧
       globals_rel s1.globals t1.globals ∧
       code_rel ctxt s1.code t1.code ∧
-      (res1 = case res of
-           NONE => NONE
-         | SOME Break => SOME Break
-         | SOME Continue => SOME Continue
-         | SOME (Return v) => SOME (Result (wlab_wloc v))
-         | SOME (Exception eid) => SOME (Exception (Word eid))
-         | SOME TimeOut => SOME TimeOut
-         | SOME (FinalFFI f) => SOME (FinalFFI f)
-         | SOME Error => SOME Error) ∧
-      (case res of
-       | NONE => locals_rel ctxt l s1.locals t1.locals
-       | SOME Break => locals_rel ctxt l s1.locals t1.locals
-       | SOME Continue => locals_rel ctxt l s1.locals t1.locals
-       | SOME (Return v) => T
-       | SOME Error => F
-       | _ => T)``
-
-local
-  val ind_thm = crepSemTheory.evaluate_ind
-    |> ISPEC goal
-    |> CONV_RULE (DEPTH_CONV PairRules.PBETA_CONV) |> REWRITE_RULE [];
-  fun list_dest_conj tm = if not (is_conj tm) then [tm] else let
-    val (c1,c2) = dest_conj tm in list_dest_conj c1 @ list_dest_conj c2 end
-  val ind_goals = ind_thm |> concl |> dest_imp |> fst |> list_dest_conj
-in
-  fun get_goal s = first (can (find_term (can (match_term (Term [QUOTE s]))))) ind_goals
-  fun compile_prog_tm () = ind_thm |> concl |> rand
-  fun the_ind_thm () = ind_thm
-end
+      (res1 =
+       case res of
+         NONE => NONE
+       | SOME Break => SOME Break
+       | SOME Continue => SOME Continue
+       | SOME (Return v) => SOME (Result (wlab_wloc v))
+       | SOME (Exception eid) => SOME (Exception (Word eid))
+       | SOME TimeOut => SOME TimeOut
+       | SOME (FinalFFI f) => SOME (FinalFFI f)
+       | SOME Error => SOME Error) ∧
+      case res of
+        NONE => locals_rel ctxt l s1.locals t1.locals
+      | SOME Break => locals_rel ctxt l s1.locals t1.locals
+      | SOME Continue => locals_rel ctxt l s1.locals t1.locals
+      | SOME (Return v) => T
+      | SOME Error => F
+      | _ => T
+Proof
+  recInduct crepSemTheory.evaluate_ind
+  \\ rpt conj_tac
+  >~ [`crepLang$Skip`] >- suspend "Skip"
+  >~ [`crepLang$Break`] >- suspend "Break"
+  >~ [`crepLang$Continue`] >- suspend "Continue"
+  >~ [`crepLang$Tick`] >- suspend "Tick"
+  >~ [`crepLang$Seq`] >- suspend "Seq"
+  >~ [`crepLang$Return`] >- suspend "Return"
+  >~ [`crepLang$Raise`] >- suspend "Raise"
+  >~ [`crepLang$Store`] >- suspend "Store"
+  >~ [`crepLang$Store32`] >- suspend "Store32"
+  >~ [`crepLang$StoreByte`] >- suspend "StoreByte"
+  >~ [`crepLang$StoreGlob`] >- suspend "StoreGlob"
+  >~ [`crepLang$ShMem`] >- suspend "ShMem"
+  >~ [`crepLang$Assign`] >- suspend "Assign"
+  >~ [`crepLang$Dec`] >- suspend "Dec"
+  >~ [`crepLang$If`] >- suspend "If"
+  >~ [`crepLang$ExtCall`] >- suspend "ExtCall"
+  >~ [`crepLang$While`] >- suspend "While"
+  >~ [`crepLang$Call`] >- suspend "Call"
+QED
 
 Theorem state_rel_intro:
   state_rel ^s (t:('a,'ffi) loopSem$state) <=>
@@ -1537,20 +1547,28 @@ QED
 
 
 
-Theorem compile_Skip_Break_Continue:
-  ^(get_goal "compile _ _ crepLang$Skip") /\
-  ^(get_goal "compile _ _ crepLang$Break") /\
-  ^(get_goal "compile _ _ crepLang$Continue")
-Proof
+Resume ncompile_correct[Skip]:
   rpt strip_tac >>
   fs [crepSemTheory.evaluate_def, evaluate_def,
       compile_def] >> rveq >>
   fs [state_rel_clock_add_zero]
 QED
 
-Theorem compile_Tick:
-  ^(get_goal "compile _ _ crepLang$Tick")
-Proof
+Resume ncompile_correct[Break]:
+  rpt strip_tac >>
+  fs [crepSemTheory.evaluate_def, evaluate_def,
+      compile_def] >> rveq >>
+  fs [state_rel_clock_add_zero]
+QED
+
+Resume ncompile_correct[Continue]:
+  rpt strip_tac >>
+  fs [crepSemTheory.evaluate_def, evaluate_def,
+      compile_def] >> rveq >>
+  fs [state_rel_clock_add_zero]
+QED
+
+Resume ncompile_correct[Tick]:
   rw [] >>
   fs [crepSemTheory.evaluate_def, evaluate_def,
       compile_def, AllCaseEqs ()] >> rveq >>
@@ -1560,9 +1578,7 @@ Proof
   qexists_tac ‘0’ >> fs []
 QED
 
-Theorem compile_Seq:
-  ^(get_goal "compile _ _ (crepLang$Seq _ _)")
-Proof
+Resume ncompile_correct[Seq]:
   rw [] >>
   fs [crepSemTheory.evaluate_def] >>
   pairarg_tac >> fs [] >>
@@ -1588,9 +1604,7 @@ Proof
 QED
 
 
-Theorem compile_Return:
-  ^(get_goal "compile _ _ (crepLang$Return _)")
-Proof
+Resume ncompile_correct[Return]:
   rw [] >>
   fs [crepSemTheory.evaluate_def, evaluate_def,
       compile_def, AllCaseEqs ()] >> rveq >>
@@ -1616,9 +1630,7 @@ Proof
   gvs[]
 QED
 
-Theorem compile_Raise:
-  ^(get_goal "compile _ _ (crepLang$Raise _)")
-Proof
+Resume ncompile_correct[Raise]:
   rw [] >>
   fs [crepSemTheory.evaluate_def, evaluate_def,
       compile_def, eval_def, set_var_def, lookup_insert,
@@ -1626,9 +1638,7 @@ Proof
   fs [mem_rel_def]
 QED
 
-Theorem compile_Store:
-  ^(get_goal "compile _ _ (crepLang$Store _ _)")
-Proof
+Resume ncompile_correct[Store]:
   rw [] >>
   fs [crepSemTheory.evaluate_def, evaluate_def,
       compile_def, AllCaseEqs ()] >> rveq >>
@@ -1727,9 +1737,7 @@ Proof
 QED
 
 
-Theorem compile_Store32:
-  ^(get_goal "compile _ _ (crepLang$Store32 _ _)")
-Proof
+Resume ncompile_correct[Store32]:
   rw [] >>
   fs [crepSemTheory.evaluate_def, evaluate_def,
       compile_def, AllCaseEqs ()] >> rveq >>
@@ -1838,9 +1846,7 @@ Proof
    fs [wlab_wloc_def])
 QED
 
-Theorem compile_StoreByte:
-  ^(get_goal "compile _ _ (crepLang$StoreByte _ _)")
-Proof
+Resume ncompile_correct[StoreByte]:
   rw [] >>
   fs [crepSemTheory.evaluate_def, evaluate_def,
       compile_def, AllCaseEqs ()] >> rveq >>
@@ -1949,9 +1955,7 @@ Proof
   gvs[wlab_wloc_def]
 QED
 
-Theorem compile_StoreGlob:
-  ^(get_goal "compile _ _ (crepLang$StoreGlob _ _)")
-Proof
+Resume ncompile_correct[StoreGlob]:
   rw [] >>
   fs [crepSemTheory.evaluate_def, evaluate_def,
       compile_def, AllCaseEqs ()] >> rveq >>
@@ -1982,9 +1986,7 @@ Proof
   res_tac >> fs []
 QED
 
-Theorem compile_ShMem:
-  ^(get_goal "compile _ _ (crepLang$ShMem _ _ _)")
-Proof
+Resume ncompile_correct[ShMem]:
   rw [] >>
   fs [crepSemTheory.evaluate_def, evaluate_def,
       compile_def,CaseEq"option",CaseEq"word_lab"] >> rveq >>
@@ -2043,9 +2045,7 @@ Proof
   metis_tac []
 QED
 
-Theorem compile_Assign:
-  ^(get_goal "compile _ _ (crepLang$Assign _ _)")
-Proof
+Resume ncompile_correct[Assign]:
   rw [] >>
   fs [crepSemTheory.evaluate_def, evaluate_def,
       compile_def, AllCaseEqs ()] >> rveq >>
@@ -2086,9 +2086,7 @@ Proof
   rw []
 QED
 
-Theorem compile_Dec:
-  ^(get_goal "compile _ _ (crepLang$Dec _ _ _)")
-Proof
+Resume ncompile_correct[Dec]:
   rw [] >>
   fs [crepSemTheory.evaluate_def, evaluate_def,
       compile_def, AllCaseEqs ()] >> rveq >>
@@ -2264,9 +2262,7 @@ Proof
   cases_on ‘v'’ >> fs [wlab_wloc_def])
 QED
 
-Theorem compile_If:
-  ^(get_goal "compile _ _ (crepLang$If _ _ _)")
-Proof
+Resume ncompile_correct[If]:
   rw [] >>
   fs [crepSemTheory.evaluate_def, evaluate_def,
       compile_def, AllCaseEqs ()] >> rveq >>
@@ -2363,9 +2359,7 @@ Proof
 QED
 
 
-Theorem compile_FFI:
-  ^(get_goal "compile _ _ (crepLang$ExtCall _ _ _ _ _)")
-Proof
+Resume ncompile_correct[ExtCall]:
   rw [] >>
   fs [crepSemTheory.evaluate_def, evaluate_def,
       compile_def, AllCaseEqs ()] >> rveq >> fs [] >>
@@ -2400,9 +2394,7 @@ Proof
 QED
 
 
-Theorem compile_While:
-  ^(get_goal "compile _ _ (crepLang$While _ _)")
-Proof
+Resume ncompile_correct[While]:
   rpt gen_tac >> rpt strip_tac >>
   qpat_x_assum ‘evaluate (While e c,s) = (res,s1)’ mp_tac >>
   once_rewrite_tac [crepSemTheory.evaluate_def] >>
@@ -2983,9 +2975,7 @@ Proof
   )
 QED
 
-Theorem compile_Call:
-  ^(get_goal "compile _ _ (crepLang$Call _ _ _)")
-Proof
+Resume ncompile_correct[Call]:
   rw []
   \\ fs [crepSemTheory.evaluate_def,
        CaseEq "option", CaseEq "word_lab",CaseEq "prod"]
@@ -3326,18 +3316,7 @@ Proof
   )
 QED
 
-Theorem ncompile_correct:
-   ^(compile_prog_tm ())
-Proof
-  match_mp_tac (the_ind_thm()) >>
-  EVERY (map strip_assume_tac
-         [compile_Skip_Break_Continue, compile_Tick, compile_ShMem,
-          compile_Seq, compile_Return, compile_Raise, compile_Store32,
-          compile_Store, compile_StoreByte, compile_StoreGlob,
-          compile_Assign, compile_Dec, compile_If, compile_FFI,
-          compile_While, compile_Call]) >>
-  asm_rewrite_tac [] >> rw [] >> rpt (pop_assum kall_tac)
-QED
+Finalise ncompile_correct;
 
 
 Theorem ocompile_correct:

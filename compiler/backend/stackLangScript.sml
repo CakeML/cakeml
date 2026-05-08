@@ -34,12 +34,14 @@ Datatype:
               (* handler: exception-handler code, labels l1,l2*)
        | Seq stackLang$prog stackLang$prog
        | If cmp num ('a reg_imm) stackLang$prog stackLang$prog
-       | While cmp num ('a reg_imm) stackLang$prog
+       | Loop stackLang$prog
        | JumpLower num num num (* reg, reg, target name *)
        | Alloc num
        | StoreConsts num num (num option) (* reg, reg, stub name to call *)
        | Raise num
        | Return num
+       | Break num
+       | Continue num
        | FFI mlstring num num num num num (* FFI index, conf_ptr, conf_len,
                                              array_ptr, array_len, ret_addr *)
        | Tick
@@ -62,6 +64,8 @@ Datatype:
        | BitmapLoad num num     (* load word from read-only region *)
        | Halt num
 End
+
+Overload While = “λcmp r ri c. Loop (If cmp r ri c (Break 0))”
 
 Overload move = “λdest src. Inst (Arith (Binop Or dest src (Reg src)))”
 Overload sub_1_inst = “λr1. Inst (Arith (Binop Sub r1 r1 (Imm 1w)))”
