@@ -148,8 +148,6 @@ Definition pancake_peg_def[nocompute]:
                                  seql [keep_annot; mknt TopDecListNT] (mksubtree TopDecListNT)]);
         (INL StructNameNT, seql [consume_kw NamedK;
                                  keep_ident;
-        (INL FunNT, seql [try_default (keep_kw InlineK) NoinlineT;
-                          try_default (keep_kw ExportK) StaticT;
                                  consume_tok LCurT;
                                  mknt FieldNameListNT;
                                  consume_tok RCurT]
@@ -159,6 +157,8 @@ Definition pancake_peg_def[nocompute]:
                                            mknt ShapedIdentNT] I)
                                     FLAT]
                                (mksubtree FieldNameListNT));
+        (INL FunNT, seql [try_default (keep_kw InlineK) NoinlineT;
+                          try_default (keep_kw ExportK) StaticT;
                           consume_kw FunK;
                           mknt ShapedIdentNT;
                           consume_tok LParT;
