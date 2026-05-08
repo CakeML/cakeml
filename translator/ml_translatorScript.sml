@@ -110,14 +110,14 @@ Theorem explode_eq:
   explode s = l <=> s = strlit l
 Proof
   rw[EQ_IMP_THM]
-  \\ rw[GSYM mlstringTheory.implode_def]
+  \\ rw[]
 QED
 
 Theorem eq_explode:
   l = explode s <=> s = strlit l
 Proof
   rw[EQ_IMP_THM]
-  \\ rw[GSYM mlstringTheory.implode_def]
+  \\ rw[]
 QED
 
 Definition HOL_STRING_TYPE_def:
@@ -2289,12 +2289,12 @@ val tac1 =
   rw[Eval_rw,WORD_def]
   \\ first_x_assum (qspec_then `refs` mp_tac) \\ strip_tac
   \\ qexists_tac `ck1` \\ fs [do_app_def,empty_state_def]
-  \\ rw[BOOL_def,Boolv_11] \\ fs[STRING_TYPE_def,mlstringTheory.implode_def]
+  \\ rw[BOOL_def,Boolv_11] \\ fs[STRING_TYPE_def]
 
 val tac2 =
   rw[Eval_rw,CHAR_def,NUM_def,INT_def]
   \\ Eval2_tac \\ fs [do_app_def,empty_state_def]
-  \\ rw[BOOL_def,Boolv_11] \\ fs[STRING_TYPE_def,mlstringTheory.implode_def]
+  \\ rw[BOOL_def,Boolv_11] \\ fs[STRING_TYPE_def]
 
 Theorem Eval_implode:
    !env x1 l.
@@ -2385,8 +2385,7 @@ Proof
   \\ Cases_on`st` \\ fs[STRING_TYPE_def,empty_state_def]
   \\ fs[NUM_def,INT_def,IMPLODE_EXPLODE_I]
   \\ rw[copy_array_def,INT_ABS_NUM,INT_ADD,
-        substring_def,SEG_TAKE_DROP,STRING_TYPE_def,
-        implode_def]
+        substring_def,SEG_TAKE_DROP,STRING_TYPE_def]
 QED
 
 val str_cmp_tac =
@@ -2498,7 +2497,7 @@ Theorem Eval_HOL_STRING_DEST:
 Proof
   rw [HOL_STRING_TYPE_def]
   \\ imp_res_tac Eval_explode
-  \\ fs [implode_def,explode_def]
+  \\ fs [explode_def]
 QED
 
 Theorem Eval_HOL_STRING_LENGTH:
@@ -2520,7 +2519,7 @@ Theorem Eval_HOL_STRING_EL:
 Proof
   rw [HOL_STRING_TYPE_def]
   \\ imp_res_tac Eval_strsub
-  \\ rfs [strlen_def,strsub_def,implode_def]
+  \\ rfs [strlen_def,strsub_def]
 QED
 
 Theorem Eval_HOL_STRING_HD:
@@ -2546,7 +2545,7 @@ Theorem Eval_HOL_STRING_APPEND:
                          [x2; Con (SOME (Short «[]»)) []]]])
         (HOL_STRING_TYPE (s1++s2))
 Proof
-  rw [HOL_STRING_TYPE_def] \\ fs [implode_def,lookup_cons_def]
+  rw [HOL_STRING_TYPE_def] \\ fs [lookup_cons_def]
   \\ `strlit (STRCAT s1 s2) =
       concat [strlit s1; strlit s2]` by EVAL_TAC
   \\ fs [] \\ match_mp_tac (Eval_concat)
@@ -2605,7 +2604,7 @@ Proof
   THEN1 EVAL_TAC
   \\ fs[v_to_list_def,LIST_TYPE_def,EVAL ``list_type_num``]
   \\ first_x_assum drule \\ rw[]
-  \\ fs [] \\ fs [HOL_STRING_TYPE_def,STRING_TYPE_def,implode_def]
+  \\ fs [] \\ fs [HOL_STRING_TYPE_def,STRING_TYPE_def]
   \\ rveq \\ rw[vs_to_string_def, strcat_def, concat_def]
 QED
 
@@ -2632,7 +2631,7 @@ Theorem Eval_HOL_STRING_LITERAL:
 Proof
   rpt strip_tac
   \\ qspec_then `strlit s` mp_tac Eval_Val_STRING
-  \\ fs[HOL_STRING_TYPE_def,mlstringTheory.implode_def]
+  \\ fs[HOL_STRING_TYPE_def]
 QED
 
 (* vectors *)

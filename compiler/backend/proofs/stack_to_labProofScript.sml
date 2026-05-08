@@ -11,21 +11,6 @@ Ancestors
   stack_allocProof stack_removeProof stack_to_lab
   stackSem stackProps stack_alloc  labSem labProps semanticsProps
 
-(* Set up ML bindings *)
-open stackSemTheory stackPropsTheory
-     stack_allocTheory stack_to_labTheory
-     labSemTheory labPropsTheory
-     stack_removeProofTheory
-     stack_allocProofTheory
-     stack_namesProofTheory
-     semanticsPropsTheory
-     wordPropsTheory
-local open word_to_stackProofTheory
-           data_to_word_gcProofTheory
-           stack_rawcallProofTheory
-           wordSemTheory
-in end
-
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 val _ = temp_delsimps ["fromAList_def", "domain_union",
@@ -3522,7 +3507,7 @@ Proof
              DECIDE``0n <> 1 /\ 0n <> 2 /\ 0n <> 3 /\ 1n <> 2 /\ 1n <> 3``, INJ_DEF] )
       \\ simp[Abbr`code3`,domain_fromAList,Abbr`code2`]
       \\ conj_tac >-
-        simp[compile_def,MAP_prog_to_section_Section_num]>>
+        simp[stack_to_labTheory.compile_def,MAP_prog_to_section_Section_num]>>
       qmatch_goalsub_abbrev_tac`EVERY _ cc`>>
       `labels_ok cc` by
         (fs[Abbr`cc`]>>
@@ -4968,7 +4953,7 @@ Theorem compile_no_share_mem_inst:
   compile stack_conf data_conf max_heap sp offset prog = prog' ==>
   labProps$no_share_mem_inst prog'
 Proof
-  rw[compile_def]>>
+  rw[stack_to_labTheory.compile_def]>>
   irule prog_to_section_no_share_mem_inst>>
   irule stack_names_compile_no_shmemop>>
   irule stack_remove_compile_no_shmemop>>
@@ -5230,7 +5215,7 @@ Theorem stack_to_lab_compile_no_install:
   compile stack_conf data_conf max_heap sp offset prog = prog' ==>
   labProps$no_install prog'
 Proof
-  rw[compile_def]>>
+  rw[stack_to_labTheory.compile_def]>>
   irule prog_to_section_no_install>>
   irule stack_names_compile_no_install>>
   irule stack_remove_compile_no_install>>

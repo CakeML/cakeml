@@ -1784,10 +1784,13 @@ Proof
     >- metis_tac[]
   )
   >- (
-    gvs[remove_eq_def]>>every_case_tac>>simp[empty_eq_def]>>
+    gvs[remove_eq_def, set_store_eq_def]>>every_case_tac>>gvs[empty_eq_def, lookup_insert]
+    >>~- ([`lookup_store_eq _ _ = SOME _`],
     pairarg_tac>>gvs[copy_prop_move_def,set_eq_def,remove_eq_def]>>
     every_case_tac>>rw[lookup_insert,empty_eq_def]>>
     metis_tac[])
+    >> metis_tac[]
+  )
 QED
 
 Theorem pre_alloc_conventions_copy_prop_aux[local]:

@@ -534,6 +534,6 @@ End
 
 Definition stub_names_def:
   stub_names () = [
-    (raise_stub_location,        mlstring$strlit "_Raise");
-    (store_consts_stub_location, mlstring$strlit "_StoreConsts")]
+    (raise_stub_location,        implode "_Raise");
+    (store_consts_stub_location, implode "_StoreConsts")]
 End

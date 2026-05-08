@@ -346,13 +346,13 @@ End
 Definition last_to_str_def:
   last_to_str l =
     case l of
-    | RetLast      => strlit "return"
-    | RaiseLast    => strlit "raise"
-    | TailLast     => strlit "tail call"
-    | BreakLast    => strlit "break"
-    | ContLast     => strlit "continue"
-    | CondExitLast => strlit "exiting conditional"
-    | _            => strlit ""
+    | RetLast      => «return»
+    | RaiseLast    => «raise»
+    | TailLast     => «tail call»
+    | BreakLast    => «break»
+    | ContLast     => «continue»
+    | CondExitLast => «exiting conditional»
+    | _            => «»
 End
 
 (*
@@ -413,13 +413,13 @@ Definition get_scope_desc_def:
     | FunScope fname desc =>
       concat [strlit "function "; fname; desc]
     | DeclScope vname =>
-      concat [strlit "initialisation of global variable "; vname]
+      concat [«initialisation of global variable »; vname]
     | StcScope sname fld =>
       concat [
         strlit "declaration of field "; fld;
         strlit " in named struct "; sname]
     | TopLevel =>
-      strlit "top-level declaration"
+      «top-level declaration»
 End
 
 (*
@@ -434,8 +434,6 @@ Definition get_scope_msg_def:
       | Fun => strlit "function "
       | Stc => strlit "struct name " in
     concat [loc; id_desc; id;
-      strlit " is not in scope in ";
-      get_scope_desc scope; strlit "\n"]
 End
 
 (*
@@ -463,18 +461,16 @@ End
 *)
 Definition get_memop_msg_def:
   get_memop_msg is_local is_load is_untrust loc scope =
-    let mem_type = if is_local then strlit "local " else strlit "shared " in
-    let op_type  = if is_load  then strlit "load "  else strlit "store "  in
+    let mem_type = if is_local then «local » else «shared » in
+    let op_type  = if is_load  then «load »  else «store »  in
     let issue =
       case (is_local, is_untrust) of
-      | (F, F) => strlit "is "
-      | (F, T) => strlit "may be "
-      | (T, F) => strlit "is not "
-      | (T, T) => strlit "may not be " in
+      | (F, T) => «may be »
+      | (T, F) => «is not »
+      | (T, T) => «may not be » in
     concat [
       loc; mem_type; op_type;
-      strlit "address "; issue; strlit "calculated from base in ";
-      get_scope_desc scope; strlit "\n"]
+      get_scope_desc scope; «\n»]
 End
 
 (*
@@ -508,7 +504,7 @@ End
 *)
 Definition get_rogue_msg_def:
   get_rogue_msg is_break loc scope =
-    let stmt = if is_break then strlit "break " else strlit "continue " in
+    let stmt = if is_break then «break » else «continue » in
     concat [
       loc; stmt;
       strlit "statement outside loop in ";
@@ -555,18 +551,18 @@ End
 Definition binop_to_str_def:
   binop_to_str op =
     case op of
-    | Add => strlit "Add"
-    | Sub => strlit "Sub"
-    | And => strlit "And"
-    | Or  => strlit "Or"
-    | Xor => strlit "Xor"
+    | Add => «Add»
+    | Sub => «Sub»
+    | And => «And»
+    | Or  => «Or»
+    | Xor => «Xor»
 End
 
 (* Get string name for Pancake ops *)
 Definition panop_to_str_def:
   panop_to_str op =
     case op of
-    | Mul => strlit "Mul"
+    | Mul => «Mul»
 End
 
 
@@ -638,8 +634,8 @@ Definition check_func_args_def:
     | ((p,s)::ps, sb::sbs) =>
       if ~(sh_bd_has_shape s sb) then
         error (ShapeErr $ get_shape_mismatch_msg (concat [
-            strlit "value for argument "; p;
-            strlit " given to function "; fname
+            «value for argument »; p;
+            « given to function »; fname
           ]) (sh_bd_to_str sb) (shape_to_str s) ctxt.loc ctxt.scope)
       else check_func_args ctxt fname ps sbs
     (* no more provided args *)
@@ -785,7 +781,6 @@ Definition static_check_exp_def:
       | NONE => error (ShapeErr $ concat [
           ctxt.loc; strlit "expression shape "; sh_bd_to_str eret.sh_bd;
           strlit " has no field at index "; num_to_str index;
-          strlit " in "; get_scope_desc ctxt.scope; strlit "\n"])
       (* return exp info with found shape *)
       | SOME sb => return <| sh_bd := sb |>
     od ∧
@@ -1646,7 +1641,7 @@ Definition static_check_progs_def:
                 ; in_loop := F
                 ; is_reachable := IsReach
                 ; last := InvisLast
-                ; loc := strlit "" |>;
+                ; loc := «» |>;
       (* check function body *)
       prog_ret <- static_check_prog ctxt fi.body;
       (* check missing function exit *)
@@ -1682,7 +1677,7 @@ Definition static_check_decls_def:
                 ; in_loop := F
                 ; is_reachable := IsReach
                 ; last := InvisLast
-                ; loc := strlit "" |>;
+                ; loc := «» |>;
       (* check for redeclaration *)
       check_redec_var (ctxt with scope := TopLevel) vname;
       (* check shape *) (* TODO: decl locs*)

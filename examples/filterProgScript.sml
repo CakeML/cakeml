@@ -272,7 +272,7 @@ QED
 Definition cut_at_null_def:
   cut_at_null s =
   case null_index s 0 of
-      NONE => strcat s (str(CHR 0))
+      NONE => strcat s (toString(CHR 0))
     | SOME n => substring s 0 (SUC n)
 End
 
@@ -281,7 +281,7 @@ Theorem cut_at_null_SPLITP:
 Proof
   Cases >> rw[cut_at_null_def] >> reverse(PURE_TOP_CASE_TAC >> rw[])
   >- (imp_res_tac null_index_le_len >> rw[mlstringTheory.substring_def]
-      >> fs[mlstringTheory.strlen_def,mlstringTheory.implode_def]
+      >> fs[mlstringTheory.strlen_def]
       >> imp_res_tac null_index_no_null >> fs[]
       >> imp_res_tac null_index_null >> fs[]
       >> imp_res_tac SPLITP_TAKE_DROP >> rfs[]
@@ -291,7 +291,7 @@ Proof
       >> rfs[])
   >- (imp_res_tac null_index_no_null2
       >> fs[o_DEF] >> imp_res_tac SPLITP_EVERY
-      >> fs[mlstringTheory.implode_def,mlstringTheory.strcat_thm])
+      >> fs[mlstringTheory.strcat_thm])
 QED
 
 val _ = translate cut_at_null_def;
@@ -386,7 +386,7 @@ Theorem cut_at_null_w_SPLITP:
 Proof
   rw[cut_at_null_w_def] >> reverse(PURE_TOP_CASE_TAC >> rw[])
   >- (imp_res_tac null_index_w_le_len >> rw[mlstringTheory.substring_def]
-      >> fs[mlstringTheory.strlen_def,mlstringTheory.implode_def]
+      >> fs[mlstringTheory.strlen_def]
       >> imp_res_tac null_index_w_no_null >> fs[]
       >> imp_res_tac null_index_w_null >> fs[]
       >> imp_res_tac SPLITP_TAKE_DROP >> rfs[]
@@ -403,7 +403,7 @@ Proof
   ho_match_mp_tac null_index_w_ind
   >> rpt strip_tac
   >> MAP_EVERY PURE_ONCE_REWRITE_TAC [[null_index_def],[null_index_w_def]] >> rw[]
-  >> fs[mlstringTheory.implode_def]
+  >> fs[]
   >> `n < LENGTH s` by fs[]
   >> rfs[EL_MAP]
   >> qspecl_then [`[EL n s]`,`[0w]`] assume_tac MAP_CHR_w2n_11
@@ -417,7 +417,7 @@ Proof
   >> PURE_TOP_CASE_TAC >> rw[MAP_MAP_o]
   >> fs[n2w_ORD_CHR_w2n]
   >> imp_res_tac null_index_le_len
-  >> fs[mlstringTheory.implode_def,mlstringTheory.substring_def]
+  >> fs[mlstringTheory.substring_def]
   >> MAP_EVERY PURE_ONCE_REWRITE_TAC [[null_index_def],[null_index_w_def]] >> rw[]
   >> fs[GSYM TAKE_SEG,MAP_TAKE,MAP_MAP_o,n2w_ORD_CHR_w2n]
 QED
@@ -425,7 +425,7 @@ QED
 Theorem cut_at_null_thm:
   cut_at_null(strlit (MAP (CHR o w2n) l)) = strlit(MAP (CHR o w2n) (cut_at_null_w(l:word8 list)))
 Proof
-  rw[cut_at_null_w_thm,MAP_MAP_o,implode_def,CHR_w2n_n2w_ORD,REWRITE_RULE[implode_def] implode_explode]
+  rw[cut_at_null_w_thm,MAP_MAP_o,CHR_w2n_n2w_ORD,implode_explode]
 QED
 
 Definition null_terminated_def:
@@ -882,9 +882,9 @@ Proof
            ))` >-
        (xffi >> xsimpl >>
         qmatch_goalsub_abbrev_tac `one(FFI_part s u ns events)` >>
-        MAP_EVERY qexists_tac [‘[]’, `W8ARRAY dummyarr_loc []`,`s`,`u`,`ns`,`events`] >>
+        MAP_EVERY qexists_tac [`W8ARRAY dummyarr_loc []`,`s`,`u`,`ns`,`events`] >>
         unabbrev_all_tac >> xsimpl >>
-        simp[filter_cf_oracle,decode_encode_oracle_state_11,filter_oracle,implode_def] >>
+        simp[filter_cf_oracle,decode_encode_oracle_state_11,filter_oracle] >>
         `?i1 input'. LDROP i input = SOME(i1:::input')`
           by(qpat_x_assum `LLENGTH input = NONE` mp_tac >>
              qid_spec_tac `input` >> rpt(pop_assum kall_tac) >>
@@ -922,15 +922,15 @@ Proof
            simp[Abbr `inputbuff`,next_filter_events,nth_arr_SUC] >>
            drule_then(qspec_then `i` strip_assume_tac) (GEN_ALL nth_arr_LENGTH) >>
            drule_then strip_assume_tac LNTH_LDROP >> fs[] >>
-           fs[match_string_eq] >> fs[cut_at_null_w_thm,MAP_MAP_o,CHR_w2n_n2w_ORD,implode_def] >>
+           fs[match_string_eq] >> fs[cut_at_null_w_thm,MAP_MAP_o,CHR_w2n_n2w_ORD] >>
            imp_res_tac every_LNTH >> fs[every_thm] >>
-           fs[null_terminated_w_thm,implode_def] >>
+           fs[null_terminated_w_thm] >>
            fs[null_terminated_cut_APPEND,TAKE_APPEND,TAKE_LENGTH_TOO_LONG] >>
            fs[GSYM strlit_STRCAT,null_terminated_cut_APPEND] >>
            fs[DROP_LENGTH_TOO_LONG] >>
            xsimpl) >-
           (xffi >>
-           fs[cut_at_null_thm,STRING_TYPE_def,implode_def] >>
+           fs[cut_at_null_thm,STRING_TYPE_def] >>
            qmatch_goalsub_abbrev_tac `MAP _ a1 = _` >>
            qexists_tac `a1` >> qunabbrev_tac `a1` >>
            simp[] >>
@@ -948,9 +948,9 @@ Proof
            simp[next_filter_events,nth_arr_SUC] >>
            drule_then(qspec_then `i` strip_assume_tac) (GEN_ALL nth_arr_LENGTH) >>
            drule_then strip_assume_tac LNTH_LDROP >> fs[] >>
-           fs[match_string_eq] >> fs[cut_at_null_w_thm,MAP_MAP_o,CHR_w2n_n2w_ORD,implode_def] >>
+           fs[match_string_eq] >> fs[cut_at_null_w_thm,MAP_MAP_o,CHR_w2n_n2w_ORD] >>
            imp_res_tac every_LNTH >> fs[every_thm] >>
-           fs[null_terminated_w_thm,implode_def] >>
+           fs[null_terminated_w_thm] >>
            fs[null_terminated_cut_APPEND,TAKE_APPEND,TAKE_LENGTH_TOO_LONG] >>
            fs[DROP_LENGTH_TOO_LONG] >>
            fs[GSYM strlit_STRCAT,null_terminated_cut_APPEND] >>
@@ -1171,9 +1171,9 @@ Proof
         xsimpl >>
         simp[seL4_IO_def] >>
         qmatch_goalsub_abbrev_tac `one(FFI_part s u ns events)` >>
-        MAP_EVERY qexists_tac [‘[]’, `W8ARRAY dummyarr_loc []`,`s`,`u`,`ns`,`events`] >>
+        MAP_EVERY qexists_tac [`W8ARRAY dummyarr_loc []`,`s`,`u`,`ns`,`events`] >>
         unabbrev_all_tac >> xsimpl >>
-        simp[filter_cf_oracle,decode_encode_oracle_state_11,filter_oracle,implode_def] >>
+        simp[filter_cf_oracle,decode_encode_oracle_state_11,filter_oracle] >>
         xsimpl) >>
      xsimpl >> rename1 `W8ARRAY loc init` >>
      MAP_EVERY qexists_tac [`loc`,`init`,`[]`] >>
@@ -1187,8 +1187,8 @@ Proof
     (xffi >> xsimpl >>
      simp[seL4_IO_def,Abbr `newinit`] >>
      qmatch_goalsub_abbrev_tac `one(FFI_part s u ns events)` >>
-     MAP_EVERY qexists_tac [‘[]’, `W8ARRAY dummyarr_loc []`,`s`,`u`,`ns`,`events`] >>
-     unabbrev_all_tac >> simp[implode_def] >> xsimpl >>
+     MAP_EVERY qexists_tac [`W8ARRAY dummyarr_loc []`,`s`,`u`,`ns`,`events`] >>
+     unabbrev_all_tac >> simp[] >> xsimpl >>
      simp[filter_cf_oracle,decode_encode_oracle_state_11,filter_oracle] >>
      xsimpl >>
      simp[SNOC_APPEND,SEP_IMP_REFL]) >>
@@ -1208,10 +1208,10 @@ Proof
        (xcon >> xsimpl >>
         fs[match_string_eq] >>
         qunabbrev_tac `newinit` >>
-        fs[null_terminated_w_thm,implode_def] >>
+        fs[null_terminated_w_thm] >>
         rfs[null_terminated_cut_APPEND,TAKE_APPEND,TAKE_LENGTH_TOO_LONG,TAKE_TAKE_MIN] >>
         rfs[GSYM strlit_STRCAT,null_terminated_cut_APPEND] >>
-        fs[cut_at_null_w_thm,MAP_MAP_o,CHR_w2n_n2w_ORD,implode_def] >>
+        fs[cut_at_null_w_thm,MAP_MAP_o,CHR_w2n_n2w_ORD] >>
         fs[DROP_APPEND1,DROP_LENGTH_TOO_LONG] >>
         simp[SNOC_APPEND,toList_THM] >> xsimpl >>
         PURE_REWRITE_TAC[GSYM APPEND_ASSOC,APPEND,SNOC_APPEND] >>
@@ -1231,7 +1231,7 @@ Proof
      xsimpl >>
      fs[match_string_eq] >>
      fs[cut_at_null_w_thm,MAP_MAP_o,CHR_w2n_n2w_ORD] >>
-     fs[null_terminated_w_thm,implode_def] >>
+     fs[null_terminated_w_thm] >>
      rfs[null_terminated_cut_APPEND,TAKE_APPEND,TAKE_LENGTH_TOO_LONG] >>
      rfs[GSYM strlit_STRCAT,null_terminated_cut_APPEND] >>
      simp[toList_THM] >>
@@ -1241,7 +1241,7 @@ Proof
      qmatch_goalsub_abbrev_tac `events ++ x` >>
      qexists_tac `x` >> simp[Abbr `x`] >>
      simp[is_emit_def] >> xsimpl >>
-     simp[output_event_of_def,cut_at_null_w_thm,implode_def]
+     simp[output_event_of_def,cut_at_null_w_thm]
     ) >>
   xapp >>
   xsimpl >>

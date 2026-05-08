@@ -298,7 +298,7 @@ Definition calls_def:
      let loc = (case loc_opt of SOME loc => loc | NONE => 0) in
      let new_g = insert_each loc (LENGTH fns) g in
      let (fns1,new_g) = calls (MAP SND fns) new_g in
-       if EVERY2 (\(n,_) p. closed (Fn (strlit "") NONE NONE n p)) fns fns1 then
+       if EVERY2 (\(n,_) p. closed (Fn «» NONE NONE n p)) fns fns1 then
          let new_g = code_list loc (ZIP (MAP FST fns,fns1)) new_g in
          let (e1,g) = calls [x1] new_g in
            ([Letrec t loc_opt ws (calls_list None 1 loc fns) (HD e1)],g)
@@ -371,7 +371,7 @@ Definition calls_sing_def:
      let loc = (case loc_opt of SOME loc => loc | NONE => 0) in
      let new_g = insert_each loc (LENGTH fns) g in
      let (fns1,new_g) = calls_sing_list (MAP SND fns) new_g in
-       if EVERY2 (\(n,_) p. closed (Fn (strlit "") NONE NONE n p)) fns fns1 then
+       if EVERY2 (\(n,_) p. closed (Fn «» NONE NONE n p)) fns fns1 then
          let new_g = code_list loc (ZIP (MAP FST fns,fns1)) new_g in
          let (e1,g) = calls_sing x1 new_g in
            (Letrec t loc_opt ws (calls_list None 1 loc fns) e1,g)
@@ -463,8 +463,8 @@ QED
 
 val selftest = let
   (* example code *)
-  val f = ``Fn (strlit "") (SOME 800) NONE 1 (Op None (IntOp Add) [Var None 0; Op None (IntOp (Const 1)) []])``
-  val g = ``Fn (strlit "") (SOME 900) NONE 1 (App None (SOME 800) (Var None 1) [Var None 0])``
+  val f = ``Fn «» (SOME 800) NONE 1 (Op None (IntOp Add) [Var None 0; Op None (IntOp (Const 1)) []])``
+  val g = ``Fn «» (SOME 900) NONE 1 (App None (SOME 800) (Var None 1) [Var None 0])``
   val f_g_5 = ``App None (SOME 800) (Var None 1) [App None (SOME 900) (Var None 0) [Op None (IntOp (Const 5)) []]]``
   val let_let = ``[Let None [^f] (Let None [^g] ^f_g_5)]``
   (* compiler evaluation *)

@@ -363,13 +363,13 @@ fun alloc_all_raw alg graphs_raw =
 (*Int ML sptree to HOL num sptree*)
 fun mk_num_sptree t =
  case t of
-    Ln => mk_ln ``:num$num``
+    Ln => mk_ln numSyntax.num
   | Ls a => mk_ls (term_of_int a)
   | Bn (Ln, t2) =>
        let
           val tm = mk_num_sptree t2
        in
-          mk_bn (mk_ln ``:num$num``, tm)
+          mk_bn (mk_ln numSyntax.num, tm)
        end
   | Bn (t1, Ln) =>
        let
@@ -380,7 +380,7 @@ fun mk_num_sptree t =
   | Bn (t1, t2) => mk_bn (mk_num_sptree t1, mk_num_sptree t2)
   | Bs (t1, a, t2) =>
        let
-          val ln = mk_ln ``:num$num``
+          val ln = mk_ln numSyntax.num
           val tm1 = if t1 = Ln then ln else mk_num_sptree t1
           val tm2 = if t2 = Ln then ln else mk_num_sptree t2
        in
@@ -393,13 +393,16 @@ fun get_oracle_raw alg t =
   in
     listSyntax.mk_list
       (map (optionSyntax.mk_some o mk_num_sptree) cols,
-       ``:num$num sptree$spt option$option``)
+       optionSyntax.mk_option(sptreeSyntax.mk_sptree_ty numSyntax.num))
   end;
 
 (* --- old version --- *)
 
 val add_reg_alloc_compset = extend_compset
-  [Tys [``:ra_state``, ``:tag``, ``:clash_tree``, ``:ira_state``],
+  [Tys [mk_thy_type{Thy="reg_alloc",Tyop="ra_state",Args=[]},
+        mk_thy_type{Thy="reg_alloc",Tyop="tag",Args=[]},
+        mk_thy_type{Thy="reg_alloc",Tyop="clash_tree",Args=[]},
+        mk_thy_type{Thy="reg_alloc",Tyop="ira_state",Args=[]}],
    Defs
    [reg_allocTheory.st_ex_FOREACH_def,
     reg_allocTheory.st_ex_MAP_def,
@@ -570,7 +573,7 @@ fun get_oracle alg t =
       val alloc = listSyntax.mk_list (
       map
         (optionSyntax.mk_some  o mk_num_sptree) cols,
-        ``:num$num sptree$spt option$option``) in
+        optionSyntax.mk_option(sptreeSyntax.mk_sptree_ty numSyntax.num)) in
       alloc
   end
 

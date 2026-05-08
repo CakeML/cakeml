@@ -784,7 +784,7 @@ End
 Definition add_src_names_def:
   add_src_names n [] l = l ∧
   add_src_names n (x::xs) l =
-    add_src_names (n+2) xs (insert n (mlstring$concat [x; mlstring$strlit "_clos"]) (insert (n+1) x l))
+    add_src_names (n+2) xs (insert n (mlstring$concat [x; implode "_clos"]) (insert (n+1) x l))
 End
 
 Definition get_src_names_def:
@@ -863,14 +863,14 @@ Definition make_name_alist_def:
   make_name_alist nums prog nstubs dec_start (dec_length:num) =
     let src_names = get_src_names (MAP (SND o SND) prog) LN in
       fromAList(MAP(λn.(n, if n < nstubs then
-                             if n = nstubs-1 then mlstring$strlit "bvl_init" else
-                             if n = nstubs-2 then mlstring$strlit "bvl_force" else
-                                                  mlstring$strlit "bvl_stub"
+                             if n = nstubs-1 then implode "bvl_init" else
+                             if n = nstubs-2 then implode "bvl_force" else
+                                                  implode "bvl_stub"
                            else let clos_name = n - nstubs in
                              if dec_start ≤ clos_name ∧ clos_name < dec_start + dec_length
-                             then mlstring$strlit "dec" else
+                             then implode "dec" else
                                case lookup clos_name src_names of
-                               | NONE => mlstring$strlit "unknown_clos_fun"
+                               | NONE => implode "unknown_clos_fun"
                                | SOME s => s)) nums)
         : mlstring$mlstring num_map
 End

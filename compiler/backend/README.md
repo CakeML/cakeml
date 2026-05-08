@@ -207,9 +207,6 @@ explicit variable names of flatLang to de Bruijn indexing of
 closLang. It also makes all division-by-zero and out-of-bounds
 exceptions raised explicitly.
 
-[flat_uncheck_ctorsScript.sml](flat_uncheck_ctorsScript.sml):
-This compiler phase replaces tuples with constructors (with tag 0).
-
 [gc](gc):
 This directory contains the garbage collector (GC) algorithms and
 their verification proofs.

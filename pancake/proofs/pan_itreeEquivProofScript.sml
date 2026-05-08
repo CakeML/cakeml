@@ -17,7 +17,7 @@ val evaluate_invariant_oracle = cj 7 panPropsTheory.evaluate_invariants;
 Theorem explode_eq_implode[local]:
   ∀x y. explode x = y ⇔ x = implode y
 Proof
-  rpt Cases \\ simp [implode_def]
+  rpt Cases \\ simp []
 QED
 
 Theorem nondiv_evaluate:
@@ -42,7 +42,7 @@ Proof
     TRY (rename [‘_ = FUNPOW Tau n _’]>>
          Cases_on ‘n’>>fs[FUNPOW_SUC])>>
     gvs[set_var_defs,bst_def,empty_locals_defs,
-        explode_eq_implode,implode_def])>>
+        explode_eq_implode])>>
   fs[mrec_prog_simps,mrec_Seq,mrec_If,Once mrec_While,mrec_Call,
      mrec_DecCall,call_FFI_def,mrec_ShMemLoad,mrec_ShMemStore,
      empty_locals_defs,dec_clock_def,kvar_defs2]>>gvs[FUNPOW_SUC]>>
@@ -292,7 +292,7 @@ Proof
    (simp[mrec_ExtCall]>>
     fs[sh_mem_store_def,call_FFI_def,set_var_defs,AllCaseEqs()]>>
     rpt (TOP_CASE_TAC>>fs[])>>
-    gvs[empty_locals_defs,bst_def,explode_eq_implode,implode_def]>>
+    gvs[empty_locals_defs,bst_def,explode_eq_implode]>>
     metis_tac[FUNPOW])
   >- (* Seq *)
    (rpt (pairarg_tac>>fs[])>>
@@ -507,7 +507,7 @@ Proof
    (fs[Once evaluate_def,mrec_ExtCall,call_FFI_def,
        panPropsTheory.eval_upd_clock_eq]>>
     rpt (PURE_CASE_TAC>>fs[])>>gvs[]>>
-    gvs[dec_clock_def,empty_locals_defs,explode_eq_implode,implode_def]>>
+    gvs[dec_clock_def,empty_locals_defs,explode_eq_implode]>>
     rpt (rename [‘FUNPOW Tau n _’]>>
          Cases_on ‘n’>>gvs[FUNPOW_SUC])>>
     simp[bst_def,empty_locals_defs,set_var_defs])>>
@@ -778,7 +778,7 @@ Proof
     rpt (PURE_CASE_TAC>>fs[])>>
     strip_tac>>gvs[LAPPEND_NIL_2ND]>>
     fs[LAPPEND_NIL_2ND,dec_clock_def,
-       empty_locals_defs,GSYM LAPPEND_fromList,explode_eq_implode,implode_def])>>
+       empty_locals_defs,GSYM LAPPEND_fromList,explode_eq_implode])>>
   simp[mrec_prog_simps,
        mrec_If,
        Once evaluate_def,kvar_defs2,
@@ -1189,7 +1189,7 @@ Proof
    (simp[Once evaluate_def]>>
     pop_assum mp_tac>>
     rpt (PURE_CASE_TAC>>fs[])>>rw[]>>
-    gvs[ext_def,call_FFI_def,explode_eq_implode,implode_def])
+    gvs[ext_def,call_FFI_def,explode_eq_implode])
   >~[‘While’]>-
    (simp[Once evaluate_def]>>
     pop_assum mp_tac>>
@@ -2274,7 +2274,7 @@ Proof
   simp[mrec_prog_simps,mrec_Dec,mrec_If,mrec_ExtCall,
        mrec_ShMemLoad,mrec_ShMemStore]>>
   fs[panPropsTheory.eval_upd_clock_eq,call_FFI_def,kvar_defs2,
-     panPropsTheory.opt_mmap_eval_upd_clock_eq1,explode_eq_implode,implode_def]>>
+     panPropsTheory.opt_mmap_eval_upd_clock_eq1,explode_eq_implode]>>
   (* TODO Remove TRY; it is easy for a subgoal to slide past this TRY silently,
      causing situations were ones tries to debug at the wrong place :( *)
   (* 10 subgoals *)
