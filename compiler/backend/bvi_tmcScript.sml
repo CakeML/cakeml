@@ -361,7 +361,8 @@ End
 
 Definition optimise_call_def:
   optimise_call loc idx ptr ts args =
-  let args' = MAP (λn. Var n) args in
+  (* There are let binders in the optimised version *)
+  let args' = MAP (λn. Var (n + 2)) args in
     bvi$Call ts (SOME loc) (idx::ptr::args') NONE
 End
 
