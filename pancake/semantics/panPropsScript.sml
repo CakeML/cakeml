@@ -1201,7 +1201,7 @@ Proof
   rw []
   >> gvs [lookup_code_def, option_case_eq, bool_case_eq, pair_case_eq]
   >> simp [FEVERY_ALL_FLOOKUP, alistTheory.flookup_fupdate_list, option_case_eq]
-  >> rw [] 
+  >> rw []
   >> dxrule ALOOKUP_MEM
   >> fs [MEM_ZIP, LIST_REL_EL_EQN]
   >> rw []
@@ -1455,15 +1455,19 @@ Proof
   simp []
 QED
 
-(* This will have to be removed and fixed when named structs are in use. *)
-Theorem decs_stcnames_no_named_structs:
-  !st_ctxt code st_ctxt'. decs_stcnames st_ctxt code = SOME st_ctxt' ==>
-  st_ctxt' = st_ctxt
+Theorem decs_stcnames_only_functions:
+  !ctxt code. EVERY (\d. is_function d \/ is_decl d) code ==>
+  decs_stcnames ctxt code = SOME ctxt
 Proof
   recInduct decs_stcnames_ind
-  >> simp [decs_stcnames_def, named_structs_ok_def]
-  >> rw []
-  >> fs [option_case_eq]
+  >> simp [decs_stcnames_def, is_function_def, is_decl_def]
+QED
+
+Theorem decs_stcnames_only_functions2:
+  !ctxt code. EVERY is_function code ==>
+  decs_stcnames ctxt code = SOME ctxt
+Proof
+  simp [EVERY_MEM, decs_stcnames_only_functions]
 QED
 
 Theorem semantics_decls_has_main:
@@ -1474,7 +1478,6 @@ Proof
   rw[semantics_decls_def] >>
   rpt (PURE_FULL_CASE_TAC >> gvs[]) >>
   imp_res_tac evaluate_decls_functions >>
-  imp_res_tac decs_stcnames_no_named_structs >>
   gvs[semantics_def] >>
   PURE_FULL_CASE_TAC >>
   gvs[AllCaseEqs()] >>
@@ -1492,7 +1495,6 @@ Proof
   rw[semantics_decls_def] >>
   rpt (PURE_FULL_CASE_TAC >> gvs[]) >>
   imp_res_tac evaluate_decls_functions >>
-  imp_res_tac decs_stcnames_no_named_structs >>
   gvs[semantics_def] >>
   PURE_FULL_CASE_TAC >>
   gvs[AllCaseEqs()] >>

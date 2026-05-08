@@ -1,9 +1,6 @@
 (*
   Correctness proof for pan_structs
 
-  Side-stepped for now as the "named_structs_ok" switch in the semantics
-  prevents the structures adjusted by the pan_structs phase from appearing
-  in a verified program.
 *)
 Theory pan_structsProof
 Ancestors
@@ -114,6 +111,24 @@ Proof
   >> simp []
 QED
 
+Theorem is_wf_shape_drop:
+  !sh_ctxt sh n. is_wf_shape (DROP n sh_ctxt) sh ==>
+    is_wf_shape sh_ctxt sh
+Proof
+  recInduct is_wf_shape_ind
+  >> simp [is_wf_shape_def, EVERY_MEM]
+  >> rw []
+  >- (
+    metis_tac []
+  )
+  >- (
+    every_case_tac >> fs [] >>
+    qspecl_then [`TAKE n ctxt`, `DROP n ctxt`, `nm`] mp_tac ALOOKUP_APPEND >>
+    simp [] >>
+    simp [option_case_eq]
+  )
+QED
+
 Theorem struct_infos_ok_cons:
   struct_infos_ok xs /\
   ALL_DISTINCT (MAP FST info.fields) /\
@@ -149,24 +164,6 @@ Proof
   >> simp [EVERY_EL]
   >> fs [EL_MAP]
   >> metis_tac [is_wf_shape_drop]
-QED
-
-Theorem is_wf_shape_drop:
-  !sh_ctxt sh n. is_wf_shape (DROP n sh_ctxt) sh ==>
-    is_wf_shape sh_ctxt sh
-Proof
-  recInduct is_wf_shape_ind
-  >> simp [is_wf_shape_def, EVERY_MEM]
-  >> rw []
-  >- (
-    metis_tac []
-  )
-  >- (
-    every_case_tac >> fs [] >>
-    qspecl_then [`TAKE n ctxt`, `DROP n ctxt`, `nm`] mp_tac ALOOKUP_APPEND >>
-    simp [] >>
-    simp [option_case_eq]
-  )
 QED
 
 Theorem struct_infos_ok_drop:
@@ -628,7 +625,7 @@ Proof
   >- (
     gvs [mem_load_rec, option_case_eq, compile_shape_n_def, is_wf_shape_def]
     >> fs [convert_v_def, SF ETA_ss, v_flds_ok_def]
-    >> drule_then (DEP_REWRITE_TAC o single) mem_loads_helper
+    >> drule_then (DEP_REWRITE_TAC o single) mem_loads_convert_helper
     >> rw [EVERY_MEM]
     >> imp_res_tac struct_infos_ok_def
     >> fs [EVERY_MEM, size_of_compile_shape_n, size_of_sh_with_ctxt_drop, SF SFY_ss]
@@ -651,7 +648,7 @@ Proof
     >> simp [HD_DROP, DROP_DROP]
     >> strip_tac >> fs []
     >> fs [EL_DROP]
-    >> drule_then (DEP_REWRITE_TAC o single) mem_loads_helper
+    >> drule_then (DEP_REWRITE_TAC o single) mem_loads_convert_helper
     >> rpt conj_tac
     >- (
       rw []
@@ -1418,43 +1415,6 @@ Proof
   >> simp [context_component_equality]
 QED
 
-Theorem struct_infos_ok_cons:
-  struct_infos_ok xs /\
-  ALL_DISTINCT (MAP FST info.fields) /\
-  ~ MEM nm (MAP FST xs) /\
-  EVERY (is_wf_shape xs) (MAP SND info.fields) /\
-  info.size = size_of_sh_with_ctxt xs (Comb (MAP SND info.fields))
-  ==>
-  struct_infos_ok ((nm, info) :: xs)
-Proof
-  rw []
-  >> fs [struct_infos_ok_def]
-  >> conj_asm1_tac
-  >- (
-    rw []
-    >> gs [LT_SUC]
-    >> res_tac
-    >> fs [ADD1]
-  )
-  >> first_x_assum (qspec_then `0` assume_tac)
-  >> gs []
-  >> simp [ (size_of_sh_with_ctxt_drop
-        |> Q.SPEC `x :: xs` |> Q.GEN `n` |> Q.SPEC `1`
-        |> SIMP_RULE list_ss []) , is_wf_shape_def, SF ETA_ss]
-  >> fs [EVERY_EL]
-  >> rw []
-  >> rpt (first_x_assum drule)
-  >> rpt (pairarg_tac >> fs [])
-  >> rw []
-  >> DEP_REWRITE_TAC [ (size_of_sh_with_ctxt_drop
-        |> Q.SPEC `x :: xs` |> Q.GEN `n` |> Q.SPEC `1`
-        |> SIMP_RULE list_ss [] |> GSYM)]
-  >> simp [is_wf_shape_def, EVERY_MAP]
-  >> simp [EVERY_EL]
-  >> fs [EL_MAP]
-  >> metis_tac [is_wf_shape_drop]
-QED
-
 Theorem decs_stcnames_infos_ok:
   !acc code res ctxt. decs_stcnames acc code = SOME res /\
   struct_infos_ok acc ==>
@@ -1578,5 +1538,35 @@ Theorem compile_top_no_names:
   EVERY (λd. is_function d ∨ is_decl d) (pan_structs$compile_top pan_code)
 Proof
   simp [compile_top_def, compile_decs_no_names]
+QED
+
+Theorem compile_shape_n_no_name:
+  !ctxt n sh. is_wf_shape_nil (compile_shape_n ctxt n sh)
+Proof
+  recInduct compile_shape_n_ind
+  >> simp [compile_shape_n_def, is_wf_shape_def, EVERY_MAP]
+  >> rw []
+  >> simp [EVERY_MEM]
+  >> every_case_tac
+  >> simp [is_wf_shape_def]
+  >> rpt (pairarg_tac >> fs [])
+  >> simp [is_wf_shape_def, Once EVERY_MAP]
+  >> simp [EVERY_MEM]
+QED
+
+Theorem compile_shape_no_name:
+  !ctxt sh. is_wf_shape_nil (compile_shape ctxt sh)
+Proof
+  simp [compile_shape_n_eq_rev, compile_shape_n_no_name]
+QED
+
+Theorem size_of_shape_compile_pass_eq:
+  struct_infos_ok s.structs /\
+  is_wf_shape s.structs shape /\
+  str_ctxt = MAP (\(nm,info). (nm, info.fields)) s.structs ==>
+  size_of_shape (compile_shape str_ctxt shape) =
+  size_of_sh_with_ctxt s.structs shape
+Proof
+  metis_tac [size_of_sh_with_ctxt_eq, size_of_compile_shape, compile_shape_no_name]
 QED
 

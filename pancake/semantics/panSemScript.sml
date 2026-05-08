@@ -133,7 +133,8 @@ Definition mem_load_def:
           (case mem_load_flds info.fields addr dm m stcs' of
             | SOME vflds => SOME (NStruct nm vflds)
             | NONE => NONE)
-      | _ => NONE) /\
+      | _ => NONE)
+  ) /\
   (mem_loads [] addr dm m stcs = SOME []) /\
   (mem_loads (shape::shapes) addr dm m stcs =
    case (mem_load shape addr dm m stcs,
@@ -201,7 +202,8 @@ Definition eval_def:
             else NONE
           | NONE => NONE
         else NONE
-      | NONE => NONE) /\
+      | NONE => NONE)
+  ) /\
   (eval s (NField fld e) =
     (case eval s e of
      | SOME (NStruct nm vflds) =>

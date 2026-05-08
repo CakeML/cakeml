@@ -2728,14 +2728,6 @@ Proof
   rw[new_main_name_def,fresh_name_correct]
 QED
 
-Theorem evaluate_stcnames_only_functions:
-  !ctxt code. EVERY is_function code ==>
-  decs_stcnames ctxt code = SOME ctxt
-Proof
-  recInduct decs_stcnames_ind
-  >> simp [decs_stcnames_def, is_function_def]
-QED
-
 Theorem functions_filter_nil[local]:
   !decls. functions (FILTER ($¬ ∘ is_function) decls) = []
 Proof
@@ -2769,9 +2761,7 @@ Proof
   drule semantics_decls_has_main' >> strip_tac >>
   gvs[FLOOKUP_FUPDATE_LIST,CaseEq"option",
       alookup_distinct_reverse] >>
-  gvs[semantics_decls_def, evaluate_stcnames_only_functions, compile_top_only_functions] >>
-  PURE_TOP_CASE_TAC >> gvs[] >>
-  imp_res_tac decs_stcnames_no_named_structs >>
+  gvs[semantics_decls_def, decs_stcnames_only_functions, compile_top_only_functions] >>
   PURE_TOP_CASE_TAC >> gvs[] >>
   drule compile_top_shape_wf >>
   rw [] >>
@@ -2784,8 +2774,8 @@ Proof
   gvs[] >>
   strip_tac >>
   (* this needs to rewrite the goal to a semantics equality *)
-  gvs[evaluate_decls_only_functions_SOME,compile_top_only_functions,compile_top_shape_wf,
-    compile_top_shape_wf_nil, SF SFY_ss] >>
+  gvs[evaluate_decls_only_functions_SOME, compile_top_only_functions, compile_top_shape_wf,
+    decs_stcnames_only_functions2, compile_top_shape_wf_nil, SF SFY_ss] >>
   pop_assum mp_tac >>
   rw[state_component_equality] >>
   qpat_x_assum ‘evaluate_decls _ _ = _’ mp_tac >>

@@ -5036,6 +5036,7 @@ Proof
   gvs[AllCaseEqs(), GSYM IS_SOME_EQ_NOT_NONE, IS_SOME_EXISTS] >>
   gvs [] >>
   drule_all_then (gvs o single) evaluate_decls_only_functions >>
+  gs [decs_stcnames_only_functions2] >>
   irule EQ_SYM >>
   irule state_rel_imp_semantics_to_crep >>
   simp[PULL_EXISTS] >>
@@ -5044,7 +5045,6 @@ Proof
   conj_tac
   >- (rw[fmap_eq_flookup,FLOOKUP_FUPDATE_LIST,alookup_distinct_reverse] >>
       TOP_CASE_TAC >> simp[]) >>
-  imp_res_tac panPropsTheory.decs_stcnames_no_named_structs >>
   gvs[state_rel_def]
 QED
 
@@ -5101,9 +5101,9 @@ Theorem state_rel_imp_semantics_decls:
 Proof
   rw [semantics_decls_def] >>
   gvs[AllCaseEqs(), GSYM IS_SOME_EQ_NOT_NONE, IS_SOME_EXISTS] >>
-  imp_res_tac panPropsTheory.decs_stcnames_no_named_structs >>
   gvs [] >>
   drule_all_then (gvs o single) evaluate_decls_only_functions >>
+  gs [decs_stcnames_only_functions2] >>
   irule EQ_SYM >>
   irule state_rel_imp_semantics >>
   simp[PULL_EXISTS] >>
