@@ -1461,7 +1461,34 @@ Resume evaluate_rewrite_tmc[op]:
     >> conj_tac
     >-
      (rw []
-      >> first_assum $ irule_at Any
+      >> gvs [rewrite_wrapper_def]
+      >> gvs [CaseEq "option"]
+      >> rename [‘dest_Cons op = SOME tag’]
+      >> ‘op = BlockOp (Cons tag)’ by
+        (spose_not_then assume_tac
+         >> Cases_on ‘op’ >> gvs [dest_Cons_def]
+         >> Cases_on ‘b’ >> gvs [dest_Cons_def])
+      >> gvs [rewrite_wrapper_cons_def]
+      >> gvs [CaseEq "option", CaseEq "prod"]
+      >> rename [‘cb_to_hb cb = (hb,call_ts,call_args)’]
+      >> ‘evaluate ([Op (BlockOp (Cons tag)) xs],env,s) = (Rerr e,t)’ by gvs [evaluate_def]
+      >> drule evaluate_bvi_to_cb
+      >> disch_then drule
+      >> gvs []
+      >> strip_tac
+      >> gvs [evaluate_def]
+      (* Hypothesis on bs *)
+      >> first_assum $ qspecl_then [‘bs’, ‘s’] mp_tac
+      >> gvs []
+      >> impl_tac
+      >- (imp_res_tac bvi_to_cb_size >> gvs [])
+      >> disch_then drule
+      >> disch_then drule
+      >> disch_then drule
+      >> gvs []
+      >> strip_tac
+      >> gvs []
+      >> rename [‘f ⊑ f''’]
       >> cheat)
     >> rw []
     >> gvs [rewrite_worker_def, evaluate_def]
@@ -1522,16 +1549,7 @@ Resume evaluate_rewrite_tmc[op]:
   >> gvs []
   >> conj_tac
   >-
-   (rw []
-    (*>> drule wrapper_strip_op
-    >> strip_tac
-    >> gvs [is_block_op_cons_def]
-    >> pop_assum mp_tac
-    >> simp [Once rewrite_wrapper_def, CaseEq "option"]
-    >> simp [dest_Cons_def]
-    >> simp [rewrite_wrapper_cons_def, CaseEq "tc_and_hb"]
-    >> simp [CaseEq "hole_block", CaseEq "tcall"]*)
-    >> cheat)
+   (cheat)
   >> rw []
   >> gvs [rewrite_worker_def]
   >> CASE_TAC >> gvs []
@@ -1551,6 +1569,8 @@ Resume evaluate_rewrite_tmc[op]:
    (ho_match_mp_tac evaluate_fill_hole
     >> gvs [evaluate_def]
     >> rpt $ first_assum $ irule_at Any)
+
+    (* Move? *)
   >> Cases_on ‘x’ >> gvs []
   >> rename [‘bvi_to_cb loc tag args = SOME (bs,cb)’]
   (* Phase 1 theorem in s *)
@@ -1937,6 +1957,20 @@ Proof
   >> strip_tac
   >> gvs [GSYM PULL_EXISTS]
   >> cheat
+QED
+
+Theorem evaluate_hb_to_bvi_wrapper:
+  evaluate ([cb_to_bvi loc cb],env2,s) = (r,t) ∧
+  cb_to_hb cb = (hb,call_ts,call_args) ∧
+  cb = CallBlock tag left child right ∧
+  env_rel T f env1 env2 ∧
+  r ≠ Rerr (Rabort Rtype_error) ⇒
+  ∃r' t'.
+    evaluate ([],env2,s) = (r',t') ∧
+    res_rel (v_rel f) r r' ∧
+    state_rel f t t'
+Proof
+  cheat
 QED
 
 Theorem evaluate_hb_to_bvi_worker:
