@@ -1641,14 +1641,14 @@ Resume evaluate_rewrite_tmc[op]:
     >> disch_then drule
     >> imp_res_tac bvi_to_cb_wf
     >> gvs []
+    >> disch_then $ drule_at $ Pos $ el 2
+    >> drule env_rel_submap
     >> disch_then drule
-    >> ‘state_rel f' t t'’ by cheat (* maybe we have to get this from phase 1? which f? *)
+    >> strip_tac
     >> disch_then drule
     >> disch_then $ qspecl_then [‘loc_opt’, ‘arity + LENGTH bs’] mp_tac (* smell *)
     >> strip_tac
-    >> gvs []
-    >> cheat (* something screwy with maps *))
-                       
+    >> gvs [])
   >> strip_tac
   >> gvs [rewrite_worker_cons_def, evaluate_def]
   >> drule evaluate_hb_to_bvi_worker
