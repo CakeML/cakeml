@@ -1633,7 +1633,21 @@ Resume evaluate_rewrite_tmc[op]:
   >> pop_assum kall_tac
   >> rename [‘evaluate ([cb_to_bvi loc cb],as' ++ env2,s') = (r',t')’]
   (* Phase 2 theorem *)
-  >> conj_tac >- cheat (* rewrite_wrapper *)
+  >> conj_tac
+  >-
+   (rw []
+    >> gvs [evaluate_def]
+    >> drule evaluate_hb_to_bvi_wrapper
+    >> disch_then drule
+    >> imp_res_tac bvi_to_cb_wf
+    >> gvs []
+    >> disch_then drule
+    >> ‘state_rel f' t t'’ by cheat (* maybe we have to get this from phase 1? which f? *)
+    >> disch_then drule
+    >> disch_then $ qspecl_then [‘loc_opt’, ‘arity + LENGTH bs’] mp_tac (* smell *)
+    >> strip_tac
+    >> gvs []
+    >> cheat (* something screwy with maps *))
                        
   >> strip_tac
   >> gvs [rewrite_worker_cons_def, evaluate_def]
@@ -1957,15 +1971,16 @@ Proof
 QED
 
 Theorem evaluate_hb_to_bvi_wrapper:
-  evaluate ([cb_to_bvi loc cb],env2,s) = (r,t) ∧
-  cb_to_hb cb = (hb,call_ts,call_args) ∧
-  cb = CallBlock tag left child right ∧
-  env_rel T f env1 env2 ∧
-  r ≠ Rerr (Rabort Rtype_error) ⇒
-  ∃r' t'.
-    evaluate ([],env2,s) = (r',t') ∧
-    res_rel (v_rel f) r r' ∧
-    state_rel f t t'
+  ∀cb tag left child right hb call_ts call_args loc loc_opt arity f env1 env2 s' t t' r.
+    evaluate ([cb_to_bvi loc cb],env2,s') = (r,t') ∧
+    cb_to_hb cb = (hb,call_ts,call_args) ∧
+    cb = CallBlock tag left child right ∧
+    env_rel T f env1 env2 ∧
+    state_rel f t t' ∧
+    r ≠ Rerr (Rabort Rtype_error) ⇒
+    ∃t'.
+      evaluate ([hb_to_bvi_wrapper loc loc_opt arity hb call_ts call_args],env2,s') = (r,t') ∧
+      state_rel f t t'
 Proof
   cheat
 QED
