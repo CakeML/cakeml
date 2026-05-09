@@ -594,6 +594,14 @@ Proof
   \\ fs []
 QED
 
+Theorem cut_state_with_mem_const[local]:
+  cut_state x ((s:('a, 'b, 'c) wordSem$state) with memory := m) =
+  OPTION_MAP (λs'. s' with memory := m) (cut_state x s)
+Proof
+  simp [wordSemTheory.cut_state_def]
+  \\ Cases_on ‘cut_env x s.locals’ \\ simp []
+QED
+
 (* memory update lemma for evaluate *)
 Theorem memory_swap_lemma1[local]:
   ∀prog st res rst m.
@@ -607,6 +615,8 @@ Theorem memory_swap_lemma1[local]:
 Proof
   recInduct (name_ind_cases [] wordSemTheory.evaluate_ind)
   \\ srw_tac [] [wordSemTheory.evaluate_def]
+  \\ (TRY (qpat_assum ‘no_install (Loop _ _ _)’ mp_tac
+           \\ simp [Once wordConvsTheory.no_install_def] \\ strip_tac))
   \\ fs [wordSemTheory.call_env_def, wordConvsTheory.no_alloc_def,
     wordConvsTheory.no_install_def, wordSemTheory.flush_state_def,
     wordSemTheory.dec_clock_def]
@@ -675,6 +685,8 @@ Proof
     \\ imp_res_tac wordPropsTheory.no_install_evaluate_const_code
     \\ gvs [PULL_EXISTS,SF DNF_ss]
   )
+  >~ [`Case (Loop _ _ _, _)`]
+  >- suspend "Loop"
   \\ (
     fs [wordSemTheory.get_var_def, wordSemTheory.set_var_def,
         wordSemTheory.unset_var_def, CaseEq "option", CaseEq "word_loc", CaseEq "bool",
@@ -687,6 +699,58 @@ Proof
     \\ NO_TAC
   )
 QED
+
+Resume memory_swap_lemma1[Loop]:
+  Cases_on ‘cut_state (names,LN) s’ \\ gvs []
+  >- (qexists_tac ‘rst with memory := m’
+      \\ simp [cut_state_with_mem_const,
+               wordSemTheory.state_component_equality])
+  \\ Cases_on ‘wordSem$evaluate (c,x)’ \\ gvs []
+  \\ subgoal ‘fun2set (x.memory,x.mdomain) = fun2set (m,x.mdomain) ∧
+              no_alloc_code x.code ∧ no_install_code x.code’
+  >- (imp_res_tac wordPropsTheory.cut_state_const \\ gvs [])
+  \\ first_x_assum (qspec_then ‘m’ mp_tac) \\ fs []
+  \\ disch_then (qx_choose_then ‘st_v’ strip_assume_tac)
+  \\ qabbrev_tac ‘mem' = st_v.memory’
+  \\ subgoal ‘st_v = r with memory := mem'’
+  >- (qpat_x_assum ‘st_v with memory := ARB = _ with memory := ARB’ mp_tac
+      \\ simp [Abbr ‘mem'’, wordSemTheory.state_component_equality])
+  \\ pop_assum SUBST_ALL_TAC
+  \\ simp [cut_state_with_mem_const]
+  \\ Cases_on ‘cont_loop q’ \\ gvs []
+  >- (
+    Cases_on ‘r.clock = 0’ \\ gvs []
+    >- (
+      first_x_assum (qspec_then ‘mem'’ mp_tac)
+      \\ impl_tac
+      >- (subgoal ‘x.code = r.code’
+          >- (qspecl_then [‘c’,‘x’,‘q’,‘r’]
+                mp_tac wordPropsTheory.no_install_evaluate_const_code
+              \\ simp [])
+          \\ simp [wordSemTheory.STOP_def, stackSemTheory.STOP_def,
+                   Once wordConvsTheory.no_alloc_def,
+                   Once wordConvsTheory.no_install_def]
+          \\ gvs [])
+      \\ disch_then (qx_choose_then ‘st_loop’ strip_assume_tac)
+      \\ qexists_tac ‘st_loop’
+      \\ gvs []
+    )
+    \\ qexists_tac ‘r with <|locals := LN; locals_size := SOME 0;
+                             store := FEMPTY; stack := []; memory := mem'|>’
+    \\ simp [wordSemTheory.state_component_equality]
+  )
+  \\ Cases_on ‘q = SOME (Break 0)’ \\ gvs []
+  >- (
+    Cases_on ‘cut_state (exit_names,LN) r’ \\ gvs []
+    >- (imp_res_tac wordPropsTheory.cut_state_const \\ gvs [])
+    \\ qexists_tac ‘r with memory := mem'’
+    \\ simp [wordSemTheory.state_component_equality]
+  )
+  \\ qexists_tac ‘r with memory := mem'’
+  \\ simp [wordSemTheory.state_component_equality]
+QED
+
+Finalise memory_swap_lemma1;
 
 (* avoid changing subsequent proof by rephrasing back into earlier form *)
 Theorem memory_swap_lemma[local]:
@@ -914,6 +978,19 @@ Proof
          wordSemTheory.set_var_def, wordSemTheory.flush_state_def]>>
     gvs[]
   )
+  >~ [`Case (Loop _ _ _, _)`]
+  >- (
+    CCONTR_TAC >> fs[] >>
+    gvs[AllCaseEqs(), UNCURRY_eq_pair] >>
+    imp_res_tac wordPropsTheory.cut_state_const >>
+    imp_res_tac wordPropsTheory.no_install_evaluate_const_code >>
+    gs[wordSemTheory.STOP_def, wordConvsTheory.no_install_def,
+       wordConvsTheory.no_alloc_def] >>
+    Cases_on `res` >> gvs[wordSemTheory.exit_loop_def] >>
+    rename1 `SOME r` >>
+    Cases_on `r` >>
+    gvs[wordSemTheory.exit_loop_def, wordSemTheory.cont_loop_def]
+  )
   >>
   CCONTR_TAC>> fs[]>>
   fs[AllCaseEqs (), UNCURRY_eq_pair]>>
@@ -1051,6 +1128,10 @@ Proof
   \\ imp_res_tac wordPropsTheory.no_install_evaluate_const_code
   \\ imp_res_tac share_inst_modifies
   \\ gs []
+  \\ imp_res_tac wordPropsTheory.cut_state_const \\ gvs []
+  \\ imp_res_tac wordPropsTheory.no_install_evaluate_const_code \\ gs []
+  \\ gs [wordSemTheory.STOP_def, wordConvsTheory.no_install_def,
+         wordConvsTheory.no_alloc_def]
 QED
 
 Definition compile_prog_max_def:

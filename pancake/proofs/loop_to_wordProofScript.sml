@@ -795,6 +795,9 @@ Resume compile_correct[Call]:
     >- fs [Abbr‘tt’]
     >> qexists_tac ‘t1’ >> fs []
     >> qexists_tac ‘res1’ >> fs []
+    >> IF_CASES_TAC
+    >- (rename [‘bad_fun_return res1’] >> Cases_on ‘res1’ >> fs []
+        >> rename [‘bad_fun_return (SOME tt)’] >> Cases_on ‘tt’ >> fs [])
     >> conj_tac >- (Cases_on ‘res1’ >> simp [CaseEq"option"] >> fs [])
     >> rpt gen_tac >> strip_tac >> pop_assum mp_tac
     >> qunabbrev_tac ‘tt’ >> fs [])
