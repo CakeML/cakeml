@@ -1971,18 +1971,31 @@ Proof
 QED
 
 Theorem evaluate_hb_to_bvi_wrapper:
-  ∀cb tag left child right hb call_ts call_args loc loc_opt arity f env1 env2 s' t t' r.
+  ∀cb tag left child right hb call_ts call_args loc loc_opt arity f' env1 env2 s' t t' r.
     evaluate ([cb_to_bvi loc cb],env2,s') = (r,t') ∧
     cb_to_hb cb = (hb,call_ts,call_args) ∧
     cb = CallBlock tag left child right ∧
     env_rel T f env1 env2 ∧
-    state_rel f t t' ∧
+    state_rel f' t t' ∧
     r ≠ Rerr (Rabort Rtype_error) ⇒
     ∃t'.
       evaluate ([hb_to_bvi_wrapper loc loc_opt arity hb call_ts call_args],env2,s') = (r,t') ∧
       state_rel f t t'
 Proof
-  cheat
+  rw []
+  >> imp_res_tac env_rel_strip_extras
+  >> rename [‘env_rel F f env1 env2’]
+  >> gvs [cb_to_hb_def, CaseEq "prod", hb_to_bvi_wrapper_def, Once evaluate_def]
+  >> rename [‘cb_to_hb child = (hole,call_ts,call_args)’]
+  (* mutcons exp *)
+  >> drule evaluate_hb_to_mutcons
+  >> disch_then $ qspecl_then [‘tag’, ‘left’, ‘child’, ‘right’] mp_tac
+  >> gvs [cb_to_hb_def]
+  >> disch_then drule
+  >> 
+  >> strip_tac             
+  >> gvs [Once evaluate_def]
+  >> 
 QED
 
 Theorem evaluate_hb_to_bvi_worker:
@@ -2009,7 +2022,6 @@ Theorem evaluate_hb_to_bvi_worker:
 Proof
   rw []
   >> imp_res_tac env_rel_strip_extras
-  >> gvs []
   >> gvs [cb_to_hb_def, CaseEq "prod", hb_to_bvi_worker_def, Once evaluate_def]
   >> rename [‘cb_to_hb child = (hole,call_ts,call_args)’]
   (* mutcons exp *)
