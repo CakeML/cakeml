@@ -384,11 +384,10 @@ Definition hb_to_bvi_worker_def:
     let i                = & LENGTH l in
     let arg_old_ptr      = Var (i_ptr + 1) in
     let arg_old_idx      = Var (i_idx + 1) in
-    let var_new_ptr      = Var 0 in
     let exp_new_idx      = Op (IntOp (Const i)) [] in
     let exp_mut_cons     = hb_to_mutcons hb in
-    let exp_update_hole  = Op (MemOp UpdateCons) [var_new_ptr; arg_old_idx; arg_old_ptr] in
-    let exp_tail_call    = optimise_call loc_opt exp_new_idx var_new_ptr ts args in
+    let exp_update_hole  = Op (MemOp UpdateCons) [Var 0; arg_old_idx; arg_old_ptr] in
+    let exp_tail_call    = optimise_call loc_opt exp_new_idx (Var 1) ts args in
       Let [exp_mut_cons] $ Let [exp_update_hole] $ exp_tail_call
 End
 

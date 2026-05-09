@@ -1733,6 +1733,7 @@ Proof
   >> gvs [CaseEq "prod", CaseEq "result", EL_APPEND_EQN]
 QED
 
+(* I've broken this up to be more modular, keeping around for reference while I work on those proofs.
 Theorem evaluate_hb_to_bvi:
   ∀cb tag left cb' right loc loc_opt f f' env1 env2 hole_ptr hole_idx r' s t s' t' c hb call_ts call_args.
     evaluate ([cb_to_bvi loc cb],env2 ++ [RefPtr F hole_ptr; hole_idx],s') = (r',t') ∧
@@ -1819,6 +1820,7 @@ Proof
   >> gvs [GSYM PULL_EXISTS]
   >> cheat
 QED
+*)
 
 Theorem evaluate_hb_to_mutcons:
   ∀cb tag left child right hb call_ts call_args loc f f' env1 env2 r' s t s' t' c.
@@ -1879,22 +1881,26 @@ Proof
 QED
 
 Theorem evaluate_optimise_call:
-  ∀cb tag left child right hb call_ts call_args loc f f' env1 env2 hole_ptr hole_idx r' s t s' t' c.
-    evaluate ([cb_to_bvi loc cb],env2 ++ [RefPtr F hole_ptr; hole_idx],s') = (r',t') ∧
+  ∀cb tag left child right hb call_ts call_args loc loc_opt hole_idx hole_ptr new_ptr f f' env1 env2 r' s t s' t' c.
+    evaluate ([cb_to_bvi loc cb],env2,s') = (r',t') ∧
     cb_to_hb cb = (hb,call_ts,call_args) ∧
     cb = CallBlock tag left child right ∧
-    env_rel T f env1 (env2 ++ [RefPtr F hole_ptr; hole_idx]) ∧
+    env_rel T f env1 env2 ∧
+    env2❲LENGTH env1❳ = RefPtr F hole_ptr ∧
+    env2❲LENGTH env1 + 1❳ = Number hole_idx ∧
+    (* hole_idx = &LENGTH left ∧    not sure if useful here, but something to have somewhere *)
     state_rel f s s' ∧
     f ⊑ f' ∧
-    hole_has_val f env1 (env2 ++ [RefPtr F hole_ptr; hole_idx]) s'.refs c ∧
+    hole_has_val f env1 env2 s'.refs c ∧
     holes_unchanged_except f s'.refs t'.refs ∅ ∧
     only_fresh f f' s'.refs ∧
     state_rel f' t t' ∧
     r' ≠ Rerr (Rabort Rtype_error) ⇒
-    ∃new_ptr hole_val left' right' t_mc' s_call' r_call' t_call'.
-      evaluate ([hb_to_mutcons hb],env2 ++ [RefPtr F hole_ptr; hole_idx],s') = (Rval [RefPtr F new_ptr],t_mc') ∧
-      (* state_rel f' s t_mc' ∧ *)
-      holes_unchanged_except f s'.refs t_mc'.refs {RefPtr F new_ptr}
+    ∃env3 r_call' t_call'.
+      env3 = Unit::RefPtr F new_ptr::env2 ∧
+      evaluate ([optimise_call loc_opt (Op (IntOp (Const hole_idx)) []) (Var 1) call_ts call_args],env3,s') = (r_call',t_call') ∧
+      opt_res_rel r' r_call' ∧
+      holes_unchanged_except f s'.refs t_call'.refs {RefPtr F hole_ptr}
 Proof
   gen_tac
   >> Induct_on ‘cb’ >> rw []
