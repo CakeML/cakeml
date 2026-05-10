@@ -1762,6 +1762,38 @@ Proof
   cheat
 QED
 
+Theorem evaluate_shift_vars:
+  ∀vs env s bs r t.
+    evaluate (MAP (λn. Var n) vs,env,s) = (r,t) ⇒
+    evaluate (MAP (λn. Var n) (shift_vars (LENGTH bs) vs),bs ++ env,s) = (r,t)
+Proof
+  cheat
+QED
+
+Theorem evaluate_shift_vars_sing:
+  ∀vs env s b r t.
+    evaluate (MAP (λn. Var n) vs,env,s) = (r,t) ⇒
+    evaluate (MAP (λn. Var n) (shift_vars 1 vs),b::env,s) = (r,t)
+Proof
+  cheat
+QED
+
+Theorem evaluate_shift_cb:
+  ∀cb loc env s bs r t.
+    evaluate ([cb_to_bvi loc cb],env,s) = (r,t) ⇒
+    evaluate ([cb_to_bvi loc (shift_cb (LENGTH bs) cb)],bs ++ env,s) = (r,t)
+Proof
+  cheat
+QED
+
+Theorem evaluate_shift_cb_sing:
+  ∀cb loc env s b r t.
+    evaluate ([cb_to_bvi loc cb],env,s) = (r,t) ⇒
+    evaluate ([cb_to_bvi loc (shift_cb 1 cb)],b::env,s) = (r,t)
+Proof
+  cheat
+QED
+
 Theorem evaluate_bvi_to_cb_aux_inl:
   ∀loc tag args env s t r bs vs.
     bvi_to_cb_aux loc tag args = SOME (bs,INL vs) ∧
@@ -1827,8 +1859,69 @@ Proof
   >> rename [‘evaluate ([Op (BlockOp (Cons tag)) (x1::x2::xs)],env,s) = (r,t)’]
   >> reverse $ gvs [CaseEq "option", CaseEq "prod", CaseEq "sum"]
   >-
-   (cheat
-   )
+   (gvs [evaluate_def]
+    >> gvs [CaseEq "prod"]
+    >> reverse $ Cases_on ‘cb'’ >> gvs [shift_cb_def]
+    >> rename [‘bvi_to_cb_aux loc tag (x2::xs) = SOME (bs2,INR (CallBlock n left cb' right))’]
+    >> simp [Once evaluate_CONS, evaluate_def]
+    >> gvs [CaseEq "prod"]
+    >> Cases_on ‘v4’ >> gvs []
+    >> gvs [CaseEq "prod"]
+    >> gvs [PULL_EXISTS]
+    >> first_x_assum drule
+    >> reverse CASE_TAC >> gvs []
+    >-
+     (strip_tac
+      >> gvs []
+      >> reverse CASE_TAC >> gvs []
+      >> gvs [cb_to_bvi_def, evaluate_def]
+      >> simp [Once evaluate_CONS, evaluate_def]
+      >> gvs [evaluate_APPEND, evaluate_def]
+      >> Cases_on ‘evaluate (MAP (λn. Var n) left,a' ++ env,s1')’
+      >> drule evaluate_shift_vars_sing
+      >> disch_then $ qspec_then ‘HD a’ mp_tac
+      >> strip_tac
+      >> gvs []
+      >> Cases_on ‘q’ >> gvs []
+      >> Cases_on ‘evaluate ([cb_to_bvi loc cb'],a' ++ env,r)’ >> gvs []
+      >> drule evaluate_shift_cb_sing
+      >> disch_then $ qspec_then ‘HD a’ mp_tac
+      >> strip_tac
+      >> gvs []
+      >> CASE_TAC >> gvs []
+      >> Cases_on ‘evaluate (MAP (λn. Var n) right,a' ++ env,r')’
+      >> drule evaluate_shift_vars_sing
+      >> disch_then $ qspec_then ‘HD a’ mp_tac
+      >> strip_tac
+      >> gvs []
+      >> CASE_TAC >> gvs []
+      >> gvs [do_app_def, do_app_aux_def])
+    >> gvs [do_app_def, do_app_aux_def]
+    >> strip_tac
+    >> gvs []
+    >> CASE_TAC >> gvs []
+    >> gvs [cb_to_bvi_def, evaluate_def]
+    >> simp [Once evaluate_CONS, evaluate_def]
+    >> gvs [evaluate_APPEND]
+    >> Cases_on ‘evaluate (MAP (λn. Var n) left,a'' ++ env,s1')’
+    >> drule evaluate_shift_vars_sing
+    >> disch_then $ qspec_then ‘HD a’ mp_tac
+    >> strip_tac
+    >> gvs []
+    >> Cases_on ‘q’ >> gvs []
+    >> Cases_on ‘evaluate ([cb_to_bvi loc cb'],a'' ++ env,r)’ >> gvs []
+    >> drule evaluate_shift_cb_sing
+    >> disch_then $ qspec_then ‘HD a’ mp_tac
+    >> strip_tac
+    >> gvs []
+    >> CASE_TAC >> gvs []
+    >> Cases_on ‘evaluate (MAP (λn. Var n) right,a'' ++ env,r')’
+    >> drule evaluate_shift_vars_sing
+    >> disch_then $ qspec_then ‘HD a’ mp_tac
+    >> strip_tac
+    >> gvs []
+    >> CASE_TAC >> gvs []
+    >> gvs [do_app_def, do_app_aux_def])
   >> first_x_assum $ qspecl_then [‘env’, ‘s’] mp_tac
   >> gvs [evaluate_def, CaseEq "prod"]
   >> reverse CASE_TAC >> gvs []
