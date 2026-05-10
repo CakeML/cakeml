@@ -1780,14 +1780,8 @@ Proof
   >- (gvs [CaseEq "prod"])
   >- (gvs [CaseEq "option", CaseEq "prod", CaseEq "sum", evaluate_def])
   >> reverse $ gvs [CaseEq "option", CaseEq "prod", CaseEq "sum"]
-  >-
-   (Cases_on ‘cb’ >> gvs [shift_cb_def]
-    >> cheat)
-  >-
-   (reverse $ gvs [CaseEq "call_block"]
-    >- cheat
-    >> gvs [CaseEq "list"]
-    >> cheat)
+  >- (Cases_on ‘cb’ >> gvs [shift_cb_def])
+  >- (gvs [CaseEq "call_block", CaseEq "list"])
   >> first_x_assum drule
   >> impl_tac >> gvs []
   >- (spose_not_then assume_tac >> gvs [])
@@ -1861,10 +1855,7 @@ Proof
   >-
    (strip_tac
     >> reverse $ gvs [CaseEq "call_block"]
-    >- cheat (* ARB??? *)
     >> reverse $ gvs [CaseEq "list"]
-    >- cheat
-    >- cheat
     >> gvs [evaluate_APPEND]
     >> Cases_on ‘rs’ >> gvs []
     >> CASE_TAC >> gvs []
@@ -1875,7 +1866,6 @@ Proof
     >> reverse $ CASE_TAC >> gvs []
     >> cheat)
   >> gvs [CaseEq "call_block"]
-  >- cheat
   >> cheat
 QED
 

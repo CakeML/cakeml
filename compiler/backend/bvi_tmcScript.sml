@@ -140,13 +140,15 @@ Definition bvi_to_cb_aux_def:
             (* We've constructed a CallBlock at this level with just h, pad the other args *)
             (* l and r are always empty if args is a singleton *)
             let vs2' = shift_vars (LENGTH bs1) vs2 in
-            SOME (bs1 ++ bs2,INR (CallBlock tag [] child vs2')))
+              SOME (bs1 ++ bs2,INR (CallBlock tag [] child vs2'))
+        | _ => NONE)
    | SOME (bs2,INR cb) =>
        (* Recursive call found, first is let bound and added to the left *)
        case shift_cb 1 cb of
        | CallBlock tag l child r =>
            let cb' = CallBlock tag (0::l) child r in
-             SOME (h::bs2,INR cb'))
+             SOME (h::bs2,INR cb')
+       | _ => NONE)
 End
 
 Theorem bvi_to_cb_aux_sing:
