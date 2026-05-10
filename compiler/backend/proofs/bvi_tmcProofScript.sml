@@ -1161,12 +1161,11 @@ Resume evaluate_rewrite_tmc[if]:
       >> strip_tac
       >> disch_then drule
       >> disch_then drule
+      >> fs[GSYM PULL_FORALL]
       >> strip_tac
       >> qexistsl [‘t''’, ‘f'³'’, ‘r''’]
       >> gvs []
-      >> rpt gen_tac
-      >> fs[GSYM PULL_FORALL]
-      >> strip_tac
+      >> conj_tac
       >- imp_res_tac SUBMAP_TRANS
       >> conj_tac
       >-
@@ -1183,15 +1182,16 @@ Resume evaluate_rewrite_tmc[if]:
         >> gvs [])
       >> strip_tac
       >> gvs []
-      >> conj_tac
-      >-
-       (strip_tac
-        >> drule wrapper_strip_if_then
-        >> strip_tac >> gvs [evaluate_def]
-        >> first_x_assum $ qspecl_then [‘loc’, ‘loc_opt’, ‘arity’, ‘w2’] mp_tac
-        >> gvs [])
+      >> rpt gen_tac
+      >> first_x_assum $ qspecl_then [‘loc’, ‘loc_opt’] mp_tac
+      >> strip_tac
       >> rw []
-      >> first_x_assum $ qspecl_then [‘loc'’, ‘loc_opt'’, ‘c’] mp_tac
+      >-
+       (drule wrapper_strip_if_then
+        >> strip_tac >> gvs [evaluate_def]
+        >> first_x_assum $ qspecl_then [‘arity’, ‘w2’] mp_tac
+        >> gvs [])
+      >> first_x_assum $ qspecl_then [‘c’] mp_tac
       >> impl_tac
       >-
        (drule env_rel_strip_extras
@@ -1233,7 +1233,7 @@ Resume evaluate_rewrite_tmc[if]:
     >> gvs []
     >> rpt gen_tac
     >> fs[GSYM PULL_FORALL]
-    >> strip_tac
+    >> conj_tac
     >- imp_res_tac SUBMAP_TRANS
     >> conj_tac
     >-
@@ -1250,15 +1250,17 @@ Resume evaluate_rewrite_tmc[if]:
       >> gvs [])
     >> strip_tac
     >> gvs []
+    >> first_x_assum $ qspecl_then [‘loc’, ‘loc_opt’] mp_tac
+    >> strip_tac
     >> conj_tac
     >-
      (strip_tac
       >> drule wrapper_strip_if_else
       >> strip_tac >> gvs [evaluate_def]
-      >> first_x_assum $ qspecl_then [‘loc’, ‘loc_opt’, ‘arity’, ‘w3’] mp_tac
+      >> first_x_assum $ qspecl_then [‘arity’, ‘w3’] mp_tac
       >> gvs [])
     >> rw []
-    >> first_x_assum $ qspecl_then [‘loc'’, ‘loc_opt'’, ‘c’] mp_tac
+    >> first_x_assum $ qspecl_then [‘c’] mp_tac
     >> impl_tac
     >-
      (drule env_rel_strip_extras
