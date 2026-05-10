@@ -1759,6 +1759,43 @@ Proof
   >> cheat
 QED
 
+(* The cheats are where we have ARB equal to something, which should be a contradiction *)
+Theorem evaluate_bvi_to_cb_aux_inl:
+  ∀loc tag args env s t r bs vs.
+    bvi_to_cb_aux loc tag args = SOME (bs,INL vs) ∧
+    evaluate (args,env,s) = (r,t) ∧
+    r ≠ Rerr (Rabort Rtype_error) ⇒
+    evaluate (bs,env,s) = (r,t)
+Proof
+  recInduct bvi_to_cb_aux_ind >> rw [bvi_to_cb_aux_def] >> gvs [evaluate_def]
+  >- (gvs [CaseEq "prod"])
+  >- (gvs [CaseEq "option", CaseEq "prod", CaseEq "sum", evaluate_def])
+  >> reverse $ gvs [CaseEq "option", CaseEq "prod", CaseEq "sum"]
+  >-
+   (Cases_on ‘cb’ >> gvs [shift_cb_def]
+    >> cheat)
+  >-
+   (reverse $ gvs [CaseEq "call_block"]
+    >- cheat
+    >> gvs [CaseEq "list"]
+    >> cheat)
+  >> first_x_assum drule
+  >> impl_tac >> gvs []
+  >- (spose_not_then assume_tac >> gvs [])
+  >> reverse $ gvs [CaseEq "result"]
+  >-
+   (strip_tac
+    >> gvs [evaluate_APPEND])
+  >> strip_tac
+  >> gvs [evaluate_APPEND]
+  >> reverse $ gvs [CaseEq "prod", CaseEq "result"]
+  >> first_x_assum drule
+  >> impl_tac >> gvs []
+  >> strip_tac
+  >> imp_res_tac evaluate_SING_IMP
+  >> gvs []
+QED
+
 Theorem evaluate_bvi_to_cb_aux:
   ∀loc tag args env s t r bs cb.
     bvi_to_cb_aux loc tag args = SOME (bs,INR cb) ∧
@@ -1806,12 +1843,27 @@ Proof
   >> rename [‘evaluate ([Op (BlockOp (Cons tag)) (x1::x2::xs)],env,s) = (r,t)’]
   >> gvs [CaseEq "option", CaseEq "prod", CaseEq "sum"]
   >-
-   (Cases_on ‘v4’ >> gvs []
-    >> rename [‘bvi_to_cb_aux loc tag [x1] = SOME (bs1,INR (CallBlock tag' left child right))’]
-    >> gvs [CaseEq "list"]
+   (first_x_assum $ qspecl_then [‘env’, ‘s’] mp_tac
+    >> gvs [evaluate_def]
+    >> gvs [CaseEq "prod"]
+    >> reverse CASE_TAC >> gvs []
     >-
-     (
-       )
+     (strip_tac
+      >> reverse $ gvs [CaseEq "call_block"]
+      >- cheat (* ARB??? *)
+      >> reverse $ gvs [CaseEq "list"]
+      >- cheat
+      >- cheat
+      >> gvs [evaluate_APPEND]
+      >> Cases_on ‘rs’ >> gvs []
+      >> CASE_TAC >> gvs []
+      >> reverse CASE_TAC >> gvs []
+      >-
+       (gvs [evaluate_def, cb_to_bvi_def]
+        >> Cases_on ‘evaluate ([cb_to_bvi loc child],a ++ env,u)’ >> gvs []
+        >> Cases_on ‘q’ >> gvs []
+        )
+        )
         )
 QED
 
