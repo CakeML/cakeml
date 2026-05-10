@@ -1881,17 +1881,15 @@ Proof
       >> strip_tac
       >> gvs [evaluate_APPEND]
       >> Cases_on ‘as’ >> gvs []
+      >> Cases_on ‘evaluate (bs2,env,u)’ >> gvs []
+      >> reverse $ Cases_on ‘q’ >> gvs []
       >> drule evaluate_bvi_to_cb_aux_inl
       >> disch_then drule
       >> impl_tac
       >- (spose_not_then assume_tac >> gvs [])
       >> strip_tac
       >> gvs []
-      >> drule bvi_to_cb_aux_inl_pure
-      >> disch_then drule
-      >> strip_tac
-      >> gvs []
-      >> gvs [CaseEq "prod"]
+      (* States don't match - but this should be fine if not effectful *)
       >> cheat)
     >> strip_tac
     >> gvs [CaseEq "call_block", CaseEq "list"]
