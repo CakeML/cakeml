@@ -10127,7 +10127,7 @@ Resume ssa_cc_trans_correct[Loop]:
      `exit_names`, `lt`, `body'`, `ssa''`, `na''`]
     mp_tac ssa_cc_trans_Loop_helper >>
   impl_tac
-  >- (rpt conj_tac >> TRY (fs[] >> NO_TAC)
+  >- (rpt conj_tac >> fs[]
       >- (rpt strip_tac >>
           first_x_assum irule >> fs[SUBSET_DEF])
       >- (irule every_var_mono >>

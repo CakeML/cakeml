@@ -770,40 +770,37 @@ Resume evaluate_sf_gc_consts[Call]:
   TOP_CASE_TAC \\
   TOP_CASE_TAC >- (rw [] \\ rw []) \\
   TOP_CASE_TAC
-    >~ [`Result`] >- suspend "Result"
+    >~ [`Result`] >- (
+      ntac 2 (TOP_CASE_TAC >- (rw [] \\ rw []))
+      \\ reverse TOP_CASE_TAC >- (rw [] \\ rw [])
+      \\ fs [call_env_def, flush_state_def, dec_clock_def, set_var_def]
+      \\ rfs []
+      \\ imp_res_tac evaluate_gc_fun_const_ok
+      \\ rfs []
+      \\ imp_res_tac pop_env_gc_fun_const_ok
+      \\ imp_res_tac LIST_REL_call_Result
+      \\ strip_tac
+      \\ TOP_CASE_TAC \\ fs [] \\ res_tac \\ fs []
+      >- (irule EVERY2_trans \\ rpt conj_tac
+         >- ACCEPT_TAC sf_gc_consts_trans
+         >- (asm_exists_tac \\ rw []))
+      \\ TOP_CASE_TAC \\ fs []
+      >- (irule EVERY2_trans \\ rpt conj_tac
+         >- ACCEPT_TAC sf_gc_consts_trans
+         >- (asm_exists_tac \\ rw []))
+      >- (DISCH_TAC
+         \\ `s.handler < LENGTH x''.stack` by (imp_res_tac LIST_REL_LENGTH \\ fs [])
+         \\ `get_above_handler (set_vars $var$(x'0') l x'') = get_above_handler s` by
+            (irule sf_gc_consts_get_above_handler \\ fs [set_vars_def])
+         \\ res_tac \\ fs [set_vars_def]
+         \\ irule EVERY2_trans_LASTN_sf_gc_consts
+         \\ conj_tac >- rw [] \\ asm_exists_tac \\ rw [])
+      \\ ntac 2 (irule EVERY2_trans \\ rpt conj_tac
+      >- ACCEPT_TAC sf_gc_consts_trans
+      >- (asm_exists_tac \\ rw [])))
     >~ [`set_var`] >- suspend "Exception"
     \\ (* Other cases: NONE/Break/Continue errors + catch-all *)
     (rw [] \\ rw [])
-QED
-
-Resume evaluate_sf_gc_consts[Result]:
-  ntac 2 (TOP_CASE_TAC >- (rw [] \\ rw []))
-  \\ reverse TOP_CASE_TAC >- (rw [] \\ rw [])
-  \\ fs [call_env_def, flush_state_def, dec_clock_def, set_var_def]
-  \\ rfs []
-  \\ imp_res_tac evaluate_gc_fun_const_ok
-  \\ rfs []
-  \\ imp_res_tac pop_env_gc_fun_const_ok
-  \\ imp_res_tac LIST_REL_call_Result
-  \\ strip_tac
-  \\ TOP_CASE_TAC \\ fs [] \\ res_tac \\ fs []
-  >- (irule EVERY2_trans \\ rpt conj_tac
-     >- ACCEPT_TAC sf_gc_consts_trans
-     >- (asm_exists_tac \\ rw []))
-  \\ TOP_CASE_TAC \\ fs []
-  >- (irule EVERY2_trans \\ rpt conj_tac
-     >- ACCEPT_TAC sf_gc_consts_trans
-     >- (asm_exists_tac \\ rw []))
-  >- (DISCH_TAC
-     \\ `s.handler < LENGTH x''.stack` by (imp_res_tac LIST_REL_LENGTH \\ fs [])
-     \\ `get_above_handler (set_vars $var$(x'0') l x'') = get_above_handler s` by
-        (irule sf_gc_consts_get_above_handler \\ fs [set_vars_def])
-     \\ res_tac \\ fs [set_vars_def]
-     \\ irule EVERY2_trans_LASTN_sf_gc_consts
-     \\ conj_tac >- rw [] \\ asm_exists_tac \\ rw [])
-  \\ ntac 2 (irule EVERY2_trans \\ rpt conj_tac
-  >- ACCEPT_TAC sf_gc_consts_trans
-  >- (asm_exists_tac \\ rw []))
 QED
 
 Resume evaluate_sf_gc_consts[Exception]:
@@ -849,12 +846,18 @@ Resume evaluate_sf_gc_consts[Loop]:
    (Cases_on `s1.clock = 0` \\ gvs [flush_state_def]
     \\ qpat_x_assum `case _ of NONE => _ | SOME _ => _` mp_tac
     \\ Cases_on `res` \\ fs [] \\ strip_tac
-    \\ TRY (irule EVERY2_trans \\ conj_tac >- metis_tac [sf_gc_consts_trans] \\ qexists_tac `s1.stack` \\ fs [] \\ NO_TAC)
+    >- (irule EVERY2_trans \\ conj_tac >- metis_tac [sf_gc_consts_trans] \\ qexists_tac `s1.stack` \\ fs [])
     \\ Cases_on `x` \\ fs []
-    \\ TRY (irule EVERY2_trans \\ conj_tac >- metis_tac [sf_gc_consts_trans] \\ qexists_tac `s1.stack` \\ fs [] \\ NO_TAC)
-    \\ strip_tac \\ `s.handler < LENGTH s1.stack` by (imp_res_tac LIST_REL_LENGTH \\ fs []) \\ fs []
-    \\ conj_tac >- (match_mp_tac (SRULE [] EVERY2_trans_LASTN_sf_gc_consts) \\ qexists_tac `s1.stack` \\ fs [])
-    \\ irule sf_gc_consts_get_above_handler \\ fs [dec_clock_def])
+    >~ [`Exception`]
+    >- (strip_tac \\ `s.handler < LENGTH s1.stack` by (imp_res_tac LIST_REL_LENGTH \\ fs []) \\ fs []
+        \\ conj_tac >- (match_mp_tac (SRULE [] EVERY2_trans_LASTN_sf_gc_consts) \\ qexists_tac `s1.stack` \\ fs [])
+        \\ irule sf_gc_consts_get_above_handler \\ fs [dec_clock_def])
+    >~ [`Result`]
+    >- (irule EVERY2_trans \\ conj_tac >- metis_tac [sf_gc_consts_trans] \\ qexists_tac `s1.stack` \\ fs [])
+    >~ [`Break`]
+    >- (irule EVERY2_trans \\ conj_tac >- metis_tac [sf_gc_consts_trans] \\ qexists_tac `s1.stack` \\ fs [])
+    \\ (* remaining: Continue *)
+       irule EVERY2_trans \\ conj_tac >- metis_tac [sf_gc_consts_trans] \\ qexists_tac `s1.stack` \\ fs [])
   \\ Cases_on `x` \\ fs [cont_loop_def, exit_loop_def] \\ gvs []
   >~ [`Exception`] >- gvs [get_above_handler_def]
   >~ [`Break`]
@@ -864,12 +867,18 @@ Resume evaluate_sf_gc_consts[Loop]:
       \\ Cases_on `s1.clock = 0` \\ gvs [flush_state_def]
       \\ qpat_x_assum `case _ of NONE => _ | SOME _ => _` mp_tac
       \\ Cases_on `res` \\ fs [] \\ strip_tac
-      \\ TRY (irule EVERY2_trans \\ conj_tac >- metis_tac [sf_gc_consts_trans] \\ qexists_tac `s1.stack` \\ fs [] \\ NO_TAC)
+      >- (irule EVERY2_trans \\ conj_tac >- metis_tac [sf_gc_consts_trans] \\ qexists_tac `s1.stack` \\ fs [])
       \\ Cases_on `x` \\ fs []
-      \\ TRY (irule EVERY2_trans \\ conj_tac >- metis_tac [sf_gc_consts_trans] \\ qexists_tac `s1.stack` \\ fs [] \\ NO_TAC)
-      \\ strip_tac \\ `s.handler < LENGTH s1.stack` by (imp_res_tac LIST_REL_LENGTH \\ fs []) \\ fs []
-      \\ conj_tac >- (match_mp_tac (SRULE [] EVERY2_trans_LASTN_sf_gc_consts) \\ qexists_tac `s1.stack` \\ fs [])
-      \\ irule sf_gc_consts_get_above_handler \\ fs [dec_clock_def])
+      >~ [`Exception`]
+      >- (strip_tac \\ `s.handler < LENGTH s1.stack` by (imp_res_tac LIST_REL_LENGTH \\ fs []) \\ fs []
+          \\ conj_tac >- (match_mp_tac (SRULE [] EVERY2_trans_LASTN_sf_gc_consts) \\ qexists_tac `s1.stack` \\ fs [])
+          \\ irule sf_gc_consts_get_above_handler \\ fs [dec_clock_def])
+      >~ [`Result`]
+      >- (irule EVERY2_trans \\ conj_tac >- metis_tac [sf_gc_consts_trans] \\ qexists_tac `s1.stack` \\ fs [])
+      >~ [`Break`]
+      >- (irule EVERY2_trans \\ conj_tac >- metis_tac [sf_gc_consts_trans] \\ qexists_tac `s1.stack` \\ fs [])
+      \\ (* remaining: Continue *)
+         irule EVERY2_trans \\ conj_tac >- metis_tac [sf_gc_consts_trans] \\ qexists_tac `s1.stack` \\ fs [])
 QED
 
 Finalise evaluate_sf_gc_consts;

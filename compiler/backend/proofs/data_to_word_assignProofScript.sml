@@ -4494,7 +4494,12 @@ Proof
   \\ qmatch_goalsub_abbrev_tac `(AppendLenLoop_code c,ttt)`
   \\ Cases_on `evaluate (AppendLenLoop_code c,ttt)`
   \\ Cases_on `q` \\ fs []
-  \\ TRY (Cases_on `x'` \\ fs [wordSemTheory.bad_fun_return_def])
+  >- ((* NONE branch *)
+      rfs []
+      \\ qmatch_goalsub_abbrev_tac `(AppendLenLoop_code c,tttt)`
+      \\ `tttt = ttt` by(fs[Abbr`tttt`,Abbr`ttt`,wordSemTheory.state_component_equality])
+      \\ fs [option_le_max])
+  \\ Cases_on `x'` \\ fs [wordSemTheory.bad_fun_return_def]
   \\ rfs[]
   \\ qmatch_goalsub_abbrev_tac `(AppendLenLoop_code c,tttt)`
   \\ `tttt = ttt` by(fs[Abbr`tttt`,Abbr`ttt`,wordSemTheory.state_component_equality])

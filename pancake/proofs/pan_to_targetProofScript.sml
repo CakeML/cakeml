@@ -615,8 +615,6 @@ Theorem memory_swap_lemma1[local]:
 Proof
   recInduct (name_ind_cases [] wordSemTheory.evaluate_ind)
   \\ srw_tac [] [wordSemTheory.evaluate_def]
-  \\ (TRY (qpat_assum ‘no_install (Loop _ _ _)’ mp_tac
-           \\ simp [Once wordConvsTheory.no_install_def] \\ strip_tac))
   \\ fs [wordSemTheory.call_env_def, wordConvsTheory.no_alloc_def,
     wordConvsTheory.no_install_def, wordSemTheory.flush_state_def,
     wordSemTheory.dec_clock_def]
@@ -1122,9 +1120,20 @@ Proof
          wordSemTheory.pop_env_def]
     \\ fs [AllCaseEqs (), UNCURRY_eq_pair] \\ gvs []
   )
+  >~ [`Case (Inst _, _)`]
+  >- (
+    fs [AllCaseEqs (), UNCURRY_eq_pair] \\ gvs []
+    \\ drule inst_stack_size_const_panLang
+    \\ drule inst_stack_limit_const_panLang
+    \\ imp_res_tac wordPropsTheory.no_install_evaluate_const_code
+    \\ imp_res_tac share_inst_modifies
+    \\ gs []
+    \\ imp_res_tac wordPropsTheory.cut_state_const \\ gvs []
+    \\ imp_res_tac wordPropsTheory.no_install_evaluate_const_code \\ gs []
+    \\ gs [wordSemTheory.STOP_def, wordConvsTheory.no_install_def,
+           wordConvsTheory.no_alloc_def]
+  )
   \\ fs [AllCaseEqs (), UNCURRY_eq_pair] \\ gvs []
-  \\ TRY (drule inst_stack_size_const_panLang)
-  \\ TRY (drule inst_stack_limit_const_panLang)
   \\ imp_res_tac wordPropsTheory.no_install_evaluate_const_code
   \\ imp_res_tac share_inst_modifies
   \\ gs []

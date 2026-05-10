@@ -400,201 +400,194 @@ Resume compile_single_correct[Call]:
     fs[Abbr`stt`,word_state_eq_rel_def,state_component_equality]>>
     fs[code_rel_def]>>
     every_case_tac >> gvs[wordSemTheory.bad_fun_return_def]) >>
-  suspend "non_tail_call"
-QED
-
-Resume compile_single_correct[non_tail_call]:
-    rename [`find_code _ (add_ret_loc (SOME xx) _)`] >>
-    `?xn xnames xrh xl1 xl2. xx = (xn, xnames, xrh, xl1, xl2)`
-       by (PairCases_on`xx`>>simp[]) >> rveq >> full_simp_tac(srw_ss())[]>>
-    ntac 2 (TOP_CASE_TAC>>fs[]) >>
-    IF_CASES_TAC>-
-      (Cases_on `o0` >> TRY (PairCases_on `x''`) >>
-       fs[call_env_def,flush_state_def,state_component_equality,
-        stack_size_def, stack_size_frame_def, push_env_def, env_to_list_def, LET_THM])>>
-    fs[]>>
-    qabbrev_tac`stt = call_env q r' (push_env x' o0 (dec_clock st))`>>
-    first_assum(qspecl_then[`stt`,`prog'`,`l`,`cc`] mp_tac)>>
-    impl_tac>-
-      (fs[Abbr`stt`,dec_clock_def]>>
-      DECIDE_TAC)>>
-    rw[]>>
-    Q.ISPECL_THEN [`n`,`q'`,`LENGTH q`,`stt with permute:=perm'`] mp_tac
-      (Q.GEN `name` compile_single_lem)>>
-    impl_tac>-
-      (full_simp_tac(srw_ss())[Abbr`stt`,call_env_def] >>
-      simp[domain_fromList2,word_allocTheory.even_list_def])>>
-    qpat_abbrev_tac`A = compile_single t k a c B`>>
-    PairCases_on`A`>>srw_tac[][]>>full_simp_tac(srw_ss())[LET_THM]>>
-    pop_assum mp_tac >>
-    pairarg_tac>>full_simp_tac(srw_ss())[Abbr`stt`] >>
-    strip_tac
+  rename [`find_code _ (add_ret_loc (SOME xx) _)`] >>
+  `?xn xnames xrh xl1 xl2. xx = (xn, xnames, xrh, xl1, xl2)`
+     by (PairCases_on`xx`>>simp[]) >> rveq >> full_simp_tac(srw_ss())[]>>
+  ntac 2 (TOP_CASE_TAC>>fs[]) >>
+  IF_CASES_TAC>-
+    (Cases_on `o0` >> TRY (PairCases_on `x''`) >>
+     fs[call_env_def,flush_state_def,state_component_equality,
+      stack_size_def, stack_size_frame_def, push_env_def, env_to_list_def, LET_THM])>>
+  fs[]>>
+  qabbrev_tac`stt = call_env q r' (push_env x' o0 (dec_clock st))`>>
+  first_assum(qspecl_then[`stt`,`prog'`,`l`,`cc`] mp_tac)>>
+  impl_tac>-
+    (fs[Abbr`stt`,dec_clock_def]>>
+    DECIDE_TAC)>>
+  rw[]>>
+  Q.ISPECL_THEN [`n`,`q'`,`LENGTH q`,`stt with permute:=perm'`] mp_tac
+    (Q.GEN `name` compile_single_lem)>>
+  impl_tac>-
+    (full_simp_tac(srw_ss())[Abbr`stt`,call_env_def] >>
+    simp[domain_fromList2,word_allocTheory.even_list_def])>>
+  qpat_abbrev_tac`A = compile_single t k a c B`>>
+  PairCases_on`A`>>srw_tac[][]>>full_simp_tac(srw_ss())[LET_THM]>>
+  pop_assum mp_tac >>
+  pairarg_tac>>full_simp_tac(srw_ss())[Abbr`stt`] >>
+  strip_tac
+  >-
+    (qexists_tac`λn. if n = 0:num then st.permute 0 else perm'' (n-1)`>>
+    Cases_on`o0`>>TRY(PairCases_on`x''`)>>
+    full_simp_tac(srw_ss())[push_env_def,env_to_list_def,LET_THM,dec_clock_def,call_env_def,flush_state_def,ETA_AX])>>
+  Cases_on`res`>>full_simp_tac(srw_ss())[]
+  >-
+    (qexists_tac`λn. if n = 0:num then st.permute 0 else perm'' (n-1)`>>
+    Cases_on`o0`>>TRY(PairCases_on`x''`)>>
+    full_simp_tac(srw_ss())[push_env_def,env_to_list_def,LET_THM,dec_clock_def,call_env_def,flush_state_def,ETA_AX])>>
+  Cases_on`x''`>>full_simp_tac(srw_ss())[]
+  >-
+    (*Manual simulation for Result*)
+    (Cases_on`w = Loc xl1 xl2 ⇒ LENGTH l'' ≠ LENGTH xn`>>full_simp_tac(srw_ss())[]
     >-
       (qexists_tac`λn. if n = 0:num then st.permute 0 else perm'' (n-1)`>>
       Cases_on`o0`>>TRY(PairCases_on`x''`)>>
-      full_simp_tac(srw_ss())[push_env_def,env_to_list_def,LET_THM,dec_clock_def,call_env_def,flush_state_def,ETA_AX])>>
-    Cases_on`res`>>full_simp_tac(srw_ss())[]
-    >-
-      (qexists_tac`λn. if n = 0:num then st.permute 0 else perm'' (n-1)`>>
-      Cases_on`o0`>>TRY(PairCases_on`x''`)>>
-      full_simp_tac(srw_ss())[push_env_def,env_to_list_def,LET_THM,dec_clock_def,call_env_def,flush_state_def,ETA_AX])>>
-    Cases_on`x''`>>full_simp_tac(srw_ss())[]
-    >-
-      (*Manual simulation for Result*)
-      (Cases_on`w = Loc xl1 xl2 ⇒ LENGTH l'' ≠ LENGTH xn`>>full_simp_tac(srw_ss())[]
-      >-
-        (qexists_tac`λn. if n = 0:num then st.permute 0 else perm'' (n-1)`>>
-        Cases_on`o0`>>TRY(PairCases_on`x''`)>>
-        full_simp_tac(srw_ss())[push_env_def,env_to_list_def,LET_THM,dec_clock_def,call_env_def,flush_state_def,ETA_AX])
-      >>
-      Cases_on`pop_env rst`>>full_simp_tac(srw_ss())[]
-      >-
-        (qexists_tac`λn. if n = 0:num then st.permute 0 else perm'' (n-1)`>>
-        Cases_on`o0`>>TRY(PairCases_on`x''`)>>
-        full_simp_tac(srw_ss())[push_env_def,env_to_list_def,LET_THM,dec_clock_def,call_env_def,flush_state_def,ETA_AX])
-      >>
-      Cases_on `domain x''.locals = domain (FST x') ∪ domain (SND x')`>>full_simp_tac(srw_ss())[]
-      >-
-        suspend "Result_match"
-      >>
-      qexists_tac`λn. if n = 0:num then st.permute 0 else perm'' (n-1)`>>
-      Cases_on`o0`>>TRY(PairCases_on`x'''`)>>
       full_simp_tac(srw_ss())[push_env_def,env_to_list_def,LET_THM,dec_clock_def,call_env_def,flush_state_def,ETA_AX])
-    >-
-      (*Manual simulation for Exceptions*)
-      (Cases_on`o0`>>full_simp_tac(srw_ss())[]
-      >-
-        (pop_assum mp_tac >> pairarg_tac>>full_simp_tac(srw_ss())[]>>
-        strip_tac >>
-        qmatch_assum_abbrev_tac `evaluate(q',A) = _`>>
-        Q.ISPECL_THEN [`q'`,`A`,`rcst.permute`] mp_tac permute_swap_lemma>>
-        simp[Abbr`A`]>>
-        impl_tac>-
-          (qpat_x_assum`B=res'` sym_sub_tac>>full_simp_tac(srw_ss())[])>>
-        rw[]>>
-        qexists_tac`λn. if n = 0:num then st.permute 0 else perm''' (n-1)`>>
-        fs[push_env_def,env_to_list_def,dec_clock_def,call_env_def,flush_state_def,ETA_AX]>>
-        qpat_x_assum`(λ(x,y). _) _`mp_tac >>
-        pairarg_tac>>rfs[]>>fs[]>>
-        rw[]>>fs[word_state_eq_rel_def,state_component_equality]>>
-        metis_tac[])
-      >>
-      qmatch_goalsub_rename_tac`push_env _ (SOME p)` >>
-      PairCases_on`p`>>full_simp_tac(srw_ss())[]>>
-      Cases_on`w ≠ Loc p2 p3`
-      >-
-        (qexists_tac`λn. if n = 0:num then st.permute 0 else perm'' (n-1)`>>
-        full_simp_tac(srw_ss())[push_env_def,env_to_list_def,LET_THM,dec_clock_def,call_env_def,flush_state_def,ETA_AX])>>
-      Cases_on`domain rst.locals ≠ domain (FST x') ∪ domain (SND x')`
-      >-
-        (qexists_tac`λn. if n = 0:num then st.permute 0 else perm'' (n-1)`>>
-        full_simp_tac(srw_ss())[push_env_def,env_to_list_def,LET_THM,dec_clock_def,call_env_def,flush_state_def,ETA_AX])
-      >>
-      qpat_x_assum`((λ(res',rcst). P) A)` mp_tac>>
-      pairarg_tac>>full_simp_tac(srw_ss())[]>>strip_tac>>
-      last_x_assum kall_tac>>
-      qpat_x_assum`(λ(x,y). _) _`mp_tac >>
-      pairarg_tac>>full_simp_tac(srw_ss())[]>>
-      strip_tac >>
-      last_x_assum(qspecl_then[`(set_var p0 w0 rst) with permute:=rcst.permute`,`p1`,`rst1.code`,`cc`]mp_tac)>>
-      impl_tac>-
-        (simp[]>>
-        imp_res_tac evaluate_clock>> fs[] >>
-        imp_res_tac evaluate_consts>>fs[dec_clock_def]>>
-        fs[word_state_eq_rel_def]>>
-        gs[]) >>
-      rw[]>>
-      Q.ISPECL_THEN[`q'`,`call_env q r' (push_env x' (SOME (p0,p1,p2,p3)) (dec_clock st)) with permute:=perm''`,`perm'''`] assume_tac permute_swap_lemma>>
-      rfs[]>>
-      qexists_tac`λn. if n = 0:num then st.permute 0 else perm'''' (n-1)`>>
-      fs[call_env_def,flush_state_def,push_env_def,dec_clock_def,env_to_list_def,ETA_AX]>>
-      `domain rst1.locals = domain (FST x') ∪ domain (SND x')` by
-        (qpat_x_assum`rst1=_` SUBST_ALL_TAC>>rw[])>>
-      simp[]>>
-      pairarg_tac>>fs[]>>
-      qpat_x_assum`rst1=_` SUBST_ALL_TAC>>fs[]>>
-      rpt(pairarg_tac>>fs[])>>
-      fs[]>>
-      pop_assum mp_tac>>
-      qmatch_goalsub_abbrev_tac`_ (evaluate (_,A))`>>
-      qmatch_asmsub_abbrev_tac`_ (evaluate (_,B))`>>
-      strip_tac>>
-      `A = B` by
-        (unabbrev_all_tac>>fs[state_component_equality,word_state_eq_rel_def] >>
-        simp[set_var_def])>>
-      rfs[]>>
-      unabbrev_all_tac>>fs[])
     >>
-      TRY(
-      pop_assum mp_tac >> pairarg_tac>>
-      fs[]>>
-      Q.ISPECL_THEN [`q'`,`call_env q r' (push_env x' o0 (dec_clock st)) with permute:=perm''`,`rcst.permute`] mp_tac permute_swap_lemma>>
-      fs[]>>rw[]>>
-      qexists_tac`λn. if n = 0:num then st.permute 0 else perm''' (n-1)`>>
+    Cases_on`pop_env rst`>>full_simp_tac(srw_ss())[]
+    >-
+      (qexists_tac`λn. if n = 0:num then st.permute 0 else perm'' (n-1)`>>
       Cases_on`o0`>>TRY(PairCases_on`x''`)>>
+      full_simp_tac(srw_ss())[push_env_def,env_to_list_def,LET_THM,dec_clock_def,call_env_def,flush_state_def,ETA_AX])
+    >>
+    Cases_on `domain x''.locals = domain (FST x') ∪ domain (SND x')`>>full_simp_tac(srw_ss())[]
+    >-
+      (qpat_x_assum`(λ(x,y). _) _`mp_tac >>
+       pairarg_tac>>full_simp_tac(srw_ss())[]>>
+       strip_tac >>
+       last_x_assum kall_tac>>
+       qpat_x_assum`(λ(x,y). _) _`mp_tac >>
+       pairarg_tac>>full_simp_tac(srw_ss())[]>>
+       strip_tac >>
+       last_x_assum(qspecl_then[`(set_vars xn l'' x'') with permute:=rcst.permute`,`xrh`,`rst1.code`,`cc`]mp_tac)>>
+       impl_tac>-
+         (simp[]>>
+         `rst.clock < st.clock` by
+           (imp_res_tac evaluate_clock>>
+           full_simp_tac(srw_ss())[call_env_def,flush_state_def,dec_clock_def]>>
+           DECIDE_TAC)>>
+         old_drule pop_env_const >> fs[] >> disch_then kall_tac >>
+         old_drule pop_env_termdep>> fs[] >> disch_then kall_tac >>
+         old_drule pop_env_code_gc_fun_clock >>
+         disch_then (mp_tac o LIST_CONJ o (map SYM) o CONJUNCTS) >>
+         fs[] >> disch_then kall_tac >>
+         imp_res_tac evaluate_consts >> fs[] >>
+         imp_res_tac evaluate_clock >> fs[] >>
+         fs[word_allocProofTheory.word_state_eq_rel_def]>>
+         metis_tac[])>>
+       rw[]>>
+       Q.ISPECL_THEN[`q'`,`call_env q r' (push_env x' o0 (dec_clock st)) with permute:=perm''`,`perm'''`] assume_tac permute_swap_lemma>>
+       rfs[]>>
+       qexists_tac`λn. if n = 0:num then st.permute 0 else perm'''' (n-1)`>>
+       Cases_on`o0`>>TRY(PairCases_on `x'''`)>>
+       (fs[call_env_def,flush_state_def,push_env_def,dec_clock_def,env_to_list_def,ETA_AX]>>
+       qpat_x_assum`((λ(res',rcst). P) A)` mp_tac>>
+       pairarg_tac>>rev_full_simp_tac(srw_ss())[]>>full_simp_tac(srw_ss())[]>>
+       `pop_env rst1 =
+         SOME (x'' with <|compile:= cc;
+                          compile_oracle :=
+            (I ## MAP (λp. compile_single tt kk aa co (p,NONE))) ∘
+            x''.compile_oracle;
+            code:=rst1.code; permute:=rcst.permute|>)` by
+         (fs[pop_env_def,word_allocProofTheory.word_state_eq_rel_def]>>
+         qpat_x_assum`rst1 = _` SUBST_ALL_TAC>>
+         simp[]>>
+         EVERY_CASE_TAC>>fs[state_component_equality])>>
+       simp[]>>
+       TRY (rw[]>>pairarg_tac>>fs[set_var_def]>>NO_TAC)>>
+       qpat_x_assum`rst1 = _` SUBST_ALL_TAC>>
+       fs[pop_env_def,word_allocProofTheory.word_state_eq_rel_def]>>
+       EVERY_CASE_TAC>>fs[state_component_equality]>>
+       qpat_x_assum`pop_env rst = _` mp_tac>>
+       fs[pop_env_def]>>
+       EVERY_CASE_TAC>>fs[state_component_equality]))
+    >>
+    qexists_tac`λn. if n = 0:num then st.permute 0 else perm'' (n-1)`>>
+    Cases_on`o0`>>TRY(PairCases_on`x'''`)>>
+    full_simp_tac(srw_ss())[push_env_def,env_to_list_def,LET_THM,dec_clock_def,call_env_def,flush_state_def,ETA_AX])
+  >-
+    (*Manual simulation for Exceptions*)
+    (Cases_on`o0`>>full_simp_tac(srw_ss())[]
+    >-
+      (pop_assum mp_tac >> pairarg_tac>>full_simp_tac(srw_ss())[]>>
+      strip_tac >>
+      qmatch_assum_abbrev_tac `evaluate(q',A) = _`>>
+      Q.ISPECL_THEN [`q'`,`A`,`rcst.permute`] mp_tac permute_swap_lemma>>
+      simp[Abbr`A`]>>
+      impl_tac>-
+        (qpat_x_assum`B=res'` sym_sub_tac>>full_simp_tac(srw_ss())[])>>
+      rw[]>>
+      qexists_tac`λn. if n = 0:num then st.permute 0 else perm''' (n-1)`>>
       fs[push_env_def,env_to_list_def,dec_clock_def,call_env_def,flush_state_def,ETA_AX]>>
-      qpat_x_assum`(λ(a,b). _) _`mp_tac >>
-      pairarg_tac>>rfs[]>>
-      fs[]>>rw[]>>
-      fs[word_state_eq_rel_def,state_component_equality]>>
+      qpat_x_assum`(λ(x,y). _) _`mp_tac >>
+      pairarg_tac>>rfs[]>>fs[]>>
+      rw[]>>fs[word_state_eq_rel_def,state_component_equality]>>
       metis_tac[])
     >>
-      qexists_tac`λn. if n = 0:num then st.permute 0 else perm'' (n-1)`>>
-      Cases_on`o0`>>TRY(PairCases_on`x''`)>>
-      fs[push_env_def,env_to_list_def,dec_clock_def,call_env_def,flush_state_def,ETA_AX]
+    qmatch_goalsub_rename_tac`push_env _ (SOME p)` >>
+    PairCases_on`p`>>full_simp_tac(srw_ss())[]>>
+    Cases_on`w ≠ Loc p2 p3`
+    >-
+      (qexists_tac`λn. if n = 0:num then st.permute 0 else perm'' (n-1)`>>
+      full_simp_tac(srw_ss())[push_env_def,env_to_list_def,LET_THM,dec_clock_def,call_env_def,flush_state_def,ETA_AX])>>
+    Cases_on`domain rst.locals ≠ domain (FST x') ∪ domain (SND x')`
+    >-
+      (qexists_tac`λn. if n = 0:num then st.permute 0 else perm'' (n-1)`>>
+      full_simp_tac(srw_ss())[push_env_def,env_to_list_def,LET_THM,dec_clock_def,call_env_def,flush_state_def,ETA_AX])
+    >>
+    qpat_x_assum`((λ(res',rcst). P) A)` mp_tac>>
+    pairarg_tac>>full_simp_tac(srw_ss())[]>>strip_tac>>
+    last_x_assum kall_tac>>
+    qpat_x_assum`(λ(x,y). _) _`mp_tac >>
+    pairarg_tac>>full_simp_tac(srw_ss())[]>>
+    strip_tac >>
+    last_x_assum(qspecl_then[`(set_var p0 w0 rst) with permute:=rcst.permute`,`p1`,`rst1.code`,`cc`]mp_tac)>>
+    impl_tac>-
+      (simp[]>>
+      imp_res_tac evaluate_clock>> fs[] >>
+      imp_res_tac evaluate_consts>>fs[dec_clock_def]>>
+      fs[word_state_eq_rel_def]>>
+      gs[]) >>
+    rw[]>>
+    Q.ISPECL_THEN[`q'`,`call_env q r' (push_env x' (SOME (p0,p1,p2,p3)) (dec_clock st)) with permute:=perm''`,`perm'''`] assume_tac permute_swap_lemma>>
+    rfs[]>>
+    qexists_tac`λn. if n = 0:num then st.permute 0 else perm'''' (n-1)`>>
+    fs[call_env_def,flush_state_def,push_env_def,dec_clock_def,env_to_list_def,ETA_AX]>>
+    `domain rst1.locals = domain (FST x') ∪ domain (SND x')` by
+      (qpat_x_assum`rst1=_` SUBST_ALL_TAC>>rw[])>>
+    simp[]>>
+    pairarg_tac>>fs[]>>
+    qpat_x_assum`rst1=_` SUBST_ALL_TAC>>fs[]>>
+    rpt(pairarg_tac>>fs[])>>
+    fs[]>>
+    pop_assum mp_tac>>
+    qmatch_goalsub_abbrev_tac`_ (evaluate (_,A))`>>
+    qmatch_asmsub_abbrev_tac`_ (evaluate (_,B))`>>
+    strip_tac>>
+    `A = B` by
+      (unabbrev_all_tac>>fs[state_component_equality,word_state_eq_rel_def] >>
+      simp[set_var_def])>>
+    rfs[]>>
+    unabbrev_all_tac>>fs[])
+  >>
+    TRY(
+    pop_assum mp_tac >> pairarg_tac>>
+    fs[]>>
+    Q.ISPECL_THEN [`q'`,`call_env q r' (push_env x' o0 (dec_clock st)) with permute:=perm''`,`rcst.permute`] mp_tac permute_swap_lemma>>
+    fs[]>>rw[]>>
+    qexists_tac`λn. if n = 0:num then st.permute 0 else perm''' (n-1)`>>
+    Cases_on`o0`>>TRY(PairCases_on`x''`)>>
+    fs[push_env_def,env_to_list_def,dec_clock_def,call_env_def,flush_state_def,ETA_AX]>>
+    qpat_x_assum`(λ(a,b). _) _`mp_tac >>
+    pairarg_tac>>rfs[]>>
+    fs[]>>rw[]>>
+    fs[word_state_eq_rel_def,state_component_equality]>>
+    metis_tac[])
+  >>
+    qexists_tac`λn. if n = 0:num then st.permute 0 else perm'' (n-1)`>>
+    Cases_on`o0`>>TRY(PairCases_on`x''`)>>
+    fs[push_env_def,env_to_list_def,dec_clock_def,call_env_def,flush_state_def,ETA_AX]
 QED
 
-Resume compile_single_correct[Result_match]:
-  qpat_x_assum`(λ(x,y). _) _`mp_tac >>
-  pairarg_tac>>full_simp_tac(srw_ss())[]>>
-  strip_tac >>
-  last_x_assum kall_tac>>
-  qpat_x_assum`(λ(x,y). _) _`mp_tac >>
-  pairarg_tac>>full_simp_tac(srw_ss())[]>>
-  strip_tac >>
-  last_x_assum(qspecl_then[`(set_vars xn l'' x'') with permute:=rcst.permute`,`xrh`,`rst1.code`,`cc`]mp_tac)>>
-  impl_tac>-
-    (simp[]>>
-    `rst.clock < st.clock` by
-      (imp_res_tac evaluate_clock>>
-      full_simp_tac(srw_ss())[call_env_def,flush_state_def,dec_clock_def]>>
-      DECIDE_TAC)>>
-    old_drule pop_env_const >> fs[] >> disch_then kall_tac >>
-    old_drule pop_env_termdep>> fs[] >> disch_then kall_tac >>
-    old_drule pop_env_code_gc_fun_clock >>
-    disch_then (mp_tac o LIST_CONJ o (map SYM) o CONJUNCTS) >>
-    fs[] >> disch_then kall_tac >>
-    imp_res_tac evaluate_consts >> fs[] >>
-    imp_res_tac evaluate_clock >> fs[] >>
-    fs[word_allocProofTheory.word_state_eq_rel_def]>>
-    metis_tac[])>>
-  rw[]>>
-  Q.ISPECL_THEN[`q'`,`call_env q r' (push_env x' o0 (dec_clock st)) with permute:=perm''`,`perm'''`] assume_tac permute_swap_lemma>>
-  rfs[]>>
-  qexists_tac`λn. if n = 0:num then st.permute 0 else perm'''' (n-1)`>>
-  Cases_on`o0`>>TRY(PairCases_on `x'''`)>>
-  (fs[call_env_def,flush_state_def,push_env_def,dec_clock_def,env_to_list_def,ETA_AX]>>
-  qpat_x_assum`((λ(res',rcst). P) A)` mp_tac>>
-  pairarg_tac>>rev_full_simp_tac(srw_ss())[]>>full_simp_tac(srw_ss())[]>>
-  `pop_env rst1 =
-    SOME (x'' with <|compile:= cc;
-                     compile_oracle :=
-       (I ## MAP (λp. compile_single tt kk aa co (p,NONE))) ∘
-       x''.compile_oracle;
-       code:=rst1.code; permute:=rcst.permute|>)` by
-    (fs[pop_env_def,word_allocProofTheory.word_state_eq_rel_def]>>
-    qpat_x_assum`rst1 = _` SUBST_ALL_TAC>>
-    simp[]>>
-    EVERY_CASE_TAC>>fs[state_component_equality])>>
-  simp[]>>
-  TRY (rw[]>>pairarg_tac>>fs[set_var_def]>>NO_TAC)>>
-  qpat_x_assum`rst1 = _` SUBST_ALL_TAC>>
-  fs[pop_env_def,word_allocProofTheory.word_state_eq_rel_def]>>
-  EVERY_CASE_TAC>>fs[state_component_equality]>>
-  qpat_x_assum`pop_env rst = _` mp_tac>>
-  fs[pop_env_def]>>
-  EVERY_CASE_TAC>>fs[state_component_equality])
-QED
 
 Resume compile_single_correct[Seq]:
   fs[evaluate_def,LET_THM,AND_IMP_INTRO]>>
@@ -692,7 +685,49 @@ Resume compile_single_correct[Loop]:
         qpat_x_assum `evaluate (body, stt with permute := perm') = _` (fn th => simp[th]) >>
         qpat_x_assum `rst1 = _` SUBST1_TAC >>
         simp[flush_state_def, state_component_equality]) >>
-      suspend "Loop_recurse") >>
+      simp[STOP_def] >>
+      `(dec_clock rst).clock < st.clock ∧
+       st.termdep = (dec_clock rst).termdep ∧
+       code_rel (dec_clock rst).code rst1.code ∧
+       domain (dec_clock rst).code = domain rst1.code ∧
+       (dec_clock rst).compile =
+         (λconf progs. cc conf (MAP (λp. compile_single tt kk aa co (p,NONE)) progs)) ∧
+       gc_fun_const_ok (dec_clock rst).gc_fun` by (
+        imp_res_tac evaluate_clock >>
+        imp_res_tac evaluate_consts >>
+        fs[dec_clock_def]) >>
+      first_x_assum(qspecl_then[`dec_clock rst`,
+        `Loop names body exit_names`, `rst1.code`, `cc`] mp_tac) >>
+      impl_tac >- simp[] >>
+      strip_tac >>
+      `res ≠ SOME Error` by (
+        Cases_on `res` >> fs[cont_loop_def] >>
+        rename1 `cont_loop (SOME xx)` >> Cases_on `xx` >> fs[cont_loop_def]) >>
+      Q.ISPECL_THEN[`body`, `stt with permute := perm'`, `perm''`]
+        mp_tac permute_swap_lemma >>
+      simp[] >> strip_tac >>
+      rename1 `evaluate (body, stt with permute := perm_swap) = (res, rst with permute := _)` >>
+      qexists_tac `perm_swap` >>
+      qpat_x_assum `evaluate (body, stt with permute := perm_swap) = _`
+        (fn th => simp[th]) >>
+      `(rst with permute := perm'').clock = rst1.clock ∧
+       dec_clock (rst with permute := perm'') = dec_clock rst with permute := perm''` by
+        simp[dec_clock_def] >>
+      simp[STOP_def] >>
+      qpat_x_assum `(λ(x,y). _) (evaluate (Loop _ _ _, _))` mp_tac >>
+      pairarg_tac >> simp[] >>
+      strip_tac
+      >- (qpat_x_assum `rst1 = _` SUBST1_TAC >> simp[]) >>
+      disj2_tac >>
+      qpat_x_assum `(λ(x,y). _) _` mp_tac >>
+      pairarg_tac >> simp[] >>
+      strip_tac >>
+      qpat_x_assum `rst1 = _` SUBST1_TAC >>
+      simp[dec_clock_def, state_component_equality] >>
+      qpat_x_assum `evaluate (Loop _ _ _, _) = (res1', rst1')` mp_tac >>
+      simp[dec_clock_def] >> strip_tac >>
+      qpat_x_assum `rst1' = _` SUBST1_TAC >>
+      simp[]) >>
     Cases_on `res = SOME (Break 0)` >> fs[]
     >- (
       qexists_tac `perm'` >>
@@ -710,52 +745,6 @@ Resume compile_single_correct[Loop]:
     Cases_on `xx` >> fs[exit_loop_def, state_component_equality]) >>
   (* NONE case *)
   qexists_tac`st.permute`>>simp[rm_perm,state_component_equality]
-QED
-
-Resume compile_single_correct[Loop_recurse]:
-  simp[STOP_def] >>
-  `(dec_clock rst).clock < st.clock ∧
-   st.termdep = (dec_clock rst).termdep ∧
-   code_rel (dec_clock rst).code rst1.code ∧
-   domain (dec_clock rst).code = domain rst1.code ∧
-   (dec_clock rst).compile =
-     (λconf progs. cc conf (MAP (λp. compile_single tt kk aa co (p,NONE)) progs)) ∧
-   gc_fun_const_ok (dec_clock rst).gc_fun` by (
-    imp_res_tac evaluate_clock >>
-    imp_res_tac evaluate_consts >>
-    fs[dec_clock_def]) >>
-  first_x_assum(qspecl_then[`dec_clock rst`,
-    `Loop names body exit_names`, `rst1.code`, `cc`] mp_tac) >>
-  impl_tac >- simp[] >>
-  strip_tac >>
-  `res ≠ SOME Error` by (
-    Cases_on `res` >> fs[cont_loop_def] >>
-    rename1 `cont_loop (SOME xx)` >> Cases_on `xx` >> fs[cont_loop_def]) >>
-  Q.ISPECL_THEN[`body`, `stt with permute := perm'`, `perm''`]
-    mp_tac permute_swap_lemma >>
-  simp[] >> strip_tac >>
-  rename1 `evaluate (body, stt with permute := perm_swap) = (res, rst with permute := _)` >>
-  qexists_tac `perm_swap` >>
-  qpat_x_assum `evaluate (body, stt with permute := perm_swap) = _`
-    (fn th => simp[th]) >>
-  `(rst with permute := perm'').clock = rst1.clock ∧
-   dec_clock (rst with permute := perm'') = dec_clock rst with permute := perm''` by
-    simp[dec_clock_def] >>
-  simp[STOP_def] >>
-  qpat_x_assum `(λ(x,y). _) (evaluate (Loop _ _ _, _))` mp_tac >>
-  pairarg_tac >> simp[] >>
-  strip_tac
-  >- (qpat_x_assum `rst1 = _` SUBST1_TAC >> simp[]) >>
-  disj2_tac >>
-  qpat_x_assum `(λ(x,y). _) _` mp_tac >>
-  pairarg_tac >> simp[] >>
-  strip_tac >>
-  qpat_x_assum `rst1 = _` SUBST1_TAC >>
-  simp[dec_clock_def, state_component_equality] >>
-  qpat_x_assum `evaluate (Loop _ _ _, _) = (res1', rst1')` mp_tac >>
-  simp[dec_clock_def] >> strip_tac >>
-  qpat_x_assum `rst1' = _` SUBST1_TAC >>
-  simp[]
 QED
 
 Resume compile_single_correct[Alloc]:
@@ -1514,10 +1503,6 @@ Resume no_install_no_alloc_compile_single_correct[ni_Call]:
     fs[Abbr`stt`,word_allocProofTheory.word_state_eq_rel_def,state_component_equality] >>
     fs[code_rel_def] >>
     every_case_tac >> gvs[wordSemTheory.bad_fun_return_def]) >>
-  suspend "ni_non_tail_call"
-QED
-
-Resume no_install_no_alloc_compile_single_correct[ni_non_tail_call]:
   rename [`find_code _ (add_ret_loc (SOME xx) _)`] >>
   `?xn xnames xrh xl1 xl2. xx = (xn, xnames, xrh, xl1, xl2)`
     by (PairCases_on`xx`>>simp[]) >> rveq >> full_simp_tac(srw_ss())[]>>
