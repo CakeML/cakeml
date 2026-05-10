@@ -1745,35 +1745,30 @@ Proof
   >> gvs [CaseEq "prod", CaseEq "result", EL_APPEND_EQN]
 QED
 
-Theorem evaluate_bind:
-  ∀xs bs vs n n' env as s t.
-    evaluate (xs,env,s) = (Rval as,t) ∧
+(* Move *)
+(* But why return bs at all...*)
+Theorem bind_preserves_exps:
+  ∀n xs bs vs n'.
     bind n xs = (bs,vs,n') ⇒
-    xs = bs ∧
-    ∀ys.
-      LENGTH ys = n ⇒
-      evaluate (MAP (λn. Var n) vs,ys ++ as ++ env,s) = (Rval as,t)
+    bs = xs
 Proof
-  Induct_on ‘xs’
-  >- (gvs [bind_def, evaluate_def])
-  >> rpt $ gen_tac
-  >> strip_tac
-  >> gvs [Once evaluate_CONS]
-  >> gvs [CaseEq "prod", CaseEq "result"]
-  >> rename [‘evaluate ([h],env,s) = (Rval a,u)’]
-  >> rename [‘evaluate (xs,env,u) = (Rval as,t)’]
-  >> gvs [bind_def]
-  >> gvs [CaseEq "prod"]
-  >> first_x_assum drule_all
-  >> strip_tac
-  >> gvs []
+  Induct_on ‘xs’ >> gvs [bind_def]
   >> rw []
-  >> simp [Once evaluate_CONS, evaluate_def]
-  >> pop_assum $ qspec_then ‘ys ++ [HD v]’ assume_tac
+  >> gvs [CaseEq "prod"]
+  >> rename [‘bind (n + 1) xs = (bs,vs,n')’]
+  >> first_x_assum drule
   >> gvs []
-  >> ‘ys ++ [HD v] ++ vs' ++ env = ys ++ HD v::vs' ++ env’ by
-    (gvs [APPEND_def])
-  >> gvs []
+QED
+
+Theorem evaluate_bind:
+  ∀xs bs vs next next' env r s t.
+    evaluate (xs,env,s) = (r,t) ∧
+    bind next xs = (bs,vs,next') ⇒
+    ∀ys.
+      LENGTH ys = next ⇒
+      evaluate (MAP (λn. Var n) vs,ys ++ env,s) = (r,t)
+Proof
+  cheat 
 QED
 
 Theorem evaluate_bvi_to_cb_aux:
@@ -1794,6 +1789,8 @@ Proof
   >> rw [bvi_to_cb_aux_def]
   >-
    (gvs [CaseEq "prod"]
+    >> imp_res_tac bind_preserves_exps
+    >> gvs []
     >> Cases_on ‘evaluate (bs,env,s)’ >> gvs []
     >> rename [‘evaluate (bs,env,s) = (rs,u)’]
     >> rw []
