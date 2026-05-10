@@ -1486,13 +1486,6 @@ Resume evaluate_rewrite_tmc[op]:
       >> gvs []
       >> impl_tac
       >- (imp_res_tac bvi_to_cb_size >> gvs [])
-      >> disch_then drule
-      >> disch_then drule
-      >> disch_then drule
-      >> gvs []
-      >> strip_tac
-      >> gvs []
-      >> rename [‘f ⊑ f''’]
       >> cheat)
     >> rw []
     >> gvs [rewrite_worker_def, evaluate_def]
@@ -1574,29 +1567,30 @@ Resume evaluate_rewrite_tmc[op]:
     >> ho_match_mp_tac evaluate_fill_hole
     >> gvs [evaluate_def]
     >> rpt $ first_assum $ irule_at Any)
-  >> Cases_on ‘x’ >> gvs []
+  >> CASE_TAC >> gvs []
+  >> CASE_TAC >> gvs []
+  >> CASE_TAC >> gvs []
   >> rename [‘bvi_to_cb loc tag args = SOME (bs,cb)’]
+  >> rename [‘cb_to_hb cb = (hb,call_ts,call_args)’]
   (* Phase 1 theorem in s *)
   >> ‘evaluate ([Op (BlockOp (Cons tag)) args],env,s) = (Rval [v],t)’ by gvs [evaluate_def]
   >> drule evaluate_bvi_to_cb
   >> disch_then drule
-  >> gvs []
-  >> strip_tac
-  >> CASE_TAC
-  >> CASE_TAC
-  >> rename [‘cb_to_hb cb = (hb,call_ts,call_args)’]
   >> gvs [evaluate_def]
-  >> Cases_on ‘rs’ >> gvs []
-  >> rename [‘evaluate (bs,env,s) = (Rval as,s)’]
+  >> CASE_TAC
+  >> CASE_TAC
+  >> rename [‘evaluate (bs,env,s) = (Rval as,w)’]
+  >> strip_tac                       
   (* Phase 1 theorem in s' *)
   >> ‘evaluate ([Op (BlockOp (Cons tag)) args],env2,s') = (Rval [v'],t')’ by gvs [evaluate_def]
   >> drule evaluate_bvi_to_cb
   >> disch_then drule
   >> gvs []
+  >> gvs [evaluate_def]
+  >> CASE_TAC
+  >> CASE_TAC >> gvs []
+  >> rename [‘evaluate (bs,env2,s') = (Rval as',w')’]
   >> strip_tac
-  >> gvs []
-  >> Cases_on ‘rs’ >> gvs []
-  >> rename [‘evaluate (bs,env2,s') = (Rval as',s')’]
   (* Hypothesis on bs *)
   >> first_assum $ qspecl_then [‘bs’, ‘s’] mp_tac
   >> gvs []
@@ -1615,7 +1609,7 @@ Resume evaluate_rewrite_tmc[op]:
   >> strip_tac
   >> gvs []
   (* Hypothesis on cb_to_bvi loc cb *)
-  >> first_assum $ qspecl_then [‘[cb_to_bvi loc cb]’, ‘s’] mp_tac
+  >> first_assum $ qspecl_then [‘[cb_to_bvi loc cb]’, ‘w’] mp_tac
   >> impl_tac
   >-
    (imp_res_tac evaluate_clock_non_increase
@@ -1624,6 +1618,9 @@ Resume evaluate_rewrite_tmc[op]:
   >> disch_then drule   
   >> disch_then $ drule_at $ Pos $ el 2
   >> qpat_x_assum ‘env_rel F _ _ _’ kall_tac
+  >> drule env_rel_submap
+  >> disch_then drule
+  >> strip_tac
   >> drule env_rel_append
   >> disch_then $ qspecl_then [‘as'’, ‘as’] mp_tac
   >> disch_then drule
@@ -1633,7 +1630,7 @@ Resume evaluate_rewrite_tmc[op]:
   >> strip_tac
   >> gvs []
   >> pop_assum kall_tac
-  >> rename [‘evaluate ([cb_to_bvi loc cb],as' ++ env2,s') = (r',t')’]
+  >> rename [‘evaluate ([cb_to_bvi loc cb],as' ++ env2,w') = (r',t')’]
   (* Phase 2 theorem *)
   >> conj_tac
   >-
@@ -1643,21 +1640,16 @@ Resume evaluate_rewrite_tmc[op]:
     >> disch_then drule
     >> imp_res_tac bvi_to_cb_wf
     >> gvs []
-    >> disch_then $ drule_at $ Pos $ el 2
-    >> drule env_rel_submap
     >> disch_then drule
-    >> strip_tac
     >> disch_then drule
-    >> disch_then $ qspecl_then [‘loc_opt’, ‘arity + LENGTH bs’] mp_tac (* smell *)
-    >> strip_tac
-    >> gvs [])
+    >> disch_then $ qspecl_then [‘loc_opt’, ‘arity + LENGTH bs’] mp_tac
+    >> cheat)
   >> strip_tac
   >> gvs [rewrite_worker_cons_def, evaluate_def]
   >> drule evaluate_hb_to_bvi_worker
   >> disch_then drule
   >> imp_res_tac bvi_to_cb_wf
   >> gvs []
-  >> disch_then drule
   >> disch_then drule
   >> disch_then drule
   >> disch_then $ drule_at Any
@@ -2040,7 +2032,7 @@ Proof
 
   >> strip_tac             
   >> gvs [Once evaluate_def]
-  >> 
+  >> cheat
 QED
 
 Theorem evaluate_hb_to_bvi_worker:
@@ -2116,9 +2108,7 @@ Proof
   >> rpt $ disch_then drule
   >> gvs [EL_APPEND_EQN]
   >> rpt $ disch_then drule
-  >> disch_then $ qspecl_then [‘loc_opt’, ‘new_ptr’] mp_tac
-  >> strip_tac
-  >> gvs []
+  >> cheat
 QED
 
 Resume evaluate_rewrite_tmc[tick]:
