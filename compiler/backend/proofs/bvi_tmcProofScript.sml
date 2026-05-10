@@ -1757,7 +1757,9 @@ Theorem bvi_to_cb_aux_inl_pure:
   ∀loc tag args env s t r bs vs.
     bvi_to_cb_aux loc tag args = SOME (bs,INL vs) ∧
     evaluate (bs,env,s) = (r,t) ⇒
-    s = t
+    s = t ∧
+    ∃as.
+      r = Rval as
 Proof
   cheat
 QED
@@ -1831,6 +1833,7 @@ Theorem evaluate_bvi_to_cb_aux_inr:
     r ≠ Rerr (Rabort Rtype_error) ⇒
     evaluate ([Let bs (cb_to_bvi loc cb)],env,s) = (r,t)
 Proof
+  
   recInduct bvi_to_cb_aux_ind
   >> rw [bvi_to_cb_aux_def]
   >-
@@ -1924,28 +1927,21 @@ Proof
     >> gvs [do_app_def, do_app_aux_def])
   >> first_x_assum $ qspecl_then [‘env’, ‘s’] mp_tac
   >> gvs [evaluate_def, CaseEq "prod"]
-  >> reverse CASE_TAC >> gvs []
-                                
+  >> reverse CASE_TAC >> gvs []                                
   >-
    (strip_tac
     >> gvs [CaseEq "call_block", CaseEq "list"]
     >> gvs [evaluate_APPEND]
-
     >> CASE_TAC >> gvs []
     >> CASE_TAC >> gvs []
-                
     >> drule bvi_to_cb_aux_inl_pure
     >> disch_then drule
     >> strip_tac
-    >> gvs []
-    >> reverse $ CASE_TAC >> gvs []
-    >-
-     (gvs [evaluate_def, cb_to_bvi_def, CaseEq "prod", CaseEq "result", do_app_def, do_app_aux_def]
-      >> cheat)
-    >> gvs [evaluate_def, cb_to_bvi_def]
-    >> simp [Once evaluate_CONS]
-    >> CASE_TAC >> gvs []
+    >> gvs []    
+    >> gvs [cb_to_bvi_def, evaluate_def]
+    >> simp [Once evaluate_CONS, evaluate_def]
     >> CASE_TAC
+    >> CASE_TAC >> gvs []
     >> cheat
     )
   >> gvs [CaseEq "call_block", CaseEq "list"]
