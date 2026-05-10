@@ -1836,9 +1836,12 @@ Theorem evaluate_bvi_to_cb_aux_inr:
     r ≠ Rerr (Rabort Rtype_error) ⇒
     ∃as u.
       evaluate (bs,env,s) = (as,u) ∧
-      ∀vs.
-        as = Rval vs ⇒
-        evaluate ([cb_to_bvi loc cb],vs,u) = (r,t)
+      (∀vs.
+         as = Rval vs ⇒
+         evaluate ([cb_to_bvi loc cb],vs,u) = (r,t)) ∧
+      (∀e.
+         as = Rerr e ⇒
+         (as,u) = (r,t))
 Proof
   recInduct bvi_to_cb_aux_ind
   >> rw [bvi_to_cb_aux_def]
@@ -1982,9 +1985,12 @@ Theorem evaluate_bvi_to_cb:
     evaluate ([Let bs (cb_to_bvi loc cb)],env,s) = (r,t)
 Proof
   rw []
-  >> irule evaluate_bvi_to_cb_aux_inr
   >> gvs [bvi_to_cb_def, CaseEq "option", CaseEq "prod", CaseEq "sum"]
-  >> first_assum $ irule_at Any
+  >> drule_all evaluate_bvi_to_cb_aux_inr
+  >> strip_tac
+  >> simp [evaluate_def]
+  >> CASE_TAC >> gvs []
+  >> irule evaluate_expand_env
   >> gvs []
 QED
 
