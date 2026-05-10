@@ -863,6 +863,21 @@ Proof
   >> first_x_assum irule >> rw[MEM_FILTER]
 QED
 
+Theorem typeof_vsubst1:
+  ∀tm ilist.
+    term_ok sig tm ∧
+    (∀v1 v2. MEM (v1, v2) ilist ⇒ ∃n1 n2 ty. v1 has_type ty ∧ v2 = Var n2 ty) ⇒
+    typeof (VSUBST ilist tm) = typeof tm
+Proof
+  Induct_on ‘tm’ >> rw[VSUBST_def, term_ok_def]
+  >- (qspecl_then [‘ilist’, ‘Var m t’, ‘Var m t’] strip_assume_tac REV_ASSOCD_MEM
+      >- (first_x_assum drule >> simp[PULL_EXISTS, has_type_typeof])
+      >> simp[])
+  >- (gvs[] >> first_x_assum irule >> rw[MEM_FILTER] >> first_x_assum drule
+      >> rw[has_type_typeof])
+  >> first_x_assum irule >> rw[MEM_FILTER]
+QED
+
 Theorem VFREE_IN_VSUBST_OUT:
   ∀tm ilist.
     term_ok sig tm ∧
@@ -4063,6 +4078,36 @@ QED
 
 val ilist_r_thms = [MEM_MAP, LAMBDA_PROD, EXISTS_PROD, FORALL_PROD, SWAP_def, MEM_FILTER]
 
+
+Theorem INST_equation:
+  term_ok sig a ∧ term_ok sig b ∧
+  EVERY (type_ok (tysof sig)) (MAP FST tyin) ⇒
+  INST tyin (a === b) = INST tyin a === INST tyin b
+Proof
+  rw[equation_def] >> imp_res_tac term_ok_welltyped
+  >> simp[INST_COMB, INST_def, INST_CORE_def]
+  >> drule INST_CORE_HAS_TYPE >> disch_then $ qspec_then ‘sizeof a’ mp_tac
+  >> disch_then $ qspecl_then [‘[]’, ‘tyin’] mp_tac >> rw[]
+  >> gvs[REV_ASSOCD, has_type_typeof]
+QED
+
+Theorem apply_steps_equation:
+  ∀stps.
+    term_ok sig x ∧ term_ok sig y ∧ steps_ok sig stps ⇒
+    apply_steps stps (x === y) = apply_steps stps x === apply_steps stps y
+Proof
+  Induct >> simp[apply_steps_def] >> Cases >> rw[apply_steps_def] >> gvs[steps_ok_def]
+  >> DEP_REWRITE_TAC[VSUBST_equation, INST_equation]
+  >> simp[apply_steps_term_ok, SF SFY_ss] >> metis_tac[]
+QED
+
+val eqn_dist_tac =
+DEP_REWRITE_TAC [apply_steps_equation,
+                 esubst_equation,
+                 VSUBST_equation,
+                 INST_equation]
+>> simp[apply_steps_term_ok, SF SFY_ss]
+
 Theorem REV_ASSOCD_UNIQUE_MEM:
   ∀l. MEM (a, k) l ∧ (∀v. MEM (v, k) l ⇒ v = a) ⇒ REV_ASSOCD k l d = a
 Proof
@@ -4392,6 +4437,8 @@ Resume apply_steps_3layer[TStep]:
   >> metis_tac[]
 QED
 
+Finalise apply_steps_3layer
+
 Triviality esubst_Abs_bv_fresh:
   esubsts_ok sig σ ∧ theory_ok (sig,axs) ∧
   term_ok sig (Abs (Var x ty) t) ∧
@@ -4470,6 +4517,155 @@ Proof
   >> metis_tac[NVARIANT_NAMES_THM]
 QED
 
+(* If Var x ty is not free in tm, and x has no other type oty in tm
+   such that ty_esubst σ maps oty to ty_esubst σ ty, then
+   Var x (ty_esubst σ ty) is not free in esubst σ [] tm. *)
+Theorem esubst_not_VFREE_IN:
+  esubsts_ok sig σ ∧ term_ok sig tm ∧
+  ¬VFREE_IN (Var x ty) tm ∧
+  (∀oty. VFREE_IN (Var x oty) tm ∧ ty_esubst σ oty = ty_esubst σ ty ⇒ oty = ty) ⇒
+  ¬VFREE_IN (Var x (ty_esubst σ ty)) (esubst σ [] tm)
+Proof
+  strip_tac >> strip_tac
+  >> ‘∃tm1. esubst_ty0 [] σ [] tm = return tm1’
+    by metis_tac[esubst_ty0_always_returns]
+  >> gvs[esubst_def, esubst_ty_def]
+  >> ‘VFREE_IN (Var x (ty_esubst σ ty)) tm1’
+    by metis_tac[VFREE_IN_esubst_tm]
+  >> drule_then drule esubst_ty0_all_free
+  >> disch_then $ drule_at Any >> simp[]
+  >> metis_tac[]
+QED
+
+Theorem unique_varnames_comb:
+  ∀x y. unique_varnames (Comb x y) ⇒ unique_varnames x ∧ unique_varnames y
+Proof
+  rw[unique_varnames_def] >> metis_tac[]
+QED
+
+Theorem unique_varnames_equation:
+  ∀x y. unique_varnames (x === y) ⇒ unique_varnames x ∧ unique_varnames y
+Proof
+  rw[equation_def] >> metis_tac[unique_varnames_comb]
+QED
+
+(* Commuting a single-variable VSUBST with esubst, handling both
+   the case where the variable is free (uses esubst_VSUBST_comm)
+   and the case where it is not (both VSUBSTs are identity). *)
+Theorem esubst_single_VSUBST_ACONV:
+  theory_ok (sig, axs) ∧ esubsts_ok sig σ ∧ term_ok sig tm ∧
+  type_ok (tysof sig) ty ∧
+  no_var_collapse σ tm ∧
+  (∀oty. VFREE_IN (Var z oty) tm ∧ ty_esubst σ oty = ty_esubst σ ty ⇒ oty = ty) ⇒
+  ACONV (VSUBST [(Var vn (ty_esubst σ ty), Var z (ty_esubst σ ty))] (esubst σ [] tm))
+        (esubst σ [] (VSUBST [(Var vn ty, Var z ty)] tm))
+Proof
+  rw[]
+  >> Cases_on ‘VFREE_IN (Var z ty) tm’
+  >- (‘MAP (λ(s',s). (esubst σ [] s',esubst_ty σ [] s)) [(Var vn ty,Var z ty)]
+        = [(Var vn (ty_esubst σ ty), Var z (ty_esubst σ ty))]’
+      by simp[esubst_var]
+      >> pop_assum (fn th => REWRITE_TAC[GSYM th])
+      >> irule esubst_VSUBST_comm >> rw[MEM]
+      >> simp[term_ok_def, has_type_var] >> metis_tac[])
+  >> ‘VSUBST [(Var vn ty,Var z ty)] tm = tm’
+    by (irule VSUBST_NOT_FREE_VAR >> simp[SF SFY_ss])
+  >> gvs[]
+  >> ‘¬VFREE_IN (Var z (ty_esubst σ ty)) (esubst σ [] tm)’
+    by (irule esubst_not_VFREE_IN >> simp[SF SFY_ss])
+  >> ‘VSUBST [(Var vn (ty_esubst σ ty),Var z (ty_esubst σ ty))] (esubst σ [] tm)
+      = esubst σ [] tm’
+    by (irule VSUBST_NOT_FREE_VAR >> simp[SF SFY_ss]
+        >> metis_tac[esubst_term_ok])
+  >> simp[ACONV_REFL]
+QED
+
+(* Splitting a VSUBST: filtering out the bound variable mapping and
+   re-adding it separately gives ACONV to the original VSUBST.
+   This is the key VSUBST lemma for the beta case. *)
+Theorem VSUBST_split_bv_ACONV:
+  welltyped t ∧
+  (∀t' s. MEM (t',s) ilist ⇒ welltyped t' ∧ (∃x' ty' y. s = Var x' ty' ∧ t' = Var y ty')) ∧
+  (∀nm ty0 v. MEM (Var nm ty0,v) ilist ⇒ ¬VFREE_IN (Var nm ty0) t) ∧
+  ¬EXISTS (λ(s',s). VFREE_IN (Var x ty) s' ∧ VFREE_IN s t)
+          (FILTER (λ(s',s). s ≠ Var x ty) ilist) ⇒
+  ACONV (VSUBST [(VSUBST ilist (Var x ty), Var x ty)]
+         (VSUBST (FILTER (λ(s',s). s ≠ Var x ty) ilist) t))
+        (VSUBST ilist t)
+Proof
+  rpt strip_tac
+  >> ‘∀s1 s2. MEM (s1,s2) ilist ⇒ ∃a b. s2 = Var a b ∧ s1 has_type b’
+       by (rw[] >> res_tac >> gvs[has_type_rules])
+  >> ‘∀s1 s2. MEM (s1,s2) (FILTER (λ(s1,s2). s2 ≠ Var x ty) ilist) ⇒
+              ∃a b. s2 = Var a b ∧ s1 has_type b’
+       by (rw[MEM_FILTER] >> res_tac)
+  >> ‘∀k v. MEM (v,k) ilist ⇒ welltyped v ∧ (∃a b. k = Var a b)’
+       by (rw[] >> res_tac >> gvs[])
+  >> ‘∀k v. MEM (v,k) (FILTER (λ(s1,s2). s2 ≠ Var x ty) ilist) ⇒
+            welltyped v ∧ (∃a b. k = Var a b)’
+       by (rw[MEM_FILTER] >> res_tac >> gvs[])
+  >> ‘welltyped (VSUBST (FILTER (λ(s1,s2). s2 ≠ Var x ty) ilist) t)’
+       by (irule VSUBST_WELLTYPED >> rw[] >> res_tac >> gvs[])
+  >> ‘welltyped (VSUBST ilist t)’
+       by (irule VSUBST_WELLTYPED >> rw[] >> res_tac >> gvs[])
+  >> ‘VSUBST ilist (Var x ty) has_type ty’
+       by (irule VSUBST_HAS_TYPE >> simp[has_type_rules])
+  >> ‘db (VSUBST ilist t) =
+      dbVSUBST (MAP (λ(p,q). (db p, db q)) ilist) (db t)’
+       by rw[VSUBST_dbVSUBST, SF SFY_ss]
+  >> ‘db (VSUBST (FILTER (λ(s1,s2). s2 ≠ Var x ty) ilist) t) =
+      dbVSUBST (MAP (λ(p,q). (db p, db q))
+                     (FILTER (λ(s1,s2). s2 ≠ Var x ty) ilist)) (db t)’
+       by rw[VSUBST_dbVSUBST, MEM_FILTER, SF SFY_ss]
+  >> ‘welltyped (VSUBST ilist (Var x ty))’ by metis_tac[welltyped_def]
+  >> irule $ iffRL ACONV_db >> rw[]
+  >- (irule VSUBST_WELLTYPED >> simp[])
+  >> rw[VSUBST_dbVSUBST, SF SFY_ss]
+  >> ‘¬MEM (dbVar x ty)
+          (MAP SND (FILTER (λ(p,q). q ≠ dbVar x ty)
+                           (MAP (λ(p,q). (db p, db q)) ilist)))’
+       by simp[MEM_MAP, MEM_FILTER, EXISTS_PROD, FORALL_PROD]
+  >> rw[Once dbVSUBST_comp, MAP_db_FILTER_neq]
+  >> irule dbVSUBST_frees
+  >> gen_tac >> strip_tac
+  >> Cases_on ‘k = dbVar x ty’
+  >- simp[REV_ASSOCD_APPEND, REV_ASSOCD_def, REV_ASSOCD_MAP,
+          MEM_MAP, MEM_FILTER, EXISTS_PROD, FORALL_PROD]
+  >> simp[REV_ASSOCD_APPEND, REV_ASSOCD_def, REV_ASSOCD_MAP,
+          REV_ASSOCD_FILTER, MEM_MAP, MEM_FILTER, EXISTS_PROD, FORALL_PROD]
+  >> IF_CASES_TAC >> gvs[]
+  >- (
+    ‘∃x'' ty''. p_2 = Var x'' ty''’ by metis_tac[]
+    >> gvs[]
+    >> qspecl_then [‘ilist’, ‘x''’, ‘ty''’] mp_tac REV_ASSOCD_MAP_db
+    >> impl_tac >- metis_tac[]
+    >> strip_tac >> gvs[]
+    >> ‘VFREE_IN (Var x'' ty'') t’ by (
+         irule $ iffLR dbVFREE_IN_VFREE_IN >> simp[db_def]
+       )
+    >> ‘Var x'' ty'' ≠ Var x ty’ by (strip_tac >> gvs[db_def])
+    >> ‘∃rv_nm rv_ty. REV_ASSOCD (Var x'' ty'') ilist (Var x'' ty'') = Var rv_nm rv_ty’ by (
+         qspecl_then [‘ilist’, ‘Var x'' ty''’, ‘Var x'' ty''’]
+           strip_assume_tac REV_ASSOCD_MEM
+         >> gvs[] >> res_tac >> gvs[]
+       )
+    >> ‘¬(rv_nm = x ∧ rv_ty = ty)’ by (
+         strip_tac >> gvs[]
+         >> qspecl_then [‘ilist’, ‘Var x'' ty''’, ‘Var x'' ty''’]
+              strip_assume_tac REV_ASSOCD_MEM
+         >> gvs[]
+         >> qpat_x_assum ‘EVERY _ _’ mp_tac
+         >> simp[EVERY_MEM, MEM_FILTER, FORALL_PROD, EXISTS_MEM]
+         >> first_x_assum $ irule_at Any >> rw[]
+       )
+    >> gvs[db_def, dbVSUBST_def, REV_ASSOCD_def] >> rw[]
+  )
+  >> qspecl_then [‘MAP (λ(p,q). (db p,db q)) ilist’, ‘k’, ‘k’]
+       strip_assume_tac REV_ASSOCD_MEM
+  >- (gvs[MEM_MAP, FORALL_PROD, EXISTS_PROD] >> res_tac)
+  >> gvs[]
+QED
+
 Theorem beta_esubst_inner_derivable:
   theory_ok (sig, axs) ∧ esubsts_ok sig σ ∧
   (∀ax. ax ∈ axs ⇒ no_var_collapse σ ax) ∧
@@ -4535,11 +4731,15 @@ Proof
       (Comb (Abs (Var z ty') body_e) (Var z ty') === body_e)
       = (Comb (Abs (Var z ty') body_e) (Var vn ty')
              === VSUBST [(Var vn ty', Var z ty')] body_e)’
-    by suspend "vsubst_eq"
+    by (DEP_REWRITE_TAC[GEN_ALL VSUBST_equation]
+        >> simp[term_ok_welltyped, SF SFY_ss, VSUBST_def] >> rev_dxrule esubsts_ok_type_ok
+        >> rw[] >> res_tac >> first_x_assum $ irule_at Any >> simp[])
   >> ‘esubst σ [] (VSUBST ilist_r (Comb (Abs (Var x ty) t) (Var x ty) === t))
       = (Comb (Abs (Var z ty') body_e) (Var vn ty')
              === esubst σ [] (VSUBST ilist_r t))’
-    by suspend "esubst_eq"
+    by (eqn_dist_tac >> simp[VSUBST_def] >> DEP_REWRITE_TAC[esubst_comb] >> rw[]
+        >> gvs[term_ok_def, term_ok_welltyped, SF SFY_ss]
+        >> first_x_assum drule >> rw[has_type_var])
   >> pop_assum SUBST1_TAC >> pop_assum SUBST1_TAC
   >> irule ACONV_equation >> rw[]
   >> simp[SF SFY_ss, term_ok_welltyped, VSUBST_WELLTYPED]
@@ -4550,31 +4750,6 @@ Proof
   >> conj_tac
   >- suspend "sg1"
   >> suspend "sg2"
-QED
-
-Resume beta_esubst_inner_derivable[vsubst_eq]:
-  simp[equation_def, VSUBST_def, REV_ASSOCD, LET_THM, FILTER, EXISTS_DEF, VSUBST_NIL, typeof_def, codomain_def]
-QED
-
-Resume beta_esubst_inner_derivable[esubst_eq]:
-  ‘is_std_sig sig’ by fs[theory_ok_def]
-  >> ‘term_ok sig (Comb (Abs (Var x ty) t) (Var x ty))’
-    by gvs[term_ok_equation]
-  >> drule_at (Pos hd) VSUBST_equation
-  >> disch_then (qspecl_then [‘ilist_r’, ‘t’] mp_tac)
-  >> impl_tac >- (rw[] >> res_tac >> gvs[has_type_var])
-  >> rw[]
-  >> simp[Once VSUBST_def] >> gvs[]
-  >> ‘term_ok sig (Comb (Abs (Var xn ty) body_v) (Var vn ty))’
-    by (gvs[term_ok_clauses]
-        >> imp_res_tac term_ok_welltyped
-        >> gvs[welltyped_def, typeof_def, codomain_def, has_type_rules])
-  >> ‘esubst σ [] (Comb (Abs (Var xn ty) body_v) (Var vn ty) === VSUBST ilist_r t)
-      = esubst σ [] (Comb (Abs (Var xn ty) body_v) (Var vn ty))
-        === esubst σ [] (VSUBST ilist_r t)’
-    by metis_tac[esubst_equation]
-  >> pop_assum SUBST1_TAC
-  >> simp[esubst_comb, esubst_var, SF SFY_ss]
 QED
 
 Resume beta_esubst_inner_derivable[sg1]:
@@ -4597,18 +4772,6 @@ Resume beta_esubst_inner_derivable[sg1]:
   >- suspend "sg1_vsubst_trans"
   >> last_x_assum $ irule_at (Pos hd) >> simp[]
   >> conj_tac >> irule term_ok_VSUBST >> rw[] >> metis_tac[term_ok_def]
-QED
-
-Theorem unique_varnames_comb:
-  ∀x y. unique_varnames (Comb x y) ⇒ unique_varnames x ∧ unique_varnames y
-Proof
-  rw[unique_varnames_def] >> metis_tac[]
-QED
-
-Theorem unique_varnames_equation:
-  ∀x y. unique_varnames (x === y) ⇒ unique_varnames x ∧ unique_varnames y
-Proof
-  rw[equation_def] >> metis_tac[unique_varnames_comb]
 QED
 
 Theorem REV_ASSOCD_ID:
@@ -4649,35 +4812,8 @@ Resume beta_esubst_inner_derivable[sg1_a]:
     by (rw[no_var_collapse] >> Cases_on ‘x = xn’
         >> qpat_x_assum ‘unique_varnames _’ mp_tac >> simp[unique_varnames_def]
         >> disch_then $ qspecl_then [‘x'’, ‘ty1’, ‘ty2’] mp_tac >> metis_tac[])
-  >> Cases_on ‘VFREE_IN (Var xn ty) body_v’
-  >- (simp[Abbr‘ty'’]
-      >> ‘MAP (λ(s',s). (esubst σ [] s',esubst_ty σ [] s)) [(Var vn ty,Var xn ty)]
-          = [(Var vn (ty_esubst σ ty), Var xn (ty_esubst σ ty))]’
-        by simp[esubst_var]
-      >> pop_assum (fn th => REWRITE_TAC[GSYM th])
-      >> irule esubst_VSUBST_comm >> rw[MEM]
-      >> simp[term_ok_def, has_type_var] >> metis_tac[])
-  >> (* not free case *)
-  ‘VSUBST [(Var vn ty,Var xn ty)] body_v = body_v’
-    by (irule VSUBST_NOT_FREE_VAR >> simp[SF SFY_ss])
-  >> gvs[]
-  >> ‘term_ok (esubst_sig σ sig) (esubst σ [] body_v)’
-    by (irule esubst_term_ok >> simp[SF SFY_ss])
-  >> ‘¬VFREE_IN (Var xn (ty_esubst σ ty)) (esubst σ [] body_v)’
-    by (strip_tac
-        >> ‘∃tm1. esubst_ty0 [] σ [] body_v = return tm1’
-          by metis_tac[esubst_ty0_always_returns]
-        >> gvs[esubst_def, esubst_ty_def]
-        >> ‘VFREE_IN (Var xn (ty_esubst σ ty)) tm1’
-          by metis_tac[VFREE_IN_esubst_tm]
-        >> drule_then drule esubst_ty0_all_free
-        >> disch_then $ drule_at Any >> simp[]
-        >> metis_tac[])
   >> simp[Abbr‘ty'’]
-  >> ‘VSUBST [(Var vn (ty_esubst σ ty),Var xn (ty_esubst σ ty))] (esubst σ [] body_v)
-      = esubst σ [] body_v’
-    by (irule VSUBST_NOT_FREE_VAR >> simp[] >> metis_tac[])
-  >> simp[ACONV_REFL]
+  >> irule esubst_single_VSUBST_ACONV >> simp[SF SFY_ss]
 QED
 
 Resume beta_esubst_inner_derivable[sg1_b]:
@@ -4733,22 +4869,12 @@ Resume beta_esubst_inner_derivable[sg1_b]:
   >> ‘VSUBST [(Var vn ty,Var z ty)] body_v = body_v’
     by (irule VSUBST_NOT_FREE_VAR >> simp[SF SFY_ss])
   >> gvs[]
-  >> ‘term_ok (esubst_sig σ sig) (esubst σ [] body_v)’
-    by (irule esubst_term_ok >> simp[SF SFY_ss])
-  >> ‘¬VFREE_IN (Var z (ty_esubst σ ty)) (esubst σ [] body_v)’ by (
-    strip_tac
-    >> ‘∃tm1. esubst_ty0 [] σ [] body_v = return tm1’
-      by metis_tac[esubst_ty0_always_returns]
-    >> gvs[esubst_def, esubst_ty_def]
-    >> ‘VFREE_IN (Var z (ty_esubst σ ty)) tm1’
-      by metis_tac[VFREE_IN_esubst_tm]
-    >> drule_then drule esubst_ty0_all_free
-    >> disch_then $ drule_at Any >> simp[]
-    >> metis_tac[])
+  >> ‘¬VFREE_IN (Var z (ty_esubst σ ty)) (esubst σ [] body_v)’
+    by (irule esubst_not_VFREE_IN >> simp[SF SFY_ss])
   >> simp[Abbr‘ty'’]
   >> ‘VSUBST [(Var vn (ty_esubst σ ty),Var z (ty_esubst σ ty))] (esubst σ [] body_v)
       = esubst σ [] body_v’
-    by (irule VSUBST_NOT_FREE_VAR >> simp[] >> metis_tac[])
+    by (irule VSUBST_NOT_FREE_VAR >> simp[] >> dxrule_at Any esubst_term_ok >> metis_tac[])
   >> simp[ACONV_REFL]
 QED
 
@@ -4798,94 +4924,92 @@ Resume beta_esubst_inner_derivable[sg2]:
               >> gvs[])
         >> gvs[term_ok_def])
   >> irule esubst_ACONV >> simp[SF SFY_ss]
-  >> qabbrev_tac ‘il = FILTER (λ(s',s). s ≠ Var x ty) ilist_r’
-  >> irule $ iffRL ACONV_db >> simp[term_ok_welltyped, SF SFY_ss]
-  >> suspend "db_eq"
-QED
-
-Resume beta_esubst_inner_derivable[db_eq]:
-  imp_res_tac term_ok_welltyped
-  >> ‘∀k v. MEM (v,k) ilist_r ⇒ welltyped v ∧ ∃x ty. k = Var x ty’
-    by (rpt strip_tac >> res_tac >> gvs[term_ok_welltyped])
-  >> drule_all VSUBST_dbVSUBST >> rw[]
-  >> ‘∀k v. MEM (v,k) il ⇒ welltyped v ∧ ∃x ty. k = Var x ty’
-    by (rpt strip_tac >> gvs[Abbr‘il’, MEM_FILTER] >> res_tac >> gvs[])
-  >> suspend "db_eq_cont"
-QED
-
-Resume beta_esubst_inner_derivable[db_eq_cont]:
-  simp[VSUBST_dbVSUBST]
-  >> drule_all VSUBST_dbVSUBST >> rw[] >> rw[dbVSUBST_comp] >> irule dbVSUBST_frees >> rw[]
-  >- suspend "db_eq_g1"
-  >> suspend "db_eq_g2"
-QED
-
-Resume beta_esubst_inner_derivable[db_eq_g1]:
-  simp[REV_ASSOCD_APPEND, REV_ASSOCD, REV_ASSOCD_MAP, Abbr‘il’, MAP_db_FILTER_neq, REV_ASSOCD_FILTER]
-  >> rw[AllCaseEqs()]
-  >> simp[REV_ASSOCD, MEM_FILTER, MEM_MAP, EXISTS_PROD, dbVSUBST_def]
-  >> rpt strip_tac
-  >> gvs[]
-  >- suspend "db_eq_g1_main"
-  >> suspend "db_eq_g1_vsubst"
-QED
-
-Resume beta_esubst_inner_derivable[db_eq_g1_vsubst]:
-  ‘∀k v. MEM (v,k) ilist_r ⇒ ∃x ty. k = Var x ty’
-    by (rpt strip_tac >> res_tac >> gvs[])
-  >> drule REV_ASSOCD_MAP_db
-  >> disch_then (qspecl_then [‘x’, ‘ty’] assume_tac)
-  >> gvs[VSUBST_def, db_def]
-QED
-
-Resume beta_esubst_inner_derivable[db_eq_g1_main]:
-  Cases_on ‘∃p_1 p_2. k = db p_2 ∧ MEM (p_1,p_2) ilist_r’
-  >- (DISJ1_TAC >> gvs[] >> suspend "db_eq_g1_mem")
-  >> DISJ2_TAC >> gvs[]
-  >> ‘MEM (REV_ASSOCD k (MAP (λ(x,y). (db x,db y)) ilist_r) k, k) (MAP (λ(x,y). (db x,db y)) ilist_r) ∨ REV_ASSOCD k (MAP (λ(x,y). (db x,db y)) ilist_r) k = k’
-    by metis_tac[REV_ASSOCD_MEM]
-  >> gvs[MEM_MAP, EXISTS_PROD]
-QED
-
-Resume beta_esubst_inner_derivable[db_eq_g1_mem]:
-  conj_tac >- metis_tac[]
-  >> ‘∃nm ty0. p_2 = Var nm ty0’ by (res_tac >> metis_tac[])
-  >> gvs[db_def]
-  >> ‘∀k v. MEM (v,k) ilist_r ⇒ ∃x ty. k = Var x ty’
-    by (rpt strip_tac >> res_tac >> gvs[])
-  >> drule REV_ASSOCD_MAP_db
-  >> disch_then (qspecl_then [‘nm’, ‘ty0’] mp_tac) >> rw[]
-  >> simp[dbVSUBST_def, REV_ASSOCD]
-  >> suspend "db_eq_g1_if"
-QED
-
-Resume beta_esubst_inner_derivable[db_eq_g1_if]:
-  Q.ISPECL_THEN [‘ilist_r’, ‘Var nm ty0’, ‘Var nm ty0’] strip_assume_tac REV_ASSOCD_MEM
-  >- suspend "db_eq_g1_if_mem"
-  >> suspend "db_eq_g1_if_def"
-QED
-
-Resume beta_esubst_inner_derivable[db_eq_g1_if_mem]:
-  res_tac >> gvs[db_def, dbVSUBST_def, REV_ASSOCD]
-  >> IF_CASES_TAC >> gvs[]
-  >> res_tac >> gvs[equation_def]
-QED
-
-Resume beta_esubst_inner_derivable[db_eq_g1_if_def]:
-  gvs[db_def, dbVSUBST_def, REV_ASSOCD]
-  >> IF_CASES_TAC >> gvs[]
-QED
-
-Resume beta_esubst_inner_derivable[db_eq_g2]:
-  gvs[Abbr‘il’, MAP_MAP_o, combinTheory.o_DEF, MEM_MAP, MEM_FILTER, EXISTS_PROD]
-  >> res_tac >> gvs[]
+  >> ‘Var vn ty = VSUBST ilist_r (Var x ty)’ by gvs[]
+  >> pop_assum (fn th => ONCE_REWRITE_TAC[th])
+  >> irule VSUBST_split_bv_ACONV
+  >> imp_res_tac term_ok_welltyped >> simp[SF SFY_ss]
+  >> rpt strip_tac >> res_tac
+  >> gvs[term_ok_welltyped, equation_def, VFREE_IN_def, typeof_def, codomain_def]
 QED
 
 Finalise beta_esubst_inner_derivable
 
+(* esubst commutes past VSUBST ∘ INST up to ACONV, combining
+   esubst_INST_comm and esubst_VSUBST_comm into one result. *)
+Theorem esubst_INST_VSUBST_ACONV:
+  theory_ok (sig, axs) ∧ esubsts_ok sig σ ∧
+  term_ok sig t ∧ unique_varnames t ∧
+  EVERY (type_ok (tysof sig)) (MAP FST tyin) ∧
+  (∀s' s. MEM (s',s) ilist ⇒ ∃x ty. s = Var x ty ∧ s' has_type ty ∧
+                                      term_ok sig s' ∧
+                                      VFREE_IN s (INST tyin t)) ⇒
+  ACONV (VSUBST (MAP (λ(s',s). (esubst σ [] s', esubst_ty σ [] s)) ilist)
+                (INST (MAP (λ(ty,a). (ty_esubst σ ty, a)) tyin)
+                      (esubst σ [] t)))
+        (esubst σ [] (VSUBST ilist (INST tyin t)))
+Proof
+  rw[]
+  >> irule ACONV_TRANS
+  >> qexists ‘VSUBST (MAP (λ(s',s). (esubst σ [] s', esubst_ty σ [] s)) ilist)
+                      (esubst σ [] (INST tyin t))’
+  >> reverse conj_tac
+  >- (irule esubst_VSUBST_comm >> rw[]
+      >- (irule unique_varnames_no_var_collapse
+          >> irule unique_varnames_INST >> simp[term_ok_welltyped, SF SFY_ss])
+      >- (qexistsl [‘axs’, ‘sig’] >> simp[SF SFY_ss]
+          >> irule term_ok_INST >> simp[])
+      >> rw[] >> rpt $ first_x_assum $ irule_at Any >> rw[]
+      >> first_x_assum drule >> rw[SF SFY_ss])
+  >> irule ACONV_VSUBST >> rw[]
+  >- (gvs[MEM_MAP, LAMBDA_PROD, EXISTS_PROD] >> first_x_assum drule >> rw[]
+      >> simp[esubst_ty_def] >> irule esubst_has_type1 >> metis_tac[])
+  >- (irule INST_WELLTYPED >> metis_tac[esubst_welltyped])
+  >- metis_tac[esubst_welltyped, term_ok_INST]
+  >> irule ACONV_SYM >> irule esubst_INST_comm
+  >> simp[EVERY_MEM, SF SFY_ss]
+  >> qexistsl [‘axs’, ‘sig’] >> gvs[EVERY_MEM]
+QED
+
+(* If we can derive esubst σ [] t, then we can push through INST_TYPE and INST
+   to derive esubst σ [] (VSUBST ilist (INST tyin t)). *)
+Theorem derives_esubst_INST_VSUBST:
+  theory_ok (sig, axs) ∧ esubsts_ok sig σ ∧
+  term_ok sig t ∧ unique_varnames t ∧
+  EVERY (type_ok (tysof sig)) (MAP FST tyin) ∧
+  (∀s' s. MEM (s',s) ilist ⇒ ∃x ty. s = Var x ty ∧ s' has_type ty ∧
+                                      term_ok sig s' ∧
+                                      VFREE_IN s (INST tyin t)) ∧
+  ((esubst_sig σ sig, IMAGE (esubst σ []) axs), []) |- esubst σ [] t ⇒
+  ((esubst_sig σ sig, IMAGE (esubst σ []) axs), []) |-
+    esubst σ [] (VSUBST ilist (INST tyin t))
+Proof
+  rw[]
+  >> drule_at Any proves_INST_TYPE
+  >> disch_then $ qspec_then ‘MAP (λ(ty,a). (ty_esubst σ ty, a)) tyin’ mp_tac
+  >> impl_tac
+  >- (simp[EVERY_MAP, EVERY_MEM]
+      >> rw[] >> pairarg_tac >> simp[]
+      >> irule esubsts_ok_type_ok >> simp[EVERY_MEM]
+      >> gvs[EVERY_MEM, MEM_MAP] >> first_x_assum irule
+      >> metis_tac[EXISTS_PROD, FST])
+  >> rw[term_image_thm]
+  >> drule_at Any proves_INST
+  >> disch_then $ qspec_then ‘MAP (λ(s',s). (esubst σ [] s', esubst_ty σ [] s)) ilist’ mp_tac
+  >> impl_tac >> rw[]
+  >- (gvs[MEM_MAP, LAMBDA_PROD, EXISTS_PROD]
+      >> first_x_assum drule >> rw[] >> simp[]
+      >> conj_tac >- (irule esubst_has_type1 >> simp[SF SFY_ss])
+      >> irule esubst_term_ok >> simp[SF SFY_ss])
+  >> rw[term_image_thm]
+  >> irule proves_ACONV_concl >> first_x_assum $ irule_at Any >> rw[]
+  >- metis_tac[esubst_welltyped, term_ok_VSUBST, term_ok_INST]
+  >> irule esubst_INST_VSUBST_ACONV >> rw[]
+  >> qexistsl [‘axs’, ‘sig’] >> simp[SF SFY_ss]
+QED
+
 (* Beta case: full result combining 3-layer decomposition with inner derivability.
    Uses apply_steps_3layer, commutes esubst past outer two layers
-   (same as axiom_steps_derivable), then uses beta_esubst_inner_derivable
+   (via derives_esubst_INST_VSUBST), then uses beta_esubst_inner_derivable
    for the inner layer. *)
 Theorem beta_steps_esubst_derivable:
   ∀steps.
@@ -4903,60 +5027,29 @@ Proof
         >> simp[Abbr‘c’, term_ok_clauses, term_ok_def, typeof_def, codomain_def]
         >> imp_res_tac term_ok_welltyped >> simp[WELLTYPED_LEMMA])
   >> drule_all apply_steps_3layer >> rw[]
-  >> drule_all theory_ok_esubst_axs >> disch_then $ qspec_then ‘[]’ mp_tac >> rw[]
   >> ‘term_ok sig (VSUBST ilist_r c)’
     by (irule term_ok_VSUBST >> rw[] >> first_x_assum drule >> rw[])
-  >> ‘term_ok sig (INST tyin (VSUBST ilist_r c))’
-     by (irule term_ok_INST >> simp[EVERY_MEM])
-  >> ‘term_ok sig (VSUBST ilist_f (INST tyin (VSUBST ilist_r c)))’
-    by (irule term_ok_VSUBST >> rw[] >> first_x_assum drule >> rw[])
-  >> ‘term_ok sig (apply_steps steps' c)’ by (irule apply_steps_term_ok >> simp[])
   (* Inner layer: use beta_esubst_inner_derivable *)
   >> ‘((esubst_sig σ sig,IMAGE (esubst σ []) axs),[]) |-
        esubst σ [] (VSUBST ilist_r c)’
     by (unabbrev_all_tac >> irule beta_esubst_inner_derivable >> rw[] >> metis_tac[])
-  (* Now commute esubst past tyin and ilist_f, same as axiom_steps_derivable *)
-  >> drule_at Any proves_INST_TYPE
-  >> disch_then $ qspec_then ‘MAP (λ(ty,a). (ty_esubst σ ty, a)) tyin’ mp_tac
-  >> impl_tac
-  >- (simp[EVERY_MAP, EVERY_MEM]
-      >> rw[] >> pairarg_tac >> simp[]
-      >> irule esubsts_ok_type_ok >> simp[EVERY_MEM]
-      >> gvs[EVERY_MEM, MEM_MAP] >> first_x_assum irule
-      >> metis_tac[EXISTS_PROD, FST])
-  >> rw[term_image_thm]
-  >> drule_at Any proves_INST
-  >> disch_then $ qspec_then ‘MAP (λ(s',s). (esubst σ [] s', esubst_ty σ [] s)) ilist_f’ mp_tac
-  >> impl_tac >> rw[]
-  >- (gvs ilist_r_thms
-      >> first_x_assum drule >> rw[] >> simp[]
-      >> conj_tac >- (irule esubst_has_type1 >> simp[SF SFY_ss])
-      >> irule esubst_term_ok >> simp[SF SFY_ss])
-  >> irule proves_ACONV_concl >> first_x_assum $ irule_at Any >> rw[]
-  >- (irule esubst_welltyped >> simp[SF SFY_ss])
-  >> irule ACONV_TRANS
-  >> qexists ‘esubst σ [] (VSUBST ilist_f (INST tyin (VSUBST ilist_r c)))’
-  >> reverse conj_tac
-  >- (irule esubst_ACONV >> simp[SF SFY_ss] >> irule ACONV_SYM >> simp[])
-  >> irule ACONV_TRANS
-  >> qexists ‘VSUBST (MAP (λ(s',s). (esubst σ [] s',esubst_ty σ [] s)) ilist_f)
-              (esubst σ [] (INST tyin (VSUBST ilist_r c)))’
-  >> reverse conj_tac
-  >- (irule esubst_VSUBST_comm >> rw[]
-      >- (irule unique_varnames_no_var_collapse
-          >> irule unique_varnames_INST >> simp[term_ok_welltyped, SF SFY_ss])
-      >> rw[] >> rpt $ first_x_assum $ irule_at Any >> rw[]
-      >> first_x_assum drule >> rw[SF SFY_ss])
-  >> irule ACONV_VSUBST >> rw[]
-  >- (gvs[MEM_MAP, LAMBDA_PROD, EXISTS_PROD] >> first_x_assum drule >> rw[]
-      >> simp[esubst_ty_def] >> irule esubst_has_type1 >> metis_tac[])
-  >- (irule INST_WELLTYPED >> irule esubst_VSUBST_welltyped
-      >> rpt $ first_x_assum $ irule_at (Pos last)
-      >> metis_tac[DISJ_IMP_THM, FORALL_AND_THM, PULL_EXISTS, has_type_var])
-  >- (irule esubst_welltyped >> simp[SF SFY_ss])
-  >> irule ACONV_SYM >> irule esubst_INST_comm >> simp[EVERY_MEM, SF SFY_ss]
-  >> rpt $ first_x_assum $ irule_at Any >> rw[MEM_MAP] >> Cases_on ‘y’ >> gvs[EVERY_MEM]
-  >> first_x_assum irule >> simp[MEM_MAP] >> metis_tac[FST]
+  (* Outer layers: use derives_esubst_INST_VSUBST *)
+  >> ‘((esubst_sig σ sig,IMAGE (esubst σ []) axs),[]) |-
+       esubst σ [] (VSUBST ilist_f (INST tyin (VSUBST ilist_r c)))’
+    by (irule derives_esubst_INST_VSUBST >> rpt conj_tac >> first_x_assum ACCEPT_TAC)
+  (* Bridge ACONV from apply_steps_3layer *)
+  >> ‘term_ok sig (INST tyin (VSUBST ilist_r c))’
+    by (irule term_ok_INST >> simp[EVERY_MEM])
+  >> ‘term_ok sig (VSUBST ilist_f (INST tyin (VSUBST ilist_r c)))’
+    by (irule term_ok_VSUBST >> rw[] >> first_x_assum drule
+        >> strip_tac >> metis_tac[])
+  >> irule proves_ACONV_concl >> first_x_assum $ irule_at Any
+  >> conj_tac
+  >- (irule esubst_welltyped >> qexistsl [‘axs’, ‘sig’]
+      >> simp[apply_steps_term_ok, SF SFY_ss])
+  >> irule esubst_ACONV >> conj_tac
+  >- (irule ACONV_SYM >> first_x_assum ACCEPT_TAC)
+  >> qexistsl [‘axs’, ‘sig’] >> simp[apply_steps_term_ok, SF SFY_ss]
 QED
 
 Theorem axiom_steps_derivable:
@@ -5047,6 +5140,496 @@ Proof
   >> first_x_assum irule >> simp[MEM_MAP] >> metis_tac[FST]
 QED
 
+val term_ok_equation_imp1 = Q.prove(
+  ‘is_std_sig s0 ⇒ term_ok s0 (a0 === b0) ⇒ term_ok s0 a0’,
+  rw[term_ok_clauses])
+
+val term_ok_Abs_intro = Q.prove(
+  ‘type_ok (tysof s0) ty0 ∧ term_ok s0 bd0 ⇒ term_ok s0 (Abs (Var nm0 ty0) bd0)’,
+  rw[term_ok_def])
+
+val equation_comb_abs_arg_has_type = Q.prove(
+  ‘is_std_sig s0 ∧ term_ok s0 (Comb (Abs (Var nm0 ty0) bd0) arg0 === rhs0) ⇒
+   arg0 has_type ty0’,
+  strip_tac >> gvs[term_ok_clauses] >> gvs[typeof_def] >> simp[Once (GSYM WELLTYPED)])
+
+val blast_term_validation =
+DEP_REWRITE_TAC[esubst_welltyped, VSUBST_WELLTYPED, INST_WELLTYPED, esubst_term_ok,
+                apply_steps_welltyped, apply_steps_term_ok, term_ok_VSUBST]
+>> simp[term_ok_def, apply_steps_term_ok, term_ok_welltyped, SF SFY_ss,
+        welltyped_comb, welltyped_equation, EQUATION_HAS_TYPE_BOOL]
+
+Theorem apply_steps_comb:
+  ∀stps.
+    term_ok sig x ∧ term_ok sig y ∧ steps_ok sig stps ⇒
+    apply_steps stps (Comb x y) =
+    Comb (apply_steps stps x) (apply_steps stps y)
+Proof
+  Induct >> simp[apply_steps_def] >> Cases >> rw[] >> gvs[apply_steps_def, steps_ok_def]
+  >> simp[VSUBST_def, INST_COMB, apply_steps_welltyped, term_ok_welltyped, SF SFY_ss]
+QED
+
+Theorem apply_steps_Abs:
+  ∀stps n0 ty0 abs_bd.
+    steps_ok sig stps ⇒ welltyped abs_bd ⇒
+    ∃n2 ty2 bd2. apply_steps stps (Abs (Var n0 ty0) abs_bd) = Abs (Var n2 ty2) bd2 ∧
+                  welltyped bd2
+Proof
+  Induct >> rw[apply_steps_def]
+  >> Cases_on ‘h’ >> rw[apply_steps_def] >> gvs[steps_ok_def]
+  (* VStep case *)
+  >- (first_x_assum (qspecl_then [‘n0’, ‘ty0’, ‘abs_bd’] mp_tac) >> simp[]
+      >> strip_tac >> gvs[]
+      >> simp[VSUBST_def, LET_THM] >> rw[]
+      >> irule VSUBST_WELLTYPED >> simp[MEM_FILTER, has_type_var]
+      >> rpt strip_tac >> gvs[MEM_FILTER] >> res_tac >> simp[])
+  (* TStep case *)
+  >> first_x_assum (qspecl_then [‘n0’, ‘ty0’, ‘abs_bd’] mp_tac) >> simp[]
+  >> strip_tac >> gvs[]
+  >> ‘welltyped (Abs (Var n2 ty2) bd2)’ by simp[WELLTYPED_CLAUSES]
+  >> drule_then (qspec_then ‘l’ mp_tac) INST_dbINST
+  >> simp[db_def, dbINST_def] >> strip_tac
+  >> ‘welltyped (INST l (Abs (Var n2 ty2) bd2))’
+      by (irule INST_WELLTYPED >> simp[])
+  >> Cases_on ‘INST l (Abs (Var n2 ty2) bd2)’ >> gvs[db_def]
+  >> gvs[WELLTYPED_CLAUSES]
+  >> metis_tac[]
+QED
+
+Theorem REV_ASSOCD_default_eq:
+  ∀l x d1 d2. (∃v. MEM (v,x) l) ⇒ REV_ASSOCD x l d1 = REV_ASSOCD x l d2
+Proof
+  Induct >> simp[REV_ASSOCD, FORALL_PROD] >> rw[]
+QED
+
+Theorem VSUBST_Abs_beta_ACONV:
+  welltyped bd ∧ welltyped v ∧ v has_type ty ∧
+  (∀s s'. MEM (s',s) l ⇒ ∃x ty. s = Var x ty ∧ s' has_type ty ∧ welltyped s') ∧
+  VSUBST l (Abs (Var n ty) bd) = Abs (Var n' ty') bd' ⇒
+  ACONV (VSUBST [(VSUBST l v, Var n' ty')] bd')
+        (VSUBST l (VSUBST [(v, Var n ty)] bd))
+Proof
+  rpt strip_tac
+  >> ‘∀k v'. MEM (v',k) l ⇒ welltyped v' ∧ (∃a b. k = Var a b)’
+       by (rw[] >> res_tac >> gvs[])
+  >> ‘VSUBST l v has_type ty’ by (irule VSUBST_HAS_TYPE >> metis_tac[])
+  >> ‘welltyped (VSUBST l v)’ by metis_tac[welltyped_def]
+  >> qabbrev_tac ‘l' = FILTER (λ(s',s). s ≠ Var n ty) l’
+  >> ‘∀s1 s2. MEM (s1,s2) l' ⇒ ∃a b. s2 = Var a b ∧ s1 has_type b’
+       by (rw[Abbr‘l'’, MEM_FILTER] >> res_tac >> gvs[])
+  >> ‘∀k v'. MEM (v',k) l' ⇒ welltyped v' ∧ (∃a b. k = Var a b)’
+       by (rw[Abbr‘l'’, MEM_FILTER] >> res_tac >> gvs[])
+  >> ‘welltyped (VSUBST l' bd)’
+       by (irule VSUBST_WELLTYPED >> metis_tac[])
+  (* Case split on VSUBST Abs capture condition *)
+  >> qpat_x_assum ‘VSUBST l (Abs _ _) = _’ mp_tac
+  >> simp[Once VSUBST_def, Abbr‘l'’]
+  >> qabbrev_tac ‘l' = FILTER (λ(s',s). s ≠ Var n ty) l’
+  >> reverse IF_CASES_TAC >> strip_tac >> gvs[]
+  (* ---- No capture case: n' = n, bd' = VSUBST l' bd ---- *)
+  >- (
+    ‘welltyped (VSUBST [(v, Var n ty)] bd)’ by (
+      irule VSUBST_WELLTYPED >> rw[has_type_rules] >> metis_tac[WELLTYPED])
+    >> ‘welltyped (VSUBST l (VSUBST [(v, Var n ty)] bd))’ by (
+         irule VSUBST_WELLTYPED >> metis_tac[])
+    >> irule $ iffRL ACONV_db >> rw[]
+    >- (irule VSUBST_WELLTYPED >> simp[])
+    >> rw[VSUBST_dbVSUBST, SF SFY_ss]
+    >> ‘¬MEM (dbVar n ty)
+            (MAP SND (MAP (λ(p,q). (db p, db q)) l'))’
+         by (simp[MEM_MAP, EXISTS_PROD, FORALL_PROD]
+             >> rpt strip_tac >> res_tac
+             >> gvs[db_def, Abbr‘l'’, MEM_FILTER])
+    >> rw[Once dbVSUBST_comp, MAP_db_FILTER_neq]
+    >> rw[Once dbVSUBST_comp]
+    >> irule dbVSUBST_frees
+    >> gen_tac >> strip_tac
+    >> Cases_on ‘k = dbVar n ty’
+    >- (
+      simp[REV_ASSOCD_APPEND, REV_ASSOCD_def, REV_ASSOCD_MAP,
+           MEM_MAP, EXISTS_PROD, FORALL_PROD]
+      >> IF_CASES_TAC >> gvs[]
+      >> res_tac >> gvs[Abbr‘l'’, MEM_FILTER])
+    >> simp[REV_ASSOCD_APPEND, REV_ASSOCD_def, REV_ASSOCD_MAP,
+            MEM_MAP, MEM_FILTER, EXISTS_PROD, FORALL_PROD]
+    >> IF_CASES_TAC >> gvs[]
+    >- (
+      ‘∃x'' ty''. p_2 = Var x'' ty''’ by metis_tac[]
+      >> gvs[]
+      >> qspecl_then [‘l'’, ‘x''’, ‘ty''’] mp_tac REV_ASSOCD_MAP_db
+      >> impl_tac >- metis_tac[]
+      >> strip_tac >> gvs[]
+      >> ‘VFREE_IN (Var x'' ty'') bd’ by (
+           irule $ iffLR dbVFREE_IN_VFREE_IN >> simp[db_def])
+      >> qspecl_then [‘l'’, ‘Var x'' ty''’, ‘Var x'' ty''’]
+           strip_assume_tac REV_ASSOCD_MEM
+      >- (
+        ‘welltyped (REV_ASSOCD (Var x'' ty'') l' (Var x'' ty''))’ by (
+          first_x_assum drule >> gvs[])
+        >> ‘¬VFREE_IN (Var n ty) (REV_ASSOCD (Var x'' ty'') l' (Var x'' ty''))’ by (
+          qpat_x_assum ‘EVERY _ _’ mp_tac
+          >> rewrite_tac[EVERY_MEM]
+          >> disch_then $ qspec_then
+               ‘(REV_ASSOCD (Var x'' ty'') l' (Var x'' ty''), Var x'' ty'')’ mp_tac
+          >> simp[])
+        >> ‘¬dbVFREE_IN (dbVar n ty)
+                (db (REV_ASSOCD (Var x'' ty'') l' (Var x'' ty'')))’ by (
+             ONCE_REWRITE_TAC[GSYM db_def] >> simp[dbVFREE_IN_VFREE_IN])
+        (* dbVSUBST is identity since dbVar n ty not free *)
+        >> ‘dbVSUBST [(dbVSUBST (MAP (λ(x,y). (db x,db y)) l) (db v), dbVar n ty)]
+              (db (REV_ASSOCD (Var x'' ty'') l' (Var x'' ty'')))
+            = db (REV_ASSOCD (Var x'' ty'') l' (Var x'' ty''))’ by (
+          CONV_TAC (RHS_CONV (REWR_CONV (GSYM dbVSUBST_nil)))
+          >> irule dbVSUBST_frees >> simp[REV_ASSOCD]
+          >> rpt strip_tac >> IF_CASES_TAC >> gvs[])
+        >> gvs[MAP_db_FILTER_neq, Abbr‘l'’])
+      >> gvs[REV_ASSOCD, MAP_db_FILTER_neq, Abbr‘l'’]
+      >> IF_CASES_TAC >> gvs[])
+    >> qspecl_then [‘MAP (λ(p,q). (db p,db q)) l'’, ‘k’, ‘k’]
+         strip_assume_tac REV_ASSOCD_MEM
+    >- (gvs[MEM_MAP, FORALL_PROD, EXISTS_PROD] >> res_tac)
+    >> simp[REV_ASSOCD_FILTER]
+    >> gvs[MAP_db_FILTER_neq, REV_ASSOCD_FILTER, Abbr‘l'’])
+  (* ---- Capture case ---- *)
+  >> qabbrev_tac ‘z = VARIANT (VSUBST l' bd) (explode n) ty’
+  >> ‘¬VFREE_IN (Var z ty) (VSUBST l' bd)’ by simp[Abbr‘z’, VARIANT_THM]
+  >> ‘∀k v'. MEM (v',k) ((Var z ty, Var n ty) :: l') ⇒
+             welltyped v' ∧ (∃a b. k = Var a b)’ by (
+       rw[] >> res_tac >> gvs[])
+  >> ‘welltyped (VSUBST ((Var z ty, Var n ty) :: l') bd)’ by (
+       irule VSUBST_WELLTYPED >> rw[] >> res_tac >> gvs[])
+  >> ‘welltyped (VSUBST [(v, Var n ty)] bd)’ by (
+       irule VSUBST_WELLTYPED >> rw[] >> gvs[])
+  >> ‘welltyped (VSUBST l (VSUBST [(v, Var n ty)] bd))’ by (
+       irule VSUBST_WELLTYPED >> rw[] >> res_tac >> gvs[])
+  >> irule $ iffRL ACONV_db >> rw[]
+  >- (irule VSUBST_WELLTYPED >> rw[] >> gvs[])
+  >> rw[VSUBST_dbVSUBST, SF SFY_ss]
+  >> ONCE_REWRITE_TAC[dbVSUBST_comp]
+  >> simp[MAP_db_FILTER_neq]
+  >> irule dbVSUBST_frees
+  >> gen_tac >> strip_tac
+  >> Cases_on ‘k = dbVar n ty’
+  >- (
+    simp[REV_ASSOCD_APPEND, REV_ASSOCD_def, REV_ASSOCD_MAP,
+         MEM_MAP, EXISTS_PROD, FORALL_PROD]
+    >> IF_CASES_TAC >> gvs[]
+    >> res_tac >> gvs[Abbr‘l'’, MEM_FILTER])
+  >> simp[REV_ASSOCD_APPEND, REV_ASSOCD_def, REV_ASSOCD_MAP,
+          MEM_MAP, MEM_FILTER, EXISTS_PROD, FORALL_PROD]
+  >> IF_CASES_TAC >> gvs[]
+  >- (
+    ‘∃x'' ty''. p_2 = Var x'' ty''’ by metis_tac[]
+    >> gvs[]
+    >> qspecl_then [‘l'’, ‘x''’, ‘ty''’] mp_tac REV_ASSOCD_MAP_db
+    >> impl_tac >- metis_tac[]
+    >> strip_tac >> gvs[]
+    >> ‘VFREE_IN (Var x'' ty'') bd’ by (
+         irule $ iffLR dbVFREE_IN_VFREE_IN >> simp[db_def])
+    >> ‘¬VFREE_IN (Var z ty) (REV_ASSOCD (Var x'' ty'') l' (Var x'' ty''))’ by (
+         qpat_x_assum ‘¬VFREE_IN (Var z ty) (VSUBST l' bd)’ mp_tac
+         >> rw[VFREE_IN_VSUBST] >> metis_tac[])
+    >> ‘welltyped (REV_ASSOCD (Var x'' ty'') l' (Var x'' ty''))’ by (
+      qspecl_then [‘l'’, ‘Var x'' ty''’, ‘Var x'' ty''’]
+        strip_assume_tac REV_ASSOCD_MEM
+      >- (first_x_assum drule >> gvs[])
+      >> gvs[WELLTYPED_CLAUSES])
+    >> ‘¬dbVFREE_IN (dbVar z ty)
+            (db (REV_ASSOCD (Var x'' ty'') l' (Var x'' ty'')))’ by
+         metis_tac[dbVFREE_IN_VFREE_IN, db_def]
+    >> ‘∀d. REV_ASSOCD (dbVar x'' ty'') (MAP (λ(x,y). (db x,db y)) l') d
+          = db (REV_ASSOCD (Var x'' ty'') l' (Var x'' ty''))’ by (
+      gen_tac
+      >> ‘REV_ASSOCD (dbVar x'' ty'') (MAP (λ(x,y). (db x,db y)) l') d
+          = REV_ASSOCD (dbVar x'' ty'') (MAP (λ(x,y). (db x,db y)) l')
+              (dbVar x'' ty'')’ by (
+        irule REV_ASSOCD_default_eq
+        >> qexists_tac ‘db p_1’
+        >> simp[MEM_MAP, EXISTS_PROD]
+        >> metis_tac[db_def])
+      >> simp[])
+    >> ‘dbVSUBST [(dbVSUBST (MAP (λ(x,y). (db x,db y)) l) (db v), dbVar z ty)]
+          (db (REV_ASSOCD (Var x'' ty'') l' (Var x'' ty'')))
+        = db (REV_ASSOCD (Var x'' ty'') l' (Var x'' ty''))’ by (
+      CONV_TAC (RHS_CONV (REWR_CONV (GSYM dbVSUBST_nil)))
+      >> irule dbVSUBST_frees >> simp[REV_ASSOCD]
+      >> rpt strip_tac >> IF_CASES_TAC >> gvs[])
+    >> gvs[MAP_db_FILTER_neq, Abbr‘l'’])
+  >> qspecl_then [‘MAP (λ(p,q). (db p,db q)) l'’, ‘k’, ‘k’]
+       strip_assume_tac REV_ASSOCD_MEM
+  >- (gvs[MEM_MAP, FORALL_PROD, EXISTS_PROD] >> res_tac)
+  >> IF_CASES_TAC
+  >> gvs[REV_ASSOCD, REV_ASSOCD_FILTER, MAP_db_FILTER_neq, Abbr‘l'’]
+  >> IF_CASES_TAC >> gvs[]
+  >> ‘VFREE_IN (Var z ty) bd’ by (
+    irule $ iffLR dbVFREE_IN_VFREE_IN >> simp[db_def])
+  >> ‘VFREE_IN (Var z ty) (VSUBST (FILTER (λ(s',s). s ≠ Var n ty) l) bd)’ by (
+    irule (GEN_ALL (DISCH_ALL (iffRL (UNDISCH (SPEC_ALL VFREE_IN_VSUBST)))))
+    >> simp[]
+    >> qexistsl_tac [‘z’, ‘ty’] >> simp[VFREE_IN_def]
+    >> qspecl_then [‘FILTER (λ(s',s). s ≠ Var n ty) l’, ‘Var z ty’, ‘Var z ty’]
+        strip_assume_tac REV_ASSOCD_MEM
+    >- metis_tac[db_def]
+    >> gvs[VFREE_IN_def])
+QED
+
+Definition db_ok_def[simp]:
+  db_ok k (dbVar x ty) = T ∧
+  db_ok k (dbBound m) = (m < k) ∧
+  db_ok k (dbConst x ty) = T ∧
+  db_ok k (dbComb t1 t2) = (db_ok k t1 ∧ db_ok k t2) ∧
+  db_ok k (dbAbs ty t) = db_ok (k+1) t
+End
+
+Definition unbind_def[simp]:
+  unbind val k (dbVar x ty) = dbVar x ty ∧
+  unbind val k (dbBound m) = (if m = k then val else dbBound m) ∧
+  unbind val k (dbConst x ty) = dbConst x ty ∧
+  unbind val k (dbComb t1 t2) = dbComb (unbind val k t1) (unbind val k t2) ∧
+  unbind val k (dbAbs ty t) = dbAbs ty (unbind val (k+1) t)
+End
+
+Theorem db_ok_bind:
+  ∀dbt v k. db_ok k dbt ⇒ db_ok (k+1) (bind v k dbt)
+Proof
+  Induct >> simp[] >> rw[]
+QED
+
+Theorem db_ok_db:
+  ∀tm. db_ok 0 (db tm)
+Proof
+  Induct >> simp[]
+  >> pop_assum (assume_tac o MATCH_MP db_ok_bind) >> gvs[]
+QED
+
+Theorem unbind_bind:
+  ∀dbt val x ty k. db_ok k dbt ⇒
+    unbind val k (bind (x,ty) k dbt) = dbVSUBST [(val, dbVar x ty)] dbt
+Proof
+  Induct >> simp[REV_ASSOCD] >> rw[]
+QED
+
+Theorem unbind_dbINST:
+  ∀dbt val k tyin.
+    unbind (dbINST tyin val) k (dbINST tyin dbt) = dbINST tyin (unbind val k dbt)
+Proof
+  Induct >> simp[] >> rw[]
+QED
+
+Theorem unbind_bind_0:
+  ∀dbt val x ty. db_ok 0 dbt ⇒
+    dbVSUBST [(val, dbVar x ty)] dbt = unbind val 0 (bind (x,ty) 0 dbt)
+Proof
+  rpt strip_tac >> irule (GSYM unbind_bind) >> simp[]
+QED
+
+Theorem INST_Abs_beta_ACONV:
+  welltyped bd ∧ welltyped v ∧ v has_type ty ∧
+  INST tyin (Abs (Var n ty) bd) = Abs (Var n' ty') bd' ⇒
+  ACONV (VSUBST [(INST tyin v, Var n' ty')] bd')
+        (INST tyin (VSUBST [(v, Var n ty)] bd))
+Proof
+  rpt strip_tac
+  >> ‘welltyped (Abs (Var n ty) bd)’ by simp[WELLTYPED_CLAUSES]
+  >> ‘welltyped (Abs (Var n' ty') bd')’ by metis_tac[INST_WELLTYPED]
+  >> ‘welltyped bd'’ by gvs[WELLTYPED_CLAUSES]
+  >> ‘ty' = TYPE_SUBST tyin ty’ by (
+       ‘db (INST tyin (Abs (Var n ty) bd)) = db (Abs (Var n' ty') bd')’ by simp[]
+       >> pop_assum mp_tac >> DEP_REWRITE_TAC[INST_dbINST] >> simp[])
+  >> ‘INST tyin v has_type ty'’ by (irule INST_HAS_TYPE >> metis_tac[])
+  >> irule $ iffRL ACONV_db >> rpt conj_tac
+  >- (irule VSUBST_WELLTYPED >> simp[] >> metis_tac[])
+  >- (irule INST_WELLTYPED >> irule VSUBST_WELLTYPED
+      >> simp[] >> metis_tac[WELLTYPED])
+  >> ‘db (INST tyin (Abs (Var n ty) bd)) = db (Abs (Var n' ty') bd')’ by simp[]
+  >> pop_assum mp_tac >> DEP_REWRITE_TAC[INST_dbINST] >> simp[]
+  >> strip_tac
+  >> ‘welltyped (VSUBST [(v, Var n ty)] bd)’ by
+       (irule VSUBST_WELLTYPED >> simp[] >> metis_tac[WELLTYPED])
+  >> DEP_REWRITE_TAC[VSUBST_dbVSUBST, INST_dbINST]
+  >> simp[INST_WELLTYPED, welltyped_def]
+  >> conj_tac >- metis_tac[WELLTYPED]
+  >> strip_tac
+  >> simp[INST_dbINST]
+  >> DEP_REWRITE_TAC[unbind_bind_0]
+  >> simp[db_ok_db, GSYM unbind_dbINST]
+QED
+
+fun drw thms = DEP_REWRITE_TAC thms >> simp[]
+
+Theorem apply_steps_Abs_has_type:
+  ∀stps x x1 ty ty1 t t1.
+    steps_ok sig stps ∧ term_ok sig (Abs (Var x ty) t) ∧
+    apply_steps stps (Abs (Var x ty) t) = Abs (Var x1 ty1) t1 ⇒
+    apply_steps stps (Var x ty) has_type ty1
+Proof
+  Induct >> simp[apply_steps_def] >> Cases
+  >> rw[steps_ok_def, apply_steps_def]
+  >> ‘welltyped t’ by metis_tac[term_ok_welltyped, WELLTYPED_CLAUSES]
+  >> drule_all apply_steps_Abs
+  >> disch_then $ qspecl_then [‘x’, ‘ty’] strip_assume_tac >> gvs[]
+  >- (‘ty2 = ty1’ by (
+        qpat_x_assum ‘VSUBST _ _ = _’ mp_tac
+        >> simp[VSUBST_def, LET_THM] >> rw[])
+      >> gvs[]
+      >> metis_tac[VSUBST_HAS_TYPE])
+  >> ‘welltyped (Abs (Var n2 ty2) bd2)’ by simp[]
+  >> drule INST_dbINST >> disch_then (qspec_then ‘l’ assume_tac)
+  >> ‘ty1 = TYPE_SUBST l ty2’ by gvs[]
+  >> gvs[]
+  >> metis_tac[INST_HAS_TYPE]
+QED
+
+Theorem apply_steps_Abs_beta:
+  ∀stps x ty t n2 ty2 bd2.
+    term_ok sig (Abs (Var x ty) t) ∧ steps_ok sig stps ∧
+    apply_steps stps (Abs (Var x ty) t) = Abs (Var n2 ty2) bd2 ⇒
+    ACONV (VSUBST [(apply_steps stps (Var x ty), Var n2 ty2)] bd2)
+          (apply_steps stps t)
+Proof
+  Induct >> simp[apply_steps_def]
+  >- (rw[] >> irule $ iffRL ACONV_db >> rw[]
+      >> blast_term_validation >> drw[VSUBST_ID])
+  >> Cases >> rw[apply_steps_def] >> gvs[steps_ok_def]
+  >> imp_res_tac term_ok_welltyped >> drule_all apply_steps_Abs
+  >> disch_then $ qspecl_then [‘x’, ‘ty’] mp_tac >> rw[] >> gvs[]
+  >> irule ACONV_TRANS
+  >- (irule_at Any VSUBST_Abs_beta_ACONV
+      >> first_x_assum $ irule_at (Pat ‘VSUBST l _ = Abs _ _’)
+      >> blast_term_validation >> rw[]
+      >- (irule apply_steps_Abs_has_type >> metis_tac[term_ok_def])
+      >- (first_x_assum drule >> metis_tac[term_ok_welltyped])
+      >> irule ACONV_VSUBST >> blast_term_validation >> rw[]
+      >- (irule apply_steps_Abs_has_type >> metis_tac[term_ok_def])
+      >> metis_tac[])
+  >> irule_at Any INST_Abs_beta_ACONV
+  >> first_x_assum $ irule_at (Pat ‘INST l _ = Abs _ _’)
+  >> blast_term_validation >> rw[]
+  >- (irule apply_steps_Abs_has_type >> metis_tac[term_ok_def])
+  >> irule ACONV_INST >> blast_term_validation
+  >> irule apply_steps_Abs_has_type >> metis_tac[term_ok_def]
+QED
+
+Triviality db_esubst_dbAbs[local]:
+  db_esubst σ (dbAbs ty body) = dbAbs (ty_esubst σ ty) (db_esubst σ body)
+Proof
+  REWRITE_TAC[db_esubst_def, db_esubst_ty_def, db_esubst_tm_def]
+QED
+
+Triviality unbind_db_esubst_ty[local]:
+  ∀dbt val k. unbind (db_esubst_ty σ val) k (db_esubst_ty σ dbt) =
+              db_esubst_ty σ (unbind val k dbt)
+Proof
+  Induct >> simp[db_esubst_ty_def] >> rw[db_esubst_ty_def]
+QED
+
+Triviality unbind_db_esubst_tm[local]:
+  ∀dbt val k. only_esubsts_consts (SND σ) ⇒
+              unbind (db_esubst_tm σ val) k (db_esubst_tm σ dbt) =
+              db_esubst_tm σ (unbind val k dbt)
+Proof
+  Induct >> simp[db_esubst_tm_def] >> rw[db_esubst_tm_def]
+  >> CASE_TAC >> simp[] >> Cases_on ‘σ’
+  >> gvs[only_esubsts_consts_def, IN_FRANGE_FLOOKUP]
+  >> qpat_x_assum ‘∀tm. _ ⇒ _’ mp_tac
+  >> disch_then $ qspec_then ‘x’ mp_tac
+  >> simp[SF SFY_ss] >> rw[] >> simp[db_def]
+QED
+
+Triviality unbind_db_esubst[local]:
+  ∀dbt val k. only_esubsts_consts (SND σ) ⇒
+              unbind (db_esubst σ val) k (db_esubst σ dbt) =
+              db_esubst σ (unbind val k dbt)
+Proof
+  simp[db_esubst_def] >> rpt strip_tac
+  >> DEP_REWRITE_TAC[unbind_db_esubst_tm]
+  >> simp[unbind_db_esubst_ty]
+QED
+
+Theorem esubst_Abs_beta_ACONV:
+  term_ok sig (Abs (Var n ty) bd) ∧
+  theory_ok (sig,axs) ∧ esubsts_ok sig σ ∧
+  term_ok sig v ∧ v has_type ty ∧
+  esubst σ avds (Abs (Var n ty) bd) = Abs (Var n' (ty_esubst σ ty)) bd' ⇒
+  ACONV (VSUBST [(esubst σ [] v, Var n' (ty_esubst σ ty))] bd')
+        (esubst σ [] (VSUBST [(v, Var n ty)] bd))
+Proof
+  rpt strip_tac
+  >> ‘welltyped (Abs (Var n ty) bd)’ by metis_tac[term_ok_welltyped]
+  >> ‘welltyped (Abs (Var n' (ty_esubst σ ty)) bd')’ by metis_tac[esubst_welltyped]
+  >> ‘welltyped bd'’ by gvs[WELLTYPED_CLAUSES]
+  >> ‘esubst σ [] v has_type ty_esubst σ ty’ by (
+       irule esubst_has_type1 >> metis_tac[])
+  >> irule $ iffRL ACONV_db >> rpt conj_tac
+  >> blast_term_validation >> fs[term_ok_def]
+  >> ‘db (esubst σ avds (Abs (Var n ty) bd)) =
+      db (Abs (Var n' (ty_esubst σ ty)) bd')’ by simp[]
+  >> pop_assum mp_tac
+  >> drw[db_esubst_thm] >> rw[db_esubst_dbAbs]
+  >- (irule term_ok_VSUBST >> fs[term_ok_def])
+  >> ‘welltyped (VSUBST [(v, Var n ty)] bd)’ by (
+       irule VSUBST_WELLTYPED >> simp[] >> gvs[WELLTYPED_CLAUSES] >> metis_tac[WELLTYPED])
+  >> drw[VSUBST_dbVSUBST, db_esubst_thm]
+  >> simp[SF SFY_ss] >> blast_term_validation >> fs[term_ok_welltyped, term_ok_def]
+  >> drw[unbind_bind_0] >> simp[db_ok_db]
+  >> drw[db_esubst_thm, GSYM unbind_db_esubst]
+  >> metis_tac[esubsts_ok_only_esubsts_consts]
+QED
+
+Theorem esubst_apply_steps_Abs:
+  ∀stps.
+    term_ok sig t ∧
+    theory_ok (sig,axs) ∧ esubsts_ok sig σ ∧
+    type_ok (tysof sig) ty ∧ steps_ok sig stps ⇒
+    ∃z ty' body.
+      esubst σ avds (apply_steps stps (Abs (Var x ty) t)) = Abs (Var z ty') body ∧
+      term_ok (esubst_sig σ sig) body ∧
+      type_ok (tysof (esubst_sig σ sig)) ty' ∧
+      esubst σ [] (apply_steps stps (Var x ty)) has_type ty' ∧
+      ACONV (VSUBST [(esubst σ [] (apply_steps stps (Var x ty)), Var z ty')] body)
+            (esubst σ [] (apply_steps stps t))
+Proof
+  rpt strip_tac
+  >> ‘welltyped t’ by metis_tac[term_ok_welltyped]
+  >> ‘term_ok sig (Abs (Var x ty) t)’ by simp[term_ok_def]
+  >> drule_all apply_steps_Abs
+  >> disch_then $ qspecl_then [‘x’, ‘ty’] strip_assume_tac
+  >> ‘term_ok sig (Abs (Var n2 ty2) bd2)’ by (
+       qpat_x_assum ‘apply_steps _ _ = _’ (SUBST1_TAC o SYM)
+       >> irule apply_steps_term_ok >> simp[term_ok_def])
+  >> ‘term_ok sig (apply_steps stps (Var x ty))’ by (
+       irule apply_steps_term_ok >> simp[term_ok_def])
+  >> drule_all apply_steps_Abs_has_type >> strip_tac
+  >> qpat_x_assum ‘term_ok _ (Abs (Var x _) _)’ kall_tac
+  >> drule_all simple_esubst_Abs
+  >> disch_then $ qspec_then ‘avds’ mp_tac >> simp[] >> strip_tac
+  >> qexistsl [‘y’, ‘ty_esubst σ ty2’, ‘body’]
+  >> fs[tysof_esubst_sig]
+  >> rpt conj_tac
+  >- (irule ty_esubst_type_ok_alt >> gvs[term_ok_def])
+  >- (irule esubst_has_type1 >> simp[SF SFY_ss])
+  >- (irule ACONV_TRANS
+      >> qexists_tac ‘esubst σ [] (VSUBST [(apply_steps stps (Var x ty), Var n2 ty2)] bd2)’
+      >> conj_tac
+      >- (irule esubst_Abs_beta_ACONV >> simp[SF SFY_ss])
+      >> irule esubst_ACONV >> simp[SF SFY_ss]
+      >> conj_tac
+      >- (irule apply_steps_Abs_beta >> simp[SF SFY_ss, term_ok_def])
+      >> rpt $ first_x_assum $ irule_at (Pos hd)
+      >> simp[apply_steps_term_ok, term_ok_VSUBST])
+  >- (irule ty_esubst_type_ok_alt >> gvs[term_ok_def])
+  >- (irule esubst_has_type1 >> simp[SF SFY_ss])
+  >> (irule ACONV_TRANS
+      >> qexists_tac ‘esubst σ [] (VSUBST [(apply_steps stps (Var x ty), Var n2 ty2)] bd2)’
+      >> conj_tac
+      >- (irule esubst_Abs_beta_ACONV >> simp[SF SFY_ss])
+      >> irule esubst_ACONV >> simp[SF SFY_ss]
+      >> conj_tac
+      >- (irule apply_steps_Abs_beta >> simp[SF SFY_ss, term_ok_def])
+      >> rpt $ first_x_assum $ irule_at (Pos hd)
+      >> simp[apply_steps_term_ok, term_ok_VSUBST])
+QED
+
 Theorem proves_substitutable_aux:
   ∀sig axs h c.
      theory_ok (sig,axs) ∧
@@ -5088,35 +5671,495 @@ Proof
   >> rw[EVERY_MEM, EXISTS_MEM] >> metis_tac[ACONV_REFL]
 QED
 
+(* Helper: bind/unbind round-trip for fresh variables *)
+Theorem bind_unbind_fresh:
+  ∀dbt z ty k.
+    ¬dbVFREE_IN (dbVar z ty) dbt ⇒
+    bind (z, ty) k (unbind (dbVar z ty) k dbt) = dbt
+Proof
+  Induct >> simp[bind_def, dbVFREE_IN_def] >> rw[]
+QED
+
+(* Helper: dbINST commutes with bind when z has unique type *)
+Theorem dbINST_bind_commute:
+  ∀dbt z ty k tyin.
+    (∀ty'. dbVFREE_IN (dbVar z ty') dbt ⇒ ty' = ty) ⇒
+    dbINST tyin (bind (z, ty) k dbt) =
+    bind (z, TYPE_SUBST tyin ty) k (dbINST tyin dbt)
+Proof
+  Induct >> simp[bind_def, dbINST_def, dbVFREE_IN_def]
+  >> rpt strip_tac >> Cases_on ‘z = m’ >> gvs[dbINST_def]
+QED
+
+Theorem dbVFREE_IN_dbINST:
+  ∀dbt z ty' tyin.
+    dbVFREE_IN (dbVar z ty') (dbINST tyin dbt) ⇔
+    ∃oty. dbVFREE_IN (dbVar z oty) dbt ∧ ty' = TYPE_SUBST tyin oty
+Proof
+  Induct >> rw[dbINST_def] >> metis_tac[]
+QED
+
+(* Alpha-equivalence for apply_steps on Abs:
+   apply_steps stps (Abs (Var x ty) t) is ACONV to
+   Abs (Var z ty2) (apply_steps stps (t[z/x])) for fresh z.
+   Proof by induction on stps:
+   - Base: ACONV_db + bind_unbind_fresh
+   - VStep: ACONV_VSUBST + z not captured (z fresh for ilist names)
+   - TStep: ACONV_INST + dbINST_bind_commute *)
+Theorem apply_steps_Abs_alpha:
+  ∀stps x ty t z.
+    term_ok sig t ∧ steps_ok sig stps ∧
+    ¬MEM z (tm_names (Abs (Var x ty) t)) ∧
+    type_ok (tysof sig) ty ∧
+    EVERY (λstep. case step of
+        VStep ilist => EVERY (λ(s',s). ¬MEM z (tm_names s' ++ tm_names s)) ilist
+      | TStep _ => T) stps ⇒
+    ∃ty2.
+      ACONV (apply_steps stps (Abs (Var x ty) t))
+            (Abs (Var z ty2) (apply_steps stps (VSUBST [(Var z ty, Var x ty)] t))) ∧
+      welltyped (apply_steps stps (VSUBST [(Var z ty, Var x ty)] t)) ∧
+      (∀ty'. VFREE_IN (Var z ty')
+                      (apply_steps stps (VSUBST [(Var z ty, Var x ty)] t)) ⇒
+             ty' = ty2)
+Proof
+  Induct >> rw[apply_steps_def, steps_ok_def]
+  >- (qexists_tac ‘ty’ >> rpt strip_tac
+      >- (irule replace_binder_ACONV
+          >> rpt strip_tac >> imp_res_tac VFREE_IN_tm_names
+          >> simp[SF SFY_ss, term_ok_def])
+      >- blast_term_validation
+      >> imp_res_tac term_ok_welltyped
+      >> drule_then (qspecl_then [‘z’, ‘ty'’, ‘[(Var z ty,Var x ty)]’] mp_tac)
+                    VFREE_IN_VSUBST
+      >> rw[] >> gvs[REV_ASSOCD, VFREE_IN_def]
+      >> every_case_tac >> fs[]
+      >> imp_res_tac VFREE_IN_tm_names)
+  >> Cases_on ‘h’ >> gvs[apply_steps_def, steps_ok_def]
+  >- suspend "vstep_case"
+  >> suspend "tstep_case"
+QED
+
+Resume apply_steps_Abs_alpha[vstep_case]:
+  rename1 ‘VSUBST ilist’
+  >> first_x_assum $ qspecl_then [‘x’, ‘ty’, ‘t’, ‘z’] mp_tac
+  >> simp[] >> strip_tac
+  >> qexists_tac ‘ty2’ >> rpt conj_tac
+  (* ACONV *)
+  >- suspend "vstep_aconv"
+  (* welltyped *)
+  >- (irule VSUBST_WELLTYPED >> simp[]
+      >> metis_tac[welltyped_def, term_ok_welltyped])
+  (* unique type *)
+  >> rpt strip_tac
+  >> rename1 ‘VFREE_IN (Var z tty) (VSUBST ilist _)’
+  >> drule_then (qspecl_then [‘z’, ‘tty’, ‘ilist’] mp_tac)
+                VFREE_IN_VSUBST
+  >> simp[] >> strip_tac
+  >> rename1 ‘VFREE_IN (Var yy tyy) _’
+  >> Cases_on ‘yy = z’
+  >- (
+  gvs[]
+  >> qspecl_then [‘ilist’, ‘Var y ty'’, ‘Var y ty'’]
+                 strip_assume_tac REV_ASSOCD_MEM
+  >- (gvs[EVERY_MEM, FORALL_PROD] >> res_tac
+      >> metis_tac[VFREE_IN_tm_names])
+  >> gvs[VFREE_IN_def] >> metis_tac[])
+  >> qspecl_then [‘ilist’, ‘Var y ty'’, ‘Var y ty'’]
+                 strip_assume_tac REV_ASSOCD_MEM
+  >- (gvs[EVERY_MEM, FORALL_PROD] >> res_tac
+      >> metis_tac[VFREE_IN_tm_names])
+  >> gvs[VFREE_IN_def] >> metis_tac[]
+QED
+
+Resume apply_steps_Abs_alpha[vstep_aconv]:
+  irule ACONV_TRANS
+  >> qexists_tac ‘VSUBST ilist (Abs (Var z ty2)
+       (apply_steps stps (VSUBST [(Var z ty,Var x ty)] t)))’
+  >> conj_tac
+  >- (irule ACONV_VSUBST >> simp[WELLTYPED_CLAUSES]
+      >> conj_tac >- metis_tac[]
+      >> irule apply_steps_welltyped
+      >> simp[WELLTYPED_CLAUSES, term_ok_welltyped, SF SFY_ss])
+  >> qabbrev_tac ‘body = apply_steps stps (VSUBST [(Var z ty,Var x ty)] t)’
+  >> ‘EVERY (λ(s',s). s ≠ Var z ty2) ilist’ by (
+       gvs[EVERY_MEM, FORALL_PROD] >> rpt strip_tac
+       >> CCONTR_TAC >> gvs[]
+       >> res_tac >> gvs[tm_names_def, MEM])
+  >> ‘¬EXISTS (λ(s',s). VFREE_IN (Var z ty2) s' ∧ VFREE_IN s body) ilist’ by (
+       simp[EXISTS_MEM, FORALL_PROD] >> gvs[EVERY_MEM, FORALL_PROD]
+       >> rpt strip_tac >> res_tac >> gvs[tm_names_def, MEM]
+       >> metis_tac[VFREE_IN_tm_names])
+  >> ‘FILTER (λ(s',s). s ≠ Var z ty2) ilist = ilist’ by (
+       irule $ iffRL FILTER_EQ_ID >> simp[])
+  >> simp[Once $ last (CONJUNCTS VSUBST_def), ACONV_REFL]
+QED
+
+Resume apply_steps_Abs_alpha[tstep_case]:
+  rename1 ‘INST tyin’
+  >> first_x_assum $ qspecl_then [‘x’, ‘ty’, ‘t’, ‘z’] mp_tac
+  >> simp[] >> strip_tac
+  >> qexists_tac ‘TYPE_SUBST tyin ty2’ >> rpt conj_tac
+  >> qabbrev_tac ‘body = apply_steps stps (VSUBST [(Var z ty,Var x ty)] t)’
+  (* ACONV *)
+  >- (
+  irule ACONV_TRANS
+  >> qexists_tac ‘INST tyin (Abs (Var z ty2) body)’
+  >> conj_tac
+  >- (irule ACONV_INST >> simp[WELLTYPED_CLAUSES]
+      >> irule apply_steps_welltyped >> simp[WELLTYPED_CLAUSES, term_ok_welltyped, SF SFY_ss])
+  >> irule $ iffRL ACONV_db >> rpt conj_tac
+  >- (irule INST_WELLTYPED >> simp[WELLTYPED_CLAUSES])
+  >- simp[INST_WELLTYPED, WELLTYPED_CLAUSES]
+  >> DEP_REWRITE_TAC[INST_dbINST]
+  >> simp[WELLTYPED_CLAUSES, db_def, dbINST_def]
+  >> DEP_REWRITE_TAC[INST_dbINST] >> simp[]
+  >> irule dbINST_bind_commute
+  >> rpt strip_tac
+  >> rename1 ‘dbVFREE_IN (dbVar z tyy) _’
+  >> ‘welltyped body’ by simp[]
+  >> drule dbVFREE_IN_VFREE_IN
+  >> disch_then $ qspec_then ‘Var z tyy’ mp_tac
+  >> simp[db_def] >> strip_tac
+  >> metis_tac[])
+  (* welltyped *)
+  >- simp[INST_WELLTYPED]
+  (* unique type *)
+  >> rpt strip_tac
+  >> ‘welltyped body’ by simp[]
+  >> drule INST_dbINST >> disch_then $ qspec_then ‘tyin’ mp_tac
+  >> strip_tac
+  >> drule INST_WELLTYPED >> disch_then $ qspec_then ‘tyin’ mp_tac
+  >> strip_tac
+  >> rename1 ‘VFREE_IN (Var z tty) _’
+  >> drule dbVFREE_IN_VFREE_IN
+  >> disch_then $ qspec_then ‘Var z tty’ mp_tac
+  >> simp[db_def]
+  >> ‘db (INST tyin body) = dbINST tyin (db body)’ by simp[]
+  >> strip_tac
+  >> gvs[dbVFREE_IN_dbINST]
+  >> rename1 ‘dbVFREE_IN (dbVar z oty) _’
+  >> ‘oty = ty2’ by metis_tac[dbVFREE_IN_VFREE_IN, db_def]
+  >> gvs[]
+QED
+
+Finalise apply_steps_Abs_alpha
+
+(* Alpha-equivalence for esubst on Abs:
+   esubst σ avds (Abs (Var z ty) M) is ACONV to
+   Abs (Var z (ty_esubst σ ty)) (esubst σ [] M)
+   when z doesn't collide with itself in the body (i.e., z only
+   appears in body with type ty, not with any other type).
+   This ensures the fast path of esubst_ty0 succeeds for z.
+   When z is fresh (as in esubst_apply_steps_Abs_alpha), this holds
+   automatically. *)
+Theorem esubst_Abs_alpha:
+  ∀z ty body.
+    term_ok sig (Abs (Var z ty) body) ∧
+    theory_ok (sig,axs) ∧ esubsts_ok sig σ ∧
+    (∀ty2. VFREE_IN (Var z ty2) body ⇒ ty2 = ty) ⇒
+    ACONV (esubst σ avds (Abs (Var z ty) body))
+          (Abs (Var z (ty_esubst σ ty)) (esubst σ [] body))
+Proof
+  rpt strip_tac
+  >> `term_ok sig body` by gvs[term_ok_def]
+  >> `welltyped body` by metis_tac[term_ok_welltyped]
+  >> irule $ iffRL ACONV_db >> rpt conj_tac
+  >> blast_term_validation >> fs[term_ok_def]
+  >- (irule esubst_welltyped >> simp[SF SFY_ss])
+  >> DEP_REWRITE_TAC[db_esubst_thm]
+  >> simp[SF SFY_ss, term_ok_def]
+  >> simp[db_def, db_esubst_def, db_esubst_ty_def, db_esubst_tm_def]
+  >> qspecl_then [`db body`, `(z,ty)`, `0`, `σ`] mp_tac db_esubst_ty_bind
+  >> impl_tac
+  >- (rpt strip_tac >> gvs[]
+      >> `VFREE_IN (Var z ty') body`
+           by metis_tac[dbVFREE_IN_VFREE_IN, db_def]
+      >> metis_tac[])
+  >> disch_then (SUBST1_TAC)
+  >> DEP_REWRITE_TAC[GSYM db_esubst_tm_bind]
+  >> imp_res_tac esubsts_ok_only_esubsts_consts >> simp[]
+QED
+
+(* Combined: esubst/apply_steps on Abs equation is ACONV to
+   Abs equation with fresh binder z and esubst/apply_steps of the bodies.
+   Follows from apply_steps_Abs_alpha + esubst_ACONV + esubst_Abs_alpha.
+   The ∀nms allows the caller to require z avoids additional names
+   (e.g. hypothesis names for the proves_ABS application).
+   Uses a single z for BOTH l and r (needed because proves_ABS requires
+   the same binder variable on both sides). *)
+Theorem esubst_apply_steps_Abs_alpha:
+  ∀stps nms.
+    term_ok sig l ∧ term_ok sig r ∧
+    theory_ok (sig,axs) ∧ esubsts_ok sig σ ∧
+    type_ok (tysof sig) ty ∧ steps_ok sig stps ⇒
+    ∃z ty'.
+      ACONV (esubst σ avds (apply_steps stps (Abs (Var x ty) l)))
+            (Abs (Var z ty') (esubst σ [] (apply_steps stps (VSUBST [(Var z ty, Var x ty)] l)))) ∧
+      ACONV (esubst σ avds (apply_steps stps (Abs (Var x ty) r)))
+            (Abs (Var z ty') (esubst σ [] (apply_steps stps (VSUBST [(Var z ty, Var x ty)] r)))) ∧
+      ¬MEM z nms ∧
+      type_ok (tysof (esubst_sig σ sig)) ty' ∧
+      term_ok (esubst_sig σ sig)
+              (esubst σ [] (apply_steps stps (VSUBST [(Var z ty, Var x ty)] l))) ∧
+      term_ok (esubst_sig σ sig)
+              (esubst σ [] (apply_steps stps (VSUBST [(Var z ty, Var x ty)] r)))
+Proof
+  rpt strip_tac
+  >> `welltyped l ∧ welltyped r` by metis_tac[term_ok_welltyped]
+  >> `term_ok sig (Abs (Var x ty) l) ∧ term_ok sig (Abs (Var x ty) r)` by
+       (simp[term_ok_def] >> metis_tac[theory_ok_sig])
+  (* Pick fresh z avoiding nms and step substitution names *)
+  >> qabbrev_tac `stpnms = FLAT (MAP (λstep. case step of
+       VStep ilist => FLAT (MAP (λ(s',s). tm_names s' ++ tm_names s) ilist)
+       | TStep _ => []) stps)`
+  >> qexists_tac `NVARIANT x (nms ++ stpnms)
+       (Comb (Abs (Var x ty) l) (Abs (Var x ty) r))`
+  >> qabbrev_tac `z = NVARIANT x (nms ++ stpnms)
+       (Comb (Abs (Var x ty) l) (Abs (Var x ty) r))`
+  >> `¬MEM z (tm_names (Abs (Var x ty) l)) ∧
+      ¬MEM z (tm_names (Abs (Var x ty) r)) ∧
+      ¬MEM z nms ∧ ¬MEM z stpnms`
+       by (qspecl_then [`Comb (Abs (Var x ty) l) (Abs (Var x ty) r)`,
+                        `x`, `nms ++ stpnms`] mp_tac NVARIANT_MEM
+           >> simp[Abbr `z`, MEM_APPEND])
+  (* Step freshness: z not in any VStep substitution names *)
+  >> `EVERY (λstep. case step of
+        VStep ilist => EVERY (λ(s',s). ¬MEM z (tm_names s' ++ tm_names s)) ilist
+      | TStep _ => T) stps` by (
+    simp[EVERY_MEM] >> rpt strip_tac >> Cases_on `step` >> simp[]
+    >> simp[EVERY_MEM, FORALL_PROD] >> rpt strip_tac
+    >> (CCONTR_TAC >> fs[]
+        >> `MEM z (FLAT (MAP (λ(s',s). tm_names s' ++ tm_names s) l'))` by (
+             simp[MEM_FLAT, MEM_MAP, EXISTS_PROD] >> metis_tac[MEM_APPEND])
+        >> qpat_x_assum `¬MEM z stpnms` mp_tac
+        >> simp[Abbr `stpnms`]
+        >> once_rewrite_tac[MEM_FLAT] >> simp[MEM_MAP]
+        >> qexists_tac `FLAT (MAP (λ(s',s). tm_names s' ++ tm_names s) l')`
+        >> simp[]
+        >> qexists_tac `VStep l'` >> simp[]))
+  (* apply_steps_Abs_alpha for l and r *)
+  >> qspecl_then [`stps`, `x`, `ty`, `l`, `z`] mp_tac apply_steps_Abs_alpha
+  >> simp[] >> strip_tac
+  >> qspecl_then [`stps`, `x`, `ty`, `r`, `z`] mp_tac apply_steps_Abs_alpha
+  >> simp[] >> strip_tac
+  (* Show ty2 = ty2': binder type depends only on stps and ty, not the body *)
+  >> `ty2 = ty2'` by (
+    `∃n2l tyl bdl. apply_steps stps (Abs (Var x ty) l) = Abs (Var n2l tyl) bdl ∧
+                    welltyped bdl`
+      by metis_tac[apply_steps_Abs]
+    >> `∃n2r tyr bdr. apply_steps stps (Abs (Var x ty) r) = Abs (Var n2r tyr) bdr ∧
+                      welltyped bdr`
+      by metis_tac[apply_steps_Abs]
+    >> `tyl = tyr` by metis_tac[apply_steps_Abs_has_type, WELLTYPED_LEMMA]
+    >> `tyl = ty2` by (
+      `typeof (apply_steps stps (Abs (Var x ty) l)) =
+       typeof (Abs (Var z ty2)
+         (apply_steps stps (VSUBST [(Var z ty,Var x ty)] l)))`
+        by (irule ACONV_TYPE >> simp[WELLTYPED_CLAUSES] >> gvs[])
+      >> gvs[typeof_def])
+    >> `tyr = ty2'` by (
+      `typeof (apply_steps stps (Abs (Var x ty) r)) =
+       typeof (Abs (Var z ty2')
+         (apply_steps stps (VSUBST [(Var z ty,Var x ty)] r)))`
+        by (irule ACONV_TYPE >> simp[WELLTYPED_CLAUSES] >> gvs[])
+      >> gvs[typeof_def])
+    >> simp[] >> fs[])
+  >> pop_assum (SUBST_ALL_TAC o GSYM)
+  >> qexists_tac `ty_esubst σ ty2`
+  >> rpt conj_tac
+  (* ACONV for l: ACONV_TRANS with esubst_ACONV + esubst_Abs_alpha *)
+  >- (irule ACONV_TRANS
+      >> qexists_tac `esubst σ avds (Abs (Var z ty2)
+           (apply_steps stps (VSUBST [(Var z ty, Var x ty)] l)))`
+      >> conj_tac
+      >- (irule esubst_ACONV >> simp[]
+          >> qexistsl [`axs`, `sig`] >> simp[]
+          >> conj_tac >- (irule apply_steps_term_ok >> simp[])
+          >> conj_tac
+          >- (drule term_ok_aconv >> simp[] >> disch_then $ qspec_then ‘sig’ mp_tac
+              >> blast_term_validation)
+          >> irule apply_steps_term_ok >> simp[]
+          >> blast_term_validation)
+      >> irule esubst_Abs_alpha >> simp[]
+      >> qexistsl [`axs`, `sig`] >> simp[]
+      >> conj_tac
+      >- (drule term_ok_aconv >> simp[] >> disch_then $ qspec_then ‘sig’ mp_tac
+          >> blast_term_validation)
+      >> irule apply_steps_term_ok >> simp[]
+      >> blast_term_validation)
+  (* ACONV for r *)
+  >- (irule ACONV_TRANS
+      >> qexists_tac `esubst σ avds (Abs (Var z ty2)
+           (apply_steps stps (VSUBST [(Var z ty, Var x ty)] r)))`
+      >> conj_tac
+      >- (irule esubst_ACONV >> simp[]
+          >> qexistsl [`axs`, `sig`] >> simp[]
+          >> conj_tac >- (irule apply_steps_term_ok >> simp[])
+          >> conj_tac
+          >- (drule term_ok_aconv >> simp[] >> disch_then $ qspec_then ‘sig’ mp_tac
+              >> blast_term_validation)
+          >> irule apply_steps_term_ok >> simp[]
+          >> blast_term_validation)
+      >> irule esubst_Abs_alpha >> simp[]
+      >> qexistsl [`axs`, `sig`] >> simp[]
+      >> conj_tac
+      >- (drule term_ok_aconv >> simp[] >> disch_then $ qspec_then ‘sig’ mp_tac
+          >> blast_term_validation)
+      >> irule apply_steps_term_ok >> simp[]
+      >> blast_term_validation)
+  >> blast_term_validation
+  >> irule ty_esubst_type_ok_alt >> drule term_ok_aconv
+  >> simp[] >> disch_then $ qspec_then ‘sig’ mp_tac >> blast_term_validation
+QED
+        
+Triviality term_image_cong:
+  ∀ls f g.
+    (∀t. MEM t ls ⇒ f t = g t) ⇒ term_image f ls = term_image g ls
+Proof
+  Induct >- rw[Once term_image_def]
+  >> rpt gen_tac >> strip_tac
+  >> ONCE_REWRITE_TAC [term_image_def]
+  >> SUBGOAL_THEN “term_image f ls = term_image g ls”
+       STRIP_ASSUME_TAC
+  >- (first_x_assum irule >> rw[])
+  >> qsuff_tac ‘f h = g h’ >> rw[]
+QED
+
+Triviality apply_steps_typeof_eq:
+  ∀stps t1 t2.
+    steps_ok sig stps ∧ term_ok sig t1 ∧ term_ok sig t2 ∧
+    typeof t1 = typeof t2 ⇒
+    typeof (apply_steps stps t1) = typeof (apply_steps stps t2)
+Proof
+  Induct >> rw[apply_steps_def] >> Cases_on ‘h’
+  >> rw[apply_steps_def] >> gvs[steps_ok_def]
+  >> drw[typeof_vsubst1] >> blast_term_validation
+  >- metis_tac[steps_ok_def]
+  >> first_x_assum drule_all >> rw[]
+  >> ‘∃typ. apply_steps stps t1 has_type typ ∧ apply_steps stps t2 has_type typ’
+    by metis_tac[typeof_has_type, term_ok_welltyped, apply_steps_welltyped]
+  >> ntac 2 $ dxrule INST_HAS_TYPE >> rw[] >> metis_tac[WELLTYPED_LEMMA]
+QED
+
 Resume proves_substitutable_aux[Abs]:
-  cheat
+  rename1 ‘steps_ok _ stps’
+  >> eqn_dist_tac >> DEP_REWRITE_TAC[apply_steps_term_ok] >> gvs[term_ok_def]
+  >> ‘term_ok sig l ∧ term_ok sig r ∧ hypset_ok h ∧
+      (∀p. MEM p h ⇒ term_ok sig p ∧ p has_type Bool)’
+    by (dxrule proves_term_ok
+        >> simp[EVERY_MEM, term_ok_equation, theory_ok_sig, SF SFY_ss] >> metis_tac[])
+  >> simp[]
+  (* Get z from alpha lemma (pair version), avoiding hypothesis names *)
+  >> rev_drule_then drule_all esubst_apply_steps_Abs_alpha
+  >> disch_then $ qspecl_then [‘x’, ‘FLAT (MAP tm_names h)’,
+       ‘FLAT (MAP tm_names (term_image (esubst σ []) (term_image (apply_steps stps) h)))’]
+     strip_assume_tac
+  (* Use IH with VSUBST-last augmented steps stps ++ [VStep ...].
+     By apply_steps_append: apply_steps (stps ++ [VStep ilist]) t = apply_steps stps (VSUBST ilist t).
+     This matches the alpha theorem body, and crucially VSUBST acts directly on h elements
+     (where ¬VFREE_IN (Var x ty)), making it identity via VSUBST_NOT_FREE. *)
+  >> first_x_assum $ qspecl_then [‘σ’, ‘stps ++ [VStep [(Var z ty, Var x ty)]]’] mp_tac
+  >> simp[apply_steps_append, apply_steps_def, steps_ok_append, steps_ok_def]
+  (* Distribute === through esubst/VSUBST/apply_steps so proves_ABS can match *)
+  >> eqn_dist_tac >> blast_term_validation >> rw[]
+  (* VSUBST is identity on h elements (¬VFREE_IN); rewrite term_image to eliminate VStep.
+     After this, IH hypothesis set matches the goal hypothesis set exactly. *)
+  >> ‘term_image (apply_steps (stps ++ [VStep [(Var z ty, Var x ty)]])) h =
+      term_image (apply_steps stps) h’
+    by (irule term_image_cong >> rw[apply_steps_append, apply_steps_def]
+        >> ‘VSUBST [(Var z ty, Var x ty)] t = t’ suffices_by rw[]
+        >> MATCH_MP_TAC VSUBST_NOT_FREE_VAR >> rw[] >> gvs[EVERY_MEM])
+  >> pop_assum (fn th =>
+                  RULE_ASSUM_TAC (REWRITE_RULE[th]) >> REWRITE_TAC[th])
+  >> blast_term_validation
+  (* Move IH proves from goal antecedent into assumptions so drule_at finds it
+     (not the original ((sig,axs),h) |- l === r which has the wrong hyp set) *)
+  (* Apply proves_ABS to the IH equation (hyps = term_image (esubst σ []) ...) *)
+  >> drule_at (Pos last) proves_ABS
+  >> disch_then $ qspecl_then [‘ty'’, ‘z’] mp_tac
+  >> impl_tac
+  >- (rw[]
+      (* ¬EXISTS (VFREE_IN (Var z ty’)): z avoids hypothesis names (now matches asm 12) *)
+      >> rw[EVERY_MEM, EXISTS_MEM] >> rpt strip_tac
+      >> spose_not_then strip_assume_tac
+      >> imp_res_tac VFREE_IN_tm_names
+      >> gvs[MEM_FLAT, MEM_MAP, PULL_EXISTS]
+      >> metis_tac[])
+  >> rw[]
+  (* Use proves_ACONV to connect to the goal *)
+  >> irule proves_ACONV >> first_x_assum $ irule_at Any
+  >> rw[] >> ntac 2 blast_term_validation
+  >> rw[hypset_ok_term_image]
+  >- (drw[typeof_esubst] >> blast_term_validation >> cong_tac $ SOME 1
+      >> irule apply_steps_typeof_eq >> blast_term_validation
+      >> rev_drule proves_term_ok >> simp[] >> drw[term_ok_equation]
+      >> metis_tac[theory_ok_sig, FST])
+  >- (rw[EVERY_MEM]
+      >> dxrule MEM_term_image_imp >> rw[]
+      >> dxrule MEM_term_image_imp >> rw[]
+      >> res_tac >> gvs[]
+      >> blast_term_validation
+      >> DEP_REWRITE_TAC[esubst_has_type_bool, apply_steps_has_type_Bool, apply_steps_term_ok]
+      >> simp[term_ok_welltyped, SF SFY_ss])
+  (* ACONV of conclusion: chain via ACONV_SYM of alpha theorem + ACONV_esubst_avds.
+     irule ACONV_equation creates a single conjunction; rpt conj_tac splits it;
+     TRY handles welltyped goals; remaining ACONV goals use transitivity chain. *)
+  >- (irule ACONV_equation >> rw[]
+      >> blast_term_validation
+      >> irule ACONV_TRANS
+      >> first_x_assum (irule_at Any o MATCH_MP ACONV_SYM)
+      >> irule ACONV_ABS >> blast_term_validation
+      >> irule ACONV_esubst_avds >> rw[]
+      >> blast_term_validation
+      >> (ntac 2 $ first_x_assum $ irule_at Any >> blast_term_validation))
+  (* Hypotheses: IH hyps = goal hyps after term_image_cong rewrite *)
+  >> rw[EVERY_MEM, EXISTS_MEM] >> metis_tac[ACONV_REFL]
 QED
 
 Resume proves_substitutable_aux[Assume]:
   drule_then drule theory_ok_esubst_axs >> disch_then $ qspec_then ‘[]’ mp_tac >> rw[]
   >> drule proves_ASSUME >> disch_then $ qspec_then ‘esubst σ [] (apply_steps steps' c)’ mp_tac
-  >> rw[] >> irule proves_ACONV >> rw[]
-  >- (irule esubst_welltyped >> metis_tac[apply_steps_term_ok])
-  >- (irule esubst_term_ok >> metis_tac[apply_steps_term_ok])
+  >> rw[] >> irule proves_ACONV >> rw[] >> blast_term_validation
   >- (irule esubst_has_type_bool >> metis_tac[apply_steps_has_type_Bool, apply_steps_term_ok])
-  >> qpat_x_assum ‘_ ∧ _ ⇒ _ |- _’ mp_tac >> impl_tac >> rw[]
+  >> first_x_assum $ irule_at Any >> rw[ACONV_REFL] >> blast_term_validation
   >- (irule esubst_has_type_bool >> metis_tac[apply_steps_has_type_Bool, apply_steps_term_ok])
-  >- (irule esubst_term_ok >> metis_tac[apply_steps_term_ok])
-  >> first_x_assum $ irule_at Any >> simp[ACONV_REFL]
   >> irule ACONV_esubst_avds >> metis_tac[term_ok_welltyped, apply_steps_term_ok]
 QED
 
 Resume proves_substitutable_aux[Beta]:
   rename1 ‘steps_ok _ stps’
-  >> irule beta_steps_esubst_derivable >> rw[]
+  >> eqn_dist_tac >> blast_term_validation
+  >> DEP_REWRITE_TAC[apply_steps_comb, esubst_comb]
+  >> blast_term_validation >> drule_all esubst_apply_steps_Abs
+  >> disch_then $ qspecl_then [‘x’, ‘[]’] mp_tac >> rw[]
+  >> drule_all_then (qspec_then‘[]’strip_assume_tac) theory_ok_esubst_axs
+  >> drule proves_BETA >> disch_then $ qspecl_then [‘body’, ‘ty'’, ‘z’] mp_tac
+  >> rw[]
+  >> drule_at (Pos last) proves_INST
+  >> disch_then $ qspec_then ‘[(esubst σ [] (apply_steps stps (Var x ty)), Var z ty')]’ mp_tac
+  >> impl_tac >- (simp[] >> blast_term_validation) >> rw[]
+  >> irule proves_ACONV >> rw[]
+  >- (ntac 2 blast_term_validation >> gvs[has_type_typeof]
+      >> ‘VSUBST [(esubst σ [] (apply_steps stps (Var x ty)),Var z ty')] body
+          has_type typeof body’ by
+        (irule VSUBST_HAS_TYPE >> simp[WELLTYPED_LEMMA, term_ok_welltyped]
+         >> irule $ iffLR WELLTYPED >> gvs[term_ok_welltyped, SF SFY_ss])
+      >> dxrule ACONV_TYPE >> blast_term_validation >> rw[] >> metis_tac[has_type_typeof])
+  >> first_x_assum $ irule_at Any >> DEP_REWRITE_TAC[GEN_ALL VSUBST_equation] >> rw[]
+  >- (qpat_assum ‘term_ok (esubst_sig _ _) body’ mp_tac >> disch_then $ irule_at Any
+      >> simp[SF SFY_ss, term_ok_welltyped])
+  >> simp[VSUBST_def] >> irule ACONV_equation >> blast_term_validation >> rw[ACONV_REFL]
+  >- (irule esubst_welltyped >> rpt $ last_x_assum $ irule_at Any >> blast_term_validation)
+  >> gvs[has_type_typeof]
 QED
 
 Resume proves_substitutable_aux[DeductAntisym]:
-  cheat
-QED
-
-Resume proves_substitutable_aux[EQ_MP]:
-  cheat
+  eqn_dist_tac
+  >> ‘term_ok sig c ∧ term_ok sig c'’
+    by (imp_res_tac proves_term_ok >> gvs[])
+  >> simp[apply_steps_term_ok]
+  >> irule proves_ACONV
+  >> cheat
 QED
 
 Theorem apply_steps_ACONV:
@@ -5130,6 +6173,35 @@ Proof
   Induct >> rw[apply_steps_def] >> Cases_on ‘h’ >> rw[apply_steps_def] >> gvs[steps_ok_def]
   >- (irule ACONV_VSUBST >> rw[] >> metis_tac[apply_steps_welltyped])
   >> irule ACONV_INST >> rw[] >> metis_tac[apply_steps_welltyped]
+QED
+
+Resume proves_substitutable_aux[EQ_MP]:
+  rpt $ first_x_assum drule_all >> eqn_dist_tac >> imp_res_tac proves_term_ok
+  >> gvs[EVERY_MEM] >> drule_at Any $ iffLR term_ok_equation >> impl_tac
+  >- metis_tac[theory_ok_sig, FST] >> blast_term_validation >> rw[]
+  >> qabbrev_tac ‘thyσ = (esubst_sig σ sig, IMAGE (esubst σ []) axs)’
+  >> drule_then drule proves_EQ_MP >> impl_tac >> fs[]
+  >- (rw[] >> drule_at (Pos last) $ iffLR term_ok_equation >> dxrule theory_ok_sig >> simp[])
+  >- (*(irule esubst_ACONV >> rw[]
+      >- (irule apply_steps_ACONV >> blast_term_validation)
+      >> first_x_assum $ irule_at Any >> blast_term_validation)
+  >> rw[] >> irule proves_ACONV >> first_x_assum $ irule_at Any
+  >> blast_term_validation >> simp[hypset_ok_term_image, hypset_ok_term_union]
+  >> rw[EVERY_MEM, EXISTS_MEM]
+  >- (dxrule MEM_term_image_imp >> rw[] >> dxrule MEM_term_image_imp >> rw[]
+      >> rw[Abbr‘thyσ’] >> dxrule MEM_term_union_imp >> rw[]
+      >> ntac 2 $ rev_dxrule proves_term_ok >> simp[EVERY_MEM] >> blast_term_validation)
+  >- (dxrule MEM_term_image_imp >> rw[] >> dxrule MEM_term_image_imp >> rw[]
+      >> rw[Abbr‘thyσ’] >> dxrule MEM_term_union_imp >> rw[]
+      >> ntac 2 $ rev_dxrule proves_term_ok >> simp[EVERY_MEM]
+      >> irule esubst_has_type_bool >> rpt $ first_x_assum $ irule_at Any
+      >> blast_term_validation >> irule apply_steps_has_type_Bool >> metis_tac[])
+  >- (irule ACONV_esubst_avds >> rpt $ first_x_assum $ irule_at Any >> blast_term_validation)
+  >> dxrule MEM_term_union_imp >> rw[]
+  >> dxrule MEM_term_image_imp >> rw[] >> dxrule MEM_term_image_imp >> rw[]
+  >- cheat
+  >> cheat*)
+  >> cheat
 QED
 
 Resume proves_substitutable_aux[INST]:
@@ -5244,11 +6316,13 @@ Resume proves_substitutable_aux[INST_TYPE]:
 QED
 
 Resume proves_substitutable_aux[MK_COMB]:
-  cheat
+  rw[] >> eqn_dist_tac >> cheat
 QED
 
 Resume proves_substitutable_aux[Refl]:
-  cheat
+  eqn_dist_tac
+  >> irule proves_REFL >> rw[theory_ok_esubst_axs]
+  >> irule esubst_term_ok >> simp[apply_steps_term_ok, SF SFY_ss]
 QED
 
 Resume proves_substitutable_aux[Axioms]:
@@ -5267,7 +6341,6 @@ Theorem proves_substitutable:
   ∀sig axs h c.
     theory_ok (sig,axs) ∧ ((sig,axs),h) |- c ∧
     esubsts_ok sig σ ∧
-    (∀tm. MEM tm h ∨ tm = c ⇒ no_var_collapse σ tm) ∧
     (∀ax. ax ∈ axs ⇒ no_var_collapse σ ax) ⇒
     ((esubst_sig σ sig,IMAGE (esubst σ []) axs),
      term_image (esubst σ []) h) |-
