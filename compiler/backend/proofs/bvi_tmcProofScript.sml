@@ -1769,7 +1769,9 @@ Theorem evaluate_shift_vars:
     evaluate (MAP (λn. Var n) vs,env,s) = (r,t) ⇒
     evaluate (MAP (λn. Var n) (shift_vars (LENGTH bs) vs),bs ++ env,s) = (r,t)
 Proof
-  cheat
+  Induct_on ‘vs’ >> rw [shift_vars_def, evaluate_def]
+  >> simp [Once evaluate_CONS]
+  >> cheat
 QED
 
 Theorem evaluate_shift_vars_sing:
