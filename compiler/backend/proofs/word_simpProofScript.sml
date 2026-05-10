@@ -820,17 +820,36 @@ Resume evaluate_sf_gc_consts[Exception]:
   \\ pairarg_tac \\ fs [] \\ res_tac \\ fs []
   \\ fs [LASTN_LENGTH_CONS]
   \\ DISCH_TAC \\ TOP_CASE_TAC \\ TRY (TOP_CASE_TAC)
-    \\ TRY (
-    res_tac \\ fs [] \\ rw []
+  >- ((* NONE *)
+      res_tac \\ fs [] \\ rw []
       >- (irule EVERY2_trans
-        \\ conj_tac >- ACCEPT_TAC sf_gc_consts_trans
-        >- (asm_exists_tac \\ rw []))
+          \\ conj_tac >- ACCEPT_TAC sf_gc_consts_trans
+          >- (asm_exists_tac \\ rw []))
       >- (rw [get_above_handler_def] \\ rw [ADD1]))
-    >- (DISCH_TAC \\ res_tac \\ fs [get_above_handler_def, ADD1]
-    \\ `r.handler < LENGTH r.stack` by (metis_tac [LIST_REL_LENGTH])
-    \\ fs [] \\ conj_tac
+  >- ((* Result *)
+      res_tac \\ fs [] \\ rw []
+      >- (irule EVERY2_trans
+          \\ conj_tac >- ACCEPT_TAC sf_gc_consts_trans
+          >- (asm_exists_tac \\ rw []))
+      >- (rw [get_above_handler_def] \\ rw [ADD1]))
+  >- ((* Exception *)
+      DISCH_TAC \\ res_tac \\ fs [get_above_handler_def, ADD1]
+      \\ `r.handler < LENGTH r.stack` by (metis_tac [LIST_REL_LENGTH])
+      \\ fs [] \\ conj_tac
       >- (irule EVERY2_trans_LASTN_sf_gc_consts \\ conj_tac >- rw [] \\ asm_exists_tac \\ rw [])
-      >- metis_tac [sf_gc_consts_get_above_handler, get_above_handler_def]))
+      >- metis_tac [sf_gc_consts_get_above_handler, get_above_handler_def])
+  >- ((* Break *)
+      res_tac \\ fs [] \\ rw []
+      >- (irule EVERY2_trans
+          \\ conj_tac >- ACCEPT_TAC sf_gc_consts_trans
+          >- (asm_exists_tac \\ rw []))
+      >- (rw [get_above_handler_def] \\ rw [ADD1]))
+  >- ((* Continue *)
+      res_tac \\ fs [] \\ rw []
+      >- (irule EVERY2_trans
+          \\ conj_tac >- ACCEPT_TAC sf_gc_consts_trans
+          >- (asm_exists_tac \\ rw []))
+      >- (rw [get_above_handler_def] \\ rw [ADD1])))
 QED
 
 Resume evaluate_sf_gc_consts[Loop]:

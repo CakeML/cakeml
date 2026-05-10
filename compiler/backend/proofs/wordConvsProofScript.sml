@@ -1120,11 +1120,9 @@ Proof
     every_case_tac>>rw[]>>
     fs[extract_labels_def])
   >>
-  TRY (imp_res_tac fake_moves_no_labs>>fs[]>>NO_TAC)>>
-  TRY (imp_res_tac loop_setup_no_labs>>
-       rw[]>>fs[extract_labels_def,ssa_reconcile_no_labs]>>NO_TAC)>>
-  TRY (fs[extract_labels_def,ssa_reconcile_no_labs]>>NO_TAC)>>
-  gvs[ssa_reconcile_def]>>every_case_tac>>gvs[extract_labels_def]
+  imp_res_tac fake_moves_no_labs >>
+  imp_res_tac loop_setup_no_labs >>
+  rw[] >> gvs[extract_labels_def, ssa_reconcile_no_labs]
 QED
 
 Theorem ssa_cc_trans_inst_not_created_subprogs[local]:
@@ -1461,12 +1459,9 @@ Proof
     fs[flat_exp_conventions_ShareInst] >>
     simp[ssa_cc_trans_exp_def])
   >> (*Loop/Break/Continue*)
-    TRY (drule loop_setup_flat_exp_conventions>>strip_tac)>>
-    TRY (Cases_on `LLOOKUP lt n`)>>
-    TRY (PairCases_on `x`)>>
-    fs[flat_exp_conventions_def]>>
-    rpt IF_CASES_TAC>>gvs[ssa_reconcile_def,flat_exp_conventions_def]>>
-    rw[]>>fs[flat_exp_conventions_def]
+    imp_res_tac loop_setup_flat_exp_conventions >>
+    every_case_tac >>
+    rw[flat_exp_conventions_def, ssa_reconcile_flat_exp_conventions]
 QED
 
 Theorem full_ssa_cc_trans_flat_exp_conventions:
@@ -1501,13 +1496,10 @@ Proof
   gvs[AllCaseEqs(),wf_cutsets_def,oneline ssa_cc_trans_inst_def, wf_fromAList] >>
   rpt(pairarg_tac >> gvs[]) >>
   gvs[wf_cutsets_def,wf_names_def,apply_nummaps_key_def,wf_fromAList]
-  >> TRY (metis_tac[fake_moves_wf_cutsets])
-  >> (*Loop/Break/Continue*)
-    TRY (drule loop_setup_wf_cutsets>>strip_tac)>>
-    TRY (Cases_on `LLOOKUP lt n`)>>
-    TRY (PairCases_on `x`)>>fs[wf_cutsets_def]>>
-    rpt IF_CASES_TAC>>gvs[ssa_reconcile_def,wf_cutsets_def]>>
-    rw[]>>fs[wf_cutsets_def]
+  >> imp_res_tac fake_moves_wf_cutsets
+  >> imp_res_tac loop_setup_wf_cutsets
+  >> every_case_tac
+  >> rw[wf_cutsets_def, ssa_reconcile_wf_cutsets]
 QED
 
 Theorem full_ssa_cc_trans_wf_cutsets:

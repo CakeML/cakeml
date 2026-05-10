@@ -8325,12 +8325,12 @@ Resume ssa_cc_trans_correct[Call_tail]:
     full_simp_tac(srw_ss())[set_vars_def]>>
     EVERY_CASE_TAC>>
     full_simp_tac(srw_ss())[call_env_def, flush_state_def,dec_clock_def]>>
-    TRY (qpat_x_assum `evaluate (q', st with <|locals := _; locals_size := _; stack_max := _; permute := _; clock := _|>) = _` mp_tac>>
-         qpat_x_assum `evaluate (q', cst with <|locals := _; locals_size := _; stack_max := _; clock := _|>) = _` mp_tac>>
-         qpat_abbrev_tac`cst'=cst with <|locals:=A;locals_size := Ls; stack_max := SM; clock:=B|>`>>
-         qpat_abbrev_tac`st'=st with <|locals:=A;locals_size := Ls;stack_max := SM; permute:=B;clock:=C|>`>>
-         `cst' = st'` by
-           (unabbrev_all_tac>>full_simp_tac(srw_ss())[state_component_equality]))>>
+    qpat_x_assum `evaluate (q', st with <|locals := _; locals_size := _; stack_max := _; permute := _; clock := _|>) = _` mp_tac>>
+    qpat_x_assum `evaluate (q', cst with <|locals := _; locals_size := _; stack_max := _; clock := _|>) = _` mp_tac>>
+    qpat_abbrev_tac`cst'=cst with <|locals:=A;locals_size := Ls; stack_max := SM; clock:=B|>`>>
+    qpat_abbrev_tac`st'=st with <|locals:=A;locals_size := Ls;stack_max := SM; permute:=B;clock:=C|>`>>
+    `cst' = st'` by
+      (unabbrev_all_tac>>full_simp_tac(srw_ss())[state_component_equality])>>
     rw [] >> every_case_tac >> gvs [bad_fun_return_def]
 QED
 
