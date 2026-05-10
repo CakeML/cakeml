@@ -1745,7 +1745,7 @@ Theorem evaluate_binders:
     bind next args = (vs,next') ⇒
     ∀ys.
       LENGTH ys = next ⇒
-      evaluate (MAP (λn. Var (n + next)) vs,ys ++ as ++ env,t) = (Rval as,t)
+      evaluate (MAP (λn. Var (n + next)) vs,ys ++ as,t) = (Rval as,t)
 Proof
   Induct
   >- gvs [evaluate_def, bind_def]
@@ -1753,6 +1753,7 @@ Proof
   >> cheat
 QED
 
+(* Maybe get rid of this and add condition to inl *)
 Theorem bvi_to_cb_aux_inl_pure:
   ∀loc tag args env s t r bs vs.
     bvi_to_cb_aux loc tag args = SOME (bs,INL vs) ∧
@@ -1833,17 +1834,20 @@ Theorem evaluate_bvi_to_cb_aux_inr:
     bvi_to_cb_aux loc tag args = SOME (bs,INR cb) ∧
     evaluate ([Op (BlockOp (Cons tag)) args],env,s) = (r,t) ∧
     r ≠ Rerr (Rabort Rtype_error) ⇒
-    evaluate ([Let bs (cb_to_bvi loc cb)],env,s) = (r,t)
+    ∃as u.
+      evaluate (bs,env,s) = (as,u) ∧
+      ∀vs.
+        as = Rval vs ⇒
+        evaluate ([cb_to_bvi loc cb],vs,u) = (r,t)
 Proof
-  
   recInduct bvi_to_cb_aux_ind
   >> rw [bvi_to_cb_aux_def]
   >-
    (gvs [CaseEq "prod"]
     >> rename [‘bind 0 args = (vs,n')’]
     >> gvs [evaluate_def, cb_to_bvi_def, evaluate_def]
-    >> CASE_TAC >> gvs []
-    >> CASE_TAC >> gvs []
+    >> gvs [CaseEq "prod"]
+    >> Cases_on ‘v5'’ >> gvs []
     >> drule evaluate_binders
     >> disch_then drule
     >> disch_then $ qspec_then ‘[]’ mp_tac
@@ -1859,7 +1863,7 @@ Proof
     >- gvs [evaluate_def, do_app_def, do_app_aux_def, CaseEq "prod", CaseEq "result"]
     >> strip_tac
     >> first_assum $ irule_at Any
-    >> CASE_TAC >> gvs []
+    >> rw []
     >> gvs [cb_to_bvi_def, evaluate_def])
   >> rename [‘evaluate ([Op (BlockOp (Cons tag)) (x1::x2::xs)],env,s) = (r,t)’]
   >> gvs [CaseEq "option", CaseEq "prod", CaseEq "sum"]
@@ -1871,7 +1875,8 @@ Proof
      (strip_tac
       >> gvs [CaseEq "call_block", CaseEq "list"]
       >> gvs [evaluate_APPEND]
-      >> CASE_TAC >> gvs []
+      >> Cases_on ‘as’ >> gvs []
+      >> CASE_TAC
       >> CASE_TAC >> gvs []
       >> drule bvi_to_cb_aux_inl_pure
       >> disch_then drule
@@ -1879,11 +1884,30 @@ Proof
       >> gvs []    
       >> gvs [cb_to_bvi_def, evaluate_def]
       >> simp [Once evaluate_CONS, evaluate_def]
-      (* This relies on the fact that we don't access any vars in env - only a. So as is extra/unused. May need to change theorem statement to just eval in result of bs. *)
-      >> CASE_TAC
-      >> CASE_TAC >> gvs []
-      >> cheat)
+      >> Cases_on ‘evaluate ([cb_to_bvi loc child],a,r)’ >> gvs []
+      >> drule evaluate_expand_env
+      >> disch_then $ qspec_then ‘a'’ mp_tac
+      >> strip_tac
+      >> gvs []
+      >> Cases_on ‘q’ >> gvs []
+      >> gvs [do_app_def, do_app_aux_def])
     >> gvs [CaseEq "call_block", CaseEq "list"]
+    >> gvs [do_app_def, do_app_aux_def]
+    >> gvs [CaseEq "prod"]
+    >> strip_tac
+    >> gvs [evaluate_APPEND]
+    >> Cases_on ‘as’ >> gvs []
+    >> drule evaluate_bvi_to_cb_aux_inl
+    >> disch_then drule
+    >> impl_tac
+    >- (spose_not_then assume_tac >> gvs [])
+    >> strip_tac
+    >> gvs []
+    >> drule bvi_to_cb_aux_inl_pure
+    >> disch_then drule
+    >> strip_tac
+    >> gvs []
+    >> gvs [CaseEq "prod"]
     >> cheat)
   >> gvs [evaluate_def]
   >> gvs [CaseEq "prod"]
@@ -1903,19 +1927,19 @@ Proof
     >> gvs [cb_to_bvi_def, evaluate_def]
     >> simp [Once evaluate_CONS, evaluate_def]
     >> gvs [evaluate_APPEND, evaluate_def]
-    >> Cases_on ‘evaluate (MAP (λn. Var n) left,a' ++ env,s1')’
+    >> Cases_on ‘evaluate (MAP (λn. Var n) left,a',u)’
     >> drule evaluate_shift_vars_sing
     >> disch_then $ qspec_then ‘HD a’ mp_tac
     >> strip_tac
     >> gvs []
     >> Cases_on ‘q’ >> gvs []
-    >> Cases_on ‘evaluate ([cb_to_bvi loc cb'],a' ++ env,r)’ >> gvs []
+    >> Cases_on ‘evaluate ([cb_to_bvi loc cb'],a',r)’ >> gvs []
     >> drule evaluate_shift_cb_sing
     >> disch_then $ qspec_then ‘HD a’ mp_tac
     >> strip_tac
     >> gvs []
     >> CASE_TAC >> gvs []
-    >> Cases_on ‘evaluate (MAP (λn. Var n) right,a' ++ env,r')’
+    >> Cases_on ‘evaluate (MAP (λn. Var n) right,a',r')’
     >> drule evaluate_shift_vars_sing
     >> disch_then $ qspec_then ‘HD a’ mp_tac
     >> strip_tac
@@ -1929,19 +1953,19 @@ Proof
   >> gvs [cb_to_bvi_def, evaluate_def]
   >> simp [Once evaluate_CONS, evaluate_def]
   >> gvs [evaluate_APPEND]
-  >> Cases_on ‘evaluate (MAP (λn. Var n) left,a'' ++ env,s1')’
+  >> Cases_on ‘evaluate (MAP (λn. Var n) left,a'',u)’
   >> drule evaluate_shift_vars_sing
   >> disch_then $ qspec_then ‘HD a’ mp_tac
   >> strip_tac
   >> gvs []
   >> Cases_on ‘q’ >> gvs []
-  >> Cases_on ‘evaluate ([cb_to_bvi loc cb'],a'' ++ env,r)’ >> gvs []
+  >> Cases_on ‘evaluate ([cb_to_bvi loc cb'],a'',r)’ >> gvs []
   >> drule evaluate_shift_cb_sing
   >> disch_then $ qspec_then ‘HD a’ mp_tac
   >> strip_tac
   >> gvs []
   >> CASE_TAC >> gvs []
-  >> Cases_on ‘evaluate (MAP (λn. Var n) right,a'' ++ env,r')’
+  >> Cases_on ‘evaluate (MAP (λn. Var n) right,a'',r')’
   >> drule evaluate_shift_vars_sing
   >> disch_then $ qspec_then ‘HD a’ mp_tac
   >> strip_tac
