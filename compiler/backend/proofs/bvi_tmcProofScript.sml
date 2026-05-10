@@ -1870,45 +1870,45 @@ Proof
   >-
    (first_x_assum $ qspecl_then [‘env’, ‘s’] mp_tac
     >> gvs [evaluate_def, CaseEq "prod"]
-    >> reverse CASE_TAC >> gvs []                                
+    >> CASE_TAC >> gvs []
     >-
-     (strip_tac
-      >> gvs [CaseEq "call_block", CaseEq "list"]
+     (gvs [CaseEq "call_block", CaseEq "list"]
+      >> gvs [do_app_def, do_app_aux_def]
+      >> gvs [CaseEq "prod"]
+      >> strip_tac
       >> gvs [evaluate_APPEND]
       >> Cases_on ‘as’ >> gvs []
-      >> CASE_TAC
-      >> CASE_TAC >> gvs []
+      >> drule evaluate_bvi_to_cb_aux_inl
+      >> disch_then drule
+      >> impl_tac
+      >- (spose_not_then assume_tac >> gvs [])
+      >> strip_tac
+      >> gvs []
       >> drule bvi_to_cb_aux_inl_pure
       >> disch_then drule
       >> strip_tac
-      >> gvs []    
-      >> gvs [cb_to_bvi_def, evaluate_def]
-      >> simp [Once evaluate_CONS, evaluate_def]
-      >> Cases_on ‘evaluate ([cb_to_bvi loc child],a,r)’ >> gvs []
-      >> drule evaluate_expand_env
-      >> disch_then $ qspec_then ‘a'’ mp_tac
-      >> strip_tac
       >> gvs []
-      >> Cases_on ‘q’ >> gvs []
-      >> gvs [do_app_def, do_app_aux_def])
-    >> gvs [CaseEq "call_block", CaseEq "list"]
-    >> gvs [do_app_def, do_app_aux_def]
-    >> gvs [CaseEq "prod"]
+      >> gvs [CaseEq "prod"]
+      >> cheat)
     >> strip_tac
+    >> gvs [CaseEq "call_block", CaseEq "list"]
     >> gvs [evaluate_APPEND]
     >> Cases_on ‘as’ >> gvs []
-    >> drule evaluate_bvi_to_cb_aux_inl
-    >> disch_then drule
-    >> impl_tac
-    >- (spose_not_then assume_tac >> gvs [])
-    >> strip_tac
-    >> gvs []
+    >> CASE_TAC
+    >> CASE_TAC >> gvs []
     >> drule bvi_to_cb_aux_inl_pure
     >> disch_then drule
     >> strip_tac
+    >> gvs []    
+    >> gvs [cb_to_bvi_def, evaluate_def]
+    >> simp [Once evaluate_CONS, evaluate_def]
+    >> Cases_on ‘evaluate ([cb_to_bvi loc child],a,r)’ >> gvs []
+    >> drule evaluate_expand_env
+    >> disch_then $ qspec_then ‘a'’ mp_tac
+    >> strip_tac
     >> gvs []
-    >> gvs [CaseEq "prod"]
-    >> cheat)
+    >> Cases_on ‘q’ >> gvs []
+    >> gvs [do_app_def, do_app_aux_def])
   >> gvs [evaluate_def]
   >> gvs [CaseEq "prod"]
   >> reverse $ Cases_on ‘cb'’ >> gvs [shift_cb_def]
@@ -1919,53 +1919,53 @@ Proof
   >> gvs [CaseEq "prod"]
   >> gvs [PULL_EXISTS]
   >> first_x_assum drule
-  >> reverse CASE_TAC >> gvs []
+  >> CASE_TAC >> gvs []
   >-
-   (strip_tac
+   (gvs [do_app_def, do_app_aux_def]
+    >> strip_tac
     >> gvs []
-    >> reverse CASE_TAC >> gvs []
+    >> CASE_TAC >> gvs []
     >> gvs [cb_to_bvi_def, evaluate_def]
     >> simp [Once evaluate_CONS, evaluate_def]
-    >> gvs [evaluate_APPEND, evaluate_def]
-    >> Cases_on ‘evaluate (MAP (λn. Var n) left,a',u)’
+    >> gvs [evaluate_APPEND]
+    >> Cases_on ‘evaluate (MAP (λn. Var n) left,a'',u)’
     >> drule evaluate_shift_vars_sing
     >> disch_then $ qspec_then ‘HD a’ mp_tac
     >> strip_tac
     >> gvs []
     >> Cases_on ‘q’ >> gvs []
-    >> Cases_on ‘evaluate ([cb_to_bvi loc cb'],a',r)’ >> gvs []
+    >> Cases_on ‘evaluate ([cb_to_bvi loc cb'],a'',r)’ >> gvs []
     >> drule evaluate_shift_cb_sing
     >> disch_then $ qspec_then ‘HD a’ mp_tac
     >> strip_tac
     >> gvs []
     >> CASE_TAC >> gvs []
-    >> Cases_on ‘evaluate (MAP (λn. Var n) right,a',r')’
+    >> Cases_on ‘evaluate (MAP (λn. Var n) right,a'',r')’
     >> drule evaluate_shift_vars_sing
     >> disch_then $ qspec_then ‘HD a’ mp_tac
     >> strip_tac
     >> gvs []
     >> CASE_TAC >> gvs []
     >> gvs [do_app_def, do_app_aux_def])
-  >> gvs [do_app_def, do_app_aux_def]
   >> strip_tac
   >> gvs []
-  >> CASE_TAC >> gvs []
+  >> reverse CASE_TAC >> gvs []
   >> gvs [cb_to_bvi_def, evaluate_def]
   >> simp [Once evaluate_CONS, evaluate_def]
-  >> gvs [evaluate_APPEND]
-  >> Cases_on ‘evaluate (MAP (λn. Var n) left,a'',u)’
+  >> gvs [evaluate_APPEND, evaluate_def]
+  >> Cases_on ‘evaluate (MAP (λn. Var n) left,a',u)’
   >> drule evaluate_shift_vars_sing
   >> disch_then $ qspec_then ‘HD a’ mp_tac
   >> strip_tac
   >> gvs []
   >> Cases_on ‘q’ >> gvs []
-  >> Cases_on ‘evaluate ([cb_to_bvi loc cb'],a'',r)’ >> gvs []
+  >> Cases_on ‘evaluate ([cb_to_bvi loc cb'],a',r)’ >> gvs []
   >> drule evaluate_shift_cb_sing
   >> disch_then $ qspec_then ‘HD a’ mp_tac
   >> strip_tac
   >> gvs []
   >> CASE_TAC >> gvs []
-  >> Cases_on ‘evaluate (MAP (λn. Var n) right,a'',r')’
+  >> Cases_on ‘evaluate (MAP (λn. Var n) right,a',r')’
   >> drule evaluate_shift_vars_sing
   >> disch_then $ qspec_then ‘HD a’ mp_tac
   >> strip_tac
