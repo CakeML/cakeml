@@ -130,7 +130,7 @@ Definition state_rel_def:
             input_condition next prog) ∧
     (∀n. n ∈ domain t.code ∧ in_ns_2 n ⇒ n < FST(FST(s.compile_oracle 0)))
 End
-
+ 
 Theorem compile_prog_code_rel:
    compile_prog next prog = (next1, prog2) ∧
    ALL_DISTINCT (MAP FST prog) ∧
@@ -1753,18 +1753,6 @@ Proof
   >> cheat
 QED
 
-(* Maybe get rid of this and add condition to inl *)
-Theorem bvi_to_cb_aux_inl_pure:
-  ∀loc tag args env s t r bs vs.
-    bvi_to_cb_aux loc tag args = SOME (bs,INL vs) ∧
-    evaluate (bs,env,s) = (r,t) ⇒
-    s = t ∧
-    ∃as.
-      r = Rval as
-Proof
-  cheat
-QED
-
 Theorem evaluate_shift_vars:
   ∀vs env s bs r t.
     evaluate (MAP (λn. Var n) vs,env,s) = (r,t) ⇒
@@ -1799,14 +1787,54 @@ Proof
   cheat
 QED
 
+Theorem evaluate_pure_exps:
+  ∀xs env s t r.
+    ~effectful_exps xs ∧
+    evaluate (xs,env,s) = (r,t) ∧
+    r ≠ Rerr (Rabort Rtype_error) ⇒
+    s = t ∧
+    (∃v. r = Rval v) ∧
+    ∀u. evaluate (xs,env,u) = (r,t)
+Proof
+  cheat
+(*
+  recInduct effectful_exps_ind
+  >> rpt conj_tac
+  >> rpt gen_tac
+  >> strip_tac
+  >> gvs [evaluate_def]
+  >~ [‘¬effectful_exps [Var n]’] >-
+   (gvs [evaluate_def] >> Cases_on ‘n < LENGTH env’ >> gvs [] >> cheat)
+  >~ [‘¬effectful_exps [If e1 e2 e3]’] >-
+   (gvs [evaluate_def] >> cheat)
+  >~ [‘¬effectful_exps [Let xs x]’] >-
+   (gvs [evaluate_def] >> cheat)
+  >~ [‘¬effectful_exps [Raise x]’] >-
+   (gvs [evaluate_def] >> cheat)
+  >~ [‘¬effectful_exps [Tick x]’] >-
+   (gvs [evaluate_def] >> cheat)
+  >~ [‘¬effectful_exps [Call ts loc args h]’] >-
+   (gvs [evaluate_def] >> cheat)
+  >~ [‘¬effectful_exps [Force _ _]’] >-
+   (gvs [evaluate_def] >> cheat)
+  >~ [‘¬effectful_exps [Op op args]’] >-
+   (gvs [evaluate_def] >> cheat)
+  >~ [‘¬effectful_exps (x::y::xs)’] >-
+   (gvs [evaluate_def] >> cheat)
+*)
+QED
+
 Theorem evaluate_bvi_to_cb_aux_inl:
   ∀loc tag args env s t r bs vs.
     bvi_to_cb_aux loc tag args = SOME (bs,INL vs) ∧
     evaluate (args,env,s) = (r,t) ∧
     r ≠ Rerr (Rabort Rtype_error) ⇒
-    evaluate (bs,env,s) = (r,t)
+    (*evaluate (bs,env,s) = (r,t) ∧*)
+    args = bs ∧
+    ~effectful_exps args
 Proof
-  recInduct bvi_to_cb_aux_ind >> rw [bvi_to_cb_aux_def] >> gvs [evaluate_def]
+  cheat
+  (*recInduct bvi_to_cb_aux_ind >> rw [bvi_to_cb_aux_def] >> gvs [evaluate_def]
   >- (gvs [CaseEq "prod"])
   >- (gvs [CaseEq "option", CaseEq "prod", CaseEq "sum", evaluate_def])
   >> reverse $ gvs [CaseEq "option", CaseEq "prod", CaseEq "sum"]
@@ -1826,7 +1854,7 @@ Proof
   >> impl_tac >> gvs []
   >> strip_tac
   >> imp_res_tac evaluate_SING_IMP
-  >> gvs []
+  >> gvs []*)
 QED
 
 Theorem evaluate_bvi_to_cb_aux_inr:
@@ -1881,16 +1909,26 @@ Proof
       >> strip_tac
       >> gvs [evaluate_APPEND]
       >> Cases_on ‘as’ >> gvs []
-      >> Cases_on ‘evaluate (bs2,env,u)’ >> gvs []
-      >> reverse $ Cases_on ‘q’ >> gvs []
       >> drule evaluate_bvi_to_cb_aux_inl
       >> disch_then drule
       >> impl_tac
       >- (spose_not_then assume_tac >> gvs [])
       >> strip_tac
+      >> drule evaluate_pure_exps
+      >> disch_then drule
+      >> impl_tac
+      >- (spose_not_then assume_tac >> gvs [])
+      >> strip_tac
       >> gvs []
-      (* States don't match - but this should be fine if not effectful *)
-      >> cheat)
+      >> gvs [cb_to_bvi_def, evaluate_def]
+      >> simp [Once evaluate_CONS, evaluate_def]
+      >> Cases_on ‘evaluate ([cb_to_bvi loc child],a',u)’ >> gvs []
+      >> drule evaluate_expand_env
+      >> disch_then $ qspec_then ‘v’ mp_tac
+      >> strip_tac
+      >> gvs []
+      >> cheat
+     )
     >> strip_tac
     >> gvs [CaseEq "call_block", CaseEq "list"]
     >> gvs [evaluate_APPEND]
