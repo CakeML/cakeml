@@ -59,25 +59,20 @@ Datatype:
 End
 
 Definition bind_def:
-  (bind (n:num) [] = ([],[],n)) ∧
-  (bind (n:num) (h::t) =
+  (bind (n:num) [] = ([],n)) ∧
+  (bind (n:num) (_::t) =
    case bind (n + 1) t of
-   | (bs,vs,n') => (h::bs,n::vs,n'))
+   | (vs,n') => (n::vs,n'))
 End
 
 Theorem bind_size:
   ∀args n bs vs n'.
-    bind n args = (bs,vs,n') ⇒
-    LENGTH args = LENGTH bs ∧
+    bind n args = (vs,n') ⇒
     LENGTH args = LENGTH vs
 Proof
   Induct >> gvs [bind_def]
-  >> rpt gen_tac
-  >> CASE_TAC
-  >> CASE_TAC
-  >> disch_then assume_tac
-  >> gvs []
-  >> rename [‘bind (n + 1) args = (bs,vs,n')’]
+  >> rw []
+  >> gvs [CaseEq "prod"]
   >> first_x_assum irule
   >> first_assum $ irule_at Any
 QED
@@ -107,7 +102,7 @@ Definition bvi_to_cb_aux_def:
    if loc' = SOME loc ∧ h = NONE then
      (* Recursive call found - base case of CallBlock *)
      case bind 0 args of
-     | (bs,vs,_) => SOME (bs,INR (CallBlock tag [] (RCall t vs) []))
+     | (vs,_) => SOME (args,INR (CallBlock tag [] (RCall t vs) []))
    else
      (* Not a recursive call - gets let-bound *)
      SOME ([Call t loc' args h],INL [0])) ∧
