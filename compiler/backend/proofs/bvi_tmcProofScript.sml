@@ -1745,30 +1745,18 @@ Proof
   >> gvs [CaseEq "prod", CaseEq "result", EL_APPEND_EQN]
 QED
 
-(* Move *)
-(* But why return bs at all...*)
-Theorem bind_preserves_exps:
-  ∀n xs bs vs n'.
-    bind n xs = (bs,vs,n') ⇒
-    bs = xs
-Proof
-  Induct_on ‘xs’ >> gvs [bind_def]
-  >> rw []
-  >> gvs [CaseEq "prod"]
-  >> rename [‘bind (n + 1) xs = (bs,vs,n')’]
-  >> first_x_assum drule
-  >> gvs []
-QED
-
-Theorem evaluate_bind:
-  ∀xs bs vs next next' env r s t.
-    evaluate (xs,env,s) = (r,t) ∧
-    bind next xs = (bs,vs,next') ⇒
+Theorem evaluate_binders:
+  ∀args env s t vs as next next'.
+    evaluate (args,env,s) = (Rval as,t) ∧
+    bind next args = (vs,next') ⇒
     ∀ys.
       LENGTH ys = next ⇒
-      evaluate (MAP (λn. Var n) vs,ys ++ env,s) = (r,t)
+      evaluate (MAP (λn. Var (n + next)) vs,ys ++ as ++ env,t) = (Rval as,t)
 Proof
-  cheat 
+  Induct
+  >- gvs [evaluate_def, bind_def]
+  >> rw []
+  >> cheat
 QED
 
 Theorem evaluate_bvi_to_cb_aux:
@@ -1789,13 +1777,41 @@ Proof
   >> rw [bvi_to_cb_aux_def]
   >-
    (gvs [CaseEq "prod"]
-    >> imp_res_tac bind_preserves_exps
-    >> gvs []
-    >> Cases_on ‘evaluate (bs,env,s)’ >> gvs []
-    >> rename [‘evaluate (bs,env,s) = (rs,u)’]
+    >> rename [‘bind 0 args = (vs,n')’]
+    >> Cases_on ‘evaluate (args,env,s)’ >> gvs []
+    >> rename [‘evaluate (args,env,s) = (rs,u)’]
     >> rw []
-    >> gvs [cb_to_bvi_def]
-    >> gvs [evaluate_def]
+    >> gvs [cb_to_bvi_def, evaluate_def]
+    >> drule evaluate_binders
+    >> disch_then drule
+    >> disch_then $ qspec_then ‘[]’ mp_tac
+    >> gvs [])
+  >-
+   (gvs [CaseEq "option"]
+    >> Cases_on ‘op’ >> gvs [dest_Cons_def]
+    >> Cases_on ‘b’ >> gvs [dest_Cons_def]
+    >> gvs [CaseEq "prod", CaseEq "sum"]
+    >> qpat_x_assum ‘evaluate(_,_,_) = (_,_)’ mp_tac
+    >> simp [Once evaluate_def]
+    >> CASE_TAC
+    >> strip_tac
+    >> first_x_assum drule
+    >> impl_tac >> gvs []
+    >- gvs [evaluate_def, do_app_def, do_app_aux_def, CaseEq "prod", CaseEq "result"]
+    >> strip_tac
+    >> first_assum $ irule_at Any
+    >> rw []
+    >> gvs []
+    >> gvs [cb_to_bvi_def, evaluate_def])
+  >> rename [‘evaluate ([Op (BlockOp (Cons tag)) (x1::x2::xs)],env,s) = (r,t)’]
+  >> gvs [CaseEq "option", CaseEq "prod", CaseEq "sum"]
+  >-
+   (Cases_on ‘v4’ >> gvs []
+    >> rename [‘bvi_to_cb_aux loc tag [x1] = SOME (bs1,INR (CallBlock tag' left child right))’]
+    >> gvs [CaseEq "list"]
+    >-
+     (
+       )
         )
 QED
 
