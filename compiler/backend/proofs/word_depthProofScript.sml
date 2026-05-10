@@ -344,16 +344,8 @@ Resume max_depth_call_graph_lemma[Call]:
   \\ rename [`lookup name funs = SOME (a,body)`]
   \\ qpat_x_assum `~_:bool` mp_tac
   \\ TOP_CASE_TAC \\ simp []
-  THEN1 suspend "TailCall"
-  (* non-tail-call case *)
-  \\ PairCases_on `x` \\ simp []
-  \\ TOP_CASE_TAC \\ simp []
-  THEN1 suspend "NoHandler"
-  \\ suspend "WithHandler"
-QED
-
-Resume max_depth_call_graph_lemma[TailCall]:
-  strip_tac
+  THEN1 ((* TailCall *)
+    strip_tac
     \\ Cases_on `set ns ⊆ domain funs2` \\ fs []
     \\ Cases_on `ALL_DISTINCT ns` \\ fs []
     \\ Cases_on `subspt funs funs2` \\ fs []
@@ -387,11 +379,12 @@ Resume max_depth_call_graph_lemma[TailCall]:
     \\ Cases_on `s.stack_max` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
     \\ Cases_on `stack_size s.stack` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
     \\ Cases_on `s'.stack_max` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
-    \\ fs [OPTION_MAP2_DEF,MAX_DEF] \\ rpt strip_tac \\ fs []
-QED
-
-Resume max_depth_call_graph_lemma[NoHandler]:
-  simp [Once evaluate_def,CaseEq"option",CaseEq"bool",pair_case_eq,find_code_def]
+    \\ fs [OPTION_MAP2_DEF,MAX_DEF] \\ rpt strip_tac \\ fs [])
+  (* non-tail-call case *)
+  \\ PairCases_on `x` \\ simp []
+  \\ TOP_CASE_TAC \\ simp []
+  THEN1 ((* NoHandler *)
+    simp [Once evaluate_def,CaseEq"option",CaseEq"bool",pair_case_eq,find_code_def]
     \\ Cases_on `res = SOME Error` \\ simp [PULL_EXISTS]
     \\ rpt gen_tac \\ strip_tac \\ rveq
     THEN1
@@ -544,11 +537,8 @@ Resume max_depth_call_graph_lemma[NoHandler]:
     \\ Cases_on `stack_size s.stack` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
     \\ Cases_on `s.stack_max` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
     \\ Cases_on `s2.stack_max` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
-    \\ fs [OPTION_MAP2_DEF]
-QED
-
-Resume max_depth_call_graph_lemma[WithHandler]:
-  rename [`Call _ _ _ (SOME h)`]
+    \\ fs [OPTION_MAP2_DEF])
+  \\ rename [`Call _ _ _ (SOME h)`]
   \\ PairCases_on `h`
   \\ simp_tac (srw_ss()) [evaluate_def,CaseEq"option",CaseEq"bool",pair_case_eq,find_code_def]
   \\ Cases_on `res = SOME Error` \\ pop_assum mp_tac \\ simp_tac std_ss []
@@ -740,6 +730,7 @@ Resume max_depth_call_graph_lemma[WithHandler]:
     \\ Cases_on `s2.stack_max` THEN1 (fs [OPTION_MAP2_DEF] \\ rpt strip_tac \\ fs [])
     \\ fs [OPTION_MAP2_DEF])
 QED
+
 
 Resume max_depth_call_graph_lemma[Loop]:
   rpt gen_tac \\ simp [evaluate_def, call_graph_def]

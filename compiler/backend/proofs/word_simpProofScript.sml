@@ -852,12 +852,8 @@ Resume evaluate_sf_gc_consts[Loop]:
     >- (strip_tac \\ `s.handler < LENGTH s1.stack` by (imp_res_tac LIST_REL_LENGTH \\ fs []) \\ fs []
         \\ conj_tac >- (match_mp_tac (SRULE [] EVERY2_trans_LASTN_sf_gc_consts) \\ qexists_tac `s1.stack` \\ fs [])
         \\ irule sf_gc_consts_get_above_handler \\ fs [dec_clock_def])
-    >~ [`Result`]
-    >- (irule EVERY2_trans \\ conj_tac >- metis_tac [sf_gc_consts_trans] \\ qexists_tac `s1.stack` \\ fs [])
-    >~ [`Break`]
-    >- (irule EVERY2_trans \\ conj_tac >- metis_tac [sf_gc_consts_trans] \\ qexists_tac `s1.stack` \\ fs [])
-    \\ (* remaining: Continue *)
-       irule EVERY2_trans \\ conj_tac >- metis_tac [sf_gc_consts_trans] \\ qexists_tac `s1.stack` \\ fs [])
+    \\ (* Result / Break / Continue *)
+       (irule EVERY2_trans \\ conj_tac >- metis_tac [sf_gc_consts_trans] \\ qexists_tac `s1.stack` \\ fs []))
   \\ Cases_on `x` \\ fs [cont_loop_def, exit_loop_def] \\ gvs []
   >~ [`Exception`] >- gvs [get_above_handler_def]
   >~ [`Break`]
@@ -873,12 +869,8 @@ Resume evaluate_sf_gc_consts[Loop]:
       >- (strip_tac \\ `s.handler < LENGTH s1.stack` by (imp_res_tac LIST_REL_LENGTH \\ fs []) \\ fs []
           \\ conj_tac >- (match_mp_tac (SRULE [] EVERY2_trans_LASTN_sf_gc_consts) \\ qexists_tac `s1.stack` \\ fs [])
           \\ irule sf_gc_consts_get_above_handler \\ fs [dec_clock_def])
-      >~ [`Result`]
-      >- (irule EVERY2_trans \\ conj_tac >- metis_tac [sf_gc_consts_trans] \\ qexists_tac `s1.stack` \\ fs [])
-      >~ [`Break`]
-      >- (irule EVERY2_trans \\ conj_tac >- metis_tac [sf_gc_consts_trans] \\ qexists_tac `s1.stack` \\ fs [])
-      \\ (* remaining: Continue *)
-         irule EVERY2_trans \\ conj_tac >- metis_tac [sf_gc_consts_trans] \\ qexists_tac `s1.stack` \\ fs [])
+      \\ (* Result / Break / Continue *)
+         (irule EVERY2_trans \\ conj_tac >- metis_tac [sf_gc_consts_trans] \\ qexists_tac `s1.stack` \\ fs []))
 QED
 
 Finalise evaluate_sf_gc_consts;
