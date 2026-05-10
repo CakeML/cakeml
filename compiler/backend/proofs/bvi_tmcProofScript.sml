@@ -1826,7 +1826,7 @@ QED
 
 Theorem evaluate_bvi_to_cb_aux_inl:
   ∀loc tag args env s t r bs vs.
-    bvi_to_cb_aux loc tag args = SOME (bs,INL vs) ⇒
+    bvi_to_cb_aux loc tag args = SOME (bs,INL vs) ∧
     evaluate (args,env,s) = (r,t) ∧
     r ≠ Rerr (Rabort Rtype_error) ⇒
     (*evaluate (bs,env,s) = (r,t) ∧*)
