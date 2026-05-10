@@ -227,36 +227,73 @@ Proof
   simp[cencode_or_aux_def,encode_or_aux_def,enc_rel_List_refl_mul]
 QED
 
+(* encodes that the values of the Boolean variables X and Y are equal *)
+Definition encode_bvar_eq_def:
+  encode_bvar_eq X Y =
+  [
+    ([], [(1, Pos X);(-1, Pos Y)], 0);
+    ([], [(1, Pos Y);(-1, Pos X)], 0)
+  ]
+End
 
+Theorem encode_bvar_eq_sem[simp]:
+  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_bvar_eq X Y) ⇔
+  wb X = wb Y
+Proof
+  simp[encode_bvar_eq_def,iconstraint_sem_def]>>
+  Cases_on‘wb X’>>
+  Cases_on‘wb Y’>>
+  fs[]
+QED
 
+(* encodes that the values of the Boolean variables X, Y and Z satisfy:
+   X xor Y = Z
+*)
+Definition encode_xor_def:
+  encode_xor X Y Z =
+  [
+    ([],[(1,Pos X);(1,Pos Y);(1,Neg Z)], 1);
+    ([],[(1,Neg X);(1,Neg Y);(1,Neg Z)], 1);
+    ([],[(1,Neg X);(1,Pos Y);(1,Pos Z)], 1);
+    ([],[(1,Pos X);(1,Neg Y);(1,Pos Z)], 1)
+  ]
+End
 
+Theorem encode_xor_sem[simp]:
+  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_xor X Y Z) ⇔
+  wb Z = (wb X ≠ wb Y)
+Proof
+  simp[encode_xor_def,iconstraint_sem_def]>>
+  Cases_on‘wb X’>>
+  Cases_on‘wb Y’>>
+  Cases_on‘wb Z’>>
+  fs[]
+QED
 
-
-
-(* Parity constraint: ODD number of Xs[i] > 0 *)
+(* Parity constraint: Y > 0 ⇔ ODD number of Xs[i] > 0 *)
 Definition cencode_parity_aux_def:
   cencode_parity_aux bnd Y Xs name =
   Append
-    (List
-      [
-        (SOME $ mk_name name $ strlit"acc", [], [(-1,Pos (arri name $ LENGTH Xs))], 0);
-        (SOME $ mk_name name (int_to_string #"-" 0 ^ strlit"ge"),
-          [], [(1, Pos (arri name 0));(-1, Pos (INL (Ge Y 1)))], 0);
-        (SOME $ mk_name name (int_to_string #"-" 0 ^ strlit"le"),
-          [], [(1, Pos (INL (Ge Y 1)));(-1, Pos (arri name 0))], 0)
-      ])
-    (flat_app $ MAPi
-      (λi X. List
+    (Append
+      (List [(SOME $ mk_name name $ strlit"acc",
+        [], [(-1,Pos (arri name $ LENGTH Xs))], 0)])
+      (List $ mk_annotate
         [
-          (SOME $ mk_name name (int_to_string #"-" (&i+1) ^ strlit",(0,0)"),
-            [],[(1,Pos (arri name i));(1,Pos (INL (Ge X 1)));(1,Neg (arri name $ i+1))], 1);
-          (SOME $ mk_name name (int_to_string #"-" (&i+1) ^ strlit",(1,1)"),
-            [],[(1,Neg (arri name i));(1,Neg (INL (Ge X 1)));(1,Neg (arri name $ i+1))], 1);
-          (SOME $ mk_name name (int_to_string #"-" (&i+1) ^ strlit",(1,0)"),
-            [],[(1,Neg (arri name i));(1,Pos (INL (Ge X 1)));(1,Pos (arri name $ i+1))], 1);
-          (SOME $ mk_name name (int_to_string #"-" (&i+1) ^ strlit",(0,1)"),
-            [],[(1,Pos (arri name i));(1,Neg (INL (Ge X 1)));(1,Pos (arri name $ i+1))], 1)
-        ])
+          mk_name name (int_to_string #"-" 0 ^ strlit"ge");
+          mk_name name (int_to_string #"-" 0 ^ strlit"le")
+        ]
+        (encode_bvar_eq (INL (Ge Y 1)) (arri name 0))))
+    (flat_app $ MAPi
+      (λi X. List $
+        mk_annotate
+          [
+            mk_name name (int_to_string #"-" (&i+1) ^ strlit",(0,0)");
+            mk_name name (int_to_string #"-" (&i+1) ^ strlit",(1,1)");
+            mk_name name (int_to_string #"-" (&i+1) ^ strlit",(1,0)");
+            mk_name name (int_to_string #"-" (&i+1) ^ strlit",(0,1)")
+          ]
+          (encode_xor (arri name i) (INL (Ge X 1)) (arri name (i+1)))
+      )
       Xs)
 End
 
@@ -274,7 +311,7 @@ End
 Definition cencode_parity_def:
   cencode_parity bnd Xs Y name ec =
   let
-    (xs,ec') = fold_cenc (λX ec. cencode_full_eq bnd X 1 ec) (Y::Xs) ec
+    (xs,ec') = fold_cenc (λX ec. cencode_ge bnd X 1 ec) (Y::Xs) ec
   in
     (Append xs (cencode_parity_aux bnd Y Xs name),ec')
 End
@@ -303,43 +340,30 @@ Proof
   >-simp[EVERY_FLAT,EVERY_MAP,reify_avar_def,reify_reif_def]>>
   simp[encode_parity_aux_def,cencode_parity_aux_def,iconstraint_sem_def]>>
   rpt CONJ_TAC
-  >>~[‘EVERY _ _’]
   >-(
-    simp[EVERY_FLAT]>>
-    qmatch_goalsub_abbrev_tac‘EVERY P _’>>
-    rw[EVERY_MEM,MEM_MAPi,Abbr‘P’]>>
-    fs[MEM,iconstraint_sem_def,reify_avar_def,
-      reify_reif_def,reify_flag_def]>>
-    simp[TAKE_EL_SNOC,MAP_SNOC,SNOC_APPEND,SUM_APPEND,
-         intLib.ARITH_PROVE“(a:int) ≥ 1 ⇔ a > 0”]>>
-    qmatch_goalsub_abbrev_tac
-      ‘(s + (t + if b then 1 else 0))’>>
-    ‘∀P Q. b2i P + (1 + b2i Q) > 0’ by (
-      rw[]>>
-      qmatch_goalsub_abbrev_tac‘p + (1 + q)’>>
-      ‘p ≥ 0 ∧ q ≥ 0’ suffices_by intLib.ARITH_TAC>>
-      simp[Abbr‘p’,Abbr‘q’,b2i_ge_0])>>
-    Cases_on‘b’>>
-    fs[GSYM EVEN_ODD]>>
+    simp[reify_avar_def,reify_flag_def]>>
+    rename1‘if ODD s then _ else _’>>
     simp[ODD_EVEN,EVEN_ADD]>>
     Cases_on‘EVEN s’>>
-    fs[ODD_EVEN]>>
-    simp[GSYM neg_b2i]
-  )
-  >>~[‘-1 * b2i _ ≥ 0’]>>
-  simp[reify_avar_def,reify_flag_def]>>
-  qmatch_asmsub_abbrev_tac‘ODD s’
+    fs[])
   >-(
-    ‘EVEN (s + if ODD s then 1 else 0)’ suffices_by (
-      simp[ODD_EVEN]>>
-      intLib.ARITH_TAC)>>
-    simp[EVEN_ADD,ODD_EVEN]>>
-    Cases_on‘EVEN s’>>
-    simp[])>>
-  simp[reify_reif_def]>>
-  simp[intLib.ARITH_PROVE“(a:int) ≥ 1 ⇔ a > 0”]>>
-  Cases_on‘EVEN s’>>
-  simp[ODD_EVEN]
+    simp[reify_avar_def,reify_reif_def,reify_flag_def,
+      intLib.ARITH_PROVE“(a:int) ≥ 1 ⇔ a > 0”]>>
+    rename1‘if b then _ else _’>>
+    Cases_on‘b’>>
+    fs[])
+  >-(
+    simp[EVERY_FLAT,o_ABS_R]>>
+    qmatch_goalsub_abbrev_tac‘EVERY P _’>>
+    simp[EVERY_MEM,MEM_MAPi,SF DNF_ss]>>
+    rw[Abbr‘P’]>>
+    simp[reify_avar_def,reify_reif_def,reify_flag_def,
+      TAKE_EL_SNOC,MAP_SNOC,SNOC_APPEND,SUM_APPEND,
+      intLib.ARITH_PROVE“(a:int) ≥ 1 ⇔ a > 0”]>>
+    rename1‘ODD (s + (b1 + if b2 then _ else _)) ⇔ _’>>
+    Cases_on‘b2’>>
+    simp[ODD_EVEN,EVEN_ADD]>>
+    metis_tac[])
 QED
 
 Theorem encode_parity_sem_2:
@@ -349,6 +373,25 @@ Theorem encode_parity_sem_2:
   parity_sem Xs Y wi
 Proof
   cheat
+QED
+
+Theorem cencode_parity_sem:
+  valid_assignment bnd wi ∧
+  cencode_parity bnd Xs Y name ec = (es, ec') ⇒
+  enc_rel wi es (encode_parity bnd Xs Y name) ec ec'
+Proof
+  rw[cencode_parity_def,encode_parity_def]>>
+  gvs[AllCaseEqs(),UNCURRY_EQ]>>
+  irule enc_rel_Append>>
+  fs[fold_cenc_def]>>
+  gvs[AllCaseEqs(),UNCURRY_EQ]>>
+  irule_at Any enc_rel_Append>>
+  irule_at Any enc_rel_encode_ge>>
+  simp[]>>
+  irule_at Any enc_rel_fold_cenc>>
+  pop_assum $ irule_at Any>>
+  simp[enc_rel_encode_ge]>>
+  simp[encode_parity_aux_def,enc_rel_abstr]
 QED
 
 Definition encode_logical_constr_def:
@@ -392,7 +435,7 @@ Definition cencode_logical_constr_def:
   case c of
   | And Xs Y => cencode_and bnd Xs Y name ec
   | Or Xs Y => cencode_or bnd Xs Y name ec
-  | _ => (List [], ec)
+  | Parity Xs Y => cencode_parity bnd Xs Y name ec
 End
 
 Theorem cencode_logical_constr_sem:
@@ -404,5 +447,5 @@ Proof
   rw[cencode_logical_constr_def,encode_logical_constr_def]
   >- metis_tac[cencode_and_sem]
   >- metis_tac[cencode_or_sem]
-  >- cheat
+  >- metis_tac[cencode_parity_sem]
 QED
