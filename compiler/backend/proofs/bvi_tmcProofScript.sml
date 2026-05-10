@@ -1788,21 +1788,16 @@ Proof
 QED
 
 Theorem evaluate_pure_exps:
-  ∀xs env s t r.
-    ~effectful_exps xs ∧
-    evaluate (xs,env,s) = (r,t) ∧
-    r ≠ Rerr (Rabort Rtype_error) ⇒
-    s = t ∧
-    (∃v. r = Rval v) ∧
-    ∀u. evaluate (xs,env,u) = (r,u)
+  ∀xs.
+    ~effectful_exps xs ⇒
+    ∃v. ∀env s.
+          evaluate (xs,env,s) = (Rval v,s)
 Proof
-  cheat
-(*
   recInduct effectful_exps_ind
   >> rpt conj_tac
   >> rpt gen_tac
   >> strip_tac
-  >> gvs [evaluate_def]
+  >> gvs [effectful_exps_def, evaluate_def]
   >~ [‘¬effectful_exps [Var n]’] >-
    (gvs [evaluate_def] >> Cases_on ‘n < LENGTH env’ >> gvs [] >> cheat)
   >~ [‘¬effectful_exps [If e1 e2 e3]’] >-
@@ -1821,7 +1816,6 @@ Proof
    (gvs [evaluate_def] >> cheat)
   >~ [‘¬effectful_exps (x::y::xs)’] >-
    (gvs [evaluate_def] >> cheat)
-*)
 QED
 
 Theorem evaluate_bvi_to_cb_aux_inl:

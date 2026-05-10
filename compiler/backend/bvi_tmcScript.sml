@@ -24,11 +24,11 @@ End
 
 Definition effectful_exps_def:
   (effectful_exps [] = F) ∧
-  (effectful_exps [Var _] = F) ∧
+  (effectful_exps [Var _] = T) ∧
   (effectful_exps [If e1 e2 e3] = (effectful_exps [e1] ∨ effectful_exps [e2] ∨ effectful_exps [e3])) ∧
   (effectful_exps [Let es e] = effectful_exps (e::es)) ∧
   (effectful_exps [Raise _] = T) ∧
-  (effectful_exps [Tick e] = effectful_exps [e]) ∧ (* TODO *)
+  (effectful_exps [Tick e] = T) ∧ (* TODO *)
   (effectful_exps [Call _ _ _ _] = T) ∧
   (effectful_exps [Force _ _] = T) ∧
   (effectful_exps [Op op args] = (effectful_op op ∨ effectful_exps args)) ∧
@@ -216,11 +216,7 @@ Proof
     >> Cases_on ‘bvi_to_cb_aux loc tag (y::xs)’ >> gvs []
     >> Cases_on ‘x'’ >> gvs []
     >> reverse $ Cases_on ‘r’ >> gvs [shift_cb_def]
-    >> gvs [CaseEq "option"]
-    >> Cases_on ‘v’ >> gvs []
-    >> Cases_on ‘r’ >> gvs []
-    >> imp_res_tac bvi_to_cb_aux_sing
-    >> gvs [])
+    >> gvs [CaseEq "option", CaseEq "prod", CaseEq "sum", CaseEq "list"])
 QED
 
 (* Calls the above but throws away an unoptimisable BlockOp Cons. *)
