@@ -1759,6 +1759,15 @@ Proof
   >> cheat
 QED
 
+Theorem bvi_to_cb_aux_inl_pure:
+  ∀loc tag args env s t r bs vs.
+    bvi_to_cb_aux loc tag args = SOME (bs,INL vs) ∧
+    evaluate (bs,env,s) = (r,t) ⇒
+    s = t
+Proof
+  cheat
+QED
+
 (* The cheats are where we have ARB equal to something, which should be a contradiction *)
 Theorem evaluate_bvi_to_cb_aux_inl:
   ∀loc tag args env s t r bs vs.
@@ -1841,30 +1850,33 @@ Proof
     >> gvs []
     >> gvs [cb_to_bvi_def, evaluate_def])
   >> rename [‘evaluate ([Op (BlockOp (Cons tag)) (x1::x2::xs)],env,s) = (r,t)’]
-  >> gvs [CaseEq "option", CaseEq "prod", CaseEq "sum"]
+  >> reverse $ gvs [CaseEq "option", CaseEq "prod", CaseEq "sum"]
   >-
-   (first_x_assum $ qspecl_then [‘env’, ‘s’] mp_tac
-    >> gvs [evaluate_def]
-    >> gvs [CaseEq "prod"]
-    >> reverse CASE_TAC >> gvs []
-    >-
-     (strip_tac
-      >> reverse $ gvs [CaseEq "call_block"]
-      >- cheat (* ARB??? *)
-      >> reverse $ gvs [CaseEq "list"]
-      >- cheat
-      >- cheat
-      >> gvs [evaluate_APPEND]
-      >> Cases_on ‘rs’ >> gvs []
-      >> CASE_TAC >> gvs []
-      >> reverse CASE_TAC >> gvs []
-      >-
-       (gvs [evaluate_def, cb_to_bvi_def]
-        >> Cases_on ‘evaluate ([cb_to_bvi loc child],a ++ env,u)’ >> gvs []
-        >> Cases_on ‘q’ >> gvs []
-        )
-        )
-        )
+   (cheat
+   )
+  >> first_x_assum $ qspecl_then [‘env’, ‘s’] mp_tac
+  >> gvs [evaluate_def]
+  >> gvs [CaseEq "prod"]
+  >> reverse CASE_TAC >> gvs []
+  >-
+   (strip_tac
+    >> reverse $ gvs [CaseEq "call_block"]
+    >- cheat (* ARB??? *)
+    >> reverse $ gvs [CaseEq "list"]
+    >- cheat
+    >- cheat
+    >> gvs [evaluate_APPEND]
+    >> Cases_on ‘rs’ >> gvs []
+    >> CASE_TAC >> gvs []
+    >> drule bvi_to_cb_aux_inl_pure
+    >> disch_then drule
+    >> strip_tac
+    >> gvs []
+    >> reverse $ CASE_TAC >> gvs []
+    >> cheat)
+  >> gvs [CaseEq "call_block"]
+  >- cheat
+  >> cheat
 QED
 
 Theorem evaluate_bvi_to_cb:
