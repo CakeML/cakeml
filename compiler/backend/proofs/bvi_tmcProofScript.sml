@@ -1854,8 +1854,7 @@ Proof
   >> reverse CASE_TAC >> gvs []
   >-
    (strip_tac
-    >> reverse $ gvs [CaseEq "call_block"]
-    >> reverse $ gvs [CaseEq "list"]
+    >> gvs [CaseEq "call_block", CaseEq "list"]
     >> gvs [evaluate_APPEND]
     >> Cases_on ‘rs’ >> gvs []
     >> CASE_TAC >> gvs []
@@ -1865,8 +1864,8 @@ Proof
     >> gvs []
     >> reverse $ CASE_TAC >> gvs []
     >> cheat)
-  >> gvs [CaseEq "call_block"]
-  >> cheat
+  >> gvs [CaseEq "call_block", CaseEq "list"]
+  >> 
 QED
 
 Theorem evaluate_bvi_to_cb:
