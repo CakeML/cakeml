@@ -1768,7 +1768,6 @@ Proof
   cheat
 QED
 
-(* The cheats are where we have ARB equal to something, which should be a contradiction *)
 Theorem evaluate_bvi_to_cb_aux_inl:
   ∀loc tag args env s t r bs vs.
     bvi_to_cb_aux loc tag args = SOME (bs,INL vs) ∧
@@ -1799,49 +1798,37 @@ Proof
   >> gvs []
 QED
 
-Theorem evaluate_bvi_to_cb_aux:
+Theorem evaluate_bvi_to_cb_aux_inr:
   ∀loc tag args env s t r bs cb.
     bvi_to_cb_aux loc tag args = SOME (bs,INR cb) ∧
     evaluate ([Op (BlockOp (Cons tag)) args],env,s) = (r,t) ∧
     r ≠ Rerr (Rabort Rtype_error) ⇒
-    ∃rs u.
-      evaluate (bs,env,s) = (rs,u) ∧
-      (∀as.
-         rs = Rval as ⇒
-         evaluate ([cb_to_bvi loc cb],as ++ env,u) = (r,t)) ∧
-      (∀e.
-         rs = Rerr e ⇒
-         (r,t) = (rs,u))
+    evaluate ([Let bs (cb_to_bvi loc cb)],env,s) = (r,t)
 Proof
   recInduct bvi_to_cb_aux_ind
   >> rw [bvi_to_cb_aux_def]
   >-
    (gvs [CaseEq "prod"]
     >> rename [‘bind 0 args = (vs,n')’]
-    >> Cases_on ‘evaluate (args,env,s)’ >> gvs []
-    >> rename [‘evaluate (args,env,s) = (rs,u)’]
-    >> rw []
-    >> gvs [cb_to_bvi_def, evaluate_def]
+    >> gvs [evaluate_def, cb_to_bvi_def, evaluate_def]
+    >> CASE_TAC >> gvs []
+    >> CASE_TAC >> gvs []
     >> drule evaluate_binders
     >> disch_then drule
     >> disch_then $ qspec_then ‘[]’ mp_tac
     >> gvs [])
   >-
-   (gvs [CaseEq "option"]
+   (gvs [evaluate_def, cb_to_bvi_def, CaseEq "option"]
     >> Cases_on ‘op’ >> gvs [dest_Cons_def]
     >> Cases_on ‘b’ >> gvs [dest_Cons_def]
-    >> gvs [CaseEq "prod", CaseEq "sum"]
-    >> qpat_x_assum ‘evaluate(_,_,_) = (_,_)’ mp_tac
-    >> simp [Once evaluate_def]
-    >> CASE_TAC
-    >> strip_tac
+    >> gvs [CaseEq "prod", CaseEq "sum", PULL_EXISTS]
     >> first_x_assum drule
+    >> gvs []
     >> impl_tac >> gvs []
     >- gvs [evaluate_def, do_app_def, do_app_aux_def, CaseEq "prod", CaseEq "result"]
     >> strip_tac
     >> first_assum $ irule_at Any
-    >> rw []
-    >> gvs []
+    >> CASE_TAC >> gvs []
     >> gvs [cb_to_bvi_def, evaluate_def])
   >> rename [‘evaluate ([Op (BlockOp (Cons tag)) (x1::x2::xs)],env,s) = (r,t)’]
   >> reverse $ gvs [CaseEq "option", CaseEq "prod", CaseEq "sum"]
@@ -1849,23 +1836,33 @@ Proof
    (cheat
    )
   >> first_x_assum $ qspecl_then [‘env’, ‘s’] mp_tac
-  >> gvs [evaluate_def]
-  >> gvs [CaseEq "prod"]
+  >> gvs [evaluate_def, CaseEq "prod"]
   >> reverse CASE_TAC >> gvs []
+                                
   >-
    (strip_tac
     >> gvs [CaseEq "call_block", CaseEq "list"]
     >> gvs [evaluate_APPEND]
-    >> Cases_on ‘rs’ >> gvs []
+
     >> CASE_TAC >> gvs []
+    >> CASE_TAC >> gvs []
+                
     >> drule bvi_to_cb_aux_inl_pure
     >> disch_then drule
     >> strip_tac
     >> gvs []
     >> reverse $ CASE_TAC >> gvs []
-    >> cheat)
+    >-
+     (gvs [evaluate_def, cb_to_bvi_def, CaseEq "prod", CaseEq "result", do_app_def, do_app_aux_def]
+      >> cheat)
+    >> gvs [evaluate_def, cb_to_bvi_def]
+    >> simp [Once evaluate_CONS]
+    >> CASE_TAC >> gvs []
+    >> CASE_TAC
+    >> cheat
+    )
   >> gvs [CaseEq "call_block", CaseEq "list"]
-  >> 
+  >> cheat
 QED
 
 Theorem evaluate_bvi_to_cb:
@@ -1873,18 +1870,13 @@ Theorem evaluate_bvi_to_cb:
     evaluate ([Op (BlockOp (Cons tag)) args],env,s) = (r,t) ∧
     bvi_to_cb loc tag args = SOME (bs,cb) ∧
     r ≠ Rerr (Rabort Rtype_error) ⇒
-    ∃rs.
-      evaluate (bs,env,s) = (rs,s) ∧ (* WRONG *)
-      (∀as.
-         rs = Rval as ⇒
-         evaluate ([cb_to_bvi loc cb],as ++ env,s) = (r,t)) ∧
-      (∀e.
-         rs = Rerr e ⇒
-         (r,t) = (rs,s))
+    evaluate ([Let bs (cb_to_bvi loc cb)],env,s) = (r,t)
 Proof
   rw []
-  >> Cases_on ‘evaluate (bs,env,s)’ >> gvs []
-  >> rename []
+  >> irule evaluate_bvi_to_cb_aux_inr
+  >> gvs [bvi_to_cb_def, CaseEq "option", CaseEq "prod", CaseEq "sum"]
+  >> first_assum $ irule_at Any
+  >> gvs []
 QED
 
 Theorem evaluate_hb_to_mutcons:
