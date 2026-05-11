@@ -596,8 +596,28 @@ Proof
   >> metis_tac [dep_eval_lit_eq, SND, PAIR]
 QED
 
+(* Extends a trace for the model to a trace for the witness.
+   This setup allows us to formulate the conclusion of
+   extend_model_trace_to_witness as ∃tr'. ∀n. ... allowing us to use the lemma
+   for both finite and infinite traces. *)
+Definition mk_trace_def:
+  (mk_trace lt mlatches wcirc wreset wnext wpreds wcnstrs wlatches tr 0 =
+   let
+     xs = QSORT lt (SET_TO_LIST (wlatches DIFF (mlatches ∩ wlatches)));
+     (is, ls) = tr 0
+   in
+     (is, patch wcirc wreset is ls xs)) ∧
+  (mk_trace lt mlatches wcirc wreset wnext wpreds wcnstrs wlatches tr (SUC n) =
+   let
+     prev = mk_trace lt mlatches wcirc wreset wnext wpreds wcnstrs wlatches tr n
+   in
+     @succ.
+       is_next prev wcirc wnext wlatches (SND succ) ∧
+       preds_hold succ wcirc wcnstrs ∧
+       steps_agree mlatches succ (tr (SUC n)))
+End
+
 Theorem extend_model_trace_to_witness:
-  is_trace mcirc mreset mnext mcnstrs mlatches tr n ∧
   (* model latches constraints *)
   dep_circuit mlatches mcirc ∧
   dep_latch_lit mlatches mreset ∧
@@ -616,19 +636,21 @@ Theorem extend_model_trace_to_witness:
     mcirc mreset mnext mpreds mcnstrs mlatches
     wcirc wreset wnext wpreds wcnstrs wlatches
   ⇒
-  ∃tr'.
+  ∃tr'. ∀n.
+    is_trace mcirc mreset mnext mcnstrs mlatches tr n ⇒
     is_trace wcirc wreset wnext wcnstrs wlatches tr' n ∧
     traces_agree n mlatches tr' tr
 Proof
-  Induct_on ‘n’ >> rw []
+  rw []
+  >> qexists ‘mk_trace lt mlatches wcirc wreset wnext wpreds wcnstrs wlatches tr’
+  >> Induct_on ‘n’ >> strip_tac
   >-
-   (fs [is_trace_def, is_witness_reset_def]
+   (fs [is_trace_def, is_witness_reset_def, traces_agree_def]
     >> first_assum $ drule_all_then assume_tac
     >> namedCases_on ‘tr 0’ ["is ls"] >> fs []
-    >> qabbrev_tac
-         ‘xs = QSORT lt (SET_TO_LIST (wlatches DIFF (mlatches ∩ wlatches)))’
-    >> qabbrev_tac `ss0 = (is, patch wcirc wreset is ls xs)`
-    >> qexists ‘λ_. ss0’ >> simp []
+    >> gvs [mk_trace_def]
+    >> qmatch_goalsub_abbrev_tac ‘patch _ _ _ _ xs’
+    >> qmatch_goalsub_abbrev_tac ‘is_reset ss0’
     >> CONJ_TAC
       (* wlatches are in reset and wcnstrs
         are satisfied in patched state *)
@@ -664,40 +686,41 @@ Proof
       >> rename1 ‘patch _ _ _ _ _ l’ >> ‘¬MEM l xs’ by simp [Abbr ‘xs’]
       >> simp [not_mem_patch_eq]))
   >> gvs [is_trace_SUC, traces_agree_SUC]
-  >> qrefine ‘λn'. if n' ≤ n then tr' n' else step’
-  >> ‘∃step.
-        is_next (tr' n) wcirc wnext wlatches (SND step) ∧
-        preds_hold step wcirc wcnstrs ∧
-        steps_agree mlatches step (tr (n + 1))’
-    suffices_by
-    (rw [] >> qexists ‘step’ >> gvs [is_trace_def, traces_agree_def])
-  >> qabbrev_tac ‘step = (FST (tr (n + 1)),
-                          λl. if l ∈ mlatches then (SND (tr (n + 1))) l
-                              else eval_lit (tr' n) wcirc (wnext l))’
-  >> qexists ‘step’
-  >> ‘is_next (tr' n) mcirc mnext mlatches (SND step)’ by
-    (drule is_next_dep_circuit
-     >> disch_then irule
-     >> gvs [traces_agree_def, steps_agree_sym, Abbr ‘step’])
-  >> ‘preds_hold (tr' n) mcirc mcnstrs’ by
-    (‘preds_hold (tr n) mcirc mcnstrs’ by metis_tac [is_trace_preds_hold_n]
-     >> drule preds_hold_dep_circuit
-     >> disch_then drule >> disch_then irule
-     >> gvs [traces_agree_def, steps_agree_sym])
-  >> ‘preds_hold step mcirc mcnstrs’ by
-    (rev_drule preds_hold_dep_circuit
-     >> disch_then drule >> disch_then irule
-     >> Cases_on ‘tr (n + 1)’
-     >> gvs [steps_agree_def, Abbr ‘step’])
-  >> ‘preds_hold (tr' n) wcirc wcnstrs’ by metis_tac [is_trace_preds_hold_n]
-  (* Following the paper proof, we can now invoke the transition check and
-     extend these two facts to the witness. *)
-  >> fs [is_witness_transition_def]
-  >> first_x_assum $ drule_all_then assume_tac >> fs []
+  >> simp [GSYM ADD1, mk_trace_def]
+  >> qmatch_goalsub_abbrev_tac ‘is_next tr'n’
+  >> SELECT_ELIM_TAC
   >> conj_tac
-  >- (fs [is_next_def] >> rw [] >> Cases_on ‘l ∈ mlatches’ >> gvs [Abbr ‘step’])
-  >> Cases_on ‘tr (n + 1)’
-  >> fs [steps_agree_def, Abbr ‘step’]
+  >-
+   (qabbrev_tac ‘step =
+                 (FST (tr (n + 1)),
+                  λl. if l ∈ mlatches then (SND (tr (n + 1))) l
+                      else eval_lit (tr'n) wcirc (wnext l))’
+    >> qexists ‘step’
+    >> ‘is_next (tr'n) mcirc mnext mlatches (SND step)’ by
+      (drule is_next_dep_circuit
+       >> disch_then irule
+       >> gvs [traces_agree_def, steps_agree_sym, Abbr ‘step’, Abbr‘tr'n’])
+    >> ‘preds_hold (tr'n) mcirc mcnstrs’ by
+      (‘preds_hold (tr n) mcirc mcnstrs’ by metis_tac [is_trace_preds_hold_n]
+       >> drule preds_hold_dep_circuit
+       >> disch_then drule >> disch_then irule
+       >> gvs [traces_agree_def, steps_agree_sym, Abbr‘tr'n’])
+    >> ‘preds_hold step mcirc mcnstrs’ by
+      (rev_drule preds_hold_dep_circuit
+       >> disch_then drule >> disch_then irule
+       >> Cases_on ‘tr (n + 1)’
+       >> gvs [steps_agree_def, Abbr ‘step’])
+    >> ‘preds_hold (tr'n) wcirc wcnstrs’ by metis_tac [is_trace_preds_hold_n]
+    (* Following the paper proof, we can now invoke the transition check
+       and extend these two facts to the witness. *)
+    >> fs [is_witness_transition_def]
+    >> first_x_assum $ drule_all_then assume_tac >> fs []
+    >> conj_tac
+    >- (fs [is_next_def] >> rw [] >> Cases_on ‘l ∈ mlatches’ >> gvs [Abbr ‘step’])
+    >> gvs [ADD1]
+    >> Cases_on ‘tr (n + 1)’
+    >> fs [steps_agree_def, Abbr ‘step’])
+  >> rw []
 QED
 
 Theorem is_witness_base_step_safe:
@@ -755,9 +778,10 @@ Proof
   >> CCONTR_TAC
   >> fs [is_unsafe_def, dep_model_def,is_stratified_full_def]
   >> pop_assum mp_tac >> simp[]
+  >> rename1 ‘preds_hold (tr _)’
   >> drule_at_then (Pos last) drule extend_model_trace_to_witness
-  >> rpt (disch_then $ drule_at Any)
-  >> strip_tac
+  >> disch_then $ qspecl_then [‘tr’, ‘lt’] mp_tac >> rw []
+  >> first_assum drule >> strip_tac
   >> drule_all is_witness_base_step_safe
   >> strip_tac
   >> `is_trace mcirc mreset mnext mcnstrs mlatches tr' n` by
