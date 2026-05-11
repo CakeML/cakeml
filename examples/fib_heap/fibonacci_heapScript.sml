@@ -1,5 +1,5 @@
 (*
-  Separation logic assertions for Fibonacci heap
+  Algorithm Level Verification for Fibonacci heap
 *)
 Theory fibonacci_heap
 Ancestors
@@ -319,7 +319,7 @@ End
 Definition ones_def:
   ones a [] = emp ∧
   ones (a:'a word) ((w:'a word)::ws) =
-    one (a,w) * ones (a + bytes_in_word) ws
+    one (a,Word w) * ones (a + bytes_in_word) ws
 End
 
 Definition b2w_def:
@@ -327,7 +327,7 @@ Definition b2w_def:
 End
 
 Definition edges_ones_def:
-  (edges_ones off [] = one(off,0w)) /\
+  (edges_ones off [] = one(off,Word 0w)) /\
   (edges_ones off ((ptr,value)::xs) =
     ones off [ptr; n2w value] *
     edges_ones (off + 2w * bytes_in_word) xs)
@@ -1913,10 +1913,10 @@ End
 --------------------------------------------------------*)
 
 
-Definition fts_merge_def:
-  (fts_merge [] ys = ys) /\
-  (fts_merge xs [] = xs) /\
-  (fts_merge (FibTree k1 v1 l1::xs) (FibTree k2 v2 l2::ys) =
+Definition fts_melt_def:
+  (fts_melt [] ys = ys) /\
+  (fts_melt xs [] = xs) /\
+  (fts_melt (FibTree k1 v1 l1::xs) (FibTree k2 v2 l2::ys) =
     if v1.value <=+ v2.value then
       (FibTree k1 v1 l1::(xs ++ (FibTree k2 v2 l2::ys)))
     else
@@ -2093,18 +2093,18 @@ Proof
 QED
 
 
-Theorem fts_merge:
+Theorem fts_melt:
   !fhx xs fhy ys fts.
   fib_heap_inv fhx xs /\
   fib_heap_inv fhy ys /\
   DISJOINT (FDOM fhx) (FDOM fhy) /\
-  fts_merge xs ys = fts ==>
+  fts_melt xs ys = fts ==>
   fib_heap_inv (FUNION fhx fhy) fts
 Proof
   rpt strip_tac >>
   Cases_on `xs` >> Cases_on `ys`
   >- (
-    fs[fts_merge_def] >>
+    fs[fts_melt_def] >>
     simp[fib_heap_inv_def] >>
     drule_all lemma_empty_heap >>
     disch_tac >> gvs[] >>
@@ -2113,15 +2113,15 @@ Proof
   >- (
     drule_all lemma_empty_heap >>
     disch_tac >> gvs[] >>
-    fs[fts_merge_def]
+    fs[fts_melt_def]
     )
   >- (
     drule_all lemma_empty_heap >>
     disch_tac >> gvs[] >>
-    fs[fts_merge_def]
+    fs[fts_melt_def]
     ) >>
   Cases_on `h` >> Cases_on `h'` >>
-  fs[fts_merge_def] >>
+  fs[fts_melt_def] >>
   pop_assum mp_tac >>
   IF_CASES_TAC
   >- (
@@ -2161,42 +2161,59 @@ Definition get_Word_def[simp]:
   get_Word (Word w : 'a word_lab) = w
 End
 
+Definition in_mem_def[simp]:
+  in_mem addr dm = (addr IN dm)
+End
+
 Definition read_mem_def:
-  read_mem m dm addr c =
-    let c' = (addr IN dm) in
+  read_mem addr m dm c =
+    let c' = in_mem addr dm in
     let w  = m addr in
-    (c /\ c' /\ is_Word w, get_Word w)
+    (get_Word w, c /\ c' /\ is_Word w)
+End
+
+Definition write_mem_def:
+  write_mem addr w m dm c =
+    let c' = in_mem addr dm in
+    let m' = m (| addr |-> Word w |) in
+    (m',c /\ c')
 End
 
 
 
 (*assumption: both heads are the smallest element*)
-Definition fib_heap_merge_def:
-  fib_heap_merge
-    (a1:'a word,a2:'a word,m:'a word -> 'a word, dm: 'a word set)
+Definition fib_heap_melt_def:
+  fib_heap_melt
+    (a1:'a word,a2:'a word,m:'a word -> 'a word_lab, dm: 'a word set)
   =
     if a2 = 0w then (a1,m,T) else
-    let c = (a2 IN dm) in
+    let c = in_mem a2 dm in
     if a1 = 0w then (*list a is empty*)
       (a2,m,c)
     else
-      let c = (a1 IN dm /\ c) in
-
-      let c = (a1 + before_off IN dm /\ c) in
-      let l_a1 = m (a1 + before_off) in
-      let c = (l_a1 + next_off IN dm /\ c) in
-
+      (*let c = (in_mem a1 dm /\ c) in*)
+      let (l_a1,c) = read_mem (a1 + before_off) m dm c in
+      (*let c = (in_mem a2 dm /\ c) in*)
+      let (l_a2,c) = read_mem (a2 + before_off) m dm c in
+      (*let c = (a1 + before_off IN dm /\ c) in
+      let l_a1 = m (a1 + before_off) in*)
+      (*let c = (l_a1 + next_off IN dm /\ c) in
       let c = (a2 + before_off IN dm /\ c) in
       let l_a2 = m (a2 + before_off) in
-      let c = (l_a2 + next_off IN dm /\ c) in
+      let c = (l_a2 + next_off IN dm /\ c) in*)
 
-      let m = m (| (l_a1 + next_off) |-> a2|) in
+      let (m,c) = write_mem (l_a1 + next_off) a2   m dm c in
+      let (m,c) = write_mem (a2 + before_off) l_a1 m dm c in
+      let (m,c) = write_mem (l_a2 + next_off) a1   m dm c in
+      let (m,c) = write_mem (a1 + before_off) l_a2 m dm c in
+
+(*      let m = m (| (l_a1 + next_off) |-> a2|) in
       let m = m (| (a2 + before_off) |-> l_a1|) in
       let m = m (| (l_a2 + next_off) |-> a1|) in
       let m = m (| (a1 + before_off) |-> l_a2|) in
-
-      let v_a2 = m a2 in
-      let v_a1 = m a1 in
+*)
+      let (v_a2,c) = read_mem a2 m dm c in
+      let (v_a1,c) = read_mem a1 m dm c in
       if v_a2 <=+ v_a1 then
         (a2,m,c)
       else
@@ -2206,10 +2223,11 @@ End
 
 Theorem lemma_fib_heap_insert_1into1:
   !frame x t p a' m dm m' b.
-    (fts_mem (ann_fts p [x]) * fts_mem (ann_fts p [t]) * frame) (fun2set (m,dm)) /\
-    fib_heap_merge(head_key [x],head_key [t],m,dm) = (a',m',b) ==>
+    (fts_mem (ann_fts p [x]) * fts_mem (ann_fts p [t]) * frame)
+      (fun2set (m,dm)) /\
+    fib_heap_melt(head_key [x],head_key [t],m,dm) = (a',m',b) ==>
     (fts_mem(ann_fts p ([x] ++ [t])) * frame)
-    (fun2set (m',dm)) /\ b
+      (fun2set (m',dm)) /\ b
 Proof
   full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR] >>
   rpt gen_tac >> strip_tac >>
@@ -2221,12 +2239,14 @@ Proof
      SEP_CLAUSES, head_key_def, ft_mem_def, fill_anode_def,
      fill_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
   full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR] >>
-  simp[fib_heap_merge_def,before_off_def,next_off_def] >>
+  simp[fib_heap_melt_def,before_off_def,next_off_def,
+       write_mem_def,read_mem_def] >>
   IF_CASES_TAC >>
   SEP_R_TAC >> simp[] >>
   SEP_R_TAC >> simp[] >>
   SEP_W_TAC >>
-  strip_tac >> gvs[]
+  strip_tac >> gvs[] >>
+  cheat
 QED
 
 
@@ -2598,7 +2618,7 @@ QED
 Definition fts_rm_min_def:
   (fts_rm_min [] = (0w,[])) /\
   (fts_rm_min (FibTree k v l::ts) =
-    (k,fts_merge l ts))
+    (k,fts_melt l ts))
 End
 
 
@@ -2726,7 +2746,7 @@ Proof
   fs[fib_heap_inv_def,fib_heap_inv_weak_def] >>
   strip_tac >>
   fs[fts_rm_min_def] >>
-  Cases_on `l` >> Cases_on `t`>> fs[fts_merge_def]
+  Cases_on `l` >> Cases_on `t`>> fs[fts_melt_def]
   >- (
     gvs[] >>
     simp[every_fts_def, fts_parent_lower_eq_def, fts_all_dist_def] >>
@@ -2790,7 +2810,7 @@ Proof
     fs[fib_heap_shape_ok_def]
     ) >>
   Cases_on `h` >> Cases_on `h'` >>
-  fs[fts_merge_def] >>
+  fs[fts_melt_def] >>
   pop_assum mp_tac >>
   IF_CASES_TAC >> strip_tac >> gvs[]
   >- (
@@ -3873,9 +3893,9 @@ QED
 Definition fts_merge_trees_def:
   fts_merge_trees (FibTree k1 v1 l1) (FibTree k2 v2 l2) =
     if v1.value <=+ v2.value then
-      FibTree k1 v1 (fts_merge l1 [FibTree k2 v2 l2])
+      FibTree k1 v1 (fts_melt l1 [FibTree k2 v2 l2])
     else
-      FibTree k2 v2 (fts_merge l2 [FibTree k1 v1 l1])
+      FibTree k2 v2 (fts_melt l2 [FibTree k1 v1 l1])
 End
 
 
@@ -3926,7 +3946,7 @@ Theorem lemma_fts_has_merge_trees_lr:
   ∀k'' v'' e.
     FLOOKUP (fh1 ⊌ fh2) k'' = SOME (v'',e) ==>
     ∃m. fts_has k'' (fill_dnode v'' e m)
-      [FibTree k v (fts_merge xs [FibTree k' v' ys])]
+      [FibTree k v (fts_melt xs [FibTree k' v' ys])]
 Proof
   rpt strip_tac >>
   pop_assum mp_tac >>
@@ -3935,18 +3955,18 @@ Proof
     simp[FLOOKUP_SIMP] >> CASE_TAC
     >- (
       strip_tac >>
-      simp[fts_merge_def] >>
+      simp[fts_melt_def] >>
       res_tac >>
       qexists `m` >> simp[Once fts_has_cases]
       ) >>
     strip_tac >> gvs[] >>
-    qexists `m` >> simp[fts_merge_def] >>
+    qexists `m` >> simp[fts_melt_def] >>
     pop_assum mp_tac >>
     once_rewrite_tac[fts_has_cases] >> simp[] >>
     simp[Once fts_has_cases]
     ) >>
   Cases_on `h` >>
-  simp[fts_merge_def] >>
+  simp[fts_melt_def] >>
   simp[FLOOKUP_SIMP] >> CASE_TAC
   >- (
     strip_tac >> res_tac >>
@@ -3991,13 +4011,13 @@ Theorem lemma_fts_has_merge_trees_rl:
     ∃m. fts_has k (fill_dnode v e m) [FibTree k' v' ys]) ==>
   ∀k'' v'' e.
     (∃m. fts_has k'' (fill_dnode v'' e m)
-      [FibTree k v (fts_merge xs [FibTree k' v' ys])]) ==>
+      [FibTree k v (fts_melt xs [FibTree k' v' ys])]) ==>
     FLOOKUP (fh1 ⊌ fh2) k'' = SOME (v'',e)
 Proof
   rpt strip_tac >>
   Cases_on `xs`
   >- (
-    fs[fts_merge_def] >>
+    fs[fts_melt_def] >>
     pop_assum mp_tac >> simp[Once fts_has_cases] >> strip_tac
     >- (
       gvs[] >>
@@ -4016,7 +4036,7 @@ Proof
     simp[FLOOKUP_SIMP] >> CASE_TAC >>
     fs[FLOOKUP_DEF,DISJOINT_ALT] >> res_tac
     ) >>
-  Cases_on `h` >> fs[fts_merge_def] >>
+  Cases_on `h` >> fs[fts_melt_def] >>
   pop_assum mp_tac >> IF_CASES_TAC
   >- (
     simp[Once fts_has_cases] >>
@@ -4119,7 +4139,7 @@ Theorem lemma_fts_has_merge_trees:
   ∀k'' v'' e.
     FLOOKUP (fh1 ⊌ fh2) k'' = SOME (v'',e) ⇔
     ∃m. fts_has k'' (fill_dnode v'' e m)
-      [FibTree k v (fts_merge xs [FibTree k' v' ys])]
+      [FibTree k v (fts_melt xs [FibTree k' v' ys])]
 Proof
   rpt strip_tac >>
   iff_tac
@@ -4132,17 +4152,17 @@ Theorem lemma_fts_is_min_merge_trees:
   v.value <=+ v'.value /\
   fts_is_min v.value xs /\
   fts_is_min v'.value ys ==>
-  fts_is_min v.value (fts_merge xs [FibTree k' v' ys])
+  fts_is_min v.value (fts_melt xs [FibTree k' v' ys])
 Proof
   strip_tac >>
   Cases_on `xs`
   >- (
-    simp[fts_merge_def] >>
+    simp[fts_melt_def] >>
     simp[fts_is_min_def] >>
     drule_all lemma_lower_eq_fts_is_min >> fs[]
     ) >>
   Cases_on `h` >>
-  simp[fts_merge_def] >>
+  simp[fts_melt_def] >>
   IF_CASES_TAC
   >- (
     fs[fts_is_min_def] >>
@@ -4161,13 +4181,13 @@ Theorem lemma_fts_parent_lower_eq_merge_trees:
   every_fts fts_parent_lower_eq [FibTree k' v' ys] /\
   v.value ≤₊ v'.value ==>
   every_fts fts_parent_lower_eq
-   [FibTree k v (fts_merge xs [FibTree k' v' ys])]
+   [FibTree k v (fts_melt xs [FibTree k' v' ys])]
 Proof
   fs[Once every_fts_def] >>
   strip_tac >>
   Cases_on `xs`
   >- (
-    simp[fts_merge_def] >>
+    simp[fts_melt_def] >>
     fs[Once every_fts_def] >>
     fs[Once every_fts_def,fts_parent_lower_eq_def] >>
     simp[Once every_fts_def,fts_is_min_def] >>
@@ -4175,7 +4195,7 @@ Proof
     imp_res_tac lemma_lower_eq_fts_is_min >> fs[] >>
     rpt strip_tac >> res_tac
     ) >>
-  Cases_on `h` >> simp[fts_merge_def] >>
+  Cases_on `h` >> simp[fts_melt_def] >>
   IF_CASES_TAC
   >- (
     fs[Once every_fts_def,fts_parent_lower_eq_def] >>
@@ -4223,12 +4243,12 @@ Theorem lemma_fib_heap_shape_ok_merge_trees:
   LENGTH xs = LENGTH ys /\
   fib_heap_shape_ok [FibTree k v xs] /\
   fib_heap_shape_ok [FibTree k' v' ys] ==>
-  fib_heap_shape_ok [FibTree k v (fts_merge xs [FibTree k' v' ys])]
+  fib_heap_shape_ok [FibTree k v (fts_melt xs [FibTree k' v' ys])]
 Proof
   strip_tac >>
   Cases_on `xs`
   >- (
-    simp[fts_merge_def] >>
+    simp[fts_melt_def] >>
     fs[fib_heap_shape_ok_def] >>
     simp[fts_size_def] >>
     simp[Ntimes fib_num_def 5] >>
@@ -4236,7 +4256,7 @@ Proof
     simp[Once fib_num_def]
     ) >>
   Cases_on `h` >>
-  simp[fts_merge_def] >>
+  simp[fts_melt_def] >>
   IF_CASES_TAC
   >- (
     fs[fib_heap_shape_ok_def] >>
@@ -4508,12 +4528,12 @@ Theorem lemma_fts_all_dist_merge_trees:
     ∃m. fts_has k (fill_dnode v e m) [FibTree k' v' ys]) /\
   fts_all_dist [FibTree k' v' ys] /\
   DISJOINT (FDOM fh1) (FDOM fh2) ==>
-  fts_all_dist [FibTree k v (fts_merge xs [FibTree k' v' ys])]
+  fts_all_dist [FibTree k v (fts_melt xs [FibTree k' v' ys])]
 Proof
   strip_tac >>
   Cases_on `xs`
   >- (
-    simp[fts_merge_def] >>
+    simp[fts_melt_def] >>
     simp[fts_all_dist_def] >>
     rpt conj_tac
     >- (
@@ -4539,7 +4559,7 @@ Proof
     rpt strip_tac >>
     fs[Once fts_has_cases]
     ) >>
-  Cases_on `h` >> simp[fts_merge_def] >>
+  Cases_on `h` >> simp[fts_melt_def] >>
   IF_CASES_TAC
   >- imp_res_tac lemma_fts_all_dist_merge_succ >>
   once_rewrite_tac[lemma_cons_eq_append_nested_fts] >>
@@ -4557,7 +4577,7 @@ Theorem logical_fts_merge_trees:
   fib_heap_inv fh2 [FibTree k' v' ys] /\
   DISJOINT (FDOM fh1) (FDOM fh2) /\
   v.value <=+ v'.value ==>
-  fib_heap_inv (FUNION fh1 fh2) [FibTree k v (fts_merge xs [FibTree k' v' ys])]
+  fib_heap_inv (FUNION fh1 fh2) [FibTree k v (fts_melt xs [FibTree k' v' ys])]
 Proof
   rpt strip_tac >>
   fs[fib_heap_inv_def] >>
@@ -4612,11 +4632,11 @@ Definition fts_link_trees_def:
 End
 
 
-Theorem lemma_fts_merge_suc_length:
-  LENGTH (fts_merge l [FibTree k' v' l']) = if l = [] then 1 else LENGTH l + 1
+Theorem lemma_fts_melt_suc_length:
+  LENGTH (fts_melt l [FibTree k' v' l']) = if l = [] then 1 else LENGTH l + 1
 Proof
-  Cases_on `l` >> gvs[fts_merge_def] >>
-  Cases_on `h` >> gvs[fts_merge_def] >>
+  Cases_on `l` >> gvs[fts_melt_def] >>
+  Cases_on `h` >> gvs[fts_melt_def] >>
   rw[]
 QED
 
@@ -4637,7 +4657,7 @@ Termination
   rw[] >>
   CASE_TAC >> gvs[] >>
   fs[fts_merge_trees_def,AllCaseEqs()] >> gvs[] >>
-  rw[lemma_fts_merge_suc_length] >> gvs[]
+  rw[lemma_fts_melt_suc_length] >> gvs[]
 End
 
 
@@ -5613,13 +5633,13 @@ Definition fts_collect_array_def:
   fts_collect_array (r:num) rl acc =
     if r = 0 then
       case EL r rl of
-       |SOME (FibTree k v l) => (fts_merge [FibTree k v l] acc,(LUPDATE NONE r rl))
+       |SOME (FibTree k v l) => (fts_melt [FibTree k v l] acc,(LUPDATE NONE r rl))
        |NONE => (acc,rl)
     else
       case EL r rl of
        |SOME (FibTree k v l) =>
           fts_collect_array (r-1) (LUPDATE (NONE) r rl)
-            (fts_merge [FibTree k v l] acc)
+            (fts_melt [FibTree k v l] acc)
        |NONE => fts_collect_array (r-1) rl acc
 End
 
@@ -6017,11 +6037,11 @@ Proof
     CASE_TAC >> strip_tac >>
     drule_all lemma_rl_none_except_hd_eq_fh >> strip_tac >>
     qspecl_then [`fh2`,`[FibTree k v l]`,`fh1`,`acc`,`fts`]
-      assume_tac fts_merge >> gvs[] >>
+      assume_tac fts_melt >> gvs[] >>
     rfs[DISJOINT_SYM] >>
     drule_all lemma_fib_heap_inv_union_imp_hd_fib_heap_inv >> strip_tac >>
     fs[] >>
-    qspecl_then [`fh2`,`fh1`,`(fts_merge [FibTree k v l] acc)`]
+    qspecl_then [`fh2`,`fh1`,`(fts_melt [FibTree k v l] acc)`]
       assume_tac fib_heap_inv_comm_thm >> rfs[DISJOINT_SYM] >>
     rpt strip_tac >>
     res_tac >>
@@ -6042,10 +6062,10 @@ Proof
   CASE_TAC >> strip_tac >>
   drule_all lemma_ts_to_fhts_rm >> strip_tac >>
   qspecl_then [`fh1'`,`[FibTree k v l]`,`fh1`,`acc`,
-    `fts_merge [FibTree k v l] acc`] assume_tac fts_merge >>
+    `fts_melt [FibTree k v l] acc`] assume_tac fts_melt >>
   gvs[] >>
   first_x_assum(qspecl_then [`LUPDATE NONE (SUC r) rl`,`fh2'`,
-    `FUNION fh1 fh1'`,`fts_merge [FibTree k v l] acc`] assume_tac) >>
+    `FUNION fh1 fh1'`,`fts_melt [FibTree k v l] acc`] assume_tac) >>
   rfs[DISJOINT_SYM,fib_heap_inv_comm_thm] >>
   simp[FUNION_ASSOC] >>
   first_x_assum irule >>
@@ -6851,7 +6871,6 @@ Proof
   cheat
 QED
 *)
-
 
 
 
