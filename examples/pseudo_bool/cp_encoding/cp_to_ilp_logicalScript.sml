@@ -270,7 +270,9 @@ Proof
   fs[]
 QED
 
-(* Parity constraint: Y > 0 ⇔ ODD number of Xs[i] > 0 *)
+(* Parity constraint:
+   Y > 0 ⇔ ODD number of indices i for which Xs[i] > 0
+*)
 Definition cencode_parity_aux_def:
   cencode_parity_aux bnd Y Xs name =
   Append
@@ -316,18 +318,6 @@ Definition cencode_parity_def:
     (Append xs (cencode_parity_aux bnd Y Xs name),ec')
 End
 
-(**
-Y            = x[name][0]
-             /
-X0     - XOR = x[name][1]
-             /
-X1     - XOR = x[name][2]
-             /
-      ...
-             /
-X(n-1) - XOR = x[name][n]
-**)
-
 Theorem encode_parity_sem_1:
   valid_assignment bnd wi ∧
   ALOOKUP cs name = SOME (Logical (Parity Xs Y)) ∧
@@ -367,55 +357,36 @@ Theorem encode_parity_sem_2:
     (encode_parity bnd Xs Y name) ⇒
   parity_sem Xs Y wi
 Proof
-  rw[parity_sem_def,reify_sem_def,cmpop_val_def]>>
-  ‘EVEN (SUM (MAP
-    (λX. if varc wi X > 0 then 1 else 0)
-    (Y::Xs)))’ suffices_by (
-    fs[SUM,EVEN_ADD,ODD_EVEN]>>
-    rename1‘if b then _ else _’>>
-    Cases_on‘b’>>
-    fs[])>>
-  pop_assum mp_tac>>
-  pure_rewrite_tac[intLib.ARITH_PROVE“(a:int) > 0 ⇔ a ≥ 1”]>>
-  qmatch_goalsub_abbrev_tac‘EVEN s’>>
-  simp[encode_parity_def,EVERY_FLAT]>>
-  qmatch_goalsub_abbrev_tac‘EVERY P (MAP _ _)’>>
-  simp[EVERY_MAP,EVERY_MEM]>>
-  rw[Abbr‘P’]>>
+  simp[parity_sem_def,reify_sem_def,cmpop_val_def,EVERY_FLAT,o_ABS_R,
+    encode_parity_def,encode_parity_aux_def,cencode_parity_aux_def]>>
+  qmatch_goalsub_abbrev_tac‘P _ ∧ EVERY P _’>>
+  rw[EVERY_MEM,MEM_MAP,MEM_MAPi,SF DNF_ss,iconstraint_sem_def]>>
+  gs[Abbr‘P’,intLib.ARITH_PROVE“(a:int) ≥ 1 ⇔ a > 0”]>>
+  qmatch_asmsub_abbrev_tac‘b2i b’>>
+  ‘¬b’ by (Cases_on‘b’>>fs[])>>
   unabbrev_all_tac>>
-  ‘EVEN (SUM (MAP
-    (λX. if (wb (INL (Ge X 1))) then 1 else 0)
-    (Y::Xs)))’ suffices_by (fs[SUM]>>pop_assum mp_tac>>simp[Cong MAP_CONG])>>
-  pop_assum mp_tac>>
-  qmatch_goalsub_abbrev_tac‘EVEN s’>>
-  simp[encode_parity_aux_def,cencode_parity_aux_def,EVERY_FLAT,o_ABS_R]>>
-  qmatch_goalsub_abbrev_tac‘EVERY P (MAPi _ _)’>>
-  simp[EVERY_MEM,MEM_MAPi,SF DNF_ss]>>
-  simp[Abbr‘P’,iconstraint_sem_def]>>
-  rw[]>>
-  ‘¬wb (INR (Index name (LENGTH Xs)))’ by (
-    qmatch_asmsub_abbrev_tac‘b2i b’>>Cases_on‘b’>>fs[])>>
   ‘∀m. m ≤ LENGTH Xs ⇒
     wb (INR (Index name m)) =
     ODD (SUM (MAP
       (λX. if wb (INL (Ge X 1)) then 1 else 0)
       (TAKE (m+1) (Y::Xs))))’ by (
-    Induct_on‘m’
+    Induct
     >-(simp[]>>rename1‘if b then _ else _’>>Cases_on‘b’>>fs[])>>
     simp[ADD1]>>
     strip_tac>>
-    simp[TAKE_EL_SNOC,MAP_SNOC]>>
-    simp[SNOC_APPEND,SUM_APPEND]>>
-    simp[ODD_EVEN,EVEN_ADD]>>
+    simp[TAKE_EL_SNOC,MAP_SNOC,SNOC_APPEND,SUM_APPEND,ODD_EVEN,EVEN_ADD]>>
     qmatch_goalsub_abbrev_tac‘((P ⇎ Q) ⇔ R) ⇔ _’>>
     Cases_on‘R’>>
     fs[]>>
     metis_tac[])>>
   pop_assum $ qspec_then‘LENGTH Xs’ mp_tac>>
-  ‘TAKE (LENGTH Xs + 1) (Y::Xs) = Y::Xs’ by simp[TAKE_LENGTH_ID]>>
-  pop_assum (fn thm => pure_rewrite_tac[thm])>>
-  qmatch_goalsub_abbrev_tac‘ODD t’>>
-  simp[EVEN_ODD]
+  simp[ODD_EVEN,EVEN_ADD]>>
+  qmatch_goalsub_abbrev_tac‘(P1 ⇔ Q1) ⇒ (P2 ⇔ Q2)’>>
+  ‘(¬P1 ⇔ Q2) ∧ (¬P2 ⇔ Q1)’ suffices_by metis_tac[]>>
+  CONJ_TAC>>
+  unabbrev_all_tac
+  >-(cong_tac NONE>>simp[])
+  >-(rename1‘¬b ⇔ _’>>Cases_on‘b’>>fs[])
 QED
 
 Theorem cencode_parity_sem:
