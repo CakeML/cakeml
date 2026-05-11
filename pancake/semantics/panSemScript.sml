@@ -139,7 +139,15 @@ Termination
 End
 
 Definition pan_op_def:
-  pan_op Mul [w1:'a word;w2] = SOME(w1 * w2) ∧
+  pan_op Mul [w1:'a word;w2] = SOME(ValWord (w1 * w2)) ∧
+  (pan_op AddCarry [l:'a word;r;c] =
+   let
+     res = w2n l + w2n r + (if c = 0w then 0 else 1)
+   in
+     SOME
+       (Struct
+          [ValWord (n2w res);
+           if dimword(:α) ≤ res then ValWord 1w else ValWord 0w])) ∧
   pan_op _ _ = NONE
 End
 
@@ -186,8 +194,8 @@ Definition eval_def:
     case (OPT_MMAP (eval s) es) of
      | SOME ws =>
        if (EVERY (\w. case w of (ValWord _) => T | _ => F) ws)
-       then OPTION_MAP ValWord
-            (pan_op op (MAP (\w. case w of ValWord n => n) ws)) else NONE
+       then pan_op op (MAP (\w. case w of ValWord n => n) ws)
+       else NONE
       | _ => NONE) /\
   (eval s (Cmp cmp e1 e2) =
     case (eval s e1, eval s e2) of

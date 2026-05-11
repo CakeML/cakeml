@@ -118,8 +118,8 @@ Definition eval_def:
     case (OPT_MMAP (eval s) es) of
      | SOME ws =>
        if (EVERY (\w. case w of (ValWord _) => T | _ => F) ws)
-       then OPTION_MAP ValWord
-            (pan_op op (MAP (\w. case w of ValWord n => n) ws)) else NONE
+       then pan_op op (MAP (\w. case w of ValWord n => n) ws)
+       else NONE
       | _ => NONE) /\
   (eval s (Cmp cmp e1 e2) =
     case (eval s e1, eval s e2) of

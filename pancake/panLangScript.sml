@@ -37,6 +37,7 @@ End
 
 Datatype:
   panop = (* Div | *)Mul (* | Mod*)
+        | AddCarry
 End
 
 Datatype:
