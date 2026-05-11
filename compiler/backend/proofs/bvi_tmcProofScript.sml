@@ -2046,26 +2046,42 @@ Proof
 QED
 
 Definition alloc_res_def:
-  alloc_res refs r ⇔ r = Rval [RefPtr F (LEAST ptr. ptr ∉ FDOM refs)]
+  alloc_res refs r ⇔
+    r = Rval [RefPtr F (LEAST ptr. ptr ∉ FDOM refs)]
 End
 
-Definition alloc_state_rel_def:
-  alloc_state_rel s s' ⇔
+Definition with_fresh_ptr_def:
+  with_fresh_ptr s s' ⇔
     ∃b.
       s' = s with refs := s.refs |+ ((LEAST ptr. ptr ∉ FDOM s.refs),b)
 End
 
-Theorem evaluate_hb_to_mutcons:
-  ∀cb tag left child right hb call_ts call_args loc env s s' t r f.
-    evaluate ([cb_to_bvi loc cb],env,s) = (r,t) ∧
-    cb_to_hb cb = (hb,call_ts,call_args) ∧
-    cb = CallBlock tag left child right ∧
+Theorem evaluate_tmc_vars:
+  ∀ns env1 env2 f opt s t s' r.
+    evaluate (MAP (λn. Var n) ns,env1,s) = (r, t) ∧
+    env_rel opt f env1 env2 ∧
     state_rel f s s' ∧
     r ≠ Rerr (Rabort Rtype_error) ⇒
-    ∃r_ptr u'.
-      evaluate ([hb_to_mutcons hb],env,s') = (r_ptr,u') ∧
-      alloc_res s.refs r_ptr ∧
-      alloc_state_rel s' u'
+    s = t ∧
+    ∃vs.
+      r = Rval vs ∧
+      evaluate (MAP (λn. Var n) ns,env2,s') = (r, s')
+Proof
+  cheat
+QED
+
+Theorem evaluate_hb_to_mutcons:
+  ∀cb tag left child right hb call_ts call_args loc env1 env2 s s' t r f.
+    evaluate ([cb_to_bvi loc cb],env1,s) = (r,t) ∧
+    cb_to_hb cb = (hb,call_ts,call_args) ∧
+    cb = CallBlock tag left child right ∧
+    env_rel T f env1 env2 ∧
+    state_rel f s s' ∧
+    r ≠ Rerr (Rabort Rtype_error) ⇒
+    ∃r' u'.
+      evaluate ([hb_to_mutcons hb],env2,s') = (r',u') ∧
+      alloc_res s'.refs r' ∧
+      with_fresh_ptr s' u'
 Proof
   gen_tac
   >> reverse $ Induct_on ‘cb’ >> rw []
@@ -2076,7 +2092,8 @@ Proof
   >> gvs [cb_to_bvi_def, hb_to_mutcons_def, evaluate_def, evaluate_APPEND]
   (* left *)
   >> CASE_TAC
-  >> drule evaluate_var_list
+  >> drule evaluate_tmc_vars
+  >> rpt $ disch_then drule
   >> Cases_on ‘q’ >> gvs []
   >> strip_tac >> gvs []
   >> rename [‘state_rel f s s'’]
@@ -2094,7 +2111,8 @@ Proof
       >> impl_tac
       >- cheat (* right cannot fail *)
       >> strip_tac >> gvs []
-      >> gvs [alloc_res_def, alloc_state_rel_def]
+      >> imp_res_tac evaluate_IMP_LENGTH
+      >> gvs [alloc_res_def, with_fresh_ptr_def]
       >> cheat) (* easy but not sure how to do this without qexists *)
     >> strip_tac
     >> pop_assum kall_tac (* Do we need this any more?? *)
@@ -2104,7 +2122,8 @@ Proof
     >> impl_tac
     >- cheat (* right cannot fail *)
     >> strip_tac >> gvs []
-    >> gvs [alloc_res_def, alloc_state_rel_def]
+    >> imp_res_tac evaluate_IMP_LENGTH
+    >> gvs [alloc_res_def, with_fresh_ptr_def]
     >> cheat (* again easy *))
   >> cheat
 QED
