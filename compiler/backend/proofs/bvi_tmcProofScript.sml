@@ -1301,6 +1301,7 @@ Resume evaluate_rewrite_tmc[if]:
   >> gvs [rewrite_worker_def, evaluate_def, opt_res_rel_def, holes_unchanged_except_def]
 QED
 
+(*
 Resume evaluate_rewrite_tmc[lett]:
   gvs [evaluate_def]
   >> gvs [CaseEq "prod", PULL_EXISTS]
@@ -1436,6 +1437,7 @@ Resume evaluate_rewrite_tmc[raise]:
   >> imp_res_tac evaluate_SING_IMP
   >> gvs []
 QED
+*)
 
 Resume evaluate_rewrite_tmc[op]:
 
@@ -1725,6 +1727,14 @@ Proof
   >> Cases_on ‘v3’ >> gvs []
 QED
 
+Theorem evaluate_var_list_stateless:
+  ∀vs env s u r t.
+    evaluate (MAP (λn. Var n) vs,env,s) = (r,t) ⇒
+    evaluate (MAP (λn. Var n) vs,env,u) = (r,t)
+Proof
+  cheat
+QED
+
 Theorem evaluate_var_list_binders:
   ∀ns extras env s r t.
     evaluate (MAP (λn. Var n) ns,env,s) = (r,t) ∧
@@ -1757,14 +1767,13 @@ Proof
   >> cheat
 QED
 
+(* What if r is type error? *)
 Theorem evaluate_shift_vars:
   ∀vs env s bs r t.
     evaluate (MAP (λn. Var n) vs,env,s) = (r,t) ⇒
     evaluate (MAP (λn. Var n) (shift_vars (LENGTH bs) vs),bs ++ env,s) = (r,t)
 Proof
-  Induct_on ‘vs’ >> rw [shift_vars_def, evaluate_def]
-  >> simp [Once evaluate_CONS]
-  >> cheat
+  cheat
 QED
 
 Theorem evaluate_shift_vars_sing:
@@ -2008,15 +2017,6 @@ Proof
   >> gvs []
 QED
 
-Definition alloc_env_rel_def:
-  alloc_env_rel f new_ptr l env1 env2 env3 ⇔
-    env_rel T f env1 env2 ∧
-    ∃zs.
-      LENGTH zs = l ∧
-      env3 = zs ++ env2 ∧
-      zs❲0❳ = RefPtr F new_ptr
-End
-
 Definition alloc_res_def:
   alloc_res refs r ⇔ r = Rval [RefPtr F (LEAST ptr. ptr ∉ FDOM refs)]
 End
@@ -2028,14 +2028,13 @@ Definition alloc_state_rel_def:
 End
 
 Theorem evaluate_hb_to_mutcons:
-  ∀cb tag left child right hb call_ts call_args loc env1 env2 f s t r. 
-    evaluate ([cb_to_bvi loc cb],env2,s) = (r,t) ∧
+  ∀cb tag left child right hb call_ts call_args loc env s t r. 
+    evaluate ([cb_to_bvi loc cb],env,s) = (r,t) ∧
     cb_to_hb cb = (hb,call_ts,call_args) ∧
     cb = CallBlock tag left child right ∧
-    env_rel T f env1 env2 ∧
     r ≠ Rerr (Rabort Rtype_error) ⇒
     ∃r_ptr u.
-      evaluate ([hb_to_mutcons hb],env2,s) = (r_ptr,u) ∧
+      evaluate ([hb_to_mutcons hb],env,s) = (r_ptr,u) ∧
       alloc_res s.refs r_ptr ∧
       alloc_state_rel s u
 Proof
@@ -2059,7 +2058,7 @@ Proof
     >> reverse $ CASE_TAC >> gvs []
     >-
      (strip_tac
-      >> gvs [evaluate_def, do_app_def, do_app_aux_def,backend_commonTheory.small_enough_int_def]
+      >> gvs [evaluate_def, do_app_def, do_app_aux_def, backend_commonTheory.small_enough_int_def]
       >> CASE_TAC
       >> drule evaluate_var_list
       >> impl_tac
@@ -2069,7 +2068,7 @@ Proof
       >> cheat) (* easy but not sure how to do this without qexists *)
     >> strip_tac
     >> pop_assum kall_tac (* Do we need this any more?? *)
-    >> gvs [evaluate_def, do_app_def, do_app_aux_def,backend_commonTheory.small_enough_int_def]
+    >> gvs [evaluate_def, do_app_def, do_app_aux_def, backend_commonTheory.small_enough_int_def]
     >> CASE_TAC
     >> drule evaluate_var_list
     >> impl_tac
@@ -2078,6 +2077,78 @@ Proof
     >> gvs [alloc_res_def, alloc_state_rel_def]
     >> cheat (* again easy *))
   >> cheat
+QED
+
+Definition alloc_env_rel_def:
+  alloc_env_rel refs l env1 env2 ⇔
+    ∃zs.
+      env2 = zs ++ env1 ∧
+      LENGTH zs = l ∧
+      l > 0 ∧
+      zs❲0❳ = RefPtr F (LEAST ptr. ptr ∉ FDOM refs)
+End
+
+Definition loc_rel_def:
+  loc_rel args args_opt loc loc_opt s s' ⇔
+    ∃body wrap.
+      find_code (SOME loc) args s.code = SOME (args,body) ∧
+      find_code (SOME loc_opt) args_opt s'.code = SOME (args_opt, wrap)
+End
+
+Theorem evaluate_optimise_call:
+  ∀cb tag left child right hb call_ts call_args loc loc_opt env1 env2 n f s u t r. 
+    evaluate ([cb_to_bvi loc cb],env1,s) = (r,t) ∧
+    cb_to_hb cb = (hb,call_ts,call_args) ∧
+    cb = CallBlock tag left child right ∧
+    alloc_env_rel s.refs n env1 env2 ∧
+    alloc_state_rel s u ∧
+    r ≠ Rerr (Rabort Rtype_error) ⇒
+    ∃r' t'.
+      evaluate ([optimise_call n loc_opt (&LENGTH left) call_ts call_args],env2,u) = (r',t') ∧
+      opt_res_rel r r'
+Proof
+  gen_tac
+  >> reverse $ Induct_on ‘cb’ >> rw []
+  >> rename [‘cb_to_hb (CallBlock n left child right) = (hb,call_ts,call_args)’]
+  >> qpat_x_assum ‘evaluate ([cb_to_bvi _ _],_,_) = (_,_)’ mp_tac
+  >> gvs [cb_to_hb_def, CaseEq "prod"]
+  >> rename [‘cb_to_hb child = (hole,call_ts,call_args)’]
+  >> gvs [cb_to_bvi_def, optimise_call_def, evaluate_def, evaluate_APPEND]
+  >> imp_res_tac alloc_env_rel_def >> gvs []
+  (* left *)
+  >> CASE_TAC
+  >> drule evaluate_var_list
+  >> Cases_on ‘q’ >> gvs []
+  >> strip_tac >> gvs []
+  >> rename [‘alloc_state_rel s u’]
+  (* hole *)
+  >> reverse $ Cases_on ‘child’ >> gvs []
+  >-
+   (gvs [cb_to_hb_def, cb_to_bvi_def, evaluate_def]
+    >> CASE_TAC
+    >> drule evaluate_var_list
+    >> Cases_on ‘q’ >> gvs []
+    >> strip_tac >> gvs []
+    >> rename [‘alloc_state_rel s u’]
+    >> drule evaluate_var_list_stateless
+    >> disch_then $ qspec_then ‘u’ assume_tac >> gvs []
+    >> drule evaluate_shift_vars
+    >> disch_then $ qspec_then ‘zs’ assume_tac >> gvs []
+    >> gvs [do_app_def, do_app_aux_def]
+    >> ‘backend_common$small_enough_int (&LENGTH left)’ by cheat (* wf? or type error? *)
+    >> gvs []
+    >> CASE_TAC
+    >-
+     (CASE_TAC >> gvs []
+      >> CASE_TAC
+      >> strip_tac
+      >> CASE_TAC
+      >- cheat (* not possible *)
+      >> CASE_TAC >> gvs [opt_res_rel_def])
+    >> CASE_TAC >> gvs []
+        
+        )
+                                        
 QED
 
 Theorem evaluate_hb_to_mutcons:
