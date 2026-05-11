@@ -318,17 +318,25 @@ Definition is_witness_def:
     wcirc wreset wnext wpreds wcnstrs wqcirc wlive wlatches
 End
 
-(* Latch Dependencies *********************************************************)
+(* Circuit Dependencies *******************************************************)
 
-(* While state is defined over the entirety of the (potentially infinite) domain
-   'l, a circuit only depends on a finite subset of 'l.
+(* While state and input are defined over the entirety of (potentially infinite)
+   domains, a circuit can only depend on a finite subset of these domains, as
+   we have a finite amount of gates.
    We formalize this notion in dep_circuit. *)
 
+Definition agree_on_def:
+  agree_on inputs latches (is', ls') (is, ls) ⇔
+    (∀i. i ∈ inputs  ⇒ is' i = is i) ∧
+    (∀l. l ∈ latches ⇒ ls' l = ls l)
+End
+
 Definition dep_circuit_def:
-  dep_circuit latches circ =
-  ∀n is ls ls'.
-    (∀l. l ∈ latches ⇒ ls' l = ls l) ⇒
-    eval_circuit (is, ls') circ n = eval_circuit (is, ls) circ n
+  dep_circuit inputs latches circ =
+  ∀n ss' ss.
+    agree_on inputs latches ss' ss
+    ⇒
+    eval_circuit ss' circ n = eval_circuit ss circ n
 End
 
 Definition dep_bvar_def[simp]:
@@ -417,40 +425,35 @@ Proof
 QED
 
 Theorem dep_eval_lit_eq:
-  ∀n is ls ls'.
-    dep_circuit latches circ ∧ dep_lit latches n ∧
-    (∀l. l ∈ latches ⇒ (ls' l ⇔ ls l)) ⇒
-    (eval_lit (is,ls') circ n ⇔ eval_lit (is,ls) circ n)
+  ∀n ss' ss.
+    dep_circuit UNIV latches circ ∧ dep_lit latches n ∧
+    agree_on UNIV latches ss' ss ⇒
+    (eval_lit ss' circ n ⇔ eval_lit ss circ n)
 Proof
   namedCases ["v b"]
+  >> namedCases ["is' ls'"]
+  >> namedCases ["is ls"]
   >> Cases_on ‘v’ >> rw [eval_circuit_def]
   >-
    (fs [dep_circuit_def]
     >> rename1 ‘eval_circuit _ _ a’
-    >> last_x_assum $ qspecl_then [‘a’, ‘is’, ‘ls’, ‘ls'’] mp_tac
-    >> simp [])
+    >> last_x_assum drule >> simp [])
   >> rename1 ‘eval_bvar _ b₁’
   >> Cases_on ‘b₁’
-  >> fs [eval_bvar_def]
+  >> fs [eval_bvar_def, agree_on_def]
 QED
 
 (* Extending a trace for the model to a trace for the witness *****************)
 
-Definition steps_agree_def:
-  steps_agree (latches: 'l set) ((is', ls'): 'i inputs # 'l state) (is, ls) ⇔
-  is' = is ∧ ∀l. l ∈ latches ⇒ ls' l = ls l
-End
-
-Theorem steps_agree_sym:
-  steps_agree mlatches ss ss' = steps_agree mlatches ss' ss
+Theorem agree_on_sym:
+  agree_on inputs latches ss ss' = agree_on inputs latches ss' ss
 Proof
-  Cases_on ‘ss’ >> Cases_on ‘ss'’ >> eq_tac >> rw [steps_agree_def]
+  Cases_on ‘ss’ >> Cases_on ‘ss'’ >> eq_tac >> rw [agree_on_def]
 QED
 
-(* tr' and tr agree on the first n inputs and states on latches *)
 Definition traces_agree_def:
-  traces_agree n latches (tr': ('i, 'l) trace) tr ⇔
-    ∀i. i ≤ n ⇒ steps_agree latches (tr' i) (tr i)
+  traces_agree n inputs latches (tr': ('i, 'l) trace) tr ⇔
+    ∀i. i ≤ n ⇒ agree_on inputs latches (tr' i) (tr i)
 End
 
 Theorem is_next_subset:
@@ -463,62 +466,55 @@ QED
 Theorem is_next_dep_circuit:
   is_next ss₀ circ next latches ls₁ ∧
   (∀l. l ∈ latches ⇒ ls₁ l = ls₁' l) ∧
-  steps_agree latches ss₀ ss₀' ∧
-  dep_circuit latches circ ∧
+  agree_on UNIV latches ss₀ ss₀' ∧
+  dep_circuit UNIV latches circ ∧
   dep_latch_lit latches next
   ⇒
   is_next ss₀' circ next latches ls₁'
 Proof
   rw [is_next_def, dep_latch_lit_def]
-  >> namedCases_on ‘ss₀’ ["is ls₀"]
-  >> namedCases_on ‘ss₀'’ ["is' ls₀'"]
-  >> gvs [steps_agree_def]
   >> metis_tac [dep_eval_lit_eq]
 QED
 
 Theorem preds_hold_dep_circuit:
   preds_hold ss circ ns ∧
-  dep_circuit latches circ ∧
+  dep_circuit UNIV latches circ ∧
   dep_lits latches ns ∧
-  steps_agree latches ss ss'
+  agree_on UNIV latches ss ss'
   ⇒
   preds_hold ss' circ ns
 Proof
   rw [preds_hold_def, dep_lits_def]
-  >> namedCases_on ‘ss’ ["is ls"]
-  >> namedCases_on ‘ss'’ ["is' ls'"]
-  >> gvs [steps_agree_def]
   >> metis_tac [dep_eval_lit_eq]
 QED
 
 Theorem is_reset_dep_circuit:
   is_reset ss circ reset latches ∧
-  dep_circuit latches circ ∧
+  dep_circuit UNIV latches circ ∧
   dep_latch_lit latches reset ∧
-  steps_agree latches ss ss'
+  agree_on UNIV latches ss ss'
   ⇒
   is_reset ss' circ reset latches
 Proof
   rw [is_reset_def, dep_latch_lit_def]
   >> namedCases_on ‘ss’ ["is ls"]
   >> namedCases_on ‘ss'’ ["is' ls'"]
-  >> gvs [steps_agree_def]
   >> last_x_assum $ drule_then assume_tac
   >> gvs [eval_circuit_def]
-  >> metis_tac [dep_eval_lit_eq]
+  >> metis_tac [dep_eval_lit_eq, agree_on_def]
 QED
 
 Theorem is_trace_dep_circuit:
   is_trace circ reset next cnstrs latches tr n ∧
-  dep_circuit latches circ ∧
+  dep_circuit UNIV latches circ ∧
   dep_lits latches cnstrs ∧
   dep_latch_lit latches reset ∧
   dep_latch_lit latches next ∧
-  traces_agree n latches tr' tr
+  traces_agree n UNIV latches tr' tr
   ⇒
   is_trace circ reset next cnstrs latches tr' n
 Proof
-  rw [traces_agree_def, is_trace_def, steps_agree_sym]
+  rw [traces_agree_def, is_trace_def, agree_on_sym]
   >-
    (irule is_reset_dep_circuit >> simp []
     >> last_assum $ irule_at (Pos last) >> gvs [])
@@ -533,7 +529,7 @@ Proof
     >> rename1 ‘SND (tr (i + 1))’
     >> Cases_on ‘tr (i + 1)’ >> Cases_on ‘tr' (i + 1)’ >> fs []
     >> first_x_assum $ qspec_then ‘i + 1’ mp_tac
-    >> simp [steps_agree_def])
+    >> simp [agree_on_def])
   >> last_x_assum $ drule_then assume_tac
   >> irule preds_hold_dep_circuit >> fs []
   >> first_assum $ irule_at (Pos last) >> simp []
@@ -561,9 +557,9 @@ Proof
 QED
 
 Theorem traces_agree_SUC:
-  traces_agree (SUC n) mlatches tr' tr ⇔
-    traces_agree n mlatches tr' tr ∧
-    steps_agree mlatches (tr' (n + 1)) (tr (n + 1))
+  traces_agree (SUC n) inputs latches tr' tr ⇔
+    traces_agree n inputs latches tr' tr ∧
+    agree_on inputs latches (tr' (n + 1)) (tr (n + 1))
 Proof
   eq_tac >> rw [traces_agree_def]
   >> rename1 ‘i ≤ SUC n’
@@ -583,17 +579,17 @@ QED
 
 Theorem is_reset_dep_latch_lit:
   is_reset ss circ reset latches ∧
-  dep_circuit latches circ ∧
+  dep_circuit UNIV latches circ ∧
   dep_latch_lit latches reset ∧
-  steps_agree latches ss ss'
+  agree_on UNIV latches ss ss'
   ⇒
   is_reset ss' circ reset latches
 Proof
   rw [is_reset_def, dep_latch_lit_def]
   >> namedCases_on ‘ss’ ["is ls"]
   >> namedCases_on ‘ss'’ ["is' ls'"]
-  >> gvs[eval_circuit_def, steps_agree_def]
-  >> metis_tac [dep_eval_lit_eq, SND, PAIR]
+  >> gvs[eval_circuit_def]
+  >> metis_tac [dep_eval_lit_eq, agree_on_def]
 QED
 
 (* Extends a trace for the model to a trace for the witness.
@@ -614,13 +610,13 @@ Definition mk_trace_def:
      @succ.
        is_next prev wcirc wnext wlatches (SND succ) ∧
        preds_hold succ wcirc wcnstrs ∧
-       steps_agree mlatches succ (tr (SUC n)))
+       agree_on UNIV mlatches succ (tr (SUC n)))
 End
 
 Definition dep_model_def:
   dep_model
     circ reset next preds cnstrs latches ⇔
-  dep_circuit latches circ ∧
+  dep_circuit UNIV latches circ ∧
   dep_latch_lit latches reset ∧
   dep_latch_lit latches next ∧
   dep_lits latches preds ∧
@@ -649,7 +645,7 @@ Theorem extend_model_trace_to_witness:
   ∃tr'. ∀n.
     is_trace mcirc mreset mnext mcnstrs mlatches tr n ⇒
     is_trace wcirc wreset wnext wcnstrs wlatches tr' n ∧
-    traces_agree n mlatches tr' tr
+    traces_agree n UNIV mlatches tr' tr
 Proof
   rw [dep_model_def, is_stratified_full_def]
   >> qexists ‘mk_trace lt mlatches wcirc wreset wnext wpreds wcnstrs wlatches tr’
@@ -671,13 +667,13 @@ Proof
         CONJ_TAC
         >- (
           drule_then irule is_reset_dep_latch_lit>>
-          simp[Abbr`ss0`, steps_agree_def]>>
+          simp[Abbr`ss0`, agree_on_def]>>
           rw[]>>
           irule (GSYM not_mem_patch_eq)>>
           simp[Abbr`xs`])
         >>
           drule_then irule preds_hold_dep_circuit>>
-          simp[Abbr`ss0`, steps_agree_def]>>
+          simp[Abbr`ss0`, agree_on_def]>>
           first_x_assum $ irule_at Any>>
           rw[]>>
           irule (GSYM not_mem_patch_eq)>>
@@ -690,7 +686,7 @@ Proof
       >> irule subset_is_reset_patch
       >> first_assum $ irule_at (Pos last)  (* is_stratified *)
       >> simp [Abbr ‘xs’, Req0 SET_TO_LIST_INV, Req0 QSORT_SORTED])
-    >> simp [traces_agree_def, steps_agree_def, Abbr`ss0`]
+    >> simp [traces_agree_def, agree_on_def, Abbr`ss0`]
     >-
      (rw []
       >> rename1 ‘patch _ _ _ _ _ l’ >> ‘¬MEM l xs’ by simp [Abbr ‘xs’]
@@ -709,17 +705,17 @@ Proof
     >> ‘is_next (tr'n) mcirc mnext mlatches (SND step)’ by
       (drule is_next_dep_circuit
        >> disch_then irule
-       >> gvs [traces_agree_def, steps_agree_sym, Abbr ‘step’, Abbr‘tr'n’])
+       >> gvs [traces_agree_def, agree_on_sym, Abbr ‘step’, Abbr‘tr'n’])
     >> ‘preds_hold (tr'n) mcirc mcnstrs’ by
       (‘preds_hold (tr n) mcirc mcnstrs’ by metis_tac [is_trace_preds_hold_n]
        >> drule preds_hold_dep_circuit
        >> disch_then drule >> disch_then irule
-       >> gvs [traces_agree_def, steps_agree_sym, Abbr‘tr'n’])
+       >> gvs [traces_agree_def, agree_on_sym, Abbr‘tr'n’])
     >> ‘preds_hold step mcirc mcnstrs’ by
       (rev_drule preds_hold_dep_circuit
        >> disch_then drule >> disch_then irule
        >> Cases_on ‘tr (n + 1)’
-       >> gvs [steps_agree_def, Abbr ‘step’])
+       >> gvs [agree_on_def, Abbr ‘step’])
     >> ‘preds_hold (tr'n) wcirc wcnstrs’ by metis_tac [is_trace_preds_hold_n]
     (* Following the paper proof, we can now invoke the transition check
        and extend these two facts to the witness. *)
@@ -729,7 +725,7 @@ Proof
     >- (fs [is_next_def] >> rw [] >> Cases_on ‘l ∈ mlatches’ >> gvs [Abbr ‘step’])
     >> gvs [ADD1]
     >> Cases_on ‘tr (n + 1)’
-    >> fs [steps_agree_def, Abbr ‘step’])
+    >> fs [agree_on_def, Abbr ‘step’])
   >> rw []
 QED
 
@@ -780,7 +776,7 @@ Proof
     (irule is_trace_dep_circuit >> fs []
      >> first_assum $ irule_at (Pos hd) >> simp [])
   >> drule_at_then Any irule preds_hold_dep_circuit
-  >> rename1`traces_agree n mlatches tr' tr`
+  >> rename1`traces_agree n _ mlatches tr' tr`
   >> fs[traces_agree_def]
   >> qexists_tac`tr' n`
   >> gvs[is_witness_property_def]
@@ -814,6 +810,11 @@ Theorem is_inf_trace_is_next:
 Proof
   rw [is_inf_trace_def]
 QED
+
+Definition matching_transition_def:
+  matching_transition tr i j ⇔
+    i < j ∧ tr j = tr i ∧ tr (j + 1) = tr (i + 1)
+End
 
 Definition matching_transition_def:
   matching_transition tr i j ⇔
@@ -875,11 +876,11 @@ Theorem is_inf_trace_traces_agree:
   (∀n.
      is_trace mcirc mreset mnext mcnstrs mlatches tr n ⇒
      is_trace wcirc wreset wnext wcnstrs wlatches tr' n ∧
-     traces_agree n mlatches tr' tr)
+     traces_agree n UNIV mlatches tr' tr)
   ⇒
     (is_inf_trace mcirc mreset mnext mcnstrs mlatches tr ⇒
      is_inf_trace wcirc wreset wnext wcnstrs wlatches tr' ∧
-     (∀n. traces_agree n mlatches tr' tr))
+     (∀n. traces_agree n UNIV mlatches tr' tr))
 Proof
   rw [is_inf_trace_eq]
 QED
@@ -902,7 +903,7 @@ Proof
   >> dxrule is_inf_trace_traces_agree
   >> simp [] >> strip_tac
   (*
-     1. extend model inf trace to witness inf trace
+     OK extend model inf trace to witness inf trace
         (using/adjusting extend_model_trace_to_witness)
      2. finiteness/projection argument on witness
         circuit is fine
