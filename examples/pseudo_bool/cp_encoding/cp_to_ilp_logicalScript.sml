@@ -434,12 +434,9 @@ Proof
   fs[fold_cenc_def]>>
   gvs[AllCaseEqs(),UNCURRY_EQ]>>
   irule_at Any enc_rel_Append>>
-  irule_at Any enc_rel_encode_ge>>
-  simp[]>>
   irule_at Any enc_rel_fold_cenc>>
   pop_assum $ irule_at Any>>
-  simp[enc_rel_encode_ge]>>
-  simp[encode_parity_aux_def,enc_rel_abstr]
+  simp[enc_rel_encode_ge,encode_parity_aux_def,enc_rel_abstr]
 QED
 
 Definition encode_logical_constr_def:
