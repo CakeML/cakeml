@@ -871,6 +871,19 @@ Proof
   >> simp []
 QED
 
+Theorem is_inf_trace_traces_agree:
+  (∀n.
+     is_trace mcirc mreset mnext mcnstrs mlatches tr n ⇒
+     is_trace wcirc wreset wnext wcnstrs wlatches tr' n ∧
+     traces_agree n mlatches tr' tr)
+  ⇒
+    (is_inf_trace mcirc mreset mnext mcnstrs mlatches tr ⇒
+     is_inf_trace wcirc wreset wnext wcnstrs wlatches tr' ∧
+     (∀n. traces_agree n mlatches tr' tr))
+Proof
+  rw [is_inf_trace_eq]
+QED
+
 Theorem is_witness_is_live:
   is_witness
     mcirc mreset mnext mpreds mcnstrs mqcirc mlive mlatches
@@ -883,6 +896,11 @@ Theorem is_witness_is_live:
     mcirc mreset mnext mcnstrs mqcirc mlive mlatches
 Proof
   rw [is_witness_def, is_live_def]
+  >> drule_all extend_model_trace_to_witness
+  >> rename1 ‘is_inf_trace _ _ _ _ _ tr’
+  >> disch_then $ qspec_then ‘tr’ mp_tac >> strip_tac
+  >> dxrule is_inf_trace_traces_agree
+  >> simp [] >> strip_tac
   (*
      1. extend model inf trace to witness inf trace
         (using/adjusting extend_model_trace_to_witness)
