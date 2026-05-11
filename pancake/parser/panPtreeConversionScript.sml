@@ -65,6 +65,10 @@ Definition argsNT_def:
     if FST nodeNT = INL ntm then SOME args else NONE
 End
 
+Definition is_add_with_carry_def:
+ is_add_with_carry s ⇔ s = «__add_with_carry__»
+End
+
 Definition conv_int_def:
   conv_int tree =
     case destTOK ' (destLf tree) of
@@ -618,7 +622,11 @@ Definition conv_Prog_def:
          [dec; p] =>
            do (s',i',e',args') <- conv_DecCall dec;
                p' <- conv_Prog p;
-               SOME $ add_locs_annot nd $ DecCall i' s' e' args' p'
+               if is_add_with_carry e'
+               then SOME $ add_locs_annot nd $
+                         Dec i' s' (Panop AddCarry args') p'
+               else SOME $ add_locs_annot nd $
+                         DecCall i' s' e' args' p'
            od
        | _ => NONE
      else if isNT nodeNT CallNT then
@@ -633,7 +641,11 @@ Definition conv_Prog_def:
                      do e' <- conv_ident r;
                         args' <- (case ts of [] => SOME []
                                           | args::_ => conv_ArgList args);
-                        SOME $ add_locs_annot nd $ TailCall e' args'
+                        if is_add_with_carry e' then
+                          SOME $ add_locs_annot nd $
+                            Return (Panop AddCarry args')
+                        else
+                          SOME $ add_locs_annot nd $ TailCall e' args'
                      od)
             | NONE =>
                 (case conv_Handle r of
@@ -659,7 +671,15 @@ Definition conv_Prog_def:
                      do e' <- conv_ident e;
                         args' <- (case xs of [] => SOME []
                                           | args::_ => conv_ArgList args);
-                        SOME $ add_locs_annot nd $ panLang$Call (SOME r') e' args'
+                        if is_add_with_carry e' then
+                          (case r' of
+                           | (SOME (vk, vn), NONE) =>
+                               SOME $ add_locs_annot nd $
+                                 Assign vk vn (Panop AddCarry args')
+                           | _ => NONE)
+                        else
+                          SOME $ add_locs_annot nd $
+                            panLang$Call (SOME r') e' args'
                      od))
      else if isNT nodeNT ProgNT then
        case args of
@@ -859,4 +879,3 @@ Definition parse_topdecs_to_ast_def:
            | INR err => INR err)
      | INR err => INR err)
 End
-

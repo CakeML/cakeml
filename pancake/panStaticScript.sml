@@ -484,7 +484,8 @@ End
 Definition panop_to_str_def:
   panop_to_str op =
     case op of
-    | Mul => «Mul»
+    | Mul      => «Mul»
+    | AddCarry => «AddCarry»
 End
 
 
@@ -682,15 +683,21 @@ Definition static_check_exp_def:
       (* check num of op args *)
       nargs <<- LENGTH es;
       case pop of
-      | Mul  => if ~(nargs = 2)
-                  then error (GenErr $ get_oparg_msg T «2»
-                    (num_to_str nargs) ctxt.loc op_str ctxt.scope)
-                else return ();
+      | Mul      => if ~(nargs = 2)
+                      then error (GenErr $ get_oparg_msg T «2»
+                        (num_to_str nargs) ctxt.loc op_str ctxt.scope)
+                    else return ()
+      | AddCarry => if ~(nargs = 3)
+                      then error (GenErr $ get_oparg_msg T «3»
+                        (num_to_str nargs) ctxt.loc op_str ctxt.scope)
+                    else return ();
       (* check op args *)
       esret <- static_check_exps ctxt es;
       (* check arg shapes *)
       b <- check_operands ctxt op_str esret.sh_bds;
-      return <| sh_bd := WordB b |>
+      return <| sh_bd := case pop of
+                         | Mul      => WordB b
+                         | AddCarry => StructB [WordB b; WordB b] |>
     od ∧
   static_check_exp ctxt (Cmp cmp e1 e2) =
     do
