@@ -6208,6 +6208,47 @@ Proof
   >> irule ACONV_INST >> rw[] >> metis_tac[apply_steps_welltyped]
 QED
 
+Theorem term_ok_MEM_term_image_apply_steps:
+  ∀l stps y.
+    MEM y (term_image (apply_steps stps) l) ∧
+    steps_ok sig stps ∧
+    (∀t. MEM t l ⇒ term_ok sig t) ⇒
+    term_ok sig y
+Proof
+  rw[] >> drule_then assume_tac MEM_term_image_imp >> gvs[]
+  >> irule apply_steps_term_ok >> simp[]
+  >> metis_tac[]
+QED
+
+Theorem MEM_term_image_compose_ACONV:
+  ∀l stps x y.
+    MEM y l ∧ ACONV x y ∧ hypset_ok l ∧
+    (∀t. MEM t l ⇒ term_ok sig t) ∧
+    term_ok sig x ∧
+    steps_ok sig stps ∧ esubsts_ok sig σ ∧ theory_ok (sig,axs) ⇒
+    ∃e. MEM e (term_image (esubst σ []) (term_image (apply_steps stps) l)) ∧
+        ACONV (esubst σ [] (apply_steps stps x)) e
+Proof
+  rw[]
+  >> qspecl_then [`l`, `apply_steps stps`, `y`] mp_tac MEM_term_image
+  >> impl_tac >- simp[]
+  >> strip_tac
+  >> qspecl_then [`term_image (apply_steps stps) l`,
+                  `esubst σ []`, `y'`] mp_tac MEM_term_image
+  >> impl_tac >- simp[hypset_ok_term_image]
+  >> strip_tac
+  >> qexists_tac `y''` >> simp[]
+  >> irule ACONV_TRANS >> qexists_tac `esubst σ [] y'` >> simp[]
+  >> irule esubst_ACONV >> simp[SF SFY_ss]
+  >> conj_tac
+  >- (irule ACONV_TRANS >> qexists_tac `apply_steps stps y` >> simp[]
+      >> irule apply_steps_ACONV >> metis_tac[term_ok_welltyped])
+  >> qexistsl_tac [`axs`, `sig`] >> simp[]
+  >> conj_tac >- (irule apply_steps_term_ok >> metis_tac[])
+  >> irule term_ok_MEM_term_image_apply_steps
+  >> qexistsl_tac [`l`, `stps`] >> simp[]
+QED
+
 Resume proves_substitutable_aux[da_every_hyp]:
   rw[EVERY_MEM, EXISTS_MEM]
   >> dxrule MEM_term_union_imp >> rw[]
@@ -6215,6 +6256,9 @@ Resume proves_substitutable_aux[da_every_hyp]:
   >> strip_tac >> gvs[]
   >> ntac 2 (dxrule MEM_term_image_imp >> strip_tac >> gvs[])
   >> first_x_assum drule >> strip_tac
+  >> `∀t. MEM t (term_union (term_remove c' h1) (term_remove c h2)) ⇒ term_ok sig t` by (
+    rw[] >> imp_res_tac MEM_term_union_imp >> imp_res_tac MEM_term_remove_imp >> gvs[]
+    >> imp_res_tac proves_term_ok >> gvs[EVERY_MEM] >> metis_tac[])
   >- (
   `¬ACONV c' x` by (
     strip_tac
@@ -6227,27 +6271,10 @@ Resume proves_substitutable_aux[da_every_hyp]:
   >> `MEM x (term_remove c' h1)` by (irule MEM_term_remove >> simp[])
   >> `MEM x (term_union (term_remove c' h1) (term_remove c h2))` by (
     irule MEM_term_union_first >> simp[hypset_ok_term_remove])
-  >> qspecl_then [`term_union (term_remove c' h1) (term_remove c h2)`,
-                  `apply_steps steps'`, `x`] mp_tac MEM_term_image
-  >> impl_tac >- simp[hypset_ok_term_union, hypset_ok_term_remove]
-  >> strip_tac
-  >> `term_ok sig y` by (
-    drule_then assume_tac MEM_term_image_imp >> gvs[]
-    >> irule apply_steps_term_ok >> simp[]
-    >> imp_res_tac MEM_term_union_imp
-    >> imp_res_tac MEM_term_remove_imp >> gvs[]
-    >> imp_res_tac proves_term_ok >> gvs[EVERY_MEM]
-    >> metis_tac[])
-  >> qspecl_then [`term_image (apply_steps steps')
-                    (term_union (term_remove c' h1) (term_remove c h2))`,
-                  `esubst σ []`, `y`] mp_tac MEM_term_image
-  >> impl_tac >- simp[hypset_ok_term_image, hypset_ok_term_union, hypset_ok_term_remove]
-  >> strip_tac
-  >> qexists_tac `y'` >> simp[]
-  >> irule ACONV_TRANS >> qexists_tac `esubst σ [] y` >> simp[]
-  >> irule esubst_ACONV >> simp[SF SFY_ss]
-  >> qexistsl_tac [`axs`, `sig`] >> simp[]
-  >> irule apply_steps_term_ok >> simp[])
+  >> irule MEM_term_image_compose_ACONV
+  >> conj_tac >- simp[hypset_ok_term_union, hypset_ok_term_remove]
+  >> conj_tac >- (qexists_tac `x` >> simp[])
+  >> qexistsl_tac [`axs`, `sig`] >> simp[])
   >> (
   `¬ACONV c x` by (
     strip_tac
@@ -6262,67 +6289,14 @@ Resume proves_substitutable_aux[da_every_hyp]:
                  mp_tac MEM_term_union
   >> impl_tac >- simp[hypset_ok_term_remove]
   >> strip_tac
-  >> `term_ok sig y` by (
-    imp_res_tac MEM_term_union_imp >> imp_res_tac MEM_term_remove_imp >> gvs[]
-    >> imp_res_tac proves_term_ok >> gvs[EVERY_MEM]
-    >> metis_tac[])
-  >> qspecl_then [`term_union (term_remove c' h1) (term_remove c h2)`,
-                  `apply_steps steps'`, `y`] mp_tac MEM_term_image
-  >> impl_tac >- simp[hypset_ok_term_union, hypset_ok_term_remove]
-  >> strip_tac
-  >> `term_ok sig y'` by (
-    drule_then assume_tac MEM_term_image_imp >> gvs[]
-    >> irule apply_steps_term_ok >> simp[]
-    >> imp_res_tac MEM_term_union_imp
-    >> imp_res_tac MEM_term_remove_imp >> gvs[]
-    >> imp_res_tac proves_term_ok >> gvs[EVERY_MEM]
-    >> metis_tac[])
-  >> qspecl_then [`term_image (apply_steps steps')
-                    (term_union (term_remove c' h1) (term_remove c h2))`,
-                  `esubst σ []`, `y'`] mp_tac MEM_term_image
-  >> impl_tac >- simp[hypset_ok_term_image, hypset_ok_term_union, hypset_ok_term_remove]
-  >> strip_tac
-  >> qexists_tac `y''` >> simp[]
-  >> irule ACONV_TRANS >> qexists_tac `esubst σ [] y'` >> simp[]
-  >> irule ACONV_TRANS >> qexists_tac `esubst σ [] (apply_steps steps' y)` >> simp[]
-  >> conj_tac
-  >- (irule esubst_ACONV >> simp[SF SFY_ss]
-      >> conj_tac >- (irule apply_steps_ACONV >> metis_tac[term_ok_welltyped])
-      >> qexistsl_tac [`axs`, `sig`] >> simp[]
-      >> conj_tac >- (irule apply_steps_term_ok >> simp[])
-      >> irule apply_steps_term_ok >> simp[])
-  >> irule esubst_ACONV >> simp[SF SFY_ss]
-  >> qexistsl_tac [`axs`, `sig`] >> simp[]
-  >> irule apply_steps_term_ok >> simp[])
+  >> irule MEM_term_image_compose_ACONV
+  >> conj_tac >- simp[hypset_ok_term_union, hypset_ok_term_remove]
+  >> conj_tac >- (qexists_tac `y` >> simp[])
+  >> qexistsl_tac [`axs`, `sig`] >> simp[])
 QED
 
 Resume proves_substitutable_aux[EQ_MP]:
-  rpt $ first_x_assum drule_all >> eqn_dist_tac >> imp_res_tac proves_term_ok
-  >> gvs[EVERY_MEM] >> drule_at Any $ iffLR term_ok_equation >> impl_tac
-  >- metis_tac[theory_ok_sig, FST] >> blast_term_validation >> rw[]
-  >> qabbrev_tac ‘thyσ = (esubst_sig σ sig, IMAGE (esubst σ []) axs)’
-  >> drule_then drule proves_EQ_MP >> impl_tac >> fs[]
-  >- (rw[] >> drule_at (Pos last) $ iffLR term_ok_equation >> dxrule theory_ok_sig >> simp[])
-  >- (*(irule esubst_ACONV >> rw[]
-      >- (irule apply_steps_ACONV >> blast_term_validation)
-      >> first_x_assum $ irule_at Any >> blast_term_validation)
-  >> rw[] >> irule proves_ACONV >> first_x_assum $ irule_at Any
-  >> blast_term_validation >> simp[hypset_ok_term_image, hypset_ok_term_union]
-  >> rw[EVERY_MEM, EXISTS_MEM]
-  >- (dxrule MEM_term_image_imp >> rw[] >> dxrule MEM_term_image_imp >> rw[]
-      >> rw[Abbr‘thyσ’] >> dxrule MEM_term_union_imp >> rw[]
-      >> ntac 2 $ rev_dxrule proves_term_ok >> simp[EVERY_MEM] >> blast_term_validation)
-  >- (dxrule MEM_term_image_imp >> rw[] >> dxrule MEM_term_image_imp >> rw[]
-      >> rw[Abbr‘thyσ’] >> dxrule MEM_term_union_imp >> rw[]
-      >> ntac 2 $ rev_dxrule proves_term_ok >> simp[EVERY_MEM]
-      >> irule esubst_has_type_bool >> rpt $ first_x_assum $ irule_at Any
-      >> blast_term_validation >> irule apply_steps_has_type_Bool >> metis_tac[])
-  >- (irule ACONV_esubst_avds >> rpt $ first_x_assum $ irule_at Any >> blast_term_validation)
-  >> dxrule MEM_term_union_imp >> rw[]
-  >> dxrule MEM_term_image_imp >> rw[] >> dxrule MEM_term_image_imp >> rw[]
-  >- cheat
-  >> cheat*)
-  >> cheat
+  cheat
 QED
 
 Resume proves_substitutable_aux[INST]:
