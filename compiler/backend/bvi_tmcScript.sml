@@ -352,34 +352,26 @@ Definition hb_to_mutcons_def:
 End
 
 Definition optimise_call_def:
-  optimise_call loc idx ptr ts args =
+  optimise_call loc idx ts args =
   (* There are let binders in the optimised version *)
   let args' = MAP (λn. Var (n + 2)) args in
-    bvi$Call ts (SOME loc) (idx::ptr::args') NONE
+  let idx'  = Op (IntOp (Const idx)) [] in
+    bvi$Call ts (SOME loc) (args' ++ [Var 0; idx']) NONE
 End
 
 Definition hb_to_bvi_wrapper_def:
-  hb_to_bvi_wrapper loc loc_opt i_ptr (HoleBlock tag l hole r) ts args =
-    let hb            = HoleBlock tag l hole r in
-    let i             = & LENGTH l in
-    let var_ptr       = Var i_ptr in
-    let exp_idx       = Op (IntOp (Const i)) [] in
-    let exp_mut_cons  = hb_to_mutcons hb in
-    let exp_tail_call = optimise_call loc_opt exp_idx var_ptr ts args in
-    let exp_finalise  = Op (MemOp FinaliseCons) [var_ptr] in
+  hb_to_bvi_wrapper loc loc_opt tag l hole r ts args =
+    let exp_mut_cons  = hb_to_mutcons (HoleBlock tag l hole r) in
+    let exp_tail_call = optimise_call loc_opt (&LENGTH l) ts args in
+    let exp_finalise  = Op (MemOp FinaliseCons) [Var 0] in
       Let [exp_mut_cons; exp_tail_call] exp_finalise
 End
 
 Definition hb_to_bvi_worker_def:
-  hb_to_bvi_worker loc loc_opt i_ptr i_idx (HoleBlock tag l hole r) ts args =
-    let hb               = HoleBlock tag l hole r in
-    let i                = & LENGTH l in
-    let arg_old_ptr      = Var (i_ptr + 1) in
-    let arg_old_idx      = Var (i_idx + 1) in
-    let exp_new_idx      = Op (IntOp (Const i)) [] in
-    let exp_mut_cons     = hb_to_mutcons hb in
-    let exp_update_hole  = Op (MemOp UpdateCons) [Var 0; arg_old_idx; arg_old_ptr] in
-    let exp_tail_call    = optimise_call loc_opt exp_new_idx (Var 1) ts args in
+  hb_to_bvi_worker loc loc_opt i_ptr i_idx tag l hole r ts args =
+    let exp_mut_cons     = hb_to_mutcons (HoleBlock tag l hole r) in
+    let exp_update_hole  = Op (MemOp UpdateCons) [Var 0; Var (i_idx + 1); Var (i_ptr + 1)] in
+    let exp_tail_call    = optimise_call loc_opt (&LENGTH l) ts args in
       Let [exp_mut_cons] $ Let [exp_update_hole] $ exp_tail_call
 End
 
@@ -391,13 +383,13 @@ Definition fill_hole_def:
 End
 
 Definition rewrite_wrapper_cons_def:
-  rewrite_wrapper_cons loc loc_opt i_ptr tag args =
+  rewrite_wrapper_cons loc loc_opt tag args =
     case bvi_to_cb loc tag args of
     | SOME (bs,cb) =>
         (case cb_to_hb cb of
-         | (hb,ts,args) =>
-             let offset = LENGTH bs in
-             SOME $ Let bs $ hb_to_bvi_wrapper loc loc_opt (offset + i_ptr) hb ts args)
+         | ((HoleBlock tag l hole r),ts,args) =>
+             (SOME $ Let bs $ hb_to_bvi_wrapper loc loc_opt tag l hole r ts args)
+         | _ => NONE)
     | NONE => NONE
 End
 
@@ -407,9 +399,12 @@ Definition rewrite_worker_cons_def:
     case bvi_to_cb loc tag args of
     | SOME (bs,cb) =>
         (case cb_to_hb cb of
-         | (hb,ts,args) =>
-             let offset = LENGTH bs in
-             Let bs $ hb_to_bvi_worker loc loc_opt (offset + i_ptr) (offset + i_idx) hb ts args)
+         | ((HoleBlock tag l hole r),ts,args) =>
+             (let offset = LENGTH bs in
+                Let bs $ hb_to_bvi_worker loc loc_opt (offset + i_ptr) (offset + i_idx) tag l hole r ts args)
+         | _ => 
+             let expr = Op (BlockOp (Cons tag)) args in
+               fill_hole i_ptr i_idx expr)
     | NONE =>
         let expr = Op (BlockOp (Cons tag)) args in
           fill_hole i_ptr i_idx expr
@@ -418,28 +413,28 @@ End
 (* Expression rewriting *)
 
 Definition rewrite_wrapper_def:
-  (rewrite_wrapper loc loc_opt i_ptr (Var n) = NONE) ∧
-  (rewrite_wrapper loc loc_opt i_ptr (If xi xt xe) =
-    let opt_t = rewrite_wrapper loc loc_opt i_ptr xt in
-    let opt_e = rewrite_wrapper loc loc_opt i_ptr xe in
+  (rewrite_wrapper loc loc_opt (Var n) = NONE) ∧
+  (rewrite_wrapper loc loc_opt (If xi xt xe) =
+    let opt_t = rewrite_wrapper loc loc_opt xt in
+    let opt_e = rewrite_wrapper loc loc_opt xe in
     case (opt_t, opt_e) of
     | (NONE, NONE) => NONE
     | (SOME yt, NONE) => SOME $ If xi yt xe
     | (NONE, SOME ye) => SOME $ If xi xt ye
     | (SOME yt, SOME ye) => SOME $ If xi yt ye) ∧
-  (rewrite_wrapper loc loc_opt i_ptr (Let xs x) =
-    case rewrite_wrapper loc loc_opt (i_ptr + LENGTH xs) x of
+  (rewrite_wrapper loc loc_opt (Let xs x) =
+    case rewrite_wrapper loc loc_opt x of
     | NONE => NONE
     | SOME y => SOME $ Let xs y) ∧
-  (rewrite_wrapper loc loc_opt i_ptr (Raise x) = NONE) ∧
-  (rewrite_wrapper loc loc_opt i_ptr (Tick x) = OPTION_MAP Tick $ rewrite_wrapper loc loc_opt i_ptr x) ∧
-  (rewrite_wrapper loc loc_opt i_ptr (Force _ n) = NONE) ∧
-  (rewrite_wrapper loc loc_opt i_ptr (Call t d args h) = NONE) ∧
-  (rewrite_wrapper loc loc_opt i_ptr (Op op op_args) =
+  (rewrite_wrapper loc loc_opt (Raise x) = NONE) ∧
+  (rewrite_wrapper loc loc_opt (Tick x) = OPTION_MAP Tick $ rewrite_wrapper loc loc_opt x) ∧
+  (rewrite_wrapper loc loc_opt (Force _ n) = NONE) ∧
+  (rewrite_wrapper loc loc_opt (Call t d args h) = NONE) ∧
+  (rewrite_wrapper loc loc_opt (Op op op_args) =
     case dest_Cons op of
-    | SOME block_tag => rewrite_wrapper_cons loc loc_opt i_ptr block_tag op_args
+    | SOME block_tag => rewrite_wrapper_cons loc loc_opt block_tag op_args
     | NONE => NONE) ∧
-  (rewrite_wrapper loc loc_opt i_ptr _ = NONE)
+  (rewrite_wrapper loc loc_opt _ = NONE)
 End
 
 (* Assumes that the function can and should be optimised - has been checked by rewrite_wrapper. *)
@@ -466,7 +461,7 @@ End
 
 Definition compile_exp_def:
   compile_exp (loc:num) (next:num) (arity:num) (exp:bvi$exp) =
-    case rewrite_wrapper loc next arity exp of
+    case rewrite_wrapper loc next exp of
     | NONE => NONE
     | SOME exp_wrapper =>
       let exp_worker = rewrite_worker loc next arity (arity + 1) exp in
@@ -484,3 +479,4 @@ Definition compile_prog_def:
         let (n, ys) = compile_prog (next + bvl_to_bvi_namespaces) xs in
         (n, (loc, arity, exp_wrapper)::(next, arity + 2, exp_worker)::ys))
 End
+

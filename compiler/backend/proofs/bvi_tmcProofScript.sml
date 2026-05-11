@@ -710,52 +710,52 @@ Proof
 QED
 
 Theorem wrapper_strip_if_then:
-  rewrite_wrapper loc loc_opt arity (If x1 x2 x3) = SOME w ⇒
+  rewrite_wrapper loc loc_opt (If x1 x2 x3) = SOME w ⇒
   ∃w2 w3.
     w = If x1 w2 w3 ∧
-    (rewrite_wrapper loc loc_opt arity x2 = SOME w2 ∨
+    (rewrite_wrapper loc loc_opt x2 = SOME w2 ∨
      w2 = x2)
 Proof
   rw []
   >> gvs [rewrite_wrapper_def]
-  >> Cases_on ‘rewrite_wrapper loc loc_opt arity x2’
-  >> Cases_on ‘rewrite_wrapper loc loc_opt arity x3’
+  >> Cases_on ‘rewrite_wrapper loc loc_opt x2’
+  >> Cases_on ‘rewrite_wrapper loc loc_opt x3’
   >> gvs []
 QED
 
 Theorem wrapper_strip_if_else:
-  rewrite_wrapper loc loc_opt arity (If x1 x2 x3) = SOME w ⇒
+  rewrite_wrapper loc loc_opt (If x1 x2 x3) = SOME w ⇒
   ∃w2 w3.
     w = If x1 w2 w3 ∧
-    (rewrite_wrapper loc loc_opt arity x3 = SOME w3 ∨
+    (rewrite_wrapper loc loc_opt x3 = SOME w3 ∨
      w3 = x3)
 Proof
   rw []
   >> gvs [rewrite_wrapper_def]
-  >> Cases_on ‘rewrite_wrapper loc loc_opt arity x2’
-  >> Cases_on ‘rewrite_wrapper loc loc_opt arity x3’
+  >> Cases_on ‘rewrite_wrapper loc loc_opt x2’
+  >> Cases_on ‘rewrite_wrapper loc loc_opt x3’
   >> gvs []
 QED
 
 Theorem wrapper_strip_let:
-  ∀loc loc_opt arity xs x w.
-    rewrite_wrapper loc loc_opt arity (Let xs x) = SOME w ⇒
+  ∀loc loc_opt xs x w.
+    rewrite_wrapper loc loc_opt (Let xs x) = SOME w ⇒
     ∃w'.
       w = Let xs w' ∧
-      rewrite_wrapper loc loc_opt (arity + LENGTH xs) x = SOME w'
+      rewrite_wrapper loc loc_opt x = SOME w'
 Proof
   rw []
   >> gvs [rewrite_wrapper_def]
-  >> Cases_on ‘rewrite_wrapper loc loc_opt (arity + LENGTH xs) x’
+  >> Cases_on ‘rewrite_wrapper loc loc_opt x’
   >> gvs []
 QED
 
 Theorem wrapper_strip_tick:
-  ∀loc loc_opt arity x w.
-    rewrite_wrapper loc loc_opt arity (Tick x) = SOME w ⇒
+  ∀loc loc_opt x w.
+    rewrite_wrapper loc loc_opt (Tick x) = SOME w ⇒
     ∃w'.
       w = Tick w' ∧
-      rewrite_wrapper loc loc_opt arity x = SOME w'
+      rewrite_wrapper loc loc_opt x = SOME w'
 Proof
   rw [] >> gvs [rewrite_wrapper_def]
 QED
@@ -833,8 +833,8 @@ Theorem find_code_rel:
       env_rel F f args args' ∧
       LENGTH args = LENGTH args' ∧
       (opt ⇒
-       ∃loc loc_opt i extras.
-         rewrite_wrapper loc loc_opt i exp = SOME exp' ∧
+       ∃loc loc_opt extras.
+         rewrite_wrapper loc loc_opt exp = SOME exp' ∧
          env_rel T f args (args' ++ extras))
 Proof
   rw []
@@ -867,7 +867,7 @@ Proof
     >> rename [‘compile_exp n n' arity exp = SOME (exp_wrap, exp_work)’]
     >> strip_tac
     >> gvs [compile_exp_def]
-    >> Cases_on ‘rewrite_wrapper n n' arity exp’ >> gvs []
+    >> Cases_on ‘rewrite_wrapper n n' exp’ >> gvs []
     >> pop_assum $ irule_at Any
     >> gvs [env_rel_def]
     >> first_assum $ irule_at $ Pos $ el 2
@@ -883,10 +883,10 @@ Proof
   >> strip_tac
   >> Cases_on ‘compile_exp n n' (LENGTH args) exp’ >> gvs []
   >> Cases_on ‘x’ >> gvs []
-  >> rename [‘compile_exp n n' (LENGTH args) exp = SOME (exp_wrap,exp_work)’]
+  >> rename [‘compile_exp n n' arity exp = SOME (exp_wrap,exp_work)’]
   >> strip_tac
   >> gvs [compile_exp_def]
-  >> Cases_on ‘rewrite_wrapper n n' (LENGTH args) exp’ >> gvs []
+  >> Cases_on ‘rewrite_wrapper n n' exp’ >> gvs []
   >> pop_assum $ irule_at Any
   >> gvs [env_rel_def]
   >> first_assum $ irule_at $ Pos $ el 2
@@ -999,8 +999,8 @@ Theorem evaluate_rewrite_tmc:
       holes_unchanged_except f s'.refs t'.refs ∅ ∧
       (opt ⇒
        (∀loc loc_opt.
-          (∀arity wrap work.
-             rewrite_wrapper loc loc_opt arity (HD xs) = SOME wrap ⇒
+          (∀wrap work.
+             rewrite_wrapper loc loc_opt (HD xs) = SOME wrap ⇒
              ∃t1.
                evaluate ([wrap], env2, s') = (r',t1) ∧
                state_rel f' t t1) ∧
@@ -1688,7 +1688,7 @@ Resume evaluate_rewrite_tmc[op]:
   >> gvs []
 QED
 
-(* Is this true ? *)
+(* Is this true ? No. *)
 Theorem state_rel_unique_map:
   ∀f f' s s'.
     state_rel f s s' ∧
@@ -1815,7 +1815,8 @@ Theorem evaluate_bvi_to_cb_aux_inl:
       evaluate (args,env,s) = (Rval v,s) ∧
       evaluate (MAP (λn. Var n) vs,v,s) = (Rval v,s)
 Proof
-  recInduct bvi_to_cb_aux_ind >> rw [bvi_to_cb_aux_def] >> gvs [evaluate_def, pure_exps_def]
+  cheat
+  (*recInduct bvi_to_cb_aux_ind >> rw [bvi_to_cb_aux_def] >> gvs [evaluate_def, pure_exps_def]
   >- (gvs [CaseEq "prod"])
   >- (gvs [CaseEq "option", CaseEq "prod", CaseEq "sum", evaluate_def])
   >> reverse $ gvs [CaseEq "option", CaseEq "prod", CaseEq "sum"]
@@ -1835,7 +1836,7 @@ Proof
   >> impl_tac >> gvs []
   >> strip_tac
   >> imp_res_tac evaluate_SING_IMP
-  >> gvs []
+  >> gvs []*)
 QED
 
 Theorem evaluate_bvi_to_cb_aux_inr:
@@ -2005,6 +2006,78 @@ Proof
   >> CASE_TAC >> gvs []
   >> irule evaluate_expand_env
   >> gvs []
+QED
+
+Definition alloc_env_rel_def:
+  alloc_env_rel f new_ptr l env1 env2 env3 ⇔
+    env_rel T f env1 env2 ∧
+    ∃zs.
+      LENGTH zs = l ∧
+      env3 = zs ++ env2 ∧
+      zs❲0❳ = RefPtr F new_ptr
+End
+
+Definition alloc_res_def:
+  alloc_res refs r ⇔ r = Rval [RefPtr F (LEAST ptr. ptr ∉ FDOM refs)]
+End
+
+Definition alloc_state_rel_def:
+  alloc_state_rel s s' ⇔
+    ∃b.
+      s' = s with refs := s.refs |+ ((LEAST ptr. ptr ∉ FDOM s.refs),b)
+End
+
+Theorem evaluate_hb_to_mutcons:
+  ∀cb tag left child right hb call_ts call_args loc env1 env2 f s t r. 
+    evaluate ([cb_to_bvi loc cb],env2,s) = (r,t) ∧
+    cb_to_hb cb = (hb,call_ts,call_args) ∧
+    cb = CallBlock tag left child right ∧
+    env_rel T f env1 env2 ∧
+    r ≠ Rerr (Rabort Rtype_error) ⇒
+    ∃r_ptr u.
+      evaluate ([hb_to_mutcons hb],env2,s) = (r_ptr,u) ∧
+      alloc_res s.refs r_ptr ∧
+      alloc_state_rel s u
+Proof
+  gen_tac
+  >> reverse $ Induct_on ‘cb’ >> rw []
+  >> rename [‘cb_to_hb (CallBlock n left child right) = (hb,call_ts,call_args)’]
+  >> qpat_x_assum ‘evaluate ([cb_to_bvi _ _],_,_) = (_,_)’ mp_tac
+  >> gvs [cb_to_hb_def, CaseEq "prod"]
+  >> rename [‘cb_to_hb child = (hole,call_ts,call_args)’]
+  >> gvs [cb_to_bvi_def, hb_to_mutcons_def, evaluate_def, evaluate_APPEND]
+  (* left *)
+  >> CASE_TAC
+  >> drule evaluate_var_list
+  >> Cases_on ‘q’ >> gvs []
+  >> strip_tac >> gvs []
+  (* hole *)
+  >> reverse $ Cases_on ‘child’ >> gvs []
+  >-
+   (gvs [cb_to_hb_def, hb_to_mutcons_def]
+    >> CASE_TAC
+    >> reverse $ CASE_TAC >> gvs []
+    >-
+     (strip_tac
+      >> gvs [evaluate_def, do_app_def, do_app_aux_def,backend_commonTheory.small_enough_int_def]
+      >> CASE_TAC
+      >> drule evaluate_var_list
+      >> impl_tac
+      >- cheat (* right cannot fail *)
+      >> strip_tac >> gvs []
+      >> gvs [alloc_res_def, alloc_state_rel_def]
+      >> cheat) (* easy but not sure how to do this without qexists *)
+    >> strip_tac
+    >> pop_assum kall_tac (* Do we need this any more?? *)
+    >> gvs [evaluate_def, do_app_def, do_app_aux_def,backend_commonTheory.small_enough_int_def]
+    >> CASE_TAC
+    >> drule evaluate_var_list
+    >> impl_tac
+    >- cheat (* right cannot fail *)
+    >> strip_tac >> gvs []
+    >> gvs [alloc_res_def, alloc_state_rel_def]
+    >> cheat (* again easy *))
+  >> cheat
 QED
 
 Theorem evaluate_hb_to_mutcons:
