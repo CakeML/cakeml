@@ -102,6 +102,7 @@ End
 Datatype:
   decl = Function ('a fun_decl)
        | Decl shape mlstring ('a exp)
+       | ExnDecl eid shape
 End
 
 Overload TailCall = “Call NONE”

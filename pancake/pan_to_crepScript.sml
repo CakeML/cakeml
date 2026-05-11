@@ -341,12 +341,31 @@ Definition comp_func_def:
     compile (mk_ctxt vmap fs vmax eids) body
 End
 
+(*
 Definition get_eids_def:
   get_eids (prog:('b#'c#'a panLang$prog) list) =
    let eids = nub (FLAT (MAP (exp_ids o SND o SND) prog));
        ns   = GENLIST (λx. (n2w x):'a word) (LENGTH eids);
        es   = MAP2 (λx y. (x,y)) eids ns in
     alist_to_fmap es
+End
+*)
+
+(* extract eids from exception declarations *)
+Definition get_eids_from_decls_def:
+  get_eids_from_decls decls =
+    let eids =
+          FOLDR
+            (λd acc.
+               case d of
+               | ExnDecl eid sh => eid :: acc
+               | _              => acc)
+            [] decls;
+        eids = nub eids;
+        ns   = GENLIST (λx. (n2w x):'a word) (LENGTH eids);
+        es   = MAP2 (λx y. (x,y)) eids ns
+    in
+      alist_to_fmap es
 End
 
 Definition make_funcs_def:
@@ -366,9 +385,9 @@ Definition crep_vars_def:
 End
 
 Definition compile_to_crep_def:
-  compile_to_crep prog =
-  let prog = functions prog;
-      comp = comp_func (make_funcs prog) (get_eids prog) in
+  compile_to_crep decls =
+  let prog = functions decls;
+      comp = comp_func (make_funcs prog) (get_eids_from_decls decls) in
     MAP (λ(name, params, body).
           (name,
            crep_vars params,

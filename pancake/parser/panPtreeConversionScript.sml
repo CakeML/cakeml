@@ -550,6 +550,17 @@ Definition conv_GlobalDec_def:
   conv_GlobalDec _ = NONE
 End
 
+Definition conv_ExnDec_def:
+  conv_ExnDec tree =
+    case argsNT tree ExnDecNT of
+      SOME [id; sh] =>
+        do eid <- conv_ident id;
+           sh' <- conv_Shape sh;
+           SOME (eid, sh')
+        od
+    | _ => NONE
+End
+
 Definition conv_DecCall_def:
   (conv_DecCall (^Nd nodeNT args) =
    if isNT nodeNT DecCallNT then
@@ -724,8 +735,11 @@ Definition conv_TopDec_def:
        | _ => NONE)
   | _ =>
       (case conv_GlobalDec tree of
-         NONE => NONE
-       | SOME (sh,v,e) => SOME $ Decl sh v e)
+         SOME (sh,v,e) => SOME $ Decl sh v e
+       | NONE =>
+          (case conv_ExnDec tree of
+            SOME (eid, sh) => SOME $ ExnDecl eid sh
+          | NONE => NONE))
 End
 
 Definition conv_TopDecList_def:
