@@ -25,6 +25,8 @@ Definition remove_must_terminate_def:
     let h = case h of NONE => NONE
                     | SOME (v,prog,l1,l2) => SOME (v,remove_must_terminate prog,l1,l2) in
       Call ret dest args h) ∧
+  (remove_must_terminate (Loop names body exit_names) =
+    Loop names (remove_must_terminate body) exit_names) ∧
   (remove_must_terminate prog = prog)
 End
 
@@ -43,6 +45,8 @@ Theorem remove_must_terminate_pmatch:
     let h = pmatch h of NONE => NONE
                     | SOME (v,prog,l1,l2) => SOME (v,remove_must_terminate prog,l1,l2) in
       Call ret dest args h)
+  | (Loop names body exit_names) =>
+    Loop names (remove_must_terminate body) exit_names
   | prog => prog
 Proof
   rpt(

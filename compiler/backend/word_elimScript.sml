@@ -34,6 +34,7 @@ Definition find_word_ref_def:
     (find_word_ref (If _ _ _ p1 p2) =
         union (find_word_ref p1) (find_word_ref p2)) ∧
     (find_word_ref (LocValue _ n) = insert n () LN) ∧
+    (find_word_ref (Loop names body exit_names) = find_word_ref body) ∧
     (find_word_ref _ = LN)
 End
 
