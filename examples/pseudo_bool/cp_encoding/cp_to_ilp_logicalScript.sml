@@ -340,18 +340,7 @@ Proof
   >-simp[EVERY_FLAT,EVERY_MAP,reify_avar_def,reify_reif_def]>>
   simp[encode_parity_aux_def,cencode_parity_aux_def,iconstraint_sem_def]>>
   rpt CONJ_TAC
-  >-(
-    simp[reify_avar_def,reify_flag_def]>>
-    rename1‘if ODD s then _ else _’>>
-    simp[ODD_EVEN,EVEN_ADD]>>
-    Cases_on‘EVEN s’>>
-    fs[])
-  >-(
-    simp[reify_avar_def,reify_reif_def,reify_flag_def,
-      intLib.ARITH_PROVE“(a:int) ≥ 1 ⇔ a > 0”]>>
-    rename1‘if b then _ else _’>>
-    Cases_on‘b’>>
-    fs[])
+  >~[‘EVERY _ _’]
   >-(
     simp[EVERY_FLAT,o_ABS_R]>>
     qmatch_goalsub_abbrev_tac‘EVERY P _’>>
@@ -360,10 +349,16 @@ Proof
     simp[reify_avar_def,reify_reif_def,reify_flag_def,
       TAKE_EL_SNOC,MAP_SNOC,SNOC_APPEND,SUM_APPEND,
       intLib.ARITH_PROVE“(a:int) ≥ 1 ⇔ a > 0”]>>
-    rename1‘ODD (s + (b1 + if b2 then _ else _)) ⇔ _’>>
-    Cases_on‘b2’>>
+    rename1‘ODD (s + (t + if b then _ else _)) ⇔ _’>>
+    Cases_on‘b’>>
     simp[ODD_EVEN,EVEN_ADD]>>
-    metis_tac[])
+    metis_tac[])>>
+  simp[reify_avar_def,reify_reif_def,reify_flag_def,
+    intLib.ARITH_PROVE“(a:int) ≥ 1 ⇔ a > 0”]>>
+  rename1‘if ODD s then _ else _’>>
+  simp[ODD_EVEN,EVEN_ADD]>>
+  Cases_on‘EVEN s’>>
+  simp[]
 QED
 
 Theorem encode_parity_sem_2:
