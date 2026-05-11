@@ -1476,18 +1476,6 @@ Resume evaluate_rewrite_tmc[op]:
          >> Cases_on ‘b’ >> gvs [dest_Cons_def])
       >> gvs [rewrite_wrapper_cons_def]
       >> gvs [CaseEq "option", CaseEq "prod"]
-      >> rename [‘cb_to_hb cb = (hb,call_ts,call_args)’]
-      >> ‘evaluate ([Op (BlockOp (Cons tag)) xs],env,s) = (Rerr e,t)’ by gvs [evaluate_def]
-      >> drule evaluate_bvi_to_cb
-      >> disch_then drule
-      >> gvs []
-      >> strip_tac
-      >> gvs [evaluate_def]
-      (* Hypothesis on bs *)
-      >> first_assum $ qspecl_then [‘bs’, ‘s’] mp_tac
-      >> gvs []
-      >> impl_tac
-      >- (imp_res_tac bvi_to_cb_size >> gvs [])
       >> cheat)
     >> rw []
     >> gvs [rewrite_worker_def, evaluate_def]
@@ -1574,11 +1562,51 @@ Resume evaluate_rewrite_tmc[op]:
   >> CASE_TAC >> gvs []
   >> rename [‘bvi_to_cb loc tag args = SOME (bs,cb)’]
   >> rename [‘cb_to_hb cb = (hb,call_ts,call_args)’]
-  (* Phase 1 theorem in s *)
+  (* Phase 1 theorem *)
   >> ‘evaluate ([Op (BlockOp (Cons tag)) args],env,s) = (Rval [v],t)’ by gvs [evaluate_def]
   >> drule evaluate_bvi_to_cb
-  >> disch_then drule
+  >> rpt $ disch_then drule
   >> gvs [evaluate_def]
+  >> strip_tac
+  >> gvs []
+  >> imp_res_tac bvi_to_cb_wf
+  >> rename [‘cb = CallBlock tag left child right’]
+  >> gvs [cb_to_hb_def, CaseEq "call_block", CaseEq "prod"]
+  >> rename [‘cb_to_hb child = (hole,call_ts,call_args)’]
+  >> rename [‘evaluate (bs,env,s) = (as,w)’]
+  >> gvs [CaseEq "result"]
+  (* Hypothesis on bs *)
+  >> first_assum $ qspecl_then [‘bs’, ‘s’] mp_tac
+  >> gvs []
+  >> impl_tac
+  >- (imp_res_tac bvi_to_cb_size >> gvs [])
+  >> disch_then drule
+  >> disch_then drule
+  >> disch_then drule
+  >> gvs []
+  >> strip_tac
+  >> gvs []
+  >> rename [‘LIST_REL (v_rel f'') as as'’]
+  >> rename [‘state_rel f'' w w'’]
+  >> strip_tac >> gvs []
+  >-
+   (rw []
+    >> drule evaluate_hb_to_bvi_wrapper
+    >> disch_then $ qspecl_then [‘tag’, ‘left’, ‘child’, ‘right’, ‘hole’, ‘call_ts’, ‘call_args’] mp_tac
+    >> simp [cb_to_hb_def]
+    >> qpat_x_assum ‘env_rel _ _ _ _’ kall_tac
+    >> drule_all env_rel_submap
+    >> strip_tac
+    >> drule_all env_rel_append
+    >> strip_tac
+    >> disch_then drule_all
+    >> disch_then $ qspec_then ‘loc_opt’ mp_tac
+    >> strip_tac
+    >> gvs [evaluate_def]
+    (* map weirdness *)
+    >> cheat
+   )
+                
   >> CASE_TAC
   >> CASE_TAC
   >> rename [‘evaluate (bs,env,s) = (Rval as,w)’]
@@ -2028,15 +2056,16 @@ Definition alloc_state_rel_def:
 End
 
 Theorem evaluate_hb_to_mutcons:
-  ∀cb tag left child right hb call_ts call_args loc env s t r. 
+  ∀cb tag left child right hb call_ts call_args loc env s s' t r f.
     evaluate ([cb_to_bvi loc cb],env,s) = (r,t) ∧
     cb_to_hb cb = (hb,call_ts,call_args) ∧
     cb = CallBlock tag left child right ∧
+    state_rel f s s' ∧
     r ≠ Rerr (Rabort Rtype_error) ⇒
-    ∃r_ptr u.
-      evaluate ([hb_to_mutcons hb],env,s) = (r_ptr,u) ∧
+    ∃r_ptr u'.
+      evaluate ([hb_to_mutcons hb],env,s') = (r_ptr,u') ∧
       alloc_res s.refs r_ptr ∧
-      alloc_state_rel s u
+      alloc_state_rel s' u'
 Proof
   gen_tac
   >> reverse $ Induct_on ‘cb’ >> rw []
@@ -2050,6 +2079,7 @@ Proof
   >> drule evaluate_var_list
   >> Cases_on ‘q’ >> gvs []
   >> strip_tac >> gvs []
+  >> rename [‘state_rel f s s'’]
   (* hole *)
   >> reverse $ Cases_on ‘child’ >> gvs []
   >-
@@ -2286,18 +2316,20 @@ Proof
 QED
 
 Theorem evaluate_hb_to_bvi_wrapper:
-  ∀cb tag left child right hb call_ts call_args loc loc_opt arity f' env1 env2 s' t t' r.
-    evaluate ([cb_to_bvi loc cb],env2,s') = (r,t') ∧
-    cb_to_hb cb = (hb,call_ts,call_args) ∧
+  ∀cb tag left child right hole call_ts call_args loc loc_opt arity f env1 env2 s s' t r.
+    evaluate ([cb_to_bvi loc cb],env1,s) = (r,t) ∧
+    cb_to_hb cb = (HoleBlock tag left hole right,call_ts,call_args) ∧
     cb = CallBlock tag left child right ∧
     env_rel T f env1 env2 ∧
-    state_rel f' t t' ∧
+    state_rel f s s' ∧
     r ≠ Rerr (Rabort Rtype_error) ⇒
-    ∃t''.
-      evaluate ([hb_to_bvi_wrapper loc loc_opt arity hb call_ts call_args],env2,s') = (r,t') ∧
-      state_rel f t t''
+    ∃r' t'.
+      evaluate ([hb_to_bvi_wrapper loc loc_opt tag left hole right call_ts call_args],env2,s') = (r',t') ∧
+      state_rel f t t' ∧
+      result_rel (LIST_REL (v_rel f)) (v_rel f) r r'
 Proof
-  rw []
+  cheat
+  (*rw []
   >> imp_res_tac env_rel_strip_extras
   >> rename [‘env_rel F f env1 env2’]
   >> gvs [cb_to_hb_def, CaseEq "prod", hb_to_bvi_wrapper_def, Once evaluate_def]
@@ -2306,11 +2338,7 @@ Proof
   >> drule evaluate_hb_to_mutcons
   >> disch_then $ qspecl_then [‘tag’, ‘left’, ‘child’, ‘right’] mp_tac
   >> gvs [cb_to_hb_def]
-  >> disch_then drule
-
-  >> strip_tac             
-  >> gvs [Once evaluate_def]
-  >> cheat
+  >> disch_then drule*)
 QED
 
 Theorem evaluate_hb_to_bvi_worker:
