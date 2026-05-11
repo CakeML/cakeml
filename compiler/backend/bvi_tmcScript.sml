@@ -7,36 +7,35 @@ Ancestors
 Libs
   preamble
 
-(* TODO: Read only MemOps *)
-(* This needs to be very strict - nothing should be able to fail here *)
-(* Only IntOps/IntOp Const/BlockOp Cons (as long as all internal ones don't fail) *)
-Definition effectful_op_def:
-  (effectful_op (Label _) = F) ∧
-  (effectful_op (FFI _) = T) ∧
-  (effectful_op (IntOp _) = F) ∧
-  (effectful_op (WordOp _) = F) ∧
-  (effectful_op (BlockOp _) = F) ∧
-  (effectful_op (GlobOp _) = T) ∧
-  (effectful_op (MemOp _) = T) ∧
-  (effectful_op Install = T) ∧
-  (effectful_op (ThunkOp _) = T)
+Definition pure_op_def:
+  (pure_op (Label _) = F) ∧
+  (pure_op (FFI _) = F) ∧
+  (pure_op (IntOp _) = F) ∧
+  (pure_op (WordOp _) = F) ∧
+  (pure_op (BlockOp (Cons _)) = T) ∧
+  (pure_op (BlockOp LengthBlock) = T) ∧
+  (pure_op (BlockOp (TagEq _)) = T) ∧
+  (pure_op (BlockOp (LenEq _)) = T) ∧
+  (pure_op (BlockOp (TagLenEq _ _)) = T) ∧
+  (pure_op (BlockOp _) = F) ∧
+  (pure_op (GlobOp _) = F) ∧
+  (pure_op (MemOp ConfigGC) = T) ∧
+  (pure_op (MemOp _) = F) ∧
+  (pure_op Install = F) ∧
+  (pure_op (ThunkOp _) = F)
 End
 
-Definition effectful_exps_def:
-  (effectful_exps [] = F) ∧
-  (effectful_exps [Var _] = T) ∧
-  (effectful_exps [If e1 e2 e3] = (effectful_exps [e1] ∨ effectful_exps [e2] ∨ effectful_exps [e3])) ∧
-  (effectful_exps [Let es e] = effectful_exps (e::es)) ∧
-  (effectful_exps [Raise _] = T) ∧
-  (effectful_exps [Tick e] = T) ∧ (* TODO *)
-  (effectful_exps [Call _ _ _ _] = T) ∧
-  (effectful_exps [Force _ _] = T) ∧
-  (effectful_exps [Op op args] = (effectful_op op ∨ effectful_exps args)) ∧
-  (effectful_exps (h::t) = (effectful_exps [h] ∨ effectful_exps t))
-End
-
-Definition effectful_exp_def:
-  (effectful_exp e = effectful_exps [e])
+Definition pure_exps_def:
+  (pure_exps [] = T) ∧
+  (pure_exps [Var _] = F) ∧
+  (pure_exps [If e1 e2 e3] = F) ∧
+  (pure_exps [Let es e] = (pure_exps [e] ∧ pure_exps es)) ∧
+  (pure_exps [Raise _] = F) ∧
+  (pure_exps [Tick e] = F) ∧
+  (pure_exps [Call _ _ _ _] = F) ∧
+  (pure_exps [Force _ _] = F) ∧
+  (pure_exps [Op op args] = (pure_op op ∧ pure_exps args)) ∧
+  (pure_exps (h::t) = (pure_exps [h] ∧ pure_exps t))
 End
 
 Definition dest_Cons_def:

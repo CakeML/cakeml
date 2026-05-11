@@ -1750,6 +1750,10 @@ Proof
   Induct
   >- gvs [evaluate_def, bind_def]
   >> rw []
+  >> gvs [Once evaluate_CONS, evaluate_def]
+  >> gvs [CaseEq "prod", CaseEq "result"]
+  >> first_x_assum drule
+  >> gvs [bind_def, CaseEq "prod"]
   >> cheat
 QED
 
@@ -1789,46 +1793,29 @@ QED
 
 Theorem evaluate_pure_exps:
   ∀xs.
-    ~effectful_exps xs ⇒
+    pure_exps xs ⇒
     ∃v. ∀env s.
           evaluate (xs,env,s) = (Rval v,s)
 Proof
-  recInduct effectful_exps_ind
-  >> rpt conj_tac
-  >> rpt gen_tac
-  >> strip_tac
-  >> gvs [effectful_exps_def, evaluate_def]
-  >~ [‘¬effectful_exps [Var n]’] >-
-   (gvs [evaluate_def] >> Cases_on ‘n < LENGTH env’ >> gvs [] >> cheat)
-  >~ [‘¬effectful_exps [If e1 e2 e3]’] >-
-   (gvs [evaluate_def] >> cheat)
-  >~ [‘¬effectful_exps [Let xs x]’] >-
-   (gvs [evaluate_def] >> cheat)
-  >~ [‘¬effectful_exps [Raise x]’] >-
-   (gvs [evaluate_def] >> cheat)
-  >~ [‘¬effectful_exps [Tick x]’] >-
-   (gvs [evaluate_def] >> cheat)
-  >~ [‘¬effectful_exps [Call ts loc args h]’] >-
-   (gvs [evaluate_def] >> cheat)
-  >~ [‘¬effectful_exps [Force _ _]’] >-
-   (gvs [evaluate_def] >> cheat)
-  >~ [‘¬effectful_exps [Op op args]’] >-
-   (gvs [evaluate_def] >> cheat)
-  >~ [‘¬effectful_exps (x::y::xs)’] >-
-   (gvs [evaluate_def] >> cheat)
+  recInduct pure_exps_ind
+  >> rw []
+  >> gvs [pure_exps_def, evaluate_def]
+  >> Cases_on ‘op’ >> gvs [pure_op_def, do_app_def, do_app_aux_def]
+  >-
+   (Cases_on ‘b’ >> gvs [pure_op_def, do_app_def, do_app_aux_def, bvl_to_bvi_id, bvlSemTheory.do_app_def, bvi_to_bvl_def] >> cheat)
+  >> cheat
 QED
 
 Theorem evaluate_bvi_to_cb_aux_inl:
   ∀loc tag args bs vs.
     bvi_to_cb_aux loc tag args = SOME (bs,INL vs) ⇒
     bs = args ∧
-    ~effectful_exps args ∧
+    pure_exps args ∧
     ∃v. ∀s env.
       evaluate (args,env,s) = (Rval v,s) ∧
       evaluate (MAP (λn. Var n) vs,v,s) = (Rval v,s)
 Proof
-  cheat
-  (*recInduct bvi_to_cb_aux_ind >> rw [bvi_to_cb_aux_def] >> gvs [evaluate_def]
+  recInduct bvi_to_cb_aux_ind >> rw [bvi_to_cb_aux_def] >> gvs [evaluate_def, pure_exps_def]
   >- (gvs [CaseEq "prod"])
   >- (gvs [CaseEq "option", CaseEq "prod", CaseEq "sum", evaluate_def])
   >> reverse $ gvs [CaseEq "option", CaseEq "prod", CaseEq "sum"]
@@ -1848,7 +1835,7 @@ Proof
   >> impl_tac >> gvs []
   >> strip_tac
   >> imp_res_tac evaluate_SING_IMP
-  >> gvs []*)
+  >> gvs []
 QED
 
 Theorem evaluate_bvi_to_cb_aux_inr:
