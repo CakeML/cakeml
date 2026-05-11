@@ -591,34 +591,7 @@ Proof
    fs [] >>
    imp_res_tac compile_eval_correct >>
    fs [])
-  >- (
-   rename [‘eval s (Panop op es)’] >>
-   rw[eval_def] \\
-   PURE_TOP_CASE_TAC
-   THEN1 (gvs[AllCaseEqs(),DefnBase.one_line_ify NONE pan_op_def,MAP_EQ_CONS,PULL_EXISTS,
-              SF DNF_ss] \\
-          imp_res_tac OPT_MMAP_NONE \\
-          gvs[] \\
-          res_tac \\
-          disj1_tac \\
-          metis_tac[OPT_MMAP_NONE']) \\
-   gvs[optionTheory.IF_NONE_EQUALS_OPTION] \\
-   strip_tac \\
-   fs[CaseEq "option", CaseEq "bool"]
-   THEN1 (imp_res_tac OPT_MMAP_NONE \\
-          fs[] \\
-          metis_tac[NOT_NONE_SOME,OPT_MMAP_NONE'])
-   THEN1 (imp_res_tac pan_commonPropsTheory.opt_mmap_length_eq \\
-          qhdtm_x_assum ‘pan_op’ $ assume_tac o REWRITE_RULE[oneline pan_op_def] \\
-          gvs[pan_op_def,AllCaseEqs(),
-              quantHeuristicsTheory.LIST_LENGTH_1,LENGTH_CONS,MAP_EQ_CONS,PULL_EXISTS,
-              EVERY_MEM] \\
-          simp[oneline pan_op_def]) \\
-   gvs[EXISTS_MEM,EVERY_MEM] \\
-   gvs[pan_commonPropsTheory.opt_mmap_eq_some,MAP_EQ_EVERY2,LIST_REL_EL_EQN,MEM_EL,PULL_EXISTS] \\
-   res_tac \\
-   drule_all_then strip_assume_tac compile_eval_correct \\
-   gvs[])
+  >~ [‘eval s (Panop op es)’] >- suspend "Panop"
   >- (
    rpt gen_tac >> strip_tac >>
    fs [panSemTheory.eval_def] >>
@@ -633,6 +606,23 @@ Proof
   imp_res_tac compile_eval_correct >>
   fs []
 QED
+
+Resume compile_eval_correct_none[Panop]:
+  rpt strip_tac
+  >> qpat_x_assum ‘eval s _ = _’ mp_tac
+  >> simp [eval_def]
+  >> TOP_CASE_TAC >> gvs []
+  >-
+   (‘OPT_MMAP (λa. eval t a) es = NONE’ suffices_by simp []
+    >> irule OPT_MMAP_NONE'
+    >> drule OPT_MMAP_NONE >> strip_tac
+    >> last_x_assum drule >> fs []
+    >> disch_then drule
+    >> disch_then $ irule_at Any >> simp [])
+  >> drule_all_then assume_tac OPT_MMAP_eval_some_eq >> simp []
+QED
+
+Finalise compile_eval_correct_none
 
 val goal =
   ``λ comp (prog, s). ∀res s1 t ctxt.
