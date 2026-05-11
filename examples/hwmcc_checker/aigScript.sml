@@ -617,31 +617,41 @@ Definition mk_trace_def:
        steps_agree mlatches succ (tr (SUC n)))
 End
 
-Theorem extend_model_trace_to_witness:
-  (* model latches constraints *)
-  dep_circuit mlatches mcirc ∧
-  dep_latch_lit mlatches mreset ∧
-  dep_latch_lit mlatches mnext ∧
-  dep_lits mlatches mcnstrs ∧
-  (* witness latches constraints *)
-  FINITE wlatches ∧
+Definition dep_model_def:
+  dep_model
+    circ reset next preds cnstrs latches ⇔
+  dep_circuit latches circ ∧
+  dep_latch_lit latches reset ∧
+  dep_latch_lit latches next ∧
+  dep_lits latches preds ∧
+  dep_lits latches cnstrs
+End
+
+Definition is_stratified_full_def:
+  is_stratified_full lt circ reset latches ⇔
+  FINITE latches ∧
   irreflexive lt ∧
   transitive lt ∧
-  total lt ∧  (* for QSORT_SORTED *)
-  is_stratified lt wcirc wreset wlatches ∧
+  total lt ∧   (* for QSORT_SORTED *)
+  is_stratified lt circ reset latches
+End
+
+Theorem extend_model_trace_to_witness:
   is_witness_reset
     mcirc mreset mnext mpreds mcnstrs mlatches
     wcirc wreset wnext wpreds wcnstrs wlatches ∧
   is_witness_transition
     mcirc mreset mnext mpreds mcnstrs mlatches
-    wcirc wreset wnext wpreds wcnstrs wlatches
+    wcirc wreset wnext wpreds wcnstrs wlatches ∧
+  dep_model mcirc mreset mnext mpreds mcnstrs mlatches ∧
+  is_stratified_full lt wcirc wreset wlatches
   ⇒
   ∃tr'. ∀n.
     is_trace mcirc mreset mnext mcnstrs mlatches tr n ⇒
     is_trace wcirc wreset wnext wcnstrs wlatches tr' n ∧
     traces_agree n mlatches tr' tr
 Proof
-  rw []
+  rw [dep_model_def, is_stratified_full_def]
   >> qexists ‘mk_trace lt mlatches wcirc wreset wnext wpreds wcnstrs wlatches tr’
   >> Induct_on ‘n’ >> strip_tac
   >-
@@ -744,25 +754,6 @@ Proof
   metis_tac[is_trace_preds_hold_n]
 QED
 
-Definition dep_model_def:
-  dep_model
-    circ reset next preds cnstrs latches ⇔
-  dep_circuit latches circ ∧
-  dep_latch_lit latches reset ∧
-  dep_latch_lit latches next ∧
-  dep_lits latches preds ∧
-  dep_lits latches cnstrs
-End
-
-Definition is_stratified_full_def:
-  is_stratified_full lt circ reset latches ⇔
-  FINITE latches ∧
-  irreflexive lt ∧
-  transitive lt ∧
-  total lt ∧
-  is_stratified lt circ reset latches
-End
-
 Theorem is_witness_is_safe:
   is_witness
     mcirc mreset mnext mpreds mcnstrs mqcirc mlive mlatches
@@ -776,16 +767,17 @@ Theorem is_witness_is_safe:
 Proof
   rw [is_witness_def, is_safe_def]
   >> CCONTR_TAC
-  >> fs [is_unsafe_def, dep_model_def,is_stratified_full_def]
+  >> fs [is_unsafe_def]
   >> pop_assum mp_tac >> simp[]
   >> rename1 ‘preds_hold (tr _)’
-  >> drule_at_then (Pos last) drule extend_model_trace_to_witness
-  >> disch_then $ qspecl_then [‘tr’, ‘lt’] mp_tac >> rw []
+  >> drule_all extend_model_trace_to_witness
+  >> disch_then $ qspec_then ‘tr’ mp_tac >> rw []
   >> first_assum drule >> strip_tac
   >> drule_all is_witness_base_step_safe
   >> strip_tac
+  >> fs [dep_model_def]
   >> `is_trace mcirc mreset mnext mcnstrs mlatches tr' n` by
-    (irule is_trace_dep_circuit >> simp []
+    (irule is_trace_dep_circuit >> fs []
      >> first_assum $ irule_at (Pos hd) >> simp [])
   >> drule_at_then Any irule preds_hold_dep_circuit
   >> rename1`traces_agree n mlatches tr' tr`
@@ -890,7 +882,7 @@ Theorem is_witness_is_live:
   is_live
     mcirc mreset mnext mcnstrs mqcirc mlive mlatches
 Proof
-  rw [is_live_def]
+  rw [is_witness_def, is_live_def]
   (*
      1. extend model inf trace to witness inf trace
         (using/adjusting extend_model_trace_to_witness)
