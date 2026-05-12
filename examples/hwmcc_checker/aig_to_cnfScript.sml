@@ -23,7 +23,7 @@ Definition prune_def:
   prune ([]:('a,'i,'l) and list) (live :'a |-> unit) = [] ∧
   prune ((m,ts)::xs) live =
     case FLOOKUP live m of
-    | NONE => (m,ts) :: prune xs live
+    | NONE => prune xs live
     | _ =>
         let live' = live \\ m in
           (m,ts) :: prune xs (new_live ts live')
@@ -90,13 +90,32 @@ Proof
   \\ rw [] \\ fs [FLOOKUP_DEF]
 QED
 
+Definition eval_circuit'_def:
+  eval_circuit' is_ls [] = F ∧
+  eval_circuit' is_ls ((x,ts)::rest) = eval_circuit is_ls ((x,ts)::rest) x
+End
+
+Theorem eval_circuit'_same:
+  (~NULL ands ⇒ FST (HD ands) = name) ⇒
+  (eval_circuit (is,ls) ands name ⇔ eval_circuit' (is,ls) ands)
+Proof
+  Cases_on ‘ands’ \\ fs [eval_circuit'_def, eval_circuit_def]
+  \\ PairCases_on ‘h’ \\ fs [eval_circuit'_def, eval_circuit_def]
+QED
+
 Theorem eval_circuit_prune_for:
-  eval_circuit (is,ls) (prune_for name ands) name =
+  eval_circuit' (is,ls) (prune_for name ands) =
   eval_circuit (is,ls) ands name
 Proof
   simp [Once EQ_SYM_EQ, prune_for_def]
-  \\ irule eval_circuit_prune
+  \\ irule EQ_TRANS
+  \\ irule_at Any eval_circuit_prune
+  \\ qrefinel [‘_’,‘FEMPTY⟨name ↦ ()⟩’]
   \\ simp [FLOOKUP_SIMP]
+  \\ irule eval_circuit'_same
+  \\ Induct_on ‘ands’ \\ fs [prune_def]
+  \\ Cases \\ fs [prune_def, FLOOKUP_SIMP]
+  \\ IF_CASES_TAC \\ fs []
 QED
 
 (*----------------------------------------------------------------------*
@@ -532,11 +551,6 @@ Proof
   \\ asm_rewrite_tac [FUNION_ASSOC]
 QED
 
-Definition eval_circuit'_def:
-  eval_circuit' is_ls [] = F ∧
-  eval_circuit' is_ls ((x,ts)::rest) = eval_circuit is_ls ((x,ts)::rest) x
-End
-
 Theorem eval_circuit'_swap:
   (∀i. has_var (Input i) res ⇒ is i = is1 i) ⇒
   (∀l. has_var (Latch l) res ⇒ ls l = ls1 l) ⇒
@@ -703,9 +717,10 @@ Definition to_cnf_def:
 End
 
 Definition direct_circuit_to_cnf_def:
-  direct_circuit_to_cnf (ands : (num,num,num) and list) name =
-    if NULL ands then [[]] else
-      ([Pos name] :: to_cnf ands []) : num lit list list
+  direct_circuit_to_cnf (ands : (num,num,num) and list) =
+    case ands of
+    | [] => [[]]
+    | ((name,_)::_) => ([Pos name] :: to_cnf ands []) : num lit list list
 End
 
 Definition eval_circuits_def:
@@ -929,11 +944,10 @@ QED
 
 Theorem direct_circuit_to_cnf_correct:
   ALL_DISTINCT (MAP FST ands) ∧ closed ands ∧
-  (~NULL ands ⇒ FST (HD ands) = name) ∧
   (∀l. has_var (Latch l) ands ⇒ l ∈ l_dom) ∧
   (∀i. has_var (Input i) ands ⇒ i ∈ i_dom) ∧
   DISJOINT3 i_dom l_dom (set (MAP FST ands)) ⇒
-  (satisfiable_cnf (set (direct_circuit_to_cnf ands name)) =
+  (satisfiable_cnf (set (direct_circuit_to_cnf ands)) =
    ∃is ls. eval_circuit' (is,ls) ands)
 Proof
   rw [satisfiable_cnf_def] \\ eq_tac \\ strip_tac
@@ -941,26 +955,26 @@ Proof
    (qexists ‘w’ \\ qexists ‘w’
     \\ fs [direct_circuit_to_cnf_def]
     \\ pop_assum mp_tac
-    \\ Cases_on ‘NULL ands’
+    \\ Cases_on ‘ands’
     >- (rw [] \\ gvs [eval_circuit'_def]
         \\ fs [satisfies_cnf_def, satisfies_fml_gen_def, satisfies_clause_def])
+    \\ PairCases_on ‘h’
     \\ simp []
     \\ once_rewrite_tac [satisfies_cnf_INSERT]
     \\ rw [satisfies_clause_def, satisfies_lit_def]
     \\ drule_all satisfies_cnf_IMP
-    \\ Cases_on ‘ands’ \\ gvs []
-    \\ PairCases_on ‘h’
-    \\ gvs [eval_circuits_def,eval_circuit'_def])
+    \\ gvs [eval_circuits_def,eval_circuit'_def]
+    \\ gvs [eval_circuit_def])
   \\ qexists ‘cnf_witness i_dom l_dom is ls ands’
   \\ simp [direct_circuit_to_cnf_def]
-  \\ IF_CASES_TAC \\ simp [] >- gvs [NULL_EQ, eval_circuit'_def]
+  \\ Cases_on ‘ands’ >- gvs [eval_circuit'_def]
+  \\ PairCases_on ‘h’ \\ fs []
   \\ once_rewrite_tac [satisfies_cnf_INSERT]
   \\ conj_tac
   >-
    (simp [satisfies_clause_def, satisfies_lit_def]
     \\ simp [cnf_witness_def]
-    \\ Cases_on ‘ands’ \\ gvs [] \\ PairCases_on ‘h’ \\ fs []
     \\ fs [find_suffix_def, eval_circuit'_def]
     \\ rw [] \\ fs [DISJOINT3_def,IN_DISJOINT])
-  \\ drule_all eval_circuit_IMP_cnf \\ simp []
+  \\ drule eval_circuit_IMP_cnf \\ fs []
 QED
