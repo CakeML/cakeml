@@ -421,7 +421,8 @@ Proof
 QED
 
 Definition hole_has_val_def:
-  hole_has_val (f : num |-> num) (env1 : v list) (env2 : v list) (refs : num |-> v ref) c =
+  hole_has_val (f : num |-> num) (env1 : v list) (env2 : v list) (refs : num |-> v ref) c ⇔
+  LENGTH env2 = LENGTH env1 + 2 ∧
   ∃hole_ptr tag left right.
     env2❲LENGTH env1❳ = RefPtr F hole_ptr ∧
     env2❲LENGTH env1 + 1❳ = Number (&LENGTH left) ∧
@@ -522,8 +523,6 @@ Theorem unchanged_hole_has_val:
     hole_has_val f' env (env' ++ [RefPtr F hole_ptr; Number hole_idx]) refs' c
 Proof
   rw [hole_has_val_def]
-  >> drule env_rel_length_opt
-  >> strip_tac
   >> gvs [EL_APPEND_EQN, holes_unchanged_except_def]
   >> first_x_assum drule_all
   >> strip_tac
@@ -1562,6 +1561,7 @@ Resume evaluate_rewrite_tmc[op]:
   >> CASE_TAC >> gvs []
   >> rename [‘bvi_to_cb loc tag args = SOME (bs,cb)’]
   >> rename [‘cb_to_hb cb = (hb,call_ts,call_args)’]
+                       
   (* Phase 1 theorem *)
   >> ‘evaluate ([Op (BlockOp (Cons tag)) args],env2,s') = (Rval [v'],t')’ by gvs [evaluate_def]
   >> drule evaluate_bvi_to_cb
@@ -1575,8 +1575,7 @@ Resume evaluate_rewrite_tmc[op]:
   >> rename [‘cb_to_hb child = (hole,call_ts,call_args)’]
   >> rename [‘evaluate (bs,env2,s') = (as',w')’]
   >> gvs [CaseEq "result"]
-  (* now applying in opt world - skip this *)
-                  (*
+                 
   (* Hypothesis on bs *)
   >> first_assum $ qspecl_then [‘bs’, ‘s’] mp_tac
   >> gvs []
@@ -1591,10 +1590,10 @@ Resume evaluate_rewrite_tmc[op]:
   >> rename [‘LIST_REL (v_rel f'') as as'’]
   >> rename [‘state_rel f'' w w'’]
   >> strip_tac >> gvs []
-                  *)
+
   >> rw []
-  >-
-   (rw []
+  >- cheat
+   (*rw []
     >> drule evaluate_hb_to_bvi_wrapper
     >> disch_then $ qspecl_then [‘tag’, ‘left’, ‘child’, ‘right’, ‘hole’, ‘call_ts’, ‘call_args’] mp_tac
     >> simp [cb_to_hb_def]
@@ -1609,7 +1608,7 @@ Resume evaluate_rewrite_tmc[op]:
     >> gvs [evaluate_def]
     (* map weirdness *)
     >> cheat
-   )
+   *)
   >> gvs [rewrite_worker_cons_def, cb_to_hb_def, evaluate_def]
   >> drule evaluate_hb_to_bvi_worker
   >> gvs [cb_to_hb_def]
@@ -1618,7 +1617,9 @@ Resume evaluate_rewrite_tmc[op]:
   >> ‘hole_has_val f (vs'' ++ env2') (vs'' ++ env2' ++ [RefPtr F hole_ptr; Number hole_idx]) s'.refs c’ by (* lemma if this works out *)
     (imp_res_tac env_rel_length_opt
      >> gvs [hole_has_val_def, EL_APPEND_EQN, env_rel_length_opt])
-  >> drule (* HERE *)
+  >> drule unchanged_hole_has_val
+  >> rpt $ disch_then drule
+  >> gvs []
 
 
                 
@@ -1654,18 +1655,25 @@ Resume evaluate_rewrite_tmc[op]:
   >> CASE_TAC
   >> CASE_TAC
   >> rename [‘evaluate (bs,env,s) = (Rval as,w)’]
-  >> strip_tac                       
+  >> strip_tac
+
+
+  (* Phase 1 theorem in s *)
+  >> ‘evaluate ([Op (BlockOp (Cons tag)) args],env,s) = (Rval [v],t)’ by gvs [evaluate_def]
+  >> drule evaluate_bvi_to_cb
+  >> disch_then drule
+  >> gvs []
+  >> strip_tac
+  >> gvs [evaluate_def]
   (* Phase 1 theorem in s' *)
   >> ‘evaluate ([Op (BlockOp (Cons tag)) args],env2,s') = (Rval [v'],t')’ by gvs [evaluate_def]
   >> drule evaluate_bvi_to_cb
   >> disch_then drule
   >> gvs []
-  >> gvs [evaluate_def]
-  >> CASE_TAC
-  >> CASE_TAC >> gvs []
-  >> rename [‘evaluate (bs,env2,s') = (Rval as',w')’]
   >> strip_tac
+  >> gvs [evaluate_def]
   (* Hypothesis on bs *)
+  >> gvs [CaseEq "prod", CaseEq "result"]
   >> first_assum $ qspecl_then [‘bs’, ‘s’] mp_tac
   >> gvs []
   >> impl_tac
@@ -1677,13 +1685,9 @@ Resume evaluate_rewrite_tmc[op]:
   >> strip_tac
   >> gvs []
   >> rename [‘f ⊑ f''’]
-  (* Experimental - unify maps *)
-  >> rev_drule state_rel_unique_map
-  >> disch_then drule
-  >> strip_tac
-  >> gvs []
   (* Hypothesis on cb_to_bvi loc cb *)
-  >> first_assum $ qspecl_then [‘[cb_to_bvi loc cb]’, ‘w’] mp_tac
+  >> first_assum $ qspecl_then [‘[cb_to_bvi loc cb]’, ‘s1’, ‘env’] mp_tac
+  >> gvs [cb_to_bvi_def]
   >> impl_tac
   >-
    (imp_res_tac evaluate_clock_non_increase
@@ -1760,25 +1764,6 @@ Resume evaluate_rewrite_tmc[op]:
   >> irule hole_has_val_unappend
   >> rpt $ first_assum $ irule_at Any
   >> gvs []
-QED
-
-(* Is this true ? No. *)
-Theorem state_rel_unique_map:
-  ∀f f' s s'.
-    state_rel f s s' ∧
-    state_rel f' s s' ⇒
-    f = f'
-Proof
-  rw []
-  >> irule $ iffLR fmap_EQ_THM
-  >> gvs [state_rel_def, state_ref_rel_def]
-  >> rw []
-  >> Cases_on ‘FLOOKUP s.refs x’ >> gvs [FLOOKUP_DEF]
-  >> first_x_assum drule
-  >> strip_tac
-  >> last_x_assum drule
-  >> strip_tac
-  >> cheat
 QED
 
 Theorem evaluate_var_list:
