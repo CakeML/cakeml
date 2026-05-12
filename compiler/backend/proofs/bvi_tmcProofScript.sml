@@ -1562,8 +1562,8 @@ Resume evaluate_rewrite_tmc[op]:
   >> rename [‘bvi_to_cb loc tag args = SOME (bs,cb)’]
   >> rename [‘cb_to_hb cb = (hb,call_ts,call_args)’]
                        
-  (* Phase 1 theorem *)
-  >> ‘evaluate ([Op (BlockOp (Cons tag)) args],env2,s') = (Rval [v'],t')’ by gvs [evaluate_def]
+  (* Phase 1 theorem in s *)
+  >> ‘evaluate ([Op (BlockOp (Cons tag)) args],env,s) = (Rval [v],t)’ by gvs [evaluate_def]
   >> drule evaluate_bvi_to_cb
   >> rpt $ disch_then drule
   >> gvs [evaluate_def]
@@ -1573,9 +1573,18 @@ Resume evaluate_rewrite_tmc[op]:
   >> rename [‘cb = CallBlock tag left child right’]
   >> gvs [cb_to_hb_def, CaseEq "call_block", CaseEq "prod"]
   >> rename [‘cb_to_hb child = (hole,call_ts,call_args)’]
+  >> rename [‘evaluate (bs,env,s) = (as,w)’]
+  >> gvs [CaseEq "result"]
+  (* Phase 1 theorem in s *)
+  >> ‘evaluate ([Op (BlockOp (Cons tag)) args],env2,s') = (Rval [v'],t')’ by gvs [evaluate_def]
+  >> drule evaluate_bvi_to_cb
+  >> rpt $ disch_then drule
+  >> gvs [evaluate_def]
+  >> strip_tac
+  >> gvs []
+  >> gvs [CaseEq "prod"]
   >> rename [‘evaluate (bs,env2,s') = (as',w')’]
   >> gvs [CaseEq "result"]
-                 
   (* Hypothesis on bs *)
   >> first_assum $ qspecl_then [‘bs’, ‘s’] mp_tac
   >> gvs []
@@ -1587,10 +1596,7 @@ Resume evaluate_rewrite_tmc[op]:
   >> gvs []
   >> strip_tac
   >> gvs []
-  >> rename [‘LIST_REL (v_rel f'') as as'’]
-  >> rename [‘state_rel f'' w w'’]
-  >> strip_tac >> gvs []
-
+  >> rename [‘LIST_REL (v_rel f_bs) as as'’]
   >> rw []
   >- cheat
    (*rw []
@@ -1614,14 +1620,22 @@ Resume evaluate_rewrite_tmc[op]:
   >> gvs [cb_to_hb_def]
 
   >> imp_res_tac env_rel_strip_extras >> gvs []
-  >> ‘hole_has_val f (vs'' ++ env2') (vs'' ++ env2' ++ [RefPtr F hole_ptr; Number hole_idx]) s'.refs c’ by (* lemma if this works out *)
-    (imp_res_tac env_rel_length_opt
-     >> gvs [hole_has_val_def, EL_APPEND_EQN, env_rel_length_opt])
   >> drule unchanged_hole_has_val
   >> rpt $ disch_then drule
   >> gvs []
+  >> strip_tac
+  >> drule_all hole_has_val_append
+  >> strip_tac >> gvs [APPEND_ASSOC]
+  >> disch_then drule
+  >> disch_then $ qspec_then ‘loc_opt’ mp_tac (* stand in for another assumption about loc_opt *)
+  >> strip_tac >> gvs []
+  >> imp_res_tac evaluate_IMP_LENGTH >> gvs []
+  >> first_assum $ irule_at Any
+  >> gvs [opt_res_rel_def]
+  >> imp_res_tac env_rel_length_opt
+  >> gvs [EL_APPEND_EQN]
 
-
+  (*Below here is throw away but maybe for reference *)
                 
   >> qpat_x_assum ‘env_rel _ _ _ _’ kall_tac
   >> drule_all env_rel_submap >> strip_tac
