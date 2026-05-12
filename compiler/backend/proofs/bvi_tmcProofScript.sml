@@ -1965,8 +1965,8 @@ Proof
   >> gvs []
 QED
 
-Definition alloc_res_def:
-  alloc_res refs r ⇔
+Definition alloc_res_rel_def:
+  alloc_res_rel refs r ⇔
     r = Rval [RefPtr F (LEAST ptr. ptr ∉ FDOM refs)]
 End
 
@@ -1982,14 +1982,19 @@ Theorem evaluate_hb_to_mutcons:
     evaluate ([cb_to_bvi loc cb],env2,s) = (r,t) ∧
     cb_to_hb cb = (hb,call_ts,call_args) ∧
     cb = CallBlock tag left child right ∧
+    env_rel T f env1 env2 ∧
     (*FLOOKUP s.refs hole_ptr = SOME (MutBlock tag' left' c right') ∧*)
-    (*hole_has_val f env1 env2 s.refs c ∧*)
     r ≠ Rerr (Rabort Rtype_error) ⇒
-    ∃r' t'.
-      evaluate ([hb_to_mutcons hb],env2,s) = (r',t') ∧
-      alloc_res s.refs r' ∧
-      alloc_state_rel tag (MAP (λn. EL n env2) left) (MAP (λn. EL n env2) right) s t'
+    ∃t' env3 new_ptr.
+      evaluate ([hb_to_mutcons hb],env2,s) = (Rval [RefPtr F new_ptr],t') ∧
+      (*alloc_res_rel s.refs r' ∧*)
+      env_rel T f env1 env3 ∧
+      hole_has_val f env1 env3 t'.refs (RefPtr F new_ptr)
+      (*f SUBMAP f' ∧*)
+      (*alloc_state_rel tag (MAP (λn. EL n env2) left) (MAP (λn. EL n env2) right) s t'*)
 Proof
+  cheat
+        (*
   gen_tac
   >> reverse $ Induct_on ‘cb’ >> rw []
   >> rename [‘cb_to_hb (CallBlock n left child right) = (hb,call_ts,call_args)’]
@@ -2035,15 +2040,17 @@ Proof
     >> gvs [alloc_res_def, alloc_state_rel_def]
     >> cheat (* again easy *))
   >> cheat
+  *)
 QED
 
 Definition alloc_env_rel_def:
-  alloc_env_rel refs l i_ptr env1 env2 ⇔
-    ∃zs.
+  alloc_env_rel refs l i env1 env2 ⇔
+    ∃zs new_ptr.
       env2 = zs ++ env1 ∧
       LENGTH zs = l ∧
-      l > i_ptr ∧
-      zs❲i_ptr❳ = RefPtr F (LEAST ptr. ptr ∉ FDOM refs)
+      l > i ∧
+      zs❲i❳ = RefPtr F new_ptr ∧
+      new_ptr ∉ FDOM refs
 End
 
 Definition loc_rel_def:
@@ -2059,7 +2066,6 @@ Theorem evaluate_optimise_call:
     cb_to_hb cb = (hb,call_ts,call_args) ∧
     cb = CallBlock tag left child right ∧
     env_rel T f env1 env2 ∧
-    hole_has_val f env1 env2 s.refs c ∧
     alloc_env_rel s.refs n i_ptr env2 env3 ∧
     alloc_state_rel tag (MAP (λn. EL n env2) left) (MAP (λn. EL n env2) right) s u ∧
     r ≠ Rerr (Rabort Rtype_error) ⇒
@@ -2067,6 +2073,8 @@ Theorem evaluate_optimise_call:
       evaluate ([optimise_call loc_opt n i_ptr (&LENGTH left) call_ts call_args],env3,u) = (r',t') ∧
       opt_res_rel r r'
 Proof
+  cheat
+        (*
   gen_tac
   >> reverse $ Induct_on ‘cb’ >> rw []
   >> rename [‘cb_to_hb (CallBlock n left child right) = (hb,call_ts,call_args)’]
@@ -2109,33 +2117,84 @@ Proof
     >> CASE_TAC >> gvs []
     >> CASE_TAC >> gvs []
     >> cheat)
-  >> cheat                                   
+  >> cheat
+  *)                                
 QED
 
 Theorem evaluate_hb_to_bvi_wrapper:
-  ∀cb tag left child right hole call_ts call_args loc loc_opt arity f env1 env2 s s' t r.
-    evaluate ([cb_to_bvi loc cb],env1,s) = (r,t) ∧
+  ∀cb tag left child right hole call_ts call_args loc loc_opt arity f env1 env2 s t r.
+    evaluate ([cb_to_bvi loc cb],env2,s) = (r,t) ∧
     cb_to_hb cb = (HoleBlock tag left hole right,call_ts,call_args) ∧
     cb = CallBlock tag left child right ∧
     env_rel T f env1 env2 ∧
-    state_rel f s s' ∧
     r ≠ Rerr (Rabort Rtype_error) ⇒
     ∃r' t'.
-      evaluate ([hb_to_bvi_wrapper loc loc_opt tag left hole right call_ts call_args],env2,s') = (r',t') ∧
-      state_rel f t t' ∧
-      result_rel (LIST_REL (v_rel f)) (v_rel f) r r'
+      evaluate ([hb_to_bvi_wrapper loc loc_opt tag left hole right call_ts call_args],env2,s) = (r,t')
 Proof
-  cheat
-  (*rw []
+  gen_tac
+  >> reverse $ Induct_on ‘cb’ >> rw []
+  >> rename [‘cb_to_hb (CallBlock tag left child right) = (HoleBlock tag left hole right,call_ts,call_args)’]
+  >> qpat_x_assum ‘evaluate ([cb_to_bvi _ _],_,_) = (_,_)’ mp_tac
+  >> gvs [cb_to_hb_def, CaseEq "prod"]
+  >> gvs [cb_to_bvi_def, hb_to_bvi_wrapper_def, hb_to_mutcons_def, evaluate_def, evaluate_APPEND]
+  (* left *)
+  >> CASE_TAC
+  >> drule evaluate_var_list
+  >> rpt $ disch_then drule
+  >> Cases_on ‘q’ >> gvs []
+  >> strip_tac >> gvs []
+  (*>> rename [‘hole_has_val f env1 env2 s.refs c’]*)
+  (* hole *)
+  >> reverse $ Cases_on ‘child’ >> gvs []
+  >-
+   (gvs [cb_to_hb_def, hb_to_mutcons_def]
+    >> CASE_TAC
+    >> reverse $ CASE_TAC >> gvs []
+    >-
+     (strip_tac
+      >> gvs [evaluate_def, do_app_def, do_app_aux_def, backend_commonTheory.small_enough_int_def]
+      >> CASE_TAC
+      >> drule evaluate_var_list
+      >> impl_tac
+      >- cheat (* right cannot fail *)
+      >> strip_tac >> gvs []
+      >> qpat_x_assum ‘evaluate ([cb_to_bvi _ _],_,_) = (_,_)’ mp_tac
+      >> gvs [evaluate_def, optimise_call_def, cb_to_bvi_def]
+      >> CASE_TAC
+      >> drule evaluate_shift_vars
+      >> disch_then $ qspec_then ‘[RefPtr F (LEAST ptr. ptr ∉ FDOM r.refs)]’ mp_tac
+      >> strip_tac >> gvs []
+      >> cheat
+
+
+     )
+    >> cheat)
+  >> cheat
+        
+  rw []
   >> imp_res_tac env_rel_strip_extras
-  >> rename [‘env_rel F f env1 env2’]
+  >> imp_res_tac env_rel_length_opt
   >> gvs [cb_to_hb_def, CaseEq "prod", hb_to_bvi_wrapper_def, Once evaluate_def]
   >> rename [‘cb_to_hb child = (hole,call_ts,call_args)’]
-  (* mutcons exp *)
+  (* mutcons *)
   >> drule evaluate_hb_to_mutcons
   >> disch_then $ qspecl_then [‘tag’, ‘left’, ‘child’, ‘right’] mp_tac
   >> gvs [cb_to_hb_def]
-  >> disch_then drule*)
+  >> disch_then drule
+  >> strip_tac
+  (* optimise *)
+  >> gvs [evaluate_def]
+  >> drule evaluate_optimise_call
+  >> disch_then $ qspecl_then [‘tag’, ‘left’, ‘child’, ‘right’] mp_tac
+  >> gvs [cb_to_hb_def]
+  >> disch_then drule
+  >> gvs [alloc_env_rel_def]
+  >> disch_then $ qspecl_then [‘loc_opt’, ‘RefPtr F new_ptr::(env2' ++ [RefPtr F hole_ptr; Number hole_idx])’] mp_tac
+  >> gvs []
+  >> disch_then $ qspecl_then [‘1’, ‘0’, ‘t'’] mp_tac
+  >> gvs []
+  >> ‘new_ptr ∉ FDOM s.refs’ by cheat
+  >> gvs [alloc_state_rel_def]
 QED
 
 Theorem evaluate_hb_to_bvi_worker:
@@ -2163,7 +2222,7 @@ Proof
   >> disch_then $ qspecl_then [‘tag’, ‘left’, ‘child’, ‘right’] mp_tac
   >> gvs [cb_to_hb_def]
   >> strip_tac
-  >> gvs [alloc_res_def, Once evaluate_def]
+  >> gvs [alloc_res_rel_def, Once evaluate_def]
   (* update hole *)
   >> gvs [evaluate_def]
   >> gvs [EL, EL_APPEND_EQN]

@@ -346,7 +346,7 @@ Definition hb_to_mutcons_def:
      let l' = MAP (λn. Var n) l in
      let hb' = hb_to_mutcons hb in
      let r' = MAP (λn. Var n) r in
-     let i = LENGTH r in
+     let i = LENGTH l in
        Op (MemOp (MutCons t i)) (l' ++ [hb'] ++ r')) ∧
   (hb_to_mutcons Hole = Op (IntOp (Const 0)) [])
 End
@@ -362,15 +362,15 @@ Definition hb_to_bvi_wrapper_def:
   hb_to_bvi_wrapper loc loc_opt tag l hole r ts args =
     let exp_mut_cons  = hb_to_mutcons (HoleBlock tag l hole r) in
     let exp_tail_call = optimise_call loc_opt 1 0 (&LENGTH l) ts args in
-    let exp_finalise  = Op (MemOp FinaliseCons) [Var 0] in
-      Let [exp_mut_cons; exp_tail_call] exp_finalise
+    let exp_finalise  = Op (MemOp FinaliseCons) [Var 1] in
+      Let [exp_mut_cons] $ Let [exp_tail_call] $ exp_finalise
 End
 
 Definition hb_to_bvi_worker_def:
   hb_to_bvi_worker loc loc_opt i_ptr i_idx tag l hole r ts args =
     let exp_mut_cons     = hb_to_mutcons (HoleBlock tag l hole r) in
     let exp_update_hole  = Op (MemOp UpdateCons) [Var 0; Var (i_idx + 1); Var (i_ptr + 1)] in
-    let exp_tail_call    = optimise_call loc_opt 2 1 (&LENGTH r) ts args in
+    let exp_tail_call    = optimise_call loc_opt 2 1 (&LENGTH l) ts args in
       Let [exp_mut_cons] $ Let [exp_update_hole] $ exp_tail_call
 End
 
