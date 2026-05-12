@@ -65,7 +65,7 @@ Definition bind_def:
 End
 
 Theorem bind_size:
-  ∀args n bs vs n'.
+  ∀args n vs n'.
     bind n args = (vs,n') ⇒
     LENGTH args = LENGTH vs
 Proof

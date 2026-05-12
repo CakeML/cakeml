@@ -1703,16 +1703,24 @@ Theorem evaluate_binders:
     bind next args = (vs,next') ⇒
     ∀ys.
       LENGTH ys = next ⇒
-      evaluate (MAP (λn. Var (n + next)) vs,ys ++ as,t) = (Rval as,t)
+      evaluate (MAP (λn. Var n) vs,ys ++ as,t) = (Rval as,t)
 Proof
   Induct
   >- gvs [evaluate_def, bind_def]
   >> rw []
+  >> gvs [bind_def, CaseEq "prod"]
+  >> first_x_assum $ drule_at Any
   >> gvs [Once evaluate_CONS, evaluate_def]
   >> gvs [CaseEq "prod", CaseEq "result"]
-  >> first_x_assum drule
-  >> gvs [bind_def, CaseEq "prod"]
-  >> cheat
+  >> disch_then drule
+  >> imp_res_tac evaluate_SING_IMP >> gvs []
+  >> disch_then $ qspec_then ‘ys ++ [w]’ mp_tac
+  >> gvs []
+  >> strip_tac
+  >> simp [Once evaluate_CONS, evaluate_def]
+  >> gvs [CaseEq "prod", CaseEq "result"]
+  >> gvs [EL_APPEND_EQN]
+  >> cheat (* obvious but I can't get it to simplify *)
 QED
 
 Theorem evaluate_shift_vars:
