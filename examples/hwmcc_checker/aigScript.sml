@@ -894,11 +894,11 @@ Proof
   Cases_on ‘ss’ >> simp [agree_on_def]
 QED
 
-Theorem preds_hold_pair_state:
+Theorem preds_hold_matching_transition:
   preds_hold (pair_state (tr (i + 2)) (tr (i + 1))) qcirc live ∧
+  matching_transition inputs latches tr i (i + 2) ∧
   dep_circuit (pair_set inputs) (pair_set latches) qcirc ∧
-  dep_lits (pair_set inputs) (pair_set latches) live ∧
-  matching_transition inputs latches tr i (i + 2)
+  dep_lits (pair_set inputs) (pair_set latches) live
   ⇒
   preds_hold (pair_state (tr i) (tr (i + 1))) qcirc live
 Proof
@@ -918,6 +918,8 @@ Theorem matching_transition_live:
     circ reset next preds cnstrs qcirc live latches ∧
   dep_circuit inputs latches circ ∧
   dep_latch_lit inputs latches next ∧
+  dep_circuit (pair_set inputs) (pair_set latches) qcirc ∧
+  dep_lits (pair_set inputs) (pair_set latches) live ∧
   matching_transition inputs latches tr i j
   ⇒
   preds_hold (pair_state (tr i) (tr (i + 1))) qcirc live
@@ -942,13 +944,16 @@ Proof
      >> first_x_assum $ qspec_then ‘i + 1’ mp_tac >> simp [])
   >> Cases_on ‘j = i + 2’ >> gvs []
   >-
-   (irule preds_hold_pair_state >> simp []
-    >> cheat)
-  >> cheat
-  (* >> gvs [matching_transition_def] *)
-  (* >> drule_all is_witness_closure_preds_hold *)
-  (* >> disch_then $ qspec_then ‘j - i - 2’ mp_tac *)
-  (* >> simp [] *)
+   (irule preds_hold_matching_transition >> simp []
+    >> qpat_x_assum ‘matching_transition _ _ _ _ _’ $ irule_at Any
+    >> simp [])
+  >> drule_all is_witness_closure_preds_hold
+  >> disch_then $ qspec_then ‘j - i - 2’ assume_tac
+  >> gvs [matching_transition_def]
+  >> irule preds_hold_dep_circuit
+  >> qpat_x_assum ‘dep_circuit _ _ qcirc’ $ irule_at Any
+  >> qexists ‘pair_state (tr j) (tr (i + 1))’
+  >> simp [agree_on_pair]
 QED
 
 Theorem is_inf_trace_traces_agree:
