@@ -450,3 +450,504 @@ Proof
     \\ fs [find_suffix_def])
   \\ drule_all eval_circuit_IMP_cnf \\ simp []
 QED
+
+Definition aig_rename_aux_def:
+  aig_rename_aux [] next im lm nm acc =
+    ((acc:((num, num, num) var # bool) list, next:num, im, lm)) ∧
+  aig_rename_aux ((x,b)::rest) next im lm nm acc =
+    case (x : ('a, 'b, 'c) var) of
+    | Name n =>
+        (case FLOOKUP nm n of
+         | NONE   => aig_rename_aux rest next im lm nm ((Base Ff,b)::acc)
+         | SOME t => aig_rename_aux rest next im lm nm ((Name t,b)::acc))
+    | Base (Input i) =>
+        (case FLOOKUP im i of
+         | NONE   => aig_rename_aux rest (next+1)
+                       (im |+ (i,next)) lm nm ((Base (Input next),b)::acc)
+         | SOME t => aig_rename_aux rest next im lm nm ((Base (Input t),b)::acc))
+    | Base (Latch l) =>
+        (case FLOOKUP lm l of
+         | NONE   => aig_rename_aux rest (next+1) im
+                       (lm |+ (l,next)) nm ((Base (Latch next),b)::acc)
+         | SOME t => aig_rename_aux rest next im lm nm ((Base (Latch t),b)::acc))
+    | Base Ff => aig_rename_aux rest next im lm nm ((Base Ff,b)::acc)
+End
+
+Definition aig_rename_def:
+  aig_rename ([]:('a,'i,'l) and list) =
+    ([]:(num,num,num) and list,0n,FEMPTY,FEMPTY,FEMPTY) ∧
+  aig_rename ((m,ts)::xs) =
+    let (res,next,im,lm,nm) = aig_rename xs in
+    let (ts1,next,im,lm) = aig_rename_aux ts next im lm nm [] in
+      ((next,ts1)::res, next+1, im, lm, nm |+ (m, next))
+End
+
+Definition DISJOINT3_def:
+  DISJOINT3 s1 s2 s3 ⇔
+    DISJOINT s1 s2 ∧ DISJOINT s1 s3 ∧ DISJOINT s2 s3
+End
+
+Definition aig_read_def:
+  aig_read is im n = ∃t. is t ∧ FLOOKUP im t = SOME n
+End
+
+Definition has_var_def:
+  has_var v ([]:('a,'i,'l) and list) = F ∧
+  has_var v ((n,ts)::rest) = (has_var v rest ∨ ∃b. MEM (Base v,b) ts)
+End
+
+Theorem FUNION_SUBMAP_lemma[local]:
+  im_1 SUBMAP im_2 ⇒
+  (im_1 ⊌ im_2 = im_2) ∧
+  FDOM im_1 ∪ FDOM im_2 = FDOM im_2
+Proof
+  rpt strip_tac
+  >- (gvs [TO_FLOOKUP,FLOOKUP_FUNION,FUN_EQ_THM] \\ rw [] \\ CASE_TAC \\ rw [])
+  \\ gvs [SUBMAP_DEF, EXTENSION]
+  \\ rw [] \\ eq_tac \\ rw [] \\ res_tac \\ fs []
+QED
+
+Theorem aig_rename_aux_acc:
+  ∀ts next_1 im_1 lm_1 nm_1 acc.
+    aig_rename_aux ts next_1 im_1 lm_1 nm_1 acc =
+    let (ts_1,next_2,im_2,lm_2) = aig_rename_aux ts next_1 im_1 lm_1 nm_1 [] in
+      (ts_1 ++ acc,next_2,im_2,lm_2)
+Proof
+  Induct \\ fs [aig_rename_aux_def] \\ PairCases
+  \\ once_rewrite_tac [aig_rename_aux_def]
+  \\ pop_assum $ once_rewrite_tac o single \\ rw []
+  \\ rpt (CASE_TAC \\ fs [])
+  \\ rpt (pairarg_tac \\ fs [])
+QED
+
+Theorem not_eval_circuit:
+  ∀ands a. ~MEM a (MAP FST ands) ⇒ ¬eval_circuit (is,ls) ands a
+Proof
+  Induct \\ fs [eval_circuit_def, FORALL_PROD]
+QED
+
+Theorem aig_read_thm:
+  INJ (FAPPLY (im_2 ⊌ ix)) (FDOM im_2 ∪ FDOM ix) UNIV ∧
+  FLOOKUP im_2 i = SOME x ⇒
+  aig_read is (im_2 ⊌ ix) x = is i
+Proof
+  rw [aig_read_def]
+  \\ qsuff_tac ‘∀y. FLOOKUP (im_2 ⊌ ix) y = SOME x ⇔ y = i’
+  >- (disch_then $ rewrite_tac o single \\ fs [])
+  \\ rw [] \\ reverse eq_tac \\ rw []
+  >- gvs [FLOOKUP_FUNION]
+  \\ fs [INJ_DEF]
+  \\ last_x_assum irule
+  \\ fs [FLOOKUP_DEF,FUNION_DEF]
+QED
+
+Theorem IMP_DISJOINT3:
+  INJ (FAPPLY lm_1) (FDOM lm_1) 𝕌(:num) ∧
+  i ∉ FDOM lm_1 ∧
+  (∀n. next_1 ≤ n ⇒ n ∉ FRANGE im_1 ∧ n ∉ FRANGE lm_1 ∧ n ∉ FRANGE nm_1) ∧
+  DISJOINT3 (FRANGE im_1) (FRANGE lm_1) (FRANGE nm_1)
+  ⇒
+  INJ (FAPPLY lm_1⟨i ↦ next_1⟩) (i INSERT FDOM lm_1) 𝕌(:num) ∧
+  (∀n. next_1 + 1 ≤ n ⇒ n ∉ FRANGE (lm_1 \\ i)) ∧
+  DISJOINT3 (next_1 INSERT FRANGE (lm_1 \\ i)) (FRANGE im_1) (FRANGE nm_1)
+Proof
+  rw []
+  \\ ‘FRANGE (lm_1 \\ i) SUBSET FRANGE lm_1’ by fs [FRANGE_DOMSUB_SUBSET]
+  >-
+   (gvs [INJ_DEF, SF DNF_ss, SF CONJ_ss]
+    \\ gvs [FAPPLY_FUPDATE_THM, CaseEq"bool", SF DNF_ss]
+    \\ ntac 3 $ first_x_assum $ qspec_then ‘next_1’ mp_tac
+    \\ gvs [FRANGE_DEF] \\ rw []
+    \\ metis_tac [])
+  >-
+   (first_x_assum $ qspec_then ‘n’ mp_tac \\ fs []
+    \\ simp [] \\ rpt strip_tac
+    \\ gvs [SUBSET_DEF])
+  \\ fs [DISJOINT3_def]
+  \\ once_rewrite_tac [DISJOINT_SYM]
+  \\ conj_tac
+  \\ irule DISJOINT_SUBSET
+  \\ pop_assum $ irule_at Any \\ fs []
+  \\ once_rewrite_tac [DISJOINT_SYM] \\ fs []
+QED
+
+Theorem DISJOINT3_COMM_12:
+  DISJOINT3 x y z ⇔ DISJOINT3 y x z
+Proof
+  rw [DISJOINT3_def] \\ metis_tac [IN_DISJOINT]
+QED
+
+Theorem aig_rename_aux_thm:
+  ∀ts next_1 im_1 lm_1 nm_1 ts_1 next_2 im_2 lm_2.
+    aig_rename_aux ts next_1 im_1 lm_1 nm_1 [] = (ts_1,next_2,im_2,lm_2) ∧
+    (∀n. ALOOKUP ands n ≠ NONE ⇒
+         ∃t. FLOOKUP nm_1 n = SOME t ∧
+             ∀ix lx.
+               INJ (FAPPLY (im_1 ⊌ ix)) (FDOM (im_1 ⊌ ix)) UNIV ∧
+               INJ (FAPPLY (lm_1 ⊌ lx)) (FDOM (lm_1 ⊌ lx)) UNIV
+               ⇒
+               eval_circuit (is,ls) ands n =
+               eval_circuit (aig_read is (im_1 ⊌ ix),aig_read ls (lm_1 ⊌ lx)) res_1 t) ∧
+    FDOM nm_1 = set (MAP FST ands) ∧
+    INJ (FAPPLY lm_1) (FDOM lm_1) UNIV ∧
+    INJ (FAPPLY im_1) (FDOM im_1) UNIV ∧
+    (∀n. next_1 ≤ n ⇒ n ∉ FRANGE im_1 ∧ n ∉ FRANGE lm_1 ∧ n ∉ FRANGE nm_1) ∧
+    DISJOINT3 (FRANGE im_1) (FRANGE lm_1) (FRANGE nm_1)
+    ⇒
+    im_1 SUBMAP im_2 ∧
+    lm_1 SUBMAP lm_2 ∧
+    INJ (FAPPLY lm_2) (FDOM lm_2) UNIV ∧
+    INJ (FAPPLY im_2) (FDOM im_2) UNIV ∧
+    (∀l b. MEM (Base (Latch l),b) ts ⇒ l ∈ FDOM lm_2) ∧
+    (∀i b. MEM (Base (Input i),b) ts ⇒ i ∈ FDOM im_2) ∧
+    (∀l b. MEM (Base (Latch l),b) ts_1 ⇒ l ∈ FRANGE lm_2) ∧
+    (∀i b. MEM (Base (Input i),b) ts_1 ⇒ i ∈ FRANGE im_2) ∧
+    (∀m b. MEM (Name m,b) ts_1 ⇒ m ∈ FRANGE nm_1) ∧
+    next_1 ≤ next_2 ∧
+    DISJOINT3 (FRANGE im_2) (FRANGE lm_2) (FRANGE nm_1) ∧
+    (∀n. next_2 ≤ n ⇒ n ∉ FRANGE im_2 ∧ n ∉ FRANGE lm_2 ∧ n ∉ FRANGE nm_1) ∧
+    ∀ix lx.
+      INJ (FAPPLY (im_2 ⊌ ix)) (FDOM (im_2 ⊌ ix)) UNIV ∧
+      INJ (FAPPLY (lm_2 ⊌ lx)) (FDOM (lm_2 ⊌ lx)) UNIV
+      ⇒
+      EVERY (eval_lit (is,ls) ands) ts =
+      EVERY (eval_lit (aig_read is (im_2 ⊌ ix),aig_read ls (lm_2 ⊌ lx)) res_1) ts_1
+Proof
+  Induct >- fs [aig_rename_aux_def]
+  \\ pop_assum $ mk_asm "hyp"
+  \\ PairCases \\ fs [aig_rename_aux_def]
+  \\ Cases_on ‘∃a. h0 = Name a’ \\ gvs []
+  >-
+   (rpt gen_tac
+    \\ Cases_on ‘FLOOKUP nm_1 a’ \\ fs []
+    \\ simp [Once aig_rename_aux_acc]
+    \\ pairarg_tac \\ fs []
+    \\ strip_tac \\ gvs []
+    >-
+     (asm_x "hyp" drule
+      \\ impl_tac >- fs []
+      \\ strip_tac \\ fs [SF SFY_ss]
+      \\ fs [eval_circuit_def]
+      \\ pop_assum $ assume_tac o GSYM \\ fs []
+      \\ qsuff_tac ‘eval_circuit (is,ls) ands a = F’
+      >- simp [AC CONJ_ASSOC CONJ_COMM]
+      \\ fs [] \\ irule not_eval_circuit
+      \\ gvs [FLOOKUP_DEF,EXTENSION])
+    \\ asm_x "hyp" drule
+    \\ impl_tac >- fs []
+    \\ strip_tac \\ fs [SF SFY_ss]
+    \\ simp [SF DNF_ss, SF SFY_ss]
+    \\ conj_tac
+    >-
+     (gvs [FLOOKUP_DEF,FRANGE_DEF]
+      \\ last_x_assum $ irule_at Any \\ fs [])
+    \\ simp [eval_circuit_def]
+    \\ pop_assum $ assume_tac o GSYM \\ fs []
+    \\ rpt gen_tac
+    \\ last_x_assum $ qspec_then ‘a’ mp_tac
+    \\ simp []
+    \\ impl_tac >- fs [ALOOKUP_NONE, EXTENSION, FLOOKUP_DEF]
+    \\ disch_then $ qspecl_then [‘FUNION im_2 ix’,‘FUNION lm_2 lx’] mp_tac
+    \\ imp_res_tac FUNION_SUBMAP_lemma
+    \\ asm_rewrite_tac [FUNION_ASSOC, FDOM_FUNION, UNION_ASSOC]
+    \\ simp [AC CONJ_COMM CONJ_ASSOC])
+  \\ Cases_on ‘∃i. h0 = Base (Input i)’ \\ gvs []
+  >-
+   (rpt gen_tac
+    \\ reverse $ Cases_on ‘FLOOKUP im_1 i’ \\ fs []
+    \\ simp [Once aig_rename_aux_acc]
+    \\ pairarg_tac \\ fs []
+    \\ strip_tac \\ gvs []
+    >-
+     (asm_x "hyp" drule
+      \\ impl_tac >- fs []
+      \\ strip_tac \\ fs [SF SFY_ss]
+      \\ fs [eval_circuit_def]
+      \\ simp [SF DNF_ss, SF SFY_ss]
+      \\ rewrite_tac [CONJ_ASSOC]
+      \\ conj_tac
+      >-
+       (gvs [FRANGE_DEF, FLOOKUP_DEF, SUBMAP_DEF]
+        \\ irule_at Any EQ_REFL \\ res_tac \\ fs [])
+      \\ rpt strip_tac
+      \\ first_x_assum drule_all
+      \\ disch_then $ assume_tac o GSYM \\ fs []
+      \\ ‘FLOOKUP im_2 i = SOME x’ by gvs [TO_FLOOKUP]
+      \\ drule_all aig_read_thm
+      \\ fs [AC CONJ_COMM CONJ_ASSOC])
+    \\ asm_x "hyp" drule
+    \\ impl_tac
+    >-
+     (‘im_1 SUBMAP im_1⟨i ↦ next_1⟩’ by fs [TO_FLOOKUP]
+      \\ imp_res_tac FUNION_SUBMAP_lemma
+      \\ conj_tac
+      >-
+       (rpt strip_tac
+        \\ first_x_assum drule \\ strip_tac \\ simp []
+        \\ rpt gen_tac
+        \\ first_x_assum $ qspecl_then [‘FUNION (im_1⟨i ↦ next_1⟩) ix’,‘lx’] mp_tac
+        \\ asm_rewrite_tac [FUNION_ASSOC]
+        \\ rpt strip_tac
+        \\ first_x_assum irule \\ simp []
+        \\ pop_assum kall_tac
+        \\ pop_assum mp_tac
+        \\ match_mp_tac EQ_IMPLIES
+        \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
+        \\ rw [EXTENSION] \\ eq_tac \\ rw [] \\ rw [])
+      \\ asm_rewrite_tac []
+      \\ simp [SF DNF_ss]
+      \\ last_x_assum mp_tac
+      \\ simp [FLOOKUP_DEF, FAPPLY_FUPDATE_THM]
+      \\ strip_tac
+      \\ qpat_x_assum ‘∀x. ALOOKUP _ _ ≠ _ ⇒ _’ kall_tac
+      \\ irule IMP_DISJOINT3
+      \\ fs []
+      \\ simp [Once DISJOINT3_COMM_12])
+    \\ strip_tac \\ fs [SF SFY_ss]
+    \\ simp [SF DNF_ss, SF SFY_ss]
+    \\ rewrite_tac [CONJ_ASSOC]
+    \\ conj_tac
+    >-
+     (fs [TO_FLOOKUP, FLOOKUP_SIMP, AllCaseEqs(), SF DNF_ss]
+      \\ qexists ‘i’ \\ fs [] \\ rw [] \\ res_tac
+      \\ Cases_on ‘i = k’ \\ gvs [])
+    \\ rpt strip_tac
+    \\ first_x_assum drule_all
+    \\ disch_then $ assume_tac o GSYM
+    \\ simp [eval_circuit_def]
+    \\ ‘FLOOKUP im_2 i = SOME next_1’ by fs [TO_FLOOKUP, FLOOKUP_SIMP]
+    \\ drule_all aig_read_thm
+    \\ simp [AC CONJ_COMM CONJ_ASSOC])
+  \\ Cases_on ‘∃l. h0 = Base (Latch l)’ \\ gvs []
+  >-
+   (rpt gen_tac
+    \\ reverse $ Cases_on ‘FLOOKUP lm_1 l’ \\ fs []
+    \\ simp [Once aig_rename_aux_acc]
+    \\ pairarg_tac \\ fs []
+    \\ strip_tac \\ gvs []
+    >-
+     (asm_x "hyp" drule
+      \\ impl_tac >- fs []
+      \\ strip_tac \\ fs [SF SFY_ss]
+      \\ fs [eval_circuit_def]
+      \\ simp [SF DNF_ss, SF SFY_ss]
+      \\ rewrite_tac [CONJ_ASSOC]
+      \\ conj_tac
+      >-
+       (gvs [FRANGE_DEF, FLOOKUP_DEF, SUBMAP_DEF]
+        \\ irule_at Any EQ_REFL \\ res_tac \\ fs [])
+      \\ rpt strip_tac
+      \\ first_x_assum drule_all
+      \\ disch_then $ assume_tac o GSYM \\ fs []
+      \\ ‘FLOOKUP lm_2 l = SOME x’ by gvs [TO_FLOOKUP]
+      \\ drule_all aig_read_thm
+      \\ fs [AC CONJ_COMM CONJ_ASSOC])
+    \\ asm_x "hyp" drule
+    \\ impl_tac
+    >-
+     (‘lm_1 SUBMAP lm_1⟨l ↦ next_1⟩’ by fs [TO_FLOOKUP]
+      \\ imp_res_tac FUNION_SUBMAP_lemma
+      \\ conj_tac
+      >-
+       (rpt strip_tac
+        \\ first_x_assum drule \\ strip_tac \\ simp []
+        \\ rpt gen_tac
+        \\ first_x_assum $ qspecl_then [‘ix’,‘FUNION (lm_1⟨l ↦ next_1⟩) lx’] mp_tac
+        \\ asm_rewrite_tac [FUNION_ASSOC]
+        \\ rpt strip_tac
+        \\ first_x_assum irule \\ simp []
+        \\ pop_assum mp_tac
+        \\ match_mp_tac EQ_IMPLIES
+        \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
+        \\ rw [EXTENSION] \\ eq_tac \\ rw [] \\ rw [])
+      \\ asm_rewrite_tac []
+      \\ simp [SF DNF_ss]
+      \\ last_x_assum mp_tac
+      \\ simp [FLOOKUP_DEF, FAPPLY_FUPDATE_THM]
+      \\ strip_tac
+      \\ qpat_x_assum ‘∀x. ALOOKUP _ _ ≠ _ ⇒ _’ kall_tac
+      \\ once_rewrite_tac [DISJOINT3_COMM_12]
+      \\ irule IMP_DISJOINT3
+      \\ fs [])
+    \\ strip_tac \\ fs [SF SFY_ss]
+    \\ simp [SF DNF_ss, SF SFY_ss]
+    \\ rewrite_tac [CONJ_ASSOC]
+    \\ conj_tac
+    >-
+     (fs [TO_FLOOKUP, FLOOKUP_SIMP, AllCaseEqs(), SF DNF_ss]
+      \\ qexists ‘l’ \\ fs [] \\ rw [] \\ res_tac
+      \\ Cases_on ‘l = k’ \\ gvs [])
+    \\ rpt strip_tac
+    \\ first_x_assum drule_all
+    \\ disch_then $ assume_tac o GSYM
+    \\ simp [eval_circuit_def]
+    \\ ‘FLOOKUP lm_2 l = SOME next_1’ by fs [TO_FLOOKUP, FLOOKUP_SIMP]
+    \\ drule_all aig_read_thm
+    \\ simp [AC CONJ_COMM CONJ_ASSOC])
+  \\ ‘h0 = Base Ff’ by (Cases_on ‘h0’ \\ fs [] \\ Cases_on ‘b’ \\ gvs [])
+  \\ simp []
+  \\ rpt gen_tac
+  \\ simp [Once aig_rename_aux_acc]
+  \\ pairarg_tac \\ fs []
+  \\ strip_tac \\ gvs []
+  \\ asm_x "hyp" drule
+  \\ impl_tac >- fs []
+  \\ strip_tac \\ fs [SF SFY_ss]
+  \\ fs [eval_circuit_def]
+  \\ pop_assum $ assume_tac o GSYM
+  \\ simp [AC CONJ_COMM CONJ_ASSOC]
+QED
+
+Theorem aig_rename_thm:
+  ∀(ands:('a,'i,'l) and list) res next im lm nm.
+    aig_rename ands = (res,next,im,lm,nm) ⇒
+    (∀l. has_var (Latch l) ands ⇒ l ∈ FDOM lm) ∧
+    (∀i. has_var (Input i) ands ⇒ i ∈ FDOM im) ∧
+    (∀l. has_var (Latch l) res ⇒ l ∈ FRANGE lm) ∧
+    (∀i. has_var (Input i) res ⇒ i ∈ FRANGE im) ∧
+    INJ ($' lm) (FDOM lm) UNIV ∧
+    INJ ($' im) (FDOM im) UNIV ∧
+    ALL_DISTINCT (MAP FST res) ∧
+    FDOM nm = set (MAP FST ands) ∧
+    FRANGE nm SUBSET set (MAP FST res) ∧
+    DISJOINT3 (FRANGE im) (FRANGE lm) (FRANGE nm) ∧ closed res ∧
+    (∀n. MEM n (MAP FST res) ⇒ n < next) ∧
+    (∀n. next ≤ n ⇒ n ∉ FRANGE im ∪ FRANGE lm ∪ FRANGE nm) ∧
+    ∀n. ALOOKUP ands n ≠ NONE ⇒
+        ∃t. FLOOKUP nm n = SOME t ∧
+            ∀ix lx.
+              INJ (FAPPLY (im ⊌ ix)) (FDOM (im ⊌ ix)) UNIV ∧
+              INJ (FAPPLY (lm ⊌ lx)) (FDOM (lm ⊌ lx)) UNIV
+              ⇒
+              eval_circuit (is,ls) ands n =
+              eval_circuit (aig_read is (FUNION im ix),
+                            aig_read ls (FUNION lm lx)) res (t:num)
+Proof
+  Induct
+  >- fs [aig_rename_def, closed_def, DISJOINT3_def, has_var_def]
+  \\ PairCases
+  \\ fs [aig_rename_def]
+  \\ rpt gen_tac
+  \\ pairarg_tac \\ fs []
+  \\ pairarg_tac \\ fs []
+  \\ strip_tac \\ gvs [closed_def]
+  \\ rename [‘aig_rename ands = (res_1,next_1,im_1,lm_1,nm_1)’]
+  \\ rename [‘aig_rename_aux ts next_1 im_1 lm_1 nm_1 [] = (ts_1,next_2,im_2,lm_2)’]
+  \\ fs [has_var_def, SF DNF_ss, GSYM CONJ_ASSOC]
+  \\ drule aig_rename_aux_thm
+  \\ disch_then $ qspecl_then [‘res_1’,‘ls’,‘is’,‘ands’] mp_tac
+  \\ impl_tac >- fs []
+  \\ strip_tac
+  \\ asm_rewrite_tac []
+  \\ conj_tac >- (rw [] \\ res_tac \\ fs [SUBMAP_DEF])
+  \\ conj_tac >- (rw [] \\ res_tac \\ fs [SUBMAP_DEF])
+  \\ conj_tac >- (rw [] \\ imp_res_tac SUBMAP_FRANGE \\ res_tac \\ fs [SUBSET_DEF])
+  \\ conj_tac >- (rw [] \\ imp_res_tac SUBMAP_FRANGE \\ res_tac \\ fs [SUBSET_DEF])
+  \\ conj_tac >- (strip_tac \\ res_tac \\ fs [])
+  \\ conj_tac
+  >-
+   (irule SUBSET_TRANS
+    \\ irule_at Any FRANGE_DOMSUB_SUBSET
+    \\ gvs [SUBSET_DEF])
+  \\ conj_tac
+  >-
+   (gvs [DISJOINT3_def] \\ gvs [IN_DISJOINT]
+    \\ fs [FRANGE_DEF]
+    \\ metis_tac [DOMSUB_FAPPLY_NEQ])
+  \\ conj_tac >- (rw [ALOOKUP_NONE] \\ fs [SUBSET_DEF] \\ res_tac \\ fs [])
+  \\ conj_tac >- (rw [] \\ res_tac \\ fs [])
+  \\ conj_tac >- rw []
+  \\ conj_tac >- rw []
+  \\ conj_tac >-
+   (res_tac \\ rw [] \\ strip_tac
+    \\ imp_res_tac (finite_mapTheory.FRANGE_DOMSUB_SUBSET |> SRULE [SUBSET_DEF])
+    \\ gvs [SUBSET_DEF])
+  \\ gen_tac
+  \\ Cases_on ‘n = h0’ \\ gvs [FLOOKUP_SIMP]
+  >- (gvs [eval_circuit_def] \\ fs [SF ETA_ss])
+  \\ strip_tac
+  \\ first_x_assum drule
+  \\ strip_tac \\ fs [eval_circuit_def]
+  \\ rpt gen_tac
+  \\ IF_CASES_TAC
+  >- (rw [] \\ res_tac \\ fs [FRANGE_DEF,FLOOKUP_DEF] \\ metis_tac [])
+  \\ first_x_assum $ qspecl_then [‘FUNION im_2 ix’,‘FUNION lm_2 lx’] mp_tac
+  \\ imp_res_tac FUNION_SUBMAP_lemma
+  \\ rewrite_tac [FUNION_ASSOC,FDOM_FUNION,UNION_ASSOC]
+  \\ asm_rewrite_tac [FUNION_ASSOC]
+QED
+
+Definition eval_circuit'_def:
+  eval_circuit' is_ls [] = F ∧
+  eval_circuit' is_ls ((x,ts)::rest) = eval_circuit is_ls ((x,ts)::rest) x
+End
+
+Theorem eval_circuit'_swap:
+  (∀i. has_var (Input i) res ⇒ is i = is1 i) ⇒
+  (∀l. has_var (Latch l) res ⇒ ls l = ls1 l) ⇒
+  (eval_circuit' (is,ls) res ⇔ eval_circuit' (is1,ls1) res)
+Proof
+  Cases_on ‘res’ \\ fs [eval_circuit'_def]
+  \\ PairCases_on ‘h’ \\ fs [eval_circuit'_def]
+  \\ qspec_tac (‘(h0,h1)::t’,‘xs’)
+  \\ qspec_tac (‘h0’,‘h’)
+  \\ Induct_on ‘xs’
+  \\ fs [eval_circuit_def, FORALL_PROD]
+  \\ reverse $ rw []
+  >- (last_x_assum irule \\ gvs [has_var_def])
+  \\ simp [SF ETA_ss]
+  \\ irule EVERY_EQ_EVERY
+  \\ rw [EVERY_MEM]
+  \\ gvs [has_var_def, SF DNF_ss]
+  \\ Cases_on ‘x’ \\ gvs [eval_circuit_def]
+  \\ Cases_on ‘q’ \\ gvs [eval_circuit_def]
+  \\ Cases_on ‘b’ \\ gvs [eval_bvar_def]
+  \\ res_tac \\ gvs []
+QED
+
+Theorem eval_circuit'_aig_rename:
+  (∃is ls. eval_circuit' (is,ls) (FST (aig_rename ands))) ⇔
+  (∃is ls. eval_circuit' (is,ls) ands)
+Proof
+  ‘∃r. aig_rename ands = r’ by simp []
+  \\ PairCases_on ‘r’ \\ gvs []
+  \\ rename [‘_ = (res,next,im,lm,nm)’]
+  \\ drule aig_rename_thm \\ strip_tac
+  \\ Cases_on ‘ands’ \\ fs []
+  >- gvs [aig_rename_def, eval_circuit'_def]
+  \\ PairCases_on ‘h’ \\ fs []
+  \\ reverse eq_tac \\ rw []
+  >-
+   (first_x_assum $ qspecl_then [‘ls’,‘is’] strip_assume_tac
+    \\ first_x_assum $ qspec_then ‘h0’ mp_tac
+    \\ strip_tac \\ fs []
+    \\ first_x_assum $ qspecl_then [‘FEMPTY’,‘FEMPTY’] assume_tac
+    \\ gvs [eval_circuit'_def]
+    \\ fs [aig_rename_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ fs [eval_circuit'_def, FLOOKUP_SIMP]
+    \\ last_x_assum $ irule_at Any)
+  \\ first_x_assum $ qspecl_then [‘λt. ls (lm ' t)’, ‘λt. is (im ' t)’] strip_assume_tac
+  \\ first_x_assum $ qspec_then ‘h0’ $ mp_tac o GSYM
+  \\ strip_tac \\ fs []
+  \\ first_x_assum $ qspecl_then [‘FEMPTY’,‘FEMPTY’] assume_tac
+  \\ gvs []
+  \\ simp [eval_circuit'_def]
+  \\ drule EQ_IMPLIES
+  \\ disch_then $ irule_at Any
+  \\ qabbrev_tac ‘is1 = aig_read (λt. is im⟨t⟩) im’
+  \\ qabbrev_tac ‘ls1 = aig_read (λt. ls lm⟨t⟩) lm’
+  \\ qsuff_tac ‘eval_circuit' (is,ls) res = eval_circuit' (is1,ls1) res’
+  >-
+   (fs [aig_rename_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ gvs [eval_circuit'_def, FLOOKUP_SIMP])
+  \\ irule eval_circuit'_swap
+  \\ rw [] \\ first_x_assum drule
+  \\ unabbrev_all_tac
+  \\ fs [aig_read_def]
+  \\ simp [FLOOKUP_DEF]
+  \\ rw [IN_FRANGE]
+  \\ fs [INJ_DEF]
+  \\ metis_tac []
+QED
