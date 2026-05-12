@@ -7,6 +7,10 @@ Ancestors
 Libs
   preamble
 
+(*----------------------------------------------------------------------*
+   pruning
+ *----------------------------------------------------------------------*)
+
 Definition new_live_def:
   new_live ([] : (('a,'i,'l) var # bool) list) l = (l:'a |-> unit) ∧
   new_live ((x,b) :: xs) l =
@@ -94,6 +98,10 @@ Proof
   \\ irule eval_circuit_prune
   \\ simp [FLOOKUP_SIMP]
 QED
+
+(*----------------------------------------------------------------------*
+   renaming
+ *----------------------------------------------------------------------*)
 
 Definition aig_rename_aux_def:
   aig_rename_aux [] next im lm nm acc =
@@ -599,12 +607,9 @@ Proof
   \\ metis_tac []
 QED
 
-
-Definition circuit_to_cnf_list_def:
-  circuit_to_cnf_list (ands : ('a,'i,'l) and list) name =
-    let ands = prune_for name ands in
-      []
-End
+(*----------------------------------------------------------------------*
+   lowering to CNF
+ *----------------------------------------------------------------------*)
 
 Definition negate_def:
   negate (Pos n) = Neg n ∧
@@ -672,9 +677,9 @@ Definition not_TT_def:
 End
 
 Definition var_to_name_def:
-  var_to_name (Name n) = 3 * n:num ∧
-  var_to_name (Base (Input i)) = 3 * i + 1 ∧
-  var_to_name (Base (Latch l)) = 3 * l + 2 ∧
+  var_to_name (Name n) = n:num ∧
+  var_to_name (Base (Input i)) = i ∧
+  var_to_name (Base (Latch l)) = l ∧
   var_to_name _ = 0
 End
 
@@ -686,9 +691,9 @@ End
 Definition and_to_cnf_def:
   and_to_cnf n (ys : (num, num, num) aig$lit list) =
     if MEM (Base Ff, F) ys then
-      [[Neg (3 * n:num)]]
+      [[Neg (n:num)]]
     else
-      eq_every_to_cnf (Pos (3 * n:num))
+      eq_every_to_cnf (Pos (n:num))
         (MAP var_to_lit (FILTER not_TT ys))
 End
 
@@ -700,26 +705,13 @@ End
 Definition direct_circuit_to_cnf_def:
   direct_circuit_to_cnf (ands : (num,num,num) and list) name =
     if NULL ands then [[]] else
-      ([Pos (3 * name)] :: to_cnf ands []) : num lit list list
-End
-
-Definition circuit_to_cnf_def:
-  circuit_to_cnf ands name =
-    set (circuit_to_cnf_list ands name)
-End
-
-Definition get_is_def:
-  get_is w n = w (3 * n + 1:num) : bool
-End
-
-Definition get_ls_def:
-  get_ls w n = w (3 * n + 2:num) : bool
+      ([Pos name] :: to_cnf ands []) : num lit list list
 End
 
 Definition eval_circuits_def:
   (eval_circuits (is,ls) [] w ⇔ T) ∧
   (eval_circuits (is,ls) ((k,ts)::rest) w ⇔
-     (w (3 * k) = eval_circuit (is,ls) ((k,ts)::rest) k) ∧
+     (w k = eval_circuit (is,ls) ((k,ts)::rest) k) ∧
      eval_circuits (is,ls) rest w)
 End
 
@@ -763,9 +755,9 @@ QED
 
 Theorem eval_circuits_ALOOKUP:
   ∀ands a.
-    eval_circuits (get_is w,get_ls w) ands w ∧
+    eval_circuits (w,w) ands w ∧
     ALOOKUP ands a ≠ NONE ⇒
-    (w (3 * a) ⇔ eval_circuit (get_is w,get_ls w) ands a)
+    (w a ⇔ eval_circuit (w,w) ands a)
 Proof
   Induct \\ simp [ALOOKUP_def]
   \\ PairCases \\ simp [ALOOKUP_def] \\ rw []
@@ -776,7 +768,7 @@ QED
 Theorem satisfies_cnf_IMP:
   ∀ands w.
     satisfies_cnf w (set (to_cnf ands [])) ∧ closed ands ⇒
-    eval_circuits (get_is w, get_ls w) ands w
+    eval_circuits (w, w) ands w
 Proof
   Induct
   \\ simp [eval_circuits_def]
@@ -807,7 +799,7 @@ Proof
   \\ Cases_on ‘z0’ \\ fs []
   \\ TRY (rename [‘Base b’] \\ Cases_on ‘b’ \\ fs [])
   \\ gvs [var_to_lit_def, satisfies_lit_def, var_to_name_def, not_TT_def]
-  \\ gvs [eval_circuit_def, eval_bvar_def, get_is_def, get_ls_def]
+  \\ gvs [eval_circuit_def, eval_bvar_def]
   \\ last_x_assum drule
   \\ strip_tac
   \\ drule_all eval_circuits_ALOOKUP
@@ -821,12 +813,12 @@ Definition find_suffix_def:
 End
 
 Definition cnf_witness_def:
-  cnf_witness is ls ands n =
-    if n MOD 3 = 1 then is (n DIV 3) else
-    if n MOD 3 = 2 then ls (n DIV 3) else
-      case find_suffix (n DIV 3) ands of
+  cnf_witness i_dom l_dom is ls ands n =
+    if n ∈ i_dom then is n else
+    if n ∈ l_dom then ls n else
+      case find_suffix n ands of
       | NONE => F
-      | SOME rest => eval_circuit (is,ls) rest (n DIV 3)
+      | SOME rest => eval_circuit (is,ls) rest n
 End
 
 Theorem find_suffix_fast_forward:
@@ -848,9 +840,11 @@ QED
 
 Theorem eval_circuit_IMP_cnf_lemma:
   ∀ands past.
-    closed ands ∧
+    closed ands ∧ DISJOINT3 i_dom l_dom (set (MAP FST ands)) ∧
+    (∀l. has_var (Latch l) ands ⇒ l ∈ l_dom) ∧
+    (∀i. has_var (Input i) ands ⇒ i ∈ i_dom) ∧
     ALL_DISTINCT (MAP FST (past ++ ands)) ⇒
-    satisfies_cnf (cnf_witness is ls (past ++ ands)) (set (to_cnf ands []))
+    satisfies_cnf (cnf_witness i_dom l_dom is ls (past ++ ands)) (set (to_cnf ands []))
 Proof
   Induct \\ simp [Once to_cnf_def]
   >- simp [satisfies_cnf_def, satisfies_fml_gen_def]
@@ -862,23 +856,31 @@ Proof
   \\ irule IMP_satisfies_cnf_UNION
   \\ conj_tac
   >- (last_x_assum $ qspec_then ‘past ++ [(h0,h1)]’ mp_tac
-      \\ asm_rewrite_tac [GSYM APPEND_ASSOC, APPEND, MAP_APPEND, MAP])
+      \\ asm_rewrite_tac [GSYM APPEND_ASSOC, APPEND, MAP_APPEND, MAP]
+      \\ disch_then irule
+      \\ fs [has_var_def, SF DNF_ss]
+      \\ fs [DISJOINT3_def,IN_DISJOINT])
   \\ fs [and_to_cnf_def] \\ rw []
   >-
    (gvs [satisfies_cnf_def, satisfies_fml_gen_def,
          satisfies_clause_def, satisfies_lit_def, EXISTS_MEM]
     \\ fs [cnf_witness_def]
     \\ drule find_suffix_fast_forward \\ fs [] \\ rw []
+    >- fs [DISJOINT3_def,IN_DISJOINT]
+    >- fs [DISJOINT3_def,IN_DISJOINT]
     \\ fs [eval_circuit_def]
     \\ simp [EXISTS_MEM]
     \\ first_x_assum $ irule_at Any
     \\ fs [eval_circuit_def])
   \\ fs [eq_every_to_cnf_thm, satisfies_lit_def, SF ETA_ss]
   \\ fs [cnf_witness_def]
-  \\ drule find_suffix_fast_forward \\ fs [] \\ rw []
+  \\ drule find_suffix_fast_forward \\ fs [] \\ strip_tac
   \\ simp [eval_circuit_def, SF ETA_ss]
   \\ simp [Once to_filter]
   \\ simp [EVERY_MAP]
+  \\ fs [has_var_def, SF DNF_ss] \\ rw []
+  >- fs [DISJOINT3_def,IN_DISJOINT]
+  >- fs [DISJOINT3_def,IN_DISJOINT]
   \\ irule EVERY_EQ_EVERY
   \\ simp [EVERY_MEM, MEM_FILTER] \\ rw []
   \\ rename [‘not_TT z’]
@@ -888,13 +890,21 @@ Proof
    (rename [‘Base b’] \\ Cases_on ‘b’ \\ fs []
     \\ Cases_on ‘z1’ \\ fs [not_TT_def]
     \\ simp [var_to_lit_def, var_to_name_def, eval_circuit_def,
-             satisfies_lit_def, cnf_witness_def])
+             satisfies_lit_def, cnf_witness_def]
+    \\ res_tac \\ fs [] \\ rw []
+    \\ fs [DISJOINT3_def,IN_DISJOINT] \\ metis_tac [])
   \\ Cases_on ‘z1’
   \\ gvs [var_to_lit_def, satisfies_lit_def, var_to_name_def]
-  \\ gvs [eval_circuit_def, eval_bvar_def, get_is_def, get_ls_def, cnf_witness_def]
+  \\ gvs [eval_circuit_def, eval_bvar_def, cnf_witness_def]
   \\ res_tac
   \\ Cases_on ‘ALOOKUP ands a’ \\ fs []
   \\ dxrule ALOOKUP_MEM
+  \\ strip_tac \\ (rw []
+  >- (fs [DISJOINT3_def,IN_DISJOINT,MEM_MAP,PULL_EXISTS,EXISTS_PROD]
+      \\ metis_tac [])
+  >- (fs [DISJOINT3_def,IN_DISJOINT,MEM_MAP,PULL_EXISTS,EXISTS_PROD]
+      \\ metis_tac []))
+  \\ qpat_x_assum ‘MEM (a,x) ands’ mp_tac
   \\ simp [MEM_SPLIT]
   \\ strip_tac \\ gvs []
   \\ ‘ALL_DISTINCT (MAP FST (past ++ (h0,h1)::l1) ++ a :: MAP FST l2)’ by
@@ -908,25 +918,31 @@ Proof
 QED
 
 Theorem eval_circuit_IMP_cnf:
-  closed ands ∧ ALL_DISTINCT (MAP FST ands) ⇒
-  satisfies_cnf (cnf_witness is ls ands) (set (to_cnf ands []))
+  closed ands ∧ ALL_DISTINCT (MAP FST ands) ∧
+  (∀l. has_var (Latch l) ands ⇒ l ∈ l_dom) ∧
+  (∀i. has_var (Input i) ands ⇒ i ∈ i_dom) ∧
+  DISJOINT3 i_dom l_dom (set (MAP FST ands)) ⇒
+  satisfies_cnf (cnf_witness i_dom l_dom is ls ands) (set (to_cnf ands []))
 Proof
   qspecl_then [‘ands’,‘[]’] mp_tac eval_circuit_IMP_cnf_lemma \\ fs []
 QED
 
 Theorem direct_circuit_to_cnf_correct:
   ALL_DISTINCT (MAP FST ands) ∧ closed ands ∧
-  (~NULL ands ⇒ FST (HD ands) = name) ⇒
+  (~NULL ands ⇒ FST (HD ands) = name) ∧
+  (∀l. has_var (Latch l) ands ⇒ l ∈ l_dom) ∧
+  (∀i. has_var (Input i) ands ⇒ i ∈ i_dom) ∧
+  DISJOINT3 i_dom l_dom (set (MAP FST ands)) ⇒
   (satisfiable_cnf (set (direct_circuit_to_cnf ands name)) =
-   ∃is ls. eval_circuit (is,ls) ands name)
+   ∃is ls. eval_circuit' (is,ls) ands)
 Proof
   rw [satisfiable_cnf_def] \\ eq_tac \\ strip_tac
   >-
-   (qexists ‘get_is w’ \\ qexists ‘get_ls w’
+   (qexists ‘w’ \\ qexists ‘w’
     \\ fs [direct_circuit_to_cnf_def]
     \\ pop_assum mp_tac
     \\ Cases_on ‘NULL ands’
-    >- (rw [] \\ gvs []
+    >- (rw [] \\ gvs [eval_circuit'_def]
         \\ fs [satisfies_cnf_def, satisfies_fml_gen_def, satisfies_clause_def])
     \\ simp []
     \\ once_rewrite_tac [satisfies_cnf_INSERT]
@@ -934,17 +950,17 @@ Proof
     \\ drule_all satisfies_cnf_IMP
     \\ Cases_on ‘ands’ \\ gvs []
     \\ PairCases_on ‘h’
-    \\ gvs [eval_circuits_def])
-  \\ qexists ‘cnf_witness is ls ands’
+    \\ gvs [eval_circuits_def,eval_circuit'_def])
+  \\ qexists ‘cnf_witness i_dom l_dom is ls ands’
   \\ simp [direct_circuit_to_cnf_def]
-  \\ IF_CASES_TAC \\ simp [] >- gvs [NULL_EQ]
+  \\ IF_CASES_TAC \\ simp [] >- gvs [NULL_EQ, eval_circuit'_def]
   \\ once_rewrite_tac [satisfies_cnf_INSERT]
   \\ conj_tac
   >-
    (simp [satisfies_clause_def, satisfies_lit_def]
     \\ simp [cnf_witness_def]
-    \\ qsuff_tac ‘find_suffix name ands = SOME ands’ >- simp []
     \\ Cases_on ‘ands’ \\ gvs [] \\ PairCases_on ‘h’ \\ fs []
-    \\ fs [find_suffix_def])
+    \\ fs [find_suffix_def, eval_circuit'_def]
+    \\ rw [] \\ fs [DISJOINT3_def,IN_DISJOINT])
   \\ drule_all eval_circuit_IMP_cnf \\ simp []
 QED
