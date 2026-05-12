@@ -29,9 +29,37 @@ Definition prune_def:
           (m,ts) :: prune xs (new_live ts live')
 End
 
-Definition prune_for_def:
-  prune_for name ands = prune ands (FEMPTY |+ (name,()))
+Definition prune_rev_def:
+  prune_rev ([]:('a,'i,'l) and list) (live :'a |-> unit) acc = acc ∧
+  prune_rev ((m,ts)::xs) live acc =
+    case FLOOKUP live m of
+    | NONE => prune_rev xs live acc
+    | _ =>
+        let live' = live \\ m in
+          prune_rev xs (new_live ts live') ((m,ts) :: acc)
 End
+
+Definition prune_for_def:
+  prune_for name ands = prune_rev ands (FEMPTY |+ (name,())) []
+End
+
+Theorem prune_rev_thm:
+  ∀xs live acc. prune_rev xs live acc = REVERSE (prune xs live) ++ acc
+Proof
+  Induct \\ fs [prune_rev_def,prune_def] \\ rw []
+  \\ Cases_on ‘h’ \\ fs [prune_rev_def,prune_def] \\ rw []
+  \\ CASE_TAC \\ fs []
+QED
+
+(*
+Theorem prune_eq:
+  prune xs live = REVERSE (prune_rev xs live [])
+Proof
+  simp [GSYM SWAP_REVERSE_SYM]
+  \\ rewrite_tac [prune_rev_thm]
+  \\ simp []
+QED
+*)
 
 Theorem EVERY_EQ_EVERY[local]:
   EVERY (λx. P x = Q x) xs ⇒ (EVERY P xs = EVERY Q xs)
@@ -103,8 +131,8 @@ Proof
   \\ PairCases_on ‘h’ \\ fs [eval_circuit'_def, eval_circuit_def]
 QED
 
-Theorem eval_circuit_prune_for:
-  eval_circuit' (is,ls) (prune_for name ands) =
+Theorem eval_circuit'_prune:
+  eval_circuit' (is,ls) (prune ands (FEMPTY |+ (name,()))) =
   eval_circuit (is,ls) ands name
 Proof
   simp [Once EQ_SYM_EQ, prune_for_def]
@@ -152,6 +180,35 @@ Definition aig_rename_def:
     let (ts1,next,im,lm) = aig_rename_aux ts next im lm nm [] in
       ((next,ts1)::res, next+1, im, lm, nm |+ (m, next))
 End
+
+Definition aig_rename_rev_def:
+  aig_rename_rev ([]:('a,'i,'l) and list) acc next im lm nm = (acc,next,im,lm,nm) ∧
+  aig_rename_rev ((m,ts)::xs) acc next im lm nm =
+    let (ts1,next,im,lm) = aig_rename_aux ts next im lm nm [] in
+      aig_rename_rev xs ((next,ts1)::acc) (next+1) im lm (nm |+ (m, next))
+End
+
+Theorem aig_rename_rev_append:
+  ∀xs ys acc next im lm nm.
+    aig_rename_rev (xs ++ ys) acc next im lm nm =
+      let (acc,next,im,lm,nm) = aig_rename_rev xs acc next im lm nm in
+        aig_rename_rev ys acc next im lm nm
+Proof
+  Induct \\ fs [aig_rename_rev_def]
+  \\ PairCases \\ fs [aig_rename_rev_def] \\ rw []
+  \\ rpt (pairarg_tac \\ fs [])
+QED
+
+Theorem aig_rename_rev_thm:
+  ∀xs res next.
+    aig_rename_rev (REVERSE xs) [] 0n FEMPTY FEMPTY FEMPTY = aig_rename xs
+Proof
+  Induct \\ fs [aig_rename_rev_def, aig_rename_def]
+  \\ Cases \\ fs [aig_rename_rev_def, aig_rename_def]
+  \\ fs [aig_rename_rev_append]
+  \\ rw [] \\ rpt (pairarg_tac \\ fs [])
+  \\ fs [aig_rename_rev_def]
+QED
 
 Definition DISJOINT3_def:
   DISJOINT3 s1 s2 s3 ⇔
@@ -1054,8 +1111,8 @@ QED
 Definition aig_to_cnf_def:
   aig_to_cnf ands name =
     let ands_1 = prune_for name ands in
-    let (ands_2,next,im,lm,nm) = aig_rename ands_1 in
-      (direct_circuit_to_cnf ands_2, next)
+    let (ands_2, limit, x) = aig_rename_rev ands_1 [] 0n FEMPTY FEMPTY FEMPTY in
+      (direct_circuit_to_cnf ands_2, limit)
 End
 
 Theorem aig_to_cnf_def_correct:
@@ -1065,23 +1122,23 @@ Theorem aig_to_cnf_def_correct:
 Proof
   simp [aig_to_cnf_def]
   \\ pairarg_tac \\ fs []
-  \\ strip_tac \\ gvs []
+  \\ strip_tac \\ gvs [prune_for_def, prune_rev_thm, aig_rename_rev_thm]
   \\ irule_at Any EQ_TRANS
   \\ irule_at Any direct_circuit_to_cnf_correct
+  \\ PairCases_on ‘x’
   \\ drule aig_rename_thm
   \\ simp [GSYM PULL_FORALL]
   \\ strip_tac
-  \\ qexists ‘FRANGE lm’
-  \\ qexists ‘FRANGE im’
+  \\ pop_assum kall_tac
+  \\ first_assum $ irule_at Any
   \\ fs []
   \\ conj_tac
   >-
-   (‘ands_2 = FST (aig_rename (prune_for name aig))’ by asm_rewrite_tac []
+   (‘ands_2 = FST (aig_rename (prune aig FEMPTY⟨name ↦ ()⟩))’ by asm_rewrite_tac []
     \\ pop_assum $ rewrite_tac o single
-    \\ rewrite_tac [eval_circuit'_aig_rename, eval_circuit_prune_for])
+    \\ rewrite_tac [eval_circuit'_aig_rename, eval_circuit'_prune])
   \\ irule direct_circuit_to_cnf_lits_within
   \\ fs [EVERY_MEM,FORALL_PROD]
-  \\ pop_assum kall_tac
   \\ rpt strip_tac
   \\ res_tac
   >- (CCONTR_TAC \\ fs [NOT_LESS] \\ res_tac)
