@@ -597,7 +597,6 @@ Proof
   >> fs [agree_on_union]
 QED
 
-
 (* Extending a trace for the model to a trace for the witness *****************)
 
 Theorem agree_on_sym:
@@ -1048,17 +1047,17 @@ Proof
 QED
 
 Theorem matching_transition_live:
-  is_inf_trace circ reset next cnstrs latches tr ∧
-  (∀n. preds_hold (tr n) circ preds) ∧
   is_witness_decrease
     circ reset next preds cnstrs qcirc live latches  ∧
+  matching_transition inputs latches tr i j ∧
+  is_inf_trace circ reset next cnstrs latches tr ∧
   is_witness_closure
     circ reset next preds cnstrs qcirc live latches ∧
   dep_circuit inputs latches circ ∧
   dep_latch_lit inputs latches next ∧
   dep_circuit (pair_set inputs) (pair_set latches) qcirc ∧
   dep_lits (pair_set inputs) (pair_set latches) live ∧
-  matching_transition inputs latches tr i j
+  (∀n. preds_hold (tr n) circ preds)
   ⇒
   preds_hold (pair_state (tr i) (tr (i + 1))) qcirc live
 Proof
@@ -1155,9 +1154,10 @@ Proof
 QED
 
 Theorem matching_transition_exists:
-  FINITE inputs ∧ FINITE latches ⇒
-  ∃k. ∀i. k < i ⇒
-    ∃j. matching_transition inputs latches (tr: ('i, 'l) trace) i j
+  ∀inputs latches tr.
+    FINITE inputs ∧ FINITE latches ⇒
+    ∃k. ∀i. k < i ⇒
+      ∃j. matching_transition inputs latches (tr: ('i, 'l) trace) i j
 Proof
   rw []
   >> qabbrev_tac ‘g = λi.
@@ -1174,38 +1174,55 @@ Proof
   >> fs [matching_transition_def, Abbr ‘g’, agree_on_iff_restrict_ss_eq]
 QED
 
+Definition dep_witness_def:
+  dep_witness circ reset next preds cnstrs inputs qcirc live latches ⇔
+    FINITE inputs ∧ FINITE latches ∧
+    dep_circuit inputs latches circ ∧
+    dep_latch_lit inputs latches next ∧
+    dep_circuit (pair_set inputs) (pair_set latches) qcirc ∧
+    dep_lits (pair_set inputs) (pair_set latches) live
+End
+
 Theorem is_witness_is_live:
   is_witness
     mcirc mreset mnext mpreds mcnstrs mqcirc mlive mlatches
     wcirc wreset wnext wpreds wcnstrs wqcirc wlive wlatches ∧
   dep_model
     mcirc mreset mnext mpreds mcnstrs minput mlatches ∧
+  dep_witness
+    wcirc wreset wnext wpreds wcnstrs winput wqcirc wlive wlatches ∧
   is_stratified_full lt wcirc wreset wlatches
   ⇒
   is_live
     mcirc mreset mnext mcnstrs mqcirc mlive mlatches
 Proof
+  (* Extend trace on model to trace on witness *)
   rw [is_witness_def, is_live_def]
   >> drule_all extend_model_trace_to_witness
   >> rename1 ‘is_inf_trace _ _ _ _ _ tr’
   >> disch_then $ qspec_then ‘tr’ mp_tac >> strip_tac
   >> dxrule is_inf_trace_traces_agree
   >> simp [] >> strip_tac
-  (*
-     OK extend model inf trace to witness inf trace
-        (using/adjusting extend_model_trace_to_witness)
-     2. finiteness/projection argument on witness
-        circuit is fine
-        => only depend on finite latches/inputs
-        => number of unique projected transitions is finite
-        => there is some point, after which each projected transition
-           happens at least twice
-     3. get liveness on witness
-        => use matching_transition_live (needs to be adjusted for projection?)
-     4. get liveness on model
-        => use is_witness_liveness to go from witness to model
-        ^ maybe needs safety for assumptions that preds/constraints hold
-          (is_witness_is_safe)
+
+  (* Infinite trace on witness repeats from k onwards *)
+  >> qspecl_then [‘winput’, ‘wlatches’, ‘tr'’] mp_tac matching_transition_exists
+  >> impl_tac >- fs [dep_witness_def]
+  >> strip_tac
+  >> rename1 ‘k < _ ⇒ _’ >> qexists ‘k’ >> rw []
+
+  (* Model is live if model is live on extended trace *)
+  (* todo *)
+
+  (* Model is live if witness is live
+     => use is_witness_liveness to go from witness to model
+     ^ maybe needs safety for assumptions that preds/constraints hold
+       (is_witness_is_safe)
+   *)
+  >> fs [is_witness_liveness_def]
+  >> first_assum irule
+
+  (* Witness is live
+     => use matching_transition_live
    *)
   >> cheat
 QED
