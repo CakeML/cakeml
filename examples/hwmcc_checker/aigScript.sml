@@ -338,6 +338,56 @@ Definition matching_transition_def:
     agree_on inputs latches (tr (j + 1)) (tr (i + 1))
 End
 
+(* Used Inputs ****************************************************************)
+
+Definition bvar_inputs_def:
+  (bvar_inputs (Input i) = [i]) ∧
+  (bvar_inputs _         = [])
+End
+
+Definition var_inputs_def:
+  (var_inputs (Base bv) = bvar_inputs bv) ∧
+  (var_inputs (Name _)  = [])
+End
+
+Definition lit_inputs_def:
+  lit_inputs (v, b) = var_inputs v
+End
+
+Definition and_inputs_def:
+  and_inputs ((_, lits): ('a,'i,'l) and) = FLAT (MAP lit_inputs lits)
+End
+
+Definition circuit_inputs_def:
+  circuit_inputs (circ: ('a,'i,'l) circuit) = FLAT (MAP and_inputs circ)
+End
+
+(* Used Inputs ****************************************************************)
+
+Definition bvar_latches_def:
+  (bvar_latches (Latch l) = [l]) ∧
+  (bvar_latches _         = [])
+End
+
+Definition var_latches_def:
+  (var_latches (Base bv) = bvar_latches bv) ∧
+  (var_latches (Name _)  = [])
+End
+
+Definition lit_latches_def:
+  lit_latches (v, b) = var_latches v
+End
+
+Definition and_latches_def:
+  and_latches ((_, lits): ('a,'i,'l) and) = FLAT (MAP lit_latches lits)
+End
+
+Definition circuit_latches_def:
+  circuit_latches (circ: ('a,'i,'l) circuit) = FLAT (MAP and_latches circ)
+End
+
+(* Syntactic Dependencies *****************************************************)
+
 Definition dep_circuit_def:
   dep_circuit inputs latches circ =
   ∀n ss' ss.
@@ -450,6 +500,103 @@ Proof
   >> Cases_on ‘b₁’
   >> fs [eval_bvar_def, agree_on_def]
 QED
+
+Theorem agree_on_union:
+  agree_on (xs₀ ∪ xs₁) (ys₀ ∪ ys₁) ss' ss ⇔
+  agree_on xs₀ ys₀ ss' ss ∧ agree_on xs₁ ys₁ ss' ss
+Proof
+  Cases_on ‘ss'’ >> Cases_on ‘ss’ >> simp [agree_on_def]
+  >> metis_tac []
+QED
+
+Theorem circuit_inputs_cons:
+  circuit_inputs (h::circ) = and_inputs h ++ circuit_inputs circ
+Proof
+  simp [circuit_inputs_def]
+QED
+
+Theorem circuit_latches_cons:
+  circuit_latches (h::circ) = and_latches h ++ circuit_latches circ
+Proof
+  simp [circuit_latches_def]
+QED
+
+Theorem agree_on_weaken:
+  agree_on inputs latches ss' ss ∧
+  inputs' ⊆ inputs ∧
+  latches' ⊆ latches
+  ⇒
+  agree_on inputs' latches' ss' ss
+Proof
+  Cases_on ‘ss'’ >> Cases_on ‘ss’ >> rw [agree_on_def, SUBSET_DEF]
+QED
+
+Theorem agree_on_weaken_inputs[local]:
+  agree_on inputs latches ss' ss ∧
+  inputs' ⊆ inputs
+  ⇒
+  agree_on inputs' latches ss' ss
+Proof
+  metis_tac [SUBSET_DEF, agree_on_weaken]
+QED
+
+Theorem dep_circuit_subset:
+  dep_circuit xs ys circ ∧ xs ⊆ xs' ∧ ys ⊆ ys'
+  ⇒
+  dep_circuit xs' ys' circ
+Proof
+  rw [dep_circuit_def] >> metis_tac [agree_on_weaken]
+QED
+
+Theorem dep_lit_subset:
+  dep_lit xs ys l ∧ xs ⊆ xs' ∧ ys ⊆ ys'
+  ⇒
+  dep_lit xs' ys' l
+Proof
+  namedCases_on ‘l’ ["b v"] >> simp [dep_lit_def]
+  >> namedCases_on ‘b’ ["n", "bv"] >> simp [dep_var_def]
+  >> Cases_on ‘bv’ >> simp [dep_bvar_def]
+  >> metis_tac [SUBSET_DEF]
+QED
+
+Theorem dep_lit_and:
+  MEM l ls ⇒
+  dep_lit (set (and_inputs (n,ls))) (set (and_latches (n,ls))) l
+Proof
+  namedCases_on ‘l’ ["b v"] >> simp [dep_lit_def]
+  >> namedCases_on ‘b’ ["n", "bv"] >> simp [dep_var_def]
+  >> Cases_on ‘bv’ >> simp [dep_bvar_def]
+  >> rw [and_latches_def, and_inputs_def, MEM_FLAT, MEM_MAP, PULL_EXISTS]
+  >> first_assum $ irule_at Any
+  >> simp [lit_inputs_def, var_inputs_def, bvar_inputs_def, lit_latches_def,
+           var_latches_def, bvar_latches_def]
+QED
+
+Theorem dep_circuit_inputs_latches:
+  dep_circuit (set (circuit_inputs circ)) (set (circuit_latches circ)) circ
+Proof
+  Induct_on ‘circ’ >- simp [dep_circuit_def]
+  >> rw [dep_circuit_def]
+  >> fs [circuit_inputs_cons, circuit_latches_cons]
+  >> rename1 ‘h::_’ >> namedCases_on ‘h’ ["n ls"]
+  >> gvs [eval_circuit_def]
+  >> IF_CASES_TAC >> gvs []
+  >-
+   (irule EVERY_CONG >> rw []
+    >> irule dep_eval_lit_eq
+    >> qpat_assum ‘agree_on _ _ _ _’ $ irule_at Any
+    >> irule_at (Pos hd) dep_circuit_subset
+    >> first_assum $ irule_at (Pos hd)
+    >> simp []
+    >> irule_at (Pos hd) dep_lit_subset
+    >> irule_at (Pos hd) dep_lit_and
+    >> first_assum $ irule_at (Pos hd)
+    >> qexists ‘n’ >> simp [])
+  >> fs [dep_circuit_def]
+  >> first_assum irule
+  >> fs [agree_on_union]
+QED
+
 
 (* Extending a trace for the model to a trace for the witness *****************)
 
@@ -642,15 +789,6 @@ Definition is_stratified_full_def:
   total lt ∧   (* for QSORT_SORTED *)
   is_stratified lt circ reset latches
 End
-
-Theorem agree_on_weaken_inputs:
-  agree_on inputs latches ss' ss ∧
-  inputs' ⊆ inputs
-  ⇒
-  agree_on inputs' latches ss' ss
-Proof
-  Cases_on ‘ss'’ >> Cases_on ‘ss’ >> rw [agree_on_def, SUBSET_DEF]
-QED
 
 Theorem traces_agree_weaken_inputs:
   traces_agree n inputs latches tr' tr ∧
