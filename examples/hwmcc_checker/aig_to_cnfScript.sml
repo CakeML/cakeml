@@ -979,6 +979,74 @@ Proof
   \\ drule eval_circuit_IMP_cnf \\ fs []
 QED
 
+Definition lits_within_def:
+  lits_within limit cnf =
+    EVERY (EVERY (λl. lit_var l < limit)) cnf
+End
+
+Theorem lit_var_negate:
+  lit_var (negate x) = lit_var x
+Proof
+  Cases_on ‘x’ \\ gvs [negate_def, lit_var_def]
+QED
+
+Theorem lits_within_eq_every_to_cnf:
+  lit_var x < limit ∧
+  EVERY (λx. lit_var x < limit) xs ⇒
+  lits_within limit (eq_every_to_cnf x xs)
+Proof
+  fs [eq_every_to_cnf_def, lits_within_def, EVERY_MAP, lit_var_negate]
+QED
+
+Theorem to_cnf_lits_within:
+  ∀ands acc.
+    (∀l. has_var (Latch l) ands ⇒ l < limit) ∧
+    (∀i. has_var (Input i) ands ⇒ i < limit) ∧
+    closed ands ∧
+    EVERY (λ(n,_). n < limit) ands ∧
+    lits_within limit acc ⇒
+    lits_within limit (to_cnf ands acc)
+Proof
+  Induct \\ simp [to_cnf_def]
+  \\ Cases \\ simp [to_cnf_def]
+  \\ rpt strip_tac
+  \\ last_x_assum irule
+  \\ fs [closed_def,has_var_def, SF DNF_ss]
+  \\ fs [lits_within_def]
+  \\ rw [and_to_cnf_def, lit_var_def]
+  \\ fs [GSYM lits_within_def]
+  \\ irule lits_within_eq_every_to_cnf
+  \\ fs [lit_var_def]
+  \\ gvs [EVERY_MEM,MEM_MAP,MEM_FILTER] \\ rw []
+  \\ PairCases_on ‘y’ \\ gvs []
+  \\ Cases_on ‘y0’ \\ gvs []
+  \\ res_tac
+  \\ fs [FORALL_PROD,ALOOKUP_NONE,MEM_MAP, PULL_EXISTS, EXISTS_PROD]
+  \\ res_tac
+  \\ Cases_on ‘y1’
+  \\ fs [var_to_lit_def, lit_var_def, var_to_name_def]
+  \\ Cases_on ‘b’ \\ gvs []
+  \\ fs [var_to_lit_def, lit_var_def, var_to_name_def]
+  \\ res_tac
+QED
+
+Theorem direct_circuit_to_cnf_lits_within:
+  (∀l. has_var (Latch l) ands ⇒ l < limit) ∧
+  (∀i. has_var (Input i) ands ⇒ i < limit) ∧
+  closed ands ∧
+  EVERY (λ(n,_). n < limit) ands ⇒
+  lits_within limit (direct_circuit_to_cnf ands)
+Proof
+  strip_tac
+  \\ fs [direct_circuit_to_cnf_def]
+  \\ Cases_on ‘ands’ >- fs [lits_within_def]
+  \\ PairCases_on ‘h’ \\ fs []
+  \\ fs [lits_within_def, lit_var_def]
+  \\ fs [GSYM lits_within_def]
+  \\ irule to_cnf_lits_within \\ fs []
+  \\ fs [lits_within_def]
+QED
+
 (*----------------------------------------------------------------------*
    plugging everything together
  *----------------------------------------------------------------------*)
@@ -992,12 +1060,13 @@ End
 
 Theorem aig_to_cnf_def_correct:
   aig_to_cnf aig name = (cnf, limit) ⇒
-  (satisfiable_cnf (set cnf) = ∃is ls. eval_circuit (is,ls) aig name)
+  (satisfiable_cnf (set cnf) ⇔ ∃is ls. eval_circuit (is,ls) aig name) ∧
+  lits_within limit cnf
 Proof
   simp [aig_to_cnf_def]
   \\ pairarg_tac \\ fs []
   \\ strip_tac \\ gvs []
-  \\ irule EQ_TRANS
+  \\ irule_at Any EQ_TRANS
   \\ irule_at Any direct_circuit_to_cnf_correct
   \\ drule aig_rename_thm
   \\ simp [GSYM PULL_FORALL]
@@ -1005,7 +1074,18 @@ Proof
   \\ qexists ‘FRANGE lm’
   \\ qexists ‘FRANGE im’
   \\ fs []
-  \\ ‘ands_2 = FST (aig_rename (prune_for name aig))’ by asm_rewrite_tac []
-  \\ pop_assum $ rewrite_tac o single
-  \\ rewrite_tac [eval_circuit'_aig_rename, eval_circuit_prune_for]
+  \\ conj_tac
+  >-
+   (‘ands_2 = FST (aig_rename (prune_for name aig))’ by asm_rewrite_tac []
+    \\ pop_assum $ rewrite_tac o single
+    \\ rewrite_tac [eval_circuit'_aig_rename, eval_circuit_prune_for])
+  \\ irule direct_circuit_to_cnf_lits_within
+  \\ fs [EVERY_MEM,FORALL_PROD]
+  \\ pop_assum kall_tac
+  \\ rpt strip_tac
+  \\ res_tac
+  >- (CCONTR_TAC \\ fs [NOT_LESS] \\ res_tac)
+  >- (CCONTR_TAC \\ fs [NOT_LESS] \\ res_tac)
+  \\ CCONTR_TAC \\ fs [NOT_LESS] \\ res_tac
+  \\ gvs [MEM_MAP,EXISTS_PROD,PULL_EXISTS]
 QED
