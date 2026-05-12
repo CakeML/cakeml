@@ -58,16 +58,25 @@ Definition term_ok'_def:
        term_ok' thy' tm)
 End
 
+Definition axioms_ok_def:
+  axioms_ok axs ⇔
+    ∀ax. ax ∈ axs ⇒
+      ∀x ty1 ty2. VFREE_IN (Var x ty1) ax ∧ VFREE_IN (Var x ty2) ax ⇒ ty1 = ty2
+End
+
 Definition theory_ok'_def:
   theory_ok' (thy:ethy) ⇔
     (∀ty. ty ∈ FRANGE thy.tms ⇒ type_ok thy.tys ty) ∧
     (∀ty. ty ∈ FRANGE thy.etms ⇒ type_ok thy.ctys ty) ∧
     DISJOINT (FDOM thy.tys) (FDOM thy.etys) ∧
     DISJOINT (FDOM thy.tms) (FDOM thy.etms) ∧
-    (∀p. p ∈ thy.axs ⇒ term_ok thy.sig p ∧ p has_type Bool) ∧
+    (∀p. p ∈ thy.axs ⇒ term_ok' thy p ∧ p has_type Bool) ∧
     (∀p. p ∈ thy.eaxs ⇒
          term_ok' thy p ∧ p has_type Bool) ∧
-    is_std_sig thy.sig
+    is_std_sig thy.sig ∧
+    axioms_ok thy.axs ∧
+    axioms_ok thy.eaxs ∧
+    FRANGE thy.etys ⊆ {0}
 End
 
 (* Sequents provable from a theory *)
@@ -184,10 +193,10 @@ End
 
 Definition esubst_thy_def:
   esubst_thy σ thy =
-  thy with <| tms  := thy.tms ⊌ (ty_esubst σ o_f thy.etms);
-              axs  := IMAGE (esubst σ []) (thy.axs ∪ thy.eaxs);
-              etms := FEMPTY;
-              eaxs := {} |>
+  thy with <| etys := FDIFF thy.etys (FDOM (FST σ));
+              etms := ty_esubst σ o_f (FDIFF thy.etms (FDOM (SND σ)));
+              axs  := IMAGE (esubst σ []) thy.axs;
+              eaxs := IMAGE (esubst σ []) thy.eaxs |>
 End
 
 Definition vsubst_tys_ok_def:
@@ -296,7 +305,7 @@ Definition esubsts_ok'_def:
             ∃ty. FLOOKUP thy.etms tmnm = SOME ty ∧
                  is_monomorphic ty ∧
                  typeof (θ ' tmnm) = ty_esubst (σ, θ) ty) ∧
-    (FDOM σ ⊆ FDOM thy.etys) ∧ 
+    (FDOM σ ⊆ FDOM thy.etys) ∧
     (∀ty. ty ∈ FRANGE σ ⇒ type_ok thy.ctys ty ∧
                           is_monomorphic ty) ∧
     (∀tm. tm ∈ FRANGE θ ⇒ term_ok' (esubst_thy (σ,θ) thy) tm ∧
@@ -329,7 +338,7 @@ Definition esubsts_total_def:
 End
 
 Definition no_var_collapse:
-  no_var_collapse σ tm ⇔
+  no_var_collapse (σ:(mlstring |-> type) # (mlstring |-> term)) tm ⇔
     ∀x ty1 ty2.
       VFREE_IN (Var x ty1) tm ∧ VFREE_IN (Var x ty2) tm ∧ ty1 ≠ ty2 ⇒
       ty_esubst σ ty1 ≠ ty_esubst σ ty2
@@ -468,17 +477,17 @@ Proof
   simp[lift_thy_def, ctms_def]
 QED
 
-Theorem theory_ok'_lift_thy[simp]:
-  theory_ok' (lift_thy thy) ⇔ theory_ok thy
-Proof
-  rw[theory_ok_def, theory_ok'_def, lift_thy_def]
-QED
-
 Theorem term_ok'_lift_thy[simp]:
   term_ok' (lift_thy thy) tm ⇔ term_ok (sigof thy) tm
 Proof
   Induct_on ‘tm’
   >> rw[term_ok_def, term_ok'_def, lift_thy_def]
+QED
+
+Theorem theory_ok'_lift_thy[simp]:
+  theory_ok' (lift_thy thy) ⇔ theory_ok thy ∧ axioms_ok (axsof thy)
+Proof
+  rw[theory_ok_def, theory_ok'_def, lift_thy_def, axioms_ok_def] >> eq_tac >> rw[] >> metis_tac[]
 QED
 
 Definition drop_thy:
@@ -600,16 +609,38 @@ Definition consts_of_upd'_def:
   (consts_of_upd' _ = [])
 End
 
-Overload type_list = ``λctxt. FLAT (MAP types_of_upd' ctxt)``
-Overload tysof = ``λctxt. alist_to_fmap (type_list ctxt)``
-Overload const_list = ``λctxt. FLAT (MAP consts_of_upd' ctxt)``
-Overload tmsof = ``λctxt. alist_to_fmap (const_list ctxt)``
+Overload type_list = “λctxt. FLAT (MAP types_of_upd' ctxt)”
+Overload tysof = “λctxt. alist_to_fmap (type_list ctxt)”
+Overload const_list = “λctxt. FLAT (MAP consts_of_upd' ctxt)”
+Overload tmsof = “λctxt. alist_to_fmap (const_list ctxt)”
+
+(* Eliminable types, constants, and axioms *)
+Definition etypes_of_upd'_def:
+  etypes_of_upd' (NewEliminableType name) = [(name, 0:num)] ∧
+  etypes_of_upd' _ = []
+End
+
+Definition econsts_of_upd'_def:
+  econsts_of_upd' (NewEliminableConst name type) = [(name,type)] ∧
+  econsts_of_upd' _ = []
+End
+
+Definition eaxexts_of_upd'_def:
+  eaxexts_of_upd' (NewEliminableAxiom prop) = [prop] ∧
+  eaxexts_of_upd' _ = []
+End
+
+Overload etype_list = “λctxt. FLAT (MAP etypes_of_upd' ctxt)”
+Overload etysof = “λctxt. alist_to_fmap (etype_list ctxt)”
+Overload econst_list = “λctxt. FLAT (MAP econsts_of_upd' ctxt)”
+Overload etmsof = “λctxt. alist_to_fmap (econst_list ctxt)”
+Overload eaxexts' = “λctxt. FLAT (MAP eaxexts_of_upd' ctxt)”
+Overload eaxsof' = “λctxt. set (eaxexts' ctxt)”
 
 (* Axioms: we divide them into axiomatic extensions and conservative
      extensions, we will prove that the latter preserve consistency *)
 Definition axexts_of_upd'_def:
   axexts_of_upd' (NewAxiom prop) = [prop] ∧
-  axexts_of_upd' (NewEliminableAxiom prop) = [prop] ∧
   axexts_of_upd' _ = []
 End
 
@@ -630,22 +661,24 @@ Definition conexts_of_upd'_def:
   (conexts_of_upd' _ = [])
 End
 
-Overload axexts' = ``λctxt. FLAT (MAP axexts_of_upd' ctxt)``
-Overload conexts' = ``λctxt. FLAT (MAP conexts_of_upd' ctxt)``
+Overload axexts' = “λctxt. FLAT (MAP axexts_of_upd' ctxt)”
+Overload conexts' = “λctxt. FLAT (MAP conexts_of_upd' ctxt)”
 
-Overload axioms_of_upd' = ``λupd. axexts_of_upd' upd ++ conexts_of_upd' upd``
-Overload axiom_list' = ``λctxt. FLAT (MAP axioms_of_upd' ctxt)``
-Overload axsof' = ``λctxt. set (axiom_list' ctxt)``
+Overload axioms_of_upd' = “λupd. axexts_of_upd' upd ++ conexts_of_upd' upd”
+Overload axiom_list' = “λctxt. FLAT (MAP axioms_of_upd' ctxt)”
+Overload axsof' = “λctxt. set (axiom_list' ctxt)”
 
-val _ = export_rewrites["types_of_upd'_def","consts_of_upd'_def","axexts_of_upd'_def"]
+val _ = export_rewrites["types_of_upd'_def","consts_of_upd'_def",
+                        "etypes_of_upd'_def","econsts_of_upd'_def",
+                        "eaxexts_of_upd'_def","axexts_of_upd'_def"]
 
 (* Now we can recover the entire e-theory record from a context *)
 Overload ethyof = “(λ(ctxt:update' list). <| tms := tmsof ctxt;
                               tys := tysof ctxt;
-                              etms := FEMPTY;
-                              etys := FEMPTY;
+                              etms := etmsof ctxt;
+                              etys := etysof ctxt;
                               axs := axsof' ctxt;
-                              eaxs := {} |>):update' list -> ethy”
+                              eaxs := eaxsof' ctxt |>):update' list -> ethy”
 
 (* Principles for extending the context *)
 
@@ -656,11 +689,13 @@ val _ = hide "abs";
 Inductive updates':
   (* new_axiom *)
   (prop has_type Bool ∧
+   CLOSED prop ∧
    term_ok' (ethyof ctxt) prop
    ⇒ (NewAxiom prop) updates' ctxt) ∧
 
   (* new_constant *)
   (name ∉ (FDOM (tmsof ctxt)) ∧
+   name ∉ (FDOM (etmsof ctxt)) ∧
    type_ok (tysof ctxt) ty
    ⇒ (NewConst name ty) updates' ctxt) ∧
 
@@ -673,21 +708,44 @@ Inductive updates':
    (∀x ty. VFREE_IN (Var x ty) prop ⇒
              MEM (x,ty) (MAP (λ(s,t). (s,typeof t)) eqs)) ∧
    (∀s. MEM s (MAP FST eqs) ⇒ s ∉ (FDOM (tmsof ctxt))) ∧
+   (∀s. MEM s (MAP FST eqs) ⇒ s ∉ (FDOM (etmsof ctxt))) ∧
    ALL_DISTINCT (MAP FST eqs)
    ⇒ (ConstSpec eqs prop) updates' ctxt) ∧
 
   (* new_type *)
-  (name ∉ (FDOM (tysof ctxt))
+  (name ∉ (FDOM (tysof ctxt)) ∧
+   name ∉ (FDOM (etysof ctxt))
    ⇒ (NewType name arity) updates' ctxt) ∧
 
   (* new_type_definition *)
   ((ethyof ctxt, {}, []) |-' Comb pred witness ∧
    CLOSED pred ∧
    name ∉ (FDOM (tysof ctxt)) ∧
+   name ∉ (FDOM (etysof ctxt)) ∧
    abs ∉ (FDOM (tmsof ctxt)) ∧
+   abs ∉ (FDOM (etmsof ctxt)) ∧
    rep ∉ (FDOM (tmsof ctxt)) ∧
+   rep ∉ (FDOM (etmsof ctxt)) ∧
    abs ≠ rep
-   ⇒ (TypeDefn name pred abs rep) updates' ctxt)
+   ⇒ (TypeDefn name pred abs rep) updates' ctxt) ∧
+
+  (* new_eliminable_type *)
+  (name ∉ FDOM (tysof ctxt) ∧
+   name ∉ FDOM (etysof ctxt)
+   ⇒ (NewEliminableType name) updates' ctxt) ∧
+
+  (* new_eliminable_constant *)
+  (name ∉ FDOM (tmsof ctxt) ∧
+   name ∉ FDOM (etmsof ctxt) ∧
+   type_ok ((tysof ctxt) ⊌ (etysof ctxt)) ty
+   ⇒ (NewEliminableConst name ty) updates' ctxt) ∧
+
+  (* new_eliminable_axiom *)
+  (prop has_type Bool ∧
+   term_ok' (ethyof ctxt) prop ∧
+   (∀x ty1 ty2.
+     VFREE_IN (Var x ty1) prop ∧ VFREE_IN (Var x ty2) prop ⇒ ty1 = ty2)
+   ⇒ (NewEliminableAxiom prop) updates' ctxt)
 End
 
 Definition extends'_def:
