@@ -978,3 +978,34 @@ Proof
     \\ rw [] \\ fs [DISJOINT3_def,IN_DISJOINT])
   \\ drule eval_circuit_IMP_cnf \\ fs []
 QED
+
+(*----------------------------------------------------------------------*
+   plugging everything together
+ *----------------------------------------------------------------------*)
+
+Definition aig_to_cnf_def:
+  aig_to_cnf ands name =
+    let ands_1 = prune_for name ands in
+    let (ands_2,next,im,lm,nm) = aig_rename ands_1 in
+      (direct_circuit_to_cnf ands_2, next)
+End
+
+Theorem aig_to_cnf_def_correct:
+  aig_to_cnf aig name = (cnf, limit) ⇒
+  (satisfiable_cnf (set cnf) = ∃is ls. eval_circuit (is,ls) aig name)
+Proof
+  simp [aig_to_cnf_def]
+  \\ pairarg_tac \\ fs []
+  \\ strip_tac \\ gvs []
+  \\ irule EQ_TRANS
+  \\ irule_at Any direct_circuit_to_cnf_correct
+  \\ drule aig_rename_thm
+  \\ simp [GSYM PULL_FORALL]
+  \\ strip_tac
+  \\ qexists ‘FRANGE lm’
+  \\ qexists ‘FRANGE im’
+  \\ fs []
+  \\ ‘ands_2 = FST (aig_rename (prune_for name aig))’ by asm_rewrite_tac []
+  \\ pop_assum $ rewrite_tac o single
+  \\ rewrite_tac [eval_circuit'_aig_rename, eval_circuit_prune_for]
+QED
