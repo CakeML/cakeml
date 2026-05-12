@@ -1618,7 +1618,6 @@ Resume evaluate_rewrite_tmc[op]:
   >> gvs [rewrite_worker_cons_def, cb_to_hb_def, evaluate_def]
   >> drule evaluate_hb_to_bvi_worker
   >> gvs [cb_to_hb_def]
-
   >> imp_res_tac env_rel_strip_extras >> gvs []
   >> drule unchanged_hole_has_val
   >> rpt $ disch_then drule
@@ -1630,136 +1629,12 @@ Resume evaluate_rewrite_tmc[op]:
   >> disch_then $ qspec_then ‘loc_opt’ mp_tac (* stand in for another assumption about loc_opt *)
   >> strip_tac >> gvs []
   >> imp_res_tac evaluate_IMP_LENGTH >> gvs []
-  >> first_assum $ irule_at Any
-  >> gvs [opt_res_rel_def]
   >> imp_res_tac env_rel_length_opt
   >> gvs [EL_APPEND_EQN]
-
-  (*Below here is throw away but maybe for reference *)
-                
-  >> qpat_x_assum ‘env_rel _ _ _ _’ kall_tac
-  >> drule_all env_rel_submap >> strip_tac
-  >> drule_all env_rel_append >> strip_tac
-  >> disch_then drule
-  >> disch_then drule
-  >> imp_res_tac env_rel_strip_extras >> gvs []
-  >> drule unchanged_hole_has_val
-  >> rpt $ disch_then drule
-  >> gvs []
-  >> strip_tac
-  >> drule_all hole_has_val_append
-  >> strip_tac
-  >> gvs [APPEND_ASSOC]
-  >> disch_then drule
-  >> disch_then $ qspec_then ‘loc_opt’ mp_tac (* should drule on something abt loc_opt *)
-  >> strip_tac >> gvs []
-  >> rename [‘state_rel f3 t t'’]
-  >> imp_res_tac evaluate_IMP_LENGTH
   >> gvs [opt_res_rel_def]
-  >> conj_tac >- cheat (* map weirdness *)
-  >> conj_tac
-  >-
-   (irule holes_unchanged_except_trans
-    >> imp_res_tac env_rel_length_opt >> gvs [EL_APPEND_EQN]
-    >> rpt $ first_assum $ irule_at Any
-    >> irule holes_unchanged_except_subset
-    >> first_assum $ irule_at Any >> gvs [])
-  >> 
-                
-  >> CASE_TAC
-  >> CASE_TAC
-  >> rename [‘evaluate (bs,env,s) = (Rval as,w)’]
-  >> strip_tac
-
-
-  (* Phase 1 theorem in s *)
-  >> ‘evaluate ([Op (BlockOp (Cons tag)) args],env,s) = (Rval [v],t)’ by gvs [evaluate_def]
-  >> drule evaluate_bvi_to_cb
-  >> disch_then drule
+  >> ‘f' = f_bs’ by cheat (* This may not be true, but is a stand in for producing a new map *)
   >> gvs []
-  >> strip_tac
-  >> gvs [evaluate_def]
-  (* Phase 1 theorem in s' *)
-  >> ‘evaluate ([Op (BlockOp (Cons tag)) args],env2,s') = (Rval [v'],t')’ by gvs [evaluate_def]
-  >> drule evaluate_bvi_to_cb
-  >> disch_then drule
-  >> gvs []
-  >> strip_tac
-  >> gvs [evaluate_def]
-  (* Hypothesis on bs *)
-  >> gvs [CaseEq "prod", CaseEq "result"]
-  >> first_assum $ qspecl_then [‘bs’, ‘s’] mp_tac
-  >> gvs []
-  >> impl_tac
-  >- (imp_res_tac bvi_to_cb_size >> gvs [])
-  >> disch_then drule
-  >> disch_then drule
-  >> disch_then drule
-  >> gvs []
-  >> strip_tac
-  >> gvs []
-  >> rename [‘f ⊑ f''’]
-  (* Hypothesis on cb_to_bvi loc cb *)
-  >> first_assum $ qspecl_then [‘[cb_to_bvi loc cb]’, ‘s1’, ‘env’] mp_tac
-  >> gvs [cb_to_bvi_def]
-  >> impl_tac
-  >-
-   (imp_res_tac evaluate_clock_non_increase
-    >> imp_res_tac bvi_to_cb_size
-    >> gvs [])
-  >> disch_then drule   
-  >> disch_then $ drule_at $ Pos $ el 2
-  >> qpat_x_assum ‘env_rel F _ _ _’ kall_tac
-  >> drule env_rel_submap
-  >> disch_then drule
-  >> strip_tac
-  >> drule env_rel_append
-  >> disch_then $ qspecl_then [‘as'’, ‘as’] mp_tac
-  >> disch_then drule
-  >> strip_tac
-  >> disch_then drule
-  >> gvs []
-  >> strip_tac
-  >> gvs []
-  >> pop_assum kall_tac
-  >> rename [‘evaluate ([cb_to_bvi loc cb],as' ++ env2,w') = (r',t')’]
-  (* Phase 2 theorem *)
-  >> conj_tac
-  >-
-   (rw []
-    >> gvs [evaluate_def]
-    >> drule evaluate_hb_to_bvi_wrapper
-    >> disch_then drule
-    >> imp_res_tac bvi_to_cb_wf
-    >> gvs []
-    >> disch_then drule
-    >> disch_then drule
-    >> disch_then $ qspecl_then [‘loc_opt’, ‘arity + LENGTH bs’] mp_tac
-    >> cheat)
-  >> strip_tac
-  >> gvs [rewrite_worker_cons_def, evaluate_def]
-  >> drule evaluate_hb_to_bvi_worker
-  >> disch_then drule
-  >> imp_res_tac bvi_to_cb_wf
-  >> gvs []
-  >> disch_then drule
-  >> disch_then drule
-  >> disch_then $ drule_at Any
-  >> disch_then $ drule_at Any
-  >> ‘holes_unchanged_except f s'.refs t'.refs ∅’ by cheat (* IS this even true? Why assumption? *)
-  >> disch_then $ drule_at Any
-  >> rev_drule_all env_rel_strip_extras
-  >> strip_tac
-  >> gvs []       
-  >> drule_all hole_has_val_append
-  >> strip_tac
-  >> gvs [APPEND_ASSOC]
-  >> disch_then drule
-  >> disch_then $ qspecl_then [‘loc_opt’] mp_tac
-  >> strip_tac
-  >> gvs []
-  >> ‘LENGTH bs = LENGTH as’ by imp_res_tac evaluate_IMP_LENGTH
-  >> gvs [opt_res_rel_def]
+  >> conj_tac >- cheat
   >> conj_tac
   >-
    (irule holes_unchanged_except_trans
@@ -1775,8 +1650,10 @@ Resume evaluate_rewrite_tmc[op]:
     >> irule holes_unchanged_except_subset
     >> qexists ‘∅’
     >> gvs [])
+  >> irule hole_has_val_submap
+  >> first_assum $ irule_at Any
   >> irule hole_has_val_unappend
-  >> rpt $ first_assum $ irule_at Any
+  >> first_assum $ irule_at Any
   >> gvs []
 QED
 
@@ -2414,7 +2291,7 @@ Theorem evaluate_hb_to_bvi_worker:
       opt_res_rel r r' ∧
       holes_unchanged_except f s.refs t'.refs {env2❲LENGTH env1❳} ∧
       ∀v.
-        r' = Rval [v] ⇒
+        r = Rval [v] ⇒
         hole_has_val f env1 env2 t'.refs v
 Proof
   cheat
