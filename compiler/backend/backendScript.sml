@@ -43,38 +43,38 @@ End
 Definition compile_def:
   compile asm_conf c p =
     let p = source_to_source$compile p in
-    let _ = empty_ffi (strlit "finished: source_to_source") in
+    let _ = empty_ffi «finished: source_to_source» in
     let (c',p) = source_to_flat$compile c.source_conf p in
-    let _ = empty_ffi (strlit "finished: source_to_flat") in
+    let _ = empty_ffi «finished: source_to_flat» in
     let c = c with source_conf := c' in
     let p = flat_to_clos$compile_prog p in
-    let _ = empty_ffi (strlit "finished: flat_to_clos") in
+    let _ = empty_ffi «finished: flat_to_clos» in
     let (c',p,names) = clos_to_bvl$compile c.clos_conf p in
     let c = c with clos_conf := c' in
-    let _ = empty_ffi (strlit "finished: clos_to_bvl") in
+    let _ = empty_ffi «finished: clos_to_bvl» in
     let (s,p,l,n1,n2,names) = bvl_to_bvi$compile c.clos_conf.start c.bvl_conf names p in
     let c = c with clos_conf updated_by (λc. c with start:=s) in
     let c = c with bvl_conf updated_by (λc. c with <| inlines := l; next_name1 := n1; next_name2 := n2 |>) in
-    let _ = empty_ffi (strlit "finished: bvl_to_bvi") in
+    let _ = empty_ffi «finished: bvl_to_bvi» in
     let p = bvi_to_data$compile_prog p in
-    let _ = empty_ffi (strlit "finished: bvi_to_data") in
+    let _ = empty_ffi «finished: bvi_to_data» in
     let (col,p) = data_to_word$compile c.data_conf c.word_to_word_conf asm_conf p in
     let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
     let names = sptree$union (sptree$fromAList $ (data_to_word$stub_names () ++
       word_to_stack$stub_names () ++ stack_alloc$stub_names () ++
       stack_remove$stub_names ())) names in
-    let _ = empty_ffi (strlit "finished: data_to_word") in
+    let _ = empty_ffi «finished: data_to_word» in
     let (bm,c',fs,p) = word_to_stack$compile asm_conf p in
     let c = c with word_conf := c' in
-    let _ = empty_ffi (strlit "finished: word_to_stack") in
+    let _ = empty_ffi «finished: word_to_stack» in
     let p = stack_to_lab$compile
       c.stack_conf c.data_conf (2 * max_heap_limit (:'a) c.data_conf - 1)
       (asm_conf.reg_count - (LENGTH asm_conf.avoid_regs +3))
       (asm_conf.addr_offset) p in
-    let _ = empty_ffi (strlit "finished: stack_to_lab") in
+    let _ = empty_ffi «finished: stack_to_lab» in
     let res = attach_bitmaps names c bm
       (lab_to_target$compile asm_conf c.lab_conf (p:'a labLang$prog)) in
-    let _ = empty_ffi (strlit "finished: lab_to_target") in
+    let _ = empty_ffi «finished: lab_to_target» in
       res
 End
 
@@ -326,7 +326,7 @@ Definition to_livesets_0_def:
       p in
     let data = MAP (\(name_num,arg_count,prog).
     let (heu_moves,spillcosts) = get_heuristics alg name_num prog in
-    (get_clash_tree prog,heu_moves,spillcosts,
+    (get_clash_tree prog [],heu_moves,spillcosts,
       get_forced asm_conf prog [],get_stack_only prog)) p
   in
     ((asm_conf.reg_count - (5+LENGTH asm_conf.avoid_regs),data),c,names,p)
@@ -531,7 +531,7 @@ Datatype:
   backend_progs =
   <| env_id : num # num
    ; source_prog : ast$dec list
-   ; flat_prog : flatLang$dec list
+   ; flat_prog : flatLang$exp list
    ; clos_prog : closLang$exp list # (num # num # closLang$exp) list
    ; bvl_prog : (num # num # bvl$exp) list
    ; bvi_prog : (num # num # bvi$exp) list
@@ -624,36 +624,36 @@ Theorem compile_inc_progs_for_eval_eq:
   compile_inc_progs_for_eval asm_conf (env_id,c,p) =
     let p = source_to_source$compile p in
     let (c',p) = source_to_flat$inc_compile env_id c.source_conf p in
-    let _ = empty_ffi (strlit "finished: source_to_flat") in
+    let _ = empty_ffi «finished: source_to_flat» in
     let c = c with source_conf := c' in
     let p = flat_to_clos_inc_compile p in
-    let _ = empty_ffi (strlit "finished: flat_to_clos") in
+    let _ = empty_ffi «finished: flat_to_clos» in
     let (c',p) = clos_to_bvl_compile_inc c.clos_conf p in
-    let _ = empty_ffi (strlit "finished: clos_to_bvl") in
+    let _ = empty_ffi «finished: clos_to_bvl» in
     let c = c with clos_conf := c' in
     let (c', p) = bvl_to_bvi_compile_inc_all c.bvl_conf p in
-    let _ = empty_ffi (strlit "finished: bvl_to_bvi") in
+    let _ = empty_ffi «finished: bvl_to_bvi» in
     let c = c with <| bvl_conf := c' |> in
     let p = bvi_to_data_compile_prog p in
-    let _ = empty_ffi (strlit "finished: bvi_to_data") in
+    let _ = empty_ffi «finished: bvi_to_data» in
     let dc = ensure_fp_conf_ok asm_conf c.data_conf in
     let p = MAP (compile_part dc) p in
     let reg_count1 = asm_conf.reg_count - (5 + LENGTH asm_conf.avoid_regs) in
     let p = MAP (\p. full_compile_single_for_eval asm_conf.two_reg_arith reg_count1
         c.word_to_word_conf.reg_alg asm_conf (p, NONE)) p in
-    let _ = empty_ffi (strlit "finished: data_to_word") in
+    let _ = empty_ffi «finished: data_to_word» in
     let bm0 = c.word_conf.bitmaps_length in
     let (p, fs, bm) = compile_word_to_stack asm_conf reg_count1 p (Nil, bm0) in
-    let _ = empty_ffi (strlit "finished: word_to_stack") in
+    let _ = empty_ffi «finished: word_to_stack» in
     let cur_bm = append (FST bm) in
     let c = c with word_conf := (c.word_conf with bitmaps_length := SND bm) in
     let reg_count2 = asm_conf.reg_count - (3 + LENGTH asm_conf.avoid_regs) in
     let p = stack_to_lab$compile_no_stubs
         c.stack_conf.reg_names c.stack_conf.jump asm_conf.addr_offset
         reg_count2 p in
-    let _ = empty_ffi (strlit "finished: stack_to_lab") in
+    let _ = empty_ffi «finished: stack_to_lab» in
     let target = lab_to_target$compile asm_conf c.lab_conf (p:'a labLang$prog) in
-    let _ = empty_ffi (strlit "finished: lab_to_target") in
+    let _ = empty_ffi «finished: lab_to_target» in
     let c = c with lab_conf updated_by (case target of NONE => I
                                         | SOME (_, c') => K c') in
       OPTION_MAP (λx. (c,FST x,MAP upper_w2w cur_bm)) target
@@ -679,5 +679,3 @@ Definition set_oracle_def:
     c with
     word_to_word_conf := c.word_to_word_conf with col_oracle := oracle
 End
-
-

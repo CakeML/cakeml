@@ -15,8 +15,8 @@ Datatype:
   | Tyapp mlstring (type list)
 End
 
-Overload Fun = ``λs t. Tyapp (strlit "fun") [s;t]``
-Overload Bool = ``Tyapp (strlit "bool") []``
+Overload Fun = ``λs t. Tyapp «fun» [s;t]``
+Overload Bool = ``Tyapp «bool» []``
 
 Definition domain_raw:
   domain ty = case ty of Tyapp n (x::xs) => x | _ => ty
@@ -52,7 +52,7 @@ Datatype:
        | Abs term term
 End
 
-Overload Equal = ``λty. Const (strlit "=") (Fun ty (Fun ty Bool))``
+Overload Equal = ``λty. Const «=» (Fun ty (Fun ty Bool))``
 
 Definition dest_var_def[simp]:
   dest_var (Var x ty) = (x,ty)
@@ -475,9 +475,9 @@ Overload tmsof = ``tmsof o sigof``
 
 Definition is_std_sig_def:
   is_std_sig (sig:sig) ⇔
-    FLOOKUP (tysof sig) (strlit "fun") = SOME 2 ∧
-    FLOOKUP (tysof sig) (strlit "bool") = SOME 0 ∧
-    FLOOKUP (tmsof sig) (strlit "=") = SOME (Fun (Tyvar(strlit "A")) (Fun (Tyvar(strlit "A")) Bool))
+    FLOOKUP (tysof sig) «fun» = SOME 2 ∧
+    FLOOKUP (tysof sig) «bool» = SOME 0 ∧
+    FLOOKUP (tmsof sig) «=» = SOME (Fun (Tyvar «A») (Fun (Tyvar «A») Bool))
 End
 
 Definition theory_ok_def:
@@ -608,8 +608,8 @@ Definition conexts_of_upd_def:
     let rep_type = domain (typeof pred) in
     let abs = Const abs_name (Fun rep_type abs_type) in
     let rep = Const rep_name (Fun abs_type rep_type) in
-    let a = Var (strlit "a") abs_type in
-    let r = Var (strlit "r") rep_type in
+    let a = Var «a» abs_type in
+    let r = Var «r» rep_type in
       [Comb abs (Comb rep a) === a;
        Comb pred r === (Comb rep (Comb abs r) === r)]) ∧
   (conexts_of_upd _ = [])
@@ -676,7 +676,7 @@ val _ = Parse.add_infix("extends",450,Parse.NONASSOC)
 (* Initial theory context *)
 
 Definition init_ctxt_def:
-  init_ctxt = [NewConst (strlit "=") (Fun (Tyvar(strlit "A")) (Fun (Tyvar(strlit "A")) Bool))
-              ;NewType (strlit "bool") 0
-              ;NewType (strlit "fun") 2]
+  init_ctxt = [NewConst «=» (Fun (Tyvar «A») (Fun (Tyvar «A») Bool))
+              ;NewType «bool» 0
+              ;NewType «fun» 2]
 End

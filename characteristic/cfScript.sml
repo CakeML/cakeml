@@ -2678,141 +2678,7 @@ Proof
     fs [with_clock_self_eq]
   )
   >~ [‘Var’] >- cf_base_case_tac
-  >~ [‘Let’] >- (
-    Cases_on `is_bound_Fun opt e1` \\ fs []
-    THEN1 (
-      (* function declaration *)
-      (* Eliminate the impossible case (Fun_body _ = NONE), then we call
-        cf_strip_sound_tac *)
-      progress is_bound_Fun_unfold \\ fs [Fun_body_def] \\
-      BasicProvers.TOP_CASE_TAC \\ cf_strip_sound_tac \\
-      (* Instantiate the hypothesis with the closure *)
-      rename1 `(case Fun_body _ of _ => _) = SOME inner_body` \\
-      (fn tm => first_x_assum (qspec_then tm mp_tac))
-        `naryClosure env (Fun_params (Fun n body)) inner_body` \\
-      impl_tac \\ strip_tac
-      THEN1 (irule curried_naryClosure \\ fs [Fun_params_def])
-      THEN1
-       (rw []
-        \\ qpat_assum `sound _ inner_body _`
-             (assume_tac o REWRITE_RULE [sound_def])
-        \\ pop_assum progress
-        \\ irule app_of_htriple_valid
-        \\ fs [Fun_params_def]) \\
-      qpat_x_assum `sound _ e2 _`
-        (progress o REWRITE_RULE [sound_def, htriple_valid_def]) \\
-      qexists_tac `r` \\ Cases_on `r` \\ fs [] \\
-      cf_evaluate_step_tac \\ Cases_on `opt` \\
-      fs [is_bound_Fun_def, THE_DEF, Fun_params_def, evaluate_to_heap_def] \\ instantiate \\
-      every_case_tac \\ fs[] \\ qpat_x_assum `_ = inner_body` (assume_tac o GSYM) \\
-      fs [naryClosure_def, naryFun_def, Fun_params_Fun_body_NONE] \\
-      fs [Fun_params_Fun_body_repack, evaluate_ck_def, evaluate_def] \\
-      fs [namespaceTheory.nsOptBind_def] \\
-      instantiate
-    )
-    THEN1 (
-      (* other cases of let-binding *)
-      cf_strip_sound_full_tac \\
-      qpat_x_assum `sound _ e1 _`
-        (progress o REWRITE_RULE [sound_def, htriple_valid_def]) \\
-      Cases_on `r` \\ fs [evaluate_to_heap_def, evaluate_ck_def]
-      THEN1 (
-        (* e1 ~> Rval v *)
-        rename1 `evaluate _ _ [e1] = (_, Rval [v])` \\
-        first_x_assum (qspec_then `v` assume_tac) \\
-        progress SPLIT_of_SPLIT3_2u3 \\
-        fs [sound_def, htriple_valid_def] \\
-        first_x_assum (qspecl_then
-          [`env with v := nsOptBind opt v env.v`, `Q' (Val v)`, `Q`]
-          mp_tac) \\ rw [] \\
-        first_x_assum (qspecl_then
-          [`st'`, `h_f`, `h_k UNION h_g`] mp_tac) \\ rw [] \\
-        fs [evaluate_to_heap_def, evaluate_ck_def] \\
-        qexists_tac `r` \\ reverse (Cases_on `r`) \\ fs []
-        THEN1 (
-          `SPLIT3 heap (h_f',h_k, h_g UNION h_g')`
-            by SPLIT_TAC
-          \\ rveq \\ instantiate \\ rpt strip_tac
-          THEN1 (
-            drule evaluatePropsTheory.evaluate_set_init_clock \\ fs []
-            \\ disch_then (qspec_then `ck'` strip_assume_tac) \\ fs []
-          )
-          \\ match_mp_tac (GEN_ALL lprefix_lub_subset)
-          \\ asm_exists_tac \\ simp [SUBSET_DEF]
-          \\ rw []
-          THEN1 (
-            drule evaluatePropsTheory.evaluate_set_clock \\ fs []
-            \\ disch_then (qspec_then `ck'` strip_assume_tac)
-            \\ qexists_tac `ck1` \\ fs [])
-          \\ drule evaluatePropsTheory.evaluate_set_init_clock \\ fs []
-          \\ disch_then (qspec_then `ck'` mp_tac) \\ rw []
-          THEN1 (first_x_assum (qspec_then `ck''` mp_tac) \\ fs [])
-          \\ fs []
-          \\ last_x_assum (qspec_then `ck2` strip_assume_tac)
-          \\ rename1 `_ = (st2, _)`
-          \\ qexists_tac `fromList st2.ffi.io_events` \\ rw []
-          THEN1 (qexists_tac `ck2` \\ rw [])
-          \\ `st'.ffi.io_events ≼ st2.ffi.io_events` by (
-            drule (CONJUNCT1 evaluatePropsTheory.evaluate_io_events_mono_imp)
-            \\ rw [evaluatePropsTheory.io_events_mono_def])
-          \\ rw [LPREFIX_fromList_fromList]
-          \\ irule isPREFIX_TRANS
-          \\ instantiate
-          \\ fs [evaluatePropsTheory.io_events_mono_def]
-        )
-        THEN (
-          (* e2 ~> Rval v' || e2 ~> Rerr (Rraise v') *)
-          fs [PULL_EXISTS]
-          \\ rename1 `st2heap _ st2 = heap`
-          \\ (GEN_EXISTS_TAC "st'" `st2 with clock := st'.clock + st2.clock`
-            ORELSE (GEN_EXISTS_TAC "st'''" `st2 with clock := st'.clock + st2.clock`))
-          \\ `SPLIT3 (st2heap (p:'ffi ffi_proj) st2) (h_f',h_k, h_g UNION h_g')`
-            by SPLIT_TAC
-          \\ simp [st2heap_clock] \\ rveq \\ instantiate
-          \\ qexists_tac `ck + ck'`
-          \\ qpat_assum `evaluate _ _ [e1] = _` (add_to_clock `ck'`)
-          \\ qpat_assum `evaluate _ _ [e2] = _` (add_to_clock `st'.clock`)
-          \\ fs [with_clock_with_clock]
-        )
-      )
-      THEN1 (
-        (* e1 ~> Rerr (Rraise v) *)
-        rename1 `evaluate _ _ [e1] = (_, Rerr (Rraise v))` \\
-        fs [SEP_IMPPOST_VARIANTS, SEP_IMP_def] \\ first_assum progress \\
-        qexists_tac `Exn v` \\ instantiate \\ qexists_tac `ck` \\ rw []
-      )
-      THEN1 (
-        (* e1 ~> FFI diverge *)
-        rename1 `evaluate _ _ [e1] = (_, Rerr (Rabort (Rffi_error (Final_event
-        (ExtCall name) conf bytes FFI_diverged))))` \\
-        fs [SEP_IMPPOST_VARIANTS, SEP_IMP_def] \\ first_assum progress \\
-        qexists_tac `FFIDiv name conf bytes` \\
-        instantiate \\ qexists_tac `ck` \\ rw []
-      )
-      THEN1 (
-        (* e1 ~> timeout *)
-        rename1 `evaluate _ _ [e1] = (_, Rerr (Rabort Rtimeout_error))`
-        \\ fs [SEP_IMPPOST_VARIANTS, SEP_IMP_def] \\ first_assum progress
-        \\ rename1 `Q (Div io) h_f` \\ qexists_tac `Div io`
-        \\ instantiate \\ rpt strip_tac
-        THEN1 (
-          first_assum (qspec_then `ck` mp_tac) \\ strip_tac
-          \\ qexists_tac `st'` \\ rw [])
-        \\ fs [lprefix_lubTheory.lprefix_lub_def] \\ rpt strip_tac
-        THEN1 (
-          qpat_assum `!ll. _ => LPREFIX ll io` (qspec_then `ll` irule)
-          \\ qexists_tac `ck`
-          \\ qpat_assum `!ck. ?st'. _` (qspec_then `ck` mp_tac)
-          \\ strip_tac \\ rw [])
-        \\ qpat_assum `!ub. _ => LPREFIX io ub` (qspec_then `ub` irule)
-        \\ rpt strip_tac
-        \\ qpat_assum `!ll. _ => LPREFIX ll ub` (qspec_then `ll` irule)
-        \\ qexists_tac `ck`
-        \\ qpat_assum `!ck. ?st'. _` (qspec_then `ck` mp_tac)
-        \\ strip_tac \\ rw []
-      )
-    )
-  )
+  >~ [‘Let’] >- suspend "Let"
   >~ [‘Letrec’] >- (
     (* Letrec; the bulk of the proof is done in [cf_letrec_sound] *)
     HO_MATCH_MP_TAC sound_local \\ simp [MAP_MAP_o, o_DEF, LAMBDA_PROD] \\
@@ -2824,660 +2690,18 @@ Proof
       `MAP (\ (f,_,_). naryRecclosure env (letrec_pull_params funs) f) funs` \\
     fs [letrec_pull_params_LENGTH] \\ res_tac \\ instantiate
   )
-  >~ [‘sound p (App op args)’] >- (
-    (* App *)
-    Cases_on ‘∃ffi_index. op = FFI ffi_index’ >-
-     (fs [] \\ rveq \\
-      (every_case_tac \\ TRY (MATCH_ACCEPT_TAC sound_local_false)) \\
-      irule cf_ffi_sound) \\
-    Cases_on `op = Eval` \\ fs []
-    >- (fs [sound_def,local_def] \\ rw [] \\ fs [htriple_valid_def]) \\
-    Cases_on `op` \\ fs [] \\ TRY (MATCH_ACCEPT_TAC sound_local_false) \\
-    (every_case_tac \\ TRY (MATCH_ACCEPT_TAC sound_local_false)) \\
-    cf_strip_sound_tac
-    >~ [‘App XorAw8Str_unsafe’] >-
-     (Q.REFINE_EXISTS_TAC `Val v'` \\ simp [] \\ cf_evaluate_step_tac \\
-      GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
-      cf_exp2v_evaluate_tac `st` \\
-      fs [st2heap_def,app_xoraw8str_def] \\
-      fs [W8ARRAY_def] \\
-      fs [SEP_EXISTS, cond_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
-      first_x_assum progress
-      \\ rename1 `d = Loc T ld` \\ rw [] \\
-      assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
-      rename1 `W8array _` \\
-      `Mem ld (W8array wd) IN (store2heap st.refs)` by SPLIT_TAC \\
-      progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\
-      fs [do_app_def, store_lookup_def, store_assign_def, store_v_same_type_def, IMPLODE_EXPLODE_I] \\
-      drule IMP_xor_bytes_SOME \\ strip_tac \\ gvs [] \\
-      qexists_tac `Mem ld (W8array xor_res) INSERT u` \\
-      qexists_tac `{}` \\ mp_tac store2heap_IN_unique_key \\ rpt strip_tac
-      THEN1 (progress_then (fs o sing) store2heap_LUPDATE \\ SPLIT_TAC) \\
-      first_assum irule \\
-      qexists_tac`u` \\
-      qexists_tac`{Mem ld (W8array xor_res)}` \\ fs[] \\
-      SPLIT_TAC)
-    >~ [‘Arith a IntT’] >- (
-      Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\ cf_evaluate_step_tac \\
-      fs [app_arith_def, st2heap_def] \\
-      progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\
-      GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
-      cf_exp2v_evaluate_tac `st` \\
-      fs [do_app_def,do_arith_def,check_type_def] \\ fs [SEP_IMP_def] \\
-      fs [state_component_equality]
-    )
-    >~ [‘Test (Compare cmp) IntT’] >- (
-      Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\ cf_evaluate_step_tac \\
-      fs [app_int_cmp_def, st2heap_def, cf_int_cmp_def] \\
-      progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\
-      GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
-      cf_exp2v_evaluate_tac `st` \\
-      Cases_on `cmp` \\ fs [do_app_def, do_test_def, dest_Litv_def] \\
-      fs [SEP_IMP_def] \\
-      fs [state_component_equality]
-    )
-    >~ [‘FromTo IntT (WordT W8)’] >- (
-      Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\ cf_evaluate_step_tac \\
-      GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
-      cf_exp2v_evaluate_tac `st` \\ fs [do_app_def,check_type_def,do_conversion_def] \\
-      fs [app_wordFromInt_W8_def, app_wordFromInt_W64_def, app_wordToInt_def] \\
-      fs [SEP_IMP_def, st2heap_def] \\ res_tac \\
-      progress SPLIT3_of_SPLIT_emp3 \\ instantiate
-    )
-    >~ [‘FromTo IntT (WordT W64)’] >- (
-      Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\ cf_evaluate_step_tac \\
-      GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
-      cf_exp2v_evaluate_tac `st` \\ fs [do_app_def,check_type_def,do_conversion_def] \\
-      fs [app_wordFromInt_W8_def, app_wordFromInt_W64_def, app_wordToInt_def] \\
-      fs [SEP_IMP_def, st2heap_def] \\ res_tac \\
-      progress SPLIT3_of_SPLIT_emp3 \\ instantiate
-    )
-    >~ [‘FromTo (WordT W8) IntT’] >- (
-      Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\ cf_evaluate_step_tac \\
-      GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
-      cf_exp2v_evaluate_tac `st` \\ fs [do_app_def,check_type_def,do_conversion_def] \\
-      fs [app_wordFromInt_W8_def, app_wordFromInt_W64_def, app_wordToInt_def] \\
-      fs [SEP_IMP_def, st2heap_def] \\ res_tac \\
-      progress SPLIT3_of_SPLIT_emp3 \\ instantiate
-    )
-    >~ [‘FromTo (WordT W64) IntT’] >- (
-      Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\ cf_evaluate_step_tac \\
-      GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
-      cf_exp2v_evaluate_tac `st` \\ fs [do_app_def,check_type_def,do_conversion_def] \\
-      fs [app_wordFromInt_W8_def, app_wordFromInt_W64_def, app_wordToInt_def] \\
-      fs [SEP_IMP_def, st2heap_def] \\ res_tac \\
-      progress SPLIT3_of_SPLIT_emp3 \\ instantiate
-    )
-    >~ [‘FromTo (WordT W64) Float64T’] >- (
-     Q.REFINE_EXISTS_TAC ‘Val v’ \\ simp[] \\ cf_evaluate_step_tac
-     \\ simp[]
-     \\ progress SPLIT3_of_SPLIT_emp3 \\ instantiate
-     \\ GEN_EXISTS_TAC "ck" ‘st.clock’ \\ fs[with_clock_self]
-     \\ cf_exp2v_evaluate_tac ‘st’
-     \\ fs [do_app_def, app_fpfromword_def, check_type_def, do_conversion_def]
-     \\ fs [SEP_IMP_def]
-     \\ fs [state_component_equality])
-    >~ [‘FromTo Float64T (WordT W64)’] >- (
-     Q.REFINE_EXISTS_TAC ‘Val v’ \\ simp[] \\ cf_evaluate_step_tac
-     \\ simp[]
-     \\ progress SPLIT3_of_SPLIT_emp3 \\ instantiate
-     \\ GEN_EXISTS_TAC "ck" ‘st.clock’ \\ fs[with_clock_self]
-     \\ cf_exp2v_evaluate_tac ‘st’
-     \\ fs [do_app_def, app_fptoword_def, check_type_def, do_conversion_def]
-     \\ fs [SEP_IMP_def]
-     \\ fs [state_component_equality])
-    THEN1 (
-      rename [`Equality`] \\
-      Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\ cf_evaluate_step_tac \\
-      GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
-      cf_exp2v_evaluate_tac `st` \\ fs [do_app_def, app_equality_def] \\
-      progress (fst (CONJ_PAIR type_match_implies_do_eq_succeeds)) \\ fs [] \\
-      fs [SEP_IMP_def] \\ first_assum progress \\ instantiate \\
-      qexists_tac `{}` \\ fs [st2heap_def] \\ SPLIT_TAC
-    )
-    THEN1 (
-      (* Opapp *)
-      rename1 `dest_opapp _ = SOME (f, xs)` \\
-      rpt (pop_assum mp_tac) \\ SPEC_ALL_TAC \\
-      CONV_TAC (RESORT_FORALL_CONV (fn l =>
-        (op @) (partition (fn v => fst (dest_var v) = "xs") l))) \\
-      gen_tac \\ completeInduct_on `LENGTH xs` \\ rpt strip_tac \\
-      fs [] \\ qpat_x_assum `dest_opapp _ = _` mp_tac \\
-      rewrite_tac [dest_opapp_def] \\ every_case_tac \\ fs [] \\
-      rpt strip_tac \\ qpat_x_assum `_ = xs` (assume_tac o GSYM) \\ fs []
-      (* 1 argument *)
-      THEN1 (
-        rename1 `xs = [x]` \\ fs [exp2v_list_def] \\ full_case_tac \\ fs [] \\
-        qpat_x_assum `_ = argsv` (assume_tac o GSYM) \\ rename1 `argsv = [xv]` \\
-        cf_evaluate_step_tac \\
-        fs [app_def, app_basic_def] \\ first_assum progress \\
-        fs [evaluate_to_heap_def, evaluate_ck_def] \\
-        rename1 `SPLIT3 heap (h_f, h_k, h_g)` \\
-        progress SPLIT3_swap23 \\ instantiate \\
-        reverse (Cases_on `r`) \\ fs []
-        THEN1 (
-          rpt strip_tac
-          THEN1 (
-            cf_exp2v_evaluate_tac `st with clock := ck`
-            \\ fs [dec_clock_def]
-          )
-          \\ irule lprefix_lub_subset
-          \\ qexists_tac `IMAGE (λck. fromList (FST (evaluate (st with clock := ck) env' [exp])).ffi.io_events) UNIV`
-          \\ fs [SUBSET_DEF]
-          \\ rpt strip_tac
-          THEN1 (
-            cf_exp2v_evaluate_tac `st with clock := ck`
-            THEN1 (
-              qexists_tac `fromList (FST (evaluate st env' [exp])).ffi.io_events`
-              \\ rw [LPREFIX_fromList_fromList]
-              THEN1 (
-                qexists_tac `st.clock`
-                \\ fs [semanticPrimitivesPropsTheory.with_same_clock]
-              )
-              \\ qspecl_then [`st`, `env'`, `[exp]`] strip_assume_tac
-                (CONJUNCT1 evaluatePropsTheory.evaluate_io_events_mono)
-              \\ fs [evaluatePropsTheory.io_events_mono_def]
-            )
-            \\ qexists_tac `fromList (FST (evaluate (st with clock := ck - 1) env' [exp])).ffi.io_events`
-            \\ rw [LPREFIX_fromList_fromList]
-            THEN1 (qexists_tac `ck - 1` \\ fs [])
-            \\ qspecl_then [`st with clock := ck - 1`, `env'`, `[exp]`] strip_assume_tac
-              (CONJUNCT1 evaluatePropsTheory.evaluate_io_events_mono)
-            \\ fs [evaluatePropsTheory.io_events_mono_def, evaluateTheory.dec_clock_def]
-          )
-          \\ qexists_tac `ck + 1`
-          \\ cf_exp2v_evaluate_tac `st with clock := ck + 1`
-          \\ fs [evaluateTheory.dec_clock_def]
-        )
-        \\ qexists_tac `ck + 1`
-        \\ cf_exp2v_evaluate_tac `st with clock := ck + 1`
-        \\ fs [evaluateTheory.dec_clock_def]
-      )
-      (* 2+ arguments *)
-      THEN1 (
-        rename1 `dest_opapp papp_ = SOME (f, pxs)` \\
-        rename1 `xs = pxs ++ [x]` \\ fs [LENGTH] \\
-        progress exp2v_list_rcons \\ fs [] \\ rw [] \\
-        (* Do some unfolding, by definition of dest_opapp *)
-        `?papp. papp_ = App Opapp papp` by (
-          Cases_on `papp_` \\ TRY (fs [dest_opapp_def] \\ NO_TAC) \\
-          rename1 `dest_opapp (App op _)` \\
-          Cases_on `op` \\ TRY (fs [dest_opapp_def] \\ NO_TAC) \\
-          NO_TAC
-        ) \\ fs [] \\
-        (* Prepare for, and apply lemma [app_alt_ind_w] to split app *)
-        progress dest_opapp_not_empty_arglist \\
-        `xvs <> []` by (progress exp2v_list_LENGTH \\ strip_tac \\
-                       first_assum irule \\ fs [LENGTH_NIL] \\ NO_TAC) \\
-        progress app_alt_ind_w \\
-        (* Specialize induction hypothesis with xs := pxs *)
-        `LENGTH pxs < LENGTH pxs + 1` by (fs []) \\
-        last_assum drule \\ disch_then (qspec_then `pxs` mp_tac) \\ fs [] \\
-        disch_then progress \\ fs [POSTv_def, POST_def, SEP_EXISTS, cond_def, STAR_def] \\
-        (* Cleanup *)
-        Cases_on `r` \\ fs [] \\
-        rename1 `app_basic _ g xv H' Q` \\ fs [SPLIT_emp2] \\ rw [] \\
-        (* Exploit the [app_basic (p:'ffi ffi_proj) g xv H' Q] we got from the ind. hyp. *)
-        progress SPLIT_of_SPLIT3_2u3 \\
-        fs [app_basic_def, evaluate_to_heap_def, evaluate_ck_def] \\ rveq \\
-        first_x_assum progress \\
-        (* Instantiate the result value, case split on it *)
-        qexists_tac `r` \\ reverse (Cases_on `r`) \\ fs [] \\ rveq
-        THEN1 (
-          rename1 `SPLIT3 heap (h_f', _, h_g')`
-          \\ `SPLIT3 heap (h_f', h_k, h_g' UNION h_g)` by SPLIT_TAC
-          \\ instantiate \\ rw []
-          THEN1 (
-            NTAC 2 (simp [Once evaluate_def])
-            \\ cf_exp2v_evaluate_tac `st with clock := ck'` \\ fs []
-            \\ NTAC 2 (pop_assum (K ALL_TAC))
-            \\ drule evaluatePropsTheory.evaluate_set_init_clock \\ fs []
-            \\ disch_then (qspec_then `ck'` mp_tac) \\ rw [] \\ fs []
-            \\ Cases_on `ck'' = 0` \\ fs [evaluateTheory.dec_clock_def]
-          )
-          \\ match_mp_tac (GEN_ALL lprefix_lub_subset)
-          \\ asm_exists_tac \\ simp [SUBSET_DEF]
-          \\ rw []
-          THEN1 (
-            NTAC 2 (simp [Once evaluate_def])
-            \\ drule evaluatePropsTheory.evaluate_set_clock \\ fs []
-            \\ disch_then (qspec_then `ck' + 1` strip_assume_tac)
-            \\ cf_exp2v_evaluate_tac `st with clock := ck1`
-            \\ qexists_tac `ck1` \\ fs [evaluateTheory.dec_clock_def]
-          )
-          \\ drule evaluatePropsTheory.evaluate_set_init_clock \\ fs []
-          \\ disch_then (qspec_then `ck'` mp_tac) \\ rw []
-          THEN1 (
-            NTAC 2 (simp [Once evaluate_def])
-            \\ cf_exp2v_evaluate_tac `st with clock := ck'`
-            THEN1 (
-              qexists_tac `fromList (FST (evaluate st' env' [exp])).ffi.io_events`
-              \\ rw [LPREFIX_fromList_fromList]
-              THEN1 (
-                qexists_tac `st'.clock`
-                \\ fs [semanticPrimitivesPropsTheory.with_same_clock]
-              )
-              \\ qspecl_then [`st'`, `env'`, `[exp]`] strip_assume_tac
-                (CONJUNCT1 evaluatePropsTheory.evaluate_io_events_mono)
-              \\ fs [evaluatePropsTheory.io_events_mono_def]
-            )
-            \\ fs [evaluateTheory.dec_clock_def]
-            \\ qpat_x_assum `!ck. ?st. _` (qspec_then `ck'' - 1` strip_assume_tac) \\ fs []
-            \\ qexists_tac `fromList st''.ffi.io_events` \\ rw []
-            \\ qexists_tac `ck'' - 1` \\ rw []
-          )
-          \\ qpat_x_assum `!ck. ?st. _` (qspec_then `ck2` strip_assume_tac)
-          \\ rename1 `_ = (st2, _)`
-          \\ qexists_tac `fromList st2.ffi.io_events` \\ rw []
-          THEN1 (qexists_tac `ck2` \\ rw [])
-          \\ `st'.ffi.io_events ≼ st2.ffi.io_events` by (
-            drule (CONJUNCT1 evaluatePropsTheory.evaluate_io_events_mono_imp)
-            \\ rw [evaluatePropsTheory.io_events_mono_def])
-          \\ rw [LPREFIX_fromList_fromList]
-          \\ irule isPREFIX_TRANS
-          \\ instantiate
-          \\ fs [evaluatePropsTheory.io_events_mono_def]
-          \\ NTAC 2 (simp [Once evaluate_def])
-          \\ cf_exp2v_evaluate_tac `st with clock := ck'`
-        )
-        THEN (
-          (* res = Val _ || res = Exn _ *)
-          rename1 `SPLIT3 (st2heap _ st2) (h_f', _, h_g')` \\
-          `SPLIT3 (st2heap (p:'ffi ffi_proj) st2) (h_f', h_k, h_g' UNION h_g)`
-            by SPLIT_TAC \\ rfs [] \\
-          asm_exists_tac \\ fs [] \\
-          NTAC 2 (simp [Once evaluate_def]) \\
-          (* Instantiate the clock, cleanup *)
-          cf_exp2v_evaluate_tac `st with clock := ck + ck' + 1` \\
-          qexists_tac `ck + ck' + 1` \\ rw [] \\
-          qpat_assum `evaluate _ _ [App Opapp papp] = _` (add_to_clock `ck' + 1`) \\
-          fs [with_clock_with_clock] \\
-          (* Finish proving the goal *)
-          rename1 `SPLIT (st2heap _ st1)` \\
-          qexists_tac `st2 with clock := st2.clock + st1.clock` \\
-          fs [st2heap_clock, evaluateTheory.dec_clock_def] \\
-          qpat_assum `evaluate (st1 with clock := _) _ _ = _` (add_to_clock `st1.clock`) \\
-          fs [with_clock_with_clock]
-        )
-      )
-    )
-    THEN1 (
-      (* Opassign *)
-      Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\ cf_evaluate_step_tac \\
-      fs [app_assign_def, REF_def, SEP_EXISTS, cond_def] \\
-      fs [SEP_IMP_def,STAR_def,cell_def,one_def] \\
-      GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
-      cf_exp2v_evaluate_tac `st` \\ first_assum progress \\
-      rename1 `SPLIT h_i (h_i', _)` \\ rename1 `FF h_i'` \\
-      fs [do_app_def, store_assign_def] \\
-      rename1 `rv = Loc T r` \\ rw [] \\
-      `Mem r (Refv x') IN (st2heap p st)` by SPLIT_TAC \\
-      `Mem r (Refv x') IN (store2heap st.refs)` by
-          fs [st2heap_def,Mem_NOT_IN_ffi2heap] \\
-      progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\
-      `store_v_same_type (EL r st.refs) (Refv xv)` by
-        (fs [store_v_same_type_def]) \\ fs [] \\
-      `SPLIT3 (store2heap (LUPDATE (Refv xv) r st.refs) ∪ ffi2heap p st.ffi)
-         (Mem r (Refv xv) INSERT h_i', h_k, {})` by
-       (progress_then (fs o sing) store2heap_LUPDATE \\
-        drule store2heap_IN_unique_key \\
-        fs [st2heap_def,SPLIT3_def,SPLIT_def] \\ rw [] \\
-        assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\ SPLIT_TAC)
-      \\ fs [st2heap_def]
-      \\ instantiate \\ first_assum irule \\ instantiate
-      \\ drule store2heap_IN_unique_key \\ rw []
-      \\ `!x y. Mem x y IN h_i ==> Mem x y IN store2heap st.refs` by
-       (rw [] \\ CCONTR_TAC \\ fs [] \\ fs [SPLIT_def,EXTENSION]
-        \\ metis_tac [Mem_NOT_IN_ffi2heap])
-      \\ SPLIT_TAC)
-    THEN1 (
-      (* Opref *)
-      Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\ cf_evaluate_step_tac \\
-      fs [do_app_def, store_alloc_def, app_ref_def, REF_def, SEP_EXISTS] \\
-      fs [st2heap_def, cond_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
-      GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
-      cf_exp2v_evaluate_tac `st` \\
-      first_x_assum (qspec_then `Loc T (LENGTH st.refs)` strip_assume_tac) \\
-      first_x_assum (qspec_then `Mem (LENGTH st.refs) (Refv xv) INSERT h_i` mp_tac) \\
-      assume_tac store2heap_alloc_disjoint \\
-      assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
-      impl_tac
-      THEN1 (qexists_tac `h_i` \\ fs [SPLIT_emp1] \\ SPLIT_TAC)
-      THEN1 (
-        strip_tac \\ instantiate \\ fs [store2heap_append] \\
-        qexists_tac `{}` \\ SPLIT_TAC
-      )
-    )
-    THEN1 (
-      (* Opderef *)
-      Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\ cf_evaluate_step_tac \\
-      GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
-      cf_exp2v_evaluate_tac `st` \\
-      fs [st2heap_def, app_deref_def, REF_def, SEP_EXISTS, cond_def] \\
-      fs [SEP_IMP_def, STAR_def, one_def, cell_def] \\
-      progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\
-      rpt (first_x_assum progress) \\
-      fs [do_app_def, store_lookup_def] \\
-      assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
-      rename1 `rv = Loc T r` \\ rw [] \\
-      `Mem r (Refv x) IN (store2heap st.refs)` by SPLIT_TAC \\
-      progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\
-      fs [state_component_equality]
-    ) \\
-    try_finally (
-      (* Aw8alloc & Aalloc *)
-      Q.REFINE_EXISTS_TAC `Val tv` \\ simp [] \\ cf_evaluate_step_tac \\
-      GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
-      cf_exp2v_evaluate_tac `st` \\
-      fs [do_app_def, store_alloc_def, st2heap_def] \\
-      fs [app_aalloc_def, app_aw8alloc_def, W8ARRAY_def, ARRAY_def] \\
-      fs [SEP_EXISTS, cond_def, SEP_IMP_def, STAR_def, cell_def, one_def] \\
-      first_x_assum (qspec_then `Loc T (LENGTH st.refs)` strip_assume_tac) \\
-      qmatch_asmsub_rename_tac(`REPLICATE (Num n) vv`) \\
-      ((rename1 `W8array _` \\ (fn l => first_x_assum (qspecl_then l mp_tac))
-          [`Mem (LENGTH st.refs) (W8array (REPLICATE (Num n) vv)) INSERT h_i`])
-        ORELSE (fn l => first_x_assum (qspecl_then l mp_tac))
-          [`Mem (LENGTH st.refs) (Varray (REPLICATE (Num n) vv)) INSERT h_i`]) \\
-      fs [integerTheory.INT_ABS] \\
-      assume_tac store2heap_alloc_disjoint \\
-      assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
-      impl_tac
-      THEN1 (instantiate \\ fs [SPLIT_emp1] \\ SPLIT_TAC)
-      THEN1 (
-        rpt strip_tac \\ every_case_tac
-        THEN1 (irule FALSITY \\ intLib.ARITH_TAC) \\
-        instantiate \\ fs [integerTheory.INT_ABS, store2heap_append] \\
-        qexists_tac `{}` \\ SPLIT_TAC
-      )
-    ) \\
-    try_finally (
-      (* Aalloc_empty *)
-      Q.REFINE_EXISTS_TAC `Val v'` \\ simp [] \\ cf_evaluate_step_tac \\
-      GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
-      cf_exp2v_evaluate_tac `st` \\
-      fs [do_app_def, store_alloc_def, st2heap_def] \\
-      fs [app_aalloc_def, app_aw8alloc_def, W8ARRAY_def, ARRAY_def] \\
-      fs [SEP_EXISTS, cond_def, SEP_IMP_def, STAR_def, cell_def, one_def] \\
-      first_x_assum (qspec_then `Loc T (LENGTH st.refs)` strip_assume_tac) \\
-      ((rename1 `W8array _` \\ (fn l => first_x_assum (qspecl_then l mp_tac))
-          [`Mem (LENGTH st.refs) (W8array []) INSERT h_i`])
-        ORELSE (fn l => first_x_assum (qspecl_then l mp_tac))
-          [`Mem (LENGTH st.refs) (Varray []) INSERT h_i`]) \\
-      fs [integerTheory.INT_ABS] \\
-      assume_tac store2heap_alloc_disjoint \\
-      assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
-      impl_tac >>
-      simp [REPLICATE]
-      THEN1 (instantiate \\ fs [SPLIT_emp1] \\ SPLIT_TAC)
-      THEN1 (
-        rpt strip_tac \\ every_case_tac \\
-        instantiate \\ fs [integerTheory.INT_ABS, store2heap_append] \\
-        qexists_tac `{}` \\ SPLIT_TAC
-      )
-    ) \\
-    try_finally (
-      (* Aw8sub & Asub *)
-      Q.REFINE_EXISTS_TAC `Val v'` \\ simp [] \\ cf_evaluate_step_tac \\
-      GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
-      cf_exp2v_evaluate_tac `st` \\
-      fs [st2heap_def, app_aw8sub_def, app_asub_def, W8ARRAY_def, ARRAY_def] \\
-      fs [SEP_EXISTS, cond_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
-      progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\
-      rpt (first_x_assum progress) \\ rename1 `a = Loc T l` \\ rw [] \\
-      assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
-      fs [do_app_def, store_lookup_def] \\
-      ((`Mem l (W8array ws) IN (store2heap st.refs)` by SPLIT_TAC) ORELSE
-       (`Mem l (Varray vs) IN (store2heap st.refs)` by SPLIT_TAC)) \\
-      progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\ fs [] \\
-      instantiate \\ fs [integerTheory.INT_ABS] \\
-      full_case_tac THEN1 (irule FALSITY \\ intLib.ARITH_TAC) \\
-      fs [state_component_equality]
-    ) \\
-    try_finally (
-      (* Aw8length & Alength *)
-      Q.REFINE_EXISTS_TAC `Val v'` \\ simp [] \\ cf_evaluate_step_tac \\
-      GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
-      cf_exp2v_evaluate_tac `st` \\
-      fs [st2heap_def, app_aw8length_def, app_alength_def] \\
-      fs [W8ARRAY_def, ARRAY_def] \\
-      fs [SEP_EXISTS, SEP_IMP_def, STAR_def, one_def, cell_def, cond_def] \\
-      assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
-      progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\
-      rpt (first_x_assum progress) \\ rename1 `a = Loc T l` \\ rw [] \\
-      fs [do_app_def, store_lookup_def] \\
-      ((`Mem l (W8array ws) IN (store2heap st.refs)` by SPLIT_TAC) ORELSE
-       (`Mem l (Varray vs) IN (store2heap st.refs)` by SPLIT_TAC)) \\
-      progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\
-      fs [state_component_equality]
-    ) \\
-    try_finally (
-      (* Aw8update & Aupdate *)
-      Q.REFINE_EXISTS_TAC `Val tv` \\ simp [] \\ cf_evaluate_step_tac \\
-      GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
-      cf_exp2v_evaluate_tac `st` \\
-      fs [st2heap_def, app_aw8update_def, app_aupdate_def] \\
-      fs [W8ARRAY_def, ARRAY_def] \\
-      fs [SEP_EXISTS, cond_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
-      first_x_assum progress \\ rename1 `a = Loc T l` \\ rw [] \\
-      assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
-      ((rename1 `W8array _` \\
-        `Mem l (W8array ws) IN (store2heap st.refs)` by SPLIT_TAC) ORELSE
-       (`Mem l (Varray vs) IN (store2heap st.refs)` by SPLIT_TAC)) \\
-      progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\
-      fs [do_app_def, store_lookup_def, store_assign_def, store_v_same_type_def] \\
-      fs [integerTheory.INT_ABS] \\
-      full_case_tac THEN1 (irule FALSITY \\ intLib.ARITH_TAC) \\
-      fs [evaluateTheory.list_result_def] \\
-      rename1`LUPDATE vv (Num i) ws` \\
-      ((rename1 `W8array _` \\
-        qexists_tac `Mem l (W8array (LUPDATE vv (Num i) ws)) INSERT u`) ORELSE
-       qexists_tac `Mem l (Varray (LUPDATE vv (Num i) ws)) INSERT u`) \\
-      qexists_tac `{}` \\ mp_tac store2heap_IN_unique_key \\ rpt strip_tac
-      THEN1 (progress_then (fs o sing) store2heap_LUPDATE \\ SPLIT_TAC)
-      THEN1 (first_assum irule \\ instantiate \\ SPLIT_TAC)
-    ) \\
-    try_finally (
-      (* CopyStrAw8 *)
-      Q.REFINE_EXISTS_TAC `Val v'` \\ simp [] \\ cf_evaluate_step_tac \\
-      GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
-      cf_exp2v_evaluate_tac `st` \\
-      fs [st2heap_def,app_copystraw8_def] \\
-      fs [W8ARRAY_def] \\
-      fs [SEP_EXISTS, cond_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
-      first_x_assum progress
-      \\ rename1 `d = Loc T ld` \\ rw [] \\
-      assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
-      (rename1 `W8array _` \\
-        `Mem ld (W8array wd) IN (store2heap st.refs)` by SPLIT_TAC) \\
-      progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\
-      fs [do_app_def, store_lookup_def, store_assign_def, store_v_same_type_def, IMPLODE_EXPLODE_I] \\
-      fs[copy_array_def,integerTheory.INT_ABS] \\
-      rpt(full_case_tac THEN1 (irule FALSITY \\ intLib.ARITH_TAC)) \\
-      IF_CASES_TAC \\ fs[] \\ TRY (`F` by intLib.ARITH_TAC) \\
-      IF_CASES_TAC \\ fs[ws_to_chars_def,chars_to_ws_def] \\ TRY (`F` by intLib.ARITH_TAC) \\
-      fs [evaluateTheory.list_result_def] \\
-      qmatch_goalsub_abbrev_tac`W8array wd'` \\
-      qexists_tac `Mem ld (W8array wd') INSERT u` \\
-      qexists_tac `{}` \\ mp_tac store2heap_IN_unique_key \\ rpt strip_tac
-      THEN1 (progress_then (fs o sing) store2heap_LUPDATE \\ SPLIT_TAC) \\
-      first_assum irule \\
-      qexists_tac`u` \\
-      qexists_tac`{Mem ld (W8array wd')}` \\ fs[Abbr`wd'`] \\
-      rename1`TAKE (Num l) (DROP (Num so) _)` \\
-      rename1`TAKE (Num do) (MAP _ wd)` \\
-      `Num do + Num l = Num (do +l)` by intLib.ARITH_TAC \\
-      simp[MAP_TAKE,MAP_DROP,MAP_MAP_o,o_DEF,integer_wordTheory.i2w_pos] \\
-      simp[GSYM o_DEF,n2w_ORD_CHR_w2n] \\
-      SPLIT_TAC
-    ) \\
-    try_finally (
-      (* CopyAw8Str *)
-      Q.REFINE_EXISTS_TAC `Val v'` \\ simp [] \\ cf_evaluate_step_tac \\
-      GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
-      cf_exp2v_evaluate_tac `st` \\
-      fs [st2heap_def,app_copyaw8str_def] \\
-      fs [W8ARRAY_def] \\
-      fs [SEP_EXISTS, cond_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
-      first_x_assum progress
-      \\ rename1 `s = Loc T ls` \\ rw [] \\
-      assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
-      (rename1 `W8array _` \\
-        `Mem ls (W8array ws) IN (store2heap st.refs)` by SPLIT_TAC) \\
-      progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\
-      fs [do_app_def, store_lookup_def, store_assign_def, store_v_same_type_def, IMPLODE_EXPLODE_I] \\
-      fs[copy_array_def,integerTheory.INT_ABS] \\
-      rpt(full_case_tac THEN1 (irule FALSITY \\ intLib.ARITH_TAC)) \\
-      fs[ws_to_chars_def,chars_to_ws_def] \\
-      fs [evaluateTheory.list_result_def] \\
-      qexists_tac `Mem ls (W8array ws) INSERT u` \\
-      qexists_tac `{}` \\ mp_tac store2heap_IN_unique_key \\ rpt strip_tac
-      THEN1 (progress_then (fs o sing) store2heap_LUPDATE \\ SPLIT_TAC) \\
-      fs[o_DEF] \\
-      first_assum irule \\
-      SPLIT_TAC
-    ) \\
-    try_finally (
-      (* CopyAw8Aw8 *)
-      Q.REFINE_EXISTS_TAC `Val v'` \\ simp [] \\ cf_evaluate_step_tac \\
-      GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
-      cf_exp2v_evaluate_tac `st` \\
-      fs [st2heap_def,app_copyaw8aw8_def] \\
-      fs [W8ARRAY_def] \\
-      fs [SEP_EXISTS, cond_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
-      first_x_assum progress
-      \\ rename1 `s = Loc T ls` \\ rename1 `d = Loc T ld` \\ rw [] \\
-      assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
-      rename1`Mem ls (W8array ws)` \\
-      (rename1 `W8array _` \\
-        `Mem ls (W8array ws) IN (store2heap st.refs)` by SPLIT_TAC) \\
-      progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\
-      (rename1 `W8array _` \\
-        `Mem ld (W8array wd) IN (store2heap st.refs)` by SPLIT_TAC) \\
-      progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\
-      fs [do_app_def, store_lookup_def, store_assign_def, store_v_same_type_def] \\
-      fs[copy_array_def,integerTheory.INT_ABS] \\
-      rpt(full_case_tac THEN1 (irule FALSITY \\ intLib.ARITH_TAC)) \\
-      fs [evaluateTheory.list_result_def] \\
-      qmatch_goalsub_abbrev_tac`W8array wd'` \\
-      qexists_tac `Mem ld (W8array wd') INSERT (Mem ls (W8array ws) INSERT u)` \\
-      qexists_tac `{}` \\ mp_tac store2heap_IN_unique_key \\ rpt strip_tac
-      THEN1 (progress_then (fs o sing) store2heap_LUPDATE \\ SPLIT_TAC) \\
-      first_assum irule \\
-      qexists_tac`Mem ls (W8array ws) INSERT u` \\
-      qexists_tac`{Mem ld (W8array wd')}` \\ fs[Abbr`wd'`] \\
-      rename1`TAKE (Num do) wd ++ TAKE (Num l) (DROP (Num so) ws)` \\
-      `Num do + Num l = Num (do +l)` by intLib.ARITH_TAC \\
-      SPLIT_TAC
-    )
-  )
-  THEN1 (
-    (* Log *)
-    cf_strip_sound_full_tac \\
-    fs [sound_def, htriple_valid_def, evaluate_to_heap_def, evaluate_ck_def] \\
-    Cases_on `lop` \\ Cases_on `b` \\ fs [BOOL_def, Boolv_def] \\ rw [] \\
-    fs [SEP_IMP_def] \\ first_x_assum progress \\ instantiate \\
-    try_finally (
-      reverse (Cases_on `r`) \\ fs []
-      THEN1 (
-        rpt strip_tac
-        THEN1 (
-          cf_exp2v_evaluate_tac `st with clock := ck`
-          \\ fs [do_log_def, Boolv_def]
-        )
-        \\ fs [lprefix_lubTheory.lprefix_lub_def]
-        \\ rpt strip_tac
-        THEN1 (
-          qpat_assum `!ll. _ => LPREFIX ll l` (qspec_then `ll` irule)
-          \\ qexists_tac `ck`
-          \\ cf_exp2v_evaluate_tac `st with clock := ck`
-          \\ fs [do_log_def, Boolv_def]
-        )
-        \\ qpat_assum `!ub. _ => LPREFIX l ub` (qspec_then `ub` irule)
-        \\ rpt strip_tac
-        \\ qpat_assum `!ll. _ => LPREFIX ll ub` (qspec_then `ll` irule)
-        \\ qexists_tac `ck`
-        \\ cf_exp2v_evaluate_tac `st with clock := ck`
-        \\ fs [do_log_def, Boolv_def]
-      )
-      \\ qexists_tac `ck`
-      \\ cf_exp2v_evaluate_tac `st with clock := ck`
-      \\ fs [do_log_def, Boolv_def]
-    ) \\
-    try_finally (
-      Q.LIST_EXISTS_TAC [`{}`, `st2heap p st`]
-      \\ progress SPLIT3_of_SPLIT_emp3 \\ rw []
-      \\ Q.LIST_EXISTS_TAC [`st.clock`, `st`] \\ fs [with_clock_self]
-      \\ cf_exp2v_evaluate_tac `st` \\ fs [do_log_def, Boolv_def]
-    )
-  )
-  THEN1 (
-    (* If *)
-    cf_strip_sound_full_tac \\ fs [do_if_def]
-    \\ Cases_on `b` \\ fs [sound_def, htriple_valid_def]
-    \\ first_assum progress
-    \\ fs [evaluate_to_heap_def, evaluate_ck_def, Boolv_def, BOOL_def]
-    \\ instantiate
-    THEN (
-      reverse (Cases_on `r`) \\ fs []
-      THEN1 (
-        rpt strip_tac
-        THEN1 cf_exp2v_evaluate_tac `st with clock := ck`
-        \\ fs [lprefix_lubTheory.lprefix_lub_def]
-        \\ rpt strip_tac
-        THEN1 (
-          qpat_assum `!ll. _ => LPREFIX ll l` (qspec_then `ll` irule)
-          \\ qexists_tac `ck`
-          \\ cf_exp2v_evaluate_tac `st with clock := ck`
-        )
-        \\ qpat_assum `!ub. _ => LPREFIX l ub` (qspec_then `ub` irule)
-        \\ rpt strip_tac
-        \\ qpat_assum `!ll. _ => LPREFIX ll ub` (qspec_then `ll` irule)
-        \\ qexists_tac `ck`
-        \\ cf_exp2v_evaluate_tac `st with clock := ck`
-      )
-      \\ qexists_tac `ck`
-      \\ cf_exp2v_evaluate_tac `st with clock := ck`
-    )
-  )
-  THEN1 (
-    (* Mat: the bulk of the proof is done in [cf_cases_evaluate_match] *)
-    cf_strip_sound_full_tac
-    \\ `EVERY (\b. sound p (SND b) (cf p (SND b))) branches` by
-         (fs [EVERY_MAP, EVERY_MEM] \\ NO_TAC)
-    \\ progress cf_cases_evaluate_match
-    \\ instantiate
-    THEN (
-      reverse (Cases_on `r`) \\ fs []
-      THEN1 (
-        rpt strip_tac
-        THEN1 cf_exp2v_evaluate_tac `st with clock := ck`
-        \\ fs [lprefix_lubTheory.lprefix_lub_def]
-        \\ rpt strip_tac
-        THEN1 (
-          qpat_assum `!ll. _ => LPREFIX ll l` (qspec_then `ll` irule)
-          \\ qexists_tac `ck`
-          \\ cf_exp2v_evaluate_tac `st with clock := ck`
-        )
-        \\ qpat_assum `!ub. _ => LPREFIX l ub` (qspec_then `ub` irule)
-        \\ rpt strip_tac
-        \\ qpat_assum `!ll. _ => LPREFIX ll ub` (qspec_then `ll` irule)
-        \\ qexists_tac `ck`
-        \\ cf_exp2v_evaluate_tac `st with clock := ck`
-      )
-      \\ qexists_tac `ck`
-      \\ cf_exp2v_evaluate_tac `st with clock := ck`
-    )
-  )
-  THEN1 (
-    (* Raise *)
+  >~ [‘sound p (App op args)’] >- suspend "App"
+  >~ [‘sound p (Log _ _ _)’] >- suspend "Log"
+  >~ [‘sound p (If _ _ _)’] >- suspend "If"
+  >~ [‘sound p (Mat _ _)’] >- suspend "Mat"
+  >~ [‘Raise’] >- (
     cf_strip_sound_full_tac \\ qexists_tac `Exn v` \\ fs [] \\
     fs [SEP_IMP_def] \\ res_tac \\ instantiate \\
     progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\
     qexists_tac `st.clock` \\
     cf_exp2v_evaluate_tac `st with clock := st.clock` \\ fs [with_clock_self]
   )
-  THEN1 (
-    (* Handle *)
+  >~ [‘Handle’] >- (
     cf_strip_sound_full_tac \\
     qpat_x_assum `sound _ e _`
       (progress o REWRITE_RULE [sound_def, htriple_valid_def]) \\
@@ -3570,19 +2794,798 @@ Proof
       metis_tac[]
     )
   )
-  THEN1 (
-    (* Lannot *)
+  >~ [‘Lannot’] >- (
     cf_strip_sound_full_tac \\ fs [sound_def, htriple_valid_def] \\
     first_assum progress \\ fs [evaluate_to_heap_def, evaluate_ck_def] \\
     metis_tac[]
   )
-  THEN1 (
-    (* Tannot *)
+  >~ [‘Tannot’] >- (
     cf_strip_sound_full_tac \\ fs [sound_def, htriple_valid_def] \\
     first_assum progress \\ fs [evaluate_to_heap_def, evaluate_ck_def] \\
     metis_tac[]
   )
 QED
+
+Resume cf_sound[Let]:
+  Cases_on `is_bound_Fun opt e1` \\ fs []
+  THEN1 (
+    (* function declaration *)
+    (* Eliminate the impossible case (Fun_body _ = NONE), then we call
+      cf_strip_sound_tac *)
+    progress is_bound_Fun_unfold \\ fs [Fun_body_def] \\
+    BasicProvers.TOP_CASE_TAC \\ cf_strip_sound_tac \\
+    (* Instantiate the hypothesis with the closure *)
+    rename1 `(case Fun_body _ of _ => _) = SOME inner_body` \\
+    (fn tm => first_x_assum (qspec_then tm mp_tac))
+      `naryClosure env (Fun_params (Fun n body)) inner_body` \\
+    impl_tac \\ strip_tac
+    THEN1 (irule curried_naryClosure \\ fs [Fun_params_def])
+    THEN1
+     (rw []
+      \\ qpat_assum `sound _ inner_body _`
+           (assume_tac o REWRITE_RULE [sound_def])
+      \\ pop_assum progress
+      \\ irule app_of_htriple_valid
+      \\ fs [Fun_params_def]) \\
+    qpat_x_assum `sound _ e2 _`
+      (progress o REWRITE_RULE [sound_def, htriple_valid_def]) \\
+    qexists_tac `r` \\ Cases_on `r` \\ fs [] \\
+    cf_evaluate_step_tac \\ Cases_on `opt` \\
+    fs [is_bound_Fun_def, THE_DEF, Fun_params_def, evaluate_to_heap_def] \\ instantiate \\
+    every_case_tac \\ fs[] \\ qpat_x_assum `_ = inner_body` (assume_tac o GSYM) \\
+    fs [naryClosure_def, naryFun_def, Fun_params_Fun_body_NONE] \\
+    fs [Fun_params_Fun_body_repack, evaluate_ck_def, evaluate_def] \\
+    fs [namespaceTheory.nsOptBind_def] \\
+    instantiate
+  )
+  THEN1 (
+    (* other cases of let-binding *)
+    cf_strip_sound_full_tac \\
+    qpat_x_assum `sound _ e1 _`
+      (progress o REWRITE_RULE [sound_def, htriple_valid_def]) \\
+    Cases_on `r` \\ fs [evaluate_to_heap_def, evaluate_ck_def]
+    THEN1 (
+      (* e1 ~> Rval v *)
+      rename1 `evaluate _ _ [e1] = (_, Rval [v])` \\
+      first_x_assum (qspec_then `v` assume_tac) \\
+      progress SPLIT_of_SPLIT3_2u3 \\
+      fs [sound_def, htriple_valid_def] \\
+      first_x_assum (qspecl_then
+        [`env with v := nsOptBind opt v env.v`, `Q' (Val v)`, `Q`]
+        mp_tac) \\ rw [] \\
+      first_x_assum (qspecl_then
+        [`st'`, `h_f`, `h_k UNION h_g`] mp_tac) \\ rw [] \\
+      fs [evaluate_to_heap_def, evaluate_ck_def] \\
+      qexists_tac `r` \\ reverse (Cases_on `r`) \\ fs []
+      THEN1 (
+        `SPLIT3 heap (h_f',h_k, h_g UNION h_g')`
+          by SPLIT_TAC
+        \\ rveq \\ instantiate \\ rpt strip_tac
+        THEN1 (
+          drule evaluatePropsTheory.evaluate_set_init_clock \\ fs []
+          \\ disch_then (qspec_then `ck'` strip_assume_tac) \\ fs []
+        )
+        \\ match_mp_tac (GEN_ALL lprefix_lub_subset)
+        \\ asm_exists_tac \\ simp [SUBSET_DEF]
+        \\ rw []
+        THEN1 (
+          drule evaluatePropsTheory.evaluate_set_clock \\ fs []
+          \\ disch_then (qspec_then `ck'` strip_assume_tac)
+          \\ qexists_tac `ck1` \\ fs [])
+        \\ drule evaluatePropsTheory.evaluate_set_init_clock \\ fs []
+        \\ disch_then (qspec_then `ck'` mp_tac) \\ rw []
+        THEN1 (first_x_assum (qspec_then `ck''` mp_tac) \\ fs [])
+        \\ fs []
+        \\ last_x_assum (qspec_then `ck2` strip_assume_tac)
+        \\ rename1 `_ = (st2, _)`
+        \\ qexists_tac `fromList st2.ffi.io_events` \\ rw []
+        THEN1 (qexists_tac `ck2` \\ rw [])
+        \\ `st'.ffi.io_events ≼ st2.ffi.io_events` by (
+          drule (CONJUNCT1 evaluatePropsTheory.evaluate_io_events_mono_imp)
+          \\ rw [evaluatePropsTheory.io_events_mono_def])
+        \\ rw [LPREFIX_fromList_fromList]
+        \\ irule isPREFIX_TRANS
+        \\ instantiate
+        \\ fs [evaluatePropsTheory.io_events_mono_def]
+      )
+      THEN (
+        (* e2 ~> Rval v' || e2 ~> Rerr (Rraise v') *)
+        fs [PULL_EXISTS]
+        \\ rename1 `st2heap _ st2 = heap`
+        \\ (GEN_EXISTS_TAC "st'" `st2 with clock := st'.clock + st2.clock`
+          ORELSE (GEN_EXISTS_TAC "st'''" `st2 with clock := st'.clock + st2.clock`))
+        \\ `SPLIT3 (st2heap (p:'ffi ffi_proj) st2) (h_f',h_k, h_g UNION h_g')`
+          by SPLIT_TAC
+        \\ simp [st2heap_clock] \\ rveq \\ instantiate
+        \\ qexists_tac `ck + ck'`
+        \\ qpat_assum `evaluate _ _ [e1] = _` (add_to_clock `ck'`)
+        \\ qpat_assum `evaluate _ _ [e2] = _` (add_to_clock `st'.clock`)
+        \\ fs [with_clock_with_clock]
+      )
+    )
+    THEN1 (
+      (* e1 ~> Rerr (Rraise v) *)
+      rename1 `evaluate _ _ [e1] = (_, Rerr (Rraise v))` \\
+      fs [SEP_IMPPOST_VARIANTS, SEP_IMP_def] \\ first_assum progress \\
+      qexists_tac `Exn v` \\ instantiate \\ qexists_tac `ck` \\ rw []
+    )
+    THEN1 (
+      (* e1 ~> FFI diverge *)
+      rename1 `evaluate _ _ [e1] = (_, Rerr (Rabort (Rffi_error (Final_event
+      (ExtCall name) conf bytes FFI_diverged))))` \\
+      fs [SEP_IMPPOST_VARIANTS, SEP_IMP_def] \\ first_assum progress \\
+      qexists_tac `FFIDiv name conf bytes` \\
+      instantiate \\ qexists_tac `ck` \\ rw []
+    )
+    THEN1 (
+      (* e1 ~> timeout *)
+      rename1 `evaluate _ _ [e1] = (_, Rerr (Rabort Rtimeout_error))`
+      \\ fs [SEP_IMPPOST_VARIANTS, SEP_IMP_def] \\ first_assum progress
+      \\ rename1 `Q (Div io) h_f` \\ qexists_tac `Div io`
+      \\ instantiate \\ rpt strip_tac
+      THEN1 (
+        first_assum (qspec_then `ck` mp_tac) \\ strip_tac
+        \\ qexists_tac `st'` \\ rw [])
+      \\ fs [lprefix_lubTheory.lprefix_lub_def] \\ rpt strip_tac
+      THEN1 (
+        qpat_assum `!ll. _ => LPREFIX ll io` (qspec_then `ll` irule)
+        \\ qexists_tac `ck`
+        \\ qpat_assum `!ck. ?st'. _` (qspec_then `ck` mp_tac)
+        \\ strip_tac \\ rw [])
+      \\ qpat_assum `!ub. _ => LPREFIX io ub` (qspec_then `ub` irule)
+      \\ rpt strip_tac
+      \\ qpat_assum `!ll. _ => LPREFIX ll ub` (qspec_then `ll` irule)
+      \\ qexists_tac `ck`
+      \\ qpat_assum `!ck. ?st'. _` (qspec_then `ck` mp_tac)
+      \\ strip_tac \\ rw []
+    )
+  )
+QED
+
+Resume cf_sound[App]:
+  Cases_on ‘∃ffi_index. op = FFI ffi_index’ >-
+   (fs [] \\ rveq \\
+    (every_case_tac \\ TRY (MATCH_ACCEPT_TAC sound_local_false)) \\
+    irule cf_ffi_sound) \\
+  Cases_on `op = Eval` \\ fs []
+  >- (fs [sound_def,local_def] \\ rw [] \\ fs [htriple_valid_def]) \\
+  Cases_on `op` \\ fs [] \\ TRY (MATCH_ACCEPT_TAC sound_local_false) \\
+  (every_case_tac \\ TRY (MATCH_ACCEPT_TAC sound_local_false)) \\
+  cf_strip_sound_tac
+  >~ [‘Arith a IntT’] >- (
+    Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\ cf_evaluate_step_tac \\
+    fs [app_arith_def, st2heap_def] \\
+    progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\
+    GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
+    cf_exp2v_evaluate_tac `st` \\
+    fs [do_app_def,do_arith_def,check_type_def] \\ fs [SEP_IMP_def] \\
+    fs [state_component_equality]
+  )
+  >~ [‘FromTo IntT (WordT W8)’] >- (
+    Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\ cf_evaluate_step_tac \\
+    GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
+    cf_exp2v_evaluate_tac `st` \\ fs [do_app_def,check_type_def,do_conversion_def] \\
+    fs [app_wordFromInt_W8_def, app_wordFromInt_W64_def, app_wordToInt_def] \\
+    fs [SEP_IMP_def, st2heap_def] \\ res_tac \\
+    progress SPLIT3_of_SPLIT_emp3 \\ instantiate
+  )
+  >~ [‘FromTo IntT (WordT W64)’] >- (
+    Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\ cf_evaluate_step_tac \\
+    GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
+    cf_exp2v_evaluate_tac `st` \\ fs [do_app_def,check_type_def,do_conversion_def] \\
+    fs [app_wordFromInt_W8_def, app_wordFromInt_W64_def, app_wordToInt_def] \\
+    fs [SEP_IMP_def, st2heap_def] \\ res_tac \\
+    progress SPLIT3_of_SPLIT_emp3 \\ instantiate
+  )
+  >~ [‘FromTo (WordT W8) IntT’] >- (
+    Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\ cf_evaluate_step_tac \\
+    GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
+    cf_exp2v_evaluate_tac `st` \\ fs [do_app_def,check_type_def,do_conversion_def] \\
+    fs [app_wordFromInt_W8_def, app_wordFromInt_W64_def, app_wordToInt_def] \\
+    fs [SEP_IMP_def, st2heap_def] \\ res_tac \\
+    progress SPLIT3_of_SPLIT_emp3 \\ instantiate
+  )
+  >~ [‘FromTo (WordT W64) IntT’] >- (
+    Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\ cf_evaluate_step_tac \\
+    GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
+    cf_exp2v_evaluate_tac `st` \\ fs [do_app_def,check_type_def,do_conversion_def] \\
+    fs [app_wordFromInt_W8_def, app_wordFromInt_W64_def, app_wordToInt_def] \\
+    fs [SEP_IMP_def, st2heap_def] \\ res_tac \\
+    progress SPLIT3_of_SPLIT_emp3 \\ instantiate
+  )
+  >~ [‘FromTo (WordT W64) Float64T’] >- (
+   Q.REFINE_EXISTS_TAC ‘Val v’ \\ simp[] \\ cf_evaluate_step_tac
+   \\ simp[]
+   \\ progress SPLIT3_of_SPLIT_emp3 \\ instantiate
+   \\ GEN_EXISTS_TAC "ck" ‘st.clock’ \\ fs[with_clock_self]
+   \\ cf_exp2v_evaluate_tac ‘st’
+   \\ fs [do_app_def, app_fpfromword_def, check_type_def, do_conversion_def]
+   \\ fs [SEP_IMP_def]
+   \\ fs [state_component_equality])
+  >~ [‘FromTo Float64T (WordT W64)’] >- (
+   Q.REFINE_EXISTS_TAC ‘Val v’ \\ simp[] \\ cf_evaluate_step_tac
+   \\ simp[]
+   \\ progress SPLIT3_of_SPLIT_emp3 \\ instantiate
+   \\ GEN_EXISTS_TAC "ck" ‘st.clock’ \\ fs[with_clock_self]
+   \\ cf_exp2v_evaluate_tac ‘st’
+   \\ fs [do_app_def, app_fptoword_def, check_type_def, do_conversion_def]
+   \\ fs [SEP_IMP_def]
+   \\ fs [state_component_equality])
+  >~ [‘App Equality’] >- (
+    rename [`Equality`] \\
+    Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\ cf_evaluate_step_tac \\
+    GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
+    cf_exp2v_evaluate_tac `st` \\ fs [do_app_def, app_equality_def] \\
+    progress (fst (CONJ_PAIR type_match_implies_do_eq_succeeds)) \\ fs [] \\
+    fs [SEP_IMP_def] \\ first_assum progress \\ instantiate \\
+    qexists_tac `{}` \\ fs [st2heap_def] \\ SPLIT_TAC
+  )
+  >~ [‘Test (Compare cmp) IntT’] >- (
+    Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\ cf_evaluate_step_tac \\
+    fs [app_int_cmp_def, st2heap_def, cf_int_cmp_def] \\
+    progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\
+    GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
+    cf_exp2v_evaluate_tac `st` \\
+    Cases_on `cmp` \\ fs [do_app_def, do_test_def, dest_Litv_def] \\
+    fs [SEP_IMP_def] \\
+    fs [state_component_equality]
+  )
+  >~ [‘App Opapp’] >- suspend "App_Opapp"
+  >~ [‘App Opassign’] >- (
+    Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\ cf_evaluate_step_tac \\
+    fs [app_assign_def, REF_def, SEP_EXISTS, cond_def] \\
+    fs [SEP_IMP_def,STAR_def,cell_def,one_def] \\
+    GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
+    cf_exp2v_evaluate_tac `st` \\ first_assum progress \\
+    rename1 `SPLIT h_i (h_i', _)` \\ rename1 `FF h_i'` \\
+    fs [do_app_def, store_assign_def] \\
+    rename1 `rv = Loc T r` \\ rw [] \\
+    `Mem r (Refv x') IN (st2heap p st)` by SPLIT_TAC \\
+    `Mem r (Refv x') IN (store2heap st.refs)` by
+        fs [st2heap_def,Mem_NOT_IN_ffi2heap] \\
+    progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\
+    `store_v_same_type (EL r st.refs) (Refv xv)` by
+      (fs [store_v_same_type_def]) \\ fs [] \\
+    `SPLIT3 (store2heap (LUPDATE (Refv xv) r st.refs) ∪ ffi2heap p st.ffi)
+       (Mem r (Refv xv) INSERT h_i', h_k, {})` by
+     (progress_then (fs o sing) store2heap_LUPDATE \\
+      drule store2heap_IN_unique_key \\
+      fs [st2heap_def,SPLIT3_def,SPLIT_def] \\ rw [] \\
+      assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\ SPLIT_TAC)
+    \\ fs [st2heap_def]
+    \\ instantiate \\ first_assum irule \\ instantiate
+    \\ drule store2heap_IN_unique_key \\ rw []
+    \\ `!x y. Mem x y IN h_i ==> Mem x y IN store2heap st.refs` by
+     (rw [] \\ CCONTR_TAC \\ fs [] \\ fs [SPLIT_def,EXTENSION]
+      \\ metis_tac [Mem_NOT_IN_ffi2heap])
+    \\ SPLIT_TAC)
+  >~ [‘App Opref’] >- (
+    Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\ cf_evaluate_step_tac \\
+    fs [do_app_def, store_alloc_def, app_ref_def, REF_def, SEP_EXISTS] \\
+    fs [st2heap_def, cond_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
+    GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
+    cf_exp2v_evaluate_tac `st` \\
+    first_x_assum (qspec_then `Loc T (LENGTH st.refs)` strip_assume_tac) \\
+    first_x_assum (qspec_then `Mem (LENGTH st.refs) (Refv xv) INSERT h_i` mp_tac) \\
+    assume_tac store2heap_alloc_disjoint \\
+    assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
+    impl_tac
+    THEN1 (qexists_tac `h_i` \\ fs [SPLIT_emp1] \\ SPLIT_TAC)
+    THEN1 (
+      strip_tac \\ instantiate \\ fs [store2heap_append] \\
+      qexists_tac `{}` \\ SPLIT_TAC
+    )
+  )
+  >~ [‘App Opderef’] >- (
+    Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\ cf_evaluate_step_tac \\
+    GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
+    cf_exp2v_evaluate_tac `st` \\
+    fs [st2heap_def, app_deref_def, REF_def, SEP_EXISTS, cond_def] \\
+    fs [SEP_IMP_def, STAR_def, one_def, cell_def] \\
+    progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\
+    rpt (first_x_assum progress) \\
+    fs [do_app_def, store_lookup_def] \\
+    assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
+    rename1 `rv = Loc T r` \\ rw [] \\
+    `Mem r (Refv x) IN (store2heap st.refs)` by SPLIT_TAC \\
+    progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\
+    fs [state_component_equality]
+  )
+  >~ [‘App XorAw8Str_unsafe’] >-
+   (Q.REFINE_EXISTS_TAC `Val v'` \\ simp [] \\ cf_evaluate_step_tac \\
+    GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
+    cf_exp2v_evaluate_tac `st` \\
+    fs [st2heap_def,app_xoraw8str_def] \\
+    fs [W8ARRAY_def] \\
+    fs [SEP_EXISTS, cond_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
+    first_x_assum progress
+    \\ rename1 `d = Loc T ld` \\ rw [] \\
+    assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
+    rename1 `W8array _` \\
+    `Mem ld (W8array wd) IN (store2heap st.refs)` by SPLIT_TAC \\
+    progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\
+    fs [do_app_def, store_lookup_def, store_assign_def, store_v_same_type_def, IMPLODE_EXPLODE_I] \\
+    drule IMP_xor_bytes_SOME \\ strip_tac \\ gvs [] \\
+    qexists_tac `Mem ld (W8array xor_res) INSERT u` \\
+    qexists_tac `{}` \\ mp_tac store2heap_IN_unique_key \\ rpt strip_tac
+    THEN1 (progress_then (fs o sing) store2heap_LUPDATE \\ SPLIT_TAC) \\
+    first_assum irule \\
+    qexists_tac`u` \\
+    qexists_tac`{Mem ld (W8array xor_res)}` \\ fs[] \\
+    SPLIT_TAC) \\
+  try_finally (
+    (* Aw8alloc & Aalloc *)
+    Q.REFINE_EXISTS_TAC `Val tv` \\ simp [] \\ cf_evaluate_step_tac \\
+    GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
+    cf_exp2v_evaluate_tac `st` \\
+    fs [do_app_def, store_alloc_def, st2heap_def] \\
+    fs [app_aalloc_def, app_aw8alloc_def, W8ARRAY_def, ARRAY_def] \\
+    fs [SEP_EXISTS, cond_def, SEP_IMP_def, STAR_def, cell_def, one_def] \\
+    first_x_assum (qspec_then `Loc T (LENGTH st.refs)` strip_assume_tac) \\
+    qmatch_asmsub_rename_tac(`REPLICATE (Num n) vv`) \\
+    ((rename1 `W8array _` \\ (fn l => first_x_assum (qspecl_then l mp_tac))
+        [`Mem (LENGTH st.refs) (W8array (REPLICATE (Num n) vv)) INSERT h_i`])
+      ORELSE (fn l => first_x_assum (qspecl_then l mp_tac))
+        [`Mem (LENGTH st.refs) (Varray (REPLICATE (Num n) vv)) INSERT h_i`]) \\
+    fs [integerTheory.INT_ABS] \\
+    assume_tac store2heap_alloc_disjoint \\
+    assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
+    impl_tac
+    THEN1 (instantiate \\ fs [SPLIT_emp1] \\ SPLIT_TAC)
+    THEN1 (
+      rpt strip_tac \\ every_case_tac
+      THEN1 (irule FALSITY \\ intLib.ARITH_TAC) \\
+      instantiate \\ fs [integerTheory.INT_ABS, store2heap_append] \\
+      qexists_tac `{}` \\ SPLIT_TAC
+    )
+  ) \\
+  try_finally (
+    (* Aalloc_empty *)
+    Q.REFINE_EXISTS_TAC `Val v'` \\ simp [] \\ cf_evaluate_step_tac \\
+    GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
+    cf_exp2v_evaluate_tac `st` \\
+    fs [do_app_def, store_alloc_def, st2heap_def] \\
+    fs [app_aalloc_def, app_aw8alloc_def, W8ARRAY_def, ARRAY_def] \\
+    fs [SEP_EXISTS, cond_def, SEP_IMP_def, STAR_def, cell_def, one_def] \\
+    first_x_assum (qspec_then `Loc T (LENGTH st.refs)` strip_assume_tac) \\
+    ((rename1 `W8array _` \\ (fn l => first_x_assum (qspecl_then l mp_tac))
+        [`Mem (LENGTH st.refs) (W8array []) INSERT h_i`])
+      ORELSE (fn l => first_x_assum (qspecl_then l mp_tac))
+        [`Mem (LENGTH st.refs) (Varray []) INSERT h_i`]) \\
+    fs [integerTheory.INT_ABS] \\
+    assume_tac store2heap_alloc_disjoint \\
+    assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
+    impl_tac >>
+    simp [REPLICATE]
+    THEN1 (instantiate \\ fs [SPLIT_emp1] \\ SPLIT_TAC)
+    THEN1 (
+      rpt strip_tac \\ every_case_tac \\
+      instantiate \\ fs [integerTheory.INT_ABS, store2heap_append] \\
+      qexists_tac `{}` \\ SPLIT_TAC
+    )
+  ) \\
+  try_finally (
+    (* Aw8sub & Asub *)
+    Q.REFINE_EXISTS_TAC `Val v'` \\ simp [] \\ cf_evaluate_step_tac \\
+    GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
+    cf_exp2v_evaluate_tac `st` \\
+    fs [st2heap_def, app_aw8sub_def, app_asub_def, W8ARRAY_def, ARRAY_def] \\
+    fs [SEP_EXISTS, cond_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
+    progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\
+    rpt (first_x_assum progress) \\ rename1 `a = Loc T l` \\ rw [] \\
+    assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
+    fs [do_app_def, store_lookup_def] \\
+    ((`Mem l (W8array ws) IN (store2heap st.refs)` by SPLIT_TAC) ORELSE
+     (`Mem l (Varray vs) IN (store2heap st.refs)` by SPLIT_TAC)) \\
+    progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\ fs [] \\
+    instantiate \\ fs [integerTheory.INT_ABS] \\
+    full_case_tac THEN1 (irule FALSITY \\ intLib.ARITH_TAC) \\
+    fs [state_component_equality]
+  ) \\
+  try_finally (
+    (* Aw8length & Alength *)
+    Q.REFINE_EXISTS_TAC `Val v'` \\ simp [] \\ cf_evaluate_step_tac \\
+    GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
+    cf_exp2v_evaluate_tac `st` \\
+    fs [st2heap_def, app_aw8length_def, app_alength_def] \\
+    fs [W8ARRAY_def, ARRAY_def] \\
+    fs [SEP_EXISTS, SEP_IMP_def, STAR_def, one_def, cell_def, cond_def] \\
+    assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
+    progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\
+    rpt (first_x_assum progress) \\ rename1 `a = Loc T l` \\ rw [] \\
+    fs [do_app_def, store_lookup_def] \\
+    ((`Mem l (W8array ws) IN (store2heap st.refs)` by SPLIT_TAC) ORELSE
+     (`Mem l (Varray vs) IN (store2heap st.refs)` by SPLIT_TAC)) \\
+    progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\
+    fs [state_component_equality]
+  ) \\
+  try_finally (
+    (* Aw8update & Aupdate *)
+    Q.REFINE_EXISTS_TAC `Val tv` \\ simp [] \\ cf_evaluate_step_tac \\
+    GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
+    cf_exp2v_evaluate_tac `st` \\
+    fs [st2heap_def, app_aw8update_def, app_aupdate_def] \\
+    fs [W8ARRAY_def, ARRAY_def] \\
+    fs [SEP_EXISTS, cond_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
+    first_x_assum progress \\ rename1 `a = Loc T l` \\ rw [] \\
+    assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
+    ((rename1 `W8array _` \\
+      `Mem l (W8array ws) IN (store2heap st.refs)` by SPLIT_TAC) ORELSE
+     (`Mem l (Varray vs) IN (store2heap st.refs)` by SPLIT_TAC)) \\
+    progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\
+    fs [do_app_def, store_lookup_def, store_assign_def, store_v_same_type_def] \\
+    fs [integerTheory.INT_ABS] \\
+    full_case_tac THEN1 (irule FALSITY \\ intLib.ARITH_TAC) \\
+    fs [evaluateTheory.list_result_def] \\
+    rename1`LUPDATE vv (Num i) ws` \\
+    ((rename1 `W8array _` \\
+      qexists_tac `Mem l (W8array (LUPDATE vv (Num i) ws)) INSERT u`) ORELSE
+     qexists_tac `Mem l (Varray (LUPDATE vv (Num i) ws)) INSERT u`) \\
+    qexists_tac `{}` \\ mp_tac store2heap_IN_unique_key \\ rpt strip_tac
+    THEN1 (progress_then (fs o sing) store2heap_LUPDATE \\ SPLIT_TAC)
+    THEN1 (first_assum irule \\ instantiate \\ SPLIT_TAC)
+  ) \\
+  try_finally (
+    (* CopyStrAw8 *)
+    Q.REFINE_EXISTS_TAC `Val v'` \\ simp [] \\ cf_evaluate_step_tac \\
+    GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
+    cf_exp2v_evaluate_tac `st` \\
+    fs [st2heap_def,app_copystraw8_def] \\
+    fs [W8ARRAY_def] \\
+    fs [SEP_EXISTS, cond_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
+    first_x_assum progress
+    \\ rename1 `d = Loc T ld` \\ rw [] \\
+    assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
+    (rename1 `W8array _` \\
+      `Mem ld (W8array wd) IN (store2heap st.refs)` by SPLIT_TAC) \\
+    progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\
+    fs [do_app_def, store_lookup_def, store_assign_def, store_v_same_type_def, IMPLODE_EXPLODE_I] \\
+    fs[copy_array_def,integerTheory.INT_ABS] \\
+    rpt(full_case_tac THEN1 (irule FALSITY \\ intLib.ARITH_TAC)) \\
+    IF_CASES_TAC \\ fs[] \\ TRY (`F` by intLib.ARITH_TAC) \\
+    IF_CASES_TAC \\ fs[ws_to_chars_def,chars_to_ws_def] \\ TRY (`F` by intLib.ARITH_TAC) \\
+    fs [evaluateTheory.list_result_def] \\
+    qmatch_goalsub_abbrev_tac`W8array wd'` \\
+    qexists_tac `Mem ld (W8array wd') INSERT u` \\
+    qexists_tac `{}` \\ mp_tac store2heap_IN_unique_key \\ rpt strip_tac
+    THEN1 (progress_then (fs o sing) store2heap_LUPDATE \\ SPLIT_TAC) \\
+    first_assum irule \\
+    qexists_tac`u` \\
+    qexists_tac`{Mem ld (W8array wd')}` \\ fs[Abbr`wd'`] \\
+    rename1`TAKE (Num l) (DROP (Num so) _)` \\
+    rename1`TAKE (Num do) (MAP _ wd)` \\
+    `Num do + Num l = Num (do +l)` by intLib.ARITH_TAC \\
+    simp[MAP_TAKE,MAP_DROP,MAP_MAP_o,o_DEF,integer_wordTheory.i2w_pos] \\
+    simp[GSYM o_DEF,n2w_ORD_CHR_w2n] \\
+    SPLIT_TAC
+  ) \\
+  try_finally (
+    (* CopyAw8Str *)
+    Q.REFINE_EXISTS_TAC `Val v'` \\ simp [] \\ cf_evaluate_step_tac \\
+    GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
+    cf_exp2v_evaluate_tac `st` \\
+    fs [st2heap_def,app_copyaw8str_def] \\
+    fs [W8ARRAY_def] \\
+    fs [SEP_EXISTS, cond_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
+    first_x_assum progress
+    \\ rename1 `s = Loc T ls` \\ rw [] \\
+    assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
+    (rename1 `W8array _` \\
+      `Mem ls (W8array ws) IN (store2heap st.refs)` by SPLIT_TAC) \\
+    progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\
+    fs [do_app_def, store_lookup_def, store_assign_def, store_v_same_type_def, IMPLODE_EXPLODE_I] \\
+    fs[copy_array_def,integerTheory.INT_ABS] \\
+    rpt(full_case_tac THEN1 (irule FALSITY \\ intLib.ARITH_TAC)) \\
+    fs[ws_to_chars_def,chars_to_ws_def] \\
+    fs [evaluateTheory.list_result_def] \\
+    qexists_tac `Mem ls (W8array ws) INSERT u` \\
+    qexists_tac `{}` \\ mp_tac store2heap_IN_unique_key \\ rpt strip_tac
+    THEN1 (progress_then (fs o sing) store2heap_LUPDATE \\ SPLIT_TAC) \\
+    fs[o_DEF] \\
+    first_assum irule \\
+    SPLIT_TAC
+  ) \\
+  try_finally (
+    (* CopyAw8Aw8 *)
+    Q.REFINE_EXISTS_TAC `Val v'` \\ simp [] \\ cf_evaluate_step_tac \\
+    GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
+    cf_exp2v_evaluate_tac `st` \\
+    fs [st2heap_def,app_copyaw8aw8_def] \\
+    fs [W8ARRAY_def] \\
+    fs [SEP_EXISTS, cond_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
+    first_x_assum progress
+    \\ rename1 `s = Loc T ls` \\ rename1 `d = Loc T ld` \\ rw [] \\
+    assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
+    rename1`Mem ls (W8array ws)` \\
+    (rename1 `W8array _` \\
+      `Mem ls (W8array ws) IN (store2heap st.refs)` by SPLIT_TAC) \\
+    progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\
+    (rename1 `W8array _` \\
+      `Mem ld (W8array wd) IN (store2heap st.refs)` by SPLIT_TAC) \\
+    progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\
+    fs [do_app_def, store_lookup_def, store_assign_def, store_v_same_type_def] \\
+    fs[copy_array_def,integerTheory.INT_ABS] \\
+    rpt(full_case_tac THEN1 (irule FALSITY \\ intLib.ARITH_TAC)) \\
+    fs [evaluateTheory.list_result_def] \\
+    qmatch_goalsub_abbrev_tac`W8array wd'` \\
+    qexists_tac `Mem ld (W8array wd') INSERT (Mem ls (W8array ws) INSERT u)` \\
+    qexists_tac `{}` \\ mp_tac store2heap_IN_unique_key \\ rpt strip_tac
+    THEN1 (progress_then (fs o sing) store2heap_LUPDATE \\ SPLIT_TAC) \\
+    first_assum irule \\
+    qexists_tac`Mem ls (W8array ws) INSERT u` \\
+    qexists_tac`{Mem ld (W8array wd')}` \\ fs[Abbr`wd'`] \\
+    rename1`TAKE (Num do) wd ++ TAKE (Num l) (DROP (Num so) ws)` \\
+    `Num do + Num l = Num (do +l)` by intLib.ARITH_TAC \\
+    SPLIT_TAC
+  )
+QED
+
+Resume cf_sound[App_Opapp]:
+  rename1 `dest_opapp _ = SOME (f, xs)` \\
+  rpt (pop_assum mp_tac) \\ SPEC_ALL_TAC \\
+  CONV_TAC (RESORT_FORALL_CONV (fn l =>
+    (op @) (partition (fn v => fst (dest_var v) = "xs") l))) \\
+  gen_tac \\ completeInduct_on `LENGTH xs` \\ rpt strip_tac \\
+  fs [] \\ qpat_x_assum `dest_opapp _ = _` mp_tac \\
+  rewrite_tac [dest_opapp_def] \\ every_case_tac \\ fs [] \\
+  rpt strip_tac \\ qpat_x_assum `_ = xs` (assume_tac o GSYM) \\ fs []
+  (* 1 argument *)
+  THEN1 (
+    rename1 `xs = [x]` \\ fs [exp2v_list_def] \\ full_case_tac \\ fs [] \\
+    qpat_x_assum `_ = argsv` (assume_tac o GSYM) \\ rename1 `argsv = [xv]` \\
+    cf_evaluate_step_tac \\
+    fs [app_def, app_basic_def] \\ first_assum progress \\
+    fs [evaluate_to_heap_def, evaluate_ck_def] \\
+    rename1 `SPLIT3 heap (h_f, h_k, h_g)` \\
+    progress SPLIT3_swap23 \\ instantiate \\
+    reverse (Cases_on `r`) \\ fs []
+    THEN1 (
+      rpt strip_tac
+      THEN1 (
+        cf_exp2v_evaluate_tac `st with clock := ck`
+        \\ fs [dec_clock_def]
+      )
+      \\ irule lprefix_lub_subset
+      \\ qexists_tac `IMAGE (λck. fromList (FST (evaluate (st with clock := ck) env' [exp])).ffi.io_events) UNIV`
+      \\ fs [SUBSET_DEF]
+      \\ rpt strip_tac
+      THEN1 (
+        cf_exp2v_evaluate_tac `st with clock := ck`
+        THEN1 (
+          qexists_tac `fromList (FST (evaluate st env' [exp])).ffi.io_events`
+          \\ rw [LPREFIX_fromList_fromList]
+          THEN1 (
+            qexists_tac `st.clock`
+            \\ fs [semanticPrimitivesPropsTheory.with_same_clock]
+          )
+          \\ qspecl_then [`st`, `env'`, `[exp]`] strip_assume_tac
+            (CONJUNCT1 evaluatePropsTheory.evaluate_io_events_mono)
+          \\ fs [evaluatePropsTheory.io_events_mono_def]
+        )
+        \\ qexists_tac `fromList (FST (evaluate (st with clock := ck - 1) env' [exp])).ffi.io_events`
+        \\ rw [LPREFIX_fromList_fromList]
+        THEN1 (qexists_tac `ck - 1` \\ fs [])
+        \\ qspecl_then [`st with clock := ck - 1`, `env'`, `[exp]`] strip_assume_tac
+          (CONJUNCT1 evaluatePropsTheory.evaluate_io_events_mono)
+        \\ fs [evaluatePropsTheory.io_events_mono_def, evaluateTheory.dec_clock_def]
+      )
+      \\ qexists_tac `ck + 1`
+      \\ cf_exp2v_evaluate_tac `st with clock := ck + 1`
+      \\ fs [evaluateTheory.dec_clock_def]
+    )
+    \\ qexists_tac `ck + 1`
+    \\ cf_exp2v_evaluate_tac `st with clock := ck + 1`
+    \\ fs [evaluateTheory.dec_clock_def]
+  )
+  (* 2+ arguments *)
+  THEN1 (
+    rename1 `dest_opapp papp_ = SOME (f, pxs)` \\
+    rename1 `xs = pxs ++ [x]` \\ fs [LENGTH] \\
+    progress exp2v_list_rcons \\ fs [] \\ rw [] \\
+    (* Do some unfolding, by definition of dest_opapp *)
+    `?papp. papp_ = App Opapp papp` by (
+      Cases_on `papp_` \\ TRY (fs [dest_opapp_def] \\ NO_TAC) \\
+      rename1 `dest_opapp (App op _)` \\
+      Cases_on `op` \\ TRY (fs [dest_opapp_def] \\ NO_TAC) \\
+      NO_TAC
+    ) \\ fs [] \\
+    (* Prepare for, and apply lemma [app_alt_ind_w] to split app *)
+    progress dest_opapp_not_empty_arglist \\
+    `xvs <> []` by (progress exp2v_list_LENGTH \\ strip_tac \\
+                   first_assum irule \\ fs [LENGTH_NIL] \\ NO_TAC) \\
+    progress app_alt_ind_w \\
+    (* Specialize induction hypothesis with xs := pxs *)
+    `LENGTH pxs < LENGTH pxs + 1` by (fs []) \\
+    last_assum drule \\ disch_then (qspec_then `pxs` mp_tac) \\ fs [] \\
+    disch_then progress \\ fs [POSTv_def, POST_def, SEP_EXISTS, cond_def, STAR_def] \\
+    (* Cleanup *)
+    Cases_on `r` \\ fs [] \\
+    rename1 `app_basic _ g xv H' Q` \\ fs [SPLIT_emp2] \\ rw [] \\
+    (* Exploit the [app_basic (p:'ffi ffi_proj) g xv H' Q] we got from the ind. hyp. *)
+    progress SPLIT_of_SPLIT3_2u3 \\
+    fs [app_basic_def, evaluate_to_heap_def, evaluate_ck_def] \\ rveq \\
+    first_x_assum progress \\
+    (* Instantiate the result value, case split on it *)
+    qexists_tac `r` \\ reverse (Cases_on `r`) \\ fs [] \\ rveq
+    THEN1 (
+      rename1 `SPLIT3 heap (h_f', _, h_g')`
+      \\ `SPLIT3 heap (h_f', h_k, h_g' UNION h_g)` by SPLIT_TAC
+      \\ instantiate \\ rw []
+      THEN1 (
+        NTAC 2 (simp [Once evaluate_def])
+        \\ cf_exp2v_evaluate_tac `st with clock := ck'` \\ fs []
+        \\ NTAC 2 (pop_assum (K ALL_TAC))
+        \\ drule evaluatePropsTheory.evaluate_set_init_clock \\ fs []
+        \\ disch_then (qspec_then `ck'` mp_tac) \\ rw [] \\ fs []
+        \\ Cases_on `ck'' = 0` \\ fs [evaluateTheory.dec_clock_def]
+      )
+      \\ match_mp_tac (GEN_ALL lprefix_lub_subset)
+      \\ asm_exists_tac \\ simp [SUBSET_DEF]
+      \\ rw []
+      THEN1 (
+        NTAC 2 (simp [Once evaluate_def])
+        \\ drule evaluatePropsTheory.evaluate_set_clock \\ fs []
+        \\ disch_then (qspec_then `ck' + 1` strip_assume_tac)
+        \\ cf_exp2v_evaluate_tac `st with clock := ck1`
+        \\ qexists_tac `ck1` \\ fs [evaluateTheory.dec_clock_def]
+      )
+      \\ drule evaluatePropsTheory.evaluate_set_init_clock \\ fs []
+      \\ disch_then (qspec_then `ck'` mp_tac) \\ rw []
+      THEN1 (
+        NTAC 2 (simp [Once evaluate_def])
+        \\ cf_exp2v_evaluate_tac `st with clock := ck'`
+        THEN1 (
+          qexists_tac `fromList (FST (evaluate st' env' [exp])).ffi.io_events`
+          \\ rw [LPREFIX_fromList_fromList]
+          THEN1 (
+            qexists_tac `st'.clock`
+            \\ fs [semanticPrimitivesPropsTheory.with_same_clock]
+          )
+          \\ qspecl_then [`st'`, `env'`, `[exp]`] strip_assume_tac
+            (CONJUNCT1 evaluatePropsTheory.evaluate_io_events_mono)
+          \\ fs [evaluatePropsTheory.io_events_mono_def]
+        )
+        \\ fs [evaluateTheory.dec_clock_def]
+        \\ qpat_x_assum `!ck. ?st. _` (qspec_then `ck'' - 1` strip_assume_tac) \\ fs []
+        \\ rename1 ‘LPREFIX (fromList st₃.ffi.io_events)’
+        \\ qexists_tac `fromList st₃.ffi.io_events` \\ rw []
+        \\ qexists_tac `ck'' - 1` \\ rw []
+      )
+      \\ qpat_x_assum `!ck. ?st. _` (qspec_then `ck2` strip_assume_tac)
+      \\ rename1 `_ = (st2, _)`
+      \\ qexists_tac `fromList st2.ffi.io_events` \\ rw []
+      THEN1 (qexists_tac `ck2` \\ rw [])
+      \\ `st'.ffi.io_events ≼ st2.ffi.io_events` by (
+        drule (CONJUNCT1 evaluatePropsTheory.evaluate_io_events_mono_imp)
+        \\ rw [evaluatePropsTheory.io_events_mono_def])
+      \\ rw [LPREFIX_fromList_fromList]
+      \\ irule isPREFIX_TRANS
+      \\ instantiate
+      \\ fs [evaluatePropsTheory.io_events_mono_def]
+      \\ NTAC 2 (simp [Once evaluate_def])
+      \\ cf_exp2v_evaluate_tac `st with clock := ck'`
+    )
+    THEN (
+      (* res = Val _ || res = Exn _ *)
+      rename1 `SPLIT3 (st2heap _ st2) (h_f', _, h_g')` \\
+      `SPLIT3 (st2heap (p:'ffi ffi_proj) st2) (h_f', h_k, h_g' UNION h_g)`
+        by SPLIT_TAC \\ rfs [] \\
+      asm_exists_tac \\ fs [] \\
+      NTAC 2 (simp [Once evaluate_def]) \\
+      (* Instantiate the clock, cleanup *)
+      cf_exp2v_evaluate_tac `st with clock := ck + ck' + 1` \\
+      qexists_tac `ck + ck' + 1` \\ rw [] \\
+      qpat_assum `evaluate _ _ [App Opapp papp] = _` (add_to_clock `ck' + 1`) \\
+      fs [with_clock_with_clock] \\
+      (* Finish proving the goal *)
+      rename1 `SPLIT (st2heap _ st1)` \\
+      qexists_tac `st2 with clock := st2.clock + st1.clock` \\
+      fs [st2heap_clock, evaluateTheory.dec_clock_def] \\
+      qpat_assum `evaluate (st1 with clock := _) _ _ = _` (add_to_clock `st1.clock`) \\
+      fs [with_clock_with_clock]
+    )
+  )
+QED
+
+Resume cf_sound[Log]:
+  cf_strip_sound_full_tac \\
+  fs [sound_def, htriple_valid_def, evaluate_to_heap_def, evaluate_ck_def] \\
+  Cases_on `lop` \\ Cases_on `b` \\ fs [BOOL_def, Boolv_def] \\ rw [] \\
+  fs [SEP_IMP_def] \\ first_x_assum progress \\ instantiate \\
+  try_finally (
+    reverse (Cases_on `r`) \\ fs []
+    THEN1 (
+      rpt strip_tac
+      THEN1 (
+        cf_exp2v_evaluate_tac `st with clock := ck`
+        \\ fs [do_log_def, Boolv_def]
+      )
+      \\ fs [lprefix_lubTheory.lprefix_lub_def]
+      \\ rpt strip_tac
+      THEN1 (
+        qpat_assum `!ll. _ => LPREFIX ll l` (qspec_then `ll` irule)
+        \\ qexists_tac `ck`
+        \\ cf_exp2v_evaluate_tac `st with clock := ck`
+        \\ fs [do_log_def, Boolv_def]
+      )
+      \\ qpat_assum `!ub. _ => LPREFIX l ub` (qspec_then `ub` irule)
+      \\ rpt strip_tac
+      \\ qpat_assum `!ll. _ => LPREFIX ll ub` (qspec_then `ll` irule)
+      \\ qexists_tac `ck`
+      \\ cf_exp2v_evaluate_tac `st with clock := ck`
+      \\ fs [do_log_def, Boolv_def]
+    )
+    \\ qexists_tac `ck`
+    \\ cf_exp2v_evaluate_tac `st with clock := ck`
+    \\ fs [do_log_def, Boolv_def]
+  ) \\
+  try_finally (
+    Q.LIST_EXISTS_TAC [`{}`, `st2heap p st`]
+    \\ progress SPLIT3_of_SPLIT_emp3 \\ rw []
+    \\ Q.LIST_EXISTS_TAC [`st.clock`, `st`] \\ fs [with_clock_self]
+    \\ cf_exp2v_evaluate_tac `st` \\ fs [do_log_def, Boolv_def]
+  )
+QED
+
+Resume cf_sound[If]:
+  cf_strip_sound_full_tac \\ fs [do_if_def]
+  \\ Cases_on `b` \\ fs [sound_def, htriple_valid_def]
+  \\ first_assum progress
+  \\ fs [evaluate_to_heap_def, evaluate_ck_def, Boolv_def, BOOL_def]
+  \\ instantiate
+  THEN (
+    reverse (Cases_on `r`) \\ fs []
+    THEN1 (
+      rpt strip_tac
+      THEN1 cf_exp2v_evaluate_tac `st with clock := ck`
+      \\ fs [lprefix_lubTheory.lprefix_lub_def]
+      \\ rpt strip_tac
+      THEN1 (
+        qpat_assum `!ll. _ => LPREFIX ll l` (qspec_then `ll` irule)
+        \\ qexists_tac `ck`
+        \\ cf_exp2v_evaluate_tac `st with clock := ck`
+      )
+      \\ qpat_assum `!ub. _ => LPREFIX l ub` (qspec_then `ub` irule)
+      \\ rpt strip_tac
+      \\ qpat_assum `!ll. _ => LPREFIX ll ub` (qspec_then `ll` irule)
+      \\ qexists_tac `ck`
+      \\ cf_exp2v_evaluate_tac `st with clock := ck`
+    )
+    \\ qexists_tac `ck`
+    \\ cf_exp2v_evaluate_tac `st with clock := ck`
+  )
+QED
+
+Resume cf_sound[Mat]:
+  cf_strip_sound_full_tac
+  \\ `EVERY (\b. sound p (SND b) (cf p (SND b))) branches` by
+       (fs [EVERY_MAP, EVERY_MEM] \\ NO_TAC)
+  \\ progress cf_cases_evaluate_match
+  \\ instantiate
+  THEN (
+    reverse (Cases_on `r`) \\ fs []
+    THEN1 (
+      rpt strip_tac
+      THEN1 cf_exp2v_evaluate_tac `st with clock := ck`
+      \\ fs [lprefix_lubTheory.lprefix_lub_def]
+      \\ rpt strip_tac
+      THEN1 (
+        qpat_assum `!ll. _ => LPREFIX ll l` (qspec_then `ll` irule)
+        \\ qexists_tac `ck`
+        \\ cf_exp2v_evaluate_tac `st with clock := ck`
+      )
+      \\ qpat_assum `!ub. _ => LPREFIX l ub` (qspec_then `ub` irule)
+      \\ rpt strip_tac
+      \\ qpat_assum `!ll. _ => LPREFIX ll ub` (qspec_then `ll` irule)
+      \\ qexists_tac `ck`
+      \\ cf_exp2v_evaluate_tac `st with clock := ck`
+    )
+    \\ qexists_tac `ck`
+    \\ cf_exp2v_evaluate_tac `st with clock := ck`
+  )
+QED
+
+Finalise cf_sound
 
 Theorem cf_sound':
    !e env H Q st.

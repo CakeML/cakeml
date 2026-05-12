@@ -17,10 +17,9 @@ val _ = cv_trans miscTheory.append_aux_def;
 val _ = cv_trans miscTheory.append_def;
 val _ = cv_trans miscTheory.tlookup_def;
 
-val _ = cv_trans mlstringTheory.implode_def;
 val _ = cv_trans mlstringTheory.explode_thm;
 val _ = cv_trans mlstringTheory.strcat_thm;
-val _ = cv_trans mlstringTheory.str_def;
+val _ = cv_trans mlstringTheory.chr_to_str_def;
 val _ = cv_auto_trans mlstringTheory.concat_def;
 
 val res = cv_trans_pre "strsub_pre" mlstringTheory.strsub_def;

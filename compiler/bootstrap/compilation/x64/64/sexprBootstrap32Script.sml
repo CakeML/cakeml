@@ -6,7 +6,7 @@ Theory sexprBootstrap32
 Ancestors
   compiler32Prog
 Libs
-  preamble mlstringSyntax astToSexprLib
+  preamble mlstringSyntax astSyntax astToSexprLib
 
 val filename = "cake-sexpr-32"
 

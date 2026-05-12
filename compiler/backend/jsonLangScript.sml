@@ -51,22 +51,22 @@ Definition encode_str_def:
   if EVERY printable s2 then s
   else concat (MAP (\c. if printable c then implode [c]
     else if unicode then implode ("\\u" ++ REVERSE (n_rev_hex_digs 4 (ORD c)))
-    else concat [strlit "\\"; toString (ORD c)]) s2)
+    else concat [«\\»; toString (ORD c)]) s2)
 End
 
 Definition json_to_mlstring_def:
   (json_to_mlstring obj =
     case obj of
-        | Object mems => List [strlit "{"] ++
-                concat_with (MAP mem_to_string mems) (List [strlit ","]) ++
-                List [strlit "}"]
-        | Array obs => List [strlit "["] ++
-                concat_with (MAP json_to_mlstring obs) (List [strlit ","]) ++
-                List [strlit "]"]
+        | Object mems => List [«{»] ++
+                concat_with (MAP mem_to_string mems) (List [«,»]) ++
+                List [«}»]
+        | Array obs => List [«[»] ++
+                concat_with (MAP json_to_mlstring obs) (List [«,»]) ++
+                List [«]»]
        | String s => List ([strlit "\""; encode_str T s; strlit "\""])
        | Int i => List [toString i]
-       | Bool b => if b then List [strlit "true"] else List [strlit "false"]
-       | Null => List [strlit "null"])
+       | Bool b => if b then List [«true»] else List [«false»]
+       | Null => List [«null»])
   /\
   (mem_to_string n_obj = let (n, obj) = n_obj in
         List [strlit "\""; n; strlit "\":"] ++ json_to_mlstring obj)

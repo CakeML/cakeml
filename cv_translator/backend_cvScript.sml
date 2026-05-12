@@ -499,6 +499,10 @@ Definition apply_nummap_key'_def:
   apply_nummap_key' f = apply_nummap_key (total_colour f)
 End
 
+Definition apply_nummaps_key'_def:
+  apply_nummaps_key' f = apply_nummaps_key (total_colour f)
+End
+
 Definition apply_colour_imm'_def:
   apply_colour_imm' f = apply_colour_imm (total_colour f)
 End
@@ -523,6 +527,7 @@ val defs = [GSYM check_partial_col'_def,
             GSYM check_col'_def,
             GSYM check_clash_tree'_def,
             GSYM apply_nummap_key'_def,
+            GSYM apply_nummaps_key'_def,
             GSYM apply_colour_imm'_def,
             GSYM apply_colour_exp'_def,
             GSYM apply_colour_exp'_list_def,
@@ -543,6 +548,7 @@ Theorem apply_colour'_eq = word_allocTheory.apply_colour_def |> set_f
 Theorem apply_colour_inst'_eq = word_allocTheory.apply_colour_inst_def |> set_f
 Theorem apply_colour_imm'_eq = word_allocTheory.apply_colour_imm_def |> set_f
 Theorem apply_colour_nummap_key'_eq = word_allocTheory.apply_nummap_key_def |> set_f
+Theorem apply_colour_nummaps_key'_eq = word_allocTheory.apply_nummaps_key_def |> set_f
 Theorem apply_colour_exp'_eq =
   (CONJUNCTS word_allocTheory.apply_colour_exp_def @
    map (Q.ISPEC ‘apply_colour_exp' f’) (CONJUNCTS MAP))
@@ -591,6 +597,7 @@ Proof
 QED
 
 val _ = cv_auto_trans apply_colour_nummap_key'_eq;
+val _ = cv_auto_trans apply_colour_nummaps_key'_eq;
 
 Definition get_reads_exp_list_def:
   get_reads_exp_list xs = FLAT (MAP (λa. get_reads_exp a) xs)
@@ -914,7 +921,7 @@ val _ = cv_trans backendTheory.set_oracle_def;
 val _ = cv_trans (exportTheory.escape_sym_char_def |> SRULE [GREATER_EQ]);
 val _ = cv_auto_trans exportTheory.emit_symbol_def;
 val _ = cv_auto_trans exportTheory.emit_symbols_def;
-val _ = cv_auto_trans (exportTheory.data_section_def |> SRULE [GSYM mlstringTheory.implode_def]);
+val _ = cv_auto_trans exportTheory.data_section_def;
 val _ = cv_trans (exportTheory.data_buffer_def |> SRULE []);
 val _ = cv_trans (exportTheory.code_buffer_def |> SRULE []);
 

@@ -82,7 +82,7 @@ End
 
 Definition inc_compile_decs'_def:
   inc_compile_decs' decs = (compile_decs decs ++
-    compile_decs [Dlet (Con None NONE [])], [])
+    compile_decs [Con None NONE []], [])
 End
 
 Definition install_config_rel'_def:
@@ -292,7 +292,7 @@ Proof
   >~ [`flatLang$Mat`] >- suspend "Mat"
   >~ [`flatLang$Let`] >- suspend "Let"
   >~ [`flatLang$Letrec`] >- suspend "Letrec"
-  >~ [`evaluate_dec _ (Dlet _)`] >- suspend "Dlet"
+  >~ [`evaluate_dec _ _`] >- suspend "dec"
   >~ [`evaluate_decs _ []`] >- suspend "decs_nil"
   >~ [`evaluate_decs _ (_ :: _)`] >- suspend "decs_cons"
 QED
@@ -974,8 +974,8 @@ Proof
         v_to_list x = SOME vs /\ vs_to_string vs = SOME s₁ /\ v_rel x y ==>
         ?wss. v_to_list y = SOME (MAP ByteVector wss) /\
               MAP (CHR o w2n) (FLAT wss) = explode s₁`
-  \\ rename1 ‘vs_to_string _ = SOME strng’
-  \\ Cases_on ‘strng’
+  \\ rename1 ‘vs_to_string _ = SOME str’
+  \\ Cases_on ‘str’
   THEN1
    (rpt (disch_then drule \\ fs []) \\ strip_tac \\ fs []
     \\ `!xs ys. MAP ByteVector xs = MAP ByteVector ys <=> xs = ys` by
@@ -1934,7 +1934,7 @@ Resume compile_correct[App]:
   \\ rw [] \\ fs [] \\ gvs []
 QED
 
-Resume compile_correct[Dlet]:
+Resume compile_correct[dec]:
   rw []
   \\ fs [flatSemTheory.evaluate_def, pair_case_eq]
   \\ fs [compile_decs_def]
@@ -2338,7 +2338,7 @@ QED
 Theorem compile_decs_set_globals:
   ∀decs. no_Mat_decs decs ==>
   closProps$elist_globals (compile_decs decs) =
-  BAG_IMAGE SUC (flatProps$elist_globals (MAP dest_Dlet (FILTER is_Dlet decs)))
+  BAG_IMAGE SUC (flatProps$elist_globals decs)
 Proof
   Induct
   \\ simp [compile_decs_def]
@@ -2350,7 +2350,7 @@ QED
 Theorem compile_prog_set_globals:
   ∀decs. no_Mat_decs decs ==>
   closProps$elist_globals (compile_prog decs) =
-  {|0|} ⊎ BAG_IMAGE SUC (flatProps$elist_globals (MAP dest_Dlet (FILTER is_Dlet decs)))
+  {|0|} ⊎ BAG_IMAGE SUC (flatProps$elist_globals decs)
 Proof
   fs [compile_prog_def,clos_interpTheory.attach_interpreter_def,
       op_gbag_def,compile_decs_set_globals,clos_interpTheory.compile_init_def]
@@ -2406,7 +2406,7 @@ Proof
 QED
 
 Theorem compile_decs_esgc_free:
-  !decs. EVERY (flatProps$esgc_free o dest_Dlet) (FILTER is_Dlet decs) /\
+  !decs. EVERY (flatProps$esgc_free) decs /\
   no_Mat_decs decs ==>
   EVERY closProps$esgc_free (compile_decs decs)
 Proof
@@ -2418,7 +2418,7 @@ Proof
 QED
 
 Theorem compile_prog_esgc_free:
-  !decs. EVERY (flatProps$esgc_free o dest_Dlet) (FILTER is_Dlet decs) /\
+  !decs. EVERY (flatProps$esgc_free) decs /\
   no_Mat_decs decs ==>
   EVERY closProps$esgc_free (compile_prog decs)
 Proof
@@ -2570,15 +2570,15 @@ QED
 Theorem FST_inc_compile_set_globals:
   ∀decs. no_Mat_decs decs ==>
   closProps$elist_globals (FST (inc_compile_decs decs)) =
-  BAG_IMAGE SUC
-    (flatProps$elist_globals (MAP flatProps$dest_Dlet (FILTER flatProps$is_Dlet decs)))
+  BAG_IMAGE SUC (flatProps$elist_globals decs)
 Proof
-  simp [inc_compile_decs_def, closPropsTheory.elist_globals_append,elist_globals_insert_interp]
+  simp [inc_compile_decs_def, closPropsTheory.elist_globals_append,
+        elist_globals_insert_interp]
   \\ simp [compile_decs_set_globals]
 QED
 
 Theorem FST_inc_compile_esgc_free:
-  EVERY (flatProps$esgc_free o flatProps$dest_Dlet) (FILTER flatProps$is_Dlet decs) /\
+  EVERY (flatProps$esgc_free) decs /\
   no_Mat_decs decs ==>
   EVERY closProps$esgc_free (FST (inc_compile_decs decs))
 Proof

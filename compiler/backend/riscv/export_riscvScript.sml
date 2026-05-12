@@ -22,44 +22,44 @@ Note: this set up does NOT account for restoring clobbered registers
 Definition startup_def:
   startup ret pk =
     SmartAppend (List
-      [strlit"\n";
-       strlit"#### Start up code\n";
-       strlit"\n";
-       strlit"     .text\n";
-       strlit"     .p2align 3\n";
-       strlit"     .globl  cdecl(cml_main)\n";
-       strlit"     .globl  cdecl(cml_heap)\n";
-       strlit"     .globl  cdecl(cml_stack)\n";
-       strlit"     .globl  cdecl(cml_stackend)\n";
-       strlit"     .type   cml_main, function\n";
-       strlit"cdecl(cml_main):\n";
-       strlit"     la      a0,cake_main           # arg1: entry address\n";
-       strlit"     ld      a1,cdecl(cml_heap)     # arg2: first address of heap\n"])
+      [«\n»;
+       «#### Start up code\n»;
+       «\n»;
+       «     .text\n»;
+       «     .p2align 3\n»;
+       «     .globl  cdecl(cml_main)\n»;
+       «     .globl  cdecl(cml_heap)\n»;
+       «     .globl  cdecl(cml_stack)\n»;
+       «     .globl  cdecl(cml_stackend)\n»;
+       «     .type   cml_main, function\n»;
+       «cdecl(cml_main):\n»;
+       «     la      a0,cake_main           # arg1: entry address\n»;
+       «     ld      a1,cdecl(cml_heap)     # arg2: first address of heap\n»])
     (SmartAppend (List
       (if ~pk then
-        [strlit"     la      t3,cake_bitmaps\n";
-        strlit"     sd      t3, 0(a1)              # store bitmap pointer\n"]
+        [«     la      t3,cake_bitmaps\n»;
+        «     sd      t3, 0(a1)              # store bitmap pointer\n»]
       else []))
     (SmartAppend (List
-      [strlit"     ld      a2,cdecl(cml_stack)    # arg3: first address of stack\n";
-       strlit"     ld      a3,cdecl(cml_stackend) # arg4: first address past the stack\n"])
+      [«     ld      a2,cdecl(cml_stack)    # arg3: first address of stack\n»;
+       «     ld      a3,cdecl(cml_stackend) # arg4: first address past the stack\n»])
     (SmartAppend (List
       (if ret then
-        [strlit"     j       cml_enter\n"]
+        [«     j       cml_enter\n»]
       else
-        [strlit"     j       cake_main\n"]))
+        [«     j       cake_main\n»]))
     (List
-      [strlit"\n"]))))
+      [«\n»]))))
 End
 
 Definition ffi_asm_def:
   (ffi_asm [] = Nil) /\
   (ffi_asm (ffi::ffis) =
       SmartAppend (List [
-       strlit"cake_ffi"; ffi; strlit":\n";
-       strlit"     tail cdecl(ffi"; ffi; strlit")\n";
-       strlit"     .p2align 4\n";
-       strlit"\n"]) (ffi_asm ffis))
+       «cake_ffi»; ffi; «:\n»;
+       «     tail cdecl(ffi»; ffi; «)\n»;
+       «     .p2align 4\n»;
+       «\n»]) (ffi_asm ffis))
 End
 
 val ffi_code' =
@@ -183,13 +183,13 @@ val entry_point_code =
 Definition export_func_def:
   export_func appl (name,label,start,len) =
     SmartAppend appl (List
-    [strlit"\n     .globl  cdecl("; name; strlit")\n";
-     strlit"     .type   "; name; strlit", function\n";
-     strlit"cdecl("; name; strlit"):\n";
-     strlit"     la      t0, "; name; strlit"_jmp\n";
-     strlit"     j       cake_enter\n";
-            name; strlit"_jmp:\n";
-     strlit"     j       "; label; strlit"\n"
+    [«\n     .globl  cdecl(»; name; «)\n»;
+     «     .type   »; name; «, function\n»;
+     «cdecl(»; name; «):\n»;
+     «     la      t0, »; name; «_jmp\n»;
+     «     j       cake_enter\n»;
+            name; «_jmp:\n»;
+     «     j       »; label; «\n»
     ])
 End
 
@@ -204,10 +204,10 @@ Definition riscv_export_def:
     SmartAppend
       (SmartAppend (List preamble)
       (SmartAppend (List (data_section ".quad" ret))
-      (SmartAppend (split16 (words_line (strlit"\t.quad ") word_to_string) data)
+      (SmartAppend (split16 (words_line «\t.quad » word_to_string) data)
       (SmartAppend (List data_buffer)
       (SmartAppend (startup ret pk) (^ffi_code ret))))))
-      (SmartAppend (split16 (words_line (strlit"\t.byte ") byte_to_string) bytes)
+      (SmartAppend (split16 (words_line «\t.byte » byte_to_string) bytes)
       (SmartAppend (List code_buffer)
       (SmartAppend (emit_symbols lsyms)
       (if ret then

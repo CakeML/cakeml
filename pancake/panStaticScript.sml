@@ -288,13 +288,13 @@ End
 Definition last_to_str_def:
   last_to_str l =
     case l of
-    | RetLast      => strlit "return"
-    | RaiseLast    => strlit "raise"
-    | TailLast     => strlit "tail call"
-    | BreakLast    => strlit "break"
-    | ContLast     => strlit "continue"
-    | CondExitLast => strlit "exiting conditional"
-    | _            => strlit ""
+    | RetLast      => «return»
+    | RaiseLast    => «raise»
+    | TailLast     => «tail call»
+    | BreakLast    => «break»
+    | ContLast     => «continue»
+    | CondExitLast => «exiting conditional»
+    | _            => «»
 End
 
 (*
@@ -353,11 +353,11 @@ Definition get_scope_desc_def:
   get_scope_desc scope =
     case scope of
     | FunScope fname =>
-        concat [strlit "function "; fname]
+        concat [«function »; fname]
     | DeclScope vname =>
-        concat [strlit "initialisation of global variable "; vname]
+        concat [«initialisation of global variable »; vname]
     | TopLevel =>
-        strlit "top-level declaration"
+        «top-level declaration»
 End
 
 (*
@@ -366,10 +366,10 @@ End
 *)
 Definition get_scope_msg_def:
   get_scope_msg is_var loc id scope =
-    let id_type = if is_var then strlit "variable " else strlit "function " in
+    let id_type = if is_var then «variable » else «function » in
     concat [loc; id_type; id;
-      strlit " is not in scope in ";
-      get_scope_desc scope; strlit "\n"]
+      « is not in scope in »;
+      get_scope_desc scope; «\n»]
 End
 
 (*
@@ -378,9 +378,9 @@ End
 *)
 Definition get_redec_msg_def:
   get_redec_msg is_var loc id scope =
-    let id_type = if is_var then strlit "variable " else strlit "function " in
+    let id_type = if is_var then «variable » else «function » in
     concat [loc; id_type; id;
-      strlit " is redeclared in "; get_scope_desc scope; strlit "\n"]
+      « is redeclared in »; get_scope_desc scope; «\n»]
 End
 
 (*
@@ -391,16 +391,16 @@ End
 *)
 Definition get_memop_msg_def:
   get_memop_msg is_local is_load is_untrust loc scope =
-    let mem_type = if is_local then strlit "local " else strlit "shared " in
-    let op_type  = if is_load  then strlit "load "  else strlit "store "  in
+    let mem_type = if is_local then «local » else «shared » in
+    let op_type  = if is_load  then «load »  else «store »  in
     let issue = case (is_local, is_untrust) of
-      | (F, F) => strlit "is "
-      | (F, T) => strlit "may be "
-      | (T, F) => strlit "is not "
-      | (T, T) => strlit "may not be " in
+      | (F, F) => «is »
+      | (F, T) => «may be »
+      | (T, F) => «is not »
+      | (T, T) => «may not be » in
     concat [loc; mem_type; op_type;
-      strlit "address "; issue; strlit "calculated from base in ";
-      get_scope_desc scope; strlit "\n"]
+      «address »; issue; «calculated from base in »;
+      get_scope_desc scope; «\n»]
 End
 
 (*
@@ -409,12 +409,12 @@ End
 *)
 Definition get_oparg_msg_def:
   get_oparg_msg is_exact n_expected n_given loc op scope =
-    let issue = if is_exact then strlit " only accepts " else strlit " requires at least " in
+    let issue = if is_exact then « only accepts » else « requires at least » in
     concat
-      [loc; strlit "operation "; op;
-        issue; n_expected; strlit " operands, ";
-        n_given; strlit " provided in ";
-        get_scope_desc scope; strlit "\n"]
+      [loc; «operation »; op;
+        issue; n_expected; « operands, »;
+        n_given; « provided in »;
+        get_scope_desc scope; «\n»]
 End
 
 (* Get message for unreachable statement *)
@@ -422,8 +422,8 @@ Definition get_unreach_msg_def:
   get_unreach_msg loc last scope =
     concat
       [loc;
-        strlit "unreachable statement(s) after "; last;
-        strlit " in " ; get_scope_desc scope; strlit "\n"]
+        «unreachable statement(s) after »; last;
+        « in » ; get_scope_desc scope; «\n»]
 End
 
 (*
@@ -432,27 +432,27 @@ End
 *)
 Definition get_rogue_msg_def:
   get_rogue_msg is_break loc scope =
-    let stmt = if is_break then strlit "break " else strlit "continue " in
+    let stmt = if is_break then «break » else «continue » in
     concat
       [loc; stmt;
-        strlit "statement outside loop in ";
-        get_scope_desc scope; strlit "\n"]
+        «statement outside loop in »;
+        get_scope_desc scope; «\n»]
 End
 
 (* Get message for non-word shape *)
 Definition get_non_word_msg_def:
   get_non_word_msg exp loc scope =
     concat
-      [loc; exp; strlit " is not a word in ";
-        get_scope_desc scope; strlit "\n"]
+      [loc; exp; « is not a word in »;
+        get_scope_desc scope; «\n»]
 End
 
 (* Get message for declared shape mismatch *)
 Definition get_shape_mismatch_msg_def:
   get_shape_mismatch_msg exp loc scope =
     concat
-      [loc; exp; strlit " does not match declared shape in ";
-        get_scope_desc scope; strlit "\n"]
+      [loc; exp; « does not match declared shape in »;
+        get_scope_desc scope; «\n»]
 End
 
 
@@ -473,18 +473,18 @@ End
 Definition binop_to_str_def:
   binop_to_str op =
     case op of
-    | Add => strlit "Add"
-    | Sub => strlit "Sub"
-    | And => strlit "And"
-    | Or  => strlit "Or"
-    | Xor => strlit "Xor"
+    | Add => «Add»
+    | Sub => «Sub»
+    | And => «And»
+    | Or  => «Or»
+    | Xor => «Xor»
 End
 
 (* Get string name for Pancake ops *)
 Definition panop_to_str_def:
   panop_to_str op =
     case op of
-    | Mul => strlit "Mul"
+    | Mul => «Mul»
 End
 
 
@@ -528,8 +528,8 @@ Definition check_export_params_def:
   check_export_params fname ((vname,shape)::ps) =
     if ~(shape = One)
       then error (ShapeErr $ concat
-        [strlit "exported function "; fname;
-        strlit " has non-word argument " ; vname; strlit "\n"])
+        [«exported function »; fname;
+        « has non-word argument » ; vname; «\n»])
     else
       check_export_params fname ps
 End
@@ -540,9 +540,9 @@ Definition check_operands_def:
   check_operands ctxt op_str (sb::sbs) =
     case sb of
     | StructB sbs => error (ShapeErr $ concat
-                     [ctxt.loc; strlit "operation "; op_str;
-                      strlit " given a non-word operand in ";
-                      get_scope_desc ctxt.scope; strlit "\n"])
+                     [ctxt.loc; «operation »; op_str;
+                      « given a non-word operand in »;
+                      get_scope_desc ctxt.scope; «\n»])
     | WordB b     => do
         b' <- check_operands ctxt op_str sbs;
         return $ based_merge b b'
@@ -556,19 +556,19 @@ Definition check_func_args_def:
     | ((p,s)::ps, sb::sbs) =>
       if ~(sh_bd_has_shape s sb)
         then error (ShapeErr $ get_shape_mismatch_msg (concat [
-            strlit "value for argument "; p;
-            strlit " given to function "; fname
+            «value for argument »; p;
+            « given to function »; fname
           ]) ctxt.loc ctxt.scope)
       else check_func_args ctxt fname ps sbs
     | ((p,s)::ps, []) => error (GenErr $ concat
-          [ctxt.loc; strlit "argument "; p;
-           strlit " for call to function "; fname;
-           strlit " is missing in ";
-           get_scope_desc ctxt.scope; strlit "\n"])
+          [ctxt.loc; «argument »; p;
+           « for call to function »; fname;
+           « is missing in »;
+           get_scope_desc ctxt.scope; «\n»])
     | ([], sb::sbs) => error (GenErr $ concat
-          [ctxt.loc; strlit "extra arguments given to function "; fname;
-           strlit " in ";
-           get_scope_desc ctxt.scope; strlit "\n"])
+          [ctxt.loc; «extra arguments given to function »; fname;
+           « in »;
+           get_scope_desc ctxt.scope; «\n»])
     | ([], []) => return ()
 End
 
@@ -612,8 +612,8 @@ Definition static_check_exp_def:
       eret <- static_check_exp ctxt e;
       case index_sh_bd index eret.sh_bd of
       | NONE => error (ShapeErr $ concat
-        [ctxt.loc; strlit "expression has no field at index "; num_to_str index;
-          strlit " in "; get_scope_desc ctxt.scope; strlit "\n"])
+        [ctxt.loc; «expression has no field at index »; num_to_str index;
+          « in »; get_scope_desc ctxt.scope; «\n»])
       (* return exp info with found shape *)
       | SOME sb => return <| sh_bd := sb |>
     od ∧
@@ -623,7 +623,7 @@ Definition static_check_exp_def:
       aret <- static_check_exp ctxt addr;
       (* check address shape and references base *)
       case aret.sh_bd of
-      | StructB _        => error (ShapeErr $ get_non_word_msg (strlit "load address") ctxt.loc ctxt.scope)
+      | StructB _        => error (ShapeErr $ get_non_word_msg «load address» ctxt.loc ctxt.scope)
       | WordB NotBased   => log (WarningErr $ get_memop_msg T T F ctxt.loc ctxt.scope)
       | WordB NotTrusted => log (WarningErr $ get_memop_msg T T T ctxt.loc ctxt.scope)
       | _               => return ();
@@ -636,7 +636,7 @@ Definition static_check_exp_def:
       aret <- static_check_exp ctxt addr;
       (* check address shape and references base *)
       case aret.sh_bd of
-      | StructB _        => error (ShapeErr $ get_non_word_msg (strlit "load address") ctxt.loc ctxt.scope)
+      | StructB _        => error (ShapeErr $ get_non_word_msg «load address» ctxt.loc ctxt.scope)
       | WordB NotBased   => log (WarningErr $ get_memop_msg T T F ctxt.loc ctxt.scope)
       | WordB NotTrusted => log (WarningErr $ get_memop_msg T T T ctxt.loc ctxt.scope)
       | _               => return ();
@@ -649,7 +649,7 @@ Definition static_check_exp_def:
       aret <- static_check_exp ctxt addr;
       (* check address shape and references base *)
       case aret.sh_bd of
-      | StructB _        => error (ShapeErr $ get_non_word_msg (strlit "load address") ctxt.loc ctxt.scope)
+      | StructB _        => error (ShapeErr $ get_non_word_msg «load address» ctxt.loc ctxt.scope)
       | WordB NotBased   => log (WarningErr $ get_memop_msg T T F ctxt.loc ctxt.scope)
       | WordB NotTrusted => log (WarningErr $ get_memop_msg T T T ctxt.loc ctxt.scope)
       | _               => return ();
@@ -663,11 +663,11 @@ Definition static_check_exp_def:
       nargs <<- LENGTH es;
       case bop of
       | Sub  => if ~(nargs = 2)
-                  then error (GenErr $ get_oparg_msg T (strlit "2")
+                  then error (GenErr $ get_oparg_msg T «2»
                     (num_to_str nargs) ctxt.loc op_str ctxt.scope)
                 else return ()
       | _    => if nargs < 2
-                  then error (GenErr $ get_oparg_msg F (strlit "2")
+                  then error (GenErr $ get_oparg_msg F «2»
                     (num_to_str nargs) ctxt.loc op_str ctxt.scope)
                 else return ();
       (* check op args *)
@@ -683,7 +683,7 @@ Definition static_check_exp_def:
       nargs <<- LENGTH es;
       case pop of
       | Mul  => if ~(nargs = 2)
-                  then error (GenErr $ get_oparg_msg T (strlit "2")
+                  then error (GenErr $ get_oparg_msg T «2»
                     (num_to_str nargs) ctxt.loc op_str ctxt.scope)
                 else return ();
       (* check op args *)
@@ -700,8 +700,8 @@ Definition static_check_exp_def:
       (* check for shape match *)
       if ~(sh_bd_eq_shapes eret1.sh_bd eret2.sh_bd)
         then error (ShapeErr $ concat
-          [ctxt.loc; strlit "comparison given operands of different shapes in ";
-           get_scope_desc ctxt.scope; strlit "\n"])
+          [ctxt.loc; «comparison given operands of different shapes in »;
+           get_scope_desc ctxt.scope; «\n»])
       else return ();
       (* return exp info *)
       return <| sh_bd := WordB NotBased |>
@@ -712,7 +712,7 @@ Definition static_check_exp_def:
       eret <- static_check_exp ctxt e;
       (* check exp shape *)
       if ~(sh_bd_has_shape One eret.sh_bd)
-        then error (ShapeErr $ get_non_word_msg (strlit "shifted expression") ctxt.loc ctxt.scope)
+        then error (ShapeErr $ get_non_word_msg «shifted expression» ctxt.loc ctxt.scope)
       else return ();
       (* return exp info *)
       return (eret)
@@ -761,7 +761,7 @@ Definition static_check_prog_def:
       (* check for shape match *)
       if ~(sh_bd_has_shape s eret.sh_bd)
         then error (ShapeErr $ get_shape_mismatch_msg (concat [
-            strlit "expression to initialise local variable "; v
+            «expression to initialise local variable »; v
           ]) ctxt.loc ctxt.scope)
       else return ();
       (* check prog with declared var *)
@@ -785,7 +785,7 @@ Definition static_check_prog_def:
       (* check for shape match *)
       if ~(s = finf.ret_shape)
         then error (ShapeErr $ get_shape_mismatch_msg (concat [
-            strlit "call result to initialise local variable "; v
+            «call result to initialise local variable »; v
           ]) ctxt.loc ctxt.scope)
       else return ();
       (* check arg num and shapes *)
@@ -810,7 +810,7 @@ Definition static_check_prog_def:
       (* check for shape match *)
       if ~(sh_bd_eq_shapes vinf.vsh_bd eret.sh_bd)
         then error (ShapeErr $ get_shape_mismatch_msg (concat [
-            strlit "expression assigned to local variable "; v
+            «expression assigned to local variable »; v
           ]) ctxt.loc ctxt.scope)
       else return ();
       (* return prog info with updated var *)
@@ -829,7 +829,7 @@ Definition static_check_prog_def:
       (* check for shape match *)
       if ~(sh_bd_has_shape vinf.vshape eret.sh_bd)
         then error (ShapeErr $ get_shape_mismatch_msg (concat [
-            strlit "expression assigned to global variable "; v
+            «expression assigned to global variable »; v
           ]) ctxt.loc ctxt.scope)
       else return ();
       (* return prog info with updated var *)
@@ -849,9 +849,9 @@ Definition static_check_prog_def:
       (* check for shape match *)
       if ~(sh_bd_has_shape finf.ret_shape vinf.vsh_bd)
         then error (ShapeErr $ concat
-          [ctxt.loc; strlit "call result assigned to local variable "; rt;
-           strlit " does not match declared shape in ";
-           get_scope_desc ctxt.scope; strlit "\n"])
+          [ctxt.loc; «call result assigned to local variable »; rt;
+           « does not match declared shape in »;
+           get_scope_desc ctxt.scope; «\n»])
       else return ();
       (* check arg num and shapes *)
       check_func_args ctxt trgt finf.params esret.sh_bds;
@@ -882,9 +882,9 @@ Definition static_check_prog_def:
       (* check for shape match *)
       if ~(vinf.vshape = finf.ret_shape)
         then error (ShapeErr $ concat
-          [ctxt.loc; strlit "call result assigned to global variable "; rt;
-           strlit " does not match declared shape in ";
-           get_scope_desc ctxt.scope; strlit "\n"])
+          [ctxt.loc; «call result assigned to global variable »; rt;
+           « does not match declared shape in »;
+           get_scope_desc ctxt.scope; «\n»])
       else return ();
       (* check arg num and shapes *)
       check_func_args ctxt trgt finf.params esret.sh_bds;
@@ -913,10 +913,10 @@ Definition static_check_prog_def:
       finf <- case ctxt.scope of
               | FunScope fname => scope_check_fun_name ctxt fname
               (* should never occur if static checker implemented correctly *)
-              | _ => error (GenErr $ strlit "return found outside function scope");
+              | _ => error (GenErr $ «return found outside function scope»);
       (* check for shape match *)
       if ~(sh_bd_has_shape finf.ret_shape eret.sh_bd)
-        then error (ShapeErr $ get_shape_mismatch_msg (strlit "expression to return") ctxt.loc ctxt.scope)
+        then error (ShapeErr $ get_shape_mismatch_msg «expression to return» ctxt.loc ctxt.scope)
       else return ();
       (* return prog info *)
       return <| exits_fun  := T
@@ -931,13 +931,13 @@ Definition static_check_prog_def:
       finf <- case ctxt.scope of
               | FunScope fname => scope_check_fun_name ctxt fname
               (* should never occur if static checker implemented correctly *)
-              | _ => error (GenErr $ strlit "tail call found outside function scope");
+              | _ => error (GenErr $ «tail call found outside function scope»);
       (* check func ptr exp and arg exps *)
       finf' <- scope_check_fun_name ctxt trgt;
       esret <- static_check_exps ctxt args;
       (* check for shape match *)
       if ~(finf.ret_shape = finf'.ret_shape)
-        then error (ShapeErr $ get_shape_mismatch_msg (strlit "call result to return") ctxt.loc ctxt.scope)
+        then error (ShapeErr $ get_shape_mismatch_msg «call result to return» ctxt.loc ctxt.scope)
       else return ();
       (* check arg num and shapes *)
       check_func_args ctxt trgt finf'.params esret.sh_bds;
@@ -979,7 +979,7 @@ Definition static_check_prog_def:
       (* check arg shapes *)
       if ~(EVERY (sh_bd_has_shape One) esret.sh_bds)
         then error (ShapeErr $ get_non_word_msg (concat [
-            strlit "value for argument given to FFI "; fname
+            «value for argument given to FFI »; fname
           ]) ctxt.loc ctxt.scope)
       else return ();
       (* return prog info *)
@@ -1028,7 +1028,7 @@ Definition static_check_prog_def:
       eret <- static_check_exp ctxt e;
       (* check condition shape *)
       if ~(sh_bd_has_shape One eret.sh_bd)
-        then error (ShapeErr $ get_non_word_msg (strlit "if condition") ctxt.loc ctxt.scope)
+        then error (ShapeErr $ get_non_word_msg «if condition» ctxt.loc ctxt.scope)
       else return ();
       (* check branches *)
       pret1 <- static_check_prog ctxt p1;
@@ -1049,7 +1049,7 @@ Definition static_check_prog_def:
       eret <- static_check_exp ctxt e;
       (* check condition shape *)
       if ~(sh_bd_has_shape One eret.sh_bd)
-        then error (ShapeErr $ get_non_word_msg (strlit "while condition") ctxt.loc ctxt.scope)
+        then error (ShapeErr $ get_non_word_msg «while condition» ctxt.loc ctxt.scope)
       else return ();
       (* check loop body *)
       pret <- static_check_prog (ctxt with in_loop := T) p;
@@ -1106,7 +1106,7 @@ Definition static_check_prog_def:
       eret <- static_check_exp ctxt exp;
       (* check address shape and references base *)
       case aret.sh_bd of
-      | StructB _        => error (ShapeErr $ get_non_word_msg (strlit "store address") ctxt.loc ctxt.scope)
+      | StructB _        => error (ShapeErr $ get_non_word_msg «store address» ctxt.loc ctxt.scope)
       | WordB NotBased   => log (WarningErr $ get_memop_msg T F F ctxt.loc ctxt.scope)
       | WordB NotTrusted => log (WarningErr $ get_memop_msg T F T ctxt.loc ctxt.scope)
       | _               => return ();
@@ -1124,13 +1124,13 @@ Definition static_check_prog_def:
       eret <- static_check_exp ctxt exp;
       (* check address shape and references base *)
       case aret.sh_bd of
-      | StructB _        => error (ShapeErr $ get_non_word_msg (strlit "store address") ctxt.loc ctxt.scope)
+      | StructB _        => error (ShapeErr $ get_non_word_msg «store address» ctxt.loc ctxt.scope)
       | WordB NotBased   => log (WarningErr $ get_memop_msg T F F ctxt.loc ctxt.scope)
       | WordB NotTrusted => log (WarningErr $ get_memop_msg T F T ctxt.loc ctxt.scope)
       | _               => return ();
       (* check value shape *)
       if ~(sh_bd_has_shape One eret.sh_bd)
-        then error (ShapeErr $ get_non_word_msg (strlit "store value") ctxt.loc ctxt.scope)
+        then error (ShapeErr $ get_non_word_msg «store value» ctxt.loc ctxt.scope)
       else return ();
       (* return prog info *)
       return <| exits_fun  := F
@@ -1146,13 +1146,13 @@ Definition static_check_prog_def:
       eret <- static_check_exp ctxt exp;
       (* check address shape and references base *)
       case aret.sh_bd of
-      | StructB _        => error (ShapeErr $ get_non_word_msg (strlit "store address") ctxt.loc ctxt.scope)
+      | StructB _        => error (ShapeErr $ get_non_word_msg «store address» ctxt.loc ctxt.scope)
       | WordB NotBased   => log (WarningErr $ get_memop_msg T F F ctxt.loc ctxt.scope)
       | WordB NotTrusted => log (WarningErr $ get_memop_msg T F T ctxt.loc ctxt.scope)
       | _               => return ();
       (* check value shape *)
       if ~(sh_bd_has_shape One eret.sh_bd)
-        then error (ShapeErr $ get_non_word_msg (strlit "store value") ctxt.loc ctxt.scope)
+        then error (ShapeErr $ get_non_word_msg «store value» ctxt.loc ctxt.scope)
       else return ();
       (* return prog info *)
       return <| exits_fun  := F
@@ -1169,13 +1169,13 @@ Definition static_check_prog_def:
       aret <- static_check_exp ctxt e;
       (* check address shape and references base *)
       case aret.sh_bd of
-      | StructB _        => error (ShapeErr $ get_non_word_msg (strlit "load address") ctxt.loc ctxt.scope)
+      | StructB _        => error (ShapeErr $ get_non_word_msg «load address» ctxt.loc ctxt.scope)
       | WordB Based      => log (WarningErr $ get_memop_msg F T F ctxt.loc ctxt.scope)
       | WordB NotTrusted => log (WarningErr $ get_memop_msg F T T ctxt.loc ctxt.scope)
       | _               => return ();
       (* check value shape *)
       if ~(sh_bd_has_shape One vinf.vsh_bd)
-        then error (ShapeErr $ get_non_word_msg (strlit "load variable") ctxt.loc ctxt.scope)
+        then error (ShapeErr $ get_non_word_msg «load variable» ctxt.loc ctxt.scope)
       else return ();
       (* return prog info with updated var *)
       return <| exits_fun  := F
@@ -1192,13 +1192,13 @@ Definition static_check_prog_def:
       aret <- static_check_exp ctxt e;
       (* check address shape and references base *)
       case aret.sh_bd of
-      | StructB _        => error (ShapeErr $ get_non_word_msg (strlit "load address") ctxt.loc ctxt.scope)
+      | StructB _        => error (ShapeErr $ get_non_word_msg «load address» ctxt.loc ctxt.scope)
       | WordB Based      => log (WarningErr $ get_memop_msg F T F ctxt.loc ctxt.scope)
       | WordB NotTrusted => log (WarningErr $ get_memop_msg F T T ctxt.loc ctxt.scope)
       | _               => return ();
       (* check value shape *)
       if ~(One = vinf.vshape)
-        then error (ShapeErr $ get_non_word_msg (strlit "load variable") ctxt.loc ctxt.scope)
+        then error (ShapeErr $ get_non_word_msg «load variable» ctxt.loc ctxt.scope)
       else return ();
       (* return prog info with updated var *)
       return <| exits_fun  := F
@@ -1214,13 +1214,13 @@ Definition static_check_prog_def:
       eret <- static_check_exp ctxt e;
       (* check address shape and references base *)
       case aret.sh_bd of
-      | StructB _        => error (ShapeErr $ get_non_word_msg (strlit "store address") ctxt.loc ctxt.scope)
+      | StructB _        => error (ShapeErr $ get_non_word_msg «store address» ctxt.loc ctxt.scope)
       | WordB Based      => log (WarningErr $ get_memop_msg F F F ctxt.loc ctxt.scope)
       | WordB NotTrusted => log (WarningErr $ get_memop_msg F F T ctxt.loc ctxt.scope)
       | _               => return ();
       (* check value shape *)
       if ~(sh_bd_has_shape One eret.sh_bd)
-        then error (ShapeErr $ get_non_word_msg (strlit "store value") ctxt.loc ctxt.scope)
+        then error (ShapeErr $ get_non_word_msg «store value» ctxt.loc ctxt.scope)
       else return ();
       (* return prog info *)
       return <| exits_fun  := F
@@ -1239,7 +1239,7 @@ Definition static_check_prog_def:
   static_check_prog ctxt (Annot t str) =
     (* update current location *)
     let loc = if (t = «location»)
-                then concat [strlit "AT "; str; strlit ": "]
+                then concat [«AT »; str; «: »]
               else ctxt.loc in
     (* return prog info with no checks *)
     return <| exits_fun  := F
@@ -1270,14 +1270,14 @@ Definition static_check_progs_def:
                 ; in_loop := F
                 ; is_reachable := IsReach
                 ; last := InvisLast
-                ; loc := strlit "" |>;
+                ; loc := «» |>;
       (* check function body *)
       prog_ret <- static_check_prog ctxt fi.body;
       (* check missing function exit *)
       if ~(prog_ret.exits_fun)
         then error (GenErr $ concat
-          [strlit "branches missing return statement in ";
-           get_scope_desc (FunScope fi.name); strlit "\n"])
+          [«branches missing return statement in »;
+           get_scope_desc (FunScope fi.name); «\n»])
       else return ();
       (* check remaining functions *)
       static_check_progs fctxt gctxt decls
@@ -1302,7 +1302,7 @@ Definition static_check_decls_def:
                 ; in_loop := F
                 ; is_reachable := IsReach
                 ; last := InvisLast
-                ; loc := strlit "" |>;
+                ; loc := «» |>;
       (* check for redeclaration *)
       check_redec_var (ctxt with scope := TopLevel) vname;
       (* check initialisation expression *)
@@ -1310,8 +1310,8 @@ Definition static_check_decls_def:
       (* check for shape match *)
       if ~(sh_bd_has_shape shape eret.sh_bd)
         then error (ShapeErr $ concat
-          [strlit "expression to initialise global variable "; vname;
-           strlit " does not match declared shape\n"])
+          [«expression to initialise global variable »; vname;
+           « does not match declared shape\n»])
       else return ();
       (* check remaining decls *)
       static_check_decls fctxt (insert gctxt vname <| vshape := shape |>) decls
@@ -1322,22 +1322,22 @@ Definition static_check_decls_def:
       if member fi.name fctxt
         then error (GenErr $ concat
         (* TODO: swap this to `get_redec_msg F <loc> f TopLevel` once function locations exist *)
-          [strlit "function "; fi.name; strlit " is redeclared\n"])
+          [«function »; fi.name; « is redeclared\n»])
       else return ();
       (* check main func *)
       if fi.name = «main»
         then do
           (* check main func args *)
           if LENGTH fi.params > 0
-            then error (GenErr $ strlit "main function has arguments\n")
+            then error (GenErr $ «main function has arguments\n»)
           else return ();
           (* check main func export status *)
           if fi.export
-            then error (GenErr $ strlit "main function is exported\n")
+            then error (GenErr $ «main function is exported\n»)
           else return ();
           (* check main func return shape *)
           if ~(fi.return = One)
-            then error (ShapeErr $ strlit "main function does not return a word\n")
+            then error (ShapeErr $ «main function does not return a word\n»)
           else return ();
         od
       else
@@ -1345,8 +1345,8 @@ Definition static_check_decls_def:
           (* check arg name uniqueness *)
           case first_repeat $ sort mlstring_lt (MAP FST fi.params) of
             SOME p => error (GenErr $ concat
-              [strlit "parameter "; p; strlit " is redeclared in function ";
-              fi.name; strlit "\n"])
+              [«parameter »; p; « is redeclared in function »;
+              fi.name; «\n»])
           | NONE => return ();
           (* check exported func *)
           if fi.export
@@ -1354,24 +1354,24 @@ Definition static_check_decls_def:
               (* check exported func arg num *)
               if LENGTH fi.params > 4
                 then error (GenErr $ concat
-                  [strlit "exported function "; fi.name;
-                  strlit " has more than 4 arguments\n"])
+                  [«exported function »; fi.name;
+                  « has more than 4 arguments\n»])
               else return ();
               (* check exported func arg shape *)
               check_export_params fi.name fi.params;
               (* check exported func return shape *)
               if ~(fi.return = One)
                 then error (ShapeErr $ concat
-                  [strlit "exported function "; fi.name;
-                  strlit " does not return a word\n"])
+                  [«exported function »; fi.name;
+                  « does not return a word\n»])
               else return ();
             od
           else
             (* check func return shape size *)
             if size_of_shape fi.return > 32
               then error (ShapeErr $ concat
-                [strlit "function "; fi.name;
-                strlit " returns a shape bigger than 32 words\n"])
+                [«function »; fi.name;
+                « returns a shape bigger than 32 words\n»])
             else return () ;
         od ;
       (* check remaining decls *)

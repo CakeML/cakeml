@@ -3,16 +3,13 @@
 *)
 Theory bvl_to_bviProof
 Ancestors
-  ffi[qualified] bvlSem bviSem bviProps
+  ffi[qualified] bvlSem bviSem
   bvl_handleProof[qualified] backendProps bvlProps
   bvl_constProof[qualified] bvi_letProof[qualified]
   bvl_inlineProof[qualified] bvi_tailrecProof[qualified]
-  bvl_to_bvi
+  bvl_to_bvi bviProps
 Libs
   preamble helperLib[qualified]
-
-(* We want bvi's, not bvl's ML bindings. *)
-open bviPropsTheory
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj",
                        "fromAList_def", "domain_union", "domain_insert",
