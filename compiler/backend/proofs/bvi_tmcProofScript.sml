@@ -517,7 +517,7 @@ Theorem unchanged_hole_has_val:
     hole_has_val f env (env' ++ [RefPtr F hole_ptr; Number hole_idx]) refs c ∧
     only_fresh f f' refs ∧
     holes_unchanged_except f refs refs' changed ∧
-    env_rel T f env (env' ++ [RefPtr F hole_ptr; Number hole_idx]) ∧
+    (*env_rel T f env (env' ++ [RefPtr F hole_ptr; Number hole_idx]) ∧*)
     (∀b. RefPtr b hole_ptr ∉ changed) ⇒
     hole_has_val f' env (env' ++ [RefPtr F hole_ptr; Number hole_idx]) refs' c
 Proof
@@ -1563,7 +1563,7 @@ Resume evaluate_rewrite_tmc[op]:
   >> rename [‘bvi_to_cb loc tag args = SOME (bs,cb)’]
   >> rename [‘cb_to_hb cb = (hb,call_ts,call_args)’]
   (* Phase 1 theorem *)
-  >> ‘evaluate ([Op (BlockOp (Cons tag)) args],env,s) = (Rval [v],t)’ by gvs [evaluate_def]
+  >> ‘evaluate ([Op (BlockOp (Cons tag)) args],env2,s') = (Rval [v'],t')’ by gvs [evaluate_def]
   >> drule evaluate_bvi_to_cb
   >> rpt $ disch_then drule
   >> gvs [evaluate_def]
@@ -1573,8 +1573,10 @@ Resume evaluate_rewrite_tmc[op]:
   >> rename [‘cb = CallBlock tag left child right’]
   >> gvs [cb_to_hb_def, CaseEq "call_block", CaseEq "prod"]
   >> rename [‘cb_to_hb child = (hole,call_ts,call_args)’]
-  >> rename [‘evaluate (bs,env,s) = (as,w)’]
+  >> rename [‘evaluate (bs,env2,s') = (as',w')’]
   >> gvs [CaseEq "result"]
+  (* now applying in opt world - skip this *)
+                  (*
   (* Hypothesis on bs *)
   >> first_assum $ qspecl_then [‘bs’, ‘s’] mp_tac
   >> gvs []
@@ -1589,6 +1591,8 @@ Resume evaluate_rewrite_tmc[op]:
   >> rename [‘LIST_REL (v_rel f'') as as'’]
   >> rename [‘state_rel f'' w w'’]
   >> strip_tac >> gvs []
+                  *)
+  >> rw []
   >-
    (rw []
     >> drule evaluate_hb_to_bvi_wrapper
@@ -1606,10 +1610,18 @@ Resume evaluate_rewrite_tmc[op]:
     (* map weirdness *)
     >> cheat
    )
-  >> strip_tac
   >> gvs [rewrite_worker_cons_def, cb_to_hb_def, evaluate_def]
   >> drule evaluate_hb_to_bvi_worker
   >> gvs [cb_to_hb_def]
+
+  >> imp_res_tac env_rel_strip_extras >> gvs []
+  >> ‘hole_has_val f (vs'' ++ env2') (vs'' ++ env2' ++ [RefPtr F hole_ptr; Number hole_idx]) s'.refs c’ by (* lemma if this works out *)
+    (imp_res_tac env_rel_length_opt
+     >> gvs [hole_has_val_def, EL_APPEND_EQN, env_rel_length_opt])
+  >> drule (* HERE *)
+
+
+                
   >> qpat_x_assum ‘env_rel _ _ _ _’ kall_tac
   >> drule_all env_rel_submap >> strip_tac
   >> drule_all env_rel_append >> strip_tac
@@ -2393,20 +2405,15 @@ Proof
 QED
 
 Theorem evaluate_hb_to_bvi_worker:
-  ∀tag left child right hole call_ts call_args loc loc_opt f env1 env2 s s' r t c.
-    evaluate ([cb_to_bvi loc (CallBlock tag left child right)],env1,s) = (r,t) ∧
+  ∀tag left child right hole call_ts call_args loc loc_opt f env1 env2 extras s r t.
+    evaluate ([cb_to_bvi loc (CallBlock tag left child right)],env2,s) = (r,t) ∧
     cb_to_hb (CallBlock tag left child right) = (HoleBlock tag left hole right,call_ts,call_args) ∧
-    env_rel T f env1 env2 ∧
-    state_rel f s s' ∧
-    hole_has_val f env1 env2 s'.refs c ∧
+    hole_has_val f env1 env2 s.refs c ∧
     r ≠ Rerr (Rabort Rtype_error) ⇒
-    ∃r' t' f'.
-      evaluate ([hb_to_bvi_worker loc loc_opt (LENGTH env1) (LENGTH env1 + 1) tag left hole right call_ts call_args],env2,s') = (r',t') ∧
+    ∃r' t'.
+      evaluate ([hb_to_bvi_worker loc loc_opt (LENGTH env1) (LENGTH env1 + 1) tag left hole right call_ts call_args],env2,s) = (r',t') ∧
       opt_res_rel r r' ∧
-      f SUBMAP f' ∧
-      state_rel f' t t' ∧
-      only_fresh f f' s'.refs ∧
-      holes_unchanged_except f s'.refs t'.refs {env2❲LENGTH env1❳} ∧
+      holes_unchanged_except f s.refs t'.refs {env2❲LENGTH env1❳} ∧
       ∀v.
         r' = Rval [v] ⇒
         hole_has_val f env1 env2 t'.refs v
