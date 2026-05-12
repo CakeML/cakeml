@@ -471,11 +471,13 @@ Definition get_memop_msg_def:
     let op_type  = if is_load  then «load »  else «store »  in
     let issue =
       case (is_local, is_untrust) of
+      | (F, F) => «is »
       | (F, T) => «may be »
       | (T, F) => «is not »
       | (T, T) => «may not be » in
     concat [
       loc; mem_type; op_type;
+      «address »; issue; «calculated from base in »;
       get_scope_desc scope; «\n»]
 End
 
