@@ -326,7 +326,7 @@ End
    We formalize this notion in dep_circuit. *)
 
 Definition agree_on_def:
-  agree_on inputs latches (is', ls') (is, ls) ⇔
+  agree_on (inputs: 'i set) (latches: 'l set) (is', ls') (is, ls) ⇔
     (∀i. i ∈ inputs  ⇒ is' i = is i) ∧
     (∀l. l ∈ latches ⇒ ls' l = ls l)
 End
@@ -967,6 +967,73 @@ Theorem is_inf_trace_traces_agree:
      (∀n. traces_agree n UNIV mlatches tr' tr))
 Proof
   rw [is_inf_trace_eq]
+QED
+
+Definition restrict_ss_def:
+  restrict_ss (inputs : 'i set) (latches : 'l set)
+              ((is, ls) : 'i inputs # 'l state) =
+    ({i | i ∈ inputs ∧ is i}, {l | l ∈ latches ∧ ls l})
+End
+
+Theorem FST_restrict_ss_in_POW[simp]:
+  FST (restrict_ss inputs latches ss) ∈ POW inputs
+Proof
+  Cases_on ‘ss’ >> rw [restrict_ss_def, IN_POW, SUBSET_DEF]
+QED
+
+Theorem SND_restrict_ss_in_POW[simp]:
+  SND (restrict_ss inputs latches ss) ∈ POW latches
+Proof
+  Cases_on ‘ss’ >> rw [restrict_ss_def, IN_POW, SUBSET_DEF]
+QED
+
+Theorem agree_on_iff_restrict_ss_eq:
+  agree_on inputs latches ss ss' ⇔
+  restrict_ss inputs latches ss = restrict_ss inputs latches ss'
+Proof
+  map_every Cases_on [‘ss’, ‘ss'’]
+  >> rw [agree_on_def, restrict_ss_def, EXTENSION]
+  >> metis_tac []
+QED
+
+Theorem pigeonhole_recurrence:
+  FINITE A ∧ (∀n. f n ∈ A) ⇒
+  ∃k. ∀i. k < i ⇒ ∃j. i < j ∧ f j = f i
+Proof
+  strip_tac
+  >> qabbrev_tac ‘nonRec = {i | ∀j. i < j ⇒ f j ≠ f i}’
+  >> ‘INJ f nonRec A’ by (
+       rw [INJ_DEF, Abbr ‘nonRec’]
+       >> Cases_on ‘x = y’ >- simp []
+       >> ‘x < y ∨ y < x’ by simp []
+       >> metis_tac [])
+  >> ‘FINITE nonRec’ by metis_tac [FINITE_INJ]
+  >> qexists ‘MAX_SET nonRec’ >> rw []
+  >> ‘i ∉ nonRec’ by (
+       CCONTR_TAC >> fs []
+       >> ‘i ≤ MAX_SET nonRec’ by metis_tac [in_max_set]
+       >> gvs [])
+  >> fs [Abbr ‘nonRec’] >> metis_tac []
+QED
+
+Theorem matching_transition_exists:
+  FINITE inputs ∧ FINITE latches ⇒
+  ∃k. ∀i. k < i ⇒
+    ∃j. matching_transition inputs latches (tr: ('i, 'l) trace) i j
+Proof
+  rw []
+  >> qabbrev_tac ‘g = λi.
+       (restrict_ss inputs latches (tr i),
+        restrict_ss inputs latches (tr (i + 1)))’
+  >> ‘∀n. g n ∈ (POW inputs × POW latches) × (POW inputs × POW latches)’
+    by simp [Abbr ‘g’]
+  >> ‘FINITE ((POW inputs × POW latches) × (POW inputs × POW latches))’
+    by simp []
+  >> drule_all pigeonhole_recurrence >> rw []
+  >> qexists ‘k’ >> rw []
+  >> first_x_assum drule >> rw []
+  >> qexists ‘j’
+  >> fs [matching_transition_def, Abbr ‘g’, agree_on_iff_restrict_ss_eq]
 QED
 
 Theorem is_witness_is_live:
