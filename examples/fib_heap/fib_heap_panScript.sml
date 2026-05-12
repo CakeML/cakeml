@@ -37,9 +37,9 @@ Quote melt_pan = parse_pancake:
 End
 
 
-Definition merge_body_def:
-  merge_body =
-    ^(find_term (can $ match_term “panLang$Seq _ _”) merge_pan)
+Definition melt_body_def:
+  melt_body =
+    ^(find_term (can $ match_term “panLang$Seq _ _”) melt_pan)
 End
 
 
@@ -139,7 +139,6 @@ QED
   SEP_F_TAC
 *)
 
-(*
 
 Theorem melt_pan_thm:
   ∀a1 a2 dm m frame s.
@@ -149,11 +148,10 @@ Theorem melt_pan_thm:
     m = s.memory /\ dm = s.memaddrs
     ⇒
     ∃l.
-      evaluate (merge_body,s) = (NONE,
+      evaluate (melt_body,s) = (NONE,
         s with <| memory := m';
                   locals := l |>)
 Proof
   cheat
 QED
 
-*)
