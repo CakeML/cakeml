@@ -1820,8 +1820,14 @@ Proof
   >> rw []
   >> gvs [pure_exps_def, evaluate_def]
   >> Cases_on ‘op’ >> gvs [pure_op_def, do_app_def, do_app_aux_def]
+  >- (Cases_on ‘i’ >> gvs [pure_op_def] >> Cases_on ‘args’ >> gvs [pure_op_def, evaluate_def])
   >-
-   (Cases_on ‘b’ >> gvs [pure_op_def, do_app_def, do_app_aux_def, bvl_to_bvi_id, bvlSemTheory.do_app_def, bvi_to_bvl_def] >> cheat)
+   (Cases_on ‘b’ >> gvs [pure_op_def, evaluate_def, do_app_def, do_app_aux_def, bvl_to_bvi_id, bvlSemTheory.do_app_def, bvi_to_bvl_def]
+    >- (qexists ‘[Block n (REVERSE v)]’
+        >> gvs []
+        >> rw []
+        >> cheat)
+    >> cheat)
   >> cheat
 QED
 
@@ -1829,33 +1835,76 @@ Theorem evaluate_bvi_to_cb_aux_inl:
   ∀loc tag args bs vs.
     bvi_to_cb_aux loc tag args = SOME (bs,INL vs) ⇒
     bs = args ∧
-    pure_exps args ∧
     ∃v. ∀s env.
       evaluate (args,env,s) = (Rval v,s) ∧
       evaluate (MAP (λn. Var n) vs,v,s) = (Rval v,s)
 Proof
-  cheat
-  (*recInduct bvi_to_cb_aux_ind >> rw [bvi_to_cb_aux_def] >> gvs [evaluate_def, pure_exps_def]
+  recInduct bvi_to_cb_aux_ind >> rw [bvi_to_cb_aux_def] >> gvs [evaluate_def]
+  >- (gvs [CaseEq "prod"])
   >- (gvs [CaseEq "prod"])
   >- (gvs [CaseEq "option", CaseEq "prod", CaseEq "sum", evaluate_def])
-  >> reverse $ gvs [CaseEq "option", CaseEq "prod", CaseEq "sum"]
-  >- (Cases_on ‘cb’ >> gvs [shift_cb_def])
-  >- (gvs [CaseEq "call_block", CaseEq "list"])
-  >> first_x_assum drule
-  >> impl_tac >> gvs []
-  >- (spose_not_then assume_tac >> gvs [])
-  >> reverse $ gvs [CaseEq "result"]
   >-
-   (strip_tac
-    >> gvs [evaluate_APPEND])
-  >> strip_tac
+   (imp_res_tac evaluate_pure_exps
+    >> qexists ‘v’
+    >> rpt gen_tac
+    >> first_x_assum $ qspecl_then [‘env’, ‘s’] mp_tac
+    >> gvs [evaluate_def]
+    >> strip_tac
+    >> gvs [CaseEq "option", CaseEq "prod", CaseEq "sum", CaseEq "result", evaluate_def])
+  >- (gvs [CaseEq "option", CaseEq "prod", CaseEq "sum"])
+  >- (gvs [CaseEq "option", CaseEq "prod", CaseEq "sum"])
+  >- (gvs [pure_exps_def])
+  >- (gvs [pure_exps_def])
+  >-
+   (gvs [pure_exps_def]
+    >> imp_res_tac evaluate_pure_exps
+    >> qexists ‘v'’
+    >> rpt gen_tac
+    >> last_x_assum $ qspecl_then [‘env’, ‘s’] mp_tac
+    >> strip_tac
+    >> first_x_assum $ qspecl_then [‘v ++ env’, ‘s’] mp_tac
+    >> strip_tac
+    >> imp_res_tac evaluate_SING_IMP
+    >> imp_res_tac evaluate_IMP_LENGTH
+    >> gvs [evaluate_def])
+  >- (gvs [pure_exps_def])
+  >- (gvs [pure_exps_def])
+  >- (gvs [pure_exps_def])
+  >-
+   (gvs [CaseEq "option"]
+    >> gvs [CaseEq "prod"]
+    >> reverse $ gvs [CaseEq "sum"]
+    >- (Cases_on ‘cb’ >> gvs [shift_cb_def])
+    >> gvs [CaseEq "option"]
+    >> gvs [CaseEq "prod"]
+    >> gvs [CaseEq "sum"]
+    >> gvs [CaseEq "call_block"]
+    >> gvs [CaseEq "list"])
+  >> gvs [CaseEq "option"]
+  >> gvs [CaseEq "prod"]
+  >> reverse $ gvs [CaseEq "sum"]
+  >- (Cases_on ‘cb’ >> gvs [shift_cb_def])
+  >> gvs [CaseEq "option"]
+  >> gvs [CaseEq "prod"]
+  >> gvs [CaseEq "sum"]
+  >> gvs [CaseEq "call_block"]
+  >> gvs [CaseEq "list"]
+  >> qexists ‘HD v'::v’
   >> gvs [evaluate_APPEND]
-  >> reverse $ gvs [CaseEq "prod", CaseEq "result"]
-  >> first_x_assum drule
-  >> impl_tac >> gvs []
+  >> gen_tac
+  >> last_x_assum $ qspecl_then [‘s’, ‘HD v'::v’] mp_tac
+  >> strip_tac >> gvs []
+  >> imp_res_tac evaluate_SING_IMP >> gvs []
+  >> drule evaluate_expand_env
+  >> disch_then $ qspec_then ‘v’ mp_tac
   >> strip_tac
-  >> imp_res_tac evaluate_SING_IMP
-  >> gvs []*)
+  >> gvs [APPEND]
+  >> first_x_assum $ qspecl_then [‘s’, ‘v’] mp_tac
+  >> strip_tac
+  >> drule evaluate_shift_vars
+  >> gvs []
+  >> disch_then $ qspec_then ‘[w]’ assume_tac
+  >> gvs [APPEND]
 QED
 
 Theorem evaluate_bvi_to_cb_aux_inr:
@@ -1884,6 +1933,19 @@ Proof
     >> disch_then drule
     >> disch_then $ qspec_then ‘[]’ mp_tac
     >> gvs [])
+  >-
+   (gvs [evaluate_def, cb_to_bvi_def, CaseEq "option"]
+    >> Cases_on ‘op’ >> gvs [dest_Cons_def]
+    >> Cases_on ‘b’ >> gvs [dest_Cons_def]
+    >> gvs [CaseEq "prod", CaseEq "sum", PULL_EXISTS]
+    >> first_x_assum drule
+    >> gvs []
+    >> impl_tac >> gvs []
+    >- gvs [evaluate_def, do_app_def, do_app_aux_def, CaseEq "prod", CaseEq "result"]
+    >> strip_tac
+    >> first_assum $ irule_at Any
+    >> rw []
+    >> gvs [cb_to_bvi_def, evaluate_def])
   >-
    (gvs [evaluate_def, cb_to_bvi_def, CaseEq "option"]
     >> Cases_on ‘op’ >> gvs [dest_Cons_def]

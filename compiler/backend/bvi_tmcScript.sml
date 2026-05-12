@@ -8,21 +8,22 @@ Libs
   preamble
 
 Definition pure_op_def:
-  (pure_op (Label _) = F) ∧
-  (pure_op (FFI _) = F) ∧
-  (pure_op (IntOp _) = F) ∧
-  (pure_op (WordOp _) = F) ∧
-  (pure_op (BlockOp (Cons _)) = T) ∧
-  (pure_op (BlockOp LengthBlock) = T) ∧
-  (pure_op (BlockOp (TagEq _)) = T) ∧
-  (pure_op (BlockOp (LenEq _)) = T) ∧
-  (pure_op (BlockOp (TagLenEq _ _)) = T) ∧
-  (pure_op (BlockOp _) = F) ∧
-  (pure_op (GlobOp _) = F) ∧
-  (pure_op (MemOp ConfigGC) = T) ∧
-  (pure_op (MemOp _) = F) ∧
-  (pure_op Install = F) ∧
-  (pure_op (ThunkOp _) = F)
+  (pure_op (Label _) _ = F) ∧
+  (pure_op (FFI _) _ = F) ∧
+  (pure_op (IntOp (Const n)) [] = small_enough_int n) ∧
+  (pure_op (IntOp _) _ = F) ∧
+  (pure_op (WordOp _) _ = F) ∧
+  (pure_op (BlockOp (Cons _)) _ = T) ∧
+  (pure_op (BlockOp LengthBlock) _ = T) ∧
+  (pure_op (BlockOp (TagEq _)) _ = T) ∧
+  (pure_op (BlockOp (LenEq _)) _ = T) ∧
+  (pure_op (BlockOp (TagLenEq _ _)) _ = T) ∧
+  (pure_op (BlockOp _) _ = F) ∧
+  (pure_op (GlobOp _) _ = F) ∧
+  (pure_op (MemOp ConfigGC) _ = T) ∧
+  (pure_op (MemOp _) _ = F) ∧
+  (pure_op Install _ = F) ∧
+  (pure_op (ThunkOp _) _ = F)
 End
 
 Definition pure_exps_def:
@@ -34,7 +35,7 @@ Definition pure_exps_def:
   (pure_exps [Tick e] = F) ∧
   (pure_exps [Call _ _ _ _] = F) ∧
   (pure_exps [Force _ _] = F) ∧
-  (pure_exps [Op op args] = (pure_op op ∧ pure_exps args)) ∧
+  (pure_exps [Op op args] = (pure_op op args ∧ pure_exps args)) ∧
   (pure_exps (h::t) = (pure_exps [h] ∧ pure_exps t))
 End
 
@@ -103,8 +104,8 @@ Definition bvi_to_cb_aux_def:
      case bind 0 args of
      | (vs,_) => SOME (args,INR (CallBlock tag [] (RCall t vs) []))
    else
-     (* Not a recursive call - gets let-bound *)
-     SOME ([Call t loc' args h],INL [0])) ∧
+     (* Not a recursive call - effectful exps not allowed *)
+     NONE) ∧
   (bvi_to_cb_aux loc tag [Op op args] =
    case dest_Cons op of
    | SOME tag' =>
@@ -113,16 +114,22 @@ Definition bvi_to_cb_aux_def:
         | NONE => NONE
         | SOME (bs,INL vs) =>
             (* No recursive call - whole thing gets let-bound *)
-            SOME ([Op op args],INL [0])
+            if pure_exps [Op op args] then 
+              SOME ([Op op args],INL [0])
+            else NONE
         | SOME (bs,INR cb) =>
             (* Recursive call - inductive case of CallBlock *)
             SOME (bs, INR (CallBlock tag [] cb [])))
    | NONE =>
        (* Not a BlockOp Cons - whole thing gets let-bound *)
-       SOME ([Op op args],INL [0])) ∧
+       if pure_exps [Op op args] then
+         SOME ([Op op args],INL [0])
+       else NONE) ∧
   (bvi_to_cb_aux _ _ [exp] =
    (* Some other expression - whole thing gets let-bound *)
-   SOME ([exp],INL [0])) ∧
+   if pure_exps [exp] then
+     SOME ([exp],INL [0])
+   else NONE) ∧
   (bvi_to_cb_aux loc tag (h::t) =
    (* Recurse right to left to find last occurence of recursive call *)
    case bvi_to_cb_aux loc tag t of
