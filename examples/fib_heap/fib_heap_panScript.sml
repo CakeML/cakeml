@@ -28,8 +28,8 @@ fun parse_pancake q =
   end
 
 
-Quote merge_pan = parse_pancake:
-  fun 1 merge (1 a1, 1 a2) {
+Quote melt_pan = parse_pancake:
+  fun 1 melt (1 a1, 1 a2) {
     if (a2 == 0) {return a1;} else {}
     if (a1 == 0) {return a2;} else {}
     return a1;
@@ -141,9 +141,9 @@ QED
 
 (*
 
-Theorem merge_pan_thm:
+Theorem melt_pan_thm:
   ∀a1 a2 dm m frame s.
-    fib_heap_merge (a1,a2,m,dm) = (a',m',T) /\
+    fib_heap_melt (a1,a2,m,dm) = (a',m',T) /\
     FLOOKUP s.locals (strlit "a1") = SOME (Val (Word a1)) ∧
     FLOOKUP s.locals (strlit "a2") = SOME (Val (Word a2)) ∧
     m = s.memory /\ dm = s.memaddrs
