@@ -697,7 +697,7 @@ Definition static_check_exp_def:
       b <- check_operands ctxt op_str esret.sh_bds;
       return <| sh_bd := case pop of
                          | Mul      => WordB b
-                         | AddCarry => StructB [WordB b; WordB b] |>
+                         | AddCarry => StructB [WordB b; WordB NotBased] |>
     od ∧
   static_check_exp ctxt (Cmp cmp e1 e2) =
     do
