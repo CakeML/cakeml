@@ -1873,8 +1873,7 @@ Theorem InstallCode_code_thm:
               space_left := t.code_buffer.space_left - LENGTH q1
             |>;
         stack_max := smx |>) of
-      | (NONE,s) => (SOME Error, s)
-      | res => res
+      | (res,s) => if bad_fun_return res then (SOME Error, s) else (res,s)
 Proof
   Induct_on `q1` \\ fs [] THEN1
    (fs [v_to_bytes_def]
@@ -1960,6 +1959,7 @@ Proof
   \\ qexists_tac `lsz`
   \\ qexists_tac `smx`
   \\ fs[]
+  \\ Cases_on `x'` \\ fs [wordSemTheory.bad_fun_return_def]
 QED
 
 Definition w2w_upper_def:
@@ -1998,8 +1998,7 @@ Theorem InstallData_code_thm:
                   space_left := t.data_buffer.space_left - LENGTH q2 |>;
              locals_size := lsz;
              stack_max := smx|>) of
-          | (NONE,s) => (SOME Error, s)
-      | res => res
+      | (res,s) => if bad_fun_return res then (SOME Error, s) else (res,s)
 Proof
   Induct_on `q2` \\ fs [] THEN1
    (fs [v_to_words_def]
@@ -4210,7 +4209,7 @@ Theorem evaluate_AppendMainLoop_code_alt[local]:
                       memory := m1 ;
                       stack_max := smx ;
                       clock := t.clock - ((sp - k) DIV 3 + 1) |>) of
-         | (NONE,s) => (SOME Error, s) | res => res) /\
+         | (res,s) => if bad_fun_return res then (SOME Error, s) else (res,s)) /\
       option_le (OPTION_MAP2 $+ (stack_size t.stack) (lookup AppendLenLoop_location t.stack_size)) smx /\
       option_le smx
         (OPTION_MAP2 MAX t.stack_max
@@ -4271,9 +4270,16 @@ Proof
       (unabbrev_all_tac \\ fs [wordSemTheory.state_component_equality])
     \\ fs [STOP_def]
     \\ Cases_on `evaluate (AppendLenLoop_code c,ttt)` \\ fs []
-    \\ Cases_on `q` \\ fs []
-    >>
-    (conj_tac >- simp[option_le_max_right]
+    \\ reverse (Cases_on `q`) \\ fs [wordSemTheory.bad_fun_return_def]
+    >- (qmatch_asmsub_rename_tac `_ = (SOME xx,_)` \\ Cases_on `xx`
+        \\ fs [wordSemTheory.bad_fun_return_def]
+        \\ (conj_tac >- simp[option_le_max_right]
+            \\ conj_tac >-
+              (simp[option_le_max]>>simp[option_le_max_right]>>
+               simp[backendPropsTheory.option_le_eq_eqns,option_le_max_right])
+            \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
+            \\ fs [] \\ rw [] \\ fs [block_drop_def]))
+    \\ (conj_tac >- simp[option_le_max_right]
     \\ conj_tac >-
       (simp[option_le_max]>>simp[option_le_max_right]>>
       simp[backendPropsTheory.option_le_eq_eqns,option_le_max_right])
@@ -4385,7 +4391,18 @@ Proof
     \\ fs [ADD_DIV_EQ,ADD1])
   \\ fs [DROP] \\ fs [ADD1] \\ unabbrev_all_tac \\ fs []
   \\ qexists_tac `ww2` \\ fs []
-  \\ Cases_on `q` \\ fs [block_drop_def]
+  \\ reverse (Cases_on `q`) \\ fs [block_drop_def,wordSemTheory.bad_fun_return_def]
+  >- (qmatch_asmsub_rename_tac `_ = (SOME xx,_)` \\ Cases_on `xx`
+      \\ fs [wordSemTheory.bad_fun_return_def]
+      \\ (conj_tac >-
+          (match_mp_tac option_le_trans>> asm_exists_tac>>
+           simp[option_le_max,option_le_max_right,option_le_eq_eqns]))
+      \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
+      \\ fs [] \\ rw [] \\ fs [block_drop_def]
+      \\ disj1_tac \\ AP_TERM_TAC
+      \\ qmatch_goalsub_abbrev_tac `block_drop (k1 + 1)`
+      \\ `k1 + 1 = SUC k1` by fs []
+      \\ once_asm_rewrite_tac [] \\ fs [block_drop_def])
   \\ (conj_tac >-
     (match_mp_tac option_le_trans>> asm_exists_tac>>
     simp[option_le_max,option_le_max_right,option_le_eq_eqns]))
@@ -4415,15 +4432,13 @@ Theorem evaluate_AppendLenLoop_code[local]:
     LENGTH xs <= t.clock ==>
     ?locals smx.
       (case evaluate (AppendLenLoop_code c, t) of
-        (NONE,s) => (SOME Error,s)
-      | res => res) =
+        (res,s) => if bad_fun_return res then (SOME Error,s) else (res,s)) =
       (case evaluate (AppendLenLoop_code c,
               t with <| locals := locals;
                         clock := t.clock - LENGTH xs;
                         stack_max := smx
                       |>) of
-        (NONE,s) => (SOME Error,s)
-      | res => res) /\
+        (res,s) => if bad_fun_return res then (SOME Error,s) else (res,s)) /\
       lookup 0 locals = SOME (Loc l1 l2) /\
       lookup 2 locals = SOME (Word 2w) /\
       lookup 4 locals = SOME (Word (n2w (12 * (k + LENGTH xs)))) /\
@@ -4479,6 +4494,12 @@ Proof
   \\ qmatch_goalsub_abbrev_tac `(AppendLenLoop_code c,ttt)`
   \\ Cases_on `evaluate (AppendLenLoop_code c,ttt)`
   \\ Cases_on `q` \\ fs []
+  >- ((* NONE branch *)
+      rfs []
+      \\ qmatch_goalsub_abbrev_tac `(AppendLenLoop_code c,tttt)`
+      \\ `tttt = ttt` by(fs[Abbr`tttt`,Abbr`ttt`,wordSemTheory.state_component_equality])
+      \\ fs [option_le_max])
+  \\ Cases_on `x'` \\ fs [wordSemTheory.bad_fun_return_def]
   \\ rfs[]
   \\ qmatch_goalsub_abbrev_tac `(AppendLenLoop_code c,tttt)`
   \\ `tttt = ttt` by(fs[Abbr`tttt`,Abbr`ttt`,wordSemTheory.state_component_equality])

@@ -714,9 +714,11 @@ Proof
     (fs [compile_def] \\ rveq \\ fs [evaluate_def]
      \\ (irule_at (Pos hd) EQ_REFL) \\ fs[])
   THEN1 (* Continue *)
-    (fs [compile_def] \\ rveq \\ fs [evaluate_def]
+    (fs [compile_def] \\ rveq \\ fs [evaluate_def, bad_fun_return_def]
      \\ fs $ map uncurry_case_rand [``:'a option``,``:bool``,``:'a # 'b``]
-     \\ (irule_at (Pos hd) EQ_REFL) \\ fs[])
+     \\ qexists_tac `t1` \\ fs []
+     \\ rpt (TOP_CASE_TAC \\ fs [])
+     \\ Cases_on `q` \\ fs [] \\ Cases_on `x` \\ fs [bad_fun_return_def])
   THEN1 (* Delete *)
     (fs [compile_def] \\ rveq \\ fs [evaluate_def]
      \\ (irule_at (Pos hd) EQ_REFL) \\ fs [state_rel_delete_vars])
@@ -1244,7 +1246,7 @@ Proof
     \\ fs [] \\ qexists_tac `t2'` \\ fs []
     \\ fs [call_env_def, flush_state_def,wordSemTheory.dec_clock_def]
     \\ fs [evaluate_def]
-    \\ every_case_tac \\ fs [])
+    \\ every_case_tac \\ fs [bad_fun_return_def])
 QED
 
 Definition good_code_def:
