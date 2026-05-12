@@ -1606,6 +1606,38 @@ Resume evaluate_rewrite_tmc[op]:
     (* map weirdness *)
     >> cheat
    )
+  >> strip_tac
+  >> gvs [rewrite_worker_cons_def, cb_to_hb_def, evaluate_def]
+  >> drule evaluate_hb_to_bvi_worker
+  >> gvs [cb_to_hb_def]
+  >> qpat_x_assum ‘env_rel _ _ _ _’ kall_tac
+  >> drule_all env_rel_submap >> strip_tac
+  >> drule_all env_rel_append >> strip_tac
+  >> disch_then drule
+  >> disch_then drule
+  >> imp_res_tac env_rel_strip_extras >> gvs []
+  >> drule unchanged_hole_has_val
+  >> rpt $ disch_then drule
+  >> gvs []
+  >> strip_tac
+  >> drule_all hole_has_val_append
+  >> strip_tac
+  >> gvs [APPEND_ASSOC]
+  >> disch_then drule
+  >> disch_then $ qspec_then ‘loc_opt’ mp_tac (* should drule on something abt loc_opt *)
+  >> strip_tac >> gvs []
+  >> rename [‘state_rel f3 t t'’]
+  >> imp_res_tac evaluate_IMP_LENGTH
+  >> gvs [opt_res_rel_def]
+  >> conj_tac >- cheat (* map weirdness *)
+  >> conj_tac
+  >-
+   (irule holes_unchanged_except_trans
+    >> imp_res_tac env_rel_length_opt >> gvs [EL_APPEND_EQN]
+    >> rpt $ first_assum $ irule_at Any
+    >> irule holes_unchanged_except_subset
+    >> first_assum $ irule_at Any >> gvs [])
+  >> 
                 
   >> CASE_TAC
   >> CASE_TAC
@@ -2361,27 +2393,26 @@ Proof
 QED
 
 Theorem evaluate_hb_to_bvi_worker:
-  ∀cb tag left child right loc loc_opt f f' env1 env2 r' s t s' t' c hb call_ts call_args.
-    evaluate ([cb_to_bvi loc cb],env2,s') = (r',t') ∧
-    cb_to_hb cb = (hb,call_ts,call_args) ∧
-    cb = CallBlock tag left child right ∧
+  ∀tag left child right hole call_ts call_args loc loc_opt f env1 env2 s s' r t c.
+    evaluate ([cb_to_bvi loc (CallBlock tag left child right)],env1,s) = (r,t) ∧
+    cb_to_hb (CallBlock tag left child right) = (HoleBlock tag left hole right,call_ts,call_args) ∧
     env_rel T f env1 env2 ∧
     state_rel f s s' ∧
-    f ⊑ f' ∧
     hole_has_val f env1 env2 s'.refs c ∧
-    holes_unchanged_except f s'.refs t'.refs ∅ ∧
-    only_fresh f f' s'.refs ∧
-    state_rel f' t t' ∧
-    r' ≠ Rerr (Rabort Rtype_error) ⇒
-    ∃r'' t''.
-      evaluate ([hb_to_bvi_worker loc loc_opt (LENGTH env1) (LENGTH env1 + 1) hb call_ts call_args],env2,s') = (r'',t'') ∧
-      opt_res_rel r' r'' ∧
-      state_rel f' t t'' ∧
-      holes_unchanged_except f s'.refs t''.refs {env2❲LENGTH env1❳} ∧
+    r ≠ Rerr (Rabort Rtype_error) ⇒
+    ∃r' t' f'.
+      evaluate ([hb_to_bvi_worker loc loc_opt (LENGTH env1) (LENGTH env1 + 1) tag left hole right call_ts call_args],env2,s') = (r',t') ∧
+      opt_res_rel r r' ∧
+      f SUBMAP f' ∧
+      state_rel f' t t' ∧
+      only_fresh f f' s'.refs ∧
+      holes_unchanged_except f s'.refs t'.refs {env2❲LENGTH env1❳} ∧
       ∀v.
         r' = Rval [v] ⇒
-        hole_has_val f env1 env2 t''.refs v
+        hole_has_val f env1 env2 t'.refs v
 Proof
+  cheat
+        (*
   rw []
   >> imp_res_tac env_rel_strip_extras
   >> gvs [cb_to_hb_def, CaseEq "prod", hb_to_bvi_worker_def, Once evaluate_def]
@@ -2434,6 +2465,7 @@ Proof
   >> gvs [EL_APPEND_EQN]
   >> rpt $ disch_then drule
   >> cheat
+  *)
 QED
 
 Resume evaluate_rewrite_tmc[tick]:
