@@ -147,6 +147,7 @@ Definition compile_op_def:
     | Src Opref => Op t (MemOp Ref) xs
     | Src ConfigGC => Op t (MemOp ConfigGC) xs
     | Src Equality => Op t (BlockOp Equal) xs
+    | Src PtrEq => Op t (BlockOp (BoolTest Equal)) xs
     | Src (FFI n) => Op t (FFI n) xs
     | Src ListAppend => Op t (BlockOp ListAppend) xs
     | Src Vlength => Op t (BlockOp LengthBlock) xs

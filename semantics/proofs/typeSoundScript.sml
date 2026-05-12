@@ -725,6 +725,10 @@ Proof
   >- (rw [do_app_cases, PULL_EXISTS] >>
       metis_tac [Tbool_def, type_v_Boolv, store_type_extension_refl,
                  eq_result_nchotomy, eq_same_type]) >~
+  [‘PtrEq’]
+  >- (rw [do_app_cases, PULL_EXISTS] >>
+      metis_tac [Tbool_def, type_v_Boolv, store_type_extension_refl,
+                 eq_result_nchotomy, eq_same_type]) >~
   [‘Arith a ty’]
   >- (rw [do_app_cases, PULL_EXISTS] >>
       Cases_on ‘ty’ using prim_type_cases >>

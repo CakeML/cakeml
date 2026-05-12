@@ -246,6 +246,7 @@ Definition op_to_display_def:
                          [test_to_display test;
                           prim_type_to_display ty]
   | Equality => empty_item «Equality»
+  | PtrEq => empty_item «PtrEq»
   | Opapp => empty_item «Opapp»
   | Opassign => empty_item «Opassign»
   | Opref => empty_item «Opref»

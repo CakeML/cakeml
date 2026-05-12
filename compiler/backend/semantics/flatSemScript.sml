@@ -289,6 +289,10 @@ Definition do_app_def:
     (case do_eq v1 v2 of
      | Eq_type_error => NONE
      | Eq_val b => SOME (s, Rval (Boolv b)))
+  | (Src PtrEq, [v1; v2]) =>
+    (case do_eq v1 v2 of
+     | Eq_type_error => NONE
+     | Eq_val b => SOME (s, Rval (Boolv b)))
   | (Src (Test test test_ty), [v1; v2]) =>
     (case do_test test test_ty v1 v2 of
      | Eq_type_error => NONE

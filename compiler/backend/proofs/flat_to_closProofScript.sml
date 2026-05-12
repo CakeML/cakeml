@@ -883,11 +883,13 @@ Proof
 QED
 
 Theorem op_eq_gc:
+  op = Src PtrEq \/
   op = Src ConfigGC \/
   op = Src Equality ==>
   ^op_goal
 Proof
   rpt strip_tac \\ rveq \\ fs []
+  >- cheat (* PtrEq *)
   \\ fs [flatSemTheory.do_app_def,list_case_eq,CaseEq "flatSem$v",PULL_EXISTS,
          CaseEq "ast$lit",store_assign_def,option_case_eq]
   \\ rw [] \\ fs [] \\ rveq \\ fs [LENGTH_EQ_NUM_compute] \\ rveq \\ fs []

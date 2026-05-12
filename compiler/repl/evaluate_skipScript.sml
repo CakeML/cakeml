@@ -1688,6 +1688,38 @@ Proof
           eval_state := NONE |>’ \\ gs []
     \\ rw [Boolv_def]
     \\ gs [v_rel_def, stamp_rel_cases, SF SFY_ss])
+  \\ Cases_on ‘op = PtrEq’ \\ gs []
+  >- (
+    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
+                           CaseEqs ["list", "v", "option", "prod", "lit",
+                                    "store_v", "word_size"]]
+    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
+    \\ gs [CaseEqs ["eq_result"], EXISTS_PROD, PULL_EXISTS]
+    \\ gs [state_rel_def]
+    \\ rename1 ‘v_rel _ _ _ x1 x2’ \\ rename1 ‘v_rel _ _ _ y1 y2’
+    >- (
+      qpat_assum ‘do_eq _ _ = _’ (SUBST1_TAC o SYM)
+      \\ once_rewrite_tac [EQ_SYM_EQ]
+      \\ irule (CONJUNCT1 v_rel_do_eq)
+      \\ first_assum (irule_at Any) \\ gs []
+      \\ first_assum (irule_at Any) \\ gs []
+      \\ first_assum (irule_at Any) \\ gs []
+      \\ first_assum (irule_at Any) \\ gs [])
+    \\ qexists_tac ‘b’
+    \\ qpat_assum ‘do_eq _ _ = _’ (SUBST1_TAC o SYM)
+    \\ simp_tac std_ss [Once EQ_SYM_EQ]
+    \\ irule_at Any (CONJUNCT1 v_rel_do_eq) \\ gvs []
+    \\ first_assum (irule_at (Pat ‘v_rel’)) \\ gs []
+    \\ Q.REFINE_EXISTS_TAC
+      ‘<| refs := r1; ffi := f1; clock := s.clock;
+          next_type_stamp := nts1; next_exn_stamp := nes1;
+          eval_state := NONE |>’ \\ gs []
+    \\ Q.REFINE_EXISTS_TAC
+      ‘<| refs := r2; ffi := f2; clock := t.clock;
+          next_type_stamp := nts2; next_exn_stamp := nes2;
+          eval_state := NONE |>’ \\ gs []
+    \\ rw [Boolv_def]
+    \\ gs [v_rel_def, stamp_rel_cases, SF SFY_ss])
   \\ Cases_on ‘op = Opderef’ \\ gs []
   >- (
     Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,

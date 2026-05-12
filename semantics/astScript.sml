@@ -81,6 +81,7 @@ Datatype:
   (* Operations on words *)
   | Shift word_size shift num
   | Equality
+  | PtrEq
   | Test test prim_type
   (* Function application *)
   | Opapp

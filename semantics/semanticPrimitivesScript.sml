@@ -963,6 +963,11 @@ Definition do_app_def:
             Eq_type_error => NONE
           | Eq_val b => SOME ((s,t), Rval (Boolv b))
         )
+    | (PtrEq, [v1; v2]) =>
+        (case do_eq v1 v2 of
+            Eq_type_error => NONE
+          | Eq_val b => SOME ((s,t), Rval (Boolv b))
+        )
     | (Opassign, [Loc b lnum; v]) =>
         (case store_assign lnum (Refv v) s of
             SOME s' => SOME ((s',t), Rval (Conv NONE []))

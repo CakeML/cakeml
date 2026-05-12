@@ -597,6 +597,7 @@ End
 Definition op_to_string_def:
   (op_to_string (Shift _ _ _) = («Shift», 1)) ∧
   (op_to_string Equality = («Equality», 2)) ∧
+  (op_to_string PtrEq = («PtrEq», 2)) ∧
   (op_to_string (Arith a ty) =
      («Arith»,
       case supported_arith a ty of SOME n => (n:num) | NONE => 0n)) ∧
@@ -713,6 +714,10 @@ constrain_op l op ts s =
     od s
   else pmatch (op,ts) of
    | (Equality, [t1;t2]) =>
+       do () <- add_constraint l t1 t2;
+          return (Infer_Tapp [] Tbool_num)
+       od s
+   | (PtrEq, [t1;t2]) =>
        do () <- add_constraint l t1 t2;
           return (Infer_Tapp [] Tbool_num)
        od s

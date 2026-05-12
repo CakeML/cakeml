@@ -59,4 +59,11 @@ Quote add_cakeml:
   fun customFFI str_arg arr_arg = #(custom) str_arg arr_arg;
 End
 
+val pre_eq =
+ ``[Dletrec (unknown_loc)
+     [«ptrEq»,«x»,
+      Fun «y» (App PtrEq [Var (Short «x»); Var (Short «y»)])]]``
+
+val _ = append_prog pre_eq
+
 val _ = ml_prog_update (close_module NONE);
