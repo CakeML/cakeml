@@ -1715,37 +1715,91 @@ Proof
   >> cheat
 QED
 
-(* What if r is type error? *)
 Theorem evaluate_shift_vars:
   ∀vs env s bs r t.
-    evaluate (MAP (λn. Var n) vs,env,s) = (r,t) ⇒
+    evaluate (MAP (λn. Var n) vs,env,s) = (r,t) ∧
+    r ≠ Rerr (Rabort Rtype_error) ⇒
     evaluate (MAP (λn. Var n) (shift_vars (LENGTH bs) vs),bs ++ env,s) = (r,t)
 Proof
-  cheat
+  Induct
+  >- gvs [evaluate_def, shift_vars_def]
+  >> rw []
+  >> gvs [Once evaluate_CONS, evaluate_def]
+  >> Cases_on ‘h < LENGTH env’ >> gvs []
+  >> gvs [CaseEq "prod"]
+  >> drule evaluate_var_list
+  >> impl_tac >- gvs [CaseEq "result"]
+  >> strip_tac
+  >> gvs []
+  >> first_x_assum drule
+  >> disch_then $ qspec_then ‘bs’ mp_tac
+  >> gvs []
+  >> strip_tac
+  >> gvs [shift_vars_def, Once evaluate_CONS, evaluate_def, EL_APPEND_EQN]
 QED
 
 Theorem evaluate_shift_vars_sing:
   ∀vs env s b r t.
-    evaluate (MAP (λn. Var n) vs,env,s) = (r,t) ⇒
+    evaluate (MAP (λn. Var n) vs,env,s) = (r,t) ∧
+    r ≠ Rerr (Rabort Rtype_error) ⇒
     evaluate (MAP (λn. Var n) (shift_vars 1 vs),b::env,s) = (r,t)
 Proof
-  cheat
+  rw []
+  >> drule evaluate_shift_vars
+  >> disch_then $ qspec_then ‘[b]’ mp_tac
+  >> gvs []
 QED
 
 Theorem evaluate_shift_cb:
   ∀cb loc env s bs r t.
-    evaluate ([cb_to_bvi loc cb],env,s) = (r,t) ⇒
+    evaluate ([cb_to_bvi loc cb],env,s) = (r,t) ∧
+    r ≠ Rerr (Rabort Rtype_error) ⇒
     evaluate ([cb_to_bvi loc (shift_cb (LENGTH bs) cb)],bs ++ env,s) = (r,t)
 Proof
-  cheat
+  reverse Induct
+  >-
+   (rpt gen_tac
+    >> gvs [shift_cb_def, cb_to_bvi_def, evaluate_def]
+    >> CASE_TAC
+    >> rw []
+    >> drule evaluate_shift_vars
+    >> disch_then $ qspec_then ‘bs’ mp_tac
+    >> impl_tac >> gvs [CaseEq "result"])
+  >> rw []
+  >> gvs [shift_cb_def, cb_to_bvi_def, evaluate_def]
+  >> gvs [evaluate_APPEND, evaluate_def]
+  >> Cases_on ‘evaluate (MAP (λn. Var n) l0,env,s)’
+  >> drule evaluate_shift_vars
+  >> disch_then $ qspec_then ‘bs’ mp_tac
+  >> impl_tac
+  >- (Cases_on ‘q’ >> gvs [])
+  >> strip_tac >> gvs []
+  >> Cases_on ‘q’ >> gvs []
+  >> Cases_on ‘evaluate ([cb_to_bvi loc cb],env,r')’
+  >> first_x_assum drule
+  >> disch_then $ qspec_then ‘bs’ mp_tac
+  >> impl_tac
+  >- (gvs [CaseEq "prod", CaseEq "result"])
+  >> strip_tac >> gvs []
+  >> Cases_on ‘q’ >> gvs []
+  >> Cases_on ‘evaluate (MAP (λn. Var n) l,env,r'')’
+  >> drule evaluate_shift_vars
+  >> disch_then $ qspec_then ‘bs’ mp_tac
+  >> impl_tac
+  >- (Cases_on ‘q’ >> gvs [])
+  >> strip_tac >> gvs []
 QED
 
 Theorem evaluate_shift_cb_sing:
   ∀cb loc env s b r t.
-    evaluate ([cb_to_bvi loc cb],env,s) = (r,t) ⇒
+    evaluate ([cb_to_bvi loc cb],env,s) = (r,t) ∧
+    r ≠ Rerr (Rabort Rtype_error) ⇒
     evaluate ([cb_to_bvi loc (shift_cb 1 cb)],b::env,s) = (r,t)
 Proof
-  cheat
+  rw []
+  >> drule evaluate_shift_cb
+  >> disch_then $ qspec_then ‘[b]’ mp_tac
+  >> gvs []
 QED
 
 Theorem evaluate_pure_exps:
@@ -1905,18 +1959,21 @@ Proof
     >> Cases_on ‘evaluate (MAP (λn. Var n) left,a'',u)’
     >> drule evaluate_shift_vars_sing
     >> disch_then $ qspec_then ‘HD a’ mp_tac
+    >> impl_tac >- gvs [CaseEq "prod", CaseEq "result"]
     >> strip_tac
     >> gvs []
     >> Cases_on ‘q’ >> gvs []
     >> Cases_on ‘evaluate ([cb_to_bvi loc cb'],a'',r)’ >> gvs []
     >> drule evaluate_shift_cb_sing
     >> disch_then $ qspec_then ‘HD a’ mp_tac
+    >> impl_tac >- gvs [CaseEq "prod", CaseEq "result"]
     >> strip_tac
     >> gvs []
     >> CASE_TAC >> gvs []
     >> Cases_on ‘evaluate (MAP (λn. Var n) right,a'',r')’
     >> drule evaluate_shift_vars_sing
     >> disch_then $ qspec_then ‘HD a’ mp_tac
+    >> impl_tac >- gvs [CaseEq "prod", CaseEq "result"]
     >> strip_tac
     >> gvs []
     >> CASE_TAC >> gvs []
@@ -1930,18 +1987,21 @@ Proof
   >> Cases_on ‘evaluate (MAP (λn. Var n) left,a',u)’
   >> drule evaluate_shift_vars_sing
   >> disch_then $ qspec_then ‘HD a’ mp_tac
+  >> impl_tac >- gvs [CaseEq "prod", CaseEq "result"]
   >> strip_tac
   >> gvs []
   >> Cases_on ‘q’ >> gvs []
   >> Cases_on ‘evaluate ([cb_to_bvi loc cb'],a',r)’ >> gvs []
   >> drule evaluate_shift_cb_sing
   >> disch_then $ qspec_then ‘HD a’ mp_tac
+  >> impl_tac >- gvs [CaseEq "prod", CaseEq "result"]
   >> strip_tac
   >> gvs []
   >> CASE_TAC >> gvs []
   >> Cases_on ‘evaluate (MAP (λn. Var n) right,a',r')’
   >> drule evaluate_shift_vars_sing
   >> disch_then $ qspec_then ‘HD a’ mp_tac
+  >> impl_tac >- gvs [CaseEq "prod", CaseEq "result"]
   >> strip_tac
   >> gvs []
   >> CASE_TAC >> gvs []
