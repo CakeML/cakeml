@@ -544,12 +544,12 @@ QED
 Theorem IMP_DISJOINT3:
   INJ (FAPPLY lm_1) (FDOM lm_1) 𝕌(:num) ∧
   i ∉ FDOM lm_1 ∧
-  (∀n. next_1 ≤ n ⇒ n ∉ FRANGE im_1 ∧ n ∉ FRANGE lm_1 ∧ n ∉ FRANGE nm_1) ∧
-  DISJOINT3 (FRANGE im_1) (FRANGE lm_1) (FRANGE nm_1)
+  (∀n. next_1 ≤ n ⇒ n ∉ FRANGE im_1 ∧ n ∉ FRANGE lm_1 ∧ n ∉ s) ∧
+  DISJOINT3 (FRANGE im_1) (FRANGE lm_1) s
   ⇒
   INJ (FAPPLY lm_1⟨i ↦ next_1⟩) (i INSERT FDOM lm_1) 𝕌(:num) ∧
   (∀n. next_1 + 1 ≤ n ⇒ n ∉ FRANGE (lm_1 \\ i)) ∧
-  DISJOINT3 (next_1 INSERT FRANGE (lm_1 \\ i)) (FRANGE im_1) (FRANGE nm_1)
+  DISJOINT3 (next_1 INSERT FRANGE (lm_1 \\ i)) (FRANGE im_1) s
 Proof
   rw []
   \\ ‘FRANGE (lm_1 \\ i) SUBSET FRANGE lm_1’ by fs [FRANGE_DOMSUB_SUBSET]
@@ -591,8 +591,9 @@ Theorem aig_rename_aux_thm:
     FDOM nm_1 = set (MAP FST ands) ∧
     INJ (FAPPLY lm_1) (FDOM lm_1) UNIV ∧
     INJ (FAPPLY im_1) (FDOM im_1) UNIV ∧
-    (∀n. next_1 ≤ n ⇒ n ∉ FRANGE im_1 ∧ n ∉ FRANGE lm_1 ∧ n ∉ FRANGE nm_1) ∧
-    DISJOINT3 (FRANGE im_1) (FRANGE lm_1) (FRANGE nm_1)
+    FRANGE nm_1 SUBSET set (MAP FST res_1) ∧
+    (∀n. next_1 ≤ n ⇒ n ∉ FRANGE im_1 ∧ n ∉ FRANGE lm_1 ∧ ~MEM n (MAP FST res_1)) ∧
+    DISJOINT3 (FRANGE im_1) (FRANGE lm_1) (set (MAP FST res_1))
     ⇒
     im_1 SUBMAP im_2 ∧
     lm_1 SUBMAP lm_2 ∧
@@ -604,8 +605,8 @@ Theorem aig_rename_aux_thm:
     (∀i b. MEM (Base (Input i),b) ts_1 ⇒ i ∈ FRANGE im_2) ∧
     (∀m b. MEM (Name m,b) ts_1 ⇒ m ∈ FRANGE nm_1) ∧
     next_1 ≤ next_2 ∧
-    DISJOINT3 (FRANGE im_2) (FRANGE lm_2) (FRANGE nm_1) ∧
-    (∀n. next_2 ≤ n ⇒ n ∉ FRANGE im_2 ∧ n ∉ FRANGE lm_2 ∧ n ∉ FRANGE nm_1) ∧
+    DISJOINT3 (FRANGE im_2) (FRANGE lm_2) (set (MAP FST res_1)) ∧
+    (∀n. next_2 ≤ n ⇒ n ∉ FRANGE im_2 ∧ n ∉ FRANGE lm_2 ∧ ~MEM n (MAP FST res_1)) ∧
     ∀ix lx.
       INJ (FAPPLY (im_2 ⊌ ix)) (FDOM (im_2 ⊌ ix)) UNIV ∧
       INJ (FAPPLY (lm_2 ⊌ lx)) (FDOM (lm_2 ⊌ lx)) UNIV
@@ -810,9 +811,8 @@ Theorem aig_rename_thm:
     ALL_DISTINCT (MAP FST res) ∧
     FDOM nm = set (MAP FST ands) ∧
     FRANGE nm SUBSET set (MAP FST res) ∧
-    DISJOINT3 (FRANGE im) (FRANGE lm) (FRANGE nm) ∧ closed res ∧
-    (∀n. MEM n (MAP FST res) ⇒ n < next) ∧
-    (∀n. next ≤ n ⇒ n ∉ FRANGE im ∪ FRANGE lm ∪ FRANGE nm) ∧
+    DISJOINT3 (FRANGE im) (FRANGE lm) (set (MAP FST res)) ∧ closed res ∧
+    (∀n. next ≤ n ⇒ n ∉ FRANGE im ∪ FRANGE lm ∪ set (MAP FST res)) ∧
     ∀n. ALOOKUP ands n ≠ NONE ⇒
         ∃t. FLOOKUP nm n = SOME t ∧
             ∀ix lx.
@@ -858,10 +858,6 @@ Proof
   \\ conj_tac >- (rw [] \\ res_tac \\ fs [])
   \\ conj_tac >- rw []
   \\ conj_tac >- rw []
-  \\ conj_tac >-
-   (res_tac \\ rw [] \\ strip_tac
-    \\ imp_res_tac (finite_mapTheory.FRANGE_DOMSUB_SUBSET |> SRULE [SUBSET_DEF])
-    \\ gvs [SUBSET_DEF])
   \\ gen_tac
   \\ Cases_on ‘n = h0’ \\ gvs [FLOOKUP_SIMP]
   >- (gvs [eval_circuit_def] \\ fs [SF ETA_ss])
@@ -870,7 +866,7 @@ Proof
   \\ strip_tac \\ fs [eval_circuit_def]
   \\ rpt gen_tac
   \\ IF_CASES_TAC
-  >- (rw [] \\ res_tac \\ fs [FRANGE_DEF,FLOOKUP_DEF] \\ metis_tac [])
+  >- (rw [] \\ res_tac \\ fs [FRANGE_DEF,FLOOKUP_DEF,SUBSET_DEF] \\ metis_tac [])
   \\ first_x_assum $ qspecl_then [‘FUNION im_2 ix’,‘FUNION lm_2 lx’] mp_tac
   \\ imp_res_tac FUNION_SUBMAP_lemma
   \\ rewrite_tac [FUNION_ASSOC,FDOM_FUNION,UNION_ASSOC]
