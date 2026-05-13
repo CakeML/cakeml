@@ -1541,14 +1541,8 @@ Resume evaluate_rewrite_tmc[op_non_opt]:
   >> rpt $ first_assum $ irule_at Any
 QED
 
-Resume evaluate_rewrite_tmc[op_cons]:
-  Cases_on ‘bvi_to_cb loc tag xs’
-  (* Not eligible for optimisation *)
-  >-
-   (cheat)
-  (* Eligible for optimisation *)
-  >> Cases_on ‘x’
-  >> imp_res_tac bvi_to_cb_wf >> gvs []
+Resume evaluate_rewrite_tmc[op_opt]:
+  imp_res_tac bvi_to_cb_wf >> gvs []
   >> rename [‘bvi_to_cb loc tag args = SOME (bs,CallBlock tag left child right)’]
   (* Phase 1 theorem in s *)
   >> drule_all evaluate_bvi_to_cb
@@ -1574,70 +1568,56 @@ Resume evaluate_rewrite_tmc[op_cons]:
   >> drule_all evaluate_bvi_to_cb
   >> simp [Once evaluate_def]
   >> strip_tac
-        
-(*
-  (* Phase 1 theorem in s *)
-  >> ‘evaluate ([Op (BlockOp (Cons tag)) args],env2,s') = (Rval [v'],t')’ by gvs [evaluate_def]
-  >> drule evaluate_bvi_to_cb
-  >> rpt $ disch_then drule
-  >> gvs [evaluate_def]
-  >> strip_tac
-  >> gvs []
-  >> gvs [CaseEq "prod"]
-  >> rename [‘evaluate (bs,env2,s') = (as',w')’]
-  >> gvs [CaseEq "result"]
-*)
-
-  (* Hypothesis on bs *)
-  >> first_assum $ qspecl_then [‘bs’, ‘s’] mp_tac
+  >> reverse $ gvs [CaseEq "result"]
+  >- (* bs fails *)
+   (rename [‘exc_rel (v_rel f') e e'’]
+    >> qexistsl [‘t'’, ‘f'’, ‘Rerr e'’]
+    >> gvs []
+    >> rw []
+    >- (gvs [rewrite_wrapper_def, dest_Cons_def, rewrite_wrapper_cons_def, cb_to_hb_def, CaseEq "prod", evaluate_def])
+    >> gvs [rewrite_worker_def, dest_Cons_def, rewrite_worker_cons_def, cb_to_hb_def]
+    >> CASE_TAC >> gvs [CaseEq "prod"]
+    >> CASE_TAC >> gvs []
+    >> rename [‘cb_to_hb child = (hole,call_ts,call_args)’]
+    >> gvs [evaluate_def, opt_res_rel_def]
+    >> irule holes_unchanged_except_subset
+    >> qexists ‘EMPTY’
+    >> gvs [])
+  >> rename [‘LIST_REL (v_rel f') vs vs'’]
+  (* Hypothesis on call block *)
+  >> first_assum $ qspecl_then [‘[cb_to_bvi loc (CallBlock tag left child right)]’, ‘u’] mp_tac
   >> impl_tac
-  >- (imp_res_tac bvi_to_cb_size >> gvs [])
+  >- (imp_res_tac bvi_to_cb_size >> imp_res_tac evaluate_clock_non_increase >> gvs [])
+  >> qpat_x_assum ‘env_rel _ _ _ _’ kall_tac
   >> disch_then drule
-  >> disch_then drule
-  >> disch_then drule
+  >> drule_all env_rel_submap
+  >> strip_tac
+  >> drule_all env_rel_append
+  >> strip_tac
+  >> rpt $ disch_then drule
+  >> disch_then $ qspec_then ‘loc’ mp_tac
   >> impl_tac >- gvs []
   >> strip_tac
+  >> first_x_assum $ qspecl_then [‘loc_opt’, ‘wrap’] assume_tac
   >> gvs []
-  >> rename [‘LIST_REL (v_rel f_bs) as as'’]
+  >> qexistsl [‘t'’, ‘f''’, ‘r'’]
+  >> gvs []
+  >> pop_assum kall_tac
+  >> rpt gen_tac
+  >> conj_tac >- (imp_res_tac SUBMAP_TRANS)
+  >> conj_tac >-
+   (irule only_fresh_trans
+    >> rpt $ first_assum $ irule_at Any
+    >> imp_res_tac evaluate_refs_SUBSET)
+  >> conj_tac >-
+   (irule holes_unchanged_except_trans
+    >> rpt $ first_assum $ irule_at Any)
+  (* Phase 2 theorems *)
   >> rw []
   >- cheat
-   (*rw []
-    >> drule evaluate_hb_to_bvi_wrapper
-    >> disch_then $ qspecl_then [‘tag’, ‘left’, ‘child’, ‘right’, ‘hole’, ‘call_ts’, ‘call_args’] mp_tac
-    >> simp [cb_to_hb_def]
-    >> qpat_x_assum ‘env_rel _ _ _ _’ kall_tac
-    >> drule_all env_rel_submap
-    >> strip_tac
-    >> drule_all env_rel_append
-    >> strip_tac
-    >> disch_then drule_all
-    >> disch_then $ qspec_then ‘loc_opt’ mp_tac
-    >> strip_tac
-    >> gvs [evaluate_def]
-    (* map weirdness *)
-    >> cheat
-   *)
+  >> cheat
 
-  >> gvs [rewrite_worker_cons_def, cb_to_hb_def, evaluate_def]
-  >> drule evaluate_hb_to_bvi_worker
-  >> gvs [cb_to_hb_def]
-  >> imp_res_tac env_rel_strip_extras >> gvs []
-  >> drule unchanged_hole_has_val
-  >> rpt $ disch_then drule
-  >> gvs []
-  >> strip_tac
-  >> drule_all hole_has_val_append
-  >> strip_tac >> gvs [APPEND_ASSOC]
-  >> disch_then drule
-  >> disch_then $ qspec_then ‘loc_opt’ mp_tac (* stand in for another assumption about loc_opt *)
-  >> strip_tac >> gvs []
-  >> imp_res_tac evaluate_IMP_LENGTH >> gvs []
-  >> imp_res_tac env_rel_length_opt
-  >> gvs [EL_APPEND_EQN]
-  >> gvs [opt_res_rel_def]
-  >> ‘f' = f_bs’ by cheat (* This may not be true, but is a stand in for producing a new map *)
-  >> gvs []
-  >> conj_tac >- cheat
+(*
   >> conj_tac
   >-
    (irule holes_unchanged_except_trans
@@ -1658,6 +1638,7 @@ Resume evaluate_rewrite_tmc[op_cons]:
   >> irule hole_has_val_unappend
   >> first_assum $ irule_at Any
   >> gvs []
+*)
 QED
 
 Theorem evaluate_var_list:
