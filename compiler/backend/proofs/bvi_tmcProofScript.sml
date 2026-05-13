@@ -2079,6 +2079,81 @@ Resume evaluate_rewrite_tmc[op_opt]:
 *)
 QED
 
+
+Definition alloc_state_rel_def:
+  (alloc_state_rel (RCall _ _) env s1 s2 ⇔ s1 = s2) ∧
+  (alloc_state_rel (CallBlock tag left child right) env s1 s3 ⇔
+     ∃s2 new_ptr new_val.
+       alloc_state_rel child env s1 s2 ∧
+       new_ptr ∉ FDOM s2.refs ∧
+       new_val = MutBlock tag (MAP (λn. EL n env) (REVERSE right)) (Number 0) (MAP (λn. EL n env) (REVERSE left)) ∧
+       s3 = s2 with refs := s2.refs |+ (new_ptr,new_val))
+End
+
+Theorem evaluate_hb_to_mutcons:
+  ∀cb tag left child right hole call_ts call_args loc env1 env2 s t r f.
+    evaluate ([cb_to_bvi loc cb],env2,s) = (r,t) ∧
+    cb_to_hb cb = (HoleBlock tag left hole right,call_ts,call_args) ∧
+    cb = CallBlock tag left child right ∧
+    env_rel T f env1 env2 ∧
+    r ≠ Rerr (Rabort Rtype_error) ⇒
+    ∃t' env3 new_ptr.
+      evaluate ([hb_to_mutcons (HoleBlock tag left hole right)],env2,s) = (Rval [RefPtr F new_ptr],t') ∧
+      alloc_state_rel cb env2 s t'
+Proof
+  gen_tac
+  >> reverse $ Induct_on ‘cb’ >> rw []
+  >> rename [‘cb_to_hb (CallBlock tag left child right) = (HoleBlock tag left hole right,call_ts,call_args)’]
+  >> gvs [cb_to_hb_def, cb_to_bvi_def, hb_to_bvi_wrapper_def, hb_to_mutcons_def, evaluate_def, evaluate_APPEND, CaseEq "prod"]
+  (* left *)
+  >> drule evaluate_var_list
+  >> impl_tac >- gvs [CaseEq "result"]
+  >> strip_tac >> gvs []
+  (* child *)
+  >> reverse $ Cases_on ‘child’ >> gvs []
+  >-
+   (gvs [cb_to_hb_def, hb_to_mutcons_def]
+    >> gvs [evaluate_def, do_app_def, do_app_aux_def, backend_commonTheory.small_enough_int_def]
+    >> gvs [PULL_EXISTS] 
+    (* right *)
+    >> CASE_TAC
+    >> drule evaluate_var_list
+    >> impl_tac >- cheat (* need assumption that right cannot fail *)
+    >> strip_tac >> gvs []
+    (* hole *)
+    >> gvs [REVERSE_APPEND, TAKE_APPEND, DROP_APPEND, GSYM MAP_REVERSE, GSYM MAP_TAKE, GSYM MAP_DROP, DROP_LENGTH_TOO_LONG]
+    >> ‘TAKE (LENGTH right) (REVERSE right) = REVERSE right’ by (gvs [LENGTH_REVERSE, TAKE_LENGTH_ID])
+    >> simp [EL_APPEND_EQN]
+    >> gvs [alloc_state_rel_def]
+    >> qexists ‘LEAST ptr. ptr ∉ FDOM r'.refs’
+    >> conj_tac
+    >-
+     (numLib.LEAST_ELIM_TAC
+      >> cheat)
+    >> gvs [])
+  >> gvs [cb_to_hb_def, hb_to_mutcons_def]
+  >> gvs [evaluate_def, do_app_def, do_app_aux_def, backend_commonTheory.small_enough_int_def]
+  >> gvs [PULL_EXISTS]
+  (* hypothesis *)
+  >> gvs [CaseEq "prod"]
+  >> rename [‘evaluate ([cb_to_bvi loc (CallBlock tag' left' child' right')],env2,s) = (r_child,u)’]
+  >> rename [‘cb_to_hb child' = (hole,call_ts,call_args)’]
+  >> first_x_assum $ drule_then drule
+  >> impl_tac
+  >- (spose_not_then assume_tac >> gvs [])
+  >> strip_tac >> gvs []
+  (* right *)
+  >> gvs [PULL_EXISTS, hb_to_mutcons_def, evaluate_def, evaluate_APPEND, do_app_def, do_app_aux_def]
+  >> CASE_TAC
+  >> drule evaluate_var_list
+  >> impl_tac >- cheat
+  >> strip_tac >> gvs []
+  >> gvs [alloc_state_rel_def]
+  >> rpt $ first_assum $ irule_at Any
+  >> cheat
+         
+QED
+
 Theorem evaluate_hb_to_bvi_wrapper:
   ∀cb tag left child right hole call_ts call_args loc loc_opt arity f env1 env2 s t r.
     evaluate ([cb_to_bvi loc cb],env2,s) = (r,t) ∧
