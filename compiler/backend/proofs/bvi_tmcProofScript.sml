@@ -1488,20 +1488,13 @@ Resume evaluate_rewrite_tmc[op_non_cons]:
     >> disch_then drule
     >> drule $ iffLR list_rel_reverse
     >> gvs []
-    >> strip_tac
-    >> strip_tac
-    >> rpt gen_tac
-    >> conj_tac
-    >-
-     (rw []
-      >> cheat)
-    >> gvs []
-    >> rpt gen_tac
-    >> strip_tac
+    >> rw []
+    >- (gvs [rewrite_wrapper_def, dest_Cons_def])
     >> gvs [rewrite_worker_def, dest_Cons_def]
-    >> ho_match_mp_tac evaluate_fill_hole_err
-    >> gvs [evaluate_def]
-    >> rpt $ first_assum $ irule_at Any)
+    >> gvs [evaluate_def, fill_hole_def, opt_res_rel_def]
+    >> irule holes_unchanged_except_subset
+    >> first_assum $ irule_at Any
+    >> gvs [])
   >> rename [‘do_app _ (REVERSE vs) u = Rval v’]
   >> drule $ iffLR list_rel_reverse
   >> strip_tac
@@ -1532,7 +1525,15 @@ Resume evaluate_rewrite_tmc[op_non_cons]:
   >> rpt $ first_assum $ irule_at Any
 QED
 
-        
+Resume evaluate_rewrite_tmc[op_cons]:
+
+
+
+
+
+
+
+  (* just for reference*)
   >> rename [‘dest_Cons op = SOME tag’]
   >> ‘op = BlockOp (Cons tag)’ by
     (spose_not_then assume_tac
