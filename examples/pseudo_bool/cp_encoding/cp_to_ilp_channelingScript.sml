@@ -11,6 +11,92 @@ Ancestors
    Xs[i] = j ⇔ Ys[j] = i
    This is very complex as it involves bidirectional constraints
 *)
+
+Definition mk_bounds_def:
+  mk_bounds X a b =
+  [
+    mk_constraint_one_ge 1 X a;
+    mk_constraint_one_ge (-1) X (-b)
+  ]
+End
+
+Theorem mk_bounds_sem[simp]:
+  EVERY (λx. iconstraint_sem x (wi,wb)) (mk_bounds X a b) ⇔
+  varc wi X ≥ a ∧ varc wi X ≤ b
+Proof
+  simp[mk_bounds_def]>>
+  intLib.ARITH_TAC
+QED
+
+Definition encode_inverse_def:
+  encode_inverse bnd Xsi Ysi =
+  let (Xs,offx) = Xsi in
+  let (Ys,offy) = Ysi in
+  let n = LENGTH Xs in
+  if n ≠ LENGTH Ys then
+    [false_constr]
+  else
+    FLAT (
+      MAP (λX. mk_bounds X offy (offy + &n - 1)) Xs ++
+      MAP (λY. mk_bounds Y offx (offx + &n - 1)) Ys ++
+      FLAT (GENLIST
+        (λi.
+          (MAP (λX. encode_full_eq bnd X (offy + &i)) Xs) ++
+          (MAP (λY. encode_full_eq bnd Y (offx + &i)) Ys))
+        n)) ++
+    FLAT (FLAT $ GENLIST
+      (λi. GENLIST
+        (λj. encode_bvar_eq
+          (INL (Eq (EL i Xs) (offy + &j)))
+          (INL (Eq (EL j Ys) (offx + &i))))
+        n)
+      n)
+End
+
+Theorem encode_inverse_sem_1:
+  valid_assignment bnd wi ∧
+  inverse_sem Xsi Ysi wi ⇒
+  EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
+    (encode_inverse bnd Xsi Ysi)
+Proof
+  simp[encode_inverse_def]>>
+  rpt (pairarg_tac>>fs[inverse_sem_def])>>
+  rw[]
+  >~[‘encode_full_eq _ _ _’]
+  >-(
+    simp[EVERY_FLAT,EVERY_GENLIST,EVERY_MAP,reify_avar_def]>>
+    simp[EVERY_MEM,reify_reif_def])
+  >~[‘encode_bvar_eq _ _’]
+  >-(
+    rw[EVERY_FLAT,EVERY_GENLIST,reify_avar_def,reify_reif_def]>>
+    cheat)>>
+  simp[mk_bounds_def,EVERY_FLAT]>>
+  qmatch_goalsub_abbrev_tac‘EVERY P (MAP _ _)’>>
+  rw[EVERY_MAP,EVERY_MEM,Abbr‘P’]>>
+  fs[EVERY_MEM,mk_array_ind_def]>>
+  last_x_assum $ drule_then mp_tac>>
+  intLib.ARITH_TAC
+QED
+
+Theorem encode_inverse_sem_2:
+  valid_assignment bnd wi ∧
+  EVERY (λx. iconstraint_sem x (wi,wb))
+    (encode_inverse bnd Xsi Ysi) ⇒
+  inverse_sem Xsi Ysi wi
+Proof
+  simp[encode_inverse_def]>>
+  rpt (pairarg_tac>>fs[inverse_sem_def])>>
+  IF_CASES_TAC>>
+  rw[EVERY_FLAT,EVERY_GENLIST,EVERY_MAP]>>
+  gvs[EVERY_MEM]
+  >~[‘varc _ _ = _ ⇔ _’]
+  >-cheat>>
+  rw[mk_array_ind_def]>>
+  last_x_assum $ drule_then mp_tac>>
+  intLib.ARITH_TAC
+QED
+
+(*
 Definition encode_inverse_def:
   encode_inverse bnd Xsi Ysi =
   let (Xs,offx) = Xsi in
@@ -28,24 +114,7 @@ Definition encode_inverse_def:
        This requires complex encoding with element constraints *)
     [false_constr]
 End
-
-Theorem encode_inverse_sem_1:
-  valid_assignment bnd wi ∧
-  inverse_sem Xsi Ysi wi ⇒
-  EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
-    (encode_inverse bnd Xsi Ysi)
-Proof
-  cheat
-QED
-
-Theorem encode_inverse_sem_2:
-  valid_assignment bnd wi ∧
-  EVERY (λx. iconstraint_sem x (wi,wb))
-    (encode_inverse bnd Xsi Ysi) ⇒
-  inverse_sem Xsi Ysi wi
-Proof
-  cheat
-QED
+*)
 
 Definition encode_channeling_constr_def:
   encode_channeling_constr bnd c name =

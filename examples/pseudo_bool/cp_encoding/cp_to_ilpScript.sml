@@ -348,6 +348,25 @@ Proof
   metis_tac[encode_eq_sem]
 QED
 
+(* encodes that the values of the Boolean variables X and Y are equal *)
+Definition encode_bvar_eq_def:
+  encode_bvar_eq X Y =
+  [
+    ([], [(1, Pos X);(-1, Pos Y)], 0);
+    ([], [(1, Pos Y);(-1, Pos X)], 0)
+  ]
+End
+
+Theorem encode_bvar_eq_sem[simp]:
+  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_bvar_eq X Y) ⇔
+  wb X = wb Y
+Proof
+  simp[encode_bvar_eq_def,iconstraint_sem_def]>>
+  Cases_on‘wb X’>>
+  Cases_on‘wb Y’>>
+  fs[]
+QED
+
 (* Encoding a single variable Z cmp v, where cmp is among
    =, ≠, ≥, >, ≤, < and v is an integer
 *)
