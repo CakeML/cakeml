@@ -163,7 +163,7 @@ Definition is_live_def:
     (live: ('b, 'i + 'i, 'l + 'l) lit set) (latches: 'l set) =
   ∀tr.
     is_inf_trace circ reset next cnstrs latches tr ⇒
-    ∃k. ∀i. k ≤ i ⇒ preds_hold (pair_state (tr k) (tr (k + 1))) qcirc live
+    ∃k. ∀i. k ≤ i ⇒ preds_hold (pair_state (tr i) (tr (i + 1))) qcirc live
 End
 
 (* Soundness ******************************************************************)
@@ -692,6 +692,20 @@ Proof
   >> first_assum $ irule_at (Pos last) >> simp []
 QED
 
+Theorem is_inf_trace_dep_circuit:
+  is_inf_trace circ reset next cnstrs latches tr ∧
+  dep_circuit inputs latches circ ∧
+  dep_lits inputs latches cnstrs ∧
+  dep_latch_lit inputs latches reset ∧
+  dep_latch_lit inputs latches next ∧
+  (∀n. traces_agree n inputs latches tr' tr)
+  ⇒
+  is_inf_trace circ reset next cnstrs latches tr'
+Proof
+  rw [is_inf_trace_eq] >> metis_tac[is_trace_dep_circuit]
+QED
+
+
 Theorem is_trace_preds_hold_n:
   is_trace circ reset next cnstrs latches tr n
   ⇒
@@ -778,6 +792,23 @@ Definition dep_model_def:
   dep_latch_lit inputs latches next ∧
   dep_lits inputs latches preds ∧
   dep_lits inputs latches cnstrs
+End
+
+Definition pair_set_def:
+  pair_set xs = IMAGE INL xs ∪ IMAGE INR xs
+End
+
+Definition dep_qcirc_def:
+  dep_qcirc inputs qcirc live latches ⇔
+    dep_circuit (pair_set inputs) (pair_set latches) qcirc ∧
+    dep_lits (pair_set inputs) (pair_set latches) live
+End
+
+Definition dep_witness_def:
+  dep_witness circ reset next preds cnstrs inputs qcirc live latches ⇔
+    FINITE inputs ∧ FINITE latches ∧
+    dep_circuit inputs latches circ ∧
+    dep_latch_lit inputs latches next
 End
 
 Definition is_stratified_full_def:
@@ -922,6 +953,18 @@ Proof
   metis_tac[is_trace_preds_hold_n]
 QED
 
+Theorem is_inf_trace_is_witness_base_step_safe:
+  is_inf_trace circ reset next cnstrs latches tr ∧
+  is_witness_base
+    circ reset next preds cnstrs latches ∧
+  is_witness_step
+    circ reset next preds cnstrs latches
+  ⇒
+  (∀n. preds_hold (tr n) circ preds)
+Proof
+  rw [is_inf_trace_eq] >> metis_tac [is_witness_base_step_safe]
+QED
+
 Theorem is_witness_is_safe:
   is_witness
     mcirc mreset mnext mpreds mcnstrs mqcirc mlive mlatches
@@ -1009,10 +1052,6 @@ Proof
   >> rewrite_tac [ADD_ASSOC] >> simp[ADD_ASSOC]
   >> first_x_assum $ qspec_then ‘i + k’ mp_tac >> simp []
 QED
-
-Definition pair_set_def:
-  pair_set xs = IMAGE INL xs ∪ IMAGE INR xs
-End
 
 Theorem agree_on_pair:
   agree_on (pair_set inputs) (pair_set latches)
@@ -1174,15 +1213,6 @@ Proof
   >> fs [matching_transition_def, Abbr ‘g’, agree_on_iff_restrict_ss_eq]
 QED
 
-Definition dep_witness_def:
-  dep_witness circ reset next preds cnstrs inputs qcirc live latches ⇔
-    FINITE inputs ∧ FINITE latches ∧
-    dep_circuit inputs latches circ ∧
-    dep_latch_lit inputs latches next ∧
-    dep_circuit (pair_set inputs) (pair_set latches) qcirc ∧
-    dep_lits (pair_set inputs) (pair_set latches) live
-End
-
 Theorem is_witness_is_live:
   is_witness
     mcirc mreset mnext mpreds mcnstrs mqcirc mlive mlatches
@@ -1191,40 +1221,74 @@ Theorem is_witness_is_live:
     mcirc mreset mnext mpreds mcnstrs minput mlatches ∧
   dep_witness
     wcirc wreset wnext wpreds wcnstrs winput wqcirc wlive wlatches ∧
+  dep_qcirc minput mqcirc mlive mlatches ∧
+  dep_qcirc winput wqcirc wlive wlatches ∧
   is_stratified_full lt wcirc wreset wlatches
   ⇒
   is_live
     mcirc mreset mnext mcnstrs mqcirc mlive mlatches
 Proof
+  rw []
+  (* Get safety of model *)
+  >> drule_all_then assume_tac is_witness_is_safe
   (* Extend trace on model to trace on witness *)
-  rw [is_witness_def, is_live_def]
+  >> fs [is_witness_def]
+  >> rw [is_live_def]
   >> drule_all extend_model_trace_to_witness
   >> rename1 ‘is_inf_trace _ _ _ _ _ tr’
   >> disch_then $ qspec_then ‘tr’ mp_tac >> strip_tac
   >> dxrule is_inf_trace_traces_agree
   >> simp [] >> strip_tac
-
+  (* Witness constraints and predicates hold on extended trace *)
+  >> ‘∀n. preds_hold (tr' n) wcirc wpreds’ by
+    metis_tac [is_inf_trace_is_witness_base_step_safe]
+  >> ‘∀n. preds_hold (tr' n) wcirc wcnstrs’ by
+    metis_tac [is_inf_trace_cnstrs_hold]
+  (* Extended trace has valid steps for the witness *)
+  >> ‘∀n. is_next (tr' n) wcirc wnext wlatches (SND (tr' (n + 1)))’ by
+     metis_tac [is_inf_trace_is_next]
+  (* Extended trace is also a trace for the model *)
+  >> ‘is_inf_trace mcirc mreset mnext mcnstrs mlatches tr'’ by
+    (irule is_inf_trace_dep_circuit
+     >> first_assum $ irule_at (Pos last)
+     >> fs [dep_model_def]
+     >> first_assum $ irule_at (Pos last)
+     >> rw []
+     >> irule traces_agree_weaken_inputs
+     >> qexists ‘UNIV’ >> simp [])
+  (* Model constraints holds on the witness *)
+  >> ‘∀n. preds_hold (tr' n) mcirc mcnstrs’ by
+    metis_tac [is_inf_trace_cnstrs_hold]
   (* Infinite trace on witness repeats from k onwards *)
   >> qspecl_then [‘winput’, ‘wlatches’, ‘tr'’] mp_tac matching_transition_exists
   >> impl_tac >- fs [dep_witness_def]
   >> strip_tac
-  >> rename1 ‘k < _ ⇒ _’ >> qexists ‘k’ >> rw []
-
+  >> rename1 ‘k < _ ⇒ _’ >> qexists ‘k+1’ >> rw []
   (* Model is live if model is live on extended trace *)
-  (* todo *)
-
-  (* Model is live if witness is live
-     => use is_witness_liveness to go from witness to model
-     ^ maybe needs safety for assumptions that preds/constraints hold
-       (is_witness_is_safe)
-   *)
+  >> irule preds_hold_dep_circuit
+  >> fs [dep_qcirc_def]
+  >> first_assum $ irule_at (Pos hd)
+  >> simp []
+  >> qexists ‘pair_state (tr' i) (tr' (i + 1))’
+  >> reverse conj_tac
+  >-
+   (fs [traces_agree_def, agree_on_pair]
+    >> irule_at (Pos hd) agree_on_weaken_inputs
+    >> qexists ‘UNIV’ >> simp []
+    >> first_assum $ irule_at (Pos hd)
+    >> qexists ‘i’ >> simp []
+    >> irule agree_on_weaken_inputs
+    >> qexists ‘UNIV’ >> simp []
+    >> first_assum $ irule_at (Pos hd)
+    >> qexists ‘i+1’ >> simp [])
+  (* Model is live if witness is live *)
   >> fs [is_witness_liveness_def]
-  >> first_assum irule
-
-  (* Witness is live
-     => use matching_transition_live
-   *)
-  >> cheat
+  >> first_assum irule >> simp []
+  (* Witness is live *)
+  >> drule matching_transition_live
+  >> disch_then irule >> simp []
+  >> fs [dep_witness_def]
+  >> first_assum $ irule_at (Pos hd) >> simp []
 QED
 
 (* Implementation *************************************************************)
