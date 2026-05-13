@@ -2447,6 +2447,174 @@ Proof
 QED
 
 
+Theorem lemma_mem_fib_heap_melt:
+  (fts_mem (ann_fts 0w fts) * fts_mem (ann_fts 0w fts') * frame)
+    (fun2set (m,dm)) /\
+  fib_heap_melt (head_key fts,head_key fts',m,dm) = (a',m',c) ==>
+  (fts_mem (ann_fts 0w (fts ++ fts')) * frame)
+    (fun2set (m',dm)) /\
+  c = T /\
+  (a' = head_key (fts ++ fts') /\ fts_hd_value fts <=+ fts_hd_value fts' \/
+  a' = head_key (fts' ++ fts) /\ fts_hd_value fts' <=+ fts_hd_value fts)
+Proof
+  disch_tac >> fs[] >>
+  pop_assum mp_tac >>
+  Cases_on `fts` >> Cases_on `fts'` >>
+  simp[fib_heap_melt_def,read_mem_def,write_mem_def,next_off_def,before_off_def,
+       head_key_def,head_key_t_def]
+  >- (
+    strip_tac >> gvs[] >>
+    fs[ann_fts_def,fts_mem_def,SEP_CLAUSES]
+    )
+  >- (
+    Cases_on `h` >>
+    fs[ann_fts_def, ann_fts_seg_def, last_key_def,fts_mem_def,
+       SEP_CLAUSES, head_key_def, ft_mem_def, fill_anode_def,
+       fill_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
+    full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR] >>
+    SEP_R_TAC >> strip_tac >> gvs[] >>
+    simp[fts_hd_value_def]
+    )
+  >- (
+    Cases_on `h` >>
+    fs[ann_fts_def, ann_fts_seg_def, last_key_def,fts_mem_def,
+       SEP_CLAUSES, head_key_def, ft_mem_def, fill_anode_def,
+       fill_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
+    full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR] >>
+    SEP_R_TAC >> strip_tac >> gvs[] >>
+    simp[fts_hd_value_def]
+    ) >>
+  Cases_on `h` >> Cases_on `h'` >>
+  Cases_on `t` using SNOC_CASES >>
+  Cases_on `t'` using SNOC_CASES >>
+  fs[SNOC_APPEND,REVERSE_APPEND] >>
+  fs[ann_fts_def, ann_fts_seg_def, last_key_def,last_key_t_def, fts_mem_def,
+     SEP_CLAUSES, head_key_def, ft_mem_def, fill_anode_def,
+     fill_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
+  full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR] >>
+  IF_CASES_TAC
+  >- (
+    SEP_R_TAC >> simp[] >>
+    SEP_R_TAC >> simp[] >>
+    strip_tac >> gvs[] >>
+    SEP_W_TAC >> simp[] >>
+    SEP_R_TAC >> fs[fts_hd_value_def]
+    )
+  >- (
+    SEP_R_TAC >> simp[] >>
+    SEP_R_TAC >> simp[] >>
+    strip_tac >> gvs[] >>
+    SEP_W_TAC >> simp[] >>
+    SEP_R_TAC >> fs[fts_hd_value_def] >>
+    imp_res_tac WORD_NOT_LOWER_EQUAL >>
+    simp[WORD_LOWER_IMP_LOWER_OR_EQ]
+    )
+  >- (
+    Cases_on `x` >>
+    SEP_R_TAC >>
+    fs[REVERSE_APPEND,ann_fts_seg_append_thm,fts_mem_append_thm] >>
+    fs[ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def, fts_mem_def,
+       SEP_CLAUSES, head_key_def, ft_mem_def, fill_anode_def,
+       fill_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
+    SEP_R_TAC >> simp[] >>
+    strip_tac >> gvs[] >>
+    SEP_W_TAC >> simp[] >>
+    fs[head_key_t_pull_last_thm] >>
+    SEP_R_TAC >> fs[fts_hd_value_def]
+    )
+  >- (
+    Cases_on `x` >>
+    SEP_R_TAC >>
+    fs[REVERSE_APPEND,ann_fts_seg_append_thm,fts_mem_append_thm] >>
+    fs[ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def, fts_mem_def,
+       SEP_CLAUSES, head_key_def, ft_mem_def, fill_anode_def,
+       fill_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
+    SEP_R_TAC >> simp[] >>
+    strip_tac >> gvs[] >>
+    SEP_W_TAC >> simp[] >>
+    fs[head_key_t_pull_last_thm] >>
+    SEP_R_TAC >> fs[fts_hd_value_def] >>
+    imp_res_tac WORD_NOT_LOWER_EQUAL >>
+    simp[WORD_LOWER_IMP_LOWER_OR_EQ]
+    )
+  >- (
+    Cases_on `x` >>
+    SEP_R_TAC >>
+    fs[REVERSE_APPEND,ann_fts_seg_append_thm,fts_mem_append_thm] >>
+    fs[ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def, fts_mem_def,
+       SEP_CLAUSES, head_key_def, ft_mem_def, fill_anode_def,
+       fill_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
+    fs[ann_fts_seg_append_thm,fts_mem_append_thm] >>
+    fs[ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def, fts_mem_def,
+       SEP_CLAUSES, head_key_def, ft_mem_def, fill_anode_def,
+       fill_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
+    SEP_R_TAC >> simp[] >>
+    strip_tac >> gvs[] >>
+    SEP_W_TAC >> simp[] >>
+    fs[head_key_t_pull_last_thm] >>
+    SEP_R_TAC >> fs[fts_hd_value_def] >>
+    simp[last_key_t_append_thm,last_key_t_def,head_key_t_def] >>
+    full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR]
+    )
+  >- (
+    Cases_on `x` >>
+    SEP_R_TAC >>
+    fs[REVERSE_APPEND,ann_fts_seg_append_thm,fts_mem_append_thm] >>
+    fs[ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def, fts_mem_def,
+       SEP_CLAUSES, head_key_def, ft_mem_def, fill_anode_def,
+       fill_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
+    fs[ann_fts_seg_append_thm,fts_mem_append_thm] >>
+    fs[ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def, fts_mem_def,
+       SEP_CLAUSES, head_key_def, ft_mem_def, fill_anode_def,
+       fill_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
+    SEP_R_TAC >> simp[] >>
+    strip_tac >> gvs[] >>
+    SEP_W_TAC >> simp[] >>
+    fs[head_key_t_pull_last_thm,last_key_t_pull_thm] >>
+    SEP_R_TAC >> fs[fts_hd_value_def] >>
+    imp_res_tac WORD_NOT_LOWER_EQUAL >>
+    simp[WORD_LOWER_IMP_LOWER_OR_EQ] >>
+    simp[head_key_def,head_key_t_def]
+    )
+  >- (
+    Cases_on `x` >> Cases_on `x'` >>
+    fs[REVERSE_APPEND,ann_fts_seg_append_thm,fts_mem_append_thm] >>
+    fs[ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def, fts_mem_def,
+       SEP_CLAUSES, head_key_def, ft_mem_def, fill_anode_def,
+       fill_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
+    fs[ann_fts_seg_append_thm,fts_mem_append_thm] >>
+    fs[ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def, fts_mem_def,
+       SEP_CLAUSES, head_key_def, ft_mem_def, fill_anode_def,
+       fill_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
+    SEP_R_TAC >> simp[] >>
+    strip_tac >> gvs[] >>
+    SEP_W_TAC >> simp[] >>
+    fs[head_key_t_append_thm,head_key_t_pull_last_thm] >>
+    simp[last_key_t_append_thm,last_key_t_def,head_key_t_def] >>
+    full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR] >>
+    SEP_R_TAC >> fs[fts_hd_value_def]
+    ) >>
+  Cases_on `x` >> Cases_on `x'` >>
+  fs[REVERSE_APPEND,ann_fts_seg_append_thm,fts_mem_append_thm] >>
+  fs[ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def, fts_mem_def,
+     SEP_CLAUSES, head_key_def, ft_mem_def, fill_anode_def,
+     fill_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
+  fs[ann_fts_seg_append_thm,fts_mem_append_thm] >>
+  fs[ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def, fts_mem_def,
+     SEP_CLAUSES, head_key_def, ft_mem_def, fill_anode_def,
+     fill_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
+  SEP_R_TAC >> simp[] >>
+  strip_tac >> gvs[] >>
+  SEP_W_TAC >> simp[] >>
+  fs[head_key_t_pull_last_thm] >>
+  SEP_R_TAC >> fs[fts_hd_value_def] >>
+  imp_res_tac WORD_NOT_LOWER_EQUAL >>
+  simp[WORD_LOWER_IMP_LOWER_OR_EQ] >>
+  simp[head_key_def,head_key_t_def] >>
+  simp[head_key_t_append_thm,head_key_t_pull_last_thm] >>
+  simp[last_key_t_append_thm,last_key_t_def,head_key_t_def]
+QED
+
 
 
 Theorem fib_heap_melt:
@@ -2462,179 +2630,28 @@ Proof
   full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR] >>
   rpt gen_tac >> strip_tac >>
   simp [PULL_EXISTS] >>
-  qspecl_then [`frame`,`fts`,`fts'`,`0w`,`m`,`dm`,`a'`,`m'`,`c`]
-    assume_tac lemma_fib_heap_insert_NintoN >>
-  rfs[] >>
-  qpat_x_assum `fib_heap_melt (head_key fts,head_key fts',m,dm) = (a',m',c)`
-    mp_tac >>
-  qpat_x_assum `(fts_mem (ann_fts 0w fts) * fts_mem (ann_fts 0w fts') * frame)
-    (fun2set (m,dm))` mp_tac >>
-  Cases_on `fts` >> Cases_on `fts'` >> simp[]
+  gvs[] >>
+  imp_res_tac lemma_mem_fib_heap_melt
   >- (
-    simp[fib_heap_melt_def,head_key_def,head_key_t_def] >>
-    strip_tac >> strip_tac >> gvs[] >>
-    qexists `[]` >> simp[] >>
-    drule lemma_empty_heap >> strip_tac >> gvs[head_key_t_def]
+    qexists `fts ++ fts'` >> simp[] >>
+    qspecl_then [`fh2`,`fh1`,`fts'`,`fts`] assume_tac lemma_logical_melt >>
+    rfs[DISJOINT_SYM,fib_heap_inv_comm_thm]
     )
   >- (
-    simp[fib_heap_melt_def,head_key_def,head_key_t_def] >>
-    Cases_on `h` >>
-    simp[ann_fts_def, ann_fts_seg_def, last_key_def,fts_mem_def,
-         SEP_CLAUSES, head_key_def, ft_mem_def, fill_anode_def,
-         fill_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
-    full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR] >>
-    strip_tac >> strip_tac >> gvs[] >>
-    qexists `(FibTree a' v l::t)` >> simp[] >>
-    drule lemma_empty_heap >> strip_tac >> gvs[head_key_t_def]
+    qexists `fts' ++ fts` >> simp[] >>
+    qspecl_then [`fh1`,`fh2`,`fts`,`fts'`] assume_tac lemma_logical_melt >>
+    rfs[DISJOINT_SYM,fib_heap_inv_comm_thm] >>
+    simp[fts_mem_ann_sym_thm]
     )
   >- (
-    simp[fib_heap_melt_def,head_key_def,head_key_t_def] >>
-    Cases_on `h` >>
-    simp[ann_fts_def, ann_fts_seg_def, last_key_def,fts_mem_def,
-         SEP_CLAUSES, head_key_def, ft_mem_def, fill_anode_def,
-         fill_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
-    full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR] >>
-    strip_tac >> strip_tac >> gvs[] >>
-    qexists `(FibTree a' v l::t)` >> simp[] >>
-    drule lemma_empty_heap >> strip_tac >> gvs[head_key_t_def]
+    qexists `fts ++ fts'` >> simp[] >>
+    qspecl_then [`fh2`,`fh1`,`fts'`,`fts`] assume_tac lemma_logical_melt >>
+    rfs[DISJOINT_SYM,fib_heap_inv_comm_thm]
     ) >>
-  Cases_on `h` >> Cases_on `h'` >>
-  simp[fib_heap_melt_def,head_key_def,head_key_t_def,read_mem_def,
-       write_mem_def,before_off_def,next_off_def] >>
-  simp[ann_fts_def, ann_fts_seg_def, last_key_def,fts_mem_def,
-       SEP_CLAUSES, head_key_def, ft_mem_def, fill_anode_def,
-       fill_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
-  full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR] >>
-  IF_CASES_TAC >>
-  strip_tac >>
-  SEP_R_TAC >>
-  >- (
-    simp[]
-    Cases_on `t` using SNOC_CASES >> Cases_on `t'` using SNOC_CASES >>
-    fs[REVERSE_APPEND,SNOC_APPEND,last_key_t_def,head_key_t_def]
-    >- (
-      SEP_R_TAC >>
-      strip_tac >> gvs[] >>
-      SEP_W_TAC >>
-      SEP_R_TAC >>
-      qexists `[FibTree a' v' l'] ++ [FibTree k v l]` >>
-      qspecl_then [`0w`,`[FibTree k v l]`,`[FibTree a' v' l']`]
-        assume_tac fts_mem_ann_sym_thm >> gvs[] >>
-      simp[head_key_t_def]
-      qspecl_then [`fh1`, `fh2`,`[FibTree k v l]`,`[FibTree a' v' l']`]
-        mp_tac lemma_logical_melt >>
-      simp[fts_hd_value_def]
-      )
-    >- (
-      pop_assum mp_tac >>
-      simp[ann_fts_seg_append_thm,fts_mem_append_thm] >>
-      Cases_on `x` >>
-      simp[ann_fts_def, ann_fts_seg_def, last_key_def,fts_mem_def,
-         SEP_CLAUSES, head_key_def, ft_mem_def, fill_anode_def,
-         fill_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
-      strip_tac >>
-      SEP_R_TAC >>
-      strip_tac >> gvs[] >>
-      SEP_W_TAC >>
-      fs[head_key_t_def]
-      SEP_R_TAC >>
-      qexists `(FibTree k v l::FibTree a' v' l'::
-        (l'' ++ [FibTree k'' v'' l'³']))` >>
-      simp[]
-
-      SEP_R_TAC >>
-
-
-
-  drule_all lemma_fib_heap_melt_return >>
-  strip_tac >> gvs[]
-  >- (
-    qexists `fts ++ fts'` >>
-    Cases_on `fts` >> fs[]
-    >- (
-      fs[fib_heap_melt_def,read_mem_def,write_mem_def,head_key_def,head_key_t_def] >>
-      drule_all lemma_empty_heap >> strip_tac >> gvs[] >>
-      Cases_on `fts'` >> fs[head_key_t_def] >>
-      Cases_on `h` >>
-      fs[ann_fts_def, ann_fts_seg_def, last_key_def,fts_mem_def,
-         SEP_CLAUSES, head_key_def, ft_mem_def, fill_anode_def,
-         fill_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
-      full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR]
-      ) >>
-    Cases_on `h` >> simp[head_key_def,head_key_t_def]
-
-    simp[head_key_append_thm]
-
-  pop_assum mp_tac >>
-  Cases_on `fts'`
-  >- (
-    fs[head_key_def,head_key_t_def] >>
-    qspecl_then [`fh2`,`[]`] assume_tac lemma_empty_heap2 >>
-    fs[fts_mem_def, ann_fts_def,SEP_CLAUSES,head_key_def,head_key_t_def] >>
-    simp[fib_heap_melt_def] >>
-    strip_tac >>
-    qexists `fts` >> gvs[]
-    ) >>
-  Cases_on `h`>> gvs[head_key_def,head_key_t_def] >>
-  Cases_on `fts`
-  >- (
-    qspecl_then [`frame`,`[]`,`(FibTree b v l::t)`,`0w`,`m`,`dm`,`a'`,`m'`,`c`]
-      assume_tac lemma_fib_heap_insert_NintoN >>
-    qspecl_then [`fh1`,`[]`] assume_tac lemma_empty_heap2 >>
-    gvs[head_key_def,head_key_t_def] >>
-    strip_tac >> gvs[] >>
-    qexists `(FibTree b v l::t)` >> simp[] >>
-    pop_assum mp_tac >>
-    simp[fib_heap_melt_def] >>
-    fs[ann_fts_def, ann_fts_seg_def, last_key_def,fts_mem_def,
-       SEP_CLAUSES, head_key_def, ft_mem_def, fill_anode_def,
-       fill_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
-    full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR]
-    ) >>
-  qspecl_then [`frame`,`(h::t')`,`(FibTree b v l::t)`,`0w`,`m`,`dm`,`a'`,`m'`,`c`]
-    assume_tac lemma_fib_heap_insert_NintoN >>
-  strip_tac >>
-  Cases_on `h` >>
-  gvs[head_key_def,head_key_t_def] >>
-  pop_assum mp_tac >>
-  pure_rewrite_tac[GSYM (cj 2 APPEND)] >>
-  simp[fib_heap_melt_def,read_mem_def,write_mem_def,next_off_def,before_off_def] >>
-  fs[ann_fts_def, ann_fts_seg_def, last_key_def,fts_mem_def,
-     SEP_CLAUSES, head_key_def, ft_mem_def, fill_anode_def,
-     fill_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
-  full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR] >>
-  IF_CASES_TAC >>
-  SEP_R_TAC >> simp[] >>
-  SEP_R_TAC >> simp[] >>
-
-  qexists `(h::(t' ++ FibTree b v l::t))` >>
-  cheat
-(*
-  fs[ann_fts_def, ann_fts_seg_def, last_key_def,fts_mem_def,
-     SEP_CLAUSES, head_key_def, ft_mem_def, fill_anode_def,
-     fill_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
-  full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR] >>
-  SEP_R_TAC >>
-  IF_CASES_TAC >>
-  Cases_on `t` using SNOC_CASES >>
-  Cases_on `t'` using SNOC_CASES >>
-  fs[last_key_t_def,head_key_t_def] >> SEP_R_TAC
-  >- (
-    strip_tac >> gvs[] >>
-    SEP_W_TAC >>
-    SEP_R_TAC >>
-
-  qspecl_then [`frame`,`(h::t')`,`(FibTree b v l::t)`,`0w`,`m`,`dm`,`a'`,`m'`,`c`]
-    assume_tac lemma_fib_heap_insert_NintoN >>
-  rfs[head_key_def,head_key_t_def] >>
-
-(* TODO: WORKING *)
-
-
-
-
-  strip_tac >> gvs[] >>
-  cheat*)
+  qexists `fts' ++ fts` >> simp[] >>
+  qspecl_then [`fh1`,`fh2`,`fts`,`fts'`] assume_tac lemma_logical_melt >>
+  rfs[DISJOINT_SYM,fib_heap_inv_comm_thm] >>
+  simp[fts_mem_ann_sym_thm]
 QED
 
 
