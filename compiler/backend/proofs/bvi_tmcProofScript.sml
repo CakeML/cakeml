@@ -1535,8 +1535,7 @@ Resume evaluate_rewrite_tmc[op_cons]:
   >> imp_res_tac bvi_to_cb_wf >> gvs []
   >> rename [‘bvi_to_cb loc tag args = SOME (bs,CallBlock tag left child right)’]
   (* Phase 1 theorem in s *)
-  >> drule_then drule evaluate_bvi_to_cb
-  >> impl_tac >- simp []
+  >> drule_all evaluate_bvi_to_cb
   >> simp [Once evaluate_def]
   >> strip_tac
   >> gvs [CaseEq "prod"]
@@ -1553,17 +1552,12 @@ Resume evaluate_rewrite_tmc[op_cons]:
   >> gvs []
   >> rename [‘evaluate (bs,env2,s') = (as',u')’]
   >> rename [‘f ⊑ f'’]
-
-  >> reverse $ gvs [CaseEq "result"]
-  >-
-   ((*HERE*)
-        )
-                
   (* Phase 1 theorem in s' *)
   >> Cases_on ‘evaluate ([Op (BlockOp (Cons tag)) args],env2,s')’
   >> rename [‘evaluate ([Op (BlockOp (Cons tag)) args],env2,s') = (r',t')’]
-  >> drule_then drule evaluate_bvi_to_cb
-  >> impl_tac >- (spose_not_then assume_tac >> gvs [])
+  >> drule_all evaluate_bvi_to_cb
+  >> simp [Once evaluate_def]
+  >> strip_tac
         
 (*
   (* Phase 1 theorem in s *)
