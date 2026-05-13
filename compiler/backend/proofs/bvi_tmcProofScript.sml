@@ -2102,12 +2102,7 @@ Proof
   >-
    (gvs [cb_to_hb_def, hb_to_mutcons_def]
     >> gvs [evaluate_def, do_app_def, do_app_aux_def, backend_commonTheory.small_enough_int_def]
-    >> gvs [PULL_EXISTS]
-                
-    >> gvs [REVERSE_APPEND, TAKE_APPEND, GSYM MAP_REVERSE, GSYM MAP_TAKE, TAKE_LENGTH_ID, LENGTH_REVERSE, EL_APPEND_EQN]
-    >> gvs [EL_APPEND_EQN]
-    >> gvs [DROP_APPEND, GSYM MAP_DROP]
-                         
+    >> gvs [PULL_EXISTS] 
     (* right *)
     >> CASE_TAC
     >> drule evaluate_var_list
@@ -2119,9 +2114,6 @@ Proof
     >> gvs [REVERSE_APPEND, TAKE_APPEND, DROP_APPEND, GSYM MAP_REVERSE, GSYM MAP_TAKE, GSYM MAP_DROP, DROP_LENGTH_TOO_LONG]
     >> ‘TAKE (LENGTH right) (REVERSE right) = REVERSE right’ by (gvs [LENGTH_REVERSE, TAKE_LENGTH_ID])
     >> simp [EL_APPEND_EQN]
-    >> 
-
-            
     >> qspecl_then [‘call_args’, ‘env2’, ‘r'’, ‘s’, ‘v5'’] mp_tac evaluate_var_list
     >> disch_then drule
     >> impl_tac >- gvs [CaseEq "result"]
@@ -2130,32 +2122,19 @@ Proof
     >> disch_then drule
     >> strip_tac >> gvs []
     >> drule evaluate_var_list_stateless
-    >> disch_then $ qspec_then ‘’
-                       
-    >> CASE_TAC
-    >> CASE_TAC >> gvs [evaluate_def, do_app_def, do_app_aux_def, backend_commonTheory.small_enough_int_def]
-    >> gvs [CaseEq "prod"]
+    >> disch_then $ qspec_then ‘r' with refs := r'.refs⟨
+                                                  (LEAST ptr. ptr ∉ FDOM r'.refs) ↦
+                                                  MutBlock tag (MAP (λn. env2❲n❳) (REVERSE right))
+                                                  (Number 0)
+                                                  (MAP (λn. env2❲n❳) (REVERSE left))⟩’ mp_tac
+    >> strip_tac >> gvs []
+    >> gvs [do_app_def, do_app_aux_def]
+    >> ‘backend_common$small_enough_int (&LENGTH right)’ by cheat
+    >> gvs [CaseEq "option", bvlSemTheory.find_code_def]
+    >> 
+
+
         
-    >-
-     (gvs [evaluate_def, do_app_def, do_app_aux_def, backend_commonTheory.small_enough_int_def]
-      >> CASE_TAC
-      >> drule evaluate_var_list
-      >> impl_tac
-      >- cheat (* right cannot fail *)
-      >> strip_tac >> gvs []
-      >> qpat_x_assum ‘evaluate ([cb_to_bvi _ _],_,_) = (_,_)’ mp_tac
-      >> gvs [evaluate_def, optimise_call_def, cb_to_bvi_def]
-      >> CASE_TAC
-      >> drule evaluate_shift_vars
-      >> disch_then $ qspec_then ‘[RefPtr F (LEAST ptr. ptr ∉ FDOM r.refs)]’ mp_tac
-      >> strip_tac >> gvs []
-      >> cheat
-
-
-     )
-    >> cheat)
-  >> cheat
-
   rw []
   >> imp_res_tac env_rel_strip_extras
   >> imp_res_tac env_rel_length_opt
