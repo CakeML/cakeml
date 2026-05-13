@@ -163,21 +163,8 @@ Theorem bvi_to_cb_aux_sing:
     ∃child.
       cb = CallBlock tag [] child []
 Proof
-  cheat (*
   rw []
-  >> Cases_on ‘arg’ >> gvs [bvi_to_cb_aux_def, bind_def]
-  >-
-   (pop_assum mp_tac
-    >> IF_CASES_TAC >> gvs [CaseEq "prod"]
-    >> strip_tac
-    >> gvs [])
-  >> pop_assum mp_tac
-  >> CASE_TAC >> gvs []
-  >> CASE_TAC >> gvs []
-  >> CASE_TAC >> gvs []
-  >> CASE_TAC >> gvs []
-  >> strip_tac
-  >> gvs [] *)
+  >> Cases_on ‘arg’ >> gvs [bvi_to_cb_aux_def, bind_def, CaseEq "prod", CaseEq "sum", CaseEq "option"]
 QED
 
 Theorem bvi_to_cb_aux_wf:
@@ -186,45 +173,8 @@ Theorem bvi_to_cb_aux_wf:
     ∃l child r.
       cb = CallBlock tag l child r
 Proof
-  cheat (*
   recInduct bvi_to_cb_aux_ind
-  >> rw []
-  >~ [‘bvi_to_cb_aux loc tag []’] >-
-   gvs [bvi_to_cb_aux_def]
-  >~ [‘bvi_to_cb_aux loc tag [Call t loc' args h]’] >-
-   (gvs [bvi_to_cb_aux_def]
-    >> pop_assum mp_tac
-    >> reverse IF_CASES_TAC >> gvs [bind_def]
-    >> CASE_TAC >> gvs [CaseEq "prod"]
-    >> strip_tac
-    >> gvs [])
-  >~ [‘bvi_to_cb_aux loc tag [Op op args]’] >-
-   (gvs [bvi_to_cb_aux_def]
-    >> pop_assum mp_tac
-    >> CASE_TAC >> gvs []
-    >> CASE_TAC >> gvs []
-    >> CASE_TAC >> gvs []
-    >> CASE_TAC >> gvs []
-    >> strip_tac
-    >> gvs [])
-  >~ [‘bvi_to_cb_aux loc tag [Var n]’] >-
-   (gvs [bvi_to_cb_aux_def])
-  >~ [‘bvi_to_cb_aux loc tag [If x1 x2 x3]’] >-
-   (gvs [bvi_to_cb_aux_def])
-  >~ [‘bvi_to_cb_aux loc tag [Let xs x]’] >-
-   (gvs [bvi_to_cb_aux_def])
-  >~ [‘bvi_to_cb_aux loc tag [Raise x]’] >-
-   (gvs [bvi_to_cb_aux_def])
-  >~ [‘bvi_to_cb_aux loc tag [Tick x]’] >-
-   (gvs [bvi_to_cb_aux_def])
-  >~ [‘bvi_to_cb_aux loc tag [Force _ _]’] >-
-   (gvs [bvi_to_cb_aux_def])
-  >~ [‘bvi_to_cb_aux loc tag (x::y::xs)’] >-
-   (gvs [bvi_to_cb_aux_def]
-    >> Cases_on ‘bvi_to_cb_aux loc tag (y::xs)’ >> gvs []
-    >> Cases_on ‘x'’ >> gvs []
-    >> reverse $ Cases_on ‘r’ >> gvs [shift_cb_def]
-    >> gvs [CaseEq "option", CaseEq "prod", CaseEq "sum", CaseEq "list"]) *)
+  >> rw [] >> gvs [bvi_to_cb_aux_def, bind_def, shift_cb_def, CaseEq "prod", CaseEq "option", CaseEq "sum", CaseEq "list"]
 QED
 
 (* Calls the above but throws away an unoptimisable BlockOp Cons. *)
