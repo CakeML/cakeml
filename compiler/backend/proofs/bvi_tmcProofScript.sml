@@ -1526,35 +1526,9 @@ Resume evaluate_rewrite_tmc[op_non_cons]:
 QED
 
 Resume evaluate_rewrite_tmc[op_cons]:
-
-
-
-
-
-
-
-  (* just for reference*)
-  >> rename [‘dest_Cons op = SOME tag’]
-  >> ‘op = BlockOp (Cons tag)’ by
-    (spose_not_then assume_tac
-     >> Cases_on ‘op’ >> gvs [dest_Cons_def]
-     >> Cases_on ‘b’ >> gvs [dest_Cons_def])
-  >> gvs [rewrite_wrapper_cons_def]
-  >> CASE_TAC >> gvs []
-  >-
-   (strip_tac
-    >> gvs [rewrite_worker_cons_def]
-    >> ho_match_mp_tac evaluate_fill_hole
-    >> gvs [evaluate_def]
-    >> rpt $ first_assum $ irule_at Any)
-  >> CASE_TAC >> gvs []
-  >> CASE_TAC >> gvs []
-  >> CASE_TAC >> gvs []
-  >> rename [‘bvi_to_cb loc tag args = SOME (bs,cb)’]
-  >> rename [‘cb_to_hb cb = (hb,call_ts,call_args)’]
-
+  Cases_on ‘bvi_to_cb’
   (* Phase 1 theorem in s *)
-  >> ‘evaluate ([Op (BlockOp (Cons tag)) args],env,s) = (Rval [v],t)’ by gvs [evaluate_def]
+
   >> drule_then drule evaluate_bvi_to_cb
   >> impl_tac >- simp []
   >> gvs [evaluate_def]
