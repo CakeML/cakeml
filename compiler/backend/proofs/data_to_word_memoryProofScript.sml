@@ -642,10 +642,12 @@ Definition evaluated_thunk_ptr_def:
   evaluated_thunk_ptr refs n ⇔ ∃v. lookup n refs = SOME (Thunk Evaluated v)
 End
 
-Definition visit_v_def:
-  visit_v (Block a0 a1 a2) = K 0 (MAP visit_v a2) ∧
-  visit_v _ = 0:num
-End
+val v_ind =
+  TypeBase.induction_of``:v``
+  |> Q.SPECL[`P`,`EVERY P`]
+  |> SIMP_RULE(srw_ss())[]
+  |> UNDISCH_ALL |> CONJUNCT1
+  |> DISCH_ALL
 
 Theorem v_inv_related_lemma[local]:
   ∀ck w refs x f tf heap1.
@@ -656,15 +658,32 @@ Theorem v_inv_related_lemma[local]:
       EVERY (λn. n ∉ evaluated_thunk_ptr refs ⇒ f ' n ∈ FDOM g) (get_refs w)
 Proof
   completeInduct_on `ck` \\ gvs []
-  \\ ho_match_mp_tac visit_v_ind \\ rpt conj_tac
+  \\ ho_match_mp_tac v_ind \\ rpt conj_tac
   \\ ntac 2 (rpt gen_tac \\ rpt disch_tac) \\ gvs []
+  >- (
+    simp [get_refs_def]
+    \\ gvs [v_inv_def]
+    \\ Cases_on `small_int (:α) i` \\ gvs []
+    \\ simp [Once v_inv_ck_cases, ADDR_APPLY_def]
+    \\ gvs [gc_related_def, Bignum_def]
+    \\ pairarg_tac \\ gvs []
+    \\ first_x_assum drule_all \\ rw []
+    \\ simp [ADDR_MAP_def])
+  >- (
+    simp [get_refs_def]
+    \\ gvs [v_inv_def]
+    \\ simp [Once v_inv_ck_cases, ADDR_APPLY_def]
+    \\ gvs [gc_related_def, Word64Rep_def]
+    \\ IF_CASES_TAC \\ gvs []
+    \\ first_x_assum drule_all \\ rw []
+    \\ simp [ADDR_MAP_def])
   >- (
     reverse conj_tac
     >- (
       gvs [get_refs_def, EVERY_FLAT, EVERY_MAP]
       \\ gvs [EVERY_MEM] \\ rw []
       \\ first_x_assum drule \\ gvs [v_inv_def]
-      \\ Cases_on `a2 = []` \\ gvs []
+      \\ Cases_on `l = []` \\ gvs []
       \\ drule_all LIST_REL_MEM_IMP \\ simp [] \\ strip_tac
       \\ ntac 2 (disch_then drule) \\ simp []
       \\ impl_tac \\ gvs []
@@ -672,9 +691,9 @@ Proof
       \\ gvs [gc_related_def]
       \\ first_x_assum drule \\ simp [BlockRep_def] \\ rw []
       \\ res_tac \\ gvs [])
-    \\ qpat_x_assum `∀w. MEM w _ ⇒ _` kall_tac
+    \\ qpat_x_assum `EVERY _ _` kall_tac
     \\ gvs [v_inv_def]
-    \\ Cases_on `a2 = []` \\ gvs [ADDR_APPLY_def]
+    \\ Cases_on `l = []` \\ gvs [ADDR_APPLY_def]
     \\ simp [Once v_inv_ck_cases]
     \\ gvs [gc_related_def, BlockRep_def]
     \\ first_assum drule_all \\ strip_tac \\ fs []
@@ -691,23 +710,6 @@ Proof
     \\ rw []
     \\ first_x_assum drule_all \\ rw []
     \\ res_tac \\ gvs [])
-  >- (
-    simp [get_refs_def]
-    \\ gvs [v_inv_def]
-    \\ Cases_on `small_int (:α) w` \\ gvs []
-    \\ simp [Once v_inv_ck_cases, ADDR_APPLY_def]
-    \\ gvs [gc_related_def, Bignum_def]
-    \\ pairarg_tac \\ gvs []
-    \\ first_x_assum drule_all \\ rw []
-    \\ simp [ADDR_MAP_def])
-  >- (
-    simp [get_refs_def]
-    \\ gvs [v_inv_def]
-    \\ simp [Once v_inv_ck_cases, ADDR_APPLY_def]
-    \\ gvs [gc_related_def, Word64Rep_def]
-    \\ IF_CASES_TAC \\ gvs []
-    \\ first_x_assum drule_all \\ rw []
-    \\ simp [ADDR_MAP_def])
   >- (
     simp [get_refs_def]
     \\ gvs [v_inv_def]
@@ -11104,13 +11106,6 @@ Termination
  \\ res_tac \\ fs[] \\ rfs[]
  \\ first_x_assum(qspecl_then[`0`,`t1`]mp_tac) \\ rw[]
 End
-
-val v_ind =
-  TypeBase.induction_of``:v``
-  |> Q.SPECL[`P`,`EVERY P`]
-  |> SIMP_RULE(srw_ss())[]
-  |> UNDISCH_ALL |> CONJUNCT1
-  |> DISCH_ALL
 
 Theorem memory_rel_Block_MEM:
    memory_rel c be ts refs sp st m dm ((Block ts' n ls,(v:'a word_loc))::vars) ∧
