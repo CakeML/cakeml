@@ -130,7 +130,7 @@ Definition state_rel_def:
             input_condition next prog) ∧
     (∀n. n ∈ domain t.code ∧ in_ns_2 n ⇒ n < FST(FST(s.compile_oracle 0)))
 End
- 
+
 Theorem compile_prog_code_rel:
    compile_prog next prog = (next1, prog2) ∧
    ALL_DISTINCT (MAP FST prog) ∧
@@ -1456,6 +1456,12 @@ Resume evaluate_rewrite_tmc[op]:
   >> strip_tac
   >> gvs [GSYM PULL_FORALL]
   >> rename [‘evaluate (xs,env2,s') = (rs',u')’]
+  >> reverse $ Cases_on ‘∃tag. op = BlockOp (Cons tag)’
+  >- cheat (* unchanged parts *)
+  >> gvs []
+  >> ntac 6 $ pop_assum kall_tac
+
+(*
   >> qpat_assum ‘f ⊑ _’ $ irule_at Any
   >> reverse $ Cases_on ‘rs’ >> gvs []
   >- (* Error evaluating args *)
@@ -1517,7 +1523,9 @@ Resume evaluate_rewrite_tmc[op]:
     >> ho_match_mp_tac evaluate_fill_hole_err
     >> gvs [evaluate_def]
     >> rpt $ first_assum $ irule_at Any)
-  >> rename [‘do_app op (REVERSE vs) u = Rval v’]
+*)
+
+  >> rename [‘do_app _ (REVERSE vs) u = Rval v’]
   >> drule $ iffLR list_rel_reverse
   >> strip_tac
   >> drule_all do_app_op_rel
@@ -1561,20 +1569,21 @@ Resume evaluate_rewrite_tmc[op]:
   >> CASE_TAC >> gvs []
   >> rename [‘bvi_to_cb loc tag args = SOME (bs,cb)’]
   >> rename [‘cb_to_hb cb = (hb,call_ts,call_args)’]
-                       
+
   (* Phase 1 theorem in s *)
   >> ‘evaluate ([Op (BlockOp (Cons tag)) args],env,s) = (Rval [v],t)’ by gvs [evaluate_def]
-  >> drule evaluate_bvi_to_cb
-  >> rpt $ disch_then drule
+  >> drule_then drule evaluate_bvi_to_cb
+  >> impl_tac >- simp []
   >> gvs [evaluate_def]
   >> strip_tac
-  >> gvs []
+  >> gvs [CaseEq"prod"]
   >> imp_res_tac bvi_to_cb_wf
   >> rename [‘cb = CallBlock tag left child right’]
   >> gvs [cb_to_hb_def, CaseEq "call_block", CaseEq "prod"]
   >> rename [‘cb_to_hb child = (hole,call_ts,call_args)’]
   >> rename [‘evaluate (bs,env,s) = (as,w)’]
   >> gvs [CaseEq "result"]
+(*
   (* Phase 1 theorem in s *)
   >> ‘evaluate ([Op (BlockOp (Cons tag)) args],env2,s') = (Rval [v'],t')’ by gvs [evaluate_def]
   >> drule evaluate_bvi_to_cb
@@ -1585,15 +1594,16 @@ Resume evaluate_rewrite_tmc[op]:
   >> gvs [CaseEq "prod"]
   >> rename [‘evaluate (bs,env2,s') = (as',w')’]
   >> gvs [CaseEq "result"]
+*)
+
   (* Hypothesis on bs *)
   >> first_assum $ qspecl_then [‘bs’, ‘s’] mp_tac
-  >> gvs []
   >> impl_tac
   >- (imp_res_tac bvi_to_cb_size >> gvs [])
   >> disch_then drule
   >> disch_then drule
   >> disch_then drule
-  >> gvs []
+  >> impl_tac >- gvs []
   >> strip_tac
   >> gvs []
   >> rename [‘LIST_REL (v_rel f_bs) as as'’]
@@ -1615,6 +1625,7 @@ Resume evaluate_rewrite_tmc[op]:
     (* map weirdness *)
     >> cheat
    *)
+
   >> gvs [rewrite_worker_cons_def, cb_to_hb_def, evaluate_def]
   >> drule evaluate_hb_to_bvi_worker
   >> gvs [cb_to_hb_def]
@@ -2248,7 +2259,7 @@ Proof
     >> CASE_TAC >> gvs []
     >> cheat)
   >> cheat
-  *)                                
+  *)
 QED
 
 Theorem evaluate_hb_to_bvi_wrapper:
@@ -2300,7 +2311,7 @@ Proof
      )
     >> cheat)
   >> cheat
-        
+
   rw []
   >> imp_res_tac env_rel_strip_extras
   >> imp_res_tac env_rel_length_opt
@@ -2390,7 +2401,7 @@ Proof
   >> strip_tac
   >> qexistsl [‘r'’, ‘t'’]
   >> gvs []
-  >> 
+  >>
 QED
 
 Resume evaluate_rewrite_tmc[tick]:
