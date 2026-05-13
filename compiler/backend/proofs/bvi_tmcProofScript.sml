@@ -1036,7 +1036,10 @@ Proof
   >~ [‘If x1 x2 x3’] >- suspend "if"
   >~ [‘Let xs x2’] >- suspend "lett"
   >~ [‘Raise x’] >- suspend "raise"
-  >~ [‘Op op xs’] >- suspend "op"
+  >~ [‘Op op xs’] >-
+   (Cases_on ‘∃tag. op = BlockOp (Cons tag)’ >> gvs []
+    >- suspend "op_cons"
+    >- suspend "op_non_cons")
   >~ [‘Tick x’] >- suspend "tick"
   >~ [‘Force force_loc n’] >- suspend "force"
   >~ [‘Call ticks dest xs handler’] >- suspend "call"
@@ -1438,8 +1441,7 @@ Resume evaluate_rewrite_tmc[raise]:
 QED
 *)
 
-Resume evaluate_rewrite_tmc[op]:
-
+Resume evaluate_rewrite_tmc[op_non_cons]:
   gvs [evaluate_def]
   >> gvs [CaseEq "prod", PULL_EXISTS]
   >> rename [‘evaluate (xs,env,s) = (rs,u)’]
@@ -1456,48 +1458,25 @@ Resume evaluate_rewrite_tmc[op]:
   >> strip_tac
   >> gvs [GSYM PULL_FORALL]
   >> rename [‘evaluate (xs,env2,s') = (rs',u')’]
-  >> reverse $ Cases_on ‘∃tag. op = BlockOp (Cons tag)’
-  >- cheat (* unchanged parts *)
-  >> gvs []
-  >> ntac 6 $ pop_assum kall_tac
-
-(*
   >> qpat_assum ‘f ⊑ _’ $ irule_at Any
   >> reverse $ Cases_on ‘rs’ >> gvs []
   >- (* Error evaluating args *)
    (rename [‘evaluate (xs,env2,s') = (Rerr e',t')’]
-    >> strip_tac
-    >> gvs []
-    >> rpt gen_tac
-    >> conj_tac
-    >-
-     (rw []
-      >> gvs [rewrite_wrapper_def]
-      >> gvs [CaseEq "option"]
-      >> rename [‘dest_Cons op = SOME tag’]
-      >> ‘op = BlockOp (Cons tag)’ by
-        (spose_not_then assume_tac
-         >> Cases_on ‘op’ >> gvs [dest_Cons_def]
-         >> Cases_on ‘b’ >> gvs [dest_Cons_def])
-      >> gvs [rewrite_wrapper_cons_def]
-      >> gvs [CaseEq "option", CaseEq "prod"]
-      >> cheat)
+    >> strip_tac >> gvs []
     >> rw []
-    >> gvs [rewrite_worker_def, evaluate_def]
-    >> CASE_TAC >> gvs []
     >-
-     (gvs [evaluate_def, fill_hole_def, opt_res_rel_def]
-      >> irule holes_unchanged_except_subset
-      >> first_assum $ irule_at Any
-      >> gvs [])
-    >> gvs [evaluate_def, rewrite_worker_cons_def]
-    >> CASE_TAC >> gvs []
+     (gvs [rewrite_wrapper_def]
+      >> Cases_on ‘op’ >> gvs [dest_Cons_def]
+      >> Cases_on ‘b’ >> gvs [dest_Cons_def])
+    >> gvs [rewrite_worker_def]
+    >> reverse CASE_TAC >> gvs []
     >-
-     (gvs [evaluate_def, fill_hole_def, opt_res_rel_def]
-      >> irule holes_unchanged_except_subset
-      >> first_assum $ irule_at Any
-      >> gvs [])
-    >> cheat)
+     (Cases_on ‘op’ >> gvs [dest_Cons_def]
+      >> Cases_on ‘b’ >> gvs [dest_Cons_def])
+    >> gvs [evaluate_def, fill_hole_def, opt_res_rel_def]
+    >> irule holes_unchanged_except_subset
+    >> first_assum $ irule_at Any
+    >> gvs [])
   >> rename [‘LIST_REL (v_rel f'') vs vs'’]
   >> reverse $ Cases_on ‘do_app op (REVERSE vs) u’ >> gvs []
   >- (* FFI *)
@@ -1523,8 +1502,6 @@ Resume evaluate_rewrite_tmc[op]:
     >> ho_match_mp_tac evaluate_fill_hole_err
     >> gvs [evaluate_def]
     >> rpt $ first_assum $ irule_at Any)
-*)
-
   >> rename [‘do_app _ (REVERSE vs) u = Rval v’]
   >> drule $ iffLR list_rel_reverse
   >> strip_tac
@@ -1545,12 +1522,17 @@ Resume evaluate_rewrite_tmc[op]:
   >> gvs [PULL_FORALL]
   >> rpt gen_tac
   >> gvs [rewrite_wrapper_def, rewrite_worker_def]
-  >> CASE_TAC >> gvs []
+  >> reverse CASE_TAC >> gvs []
   >-
-   (rw []
-    >> ho_match_mp_tac evaluate_fill_hole
-    >> gvs [evaluate_def]
-    >> rpt $ first_assum $ irule_at Any)
+   (Cases_on ‘op’ >> gvs [dest_Cons_def]
+    >> Cases_on ‘b’ >> gvs [dest_Cons_def])
+  >> strip_tac
+  >> ho_match_mp_tac evaluate_fill_hole
+  >> gvs [evaluate_def]
+  >> rpt $ first_assum $ irule_at Any
+QED
+
+        
   >> rename [‘dest_Cons op = SOME tag’]
   >> ‘op = BlockOp (Cons tag)’ by
     (spose_not_then assume_tac
