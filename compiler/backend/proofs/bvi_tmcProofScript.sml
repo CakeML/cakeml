@@ -982,7 +982,7 @@ Proof
 QED
 
 Theorem evaluate_rewrite_tmc:
-  ∀n xs ^s env1 r t opt f s' env2.
+  ∀n xs ^s env1 loc r t opt f s' env2.
     evaluate (xs, env1, s) = (r, t) ∧
     n = (s.clock, list_size exp_size xs) ∧
     env_rel opt f env1 env2 ∧
@@ -997,7 +997,7 @@ Theorem evaluate_rewrite_tmc:
       only_fresh f f' s'.refs ∧
       holes_unchanged_except f s'.refs t'.refs ∅ ∧
       (opt ⇒
-       (∀loc loc_opt.
+       (∀loc_opt.
           (∀wrap work.
              rewrite_wrapper loc loc_opt (HD xs) = SOME wrap ⇒
              ∃t1.
@@ -1136,7 +1136,7 @@ Resume evaluate_rewrite_tmc[if]:
   >> gvs [CaseEq "prod", PULL_EXISTS]
   >> rename [‘evaluate ([x1],env,s) = (r1,u)’]
   (* First inductive hypothesis *)
-  >> first_assum $ qspecl_then [‘[x1]’,‘s’,‘env’] mp_tac
+  >> first_assum $ qspecl_then [‘[x1]’,‘s’,‘env’, ‘loc’] mp_tac
   >> gvs []
   >> disch_then $ qspec_then ‘F’ mp_tac
   >> disch_then $ drule_at $ Pos $ el 2
@@ -1155,7 +1155,7 @@ Resume evaluate_rewrite_tmc[if]:
     >- (* Then inductive hypothesis *)
      (‘v1' = Boolv T’ by (drule $ iffLR v_rel_cases >> gvs [bvlSemTheory.Boolv_def])
       >> gvs []
-      >> first_x_assum $ qspecl_then [‘[x2]’, ‘u’, ‘env’] mp_tac
+      >> first_x_assum $ qspecl_then [‘[x2]’, ‘u’, ‘env’, ‘loc’] mp_tac
       >> imp_res_tac evaluate_clock_non_increase
       >> gvs []
       >> qpat_x_assum ‘env_rel F _ _ _’ kall_tac
@@ -1185,7 +1185,7 @@ Resume evaluate_rewrite_tmc[if]:
       >> strip_tac
       >> gvs []
       >> rpt gen_tac
-      >> first_x_assum $ qspecl_then [‘loc’, ‘loc_opt’] mp_tac
+      >> first_x_assum $ qspecl_then [‘loc_opt’] mp_tac
       >> strip_tac
       >> rw []
       >-
@@ -1222,7 +1222,7 @@ Resume evaluate_rewrite_tmc[if]:
     >> Cases_on ‘v1 = Boolv F’ >> gvs []
     >> ‘v1' = Boolv F’ by (drule $ iffLR v_rel_cases >> gvs [bvlSemTheory.Boolv_def])
     >> gvs []
-    >> first_x_assum $ qspecl_then [‘[x3]’, ‘u’, ‘env’] mp_tac
+    >> first_x_assum $ qspecl_then [‘[x3]’, ‘u’, ‘env’, ‘loc’] mp_tac
     >> imp_res_tac evaluate_clock_non_increase
     >> gvs []
     >> qpat_x_assum ‘env_rel F _ _ _’ kall_tac
@@ -1252,7 +1252,7 @@ Resume evaluate_rewrite_tmc[if]:
       >> gvs [])
     >> strip_tac
     >> gvs []
-    >> first_x_assum $ qspecl_then [‘loc’, ‘loc_opt’] mp_tac
+    >> first_x_assum $ qspecl_then [‘loc_opt’] mp_tac
     >> strip_tac
     >> conj_tac
     >-
@@ -1445,7 +1445,7 @@ Resume evaluate_rewrite_tmc[op_non_cons]:
   gvs [evaluate_def]
   >> gvs [CaseEq "prod", PULL_EXISTS]
   >> rename [‘evaluate (xs,env,s) = (rs,u)’]
-  >> first_assum $ qspecl_then [‘xs’, ‘s’, ‘env’] mp_tac
+  >> first_assum $ qspecl_then [‘xs’, ‘s’, ‘env’, ‘loc’] mp_tac
   >> gvs []
   >> disch_then $ qspec_then ‘F’ mp_tac
   >> drule_all env_rel_relax_opt
