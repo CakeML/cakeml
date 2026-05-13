@@ -1037,9 +1037,9 @@ Proof
   >~ [‘Let xs x2’] >- suspend "lett"
   >~ [‘Raise x’] >- suspend "raise"
   >~ [‘Op op xs’] >-
-   (Cases_on ‘∃tag. op = BlockOp (Cons tag)’ >> gvs []
-    >- suspend "op_cons"
-    >- suspend "op_non_cons")
+   (Cases_on ‘∃tag bs cb. op = BlockOp (Cons tag) ∧ bvi_to_cb loc tag xs = SOME (bs,cb)’ >> gvs []
+    >- suspend "op_opt"
+    >- suspend "op_non_opt")
   >~ [‘Tick x’] >- suspend "tick"
   >~ [‘Force force_loc n’] >- suspend "force"
   >~ [‘Call ticks dest xs handler’] >- suspend "call"
@@ -1441,7 +1441,7 @@ Resume evaluate_rewrite_tmc[raise]:
 QED
 *)
 
-Resume evaluate_rewrite_tmc[op_non_cons]:
+Resume evaluate_rewrite_tmc[op_non_opt]:
   gvs [evaluate_def]
   >> gvs [CaseEq "prod", PULL_EXISTS]
   >> rename [‘evaluate (xs,env,s) = (rs,u)’]
@@ -1467,12 +1467,20 @@ Resume evaluate_rewrite_tmc[op_non_cons]:
     >-
      (gvs [rewrite_wrapper_def]
       >> Cases_on ‘op’ >> gvs [dest_Cons_def]
-      >> Cases_on ‘b’ >> gvs [dest_Cons_def])
+      >> Cases_on ‘b’ >> gvs [dest_Cons_def]
+      >> gvs [rewrite_wrapper_cons_def, CaseEq "option", CaseEq "prod"])
     >> gvs [rewrite_worker_def]
     >> reverse CASE_TAC >> gvs []
     >-
      (Cases_on ‘op’ >> gvs [dest_Cons_def]
-      >> Cases_on ‘b’ >> gvs [dest_Cons_def])
+      >> Cases_on ‘b’ >> gvs [dest_Cons_def]
+      >> gvs [rewrite_worker_cons_def]
+      >> reverse CASE_TAC >> gvs []
+      >- (CASE_TAC >> gvs [])
+      >> gvs [evaluate_def, fill_hole_def, opt_res_rel_def]
+      >> irule holes_unchanged_except_subset
+      >> first_assum $ irule_at Any
+      >> gvs [])
     >> gvs [evaluate_def, fill_hole_def, opt_res_rel_def]
     >> irule holes_unchanged_except_subset
     >> first_assum $ irule_at Any
@@ -1518,7 +1526,15 @@ Resume evaluate_rewrite_tmc[op_non_cons]:
   >> reverse CASE_TAC >> gvs []
   >-
    (Cases_on ‘op’ >> gvs [dest_Cons_def]
-    >> Cases_on ‘b’ >> gvs [dest_Cons_def])
+    >> Cases_on ‘b’ >> gvs [dest_Cons_def]
+    >> rw []
+    >- (gvs [rewrite_wrapper_cons_def, CaseEq "option", CaseEq "prod"])
+    >> gvs [rewrite_worker_cons_def]
+    >> reverse CASE_TAC >> gvs []
+    >- (CASE_TAC >> gvs [])
+    >> ho_match_mp_tac evaluate_fill_hole
+    >> gvs [evaluate_def]
+    >> rpt $ first_assum $ irule_at Any)
   >> strip_tac
   >> ho_match_mp_tac evaluate_fill_hole
   >> gvs [evaluate_def]
