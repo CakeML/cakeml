@@ -1526,20 +1526,45 @@ Resume evaluate_rewrite_tmc[op_non_cons]:
 QED
 
 Resume evaluate_rewrite_tmc[op_cons]:
-  Cases_on ‘bvi_to_cb’
+  Cases_on ‘bvi_to_cb loc tag xs’
+  (* Not eligible for optimisation *)
+  >-
+   (cheat)
+  (* Eligible for optimisation *)
+  >> Cases_on ‘x’
+  >> imp_res_tac bvi_to_cb_wf >> gvs []
+  >> rename [‘bvi_to_cb loc tag args = SOME (bs,CallBlock tag left child right)’]
   (* Phase 1 theorem in s *)
-
   >> drule_then drule evaluate_bvi_to_cb
   >> impl_tac >- simp []
-  >> gvs [evaluate_def]
+  >> simp [Once evaluate_def]
   >> strip_tac
-  >> gvs [CaseEq"prod"]
-  >> imp_res_tac bvi_to_cb_wf
-  >> rename [‘cb = CallBlock tag left child right’]
-  >> gvs [cb_to_hb_def, CaseEq "call_block", CaseEq "prod"]
-  >> rename [‘cb_to_hb child = (hole,call_ts,call_args)’]
-  >> rename [‘evaluate (bs,env,s) = (as,w)’]
-  >> gvs [CaseEq "result"]
+  >> gvs [CaseEq "prod"]
+  >> rename [‘evaluate (bs,env,s) = (as,u)’]
+  (* Hypothesis on bs *)
+  >> first_assum $ qspecl_then [‘bs’, ‘s’] mp_tac
+  >> impl_tac
+  >- (imp_res_tac bvi_to_cb_size >> gvs [])
+  >> imp_res_tac env_rel_relax_opt
+  >> rpt $ disch_then drule
+  >> impl_tac
+  >- (gvs [] >> spose_not_then assume_tac >> gvs [])
+  >> disch_then $ qspec_then ‘loc’ assume_tac
+  >> gvs []
+  >> rename [‘evaluate (bs,env2,s') = (as',u')’]
+  >> rename [‘f ⊑ f'’]
+
+  >> reverse $ gvs [CaseEq "result"]
+  >-
+   ((*HERE*)
+        )
+                
+  (* Phase 1 theorem in s' *)
+  >> Cases_on ‘evaluate ([Op (BlockOp (Cons tag)) args],env2,s')’
+  >> rename [‘evaluate ([Op (BlockOp (Cons tag)) args],env2,s') = (r',t')’]
+  >> drule_then drule evaluate_bvi_to_cb
+  >> impl_tac >- (spose_not_then assume_tac >> gvs [])
+        
 (*
   (* Phase 1 theorem in s *)
   >> ‘evaluate ([Op (BlockOp (Cons tag)) args],env2,s') = (Rval [v'],t')’ by gvs [evaluate_def]
