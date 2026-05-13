@@ -2193,7 +2193,7 @@ End
 
 
 
-(*assumption: both heads are the smallest element*)
+(*(*assumption: both heads are the smallest element*)
 Definition fib_heap_melt_def:
   fib_heap_melt
     (a1:'a word,a2:'a word,m:'a word -> 'a word_lab, dm: 'a word set)
@@ -2203,27 +2203,14 @@ Definition fib_heap_melt_def:
     if a1 = 0w then (*list a is empty*)
       (a2,m,c)
     else
-      (*let c = (in_mem a1 dm /\ c) in*)
       let (l_a1,c) = read_mem (a1 + before_off) m dm c in
-      (*let c = (in_mem a2 dm /\ c) in*)
       let (l_a2,c) = read_mem (a2 + before_off) m dm c in
-      (*let c = (a1 + before_off IN dm /\ c) in
-      let l_a1 = m (a1 + before_off) in*)
-      (*let c = (l_a1 + next_off IN dm /\ c) in
-      let c = (a2 + before_off IN dm /\ c) in
-      let l_a2 = m (a2 + before_off) in
-      let c = (l_a2 + next_off IN dm /\ c) in*)
 
       let (m,c) = write_mem (l_a1 + next_off) a2   m dm c in
       let (m,c) = write_mem (a2 + before_off) l_a1 m dm c in
       let (m,c) = write_mem (l_a2 + next_off) a1   m dm c in
       let (m,c) = write_mem (a1 + before_off) l_a2 m dm c in
 
-(*      let m = m (| (l_a1 + next_off) |-> a2|) in
-      let m = m (| (a2 + before_off) |-> l_a1|) in
-      let m = m (| (l_a2 + next_off) |-> a1|) in
-      let m = m (| (a1 + before_off) |-> l_a2|) in
-*)
       let (v_a2,c) = read_mem a2 m dm c in
       let (v_a1,c) = read_mem a1 m dm c in
       if v_a2 <=+ v_a1 then
@@ -2231,8 +2218,8 @@ Definition fib_heap_melt_def:
       else
         (a1,m,c)
 End
-
-
+*)
+(*
 Theorem lemma_fib_heap_insert_1into1:
   !frame x t p a' m dm m' b.
     (fts_mem (ann_fts p [x]) * fts_mem (ann_fts p [t]) * frame)
@@ -2653,7 +2640,7 @@ Proof
   rfs[DISJOINT_SYM,fib_heap_inv_comm_thm] >>
   simp[fts_mem_ann_sym_thm]
 QED
-
+*)
 
 (*---------------------------------------------------------
 
@@ -2734,8 +2721,15 @@ Definition fib_heap_inv_weak_def:
     fib_heap_shape_ok fts
 End
 
-
 Theorem fib_heap_inv_weak_empty_thm:
+  fib_heap_inv_weak FEMPTY []
+Proof
+  simp[fib_heap_inv_weak_def] >>
+  simp[Once fts_has_cases, fts_all_dist_def,Once every_fts_def,
+       fts_parent_lower_eq_def, fib_heap_shape_ok_def]
+QED
+
+Theorem lemma_fib_heap_inv_weak_empty_fts_imp_empty_map:
   !fh.
     fib_heap_inv_weak fh [] ==> fh = FEMPTY
 Proof
@@ -2747,6 +2741,8 @@ Proof
   first_x_assum (qspecl_then [`x`,`q`,`r`] assume_tac) >>
   fs[FLOOKUP_SIMP]
 QED
+
+
 
 
 
@@ -5724,7 +5720,7 @@ Proof
   conj_tac
   >- (
     rpt gen_tac >> disch_tac >> gvs[fts_link_root_list_def] >>
-    fs[fib_heap_inv_weak_empty_thm]
+    fs[lemma_fib_heap_inv_weak_empty_fts_imp_empty_map]
     ) >>
   rpt gen_tac >> disch_tac >> rpt gen_tac >> disch_tac >> fs[] >>
   fs[PULL_FORALL] >>
