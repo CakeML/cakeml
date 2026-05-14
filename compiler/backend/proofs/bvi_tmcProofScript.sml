@@ -1969,10 +1969,12 @@ Proof
 QED
 
 Resume evaluate_rewrite_tmc[op_opt]:
+  
   imp_res_tac bvi_to_cb_wf >> gvs []
   >> rename [‘bvi_to_cb loc tag args = SOME (bs,CallBlock tag left child right)’]
   (* Phase 1 theorem in s *)
   >> drule_all evaluate_bvi_to_cb
+  >> qpat_x_assum ‘evaluate(_,_,_) = (_,_)’ $ mk_asm "original"
   >> simp [Once evaluate_def]
   >> strip_tac
   >> gvs [CaseEq "prod"]
@@ -1993,6 +1995,7 @@ Resume evaluate_rewrite_tmc[op_opt]:
   >> Cases_on ‘evaluate ([Op (BlockOp (Cons tag)) args],env2,s')’
   >> rename [‘evaluate ([Op (BlockOp (Cons tag)) args],env2,s') = (r',t')’]
   >> drule_all evaluate_bvi_to_cb
+  >> qpat_x_assum ‘evaluate (_,_,_) = (_,_)’ $ mk_asm "original'"
   >> simp [Once evaluate_def]
   >> strip_tac
   >> reverse $ gvs [CaseEq "result"]
@@ -2011,6 +2014,119 @@ Resume evaluate_rewrite_tmc[op_opt]:
     >> qexists ‘EMPTY’
     >> gvs [])
   >> rename [‘LIST_REL (v_rel f') vs vs'’]
+
+  (* Experiment *)
+  >> asm_x "original" kall_tac
+  >> asm_x "original'" kall_tac
+  >> reverse $ Induct_on ‘CallBlock tag left child right’
+  >- gvs [cb_to_bvi_def]
+  >> rw []
+  >> gvs [cb_to_bvi_def]
+  >> rename [‘CallBlock tag left child right’]
+  >> gvs [evaluate_def, evaluate_APPEND]
+  >> gvs [CaseEq "prod"]
+  >> rev_drule evaluate_var_list
+  >> impl_tac >- (spose_not_then assume_tac >> gvs [])
+  >> strip_tac >> gvs []
+  >> rename [‘state_rel f' u u'’]
+  >> first_assum $ qspecl_then [‘MAP (λn. Var n) left’, ‘u’] mp_tac
+  >> impl_tac
+  >- (imp_res_tac bvi_to_cb_size
+      >> imp_res_tac evaluate_clock_non_increase
+      >> gvs [cb_to_bvi_def, list_size_map, list_size_append])
+  >> disch_then drule
+  >> drule_all env_rel_submap
+  >> strip_tac
+  >> drule_all env_rel_append
+  >> strip_tac
+  >> disch_then $ drule_then drule
+  >> impl_tac >- gvs []
+  >> gvs [GSYM PULL_FORALL]
+  >> strip_tac >> gvs []
+  >> drule evaluate_var_list
+  >> impl_tac
+  >- (gvs [])
+  >> strip_tac >> gvs []
+  >> rename [‘state_rel f2 u u'’]
+  >> reverse $ Cases_on ‘child’
+               
+  >-
+   (rename [‘RCall call_ts call_args’]
+    >> gvs [cb_to_bvi_def]
+    >> gvs [evaluate_def]
+    >> ntac 2 $ gvs [Once $ CaseEq "prod"]
+    >> qspecl_then [‘call_args’, ‘vs ++ env’, ‘u’] mp_tac evaluate_var_list
+    >> disch_then drule
+    >> impl_tac >- (spose_not_then assume_tac >> gvs [])
+    >> strip_tac >> gvs []
+    >> rename [‘state_rel f2 u u'’]
+    >> first_assum $ qspecl_then [‘MAP (λn. Var n) call_args’, ‘u’] mp_tac
+    >> impl_tac
+    >- (imp_res_tac bvi_to_cb_size
+        >> imp_res_tac evaluate_clock_non_increase
+        >> gvs [cb_to_bvi_def, list_size_map, list_size_append])
+    >> disch_then $ drule_then $ drule_then drule
+    >> impl_tac >- gvs []
+    >> gvs [GSYM PULL_FORALL]
+    >> strip_tac >> gvs []
+    >> drule evaluate_var_list
+    >> impl_tac >- (spose_not_then assume_tac >> gvs [])
+    >> strip_tac >> gvs []
+    >> rename [‘state_rel f3 u u'’]
+    >> gvs [CaseEq "option", Once $ CaseEq "prod"]
+    >> rename [‘SOME (arity,body)’]
+    >> ‘u'.clock = u.clock’ by gvs [state_rel_def]
+    >> gvs []
+    >> Cases_on ‘u.clock < call_ts + 1’
+    >-
+     (gvs []
+      >> irule_at Any state_rel_with_clock
+      >> rpt $ first_assum $ irule_at Any
+      >> conj_tac
+      >- imp_res_tac SUBMAP_TRANS
+      >> conj_tac
+      >- (imp_res_tac only_fresh_trans >> imp_res_tac evaluate_refs_SUBSET >> gvs [])
+      >> rw []
+      >-
+       (gvs [rewrite_wrapper_def, dest_Cons_def, rewrite_wrapper_cons_def, cb_to_hb_def, hb_to_bvi_wrapper_def]
+        >> simp [evaluate_def, allocate_holes_def]
+        >> simp [mut_cons_def]
+        >> simp [evaluate_def]
+        >> cheat)
+      >> cheat)
+
+    >> gvs [cb_to_bvi_def, evaluate_def, CaseEq "prod"]
+    >> qspecl_then [‘l’, ‘vs ++ env’, ‘u’] mp_tac evaluate_var_list
+    >> disch_then drule
+    >> impl_tac >- (spose_not_then assume_tac >> gvs [])
+    >> strip_tac >> gvs []
+    >> rename [‘state_rel f2 u u'’]
+    >> first_assum $ qspecl_then [‘MAP (λn. Var n) l’, ‘u’] mp_tac
+    >> 
+        )
+
+
+        
+  >> gvs [cb_to_bvi_def]
+  >> gvs [evaluate_APPEND, evaluate_def]
+  >> gvs [CaseEq "prod"]
+  (* left *)
+  >> imp_res_tac evaluate_var_list
+  >> reverse $ Cases_on ‘v3' ≠ Rerr (Rabort Rtype_error)’
+  >- (gvs [])
+  >> gvs [CaseEq "prod"]
+  >> rename [‘evaluate (MAP (λn. Var n) left,vs ++ env,u) = (Rval (MAP (λn. (vs ++ env)❲n❳) left),u)’]
+  (* Inductive hypothesis on left *)
+  >> last_assum $ qspecl_then [‘(MAP (λn. Var n) left’, ‘u’] mp_tac
+        
+  >> reverse $ Induct_on ‘child’
+  >-
+   (rw []
+    >> gvs [cb_to_bvi_def]
+    >> gvs [evaluate_APPEND, evaluate_def]
+    >> 
+       )
+                       
   (* Hypothesis on call block *)
   >> first_assum $ qspecl_then [‘[cb_to_bvi loc (CallBlock tag left child right)]’, ‘u’] mp_tac
   >> impl_tac
@@ -2044,6 +2160,14 @@ Resume evaluate_rewrite_tmc[op_opt]:
   >-
    (gvs [rewrite_wrapper_def, dest_Cons_def, rewrite_wrapper_cons_def, cb_to_hb_def, CaseEq "prod", evaluate_def]
     >> rename [‘cb_to_hb child = (hole,call_ts,call_args)’]
+
+    >> reverse $ Induct_on ‘child’
+    >-
+     (rw []
+      >> simp [Once evaluate_def, hb_to_bvi_wrapper_def, allocate_holes_def, allocate_holes_aux_def]
+      >> 
+         )
+                         
     >> drule evaluate_hb_to_bvi_wrapper
     >> disch_then $ qspecl_then [‘tag’, ‘left’, ‘child’, ‘right’, ‘hole’, ‘call_ts’, ‘call_args’, ‘loc_opt'’] mp_tac
     >> gvs [cb_to_hb_def]
@@ -2164,8 +2288,7 @@ QED
 
 Theorem evaluate_hb_to_bvi_wrapper:
   ∀cb tag left child right hole call_ts call_args loc loc_opt work f env1 env2 s t r_block r_call.
-    evaluate ([cb_to_bvi loc cb],env2,s) = (r_block,t) ∧
-    evaluate ([Call call_ts (SOME loc) (MAP (λn. Var n) call_args) NONE],env2,s) = (r_call,t) ∧
+    evaluate ([cb_to_bvi loc cb],env2,s) = (r,t) ∧
     cb_to_hb cb = (HoleBlock tag left hole right,call_ts,call_args) ∧
     cb = CallBlock tag left child right ∧
     env_rel T f env1 env2 ∧
@@ -2175,7 +2298,7 @@ Theorem evaluate_hb_to_bvi_wrapper:
             
     r_call ≠ Rerr (Rabort Rtype_error) ⇒
     ∃r' t' top_ptr hole_ptr hole_idx.
-      evaluate ([hb_to_bvi_wrapper loc loc_opt tag left hole right call_ts call_args],env2,s) = (r_block,t') ∧
+      evaluate ([hb_to_bvi_wrapper loc loc_opt tag left hole right call_ts call_args],env2,s) = (r',t') ∧
       (∀v.
          r_call = Rval v ⇒
          alloc_state_rel tag left hole right env2 top_ptr hole_ptr hole_idx r s t') ∧
@@ -2232,10 +2355,10 @@ Proof
     >> gvs []
     (* call *)
     (* prod? *)
-    >> gvs [CaseEq "option", bvlSemTheory.find_code_def]
+    >> gvs [CaseEq "prod", CaseEq "option", bvlSemTheory.find_code_def]
     >> IF_CASES_TAC
     >-
-     (gvs []
+     (gvs [cb_to_bvi_def, evaluate_def, CaseEq "option"]
       >> 
         )
    )
