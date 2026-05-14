@@ -2019,6 +2019,7 @@ Resume evaluate_rewrite_tmc[op_opt]:
   >> asm_x "original" kall_tac
   >> asm_x "original'" kall_tac
 
+
   (* Experiment within the experiment - hybothesis on cb_to_bvi to get r' not a type error *)
   (* We do also get holes_unchanged_except f' u'.refs t'.refs ∅ which could be useful *)
   >> first_assum $ qspecl_then [‘[cb_to_bvi loc (CallBlock tag left child right)]’, ‘u’] mp_tac
@@ -2034,6 +2035,19 @@ Resume evaluate_rewrite_tmc[op_opt]:
   >> disch_then $ qspec_then ‘loc’ mp_tac
   >> gvs []
   >> strip_tac
+
+  >> qexistsl [‘t'’, ‘f''’, ‘r'’]
+  >> gvs [GSYM PULL_FORALL]
+  >> rw []
+  >- imp_res_tac SUBMAP_TRANS
+  >- (imp_res_tac only_fresh_trans >> imp_res_tac evaluate_refs_SUBSET >> gvs [])
+  >- imp_res_tac holes_unchanged_except_trans
+
+  >> gvs [rewrite]
+
+
+
+  (* SKIP *)
   >> ‘r' ≠ Rerr (Rabort Rtype_error)’ by (spose_not_then assume_tac >> gvs [])
   >> pop_assum mp_tac
   (* We only care about r' not type error *)
@@ -2260,25 +2274,22 @@ Proof
 QED
 
 Theorem evaluate_hb_to_bvi_wrapper:
-  ∀cb tag left child right hole call_ts call_args loc loc_opt work f env1 env2 s t r_block r_call.
-    evaluate ([cb_to_bvi loc cb],env2,s) = (r,t) ∧
+  ∀cb tag left child right hole call_ts call_args loc loc_opt work f env1 env2 s' t t' r'.
+    evaluate ([cb_to_bvi loc cb],env2,s') = (r',t') ∧
     cb_to_hb cb = (HoleBlock tag left hole right,call_ts,call_args) ∧
     cb = CallBlock tag left child right ∧
     env_rel T f env1 env2 ∧
-    r_block ≠ Rerr (Rabort Rtype_error) ∧
+    state_rel f t t' ∧
 
-    lookup loc_opt s.code = SOME (LENGTH call_args + 2,work) ∧
-            
-    r_call ≠ Rerr (Rabort Rtype_error) ⇒
-    ∃r' t' top_ptr hole_ptr hole_idx.
-      evaluate ([hb_to_bvi_wrapper loc loc_opt tag left hole right call_ts call_args],env2,s) = (r',t') ∧
-      (∀v.
-         r_call = Rval v ⇒
-         alloc_state_rel tag left hole right env2 top_ptr hole_ptr hole_idx r s t') ∧
-      (∀e.
-         r_call = Rerr e ⇒
-         s = t')
+    lookup loc_opt s'.code = SOME (LENGTH call_args + 2, work) ∧
+              
+    r' ≠ Rerr (Rabort Rtype_error) ⇒
+    ∃r'' t'' f'.
+      evaluate ([hb_to_bvi_wrapper loc loc_opt tag left hole right call_ts call_args],env2,s') = (r',t'') ∧
+      f SUBMAP f' ∧
+      state_rel f' t t''
 Proof
+  
   gen_tac
   >> reverse $ Induct_on ‘cb’ >> rw []
   >> rename [‘cb_to_hb (CallBlock tag left child right) = (HoleBlock tag left hole right,call_ts,call_args)’]
@@ -2301,45 +2312,96 @@ Proof
   >> pop_assum kall_tac
   (* recursive allocate_holes *)
   >> reverse $ Cases_on ‘child’
+               
   >-
-   (gvs [cb_to_hb_def]
+   (gvs [cb_to_hb_def, cb_to_bvi_def]
     >> simp [allocate_holes_aux_def, Once evaluate_def]
     >> simp [optimise_call_def, Once evaluate_def, evaluate_APPEND]
+    >> gvs [Once evaluate_def, CaseEq "prod"]
+    >> simp [Once evaluate_def]
     (* call args *)
-    >> qspecl_then [‘call_args’, ‘env2’, ‘s’, ‘[RefPtr F (LEAST ptr. ptr ∉ FDOM r'.refs)]’] mp_tac evaluate_shift_vars
+    >> qspecl_then [‘call_args’, ‘env2’, ‘s'’, ‘[RefPtr F (LEAST ptr. ptr ∉ FDOM r.refs)]’] mp_tac evaluate_shift_vars
     >> disch_then drule
     >> strip_tac >> gvs []
     >> drule evaluate_var_list_stateless
-    >> disch_then $ qspec_then ‘r' with refs :=
-                                r'.refs⟨
-                                  (LEAST ptr. ptr ∉ FDOM r'.refs) ↦
+    >> disch_then $ qspec_then ‘r with refs :=
+                                r.refs⟨
+                                  (LEAST ptr. ptr ∉ FDOM r.refs) ↦
                                   MutBlock tag (REVERSE a) (Number 0)
                                   (MAP (λn. env2❲n❳) (REVERSE left))⟩’ mp_tac
-    >> strip_tac >> gvs []      
-    >> qspec_then ‘call_args’ mp_tac evaluate_var_list
-    >> disch_then drule
-    >> impl_tac >- (spose_not_then assume_tac >> gvs [])
     >> strip_tac >> gvs []
-    >> simp [Once evaluate_def]
-    >> simp [Once evaluate_def]
+    >> ntac 2 $ simp [Once evaluate_def]
     >> simp [Once evaluate_def, do_app_def, do_app_aux_def]
     >> simp [Once evaluate_def]
     >> ‘backend_common$small_enough_int (&LENGTH a)’ by cheat
     >> gvs []
-    (* call *)
-    (* prod? *)
+    >> qspecl_then [‘call_args’, ‘env2’, ‘s'’] mp_tac evaluate_var_list
+    >> disch_then drule
+    >> impl_tac >- (gvs [CaseEq "result"])
+    >> strip_tac >> gvs []
+    (* call *) 
     >> gvs [CaseEq "prod", CaseEq "option", bvlSemTheory.find_code_def]
     >> IF_CASES_TAC
     >-
-     (gvs [cb_to_bvi_def, evaluate_def, CaseEq "option"]
-      >> 
-        )
-   )
-               
-
-  >> simp [mut_cons_def, evaluate_APPEND, Once evaluate_def]
+     (gvs [CaseEq "prod", CaseEq "result", CaseEq "error_result"]
+      >> qexists ‘f’ >> gvs [])
+    >> cheat)
+  >> rename [‘CallBlock tag left child right’]
+  >> imp_res_tac evaluate_var_list
+  >> gvs [CaseEq "prod", cb_to_hb_def]
+  >> rename [‘cb_to_hb _ = (hole,_,_)’]
+                       
+  >> first_x_assum $ drule_then drule
+  >> rpt $ disch_then $ drule_at Any
+  >> ‘s1 = s2’ by gvs [CaseEq "result"]
+  >> gvs []
+  >> ‘s1 = s''’ by
+    (gvs [CaseEq "prod", CaseEq "result"]
+     >- (imp_res_tac evaluate_var_list >> gvs [])
+     >- (imp_res_tac evaluate_var_list >> gvs [])
+     >> imp_res_tac evaluate_var_list >> gvs [])
+  >> gvs []
+  >> ‘s'' = t'’ by gvs [CaseEq "result", CaseEq "prod", do_app_def, do_app_aux_def, bvl_to_bvi_id]
+  >> gvs []
+  >> rename [‘state_rel f t t'’]
+  >> disch_then drule
+  >> impl_tac >- gvs [CaseEq "result"]
+  >> strip_tac
+  >> gvs []
+  >> simp [allocate_holes_aux_def, evaluate_def]
+  >> simp [evaluate_def, mut_cons_def]
+  >> simp [evaluate_APPEND, evaluate_def]
+  >> gvs [cb_to_bvi_def, Once evaluate_def]
+  >> gvs [evaluate_APPEND, Once evaluate_def]
+  >> gvs [CaseEq "prod"]
+  >> rename [‘state_rel f' t t'’]
+  >> qspec_then ‘left’ mp_tac evaluate_var_list
+  >> disch_then drule
+  >> impl_tac >- gvs [CaseEq "result"]
+  >> strip_tac >> gvs []
+  >> qspec_then ‘left’ mp_tac evaluate_var_list_stateless
+  >> disch_then drule
+  >> disch_then $ qspec_then ‘r with
+                         refs :=
+                           r.refs⟨
+                             (LEAST ptr. ptr ∉ FDOM r.refs) ↦
+                               MutBlock tag'
+                                 (REVERSE (MAP (λn. env2❲n❳) right'))
+                                 (Number 0)
+                                 (MAP (λn. env2❲n❳) (REVERSE left'))
+                           ⟩’ mp_tac
+  >> strip_tac >> gvs []
   >> 
-                                
+
+
+
+
+
+
+
+
+
+     
   (* hole *)
   >> reverse $ Cases_on ‘child’ >> gvs []
   >-
