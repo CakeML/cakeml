@@ -37,7 +37,6 @@ End
 
 Datatype:
   panop = (* Div | *)Mul (* | Mod*)
-        | AddCarry
 End
 
 Datatype:
@@ -66,9 +65,15 @@ Datatype:
 End
 
 Datatype:
+  primop = AddCarry
+End
+
+Datatype:
   prog = Skip
        | Dec varname shape ('a exp) prog
        | Assign varkind varname ('a exp)  (* dest, source *)
+       | Primitive varname primop ('a exp list)
+         (* Primitives directly target constructs in wordLang. *)
        | Store     ('a exp) ('a exp) (* dest, source *)
        | Store32   ('a exp) ('a exp) (* dest, source *)
        | StoreByte ('a exp) ('a exp) (* dest, source *)

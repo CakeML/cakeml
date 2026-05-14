@@ -218,6 +218,15 @@ Definition sh_mem_op_def:
   (sh_mem_op Store32 r ad s = sh_mem_store r ad 4 s)
 End
 
+Definition crep_primop_def:
+  crep_primop AddCarry args =
+  case args of
+  | [Word (l: α word); Word r; Word ci] =>
+      (let (res, co) = word_and_carry l r ci in
+         SOME [Word res; Word co])
+  | _ => NONE
+End
+
 Definition evaluate_def:
   (evaluate (Skip:'a crepLang$prog,^s) = (NONE,s)) /\
   (evaluate (Dec v e prog, s) =
@@ -226,6 +235,17 @@ Definition evaluate_def:
         let (res,st) = evaluate (prog,s with locals := s.locals |+ (v,value)) in
         (res, st with locals := res_var st.locals (v, FLOOKUP s.locals v))
         | NONE => (SOME Error, s)) ∧
+  (evaluate (Primitive lhss pop rhss, s) =
+   case (OPT_MMAP (FLOOKUP s.locals) rhss) of
+   | SOME ws =>
+     (case (crep_primop pop ws) of
+      | SOME res_ws =>
+          if LENGTH lhss = LENGTH res_ws ∧
+             EVERY (λv. IS_SOME (FLOOKUP s.locals v)) lhss
+          then (NONE, s with locals := s.locals |++ ZIP (lhss, res_ws))
+          else (SOME Error, s)
+      | NONE => (SOME Error, s))
+   | NONE => (SOME Error, s)) ∧
   (evaluate (Assign v src,s) =
     case (eval s src) of
     | NONE => (SOME Error, s)
@@ -298,15 +318,6 @@ Definition evaluate_def:
      | SOME w => (SOME (Return w),empty_locals s)
      | _ => (SOME Error,s)) /\
  (evaluate (Raise eid,s) = (SOME (Exception eid), empty_locals s)) /\
- (evaluate (AddCarry res co l r ci,s) =
-  case (eval s l, eval s r, eval s ci) of
-  | (SOME (Word lw), SOME (Word rw), SOME (Word ciw)) =>
-      (let (resw, cow) = word_and_carry lw rw ciw in
-         case (FLOOKUP s.locals res, FLOOKUP s.locals co) of
-         | (SOME _, SOME _) =>
-           (NONE, s with locals := s.locals |+ (res,Word resw) |+ (co,Word cow))
-         | _ => (SOME Error, s))
-  | _ => (SOME Error, s)) /\
  (evaluate (Tick,s) =
    if s.clock = 0 then (SOME TimeOut,empty_locals s)
    else (NONE,dec_clock s)) /\
@@ -365,23 +376,45 @@ Termination
   decide_tac
 End
 
+Theorem clock_eq_simp[local,simp]:
+  (set_var v w s).clock = s.clock ∧
+  (empty_locals s).clock = s.clock ∧
+  (set_globals gv w s).clock = s.clock
+Proof
+  simp [set_var_def, empty_locals_def, set_globals_def]
+QED
+
+Theorem sh_mem_load_clock[local]:
+  sh_mem_load v addr nb s = (r, s') ⇒ s'.clock = s.clock
+Proof
+  rw [oneline sh_mem_load_def, AllCaseEqs()] >> simp []
+QED
+
+Theorem sh_mem_store_clock[local]:
+  sh_mem_store v addr nb s = (r, s') ⇒ s'.clock = s.clock
+Proof
+  rw [oneline sh_mem_store_def, AllCaseEqs()] >> simp []
+QED
+
+Theorem sh_mem_op_clock[local]:
+  sh_mem_op op v addr s = (r,s') ⇒ s'.clock = s.clock
+Proof
+  rw [oneline sh_mem_op_def, AllCaseEqs()]
+  >> imp_res_tac sh_mem_load_clock
+  >> imp_res_tac sh_mem_store_clock
+  >> simp []
+QED
 
 Theorem evaluate_clock:
-   !prog s r s'. (evaluate (prog,s) = (r,s')) ==>
-                 s'.clock <= s.clock
+  ∀prog s r s'. evaluate (prog, s) = (r, s') ⇒ s'.clock ≤ s.clock
 Proof
-  recInduct evaluate_ind >> REPEAT STRIP_TAC >>
-  POP_ASSUM MP_TAC >> ONCE_REWRITE_TAC [evaluate_def] >>
-  rw [] >> every_case_tac >>
-  fs [set_var_def, dec_clock_def, set_globals_def, empty_locals_def, LET_THM] >>
-  rveq >> fs [] >>
-  rpt (pairarg_tac >> fs []) >>
-  every_case_tac >> fs [] >> rveq >>
-  imp_res_tac fix_clock_IMP_LESS_EQ >>
-  imp_res_tac LESS_EQ_TRANS >> fs [] >>
-  TRY (Cases_on ‘op’>>fs[sh_mem_op_def,sh_mem_load_def,sh_mem_store_def]>>
-       every_case_tac>>fs[set_var_def,empty_locals_def]>>rveq>>fs[])>>
-  rpt (res_tac >> fs [])
+  recInduct evaluate_ind >> rpt strip_tac
+  >> qpat_x_assum ‘evaluate _ = _’ mp_tac
+  >> once_rewrite_tac [evaluate_def] >> rw []
+  (* Next two tactics take a few seconds *)
+  >> gvs [dec_clock_def, AllCaseEqs()] >> rpt (pairarg_tac >> gvs [])
+  >> imp_res_tac sh_mem_op_clock >> simp []
+  >> imp_res_tac fix_clock_IMP_LESS_EQ >> gvs [AllCaseEqs()]
 QED
 
 Theorem fix_clock_evaluate[local]:

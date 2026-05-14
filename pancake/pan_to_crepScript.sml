@@ -155,6 +155,16 @@ Definition compile_def:
       else Skip:'a crepLang$prog
     | NONE => Skip) /\
   (compile ctxt (Assign Global v e) = Skip) /\
+  (compile ctxt (Primitive v pop es) =
+   let cexps = MAP (compile_exp ctxt) es;
+       ces   = FLAT (MAP FST cexps) in
+   case FLOOKUP ctxt.vars v of
+   | NONE => Skip
+   | SOME (vshp, ns) =>
+       let vmax = ctxt.vmax;
+           temps = GENLIST (λx. vmax + SUC x) (LENGTH ces) in
+         nested_decs temps ces
+                     (Primitive ns pop temps)) /\
   (compile ctxt (Store ad v) =
    case compile_exp ctxt ad of
     | (e::es',sh') =>

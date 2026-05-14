@@ -139,11 +139,17 @@ Termination
 End
 
 Definition pan_op_def:
-  pan_op Mul [w1:'a word;w2] = SOME(ValWord (w1 * w2)) ∧
-  (pan_op AddCarry [l:'a word;r;c] =
-   let (res, co) = word_and_carry l r c in
-     SOME (Struct [ValWord res; ValWord co])) ∧
+  pan_op Mul [w1:'a word;w2] = SOME(w1 * w2) ∧
   pan_op _ _ = NONE
+End
+
+Definition pan_primop_def:
+  (pan_primop AddCarry args =
+   case args of
+   | [ValWord (l:α word); ValWord r; ValWord ci] =>
+       (let (res, co) = word_and_carry l r ci in
+          SOME (Struct [ValWord res; ValWord co]))
+   | _ => NONE)
 End
 
 Definition eval_def:
@@ -189,8 +195,8 @@ Definition eval_def:
     case (OPT_MMAP (eval s) es) of
      | SOME ws =>
        if (EVERY (\w. case w of (ValWord _) => T | _ => F) ws)
-       then pan_op op (MAP (\w. case w of ValWord n => n) ws)
-       else NONE
+       then OPTION_MAP ValWord
+            (pan_op op (MAP (\w. case w of ValWord n => n) ws)) else NONE
       | _ => NONE) /\
   (eval s (Cmp cmp e1 e2) =
     case (eval s e1, eval s e2) of
@@ -481,6 +487,16 @@ Definition evaluate_def:
         then (NONE, set_kvar vk v value s)
         else (SOME Error, s)
         | NONE => (SOME Error, s)) /\
+  (evaluate (Primitive v pop es,s) =
+    case (OPT_MMAP (eval s) es) of
+    | SOME vs =>
+      (case pan_primop pop vs of
+       | SOME value =>
+           if is_valid_value s Local v value
+           then (NONE, set_var v value s)
+           else (SOME Error, s)
+       | NONE => (SOME Error, s))
+    | _ => (SOME Error, s)) /\
   (evaluate (Store dst src,s) =
     case (eval s dst, eval s src) of
      | (SOME (ValWord addr), SOME value) =>
