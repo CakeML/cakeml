@@ -2200,7 +2200,7 @@ Proof
 QED
 
 Theorem evaluate_hb_to_bvi_wrapper:
-  ∀cb tag left child right hole call_ts call_args loc loc_opt arity work f env1 env2 s t r_block r_call.
+  ∀cb tag left child right hole call_ts call_args loc loc_opt work f env1 env2 s t r_block r_call.
     evaluate ([cb_to_bvi loc cb],env2,s) = (r_block,t) ∧
     evaluate ([Call call_ts (SOME loc) (MAP (λn. Var n) call_args) NONE],env2,s) = (r_call,t) ∧
     cb_to_hb cb = (HoleBlock tag left hole right,call_ts,call_args) ∧
@@ -2208,7 +2208,7 @@ Theorem evaluate_hb_to_bvi_wrapper:
     env_rel T f env1 env2 ∧
     r_block ≠ Rerr (Rabort Rtype_error) ∧
 
-    lookup loc_opt s.code = SOME (arity + 2,work) ∧
+    lookup loc_opt s.code = SOME (LENGTH call_args + 2,work) ∧
             
     r_call ≠ Rerr (Rabort Rtype_error) ⇒
     ∃r' t' top_ptr hole_ptr hole_idx.
@@ -2268,8 +2268,13 @@ Proof
     >> ‘backend_common$small_enough_int (&LENGTH a)’ by cheat
     >> gvs []
     (* call *)
+    (* prod? *)
     >> gvs [CaseEq "option", bvlSemTheory.find_code_def]
-    >> 
+    >> IF_CASES_TAC
+    >-
+     (gvs []
+      >> 
+        )
    )
                
 
