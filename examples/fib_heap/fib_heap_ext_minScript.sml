@@ -8,7 +8,7 @@ Ancestors
   fibonacci_heap pred_set fib_heap_meld
 Libs
   wordsLib helperLib
-
+(*
 Definition fib_heap_weak_def:
   fib_heap_weak a fh =
     SEP_EXISTS fts.
@@ -275,6 +275,6 @@ Definition fib_heap_rm_min_def:
   let (new_a,m,c') = fib_heap_meld (child_a,n_a,m,dm) in
     (min,new_a,m,c /\ c')
 End
-
+*)
 
 
