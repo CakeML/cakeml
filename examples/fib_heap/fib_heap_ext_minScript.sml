@@ -165,27 +165,48 @@ Proof
 QED
 
 
+
 Definition fib_heap_parent_to_null_def:
-  fib_heap_parent_to_null (n: num) (a,s,m,dm)
+  fib_heap_parent_to_null (n: num) (a,m,dm)
   =
-  if n = 0 then (a,m,F) else
   if a = 0w then (a,m,T) else
-  let (n_a,c) = read_mem (a + next_off) m dm T in
-  if n_a = s then
-    let (m,c) = write_mem (a + parent_off) 0w m dm c in
+  if n = 0 then
+  let (m,c) = write_mem (a + parent_off) 0w m dm T in
       (a,m,c)
   else
-    let (_,m,c') = fib_heap_parent_to_null (n - 1) (n_a,s,m,dm) in
+    let (n_a,c) = read_mem (a + next_off) m dm T in
+    let (_,m,c') = fib_heap_parent_to_null (n - 1) (n_a,m,dm) in
     let (m,c) = write_mem (a + parent_off) 0w m dm (c /\ c') in
       (a,m,c)
 End
 
-(*
+Definition get_key_def[simp]:
+  get_key (FibTree k v l) = k
+End
+
+
+
+Theorem lemma_fib_heap_parent_is_null:
+  n < LENGTH fts /\
+  (!x. x < n ==>
+    read_mem (get_key(EL x fts) + parent_off) m dm T = (0w,T)) ==>
+  !p. (fts_mem (ann_fts_seg
+Proof
+
+QED
+
+
+print_find "ann_fts_append_thm"
+
+
+
 Theorem fib_heap_parent_to_null:
   !n fts m dm frame m' c.
   (fts_mem (ann_fts p fts) * frame) (fun2set(m,dm)) /\
-  n <= (LENGTH fts + 1) /\
-  fib_heap_parent_to_null n (head_key fts, head_key fts,m,dm) =
+  n < LENGTH fts /\
+  (!x. n < x /\ x < LENGTH fts ==>
+    read_mem (get_key(EL x fts) + parent_off) m dm T = (0w,T)) /\
+  fib_heap_parent_to_null n (get_key(EL n fts),m,dm) =
     (head_key fts,m',T)
   ==>
   (fts_mem (ann_fts 0w fts) * frame) (fun2set(m',dm))
@@ -195,12 +216,19 @@ Proof
     rpt gen_tac  >> disch_tac >> fs[] >>
     pop_assum mp_tac >>
     simp[Once fib_heap_parent_to_null_def, head_key_def,head_key_t_def,
-         read_mem_def,write_mem_def] >>
+         read_mem_def,write_mem_def,parent_off_def] >>
+    Cases_on `fts` >> fs[] >>
+    Cases_on `h` >> simp[] >>
+    fs[ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def, fts_mem_def,
+       SEP_CLAUSES, head_key_def, ft_mem_def, fill_anode_def,
+       fill_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
+    full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR] >>
+    SEP_R_TAC >>
     strip_tac >> gvs[] >>
+    SEP_W_TAC >>
     fs[fts_mem_def,ann_fts_def,SEP_CLAUSES]
     ) >>
   rpt gen_tac  >> disch_tac >> fs[] >>
-  Cases_on `h` >>
   pop_assum mp_tac >>
   simp[Once fib_heap_parent_to_null_def, head_key_def,head_key_t_def,
        read_mem_def,write_mem_def,next_off_def,parent_off_def] >>
@@ -228,7 +256,8 @@ Proof
   strip_tac >>
 
 QED
-*)
+
+
 
 
 Definition fib_heap_rm_min_def:

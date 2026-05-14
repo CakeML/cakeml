@@ -7096,7 +7096,7 @@ End
 Definition fib_heap_pop_def:
   fib_heap_pop (a:'a word, m:'a word -> 'a word_lab,dm: 'a word set)
   =
-  if a = 0w then (a,0w,m,T) else
+  if a = 0w then (a,0w,m,F) else
   let (n_a,c) = read_mem (a + next_off) m dm T in
   if n_a = a then (a,0w,m,T) else
   let (l_a,c) = read_mem (a + before_off) m dm c in
@@ -7133,13 +7133,18 @@ QED
 
 
 Theorem fib_heap_pop:
-  !frame.
-    (fib_heap_weak a fh1 * frame) (fun2set (m,dm)) /\
-    fib_heap_pop (a,m,dm) = (a,a',m',c)
+  !frame fts a fh1 m dm a' m' min c.
+    (fts_mem (ann_fts 0w fts) * frame) (fun2set (m,dm)) /\
+    a = head_key fts /\
+    fib_heap_inv_weak fh1 fts /\
+    fib_heap_pop (a,m,dm) = (min,a',m',T)
     ==>
-    ?fts fh2.
-    (fib_heap a fh2 * fib_heap_weak a' (FDIFF fh1 (FDOM fh2)) * frame)
-      (fun2set (m',dm)) /\ DISJOINT (FDOM fh2) (FDOM (FDIFF fh1 (FDOM fh2))) /\ c
+    ?fts fh2 v l.
+    (fts_mem (ann_fts 0w [FibTree min v l]) *
+     fib_heap_weak a' (FDIFF fh1 (FDOM fh2)) * frame)
+      (fun2set (m',dm)) /\
+    fib_heap_inv fh2 [FibTree min v l] /\
+    DISJOINT (FDOM fh2) (FDOM (FDIFF fh1 (FDOM fh2)))
 Proof
   simp[fib_heap_weak_def,fib_heap_def] >>
   rpt strip_tac >>
@@ -7147,15 +7152,8 @@ Proof
   pop_assum mp_tac >>
   Cases_on `fts`
   >- (
-    fs[head_key_def,head_key_t_def] >>
-    full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR] >>
     simp[fib_heap_pop_def, read_mem_def, write_mem_def] >>
-    strip_tac >> gvs[] >>
-    qexistsl [`FEMPTY`,`[]`,`[]`] >> simp[fib_heap_def] >>
-    simp[fib_heap_inv_empty_thm,head_key_def,head_key_t_def] >>
-    fs[ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def, fts_mem_def,
-       SEP_CLAUSES, head_key_def, ft_mem_def, fill_anode_def,
-       fill_dnode_def, head_key_t_def, ones_def, STAR_ASSOC]
+    fs[head_key_def,head_key_t_def]
     ) >>
   Cases_on `h` >>
   Cases_on `t`
@@ -7168,7 +7166,7 @@ Proof
     simp[fib_heap_pop_def, read_mem_def, write_mem_def,next_off_def,before_off_def] >>
     SEP_R_TAC >> simp[] >>
     strip_tac >> gvs[] >>
-    qexistsl [`fh1`,`[FibTree a v l]`,`[]`] >>
+    qexistsl [`fh1`,`v`,`l`,`[]`] >>
     simp[head_key_t_def] >>
     simp[lemma_fdiff_id_eq_empty,fib_heap_inv_weak_empty_thm] >>
     simp[lemma_inv_weak_imp_inv] >>
@@ -7186,12 +7184,12 @@ Proof
     gvs[] >>
     simp[fib_heap_pop_def, read_mem_def, write_mem_def,next_off_def,before_off_def] >>
     SEP_R_TAC >> simp[] >>
-    `k' <> a` by SEP_NEQ_TAC >> simp[] >>
+    `k' <> k` by SEP_NEQ_TAC >> simp[] >>
     strip_tac >> gvs[] >>
     SEP_R_TAC >> simp[] >>
     drule_all lemma_fib_heap_inv_weak_split >>
     strip_tac >> fs[] >>
-    qexistsl [`fh1'`,`[FibTree a v l]`,`[FibTree a' v' l']`] >>
+    qexistsl [`fh1'`,`v`,`l`,`[FibTree a' v' l']`] >>
     gvs[head_key_t_def] >>
     simp[FDIFF_FUNION,lemma_fdiff_id_eq_empty,lemma_fdiff_disjoint] >>
     simp[DISJOINT_SYM] >>
@@ -7214,14 +7212,14 @@ Proof
   gvs[] >>
   simp[fib_heap_pop_def, read_mem_def, write_mem_def,next_off_def,before_off_def] >>
   SEP_R_TAC >> simp[] >>
-  `k' <> a` by SEP_NEQ_TAC >> simp[] >>
+  `k' <> k` by SEP_NEQ_TAC >> simp[] >>
   simp[REVERSE_APPEND,head_key_t_def] >>
   drule_all lemma_fib_heap_inv_weak_split >>
   SEP_R_TAC >> simp[] >>
   rpt strip_tac >> gvs[] >>
   rename [`fib_heap_inv_weak fh2 (FibTree a' v' l'::
     (rest ++ [FibTree lk lv ll]))`] >>
-  qexistsl [`fh1'`,`[FibTree a v l]`,`(FibTree a' v' l'::
+  qexistsl [`fh1'`,`v`,`l`,`(FibTree a' v' l'::
     (rest ++ [FibTree lk lv ll]))`] >>
   simp[head_key_t_def] >>
   simp[FDIFF_FUNION,lemma_fdiff_id_eq_empty,lemma_fdiff_disjoint] >>
@@ -7259,18 +7257,6 @@ End
 Definition get_key_def[simp]:
   get_key (FibTree k v l) = k
 End
-
-
-
-Theorem lemma_fib_heap_parent_is_null:
-  n < LENGTH fts /\
-  (!x. x < n ==>
-
-    read_mem (get_key(EL x fts) + parent_off) m dm T = (0w,T)) ==>
-  !p. (fts_mem (ann_fts_seg
-Proof
-
-QED
 
 
 Theorem fib_heap_parent_to_null:
@@ -7394,13 +7380,54 @@ Definition fib_heap_rm_min_def:
   let c = (c /\ c') in
   let child_a = a + child_off in
   let (rank_a,c) = read_mem (a + rank_off) m dm c in
-  let (child_a,m,c') = fib_heap_parent_to_null (rank_a + 1w)
-                        (child_a,child_a,m,dm) in
-  let c = (c /\ c') in
+  let (child_a,m,c') = fib_heap_parent_to_null (w2n rank_a)
+                        (child_a,m,dm) in
+  let (m,c) = write_mem child_a 0w m dm (c /\ c') in
   let (new_a,m,c') = fib_heap_meld (child_a,n_a,m,dm) in
     (min,new_a,m,c /\ c')
 End
 
+Theorem fib_heap_rm_min:
+  !frame.
+  (fib_heap a fh1 * frame) (fun2set(m,dm)) /\
+  fib_heap_rm_min (a,m,dm) = (min,a',m',c)
+  ==>
+  ?fts fh2.
+  (fib_heap_weak (head_key fts) (fh1 \\ min) * fib_heap min fh2 * frame)
+    (fun2set(m',dm)) /\ c
+Proof
+  simp[fib_heap_rm_min_def,read_mem_def,write_mem_def,child_off_def] >>
+  IF_CASES_TAC
+  >- (
+    rpt strip_tac >> gvs[] >>
+    qexistsl [`[]`,`FEMPTY`] >>
+    simp[head_key_def,head_key_t_def] >>
+    fs[fib_heap_weak_def,fib_heap_def] >>
+    fs[SEP_EXISTS_THM,PULL_EXISTS,SEP_CLAUSES] >>
+    full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR] >>
+    imp_res_tac lemma_empty_heap2 >>
+    gvs[] >>
+    qexistsl [`[]`,`[]`] >>
+    fs[fts_mem_def,ann_fts_def] >>
+    fs[fib_heap_inv_weak_empty_thm,SEP_CLAUSES]
+   ) >>
+  simp[Once fib_heap_def] >>
+  pairarg_tac >>
+  rpt gen_tac >> strip_tac >>
+  pop_assum mp_tac >>
+  fs[SEP_EXISTS_THM,PULL_EXISTS,SEP_CLAUSES] >>
+  full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR] >>
+  drule_all lemma_inv_imp_inv_weak >> strip_tac >>
+  qspecl_then [`frame`,`fts`,`a`,`fh1`,`m`,`dm`,`min'`,`n_a`,`m''`,`c'`]
+    mp_tac fib_heap_pop >> simp[] >>
+  strip_tac >>
+  qpat_x_assum `(fts_mem (ann_fts 0w fts) * frame) (fun2set (m,dm))` kall_tac >>
+  qpat_x_assum `(fts_mem (ann_fts 0w fts) * frame) (fun2set (m,dm))` kall_tac >>
+  simp[Once fib_heap_weak_def] >>
 
+  fs[fib_heap_def]
+
+QED
+fib_heap_pop
 
 
