@@ -69,7 +69,17 @@ Proof
   >~[‘encode_bvar_eq _ _’]
   >-(
     rw[EVERY_FLAT,EVERY_GENLIST,reify_avar_def,reify_reif_def]>>
-    cheat)>>
+    ntac 2 (pop_assum mp_tac)>>
+    rename1‘i < _ ⇒ j < _ ⇒ _’>>
+    pop_assum $ qspecl_then[‘&i + offx’,‘&j + offy’] mp_tac>>
+    simp[]>>
+    qmatch_goalsub_abbrev_tac
+    ‘(P ⇒ (varc _ (EL a _) = c ⇔ varc _ (EL b _) = d)) ⇒
+      Q ⇒ R ⇒ (_ = e ⇔ _ = f)’>>
+    ‘(P ⇔ (Q ∧ R)) ∧ a = i ∧ b = j ∧
+      c = e ∧ d = f’ suffices_by metis_tac[]>>
+    unabbrev_all_tac>>
+    intLib.ARITH_TAC)>>
   simp[mk_bounds_def,EVERY_FLAT]>>
   qmatch_goalsub_abbrev_tac‘EVERY P (MAP _ _)’>>
   rw[EVERY_MAP,EVERY_MEM,Abbr‘P’]>>
