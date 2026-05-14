@@ -298,6 +298,15 @@ Definition evaluate_def:
      | SOME w => (SOME (Return w),empty_locals s)
      | _ => (SOME Error,s)) /\
  (evaluate (Raise eid,s) = (SOME (Exception eid), empty_locals s)) /\
+ (evaluate (AddCarry res co l r ci,s) =
+  case (eval s l, eval s r, eval s ci) of
+  | (SOME (Word lw), SOME (Word rw), SOME (Word ciw)) =>
+      (let (resw, cow) = word_and_carry lw rw ciw in
+         case (FLOOKUP s.locals res, FLOOKUP s.locals co) of
+         | (SOME _, SOME _) =>
+           (NONE, s with locals := s.locals |+ (res,Word resw) |+ (co,Word cow))
+         | _ => (SOME Error, s))
+  | _ => (SOME Error, s)) /\
  (evaluate (Tick,s) =
    if s.clock = 0 then (SOME TimeOut,empty_locals s)
    else (NONE,dec_clock s)) /\

@@ -30,6 +30,8 @@ Definition var_prog_def:
   (var_prog (ExtCall f v1 v2 v3 v4) = [v1;v2;v3;v4]) ∧
   (var_prog (Return e) = var_cexp e) ∧
   (var_prog (ShMem mop v e) = [v] ++ var_cexp e) ∧
+  (var_prog (AddCarry res co l r ci) =
+     [res; co] ++ var_cexp l ++ var_cexp r ++ var_cexp ci) ∧
   (var_prog _ = [])
 End
 

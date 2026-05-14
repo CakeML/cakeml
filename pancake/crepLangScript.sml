@@ -57,6 +57,8 @@ Datatype:
        | Raise ('a word)
        | Return ('a exp)
        | ShMem memop varname ('a exp)
+       (* (result, carry-out) := left + right + carry-in *)
+       | AddCarry varname varname ('a exp) ('a exp) ('a exp)
        | Tick;
 End
 

@@ -141,13 +141,8 @@ End
 Definition pan_op_def:
   pan_op Mul [w1:'a word;w2] = SOME(ValWord (w1 * w2)) ∧
   (pan_op AddCarry [l:'a word;r;c] =
-   let
-     res = w2n l + w2n r + (if c = 0w then 0 else 1)
-   in
-     SOME
-       (Struct
-          [ValWord (n2w res);
-           if dimword(:α) ≤ res then ValWord 1w else ValWord 0w])) ∧
+   let (res, co) = word_and_carry l r c in
+     SOME (Struct [ValWord res; ValWord co])) ∧
   pan_op _ _ = NONE
 End
 

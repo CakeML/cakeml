@@ -165,3 +165,10 @@ Definition upper_w2w_def:
     if dimindex (:'a) = 32 then w2w w << 32 else (w2w w):word64
 End
 
+Definition word_and_carry_def:
+  word_and_carry (l: α word) (r: α word) (c: α word) : (α word # α word) =
+  let
+    res = w2n l + w2n r + (if c = 0w then 0 else 1)
+  in
+    (n2w res, if dimword(:α) ≤ res then 1w else 0w)
+End
