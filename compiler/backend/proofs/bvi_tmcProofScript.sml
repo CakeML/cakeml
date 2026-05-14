@@ -2098,43 +2098,6 @@ Definition alloc_state_rel_def:
        alloc_state_rel tag' left' hole' right' env child_ptr hole_ptr hole_idx hole_val s2 s3)
 End
 
-Theorem evaluate_allocate_holes_aux:
-  ∀cb tag left child right hole call_ts call_args f top_ptr hole_ptr hole_idx env s u t r.
-    evaluate ([cb_to_bvi loc cb],env,s) = (r_block,t_block) ∧
-    cb_to_hb cb = (HoleBlock tag left hole right, call_ts, call_args) ∧
-    r_block ≠ Rerr (Rabort Rtype_error) ∧
-    alloc_head_state_rel tag left right env top_ptr (Number 0) s u ∧
-    (∀tag' top_ptr'.
-       alloc_state_rel tag' left' hole' right'  env top_ptr' hole_ptr' hole_idx' ⇒
-       evaluate ([f top_ptr hole_ptr hole_idx (LENGTH binders)],binders ++ env,u) = (r,t))
-    ∃r'.
-      evaluate ([allocate_holes_aux (HoleBlock tag left hole right) f top_ptr hole_ptr hole_idx (LENGTH binders)],env,s) = (r',t) ∧
-      opt_res_rel r r'
-Proof
-  rw []
-  >> Cases_on ‘cb’ >> gvs [cb_to_hb_def, CaseEq "prod"]
-  >> rename [‘HoleBlock tag left hole right’]
-  >> gvs [allocate_holes_aux_def, mut_cons_def, evaluate_def, evaluate_APPEND]
-  >> 
-QED
-
-Theorem evaluate_allocate_holes:
-  ∀cb tag left child right hole call_ts call_args f top_ptr hole_ptr hole_idx binders env s u t r.
-    evaluate ([f top_ptr hole_ptr hole_idx (LENGTH binders)],binders ++ env,u) = (r,t) ∧
-    cb_to_hb cb = (HoleBlock tag left hole right, call_ts, call_args) ∧
-    alloc_state_rel cb env top_ptr hole_ptr hole_idx s u ∧
-    r ≠ Rerr (Rabort Rtype_error) ⇒
-    ∃r'.
-      evaluate ([allocate_holes tag left hole right f],env,s) = (r',t) ∧
-      opt_res_rel r r'
-Proof
-  rw []
-  >> Cases_on ‘cb’ >> gvs [cb_to_hb_def, CaseEq "prod"]
-  >> rename [‘allocate_holes tag left hole right f’]
-  >> gvs [allocate_holes_def, evaluate_def, mut_cons_def]
-  >> bvi_to_cb_ind
-QED
-
 Theorem evaluate_hb_to_mutcons:
   ∀cb tag left child right hole call_ts call_args loc env1 env2 s t r f.
     evaluate ([cb_to_bvi loc cb],env2,s) = (r,t) ∧
