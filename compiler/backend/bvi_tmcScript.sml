@@ -316,10 +316,9 @@ Definition update_cons_def:
   update_cons ptr idx val = Op (MemOp UpdateCons) [Var val; Op (IntOp (Const &idx)) []; Var ptr]
 End
 
-(* Convert a hole_block to a MutCons allocation with hole represented as Const 0 *)
 Definition allocate_holes_aux_def:
   (allocate_holes_aux (HoleBlock t l hole r) f (top_ptr:num) (hole_ptr:num) (hole_idx:num) (num_binders:num) =
-   Let [mut_cons t (shift_vars 1 l) (shift_vars 1 r)] $ Let [update_cons hole_ptr hole_idx 0] $
+   Let [mut_cons t (shift_vars 1 l) (shift_vars 1 r)] $ Let [update_cons hole_ptr (LENGTH r) 0] $
        allocate_holes_aux hole f (top_ptr + 2) 1 (LENGTH r) (num_binders + 2)) ∧
   (allocate_holes_aux Hole f top_ptr hole_ptr hole_idx num_binders = f top_ptr hole_ptr hole_idx num_binders)
 End
