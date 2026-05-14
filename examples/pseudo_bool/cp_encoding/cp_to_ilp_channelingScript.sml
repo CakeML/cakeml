@@ -100,7 +100,25 @@ Proof
   rw[EVERY_FLAT,EVERY_GENLIST,EVERY_MAP]>>
   gvs[EVERY_MEM]
   >~[‘varc _ _ = _ ⇔ _’]
-  >-cheat>>
+  >-(
+    rename1‘_ = j ⇔ _ = i’>>
+    rename1‘LENGTH Xs = LENGTH Ys’>>
+    last_assum $ qspec_then‘Num (i - offx)’ assume_tac>>
+    ‘Num (i - offx) < LENGTH Ys’ by intLib.ARITH_TAC>>
+    fs[]>>
+    last_assum $ qspec_then‘Num (j - offy)’ assume_tac>>
+    ‘Num (j - offy) < LENGTH Ys’ by intLib.ARITH_TAC>>
+    fs[]>>
+    gs[EL_MEM]>>
+    pop_assum mp_tac>>
+    first_x_assum $ drule_then mp_tac>>
+    rw[]>>
+    first_x_assum $ drule_then mp_tac>>
+    qmatch_goalsub_abbrev_tac‘(_ = a ⇔ _ = b) ⇒ _’>>
+    ‘a = j ∧ b = i’ suffices_by metis_tac[]>>
+    unabbrev_all_tac>>
+    intLib.ARITH_TAC
+  )>>
   rw[mk_array_ind_def]>>
   last_x_assum $ drule_then mp_tac>>
   intLib.ARITH_TAC
