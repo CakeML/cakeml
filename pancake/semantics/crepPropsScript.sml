@@ -289,67 +289,86 @@ Proof
   Cases_on ‘v’ \\ rw[res_var_def,DOMSUB_FLOOKUP_THM,FLOOKUP_UPDATE]
 QED
 
-Theorem unassigned_free_vars_evaluate_same:
-  !p s res t n.
-   evaluate (p,s) = (res,t) /\
-   (res = NONE ∨ res = SOME Continue ∨ res = SOME Break) /\
-    ~MEM n (assigned_free_vars p) ==>
+Theorem FLOOKUP_set_globals[simp]:
+  FLOOKUP (set_globals gv w s).locals n = FLOOKUP s.locals n
+Proof
+  simp [set_globals_def]
+QED
+
+Theorem sh_mem_load_FLOOKUP_locals:
+  sh_mem_load v addr nb s = (NONE, t) ∧ n ≠ v ⇒
   FLOOKUP t.locals n = FLOOKUP s.locals n
 Proof
-  recInduct evaluate_ind >> rw [] >> fs [] >>
-  TRY(qpat_x_assum ‘evaluate (While _ _,_) = (_,_)’ mp_tac >>
-      once_rewrite_tac [evaluate_def] >>
-      ntac 4 (TOP_CASE_TAC >> fs []) >>
-      pairarg_tac >> fs [] >>
-      fs [] >>
-      TOP_CASE_TAC >> fs [] >>
-      strip_tac
-      >- (
-       first_x_assum drule >>
-       fs [] >>
-       disch_then drule >>
-       fs [assigned_free_vars_def] >>
-       first_x_assum drule >>
-       fs [dec_clock_def]) >>
-      FULL_CASE_TAC >> fs [] >>
-      fs [assigned_free_vars_def] >>
-      first_x_assum drule >>
-      fs [dec_clock_def]) >>
-  TRY
-  (fs [evaluate_def, assigned_free_vars_def, AllCaseEqs(),
-       set_globals_def, state_component_equality] >>
-   TRY (pairarg_tac) >> rveq >> fs [] >> rveq >>
-   FULL_CASE_TAC >> metis_tac [] >>
-   NO_TAC) >>
-  TRY
-  (fs [evaluate_def, assigned_free_vars_def,MEM_FILTER] >> fs [CaseEq "option"] >>
-   pairarg_tac >> fs [] >> rveq >> gvs[flookup_res_var_thm] >>
-   first_x_assum drule >>
-   fs [state_component_equality, FLOOKUP_UPDATE] >>
-   metis_tac[] >> NO_TAC) >>
-  TRY
-  (fs [evaluate_def, assigned_free_vars_def,MEM_FILTER] >> fs [CaseEq "option", CaseEq "word_lab"] >>
-   rveq >> fs [state_component_equality, FLOOKUP_UPDATE] >>
-   fs [panSemTheory.mem_store_def, state_component_equality] >> NO_TAC) >>
-  TRY
-  (cases_on ‘caltyp’ >>
-   fs [evaluate_def, assigned_free_vars_def, CaseEq "option",  CaseEq "word_lab"]  >>
-   rveq >> rename1 ‘lookup_code _ _ _ _ = SOME v6’ >> cases_on ‘v6’ >> fs[] >>
-   every_case_tac >> fs [set_var_def, state_component_equality, assigned_free_vars_def] >>
-   TRY (qpat_x_assum ‘s.locals |+ (_,_) = t.locals’ (mp_tac o GSYM) >>
-        fs [FLOOKUP_UPDATE] >> NO_TAC) >>
-   res_tac >> fs [FLOOKUP_UPDATE] >> NO_TAC) >>
-  TRY
-  (fs [evaluate_def, assigned_free_vars_def,MEM_FILTER] >> fs [CaseEq "option"] >>
-   pairarg_tac >> fs [] >> rveq >>
-   FULL_CASE_TAC >>
-   metis_tac [] >> NO_TAC) >>
-  fs [evaluate_def, assigned_free_vars_def, dec_clock_def, CaseEq "option",
-      CaseEq "word_lab", CaseEq "ffi_result"]  >>
-  rveq >> TRY (FULL_CASE_TAC) >>fs [state_component_equality]
->>
-(Cases_on ‘op’>>fs[sh_mem_op_def,sh_mem_load_def,sh_mem_store_def]>>
- every_case_tac>>fs[set_var_def,empty_locals_def]>>rveq>>fs[FLOOKUP_UPDATE])
+  rw [oneline sh_mem_load_def, AllCaseEqs()]
+  >> simp [set_var_def, empty_locals_def, FLOOKUP_SIMP]
+QED
+
+Theorem sh_mem_load_FLOOKUP_locals:
+  sh_mem_load v addr nb s = (res, t) ∧ n ≠ v ∧
+  (res = NONE ∨ res = SOME Continue ∨ res = SOME Break) ⇒
+  FLOOKUP t.locals n = FLOOKUP s.locals n
+Proof
+  rw [oneline sh_mem_load_def, AllCaseEqs()]
+  >> simp [set_var_def, empty_locals_def, FLOOKUP_SIMP]
+QED
+
+Theorem sh_mem_store_FLOOKUP_locals:
+  sh_mem_store v addr nb s = (res, t) ⇒
+  FLOOKUP t.locals n = FLOOKUP s.locals n
+Proof
+  rw [oneline sh_mem_store_def, AllCaseEqs()] >> simp []
+QED
+
+Theorem set_mem_op_FLOOKUP_locals:
+  sh_mem_op op r ad s = (res, t) ∧ r ≠ n ∧
+  (res = NONE ∨ res = SOME Continue ∨ res = SOME Break) ⇒
+  FLOOKUP t.locals n = FLOOKUP s.locals n
+Proof
+  rw [oneline sh_mem_op_def, AllCaseEqs()]
+  >> imp_res_tac sh_mem_load_FLOOKUP_locals
+  >> imp_res_tac sh_mem_store_FLOOKUP_locals
+  >> simp []
+QED
+
+Theorem unassigned_free_vars_evaluate_same:
+  ∀p s res t n.
+    evaluate (p,s) = (res,t) ∧
+    (res = NONE ∨ res = SOME Continue ∨ res = SOME Break) ∧
+    ¬MEM n (assigned_free_vars p) ⇒
+    FLOOKUP t.locals n = FLOOKUP s.locals n
+Proof
+  recInduct evaluate_ind >> rpt conj_tac
+  >> simp [assigned_free_vars_def]
+  >~ [‘evaluate (Dec _ _ _, _)’] >-
+   (rw [evaluate_def, AllCaseEqs()]
+    >> rpt (pairarg_tac >> gvs [])
+    >> simp [flookup_res_var_thm]
+    >> IF_CASES_TAC
+    >> gvs [MEM_FILTER, FLOOKUP_SIMP])
+  >~ [‘evaluate (ShMem _ _ _, _)’] >-
+   (rw [evaluate_def, AllCaseEqs()]
+    >> imp_res_tac set_mem_op_FLOOKUP_locals >> gvs [])
+  >~ [‘evaluate (Seq _ _, _)’] >-
+   (rw [evaluate_def, AllCaseEqs()]
+    >> rpt (pairarg_tac >> gvs [])
+    >> gvs [AllCaseEqs()])
+  >~ [‘evaluate (While _ _, _)’] >-
+   (rw []
+    >> qpat_x_assum ‘evaluate (While _ _,_) = _’ mp_tac
+    >> once_rewrite_tac [evaluate_def]
+    >> rw [AllCaseEqs()]
+    >> rpt (pairarg_tac >> gvs [])
+    >> gvs [AllCaseEqs(), dec_clock_def])
+  >~ [‘evaluate (Call _ _ _, _)’] >-
+   (rw [evaluate_def]
+    >> every_case_tac
+    >> fs [assigned_free_vars_def, FLOOKUP_SIMP])
+  >~ [‘evaluate (If _ _ _, _)’] >-
+   (rw [evaluate_def, AllCaseEqs()]
+    >> rename1 ‘if w ≠ 0w then _ else _’
+    >> Cases_on ‘w ≠ 0w’ >> gvs [])
+  >> rw [evaluate_def, AllCaseEqs()]
+  >> simp [FLOOKUP_SIMP, NOT_MEM_FLOOKUP_ZIP, dec_clock_def]
 QED
 
 Theorem assigned_free_vars_IMP_assigned_vars:
