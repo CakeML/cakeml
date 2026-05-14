@@ -2247,11 +2247,7 @@ Proof
     >> simp [allocate_holes_aux_def, Once evaluate_def]
     >> simp [optimise_call_def, Once evaluate_def, evaluate_APPEND]
     (* call args *)
-    >> qspec_then ‘call_args’ mp_tac evaluate_var_list
-    >> disch_then drule
-    >> impl_tac >- (spose_not_then assume_tac >> gvs [])
-    >> strip_tac >> gvs []
-    >> qspecl_then [‘call_args’, ‘env2’, ‘r'’, ‘[RefPtr F (LEAST ptr. ptr ∉ FDOM r'.refs)]’] mp_tac evaluate_shift_vars
+    >> qspecl_then [‘call_args’, ‘env2’, ‘s’, ‘[RefPtr F (LEAST ptr. ptr ∉ FDOM r'.refs)]’] mp_tac evaluate_shift_vars
     >> disch_then drule
     >> strip_tac >> gvs []
     >> drule evaluate_var_list_stateless
@@ -2260,14 +2256,11 @@ Proof
                                   (LEAST ptr. ptr ∉ FDOM r'.refs) ↦
                                   MutBlock tag (REVERSE a) (Number 0)
                                   (MAP (λn. env2❲n❳) (REVERSE left))⟩’ mp_tac
+    >> strip_tac >> gvs []      
+    >> qspec_then ‘call_args’ mp_tac evaluate_var_list
+    >> disch_then drule
+    >> impl_tac >- (spose_not_then assume_tac >> gvs [])
     >> strip_tac >> gvs []
-    >> reverse $ Cases_on ‘v5'’
-    >-
-     (gvs [evaluate_def, cb_to_bvi_def]
-      >> pop_assum kall_tac
-      >> drule evaluate_var_list
-      >> impl_tac >- gvs []
-      >> gvs [])
     >> simp [Once evaluate_def]
     >> simp [Once evaluate_def]
     >> simp [Once evaluate_def, do_app_def, do_app_aux_def]
@@ -2275,7 +2268,6 @@ Proof
     >> ‘backend_common$small_enough_int (&LENGTH a)’ by cheat
     >> gvs []
     (* call *)
-    >> 
     >> gvs [CaseEq "option", bvlSemTheory.find_code_def]
     >> 
    )
