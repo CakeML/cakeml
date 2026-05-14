@@ -291,6 +291,10 @@ Datatype:
              | Hole
 End
 
+Definition shift_exp_vars_def:
+  shift_exp_vars n (Var i) = Var (i + n)
+End
+
 (* Convert a call_block to a hole_block, and return the RCall ingredients to be replaced with optimised version. *)
 Definition cb_to_hb_def:
   (cb_to_hb (CallBlock tag l child r) =
@@ -299,45 +303,59 @@ Definition cb_to_hb_def:
   (cb_to_hb (RCall ts args) = (Hole,ts,args))
 End
 
+Definition mut_cons_def:
+  mut_cons t l r =
+    let l' = MAP (λn. Var n) l in
+    let hole' = Op (IntOp (Const 0)) [] in
+    let r' = MAP (λn. Var n) r in
+    let i = LENGTH r in
+    Op (MemOp (MutCons t i)) (l' ++ [hole'] ++ r') 
+End
+
+Definition update_cons_def:
+  update_cons ptr idx val = Op (MemOp UpdateCons) [Var val; Var idx; Var ptr]
+End
+
 (* Convert a hole_block to a MutCons allocation with hole represented as Const 0 *)
-Definition hb_to_mutcons_def:
-  (hb_to_mutcons (HoleBlock t l hb r) =
-     let l' = MAP (λn. Var n) l in
-     let hb' = hb_to_mutcons hb in
-     let r' = MAP (λn. Var n) r in
-     let i = LENGTH r in
-       Op (MemOp (MutCons t i)) (l' ++ [hb'] ++ r')) ∧
-  (hb_to_mutcons Hole = Op (IntOp (Const 0)) [])
+Definition allocate_holes_aux_def:
+  (allocate_holes_aux (HoleBlock t l hole r) f (top_ptr:num) (hole_ptr:num) (hole_idx:num) (num_binders:num) =
+   Let [mut_cons t l r] $ Let [update_cons hole_ptr hole_idx 0] $
+       allocate_holes_aux hole f (top_ptr + 2) 1 (LENGTH r) (num_binders + 2)) ∧
+  (allocate_holes_aux Hole f top_ptr hole_ptr hole_idx num_binders = f top_ptr hole_ptr hole_idx num_binders)
+End
+
+Definition allocate_holes_def:
+  allocate_holes t l hole r f =
+  Let [mut_cons t l r] $ allocate_holes_aux hole f 0 0 (LENGTH r) 1
 End
 
 Definition optimise_call_def:
-  optimise_call loc bs ptr idx ts args =
-  let args' = MAP (λn. Var n) (shift_vars bs args) in
-  let idx'  = Op (IntOp (Const idx)) [] in
+  optimise_call loc num_binders ptr idx ts args =
+  let args' = MAP (λn. Var n) (shift_vars num_binders args) in
+  let idx'  = Op (IntOp (Const &idx)) [] in
     bvi$Call ts (SOME loc) (args' ++ [Var ptr; idx']) NONE
 End
 
 Definition hb_to_bvi_wrapper_def:
   hb_to_bvi_wrapper loc loc_opt tag l hole r ts args =
-    let exp_mut_cons  = hb_to_mutcons (HoleBlock tag l hole r) in
-    let exp_tail_call = optimise_call loc_opt 1 0 (&LENGTH r) ts args in
-    let exp_finalise  = Op (MemOp FinaliseCons) [Var 1] in
-      Let [exp_mut_cons] $ Let [exp_tail_call] $ exp_finalise
+  allocate_holes tag l hole r
+                 (λtop_ptr hole_ptr hole_idx num_binders.
+                    let exp_tail_call = optimise_call loc_opt num_binders hole_ptr hole_idx ts args in
+                    let exp_finalise = Op (MemOp FinaliseCons) [Var (top_ptr + 1)] in
+                    Let [exp_tail_call] exp_finalise)
 End
 
 Definition hb_to_bvi_worker_def:
-  hb_to_bvi_worker loc loc_opt i_ptr i_idx tag l hole r ts args =
-    let exp_mut_cons     = hb_to_mutcons (HoleBlock tag l hole r) in
-    let exp_update_hole  = Op (MemOp UpdateCons) [Var 0; Var (i_idx + 1); Var (i_ptr + 1)] in
-    let exp_tail_call    = optimise_call loc_opt 2 1 (&LENGTH r) ts args in
-      Let [exp_mut_cons] $ Let [exp_update_hole] $ exp_tail_call
+  hb_to_bvi_worker loc loc_opt old_ptr old_idx tag l hole r ts args =
+  allocate_holes tag l hole r
+                 (λtop_ptr hole_ptr hole_idx num_binders.
+                    let exp_update_hole = update_cons (old_ptr + num_binders) (old_idx + num_binders) top_ptr in
+                    let exp_tail_call = optimise_call loc_opt (num_binders + 1) hole_ptr hole_idx ts args in
+                    Let [exp_update_hole] exp_tail_call)
 End
 
 Definition fill_hole_def:
-  fill_hole i_old_ptr i_old_idx expr =
-    let arg_hole_ptr = Var i_old_ptr in
-    let arg_hole_idx = Var i_old_idx in
-    Op (MemOp UpdateCons) [expr; arg_hole_idx; arg_hole_ptr]
+  fill_hole ptr idx expr = Op (MemOp UpdateCons) [expr; Var idx; Var ptr]
 End
 
 Definition rewrite_wrapper_cons_def:
