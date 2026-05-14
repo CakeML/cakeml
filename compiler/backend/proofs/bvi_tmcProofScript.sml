@@ -2018,6 +2018,29 @@ Resume evaluate_rewrite_tmc[op_opt]:
   (* Experiment *)
   >> asm_x "original" kall_tac
   >> asm_x "original'" kall_tac
+
+  (* Experiment within the experiment - hybothesis on cb_to_bvi to get r' not a type error *)
+  (* We do also get holes_unchanged_except f' u'.refs t'.refs ∅ which could be useful *)
+  >> first_assum $ qspecl_then [‘[cb_to_bvi loc (CallBlock tag left child right)]’, ‘u’] mp_tac
+  >> impl_tac
+  >- (imp_res_tac bvi_to_cb_size
+      >> imp_res_tac evaluate_clock_non_increase
+      >> gvs [])
+  >> disch_then drule
+  >> drule_all env_rel_submap >> strip_tac
+  >> drule_all env_rel_append >> strip_tac
+  >> rpt $ disch_then drule
+  >> impl_tac >- gvs []
+  >> disch_then $ qspec_then ‘loc’ mp_tac
+  >> gvs []
+  >> strip_tac
+  >> ‘r' ≠ Rerr (Rabort Rtype_error)’ by (spose_not_then assume_tac >> gvs [])
+  >> pop_assum mp_tac
+  (* We only care about r' not type error *)
+  >> ntac 5 $ pop_assum kall_tac
+  >> strip_tac
+  >> qrefinel [‘t'’, ‘_’, ‘r'’]
+                       
   >> reverse $ Induct_on ‘CallBlock tag left child right’
   >- gvs [cb_to_bvi_def]
   >> rw []
@@ -2029,27 +2052,11 @@ Resume evaluate_rewrite_tmc[op_opt]:
   >> impl_tac >- (spose_not_then assume_tac >> gvs [])
   >> strip_tac >> gvs []
   >> rename [‘state_rel f' u u'’]
-  >> first_assum $ qspecl_then [‘MAP (λn. Var n) left’, ‘u’] mp_tac
-  >> impl_tac
-  >- (imp_res_tac bvi_to_cb_size
-      >> imp_res_tac evaluate_clock_non_increase
-      >> gvs [cb_to_bvi_def, list_size_map, list_size_append])
-  >> disch_then drule
-  >> drule_all env_rel_submap
-  >> strip_tac
-  >> drule_all env_rel_append
-  >> strip_tac
-  >> disch_then $ drule_then drule
-  >> impl_tac >- gvs []
-  >> gvs [GSYM PULL_FORALL]
-  >> strip_tac >> gvs []
   >> drule evaluate_var_list
-  >> impl_tac
-  >- (gvs [])
+  >> impl_tac >- (spose_not_then assume_tac >> gvs [])
   >> strip_tac >> gvs []
-  >> rename [‘state_rel f2 u u'’]
+  >> rename [‘state_rel f' u u'’]
   >> reverse $ Cases_on ‘child’
-               
   >-
    (rename [‘RCall call_ts call_args’]
     >> gvs [cb_to_bvi_def]
@@ -2059,33 +2066,23 @@ Resume evaluate_rewrite_tmc[op_opt]:
     >> disch_then drule
     >> impl_tac >- (spose_not_then assume_tac >> gvs [])
     >> strip_tac >> gvs []
-    >> rename [‘state_rel f2 u u'’]
-    >> first_assum $ qspecl_then [‘MAP (λn. Var n) call_args’, ‘u’] mp_tac
-    >> impl_tac
-    >- (imp_res_tac bvi_to_cb_size
-        >> imp_res_tac evaluate_clock_non_increase
-        >> gvs [cb_to_bvi_def, list_size_map, list_size_append])
-    >> disch_then $ drule_then $ drule_then drule
-    >> impl_tac >- gvs []
-    >> gvs [GSYM PULL_FORALL]
-    >> strip_tac >> gvs []
-    >> drule evaluate_var_list
+    >> rename [‘state_rel f' u u'’]
+
+    >> gvs [CaseEq "prod"]
+    >> qspecl_then [‘call_args’, ‘vs' ++ env2’, ‘u'’] mp_tac evaluate_var_list
+    >> disch_then drule
     >> impl_tac >- (spose_not_then assume_tac >> gvs [])
     >> strip_tac >> gvs []
-    >> rename [‘state_rel f3 u u'’]
+    >> rename [‘state_rel f' u u'’]                          
     >> gvs [CaseEq "option", Once $ CaseEq "prod"]
     >> rename [‘SOME (arity,body)’]
     >> ‘u'.clock = u.clock’ by gvs [state_rel_def]
     >> gvs []
     >> Cases_on ‘u.clock < call_ts + 1’
     >-
-     (gvs []
+     (gvs [CaseEq "prod", GSYM PULL_FORALL]
       >> irule_at Any state_rel_with_clock
       >> rpt $ first_assum $ irule_at Any
-      >> conj_tac
-      >- imp_res_tac SUBMAP_TRANS
-      >> conj_tac
-      >- (imp_res_tac only_fresh_trans >> imp_res_tac evaluate_refs_SUBSET >> gvs [])
       >> rw []
       >-
        (gvs [rewrite_wrapper_def, dest_Cons_def, rewrite_wrapper_cons_def, cb_to_hb_def, hb_to_bvi_wrapper_def]
@@ -2096,12 +2093,6 @@ Resume evaluate_rewrite_tmc[op_opt]:
       >> cheat)
 
     >> gvs [cb_to_bvi_def, evaluate_def, CaseEq "prod"]
-    >> qspecl_then [‘l’, ‘vs ++ env’, ‘u’] mp_tac evaluate_var_list
-    >> disch_then drule
-    >> impl_tac >- (spose_not_then assume_tac >> gvs [])
-    >> strip_tac >> gvs []
-    >> rename [‘state_rel f2 u u'’]
-    >> first_assum $ qspecl_then [‘MAP (λn. Var n) l’, ‘u’] mp_tac
     >> 
         )
 
