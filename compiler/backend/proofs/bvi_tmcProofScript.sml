@@ -2057,6 +2057,7 @@ Resume evaluate_rewrite_tmc[op_opt]:
   >> strip_tac >> gvs []
   >> rename [‘state_rel f' u u'’]
   >> reverse $ Cases_on ‘child’
+               
   >-
    (rename [‘RCall call_ts call_args’]
     >> gvs [cb_to_bvi_def]
@@ -2092,106 +2093,87 @@ Resume evaluate_rewrite_tmc[op_opt]:
         >> cheat)
       >> cheat)
 
+    (* Inductive hypothesis on call *)
     >> gvs [cb_to_bvi_def, evaluate_def, CaseEq "prod"]
-    >> 
-        )
-
-
-        
-  >> gvs [cb_to_bvi_def]
-  >> gvs [evaluate_APPEND, evaluate_def]
-  >> gvs [CaseEq "prod"]
-  (* left *)
-  >> imp_res_tac evaluate_var_list
-  >> reverse $ Cases_on ‘v3' ≠ Rerr (Rabort Rtype_error)’
-  >- (gvs [])
-  >> gvs [CaseEq "prod"]
-  >> rename [‘evaluate (MAP (λn. Var n) left,vs ++ env,u) = (Rval (MAP (λn. (vs ++ env)❲n❳) left),u)’]
-  (* Inductive hypothesis on left *)
-  >> last_assum $ qspecl_then [‘(MAP (λn. Var n) left’, ‘u’] mp_tac
-        
-  >> reverse $ Induct_on ‘child’
-  >-
-   (rw []
-    >> gvs [cb_to_bvi_def]
-    >> gvs [evaluate_APPEND, evaluate_def]
-    >> 
-       )
-                       
-  (* Hypothesis on call block *)
-  >> first_assum $ qspecl_then [‘[cb_to_bvi loc (CallBlock tag left child right)]’, ‘u’] mp_tac
-  >> impl_tac
-  >- (imp_res_tac bvi_to_cb_size >> imp_res_tac evaluate_clock_non_increase >> gvs [])
-  >> qpat_x_assum ‘env_rel _ _ _ _’ kall_tac
-  >> disch_then drule
-  >> drule_all env_rel_submap
-  >> strip_tac
-  >> drule_all env_rel_append
-  >> strip_tac
-  >> rpt $ disch_then drule
-  >> disch_then $ qspec_then ‘loc’ mp_tac
-  >> impl_tac >- gvs []
-  >> strip_tac
-  >> first_x_assum $ qspecl_then [‘loc_opt’, ‘wrap’] assume_tac
-  >> gvs []
-  >> qexistsl [‘t'’, ‘f''’, ‘r'’]
-  >> gvs []
-  >> pop_assum kall_tac
-  >> rpt gen_tac
-  >> conj_tac >- (imp_res_tac SUBMAP_TRANS)
-  >> conj_tac >-
-   (irule only_fresh_trans
-    >> rpt $ first_assum $ irule_at Any
-    >> imp_res_tac evaluate_refs_SUBSET)
-  >> conj_tac >-
-   (irule holes_unchanged_except_trans
-    >> rpt $ first_assum $ irule_at Any)
-  (* Phase 2 theorems *)
-  >> rw []
-  >-
-   (gvs [rewrite_wrapper_def, dest_Cons_def, rewrite_wrapper_cons_def, cb_to_hb_def, CaseEq "prod", evaluate_def]
-    >> rename [‘cb_to_hb child = (hole,call_ts,call_args)’]
-
-    >> reverse $ Induct_on ‘child’
-    >-
-     (rw []
-      >> simp [Once evaluate_def, hb_to_bvi_wrapper_def, allocate_holes_def, allocate_holes_aux_def]
-      >> 
-         )
-                         
-    >> drule evaluate_hb_to_bvi_wrapper
-    >> disch_then $ qspecl_then [‘tag’, ‘left’, ‘child’, ‘right’, ‘hole’, ‘call_ts’, ‘call_args’, ‘loc_opt'’] mp_tac
-    >> gvs [cb_to_hb_def]
+    >> gvs [bvlSemTheory.find_code_def]
+    >> gvs [CaseEq "option", CaseEq "prod"]
+    >> first_x_assum $ qspecl_then [‘[body]’, ‘dec_clock (call_ts + 1) u’] mp_tac
+    >> impl_tac >- (imp_res_tac evaluate_clock_non_increase >> gvs [dec_clock_def])
     >> disch_then drule
-    >> impl_tac >- (spose_not_then assume_tac >> gvs [])
-    >> strip_tac
-    >> qexists ‘t''’
-    >> gvs []
-    >> cheat (* Need a conclusion that implies state_rel *))
-  >> cheat
 
-(*
-  >> conj_tac
-  >-
-   (irule holes_unchanged_except_trans
-    >> gvs [EL_APPEND_EQN]
-    >> rev_drule env_rel_length_opt
+    >> ntac 3 $ qpat_x_assum ‘env_rel _ _ _ _’ kall_tac
+    >> drule_all env_rel_submap >> strip_tac
+    >> drule_all env_rel_append >> strip_tac
+    >> drule_all env_rel_call_args
+    >> disch_then $ qspec_then ‘call_args’ mp_tac
+    >> strip_tac
+    >> disch_then drule
+    >> ‘state_rel f' (dec_clock (call_ts + 1) u) (dec_clock (call_ts + 1) u')’ by
+      (irule state_rel_dec
+       >> Cases_on ‘u.clock’ >- gvs []
+       >> gvs [])
+    >> disch_then drule
+    >> impl_tac >- (gvs [] >> spose_not_then assume_tac >> gvs [])
+    >> gvs [GSYM PULL_FORALL]
+    >> disch_then $ qspec_then ‘loc’ mp_tac
     >> strip_tac
     >> gvs []
-    >> drule env_rel_length_opt
-    >> strip_tac
-    >> gvs []
-    >> first_assum $ irule_at $ Pos $ el 4
-    >> gvs []
-    >> irule holes_unchanged_except_subset
-    >> qexists ‘∅’
-    >> gvs [])
-  >> irule hole_has_val_submap
-  >> first_assum $ irule_at Any
-  >> irule hole_has_val_unappend
-  >> first_assum $ irule_at Any
+    >> qexists ‘f''’
+    >> gvs [CaseEq "prod"]
+    >> rename [‘result_rel _ _ r_call r_call'’]
+    >> rename [‘state_rel _ t_call t_call'’]
+
+    >> Cases_on ‘exp = body’
+    >- (* Not an optimised recursive call *)
+     (gvs []
+      >> reverse $ Cases_on ‘r_call’
+      >- (* Call failed *)
+       (gvs [CaseEq "error_result"]
+        >-
+         (rename [‘state_rel f'' t_call t_call'’]
+          >> conj_tac
+          >- imp_res_tac SUBMAP_TRANS
+          >> conj_tac
+          >-
+           (imp_res_tac only_fresh_trans
+            >> imp_res_tac evaluate_refs_SUBSET
+            >> gvs [])
+          >> conj_tac
+          >- (imp_res_tac holes_unchanged_except_trans)
+          (* Bodies equal - not optimised code *)
+          >> cheat)
+        >> cheat)
+     )
+   )
+
+QED
+
+Theorem env_rel_call_args:
+  ∀opt f env1 env2 call_args.
+    env_rel opt f env1 env2 ⇒
+    env_rel opt f (MAP (λn. env1❲n❳) call_args) (MAP (λn. env2❲n❳) call_args)
+Proof
+  cheat
+(*    
+  rw [env_rel_def]
+  >> qexistsl [‘MAP (λn. (xs ++ ys)❲n❳) call_args’, ‘[]’]
   >> gvs []
-*)
+  >> gvs [LIST_REL_MAP1]
+  >> gvs [Once LIST_REL_cases]
+        
+  >> qexistsl [‘MAP (λn. (vs' ++ (xs ++ ys))❲n❳) call_args’, ‘[]’]
+  >> gvs []
+  >> cheat
+        
+  >> ho_match_mp_tac LIST_REL_ind
+
+  >> gvs [env_rel_def]
+  >> recInduct LIST_REL_ind
+                    
+  >> gvs [Once LIST_REL_cases]
+  >> gvs [LIST_REL_MAP1]
+  >> gvs [EL_APPEND_EQN]
+  *)
 QED
 
 Definition alloc_head_state_rel_def:
