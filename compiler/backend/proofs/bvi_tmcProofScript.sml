@@ -2123,15 +2123,6 @@ Definition alloc_env_rel_def:
       hole_ptr < LENGTH env_extras
 End
 
-Definition opt_call_arg_rel_def:
-  opt_call_arg_rel env hole_ptr hole_idx args1 args2 ⇔
-    ∃call_extras.
-      args2 = args1 ++ call_extras ∧
-      LENGTH call_extras = 2 ∧
-      EL 0 call_extras = EL hole_ptr env ∧
-      EL 1 call_extras = Number (&hole_idx)
-End
-
 Definition hypothesis_def:
   hypothesis xs' (s'' : (num # γ, 'ffi) bviSem$state) env1' loc' r' t' opt' f' s'³' env2' (s : (num # γ, 'ffi) bviSem$state) ⇔
   s''.clock < s.clock ⇒
@@ -2160,10 +2151,12 @@ Definition hypothesis_def:
 End
 
 Theorem evaluate_hb_to_bvi_wrapper_aux:
-  ∀call_ts call_args args1 args2 loc loc_opt body work f env1 env2 env3 s s' t r top_ptr hole_ptr hole_idx num_binders.
+  ∀call_ts call_args args loc loc_opt body work f env1 env2 env3 s s' t r top_ptr hole_ptr hole_idx num_binders.
     evaluate([Call call_ts (SOME loc) (MAP (λn. Var n) call_args) NONE],env1,s) = (r,t) ∧
-    evaluate (MAP (λn. Var n) call_args,env2,s') = (Rval args1,s') ∧ (* Maybe this should be in s instead *)
-                     
+    evaluate (MAP (λn. Var n) call_args,env2,s') = (Rval args,s') ∧ (* Maybe there's a better way to do this *)
+    
+    env_rel T f (MAP (λn. env1❲n❳) call_args) (MAP (λn. env2❲n❳) call_args ++ [env3❲hole_ptr❳; Number (&hole_idx)]) ∧
+    (∃c. hole_has_val f (MAP (λn. env1❲n❳) call_args) (MAP (λn. env2❲n❳) call_args ++ [env3❲hole_ptr❳; Number (&hole_idx)]) s'.refs c) ∧
 
     env_rel T f env1 env2 ∧
     state_rel f s s' ∧
@@ -2171,7 +2164,6 @@ Theorem evaluate_hb_to_bvi_wrapper_aux:
        
     (* Will need some relations for the top_ptr etc*)
     alloc_env_rel hole_ptr num_binders env2 env3 ∧
-    opt_call_arg_rel env3 hole_ptr hole_idx args1 args2 ∧
 
     lookup loc s.code = SOME (LENGTH call_args,body) ∧
     lookup loc_opt s'.code = SOME (LENGTH call_args + 2,work) ∧
@@ -2194,11 +2186,8 @@ Proof
   >> gvs [evaluate_shift_vars]   
   >> ‘backend_common$small_enough_int (&hole_idx)’ by cheat
   >> gvs [do_app_def, do_app_aux_def, EL_APPEND_EQN]
-  >> rev_drule evaluate_var_list
-  >> impl_tac >- gvs [CaseEq "result"]
-  >> strip_tac >> gvs []
+  >> imp_res_tac evaluate_var_list
   >> gvs [CaseEq "prod", CaseEq "result"]
-                 
   >> gvs [bvlSemTheory.find_code_def, CaseEq "option", CaseEq "prod"]
   >> imp_res_tac evaluate_IMP_LENGTH >> gvs []
   >> ‘s.clock = s'.clock’ by gvs [state_rel_def]
@@ -2211,13 +2200,13 @@ Proof
   >> gvs [CaseEq "prod"]
   >> ‘(r,t) = (v3,s'')’ by gvs [CaseEq "result", CaseEq "error_result"]
   >> gvs []
-  >> rename [‘evaluate ([_],_,_) = (r,t)’]                 
+  >> rename [‘evaluate ([_],_,_) = (r,t)’]
+  >> ntac 2 $ last_x_assum mp_tac >> last_x_assum kall_tac >> ntac 2 strip_tac
   >> gvs [hypothesis_def]
   >> first_x_assum $ qspecl_then [‘[body]’, ‘dec_clock (call_ts + 1) s’] mp_tac
   >> impl_tac
   >- gvs [dec_clock_def]
   >> disch_then $ drule_at $ Pos hd
-  >> ‘env_rel T f (MAP (λn. env1❲n❳) call_args) (args1 ++ [env_extras❲hole_ptr❳; Number (&hole_idx)])’ by cheat
   >> disch_then drule
   >> ‘state_rel f (dec_clock (call_ts + 1) s) (dec_clock (call_ts + 1) s')’ by
     (Cases_on ‘s.clock’ >> imp_res_tac state_rel_dec >> gvs [])
@@ -2229,8 +2218,6 @@ Proof
   >> first_x_assum $ qspec_then ‘loc_opt’ mp_tac
   >> strip_tac
   >> pop_assum mp_tac
-  (* This should be a precondition - from alloc_state_rel *)
-  >> ‘∃c. hole_has_val f (MAP (λn. env1❲n❳) call_args) (args1 ++ [env_extras❲hole_ptr❳; Number (&hole_idx)]) s'.refs c’ by cheat
   >> impl_tac
   >- (qexists ‘c’ >> gvs [])
   >> strip_tac
@@ -2238,7 +2225,6 @@ Proof
   >> rename [‘state_rel f' t t_work’]
   >> rename [‘opt_res_rel r r_work’]
   >> rename [‘result_rel (LIST_REL (v_rel f')) (v_rel f') r r'’]
-        
   >> qrefinel [‘_’, ‘_’, ‘f'’, ‘r_work’, ‘t_work’]
   >> reverse $ Cases_on ‘r_work’
   >-
@@ -2248,7 +2234,8 @@ Proof
     >> Cases_on ‘Rerr e'’ >- gvs []
     >> gvs [])
   >> gvs [PULL_EXISTS]
-  >> 
+                
+  >> cheat
 QED
 
 Theorem evaluate_allocate_holes_aux:
