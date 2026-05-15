@@ -34,23 +34,19 @@ val res = translate $ errorLogMonadTheory.bind_def;
 val res = translate $ errorLogMonadTheory.log_def;
 val res = translate $ errorLogMonadTheory.error_def;
 
-val res = translate_no_ind panStaticTheory.sh_bd_from_sh_def;
+val res = translate $ listTheory.OPT_MMAP_def;
 
-Triviality panstatic_sh_bd_from_sh_ind:
-  panstatic_sh_bd_from_sh_ind
+Theorem OPT_MMAP_eq_MAP[local]:
+  OPT_MMAP f xs = (OPT_MMAP I o MAP f) xs
 Proof
-  (* once_rewrite_tac [fetch "-" "panstatic_sh_bd_from_sh_ind_def"]
-  \\ rpt gen_tac
-  \\ rpt (disch_then strip_assume_tac)
-  \\ match_mp_tac (latest_ind ())
-  \\ rpt strip_tac
-  \\ last_x_assum match_mp_tac
-  \\ rpt strip_tac
-  \\ gvs [FORALL_PROD] *)
-  cheat
+  simp [miscTheory.OPT_MMAP_MAP_o]
 QED
 
-val _ = panstatic_sh_bd_from_sh_ind |> update_precondition;
+(* move recursion out of OPT_MMAP to aid the translator *)
+val res = panStaticTheory.sh_bd_from_sh_def
+  |> REWRITE_RULE [OPT_MMAP_eq_MAP]
+  |> SIMP_RULE std_ss [o_DEF]
+  |> translate;
 
 val res = translate $ panStaticTheory.sh_bd_from_bd_def;
 val res = translate $ panStaticTheory.sh_bd_has_shape_def;
@@ -663,7 +659,7 @@ Theorem main_spec:
        * STDIO (full_compile_64 (TL cl) (get_stdin fs) fs)
        * COMMANDLINE cl)
 Proof
-  (* rpt strip_tac
+  rpt strip_tac
   \\ xcf_with_def main_v_def
   \\ xlet_auto >- (xcon \\ xsimpl)
   \\ xlet_auto >- xsimpl
@@ -782,8 +778,7 @@ Proof
     \\ asm_exists_tac \\ xsimpl
     \\ qexists_tac `fs'` \\ xsimpl)
   \\ xapp
-  \\ asm_exists_tac \\ simp [] \\ xsimpl *)
-  cheat
+  \\ asm_exists_tac \\ simp [] \\ xsimpl
 QED
 
 Theorem main_whole_prog_spec:
