@@ -375,6 +375,7 @@ Definition evaluate_def:
                  (case fix_clock (s with locals := env)
                          (evaluate (prog, s with locals := env))
                    of (SOME (Result retvs),st) =>
+                        if LENGTH retvs ≠ LENGTH ns then (SOME Error,st) else
                         (case handler of (* if handler is present, then finalise *)
                          | NONE => (NONE, set_vars ns retvs (st with locals := s.locals))
                          | SOME (_,_,r,live_out) =>
