@@ -408,23 +408,32 @@ Resume compile_correct[Call]:
     \\ Cases_on ‘x'’ \\ fs [] \\ fs [subspt_lookup,lookup_inter_alt])
   \\ rename [‘Call (SOME z)’] \\ PairCases_on ‘z’ \\ fs []
   \\ Cases_on ‘handler’ \\ fs [shrink_def] \\ rveq \\ fs []
-  THEN1
-   (fs [evaluate_def,cut_res_def,cut_state_def]
-    \\ Cases_on ‘domain z1 ⊆ domain s.locals’ \\ fs []
-    \\ reverse IF_CASES_TAC \\ fs []
-    THEN1
-     (imp_res_tac subspt_IMP_domain
-      \\ fs [domain_inter,domain_union,domain_delete,
-             SUBSET_DEF,domain_fromAList,MEM_MAP,EXISTS_PROD]
-      \\ pop_assum mp_tac \\ fs [] \\ metis_tac [])
-    \\ IF_CASES_TAC \\ fs [] \\ rveq \\ fs [dec_clock_def]
-    \\ fs [CaseEq"prod",CaseEq"option"] \\ rveq \\ fs []
-    \\ fs [CaseEq"loopSem$result"] \\ rveq \\ fs [set_var_def,set_vars_def]
-    \\ fs [state_component_equality]
-    \\ fs [subspt_lookup,lookup_insert,lookup_inter_alt]
-    \\ cheat (* lookup_alist_insert *)
-    \\ rw [] \\ fs [domain_inter,domain_union]
-    \\ CCONTR_TAC \\ fs [])
+  >- (fs [evaluate_def,cut_res_def,cut_state_def]
+      \\ Cases_on ‘domain z1 ⊆ domain s.locals’ \\ fs []
+      \\ reverse IF_CASES_TAC \\ fs []
+      THEN1
+       (imp_res_tac subspt_IMP_domain
+        \\ fs [domain_inter,domain_union,domain_delete,
+               SUBSET_DEF,domain_fromAList,MEM_MAP,EXISTS_PROD]
+        \\ pop_assum mp_tac \\ fs [] \\ metis_tac [])
+      \\ IF_CASES_TAC \\ fs [] \\ rveq \\ fs [dec_clock_def]
+      \\ fs [CaseEq"prod",CaseEq"option"] \\ rveq \\ fs []
+      \\ fs [CaseEq"loopSem$result"] \\ rveq \\ fs [set_var_def,set_vars_def]
+      \\ fs [state_component_equality]
+      \\ ‘LENGTH retvs = LENGTH z0’ by
+           (CCONTR_TAC \\ fs [] \\ rveq \\ fs [])
+      \\ fs [] \\ rveq \\ fs []
+      \\ qexists_tac
+           ‘alist_insert z0 retvs (inter locals (list_delete z0 (inter l0 z1)))’
+      \\ fs [state_component_equality,subspt_lookup,
+             lookup_inter_alt,lookup_alist_insert_any]
+      \\ qx_genl_tac [‘k’,‘v’] \\ strip_tac
+      \\ Cases_on ‘ALOOKUP (ZIP (z0,retvs)) k’ \\ fs []
+      \\ ‘MAP FST (ZIP (z0,retvs)) = z0’ by fs [MAP_ZIP]
+      \\ rw []
+      \\ fs [domain_inter,ALOOKUP_NONE]
+      \\ first_x_assum irule
+      \\ fs [domain_union,domain_list_delete,domain_inter,domain_fromAList])
   \\ PairCases_on ‘x'’ \\ fs []
   \\ fs [evaluate_def,cut_res_def,cut_state_def]
   \\ Cases_on ‘domain z1 ⊆ domain s.locals’ \\ fs []
@@ -441,53 +450,79 @@ Resume compile_correct[Call]:
   \\ fs [CaseEq"loopSem$result"] \\ rveq \\ fs []
   \\ rpt (fs [state_component_equality] \\ NO_TAC)
   \\ fs [set_var_def,set_vars_def]
-  \\ cheat (*
-  THEN1
-   (qmatch_goalsub_abbrev_tac ‘evaluate (r1,st1)’
-    \\ Cases_on ‘evaluate
-         (x'2,st with locals := insert z0 retv (inter s.locals z1))’ \\ fs []
-    \\ Cases_on ‘q = SOME Error’ THEN1 fs [cut_res_def] \\ fs []
-    \\ first_x_assum drule
-    \\ disch_then (qspec_then ‘st1.locals’ mp_tac)
-    \\ impl_tac THEN1
-     (fs [Abbr‘st1’,subspt_lookup,lookup_inter_alt,lookup_insert,
-          domain_union,domain_inter] \\ rw [] \\ fs [])
-    \\ strip_tac \\ fs []
-    \\ unabbrev_all_tac \\ fs []
-    \\ reverse (Cases_on ‘q’) \\ fs []
-    THEN1
-     (Cases_on ‘x'’ \\ fs [cut_res_def,state_component_equality]
-      \\ Cases_on ‘res’ \\ fs []
-      \\ Cases_on ‘x'’ \\ fs [] \\ fs [subspt_lookup])
-    \\ fs [cut_res_def,cut_state_def,CaseEq"option",CaseEq"bool"]
-    \\ fs [state_component_equality,domain_inter,domain_union,dec_clock_def]
-    \\ fs [SUBSET_DEF] \\ rw []
-    \\ rpt (qpat_x_assum ‘inter _ _ = _’ (assume_tac o GSYM)) \\ fs []
-    \\ fs [subspt_lookup,lookup_inter_alt,domain_inter]
-    \\ fs [domain_lookup] \\ res_tac \\ res_tac \\ fs [])
-  THEN1
-   (qmatch_goalsub_abbrev_tac ‘evaluate (r1,st1)’
-    \\ Cases_on ‘evaluate
-              (x'1,st with locals := insert x'0 exn (inter s.locals z1))’ \\ fs []
-    \\ Cases_on ‘q = SOME Error’ THEN1 fs [cut_res_def] \\ fs []
-    \\ first_x_assum drule
-    \\ disch_then (qspec_then ‘st1.locals’ mp_tac)
-    \\ impl_tac THEN1
-     (fs [Abbr‘st1’,subspt_lookup,lookup_inter_alt,lookup_insert,
-          domain_union,domain_inter] \\ rw [] \\ fs [])
-    \\ strip_tac \\ fs []
-    \\ unabbrev_all_tac \\ fs []
-    \\ reverse (Cases_on ‘q’) \\ fs []
-    THEN1
-     (Cases_on ‘x'’ \\ fs [cut_res_def,state_component_equality]
-      \\ Cases_on ‘res’ \\ fs []
-      \\ Cases_on ‘x'’ \\ fs [] \\ fs [subspt_lookup])
-    \\ fs [cut_res_def,cut_state_def,CaseEq"option",CaseEq"bool"]
-    \\ fs [state_component_equality,domain_inter,domain_union,dec_clock_def]
-    \\ fs [SUBSET_DEF] \\ rw []
-    \\ rpt (qpat_x_assum ‘inter _ _ = _’ (assume_tac o GSYM)) \\ fs []
-    \\ fs [subspt_lookup,lookup_inter_alt,domain_inter]
-    \\ fs [domain_lookup] \\ res_tac \\ res_tac \\ fs []) *)
+  >~ [‘evaluate (y1,_) = (SOME (loopSem$Result _),_)’]
+     >- (Cases_on ‘LENGTH retvs = LENGTH z0’ \\ fs []
+         \\ rveq \\ fs []
+         \\ qmatch_goalsub_abbrev_tac ‘evaluate (r',st1)’
+         \\ Cases_on ‘evaluate
+              (x'2,st with
+                   locals := alist_insert z0 retvs (inter s.locals z1))’
+         \\ fs []
+         \\ Cases_on ‘q = SOME Error’
+         THEN1 (fs [cut_res_def])
+         \\ fs []
+         \\ first_x_assum drule
+         \\ disch_then (qspec_then ‘st1.locals’ mp_tac)
+         \\ impl_tac
+         >- (fs [Abbr‘st1’,subspt_lookup,lookup_inter_alt,
+                 lookup_alist_insert_any]
+             \\ ‘MAP FST (ZIP (z0,retvs)) = z0’ by fs [MAP_ZIP]
+             \\ qx_genl_tac [‘k’,‘v’] \\ strip_tac
+             \\ Cases_on ‘ALOOKUP (ZIP (z0,retvs)) k’ \\ fs []
+             \\ ‘¬MEM k z0’ by gvs [ALOOKUP_NONE]
+             \\ rw []
+             \\ ‘k ∈ domain
+                       (inter z1
+                          (union (list_delete z0 l2) (delete x'0 l3)))’ by
+                  fs [domain_inter,domain_union,domain_list_delete]
+             \\ fs []
+             \\ first_x_assum irule
+             \\ fs [domain_union,domain_inter,domain_fromAList])
+         \\ strip_tac \\ fs []
+         \\ unabbrev_all_tac \\ fs []
+         \\ reverse (Cases_on ‘q’) \\ fs []
+         THEN1
+          (Cases_on ‘x'’ \\ fs [cut_res_def,state_component_equality]
+           \\ Cases_on ‘res’ \\ fs []
+           \\ Cases_on ‘x'’ \\ fs [] \\ fs [subspt_lookup])
+         \\ fs [cut_res_def,cut_state_def,CaseEq"option",CaseEq"bool"]
+         \\ fs [state_component_equality,domain_inter,domain_union,
+                dec_clock_def]
+         \\ fs [SUBSET_DEF] \\ rw []
+         \\ rpt (qpat_x_assum ‘inter _ _ = _’ (assume_tac o GSYM)) \\ fs []
+         \\ fs [subspt_lookup,lookup_inter_alt,domain_inter]
+         \\ fs [domain_lookup] \\ res_tac \\ res_tac \\ fs [])
+  >~ [‘evaluate (y1,_) = (SOME (loopSem$Exception _),_)’]
+     >- (qmatch_goalsub_abbrev_tac ‘evaluate (h',st1)’
+         \\ Cases_on ‘evaluate
+              (x'1,st with
+                   locals := insert x'0 exn (inter s.locals z1))’
+         \\ fs []
+         \\ Cases_on ‘q = SOME Error’
+         THEN1 (fs [cut_res_def])
+         \\ fs []
+         \\ first_x_assum drule
+         \\ disch_then (qspec_then ‘st1.locals’ mp_tac)
+         \\ impl_tac
+         >- (fs [Abbr‘st1’,subspt_lookup,lookup_inter_alt,lookup_insert,
+                 domain_union,domain_inter,domain_list_delete,domain_delete,
+                 domain_fromAList]
+             \\ rw [] \\ fs [])
+         \\ strip_tac \\ fs []
+         \\ unabbrev_all_tac \\ fs []
+         \\ reverse (Cases_on ‘q’) \\ fs []
+         THEN1
+          (Cases_on ‘x'’ \\ fs [cut_res_def,state_component_equality]
+           \\ Cases_on ‘res’ \\ fs []
+           \\ Cases_on ‘x'’ \\ fs [] \\ fs [subspt_lookup])
+         \\ fs [cut_res_def,cut_state_def,CaseEq"option",CaseEq"bool"]
+         \\ fs [state_component_equality,domain_inter,domain_union,
+                dec_clock_def]
+         \\ fs [SUBSET_DEF] \\ rw []
+         \\ rpt (qpat_x_assum ‘inter _ _ = _’ (assume_tac o GSYM)) \\ fs []
+         \\ fs [subspt_lookup,lookup_inter_alt,domain_inter]
+         \\ fs [domain_lookup] \\ res_tac \\ res_tac \\ fs [])
+  \\ fs [state_component_equality]
 QED
 
 Resume compile_correct[Store]:
@@ -619,112 +654,78 @@ Theorem mark_correct:
   ∀prog s res s1. evaluate (prog,s) = (res,s1) ⇒
   evaluate (FST (mark_all prog),s) = (res,s1)
 Proof
-  cheat (*
-  recInduct evaluate_ind >> rw [] >>
-  fs [] >>
-  TRY (
-    rename [‘Seq’] >>
-    fs [mark_all_def] >>
-    rpt (pairarg_tac >> fs [] >> rveq) >>
-    TOP_CASE_TAC >> fs [] >>
-    fs [evaluate_def] >>
-    rpt (pairarg_tac >> gs [] >> rveq) >>
-    every_case_tac >> fs []) >>
-  TRY (
-    rename [‘If’] >>
-    fs [mark_all_def] >>
-    rpt (pairarg_tac >> fs [] >> rveq) >>
-    TOP_CASE_TAC >> fs [] >>
-    fs [evaluate_def] >>
-    every_case_tac >> fs [] >>
-    cases_on ‘evaluate (c1,s)’ >> fs [] >>
-    cases_on ‘q’ >> fs [cut_res_def] >> rveq >> gs [] >>
-    fs [cut_res_def] >>
-    cases_on ‘evaluate (c2,s)’ >> fs [] >>
-    cases_on ‘q’ >> fs [cut_res_def] >> rveq >> gs [] >>
-    fs [cut_res_def]) >>
-  TRY (
-    rename [‘Mark’] >>
-    fs [mark_all_def] >>
-    fs [evaluate_def]) >>
-  TRY (
-    rename [‘Loop’] >>
-    fs [mark_all_def] >>
-    rpt (pairarg_tac >> fs [] >> rveq) >>
-    fs [cut_res_def] >>
-    FULL_CASE_TAC >> fs []
-    >- (
-      fs [cut_state_def] >>
-      fs [Once evaluate_def, cut_res_def] >>
-      fs [cut_state_def]) >>
-    FULL_CASE_TAC >> fs []
-    >- (
-      fs [cut_state_def] >>
-      fs [Once evaluate_def, cut_res_def] >>
-      fs [cut_state_def]) >>
-    cases_on ‘evaluate (body,dec_clock x)’ >> fs [] >>
-    cases_on ‘q’ >> fs []
-    >- (
-      fs [Once evaluate_def] >>
-      every_case_tac >> fs [] >> rveq >>
-      gs [cut_res_def]) >>
-    cases_on ‘x'’ >>
-    TRY (
-      rename [‘SOME Continue’] >>
-      gs [] >>
-      last_x_assum mp_tac >>
-      rewrite_tac [Once evaluate_def] >>
-      strip_tac >>
-      rewrite_tac [Once evaluate_def] >>
-      TOP_CASE_TAC >> fs [] >>
-      TOP_CASE_TAC >> fs [] >>
-      fs [cut_res_def] >>
-      cases_on ‘cut_state live_in s’ >> fs [] >>
-      cases_on ‘x'.clock = 0’ >> fs [] >> rveq >> gs []) >>
-    fs [Once evaluate_def] >>
-    every_case_tac >> fs [] >> rveq >>
-    gs [cut_res_def]) >>
-  TRY (
-    rename [‘Raise’] >>
-    fs [mark_all_def] >>
-    fs [evaluate_def]) >>
-  TRY (
-    rename [‘Return’] >>
-    fs [mark_all_def] >>
-    fs [evaluate_def]) >>
-  TRY (
-    rename [‘Tick’] >>
-    fs [mark_all_def] >>
-    fs [evaluate_def]) >>
-  TRY (
-    rename [‘Call’] >>
-    fs [mark_all_def] >>
-    fs [evaluate_def] >>
-    TOP_CASE_TAC >> fs []
-    >- rw [evaluate_def] >>
-    TOP_CASE_TAC >> fs [] >>
-    TOP_CASE_TAC >> fs [] >>
-    TOP_CASE_TAC >> fs [] >>
-    pairarg_tac >> fs [] >>
-    pairarg_tac >> fs [] >>
-    TOP_CASE_TAC >> fs [] >>
-    (
-    rw [evaluate_def] >>
-    every_case_tac >> fs [] >> rveq >> fs []
-    >- (
-      cases_on ‘evaluate (q'',set_var q'³' w (r'⁴' with locals := r''.locals))’ >>
-      fs [] >>
-      cases_on ‘q'⁵'’ >> fs [cut_res_def] >>
-      every_case_tac >> fs [] >> rveq >> gs [cut_res_def]) >>
-    cases_on ‘evaluate (q',set_var q w (r'⁴' with locals := r''.locals))’ >>
-    fs [] >>
-    cases_on ‘q'⁵'’ >> fs [cut_res_def] >>
-    every_case_tac >> fs [] >> rveq >> gs [cut_res_def])) >>
-  TRY (
-    rename [‘FFI’] >>
-    fs [mark_all_def] >>
-    fs [evaluate_def]) >>
-  fs [evaluate_def, mark_all_def] *)
+  recInduct evaluate_ind \\ rpt conj_tac
+  >~ [‘loopLang$Seq’]
+     >- (rw [] \\ fs [mark_all_def]
+         \\ rpt (pairarg_tac \\ fs [] \\ rveq)
+         \\ TOP_CASE_TAC \\ fs []
+         \\ fs [evaluate_def]
+         \\ rpt (pairarg_tac \\ gs [] \\ rveq)
+         \\ every_case_tac \\ fs [])
+  >~ [‘loopLang$If’]
+     >- (rw [] \\ fs [mark_all_def]
+         \\ rpt (pairarg_tac \\ fs [] \\ rveq)
+         \\ TOP_CASE_TAC \\ fs []
+         \\ fs [evaluate_def]
+         \\ every_case_tac \\ fs []
+         \\ Cases_on ‘evaluate (c1,s)’ \\ fs []
+         \\ Cases_on ‘q’ \\ fs [cut_res_def] \\ rveq \\ gs []
+         \\ fs [cut_res_def]
+         \\ Cases_on ‘evaluate (c2,s)’ \\ fs []
+         \\ Cases_on ‘q’ \\ fs [cut_res_def] \\ rveq \\ gs []
+         \\ fs [cut_res_def])
+  >~ [‘loopLang$Loop’]
+     >- (rw [] \\ fs [mark_all_def]
+         \\ rpt (pairarg_tac \\ fs [] \\ rveq)
+         \\ fs [cut_res_def]
+         \\ FULL_CASE_TAC \\ fs []
+         >- (fs [cut_state_def]
+             \\ fs [Once evaluate_def, cut_res_def]
+             \\ fs [cut_state_def])
+         \\ FULL_CASE_TAC \\ fs []
+         >- (fs [cut_state_def]
+             \\ fs [Once evaluate_def, cut_res_def]
+             \\ fs [cut_state_def])
+         \\ Cases_on ‘evaluate (body,dec_clock x)’ \\ fs []
+         \\ Cases_on ‘q’ \\ fs []
+         >- (fs [Once evaluate_def]
+             \\ every_case_tac \\ fs [] \\ rveq
+             \\ gs [cut_res_def])
+         \\ Cases_on ‘x'’ \\ fs []
+         >~ [‘SOME Continue’]
+            >- (last_x_assum mp_tac
+                \\ rewrite_tac [Once evaluate_def]
+                \\ strip_tac
+                \\ rewrite_tac [Once evaluate_def]
+                \\ TOP_CASE_TAC \\ fs []
+                \\ TOP_CASE_TAC \\ fs []
+                \\ fs [cut_res_def]
+                \\ Cases_on ‘cut_state live_in s’ \\ fs []
+                \\ Cases_on ‘x'.clock = 0’ \\ fs [] \\ rveq \\ gs [])
+         \\ fs [Once evaluate_def]
+         \\ every_case_tac \\ fs [] \\ rveq
+         \\ gs [cut_res_def])
+  >~ [‘loopLang$Call’]
+     >- (rw [] \\ fs [mark_all_def]
+         \\ fs [evaluate_def]
+         \\ TOP_CASE_TAC \\ fs []
+         >- rw [evaluate_def]
+         \\ TOP_CASE_TAC \\ fs []
+         \\ TOP_CASE_TAC \\ fs []
+         \\ TOP_CASE_TAC \\ fs []
+         \\ pairarg_tac \\ fs []
+         \\ pairarg_tac \\ fs []
+         \\ TOP_CASE_TAC \\ fs []
+         \\ rw [evaluate_def]
+         \\ every_case_tac \\ fs [] \\ rveq \\ fs []
+         \\ Cases_on
+              ‘evaluate (q'',set_vars q'³' l (r'⁴' with locals := r''.locals))’
+         \\ Cases_on
+              ‘evaluate (q',set_var q w (r'⁴' with locals := r''.locals))’
+         \\ fs []
+         \\ rveq
+         \\ every_case_tac \\ fs [] \\ rveq \\ gs [cut_res_def])
+  \\ rw [] \\ fs [mark_all_def,evaluate_def]
 QED
 
 Theorem comp_correct:
