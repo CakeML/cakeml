@@ -220,11 +220,15 @@ End
 
 Definition crep_primop_def:
   crep_primop AddCarry args =
-  case args of
-  | [Word (l: α word); Word r; Word ci] =>
-      (let (res, co) = word_and_carry l r ci in
-         SOME [Word res; Word co])
-  | _ => NONE
+  if LENGTH args = 3 ∧ EVERY isWord args then
+    let
+      l  = theWord (EL 0 args);
+      r  = theWord (EL 1 args);
+      ci = theWord (EL 2 args);
+      (res, co) = word_and_carry l r ci
+    in
+      SOME [Word res; Word co]
+  else NONE
 End
 
 Definition evaluate_def:

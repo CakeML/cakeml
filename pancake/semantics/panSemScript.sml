@@ -24,6 +24,24 @@ End
 
 Overload ValWord  = “\w. Val (Word w)”
 
+Definition isWord_def:
+  isWord (Word _) = T ∧
+  isWord _        = F
+End
+
+Definition theWord_def:
+  theWord (Word w) = w
+End
+
+Definition isValWord_def:
+  isValWord (ValWord _) = T ∧
+  isValWord _           = F
+End
+
+Definition theValWord_def:
+  theValWord (ValWord w) = w
+End
+
 Datatype:
   state =
     <| locals      : varname |-> 'a v
@@ -144,12 +162,16 @@ Definition pan_op_def:
 End
 
 Definition pan_primop_def:
-  (pan_primop AddCarry args =
-   case args of
-   | [ValWord (l:α word); ValWord r; ValWord ci] =>
-       (let (res, co) = word_and_carry l r ci in
-          SOME (Struct [ValWord res; ValWord co]))
-   | _ => NONE)
+  pan_primop AddCarry args =
+  if LENGTH args = 3 ∧ EVERY isValWord args then
+    let
+      l  = theValWord (EL 0 args);
+      r  = theValWord (EL 1 args);
+      ci = theValWord (EL 2 args);
+      (res, co) = word_and_carry l r ci
+    in
+      SOME (Struct [ValWord res; ValWord co])
+  else NONE
 End
 
 Definition eval_def:
