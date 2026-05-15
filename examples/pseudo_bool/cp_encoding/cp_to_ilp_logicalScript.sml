@@ -376,7 +376,7 @@ Theorem cencode_parity_sem:
   enc_rel wi es (encode_parity bnd Xs Y name) ec ec'
 Proof
   rw[cencode_parity_def,encode_parity_def]>>
-  gvs[AllCaseEqs(),UNCURRY_EQ]>>
+  gvs[UNCURRY_EQ]>>
   irule enc_rel_Append>>
   fs[fold_cenc_def]>>
   gvs[AllCaseEqs(),UNCURRY_EQ]>>
