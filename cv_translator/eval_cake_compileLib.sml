@@ -198,7 +198,7 @@ fun eval_cake_compile_explore_with_conf arch prefix conf_def prog_def filename =
 fun eval_cake_compile_explore arch prefix =
   eval_cake_compile_explore_with_conf arch prefix (#default_config_def arch);
 
-val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
+val _ = Feedback.set_trace "TheoryPP.include_html_docs" 0;
 
 (* --- for debugging ---
    val _ = (max_print_depth := 15);
