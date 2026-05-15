@@ -1610,43 +1610,35 @@ Proof
 QED
 
 Theorem evaluate_shift_vars:
-  ∀vs env s bs r t.
-    evaluate (MAP (λn. Var n) vs,env,s) = (r,t) ⇒
-    evaluate (MAP (λn. Var n) (shift_vars (LENGTH bs) vs),bs ++ env,s) = (r,t)
+  ∀vs env s bs.
+    evaluate (MAP (λn. Var n) (shift_vars (LENGTH bs) vs),bs ++ env,s) =
+    evaluate (MAP (λn. Var n) vs,env,s)
 Proof
   Induct
   >- gvs [evaluate_def, shift_vars_def]
   >> rw []
   >> gvs [Once evaluate_CONS, evaluate_def]
-  >> reverse $ Cases_on ‘h < LENGTH env’ >> gvs []
+  >> reverse IF_CASES_TAC
   >- (gvs [Once evaluate_CONS, evaluate_def, shift_vars_def])
-  >> gvs [CaseEq "prod"]
-  >> Cases_on ‘v3 = Rerr (Rabort Rtype_error)’
-  >-
-   (gvs [Once evaluate_CONS, evaluate_def, shift_vars_def]
-    >> first_x_assum drule
-    >> disch_then $ qspec_then ‘bs’ mp_tac
-    >> strip_tac
-    >> gvs [])
+  >> CASE_TAC
+  >> CASE_TAC
+  >> Cases_on ‘q' = Rerr (Rabort Rtype_error)’
+  >- gvs [Once evaluate_CONS, evaluate_def, shift_vars_def]
   >> drule evaluate_var_list
   >> impl_tac >- gvs []
   >> strip_tac
   >> gvs []
-  >> first_x_assum drule
-  >> disch_then $ qspec_then ‘bs’ mp_tac
-  >> gvs []
-  >> strip_tac
+  >> first_x_assum $ qspecl_then [‘env’, ‘r’, ‘bs’] assume_tac
   >> gvs [shift_vars_def, Once evaluate_CONS, evaluate_def, EL_APPEND_EQN]
 QED
 
 Theorem evaluate_shift_vars_sing:
-  ∀vs env s b r t.
-    evaluate (MAP (λn. Var n) vs,env,s) = (r,t) ⇒
-    evaluate (MAP (λn. Var n) (shift_vars 1 vs),b::env,s) = (r,t)
+  ∀vs env s b.
+    evaluate (MAP (λn. Var n) (shift_vars 1 vs),b::env,s) =
+    evaluate (MAP (λn. Var n) vs,env,s)
 Proof
   rw []
-  >> drule evaluate_shift_vars
-  >> disch_then $ qspec_then ‘[b]’ mp_tac
+  >> qspecl_then [‘vs’, ‘env’, ‘s’, ‘[b]’] assume_tac evaluate_shift_vars
   >> gvs []
 QED
 
@@ -1661,25 +1653,15 @@ Proof
     >> gvs [shift_cb_def, cb_to_bvi_def, evaluate_def]
     >> CASE_TAC
     >> rw []
-    >> drule evaluate_shift_vars
-    >> disch_then $ qspec_then ‘bs’ mp_tac
-    >> strip_tac
-    >> gvs [CaseEq "result"])
+    >> gvs [evaluate_shift_vars])
   >> rw []
   >> gvs [shift_cb_def, cb_to_bvi_def, evaluate_def]
   >> gvs [evaluate_APPEND, evaluate_def]
-  >> Cases_on ‘evaluate (MAP (λn. Var n) l0,env,s)’
-  >> drule evaluate_shift_vars
-  >> disch_then $ qspec_then ‘bs’ mp_tac
-  >> strip_tac >> gvs []
+  >> gvs [evaluate_shift_vars]
+  >> CASE_TAC >> gvs []
   >> Cases_on ‘q’ >> gvs []
   >> Cases_on ‘evaluate ([cb_to_bvi loc cb],env,r')’
   >> first_x_assum drule
-  >> disch_then $ qspec_then ‘bs’ mp_tac
-  >> strip_tac >> gvs []
-  >> Cases_on ‘q’ >> gvs []
-  >> Cases_on ‘evaluate (MAP (λn. Var n) l,env,r'')’
-  >> drule evaluate_shift_vars
   >> disch_then $ qspec_then ‘bs’ mp_tac
   >> strip_tac >> gvs []
 QED
@@ -1786,10 +1768,7 @@ Proof
   >> gvs [APPEND]
   >> first_x_assum $ qspecl_then [‘s’, ‘v’] mp_tac
   >> strip_tac
-  >> drule evaluate_shift_vars
-  >> gvs []
-  >> disch_then $ qspec_then ‘[w]’ assume_tac
-  >> gvs [APPEND]
+  >> gvs [evaluate_shift_vars_sing, APPEND]
 QED
 
 Theorem evaluate_bvi_to_cb_aux_inr:
@@ -1867,11 +1846,8 @@ Proof
       >> gvs [GSYM PULL_FORALL]
       >> first_assum $ qspec_then ‘r’ mp_tac
       >> strip_tac
-      >> drule evaluate_shift_vars
-      >> disch_then $ qspec_then ‘a'’ mp_tac
-      >> strip_tac
       >> imp_res_tac evaluate_IMP_LENGTH
-      >> gvs [])
+      >> gvs [evaluate_shift_vars])
     >> strip_tac
     >> gvs [CaseEq "call_block", CaseEq "list"]
     >> gvs [evaluate_APPEND]
@@ -1906,24 +1882,13 @@ Proof
     >> gvs [cb_to_bvi_def, evaluate_def]
     >> simp [Once evaluate_CONS, evaluate_def]
     >> gvs [evaluate_APPEND]
-    >> Cases_on ‘evaluate (MAP (λn. Var n) left,a'',u)’
-    >> drule evaluate_shift_vars_sing
-    >> disch_then $ qspec_then ‘HD a’ mp_tac
-    >> strip_tac
-    >> gvs []
-    >> Cases_on ‘q’ >> gvs []
+    >> gvs [evaluate_shift_vars_sing]
+    >> CASE_TAC
+    >> gvs [CaseEq "prod", CaseEq "result"]          
     >> Cases_on ‘evaluate ([cb_to_bvi loc cb'],a'',r)’ >> gvs []
     >> drule evaluate_shift_cb_sing
     >> disch_then $ qspec_then ‘HD a’ mp_tac
     >> strip_tac
-    >> gvs []
-    >> CASE_TAC >> gvs []
-    >> Cases_on ‘evaluate (MAP (λn. Var n) right,a'',r')’
-    >> drule evaluate_shift_vars_sing
-    >> disch_then $ qspec_then ‘HD a’ mp_tac
-    >> strip_tac
-    >> gvs []
-    >> CASE_TAC >> gvs []
     >> gvs [do_app_def, do_app_aux_def])
   >> strip_tac
   >> gvs []
@@ -1931,25 +1896,13 @@ Proof
   >> gvs [cb_to_bvi_def, evaluate_def]
   >> simp [Once evaluate_CONS, evaluate_def]
   >> gvs [evaluate_APPEND, evaluate_def]
-  >> Cases_on ‘evaluate (MAP (λn. Var n) left,a',u)’
-  >> drule evaluate_shift_vars_sing
-  >> disch_then $ qspec_then ‘HD a’ mp_tac
-  >> strip_tac
-  >> gvs []
-  >> Cases_on ‘q’ >> gvs []
-  >> Cases_on ‘evaluate ([cb_to_bvi loc cb'],a',r)’ >> gvs []
+  >> gvs [evaluate_shift_vars_sing]
+  >> gvs [CaseEq "prod"]
+  >> Cases_on ‘evaluate ([cb_to_bvi loc cb'],a',s2')’ >> gvs []
   >> drule evaluate_shift_cb_sing
   >> disch_then $ qspec_then ‘HD a’ mp_tac
   >> strip_tac
-  >> gvs []
-  >> CASE_TAC >> gvs []
-  >> Cases_on ‘evaluate (MAP (λn. Var n) right,a',r')’
-  >> drule evaluate_shift_vars_sing
-  >> disch_then $ qspec_then ‘HD a’ mp_tac
-  >> strip_tac
-  >> gvs []
-  >> CASE_TAC >> gvs []
-  >> gvs [do_app_def, do_app_aux_def]
+  >> gvs [CaseEq "prod", CaseEq "result", do_app_def, do_app_aux_def]
 QED
 
 Theorem evaluate_bvi_to_cb:
