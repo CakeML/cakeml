@@ -1124,6 +1124,37 @@ Proof
   >> metis_tac[lookup_store_eq_set_store_eq_2]
 QED
 
+(* Conditional body congruence for Loop: if the body transformation
+   preserves semantics when the body doesn't error, then the Loop
+   transformation preserves semantics when the Loop doesn't error. *)
+Theorem evaluate_Loop_body_cong_err:
+  ∀(s:('a,'c,'ffi) wordSem$state) names c c' exit_names res s'.
+    (∀(v:('a,'c,'ffi) wordSem$state) res s'.
+       evaluate (c, v) = (res, s') ∧ res ≠ SOME Error ⇒
+       evaluate (c', v) = (res, s')) ∧
+    evaluate (Loop names c exit_names, s) = (res, s') ∧ res ≠ SOME Error ⇒
+    evaluate (Loop names c' exit_names, s) = (res, s')
+Proof
+  gen_tac \\ completeInduct_on `s.clock` \\ rw []
+  \\ qpat_x_assum `evaluate (Loop _ _ _, _) = _` mp_tac
+  \\ once_rewrite_tac [evaluate_def]
+  \\ simp [cut_state_def, UNCURRY, STOP_def]
+  \\ TOP_CASE_TAC \\ simp []
+  \\ Cases_on `evaluate (c, x)` \\ simp []
+  \\ strip_tac
+  \\ `q <> SOME Error` by
+    (CCONTR_TAC \\ gvs [cont_loop_def, exit_loop_def, AllCaseEqs()])
+  \\ `evaluate (c', x) = (q, r)` by res_tac
+  \\ qpat_x_assum `(if _ then _ else _) = _` mp_tac
+  \\ fs [] \\ strip_tac \\ gvs []
+  \\ IF_CASES_TAC \\ gvs []
+  \\ IF_CASES_TAC \\ gvs []
+  \\ first_x_assum irule
+  \\ imp_res_tac evaluate_clock
+  \\ gvs [dec_clock_def, AllCaseEqs()]
+  \\ qexists_tac `c` \\ fs []
+QED
+
 Theorem copy_prop_correct:
   ∀prog cs st prog' cs' err st'.
   CPstate_inv cs ∧
@@ -1347,7 +1378,23 @@ Proof
     >> gvs[oneline share_inst_def,AllCaseEqs(),oneline sh_mem_set_var_def,
       sh_mem_store_def,sh_mem_store_byte_def,sh_mem_store16_def,sh_mem_store32_def]
     >> simp[remove_eq_model_set_var,remove_eq_model])
+  >~ [`Break`] >- (gvs[copy_prop_prog_def, evaluate_def])
+  >~ [`Continue`] >- (gvs[copy_prop_prog_def, evaluate_def])
+  >~ [`Loop`] >- suspend "Loop"
 QED
+
+Resume copy_prop_correct[Loop]:
+  rpt gen_tac >> strip_tac >>
+  gvs[copy_prop_prog_def] >> rpt (pairarg_tac >> gvs[]) >>
+  conj_tac
+  >- (irule evaluate_Loop_body_cong_err >> fs [] >>
+      qexists_tac `prog` >> fs [] >> rw [] >>
+      first_x_assum (qspecl_then [`empty_eq`,`v`,`c'`,`_0`,`res`,`s'`] mp_tac) >>
+      simp [empty_eq_inv, empty_eq_model])
+  >- simp[empty_eq_model]
+QED
+
+Finalise copy_prop_correct;
 
 (* Main semantics result *)
 Theorem evaluate_copy_prop:

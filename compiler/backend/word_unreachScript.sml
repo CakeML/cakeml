@@ -31,6 +31,8 @@ Definition SimpSeq_def:
         | Skip => p2
         | Raise _ => p1
         | Return _ _ => p1
+        | Break _ => p1
+        | Continue _ => p1
         | Move n1 l1 =>
             (case dest_Seq_Move p2 of
              | NONE => default
@@ -60,6 +62,8 @@ Definition Seq_assoc_right_def:
               (case handler of
                | NONE => NONE
                | SOME (y1,q2,y2,y3) => SOME (y1,Seq_assoc_right q2 Skip,y2,y3))) acc) ∧
+  (Seq_assoc_right (Loop names body exit_names) acc =
+     SimpSeq (Loop names (Seq_assoc_right body Skip) exit_names) acc) ∧
   (Seq_assoc_right p1 acc = SimpSeq p1 acc)
 End
 

@@ -287,7 +287,7 @@ val _ = word_removeTheory.remove_must_terminate_def |> arch_spec |> cv_trans;
 
 val pre = word_allocTheory.remove_dead_def |> arch_spec |> cv_auto_trans_pre "";
 Theorem word_alloc_remove_dead_pre[cv_pre]:
-  ∀v live nlive. word_alloc_remove_dead_pre v live nlive
+  ∀v live nlive lt. word_alloc_remove_dead_pre v live nlive lt
 Proof
   ho_match_mp_tac word_allocTheory.remove_dead_ind \\ rw [] \\ simp [Once pre]
 QED
@@ -365,7 +365,7 @@ QED
 
 val pre = word_allocTheory.ssa_cc_trans_def |> arch_spec |> cv_auto_trans_pre "";
 Theorem word_alloc_ssa_cc_trans_pre[cv_pre]:
-  ∀v ssa na. word_alloc_ssa_cc_trans_pre v ssa na
+  ∀v ssa na lt. word_alloc_ssa_cc_trans_pre v ssa na lt
 Proof
   ho_match_mp_tac word_allocTheory.ssa_cc_trans_ind \\ rw[] \\ simp [Once pre]
 QED
