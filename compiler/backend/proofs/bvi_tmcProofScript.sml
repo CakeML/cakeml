@@ -2175,7 +2175,7 @@ Theorem evaluate_hb_to_bvi_wrapper_aux:
 
     lookup loc s.code = SOME (LENGTH call_args,body) ∧
     lookup loc_opt s'.code = SOME (LENGTH call_args + 2,work) ∧
-    rewrite_worker loc loc_opt (LENGTH env1) (LENGTH env1 + 1) body = work ∧
+    rewrite_worker loc loc_opt (LENGTH call_args) (LENGTH call_args + 1) body = work ∧
     
     (∀xs' s'' env1' loc' r' t' opt' f' s'³' env2'.
        hypothesis xs' s'' env1' loc' r' t' opt' f' s'³' env2' s) ⇒
@@ -2209,8 +2209,37 @@ Proof
     >> gvs [])
   >> gvs [CaseEq "prod"]
   >> gvs [hypothesis_def]
-  >> first_x_assum $ qspecl_then [‘[body]’] mp_tac
-  >> disch_then $ qspec_then ‘s’ mp_tac
+  >> first_x_assum $ qspecl_then [‘[body]’, ‘dec_clock (call_ts + 1) s’] mp_tac
+  >> impl_tac
+  >- gvs [dec_clock_def]
+  >> disch_then $ drule_at $ Pos hd
+  >> ‘env_rel T f (MAP (λn. env1❲n❳) call_args) (args1 ++ [env_extras❲hole_ptr❳; Number (&hole_idx)])’ by cheat
+  >> disch_then drule
+  >> ‘state_rel f (dec_clock (call_ts + 1) s) (dec_clock (call_ts + 1) s')’ by
+    (Cases_on ‘s.clock’ >> imp_res_tac state_rel_dec >> gvs [])
+  >> disch_then drule
+  >> impl_tac >- gvs [CaseEq "result", CaseEq "error_result"]
+  >> disch_then $ qspec_then ‘loc’ mp_tac
+  >> gvs [GSYM PULL_FORALL]
+  >> strip_tac
+  >> first_x_assum $ qspec_then ‘loc_opt’ mp_tac
+  >> strip_tac
+  >> pop_assum mp_tac
+  (* This should be a precondition - from alloc_state_rel *)
+  >> ‘∃c. hole_has_val f (MAP (λn. env1❲n❳) call_args) (args1 ++ [env_extras❲hole_ptr❳; Number (&hole_idx)]) s'.refs c’ by cheat
+  >> impl_tac
+  >- (qexists ‘c’ >> gvs [])
+  >> strip_tac
+  >> gvs [PULL_EXISTS]
+  >> qrefinel [‘_’, ‘_’, ‘f''’, ‘rrr’, ‘t2’]
+  >> reverse $ gvs [CaseEq "result", opt_res_rel_def]
+  >-
+   (conj_tac >- CASE_TAC
+    >> conj_tac >- gvs [CaseEq "error_result", semanticPrimitivesPropsTheory.exc_rel_def]
+    (* state rel *)
+    >> cheat)
+  >> gvs [PULL_EXISTS]
+  >> 
 QED
 
 Theorem evaluate_allocate_holes_aux:
