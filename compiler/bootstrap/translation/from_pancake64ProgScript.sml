@@ -609,25 +609,6 @@ val res = translate $ conv_StructName_def;
 
 val res = translate_no_ind $ spec64 conv_TopDec_def;
 
-Theorem panptreeconversion_conv_topdec_side[local]:
-  ∀t. panptreeconversion_conv_topdec_side t
-Proof
-  (* once_rewrite_tac [fetch "-" "panptreeconversion_conv_topdec_side_def"]
-  \\ rpt gen_tac
-  \\ rw[]
-  \\ once_rewrite_tac [fetch "-" "panptreeconversion_conv_params_ind_def"]
-  \\ rpt gen_tac
-  \\ rpt (disch_then strip_assume_tac)
-  \\ match_mp_tac conv_params_ind
-  \\ rpt strip_tac
-  \\ last_x_assum match_mp_tac
-  \\ rpt strip_tac
-  \\ gvs [FORALL_PROD] *)
-  cheat
-QED
-
-val _ = panptreeconversion_conv_topdec_side |> update_precondition;
-
 val res = translate_no_ind $ spec64 conv_TopDecList_def;
 
 Theorem panptreeconversion_conv_topdeclist_ind[local]:
