@@ -667,6 +667,7 @@ End
 Definition get_labels_def:
   (get_labels (Seq p1 p2) = get_labels p1 UNION get_labels p2) /\
   (get_labels (If _ _ _ p1 p2) = get_labels p1 UNION get_labels p2) /\
+  (get_labels (Loop p) = get_labels p) /\
   (get_labels (Call ret _ handler) =
      (case ret of
       | NONE => {}

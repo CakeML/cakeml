@@ -1378,6 +1378,11 @@ Definition word_prog_to_display_def:
               num_to_display n;
               asm_reg_imm_to_display reg];
        word_prog_to_display k ns p1; word_prog_to_display k ns p2]) /\
+  (word_prog_to_display (SUC k) ns (Loop ns1 p ns2) =
+    Item NONE «Loop»
+      [num_set_to_display ns1;
+       word_prog_to_display k ns p;
+       num_set_to_display ns2]) /\
   (word_prog_to_display (SUC k) ns (Alloc n ms) = Item NONE «alloc»
     [num_to_display n; num_sets_to_display ms]) /\
   (word_prog_to_display (SUC k) ns (StoreConsts a b c d ws) = Item NONE «store_consts»
@@ -1387,6 +1392,8 @@ Definition word_prog_to_display_def:
      num_to_display d;
      Tuple (ws_to_display ws)]) /\
   (word_prog_to_display (SUC k) ns (Raise n) = item_with_num «raise» n) /\
+  (word_prog_to_display (SUC k) ns (Break n) = item_with_num «break» n) ∧
+  (word_prog_to_display (SUC k) ns (Continue n) = item_with_num «continue» n) ∧
   (word_prog_to_display (SUC k) ns (Return n vs) =
      Item NONE «return»
        [num_to_display n;
