@@ -296,14 +296,6 @@ Proof
 QED
 
 Theorem sh_mem_load_FLOOKUP_locals:
-  sh_mem_load v addr nb s = (NONE, t) ∧ n ≠ v ⇒
-  FLOOKUP t.locals n = FLOOKUP s.locals n
-Proof
-  rw [oneline sh_mem_load_def, AllCaseEqs()]
-  >> simp [set_var_def, empty_locals_def, FLOOKUP_SIMP]
-QED
-
-Theorem sh_mem_load_FLOOKUP_locals:
   sh_mem_load v addr nb s = (res, t) ∧ n ≠ v ∧
   (res = NONE ∨ res = SOME Continue ∨ res = SOME Break) ⇒
   FLOOKUP t.locals n = FLOOKUP s.locals n
