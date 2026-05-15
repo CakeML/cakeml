@@ -335,22 +335,28 @@ Definition optimise_call_def:
     bvi$Call ts (SOME loc) (args' ++ [Var ptr; idx']) NONE
 End
 
+Definition hb_to_bvi_wrapper_aux_def:
+  hb_to_bvi_wrapper_aux loc_opt ts args top_ptr hole_ptr hole_idx num_binders =
+    let exp_tail_call = optimise_call loc_opt num_binders hole_ptr hole_idx ts args in
+    let exp_finalise = Op (MemOp FinaliseCons) [Var (top_ptr + 1)] in
+    Let [exp_tail_call] exp_finalise
+End
+
 Definition hb_to_bvi_wrapper_def:
-  hb_to_bvi_wrapper loc loc_opt tag l hole r ts args =
-  allocate_holes tag l hole r
-                 (λtop_ptr hole_ptr hole_idx num_binders.
-                    let exp_tail_call = optimise_call loc_opt num_binders hole_ptr hole_idx ts args in
-                    let exp_finalise = Op (MemOp FinaliseCons) [Var (top_ptr + 1)] in
-                    Let [exp_tail_call] exp_finalise)
+  hb_to_bvi_wrapper loc_opt tag l hole r ts args =
+    allocate_holes tag l hole r $ hb_to_bvi_wrapper_aux loc_opt ts args
+End
+
+Definition hb_to_bvi_worker_aux_def:
+  hb_to_bvi_worker_aux loc_opt old_ptr old_idx ts args top_ptr hole_ptr hole_idx num_binders =
+    let exp_update_hole = update_cons (old_ptr + num_binders) (old_idx + num_binders) top_ptr in
+    let exp_tail_call = optimise_call loc_opt (num_binders + 1) hole_ptr hole_idx ts args in
+    Let [exp_update_hole] exp_tail_call
 End
 
 Definition hb_to_bvi_worker_def:
-  hb_to_bvi_worker loc loc_opt old_ptr old_idx tag l hole r ts args =
-  allocate_holes tag l hole r
-                 (λtop_ptr hole_ptr hole_idx num_binders.
-                    let exp_update_hole = update_cons (old_ptr + num_binders) (old_idx + num_binders) top_ptr in
-                    let exp_tail_call = optimise_call loc_opt (num_binders + 1) hole_ptr hole_idx ts args in
-                    Let [exp_update_hole] exp_tail_call)
+  hb_to_bvi_worker loc_opt old_ptr old_idx tag l hole r ts args =
+  allocate_holes tag l hole r $ hb_to_bvi_worker_aux loc_opt old_ptr old_idx ts args
 End
 
 Definition fill_hole_def:
@@ -363,7 +369,7 @@ Definition rewrite_wrapper_cons_def:
     | SOME (bs,cb) =>
         (case cb_to_hb cb of
          | ((HoleBlock tag l hole r),ts,args) =>
-             (SOME $ Let bs $ hb_to_bvi_wrapper loc loc_opt tag l hole r ts args)
+             (SOME $ Let bs $ hb_to_bvi_wrapper loc_opt tag l hole r ts args)
          | _ => NONE)
     | NONE => NONE
 End
@@ -376,7 +382,7 @@ Definition rewrite_worker_cons_def:
         (case cb_to_hb cb of
          | ((HoleBlock tag l hole r),ts,args) =>
              (let offset = LENGTH bs in
-                Let bs $ hb_to_bvi_worker loc loc_opt (offset + i_ptr) (offset + i_idx) tag l hole r ts args)
+                Let bs $ hb_to_bvi_worker loc_opt (offset + i_ptr) (offset + i_idx) tag l hole r ts args)
          | _ =>
              let expr = Op (BlockOp (Cons tag)) args in
                fill_hole i_ptr i_idx expr)

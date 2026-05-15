@@ -2162,32 +2162,78 @@ Resume evaluate_rewrite_tmc[op_opt]:
 
 QED
 
-Theorem env_rel_call_args:
-  ∀opt f env1 env2 call_args.
-    env_rel opt f env1 env2 ⇒
-    env_rel opt f (MAP (λn. env1❲n❳) call_args) (MAP (λn. env2❲n❳) call_args)
+Definition alloc_env_rel_def:
+  alloc_env_rel hole_ptr num_binders env1 env2 ⇔
+    ∃env_extras.
+      env2 = env_extras ++ env1 ∧
+      LENGTH env_extras = num_binders ∧
+      hole_ptr < LENGTH env_extras
+End
+
+Definition opt_call_arg_rel_def:
+  opt_call_arg_rel env hole_ptr hole_idx (call_args1 : num list) (call_args2 : bvi$exp list) ⇔
+    ∃call_extras.
+      call_args2 = MAP (λn. Var n) (shift_vars 2 call_args1) ++ call_extras ∧
+      LENGTH call_extras = 2 (*∧
+      EL 0 call_extras = EL hole_ptr env ∧
+      EL 1 call_extras = Number (&hole_idx)*)
+End
+
+Theorem evaluate_hb_to_bvi_wrapper_aux:
+  ∀call_ts call_args1 call_args2 loc_opt f env1 env2 s' t t' r' top_ptr hole_ptr hole_idx num_binders.
+    bviSem$evaluate ([Call call_ts (SOME loc_opt) call_args2 NONE],env1,s') = (r',t') ∧
+    state_rel f t t' ∧ (* might be cleaner to not have this *)
+    r' ≠ Rerr (Rabort Rtype_error) ∧
+    (* Will need some relations for the top_ptr etc*)
+    alloc_env_rel hole_ptr num_binders env1 env2 ∧
+    opt_call_arg_rel env2 hole_ptr hole_idx call_args1 call_args2
+    ⇒
+    ∃t''.
+      evaluate([hb_to_bvi_wrapper_aux loc_opt call_ts call_args1 top_ptr hole_ptr hole_idx num_binders],env2,s') = (r',t'') ∧
+      state_rel f t t''
+Proof
+  rw []
+  >> gvs [hb_to_bvi_wrapper_aux_def, optimise_call_def, evaluate_def, evaluate_APPEND, CaseEq "prod"]
+  >> imp_res_tac alloc_env_rel_def >> gvs []
+  >> imp_res_tac opt_call_arg_rel_def
+  >> gvs [evaluate_APPEND, Once evaluate_def, CaseEq "prod"]
+  >> drule evaluate_var_list
+  >> impl_tac >- gvs [CaseEq "result"]
+  >> strip_tac >> gvs []
+  >> drule evaluate_shift_vars
+  >> disch_then $ qspec_then ‘extras’ mp_tac
+  >> strip_tac >> gvs []
+  >> ‘backend_common$small_enough_int (&hole_idx)’ by cheat
+  >> gvs [do_app_def, do_app_aux_def, EL_APPEND_EQN]
+  >> gvs [CaseEq "option"]
+  >> 
+QED
+
+Theorem evaluate_allocate_holes_aux:
+  ∀hb f P env1 env2 s1 s2 .
+    (∀top_ptr hole_ptr hole_idx num_binders.
+       alloc_env_rel top_ptr hole_ptr hole_idx num_binders env1 env2 ∧
+       alloc_state_rel top_ptr hole_ptr hole_idx num_binders s1 s2 ⇒
+       P (f top_ptr hole_ptr hole_idx num_binders)) ⇒
+    (∀top_ptr hole_ptr hole_idx num_binders.
+       
+              )
+    evaluate([allocate_holes_aux hb f top_ptr hole_ptr hole_idx num_binders],env1,s) = (r,t) ∧
+    alloc_env_rel env env2 ∧
+    alloc_state_rel s s' ⇒
+    evaluate([allocate_holes_aux hb f top_ptr hole_ptr hole_idx num_binders],env2,s) = (r,t)
 Proof
   cheat
-(*    
-  rw [env_rel_def]
-  >> qexistsl [‘MAP (λn. (xs ++ ys)❲n❳) call_args’, ‘[]’]
-  >> gvs []
-  >> gvs [LIST_REL_MAP1]
-  >> gvs [Once LIST_REL_cases]
-        
-  >> qexistsl [‘MAP (λn. (vs' ++ (xs ++ ys))❲n❳) call_args’, ‘[]’]
-  >> gvs []
-  >> cheat
-        
-  >> ho_match_mp_tac LIST_REL_ind
+QED
 
-  >> gvs [env_rel_def]
-  >> recInduct LIST_REL_ind
-                    
-  >> gvs [Once LIST_REL_cases]
-  >> gvs [LIST_REL_MAP1]
-  >> gvs [EL_APPEND_EQN]
-  *)
+Theorem evaluate_allocate_holes_aux:
+  ∀hb f top_ptr hole_ptr hole_idx num_binders env1 env2 s s' r t .
+    evaluate([allocate_holes_aux hb f top_ptr hole_ptr hole_idx num_binders],env1,s) = (r,t) ∧
+    alloc_env_rel env env2 ∧
+    alloc_state_rel s s' ⇒
+    evaluate([allocate_holes_aux hb f top_ptr hole_ptr hole_idx num_binders],env2,s) = (r,t)
+Proof
+  cheat
 QED
 
 Theorem evaluate_hb_to_bvi_wrapper:
@@ -2201,17 +2247,20 @@ Theorem evaluate_hb_to_bvi_wrapper:
     lookup loc_opt s'.code = SOME (LENGTH call_args + 2, work) ∧
               
     r' ≠ Rerr (Rabort Rtype_error) ⇒
-    ∃r'' t'' f'.
+    ∃t'' f'.
       evaluate ([hb_to_bvi_wrapper loc loc_opt tag left hole right call_ts call_args],env2,s') = (r',t'') ∧
       f SUBMAP f' ∧
       state_rel f' t t''
 Proof
-  
+
   gen_tac
   >> reverse $ Induct_on ‘cb’ >> rw []
+
+  >> rw []
+  >> simp [hb_to_bvi_wrapper_def, allocate_holes_def]
+                                       
   >> rename [‘cb_to_hb (CallBlock tag left child right) = (HoleBlock tag left hole right,call_ts,call_args)’]
   >> gvs [cb_to_hb_def, cb_to_bvi_def, hb_to_bvi_wrapper_def, allocate_holes_def, allocate_holes_aux_def, evaluate_def, evaluate_APPEND, CaseEq "prod"]
-
   (* mut_cons*)
   >> simp [mut_cons_def, evaluate_APPEND, Once evaluate_def]
   >> rev_drule evaluate_var_list
@@ -2266,8 +2315,7 @@ Proof
   >> rename [‘CallBlock tag left child right’]
   >> imp_res_tac evaluate_var_list
   >> gvs [CaseEq "prod", cb_to_hb_def]
-  >> rename [‘cb_to_hb _ = (hole,_,_)’]
-                       
+  >> rename [‘cb_to_hb _ = (hole,_,_)’]                       
   >> first_x_assum $ drule_then drule
   >> rpt $ disch_then $ drule_at Any
   >> ‘s1 = s2’ by gvs [CaseEq "result"]
@@ -2343,6 +2391,23 @@ Proof
   >> gvs [REVERSE_APPEND, TAKE_APPEND, DROP_APPEND, GSYM MAP_REVERSE, GSYM MAP_TAKE, GSYM MAP_DROP, DROP_LENGTH_TOO_LONG]
   >> ‘TAKE (LENGTH right) (REVERSE right) = REVERSE right’ by (gvs [LENGTH_REVERSE, TAKE_LENGTH_ID])
   >> simp [EL_APPEND_EQN]
+  >> strip_tac
+
+  >> reverse $ Induct_on ‘child’
+  >-
+   (rw []
+    >> gvs [cb_to_hb_def]
+    >> qpat_x_assum ‘evaluate ([allocate_holes_aux _ _ _ _ _ _],_,_) = (_,_)’ mp_tac
+    >> simp [allocate_holes_aux_def]
+    >> simp [evaluate_def, evaluate_APPEND]
+    >> simp [optimise_call_def]
+    >> CASE_TAC
+        )
+        
+  >> drule evaluate_allocate_holes_aux_pad_env
+  >> disch_then $ qspecl_then [‘[Unit; RefPtr F (LEAST ptr. ptr ∉ FDOM r''.refs)]’, ‘2’] mp_tac
+  >> impl_tac >- gvs []
+  >> strip_tac >> gvs []
 QED
 
 Theorem evaluate_hb_to_bvi_worker:
@@ -2359,7 +2424,7 @@ Theorem evaluate_hb_to_bvi_worker:
       ∀v.
         r = Rval [v] ⇒
         hole_has_val f env1 env2 t'.refs v
-Proof
+Proof  
   rw []
   >> imp_res_tac env_rel_strip_extras
   >> imp_res_tac env_rel_length_opt
@@ -2408,7 +2473,6 @@ Proof
   >> strip_tac
   >> qexistsl [‘r'’, ‘t'’]
   >> gvs []
-  >>
 QED
 
 Resume evaluate_rewrite_tmc[tick]:
