@@ -2183,8 +2183,9 @@ Theorem evaluate_hb_to_bvi_wrapper_aux:
       evaluate([hb_to_bvi_wrapper_aux loc_opt call_ts call_args top_ptr hole_ptr hole_idx num_binders],env3,s') = (r',t') ∧
       f SUBMAP f' ∧
       result_rel (LIST_REL (v_rel f')) (v_rel f') r r' ∧
-      state_rel f t t'
+      state_rel f' t t'
 Proof
+  
   rw []
   >> gvs [hb_to_bvi_wrapper_aux_def, optimise_call_def, evaluate_def, evaluate_APPEND, CaseEq "prod"]
   >> imp_res_tac alloc_env_rel_def >> gvs []
@@ -2208,6 +2209,9 @@ Proof
     >> imp_res_tac state_rel_with_clock
     >> gvs [])
   >> gvs [CaseEq "prod"]
+  >> ‘(r,t) = (v3,s'')’ by gvs [CaseEq "result", CaseEq "error_result"]
+  >> gvs []
+  >> rename [‘evaluate ([_],_,_) = (r,t)’]                 
   >> gvs [hypothesis_def]
   >> first_x_assum $ qspecl_then [‘[body]’, ‘dec_clock (call_ts + 1) s’] mp_tac
   >> impl_tac
@@ -2218,7 +2222,7 @@ Proof
   >> ‘state_rel f (dec_clock (call_ts + 1) s) (dec_clock (call_ts + 1) s')’ by
     (Cases_on ‘s.clock’ >> imp_res_tac state_rel_dec >> gvs [])
   >> disch_then drule
-  >> impl_tac >- gvs [CaseEq "result", CaseEq "error_result"]
+  >> impl_tac >- gvs []
   >> disch_then $ qspec_then ‘loc’ mp_tac
   >> gvs [GSYM PULL_FORALL]
   >> strip_tac
@@ -2231,13 +2235,18 @@ Proof
   >- (qexists ‘c’ >> gvs [])
   >> strip_tac
   >> gvs [PULL_EXISTS]
-  >> qrefinel [‘_’, ‘_’, ‘f''’, ‘rrr’, ‘t2’]
-  >> reverse $ gvs [CaseEq "result", opt_res_rel_def]
+  >> rename [‘state_rel f' t t_work’]
+  >> rename [‘opt_res_rel r r_work’]
+  >> rename [‘result_rel (LIST_REL (v_rel f')) (v_rel f') r r'’]
+        
+  >> qrefinel [‘_’, ‘_’, ‘f'’, ‘r_work’, ‘t_work’]
+  >> reverse $ Cases_on ‘r_work’
   >-
-   (conj_tac >- CASE_TAC
-    >> conj_tac >- gvs [CaseEq "error_result", semanticPrimitivesPropsTheory.exc_rel_def]
-    (* state rel *)
-    >> cheat)
+   (gvs [opt_res_rel_def]
+    >> conj_tac >- CASE_TAC
+    >> Cases_on ‘r'’ >- gvs []
+    >> Cases_on ‘Rerr e'’ >- gvs []
+    >> gvs [])
   >> gvs [PULL_EXISTS]
   >> 
 QED
