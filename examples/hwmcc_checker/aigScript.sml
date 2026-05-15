@@ -160,10 +160,14 @@ Definition is_live_def:
   is_live (circ: ('a, 'i, 'l) circuit) (reset: 'l -> ('a,'i,'l) lit)
     (next: 'l -> ('a,'i,'l) lit) (cnstrs: ('a,'i,'l) lit set)
     (qcirc: ('b, 'i + 'i, 'l + 'l) circuit)
-    (live: ('b, 'i + 'i, 'l + 'l) lit set) (latches: 'l set) =
+    (live: ('b, 'i + 'i, 'l + 'l) lit list list) (latches: 'l set) =
   ∀tr.
     is_inf_trace circ reset next cnstrs latches tr ⇒
-    ∃k. ∀i. k ≤ i ⇒ preds_hold (pair_state (tr i) (tr (i + 1))) qcirc live
+    ∀prop. MEM prop live ⇒
+      ∃k signal.
+        MEM signal prop ∧
+        (∀i. k ≤ i ⇒
+             preds_hold (pair_state (tr i) (tr (i + 1))) qcirc {signal})
 End
 
 (* Soundness ******************************************************************)
@@ -235,11 +239,25 @@ Definition is_witness_step_def:
       preds_hold ss₁ wcirc wpreds
 End
 
+Definition signal_imply_def:
+  signal_imply ss circ ss' circ' signals signals' =
+  LIST_REL (λq q'. preds_hold ss circ {q} ⇒ preds_hold ss' circ' {q'})
+    signals signals'
+End
+
+Definition lives_imply_def:
+  lives_imply ss₀ ss₁ wqcirc mqcirc wlive mlive =
+  LIST_REL (λQ Q'. signal_imply ss₀ wqcirc ss₁ mqcirc Q Q') wlive mlive
+End
+
 Definition is_witness_liveness_def:
   is_witness_liveness
     mcirc mreset mnext mpreds mcnstrs mqcirc mlive mlatches
     wcirc wreset wnext wpreds wcnstrs wqcirc wlive wlatches
   ⇔
+    (* This LENGTH property is not strictly necessary but makes the proof a bit
+       neater *)
+    LIST_REL (λms ws. LENGTH ms = LENGTH ws) mlive wlive ∧
     ∀ss₀ ss₁.
       (preds_hold ss₀ mcirc mcnstrs ∧
        preds_hold ss₀ wcirc wcnstrs ∧
@@ -247,10 +265,19 @@ Definition is_witness_liveness_def:
        preds_hold ss₁ mcirc mcnstrs ∧
        preds_hold ss₁ wcirc wcnstrs ∧
        preds_hold ss₁ wcirc wpreds ∧
-       is_next ss₀ wcirc wnext wlatches (SND ss₁) ∧
-       preds_hold (pair_state ss₀ ss₁) wqcirc wlive)
+       is_next ss₀ wcirc wnext wlatches (SND ss₁))
       ⇒
-      preds_hold (pair_state ss₀ ss₁) mqcirc mlive
+      lives_imply (pair_state ss₀ ss₁) (pair_state ss₀ ss₁) wqcirc mqcirc
+        wlive mlive
+End
+
+Definition some_signal_holds_def:
+  some_signal_holds ss circ signals =
+  EXISTS (λp. preds_hold ss circ {p}) signals
+End
+
+Definition lives_hold_def:
+  lives_hold ss circ live = EVERY (some_signal_holds ss circ) live
 End
 
 Definition is_witness_decrease_def:
@@ -264,7 +291,7 @@ Definition is_witness_decrease_def:
        preds_hold ss₁ wcirc wpreds ∧
        is_next ss₀ wcirc wnext wlatches (SND ss₁))
        ⇒
-       preds_hold (pair_state ss₁ ss₀) wqcirc wlive
+       lives_hold (pair_state ss₁ ss₀) wqcirc wlive
 End
 
 Definition is_witness_closure_def:
@@ -279,9 +306,29 @@ Definition is_witness_closure_def:
        preds_hold ss₂ wcirc wcnstrs ∧
        preds_hold ss₂ wcirc wpreds ∧
        is_next ss₀ wcirc wnext wlatches (SND ss₁) ∧
-       preds_hold (pair_state ss₀ ss₂) wqcirc wlive)
+       lives_hold (pair_state ss₀ ss₂) wqcirc wlive)
       ⇒
-      preds_hold (pair_state ss₁ ss₂) wqcirc wlive
+      lives_hold (pair_state ss₁ ss₂) wqcirc wlive
+End
+
+Definition is_witness_consistent_def:
+  is_witness_consistent
+    wcirc wreset wnext wpreds wcnstrs wqcirc wlive wlatches
+  ⇔
+    ∀ss₀ ss₁ ss₂.
+      (preds_hold ss₀ wcirc wcnstrs ∧
+       preds_hold ss₀ wcirc wpreds ∧
+       preds_hold ss₁ wcirc wcnstrs ∧
+       preds_hold ss₁ wcirc wpreds ∧
+       preds_hold ss₂ wcirc wcnstrs ∧
+       preds_hold ss₂ wcirc wpreds ∧
+       is_next ss₀ wcirc wnext wlatches (SND ss₁) ∧
+       is_next ss₁ wcirc wnext wlatches (SND ss₂) ∧
+       lives_hold (pair_state ss₀ ss₁) wqcirc wlive ∧
+       lives_hold (pair_state ss₁ ss₂) wqcirc wlive)
+       ⇒
+       lives_imply (pair_state ss₀ ss₁) (pair_state ss₁ ss₂) wqcirc wqcirc
+         wlive wlive
 End
 
 Definition is_witness_def:
@@ -315,6 +362,9 @@ Definition is_witness_def:
     wcirc wreset wnext wpreds wcnstrs wqcirc wlive wlatches
   ∧
   is_witness_closure
+    wcirc wreset wnext wpreds wcnstrs wqcirc wlive wlatches
+  ∧
+  is_witness_consistent
     wcirc wreset wnext wpreds wcnstrs wqcirc wlive wlatches
 End
 
@@ -803,7 +853,7 @@ End
 Definition dep_qcirc_def:
   dep_qcirc inputs qcirc live latches ⇔
     dep_circuit (pair_set inputs) (pair_set latches) qcirc ∧
-    dep_lits (pair_set inputs) (pair_set latches) live
+    dep_lits (pair_set inputs) (pair_set latches) (set (FLAT live))
 End
 
 Definition is_stratified_full_def:
@@ -1029,16 +1079,16 @@ Proof
   rw [is_inf_trace_def]
 QED
 
-Theorem is_witness_closure_preds_hold[local]:
+Theorem is_witness_closure_lives_hold[local]:
   ∀k.
     is_witness_closure
       circ reset next preds cnstrs qcirc live latches ∧
-    preds_hold (pair_state (tr i) (tr j)) qcirc live ∧
+    lives_hold (pair_state (tr i) (tr j)) qcirc live ∧
     (∀n. preds_hold (tr n) circ preds) ∧
     (∀n. preds_hold (tr n) circ cnstrs) ∧
     (∀n. is_next (tr n) circ next latches (SND (tr (n + 1))))
     ⇒
-    preds_hold (pair_state (tr (i + k)) (tr j)) qcirc live
+    lives_hold (pair_state (tr (i + k)) (tr j)) qcirc live
 Proof
   Induct >> rw [] >> fs []
   >> fs [is_witness_closure_def]
@@ -1065,17 +1115,30 @@ Proof
   Cases_on ‘ss’ >> simp [agree_on_def]
 QED
 
-Theorem preds_hold_matching_transition:
-  preds_hold (pair_state (tr (i + 2)) (tr (i + 1))) qcirc live ∧
+Theorem lives_hold_dep_circuit:
+  lives_hold ss circ ns ∧
+  dep_circuit inputs latches circ ∧
+  dep_lits inputs latches (set (FLAT ns)) ∧
+  agree_on inputs latches ss ss'
+  ⇒
+  lives_hold ss' circ ns
+Proof
+  rw [lives_hold_def, EVERY_MEM, dep_lits_def, some_signal_holds_def,
+          EXISTS_MEM, MEM_FLAT, preds_hold_def]
+  >> metis_tac [dep_eval_lit_eq]
+QED
+
+Theorem lives_hold_matching_transition:
+  lives_hold (pair_state (tr (i + 2)) (tr (i + 1))) qcirc live ∧
   matching_transition inputs latches tr i (i + 2) ∧
   dep_circuit (pair_set inputs) (pair_set latches) qcirc ∧
-  dep_lits (pair_set inputs) (pair_set latches) live
+  dep_lits (pair_set inputs) (pair_set latches) (set (FLAT live))
   ⇒
-  preds_hold (pair_state (tr i) (tr (i + 1))) qcirc live
+  lives_hold (pair_state (tr i) (tr (i + 1))) qcirc live
 Proof
   rw []
-  >> irule preds_hold_dep_circuit
-  >> qpat_x_assum ‘preds_hold _ _ _’ $ irule_at Any
+  >> irule lives_hold_dep_circuit
+  >> qpat_x_assum ‘lives_hold _ _ _’ $ irule_at Any
   >> first_assum $ irule_at (Pos hd) >> simp []
   >> fs [agree_on_pair, matching_transition_def]
 QED
@@ -1116,15 +1179,15 @@ Theorem matching_transition_live:
   set (circuit_inputs circ) ⊆ inputs' ∧
   BIGUNION (IMAGE (set o lit_inputs o next) latches) ⊆ inputs' ∧
   set (circuit_inputs qcirc) ⊆ pair_set inputs' ∧
-  BIGUNION (IMAGE (set o lit_inputs) live) ⊆ pair_set inputs' ∧
+  BIGUNION (IMAGE (set o lit_inputs) (set (FLAT live))) ⊆ pair_set inputs' ∧
   latches ⊆ latches' ∧
   set (circuit_latches circ) ⊆ latches' ∧
   BIGUNION (IMAGE (set o lit_latches o next) latches) ⊆ latches' ∧
   set (circuit_latches qcirc) ⊆ pair_set latches' ∧
-  BIGUNION (IMAGE (set o lit_latches) live) ⊆ pair_set latches' ∧
+  BIGUNION (IMAGE (set o lit_latches) (set (FLAT live))) ⊆ pair_set latches' ∧
   (∀n. preds_hold (tr n) circ preds)
   ⇒
-  preds_hold (pair_state (tr i) (tr (i + 1))) qcirc live
+  lives_hold (pair_state (tr i) (tr (i + 1))) qcirc live
 Proof
   rw []
   >> drule_then assume_tac is_inf_trace_cnstrs_hold
@@ -1148,13 +1211,13 @@ Proof
       irule dep_latch_lit_next>>
       fs[])
   >> drule_then assume_tac is_inf_trace_is_next
-  >> ‘preds_hold (pair_state (tr (i + 2)) (tr (i + 1))) qcirc live’ by
+  >> ‘lives_hold (pair_state (tr (i + 2)) (tr (i + 1))) qcirc live’ by
     (fs [is_witness_decrease_def]
      >> last_assum irule >> simp []
      >> first_x_assum $ qspec_then ‘i + 1’ mp_tac >> simp [])
   >> Cases_on ‘j = i + 2’ >> gvs []
   >-
-   (irule preds_hold_matching_transition >> simp []
+   (irule lives_hold_matching_transition >> simp []
     >> qpat_x_assum ‘matching_transition _ _ _ _ _’ $ irule_at Any
     >> simp []
     >> CONJ_TAC >- (
@@ -1162,10 +1225,10 @@ Proof
       metis_tac[dep_circuit_inputs_latches])
     >>
       metis_tac[dep_lits_lits])
-  >> drule_all is_witness_closure_preds_hold
+  >> drule_all is_witness_closure_lives_hold
   >> disch_then $ qspec_then ‘j - i - 2’ assume_tac
   >> gvs [matching_transition_def]
-  >> irule preds_hold_dep_circuit
+  >> irule lives_hold_dep_circuit
   >> pop_assum (irule_at Any)
   >> qexists_tac`pair_set latches'`
   >> qexists_tac`pair_set inputs'`
@@ -1271,6 +1334,34 @@ Proof
   Cases_on`xx`>>rw[]
 QED
 
+Theorem is_witness_consistent_preds_holds:
+  is_witness_consistent wcirc wreset wnext wpreds wcnstrs wqcirc wlive
+    wlatches ∧
+  MEM q Q ∧ MEM Q wlive ∧
+  preds_hold (pair_state (tr j) (tr (j + 1))) wqcirc {q} ∧
+  (∀n. preds_hold (tr n) wcirc wcnstrs) ∧
+  (∀n. preds_hold (tr n) wcirc wpreds) ∧
+  (∀n. is_next (tr n) wcirc wnext wlatches (SND (tr (n + 1)))) ∧
+  (∀i. j ≤ i ⇒
+       lives_hold (pair_state (tr i) (tr (i + 1))) wqcirc wlive) ∧
+  j ≤ i
+  ⇒
+  preds_hold (pair_state (tr i) (tr (i + 1))) wqcirc {q}
+Proof
+  Induct_on ‘i - j’ >> rw [] >> fs []
+  >- (‘i = j’ by simp [] >> simp [])
+  >> last_x_assum $ qspecl_then [‘i - 1’, ‘j’] assume_tac
+  >> gvs []
+  >> gvs [is_witness_consistent_def, MEM_EL]
+  >> last_x_assum $ qspecl_then [‘tr (i - 1)’, ‘tr i’, ‘tr (i + 1)’] mp_tac
+  >> simp []
+  >> impl_tac >-
+   (‘i - 1n + 1 = i’ by simp []
+    >> ‘j ≤ i - 1’ by simp []
+    >> metis_tac [])
+  >> simp [lives_imply_def, signal_imply_def, LIST_REL_EL_EQN]
+QED
+
 Theorem is_witness_is_live:
   is_witness
     mcirc mreset mnext mpreds mcnstrs mqcirc mlive mlatches
@@ -1278,8 +1369,7 @@ Theorem is_witness_is_live:
   dep_model
     mcirc mreset mnext mpreds mcnstrs minput mlatches ∧
   dep_qcirc minput mqcirc mlive mlatches ∧
-  is_stratified_full lt wcirc wreset wlatches ∧
-  FINITE wlive
+  is_stratified_full lt wcirc wreset wlatches
   ⇒
   is_live
     mcirc mreset mnext mcnstrs mqcirc mlive mlatches
@@ -1315,64 +1405,94 @@ Proof
   (* Model constraints holds on the witness *)
   >> ‘∀n. preds_hold (tr' n) mcirc mcnstrs’ by
     metis_tac [is_inf_trace_cnstrs_hold]
-
   >> qabbrev_tac`inputs' =
     set (circuit_inputs wcirc) ∪
     BIGUNION (IMAGE (set o lit_inputs o wnext) wlatches) ∪
     (IMAGE OUTL (set (circuit_inputs wqcirc)) ∪
     IMAGE OUTR (set (circuit_inputs wqcirc))) ∪
-    (IMAGE OUTL (BIGUNION (IMAGE (set o lit_inputs) wlive)) ∪
-    IMAGE OUTR (BIGUNION (IMAGE (set o lit_inputs) wlive)))`
-
+    (IMAGE OUTL (BIGUNION (IMAGE (set o lit_inputs) (set (FLAT wlive)))) ∪
+    IMAGE OUTR (BIGUNION (IMAGE (set o lit_inputs) (set (FLAT wlive)))))`
   >> qabbrev_tac`latches' =
     wlatches ∪
     set (circuit_latches wcirc) ∪
     BIGUNION (IMAGE (set o lit_latches o wnext) wlatches) ∪
     (IMAGE OUTL (set (circuit_latches wqcirc)) ∪
     IMAGE OUTR (set (circuit_latches wqcirc))) ∪
-    (IMAGE OUTL (BIGUNION (IMAGE (set o lit_latches) wlive)) ∪
-    IMAGE OUTR (BIGUNION (IMAGE (set o lit_latches) wlive)))`
-
+    (IMAGE OUTL (BIGUNION (IMAGE (set o lit_latches) (set (FLAT wlive)))) ∪
+    IMAGE OUTR (BIGUNION (IMAGE (set o lit_latches) (set (FLAT wlive)))))`
   (* Infinite trace on witness repeats from k onwards *)
   >> qspecl_then [‘inputs'’, ‘latches'’, ‘tr'’] mp_tac matching_transition_exists
-
   >> impl_tac >-
     (unabbrev_all_tac>>fs[is_stratified_full_def,PULL_EXISTS])
   >> strip_tac
   >> rename1 ‘k < _ ⇒ _’ >> qexists ‘k+1’ >> rw []
-
   (* Model is live if model is live on extended trace *)
-  >> irule preds_hold_dep_circuit
-  >> fs [dep_qcirc_def]
-  >> first_assum $ irule_at (Pos hd)
-  >> simp []
-  >> qexists ‘pair_state (tr' i) (tr' (i + 1))’
-  >> reverse conj_tac
-  >-
-   (fs [traces_agree_def, agree_on_pair]
-    >> irule_at (Pos hd) agree_on_weaken_inputs
-    >> qexists ‘UNIV’ >> simp []
-    >> first_assum $ irule_at (Pos hd)
-    >> qexists ‘i’ >> simp []
-    >> irule agree_on_weaken_inputs
-    >> qexists ‘UNIV’ >> simp []
-    >> first_assum $ irule_at (Pos hd)
-    >> qexists ‘i+1’ >> simp [])
-  (* Model is live if witness is live *)
-  >> fs [is_witness_liveness_def]
-  >> first_assum irule >> simp []
+  >> ‘∃signal.
+        MEM signal prop ∧
+        ∀i. k + 1 ≤ i ⇒
+            preds_hold (pair_state (tr' i) (tr' (i + 1))) mqcirc {signal}’ suffices_by
+    (rw []
+     >> qexists ‘signal’ >> rw []
+     >> irule preds_hold_dep_circuit
+     >> fs [dep_qcirc_def]
+     >> first_assum $ irule_at (Pos hd)
+     >> simp []
+     >> qexists ‘pair_state (tr' i) (tr' (i + 1))’
+     >> reverse conj_tac
+     >-
+      (fs [traces_agree_def, agree_on_pair]
+       >> irule_at (Pos hd) agree_on_weaken_inputs
+       >> qexists ‘UNIV’ >> simp []
+       >> first_assum $ irule_at (Pos hd)
+       >> qexists ‘i’ >> simp []
+       >> irule agree_on_weaken_inputs
+       >> qexists ‘UNIV’ >> simp []
+       >> first_assum $ irule_at (Pos hd)
+       >> qexists ‘i+1’ >> simp [])
+     >> fs [dep_lits_def, MEM_FLAT]
+     >> metis_tac [])
+  >> gvs [MEM_EL, PULL_EXISTS]
+  >> ‘LENGTH wlive = LENGTH mlive ∧
+      ∀n. n < LENGTH wlive ⇒ LENGTH wlive❲n❳ = LENGTH mlive❲n❳’ by
+    (fs [is_witness_liveness_def, LIST_REL_EL_EQN])
+  >> ‘∃n'.
+        n' < LENGTH wlive❲n❳ ∧
+        ∀i. k + 1 ≤ i ⇒
+              preds_hold (pair_state (tr' i) (tr' (i + 1))) wqcirc {wlive❲n❳❲n'❳}’
+    suffices_by
+    (rw []
+     >> qexists ‘n'’
+     >> gvs []
+     >> rw []
+     >> gvs [is_witness_liveness_def, lives_imply_def, signal_imply_def,
+             LIST_REL_EL_EQN, PULL_FORALL])
   (* Witness is live *)
-  >> drule matching_transition_live
-  >> disch_then irule >> simp []
-  >> first_x_assum(qspec_then `i` mp_tac)
-  >> rw[]
-  >> pop_assum (irule_at Any)
-  >> unabbrev_all_tac
-  >> irule_at Any SUBSET_pair_set
-  >> irule_at Any SUBSET_pair_set
-  >> irule_at Any SUBSET_pair_set
-  >> irule_at Any SUBSET_pair_set
-  >> metis_tac[SUBSET_UNION,UNION_ASSOC,UNION_COMM]
+  >> ‘∀i. k + 1 ≤ i ⇒ lives_hold (pair_state (tr' i) (tr' (i + 1))) wqcirc wlive’
+    by
+    (rw []
+     >> drule matching_transition_live >> simp []
+     >> disch_then irule >> simp []
+     >> qpat_x_assum ‘∀_. _ ⇒ ∃_. matching_transition _ _ _ _ _’ $
+          qspec_then `i` mp_tac
+     >> rw []
+     >> pop_assum (irule_at Any)
+     >> unabbrev_all_tac
+     >> irule_at Any SUBSET_pair_set
+     >> irule_at Any SUBSET_pair_set
+     >> irule_at Any SUBSET_pair_set
+     >> irule_at Any SUBSET_pair_set
+     >> metis_tac[SUBSET_UNION,UNION_ASSOC,UNION_COMM])
+  >> drule is_witness_consistent_preds_holds
+  >> disch_then $ drule_at Any >> simp []
+  >> gvs [lives_hold_def, EVERY_EL, PULL_FORALL]
+  >> first_x_assum $ qspecl_then [‘k + 1’, ‘n’] mp_tac
+  >> pure_rewrite_tac [some_signal_holds_def] >> rw [EXISTS_MEM, MEM_EL]
+  >> simp [GSYM PULL_FORALL]
+  >> first_assum $ irule_at (Pos hd)
+  >> rw []
+  >> first_assum irule
+  >> simp [PULL_EXISTS]
+  >> metis_tac []
 QED
 
 (* Implementation *************************************************************)
