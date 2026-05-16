@@ -137,9 +137,9 @@ val _ = cv_auto_trans (x64_targetTheory.x64_enc_def |>
 val pre = cv_auto_trans_pre "" comp_x64_def;
 
 Theorem comp_x64_pre[cv_pre,local]:
-  ∀v bs kf. comp_x64_pre v bs kf
+  ∀perf v bs kf. comp_x64_pre perf v bs kf
 Proof
-  gen_tac \\ completeInduct_on ‘prog_size (K 0) v’
+  gen_tac \\ gen_tac \\ completeInduct_on ‘prog_size (K 0) v’
   \\ rw [] \\ gvs [PULL_FORALL]
   \\ rw [] \\ simp [Once pre]
   \\ rw [] \\ gvs []
@@ -152,9 +152,9 @@ val _ = cv_auto_trans compile_prog_x64_def;
 val pre = cv_auto_trans_pre "" compile_word_to_stack_x64_def;
 
 Theorem compile_word_to_stack_x64_pre[cv_pre]:
-  ∀k v bitmaps. compile_word_to_stack_x64_pre k v bitmaps
+  ∀perf k v bitmaps. compile_word_to_stack_x64_pre perf k v bitmaps
 Proof
-  Induct_on`v`
+  gen_tac \\ gen_tac \\ Induct_on`v`
   \\ rw [] \\ simp [Once pre]
 QED
 

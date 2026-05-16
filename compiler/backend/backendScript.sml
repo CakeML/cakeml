@@ -149,7 +149,7 @@ QED
 Definition to_stack_def:
   to_stack asm_conf c p =
   let (c,p,names) = to_word asm_conf c p in
-  let (bm,c',fs,p) = word_to_stack$compile asm_conf p in
+  let (bm,c',fs,p) = word_to_stack$compile asm_conf c.stack_conf.perf_calls p in
   let c = c with word_conf := c' in
   (bm,c,p,names)
 End
@@ -223,7 +223,7 @@ End
 
 Definition from_word_def:
   from_word asm_conf c names p =
-  let (bm,c',fs,p) = word_to_stack$compile asm_conf p in
+  let (bm,c',fs,p) = word_to_stack$compile asm_conf c.stack_conf.perf_calls p in
   let c = c with word_conf := c' in
   from_stack asm_conf c names p bm
 End

@@ -165,7 +165,7 @@ End
 
 Definition from_word_def:
   from_word (asm_conf :'a asm_config) (c :config) names p =
-    let (bm,c',fs,p) = word_to_stack$compile asm_conf p in
+    let (bm,c',fs,p) = word_to_stack$compile asm_conf c.stack_conf.perf_calls p in
     let c = c with word_conf := c' in
       from_stack asm_conf c names p bm
 End
@@ -372,7 +372,7 @@ End
 Definition to_stack_all_def:
   to_stack_all asm_conf (c:config) p =
     let (ps,c,p,names) = to_word_all asm_conf c p in
-    let (bm,c',fs,p) = word_to_stack$compile asm_conf p in
+    let (bm,c',fs,p) = word_to_stack$compile asm_conf c.stack_conf.perf_calls p in
     let ps = ps ++ [(«after word_to_stack»,Stack p names)] in
     let c = c with word_conf := c' in
       ((ps: (mlstring # 'a any_prog) list),bm,c,p,names)
