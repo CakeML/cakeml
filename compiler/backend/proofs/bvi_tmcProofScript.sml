@@ -2115,14 +2115,6 @@ Resume evaluate_rewrite_tmc[op_opt]:
 
 QED
 
-Definition alloc_env_rel_def:
-  alloc_env_rel hole_ptr num_binders env1 env2 ⇔
-    ∃env_extras.
-      env2 = env_extras ++ env1 ∧
-      LENGTH env_extras = num_binders ∧
-      hole_ptr < LENGTH env_extras
-End
-
 Definition hypothesis_def:
   hypothesis xs' (s'' : (num # γ, 'ffi) bviSem$state) env1' loc' r' t' opt' f' s'³' env2' (s : (num # γ, 'ffi) bviSem$state) ⇔
   s''.clock < s.clock ⇒
@@ -2150,11 +2142,26 @@ Definition hypothesis_def:
              hole_has_val f' env1' env2' t2.refs res_v)))
 End
 
+Definition alloc_env_rel_def:
+  alloc_env_rel f refs top_ptr hole_ptr num_binders env1 env2 ⇔
+    ∃env_extras.
+      env2 = env_extras ++ env1 ∧
+      LENGTH env_extras = num_binders ∧
+      top_ptr < LENGTH env_extras ∧
+      hole_ptr < LENGTH env_extras ∧   
+      ∃ref_top t_top l_top c_top r_top.
+        EL top_ptr env_extras = RefPtr F ref_top ∧
+        FLOOKUP refs ref_top = SOME (MutBlock t_top l_top c_top r_top) ∧
+        ref_top ∉ FRANGE f ∧
+        ∀b. RefPtr b ref_top ≠ EL hole_ptr env_extras
+End
+
 Theorem evaluate_hb_to_bvi_wrapper_aux:
   ∀call_ts call_args args loc loc_opt body work f env1 env2 env3 s s' t r top_ptr hole_ptr hole_idx num_binders.
-    evaluate([Call call_ts (SOME loc) (MAP (λn. Var n) call_args) NONE],env1,s) = (r,t) ∧
+    evaluate ([Call call_ts (SOME loc) (MAP (λn. Var n) call_args) NONE],env1,s) = (r,t) ∧
     evaluate (MAP (λn. Var n) call_args,env2,s') = (Rval args,s') ∧ (* Maybe there's a better way to do this *)
-    
+
+    (* Maybe a lemma that gets these from alloc_env_rel *)
     env_rel T f (MAP (λn. env1❲n❳) call_args) (MAP (λn. env2❲n❳) call_args ++ [env3❲hole_ptr❳; Number (&hole_idx)]) ∧
     (∃c. hole_has_val f (MAP (λn. env1❲n❳) call_args) (MAP (λn. env2❲n❳) call_args ++ [env3❲hole_ptr❳; Number (&hole_idx)]) s'.refs c) ∧
 
@@ -2163,7 +2170,8 @@ Theorem evaluate_hb_to_bvi_wrapper_aux:
     r ≠ Rerr (Rabort Rtype_error) ∧
        
     (* Will need some relations for the top_ptr etc*)
-    alloc_env_rel hole_ptr num_binders env2 env3 ∧
+    alloc_env_rel f s'.refs top_ptr hole_ptr num_binders env2 env3 ∧
+    (∀block. r = Rval [block] ⇒ hole_block_rel f s.refs block (EL top_ptr env3)) ∧
 
     lookup loc s.code = SOME (LENGTH call_args,body) ∧
     lookup loc_opt s'.code = SOME (LENGTH call_args + 2,work) ∧
@@ -2171,13 +2179,12 @@ Theorem evaluate_hb_to_bvi_wrapper_aux:
     
     (∀xs' s'' env1' loc' r' t' opt' f' s'³' env2'.
        hypothesis xs' s'' env1' loc' r' t' opt' f' s'³' env2' s) ⇒
-    ∃r' t' f'.
+    ∃t' f'.
       evaluate([hb_to_bvi_wrapper_aux loc_opt call_ts call_args top_ptr hole_ptr hole_idx num_binders],env3,s') = (r',t') ∧
       f SUBMAP f' ∧
-      result_rel (LIST_REL (v_rel f')) (v_rel f') r r' ∧
       state_rel f' t t'
 Proof
-  
+
   rw []
   >> gvs [hb_to_bvi_wrapper_aux_def, optimise_call_def, evaluate_def, evaluate_APPEND, CaseEq "prod"]
   >> imp_res_tac alloc_env_rel_def >> gvs []
@@ -2225,7 +2232,7 @@ Proof
   >> rename [‘state_rel f' t t_work’]
   >> rename [‘opt_res_rel r r_work’]
   >> rename [‘result_rel (LIST_REL (v_rel f')) (v_rel f') r r'’]
-  >> qrefinel [‘_’, ‘_’, ‘f'’, ‘r_work’, ‘t_work’]
+  >> qrefinel [‘_’, ‘_’, ‘f'’, ‘r_work’, ‘t_work’]                    
   >> reverse $ Cases_on ‘r_work’
   >-
    (gvs [opt_res_rel_def]
@@ -2233,9 +2240,99 @@ Proof
     >> Cases_on ‘r'’ >- gvs []
     >> Cases_on ‘Rerr e'’ >- gvs []
     >> gvs [])
+  >> gvs [PULL_EXISTS, opt_res_rel_def]
+  >> reverse $ Cases_on ‘r'’ >- gvs []
+  >> gvs []                                        
+  >> reverse $ Cases_on ‘r’ >- gvs [semanticPrimitivesPropsTheory.result_rel_def]
+  >> imp_res_tac evaluate_SING_IMP >> gvs []
+  >> rename [‘v_rel f' r r'’]
   >> gvs [PULL_EXISTS]
+
+  >> 
+  >> drule evaluate_finalise_cons_def
+  >> impl_tac
+  >- (rw [] >> gvs [])
+  >> strip_tac
+  >> gvs []
+                
+  >> gvs [finalise_cons_def]
+  >> ‘FLOOKUP t_work.refs ref_top = FLOOKUP s'.refs ref_top’ by
+    (gvs [holes_unchanged_except_def]
+     >> first_x_assum irule
+     >> gvs [EL_APPEND_EQN])
+  >> gvs []
+  >> imp_res_tac hole_has_val_def
+  >> gvs [EL_APPEND_EQN, CaseEq "option"]
+
                 
   >> cheat
+QED
+
+Definition hole_block_unfilled_def:
+  hole_block_unfilled f refs top_ptr hole_ptr hole_idx ⇔
+    top_ptr ∉ FRANGE f ∧
+    ∃tag left hole right.
+      FLOOKUP refs hole_ptr = SOME (MutBlock tag left hole right) ∧
+End
+
+Definition hole_block_filled_def:
+  (hole_block_filled env refs tag left (RCall _ _) right top_ptr hole_ptr hole_val ⇔
+     top_ptr = hole_ptr ∧
+     FLOOKUP refs top_ptr = SOME (MutBlock tag (REVERSE (MAP (λn. EL n env) right)) hole_val (REVERSE (MAP (λn. EL n env) left))) ∧
+     ∀tag' left' child right'.
+       FLOOKUP refs hole_ptr ≠ SOME (MutBlock tag' left' child right')) ∧
+  (hole_block_filled env refs tag left (CallBlock tag' left' child right') right top_ptr hole_ptr hole_val ⇔
+     top_ptr ≠ hole_ptr ∧
+     ∃child_ptr.
+       child_ptr ≠ hole_ptr ∧
+       FLOOKUP refs top_ptr = SOME (MutBlock tag (REVERSE (MAP (λn. EL n env) right)) (RefPtr F child_ptr) (REVERSE (MAP (λn. EL n env) left))) ∧
+       hole_block_filled env refs tag' left' child right' child_ptr hole_ptr hole_val)
+End
+
+Theorem evaluate_finalise_cons_def:
+  ∀ref refs b loc tag left child right hole call_ts call_args env s t block top_ptr hole_ptr hole_val.
+    evaluate ([cb_to_bvi loc (CallBlock tag left child right)],env,s) = (Rval [block],t with refs := t.refs \\ top_ptr) ∧
+    evaluate ([Call call_ts (SOME loc) (MAP (λn. Var n) call_args) NONE],env,s) = (Rval [hole_val],t with refs := t.refs \\ top_ptr) ∧
+    cb_to_hb (CallBlock tag left child right) = (HoleBlock tag left hole right,call_ts,call_args) ∧
+    (*FLOOKUP refs hole_ptr = SOME hole_val ∧*)
+    hole_block_filled env t.refs tag left child right top_ptr hole_ptr hole_val ∧
+    hole_ptr ∉ FDOM s.refs ∧
+    ref = RefPtr b top_ptr ∧
+    b = F ∧
+    refs = t.refs ⇒
+    finalise_cons ref refs = SOME block
+Proof  
+  recInduct finalise_cons_ind
+  >> rw []
+  >> last_x_assum mp_tac
+  >> gvs [Once cb_to_bvi_def, evaluate_APPEND, evaluate_def, do_app_def,
+          do_app_aux_def, bvl_to_bvi_id, CaseEq "prod", CaseEq "result", CaseEq "option"]
+  >> imp_res_tac evaluate_var_list >> gvs []
+  >> imp_res_tac evaluate_SING_IMP >> gvs []
+  >> rename [‘evaluate ([_],_,_) = (Rval [block],t)’]
+  >> Cases_on ‘s.clock < call_ts + 1’
+  >- gvs []
+  >> gvs [CaseEq "prod", CaseEq "result", CaseEq "error_result"]
+  >> disch_then assume_tac
+  >> reverse $ Cases_on ‘child’
+  >-
+   (simp [finalise_cons_def]
+    >> gvs [cb_to_hb_def, hole_block_filled_def]
+    >> Cases_on ‘hole_val’ >> gvs [finalise_cons_def, cb_to_bvi_def, evaluate_def, evaluate_APPEND])
+  >> gvs [cb_to_hb_def, CaseEq "prod"]
+  >> rename [‘cb_to_hb child = (hole,call_ts,call_args)’]
+  >> rename [‘CallBlock tag' left' _ right'’]
+  >> gvs [hole_block_filled_def]
+  >> cheat
+        (*
+  >> pop_assum drule
+  >> rpt $ disch_then $ drule_at Any
+  >> gvs []
+  >> impl_tac
+  >- cheat
+  >> strip_tac
+  >> gvs [finalise_cons_def, CaseEq "option"]
+*)
 QED
 
 Theorem evaluate_allocate_holes_aux:
