@@ -2157,17 +2157,16 @@ Definition alloc_env_rel_def:
 End
 
 Definition hole_block_filled_def:
-  (hole_block_filled env refs tag left Hole right top_ptr hole_ptr hole_val ⇔
+  (hole_block_filled env refs tag left Hole right parents top_ptr hole_ptr hole_val ⇔
      top_ptr = hole_ptr ∧
      FLOOKUP refs top_ptr = SOME (MutBlock tag (REVERSE (MAP (λn. EL n env) right)) hole_val (REVERSE (MAP (λn. EL n env) left))) ∧
      ∀tag' left' child right'.
        FLOOKUP refs hole_ptr ≠ SOME (MutBlock tag' left' child right')) ∧
-  (hole_block_filled env refs tag left (HoleBlock tag' left' child right') right top_ptr hole_ptr hole_val ⇔
-     top_ptr ≠ hole_ptr ∧
+  (hole_block_filled env refs tag left (HoleBlock tag' left' child right') right parents top_ptr hole_ptr hole_val ⇔
+     top_ptr ∉ parents ∧
      ∃child_ptr.
-       child_ptr ≠ hole_ptr ∧
        FLOOKUP refs top_ptr = SOME (MutBlock tag (REVERSE (MAP (λn. EL n env) right)) (RefPtr F child_ptr) (REVERSE (MAP (λn. EL n env) left))) ∧
-       hole_block_filled env refs tag' left' child right' child_ptr hole_ptr hole_val)
+       hole_block_filled env refs tag' left' child right' (parents ∪ {top_ptr}) child_ptr hole_ptr hole_val)
 End
 
 Theorem evaluate_allocate_holes_aux:
@@ -2182,15 +2181,13 @@ Proof
   cheat
 QED
 
-
-
 Theorem evaluate_finalise_cons_def:
-  ∀ref refs b loc tag left child right hole call_ts call_args env s t block top_ptr hole_ptr hole_val.
+  ∀ref refs b loc tag left child right hole call_ts call_args env s t block parents top_ptr hole_ptr hole_val.
     evaluate ([cb_to_bvi loc (CallBlock tag left child right)],env,s) = (Rval [block],t) ∧
     evaluate ([Call call_ts (SOME loc) (MAP (λn. Var n) call_args) NONE],env,s) = (Rval [hole_val],t) ∧
     cb_to_hb (CallBlock tag left child right) = (HoleBlock tag left hole right,call_ts,call_args) ∧
     (*FLOOKUP refs hole_ptr = SOME hole_val ∧*)
-    hole_block_filled env refs tag left hole right top_ptr hole_ptr hole_val ∧
+    hole_block_filled env refs tag left hole right parents top_ptr hole_ptr hole_val ∧
     ref = RefPtr b top_ptr ∧
     b = F ⇒
     finalise_cons ref refs = SOME block
@@ -2216,10 +2213,9 @@ Proof
   >> rename [‘cb_to_hb child = (hole,call_ts,call_args)’]
   >> rename [‘CallBlock tag' left' _ right'’]
   >> gvs [hole_block_filled_def]
-        
   >> pop_assum drule
   >> rpt $ disch_then $ drule_at Any
-  >> disch_then $ qspecl_then [‘hole_ptr’, ‘hole_val’] mp_tac
+  >> disch_then $ qspecl_then [‘parents ∪ {ptr}’, ‘hole_ptr’, ‘hole_val’] mp_tac
   >> impl_tac
   >-
    (rpt $ first_assum $ irule_at Any
@@ -2228,9 +2224,7 @@ Proof
     >-
      (gvs [hole_block_filled_def]
       >> qexists ‘child_ptr'’
-      >> imp_res_tac DOMSUB_FLOOKUP_NEQ
-      >> gvs []
-      >> gvs [DOMSUB_NOT_IN_DOM]
+      (* DOMSUB_FLOOKUP_NEQ should work here but isn't... *)
       >> cheat)
     >> gvs [hole_block_filled_def])
   >> strip_tac
