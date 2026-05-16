@@ -2381,6 +2381,13 @@ Theorem evaluate_hb_to_bvi_wrapper_aux:
       evaluate([hb_to_bvi_wrapper_aux loc_opt call_ts call_args i_top_ptr i_hole_ptr hole_idx num_binders],env2,s2) = (block_res,t2)
 Proof
   rw []
+
+  >> gvs [alloc_preconditions_def]
+  >> simp [hb_to_bvi_wrapper_def, hb_to_bvi_wrapper_aux_def, optimise_call_def]
+  >> simp [Once evaluate_def]
+  >> simp [evaluate_shift_vars]
+
+        
   >> gvs [alloc_preconditions_def]
   >> simp [hb_to_bvi_wrapper_def, hb_to_bvi_wrapper_aux_def, optimise_call_def]
   >> ‘backend_common$small_enough_int (&hole_idx)’ by cheat
