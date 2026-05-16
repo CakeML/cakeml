@@ -10,6 +10,7 @@ Ancestors
   ffi[qualified] (* for call_FFI *)
   lprefix_lub[qualified] (* for build_lprefix_lub *)
   machine_ieee[qualified] (* for FP *)
+  backend_common (* for word_and_carry *)
 
 Datatype:
   buffer =
