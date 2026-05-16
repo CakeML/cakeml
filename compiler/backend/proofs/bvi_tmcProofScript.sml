@@ -2186,7 +2186,6 @@ Theorem evaluate_finalise_cons_def:
     evaluate ([cb_to_bvi loc (CallBlock tag left child right)],env,s) = (Rval [block],t) ∧
     evaluate ([Call call_ts (SOME loc) (MAP (λn. Var n) call_args) NONE],env,s) = (Rval [hole_val],t) ∧
     cb_to_hb (CallBlock tag left child right) = (HoleBlock tag left hole right,call_ts,call_args) ∧
-    (*FLOOKUP refs hole_ptr = SOME hole_val ∧*)
     hole_block_filled env refs tag left hole right parents top_ptr hole_ptr hole_val ∧
     ref = RefPtr b top_ptr ∧
     b = F ⇒
@@ -2232,34 +2231,36 @@ Proof
 QED
 
 Theorem evaluate_hb_to_bvi_wrapper_aux:
-  ∀call_ts call_args args loc loc_opt body work f env1 env2 env3 s s' t r top_ptr hole_ptr hole_idx num_binders.
-    evaluate([])
+  ∀tag left child right hole call_ts call_args loc loc_opt body work f1 env1 env2 env3 s1 s2 t1 t2 block_res call_res1 call_res2
+       parents parent_refs i_top_ptr top_ptr hole_ptr i_hole_ptr hole_idx num_binders.
            
-    evaluate ([Call call_ts (SOME loc) (MAP (λn. Var n) call_args) NONE],env1,s) = (r,t) ∧
-    evaluate (MAP (λn. Var n) call_args,env2,s') = (Rval args,s') ∧ (* Maybe there's a better way to do this *)
+    evaluate ([cb_to_bvi loc (CallBlock tag left child right)],env2,s2) = (block_res,t2) ∧
+    evaluate ([Call call_ts (SOME loc) (MAP (λn. Var n) call_args) NONE],env1,s1) = (call_res1,t1) ∧
+    evaluate ([Call call_ts (SOME loc) (MAP (λn. Var n) call_args) NONE],env2,s2) = (call_res2,t2) ∧
+    env_rel T f1 env1 env2 ∧
+    alloc_env_rel f1 s2.refs i_top_ptr i_hole_ptr num_binders env2 env3 ∧
+    state_rel f1 s1 s2 ∧
+    hole_block_filled env2 s2.refs tag left hole right parents top_ptr hole_ptr (Number 0) ∧
+    holes_unchanged_except f1 s2.refs s2.refs parent_refs ∧
+    lookup loc s1.code = SOME (LENGTH call_args,body) ∧
+    lookup loc_opt s2.code = SOME (LENGTH call_args + 2,work) ∧
+    rewrite_worker loc loc_opt (LENGTH call_args) (LENGTH call_args + 1) body = work ∧
 
     (* Maybe a lemma that gets these from alloc_env_rel *)
-    env_rel T f (MAP (λn. env1❲n❳) call_args) (MAP (λn. env2❲n❳) call_args ++ [env3❲hole_ptr❳; Number (&hole_idx)]) ∧
-    (∃c. hole_has_val f (MAP (λn. env1❲n❳) call_args) (MAP (λn. env2❲n❳) call_args ++ [env3❲hole_ptr❳; Number (&hole_idx)]) s'.refs c) ∧
+    env_rel T f1 (MAP (λn. env1❲n❳) call_args) (MAP (λn. env2❲n❳) call_args ++ [env3❲hole_ptr❳; Number (&hole_idx)]) ∧
+    (∃c. hole_has_val f1 (MAP (λn. env1❲n❳) call_args) (MAP (λn. env2❲n❳) call_args ++ [env3❲hole_ptr❳; Number (&hole_idx)]) s2.refs c) ∧
 
-    env_rel T f env1 env2 ∧
-    state_rel f s s' ∧
-    r ≠ Rerr (Rabort Rtype_error) ∧
-       
-    (* Will need some relations for the top_ptr etc*)
-    alloc_env_rel f s'.refs top_ptr hole_ptr num_binders env2 env3 ∧
-    (∀block. r = Rval [block] ⇒ hole_block_rel f s.refs block (EL top_ptr env3)) ∧
-
-    lookup loc s.code = SOME (LENGTH call_args,body) ∧
-    lookup loc_opt s'.code = SOME (LENGTH call_args + 2,work) ∧
-    rewrite_worker loc loc_opt (LENGTH call_args) (LENGTH call_args + 1) body = work ∧
-    
+    (∀parent. parent ∈ parents ⇔ RefPtr F parent ∈ parent_refs) ∧
+    env3❲i_top_ptr❳ = RefPtr F top_ptr ∧
+    env3❲i_hole_ptr❳ = RefPtr F hole_ptr ∧
+    cb_to_hb (CallBlock tag left child right) = (HoleBlock tag left hole right,call_ts,call_args) ∧
+    call_res1 ≠ Rerr (Rabort Rtype_error) ∧
     (∀xs' s'' env1' loc' r' t' opt' f' s'³' env2'.
-       hypothesis xs' s'' env1' loc' r' t' opt' f' s'³' env2' s) ⇒
-    ∃t' f'.
-      evaluate([hb_to_bvi_wrapper_aux loc_opt call_ts call_args top_ptr hole_ptr hole_idx num_binders],env3,s') = (r',t') ∧
-      f SUBMAP f' ∧
-      state_rel f' t t'
+       hypothesis xs' s'' env1' loc' r' t' opt' f' s'³' env2' s1) ⇒
+    ∃t3 f2.
+      evaluate([hb_to_bvi_wrapper_aux loc_opt call_ts call_args i_top_ptr i_hole_ptr hole_idx num_binders],env3,s2) = (block_res,t3) ∧
+      f1 SUBMAP f2 ∧
+      state_rel f2 t1 t3
 Proof
 
   rw []
