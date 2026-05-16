@@ -2356,29 +2356,60 @@ End
 *)
 
 Definition alloc_preconditions_def:
-  alloc_preconditions refs env1 env2 arg_exps tag left hole right parents i_top_ptr i_hole_ptr hole_idx num_binders call_args ⇔
+  alloc_preconditions refs env2 env3 tag left hole right parents i_top_ptr i_hole_ptr hole_idx num_binders call_args ⇔
     ∃env_extras.
-      env2 = env_extras ++ env1 ∧
+      env3 = env_extras ++ env2 ∧
       LENGTH env_extras = num_binders ∧
       i_top_ptr < LENGTH env_extras ∧
       i_hole_ptr < LENGTH env_extras ∧
-      arg_exps = MAP (λn. bvi$Var n) (shift_vars num_binders call_args) ++ [Var i_hole_ptr; Op (IntOp (Const (&hole_idx))) []] ∧
       ∃ref_top ref_hole.
         EL i_top_ptr env_extras = RefPtr F ref_top ∧
         EL i_hole_ptr env_extras = RefPtr F ref_hole ∧
-        hole_block_filled env2 refs tag left hole right parents ref_top ref_hole (Number 0)
+        hole_block_filled env3 refs tag left hole right parents ref_top ref_hole (Number 0)
 End
 
+(* Move me *)
+Theorem length_shift_vars:
+  ∀l n.
+     LENGTH (shift_vars n l) = LENGTH l
+Proof
+  Induct
+  >- gvs [shift_vars_def]
+  >> rw []
+  >> gvs [shift_vars_def]
+QED
+
+Theorem wrap_call_env_rel:
+  ∀f refs env1 env2 env3 tag left hole right parents i_top_ptr i_hole_ptr hole_idx num_binders call_args.
+    env_rel T f env1 env2 ∧
+    alloc_preconditions refs env2 env3 tag left hole right parents i_top_ptr i_hole_ptr hole_idx num_binders call_args ⇒
+    env_rel T f
+            (MAP (λn. EL n env1) (shift_vars num_binders call_args))
+            (MAP (λn. EL n env3) (shift_vars num_binders call_args) ++ [EL i_hole_ptr env3; EL (i_hole_ptr + 1) env3])
+Proof
+  rw []
+  >> gvs [env_rel_def, alloc_preconditions_def]
+  >> qexistsl [‘MAP (λn. EL n env3) (shift_vars num_binders call_args)’, ‘[EL i_hole_ptr env3; EL (i_hole_ptr + 1) env3]’]
+  >> gvs [shift_vars_def, length_shift_vars, LENGTH_MAP]
+  >> cheat
+QED
+
 Theorem evaluate_hb_to_bvi_wrapper_aux:
-  ∀tag left child right hole call_ts call_args loc loc_opt env1 env2 arg_exps s1 s2 t1 block_res hole_res parents i_top_ptr i_hole_ptr hole_idx num_binders.
-    evaluate ([cb_to_bvi loc (CallBlock tag left child right)],env1,s1) = (block_res,t1) ∧
-    evaluate ([bvi$Call call_ts (SOME loc_opt) arg_exps NONE],env2,s2) = (hole_res,t1) ∧
-    alloc_preconditions s2.refs env1 env2 arg_exps tag left hole right parents i_top_ptr i_hole_ptr hole_idx num_binders call_args ∧
+  ∀tag left child right hole call_ts call_args loc loc_opt f1 env1 env2 env3 s1 s2 t1 t2 block_res hole_res parents i_top_ptr i_hole_ptr hole_idx num_binders.
+    evaluate ([cb_to_bvi loc (CallBlock tag left child right)],env2,s2) = (block_res,t2) ∧
+    evaluate ([bvi$Call call_ts (SOME loc) (MAP (λn. Var n) call_args) NONE],env1,s1) = (hole_res,t1) ∧
+    env_rel T f1 env1 env2 ∧
+    state_rel f1 s1 s2 ∧
+    state_rel f1 t1 t2 ∧
+    alloc_preconditions s2.refs env2 env3 tag left hole right parents i_top_ptr i_hole_ptr hole_idx num_binders call_args ∧
     cb_to_hb (CallBlock tag left child right) = (HoleBlock tag left hole right,call_ts,call_args) ∧
     block_res ≠ Rerr (Rabort Rtype_error) ∧
-    hole_res ≠ Rerr (Rabort Rtype_error) ⇒
-    ∃t2.
-      evaluate([hb_to_bvi_wrapper_aux loc_opt call_ts call_args i_top_ptr i_hole_ptr hole_idx num_binders],env2,s2) = (block_res,t2)
+    hole_res ≠ Rerr (Rabort Rtype_error) ∧
+    (∀xs' s'' env1' loc' r' t' opt' f' s'³' env2'.
+       hypothesis xs' s'' env1' loc' r' t' opt' f' s'³' env2' s1) ⇒
+    ∃f2 t3.
+      evaluate([hb_to_bvi_wrapper_aux loc_opt call_ts call_args i_top_ptr i_hole_ptr hole_idx num_binders],env3,s2) = (block_res,t3) ∧
+      state_rel f2 t1 t3
 Proof
   rw []
 
