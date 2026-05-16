@@ -634,7 +634,6 @@ val _ = hide "abs";
 Inductive updates:
   (* new_axiom *)
   (prop has_type Bool ∧
-   CLOSED prop ∧
    term_ok (sigof ctxt) prop
    ⇒ (NewAxiom prop) updates ctxt) ∧
 

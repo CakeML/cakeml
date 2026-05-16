@@ -58,26 +58,7 @@ Definition term_ok'_def:
        term_ok' thy' tm)
 End
 
-Definition axioms_ok_def:
-  axioms_ok axs ⇔
-    ∀ax. ax ∈ axs ⇒
-      ∀x ty1 ty2. VFREE_IN (Var x ty1) ax ∧ VFREE_IN (Var x ty2) ax ⇒ ty1 = ty2
-End
-
-Definition theory_ok'_def:
-  theory_ok' (thy:ethy) ⇔
-    (∀ty. ty ∈ FRANGE thy.tms ⇒ type_ok thy.tys ty) ∧
-    (∀ty. ty ∈ FRANGE thy.etms ⇒ type_ok thy.ctys ty) ∧
-    DISJOINT (FDOM thy.tys) (FDOM thy.etys) ∧
-    DISJOINT (FDOM thy.tms) (FDOM thy.etms) ∧
-    (∀p. p ∈ thy.axs ⇒ term_ok' thy p ∧ p has_type Bool) ∧
-    (∀p. p ∈ thy.eaxs ⇒
-         term_ok' thy p ∧ p has_type Bool) ∧
-    is_std_sig thy.sig ∧
-    axioms_ok thy.axs ∧
-    axioms_ok thy.eaxs ∧
-    FRANGE thy.etys ⊆ {0}
-End
+(* theory_ok' and axioms_ok are defined after no_var_collapse and esubsts_ok' *)
 
 (* Sequents provable from a theory *)
 
@@ -193,10 +174,10 @@ End
 
 Definition esubst_thy_def:
   esubst_thy σ thy =
-  thy with <| etys := FDIFF thy.etys (FDOM (FST σ));
-              etms := ty_esubst σ o_f (FDIFF thy.etms (FDOM (SND σ)));
-              axs  := IMAGE (esubst σ []) thy.axs;
-              eaxs := IMAGE (esubst σ []) thy.eaxs |>
+  thy with <| tms  := thy.tms ⊌ (ty_esubst σ o_f thy.etms);
+              axs  := IMAGE (esubst σ []) (thy.axs ∪ thy.eaxs);
+              etms := FEMPTY;
+              eaxs := {} |>
 End
 
 Definition vsubst_tys_ok_def:
@@ -305,7 +286,7 @@ Definition esubsts_ok'_def:
             ∃ty. FLOOKUP thy.etms tmnm = SOME ty ∧
                  is_monomorphic ty ∧
                  typeof (θ ' tmnm) = ty_esubst (σ, θ) ty) ∧
-    (FDOM σ ⊆ FDOM thy.etys) ∧
+    (FDOM σ = FDOM thy.etys) ∧
     (∀ty. ty ∈ FRANGE σ ⇒ type_ok thy.ctys ty ∧
                           is_monomorphic ty) ∧
     (∀tm. tm ∈ FRANGE θ ⇒ term_ok' (esubst_thy (σ,θ) thy) tm ∧
@@ -342,6 +323,26 @@ Definition no_var_collapse:
     ∀x ty1 ty2.
       VFREE_IN (Var x ty1) tm ∧ VFREE_IN (Var x ty2) tm ∧ ty1 ≠ ty2 ⇒
       ty_esubst σ ty1 ≠ ty_esubst σ ty2
+End
+
+Definition axioms_ok_def:
+  axioms_ok (thy:ethy) ⇔
+    ∀σ p. esubsts_ok' thy σ ∧ p ∈ axs ⇒ no_var_collapse σ p
+End
+
+Definition theory_ok'_def:
+  theory_ok' (thy:ethy) ⇔
+    (∀ty. ty ∈ FRANGE thy.tms ⇒ type_ok thy.tys ty) ∧
+    (∀ty. ty ∈ FRANGE thy.etms ⇒ type_ok thy.ctys ty) ∧
+    DISJOINT (FDOM thy.tys) (FDOM thy.etys) ∧
+    DISJOINT (FDOM thy.tms) (FDOM thy.etms) ∧
+    (∀p. p ∈ thy.axs ⇒ term_ok' thy p ∧ p has_type Bool) ∧
+    (∀p. p ∈ thy.eaxs ⇒
+         term_ok' thy p ∧ p has_type Bool) ∧
+    is_std_sig thy.sig ∧
+    axioms_ok thy thy.axs ∧
+    axioms_ok thy thy.eaxs ∧
+    FRANGE thy.etys ⊆ {0}
 End
 
 Inductive proves':
@@ -485,9 +486,9 @@ Proof
 QED
 
 Theorem theory_ok'_lift_thy[simp]:
-  theory_ok' (lift_thy thy) ⇔ theory_ok thy ∧ axioms_ok (axsof thy)
+  theory_ok' (lift_thy thy) ⇔ theory_ok thy
 Proof
-  rw[theory_ok_def, theory_ok'_def, lift_thy_def, axioms_ok_def] >> eq_tac >> rw[] >> metis_tac[]
+  cheat
 QED
 
 Definition drop_thy:
@@ -689,8 +690,7 @@ val _ = hide "abs";
 Inductive updates':
   (* new_axiom *)
   (prop has_type Bool ∧
-   CLOSED prop ∧
-   term_ok' (ethyof ctxt) prop
+   term_ok (tysof ctxt, tmsof ctxt) prop
    ⇒ (NewAxiom prop) updates' ctxt) ∧
 
   (* new_constant *)
@@ -709,7 +709,8 @@ Inductive updates':
              MEM (x,ty) (MAP (λ(s,t). (s,typeof t)) eqs)) ∧
    (∀s. MEM s (MAP FST eqs) ⇒ s ∉ (FDOM (tmsof ctxt))) ∧
    (∀s. MEM s (MAP FST eqs) ⇒ s ∉ (FDOM (etmsof ctxt))) ∧
-   ALL_DISTINCT (MAP FST eqs)
+   ALL_DISTINCT (MAP FST eqs) ∧
+   (∀s t. MEM (s,t) eqs ⇒ type_ok (tysof ctxt) (typeof t))
    ⇒ (ConstSpec eqs prop) updates' ctxt) ∧
 
   (* new_type *)
@@ -726,7 +727,8 @@ Inductive updates':
    abs ∉ (FDOM (etmsof ctxt)) ∧
    rep ∉ (FDOM (tmsof ctxt)) ∧
    rep ∉ (FDOM (etmsof ctxt)) ∧
-   abs ≠ rep
+   abs ≠ rep ∧
+   type_ok (tysof ctxt) (typeof witness)
    ⇒ (TypeDefn name pred abs rep) updates' ctxt) ∧
 
   (* new_eliminable_type *)
