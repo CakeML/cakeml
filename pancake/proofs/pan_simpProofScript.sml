@@ -201,6 +201,7 @@ Proof
   >~ [`panLang$Annot`] >- suspend "Annot"
   >~ [`panLang$Tick`] >- suspend "Tick"
   >~ [`panLang$Assign`] >- suspend "Assign"
+  >~ [`panLang$Primitive`] >- suspend "Primitive"
   >~ [`panLang$Dec`] >- suspend "Dec"
   >~ [`panLang$Store`] >- suspend "Store"
   >~ [`panLang$Store32`] >- suspend "Store32"
@@ -289,6 +290,10 @@ Resume ret_to_tail_correct[Skip]:
 QED
 
 Resume ret_to_tail_correct[Assign]:
+  rw [ret_to_tail_def]
+QED
+
+Resume ret_to_tail_correct[Primitive]:
   rw [ret_to_tail_def]
 QED
 
@@ -647,6 +652,7 @@ Proof
   >~ [`panLang$Annot`] >- suspend "Annot"
   >~ [`panLang$Tick`] >- suspend "Tick"
   >~ [`panLang$Assign`] >- suspend "Assign"
+  >~ [`panLang$Primitive`] >- suspend "Primitive"
   >~ [`panLang$Dec`] >- suspend "Dec"
   >~ [`panLang$Store`] >- suspend "Store"
   >~ [`panLang$Store32`] >- suspend "Store32"
@@ -932,6 +938,23 @@ QED
 
 Resume compile_correct[Assign]:
   compile_Others_tac
+QED
+
+Resume compile_correct[Primitive]:
+  rw [] >>
+  fs [evaluate_seq_assoc, evaluate_skip_seq] >>
+  fs [evaluate_def] >>
+  cases_on ‘OPT_MMAP (eval s) es’ >> fs [] >>
+  ‘OPT_MMAP (eval t) es = OPT_MMAP (eval s) es’ by (
+    match_mp_tac IMP_OPT_MMAP_EQ >>
+    fs [pan_commonPropsTheory.opt_mmap_eq_some] >>
+    fs [MAP_EQ_EVERY2] >>
+    fs [LIST_REL_EL_EQN] >>
+    rw [] >>
+    metis_tac [compile_eval_correct]) >>
+  gvs [AllCaseEqs(), state_rel_def, state_component_equality] >>
+  qexists_tac ‘t with locals := t.locals |+ (v, value)’ >>
+  fs [kvar_defs, set_var_def]
 QED
 
 Resume compile_correct[Store]:
