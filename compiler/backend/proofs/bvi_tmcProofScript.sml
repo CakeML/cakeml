@@ -2182,17 +2182,17 @@ Proof
   cheat
 QED
 
+
+
 Theorem evaluate_finalise_cons_def:
   ∀ref refs b loc tag left child right hole call_ts call_args env s t block top_ptr hole_ptr hole_val.
-    evaluate ([cb_to_bvi loc (CallBlock tag left child right)],env,s) = (Rval [block],t with refs := t.refs \\ top_ptr) ∧
-    evaluate ([Call call_ts (SOME loc) (MAP (λn. Var n) call_args) NONE],env,s) = (Rval [hole_val],t with refs := t.refs \\ top_ptr) ∧
+    evaluate ([cb_to_bvi loc (CallBlock tag left child right)],env,s) = (Rval [block],t) ∧
+    evaluate ([Call call_ts (SOME loc) (MAP (λn. Var n) call_args) NONE],env,s) = (Rval [hole_val],t) ∧
     cb_to_hb (CallBlock tag left child right) = (HoleBlock tag left hole right,call_ts,call_args) ∧
     (*FLOOKUP refs hole_ptr = SOME hole_val ∧*)
-    hole_block_filled env t.refs tag left hole right top_ptr hole_ptr hole_val ∧
-    hole_ptr ∉ FDOM s.refs ∧
+    hole_block_filled env refs tag left hole right top_ptr hole_ptr hole_val ∧
     ref = RefPtr b top_ptr ∧
-    b = F ∧
-    refs = t.refs ⇒
+    b = F ⇒
     finalise_cons ref refs = SOME block
 Proof  
   recInduct finalise_cons_ind
@@ -2216,20 +2216,31 @@ Proof
   >> rename [‘cb_to_hb child = (hole,call_ts,call_args)’]
   >> rename [‘CallBlock tag' left' _ right'’]
   >> gvs [hole_block_filled_def]
-  >> cheat
-        (*
+        
   >> pop_assum drule
   >> rpt $ disch_then $ drule_at Any
-  >> gvs []
+  >> disch_then $ qspecl_then [‘hole_ptr’, ‘hole_val’] mp_tac
   >> impl_tac
-  >- cheat
+  >-
+   (rpt $ first_assum $ irule_at Any
+    >> gvs []
+    >> Cases_on ‘hole’
+    >-
+     (gvs [hole_block_filled_def]
+      >> qexists ‘child_ptr'’
+      >> imp_res_tac DOMSUB_FLOOKUP_NEQ
+      >> gvs []
+      >> gvs [DOMSUB_NOT_IN_DOM]
+      >> cheat)
+    >> gvs [hole_block_filled_def])
   >> strip_tac
   >> gvs [finalise_cons_def, CaseEq "option"]
-*)
 QED
 
 Theorem evaluate_hb_to_bvi_wrapper_aux:
   ∀call_ts call_args args loc loc_opt body work f env1 env2 env3 s s' t r top_ptr hole_ptr hole_idx num_binders.
+    evaluate([])
+           
     evaluate ([Call call_ts (SOME loc) (MAP (λn. Var n) call_args) NONE],env1,s) = (r,t) ∧
     evaluate (MAP (λn. Var n) call_args,env2,s') = (Rval args,s') ∧ (* Maybe there's a better way to do this *)
 
