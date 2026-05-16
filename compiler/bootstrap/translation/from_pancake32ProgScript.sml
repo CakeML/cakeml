@@ -4,7 +4,7 @@
 Theory from_pancake32Prog
 Ancestors
   ml_translator to_target32Prog std_prelude panLang crepLang
-  pan_simp loopLang loop_remove loop_to_word pan_to_crep
+  pan_simp loopLang loop_to_word pan_to_crep
   loop_call loop_live crep_arith crep_to_loop pan_to_word
   word_to_word backend pan_to_target panPtreeConversion
   pan_globals crep_inline
@@ -202,18 +202,6 @@ val _ = register_type “:32 loopLang$prog”;
 val _ = translate $ spec32 acc_vars_def;
 
 val _ = translate $ spec32 nested_seq_def;
-
-open loop_removeTheory;
-
-val _ = translate $ INST_TYPE[alpha|->“:32”, beta|->“:32 loopLang$prog”, gamma|->“:one$one”] store_cont_def;
-
-val _ = translate $ spec32 comp_no_loop_def;
-
-val _ = translate $ spec32 comp_with_loop_def;
-
-val _ = translate $ spec32 comp_def;
-
-val _ = translate $ spec32 comp_prog_def;
 
 open loop_to_wordTheory;
 

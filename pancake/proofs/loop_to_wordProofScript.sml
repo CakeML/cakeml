@@ -1755,9 +1755,6 @@ Proof
   TOP_CASE_TAC >> fs []
 QED
 
-(* st_rel-based fstate_rel_imp_semantics removed: loop_remove pass dropped from
-   the pipeline. Direct callers should use state_rel_imp_semantics. *)
-
 (*** no_install/no_alloc/no_mt lemmas ***)
 
 Theorem loop_to_word_comp_not_created:

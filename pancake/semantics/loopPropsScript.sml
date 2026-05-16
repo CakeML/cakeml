@@ -22,29 +22,6 @@ Definition every_prog_def:
   (every_prog p prog <=> p prog)
 End
 
-Definition no_Loop_def:
-  no_Loop = every_prog (\q. !l1 x l2. q <> Loop l1 x l2)
-End
-
-Definition no_Loops_def:
-  no_Loops p ⇔ no_Loop p ∧ every_prog (\r. r ≠ Break ∧ r ≠ Continue) p
-End
-
-Definition syntax_ok_def: (* syntax expected by loop_remove *)
-  (syntax_ok (Seq p1 p2) <=>
-    ~(no_Loop (Seq p1 p2)) ∧ syntax_ok p1 /\ syntax_ok p2) /\
-  (syntax_ok (Loop l1 body l2) <=>
-    syntax_ok body) /\
-  (syntax_ok (If x1 x2 x3 p1 p2 l1) <=>
-    ~(no_Loop (If x1 x2 x3 p1 p2 l1)) ∧ syntax_ok p1 /\ syntax_ok p2) /\
-  (syntax_ok (Mark p1) <=>
-    no_Loop p1) /\
-  (syntax_ok (Call ret dest args handler) <=>
-    ~(no_Loop (Call ret dest args handler)) ∧
-    (case handler of SOME (n,q,r,l) => syntax_ok q ∧ syntax_ok r | NONE => F)) /\
-  (syntax_ok prog <=> F)
-End
-
 Definition survives_def:
   (survives n (If c r ri p q cs) <=>
      survives n p ∧ survives n q ∧ n ∈ domain cs) ∧
