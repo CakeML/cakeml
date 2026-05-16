@@ -2128,8 +2128,7 @@ Resume evaluate_rewrite_tmc[op_opt]:
 
 QED
 
-
-Theorem evaluate_cb_call_err:
+Theorem evaluate_cb_err_call_err:
   ∀cb hb loc call_ts call_args env s t e.
     evaluate ([cb_to_bvi loc cb],env,s) = (Rerr e,t) ∧
     cb_to_hb cb = (hb,call_ts,call_args) ∧
@@ -2142,7 +2141,7 @@ Proof
   >> gvs [cb_to_hb_def, CaseEq "prod"]
   >> rename [‘CallBlock tag left child right’]
   >> rename [‘cb_to_hb _ = (hb,_,_)’]
-  >> gvs [cb_to_bvi_def, cb_to_hb_def, evaluate_def, evaluate_APPEND, evaluate_def, evaluate_APPEND, CaseEq "prod"]
+  >> gvs [cb_to_bvi_def, cb_to_hb_def, evaluate_def, evaluate_APPEND, CaseEq "prod"]
   >> drule evaluate_var_list
   >> impl_tac >- gvs [CaseEq "prod", CaseEq "result"]
   >> strip_tac
@@ -2164,6 +2163,68 @@ Proof
   >> strip_tac >> gvs []
 QED
 
+(*
+NOTE - this is an important lemma that remains to be proven.
+It is cheated here because the transformation depends on it.
+There are currently effectfulness checks, so this should be true.
+But it is not a trivial proof, and the implementation may be too strict
+because variables are not eligible to be right of the recursive call
+(as they may cause type errors on lookup).
+I plan to support them in a safe way and prove this lemma.
+ *)
+Theorem evaluate_cb_right_succeeds:
+  ∀cb.
+    evaluate ([cb_to_bvi loc (CallBlock tag left child right)],env,s) = (r,t) ∧
+    r ≠ Rerr (Rabort Rtype_error) ⇒
+    ∃v.
+    evaluate ([MAP (λn. Var n) right],env,s') = ()
+Proof
+  cheat
+QED
+
+Theorem evaluate_call_err_cb_err:
+  ∀cb hb loc call_ts call_args env s t e.
+    evaluate ([Call call_ts (SOME loc) (MAP (λn. Var n) call_args) NONE],env,s) = (Rerr e,t) ∧
+    cb_to_hb cb = (hb,call_ts,call_args) ∧
+    e ≠ Rabort Rtype_error ⇒
+    evaluate ([cb_to_bvi loc cb],env,s) = (Rerr e,t)
+Proof
+  reverse Induct
+  >- gvs [cb_to_bvi_def, cb_to_hb_def, evaluate_def, evaluate_APPEND]
+  >> rw []
+  >> gvs [cb_to_hb_def, CaseEq "prod"]
+  >> rename [‘CallBlock tag left child right’]
+  >> rename [‘cb_to_hb _ = (hb,_,_)’]
+
+  >> first_x_assum drule
+  >> impl_tac >- gvs []
+  >> strip_tac >> gvs []
+  >> simp [cb_to_bvi_def, Once evaluate_def, evaluate_APPEND, evaluate_def]
+  >> CASE_TAC
+  >> Cases_on ‘q = Rerr (Rabort Rtype_error)’
+  >- gvs []
+  >> CASE_TAC
+  >> CASE_TAC
+  >> drule evaluate_var_list
+  >> impl_tac >- spose_not_then assume_tac >> gvs []
+  >> strip_tac
+  >> gvs []
+  >> Cases_on ‘v3’
+  >-
+   (gvs []
+    >> gvs [Once $ CaseEq "prod", Once $ CaseEq "result"]
+    >> gvs [Once $ CaseEq "result"]
+    >> gvs [CaseEq "prod"]
+    >> drule evaluate_var_list
+    >> impl_tac >- gvs [CaseEq "prod", CaseEq "result"]
+    >> strip_tac >> gvs []
+    >> gvs [do_app_def, do_app_aux_def])
+  >> gvs [Once $ CaseEq "prod", Once $ CaseEq "result"]
+  >> gvs [Once $ CaseEq "result"]
+  >> first_x_assum drule
+  >> impl_tac >- gvs []
+  >> strip_tac >> gvs []
+QED
 
 Definition hypothesis_def:
   hypothesis xs' (s'' : (num # γ, 'ffi) bviSem$state) env1' loc' r' t' opt' f' s'³' env2' (s : (num # γ, 'ffi) bviSem$state) ⇔
@@ -2279,8 +2340,6 @@ Proof
   >> strip_tac
   >> gvs [finalise_cons_def, CaseEq "option"]
 QED
-
-
 
 Theorem evaluate_hb_to_bvi_wrapper_aux:
   ∀tag left child right hole call_ts call_args loc loc_opt body work f1 env1 env2 env3 s1 s2 t1 t2 call_res1 call_res1 call_res2 block_res2
