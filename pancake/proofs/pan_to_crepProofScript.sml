@@ -461,6 +461,7 @@ Proof
   >~ [`panLang$Annot`] >- suspend "Annot"
   >~ [`panLang$Tick`] >- suspend "Tick"
   >~ [`panLang$Assign`] >- suspend "Assign"
+  >~ [`panLang$Primitive`] >- suspend "Primitive"
   >~ [`panLang$Dec`] >- suspend "Dec"
   >~ [`panLang$Store`] >- suspend "Store"
   >~ [`panLang$Store32`] >- suspend "Store32"
@@ -1017,6 +1018,203 @@ Resume pc_compile_correct[Assign]:
   metis_tac [flookup_fupdate_zip_not_mem]
 QED
 
+Theorem eval_map_comp_exp_flat_eq:
+  !argexps args s t ctxt. MAP (eval s) argexps = MAP SOME args /\
+  state_rel s t ∧ code_rel ctxt s.code t.code ∧
+  locals_rel ctxt s.locals t.locals ∧ EVERY localised_exp argexps ==>
+   MAP (eval t) (FLAT (MAP FST (MAP (compile_exp ctxt) argexps))) =
+        MAP SOME (FLAT (MAP flatten args))
+Proof
+  Induct >> rpt gen_tac >> strip_tac
+  >- (cases_on ‘args’ >> fs []) >>
+  cases_on ‘args’ >> fs [] >>
+  fs [MAP_APPEND] >>
+  cases_on ‘compile_exp ctxt h’ >> fs [] >>
+  drule compile_exp_val_rel >>
+  disch_then drule_all >>
+  strip_tac >> fs [] >>
+  last_x_assum (qspecl_then [‘t'’] mp_tac) >>
+  fs [] >>
+  disch_then drule_all >>
+  fs []
+QED
+
+
+Theorem eval_map_var_cexp_present_ctxt:
+  ∀es vs s t ctxt.
+    MAP (eval s) es = MAP SOME vs ∧
+    state_rel s t ∧ code_rel ctxt s.code t.code ∧
+    locals_rel ctxt s.locals t.locals ∧ EVERY localised_exp es ⇒
+    ∀n. MEM n (FLAT (MAP var_cexp
+                       (FLAT (MAP FST (MAP (compile_exp ctxt) es))))) ⇒
+        ∃vname shp ns.
+          FLOOKUP ctxt.vars vname = SOME (shp, ns) ∧ MEM n ns
+Proof
+  Induct >> rpt strip_tac >> fs [] >>
+  Cases_on ‘vs’ >> fs [] >>
+  Cases_on ‘compile_exp ctxt h’ >> fs [] >>
+  rename1 ‘MEM nn (FLAT _)’ >>
+  fs [MEM_APPEND]
+  >- metis_tac [eval_var_cexp_present_ctxt]
+  >> metis_tac []
+QED
+
+Theorem pan_primop_crep_primop:
+  ∀pop vs value.
+    pan_primop pop vs = SOME value ⇒
+    crep_primop pop (FLAT (MAP flatten vs)) = SOME (flatten value)
+Proof
+  Cases >> rpt strip_tac >>
+  gvs [panSemTheory.pan_primop_def, AllCaseEqs(),
+       LENGTH_EQ_NUM_compute, PULL_EXISTS] >>
+  rename1 ‘flatten v0 ++ flatten v1 ++ flatten v2’ >>
+  Cases_on ‘v0’ >> Cases_on ‘v1’ >> Cases_on ‘v2’ >>
+  gvs [panSemTheory.isValWord_def] >>
+  rename1 ‘flatten (Val w0) ++ flatten (Val w1) ++ flatten (Val w2)’ >>
+  Cases_on ‘w0’ >> Cases_on ‘w1’ >> Cases_on ‘w2’ >>
+  gvs [panSemTheory.isValWord_def] >>
+  pairarg_tac >>
+  gvs [panSemTheory.theValWord_def, flatten_def,
+       crep_primop_def, isWord_def, theWord_def]
+QED
+
+Resume pc_compile_correct[Primitive]:
+  rpt gen_tac >> rpt strip_tac >>
+  fs [panSemTheory.evaluate_def, localised_prog_def] >>
+  gvs [AllCaseEqs(),
+       oneline panSemTheory.is_valid_value_def,
+       panSemTheory.set_var_def] >>
+  rename1 ‘OPT_MMAP (eval _) es = SOME vs’ >>
+  rename1 ‘pan_primop pop vs = SOME value’ >>
+  rename1 ‘Primitive v _ _’ >>
+  Cases_on ‘FLOOKUP s.locals v’ >> gvs [] >>
+  rename [‘FLOOKUP s.locals v = SOME oldv’] >>
+  fs [compile_def] >>
+  drule locals_rel_lookup_ctxt >>
+  disch_then drule >>
+  strip_tac >> fs [] >>
+  rename [‘FLOOKUP ctxt.vars v = SOME (shape_of oldv, ns)’] >>
+  qpat_x_assum ‘OPT_MMAP (eval _) _ = SOME _’
+    (strip_assume_tac o REWRITE_RULE [opt_mmap_eq_some]) >>
+  mp_tac (Q.SPECL [`es`, `vs`, `s`, `t`, `ctxt`]
+                  eval_map_comp_exp_flat_eq) >>
+  impl_tac >- fs [] >>
+  disch_tac >>
+  qmatch_goalsub_abbrev_tac `nested_decs temps ces _` >>
+  `ALL_DISTINCT temps /\ LENGTH ces = LENGTH temps` by (
+    unabbrev_all_tac >>
+    fs [LENGTH_GENLIST, ALL_DISTINCT_GENLIST]) >>
+  `distinct_lists temps (FLAT (MAP var_cexp ces))` by (
+    unabbrev_all_tac >>
+    ho_match_mp_tac genlist_distinct_max >>
+    rw [] >>
+    drule eval_map_var_cexp_present_ctxt >>
+    disch_then drule_all >>
+    rw [] >> fs [] >> rfs [] >>
+    fs [locals_rel_def, ctxt_max_def] >>
+    res_tac >> fs []) >>
+  `ALL_DISTINCT ns` by metis_tac [locals_rel_def, no_overlap_def] >>
+  `distinct_lists ns temps` by (
+    unabbrev_all_tac >>
+    once_rewrite_tac [distinct_lists_commutes] >>
+    ho_match_mp_tac genlist_distinct_max >>
+    metis_tac [locals_rel_def, ctxt_max_def]) >>
+  `LENGTH ns = LENGTH (flatten value)`
+    by gvs [length_flatten_eq_size_of_shape] >>
+  `LENGTH temps = LENGTH (FLAT (MAP flatten vs))` by (
+    `LENGTH ces = LENGTH (FLAT (MAP flatten vs))`
+      by metis_tac [LENGTH_MAP] >>
+    fs []) >>
+  `distinct_lists temps ns`
+    by metis_tac [distinct_lists_commutes] >>
+  `OPT_MMAP (FLOOKUP (t.locals |++ ZIP (temps,FLAT (MAP flatten vs)))) ns =
+   SOME (flatten oldv)` by (
+    mp_tac (INST_TYPE [``:'a``|->``:num``, ``:'b``|->``:'a word_lab``]
+                      opt_mmap_disj_zip_flookup) >>
+    disch_then (qspecl_then [`temps`, `t.locals`, `ns`,
+                             `FLAT (MAP flatten vs)`] mp_tac) >>
+    fs []) >>
+  `evaluate (Primitive ns pop temps,
+             t with locals := t.locals |++ ZIP (temps,FLAT (MAP flatten vs))) =
+   (NONE, t with locals :=
+     (t.locals |++ ZIP (temps,FLAT (MAP flatten vs))) |++
+     ZIP (ns, flatten value))` by (
+    simp [crepSemTheory.evaluate_def] >>
+    qspecl_then [`temps`, `t.locals`, `FLAT (MAP flatten vs)`]
+                mp_tac opt_mmap_some_eq_zip_flookup >>
+    impl_tac >- fs [] >>
+    strip_tac >> simp [] >>
+    drule pan_primop_crep_primop >> strip_tac >> simp [] >>
+    `EVERY (\v. IS_SOME (FLOOKUP (t.locals |++ ZIP (temps,FLAT (MAP flatten vs))) v)) ns` by (
+      gvs [EVERY_MEM, opt_mmap_eq_some, MAP_EQ_EVERY2, LIST_REL_EL_EQN, MEM_EL] >>
+      rw [] >>
+      first_x_assum (qspec_then `n` mp_tac) >>
+      simp [EL_MAP]) >>
+    simp []) >>
+  drule eval_nested_decs_seq_res_var_eq >>
+  disch_then (qspecl_then [`temps`, `Primitive ns pop temps`] mp_tac) >>
+  impl_tac >- fs [] >>
+  simp [] >> strip_tac >>
+  `DISJOINT (set (MAP FST (ZIP (temps,FLAT (MAP flatten vs)))))
+   (set (MAP FST (ZIP (ns,flatten value))))` by (
+    fs [MAP_ZIP] >>
+    fs [distinct_lists_def, IN_DISJOINT, EVERY_MEM] >>
+    metis_tac []) >>
+  drule FUPDATE_LIST_APPEND_COMMUTES >>
+  disch_then (qspec_then `t.locals` assume_tac) >>
+  fs [] >>
+  pop_assum kall_tac >>
+  fs [state_rel_def] >>
+  fs [locals_rel_def] >>
+  rw [] >> fs [] >>
+  cases_on `v = vname` >> fs [] >> rveq
+  >- (
+   pop_assum (assume_tac o REWRITE_RULE [FLOOKUP_DEF]) >>
+   fs [] >> rveq >>
+   drule (INST_TYPE [``:'a``|->``:num``, ``:'b``|->``:'a word_lab``]
+                    flookup_res_var_zip_distinct) >>
+   disch_then (qspecl_then [`FLAT (MAP flatten vs)`,
+                            `MAP (FLOOKUP t.locals) temps`,
+                            `t.locals |++ ZIP (ns,flatten v')`] mp_tac) >>
+   fs [] >>
+   strip_tac >>
+   gvs [opt_mmap_eq_some, MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
+   rw [] >>
+   qspecl_then [`ns`, `t.locals`, `flatten v'`, `n`] mp_tac
+              (INST_TYPE [``:'a``|->``:num``, ``:'b``|->``:'a word_lab``]
+                         update_eq_zip_flookup) >>
+   simp []) >>
+  fs [FLOOKUP_UPDATE] >>
+  last_x_assum drule >>
+  strip_tac >> fs [] >>
+  rfs [] >>
+  fs [opt_mmap_eq_some] >>
+  `distinct_lists temps ns'` by (
+    unabbrev_all_tac >>
+    ho_match_mp_tac genlist_distinct_max >>
+    metis_tac [locals_rel_def, ctxt_max_def]) >>
+  drule (INST_TYPE [``:'a``|->``:num``,
+                    ``:'b``|->``:'a word_lab``]
+         flookup_res_var_zip_distinct) >>
+  disch_then (qspecl_then [`FLAT (MAP flatten vs)`,
+                           `MAP (FLOOKUP t.locals) temps`,
+                           `t.locals |++ ZIP (ns,flatten value)`] mp_tac) >>
+  fs [] >>
+  strip_tac >>
+  drule no_overlap_flookup_distinct >>
+  disch_then drule_all >>
+  strip_tac >>
+  fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
+  rw [] >> rfs [] >>
+  qpat_x_assum `LENGTH _ = LENGTH _` (assume_tac o GSYM) >>
+  fs [] >>
+  last_x_assum drule >> strip_tac >>
+  `~MEM (EL n ns') ns` by (
+    fs [Once distinct_lists_commutes] >>
+    fs [distinct_lists_def, EVERY_MEM, EL_MEM]) >>
+  metis_tac [flookup_fupdate_zip_not_mem]
+QED
+
 Theorem not_mem_context_assigned_mem_gt:
   !ctxt p x.
    ctxt_max ctxt.vmax ctxt.vars /\
@@ -1058,6 +1256,17 @@ Proof
    drule nested_seq_assigned_free_vars_eq >>
    fs [] >> res_tac >> fs [])
   >- (gvs[assigned_free_vars_def,compile_def])
+  >- (fs [compile_def] >>
+      TOP_CASE_TAC >> gvs [assigned_free_vars_def] >>
+      TOP_CASE_TAC >> gvs [] >>
+      qmatch_goalsub_abbrev_tac `nested_decs dvs ces` >>
+      `LENGTH dvs = LENGTH ces` by
+        (unabbrev_all_tac >> fs [LENGTH_GENLIST]) >>
+      drule assigned_free_vars_nested_decs_append >>
+      qmatch_goalsub_abbrev_tac `nested_decs _ _ pp` >>
+      disch_then (qspec_then `pp` assume_tac) >>
+      gvs [Abbr `pp`, assigned_free_vars_def, MEM_FILTER, DISJ_EQ_IMP] >>
+      metis_tac [])
   >- (
    fs [compile_def] >>
    rpt(PURE_TOP_CASE_TAC \\ gvs[assigned_free_vars_def]) \\
@@ -2055,28 +2264,6 @@ Resume pc_compile_correct[While]:
   last_x_assum drule_all >>
   fs [] >>
   strip_tac >> fs [] >> rveq >> rfs []
-QED
-
-
-Theorem eval_map_comp_exp_flat_eq:
-  !argexps args s t ctxt. MAP (eval s) argexps = MAP SOME args /\
-  state_rel s t ∧ code_rel ctxt s.code t.code ∧
-  locals_rel ctxt s.locals t.locals ∧ EVERY localised_exp argexps ==>
-   MAP (eval t) (FLAT (MAP FST (MAP (compile_exp ctxt) argexps))) =
-        MAP SOME (FLAT (MAP flatten args))
-Proof
-  Induct >> rpt gen_tac >> strip_tac
-  >- (cases_on ‘args’ >> fs []) >>
-  cases_on ‘args’ >> fs [] >>
-  fs [MAP_APPEND] >>
-  cases_on ‘compile_exp ctxt h’ >> fs [] >>
-  drule compile_exp_val_rel >>
-  disch_then drule_all >>
-  strip_tac >> fs [] >>
-  last_x_assum (qspecl_then [‘t'’] mp_tac) >>
-  fs [] >>
-  disch_then drule_all >>
-  fs []
 QED
 
 

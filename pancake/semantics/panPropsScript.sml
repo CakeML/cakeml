@@ -1167,6 +1167,7 @@ Definition localised_prog_def:
    EVERY localised_exp args ∧ localised_prog p) ∧
   (localised_prog(Assign Local _ e) ⇔ localised_exp e) ∧
   (localised_prog(Assign Global _ _) ⇔ F) ∧
+  (localised_prog (Primitive _ _ es) ⇔ EVERY localised_exp es) ∧
   (localised_prog _ ⇔ T)
 End
 
