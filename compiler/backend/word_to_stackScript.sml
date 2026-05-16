@@ -296,29 +296,89 @@ Definition StackArgs_def:
       stack_move n 0 f k (StackAlloc n)
 End
 
+(* Unverified x64 perf-mode instrumentation.
+
+   These helpers shadow CakeML's call stack on the C stack so that
+   `perf record --call-graph fp` can unwind through CakeML code.
+
+   They reference source register numbers 14 and 15, which the
+   x64 stack_names mapping renames to physical r4 (%rbp) and r5
+   (%rsp). On non-x64 targets the same source numbers will be
+   renamed to whatever that target's reg_names says, so the flag
+   should only be enabled for x64 (guarded at the CLI layer). *)
+
+Definition perf_rbp_def:
+  perf_rbp = 14n
+End
+
+Definition perf_rsp_def:
+  perf_rsp = 15n
+End
+
+Definition perf_call_prefix_def:
+  perf_call_prefix l1 l2 k =
+    list_Seq [
+      (* k := return address (the label after the call) *)
+      LocValue k l1 l2 ;
+      (* push ret_addr (ends up at higher address) *)
+      Inst (Arith (Binop Sub perf_rsp perf_rsp (Imm 8w))) ;
+      Inst (Mem Store k (Addr perf_rsp 0w)) ;
+      (* push old %rbp (ends up at lower address, where %rbp will point) *)
+      Inst (Arith (Binop Sub perf_rsp perf_rsp (Imm 8w))) ;
+      Inst (Mem Store perf_rbp (Addr perf_rsp 0w)) ;
+      (* %rbp := %rsp — frame layout: (%rbp)=old_rbp, 8(%rbp)=ret_addr *)
+      Inst (Arith (Binop Or perf_rbp perf_rsp (Reg perf_rsp)))
+    ]
+End
+
+Definition perf_call_suffix_def:
+  perf_call_suffix =
+    list_Seq [
+      (* pop %rbp *)
+      Inst (Mem Load perf_rbp (Addr perf_rsp 0w)) ;
+      Inst (Arith (Binop Add perf_rsp perf_rsp (Imm 8w))) ;
+      (* discard ret_addr slot *)
+      Inst (Arith (Binop Add perf_rsp perf_rsp (Imm 8w)))
+    ]
+End
+
+Definition handler_slots_def:
+  handler_slots perf = if perf then 5n else 3n
+End
+
 Definition StackHandlerArgs_def:
-  StackHandlerArgs dest arg_count (k,f,f':num) =
-    StackArgs dest arg_count (k,f+3,f'+3)
+  StackHandlerArgs perf dest arg_count (k,f,f':num) =
+    StackArgs dest arg_count (k, f + handler_slots perf, f' + handler_slots perf)
 End
 
 Definition PushHandler_def:
-  PushHandler l1 l2 (k,f,f') =
-    Seq (StackAlloc 3)
+  PushHandler perf l1 l2 (k,f,f') =
+    Seq (StackAlloc (handler_slots perf))
    (Seq (Inst (Const k 1w))
    (Seq (StackStore k 0)
    (Seq (LocValue k l1 l2)
    (Seq (StackStore k 1)
    (Seq (Get k Handler)
    (Seq (StackStore k 2)
+   (Seq (if perf then
+           list_Seq [
+             (* slot 3: saved %rsp *)
+             Inst (Arith (Binop Or k perf_rsp (Reg perf_rsp))) ;
+             StackStore k 3 ;
+             (* slot 4: saved %rbp *)
+             Inst (Arith (Binop Or k perf_rbp (Reg perf_rbp))) ;
+             StackStore k 4
+           ]
+         else Skip)
    (Seq (StackGetSize k)
-        (Set Handler k))))))))
+        (Set Handler k)))))))))
 End
 
 Definition PopHandler_def:
-  PopHandler (k,f,f') prog =
+  PopHandler perf (k,f,f') prog =
    Seq (StackLoad k 2)
   (Seq (Set Handler k)
-  (Seq (StackFree 3)
+  (Seq (StackFree (handler_slots perf))
   prog))
 End
 
@@ -380,38 +440,38 @@ Definition copy_ret_aux_def:
 End
 
 Definition copy_ret_def:
-  copy_ret is_handle (k,f,f') vs kont =
+  copy_ret perf is_handle (k,f,f') vs kont =
   let n = num_stack_ret k vs in
   if n = 0 then kont
   else Seq
-      (copy_ret_aux k (if is_handle then f+3 else f) n)
+      (copy_ret_aux k (if is_handle then f + handler_slots perf else f) n)
       (SeqStackFree n kont)
 End
 
 (* Return should be 2,4,6,...,2k,2k+1,... *)
 Definition comp_def:
-  (comp conf (Skip:'a wordLang$prog) bs kf = (Skip:'a stackLang$prog,bs)) /\
-  (comp conf (Move _ xs) bs kf = (wMove xs kf,bs)) /\
-  (comp conf (Inst i) bs kf = (wInst i kf,bs)) /\
-  (comp conf (Return v1 vs) bs kf =
+  (comp conf perf (Skip:'a wordLang$prog) bs kf = (Skip:'a stackLang$prog,bs)) /\
+  (comp conf perf (Move _ xs) bs kf = (wMove xs kf,bs)) /\
+  (comp conf perf (Inst i) bs kf = (wInst i kf,bs)) /\
+  (comp conf perf (Return v1 vs) bs kf =
      let (xs,x) = wReg1 v1 kf in
        (wStackLoad xs (SeqStackFree (skip_free kf vs) (Return x)),bs)) /\
-  (comp conf (Raise v) bs kf = (Call NONE (INL raise_stub_location) NONE,bs)) /\
-  (comp conf (OpCurrHeap b dst src) bs kf =
+  (comp conf perf (Raise v) bs kf = (Call NONE (INL raise_stub_location) NONE,bs)) /\
+  (comp conf perf (OpCurrHeap b dst src) bs kf =
      let (xs,src_r) = wReg1 src kf in
        (wStackLoad xs (wRegWrite1 (\dst_r. OpCurrHeap b dst_r src_r) dst kf),bs)) /\
-  (comp conf (Tick) bs kf = (Tick,bs)) /\
-  (comp conf (Break k) bs kf = (Break k,bs)) /\
-  (comp conf (Continue k) bs kf = (Continue k,bs)) /\
-  (comp conf (MustTerminate p1) gs kf = comp conf p1 gs kf) /\
-  (comp conf (Seq p1 p2) bs kf =
-     let (q1,bs) = comp conf p1 bs kf in
-     let (q2,bs) = comp conf p2 bs kf in
+  (comp conf perf (Tick) bs kf = (Tick,bs)) /\
+  (comp conf perf (Break k) bs kf = (Break k,bs)) /\
+  (comp conf perf (Continue k) bs kf = (Continue k,bs)) /\
+  (comp conf perf (MustTerminate p1) gs kf = comp conf perf p1 gs kf) /\
+  (comp conf perf (Seq p1 p2) bs kf =
+     let (q1,bs) = comp conf perf p1 bs kf in
+     let (q2,bs) = comp conf perf p2 bs kf in
        (Seq q1 q2,bs)) /\
-  (comp conf (If cmp r ri p1 p2) bs kf =
+  (comp conf perf (If cmp r ri p1 p2) bs kf =
      let (x1,r') = wReg1 r kf in
-     let (q1,bs) = comp conf p1 bs kf in
-     let (q2,bs) = comp conf p2 bs kf in
+     let (q1,bs) = comp conf perf p1 bs kf in
+     let (q2,bs) = comp conf perf p2 bs kf in
      case ri of
        Reg r =>
          let (x2,n) = wReg2 r kf in
@@ -424,80 +484,94 @@ Definition comp_def:
           (Seq
             (const_inst r i)
             (wStackLoad x1 (If cmp r' (Reg r) q1 q2)),bs)) /\
-  (comp conf (Loop _ p1 _) bs kf =
-     let (q1,bs) = comp conf p1 bs kf in
+  (comp conf perf (Loop _ p1 _) bs kf =
+     let (q1,bs) = comp conf perf p1 bs kf in
        (Loop q1,bs)) /\
-  (comp conf (Set name exp) bs kf =
+  (comp conf perf (Set name exp) bs kf =
     if name = BitmapBase then (Skip,bs) (*Impossible*)
     else
      case exp of
      | Var n => let (x1,r') = wReg1 n kf in (wStackLoad x1 (Set name r'),bs)
      | _ => (Skip,bs) (* impossible *)) /\
-  (comp conf (Get n name) bs kf =
+  (comp conf perf (Get n name) bs kf =
      (wRegWrite1 (\r. Get r name) n kf,bs)) /\
-  (comp conf (Call ret dest args handler) bs kf =
+  (comp conf perf (Call ret dest args handler) bs kf =
      let (q0,dest) = call_dest dest args kf in
      case ret of
      | NONE => (Seq q0 (SeqStackFree (stack_free dest (LENGTH args) kf)
                  (Call NONE dest NONE)),bs)
      | SOME (vs, live, ret_code, l1, l2) =>
          let (q1,bs) = wLive live bs kf in
-         let (q2,bs) = comp conf ret_code bs kf in
+         let (q2,bs) = comp conf perf ret_code bs kf in
+         let pre = if perf then perf_call_prefix l1 l2 (FST kf) else Skip in
+         let suf = if perf then perf_call_suffix else Skip in
            case handler of
            | NONE =>
-             let q3 = copy_ret F kf vs q2 in
+             let q3 = Seq suf (copy_ret perf F kf vs q2) in
                (Seq q0
                  (Seq q1
                    (Seq (StackArgs dest (LENGTH args + 1) kf)
-                     (Call (SOME (q3,0,l1,l2)) dest NONE))),
+                     (Seq pre
+                       (Call (SOME (q3,0,l1,l2)) dest NONE)))),
                 bs)
            | SOME (handle_var, handle_code, h1, h2) =>
-             let q3 = copy_ret T kf vs (PopHandler kf q2) in
-             let (q4,bs) = comp conf handle_code bs kf in
+             let q3 = Seq suf (copy_ret perf T kf vs (PopHandler perf kf q2)) in
+             let (q4,bs) = comp conf perf handle_code bs kf in
                (Seq q0
                   (Seq q1
-                    (Seq (PushHandler h1 h2 kf)
-                      (Seq (StackHandlerArgs dest (LENGTH args + 1) kf)
-                        (Call (SOME (q3,0,l1,l2)) dest (SOME (q4,h1,h2)))))),
+                    (Seq (PushHandler perf h1 h2 kf)
+                      (Seq (StackHandlerArgs perf dest (LENGTH args + 1) kf)
+                        (Seq pre
+                          (Call (SOME (q3,0,l1,l2)) dest (SOME (q4,h1,h2))))))),
                 bs)) /\
-  (comp conf (Alloc r live) bs kf =
+  (comp conf perf (Alloc r live) bs kf =
      let (q1,bs) = wLive live bs kf in
        (Seq q1 (Alloc 1),bs)) /\
-  (comp conf (StoreConsts a b c d ws) bs kf =
+  (comp conf perf (StoreConsts a b c d ws) bs kf =
      let (new_bs,i) = insert_bitmap (const_words_to_bitmap ws (LENGTH ws)) bs in
        (Seq (Inst (Const 1 (n2w i)))
             (StoreConsts (FST kf) (FST kf + 1) (SOME store_consts_stub_location)),new_bs)) /\
-  (comp conf (LocValue r l1) bs kf = (wRegWrite1 (λr. LocValue r l1 0) r kf,bs)) /\
-  (comp conf (Install r1 r2 r3 r4 live) bs kf =
+  (comp conf perf (LocValue r l1) bs kf = (wRegWrite1 (λr. LocValue r l1 0) r kf,bs)) /\
+  (comp conf perf (Install r1 r2 r3 r4 live) bs kf =
     let (l3,r3) = wReg1 r3 kf in
     let (l4,r4) = wReg2 r4 kf in
       (wStackLoad (l3++l4) (Install (r1 DIV 2) (r2 DIV 2) r3 r4 0),bs)) /\
-  (comp conf (CodeBufferWrite r1 r2) bs kf =
+  (comp conf perf (CodeBufferWrite r1 r2) bs kf =
     let (l1,r1) = wReg1 r1 kf in
     let (l2,r2) = wReg2 r2 kf in
       (wStackLoad (l1++l2) (CodeBufferWrite r1 r2),bs)) /\
-  (comp conf (DataBufferWrite r1 r2) bs kf =
+  (comp conf perf (DataBufferWrite r1 r2) bs kf =
     let (l1,r1) = wReg1 r1 kf in
     let (l2,r2) = wReg2 r2 kf in
       (wStackLoad (l1++l2) (DataBufferWrite r1 r2),bs)) /\
-  (comp conf (FFI i r1 r2 r3 r4 live) bs kf = (FFI i (r1 DIV 2) (r2 DIV 2)
+  (comp conf perf (FFI i r1 r2 r3 r4 live) bs kf = (FFI i (r1 DIV 2) (r2 DIV 2)
                                                 (r3 DIV 2) (r4 DIV 2) 0,bs)) /\
-  (comp conf (ShareInst op v exp) bs kf =
+  (comp conf perf (ShareInst op v exp) bs kf =
    (case exp_to_addr exp of
       NONE => (Skip, bs)
     | SOME addr => wShareInst op v addr kf,bs)) /\
-  (comp conf _ bs kf = (Skip,bs) (* impossible *))
+  (comp conf perf _ bs kf = (Skip,bs) (* impossible *))
 End
 
 Definition raise_stub_def:
-  raise_stub k =
+  raise_stub perf k =
      Seq (Get k Handler)
     (Seq (StackSetSize k)
+    (Seq (if perf then
+            list_Seq [
+              (* restore %rsp from slot 3 *)
+              StackLoad k 3 ;
+              Inst (Arith (Binop Or perf_rsp k (Reg k))) ;
+              (* restore %rbp from slot 4 *)
+              StackLoad k 4 ;
+              Inst (Arith (Binop Or perf_rbp k (Reg k)))
+            ]
+          else Skip)
     (Seq (StackLoad k 2) (* next handler *)
     (Seq (Set Handler k)
     (Seq (StackLoad k 1) (* handler pc *)
-    (Seq (StackFree 3)
-         (Raise k))))))
+    (Seq (StackFree (handler_slots perf))
+         (Raise k)))))))
 End
 
 Definition store_consts_stub_def:
@@ -509,31 +583,31 @@ End
 (*2*k and above are "stack" variables*)
 (*We always allocate enough space for the maximum stack var*)
 Definition compile_prog_def:
-  compile_prog asm_conf (prog:'a wordLang$prog) arg_count reg_count bitmaps =
+  compile_prog asm_conf perf (prog:'a wordLang$prog) arg_count reg_count bitmaps =
     let stack_arg_count = arg_count - reg_count in
     let stack_var_count = MAX ((max_var prog DIV 2 + 1)- reg_count) stack_arg_count in
     let f = if stack_var_count = 0 then 0 else stack_var_count + 1 in
-    let (q1,bitmaps) = comp asm_conf prog bitmaps (reg_count,f,stack_var_count) in
+    let (q1,bitmaps) = comp asm_conf perf prog bitmaps (reg_count,f,stack_var_count) in
       (Seq (StackAlloc (f - stack_arg_count)) q1, f, bitmaps)
 End
 
 Definition compile_word_to_stack_def:
-  (compile_word_to_stack asm_conf k [] bitmaps = ([],[],bitmaps)) /\
-  (compile_word_to_stack asm_conf k ((i,n,p)::progs) bitmaps =
-     let (prog,f,bitmaps) = compile_prog asm_conf p n k bitmaps in
-     let (progs,fs,bitmaps) = compile_word_to_stack asm_conf k progs bitmaps in
+  (compile_word_to_stack asm_conf perf k [] bitmaps = ([],[],bitmaps)) /\
+  (compile_word_to_stack asm_conf perf k ((i,n,p)::progs) bitmaps =
+     let (prog,f,bitmaps) = compile_prog asm_conf perf p n k bitmaps in
+     let (progs,fs,bitmaps) = compile_word_to_stack asm_conf perf k progs bitmaps in
        ((i,prog)::progs,f::fs,bitmaps))
 End
 
 Definition compile_def:
-  compile asm_conf progs =
+  compile asm_conf perf progs =
     let k = asm_conf.reg_count - (5+LENGTH asm_conf.avoid_regs) in
-    let (progs,fs,bitmaps) = compile_word_to_stack asm_conf k progs (List [4w], 1) in
+    let (progs,fs,bitmaps) = compile_word_to_stack asm_conf perf k progs (List [4w], 1) in
     let sfs = fromAList (MAP (λ((i,_),n). (i,n)) (ZIP (progs,fs))) in
       (append (FST bitmaps),
        <| bitmaps_length := SND bitmaps;
           stack_frame_size := sfs |>, 0::fs,
-       (raise_stub_location,raise_stub k) ::
+       (raise_stub_location,raise_stub perf k) ::
        (store_consts_stub_location,store_consts_stub k) :: progs)
 End
 

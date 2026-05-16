@@ -64,7 +64,7 @@ Definition compile_def:
       word_to_stack$stub_names () ++ stack_alloc$stub_names () ++
       stack_remove$stub_names ())) names in
     let _ = empty_ffi «finished: data_to_word» in
-    let (bm,c',fs,p) = word_to_stack$compile asm_conf p in
+    let (bm,c',fs,p) = word_to_stack$compile asm_conf c.stack_conf.perf_calls p in
     let c = c with word_conf := c' in
     let _ = empty_ffi «finished: word_to_stack» in
     let p = stack_to_lab$compile
@@ -580,7 +580,7 @@ Definition compile_inc_progs_def:
         c.word_to_word_conf.reg_alg asm_conf (p, NONE)) p in
     let ps = ps with <| word_prog := keep_progs k p |> in
     let bm0 = c.word_conf.bitmaps_length in
-    let (p, fs, bm) = compile_word_to_stack asm_conf reg_count1 p (Nil, bm0) in
+    let (p, fs, bm) = compile_word_to_stack asm_conf c.stack_conf.perf_calls reg_count1 p (Nil, bm0) in
     let cur_bm = append (FST bm) in
     let c = c with word_conf := (c.word_conf with bitmaps_length := SND bm) in
     let ps = ps with <| stack_prog := keep_progs k p ; cur_bm := cur_bm |> in
@@ -643,7 +643,7 @@ Theorem compile_inc_progs_for_eval_eq:
         c.word_to_word_conf.reg_alg asm_conf (p, NONE)) p in
     let _ = empty_ffi «finished: data_to_word» in
     let bm0 = c.word_conf.bitmaps_length in
-    let (p, fs, bm) = compile_word_to_stack asm_conf reg_count1 p (Nil, bm0) in
+    let (p, fs, bm) = compile_word_to_stack asm_conf c.stack_conf.perf_calls reg_count1 p (Nil, bm0) in
     let _ = empty_ffi «finished: word_to_stack» in
     let cur_bm = append (FST bm) in
     let c = c with word_conf := (c.word_conf with bitmaps_length := SND bm) in
