@@ -320,13 +320,14 @@ Definition perf_call_prefix_def:
     list_Seq [
       (* k := return address (the label after the call) *)
       LocValue k l1 l2 ;
-      (* push ret_addr (ends up at higher address) *)
-      Inst (Arith (Binop Sub perf_rsp perf_rsp (Imm 8w))) ;
-      Inst (Mem Store k (Addr perf_rsp 0w)) ;
-      (* push old %rbp (ends up at lower address, where %rbp will point) *)
-      Inst (Arith (Binop Sub perf_rsp perf_rsp (Imm 8w))) ;
-      Inst (Mem Store perf_rbp (Addr perf_rsp 0w)) ;
-      (* %rbp := %rsp — frame layout: (%rbp)=old_rbp, 8(%rbp)=ret_addr *)
+      (* Write the new frame's slots BELOW perf_rsp first; do not adjust
+         perf_rsp yet, so perf's fp-walker still sees the old (valid) frame
+         while the new one is being built.  After the final Sub, layout
+         will be (perf_rsp)=old_rbp, 8(perf_rsp)=ret_addr — fp convention. *)
+      Inst (Mem Store k       (Addr perf_rsp (-8w))) ;
+      Inst (Mem Store perf_rbp (Addr perf_rsp (-16w))) ;
+      (* Atomically commit the new frame, then sync perf_rbp := perf_rsp. *)
+      Inst (Arith (Binop Sub perf_rsp perf_rsp (Imm 16w))) ;
       Inst (Arith (Binop Or perf_rbp perf_rsp (Reg perf_rsp)))
     ]
 End
@@ -334,11 +335,10 @@ End
 Definition perf_call_suffix_def:
   perf_call_suffix =
     list_Seq [
-      (* pop %rbp *)
+      (* pop saved %rbp *)
       Inst (Mem Load perf_rbp (Addr perf_rsp 0w)) ;
-      Inst (Arith (Binop Add perf_rsp perf_rsp (Imm 8w))) ;
-      (* discard ret_addr slot *)
-      Inst (Arith (Binop Add perf_rsp perf_rsp (Imm 8w)))
+      (* discard both slots (saved-rbp + ret_addr) in one atomic step *)
+      Inst (Arith (Binop Add perf_rsp perf_rsp (Imm 16w)))
     ]
 End
 
