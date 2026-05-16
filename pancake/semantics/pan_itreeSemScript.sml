@@ -118,8 +118,8 @@ Definition eval_def:
     case (OPT_MMAP (eval s) es) of
      | SOME ws =>
        if (EVERY (\w. case w of (ValWord _) => T | _ => F) ws)
-       then pan_op op (MAP (\w. case w of ValWord n => n) ws)
-       else NONE
+       then OPTION_MAP ValWord
+            (pan_op op (MAP (\w. case w of ValWord n => n) ws)) else NONE
       | _ => NONE) /\
   (eval s (Cmp cmp e1 e2) =
     case (eval s e1, eval s e2) of
@@ -234,6 +234,19 @@ Definition h_prog_assign_def:
                  then (NONE,set_kvar vk vname value s)
                  else (SOME Error,s)
              | NONE => (SOME Error,s)))
+End
+
+Definition h_prog_primitive_def:
+  h_prog_primitive vname pop es ^s =
+   Ret (INR (case OPT_MMAP (eval s) es of
+             | SOME vs =>
+                 (case pan_primop pop vs of
+                  | SOME value =>
+                      if is_valid_value s Local vname value
+                      then (NONE, set_var vname value s)
+                      else (SOME Error, s)
+                  | NONE => (SOME Error, s))
+             | _ => (SOME Error, s)))
 End
 
 Definition h_prog_store_def:
@@ -518,6 +531,7 @@ Definition h_prog_def:
   (h_prog (Annot _ _,s) = Ret (INR (NONE,s))) ∧
   (h_prog (Dec vname sh e p,s) = h_prog_dec vname sh e p s) ∧
   (h_prog (Assign vk vname e,s) = h_prog_assign vk vname e s) ∧
+  (h_prog (Primitive vname pop es,s) = h_prog_primitive vname pop es s) ∧
   (h_prog (Store dst src,s) = h_prog_store dst src s) ∧
   (h_prog (Store32 dst src,s) = h_prog_store_32 dst src s) ∧
   (h_prog (StoreByte dst src,s) = h_prog_store_byte dst src s) ∧
@@ -555,6 +569,7 @@ End
 Theorem h_prog_simple_defs = LIST_CONJ [
     h_prog_def,
     h_prog_assign_def,
+    h_prog_primitive_def,
     h_prog_store_def,
     h_prog_store_32_def,
     h_prog_store_byte_def,
