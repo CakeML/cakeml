@@ -2244,11 +2244,12 @@ Proof
 QED
 
 Theorem evaluate_hb_to_bvi_wrapper_aux:
-  ∀tag left child right hole call_ts call_args loc loc_opt body work f1 env1 env2 env3 s1 s2 t1 t2 block_res call_res1 call_res2
+  ∀tag left child right hole call_ts call_args loc loc_opt body work f1 env1 env2 env3 s1 s2 t1 t2 call_res1 call_res1 call_res2 block_res2
        parents parent_refs i_top_ptr top_ptr hole_ptr i_hole_ptr hole_idx num_binders.
 
-    evaluate ([cb_to_bvi loc (CallBlock tag left child right)],env1,s1) = (block_res1,t1) ∧           
     evaluate ([cb_to_bvi loc (CallBlock tag left child right)],env2,s2) = (block_res2,t2) ∧
+    evaluate ([Call call_ts (SOME loc) (MAP (λn. Var n) call_args) NONE],env1,s1) = (call_res1,t1) ∧
+    evaluate ([Call call_ts (SOME loc) (MAP (λn. Var n) call_args) NONE],env2,s2) = (call_res2,t2) ∧
     env_rel T f1 env1 env2 ∧
     state_rel f1 s1 s2 ∧
     alloc_env_rel f1 s2.refs i_top_ptr i_hole_ptr num_binders env2 env3 ∧
@@ -2259,26 +2260,25 @@ Theorem evaluate_hb_to_bvi_wrapper_aux:
     rewrite_worker loc loc_opt (LENGTH call_args) (LENGTH call_args + 1) body = work ∧
 
     (* Maybe a lemma that gets these from alloc_env_rel *)
-    env_rel T f1 (MAP (λn. env1❲n❳) call_args) (MAP (λn. env2❲n❳) call_args ++ [env3❲hole_ptr❳; Number (&hole_idx)]) ∧
-    (∃c. hole_has_val f1 (MAP (λn. env1❲n❳) call_args) (MAP (λn. env2❲n❳) call_args ++ [env3❲hole_ptr❳; Number (&hole_idx)]) s2.refs c) ∧
+    env_rel T f1 (MAP (λn. env1❲n❳) call_args) (MAP (λn. env2❲n❳) call_args ++ [env3❲i_hole_ptr❳; Number (&hole_idx)]) ∧
+    (∃c. hole_has_val f1 (MAP (λn. env1❲n❳) call_args) (MAP (λn. env2❲n❳) call_args ++ [env3❲i_hole_ptr❳; Number (&hole_idx)]) s2.refs c) ∧
 
     (∀parent. parent ∈ parents ⇔ RefPtr F parent ∈ parent_refs) ∧
     env3❲i_top_ptr❳ = RefPtr F top_ptr ∧
     env3❲i_hole_ptr❳ = RefPtr F hole_ptr ∧
     cb_to_hb (CallBlock tag left child right) = (HoleBlock tag left hole right,call_ts,call_args) ∧
-    block_res ≠ Rerr (Rabort Rtype_error) ∧
+    call_res1 ≠ Rerr (Rabort Rtype_error) ∧
+    call_res2 ≠ Rerr (Rabort Rtype_error) ∧
+    block_res2 ≠ Rerr (Rabort Rtype_error) ∧
     (∀xs' s'' env1' loc' r' t' opt' f' s'³' env2'.
        hypothesis xs' s'' env1' loc' r' t' opt' f' s'³' env2' s1) ⇒
     ∃t3 f2.
-      evaluate([hb_to_bvi_wrapper_aux loc_opt call_ts call_args i_top_ptr i_hole_ptr hole_idx num_binders],env3,s2) = (block_res,t3) ∧
+      evaluate([hb_to_bvi_wrapper_aux loc_opt call_ts call_args i_top_ptr i_hole_ptr hole_idx num_binders],env3,s2) = (block_res2,t3) ∧
       f1 SUBMAP f2 ∧
       state_rel f2 t1 t3
 Proof
 
   rw []
-  >> last_x_assum mp_tac
-  >> last_assum $ mk_asm "call"
-  >> disch_then $ mk_asm "cb_to_bvi"
   >> gvs [hb_to_bvi_wrapper_aux_def, optimise_call_def, evaluate_def, evaluate_APPEND, CaseEq "prod"]
   >> imp_res_tac alloc_env_rel_def >> gvs []
   >> first_x_assum $ qspec_then ‘F’ assume_tac
@@ -2295,24 +2295,25 @@ Proof
   >> IF_CASES_TAC
   >-
    (gvs [GSYM PULL_EXISTS, CaseEq "prod", CaseEq "result"]
+    >> conj_tac >- (cheat) (* Need a lemma that if the call fails the whole thing fails *)
     >> qexists ‘f1’
     >> imp_res_tac state_rel_with_clock
     >> gvs [])
   >> gvs [CaseEq "prod"]
-  >> ‘(r,t) = (v3,s'')’ by gvs [CaseEq "result", CaseEq "error_result"]
+  >> ‘(call_res1,t1) = (v3,s')’ by gvs [CaseEq "result", CaseEq "error_result"]
+  >> ‘(call_res2,t2) = (v3',s'')’ by gvs [CaseEq "result", CaseEq "error_result"]
   >> gvs []
-  >> rename [‘evaluate ([_],_,_) = (r,t)’]
-  >> ntac 2 $ last_x_assum mp_tac >> last_x_assum kall_tac >> ntac 2 strip_tac
+  >> rename [‘evaluate ([_],_,_) = (_,t2)’]
   >> gvs [hypothesis_def]
   >> first_x_assum $ qspecl_then [‘[body]’, ‘dec_clock (call_ts + 1) s1’] mp_tac
   >> impl_tac
   >- gvs [dec_clock_def]
   >> disch_then $ drule_at $ Pos hd
   >> disch_then drule
-  >> ‘state_rel f (dec_clock (call_ts + 1) s1) (dec_clock (call_ts + 1) s2)’ by
+  >> ‘state_rel f1 (dec_clock (call_ts + 1) s1) (dec_clock (call_ts + 1) s2)’ by
     (Cases_on ‘s1.clock’ >> imp_res_tac state_rel_dec >> gvs [])
   >> disch_then drule
-  >> impl_tac >- gvs []
+  >> impl_tac >- (spose_not_then assume_tac >> gvs [])
   >> disch_then $ qspec_then ‘loc’ mp_tac
   >> gvs [GSYM PULL_FORALL]
   >> strip_tac
@@ -2325,22 +2326,32 @@ Proof
   >> gvs [PULL_EXISTS]
   >> rename [‘state_rel f2 t1 t_work’]
   >> rename [‘opt_res_rel r r_work’]
-  >> rename [‘result_rel (LIST_REL (v_rel f1)) (v_rel f1) r r'’]
-  >> qrefinel [‘_’, ‘_’, ‘f'’, ‘r_work’, ‘t_work’]                    
+  >> rename [‘result_rel (LIST_REL (v_rel f2)) (v_rel f2) body_res1 body_res2’]
+  >> qrefinel [‘_’, ‘_’, ‘r_work’, ‘t_work’]
+  >> gvs []
   >> reverse $ Cases_on ‘r_work’
   >-
    (gvs [opt_res_rel_def]
-    >> conj_tac >- CASE_TAC
-    >> Cases_on ‘r'’ >- gvs []
-    >> Cases_on ‘Rerr e'’ >- gvs []
+    >> qexists ‘f2’
+    >> conj_tac
+    >- (CASE_TAC >> gvs [])
+    >> conj_tac >- cheat (* lemma *)
     >> gvs [])
   >> gvs [PULL_EXISTS, opt_res_rel_def]
-  >> reverse $ Cases_on ‘r'’ >- gvs []
-  >> gvs []                                        
-  >> reverse $ Cases_on ‘r’ >- gvs [semanticPrimitivesPropsTheory.result_rel_def]
+  >> reverse $ Cases_on ‘body_res2’ >- gvs []
+  >> gvs []
   >> imp_res_tac evaluate_SING_IMP >> gvs []
-  >> rename [‘v_rel f' r r'’]
+  >> reverse $ Cases_on ‘body_res1’ >- gvs []
+  >> gvs []
+  >> rename [‘v_rel f2 body_res1 body_res2’]
   >> gvs [PULL_EXISTS]
+  >> reverse $ Cases_on ‘block_res2’ >- cheat (*this shouldn't have happened by now*)
+  >> gvs []
+  >> imp_res_tac evaluate_SING_IMP >> gvs []
+  >> drule evaluate_finalise_cons_def
+  (* HERE *)
+  >> ‘evaluate ([Call call_ts (SOME loc) (MAP (λn. Var n) call_args) NONE], env2,s2) = (Rval [hole_val],t2)’
+  >> disch_then drule
 
   >> 
   >> drule evaluate_finalise_cons_def
