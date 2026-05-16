@@ -1989,6 +1989,19 @@ Resume evaluate_rewrite_tmc[op_opt]:
   >> gvs []
   >> strip_tac
 
+
+  >> reverse $ Cases_on ‘opt’
+  >-
+   (qexistsl [‘t'’, ‘f''’, ‘r'’]
+    >> gvs []
+    >> conj_tac >- imp_res_tac SUBMAP_TRANS
+    >> conj_tac
+    >- (imp_res_tac only_fresh_trans >> imp_res_tac evaluate_refs_SUBSET >> gvs [])
+    >> imp_res_tac holes_unchanged_except_trans)
+  >> code_rel_def find_code_rel
+
+
+        
   >> qexistsl [‘t'’, ‘f''’, ‘r'’]
   >> gvs [GSYM PULL_FORALL]
   >> rw []
@@ -2233,13 +2246,12 @@ QED
 Theorem evaluate_hb_to_bvi_wrapper_aux:
   ∀tag left child right hole call_ts call_args loc loc_opt body work f1 env1 env2 env3 s1 s2 t1 t2 block_res call_res1 call_res2
        parents parent_refs i_top_ptr top_ptr hole_ptr i_hole_ptr hole_idx num_binders.
-           
-    evaluate ([cb_to_bvi loc (CallBlock tag left child right)],env2,s2) = (block_res,t2) ∧
-    evaluate ([Call call_ts (SOME loc) (MAP (λn. Var n) call_args) NONE],env1,s1) = (call_res1,t1) ∧
-    evaluate ([Call call_ts (SOME loc) (MAP (λn. Var n) call_args) NONE],env2,s2) = (call_res2,t2) ∧
+
+    evaluate ([cb_to_bvi loc (CallBlock tag left child right)],env1,s1) = (block_res1,t1) ∧           
+    evaluate ([cb_to_bvi loc (CallBlock tag left child right)],env2,s2) = (block_res2,t2) ∧
     env_rel T f1 env1 env2 ∧
-    alloc_env_rel f1 s2.refs i_top_ptr i_hole_ptr num_binders env2 env3 ∧
     state_rel f1 s1 s2 ∧
+    alloc_env_rel f1 s2.refs i_top_ptr i_hole_ptr num_binders env2 env3 ∧
     hole_block_filled env2 s2.refs tag left hole right parents top_ptr hole_ptr (Number 0) ∧
     holes_unchanged_except f1 s2.refs s2.refs parent_refs ∧
     lookup loc s1.code = SOME (LENGTH call_args,body) ∧
@@ -2254,7 +2266,7 @@ Theorem evaluate_hb_to_bvi_wrapper_aux:
     env3❲i_top_ptr❳ = RefPtr F top_ptr ∧
     env3❲i_hole_ptr❳ = RefPtr F hole_ptr ∧
     cb_to_hb (CallBlock tag left child right) = (HoleBlock tag left hole right,call_ts,call_args) ∧
-    call_res1 ≠ Rerr (Rabort Rtype_error) ∧
+    block_res ≠ Rerr (Rabort Rtype_error) ∧
     (∀xs' s'' env1' loc' r' t' opt' f' s'³' env2'.
        hypothesis xs' s'' env1' loc' r' t' opt' f' s'³' env2' s1) ⇒
     ∃t3 f2.
@@ -2264,9 +2276,12 @@ Theorem evaluate_hb_to_bvi_wrapper_aux:
 Proof
 
   rw []
+  >> last_x_assum mp_tac
+  >> last_assum $ mk_asm "call"
+  >> disch_then $ mk_asm "cb_to_bvi"
   >> gvs [hb_to_bvi_wrapper_aux_def, optimise_call_def, evaluate_def, evaluate_APPEND, CaseEq "prod"]
   >> imp_res_tac alloc_env_rel_def >> gvs []
-  >> imp_res_tac opt_call_arg_rel_def
+  >> first_x_assum $ qspec_then ‘F’ assume_tac
   >> gvs [evaluate_APPEND, Once evaluate_def, CaseEq "prod"]
   >> gvs [evaluate_shift_vars]   
   >> ‘backend_common$small_enough_int (&hole_idx)’ by cheat
@@ -2275,11 +2290,12 @@ Proof
   >> gvs [CaseEq "prod", CaseEq "result"]
   >> gvs [bvlSemTheory.find_code_def, CaseEq "option", CaseEq "prod"]
   >> imp_res_tac evaluate_IMP_LENGTH >> gvs []
-  >> ‘s.clock = s'.clock’ by gvs [state_rel_def]
+  >> rename [‘state_rel f1 s1 s2’]
+  >> ‘s1.clock = s2.clock’ by gvs [state_rel_def]
   >> IF_CASES_TAC
   >-
-   (gvs []
-    >> qexists ‘f’
+   (gvs [GSYM PULL_EXISTS, CaseEq "prod", CaseEq "result"]
+    >> qexists ‘f1’
     >> imp_res_tac state_rel_with_clock
     >> gvs [])
   >> gvs [CaseEq "prod"]
@@ -2288,13 +2304,13 @@ Proof
   >> rename [‘evaluate ([_],_,_) = (r,t)’]
   >> ntac 2 $ last_x_assum mp_tac >> last_x_assum kall_tac >> ntac 2 strip_tac
   >> gvs [hypothesis_def]
-  >> first_x_assum $ qspecl_then [‘[body]’, ‘dec_clock (call_ts + 1) s’] mp_tac
+  >> first_x_assum $ qspecl_then [‘[body]’, ‘dec_clock (call_ts + 1) s1’] mp_tac
   >> impl_tac
   >- gvs [dec_clock_def]
   >> disch_then $ drule_at $ Pos hd
   >> disch_then drule
-  >> ‘state_rel f (dec_clock (call_ts + 1) s) (dec_clock (call_ts + 1) s')’ by
-    (Cases_on ‘s.clock’ >> imp_res_tac state_rel_dec >> gvs [])
+  >> ‘state_rel f (dec_clock (call_ts + 1) s1) (dec_clock (call_ts + 1) s2)’ by
+    (Cases_on ‘s1.clock’ >> imp_res_tac state_rel_dec >> gvs [])
   >> disch_then drule
   >> impl_tac >- gvs []
   >> disch_then $ qspec_then ‘loc’ mp_tac
@@ -2307,9 +2323,9 @@ Proof
   >- (qexists ‘c’ >> gvs [])
   >> strip_tac
   >> gvs [PULL_EXISTS]
-  >> rename [‘state_rel f' t t_work’]
+  >> rename [‘state_rel f2 t1 t_work’]
   >> rename [‘opt_res_rel r r_work’]
-  >> rename [‘result_rel (LIST_REL (v_rel f')) (v_rel f') r r'’]
+  >> rename [‘result_rel (LIST_REL (v_rel f1)) (v_rel f1) r r'’]
   >> qrefinel [‘_’, ‘_’, ‘f'’, ‘r_work’, ‘t_work’]                    
   >> reverse $ Cases_on ‘r_work’
   >-
