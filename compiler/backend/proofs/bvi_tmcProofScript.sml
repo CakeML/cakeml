@@ -2156,6 +2156,78 @@ Definition alloc_env_rel_def:
         ∀b. RefPtr b ref_top ≠ EL hole_ptr env_extras
 End
 
+Definition hole_block_filled_def:
+  (hole_block_filled env refs tag left Hole right top_ptr hole_ptr hole_val ⇔
+     top_ptr = hole_ptr ∧
+     FLOOKUP refs top_ptr = SOME (MutBlock tag (REVERSE (MAP (λn. EL n env) right)) hole_val (REVERSE (MAP (λn. EL n env) left))) ∧
+     ∀tag' left' child right'.
+       FLOOKUP refs hole_ptr ≠ SOME (MutBlock tag' left' child right')) ∧
+  (hole_block_filled env refs tag left (HoleBlock tag' left' child right') right top_ptr hole_ptr hole_val ⇔
+     top_ptr ≠ hole_ptr ∧
+     ∃child_ptr.
+       child_ptr ≠ hole_ptr ∧
+       FLOOKUP refs top_ptr = SOME (MutBlock tag (REVERSE (MAP (λn. EL n env) right)) (RefPtr F child_ptr) (REVERSE (MAP (λn. EL n env) left))) ∧
+       hole_block_filled env refs tag' left' child right' child_ptr hole_ptr hole_val)
+End
+
+Theorem evaluate_allocate_holes_aux:
+  ∀hb f top_ptr hole_ptr hole_idx num_binders env1 env2 s s' r t .
+    (
+        )
+    evaluate([allocate_holes_aux hb f top_ptr hole_ptr hole_idx num_binders],env1,s) = (r,t) ∧
+    alloc_env_rel env env2 ∧
+    alloc_state_rel s s' ⇒
+    evaluate([allocate_holes_aux hb f top_ptr hole_ptr hole_idx num_binders],env2,s) = (r,t)
+Proof
+  cheat
+QED
+
+Theorem evaluate_finalise_cons_def:
+  ∀ref refs b loc tag left child right hole call_ts call_args env s t block top_ptr hole_ptr hole_val.
+    evaluate ([cb_to_bvi loc (CallBlock tag left child right)],env,s) = (Rval [block],t with refs := t.refs \\ top_ptr) ∧
+    evaluate ([Call call_ts (SOME loc) (MAP (λn. Var n) call_args) NONE],env,s) = (Rval [hole_val],t with refs := t.refs \\ top_ptr) ∧
+    cb_to_hb (CallBlock tag left child right) = (HoleBlock tag left hole right,call_ts,call_args) ∧
+    (*FLOOKUP refs hole_ptr = SOME hole_val ∧*)
+    hole_block_filled env t.refs tag left hole right top_ptr hole_ptr hole_val ∧
+    hole_ptr ∉ FDOM s.refs ∧
+    ref = RefPtr b top_ptr ∧
+    b = F ∧
+    refs = t.refs ⇒
+    finalise_cons ref refs = SOME block
+Proof  
+  recInduct finalise_cons_ind
+  >> rw []
+  >> last_x_assum mp_tac
+  >> gvs [Once cb_to_bvi_def, evaluate_APPEND, evaluate_def, do_app_def,
+          do_app_aux_def, bvl_to_bvi_id, CaseEq "prod", CaseEq "result", CaseEq "option"]
+  >> imp_res_tac evaluate_var_list >> gvs []
+  >> imp_res_tac evaluate_SING_IMP >> gvs []
+  >> rename [‘evaluate ([_],_,_) = (Rval [block],t)’]
+  >> Cases_on ‘s.clock < call_ts + 1’
+  >- gvs []
+  >> gvs [CaseEq "prod", CaseEq "result", CaseEq "error_result"]
+  >> disch_then assume_tac
+  >> reverse $ Cases_on ‘child’
+  >-
+   (simp [finalise_cons_def]
+    >> gvs [cb_to_hb_def, hole_block_filled_def]
+    >> Cases_on ‘hole_val’ >> gvs [finalise_cons_def, cb_to_bvi_def, evaluate_def, evaluate_APPEND])
+  >> gvs [cb_to_hb_def, CaseEq "prod"]
+  >> rename [‘cb_to_hb child = (hole,call_ts,call_args)’]
+  >> rename [‘CallBlock tag' left' _ right'’]
+  >> gvs [hole_block_filled_def]
+  >> cheat
+        (*
+  >> pop_assum drule
+  >> rpt $ disch_then $ drule_at Any
+  >> gvs []
+  >> impl_tac
+  >- cheat
+  >> strip_tac
+  >> gvs [finalise_cons_def, CaseEq "option"]
+*)
+QED
+
 Theorem evaluate_hb_to_bvi_wrapper_aux:
   ∀call_ts call_args args loc loc_opt body work f env1 env2 env3 s s' t r top_ptr hole_ptr hole_idx num_binders.
     evaluate ([Call call_ts (SOME loc) (MAP (λn. Var n) call_args) NONE],env1,s) = (r,t) ∧
@@ -2268,73 +2340,6 @@ Proof
   >> cheat
 QED
 
-Definition hole_block_unfilled_def:
-  hole_block_unfilled f refs top_ptr hole_ptr hole_idx ⇔
-    top_ptr ∉ FRANGE f ∧
-    ∃tag left hole right.
-      FLOOKUP refs hole_ptr = SOME (MutBlock tag left hole right) ∧
-End
-
-Definition hole_block_filled_def:
-  (hole_block_filled env refs tag left (RCall _ _) right top_ptr hole_ptr hole_val ⇔
-     top_ptr = hole_ptr ∧
-     FLOOKUP refs top_ptr = SOME (MutBlock tag (REVERSE (MAP (λn. EL n env) right)) hole_val (REVERSE (MAP (λn. EL n env) left))) ∧
-     ∀tag' left' child right'.
-       FLOOKUP refs hole_ptr ≠ SOME (MutBlock tag' left' child right')) ∧
-  (hole_block_filled env refs tag left (CallBlock tag' left' child right') right top_ptr hole_ptr hole_val ⇔
-     top_ptr ≠ hole_ptr ∧
-     ∃child_ptr.
-       child_ptr ≠ hole_ptr ∧
-       FLOOKUP refs top_ptr = SOME (MutBlock tag (REVERSE (MAP (λn. EL n env) right)) (RefPtr F child_ptr) (REVERSE (MAP (λn. EL n env) left))) ∧
-       hole_block_filled env refs tag' left' child right' child_ptr hole_ptr hole_val)
-End
-
-Theorem evaluate_finalise_cons_def:
-  ∀ref refs b loc tag left child right hole call_ts call_args env s t block top_ptr hole_ptr hole_val.
-    evaluate ([cb_to_bvi loc (CallBlock tag left child right)],env,s) = (Rval [block],t with refs := t.refs \\ top_ptr) ∧
-    evaluate ([Call call_ts (SOME loc) (MAP (λn. Var n) call_args) NONE],env,s) = (Rval [hole_val],t with refs := t.refs \\ top_ptr) ∧
-    cb_to_hb (CallBlock tag left child right) = (HoleBlock tag left hole right,call_ts,call_args) ∧
-    (*FLOOKUP refs hole_ptr = SOME hole_val ∧*)
-    hole_block_filled env t.refs tag left child right top_ptr hole_ptr hole_val ∧
-    hole_ptr ∉ FDOM s.refs ∧
-    ref = RefPtr b top_ptr ∧
-    b = F ∧
-    refs = t.refs ⇒
-    finalise_cons ref refs = SOME block
-Proof  
-  recInduct finalise_cons_ind
-  >> rw []
-  >> last_x_assum mp_tac
-  >> gvs [Once cb_to_bvi_def, evaluate_APPEND, evaluate_def, do_app_def,
-          do_app_aux_def, bvl_to_bvi_id, CaseEq "prod", CaseEq "result", CaseEq "option"]
-  >> imp_res_tac evaluate_var_list >> gvs []
-  >> imp_res_tac evaluate_SING_IMP >> gvs []
-  >> rename [‘evaluate ([_],_,_) = (Rval [block],t)’]
-  >> Cases_on ‘s.clock < call_ts + 1’
-  >- gvs []
-  >> gvs [CaseEq "prod", CaseEq "result", CaseEq "error_result"]
-  >> disch_then assume_tac
-  >> reverse $ Cases_on ‘child’
-  >-
-   (simp [finalise_cons_def]
-    >> gvs [cb_to_hb_def, hole_block_filled_def]
-    >> Cases_on ‘hole_val’ >> gvs [finalise_cons_def, cb_to_bvi_def, evaluate_def, evaluate_APPEND])
-  >> gvs [cb_to_hb_def, CaseEq "prod"]
-  >> rename [‘cb_to_hb child = (hole,call_ts,call_args)’]
-  >> rename [‘CallBlock tag' left' _ right'’]
-  >> gvs [hole_block_filled_def]
-  >> cheat
-        (*
-  >> pop_assum drule
-  >> rpt $ disch_then $ drule_at Any
-  >> gvs []
-  >> impl_tac
-  >- cheat
-  >> strip_tac
-  >> gvs [finalise_cons_def, CaseEq "option"]
-*)
-QED
-
 Theorem evaluate_allocate_holes_aux:
   ∀hb f P env1 env2 s1 s2 .
     (∀top_ptr hole_ptr hole_idx num_binders.
@@ -2344,16 +2349,6 @@ Theorem evaluate_allocate_holes_aux:
     (∀top_ptr hole_ptr hole_idx num_binders.
        
               )
-    evaluate([allocate_holes_aux hb f top_ptr hole_ptr hole_idx num_binders],env1,s) = (r,t) ∧
-    alloc_env_rel env env2 ∧
-    alloc_state_rel s s' ⇒
-    evaluate([allocate_holes_aux hb f top_ptr hole_ptr hole_idx num_binders],env2,s) = (r,t)
-Proof
-  cheat
-QED
-
-Theorem evaluate_allocate_holes_aux:
-  ∀hb f top_ptr hole_ptr hole_idx num_binders env1 env2 s s' r t .
     evaluate([allocate_holes_aux hb f top_ptr hole_ptr hole_idx num_binders],env1,s) = (r,t) ∧
     alloc_env_rel env env2 ∧
     alloc_state_rel s s' ⇒
