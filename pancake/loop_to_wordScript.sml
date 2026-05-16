@@ -3,7 +3,7 @@
 *)
 Theory loop_to_word
 Ancestors
-  loopLang wordLang backend_common[qualified] loop_remove
+  loopLang wordLang backend_common[qualified]
 Libs
   preamble
 
@@ -91,9 +91,13 @@ Definition comp_def:
     let (wp,l) = comp ctxt p l in
      let (wq,l) = comp ctxt q l in
        (Seq (If c (find_var ctxt n) (find_reg_imm ctxt ri) wp wq) Tick,l)) /\
-  (comp ctxt (Loop l1 body l2) l = (Skip,l)) /\ (* not present in input *)
-  (comp ctxt Break l = (Skip,l)) /\ (* not present in input *)
-  (comp ctxt Continue l = (Skip,l)) /\ (* not present in input *)
+  (comp ctxt (Loop l1 body l2) l =
+    let (wbody,l) = comp ctxt body l in
+      (Seq Tick
+         (Seq (wordLang$Loop (mk_new_cutset ctxt l1) wbody (mk_new_cutset ctxt l2))
+              Tick),l)) /\
+  (comp ctxt Break l    = (Break 0,l)) /\
+  (comp ctxt Continue l = (Continue 0,l)) /\
   (comp ctxt (Raise v) l = (Raise (find_var ctxt v),l)) /\
   (comp ctxt (Return vs) l = (Return 0 (MAP (find_var ctxt) vs),l)) /\
   (comp ctxt Tick l = (Tick,l)) /\
@@ -149,7 +153,5 @@ Definition compile_prog_def:
 End
 
 Definition compile_def:
-  compile p =
-    let p = loop_remove$comp_prog p in
-     compile_prog p
+  compile p = compile_prog p
 End

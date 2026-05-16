@@ -844,6 +844,7 @@ Proof
        fs [AllCaseEqs()] >> rveq >> fs []) >>
      rveq >> fs []) >>
     TOP_CASE_TAC >> fs [] >>
+    IF_CASES_TAC >> fs [] >>
     cases_on ‘cut_res r' ((NONE:'a result option),s)’ >>
     fs [] >>
     ‘q'' <> SOME TimeOut’ by (
@@ -1166,6 +1167,7 @@ Resume evaluate_add_clock_io_events_mono[Call]:
     rpt (Cases_on ‘x''’ >> fs [])) >>
   (* ret = SOME (ns, live) *)
   PairCases_on ‘x'’ >> fs [] >>
+  IF_CASES_TAC >> fs [] >>
   fs [cut_res_def, cut_state_def] >>
   Cases_on ‘domain x'1 ⊆ domain s.locals’ >> fs [] >>
   Cases_on ‘s.clock = 0’ >> fs [] >> rveq >> fs []

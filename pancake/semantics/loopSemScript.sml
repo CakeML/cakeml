@@ -370,6 +370,7 @@ Definition evaluate_def:
                      | (SOME Break,s) => (SOME Error,s)
                      | (SOME res,s) => (SOME res,s)))
           | SOME (ns,live) =>
+            if ¬ALL_DISTINCT ns then (SOME Error,s) else
             (case cut_res live (NONE,s) of
              | (NONE,s) =>
                  (case fix_clock (s with locals := env)

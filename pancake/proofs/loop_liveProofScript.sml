@@ -407,6 +407,8 @@ Resume compile_correct[Call]:
     \\ Cases_on ‘res’ \\ fs [] \\ fs [subspt_lookup,lookup_inter_alt]
     \\ Cases_on ‘x'’ \\ fs [] \\ fs [subspt_lookup,lookup_inter_alt])
   \\ rename [‘Call (SOME z)’] \\ PairCases_on ‘z’ \\ fs []
+  \\ reverse (Cases_on ‘ALL_DISTINCT z0’) >- (fs [] \\ rveq \\ fs [])
+  \\ fs []
   \\ Cases_on ‘handler’ \\ fs [shrink_def] \\ rveq \\ fs []
   >- (fs [evaluate_def,cut_res_def,cut_state_def]
       \\ Cases_on ‘domain z1 ⊆ domain s.locals’ \\ fs []
