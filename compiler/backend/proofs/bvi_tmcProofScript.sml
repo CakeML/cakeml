@@ -2125,7 +2125,7 @@ Theorem evaluate_cb_call:
     evaluate ([Call call_ts (SOME loc) (MAP (λn. Var n) call_args) NONE],env,s) = (r_call,t_call) ∧
     cb_to_hb cb = (hb,call_ts,call_args) ∧
     r_cb ≠ Rerr (Rabort Rtype_error) ∧
-    r_cb ≠ Rerr (Rabort Rtype_error) ⇒
+    r_call ≠ Rerr (Rabort Rtype_error) ⇒
     t_cb = t_call ∧
     ((∃v_cb v_call.
         r_cb = Rval [v_cb] ∧ r_call = Rval [v_call]) ∨
@@ -2384,63 +2384,104 @@ Theorem wrap_call_env_rel:
     env_rel T f env1 env2 ∧
     alloc_preconditions refs env2 env3 tag left hole right parents i_top_ptr i_hole_ptr hole_idx num_binders call_args ⇒
     env_rel T f
-            (MAP (λn. EL n env1) (shift_vars num_binders call_args))
-            (MAP (λn. EL n env3) (shift_vars num_binders call_args) ++ [EL i_hole_ptr env3; EL (i_hole_ptr + 1) env3])
+            (MAP (λn. EL n env1) (call_args))
+            (MAP (λn. EL n env3) (call_args) ++ [EL i_hole_ptr env3; EL (i_hole_ptr + 1) env3])
 Proof
   rw []
   >> gvs [env_rel_def, alloc_preconditions_def]
-  >> qexistsl [‘MAP (λn. EL n env3) (shift_vars num_binders call_args)’, ‘[EL i_hole_ptr env3; EL (i_hole_ptr + 1) env3]’]
+  >> qexistsl [‘MAP (λn. EL n env3) call_args’, ‘[EL i_hole_ptr env3; EL (i_hole_ptr + 1) env3]’]
   >> gvs [shift_vars_def, length_shift_vars, LENGTH_MAP]
   >> cheat
 QED
 
 Theorem evaluate_hb_to_bvi_wrapper_aux:
-  ∀tag left child right hole call_ts call_args loc loc_opt f1 env1 env2 env3 s1 s2 t1 t2 block_res hole_res parents i_top_ptr i_hole_ptr hole_idx num_binders.
-    evaluate ([cb_to_bvi loc (CallBlock tag left child right)],env2,s2) = (block_res,t2) ∧
-    evaluate ([bvi$Call call_ts (SOME loc) (MAP (λn. Var n) call_args) NONE],env1,s1) = (hole_res,t1) ∧
+  ∀tag left child right hole call_ts call_args loc loc_opt f1 env1 env2 env3 s1 s2 t1 t2
+       body work block_res1 block_res2 call_res parents i_top_ptr i_hole_ptr hole_idx num_binders.
+    evaluate ([cb_to_bvi loc (CallBlock tag left child right)],env1,s1) = (block_res1,t1) ∧
+    evaluate ([cb_to_bvi loc (CallBlock tag left child right)],env2,s2) = (block_res2,t2) ∧
+    evaluate ([bvi$Call call_ts (SOME loc) (MAP (λn. Var n) call_args) NONE],env1,s1) = (call_res,t1) ∧
+    lookup loc s1.code = SOME (LENGTH call_args,body) ∧
+    lookup loc_opt s2.code = SOME (LENGTH call_args + 2,work) ∧
+    work = rewrite_worker loc loc_opt (LENGTH call_args) (LENGTH call_args + 1) body ∧
     env_rel T f1 env1 env2 ∧
     state_rel f1 s1 s2 ∧
     state_rel f1 t1 t2 ∧
+    result_rel (LIST_REL (v_rel f1)) (v_rel f1) block_res1 block_res2 ∧
     alloc_preconditions s2.refs env2 env3 tag left hole right parents i_top_ptr i_hole_ptr hole_idx num_binders call_args ∧
     cb_to_hb (CallBlock tag left child right) = (HoleBlock tag left hole right,call_ts,call_args) ∧
-    block_res ≠ Rerr (Rabort Rtype_error) ∧
-    hole_res ≠ Rerr (Rabort Rtype_error) ∧
+    block_res1 ≠ Rerr (Rabort Rtype_error) ∧
+    call_res ≠ Rerr (Rabort Rtype_error) ∧
     (∀xs' s'' env1' loc' r' t' opt' f' s'³' env2'.
        hypothesis xs' s'' env1' loc' r' t' opt' f' s'³' env2' s1) ⇒
     ∃f2 t3.
-      evaluate([hb_to_bvi_wrapper_aux loc_opt call_ts call_args i_top_ptr i_hole_ptr hole_idx num_binders],env3,s2) = (block_res,t3) ∧
+      evaluate([hb_to_bvi_wrapper_aux loc_opt call_ts call_args i_top_ptr i_hole_ptr hole_idx num_binders],env3,s2) = (block_res2,t3) ∧
       state_rel f2 t1 t3
 Proof
+  
   rw []
-
-  >> gvs [alloc_preconditions_def]
   >> simp [hb_to_bvi_wrapper_def, hb_to_bvi_wrapper_aux_def, optimise_call_def]
-  >> simp [Once evaluate_def]
-  >> simp [evaluate_shift_vars]
-
-        
-  >> gvs [alloc_preconditions_def]
-  >> simp [hb_to_bvi_wrapper_def, hb_to_bvi_wrapper_aux_def, optimise_call_def]
-  >> ‘backend_common$small_enough_int (&hole_idx)’ by cheat
-  >> reverse $ Cases_on ‘block_res’
-  >-
-   (drule_then drule evaluate_cb_err_call_err
-    >> impl_tac >- gvs []
-    >> strip_tac
-    >> cheat)
-  >> gvs [evaluate_APPEND, evaluate_def, evaluate_shift_vars, do_app_def, do_app_aux_def, backend_commonTheory.small_enough_int_def, CaseEq "prod"]
-  >> reverse $ gvs [CaseEq "result"]
-  >- cheat
-  >> gvs []
-  >> reverse $ Cases_on ‘hole_res’ >- cheat
-  >> gvs []
-  >> imp_res_tac evaluate_SING_IMP
-  >> gvs []
-  >> ‘LENGTH a' = 1’ by cheat
-  >> gvs []
-  >> drule evaluate_finalise_cons
+  >> rev_drule evaluate_cb_call
   >> rpt $ disch_then drule
-  >> ‘evaluate ([Call call_ts (SOME loc) (MAP (λ. Var n) call_args) NONE],env1,s) = ’
+  >> disch_then $ mk_asm "call_and_block_results"
+  >> qpat_assum ‘alloc_preconditions _ _ _ _ _ _ _ _ _ _ _ _ _’ $ mk_asm "preconditions"
+  >> gvs [alloc_preconditions_def]
+  >> qpat_x_assum ‘evaluate ([Call _ _ _ _],_,_) = _’ mp_tac
+  >> simp [Once evaluate_def]
+  >> CASE_TAC
+  >> disch_then assume_tac
+  >> drule evaluate_var_list
+  >> impl_tac >- (spose_not_then assume_tac >> gvs [CaseEq "prod"])
+  >> strip_tac >> gvs []
+  >> ntac 2 $ simp [Once evaluate_def]
+  >> simp [Once evaluate_def, evaluate_APPEND, evaluate_shift_vars]
+  >> CASE_TAC
+  >> ‘q ≠ Rerr (Rabort Rtype_error)’ by cheat (* this can't fail - env2 a superset of env1 and all the lookups in env1 suceeded *)
+  >> drule evaluate_var_list
+  >> impl_tac >- gvs []
+  >> strip_tac >> gvs []
+  >> ntac 3 $ simp [Once evaluate_def]
+  >> ‘backend_common$small_enough_int (&hole_idx)’ by cheat
+  >> simp [do_app_def, do_app_aux_def]
+  >> gvs [bvlSemTheory.find_code_def, CaseEq "option", CaseEq "prod"]
+  >> ‘r.clock = r'.clock’ by gvs [state_rel_def]
+  >> rename [‘s.clock = s'.clock’]
+  >> gvs []
+  >> IF_CASES_TAC
+  >-
+   (gvs []
+    >> asm "call_and_block_results" assume_tac
+    >> gvs []
+    >> qexists ‘f1’
+    >> imp_res_tac state_rel_with_clock
+    >> first_x_assum $ qspec_then ‘0’ assume_tac
+    >> gvs [])
+  >> gvs [GSYM PULL_EXISTS]
+  >> first_x_assum $ qspecl_then [‘[body]’, ‘dec_clock (call_ts + 1) s’] mp_tac
+  >> simp [hypothesis_def]           
+  >> impl_tac
+  >- gvs [dec_clock_def]
+  >> gvs [CaseEq "prod"]
+  >> rename [‘evaluate ([_],_,_) = (call_res,t1)’]
+  >> disch_then drule
+  >> asm "preconditions" assume_tac
+  >> drule_all wrap_call_env_rel
+  >> strip_tac
+  >> disch_then drule
+  >> disch_then $ qspecl_then [‘loc’, ‘dec_clock (call_ts + 1) s'’] mp_tac
+  >> impl_tac
+  >-
+   (irule_at Any $ state_rel_dec
+    >> Cases_on ‘s.clock’ >> gvs []
+    >> spose_not_then assume_tac
+    >> gvs [CaseEq "prod", CaseEq "result", CaseEq "error_result"])
+  >> gvs [GSYM PULL_FORALL]
+  >> strip_tac
+  >> first_x_assum $ qspec_then ‘loc_opt’ mp_tac
+  >> strip_tac
+  >> first_x_assum mp_tac
+  >> impl_tac
+  >- cheat
+  >> cheat
                 
 QED
 
