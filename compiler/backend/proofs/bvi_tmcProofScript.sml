@@ -2594,51 +2594,84 @@ Proof
 QED
 
 Theorem evaluate_allocate_holes_aux:
-  ∀hb f top_ptr hole_ptr hole_idx num_binders env1 env2 s1 s2 r t .
-    (∀hb f top_ptr hole_ptr hole_idx num_binders env1 env2 s s' r t .
-        )
-    evaluate([allocate_holes_aux hb f top_ptr hole_ptr hole_idx num_binders],env1,s) = (r,t) ∧
-    alloc_env_rel env env2 ∧
-    alloc_state_rel s s' ⇒
-    evaluate([allocate_holes_aux hb f top_ptr hole_ptr hole_idx num_binders],env2,s) = (r,t)
+  ∀P loc tag left child right hole call_ts call_args f env1 env2 s r t parents i_top_ptr i_hole_ptr hole_idx num_binders.
+    (∀env1' env2' s' parents' i_top_ptr' i_hole_ptr' hole_idx' num_binders'.
+       alloc_preconditions s'.refs env1' env2' tag left hole right parents' i_top_ptr' i_hole_ptr' hole_idx' num_binders' ⇒
+       P $ evaluate ([f i_top_ptr' i_hole_ptr' hole_idx' num_binders'],env2',s')) ∧
+    alloc_preconditions s.refs env1 env2 tag left hole right parents i_top_ptr i_hole_ptr hole_idx num_binders ∧
+    evaluate ([cb_to_bvi loc (CallBlock tag left child right)],env1,s) = (r,t) ∧
+    cb_to_hb (CallBlock tag left child right) = (HoleBlock tag left hole right,call_ts,call_args) ∧
+    r ≠ Rerr (Rabort Rtype_error) ⇒
+    P $ evaluate ([allocate_holes_aux hole f i_top_ptr i_hole_ptr hole_idx num_binders],env2,s)
 Proof
-  cheat
+  reverse $ Induct_on ‘hole’
+  >-
+   (rw []
+    >> simp [allocate_holes_aux_def]
+    >> first_x_assum irule
+    >> first_x_assum $ irule_at Any)
+  >> rw []
+  >> rename [‘HoleBlock tag' left' hole' right'’]
+  >> gvs [cb_to_bvi_def, evaluate_def, evaluate_APPEND, CaseEq "prod"]
+  >> drule evaluate_var_list
+  >> impl_tac >- (spose_not_then $ assume_tac >> gvs [CaseEq "prod", CaseEq "result"])
+  >> strip_tac
+  >> gvs []
+  >> reverse $ Cases_on ‘child’
+  >- cheat
+  >> cheat
 QED
 
 Theorem evaluate_allocate_holes_aux:
-  ∀hb f P env1 env2 s1 s2 .
-    (∀top_ptr hole_ptr hole_idx num_binders.
-       alloc_env_rel top_ptr hole_ptr hole_idx num_binders env1 env2 ∧
-       alloc_state_rel top_ptr hole_ptr hole_idx num_binders s1 s2 ⇒
-       P (f top_ptr hole_ptr hole_idx num_binders)) ⇒
-    (∀top_ptr hole_ptr hole_idx num_binders.
-       
-              )
-    evaluate([allocate_holes_aux hb f top_ptr hole_ptr hole_idx num_binders],env1,s) = (r,t) ∧
-    alloc_env_rel env env2 ∧
-    alloc_state_rel s s' ⇒
-    evaluate([allocate_holes_aux hb f top_ptr hole_ptr hole_idx num_binders],env2,s) = (r,t)
+  ∀P loc tag left child right hole call_ts call_args f env1 env2 s r t parents i_top_ptr i_hole_ptr hole_idx num_binders.
+    (∀env1' env2' s' parents' i_top_ptr' i_hole_ptr' hole_idx' num_binders'.
+       alloc_preconditions s'.refs env1' env2' tag left hole right parents' i_top_ptr' i_hole_ptr' hole_idx' num_binders' ⇒
+       P $ evaluate ([f i_top_ptr' i_hole_ptr' hole_idx' num_binders'],env2',s')) ∧
+    alloc_preconditions s.refs env1 env2 tag left hole right parents i_top_ptr i_hole_ptr hole_idx num_binders ∧
+    evaluate ([cb_to_bvi loc (CallBlock tag left child right)],env1,s) = (r,t) ∧
+    cb_to_hb (CallBlock tag left child right) = (HoleBlock tag left hole right,call_ts,call_args) ∧
+    r ≠ Rerr (Rabort Rtype_error) ⇒
+    P $ evaluate ([allocate_holes tag left hole right f],env2,s)
 Proof
-  cheat
+  rw []
+  >> gvs [cb_to_hb_def, cb_to_bvi_def, CaseEq "prod", evaluate_def, evaluate_APPEND]
+  >> simp [evaluate_def, allocate_holes_def, mut_cons_def]
 QED
 
 Theorem evaluate_hb_to_bvi_wrapper:
-  ∀cb tag left child right hole call_ts call_args loc loc_opt work f env1 env2 s' t t' r'.
-    evaluate ([cb_to_bvi loc cb],env2,s') = (r',t') ∧
-    cb_to_hb cb = (HoleBlock tag left hole right,call_ts,call_args) ∧
-    cb = CallBlock tag left child right ∧
-    env_rel T f env1 env2 ∧
-    state_rel f t t' ∧
-
-    lookup loc_opt s'.code = SOME (LENGTH call_args + 2, work) ∧
-              
-    r' ≠ Rerr (Rabort Rtype_error) ⇒
-    ∃t'' f'.
-      evaluate ([hb_to_bvi_wrapper loc loc_opt tag left hole right call_ts call_args],env2,s') = (r',t'') ∧
-      f SUBMAP f' ∧
-      state_rel f' t t''
+  ∀tag left child right hole call_ts call_args loc loc_opt f1 env1 env2 env3 s1 s2 t1 t2
+       body work block_res1 block_res2 call_res1 call_res2.
+    evaluate([cb_to_bvi loc (CallBlock tag left child right)],env1,s1) = (block_res1,t1) ∧
+    evaluate([cb_to_bvi loc (CallBlock tag left child right)],env2,s2) = (block_res2,t2) ∧
+    evaluate([bvi$Call call_ts (SOME loc) (MAP (λn. Var n) call_args) NONE],env1,s1) = (call_res1,t1) ∧
+    evaluate([bvi$Call call_ts (SOME loc) (MAP (λn. Var n) call_args) NONE],env2,s2) = (call_res2,t2) ∧
+    lookup loc s1.code = SOME (LENGTH call_args,body) ∧
+    lookup loc_opt s2.code = SOME (LENGTH call_args + 2,work) ∧
+    work = rewrite_worker loc loc_opt (LENGTH call_args) (LENGTH call_args + 1) body ∧
+    env_rel T f1 env1 env2 ∧
+    state_rel f1 s1 s2 ∧
+    state_rel f1 t1 t2 ∧
+    result_rel (LIST_REL (v_rel f1)) (v_rel f1) block_res1 block_res2 ∧
+    result_rel (LIST_REL (v_rel f1)) (v_rel f1) call_res1 call_res2 ∧
+    cb_to_hb (CallBlock tag left child right) = (HoleBlock tag left hole right,call_ts,call_args) ∧
+    block_res1 ≠ Rerr (Rabort Rtype_error) ∧
+    block_res2 ≠ Rerr (Rabort Rtype_error) ∧
+    call_res1 ≠ Rerr (Rabort Rtype_error) ∧
+    call_res2 ≠ Rerr (Rabort Rtype_error) ∧
+    (∀xs' s'' env1' loc' r' t' opt' f' s'³' env2'.
+       hypothesis xs' s'' env1' loc' r' t' opt' f' s'³' env2' s1) ⇒
+    ∃f2 t3.
+      evaluate([hb_to_bvi_wrapper loc_opt tag left hole right call_ts call_args],env3,s2) = (block_res2,t3) ∧
+      state_rel f2 t1 t3 ∧
+      f1 SUBMAP f2
 Proof
-
+  rw []
+  >> simp [hb_to_bvi_wrapper_def]
+  >> irule 
+  
+  
+        
+        (* 
   gen_tac
   >> reverse $ Induct_on ‘cb’ >> rw []
 
@@ -2794,6 +2827,7 @@ Proof
   >> disch_then $ qspecl_then [‘[Unit; RefPtr F (LEAST ptr. ptr ∉ FDOM r''.refs)]’, ‘2’] mp_tac
   >> impl_tac >- gvs []
   >> strip_tac >> gvs []
+  *)
 QED
 
 Theorem evaluate_hb_to_bvi_worker:
