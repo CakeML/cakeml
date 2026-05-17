@@ -135,8 +135,8 @@ Definition guard_def:
   (let _ = empty_ffi s in F)
 End
 
-guard (check_overlap Ci w) (strlit "5.2.1 failed: " ^ mlint$toString (&i))
-guard (check_overlap Ci (overlap_assignment w C)) (strlit "5.2.2 failed: " ^ mlint$toString (&i))
+guard (check_overlap Ci w) («5.2.1 failed: » ^ mlint$toString (&i))
+guard (check_overlap Ci (overlap_assignment w C)) («5.2.2 failed: » ^ mlint$toString (&i))
 guard (is_AT fml is (C ++ (delete_literals Ci (flip (overlap_assignment w C)))) = SOME (INL ()))
 *)
 

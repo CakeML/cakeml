@@ -27,7 +27,7 @@ End
 val state_component_equality = theorem "state_component_equality";
 
 Datatype:
-  result = Result    ('w word_loc)
+  result = Result    (('w word_loc) list)
          | Exception ('w word_loc)
          | Break
          | Continue
@@ -249,6 +249,12 @@ Definition sh_mem_op_def:
   (sh_mem_op Store32 r ad s = sh_mem_store r ad 4 s)
 End
 
+Theorem set_vars_clock[simp]:
+  ∀ns vs s. (set_vars ns vs s).clock = s.clock
+Proof
+  Induct \\ Cases_on ‘vs’ \\ gvs [set_vars_def]
+QED
+
 Definition evaluate_def:
   (evaluate (Skip:'a loopLang$prog,^s) = (NONE, s)) /\
   (evaluate (Fail:'a loopLang$prog,^s) = (SOME Error, s)) /\
@@ -324,9 +330,9 @@ Definition evaluate_def:
      case lookup n s.locals of
      | NONE => (SOME Error,s)
      | SOME w => (SOME (Exception w),call_env [] s)) /\
-  (evaluate (Return n,s) =
-     case lookup n s.locals of
-     | SOME v => (SOME (Result v),call_env [] s)
+  (evaluate (Return ns,s) =
+     case get_vars ns s of
+     | SOME vs => (SOME (Result vs),call_env [] s)
      | _ => (SOME Error,s)) /\
   (evaluate (ShMem op v ad,s) =
    case eval s ad of
@@ -363,17 +369,19 @@ Definition evaluate_def:
                      | (SOME Continue,s) => (SOME Error,s)
                      | (SOME Break,s) => (SOME Error,s)
                      | (SOME res,s) => (SOME res,s)))
-          | SOME (n,live) =>
+          | SOME (ns,live) =>
+            if ¬ALL_DISTINCT ns then (SOME Error,s) else
             (case cut_res live (NONE,s) of
              | (NONE,s) =>
                  (case fix_clock (s with locals := env)
                          (evaluate (prog, s with locals := env))
-                   of (SOME (Result retv),st) =>
+                   of (SOME (Result retvs),st) =>
+                        if LENGTH retvs ≠ LENGTH ns then (SOME Error,st) else
                         (case handler of (* if handler is present, then finalise *)
-                         | NONE => (NONE, set_var n retv (st with locals := s.locals))
+                         | NONE => (NONE, set_vars ns retvs (st with locals := s.locals))
                          | SOME (_,_,r,live_out) =>
                              cut_res live_out
-                               (evaluate (r, set_var n retv (st with locals := s.locals))))
+                               (evaluate (r, set_vars ns retvs (st with locals := s.locals))))
                     | (SOME (Exception exn),st) =>
                         (case handler of (* if handler is present, then handle exc *)
                          | NONE => (SOME (Exception exn),(st with locals := LN))

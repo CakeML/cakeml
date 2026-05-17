@@ -1269,9 +1269,8 @@ Proof
   \\ once_rewrite_tac [copy_words_for_pattern_def]
   \\ Cases_on ‘pattern = 1w’ \\ fs []
   THEN1
-   (fs [copy_each_def]
-    \\ once_rewrite_tac [evaluate_def]
-    \\ fs [get_var_def,get_var_imm_def,asmTheory.word_cmp_def]
+   (fs [copy_each_def,evaluate_def]
+    \\ fs [get_var_def,get_var_imm_def,wordSemTheory.word_cmp_def]
     \\ fs [state_component_equality]
     \\ rw [] \\ gvs []
     \\ fs [fmap_EXT,FLOOKUP_DEF,FAPPLY_FUPDATE_THM,EXTENSION]
@@ -1370,7 +1369,7 @@ Proof
   \\ reverse (Cases_on ‘EL i bs < 0w’) \\ gvs []
   THEN1
    (simp [EVAL “list_Seq [_;_]”]
-    \\ fs [evaluate_def,get_var_def,get_var_imm_def,asmTheory.word_cmp_def,inst_def,
+    \\ fs [evaluate_def,get_var_def,get_var_imm_def,wordSemTheory.word_cmp_def,inst_def,
            word_exp_def,get_var_def,wordLangTheory.word_op_def,mem_load_def,assign_def,
            set_var_def,FLOOKUP_UPDATE]
     \\ (fn x =>
@@ -1402,7 +1401,7 @@ Proof
         (qexists_tac ‘0’ \\ qexists_tac ‘ARB’ \\ qexists_tac ‘ARB’ \\ qexists_tac ‘ARB’) x
         |> fst |> hd |> snd |> find_term (can (match_term “stackSem$evaluate _”))
         |> rand |> rand |> (fn tm => qabbrev_tac ‘t8 = ^tm’ x))
-  \\ fs [evaluate_def,get_var_def,get_var_imm_def,asmTheory.word_cmp_def,inst_def,
+  \\ fs [evaluate_def,get_var_def,get_var_imm_def,wordSemTheory.word_cmp_def,inst_def,
          word_exp_def,get_var_def,wordLangTheory.word_op_def,mem_load_def,assign_def,
          set_var_def,FLOOKUP_UPDATE]
   \\ qpat_abbrev_tac ‘ttt = STOP _’
@@ -1679,6 +1678,10 @@ Proof
     \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
     \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
     \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[])
+  >~ [‘Break’] >-
+   (gvs [comp_def,evaluate_def] \\ gvs [state_rel_def,SF SFY_ss])
+  >~ [‘Continue’] >-
+   (gvs [comp_def,evaluate_def] \\ gvs [state_rel_def,SF SFY_ss])
   THEN1 (* If *)
    (full_simp_tac(srw_ss())[] \\ simp [Once comp_def]
     \\ full_simp_tac(srw_ss())[evaluate_def,reg_bound_def]
@@ -1694,53 +1697,50 @@ Proof
     \\ full_simp_tac(srw_ss())[get_var_def]
     \\ Cases_on `ri` \\ full_simp_tac(srw_ss())[get_var_imm_def]
     \\ imp_res_tac state_rel_get_var \\ full_simp_tac(srw_ss())[])
-  THEN1 (* While *)
-   (qpat_x_assum `evaluate _ = _` mp_tac
+  >~ [‘Loop’] >-
+   (simp [Once comp_def]
+    \\ qpat_x_assum `evaluate _ = _` mp_tac
     \\ simp [Once evaluate_def,get_var_def]
-    \\ ntac 4 (BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[])
-    \\ `get_var_imm ri s = get_var_imm ri t1 /\
-        get_var r1 s = get_var r1 t1` by
-     (Cases_on `ri` \\ full_simp_tac(srw_ss())[get_var_imm_def,reg_bound_def]
-      \\ imp_res_tac state_rel_get_var \\ full_simp_tac(srw_ss())[get_var_def])
-    \\ reverse (BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[])
-    THEN1
-     (strip_tac \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
-      \\ qexists_tac `0`
-      \\ simp [Once comp_def,evaluate_def]
-      \\ full_simp_tac(srw_ss())[reg_bound_def,get_var_def])
-    \\ strip_tac \\ pairarg_tac \\ full_simp_tac(srw_ss())[]
-    \\ rev_full_simp_tac(srw_ss())[get_var_def] \\ full_simp_tac(srw_ss())[]
-    \\ qpat_x_assum `SOME (Word _) = _` (assume_tac o GSYM) \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `res <> NONE` \\ full_simp_tac(srw_ss())[]
-    THEN1
-     (rpt var_eq_tac \\ full_simp_tac(srw_ss())[] \\ simp [Once comp_def]
-      \\ full_simp_tac(srw_ss())[evaluate_def,get_var_def,LET_THM]
-      \\ rev_full_simp_tac(srw_ss())[] \\ first_x_assum old_drule \\ full_simp_tac(srw_ss())[reg_bound_def]
-      \\ strip_tac \\ full_simp_tac(srw_ss())[]
-      \\ qexists_tac `ck` \\ full_simp_tac(srw_ss())[])
-    \\ Cases_on `s1.clock = 0` \\ full_simp_tac(srw_ss())[]
-    THEN1
-     (rpt var_eq_tac \\ full_simp_tac(srw_ss())[] \\ simp [Once comp_def]
-      \\ full_simp_tac(srw_ss())[evaluate_def,get_var_def,LET_THM]
-      \\ rev_full_simp_tac(srw_ss())[] \\ first_x_assum old_drule \\ full_simp_tac(srw_ss())[reg_bound_def]
-      \\ strip_tac \\ full_simp_tac(srw_ss())[]
-      \\ qexists_tac `ck` \\ full_simp_tac(srw_ss())[]
-      \\ full_simp_tac(srw_ss())[state_rel_def])
-    \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[] \\ simp [Once comp_def]
-    \\ full_simp_tac(srw_ss())[evaluate_def,get_var_def,LET_THM] \\ full_simp_tac(srw_ss())[STOP_def]
-    \\ first_x_assum old_drule \\ full_simp_tac(srw_ss())[reg_bound_def]
-    \\ strip_tac \\ rev_full_simp_tac(srw_ss())[]
-    \\ rename1 `state_rel jump off k s3 t3`
-    \\ `state_rel jump off k (dec_clock s3) (dec_clock t3)` by
-        (fs[state_rel_def,dec_clock_def] \\ rev_full_simp_tac(srw_ss())[] \\ metis_tac[])
-    \\ first_x_assum old_drule \\ full_simp_tac(srw_ss())[]
-    \\ strip_tac \\ full_simp_tac(srw_ss())[] \\ ntac 2 (pop_assum mp_tac)
-    \\ old_drule (GEN_ALL evaluate_add_clock) \\ full_simp_tac(srw_ss())[]
-    \\ disch_then (qspec_then `ck'` assume_tac)
-    \\ simp [Once comp_def] \\ rpt strip_tac \\ full_simp_tac(srw_ss())[]
-    \\ qexists_tac `ck+ck'` \\ full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC]
-    \\ `t3.clock <> 0` by full_simp_tac(srw_ss())[state_rel_def] \\ full_simp_tac(srw_ss())[dec_clock_def]
-    \\ `ck' + (t3.clock - 1) = ck' + t3.clock - 1` by decide_tac \\ full_simp_tac(srw_ss())[])
+    \\ pairarg_tac \\ gvs []
+    \\ reverse IF_CASES_TAC
+    >-
+     (gvs [] \\ strip_tac \\ gvs []
+      \\ Cases_on ‘res = SOME Error’ \\ gvs [reg_bound_def]
+      \\ first_x_assum drule_all
+      \\ strip_tac \\ simp [Once evaluate_def]
+      \\ qexists ‘ck’ \\ simp []
+      \\ Cases_on ‘res’ \\ gvs []
+      \\ Cases_on ‘x’ \\ gvs []
+      \\ rw [] \\ gvs [])
+    \\ IF_CASES_TAC
+    >-
+     (gvs [] \\ strip_tac \\ gvs []
+      \\ Cases_on ‘res = SOME Error’ \\ gvs [reg_bound_def]
+      \\ first_x_assum drule_all
+      \\ strip_tac \\ simp [Once evaluate_def]
+      \\ qexists ‘ck’ \\ simp []
+      \\ Cases_on ‘res’ \\ gvs [] \\ gvs [state_rel_def]
+      \\ Cases_on ‘x’ \\ gvs [state_rel_def])
+    \\ strip_tac \\ gvs []
+    \\ Cases_on ‘res = SOME Error’ \\ gvs [reg_bound_def]
+    \\ first_x_assum drule_all \\ strip_tac
+    \\ ‘state_rel jump off k s1 t2’ by (imp_res_tac cont_loop_IMP \\ gvs [])
+    \\ ‘state_rel jump off k (dec_clock s1) (dec_clock t2)’ by
+     (pop_assum mp_tac \\ simp [state_rel_def,dec_clock_def,SF SFY_ss]
+      \\ rw [] \\ gvs [])
+    \\ gvs [STOP_def,reg_bound_def]
+    \\ first_x_assum drule_all
+    \\ strip_tac \\ fs [dec_clock_def]
+    \\ simp [Once evaluate_def]
+    \\ qpat_x_assum ‘evaluate _ = (res,t2)’ assume_tac
+    \\ ‘res ≠ SOME TimeOut’ by (CCONTR_TAC \\ gvs [])
+    \\ drule_all evaluate_add_clock \\ fs []
+    \\ disch_then $ qspec_then ‘ck'’ assume_tac
+    \\ ‘t2.clock ≠ 0’ by gvs [state_rel_def]
+    \\ qexists_tac ‘ck+ck'’ \\ gvs []
+    \\ gvs [STOP_def,dec_clock_def]
+    \\ qpat_x_assum ‘evaluate (comp _ _ _ (Loop _), _) = _’ mp_tac
+    \\ simp [Once comp_def])
   THEN1 (* JumpLower *)
    (simp [Once comp_def]
     \\ full_simp_tac(srw_ss())[reg_bound_def,evaluate_def]
@@ -1756,8 +1756,8 @@ Proof
       \\ full_simp_tac(srw_ss())[state_rel_def,code_rel_def] \\ res_tac \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[])
     \\ full_simp_tac(srw_ss())[] \\ Cases_on `t1.clock = 0` \\ full_simp_tac(srw_ss())[]
     THEN1 (srw_tac[][] \\ qexists_tac`t1.clock` \\ full_simp_tac(srw_ss())[state_rel_def,code_rel_def])
-    \\ split_pair_case_tac \\ fs[]
-    \\ Cases_on `v` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
+    \\ split_pair_case_tac \\ gvs[CaseEq"bool"]
+    \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
     \\ `state_rel jump off k (dec_clock s) (dec_clock t1)` by metis_tac [state_rel_IMP]
     \\ res_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
     \\ qexists_tac`ck`
@@ -1792,7 +1792,7 @@ Proof
         \\ imp_res_tac find_code_lemma \\ full_simp_tac(srw_ss())[] \\ pop_assum (K all_tac)
         \\ full_simp_tac(srw_ss())[state_rel_def,code_rel_def])
       \\ Cases_on `evaluate (x,dec_clock s)` \\ full_simp_tac(srw_ss())[]
-      \\ Cases_on `q` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
+      \\ Cases_on `bad_fun_return q` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
       \\ simp [evaluate_def,Once comp_def,reg_bound_def]
       \\ full_simp_tac(srw_ss())[reg_bound_def]
       \\ `find_code dest t1.regs t1.code = SOME (comp jump off k x) /\ reg_bound x k` by
@@ -3934,7 +3934,8 @@ Proof
    (EQ_TAC \\ strip_tac THEN1
      (Cases_on `k' = 0` \\ full_simp_tac(srw_ss())[]
       \\ qexists_tac `k'-1` \\ full_simp_tac(srw_ss())[]
-      \\ every_case_tac \\ full_simp_tac(srw_ss())[])
+      \\ every_case_tac \\ full_simp_tac(srw_ss())[]
+      \\ CCONTR_TAC \\ gvs [])
     \\ qexists_tac `k' + 1` \\ full_simp_tac(srw_ss())[]
     \\ every_case_tac \\ full_simp_tac(srw_ss())[])
   \\ strip_tac
@@ -3943,15 +3944,17 @@ Proof
   \\ conj_tac \\ full_simp_tac(srw_ss())[] THEN1
    (AP_TERM_TAC \\ full_simp_tac(srw_ss())[FUN_EQ_THM]
     \\ srw_tac[][] \\ reverse EQ_TAC \\ strip_tac
-    THEN1 (qexists_tac `k' + 1` \\ full_simp_tac(srw_ss())[])
+    THEN1 (qexists_tac `k' + 1` \\ full_simp_tac(srw_ss())[]
+           \\ Cases_on ‘r''’ \\ gvs [])
     \\ qexists_tac `k' - 1` \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `k' = 0` \\ full_simp_tac(srw_ss())[]
-     THEN1 (srw_tac[][] \\ full_simp_tac(srw_ss())[empty_env_def]
-            \\ rev_full_simp_tac(srw_ss())[])
+    THEN1 (srw_tac[][] \\ full_simp_tac(srw_ss())[empty_env_def]
+           \\ rev_full_simp_tac(srw_ss())[])
     \\ Cases_on `evaluate (Call NONE (INL start) NONE,r with clock := k' - 1)`
     \\ full_simp_tac(srw_ss())[] \\ Cases_on `q`
     \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
-    \\ first_x_assum (qspec_then`k'-1`mp_tac) \\ full_simp_tac(srw_ss())[])
+    \\ first_x_assum (qspec_then`k'-1`mp_tac) \\ full_simp_tac(srw_ss())[]
+    \\ strip_tac \\ gvs [])
   \\ AP_TERM_TAC \\ full_simp_tac(srw_ss())[EXTENSION]
   \\ srw_tac[][] \\ reverse EQ_TAC \\ strip_tac
   THEN1 (full_simp_tac(srw_ss())[] \\ qexists_tac `k' + 1`

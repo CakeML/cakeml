@@ -651,7 +651,7 @@ val next_lab_quotation = `
     case p of
     | Seq p1 p2 => next_lab p1 (next_lab p2 aux)
     | If _ _ _ p1 p2 => next_lab p1 (next_lab p2 aux)
-    | While _ _ _ p => next_lab p aux
+    | Loop p => next_lab p aux
     | Call NONE _ NONE => aux
     | Call NONE _ (SOME (_,_,l2)) => MAX aux (l2 + 2)
     | Call (SOME (p,_,_,l2)) _ NONE => next_lab p (MAX aux (l2 + 2))
@@ -685,9 +685,9 @@ val comp_quotation = `
         let (q1,m) = comp n m p1 in
         let (q2,m) = comp n m p2 in
           (If c r ri q1 q2,m)
-    | While c r ri p1 =>
+    | Loop p1 =>
         let (q1,m) = comp n m p1 in
-          (While c r ri q1,m)
+          (Loop q1,m)
     | Call NONE dest exc => (Call NONE dest NONE,m)
     | Call (SOME (p1,lr,l1,l2)) dest exc =>
         let (q1,m) = comp n m p1 in
@@ -720,4 +720,3 @@ End
 Definition compile_def:
   compile c prog = stubs c ++ MAP prog_comp prog
 End
-

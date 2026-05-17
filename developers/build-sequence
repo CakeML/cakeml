@@ -148,6 +148,13 @@ examples/xlrup_checker/array
 examples/xlrup_checker/array/compilation
 examples/xlrup_checker/array/compilation/proofs
 
+examples/cnf
+examples/cnf/array
+examples/cnf/dist
+examples/cnf/dist/array
+examples/cnf/dist/array/compilation
+examples/cnf/dist/array/compilation/proofs
+
 examples/scpog_checker
 examples/scpog_checker/array
 examples/scpog_checker/array/compilation
@@ -209,3 +216,5 @@ compiler/bootstrap/compilation/arm8/64:cake-arm8-64.tar.gz
 compiler/bootstrap/compilation/arm8/64/proofs
 compiler/bootstrap/compilation/ag32/32
 compiler/bootstrap/compilation/ag32/32/proofs
+unverified/sexpr-bootstrap/x64/64
+unverified/sexpr-bootstrap/x64/32

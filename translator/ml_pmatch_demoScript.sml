@@ -99,8 +99,8 @@ End
 Definition TRANS_def:
   TRANS c1 c2 =
     pmatch (c1,c2) of
-    | (Comb (Comb (Const (strlit "=") _) l) m1,
-       Comb (Comb (Const (strlit "=") _) m2) r) => "yes"
+    | (Comb (Comb (Const «=» _) l) m1,
+       Comb (Comb (Const «=» _) m2) r) => "yes"
     | _ => "no"
 End
 

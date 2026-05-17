@@ -366,6 +366,9 @@ Proof
         \\ simp [SF DNF_ss])
       \\ strip_tac \\ fs []
       \\ Cases_on ‘res1’ \\ gvs []
+      \\ IF_CASES_TAC
+      >- (rename [‘bad_fun_return (SOME tt)’] \\ Cases_on ‘tt’ \\ fs [])
+      \\ simp []
       \\ strip_tac \\ gvs []
       \\ CASE_TAC \\ gvs []
       \\ CASE_TAC \\ gvs []
@@ -684,6 +687,7 @@ Proof
     \\ disch_then (qspecl_then [`n1`,`n2`] strip_assume_tac) \\ fs[]
     \\ `t.clock <> 0` by fs [state_rel_def]
     \\ Cases_on `res1` \\ fs [] \\ srw_tac[][] \\ fs[]
+    >- (rename [‘bad_fun_return (SOME tt)’] \\ Cases_on ‘tt’ \\ fs [])
     \\ every_case_tac \\ fs [mk_loc_def]
     \\ fs [wordSemTheory.jump_exc_def,wordSemTheory.call_env_def,
            wordSemTheory.dec_clock_def]

@@ -17,14 +17,14 @@ let m1 t =
 (* Pattern matching on records works in the outermost pattern. Nested record
  * patterns are not supported.
  *)
-let Bb { a_string } = Bb { a_string = "5"; boolean = False; integer = 1 };;
+let Bb { a_string } = Bb { a_string = "5"; boolean = false; integer = 1 };;
 
 (* Records are constructed with this syntax: *)
-let x = Bb { a_string = "1"; boolean = False; integer = 2 };;
+let x = Bb { a_string = "1"; boolean = false; integer = 2 };;
 let y = Aa 5;;
 
 (* Records can be updated using 'with'. This updates the record 'x': *)
-let z = Bb { x with boolean = True; integer = 3; };;
+let z = Bb { x with boolean = true; integer = 3; };;
 
 (* Record projection is done with dots, using the name of the constructor and
  * the name of the field: *)
@@ -36,7 +36,7 @@ print (a_string ^ "\n");;
 
 module Mod = struct
   type blob = Cc of { cc: bool };;
-  let x = Cc { cc = True };;
+  let x = Cc { cc = true };;
 end;;
 
 (* It's possible to use records with qualified constructors:

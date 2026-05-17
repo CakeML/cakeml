@@ -210,7 +210,7 @@ Definition comp_def:
     (* for the rest, just leave it unchanged *)
     | Seq p1 p2 => Seq (comp jump off k p1) (comp jump off k p2)
     | If c r ri p1 p2 => If c r ri (comp jump off k p1) (comp jump off k p2)
-    | While c r ri p1 => While c r ri (comp jump off k p1)
+    | Loop p1 => Loop (comp jump off k p1)
     | Call ret dest exc =>
         Call (case ret of
               | NONE => NONE
@@ -334,9 +334,9 @@ End
 
 Definition stub_names_def:
   stub_names () = [
-    (0n,mlstring$strlit "_Init");
-    (1n,mlstring$strlit "_Halt0");
-    (2n,mlstring$strlit "_Halt2")]
+    (0n,implode "_Init");
+    (1n,implode "_Halt0");
+    (2n,implode "_Halt2")]
 End
 
 Theorem check_init_stubs_length:

@@ -446,7 +446,7 @@ Definition conv_NonRecStmt_def:
     else if tokcheck leaf (kw ContK) then SOME Continue
     else if tokcheck leaf (kw TicK) then SOME Tick
     else (case dest_annot_tok leaf of
-      | SOME c => SOME (Annot (strlit "@") (implode c))
+      | SOME c => SOME (Annot «@» (implode c))
       | NONE => NONE)
 End
 
@@ -498,22 +498,22 @@ Definition parsetree_locs_def:
 End
 
 Definition posn_string_def:
-  posn_string (POSN lnum cnum) = (toString lnum ^ strlit ":" ^ toString cnum) /\
-  posn_string EOFpt = strlit "EOF" /\
-  posn_string UNKNOWNpt = strlit "UNKNOWN"
+  posn_string (POSN lnum cnum) = (toString lnum ^ «:» ^ toString cnum) /\
+  posn_string EOFpt = «EOF» /\
+  posn_string UNKNOWNpt = «UNKNOWN»
 End
 
 Definition locs_comment_def:
   locs_comment (p1, p2) =
-  concat [strlit"(";
+  concat [«(»;
     posn_string p1;
-    strlit " ";
+    « »;
     posn_string p2;
-    strlit ")"]
+    «)»]
 End
 
 Definition add_locs_annot_def:
-  add_locs_annot ptree prog = panLang$Seq (Annot (strlit "location") (locs_comment (parsetree_locs ptree))) prog
+  add_locs_annot ptree prog = panLang$Seq (Annot «location» (locs_comment (parsetree_locs ptree))) prog
 End
 
 val Nd = “Nd : (pancakeNT + num) # locs -> (token, pancakeNT, locs) parsetree list -> (token, pancakeNT, locs) parsetree”;

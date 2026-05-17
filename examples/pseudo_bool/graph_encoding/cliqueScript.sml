@@ -264,7 +264,7 @@ QED
   and normalize to ≥ only *)
 Definition enc_string_def:
   (enc_string x =
-    concat [strlit"x";toString (x+1)])
+    concat [«x»;toString (x+1)])
 End
 
 Theorem enc_string_INJ:
@@ -279,7 +279,7 @@ Proof
 QED
 
 Definition annot_string_def:
-  annot_string ((x,y):annot) = SOME (concat[strlit"noedge"; toString (x+1) ; strlit"_" ; toString (y+1)])
+  annot_string ((x,y):annot) = SOME (concat[«noedge»; toString (x+1) ; «_» ; toString (y+1)])
 End
 
 Definition full_encode_def:
@@ -554,8 +554,8 @@ Proof
 QED
 
 Definition mannot_string_def:
-  (mannot_string (INL ((x,y):annot)) = SOME (concat[strlit"noedge"; toString (x+1) ; strlit"_" ; toString (y+1)])) ∧
-  (mannot_string (INR (x:num)) = SOME (concat[strlit"maximal"; toString (x+1)]))
+  (mannot_string (INL ((x,y):annot)) = SOME (concat[«noedge»; toString (x+1) ; «_» ; toString (y+1)])) ∧
+  (mannot_string (INR (x:num)) = SOME (concat[«maximal»; toString (x+1)]))
 End
 
 Definition full_mencode_def:

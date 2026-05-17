@@ -97,17 +97,17 @@ QED
 Definition get_range_def:
   get_range prefix line =
     if ~(mlstring$isPrefix prefix line) then
-      INL (strlit"c Incorrect prefix on line: " ^ line ^ strlit"\n")
+      INL («c Incorrect prefix on line: » ^ line ^ «\n»)
     else
       let i = strlen prefix in
       let l = strlen line in
       if l > 0 ∧ strsub line (l-1) = #"\n" then
         let rest = substring line i (l-i-1) in
         case parse_rng rest of
-          NONE => INL (strlit "c Bad ranges on line: " ^ line)
+          NONE => INL («c Bad ranges on line: » ^ line)
         | SOME (i,j) => INR (i,j)
       else
-        INL (strlit "c Bad ranges on line: " ^ line)
+        INL («c Bad ranges on line: » ^ line)
 End
 
 val _ = translate parse_rng_def;
@@ -138,9 +138,9 @@ val res = translate get_ranges_def;
 
 Definition expected_prefix_def:
   expected_prefix cnf_md5 proof_md5 =
-    concat [strlit "s VERIFIED RANGE ";
-            cnf_md5; strlit " ";
-            proof_md5; strlit " "]
+    concat [«s VERIFIED RANGE »;
+            cnf_md5; « »;
+            proof_md5; « »]
 End
 
 val res = translate expected_prefix_def;
@@ -176,9 +176,9 @@ Definition check_lines_def:
         let r = closure_spt start (build_sets ranges LN) in
           case lookup n r of
           | NONE =>
-              INL (concat [strlit "c Intervals do not reach "; toString n; strlit "\n"])
+              INL (concat [«c Intervals do not reach »; toString n; «\n»])
           | SOME u =>
-              INR (concat [strlit "s VERIFIED INTERVALS COVER 0-"; toString n; strlit "\n"])
+              INR (concat [«s VERIFIED INTERVALS COVER 0-»; toString n; «\n»])
 End
 
 val res = translate check_lines_def;
@@ -198,7 +198,7 @@ End
 Theorem line_of_gen_lines_of[simp]:
   lines_of_gen #"\n" = lines_of
 Proof
-  rw[FUN_EQ_THM,lines_of_gen_def,lines_of_def,splitlines_at_def,splitlines_def,str_def]
+  rw[FUN_EQ_THM,lines_of_gen_def,lines_of_def,splitlines_at_def,splitlines_def,chr_to_str_def]
 QED
 
 Theorem line_count_of_spec:
@@ -221,7 +221,7 @@ Proof
   \\ gvs [std_preludeTheory.OPTION_TYPE_def]
   \\ first_x_assum $ irule_at $ Pos hd
   \\ xsimpl
-  \\ gvs [std_preludeTheory.OPTION_TYPE_def,implode_def]
+  \\ gvs [std_preludeTheory.OPTION_TYPE_def]
   \\ rw []
   \\ qsuff_tac ‘∀xs n. foldl add_one n xs = LENGTH xs + n’
   THEN1 (rw [] \\ gvs [])
@@ -229,7 +229,7 @@ Proof
 QED
 
 Definition notfound_string_def:
-  notfound_string f = concat[strlit"c Input file: ";f;strlit" no such file or directory\n"]
+  notfound_string f = concat[«c Input file: »;f;« no such file or directory\n»]
 End
 
 val r = translate notfound_string_def;
@@ -290,8 +290,8 @@ Proof
          \\ first_assum $ irule_at (Pos hd) \\ fs []
          \\ xsimpl
          \\ fs [file_content_def,AllCaseEqs(),inFS_fname_def,all_lines_file_def]
-         \\ fs [std_preludeTheory.OPTION_TYPE_def,implode_def])
-  \\ fs [std_preludeTheory.OPTION_TYPE_def,implode_def]
+         \\ fs [std_preludeTheory.OPTION_TYPE_def])
+  \\ fs [std_preludeTheory.OPTION_TYPE_def]
   \\ xmatch
   \\ qpat_x_assum ‘file_content fs proof_fname = SOME proof’ assume_tac
   \\ drule_at (Pos $ el 2) line_count_of_spec
@@ -299,7 +299,7 @@ Proof
   \\ disch_then (qspec_then ‘p’ assume_tac)
   \\ gvs []
   \\ xlet_auto THEN1 xsimpl
-  \\ fs [std_preludeTheory.OPTION_TYPE_def,implode_def]
+  \\ fs [std_preludeTheory.OPTION_TYPE_def]
   \\ xmatch
   \\ xlet_auto THEN1 xsimpl
   \\ TOP_CASE_TAC \\ fs[SUM_TYPE_def] \\ xmatch
@@ -388,7 +388,7 @@ Proof
          \\ res_tac
          \\ fs []
          \\ imp_res_tac ALOOKUP_NONE)
-  \\ fs [std_preludeTheory.OPTION_TYPE_def,implode_def]
+  \\ fs [std_preludeTheory.OPTION_TYPE_def]
   \\ xmatch
   \\ xlet_auto THEN1 xsimpl
   \\ xapp_spec output_stderr_spec \\ xsimpl>>
@@ -442,7 +442,7 @@ Theorem MEM_get_ranges:
   ∀ls prefix ranges i j.
   get_ranges prefix ls = INR ranges ∧
   MEM (i,j) ranges ⇒
-  ∃out. MEM (prefix ^ out ^ strlit"\n") ls ∧ parse_rng out = SOME (i,j)
+  ∃out. MEM (prefix ^ out ^ «\n») ls ∧ parse_rng out = SOME (i,j)
 Proof
   Induct \\ rw[get_ranges_def]
   \\ reverse (gvs[get_range_def,AllCaseEqs()])

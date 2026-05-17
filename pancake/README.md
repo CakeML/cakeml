@@ -18,7 +18,7 @@ Simplification of arithmetic in crepLang.
 Function inlining pass in crepLang
 
 [crep_to_loopScript.sml](crep_to_loopScript.sml):
-Compilation from crepLang to panLang.
+Compilation from crepLang to loopLang.
 
 [loopLangScript.sml](loopLangScript.sml):
 loopLang intermediate language
@@ -28,9 +28,6 @@ Call optimisation for loopLang
 
 [loop_liveScript.sml](loop_liveScript.sml):
 Liveness analysis for loopLang.
-
-[loop_removeScript.sml](loop_removeScript.sml):
-Loop removal pass for loopLang.
 
 [loop_to_wordScript.sml](loop_to_wordScript.sml):
 Compilation from loopLang to wordLang.
