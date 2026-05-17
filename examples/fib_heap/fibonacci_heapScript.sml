@@ -2143,7 +2143,7 @@ QED
 
 
 
-Theorem lemma_logical_melt:
+Theorem lemma_logical_meld:
   !fh1 fh2 xs ys.
   (fib_heap_inv fh1 xs) /\
   (fib_heap_inv fh2 ys) /\
@@ -2216,7 +2216,7 @@ Proof
   >- (
     disch_tac >> gvs[] >>
     qspecl_then [`fhy`,`fhx`,`(FibTree k' v' l'::t')`,`(FibTree k v l::t)`]
-      assume_tac lemma_logical_melt >>
+      assume_tac lemma_logical_meld >>
     fs[fts_hd_value_def] >>
     fs[FUNION_COMM,DISJOINT_SYM] >>
     gvs[] >>
@@ -2229,7 +2229,7 @@ Proof
   drule_all WORD_LOWER_IMP_LOWER_OR_EQ >>
   disch_tac >> gvs[] >>
   qspecl_then [`fhx`,`fhy`,`(FibTree k v l::t)`,`(FibTree k' v' l'::t')`]
-    assume_tac lemma_logical_melt >>
+    assume_tac lemma_logical_meld >>
   fs[fts_hd_value_def] >> gvs[] >>
   pure_rewrite_tac[GSYM APPEND_ASSOC] >>
   pure_rewrite_tac[APPEND] >>
@@ -2712,22 +2712,22 @@ Proof
   imp_res_tac lemma_mem_fib_heap_meld
   >- (
     qexists `fts ++ fts'` >> simp[] >>
-    qspecl_then [`fh2`,`fh1`,`fts'`,`fts`] assume_tac lemma_logical_melt >>
+    qspecl_then [`fh2`,`fh1`,`fts'`,`fts`] assume_tac lemma_logical_meld >>
     rfs[DISJOINT_SYM,fib_heap_inv_comm_thm]
     )
   >- (
     qexists `fts' ++ fts` >> simp[] >>
-    qspecl_then [`fh1`,`fh2`,`fts`,`fts'`] assume_tac lemma_logical_melt >>
+    qspecl_then [`fh1`,`fh2`,`fts`,`fts'`] assume_tac lemma_logical_meld >>
     rfs[DISJOINT_SYM,fib_heap_inv_comm_thm] >>
     simp[fts_mem_ann_sym_thm]
     )
   >- (
     qexists `fts ++ fts'` >> simp[] >>
-    qspecl_then [`fh2`,`fh1`,`fts'`,`fts`] assume_tac lemma_logical_melt >>
+    qspecl_then [`fh2`,`fh1`,`fts'`,`fts`] assume_tac lemma_logical_meld >>
     rfs[DISJOINT_SYM,fib_heap_inv_comm_thm]
     ) >>
   qexists `fts' ++ fts` >> simp[] >>
-  qspecl_then [`fh1`,`fh2`,`fts`,`fts'`] assume_tac lemma_logical_melt >>
+  qspecl_then [`fh1`,`fh2`,`fts`,`fts'`] assume_tac lemma_logical_meld >>
   rfs[DISJOINT_SYM,fib_heap_inv_comm_thm] >>
   simp[fts_mem_ann_sym_thm]
 QED
