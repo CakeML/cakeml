@@ -29,9 +29,6 @@ Call optimisation for loopLang
 [loop_liveScript.sml](loop_liveScript.sml):
 Liveness analysis for loopLang.
 
-[loop_removeScript.sml](loop_removeScript.sml):
-Loop removal pass for loopLang.
-
 [loop_to_wordScript.sml](loop_to_wordScript.sml):
 Compilation from loopLang to wordLang.
 

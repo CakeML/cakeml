@@ -60,6 +60,37 @@ Definition distinct_params_def:
   EVERY (λ(name,params,body). ALL_DISTINCT params) prog
 End
 
+Theorem lookup_first_name_compile_prog_main:
+  FLOOKUP (make_funcs (crep_code : (mlstring # num list # α crepLang$prog) list)) «main» = SOME (first_name, 0) ⇒
+  ∃prog. lookup first_name (fromAList (crep_to_loop$compile_prog c crep_code)) = SOME ([], prog)
+Proof
+  strip_tac >>
+  qspecl_then [‘crep_code’, ‘«main»’, ‘0’] mp_tac
+    crep_to_loopProofTheory.initial_prog_make_funcs_el >>
+  simp[] >>
+  rpt strip_tac >>
+  Cases_on ‘crep_code’ >> gvs[] >>
+  PairCases_on ‘h’ >> gvs[] >>
+  simp[lookup_fromAList, crep_to_loopTheory.compile_prog_def, GENLIST_CONS]
+QED
+
+Theorem loop_state_simps[simp]:
+  !s c crep_code ck (mem:α word -> α word_loc).
+    (loop_state s c crep_code ck mem).memory = mem ∧
+    (loop_state s c crep_code ck mem).mdomain = s.memaddrs ∧
+    (loop_state s c crep_code ck mem).sh_mdomain = s.sh_memaddrs ∧
+    (loop_state s c crep_code ck mem).clock = ck ∧
+    ((loop_state s c crep_code ck mem).be ⇔ s.be) ∧
+    (loop_state s c crep_code ck mem).ffi = s.ffi ∧
+    (loop_state s c crep_code ck mem).base_addr = s.base_addr ∧
+    (loop_state s c crep_code ck mem).top_addr = s.top_addr ∧
+    (loop_state s c crep_code ck mem).globals = FEMPTY ∧
+    isEmpty (loop_state s c crep_code ck mem).locals ∧
+    (loop_state s c crep_code ck mem).code = fromAList (compile_prog c crep_code)
+Proof
+  rw[loop_state_def]
+QED
+
 
 Theorem first_compile_prog_all_distinct:
   !prog. ALL_DISTINCT (MAP FST(functions prog)) ==>
@@ -369,75 +400,38 @@ Proof
       drule_then irule semantics_decls_has_main' >>
       simp[]) >>
   disch_then $ assume_tac o GSYM >> gvs[] >>
-  irule fstate_rel_imp_semantics >>
+  irule loop_to_wordProofTheory.state_rel_imp_semantics >>
   unabbrev_all_tac >>
   simp[crep_state_def] >>
   ‘∃prog. ALOOKUP (functions (compile_prog pan_code)) «main» = SOME([],prog)’
     by(drule_then irule semantics_decls_has_main' >>
        simp[]) >>
   conj_asm1_tac
-  >- (simp[lookup_fromAList] >>
-      irule_at Any ALOOKUP_ALL_DISTINCT_MEM >>
-      irule_at Any crep_to_loopProofTheory.first_compile_prog_all_distinct >>
-      simp [pan_to_crepTheory.compile_prog_def, pan_globalsTheory.compile_top_def,
-            pan_to_crepTheory.compile_to_crep_def, crep_inlineTheory.compile_inl_prog_def,
-            crep_inlineTheory.compile_inl_top_def,
-            ELIM_UNCURRY,panLangTheory.functions_def,
-            pan_to_crepTheory.crep_vars_def, panLangTheory.size_of_shape_def,
-            crep_to_loopTheory.compile_prog_def,
-            crep_to_loopTheory.make_funcs_def,
-            pan_to_crepTheory.make_funcs_def,FLOOKUP_UPDATE,
-            GENLIST_CONS
-           ] >>
+  >- (drule lookup_first_name_compile_prog_main >>
       metis_tac[]) >>
-  conj_asm1_tac
-  >- simp[loop_state_def] >>
-  irule_at (Pos hd) EQ_REFL >>
-  simp[st_rel_def,pan_to_wordTheory.compile_prog_def] >>
+  simp[loop_to_wordProofTheory.state_rel_def] >>
   conj_tac
-  >- (simp[loop_removeProofTheory.state_rel_def,loop_state_def] >>
-      simp[lookup_fromAList] >>
-      ntac 4 strip_tac >>
-      conj_tac
-      >- (drule ALOOKUP_MEM >>
-          fs [crep_to_loopTheory.compile_prog_def] >>
-          simp[MAP2_ZIP] >>
-          rw[MEM_MAP,MEM_ZIP,ELIM_UNCURRY,
-             loop_liveTheory.optimise_def,
-             loop_liveTheory.comp_def] >>
-          rw[loop_liveProofTheory.mark_all_syntax_ok]
-         ) >>
-      match_mp_tac loop_removeProofTheory.comp_prog_has_code >>
-      reverse conj_tac >- metis_tac[ALOOKUP_MEM] >>
-      fs [crep_to_loopProofTheory.first_compile_prog_all_distinct]) >>
-  conj_tac
-  >- (simp[loop_to_wordProofTheory.state_rel_def] >>
-      simp[loop_state_def,loop_to_wordProofTheory.globals_rel_def,
-           pan_to_wordTheory.compile_prog_def] >>
-      simp[loop_to_wordProofTheory.code_rel_def] >>
-      simp[lookup_fromAList] >>
-      simp[loop_to_wordTheory.compile_def,loop_to_wordTheory.compile_prog_def] >>
-      simp[ELIM_UNCURRY] >>
-      Ho_Rewrite.PURE_REWRITE_TAC[SIMP_RULE std_ss [ELIM_UNCURRY] ALOOKUP_MAP_2] >>
-      simp[] >>
-      rpt strip_tac >>
-      imp_res_tac ALOOKUP_MEM >>
-      imp_res_tac loop_removeProofTheory.comp_prog_no_loops >>
-      drule_then irule loop_removeProofTheory.compile_prog_distinct_params >>
-      irule crep_to_loopProofTheory.compile_prog_distinct_params >>
-      irule pan_to_crepProofTheory.compile_prog_distinct_params) >>
-  simp[loop_to_wordProofTheory.code_rel_def] >>
+  >- simp[loop_to_wordProofTheory.globals_rel_def] >>
+  simp[loop_to_wordProofTheory.code_rel_def,
+       pan_to_wordTheory.compile_prog_def,
+       loop_to_wordTheory.compile_def] >>
+  rpt strip_tac
+  >- (irule loop_to_wordProofTheory.lookup_prog_some_lookup_compile_prog >>
+      first_assum ACCEPT_TAC) >>
+  ‘EVERY (λ(name,params,body). ALL_DISTINCT params)
+     (crep_to_loop$compile_prog c (pan_to_crep$compile_prog
+        (compile_top (pan_simp$compile_prog pan_code) «main»)))’
+    by(irule crep_to_loopProofTheory.compile_prog_distinct_params >>
+       irule pan_to_crepProofTheory.compile_prog_distinct_params) >>
+  qpat_x_assum ‘lookup _ (fromAList _) = SOME _’ mp_tac >>
   simp[lookup_fromAList] >>
-  simp[loop_to_wordTheory.compile_def,loop_to_wordTheory.compile_prog_def] >>
-  simp[ELIM_UNCURRY] >>
-  Ho_Rewrite.PURE_REWRITE_TAC[SIMP_RULE std_ss [ELIM_UNCURRY] ALOOKUP_MAP_2] >>
-  simp[] >>
-  rpt strip_tac >>
-  imp_res_tac ALOOKUP_MEM >>
-  imp_res_tac loop_removeProofTheory.comp_prog_no_loops >>
-  drule_then irule loop_removeProofTheory.compile_prog_distinct_params >>
-  irule crep_to_loopProofTheory.compile_prog_distinct_params >>
-  irule pan_to_crepProofTheory.compile_prog_distinct_params
+  strip_tac >>
+  drule ALOOKUP_MEM >>
+  fs[EVERY_MEM, FORALL_PROD] >>
+  strip_tac >>
+  first_x_assum drule >>
+  strip_tac >>
+  first_assum ACCEPT_TAC
 QED
 
 (*** no_install/no_alloc/no_mt lemmas ***)

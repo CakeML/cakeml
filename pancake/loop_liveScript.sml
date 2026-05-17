@@ -55,6 +55,11 @@ Definition arith_vars:
   insert r3 () $ insert r4 () $ insert r5 () $ delete r1 $ delete r2 l
 End
 
+Definition list_delete_def:
+  list_delete [] s = s ∧
+  list_delete (v::vs) s = list_delete vs (delete v s)
+End
+
 (* This optimisation shrinks all cutsets and also deletes assignments
    to unused variables. The Loop case is the interesting one: an
    auxiliary function is used to find a fixed-point. *)
@@ -82,7 +87,7 @@ Definition shrink_def:
   (shrink b Continue l = (Continue,FST b)) /\
   (shrink b Fail l = (Fail,LN)) /\
   (shrink b Skip l = (Skip,l)) /\
-  (shrink b (Return v) l = (Return v, insert v () LN)) /\
+  (shrink b (Return vs) l = (Return vs, list_insert vs LN)) /\
   (shrink b (Raise v) l = (Raise v, insert v () LN)) /\
   (shrink b (Arith arith) l =
    (Arith arith, arith_vars arith l)
@@ -110,15 +115,15 @@ Definition shrink_def:
      let a = fromAList (MAP (λx. (x,())) args) in
      case ret of
      | NONE => (Call NONE dest args NONE, union a l)
-     | SOME (n,l1) =>
+     | SOME (ns,l1) =>
         case handler of
-        | NONE => let l3 = (delete n (inter l l1)) in
-                    (Call (SOME (n,l3)) dest args NONE, union a l3)
+        | NONE => let l3 = (list_delete ns (inter l l1)) in
+                    (Call (SOME (ns,l3)) dest args NONE, union a l3)
         | SOME (e,h,r,live_out) =>
             let (r,l2) = shrink b r l in
             let (h,l3) = shrink b h l in
-            let l1 = inter l1 (union (delete n l2) (delete e l3)) in
-              (Call (SOME (n,l1)) dest args (SOME (e,h,r,inter l live_out)),
+            let l1 = inter l1 (union (list_delete ns l2) (delete e l3)) in
+              (Call (SOME (ns,l1)) dest args (SOME (e,h,r,inter l live_out)),
                union a l1)) ∧
   (shrink b (FFI n r1 r2 r3 r4 l1) l =
    (FFI n r1 r2 r3 r4 (inter l1 l),
@@ -132,7 +137,6 @@ Definition shrink_def:
   (shrink b (StoreByte x y) l =
     (StoreByte x y, insert x () (insert y () l))) ∧
   (shrink b prog l = (prog,l)) /\
-
 
   (fixedpoint live_in l1 l2 body =
      let (b,l0) = shrink (inter live_in l1,l2) body l2 in
@@ -199,11 +203,11 @@ Definition mark_all_def:
   (mark_all (Call ret dest args handler) =
      case handler of
      | NONE => (Mark (Call ret dest args handler), T)
-     | SOME (n,p1,p2,l) =>
+     | SOME (ns,p1,p2,l) =>
          let (p1,t1) = mark_all p1 in
          let (p2,t2) = mark_all p2 in
          let t3 = (t1 ∧ t2) in
-         let p3 = Call ret dest args (SOME (n,p1,p2,l)) in
+         let p3 = Call ret dest args (SOME (ns,p1,p2,l)) in
            (if t3 then Mark p3 else p3, t3)) /\
   (mark_all prog = (Mark prog,T))
 End
@@ -212,9 +216,6 @@ Definition comp_def:
   comp prog = FST (mark_all (FST (shrink (LN,LN) prog LN)))
 End
 
-
 Definition optimise_def:
   optimise prog = (comp o FST o loop_call$comp LN) prog
 End
-
-
