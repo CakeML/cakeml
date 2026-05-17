@@ -757,8 +757,8 @@ val _ = Parse.add_infix("extends'",450,Parse.NONASSOC)
 
 (* Initial theory context *)
 
-Definition init_ctxt_def:
-  init_ctxt = [NewConst (strlit "=") (Fun (Tyvar(strlit "A")) (Fun (Tyvar(strlit "A")) Bool))
+Definition init_ectxt_def:
+  init_ectxt = [NewConst (strlit "=") (Fun (Tyvar(strlit "A")) (Fun (Tyvar(strlit "A")) Bool))
               ;NewType (strlit "bool") 0
               ;NewType (strlit "fun") 2]
 End
