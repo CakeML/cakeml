@@ -301,18 +301,23 @@ End
    These helpers shadow CakeML's call stack on the C stack so that
    `perf record --call-graph fp` can unwind through CakeML code.
 
-   They reference source register numbers 14 and 15, which the
-   x64 stack_names mapping renames to physical r4 (%rbp) and r5
-   (%rsp). On non-x64 targets the same source numbers will be
-   renamed to whatever that target's reg_names says, so the flag
-   should only be enabled for x64 (guarded at the CLI layer). *)
+   They reference source register numbers 14 and 15.  The x64
+   `stack_names` mapping renames these to physical 4 and 5, and
+   `num2Zreg` (from the L3 x86_64 model) maps physical 4 → RSP
+   and physical 5 → RBP — note the comment in `x64_configScript`
+   that says "r4=rbp, r5=rsp" is misleading; the constructor
+   order of the `Zreg` datatype is what determines the actual
+   hardware register.  On non-x64 targets the same source
+   numbers will be renamed to whatever that target's reg_names
+   says, so the flag should only be enabled for x64 (guarded at
+   the CLI layer). *)
 
 Definition perf_rbp_def:
-  perf_rbp = 14n
+  perf_rbp = 15n   (* x64_names: 15 → physical 5 = RBP *)
 End
 
 Definition perf_rsp_def:
-  perf_rsp = 15n
+  perf_rsp = 14n   (* x64_names: 14 → physical 4 = RSP *)
 End
 
 Definition perf_call_prefix_def:
@@ -602,7 +607,16 @@ End
 Definition compile_def:
   compile asm_conf perf progs =
     let k = asm_conf.reg_count - (5+LENGTH asm_conf.avoid_regs) in
-    let (progs,fs,bitmaps) = compile_word_to_stack asm_conf perf k progs (List [4w], 1) in
+    (* Bitmap table entry 0 is the handler-frame bitmap.  In master
+       (perf=F) the handler is 3 slots and uses 4w = 0b100 (skip 2
+       slots, terminator).  In perf=T the handler is 5 slots, all
+       four non-bitmap slots are non-pointers (label, prev-handler,
+       saved %rsp, saved %rbp), so we use 16w = 0b10000 (skip 4 slots,
+       terminator).  PushHandler stores `1w` at slot 0 in both modes;
+       it's the bitmap contents at index 0 that differs. *)
+    let init_bitmaps =
+        if perf then (List [16w], 1n) else (List [4w], 1n) in
+    let (progs,fs,bitmaps) = compile_word_to_stack asm_conf perf k progs init_bitmaps in
     let sfs = fromAList (MAP (λ((i,_),n). (i,n)) (ZIP (progs,fs))) in
       (append (FST bitmaps),
        <| bitmaps_length := SND bitmaps;
