@@ -124,7 +124,7 @@ Theorem ncompile_correct:
          NONE => NONE
        | SOME Break => SOME Break
        | SOME Continue => SOME Continue
-       | SOME (Return v) => SOME (Result (wlab_wloc v))
+       | SOME (Return v) => SOME (Result [wlab_wloc v])
        | SOME (Exception eid) => SOME (Exception (Word eid))
        | SOME TimeOut => SOME TimeOut
        | SOME (FinalFFI f) => SOME (FinalFFI f)
@@ -1615,11 +1615,11 @@ Resume ncompile_correct[Return]:
   fs [] >> strip_tac >> fs [] >>
   qexists_tac ‘ck’ >> fs [] >>
   drule evaluate_none_nested_seq_append >>
-  disch_then (qspec_then ‘[Assign ntmp le; Return ntmp]’ mp_tac) >>
+  disch_then (qspec_then ‘[Assign ntmp le; Return [ntmp]]’ mp_tac) >>
   strip_tac >> fs [] >> pop_assum kall_tac >>
   fs [nested_seq_def, evaluate_def] >>
-  pairarg_tac >>
-  fs [set_var_def, lookup_insert, call_env_def] >>
+  rpt (pairarg_tac >> fs []) >>
+  gvs [get_vars_def, set_var_def, lookup_insert, call_env_def, AllCaseEqs()] >>
   rveq >> fs [crepSemTheory.empty_locals_def, state_rel_def] >>
   cases_on ‘w’ >> fs [wlab_wloc_def] >>
   imp_res_tac locals_rel_intro >>
@@ -2103,35 +2103,35 @@ Resume ncompile_correct[Dec]:
                  ‘insert tmp () l’] mp_tac) >>
   impl_tac
   >- (
-  fs [] >>
-  conj_tac >- fs [state_rel_def] >>
-  imp_res_tac compile_exp_out_rel >>
-  conj_tac >- fs [code_rel_def] >>
-  imp_res_tac locals_rel_intro >>
-  rw [locals_rel_def]
-  >- (
-    fs [distinct_vars_def] >>
-    rw [] >>
+    fs [] >>
+    conj_tac >- fs [state_rel_def] >>
+    imp_res_tac compile_exp_out_rel >>
+    conj_tac >- fs [code_rel_def] >>
+    imp_res_tac locals_rel_intro >>
+    rw [locals_rel_def]
+    >- (
+      fs [distinct_vars_def] >>
+      rw [] >>
+      fs [FLOOKUP_UPDATE] >>
+      FULL_CASE_TAC >> fs [] >>
+      FULL_CASE_TAC >> fs [] >> rveq >>
+      fs [ctxt_max_def] >> res_tac >> rfs [])
+    >- (
+      rw [ctxt_max_def] >>
+      fs [FLOOKUP_UPDATE] >>
+      FULL_CASE_TAC >> fs [] >>
+      fs [ctxt_max_def] >> res_tac >> rfs [])
+    >- (
+      drule cut_sets_union_domain_subset >>
+      strip_tac >>
+      metis_tac [SUBSET_TRANS, SUBSET_INSERT_RIGHT]) >>
     fs [FLOOKUP_UPDATE] >>
-    FULL_CASE_TAC >> fs [] >>
-    FULL_CASE_TAC >> fs [] >> rveq >>
-    fs [ctxt_max_def] >> res_tac >> rfs [])
-  >- (
-    rw [ctxt_max_def] >>
-    fs [FLOOKUP_UPDATE] >>
-    FULL_CASE_TAC >> fs [] >>
-    fs [ctxt_max_def] >> res_tac >> rfs [])
-  >- (
-    drule cut_sets_union_domain_subset >>
-    strip_tac >>
-    metis_tac [SUBSET_TRANS, SUBSET_INSERT_RIGHT]) >>
-  fs [FLOOKUP_UPDATE] >>
-  TOP_CASE_TAC >> fs [] >> rveq >>
-  res_tac >> fs [] >> rveq >>
-  fs [lookup_insert] >> TOP_CASE_TAC >> fs [] >> rveq
-  >- (
-    fs [ctxt_max_def] >> res_tac >> rfs []) >>
-  cases_on ‘v'’ >> fs [wlab_wloc_def]) >>
+    TOP_CASE_TAC >> fs [] >> rveq >>
+    res_tac >> fs [] >> rveq >>
+    fs [lookup_insert] >> TOP_CASE_TAC >> fs [] >> rveq
+    >- (
+      fs [ctxt_max_def] >> res_tac >> rfs []) >>
+    cases_on ‘v'’ >> fs [wlab_wloc_def]) >>
   strip_tac >> fs [] >>
   qpat_x_assum ‘evaluate (nested_seq p,_) = _’ assume_tac >>
   drule evaluate_add_clock_eq >>
@@ -2145,121 +2145,122 @@ Resume ncompile_correct[Dec]:
   imp_res_tac compile_exp_out_rel_cases >>
   TOP_CASE_TAC >> fs [] >> rveq
   >- (
-  imp_res_tac locals_rel_intro >>
-  rw [locals_rel_def]
-  >- fs [domain_insert] >>
-  cases_on ‘vname = v’ >> rveq
-  >- (
-    cases_on ‘FLOOKUP s.locals v’ >>
-    fs [crepSemTheory.res_var_def] >>
-    fs [FLOOKUP_UPDATE] >> rveq >>
-    qmatch_asmsub_rename_tac ‘FLOOKUP s.locals v = SOME pv’ >>
-    res_tac >> fs [] >> rveq >>
-    qmatch_asmsub_rename_tac ‘FLOOKUP ctxt.vars v = SOME pn’ >>
-    qpat_x_assum ‘evaluate (compile _ _ _, _) = _’ assume_tac >>
-    drule unassigned_vars_evaluate_same >>
-    fs [] >>
-    disch_then (qspecl_then [‘pn’,‘wlab_wloc pv’] mp_tac) >>
-    impl_tac
+    imp_res_tac locals_rel_intro >>
+    rw [locals_rel_def]
+    >- fs [domain_insert] >>
+    cases_on ‘vname = v’ >> rveq
     >- (
-      conj_tac
+      cases_on ‘FLOOKUP s.locals v’ >>
+      fs [crepSemTheory.res_var_def] >>
+      fs [FLOOKUP_UPDATE] >> rveq >>
+      qmatch_asmsub_rename_tac ‘FLOOKUP s.locals v = SOME pv’ >>
+      res_tac >> fs [] >> rveq >>
+      qmatch_asmsub_rename_tac ‘FLOOKUP ctxt.vars v = SOME pn’ >>
+      qpat_x_assum ‘evaluate (compile _ _ _, _) = _’ assume_tac >>
+      drule unassigned_vars_evaluate_same >>
+      fs [] >>
+      disch_then (qspecl_then [‘pn’,‘wlab_wloc pv’] mp_tac) >>
+      impl_tac
       >- (
-        ‘pn <> tmp’ suffices_by fs [lookup_insert] >>
-        CCONTR_TAC >>
-        fs [] >>
-        imp_res_tac compile_exp_out_rel_cases >>
-        fs [ctxt_max_def] >> res_tac >> fs []) >>
-      conj_tac
+        conj_tac
+        >- (
+          ‘pn <> tmp’ suffices_by fs [lookup_insert] >>
+          CCONTR_TAC >>
+          fs [] >>
+          imp_res_tac compile_exp_out_rel_cases >>
+          fs [ctxt_max_def] >> res_tac >> fs []) >>
+        conj_tac
+        >- (
+          match_mp_tac not_mem_context_assigned_mem_gt >>
+          fs [] >>
+          imp_res_tac compile_exp_out_rel_cases >>
+          fs [ctxt_max_def] >> res_tac >> fs [] >>
+          rw [FLOOKUP_UPDATE] >>
+          CCONTR_TAC >>
+          fs [distinct_vars_def] >>
+          res_tac >> fs []) >>
+        match_mp_tac member_cutset_survives_comp_prog >>
+        fs [domain_insert]) >>
+      fs []) >>
+    cases_on ‘FLOOKUP s.locals v’ >>
+    fs [crepSemTheory.res_var_def]
+    >- (
+      fs [DOMSUB_FLOOKUP_THM] >>
+      last_x_assum drule >>
+      strip_tac >> fs [] >> rveq
       >- (
-        match_mp_tac not_mem_context_assigned_mem_gt >>
-        fs [] >>
-        imp_res_tac compile_exp_out_rel_cases >>
-        fs [ctxt_max_def] >> res_tac >> fs [] >>
-        rw [FLOOKUP_UPDATE] >>
-        CCONTR_TAC >>
-        fs [distinct_vars_def] >>
-        res_tac >> fs []) >>
-      match_mp_tac member_cutset_survives_comp_prog >>
-      fs [domain_insert]) >>
-    fs []) >>
-  cases_on ‘FLOOKUP s.locals v’ >>
-  fs [crepSemTheory.res_var_def]
-  >- (
-    fs [DOMSUB_FLOOKUP_THM] >>
+        rfs [FLOOKUP_UPDATE] >> rveq >>
+        fs [ctxt_max_def] >> res_tac >> rfs []) >>
+      rfs [FLOOKUP_UPDATE] >>
+      cases_on ‘v'’ >> fs [wlab_wloc_def]) >>
+    qmatch_asmsub_rename_tac ‘FLOOKUP s.locals v = SOME rv’ >>
+    fs [FLOOKUP_UPDATE] >>
     last_x_assum drule >>
     strip_tac >> fs [] >> rveq
     >- (
       rfs [FLOOKUP_UPDATE] >> rveq >>
       fs [ctxt_max_def] >> res_tac >> rfs []) >>
     rfs [FLOOKUP_UPDATE] >>
-    cases_on ‘v'’ >> fs [wlab_wloc_def]) >>
-  qmatch_asmsub_rename_tac ‘FLOOKUP s.locals v = SOME rv’ >>
-  fs [FLOOKUP_UPDATE] >>
-  last_x_assum drule >>
-  strip_tac >> fs [] >> rveq
+    cases_on ‘v'’ >> fs [wlab_wloc_def])
   >- (
-    rfs [FLOOKUP_UPDATE] >> rveq >>
-    fs [ctxt_max_def] >> res_tac >> rfs []) >>
-  rfs [FLOOKUP_UPDATE] >>
-  cases_on ‘v'’ >> fs [wlab_wloc_def]) >>
-  cases_on ‘x’ >> fs [] >> rveq >> (
-  imp_res_tac locals_rel_intro >>
-  rw [locals_rel_def]
-  >- fs [domain_insert] >>
-  cases_on ‘vname = v’ >> rveq
-  >- (
-    cases_on ‘FLOOKUP s.locals v’ >>
-    fs [crepSemTheory.res_var_def] >>
-    fs [FLOOKUP_UPDATE] >> rveq >>
-    qmatch_asmsub_rename_tac ‘FLOOKUP s.locals v = SOME pv’ >>
-    res_tac >> fs [] >> rveq >>
-    qmatch_asmsub_rename_tac ‘FLOOKUP ctxt.vars v = SOME pn’ >>
-    qpat_x_assum ‘evaluate (compile _ _ _, _) = _’ assume_tac >>
-    drule unassigned_vars_evaluate_same >>
-    fs [] >>
-    disch_then (qspecl_then [‘pn’,‘wlab_wloc pv’] mp_tac) >>
-    impl_tac
+    cases_on ‘x’ >> fs [] >> rveq >> (
+    imp_res_tac locals_rel_intro >>
+    rw [locals_rel_def]
+    >- fs [domain_insert] >>
+    cases_on ‘vname = v’ >> rveq
     >- (
-      conj_tac
+      cases_on ‘FLOOKUP s.locals v’ >>
+      fs [crepSemTheory.res_var_def] >>
+      fs [FLOOKUP_UPDATE] >> rveq >>
+      qmatch_asmsub_rename_tac ‘FLOOKUP s.locals v = SOME pv’ >>
+      res_tac >> fs [] >> rveq >>
+      qmatch_asmsub_rename_tac ‘FLOOKUP ctxt.vars v = SOME pn’ >>
+      qpat_x_assum ‘evaluate (compile _ _ _, _) = _’ assume_tac >>
+      drule unassigned_vars_evaluate_same >>
+      fs [] >>
+      disch_then (qspecl_then [‘pn’,‘wlab_wloc pv’] mp_tac) >>
+      impl_tac
       >- (
-        ‘pn <> tmp’ suffices_by fs [lookup_insert] >>
-        CCONTR_TAC >>
-        fs [] >>
-        imp_res_tac compile_exp_out_rel_cases >>
-        fs [ctxt_max_def] >> res_tac >> fs []) >>
-      conj_tac
+        conj_tac
+        >- (
+          ‘pn <> tmp’ suffices_by fs [lookup_insert] >>
+          CCONTR_TAC >>
+          fs [] >>
+          imp_res_tac compile_exp_out_rel_cases >>
+          fs [ctxt_max_def] >> res_tac >> fs []) >>
+        conj_tac
+        >- (
+          match_mp_tac not_mem_context_assigned_mem_gt >>
+          fs [] >>
+          imp_res_tac compile_exp_out_rel_cases >>
+          fs [ctxt_max_def] >> res_tac >> fs [] >>
+          rw [FLOOKUP_UPDATE] >>
+          CCONTR_TAC >>
+          fs [distinct_vars_def] >>
+          res_tac >> fs []) >>
+        match_mp_tac member_cutset_survives_comp_prog >>
+        fs [domain_insert]) >>
+      fs []) >>
+    cases_on ‘FLOOKUP s.locals v’ >>
+    fs [crepSemTheory.res_var_def]
+    >- (
+      fs [DOMSUB_FLOOKUP_THM] >>
+      last_x_assum drule >>
+      strip_tac >> fs [] >> rveq
       >- (
-        match_mp_tac not_mem_context_assigned_mem_gt >>
-        fs [] >>
-        imp_res_tac compile_exp_out_rel_cases >>
-        fs [ctxt_max_def] >> res_tac >> fs [] >>
-        rw [FLOOKUP_UPDATE] >>
-        CCONTR_TAC >>
-        fs [distinct_vars_def] >>
-        res_tac >> fs []) >>
-      match_mp_tac member_cutset_survives_comp_prog >>
-      fs [domain_insert]) >>
-    fs []) >>
-  cases_on ‘FLOOKUP s.locals v’ >>
-  fs [crepSemTheory.res_var_def]
-  >- (
-    fs [DOMSUB_FLOOKUP_THM] >>
+        rfs [FLOOKUP_UPDATE] >> rveq >>
+        fs [ctxt_max_def] >> res_tac >> rfs []) >>
+      rfs [FLOOKUP_UPDATE] >>
+      cases_on ‘v'’ >> fs [wlab_wloc_def]) >>
+    qmatch_asmsub_rename_tac ‘FLOOKUP s.locals v = SOME rv’ >>
+    fs [FLOOKUP_UPDATE] >>
     last_x_assum drule >>
     strip_tac >> fs [] >> rveq
     >- (
       rfs [FLOOKUP_UPDATE] >> rveq >>
       fs [ctxt_max_def] >> res_tac >> rfs []) >>
     rfs [FLOOKUP_UPDATE] >>
-    cases_on ‘v'’ >> fs [wlab_wloc_def]) >>
-  qmatch_asmsub_rename_tac ‘FLOOKUP s.locals v = SOME rv’ >>
-  fs [FLOOKUP_UPDATE] >>
-  last_x_assum drule >>
-  strip_tac >> fs [] >> rveq
-  >- (
-    rfs [FLOOKUP_UPDATE] >> rveq >>
-    fs [ctxt_max_def] >> res_tac >> rfs []) >>
-  rfs [FLOOKUP_UPDATE] >>
-  cases_on ‘v'’ >> fs [wlab_wloc_def])
+    cases_on ‘v'’ >> fs [wlab_wloc_def]))
 QED
 
 Resume ncompile_correct[If]:
@@ -3099,6 +3100,7 @@ Resume ncompile_correct[Call]:
     (* cases by inner result *)
     \\ gvs [CaseEq "prod", CaseEq "crepSem$result"]
     >- (
+      (* TimeOut *)
       GEN_EXISTS_TAC "ck''" `ck'`
       \\ fs [empty_locals_def, ctxt_fc_def] \\ fs [code_rel_def, state_rel_def]
     )
@@ -3108,7 +3110,7 @@ Resume ncompile_correct[Call]:
       \\ simp [UNCURRY_eq_case, CaseEq "prod"]
       \\ rewrite_tac [ADD_ASSOC]
       \\ disch_then (irule_at Any)
-      \\ simp [set_var_def]
+      \\ simp [set_vars_def, alist_insert_def]
       (* now we have the state rp needs to run on *)
       \\ qmatch_goalsub_abbrev_tac
           `evaluate (_, base_st with <| locals := locs; clock := _ |>)`
@@ -3336,7 +3338,7 @@ Theorem ocompile_correct:
      | SOME TimeOut => res1 = SOME TimeOut
      | SOME Break => F
      | SOME Continue => F
-     | SOME (Return v) => res1 = SOME (Result (wlab_wloc v))
+     | SOME (Return v) => res1 = SOME (Result [wlab_wloc v])
      | SOME (Exception eid) => res1 = SOME (Exception (Word eid))
      | SOME (FinalFFI f) => res1 = SOME (FinalFFI f)
 Proof
@@ -3700,7 +3702,7 @@ code_rel2 nctxt s_code t_code ==>
            NONE => NONE
          | SOME Break => SOME Break
          | SOME Continue => SOME Continue
-         | SOME (Return v) => SOME (Result (wlab_wloc v))
+         | SOME (Return v) => SOME (Result [wlab_wloc v])
          | SOME (Exception eid) => SOME (Exception (Word eid))
          | SOME TimeOut => SOME TimeOut
          | SOME (FinalFFI f) => SOME (FinalFFI f)

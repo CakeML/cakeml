@@ -55,15 +55,13 @@ Definition pan_to_target_all_def:
         prog_b1 = MAP2 (λn (name,params,body).
                     (n,(GENLIST I ∘ LENGTH) params, comp params body)) fnums prog_b;
         prog_c = MAP (λ(name,params,body). (name,params,loop_live$optimise body)) prog_b1;
-        prog_c1 = loop_remove$comp_prog prog_c;
-        prog2 = loop_to_word$compile_prog prog_c1;
+        prog2 = loop_to_word$compile_prog prog_c;
         names = fromAList (ZIP (sort $< (MAP FST prog2), «generated_main»::MAP FST (functions prog1)));
         names = union (fromAList (word_to_stack$stub_names () ++
                                   stack_alloc$stub_names () ++
                                   stack_remove$stub_names ())) names;
         ps = ps ++ [(«after crep_to_loop»,Loop prog_b1 names)];
         ps = ps ++ [(«after loop_optimise»,Loop prog_c names)];
-        ps = ps ++ [(«after loop_remove»,Loop prog_c1 names)];
         ps = ps ++ [(«after loop_to_word»,Cake (Word prog2 names))];
         c = c with exported := exports prog;
         (ps1,out) = from_word_0_all [] asm_conf c names prog2
@@ -552,7 +550,7 @@ Definition loop_prog_to_display_def:
     Item NONE «ffi» (string_imp nm :: MAP num_to_display [n1; n2; n3; n4]
         ++ [num_set_to_display ms])) ∧
   (loop_prog_to_display ns (Raise n) = item_with_num «raise» n) ∧
-  (loop_prog_to_display ns (Return n) = item_with_num «return» n) ∧
+  (loop_prog_to_display ns (Return ns0) = item_with_nums «return» ns0) ∧
   (loop_prog_to_display ns Tick = empty_item «tick») ∧
   (loop_prog_to_display ns Break = empty_item «break») ∧
   (loop_prog_to_display ns Continue = empty_item «continue») ∧
@@ -591,8 +589,8 @@ Definition loop_prog_to_display_def:
      | NONE => Item NONE «tail_call»
                  [option_to_display (λn. String (attach_name ns (SOME n))) b;
                   list_to_display num_to_display c]
-     | SOME (n,ms) =>
-         Tuple [num_to_display n;
+     | SOME (ns0,ms) =>
+         Tuple [list_to_display num_to_display ns0;
                 String «:=»;
                 Item NONE «call»
                  [option_to_display (λn. String (attach_name ns (SOME n))) b;
