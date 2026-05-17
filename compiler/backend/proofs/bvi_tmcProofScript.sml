@@ -2407,10 +2407,11 @@ QED
 
 Theorem evaluate_hb_to_bvi_wrapper_aux:
   ∀tag left child right hole call_ts call_args loc loc_opt f1 env1 env2 env3 s1 s2 t1 t2
-       body work block_res1 block_res2 call_res parents i_top_ptr i_hole_ptr hole_idx num_binders.
+       body work block_res1 block_res2 call_res1 call_res2 parents i_top_ptr i_hole_ptr hole_idx num_binders.
     evaluate ([cb_to_bvi loc (CallBlock tag left child right)],env1,s1) = (block_res1,t1) ∧
     evaluate ([cb_to_bvi loc (CallBlock tag left child right)],env2,s2) = (block_res2,t2) ∧
-    evaluate ([bvi$Call call_ts (SOME loc) (MAP (λn. Var n) call_args) NONE],env1,s1) = (call_res,t1) ∧
+    evaluate ([bvi$Call call_ts (SOME loc) (MAP (λn. Var n) call_args) NONE],env1,s1) = (call_res1,t1) ∧
+    evaluate ([bvi$Call call_ts (SOME loc) (MAP (λn. Var n) call_args) NONE],env2,s2) = (call_res2,t2) ∧
     lookup loc s1.code = SOME (LENGTH call_args,body) ∧
     lookup loc_opt s2.code = SOME (LENGTH call_args + 2,work) ∧
     work = rewrite_worker loc loc_opt (LENGTH call_args) (LENGTH call_args + 1) body ∧
@@ -2418,10 +2419,13 @@ Theorem evaluate_hb_to_bvi_wrapper_aux:
     state_rel f1 s1 s2 ∧
     state_rel f1 t1 t2 ∧
     result_rel (LIST_REL (v_rel f1)) (v_rel f1) block_res1 block_res2 ∧
+    result_rel (LIST_REL (v_rel f1)) (v_rel f1) call_res1 call_res2 ∧
     alloc_preconditions s2.refs env2 env3 tag left hole right parents i_top_ptr i_hole_ptr hole_idx num_binders ∧
     cb_to_hb (CallBlock tag left child right) = (HoleBlock tag left hole right,call_ts,call_args) ∧
     block_res1 ≠ Rerr (Rabort Rtype_error) ∧
-    call_res ≠ Rerr (Rabort Rtype_error) ∧
+    block_res2 ≠ Rerr (Rabort Rtype_error) ∧
+    call_res1 ≠ Rerr (Rabort Rtype_error) ∧
+    call_res2 ≠ Rerr (Rabort Rtype_error) ∧
     (∀xs' s'' env1' loc' r' t' opt' f' s'³' env2'.
        hypothesis xs' s'' env1' loc' r' t' opt' f' s'³' env2' s1) ⇒
     ∃f2 t3.
@@ -2433,10 +2437,13 @@ Proof
   rw []
   >> simp [hb_to_bvi_wrapper_def, hb_to_bvi_wrapper_aux_def, optimise_call_def]
   >> rev_drule_all evaluate_cb_call
-  >> disch_then $ mk_asm "call_and_block_results"
+  >> disch_then $ mk_asm "call_and_block_results1"
+  >> drule_all evaluate_cb_call
+  >> disch_then $ mk_asm "call_and_block_results2"
   >> qpat_assum ‘alloc_preconditions _ _ _ _ _ _ _ _ _ _ _ _’ $ mk_asm "preconditions"
-  >> gvs [alloc_preconditions_def]
+  >> qpat_x_assum ‘evaluate ([Call _ _ _ _],_,_) = _’ $ mk_asm "call2"
   >> qpat_x_assum ‘evaluate ([Call _ _ _ _],_,_) = _’ mp_tac
+  >> gvs [alloc_preconditions_def]
   >> simp [Once evaluate_def]
   >> CASE_TAC
   >> disch_then assume_tac
@@ -2460,7 +2467,7 @@ Proof
   >> IF_CASES_TAC
   >-
    (gvs []
-    >> asm "call_and_block_results" assume_tac
+    >> asm "call_and_block_results1" assume_tac
     >> gvs []
     >> qexists ‘f1’
     >> imp_res_tac state_rel_with_clock
@@ -2506,31 +2513,19 @@ Proof
   >> rename [‘state_rel f2 t1 t3’]
   >> qexistsl [‘f2’, ‘t3’]
   >> gvs []
-
-  (* Where's the call?? *)
-  >> drule_all evaluate_cb_call
-                
-  >> reverse $ CASE_TAC
-  >-
-   (gvs [opt_res_rel_def]
-    >> Cases_on ‘hole_res’ >- gvs []
-    >> gvs []
-    >> rename [‘exc_rel (_) e1 e2’]
-    >> gvs [CaseEq "error_result"]
-    >-
-     (asm "call_and_block_results" assume_tac
-      >> gvs [GSYM PULL_EXISTS]
-      >> conj_tac
-        )
-        )
-  >> gvs [opt_res_rel_def, CaseEq "result"]
+  >> asm "call_and_block_results1" assume_tac
+  >> asm "call_and_block_results2" assume_tac
+  >> reverse $ gvs [CaseEq "result", CaseEq "error_result", opt_res_rel_def]
+  >- cheat (* v_rel functional *)
   >> simp [evaluate_def, do_app_def, do_app_aux_def, EL_APPEND_EQN]
-  (*TODO*)
   >> Cases_on ‘i_top_ptr + 1’ >- gvs []
   >> gvs [EL_CONS, EL_APPEND_EQN]
   >> ‘i_top_ptr = n’ by gvs []
   >> gvs []
+  >> asm "call2" assume_tac
   >> drule evaluate_finalise_cons
+  >> rpt $ disch_then drule
+
 QED
 
 Theorem evaluate_allocate_holes_aux:
