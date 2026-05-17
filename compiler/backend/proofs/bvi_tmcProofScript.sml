@@ -2280,16 +2280,39 @@ Definition hole_block_filled_def:
        hole_block_filled env refs tag' left' child right' (parents ∪ {top_ptr}) child_ptr hole_ptr hole_val)
 End
 
-Theorem evaluate_allocate_holes_aux:
-  ∀hb f top_ptr hole_ptr hole_idx num_binders env1 env2 s s' r t .
-    (
-        )
-    evaluate([allocate_holes_aux hb f top_ptr hole_ptr hole_idx num_binders],env1,s) = (r,t) ∧
-    alloc_env_rel env env2 ∧
-    alloc_state_rel s s' ⇒
-    evaluate([allocate_holes_aux hb f top_ptr hole_ptr hole_idx num_binders],env2,s) = (r,t)
+Theorem hole_block_filled_with_val:
+  ∀f env1 env2 env3 refs tag left hole right parents top_ptr hole_ptr old new.
+    hole_block_filled env3 refs tag left hole right parents top_ptr hole_ptr old ∧
+    hole_has_val f env1 env2 refs new ⇒
+    hole_block_filled env3 refs tag left hole right parents top_ptr hole_ptr new
 Proof
-  cheat
+  reverse $ Induct_on ‘hole’
+  >- (rw [] >> gvs [hole_block_filled_def, hole_has_val_def])
+  >> rw []
+  >> rename [‘HoleBlock tag left hole right’]
+  >> gvs [hole_block_filled_def, hole_has_val_def]
+  >> first_x_assum irule
+  >> rpt $ first_assum $ irule_at Any
+QED
+
+(* Wonder if empty needs to be generalized *)
+Theorem hole_block_still_filled:
+  ∀f1 f2 env refs1 refs2 refs3 tag left hole right parents top_ptr hole_ptr old new.
+    hole_block_filled env refs2 tag left hole right parents top_ptr hole_ptr old ∧
+    holes_unchanged_except f1 refs2 refs3 EMPTY ∧
+    only_fresh f1 f2 refs2 ∧
+    state_ref_rel f1 refs1 refs2 ∧
+    state_ref_rel f2 refs1 refs3 ⇒
+    hole_block_filled env refs3 tag left hole right parents top_ptr hole_ptr old
+Proof
+  reverse $ Induct_on ‘hole’
+  >- (rw [] >> gvs [hole_block_filled_def, holes_unchanged_except_def, only_fresh_def, state_ref_rel_def])
+  >> rw []
+  >> gvs [hole_block_filled_def, holes_unchanged_except_def, only_fresh_def, state_ref_rel_def]
+  >> rpt $ first_x_assum $ irule_at Any
+  >> rw []
+
+  >> first_x_assum $ 
 QED
 
 Theorem evaluate_finalise_cons:
@@ -2376,7 +2399,7 @@ Definition alloc_preconditions_def:
       ∃ref_top ref_hole.
         EL i_top_ptr env_extras = RefPtr F ref_top ∧
         EL i_hole_ptr env_extras = RefPtr F ref_hole ∧
-        hole_block_filled env3 refs tag left hole right parents ref_top ref_hole (Number 0)
+        hole_block_filled env2 refs tag left hole right parents ref_top ref_hole (Number 0)
 End
 
 Theorem rec_call_env_rel:
@@ -2526,6 +2549,24 @@ Proof
   >> drule evaluate_finalise_cons
   >> rpt $ disch_then drule
 
+  >> drule hole_block_filled_with_val
+        
+  (* Lemma *)
+  >> disch_then $ qspecl_then [‘RefPtr F ref_hole’, ‘t3.refs’, ‘F’, ‘parents’, ‘top_ptr’, ‘hole_ptr’] mp_tac
+  >> impl_tac
+  >> gvs [hole_has_val_def, hole_block_filled_def]
+QED
+
+Theorem evaluate_allocate_holes_aux:
+  ∀hb f top_ptr hole_ptr hole_idx num_binders env1 env2 s s' r t .
+    (
+        )
+    evaluate([allocate_holes_aux hb f top_ptr hole_ptr hole_idx num_binders],env1,s) = (r,t) ∧
+    alloc_env_rel env env2 ∧
+    alloc_state_rel s s' ⇒
+    evaluate([allocate_holes_aux hb f top_ptr hole_ptr hole_idx num_binders],env2,s) = (r,t)
+Proof
+  cheat
 QED
 
 Theorem evaluate_allocate_holes_aux:
