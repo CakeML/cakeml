@@ -44,6 +44,11 @@ val word_to_word_conf = ``<| reg_alg:=2; col_oracle := [] |>``
 
 val x64_data_conf = ``<| tag_bits:=4; len_bits:=4; pad_bits:=2; len_size:=32; has_div:=F; has_longdiv:=T; has_fp_ops:=T; has_fp_tern:=F; be:=F; call_empty_ffi:=F; gc_kind:=Simple|>``
 val x64_word_conf = ``<| bitmaps_length := 0; stack_frame_size := LN |>``
+(* perf_calls must stay F here: every binary produced by in-logic compilation
+   (cake itself, the verified checkers, the Dafny compiler, the Scheme
+   compiler, ...) inherits from this default config.  Flipping it to T yields
+   an unverified-but-perf-walkable binary suitable for `perf record
+   --call-graph fp` profiling (x64 only). *)
 val x64_stack_conf = ``<|jump:=T;reg_names:=x64_names;perf_calls:=F|>``
 val x64_lab_conf = ``<|pos:=0;ffi_names:=NONE;labels:=LN;sec_pos_len:=[];init_clock:=5;hash_size:=104729n;shmem_extra:=[]|>``
 

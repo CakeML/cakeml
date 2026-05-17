@@ -7,6 +7,11 @@ Ancestors
 Libs
   preamble eval_cake_compile_x64Lib
 
+(* TODO: perf_calls is enabled here so that `./cake --candle` is profilable
+   with `perf record --call-graph fp`.  This is unverified and should be
+   reset to F before release; ideally split this script into a verified
+   x64BootstrapScript (perf_calls := F) and a separate
+   x64BootstrapDebugScript with perf_calls := T. *)
 Definition init_conf_def:
   init_conf =
     x64_config$x64_backend_config with
@@ -19,7 +24,10 @@ Definition init_conf_def:
                         <| inline_size_limit := 3; exp_cut := 200 |>;
        word_to_word_conf :=
         (x64_config$x64_backend_config.word_to_word_conf with
-           reg_alg := 4) |>
+           reg_alg := 4);
+       stack_conf :=
+        (x64_config$x64_backend_config.stack_conf with
+           perf_calls := T) |>
 End
 
 val init_conf_eq =
