@@ -2297,7 +2297,7 @@ QED
 
 (* Wonder if empty needs to be generalized *)
 Theorem hole_block_still_filled:
-  ∀f1 f2 env refs1 refs2 refs3 tag left hole right parents top_ptr hole_ptr old new.
+  ∀f1 f2 env refs1 refs2 refs3 tag left hole right parents top_ptr hole_ptr old.
     hole_block_filled env refs2 tag left hole right parents top_ptr hole_ptr old ∧
     holes_unchanged_except f1 refs2 refs3 EMPTY ∧
     only_fresh f1 f2 refs2 ∧
@@ -2306,13 +2306,40 @@ Theorem hole_block_still_filled:
     hole_block_filled env refs3 tag left hole right parents top_ptr hole_ptr old
 Proof
   reverse $ Induct_on ‘hole’
-  >- (rw [] >> gvs [hole_block_filled_def, holes_unchanged_except_def, only_fresh_def, state_ref_rel_def])
+  >- (rw [] >> gvs [hole_block_filled_def, holes_unchanged_except_def])
   >> rw []
-  >> gvs [hole_block_filled_def, holes_unchanged_except_def, only_fresh_def, state_ref_rel_def]
+  >> gvs [hole_block_filled_def]
+  >> qexists ‘child_ptr’
+  >> conj_tac
+  >-
+   (gvs [holes_unchanged_except_def]
+    >> first_x_assum irule
+    >> gvs []
+    >> gvs [only_fresh_def]
+    >> gvs [state_ref_rel_def]
+    >> spose_not_then assume_tac
+    >> gvs [IN_FRANGE_FLOOKUP]
+    >> Cases_on ‘FLOOKUP refs1 k’
+    >- (gvs [FLOOKUP_DEF])
+    >> first_x_assum drule
+    >> strip_tac
+    >> first_x_assum drule
+    >> strip_tac
+    >> last_x_assum kall_tac
+    >> first_x_assum $ qspec_then ‘j’ mp_tac
+    >> impl_tac
+    >-
+     (conj_tac
+      >- (first_assum $ irule_at Any)           
+      >> rw []
+      >> gvs []
+      >> cheat)
+    >> strip_tac
+    >> gvs []
+    >> cheat)
+  >> first_x_assum irule
+  >> first_assum $ irule_at $ Pos last
   >> rpt $ first_x_assum $ irule_at Any
-  >> rw []
-
-  >> first_x_assum $ 
 QED
 
 Theorem evaluate_finalise_cons:
@@ -2549,7 +2576,16 @@ Proof
   >> drule evaluate_finalise_cons
   >> rpt $ disch_then drule
 
+  >> ‘hole_block_filled env2 t3.refs tag left hole right parents ref_top ref_hole vcall'’ by cheat
+  >> disch_then drule
+
   >> drule hole_block_filled_with_val
+           
+  >> drule hole_block_still_filled
+  >> rpt $ disch_then drule
+  >> disch_then $ qspec_then ‘s1.refs’ assume_tac
+                
+
         
   (* Lemma *)
   >> disch_then $ qspecl_then [‘RefPtr F ref_hole’, ‘t3.refs’, ‘F’, ‘parents’, ‘top_ptr’, ‘hole_ptr’] mp_tac
@@ -2558,8 +2594,8 @@ Proof
 QED
 
 Theorem evaluate_allocate_holes_aux:
-  ∀hb f top_ptr hole_ptr hole_idx num_binders env1 env2 s s' r t .
-    (
+  ∀hb f top_ptr hole_ptr hole_idx num_binders env1 env2 s1 s2 r t .
+    (∀hb f top_ptr hole_ptr hole_idx num_binders env1 env2 s s' r t .
         )
     evaluate([allocate_holes_aux hb f top_ptr hole_ptr hole_idx num_binders],env1,s) = (r,t) ∧
     alloc_env_rel env env2 ∧
