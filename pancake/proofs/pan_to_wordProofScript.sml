@@ -609,13 +609,11 @@ Proof
     by(drule_then irule semantics_decls_has_main'' >>
        simp[]) >>
   conj_asm1_tac
-
   >- (drule lookup_first_name_compile_prog_main >>
-
-
-
+    simp []
+  ) >>
   simp[loop_to_wordProofTheory.state_rel_def] >>
-
+  simp [dec_shapes_compile_prog] >>
   conj_tac
   >- simp[loop_to_wordProofTheory.globals_rel_def] >>
   simp[loop_to_wordProofTheory.code_rel_def,
@@ -624,20 +622,15 @@ Proof
   rpt strip_tac
   >- (irule loop_to_wordProofTheory.lookup_prog_some_lookup_compile_prog >>
       first_assum ACCEPT_TAC) >>
+  fs [lookup_fromAList] >>
   ‘EVERY (λ(name,params,body). ALL_DISTINCT params)
      (crep_to_loop$compile_prog c (pan_to_crep$compile_prog
-        (compile_top (pan_simp$compile_prog pan_code) «main»)))’
+        (pan_globals$compile_top (pan_structs$compile_top (pan_simp$compile_prog pan_code)) «main»)))’
     by(irule crep_to_loopProofTheory.compile_prog_distinct_params >>
        irule pan_to_crepProofTheory.compile_prog_distinct_params) >>
-  qpat_x_assum ‘lookup _ (fromAList _) = SOME _’ mp_tac >>
-  simp[lookup_fromAList] >>
-  strip_tac >>
-  drule ALOOKUP_MEM >>
-  fs[EVERY_MEM, FORALL_PROD] >>
-  strip_tac >>
-  first_x_assum drule >>
-  strip_tac >>
-  first_assum ACCEPT_TAC
+  imp_res_tac ALOOKUP_MEM >>
+  imp_res_tac EVERY_MEM >>
+  fs []
 QED
 
 (*** no_install/no_alloc/no_mt lemmas ***)
