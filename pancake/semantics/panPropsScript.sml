@@ -1170,6 +1170,40 @@ Definition localised_prog_def:
   (localised_prog _ ⇔ T)
 End
 
+Definition eid_shapes_def:
+  eid_shapes [] = [] ∧
+  eid_shapes (ExnDecl eid sh :: ds) = (eid, sh) :: eid_shapes ds ∧
+  eid_shapes (_ :: ds) = eid_shapes ds
+End
+
+Definition is_exn_decl_def:
+  is_exn_decl (ExnDecl _ _) = T ∧
+  is_exn_decl _ = F
+End
+
+Theorem evaluate_decls_eshapes:
+  ∀s ds s'.
+    evaluate_decls s ds = SOME s' ⇒
+    s'.eshapes = s.eshapes |++ eid_shapes ds
+Proof
+  recInduct evaluate_decls_ind >>
+  rw[evaluate_decls_def, eid_shapes_def, FUPDATE_LIST_THM] >>
+  gvs[AllCaseEqs()]
+QED
+
+
+Theorem evaluate_decls_only_exn_decls:
+  ∀s ds s'.
+    EVERY is_exn_decl ds ∧
+    evaluate_decls s ds = SOME s' ⇒
+    s' = s with eshapes := s.eshapes |++ eid_shapes ds
+Proof
+  recInduct evaluate_decls_ind >>
+  rw[evaluate_decls_def, eid_shapes_def, FUPDATE_LIST_THM] >>
+  gvs[AllCaseEqs(), is_exn_decl_def] >>
+  simp[state_component_equality]
+QED
+
 Theorem evaluate_decl_commute:
   evaluate_decls s (Function fi::Decl sh v' e::ds) =
   evaluate_decls s (Decl sh v' e::Function fi::ds)
