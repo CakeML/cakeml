@@ -10,7 +10,15 @@ Changes since release v3304:
 
 FlatLang has been simplified slightly (#1380).
 
+word_copy pass now additionally correctly propagates store-reg equality (#1385).
+
+WordLang now supports Loop, Break, Continue (#1389).
+
 ## Pancake
+
+LoopLang now supports multi-arg returns (#1391).
+
+LoopLang now compiles to WordLang Loops instead of tail calls, i.e., the old loop_remove pass is removed (#1391).
 
 ### Garbage collector always disabled
 
@@ -19,6 +27,8 @@ The Pancake compiler now unconditionally compiles with GC set to `none`; any `--
 ## Candle
 
 ## Examples
+
+A new example for distributed SAT proof checking (#1384)
 
 ## Build infrastructure
 
