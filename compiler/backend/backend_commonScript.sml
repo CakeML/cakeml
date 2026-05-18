@@ -4,6 +4,8 @@
 Theory backend_common
 Ancestors[qualified]
   arithmetic integer words
+Ancestors
+  sptree (* for delete *)
 Libs
   preamble
 
@@ -171,4 +173,11 @@ Definition word_and_carry_def:
     res = w2n l + w2n r + (if c = 0w then 0 else 1)
   in
     (n2w res, if dimword(:α) ≤ res then 1w else 0w)
+End
+
+(* TODO: prefer this over `FOLDR delete`? Consider upstreaming this and
+   its associated lemmas (e.g. `domain_list_delete` in loop_liveProof). *)
+Definition list_delete_def:
+  list_delete [] s = s ∧
+  list_delete (v::vs) s = list_delete vs (delete v s)
 End

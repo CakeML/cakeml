@@ -57,6 +57,24 @@ Definition comp_def:
   (comp ctxt Skip l = (wordLang$Skip,l)) /\
   (comp ctxt (Assign n e) l =
      (Assign (find_var ctxt n) (comp_exp ctxt e),l)) /\
+  (comp ctxt (Primitive lhss pop rhss) l =
+     case pop of
+     | AddCarry =>
+       if LENGTH lhss = 2 ∧ LENGTH rhss = 3 then
+         let
+           res = EL 0 lhss;
+           co  = EL 1 lhss;
+           li  = EL 0 rhss;
+           ri  = EL 1 rhss;
+           ci  = EL 2 rhss
+         in
+           (Seq (Assign (find_var ctxt co) (Var (find_var ctxt ci)))
+                (Inst (Arith (AddCarry
+                               (find_var ctxt res)
+                               (find_var ctxt li)
+                               (find_var ctxt ri)
+                               (find_var ctxt co)))), l)
+       else (Skip, l)) /\
   (comp ctxt (Arith arith) l =
      (case arith of
         LLongMul r1 r2 r3 r4 =>

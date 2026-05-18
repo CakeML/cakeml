@@ -55,11 +55,6 @@ Definition arith_vars:
   insert r3 () $ insert r4 () $ insert r5 () $ delete r1 $ delete r2 l
 End
 
-Definition list_delete_def:
-  list_delete [] s = s ∧
-  list_delete (v::vs) s = list_delete vs (delete v s)
-End
-
 (* This optimisation shrinks all cutsets and also deletes assignments
    to unused variables. The Loop case is the interesting one: an
    auxiliary function is used to find a fixed-point. *)
@@ -92,6 +87,10 @@ Definition shrink_def:
   (shrink b (Arith arith) l =
    (Arith arith, arith_vars arith l)
   ) ∧
+  (* TODO: should we also do DCE for Primitive here, like the Assign case
+     below does? *)
+  (shrink b (Primitive lhss pop rhss) l =
+   (Primitive lhss pop rhss, list_insert rhss (list_delete lhss l))) ∧
   (shrink b (LocValue n m) l =
      case lookup n l of
      | NONE => (Skip,l)
