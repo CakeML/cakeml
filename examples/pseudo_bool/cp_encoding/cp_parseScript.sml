@@ -543,13 +543,14 @@ Definition sexp_counting_dispatch_def:
     else NONE
 End
 
-(* Logical: and, or share the (Xs) Y shape; parity is deferred. *)
+(* Logical: and, or, parity all share the (Xs) Y shape. *)
 
-(* Atom → And / Or constructor, NONE otherwise. *)
+(* Atom → And / Or / Parity constructor, NONE otherwise. *)
 Definition sexp_logical_cons_def:
   sexp_logical_cons s =
-       if s = strlit "and" then SOME And
-  else if s = strlit "or"  then SOME Or
+       if s = strlit "and"    then SOME And
+  else if s = strlit "or"     then SOME Or
+  else if s = strlit "parity" then SOME Parity
   else NONE
 End
 
@@ -649,15 +650,18 @@ Definition sexp_constraint_dispatch_def:
     case strip_prefix (strlit "lex_") ctype of
       SOME cmp_kw => sexp_lex_dispatch cmp_kw rest
     | NONE =>
+    *)
     case sexp_logical_dispatch ctype rest of
       SOME res => res
     | NONE =>
     case sexp_channeling_dispatch ctype rest of
       SOME res => res
     | NONE =>
+    (*
     case sexp_misc_dispatch ctype rest of
       SOME res => res
-    | NONE => *)
+    | NONE =>
+    *)
     sexp_prim_dispatch ctype rest
 End
 
@@ -917,6 +921,67 @@ Theorem test_prim:
   sexp_constraint_dispatch (strlit"weird_if")
     (fromStringL (strlit "((zz = 1) X Y)")) =
     INL (strlit "unsupported constraint: weird_if\n")
+Proof
+  EVAL_TAC
+QED
+
+Theorem test_logical:
+  (* and: three-variable list *)
+  sexp_constraint_dispatch (strlit"and")
+    (fromStringL (strlit "((A B C) D)")) =
+    INR (Logical (And [INL «A»; INL «B»; INL «C»] (INL «D»))) ∧
+  (* and: empty Xs list is well-formed *)
+  sexp_constraint_dispatch (strlit"and")
+    (fromStringL (strlit "(() D)")) =
+    INR (Logical (And [] (INL «D»))) ∧
+  (* or: mixed var/const in Xs, const result *)
+  sexp_constraint_dispatch (strlit"or")
+    (fromStringL (strlit "((A 3) C)")) =
+    INR (Logical (Or [INL «A»; INR 3] (INL «C»))) ∧
+  (* parity: four-variable list *)
+  sexp_constraint_dispatch (strlit"parity")
+    (fromStringL (strlit "((A B C D) Y)")) =
+    INR (Logical (Parity [INL «A»; INL «B»; INL «C»; INL «D»] (INL «Y»))) ∧
+  (* and: wrong arity — missing Y *)
+  sexp_constraint_dispatch (strlit"and")
+    (fromStringL (strlit "((A B C))")) =
+    INL (strlit "logical expects 2 args: (X1 ... Xn) Y\n") ∧
+  (* or: wrong arity — extra arg *)
+  sexp_constraint_dispatch (strlit"or")
+    (fromStringL (strlit "((A B) C D)")) =
+    INL (strlit "logical expects 2 args: (X1 ... Xn) Y\n")
+Proof
+  EVAL_TAC
+QED
+
+Theorem test_channeling:
+  (* basic inverse: zero offsets, length-3 lists *)
+  sexp_constraint_dispatch (strlit"inverse")
+    (fromStringL (strlit "(((A B C) 0) ((P Q R) 0))")) =
+    INR (Channeling (Inverse ([INL «A»; INL «B»; INL «C»],0)
+                              ([INL «P»; INL «Q»; INL «R»],0))) ∧
+  (* non-zero matching offsets *)
+  sexp_constraint_dispatch (strlit"inverse")
+    (fromStringL (strlit "(((A B) 1) ((P Q) 1))")) =
+    INR (Channeling (Inverse ([INL «A»; INL «B»],1)
+                              ([INL «P»; INL «Q»],1))) ∧
+  (* asymmetric offsets (offx ≠ offy) *)
+  sexp_constraint_dispatch (strlit"inverse")
+    (fromStringL (strlit "(((X Y Z) 0) ((U V W) 1))")) =
+    INR (Channeling (Inverse ([INL «X»; INL «Y»; INL «Z»],0)
+                              ([INL «U»; INL «V»; INL «W»],1))) ∧
+  (* wrong arity — only one grouped arg *)
+  sexp_constraint_dispatch (strlit"inverse")
+    (fromStringL (strlit "(((A B C) 0))")) =
+    INL (strlit "inverse expects 2 grouped args: ((X1 ... Xn) offx) ((Y1 ... Ym) offy)\n") ∧
+  (* malformed first group — three atoms instead of (list offset) *)
+  sexp_constraint_dispatch (strlit"inverse")
+    (fromStringL (strlit "((A B C) ((P Q R) 0))")) =
+    INL (strlit "expected (list offset)\n") ∧
+  (* non-integer offset *)
+  sexp_constraint_dispatch (strlit"inverse")
+    (fromStringL (strlit "(((A B C) foo) ((P Q R) 0))")) =
+    INL (strlit "expected integer, got: foo\n")
 Proof
   EVAL_TAC
 QED
