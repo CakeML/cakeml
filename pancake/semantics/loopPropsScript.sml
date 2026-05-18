@@ -345,7 +345,8 @@ Proof
   (rw [] >>
    fs [Once evaluate_def,AllCaseEqs(), set_var_def, set_globals_def,
        dec_clock_def, assigned_vars_def, survives_def] >>
-   rveq >> fs [lookup_insert, mem_store_def, AllCaseEqs(),
+   rveq >> fs [lookup_insert, lookup_set_vars_not_MEM, mem_store_def,
+               AllCaseEqs(),
                DefnBase.one_line_ify NONE loop_arith_def] >>
    rveq >> fs [state_component_equality])
 QED
@@ -920,8 +921,8 @@ Proof
   >~ [‘loopLang$FFI _ _ _ _ _ _’] >- suspend "FFI"
   >~ [‘ShMem’] >- suspend "ShMem" >>
   (fs [evaluate_def,DefnBase.one_line_ify NONE loop_arith_def,AllCaseEqs()] >>
-   fs [set_var_def, mem_store_def, set_globals_def, call_env_def, dec_clock_def,
-       sh_mem_op_def,sh_mem_store_def,sh_mem_load_def] >> rveq >>
+   fs [set_var_def, set_vars_def, mem_store_def, set_globals_def, call_env_def,
+       dec_clock_def, sh_mem_op_def,sh_mem_store_def,sh_mem_load_def] >> rveq >>
    fs [])
 QED
 
@@ -1001,8 +1002,8 @@ Proof
   >~ [‘loopLang$FFI _ _ _ _ _ _’] >- suspend "FFI"
   >~ [‘ShMem’] >- suspend "ShMem" >>
   (fs [evaluate_def, DefnBase.one_line_ify NONE loop_arith_def, AllCaseEqs()] >>
-   fs [set_var_def, mem_store_def, set_globals_def, call_env_def, dec_clock_def,
-       sh_mem_op_def, sh_mem_store_def, sh_mem_load_def] >> rveq >>
+   fs [set_var_def, set_vars_def, mem_store_def, set_globals_def, call_env_def,
+       dec_clock_def, sh_mem_op_def, sh_mem_store_def, sh_mem_load_def] >> rveq >>
    every_case_tac >> fs [] >> rveq >> fs [])
 QED
 
