@@ -116,7 +116,7 @@ Definition compile_def:
   (compile _ _ Tick = Tick) /\
   (compile ctxt l (Return e) =
     let (p, le, ntmp, nl) = compile_exp ctxt (ctxt.vmax + 1) l e in
-      nested_seq (p ++ [Assign ntmp le; Return ntmp])) /\
+      nested_seq (p ++ [Assign ntmp le; Return [ntmp]])) /\
   (compile ctxt l (Raise eid) =
     Seq (Assign (ctxt.vmax + 1) (Const eid)) (Raise (ctxt.vmax + 1))) /\
   (compile ctxt l (ShMem op r ad) =
@@ -188,7 +188,7 @@ Definition compile_def:
                   | SOME (eid, ep) =>
                     let cpe = compile ctxt l ep in
                       (If NotEqual en (Imm eid) (Raise en) (Seq Tick cpe) l)
-           in (SOME (rn, l), SOME (en, pe, pr, l))
+           in (SOME ([rn], l), SOME (en, pe, pr, l))
    in
       nested_seq (p ++ MAP2 Assign nargs les ++ [Call rt1 (SOME dest) nargs rt2])) /\
   (compile ctxt l (ExtCall f ptr1 len1 ptr2 len2) =
