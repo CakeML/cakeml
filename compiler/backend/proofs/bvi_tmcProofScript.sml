@@ -2609,7 +2609,7 @@ Proof
   
   
         
-        (* 
+        
   gen_tac
   >> reverse $ Induct_on ‘cb’ >> rw []
 
@@ -2765,9 +2765,10 @@ Proof
   >> disch_then $ qspecl_then [‘[Unit; RefPtr F (LEAST ptr. ptr ∉ FDOM r''.refs)]’, ‘2’] mp_tac
   >> impl_tac >- gvs []
   >> strip_tac >> gvs []
-  *)
 QED
+*)
 
+(*
 Theorem evaluate_hb_to_bvi_worker:
   ∀tag left child right hole call_ts call_args loc loc_opt f env1 env2 extras s r t c.
     evaluate ([cb_to_bvi loc (CallBlock tag left child right)],env2,s) = (r,t) ∧
@@ -2832,8 +2833,11 @@ Proof
   >> qexistsl [‘r'’, ‘t'’]
   >> gvs []
 QED
+*)
 
 Resume evaluate_rewrite_tmc[tick]:
+  cheat
+       (*       
   gvs [evaluate_def]
   >> ‘s'.clock = s.clock’ by gvs [state_rel_def]
   >> gvs []
@@ -2878,16 +2882,17 @@ Resume evaluate_rewrite_tmc[tick]:
     >> qexistsl [‘arity’, ‘loc’, ‘loc_opt’]
     >> gvs [])
   >> rw [rewrite_worker_def, evaluate_def]
-QED
-*)
+*
+QED)
 
 Resume evaluate_rewrite_tmc[force]:
   cheat
 QED
 
-(*
-Resume evaluate_rewrite_tmc[call]:
 
+Resume evaluate_rewrite_tmc[call]:
+  cheat
+       (*
   gvs [evaluate_def]
   >> IF_CASES_TAC >> gvs []
   >> gvs [CaseEq "prod", PULL_EXISTS]
@@ -3156,8 +3161,9 @@ Resume evaluate_rewrite_tmc[call]:
     >> first_x_assum $ qspec_then ‘F’ mp_tac
     >> cheat)
   >> cheat
-QED
 *)
+QED
+
 Finalise evaluate_rewrite_tmc
 
 Theorem evaluate_compile_prog:
