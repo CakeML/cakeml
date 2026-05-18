@@ -2149,9 +2149,10 @@ Definition alloc_preconditions_def:
 End
 
 (* Not sure which of these to use *)
+(* Probably neither. *)
 
-Definition alloc_env_rel_def:
-  alloc_env_el env2 env3 num_binders ⇔
+Definition worker_env_rel_def:
+  worker_env_rel env2 env3 num_binders ⇔
     ∃env_extras i_top_ptr i_hole_ptr.
       env3 = env_extras ++ env2 ∧
       LENGTH env_extras = num_binders ∧
@@ -2188,7 +2189,7 @@ Proof
 QED
 
 Theorem evaluate_cb_to_hb:
-  ∀cb hb tag left child right hole call_ts call_args loc loc_opt body work f1 env1 env2 env3 s1 s2 t1 r1.
+  ∀cb hb tag left child right hole call_ts call_args loc loc_opt body work f1 env1 env2 s1 s2 t1 r1.
     evaluate ([cb_to_bvi loc cb],env1,s1) = (r1,t1) ∧
     cb_to_hb cb = (hb,call_ts,call_args) ∧
     env_rel T f1 env1 env2 ∧
@@ -2200,19 +2201,22 @@ Theorem evaluate_cb_to_hb:
        hypothesis xs' s'' env1' loc' r' t' opt' f' s'³' env2' s1) ∧
     cb = CallBlock tag left child right ∧
     r1 ≠ Rerr (Rabort Rtype_error) ⇒
-      ∃f2 r2 t2 t3.
+      ∃f2 r2 r_work t2 t_wrap t_work.
         evaluate ([cb_to_bvi loc cb],env2,s2) = (r2,t2) ∧
         f2 SUBMAP f1 ∧
         result_rel (LIST_REL (v_rel f1)) (v_rel f1) r1 r2 ∧
         state_rel f2 t1 t2 ∧
         only_fresh f1 f2 s2.refs ∧
         holes_unchanged_except f1 s2.refs t2.refs ∅ ∧
-        evaluate ([hb_to_bvi_wrapper loc_opt tag left hole right call_ts call_args],env2,s2) = (r2,t3) ∧
-        state_rel f2 t1 t3
-                  (*∧
-        evaluate ([hb_to_bvi_worker loc_opt tag left hole right call_ts call_args],env3,s3) = (r3,t3) ∧
-        state_rel f2 t1 t3*)
+        evaluate ([hb_to_bvi_wrapper tag left hole right loc_opt call_ts call_args],env2,s2) = (r2,t_wrap) ∧
+        state_rel f2 t1 t_wrap ∧
+        evaluate ([hb_to_bvi_worker tag left hole right loc_opt call_ts call_args (LENGTH env1) (LENGTH env1 + 1)],env2,s2) = (r_work,t_work) ∧
+        opt_res_rel r1 r_work ∧
+        state_rel f2 t1 t_work ∧
+        holes_unchanged_except f1 s1.refs t_work.refs {EL (LENGTH env1) env2}
+        (* hole_block_filled *)
 Proof
+
   reverse Induct >- rw []
   >> rw []
   >> rename [‘CallBlock tag left child right’]
@@ -2220,7 +2224,7 @@ Proof
   >> rename [‘cb_to_hb child = (hole,_,_)’]
   >> last_x_assum $ drule_at Any
   >> rpt $ disch_then drule
-  >> gvs [cb_to_hb_def, cb_to_bvi_def, hb_to_bvi_wrapper_def, hb_to_bvi_wrapper_aux_def, evaluate_def, evaluate_APPEND, CaseEq "prod"]
+  >> gvs [cb_to_hb_def, cb_to_bvi_def, hb_to_bvi_wrapper_def, hb_to_bvi_worker_def, evaluate_def, evaluate_APPEND, CaseEq "prod"]
   >> drule_then drule evaluate_vars
   >> impl_tac >- gvs [CaseEq "result"]
   >> disch_then $ qspec_then ‘s2’ mp_tac
@@ -2256,14 +2260,14 @@ Proof
       >-
        (gvs []
         >> rpt $ first_x_assum $ irule_at Any
-        >> gvs [allocate_holes_def, mut_cons_def, evaluate_def, evaluate_APPEND, do_app_def, do_app_aux_def, backend_commonTheory.small_enough_int_def]
+        >> gvs [mut_cons_def, evaluate_def, evaluate_APPEND, do_app_def, do_app_aux_def, backend_commonTheory.small_enough_int_def]
         >> asm "left_assum" assume_tac
         >> asm "left'_assum" assume_tac
         >> gvs []
         >> ntac 2 $ pop_assum kall_tac
         (* This should be pulled higher. *)
-        (* I need machinery to prove this true *)
         >> gvs [CaseEq "prod"]
+        (* I need machinery to prove this true *)
         >> ‘v5 ≠ Rerr (Rabort Rtype_error)’ by cheat
         >> drule_then drule evaluate_vars
         >> impl_tac >- gvs [CaseEq "result"]
@@ -2273,6 +2277,26 @@ Proof
         >> cheat)
       >> cheat)
     >> cheat)
+  >> gvs [cb_to_hb_def, cb_to_bvi_def, PULL_EXISTS, evaluate_def, evaluate_APPEND, CaseEq "prod"]
+  >> drule_then drule evaluate_vars
+  >> impl_tac >- (spose_not_then assume_tac >> gvs [CaseEq "prod"])
+  >> disch_then $ qspec_then ‘s2’ mp_tac
+  >> strip_tac >> gvs []
+  >> pop_assum $ mk_asm "call_args_assum"
+  >> gvs [CaseEq "option", CaseEq "prod"]
+  >> gvs [bvlSemTheory.find_code_def, CaseEq "prod"]
+  >> CASE_TAC
+  >-
+   (gvs [state_rel_def, code_rel_def, compile_exp_def]
+    >> first_x_assum drule
+    >> strip_tac
+    >> gvs [CaseEq "option"]
+    >> Cases_on ‘rewrite_wrapper loc n body’ >> gvs [])
+  >> ‘s.clock = s2.clock’ by gvs [state_rel_def]
+  >> Cases_on ‘s.clock < call_ts + 1’
+  >- 
+   (cheat)
+  >> CASE_TAC
   >> cheat
 QED
 
