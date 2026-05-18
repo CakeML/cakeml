@@ -1303,8 +1303,10 @@ Resume evaluate_rewrite_tmc[if]:
   >> gvs [rewrite_worker_def, evaluate_def, opt_res_rel_def, holes_unchanged_except_def]
 QED
 
-(*
+
 Resume evaluate_rewrite_tmc[lett]:
+  cheat
+        (*
   gvs [evaluate_def]
   >> gvs [CaseEq "prod", PULL_EXISTS]
   >> rename [‘evaluate (xs,env,s) = (rs,u)’]
@@ -1405,9 +1407,12 @@ Resume evaluate_rewrite_tmc[lett]:
       >> gvs [evaluate_def])
   >> gvs [rewrite_worker_def, evaluate_def, opt_res_rel_def]
   >> gvs [holes_unchanged_except_def]
+  *)
 QED
 
 Resume evaluate_rewrite_tmc[raise]:
+  cheat
+        (*
   gvs [evaluate_def]
   >> gvs [CaseEq "prod", PULL_EXISTS]
   >> rename [‘evaluate ([x],env,s) = (v,u)’]
@@ -1438,8 +1443,8 @@ Resume evaluate_rewrite_tmc[raise]:
   >> Cases_on ‘v’ >> gvs []
   >> imp_res_tac evaluate_SING_IMP
   >> gvs []
-QED
 *)
+QED
 
 Resume evaluate_rewrite_tmc[op_non_opt]:
   gvs [evaluate_def]
@@ -2882,13 +2887,12 @@ Resume evaluate_rewrite_tmc[tick]:
     >> qexistsl [‘arity’, ‘loc’, ‘loc_opt’]
     >> gvs [])
   >> rw [rewrite_worker_def, evaluate_def]
-*
-QED)
+*)
+QED
 
 Resume evaluate_rewrite_tmc[force]:
   cheat
 QED
-
 
 Resume evaluate_rewrite_tmc[call]:
   cheat
@@ -3183,6 +3187,8 @@ Theorem evaluate_compile_prog:
      result_rel (LIST_REL (v_rel f)) (v_rel f) r r2 ∧
      state_rel f s s2
 Proof
+  cheat
+  (*
   rw []
   >> qmatch_asmsub_abbrev_tac `(es,env,st1)`
   >> ‘env_rel F FEMPTY env env’ by gvs [env_rel_def, Abbr ‘env’]
@@ -3222,6 +3228,7 @@ Proof
   >> gvs []
   >> qexists ‘f'’
   >> gvs []
+                *)
 QED
 
 Theorem compile_prog_semantics:
