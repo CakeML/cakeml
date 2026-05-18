@@ -795,6 +795,9 @@ Resume compile_correct[Call]:
     >- fs [Abbr‘tt’]
     >> qexists_tac ‘t1’ >> fs []
     >> qexists_tac ‘res1’ >> fs []
+    >> IF_CASES_TAC
+    >- (Cases_on ‘res1’ >> fs []
+        >> rename [‘bad_fun_return (SOME tt)’] >> Cases_on ‘tt’ >> fs [])
     >> conj_tac >- (Cases_on ‘res1’ >> simp [CaseEq"option"] >> fs [])
     >> rpt gen_tac >> strip_tac >> pop_assum mp_tac
     >> qunabbrev_tac ‘tt’ >> fs [])
@@ -2015,11 +2018,9 @@ Proof
     fs[GSYM lookup_NONE_domain] >>
     fs[find_var_def,domain_lookup] >>
     metis_tac[SOME_11]) >>
-  TRY (Cases_on ‘ret’>-gs[every_inst_def]>>
-       rename1 ‘SOME x’>>PairCases_on ‘x’>>gs[]>>
-       Cases_on ‘handler’>-gs[every_inst_def]>>
-       rename1 ‘SOME x’>>PairCases_on ‘x’)>>
-  gs[]>>rpt (pairarg_tac>>gs[])>>
+  every_case_tac >>
+  gs[every_inst_def] >>
+  rpt (pairarg_tac>>gs[]) >>
   gs[every_inst_def,
      PURE_ONCE_REWRITE_CONV [acc_vars_acc] “domain(acc_vars (x:'a loopLang$prog) (acc_vars (y:'a loopLang$prog) z))”,
      PURE_ONCE_REWRITE_CONV [acc_vars_acc] “domain(acc_vars (x:'a loopLang$prog) (insert y () z))”

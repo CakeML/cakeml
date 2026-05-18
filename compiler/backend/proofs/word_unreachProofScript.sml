@@ -283,6 +283,7 @@ Proof
     \\ rpt (pairarg_tac \\ gvs [] \\ gvs [AllCaseEqs()])
     \\ strip_tac \\ gvs []
     \\ last_x_assum drule \\ strip_tac \\ gvs [])
+  >~ [`Loop`] >- suspend "Loop"
   \\ Cases_on ‘ret_prog’ \\ gvs []
   >- (gvs [evaluate_def] \\ pairarg_tac \\ gvs [AllCaseEqs()])
   \\ PairCases_on ‘x’ \\ gvs []
@@ -318,6 +319,51 @@ Proof
   \\ strip_tac \\ gvs []
   \\ Cases_on ‘res'’ \\ gvs []
 QED
+
+Theorem evaluate_Loop_body_eq[local]:
+  (!s:('a,'b,'c) wordSem$state res s1. evaluate (p1:'a wordLang$prog, s) = (res, s1) /\ res <> SOME Error ==>
+              evaluate (p2:'a wordLang$prog, s) = (res, s1)) ==>
+  !s:('a,'b,'c) wordSem$state res s1. evaluate (Loop names p1 exit_names, s) = (res, s1) /\ res <> SOME Error ==>
+             evaluate (Loop names p2 exit_names, s) = (res, s1)
+Proof
+  strip_tac \\
+  completeInduct_on `s.clock` \\ rw[] \\
+  qpat_x_assum `evaluate (Loop _ _ _, _) = _` mp_tac \\
+  once_rewrite_tac[evaluate_def] \\
+  TOP_CASE_TAC \\ gvs[] \\
+  once_rewrite_tac[evaluate_def] \\ simp[] \\
+  pairarg_tac \\ gvs[] \\ strip_tac \\
+  `res' <> SOME Error` by (strip_tac \\ gvs[cont_loop_def, exit_loop_def]) \\
+  `evaluate (p2, x) = (res', s1')` by (res_tac \\ gvs[]) \\
+  fs[] \\ gvs[STOP_def] \\
+  IF_CASES_TAC \\ gvs[]
+  >- (
+    IF_CASES_TAC \\ gvs[] \\
+    first_x_assum (qspec_then `s1'.clock - 1` mp_tac) \\
+    impl_tac >- (
+      imp_res_tac evaluate_clock \\
+      `x.clock = s.clock` by (fs[cut_state_def, cut_env_def] \\ every_case_tac \\ gvs[]) \\
+      gvs[]) \\
+    disch_then (qspec_then `dec_clock s1'` mp_tac) \\
+    simp[dec_clock_def] \\ gvs[])
+QED
+
+Resume evaluate_Seq_assoc_right_lemma[Loop]:
+  irule evaluate_SimpSeq \\ gvs[] \\
+  qpat_x_assum `evaluate (Seq _ _, _) = _` mp_tac \\
+  simp[Once evaluate_def] \\
+  pairarg_tac \\ fs[] \\ strip_tac \\
+  simp[Once evaluate_def] \\
+  mp_tac (evaluate_Loop_body_eq
+    |> INST_TYPE [beta |-> gamma, gamma |-> ``:'ffi``]
+    |> Q.INST [`p2` |-> `Seq_assoc_right p1 Skip`]) \\
+  impl_tac >- fs[evaluate_Seq_Skip] \\
+  disch_then drule \\
+  impl_tac >- (strip_tac \\ fs[]) \\
+  strip_tac \\ fs[]
+QED
+
+Finalise evaluate_Seq_assoc_right_lemma;
 
 Theorem evaluate_remove_unreach:
   ∀p s res s1.

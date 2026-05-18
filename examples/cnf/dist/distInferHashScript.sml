@@ -133,13 +133,14 @@ Inductive step:
   ∀st id lst cid facts f.
     FLOOKUP st.procs id = SOME lst ∧
     FLOOKUP lst.clauses cid = SOME facts ∧
-    Delete f ∈ lst.msgs ⇒
+    k ∈ lst.keys ∧
+    Import cid f k ∈ lst.msgs ⇒
     step infer
          st
          (st with procs := st.procs |+ (id,
                                         lst with
-                                            <| msgs := lst.msgs DELETE Delete f;
-                                               clauses := lst.clauses |+ (cid,facts DELETE f)
+                                            <| msgs := lst.msgs DELETE Import cid f k;
+                                               clauses := lst.clauses |+ (cid,f INSERT facts)
                                             |>))
 [~init:]
   n ∉ FDOM st.problems ∧
@@ -365,6 +366,7 @@ Theorem step_local_facts_ok:
   incoming_messages_ok infer st ∧
   local_facts_ok infer st ∧
   finite_facts st ∧
+  disjoint_keys st ∧
   cut_elimination infer ∧ monotonic infer ∧ assumption infer ⇒
   local_facts_ok infer st'
 Proof
@@ -381,6 +383,22 @@ Proof
           last_assum $ irule_at $ Pat ‘infer _ _’ >>
           gvs[finite_facts_def,SUBSET_DEF] >>
           metis_tac[IN_DEF]) >>
+      metis_tac[])
+  >~ [‘Import’]
+  >- (rw[local_facts_ok_def,SF DNF_ss,FRANGE_FLOOKUP,
+         FLOOKUP_UPDATE, AllCaseEqs()] >>
+      first_assum $ drule_then drule >>
+      strip_tac >>
+      gvs[] >>
+      conj_tac
+      >- (gvs[incoming_messages_ok_def] >>
+          last_x_assum drule >>
+          disch_then drule >>
+          simp[Import_def,IFact_def] >>
+          ntac 7 $ simp[Once ainfer_cases] >>
+          gvs[disjoint_keys_def,IN_FRANGE_FLOOKUP,SF DNF_ss] >>
+          first_x_assum drule >>
+          metis_tac[DISJOINTD2]) >>
       metis_tac[])
   >~ [‘FMAP_MAP2’] (* init *)
   >- (rw[local_facts_ok_def,finite_facts_def,
