@@ -6,6 +6,7 @@ Ancestors
   loopLang alignment[qualified] finite_map[qualified]
   misc[qualified] wordSem[qualified] ffi[qualified]
   machine_ieee[qualified] (* for FP *)
+  backend_common (* for word_and_carry *)
 Libs
   preamble
 
@@ -238,6 +239,19 @@ Definition sh_mem_store_def:
   | _ => (SOME Error, s)
 End
 
+Definition loop_primop_def:
+  loop_primop AddCarry args =
+  if LENGTH args = 3 ∧ EVERY isWord args then
+    let
+      l  = theWord (EL 0 args);
+      r  = theWord (EL 1 args);
+      ci = theWord (EL 2 args);
+      (res, co) = word_and_carry l r ci
+    in
+      SOME [Word res; Word co]
+  else NONE
+End
+
 Definition sh_mem_op_def:
   (sh_mem_op Load r (ad:'a word) (s:('a,'ffi) loopSem$state) = sh_mem_load r ad 0 s) ∧
   (sh_mem_op Store r ad s = sh_mem_store r ad 0 s) ∧
@@ -262,6 +276,16 @@ Definition evaluate_def:
      case eval s exp of
      | NONE => (SOME Error, s)
      | SOME w => (NONE, set_var v w s)) /\
+  (evaluate (Primitive lhss pop rhss, s) =
+   case get_vars rhss s of
+   | SOME ws =>
+     (case loop_primop pop ws of
+      | SOME res_ws =>
+          if LENGTH lhss = LENGTH res_ws
+          then (NONE, set_vars lhss res_ws s)
+          else (SOME Error, s)
+      | NONE => (SOME Error, s))
+   | NONE => (SOME Error, s)) /\
   (evaluate (Arith arith,s) =
      case loop_arith s arith of
        NONE => (SOME Error, s)
@@ -437,7 +461,7 @@ Proof
   \\ fs [CaseEq"option",pair_case_eq,CaseEq"bool"] \\ rveq \\ fs []
   \\ fs [CaseEq"option",CaseEq"word_loc",mem_store_def,CaseEq"bool",set_globals_def,
          cut_state_def,pair_case_eq,CaseEq"ffi_result",cut_res_def,CaseEq"word_loc"]
-  \\ fs [] \\ rveq \\ fs [set_var_def,set_globals_def,dec_clock_def,call_env_def]
+  \\ fs [] \\ rveq \\ fs [set_var_def,set_vars_def,set_globals_def,dec_clock_def,call_env_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ fs [CaseEq"option",CaseEq"word_loc",mem_store_def,CaseEq"bool",CaseEq"result",
          pair_case_eq,cut_res_def]
