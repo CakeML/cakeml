@@ -181,3 +181,10 @@ Definition list_delete_def:
   list_delete [] s = s ∧
   list_delete (v::vs) s = list_delete vs (delete v s)
 End
+
+Theorem lookup_list_delete:
+  !xs l n. lookup n (list_delete xs l) =
+           if MEM n xs then NONE else lookup n l
+Proof
+  Induct >> rw [list_delete_def, lookup_delete] >> fs []
+QED

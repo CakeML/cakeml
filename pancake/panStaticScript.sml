@@ -487,6 +487,13 @@ Definition panop_to_str_def:
     | Mul => «Mul»
 End
 
+(* Get string name for Pancake primitives *)
+Definition primop_to_str_def:
+  primop_to_str pop =
+    case pop of
+    | AddCarry => «AddCarry»
+End
+
 
 (* Static check helpers *)
 
@@ -547,6 +554,21 @@ Definition check_operands_def:
         b' <- check_operands ctxt op_str sbs;
         return $ based_merge b b'
       od
+End
+
+(* Check args for AddCarry primitive and return result shaped basedness *)
+Definition check_addcarry_args_def:
+  check_addcarry_args ctxt sh_bds =
+    do
+      op_str <<- primop_to_str AddCarry;
+      nargs <<- LENGTH sh_bds;
+      if ~(nargs = 3)
+        then error (GenErr $ get_oparg_msg T «3»
+          (num_to_str nargs) ctxt.loc op_str ctxt.scope)
+      else return ();
+      b <- check_operands ctxt op_str sh_bds;
+      return $ StructB [WordB b; WordB NotBased]
+    od
 End
 
 (* Check for arg number and shape *)
@@ -837,6 +859,30 @@ Definition static_check_prog_def:
               ; exits_loop := F
               ; last       := OtherLast
               ; var_delta  := empty mlstring$compare
+              ; curr_loc   := ctxt.loc |>
+    od ∧
+  static_check_prog ctxt (Primitive v pop es) =
+    do
+      (* check destination is in scope (Primitive always targets Local) *)
+      vinf <- scope_check_local_var ctxt v;
+      (* check arg exps *)
+      esret <- static_check_exps ctxt es;
+      (* per-primop arity/operand checks; returns result shaped basedness *)
+      res_sb <- case pop of
+                | AddCarry => check_addcarry_args ctxt esret.sh_bds;
+      (* check declared destination shape matches result shape *)
+      if ~(sh_bd_eq_shapes vinf.vsh_bd res_sb)
+        then error (ShapeErr $ get_shape_mismatch_msg (concat [
+            «result of primitive »; primop_to_str pop;
+            « assigned to local variable »; v
+          ]) ctxt.loc ctxt.scope)
+      else return ();
+      (* return prog info with updated var *)
+      return <| exits_fun  := F
+              ; exits_loop := F
+              ; last       := OtherLast
+              ; var_delta  := singleton mlstring$compare v
+                                (vinf with <| vsh_bd := res_sb |>)
               ; curr_loc   := ctxt.loc |>
     od ∧
       static_check_prog ctxt (AssignCall (Local,rt) hdl trgt args) =
