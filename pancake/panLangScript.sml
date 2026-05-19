@@ -131,6 +131,13 @@ Termination
   fs [MEM_IMP_shape_size]
 End
 
+Definition shape_val_def:
+  shape_val One = Const 0w ∧
+  shape_val (Comb shapes) = Struct (shape_vals shapes) ∧
+  shape_vals [] = [] ∧
+  shape_vals (sh::shs) = shape_val sh :: shape_vals shs
+End
+
 Theorem MEM_IMP_exp_size:
    !xs a. MEM a xs ==> (exp_size l a < exp1_size l xs)
 Proof
@@ -278,6 +285,8 @@ Definition free_var_ids_def:
    else
      var_exp e
   ) ∧
+  (free_var_ids (Primitive v pop es) =
+   v::FLAT (MAP var_exp es)) ∧
   (free_var_ids (Store e1 e2) = var_exp e1 ++ var_exp e2) ∧
   (free_var_ids (Store32 e1 e2) = var_exp e1 ++ var_exp e2) ∧
   (free_var_ids (StoreByte e1 e2) = var_exp e1 ++ var_exp e2) ∧
