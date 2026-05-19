@@ -5,6 +5,7 @@ Theory data_to_word_bignumProof
 Libs
   preamble helperLib blastLib
 Ancestors
+  backend_common
   mllist dataSem wordSem[qualified] data_to_word
   data_to_word_memoryProof data_to_word_gcProof word_bignumProof
   dataProps copying_gc int_bitwise finite_map wordProps set_sep
@@ -337,13 +338,13 @@ Proof
   \\ once_rewrite_tac [list_Seq_def] \\ simp [eq_eval]
   \\ once_rewrite_tac [list_Seq_def] \\ simp [eq_eval]
   \\ once_rewrite_tac [list_Seq_def] \\ simp [eq_eval,wordSemTheory.inst_def]
-  \\ fs [if_eq_b2w,GSYM word_add_n2w]
+  \\ fs [backend_commonTheory.word_and_carry_def,if_eq_b2w,GSYM word_add_n2w]
   \\ `i1 + ¬n1' + 1w = z /\ (dimword (:α) ≤ w2n i1 + (w2n (¬n1') + 1)) = c1` by
    (fs [multiwordTheory.single_add_def] \\ rveq
     \\ fs [multiwordTheory.b2w_def,multiwordTheory.b2n_def])
   \\ fs [] \\ ntac 2 (pop_assum kall_tac)
   \\ once_rewrite_tac [list_Seq_def] \\ simp [eq_eval,wordSemTheory.inst_def]
-  \\ fs [if_eq_b2w,GSYM word_add_n2w]
+  \\ fs [backend_commonTheory.word_and_carry_def,if_eq_b2w,GSYM word_add_n2w]
   \\ qmatch_goalsub_abbrev_tac `b2w new_c`
   \\ qmatch_goalsub_abbrev_tac `insert 12 (Word new_z)`
   \\ `z' = new_z /\ c1' = new_c` by
@@ -451,13 +452,13 @@ Proof
   \\ once_rewrite_tac [list_Seq_def] \\ simp [eq_eval]
   \\ once_rewrite_tac [list_Seq_def] \\ simp [eq_eval]
   \\ once_rewrite_tac [list_Seq_def] \\ simp [eq_eval,wordSemTheory.inst_def]
-  \\ fs [if_eq_b2w,GSYM word_add_n2w]
+  \\ fs [backend_commonTheory.word_and_carry_def,if_eq_b2w,GSYM word_add_n2w]
   \\ `i1 + ¬n1' + 1w = z /\ (dimword (:α) ≤ w2n i1 + (w2n (¬n1') + 1)) = c1` by
    (fs [multiwordTheory.single_add_def] \\ rveq
     \\ fs [multiwordTheory.b2w_def,multiwordTheory.b2n_def])
   \\ fs [] \\ ntac 2 (pop_assum kall_tac)
   \\ once_rewrite_tac [list_Seq_def] \\ simp [eq_eval,wordSemTheory.inst_def]
-  \\ fs [if_eq_b2w,GSYM word_add_n2w]
+  \\ fs [backend_commonTheory.word_and_carry_def,if_eq_b2w,GSYM word_add_n2w]
   \\ qmatch_goalsub_abbrev_tac `b2w new_c`
   \\ qmatch_goalsub_abbrev_tac `insert 12 (Word new_z)`
   \\ `z' = new_z /\ c1' = new_c` by
