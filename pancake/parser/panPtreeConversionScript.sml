@@ -624,7 +624,8 @@ Definition conv_Prog_def:
                p' <- conv_Prog p;
                if is_add_with_carry e'
                then SOME $ add_locs_annot nd $
-                         Dec i' s' (Panop AddCarry args') p'
+                         Dec i' s' (shape_val s')
+                           (Seq (Primitive i' AddCarry args') p')
                else SOME $ add_locs_annot nd $
                          DecCall i' s' e' args' p'
            od
@@ -641,11 +642,7 @@ Definition conv_Prog_def:
                      do e' <- conv_ident r;
                         args' <- (case ts of [] => SOME []
                                           | args::_ => conv_ArgList args);
-                        if is_add_with_carry e' then
-                          SOME $ add_locs_annot nd $
-                            Return (Panop AddCarry args')
-                        else
-                          SOME $ add_locs_annot nd $ TailCall e' args'
+                        SOME $ add_locs_annot nd $ TailCall e' args'
                      od)
             | NONE =>
                 (case conv_Handle r of
@@ -673,9 +670,9 @@ Definition conv_Prog_def:
                                           | args::_ => conv_ArgList args);
                         if is_add_with_carry e' then
                           (case r' of
-                           | (SOME (vk, vn), NONE) =>
+                           | (SOME (_, vn), NONE) =>
                                SOME $ add_locs_annot nd $
-                                 Assign vk vn (Panop AddCarry args')
+                                 Primitive vn AddCarry args'
                            | _ => NONE)
                         else
                           SOME $ add_locs_annot nd $
@@ -810,6 +807,8 @@ Definition localise_prog_def:
   localise_prog ls (Assign varkind varname exp) =
   Assign (case lookup ls varname of NONE => varkind | SOME _ => Local)
          varname (localise_exp ls exp) ∧
+  localise_prog ls (Primitive varname pop exps) =
+  Primitive varname pop (MAP (localise_exp ls) exps) ∧
   localise_prog ls (Store exp1 exp2) =
   Store (localise_exp ls exp1)
         (localise_exp ls exp2) ∧
