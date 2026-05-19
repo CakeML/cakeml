@@ -2092,6 +2092,13 @@ Definition fts_meld_def:
 End
 
 
+Theorem lemma_fts_meld_length:
+  LENGTH(fts_meld xs ys) = LENGTH (xs ++ ys)
+Proof
+  Cases_on `xs` >> Cases_on `ys` >> simp[fts_meld_def] >>
+  Cases_on `h` >> Cases_on `h'` >> simp[fts_meld_def] >>
+  IF_CASES_TAC >> simp[]
+QED
 
 
 Theorem lemma_lower_eq_fts_is_min:
@@ -4444,6 +4451,17 @@ Definition fts_merge_trees_def:
     else
       FibTree k2 v2 (fts_meld l2 [FibTree k1 v1 l1])
 End
+
+Theorem lemma_fts_merge_trees_length:
+  LENGTH l1 = LENGTH l2 /\
+  fts_merge_trees (FibTree k1 v1 l1) (FibTree k2 v2 l2) = (FibTree k3 v3 l3)
+  ==>
+  LENGTH l3 = LENGTH l1 + 1
+Proof
+  simp[fts_merge_trees_def] >> IF_CASES_TAC >>
+  strip_tac >> gvs[] >>
+  simp[lemma_fts_meld_length]
+QED
 
 
 Theorem lemma_alookup_in_disjoint:
@@ -8218,8 +8236,10 @@ End
 
 
 Theorem fib_heap_merge_trees_mem_thm:
+  !frame k v l k' v' l' m dm a m' c.
   (fts_mem (ann_fts 0w [FibTree k v l]) * fts_mem (ann_fts 0w [FibTree k' v' l'])
     * frame) (fun2set(m,dm)) /\
+  LENGTH l = LENGTH l' /\
   LENGTH l < 195 /\
   LENGTH l' < 195 /\
   fib_heap_merge_trees ((k:'a word),k',m,dm) = (a,m',c)
@@ -8260,7 +8280,8 @@ Proof
     rewrite_tac[GSYM SUC_ONE_ADD] >>
     simp[n2w_SUC] >>
     full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR] >>
-    fs[AC STAR_ASSOC STAR_COMM]
+    fs[AC STAR_ASSOC STAR_COMM] >>
+    Cases_on `l'` >> fs[]
     ) >>
   disch_tac >> gvs[] >>
   fs[GSYM head_key_def,GSYM last_key_def] >>
@@ -8319,14 +8340,14 @@ QED
 
 Definition fib_heap_link_trees_def:
   fib_heap_link_trees (n: num) (arr,a,m,dm,c) =
-    if n = 0 then (arr,m,F) else
-    if a = 0w then (arr,m,c) else
+    if n = 0 then (m,F) else
+    if a = 0w then (m,c) else
     let (rank,c) = read_mem (a + rank_off) m dm c in
-    if 195 <= (w2n rank) then (arr,m,F) else
+    if 195 <= (w2n rank) then (m,F) else
     let (arr_t,c) = read_mem (arr + rank) m dm c in
     if arr_t = 0w then
        let (m,c) = write_mem (arr + rank) a m dm c in
-        (arr,m,c)
+        (m,c)
     else
        let (new_t,m,c') = fib_heap_merge_trees (a,arr_t,m,dm) in
        let c = (c /\ c') in
@@ -8345,12 +8366,135 @@ Definition reb_array_mem_def:
     reb_array_mem a (off + 1w) rest
 End
 
+Theorem reb_array_mem_append_thm:
+  !xs ys off a.
+  reb_array_mem a off (xs ++ ys) =
+    reb_array_mem a off xs * reb_array_mem a (off + n2w (LENGTH xs)) ys
+Proof
+  Induct >> simp[reb_array_mem_def,SEP_CLAUSES] >>
+  rpt strip_tac >>
+  Cases_on `h` >> simp[]
+  >- simp[n2w_SUC,STAR_ASSOC] >>
+  CASE_TAC >>
+  simp[n2w_SUC,STAR_ASSOC]
+QED
+
+
+Theorem lemma_reb_array_mem_el:
+  !r a off rl frame m dm.
+  (reb_array_mem a off rl * frame) (fun2set(m,dm)) /\
+  (r < LENGTH rl)
+  ==>
+  ?xs y ys.
+  (reb_array_mem a off (xs ++ (y::ys)) * frame) (fun2set(m,dm)) /\
+  r = LENGTH xs
+Proof
+  rpt strip_tac >>
+  drule LESS_LENGTH >> strip_tac >> gvs[] >>
+  first_x_assum $ irule_at $ Pos hd >>
+  simp[]
+QED
+
+
+
+
+
+
 
 Theorem fib_heap_link_trees_mem_thm:
+  !n frame fh1 k v l arr fh2 rl m dm c m' c' rl'.
   (fts_mem (ann_fts 0w [FibTree k v l]) *
-   reb_array_mem arr 0w
+   reb_array_mem arr 0w rl *
+   frame) (fun2set(m,dm)) /\
+  LENGTH rl = 196 /\
+  196 < dimword (:'a) /\
+  (!x k v l. x < LENGTH rl /\ EL x rl = SOME(FibTree k v l) ==> LENGTH l = x) /\
+  fib_heap_link_trees n (arr,(k:'a word),m,dm,c) = (m',T) ==>
+  (reb_array_mem arr 0w (FST (fts_link_trees n rl (FibTree k v l)))
+   * frame) (fun2set(m',dm))
+Proof
+  Induct >> rpt gen_tac >> disch_tac >> fs[] >> pop_assum mp_tac
+  >- (
+    simp[Once fib_heap_link_trees_def] >>
+    strip_tac >> gvs[]
+    ) >>
+  simp[Once fib_heap_link_trees_def] >>
+  fs[ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def,
+     fts_mem_def,SEP_CLAUSES, head_key_def, ft_mem_def, new_anode_def,
+     new_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
+  full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR] >>
+  simp[write_mem_def,read_mem_def,rank_off_def] >>
+  SEP_R_TAC >> simp[] >>
+  IF_CASES_TAC >> simp[] >>
+  `LENGTH l < LENGTH rl` by simp[] >>
+  drule LESS_LENGTH >> strip_tac >> fs[] >>
+  fs[reb_array_mem_append_thm] >>
+  Cases_on `y`
+  >- (
+    fs[reb_array_mem_def] >>
+    SEP_R_TAC >> simp[] >>
+    strip_tac >> gvs[] >>
+    simp[Once fts_link_trees_def,EL_APPEND,LUPDATE_APPEND] >>
+    simp[LUPDATE_DEF] >>
+    simp[reb_array_mem_append_thm,reb_array_mem_def] >>
+    fs[ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def,
+       fts_mem_def,SEP_CLAUSES, head_key_def, ft_mem_def, new_anode_def,
+       new_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
+    SEP_W_TAC >>
+    fs[AC STAR_ASSOC STAR_COMM]
+    ) >>
+  fs[reb_array_mem_def] >>
+  Cases_on `x` >> fs[] >>
+  SEP_R_TAC >> simp[] >>
+  fs[ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def,
+     fts_mem_def,SEP_CLAUSES, head_key_def, ft_mem_def, new_anode_def,
+     new_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
+  full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR] >>
+  pairarg_tac >> simp[] >>
+  simp[Once fts_link_trees_def,EL_APPEND,LUPDATE_APPEND] >>
+  simp[LUPDATE_DEF] >>
+  first_x_assum(qspecl_then [`LENGTH l`,`k'`,`v'`,`l'`] assume_tac) >>
+  rfs[EL_APPEND] >>
+  `LENGTH l < 195 /\ LENGTH l' < 195` by simp[] >>
+  qspecl_then [`reb_array_mem arr 0w ys1 * one (arr + n2w (LENGTH l),Word k') *
+    reb_array_mem arr (n2w (LENGTH l + 1)) ys2 * frame`,
+    `k`,`v`,`l`,`k'`,`v'`,`l'`,`m`,`dm`,`new_t`,`m''`,`c'''`]
+    mp_tac fib_heap_merge_trees_mem_thm >>
+  fs[ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def,
+     fts_mem_def,SEP_CLAUSES, head_key_def, ft_mem_def, new_anode_def,
+     new_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
+  fs[AC STAR_ASSOC STAR_COMM] >>
+  fs[STAR_ASSOC] >>
+  Cases_on `fts_merge_trees (FibTree k v l) (FibTree k' v' l')` >>
+  simp[head_key_t_def] >>
+  fs[ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def,
+     fts_mem_def,SEP_CLAUSES, head_key_def, ft_mem_def, new_anode_def,
+     new_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
+  strip_tac >> gvs[] >>
+  first_x_assum (qspecl_then [`frame`,`k''`,`v''`,`l''`,`arr`,
+    `ys1 ++ [NONE] ++ ys2`,`m''(| arr + n2w (LENGTH l) |-> Word 0w|)`,`dm`,`c`,`m'`]
+    mp_tac) >>
+  simp[]
 
-fts_link_trees_def
+
+
+
+  strip_tac >> gvs[] >>
+  simp[Once fts_link_trees_def,EL_APPEND,LUPDATE_APPEND] >>
+  simp[LUPDATE_DEF] >>
+  simp[reb_array_mem_append_thm,reb_array_mem_def] >>
+  fs[ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def,
+     fts_mem_def,SEP_CLAUSES, head_key_def, ft_mem_def, new_anode_def,
+     new_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
+  SEP_W_TAC >>
+  fs[AC STAR_ASSOC STAR_COMM]
+
+
+fs[reb_arr
+
+  fs[ft
+
+fts_link_trees2
 fts_link_root_list
 
 
