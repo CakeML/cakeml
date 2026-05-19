@@ -298,37 +298,33 @@ End
 
 (* Unverified x64 perf-mode instrumentation.
 
-   These helpers shadow CakeML's call stack on the C stack so that
-   `perf record --call-graph fp` can unwind through CakeML code.
+   The idea is to "simulate" CakeML's call stack by pushing the return address
+   and the frame pointer to the C stack, popping it when the call returns.
+   This allows ‘perf record --call-graph fp’ to walk CakeML stack traces.
 
-   They reference source register numbers 14 and 15.  The x64
-   `stack_names` mapping renames these to physical 4 and 5, and
-   `num2Zreg` (from the L3 x86_64 model) maps physical 4 → RSP
-   and physical 5 → RBP — note the comment in `x64_configScript`
-   that says "r4=rbp, r5=rsp" is misleading; the constructor
-   order of the `Zreg` datatype is what determines the actual
-   hardware register.  On non-x64 targets the same source
-   numbers will be renamed to whatever that target's reg_names
-   says, so the flag should only be enabled for x64 (guarded at
-   the CLI layer). *)
+   Due to the presence of exceptions, we need to additionally (re)store the
+   base pointer and stack pointer (see PushHandler and raise_stub).
+ *)
 
-Definition perf_rbp_def:
-  perf_rbp = 15n   (* x64_names: 15 → physical 5 = RBP *)
+(* x64_config$x64_names: 14 → 4 = RSP *)
+Definition perf_rsp_def:
+  perf_rsp = 14n
 End
 
-Definition perf_rsp_def:
-  perf_rsp = 14n   (* x64_names: 14 → physical 4 = RSP *)
+(* x64_config$x64_names: 15 → 5 = RBP (HOL's x64Script.sml) *)
+Definition perf_rbp_def:
+  perf_rbp = 15n
 End
 
 Definition perf_call_prefix_def:
   perf_call_prefix l1 l2 k =
     list_Seq [
-      (* k := return address (the label after the call) *)
+      (* k := return address *)
       LocValue k l1 l2 ;
       (* Write the new frame's slots BELOW perf_rsp first; do not adjust
          perf_rsp yet, so perf's fp-walker still sees the old (valid) frame
-         while the new one is being built.  After the final Sub, layout
-         will be (perf_rsp)=old_rbp, 8(perf_rsp)=ret_addr — fp convention. *)
+         while the new one is being built. After the final Sub, the layout
+         will be (perf_rsp)=old_rbp, 8(perf_rsp)=ret_addr. *)
       Inst (Mem Store k       (Addr perf_rsp (-8w))) ;
       Inst (Mem Store perf_rbp (Addr perf_rsp (-16w))) ;
       (* Atomically commit the new frame, then sync perf_rbp := perf_rsp. *)
@@ -607,13 +603,8 @@ End
 Definition compile_def:
   compile asm_conf perf progs =
     let k = asm_conf.reg_count - (5+LENGTH asm_conf.avoid_regs) in
-    (* Bitmap table entry 0 is the handler-frame bitmap.  In master
-       (perf=F) the handler is 3 slots and uses 4w = 0b100 (skip 2
-       slots, terminator).  In perf=T the handler is 5 slots, all
-       four non-bitmap slots are non-pointers (label, prev-handler,
-       saved %rsp, saved %rbp), so we use 16w = 0b10000 (skip 4 slots,
-       terminator).  PushHandler stores `1w` at slot 0 in both modes;
-       it's the bitmap contents at index 0 that differs. *)
+    (* Since we increase the slots for the handler when perf=T, we need to
+       update the bitmap to ensure that GC leaves the new entries alone. *)
     let init_bitmaps =
         if perf then (List [16w], 1n) else (List [4w], 1n) in
     let (progs,fs,bitmaps) = compile_word_to_stack asm_conf perf k progs init_bitmaps in
