@@ -10,7 +10,7 @@ Libs
 Definition x64_names_def:
   x64_names =
     (* 16 regs, must avoid 4 and 5, names:
-         r0=rax, r1=rcx, r2=rdx, r3=rbx, r4=rbp, r5=rsp, r6=rsi,
+         r0=rax, r1=rcx, r2=rdx, r3=rbx, r4=rsp, r5=rbp, r6=rsi,
          r7=rdi, r8=r8, r9, r10, r11, r12, r13, r14, r15
        The first six arguments are passed in registers. The first
        argument (1) is passed in rdi(r7), the second(2) in rsi(r6),
