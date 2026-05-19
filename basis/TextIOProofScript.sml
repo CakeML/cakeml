@@ -7498,7 +7498,7 @@ Proof
   \\ simp [std_preludeTheory.OPTION_TYPE_def]
 QED
 
-Theorem inputLineWith_spec_lines:
+Theorem inputLineWith_spec_lines_and_terminator:
   CHAR c0 c0v ⇒
   app (p:'ffi ffi_proj) TextIO_inputLineWith_v [c0v; is]
      (STDIO fs * INSTREAM_LINES c0 fd is lines fs)
@@ -7506,7 +7506,8 @@ Theorem inputLineWith_spec_lines:
        SEP_EXISTS k.
          STDIO (forwardFD fs fd k) *
          INSTREAM_LINES c0 fd is (TL lines) (forwardFD fs fd k) *
-         & (OPTION_TYPE STRING_TYPE (oHD lines) v))
+         & (OPTION_TYPE STRING_TYPE (oHD lines) v ∧
+            ∀s. oHD lines = SOME s ⇒ ∃s0. s = s0 ^ toString c0))
 Proof
   strip_tac \\ fs [INSTREAM_LINES_def] \\ xpull
   \\ xapp_spec inputLineWith_spec_STR \\ rveq
@@ -7543,9 +7544,39 @@ Proof
     \\ qmatch_goalsub_abbrev_tac ‘DROP k (xs ++ ys)’
     \\ qsuff_tac ‘k = LENGTH xs’ \\ fs [DROP_LENGTH_APPEND]
     \\ unabbrev_all_tac \\ fs [])
-  \\ fs [] \\ Cases_on ‘to_read’ \\ fs [strcat_def,concat_def,chr_to_str_def]
+  \\ fs [] \\ Cases_on ‘to_read’
+  \\ fs [strcat_def,concat_def,chr_to_str_def]
 QED
 
+Theorem inputLine_spec_lines_and_terminator:
+  app (p:'ffi ffi_proj) TextIO_inputLine_v [is]
+     (STDIO fs * INSTREAM_LINES #"\n" fd is lines fs)
+     (POSTv v.
+       SEP_EXISTS k.
+         STDIO (forwardFD fs fd k) *
+         INSTREAM_LINES #"\n" fd is (TL lines) (forwardFD fs fd k) *
+         & (OPTION_TYPE STRING_TYPE (oHD lines) v ∧
+            ∀s. oHD lines = SOME s ⇒ ∃s0. s = s0 ^ toString #"\n"))
+Proof
+  xcf_with_def TextIO_inputLine_v_def >> xapp >>
+  simp[CHAR_def]
+QED
+
+Theorem inputLineWith_spec_lines:
+  CHAR c0 c0v ⇒
+  app (p:'ffi ffi_proj) TextIO_inputLineWith_v [c0v; is]
+     (STDIO fs * INSTREAM_LINES c0 fd is lines fs)
+     (POSTv v.
+       SEP_EXISTS k.
+         STDIO (forwardFD fs fd k) *
+         INSTREAM_LINES c0 fd is (TL lines) (forwardFD fs fd k) *
+         & (OPTION_TYPE STRING_TYPE (oHD lines) v))
+Proof
+  strip_tac >> xapp >> xsimpl >>
+  first_assum $ irule_at Any >>
+  qexistsl [‘lines’, ‘fs’, ‘fd’, ‘GC’] >> simp[] >> xsimpl >>
+  rw[] >> metis_tac[SEP_IMP_REFL]
+QED
 
 Theorem inputLine_spec_lines:
   app (p:'ffi ffi_proj) TextIO_inputLine_v [is]
@@ -7556,7 +7587,7 @@ Theorem inputLine_spec_lines:
          INSTREAM_LINES #"\n" fd is (TL lines) (forwardFD fs fd k) *
          & (OPTION_TYPE STRING_TYPE (oHD lines) v))
 Proof
-  xcf_with_def TextIO_inputLine_v_def >> xapp >>
+  xcf_with_def TextIO_inputLine_v_def >> xapp_spec inputLineWith_spec_lines >>
   simp[CHAR_def]
 QED
 
@@ -7583,7 +7614,11 @@ Proof
          INSTREAM_LINES c0 fd is (TL lines) (forwardFD fs fd k) *
          & (OPTION_TYPE STRING_TYPE (oHD lines) v)`
   THEN1 (
-    xapp_spec inputLineWith_spec_lines \\ gvs[])
+    xapp_spec inputLineWith_spec_lines \\ xsimpl \\
+    first_assum $ irule_at Any >>
+
+
+gvs[])
   \\ Cases_on `lines` \\ fs [std_preludeTheory.OPTION_TYPE_def] \\ rveq
   \\ xmatch \\ fs []
   THEN1
