@@ -12,7 +12,11 @@ val _ = gen_remove_ovl_mapping "mrec_sem";
 
 (**************************)
 
-val evaluate_invariant_oracle = cj 7 panPropsTheory.evaluate_invariants;
+Theorem evaluate_invariant_oracle[local]:
+  ∀p t res st. evaluate (p, t) = (res, st) ⇒ st.ffi.oracle = t.ffi.oracle
+Proof
+  simp [panPropsTheory.evaluate_invariants, SF SFY_ss]
+QED
 
 Theorem explode_eq_implode[local]:
   ∀x y. explode x = y ⇔ x = implode y
@@ -30,6 +34,7 @@ Proof
   map_every qid_spec_tac [‘res’,‘t’,‘r’,‘k’,‘s’,‘p’,‘n’]>>
   completeInduct_on ‘n’>>
   rpt gen_tac>>strip_tac>>
+  subgoal `Case p`>>simp [markerTheory.Case_def]>>
   Cases_on ‘p’>>
   fs[Once evaluate_def,sh_mem_load_def,sh_mem_store_def,
      panPropsTheory.eval_upd_clock_eq,
@@ -45,9 +50,8 @@ Proof
         explode_eq_implode])>>
   fs[mrec_prog_simps,mrec_Seq,mrec_If,Once mrec_While,mrec_Call,
      mrec_DecCall,call_FFI_def,mrec_ShMemLoad,mrec_ShMemStore,
-     empty_locals_defs,dec_clock_def,kvar_defs2]>>gvs[FUNPOW_SUC]>>
-  TRY (gvs[AllCaseEqs()]>>NO_TAC)
-  (* Dec *)
+     empty_locals_defs,dec_clock_def,kvar_defs2]>>gvs[FUNPOW_SUC]
+  >~ [`Case (Dec _ _ _ _)`]
   >- (rpt (CASE_TAC>>fs[])>>
       rpt (pairarg_tac>>fs[])>>
       rpt (FULL_CASE_TAC>>fs[])>>gvs[FUNPOW_SUC]>>
@@ -63,7 +67,7 @@ Proof
       disch_then $ qspecl_then [‘pp’,‘ss’,‘k’,‘(q,r)’,‘st’,‘res’] mp_tac>>
       simp[Abbr‘ss’,Abbr‘pp’]>>strip_tac>>
       imp_res_tac comp_ffi_bind>>gvs[])
-  (* Seq *)
+  >~ [`Case (Seq _ _)`]
   >- (rpt (pairarg_tac>>fs[])>>
       rpt (FULL_CASE_TAC>>fs[])>>gvs[FUNPOW_SUC]>>
       (* NONE *)
@@ -101,7 +105,7 @@ Proof
       last_x_assum $ qspec_then ‘n’ mp_tac>>simp[]>>
       strip_tac>>res_tac>>fs[]>>
       imp_res_tac comp_ffi_bind>>gvs[])
-  (* If *)
+  >~ [`Case (If _ _ _)`]
   >- (rpt (FULL_CASE_TAC>>fs[])>>
       gvs[AllCaseEqs()]>>
       rename [‘Tau _ = FUNPOW Tau n _’]>>
@@ -116,7 +120,7 @@ Proof
       disch_then $ drule_at Any>>
       strip_tac>>gvs[]>>
       imp_res_tac comp_ffi_bind>>gvs[])
-  (* While *)
+  >~ [`Case (While _ _)`]
   >- (rewrite_tac[Once mrec_While]>>
       rpt (TOP_CASE_TAC>>fs[])>>
       rpt (pairarg_tac>>fs[])>>
@@ -147,7 +151,7 @@ Proof
         by simp[state_component_equality]>>
       fs[]>>strip_tac>>
       imp_res_tac comp_ffi_bind>>gvs[])
-  (* Call *)
+  >~ [`Case (Call _ _ _)`]
   >- (
   rpt (TOP_CASE_TAC>>fs[])>>gvs[]>>
   Cases_on ‘k=0’>>fs[]>>
@@ -192,8 +196,9 @@ Proof
       ‘s1 with clock := s1.clock = s1’
         by simp[state_component_equality]>>
       fs[]>>strip_tac>>
-      imp_res_tac comp_ffi_bind>>gvs[])
-  (* DecCall *)
+      imp_res_tac comp_ffi_bind>>gvs[]
+  )
+  >~ [`Case (DecCall _ _ _ _ _)`]
   >- (rpt (TOP_CASE_TAC>>fs[])>>gvs[]>>
       Cases_on ‘k=0’>>fs[]>>
       rename [‘Tau _ = FUNPOW Tau n _’]>>
@@ -239,14 +244,26 @@ Proof
         by simp[state_component_equality]>>
       fs[]>>strip_tac>>
       imp_res_tac comp_ffi_bind>>gvs[])
-  >- (rpt (FULL_CASE_TAC>>fs[])>>gvs[])>>
-  (* ShMemLoad / ShMemStore *)
-  rpt (TOP_CASE_TAC>>fs[])>>
-  TRY (rename [‘_ = FUNPOW Tau n _’]>>
+  >~ [`Case (ShMemLoad _ _ _ _)`]
+  >- (
+    rpt (TOP_CASE_TAC>>fs[])>>
+    TRY (rename [‘_ = FUNPOW Tau n _’]>>
        Cases_on ‘n’>>fs[FUNPOW_SUC])>>
-  TRY (rename [‘_ = FUNPOW Tau n _’]>>
+    TRY (rename [‘_ = FUNPOW Tau n _’]>>
        Cases_on ‘n’>>fs[FUNPOW_SUC])>>
-  gvs[set_var_defs,bst_def,AllCaseEqs()]
+    gvs[set_var_defs,bst_def,AllCaseEqs()]
+  )
+  >~ [`Case (ShMemStore _ _ _)`]
+  >- (
+    rpt (TOP_CASE_TAC>>fs[])>>
+    TRY (rename [‘_ = FUNPOW Tau n _’]>>
+       Cases_on ‘n’>>fs[FUNPOW_SUC])>>
+    TRY (rename [‘_ = FUNPOW Tau n _’]>>
+       Cases_on ‘n’>>fs[FUNPOW_SUC])>>
+    gvs[set_var_defs,bst_def,AllCaseEqs()]
+  )
+  >>
+  rpt (FULL_CASE_TAC>>fs[])>>gvs[]
 QED
 
 Theorem nondiv_evaluate':
@@ -1680,8 +1697,8 @@ Proof
     simp[bst_def,ext_def,bstate_component_equality])
   >~[‘Dec’]>-
    (fs[mrec_Dec]>>
-    rpt (CASE_TAC>>fs[])
-    >- (gvs[]>>metis_tac[FUNPOW])>>
+    rpt (CASE_TAC>>fs[])>>
+    gvs []>>
     pairarg_tac>>fs[]>>
     simp[Once itree_unfold]>>rw[]>>
     qrefine ‘SUC n’>>simp[FUNPOW_SUC]>>fs[]>>
