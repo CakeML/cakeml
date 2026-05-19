@@ -62,6 +62,7 @@ val res = translate $ panStaticTheory.get_shape_mismatch_msg_def;
 val res = translate $ panStaticTheory.first_repeat_def;
 val res = translate $ panStaticTheory.binop_to_str_def;
 val res = translate $ panStaticTheory.panop_to_str_def;
+val res = translate $ panStaticTheory.primop_to_str_def;
 
 val res = translate $ panStaticTheory.scope_check_fun_name_def;
 val res = translate $ panStaticTheory.scope_check_global_var_def;
@@ -69,6 +70,7 @@ val res = translate $ panStaticTheory.scope_check_local_var_def;
 val res = translate $ panStaticTheory.check_redec_var_def;
 val res = translate $ panStaticTheory.check_export_params_def;
 val res = translate $ panStaticTheory.check_operands_def;
+val res = translate $ panStaticTheory.check_addcarry_args_def;
 val res = translate $ panStaticTheory.check_func_args_def;
 
 val res = translate $ spec32 $ panStaticTheory.static_check_exp_def;
