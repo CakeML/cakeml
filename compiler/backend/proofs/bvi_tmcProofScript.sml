@@ -2188,15 +2188,49 @@ Proof
   >> gvs []
 QED
 
+Theorem evaluate_vars_stateless:
+  ∀ns env (s : (γ, 'ffi) state) (u : (γ, 'ffi) state).
+    evaluate (MAP (λn. Var n) ns,env,s) = (Rval ((MAP λn. env❲n❳) ns),s) ⇒
+    evaluate (MAP (λn. Var n) ns,env,u) = (Rval ((MAP λn. env❲n❳) ns),u)
+Proof
+  cheat
+QED
+
+(* This will need additional constraints on call_args tbd *)
+Theorem env_rel_call_args:
+  ∀f env1 env2 call_args ptr idx.
+    env_rel T f env1 env2 ⇒
+    env_rel T f (MAP (λn. env1❲n❳) call_args) (MAP (λn. env2❲n❳) call_args ++ [RefPtr F ptr; Number idx])
+Proof
+  cheat
+QED
+
+(* Might make this more generic but want something that gives me what I need quickly *)
+(* This can be proven with state_rel_dec and state_rel_filled, and maybe I just invoke them both in the proof *)
+Theorem state_rel_call_state:
+  ∀f s1 s2 call_ts.
+    state_rel f s1 s2 ⇒
+    state_rel f (dec_clock (call_ts + 1) s1) (dec_clock (call_ts + 1) (s2 with refs :=
+                                                                       s2.refs⟨
+                                                                         (LEAST ptr. ptr ∉ FDOM s2.refs) ↦
+                                                                         MutBlock tag (MAP (λn. env2❲n❳) (REVERSE right))
+                                                                         (Number 0)
+                                                                         (MAP (λn. env2❲n❳) (REVERSE left))⟩))
+Proof
+  cheat
+QED
+
 Theorem evaluate_cb_to_hb:
-  ∀cb hb tag left child right hole call_ts call_args loc loc_opt body work f1 env1 env2 s1 s2 t1 r1.
+  ∀cb tag left child right hole call_ts call_args loc loc_opt body wrap work f1 env1 env2 s1 s2 t1 r1.
     evaluate ([cb_to_bvi loc cb],env1,s1) = (r1,t1) ∧
-    cb_to_hb cb = (hb,call_ts,call_args) ∧
+    cb_to_hb cb = (HoleBlock tag left hole right,call_ts,call_args) ∧
     env_rel T f1 env1 env2 ∧
     state_rel f1 s1 s2 ∧
     lookup loc s1.code = SOME (LENGTH call_args,body) ∧
+    lookup loc s2.code = SOME (LENGTH call_args,wrap) ∧
     lookup loc_opt s2.code = SOME (LENGTH call_args + 2,work) ∧
-    work = rewrite_worker loc loc_opt (LENGTH call_args) (LENGTH call_args + 1) body ∧
+    rewrite_wrapper loc loc_opt body = SOME wrap ∧
+    rewrite_worker loc loc_opt (LENGTH call_args) (LENGTH call_args + 1) body = work ∧
     (∀xs' s'' env1' loc' r' t' opt' f' s'³' env2'.
        hypothesis xs' s'' env1' loc' r' t' opt' f' s'³' env2' s1) ∧
     cb = CallBlock tag left child right ∧
@@ -2221,7 +2255,6 @@ Proof
   >> rw []
   >> rename [‘CallBlock tag left child right’]
   >> gvs [cb_to_hb_def, CaseEq "prod"]
-  >> rename [‘cb_to_hb child = (hole,_,_)’]
   >> last_x_assum $ drule_at Any
   >> rpt $ disch_then drule
   >> gvs [cb_to_hb_def, cb_to_bvi_def, hb_to_bvi_wrapper_def, hb_to_bvi_worker_def, evaluate_def, evaluate_APPEND, CaseEq "prod"]
@@ -2231,7 +2264,7 @@ Proof
   >> strip_tac >> gvs []
   >> qpat_x_assum ‘evaluate (_,_,_) = _’ $ mk_asm "left_assum"
   >> gvs [CaseEq "prod", GSYM PULL_FORALL]
-  >> Cases_on ‘child’
+  >> Cases_on ‘child’ (* flip these *)
   >-
    (rename [‘CallBlock tag' left' child right'’]
     >> gvs [cb_to_hb_def, CaseEq "prod"]
@@ -2246,36 +2279,6 @@ Proof
     >> disch_then drule
     >> gvs [CaseEq "prod", PULL_EXISTS]
     >> disch_then drule
-    >> reverse $ Cases_on ‘v2'’
-    >-
-     (gvs [CaseEq "prod"]
-      >> disch_then $ drule_all
-      >> disch_then $ qspec_then ‘hole’ mp_tac
-      >> strip_tac
-      >> gvs [CaseEq "prod"]
-      >> asm "left'_assum" assume_tac
-      >> gvs [CaseEq "prod"]
-      >> pop_assum kall_tac
-      >> reverse $ Cases_on ‘v2’
-      >-
-       (gvs []
-        >> rpt $ first_x_assum $ irule_at Any
-        >> gvs [mut_cons_def, evaluate_def, evaluate_APPEND, do_app_def, do_app_aux_def, backend_commonTheory.small_enough_int_def]
-        >> asm "left_assum" assume_tac
-        >> asm "left'_assum" assume_tac
-        >> gvs []
-        >> ntac 2 $ pop_assum kall_tac
-        (* This should be pulled higher. *)
-        >> gvs [CaseEq "prod"]
-        (* I need machinery to prove this true *)
-        >> ‘v5 ≠ Rerr (Rabort Rtype_error)’ by cheat
-        >> drule_then drule evaluate_vars
-        >> impl_tac >- gvs [CaseEq "result"]
-        >> disch_then $ qspec_then ‘s2’ mp_tac
-        >> strip_tac >> gvs []
-        >> qpat_x_assum ‘evaluate (_,_,_) = _’ $ mk_asm "right_assum"
-        >> cheat)
-      >> cheat)
     >> cheat)
   >> gvs [cb_to_hb_def, cb_to_bvi_def, PULL_EXISTS, evaluate_def, evaluate_APPEND, CaseEq "prod"]
   >> drule_then drule evaluate_vars
@@ -2283,20 +2286,84 @@ Proof
   >> disch_then $ qspec_then ‘s2’ mp_tac
   >> strip_tac >> gvs []
   >> pop_assum $ mk_asm "call_args_assum"
+  >> rename [‘state_rel f1 s1 s2’]
   >> gvs [CaseEq "option", CaseEq "prod"]
   >> gvs [bvlSemTheory.find_code_def, CaseEq "prod"]
-  >> CASE_TAC
+  >> ‘s1.clock = s2.clock’ by gvs [state_rel_def]
+  >> Cases_on ‘s1.clock < call_ts + 1’
+  >- cheat
+  >> gvs [CaseEq "prod"]
+
+  (* We do have call args in the assumptions that could be simplified? *)
+(*  >> asm "call_args_assum" assume_tac
+  >> drule evaluate_vars_stateless
+  >> disch_then $ qspec_then ‘dec_clock (call_ts + 1) s2’ assume_tac*)
+        
+  (* This is all good but do we need it yet. *)
+  >> gvs [CaseEq "prod", hb_to_bvi_wrapper_def, mut_cons_def, evaluate_def, evaluate_APPEND]
+  >> asm "left_assum" assume_tac
+  >> gvs []
+  >> pop_assum kall_tac
+  >> gvs [do_app_def, do_app_aux_def, backend_commonTheory.small_enough_int_def]
+  (* I need machinery to prove this*)
+  >> ‘evaluate (MAP (λn. Var n) right,env2,s2) = (Rval (MAP (λn. EL n env2) right),s2)’ by cheat
+  >> gvs [optimise_call_def, evaluate_def, evaluate_APPEND]
+  >> pop_assum $ mk_asm "right_assum"
+  >> gvs[evaluate_shift_vars_sing]
+  >> gvs [LENGTH_MAP, REVERSE_APPEND, TAKE_APPEND, DROP_APPEND, GSYM MAP_REVERSE, GSYM MAP_TAKE, GSYM MAP_DROP, DROP_LENGTH_TOO_LONG]
+  >> ‘TAKE (LENGTH right) (REVERSE right) = REVERSE right’ by (gvs [LENGTH_REVERSE, TAKE_LENGTH_ID])
+  >> simp [EL_APPEND_EQN]
+  >> pop_assum kall_tac
+  >> asm "call_args_assum" assume_tac
+                           
+  >> drule evaluate_vars_stateless
+  >> disch_then $ qspec_then ‘s2 with refs :=
+                              s2.refs⟨
+                                (LEAST ptr. ptr ∉ FDOM s2.refs) ↦
+                                MutBlock tag (MAP (λn. env2❲n❳) (REVERSE right))
+                                (Number 0)
+                                (MAP (λn. env2❲n❳) (REVERSE left))⟩’ mp_tac
+  >> strip_tac >> gvs []
+  >> ntac 2 $ pop_assum kall_tac
+  >> ‘backend_common$small_enough_int &(LENGTH right)’ by cheat
+  >> gvs [do_app_def, do_app_aux_def, bvlSemTheory.find_code_def]
+  >> first_x_assum $ qspecl_then [‘[body]’, ‘dec_clock (call_ts + 1) s1’] mp_tac
+  >> gvs [hypothesis_def]
+  >> impl_tac
+  >- gvs [dec_clock_def]
+  >> disch_then drule
+  >> drule env_rel_call_args
+  >> disch_then $ qspecl_then [‘call_args’, ‘LEAST ptr. ptr ∉ FDOM s2.refs’, ‘&(LENGTH right)’] assume_tac
+  >> disch_then drule
+  >> drule state_rel_dec
+  >> disch_then $ qspecl_then [‘s1.clock - 1’, ‘call_ts + 1’] mp_tac
+  >> impl_tac
+  >- (Cases_on ‘s1.clock’ >> gvs [])
+  >> strip_tac
+  >> disch_then drule
+  >> disch_then $ qspec_then ‘loc’ mp_tac
+  >> impl_tac >- gvs [CaseEq "prod", CaseEq "result", CaseEq "error_result"]
+  >> gvs []
+  >> strip_tac
+  >> pop_assum $ qspecl_then [‘loc_opt’, ‘wrap’] mp_tac
+  >> strip_tac
+  >> pop_assum mp_tac
+  >> impl_tac
+  >- cheat
+  >> gvs [GSYM PULL_FORALL]
+  >> strip_tac
+  >> gvs [PULL_EXISTS]
+  >> Cases_on ‘evaluate ([wrap],MAP (λn. env2❲n❳) call_args,dec_clock (call_ts + 1) s2)’
+  >> reverse $ Cases_on ‘q’
   >-
-   (gvs [state_rel_def, code_rel_def, compile_exp_def]
-    >> first_x_assum drule
-    >> strip_tac
-    >> gvs [CaseEq "option"]
-    >> Cases_on ‘rewrite_wrapper loc n body’ >> gvs [])
-  >> ‘s.clock = s2.clock’ by gvs [state_rel_def]
-  >> Cases_on ‘s.clock < call_ts + 1’
-  >- 
-   (cheat)
-  >> CASE_TAC
+   (gvs [CaseEq "prod"]
+    >> cheat
+    (*>> qrefinel [‘_’, ‘_’, ‘_’, ‘_’, ‘_’, ‘_’, ‘_’, ‘_’, ‘_’, ‘_’, ‘e’, ‘r’]*))
+  >> gvs []
+                
+  >> asm "right_assum" assume_tac
+  >> gvs []
+  >> pop_assum kall_tac
   >> cheat
 QED
 

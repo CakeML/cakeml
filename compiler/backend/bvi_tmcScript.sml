@@ -317,15 +317,15 @@ Definition update_cons_def:
 End
 
 Definition optimise_call_def:
-  optimise_call loc call_ts call_args i_ptr i_idx =
-  let args = MAP (λn. Var n) call_args ++ [Var i_ptr; Var i_idx] in
+  optimise_call loc call_ts call_args i_ptr const_idx =
+  let args = MAP (λn. Var n) call_args ++ [Var i_ptr; Op (IntOp (Const &const_idx)) []] in
     bvi$Call call_ts (SOME loc) args NONE
 End
 
 Definition hb_to_bvi_wrapper_def:
   (hb_to_bvi_wrapper tag left Hole right loc_opt call_ts call_args =
    Let [mut_cons tag left right] $
-       Let [optimise_call loc_opt call_ts call_args 0 (LENGTH right)] $
+       Let [optimise_call loc_opt call_ts (shift_vars 1 call_args) 0 (LENGTH right)] $
        Op (MemOp FinaliseCons) [Var 1]) ∧
   (hb_to_bvi_wrapper tag left (HoleBlock tag' left' hole right') right loc_opt call_ts call_args =
    Let [mut_cons tag left right] $
@@ -337,11 +337,11 @@ Definition hb_to_bvi_worker_def:
   (hb_to_bvi_worker tag left Hole right loc_opt call_ts call_args i_ptr i_idx =
    Let [mut_cons tag left right] $
        Let [update_cons i_ptr i_idx 0] $
-       optimise_call loc_opt call_ts call_args i_ptr i_idx) ∧
+       optimise_call loc_opt call_ts (shift_vars 2 call_args) 1 (LENGTH right)) ∧
   (hb_to_bvi_worker tag left (HoleBlock tag' left' hole right') right loc_opt call_ts call_args i_ptr i_idx =
    Let [mut_cons tag left right] $
        Let [update_cons i_ptr i_idx 0] $
-       shift_exp_vars 2 $ hb_to_bvi_worker tag' left' hole right' loc_opt call_ts call_args i_ptr i_idx)
+       shift_exp_vars 2 $ hb_to_bvi_worker tag' left' hole right' loc_opt call_ts call_args 1 (LENGTH right))
 End
 
 Definition fill_hole_def:
