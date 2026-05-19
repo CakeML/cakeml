@@ -1112,6 +1112,7 @@ Definition exps_of_def:
   (exps_of (Return e) = [e]) ∧
   (exps_of (ExtCall _ e1 e2 e3 e4) = [e1;e2;e3;e4]) ∧
   (exps_of (Assign _ _ e) = [e]) ∧
+  (exps_of (Primitive _ _ es) = es) ∧
   (exps_of (ShMemLoad _ _ _ e) = [e]) ∧
   (exps_of (ShMemStore _ e1 e2) = [e1;e2]) ∧
   (exps_of _ = [])
