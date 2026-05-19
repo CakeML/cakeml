@@ -8396,13 +8396,38 @@ Proof
 QED
 
 
-
+Theorem lemma_fib_heap_link_trees_inv_ih:
+  (∀x k v l.
+    x < 196 ∧
+    (ys1 ++ [SOME (FibTree k' v' l')] ++ ys2)❲x❳ = SOME (FibTree k v l)
+    ⇒
+    LENGTH l = x)
+  ==>
+  (!x k v l.
+    x < 196 /\
+    EL x (ys1 ++ [NONE] ++ ys2) = SOME (FibTree k v l)
+    ==>
+    LENGTH l = x)
+Proof
+  rpt strip_tac >>
+  pop_assum mp_tac >>
+  simp[EL_APPEND] >>
+  IF_CASES_TAC
+  >- (
+    IF_CASES_TAC
+    >- (strip_tac >> res_tac >> fs[EL_APPEND]) >>
+    fs[NOT_LESS] >>
+    `LENGTH ys1 = x` by simp[] >>
+    gvs[]
+    ) >>
+  strip_tac >> res_tac >> fs[EL_APPEND]
+QED
 
 
 
 
 Theorem fib_heap_link_trees_mem_thm:
-  !n frame fh1 k v l arr fh2 rl m dm c m' c' rl'.
+  !n frame k v l arr rl m dm c m'.
   (fts_mem (ann_fts 0w [FibTree k v l]) *
    reb_array_mem arr 0w rl *
    frame) (fun2set(m,dm)) /\
@@ -8411,7 +8436,8 @@ Theorem fib_heap_link_trees_mem_thm:
   (!x k v l. x < LENGTH rl /\ EL x rl = SOME(FibTree k v l) ==> LENGTH l = x) /\
   fib_heap_link_trees n (arr,(k:'a word),m,dm,c) = (m',T) ==>
   (reb_array_mem arr 0w (FST (fts_link_trees n rl (FibTree k v l)))
-   * frame) (fun2set(m',dm))
+   * frame) (fun2set(m',dm)) /\
+  SND (fts_link_trees n rl (FibTree k v l))
 Proof
   Induct >> rpt gen_tac >> disch_tac >> fs[] >> pop_assum mp_tac
   >- (
@@ -8435,6 +8461,7 @@ Proof
     SEP_R_TAC >> simp[] >>
     strip_tac >> gvs[] >>
     simp[Once fts_link_trees_def,EL_APPEND,LUPDATE_APPEND] >>
+    simp[Once fts_link_trees_def,EL_APPEND,LUPDATE_APPEND] >>
     simp[LUPDATE_DEF] >>
     simp[reb_array_mem_append_thm,reb_array_mem_def] >>
     fs[ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def,
@@ -8453,8 +8480,10 @@ Proof
   pairarg_tac >> simp[] >>
   simp[Once fts_link_trees_def,EL_APPEND,LUPDATE_APPEND] >>
   simp[LUPDATE_DEF] >>
-  first_x_assum(qspecl_then [`LENGTH l`,`k'`,`v'`,`l'`] assume_tac) >>
-  rfs[EL_APPEND] >>
+  first_assum(qspecl_then [`LENGTH l`,`k'`,`v'`,`l'`] mp_tac) >>
+  rewrite_tac[EL_APPEND] >>
+  simp[] >>
+  strip_tac >>
   `LENGTH l < 195 /\ LENGTH l' < 195` by simp[] >>
   qspecl_then [`reb_array_mem arr 0w ys1 * one (arr + n2w (LENGTH l),Word k') *
     reb_array_mem arr (n2w (LENGTH l + 1)) ys2 * frame`,
@@ -8471,30 +8500,45 @@ Proof
      fts_mem_def,SEP_CLAUSES, head_key_def, ft_mem_def, new_anode_def,
      new_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
   strip_tac >> gvs[] >>
+  strip_tac >>
   first_x_assum (qspecl_then [`frame`,`k''`,`v''`,`l''`,`arr`,
     `ys1 ++ [NONE] ++ ys2`,`m''(| arr + n2w (LENGTH l) |-> Word 0w|)`,`dm`,`c`,`m'`]
     mp_tac) >>
-  simp[]
-
-
-
-
-  strip_tac >> gvs[] >>
-  simp[Once fts_link_trees_def,EL_APPEND,LUPDATE_APPEND] >>
-  simp[LUPDATE_DEF] >>
+  full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR] >>
   simp[reb_array_mem_append_thm,reb_array_mem_def] >>
-  fs[ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def,
-     fts_mem_def,SEP_CLAUSES, head_key_def, ft_mem_def, new_anode_def,
-     new_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
   SEP_W_TAC >>
-  fs[AC STAR_ASSOC STAR_COMM]
+  fs[SEP_CLAUSES,STAR_ASSOC] >>
+  fs[AC STAR_ASSOC STAR_COMM] >>
+  fs[STAR_ASSOC] >>
+  imp_res_tac lemma_fib_heap_link_trees_inv_ih >>
+  simp[] >>
+  strip_tac >>
+  simp[Once fts_link_trees_def,EL_APPEND,LUPDATE_APPEND,LUPDATE_DEF]
+QED
 
 
-fs[reb_arr
-
-  fs[ft
-
-fts_link_trees2
-fts_link_root_list
+Theorem fib_heap_link_trees:
+  !n frame fh1 k v l arr fh2 rl m dm c m' c' rl'.
+    (fts_mem (ann_fts 0w [FibTree (k:'a word) v l]) * reb_array_mem arr 0w rl *
+      frame) (fun2set (m,dm)) ∧
+    fib_heap_inv fh1 [FibTree k v l] /\
+    fib_heap_inv_union fh2 (ts_to_fhts rl) /\
+    DISJOINT (FDOM fh1) (FDOM fh2) /\
+    LENGTH rl = 196 ∧ 196 < dimword (:'a) ∧
+    (∀x k v l. x < LENGTH rl ∧ rl❲x❳ = SOME (FibTree k v l) ⇒ LENGTH l = x) ∧
+    fib_heap_link_trees n (arr,k,m,dm,c) = (m',T) ⇒
+    ?rl'.
+    (reb_array_mem arr 0w rl' * frame) (fun2set (m',dm)) /\
+    fib_heap_inv_union (FUNION fh1 fh2) (ts_to_fhts rl') /\
+    LENGTH rl = LENGTH rl'
+Proof
+  rpt gen_tac >> disch_tac >> fs[] >>
+  drule_all fib_heap_link_trees_mem_thm >> strip_tac >>
+  qexists `(FST (fts_link_trees n rl (FibTree k v l)))` >>
+  simp[] >>
+  Cases_on `fts_link_trees n rl (FibTree k v l)` >> gvs[] >>
+  qspecl_then [`q`,`n`,`rl`,`fh1`,`fh2`,`k`,`v`,`l`] mp_tac fts_link_trees2 >>
+  simp[]
+QED
 
 
