@@ -3,7 +3,8 @@
 *)
 Theory loop_liveProof
 Ancestors
-  loopSem loopProps loop_live loop_callProof wordSem[qualified]
+  loopSem loopProps loop_live loop_callProof backend_common
+  wordSem[qualified]
 Libs
   preamble
 
@@ -55,6 +56,7 @@ Proof
   >~ [`loopLang$FFI`] >- suspend "FFI"
   >~ [`loopLang$Arith`] >- suspend "Arith"
   >~ [`loopLang$ShMem`] >- suspend "ShMem"
+  >~ [`loopLang$Primitive`] >- suspend "Primitive"
 QED
 
 Resume compile_correct[Skip]:
@@ -648,6 +650,36 @@ Resume compile_correct[ShMem]:
      irule dom_vars_of_exp_in>>
      fs[domain_insert]>>fs[domain_lookup]>>
      CCONTR_TAC>>Cases_on ‘lookup x l0’>>fs[])>>fs[]
+QED
+
+Theorem get_vars_subspt[local]:
+  ∀rhss ws s extra locals.
+    get_vars rhss s = SOME ws ∧
+    subspt (inter s.locals (list_insert rhss extra)) locals ⇒
+    get_vars rhss (s with locals := locals) = SOME ws
+Proof
+  Induct \\ fs [get_vars_def,CaseEq"option",PULL_EXISTS]
+  \\ rw []
+  >- gvs [subspt_lookup,lookup_inter_alt,domain_list_insert]
+  \\ first_x_assum irule
+  \\ first_assum $ irule_at Any
+  \\ qexists_tac ‘extra’
+  \\ gvs [subspt_lookup,lookup_inter_alt,domain_list_insert]
+  \\ metis_tac []
+QED
+
+Resume compile_correct[Primitive]:
+  rpt strip_tac
+  \\ gvs [shrink_def,evaluate_def,CaseEq"option",CaseEq"bool"]
+  \\ drule_then drule get_vars_subspt \\ strip_tac \\ fs []
+  \\ fs [state_component_equality,set_vars_def]
+  \\ fs [subspt_lookup,lookup_alist_insert_any,lookup_inter_alt]
+  \\ qx_genl_tac [‘k’,‘v’] \\ strip_tac
+  \\ Cases_on ‘ALOOKUP (ZIP (lhss,res_ws)) k’ \\ fs []
+  \\ ‘MAP FST (ZIP (lhss,res_ws)) = lhss’ by fs [MAP_ZIP]
+  \\ ‘¬MEM k lhss’ by gvs [ALOOKUP_NONE]
+  \\ first_x_assum (qspec_then ‘k’ mp_tac)
+  \\ fs [domain_list_insert,domain_list_delete]
 QED
 
 Finalise compile_correct;
