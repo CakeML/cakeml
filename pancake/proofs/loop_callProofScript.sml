@@ -3,7 +3,7 @@
 *)
 Theory loop_callProof
 Ancestors
-  loopSem loopProps loop_call
+  loopSem loopProps loop_call backend_common
 Libs
   preamble
 
@@ -44,6 +44,7 @@ Proof
   >~ [`loopLang$FFI`] >- suspend "FFI"
   >~ [`loopLang$Arith`] >- suspend "Arith"
   >~ [`loopLang$ShMem`] >- suspend "ShMem"
+  >~ [`loopLang$Primitive`] >- suspend "Primitive"
 QED
 
 Resume compile_correct[Seq]:
@@ -429,6 +430,14 @@ Resume compile_correct[ShMem]:
   rveq >> fs [eval_def] >>
   fs [evaluate_def,is_load_def] >>
   rpt strip_tac>>every_case_tac>>fs[]
+QED
+
+Resume compile_correct[Primitive]:
+  rpt strip_tac >>
+  gvs [evaluate_def, comp_def, labels_in_def, AllCaseEqs(),
+       set_vars_def, lookup_alist_insert_any, lookup_list_delete] >>
+  rw [] >> disj1_tac >>
+  simp [ALOOKUP_NONE, MAP_ZIP]
 QED
 
 Resume compile_correct[Skip]:
