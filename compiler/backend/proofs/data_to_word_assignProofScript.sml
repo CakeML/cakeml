@@ -5,6 +5,7 @@ Theory data_to_word_assignProof
 Libs
   preamble helperLib blastLib
 Ancestors
+  backend_common (* for word_and_carry *)
   data_to_word_memoryProof data_to_word_gcProof dataSem
   wordSem[qualified] data_to_word int_bitwise dataProps
   copying_gc data_to_word_bignumProof wordProps While set_sep
@@ -7265,7 +7266,7 @@ Proof[exclude_simps = INT_OF_NUM NUM_EQ0]
       \\ Cases_on `t'` \\ fs []
       \\ fs [word_list_def] \\ SEP_R_TAC \\ fs []
       \\ fs [list_Seq_def,eq_eval] \\ SEP_R_TAC
-      \\ fs [eq_eval,wordSemTheory.inst_def]
+      \\ fs [eq_eval,wordSemTheory.inst_def,word_and_carry_def]
       \\ assume_tac (GEN_ALL evaluate_WriteWord64_on_32)
       \\ SEP_I_TAC "evaluate" \\ fs [eq_eval,option_le_max_right]
       \\ fs [GSYM join_env_locals_def]
@@ -11230,7 +11231,7 @@ Proof
   THEN1 metis_tac []
   THEN1 metis_tac []
   \\ fs [wordSemTheory.inst_def,wordSemTheory.get_vars_def,lookup_insert,
-         wordSemTheory.set_var_def,wordSemTheory.get_var_def]
+         wordSemTheory.set_var_def,wordSemTheory.get_var_def,word_and_carry_def]
   THEN1
    (qpat_abbrev_tac `c1 <=> dimword (:α) ≤
                     w2n ((31 >< 0) c') + w2n ((31 >< 0) c'')`
