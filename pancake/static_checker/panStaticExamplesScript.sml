@@ -3007,3 +3007,185 @@ val warns_default_bad_return =
   check_static_no_warnings $ static_check_pancake parse_default_bad_return;
 
 
+(* __add_with_carry__ (Primitive AddCarry) checks *)
+
+(* Success: DecCall and AssignCall forms with correct shape and arity *)
+
+val ex_addcarry_ok = `
+  fun {1,1} f () {
+    var a = 1;
+    var b = 2;
+    var c = 0;
+    var {1,1} r = __add_with_carry__(a, b, c);
+    r = __add_with_carry__(a, b, c);
+    return r;
+  }
+`;
+
+val parse_addcarry_ok =
+  check_parse_success $ parse_pancake ex_addcarry_ok;
+
+val static_addcarry_ok =
+  check_static_success $ static_check_pancake parse_addcarry_ok;
+
+val warns_addcarry_ok =
+  check_static_no_warnings $ static_check_pancake parse_addcarry_ok;
+
+
+(* Error: Declared destination shape does not match {1,1} result *)
+
+val ex_addcarry_bad_shape_dec = `
+  fun 1 f () {
+    var a = 1;
+    var b = 2;
+    var c = 0;
+    var 1 r = __add_with_carry__(a, b, c);
+    return r;
+  }
+`;
+
+val parse_addcarry_bad_shape_dec =
+  check_parse_success $ parse_pancake ex_addcarry_bad_shape_dec;
+
+val static_addcarry_bad_shape_dec =
+  check_static_failure $ static_check_pancake parse_addcarry_bad_shape_dec;
+
+val warns_addcarry_bad_shape_dec =
+  check_static_no_warnings $ static_check_pancake parse_addcarry_bad_shape_dec;
+
+
+(* Error: AssignCall destination shape does not match {1,1} result *)
+
+val ex_addcarry_bad_shape_assign = `
+  fun 1 f () {
+    var a = 1;
+    var b = 2;
+    var c = 0;
+    var 1 r = 0;
+    r = __add_with_carry__(a, b, c);
+    return r;
+  }
+`;
+
+val parse_addcarry_bad_shape_assign =
+  check_parse_success $ parse_pancake ex_addcarry_bad_shape_assign;
+
+val static_addcarry_bad_shape_assign =
+  check_static_failure $ static_check_pancake parse_addcarry_bad_shape_assign;
+
+val warns_addcarry_bad_shape_assign =
+  check_static_no_warnings $ static_check_pancake parse_addcarry_bad_shape_assign;
+
+
+(* Error: Wrong number of arguments (too few) *)
+
+val ex_addcarry_arity_low = `
+  fun {1,1} f () {
+    var a = 1;
+    var b = 2;
+    var {1,1} r = __add_with_carry__(a, b);
+    return r;
+  }
+`;
+
+val parse_addcarry_arity_low =
+  check_parse_success $ parse_pancake ex_addcarry_arity_low;
+
+val static_addcarry_arity_low =
+  check_static_failure $ static_check_pancake parse_addcarry_arity_low;
+
+val warns_addcarry_arity_low =
+  check_static_no_warnings $ static_check_pancake parse_addcarry_arity_low;
+
+
+(* Error: Wrong number of arguments (too many) *)
+
+val ex_addcarry_arity_high = `
+  fun {1,1} f () {
+    var a = 1;
+    var b = 2;
+    var c = 0;
+    var d = 0;
+    var {1,1} r = __add_with_carry__(a, b, c, d);
+    return r;
+  }
+`;
+
+val parse_addcarry_arity_high =
+  check_parse_success $ parse_pancake ex_addcarry_arity_high;
+
+val static_addcarry_arity_high =
+  check_static_failure $ static_check_pancake parse_addcarry_arity_high;
+
+val warns_addcarry_arity_high =
+  check_static_no_warnings $ static_check_pancake parse_addcarry_arity_high;
+
+
+(* Error: AssignCall destination is a global, not a local *)
+
+val ex_addcarry_global_dest = `
+  var n = 0;
+  fun 1 f () {
+    var a = 1;
+    var b = 2;
+    var c = 0;
+    n = __add_with_carry__(a, b, c);
+    return 0;
+  }
+`;
+
+val parse_addcarry_global_dest =
+  check_parse_success $ parse_pancake ex_addcarry_global_dest;
+
+val static_addcarry_global_dest =
+  check_static_failure $ static_check_pancake parse_addcarry_global_dest;
+
+val warns_addcarry_global_dest =
+  check_static_no_warnings $ static_check_pancake parse_addcarry_global_dest;
+
+
+(* Error: __add_with_carry__ in standalone call position (no user-defined
+   function of that name; scope error with built-in primitive hint) *)
+
+val ex_addcarry_standalone = `
+  fun 1 f () {
+    var a = 1;
+    var b = 2;
+    var c = 0;
+    __add_with_carry__(a, b, c);
+    return 0;
+  }
+`;
+
+val parse_addcarry_standalone =
+  check_parse_success $ parse_pancake ex_addcarry_standalone;
+
+val static_addcarry_standalone =
+  check_static_failure $ static_check_pancake parse_addcarry_standalone;
+
+val warns_addcarry_standalone =
+  check_static_no_warnings $ static_check_pancake parse_addcarry_standalone;
+
+
+(* Error: __add_with_carry__ in tail-return position (no user-defined function
+   of that name; scope error with built-in primitive hint) *)
+
+val ex_addcarry_tail = `
+  fun {1,1} f () {
+    var a = 1;
+    var b = 2;
+    var c = 0;
+    return __add_with_carry__(a, b, c);
+  }
+`;
+
+val parse_addcarry_tail =
+  check_parse_success $ parse_pancake ex_addcarry_tail;
+
+val static_addcarry_tail =
+  check_static_failure $ static_check_pancake parse_addcarry_tail;
+
+val warns_addcarry_tail =
+  check_static_no_warnings $ static_check_pancake parse_addcarry_tail;
+
+

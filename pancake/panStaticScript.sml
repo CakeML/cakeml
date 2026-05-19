@@ -373,6 +373,34 @@ Definition get_scope_msg_def:
 End
 
 (*
+  Identifier names that the parser recognises as built-in primitives and
+  desugars to Primitive in declaration and assignment RHS positions. Used by
+  add_primitive_hint to produce a more helpful message when a lookup fails
+  on one of these names; extend this list as new primitives are added.
+*)
+Definition primitive_idents_def:
+  primitive_idents = [«__add_with_carry__»]
+End
+
+(*
+  Append a hint to a function-not-in-scope error when fname is a built-in
+  primitive identifier. The parser desugars such names to a Primitive in
+  declaration and assignment RHS positions, so a function-name lookup failure
+  means the name was used in a position where the primitive is not available
+  (e.g. standalone call, tail-return) and no user-defined function of that
+  name exists either.
+*)
+Definition add_primitive_hint_def:
+  add_primitive_hint fname msg =
+    if MEM fname primitive_idents
+    then concat [msg;
+           «  note: »; fname;
+           « is a built-in primitive only available in »;
+           «declaration or assignment RHS positions\n»]
+    else msg
+End
+
+(*
   Get message for redefined identifiers
   is_var: variable vs function
 *)
@@ -501,7 +529,8 @@ End
 Definition scope_check_fun_name_def:
   scope_check_fun_name ctxt fname =
     case lookup ctxt.funcs fname of
-    | NONE => error (ScopeErr $ get_scope_msg F ctxt.loc fname ctxt.scope)
+    | NONE => error (ScopeErr $
+        add_primitive_hint fname (get_scope_msg F ctxt.loc fname ctxt.scope))
     | SOME f => return f
 End
 
