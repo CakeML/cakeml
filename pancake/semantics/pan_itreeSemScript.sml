@@ -1114,6 +1114,21 @@ Proof
   rpt (CASE_TAC>>fs[])
 QED
 
+Theorem mrec_Primitive:
+  (mrec h_prog (h_prog (Primitive vname pop es, s)):'a ptree) =
+  Ret (INR (case OPT_MMAP (eval s) es of
+              SOME vs =>
+                (case pan_primop pop vs of
+                   SOME value =>
+                     if is_valid_value s Local vname value
+                     then (NONE, set_var vname value s)
+                     else (SOME Error, s)
+                 | NONE => (SOME Error, s))
+            | _ => (SOME Error, s)))
+Proof
+  simp[h_prog_primitive_def,h_prog_def]
+QED
+
 Theorem mrec_If:
   (mrec h_prog (h_prog (If e p q, s)):'a ptree) =
   case eval s e of
@@ -1342,7 +1357,7 @@ QED
 
 Theorem mrec_prog_simps =
   LIST_CONJ [mrec_prog_triv,mrec_Return,mrec_Raise,mrec_Dec,mrec_Assign,
-             mrec_Store,mrec_Store32,mrec_StoreByte];
+             mrec_Primitive,mrec_Store,mrec_Store32,mrec_StoreByte];
 
 Theorem mrec_Call:
  (mrec h_prog (h_prog (Call typ fname aexps,s)):'a ptree) =
