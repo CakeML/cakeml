@@ -1453,43 +1453,6 @@ Proof
     arithmeticTheory.GREATER_DEF]
 QED
 
-Theorem to_word_perf_calls:
-  ∀c c' prog p n.
-    (to_word asm_conf c prog = (c',p,n))
-    ⇒ c.stack_conf.perf_calls = c'.stack_conf.perf_calls
-Proof
-  srw_tac[][FUN_EQ_THM,backendTheory.compile_def,compile_tap_def,
-     to_word_def,
-     to_data_def,
-     to_bvi_def,
-     to_bvl_def,
-     to_clos_def,
-     to_flat_def]
-  \\ rpt (CHANGED_TAC (srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[]))
-  \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ rfs []
-  \\ fs [backendTheory.compile_def,compile_tap_def
-        ,to_word_def,to_data_def]
-  \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs [] \\ rveq \\ rfs [] \\ rveq
-QED
-
-Theorem to_data_perf_calls:
-  ∀c c' prog p n.
-    (to_data c prog = (c',p,n))
-    ⇒ c.stack_conf.perf_calls = c'.stack_conf.perf_calls
-Proof
-  srw_tac[][FUN_EQ_THM,backendTheory.compile_def,compile_tap_def,
-     to_data_def,
-     to_bvi_def,
-     to_bvl_def,
-     to_clos_def,
-     to_flat_def]
-  \\ rpt (CHANGED_TAC (srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[]))
-  \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ rfs []
-  \\ fs [backendTheory.compile_def,compile_tap_def
-        ,to_data_def]
-  \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs [] \\ rveq \\ rfs []
-QED
-
 Theorem to_bvi_perf_calls:
   ∀c c' prog p n.
     (to_bvi c prog = (c',p,n))
@@ -1498,6 +1461,28 @@ Proof
   rw [to_bvi_def, to_bvl_def, to_clos_def, to_flat_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ rveq \\ fs []
+QED
+
+Theorem to_data_perf_calls:
+  ∀c c' prog p n.
+    (to_data c prog = (c',p,n))
+    ⇒ c.stack_conf.perf_calls = c'.stack_conf.perf_calls
+Proof
+  rw [to_data_def]
+  \\ pairarg_tac \\ fs []
+  \\ rveq
+  \\ drule to_bvi_perf_calls \\ fs []
+QED
+
+Theorem to_word_perf_calls:
+  ∀c c' prog p n.
+    (to_word asm_conf c prog = (c',p,n))
+    ⇒ c.stack_conf.perf_calls = c'.stack_conf.perf_calls
+Proof
+  rw [to_word_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rveq \\ fs []
+  \\ drule to_data_perf_calls \\ fs []
 QED
 
 Theorem to_lab_labels_ok:
