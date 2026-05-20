@@ -33,17 +33,23 @@ Proof
 QED
 
 Definition encode_inverse_aux_def:
-  encode_inverse_aux Xs offx Ys offy n =
-  FLAT (
-    MAP (λX. mk_bounds X offy (offy + &n - 1)) Xs ++
-    MAP (λY. mk_bounds Y offx (offx + &n - 1)) Ys ++
-    FLAT (GENLIST
-      (λi. GENLIST
-        (λj. encode_bvar_eq
-          (INL (Eq (EL i Xs) (offy + &j)))
-          (INL (Eq (EL j Ys) (offx + &i))))
-        n)
-      n))
+  encode_inverse_aux Xsi Ysi =
+  let (Xs,offx) = Xsi in
+  let (Ys,offy) = Ysi in
+  let n = LENGTH Xs in
+  if n ≠ LENGTH Ys then
+    [false_constr]
+  else
+    FLAT (
+      MAP (λX. mk_bounds X offy (offy + &n - 1)) Xs ++
+      MAP (λY. mk_bounds Y offx (offx + &n - 1)) Ys ++
+      FLAT (MAPi
+        (λi X. MAPi
+          (λj Y. encode_bvar_eq
+            (INL (Eq X (offy + &j)))
+            (INL (Eq Y (offx + &i))))
+          Ys)
+        Xs))
 End
 
 Definition encode_inverse_def:
@@ -59,7 +65,7 @@ Definition encode_inverse_def:
         (MAP (λX. encode_full_eq bnd X (offy + &i)) Xs) ++
         (MAP (λY. encode_full_eq bnd Y (offx + &i)) Ys))
       n) ++
-    encode_inverse_aux Xs offx Ys offy n
+    encode_inverse_aux Xsi Ysi
 End
 
 Theorem encode_inverse_sem_1:
@@ -77,9 +83,11 @@ Proof
     simp[EVERY_MEM,reify_reif_def])
   >~[‘encode_bvar_eq _ _’]
   >-(
-    rw[EVERY_FLAT,EVERY_GENLIST,reify_avar_def,reify_reif_def]>>
+    ntac 2 (rw[EVERY_FLAT,Once EVERY_MEM,MEM_MAPi])>>
+    simp[reify_avar_def,reify_reif_def]>>
+    rename1‘j < LENGTH Ys’>>
+
     ntac 2 (pop_assum mp_tac)>>
-    rename1‘i < _ ⇒ j < _ ⇒ _’>>
     pop_assum $ qspecl_then[‘&i + offx’,‘&j + offy’] mp_tac>>
     simp[]>>
     qmatch_goalsub_abbrev_tac
@@ -104,32 +112,30 @@ Theorem encode_inverse_sem_2:
   inverse_sem Xsi Ysi wi
 Proof
   simp[encode_inverse_def,encode_inverse_aux_def]>>
-  rpt (pairarg_tac>>fs[inverse_sem_def])>>
+  rpt (pairarg_tac>>fs[])>>
+  rename1‘inverse_sem (Xs,offx) (Ys,offy) _’>>
+  simp[inverse_sem_def]>>
   IF_CASES_TAC>>
   rw[EVERY_FLAT,EVERY_GENLIST,EVERY_MAP]>>
-  gvs[EVERY_MEM]
-  >~[‘varc _ _ = _ ⇔ _’]
+  qmatch_asmsub_abbrev_tac‘EVERY (EVERY P) _’>>
+  fs[EVERY_MEM,MEM_MAPi,SF DNF_ss]>>
+  gvs[Abbr‘P’]
+  >~[‘varc _ (EL (Num (i - _)) _) = j ⇔ _’]
   >-(
-    rename1‘_ = j ⇔ _ = i’>>
-    rename1‘LENGTH Xs = LENGTH Ys’>>
-    last_assum $ qspec_then‘Num (i - offx)’ assume_tac>>
     ‘Num (i - offx) < LENGTH Ys’ by intLib.ARITH_TAC>>
-    fs[]>>
-    last_assum $ qspec_then‘Num (j - offy)’ assume_tac>>
     ‘Num (j - offy) < LENGTH Ys’ by intLib.ARITH_TAC>>
-    fs[]>>
     gs[EL_MEM]>>
     pop_assum mp_tac>>
-    first_x_assum $ drule_then mp_tac>>
-    rw[]>>
-    first_x_assum $ drule_then mp_tac>>
-    qmatch_goalsub_abbrev_tac‘(_ = a ⇔ _ = b) ⇒ _’>>
+    first_x_assum $ drule_then assume_tac>>
+    strip_tac>>
+    first_x_assum $ drule_then assume_tac>>
+    qmatch_asmsub_abbrev_tac‘_ = a ⇔ _ = b’>>
     ‘a = j ∧ b = i’ suffices_by metis_tac[]>>
     unabbrev_all_tac>>
-    intLib.ARITH_TAC
-  )>>
+    intLib.ARITH_TAC)>>
   rw[mk_array_ind_def]>>
   last_x_assum $ drule_then mp_tac>>
+  first_x_assum $ drule_then mp_tac>>
   intLib.ARITH_TAC
 QED
 
@@ -189,7 +195,7 @@ Definition cencode_inverse_def:
                   ])
                 n)
               n)))
-          (encode_inverse_aux Xs offx Ys offy n)),
+          (encode_inverse_aux Xsi Ysi)),
       ec')
 End
 
@@ -269,7 +275,7 @@ Definition cencode_channeling_constr_def:
     cencode_inverse bnd Xsi Ysi name ec
 End
 
-Theorem cencode_channeling_constr_sem:
+Theorem cencode_channeling_constr_semG:
   valid_assignment bnd wi ∧
   cencode_channeling_constr bnd c name ec = (es, ec') ⇒
   enc_rel wi es (encode_channeling_constr bnd c name) ec ec'
