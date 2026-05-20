@@ -122,10 +122,19 @@ val res = translate sexp_count_body_def;
 val res = translate sexp_among_body_def;
 val res = translate sexp_counting_dispatch_def;
 
-(* TODO: lex, logical, channeling, misc — add once hooked into the
+(* logical *)
+val res = translate sexp_logical_cons_def;
+val res = translate sexp_logical_body_def;
+val res = translate sexp_logical_dispatch_def;
+
+(* channeling *)
+val res = translate sexp_off_list_def;
+val res = translate sexp_inverse_body_def;
+val res = translate sexp_channeling_dispatch_def;
+
+(* TODO: lex, misc — add once hooked into the
    top-level dispatcher in cp_parseScript.sml. *)
 
-(* top-level *)
 val res = translate strip_prefix_def;
 
 Theorem strip_prefix_side:
@@ -170,6 +179,11 @@ val res = translate mul_lin_term_def;
 val res = translate encode_iconstraint_one_def;
 
 (* cp_to_ilp *)
+
+(* has_char_to_escape_thm rewrites the strsub-based recursion to a safe
+   EXISTS over (explode s), avoiding a non-trivial strsub side condition *)
+val res = translate escape_chars_def;
+val res = translate (escape_open_bracket_def |> REWRITE_RULE [has_char_to_escape_thm]);
 
 val res = translate format_varc_def;
 val res = translate format_reif_def;
@@ -277,6 +291,8 @@ val res = translate mk_constraint_one_ge_def;
 
 val res = translate init_ec_def;
 
+val res = translate encode_bvar_eq_def;
+
 (* cp_to_ilp_primScript *)
 
 val res = translate cp_to_ilp_primTheory.mk_nge_def;
@@ -378,7 +394,7 @@ QED
 
 val _ = update_precondition cencode_element2d_side;
 
-val res = translate cp_to_ilp_arrayTheory.arri_def;
+val res = translate cp_to_ilpTheory.arri_def;
 val res = translate cp_to_ilp_arrayTheory.cencode_array_max_def;
 val res = translate cp_to_ilp_arrayTheory.cencode_array_min_def;
 
@@ -405,6 +421,10 @@ val res = translate cp_to_ilp_logicalTheory.encode_or_aux_def;
 val res = translate cp_to_ilp_logicalTheory.cencode_or_aux_def;
 val res = translate cp_to_ilp_logicalTheory.cencode_or_def;
 
+val res = translate cp_to_ilp_logicalTheory.encode_xor_def;
+val res = translate cp_to_ilp_logicalTheory.cencode_parity_aux_def;
+val res = translate cp_to_ilp_logicalTheory.cencode_parity_def;
+
 val res = translate cp_to_ilp_logicalTheory.cencode_logical_constr_def;
 
 (* cp_to_ilp_lexicographical *)
@@ -412,6 +432,12 @@ val res = translate cp_to_ilp_logicalTheory.cencode_logical_constr_def;
 val res = translate cp_to_ilp_lexicographicalTheory.cencode_lexicographical_constr_def;
 
 (* cp_to_ilp_channeling *)
+
+val res = translate cp_to_ilp_channelingTheory.mk_bounds_def;
+val res = translate indexedListsTheory.MAPi_ACC_def;
+val res = translate indexedListsTheory.MAPi_compute;
+val res = translate cp_to_ilp_channelingTheory.encode_inverse_aux_def;
+val res = translate cp_to_ilp_channelingTheory.cencode_inverse_def;
 
 val res = translate cp_to_ilp_channelingTheory.cencode_channeling_constr_def;
 
