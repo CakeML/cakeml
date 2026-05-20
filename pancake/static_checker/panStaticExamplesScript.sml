@@ -3181,7 +3181,7 @@ val ex_field_val_word_mismatch_2 = `
     1 x,
     1 y
   }
-  
+
   struct other_struct {
     1 value
   }
