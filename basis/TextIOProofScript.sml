@@ -7532,7 +7532,7 @@ Proof
   \\ Cases_on ‘to_read = []’ \\ fs []
   THEN1
    (Cases_on ‘text’ \\ fs [] \\ fs [splitlines_at_hd_c0]
-    \\ fs [strcat_def,concat_def,chr_to_str_def])
+    \\ fs [strcat_def,concat_def,chr_to_str_def,AllCaseEqs()])
   \\ ‘EXISTS ($= c0) rest’ by (fs [] \\ Cases_on ‘text’ \\ fs [])
   \\ drule splitlines_at_takeUntil_exists2 \\ fs []
   \\ ‘takeUntil ($= c0) (STRCAT to_read text) = to_read’ by
@@ -7614,11 +7614,7 @@ Proof
          INSTREAM_LINES c0 fd is (TL lines) (forwardFD fs fd k) *
          & (OPTION_TYPE STRING_TYPE (oHD lines) v)`
   THEN1 (
-    xapp_spec inputLineWith_spec_lines \\ xsimpl \\
-    first_assum $ irule_at Any >>
-
-
-gvs[])
+    xapp_spec inputLineWith_spec_lines \\ gvs[])
   \\ Cases_on `lines` \\ fs [std_preludeTheory.OPTION_TYPE_def] \\ rveq
   \\ xmatch \\ fs []
   THEN1
