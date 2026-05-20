@@ -7,6 +7,7 @@ Libs
 Ancestors
   mllist
   semanticsProps (* for extend_with_resource_limit *)
+  stackLang (* for list_Seq *)
   stackProps (* for extract_labels *)
   wordProps stackSem wordSem word_to_stack
 Ancestors[ignore_grammar]
@@ -12222,15 +12223,53 @@ Proof
   simp[no_shmemop_def,SeqStackFree_def,copy_ret_aux_no_shmemop]
 QED
 
+Theorem perf_call_prefix_no_shmemop[local]:
+  no_shmemop (perf_call_prefix l1 l2 kf0)
+Proof
+  simp [perf_call_prefix_def, no_shmemop_def, list_Seq_def]
+QED
+
+Theorem perf_call_suffix_no_shmemop[local]:
+  no_shmemop perf_call_suffix
+Proof
+  simp [perf_call_suffix_def, no_shmemop_def, list_Seq_def]
+QED
+
+Theorem PushHandler_no_shmemop[local]:
+  no_shmemop (PushHandler perf l1 l2 kff)
+Proof
+  PairCases_on ‘kff’
+  >> Cases_on ‘perf’
+  >> simp [PushHandler_def, list_Seq_def, no_shmemop_def]
+QED
+
+Theorem PopHandler_no_shmemop[local]:
+  no_shmemop (PopHandler perf kff prog) ⇔
+    no_shmemop prog
+Proof
+  PairCases_on ‘kff’
+  >> Cases_on ‘perf’
+  >> simp [PopHandler_def, no_shmemop_def]
+QED
+
+Theorem StackHandlerArgs_no_shmemop[local]:
+  no_shmemop (StackHandlerArgs perf dest arg_count kff)
+Proof
+  PairCases_on ‘kff’
+  >> Cases_on ‘perf’
+  >> simp [StackHandlerArgs_def, StackArgs_def,
+           stack_move_no_shmemop_lem, no_shmemop_def]
+QED
+
 Theorem comp_no_shmemop:
   !ac perf prog bs kf prog' bs'.
     no_share_inst prog /\
-    comp ac perf prog bs kf = (prog',bs') ∧ perf = F ==>
+    comp ac perf prog bs kf = (prog',bs') ==>
     no_shmemop prog'
 Proof
   ho_match_mp_tac comp_ind >>
   simp[no_shmemop_def,comp_def] >>
-  rw[]
+  rpt strip_tac
   >~ [`Loop`]
   >- (
     pairarg_tac >>
@@ -12278,7 +12317,6 @@ Proof
       pairarg_tac >>
       gvs[no_shmemop_def,wStackLoad_no_shmemop_lem,
         no_share_inst_def,AllCaseEqs()])
-  >- simp[no_shmemop_def] (* Set BitmapBase *)
   >- gvs[no_shmemop_def,wStackLoad_no_shmemop_lem,
     ELIM_UNCURRY,AllCaseEqs()] (* Set *)
   >- ( (* Get *)
@@ -12294,9 +12332,13 @@ Proof
       SeqStackFree_def,ELIM_UNCURRY] >>
     rpt TOP_CASE_TAC >>
     gvs[no_shmemop_def,wStackLoad_no_shmemop_lem,
-      wLive_no_shmemop_lem,stack_move_no_shmemop_lem,
-      StackArgs_def,StackHandlerArgs_F,
-      PushHandler_F,PopHandler_F] >>
+        wLive_no_shmemop_lem,stack_move_no_shmemop_lem,
+        StackArgs_def,perf_call_prefix_no_shmemop,
+        perf_call_suffix_no_shmemop,
+        PushHandler_no_shmemop,
+        PopHandler_no_shmemop,
+        StackHandlerArgs_no_shmemop
+      ] >>
     metis_tac[FST_EQ_EQUIV,SND_EQ_EQUIV]
   )
   >- ( (* Alloc *)
@@ -12322,8 +12364,7 @@ QED
 Theorem compile_word_to_stack_no_share_inst:
   !ac perf k prog bs prog' fs' bs'.
     EVERY (\(n,m,pp). no_share_inst pp) prog /\
-    compile_word_to_stack ac perf k prog bs = (prog',fs', bs') ∧
-    perf = F ⇒
+    compile_word_to_stack ac perf k prog bs = (prog',fs', bs') ⇒
     EVERY (\(a,p). no_shmemop p) prog'
 Proof
   ho_match_mp_tac compile_word_to_stack_ind >>
@@ -12333,7 +12374,6 @@ Proof
   >- (
     simp[no_shmemop_def] >>
     irule comp_no_shmemop >>
-    qrefinel [‘_’, ‘_’, ‘_’, ‘_’, ‘F’]>>simp[]>>
     metis_tac[FST_EQ_EQUIV]
   ) >>
   last_x_assum irule >>
