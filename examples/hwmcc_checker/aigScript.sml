@@ -902,9 +902,48 @@ Proof
   Cases_on ‘x’ >> simp [not_def, eval_lit_flip]
 QED
 
-Definition equiv_aux_def:
-  (equiv_aux (n: num) [] = [(INR n, [])]: ('a iext,'i,'l) circuit) ∧
-  (equiv_aux n (xy::xys) =
+Definition encode_imply_def:
+  encode_imply (circ: ('a iext, 'i, 'l) circuit) name lhss rhss =
+  let n = MAX (maxn lhss) (maxn rhss) in
+    (* (lhss ⇒ rhss) ⇔ (¬lhss ∨ rhss) ⇔ ¬(lhss ∧ ¬rhss) *)
+    (INL (Ext name), [(Name (INR (n+2)), T)]) (* ¬(lhss ∧ ¬rhss) *)
+    ::(INR (n+2), [(Name (INR n), F); (Name (INR (n+1)), T)]) (* lhss ∧ ¬rhss *)
+    ::(INR (n+1), rhss)::(INR n, lhss)::circ
+End
+
+Theorem MEM_neq_iname_maxn:
+  MEM z xs ∨ MEM z ys ⇒ iname z ≠ MAX (maxn xs) (maxn ys)
+Proof
+  disch_tac
+  >> ‘MEM (iname z) (MAP iname xs) ∨ MEM (iname z) (MAP iname ys)’ by
+    metis_tac [MEM_MAP]
+  >> imp_res_tac MAX_LIST_PROPERTY
+  >> simp [maxn_def, MAX_DEF]
+QED
+
+Theorem eval_circuit_encode_imply_INL:
+  eval_circuit ss (encode_imply circ name lhss rhss) (INL n) =
+  if n = Ext name then
+    (EVERY (eval_lit ss circ) lhss) ⇒ (EVERY (eval_lit ss circ) rhss)
+  else eval_circuit ss circ (INL n)
+Proof
+  eq_tac
+  >> rw [encode_imply_def, eval_circuit_def, EVERY_MEM, EXISTS_MEM]
+  >> gvs []
+  >- metis_tac [MEM_neq_iname_maxn, eval_lit_INR_neq]
+  >> Cases_on ‘∃e. MEM e lhss ∧ ¬eval_lit ss circ e’ >> simp []
+  >> fs []
+  >> qpat_x_assum ‘∀e. ¬MEM e lhss ∨ _’ $
+       assume_tac o PURE_REWRITE_RULE [GSYM IMP_DISJ_THM]
+  >> first_x_assum dxrule >> rw []
+  >> rename1 ‘eval_lit _ _ e’
+  >> Cases_on ‘¬MEM e rhss’ >> gvs []
+  >> metis_tac [MEM_neq_iname_maxn, eval_lit_INR_neq]
+QED
+
+Definition encode_equiv_aux_def:
+  (encode_equiv_aux (n: num) [] = [(INR n, [])]: ('a iext,'i,'l) circuit) ∧
+  (encode_equiv_aux n (xy::xys) =
    let (x, y) = xy in [
     (INR n, [
         (Name (INR (n + 1)), T);
@@ -913,51 +952,51 @@ Definition equiv_aux_def:
       ]);
     (INR (n + 1), [x; not y]);
     (INR (n + 2), [not x; y]);
-   ] ++ equiv_aux (n + 3) xys)
+   ] ++ encode_equiv_aux (n + 3) xys)
 End
 
-Definition equiv_def:
-  equiv (circ: ('a iext, 'i, 'l) circuit) name xys =
+Definition encode_equiv_def:
+  encode_equiv (circ: ('a iext, 'i, 'l) circuit) name xys =
     let n = MAX (maxn (MAP FST xys)) (maxn (MAP SND xys)) in
-      ((INL (Ext name), [(Name (INR n), F)])::equiv_aux n xys) ++ circ
+      ((INL (Ext name), [(Name (INR n), F)])::encode_equiv_aux n xys) ++ circ
 End
 
-Theorem eval_circuit_equiv_aux_INL[simp]:
+Theorem eval_circuit_encode_equiv_aux_INL[simp]:
   ∀xys n.
-    eval_circuit ss (equiv_aux n xys ++ circ) (INL out) ⇔
+    eval_circuit ss (encode_equiv_aux n xys ++ circ) (INL out) ⇔
     eval_circuit ss circ (INL out)
 Proof
   Induct
-  >> rw [equiv_aux_def, eval_circuit_def]
+  >> rw [encode_equiv_aux_def, eval_circuit_def]
   >> rpt (pairarg_tac >> gvs [])
   >> simp [eval_circuit_def]
 QED
 
-Theorem eval_lit_equiv_aux_neq:
+Theorem eval_lit_encode_equiv_aux_neq:
   ∀xys n.
     iname m < n ⇒
-    (eval_lit ss (equiv_aux n xys ++ circ) m ⇔
+    (eval_lit ss (encode_equiv_aux n xys ++ circ) m ⇔
      eval_lit ss circ m)
 Proof
-  Induct >> rw [equiv_aux_def]
+  Induct >> rw [encode_equiv_aux_def]
   >> rpt (pairarg_tac >> gvs [])
   >> simp [eval_lit_INR_neq]
 QED
 
-Theorem eval_circuit_equiv_aux_INR_eq:
+Theorem eval_circuit_encode_equiv_aux_INR_eq:
   ∀xys n.
     EVERY (λ(x, y). iname x < n ∧ iname y < n) xys ⇒
-    (eval_circuit ss (equiv_aux n xys ++ circ) (INR n) ⇔
+    (eval_circuit ss (encode_equiv_aux n xys ++ circ) (INR n) ⇔
     EVERY (λ(x,y). eval_lit ss circ x ⇔ eval_lit ss circ y) xys)
 Proof
   Cases_on ‘ss’
   >> Induct
-  >> rw [equiv_aux_def, eval_circuit_def]
+  >> rw [encode_equiv_aux_def, eval_circuit_def]
   >> rpt (pairarg_tac >> gvs [])
   >> simp [eval_circuit_def]
   >> DEP_REWRITE_TAC [eval_lit_INR_neq]
   >> conj_tac >- simp []
-  >> DEP_REWRITE_TAC [eval_lit_equiv_aux_neq]
+  >> DEP_REWRITE_TAC [eval_lit_encode_equiv_aux_neq]
   >> conj_tac >- simp []
   >> first_x_assum $ qspec_then ‘n + 3’ mp_tac
   >> impl_tac
@@ -970,14 +1009,14 @@ Proof
   >> metis_tac [eval_lit_not]
 QED
 
-Theorem eval_circuit_equiv_INL:
-  eval_circuit ss (equiv circ name xys) (INL n) =
+Theorem eval_circuit_encode_equiv_INL:
+  eval_circuit ss (encode_equiv circ name xys) (INL n) =
   if n = Ext name then
     EVERY (λ(x,y). eval_lit ss circ x ⇔ eval_lit ss circ y) xys
   else eval_circuit ss circ (INL n)
 Proof
-  Cases_on ‘ss’ >> rw [eval_circuit_def, equiv_def]
-  >> irule eval_circuit_equiv_aux_INR_eq
+  Cases_on ‘ss’ >> rw [eval_circuit_def, encode_equiv_def]
+  >> irule eval_circuit_encode_equiv_aux_INR_eq
   >> rw [maxn_def, EVERY_MEM]
   >> rpt (pairarg_tac >> gvs [])
   >> ‘MEM (iname x) (MAP iname (MAP FST xys)) ∧
@@ -985,6 +1024,8 @@ Proof
     by metis_tac[MEM_MAP, FST, SND]
   >> imp_res_tac MAX_LIST_PROPERTY >> simp []
 QED
+
+(* Encoding is_reset **********************************************************)
 
 Definition latch_reset_pairs_def:
   (latch_reset_pairs (reset: 'l -> ('a iext,'i,'l) lit option) ([]: 'l list) = []) ∧
@@ -995,8 +1036,8 @@ Definition latch_reset_pairs_def:
 End
 
 Definition encode_is_reset_def:
-  encode_is_reset ss (circ: ('a iext, 'i, 'l) circuit) name reset ls =
-  equiv circ name (latch_reset_pairs reset ls)
+  encode_is_reset (circ: ('a iext, 'i, 'l) circuit) name reset ls =
+  encode_equiv circ name (latch_reset_pairs reset ls)
 End
 
 Theorem MEM_latch_reset_pairs_eq:
@@ -1021,14 +1062,15 @@ Proof
   >> rw [] >> gvs []
 QED
 
+
 Theorem eval_circuit_encode_is_reset_INL:
-  eval_circuit ss (encode_is_reset ss circ name reset ls) (INL n) =
+  eval_circuit ss (encode_is_reset circ name reset ls) (INL n) =
   if n = Ext name then
     is_reset ss circ reset (set ls)
   else eval_circuit ss circ (INL n)
 Proof
   Cases_on ‘ss’
-  >> rw [eval_circuit_def, encode_is_reset_def, eval_circuit_equiv_INL]
+  >> rw [eval_circuit_def, encode_is_reset_def, eval_circuit_encode_equiv_INL]
   >> simp [is_reset_def]
   >> eq_tac >> rw []
   >-
@@ -1041,6 +1083,16 @@ Proof
   >> drule_then assume_tac exists_MEM_latch_reset_pairs
   >> gvs [MEM_latch_reset_pairs_eq]
 QED
+
+Theorem eval_lit_encode_is_reset_INL:
+  eval_lit ss (encode_is_reset circ name reset ls) (Name (INL n),F) =
+  if n = Ext name then
+    is_reset ss circ reset (set ls)
+  else eval_lit ss circ (Name (INL n),F)
+Proof
+  simp [eval_circuit_def, eval_circuit_encode_is_reset_INL]
+QED
+
 
 (* Pairing circuits ***********************************************************)
 
@@ -1230,23 +1282,24 @@ Proof
   >> simp [right_bvar_def, eval_bvar_def]
 QED
 
-(* Transition Function ********************************************************)
+(* Encoding is_transition *****************************************************)
 
 Definition encode_is_transition_def:
-  encode_is_transition ss (circ: ('a iext, 'i, 'l + 'l) circuit) name
+  encode_is_transition (circ: ('a iext, 'i, 'l + 'l) circuit) name
     (next: 'l + 'l -> ('a iext, 'i, 'l + 'l) lit) (ls: 'l list) =
-  equiv circ name
+  encode_equiv circ name
     (ZIP (MAP (λl. (Base (Latch (INR l)), F)) ls, MAP (next ∘ INL) ls))
 End
 
 Theorem eval_circuit_encode_is_transition_INL:
-  eval_circuit ss (encode_is_transition ss circ name next ls) (INL n) =
+  eval_circuit ss (encode_is_transition circ name next ls) (INL n) =
   if n = Ext name then
     is_transition ss circ next (set ls)
   else eval_circuit ss circ (INL n)
 Proof
   Cases_on ‘ss’
-  >> rw [eval_circuit_def, encode_is_transition_def, eval_circuit_equiv_INL]
+  >> rw [eval_circuit_def, encode_is_transition_def,
+         eval_circuit_encode_equiv_INL]
   >> simp [is_transition_def]
   >> eq_tac >> rw []
   >-
@@ -1278,6 +1331,15 @@ End
 Definition iext_circuit_def:
   iext_circuit circ = MAP iext_and circ
 End
+
+Theorem eval_lit_INL_Ext_iext_lit[simp]:
+  eval_lit ss ((INL (Ext name),lits)::circ) (iext_lit x) ⇔
+   eval_lit ss circ (iext_lit x)
+Proof
+  namedCases_on ‘x’ ["v b"]
+  >> Cases_on ‘v’
+  >> simp [iext_lit_def, iext_var_def, eval_circuit_def]
+QED
 
 Theorem eval_circuit_iext_circuit[simp]:
   (∀n.
@@ -1439,4 +1501,33 @@ Proof
   >> rename1 ‘right_name_var v’ >> Cases_on ‘v’ >> simp [right_name_var_def]
   >> rename1 ‘left_name_and h’ >> Cases_on ‘h’ >> simp [left_name_and_def]
   >> simp [eval_circuit_def]
+QED
+
+(* Encoding preds_hold ********************************************************)
+
+Definition encode_preds_hold_def:
+  encode_preds_hold
+    (circ: ('a iext, 'i, 'l) circuit) name (lits: ('a iext,'i,'l) lit list) =
+  (INL (Ext name), lits)::circ
+End
+
+Theorem eval_lit_encode_preds_hold_INL:
+  eval_lit ss (encode_preds_hold circ name lits) (n,F) =
+  if n = Name (INL (Ext name)) then
+    preds_hold ss circ (set lits)
+  else eval_lit ss circ (n,F)
+Proof
+  simp [encode_preds_hold_def, eval_circuit_def, preds_hold_def, EVERY_MEM]
+  >> IF_CASES_TAC >> gvs []
+  >> TOP_CASE_TAC >> gvs []
+QED
+
+Theorem eval_circuit_encode_preds_hold_INL:
+  eval_circuit ss (encode_preds_hold circ name lits) (INL n) =
+  if n = Ext name then
+    preds_hold ss circ (set lits)
+  else eval_circuit ss circ (INL n)
+Proof
+  simp [encode_preds_hold_def, eval_circuit_def, preds_hold_def, EVERY_MEM]
+  >> IF_CASES_TAC >> simp []
 QED
