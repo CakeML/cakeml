@@ -1453,6 +1453,53 @@ Proof
     arithmeticTheory.GREATER_DEF]
 QED
 
+Theorem to_word_perf_calls:
+  ∀c c' prog p n.
+    (to_word asm_conf c prog = (c',p,n))
+    ⇒ c.stack_conf.perf_calls = c'.stack_conf.perf_calls
+Proof
+  srw_tac[][FUN_EQ_THM,backendTheory.compile_def,compile_tap_def,
+     to_word_def,
+     to_data_def,
+     to_bvi_def,
+     to_bvl_def,
+     to_clos_def,
+     to_flat_def]
+  \\ rpt (CHANGED_TAC (srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[]))
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ rfs []
+  \\ fs [backendTheory.compile_def,compile_tap_def
+        ,to_word_def,to_data_def]
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs [] \\ rveq \\ rfs [] \\ rveq
+QED
+
+Theorem to_data_perf_calls:
+  ∀c c' prog p n.
+    (to_data c prog = (c',p,n))
+    ⇒ c.stack_conf.perf_calls = c'.stack_conf.perf_calls
+Proof
+  srw_tac[][FUN_EQ_THM,backendTheory.compile_def,compile_tap_def,
+     to_data_def,
+     to_bvi_def,
+     to_bvl_def,
+     to_clos_def,
+     to_flat_def]
+  \\ rpt (CHANGED_TAC (srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[]))
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ rfs []
+  \\ fs [backendTheory.compile_def,compile_tap_def
+        ,to_data_def]
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs [] \\ rveq \\ rfs []
+QED
+
+Theorem to_bvi_perf_calls:
+  ∀c c' prog p n.
+    (to_bvi c prog = (c',p,n))
+    ⇒ c.stack_conf.perf_calls = c'.stack_conf.perf_calls
+Proof
+  rw [to_bvi_def, to_bvl_def, to_clos_def, to_flat_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rveq \\ fs []
+QED
+
 Theorem to_lab_labels_ok:
   compile asm_conf c prog = SOME (b, bm, c') /\ backend_config_ok asm_conf c
   ==>
@@ -1470,15 +1517,13 @@ Proof
   \\ simp []
   \\ rpt disch_tac
   \\ fs []
+  \\ imp_res_tac to_word_perf_calls
+  \\ fs [backend_config_ok_def]
+  \\ gvs []
   \\ EVAL_TAC
-  \\ fs [EVERY_MEM]
-  \\ CCONTR_TAC
-  \\ fs []
-  \\ cheat
-  (* \\ RES_THEN mp_tac *)
-  (* \\ EVAL_TAC *)
-  (* \\ simp [] *)
-  (* \\ gvs [] *)
+  \\ fs [EVERY_MEM, GSYM IMP_DISJ_THM]
+  \\ rw [] \\ res_tac \\ fs [EVAL ``store_consts_stub_location``]
+  \\ rpt strip_tac \\ res_tac \\ fs []
 QED
 
 Theorem oracle_monotonic_slice:
@@ -1777,9 +1822,13 @@ Proof
     \\ rpt disch_tac
     \\ fs []
     \\ simp [SUBSET_DEF]
-    \\ cheat
-    (* \\ metis_tac [MAP_FST_stubs_bound, prim_recTheory.LESS_THM, *)
-    (*     EVAL ``gc_stub_location < data_num_stubs``, LESS_TRANS] *)
+    \\ imp_res_tac to_bvi_perf_calls
+    \\ fs [backend_config_ok_def]
+    \\ gvs []
+    \\ metis_tac [MAP_FST_stubs_bound, prim_recTheory.LESS_THM,
+        EVAL ``gc_stub_location < data_num_stubs``, LESS_TRANS,
+        EVAL ``raise_stub_location < data_num_stubs``,
+        EVAL ``store_consts_stub_location < data_num_stubs``]
   )
   \\ rw [cake_orac_def, compile_inc_progs_defs]
   \\ rpt (pairarg_tac \\ fs [])
@@ -2156,8 +2205,8 @@ Proof
        labPropsTheory.sec_get_code_labels_def, EXISTS_PROD, FORALL_PROD]
     \\ metis_tac []
   )
-  (* Is this true? If yes, is there a general theorem to use? *)
-  \\ ‘(cake_configs mc.target.config c' syntax i).stack_conf.perf_calls = F’ by cheat
+  \\ ‘(cake_configs mc.target.config c' syntax i).stack_conf.perf_calls = F’
+     by (drule cake_orac_config_eqs \\ fs [backend_config_ok_def])
   \\ gvs []
   \\ drule (word_to_stack_good_handler_labels_incr
     |> REWRITE_RULE [AND_IMP_INTRO, Once CONJ_COMM] |> GEN_ALL)
@@ -2200,7 +2249,8 @@ Proof
     \\ EVAL_TAC
     \\ simp []
   )
-  \\ ‘(cake_configs mc.target.config c' syntax n).stack_conf.perf_calls = F’ by cheat
+  \\ ‘(cake_configs mc.target.config c' syntax n).stack_conf.perf_calls = F’
+     by (drule cake_orac_config_eqs \\ fs [backend_config_ok_def])
   \\ gvs []
   \\ qmatch_asmsub_abbrev_tac`compile_word_to_stack ac F kkk pp`
   \\ drule (GEN_ALL compile_word_to_stack_convs)
@@ -2441,26 +2491,6 @@ Theorem to_word_lab_conf:
   ∀c c' prog p n.
     (to_word asm_conf c prog = (c',p,n))
     ⇒ c.lab_conf = c'.lab_conf
-Proof
-  srw_tac[][FUN_EQ_THM,backendTheory.compile_def,compile_tap_def,
-     to_word_def,
-     to_data_def,
-     to_bvi_def,
-     to_bvl_def,
-     to_clos_def,
-     to_flat_def]
-  \\ rpt (CHANGED_TAC (srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[]))
-  \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ rfs []
-  \\ fs [backendTheory.compile_def,compile_tap_def
-        ,compute_stack_frame_sizes_thm
-        ,to_word_def,to_data_def]
-  \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs [] \\ rveq \\ rfs [] \\ rveq
-QED
-
-Theorem to_word_perf_calls:
-  ∀c c' prog p n.
-    (to_word asm_conf c prog = (c',p,n))
-    ⇒ c.stack_conf.perf_calls = c'.stack_conf.perf_calls
 Proof
   srw_tac[][FUN_EQ_THM,backendTheory.compile_def,compile_tap_def,
      to_word_def,
@@ -3481,7 +3511,9 @@ Proof
     metis_tac[])>>
   strip_tac>>
 
-  ‘c4.stack_conf.perf_calls = F’ by cheat>>gvs[]>>
+  qmatch_asmsub_abbrev_tac`word_to_stack$compile _ perf_flag _ = _`>>
+  `perf_flag = F` by simp[Abbr`perf_flag`, Abbr`c4`, backend_config_ok_def]>>
+  gvs[]>>
   old_drule (word_to_stack_stack_convs|> GEN_ALL)>>
   simp[]>>
   impl_tac>- (
