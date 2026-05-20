@@ -275,7 +275,7 @@ Definition cencode_channeling_constr_def:
     cencode_inverse bnd Xsi Ysi name ec
 End
 
-Theorem cencode_channeling_constr_semG:
+Theorem cencode_channeling_constr_sem:
   valid_assignment bnd wi ∧
   cencode_channeling_constr bnd c name ec = (es, ec') ⇒
   enc_rel wi es (encode_channeling_constr bnd c name) ec ec'
