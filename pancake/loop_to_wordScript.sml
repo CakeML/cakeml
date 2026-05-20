@@ -62,18 +62,21 @@ Definition comp_def:
      | AddCarry =>
        if LENGTH lhss = 2 ∧ LENGTH rhss = 3 then
          let
-           res = EL 0 lhss;
-           co  = EL 1 lhss;
-           li  = EL 0 rhss;
-           ri  = EL 1 rhss;
-           ci  = EL 2 rhss
+           res         = EL 0 lhss;
+           co          = EL 1 lhss;
+           li          = EL 0 rhss;
+           ri          = EL 1 rhss;
+           ci          = EL 2 rhss;
+           scratch_ci  = 1;
+           scratch_res = 3
          in
-           (Seq (Assign (find_var ctxt co) (Var (find_var ctxt ci)))
-                (Inst (Arith (AddCarry
-                               (find_var ctxt res)
-                               (find_var ctxt li)
-                               (find_var ctxt ri)
-                               (find_var ctxt co)))), l)
+           (Seq (Assign scratch_ci (Var (find_var ctxt ci)))
+           (Seq (Inst (Arith (AddCarry scratch_res
+                                       (find_var ctxt li)
+                                       (find_var ctxt ri)
+                                       scratch_ci)))
+           (Seq (Assign (find_var ctxt co) (Var scratch_ci))
+                (Assign (find_var ctxt res) (Var scratch_res)))), l)
        else (Skip, l)) /\
   (comp ctxt (Arith arith) l =
      (case arith of
