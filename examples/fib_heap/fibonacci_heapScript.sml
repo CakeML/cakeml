@@ -5197,6 +5197,18 @@ Definition fts_link_trees_def:
 End
 
 
+Theorem lemma_fts_link_trees_length_rl:
+  !n rl t.
+  LENGTH (FST (fts_link_trees n rl t)) = LENGTH rl
+Proof
+  Induct >> rpt gen_tac >> Cases_on `t` >> simp[Once fts_link_trees_def] >>
+  IF_CASES_TAC >> simp[] >>
+  CASE_TAC >> simp[] >>
+  CASE_TAC >> simp[]
+QED
+
+
+
 Theorem lemma_fts_meld_suc_length:
   LENGTH (fts_meld l [FibTree k' v' l']) = if l = [] then 1 else LENGTH l + 1
 Proof
@@ -5272,6 +5284,19 @@ Proof
   rpt strip_tac >>
   CASE_TAC >> fs[]
 QED
+
+
+Theorem lemma_ts_to_fhts_lupdate_none:
+  !x rl.
+  x < LENGTH rl
+  ==>
+  ts_to_fhts (LUPDATE NONE x rl) = (LUPDATE (FEMPTY,NONE) x (ts_to_fhts rl))
+Proof
+  strip_tac >>
+  rewrite_tac[lemma_ts_to_fhts_to_map] >>
+  simp[LUPDATE_MAP]
+QED
+
 
 (*
 Theorem lemma_nested_ts_to_fhts_fhts_to_ts:
@@ -6529,16 +6554,6 @@ QED
 
 
 
-Theorem lemma_ts_to_fhts_lupdate_none:
-  !x rl.
-  x < LENGTH rl
-  ==>
-  ts_to_fhts (LUPDATE NONE x rl) = (LUPDATE (FEMPTY,NONE) x (ts_to_fhts rl))
-Proof
-  strip_tac >>
-  rewrite_tac[lemma_ts_to_fhts_to_map] >>
-  simp[LUPDATE_MAP]
-QED
 
 
 
@@ -7752,31 +7767,22 @@ QED
 
 
 
-
-Theorem fib_heap_pop:
-  !frame fts fh1 m dm min a' m'.
-    (fts_mem (ann_fts 0w fts) * frame) (fun2set (m,dm)) /\
-    fib_heap_inv_weak fh1 fts /\
-    fib_heap_pop (head_key fts,m,dm) = (min,a',m',T)
+Theorem fib_heap_pop_mem_thm:
+  !frame p fts m dm top a' m'.
+    (fts_mem (ann_fts p fts) * frame) (fun2set (m,dm)) /\
+    fib_heap_pop (head_key fts,m,dm) = (top,a',m',T)
     ==>
-    ?fh2 v l.
-    (fts_mem (ann_fts 0w [FibTree min v l]) *
-     fib_heap_weak a' (FDIFF fh1 (FDOM fh2)) * frame)
+    (fts_mem (ann_fts p [HD fts]) *
+     fts_mem (ann_fts p (TL fts))  * frame)
       (fun2set (m',dm)) /\
-    fib_heap_inv fh2 [FibTree min v l] /\
-    DISJOINT (FDOM fh2) (FDOM (FDIFF fh1 (FDOM fh2))) /\
-    fh2 SUBMAP fh1 /\
-    min = head_key fts
+    top = head_key fts /\
+    a' = head_key (TL fts)
 Proof
-  simp[fib_heap_weak_def,fib_heap_def] >>
-  rpt strip_tac >>
-  fs[SEP_CLAUSES,SEP_EXISTS_THM,PULL_EXISTS] >>
-  pop_assum mp_tac >>
+  rpt gen_tac >> disch_tac >> fs[] >> pop_assum mp_tac >>
+  simp[fib_heap_pop_def,read_mem_def,write_mem_def,next_off_def,
+       before_off_def] >>
   Cases_on `fts`
-  >- (
-    simp[fib_heap_pop_def, read_mem_def, write_mem_def] >>
-    fs[head_key_def,head_key_t_def]
-    ) >>
+  >- fs[head_key_def,head_key_t_def] >>
   Cases_on `h` >>
   Cases_on `t`
   >- (
@@ -7784,17 +7790,8 @@ Proof
        SEP_CLAUSES, head_key_def, ft_mem_def, new_anode_def,
        new_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
     full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR] >>
-    gvs[] >>
-    simp[fib_heap_pop_def, read_mem_def, write_mem_def,next_off_def,before_off_def] >>
     SEP_R_TAC >> simp[] >>
-    strip_tac >> gvs[] >>
-    qexistsl [`fh1`,`v`,`l`,`[]`] >>
-    simp[head_key_t_def] >>
-    simp[lemma_fdiff_id_eq_empty,fib_heap_inv_weak_empty_thm] >>
-    simp[lemma_inv_weak_imp_inv] >>
-    fs[ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def, fts_mem_def,
-       SEP_CLAUSES, head_key_def, ft_mem_def, new_anode_def,
-       new_dnode_def, head_key_t_def, ones_def, STAR_ASSOC]
+    strip_tac >> gvs[]
     ) >>
   Cases_on `h` >>
   Cases_on `t'` using SNOC_CASES
@@ -7803,63 +7800,58 @@ Proof
        SEP_CLAUSES, head_key_def, ft_mem_def, new_anode_def,
        new_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
     full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR] >>
-    gvs[] >>
-    simp[fib_heap_pop_def, read_mem_def, write_mem_def,next_off_def,before_off_def] >>
     SEP_R_TAC >> simp[] >>
-    `k' <> k` by SEP_NEQ_TAC >> simp[] >>
+    `k <> k'` by SEP_NEQ_TAC >> simp[] >>
+    SEP_R_TAC >> simp[] >>
     strip_tac >> gvs[] >>
-    SEP_R_TAC >> simp[] >>
-    drule_all lemma_fib_heap_inv_weak_split >>
-    strip_tac >> fs[] >>
-    qexistsl [`fh1'`,`v`,`l`,`[FibTree a' v' l']`] >>
-    gvs[head_key_t_def] >>
-    simp[FDIFF_FUNION,lemma_fdiff_id_eq_empty,lemma_fdiff_disjoint] >>
-    simp[DISJOINT_SYM] >>
-    fs[ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def, fts_mem_def,
-       SEP_CLAUSES, head_key_def, ft_mem_def, new_anode_def,
-       new_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
-    SEP_W_TAC >>
-    simp[AC STAR_ASSOC STAR_COMM] >>
-    simp[SUBMAP_FUNION_ID] >>
-    irule lemma_inv_weak_imp_inv >> simp[]
+    SEP_W_TAC
     ) >>
-  Cases_on `x` >> fs[SNOC_APPEND,REVERSE_APPEND] >>
-  fs[ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def, fts_mem_def,
-     SEP_CLAUSES, head_key_def, ft_mem_def, new_anode_def,
-     new_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
-  fs[fts_mem_append_thm,ann_fts_seg_append_thm] >>
-  fs[ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def, fts_mem_def,
+  Cases_on `x` >>
+  fs[SNOC_APPEND,REVERSE_APPEND,ann_fts_seg_append_thm,fts_mem_append_thm,
+     ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def, fts_mem_def,
      SEP_CLAUSES, head_key_def, ft_mem_def, new_anode_def,
      new_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
   full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR] >>
-  gvs[] >>
-  simp[fib_heap_pop_def, read_mem_def, write_mem_def,next_off_def,before_off_def] >>
   SEP_R_TAC >> simp[] >>
-  `k' <> k` by SEP_NEQ_TAC >> simp[] >>
-  simp[REVERSE_APPEND,head_key_t_def] >>
-  drule_all lemma_fib_heap_inv_weak_split >>
+  `k <> k'` by SEP_NEQ_TAC >> simp[] >>
   SEP_R_TAC >> simp[] >>
-  rpt strip_tac >> gvs[] >>
-  rename [`fib_heap_inv_weak fh2 (FibTree a' v' l'::
-    (rest ++ [FibTree lk lv ll]))`] >>
-  qexistsl [`fh1'`,`v`,`l`,`(FibTree a' v' l'::
-    (rest ++ [FibTree lk lv ll]))`] >>
-  simp[head_key_t_def] >>
-  simp[FDIFF_FUNION,lemma_fdiff_id_eq_empty,lemma_fdiff_disjoint] >>
-  simp[DISJOINT_SYM] >>
-  simp[lemma_inv_weak_imp_inv] >>
-  simp[SUBMAP_FUNION_ID] >>
-  rewrite_tac[GSYM (cj 2 APPEND)] >>
-  fs[ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def, fts_mem_def,
-     SEP_CLAUSES, head_key_def, ft_mem_def, new_anode_def,
-     new_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
-  fs[fts_mem_append_thm,ann_fts_seg_append_thm] >>
-  fs[ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def, fts_mem_def,
-     SEP_CLAUSES, head_key_def, ft_mem_def, new_anode_def,
-     new_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
+  strip_tac >> gvs[] >>
   SEP_W_TAC >>
-  simp[REVERSE_APPEND,head_key_t_def] >>
   fs[head_key_t_pull_last_thm]
+QED
+
+
+
+
+Theorem fib_heap_pop:
+  !frame fts fh1 m dm top a' m'.
+    (fts_mem (ann_fts 0w fts) * frame) (fun2set (m,dm)) /\
+    fib_heap_inv_weak fh1 fts /\
+    fib_heap_pop (head_key fts,m,dm) = (top,a',m',T)
+    ==>
+    ?fh2.
+    (fts_mem (ann_fts 0w [(HD fts)]) *
+     fts_mem (ann_fts 0w (TL fts)) * frame)
+      (fun2set(m',dm)) /\
+    fib_heap_inv_weak (FDIFF fh1 (FDOM fh2)) (TL fts) /\
+    fib_heap_inv fh2 [(HD fts)] /\
+    DISJOINT (FDOM fh2) (FDOM (FDIFF fh1 (FDOM fh2))) /\
+    fh2 SUBMAP fh1 /\
+    top = head_key fts /\
+    a' = head_key (TL fts)
+Proof
+  rpt gen_tac >> disch_tac >> fs[] >>
+  drule_all fib_heap_pop_mem_thm >>
+  strip_tac >> simp[] >>
+  Cases_on `fts` >> fs[]
+  >- (fs[fib_heap_pop_def,head_key_def,head_key_t_def]) >>
+  Cases_on `h` >>
+  drule_all lemma_fib_heap_inv_weak_split >>
+  strip_tac >> simp[] >>
+  qexists `fh1'` >>
+  simp[lemma_inv_weak_imp_inv] >>
+  simp[FDIFF_FUNION,lemma_fdiff_id_eq_empty,lemma_fdiff_disjoint] >>
+  simp[SUBMAP_FUNION_ID]
 QED
 
 
@@ -8065,6 +8057,102 @@ Proof
   simp[FLOOKUP_SIMP,DOMSUB_FLOOKUP_THM] >>
   CASE_TAC >> simp[FLOOKUP_DEF] >>
   fs[SUBMAP_DEF]
+QED
+
+
+Theorem fib_heap_rm_min_mem:
+  !frame.
+  (fts_mem (ann_fts 0w fts) * frame) (fun2set(m,dm)) /\
+  196 < dimword (:'a) /\
+  fib_heap_rm_min (head_key fts,m,dm) = ((min:'a word),a',m',T)
+  ==>
+  ?v e.
+  (fts_mem (ann_fts 0w (SND (fts_rm_min fts))) * empty_node min (v,e) * frame)
+    (fun2set(m',dm)) /\
+  FST (fts_rm_min fts) = min
+Proof
+  simp[fib_heap_rm_min_def,read_mem_def,write_mem_def,child_off_def] >>
+  rpt strip_tac >>
+  Cases_on `fts`
+  >- (
+    fs[head_key_t_def,head_key_def, fts_rm_min_def] >>
+    simp[empty_node_def,SEP_CLAUSES]
+    ) >>
+  Cases_on `h`>>
+  pop_assum mp_tac >>
+  `k <> 0w` by full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR,
+     ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def,
+     fts_mem_def,SEP_CLAUSES, head_key_def, ft_mem_def, new_anode_def,
+     new_dnode_def, head_key_t_def, ones_def, STAR_ASSOC,
+     rank_off_def,mark_off_def] >>
+  simp[rank_off_def,mark_off_def,read_mem_def,write_mem_def,
+       head_key_def,head_key_t_def] >>
+  pairarg_tac >> simp[] >>
+  Cases_on `c`
+  >- (
+    qspecl_then [`frame`,`0w`,`(FibTree k v l::t)`,`m`,`dm`,`min'`,`n_a`,`m''`]
+    mp_tac fib_heap_pop_mem_thm >> simp[head_key_def,head_key_t_def] >>
+    strip_tac >> gvs[] >>
+    qpat_x_assum `(fts_mem (ann_fts 0w (FibTree k v l::t)) * frame)
+      (fun2set (m,dm))` kall_tac >>
+    fs[ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def,
+       fts_mem_def,SEP_CLAUSES, head_key_def, ft_mem_def, new_anode_def,
+       new_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
+    SEP_R_TAC >>
+    Cases_on `l`
+    >- (
+      gvs[head_key_t_def,head_key_def] >>
+      pairarg_tac >>
+      rename [`fib_heap_meld (0w,head_key_t 0w t,m2,dm) = (new_a,m3,c2)`] >>
+      qspecl_then [`ones k [v.value;FST v.edges; b2w T; b2w v.mark;k;k;
+        0w;0w;0w] * edges_ones (FST v.edges) (SND v.edges) * frame`,
+         `0w`,`[]`,`t`,`m2`,`dm`,`new_a`,`m3`,`c2`]
+        mp_tac fib_heap_meld_imp_fts_meld_mem_thm >>
+      fs[ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def,
+         fts_mem_def,SEP_CLAUSES, head_key_def, ft_mem_def, new_anode_def,
+         new_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
+      fs[AC STAR_ASSOC STAR_COMM] >>
+      fs[STAR_ASSOC] >>
+      simp[fts_rm_min_def,fts_meld_def] >>
+      strip_tac >> gvs[] >>
+      strip_tac >> gvs[] >>
+      qexistsl [`v.value`,`v.edges`] >>
+      simp[empty_node_def,ones_def,SEP_CLAUSES,STAR_ASSOC] >>
+      SEP_W_TAC >>
+      fs[b2w_def] >>
+      fs[AC STAR_ASSOC STAR_COMM]
+      ) >>
+    Cases_on `h` >>
+    fs[head_key_t_eq_head_key_thm,last_key_t_eq_last_key_thm] >>
+    pop_assum mp_tac >>
+    simp[head_key_t_def,head_key_def] >>
+    strip_tac >>
+    `k' <> 0w` by full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR,
+       ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def,
+       fts_mem_def,SEP_CLAUSES, head_key_def, ft_mem_def, new_anode_def,
+       new_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
+    full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR] >>
+    pairarg_tac >> gvs[] >>
+    rename [`fib_heap_set_parent (SUC (LENGTH t')) (k',0w,m'',dm) =
+        (child_a,m3,c')`] >>
+    qspecl_then [`SUC (LENGTH t')`,`0w`,`k`,`[]`,`(FibTree k' v' l::t')`,
+      `m''`,`dm`,`ones k [v.value;FST v.edges; b2w T; b2w v.mark;k;k;
+        0w;k';(n2w (SUC (LENGTH t')))] * fts_mem (ann_fts 0w t) *
+       edges_ones (FST v.edges) (SND v.edges) * frame`,
+      `child_a`,`m3`] mp_tac fib_heap_set_parent >>
+    fs[ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def,
+       fts_mem_def,SEP_CLAUSES, head_key_def, ft_mem_def, new_anode_def,
+       new_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
+    fs[AC STAR_ASSOC STAR_COMM] >>
+    fs[STAR_ASSOC] >>
+    Cases_on `c'`
+    >- (
+      simp[] >>
+      cheat
+      ) >>
+    cheat
+    ) >>
+  cheat
 QED
 
 
@@ -8542,3 +8630,132 @@ Proof
 QED
 
 
+
+Definition fib_heap_link_root_list_def:
+  fib_heap_link_root_list (n:num) (arr,a,m,dm)
+  =
+  if n = 0 then (m,F) else
+  if a = 0w then (m,T) else
+  let (top,a',m,c) = fib_heap_pop (a,m,dm) in
+  if ~c then (m,F) else
+  let (m,c) = fib_heap_link_trees 196 (arr,top,m,dm,T) in
+  if ~c then (m,F) else
+    fib_heap_link_root_list (n - 1) (arr,a',m,dm)
+End
+
+
+Theorem lemma_rl_rm_imp_length_inv:
+  !rl l.
+  (∀x k' v' l'.
+    x < 196 ∧ rl❲x❳ = SOME (FibTree k' v' l') ⇒ LENGTH l' = x)
+  ==>
+  (∀x k' v' l'.
+    x < 196 ∧ rl❲LENGTH l ↦ NONE❳❲x❳ = SOME (FibTree k' v' l') ⇒
+    LENGTH l' = x)
+Proof
+  rpt strip_tac >>
+  fs[EL_LUPDATE]
+QED
+
+
+Theorem lemma_fib_heap_link_root_list_inv_ih:
+  !n rl k v l.
+    LENGTH rl = 196 /\
+    (∀x k' v' l'. x < 196 ∧ rl❲x❳ = SOME (FibTree k' v' l')
+      ⇒ LENGTH l' = x)
+  ==>
+    (∀x k' v' l'.
+      x < 196 ∧
+      (FST (fts_link_trees n rl (FibTree k v l)))❲x❳ =
+        SOME (FibTree k' v' l')
+        ⇒ LENGTH l' = x)
+Proof
+  Induct >> rpt strip_tac >> pop_assum mp_tac >> simp[Once fts_link_trees_def] >>
+  IF_CASES_TAC >> simp[] >>
+  CASE_TAC >> simp[]
+  >- (
+    strip_tac >>
+    Cases_on `x = LENGTH l` >> gvs[EL_LUPDATE]
+    ) >>
+  CASE_TAC >> simp[] >>
+  Cases_on `fts_merge_trees (FibTree k v l) (FibTree k'' v'' l'')` >>
+  Cases_on `fts_link_trees n rl❲LENGTH l ↦ NONE❳ (FibTree k'³' v'³' l'³')` >>
+  gvs[] >>
+  strip_tac >>
+  first_x_assum(qspecl_then [`LUPDATE NONE (LENGTH l) rl`,
+    `k'''`,`v'''`,`l'''`] assume_tac) >>
+  rfs[LENGTH_LUPDATE] >>
+  qspecl_then [`rl`,`l`] assume_tac lemma_rl_rm_imp_length_inv >> gvs[]
+QED
+
+
+
+Theorem fib_heap_link_root_list_mem_thm:
+  !n frame fts arr rl m dm c m'.
+  (fts_mem (ann_fts 0w fts) * reb_array_mem (arr:'a word) 0w rl *
+    frame) (fun2set (m,dm)) ∧
+  LENGTH rl = 196 /\
+  196 < dimword (:'a) ∧
+  (∀x k v l. x < LENGTH rl ∧ rl❲x❳ = SOME (FibTree k v l) ⇒ LENGTH l = x) ∧
+  fib_heap_link_root_list n (arr,head_key fts,m,dm) = (m',T) ⇒
+  (reb_array_mem arr 0w (FST (fts_link_root_list rl fts)) *
+    frame) (fun2set(m',dm)) /\
+  SND (fts_link_root_list rl fts)
+Proof
+  Induct >> rpt gen_tac >> disch_tac >> fs[] >> pop_assum mp_tac
+  >- simp[Once fib_heap_link_root_list_def] >>
+  simp[Once fib_heap_link_root_list_def] >>
+  Cases_on `fts` >> simp[head_key_t_def,head_key_def]
+  >- (
+    strip_tac >> gvs[] >>
+    simp[fts_link_root_list_def] >>
+    fs[fts_mem_def,ann_fts_def,SEP_CLAUSES]
+    ) >>
+  Cases_on `h` >>
+  fs[ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def,
+     fts_mem_def,SEP_CLAUSES, head_key_def, ft_mem_def, new_anode_def,
+     new_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
+  full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR] >>
+  pairarg_tac >> gvs[] >>
+  qspecl_then [`reb_array_mem arr 0w rl * frame`,`0w`,`(FibTree k v l::t)`,
+    `m`,`dm`,`top'`,`a'`,`m''`] mp_tac fib_heap_pop_mem_thm >>
+  fs[ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def,
+     fts_mem_def,SEP_CLAUSES, head_key_def, ft_mem_def, new_anode_def,
+     new_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
+  Cases_on `c` >> simp[] >>
+  strip_tac >> gvs[] >>
+  pairarg_tac >> gvs[] >>
+  qspecl_then [`196`,`fts_mem (ann_fts 0w t) * frame`,`k`,`v`,`l`,
+   `arr`,`rl`,`m''`,`dm`,`T`,`m'''`] mp_tac fib_heap_link_trees_mem_thm >>
+  fs[ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def,
+     fts_mem_def,SEP_CLAUSES, head_key_def, ft_mem_def, new_anode_def,
+     new_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
+  fs[AC STAR_ASSOC STAR_COMM] >>
+  fs[STAR_ASSOC] >>
+  Cases_on `c'` >> simp[] >>
+  strip_tac >> strip_tac >>
+  first_x_assum (qspecl_then [`frame`,`t`,`arr`,
+    `FST (fts_link_trees 196 rl (FibTree k v l))`,`m'''`,`dm`,`m'`]
+    mp_tac) >>
+  simp[lemma_fts_link_trees_length_rl] >>
+  qspecl_then [`196`,`rl`,`k`,`v`,`l`]
+    assume_tac lemma_fib_heap_link_root_list_inv_ih >> gvs[] >>
+  strip_tac >>
+  simp[Once fts_link_root_list_def] >>
+  pairarg_tac >> gvs[] >>
+  simp[Once fts_link_root_list_def]
+QED
+
+
+
+
+Definition fib_heap_collect_array_def:
+  fib_heap_collect_array (n:num) (arr,acc,m,dm,c)
+  =
+  let (arr_t,c) = read_mem (arr + (n2w n)) m dm c in
+  let (acc,m,c) = fib_heap_meld (arr_t,acc,m,dm) in
+  if n = 0 then
+    (acc,m,c)
+  else
+    fib_heap_collect_array (n-1) (arr,acc,m,dm,c)
+End
