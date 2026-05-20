@@ -8754,8 +8754,131 @@ Definition fib_heap_collect_array_def:
   =
   let (arr_t,c) = read_mem (arr + (n2w n)) m dm c in
   let (acc,m,c) = fib_heap_meld (arr_t,acc,m,dm) in
+  let (m,c) =
+    (if arr_t = 0w then
+      (m,c)
+    else
+      write_mem (arr + (n2w n)) 0w m dm c) in
   if n = 0 then
     (acc,m,c)
   else
     fib_heap_collect_array (n-1) (arr,acc,m,dm,c)
 End
+
+
+Theorem fib_heap_collect_array_mem_thm:
+  !n arr rl frame acc m dm c acc' m'.
+  (fts_mem (ann_fts 0w acc) * reb_array_mem (arr:'a word) 0w rl * frame)
+    (fun2set(m,dm)) /\
+  LENGTH rl = 196 /\
+  196 < dimword (:'a) ∧
+  n < LENGTH rl /\
+  fib_heap_collect_array n (arr,head_key acc,m,dm,c) = (acc',m',T)
+  ==>
+  (fts_mem (ann_fts 0w (FST (fts_collect_array n rl acc))) *
+    reb_array_mem arr 0w (SND (fts_collect_array n rl acc)) *
+    frame) (fun2set(m',dm))
+Proof
+  Induct >> rpt gen_tac >> disch_tac >> fs[] >> pop_assum mp_tac
+  >- (
+    simp[Once fib_heap_collect_array_def,read_mem_def] >>
+    pairarg_tac >> simp[] >>
+    strip_tac >> gvs[] >>
+    `0 < LENGTH rl` by simp[] >>
+    drule_all LESS_LENGTH  >> strip_tac >> fs[] >>
+    fs[reb_array_mem_def] >>
+    Cases_on `y` >> fs[]
+    >- (
+      simp[reb_array_mem_def] >>
+      SEP_R_TAC >> fs[] >>
+      qspecl_then [`one(arr,Word 0w) * reb_array_mem arr 1w ys2 * frame`,
+        `0w`,`[]`,`acc`,`m`,`dm`,`acc'`,`m'`,`T`]
+        mp_tac fib_heap_meld_imp_fts_meld_mem_thm >>
+      fs[fts_mem_def,ann_fts_def,SEP_CLAUSES,STAR_ASSOC,fts_meld_def,
+         head_key_def,head_key_t_def] >>
+      strip_tac >>
+      simp[Once fts_collect_array_def] >>
+      simp[Once fts_collect_array_def,reb_array_mem_def,STAR_ASSOC]
+      ) >>
+    Cases_on `x` >> gvs[] >>
+    pop_assum mp_tac >>
+    SEP_R_TAC >> fs[] >>
+    `k <> 0w` by full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR,
+      ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def,
+      fts_mem_def,SEP_CLAUSES, head_key_def, ft_mem_def, new_anode_def,
+      new_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
+    simp[write_mem_def] >>
+    strip_tac >> gvs[] >>
+    qspecl_then [`one(arr,Word k) * reb_array_mem arr 1w ys2 * frame`,
+      `0w`,`[FibTree k v l]`,`acc`,`m`,`dm`,`acc'`,`m''`,`T`]
+      mp_tac fib_heap_meld_imp_fts_meld_mem_thm >>
+    fs[fts_meld_def,head_key_def,head_key_t_def] >>
+    fs[AC STAR_ASSOC STAR_COMM] >>
+    fs[STAR_ASSOC] >>
+    strip_tac >>
+    simp[Once fts_collect_array_def] >>
+    simp[Once fts_collect_array_def] >>
+    simp[LUPDATE_DEF,reb_array_mem_def] >>
+    SEP_W_TAC >>
+    fs[AC STAR_ASSOC STAR_COMM]
+    ) >>
+  simp[Once fib_heap_collect_array_def,read_mem_def,write_mem_def] >>
+  pairarg_tac >> gvs[] >>
+  `SUC n < LENGTH rl` by simp[] >>
+  drule_all LESS_LENGTH >> strip_tac >> fs[] >>
+  fs[reb_array_mem_append_thm] >>
+  Cases_on `y` >> fs[reb_array_mem_def]
+  >- (
+    SEP_R_TAC >> fs[] >>
+    qspecl_then [`reb_array_mem arr 0w rl * frame`,
+      `0w`,`[]`,`acc`,`m`,`dm`,`acc''`,`m''`,`c''`]
+      mp_tac fib_heap_meld_imp_fts_meld_mem_thm >>
+    fs[head_key_def,head_key_t_def,SEP_CLAUSES] >>
+    simp[fts_mem_def,ann_fts_def,SEP_CLAUSES,STAR_ASSOC,fts_meld_def,
+         head_key_def,head_key_t_def,reb_array_mem_append_thm,reb_array_mem_def] >>
+    fs[AC STAR_ASSOC STAR_COMM] >>
+    strip_tac >> fs[STAR_ASSOC] >>
+    strip_tac >>
+    first_x_assum (qspecl_then [`arr`,`rl`,`frame`,`acc`,`m''`,`dm`,
+      `T`,`acc'`,`m'`] mp_tac) >> fs[] >>
+    fs[reb_array_mem_append_thm,reb_array_mem_def,SEP_CLAUSES,fts_meld_def,
+       head_key_def] >>
+    fs[AC STAR_ASSOC STAR_COMM] >>
+    fs[STAR_ASSOC] >> strip_tac >>
+    simp[Once fts_collect_array_def,EL_APPEND] >>
+    simp[STAR_COMM] >>
+    simp[Once fts_collect_array_def,EL_APPEND] >>
+    fs[AC STAR_ASSOC STAR_COMM]
+    ) >>
+  Cases_on `x` >> fs[] >>
+  SEP_R_TAC >> fs[] >>
+  qspecl_then [`reb_array_mem arr 0w ys1 * one (arr + n2w (SUC n), Word k) *
+    reb_array_mem arr (n2w (SUC n + 1)) ys2 * frame`,
+    `0w`,`[FibTree k v l]`,`acc`,`m`,`dm`,`acc''`,`m''`,`c''`]
+    mp_tac fib_heap_meld_imp_fts_meld_mem_thm >>
+  fs[SEP_CLAUSES,head_key_t_def,head_key_def] >>
+  fs[AC STAR_ASSOC STAR_COMM] >>
+  strip_tac >> fs[STAR_ASSOC] >>
+  `k <> 0w` by full_simp_tac (std_ss ++ sep_cond_ss) [cond_STAR,
+     ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def,
+     fts_mem_def,SEP_CLAUSES, head_key_def, ft_mem_def, new_anode_def,
+     new_dnode_def, head_key_t_def, ones_def, STAR_ASSOC] >>
+  simp[] >>
+  strip_tac >>
+  first_x_assum (qspecl_then [`arr`,`LUPDATE NONE (LENGTH ys1) rl`,`frame`,
+    `fts_meld [FibTree k v l] acc`,
+    `m''(|(arr + n2w (SUC n)) |-> Word 0w|)`,`dm`,`T`,`acc'`,`m'`] mp_tac) >> fs[] >>
+  simp[LUPDATE_APPEND,LUPDATE_DEF,reb_array_mem_append_thm,reb_array_mem_def,
+       SEP_CLAUSES,STAR_ASSOC] >>
+  SEP_W_TAC >>
+  fs[AC STAR_ASSOC STAR_COMM] >>
+  fs[STAR_ASSOC] >> strip_tac >>
+  simp[Once fts_collect_array_def,EL_APPEND,LUPDATE_APPEND,LUPDATE_DEF] >>
+  simp[STAR_COMM] >>
+  simp[Once fts_collect_array_def,EL_APPEND,LUPDATE_APPEND,LUPDATE_DEF] >>
+  fs[AC STAR_ASSOC STAR_COMM]
+QED
+
+
+
+
