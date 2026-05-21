@@ -28,6 +28,9 @@ and itree semantics for Pancake.
 [pan_simpProofScript.sml](pan_simpProofScript.sml):
 Correctness proof for pan_simp
 
+[pan_structsProofScript.sml](pan_structsProofScript.sml):
+Correctness proof for pan_structs
+
 [pan_to_crepProofScript.sml](pan_to_crepProofScript.sml):
 Correctness proof for pan_to_crep
 

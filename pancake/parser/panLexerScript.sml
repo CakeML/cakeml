@@ -17,7 +17,7 @@ Libs
 
 Datatype:
   keyword = SkipK | StK | StwK | St8K | St16K | St32K | IfK | ElseK | WhileK
-  | BrK | ContK | RaiseK | RetK | TicK | VarK | WithK | HandleK | BiwK
+  | BrK | ContK | RaiseK | RetK | TicK | VarK | WithK | HandleK | BiwK | NamedK
   | LdsK | Ld8K | LdwK | Ld16K | Ld32K | BaseK | TopK | InK | FunK | ExportK | TrueK | FalseK
   | InlineK
 End
@@ -145,6 +145,7 @@ Definition get_keyword_def:
   if s = "fun" then (KeywordT FunK) else
   if s = "export" then (KeywordT ExportK) else
   if s = "inline" then (KeywordT InlineK) else
+  if s = "struct" then (KeywordT NamedK) else
   if s = "" then LexErrorT $ «Expected keyword, found empty string» else
   if 2 <= LENGTH s ∧ EL 0 s = #"@" then ForeignIdent (DROP 1 s)
   else

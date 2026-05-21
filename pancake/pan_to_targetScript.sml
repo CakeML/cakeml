@@ -20,7 +20,7 @@ Definition compile_prog_def:
     (* Ensure either user-written main or new main that does nothing is first in func list *)
     let prog1:'a decl list = case SPLITP (λx. case x of
                                    Function fi => fi.name = «main»
-                                 | Decl _ _ _ => F) prog of
+                                 | _ => F) prog of
                   ([],ys) => ys
                 | (xs,[]) => Function
                                 <| name := «main»
@@ -57,7 +57,7 @@ Theorem compile_prog_eq:
     (* Ensure either user-written main or new main that does nothing is first in func list *)
     let prog1:'a decl list = case SPLITP (λx. case x of
                                    Function fi => fi.name = «main»
-                                 | Decl _ _ _ => F) prog of
+                                 | _ => F) prog of
                   ([],ys) => ys
                 | (xs,[]) => Function
                                 <| name := «main»

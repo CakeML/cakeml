@@ -19,7 +19,8 @@ End
 
 Datatype:
   v = Val ('a word_lab)
-    | Struct (v list)
+    | RStruct (v list)
+    | NStruct stcname ((fldname # v) list)
 End
 
 Overload ValWord  = “\w. Val (Word w)”
@@ -28,6 +29,7 @@ Datatype:
   state =
     <| locals      : varname |-> 'a v
      ; globals     : varname |-> 'a v
+     ; structs     : (stcname # struct_info) list
      ; code        : funname |-> ((varname # shape) list # ('a panLang$prog))
                      (* arguments (with shape), body *)
      ; eshapes     : eid |-> shape
@@ -59,7 +61,8 @@ val s = ``(s:('a,'ffi) panSem$state)``
 
 Definition shape_of_def:
   shape_of (ValWord _) = One /\
-  shape_of (Struct vs) = Comb (MAP shape_of vs)
+  shape_of (RStruct vs) = Comb (MAP shape_of vs) /\
+  shape_of (NStruct nm _) = Named nm
 End
 
 Definition mem_load_byte_def:
@@ -114,27 +117,56 @@ Proof
 QED
 
 Definition mem_load_def:
-  (mem_load sh addr dm (m: 'a word -> 'a word_lab) =
+  (mem_load sh addr dm (m: 'a word -> 'a word_lab) stcs =
    case sh of
    | One =>
      if addr IN dm
      then SOME (Val (m addr))
      else NONE
    | Comb shapes =>
-     case mem_loads shapes addr dm m of
-      | SOME vs => SOME (Struct vs)
-      | NONE => NONE) /\
-
-  (mem_loads [] addr dm m = SOME []) /\
-  (mem_loads (shape::shapes) addr dm m =
-   case (mem_load shape addr dm m,
-         mem_loads shapes (addr + bytes_in_word * n2w (size_of_shape shape)) dm m) of
+     (case mem_loads shapes addr dm m stcs of
+      | SOME vs => SOME (RStruct vs)
+      | NONE => NONE)
+   | Named nm =>
+     (case dropWhile (\(n,i). ~(n = nm)) stcs of
+      | (nm,info)::stcs' =>
+          (case mem_load_flds info.fields addr dm m stcs' of
+            | SOME vflds => SOME (NStruct nm vflds)
+            | NONE => NONE)
+      | _ => NONE)
+  ) /\
+  (mem_loads [] addr dm m stcs = SOME []) /\
+  (mem_loads (shape::shapes) addr dm m stcs =
+   case (mem_load shape addr dm m stcs,
+         mem_loads shapes (addr + bytes_in_word * n2w (size_of_sh_with_ctxt stcs shape)) dm m stcs) of
     | SOME v, SOME vs => SOME (v :: vs)
+    | _ => NONE) /\
+  (mem_load_flds [] addr dm m stcs = SOME []) /\
+  (mem_load_flds ((fld,shape)::fields) addr dm m stcs =
+   case (mem_load shape addr dm m stcs,
+         mem_load_flds fields (addr + bytes_in_word * n2w (size_of_sh_with_ctxt stcs shape)) dm m stcs) of
+    | SOME v, SOME vflds => SOME ((fld,v) :: vflds)
     | _ => NONE)
 Termination
-  wf_rel_tac ‘measure (\x. case ISR x of
-                            | T => list_size shape_size (FST (OUTR x))
-                            | F => shape_size (FST (OUTL x)))’ >>
+  wf_rel_tac
+    ‘inv_image
+      (* lexicographic combination of (struct info list size, shape/s size): *)
+      (measure LENGTH
+      LEX measure
+        (\x. case x of
+          | INL x => shape_size x
+          | INR x => list_size shape_size x))
+      (* getting pair from args: *)
+      (\x. case x of
+        | INL x => (SND $ SND $ SND $ SND x, INL $ FST x)
+        | INR(INL x) => (SND $ SND $ SND $ SND x, INR $ FST x)
+        | INR(INR x) => (SND $ SND $ SND $ SND x, INR $ MAP SND $ FST x))’ >>
+  rw [] >>
+  disj1_tac >>
+  irule LESS_LESS_EQ_TRANS >>
+  irule_at Any LENGTH_dropWhile_LESS_EQ >>
+  qmatch_asmsub_abbrev_tac `dropWhile ff` >>
+  qexists `ff` >>
   rw []
 End
 
@@ -147,20 +179,43 @@ Definition eval_def:
   (eval ^s (Const w) = SOME (ValWord w)) /\
   (eval s  (Var Local v) = FLOOKUP s.locals v) /\
   (eval s  (Var Global v) = FLOOKUP s.globals v) /\
-  (eval s (Struct es) =
+  (eval s (RStruct es) =
     case (OPT_MMAP (eval s) es) of
-     | SOME vs => SOME (Struct vs)
+     | SOME vs => SOME (RStruct vs)
      | NONE => NONE) /\
-  (eval s (Field index e) =
+  (eval s (RField index e) =
     case eval s e of
-     | SOME (Struct vs) =>
+     | SOME (RStruct vs) =>
        if index < LENGTH vs then SOME (EL index vs)
        else NONE
      | _ => NONE) /\
+  (eval s (NStruct nm eflds) =
+    let (field_names, field_exps) = UNZIP eflds in
+    (case ALOOKUP s.structs nm of
+      | SOME info =>
+        let (field_names', field_shapes) = UNZIP info.fields in
+        if field_names' = field_names then (* assumed sorted *)
+          case (OPT_MMAP (eval s) field_exps) of
+          | SOME field_vals =>
+            if EVERY (\(s,v). s = shape_of v) (ZIP (field_shapes, field_vals)) then
+              SOME (NStruct nm (ZIP (field_names, field_vals)))
+            else NONE
+          | NONE => NONE
+        else NONE
+      | NONE => NONE)
+  ) /\
+  (eval s (NField fld e) =
+    (case eval s e of
+     | SOME (NStruct nm vflds) =>
+       if ALOOKUP s.structs nm <> NONE
+       then ALOOKUP vflds fld else NONE
+     | _ => NONE)) /\
   (eval s (Load shape addr) =
-    case eval s addr of
-     | SOME (ValWord w) => mem_load shape w s.memaddrs s.memory
-     | _ => NONE) /\
+    if is_wf_shape s.structs shape then
+      case eval s addr of
+      | SOME (ValWord w) => mem_load shape w s.memaddrs s.memory s.structs
+      | _ => NONE
+    else NONE) /\
   (eval s (Load32 addr) =
     case eval s addr of
      | SOME (ValWord w) =>
@@ -206,9 +261,8 @@ Definition eval_def:
         SOME (ValWord bytes_in_word))
 Termination
   wf_rel_tac `measure (exp_size ARB o SND)`
-  \\ rpt strip_tac \\ imp_res_tac MEM_IMP_exp_size
-  \\ TRY (first_x_assum (assume_tac o Q.SPEC `ARB`))
-  \\ decide_tac
+  \\ rpt strip_tac \\ gs [UNZIP_MAP]
+  \\ fs [MEM_SPLIT, MAP_EQ_APPEND, list_size_append, EXISTS_PROD, MAP_EQ_CONS]
 End
 
 (* TODISC: why NONE is returned here on write failure *)
@@ -302,7 +356,12 @@ End
 
 Definition flatten_def:
   (flatten (Val w) = [w]) ∧
-  (flatten (Struct vs) = FLAT (MAP flatten vs))
+  (flatten (RStruct vs) = FLAT (MAP flatten vs)) ∧
+  (flatten (NStruct nm flds) = FLAT (MAP flatten (MAP SND flds)))
+Termination
+  wf_rel_tac `measure (v_size ARB)`
+  \\ rpt strip_tac
+  \\ fs [MEM_SPLIT, MAP_EQ_APPEND, list_size_append, EXISTS_PROD, MAP_EQ_CONS]
 End
 
 Definition set_var_def:
@@ -465,19 +524,21 @@ End
 
 Definition evaluate_def:
   (evaluate (Skip:'a panLang$prog,^s) = (NONE,s)) /\
-  (evaluate (Dec v shape e prog, s) =
+  (evaluate (Dec v sh e prog, s) =
     case (eval s e) of
      | SOME value =>
-        let (res,st) = evaluate (prog,s with locals := s.locals |+ (v,value)) in
-        (res, st with locals := res_var st.locals (v, FLOOKUP s.locals v))
-        | NONE => (SOME Error, s)) /\
+        if sh = shape_of value then
+          let (res,st) = evaluate (prog,s with locals := s.locals |+ (v,value)) in
+          (res, st with locals := res_var st.locals (v, FLOOKUP s.locals v))
+        else (SOME Error, s)
+     | NONE => (SOME Error, s)) /\
   (evaluate (Assign vk v src,s) =
     case (eval s src) of
      | SOME value =>
-        if is_valid_value s vk v value
-        then (NONE, set_kvar vk v value s)
+        if is_valid_value s vk v value then
+          (NONE, set_kvar vk v value s)
         else (SOME Error, s)
-        | NONE => (SOME Error, s)) /\
+     | NONE => (SOME Error, s)) /\
   (evaluate (Store dst src,s) =
     case (eval s dst, eval s src) of
      | (SOME (ValWord addr), SOME value) =>
@@ -536,7 +597,7 @@ Definition evaluate_def:
   (evaluate (Return e,s) =
     case (eval s e) of
       | SOME value =>
-         if size_of_shape (shape_of value) <= 32
+         if size_of_sh_with_ctxt s.structs (shape_of value) <= 32
          then (SOME (Return value),empty_locals s)
          else (SOME Error,s)
       | _ => (SOME Error,s)) /\
@@ -544,7 +605,7 @@ Definition evaluate_def:
     case (FLOOKUP s.eshapes eid, eval s e) of
       | (SOME sh, SOME value) =>
          if shape_of value = sh ∧
-            size_of_shape (shape_of value) <= 32
+            size_of_sh_with_ctxt s.structs (shape_of value) <= 32
          then (SOME (Exception eid value),empty_locals s)
          else (SOME Error,s)
      | _ => (SOME Error,s)) /\
@@ -709,24 +770,52 @@ End
 
 Definition evaluate_decls_def:
   evaluate_decls ^s [] =
-  SOME s ∧
+    SOME s ∧
+  evaluate_decls s (Name nm flds::ds) =
+    (evaluate_decls s ds) ∧
   evaluate_decls s (Decl sh v e::ds) =
-  (case eval (s with locals := FEMPTY) e of
-     SOME res =>
-       (if sh = shape_of res then
-          evaluate_decls (s with globals := s.globals |+ (v,res)) ds
-        else
-          NONE)
-   | NONE => NONE) ∧
+    (case eval (s with locals := FEMPTY) e of
+      SOME res =>
+        (if sh = shape_of res then
+            evaluate_decls (s with globals := s.globals |+ (v,res)) ds
+          else
+            NONE)
+    | NONE => NONE) ∧
   evaluate_decls s (Function fi::ds) =
-  evaluate_decls (s with code := s.code |+ (fi.name,(fi.params,fi.body))) ds
+    if EVERY ((is_wf_shape s.structs) o SND) fi.params
+       /\ is_wf_shape s.structs fi.return then
+      evaluate_decls (s with code := s.code |+ (fi.name,(fi.params,fi.body))) ds
+    else NONE
+End
+
+Definition decs_stcnames_def:
+  decs_stcnames st_ctxt [] = SOME st_ctxt ∧
+  decs_stcnames st_ctxt (Name nm flds::ds) =
+    (case ALOOKUP st_ctxt nm of
+    | SOME info => NONE
+    | NONE =>
+      if ALL_DISTINCT $ MAP FST flds then
+        let shs = MAP SND flds in
+        if EVERY (is_wf_shape st_ctxt) shs then
+          let info = <| fields := flds
+                      ; size := size_of_sh_with_ctxt st_ctxt (Comb shs) |> in
+            decs_stcnames ((nm,info)::st_ctxt) ds
+        else NONE
+      else NONE) ∧
+  decs_stcnames st_ctxt (Decl sh v e::ds) =
+    (decs_stcnames st_ctxt ds) ∧
+  decs_stcnames st_ctxt (Function fi::ds) =
+    (decs_stcnames st_ctxt ds)
 End
 
 Definition semantics_decls_def:
   semantics_decls ^s start decls =
-  case evaluate_decls s decls of
-    NONE => Fail
-  | SOME s' => semantics s' start
+  case decs_stcnames [] decls of
+  | NONE => Fail
+  | SOME st_ctxt =>
+    case evaluate_decls (s with structs := st_ctxt) decls of
+    | NONE => Fail
+    | SOME s' => semantics s' start
 End
 
 val _ = map delete_binding ["evaluate_AUX_def", "evaluate_primitive_def"];
