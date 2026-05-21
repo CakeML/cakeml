@@ -1920,7 +1920,7 @@ Proof
   >> Cases_on ‘pfx’ >> gvs[LENGTH]
 QED
 
-Triviality PRE_plus_one[simp]:
+Theorem PRE_plus_one[local,simp]:
   ∀k. PRE (k + 1) = k
 Proof
   simp[]
@@ -2477,7 +2477,7 @@ Proof
   Cases_on ‘σ’ >> rw[esubsts_ok_def, only_esubsts_consts_def] >> metis_tac[]
 QED
 
-Triviality esubst_tm_const:
+Theorem esubst_tm_const[local]:
   esubsts_ok sig σ ∧ FLOOKUP (SND σ) k = SOME v ⇒
   term_ok (esubst_sig σ sig) v ∧
   ∃n ty. v = Const n ty
@@ -3218,7 +3218,7 @@ Proof
   >> irule nproves_ABS >> simp[]
 QED
 
-Triviality NVARIANT_SUBLIST_AVDS:
+Theorem NVARIANT_SUBLIST_AVDS[local]:
   Abbrev(y = NVARIANT n avds tm) ∧
   (∀n. MEM n tgt ⇒ MEM n avds) ⇒
   ¬MEM y tgt
@@ -3226,7 +3226,7 @@ Proof
   rpt strip_tac >> first_x_assum drule >> simp[Abbr‘y’, NVARIANT_AVDS_THM]
 QED
 
-Triviality nproves_esubst_ty0_empty_env:
+Theorem nproves_esubst_ty0_empty_env[local]:
   esubst_ty0 [(Var y ty,Var y (ty_esubst σ ty))] σ avds tm = return tm1 ∧
   esubst_ty0 [] σ avds tm = return tm2 ∧
   term_ok sig tm ∧ esubsts_ok sig σ ∧ theory_ok (sig, axs) ∧
@@ -3284,7 +3284,7 @@ Proof
   >> simp[SF SFY_ss]
 QED
 
-Triviality VSUBST_NOT_FREE_VAR:
+Theorem VSUBST_NOT_FREE_VAR:
   term_ok sig tm ∧
   ¬VFREE_IN (Var x ty) tm ⇒
   VSUBST [(y, Var x ty)] tm = tm
@@ -3303,7 +3303,7 @@ Proof
   >> drule_at Any VSUBST_NOT_FREE_VAR >> metis_tac[]
 QED
 
-Triviality MAP_db_esubst_ty:
+Theorem MAP_db_esubst_ty:
   ∀tm ilist.
     esubsts_ok sig σ ∧ term_ok sig tm ∧ welltyped tm ∧
     (∀t1 t2. MEM (t1, t2) ilist ⇒ term_ok sig t1 ∧ term_ok sig t2) ∧
@@ -3342,7 +3342,7 @@ Proof
   >> disch_then $ drule_then drule >> simp[]
 QED
 
-Triviality typeof_esubst_tm_VSUBST_esubst_ty0:
+Theorem typeof_esubst_tm_VSUBST_esubst_ty0[local]:
   term_ok sig l ∧
   term_ok sig r ∧
   typeof l = typeof r ∧
@@ -3380,7 +3380,7 @@ Proof
   >> disch_then $ qspec_then ‘[]’ mp_tac >> simp[term_image_id]
 QED
 
-Triviality LENGTH_term_union_sing_aux[simp]:
+Theorem LENGTH_term_union_sing_aux[local,simp]:
   LENGTH (term_union [f h] t) = LENGTH t ∨
   LENGTH (term_union [f h] t) = LENGTH t + 1
 Proof
@@ -3412,7 +3412,7 @@ Proof
   >> gvs[]
 QED
 
-Triviality VARIANT_EQ_aux:
+Theorem VARIANT_EQ_aux[local]:
   ∀xs v n.
     xs = [tm1] ∧ v = Var n typ ∧
     (∀x ty. VFREE_IN (Var x ty) tm1 ⇔ VFREE_IN (Var x ty) tm2) ⇒
@@ -3441,7 +3441,7 @@ Proof
   >> metis_tac[VARIANT_EQ_aux]
 QED
 
-Triviality ilist_ok_REV_ASSOCD_var:
+Theorem ilist_ok_REV_ASSOCD_var:
   (∀v k. MEM (v,k) ilist ⇒ ∃n m ty. v = Var n ty ∧ k = Var m ty) ⇒
   ∃m typ. REV_ASSOCD (Var x ty) ilist (Var x ty) = Var m typ
 Proof
@@ -4441,7 +4441,7 @@ QED
 
 Finalise apply_steps_3layer
 
-Triviality esubst_Abs_bv_fresh:
+Theorem esubst_Abs_bv_fresh:
   esubsts_ok sig σ ∧ theory_ok (sig,axs) ∧
   term_ok sig (Abs (Var x ty) t) ∧
   esubst σ [] (Abs (Var x ty) t) = Abs (Var z (ty_esubst σ ty)) body ⇒
@@ -4472,7 +4472,7 @@ QED
 
 (* If esubst preserves the bound variable name (z), then the only
    pre-image type for z under esubst is the original bound type. *)
-Triviality esubst_Abs_bv_type_injective:
+Theorem esubst_Abs_bv_type_injective:
   esubsts_ok sig σ ∧ theory_ok (sig,axs) ∧
   term_ok sig (Abs (Var x ty) t) ∧
   esubst σ [] (Abs (Var x ty) t) = Abs (Var z (ty_esubst σ ty)) body ⇒
@@ -5512,13 +5512,13 @@ Proof
   >> irule apply_steps_Abs_has_type >> metis_tac[term_ok_def]
 QED
 
-Triviality db_esubst_dbAbs[local]:
+Theorem db_esubst_dbAbs:
   db_esubst σ (dbAbs ty body) = dbAbs (ty_esubst σ ty) (db_esubst σ body)
 Proof
   REWRITE_TAC[db_esubst_def, db_esubst_ty_def, db_esubst_tm_def]
 QED
 
-Theorem unbind_db_esubst_ty[local]:
+Theorem unbind_db_esubst_ty:
   ∀dbt val k. unbind (db_esubst_ty σ val) k (db_esubst_ty σ dbt) =
               db_esubst_ty σ (unbind val k dbt)
 Proof
