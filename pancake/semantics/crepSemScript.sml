@@ -245,7 +245,8 @@ Definition evaluate_def:
      (case (crep_primop pop ws) of
       | SOME res_ws =>
           if LENGTH lhss = LENGTH res_ws ∧
-             EVERY (λv. IS_SOME (FLOOKUP s.locals v)) lhss
+             EVERY (λv. IS_SOME (FLOOKUP s.locals v)) lhss ∧
+             ALL_DISTINCT lhss
           then (NONE, s with locals := s.locals |++ ZIP (lhss, res_ws))
           else (SOME Error, s)
       | NONE => (SOME Error, s))
