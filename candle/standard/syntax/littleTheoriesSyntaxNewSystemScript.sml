@@ -1,16 +1,16 @@
 (*
   Some lemmas about the extended Little Theories syntactic functions.
 *)
-open preamble totoTheory comparisonTheory ternaryComparisonsTheory mlstringTheory
-              holSyntaxLibTheory holSyntaxTheory errorMonadTheory
-              littleTheoriesSyntaxTheory holSyntaxExtraTheory
-              littleTheoriesSyntaxOldSystemTheory
-
-val _ = new_theory"littleTheoriesSyntaxNewSystem"
+Theory littleTheoriesSyntaxNewSystem
+Ancestors
+  toto comparison ternaryComparisons mlstring holSyntaxLib
+  holSyntax holSyntaxExtra littleTheoriesSyntax
+  littleTheoriesSyntaxOldSystem errorMonad
+Libs
+  preamble
 
 val _ = monadsyntax.enable_monadsyntax();
 val _ = monadsyntax.enable_monad("error");
-
 
 fun rC q = rename [q] >> Cases_on q >> simp[]
 
@@ -414,9 +414,7 @@ Proof
   >- (first_assum drule >> rpt strip_tac >> irule esubst_has_type_bool_alt
       >> rpt $ first_assum $ irule_at Any >> drule esubsts_ok'_esubsts_ok
       >> simp[theory_ok'_def])
-  >- fs[is_std_sig_def, sigof'_def, FLOOKUP_FUNION]
-  >- (drule_at Any axioms_ok_esubst >> simp[esubst_thy_def, theory_ok'_def])
-  >> simp[axioms_ok_def]
+  >> fs[is_std_sig_def, sigof'_def, FLOOKUP_FUNION]
 QED
 
 Theorem proves'_imp_theory_ok':
@@ -474,6 +472,7 @@ Theorem proves_esubst_drop_thy:
   (drop_thy es thy, h) |- c ∧
   theory_ok' thy ∧
   esubsts_ok' thy σ ∧
+  axioms_ok thy thy.axs ∧
   (∀ax. ax ∈ es ⇒ no_var_collapse σ ax) ⇒
   (drop_thy (IMAGE (esubst σ []) es) (esubst_thy σ thy),
    term_image (esubst σ []) h) |- esubst σ (FLAT (MAP tm_names h)) c
@@ -502,25 +501,38 @@ Proof
   >> irule ty_esubst_o_f_thy_tms >> simp[]
 QED
 
-Theorem proves_imp_proves':
-  ∀thy' h c. (thy', h) |- c ⇒ (lift_thy thy', {}, h) |-' c
+Theorem theory_ok'_lift_thy[simp]:
+  theory_ok thy ⇒
+  theory_ok' (lift_thy thy)
 Proof
-  Induct_on `$|-` >> rw[]
+  rw[theory_ok_def, theory_ok'_def, axioms_ok_def]
+  >> first_assum irule >> Cases_on ‘σ’ >> fs[esubsts_ok_def, esubsts_ok'_def]
+  >> rpt strip_tac >> first_x_assum drule >> simp[term_ok_def, term_ok'_def]
+  >> rw[] >> fs[term_ok_def, term_ok'_def, FLOOKUP_o_f] >> every_case_tac
+  >> fs[esubst_thy_def, lift_thy_def, ctms_def, ctys_def]
+  >> drule $ iffLR FDOM_F_FEMPTY1 >> rw[] >> ASM_SET_TAC[FRANGE_FEMPTY]
+QED
+
+Theorem proves_imp_proves':
+  ∀thy' h c.
+    (thy', h) |- c ⇒
+    (lift_thy thy', {}, h) |-' c
+Proof
+  Induct_on ‘$|-’ >> rw[] >> res_tac
   >- (irule proves'_ABS >> simp[])
   >- (irule proves'_ASSUME >> simp[term_ok_imp_term_ok'])
   >- (irule proves'_BETA >> simp[term_ok_imp_term_ok'])
-  >- (rev_drule_then drule proves'_DEDUCT_ANTISYM >> simp[])
+  >- (rev_drule proves'_DEDUCT_ANTISYM >> simp[])
   >- (drule_all proves'_EQ_MP >> simp[])
   >- (irule proves'_INST >> simp[]
       >> first_x_assum $ irule_at Any >> rw[]
       >> first_x_assum drule >> rw[]
       >> irule term_ok_imp_term_ok' >> simp[])
   >- (irule proves'_INST_TYPE >> simp[])
-  >- (rev_drule_then drule proves'_MK_COMB >> simp[])
+  >- (rev_drule proves'_MK_COMB >> simp[])
   >- (irule proves'_REFL >> simp[term_ok_imp_term_ok'])
   >> irule proves'_axioms >> simp[]
 QED
-
 
 Theorem proves'_imp_proves:
   ∀thy' c h used_eaxs.
@@ -614,29 +626,124 @@ Proof
   Induct_on `tm` >> simp[term_ok'_def] >> metis_tac[]
 QED
 
-Definition lift_upd_def:
-  lift_upd ((ConstSpec l t):update) = ((ConstSpec l t):update') ∧
-  lift_upd ((TypeDefn s t s1 s2):update) = ((TypeDefn s t s1 s2):update') ∧
-  lift_upd ((NewConst n tm):update) = ((NewConst n tm):update') ∧
-  lift_upd ((NewType n tm):update) = ((NewType n tm):update') ∧
-  lift_upd ((NewAxiom tm):update) = ((NewAxiom tm):update')
+Theorem term_ok'_eq:
+  ∀tm.
+    thy1.ctys = thy2.ctys ∧ thy1.ctms = thy2.ctms ⇒
+    (term_ok' thy1 tm ⇔ term_ok' thy2 tm)
+Proof
+  Induct >> rw[term_ok'_def]
+QED
+
+Theorem type_ok_ctys_subset:
+  ∀ty.
+    thy1.ctys ⊑ thy2.ctys ∧
+    type_ok thy1.ctys ty ⇒
+    type_ok thy2.ctys ty
+Proof
+  Induct using type_ind >> rw[type_ok_def]
+  >> fs[EVERY_MEM]
+  >> drule FLOOKUP_SUBMAP >> simp[]
+QED
+
+Theorem term_ok'_ctms_ctys_subset:
+  ∀tm.
+    thy1.ctys ⊑ thy2.ctys ∧
+    thy1.ctms ⊑ thy2.ctms ⇒
+    term_ok' thy1 tm ⇒
+    term_ok' thy2 tm
+Proof
+  Induct >> rw[term_ok'_def]
+  >> drule_all type_ok_ctys_subset >> rw[]
+  >> metis_tac[FLOOKUP_SUBMAP]
+QED
+
+Definition tynames_def:
+  tynames (Tyvar _) = [] ∧
+  tynames (Tyapp v tys) = v :: (FOLDR (λx y. LIST_UNION (tynames x) y) [] tys)
 End
+
+Theorem type_ok_ext:
+  ∀ty. type_ok tys ty ∧ ¬MEM x (tynames ty) ⇒ type_ok (tys⟨x ↦ y⟩) ty
+Proof
+  Induct using type_ind >> rw[type_ok_def, EVERY_MEM]
+  >> Induct_on ‘l’ >> rw[EVERY_MEM, tynames_def, FLOOKUP_FUPDATE]
+  >> fs[DISJ_IMP_THM, FORALL_AND_THM] >> rpt $ first_x_assum drule
+  >> impl_tac >> strip_tac >> qpat_x_assum ‘¬MEM _ (FOLDR _ _ _)’ mp_tac
+  >> simp[] >> irule $ iffRL MEM_FOLDR_LIST_UNION >> simp[]
+  >> metis_tac[]
+QED
+
+Theorem type_ok_ext1:
+  ∀ty. type_ok (tys⟨x ↦ y⟩) ty ∧ ¬MEM x (tynames ty) ⇒ type_ok tys ty
+Proof
+  Induct using type_ind >> rw[type_ok_def, EVERY_MEM]
+  >> Induct_on ‘l’ >> rw[EVERY_MEM, tynames_def, FLOOKUP_FUPDATE]
+  >> fs[DISJ_IMP_THM, FORALL_AND_THM] >> rpt $ first_x_assum drule
+  >> impl_tac >> strip_tac >> qpat_x_assum ‘¬MEM _ (FOLDR _ _ _)’ mp_tac
+  >> simp[] >> irule $ iffRL MEM_FOLDR_LIST_UNION >> simp[]
+  >> metis_tac[]
+QED
+
+(*
+Theorem updates'_axioms_ok':
+  ∀upd ctxt.
+    upd updates' ctxt ⇒
+    axioms_ok (ethyof ctxt) axs ⇒
+    axioms_ok (ethyof (upd::ctxt)) axs
+Proof
+  Induct_on ‘$updates'’ >> rw[axioms_ok_def]
+  >> PairCases_on ‘σ’ >> first_x_assum irule >> simp[]
+  >> fs[conexts_of_upd'_def]
+  >- (fs[esubsts_ok'_def] >> rw[] >> first_x_assum drule
+      >- (strip_tac >> irule type_ok_ctys_subset >> first_x_assum $ irule_at Any
+          >> simp[ctys_def, ctms_def])
+      >> strip_tac >> irule term_ok'_ctms_ctys_subset >> first_x_assum $ irule_at Any
+      >> simp[ctys_def, ctms_def, esubst_thy_def])
+  >- cheat
+  >- cheat
+  >- cheat
+  >- (fs[esubsts_ok'_def, ctys_def] >> rw[] >> first_x_assum drule
+      >- (strip_tac >> irule type_ok_ext1 >> qexistsl [‘name’, ‘LENGTH (tvars pred)’]
+          >> reverse conj_tac
+          >- (qpat_x_assum ‘type_ok _ _’ mp_tac >> cheat)
+          >> cheat)
+      >> cheat)
+  >> cheat
+QED
+
+Theorem init_axioms_ok:
+  axioms_ok (ethyof init_ectxt) (axsof' init_ectxt) ∧
+  axioms_ok (ethyof init_ectxt) (eaxsof init_ectxt)
+Proof
+  rw[axioms_ok_def, init_ectxt_def, conexts_of_upd'_def]
+QED
 
 Theorem updates'_theory_ok':
   ∀upd ctxt. upd updates' ctxt ⇒ theory_ok' (ethyof ctxt) ⇒ theory_ok' (ethyof (upd::ctxt))
 Proof
-  ho_match_mp_tac updates'_ind >>
-  strip_tac >- (
-  rw[conexts_of_upd'_def] >>
-  fs[theory_ok'_def, ctms_def, ctys_def, sigof'_def] >>
-  cheat ) >>
-  strip_tac >- (
-  rw[conexts_of_upd'_def] >>
-  fs[theory_ok'_def] >>
-  conj_tac >- metis_tac[IN_FRANGE_DOMSUB_suff] >>
-`tmsof ctxt ⊑ tmsof ctxt |+ (name,ty)` by simp[] >>
-  cheat ) >>
-  cheat
+  Induct_on ‘$updates'’ >> rw[]
+  >> fs[conexts_of_upd'_def, theory_ok'_def, ctys_def, ctms_def, sigof'_def]
+  >- (rw[] >> simp[]
+      >- (irule term_ok_imp_term_ok' >> simp[ctys_def, ctms_def]
+          >> metis_tac[term_ok_weakening])
+      >- (first_x_assum drule >> strip_tac >> irule $ iffLR term_ok'_eq
+          >> first_x_assum $ irule_at Any >> simp[ctms_def, ctys_def])
+      >- (first_x_assum drule >> strip_tac >> irule $ iffLR term_ok'_eq
+          >> first_x_assum $ irule_at Any >> simp[ctms_def, ctys_def]))
+  >- (rw[] >> simp[]
+      >- (last_x_assum irule >> metis_tac[FRANGE_DOMSUB_SUBSET, SUBSET_DEF])
+      >> fs[is_std_sig_def, term_ok'_def]
+      >- (irule term_ok'_ctms_ctys_subset
+          >> first_x_assum drule >> strip_tac >> first_x_assum $ irule_at Any
+          >> simp[ctys_def, ctms_def, SUBMAP_FUNION_mono])
+      >- (irule term_ok'_ctms_ctys_subset
+          >> first_x_assum drule >> strip_tac >> first_x_assum $ irule_at Any
+          >> simp[ctys_def, ctms_def, SUBMAP_FUNION_mono])
+      >> simp[FLOOKUP_FUPDATE] >> every_case_tac >> drule ALOOKUP_MEM
+      >> fs[MEM_MAP])
+  >- (rw[] >> simp[]
+      >> (cheat))
+  >> cheat
 QED
 
 Theorem extends'_theory_ok':
@@ -649,7 +756,6 @@ Theorem init_theory_ok':
   theory_ok' (ethyof init_ectxt)
 Proof
   rw[theory_ok'_def,init_ectxt_def,type_ok_def,FLOOKUP_UPDATE,conexts_of_upd'_def] >>
-  rw[is_std_sig_def,FLOOKUP_UPDATE, sigof'_def, axioms_ok_def]
+  rw[is_std_sig_def, FLOOKUP_UPDATE, sigof'_def, axioms_ok_def]
 QED
-
-val _ = export_theory();
+*)

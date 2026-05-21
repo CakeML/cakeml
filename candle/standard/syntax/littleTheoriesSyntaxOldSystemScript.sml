@@ -1,11 +1,13 @@
 (*
   Some lemmas about the extended Little Theories syntactic functions.
 *)
-open preamble totoTheory comparisonTheory ternaryComparisonsTheory mlstringTheory
-              holSyntaxLibTheory holSyntaxTheory errorMonadTheory
-              littleTheoriesSyntaxTheory holSyntaxExtraTheory
-
-val _ = new_theory"littleTheoriesSyntaxOldSystem"
+Theory littleTheoriesSyntaxOldSystem
+Ancestors
+  toto comparison ternaryComparisons mlstring
+  holSyntaxLib holSyntax errorMonad
+  littleTheoriesSyntax holSyntaxExtra
+Libs
+  preamble
 
 val _ = monadsyntax.enable_monadsyntax();
 val _ = monadsyntax.enable_monad("error");
@@ -6557,5 +6559,3 @@ Proof
   >> disch_then $ qspec_then ‘[]’ mp_tac
   >> simp[steps_ok_def, apply_steps_def, SF ETA_ss, apply_steps_id, term_image_id]
 QED
-
-val _ = export_theory()

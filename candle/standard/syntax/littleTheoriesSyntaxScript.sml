@@ -2,9 +2,12 @@
   Defines the HOL inference system extended with the little theories
   module system.
 *)
-open preamble holSyntaxLibTheory mlstringTheory totoTheory holSyntaxTheory errorMonadTheory
 
-val _ = new_theory "littleTheoriesSyntax"
+Theory littleTheoriesSyntax
+Ancestors
+  holSyntax holSyntaxLib mlstring toto holSyntax errorMonad
+Libs
+  preamble
 
 val _ = monadsyntax.enable_monadsyntax();
 val _ = monadsyntax.enable_monad("error");
@@ -262,7 +265,7 @@ Termination
   >> simp[type_size_def] >> gvs[DISJ_IMP_THM, FORALL_AND_THM]
   >> first_x_assum $ drule_then (qspec_then ‘v4’ mp_tac) >> simp[]
 End
-     
+
 Definition esubsts_ok_def:
   esubsts_ok (sig:SIG) (σ, θ) ⇔
     strlit "=" ∉ FDOM θ ∧
@@ -326,7 +329,7 @@ Definition no_var_collapse:
 End
 
 Definition axioms_ok_def:
-  axioms_ok (thy:ethy) ⇔
+  axioms_ok (thy:ethy) axs ⇔
     ∀σ p. esubsts_ok' thy σ ∧ p ∈ axs ⇒ no_var_collapse σ p
 End
 
@@ -340,8 +343,6 @@ Definition theory_ok'_def:
     (∀p. p ∈ thy.eaxs ⇒
          term_ok' thy p ∧ p has_type Bool) ∧
     is_std_sig thy.sig ∧
-    axioms_ok thy thy.axs ∧
-    axioms_ok thy thy.eaxs ∧
     FRANGE thy.etys ⊆ {0}
 End
 
@@ -406,6 +407,8 @@ Inductive proves':
   ((thy, es, h) |-' c ∧
    theory_ok' thy ∧
    esubsts_ok' thy σ ∧
+   axioms_ok thy thy.axs ∧
+   axioms_ok thy thy.eaxs ∧
    (∀ax. ax ∈ es ⇒ no_var_collapse σ ax)
    ⇒ (esubst_thy σ thy, IMAGE (esubst σ []) es, term_image (esubst σ []) h) |-'
      esubst σ (FLAT (MAP tm_names h)) c)
@@ -485,12 +488,6 @@ Proof
   >> rw[term_ok_def, term_ok'_def, lift_thy_def]
 QED
 
-Theorem theory_ok'_lift_thy[simp]:
-  theory_ok' (lift_thy thy) ⇔ theory_ok thy
-Proof
-  cheat
-QED
-
 Definition drop_thy:
   (drop_thy used_eaxs thy'):thy = ((thy'.ctys, thy'.ctms), thy'.axs UNION used_eaxs)
 End
@@ -561,7 +558,7 @@ Inductive nproves:
   (theory_ok thy ∧ c ∈ (axsof thy)
    ⇒ (thy, [], 0:num) |n- c)
 End
-        
+
 
 (* A context is a sequence of updates *)
 
@@ -610,10 +607,10 @@ Definition consts_of_upd'_def:
   (consts_of_upd' _ = [])
 End
 
-Overload type_list = “λctxt. FLAT (MAP types_of_upd' ctxt)”
-Overload tysof = “λctxt. alist_to_fmap (type_list ctxt)”
-Overload const_list = “λctxt. FLAT (MAP consts_of_upd' ctxt)”
-Overload tmsof = “λctxt. alist_to_fmap (const_list ctxt)”
+Overload type_list' = “λ(ctxt:update' list). FLAT (MAP types_of_upd' ctxt)”
+Overload tysof' = “λ(ctxt:update' list). alist_to_fmap (type_list' ctxt)”
+Overload const_list' = “λctxt. FLAT (MAP consts_of_upd' ctxt)”
+Overload tmsof' = “λctxt. alist_to_fmap (const_list' ctxt)”
 
 (* Eliminable types, constants, and axioms *)
 Definition etypes_of_upd'_def:
@@ -636,7 +633,7 @@ Overload etysof = “λctxt. alist_to_fmap (etype_list ctxt)”
 Overload econst_list = “λctxt. FLAT (MAP econsts_of_upd' ctxt)”
 Overload etmsof = “λctxt. alist_to_fmap (econst_list ctxt)”
 Overload eaxexts' = “λctxt. FLAT (MAP eaxexts_of_upd' ctxt)”
-Overload eaxsof' = “λctxt. set (eaxexts' ctxt)”
+Overload eaxsof = “λctxt. set (eaxexts' ctxt)”
 
 (* Axioms: we divide them into axiomatic extensions and conservative
      extensions, we will prove that the latter preserve consistency *)
@@ -674,12 +671,12 @@ val _ = export_rewrites["types_of_upd'_def","consts_of_upd'_def",
                         "eaxexts_of_upd'_def","axexts_of_upd'_def"]
 
 (* Now we can recover the entire e-theory record from a context *)
-Overload ethyof = “(λ(ctxt:update' list). <| tms := tmsof ctxt;
-                              tys := tysof ctxt;
+Overload ethyof = “(λ(ctxt:update' list). <| tms := tmsof' ctxt;
+                              tys := tysof' ctxt;
                               etms := etmsof ctxt;
                               etys := etysof ctxt;
                               axs := axsof' ctxt;
-                              eaxs := eaxsof' ctxt |>):update' list -> ethy”
+                              eaxs := eaxsof ctxt |>):update' list -> ethy”
 
 (* Principles for extending the context *)
 
@@ -690,13 +687,13 @@ val _ = hide "abs";
 Inductive updates':
   (* new_axiom *)
   (prop has_type Bool ∧
-   term_ok (tysof ctxt, tmsof ctxt) prop
+   term_ok (tysof' ctxt, tmsof' ctxt) prop
    ⇒ (NewAxiom prop) updates' ctxt) ∧
 
   (* new_constant *)
-  (name ∉ (FDOM (tmsof ctxt)) ∧
+  (name ∉ (FDOM (tmsof' ctxt)) ∧
    name ∉ (FDOM (etmsof ctxt)) ∧
-   type_ok (tysof ctxt) ty
+   type_ok (tysof' ctxt) ty
    ⇒ (NewConst name ty) updates' ctxt) ∧
 
   (* new_specification *)
@@ -707,39 +704,39 @@ Inductive updates':
      (MAP SND eqs) ∧
    (∀x ty. VFREE_IN (Var x ty) prop ⇒
              MEM (x,ty) (MAP (λ(s,t). (s,typeof t)) eqs)) ∧
-   (∀s. MEM s (MAP FST eqs) ⇒ s ∉ (FDOM (tmsof ctxt))) ∧
+   (∀s. MEM s (MAP FST eqs) ⇒ s ∉ (FDOM (tmsof' ctxt))) ∧
    (∀s. MEM s (MAP FST eqs) ⇒ s ∉ (FDOM (etmsof ctxt))) ∧
    ALL_DISTINCT (MAP FST eqs) ∧
-   (∀s t. MEM (s,t) eqs ⇒ type_ok (tysof ctxt) (typeof t))
+   (∀s t. MEM (s,t) eqs ⇒ type_ok (tysof' ctxt) (typeof t))
    ⇒ (ConstSpec eqs prop) updates' ctxt) ∧
 
   (* new_type *)
-  (name ∉ (FDOM (tysof ctxt)) ∧
+  (name ∉ (FDOM (tysof' ctxt)) ∧
    name ∉ (FDOM (etysof ctxt))
    ⇒ (NewType name arity) updates' ctxt) ∧
 
   (* new_type_definition *)
   ((ethyof ctxt, {}, []) |-' Comb pred witness ∧
    CLOSED pred ∧
-   name ∉ (FDOM (tysof ctxt)) ∧
+   name ∉ (FDOM (tysof' ctxt)) ∧
    name ∉ (FDOM (etysof ctxt)) ∧
-   abs ∉ (FDOM (tmsof ctxt)) ∧
+   abs ∉ (FDOM (tmsof' ctxt)) ∧
    abs ∉ (FDOM (etmsof ctxt)) ∧
-   rep ∉ (FDOM (tmsof ctxt)) ∧
+   rep ∉ (FDOM (tmsof' ctxt)) ∧
    rep ∉ (FDOM (etmsof ctxt)) ∧
    abs ≠ rep ∧
-   type_ok (tysof ctxt) (typeof witness)
+   type_ok (tysof' ctxt) (typeof witness)
    ⇒ (TypeDefn name pred abs rep) updates' ctxt) ∧
 
   (* new_eliminable_type *)
-  (name ∉ FDOM (tysof ctxt) ∧
+  (name ∉ FDOM (tysof' ctxt) ∧
    name ∉ FDOM (etysof ctxt)
    ⇒ (NewEliminableType name) updates' ctxt) ∧
 
   (* new_eliminable_constant *)
-  (name ∉ FDOM (tmsof ctxt) ∧
+  (name ∉ FDOM (tmsof' ctxt) ∧
    name ∉ FDOM (etmsof ctxt) ∧
-   type_ok ((tysof ctxt) ⊌ (etysof ctxt)) ty
+   type_ok ((tysof' ctxt) ⊌ (etysof ctxt)) ty
    ⇒ (NewEliminableConst name ty) updates' ctxt) ∧
 
   (* new_eliminable_axiom *)
@@ -762,5 +759,3 @@ Definition init_ectxt_def:
               ;NewType (strlit "bool") 0
               ;NewType (strlit "fun") 2]
 End
-
-val _ = export_theory()
