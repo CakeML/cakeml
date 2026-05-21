@@ -91,6 +91,15 @@ Definition shift_cb_def:
      CallBlock tag l' c' r')
 End
 
+(* TODO: update bvi_to_cb_aux to use this. *)
+Definition call_to_cb_def:
+  call_to_cb loc call_ts call_loc call_args call_h =
+  if call_loc = SOME loc ∧ call_h = NONE then
+    case bind 0 call_args of
+    | (vs,_) => SOME (call_args, RCall call_ts vs)
+  else NONE
+End
+
 (* Attempts to build a CallBlock from the tag and args of a BlockOp Cons.
    If no recursive call found, returns each op arg expression in a list and (INL) a list of corresponding de Bruijn indeces.
    If a recursive call is found, returns all extracted/let-bound expressions and (INR) the call block.
@@ -99,6 +108,7 @@ End
 Definition bvi_to_cb_aux_def:
   (bvi_to_cb_aux _ _ [] = SOME ([],INL [])) ∧
   (bvi_to_cb_aux loc tag [Call t loc' args h] =
+   (* TODO: call_to_cb *)
    if loc' = SOME loc ∧ h = NONE then
      (* Recursive call found - base case of CallBlock *)
      case bind 0 args of
@@ -252,6 +262,7 @@ Definition bvi_to_cb_to_bvi_def:
     | NONE => NONE
 End
 
+(* I think this isn't true! And we don't need it. Just that the binders are smaller. *)
 Theorem bvi_to_cb_aux_size:
   ∀loc tag args bs sum.
     bvi_to_cb_aux loc tag args = SOME (bs,sum) ⇒
@@ -312,72 +323,112 @@ Definition mut_cons_def:
     Op (MemOp (MutCons t i)) (l' ++ [hole'] ++ r') 
 End
 
+(*
 Definition update_cons_def:
-  update_cons i_ptr i_idx i_val = Op (MemOp UpdateCons) [Var i_val; Var i_idx; Var i_ptr]
+  update_cons i_ptr exp_idx i_val = Op (MemOp UpdateCons) [Var i_val; exp_idx; Var i_ptr]
 End
 
 Definition optimise_call_def:
-  optimise_call loc call_ts call_args i_ptr const_idx =
-  let args = MAP (λn. Var n) call_args ++ [Var i_ptr; Op (IntOp (Const &const_idx)) []] in
-    bvi$Call call_ts (SOME loc) args NONE
+  optimise_call call_ts loc_opt call_args i_ptr exp_idx =
+  let args = MAP (λn. Var n) call_args ++ [Var i_ptr; exp_idx] in
+    Call call_ts (SOME loc_opt) args NONE
 End
+*)
 
-Definition hb_to_bvi_wrapper_def:
-  (hb_to_bvi_wrapper tag left Hole right loc_opt call_ts call_args =
-   Let [mut_cons tag left right] $
-       Let [optimise_call loc_opt call_ts (shift_vars 1 call_args) 0 (LENGTH right)] $
-       Op (MemOp FinaliseCons) [Var 1]) ∧
-  (hb_to_bvi_wrapper tag left (HoleBlock tag' left' hole right') right loc_opt call_ts call_args =
-   Let [mut_cons tag left right] $
-       Let [shift_exp_vars 1 $ hb_to_bvi_wrapper tag' left' hole right' loc_opt call_ts call_args] $
-       Op (MemOp FinaliseCons) [Var 1])
-End
-
-Definition hb_to_bvi_worker_def:
-  (hb_to_bvi_worker tag left Hole right loc_opt call_ts call_args i_ptr i_idx =
-   Let [mut_cons tag left right] $
-       Let [update_cons i_ptr i_idx 0] $
-       optimise_call loc_opt call_ts (shift_vars 2 call_args) 1 (LENGTH right)) ∧
-  (hb_to_bvi_worker tag left (HoleBlock tag' left' hole right') right loc_opt call_ts call_args i_ptr i_idx =
-   Let [mut_cons tag left right] $
-       Let [update_cons i_ptr i_idx 0] $
-       shift_exp_vars 2 $ hb_to_bvi_worker tag' left' hole right' loc_opt call_ts call_args 1 (LENGTH right))
+Definition finalise_cons_def:
+  finalise_cons i_top_ptr = Op (MemOp FinaliseCons) [Var i_top_ptr]
 End
 
 Definition fill_hole_def:
-  fill_hole ptr idx exp = Op (MemOp UpdateCons) [exp; Var idx; Var ptr]
+  fill_hole i_ptr i_idx exp = Op (MemOp UpdateCons) [exp; Var i_idx; Var i_ptr]
 End
+
+
+
+
+
+Definition optimise_call_def:
+  optimise_call call_ts loc_opt call_args exp_ptr exp_idx =
+  let args = MAP (λn. Var n) call_args ++ [exp_ptr; exp_idx] in
+    Call call_ts (SOME loc_opt) args NONE
+End
+
+Definition update_cons_def:
+  update_cons exp_ptr exp_idx exp_val = Op (MemOp UpdateCons) [exp_val; exp_idx; exp_ptr]
+End
+
+Definition cb_to_bvi_worker_def:
+  (cb_to_bvi_worker (RCall call_ts call_args) loc_opt exp_ptr exp_idx =
+   optimise_call call_ts loc_opt call_args exp_ptr exp_idx) ∧
+  (cb_to_bvi_worker (CallBlock tag left child right) loc_opt exp_ptr exp_idx =
+   Let [mut_cons tag left right] $
+       Let [update_cons (shift_exp_vars 1 exp_ptr) (shift_exp_vars 1 exp_idx) (Var 0)] $
+       cb_to_bvi_worker (shift_cb 2 child) loc_opt (Var 1) (Op (IntOp (Const (&LENGTH right))) []))
+Termination
+  cheat
+End
+
+Definition cb_to_bvi_wrapper_def:
+  (cb_to_bvi_wrapper tag left child right loc_opt =
+   Let [mut_cons tag left right] $
+       Let [cb_to_bvi_worker (shift_cb 1 child) loc_opt (Var 0) (Op (IntOp (Const (&LENGTH right))) [])] $
+       finalise_cons 1)
+End
+
+(*
+(* Assumes a MutBlock allocated at i_ptr with hole at const_idx.
+   Fills that hole, either with a call to the optimised function (base case),
+   or with a mutcons follwed by a recursive call (inductive case).
+ *)
+Definition hb_to_bvi_worker_def:
+  (hb_to_bvi_worker Hole call_ts call_args loc_opt exp_ptr exp_idx =
+   optimise_call call_ts loc_opt call_args exp_ptr exp_idx) ∧
+  (hb_to_bvi_worker (HoleBlock tag left hole right) call_ts call_args loc_opt exp_ptr exp_idx =
+   Let [mut_cons tag left right] $
+       Let [update_cons (shift_exp_vars 1 exp_ptr) (shift_exp_vars 1 exp_idx) (Var 0)] $
+       hb_to_bvi_worker hole call_ts call_args loc_opt (Var 1) (Op (IntOp (Const (&LENGTH right))) []))
+End
+*)
+
+(*
+Definition hb_to_bvi_wrapper_def:
+  (hb_to_bvi_wrapper tag left hole right call_ts call_args loc_opt =
+   Let [mut_cons tag left right] $ (* Problem, as above, is shifting of index 0 *)
+       Let [shift_exp_vars 1 $ hb_to_bvi_worker hole call_ts call_args loc_opt 0 (Op (IntOp (Const (&LENGTH right))) [])] $
+       finalise_cons 1)
+End
+*)
 
 Definition rewrite_wrapper_cons_def:
   rewrite_wrapper_cons loc loc_opt tag args =
     case bvi_to_cb loc tag args of
-    | SOME (bs,cb) =>
-        (case cb_to_hb cb of
-         | ((HoleBlock tag left hole right),call_ts,call_args) =>
-             (SOME $ Let bs $ hb_to_bvi_wrapper tag left hole right loc_opt call_ts call_args)
-         | _ => NONE)
+    | SOME (bs,CallBlock tag left child right) =>
+        SOME $ Let bs $ cb_to_bvi_wrapper tag left child right loc_opt
     | NONE => NONE
 End
 
 (* Assumes that the function can and should be optimised - has been checked by rewrite_wrapper. *)
 Definition rewrite_worker_cons_def:
   rewrite_worker_cons loc loc_opt i_ptr i_idx tag args =
-    case bvi_to_cb loc tag args of
-    | SOME (bs,cb) =>
-        (case cb_to_hb cb of
-         | ((HoleBlock tag left hole right),call_ts,call_args) =>
-             (let offset = LENGTH bs in
-                Let bs $ hb_to_bvi_worker tag left hole right loc_opt call_ts call_args (offset + i_ptr) (offset + i_idx))
-         | _ =>
-             let expr = Op (BlockOp (Cons tag)) args in
-               fill_hole i_ptr i_idx expr)
-    | NONE =>
-        let expr = Op (BlockOp (Cons tag)) args in
-          fill_hole i_ptr i_idx expr
+  case bvi_to_cb loc tag args of
+  | SOME (bs,cb) =>
+      (let offset = LENGTH bs in
+         Let bs $ cb_to_bvi_worker cb loc_opt (Var (offset + i_ptr)) (Var (offset + i_idx)))
+  | NONE =>
+      fill_hole i_ptr i_idx $ Op (BlockOp (Cons tag)) args
+End
+
+Definition rewrite_worker_call_def:
+  rewrite_worker_call loc loc_opt i_ptr i_idx ts call_loc args h =
+  case call_to_cb loc ts call_loc args h of
+  | SOME (bs,cb) =>
+      (let offset = LENGTH bs in
+         Let bs $ cb_to_bvi_worker cb loc_opt (Var (offset + i_ptr)) (Var (offset + i_idx)))
+  | NONE =>
+      fill_hole i_ptr i_idx $ Call ts call_loc args h
 End
 
 (* Expression rewriting *)
-
 Definition rewrite_wrapper_def:
   (rewrite_wrapper loc loc_opt (Var n) = NONE) ∧
   (rewrite_wrapper loc loc_opt (If xi xt xe) =
@@ -420,8 +471,10 @@ Definition rewrite_worker_def:
         fill_hole i_old_ptr i_old_idx (Op op op_args)) ∧
   (rewrite_worker loc loc_opt i_old_ptr i_old_idx (Tick x) =
     Tick $ rewrite_worker loc loc_opt i_old_ptr i_old_idx x) ∧
+  (rewrite_worker loc loc_opt i_old_ptr i_old_idx (Call ts l args h) =
+   (* This will check if it's a recursive call and fill the hole otherwise *)
+   rewrite_worker_call loc loc_opt i_old_ptr i_old_idx ts l args h) ∧
   (rewrite_worker loc loc_opt i_old_ptr i_old_idx expr =
-   (* This should check if it's a recursive call *)
    fill_hole i_old_ptr i_old_idx expr)
 End
 
