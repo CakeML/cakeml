@@ -587,3 +587,27 @@ val add_with_carry_ex = ‘
   }’;
 
 val add_with_carry_parse = check_success $ parse_pancake add_with_carry_ex;
+
+(* Named struct *)
+val named_structs =
+ ‘
+  struct my_struct {
+    2 tuple,
+    1 value
+  }
+
+  struct my_other_struct {
+    my_struct s
+  }
+
+  fun my_struct f(my_struct a) {
+    return my_struct <tuple = a.tuple, value = a.value>;
+  }
+
+  fun my_struct g() {
+    var my_struct x = my_struct <tuple = <0,1>, value = 2>;
+    return f(x);
+  }
+  ’
+
+val named_structs_parse = check_success $ parse_pancake named_structs;

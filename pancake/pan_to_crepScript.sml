@@ -44,14 +44,16 @@ Definition compile_exp_def:
    | SOME (shape, ns) => (MAP Var ns, shape)
    | NONE => ([Const 0w], One)) /\
   (compile_exp ctxt (Var Global vname) = ([Const 0w], One)) /\ (* should never happen *)
-  (compile_exp ctxt (Struct es) =
+  (compile_exp ctxt (RStruct es) =
    let cexps = MAP (compile_exp ctxt) es in
    (FLAT (MAP FST cexps), Comb (MAP SND cexps))) /\
-  (compile_exp ctxt (Field index e) =
+  (compile_exp ctxt (RField index e) =
    let (cexp, shape) = compile_exp ctxt e in
    case shape of
-   | One => ([Const 0w], One)
-   | Comb shapes => comp_field index shapes cexp) /\
+   | Comb shapes => comp_field index shapes cexp
+   | _ => ([Const 0w], One)) /\
+  (compile_exp ctxt (NStruct nm flds) = ([Const 0w], One)) /\ (* should never happen *)
+  (compile_exp ctxt (NField fld e) = ([Const 0w], One)) /\ (* should never happen *)
   (compile_exp ctxt (Load sh e) =
    let (cexp, shape) = compile_exp ctxt e in
    case cexp of
@@ -111,14 +113,16 @@ Definition ret_var_def:
   (ret_var One ns = oHD ns) /\
   (ret_var (Comb sh) ns =
      if size_of_shape (Comb sh) = 1 then oHD ns
-     else NONE)
+     else NONE) /\
+  (ret_var (Named sh) ns = NONE) (* should never happen *)
 End
 
 Definition ret_hdl_def:
    (ret_hdl One ns = Skip) /\
    (ret_hdl (Comb sh) ns =
      if 1 < size_of_shape (Comb sh) then (assign_ret ns)
-     else Skip)
+     else Skip) /\
+  (ret_hdl (Named sh) ns = Skip) (* should never happen *)
 End
 
 (* defining it with inner case to enable rewriting later *)

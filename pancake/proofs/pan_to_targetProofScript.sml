@@ -1267,7 +1267,9 @@ Theorem pan_to_target_compile_semantics:
   backend_config_ok mc.target.config c ∧ lab_to_targetProof$mc_conf_ok mc ∧
   mc_init_ok mc.target.config c mc ∧ mc.target.config.ISA ≠ Ag32 ∧
   0w <₊ mc.target.get_reg ms mc.len_reg ∧
-  globals_size = SUM (MAP size_of_shape (dec_shapes (compile_prog pan_code))) ∧
+  globals_size = (let dec_shs = dec_shapes pan_code;
+    struct_ctxt = panSem$decs_stcnames [] pan_code
+  in SUM (MAP (size_of_sh_with_ctxt (THE struct_ctxt)) dec_shs)) ∧
   mc.target.get_reg ms mc.len_reg  <₊ mc.target.get_reg ms mc.ptr2_reg ∧
   mc.target.get_reg ms mc.len_reg = s.base_addr ∧
   globals_allocatable s pan_code ∧
@@ -2211,7 +2213,8 @@ Proof
           >- (simp[WORD_EQ_ADD_RCANCEL] >>
               qexists ‘(w2n
                         (-1w * mc.target.get_reg ms mc.len_reg +
-                         mc.target.get_reg ms mc.ptr2_reg) DIV (dimindex (:α) DIV 8)) + i - SUM (MAP size_of_shape (dec_shapes (compile_prog pan_code)))
+                         mc.target.get_reg ms mc.ptr2_reg) DIV (dimindex (:α) DIV 8)) + i -
+                             SUM (MAP (size_of_sh_with_ctxt (THE (decs_stcnames [] pan_code))) (dec_shapes pan_code))
                       ’ >>
               simp[] >>
               gs[good_dimindex_def,bytes_in_word_def,word_mul_n2w,word_add_n2w] >>

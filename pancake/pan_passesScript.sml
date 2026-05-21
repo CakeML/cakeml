@@ -22,7 +22,7 @@ Definition pan_to_target_all_def:
     let
       prog1:'a decl list = case SPLITP (λx. case x of
                             Function fi => fi.name = «main»
-                          | Decl _ _ _ => F) prog of
+                          | _ => F) prog of
               | ([],ys) => ys
               | (xs,[]) => Function
                             <| name := «main»
@@ -39,7 +39,9 @@ Definition pan_to_target_all_def:
         ps = [(«initial pancake program»,Pan prog1)];
         prog_a0 = pan_simp$compile_prog prog1;
         ps = ps ++ [(«after pan_simp»,Pan prog_a0)];
-        prog_a = pan_globals$compile_top prog_a0 «main»;
+        prog_a1 = pan_structs$compile_top prog_a0;
+        ps = ps ++ [(«after pan_structs»,Pan prog_a1)];
+        prog_a = pan_globals$compile_top prog_a1 «main»;
         ps = ps ++ [(«after pan_globals»,Pan prog_a)];
         prog_b0 = pan_to_crep$compile_to_crep prog_a;
         ps = ps ++ [(«after pan_to_crep»,Crep prog_b0)];
@@ -107,15 +109,6 @@ QED
 
 (* pan *)
 
-Definition shape_to_str_def:
-  shape_to_str One = «1» ∧
-  shape_to_str (Comb []) = «<>» ∧
-  shape_to_str (Comb (x::xs)) =
-    concat («<» :: shape_to_str x ::
-            MAP (λx. «,» ^ x) (MAP shape_to_str xs) ++
-            [«>»])
-End
-
 Definition opsize_to_display_def:
   opsize_to_display Op8 = empty_item «byte» ∧
   opsize_to_display Op16 = empty_item «word16» ∧
@@ -156,8 +149,12 @@ Definition pan_exp_to_display_def:
     = Item NONE «MemLoad32» [pan_exp_to_display exp2]) ∧
   (pan_exp_to_display (panLang$LoadByte exp2)
     = Item NONE «MemLoadByte» [pan_exp_to_display exp2]) ∧
-  (pan_exp_to_display (Struct xs)
-    = Item NONE «Struct» (MAP pan_exp_to_display xs)) ∧
+  (pan_exp_to_display (RStruct xs)
+    = Item NONE (strlit "RawStruct") (MAP pan_exp_to_display xs)) ∧
+  (pan_exp_to_display (NStruct nm fxs) (*#!DONE*)
+    = Item NONE (strlit "NamedStruct") (String nm::MAP (
+        \(f,x). Tuple [String f; String (strlit ":="); pan_exp_to_display x]) fxs
+      )) ∧
   (pan_exp_to_display (Cmp cmp x1 x2)
     = insert_es (asm_cmp_to_display cmp)
                 [pan_exp_to_display x1; pan_exp_to_display x2]) ∧
@@ -166,8 +163,10 @@ Definition pan_exp_to_display_def:
   (pan_exp_to_display (Panop p xs)
     = case p of
       | Mul => Item NONE «Mul» (MAP pan_exp_to_display xs)) ∧
-  (pan_exp_to_display (Field n e)
-    = Item NONE «Field» [num_to_display n; pan_exp_to_display e]) ∧
+  (pan_exp_to_display (RField n e)
+    = Item NONE (strlit "RawField") [num_to_display n; pan_exp_to_display e]) ∧
+  (pan_exp_to_display (NField f e) (*#!TEST*)
+    = Item NONE (strlit "NamedField") [String f; pan_exp_to_display e]) ∧
   (pan_exp_to_display (Shift sh e n)
     = insert_es (shift_to_display sh) [pan_exp_to_display e; num_to_display n])
 End
@@ -228,8 +227,8 @@ Definition pan_prog_to_display_def:
            pan_prog_to_display p]) ∧
   (pan_prog_to_display (Dec n shape e p) =
      Item NONE «dec»
-          [Tuple [String (shape_to_str shape);
-                  String «local»;
+          [Tuple [String (strlit "local");
+                  String (shape_to_str shape);
                   String n;
                   String «:=»;
                   pan_exp_to_display e];
@@ -305,17 +304,24 @@ Definition pan_fun_to_display_def:
   pan_fun_to_display decl =
     case decl of
       Function fi => Tuple
-        [String (shape_to_str fi.return); String «func»; String fi.name;
+        [String «func»; String (shape_to_str fi.return); String fi.name;
         Tuple (MAP (λ(s,shape). Tuple [String s;
                                        String «:»;
                                        String (shape_to_str shape)]) fi.params);
         pan_prog_to_display fi.body]
     | Decl sh nm exp => Tuple
-        [String (shape_to_str sh);
-         String «global»;
+        [String (strlit "global");
+         String (shape_to_str sh);
          String nm;
          String «:=»;
          pan_exp_to_display exp]
+    | Name nm flds => Tuple
+        [String (strlit "struct");
+         String nm;
+        Tuple (MAP (λ(fld,shape).
+          Tuple [String fld;
+                  String (strlit ":");
+                  String (shape_to_str shape)]) flds)]
 End
 
 Definition pan_to_strs_def:

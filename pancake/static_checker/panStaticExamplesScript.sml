@@ -117,7 +117,6 @@ val warns_ =
 *)
 
 
-
 (* General checks *)
 
 (* Error: Main function parameters *)
@@ -300,24 +299,6 @@ val static_rogue_continue =
 
 val warns_rogue_continue =
   check_static_no_warnings $ static_check_pancake parse_rogue_continue;
-
-
-(* Error: Function parameter names not distinct *)
-
-val ex_repeat_params = `
-  fun 1 f (1 a, 1 b, 1 c, 1 a) {
-    return 1;
-  }
-`;
-
-val parse_repeat_params =
-  check_parse_success $ parse_pancake ex_repeat_params;
-
-val static_repeat_params =
-  check_static_failure $ static_check_pancake parse_repeat_params;
-
-val warns_repeat_params =
-  check_static_no_warnings $ static_check_pancake parse_repeat_params;
 
 
 (* Error: Incorrect number of function arguments *)
@@ -1570,21 +1551,233 @@ val warns_shared_word_based_while_notbased =
 
 (* Error: Undefined/out-of-scope functions *)
 
-val ex_undefined_fun = `
+val ex_undefined_fun_standalone = `
   fun 1 f () {
     foo();
     return 1;
   }
 `;
 
-val parse_undefined_fun =
-  check_parse_success $ parse_pancake ex_undefined_fun;
+val parse_undefined_fun_standalone =
+  check_parse_success $ parse_pancake ex_undefined_fun_standalone;
 
-val static_undefined_fun =
-  check_static_failure $ static_check_pancake parse_undefined_fun;
+val static_undefined_fun_standalone =
+  check_static_failure $ static_check_pancake parse_undefined_fun_standalone;
 
-val warns_undefined_fun =
-  check_static_no_warnings $ static_check_pancake parse_undefined_fun;
+val warns_undefined_fun_standalone =
+  check_static_no_warnings $ static_check_pancake parse_undefined_fun_standalone;
+
+
+val ex_undefined_fun_dec = `
+  fun 1 f () {
+    var 1 x = foo();
+    return 1;
+  }
+`;
+
+val parse_undefined_fun_dec =
+  check_parse_success $ parse_pancake ex_undefined_fun_dec;
+
+val static_undefined_fun_dec =
+  check_static_failure $ static_check_pancake parse_undefined_fun_dec;
+
+val warns_undefined_fun_dec =
+  check_static_no_warnings $ static_check_pancake parse_undefined_fun_dec;
+
+
+val ex_undefined_fun_assign = `
+  fun 1 f () {
+    var 1 x = 1;
+    x = foo();
+    return 1;
+  }
+`;
+
+val parse_undefined_fun_assign =
+  check_parse_success $ parse_pancake ex_undefined_fun_assign;
+
+val static_undefined_fun_assign =
+  check_static_failure $ static_check_pancake parse_undefined_fun_assign;
+
+val warns_undefined_fun_assign =
+  check_static_no_warnings $ static_check_pancake parse_undefined_fun_assign;
+
+
+val ex_undefined_fun_tail = `
+  fun 1 f () {
+    return foo();
+  }
+`;
+
+val parse_undefined_fun_tail =
+  check_parse_success $ parse_pancake ex_undefined_fun_tail;
+
+val static_undefined_fun_tail =
+  check_static_failure $ static_check_pancake parse_undefined_fun_tail;
+
+val warns_undefined_fun_tail =
+  check_static_no_warnings $ static_check_pancake parse_undefined_fun_tail;
+
+
+(* Error: Undefined/out-of-scope struct names *)
+
+val ex_undefined_struct_field = `
+  struct first_struct {
+    second_struct s
+  }
+
+  struct second_struct {
+    1 x
+  }
+`;
+
+val parse_undefined_struct_field =
+  check_parse_success $ parse_pancake ex_undefined_struct_field;
+
+val static_undefined_struct_field =
+  check_static_failure $ static_check_pancake parse_undefined_struct_field;
+
+val warns_undefined_struct_field =
+  check_static_no_warnings $ static_check_pancake parse_undefined_struct_field;
+
+
+val ex_defined_struct_field = `
+  struct first_struct {
+    1 x
+  }
+
+  struct second_struct {
+    first_struct s
+  }
+`;
+
+val parse_defined_struct_field =
+  check_parse_success $ parse_pancake ex_defined_struct_field;
+
+val static_defined_struct_field =
+  check_static_success $ static_check_pancake parse_defined_struct_field;
+
+val warns_defined_struct_field =
+  check_static_no_warnings $ static_check_pancake parse_defined_struct_field;
+
+
+val ex_undefined_struct_param = `
+  fun 1 f (my_struct a) {
+    return 1;
+  }
+`;
+
+val parse_undefined_struct_param =
+  check_parse_success $ parse_pancake ex_undefined_struct_param;
+
+val static_undefined_struct_param =
+  check_static_failure $ static_check_pancake parse_undefined_struct_param;
+
+val warns_undefined_struct_param =
+  check_static_no_warnings $ static_check_pancake parse_undefined_struct_param;
+
+
+val ex_undefined_struct_return = `
+  fun my_struct f (1 a) {
+    return 1;
+  }
+`;
+
+val parse_undefined_struct_return =
+  check_parse_success $ parse_pancake ex_undefined_struct_return;
+
+val static_undefined_struct_return =
+  check_static_failure $ static_check_pancake parse_undefined_struct_return;
+
+val warns_undefined_struct_return =
+  check_static_no_warnings $ static_check_pancake parse_undefined_struct_return;
+
+
+val ex_undefined_struct_local = `
+  fun 1 f (1 a) {
+    var my_struct x = 1;
+    return 1;
+  }
+`;
+
+val parse_undefined_struct_local =
+  check_parse_success $ parse_pancake ex_undefined_struct_local;
+
+val static_undefined_struct_local =
+  check_static_failure $ static_check_pancake parse_undefined_struct_local;
+
+val warns_undefined_struct_local =
+  check_static_no_warnings $ static_check_pancake parse_undefined_struct_local;
+
+
+val ex_undefined_struct_global = `
+  var my_struct x = 1;
+`;
+
+val parse_undefined_struct_global =
+  check_parse_success $ parse_pancake ex_undefined_struct_global;
+
+val static_undefined_struct_global =
+  check_static_failure $ static_check_pancake parse_undefined_struct_global;
+
+val warns_undefined_struct_global =
+  check_static_no_warnings $ static_check_pancake parse_undefined_struct_global;
+
+
+val ex_undefined_struct_load = `
+  fun 1 f (1 a) {
+    return lds my_struct @base;
+  }
+`;
+
+val parse_undefined_struct_load =
+  check_parse_success $ parse_pancake ex_undefined_struct_load;
+
+val static_undefined_struct_load =
+  check_static_failure $ static_check_pancake parse_undefined_struct_load;
+
+val warns_undefined_struct_load =
+  check_static_no_warnings $ static_check_pancake parse_undefined_struct_load;
+
+
+val ex_undefined_struct_constant = `
+  fun 1 f (1 a) {
+    return my_struct <value = 1>;
+  }
+`;
+
+val parse_undefined_struct_constant =
+  check_parse_success $ parse_pancake ex_undefined_struct_constant;
+
+val static_undefined_struct_constant =
+  check_static_failure $ static_check_pancake parse_undefined_struct_constant;
+
+val warns_undefined_struct_constant =
+  check_static_no_warnings $ static_check_pancake parse_undefined_struct_constant;
+
+
+val ex_func_global_order = `
+  var my_struct x = my_struct <value = 1>;
+
+  fun my_struct f (my_struct a) {
+    var my_struct y = x;
+    y = lds my_struct @base;
+    return a;
+  }
+
+  struct my_struct {
+    1 value
+  }
+`;
+
+val parse_func_global_order =
+  check_parse_success $ parse_pancake ex_func_global_order;
+
+val static_func_global_order =
+  check_static_success $ static_check_pancake parse_func_global_order;
+
+val warns_func_global_order =
+  check_static_no_warnings $ static_check_pancake parse_func_global_order;
 
 
 (* Error: Undefined/out-of-scope variables *)
@@ -1649,6 +1842,7 @@ val static_global_function_order =
 val warns_global_function_order =
   check_static_no_warnings $ static_check_pancake parse_global_function_order;
 
+
 (* Error: Redefined functions *)
 
 val ex_redefined_fun = `
@@ -1668,6 +1862,66 @@ val static_redefined_fun =
 
 val warns_redefined_fun =
   check_static_no_warnings $ static_check_pancake parse_redefined_fun;
+
+
+(* Error: Redefined function parameter names *)
+
+val ex_repeat_params = `
+  fun 1 f (1 a, 1 b, 1 c, 1 a) {
+    return 1;
+  }
+`;
+
+val parse_repeat_params =
+  check_parse_success $ parse_pancake ex_repeat_params;
+
+val static_repeat_params =
+  check_static_failure $ static_check_pancake parse_repeat_params;
+
+val warns_repeat_params =
+  check_static_no_warnings $ static_check_pancake parse_repeat_params;
+
+
+(* Error: Redefined struct names *)
+
+val ex_redefined_struct = `
+  struct my_struct {
+    1 value
+  }
+
+  struct my_struct {
+    1 other_value
+  }
+`;
+
+val parse_redefined_struct =
+  check_parse_success $ parse_pancake ex_redefined_struct;
+
+val static_redefined_struct =
+  check_static_failure $ static_check_pancake parse_redefined_struct;
+
+val warns_redefined_struct =
+  check_static_no_warnings $ static_check_pancake parse_redefined_struct;
+
+
+(* Error: Redefined struct field names *)
+
+val ex_repeat_field = `
+  struct my_struct {
+    1 value,
+    1 other_value,
+    1 value
+  }
+`;
+
+val parse_repeat_field =
+  check_parse_success $ parse_pancake ex_repeat_field;
+
+val static_repeat_field =
+  check_static_failure $ static_check_pancake parse_repeat_field;
+
+val warns_repeat_field =
+  check_static_no_warnings $ static_check_pancake parse_repeat_field;
 
 
 (* Warning: Redefined variables *)
@@ -1817,72 +2071,202 @@ val warns_local_decl_word_match =
   check_static_no_warnings $ static_check_pancake parse_local_decl_word_match;
 
 
-val ex_local_decl_word_mismatch = `
+val ex_local_decl_word_mismatch_1 = `
   fun 1 f () {
     var 1 x = <1>;
     return 1;
   }
 `;
 
-val parse_local_decl_word_mismatch =
-  check_parse_success $ parse_pancake ex_local_decl_word_mismatch;
+val parse_local_decl_word_mismatch_1 =
+  check_parse_success $ parse_pancake ex_local_decl_word_mismatch_1;
 
-val static_local_decl_word_mismatch =
-  check_static_failure $ static_check_pancake parse_local_decl_word_mismatch;
+val static_local_decl_word_mismatch_1 =
+  check_static_failure $ static_check_pancake parse_local_decl_word_mismatch_1;
 
-val warns_local_decl_word_mismatch =
-  check_static_no_warnings $ static_check_pancake parse_local_decl_word_mismatch;
+val warns_local_decl_word_mismatch_1 =
+  check_static_no_warnings $ static_check_pancake parse_local_decl_word_mismatch_1;
 
 
-val ex_local_decl_struct_match = `
+val ex_local_decl_word_mismatch_2 = `
+  struct my_struct {
+    1 value
+  }
+
+  fun 1 f () {
+    var 1 x = my_struct <value = 1>;
+    return 1;
+  }
+`;
+
+val parse_local_decl_word_mismatch_2 =
+  check_parse_success $ parse_pancake ex_local_decl_word_mismatch_2;
+
+val static_local_decl_word_mismatch_2 =
+  check_static_failure $ static_check_pancake parse_local_decl_word_mismatch_2;
+
+val warns_local_decl_word_mismatch_2 =
+  check_static_no_warnings $ static_check_pancake parse_local_decl_word_mismatch_2;
+
+
+val ex_local_decl_rstruct_match = `
   fun 1 f () {
     var {1} x = <1>;
     return 1;
   }
 `;
 
-val parse_local_decl_struct_match =
-  check_parse_success $ parse_pancake ex_local_decl_struct_match;
+val parse_local_decl_rstruct_match =
+  check_parse_success $ parse_pancake ex_local_decl_rstruct_match;
 
-val static_local_decl_struct_match =
-  check_static_success $ static_check_pancake parse_local_decl_struct_match;
+val static_local_decl_rstruct_match =
+  check_static_success $ static_check_pancake parse_local_decl_rstruct_match;
 
-val warns_local_decl_struct_match =
-  check_static_no_warnings $ static_check_pancake parse_local_decl_struct_match;
+val warns_local_decl_rstruct_match =
+  check_static_no_warnings $ static_check_pancake parse_local_decl_rstruct_match;
 
 
-val ex_local_decl_struct_mismatch_1 = `
+val ex_local_decl_rstruct_mismatch_1 = `
   fun 1 f () {
     var {1} x = 1;
     return 1;
   }
 `;
 
-val parse_local_decl_struct_mismatch_1 =
-  check_parse_success $ parse_pancake ex_local_decl_struct_mismatch_1;
+val parse_local_decl_rstruct_mismatch_1 =
+  check_parse_success $ parse_pancake ex_local_decl_rstruct_mismatch_1;
 
-val static_local_decl_struct_mismatch_1 =
-  check_static_failure $ static_check_pancake parse_local_decl_struct_mismatch_1;
+val static_local_decl_rstruct_mismatch_1 =
+  check_static_failure $ static_check_pancake parse_local_decl_rstruct_mismatch_1;
 
-val warns_local_decl_struct_mismatch_1 =
-  check_static_no_warnings $ static_check_pancake parse_local_decl_struct_mismatch_1;
+val warns_local_decl_rstruct_mismatch_1 =
+  check_static_no_warnings $ static_check_pancake parse_local_decl_rstruct_mismatch_1;
 
 
-val ex_local_decl_struct_mismatch_2 = `
+val ex_local_decl_rstruct_mismatch_2 = `
   fun 1 f () {
     var {1} x = <1, 1>;
     return 1;
   }
 `;
 
-val parse_local_decl_struct_mismatch_2 =
-  check_parse_success $ parse_pancake ex_local_decl_struct_mismatch_2;
+val parse_local_decl_rstruct_mismatch_2 =
+  check_parse_success $ parse_pancake ex_local_decl_rstruct_mismatch_2;
 
-val static_local_decl_struct_mismatch_2 =
-  check_static_failure $ static_check_pancake parse_local_decl_struct_mismatch_2;
+val static_local_decl_rstruct_mismatch_2 =
+  check_static_failure $ static_check_pancake parse_local_decl_rstruct_mismatch_2;
 
-val warns_local_decl_struct_mismatch_2 =
-  check_static_no_warnings $ static_check_pancake parse_local_decl_struct_mismatch_2;
+val warns_local_decl_rstruct_mismatch_2 =
+  check_static_no_warnings $ static_check_pancake parse_local_decl_rstruct_mismatch_2;
+
+
+val ex_local_decl_rstruct_mismatch_3 = `
+  struct my_struct {
+    1 value
+  }
+
+  fun 1 f () {
+    var {1} x = my_struct <value = 1>;
+    return 1;
+  }
+`;
+
+val parse_local_decl_rstruct_mismatch_3 =
+  check_parse_success $ parse_pancake ex_local_decl_rstruct_mismatch_3;
+
+val static_local_decl_rstruct_mismatch_3 =
+  check_static_failure $ static_check_pancake parse_local_decl_rstruct_mismatch_3;
+
+val warns_local_decl_rstruct_mismatch_3 =
+  check_static_no_warnings $ static_check_pancake parse_local_decl_rstruct_mismatch_3;
+
+
+val ex_local_decl_nstruct_match = `
+  struct my_struct {
+    1 value
+  }
+
+  fun 1 f () {
+    var my_struct x = my_struct <value = 1>;
+    return 1;
+  }
+`;
+
+val parse_local_decl_nstruct_match =
+  check_parse_success $ parse_pancake ex_local_decl_nstruct_match;
+
+val static_local_decl_nstruct_match =
+  check_static_success $ static_check_pancake parse_local_decl_nstruct_match;
+
+val warns_local_decl_nstruct_match =
+  check_static_no_warnings $ static_check_pancake parse_local_decl_nstruct_match;
+
+
+val ex_local_decl_nstruct_mismatch_1 = `
+  struct my_struct {
+    1 value
+  }
+
+  fun 1 f () {
+    var my_struct x = 1;
+    return 1;
+  }
+`;
+
+val parse_local_decl_nstruct_mismatch_1 =
+  check_parse_success $ parse_pancake ex_local_decl_nstruct_mismatch_1;
+
+val static_local_decl_nstruct_mismatch_1 =
+  check_static_failure $ static_check_pancake parse_local_decl_nstruct_mismatch_1;
+
+val warns_local_decl_nstruct_mismatch_1 =
+  check_static_no_warnings $ static_check_pancake parse_local_decl_nstruct_mismatch_1;
+
+
+val ex_local_decl_nstruct_mismatch_2 = `
+  struct my_struct {
+    1 value
+  }
+
+  fun 1 f () {
+    var my_struct x = <1>;
+    return 1;
+  }
+`;
+
+val parse_local_decl_nstruct_mismatch_2 =
+  check_parse_success $ parse_pancake ex_local_decl_nstruct_mismatch_2;
+
+val static_local_decl_nstruct_mismatch_2 =
+  check_static_failure $ static_check_pancake parse_local_decl_nstruct_mismatch_2;
+
+val warns_local_decl_nstruct_mismatch_2 =
+  check_static_no_warnings $ static_check_pancake parse_local_decl_nstruct_mismatch_2;
+
+
+val ex_local_decl_nstruct_mismatch_3 = `
+  struct my_struct {
+    1 value
+  }
+
+  struct My_Struct {
+    1 value
+  }
+
+  fun 1 f () {
+    var my_struct x = My_Struct <value = 1>;
+    return 1;
+  }
+`;
+
+val parse_local_decl_nstruct_mismatch_3 =
+  check_parse_success $ parse_pancake ex_local_decl_nstruct_mismatch_3;
+
+val static_local_decl_nstruct_mismatch_3 =
+  check_static_failure $ static_check_pancake parse_local_decl_nstruct_mismatch_3;
+
+val warns_local_decl_nstruct_mismatch_3 =
+  check_static_no_warnings $ static_check_pancake parse_local_decl_nstruct_mismatch_3;
 
 
 val ex_global_decl_word_match = `
@@ -1899,60 +2283,172 @@ val warns_global_decl_word_match =
   check_static_no_warnings $ static_check_pancake parse_global_decl_word_match;
 
 
-val ex_global_decl_word_mismatch = `
+val ex_global_decl_word_mismatch_1 = `
   var 1 x = <1>;
 `;
 
-val parse_global_decl_word_mismatch =
-  check_parse_success $ parse_pancake ex_global_decl_word_mismatch;
+val parse_global_decl_word_mismatch_1 =
+  check_parse_success $ parse_pancake ex_global_decl_word_mismatch_1;
 
-val static_global_decl_word_mismatch =
-  check_static_failure $ static_check_pancake parse_global_decl_word_mismatch;
+val static_global_decl_word_mismatch_1 =
+  check_static_failure $ static_check_pancake parse_global_decl_word_mismatch_1;
 
-val warns_global_decl_word_mismatch =
-  check_static_no_warnings $ static_check_pancake parse_global_decl_word_mismatch;
+val warns_global_decl_word_mismatch_1 =
+  check_static_no_warnings $ static_check_pancake parse_global_decl_word_mismatch_1;
 
 
-val ex_global_decl_struct_match = `
+val ex_global_decl_word_mismatch_2 = `
+  struct my_struct {
+    1 value
+  }
+
+  var 1 x = my_struct <value = 1>;
+`;
+
+val parse_global_decl_word_mismatch_2 =
+  check_parse_success $ parse_pancake ex_global_decl_word_mismatch_2;
+
+val static_global_decl_word_mismatch_2 =
+  check_static_failure $ static_check_pancake parse_global_decl_word_mismatch_2;
+
+val warns_global_decl_word_mismatch_2 =
+  check_static_no_warnings $ static_check_pancake parse_global_decl_word_mismatch_2;
+
+
+val ex_global_decl_rstruct_match = `
   var {1} x = <1>;
 `;
 
-val parse_global_decl_struct_match =
-  check_parse_success $ parse_pancake ex_global_decl_struct_match;
+val parse_global_decl_rstruct_match =
+  check_parse_success $ parse_pancake ex_global_decl_rstruct_match;
 
-val static_global_decl_struct_match =
-  check_static_success $ static_check_pancake parse_global_decl_struct_match;
+val static_global_decl_rstruct_match =
+  check_static_success $ static_check_pancake parse_global_decl_rstruct_match;
 
-val warns_global_decl_struct_match =
-  check_static_no_warnings $ static_check_pancake parse_global_decl_struct_match;
+val warns_global_decl_rstruct_match =
+  check_static_no_warnings $ static_check_pancake parse_global_decl_rstruct_match;
 
 
-val ex_global_decl_struct_mismatch_1 = `
+val ex_global_decl_rstruct_mismatch_1 = `
   var {1} x = 1;
 `;
 
-val parse_global_decl_struct_mismatch_1 =
-  check_parse_success $ parse_pancake ex_global_decl_struct_mismatch_1;
+val parse_global_decl_rstruct_mismatch_1 =
+  check_parse_success $ parse_pancake ex_global_decl_rstruct_mismatch_1;
 
-val static_global_decl_struct_mismatch_1 =
-  check_static_failure $ static_check_pancake parse_global_decl_struct_mismatch_1;
+val static_global_decl_rstruct_mismatch_1 =
+  check_static_failure $ static_check_pancake parse_global_decl_rstruct_mismatch_1;
 
-val warns_global_decl_struct_mismatch_1 =
-  check_static_no_warnings $ static_check_pancake parse_global_decl_struct_mismatch_1;
+val warns_global_decl_rstruct_mismatch_1 =
+  check_static_no_warnings $ static_check_pancake parse_global_decl_rstruct_mismatch_1;
 
 
-val ex_global_decl_struct_mismatch_2 = `
+val ex_global_decl_rstruct_mismatch_2 = `
   var {1} x = <1, 1>;
 `;
 
-val parse_global_decl_struct_mismatch_2 =
-  check_parse_success $ parse_pancake ex_global_decl_struct_mismatch_2;
+val parse_global_decl_rstruct_mismatch_2 =
+  check_parse_success $ parse_pancake ex_global_decl_rstruct_mismatch_2;
 
-val static_global_decl_struct_mismatch_2 =
-  check_static_failure $ static_check_pancake parse_global_decl_struct_mismatch_2;
+val static_global_decl_rstruct_mismatch_2 =
+  check_static_failure $ static_check_pancake parse_global_decl_rstruct_mismatch_2;
 
-val warns_global_decl_struct_mismatch_2 =
-  check_static_no_warnings $ static_check_pancake parse_global_decl_struct_mismatch_2;
+val warns_global_decl_rstruct_mismatch_2 =
+  check_static_no_warnings $ static_check_pancake parse_global_decl_rstruct_mismatch_2;
+
+
+val ex_global_decl_rstruct_mismatch_3 = `
+  struct my_struct {
+    1 value
+  }
+
+  var {1} x = my_struct <value = 1>;
+`;
+
+val parse_global_decl_rstruct_mismatch_3 =
+  check_parse_success $ parse_pancake ex_global_decl_rstruct_mismatch_3;
+
+val static_global_decl_rstruct_mismatch_3 =
+  check_static_failure $ static_check_pancake parse_global_decl_rstruct_mismatch_3;
+
+val warns_global_decl_rstruct_mismatch_3 =
+  check_static_no_warnings $ static_check_pancake parse_global_decl_rstruct_mismatch_3;
+
+
+val ex_global_decl_nstruct_match = `
+  struct my_struct {
+    1 value
+  }
+
+  var my_struct x = my_struct <value = 1>;
+`;
+
+val parse_global_decl_nstruct_match =
+  check_parse_success $ parse_pancake ex_global_decl_nstruct_match;
+
+val static_global_decl_nstruct_match =
+  check_static_success $ static_check_pancake parse_global_decl_nstruct_match;
+
+val warns_global_decl_nstruct_match =
+  check_static_no_warnings $ static_check_pancake parse_global_decl_nstruct_match;
+
+
+val ex_global_decl_nstruct_mismatch_1 = `
+  struct my_struct {
+    1 value
+  }
+
+  var my_struct x = 1;
+`;
+
+val parse_global_decl_nstruct_mismatch_1 =
+  check_parse_success $ parse_pancake ex_global_decl_nstruct_mismatch_1;
+
+val static_global_decl_nstruct_mismatch_1 =
+  check_static_failure $ static_check_pancake parse_global_decl_nstruct_mismatch_1;
+
+val warns_global_decl_nstruct_mismatch_1 =
+  check_static_no_warnings $ static_check_pancake parse_global_decl_nstruct_mismatch_1;
+
+
+val ex_global_decl_nstruct_mismatch_2 = `
+  struct my_struct {
+    1 value
+  }
+
+  var my_struct x = <1>;
+`;
+
+val parse_global_decl_nstruct_mismatch_2 =
+  check_parse_success $ parse_pancake ex_global_decl_nstruct_mismatch_2;
+
+val static_global_decl_nstruct_mismatch_2 =
+  check_static_failure $ static_check_pancake parse_global_decl_nstruct_mismatch_2;
+
+val warns_global_decl_nstruct_mismatch_2 =
+  check_static_no_warnings $ static_check_pancake parse_global_decl_nstruct_mismatch_2;
+
+
+val ex_global_decl_nstruct_mismatch_3 = `
+  struct my_struct {
+    1 value
+  }
+
+  struct My_Struct {
+    1 value
+  }
+
+  var my_struct x = My_Struct <value = 1>;
+`;
+
+val parse_global_decl_nstruct_mismatch_3 =
+  check_parse_success $ parse_pancake ex_global_decl_nstruct_mismatch_3;
+
+val static_global_decl_nstruct_mismatch_3 =
+  check_static_failure $ static_check_pancake parse_global_decl_nstruct_mismatch_3;
+
+val warns_global_decl_nstruct_mismatch_3 =
+  check_static_no_warnings $ static_check_pancake parse_global_decl_nstruct_mismatch_3;
 
 
 (* Error: Mismatched variable assignments *)
@@ -1975,7 +2471,7 @@ val warns_local_asgn_word_match =
   check_static_no_warnings $ static_check_pancake parse_local_asgn_word_match;
 
 
-val ex_local_asgn_word_mismatch = `
+val ex_local_asgn_word_mismatch_1 = `
   fun 1 f () {
     var 1 x = 0;
     x = <1>;
@@ -1983,17 +2479,39 @@ val ex_local_asgn_word_mismatch = `
   }
 `;
 
-val parse_local_asgn_word_mismatch =
-  check_parse_success $ parse_pancake ex_local_asgn_word_mismatch;
+val parse_local_asgn_word_mismatch_1 =
+  check_parse_success $ parse_pancake ex_local_asgn_word_mismatch_1;
 
-val static_local_asgn_word_mismatch =
-  check_static_failure $ static_check_pancake parse_local_asgn_word_mismatch;
+val static_local_asgn_word_mismatch_1 =
+  check_static_failure $ static_check_pancake parse_local_asgn_word_mismatch_1;
 
-val warns_local_asgn_word_mismatch =
-  check_static_no_warnings $ static_check_pancake parse_local_asgn_word_mismatch;
+val warns_local_asgn_word_mismatch_1 =
+  check_static_no_warnings $ static_check_pancake parse_local_asgn_word_mismatch_1;
 
 
-val ex_local_asgn_struct_match = `
+val ex_local_asgn_word_mismatch_2 = `
+  struct my_struct {
+    1 value
+  }
+
+  fun 1 f () {
+    var 1 x = 0;
+    x = my_struct <value = 1>;
+    return 1;
+  }
+`;
+
+val parse_local_asgn_word_mismatch_2 =
+  check_parse_success $ parse_pancake ex_local_asgn_word_mismatch_2;
+
+val static_local_asgn_word_mismatch_2 =
+  check_static_failure $ static_check_pancake parse_local_asgn_word_mismatch_2;
+
+val warns_local_asgn_word_mismatch_2 =
+  check_static_no_warnings $ static_check_pancake parse_local_asgn_word_mismatch_2;
+
+
+val ex_local_asgn_rstruct_match = `
   fun 1 f () {
     var {1} x = <0>;
     x = <1>;
@@ -2001,17 +2519,17 @@ val ex_local_asgn_struct_match = `
   }
 `;
 
-val parse_local_asgn_struct_match =
-  check_parse_success $ parse_pancake ex_local_asgn_struct_match;
+val parse_local_asgn_rstruct_match =
+  check_parse_success $ parse_pancake ex_local_asgn_rstruct_match;
 
-val static_local_asgn_struct_match =
-  check_static_success $ static_check_pancake parse_local_asgn_struct_match;
+val static_local_asgn_rstruct_match =
+  check_static_success $ static_check_pancake parse_local_asgn_rstruct_match;
 
-val warns_local_asgn_struct_match =
-  check_static_no_warnings $ static_check_pancake parse_local_asgn_struct_match;
+val warns_local_asgn_rstruct_match =
+  check_static_no_warnings $ static_check_pancake parse_local_asgn_rstruct_match;
 
 
-val ex_local_asgn_struct_mismatch_1 = `
+val ex_local_asgn_rstruct_mismatch_1 = `
   fun 1 f () {
     var {1} x = <0>;
     x = 1;
@@ -2019,17 +2537,17 @@ val ex_local_asgn_struct_mismatch_1 = `
   }
 `;
 
-val parse_local_asgn_struct_mismatch_1 =
-  check_parse_success $ parse_pancake ex_local_asgn_struct_mismatch_1;
+val parse_local_asgn_rstruct_mismatch_1 =
+  check_parse_success $ parse_pancake ex_local_asgn_rstruct_mismatch_1;
 
-val static_local_asgn_struct_mismatch_1 =
-  check_static_failure $ static_check_pancake parse_local_asgn_struct_mismatch_1;
+val static_local_asgn_rstruct_mismatch_1 =
+  check_static_failure $ static_check_pancake parse_local_asgn_rstruct_mismatch_1;
 
-val warns_local_asgn_struct_mismatch_1 =
-  check_static_no_warnings $ static_check_pancake parse_local_asgn_struct_mismatch_1;
+val warns_local_asgn_rstruct_mismatch_1 =
+  check_static_no_warnings $ static_check_pancake parse_local_asgn_rstruct_mismatch_1;
 
 
-val ex_local_asgn_struct_mismatch_2 = `
+val ex_local_asgn_rstruct_mismatch_2 = `
   fun 1 f () {
     var {1} x = <0>;
     x = <1, 1>;
@@ -2037,24 +2555,138 @@ val ex_local_asgn_struct_mismatch_2 = `
   }
 `;
 
-val parse_local_asgn_struct_mismatch_2 =
-  check_parse_success $ parse_pancake ex_local_asgn_struct_mismatch_2;
+val parse_local_asgn_rstruct_mismatch_2 =
+  check_parse_success $ parse_pancake ex_local_asgn_rstruct_mismatch_2;
 
-val static_local_asgn_struct_mismatch_2 =
-  check_static_failure $ static_check_pancake parse_local_asgn_struct_mismatch_2;
+val static_local_asgn_rstruct_mismatch_2 =
+  check_static_failure $ static_check_pancake parse_local_asgn_rstruct_mismatch_2;
 
-val warns_local_asgn_struct_mismatch_2 =
-  check_static_no_warnings $ static_check_pancake parse_local_asgn_struct_mismatch_2;
+val warns_local_asgn_rstruct_mismatch_2 =
+  check_static_no_warnings $ static_check_pancake parse_local_asgn_rstruct_mismatch_2;
+
+
+val ex_local_asgn_rstruct_mismatch_3 = `
+  struct my_struct {
+    1 value
+  }
+
+  fun 1 f () {
+    var {1} x = <0>;
+    x = my_struct <value = 1>;
+    return 1;
+  }
+`;
+
+val parse_local_asgn_rstruct_mismatch_3 =
+  check_parse_success $ parse_pancake ex_local_asgn_rstruct_mismatch_3;
+
+val static_local_asgn_rstruct_mismatch_3 =
+  check_static_failure $ static_check_pancake parse_local_asgn_rstruct_mismatch_3;
+
+val warns_local_asgn_rstruct_mismatch_3 =
+  check_static_no_warnings $ static_check_pancake parse_local_asgn_rstruct_mismatch_3;
+
+
+val ex_local_asgn_nstruct_match = `
+  struct my_struct {
+    1 value
+  }
+
+  fun 1 f () {
+    var my_struct x = my_struct < value = 0 >;
+    x = my_struct <value = 1>;
+    return 1;
+  }
+`;
+
+val parse_local_asgn_nstruct_match =
+  check_parse_success $ parse_pancake ex_local_asgn_nstruct_match;
+
+val static_local_asgn_nstruct_match =
+  check_static_success $ static_check_pancake parse_local_asgn_nstruct_match;
+
+val warns_local_asgn_nstruct_match =
+  check_static_no_warnings $ static_check_pancake parse_local_asgn_nstruct_match;
+
+
+val ex_local_asgn_nstruct_mismatch_1 = `
+  struct my_struct {
+    1 value
+  }
+
+  fun 1 f () {
+    var my_struct x = my_struct < value = 0 >;
+    x = 1;
+    return 1;
+  }
+`;
+
+val parse_local_asgn_nstruct_mismatch_1 =
+  check_parse_success $ parse_pancake ex_local_asgn_nstruct_mismatch_1;
+
+val static_local_asgn_nstruct_mismatch_1 =
+  check_static_failure $ static_check_pancake parse_local_asgn_nstruct_mismatch_1;
+
+val warns_local_asgn_nstruct_mismatch_1 =
+  check_static_no_warnings $ static_check_pancake parse_local_asgn_nstruct_mismatch_1;
+
+
+val ex_local_asgn_nstruct_mismatch_2 = `
+  struct my_struct {
+    1 value
+  }
+
+  fun 1 f () {
+    var my_struct x = my_struct < value = 0 >;
+    x = <1>;
+    return 1;
+  }
+`;
+
+val parse_local_asgn_nstruct_mismatch_2 =
+  check_parse_success $ parse_pancake ex_local_asgn_nstruct_mismatch_2;
+
+val static_local_asgn_nstruct_mismatch_2 =
+  check_static_failure $ static_check_pancake parse_local_asgn_nstruct_mismatch_2;
+
+val warns_local_asgn_nstruct_mismatch_2 =
+  check_static_no_warnings $ static_check_pancake parse_local_asgn_nstruct_mismatch_2;
+
+
+val ex_local_asgn_nstruct_mismatch_3 = `
+  struct my_struct {
+    1 value
+  }
+
+  struct My_Struct {
+    1 value
+  }
+
+  fun 1 f () {
+    var my_struct x = my_struct < value = 0 >;
+    x = My_Struct <value = 1>;
+    return 1;
+  }
+`;
+
+val parse_local_asgn_nstruct_mismatch_3 =
+  check_parse_success $ parse_pancake ex_local_asgn_nstruct_mismatch_3;
+
+val static_local_asgn_nstruct_mismatch_3 =
+  check_static_failure $ static_check_pancake parse_local_asgn_nstruct_mismatch_3;
+
+val warns_local_asgn_nstruct_mismatch_3 =
+  check_static_no_warnings $ static_check_pancake parse_local_asgn_nstruct_mismatch_3;
 
 
 (* Error: Mismatched function arguments *)
 
 val ex_func_arg_word_match = `
   fun 1 f () {
-    g(1);
+    g(1, 1);
     return 1;
   }
-  fun 1 g (1 a) {
+  fun 1 g (1 a, 1 b) {
     return 1;
   }
 `;
@@ -2069,84 +2701,232 @@ val warns_func_arg_word_match =
   check_static_no_warnings $ static_check_pancake parse_func_arg_word_match;
 
 
-val ex_func_arg_word_mismatch = `
+val ex_func_arg_word_mismatch_1 = `
   fun 1 f () {
-    g(<1>);
+    g(1, <1>);
     return 1;
   }
-  fun 1 g (1 a) {
+  fun 1 g (1 a, 1 b) {
     return 1;
   }
 `;
 
-val parse_func_arg_word_mismatch =
-  check_parse_success $ parse_pancake ex_func_arg_word_mismatch;
+val parse_func_arg_word_mismatch_1 =
+  check_parse_success $ parse_pancake ex_func_arg_word_mismatch_1;
 
-val static_func_arg_word_mismatch =
-  check_static_failure $ static_check_pancake parse_func_arg_word_mismatch;
+val static_func_arg_word_mismatch_1 =
+  check_static_failure $ static_check_pancake parse_func_arg_word_mismatch_1;
 
-val warns_func_arg_word_mismatch =
-  check_static_no_warnings $ static_check_pancake parse_func_arg_word_mismatch;
+val warns_func_arg_word_mismatch_1 =
+  check_static_no_warnings $ static_check_pancake parse_func_arg_word_mismatch_1;
 
 
-val ex_func_arg_struct_match = `
+val ex_func_arg_word_mismatch_2 = `
+  struct my_struct {
+    1 value
+  }
+
   fun 1 f () {
-    g(<1>);
+    g(1, my_struct <value = 1>);
     return 1;
   }
-  fun 1 g ({1} a) {
+  fun 1 g (1 a, 1 b) {
     return 1;
   }
 `;
 
-val parse_func_arg_struct_match =
-  check_parse_success $ parse_pancake ex_func_arg_struct_match;
+val parse_func_arg_word_mismatch_2 =
+  check_parse_success $ parse_pancake ex_func_arg_word_mismatch_2;
 
-val static_func_arg_struct_match =
-  check_static_success $ static_check_pancake parse_func_arg_struct_match;
+val static_func_arg_word_mismatch_2 =
+  check_static_failure $ static_check_pancake parse_func_arg_word_mismatch_2;
 
-val warns_func_arg_struct_match =
-  check_static_no_warnings $ static_check_pancake parse_func_arg_struct_match;
+val warns_func_arg_word_mismatch_2 =
+  check_static_no_warnings $ static_check_pancake parse_func_arg_word_mismatch_2;
 
 
-val ex_func_arg_struct_mismatch_1 = `
+val ex_func_arg_rstruct_match = `
   fun 1 f () {
-    g(1);
+    g(1, <1>);
     return 1;
   }
-  fun 1 g ({1} a) {
+  fun 1 g (1 a, {1} b) {
     return 1;
   }
 `;
 
-val parse_func_arg_struct_mismatch_1 =
-  check_parse_success $ parse_pancake ex_func_arg_struct_mismatch_1;
+val parse_func_arg_rstruct_match =
+  check_parse_success $ parse_pancake ex_func_arg_rstruct_match;
 
-val static_func_arg_struct_mismatch_1 =
-  check_static_failure $ static_check_pancake parse_func_arg_struct_mismatch_1;
+val static_func_arg_rstruct_match =
+  check_static_success $ static_check_pancake parse_func_arg_rstruct_match;
 
-val warns_func_arg_struct_mismatch_1 =
-  check_static_no_warnings $ static_check_pancake parse_func_arg_struct_mismatch_1;
+val warns_func_arg_rstruct_match =
+  check_static_no_warnings $ static_check_pancake parse_func_arg_rstruct_match;
 
 
-val ex_func_arg_struct_mismatch_2 = `
+val ex_func_arg_rstruct_mismatch_1 = `
   fun 1 f () {
-    g(<1, 1>);
+    g(1, 1);
     return 1;
   }
-  fun 1 g ({1} a) {
+  fun 1 g (1 a, {1} b) {
     return 1;
   }
 `;
 
-val parse_func_arg_struct_mismatch_2 =
-  check_parse_success $ parse_pancake ex_func_arg_struct_mismatch_2;
+val parse_func_arg_rstruct_mismatch_1 =
+  check_parse_success $ parse_pancake ex_func_arg_rstruct_mismatch_1;
 
-val static_func_arg_struct_mismatch_2 =
-  check_static_failure $ static_check_pancake parse_func_arg_struct_mismatch_2;
+val static_func_arg_rstruct_mismatch_1 =
+  check_static_failure $ static_check_pancake parse_func_arg_rstruct_mismatch_1;
 
-val warns_func_arg_struct_mismatch_2 =
-  check_static_no_warnings $ static_check_pancake parse_func_arg_struct_mismatch_2;
+val warns_func_arg_rstruct_mismatch_1 =
+  check_static_no_warnings $ static_check_pancake parse_func_arg_rstruct_mismatch_1;
+
+
+val ex_func_arg_rstruct_mismatch_2 = `
+  fun 1 f () {
+    g(1, <1, 1>);
+    return 1;
+  }
+  fun 1 g (1 a, {1} b) {
+    return 1;
+  }
+`;
+
+val parse_func_arg_rstruct_mismatch_2 =
+  check_parse_success $ parse_pancake ex_func_arg_rstruct_mismatch_2;
+
+val static_func_arg_rstruct_mismatch_2 =
+  check_static_failure $ static_check_pancake parse_func_arg_rstruct_mismatch_2;
+
+val warns_func_arg_rstruct_mismatch_2 =
+  check_static_no_warnings $ static_check_pancake parse_func_arg_rstruct_mismatch_2;
+
+
+val ex_func_arg_rstruct_mismatch_3 = `
+  struct my_struct {
+    1 value
+  }
+
+  fun 1 f () {
+    g(1, my_struct <value = 1>);
+    return 1;
+  }
+  fun 1 g (1 a, {1} b) {
+    return 1;
+  }
+`;
+
+val parse_func_arg_rstruct_mismatch_3 =
+  check_parse_success $ parse_pancake ex_func_arg_rstruct_mismatch_3;
+
+val static_func_arg_rstruct_mismatch_3 =
+  check_static_failure $ static_check_pancake parse_func_arg_rstruct_mismatch_3;
+
+val warns_func_arg_rstruct_mismatch_3 =
+  check_static_no_warnings $ static_check_pancake parse_func_arg_rstruct_mismatch_3;
+
+
+val ex_func_arg_nstruct_match = `
+  struct my_struct {
+    1 value
+  }
+
+  fun 1 f () {
+    g(1, my_struct <value = 1>);
+    return 1;
+  }
+  fun 1 g (1 a, my_struct b) {
+    return 1;
+  }
+`;
+
+val parse_func_arg_nstruct_match =
+  check_parse_success $ parse_pancake ex_func_arg_nstruct_match;
+
+val static_func_arg_nstruct_match =
+  check_static_success $ static_check_pancake parse_func_arg_nstruct_match;
+
+val warns_func_arg_nstruct_match =
+  check_static_no_warnings $ static_check_pancake parse_func_arg_nstruct_match;
+
+
+val ex_func_arg_nstruct_mismatch_1 = `
+  struct my_struct {
+    1 value
+  }
+
+  fun 1 f () {
+    g(1, 1);
+    return 1;
+  }
+  fun 1 g (1 a, my_struct b) {
+    return 1;
+  }
+`;
+
+val parse_func_arg_nstruct_mismatch_1 =
+  check_parse_success $ parse_pancake ex_func_arg_nstruct_mismatch_1;
+
+val static_func_arg_nstruct_mismatch_1 =
+  check_static_failure $ static_check_pancake parse_func_arg_nstruct_mismatch_1;
+
+val warns_func_arg_nstruct_mismatch_1 =
+  check_static_no_warnings $ static_check_pancake parse_func_arg_nstruct_mismatch_1;
+
+
+val ex_func_arg_nstruct_mismatch_2 = `
+  struct my_struct {
+    1 value
+  }
+
+  fun 1 f () {
+    g(1, <1>);
+    return 1;
+  }
+  fun 1 g (1 a, my_struct b) {
+    return 1;
+  }
+`;
+
+val parse_func_arg_nstruct_mismatch_2 =
+  check_parse_success $ parse_pancake ex_func_arg_nstruct_mismatch_2;
+
+val static_func_arg_nstruct_mismatch_2 =
+  check_static_failure $ static_check_pancake parse_func_arg_nstruct_mismatch_2;
+
+val warns_func_arg_nstruct_mismatch_2 =
+  check_static_no_warnings $ static_check_pancake parse_func_arg_nstruct_mismatch_2;
+
+
+val ex_func_arg_nstruct_mismatch_3 = `
+  struct my_struct {
+    1 value
+  }
+
+  struct My_Struct {
+    1 value
+  }
+
+  fun 1 f () {
+    g(1, My_Struct <value = 1>);
+    return 1;
+  }
+  fun 1 g (1 a, my_struct b) {
+    return 1;
+  }
+`;
+
+val parse_func_arg_nstruct_mismatch_3 =
+  check_parse_success $ parse_pancake ex_func_arg_nstruct_mismatch_3;
+
+val static_func_arg_nstruct_mismatch_3 =
+  check_static_failure $ static_check_pancake parse_func_arg_nstruct_mismatch_3;
+
+val warns_func_arg_nstruct_mismatch_3 =
+  check_static_no_warnings $ static_check_pancake parse_func_arg_nstruct_mismatch_3;
 
 
 (* Error: Mismatched function returns *)
@@ -2167,322 +2947,517 @@ val warns_func_ret_word_match =
   check_static_no_warnings $ static_check_pancake parse_func_ret_word_match;
 
 
-val ex_func_ret_word_mismatch = `
+val ex_func_ret_word_mismatch_1 = `
   fun 1 f () {
     return <1>;
   }
 `;
 
-val parse_func_ret_word_mismatch =
-  check_parse_success $ parse_pancake ex_func_ret_word_mismatch;
+val parse_func_ret_word_mismatch_1 =
+  check_parse_success $ parse_pancake ex_func_ret_word_mismatch_1;
 
-val static_func_ret_word_mismatch =
-  check_static_failure $ static_check_pancake parse_func_ret_word_mismatch;
+val static_func_ret_word_mismatch_1 =
+  check_static_failure $ static_check_pancake parse_func_ret_word_mismatch_1;
 
-val warns_func_ret_word_mismatch =
-  check_static_no_warnings $ static_check_pancake parse_func_ret_word_mismatch;
+val warns_func_ret_word_mismatch_1 =
+  check_static_no_warnings $ static_check_pancake parse_func_ret_word_mismatch_1;
 
 
-val ex_func_ret_struct_match = `
+val ex_func_ret_word_mismatch_2 = `
+  struct my_struct {
+    1 value
+  }
+
+  fun 1 f () {
+    return my_struct <value = 1>;
+  }
+`;
+
+val parse_func_ret_word_mismatch_2 =
+  check_parse_success $ parse_pancake ex_func_ret_word_mismatch_2;
+
+val static_func_ret_word_mismatch_2 =
+  check_static_failure $ static_check_pancake parse_func_ret_word_mismatch_2;
+
+val warns_func_ret_word_mismatch_2 =
+  check_static_no_warnings $ static_check_pancake parse_func_ret_word_mismatch_2;
+
+
+val ex_func_ret_rstruct_match = `
   fun {1} f () {
     return <1>;
   }
 `;
 
-val parse_func_ret_struct_match =
-  check_parse_success $ parse_pancake ex_func_ret_struct_match;
+val parse_func_ret_rstruct_match =
+  check_parse_success $ parse_pancake ex_func_ret_rstruct_match;
 
-val static_func_ret_struct_match =
-  check_static_success $ static_check_pancake parse_func_ret_struct_match;
+val static_func_ret_rstruct_match =
+  check_static_success $ static_check_pancake parse_func_ret_rstruct_match;
 
-val warns_func_ret_struct_match =
-  check_static_no_warnings $ static_check_pancake parse_func_ret_struct_match;
+val warns_func_ret_rstruct_match =
+  check_static_no_warnings $ static_check_pancake parse_func_ret_rstruct_match;
 
 
-val ex_func_ret_struct_mismatch_1 = `
+val ex_func_ret_rstruct_mismatch_1 = `
   fun {1} f () {
     return 1;
   }
 `;
 
-val parse_func_ret_struct_mismatch_1 =
-  check_parse_success $ parse_pancake ex_func_ret_struct_mismatch_1;
+val parse_func_ret_rstruct_mismatch_1 =
+  check_parse_success $ parse_pancake ex_func_ret_rstruct_mismatch_1;
 
-val static_func_ret_struct_mismatch_1 =
-  check_static_failure $ static_check_pancake parse_func_ret_struct_mismatch_1;
+val static_func_ret_rstruct_mismatch_1 =
+  check_static_failure $ static_check_pancake parse_func_ret_rstruct_mismatch_1;
 
-val warns_func_ret_struct_mismatch_1 =
-  check_static_no_warnings $ static_check_pancake parse_func_ret_struct_mismatch_1;
+val warns_func_ret_rstruct_mismatch_1 =
+  check_static_no_warnings $ static_check_pancake parse_func_ret_rstruct_mismatch_1;
 
 
-val ex_func_ret_struct_mismatch_2 = `
+val ex_func_ret_rstruct_mismatch_2 = `
   fun {1} f () {
     return <1, 1>;
   }
 `;
 
-val parse_func_ret_struct_mismatch_2 =
-  check_parse_success $ parse_pancake ex_func_ret_struct_mismatch_2;
+val parse_func_ret_rstruct_mismatch_2 =
+  check_parse_success $ parse_pancake ex_func_ret_rstruct_mismatch_2;
 
-val static_func_ret_struct_mismatch_2 =
-  check_static_failure $ static_check_pancake parse_func_ret_struct_mismatch_2;
+val static_func_ret_rstruct_mismatch_2 =
+  check_static_failure $ static_check_pancake parse_func_ret_rstruct_mismatch_2;
 
-val warns_func_ret_struct_mismatch_2 =
-  check_static_no_warnings $ static_check_pancake parse_func_ret_struct_mismatch_2;
+val warns_func_ret_rstruct_mismatch_2 =
+  check_static_no_warnings $ static_check_pancake parse_func_ret_rstruct_mismatch_2;
 
 
-(* Error: Non-word main function return declarations *)
+val ex_func_ret_rstruct_mismatch_3 = `
+  struct my_struct {
+    1 value
+  }
 
-val ex_main_struct_ret = `
-  fun {1} main () {
+  fun {1} f () {
+    return my_struct <value = 1>;
+  }
+`;
+
+val parse_func_ret_rstruct_mismatch_3 =
+  check_parse_success $ parse_pancake ex_func_ret_rstruct_mismatch_3;
+
+val static_func_ret_rstruct_mismatch_3 =
+  check_static_failure $ static_check_pancake parse_func_ret_rstruct_mismatch_3;
+
+val warns_func_ret_rstruct_mismatch_3 =
+  check_static_no_warnings $ static_check_pancake parse_func_ret_rstruct_mismatch_3;
+
+
+val ex_func_ret_nstruct_match = `
+  struct my_struct {
+    1 value
+  }
+
+  fun my_struct f () {
+    return my_struct <value = 1>;
+  }
+`;
+
+val parse_func_ret_nstruct_match =
+  check_parse_success $ parse_pancake ex_func_ret_nstruct_match;
+
+val static_func_ret_nstruct_match =
+  check_static_success $ static_check_pancake parse_func_ret_nstruct_match;
+
+val warns_func_ret_nstruct_match =
+  check_static_no_warnings $ static_check_pancake parse_func_ret_nstruct_match;
+
+
+val ex_func_ret_nstruct_mismatch_1 = `
+  struct my_struct {
+    1 value
+  }
+
+  fun my_struct f () {
+    return 1;
+  }
+`;
+
+val parse_func_ret_nstruct_mismatch_1 =
+  check_parse_success $ parse_pancake ex_func_ret_nstruct_mismatch_1;
+
+val static_func_ret_nstruct_mismatch_1 =
+  check_static_failure $ static_check_pancake parse_func_ret_nstruct_mismatch_1;
+
+val warns_func_ret_nstruct_mismatch_1 =
+  check_static_no_warnings $ static_check_pancake parse_func_ret_nstruct_mismatch_1;
+
+
+val ex_func_ret_nstruct_mismatch_2 = `
+  struct my_struct {
+    1 value
+  }
+
+  fun my_struct f () {
     return <1>;
   }
 `;
 
-val parse_main_struct_ret =
-  check_parse_success $ parse_pancake ex_main_struct_ret;
+val parse_func_ret_nstruct_mismatch_2 =
+  check_parse_success $ parse_pancake ex_func_ret_nstruct_mismatch_2;
 
-val static_main_struct_ret =
-  check_static_failure $ static_check_pancake parse_main_struct_ret;
+val static_func_ret_nstruct_mismatch_2 =
+  check_static_failure $ static_check_pancake parse_func_ret_nstruct_mismatch_2;
 
-val warns_main_struct_ret =
-  check_static_no_warnings $ static_check_pancake parse_main_struct_ret;
+val warns_func_ret_nstruct_mismatch_2 =
+  check_static_no_warnings $ static_check_pancake parse_func_ret_nstruct_mismatch_2;
 
 
-(* Error: Non-word FFI arguments *)
+val ex_func_ret_nstruct_mismatch_3 = `
+  struct my_struct {
+    1 value
+  }
 
-val ex_ffi_struct_lit_arg = `
-  fun 1 f () {
-    @g(1, 2, 3, <4>);
-    return 1;
+  struct My_Struct {
+    1 value
+  }
+
+  fun my_struct f () {
+    return My_Struct <value = 1>;
   }
 `;
 
-val parse_ffi_struct_lit_arg =
-  check_parse_success $ parse_pancake ex_ffi_struct_lit_arg;
+val parse_func_ret_nstruct_mismatch_3 =
+  check_parse_success $ parse_pancake ex_func_ret_nstruct_mismatch_3;
 
-val static_ffi_struct_lit_arg =
-  check_static_failure $ static_check_pancake parse_ffi_struct_lit_arg;
+val static_func_ret_nstruct_mismatch_3 =
+  check_static_failure $ static_check_pancake parse_func_ret_nstruct_mismatch_3;
 
-val warns_ffi_struct_lit_arg =
-  check_static_no_warnings $ static_check_pancake parse_ffi_struct_lit_arg;
+val warns_func_ret_nstruct_mismatch_3 =
+  check_static_no_warnings $ static_check_pancake parse_func_ret_nstruct_mismatch_3;
 
 
-val ex_ffi_struct_var_arg = `
-  fun 1 f () {
-    var {1} x = <0>;
-    @g(1, x, 3, 4);
-    return 1;
+(* Error: Mismatched struct fields *)
+
+val ex_field_val_word_match = `
+  struct my_struct {
+    1 x,
+    1 y
   }
+
+  var my_struct s = my_struct <x = 1, y = 1>;
 `;
 
-val parse_ffi_struct_var_arg =
-  check_parse_success $ parse_pancake ex_ffi_struct_var_arg;
+val parse_field_val_word_match =
+  check_parse_success $ parse_pancake ex_field_val_word_match;
 
-val static_ffi_struct_var_arg =
-  check_static_failure $ static_check_pancake parse_ffi_struct_var_arg;
+val static_field_val_word_match =
+  check_static_success $ static_check_pancake parse_field_val_word_match;
 
-val warns_ffi_struct_var_arg =
-  check_static_no_warnings $ static_check_pancake parse_ffi_struct_var_arg;
+val warns_field_val_word_match =
+  check_static_no_warnings $ static_check_pancake parse_field_val_word_match;
 
 
-(* Error: Non-word exported argument declarations *)
-
-val ex_export_struct_arg = `
-  export fun 1 f ({1} a) {
-    return 1;
+val ex_field_val_word_mismatch_1 = `
+  struct my_struct {
+    1 x,
+    1 y
   }
+
+  var my_struct s = my_struct <x = 1, y = <1> >;
+`;
+(* Note: This example uses whitespace to get around the nested struct/shift operator parsing issue *)
+
+val parse_field_val_word_mismatch_1 =
+  check_parse_success $ parse_pancake ex_field_val_word_mismatch_1;
+
+val static_field_val_word_mismatch_1 =
+  check_static_failure $ static_check_pancake parse_field_val_word_mismatch_1;
+
+val warns_field_val_word_mismatch_1 =
+  check_static_no_warnings $ static_check_pancake parse_field_val_word_mismatch_1;
+
+
+val ex_field_val_word_mismatch_2 = `
+  struct my_struct {
+    1 x,
+    1 y
+  }
+
+  struct other_struct {
+    1 value
+  }
+
+  var my_struct s = my_struct <x = 1, y = other_struct <value = 1> >;
+`;
+(* Note: This example uses whitespace to get around the nested struct/shift operator parsing issue *)
+
+val parse_field_val_word_mismatch_2 =
+  check_parse_success $ parse_pancake ex_field_val_word_mismatch_2;
+
+val static_field_val_word_mismatch_2 =
+  check_static_failure $ static_check_pancake parse_field_val_word_mismatch_2;
+
+val warns_field_val_word_mismatch_2 =
+  check_static_no_warnings $ static_check_pancake parse_field_val_word_mismatch_2;
+
+
+val ex_field_val_rstruct_match = `
+  struct my_struct {
+    1 x,
+    {1} y
+  }
+
+  var my_struct s = my_struct <x = 1, y = <1> >;
+`;
+(* Note: This example uses whitespace to get around the nested struct/shift operator parsing issue *)
+
+val parse_field_val_rstruct_match =
+  check_parse_success $ parse_pancake ex_field_val_rstruct_match;
+
+val static_field_val_rstruct_match =
+  check_static_success $ static_check_pancake parse_field_val_rstruct_match;
+
+val warns_field_val_rstruct_match =
+  check_static_no_warnings $ static_check_pancake parse_field_val_rstruct_match;
+
+
+val ex_field_val_rstruct_mismatch_1 = `
+  struct my_struct {
+    1 x,
+    {1} y
+  }
+
+  var my_struct s = my_struct <x = 1, y = 1>;
 `;
 
-val parse_export_struct_arg =
-  check_parse_success $ parse_pancake ex_export_struct_arg;
+val parse_field_val_rstruct_mismatch_1 =
+  check_parse_success $ parse_pancake ex_field_val_rstruct_mismatch_1;
 
-val static_export_struct_arg =
-  check_static_failure $ static_check_pancake parse_export_struct_arg;
+val static_field_val_rstruct_mismatch_1 =
+  check_static_failure $ static_check_pancake parse_field_val_rstruct_mismatch_1;
 
-val warns_export_struct_arg =
-  check_static_no_warnings $ static_check_pancake parse_export_struct_arg;
+val warns_field_val_rstruct_mismatch_1 =
+  check_static_no_warnings $ static_check_pancake parse_field_val_rstruct_mismatch_1;
 
 
-(* Error: Non-word exported return declarations *)
-
-val ex_export_struct_ret = `
-  export fun {1} f () {
-    return <1>;
+val ex_field_val_rstruct_mismatch_2 = `
+  struct my_struct {
+    1 x,
+    {1} y
   }
+
+  var my_struct s = my_struct <x = 1, y = <1, 1> >;
+`;
+(* Note: This example uses whitespace to get around the nested struct/shift operator parsing issue *)
+
+val parse_field_val_rstruct_mismatch_2 =
+  check_parse_success $ parse_pancake ex_field_val_rstruct_mismatch_2;
+
+val static_field_val_rstruct_mismatch_2 =
+  check_static_failure $ static_check_pancake parse_field_val_rstruct_mismatch_2;
+
+val warns_field_val_rstruct_mismatch_2 =
+  check_static_no_warnings $ static_check_pancake parse_field_val_rstruct_mismatch_2;
+
+
+val ex_field_val_rstruct_mismatch_3 = `
+  struct my_struct {
+    1 x,
+    {1} y
+  }
+
+  struct other_struct {
+    1 value
+  }
+
+  var my_struct s = my_struct <x = 1, y = other_struct <value = 1> >;
+`;
+(* Note: This example uses whitespace to get around the nested struct/shift operator parsing issue *)
+
+val parse_field_val_rstruct_mismatch_3 =
+  check_parse_success $ parse_pancake ex_field_val_rstruct_mismatch_3;
+
+val static_field_val_rstruct_mismatch_3 =
+  check_static_failure $ static_check_pancake parse_field_val_rstruct_mismatch_3;
+
+val warns_field_val_rstruct_mismatch_3 =
+  check_static_no_warnings $ static_check_pancake parse_field_val_rstruct_mismatch_3;
+
+
+val ex_field_val_nstruct_match = `
+  struct your_struct {
+    1 value
+  }
+
+  struct my_struct {
+    1 x,
+    your_struct y
+  }
+
+  var my_struct s = my_struct <x = 1, y = your_struct <value = 1> >;
+`;
+(* Note: This example uses whitespace to get around the nested struct/shift operator parsing issue *)
+
+val parse_field_val_nstruct_match =
+  check_parse_success $ parse_pancake ex_field_val_nstruct_match;
+
+val static_field_val_nstruct_match =
+  check_static_success $ static_check_pancake parse_field_val_nstruct_match;
+
+val warns_field_val_nstruct_match =
+  check_static_no_warnings $ static_check_pancake parse_field_val_nstruct_match;
+
+
+val ex_field_val_nstruct_mismatch_1 = `
+  struct your_struct {
+    1 value
+  }
+
+  struct my_struct {
+    1 x,
+    your_struct y
+  }
+
+  var my_struct s = my_struct <x = 1, y = 1>;
 `;
 
-val parse_export_struct_ret =
-  check_parse_success $ parse_pancake ex_export_struct_ret;
+val parse_field_val_nstruct_mismatch_1 =
+  check_parse_success $ parse_pancake ex_field_val_nstruct_mismatch_1;
 
-val static_export_struct_ret =
-  check_static_failure $ static_check_pancake parse_export_struct_ret;
+val static_field_val_nstruct_mismatch_1 =
+  check_static_failure $ static_check_pancake parse_field_val_nstruct_mismatch_1;
 
-val warns_export_struct_ret =
-  check_static_no_warnings $ static_check_pancake parse_export_struct_ret;
+val warns_field_val_nstruct_mismatch_1 =
+  check_static_no_warnings $ static_check_pancake parse_field_val_nstruct_mismatch_1;
 
 
-(* Error: Invalid field index *)
-
-val ex_valid_struct_lit_index = `
-  fun 1 f () {
-    var 1 x = <0>.0;
-    return 1;
+val ex_field_val_nstruct_mismatch_2 = `
+  struct your_struct {
+    1 value
   }
+
+  struct my_struct {
+    1 x,
+    your_struct y
+  }
+
+  var my_struct s = my_struct <x = 1, y = <1> >;
+`;
+(* Note: This example uses whitespace to get around the nested struct/shift operator parsing issue *)
+
+val parse_field_val_nstruct_mismatch_2 =
+  check_parse_success $ parse_pancake ex_field_val_nstruct_mismatch_2;
+
+val static_field_val_nstruct_mismatch_2 =
+  check_static_failure $ static_check_pancake parse_field_val_nstruct_mismatch_2;
+
+val warns_field_val_nstruct_mismatch_2 =
+  check_static_no_warnings $ static_check_pancake parse_field_val_nstruct_mismatch_2;
+
+
+val ex_field_val_nstruct_mismatch_3 = `
+  struct your_struct {
+    1 value
+  }
+
+  struct my_struct {
+    1 x,
+    your_struct y
+  }
+
+  struct other_struct {
+    1 value
+  }
+
+  var my_struct s = my_struct <x = 1, y = other_struct <value = 1> >;
+`;
+(* Note: This example uses whitespace to get around the nested struct/shift operator parsing issue *)
+
+val parse_field_val_nstruct_mismatch_3 =
+  check_parse_success $ parse_pancake ex_field_val_nstruct_mismatch_3;
+
+val static_field_val_nstruct_mismatch_3 =
+  check_static_failure $ static_check_pancake parse_field_val_nstruct_mismatch_3;
+
+val warns_field_val_nstruct_mismatch_3 =
+  check_static_no_warnings $ static_check_pancake parse_field_val_nstruct_mismatch_3;
+
+
+(* Error: Incorrect number of struct field values *)
+
+val ex_struct_field_missing = `
+  struct my_struct {
+    1 x,
+    1 y
+  }
+
+  var my_struct s = my_struct <x = 1>;
 `;
 
-val parse_valid_struct_lit_index =
-  check_parse_success $ parse_pancake ex_valid_struct_lit_index;
+val parse_struct_field_missing =
+  check_parse_success $ parse_pancake ex_struct_field_missing;
 
-val static_valid_struct_lit_index =
-  check_static_success $ static_check_pancake parse_valid_struct_lit_index;
+val static_struct_field_missing =
+  check_static_failure $ static_check_pancake parse_struct_field_missing;
 
-val warns_valid_struct_lit_index =
-  check_static_no_warnings $ static_check_pancake parse_valid_struct_lit_index;
+val warns_struct_field_missing =
+  check_static_no_warnings $ static_check_pancake parse_struct_field_missing;
 
 
-val ex_valid_struct_var_index = `
-  fun 1 f () {
-    var {1} x = <0>;
-    var 1 y = x.0;
-    return 1;
+val ex_struct_field_extra = `
+  struct my_struct {
+    1 x,
+    1 y
   }
+
+  var my_struct s = my_struct <x = 1, y = 1, z = 1>;
 `;
 
-val parse_valid_struct_var_index =
-  check_parse_success $ parse_pancake ex_valid_struct_var_index;
+val parse_struct_field_extra =
+  check_parse_success $ parse_pancake ex_struct_field_extra;
 
-val static_valid_struct_var_index =
-  check_static_success $ static_check_pancake parse_valid_struct_var_index;
+val static_struct_field_extra =
+  check_static_failure $ static_check_pancake parse_struct_field_extra;
 
-val warns_valid_struct_var_index =
-  check_static_no_warnings $ static_check_pancake parse_valid_struct_var_index;
+val warns_struct_field_extra =
+  check_static_no_warnings $ static_check_pancake parse_struct_field_extra;
 
 
-val ex_invalid_struct_lit_index = `
-  fun 1 f () {
-    var 1 x = <0>.5;
-    return 1;
+val ex_struct_field_duplicate = `
+  struct my_struct {
+    1 x,
+    1 y
   }
+
+  var my_struct s = my_struct <x = 1, y = 1, x = 1>;
 `;
 
-val parse_invalid_struct_lit_index =
-  check_parse_success $ parse_pancake ex_invalid_struct_lit_index;
+val parse_struct_field_duplicate =
+  check_parse_success $ parse_pancake ex_struct_field_duplicate;
 
-val static_invalid_struct_lit_index =
-  check_static_failure $ static_check_pancake parse_invalid_struct_lit_index;
+val static_struct_field_duplicate =
+  check_static_failure $ static_check_pancake parse_struct_field_duplicate;
 
-val warns_invalid_struct_lit_index =
-  check_static_no_warnings $ static_check_pancake parse_invalid_struct_lit_index;
+val warns_struct_field_duplicate =
+  check_static_no_warnings $ static_check_pancake parse_struct_field_duplicate;
 
 
-val ex_invalid_struct_var_index = `
-  fun 1 f () {
-    var {1} x = <0>;
-    var 1 y = x.5;
-    return 1;
+val ex_struct_field_reordered = `
+  struct my_struct {
+    1 x,
+    1 y
   }
+
+  var my_struct s = my_struct <y = 1, x = 1>;
 `;
 
-val parse_invalid_struct_var_index =
-  check_parse_success $ parse_pancake ex_invalid_struct_var_index;
+val parse_struct_field_reordered =
+  check_parse_success $ parse_pancake ex_struct_field_reordered;
 
-val static_invalid_struct_var_index =
-  check_static_failure $ static_check_pancake parse_invalid_struct_var_index;
+val static_struct_field_reordered =
+  check_static_success $ static_check_pancake parse_struct_field_reordered;
 
-val warns_invalid_struct_var_index =
-  check_static_no_warnings $ static_check_pancake parse_invalid_struct_var_index;
-
-
-val ex_invalid_word_var_index = `
-  fun 1 f () {
-    var 1 x = 0;
-    var 1 y = x.5;
-    return 1;
-  }
-`;
-
-val parse_invalid_word_var_index =
-  check_parse_success $ parse_pancake ex_invalid_word_var_index;
-
-val static_invalid_word_var_index =
-  check_static_failure $ static_check_pancake parse_invalid_word_var_index;
-
-val warns_invalid_word_var_index =
-  check_static_no_warnings $ static_check_pancake parse_invalid_word_var_index;
-
-
-(* Error: Non-word addresses for memory operations *)
-
-val ex_local_load_struct_addr = `
-  fun 1 f () {
-    var 1 x = lds 1 <1>;
-    return 1;
-  }
-`;
-
-val parse_local_load_struct_addr =
-  check_parse_success $ parse_pancake ex_local_load_struct_addr;
-
-val static_local_load_struct_addr =
-  check_static_failure $ static_check_pancake parse_local_load_struct_addr;
-
-val warns_local_load_struct_addr =
-  check_static_no_warnings $ static_check_pancake parse_local_load_struct_addr;
-
-
-val ex_local_store_struct_addr = `
-  fun 1 f () {
-    var 1 x = 1;
-    st <1>, x;
-    return 1;
-  }
-`;
-
-val parse_local_store_struct_addr =
-  check_parse_success $ parse_pancake ex_local_store_struct_addr;
-
-val static_local_store_struct_addr =
-  check_static_failure $ static_check_pancake parse_local_store_struct_addr;
-
-val warns_local_store_struct_addr =
-  check_static_no_warnings $ static_check_pancake parse_local_store_struct_addr;
-
-
-val ex_shared_load_struct_addr = `
-  fun 1 f () {
-    var 1 x = 1;
-    !ldw x, <1>;
-    return 1;
-  }
-`;
-
-val parse_shared_load_struct_addr =
-  check_parse_success $ parse_pancake ex_shared_load_struct_addr;
-
-val static_shared_load_struct_addr =
-  check_static_failure $ static_check_pancake parse_shared_load_struct_addr;
-
-val warns_shared_load_struct_addr =
-  check_static_no_warnings $ static_check_pancake parse_shared_load_struct_addr;
-
-
-val ex_shared_store_struct_addr = `
-  fun 1 f () {
-    var 1 x = 1;
-    !stw <1>, x;
-    return 1;
-  }
-`;
-
-val parse_shared_store_struct_addr =
-  check_parse_success $ parse_pancake ex_shared_store_struct_addr;
-
-val static_shared_store_struct_addr =
-  check_static_failure $ static_check_pancake parse_shared_store_struct_addr;
-
-val warns_shared_store_struct_addr =
-  check_static_no_warnings $ static_check_pancake parse_shared_store_struct_addr;
+val warns_struct_field_reordered =
+  check_static_no_warnings $ static_check_pancake parse_struct_field_reordered;
 
 
 (* Error: Mismatched source/destination for memory operations *)
@@ -2504,89 +3479,257 @@ val warns_local_lds_word_match =
   check_static_no_warnings $ static_check_pancake parse_local_lds_word_match;
 
 
-val ex_local_lds_word_mismatch = `
+val ex_local_lds_word_mismatch_1 = `
   fun 1 f () {
     var {1} x = lds 1 @base;
     return 1;
   }
 `;
 
-val parse_local_lds_word_mismatch =
-  check_parse_success $ parse_pancake ex_local_lds_word_mismatch;
+val parse_local_lds_word_mismatch_1 =
+  check_parse_success $ parse_pancake ex_local_lds_word_mismatch_1;
 
-val static_local_lds_word_mismatch =
-  check_static_failure $ static_check_pancake parse_local_lds_word_mismatch;
+val static_local_lds_word_mismatch_1 =
+  check_static_failure $ static_check_pancake parse_local_lds_word_mismatch_1;
 
-val warns_local_lds_word_mismatch =
-  check_static_no_warnings $ static_check_pancake parse_local_lds_word_mismatch;
+val warns_local_lds_word_mismatch_1 =
+  check_static_no_warnings $ static_check_pancake parse_local_lds_word_mismatch_1;
 
 
-val ex_local_lds_struct_match = `
+val ex_local_lds_word_mismatch_2 = `
+  struct my_struct {
+    1 value
+  }
+
+  fun 1 f () {
+    var my_struct x = lds 1 @base;
+    return 1;
+  }
+`;
+
+val parse_local_lds_word_mismatch_2 =
+  check_parse_success $ parse_pancake ex_local_lds_word_mismatch_2;
+
+val static_local_lds_word_mismatch_2 =
+  check_static_failure $ static_check_pancake parse_local_lds_word_mismatch_2;
+
+val warns_local_lds_word_mismatch_2 =
+  check_static_no_warnings $ static_check_pancake parse_local_lds_word_mismatch_2;
+
+
+val ex_local_lds_rstruct_match = `
   fun 1 f () {
     var {1} x = lds {1} @base;
     return 1;
   }
 `;
 
-val parse_local_lds_struct_match =
-  check_parse_success $ parse_pancake ex_local_lds_struct_match;
+val parse_local_lds_rstruct_match =
+  check_parse_success $ parse_pancake ex_local_lds_rstruct_match;
 
-val static_local_lds_struct_match =
-  check_static_success $ static_check_pancake parse_local_lds_struct_match;
+val static_local_lds_rstruct_match =
+  check_static_success $ static_check_pancake parse_local_lds_rstruct_match;
 
-val warns_local_lds_struct_match =
-  check_static_no_warnings $ static_check_pancake parse_local_lds_struct_match;
+val warns_local_lds_rstruct_match =
+  check_static_no_warnings $ static_check_pancake parse_local_lds_rstruct_match;
 
 
-val ex_local_lds_struct_mismatch_1 = `
+val ex_local_lds_rstruct_mismatch_1 = `
   fun 1 f () {
     var 1 x = lds {1} @base;
     return 1;
   }
 `;
 
-val parse_local_lds_struct_mismatch_1 =
-  check_parse_success $ parse_pancake ex_local_lds_struct_mismatch_1;
+val parse_local_lds_rstruct_mismatch_1 =
+  check_parse_success $ parse_pancake ex_local_lds_rstruct_mismatch_1;
 
-val static_local_lds_struct_mismatch_1 =
-  check_static_failure $ static_check_pancake parse_local_lds_struct_mismatch_1;
+val static_local_lds_rstruct_mismatch_1 =
+  check_static_failure $ static_check_pancake parse_local_lds_rstruct_mismatch_1;
 
-val warns_local_lds_struct_mismatch_1 =
-  check_static_no_warnings $ static_check_pancake parse_local_lds_struct_mismatch_1;
+val warns_local_lds_rstruct_mismatch_1 =
+  check_static_no_warnings $ static_check_pancake parse_local_lds_rstruct_mismatch_1;
 
 
-val ex_local_lds_struct_mismatch_2 = `
+val ex_local_lds_rstruct_mismatch_2 = `
   fun 1 f () {
     var 2 x = lds {1} @base;
     return 1;
   }
 `;
 
-val parse_local_lds_struct_mismatch_2 =
-  check_parse_success $ parse_pancake ex_local_lds_struct_mismatch_2;
+val parse_local_lds_rstruct_mismatch_2 =
+  check_parse_success $ parse_pancake ex_local_lds_rstruct_mismatch_2;
 
-val static_local_lds_struct_mismatch_2 =
-  check_static_failure $ static_check_pancake parse_local_lds_struct_mismatch_2;
+val static_local_lds_rstruct_mismatch_2 =
+  check_static_failure $ static_check_pancake parse_local_lds_rstruct_mismatch_2;
 
-val warns_local_lds_struct_mismatch_2 =
-  check_static_no_warnings $ static_check_pancake parse_local_lds_struct_mismatch_2;
+val warns_local_lds_rstruct_mismatch_2 =
+  check_static_no_warnings $ static_check_pancake parse_local_lds_rstruct_mismatch_2;
 
 
-val ex_local_ld8_struct_dest = `
+val ex_local_lds_rstruct_mismatch_3 = `
+  struct my_struct {
+    1 value
+  }
+
+  fun 1 f () {
+    var my_struct x = lds {1} @base;
+    return 1;
+  }
+`;
+
+val parse_local_lds_rstruct_mismatch_3 =
+  check_parse_success $ parse_pancake ex_local_lds_rstruct_mismatch_3;
+
+val static_local_lds_rstruct_mismatch_3 =
+  check_static_failure $ static_check_pancake parse_local_lds_rstruct_mismatch_3;
+
+val warns_local_lds_rstruct_mismatch_3 =
+  check_static_no_warnings $ static_check_pancake parse_local_lds_rstruct_mismatch_3;
+
+
+val ex_local_lds_nstruct_match = `
+  struct my_struct {
+    1 value
+  }
+
+  fun 1 f () {
+    var my_struct x = lds my_struct @base;
+    return 1;
+  }
+`;
+
+val parse_local_lds_nstruct_match =
+  check_parse_success $ parse_pancake ex_local_lds_nstruct_match;
+
+val static_local_lds_nstruct_match =
+  check_static_success $ static_check_pancake parse_local_lds_nstruct_match;
+
+val warns_local_lds_nstruct_match =
+  check_static_no_warnings $ static_check_pancake parse_local_lds_nstruct_match;
+
+
+val ex_local_lds_nstruct_mismatch_1 = `
+  struct my_struct {
+    1 value
+  }
+
+  fun 1 f () {
+    var 1 x = lds my_struct @base;
+    return 1;
+  }
+`;
+
+val parse_local_lds_nstruct_mismatch_1 =
+  check_parse_success $ parse_pancake ex_local_lds_nstruct_mismatch_1;
+
+val static_local_lds_nstruct_mismatch_1 =
+  check_static_failure $ static_check_pancake parse_local_lds_nstruct_mismatch_1;
+
+val warns_local_lds_nstruct_mismatch_1 =
+  check_static_no_warnings $ static_check_pancake parse_local_lds_nstruct_mismatch_1;
+
+
+val ex_local_lds_nstruct_mismatch_2 = `
+  struct my_struct {
+    1 value
+  }
+
+  fun 1 f () {
+    var {1} x = lds my_struct @base;
+    return 1;
+  }
+`;
+
+val parse_local_lds_nstruct_mismatch_2 =
+  check_parse_success $ parse_pancake ex_local_lds_nstruct_mismatch_2;
+
+val static_local_lds_nstruct_mismatch_2 =
+  check_static_failure $ static_check_pancake parse_local_lds_nstruct_mismatch_2;
+
+val warns_local_lds_nstruct_mismatch_2 =
+  check_static_no_warnings $ static_check_pancake parse_local_lds_nstruct_mismatch_2;
+
+
+val ex_local_lds_nstruct_mismatch_3 = `
+  struct my_struct {
+    1 value
+  }
+
+  struct My_Struct {
+    1 value
+  }
+
+  fun 1 f () {
+    var My_Struct x = lds my_struct @base;
+    return 1;
+  }
+`;
+
+val parse_local_lds_nstruct_mismatch_3 =
+  check_parse_success $ parse_pancake ex_local_lds_nstruct_mismatch_3;
+
+val static_local_lds_nstruct_mismatch_3 =
+  check_static_failure $ static_check_pancake parse_local_lds_nstruct_mismatch_3;
+
+val warns_local_lds_nstruct_mismatch_3 =
+  check_static_no_warnings $ static_check_pancake parse_local_lds_nstruct_mismatch_3;
+
+
+val ex_local_ld8_word_dest = `
+  fun 1 f () {
+    var 1 x = ld8 @base;
+    return 1;
+  }
+`;
+
+val parse_local_ld8_word_dest =
+  check_parse_success $ parse_pancake ex_local_ld8_word_dest;
+
+val static_local_ld8_word_dest =
+  check_static_success $ static_check_pancake parse_local_ld8_word_dest;
+
+val warns_local_ld8_word_dest =
+  check_static_no_warnings $ static_check_pancake parse_local_ld8_word_dest;
+
+
+val ex_local_ld8_rstruct_dest = `
   fun 1 f () {
     var {1} x = ld8 @base;
     return 1;
   }
 `;
 
-val parse_local_ld8_struct_dest =
-  check_parse_success $ parse_pancake ex_local_ld8_struct_dest;
+val parse_local_ld8_rstruct_dest =
+  check_parse_success $ parse_pancake ex_local_ld8_rstruct_dest;
 
-val static_local_ld8_struct_dest =
-  check_static_failure $ static_check_pancake parse_local_ld8_struct_dest;
+val static_local_ld8_rstruct_dest =
+  check_static_failure $ static_check_pancake parse_local_ld8_rstruct_dest;
 
-val warns_local_ld8_struct_dest =
-  check_static_no_warnings $ static_check_pancake parse_local_ld8_struct_dest;
+val warns_local_ld8_rstruct_dest =
+  check_static_no_warnings $ static_check_pancake parse_local_ld8_rstruct_dest;
+
+
+val ex_local_ld8_nstruct_dest = `
+  struct my_struct {
+    1 value
+  }
+
+  fun 1 f () {
+    var my_struct x = ld8 @base;
+    return 1;
+  }
+`;
+
+val parse_local_ld8_nstruct_dest =
+  check_parse_success $ parse_pancake ex_local_ld8_nstruct_dest;
+
+val static_local_ld8_nstruct_dest =
+  check_static_failure $ static_check_pancake parse_local_ld8_nstruct_dest;
+
+val warns_local_ld8_nstruct_dest =
+  check_static_no_warnings $ static_check_pancake parse_local_ld8_nstruct_dest;
 
 
 val ex_shared_ldw_word_dest = `
@@ -2607,7 +3750,7 @@ val warns_shared_ldw_word_dest =
   check_static_no_warnings $ static_check_pancake parse_shared_ldw_word_dest;
 
 
-val ex_shared_ldw_struct_dest = `
+val ex_shared_ldw_rstruct_dest = `
   fun 1 f () {
     var {1} x = <1>;
     !ldw x, 0;
@@ -2615,14 +3758,36 @@ val ex_shared_ldw_struct_dest = `
   }
 `;
 
-val parse_shared_ldw_struct_dest =
-  check_parse_success $ parse_pancake ex_shared_ldw_struct_dest;
+val parse_shared_ldw_rstruct_dest =
+  check_parse_success $ parse_pancake ex_shared_ldw_rstruct_dest;
 
-val static_shared_ldw_struct_dest =
-  check_static_failure $ static_check_pancake parse_shared_ldw_struct_dest;
+val static_shared_ldw_rstruct_dest =
+  check_static_failure $ static_check_pancake parse_shared_ldw_rstruct_dest;
 
-val warns_shared_ldw_struct_dest =
-  check_static_no_warnings $ static_check_pancake parse_shared_ldw_struct_dest;
+val warns_shared_ldw_rstruct_dest =
+  check_static_no_warnings $ static_check_pancake parse_shared_ldw_rstruct_dest;
+
+
+val ex_shared_ldw_nstruct_dest = `
+  struct my_struct {
+    1 value
+  }
+
+  fun 1 f () {
+    var my_struct x = my_struct <value = 1>;
+    !ldw x, 0;
+    return 1;
+  }
+`;
+
+val parse_shared_ldw_nstruct_dest =
+  check_parse_success $ parse_pancake ex_shared_ldw_nstruct_dest;
+
+val static_shared_ldw_nstruct_dest =
+  check_static_failure $ static_check_pancake parse_shared_ldw_nstruct_dest;
+
+val warns_shared_ldw_nstruct_dest =
+  check_static_no_warnings $ static_check_pancake parse_shared_ldw_nstruct_dest;
 
 
 val ex_shared_stw_word_src = `
@@ -2643,7 +3808,7 @@ val warns_shared_stw_word_src =
   check_static_no_warnings $ static_check_pancake parse_shared_stw_word_src;
 
 
-val ex_shared_stw_struct_src = `
+val ex_shared_stw_rstruct_src = `
   fun 1 f () {
     var {1} x = <1>;
     !stw 0, x;
@@ -2651,117 +3816,721 @@ val ex_shared_stw_struct_src = `
   }
 `;
 
-val parse_shared_stw_struct_src =
-  check_parse_success $ parse_pancake ex_shared_stw_struct_src;
+val parse_shared_stw_rstruct_src =
+  check_parse_success $ parse_pancake ex_shared_stw_rstruct_src;
 
-val static_shared_stw_struct_src =
-  check_static_failure $ static_check_pancake parse_shared_stw_struct_src;
+val static_shared_stw_rstruct_src =
+  check_static_failure $ static_check_pancake parse_shared_stw_rstruct_src;
 
-val warns_shared_stw_struct_src =
-  check_static_no_warnings $ static_check_pancake parse_shared_stw_struct_src;
+val warns_shared_stw_rstruct_src =
+  check_static_no_warnings $ static_check_pancake parse_shared_stw_rstruct_src;
+
+
+val ex_shared_stw_nstruct_src = `
+  struct my_struct {
+    1 value
+  }
+
+  fun 1 f () {
+    var my_struct x = my_struct <value = 1>;
+    !stw 0, x;
+    return 1;
+  }
+`;
+
+val parse_shared_stw_nstruct_src =
+  check_parse_success $ parse_pancake ex_shared_stw_nstruct_src;
+
+val static_shared_stw_nstruct_src =
+  check_static_failure $ static_check_pancake parse_shared_stw_nstruct_src;
+
+val warns_shared_stw_nstruct_src =
+  check_static_no_warnings $ static_check_pancake parse_shared_stw_nstruct_src;
+
+
+(* Error: Non-word main function return declarations *)
+
+val ex_main_rstruct_ret = `
+  fun {1} main () {
+    return <1>;
+  }
+`;
+
+val parse_main_rstruct_ret =
+  check_parse_success $ parse_pancake ex_main_rstruct_ret;
+
+val static_main_rstruct_ret =
+  check_static_failure $ static_check_pancake parse_main_rstruct_ret;
+
+val warns_main_rstruct_ret =
+  check_static_no_warnings $ static_check_pancake parse_main_rstruct_ret;
+
+
+val ex_main_nstruct_ret = `
+  struct my_struct {
+    1 value
+  }
+
+  fun my_struct main () {
+    return my_struct <value = 1>;
+  }
+`;
+
+val parse_main_nstruct_ret =
+  check_parse_success $ parse_pancake ex_main_nstruct_ret;
+
+val static_main_nstruct_ret =
+  check_static_failure $ static_check_pancake parse_main_nstruct_ret;
+
+val warns_main_nstruct_ret =
+  check_static_no_warnings $ static_check_pancake parse_main_nstruct_ret;
+
+
+(* Error: Non-word FFI arguments *)
+
+val ex_ffi_rstruct_lit_arg = `
+  fun 1 f () {
+    @g(1, 2, 3, <4>);
+    return 1;
+  }
+`;
+
+val parse_ffi_rstruct_lit_arg =
+  check_parse_success $ parse_pancake ex_ffi_rstruct_lit_arg;
+
+val static_ffi_rstruct_lit_arg =
+  check_static_failure $ static_check_pancake parse_ffi_rstruct_lit_arg;
+
+val warns_ffi_rstruct_lit_arg =
+  check_static_no_warnings $ static_check_pancake parse_ffi_rstruct_lit_arg;
+
+
+val ex_ffi_rstruct_var_arg = `
+  fun 1 f () {
+    var {1} x = <0>;
+    @g(1, x, 3, 4);
+    return 1;
+  }
+`;
+
+val parse_ffi_rstruct_var_arg =
+  check_parse_success $ parse_pancake ex_ffi_rstruct_var_arg;
+
+val static_ffi_rstruct_var_arg =
+  check_static_failure $ static_check_pancake parse_ffi_rstruct_var_arg;
+
+val warns_ffi_rstruct_var_arg =
+  check_static_no_warnings $ static_check_pancake parse_ffi_rstruct_var_arg;
+
+
+val ex_ffi_nstruct_lit_arg = `
+  struct my_struct {
+    1 value
+  }
+
+  fun 1 f () {
+    @g(1, 2, 3, my_struct <value = 4>);
+    return 1;
+  }
+`;
+
+val parse_ffi_nstruct_lit_arg =
+  check_parse_success $ parse_pancake ex_ffi_nstruct_lit_arg;
+
+val static_ffi_nstruct_lit_arg =
+  check_static_failure $ static_check_pancake parse_ffi_nstruct_lit_arg;
+
+val warns_ffi_nstruct_lit_arg =
+  check_static_no_warnings $ static_check_pancake parse_ffi_nstruct_lit_arg;
+
+
+val ex_ffi_nstruct_var_arg = `
+  struct my_struct {
+    1 value
+  }
+
+  fun 1 f () {
+    var my_struct x = my_struct <value = 0>;
+    @g(1, x, 3, 4);
+    return 1;
+  }
+`;
+
+val parse_ffi_nstruct_var_arg =
+  check_parse_success $ parse_pancake ex_ffi_nstruct_var_arg;
+
+val static_ffi_nstruct_var_arg =
+  check_static_failure $ static_check_pancake parse_ffi_rstruct_var_arg;
+
+val warns_ffi_nstruct_var_arg =
+  check_static_no_warnings $ static_check_pancake parse_ffi_nstruct_var_arg;
+
+
+(* Error: Non-word exported argument declarations *)
+
+val ex_export_rstruct_arg = `
+  export fun 1 f ({1} a) {
+    return 1;
+  }
+`;
+
+val parse_export_rstruct_arg =
+  check_parse_success $ parse_pancake ex_export_rstruct_arg;
+
+val static_export_rstruct_arg =
+  check_static_failure $ static_check_pancake parse_export_rstruct_arg;
+
+val warns_export_rstruct_arg =
+  check_static_no_warnings $ static_check_pancake parse_export_rstruct_arg;
+
+
+val ex_export_nstruct_arg = `
+  struct my_struct {
+    1 value
+  }
+
+  export fun 1 f (my_struct a) {
+    return 1;
+  }
+`;
+
+val parse_export_nstruct_arg =
+  check_parse_success $ parse_pancake ex_export_nstruct_arg;
+
+val static_export_nstruct_arg =
+  check_static_failure $ static_check_pancake parse_export_nstruct_arg;
+
+val warns_export_nstruct_arg =
+  check_static_no_warnings $ static_check_pancake parse_export_nstruct_arg;
+
+
+(* Error: Non-word exported return declarations *)
+
+val ex_export_rstruct_ret = `
+  export fun {1} f () {
+    return <1>;
+  }
+`;
+
+val parse_export_rstruct_ret =
+  check_parse_success $ parse_pancake ex_export_rstruct_ret;
+
+val static_export_rstruct_ret =
+  check_static_failure $ static_check_pancake parse_export_rstruct_ret;
+
+val warns_export_rstruct_ret =
+  check_static_no_warnings $ static_check_pancake parse_export_rstruct_ret;
+
+
+val ex_export_nstruct_ret = `
+  struct my_struct {
+    1 value
+  }
+
+  export fun my_struct f () {
+    return my_struct <value = 1>;
+  }
+`;
+
+val parse_export_nstruct_ret =
+  check_parse_success $ parse_pancake ex_export_nstruct_ret;
+
+val static_export_nstruct_ret =
+  check_static_failure $ static_check_pancake parse_export_nstruct_ret;
+
+val warns_export_nstruct_ret =
+  check_static_no_warnings $ static_check_pancake parse_export_nstruct_ret;
+
+
+(* Error: Non-word addresses for memory operations *)
+
+val ex_local_load_rstruct_addr = `
+  fun 1 f () {
+    var 1 x = lds 1 <1>;
+    return 1;
+  }
+`;
+
+val parse_local_load_rstruct_addr =
+  check_parse_success $ parse_pancake ex_local_load_rstruct_addr;
+
+val static_local_load_rstruct_addr =
+  check_static_failure $ static_check_pancake parse_local_load_rstruct_addr;
+
+val warns_local_load_rstruct_addr =
+  check_static_no_warnings $ static_check_pancake parse_local_load_rstruct_addr;
+
+
+val ex_local_load_nstruct_addr = `
+  struct my_struct {
+    1 value
+  }
+
+  fun 1 f () {
+    var 1 x = lds 1 my_struct <value = 1>;
+    return 1;
+  }
+`;
+
+val parse_local_load_nstruct_addr =
+  check_parse_success $ parse_pancake ex_local_load_nstruct_addr;
+
+val static_local_load_nstruct_addr =
+  check_static_failure $ static_check_pancake parse_local_load_nstruct_addr;
+
+val warns_local_load_nstruct_addr =
+  check_static_no_warnings $ static_check_pancake parse_local_load_nstruct_addr;
+
+
+val ex_local_store_rstruct_addr = `
+  fun 1 f () {
+    var 1 x = 1;
+    st <1>, x;
+    return 1;
+  }
+`;
+
+val parse_local_store_rstruct_addr =
+  check_parse_success $ parse_pancake ex_local_store_rstruct_addr;
+
+val static_local_store_rstruct_addr =
+  check_static_failure $ static_check_pancake parse_local_store_rstruct_addr;
+
+val warns_local_store_rstruct_addr =
+  check_static_no_warnings $ static_check_pancake parse_local_store_rstruct_addr;
+
+
+val ex_local_store_nstruct_addr = `
+  struct my_struct {
+    1 value
+  }
+
+  fun 1 f () {
+    var 1 x = 1;
+    st my_struct <value = 1>, x;
+    return 1;
+  }
+`;
+
+val parse_local_store_nstruct_addr =
+  check_parse_success $ parse_pancake ex_local_store_nstruct_addr;
+
+val static_local_store_nstruct_addr =
+  check_static_failure $ static_check_pancake parse_local_store_nstruct_addr;
+
+val warns_local_store_nstruct_addr =
+  check_static_no_warnings $ static_check_pancake parse_local_store_nstruct_addr;
+
+
+val ex_shared_load_rstruct_addr = `
+  fun 1 f () {
+    var 1 x = 1;
+    !ldw x, <1>;
+    return 1;
+  }
+`;
+
+val parse_shared_load_rstruct_addr =
+  check_parse_success $ parse_pancake ex_shared_load_rstruct_addr;
+
+val static_shared_load_rstruct_addr =
+  check_static_failure $ static_check_pancake parse_shared_load_rstruct_addr;
+
+val warns_shared_load_rstruct_addr =
+  check_static_no_warnings $ static_check_pancake parse_shared_load_rstruct_addr;
+
+
+val ex_shared_load_nstruct_addr = `
+  struct my_struct {
+    1 value
+  }
+
+  fun 1 f () {
+    var 1 x = 1;
+    !ldw x, my_struct <value = 1>;
+    return 1;
+  }
+`;
+
+val parse_shared_load_nstruct_addr =
+  check_parse_success $ parse_pancake ex_shared_load_nstruct_addr;
+
+val static_shared_load_nstruct_addr =
+  check_static_failure $ static_check_pancake parse_shared_load_nstruct_addr;
+
+val warns_shared_load_nstruct_addr =
+  check_static_no_warnings $ static_check_pancake parse_shared_load_nstruct_addr;
+
+
+val ex_shared_store_rstruct_addr = `
+  fun 1 f () {
+    var 1 x = 1;
+    !stw <1>, x;
+    return 1;
+  }
+`;
+
+val parse_shared_store_rstruct_addr =
+  check_parse_success $ parse_pancake ex_shared_store_rstruct_addr;
+
+val static_shared_store_rstruct_addr =
+  check_static_failure $ static_check_pancake parse_shared_store_rstruct_addr;
+
+val warns_shared_store_rstruct_addr =
+  check_static_no_warnings $ static_check_pancake parse_shared_store_rstruct_addr;
+
+
+val ex_shared_store_nstruct_addr = `
+  struct my_struct {
+    1 value
+  }
+
+  fun 1 f () {
+    var 1 x = 1;
+    !stw my_struct <value = 1>, x;
+    return 1;
+  }
+`;
+
+val parse_shared_store_nstruct_addr =
+  check_parse_success $ parse_pancake ex_shared_store_nstruct_addr;
+
+val static_shared_store_nstruct_addr =
+  check_static_failure $ static_check_pancake parse_shared_store_nstruct_addr;
+
+val warns_shared_store_nstruct_addr =
+  check_static_no_warnings $ static_check_pancake parse_shared_store_nstruct_addr;
 
 
 (* Error: Non-word/mismatched operator operands *)
 
-val ex_add_one_struct_operand = `
+val ex_add_one_rstruct_operand = `
   fun 1 f () {
     return 1 + <2>;
   }
 `;
 
-val parse_add_one_struct_operand =
-  check_parse_success $ parse_pancake ex_add_one_struct_operand;
+val parse_add_one_rstruct_operand =
+  check_parse_success $ parse_pancake ex_add_one_rstruct_operand;
 
-val static_add_one_struct_operand =
-  check_static_failure $ static_check_pancake parse_add_one_struct_operand;
+val static_add_one_rstruct_operand =
+  check_static_failure $ static_check_pancake parse_add_one_rstruct_operand;
 
-val warns_add_one_struct_operand =
-  check_static_no_warnings $ static_check_pancake parse_add_one_struct_operand;
+val warns_add_one_rstruct_operand =
+  check_static_no_warnings $ static_check_pancake parse_add_one_rstruct_operand;
 
 
-val ex_add_all_struct_operands = `
+val ex_add_all_rstruct_operands = `
   fun 1 f () {
     return <1> + <2, 3>;
   }
 `;
 
-val parse_add_all_struct_operands =
-  check_parse_success $ parse_pancake ex_add_all_struct_operands;
+val parse_add_all_rstruct_operands =
+  check_parse_success $ parse_pancake ex_add_all_rstruct_operands;
 
-val static_add_all_struct_operands =
-  check_static_failure $ static_check_pancake parse_add_all_struct_operands;
+val static_add_all_rstruct_operands =
+  check_static_failure $ static_check_pancake parse_add_all_rstruct_operands;
 
-val warns_add_all_struct_operands =
-  check_static_no_warnings $ static_check_pancake parse_add_all_struct_operands;
+val warns_add_all_rstruct_operands =
+  check_static_no_warnings $ static_check_pancake parse_add_all_rstruct_operands;
 
 
-val ex_mult_one_struct_operand = `
+val ex_add_one_nstruct_operand = `
+  struct my_struct {
+    1 value
+  }
+
+  fun 1 f () {
+    return 1 + my_struct <value = 2>;
+  }
+`;
+
+val parse_add_one_nstruct_operand =
+  check_parse_success $ parse_pancake ex_add_one_nstruct_operand;
+
+val static_add_one_nstruct_operand =
+  check_static_failure $ static_check_pancake parse_add_one_nstruct_operand;
+
+val warns_add_one_nstruct_operand =
+  check_static_no_warnings $ static_check_pancake parse_add_one_nstruct_operand;
+
+
+val ex_add_all_nstruct_operands = `
+  struct my_struct {
+    1 value
+  }
+
+  struct My_Struct {
+    1 value
+  }
+
+  fun 1 f () {
+    return my_struct <value = 1> + My_Struct <value = 3>;
+  }
+`;
+
+val parse_add_all_nstruct_operands =
+  check_parse_success $ parse_pancake ex_add_all_nstruct_operands;
+
+val static_add_all_nstruct_operands =
+  check_static_failure $ static_check_pancake parse_add_all_nstruct_operands;
+
+val warns_add_all_nstruct_operands =
+  check_static_no_warnings $ static_check_pancake parse_add_all_nstruct_operands;
+
+
+val ex_add_both_struct_operands = `
+  struct my_struct {
+    1 value
+  }
+
+  fun 1 f () {
+    return my_struct <value = 1> + <2, 3>;
+  }
+`;
+
+val parse_add_both_struct_operands =
+  check_parse_success $ parse_pancake ex_add_both_struct_operands;
+
+val static_add_both_struct_operands =
+  check_static_failure $ static_check_pancake parse_add_both_struct_operands;
+
+val warns_add_both_struct_operands =
+  check_static_no_warnings $ static_check_pancake parse_add_both_struct_operands;
+
+
+val ex_mult_one_rstruct_operand = `
   fun 1 f () {
     return 1 * <2>;
   }
 `;
 
-val parse_mult_one_struct_operand =
-  check_parse_success $ parse_pancake ex_mult_one_struct_operand;
+val parse_mult_one_rstruct_operand =
+  check_parse_success $ parse_pancake ex_mult_one_rstruct_operand;
 
-val static_mult_one_struct_operand =
-  check_static_failure $ static_check_pancake parse_mult_one_struct_operand;
+val static_mult_one_rstruct_operand =
+  check_static_failure $ static_check_pancake parse_mult_one_rstruct_operand;
 
-val warns_mult_one_struct_operand =
-  check_static_no_warnings $ static_check_pancake parse_mult_one_struct_operand;
+val warns_mult_one_rstruct_operand =
+  check_static_no_warnings $ static_check_pancake parse_mult_one_rstruct_operand;
 
 
-val ex_mult_all_struct_operands = `
+val ex_mult_all_rstruct_operands = `
   fun 1 f () {
     return <1> * <2, 3>;
   }
 `;
 
-val parse_mult_all_struct_operands =
-  check_parse_success $ parse_pancake ex_mult_all_struct_operands;
+val parse_mult_all_rstruct_operands =
+  check_parse_success $ parse_pancake ex_mult_all_rstruct_operands;
 
-val static_mult_all_struct_operands =
-  check_static_failure $ static_check_pancake parse_mult_all_struct_operands;
+val static_mult_all_rstruct_operands =
+  check_static_failure $ static_check_pancake parse_mult_all_rstruct_operands;
 
-val warns_mult_all_struct_operands =
-  check_static_no_warnings $ static_check_pancake parse_mult_all_struct_operands;
+val warns_mult_all_rstruct_operands =
+  check_static_no_warnings $ static_check_pancake parse_mult_all_rstruct_operands;
 
 
-val ex_shift_struct_operand = `
+val ex_mult_one_nstruct_operand = `
+  struct my_struct {
+    1 value
+  }
+
+  fun 1 f () {
+    return 1 * my_struct <value = 2>;
+  }
+`;
+
+val parse_mult_one_nstruct_operand =
+  check_parse_success $ parse_pancake ex_mult_one_nstruct_operand;
+
+val static_mult_one_nstruct_operand =
+  check_static_failure $ static_check_pancake parse_mult_one_nstruct_operand;
+
+val warns_mult_one_nstruct_operand =
+  check_static_no_warnings $ static_check_pancake parse_mult_one_nstruct_operand;
+
+
+val ex_mult_all_nstruct_operands = `
+  struct my_struct {
+    1 value
+  }
+
+  struct My_Struct {
+    1 value
+  }
+
+  fun 1 f () {
+    return my_struct <value = 1> * My_Struct <value = 3>;
+  }
+`;
+
+val parse_mult_all_nstruct_operands =
+  check_parse_success $ parse_pancake ex_mult_all_nstruct_operands;
+
+val static_mult_all_nstruct_operands =
+  check_static_failure $ static_check_pancake parse_mult_all_nstruct_operands;
+
+val warns_mult_all_nstruct_operands =
+  check_static_no_warnings $ static_check_pancake parse_mult_all_nstruct_operands;
+
+
+val ex_mult_both_struct_operands = `
+  struct my_struct {
+    1 value
+  }
+
+  fun 1 f () {
+    return my_struct <value = 1> * <2, 3>;
+  }
+`;
+
+val parse_mult_both_struct_operands =
+  check_parse_success $ parse_pancake ex_mult_both_struct_operands;
+
+val static_mult_both_struct_operands =
+  check_static_failure $ static_check_pancake parse_mult_both_struct_operands;
+
+val warns_mult_both_struct_operands =
+  check_static_no_warnings $ static_check_pancake parse_mult_both_struct_operands;
+
+
+val ex_shift_rstruct_operand = `
   fun 1 f () {
     return <1> << 2;
   }
 `;
 
-val parse_shift_struct_operand =
-  check_parse_success $ parse_pancake ex_shift_struct_operand;
+val parse_shift_rstruct_operand =
+  check_parse_success $ parse_pancake ex_shift_rstruct_operand;
 
-val static_shift_struct_operand =
-  check_static_failure $ static_check_pancake parse_shift_struct_operand;
+val static_shift_rstruct_operand =
+  check_static_failure $ static_check_pancake parse_shift_rstruct_operand;
 
-val warns_shift_struct_operand =
-  check_static_no_warnings $ static_check_pancake parse_shift_struct_operand;
+val warns_shift_rstruct_operand =
+  check_static_no_warnings $ static_check_pancake parse_shift_rstruct_operand;
 
 
-val ex_cmp_word_struct_operands = `
+val ex_shift_nstruct_operand = `
+  struct my_struct {
+    1 value
+  }
+
+  fun 1 f () {
+    return my_struct <value = 1> << 2;
+  }
+`;
+
+val parse_shift_nstruct_operand =
+  check_parse_success $ parse_pancake ex_shift_nstruct_operand;
+
+val static_shift_nstruct_operand =
+  check_static_failure $ static_check_pancake parse_shift_nstruct_operand;
+
+val warns_shift_nstruct_operand =
+  check_static_no_warnings $ static_check_pancake parse_shift_nstruct_operand;
+
+
+val ex_cmp_word_rstruct_operands = `
   fun 1 f () {
     return 0 == <1>;
   }
 `;
 
-val parse_cmp_word_struct_operands =
-  check_parse_success $ parse_pancake ex_cmp_word_struct_operands;
+val parse_cmp_word_rstruct_operands =
+  check_parse_success $ parse_pancake ex_cmp_word_rstruct_operands;
 
-val static_cmp_word_struct_operands =
-  check_static_failure $ static_check_pancake parse_cmp_word_struct_operands;
+val static_cmp_word_rstruct_operands =
+  check_static_failure $ static_check_pancake parse_cmp_word_rstruct_operands;
 
-val warns_cmp_word_struct_operands =
-  check_static_no_warnings $ static_check_pancake parse_cmp_word_struct_operands;
+val warns_cmp_word_rstruct_operands =
+  check_static_no_warnings $ static_check_pancake parse_cmp_word_rstruct_operands;
+
+
+val ex_cmp_word_nstruct_operands = `
+  struct my_struct {
+    1 value
+  }
+
+  fun 1 f () {
+    return 0 == my_struct <value = 1>;
+  }
+`;
+
+val parse_cmp_word_nstruct_operands =
+  check_parse_success $ parse_pancake ex_cmp_word_nstruct_operands;
+
+val static_cmp_word_nstruct_operands =
+  check_static_failure $ static_check_pancake parse_cmp_word_nstruct_operands;
+
+val warns_cmp_word_nstruct_operands =
+  check_static_no_warnings $ static_check_pancake parse_cmp_word_nstruct_operands;
+
+
+val ex_cmp_rstruct_nstruct_operands = `
+  struct my_struct {
+    1 value
+  }
+
+  fun 1 f () {
+    return <1> == my_struct <value = 1>;
+  }
+`;
+
+val parse_cmp_rstruct_nstruct_operands =
+  check_parse_success $ parse_pancake ex_cmp_rstruct_nstruct_operands;
+
+val static_cmp_rstruct_nstruct_operands =
+  check_static_failure $ static_check_pancake parse_cmp_rstruct_nstruct_operands;
+
+val warns_cmp_rstruct_nstruct_operands =
+  check_static_no_warnings $ static_check_pancake parse_cmp_rstruct_nstruct_operands;
+
+
+val ex_cmp_diff_rstructs_operands = `
+  fun 1 f () {
+    return <1> == <2, 3>;
+  }
+`;
+
+val parse_cmp_diff_rstructs_operands =
+  check_parse_success $ parse_pancake ex_cmp_diff_rstructs_operands;
+
+val static_cmp_diff_rstructs_operands =
+  check_static_failure $ static_check_pancake parse_cmp_diff_rstructs_operands;
+
+val warns_cmp_diff_rstructs_operands =
+  check_static_no_warnings $ static_check_pancake parse_cmp_diff_rstructs_operands;
+
+
+val ex_cmp_diff_nstructs_operands = `
+  struct my_struct {
+    1 value
+  }
+
+  struct My_Struct {
+    1 value
+  }
+
+  fun 1 f () {
+    return my_struct <value = 1> == My_Struct <value = 1>;
+  }
+`;
+
+val parse_cmp_diff_nstructs_operands =
+  check_parse_success $ parse_pancake ex_cmp_diff_nstructs_operands;
+
+val static_cmp_diff_nstructs_operands =
+  check_static_failure $ static_check_pancake parse_cmp_diff_nstructs_operands;
+
+val warns_cmp_diff_nstructs_operands =
+  check_static_no_warnings $ static_check_pancake parse_cmp_diff_nstructs_operands;
 
 
 (* Error: Non-word condition expressions *)
 
-val ex_if_cond_struct = `
+val ex_if_cond_rstruct = `
   fun 1 f () {
     if <1> {
       skip;
@@ -2770,17 +4539,40 @@ val ex_if_cond_struct = `
   }
 `;
 
-val parse_if_cond_struct =
-  check_parse_success $ parse_pancake ex_if_cond_struct;
+val parse_if_cond_rstruct =
+  check_parse_success $ parse_pancake ex_if_cond_rstruct;
 
-val static_if_cond_struct =
-  check_static_failure $ static_check_pancake parse_if_cond_struct;
+val static_if_cond_rstruct =
+  check_static_failure $ static_check_pancake parse_if_cond_rstruct;
 
-val warns_if_cond_struct =
-  check_static_no_warnings $ static_check_pancake parse_if_cond_struct;
+val warns_if_cond_rstruct =
+  check_static_no_warnings $ static_check_pancake parse_if_cond_rstruct;
 
 
-val ex_while_cond_struct = `
+val ex_if_cond_nstruct = `
+  struct my_struct {
+    1 value
+  }
+
+  fun 1 f () {
+    if my_struct <value = 1> {
+      skip;
+    }
+    return 1;
+  }
+`;
+
+val parse_if_cond_nstruct =
+  check_parse_success $ parse_pancake ex_if_cond_nstruct;
+
+val static_if_cond_nstruct =
+  check_static_failure $ static_check_pancake parse_if_cond_nstruct;
+
+val warns_if_cond_nstruct =
+  check_static_no_warnings $ static_check_pancake parse_if_cond_nstruct;
+
+
+val ex_while_cond_rstruct = `
   fun 1 f () {
     while <1> {
       skip;
@@ -2789,57 +4581,529 @@ val ex_while_cond_struct = `
   }
 `;
 
-val parse_while_cond_struct =
-  check_parse_success $ parse_pancake ex_while_cond_struct;
+val parse_while_cond_rstruct =
+  check_parse_success $ parse_pancake ex_while_cond_rstruct;
 
-val static_while_cond_struct =
-  check_static_failure $ static_check_pancake parse_while_cond_struct;
+val static_while_cond_rstruct =
+  check_static_failure $ static_check_pancake parse_while_cond_rstruct;
 
-val warns_while_cond_struct =
-  check_static_no_warnings $ static_check_pancake parse_while_cond_struct;
+val warns_while_cond_rstruct =
+  check_static_no_warnings $ static_check_pancake parse_while_cond_rstruct;
 
 
-(* Error: Returned shape size >32 words *)
+val ex_while_cond_nstruct = `
+  struct my_struct {
+    1 value
+  }
 
-val ex_big_var = `
+  fun 1 f () {
+    while my_struct <value = 1> {
+      skip;
+    }
+    return 1;
+  }
+`;
+
+val parse_while_cond_nstruct =
+  check_parse_success $ parse_pancake ex_while_cond_nstruct;
+
+val static_while_cond_nstruct =
+  check_static_failure $ static_check_pancake parse_while_cond_nstruct;
+
+val warns_while_cond_nstruct =
+  check_static_no_warnings $ static_check_pancake parse_while_cond_nstruct;
+
+
+(* Error: Invalid field index *)
+
+val ex_valid_rstruct_lit_index = `
+  fun 1 f () {
+    var 1 x = <0>.0;
+    return 1;
+  }
+`;
+
+val parse_valid_rstruct_lit_index =
+  check_parse_success $ parse_pancake ex_valid_rstruct_lit_index;
+
+val static_valid_rstruct_lit_index =
+  check_static_success $ static_check_pancake parse_valid_rstruct_lit_index;
+
+val warns_valid_rstruct_lit_index =
+  check_static_no_warnings $ static_check_pancake parse_valid_rstruct_lit_index;
+
+
+val ex_valid_rstruct_var_index = `
+  fun 1 f () {
+    var {1} x = <0>;
+    var 1 y = x.0;
+    return 1;
+  }
+`;
+
+val parse_valid_rstruct_var_index =
+  check_parse_success $ parse_pancake ex_valid_rstruct_var_index;
+
+val static_valid_rstruct_var_index =
+  check_static_success $ static_check_pancake parse_valid_rstruct_var_index;
+
+val warns_valid_rstruct_var_index =
+  check_static_no_warnings $ static_check_pancake parse_valid_rstruct_var_index;
+
+
+val ex_invalid_rstruct_lit_index = `
+  fun 1 f () {
+    var 1 x = <0>.5;
+    return 1;
+  }
+`;
+
+val parse_invalid_rstruct_lit_index =
+  check_parse_success $ parse_pancake ex_invalid_rstruct_lit_index;
+
+val static_invalid_rstruct_lit_index =
+  check_static_failure $ static_check_pancake parse_invalid_rstruct_lit_index;
+
+val warns_invalid_rstruct_lit_index =
+  check_static_no_warnings $ static_check_pancake parse_invalid_rstruct_lit_index;
+
+
+val ex_invalid_rstruct_var_index = `
+  fun 1 f () {
+    var {1} x = <0>;
+    var 1 y = x.5;
+    return 1;
+  }
+`;
+
+val parse_invalid_rstruct_var_index =
+  check_parse_success $ parse_pancake ex_invalid_rstruct_var_index;
+
+val static_invalid_rstruct_var_index =
+  check_static_failure $ static_check_pancake parse_invalid_rstruct_var_index;
+
+val warns_invalid_rstruct_var_index =
+  check_static_no_warnings $ static_check_pancake parse_invalid_rstruct_var_index;
+
+
+val ex_invalid_word_lit_index = `
+  fun 1 f () {
+    var 1 x = 0.5;
+    return 1;
+  }
+`;
+
+val parse_invalid_word_lit_index =
+  check_parse_success $ parse_pancake ex_invalid_word_lit_index;
+
+val static_invalid_word_lit_index =
+  check_static_failure $ static_check_pancake parse_invalid_word_lit_index;
+
+val warns_invalid_word_lit_index =
+  check_static_no_warnings $ static_check_pancake parse_invalid_word_lit_index;
+
+
+val ex_invalid_word_var_index = `
+  fun 1 f () {
+    var 1 x = 0;
+    var 1 y = x.5;
+    return 1;
+  }
+`;
+
+val parse_invalid_word_var_index =
+  check_parse_success $ parse_pancake ex_invalid_word_var_index;
+
+val static_invalid_word_var_index =
+  check_static_failure $ static_check_pancake parse_invalid_word_var_index;
+
+val warns_invalid_word_var_index =
+  check_static_no_warnings $ static_check_pancake parse_invalid_word_var_index;
+
+
+val ex_invalid_nstruct_lit_index = `
+  struct my_struct {
+    1 value0,
+    1 value1,
+    1 value2,
+    1 value3,
+    1 value4,
+    1 value5
+  }
+
+  fun 1 f () {
+    var my_struct x = my_struct <
+      value0 = 1,
+      value1 = 1,
+      value2 = 1,
+      value3 = 1,
+      value4 = 1,
+      value5 = 1
+    >.5;
+    return 1;
+  }
+`;
+
+val parse_invalid_nstruct_lit_index =
+  check_parse_success $ parse_pancake ex_invalid_nstruct_lit_index;
+
+val static_invalid_nstruct_lit_index =
+  check_static_failure $ static_check_pancake parse_invalid_nstruct_lit_index;
+
+val warns_invalid_nstruct_lit_index =
+  check_static_no_warnings $ static_check_pancake parse_invalid_nstruct_lit_index;
+
+
+val ex_invalid_nstruct_var_index = `
+  struct my_struct {
+    1 value0,
+    1 value1,
+    1 value2,
+    1 value3,
+    1 value4,
+    1 value5
+  }
+
+  fun 1 f () {
+    var my_struct x = my_struct <
+      value0 = 1,
+      value1 = 1,
+      value2 = 1,
+      value3 = 1,
+      value4 = 1,
+      value5 = 1
+    >;
+    var 1 y = x.5;
+    return 1;
+  }
+`;
+
+val parse_invalid_nstruct_var_index =
+  check_parse_success $ parse_pancake ex_invalid_nstruct_var_index;
+
+val static_invalid_nstruct_var_index =
+  check_static_failure $ static_check_pancake parse_invalid_nstruct_var_index;
+
+val warns_invalid_nstruct_var_index =
+  check_static_no_warnings $ static_check_pancake parse_invalid_nstruct_var_index;
+
+
+(* Error: Invalid field name *)
+
+val ex_valid_nstruct_lit_field = `
+  struct my_struct {
+    1 value
+  }
+
+  fun 1 f () {
+    var 1 x = my_struct <value = 0>.value;
+    return 1;
+  }
+`;
+
+val parse_valid_nstruct_lit_field =
+  check_parse_success $ parse_pancake ex_valid_nstruct_lit_field;
+
+val static_valid_nstruct_lit_field =
+  check_static_success $ static_check_pancake parse_valid_nstruct_lit_field;
+
+val warns_valid_nstruct_lit_field =
+  check_static_no_warnings $ static_check_pancake parse_valid_nstruct_lit_field;
+
+
+val ex_valid_nstruct_var_field = `
+  struct my_struct {
+    1 value
+  }
+
+  fun 1 f () {
+    var my_struct x = my_struct <value = 0>;
+    var 1 y = x.value;
+    return 1;
+  }
+`;
+
+val parse_valid_nstruct_var_field =
+  check_parse_success $ parse_pancake ex_valid_nstruct_var_field;
+
+val static_valid_nstruct_var_field =
+  check_static_success $ static_check_pancake parse_valid_nstruct_var_field;
+
+val warns_valid_nstruct_var_field =
+  check_static_no_warnings $ static_check_pancake parse_valid_nstruct_var_field;
+
+
+val ex_invalid_rstruct_lit_field = `
+  struct my_struct {
+    1 value
+  }
+
+  fun 1 f () {
+    var 1 x = <0>.value;
+    return 1;
+  }
+`;
+
+val parse_invalid_rstruct_lit_field =
+  check_parse_success $ parse_pancake ex_invalid_rstruct_lit_field;
+
+val static_invalid_rstruct_lit_field =
+  check_static_failure $ static_check_pancake parse_invalid_rstruct_lit_field;
+
+val warns_invalid_rstruct_lit_field =
+  check_static_no_warnings $ static_check_pancake parse_invalid_rstruct_lit_field;
+
+
+val ex_invalid_rstruct_var_field = `
+  struct my_struct {
+    1 value
+  }
+
+  fun 1 f () {
+    var {1} x = <0>;
+    var 1 y = x.value;
+    return 1;
+  }
+`;
+
+val parse_invalid_rstruct_var_field =
+  check_parse_success $ parse_pancake ex_invalid_rstruct_var_field;
+
+val static_invalid_rstruct_var_field =
+  check_static_failure $ static_check_pancake parse_invalid_rstruct_var_field;
+
+val warns_invalid_rstruct_var_field =
+  check_static_no_warnings $ static_check_pancake parse_invalid_rstruct_var_field;
+
+
+val ex_invalid_word_lit_field = `
+  struct my_struct {
+    1 value
+  }
+
+  fun 1 f () {
+    var 1 x = 0.value;
+    return 1;
+  }
+`;
+
+val parse_invalid_word_lit_field =
+  check_parse_success $ parse_pancake ex_invalid_word_lit_field;
+
+val static_invalid_word_lit_field =
+  check_static_failure $ static_check_pancake parse_invalid_word_lit_field;
+
+val warns_invalid_word_lit_field =
+  check_static_no_warnings $ static_check_pancake parse_invalid_word_lit_field;
+
+
+val ex_invalid_word_var_field = `
+  struct my_struct {
+    1 value
+  }
+
+  fun 1 f () {
+    var 1 x = 0;
+    var 1 y = x.value;
+    return 1;
+  }
+`;
+
+val parse_invalid_word_var_field =
+  check_parse_success $ parse_pancake ex_invalid_word_var_field;
+
+val static_invalid_word_var_field =
+  check_static_failure $ static_check_pancake parse_invalid_word_var_field;
+
+val warns_invalid_word_var_field =
+  check_static_no_warnings $ static_check_pancake parse_invalid_word_var_field;
+
+
+val ex_invalid_nstruct_lit_field = `
+  struct my_struct {
+    1 value
+  }
+
+  struct your_struct {
+    1 Value
+  }
+
+  fun 1 f () {
+    var my_struct x = my_struct <value = 1>.Value;
+    return 1;
+  }
+`;
+
+val parse_invalid_nstruct_lit_field =
+  check_parse_success $ parse_pancake ex_invalid_nstruct_lit_field;
+
+val static_invalid_nstruct_lit_field =
+  check_static_failure $ static_check_pancake parse_invalid_nstruct_lit_field;
+
+val warns_invalid_nstruct_lit_field =
+  check_static_no_warnings $ static_check_pancake parse_invalid_nstruct_lit_field;
+
+
+val ex_invalid_nstruct_var_field = `
+  struct my_struct {
+    1 value
+  }
+
+  struct your_struct {
+    1 Value
+  }
+
+  fun 1 f () {
+    var my_struct x = my_struct <value = 1>;
+    var 1 y = x.Value;
+    return 1;
+  }
+`;
+
+val parse_invalid_nstruct_var_field =
+  check_parse_success $ parse_pancake ex_invalid_nstruct_var_field;
+
+val static_invalid_nstruct_var_field =
+  check_static_failure $ static_check_pancake parse_invalid_nstruct_var_field;
+
+val warns_invalid_nstruct_var_field =
+  check_static_no_warnings $ static_check_pancake parse_invalid_nstruct_var_field;
+
+
+(* Error: Returned shape size >32 words
+return size (all in one, split across multiple) *)
+
+val ex_big_rstruct_var = `
   fun 1 f () {
     var 33 x = <0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0>;
     return 1;
   }
 `;
 
-val parse_big_var =
-  check_parse_success $ parse_pancake ex_big_var;
+val parse_big_rstruct_var =
+  check_parse_success $ parse_pancake ex_big_rstruct_var;
 
-val static_big_var =
-  check_static_success $ static_check_pancake parse_big_var;
+val static_big_rstruct_var =
+  check_static_success $ static_check_pancake parse_big_rstruct_var;
 
-val warns_big_var =
-  check_static_no_warnings $ static_check_pancake parse_big_var;
+val warns_big_rstruct_var =
+  check_static_no_warnings $ static_check_pancake parse_big_rstruct_var;
 
 
-val ex_big_func_ret = `
+val ex_big_nstruct_var = `
+  struct my_struct {
+    33 value
+  }
+
+  fun 1 f () {
+    var my_struct x = my_struct <value = <0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0> >;
+    return 1;
+  }
+`;
+(* Note: This example uses whitespace to get around the nested struct/shift operator parsing issue *)
+
+val parse_big_nstruct_var =
+  check_parse_success $ parse_pancake ex_big_nstruct_var;
+
+val static_big_nstruct_var =
+  check_static_success $ static_check_pancake parse_big_nstruct_var;
+
+val warns_big_nstruct_var =
+  check_static_no_warnings $ static_check_pancake parse_big_nstruct_var;
+
+
+val ex_big_nstruct_split_var = `
+  struct my_struct {
+    11 x,
+    22 y
+  }
+
+  fun 1 f () {
+    var my_struct x = my_struct <x = <0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0>, y = <0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0> >;
+    return 1;
+  }
+`;
+(* Note: This example uses whitespace to get around the nested struct/shift operator parsing issue *)
+
+val parse_big_nstruct_split_var =
+  check_parse_success $ parse_pancake ex_big_nstruct_split_var;
+
+val static_big_nstruct_split_var =
+  check_static_success $ static_check_pancake parse_big_nstruct_split_var;
+
+val warns_big_nstruct_split_var =
+  check_static_no_warnings $ static_check_pancake parse_big_nstruct_split_var;
+
+
+val ex_big_rstruct_func_ret = `
   fun 33 f () {
     return <0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0>;
   }
 `;
 
-val parse_big_func_ret =
-  check_parse_success $ parse_pancake ex_big_func_ret;
+val parse_big_rstruct_func_ret =
+  check_parse_success $ parse_pancake ex_big_rstruct_func_ret;
 
-val static_big_func_ret =
-  check_static_failure $ static_check_pancake parse_big_func_ret;
+val static_big_rstruct_func_ret =
+  check_static_failure $ static_check_pancake parse_big_rstruct_func_ret;
 
-val warns_big_func_ret =
-  check_static_no_warnings $ static_check_pancake parse_big_func_ret;
+val warns_big_rstruct_func_ret =
+  check_static_no_warnings $ static_check_pancake parse_big_rstruct_func_ret;
+
+
+val ex_big_nstruct_func_ret = `
+  struct my_struct {
+    33 value
+  }
+
+  fun my_struct f () {
+    return my_struct <value = <0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0> >;
+  }
+`;
+(* Note: This example uses whitespace to get around the nested struct/shift operator parsing issue *)
+
+val parse_big_nstruct_func_ret =
+  check_parse_success $ parse_pancake ex_big_nstruct_func_ret;
+
+val static_big_nstruct_func_ret =
+  check_static_failure $ static_check_pancake parse_big_nstruct_func_ret;
+
+val warns_big_nstruct_func_ret =
+  check_static_no_warnings $ static_check_pancake parse_big_nstruct_func_ret;
+
+
+val ex_big_nstruct_split_func_ret = `
+  struct my_struct {
+    11 x,
+    22 y
+  }
+
+  fun my_struct f () {
+    return my_struct <x = <0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0>, y = <0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0> >;
+  }
+`;
+(* Note: This example uses whitespace to get around the nested struct/shift operator parsing issue *)
+
+val parse_big_nstruct_split_func_ret =
+  check_parse_success $ parse_pancake ex_big_nstruct_split_func_ret;
+
+val static_big_nstruct_split_func_ret =
+  check_static_failure $ static_check_pancake parse_big_nstruct_split_func_ret;
+
+val warns_big_nstruct_split_func_ret =
+  check_static_no_warnings $ static_check_pancake parse_big_nstruct_split_func_ret;
 
 
 (* Misc: Default shape behaviour *)
 
 val ex_default_all_good = `
+  struct my_struct {
+    value
+  }
   var n = 1;
   fun foo(a) {
     var x = 0;
+    var my_struct y = my_struct <value = 2>;
     return n + a + x;
   }
 `;
@@ -2854,46 +5118,58 @@ val warns_default_all_good =
   check_static_no_warnings $ static_check_pancake parse_default_all_good;
 
 
-val ex_default_bad_local_decl = `
+val ex_default_bad_rstruct_local_decl = `
+  struct my_struct {
+    value
+  }
   var n = 1;
   fun foo(a) {
     var x = <0>;
+    var my_struct y = my_struct <value = 2>;
     return n + a + x;
   }
 `;
 
-val parse_default_bad_local_decl =
-  check_parse_success $ parse_pancake ex_default_bad_local_decl;
+val parse_default_bad_rstruct_local_decl =
+  check_parse_success $ parse_pancake ex_default_bad_rstruct_local_decl;
 
-val static_default_bad_local_decl =
-  check_static_failure $ static_check_pancake parse_default_bad_local_decl;
+val static_default_bad_rstruct_local_decl =
+  check_static_failure $ static_check_pancake parse_default_bad_rstruct_local_decl;
 
-val warns_default_bad_local_decl =
-  check_static_no_warnings $ static_check_pancake parse_default_bad_local_decl;
+val warns_default_bad_rstruct_local_decl =
+  check_static_no_warnings $ static_check_pancake parse_default_bad_rstruct_local_decl;
 
 
-val ex_default_bad_global_decl = `
+val ex_default_bad_rstruct_global_decl = `
+  struct my_struct {
+    value
+  }
   var n = <1>;
   fun foo(a) {
     var x = 0;
+    var my_struct y = my_struct <value = 2>;
     return n + a + x;
   }
 `;
 
-val parse_default_bad_global_decl =
-  check_parse_success $ parse_pancake ex_default_bad_global_decl;
+val parse_default_bad_rstruct_global_decl =
+  check_parse_success $ parse_pancake ex_default_bad_rstruct_global_decl;
 
-val static_default_bad_global_decl =
-  check_static_failure $ static_check_pancake parse_default_bad_global_decl;
+val static_default_bad_rstruct_global_decl =
+  check_static_failure $ static_check_pancake parse_default_bad_rstruct_global_decl;
 
-val warns_default_bad_global_decl =
-  check_static_no_warnings $ static_check_pancake parse_default_bad_global_decl;
+val warns_default_bad_rstruct_global_decl =
+  check_static_no_warnings $ static_check_pancake parse_default_bad_rstruct_global_decl;
 
 
-val ex_default_bad_local_deccall = `
+val ex_default_bad_rstruct_local_deccall = `
+  struct my_struct {
+    value
+  }
   var n = 1;
   fun foo(a) {
     var x = bar();
+    var my_struct y = my_struct <value = 2>;
     return n + a + x;
   }
   fun {1} bar() {
@@ -2901,59 +5177,71 @@ val ex_default_bad_local_deccall = `
   }
 `;
 
-val parse_default_bad_local_deccall =
-  check_parse_success $ parse_pancake ex_default_bad_local_deccall;
+val parse_default_bad_rstruct_local_deccall =
+  check_parse_success $ parse_pancake ex_default_bad_rstruct_local_deccall;
 
-val static_default_bad_local_deccall =
-  check_static_failure $ static_check_pancake parse_default_bad_local_deccall;
+val static_default_bad_rstruct_local_deccall =
+  check_static_failure $ static_check_pancake parse_default_bad_rstruct_local_deccall;
 
-val warns_default_bad_local_deccall =
-  check_static_no_warnings $ static_check_pancake parse_default_bad_local_deccall;
+val warns_default_bad_rstruct_local_deccall =
+  check_static_no_warnings $ static_check_pancake parse_default_bad_rstruct_local_deccall;
 
 
-val ex_default_bad_local_assign = `
+val ex_default_bad_rstruct_local_assign = `
+  struct my_struct {
+    value
+  }
   var n = 1;
   fun foo(a) {
     var x = 0;
     x = <1>;
+    var my_struct y = my_struct <value = 2>;
     return n + a + x;
   }
 `;
 
-val parse_default_bad_local_assign =
-  check_parse_success $ parse_pancake ex_default_bad_local_assign;
+val parse_default_bad_rstruct_local_assign =
+  check_parse_success $ parse_pancake ex_default_bad_rstruct_local_assign;
 
-val static_default_bad_local_assign =
-  check_static_failure $ static_check_pancake parse_default_bad_local_assign;
+val static_default_bad_rstruct_local_assign =
+  check_static_failure $ static_check_pancake parse_default_bad_rstruct_local_assign;
 
-val warns_default_bad_local_assign =
-  check_static_no_warnings $ static_check_pancake parse_default_bad_local_assign;
+val warns_default_bad_rstruct_local_assign =
+  check_static_no_warnings $ static_check_pancake parse_default_bad_rstruct_local_assign;
 
 
-val ex_default_bad_global_assign = `
+val ex_default_bad_rstruct_global_assign = `
+  struct my_struct {
+    value
+  }
   var n = 1;
   fun foo(a) {
     var x = 0;
     n = <1>;
+    var my_struct y = my_struct <value = 2>;
     return n + a + x;
   }
 `;
 
-val parse_default_bad_global_assign =
-  check_parse_success $ parse_pancake ex_default_bad_global_assign;
+val parse_default_bad_rstruct_global_assign =
+  check_parse_success $ parse_pancake ex_default_bad_rstruct_global_assign;
 
-val static_default_bad_global_assign =
-  check_static_failure $ static_check_pancake parse_default_bad_global_assign;
+val static_default_bad_rstruct_global_assign =
+  check_static_failure $ static_check_pancake parse_default_bad_rstruct_global_assign;
 
-val warns_default_bad_global_assign =
-  check_static_no_warnings $ static_check_pancake parse_default_bad_global_assign;
+val warns_default_bad_rstruct_global_assign =
+  check_static_no_warnings $ static_check_pancake parse_default_bad_rstruct_global_assign;
 
 
-val ex_default_bad_local_assigncall = `
+val ex_default_bad_rstruct_local_assigncall = `
+  struct my_struct {
+    value
+  }
   var n = 1;
   fun foo(a) {
     var x = 0;
     x = bar();
+    var my_struct y = my_struct <value = 2>;
     return n + a + x;
   }
   fun {1} bar() {
@@ -2961,50 +5249,58 @@ val ex_default_bad_local_assigncall = `
   }
 `;
 
-val parse_default_bad_local_assigncall =
-  check_parse_success $ parse_pancake ex_default_bad_local_assigncall;
+val parse_default_bad_rstruct_local_assigncall =
+  check_parse_success $ parse_pancake ex_default_bad_rstruct_local_assigncall;
 
-val static_default_bad_local_assigncall =
-  check_static_failure $ static_check_pancake parse_default_bad_local_assigncall;
+val static_default_bad_rstruct_local_assigncall =
+  check_static_failure $ static_check_pancake parse_default_bad_rstruct_local_assigncall;
 
-val warns_default_bad_local_assigncall =
-  check_static_no_warnings $ static_check_pancake parse_default_bad_local_assigncall;
+val warns_default_bad_rstruct_local_assigncall =
+  check_static_no_warnings $ static_check_pancake parse_default_bad_rstruct_local_assigncall;
 
 
-val ex_default_bad_arg = `
+val ex_default_bad_rstruct_arg = `
+  struct my_struct {
+    value
+  }
   var n = 1;
   fun foo(a) {
     var x = foo(<0>);
+    var my_struct y = my_struct <value = 2>;
     return n + a + x;
   }
 `;
 
-val parse_default_bad_arg =
-  check_parse_success $ parse_pancake ex_default_bad_arg;
+val parse_default_bad_rstruct_arg =
+  check_parse_success $ parse_pancake ex_default_bad_rstruct_arg;
 
-val static_default_bad_arg =
-  check_static_failure $ static_check_pancake parse_default_bad_arg;
+val static_default_bad_rstruct_arg =
+  check_static_failure $ static_check_pancake parse_default_bad_rstruct_arg;
 
-val warns_default_bad_arg =
-  check_static_no_warnings $ static_check_pancake parse_default_bad_arg;
+val warns_default_bad_rstruct_arg =
+  check_static_no_warnings $ static_check_pancake parse_default_bad_rstruct_arg;
 
 
-val ex_default_bad_return = `
+val ex_default_bad_rstruct_return = `
+  struct my_struct {
+    value
+  }
   var n = 1;
   fun foo(a) {
     var x = 0;
+    var my_struct y = my_struct <value = 2>;
     return <n + a + x>;
   }
 `;
 
-val parse_default_bad_return =
-  check_parse_success $ parse_pancake ex_default_bad_return;
+val parse_default_bad_rstruct_return =
+  check_parse_success $ parse_pancake ex_default_bad_rstruct_return;
 
-val static_default_bad_return =
-  check_static_failure $ static_check_pancake parse_default_bad_return;
+val static_default_bad_rstruct_return =
+  check_static_failure $ static_check_pancake parse_default_bad_rstruct_return;
 
-val warns_default_bad_return =
-  check_static_no_warnings $ static_check_pancake parse_default_bad_return;
+val warns_default_bad_rstruct_return =
+  check_static_no_warnings $ static_check_pancake parse_default_bad_rstruct_return;
 
 
 (* __add_with_carry__ (Primitive AddCarry) checks *)
@@ -3189,3 +5485,230 @@ val warns_addcarry_tail =
   check_static_no_warnings $ static_check_pancake parse_addcarry_tail;
 
 
+val ex_default_bad_rstruct_field = `
+  struct my_struct {
+    value
+  }
+  var n = 1;
+  fun foo(a) {
+    var x = 0;
+    var my_struct y = my_struct <value = <2> >;
+    return n + a + x;
+  }
+`;
+
+val parse_default_bad_rstruct_field =
+  check_parse_success $ parse_pancake ex_default_bad_rstruct_field;
+
+val static_default_bad_rstruct_field =
+  check_static_failure $ static_check_pancake parse_default_bad_rstruct_field;
+
+val warns_default_bad_rstruct_field =
+  check_static_no_warnings $ static_check_pancake parse_default_bad_rstruct_field;
+
+
+val ex_default_bad_nstruct_local_decl = `
+  struct my_struct {
+    value
+  }
+  var n = 1;
+  fun foo(a) {
+    var x = my_struct <value = 0>;
+    var my_struct y = my_struct <value = 2>;
+    return n + a + x;
+  }
+`;
+
+val parse_default_bad_nstruct_local_decl =
+  check_parse_success $ parse_pancake ex_default_bad_nstruct_local_decl;
+
+val static_default_bad_nstruct_local_decl =
+  check_static_failure $ static_check_pancake parse_default_bad_nstruct_local_decl;
+
+val warns_default_bad_nstruct_local_decl =
+  check_static_no_warnings $ static_check_pancake parse_default_bad_nstruct_local_decl;
+
+
+val ex_default_bad_nstruct_global_decl = `
+  struct my_struct {
+    value
+  }
+  var n = my_struct <value = 1>;
+  fun foo(a) {
+    var x = 0;
+    var my_struct y = my_struct <value = 2>;
+    return n + a + x;
+  }
+`;
+
+val parse_default_bad_nstruct_global_decl =
+  check_parse_success $ parse_pancake ex_default_bad_nstruct_global_decl;
+
+val static_default_bad_nstruct_global_decl =
+  check_static_failure $ static_check_pancake parse_default_bad_nstruct_global_decl;
+
+val warns_default_bad_nstruct_global_decl =
+  check_static_no_warnings $ static_check_pancake parse_default_bad_nstruct_global_decl;
+
+
+val ex_default_bad_nstruct_local_deccall = `
+  struct my_struct {
+    value
+  }
+  var n = 1;
+  fun foo(a) {
+    var x = bar();
+    var my_struct y = my_struct <value = 2>;
+    return n + a + x;
+  }
+  fun my_struct bar() {
+    return my_struct <value = 0>;
+  }
+`;
+
+val parse_default_bad_nstruct_local_deccall =
+  check_parse_success $ parse_pancake ex_default_bad_nstruct_local_deccall;
+
+val static_default_bad_nstruct_local_deccall =
+  check_static_failure $ static_check_pancake parse_default_bad_nstruct_local_deccall;
+
+val warns_default_bad_nstruct_local_deccall =
+  check_static_no_warnings $ static_check_pancake parse_default_bad_nstruct_local_deccall;
+
+
+val ex_default_bad_nstruct_local_assign = `
+  struct my_struct {
+    value
+  }
+  var n = 1;
+  fun foo(a) {
+    var x = 0;
+    x = my_struct <value = 1>;
+    var my_struct y = my_struct <value = 2>;
+    return n + a + x;
+  }
+`;
+
+val parse_default_bad_nstruct_local_assign =
+  check_parse_success $ parse_pancake ex_default_bad_nstruct_local_assign;
+
+val static_default_bad_nstruct_local_assign =
+  check_static_failure $ static_check_pancake parse_default_bad_nstruct_local_assign;
+
+val warns_default_bad_nstruct_local_assign =
+  check_static_no_warnings $ static_check_pancake parse_default_bad_nstruct_local_assign;
+
+
+val ex_default_bad_nstruct_global_assign = `
+  struct my_struct {
+    value
+  }
+  var n = 1;
+  fun foo(a) {
+    var x = 0;
+    n = my_struct <value = 1>;
+    var my_struct y = my_struct <value = 2>;
+    return n + a + x;
+  }
+`;
+
+val parse_default_bad_nstruct_global_assign =
+  check_parse_success $ parse_pancake ex_default_bad_nstruct_global_assign;
+
+val static_default_bad_nstruct_global_assign =
+  check_static_failure $ static_check_pancake parse_default_bad_nstruct_global_assign;
+
+val warns_default_bad_nstruct_global_assign =
+  check_static_no_warnings $ static_check_pancake parse_default_bad_nstruct_global_assign;
+
+
+val ex_default_bad_nstruct_local_assigncall = `
+  struct my_struct {
+    value
+  }
+  var n = 1;
+  fun foo(a) {
+    var x = 0;
+    x = bar();
+    var my_struct y = my_struct <value = 2>;
+    return n + a + x;
+  }
+  fun my_struct bar() {
+    return my_struct <value = 0>;
+  }
+`;
+
+val parse_default_bad_nstruct_local_assigncall =
+  check_parse_success $ parse_pancake ex_default_bad_nstruct_local_assigncall;
+
+val static_default_bad_nstruct_local_assigncall =
+  check_static_failure $ static_check_pancake parse_default_bad_nstruct_local_assigncall;
+
+val warns_default_bad_nstruct_local_assigncall =
+  check_static_no_warnings $ static_check_pancake parse_default_bad_nstruct_local_assigncall;
+
+
+val ex_default_bad_nstruct_arg = `
+  struct my_struct {
+    value
+  }
+  var n = 1;
+  fun foo(a) {
+    var x = foo(my_struct <value = 0>);
+    var my_struct y = my_struct <value = 2>;
+    return n + a + x;
+  }
+`;
+
+val parse_default_bad_nstruct_arg =
+  check_parse_success $ parse_pancake ex_default_bad_nstruct_arg;
+
+val static_default_bad_nstruct_arg =
+  check_static_failure $ static_check_pancake parse_default_bad_nstruct_arg;
+
+val warns_default_bad_nstruct_arg =
+  check_static_no_warnings $ static_check_pancake parse_default_bad_nstruct_arg;
+
+
+val ex_default_bad_nstruct_return = `
+  struct my_struct {
+    value
+  }
+  var n = 1;
+  fun foo(a) {
+    var x = 0;
+    var my_struct y = my_struct <value = 2>;
+    return my_struct <value = n + a + x>;
+  }
+`;
+
+val parse_default_bad_nstruct_return =
+  check_parse_success $ parse_pancake ex_default_bad_nstruct_return;
+
+val static_default_bad_nstruct_return =
+  check_static_failure $ static_check_pancake parse_default_bad_nstruct_return;
+
+val warns_default_bad_nstruct_return =
+  check_static_no_warnings $ static_check_pancake parse_default_bad_nstruct_return;
+
+
+val ex_default_bad_nstruct_field = `
+  struct my_struct {
+    value
+  }
+  var n = 1;
+  fun foo(a) {
+    var x = 0;
+    var my_struct y = my_struct <value = my_struct <value = 2> >;
+    return n + a + x;
+  }
+`;
+
+val parse_default_bad_nstruct_field =
+  check_parse_success $ parse_pancake ex_default_bad_nstruct_field;
+
+val static_default_bad_nstruct_field =
+  check_static_failure $ static_check_pancake parse_default_bad_nstruct_field;
+
+val warns_default_bad_nstruct_field =
+  check_static_no_warnings $ static_check_pancake parse_default_bad_nstruct_field;
