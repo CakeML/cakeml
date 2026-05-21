@@ -1,1 +1,0 @@
-mlvectorSyntax.uo: mlvectorSyntax.ui /Users/matthewrichards/projects/HOL/sigobj/HolKernel.uo /Users/matthewrichards/projects/HOL/sigobj/Type.uo /Users/matthewrichards/projects/HOL/sigobj/boolLib.uo mlvectorTheory.uo 
