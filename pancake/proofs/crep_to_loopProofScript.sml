@@ -2175,8 +2175,7 @@ QED
 
 Resume ncompile_correct[Primitive]:
   rw [] >>
-  fs [crepSemTheory.evaluate_def, evaluate_def, compile_def, AllCaseEqs ()] >>
-  rveq >>
+  gvs [crepSemTheory.evaluate_def, evaluate_def, compile_def, AllCaseEqs ()] >>
   ‘∃nrhss. OPT_MMAP (FLOOKUP ctxt.vars) rhss = SOME nrhss ∧
            LENGTH nrhss = LENGTH rhss ∧ EVERY (λn. n ∈ domain l) nrhss ∧
            get_vars nrhss t = SOME (MAP wlab_wloc ws)’
@@ -2188,42 +2187,41 @@ Resume ncompile_correct[Primitive]:
     by metis_tac [opt_mmap_lhss_locals_rel] >>
   simp [] >>
   qexists ‘0’ >>
-  simp [Once evaluate_def, loopPropsTheory.get_vars_clock_upd_eq] >>
+  simp [Once evaluate_def, get_vars_clock_upd_eq] >>
   drule crep_primop_loop_primop >> strip_tac >> simp [] >>
-  simp [loopSemTheory.set_vars_def] >>
+  simp [set_vars_def] >>
   conj_tac >- fs [state_rel_def] >>
   fs [locals_rel_def] >>
   conj_tac
-  >- (rw [sptreeTheory.domain_alist_insert] >> fs [SUBSET_DEF, EVERY_MEM]) >>
+  >- (rw [domain_alist_insert] >> fs [SUBSET_DEF, EVERY_MEM]) >>
   rw [] >>
   Cases_on ‘MEM vname lhss’
   >- (fs [MEM_EL] >>
       qmatch_asmsub_rename_tac ‘k < LENGTH lhss’ >>
       ‘FLOOKUP (s.locals |++ ZIP (lhss, res_ws)) (EL k lhss) = SOME (EL k res_ws)’
-        by simp [pan_commonPropsTheory.update_eq_zip_flookup] >>
-      ‘v = EL k res_ws’ by gvs [] >>
+        by simp [update_eq_zip_flookup] >>
       gvs [] >>
       qexists ‘EL k nlhss’ >>
       ‘FLOOKUP ctxt.vars (EL k lhss) = SOME (EL k nlhss)’
-        by metis_tac [pan_commonPropsTheory.opt_mmap_el] >>
+        by metis_tac [opt_mmap_el] >>
       simp [] >>
       conj_tac
       >- (fs [EVERY_EL] >> first_x_assum (qspec_then ‘k’ mp_tac) >> simp []) >>
-      simp [loopPropsTheory.lookup_alist_insert_any] >>
+      simp [lookup_alist_insert_any] >>
       ‘ALOOKUP (ZIP (nlhss, MAP wlab_wloc res_ws)) (EL k nlhss) =
        SOME (EL k (MAP wlab_wloc res_ws))’ suffices_by simp [EL_MAP] >>
       qspecl_then [‘ZIP (nlhss, MAP wlab_wloc res_ws)’, ‘k’] mp_tac
-                  alistTheory.ALOOKUP_ALL_DISTINCT_EL >>
+                  ALOOKUP_ALL_DISTINCT_EL >>
       impl_tac >- simp [MAP_ZIP] >>
       simp [EL_ZIP]) >>
   ‘FLOOKUP s.locals vname = SOME v’ by
-    metis_tac [pan_commonPropsTheory.flookup_fupdate_zip_not_mem] >>
+    metis_tac [flookup_fupdate_zip_not_mem] >>
   first_x_assum drule >> strip_tac >>
   qexists ‘n’ >> simp [] >>
-  simp [loopPropsTheory.lookup_alist_insert_any] >>
+  simp [lookup_alist_insert_any] >>
   ‘¬MEM n nlhss’ by metis_tac [not_mem_nlhss_lemma] >>
   ‘ALOOKUP (ZIP (nlhss, MAP wlab_wloc res_ws)) n = NONE’ suffices_by simp [] >>
-  simp [alistTheory.ALOOKUP_NONE, MAP_ZIP]
+  simp [ALOOKUP_NONE, MAP_ZIP]
 QED
 
 Resume ncompile_correct[Dec]:
