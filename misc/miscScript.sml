@@ -655,10 +655,19 @@ Proof
   Induct \\ rw[MAX_DEF]
 QED
 
-(* never used *)
 Definition list_inter_def:
   list_inter xs ys = FILTER (\y. MEM y xs) ys
 End
+
+Theorem list_inter_set:
+  !xs ys. set(list_inter xs ys) = ((set xs) ∩ (set ys))
+Proof
+  CONV_TAC SWAP_FORALL_CONV
+  >> Induct
+  >> fs[INSERT_DEF,list_inter_def,INTER_DEF,LIST_TO_SET,LEFT_AND_OVER_OR]
+  >> rw[SET_EQ_SUBSET,SUBSET_DEF]
+  >> fs[]
+QED
 
 Definition max3_def[simp]:
   max3 (x:num) y z = if x > y then (if z > x then z else x)

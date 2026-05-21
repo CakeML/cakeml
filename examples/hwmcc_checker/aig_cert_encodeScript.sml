@@ -104,7 +104,7 @@ Proof
   >> IF_CASES_TAC >> gvs [EVERY_MAP]
 QED
 
-Theorem eval_circuit_merge_circuits_left:
+Theorem eval_circuit_merge_circuits_left[simp]:
   (∀n.
      eval_circuit ss (merge_circuits circ₁ circ₂) (INL n) =
      eval_circuit ss circ₁ n) ∧
@@ -127,7 +127,7 @@ Proof
   >> IF_CASES_TAC >> gvs [EVERY_MAP]
 QED
 
-Theorem eval_circuit_merge_circuits_right:
+Theorem eval_circuit_merge_circuits_right[simp]:
   (∀n.
      eval_circuit ss (merge_circuits circ₁ circ₂) (INR n) =
      eval_circuit ss circ₂ n) ∧
@@ -379,7 +379,8 @@ Theorem eval_circuit_iext_circuit[simp]:
   (∀n.
      eval_circuit ss (iext_circuit circ) (INL (Orig n)) =
      eval_circuit ss circ n) ∧
-  ∀l. eval_lit ss (iext_circuit circ) (iext_lit l) = eval_lit ss circ l
+  (∀l. eval_lit ss (iext_circuit circ) (iext_lit l) = eval_lit ss circ l) ∧
+  (∀l. eval_lit ss (iext_circuit circ) (Base bv, b) = eval_lit ss circ (Base bv, b))
 Proof
   Induct_on ‘circ’ >> rw [iext_circuit_def, eval_circuit_def]
   >-
@@ -482,7 +483,7 @@ Definition encode_equiv_def:
       ((INL (Ext name), [(Name (INR n), F)])::encode_equiv_aux n xys) ++ circ
 End
 
-Theorem eval_circuit_encode_equiv_aux_INL[simp]:
+Theorem eval_circuit_encode_equiv_aux_INL[local,simp]:
   ∀xys n.
     eval_circuit ss (encode_equiv_aux n xys ++ circ) (INL out) ⇔
     eval_circuit ss circ (INL out)
@@ -544,6 +545,14 @@ Proof
       MEM (iname y) (MAP iname (MAP SND xys))’
     by metis_tac[MEM_MAP, FST, SND]
   >> imp_res_tac MAX_LIST_PROPERTY >> simp []
+QED
+
+Theorem eval_circuit_encode_equiv_iext_lit[simp]:
+  eval_lit ss (encode_equiv circ name xys) (iext_lit n) =
+  eval_lit ss circ (iext_lit n)
+Proof
+  namedCases_on ‘n’ ["v b"] >> Cases_on ‘v’
+  >> simp [iext_lit_def, iext_var_def, encode_equiv_def, eval_circuit_def]
 QED
 
 (* Encoding is_reset **********************************************************)
@@ -642,30 +651,32 @@ Proof
   >> IF_CASES_TAC >> simp []
 QED
 
-Definition ileft_lit_def:
-  ileft_lit = iext_lit ∘ left_name_lit
+Definition left_reset_def:
+  left_reset mreset =
+  λl. OPTION_MAP left_name_lit (mreset l)
 End
 
-Definition iright_lit_def:
-  iright_lit = iext_lit ∘ right_name_lit
+Definition right_reset_def:
+  right_reset mreset =
+  λl. OPTION_MAP right_name_lit (mreset l)
 End
 
 Definition ileft_reset_def:
   ileft_reset mreset =
-  λl. OPTION_MAP ileft_lit (mreset l)
+  λl. OPTION_MAP iext_lit (left_reset mreset l)
 End
 
 Definition iright_reset_def:
-  iright_reset wreset =
-  λl. OPTION_MAP iright_lit (wreset l)
+  iright_reset mreset =
+  λl. OPTION_MAP iext_lit (right_reset mreset l)
 End
 
 Definition ileft_lits_def:
-  ileft_lits = MAP ileft_lit
+  ileft_lits = MAP (iext_lit ∘ left_name_lit)
 End
 
 Definition iright_lits_def:
-  iright_lits = MAP iright_lit
+  iright_lits = MAP (iext_lit ∘ right_name_lit)
 End
 
 Definition imerge_circuits_def:
@@ -696,50 +707,88 @@ Definition encode_is_witness_reset_def:
     encode_imply circ «reset» lhss rhss
 End
 
-Theorem is_reset_ileft:
-  is_reset ss (imerge_circuits lcirc rcirc) (ileft_reset lreset) llatches ⇔
-    is_reset ss lcirc lreset llatches
+(* A bunch of trivial helper lemmas, which keep the proof state readable in
+   when an encoding function uses many other encoding functions. *)
+
+Theorem is_reset_ileft[local,simp]:
+  is_reset ss (imerge_circuits lcirc rcirc) (ileft_reset lreset) latches ⇔
+    is_reset ss lcirc lreset latches
 Proof
-  cheat
+  simp [is_reset_def, imerge_circuits_def, ileft_reset_def, left_reset_def,
+        eval_circuit_def, PULL_EXISTS]
 QED
 
-Theorem preds_hold_ileft:
-  preds_hold ss (imerge_circuits lcirc rcirc) (set (ileft_lits preds)) ⇔
-    preds_hold ss lcirc (set preds)
+Theorem is_reset_iright[local,simp]:
+  is_reset ss (imerge_circuits lcirc rcirc) (iright_reset rreset) latches ⇔
+    is_reset ss rcirc rreset latches
 Proof
-  cheat
+  simp [is_reset_def, imerge_circuits_def, iright_reset_def, right_reset_def,
+        eval_circuit_def, PULL_EXISTS]
 QED
 
-Theorem eval_lit_INL_iright[simp]:
-  eval_lit ss ((INL (Ext name),lits)::circ) (iright_lit z) ⇔
-    eval_lit ss circ (iright_lit z)
+Theorem is_reset_encode_preds_hold_iright[local,simp]:
+  is_reset ss
+    (encode_preds_hold circ name lits) (iright_reset reset) latches ⇔
+  is_reset ss circ (iright_reset reset) latches
 Proof
-  simp [iright_lit_def]
+  simp [is_reset_def, encode_preds_hold_def, iright_reset_def, right_reset_def,
+        eval_circuit_def, PULL_EXISTS]
 QED
 
-Theorem is_reset_encode_preds_hold_iright[local]:
-  is_reset ss (encode_preds_hold circ name lits) (iright_reset reset) latches ⇔
-    is_reset ss circ (iright_reset reset) latches
+Theorem is_reset_encode_is_reset_iright[local,simp]:
+  is_reset ss (encode_is_reset circ name reset' latches')
+    (iright_reset reset) latches ⇔
+  is_reset ss circ (iright_reset reset) latches
 Proof
-  simp [is_reset_def, encode_preds_hold_def, iright_reset_def, eval_circuit_def,
+  simp [is_reset_def, encode_is_reset_def, iright_reset_def, eval_circuit_def,
         PULL_EXISTS]
 QED
 
-Theorem preds_hold_encode_is_reset_ileft[local]:
-  preds_hold ss (encode_is_reset circ name reset latches) (set (ileft_lits preds)) ⇔
-    preds_hold ss circ (set (ileft_lits preds))
+Theorem preds_hold_ileft[local,simp]:
+  preds_hold ss (imerge_circuits lcirc rcirc) (set (ileft_lits preds)) ⇔
+    preds_hold ss lcirc (set preds)
 Proof
-  cheat
+  simp [preds_hold_def, ileft_lits_def, imerge_circuits_def,
+        GSYM MAP_MAP_o, MEM_MAP, PULL_EXISTS]
 QED
 
-Theorem preds_hold_encode_is_reset_iright[local]:
-  preds_hold ss (encode_is_reset circ name reset latches) (set (iright_lits preds)) ⇔
+Theorem preds_hold_iright[local,simp]:
+  preds_hold ss (imerge_circuits lcirc rcirc) (set (iright_lits preds)) ⇔
+    preds_hold ss rcirc (set preds)
+Proof
+  simp [preds_hold_def, iright_lits_def, imerge_circuits_def,
+        GSYM MAP_MAP_o, MEM_MAP, PULL_EXISTS]
+QED
+
+Theorem preds_hold_encode_is_reset_ileft[local,simp]:
+  preds_hold ss
+    (encode_is_reset circ name reset latches) (set (ileft_lits preds)) ⇔
+  preds_hold ss circ (set (ileft_lits preds))
+Proof
+  simp [preds_hold_def, encode_is_reset_def, ileft_lits_def, GSYM MAP_MAP_o,
+        MEM_MAP, PULL_EXISTS]
+QED
+
+Theorem preds_hold_encode_is_reset_iright[local,simp]:
+  preds_hold ss
+    (encode_is_reset circ name reset latches) (set (iright_lits preds)) ⇔
+  preds_hold ss circ (set (iright_lits preds))
+Proof
+  simp [preds_hold_def, encode_is_reset_def, iright_lits_def,
+        GSYM MAP_MAP_o, MEM_MAP, PULL_EXISTS]
+QED
+
+Theorem preds_hold_encode_preds_hold_iright[local,simp]:
+  preds_hold ss (encode_preds_hold circ name preds') (set (iright_lits preds)) ⇔
     preds_hold ss circ (set (iright_lits preds))
 Proof
-  cheat
+  simp [preds_hold_def, encode_preds_hold_def, iright_lits_def,
+        GSYM MAP_MAP_o, MEM_MAP, PULL_EXISTS]
 QED
 
-Theorem eval_circuit_encode_is_witness_reset_INL:
+(* Main encoder theorems. *)
+
+Theorem eval_circuit_encode_is_witness_reset:
   (∀ss.
      (eval_circuit ss
        (encode_is_witness_reset
@@ -750,11 +799,11 @@ Theorem eval_circuit_encode_is_witness_reset_INL:
     mcirc mreset mnext mpreds (set mcnstrs) (set mlatches)
     wcirc wreset wnext wpreds (set wcnstrs) (set wlatches)
 Proof
-  simp [encode_is_witness_reset_def, eval_circuit_encode_imply_INL,
-        eval_circuit_encode_preds_hold_INL, eval_lit_encode_preds_hold_INL,
-        eval_circuit_encode_is_reset_INL, eval_lit_encode_is_reset_INL,
-        is_witness_reset_def, is_reset_ileft, is_reset_encode_preds_hold_iright,
-        preds_hold_encode_is_reset_ileft, preds_hold_encode_is_reset_iright,
-        preds_hold_ileft]
-  >> cheat
+  simp [
+      is_witness_reset_def, encode_is_witness_reset_def,
+      eval_circuit_encode_imply_INL,
+      eval_lit_encode_preds_hold_INL,
+      eval_lit_encode_is_reset_INL,
+      list_inter_set
+    ]
 QED

@@ -49,16 +49,6 @@ Proof
   rw[list_inter_def,LIST_TO_SET_FILTER,INTER_COMM]
 QED
 
-Theorem list_inter_set:
-  !xs ys. set(list_inter xs ys) = ((set xs) ∩ (set ys))
-Proof
-  CONV_TAC SWAP_FORALL_CONV
-  >> Induct
-  >> fs[INSERT_DEF,list_inter_def,INTER_DEF,LIST_TO_SET,LEFT_AND_OVER_OR]
-  >> rw[SET_EQ_SUBSET,SUBSET_DEF]
-  >> fs[]
-QED
-
 Theorem NULL_list_inter_COMM:
   !a b. NULL (list_inter a b) = NULL (list_inter b a)
 Proof
@@ -391,4 +381,3 @@ Proof
   >> imp_res_tac $ REWRITE_RULE[EVERY_MEM] rename_apart_by_chr_FST
   >> gvs[REPLICATE_inj]
 QED
-
