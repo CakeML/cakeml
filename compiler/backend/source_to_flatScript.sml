@@ -332,18 +332,32 @@ Definition env_id_tuple_def:
     [Lit None (IntLit (& gen)); Lit None (IntLit (& id))]
 End
 
+Definition simple_dlet_def:
+  simple_dlet p e =
+    case p of
+    | ast$Pvar pv => (case e of ast$Var v => SOME (pv,v) | _ => NONE)
+    | _ => NONE
+End
+
 Definition compile_decs_def:
   (compile_decs (t:mlstring list) n next env envs [ast$Dlet locs p e] =
-     let n' = n + 4 in
-     let xs = REVERSE (pat_bindings p []) in
-     let e' = compile_exp (xs++t) env e in
-     let l = LENGTH xs in
-     let n'' = n' + l in
-       (n'', (next with vidx := next.vidx + l),
-        <| v := alist_to_ns (alloc_defs n' next.vidx xs); c := nsEmpty |>,
-        envs,
-        [flatLang$Dlet (Mat None e'
-          [(compile_pat env p, make_varls 0 None next.vidx xs)])])) ∧
+     case simple_dlet p e of
+     | SOME (pv,v) =>
+         (case nsLookup env.v v of
+          | SOME (Glob t i) =>
+                 (n, next, <| v := alist_to_ns [(pv, Glob t i)]; c := nsEmpty |>, envs, [])
+          | _ => (n, next, <| v := nsEmpty; c := nsEmpty |>, envs, []))
+     | NONE =>
+         let n' = n + 4 in
+         let xs = REVERSE (pat_bindings p []) in
+         let e' = compile_exp (xs++t) env e in
+         let l = LENGTH xs in
+         let n'' = n' + l in
+           (n'', (next with vidx := next.vidx + l),
+            <| v := alist_to_ns (alloc_defs n' next.vidx xs); c := nsEmpty |>,
+            envs,
+            [Mat None e'
+               [(compile_pat env p, make_varls 0 None next.vidx xs)]])) ∧
   (compile_decs t n next env envs [ast$Dletrec locs funs] =
      let fun_names = MAP FST funs in
      let new_env = nsBindList (MAP (\x. (x, Local None x)) fun_names) env.v in
@@ -353,7 +367,7 @@ Definition compile_decs_def:
                    c := nsEmpty |> in
        (n' + LENGTH funs, (next with vidx := next.vidx + LENGTH funs),
         env', envs,
-        [flatLang$Dlet (flatLang$Letrec (join_all_names t) flat_funs
+        [(flatLang$Letrec (join_all_names t) flat_funs
            (make_varls 0 None next.vidx (REVERSE fun_names)))])) /\
   (compile_decs t n next env envs [Dtype locs type_def] =
     let new_env = MAPi (\tid (_,_,constrs). alloc_tags (next.tidx + tid) constrs) type_def in
@@ -382,7 +396,7 @@ Definition compile_decs_def:
         <| v := nsBind nenv (Glob None next.vidx) nsEmpty; c := nsEmpty |>,
         envs with <| next := envs.next + 1;
             envs := insert envs.next env envs.envs |>,
-        [flatLang$Dlet (App None (GlobalVarInit next.vidx)
+        [(App None (GlobalVarInit next.vidx)
             [env_id_tuple envs.generation envs.next])])) ∧
   (compile_decs t n next env envs [] =
     (n, next, empty_env, envs, [])) ∧
@@ -420,7 +434,6 @@ End
 
 Definition glob_alloc_def:
   glob_alloc next c =
-    Dlet
       (Let om_tra NONE
         (App om_tra
           (GlobalVarAlloc (next.vidx - c.next.vidx)) [])
@@ -428,7 +441,7 @@ Definition glob_alloc_def:
 End
 
 Definition alloc_env_ref_def:
-  alloc_env_ref = Dlet (App None (GlobalVarInit 0)
+  alloc_env_ref = (App None (GlobalVarInit 0)
     [App None (Src Opref) [Con None NONE []]])
 End
 
@@ -454,8 +467,8 @@ End
 
 Definition store_env_id_def:
   store_env_id gen id =
-    Dlet (Let None (SOME «r») (flatLang$App None (GlobalVarLookup 0) [])
-        (App None (Src Opassign) [Var_local None «r»; env_id_tuple gen id]))
+    Let None (SOME «r») (flatLang$App None (GlobalVarLookup 0) [])
+      (App None (Src Opassign) [Var_local None «r»; env_id_tuple gen id])
 End
 
 Definition inc_compile_prog_def:
@@ -474,7 +487,7 @@ Definition compile_def:
   compile c p =
     let (c', p') = compile_prog c p in
     let p' = compile_flat c'.pattern_cfg p' in
-    (c', p')
+      (c', p')
 End
 
 (* note that flat_elim is always disabled in the eval/incremental case *)
@@ -482,5 +495,5 @@ Definition inc_compile_def:
   inc_compile env_id c p =
     let (c', p') = inc_compile_prog env_id c p in
     let p' = MAP (flat_pattern$compile_dec c'.pattern_cfg) p' in
-    (c', p')
+      (c', p')
 End

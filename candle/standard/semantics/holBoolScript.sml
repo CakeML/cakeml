@@ -15,31 +15,31 @@ val _ = Parse.hide "mem";
 
 val mem = ``mem:'U->'U->bool``
 
-Overload p[local] = ``Var (strlit "p") Bool``
-Overload FAp[local] = ``Forall (strlit "p") Bool``
-Overload q[local] = ``Var (strlit "q") Bool``
-Overload FAq[local] = ``Forall (strlit "q") Bool``
-Overload r[local] = ``Var (strlit "r") Bool``
-Overload FAr[local] = ``Forall (strlit "r") Bool``
-Overload f[local] = ``Var (strlit "f") (Fun Bool (Fun Bool Bool))``
-Overload A[local] = ``Tyvar (strlit "A")``
-Overload P[local] = ``Var (strlit "P") (Fun A Bool)``
-Overload x[local] = ``Var (strlit "x") A``
-Overload FAx[local] = ``Forall (strlit "x") A``
+Overload p[local] = ``Var «p» Bool``
+Overload FAp[local] = ``Forall «p» Bool``
+Overload q[local] = ``Var «q» Bool``
+Overload FAq[local] = ``Forall «q» Bool``
+Overload r[local] = ``Var «r» Bool``
+Overload FAr[local] = ``Forall «r» Bool``
+Overload f[local] = ``Var «f» (Fun Bool (Fun Bool Bool))``
+Overload A[local] = ``Tyvar «A»``
+Overload P[local] = ``Var «P» (Fun A Bool)``
+Overload x[local] = ``Var «x» A``
+Overload FAx[local] = ``Forall «x» A``
 
 val sigs = [is_true_sig_def, is_false_sig_def, is_implies_sig_def, is_and_sig_def,
             is_or_sig_def, is_not_sig_def, is_forall_sig_def, is_exists_sig_def]
 
 Theorem bool_sig_instances:
    is_bool_sig sig ⇒
-    instance (tmsof sig) (i:'U interpretation) (strlit "T") Bool = (K (tmaof i (strlit "T") [])) ∧
-    instance (tmsof sig) i (strlit "F") Bool = (K (tmaof i (strlit "F") [])) ∧
-    instance (tmsof sig) i (strlit "==>") (Fun Bool (Fun Bool Bool)) = (K (tmaof i (strlit "==>") [])) ∧
-    instance (tmsof sig) i (strlit "/\\") (Fun Bool (Fun Bool Bool)) = (K (tmaof i (strlit "/\\") [])) ∧
-    instance (tmsof sig) i (strlit "\\/") (Fun Bool (Fun Bool Bool)) = (K (tmaof i (strlit "\\/") [])) ∧
-    instance (tmsof sig) i (strlit "~") (Fun Bool Bool) = (K (tmaof i (strlit "~") [])) ∧
-    instance (tmsof sig) i (strlit "!") (Fun (Fun A Bool) Bool) = (λτ. tmaof i (strlit "!") [τ (strlit "A")]) ∧
-    instance (tmsof sig) i (strlit "?") (Fun (Fun A Bool) Bool) = (λτ. tmaof i (strlit "?") [τ (strlit "A")])
+    instance (tmsof sig) (i:'U interpretation) «T» Bool = (K (tmaof i «T» [])) ∧
+    instance (tmsof sig) i «F» Bool = (K (tmaof i «F» [])) ∧
+    instance (tmsof sig) i «==>» (Fun Bool (Fun Bool Bool)) = (K (tmaof i «==>» [])) ∧
+    instance (tmsof sig) i «/\\» (Fun Bool (Fun Bool Bool)) = (K (tmaof i «/\\» [])) ∧
+    instance (tmsof sig) i «\\/» (Fun Bool (Fun Bool Bool)) = (K (tmaof i «\\/» [])) ∧
+    instance (tmsof sig) i «~» (Fun Bool Bool) = (K (tmaof i «~» [])) ∧
+    instance (tmsof sig) i «!» (Fun (Fun A Bool) Bool) = (λτ. tmaof i «!» [τ «A»]) ∧
+    instance (tmsof sig) i «?» (Fun (Fun A Bool) Bool) = (λτ. tmaof i «?» [τ «A»])
 Proof
   rw[is_bool_sig_def] >> fs sigs >> imp_res_tac identity_instance >> rw[FUN_EQ_THM] >>
   rpt AP_TERM_TAC >> rw[FUN_EQ_THM,tyvars_def] >> EVAL_TAC >> metis_tac[]
@@ -55,26 +55,26 @@ End
 Overload Boolrel = ``Boolrel0 ^mem``
 
 Definition is_true_interpretation_def:
-  is_true_interpretation0 ^mem γ ⇔ (γ:'U tmass) interprets (strlit "T") on [] as K True
+  is_true_interpretation0 ^mem γ ⇔ (γ:'U tmass) interprets «T» on [] as K True
 End
 
 Overload is_true_interpretation = ``is_true_interpretation0 ^mem``
 
 Definition is_and_interpretation_def:
-  is_and_interpretation0 ^mem γ ⇔ γ interprets (strlit "/\\") on [] as K (Boolrel $/\)
+  is_and_interpretation0 ^mem γ ⇔ γ interprets «/\\» on [] as K (Boolrel $/\)
 End
 
 Overload is_and_interpretation = ``is_and_interpretation0 ^mem``
 
 Definition is_implies_interpretation_def:
-  is_implies_interpretation0 ^mem γ ⇔ γ interprets (strlit "==>") on [] as K (Boolrel $==>)
+  is_implies_interpretation0 ^mem γ ⇔ γ interprets «==>» on [] as K (Boolrel $==>)
 End
 
 Overload is_implies_interpretation = ``is_implies_interpretation0 ^mem``
 
 Definition is_forall_interpretation_def:
   is_forall_interpretation0 ^mem γ ⇔ γ
-    interprets (strlit "!") on [strlit "A"] as
+    interprets «!» on [«A»] as
        (λl. Abstract (Funspace (HD l) boolset) boolset
               (λP. Boolean (∀x. x <: (HD l) ⇒ Holds P x)))
 End
@@ -83,7 +83,7 @@ Overload is_forall_interpretation = ``is_forall_interpretation0 ^mem``
 
 Definition is_exists_interpretation_def:
   is_exists_interpretation0 ^mem γ ⇔ γ
-    interprets (strlit "?") on [strlit "A"] as
+    interprets «?» on [«A»] as
        (λl. Abstract (Funspace (HD l) boolset) boolset
               (λP. Boolean (∃x. x <: (HD l) ∧ Holds P x)))
 End
@@ -91,19 +91,19 @@ End
 Overload is_exists_interpretation = ``is_exists_interpretation0 ^mem``
 
 Definition is_or_interpretation_def:
-  is_or_interpretation0 ^mem γ ⇔ γ interprets (strlit "\\/") on [] as K (Boolrel $\/)
+  is_or_interpretation0 ^mem γ ⇔ γ interprets «\\/» on [] as K (Boolrel $\/)
 End
 
 Overload is_or_interpretation = ``is_or_interpretation0 ^mem``
 
 Definition is_false_interpretation_def:
-  is_false_interpretation0 ^mem γ ⇔ (γ:'U tmass) interprets (strlit "F") on [] as K False
+  is_false_interpretation0 ^mem γ ⇔ (γ:'U tmass) interprets «F» on [] as K False
 End
 
 Overload is_false_interpretation = ``is_false_interpretation0 ^mem``
 
 Definition is_not_interpretation_def:
-  is_not_interpretation0 ^mem γ ⇔ γ interprets (strlit "~") on [] as K (Abstract boolset boolset (λp. Boolean (p ≠ True)))
+  is_not_interpretation0 ^mem γ ⇔ γ interprets «~» on [] as K (Abstract boolset boolset (λp. Boolean (p ≠ True)))
 End
 
 Overload is_not_interpretation = ``is_not_interpretation0 ^mem``
@@ -219,21 +219,21 @@ Proof
     unabbrev_all_tac >>
     match_mp_tac bool_has_bool_sig >>
     pop_assum mp_tac >> EVAL_TAC ) >>
-  `FLOOKUP (tysof sig) (strlit "bool") = SOME 0` by (
+  `FLOOKUP (tysof sig) «bool» = SOME 0` by (
     qpat_x_assum`is_std_sig _` mp_tac >>
     simp[is_std_sig_def,Abbr`sig`,Abbr`ctx`]) >>
-  `FLOOKUP (tysof sig) (strlit "fun") = SOME 2` by (
+  `FLOOKUP (tysof sig) «fun» = SOME 2` by (
     qpat_x_assum`is_std_sig _` mp_tac >>
     simp[is_std_sig_def,Abbr`sig`,Abbr`ctx`]) >>
   simp ints >>
   conj_asm1_tac >- (
-    init_tac`Const (strlit "T") Bool === TrueDef` >>
+    init_tac`Const «T» Bool === TrueDef` >>
     `term_ok sig TrueDef` by (
       simp[term_ok_equation,term_ok_clauses,TrueDef_def] ) >>
     fs[TrueDef_def] >>
     simp[SIMP_RULE std_ss [] termsem_equation,boolean_eq_true,termsem_def]) >>
   conj_asm1_tac >- (
-    init_tac `Const (strlit "/\\") (Fun Bool (Fun Bool Bool)) === AndDef` >>
+    init_tac `Const «/\\» (Fun Bool (Fun Bool Bool)) === AndDef` >>
     imp_res_tac is_std_interpretation_is_type >>
     imp_res_tac typesem_Bool >> simp[Boolrel_def] >>
     match_mp_tac (UNDISCH abstract_eq) >>
@@ -308,7 +308,7 @@ Proof
       simp[boolean_def,mem_boolset] ) >>
     metis_tac[] ) >>
   conj_asm1_tac >- (
-    init_tac `Const (strlit "==>") (Fun Bool (Fun Bool Bool)) === ImpliesDef` >>
+    init_tac `Const «==>» (Fun Bool (Fun Bool Bool)) === ImpliesDef` >>
     imp_res_tac is_std_interpretation_is_type >>
     imp_res_tac typesem_Bool >> simp[Boolrel_def] >>
     match_mp_tac (UNDISCH abstract_eq) >>
@@ -357,7 +357,7 @@ Proof
     simp[boolean_def] >> rw[] >> fs[] >>
     metis_tac[mem_boolset] ) >>
   conj_asm1_tac >- (
-    init_tac `Const (strlit "!") (Fun (Fun A Bool) Bool) === ForallDef` >>
+    init_tac `Const «!» (Fun (Fun A Bool) Bool) === ForallDef` >>
     `τ = tyvof v` by simp[Abbr`v`] >> fs[] >>
     imp_res_tac is_std_interpretation_is_type >>
     imp_res_tac typesem_Bool >> simp[] >>
@@ -380,7 +380,7 @@ Proof
     simp[bool_sig_instances] >> fs[interprets_def] >>
     ntac 3(last_x_assum(qspec_then`τ`mp_tac)>>simp[]>>strip_tac) >>
     simp[typesem_def] >>
-    Q.PAT_ABBREV_TAC`aa:'U = X (strlit "A")` >>
+    Q.PAT_ABBREV_TAC`aa:'U = X «A»` >>
     qspecl_then[`pp`,`aa`,`boolset`]mp_tac(UNDISCH in_funspace_abstract) >>
     impl_tac >- (fs[is_type_valuation_def,Abbr`aa`] >> metis_tac[boolean_in_boolset]) >>
     disch_then(qx_choose_then`pf`strip_assume_tac) >> simp[] >>
@@ -394,7 +394,7 @@ Proof
     match_mp_tac (UNDISCH abstract_eq) >>
     simp[mem_boolset] ) >>
   conj_asm1_tac >- (
-    init_tac `Const (strlit "?") (Fun (Fun A Bool) Bool) === ExistsDef` >>
+    init_tac `Const «?» (Fun (Fun A Bool) Bool) === ExistsDef` >>
     `τ = tyvof v` by simp[Abbr`v`] >> fs[] >>
     imp_res_tac is_std_interpretation_is_type >>
     imp_res_tac typesem_Bool >> simp[] >>
@@ -402,13 +402,12 @@ Proof
     match_mp_tac (UNDISCH abstract_eq) >>
     qx_gen_tac`pp` >> strip_tac >>
     simp[boolean_in_boolset] >>
-    qspecl_then[`tmsof sig`,`i`,`strlit "!"`,`Fun (Fun Bool Bool) Bool`,`Fun (Fun A Bool) Bool`,`[(Bool,A)]`]mp_tac instance_def >>
+    qspecl_then[`tmsof sig`,`i`,`«!»`,`Fun (Fun Bool Bool) Bool`,`Fun (Fun A Bool) Bool`,`[(Bool,A)]`]mp_tac instance_def >>
     impl_tac >- (fs[is_bool_sig_def,is_exists_sig_def,is_forall_sig_def] >> EVAL_TAC) >>
     simp[] >> disch_then kall_tac >>
-    simp[tyvars_def,STRING_SORT_def,LIST_UNION_def,LIST_INSERT_def,INORDER_INSERT_def,REV_ASSOCD,
-         mlstringTheory.implode_def] >>
+    simp[tyvars_def,STRING_SORT_def,LIST_UNION_def,LIST_INSERT_def,INORDER_INSERT_def,REV_ASSOCD] >>
     fs[interprets_def] >>
-    qpat_x_assum`∀t. is_type_valuation t ⇒ Z`(fn th => assume_tac th >> (qspec_then`(strlit "A" =+ boolset)τ`mp_tac) th) >>
+    qpat_x_assum`∀t. is_type_valuation t ⇒ Z`(fn th => assume_tac th >> (qspec_then`(«A» =+ boolset)τ`mp_tac) th) >>
     impl_tac >- (
       fs[is_type_valuation_def,combinTheory.APPLY_UPDATE_THM] >> rw[] >>
       metis_tac[boolean_in_boolset] ) >>
@@ -440,31 +439,31 @@ Proof
     `∀x. (λm. i2 x m) = (i2 x)` by metis_tac[ETA_AX] >>
     simp[Abbr`i1`] >>
     simp[holds_def] >>
-    `∀x a. x <: boolset ∧ a <: tyvof v (strlit "A") ⇒ Abstract (tyvof v (strlit "A")) boolset (i2 x) ' a = i2 x a` by (
+    `∀x a. x <: boolset ∧ a <: tyvof v «A» ⇒ Abstract (tyvof v «A») boolset (i2 x) ' a = i2 x a` by (
       rw[] >>
       match_mp_tac apply_abstract_matchable >>
       rw[Abbr`i2`] >>
       apply_abstract_tac ) >>
     fs[Abbr`i2`] >>
     simp[SIMP_RULE(srw_ss())[]apply_boolrel,boolean_in_boolset,boolean_eq_true,Abbr`Z`] >>
-    `∀x. x <: tyvof v (strlit "A") ⇒ pp ' x <: boolset` by (rw[] >> apply_abstract_tac) >>
+    `∀x. x <: tyvof v «A» ⇒ pp ' x <: boolset` by (rw[] >> apply_abstract_tac) >>
     simp[SIMP_RULE(srw_ss())[]apply_boolrel,boolean_eq_true] >>
     ntac 20 (pop_assum kall_tac) >>
     simp[boolean_def] >>
     metis_tac[mem_boolset] ) >>
   conj_asm1_tac >- (
-    init_tac `Const (strlit "\\/") (Fun Bool (Fun Bool Bool)) === OrDef` >>
+    init_tac `Const «\\/» (Fun Bool (Fun Bool Bool)) === OrDef` >>
     pop_assum kall_tac >>
     imp_res_tac is_std_interpretation_is_type >>
     imp_res_tac typesem_Bool >> simp[Boolrel_def] >>
     match_mp_tac (UNDISCH abstract_eq) >>
     imp_res_tac typesem_Fun >>
-    qspecl_then[`tmsof sig`,`i`,`strlit "!"`,`Fun (Fun Bool Bool) Bool`,`Fun (Fun A Bool) Bool`,`[(Bool,A)]`]mp_tac instance_def >>
+    qspecl_then[`tmsof sig`,`i`,`«!»`,`Fun (Fun Bool Bool) Bool`,`Fun (Fun A Bool) Bool`,`[(Bool,A)]`]mp_tac instance_def >>
     impl_tac >- (fs[is_bool_sig_def,is_forall_sig_def] >> EVAL_TAC) >>
     simp[] >> disch_then kall_tac >>
-    simp[tyvars_def,STRING_SORT_def,LIST_UNION_def,LIST_INSERT_def,INORDER_INSERT_def,REV_ASSOCD,mlstringTheory.implode_def] >>
+    simp[tyvars_def,STRING_SORT_def,LIST_UNION_def,LIST_INSERT_def,INORDER_INSERT_def,REV_ASSOCD] >>
     fs[interprets_def] >>
-    qpat_x_assum`∀t. is_type_valuation t ⇒ tmaof i (strlit "!") Z = Y`(fn th => assume_tac th >> (qspec_then`(strlit "A" =+ boolset)τ`mp_tac) th) >>
+    qpat_x_assum`∀t. is_type_valuation t ⇒ tmaof i «!» Z = Y`(fn th => assume_tac th >> (qspec_then`(«A» =+ boolset)τ`mp_tac) th) >>
     impl_tac >- (
       fs[is_type_valuation_def,combinTheory.APPLY_UPDATE_THM] >> rw[] >>
       metis_tac[boolean_in_boolset] ) >>
@@ -492,17 +491,17 @@ Proof
     simp[boolean_def] >>
     metis_tac[mem_boolset] ) >>
   conj_asm1_tac >- (
-    init_tac`Const (strlit "F") Bool === FalseDef` >>
+    init_tac`Const «F» Bool === FalseDef` >>
     pop_assum kall_tac >>
     imp_res_tac is_std_interpretation_is_type >>
     imp_res_tac typesem_Bool >> simp[] >>
     imp_res_tac typesem_Fun >>
-    qspecl_then[`tmsof sig`,`i`,`strlit "!"`,`Fun (Fun Bool Bool) Bool`,`Fun (Fun A Bool) Bool`,`[(Bool,A)]`]mp_tac instance_def >>
+    qspecl_then[`tmsof sig`,`i`,`«!»`,`Fun (Fun Bool Bool) Bool`,`Fun (Fun A Bool) Bool`,`[(Bool,A)]`]mp_tac instance_def >>
     impl_tac >- (fs[is_bool_sig_def,is_forall_sig_def] >> EVAL_TAC) >>
     simp[] >> disch_then kall_tac >>
-    simp[tyvars_def,STRING_SORT_def,LIST_UNION_def,LIST_INSERT_def,INORDER_INSERT_def,REV_ASSOCD,mlstringTheory.implode_def] >>
+    simp[tyvars_def,STRING_SORT_def,LIST_UNION_def,LIST_INSERT_def,INORDER_INSERT_def,REV_ASSOCD] >>
     fs[interprets_def] >>
-    qpat_x_assum`∀t. is_type_valuation t ⇒ tmaof i (strlit "!") Z = Y`(fn th => assume_tac th >> (qspec_then`(strlit "A" =+ boolset)τ`mp_tac) th) >>
+    qpat_x_assum`∀t. is_type_valuation t ⇒ tmaof i «!» Z = Y`(fn th => assume_tac th >> (qspec_then`(«A» =+ boolset)τ`mp_tac) th) >>
     impl_tac >- (
       fs[is_type_valuation_def,combinTheory.APPLY_UPDATE_THM] >> rw[] >>
       metis_tac[boolean_in_boolset] ) >>
@@ -518,7 +517,7 @@ Proof
     pop_assum(SUBST1_TAC o SYM) >>
     match_mp_tac apply_abstract_matchable >>
     simp[mem_boolset] ) >>
-  init_tac`Const (strlit "~") (Fun Bool Bool) === NotDef` >>
+  init_tac`Const «~» (Fun Bool Bool) === NotDef` >>
   pop_assum kall_tac >>
   imp_res_tac is_std_interpretation_is_type >>
   imp_res_tac typesem_Bool >> simp[] >>
@@ -566,7 +565,7 @@ Theorem termsem_implies:
              termsem (tmsof s) i v p2 = True)
 Proof
   rw[termsem_def,is_implies_sig_def,is_implies_interpretation_def] >>
-  qspecl_then[`tmsof s`,`i`,`strlit"==>"`]mp_tac instance_def >> simp[] >>
+  qspecl_then[`tmsof s`,`i`,`«==>»`]mp_tac instance_def >> simp[] >>
   disch_then(qspec_then`[]`mp_tac) >>
   simp[] >> disch_then kall_tac >>
   CONV_TAC(LAND_CONV(LAND_CONV(LAND_CONV(RAND_CONV EVAL)))) >>
@@ -612,8 +611,8 @@ Theorem termsem_forall:
                  termsem (tmsof s) i (tyvof v, ((f,y) =+ x) (tmvof v)) b = True)
 Proof
   rw[termsem_def,is_forall_sig_def,is_forall_interpretation_def] >>
-  qspecl_then[`tmsof s`,`i`,`strlit"!"`]mp_tac instance_def >> simp[] >>
-  disch_then(qspec_then`[y,Tyvar(strlit"A")]`mp_tac) >>
+  qspecl_then[`tmsof s`,`i`,`«!»`]mp_tac instance_def >> simp[] >>
+  disch_then(qspec_then`[y,Tyvar «A»]`mp_tac) >>
   simp[holSyntaxLibTheory.REV_ASSOCD] >> disch_then kall_tac >>
   CONV_TAC(LAND_CONV(LAND_CONV(RAND_CONV EVAL))) >>
   fs[interprets_def] >>
@@ -662,8 +661,8 @@ Theorem termsem_exists:
                  termsem (tmsof s) i (tyvof v, ((f,y) =+ x) (tmvof v)) b = True)
 Proof
   rw[termsem_def,is_exists_sig_def,is_exists_interpretation_def] >>
-  qspecl_then[`tmsof s`,`i`,`strlit"?"`]mp_tac instance_def >> simp[] >>
-  disch_then(qspec_then`[y,Tyvar(strlit"A")]`mp_tac) >>
+  qspecl_then[`tmsof s`,`i`,`«?»`]mp_tac instance_def >> simp[] >>
+  disch_then(qspec_then`[y,Tyvar «A»]`mp_tac) >>
   simp[holSyntaxLibTheory.REV_ASSOCD] >> disch_then kall_tac >>
   CONV_TAC(LAND_CONV(LAND_CONV(RAND_CONV EVAL))) >>
   fs[interprets_def] >>
@@ -713,7 +712,7 @@ Theorem termsem_and:
              termsem (tmsof s) i v p2 = True)
 Proof
   rw[termsem_def,is_and_sig_def,is_and_interpretation_def] >>
-  qspecl_then[`tmsof s`,`i`,`strlit"/\\"`]mp_tac instance_def >> simp[] >>
+  qspecl_then[`tmsof s`,`i`,`«/\\»`]mp_tac instance_def >> simp[] >>
   disch_then(qspec_then`[]`mp_tac) >>
   simp[] >> disch_then kall_tac >>
   CONV_TAC(LAND_CONV(LAND_CONV(LAND_CONV(RAND_CONV EVAL)))) >>
@@ -759,7 +758,7 @@ Theorem termsem_not:
     Boolean (termsem (tmsof s) i v p1 ≠ True)
 Proof
   rw[termsem_def,is_not_sig_def,is_not_interpretation_def] >>
-  qspecl_then[`tmsof s`,`i`,`strlit"~"`]mp_tac instance_def >> simp[] >>
+  qspecl_then[`tmsof s`,`i`,`«~»`]mp_tac instance_def >> simp[] >>
   disch_then(qspec_then`[]`mp_tac) >>
   simp[] >> disch_then kall_tac >>
   CONV_TAC(LAND_CONV(LAND_CONV(RAND_CONV EVAL))) >>

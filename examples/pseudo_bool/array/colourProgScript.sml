@@ -211,7 +211,7 @@ val res = translate mk_prob_def;
 Definition check_unsat_1_sem_def:
   check_unsat_1_sem fs f1 out ⇔
   case get_graph_dimacs fs f1 of
-    NONE => out = strlit ""
+    NONE => out = «»
   | SOME g =>
     out = concat (print_annot_prob (mk_prob (full_encode (FST g) g)))
 End
@@ -256,7 +256,7 @@ Proof
   asm_exists_tac>>xsimpl>>
   qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
   rw[]>>
-  qexists_tac`strlit ""`>>
+  qexists_tac`«»`>>
   simp[STD_streams_stderr,add_stdo_nil]>>
   xsimpl
 QED
@@ -354,15 +354,15 @@ QED
 (* Pretty print conclusion *)
 Definition colour_eq_str_def:
   colour_eq_str (n:num) =
-  strlit "s VERIFIED CHROMATIC NUMBER = " ^
-    toString n ^ strlit"\n"
+  «s VERIFIED CHROMATIC NUMBER = » ^
+    toString n ^ «\n»
 End
 
 Definition colour_bound_str_def:
   colour_bound_str (l:num) (u:num) =
-  strlit "s VERIFIED CHROMATIC NUMBER BOUND "^
-    toString l ^ strlit " <= NUM COL <= " ^
-    toString u ^ strlit"\n"
+  «s VERIFIED CHROMATIC NUMBER BOUND »^
+    toString l ^ « <= NUM COL <= » ^
+    toString u ^ «\n»
 End
 
 Definition print_colour_str_def:
@@ -384,7 +384,7 @@ End
 
 Definition check_unsat_4_sem_def:
   check_unsat_4_sem fs fg fc out ⇔
-  (out ≠ strlit"" ⇒
+  (out ≠ «» ⇒
   ∃g lb k f.
     get_graph_dimacs fs fg = SOME g ∧
     good_graph g ∧
@@ -554,7 +554,7 @@ Definition map_concl_to_string_def:
   (map_concl_to_string k n (INR (out,bnd,c)) =
     case conv_concl n c of
       SOME lb => INR (print_colour_str lb k)
-    | NONE => INL (strlit "c Unexpected conclusion type for min colouring problem.\n"))
+    | NONE => INL «c Unexpected conclusion type for min colouring problem.\n»)
 End
 
 val res = translate conv_concl_def;
@@ -614,7 +614,7 @@ Proof
     qexists_tac`emp`>>xsimpl>>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
-    qexists_tac`strlit""`>>xsimpl>>rw[]>>
+    qexists_tac`«»`>>xsimpl>>rw[]>>
     qexists_tac`x`>>xsimpl>>rw[]>>
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
     xsimpl)>>
@@ -652,7 +652,7 @@ Proof
     qexists_tac`emp`>>xsimpl>>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
-    qexists_tac`strlit ""`>>
+    qexists_tac`«»`>>
     rename1`add_stderr _ err`>>
     qexists_tac`err`>>xsimpl>>rw[]>>
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -665,7 +665,7 @@ Proof
     qexists_tac`emp`>>xsimpl>>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
-    qexists_tac`strlit ""`>>
+    qexists_tac`«»`>>
     rename1`add_stderr _ err`>>
     qexists_tac`err`>>xsimpl>>rw[]>>
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -677,7 +677,7 @@ Proof
     rw[]>>
     Cases_on`objf`>>
     qexists_tac`print_colour_str x k`>>simp[]>>
-    qexists_tac`strlit ""`>>
+    qexists_tac`«»`>>
     rw[]>>simp[STD_streams_stderr,add_stdo_nil]>>
     xsimpl>>
     gvs[parse_and_check_sem_def,colour_sem_def,mk_prob2_def]>>
@@ -692,7 +692,7 @@ Proof
 QED
 
 Definition usage_string_def:
-  usage_string = strlit "Usage: cake_pb_colour <DIMACS graph file> <OPB file> <PB proof file> <colouring file>\n"
+  usage_string = «Usage: cake_pb_colour <DIMACS graph file> <OPB file> <PB proof file> <colouring file>\n»
 End
 
 val r = translate usage_string_def;
@@ -715,7 +715,7 @@ Definition main_sem_def:
     check_unsat_1_sem fs (EL 1 cl) out
   else if LENGTH cl = 5 then
     check_unsat_4_sem fs (EL 1 cl) (EL 4 cl) out
-  else out = strlit ""
+  else out = «»
 End
 
 Theorem STDIO_refl:

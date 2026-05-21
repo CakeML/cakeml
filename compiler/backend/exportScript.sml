@@ -119,10 +119,10 @@ Definition code_buffer_def:
 End
 
 Definition comm_strlit_def:
-  comm_strlit = strlit ","
+  comm_strlit = «,»
 End
 Definition newl_strlit_def:
-  newl_strlit = strlit "\n"
+  newl_strlit = «\n»
 End
 
 Definition comma_cat_def:
@@ -170,7 +170,7 @@ QED
 Definition escape_sym_char_def:
   escape_sym_char ch = let code = ORD ch in
     if code >= 0x61 /\ code <= 0x7A \/ code >= 0x41 /\ code <= 0x5A \/
-       code >= 0x30 /\ code <= 0x39 \/ code = 0x5F then str ch else
+       code >= 0x30 /\ code <= 0x39 \/ code = 0x5F then toString ch else
     «$» ^ toString(code) ^ «_»
 End
 

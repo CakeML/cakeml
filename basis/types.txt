@@ -381,6 +381,7 @@ TextIO.inputLines: char -> TextIO.instream -> string list
 TextIO.inputLinesFile: char -> string -> string list option
 TextIO.inputLinesStdIn: char -> string list
 TextIO.inputAll: TextIO.instream -> string
+TextIO.inputAllFrom: string option -> string option
 TextIO.inputAllTokens: char -> TextIO.instream -> (char -> bool) -> (string -> 'a) -> 'a list list
 TextIO.inputAllTokensFile: char -> string -> (char -> bool) -> (string -> 'a) -> 'a list list option
 TextIO.inputAllTokensFrom: char -> string option -> (char -> bool) -> (string -> 'a) -> 'a list list option

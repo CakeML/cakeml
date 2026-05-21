@@ -84,7 +84,7 @@ End
 Definition assoc_def:
   assoc s l =
     case l of
-      [] => failwith (strlit "not in list")
+      [] => failwith «not in list»
     | ((x:'a,y:'b)::xs) => if s = x then do return y od else assoc s xs
 End
 
@@ -157,7 +157,7 @@ End
 Definition add_type_def:
   add_type (name,arity) =
     do ok <- can get_type_arity name ;
-       if ok then failwith ((strlit"new_type: ") ^ name ^ (strlit" has already been declared"))
+       if ok then failwith («new_type: » ^ name ^ « has already been declared»)
              else do ts <- get_the_type_constants ;
                      set_the_type_constants ((name,arity)::ts) od od
 End
@@ -180,10 +180,10 @@ End
 Definition mk_type_def:
   mk_type (tyop,args) =
     do arity <- try get_type_arity tyop
-         ((strlit"mk_type: type ") ^ tyop ^ (strlit" has not been defined"));
+         («mk_type: type » ^ tyop ^ « has not been defined»);
        if arity = LENGTH args then
          return (Tyapp tyop args)
-       else failwith ((strlit"mk_type: wrong number of arguments to ") ^ tyop)
+       else failwith («mk_type: wrong number of arguments to » ^ tyop)
     od
 End
 
@@ -206,7 +206,7 @@ Definition dest_type_def:
   dest_type t =
     case t of
       Tyapp s ty => do return (s,ty) od
-    | Tyvar _ => do failwith (strlit"dest_type: type variable not a constructor") od
+    | Tyvar _ => do failwith «dest_type: type variable not a constructor» od
 End
 
 (*
@@ -219,7 +219,7 @@ End
 Definition dest_vartype_def:
   dest_vartype t =
     case t of
-      Tyapp _ _ => do failwith (strlit "dest_vartype: type constructor not a variable") od
+      Tyapp _ _ => do failwith «dest_vartype: type constructor not a variable» od
     | Tyvar s => do return s od
 End
 
@@ -300,12 +300,12 @@ End
 *)
 
 Definition mk_fun_ty_def:
-  mk_fun_ty ty1 ty2 = mk_type(strlit"fun",[ty1; ty2])
+  mk_fun_ty ty1 ty2 = mk_type(«fun»,[ty1; ty2])
 End
 
-Overload bool_ty[local] = ``mk_type(strlit"bool",[])``
-Overload aty[local] = ``mk_vartype (strlit "A")``
-Overload bty[local] = ``mk_vartype (strlit "B")``
+Overload bool_ty[local] = ``mk_type(«bool»,[])``
+Overload aty[local] = ``mk_vartype «A»``
+Overload bty[local] = ``mk_vartype «B»``
 
 (*
   let constants() = !the_term_constants
@@ -341,10 +341,10 @@ Definition type_of_def:
     | Comb s _ => do ty <- type_of s ;
                      x <- dest_type ty ;
                      case x of (_,_::ty1::_) => return ty1
-                             | _ => failwith (strlit "match")
+                             | _ => failwith «match»
                   od
     | Abs (Var _ ty) t => do x <- type_of t; mk_fun_ty ty x od
-    | _ => failwith (strlit "match")
+    | _ => failwith «match»
 End
 
 (*
@@ -432,7 +432,7 @@ End
 Definition mk_const_def:
   mk_const(name,theta) =
     do uty <- try get_const_type name
-         (strlit "mk_const: not a constant name") ;
+         «mk_const: not a constant name» ;
        return (Const name (type_subst theta uty))
     od
 End
@@ -448,7 +448,7 @@ Definition mk_abs_def:
   mk_abs(bvar,bod) =
     case bvar of
       Var n ty => return (Abs bvar bod)
-    | _ => failwith (strlit "mk_abs: not a variable")
+    | _ => failwith «mk_abs: not a variable»
 End
 
 (*
@@ -463,9 +463,9 @@ Definition mk_comb_def:
     do tyf <- type_of f ;
        tya <- type_of a ;
        case tyf of
-         Tyapp (strlit "fun") [ty;_] => if tya = ty then return (Comb f a) else
-                                 failwith (strlit "mk_comb: types do not agree")
-       | _ => failwith (strlit "mk_comb: types do not agree")
+         Tyapp «fun» [ty;_] => if tya = ty then return (Comb f a) else
+                                 failwith «mk_comb: types do not agree»
+       | _ => failwith «mk_comb: types do not agree»
     od
 End
 
@@ -485,22 +485,22 @@ End
 
 Definition dest_var_def:
   dest_var tm = case tm of Var s ty => return (s,ty)
-                         | _ => failwith (strlit "dest_var: not a variable")
+                         | _ => failwith «dest_var: not a variable»
 End
 
 Definition dest_const_def:
   dest_const tm = case tm of Const s ty => return (s,ty)
-                           | _ => failwith (strlit "dest_const: not a constant")
+                           | _ => failwith «dest_const: not a constant»
 End
 
 Definition dest_comb_def:
   dest_comb tm = case tm of Comb f x => return (f,x)
-                          | _ => failwith (strlit "dest_comb: not a combination")
+                          | _ => failwith «dest_comb: not a combination»
 End
 
 Definition dest_abs_def:
   dest_abs tm = case tm of Abs v b => return (v,b)
-                         | _ => failwith (strlit "dest_abs: not an abstraction")
+                         | _ => failwith «dest_abs: not an abstraction»
 End
 
 (*
@@ -650,7 +650,7 @@ Definition vsubst_def:
                                 return (ty = SND vty) od) theta ;
        if ok
        then return (vsubst_aux theta tm)
-       else failwith (strlit "vsubst: Bad substitution list") od
+       else failwith «vsubst: Bad substitution list» od
 End
 
 (*
@@ -791,14 +791,14 @@ Definition rator_def:
   rator tm =
     case tm of
       Comb l r => return l
-    | _ => failwith (strlit "rator: Not a combination")
+    | _ => failwith «rator: Not a combination»
 End
 
 Definition rand_def:
   rand tm =
     case tm of
       Comb l r => return r
-    | _ => failwith (strlit "rand: Not a combination")
+    | _ => failwith «rand: Not a combination»
 End
 
 (*
@@ -815,12 +815,12 @@ Definition mk_eq_def:
   mk_eq (l,r) =
     try (\(l,r).
            do ty <- type_of l ;
-              eq <- mk_const(strlit"=",[]) ;
+              eq <- mk_const(«=»,[]) ;
               eq_tm <- inst [(ty,aty)] eq ;
               t <- mk_comb(eq_tm,l) ;
               t <- mk_comb(t,r) ;
               return t
-           od) (l,r) (strlit "mk_eq")
+           od) (l,r) «mk_eq»
 End
 
 (*
@@ -838,14 +838,14 @@ End
 Definition dest_eq_def:
   dest_eq tm =
     case tm of
-      Comb (Comb (Const (strlit "=") _) l) r => return (l,r)
-    | _ => failwith (strlit "dest_eq")
+      Comb (Comb (Const «=» _) l) r => return (l,r)
+    | _ => failwith «dest_eq»
 End
 
 Definition is_eq_def:
   is_eq tm =
     case tm of
-      Comb (Comb (Const (strlit "=") _) l) r => T
+      Comb (Comb (Const «=» _) l) r => T
     | _ => F
 End
 
@@ -887,20 +887,20 @@ End
 val _ = PmatchHeuristics.with_classic_heuristic Define `
   TRANS (Sequent asl1 c1) (Sequent asl2 c2) =
     case (c1,c2) of
-      (Comb (Comb (Const (strlit "=") _) l) m1, Comb (Comb (Const (strlit "=") _) m2) r) =>
+      (Comb (Comb (Const «=» _) l) m1, Comb (Comb (Const «=» _) m2) r) =>
         if aconv m1 m2 then do eq <- mk_eq(l,r);
                                return (Sequent (term_union asl1 asl2) eq) od
-        else failwith (strlit "TRANS")
-    | _ => failwith (strlit "TRANS")`
+        else failwith «TRANS»
+    | _ => failwith «TRANS»`
 
 (* some in-kernel but derivable rules (TRANS is also in this category) *)
 
 Definition SYM_def:
   SYM (Sequent asl eq) =
     case eq of
-      Comb (Comb (Const (strlit "=") t) l) r =>
-        return (Sequent asl (Comb (Comb (Const (strlit "=") t) r) l))
-    | _ => failwith (strlit "SYM")
+      Comb (Comb (Const «=» t) l) r =>
+        return (Sequent asl (Comb (Comb (Const «=» t) r) l))
+    | _ => failwith «SYM»
 End
 
 Definition PROVE_HYP_def:
@@ -924,10 +924,10 @@ Definition ALPHA_THM_def:
         tys <- map type_of h';
         if EVERY (λty. ty = bty) tys then
           return (Sequent h' c')
-        else failwith (strlit "ALPHA_THM")
+        else failwith «ALPHA_THM»
       od
-    else failwith (strlit "ALPHA_THM")
-  else failwith (strlit "ALPHA_THM")
+    else failwith «ALPHA_THM»
+  else failwith «ALPHA_THM»
 End
 
 (* -- *)
@@ -943,12 +943,12 @@ End
 val _ = PmatchHeuristics.with_classic_heuristic Define `
   MK_COMB (Sequent asl1 c1,Sequent asl2 c2) =
    case (c1,c2) of
-     (Comb (Comb (Const (strlit "=") _) l1) r1, Comb (Comb (Const (strlit "=") _) l2) r2) =>
+     (Comb (Comb (Const «=» _) l1) r1, Comb (Comb (Const «=» _) l2) r2) =>
        do x1 <- mk_comb(l1,l2) ;
           x2 <- mk_comb(r1,r2) ;
           eq <- mk_eq(x1,x2) ;
           return (Sequent(term_union asl1 asl2) eq) od
-   | _ => failwith (strlit "MK_COMB")`
+   | _ => failwith «MK_COMB»`
 
 (*
   let ABS v (Sequent(asl,c)) =
@@ -963,14 +963,14 @@ val _ = PmatchHeuristics.with_classic_heuristic Define `
 Definition ABS_def:
   ABS v (Sequent asl c) =
     case c of
-      Comb (Comb (Const (strlit "=") _) l) r =>
+      Comb (Comb (Const «=» _) l) r =>
         if EXISTS (vfree_in v) asl
-        then failwith (strlit "ABS: variable is free in assumptions")
+        then failwith «ABS: variable is free in assumptions»
         else do a1 <- mk_abs(v,l) ;
                 a2 <- mk_abs(v,r) ;
                 eq <- mk_eq(a1,a2) ;
                 return (Sequent asl eq) od
-    | _ => failwith (strlit "ABS: not an equation")
+    | _ => failwith «ABS: not an equation»
 End
 
 (*
@@ -985,8 +985,8 @@ Definition BETA_def:
     case tm of
       Comb (Abs v bod) arg =>
         if arg = v then do eq <- mk_eq(tm,bod) ; return (Sequent [] eq) od
-        else failwith (strlit "BETA: not a trivial beta-redex")
-    | _ => failwith (strlit "BETA: not a trivial beta-redex")
+        else failwith «BETA: not a trivial beta-redex»
+    | _ => failwith «BETA: not a trivial beta-redex»
 End
 
 (*
@@ -1000,7 +1000,7 @@ Definition ASSUME_def:
     do ty <- type_of tm ;
        bty <- bool_ty ;
        if ty = bty then return (Sequent [tm] tm)
-       else failwith (strlit "ASSUME: not a proposition") od
+       else failwith «ASSUME: not a proposition» od
 End
 
 (*
@@ -1014,10 +1014,10 @@ End
 Definition EQ_MP_def:
   EQ_MP (Sequent asl1 eq) (Sequent asl2 c) =
     case eq of
-      Comb (Comb (Const (strlit "=") _) l) r =>
+      Comb (Comb (Const «=» _) l) r =>
         if aconv l c then return (Sequent (term_union asl1 asl2) r)
-                     else failwith (strlit "EQ_MP")
-    | _ => failwith (strlit "EQ_MP")
+                     else failwith «EQ_MP»
+    | _ => failwith «EQ_MP»
 End
 
 (*
@@ -1099,7 +1099,7 @@ Definition new_axiom_def:
             add_def (NewAxiom tm) ;
             return th od
        else
-         failwith (strlit "new_axiom: Not a proposition")
+         failwith «new_axiom: Not a proposition»
     od
 End
 
@@ -1115,7 +1115,7 @@ Definition add_constants_def:
   add_constants ls =
     do cs <- get_the_term_constants ;
        case first_dup (MAP FST ls) (MAP FST cs) of
-       | SOME name => failwith ((strlit "add_constants: ") ^ name ^ (strlit " appears twice or has already been declared"))
+       | SOME name => failwith («add_constants: » ^ name ^ « appears twice or has already been declared»)
        | NONE => set_the_term_constants (ls++cs) od
 End
 
@@ -1124,17 +1124,17 @@ Definition check_overloads_def:
     do cs <- get_the_term_constants ;
        forall (λ(name,ty).
                      case ALOOKUP cs name of
-                     | NONE => failwith ((strlit "check_overloads: ") ^ name ^ (strlit " must be declared."))
+                     | NONE => failwith («check_overloads: » ^ name ^ « must be declared.»)
                      | SOME ty' =>
                      (case instance_subst [(ty,ty')] [] [] of
-                     | NONE => failwith ((strlit "check_overloads: ") ^ name ^ (strlit " definition is not an instance of its declared type."))
+                     | NONE => failwith («check_overloads: » ^ name ^ « definition is not an instance of its declared type.»)
                      | SOME ty'' =>
                        do
                          ctxt <- get_the_context;
                          if ~EXISTS ($= (NewConst name ty')) ctxt then
-                           failwith ((strlit "check_overloads: ") ^ name ^ (strlit " was introduced with definition, not declaration."))
+                           failwith («check_overloads: » ^ name ^ « was introduced with definition, not declaration.»)
                          else if is_reserved_name name then
-                           failwith ((strlit "check_overloads: ") ^ name ^ (strlit " is a reserved name."))
+                           failwith («check_overloads: » ^ name ^ « is a reserved name.»)
                          else return T
                        od)
               ) ls;
@@ -1148,13 +1148,13 @@ Definition new_specification_def:
          map (\e. do (l,r) <- dest_eq e;
                      (s,ty) <- dest_var l;
                      if ~(freesin [] r) then
-                       failwith ((strlit "new_specification: witness for ") ^ s ^ (strlit " not closed"))
+                       failwith («new_specification: witness for » ^ s ^ « not closed»)
                      else if ~(subset (type_vars_in_term r) (tyvars ty)) then
-                       failwith ((strlit "new_specification: type variables for ") ^ s ^ (strlit " not contained in the type"))
+                       failwith («new_specification: type variables for » ^ s ^ « not contained in the type»)
                      else return ((s,ty),r) od) eqs ;
        let vars = MAP FST eqs in
        if ~(freesin (MAP (UNCURRY Var) vars) p) then
-         failwith (strlit "new_specification: specification not closed by the definitions")
+         failwith «new_specification: specification not closed by the definitions»
        else do
          add_constants vars ;
          add_def (ConstSpec F (MAP (\((s,ty),r). (s,r)) eqs) p) ;
@@ -1223,13 +1223,13 @@ Definition new_overloading_specification_def:
          map (λe. do (l,r) <- dest_eq e;
                      (s,ty) <- dest_var l;
                      if ~(freesin [] r) then
-                       failwith ((strlit "new_overloading_specification: witness for ") ^ s ^ (strlit " not closed"))
+                       failwith («new_overloading_specification: witness for » ^ s ^ « not closed»)
                      else if ~(subset (type_vars_in_term r) (tyvars ty)) then
-                       failwith ((strlit "new_overloading_specification: type variables for ") ^ s ^ (strlit " not contained in the type"))
+                       failwith («new_overloading_specification: type variables for » ^ s ^ « not contained in the type»)
                      else return ((s,ty),r) od) eqs ;
        let vars = MAP FST eqs in
        if ~(freesin (MAP (UNCURRY Var) vars) p) then
-         failwith (strlit "new_overloading_specification: specification not closed by the definitions")
+         failwith «new_overloading_specification: specification not closed by the definitions»
        else do
          check_overloads vars;
          ctxt <- get_the_context;
@@ -1237,19 +1237,19 @@ Definition new_overloading_specification_def:
              dep = dependency_compute (upd::ctxt)
          in
          if ~(orth_ctxt_compute (upd::ctxt)) then
-           failwith (strlit "new_overloading_specification: theory is not orthogonal.")
+           failwith «new_overloading_specification: theory is not orthogonal.»
          else
            do
              res <- dep_steps_compute dep 32767 dep;
              (case res of
                 Maybe_cyclic =>
-                  failwith (strlit "new_overloading_specification: cyclicity check timed out.")
+                  failwith «new_overloading_specification: cyclicity check timed out.»
               | Cyclic_step _ =>
                   (* TODO: more informative error message *)
-                  failwith (strlit "new_overloading_specification: cyclicity check failed.")
+                  failwith «new_overloading_specification: cyclicity check failed.»
               | Non_comp_step _ =>
                   (* TODO: is this what Non_comp_step means? *)
-                  failwith (strlit "new_overloading_specification: cyclicity check on non-composable theory.")
+                  failwith «new_overloading_specification: cyclicity check on non-composable theory.»
               | Acyclic _ =>
                   do
                     add_def upd;
@@ -1339,14 +1339,14 @@ Definition new_basic_type_definition_def:
     do ok0 <- can get_type_arity tyname ;
        ok1 <- can get_const_type absname ;
        ok2 <- can get_const_type repname ;
-    if ok0 then failwith (strlit "new_basic_type_definition: Type already defined") else
-    if ok1 \/ ok2 then failwith (strlit "new_basic_type_definition: Constant(s) already in use") else
-    if absname = repname then failwith (strlit "new_basic_type_definition: Constants must be distinct") else
+    if ok0 then failwith «new_basic_type_definition: Type already defined» else
+    if ok1 \/ ok2 then failwith «new_basic_type_definition: Constant(s) already in use» else
+    if absname = repname then failwith «new_basic_type_definition: Constants must be distinct» else
     if ~(asl = []) then
-      failwith (strlit "new_basic_type_definition: Assumptions in theorem") else
-    do (P,x) <- try dest_comb c (strlit "new_basic_type_definition: Not a combination") ;
+      failwith «new_basic_type_definition: Assumptions in theorem» else
+    do (P,x) <- try dest_comb c «new_basic_type_definition: Not a combination» ;
     if ~(freesin [] P) then
-      failwith (strlit "new_basic_type_definition: Predicate is not closed") else
+      failwith «new_basic_type_definition: Predicate is not closed» else
     let tyvars = MAP Tyvar (MAP implode (sort string_le (MAP explode (type_vars_in_term P)))) in
     do rty <- type_of x ;
        add_type (tyname, LENGTH tyvars) ;
@@ -1357,8 +1357,8 @@ Definition new_basic_type_definition_def:
        add_def (TypeDefn tyname P absname repname) ;
        rep <- mk_const(repname,[]) ;
        abs <- mk_const(absname,[]) ;
-       a <- return (mk_var((strlit "a"),aty)) ;
-       r <- return (mk_var((strlit "r"),rty)) ;
+       a <- return (mk_var(«a»,aty)) ;
+       r <- return (mk_var(«r»,rty)) ;
        x1 <- mk_comb(rep,a) ;
        x2 <- mk_comb(abs,x1) ;
        eq1 <- mk_eq(x2,a) ;

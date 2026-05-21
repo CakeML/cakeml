@@ -30,7 +30,7 @@ val _ = register_type ``:sstep ``
 
 Definition format_failure_def:
   format_failure (lno:num) s =
-  strlit "c Checking failed for top-level proof step starting at line: " ^ toString lno ^ strlit " (error may be in subproofs). Reason: " ^ s ^ strlit"\n"
+  «c Checking failed for top-level proof step starting at line: » ^ toString lno ^ « (error may be in subproofs). Reason: » ^ s ^ «\n»
 End
 
 val r = translate format_failure_def;
@@ -229,8 +229,8 @@ val r = translate npbc_checkTheory.clean_triv_def;
 Definition lookup_err_string_def:
   lookup_err_string b =
     if b then
-      strlit"invalid core constraint id: "
-    else strlit"invalid constraint id: "
+      «invalid core constraint id: »
+    else «invalid constraint id: »
 End
 
 val r = translate lookup_err_string_def;
@@ -737,13 +737,13 @@ QED
 Definition coeff_lit_string_def:
   coeff_lit_string (c,v:var) =
     if c < 0
-    then toString (Num ~c) ^ strlit" ~x"^ toString v
-    else toString (Num c) ^ strlit" x"^ toString v
+    then toString (Num ~c) ^ « ~x»^ toString v
+    else toString (Num c) ^ « x»^ toString v
 End
 
 Definition npbc_lhs_string_def:
   npbc_lhs_string (xs: ((int # var) list)) =
-  concatWith (strlit" ")
+  concatWith « »
     (MAP coeff_lit_string xs)
 End
 
@@ -751,25 +751,25 @@ Definition npbc_string_def:
   (npbc_string (xs,i:int) =
     concat [
       npbc_lhs_string xs;
-      strlit" >= ";
-      toString  i; strlit ";"])
+      « >= »;
+      toString  i; «;»])
 End
 
 Definition err_check_string_def:
   err_check_string c c' =
   concat[
-    strlit"constraint id check failed. expect: ";
+    «constraint id check failed. expect: »;
     npbc_string c;
-    strlit" got (in checker): ";
+    « got (in checker): »;
     npbc_string c']
 End
 
 Definition err_imp_string_def:
   err_imp_string c c' =
   concat[
-    strlit"imply-add for constraint id. expect: ";
+    «imply-add for constraint id. expect: »;
     npbc_string c;
-    strlit" from: ";
+    « from: »;
     npbc_string c']
 End
 
@@ -2989,27 +2989,27 @@ QED
 
 (* Definition print_subgoal_def:
   (print_subgoal (INL n) = (toString (n:num))) ∧
-  (print_subgoal (INR n) = (strlit"#" ^ toString (n:num)))
+  (print_subgoal (INR n) = («#» ^ toString (n:num)))
 End
 
 Definition print_subproofs_def:
   (print_subproofs ls =
-    concatWith (strlit " ") (MAP print_subgoal ls))
+    concatWith « » (MAP print_subgoal ls))
 End *)
 
 Definition print_expected_subproofs_def:
   (print_expected_subproofs rsubs (si: (num # 'a) list) =
-    strlit ("#[1-") ^
-    toString (LENGTH rsubs) ^ strlit "] and " ^
-    concatWith (strlit" ") (MAP (toString o FST) si))
+    «#[1-» ^
+    toString (LENGTH rsubs) ^ «] and » ^
+    concatWith « » (MAP (toString o FST) si))
 End
 
 Definition print_subproofs_err_def:
   print_subproofs_err rsubs si =
-  strlit"Expected (including autoproved): " ^
+  «Expected (including autoproved): » ^
   print_expected_subproofs rsubs si
   (* ^
-  strlit " Got: " ^
+  « Got: » ^
   print_subproofs pfs *)
 End
 
@@ -3020,8 +3020,8 @@ val res = translate print_subproofs_err_def;
 
 Definition format_failure_2_def:
   format_failure_2 (lno:num) s s2 =
-  strlit "c Checking failed for top-level proof step starting at line: " ^ toString lno ^ strlit " Reason: " ^ s
-  ^ strlit " Info: " ^ s2 ^ strlit"\n"
+  «c Checking failed for top-level proof step starting at line: » ^ toString lno ^ « Reason: » ^ s
+  ^ « Info: » ^ s2 ^ «\n»
 End
 
 val r = translate format_failure_2_def;
@@ -3558,8 +3558,8 @@ val res = translate npbc_checkTheory.mk_subst_def;
 (*
 Definition print_lno_mini_def:
   print_lno_mini (lno:num) mini =
-  case mini of NONE => toString lno ^ strlit " INF\n"
-  | SOME (i:num) => toString lno ^ strlit"  " ^ toString i ^ strlit "\n"
+  case mini of NONE => toString lno ^ « INF\n»
+  | SOME (i:num) => toString lno ^ «  » ^ toString i ^ «\n»
 End
 
 val res = translate print_lno_mini_def; *)
@@ -4335,7 +4335,7 @@ Proof
         ARRAY vimapv' vimaplsv' *
         &(
           case check_red_list A B C F F fmlls inds id
-              c s pfs idopt vimap (strlit "") zeros of
+              c s pfs idopt vimap «» zeros of
             NONE => F
           | SOME res =>
             PAIR_TYPE (λl v.
@@ -4355,7 +4355,7 @@ Proof
         ARRAY vimapv' vimaplsv' *
         & (Fail_exn e ∧
           check_red_list A B C F F fmlls inds id
-              c s pfs idopt vimap (strlit "") zeros = NONE)))`
+              c s pfs idopt vimap «» zeros = NONE)))`
   >- (
     xapp>>xsimpl>>
     first_x_assum (irule_at Any)>>
@@ -5504,18 +5504,18 @@ Definition npbc_obj_string_def:
   (npbc_obj_string (xs,i:int) =
     concat [
       npbc_lhs_string xs;
-      strlit" ";
+      « »;
       toString  i])
 End
 
 Definition err_obj_check_string_def:
   err_obj_check_string fc fc' =
-  case fc of NONE => strlit"objective check failed, no objective available"
+  case fc of NONE => «objective check failed, no objective available»
   | SOME fc =>
     concat[
-    strlit"objective check failed, expect: ";
+    «objective check failed, expect: »;
     npbc_obj_string fc';
-    strlit" got (in checker): ";
+    « got (in checker): »;
     npbc_obj_string fc]
 End
 
@@ -5616,7 +5616,7 @@ Proof
   rpt xlet_autop>>
   xapp>>xsimpl>>
   first_x_assum (irule_at Any)>> rw[]>>
-  Cases_on`fc`>>fs[mk_vomap_def, implode_def]>>
+  Cases_on`fc`>>fs[mk_vomap_def]>>
   qmatch_asmsub_abbrev_tac`strlit A`>>
   qmatch_goalsub_abbrev_tac`strlit B`>>
   qsuff_tac`A = B`>- metis_tac[]>>
@@ -5633,13 +5633,13 @@ val res = translate (npbc_checkTheory.mk_ordsub_def);
 
 Definition err_pres_check_string_def:
   err_pres_check_string (fc:num_set option) (fc':num_set) =
-  case fc of NONE => strlit"preserved set check failed, no preserved set available"
+  case fc of NONE => «preserved set check failed, no preserved set available»
   | SOME fc =>
     concat[
-    strlit"preserved set check failed, expect: ";
-    concatWith (strlit" ") (MAP (toString o FST) (toSortedAList fc'));
-    strlit" got (in checker): ";
-    concatWith (strlit" ") (MAP (toString o FST) (toSortedAList fc))]
+    «preserved set check failed, expect: »;
+    concatWith « » (MAP (toString o FST) (toSortedAList fc'));
+    « got (in checker): »;
+    concatWith « » (MAP (toString o FST) (toSortedAList fc))]
 End
 
 val res = translate err_pres_check_string_def;
@@ -6492,23 +6492,23 @@ val res = translate npbc_checkTheory.lower_bound_def;
 Definition hdsat_res_def:
   hdsat_res b =
   if b then NONE
-  else SOME (strlit "conclusion SATISFIABLE check failed: [assignment check] T")
+  else SOME «conclusion SATISFIABLE check failed: [assignment check] T»
 End
 
 val res = translate hdsat_res_def;
 
 Definition bool_to_string_def:
   bool_to_string b =
-  if b then strlit"T" else strlit"F"
+  if b then «T» else «F»
 End
 
 Definition hdunsat_res_def:
   hdunsat_res b1 b2 =
   if b1 ∧ b2 then NONE
   else SOME (
-      strlit "conclusion UNSATISFIABLE check failed:" ^
-      strlit " [dbound check] " ^ bool_to_string b1 ^
-      strlit " [contradiction check] " ^ bool_to_string b2
+      «conclusion UNSATISFIABLE check failed:» ^
+      « [dbound check] » ^ bool_to_string b1 ^
+      « [contradiction check] » ^ bool_to_string b2
   )
 End
 
@@ -6519,10 +6519,10 @@ Definition hobounds_res_def:
   hobounds_res b1 b2 b3 =
   if b1 ∧ b2 ∧ b3 then NONE
   else SOME (
-      strlit "conclusion BOUNDS check failed:" ^
-      strlit " [lb <= dbound] " ^ bool_to_string b1 ^
-      strlit " [upper bound check] " ^ bool_to_string b2 ^
-      strlit " [lower bound check] " ^ bool_to_string b3
+      «conclusion BOUNDS check failed:» ^
+      « [lb <= dbound] » ^ bool_to_string b1 ^
+      « [upper bound check] » ^ bool_to_string b2 ^
+      « [lower bound check] » ^ bool_to_string b3
   )
 End
 
@@ -6536,11 +6536,11 @@ Definition heenum_res_def:
   in
   if b1 ∧ b2 ∧ b3 ∧ b4 then NONE
   else SOME (
-      strlit "conclusion ENUMERATION check failed:" ^
-      strlit " [no objective] " ^ bool_to_string b1 ^
-      strlit " [enumeration claim] " ^ bool_to_string b2 ^
-      strlit " [complete hint present] " ^ bool_to_string b3 ^
-      strlit " [complete hint correct] " ^ bool_to_string b4
+      «conclusion ENUMERATION check failed:» ^
+      « [no objective] » ^ bool_to_string b1 ^
+      « [enumeration claim] » ^ bool_to_string b2 ^
+      « [complete hint present] » ^ bool_to_string b3 ^
+      « [complete hint correct] » ^ bool_to_string b4
   )
 End
 
@@ -6757,7 +6757,7 @@ QED
 val _ = register_type ``:output``
 
 Definition print_opt_string_def:
-  (print_opt_string NONE = strlit"T") ∧
+  (print_opt_string NONE = «T») ∧
   (print_opt_string (SOME s) = s)
 End
 
@@ -6769,9 +6769,9 @@ Definition derivable_res_def:
   let b2 = (b2opt = NONE) in
   if b1 ∧ b2 then NONE
   else SOME (
-      strlit "output DERIVABLE check failed:" ^
-      strlit " [dbound = NONE] " ^ bool_to_string b1 ^
-      strlit " [core in output] " ^ print_opt_string b2opt)
+      «output DERIVABLE check failed:» ^
+      « [dbound = NONE] » ^ bool_to_string b1 ^
+      « [core in output] » ^ print_opt_string b2opt)
 End
 
 val res = translate derivable_res_def;
@@ -6786,12 +6786,12 @@ Definition equisatisfiable_res_def:
   if b11 ∧ b12 ∧ chk ∧ b2 ∧ b3
   then NONE
     else SOME (
-      strlit "output EQUISATISFIABLE check failed:" ^
-      strlit " [bound = NONE] " ^ bool_to_string b11 ^
-      strlit " [dbound = NONE] " ^ bool_to_string b12 ^
-      strlit " [checked deletion] " ^ bool_to_string chk ^
-      strlit " [core in output] " ^ print_opt_string b2opt ^
-      strlit " [output in core] " ^ print_opt_string b3opt
+      «output EQUISATISFIABLE check failed:» ^
+      « [bound = NONE] » ^ bool_to_string b11 ^
+      « [dbound = NONE] » ^ bool_to_string b12 ^
+      « [checked deletion] » ^ bool_to_string chk ^
+      « [core in output] » ^ print_opt_string b2opt ^
+      « [output in core] » ^ print_opt_string b3opt
   )
 End
 
@@ -6802,7 +6802,7 @@ val res = translate npbc_checkTheory.opt_eq_obj_def;
 Definition opt_err_obj_check_string_def:
   (opt_err_obj_check_string (SOME fc) (SOME fc') =
     err_obj_check_string (SOME fc) fc') ∧
-  (opt_err_obj_check_string _ _ = strlit "missing objective")
+  (opt_err_obj_check_string _ _ = «missing objective»)
 End
 
 val res = translate opt_err_obj_check_string_def;
@@ -6814,18 +6814,18 @@ Definition equioptimal_res_def:
   let b11 = opt_le bound dbound in
   let b12 = opt_eq_obj obj obj' in
   let b12s =
-    if b12 then strlit"T" else opt_err_obj_check_string obj obj' in
+    if b12 then «T» else opt_err_obj_check_string obj obj' in
   let b2 = (b2opt = NONE) in
   let b3 = (b3opt = NONE) in
   if b11 ∧ b12 ∧ chk ∧ b2 ∧ b3
   then NONE
     else SOME (
-      strlit "output EQUIOPTIMAL check failed:" ^
-      strlit " [bound <= dbound]: " ^ bool_to_string b11 ^
-      strlit " [obj = output obj]: " ^ b12s ^
-      strlit " [checked deletion]: " ^ bool_to_string chk ^
-      strlit " [core in output] " ^ print_opt_string b2opt ^
-      strlit " [output in core] " ^ print_opt_string b3opt
+      «output EQUIOPTIMAL check failed:» ^
+      « [bound <= dbound]: » ^ bool_to_string b11 ^
+      « [obj = output obj]: » ^ b12s ^
+      « [checked deletion]: » ^ bool_to_string chk ^
+      « [core in output] » ^ print_opt_string b2opt ^
+      « [output in core] » ^ print_opt_string b3opt
   )
 End
 
@@ -6833,25 +6833,25 @@ val res = translate equioptimal_res_def;
 
 Definition pres_string_def:
   (pres_string (xs:num_set) =
-    concatWith (strlit" ") (MAP (toString o FST) (toAList xs)))
+    concatWith « » (MAP (toString o FST) (toAList xs)))
 End
 
 (* Add a checking command? *)
 Definition err_pres_string_def:
   err_pres_string pres pres' =
-  case pres of NONE => strlit"projection set check failed, no projection set available"
+  case pres of NONE => «projection set check failed, no projection set available»
   | SOME pres =>
     concat[
-    strlit"projection set check failed, expect: ";
+    «projection set check failed, expect: »;
     pres_string pres';
-    strlit" got: ";
+    « got: »;
     pres_string pres]
 End
 
 Definition opt_err_pres_string_def:
   (opt_err_pres_string (SOME pres) (SOME pres') =
     err_pres_string (SOME pres) pres') ∧
-  (opt_err_pres_string _ _ = strlit "missing projection set")
+  (opt_err_pres_string _ _ = «missing projection set»)
 End
 
 val res = translate pres_string_def;
@@ -6868,22 +6868,22 @@ Definition equisolvable_res_def:
   let b11 = opt_le bound dbound in
   let b12 = opt_eq_obj_opt obj obj' in
   let b12s =
-    if b12 then strlit"T" else opt_err_obj_check_string obj obj' in
+    if b12 then «T» else opt_err_obj_check_string obj obj' in
   let b2 = (b2opt = NONE) in
   let b3 = (b3opt = NONE) in
   let b4 = opt_eq_pres pres pres' in
   let b4s =
-    if b4 then strlit"T" else opt_err_pres_string pres pres' in
+    if b4 then «T» else opt_err_pres_string pres pres' in
   if b11 ∧ b12 ∧ chk ∧ b2 ∧ b3 ∧ b4
   then NONE
     else SOME (
-      strlit "output EQUISOLVABLE check failed:" ^
-      strlit " [bound <= dbound]: " ^ bool_to_string b11 ^
-      strlit " [obj = output obj (if present)]: " ^ b12s ^
-      strlit " [pres = output pres]: " ^ b4s ^
-      strlit " [checked deletion]: " ^ bool_to_string chk ^
-      strlit " [core in output] " ^ print_opt_string b2opt ^
-      strlit " [output in core] " ^ print_opt_string b3opt
+      «output EQUISOLVABLE check failed:» ^
+      « [bound <= dbound]: » ^ bool_to_string b11 ^
+      « [obj = output obj (if present)]: » ^ b12s ^
+      « [pres = output pres]: » ^ b4s ^
+      « [checked deletion]: » ^ bool_to_string chk ^
+      « [core in output] » ^ print_opt_string b2opt ^
+      « [output in core] » ^ print_opt_string b3opt
   )
 End
 

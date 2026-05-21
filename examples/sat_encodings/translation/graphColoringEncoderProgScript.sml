@@ -64,14 +64,14 @@ Definition encode_to_output_def:
   let colors = v2colorList (head v) in
     let graph = v2graph (head (tail v)) in
       case graph_ok graph of
-      | F => (List [strlit "Invalid input"])
+      | F => (List [«Invalid input»])
       | T =>
           let cnf = graphColoring_to_cnf colors graph in
             let (max_var, clauses) = get_max_var_and_clauses cnf in
               Append
-              (List [strlit "p cnf ";
-                     num_to_str max_var; strlit " ";
-                     num_to_str clauses; strlit "\n"])
+              (List [«p cnf »;
+                     num_to_str max_var; « »;
+                     num_to_str clauses; «\n»])
               (cnf_to_output cnf)
 End
 
@@ -91,23 +91,23 @@ Definition neighbours_to_output_inner_def:
   neighbours_to_output_inner [] = List [] ∧
   neighbours_to_output_inner (n::[]) = List [num_to_str n] ∧
   neighbours_to_output_inner (n::neighbours) =
-  Append (List [num_to_str n; strlit ", "]) (neighbours_to_output_inner neighbours)
+  Append (List [num_to_str n; «, »]) (neighbours_to_output_inner neighbours)
 End
 
 Definition neighbours_to_output_def:
   neighbours_to_output neighbours =
   Append (Append
-          (List [strlit "["])
+          (List [«[»])
           (neighbours_to_output_inner neighbours))
-         (List [strlit "]"])
+         (List [«]»])
 End
 
 Definition vertex_to_output_def:
   vertex_to_output w' vertex neighbours =
   Append (Append
-          (List [strlit "["; num_to_str vertex; strlit ", "])
+          (List [«[»; num_to_str vertex; «, »])
           (neighbours_to_output neighbours))
-         (List [strlit ", "; implode (w' vertex); strlit "]"])
+         (List [«, »; implode (w' vertex); «]»])
 End
 
 Definition graph_to_output_inner_def:
@@ -117,16 +117,16 @@ Definition graph_to_output_inner_def:
   graph_to_output_inner w' ((vertex, neighbours)::graph) =
   Append (Append
           (vertex_to_output w' vertex neighbours)
-          (List [strlit ",\n"]))
+          (List [«,\n»]))
          (graph_to_output_inner w' graph)
 End
 
 Definition graph_to_output_def:
   graph_to_output w' graph =
   Append (Append
-          (List [strlit "["])
+          (List [«[»])
           (graph_to_output_inner w' graph))
-         (List [strlit "]"])
+         (List [«]»])
 End
 
 Definition solve_to_output_def:

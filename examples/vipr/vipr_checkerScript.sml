@@ -107,7 +107,7 @@ Definition read_lin_term_def:
     case ts of
     | [] => NONE
     | (x::ts) =>
-      if x = strlit "OBJ" then
+      if x = «OBJ» then
         SOME (obj,ts)
       else
         case fromNatString x of
@@ -120,9 +120,9 @@ Definition read_linop_def:
     case ts of
     | [] => NONE
     | (x::xs) =>
-      if x = strlit "G" then SOME (GreaterEqual,xs) else
-      if x = strlit "E" then SOME (Equal,xs) else
-      if x = strlit "L" then SOME (LessEqual,xs) else
+      if x = «G» then SOME (GreaterEqual,xs) else
+      if x = «E» then SOME (Equal,xs) else
+      if x = «L» then SOME (LessEqual,xs) else
         NONE
 End
 
@@ -193,30 +193,30 @@ Definition read_goal_def:
     case ts of
     | [] => NONE
     | (x::ts) =>
-      if x = strlit "infeas" then SOME (Infeasible, ts) else
-      if x ≠ strlit "range" then NONE else
+      if x = «infeas» then SOME (Infeasible, ts) else
+      if x ≠ «range» then NONE else
         case ts of
         | (b1::b2::ts) =>
-            (case read_bound b1 (strlit "-inf"), read_bound b2 (strlit "inf") of
+            (case read_bound b1 «-inf», read_bound b2 «inf» of
              | (SOME lb, SOME ub) => SOME (Range lb ub, ts)
              | _ => NONE)
         | _ => NONE
 End
 
-Overload var_error = “strlit "Unable to read VAR section."”
-Overload int_error = “strlit "Unable to read INT section."”
-Overload obj_error = “strlit "Unable to read OBJ section."”
-Overload con_error = “strlit "Unable to read CON section."”
-Overload rtp_error = “strlit "Unable to read RTP section."”
-Overload sol_error = “strlit "Unable to read SOL section."”
-Overload der_error = “strlit "Unable to read DER line: "”
-Overload der_proof_fail = “strlit "Check failed at DER line: "”
+Overload var_error = “«Unable to read VAR section.»”
+Overload int_error = “«Unable to read INT section.»”
+Overload obj_error = “«Unable to read OBJ section.»”
+Overload con_error = “«Unable to read CON section.»”
+Overload rtp_error = “«Unable to read RTP section.»”
+Overload sol_error = “«Unable to read SOL section.»”
+Overload der_error = “«Unable to read DER line: »”
+Overload der_proof_fail = “«Check failed at DER line: »”
 
 Definition read_sol_def:
   read_sol c ts =
     case ts of
     | (x::y::ts) =>
-        (if x ≠ strlit "SOL" then INL sol_error else
+        (if x ≠ «SOL» then INL sol_error else
            case fromNatString y of
            | NONE => INL sol_error
            | SOME n =>
@@ -233,7 +233,7 @@ Definition read_rtp_def:
   read_rtp c ts =
     case ts of
     | (x::ts) =>
-        (if x ≠ strlit "RTP" then INL con_error else
+        (if x ≠ «RTP» then INL con_error else
            case read_goal ts of
            | NONE => INL con_error
            | SOME (rtp,ts) => read_sol (c with rtp := rtp) ts)
@@ -244,7 +244,7 @@ Definition read_con_def:
   read_con c ts =
     case ts of
     | (x::y::z::ts) =>
-        (if x ≠ strlit "CON" then INL con_error else
+        (if x ≠ «CON» then INL con_error else
            case fromNatString y, fromNatString z of
            | (SOME m, SOME b) =>
                (if m < b then INL con_error else
@@ -259,11 +259,11 @@ Definition read_obj_def:
   read_obj c ts =
     case ts of
     | (x::y::ts) =>
-        (if x ≠ strlit "OBJ" then INL obj_error else
-         if ~MEM y [strlit "min"; strlit "max"] then INL obj_error else
+        (if x ≠ «OBJ» then INL obj_error else
+         if ~MEM y [«min»; «max»] then INL obj_error else
          case read_lin_term_simple ts of
          | NONE => INL obj_error
-         | SOME (t,ts) => read_con (c with <| min := (y = strlit "min") ;
+         | SOME (t,ts) => read_con (c with <| min := (y = «min») ;
                                               obj := t |>) ts)
     | _ => INL obj_error
 End
@@ -272,7 +272,7 @@ Definition read_int_def:
   read_int c ts =
     case ts of
     | (x::y::ts) =>
-        (if x ≠ strlit "INT" then INL int_error else
+        (if x ≠ «INT» then INL int_error else
          case fromNatString y of
          | NONE => INL int_error
          | SOME n =>
@@ -286,7 +286,7 @@ Definition read_problem_def:
   read_problem ts =
     case ts of
     | (x::y::ts) =>
-        (if x ≠ strlit "VAR" then INL var_error else
+        (if x ≠ «VAR» then INL var_error else
          case fromNatString y of
          | NONE => INL var_error
          | SOME n =>
@@ -300,7 +300,7 @@ Definition read_end_def:
   read_end ret ts =
     (case ts of
      | [] => NONE
-     | (t::ts) => if t = strlit "}" then SOME (ret,ts) else NONE)
+     | (t::ts) => if t = «}» then SOME (ret,ts) else NONE)
 End
 
 Definition read_vipr_lin_aux_def:
@@ -323,21 +323,21 @@ Definition read_vipr_def:
     case ts of
     | [] => NONE
     | (x::ts) =>
-      if x ≠ strlit "{" then NONE else
+      if x ≠ «{» then NONE else
         case ts of
         | [] => NONE
         | (y::ts) =>
-          if y = strlit "asm" then
+          if y = «asm» then
             read_end Assum ts
-          else if y = strlit "lin" then
+          else if y = «lin» then
             (case read_vipr_lin ts of
              | NONE => NONE
              | SOME (ls,ts) => read_end (Lin ls) ts)
-          else if y = strlit "rnd" then
+          else if y = «rnd» then
             (case read_vipr_lin ts of
              | NONE => NONE
              | SOME (ls,ts) => read_end (Round ls) ts)
-          else if y = strlit "uns" then
+          else if y = «uns» then
             (case read_num ts of | NONE => NONE | SOME (n1,ts) =>
              case read_num ts of | NONE => NONE | SOME (n2,ts) =>
              case read_num ts of | NONE => NONE | SOME (n3,ts) =>
@@ -367,19 +367,19 @@ Definition checker_step_def:
       | (x::xs) =>
         case s of
         | Init =>
-            (if isPrefix (strlit "%") line then s else
-             if ts = [strlit "VER"; strlit "1.0"] then Reading [] else
-               Error (strlit "Unable to find VER 1.0 after initial comments."))
+            (if isPrefix «%» line then s else
+             if ts = [«VER»; «1.0»] then Reading [] else
+               Error «Unable to find VER 1.0 after initial comments.»)
         | Reading acc =>
-            (if x ≠ strlit "DER" then Reading (ts::acc) else
+            (if x ≠ «DER» then Reading (ts::acc) else
                let input = FLAT (REVERSE acc) in
                  case read_problem input of
                  | INL e => Error e
                  | INR c =>
                      if ~ EVERY (check_sol c.ints c.lcs) c.sols then
-                       Error (strlit "EVERY check_sol failed.")
+                       Error «EVERY check_sol failed.»
                      else if ~ check_rtp_bound c.min c.obj c.sols c.rtp then
-                       Error (strlit "check_rtp_bound failed.")
+                       Error «check_rtp_bound failed.»
                      else
                        case read_num xs of
                        | NONE => Error der_error
@@ -392,22 +392,22 @@ Definition checker_step_def:
             | NONE => Error (der_error ^ line)
             | SOME (lc,vipr,index) =>
                 case check_vipr c.ints acc (lc,vipr) of
-                | INL err => Error (der_proof_fail ^ line ^ strlit"Reason: " ^ err)
+                | INL err => Error (der_proof_fail ^ line ^ «Reason: » ^ err)
                 | INR acc' => Der c acc' (der_count-1)
 End
 
 Definition print_outcome_def:
   print_outcome (s:reader_state) =
     case s of
-    | Init                => strlit "Incomplete file"
-    | Reading _           => strlit "Failure: Could not find DER section.\n"
-    | Error error_msg     => strlit "Error: " ^ error_msg ^ strlit "\n"
+    | Init                => «Incomplete file»
+    | Reading _           => «Failure: Could not find DER section.\n»
+    | Error error_msg     => «Error: » ^ error_msg ^ «\n»
     | Der c acc der_count => if der_count ≠ 0 then
-                               strlit "Error: DER count incorrect.\n"
+                               «Error: DER count incorrect.\n»
                              else if ~ check_last c.min c.obj c.rtp acc then
-                               strlit "Error: check_last failed.\n"
+                               «Error: check_last failed.\n»
                              else
-                               strlit "PASSED ALL CHECKS.\n"
+                               «PASSED ALL CHECKS.\n»
 End
 
 (* do not change this *)
@@ -512,7 +512,7 @@ Proof
 QED
 
 Theorem run_vipr_satisfies_rtp:
-  run_vipr lines = strlit "PASSED ALL CHECKS.\n" ⇒
+  run_vipr lines = «PASSED ALL CHECKS.\n» ⇒
   ∃init_lines prob_lines der_lines c.
     lines = init_lines ++ prob_lines ++ der_lines ∧
     read_problem (FLAT (MAP tokens_spaces prob_lines)) = INR c ∧

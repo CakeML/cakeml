@@ -570,3 +570,27 @@ val opt_shape_dec =
   ’
 
 val opt_shape_dec_parse = check_success $ parse_pancake opt_shape_dec;
+
+(* Named struct *)
+val named_structs =
+ ‘
+  struct my_struct {
+    2 tuple,
+    1 value
+  }
+
+  struct my_other_struct {
+    my_struct s
+  }
+
+  fun my_struct f(my_struct a) {
+    return my_struct <tuple = a.tuple, value = a.value>;
+  }
+
+  fun my_struct g() {
+    var my_struct x = my_struct <tuple = <0,1>, value = 2>;
+    return f(x);
+  }
+  ’
+
+val named_structs_parse = check_success $ parse_pancake named_structs;

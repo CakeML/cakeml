@@ -31,7 +31,7 @@ val _ = numLib.temp_prefer_num();
   a-z, A-Z, 0-9, []{}_^-$
 
 *)
-val non_list = (EVAL ``fromAList (MAP SWAP (enumerate 63 (MAP ORD (explode (strlit "[]{}_^-$")))))``);
+val non_list = (EVAL ``fromAList (MAP SWAP (enumerate 63 (MAP ORD (explode «[]{}_^-$»))))``);
 
 Definition non_list_def:
   non_list = ^(rconc non_list)
@@ -41,7 +41,7 @@ Theorem non_list_eq = non_list_def |> SIMP_RULE std_ss [GSYM non_list];
 
 Theorem lookup_non_list:
   sptree$lookup n non_list = SOME v ⇔
-  SOME n = (ALOOKUP (enumerate 63 (MAP ORD (explode (strlit "[]{}_^-$")))) v)
+  SOME n = (ALOOKUP (enumerate 63 (MAP ORD (explode «[]{}_^-$»))) v)
 Proof
   simp[non_list_eq,lookup_fromAList]>>
   EVAL_TAC>>rw[]

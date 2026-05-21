@@ -172,7 +172,7 @@ End
 
 Definition word_alloc_inlogic_def:
   word_alloc_inlogic c prog col_opt =
-    let tree = get_clash_tree prog in
+    let tree = get_clash_tree prog [] in
     let forced = get_forced c prog [] in
       oracle_colour_ok (c.reg_count − (5 + LENGTH c.avoid_regs))
                        col_opt tree prog forced
@@ -353,7 +353,7 @@ Definition to_word_all_def:
               has_fp_tern :=
                 (asm_conf.ISA = ARMv7 ∧ 2 < asm_conf.fp_reg_count)|> in
     let p = stubs (:α) data_conf ++ MAP (compile_part data_conf) p in
-    let ps = ps ++ [(strlit "after data_to_word",Word p names)] in
+    let ps = ps ++ [(«after data_to_word»,Word p names)] in
     let (p,ps) = word_internal_all asm_conf ps names p in
     let reg_count = asm_conf.reg_count − (5 + LENGTH asm_conf.avoid_regs) in
     let alg = word_conf.reg_alg in
@@ -364,7 +364,7 @@ Definition to_word_all_def:
                  (case word_alloc_inlogic asm_conf prog col_opt of
                   | NONE => FFI «reg alloc fail» 0 0 0 0 (LN,LN)
                   | SOME x => x)))) (ZIP (p,n_oracles)) in
-    let ps = ps ++ [(strlit "after word_alloc (and remove_must_terminate)",Word p names)] in
+    let ps = ps ++ [(«after word_alloc (and remove_must_terminate)»,Word p names)] in
     let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
       ((ps: (mlstring # 'a any_prog) list),c,p,names)
 End
@@ -373,7 +373,7 @@ Definition to_stack_all_def:
   to_stack_all asm_conf (c:config) p =
     let (ps,c,p,names) = to_word_all asm_conf c p in
     let (bm,c',fs,p) = word_to_stack$compile asm_conf p in
-    let ps = ps ++ [(strlit "after word_to_stack",Stack p names)] in
+    let ps = ps ++ [(«after word_to_stack»,Stack p names)] in
     let c = c with word_conf := c' in
       ((ps: (mlstring # 'a any_prog) list),bm,c,p,names)
 End
@@ -387,16 +387,16 @@ Definition to_lab_all_def:
     let sp = asm_conf.reg_count - (LENGTH asm_conf.avoid_regs + 3) in
     let offset = asm_conf.addr_offset in
     let prog = stack_rawcall$compile p in
-    let ps = ps ++ [(strlit "after stack_rawcall",Stack prog names)] in
+    let ps = ps ++ [(«after stack_rawcall»,Stack prog names)] in
     let prog = stack_alloc$compile data_conf prog in
-    let ps = ps ++ [(strlit "after stack_alloc",Stack prog names)] in
+    let ps = ps ++ [(«after stack_alloc»,Stack prog names)] in
     let prog = stack_remove$compile stack_conf.jump offset (is_gen_gc data_conf.gc_kind)
                  max_heap sp InitGlobals_location prog in
-    let ps = ps ++ [(strlit "after stack_remove",Stack prog names)] in
+    let ps = ps ++ [(«after stack_remove»,Stack prog names)] in
     let prog = stack_names$compile stack_conf.reg_names prog in
-    let ps = ps ++ [(strlit "after stack_names",Stack prog names)] in
+    let ps = ps ++ [(«after stack_names»,Stack prog names)] in
     let p = MAP prog_to_section prog in
-    let ps = ps ++ [(strlit "after stack_to_lab",Lab p names)] in
+    let ps = ps ++ [(«after stack_to_lab»,Lab p names)] in
       ((ps: (mlstring # 'a any_prog) list),bm:'a word list,c,p,names)
 End
 
