@@ -4,6 +4,16 @@ Pancake Changelog
 User-facing changes to the Pancake language and compiler are
 documented here when they are merged into `master`.
 
+May 21st 2026
+-------------------
+
+### __add_with_carry__ now available
+
+It is now possible to use `__add_with_carry__(left, right, carry_in)`
+in user code, which is compiled to wordLang's `AddCarry`.
+See `panConcreteExamplesScript.sml` for more information.
+
+
 April 24th 2026
 -------------------
 
