@@ -1500,16 +1500,15 @@ Proof
   ho_match_mp_tac (name_ind_cases [] compile_ind)
   \\ rw []
   >~ [‘Case (crepLang$Primitive _ _ _)’]
-  >- ( (* Primitive *)
+  >- (
     fs [assigned_vars_def, compile_def]
     \\ rpt TOP_CASE_TAC \\ fs [loopLangTheory.assigned_vars_def]
-    \\ CCONTR_TAC \\ fs []
-    \\ gvs [pan_commonPropsTheory.opt_mmap_eq_some, MEM_EL]
-    \\ ‘EL n' (MAP SOME x) = EL n' (MAP (FLOOKUP ctxt.vars) lhss)’ by simp []
-    \\ pop_assum mp_tac
-    \\ ‘LENGTH lhss = LENGTH x’ by metis_tac [LENGTH_MAP]
-    \\ simp [EL_MAP]
-    \\ metis_tac []
+    \\ CCONTR_TAC \\ gvs [pan_commonPropsTheory.opt_mmap_eq_some]
+    \\ qmatch_asmsub_rename_tac
+         ‘MAP (FLOOKUP ctxt.vars) lhss = MAP SOME nlhss’
+    \\ ‘MEM (SOME n) (MAP SOME nlhss)’ by simp [MEM_MAP]
+    \\ ‘MEM (SOME n) (MAP (FLOOKUP ctxt.vars) lhss)’ by metis_tac []
+    \\ fs [MEM_MAP] \\ metis_tac []
   )
   >~ [‘Case (crepLang$Dec _ _ _)’]
   >~ [‘Case (crepLang$Call _ _ _)’]
@@ -2132,13 +2131,11 @@ Proof
   first_assum drule >> strip_tac >> simp [] >>
   ‘locals_rel ctxt l s.locals t.locals’ by fs [locals_rel_def] >>
   last_x_assum drule_all >> strip_tac >> simp [] >>
-  CCONTR_TAC >> fs [MEM_EL] >>
+  CCONTR_TAC >>
   gvs [pan_commonPropsTheory.opt_mmap_eq_some] >>
-  ‘FLOOKUP ctxt.vars (EL n' lhss) = SOME (EL n' nlhss)’ by
-    (‘EL n' (MAP (FLOOKUP ctxt.vars) lhss) = EL n' (MAP SOME nlhss)’ by simp [] >>
-     pop_assum mp_tac >> simp [EL_MAP]) >>
-  ‘EL n' lhss = v0’ by (fs [distinct_vars_def] >> metis_tac []) >>
-  metis_tac []
+  ‘MEM (SOME n) (MAP SOME nlhss)’ by simp [MEM_MAP] >>
+  ‘MEM (SOME n) (MAP (FLOOKUP ctxt.vars) lhss)’ by metis_tac [] >>
+  fs [MEM_MAP] >> metis_tac [distinct_vars_def]
 QED
 
 Theorem not_mem_nlhss_lemma[local]:
@@ -2149,16 +2146,11 @@ Theorem not_mem_nlhss_lemma[local]:
     OPT_MMAP (FLOOKUP ctxt.vars) lhss = SOME nlhss ⇒
     ¬MEM n nlhss
 Proof
-  rpt strip_tac >>
-  fs [MEM_EL] >>
-  qmatch_asmsub_rename_tac ‘k < LENGTH nlhss’ >>
+  rw [] >> CCONTR_TAC >>
   gvs [pan_commonPropsTheory.opt_mmap_eq_some] >>
-  ‘LENGTH lhss = LENGTH nlhss’ by metis_tac [LENGTH_MAP] >>
-  ‘FLOOKUP ctxt.vars (EL k lhss) = SOME (EL k nlhss)’ by
-    (‘EL k (MAP (FLOOKUP ctxt.vars) lhss) = EL k (MAP SOME nlhss)’ by simp [] >>
-     pop_assum mp_tac >> simp [EL_MAP]) >>
-  ‘EL k lhss = vname’ by (fs [distinct_vars_def] >> metis_tac []) >>
-  metis_tac []
+  ‘MEM (SOME n) (MAP SOME nlhss)’ by simp [MEM_MAP] >>
+  ‘MEM (SOME n) (MAP (FLOOKUP ctxt.vars) lhss)’ by metis_tac [] >>
+  fs [MEM_MAP] >> metis_tac [distinct_vars_def]
 QED
 
 Theorem crep_primop_loop_primop[local]:
@@ -2168,20 +2160,17 @@ Theorem crep_primop_loop_primop[local]:
 Proof
   Cases >>
   fs [crepSemTheory.crep_primop_def, loopSemTheory.loop_primop_def,
-      AllCaseEqs()] >>
-  rw [] >| [
-    gvs[EVERY_MAP, EVERY_MEM] >> Cases >> simp [wlab_wloc_def] >>
-    simp [panSemTheory.isWord_def, wordSemTheory.isWord_def],
-    ‘LENGTH ws = 3’ by gvs [LENGTH_MAP] >>
-    Cases_on ‘ws’ >> gvs [] >>
-    Cases_on ‘t’ >> gvs [] >>
-    Cases_on ‘t'’ >> gvs [] >>
-    Cases_on ‘t’ >> gvs [] >>
-    Cases_on ‘h’ >> Cases_on ‘h'’ >> Cases_on ‘h''’ >>
-    gvs [wlab_wloc_def, panSemTheory.isWord_def, wordSemTheory.isWord_def,
-         panSemTheory.theWord_def, wordSemTheory.theWord_def] >>
-    pairarg_tac >> gvs [wlab_wloc_def]
-  ]
+      AllCaseEqs ()] >>
+  rw []
+  >- (gvs [EVERY_MAP, EVERY_MEM] >> Cases >>
+      simp [wlab_wloc_def, panSemTheory.isWord_def,
+            wordSemTheory.isWord_def]) >>
+  gvs [LENGTH_EQ_NUM_compute, PULL_EXISTS] >>
+  qmatch_asmsub_rename_tac
+    ‘word_and_carry (theWord l) (theWord r) (theWord ci)’ >>
+  Cases_on ‘l’ >> Cases_on ‘r’ >> Cases_on ‘ci’ >>
+  gvs [wlab_wloc_def, panSemTheory.theWord_def, wordSemTheory.theWord_def] >>
+  pairarg_tac >> gvs [wlab_wloc_def]
 QED
 
 Resume ncompile_correct[Primitive]:
@@ -2209,22 +2198,21 @@ Resume ncompile_correct[Primitive]:
   rw [] >>
   Cases_on ‘MEM vname lhss’
   >- (fs [MEM_EL] >>
-      ‘FLOOKUP (s.locals |++ ZIP (lhss, res_ws)) (EL n lhss) = SOME (EL n res_ws)’
+      qmatch_asmsub_rename_tac ‘k < LENGTH lhss’ >>
+      ‘FLOOKUP (s.locals |++ ZIP (lhss, res_ws)) (EL k lhss) = SOME (EL k res_ws)’
         by simp [pan_commonPropsTheory.update_eq_zip_flookup] >>
-      ‘v = EL n res_ws’ by gvs [] >>
+      ‘v = EL k res_ws’ by gvs [] >>
       gvs [] >>
-      qexists ‘EL n nlhss’ >>
-      gvs [pan_commonPropsTheory.opt_mmap_eq_some] >>
-      ‘FLOOKUP ctxt.vars (EL n lhss) = SOME (EL n nlhss)’ by
-        (‘EL n (MAP (FLOOKUP ctxt.vars) lhss) = EL n (MAP SOME nlhss)’ by simp [] >>
-         pop_assum mp_tac >> simp [EL_MAP]) >>
+      qexists ‘EL k nlhss’ >>
+      ‘FLOOKUP ctxt.vars (EL k lhss) = SOME (EL k nlhss)’
+        by metis_tac [pan_commonPropsTheory.opt_mmap_el] >>
       simp [] >>
       conj_tac
-      >- (fs [EVERY_EL] >> first_x_assum (qspec_then ‘n’ mp_tac) >> simp []) >>
+      >- (fs [EVERY_EL] >> first_x_assum (qspec_then ‘k’ mp_tac) >> simp []) >>
       simp [loopPropsTheory.lookup_alist_insert_any] >>
-      ‘ALOOKUP (ZIP (nlhss, MAP wlab_wloc res_ws)) (EL n nlhss) =
-       SOME (EL n (MAP wlab_wloc res_ws))’ suffices_by simp [EL_MAP] >>
-      qspecl_then [‘ZIP (nlhss, MAP wlab_wloc res_ws)’, ‘n’] mp_tac
+      ‘ALOOKUP (ZIP (nlhss, MAP wlab_wloc res_ws)) (EL k nlhss) =
+       SOME (EL k (MAP wlab_wloc res_ws))’ suffices_by simp [EL_MAP] >>
+      qspecl_then [‘ZIP (nlhss, MAP wlab_wloc res_ws)’, ‘k’] mp_tac
                   alistTheory.ALOOKUP_ALL_DISTINCT_EL >>
       impl_tac >- simp [MAP_ZIP] >>
       simp [EL_ZIP]) >>
