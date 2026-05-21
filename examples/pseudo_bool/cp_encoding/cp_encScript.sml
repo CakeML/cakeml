@@ -12,9 +12,9 @@ Definition cencode_bound_var_def:
   let (lb,ub) = bnd X in
   let bX = encode_ivar bnd (X:mlstring) in
   [
-    (SOME(concat[strlit"i[";X;strlit"][lb]"])
+    (SOME(concat[«i[»;X;«][lb]»])
       ,(pbc$GreaterEqual,bX,lb));
-    (SOME(concat[strlit"i[";X;strlit"][ub]"])
+    (SOME(concat[«i[»;X;«][ub]»])
       ,(pbc$LessEqual,bX,ub));
   ]
 End
@@ -128,9 +128,9 @@ Definition format_string_def:
   format_string epb =
   case epb of
     Sign x =>
-      concat [strlit"i["; escape_open_bracket x; strlit"][sign]"]
+      concat [«i[»; escape_open_bracket x; «][sign]»]
   | Bit x n =>
-      concat [strlit"i["; escape_open_bracket x; strlit"][b";toString n;strlit"]"]
+      concat [«i[»; escape_open_bracket x; «][b»;toString n;«]»]
   | Var v => format_var v
 End
 
@@ -165,7 +165,7 @@ Theorem escape_open_bracket_eq:
 Proof
   rw [escape_open_bracket_def]
   \\ gvs [has_char_to_escape_thm, o_DEF]
-  \\ Cases_on ‘s’ \\ gvs [mlstringTheory.implode_def]
+  \\ Cases_on ‘s’ \\ gvs [mlstringTheory.escape_char_def]
   \\ rename [‘EVERY _ xs’] \\ Induct_on ‘xs’ \\ gvs []
   \\ simp [escape_chars_def]
 QED
@@ -181,14 +181,14 @@ QED
 Theorem escape_open_bracket_11:
   ∀a a'. escape_open_bracket a = escape_open_bracket a' ⇔ a = a'
 Proof
-  simp [escape_open_bracket_eq, mlstringTheory.implode_def, mlstring_forall]
+  simp [escape_open_bracket_eq, mlstringTheory.escape_char_def, mlstring_forall]
   \\ Induct \\ Cases_on ‘xs'’ \\ gvs []
   \\ gvs [escape_chars_def]
   \\ rw [] \\ gvs []
 QED
 
-Theorem case_strlit_eq_explode[simp,local]:
-  (case y of strlit x => x) = explode y
+Theorem case_implode_eq_explode[simp,local]:
+  (case y of implode x => x) = explode y
 Proof
   Cases_on ‘y’ \\ gvs []
 QED
@@ -482,7 +482,7 @@ QED
 Theorem int_to_string_11[local]:
   int_to_string #"-" i = int_to_string #"-" j ⇔ i = j
 Proof
-  rw [mlintTheory.int_to_string_def, mlstringTheory.implode_def]
+  rw [mlintTheory.int_to_string_def, mlstringTheory.escape_char_def]
   \\ rw [mlintTheory.int_to_string_def,mlintTheory.num_to_chars_thm]
   \\ Cases_on ‘i’ \\ Cases_on ‘j’ \\ gvs []
   \\ rw [toString_lemma]
@@ -504,10 +504,10 @@ Proof
 QED
 
 Theorem concatWith_11:
-  EVERY (λx. ~MEM c (explode (f x)) ∧ f x ≠ strlit "") xs ∧
-  EVERY (λx. ~MEM c (explode (f x)) ∧ f x ≠ strlit "") ys ∧
+  EVERY (λx. ~MEM c (explode (f x)) ∧ f x ≠ «») xs ∧
+  EVERY (λx. ~MEM c (explode (f x)) ∧ f x ≠ «») ys ∧
   INJ f UNIV UNIV ⇒
-  (concatWith (strlit [c]) (MAP f xs) = concatWith (strlit [c]) (MAP f ys) ⇔ xs = ys)
+  (concatWith (implode [c]) (MAP f xs) = concatWith (implode [c]) (MAP f ys) ⇔ xs = ys)
 Proof
   gvs [mlstringTheory.concatWith_def]
   \\ rename [‘concatWith_aux _ _ b’]
@@ -521,11 +521,11 @@ Proof
   \\ gvs [mlstringTheory.concatWith_aux_def]
   \\ rpt $ disch_then strip_assume_tac
   \\ Cases_on ‘f h’
-  \\ gvs [mlstringTheory.strcat_def,mlstringTheory.implode_def,
+  \\ gvs [mlstringTheory.strcat_def,mlstringTheory.escape_char_def,
           mlstringTheory.concat_def]
   \\ rpt gen_tac
   \\ Cases_on ‘f h'’
-  \\ gvs [mlstringTheory.strcat_def,mlstringTheory.implode_def,
+  \\ gvs [mlstringTheory.strcat_def,mlstringTheory.escape_char_def,
           mlstringTheory.concat_def]
   \\ rpt $ disch_then strip_assume_tac
   \\ gvs []
@@ -535,7 +535,7 @@ Proof
   \\ Cases_on ‘xs’ \\ gvs []
   \\ Cases_on ‘t’ \\ gvs []
   \\ gvs [mlstringTheory.concatWith_aux_def]
-  \\ gvs [mlstringTheory.strcat_def,mlstringTheory.implode_def,
+  \\ gvs [mlstringTheory.strcat_def,mlstringTheory.escape_char_def,
           mlstringTheory.concat_def]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
   \\ drule_all str_divider_lemma
@@ -550,7 +550,7 @@ Proof
   \\ simp [INJ_DEF, int_to_string_11]
   \\ gvs [EVERY_MEM]
   \\ rw [mlintTheory.int_to_string_def,mlintTheory.num_to_chars_thm]
-  \\ simp [mlstringTheory.implode_def]
+  \\ simp [mlstringTheory.escape_char_def]
   \\ rename [‘num_to_dec_string nn’]
   \\ qspec_then ‘nn’ mp_tac ASCIInumbersTheory.EVERY_isDigit_num_to_dec_string
   \\ gvs [EVERY_MEM]
@@ -565,7 +565,7 @@ Proof
   \\ irule concatWith_11
   \\ simp [INJ_DEF, mlintTheory.num_to_str_11]
   \\ gvs [EVERY_MEM] \\ rw []
-  \\ simp [mlstringTheory.implode_def]
+  \\ simp [mlstringTheory.escape_char_def]
   \\ rename [‘num_to_str nn’]
   \\ Cases_on ‘num_to_str nn’
   \\ imp_res_tac mlintTheory.num_to_str_every
