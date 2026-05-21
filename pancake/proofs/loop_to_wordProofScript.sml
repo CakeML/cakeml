@@ -207,6 +207,18 @@ Proof
   fs [] >> gvs [find_var_def]
 QED
 
+Theorem locals_rel_insert_unmapped:
+  locals_rel ctxt lcl lcl' ∧
+  (∀n. n ∈ domain ctxt ⇒ find_var ctxt n ≠ k) ⇒
+  locals_rel ctxt lcl (insert k x lcl')
+Proof
+  rw [locals_rel_def, lookup_insert] >>
+  res_tac >> gvs [] >>
+  Cases_on ‘m = k’ >> gvs [] >>
+  first_x_assum (qspec_then ‘n’ mp_tac) >>
+  simp [find_var_def, domain_lookup]
+QED
+
 Theorem locals_rel_alist_insert:
   ∀vs ws lcl lcl'.
     locals_rel ctxt lcl lcl' ∧ set vs ⊆ domain ctxt ⇒
@@ -757,6 +769,11 @@ Resume compile_correct[Primitive]:
   drule_all_then assume_tac locals_rel_get_vars >> gvs [] >>
   gvs [LENGTH_EQ_NUM_compute, get_vars_def, loopSemTheory.get_vars_def,
        loopLangTheory.acc_vars_def, isWord_exists, AllCaseEqs()] >>
+  rename1 ‘lookup ci s.locals = SOME (Word ci_w)’ >>
+  rename1 ‘AddCarry 3 (find_var ctxt li) (find_var ctxt ri) 1’ >>
+  rename1 ‘lookup li s.locals = SOME (Word li_w)’ >>
+  rename1 ‘lookup ri s.locals = SOME (Word ri_w)’ >>
+  rename1 ‘set_vars [res_var; co_var] _ _’ >>
   simp [Ntimes evaluate_def 2, word_exp_def] >>
   ‘∀n. find_var ctxt n ≠ 1 ∧ find_var ctxt n ≠ 3’ by
     (rw [] >> irule find_var_neq_odd >> fs [locals_rel_def] >> metis_tac []) >>
@@ -767,8 +784,22 @@ Resume compile_correct[Primitive]:
   simp [Ntimes evaluate_def 2, word_exp_def, get_var_set_var] >>
   conj_tac >- fs [loopSemTheory.set_vars_def, state_rel_def] >>
   conj_tac >- fs [loopSemTheory.set_vars_def, state_rel_def] >>
-  conj_tac >- cheat >>
-  cheat
+  ‘res_var ∈ domain ctxt ∧ co_var ∈ domain ctxt’ by
+    gvs [domain_list_insert, SUBSET_DEF] >>
+  imp_res_tac find_var_neq_0 >>
+  conj_tac
+  >- fs [set_var_def, lookup_insert] >>
+  fs [loopSemTheory.set_vars_def, set_var_def, alist_insert_def] >>
+  qpat_x_assum ‘word_and_carry _ _ _ = _’ mp_tac >>
+  simp [word_and_carry_def, theWord_def] >>
+  strip_tac >>
+  ‘result = Word res’ by simp [Abbr ‘result’] >>
+  gvs [] >>
+  irule locals_rel_insert >> simp [] >>
+  irule locals_rel_insert >> simp [] >>
+  irule locals_rel_insert_unmapped >> simp [] >>
+  irule locals_rel_insert_unmapped >> simp [] >>
+  irule locals_rel_insert_unmapped >> simp []
 QED
 
 Resume compile_correct[LocValue]:
