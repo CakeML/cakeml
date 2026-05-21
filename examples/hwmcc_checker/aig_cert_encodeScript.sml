@@ -432,7 +432,7 @@ Proof
   >> simp [maxn_def, MAX_DEF]
 QED
 
-(* **********)
+(* Encoding point-wise implication ********************************************)
 
 Definition encode_imply_def:
   encode_imply (circ: ('a iext, 'i, 'l) circuit) name lhss rhss =
@@ -462,6 +462,8 @@ Proof
   >> Cases_on ‘¬MEM e rhss’ >> gvs []
   >> metis_tac [MEM_neq_iname_maxn, eval_lit_INR_neq]
 QED
+
+(* Encoding point-wise equivalence ********************************************)
 
 Definition encode_equiv_aux_def:
   (encode_equiv_aux (n: num) [] = [(INR n, [])]: ('a iext,'i,'l) circuit) ∧
@@ -671,17 +673,46 @@ Definition iright_reset_def:
   λl. OPTION_MAP iext_lit (right_reset mreset l)
 End
 
-Definition ileft_lits_def:
-  ileft_lits = MAP (iext_lit ∘ left_name_lit)
+Definition ileft_name_lits_def:
+  ileft_name_lits = MAP (iext_lit ∘ left_name_lit)
 End
 
-Definition iright_lits_def:
-  iright_lits = MAP (iext_lit ∘ right_name_lit)
+Definition iright_name_lits_def:
+  iright_name_lits = MAP (iext_lit ∘ right_name_lit)
 End
 
 Definition imerge_circuits_def:
-  imerge_circuits mcirc wcirc = iext_circuit (merge_circuits mcirc wcirc)
+  imerge_circuits circ₀ circ₁ = iext_circuit (merge_circuits circ₀ circ₁)
 End
+
+Definition ipair_circuits_def:
+  ipair_circuits circ₀ circ₁ = iext_circuit (pair_circuits circ₀ circ₁)
+End
+
+(* Encoding is_next ***********************************************************)
+
+Definition encode_is_next_def:
+  encode_is_next
+    (circ: (('a + 'b) iext, 'i + 'j, 'l + 'l) circuit)
+    (name: mlstring)
+    (next: ('l -> ('a,'i,'l) lit))
+    (latches: 'l list)
+  = encode_equiv circ name
+      (ZIP (MAP (iext_lit ∘ left_lit ∘ next) latches,
+            MAP (λl. iext_lit (right_lit (Base (Latch l), F))) latches))
+End
+
+Theorem eval_circuit_encode_is_next_INL:
+  eval_circuit (pair_state ss₀ ss₁)
+    (encode_is_next (ipair_circuits circ₀ circ₁) name next latches) (INL n) =
+  if n = Ext name then
+    is_next ss₀ circ₀ next (set latches) (SND ss₁)
+  else eval_circuit (pair_state ss₀ ss₁) (ipair_circuits circ₀ circ₁) (INL n)
+Proof
+  cheat
+QED
+
+(* Encoding certificate conditions ********************************************)
 
 Definition encode_is_witness_reset_def:
   encode_is_witness_reset
@@ -697,15 +728,31 @@ Definition encode_is_witness_reset_def:
   let
     circ = imerge_circuits mcirc wcirc;
     circ = encode_is_reset circ «mreset» (ileft_reset mreset) mlatches;
-    circ = encode_preds_hold circ «mcnstrs» (ileft_lits mcnstrs);
+    circ = encode_preds_hold circ «mcnstrs» (ileft_name_lits mcnstrs);
     klatches = list_inter mlatches wlatches;
     circ = encode_is_reset circ «wreset» (iright_reset wreset) klatches;
-    circ = encode_preds_hold circ «wcnstrs» (iright_lits wcnstrs);
+    circ = encode_preds_hold circ «wcnstrs» (iright_name_lits wcnstrs);
     lhss = [(Name (INL (Ext «mreset»)), F); (Name (INL (Ext «mcnstrs»)), F)];
     rhss = [(Name (INL (Ext «wreset»)), F); (Name (INL (Ext «wcnstrs»)), F)];
   in
     encode_imply circ «reset» lhss rhss
 End
+
+Definition encode_is_witness_transition_def:
+  encode_is_witness_transition
+    (mcirc: ('a, 'i, 'l) circuit)
+    (mreset: 'l -> ('a, 'i, 'l) lit option)
+    (mcnstrs: ('a, 'i, 'l) lit list)
+    (mlatches: 'l list)
+    (wcirc: ('b, 'i, 'l) circuit)
+    (wreset: 'l -> ('b, 'i, 'l) lit option)
+    (wcnstrs: ('b, 'i, 'l) lit list)
+    (wlatches: 'l list)
+  =
+    ARB
+End
+
+(* Proving correctness of the encodings ***************************************)
 
 (* A bunch of trivial helper lemmas, which keep the proof state readable in
    when an encoding function uses many other encoding functions. *)
@@ -745,44 +792,44 @@ Proof
 QED
 
 Theorem preds_hold_ileft[local,simp]:
-  preds_hold ss (imerge_circuits lcirc rcirc) (set (ileft_lits preds)) ⇔
+  preds_hold ss (imerge_circuits lcirc rcirc) (set (ileft_name_lits preds)) ⇔
     preds_hold ss lcirc (set preds)
 Proof
-  simp [preds_hold_def, ileft_lits_def, imerge_circuits_def,
+  simp [preds_hold_def, ileft_name_lits_def, imerge_circuits_def,
         GSYM MAP_MAP_o, MEM_MAP, PULL_EXISTS]
 QED
 
 Theorem preds_hold_iright[local,simp]:
-  preds_hold ss (imerge_circuits lcirc rcirc) (set (iright_lits preds)) ⇔
+  preds_hold ss (imerge_circuits lcirc rcirc) (set (iright_name_lits preds)) ⇔
     preds_hold ss rcirc (set preds)
 Proof
-  simp [preds_hold_def, iright_lits_def, imerge_circuits_def,
+  simp [preds_hold_def, iright_name_lits_def, imerge_circuits_def,
         GSYM MAP_MAP_o, MEM_MAP, PULL_EXISTS]
 QED
 
 Theorem preds_hold_encode_is_reset_ileft[local,simp]:
   preds_hold ss
-    (encode_is_reset circ name reset latches) (set (ileft_lits preds)) ⇔
-  preds_hold ss circ (set (ileft_lits preds))
+    (encode_is_reset circ name reset latches) (set (ileft_name_lits preds)) ⇔
+  preds_hold ss circ (set (ileft_name_lits preds))
 Proof
-  simp [preds_hold_def, encode_is_reset_def, ileft_lits_def, GSYM MAP_MAP_o,
-        MEM_MAP, PULL_EXISTS]
+  simp [preds_hold_def, encode_is_reset_def, ileft_name_lits_def,
+        GSYM MAP_MAP_o, MEM_MAP, PULL_EXISTS]
 QED
 
 Theorem preds_hold_encode_is_reset_iright[local,simp]:
   preds_hold ss
-    (encode_is_reset circ name reset latches) (set (iright_lits preds)) ⇔
-  preds_hold ss circ (set (iright_lits preds))
+    (encode_is_reset circ name reset latches) (set (iright_name_lits preds)) ⇔
+  preds_hold ss circ (set (iright_name_lits preds))
 Proof
-  simp [preds_hold_def, encode_is_reset_def, iright_lits_def,
+  simp [preds_hold_def, encode_is_reset_def, iright_name_lits_def,
         GSYM MAP_MAP_o, MEM_MAP, PULL_EXISTS]
 QED
 
 Theorem preds_hold_encode_preds_hold_iright[local,simp]:
-  preds_hold ss (encode_preds_hold circ name preds') (set (iright_lits preds)) ⇔
-    preds_hold ss circ (set (iright_lits preds))
+  preds_hold ss (encode_preds_hold circ name preds') (set (iright_name_lits preds)) ⇔
+    preds_hold ss circ (set (iright_name_lits preds))
 Proof
-  simp [preds_hold_def, encode_preds_hold_def, iright_lits_def,
+  simp [preds_hold_def, encode_preds_hold_def, iright_name_lits_def,
         GSYM MAP_MAP_o, MEM_MAP, PULL_EXISTS]
 QED
 
