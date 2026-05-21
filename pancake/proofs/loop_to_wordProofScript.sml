@@ -5,7 +5,7 @@ Theory loop_to_wordProof
 Libs
   preamble
 Ancestors
-  loopSem loopProps wordLang wordSem wordProps pan_common
+  backend_common loopSem loopProps wordLang wordSem wordProps pan_common
   pan_commonProps loop_to_word wordConvs
 
 
@@ -756,11 +756,18 @@ Resume compile_correct[Primitive]:
   rpt (pairarg_tac >> gvs []) >>
   drule_all_then assume_tac locals_rel_get_vars >> gvs [] >>
   gvs [LENGTH_EQ_NUM_compute, get_vars_def, loopSemTheory.get_vars_def,
-       loopLangTheory.acc_vars_def, AllCaseEqs()] >>
+       loopLangTheory.acc_vars_def, isWord_exists, AllCaseEqs()] >>
   simp [Ntimes evaluate_def 2, word_exp_def] >>
-
-  simp [Ntimes evaluate_def 2] >>
-  simp [inst_def, get_vars_def, get_var_set_var] >>
+  ‘∀n. find_var ctxt n ≠ 1 ∧ find_var ctxt n ≠ 3’ by
+    (rw [] >> irule find_var_neq_odd >> fs [locals_rel_def] >> metis_tac []) >>
+  simp [Ntimes evaluate_def 2, inst_def, get_vars_def, get_var_set_var,
+        word_and_carry_def] >>
+  qmatch_goalsub_abbrev_tac ‘set_var 1 (Word carry) (set_var 3 result _)’ >>
+  simp [Ntimes evaluate_def 2, word_exp_def, get_var_set_var] >>
+  simp [Ntimes evaluate_def 2, word_exp_def, get_var_set_var] >>
+  conj_tac >- fs [loopSemTheory.set_vars_def, state_rel_def] >>
+  conj_tac >- fs [loopSemTheory.set_vars_def, state_rel_def] >>
+  conj_tac >- cheat >>
   cheat
 QED
 
