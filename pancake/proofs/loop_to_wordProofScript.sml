@@ -214,7 +214,7 @@ Theorem locals_rel_insert_unmapped:
 Proof
   rw [locals_rel_def, lookup_insert] >>
   res_tac >> gvs [] >>
-  Cases_on ‘m = k’ >> gvs [] >>
+  IF_CASES_TAC >> gvs [] >>
   first_x_assum (qspec_then ‘n’ mp_tac) >>
   simp [find_var_def, domain_lookup]
 QED
@@ -768,13 +768,14 @@ Resume compile_correct[Primitive]:
   rpt (pairarg_tac >> gvs []) >>
   drule_all_then assume_tac locals_rel_get_vars >> gvs [] >>
   gvs [LENGTH_EQ_NUM_compute, get_vars_def, loopSemTheory.get_vars_def,
-       loopLangTheory.acc_vars_def, isWord_exists, AllCaseEqs()] >>
-  rename1 ‘lookup ci s.locals = SOME (Word ci_w)’ >>
-  rename1 ‘AddCarry 3 (find_var ctxt li) (find_var ctxt ri) 1’ >>
-  rename1 ‘lookup li s.locals = SOME (Word li_w)’ >>
-  rename1 ‘lookup ri s.locals = SOME (Word ri_w)’ >>
-  rename1 ‘set_vars [res_var; co_var] _ _’ >>
+       loopLangTheory.acc_vars_def, isWord_exists, domain_list_insert,
+       SUBSET_DEF, AllCaseEqs()] >>
   simp [Ntimes evaluate_def 2, word_exp_def] >>
+  rename1 ‘set_vars [res_var; co_var] [Word res; _]’ >>
+  ‘find_var ctxt res_var ≠ 0 ∧ find_var ctxt co_var ≠ 0’ by
+    (drule_at (Pos last) find_var_neq_0 >> strip_tac
+     >> rpt conj_tac
+     >> first_assum irule >> simp []) >>
   ‘∀n. find_var ctxt n ≠ 1 ∧ find_var ctxt n ≠ 3’ by
     (rw [] >> irule find_var_neq_odd >> fs [locals_rel_def] >> metis_tac []) >>
   simp [Ntimes evaluate_def 2, inst_def, get_vars_def, get_var_set_var,
@@ -784,11 +785,7 @@ Resume compile_correct[Primitive]:
   simp [Ntimes evaluate_def 2, word_exp_def, get_var_set_var] >>
   conj_tac >- fs [loopSemTheory.set_vars_def, state_rel_def] >>
   conj_tac >- fs [loopSemTheory.set_vars_def, state_rel_def] >>
-  ‘res_var ∈ domain ctxt ∧ co_var ∈ domain ctxt’ by
-    gvs [domain_list_insert, SUBSET_DEF] >>
-  imp_res_tac find_var_neq_0 >>
-  conj_tac
-  >- fs [set_var_def, lookup_insert] >>
+  conj_tac  >- fs [set_var_def, lookup_insert] >>
   fs [loopSemTheory.set_vars_def, set_var_def, alist_insert_def] >>
   qpat_x_assum ‘word_and_carry _ _ _ = _’ mp_tac >>
   simp [word_and_carry_def, theWord_def] >>
