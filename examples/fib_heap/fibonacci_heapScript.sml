@@ -6447,7 +6447,28 @@ Definition fts_link_root_list_def:
 End
 
 
-
+Theorem lemma_fts_link_root_list_length_rl:
+  !rl list.
+  LENGTH rl = LENGTH (FST (fts_link_root_list rl list))
+Proof
+  ho_match_mp_tac fts_link_root_list_ind >>
+  rpt strip_tac
+  >- simp[fts_link_root_list_def] >>
+  simp[fts_link_root_list_def] >>
+  pairarg_tac >> simp[] >>
+  IF_CASES_TAC
+  >- (
+    qspecl_then [`196`,`rl`,`(FibTree k rl' l)`]
+      mp_tac lemma_fts_link_trees_length_rl >>
+    simp[]
+    ) >>
+  Cases_on `fts_link_root_list n_rl list` >> simp[] >>
+  first_x_assum(qspecl_then [`n_rl`,`flag`] assume_tac) >>
+  rfs[] >>
+  qspecl_then [`196`,`rl`,`(FibTree k rl' l)`]
+     mp_tac lemma_fts_link_trees_length_rl >>
+  simp[]
+QED
 
 Theorem fts_link_root_list:
   !rl fts rl' fh1 fh2.
@@ -8691,7 +8712,7 @@ QED
 
 
 Theorem fib_heap_link_root_list_mem_thm:
-  !n frame fts arr rl m dm c m'.
+  !n frame fts arr rl m dm m'.
   (fts_mem (ann_fts 0w fts) * reb_array_mem (arr:'a word) 0w rl *
     frame) (fun2set (m,dm)) ∧
   LENGTH rl = 196 /\
@@ -8777,7 +8798,8 @@ Theorem fib_heap_collect_array_mem_thm:
   ==>
   (fts_mem (ann_fts 0w (FST (fts_collect_array n rl acc))) *
     reb_array_mem arr 0w (SND (fts_collect_array n rl acc)) *
-    frame) (fun2set(m',dm))
+    frame) (fun2set(m',dm)) /\
+  acc' = head_key (FST (fts_collect_array n rl acc))
 Proof
   Induct >> rpt gen_tac >> disch_tac >> fs[] >> pop_assum mp_tac
   >- (
@@ -8798,7 +8820,8 @@ Proof
          head_key_def,head_key_t_def] >>
       strip_tac >>
       simp[Once fts_collect_array_def] >>
-      simp[Once fts_collect_array_def,reb_array_mem_def,STAR_ASSOC]
+      simp[Once fts_collect_array_def,reb_array_mem_def,STAR_ASSOC] >>
+      simp[Once fts_collect_array_def]
       ) >>
     Cases_on `x` >> gvs[] >>
     pop_assum mp_tac >>
@@ -8820,7 +8843,8 @@ Proof
     simp[Once fts_collect_array_def] >>
     simp[LUPDATE_DEF,reb_array_mem_def] >>
     SEP_W_TAC >>
-    fs[AC STAR_ASSOC STAR_COMM]
+    fs[AC STAR_ASSOC STAR_COMM] >>
+    simp[Once fts_collect_array_def]
     ) >>
   simp[Once fib_heap_collect_array_def,read_mem_def,write_mem_def] >>
   pairarg_tac >> gvs[] >>
@@ -8848,7 +8872,9 @@ Proof
     simp[Once fts_collect_array_def,EL_APPEND] >>
     simp[STAR_COMM] >>
     simp[Once fts_collect_array_def,EL_APPEND] >>
-    fs[AC STAR_ASSOC STAR_COMM]
+    fs[AC STAR_ASSOC STAR_COMM] >>
+    irule EQ_SYM >>
+    simp[Once fts_collect_array_def,EL_APPEND]
     ) >>
   Cases_on `x` >> fs[] >>
   SEP_R_TAC >> fs[] >>
@@ -8876,8 +8902,105 @@ Proof
   simp[Once fts_collect_array_def,EL_APPEND,LUPDATE_APPEND,LUPDATE_DEF] >>
   simp[STAR_COMM] >>
   simp[Once fts_collect_array_def,EL_APPEND,LUPDATE_APPEND,LUPDATE_DEF] >>
-  fs[AC STAR_ASSOC STAR_COMM]
+  fs[AC STAR_ASSOC STAR_COMM] >>
+  irule EQ_SYM >>
+  simp[Once fts_collect_array_def,EL_APPEND,LUPDATE_APPEND,LUPDATE_DEF]
 QED
+
+
+
+Theorem fib_heap_collect_array:
+  !n frame fh1 arr rl fh2 acc m dm c acc' m'.
+  (fts_mem (ann_fts 0w acc) * reb_array_mem (arr:'a word) 0w rl * frame)
+    (fun2set(m,dm)) /\
+  LENGTH rl = 196 /\
+  196 < dimword (:'a) ∧
+  n < LENGTH rl /\
+  fib_heap_inv fh1 acc /\
+  fib_heap_inv_union fh2 (ts_to_fhts rl) /\
+  DISJOINT (FDOM fh1) (FDOM fh2) /\
+  (!x. x < LENGTH rl /\ n < x ==> EL x rl = NONE) /\
+  fib_heap_collect_array n (arr,head_key acc,m,dm,c) = (acc',m',T)
+  ==>
+  ?acc' rl'.
+  (fts_mem (ann_fts 0w acc') * reb_array_mem arr 0w rl' * frame)
+    (fun2set(m',dm)) /\
+  fib_heap_inv (FUNION fh1 fh2) acc' /\
+  (!x. x < LENGTH rl' ==> EL x rl' = NONE) /\
+  LENGTH rl = LENGTH rl'
+Proof
+  rpt gen_tac >> disch_tac >> fs[] >>
+  drule_all fib_heap_collect_array_mem_thm >>
+  strip_tac >>
+  qexistsl [`FST (fts_collect_array n rl acc)`,
+            `SND (fts_collect_array n rl acc)`] >>
+  Cases_on `fts_collect_array n rl acc` >> simp[] >>
+  drule_all fts_collect_array >> simp[]
+QED
+
+
+Definition fib_heap_reb_def:
+  fib_heap_reb n (arr,a,m,dm)
+  =
+  let (m,c) = fib_heap_link_root_list n (arr,a,m,dm) in
+  if ~c then (0w,m,F) else
+  fib_heap_collect_array 195 (arr,0w,m,dm,c)
+End
+
+Theorem lemma_alg_rl_imp_reb_inv:
+  (∀x k v l.
+    x < LENGTH alg_rl ∧ alg_rl❲x❳ = SOME (FibTree k v l) ⇒
+   LENGTH l = x) <=> T
+Proof
+  iff_tac >> simp[] >>
+  rpt strip_tac >>
+  fs[alg_rl_def] >>
+  pop_assum mp_tac >>
+  simp[EL_REPLICATE]
+QED
+
+
+Theorem fib_heap_reb_mem_thm:
+  !n frame fts arr m dm c a' m'.
+  (fts_mem (ann_fts 0w fts) * reb_array_mem (arr:'a word) 0w alg_rl * frame)
+    (fun2set(m,dm)) /\
+  196 < dimword (:'a) ∧
+  fib_heap_reb n (arr,head_key fts,m,dm) = (a',m',T)
+  ==>
+  (fts_mem (ann_fts 0w (FST (fts_reb alg_rl fts))) *
+    reb_array_mem arr 0w (FST (SND (fts_reb alg_rl fts))) *
+    frame) (fun2set(m',dm)) /\
+  (SND (SND (fts_reb alg_rl fts))) /\
+  a' = head_key (FST (fts_reb alg_rl fts))
+Proof
+  rpt gen_tac >> disch_tac >> fs[] >>
+  pop_assum mp_tac >>
+  simp[fib_heap_reb_def] >>
+  pairarg_tac >> simp[] >>
+  qspecl_then [`n`,`frame`,`fts`,`arr`,`alg_rl`,`m`,`dm`,`m''`]
+    mp_tac fib_heap_link_root_list_mem_thm >>
+  simp[Once alg_rl_def,LENGTH_REPLICATE] >>
+  Cases_on `c` >> simp[] >>
+  simp[lemma_alg_rl_imp_reb_inv] >>
+  strip_tac >> strip_tac >>
+  Cases_on `(fts_link_root_list alg_rl fts)` >> fs[] >>
+  qspecl_then [`195`,`arr`,`q`,`frame`,`[]`,`m''`,`dm`,`T`,`a'`,`m'`]
+    mp_tac fib_heap_collect_array_mem_thm >>
+  simp[fts_mem_def,ann_fts_def,SEP_CLAUSES,STAR_ASSOC] >>
+  qspecl_then [`alg_rl`,`fts`] assume_tac lemma_fts_link_root_list_length_rl >>
+  rfs[] >>
+  simp[Once alg_rl_def,LENGTH_REPLICATE] >>
+  simp[Once alg_rl_def,LENGTH_REPLICATE] >>
+  simp[head_key_def,head_key_t_def] >>
+  strip_tac >>
+  `LENGTH alg_rl = 196` by simp[alg_rl_def,LENGTH_REPLICATE] >>
+  simp[fts_reb_def] >>
+  pairarg_tac >> gvs[] >>
+  pop_assum mp_tac >> simp[alg_rl_def,LENGTH_REPLICATE] >>
+  strip_tac >> gvs[]
+QED
+
+
 
 
 
