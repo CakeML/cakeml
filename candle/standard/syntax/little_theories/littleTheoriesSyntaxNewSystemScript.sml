@@ -683,7 +683,6 @@ Proof
   >> simp[] >> irule $ iffRL MEM_FOLDR_LIST_UNION >> simp[]
   >> metis_tac[]
 QED
-
 (*
 Theorem updates'_axioms_ok':
   ∀upd ctxt.
@@ -757,5 +756,144 @@ Theorem init_theory_ok':
 Proof
   rw[theory_ok'_def,init_ectxt_def,type_ok_def,FLOOKUP_UPDATE,conexts_of_upd'_def] >>
   rw[is_std_sig_def, FLOOKUP_UPDATE, sigof'_def, axioms_ok_def]
+QED
+
+Definition lift_upd_def:
+  lift_upd ((NewAxiom p):update) = (NewAxiom p:update') ∧
+  lift_upd (NewConst n ty) = NewConst n ty ∧
+  lift_upd (ConstSpec eqs p) = ConstSpec eqs p ∧
+  lift_upd (NewType n a) = NewType n a ∧
+  lift_upd (TypeDefn n p a r) = TypeDefn n p a r
+End
+
+Overload lift_ctxt = “MAP lift_upd”
+
+Definition drop_upd_def:
+  drop_upd ((NewAxiom p):update') = SOME (NewAxiom p:update) ∧
+  drop_upd (NewConst n ty) = SOME (NewConst n ty) ∧
+  drop_upd (ConstSpec eqs p) = SOME (ConstSpec eqs p) ∧
+  drop_upd (NewType n a) = SOME (NewType n a) ∧
+  drop_upd (TypeDefn n p a r) = SOME (TypeDefn n p a r) ∧
+  drop_upd _ = NONE
+End
+
+Overload drop_ctxt = “list$mapPartial drop_upd”
+
+Theorem tysof'_lift_ctxt[simp]:
+  tysof' (lift_ctxt ctxt) = tysof ctxt
+Proof
+  Induct_on ‘ctxt’ >> simp[] >> Cases >> fs[lift_upd_def]
+QED
+
+Theorem tmsof'_lift_ctxt[simp]:
+  tmsof' (lift_ctxt ctxt) = tmsof ctxt
+Proof
+  Induct_on ‘ctxt’ >> simp[] >> Cases >> fs[lift_upd_def]
+QED
+
+Theorem etysof_lift_ctxt[simp]:
+  etysof (lift_ctxt ctxt) = FEMPTY
+Proof
+  Induct_on ‘ctxt’ >> simp[] >> Cases >> simp[lift_upd_def]
+QED
+
+Theorem etmsof_lift_ctxt[simp]:
+  etmsof (lift_ctxt ctxt) = FEMPTY
+Proof
+  Induct_on ‘ctxt’ >> simp[] >> Cases >> simp[lift_upd_def]
+QED
+
+Theorem eaxsof_lift_ctxt[simp]:
+  eaxsof (lift_ctxt ctxt) = ∅
+Proof
+  Induct_on ‘ctxt’ >> simp[] >> Cases >> fs[lift_upd_def, eaxexts_of_upd'_def]
+QED
+
+Theorem axsof_lift_ctxt[simp]:
+  axsof' (lift_ctxt ctxt) = axsof ctxt
+Proof
+  Induct_on ‘ctxt’ >> simp[] >> Cases >> fs[lift_upd_def, conexts_of_upd'_def, conexts_of_upd_def]
+QED
+
+Theorem ethyof_lift_ctxt[simp]:
+  ethyof (lift_ctxt ctxt) = lift_thy (thyof ctxt)
+Proof
+  simp[lift_thy_def]
+QED
+
+Theorem drop_thy_lift_thy[simp]:
+  drop_thy ∅ (lift_thy thy) = thy
+Proof
+  rw[drop_thy, lift_thy_def]
+QED
+
+Theorem const_list_lift_ctxt:
+  const_list' (lift_ctxt ctxt) = const_list ctxt
+Proof
+  Induct_on ‘ctxt’ >> simp[] >> Cases >> simp[lift_upd_def]
+QED
+
+Theorem econst_list_lift_ctxt[simp]:
+  econst_list (lift_ctxt ctxt) = []
+Proof
+  Induct_on ‘ctxt’ >> simp[] >> Cases >> simp[lift_upd_def]
+QED
+
+Theorem type_list_lift_ctxt[simp]:
+  type_list' (lift_ctxt ctxt) = type_list ctxt
+Proof
+  Induct_on ‘ctxt’ >> simp[] >> Cases >> simp[lift_upd_def]
+QED
+
+Theorem etype_list_lift_ctxt[simp]:
+  etype_list (lift_ctxt ctxt) = []
+Proof
+  Induct_on ‘ctxt’ >> simp[] >> Cases >> simp[lift_upd_def]
+QED
+
+Theorem lift_update_updates:
+  ∀upd ctxt.
+    upd updates ctxt ⇔ lift_upd upd updates' lift_ctxt ctxt
+Proof
+  Cases >> rw[lift_upd_def, updates_cases, Once updates'_cases, const_list_lift_ctxt]
+  >- (iff_tac >> rw[] >- (irule proves_imp_proves' >> simp[])
+      >> fs[const_list_lift_ctxt, EVERY_MEM, MEM_MAP] >> simp[SF SFY_ss]
+      >- (fs[FST, EXISTS_PROD] >> drule proves_theory_ok >> strip_tac
+          >> dxrule theory_ok_sig >> dxrule proves_term_ok >> rw[EVERY_MEM]
+          >> fs[MEM_MAP] >> first_x_assum $ qspec_then ‘Var s (typeof t') === t'’ mp_tac
+          >> impl_tac >- (first_x_assum $ irule_at Any >> simp[])
+          >> simp[term_ok_equation])
+      >> drule proves'_imp_proves >> simp[])
+  >> iff_tac >> rw[]
+  >- (drule proves_imp_proves' >> disch_then $ irule_at Any >> simp[]
+      >> drule proves_theory_ok >> strip_tac >> dxrule theory_ok_sig
+      >> dxrule proves_term_ok >> rw[EVERY_MEM]
+      >> drule_all term_ok_type_ok >> simp[])
+  >> drule proves'_imp_proves >> simp[]
+  >> disch_then $ irule_at Any >> simp[]
+QED
+
+Theorem lift_ctxt_extends_init_ectxt:
+  ∀ctxt. ctxt extends init_ctxt ⇒ lift_ctxt ctxt extends' init_ectxt
+Proof
+  cheat
+QED
+
+Theorem extends_extends':
+  ∀ctxt. ctxt extends init_ctxt ⇔ lift_ctxt ctxt extends' init_ectxt
+Proof
+  cheat
+QED
+
+Theorem extends_extends'_derivations:
+  ∀h c.
+    (∃ctxt. ctxt extends init_ctxt ∧ (thyof ctxt, h) |- c) ⇔
+      (∃ctxt'. ctxt' extends' init_ectxt ∧ (ethyof ctxt', ∅, h) |-' c)
+Proof
+  rpt strip_tac >> iff_tac >> rw[]
+  >- (qexists ‘lift_ctxt ctxt’ >> drule proves_imp_proves'
+      >> simp[lift_ctxt_extends_init_ectxt, lift_thy_def])
+  >> drule proves'_imp_proves >> simp[drop_thy, ctms_def, ctys_def]
+  >> strip_tac >> qexists ‘drop_ctxt ctxt’ >> simp[]
 QED
 *)
