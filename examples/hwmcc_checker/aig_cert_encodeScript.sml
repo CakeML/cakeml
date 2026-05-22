@@ -689,6 +689,13 @@ Definition ipair_circuits_def:
   ipair_circuits circ₀ circ₁ = iext_circuit (pair_circuits circ₀ circ₁)
 End
 
+Theorem eval_lit_ipair_circuits[simp]:
+  eval_lit ss (ipair_circuits circ₀ circ₁) (iext_lit lit) ⇔
+    eval_lit ss (pair_circuits circ₀ circ₁) lit
+Proof
+  simp [ipair_circuits_def]
+QED
+
 (* Encoding is_next ***********************************************************)
 
 Definition encode_is_next_def:
@@ -697,9 +704,10 @@ Definition encode_is_next_def:
     (name: mlstring)
     (next: ('l -> ('a,'i,'l) lit))
     (latches: 'l list)
-  = encode_equiv circ name
-      (ZIP (MAP (iext_lit ∘ left_lit ∘ next) latches,
-            MAP (λl. iext_lit (right_lit (Base (Latch l), F))) latches))
+  =
+  encode_equiv circ name
+    (ZIP (MAP (iext_lit ∘ left_lit ∘ next) latches,
+          MAP (λl. iext_lit (right_lit (Base (Latch l), F))) latches))
 End
 
 Theorem eval_circuit_encode_is_next_INL:
@@ -709,7 +717,11 @@ Theorem eval_circuit_encode_is_next_INL:
     is_next ss₀ circ₀ next (set latches) (SND ss₁)
   else eval_circuit (pair_state ss₀ ss₁) (ipair_circuits circ₀ circ₁) (INL n)
 Proof
-  cheat
+  simp [encode_is_next_def, eval_circuit_encode_equiv_INL]
+  >> IF_CASES_TAC >> simp []
+  >> simp [is_next_def, EVERY_MEM, MEM_ZIP, MEM_EL, EL_MAP, PULL_EXISTS]
+  >> PairCases_on ‘ss₁’
+  >> simp [eval_circuit_def, eval_bvar_def]
 QED
 
 (* Encoding certificate conditions ********************************************)
@@ -754,7 +766,7 @@ End
 
 (* Proving correctness of the encodings ***************************************)
 
-(* A bunch of trivial helper lemmas, which keep the proof state readable in
+(* A bunch of trivial helper lemmas, which keep the proof state readable
    when an encoding function uses many other encoding functions. *)
 
 Theorem is_reset_ileft[local,simp]:
