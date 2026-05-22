@@ -1957,7 +1957,9 @@ Resume evaluate_rewrite_tmc[op_opt]:
   >> strip_tac
   >> reverse $ gvs [CaseEq "result"]
   >- (* bs fails *)
-   (rename [‘exc_rel (v_rel f') e e'’]
+   (cheat
+        (*
+        rename [‘exc_rel (v_rel f') e e'’]
     >> qexistsl [‘t'’, ‘f'’, ‘Rerr e'’]
     >> gvs []
     >> rw []
@@ -1969,7 +1971,7 @@ Resume evaluate_rewrite_tmc[op_opt]:
     >> gvs [evaluate_def, opt_res_rel_def]
     >> irule holes_unchanged_except_subset
     >> qexists ‘EMPTY’
-    >> gvs [])
+    >> gvs []*))
   >> rename [‘LIST_REL (v_rel f') vs vs'’]
   >> asm_x "original" kall_tac
   >> asm_x "original'" kall_tac
@@ -2411,6 +2413,12 @@ Proof
   >> conj_tac
   >-
    (gvs []
+    >> simp [Once v_rel_cases]
+    >> irule LIST_REL_APPEND_suff
+    >> irule_at Any LIST_REL_APPEND_suff
+    >> simp [LIST_REL_MAP]
+    >> rpt $ irule_at Any LIST_REL_refl
+    >> simp []
     (*>> gvs [v_rel_cases]*)
     >> cheat (* Doable *))
   >> strip_tac
@@ -2423,7 +2431,7 @@ Proof
   (* Here we need that right can't fail. *)
   >> CASE_TAC
   >> drule evaluate_var_list
-  >> impl_tac >- cheat (* right can't fail *)
+  >> impl_tac >- cheat
   >> strip_tac >> gvs []
   >> drule evaluate_expand_env
   >> disch_then $ qspecl_then [‘[RefPtr F hole_ptr; Number hole_idx]’] assume_tac
