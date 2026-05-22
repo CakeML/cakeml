@@ -636,7 +636,6 @@ Proof
   imp_res_tac compile_eval_correct >>
   fs []
 QED
-*)
 
 Resume compile_eval_correct_none[Panop]:
   rpt strip_tac
@@ -654,6 +653,7 @@ Resume compile_eval_correct_none[Panop]:
 QED
 
 Finalise compile_eval_correct_none
+*)
 
 val goal =
   ``λ comp (prog, s). ∀res s1 t ctxt.
