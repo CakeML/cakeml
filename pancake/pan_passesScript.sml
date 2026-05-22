@@ -128,6 +128,10 @@ Definition varkind_to_str_def:
     | Local  => «local»
 End
 
+Definition primop_to_display_def:
+  primop_to_display AddCarry = String «AddCarry»
+End
+
 Definition pan_exp_to_display_def:
   (pan_exp_to_display (panLang$Const v)
     = item_with_word «Const» v) ∧
@@ -238,6 +242,10 @@ Definition pan_prog_to_display_def:
             String n;
             String «:=»;
             pan_exp_to_display exp]) ∧
+  (pan_prog_to_display (Primitive v pop es) =
+     Tuple [String v;
+            String «:=»;
+            insert_es (primop_to_display pop) (MAP pan_exp_to_display es)]) ∧
   (pan_prog_to_display (Store e1 e2) = Tuple
     [String «mem»; pan_exp_to_display e1;
      String «:=»; pan_exp_to_display e2]) ∧
@@ -420,6 +428,10 @@ Definition crep_prog_to_display_def:
      Tuple [num_to_display n;
             String «:=»;
             crep_exp_to_display exp]) ∧
+  (crep_prog_to_display (Primitive lhss pop rhss) =
+     Tuple [Tuple (MAP num_to_display lhss);
+            String «:=»;
+            insert_es (primop_to_display pop) (MAP num_to_display rhss)]) ∧
   (crep_prog_to_display (Store e1 e2) = Tuple
     [String «mem»; crep_exp_to_display e1;
      String «:=»; crep_exp_to_display e2]) ∧
@@ -545,6 +557,10 @@ Definition loop_prog_to_display_def:
      Tuple [num_to_display n;
             String «:=»;
             loop_exp_to_display exp]) ∧
+  (loop_prog_to_display ns (Primitive lhss pop rhss) =
+     Tuple [Tuple (MAP num_to_display lhss);
+            String «:=»;
+            insert_es (primop_to_display pop) (MAP num_to_display rhss)]) ∧
   (loop_prog_to_display ns (SetGlobal w exp) =
      Item NONE «set_global»
           [word_to_display w;

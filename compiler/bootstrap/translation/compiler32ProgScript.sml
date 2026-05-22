@@ -204,6 +204,7 @@ Theorem lem[local]:
 Proof
   EVAL_TAC
 QED
+val r = pan_passesTheory.primop_to_display_def |> translate;
 val r = pan_passesTheory.pan_exp_to_display_def |> spec32 |> SIMP_RULE std_ss [byteTheory.bytes_in_word_def,lem] |> translate;
 val r = pan_passesTheory.crep_exp_to_display_def |> spec32 |> translate;
 val r = pan_passesTheory.loop_exp_to_display_def |> spec32 |> translate;
