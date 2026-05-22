@@ -727,7 +727,7 @@ Theorem every_inst_ok_loop_live:
 Proof
   rw[loop_liveTheory.comp_def] \\
   ‘(∀p prog q. every_prog (loop_inst_ok c) ^prog ⇒ every_prog (loop_inst_ok c) (FST $ shrink p prog q)) ∧
-   (∀p q r prog. every_prog (loop_inst_ok c) ^prog ⇒ OPTION_ALL (every_prog (loop_inst_ok c) o FST) (fixedpoint p q r prog))
+   (∀p q r s prog. every_prog (loop_inst_ok c) ^prog ⇒ OPTION_ALL (every_prog (loop_inst_ok c) o FST) (fixedpoint p q r s prog))
   ’
     by(pop_assum kall_tac \\
        ho_match_mp_tac loop_liveTheory.shrink_ind \\ rw[] \\

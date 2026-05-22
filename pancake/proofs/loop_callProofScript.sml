@@ -24,8 +24,8 @@ Proof
   >~ [`loopLang$Skip`] >- suspend "Skip"
   >~ [`loopLang$Fail`] >- suspend "Fail"
   >~ [`loopLang$Tick`] >- suspend "Tick"
-  >~ [`loopLang$Continue`] >- suspend "Continue"
-  >~ [`loopLang$Break`] >- suspend "Break"
+  >~ [`loopLang$Continue _`] >- suspend "Continue"
+  >~ [`loopLang$Break _`] >- suspend "Break"
   >~ [`loopLang$Mark`] >- suspend "Mark"
   >~ [`loopLang$Return`] >- suspend "Return"
   >~ [`loopLang$Raise`] >- suspend "Raise"
@@ -376,18 +376,28 @@ Resume compile_correct[Loop]:
   rveq >> fs [] >>
   qpat_x_assum ‘evaluate (Loop _ _ _,_) = (_,_)’ mp_tac >>
   once_rewrite_tac [evaluate_def] >>
-  TOP_CASE_TAC >> fs [] >> rveq >>
+  TOP_CASE_TAC >> fs [] >>
   reverse TOP_CASE_TAC >> fs [] >> rveq >> fs []
+  >- (strip_tac >> rveq >> fs [labels_in_def, lookup_def]) >>
+  ‘∀rv rs. evaluate (body,r) = (rv,rs) ∧ rv ≠ SOME Error ⇒
+     evaluate (np,r) = (rv,rs)’ by (
+    rpt strip_tac >>
+    last_x_assum (qspecl_then [‘rv’, ‘rs’, ‘LN’] mp_tac) >>
+    simp [labels_in_def, lookup_def]) >>
+  Cases_on ‘evaluate (body,r)’ >> fs [] >>
+  rename1 ‘evaluate (body,r) = (rv,rs)’ >>
+  reverse (Cases_on ‘rv’) >> fs []
   >- (
-   strip_tac >> rveq >>
-   fs [labels_in_def, lookup_def]) >>
-  TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
-  TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
-  TOP_CASE_TAC >> fs [] >> rveq >> fs [] >> (
-  strip_tac >> rveq >> fs [] >>
-  res_tac >> fs [labels_in_def, lookup_def]) >>
-  first_x_assum (qspec_then ‘LN’ mp_tac) >>
-  fs [labels_in_def, lookup_def]
+    Cases_on ‘x’ >> fs [] >>
+    rpt strip_tac >> rveq >> fs [labels_in_def, lookup_def] >>
+    Cases_on ‘n’ >> fs [] >>
+    qpat_x_assum ‘∀l'. res ≠ SOME Error ∧ _ ⇒ _’
+      (qspec_then ‘LN’ mp_tac) >>
+    simp [lookup_def]) >>
+  strip_tac >>
+  qpat_x_assum ‘∀res' s1' l'. evaluate _ = _ ∧ _ ∧ _ ⇒ _’
+    (qspecl_then [‘res’, ‘s1’, ‘LN’] mp_tac) >>
+  simp [labels_in_def, lookup_def]
 QED
 
 Resume compile_correct[Arith]:

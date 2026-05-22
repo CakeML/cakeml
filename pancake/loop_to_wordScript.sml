@@ -117,8 +117,8 @@ Definition comp_def:
       (Seq Tick
          (Seq (wordLang$Loop (mk_new_cutset ctxt l1) wbody (mk_new_cutset ctxt l2))
               Tick),l)) /\
-  (comp ctxt Break l    = (Break 0,l)) /\
-  (comp ctxt Continue l = (Continue 0,l)) /\
+  (comp ctxt (Break n) l    = (Break n,l)) /\
+  (comp ctxt (Continue n) l = (Continue n,l)) /\
   (comp ctxt (Raise v) l = (Raise (find_var ctxt v),l)) /\
   (comp ctxt (Return vs) l = (Return 0 (MAP (find_var ctxt) vs),l)) /\
   (comp ctxt Tick l = (Tick,l)) /\

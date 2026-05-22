@@ -30,8 +30,8 @@ val state_component_equality = theorem "state_component_equality";
 Datatype:
   result = Result    (('w word_loc) list)
          | Exception ('w word_loc)
-         | Break
-         | Continue
+         | Break num
+         | Continue num
          | TimeOut
          | FinalFFI final_event
          | Error
@@ -269,6 +269,12 @@ Proof
   Induct \\ Cases_on ‘vs’ \\ gvs [set_vars_def]
 QED
 
+Definition exit_loop_def[simp]:
+  exit_loop (SOME (Break n)) = SOME (Break (n - 1)) ∧
+  exit_loop (SOME (Continue n)) = SOME (Continue (n - 1)) ∧
+  exit_loop res = res
+End
+
 Definition evaluate_def:
   (evaluate (Skip:'a loopLang$prog,^s) = (NONE, s)) /\
   (evaluate (Fail:'a loopLang$prog,^s) = (SOME Error, s)) /\
@@ -339,16 +345,16 @@ Definition evaluate_def:
           cut_res live_out (evaluate (if b then c1 else c2,s))
     | _ => (SOME Error,s))) /\
   (evaluate (Mark p,s) = evaluate (p,s)) /\
-  (evaluate (Break,s) = (SOME Break,s)) /\
-  (evaluate (Continue,s) = (SOME Continue,s)) /\
+  (evaluate (Break k,s) = (SOME (Break k),s)) /\
+  (evaluate (Continue k,s) = (SOME (Continue k),s)) /\
   (evaluate (Loop live_in body live_out,s) =
     (case cut_res live_in (NONE,s) of
      | (NONE,s) =>
         (case fix_clock s (evaluate (body,s)) of
-         | (SOME Continue,s) => evaluate (Loop live_in body live_out,s)
-         | (SOME Break,s) => cut_res live_out (NONE,s)
-         | (NONE,s) => (SOME Error,s)
-         | res => res)
+         | (NONE,s) => evaluate (Loop live_in body live_out,s)
+         | (SOME (Continue 0),s) => evaluate (Loop live_in body live_out,s)
+         | (SOME (Break 0),s) => cut_res live_out (NONE,s)
+         | (res,s) => (exit_loop res,s))
      | res => res)) /\
   (evaluate (Raise n,s) =
      case lookup n s.locals of
@@ -390,8 +396,8 @@ Definition evaluate_def:
                if s.clock = 0 then (SOME TimeOut,s with locals := LN)
                else (case evaluate (prog, dec_clock s with locals := env) of
                      | (NONE,s) => (SOME Error,s)
-                     | (SOME Continue,s) => (SOME Error,s)
-                     | (SOME Break,s) => (SOME Error,s)
+                     | (SOME (Continue _),s) => (SOME Error,s)
+                     | (SOME (Break _),s) => (SOME Error,s)
                      | (SOME res,s) => (SOME res,s)))
           | SOME (ns,live) =>
             if ¬ALL_DISTINCT ns then (SOME Error,s) else
@@ -412,8 +418,8 @@ Definition evaluate_def:
                          | SOME (n,h,_,live_out) =>
                              cut_res live_out
                                (evaluate (h, set_var n exn (st with locals := s.locals))))
-                    | (SOME Continue,st) => (SOME Error, st)
-                    | (SOME Break,st) => (SOME Error, st)
+                    | (SOME (Continue _),st) => (SOME Error, st)
+                    | (SOME (Break _),st) => (SOME Error, st)
                     | (NONE,st) => (SOME Error, st)
                     | res => res)
              | res => res)))) /\
@@ -471,6 +477,8 @@ Proof
   TRY (Cases_on ‘op’>>fs[sh_mem_op_def,sh_mem_store_def,sh_mem_load_def]>>
        fs[ffiTheory.call_FFI_def]>>every_case_tac>>fs[]>>
        rveq>>fs[set_var_def,call_env_def])
+  \\ fs [CaseEq"num"] \\ rveq \\ fs []
+  \\ every_case_tac \\ fs [] \\ rveq \\ fs [cut_state_def,dec_clock_def]
   \\ rename [‘cut_res _ xx’] \\ PairCases_on ‘xx’ \\ fs []
   \\ fs [cut_res_def]
   \\ every_case_tac \\ fs [] \\ rveq \\ fs [cut_state_def]

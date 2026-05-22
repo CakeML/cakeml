@@ -24,10 +24,10 @@ Definition pancake_good_code_def:
 End
 
 Theorem pan_to_lab_good_code_lemma:
-  compile c.stack_conf c.data_conf lim1 lim2 offs stack_prog = code ∧
-  compile asm_conf3 word_prog = (bm, wc, fs, stack_prog) ∧
+  stack_to_lab$compile c.stack_conf c.data_conf lim1 lim2 offs stack_prog = code ∧
+  word_to_stack$compile asm_conf3 F word_prog = (bm, wc, fs, stack_prog) ∧
   word_to_word$compile word_conf asm_conf3 word_prog0 = (col, word_prog) ∧
-  compile_prog asm_conf3.ISA pan_prog = word_prog0 ∧
+  pan_to_word_compile_prog asm_conf3.ISA pan_prog = word_prog0 ∧
   stack_to_labProof$labels_ok code ∧
   all_enc_ok_pre conf code
   ⇒
@@ -77,7 +77,7 @@ QED
 
 (* move *)
 Theorem word_to_stack_compile_FST:
-  word_to_stack_compile mc.target.config wprog = (bitmaps,c'',fs,p) ⇒
+  word_to_stack_compile mc.target.config F wprog = (bitmaps,c'',fs,p) ⇒
   MAP FST p =
   raise_stub_location::store_consts_stub_location::MAP FST wprog
 Proof
@@ -89,7 +89,7 @@ QED
 Theorem pan_to_stack_first_ALL_DISTINCT:
   pan_to_word_compile_prog mc.target.config.ISA pan_code = wprog0 ∧
   word_to_word_compile c.word_to_word_conf mc.target.config wprog0 = (col,wprog) ∧ mc.target.config.ISA ≠ Ag32 ∧
-  word_to_stack_compile mc.target.config wprog = (bitmaps,c'',fs,p) ∧
+  word_to_stack_compile mc.target.config F wprog = (bitmaps,c'',fs,p) ∧
   ALL_DISTINCT (MAP FST (functions pan_code)) ⇒
   ALL_DISTINCT (MAP FST p)
 Proof
@@ -116,7 +116,7 @@ QED
 Theorem pan_to_stack_compile_lab_pres:
   pan_to_word$compile_prog mc.target.config.ISA pan_code = wprog0 ∧
   word_to_word_compile c.word_to_word_conf mc.target.config wprog0 =(col,wprog) ∧ mc.target.config.ISA ≠ Ag32 ∧
-  word_to_stack_compile mc.target.config wprog = (bitmaps,c'',fs,p) ∧
+  word_to_stack_compile mc.target.config F wprog = (bitmaps,c'',fs,p) ∧
   ALL_DISTINCT (MAP FST (functions pan_code)) ⇒
   ALL_DISTINCT (MAP FST p) ∧
   EVERY (λn. n ≠ 0 ∧ n ≠ 1 ∧ n ≠ 2 ∧ n ≠ gc_stub_location) (MAP FST p) ∧
@@ -177,7 +177,7 @@ QED
 Theorem pan_to_lab_labels_ok:
   pan_to_word_compile_prog mc.target.config.ISA pan_code = wprog0 ∧
   word_to_word_compile c.word_to_word_conf mc.target.config wprog0 = (col,wprog) ∧ mc.target.config.ISA ≠ Ag32 ∧
-  word_to_stack_compile mc.target.config wprog = (bitmaps,c'',fs,p) ∧
+  word_to_stack_compile mc.target.config F wprog = (bitmaps,c'',fs,p) ∧
   stack_to_lab_compile c.stack_conf c.data_conf max_heap sp mc.target.config.addr_offset p = lprog ∧
   ALL_DISTINCT (MAP FST (functions pan_code)) ⇒
   labels_ok lprog
@@ -194,7 +194,7 @@ Theorem word_to_stack_good_code_lemma:
   word_to_word_compile c.word_to_word_conf mc.target.config
   (pan_to_word_compile_prog mc.target.config.ISA pan_code) = (col,wprog) ∧
   mc.target.config.ISA ≠ Ag32 ∧
-  word_to_stack_compile mc.target.config wprog = (bitmaps,c'',fs,p) ∧
+  word_to_stack_compile mc.target.config F wprog = (bitmaps,c'',fs,p) ∧
   LENGTH mc.target.config.avoid_regs + 13 ≤ mc.target.config.reg_count ∧
   (* from backend_config_ok c *)
   ALL_DISTINCT (MAP FST (functions pan_code)) ⇒
@@ -1149,7 +1149,7 @@ Definition compile_prog_max_def:
     let asm_conf = mc.target.config in
     let prog = pan_to_word$compile_prog asm_conf.ISA prog in
     let (col,wprog) = word_to_word$compile c.word_to_word_conf asm_conf prog in
-    let (bm,c',fs,p) = word_to_stack$compile asm_conf wprog in
+    let (bm,c',fs,p) = word_to_stack$compile asm_conf F wprog in
     let max = max_depth c'.stack_frame_size (full_call_graph InitGlobals_location (fromAList wprog)) in
       (from_stack asm_conf c LN p bm, max)
 End
@@ -1170,7 +1170,7 @@ Theorem from_pan_to_lab_no_install:
   ALL_DISTINCT (MAP FST (functions pan_code)) ∧ ac.ISA ≠ Ag32 ∧
   pan_to_word_compile_prog isa pan_code = wprog0 ∧
   word_to_word_compile wc ac wprog0 = (col, wprog) ∧
-  word_to_stack_compile ac wprog = (bm, c, fs, p) ⇒
+  word_to_stack_compile ac F wprog = (bm, c, fs, p) ⇒
   no_install (stack_to_lab_compile scc dc lim regc off p)
 Proof
   strip_tac>>
@@ -1404,11 +1404,12 @@ Proof
      irule stack_allocProofTheory.stack_alloc_stack_asm_convs>>
      gs[stackPropsTheory.reg_name_def]>>
      assume_tac (GEN_ALL stack_rawcallProofTheory.stack_alloc_stack_asm_convs)>>
+
      first_x_assum (qspecl_then [‘p’, ‘mc.target.config’] assume_tac)>>gs[]>>
      (* reshaping... *)
      gs[GSYM EVERY_CONJ]>>
      simp[LAMBDA_PROD]>>
-     ‘p = SND (SND (SND (word_to_stack_compile mc.target.config wprog)))’
+     ‘p = SND (SND (SND (word_to_stack_compile mc.target.config F wprog)))’
        by gs[]>>
      pop_assum $ (fn h => rewrite_tac[h])>>
      irule word_to_stackProofTheory.word_to_stack_stack_asm_convs>>
@@ -1558,7 +1559,7 @@ Proof
   (* word_to_stack *)
 
   (* instantiate / discharge *)
-  ‘FST (word_to_stack_compile mc.target.config wprog) ≼ sst.bitmaps ∧
+  ‘FST (word_to_stack_compile mc.target.config F wprog) ≼ sst.bitmaps ∧
    sst.code = fromAList p’
     by (
     gs[stack_to_labProofTheory.full_make_init_def]>>
@@ -2323,7 +2324,7 @@ Proof
     by (irule data_to_word_gcProofTheory.lsr_lsl>>gs[])>>gs[]>>
   pop_assum $ kall_tac>>
 
-  qpat_x_assum ‘word_to_stack$compile _ _ = _’ mp_tac>>
+  qpat_x_assum ‘word_to_stack$compile _ _ _ = _’ mp_tac>>
   simp[word_to_stackTheory.compile_def]>>
   pairarg_tac>>gs[]>>
   strip_tac>>
@@ -2348,7 +2349,7 @@ Proof
    map (λ(arg_count,prog).
           FST
           (SND
-           (compile_prog mc.target.config prog arg_count
+           (compile_prog mc.target.config F prog arg_count
             (mc.target.config.reg_count −
              (LENGTH mc.target.config.avoid_regs + 5))
             (Nil,0)))) (fromAList (toAList (fromAList wprog)))’

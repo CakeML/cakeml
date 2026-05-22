@@ -111,8 +111,8 @@ End
 
 Definition compile_def:
   (compile _ _ (Skip:'a crepLang$prog) = (Skip:'a loopLang$prog)) /\
-  (compile _ _ Break = Break) /\
-  (compile _ _ Continue = Continue) /\
+  (compile _ _ Break = Break 0) /\
+  (compile _ _ Continue = Continue 0) /\
   (compile _ _ Tick = Tick) /\
   (compile ctxt l (Return e) =
     let (p, le, ntmp, nl) = compile_exp ctxt (ctxt.vmax + 1) l e in
@@ -176,7 +176,7 @@ Definition compile_def:
      Loop l (nested_seq (np ++ [
                 Assign tmp le;
                 If NotEqual tmp (Imm 0w)
-                   (Seq lp Continue) Break l]))
+                   (Seq lp (Continue 0)) (Break 0) l]))
           l) /\
   (compile ctxt l (Call call_type e es) =
    let dest = find_lab ctxt e;

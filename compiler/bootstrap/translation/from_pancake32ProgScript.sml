@@ -340,21 +340,6 @@ val _ = translate $ spec32 vars_of_exp_def;
 
 val res = translate $ spec32 shrink_def;
 
-val ind_lemma = Q.prove(
-  `^(hd (hyp res))`,
-  PURE_REWRITE_TAC [fetch "-" "loop_live_shrink_ind_def"]
-  \\ rpt gen_tac
-  \\ rpt (disch_then strip_assume_tac)
-  \\ match_mp_tac (latest_ind ())
-  \\ rpt strip_tac
-  \\ TRY (last_x_assum match_mp_tac
-          \\ rpt strip_tac
-          \\ fs [FORALL_PROD] \\ NO_TAC)
-  \\ last_x_assum (match_mp_tac o MP_CANON)
-  \\ rpt strip_tac
-  \\ fs [FORALL_PROD])
-  |> update_precondition;
-
 val _ = translate $ spec32 mark_all_def;
 
 val _ = translate $ spec32 comp_def;

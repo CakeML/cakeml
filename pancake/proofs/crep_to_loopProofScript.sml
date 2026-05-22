@@ -122,8 +122,8 @@ Theorem ncompile_correct:
       (res1 =
        case res of
          NONE => NONE
-       | SOME Break => SOME Break
-       | SOME Continue => SOME Continue
+       | SOME Break => SOME (Break 0)
+       | SOME Continue => SOME (Continue 0)
        | SOME (Return v) => SOME (Result [wlab_wloc v])
        | SOME (Exception eid) => SOME (Exception (Word eid))
        | SOME TimeOut => SOME TimeOut
@@ -2026,35 +2026,111 @@ Resume ncompile_correct[ShMem]:
      CaseEq"option",CaseEq"bool",CaseEq"ffi_result"]>>
   fs[wlab_wloc_def]>>
   rveq>>fs[crepSemTheory.set_var_def,set_var_def]>>
-  fs [state_rel_def]>>
-  gvs[] >>~- ([‘SharedMem MappedRead’],
-   fs[locals_rel_def]>>rw[]>-
-     (imp_res_tac compile_exp_out_rel >>
-      rveq >>
-      drule cut_sets_union_domain_subset >>strip_tac>>
-      match_mp_tac SUBSET_TRANS >>
-      qexists_tac ‘domain (cut_sets l (nested_seq p))’ >>
-      fs [] >>
-      metis_tac [SUBSET_INSERT_RIGHT]) >>
-    fs[lookup_insert,FLOOKUP_UPDATE]>>
-    FULL_CASE_TAC>-gvs[wlab_wloc_def]>>
-    first_x_assum $ qspecl_then [‘vname’, ‘v'’] assume_tac>>
-    first_x_assum $ qspecl_then [‘vname’, ‘v'’] assume_tac>>
-    rfs[]>>
-    ‘n <> n'’ by
-      (CCONTR_TAC>>fs[distinct_vars_def]>>
-       first_x_assum $ qspecl_then [‘v’, ‘vname’, ‘n'’] assume_tac>>
-       gvs[])>>fs[])>>
-  (*write*)
-  fs[CaseEq"word_lab",CaseEq"word_loc",CaseEq"bool",
-     CaseEq"ffi_result"]>>
-  rveq>>fs[]>>gvs[wlab_wloc_def]>>
-  ‘subspt l l'’ by (
-    imp_res_tac compile_exp_out_rel >> fs [] >>
-    imp_res_tac comp_syn_impl_cut_sets_subspt >> fs [] >>
-    rveq >> metis_tac [subspt_trans]) >>
-  match_mp_tac locals_rel_cutset_prop >>
-  metis_tac []
+  gvs[state_rel_def] >~
+   [‘call_FFI _ (SharedMem MappedRead) [0w] _ = FFI_return _ _’] >-
+    (fs [locals_rel_def] \\ rw []
+     >- (imp_res_tac compile_exp_out_rel \\ rveq
+         \\ drule cut_sets_union_domain_subset \\ strip_tac
+         \\ match_mp_tac SUBSET_TRANS
+         \\ qexists_tac ‘domain (cut_sets l (nested_seq p))’ \\ fs []
+         \\ metis_tac [SUBSET_INSERT_RIGHT])
+     \\ fs [lookup_insert, FLOOKUP_UPDATE]
+     \\ FULL_CASE_TAC >- gvs [wlab_wloc_def]
+     \\ first_x_assum $ qspecl_then [‘vname’, ‘v'’] assume_tac
+     \\ first_x_assum $ qspecl_then [‘vname’, ‘v'’] assume_tac
+     \\ rfs []
+     \\ ‘n <> n'’ by
+       (CCONTR_TAC \\ fs [distinct_vars_def]
+        \\ first_x_assum $ qspecl_then [‘v’, ‘vname’, ‘n'’] assume_tac
+        \\ gvs [])
+     \\ fs []) >~
+   [‘call_FFI _ (SharedMem MappedRead) [1w] _ = FFI_return _ _’] >-
+    (fs [locals_rel_def] \\ rw []
+     >- (imp_res_tac compile_exp_out_rel \\ rveq
+         \\ drule cut_sets_union_domain_subset \\ strip_tac
+         \\ match_mp_tac SUBSET_TRANS
+         \\ qexists_tac ‘domain (cut_sets l (nested_seq p))’ \\ fs []
+         \\ metis_tac [SUBSET_INSERT_RIGHT])
+     \\ fs [lookup_insert, FLOOKUP_UPDATE]
+     \\ FULL_CASE_TAC >- gvs [wlab_wloc_def]
+     \\ first_x_assum $ qspecl_then [‘vname’, ‘v'’] assume_tac
+     \\ first_x_assum $ qspecl_then [‘vname’, ‘v'’] assume_tac
+     \\ rfs []
+     \\ ‘n <> n'’ by
+       (CCONTR_TAC \\ fs [distinct_vars_def]
+        \\ first_x_assum $ qspecl_then [‘v’, ‘vname’, ‘n'’] assume_tac
+        \\ gvs [])
+     \\ fs []) >~
+   [‘call_FFI _ (SharedMem MappedRead) [2w] _ = FFI_return _ _’] >-
+    (fs [locals_rel_def] \\ rw []
+     >- (imp_res_tac compile_exp_out_rel \\ rveq
+         \\ drule cut_sets_union_domain_subset \\ strip_tac
+         \\ match_mp_tac SUBSET_TRANS
+         \\ qexists_tac ‘domain (cut_sets l (nested_seq p))’ \\ fs []
+         \\ metis_tac [SUBSET_INSERT_RIGHT])
+     \\ fs [lookup_insert, FLOOKUP_UPDATE]
+     \\ FULL_CASE_TAC >- gvs [wlab_wloc_def]
+     \\ first_x_assum $ qspecl_then [‘vname’, ‘v'’] assume_tac
+     \\ first_x_assum $ qspecl_then [‘vname’, ‘v'’] assume_tac
+     \\ rfs []
+     \\ ‘n <> n'’ by
+       (CCONTR_TAC \\ fs [distinct_vars_def]
+        \\ first_x_assum $ qspecl_then [‘v’, ‘vname’, ‘n'’] assume_tac
+        \\ gvs [])
+     \\ fs []) >~
+   [‘call_FFI _ (SharedMem MappedRead) [4w] _ = FFI_return _ _’] >-
+    (fs [locals_rel_def] \\ rw []
+     >- (imp_res_tac compile_exp_out_rel \\ rveq
+         \\ drule cut_sets_union_domain_subset \\ strip_tac
+         \\ match_mp_tac SUBSET_TRANS
+         \\ qexists_tac ‘domain (cut_sets l (nested_seq p))’ \\ fs []
+         \\ metis_tac [SUBSET_INSERT_RIGHT])
+     \\ fs [lookup_insert, FLOOKUP_UPDATE]
+     \\ FULL_CASE_TAC >- gvs [wlab_wloc_def]
+     \\ first_x_assum $ qspecl_then [‘vname’, ‘v'’] assume_tac
+     \\ first_x_assum $ qspecl_then [‘vname’, ‘v'’] assume_tac
+     \\ rfs []
+     \\ ‘n <> n'’ by
+       (CCONTR_TAC \\ fs [distinct_vars_def]
+        \\ first_x_assum $ qspecl_then [‘v’, ‘vname’, ‘n'’] assume_tac
+        \\ gvs [])
+     \\ fs [])
+   >- (fs[CaseEq"word_lab",CaseEq"word_loc",CaseEq"bool",
+          CaseEq"ffi_result"]>>
+       rveq>>fs[]>>gvs[wlab_wloc_def]>>
+       ‘subspt l l'’ by (
+         imp_res_tac compile_exp_out_rel >> fs [] >>
+         imp_res_tac comp_syn_impl_cut_sets_subspt >> fs [] >>
+         rveq >> metis_tac [subspt_trans]) >>
+       match_mp_tac locals_rel_cutset_prop >>
+       metis_tac [])
+   >- (fs[CaseEq"word_lab",CaseEq"word_loc",CaseEq"bool",
+          CaseEq"ffi_result"]>>
+       rveq>>fs[]>>gvs[wlab_wloc_def]>>
+       ‘subspt l l'’ by (
+         imp_res_tac compile_exp_out_rel >> fs [] >>
+         imp_res_tac comp_syn_impl_cut_sets_subspt >> fs [] >>
+         rveq >> metis_tac [subspt_trans]) >>
+       match_mp_tac locals_rel_cutset_prop >>
+       metis_tac [])
+   >- (fs[CaseEq"word_lab",CaseEq"word_loc",CaseEq"bool",
+          CaseEq"ffi_result"]>>
+       rveq>>fs[]>>gvs[wlab_wloc_def]>>
+       ‘subspt l l'’ by (
+         imp_res_tac compile_exp_out_rel >> fs [] >>
+         imp_res_tac comp_syn_impl_cut_sets_subspt >> fs [] >>
+         rveq >> metis_tac [subspt_trans]) >>
+       match_mp_tac locals_rel_cutset_prop >>
+       metis_tac [])
+   >- (fs[CaseEq"word_lab",CaseEq"word_loc",CaseEq"bool",
+          CaseEq"ffi_result"]>>
+       rveq>>fs[]>>gvs[wlab_wloc_def]>>
+       ‘subspt l l'’ by (
+         imp_res_tac compile_exp_out_rel >> fs [] >>
+         imp_res_tac comp_syn_impl_cut_sets_subspt >> fs [] >>
+         rveq >> metis_tac [subspt_trans]) >>
+       match_mp_tac locals_rel_cutset_prop >>
+       metis_tac [])
 QED
 
 Resume ncompile_correct[Assign]:
@@ -2695,13 +2771,13 @@ Resume ncompile_correct[While]:
    TOP_CASE_TAC >> fs [] >>
    strip_tac >> rveq >> fs [] >>
    TRY (
-   rename [‘evaluate _ = (SOME Break,_)’] >>
+   rename [‘evaluate _ = (SOME (Break _),_)’] >>
    qmatch_goalsub_abbrev_tac ‘nested_seq (_ ++ pp)’ >>
    qpat_x_assum ‘evaluate (nested_seq np, _) = _’ assume_tac >>
    drule evaluate_add_clock_eq >>
    fs [] >>
    disch_then (qspec_then ‘ck' + 1’ assume_tac) >>
-   qpat_x_assum ‘evaluate _ = (SOME Break,t1)’ assume_tac >>
+   qpat_x_assum ‘evaluate _ = (SOME (Break _),t1)’ assume_tac >>
    drule evaluate_add_clock_eq >>
    disch_then (qspec_then ‘1’ assume_tac) >>
    qexists_tac ‘ck + ck' + 1’ >>
@@ -2746,7 +2822,7 @@ Resume ncompile_correct[While]:
      fs [ctxt_max_def] >> res_tac >> rfs []) >>
    fs [lookup_inter, lookup_insert, domain_lookup]) >>
    TRY (
-   rename [‘evaluate _ = (SOME Continue,_)’] >>
+   rename [‘evaluate _ = (SOME (Continue _),_)’] >>
    (* instantiating IH *)
    first_x_assum (qspecl_then [‘t1’, ‘ctxt’ , ‘l’] mp_tac) >>
    impl_tac >- fs [] >>
@@ -2754,7 +2830,7 @@ Resume ncompile_correct[While]:
    fs [Once compile_def] >>
    pairarg_tac >> fs [] >>
    rveq >> rfs [] >>
-   qpat_x_assum ‘evaluate _ = (SOME Continue,t1)’ assume_tac >>
+   qpat_x_assum ‘evaluate _ = (SOME (Continue _),t1)’ assume_tac >>
    drule evaluate_add_clock_eq >>
    fs [] >>
    disch_then (qspec_then ‘ck''’ assume_tac) >>
@@ -3838,8 +3914,8 @@ code_rel2 nctxt s_code t_code ==>
   state_rel s' t' /\
   (res' = case res of
            NONE => NONE
-         | SOME Break => SOME Break
-         | SOME Continue => SOME Continue
+         | SOME Break => SOME (Break 0)
+         | SOME Continue => SOME (Continue 0)
          | SOME (Return v) => SOME (Result [wlab_wloc v])
          | SOME (Exception eid) => SOME (Exception (Word eid))
          | SOME TimeOut => SOME TimeOut

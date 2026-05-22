@@ -8,6 +8,14 @@ Changes since release v3304:
 
 ## Compiler backend and runtime
 
+### perf-record --call-graph support (x64-only)
+
+Passing `--perf_callgraph=T` to the CakeML compiler (x64-only) generates an unverified binary that can be profiled with `perf record --call-graph fp`.
+The in-logic compiler uses the default config in `x64_config`.
+Thus, to profile binaries such as checkers, the Dafny compiler, the Scheme compiler, etc., it is necessary to set `perf_calls:=T` in the configuration ultimately used by the compiler.
+
+### FlatLang
+
 FlatLang has been simplified slightly (#1380).
 
 word_copy pass now additionally correctly propagates store-reg equality (#1385).

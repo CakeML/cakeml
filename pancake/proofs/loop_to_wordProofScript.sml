@@ -73,22 +73,22 @@ val goal =
                    t1.stack = t.stack ∧ t1.handler = t.handler
          | SOME (Result v) => state_rel s1 t1 ∧ res1 = SOME (Result retv v) ∧
                                      t1.stack = t.stack ∧ t1.handler = t.handler
-         | SOME TimeOut => res1 = SOME TimeOut
-         | SOME (FinalFFI f) => res1 = SOME (FinalFFI f)
          | SOME (Exception v) =>
             state_rel s1 t1 ∧
             (res1 ≠ SOME Error ⇒ ∃u1 u2. res1 = SOME (Exception u1 u2)) ∧
             ∀r l1 l2. jump_exc (t1 with <| stack := t.stack;
                                            handler := t.handler |>) = SOME (r,l1,l2) ⇒
                       res1 = SOME (Exception (Loc l1 l2) v) ∧ r = t1
-         | SOME Break => state_rel s1 t1 ∧ res1 = SOME (Break 0) ∧
-                         lookup 0 t1.locals = SOME retv ∧
-                         locals_rel ctxt s1.locals t1.locals ∧
-                         t1.stack = t.stack ∧ t1.handler = t.handler
-         | SOME Continue => state_rel s1 t1 ∧ res1 = SOME (Continue 0) ∧
-                            lookup 0 t1.locals = SOME retv ∧
-                            locals_rel ctxt s1.locals t1.locals ∧
-                            t1.stack = t.stack ∧ t1.handler = t.handler
+         | SOME (Break n) => state_rel s1 t1 ∧ res1 = SOME (Break n) ∧
+                             lookup 0 t1.locals = SOME retv ∧
+                             locals_rel ctxt s1.locals t1.locals ∧
+                             t1.stack = t.stack ∧ t1.handler = t.handler
+         | SOME (Continue n) => state_rel s1 t1 ∧ res1 = SOME (Continue n) ∧
+                                lookup 0 t1.locals = SOME retv ∧
+                                locals_rel ctxt s1.locals t1.locals ∧
+                                t1.stack = t.stack ∧ t1.handler = t.handler
+         | SOME TimeOut => res1 = SOME TimeOut
+         | SOME (FinalFFI f) => res1 = SOME (FinalFFI f)
          | _ => F``
 
 val ind_thm = loopSemTheory.evaluate_ind
@@ -102,8 +102,8 @@ Proof
   >~ [`loopLang$Skip`] >- suspend "Skip"
   >~ [`loopLang$Fail`] >- suspend "Fail"
   >~ [`loopLang$Tick`] >- suspend "Tick"
-  >~ [`loopLang$Continue`] >- suspend "Continue"
-  >~ [`loopLang$Break`] >- suspend "Break"
+  >~ [`loopLang$Continue _`] >- suspend "Continue"
+  >~ [`loopLang$Break _`] >- suspend "Break"
   >~ [`loopLang$Mark`] >- suspend "Mark"
   >~ [`loopLang$Return`] >- suspend "Return"
   >~ [`loopLang$Raise`] >- suspend "Raise"
@@ -591,13 +591,10 @@ Resume compile_correct[Loop]:
   simp [evaluate_def] >>
   fs [cut_state_def, dec_clock_def] >>
   Cases_on ‘evaluate (body,dec_clock (s with locals := inter s.locals live_in))’ >>
-  rename1 ‘evaluate _ = (resb, sb)’ >>
+  rename1 ‘evaluate _ = (resb,sb)’ >>
   strip_tac >>
-  ‘resb ≠ SOME Error’ by (
-    Cases_on ‘resb’ >> gvs [] >>
-    Cases_on ‘x’ >> gvs []
-  ) >>
-  qpat_x_assum ‘∀s'. cut_res _ _ = _ ⇒ _’
+  ‘resb ≠ SOME Error’ by (strip_tac >> gvs []) >>
+  qpat_x_assum ‘∀s'. cut_res live_in (NONE,s) = (NONE,s') ⇒ _’
     (qspec_then ‘dec_clock (s with locals := inter s.locals live_in)’ mp_tac) >>
   impl_tac
   >- simp [loopSemTheory.cut_res_def, loopSemTheory.cut_state_def,
@@ -608,40 +605,96 @@ Resume compile_correct[Loop]:
   impl_tac
   >- gvs [state_rel_def, loopSemTheory.dec_clock_def] >>
   strip_tac >>
-  (* Case-split body result. Error/Result/TimeOut/FinalFFI auto-close. *)
-  Cases_on ‘resb’ >> gvs [] >>
-  Cases_on ‘x’ >> gvs []
-  >- ( (* Exception: cont_loop F, exit_loop = id, propagate via body IH *)
-    qexistsl_tac [‘t1’,‘res1’] >>
-    ‘res1 = SOME Error ∨ ∃u1 u2. res1 = SOME (Exception u1 u2)’ by metis_tac [] >>
-    gvs []
-  )
-  >- ( (* Break: cut_res live_out, then outer trailing Tick fires on NONE *)
-    qpat_x_assum ‘cut_res live_out (NONE,sb) = _’ mp_tac >>
-    simp [Once loopSemTheory.cut_res_def, loopSemTheory.cut_state_def] >>
-    Cases_on ‘domain live_out ⊆ domain sb.locals’ >> fs [] >>
-    drule cut_env_mk_new_cutset >>
-    rpt (disch_then drule) >> strip_tac >>
-    drule cut_env_mk_new_cutset_IMP >> strip_tac >>
-    simp [] >>
-    ‘sb.clock = t1.clock’ by fs [state_rel_def] >>
-    IF_CASES_TAC >> fs []
-    >- (strip_tac >> rveq >> gvs [flush_state_def]) >>
-    strip_tac >> rveq >>
-    fs [loopSemTheory.dec_clock_def, dec_clock_def, state_rel_def]
-  ) >>
-  (* Continue: apply Loop-IH at t' = t1 via evaluate_tick_loop_tick_unfold *)
+  namedCases_on ‘resb’ ["", "rb"]
+  >- suspend "Loop_bodyNONE" >>
+  namedCases_on ‘rb’ ["wlist", "wloc", "bn", "cn", "", "fe", ""] >>
+  gvs []
+  >- suspend "Loop_Exception"
+  >- suspend "Loop_Break"
+  >- suspend "Loop_Continue"
+QED
+
+Resume compile_correct[Loop_bodyNONE]:
+  fs [] >>
   Cases_on ‘t1.clock = 0’ >> fs [] >>
   imp_res_tac state_rel_IMP >>
   gvs []
-  >- ( (* t1.clock = 0: both sides TimeOut *)
+  >- (
     qpat_x_assum ‘evaluate (Loop _ _ _,sb) = _’ mp_tac >>
     simp [Once loopSemTheory.evaluate_def,
           loopSemTheory.cut_res_def, loopSemTheory.cut_state_def] >>
     Cases_on ‘domain live_in ⊆ domain sb.locals’ >> fs [] >>
     strip_tac >> gvs []
   ) >>
-  qpat_x_assum ‘∀s' s''. cut_res live_in (NONE,s) = (NONE,s') ∧ _ ⇒ _’
+  qpat_x_assum ‘∀s' s''. cut_res live_in (NONE,s) = (NONE,s') ∧
+                          evaluate (body,s') = (NONE,s'') ⇒ _’
+    (qspecl_then [‘dec_clock (s with locals := inter s.locals live_in)’, ‘sb’] mp_tac) >>
+  impl_tac
+  >- (
+    simp [loopSemTheory.cut_res_def, loopSemTheory.cut_state_def,
+          loopSemTheory.dec_clock_def] >>
+    gvs []
+  ) >>
+  disch_then (qspecl_then [‘res’,‘s1’,‘t1’,‘ctxt’,‘retv’,‘l’] mp_tac) >>
+  impl_tac
+  >- (
+    gvs [] >>
+    simp [Once loopSemTheory.evaluate_def,
+          loopSemTheory.cut_res_def, loopSemTheory.cut_state_def] >>
+    gvs []
+  ) >>
+  strip_tac >>
+  ‘t1.clock ≠ 0’ by fs [] >>
+  qspecl_then [‘t1’,‘mk_new_cutset ctxt live_in’,
+               ‘mk_new_cutset ctxt live_out’,‘wbody’]
+    mp_tac (GEN_ALL evaluate_tick_loop_tick_unfold) >>
+  impl_tac >- fs [] >>
+  strip_tac >>
+  qexistsl_tac [‘t1'’,‘res1’] >>
+  fs [STOP_def] >>
+  qpat_x_assum ‘t1.clock = sb.clock’ (fn t => simp [t] >> assume_tac t) >>
+  qpat_x_assum ‘evaluate (FST _,t1) = _’ mp_tac >>
+  simp [] >> strip_tac >>
+  Cases_on ‘res’ >> fs [] >>
+  rename1 ‘res = SOME _’ >>
+  Cases_on ‘x’ >> fs []
+QED
+
+Resume compile_correct[Loop_Exception]:
+  qexistsl_tac [‘t1’,‘res1’] >>
+  Cases_on ‘res1 = SOME Error’ >> gvs []
+QED
+
+Resume compile_correct[Loop_Break]:
+  Cases_on ‘bn’ >> gvs [] >>
+  qpat_x_assum ‘cut_res live_out (NONE, sb) = _’ mp_tac >>
+  simp [Once loopSemTheory.cut_res_def, loopSemTheory.cut_state_def] >>
+  Cases_on ‘domain live_out ⊆ domain sb.locals’ >> fs [] >>
+  drule cut_env_mk_new_cutset >>
+  rpt (disch_then drule) >> strip_tac >>
+  drule cut_env_mk_new_cutset_IMP >> strip_tac >>
+  simp [] >>
+  ‘sb.clock = t1.clock’ by fs [state_rel_def] >>
+  IF_CASES_TAC >> fs []
+  >- (strip_tac >> rveq >> gvs [flush_state_def]) >>
+  strip_tac >> rveq >>
+  fs [loopSemTheory.dec_clock_def, dec_clock_def, state_rel_def]
+QED
+
+Resume compile_correct[Loop_Continue]:
+  Cases_on ‘cn’ >> gvs [] >>
+  Cases_on ‘t1.clock = 0’ >> fs [] >>
+  imp_res_tac state_rel_IMP >>
+  gvs []
+  >- (
+    qpat_x_assum ‘evaluate (Loop _ _ _,sb) = _’ mp_tac >>
+    simp [Once loopSemTheory.evaluate_def,
+          loopSemTheory.cut_res_def, loopSemTheory.cut_state_def] >>
+    Cases_on ‘domain live_in ⊆ domain sb.locals’ >> fs [] >>
+    strip_tac >> gvs []
+  ) >>
+  qpat_x_assum ‘∀s' s''. cut_res live_in (NONE,s) = (NONE,s') ∧
+                          evaluate (body,s') = (SOME (Continue 0),s'') ⇒ _’
     (qspecl_then [‘dec_clock (s with locals := inter s.locals live_in)’, ‘sb’] mp_tac) >>
   impl_tac
   >- (
@@ -974,7 +1027,63 @@ Resume compile_correct[Call]:
         >> fs [loopSemTheory.find_code_def]
         >> imp_res_tac locals_rel_get_vars >> CCONTR_TAC >> fs [])
   >> Cases_on ‘ret’ >> fs []
-  >- ((* TailCall: ret = NONE *)
+  >- suspend "Call_TailCall"
+  >> (* Returning: ret = SOME _ *)
+     fs [comp_def,evaluate_def]
+  >> imp_res_tac locals_rel_get_vars >> fs [add_ret_loc_def]
+  >> fs [get_vars_def,get_var_def]
+  >> simp [bad_dest_args_def,call_env_def,dec_clock_def]
+  >> PairCases_on ‘x’ >> PairCases_on ‘l’
+  >> fs [] >> imp_res_tac state_rel_IMP
+  >> reverse (Cases_on ‘ALL_DISTINCT x0’) >- (fs [] >> rveq >> fs [])
+  >> fs []
+  >> ‘∃args1 prog1 ss1 ctxt1 l2.
+       find_code dest (Loc l0 l1::argvals) t.code t.stack_size = SOME (args1,prog1,ss1) ∧
+       FST (comp ctxt1 new_code l2) = prog1 ∧
+       lookup 0 (fromList2 args1) = SOME (Loc l0 l1) ∧
+       locals_rel ctxt1 new_env (fromList2 args1) ∧
+       domain (acc_vars new_code LN) ⊆ domain ctxt1’ by
+    (qpat_x_assum ‘_ = (res,_)’ kall_tac
+     >> rpt (qpat_x_assum ‘∀x. _’ kall_tac)
+     >> Cases_on ‘dest’ >> fs [loopSemTheory.find_code_def]
+     >-
+      (fs [CaseEq"word_loc",CaseEq"num",CaseEq"option",CaseEq"prod",CaseEq"bool"]
+       >> rveq >> fs [code_rel_def,state_rel_def]
+       >> first_x_assum drule >> strip_tac >> fs []
+       >> fs [find_code_def]
+       >> ‘∃x l. argvals = SNOC x l’ by metis_tac [SNOC_CASES]
+       >> qpat_x_assum ‘_ = Loc loc 0’ mp_tac
+       >> rveq >> rewrite_tac [GSYM SNOC,LAST_SNOC,FRONT_SNOC] >> fs []
+       >> strip_tac >> rveq >> fs []
+       >> simp [comp_func_def]
+       >> qmatch_goalsub_abbrev_tac ‘comp ctxt2 _ ll2’
+       >> qexists_tac ‘ctxt2’ >> qexists_tac ‘ll2’ >> fs []
+       >> conj_tac >- fs [lookup_fromList2,lookup_fromList]
+       >> simp [Abbr‘ctxt2’,domain_make_ctxt,set_fromNumSet,
+                domain_difference,domain_toNumSet, SUBSET_DEF]
+       >> match_mp_tac locals_rel_make_ctxt
+       >> fs [IN_DISJOINT,set_fromNumSet,domain_difference,
+              domain_toNumSet,GSYM IMP_DISJ_THM])
+     >> fs [CaseEq"word_loc",CaseEq"num",CaseEq"option",CaseEq"prod",CaseEq"bool"]
+     >> rveq >> fs [code_rel_def,state_rel_def]
+     >> first_x_assum drule >> strip_tac >> fs []
+     >> fs [find_code_def]
+     >> simp [comp_func_def]
+     >> qmatch_goalsub_abbrev_tac ‘comp ctxt2 _ ll2’
+     >> qexists_tac ‘ctxt2’ >> qexists_tac ‘ll2’ >> fs []
+     >> conj_tac >- fs [lookup_fromList2,lookup_fromList]
+     >> simp [Abbr‘ctxt2’,domain_make_ctxt,set_fromNumSet,
+              domain_difference,domain_toNumSet, SUBSET_DEF]
+     >> match_mp_tac locals_rel_make_ctxt
+     >> fs [IN_DISJOINT,set_fromNumSet,domain_difference,
+            domain_toNumSet,GSYM IMP_DISJ_THM])
+  >> Cases_on ‘handler’ >> fs []
+  >- suspend "Call_NOhandler"
+  >- suspend "Call_SOMEhandler"
+QED
+
+Resume compile_correct[Call_TailCall]:
+  (* TailCall: ret = NONE *)
       fs [comp_def,evaluate_def]
       >> imp_res_tac locals_rel_get_vars >> fs [add_ret_loc_def]
       >> fs [get_vars_def,get_var_def]
@@ -1039,58 +1148,11 @@ Resume compile_correct[Call]:
           >> rename [‘bad_fun_return (SOME tt)’] >> Cases_on ‘tt’ >> fs [])
       >> conj_tac >- (Cases_on ‘res1’ >> simp [CaseEq"option"] >> fs [])
       >> rpt gen_tac >> strip_tac >> pop_assum mp_tac
-      >> qunabbrev_tac ‘tt’ >> fs [])
-  >> (* Returning: ret = SOME _ *)
-     fs [comp_def,evaluate_def]
-  >> imp_res_tac locals_rel_get_vars >> fs [add_ret_loc_def]
-  >> fs [get_vars_def,get_var_def]
-  >> simp [bad_dest_args_def,call_env_def,dec_clock_def]
-  >> PairCases_on ‘x’ >> PairCases_on ‘l’
-  >> fs [] >> imp_res_tac state_rel_IMP
-  >> reverse (Cases_on ‘ALL_DISTINCT x0’) >- (fs [] >> rveq >> fs [])
-  >> fs []
-  >> ‘∃args1 prog1 ss1 ctxt1 l2.
-       find_code dest (Loc l0 l1::argvals) t.code t.stack_size = SOME (args1,prog1,ss1) ∧
-       FST (comp ctxt1 new_code l2) = prog1 ∧
-       lookup 0 (fromList2 args1) = SOME (Loc l0 l1) ∧
-       locals_rel ctxt1 new_env (fromList2 args1) ∧
-       domain (acc_vars new_code LN) ⊆ domain ctxt1’ by
-    (qpat_x_assum ‘_ = (res,_)’ kall_tac
-     >> rpt (qpat_x_assum ‘∀x. _’ kall_tac)
-     >> Cases_on ‘dest’ >> fs [loopSemTheory.find_code_def]
-     >-
-      (fs [CaseEq"word_loc",CaseEq"num",CaseEq"option",CaseEq"prod",CaseEq"bool"]
-       >> rveq >> fs [code_rel_def,state_rel_def]
-       >> first_x_assum drule >> strip_tac >> fs []
-       >> fs [find_code_def]
-       >> ‘∃x l. argvals = SNOC x l’ by metis_tac [SNOC_CASES]
-       >> qpat_x_assum ‘_ = Loc loc 0’ mp_tac
-       >> rveq >> rewrite_tac [GSYM SNOC,LAST_SNOC,FRONT_SNOC] >> fs []
-       >> strip_tac >> rveq >> fs []
-       >> simp [comp_func_def]
-       >> qmatch_goalsub_abbrev_tac ‘comp ctxt2 _ ll2’
-       >> qexists_tac ‘ctxt2’ >> qexists_tac ‘ll2’ >> fs []
-       >> conj_tac >- fs [lookup_fromList2,lookup_fromList]
-       >> simp [Abbr‘ctxt2’,domain_make_ctxt,set_fromNumSet,
-                domain_difference,domain_toNumSet, SUBSET_DEF]
-       >> match_mp_tac locals_rel_make_ctxt
-       >> fs [IN_DISJOINT,set_fromNumSet,domain_difference,
-              domain_toNumSet,GSYM IMP_DISJ_THM])
-     >> fs [CaseEq"word_loc",CaseEq"num",CaseEq"option",CaseEq"prod",CaseEq"bool"]
-     >> rveq >> fs [code_rel_def,state_rel_def]
-     >> first_x_assum drule >> strip_tac >> fs []
-     >> fs [find_code_def]
-     >> simp [comp_func_def]
-     >> qmatch_goalsub_abbrev_tac ‘comp ctxt2 _ ll2’
-     >> qexists_tac ‘ctxt2’ >> qexists_tac ‘ll2’ >> fs []
-     >> conj_tac >- fs [lookup_fromList2,lookup_fromList]
-     >> simp [Abbr‘ctxt2’,domain_make_ctxt,set_fromNumSet,
-              domain_difference,domain_toNumSet, SUBSET_DEF]
-     >> match_mp_tac locals_rel_make_ctxt
-     >> fs [IN_DISJOINT,set_fromNumSet,domain_difference,
-            domain_toNumSet,GSYM IMP_DISJ_THM])
-  >> Cases_on ‘handler’ >> fs []
-  >- ((* NOhandler: handler = NONE *)
+      >> qunabbrev_tac ‘tt’ >> fs []
+QED
+
+Resume compile_correct[Call_NOhandler]:
+  (* NOhandler: handler = NONE *)
       fs [evaluate_def,add_ret_loc_def,domain_mk_new_cutset_not_empty,cut_res_def]
       >> fs [loopSemTheory.cut_state_def]
       >> Cases_on ‘domain x1 ⊆ domain s.locals’ >> fs []
@@ -1155,8 +1217,11 @@ Resume compile_correct[Call]:
       >> fs [jump_exc_def,NOT_LESS]
       >> Cases_on ‘LENGTH t.stack <= t.handler’ >> fs [LASTN_ADD_CONS]
       >> simp [CaseEq"option",CaseEq"prod",CaseEq"bool",set_var_def,CaseEq"list",
-               CaseEq"stack_frame"] >> rw [] >> fs [])
-  >> (* SOMEhandler: handler = SOME _ *)
+               CaseEq"stack_frame"] >> rw [] >> fs []
+QED
+
+Resume compile_correct[Call_SOMEhandler]:
+  (* SOMEhandler: handler = SOME _ *)
      PairCases_on ‘x’ >> fs []
   >> rpt (pairarg_tac >> fs [])
   >> fs [evaluate_def, add_ret_loc_def, domain_mk_new_cutset_not_empty, cut_res_def]
@@ -1189,7 +1254,12 @@ Resume compile_correct[Call]:
   >> strip_tac >> fs []
   >> Cases_on ‘res2’ >> fs [] >> rveq >> fs []
   >> fs [loopSemTheory.dec_clock_def]
-  >- ((* SOMEhandler_Result: res2 = Result *)
+  >- suspend "Call_SOMEh_Result"
+  >- suspend "Call_SOMEh_Exception"
+QED
+
+Resume compile_correct[Call_SOMEh_Result]:
+  ((* SOMEhandler_Result: res2 = Result *)
       Cases_on ‘LENGTH l = LENGTH x0’ >> fs []
       >> Cases_on ‘evaluate (x2,set_vars x0 l (st with locals := inter s.locals x1))’ >> fs []
       >> Cases_on ‘q = SOME Error’ >- fs [cut_res_def] >> fs []
@@ -1253,33 +1323,36 @@ Resume compile_correct[Call]:
          qpat_x_assum ‘comp ctxt x2 l1' = _’ (assume_tac o GSYM)
       >> fs []
       >> Cases_on ‘x’ >> fs [Abbr‘tt’]
-      >- ((* Exception *)
+      >- ((* Result *)
           qexists ‘t1'’
           >> qpat_x_assum ‘evaluate (FST _, _) = _’ mp_tac
           >> qpat_x_assum ‘evaluate (p2', _) = _’ mp_tac
           >> qpat_x_assum ‘(p2',_,_) = comp _ _ _’ (assume_tac o GSYM)
           >> rpt strip_tac >> gvs [])
+      >- ((* Exception *)
+          qexists ‘t1'’
+          >> qpat_x_assum ‘evaluate (FST _, _) = _’ mp_tac
+          >> qpat_x_assum ‘evaluate (p2', _) = _’ mp_tac
+          >> qpat_x_assum ‘(p2',_,_) = comp _ _ _’ (assume_tac o GSYM)
+          >> rpt strip_tac >> gvs []
+          >> qexists ‘res'’ >> Cases_on ‘res'’ >> fs []
+          >> rpt strip_tac >> fs [])
       >- ((* Break *)
-          qpat_x_assum ‘(p2',_,_) = comp _ _ _’ (assume_tac o GSYM)
-          >> fs [] >> rveq
-          >> qexists ‘s1'’ >> qexists ‘res'’
-          >> rw [])
+          qexists ‘s1'’ >> qpat_x_assum ‘(p2',_,_) = comp _ _ _’ (assume_tac o GSYM)
+          >> fs [] >> rveq >> gvs [])
       >- ((* Continue *)
-          qexists ‘t1'’ >> fs []
-          >> qpat_x_assum ‘(p2',_,_) = comp _ _ _’ (assume_tac o GSYM) >> fs [])
+          qexists ‘s1'’ >> qpat_x_assum ‘(p2',_,_) = comp _ _ _’ (assume_tac o GSYM)
+          >> fs [] >> rveq >> gvs [])
       >- ((* TimeOut *)
-          qexists ‘t1'’ >> fs []
-          >> qpat_x_assum ‘(p2',_,_) = comp _ _ _’ (assume_tac o GSYM) >> fs [])
-      >- ((* FinalFFI *)
-          qexists ‘t1'’ >> fs []
-          >> qpat_x_assum ‘(p2',_,_) = comp _ _ _’ (assume_tac o GSYM) >> fs [])
-      >> (* Error *)
-         qexists ‘t1'’
-      >> qpat_x_assum ‘evaluate (FST _, _) = _’ mp_tac
-      >> qpat_x_assum ‘evaluate (p2', _) = _’ mp_tac
-      >> qpat_x_assum ‘(p2',_,_) = comp _ _ _’ (assume_tac o GSYM)
-      >> rpt strip_tac >> gvs [])
-  >> (* SOMEhandler_Exception *)
+          qexists ‘s1'’ >> qpat_x_assum ‘(p2',_,_) = comp _ _ _’ (assume_tac o GSYM)
+          >> fs [] >> rveq >> gvs [])
+      >> ((* FinalFFI *)
+          qexists ‘s1'’ >> qpat_x_assum ‘(p2',_,_) = comp _ _ _’ (assume_tac o GSYM)
+          >> fs [] >> rveq >> gvs []))
+QED
+
+Resume compile_correct[Call_SOMEh_Exception]:
+  (* SOMEhandler_Exception *)
      qpat_x_assum ‘∀x. _’ (assume_tac o REWRITE_RULE [IMP_DISJ_THM])
   >> rename [‘loopSem$set_var hvar w _’]
   >> Cases_on ‘evaluate (x1',set_var hvar w (st with locals := inter s.locals x1))’ >> fs []

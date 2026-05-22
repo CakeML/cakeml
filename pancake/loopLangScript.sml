@@ -41,8 +41,8 @@ Datatype:
        | Seq prog prog
        | If cmp num ('a reg_imm) prog prog num_set
        | Loop num_set prog num_set     (* names in, body, names out *)
-       | Break
-       | Continue
+       | Break num
+       | Continue num
        | Raise num
        | Return (num list)
        | ShMem memop num ('a exp)
@@ -117,8 +117,8 @@ End
 
 Definition acc_vars_def:
   (acc_vars (Seq p1 p2) l = acc_vars p1 (acc_vars p2 l)) ∧
-  (acc_vars Break l = (l:num_set)) ∧
-  (acc_vars Continue l = l) ∧
+  (acc_vars (Break _) l = (l:num_set)) ∧
+  (acc_vars (Continue _) l = l) ∧
   (acc_vars (Loop l1 body l2) l = acc_vars body l) ∧
   (acc_vars (If x1 x2 x3 p1 p2 l1) l = acc_vars p1 (acc_vars p2 l)) ∧
   (acc_vars (Arith arith) l =

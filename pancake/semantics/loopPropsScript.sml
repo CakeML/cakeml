@@ -59,7 +59,7 @@ Definition comp_syntax_ok_def:
   (comp_syntax_ok l (Assign n e) = T) ∧
   (comp_syntax_ok l (Loop lin p lout) = (l = lin ∧ l = lout ∧ comp_syntax_ok lin p)) ∧
   (comp_syntax_ok l (Arith arith) = T) ∧
-  (comp_syntax_ok l Break = T) ∧
+  (comp_syntax_ok l (Break _) = T) ∧
   (comp_syntax_ok l (LocValue n m) = T) ∧
   (comp_syntax_ok l (Load32 n m) = T) ∧
   (comp_syntax_ok l (LoadByte n m) = T) ∧
@@ -120,6 +120,11 @@ Proof
   \\ TOP_CASE_TAC \\ fs []
   \\ TOP_CASE_TAC \\ fs []
   \\ TOP_CASE_TAC \\ fs []
+  >- (first_x_assum match_mp_tac
+      \\ fs [cut_res_def,CaseEq"option",CaseEq"bool",cut_state_def]
+      \\ rveq \\ fs [dec_clock_def]
+      \\ imp_res_tac evaluate_clock \\ fs [dec_clock_def])
+  \\ TOP_CASE_TAC \\ fs []
   \\ TOP_CASE_TAC \\ fs []
   \\ first_x_assum match_mp_tac
   \\ fs [cut_res_def,CaseEq"option",CaseEq"bool",cut_state_def]
@@ -130,8 +135,8 @@ QED
 Theorem evaluate_no_Break_Continue:
   ∀prog s res t.
     evaluate (prog, s) = (res,t) ∧
-    every_prog (\r. r ≠ Break ∧ r ≠ Continue) prog ⇒
-    res ≠ SOME Break ∧ res ≠ SOME Continue
+    every_prog (\r. (∀n. r ≠ Break n) ∧ (∀n. r ≠ Continue n)) prog ⇒
+    (∀n. res ≠ SOME (Break n)) ∧ (∀n. res ≠ SOME (Continue n))
 Proof
   recInduct evaluate_ind \\ fs [] \\ rpt conj_tac \\ rpt gen_tac \\ strip_tac
   \\ (rename [‘Loop’] ORELSE
@@ -327,7 +332,7 @@ QED
 Theorem unassigned_vars_evaluate_same:
   !p s res t n v.
     evaluate (p,s) = (res,t) /\
-    (res = NONE ∨ res = SOME Continue ∨ res = SOME Break) /\
+    (res = NONE ∨ (∃n. res = SOME (Continue n)) ∨ (∃n. res = SOME (Break n))) /\
     lookup n s.locals = SOME v /\
     ~MEM n (assigned_vars p) /\ survives n p ==>
     lookup n t.locals = lookup n s.locals
@@ -392,13 +397,221 @@ Resume unassigned_vars_evaluate_same[Loop]:
   reverse (cases_on ‘domain live_in ⊆ domain s.locals’)
   >- rw [] >>
   rw [] >>
-  FULL_CASE_TAC >>
-  cases_on ‘q’ >> fs [] >>
-  fs [Once cut_res_def, cut_state_def] >>
-  fs [survives_def, assigned_vars_def, dec_clock_def] >>
-  fs [AllCaseEqs()] >> rveq >> fs [] >>
-  res_tac >> rfs [lookup_inter, AllCaseEqs(), domain_lookup]
+  qpat_x_assum ‘survives n _’ mp_tac >>
+  qpat_x_assum ‘¬MEM n (assigned_vars _)’ mp_tac >>
+  rewrite_tac [survives_def, assigned_vars_def] >>
+  rpt strip_tac >>
+  ‘lookup n (inter s.locals live_in) = SOME v’ by
+    (simp [lookup_inter_alt] >> ASM_REWRITE_TAC []) >>
+  Cases_on ‘evaluate (body, s with <|locals := inter s.locals live_in;
+                                     clock := s.clock - 1|>)’ >>
+  qpat_x_assum ‘_ = (res,t)’ mp_tac
+  >~ [‘_ = (NONE,_)’] >- suspend "Loop_resN"
+  >~ [‘_ = (SOME (Continue _),_)’] >- suspend "Loop_resC"
+  >- suspend "Loop_resB"
 QED
+
+Resume unassigned_vars_evaluate_same[Loop_resN]:
+  Cases_on ‘q’ >> simp []
+  >~ [‘evaluate (Loop _ _ _, _) = _ ⇒ _’]
+  >- (strip_tac >>
+      qpat_x_assum ‘∀v4 s' v s''.
+                    cut_res live_in (NONE,s) = (v4,s') ∧ v4 = NONE ∧
+                    evaluate (body,s') = (v,s'') ∧ v = NONE ⇒ _’
+        (qspecl_then [‘NONE’,
+                      ‘s with <|locals := inter s.locals live_in;
+                                clock := s.clock - 1|>’,
+                      ‘NONE’, ‘r’] mp_tac) >>
+      simp [cut_res_def, cut_state_def, dec_clock_def] >>
+      disch_then irule >>
+      simp [assigned_vars_def, survives_def] >>
+      ASM_REWRITE_TAC [] >>
+      qpat_x_assum ‘∀v4 s'. cut_res live_in (NONE,s) = (v4,s') ∧ v4 = NONE ⇒ _’
+        (qspecl_then [‘NONE’,
+                      ‘s with <|locals := inter s.locals live_in;
+                                clock := s.clock - 1|>’] mp_tac) >>
+      simp [cut_res_def, cut_state_def, dec_clock_def] >>
+      disch_then (qspecl_then [‘NONE’, ‘r’, ‘n’, ‘v’] mp_tac) >>
+      simp [assigned_vars_def, survives_def] >>
+      ASM_REWRITE_TAC [])
+  >> rename1 ‘evaluate (body, _) = (SOME body_res, _)’ >>
+  Cases_on ‘body_res’ >> simp []
+  >~ [‘(SOME (Continue _), _)’]
+  >- (rename1 ‘Continue cont_k’ >>
+      Cases_on ‘cont_k’ >> simp []
+      >- (strip_tac >>
+          qpat_x_assum ‘∀v4 s' v s'' v3 v12.
+                        cut_res live_in (NONE,s) = (v4,s') ∧ v4 = NONE ∧
+                        evaluate (body,s') = (v,s'') ∧ v = SOME v3 ∧
+                        v3 = Continue v12 ∧ v12 = 0 ⇒ _’
+            (qspecl_then [‘NONE’,
+                          ‘s with <|locals := inter s.locals live_in;
+                                    clock := s.clock - 1|>’,
+                          ‘SOME (Continue 0)’, ‘r’,
+                          ‘Continue 0’, ‘0’] mp_tac) >>
+          simp [cut_res_def, cut_state_def, dec_clock_def] >>
+          disch_then irule >>
+          simp [assigned_vars_def, survives_def] >>
+          ASM_REWRITE_TAC [] >>
+          qpat_x_assum ‘∀v4 s'. cut_res live_in (NONE,s) = (v4,s') ∧ v4 = NONE ⇒ _’
+            (qspecl_then [‘NONE’,
+                          ‘s with <|locals := inter s.locals live_in;
+                                    clock := s.clock - 1|>’] mp_tac) >>
+          simp [cut_res_def, cut_state_def, dec_clock_def] >>
+          disch_then (qspecl_then [‘SOME (Continue 0)’, ‘r’, ‘n’, ‘v’] mp_tac) >>
+          simp [assigned_vars_def, survives_def] >>
+          ASM_REWRITE_TAC [])
+      >> rw [])
+  >~ [‘(SOME (Break _), _)’]
+  >- (rename1 ‘Break brk_k’ >>
+      Cases_on ‘brk_k’ >> simp []
+      >- (Cases_on ‘domain live_out ⊆ domain r.locals’ >> simp [] >>
+          IF_CASES_TAC >> simp [] >>
+          rw [] >>
+          simp [lookup_inter_alt, domain_lookup] >>
+          qpat_x_assum ‘∀v4 s'. cut_res live_in (NONE,s) = (v4,s') ∧ v4 = NONE ⇒ _’
+            (qspecl_then [‘NONE’,
+                          ‘s with <|locals := inter s.locals live_in;
+                                    clock := s.clock - 1|>’] mp_tac) >>
+          simp [cut_res_def, cut_state_def, dec_clock_def] >>
+          disch_then (qspecl_then [‘SOME (Break 0)’, ‘r’, ‘n’, ‘v’] mp_tac) >>
+          simp [assigned_vars_def, survives_def] >>
+          ASM_REWRITE_TAC [domain_lookup])
+      >> rw [])
+  >> rw []
+QED
+
+Resume unassigned_vars_evaluate_same[Loop_resC]:
+  Cases_on ‘q’ >> simp []
+  >~ [‘evaluate (Loop _ _ _, _) = _ ⇒ _’]
+  >- (strip_tac >>
+      qpat_x_assum ‘∀v4 s' v s''.
+                    cut_res live_in (NONE,s) = (v4,s') ∧ v4 = NONE ∧
+                    evaluate (body,s') = (v,s'') ∧ v = NONE ⇒ _’
+        (qspecl_then [‘NONE’,
+                      ‘s with <|locals := inter s.locals live_in;
+                                clock := s.clock - 1|>’,
+                      ‘NONE’, ‘r’] mp_tac) >>
+      simp [cut_res_def, cut_state_def, dec_clock_def] >>
+      disch_then irule >>
+      simp [assigned_vars_def, survives_def] >>
+      ASM_REWRITE_TAC [] >>
+      qpat_x_assum ‘∀v4 s'. cut_res live_in (NONE,s) = (v4,s') ∧ v4 = NONE ⇒ _’
+        (qspecl_then [‘NONE’,
+                      ‘s with <|locals := inter s.locals live_in;
+                                clock := s.clock - 1|>’] mp_tac) >>
+      simp [cut_res_def, cut_state_def, dec_clock_def] >>
+      disch_then (qspecl_then [‘NONE’, ‘r’, ‘n’, ‘v’] mp_tac) >>
+      simp [assigned_vars_def, survives_def] >>
+      ASM_REWRITE_TAC [])
+  >> rename1 ‘evaluate (body, _) = (SOME body_res, _)’ >>
+  Cases_on ‘body_res’ >> simp []
+  >~ [‘evaluate (body, _) = (SOME (Continue _), _)’]
+  >- (rename1 ‘evaluate (body, _) = (SOME (Continue cont_k), _)’ >>
+      Cases_on ‘cont_k’ >> simp []
+      >- (strip_tac >>
+          qpat_x_assum ‘∀v4 s' v s'' v3 v12.
+                        cut_res live_in (NONE,s) = (v4,s') ∧ v4 = NONE ∧
+                        evaluate (body,s') = (v,s'') ∧ v = SOME v3 ∧
+                        v3 = Continue v12 ∧ v12 = 0 ⇒ _’
+            (qspecl_then [‘NONE’,
+                          ‘s with <|locals := inter s.locals live_in;
+                                    clock := s.clock - 1|>’,
+                          ‘SOME (Continue 0)’, ‘r’,
+                          ‘Continue 0’, ‘0’] mp_tac) >>
+          simp [cut_res_def, cut_state_def, dec_clock_def] >>
+          disch_then irule >>
+          simp [assigned_vars_def, survives_def] >>
+          ASM_REWRITE_TAC [] >>
+          qpat_x_assum ‘∀v4 s'. cut_res live_in (NONE,s) = (v4,s') ∧ v4 = NONE ⇒ _’
+            (qspecl_then [‘NONE’,
+                          ‘s with <|locals := inter s.locals live_in;
+                                    clock := s.clock - 1|>’] mp_tac) >>
+          simp [cut_res_def, cut_state_def, dec_clock_def] >>
+          disch_then (qspecl_then [‘SOME (Continue 0)’, ‘r’, ‘n’, ‘v’] mp_tac) >>
+          simp [assigned_vars_def, survives_def] >>
+          ASM_REWRITE_TAC [])
+      >- (strip_tac >> rveq >>
+          qpat_x_assum ‘∀v4 s'. cut_res live_in (NONE,s) = (v4,s') ∧ v4 = NONE ⇒ _’
+            (qspecl_then [‘NONE’,
+                          ‘s with <|locals := inter s.locals live_in;
+                                    clock := s.clock - 1|>’] mp_tac) >>
+          simp [cut_res_def, cut_state_def, dec_clock_def] >>
+          disch_then irule >>
+          simp [assigned_vars_def, survives_def] >>
+          ASM_REWRITE_TAC []))
+  >- (rename1 ‘evaluate (body, _) = (SOME (Break brk_k), _)’ >>
+      Cases_on ‘brk_k’ >> simp []
+      >- (Cases_on ‘domain live_out ⊆ domain r.locals’ >> simp [] >>
+          IF_CASES_TAC >> simp []))
+QED
+
+Resume unassigned_vars_evaluate_same[Loop_resB]:
+  Cases_on ‘q’ >> simp []
+  >~ [‘evaluate (Loop _ _ _, _) = _ ⇒ _’]
+  >- (strip_tac >>
+      qpat_x_assum ‘∀v4 s' v s''.
+                    cut_res live_in (NONE,s) = (v4,s') ∧ v4 = NONE ∧
+                    evaluate (body,s') = (v,s'') ∧ v = NONE ⇒ _’
+        (qspecl_then [‘NONE’,
+                      ‘s with <|locals := inter s.locals live_in;
+                                clock := s.clock - 1|>’,
+                      ‘NONE’, ‘r’] mp_tac) >>
+      simp [cut_res_def, cut_state_def, dec_clock_def] >>
+      disch_then irule >>
+      simp [assigned_vars_def, survives_def] >>
+      ASM_REWRITE_TAC [] >>
+      qpat_x_assum ‘∀v4 s'. cut_res live_in (NONE,s) = (v4,s') ∧ v4 = NONE ⇒ _’
+        (qspecl_then [‘NONE’,
+                      ‘s with <|locals := inter s.locals live_in;
+                                clock := s.clock - 1|>’] mp_tac) >>
+      simp [cut_res_def, cut_state_def, dec_clock_def] >>
+      disch_then (qspecl_then [‘NONE’, ‘r’, ‘n’, ‘v’] mp_tac) >>
+      simp [assigned_vars_def, survives_def] >>
+      ASM_REWRITE_TAC [])
+  >> rename1 ‘evaluate (body, _) = (SOME body_res, _)’ >>
+  Cases_on ‘body_res’ >> simp []
+  >~ [‘evaluate (body, _) = (SOME (Continue _), _)’]
+  >- (rename1 ‘evaluate (body, _) = (SOME (Continue cont_k), _)’ >>
+      Cases_on ‘cont_k’ >> simp []
+      >- (strip_tac >>
+          qpat_x_assum ‘∀v4 s' v s'' v3 v12.
+                        cut_res live_in (NONE,s) = (v4,s') ∧ v4 = NONE ∧
+                        evaluate (body,s') = (v,s'') ∧ v = SOME v3 ∧
+                        v3 = Continue v12 ∧ v12 = 0 ⇒ _’
+            (qspecl_then [‘NONE’,
+                          ‘s with <|locals := inter s.locals live_in;
+                                    clock := s.clock - 1|>’,
+                          ‘SOME (Continue 0)’, ‘r’,
+                          ‘Continue 0’, ‘0’] mp_tac) >>
+          simp [cut_res_def, cut_state_def, dec_clock_def] >>
+          disch_then irule >>
+          simp [assigned_vars_def, survives_def] >>
+          ASM_REWRITE_TAC [] >>
+          qpat_x_assum ‘∀v4 s'. cut_res live_in (NONE,s) = (v4,s') ∧ v4 = NONE ⇒ _’
+            (qspecl_then [‘NONE’,
+                          ‘s with <|locals := inter s.locals live_in;
+                                    clock := s.clock - 1|>’] mp_tac) >>
+          simp [cut_res_def, cut_state_def, dec_clock_def] >>
+          disch_then (qspecl_then [‘SOME (Continue 0)’, ‘r’, ‘n’, ‘v’] mp_tac) >>
+          simp [assigned_vars_def, survives_def] >>
+          ASM_REWRITE_TAC []))
+  >~ [‘evaluate (body, _) = (SOME (Break _), _)’]
+  >- (rename1 ‘evaluate (body, _) = (SOME (Break brk_k), _)’ >>
+      Cases_on ‘brk_k’ >> simp []
+      >- (Cases_on ‘domain live_out ⊆ domain r.locals’ >> simp [] >>
+          IF_CASES_TAC >> simp [])
+      >- (strip_tac >> rveq >>
+          qpat_x_assum ‘∀v4 s'. cut_res live_in (NONE,s) = (v4,s') ∧ v4 = NONE ⇒ _’
+            (qspecl_then [‘NONE’,
+                          ‘s with <|locals := inter s.locals live_in;
+                                    clock := s.clock - 1|>’] mp_tac) >>
+          simp [cut_res_def, cut_state_def, dec_clock_def] >>
+          disch_then irule >>
+          simp [assigned_vars_def, survives_def] >>
+          ASM_REWRITE_TAC []))
+QED
+
 
 Resume unassigned_vars_evaluate_same[Call]:
   rpt strip_tac >>
@@ -425,7 +638,7 @@ Resume unassigned_vars_evaluate_same[Call]:
           Cases_on ‘y’ >> fs [] >> imp_res_tac MEM_ZIP2 >> rveq >>
           fs [] >> metis_tac [EL_MEM]) >>
       strip_tac >> fs [lookup_inter, domain_lookup])
-  >~ [‘cut_res _ (evaluate (_, st with locals := alist_insert ns retvs _)) = (SOME Continue, _)’]
+  >~ [‘cut_res _ (evaluate (_, st with locals := alist_insert ns retvs _)) = (SOME (Continue _), _)’]
   >- (cases_on ‘evaluate (r,st with locals := alist_insert ns retvs (inter s.locals live))’ >>
       fs [cut_res_def, AllCaseEqs(), cut_state_def, dec_clock_def] >> rveq >> fs [] >>
       last_x_assum (qspecl_then [‘n’,‘v’] mp_tac) >>
@@ -435,7 +648,7 @@ Resume unassigned_vars_evaluate_same[Call]:
           Cases_on ‘y’ >> fs [] >> imp_res_tac MEM_ZIP2 >> rveq >>
           fs [] >> metis_tac [EL_MEM]) >>
       strip_tac >> fs [lookup_inter, domain_lookup])
-  >~ [‘cut_res _ (evaluate (_, st with locals := alist_insert ns retvs _)) = (SOME Break, _)’]
+  >~ [‘cut_res _ (evaluate (_, st with locals := alist_insert ns retvs _)) = (SOME (Break _), _)’]
   >- (cases_on ‘evaluate (r,st with locals := alist_insert ns retvs (inter s.locals live))’ >>
       fs [cut_res_def, AllCaseEqs(), cut_state_def, dec_clock_def] >> rveq >> fs [] >>
       last_x_assum (qspecl_then [‘n’,‘v’] mp_tac) >>
@@ -451,11 +664,11 @@ Resume unassigned_vars_evaluate_same[Call]:
       qpat_x_assum ‘∀a b. _ ⇒ lookup _ _ = SOME _’ (qspecl_then [‘n’,‘v’] mp_tac) >>
       impl_tac >- simp [] >>
       strip_tac >> fs [lookup_inter, domain_lookup])
-  >~ [‘cut_res _ (evaluate (_, st with locals := insert exn_v exn_val _)) = (SOME Continue, _)’]
+  >~ [‘cut_res _ (evaluate (_, st with locals := insert exn_v exn_val _)) = (SOME (Continue _), _)’]
   >- (cases_on ‘evaluate (h,st with locals := insert exn_v exn_val (inter s.locals live))’ >>
       fs [cut_res_def, AllCaseEqs(), cut_state_def, dec_clock_def] >> rveq >> fs []) >>
-  (* Call_Exn_Break catchall — original names n', exn (pre-rename). *)
-  cases_on ‘evaluate (h,st with locals := insert n' exn (inter s.locals live))’ >>
+  (* Call_Exn_Break catchall. *)
+  cases_on ‘evaluate (h,st with locals := insert n'' exn (inter s.locals live))’ >>
   fs [cut_res_def, AllCaseEqs(), cut_state_def, dec_clock_def] >> rveq >> fs []
 QED
 
@@ -790,29 +1003,7 @@ Proof
   >~ [‘FFI’] >-
    (fs [evaluate_def, AllCaseEqs (), cut_state_def, call_env_def] >>
     rveq >> fs [])
-  >~ [‘Loop’] >-
-   (fs [Once evaluate_def] >>
-    TOP_CASE_TAC >> fs [] >>
-    cases_on ‘cut_res live_in ((NONE:'a result option),s)’ >>
-    fs [] >>
-    ‘q' <> SOME TimeOut’ by (
-      CCONTR_TAC >>
-      fs [cut_res_def, cut_state_def, AllCaseEqs(), dec_clock_def]) >>
-    drule cut_res_add_clock >>
-    disch_then (qspec_then ‘ck’ mp_tac) >> fs [] >>
-    strip_tac >> fs [] >> rveq >>
-    TOP_CASE_TAC >> fs [] >>
-    cases_on ‘evaluate (body,r')’ >> fs [] >> rveq >>
-    cases_on ‘q’ >> fs [] >>
-    cases_on ‘x’ >> fs [] >> rveq >> fs []
-    >- (imp_res_tac cut_res_add_clock >> res_tac >> fs []) >>
-    first_x_assum match_mp_tac >>
-    TOP_CASE_TAC >> fs [] >>
-    reverse TOP_CASE_TAC >> fs []
-    >- fs [Once evaluate_def] >>
-    TOP_CASE_TAC >> fs [] >>
-    TOP_CASE_TAC >> fs [] >>
-    fs [Once evaluate_def])
+  >~ [‘Loop’] >- suspend "Loop"
   >~ [‘Call’] >-
    (fs [evaluate_def, get_vars_clock_upd_eq, dec_clock_def] >>
     ntac 4 (TOP_CASE_TAC >> fs [])
@@ -859,6 +1050,41 @@ Proof
       DefnBase.one_line_ify NONE loop_arith_def] >> rveq >>
   gvs [state_component_equality]
 QED
+
+Resume evaluate_add_clock_eq[Loop]:
+  fs [Once evaluate_def] >>
+  TOP_CASE_TAC >> fs [] >>
+  cases_on ‘cut_res live_in ((NONE:'a result option),s)’ >>
+  fs [] >>
+  ‘q' <> SOME TimeOut’ by (
+    CCONTR_TAC >>
+    fs [cut_res_def, cut_state_def, AllCaseEqs(), dec_clock_def]) >>
+  drule cut_res_add_clock >>
+  disch_then (qspec_then ‘ck’ mp_tac) >> fs [] >>
+  strip_tac >> fs [] >> rveq >>
+  TOP_CASE_TAC >> fs [] >>
+  cases_on ‘evaluate (body,r')’ >> fs [] >> rveq >>
+  cases_on ‘q’ >> fs []
+  >- (* body = NONE: recursive Loop *)
+   (first_x_assum match_mp_tac >> fs [Once evaluate_def]) >>
+  cases_on ‘x’ >> fs [] >> rveq >> fs []
+  >~ [‘Continue n’] >-
+   (cases_on ‘n’ >> fs []
+    >- (* Continue 0: recursive Loop *)
+     (first_x_assum match_mp_tac >> fs [Once evaluate_def]) >>
+    (* Continue (SUC k): exit_loop *)
+    rveq >> fs [])
+  >~ [‘Break n’] >-
+   (cases_on ‘n’ >> fs []
+    >- (* Break 0: cut_res live_out *)
+     (imp_res_tac cut_res_add_clock >> res_tac >> fs []) >>
+    (* Break (SUC k): exit_loop *)
+    rveq >> fs []) >>
+  (* Result / Exception / TimeOut / FinalFFI / Error: exit_loop = res *)
+  rveq >> fs []
+QED
+
+Finalise evaluate_add_clock_eq;
 
 Theorem evaluate_nested_seq_comb_seq:
   !p q t.
@@ -1043,82 +1269,81 @@ Resume evaluate_add_clock_io_events_mono[If]:
 QED
 
 Resume evaluate_add_clock_io_events_mono[Loop]:
-  once_rewrite_tac [evaluate_def, LET_THM] >>
-  TOP_CASE_TAC >> fs [] >>
-  reverse TOP_CASE_TAC
-  >- (fs [cut_res_def, cut_state_def, AllCaseEqs()] >> rveq >> fs [] >>
-      Cases_on ‘extra = 0’ >> fs [dec_clock_def] >>
-      Cases_on ‘evaluate (body,
-           s with <|locals := inter s.locals live_in; clock := extra - 1|>)’ >>
-      fs [] >>
-      every_case_tac >> fs [] >> rveq >> fs [] >>
-      imp_res_tac evaluate_io_events_mono >> fs [] >>
-      metis_tac [IS_PREFIX_TRANS, evaluate_io_events_mono, SND, PAIR]) >>
-  fs [cut_res_def, cut_state_def, AllCaseEqs()] >> rveq >> fs [dec_clock_def] >>
-  first_x_assum (qspec_then ‘extra’ assume_tac) >>
-  Cases_on ‘evaluate
-                (body,
-                 s with
-                   <|locals := inter s.locals live_in; clock := s.clock - 1|>)’ >>
-  fs [] >>
-  Cases_on ‘evaluate
-                (body,
-                 s with
-                 <|locals := inter s.locals live_in;
-                 clock := extra + s.clock - 1|>)’ >>
-  fs [] >>
-  Cases_on ‘q’ >> fs [] >> rveq >> fs []
-  >- (Cases_on ‘q'’ >> fs [] >>
-      reverse (Cases_on ‘x’) >> fs []
-      >- (Cases_on ‘evaluate (Loop live_in body live_out,r')’ >>
-          drule evaluate_io_events_mono >> fs [] >>
-          metis_tac [IS_PREFIX_TRANS]) >>
-      every_case_tac >> fs []) >>
-  Cases_on ‘x’ >> fs [] >> rveq >> fs []
-  >~ [‘evaluate _ = (SOME Break,_)’]
-  >- (every_case_tac >> fs [] >> rveq >> fs [] >>
-      Cases_on ‘evaluate (Loop live_in body live_out,r')’ >>
-      drule evaluate_io_events_mono >> fs [] >>
-      metis_tac [IS_PREFIX_TRANS])
-  >~ [‘evaluate _ = (SOME TimeOut,_)’]
-  >- (Cases_on ‘q'’ >> fs [] >>
-      rename1 ‘evaluate _ = (SOME res,r')’ >>
-      Cases_on ‘res’ >> fs []
-      >~ [‘evaluate _ = (SOME Break,r')’]
-      >- (Cases_on ‘domain live_out ⊆ domain r'.locals’ >> fs [] >>
-          Cases_on ‘r'.clock = 0’ >> fs [])
-      >~ [‘evaluate _ = (SOME Continue,r')’]
-      >- (Cases_on ‘evaluate (Loop live_in body live_out,r')’ >>
-          drule evaluate_io_events_mono >> fs [] >>
-          metis_tac [IS_PREFIX_TRANS]))
-  >~ [‘evaluate _ = (SOME Continue,_)’]
-  >- (qpat_x_assum ‘evaluate (body,_) = (SOME Continue,r)’ assume_tac >>
-      drule evaluate_add_clock_eq >> fs [] >>
-      disch_then (qspec_then ‘extra’ assume_tac) >>
-      fs [] >> rveq >> fs [] >>
-      first_x_assum (qspec_then ‘r’ mp_tac) >> simp [] >>
-      disch_then (qspec_then ‘extra’ mp_tac) >>
-      fs [])
-  >~ [‘evaluate _ = (SOME (Result _),_)’]
-  >- (qpat_x_assum ‘evaluate _ = (SOME (Result _),_)’ assume_tac >>
-      drule evaluate_add_clock_eq >> simp [] >>
-      disch_then (qspec_then ‘extra’ mp_tac) >>
-      strip_tac >> fs [] >> rveq >> fs [])
-  >~ [‘evaluate _ = (SOME (Exception _),_)’]
-  >- (qpat_x_assum ‘evaluate _ = (SOME (Exception _),_)’ assume_tac >>
-      drule evaluate_add_clock_eq >> simp [] >>
-      disch_then (qspec_then ‘extra’ mp_tac) >>
-      strip_tac >> fs [] >> rveq >> fs [])
-  >~ [‘evaluate _ = (SOME (FinalFFI _),_)’]
-  >- (qpat_x_assum ‘evaluate _ = (SOME (FinalFFI _),_)’ assume_tac >>
-      drule evaluate_add_clock_eq >> simp [] >>
-      disch_then (qspec_then ‘extra’ mp_tac) >>
-      strip_tac >> fs [] >> rveq >> fs [])
-  >~ [‘evaluate _ = (SOME Error,_)’]
-  >- (qpat_x_assum ‘evaluate _ = (SOME Error,_)’ assume_tac >>
-      drule evaluate_add_clock_eq >> simp [] >>
-      disch_then (qspec_then ‘extra’ mp_tac) >>
-      strip_tac >> fs [] >> rveq >> fs [])
+  Cases_on ‘FST (evaluate (Loop live_in body live_out, s)) = SOME TimeOut’
+  >- suspend "Loop_TimeOut"
+  >> Cases_on ‘evaluate (Loop live_in body live_out, s)’ >> fs [] >>
+  drule evaluate_add_clock_eq >> fs [] >>
+  disch_then (qspec_then ‘extra’ mp_tac) >> fs []
+QED
+
+Resume evaluate_add_clock_io_events_mono[Loop_TimeOut]:
+  pop_assum mp_tac >>
+  once_rewrite_tac [evaluate_def] >>
+  Cases_on ‘cut_res live_in (NONE,s)’ >>
+  reverse (Cases_on ‘q’)
+  >- (* outer cut_res = (SOME _, _): per cut_res_def must be TimeOut *)
+   (fs [cut_res_def, AllCaseEqs ()] >> gvs [] >>
+    Cases_on ‘extra = 0’ >> gvs [cut_state_def, dec_clock_def] >>
+    Cases_on
+      ‘evaluate (body, s with <|locals := inter s.locals live_in; clock := extra - 1|>)’ >>
+    drule_then assume_tac evaluate_io_events_mono >> fs [] >>
+    Cases_on ‘q’ >> fs []
+    >- (Cases_on ‘evaluate (Loop live_in body live_out, r)’ >>
+        drule_then assume_tac evaluate_io_events_mono >> fs [] >>
+        ‘s.ffi.io_events ≼ r'.ffi.io_events’
+          by metis_tac [IS_PREFIX_TRANS] >> fs []) >>
+    Cases_on ‘x’ >> fs []
+    >~ [‘Break n’]
+    >- (Cases_on ‘n’ >> fs [] >>
+        IF_CASES_TAC >> fs [] >>
+        IF_CASES_TAC >> fs [])
+    >~ [‘Continue n’]
+    >- (Cases_on ‘n’ >> fs [] >>
+        Cases_on ‘evaluate (Loop live_in body live_out, r)’ >>
+        drule_then assume_tac evaluate_io_events_mono >> fs [] >>
+        ‘s.ffi.io_events ≼ r'.ffi.io_events’
+          by metis_tac [IS_PREFIX_TRANS] >> fs [])) >>
+  (* outer cut_res = (NONE, r): body evaluates; align via cut_res_add_clock *)
+  ‘cut_res live_in (NONE, s with clock := extra + s.clock) =
+     (NONE, r with clock := extra + r.clock)’
+    by (irule cut_res_add_clock >> fs []) >>
+  fs [cut_res_def, AllCaseEqs ()] >>
+  strip_tac >>
+  Cases_on ‘evaluate (body, r)’ >> fs [] >>
+  Cases_on ‘q = SOME TimeOut’ >> fs []
+  >- (* body timed out: use IH_body + IS_PREFIX_TRANS *)
+   (last_x_assum (qspec_then ‘extra’ mp_tac) >>
+    Cases_on ‘evaluate (body, r with clock := extra + r.clock)’ >> fs [] >>
+    strip_tac >>
+    ‘r'.ffi.io_events ≼ r''.ffi.io_events’ by metis_tac [] >>
+    Cases_on ‘q'’ >> fs []
+    >- (Cases_on ‘evaluate (Loop live_in body live_out, r'')’ >>
+        drule_then assume_tac evaluate_io_events_mono >> fs [] >>
+        metis_tac [IS_PREFIX_TRANS]) >>
+    Cases_on ‘x’ >> fs []
+    >~ [‘Break n’]
+    >- (Cases_on ‘n’ >> fs [] >>
+        Cases_on ‘cut_state live_out r''’ >> fs [] >>
+        rw [] >> fs [cut_state_def] >>
+        rveq >> fs [dec_clock_def] >>
+        Cases_on ‘evaluate (Loop live_in body live_out, r'')’ >>
+        drule_then assume_tac evaluate_io_events_mono >> fs [] >>
+        metis_tac [IS_PREFIX_TRANS])
+    >~ [‘Continue n’]
+    >- (Cases_on ‘n’ >> fs [] >>
+        Cases_on ‘evaluate (Loop live_in body live_out, r'')’ >>
+        drule_then assume_tac evaluate_io_events_mono >> fs [] >>
+        metis_tac [IS_PREFIX_TRANS])) >>
+  (* body OK (no TimeOut): align via evaluate_add_clock_eq *)
+  drule evaluate_add_clock_eq >> simp [] >>
+  disch_then (qspec_then ‘extra’ mp_tac) >>
+  strip_tac >> fs [] >>
+  Cases_on ‘q’ >> fs [] >>
+  Cases_on ‘x’ >> fs [] >>
+  Cases_on ‘n’ >> fs [] >>
+  fs [cut_state_def] >>
+  rw [] >> fs [] >>
+  rw [] >> fs [dec_clock_def]
 QED
 
 Resume evaluate_add_clock_io_events_mono[Call]:
