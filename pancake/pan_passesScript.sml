@@ -558,8 +558,8 @@ Definition loop_prog_to_display_def:
   (loop_prog_to_display ns (Raise n) = item_with_num «raise» n) ∧
   (loop_prog_to_display ns (Return ns0) = item_with_nums «return» ns0) ∧
   (loop_prog_to_display ns Tick = empty_item «tick») ∧
-  (loop_prog_to_display ns Break = empty_item «break») ∧
-  (loop_prog_to_display ns Continue = empty_item «continue») ∧
+  (loop_prog_to_display ns (Break n) = item_with_num «break» n) ∧
+  (loop_prog_to_display ns (Continue n) = item_with_num «continue» n) ∧
   (loop_prog_to_display ns Fail = empty_item «fail») ∧
   (loop_prog_to_display ns (Load32 n1 n2) =
     item_with_nums «load_32» [n1;n2]) ∧
