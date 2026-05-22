@@ -107,9 +107,6 @@ val _ = translate (spec64 call_dest_def)
 
 val _ = translate (wInst_def |> conv64)
 
-(* Pre-translate perf-mode helpers so the auto-fetcher inside `comp_def`
-   doesn't trip on the negative word literals (-8w, -16w) in
-   perf_call_prefix_def — conv64 evaluates them away. *)
 val _ = translate (perf_call_prefix_def |> conv64)
 val _ = translate (perf_call_suffix_def |> conv64)
 

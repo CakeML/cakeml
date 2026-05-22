@@ -177,7 +177,7 @@ val pre = cv_auto_trans_pre "" compile_word_to_stack_arm8_def;
 Theorem compile_word_to_stack_arm8_pre[cv_pre]:
   ∀perf k v bitmaps. compile_word_to_stack_arm8_pre perf k v bitmaps
 Proof
-  gen_tac \\ gen_tac \\ Induct_on`v`
+  Induct_on`v`
   \\ rw [] \\ simp [Once pre]
 QED
 

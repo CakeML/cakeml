@@ -154,7 +154,7 @@ val pre = cv_auto_trans_pre "" compile_word_to_stack_x64_def;
 Theorem compile_word_to_stack_x64_pre[cv_pre]:
   ∀perf k v bitmaps. compile_word_to_stack_x64_pre perf k v bitmaps
 Proof
-  gen_tac \\ gen_tac \\ Induct_on`v`
+  Induct_on`v`
   \\ rw [] \\ simp [Once pre]
 QED
 
@@ -295,5 +295,3 @@ val _ = cv_auto_trans
 val _ = cv_trans backend_x64Theory.to_livesets_x64_def;
 val _ = cv_trans backend_x64Theory.compile_cake_x64_def;
 val _ = cv_auto_trans backend_x64Theory.compile_cake_explore_x64_def;
-
-

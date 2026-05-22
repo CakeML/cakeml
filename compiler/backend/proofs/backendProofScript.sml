@@ -3495,7 +3495,6 @@ Proof
     simp[]>>
     metis_tac[])>>
   strip_tac>>
-
   qmatch_asmsub_abbrev_tac`word_to_stack$compile _ perf_flag _ = _`>>
   `perf_flag = F` by simp[Abbr`perf_flag`, Abbr`c4`, backend_config_ok_def]>>
   gvs[]>>
