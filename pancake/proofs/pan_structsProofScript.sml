@@ -1131,6 +1131,33 @@ Proof
     >> imp_res_tac shape_of_convert_v_rev
     >> simp []
   )
+  >~ [`Primitive`]
+  >- (
+    gvs [evaluate_def, option_case_eq, pair_case_eq, bool_case_eq]
+    >> drule compile_exp_correct_mmap_helper
+    >> disch_then (qspec_then `ctxt` mp_tac)
+    >> impl_tac
+    >- (rw [] >> drule_then drule compile_exp_correct >> simp [])
+    >> strip_tac
+    >> `MAP convert_v vs = vs /\
+        convert_v value = value /\
+        compile_shape ctxt.structs (shape_of value) = shape_of value /\
+        v_flds_ok s.structs value` by (
+      Cases_on `pop`
+      >> gvs [pan_primop_def, AllCaseEqs(), UNCURRY_EQ, convert_v_def,
+          shape_of_def, compile_shape_def, v_flds_ok_def]
+      >> irule every_convert_v_eq
+      >> fs [EVERY_MEM] >> rw [] >> res_tac
+      >> rename1 `isValWord vv` >> Cases_on `vv` >> fs [isValWord_def]
+    )
+    >> fs [is_valid_value_simps, CasePred "option"]
+    >> imp_res_tac FEVERY_FLOOKUP
+    >> gs []
+    >> imp_res_tac shape_of_convert_v_rev
+    >> simp [is_cont_res_def, res_vs_def, convert_res_def, convert_s_def,
+        FLOOKUP_FMAP_MAP2, set_var_def, FMAP_MAP2_FUPDATE, FEVERY_FUPDATE,
+        fevery_to_drestrict, fupdate_elim2]
+  )
   >~ [`Call`]
   >- (
     (* a bit fiddly, handles the cases in parallel *)
