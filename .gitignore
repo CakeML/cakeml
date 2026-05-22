@@ -91,5 +91,3 @@ compiler/benchmarks/*.html
 icing/examples/output/*/*.sexp.cml
 icing/examples/*_data_prog.txt
 .DS_Store
-
-*.d
