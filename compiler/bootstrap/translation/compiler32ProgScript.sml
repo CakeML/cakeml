@@ -82,6 +82,9 @@ val res = translate $ panStaticTheory.sh_bd_to_str_def;
 
 val res = translate $ alistTheory.ADELKEY_def;
 
+val res = translate $ panStaticTheory.primitive_idents_def;
+val res = translate $ panStaticTheory.add_primitive_hint_def;
+
 val res = translate $ panStaticTheory.check_fun_name_def;
 val res = translate $ panStaticTheory.check_global_var_def;
 val res = translate $ panStaticTheory.check_local_var_def;
