@@ -2167,7 +2167,7 @@ Proof
             wordSemTheory.isWord_def]) >>
   gvs [LENGTH_EQ_NUM_compute, PULL_EXISTS] >>
   qmatch_asmsub_rename_tac
-    ‘word_and_carry (theWord l) (theWord r) (theWord ci)’ >>
+    ‘word_add_carry (theWord l) (theWord r) (theWord ci)’ >>
   Cases_on ‘l’ >> Cases_on ‘r’ >> Cases_on ‘ci’ >>
   gvs [wlab_wloc_def, panSemTheory.theWord_def, wordSemTheory.theWord_def] >>
   pairarg_tac >> gvs [wlab_wloc_def]

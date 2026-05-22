@@ -1225,7 +1225,7 @@ QED
 Resume evaluate_apply_colour[Inst]:
   exists_tac>>
   Cases_on`i`>> (TRY (Cases_on`a`))>> (TRY(Cases_on`m`))>>
-  full_simp_tac(srw_ss())[get_live_def,get_live_inst_def,inst_def,assign_def,word_and_carry_def]
+  full_simp_tac(srw_ss())[get_live_def,get_live_inst_def,inst_def,assign_def,word_add_carry_def]
   >-
   (Cases_on`word_exp st (Const c)`>>
   fs[word_exp_def,set_var_def,domain_union,get_writes_def,get_writes_inst_def]>>
@@ -4039,7 +4039,7 @@ QED
 Resume evaluate_remove_dead[Inst]:
   gvs[evaluate_def,remove_dead_def,AllCaseEqs(),inst_def,
       remove_dead_inst_def,get_live_inst_def,assign_def,
-      word_exp_def,set_var_def,word_and_carry_def,PULL_EXISTS]>>
+      word_exp_def,set_var_def,word_add_carry_def,PULL_EXISTS]>>
   TRY (match_mp_tac strong_locals_rel_insert_notin>>
        fs[domain_lookup]>>
        match_mp_tac strong_locals_rel_insert_notin>>
@@ -8084,7 +8084,7 @@ Resume ssa_cc_trans_correct[Inst]:
         fs[]>>
         pop_assum SUBST_ALL_TAC>>fs[])>>
       fs[]>>
-      Cases_on`x'`>>Cases_on`x''`>>Cases_on`x'''`>>fs[set_var_def,alist_insert_def,word_and_carry_def]>>
+      Cases_on`x'`>>Cases_on`x''`>>Cases_on`x'''`>>fs[set_var_def,alist_insert_def,word_add_carry_def]>>
       qpat_abbrev_tac`w1 = if A then B else C`>>
       qpat_abbrev_tac`w2 = n2w A`>>
       fs[ssa_locals_rel_def,lookup_insert,every_var_def,every_var_inst_def,alist_insert_def]>>

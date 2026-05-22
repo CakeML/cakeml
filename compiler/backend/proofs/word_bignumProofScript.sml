@@ -874,7 +874,7 @@ Proof
     \\ Cases_on `n5` \\ fs []
     \\ fs [eval_ri_pre_def,eval_exp_pre_def]
     \\ imp_res_tac state_rel_IN_FDOM
-    \\ fs [lookup_insert, word_and_carry_def]
+    \\ fs [lookup_insert, word_add_carry_def]
     \\ Q.MATCH_GOALSUB_ABBREV_TAC `(p9,t5)`
     \\ qexists_tac `t5` \\ unabbrev_all_tac \\ fs []
     \\ fs [lookup_insert]
@@ -913,7 +913,7 @@ Proof
     \\ Cases_on `n5` \\ fs []
     \\ fs [eval_ri_pre_def,eval_exp_pre_def]
     \\ imp_res_tac state_rel_IN_FDOM
-    \\ fs [lookup_insert, word_and_carry_def]
+    \\ fs [lookup_insert, word_add_carry_def]
     \\ Q.MATCH_GOALSUB_ABBREV_TAC `(p9,t5)`
     \\ qexists_tac `t5` \\ unabbrev_all_tac \\ fs []
     \\ fs [lookup_insert]

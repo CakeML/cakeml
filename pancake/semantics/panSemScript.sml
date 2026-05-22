@@ -200,7 +200,7 @@ Definition pan_primop_def:
       l  = theValWord (EL 0 args);
       r  = theValWord (EL 1 args);
       ci = theValWord (EL 2 args);
-      (res, co) = word_and_carry l r ci
+      (res, co) = word_add_carry l r ci
     in
       SOME (RStruct [ValWord res; ValWord co])
   else NONE

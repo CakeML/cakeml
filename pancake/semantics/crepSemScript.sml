@@ -225,7 +225,7 @@ Definition crep_primop_def:
       l  = theWord (EL 0 args);
       r  = theWord (EL 1 args);
       ci = theWord (EL 2 args);
-      (res, co) = word_and_carry l r ci
+      (res, co) = word_add_carry l r ci
     in
       SOME [Word res; Word co]
   else NONE

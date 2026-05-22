@@ -779,7 +779,7 @@ Resume compile_correct[Primitive]:
   ‘∀n. find_var ctxt n ≠ 1 ∧ find_var ctxt n ≠ 3’ by
     (rw [] >> irule find_var_neq_odd >> fs [locals_rel_def] >> metis_tac []) >>
   simp [Ntimes evaluate_def 2, inst_def, get_vars_def, get_var_set_var,
-        word_and_carry_def] >>
+        word_add_carry_def] >>
   qmatch_goalsub_abbrev_tac ‘set_var 1 (Word carry) (set_var 3 result _)’ >>
   simp [Ntimes evaluate_def 2, word_exp_def, get_var_set_var] >>
   simp [Ntimes evaluate_def 2, word_exp_def, get_var_set_var] >>
@@ -787,8 +787,8 @@ Resume compile_correct[Primitive]:
   conj_tac >- fs [loopSemTheory.set_vars_def, state_rel_def] >>
   conj_tac  >- fs [set_var_def, lookup_insert] >>
   fs [loopSemTheory.set_vars_def, set_var_def, alist_insert_def] >>
-  qpat_x_assum ‘word_and_carry _ _ _ = _’ mp_tac >>
-  simp [word_and_carry_def, theWord_def] >>
+  qpat_x_assum ‘word_add_carry _ _ _ = _’ mp_tac >>
+  simp [word_add_carry_def, theWord_def] >>
   strip_tac >>
   ‘result = Word res’ by simp [Abbr ‘result’] >>
   gvs [] >>
