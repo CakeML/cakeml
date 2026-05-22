@@ -343,10 +343,6 @@ Definition fill_hole_def:
   fill_hole i_ptr i_idx exp = Op (MemOp UpdateCons) [exp; Var i_idx; Var i_ptr]
 End
 
-
-
-
-
 Definition optimise_call_def:
   optimise_call call_ts loc_opt call_args exp_ptr exp_idx =
   let args = MAP (λn. Var n) call_args ++ [exp_ptr; exp_idx] in
