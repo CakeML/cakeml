@@ -683,32 +683,6 @@ Proof
   >> simp[] >> irule $ iffRL MEM_FOLDR_LIST_UNION >> simp[]
   >> metis_tac[]
 QED
-(*
-Theorem updates'_axioms_ok':
-  ∀upd ctxt.
-    upd updates' ctxt ⇒
-    axioms_ok (ethyof ctxt) axs ⇒
-    axioms_ok (ethyof (upd::ctxt)) axs
-Proof
-  Induct_on ‘$updates'’ >> rw[axioms_ok_def]
-  >> PairCases_on ‘σ’ >> first_x_assum irule >> simp[]
-  >> fs[conexts_of_upd'_def]
-  >- (fs[esubsts_ok'_def] >> rw[] >> first_x_assum drule
-      >- (strip_tac >> irule type_ok_ctys_subset >> first_x_assum $ irule_at Any
-          >> simp[ctys_def, ctms_def])
-      >> strip_tac >> irule term_ok'_ctms_ctys_subset >> first_x_assum $ irule_at Any
-      >> simp[ctys_def, ctms_def, esubst_thy_def])
-  >- cheat
-  >- cheat
-  >- cheat
-  >- (fs[esubsts_ok'_def, ctys_def] >> rw[] >> first_x_assum drule
-      >- (strip_tac >> irule type_ok_ext1 >> qexistsl [‘name’, ‘LENGTH (tvars pred)’]
-          >> reverse conj_tac
-          >- (qpat_x_assum ‘type_ok _ _’ mp_tac >> cheat)
-          >> cheat)
-      >> cheat)
-  >> cheat
-QED
 
 Theorem init_axioms_ok:
   axioms_ok (ethyof init_ectxt) (axsof' init_ectxt) ∧
@@ -741,8 +715,14 @@ Proof
       >> simp[FLOOKUP_FUPDATE] >> every_case_tac >> drule ALOOKUP_MEM
       >> fs[MEM_MAP])
   >- (rw[] >> simp[]
-      >> (cheat))
-  >> cheat
+      >- (gvs[IN_FRANGE_FLOOKUP, FLOOKUP_FUNION, AllCaseEqs()]
+          >- (first_x_assum irule >> simp[IN_FRANGE_FLOOKUP] >> metis_tac[])
+          >> gvs[ALOOKUP_MAP] >> drule ALOOKUP_MEM >> rw[] >> first_x_assum drule >> simp[])
+      >- rw[MAP_MAP_o, o_DEF, LAMBDA_PROD, DISJOINT_ALT, MEM_MAP, EXISTS_PROD, PULL_EXISTS]
+      >> cheat)
+  >- cheat
+  >- cheat
+  >- cheat
 QED
 
 Theorem extends'_theory_ok':
@@ -774,7 +754,9 @@ Definition drop_upd_def:
   drop_upd (ConstSpec eqs p) = SOME (ConstSpec eqs p) ∧
   drop_upd (NewType n a) = SOME (NewType n a) ∧
   drop_upd (TypeDefn n p a r) = SOME (TypeDefn n p a r) ∧
-  drop_upd _ = NONE
+  drop_upd (NewEliminableType n) = SOME (NewType n 0) ∧
+  drop_upd (NewEliminableConst n ty) = SOME (NewConst n ty) ∧
+  drop_upd (NewEliminableAxiom n) = NONE
 End
 
 Overload drop_ctxt = “list$mapPartial drop_upd”
@@ -821,10 +803,76 @@ Proof
   simp[lift_thy_def]
 QED
 
+fun cj_pat q thm =
+    let
+      val ctxt = free_varsl (concl thm :: hyp thm)
+      val pat = Parse.parse_in_context ctxt q
+
+      fun body t =
+        let val (_, t') = strip_forall t in
+          case Lib.total dest_eq t' of
+              SOME (_, r) => r
+            | NONE =>
+              case Lib.total dest_imp_only t' of
+                  SOME (_, r) => r
+                | NONE => t'
+        end
+
+      val cjs = strip_conj (body (concl thm))
+
+      fun find_index n [] = raise ERR "cj_pat" "no matching conjunct"
+        | find_index n (c :: rest) =
+            if can (match_term pat) c then n else find_index (n + 1) rest
+    in
+      cj (find_index 1 cjs) thm
+    end
+
+Theorem tysof_drop_ctxt[simp]:
+  theory_ok' (ethyof ctxt) ⇒
+  tysof (drop_ctxt ctxt) = (ethyof ctxt).ctys
+Proof
+  strip_tac
+  >> dxrule_then (mp_tac o cj_pat ‘DISJOINT (FDOM thy.tys) _’) $ iffLR theory_ok'_def
+  >> Induct_on ‘ctxt’ >- simp[ctys_def]
+  >> Cases >> fs[listTheory.mapPartial_def, drop_upd_def, ctys_def, ctms_def]
+  >> rw[FUNION_FUPDATE_1, FUNION_FUPDATE_2]
+QED
+
+Theorem tmsof_drop_ctxt[simp]:
+  theory_ok' (ethyof ctxt) ⇒
+  tmsof (drop_ctxt ctxt) = (ethyof ctxt).ctms
+Proof
+  strip_tac
+  >> dxrule_then (mp_tac o cj_pat ‘DISJOINT (FDOM thy.tms) _’) $ iffLR theory_ok'_def
+  >> Induct_on ‘ctxt’ >- simp[ctms_def]
+  >> Cases >> fs[listTheory.mapPartial_def, drop_upd_def, ctys_def, ctms_def]
+  >> rw[FUNION_FUPDATE_1, FUNION_FUPDATE_2, FUNION_ASSOC]
+QED
+
+Theorem axsof_drop_ctxt[simp]:
+  axsof (drop_ctxt ctxt) = axsof' ctxt
+Proof
+  Induct_on ‘ctxt’ >> simp[] >> Cases
+  >> fs[listTheory.mapPartial_def, drop_upd_def, conexts_of_upd_def, conexts_of_upd'_def]
+  >> SET_TAC[]
+QED
+
+Theorem thyof_drop_ctxt[simp]:
+  theory_ok' (ethyof ctxt) ⇒ thyof (drop_ctxt ctxt) = drop_thy ∅ (ethyof ctxt)
+Proof
+  rw[drop_thy, ctms_def, ctys_def]
+QED
+
 Theorem drop_thy_lift_thy[simp]:
   drop_thy ∅ (lift_thy thy) = thy
 Proof
   rw[drop_thy, lift_thy_def]
+QED
+
+Theorem sigof_drop_ctxt[simp]:
+  theory_ok' (ethyof ctxt) ⇒ sigof (drop_ctxt ctxt) = ((ethyof ctxt).ctys, (ethyof ctxt).ctms)
+Proof
+  simp[]
 QED
 
 Theorem const_list_lift_ctxt:
@@ -879,10 +927,17 @@ Proof
   cheat
 QED
 
-Theorem extends_extends':
-  ∀ctxt. ctxt extends init_ctxt ⇔ lift_ctxt ctxt extends' init_ectxt
+Theorem drop_thy_extends_init_ctxt:
+  ctxt' extends' init_ectxt ⇒ drop_ctxt ctxt' extends init_ctxt
 Proof
   cheat
+QED
+
+Theorem init_theory_ok':
+  theory_ok' (ethyof init_ectxt)
+Proof
+  rw[theory_ok'_def,init_ectxt_def,type_ok_def,FLOOKUP_UPDATE,conexts_of_upd'_def]
+  >> rw[is_std_sig_def,FLOOKUP_UPDATE,sigof'_def]
 QED
 
 Theorem extends_extends'_derivations:
@@ -894,6 +949,8 @@ Proof
   >- (qexists ‘lift_ctxt ctxt’ >> drule proves_imp_proves'
       >> simp[lift_ctxt_extends_init_ectxt, lift_thy_def])
   >> drule proves'_imp_proves >> simp[drop_thy, ctms_def, ctys_def]
-  >> strip_tac >> qexists ‘drop_ctxt ctxt’ >> simp[]
+  >> strip_tac >> qexists ‘drop_ctxt ctxt'’
+  >> simp[drop_thy_extends_init_ctxt, thyof_drop_ctxt]
+  >> drule extends'_theory_ok' >> simp[init_theory_ok']
+  >> fs[ctms_def, ctys_def]
 QED
-*)
