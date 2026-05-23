@@ -106,6 +106,10 @@ val _ = translate (spec32 word_to_stackTheory.wMove_def)
 val _ = translate (spec32 call_dest_def)
 
 val _ = translate (wInst_def |> conv32)
+
+val _ = translate (perf_call_prefix_def |> conv32)
+val _ = translate (perf_call_suffix_def |> conv32)
+
 val _ = translate (spec32 comp_def)
 
 val _ = translate (compile_word_to_stack_def |> INST_TYPE [beta |-> ``:32``])
