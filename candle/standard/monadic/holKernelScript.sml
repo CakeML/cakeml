@@ -802,6 +802,20 @@ Definition rand_def:
 End
 
 (*
+  let safe_mk_eq l r =
+    let ty = type_of l in
+    Comb(Comb(Const("=",Tyapp("fun",[ty;Tyapp("fun",[ty;bool_ty])])),l),r)
+*)
+Definition safe_mk_eq_def:
+  safe_mk_eq l r =
+  do
+    ty <- type_of l;
+    bty <- bool_ty;
+    return (Comb (Comb (Const «=» (Tyapp «fun» [ty; Tyapp «fun» [ty;bty]])) l) r)
+  od
+End
+
+(*
   let mk_eq =
     let eq = mk_const("=",[]) in
     fun (l,r) ->
@@ -869,28 +883,30 @@ End
 
 (*
   let REFL tm =
-    Sequent([],mk_eq(tm,tm))
+    Sequent([],safe_mk_eq tm tm)
 *)
 
 Definition REFL_def:
-  REFL tm = do eq <- mk_eq(tm,tm); return (Sequent [] eq) od
+  REFL tm = do eq <- safe_mk_eq tm tm; return (Sequent [] eq) od
 End
 
 (*
   let TRANS (Sequent(asl1,c1)) (Sequent(asl2,c2)) =
     match (c1,c2) with
-      Comb(Comb(Const("=",_),l),m1),Comb(Comb(Const("=",_),m2),r)
-        when aconv m1 m2 -> Sequent(term_union asl1 asl2,mk_eq(l,r))
+      Comb((Comb(Const("=",_),_) as eql),m1),Comb(Comb(Const("=",_),m2),r)
+        when alphaorder m1 m2 = 0 -> Sequent(term_union asl1 asl2,Comb(eql,r))
     | _ -> failwith "TRANS"
 *)
 
 val _ = PmatchHeuristics.with_classic_heuristic Define `
   TRANS (Sequent asl1 c1) (Sequent asl2 c2) =
     case (c1,c2) of
-      (Comb (Comb (Const «=» _) l) m1, Comb (Comb (Const «=» _) m2) r) =>
-        if aconv m1 m2 then do eq <- mk_eq(l,r);
-                               return (Sequent (term_union asl1 asl2) eq) od
-        else failwith «TRANS»
+      (Comb eql m1, Comb (Comb (Const «=» _) m2) r) =>
+        (case eql of
+           (Comb (Const «=» _) l) =>
+            if aconv m1 m2 then return (Sequent (term_union asl1 asl2) (Comb eql r))
+            else failwith «TRANS»
+         | _ => failwith «TRANS»)
     | _ => failwith «TRANS»`
 
 (* some in-kernel but derivable rules (TRANS is also in this category) *)
@@ -933,22 +949,36 @@ End
 (* -- *)
 
 (*
-  let MK_COMB (Sequent(asl1,c1),Sequent(asl2,c2)) =
+  let MK_COMB(Sequent(asl1,c1),Sequent(asl2,c2)) =
      match (c1,c2) with
-       Comb(Comb(Const("=",_),l1),r1),Comb(Comb(Const("=",_),l2),r2)
-        -> Sequent(term_union asl1 asl2,mk_eq(mk_comb(l1,l2),mk_comb(r1,r2)))
-     | _ -> failwith "MK_COMB"
+       Comb(Comb(Const("=",_),l1),r1),Comb(Comb(Const("=",_),l2),r2) ->
+        (match type_of r1 with
+           Tyapp("fun",[ty;_]) when compare ty (type_of r2) = 0
+             -> Sequent(term_union asl1 asl2,
+                        safe_mk_eq (Comb(l1,l2)) (Comb(r1,r2)))
+         | _ -> failwith "MK_COMB: types do not agree")
+     | _ -> failwith "MK_COMB: not both equations"
 *)
 
 val _ = PmatchHeuristics.with_classic_heuristic Define `
   MK_COMB (Sequent asl1 c1,Sequent asl2 c2) =
    case (c1,c2) of
      (Comb (Comb (Const «=» _) l1) r1, Comb (Comb (Const «=» _) l2) r2) =>
-       do x1 <- mk_comb(l1,l2) ;
-          x2 <- mk_comb(r1,r2) ;
-          eq <- mk_eq(x1,x2) ;
-          return (Sequent(term_union asl1 asl2) eq) od
-   | _ => failwith «MK_COMB»`
+       do r1_ty <- type_of r1;
+          (case r1_ty of
+             Tyapp «fun» [ty;_] =>
+               do
+                 r2_ty <- type_of r2;
+                 if r2_ty = ty then
+                   do
+                     eq <- safe_mk_eq (Comb l1 l2) (Comb r1 r2);
+                     return (Sequent (term_union asl1 asl2) eq)
+                   od
+                 else failwith «MK_COMB: types do not agree»
+               od
+           | _ => failwith «MK_COMB: types do not agree»)
+       od
+   | _ => failwith «MK_COMB: not both equations»`
 
 (*
   let ABS v (Sequent(asl,c)) =
