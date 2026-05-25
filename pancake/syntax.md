@@ -8,6 +8,7 @@ See the [Pancake how-to](/pancake/how-to.md) for a guide on how to use Pancake.
 | --- | --- | --- |
 | Function declaration | `fun RETSHAPE FNAME ( ARGS ) { BODY }` | `ARGS` may be empty. Each argument expects both a shape and an identifier, and are comma separated, eg `1 x, {1,2} y`. `BODY` must include a function return in all execution branches. All functions are callable (ie. in-scope) from all function bodies. Optionally, add `inline` keyword before `fun` for function inline feature (no effect on functions with recursion or returns within loops) and/or `export` keyword before `fun` for multiple entry points feature, in that order |
 | Global variable declaration | `var SHAPE VNAME = EXP;` | Globals cannot be initialised with a function call. Globals are usable from all function bodies and to any globals declared after them. Beware of shadowing |
+| Named struct declaration | `struct SNAME { FIELDS }` | `FIELDS` may NOT be empty. Each field expects both a shape and an identifier, and are comma separated, eg `1 x, {1,2} y`. Named structs are usable by all functions and globals, and to any named structs declared after them |
 
 ## Structures
 
@@ -45,11 +46,14 @@ See the [Pancake how-to](/pancake/how-to.md) for a guide on how to use Pancake.
 | Feature | Syntax | Notes |
 | --- | --- | --- |
 | Word shape | `1` | `1` and `{1}` are distinct |
-| Struct shape | eg. `{1,2,{1}}`| Tuple-like. Can be nested. `1` and `{1}` are distinct |
-| Repeated shape | `N` | Equivalent to a struct of N words, ie. `{1,1,...,1}` where 1 appears N times |
-| Default shape | `eg. var x = 1;` | Any omitted shape before an identifier where it is expected will be assumed to use the default of `1`. This is NOT inference |
-| Struct value | eg. `< 1, <2, 3>, <4> >` | Can be nested, but all angle brackets must be separated by (at least) whitespace to parse, eg. after `4` in the example |
-| Struct field access | `STRUCT.INDEX` | 0-indexed. `STRUCT` can be an expression. `INDEX` must be a (non-negative) number (and therefore CANNOT be a variable) |
+| Unnamed struct shape | eg. `{1,2,{1}}`| Tuple-like. Can be nested with either struct option. `1` and `{1}` are distinct |
+| Named struct shape | eg. `my_struct`| C-like structs. Can be nested with either struct option. `{1}` and `my_struct { 1 x }` are distinct |
+| Repeated shape | `N` | Equivalent to an unnamed struct of N words, ie. `{1,1,...,1}` where 1 appears N times |
+| Default shape | eg. `var x = 1;` | Any omitted shape before an identifier where it is expected will be assumed to use the default of `1`. This is NOT inference |
+| Unnamed struct value | eg. `< 1, <2, 3>, <4> >` | Can be nested with either struct option, but all angle brackets must be separated by (at least) whitespace to parse, eg. after `4` in the example |
+| Named struct value | eg. `my_struct < x = 1, y = <2, 3>, z = <4> >` | Explicit struct and field names are required. Can be nested with either struct option, but all angle brackets must be separated by (at least) whitespace to parse, eg. after `4` in the example |
+| Unnamed struct field access | `STRUCT.INDEX` | 0-indexed. `STRUCT` can be an expression. `INDEX` must be a (non-negative) number. Can be nested with either struct option |
+| Named struct field access | `STRUCT.FIELDNAME` | `STRUCT` can be an expression. Can be nested with either struct option |
 
 ## Specials
 
