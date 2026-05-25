@@ -4,6 +4,44 @@ Pancake Changelog
 User-facing changes to the Pancake language and compiler are
 documented here when they are merged into `master`.
 
+May 21st 2026
+-------------------
+
+### Named structs
+
+Named (C-like) structs have now been added. Syntax examples:
+
+    struct my_struct { // Declare a named struct called "my_struct"
+      1 first, // Declare a named struct field with shape 1 called "first"
+      {1,1} second // Declare another field with shape {1,1} called "second"
+    }
+    var my_struct x = my_struct < first = 1, second = <2, 3> >; // Named struct values require explicit struct and field names
+    fun 1 foo(my_struct a) {
+      return a.second.0; // Named field access is similar to unnamed fields and nests appropriately
+    }
+
+Like global variables, struct name declaration order only matters to other struct names. That is, this is valid:
+
+    var outer os = outer < s = inner < x = 1 > >;
+    struct inner {
+      1 x
+    }
+    struct outer {
+      inner s
+    }
+
+But this is not:
+
+    var outer os = outer < s = inner < x = 1 > >;
+    struct outer_struct {
+      inner_struct s
+    }
+    struct inner_struct {
+      1 x
+    }
+
+Named structs are treated as separate shapes to their unnamed counterparts during static checking.
+
 April 24th 2026
 -------------------
 
@@ -33,8 +71,8 @@ in addition to global variables and function arguments:
 
     var 1 x = 0;
     fun 1 foo(1 a) {
-        var 1 y = 0;
-        return y;
+      var 1 y = 0;
+      return y;
     }
 
 If a shape is not provided in any place it is expected, the compiler assumes a default shape of `1`.
