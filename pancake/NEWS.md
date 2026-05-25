@@ -33,10 +33,10 @@ Like global variables, struct name declaration order only matters to other struc
 But this is not:
 
     var outer os = outer < s = inner < x = 1 > >;
-    struct outer_struct {
-      inner_struct s
+    struct outer {
+      inner s
     }
-    struct inner_struct {
+    struct inner {
       1 x
     }
 
