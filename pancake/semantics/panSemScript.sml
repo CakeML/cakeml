@@ -720,7 +720,7 @@ Definition evaluate_decls_def:
    | NONE => NONE) ∧
   evaluate_decls s (Function fi::ds) =
   evaluate_decls (s with code := s.code |+ (fi.name,(fi.params,fi.body))) ds ∧
-  evaluate_decls s (EidDecl eid sh :: ds) = 
+  evaluate_decls s (ExnDecl eid sh :: ds) =
     if FLOOKUP s.eshapes eid = NONE then
       evaluate_decls (s with eshapes := s.eshapes |+ (eid, sh)) ds
     else

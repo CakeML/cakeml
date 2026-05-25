@@ -248,7 +248,8 @@ Definition functions_def:
   functions [] = [] ∧
   functions(Function fi::fs) =
   (fi.name,fi.params,fi.body)::functions fs ∧
-  functions(Decl _ _ _::fs) = functions fs
+  functions(Decl _ _ _::fs) = functions fs ∧
+  functions (ExnDecl _ _ :: fs) = functions fs
 End
 
 Definition fun_ids_def:
