@@ -475,6 +475,7 @@ val def = inst_def |> check [‘tyin’,‘tm’] |> m_translate
 
 val _ = ml_prog_update open_local_block;
 
+val def = safe_mk_eq_def |> check [‘l’,‘r’] |> m_translate
 val def = mk_eq_def |> check [‘l’,‘r’] |> m_translate
 val def = list_to_hypset_def |> translate
 
