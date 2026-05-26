@@ -800,6 +800,30 @@ Definition encode_is_witness_transition_def:
     encode_imply circ «transition» lhss rhss
 End
 
+Definition encode_is_witness_property_def:
+  encode_is_witness_property
+    (mcirc: ('a, 'i, 'l) circuit)
+    (mcnstrs: ('a, 'i, 'l) lit list)
+    (mpreds: ('a, 'i, 'l) lit list)
+    (wcirc: ('b, 'i, 'l) circuit)
+    (wcnstrs: ('b, 'i, 'l) lit list)
+    (wpreds: ('b, 'i, 'l) lit list)
+  =
+  let
+    circ = imerge_circuits mcirc wcirc;
+    circ = encode_preds_hold circ «mcnstrs» (ileft_name_lits mcnstrs);
+    circ = encode_preds_hold circ «mpreds» (ileft_name_lits mpreds);
+    circ = encode_preds_hold circ «wcnstrs» (iright_name_lits wcnstrs);
+    circ = encode_preds_hold circ «wpreds» (iright_name_lits wpreds);
+    lhss =
+      [(Name (Named (Ext «mcnstrs»)),F);
+       (Name (Named (Ext «wcnstrs»)),F);
+       (Name (Named (Ext «wpreds»)),F)];
+    rhss = [(Name (Named (Ext «mpreds»)), F);]
+  in
+    encode_imply circ «property» lhss rhss
+End
+
 (* Proving correctness of the encodings ***************************************)
 
 (* A bunch of trivial helper lemmas, which keep the proof state readable
@@ -881,7 +905,15 @@ Proof
         GSYM MAP_MAP_o, MEM_MAP, PULL_EXISTS]
 QED
 
-(* Main encoder theorems. *)
+Theorem preds_hold_encode_preds_hold_ileft[local,simp]:
+  preds_hold ss (encode_preds_hold circ name preds') (set (ileft_name_lits preds)) ⇔
+    preds_hold ss circ (set (ileft_name_lits preds))
+Proof
+  simp [preds_hold_def, encode_preds_hold_def, ileft_name_lits_def,
+        GSYM MAP_MAP_o, MEM_MAP, PULL_EXISTS]
+QED
+
+(* Main encoder theorems ******************************************************)
 
 Theorem eval_circuit_encode_is_witness_reset:
   (∀ss.
@@ -924,4 +956,24 @@ Proof
       is_witness_transition_def, list_inter_set, is_next_def, eval_lit_base,
       EVERY_MEM, MEM_MAP, PULL_EXISTS
     ]
+QED
+
+Theorem eval_circuit_encode_is_witness_property:
+  (∀ss.
+     (eval_circuit ss
+       (encode_is_witness_property
+          mcirc mcnstrs mpreds
+          wcirc wcnstrs wpreds)
+       (Named (Ext «property»)))) =
+  is_witness_property
+    mcirc mreset mnext (set mpreds) (set mcnstrs) mlatches
+    wcirc wreset wnext (set wpreds) (set wcnstrs) wlatches
+Proof
+  simp [
+      encode_is_witness_property_def,
+      eval_circuit_encode_imply,
+      eval_lit_encode_preds_hold_Named,
+      is_witness_property_def
+    ]
+  >> metis_tac []
 QED
