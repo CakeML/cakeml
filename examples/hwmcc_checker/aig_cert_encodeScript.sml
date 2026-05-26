@@ -11,6 +11,12 @@ Libs
 (* todo check whether it is possible to reduce the amount of
    definitions/theorems *)
 
+Theorem eval_lit_base:
+  eval_lit ss circ (Base (Latch l), b) ⇔ (b ⇎ SND ss l)
+Proof
+  Cases_on ‘ss’ >> simp [eval_circuit_def]
+QED
+
 (* Merging circuit ************************************************************)
 (* Merging two circuits results in a new circuit where the inputs and latches
    are shared. *)
@@ -659,6 +665,13 @@ Proof
   >> TOP_CASE_TAC >> gvs []
 QED
 
+Theorem eval_lit_encode_preds_hold_iext_lit[simp]:
+  eval_lit ss (encode_preds_hold circ name lits) (iext_lit lit) =
+  eval_lit ss circ (iext_lit lit)
+Proof
+  simp [encode_preds_hold_def]
+QED
+
 Theorem eval_circuit_encode_preds_hold_Named:
   eval_circuit ss (encode_preds_hold circ name lits) (Named n) =
   if n = Ext name then
@@ -697,114 +710,16 @@ Definition iright_name_lits_def:
   iright_name_lits = MAP (iext_lit ∘ right_name_lit)
 End
 
-Definition left_next_def:
-  left_next next = left_name_lit ∘ next
-End
-
-Definition right_next_def:
-  right_next next = right_name_lit ∘ next
-End
-
 Definition imerge_circuits_def:
   imerge_circuits circ₀ circ₁ = iext_circuit (merge_circuits circ₀ circ₁)
 End
 
-(* Pairing iext circuits ******************************************************)
-(* Pushes the intermediates out: 'a iext + 'b iext becomes ('a + 'b) iext *)
-
-Definition map_iext_orig_def:
-  map_iext_orig f (Named (Orig a)) = Named (Orig (f a)) ∧
-  map_iext_orig f (Named (Ext s))  = Named (Ext s) ∧
-  map_iext_orig f (Anon n)         = Anon n
-End
-
-Definition collapse_iext_name_def:
-  collapse_iext_name (INL x) = map_iext_orig INL x ∧
-  collapse_iext_name (INR x) = map_iext_orig INR x
-End
-
-Definition collapse_iext_var_def:
-  (collapse_iext_var (Name n)  = Name (collapse_iext_name n)) ∧
-  (collapse_iext_var (Base bv) = Base bv)
-End
-
-Definition collapse_iext_lit_def:
-  collapse_iext_lit (v, b) = (collapse_iext_var v, b)
-End
-
-Definition collapse_iext_and_def:
-  collapse_iext_and (n, ins) = (collapse_iext_name n, MAP collapse_iext_lit ins)
-End
-
-Definition collapse_iext_def:
-  collapse_iext (circ: ('a iext + 'b iext, 'i, 'l) circuit)
-    : (('a + 'b) iext, 'i, 'l) circuit
-  =
-  MAP collapse_iext_and circ
-End
-
-Definition pair_icircuits_def:
-  pair_icircuits circ₀ circ₁ = collapse_iext (pair_circuits circ₀ circ₁)
-End
-
-Theorem pair_icircuits_left_nil_right_cons:
-  pair_icircuits [] (a::circ) =
-  collapse_iext_and (right_and a)::(pair_icircuits [] circ)
+Theorem eval_lit_imerge_circuit_iext_lit[simp]:
+  eval_lit ss (imerge_circuits circ₀ circ₁) (iext_lit lit) ⇔
+    eval_lit ss (merge_circuits circ₀ circ₁) lit
 Proof
-  simp [pair_icircuits_def, pair_circuits_def, collapse_iext_def]
+  simp [imerge_circuits_def]
 QED
-
-Theorem pair_icircuits_left_cons:
-  pair_icircuits (a::circ₁) circ₂ =
-  collapse_iext_and (left_and a)::(pair_icircuits circ₁ circ₂)
-Proof
-  simp [pair_icircuits_def, pair_circuits_left_cons, collapse_iext_def]
-QED
-
-(* Unpairing circuits *********************************************************)
-(* Used to write more generic theorems for encodings such as is_next. *)
-
-Definition get_left_lits_def:
-  (get_left_lits ([]: (('a + 'b) iext, 'i + 'j, 'l + 'k) lit list) =
-     []: ('a, 'i, 'l) lit list) ∧
-  (get_left_lits ((v,b)::xs) =
-   case v of
-   | Name (Named (Orig (INL n)))   => (Name n,b)::get_left_lits xs
-   | Base (Input (INL i))          => (Base (Input i), b)::get_left_lits xs
-   | Base (Latch (INL l))          => (Base (Latch l), b)::get_left_lits xs
-   | Base Ff                       => (Base Ff, b)::get_left_lits xs
-   | _                             => get_left_lits xs)
-End
-
-Definition get_left_circuit_def:
-  (get_left_circuit ([]: (('a + 'b) iext, 'i + 'j, 'l + 'k) circuit) =
-     []: ('a, 'i, 'l) circuit) ∧
-  (get_left_circuit ((n,ins)::xs) =
-   case n of
-   | Named (Orig (INL n)) => (n, get_left_lits ins)::get_left_circuit xs
-   | _ => get_left_circuit xs)
-End
-
-Definition get_right_lits_def:
-  (get_right_lits ([]: (('a + 'b) iext, 'i + 'j, 'l + 'k) lit list) =
-     []: ('b, 'j, 'k) lit list) ∧
-  (get_right_lits ((v,b)::xs) =
-   case v of
-   | Name (Named (Orig (INR n)))   => (Name n,b)::get_right_lits xs
-   | Base (Input (INR i))          => (Base (Input i), b)::get_right_lits xs
-   | Base (Latch (INR l))          => (Base (Latch l), b)::get_right_lits xs
-   | Base Ff                       => (Base Ff, b)::get_right_lits xs
-   | _                             => get_right_lits xs)
-End
-
-Definition get_right_circuit_def:
-  (get_right_circuit ([]: (('a + 'b) iext, 'i + 'j, 'l + 'k) circuit) =
-     []: ('b, 'j, 'k) circuit) ∧
-  (get_right_circuit ((n,ins)::xs) =
-   case n of
-   | Named (Orig (INR n)) => (n, get_right_lits ins)::get_right_circuit xs
-   | _ => get_right_circuit xs)
-End
 
 (* Encoding is_next ***********************************************************)
 
@@ -819,62 +734,6 @@ Definition encode_is_next_def:
     (MAP (λl. (iext_lit (left_lit (next l)),
                iext_lit (right_lit (Base (Latch l), F)))) latches)
 End
-
-(* Theorem eval_lit_pair_left_nil_left[local]: *)
-
-(* Proof *)
-(* QED *)
-
-
-(* Theorem eval_lit_get_left_circuit: *)
-(*   ∀n m. *)
-(*     (eval_lit (pair_state ss₀ ss₁) circ (iext_lit (left_lit m)) ⇔ *)
-(*        eval_lit ss₀ (get_left_circuit circ) m) ∧ *)
-(*     (eval_circuit (pair_state ss₀ ss₁) circ (Named (Orig (INL n))) ⇔ *)
-(*        eval_circuit ss₀ (get_left_circuit circ) n) *)
-(* Proof *)
-(*   Induct_on ‘circ’ >> rw [] *)
-(*   (* >- simp [get_left_circuit_def] *) *)
-(*   (* >- simp [get_left_circuit_def] *) *)
-(*   (* >> conj_tac *) *)
-(*   (* Induct_on ‘circ’ *) *)
-(*   (* >- *) *)
-(*   (*  (simp [get_left_circuit_def] *) *)
-(*   (*   >> namedCases_on ‘lit’ ["v b"] >> simp [left_lit_def] *) *)
-(*   (*   >> namedCases_on ‘v’ ["n", "bvar"] *) *)
-(*   (*   >> simp [left_var_def, iext_lit_def, iext_var_def, eval_circuit_def] *) *)
-(*   (*   >> simp [oneline left_bvar_def, oneline pair_state_def] *) *)
-(*   (*   >> rpt TOP_CASE_TAC *) *)
-(*   (*   >> simp [eval_circuit_def, pair_state_def]) *) *)
-(*   (* >> simp [get_left_circuit_def] *) *)
-(*   (* >> namedCases_on ‘lit’ ["v b"] >> simp [left_lit_def] *) *)
-(*   (* >> namedCases_on ‘v’ ["n", "bvar"] *) *)
-(*   (* >> simp [left_var_def, iext_lit_def, iext_var_def, eval_circuit_def] *) *)
-(*   (* >> simp [oneline left_bvar_def, oneline pair_state_def] *) *)
-(*   (* >> rpt TOP_CASE_TAC *) *)
-(*   (* >> simp [eval_circuit_def, pair_state_def] *) *)
-(* QED *)
-
-(* Theorem eval_lit_get_right_circuit: *)
-(*   eval_lit (pair_state ss₀ ss₁) circ (iext_lit (right_lit lit)) ⇔ *)
-(*     eval_lit ss₁ (get_right_circuit circ) lit *)
-(* Proof *)
-(*   cheat *)
-(* QED *)
-
-(* Theorem eval_circuit_encode_is_next_Named: *)
-(*   eval_circuit (pair_state ss₀ ss₁) *)
-(*     (encode_is_next circ name next latches) (Named n) = *)
-(*   if n = Ext name then *)
-(*     is_next ss₀ (get_left_circuit circ) next (set latches) (SND ss₁) *)
-(*   else eval_circuit (pair_state ss₀ ss₁) circ (Named n) *)
-(* Proof *)
-(*   simp [encode_is_next_def, eval_circuit_encode_equiv_Named, is_next_def] *)
-(*   >> IF_CASES_TAC >> gvs [] *)
-(*   >> simp [EVERY_MEM, MEM_ZIP, PULL_EXISTS, EL_MAP, MEM_EL] *)
-(*   >> simp [eval_lit_get_left_circuit, eval_lit_get_right_circuit] *)
-(*   >> PairCases_on ‘ss₁’ >> simp [eval_circuit_def] *)
-(* QED *)
 
 (* Encoding certificate conditions ********************************************)
 
@@ -924,19 +783,19 @@ Definition encode_is_witness_transition_def:
     circ₁ = imerge_circuits mcirc wcirc;
     circ₁ = encode_preds_hold circ₁ «mcnstrs1» (ileft_name_lits mcnstrs);
     circ₁ = encode_preds_hold circ₁ «wcnstrs1» (iright_name_lits wcnstrs);
-    circ  = pair_icircuits circ₀ circ₁;
-    circ  = encode_is_next circ «mnext» (left_next mnext) mlatches;
+    circ  = iext_circuit (pair_circuits circ₀ circ₁);
+    circ  = encode_is_next circ «mnext» (iext_lit ∘ left_name_lit ∘ mnext) mlatches;
     klatches = list_inter mlatches wlatches;
-    circ  = encode_is_next circ «wnext» (right_next wnext) klatches;
+    circ  = encode_is_next circ «wnext» (iext_lit ∘ right_name_lit ∘ wnext) klatches;
     lhss  =
       [(Name (Named (Ext «mnext»)), F);
-       (Name (Named (Ext «mcnstrs0»)), F);
-       (Name (Named (Ext «mcnstrs1»)), F);
-       (Name (Named (Ext «wcnstrs0»)), F);
+       iext_lit (left_lit (Name (Named (Ext «mcnstrs0»)), F));
+       iext_lit (right_lit (Name (Named (Ext «mcnstrs1»)), F));
+       iext_lit (left_lit (Name (Named (Ext «wcnstrs0»)), F));
       ];
     rhss  =
       [(Name (Named (Ext «wnext»)), F);
-       (Name (Named (Ext «wcnstrs0»)), F)];
+       iext_lit (right_lit (Name (Named (Ext «wcnstrs1»)), F))];
   in
     encode_imply circ «transition» lhss rhss
 End
@@ -1057,7 +916,12 @@ Theorem eval_circuit_encode_is_witness_transition:
 Proof
   simp [
       encode_is_witness_transition_def,
-
+      eval_circuit_encode_imply,
+      encode_is_next_def,
+      eval_lit_encode_equiv_Named,
+      eval_lit_encode_preds_hold_Named,
+      FORALL_PAIR_STATE,
+      is_witness_transition_def, list_inter_set, is_next_def, eval_lit_base,
+      EVERY_MEM, MEM_MAP, PULL_EXISTS
     ]
-  >> cheat
 QED
