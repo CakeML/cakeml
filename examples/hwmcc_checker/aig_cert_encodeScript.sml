@@ -7,6 +7,10 @@ Ancestors
 Libs
   preamble
 
+(* todo check which theorems/simps are actually used *)
+(* todo check whether it is possible to reduce the amount of
+   definitions/theorems *)
+
 (* Merging circuit ************************************************************)
 (* Merging two circuits results in a new circuit where the inputs and latches
    are shared. *)
@@ -344,12 +348,14 @@ Datatype:
 End
 
 (* Numbered extensions; used for "anonymous" intermediates *)
-Type iext[pp] = “:'a ext + num”
+Datatype:
+  iext = Named ('a ext) | Anon num
+End
 
 (* Lifting to iext *)
 
 Definition iext_var_def:
-  (iext_var (Name (a: 'a)) = Name ((INL (Orig a)): 'a iext)) ∧
+  (iext_var (Name a) = Name (Named (Orig a))) ∧
   (iext_var (Base bv) = Base bv)
 End
 
@@ -359,15 +365,15 @@ End
 
 Definition iext_and_def:
   iext_and ((n, ins): ('a, 'i, 'l) and) =
-  (INL (Orig n), MAP iext_lit ins): ('a iext, 'i, 'l) and
+  (Named (Orig n), MAP iext_lit ins)
 End
 
 Definition iext_circuit_def:
   iext_circuit circ = MAP iext_and circ
 End
 
-Theorem eval_lit_INL_Ext_iext_lit[simp]:
-  eval_lit ss ((INL (Ext name),lits)::circ) (iext_lit x) ⇔
+Theorem eval_lit_Named_Ext_iext_lit[simp]:
+  eval_lit ss ((Named (Ext name),lits)::circ) (iext_lit x) ⇔
    eval_lit ss circ (iext_lit x)
 Proof
   namedCases_on ‘x’ ["v b"]
@@ -377,7 +383,7 @@ QED
 
 Theorem eval_circuit_iext_circuit[simp]:
   (∀n.
-     eval_circuit ss (iext_circuit circ) (INL (Orig n)) =
+     eval_circuit ss (iext_circuit circ) (Named (Orig n)) =
      eval_circuit ss circ n) ∧
   (∀l. eval_lit ss (iext_circuit circ) (iext_lit l) = eval_lit ss circ l) ∧
   (∀l. eval_lit ss (iext_circuit circ) (Base bv, b) = eval_lit ss circ (Base bv, b))
@@ -399,7 +405,7 @@ QED
 
 Definition iname_def:
   iname (v,b) =
-    case v of Name (INR n) => n
+    case v of Name (Anon n) => n
     | _ => 0
 End
 
@@ -409,9 +415,9 @@ Proof
   Cases_on ‘x’ >> simp [not_def, iname_def]
 QED
 
-Theorem eval_lit_INR_neq:
+Theorem eval_lit_Anon_neq:
   iname m ≠ n ⇒
-  (eval_lit ss ((INR n, xs)::circ) m ⇔ eval_lit ss circ m)
+  (eval_lit ss ((Anon n, xs)::circ) m ⇔ eval_lit ss circ m)
 Proof
   simp [oneline iname_def] >> every_case_tac >> rw [eval_circuit_def]
 QED
@@ -432,27 +438,27 @@ Proof
   >> simp [maxn_def, MAX_DEF]
 QED
 
-(* Encoding point-wise implication ********************************************)
+(* Encoding implication *******************************************************)
 
 Definition encode_imply_def:
   encode_imply (circ: ('a iext, 'i, 'l) circuit) name lhss rhss =
   let n = MAX (maxn lhss) (maxn rhss) in
     (* (lhss ⇒ rhss) ⇔ (¬lhss ∨ rhss) ⇔ ¬(lhss ∧ ¬rhss) *)
-    (INL (Ext name), [(Name (INR (n+2)), T)]) (* ¬(lhss ∧ ¬rhss) *)
-    ::(INR (n+2), [(Name (INR n), F); (Name (INR (n+1)), T)]) (* lhss ∧ ¬rhss *)
-    ::(INR (n+1), rhss)::(INR n, lhss)::circ
+    (Named (Ext name), [(Name (Anon (n+2)), T)]) (* ¬(lhss ∧ ¬rhss) *)
+    ::(Anon (n+2), [(Name (Anon n), F); (Name (Anon (n+1)), T)]) (* lhss ∧ ¬rhss *)
+    ::(Anon (n+1), rhss)::(Anon n, lhss)::circ
 End
 
-Theorem eval_circuit_encode_imply_INL:
-  eval_circuit ss (encode_imply circ name lhss rhss) (INL n) =
+Theorem eval_circuit_encode_imply:
+  eval_circuit ss (encode_imply circ name lhss rhss) (Named n) =
   if n = Ext name then
     (EVERY (eval_lit ss circ) lhss) ⇒ (EVERY (eval_lit ss circ) rhss)
-  else eval_circuit ss circ (INL n)
+  else eval_circuit ss circ (Named n)
 Proof
   eq_tac
   >> rw [encode_imply_def, eval_circuit_def, EVERY_MEM, EXISTS_MEM]
   >> gvs []
-  >- metis_tac [MEM_neq_iname_maxn, eval_lit_INR_neq]
+  >- metis_tac [MEM_neq_iname_maxn, eval_lit_Anon_neq]
   >> Cases_on ‘∃e. MEM e lhss ∧ ¬eval_lit ss circ e’ >> simp []
   >> fs []
   >> qpat_x_assum ‘∀e. ¬MEM e lhss ∨ _’ $
@@ -460,35 +466,35 @@ Proof
   >> first_x_assum dxrule >> rw []
   >> rename1 ‘eval_lit _ _ e’
   >> Cases_on ‘¬MEM e rhss’ >> gvs []
-  >> metis_tac [MEM_neq_iname_maxn, eval_lit_INR_neq]
+  >> metis_tac [MEM_neq_iname_maxn, eval_lit_Anon_neq]
 QED
 
 (* Encoding point-wise equivalence ********************************************)
 
 Definition encode_equiv_aux_def:
-  (encode_equiv_aux (n: num) [] = [(INR n, [])]: ('a iext,'i,'l) circuit) ∧
+  (encode_equiv_aux (n: num) [] = [(Anon n, [])]: ('a iext,'i,'l) circuit) ∧
   (encode_equiv_aux n (xy::xys) =
    let (x, y) = xy in [
-    (INR n, [
-        (Name (INR (n + 1)), T);
-        (Name (INR (n + 2)), T);
-        (Name (INR (n + 3)), F)
+    (Anon n, [
+        (Name (Anon (n + 1)), T);
+        (Name (Anon (n + 2)), T);
+        (Name (Anon (n + 3)), F)
       ]);
-    (INR (n + 1), [x; not y]);
-    (INR (n + 2), [not x; y]);
+    (Anon (n + 1), [x; not y]);
+    (Anon (n + 2), [not x; y]);
    ] ++ encode_equiv_aux (n + 3) xys)
 End
 
 Definition encode_equiv_def:
   encode_equiv (circ: ('a iext, 'i, 'l) circuit) name xys =
     let n = MAX (maxn (MAP FST xys)) (maxn (MAP SND xys)) in
-      ((INL (Ext name), [(Name (INR n), F)])::encode_equiv_aux n xys) ++ circ
+      ((Named (Ext name), [(Name (Anon n), F)])::encode_equiv_aux n xys) ++ circ
 End
 
-Theorem eval_circuit_encode_equiv_aux_INL[local,simp]:
+Theorem eval_circuit_encode_equiv_aux_Named[local,simp]:
   ∀xys n.
-    eval_circuit ss (encode_equiv_aux n xys ++ circ) (INL out) ⇔
-    eval_circuit ss circ (INL out)
+    eval_circuit ss (encode_equiv_aux n xys ++ circ) (Named out) ⇔
+    eval_circuit ss circ (Named out)
 Proof
   Induct
   >> rw [encode_equiv_aux_def, eval_circuit_def]
@@ -504,13 +510,13 @@ Theorem eval_lit_encode_equiv_aux_neq:
 Proof
   Induct >> rw [encode_equiv_aux_def]
   >> rpt (pairarg_tac >> gvs [])
-  >> simp [eval_lit_INR_neq]
+  >> simp [eval_lit_Anon_neq]
 QED
 
-Theorem eval_circuit_encode_equiv_aux_INR_eq:
+Theorem eval_circuit_encode_equiv_aux_Anon_eq:
   ∀xys n.
     EVERY (λ(x, y). iname x < n ∧ iname y < n) xys ⇒
-    (eval_circuit ss (encode_equiv_aux n xys ++ circ) (INR n) ⇔
+    (eval_circuit ss (encode_equiv_aux n xys ++ circ) (Anon n) ⇔
     EVERY (λ(x,y). eval_lit ss circ x ⇔ eval_lit ss circ y) xys)
 Proof
   Cases_on ‘ss’
@@ -518,7 +524,7 @@ Proof
   >> rw [encode_equiv_aux_def, eval_circuit_def]
   >> rpt (pairarg_tac >> gvs [])
   >> simp [eval_circuit_def]
-  >> DEP_REWRITE_TAC [eval_lit_INR_neq]
+  >> DEP_REWRITE_TAC [eval_lit_Anon_neq]
   >> conj_tac >- simp []
   >> DEP_REWRITE_TAC [eval_lit_encode_equiv_aux_neq]
   >> conj_tac >- simp []
@@ -533,14 +539,14 @@ Proof
   >> metis_tac [eval_lit_not]
 QED
 
-Theorem eval_circuit_encode_equiv_INL:
-  eval_circuit ss (encode_equiv circ name xys) (INL n) =
+Theorem eval_circuit_encode_equiv_Named:
+  eval_circuit ss (encode_equiv circ name xys) (Named n) =
   if n = Ext name then
     EVERY (λ(x,y). eval_lit ss circ x ⇔ eval_lit ss circ y) xys
-  else eval_circuit ss circ (INL n)
+  else eval_circuit ss circ (Named n)
 Proof
   Cases_on ‘ss’ >> rw [eval_circuit_def, encode_equiv_def]
-  >> irule eval_circuit_encode_equiv_aux_INR_eq
+  >> irule eval_circuit_encode_equiv_aux_Anon_eq
   >> rw [maxn_def, EVERY_MEM]
   >> rpt (pairarg_tac >> gvs [])
   >> ‘MEM (iname x) (MAP iname (MAP FST xys)) ∧
@@ -549,7 +555,17 @@ Proof
   >> imp_res_tac MAX_LIST_PROPERTY >> simp []
 QED
 
-Theorem eval_circuit_encode_equiv_iext_lit[simp]:
+Theorem eval_lit_encode_equiv_Named:
+  eval_lit ss (encode_equiv circ name xys) (Name (Named n), b) =
+  if n = Ext name then
+    b ⇎ EVERY (λ(x,y). eval_lit ss circ x ⇔ eval_lit ss circ y) xys
+  else eval_lit ss circ (Name (Named n), b)
+Proof
+  simp [eval_circuit_def, eval_circuit_encode_equiv_Named]
+  >> IF_CASES_TAC >> gvs []
+QED
+
+Theorem eval_lit_encode_equiv_iext_lit[simp]:
   eval_lit ss (encode_equiv circ name xys) (iext_lit n) =
   eval_lit ss circ (iext_lit n)
 Proof
@@ -594,14 +610,14 @@ Proof
   >> rw [] >> gvs []
 QED
 
-Theorem eval_circuit_encode_is_reset_INL:
-  eval_circuit ss (encode_is_reset circ name reset ls) (INL n) =
+Theorem eval_circuit_encode_is_reset_Named:
+  eval_circuit ss (encode_is_reset circ name reset ls) (Named n) =
   if n = Ext name then
     is_reset ss circ reset (set ls)
-  else eval_circuit ss circ (INL n)
+  else eval_circuit ss circ (Named n)
 Proof
   Cases_on ‘ss’
-  >> rw [eval_circuit_def, encode_is_reset_def, eval_circuit_encode_equiv_INL]
+  >> rw [eval_circuit_def, encode_is_reset_def, eval_circuit_encode_equiv_Named]
   >> simp [is_reset_def]
   >> eq_tac >> rw []
   >-
@@ -615,13 +631,13 @@ Proof
   >> gvs [MEM_latch_reset_pairs_eq]
 QED
 
-Theorem eval_lit_encode_is_reset_INL:
-  eval_lit ss (encode_is_reset circ name reset ls) (Name (INL n),F) =
+Theorem eval_lit_encode_is_reset_Named:
+  eval_lit ss (encode_is_reset circ name reset ls) (Name (Named n),F) =
   if n = Ext name then
     is_reset ss circ reset (set ls)
-  else eval_lit ss circ (Name (INL n),F)
+  else eval_lit ss circ (Name (Named n),F)
 Proof
-  simp [eval_circuit_def, eval_circuit_encode_is_reset_INL]
+  simp [eval_circuit_def, eval_circuit_encode_is_reset_Named]
 QED
 
 (* Encoding preds_hold ********************************************************)
@@ -629,12 +645,12 @@ QED
 Definition encode_preds_hold_def:
   encode_preds_hold
     (circ: ('a iext, 'i, 'l) circuit) name (lits: ('a iext,'i,'l) lit list) =
-  (INL (Ext name), lits)::circ
+  (Named (Ext name), lits)::circ
 End
 
-Theorem eval_lit_encode_preds_hold_INL:
+Theorem eval_lit_encode_preds_hold_Named:
   eval_lit ss (encode_preds_hold circ name lits) (n,F) =
-  if n = Name (INL (Ext name)) then
+  if n = Name (Named (Ext name)) then
     preds_hold ss circ (set lits)
   else eval_lit ss circ (n,F)
 Proof
@@ -643,11 +659,11 @@ Proof
   >> TOP_CASE_TAC >> gvs []
 QED
 
-Theorem eval_circuit_encode_preds_hold_INL:
-  eval_circuit ss (encode_preds_hold circ name lits) (INL n) =
+Theorem eval_circuit_encode_preds_hold_Named:
+  eval_circuit ss (encode_preds_hold circ name lits) (Named n) =
   if n = Ext name then
     preds_hold ss circ (set lits)
-  else eval_circuit ss circ (INL n)
+  else eval_circuit ss circ (Named n)
 Proof
   simp [encode_preds_hold_def, eval_circuit_def, preds_hold_def, EVERY_MEM]
   >> IF_CASES_TAC >> simp []
@@ -681,20 +697,114 @@ Definition iright_name_lits_def:
   iright_name_lits = MAP (iext_lit ∘ right_name_lit)
 End
 
+Definition left_next_def:
+  left_next next = left_name_lit ∘ next
+End
+
+Definition right_next_def:
+  right_next next = right_name_lit ∘ next
+End
+
 Definition imerge_circuits_def:
   imerge_circuits circ₀ circ₁ = iext_circuit (merge_circuits circ₀ circ₁)
 End
 
-Definition ipair_circuits_def:
-  ipair_circuits circ₀ circ₁ = iext_circuit (pair_circuits circ₀ circ₁)
+(* Pairing iext circuits ******************************************************)
+(* Pushes the intermediates out: 'a iext + 'b iext becomes ('a + 'b) iext *)
+
+Definition map_iext_orig_def:
+  map_iext_orig f (Named (Orig a)) = Named (Orig (f a)) ∧
+  map_iext_orig f (Named (Ext s))  = Named (Ext s) ∧
+  map_iext_orig f (Anon n)         = Anon n
 End
 
-Theorem eval_lit_ipair_circuits[simp]:
-  eval_lit ss (ipair_circuits circ₀ circ₁) (iext_lit lit) ⇔
-    eval_lit ss (pair_circuits circ₀ circ₁) lit
+Definition collapse_iext_name_def:
+  collapse_iext_name (INL x) = map_iext_orig INL x ∧
+  collapse_iext_name (INR x) = map_iext_orig INR x
+End
+
+Definition collapse_iext_var_def:
+  (collapse_iext_var (Name n)  = Name (collapse_iext_name n)) ∧
+  (collapse_iext_var (Base bv) = Base bv)
+End
+
+Definition collapse_iext_lit_def:
+  collapse_iext_lit (v, b) = (collapse_iext_var v, b)
+End
+
+Definition collapse_iext_and_def:
+  collapse_iext_and (n, ins) = (collapse_iext_name n, MAP collapse_iext_lit ins)
+End
+
+Definition collapse_iext_def:
+  collapse_iext (circ: ('a iext + 'b iext, 'i, 'l) circuit)
+    : (('a + 'b) iext, 'i, 'l) circuit
+  =
+  MAP collapse_iext_and circ
+End
+
+Definition pair_icircuits_def:
+  pair_icircuits circ₀ circ₁ = collapse_iext (pair_circuits circ₀ circ₁)
+End
+
+Theorem pair_icircuits_left_nil_right_cons:
+  pair_icircuits [] (a::circ) =
+  collapse_iext_and (right_and a)::(pair_icircuits [] circ)
 Proof
-  simp [ipair_circuits_def]
+  simp [pair_icircuits_def, pair_circuits_def, collapse_iext_def]
 QED
+
+Theorem pair_icircuits_left_cons:
+  pair_icircuits (a::circ₁) circ₂ =
+  collapse_iext_and (left_and a)::(pair_icircuits circ₁ circ₂)
+Proof
+  simp [pair_icircuits_def, pair_circuits_left_cons, collapse_iext_def]
+QED
+
+(* Unpairing circuits *********************************************************)
+(* Used to write more generic theorems for encodings such as is_next. *)
+
+Definition get_left_lits_def:
+  (get_left_lits ([]: (('a + 'b) iext, 'i + 'j, 'l + 'k) lit list) =
+     []: ('a, 'i, 'l) lit list) ∧
+  (get_left_lits ((v,b)::xs) =
+   case v of
+   | Name (Named (Orig (INL n)))   => (Name n,b)::get_left_lits xs
+   | Base (Input (INL i))          => (Base (Input i), b)::get_left_lits xs
+   | Base (Latch (INL l))          => (Base (Latch l), b)::get_left_lits xs
+   | Base Ff                       => (Base Ff, b)::get_left_lits xs
+   | _                             => get_left_lits xs)
+End
+
+Definition get_left_circuit_def:
+  (get_left_circuit ([]: (('a + 'b) iext, 'i + 'j, 'l + 'k) circuit) =
+     []: ('a, 'i, 'l) circuit) ∧
+  (get_left_circuit ((n,ins)::xs) =
+   case n of
+   | Named (Orig (INL n)) => (n, get_left_lits ins)::get_left_circuit xs
+   | _ => get_left_circuit xs)
+End
+
+Definition get_right_lits_def:
+  (get_right_lits ([]: (('a + 'b) iext, 'i + 'j, 'l + 'k) lit list) =
+     []: ('b, 'j, 'k) lit list) ∧
+  (get_right_lits ((v,b)::xs) =
+   case v of
+   | Name (Named (Orig (INR n)))   => (Name n,b)::get_right_lits xs
+   | Base (Input (INR i))          => (Base (Input i), b)::get_right_lits xs
+   | Base (Latch (INR l))          => (Base (Latch l), b)::get_right_lits xs
+   | Base Ff                       => (Base Ff, b)::get_right_lits xs
+   | _                             => get_right_lits xs)
+End
+
+Definition get_right_circuit_def:
+  (get_right_circuit ([]: (('a + 'b) iext, 'i + 'j, 'l + 'k) circuit) =
+     []: ('b, 'j, 'k) circuit) ∧
+  (get_right_circuit ((n,ins)::xs) =
+   case n of
+   | Named (Orig (INR n)) => (n, get_right_lits ins)::get_right_circuit xs
+   | _ => get_right_circuit xs)
+End
 
 (* Encoding is_next ***********************************************************)
 
@@ -706,23 +816,65 @@ Definition encode_is_next_def:
     (latches: 'l list)
   =
   encode_equiv circ name
-    (ZIP (MAP (iext_lit ∘ left_lit ∘ next) latches,
-          MAP (λl. iext_lit (right_lit (Base (Latch l), F))) latches))
+    (MAP (λl. (iext_lit (left_lit (next l)),
+               iext_lit (right_lit (Base (Latch l), F)))) latches)
 End
 
-Theorem eval_circuit_encode_is_next_INL:
-  eval_circuit (pair_state ss₀ ss₁)
-    (encode_is_next (ipair_circuits circ₀ circ₁) name next latches) (INL n) =
-  if n = Ext name then
-    is_next ss₀ circ₀ next (set latches) (SND ss₁)
-  else eval_circuit (pair_state ss₀ ss₁) (ipair_circuits circ₀ circ₁) (INL n)
-Proof
-  simp [encode_is_next_def, eval_circuit_encode_equiv_INL]
-  >> IF_CASES_TAC >> simp []
-  >> simp [is_next_def, EVERY_MEM, MEM_ZIP, MEM_EL, EL_MAP, PULL_EXISTS]
-  >> PairCases_on ‘ss₁’
-  >> simp [eval_circuit_def, eval_bvar_def]
-QED
+(* Theorem eval_lit_pair_left_nil_left[local]: *)
+
+(* Proof *)
+(* QED *)
+
+
+(* Theorem eval_lit_get_left_circuit: *)
+(*   ∀n m. *)
+(*     (eval_lit (pair_state ss₀ ss₁) circ (iext_lit (left_lit m)) ⇔ *)
+(*        eval_lit ss₀ (get_left_circuit circ) m) ∧ *)
+(*     (eval_circuit (pair_state ss₀ ss₁) circ (Named (Orig (INL n))) ⇔ *)
+(*        eval_circuit ss₀ (get_left_circuit circ) n) *)
+(* Proof *)
+(*   Induct_on ‘circ’ >> rw [] *)
+(*   (* >- simp [get_left_circuit_def] *) *)
+(*   (* >- simp [get_left_circuit_def] *) *)
+(*   (* >> conj_tac *) *)
+(*   (* Induct_on ‘circ’ *) *)
+(*   (* >- *) *)
+(*   (*  (simp [get_left_circuit_def] *) *)
+(*   (*   >> namedCases_on ‘lit’ ["v b"] >> simp [left_lit_def] *) *)
+(*   (*   >> namedCases_on ‘v’ ["n", "bvar"] *) *)
+(*   (*   >> simp [left_var_def, iext_lit_def, iext_var_def, eval_circuit_def] *) *)
+(*   (*   >> simp [oneline left_bvar_def, oneline pair_state_def] *) *)
+(*   (*   >> rpt TOP_CASE_TAC *) *)
+(*   (*   >> simp [eval_circuit_def, pair_state_def]) *) *)
+(*   (* >> simp [get_left_circuit_def] *) *)
+(*   (* >> namedCases_on ‘lit’ ["v b"] >> simp [left_lit_def] *) *)
+(*   (* >> namedCases_on ‘v’ ["n", "bvar"] *) *)
+(*   (* >> simp [left_var_def, iext_lit_def, iext_var_def, eval_circuit_def] *) *)
+(*   (* >> simp [oneline left_bvar_def, oneline pair_state_def] *) *)
+(*   (* >> rpt TOP_CASE_TAC *) *)
+(*   (* >> simp [eval_circuit_def, pair_state_def] *) *)
+(* QED *)
+
+(* Theorem eval_lit_get_right_circuit: *)
+(*   eval_lit (pair_state ss₀ ss₁) circ (iext_lit (right_lit lit)) ⇔ *)
+(*     eval_lit ss₁ (get_right_circuit circ) lit *)
+(* Proof *)
+(*   cheat *)
+(* QED *)
+
+(* Theorem eval_circuit_encode_is_next_Named: *)
+(*   eval_circuit (pair_state ss₀ ss₁) *)
+(*     (encode_is_next circ name next latches) (Named n) = *)
+(*   if n = Ext name then *)
+(*     is_next ss₀ (get_left_circuit circ) next (set latches) (SND ss₁) *)
+(*   else eval_circuit (pair_state ss₀ ss₁) circ (Named n) *)
+(* Proof *)
+(*   simp [encode_is_next_def, eval_circuit_encode_equiv_Named, is_next_def] *)
+(*   >> IF_CASES_TAC >> gvs [] *)
+(*   >> simp [EVERY_MEM, MEM_ZIP, PULL_EXISTS, EL_MAP, MEM_EL] *)
+(*   >> simp [eval_lit_get_left_circuit, eval_lit_get_right_circuit] *)
+(*   >> PairCases_on ‘ss₁’ >> simp [eval_circuit_def] *)
+(* QED *)
 
 (* Encoding certificate conditions ********************************************)
 
@@ -744,8 +896,12 @@ Definition encode_is_witness_reset_def:
     klatches = list_inter mlatches wlatches;
     circ = encode_is_reset circ «wreset» (iright_reset wreset) klatches;
     circ = encode_preds_hold circ «wcnstrs» (iright_name_lits wcnstrs);
-    lhss = [(Name (INL (Ext «mreset»)), F); (Name (INL (Ext «mcnstrs»)), F)];
-    rhss = [(Name (INL (Ext «wreset»)), F); (Name (INL (Ext «wcnstrs»)), F)];
+    lhss =
+      [(Name (Named (Ext «mreset»)), F);
+       (Name (Named (Ext «mcnstrs»)), F)];
+    rhss =
+      [(Name (Named (Ext «wreset»)), F);
+       (Name (Named (Ext «wcnstrs»)), F)];
   in
     encode_imply circ «reset» lhss rhss
 End
@@ -753,15 +909,36 @@ End
 Definition encode_is_witness_transition_def:
   encode_is_witness_transition
     (mcirc: ('a, 'i, 'l) circuit)
-    (mreset: 'l -> ('a, 'i, 'l) lit option)
+    (mnext: 'l -> ('a, 'i, 'l) lit)
     (mcnstrs: ('a, 'i, 'l) lit list)
     (mlatches: 'l list)
     (wcirc: ('b, 'i, 'l) circuit)
-    (wreset: 'l -> ('b, 'i, 'l) lit option)
+    (wnext: 'l -> ('b, 'i, 'l) lit)
     (wcnstrs: ('b, 'i, 'l) lit list)
     (wlatches: 'l list)
   =
-    ARB
+  let
+    circ₀ = imerge_circuits mcirc wcirc;
+    circ₀ = encode_preds_hold circ₀ «mcnstrs0» (ileft_name_lits mcnstrs);
+    circ₀ = encode_preds_hold circ₀ «wcnstrs0» (iright_name_lits wcnstrs);
+    circ₁ = imerge_circuits mcirc wcirc;
+    circ₁ = encode_preds_hold circ₁ «mcnstrs1» (ileft_name_lits mcnstrs);
+    circ₁ = encode_preds_hold circ₁ «wcnstrs1» (iright_name_lits wcnstrs);
+    circ  = pair_icircuits circ₀ circ₁;
+    circ  = encode_is_next circ «mnext» (left_next mnext) mlatches;
+    klatches = list_inter mlatches wlatches;
+    circ  = encode_is_next circ «wnext» (right_next wnext) klatches;
+    lhss  =
+      [(Name (Named (Ext «mnext»)), F);
+       (Name (Named (Ext «mcnstrs0»)), F);
+       (Name (Named (Ext «mcnstrs1»)), F);
+       (Name (Named (Ext «wcnstrs0»)), F);
+      ];
+    rhss  =
+      [(Name (Named (Ext «wnext»)), F);
+       (Name (Named (Ext «wcnstrs0»)), F)];
+  in
+    encode_imply circ «transition» lhss rhss
 End
 
 (* Proving correctness of the encodings ***************************************)
@@ -853,16 +1030,34 @@ Theorem eval_circuit_encode_is_witness_reset:
        (encode_is_witness_reset
           mcirc mreset mcnstrs mlatches
           wcirc wreset wcnstrs wlatches)
-       (INL (Ext «reset»)))) =
+       (Named (Ext «reset»)))) =
   is_witness_reset
     mcirc mreset mnext mpreds (set mcnstrs) (set mlatches)
     wcirc wreset wnext wpreds (set wcnstrs) (set wlatches)
 Proof
   simp [
       is_witness_reset_def, encode_is_witness_reset_def,
-      eval_circuit_encode_imply_INL,
-      eval_lit_encode_preds_hold_INL,
-      eval_lit_encode_is_reset_INL,
+      eval_circuit_encode_imply,
+      eval_lit_encode_preds_hold_Named,
+      eval_lit_encode_is_reset_Named,
       list_inter_set
     ]
+QED
+
+Theorem eval_circuit_encode_is_witness_transition:
+  (∀ss.
+     (eval_circuit ss
+       (encode_is_witness_transition
+          mcirc mnext mcnstrs mlatches
+          wcirc wnext wcnstrs wlatches)
+       (Named (Ext «transition»)))) =
+  is_witness_transition
+    mcirc mreset mnext mpreds (set mcnstrs) (set mlatches)
+    wcirc wreset wnext wpreds (set wcnstrs) (set wlatches)
+Proof
+  simp [
+      encode_is_witness_transition_def,
+
+    ]
+  >> cheat
 QED

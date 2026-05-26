@@ -89,6 +89,21 @@ Definition pair_state_def:
     ((λi. sum_CASE i is₁ is₂), (λl. sum_CASE l ls₁ ls₂))
 End
 
+Theorem pair_state_surj:
+  ∀s. ∃s₁ s₂. s = pair_state s₁ s₂
+Proof
+  namedCases ["is ls"]
+  >> qexistsl_tac [‘(is ∘ INL, ls ∘ INL)’, ‘(is ∘ INR, ls ∘ INR)’]
+  >> simp [pair_state_def, FUN_EQ_THM]
+  >> conj_tac >> Cases >> simp []
+QED
+
+Theorem FORALL_PAIR_STATE:
+  (∀s. P s) ⇔ (∀s₁ s₂. P (pair_state s₁ s₂))
+Proof
+  metis_tac [pair_state_surj]
+QED
+
 Definition preds_hold_def:
   preds_hold ss (circ: ('a, 'i, 'l) circuit)
     (ns: ('a,'i,'l) lit set) =
