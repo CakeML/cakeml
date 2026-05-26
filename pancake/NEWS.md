@@ -4,6 +4,7 @@ Pancake Changelog
 User-facing changes to the Pancake language and compiler are
 documented here when they are merged into `master`.
 
+
 May 26th 2026
 -------------------
 
@@ -24,6 +25,7 @@ Syntax example:
 
 Permitted positions for `__add_with_carry__` are declaration RHS and assignment RHS;
 standalone, handler-attached, and tail-return calls are not supported.
+
 
 May 21st 2026
 -------------------
