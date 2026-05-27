@@ -20,6 +20,15 @@ val cpn_nchotomy = TypeBase.nchotomy_of “:ordering”
 val strip_d1 = CONV_TAC (REWR_CONV (DECIDE “p ∨ q ⇔ ¬p ⇒ q”)) THEN strip_tac
 val strip_d2 = CONV_TAC (REWR_CONV (DECIDE “p ∨ q ⇔ ¬q ⇒ p”)) THEN strip_tac
 
+fun pat_conj q =
+    underAIs (fn thm =>
+      let val pat = Term q
+          val trypat = can (find_term (can (match_term pat))) o concl
+      in
+        hd (filter trypat (CONJUNCTS thm))
+        handle _ => raise ERR "pat_conj" "no matching conjunct"
+      end)
+
 Theorem term_ok'_imp_term_ok:
   ∀tm. term_ok' thy tm ⇒ term_ok (thy.ctys,thy.ctms) tm
 Proof
@@ -353,11 +362,23 @@ Proof
   >- (gvs[esubst_ty0_def, bind_EQ_return, term_ok'_def]
       >> simp[esubst_tm_def, term_ok'_def]
       >> rpt conj_tac
-      >- metis_tac[term_ok'_imp_term_ok, term_ok_welltyped]
-      >- metis_tac[term_ok'_imp_term_ok, term_ok_welltyped]
-      >> Cases_on `σ` >> rename1 `(σty, σtm)`
-      >> metis_tac[typeof_esubst_ty, typeof_esubst_tm_esubst_ty0,
-                   term_ok'_imp_term_ok, ty_esubst_fun])
+      >- (irule term_ok_welltyped >> rev_drule term_ok'_imp_term_ok
+          >> disch_then $ irule_at Any)
+      >- (irule term_ok_welltyped >> last_x_assum kall_tac
+          >> rev_drule term_ok'_imp_term_ok >> disch_then $ irule_at Any)
+      >> Cases_on ‘σ’ >> rename1 ‘(σty, σtm)’
+      >> DEP_REWRITE_TAC[typeof_esubst_tm_esubst_ty0]
+      >> conj_tac
+      >- (conj_tac >> rpt $ first_x_assum $ irule_at Any >> simp[term_ok'_imp_term_ok]
+          >> rpt strip_tac >> first_x_assum drule >> simp[DISJ_IMP_THM, FORALL_AND_THM, PULL_EXISTS])
+      >> imp_res_tac term_ok'_imp_term_ok
+      >> `typeof t1' = ty_esubst (σty,σtm) (typeof t1)` by (
+        irule typeof_esubst_ty >> rpt $ first_x_assum $ irule_at Any
+        >> rpt strip_tac >> first_x_assum drule >> simp[DISJ_IMP_THM, FORALL_AND_THM, PULL_EXISTS])
+      >> `typeof t2' = ty_esubst (σty,σtm) (typeof t2)` by (
+        irule typeof_esubst_ty >> rpt $ first_x_assum $ irule_at Any
+        >> rpt strip_tac >> first_x_assum drule >> simp[DISJ_IMP_THM, FORALL_AND_THM, PULL_EXISTS])
+      >> simp[ty_esubst_fun, SF SFY_ss])
   (* Abs *)
   >> gvs[term_ok'_def, esubst_ty0_def, bind_EQ_return, bind_EQ_error, try_eq_return]
   >- (simp[esubst_tm_def, term_ok'_def]
@@ -684,11 +705,344 @@ Proof
   >> metis_tac[]
 QED
 
-Theorem init_axioms_ok:
-  axioms_ok (ethyof init_ectxt) (axsof' init_ectxt) ∧
-  axioms_ok (ethyof init_ectxt) (eaxsof init_ectxt)
+(* ---- Weakening lemmas (workhorses for every remaining case) ---- *)
+
+Theorem type_ok_FUPDATE_fresh:
+  ∀tys name a ty.
+    type_ok tys ty ∧ name ∉ FDOM tys ⇒
+    type_ok (tys |+ (name, a)) ty
 Proof
-  rw[axioms_ok_def, init_ectxt_def, conexts_of_upd'_def]
+  ntac 3 gen_tac >> Induct using type_ind >> rw[type_ok_def]
+  >> fs[EVERY_MEM, FLOOKUP_FUPDATE] >> case_tac >> fs[FDOM_FLOOKUP]
+QED
+
+Theorem term_ok'_tys_FUPDATE_fresh:
+  ∀thy name a p.
+    term_ok' thy p ∧
+    name ∉ FDOM thy.tys ∧
+    name ∉ FDOM thy.etys ⇒
+    term_ok' (thy with tys := thy.tys |+ (name, a)) p
+Proof
+  ntac 3 gen_tac >> Induct >> rw[term_ok'_def, ctys_def, ctms_def]
+  >> simp[FUNION_FUPDATE_1, type_ok_FUPDATE_fresh]
+  >> metis_tac[]
+QED
+
+Theorem term_ok'_tms_FUPDATE_fresh:
+  ∀thy name ty p.
+    term_ok' thy p ∧
+    name ∉ FDOM thy.tms ∧
+    name ∉ FDOM thy.etms ⇒
+    term_ok' (thy with tms := thy.tms |+ (name, ty)) p
+Proof
+  ntac 3 gen_tac >> Induct >> rw[term_ok'_def, ctys_def, ctms_def]
+  >> simp[FUNION_FUPDATE_1, type_ok_FUPDATE_fresh, FLOOKUP_FUPDATE]
+  >> case_tac >> fs[FDOM_FLOOKUP] >> gvs[FLOOKUP_FUNION, AllCaseEqs()]
+  >> metis_tac[]
+QED
+
+Theorem term_ok'_etys_FUPDATE_fresh:
+  ∀thy name p.
+    term_ok' thy p ∧ name ∉ FDOM thy.etys ⇒
+    term_ok' (thy with etys := thy.etys |+ (name, 0)) p
+Proof
+  ntac 2 gen_tac >> Induct >> rw[term_ok'_def, ctys_def, ctms_def]
+  >> simp[FUNION_FUPDATE_2, type_ok_FUPDATE_fresh]
+  >> case_tac >> fs[FDOM_FLOOKUP] >> gvs[FLOOKUP_FUNION, AllCaseEqs()]
+  >> simp[type_ok_FUPDATE_fresh, FDOM_FLOOKUP, SF SFY_ss]
+  >> simp[type_ok_FUPDATE_fresh, FDOM_FLOOKUP, FLOOKUP_FUNION, AllCaseEqs()]
+  >> metis_tac[type_ok_FUPDATE_fresh, FDOM_FLOOKUP]
+QED
+
+Theorem term_ok'_etms_FUPDATE_fresh:
+  ∀thy name ty p.
+    term_ok' thy p ∧ name ∉ FDOM thy.etms ⇒
+    term_ok' (thy with etms := thy.etms |+ (name, ty)) p
+Proof
+  rw[] >> irule term_ok'_ctms_ctys_subset
+  >> first_x_assum $ irule_at Any
+  >> simp[ctys_def, ctms_def, SUBMAP_FUNION_mono_r]
+QED
+
+Theorem term_ok'_tms_FUNION_fresh:
+  ∀thy alist p.
+    term_ok' thy p ∧
+    (∀s. MEM s (MAP FST alist) ⇒ s ∉ FDOM thy.tms) ∧
+    (∀s. MEM s (MAP FST alist) ⇒ s ∉ FDOM thy.etms) ⇒
+    term_ok' (thy with tms := alist_to_fmap alist ⊌ thy.tms) p
+Proof
+  rw[] >> irule term_ok'_ctms_ctys_subset
+  >> first_x_assum $ irule_at Any
+  >> rw[ctys_def, ctms_def, FUNION_ASSOC]
+  >> rw[SUBMAP_DEF, FUNION_DEF, FDOM_FUNION, FDOM_alist_to_fmap]
+  >> simp[] >> rpt (IF_CASES_TAC >> gvs[]) >> res_tac
+QED
+
+Theorem term_ok'_typedefn_extend:
+  ∀thy name n abs rep abs_ty rep_ty p.
+    term_ok' thy p ∧
+    name ∉ FDOM thy.tys ∧ name ∉ FDOM thy.etys ∧
+    abs  ∉ FDOM thy.tms ∧ abs  ∉ FDOM thy.etms ∧
+    rep  ∉ FDOM thy.tms ∧ rep  ∉ FDOM thy.etms ∧
+    abs ≠ rep ⇒
+    term_ok'
+    (thy with <| tys := thy.tys |+ (name, n);
+                 tms := thy.tms |+ (abs, abs_ty) |+ (rep, rep_ty) |>) p
+Proof
+  rw[] >> irule term_ok'_ctms_ctys_subset
+  >> first_x_assum $ irule_at Any
+  >> rw[ctys_def, ctms_def, FUNION_FUPDATE_1]
+  >> rw[SUBMAP_DEF, FDOM_FUPDATE, FAPPLY_FUPDATE_THM, FDOM_FUNION]
+  >> rpt (IF_CASES_TAC >> gvs[])
+  >> metis_tac[FDOM_FUPDATE, IN_INSERT]
+QED
+
+Theorem theory_ok'_tys_FUPDATE:
+  ∀thy name n.
+    theory_ok' thy ∧ name ∉ FDOM thy.tys ∧ name ∉ FDOM thy.etys ⇒
+    theory_ok' (thy with tys := thy.tys |+ (name, n))
+Proof
+  rw[theory_ok'_def, type_ok_FUPDATE_fresh, ctys_def, FUNION_FUPDATE_1]
+  >- (irule term_ok'_ctms_ctys_subset >> first_x_assum drule >> strip_tac
+      >> first_x_assum $ irule_at Any >> simp[ctys_def, ctms_def, FUNION_FUPDATE_1])
+  >- (irule term_ok'_ctms_ctys_subset >> first_x_assum drule >> strip_tac
+      >> first_x_assum $ irule_at Any >> simp[ctys_def, ctms_def, FUNION_FUPDATE_1])
+  >> fs[sigof'_def] >> irule is_std_sig_extend >> first_x_assum $ irule_at Any
+  >> simp[FUNION_FUPDATE_1]
+QED
+
+Theorem theory_ok'_tms_FUPDATE:
+  ∀thy c ty.
+    theory_ok' thy ∧ c ∉ FDOM thy.tms ∧ c ∉ FDOM thy.etms ∧ type_ok thy.tys ty ⇒
+    theory_ok' (thy with tms := thy.tms |+ (c, ty))
+Proof
+  rw[theory_ok'_def, type_ok_FUPDATE_fresh, ctys_def, FUNION_FUPDATE_1] >> simp[]
+  >- (last_x_assum $ irule_at Any >> irule $ iffLR SUBSET_DEF >> first_x_assum $ irule_at Any
+      >> simp[FRANGE_DOMSUB_SUBSET])
+  >- (irule term_ok'_ctms_ctys_subset >> first_x_assum drule >> strip_tac
+      >> first_x_assum $ irule_at Any >> simp[ctys_def, ctms_def, FUNION_FUPDATE_1])
+  >- (irule term_ok'_ctms_ctys_subset >> first_x_assum drule >> strip_tac
+      >> first_x_assum $ irule_at Any >> simp[ctys_def, ctms_def, FUNION_FUPDATE_1])
+  >> fs[sigof'_def] >> irule is_std_sig_extend >> first_x_assum $ irule_at Any
+  >> simp[FUNION_FUPDATE_1]
+QED
+
+(* ---- type_ok FRANGE helper used in ConstSpec ---- *)
+
+Theorem type_ok_FRANGE_alist_typeof:
+  ∀tys eqs.
+    (∀s t. MEM (s,t) eqs ⇒ type_ok tys (typeof t)) ⇒
+    ∀ty. ty ∈ FRANGE (alist_to_fmap (MAP (λ(s,t). (s, typeof t)) eqs)) ⇒
+         type_ok tys ty
+Proof
+  rpt strip_tac >> irule $ INST_TYPE [“:'a” |-> “:type”, “:'b” |-> “:'a”] IN_FRANGE_alist_to_fmap_suff
+  >> simp[MEM_MAP, SND, PAIR, FORALL_PROD, EXISTS_PROD, PULL_EXISTS]
+  >> first_x_assum $ irule_at Any >> simp[MEM_MAP, SND, PAIR, FORALL_PROD, EXISTS_PROD, PULL_EXISTS]
+  >> rpt strip_tac >> first_x_assum drule >> simp[]
+QED
+
+Theorem proves'_theory_ok':
+  ∀thy es h c. (thy,es,h) |-' c ⇒ theory_ok' thy
+Proof
+  Induct_on ‘$|-'’ >> rw[theory_ok'_esubst]
+QED
+
+Theorem term_ok'_welltyped:
+  ∀thy t. term_ok' thy t ⇒ welltyped t
+Proof
+  rpt strip_tac >> dxrule term_ok'_imp_term_ok >> simp[term_ok_welltyped, SF SFY_ss]
+QED
+
+Theorem theory_ok'_is_std_sig_ext:
+  ∀thy. theory_ok' thy ⇒ is_std_sig (thy.ctys, thy.ctms)
+Proof
+  rw[theory_ok'_def, ctys_def, ctms_def, is_std_sig_def]
+  >> fs[FLOOKUP_FUNION, AllCaseEqs(), sigof'_def]
+QED
+
+Theorem term_ok'_type_ok:
+  ∀sig t. theory_ok' thy ∧ term_ok' thy t ⇒ type_ok thy.ctys (typeof t)
+Proof
+  rpt strip_tac >> dxrule term_ok'_imp_term_ok
+  >> strip_tac >> dxrule_at Any term_ok_type_ok
+  >> simp[theory_ok'_is_std_sig_ext]
+QED
+
+Theorem term_ok'_equation:
+  theory_ok' thy ⇒
+  (term_ok' thy (s === t) ⇔
+     term_ok' thy s ∧ term_ok' thy t ∧ typeof t = typeof s)
+Proof
+  rw[EQ_IMP_THM, equation_def, term_ok'_def, sigof'_def,
+     is_std_sig_def, ctms_def, ctys_def, FLOOKUP_FUNION]
+  >> simp[type_ok_def, FLOOKUP_FUNION, term_ok'_welltyped, SF SFY_ss]
+  >> every_case_tac >> fs[theory_ok'_def, is_std_sig_def, FLOOKUP_FUNION, sigof'_def]
+  >> rev_drule_at Any term_ok'_type_ok >> simp[ctys_def, theory_ok'_def, is_std_sig_def, sigof'_def]
+  >> strip_tac >> qexists ‘[(typeof s, Tyvar «A»)]’ >> simp[REV_ASSOCD]
+QED
+
+Theorem term_ok'_VSUBST:
+  ∀sig tm ilist.
+    term_ok' thy tm ∧
+    (∀s s'.
+       MEM (s',s) ilist ⇒
+       ∃x ty. s = Var x ty ∧ s' has_type ty ∧ term_ok' thy s') ⇒
+    term_ok' thy (VSUBST ilist tm)
+Proof
+  rw[] >> irule term_ok_imp_term_ok' >> irule term_ok_VSUBST
+  >> drule term_ok'_imp_term_ok >> rw[] >> first_x_assum drule >> rw[term_ok'_imp_term_ok]
+QED
+
+Theorem term_ok'_INST:
+  ∀thy tyin tm.
+    term_ok' thy tm ∧ EVERY (type_ok thy.ctys) (MAP FST tyin) ⇒
+    term_ok' thy (INST tyin tm)
+Proof
+  rw[] >> irule term_ok_imp_term_ok' >> irule term_ok_INST
+  >> drule term_ok'_imp_term_ok >> rw[] >> first_x_assum drule >> rw[term_ok'_imp_term_ok]
+QED
+
+Theorem proves'_term_ok':
+  ∀thy h tm. (thy,h) |-' tm ⇒ term_ok' thy tm ∧ tm has_type Bool
+Proof
+  Induct_on ‘$|-'’ >> rw[] >> imp_res_tac proves'_theory_ok' >> imp_res_tac has_type_typeof
+  >> fs[term_ok'_def, EQUATION_HAS_TYPE_BOOL, term_ok'_welltyped, SF SFY_ss, typeof_has_type, term_ok'_equation]
+  >> imp_res_tac $ iffLR EQUATION_HAS_TYPE_BOOL
+  >- (drule ACONV_TYPE >> simp[term_ok'_welltyped, SF SFY_ss])
+  >- (irule term_ok'_VSUBST >> rw[])
+  >- (irule VSUBST_HAS_TYPE >> rw[] >> metis_tac[])
+  >- (irule term_ok'_INST >> simp[])
+  >- (irule INST_HAS_TYPE >> first_x_assum $ irule_at Any >> simp[TYPE_SUBST_Bool])
+  >- metis_tac[] >- metis_tac[]
+  >- fs[theory_ok'_def] >- fs[theory_ok'_def]
+  >- (irule esubst_term_ok' >> simp[])
+  >- (irule esubst_has_type_bool_alt >> first_assum $ irule_at Any
+      >> simp[esubsts_ok'_esubsts_ok])
+  >> fs[theory_ok'_def]
+QED
+
+
+(* ---- Conext "well-formed" bundles ---- *)
+
+Theorem MAP_FST_MAP[simp]:
+  ∀l P. MAP FST (MAP (λ(s,t). (s,P t)) l) = MAP FST l
+Proof
+  Induct >> simp[MAP, FST] >> Cases >> rw[MAP, FST]
+QED
+
+Theorem constspec_conext_well_formed:
+  ∀thy eqs prop.
+    theory_ok' thy ∧
+    (thy, ∅, MAP (λ(s,t). Var s (typeof t) === t) eqs) |-' prop ∧
+    EVERY (λt. CLOSED t ∧ ∀v. MEM v (tvars t) ⇒ MEM v (tyvars (typeof t)))
+          (MAP SND eqs) ∧
+    ALL_DISTINCT (MAP FST eqs) ∧
+    (∀x ty. VFREE_IN (Var x ty) prop ⇒
+            MEM (x, ty) (MAP (λ(s,t). (s, typeof t)) eqs)) ∧
+    (∀s. MEM s (MAP FST eqs) ⇒ s ∉ FDOM thy.tms) ∧
+    (∀s. MEM s (MAP FST eqs) ⇒ s ∉ FDOM thy.etms) ∧
+    (∀s t. MEM (s,t) eqs ⇒ type_ok thy.tys (typeof t)) ⇒
+    let cprop = VSUBST (MAP (λ(s,t). (Const s (typeof t), Var s (typeof t))) eqs)
+                       prop in
+      let thy'  = thy with tms := alist_to_fmap (MAP (λ(s,t). (s, typeof t)) eqs)
+                                                ⊌ thy.tms in
+        term_ok' thy' cprop ∧ cprop has_type Bool
+Proof
+  rw[LET_THM]
+  >> drule proves'_term_ok' >> strip_tac
+  >- (irule term_ok'_VSUBST >> conj_tac
+      >- (rw[MEM_MAP, PULL_EXISTS, FORALL_PROD, term_ok'_def]
+          >> simp[ctms_def, ctys_def, FLOOKUP_DEF, FDOM_FUNION, FDOM_alist_to_fmap,
+                  FUNION_DEF, MEM_MAP, EXISTS_PROD, PULL_EXISTS]
+          >> simp[SF SFY_ss] >> DEP_REWRITE_TAC[type_ok_weakening] >> conj_tac
+          >- (first_x_assum drule >> simp[])
+          >> qexists‘[]’ >> simp[VSUBST_NIL]
+          >> sym_tac >> irule ALOOKUP_SOME_FAPPLY_alist_to_fmap
+          >> irule ALOOKUP_ALL_DISTINCT_MEM >> fs[MEM_MAP, PULL_EXISTS, FORALL_PROD, EXISTS_PROD]
+          >> first_x_assum $ irule_at Any >> simp[])
+      >> irule term_ok'_tms_FUNION_fresh >> simp[])
+  >> irule VSUBST_HAS_TYPE >> rw[] >> fs[MEM_MAP, PULL_EXISTS, FORALL_PROD]
+  >> Cases_on ‘y’ >> gvs[]
+QED
+
+Theorem typedefn_eq1_well_formed[local]:
+  ∀thy name pred abs rep witness.
+    theory_ok' thy ∧
+    (thy, ∅, []) |-' Comb pred witness ∧
+    CLOSED pred ∧
+    name ∉ FDOM thy.tys ∧ name ∉ FDOM thy.etys ∧
+    abs  ∉ FDOM thy.tms ∧ abs  ∉ FDOM thy.etms ∧
+    rep  ∉ FDOM thy.tms ∧ rep  ∉ FDOM thy.etms ∧
+    abs ≠ rep ∧
+    type_ok thy.tys (typeof witness) ⇒
+    let abs_type =
+        Tyapp name (MAP Tyvar
+                        (MAP implode (STRING_SORT (MAP explode (tvars pred))))) in
+      let rep_type = domain (typeof pred) in
+        let thy' = thy with
+                       <| tys := thy.tys |+ (name, LENGTH (tvars pred));
+                          tms := thy.tms |+ (abs, Fun rep_type abs_type)
+                                    |+ (rep, Fun abs_type rep_type) |> in
+          let eq1 = Comb (Const abs (Fun rep_type abs_type))
+                         (Comb (Const rep (Fun abs_type rep_type))
+                               (Var (strlit "a") abs_type))
+                         === Var (strlit "a") abs_type in
+            term_ok' thy' eq1 ∧ eq1 has_type Bool
+Proof
+  rw[LET_THM] >> drule proves'_term_ok' >> strip_tac
+  >> gvs[term_ok'_def]
+  >> drule theory_ok'_is_std_sig_ext >> rw[is_std_sig_def, ctms_def, ctys_def]
+  >> simp[equation_def, term_ok'_def, typeof_def, codomain_def,
+          EQUATION_HAS_TYPE_BOOL, has_type_cases,
+          ctms_def, ctys_def, FUNION_FUPDATE_1, FLOOKUP_FUPDATE, FLOOKUP_FUNION,
+          type_ok_def, FDOM_FUPDATE, FDOM_FUNION, EVERY_MAP, EVERY_MEM]
+  >> rpt (IF_CASES_TAC >> gvs[FDOM_FUNION, FLOOKUP_DEF])
+  >> qmatch_goalsub_abbrev_tac `Tyapp name tvs`
+  >> rw[type_ok_FUPDATE_fresh, FDOM_FUNION, type_ok_weakening]
+  >> qexists `[(Tyapp name tvs, Tyvar «A»)]` >> simp[REV_ASSOCD_def]
+QED
+
+Theorem typedefn_eq2_well_formed[local]:
+  ∀thy name pred abs rep witness.
+    theory_ok' thy ∧
+    (thy, ∅, []) |-' Comb pred witness ∧
+    CLOSED pred ∧
+    name ∉ FDOM thy.tys ∧ name ∉ FDOM thy.etys ∧
+    abs  ∉ FDOM thy.tms ∧ abs  ∉ FDOM thy.etms ∧
+    rep  ∉ FDOM thy.tms ∧ rep  ∉ FDOM thy.etms ∧
+    abs ≠ rep ∧
+    type_ok thy.tys (typeof witness) ⇒
+    let abs_type =
+        Tyapp name (MAP Tyvar
+                        (MAP implode (STRING_SORT (MAP explode (tvars pred))))) in
+      let rep_type = domain (typeof pred) in
+        let thy' = thy with
+                       <| tys := thy.tys |+ (name, LENGTH (tvars pred));
+                          tms := thy.tms |+ (abs, Fun rep_type abs_type)
+                                    |+ (rep, Fun abs_type rep_type) |> in
+          let eq2 = Comb pred (Var (strlit "r") rep_type)
+                         === (Comb (Const rep (Fun abs_type rep_type))
+                                   (Comb (Const abs (Fun rep_type abs_type))
+                                         (Var (strlit "r") rep_type))
+                                   === Var (strlit "r") rep_type) in
+            term_ok' thy' eq2 ∧ eq2 has_type Bool
+Proof
+  rw[LET_THM] >> drule proves'_term_ok' >> strip_tac
+  >> gvs[term_ok'_def]
+  >> imp_res_tac WELLTYPED_LEMMA >> gvs[typeof_def, codomain_def]
+  >> drule theory_ok'_is_std_sig_ext >> rw[is_std_sig_def, ctms_def, ctys_def]
+  >> simp[equation_def, term_ok'_def, typeof_def, codomain_def,
+          EQUATION_HAS_TYPE_BOOL, has_type_cases,
+          ctms_def, ctys_def, FUNION_FUPDATE_1, FLOOKUP_FUPDATE, FLOOKUP_FUNION,
+          type_ok_def, FDOM_FUPDATE, FDOM_FUNION, EVERY_MAP, EVERY_MEM]
+  >> rpt (IF_CASES_TAC >> gvs[FDOM_FUNION, FLOOKUP_DEF])
+  >> rw[type_ok_FUPDATE_fresh, FDOM_FUNION, type_ok_weakening]
+  >> TRY (qexists `[(Bool, Tyvar «A»)]` >> simp[REV_ASSOCD_def] >> NO_TAC)
+  >> TRY (qexists `[(typeof witness, Tyvar «A»)]` >> simp[REV_ASSOCD_def] >> NO_TAC)
+  >> irule term_ok'_ctms_ctys_subset >> first_x_assum $ irule_at Any
+  >> rw[ctys_def, ctms_def, FUNION_FUPDATE_1]
+  >> rw[SUBMAP_DEF, FDOM_FUPDATE, FAPPLY_FUPDATE_THM, FDOM_FUNION]
+  >> metis_tac[FDOM_FUPDATE, IN_INSERT]
 QED
 
 Theorem updates'_theory_ok':
@@ -696,34 +1050,189 @@ Theorem updates'_theory_ok':
 Proof
   Induct_on ‘$updates'’ >> rw[]
   >> fs[conexts_of_upd'_def, theory_ok'_def, ctys_def, ctms_def, sigof'_def]
-  >- (rw[] >> simp[]
-      >- (irule term_ok_imp_term_ok' >> simp[ctys_def, ctms_def]
-          >> metis_tac[term_ok_weakening])
-      >- (first_x_assum drule >> strip_tac >> irule $ iffLR term_ok'_eq
-          >> first_x_assum $ irule_at Any >> simp[ctms_def, ctys_def])
-      >- (first_x_assum drule >> strip_tac >> irule $ iffLR term_ok'_eq
-          >> first_x_assum $ irule_at Any >> simp[ctms_def, ctys_def]))
-  >- (rw[] >> simp[]
-      >- (last_x_assum irule >> metis_tac[FRANGE_DOMSUB_SUBSET, SUBSET_DEF])
-      >> fs[is_std_sig_def, term_ok'_def]
-      >- (irule term_ok'_ctms_ctys_subset
-          >> first_x_assum drule >> strip_tac >> first_x_assum $ irule_at Any
-          >> simp[ctys_def, ctms_def, SUBMAP_FUNION_mono])
-      >- (irule term_ok'_ctms_ctys_subset
-          >> first_x_assum drule >> strip_tac >> first_x_assum $ irule_at Any
-          >> simp[ctys_def, ctms_def, SUBMAP_FUNION_mono])
-      >> simp[FLOOKUP_FUPDATE] >> every_case_tac >> drule ALOOKUP_MEM
-      >> fs[MEM_MAP])
-  >- (rw[] >> simp[]
-      >- (gvs[IN_FRANGE_FLOOKUP, FLOOKUP_FUNION, AllCaseEqs()]
-          >- (first_x_assum irule >> simp[IN_FRANGE_FLOOKUP] >> metis_tac[])
-          >> gvs[ALOOKUP_MAP] >> drule ALOOKUP_MEM >> rw[] >> first_x_assum drule >> simp[])
-      >- rw[MAP_MAP_o, o_DEF, LAMBDA_PROD, DISJOINT_ALT, MEM_MAP, EXISTS_PROD, PULL_EXISTS]
-      >> cheat)
-  >- cheat
-  >- cheat
-  >- cheat
+  >- suspend "NewAxiom"
+  >- suspend "NewConst"
+  >- suspend "ConstSpec"
+  >- suspend "NewType"
+  >- suspend "TypeDefn"
+  >- suspend "NewEliminableType"
+  >- suspend "NewEliminableConst"
+  >- suspend "NewEliminableAxiom"
 QED
+
+Resume updates'_theory_ok'[NewAxiom]:
+  rw[] >> simp[]
+  >- (irule term_ok_imp_term_ok' >> simp[ctys_def, ctms_def]
+      >> metis_tac[term_ok_weakening])
+  >> first_x_assum drule >> strip_tac >> irule $ iffLR term_ok'_eq
+  >> first_x_assum $ irule_at Any >> simp[ctms_def, ctys_def]
+QED
+
+Resume updates'_theory_ok'[NewConst]:
+  rw[] >> simp[]
+  >- (last_x_assum irule >> metis_tac[FRANGE_DOMSUB_SUBSET, SUBSET_DEF])
+  >> fs[is_std_sig_def, term_ok'_def]
+  >- (irule term_ok'_ctms_ctys_subset
+      >> first_x_assum drule >> strip_tac >> first_x_assum $ irule_at Any
+      >> simp[ctys_def, ctms_def, SUBMAP_FUNION_mono])
+  >- (irule term_ok'_ctms_ctys_subset
+      >> first_x_assum drule >> strip_tac >> first_x_assum $ irule_at Any
+      >> simp[ctys_def, ctms_def, SUBMAP_FUNION_mono])
+  >> simp[FLOOKUP_FUPDATE] >> every_case_tac >> drule ALOOKUP_MEM
+  >> fs[MEM_MAP]
+QED
+
+Resume updates'_theory_ok'[ConstSpec]:
+  rw[] >> simp[]
+  >- (gvs[IN_FRANGE_FLOOKUP, FLOOKUP_FUNION, AllCaseEqs()]
+      >- (first_x_assum irule >> simp[IN_FRANGE_FLOOKUP] >> metis_tac[])
+      >> gvs[ALOOKUP_MAP] >> drule ALOOKUP_MEM >> rw[] >> first_x_assum drule >> simp[])
+  >- rw[MAP_MAP_o, o_DEF, LAMBDA_PROD, DISJOINT_ALT, MEM_MAP, EXISTS_PROD, PULL_EXISTS]
+  >- (qmatch_asmsub_abbrev_tac ‘(thy_orig, ∅, _) |-' prop’ >> rev_drule proves'_theory_ok'
+      >> strip_tac >> irule $ iffLR term_ok'_eq >> drule constspec_conext_well_formed
+      >> disch_then drule >> impl_tac
+      >- (rw[MEM_MAP, EXISTS_PROD, PULL_EXISTS]
+          >> fs[MEM_MAP, FST, EXISTS_PROD, PULL_EXISTS, FORALL_PROD]
+          >> rpt $ first_x_assum drule >> unabbrev_all_tac
+          >> rw[FDOM_alist_to_fmap, MEM_MAP, FORALL_PROD])
+      >> rw[LET_THM] >> first_x_assum $ irule_at Any >> simp[ctms_def, ctys_def]
+      >> unabbrev_all_tac >> rw[FDOM_alist_to_fmap, MEM_MAP, FORALL_PROD])
+  >- (irule VSUBST_HAS_TYPE >> rw[MEM_MAP, FORALL_PROD, LAMBDA_PROD, EXISTS_PROD]
+      >> rev_dxrule proves'_term_ok' >> simp[])
+  >- (first_x_assum drule >> strip_tac
+      >> irule term_ok'_ctms_ctys_subset >> first_x_assum $ irule_at Any
+      >> simp[ctms_def, ctys_def, FUNION_ASSOC]
+      >> simp[FDOM_alist_to_fmap, FDOM_FUNION, IN_DISJOINT, MEM_MAP, FORALL_PROD]
+      >> REWRITE_TAC[GSYM FUNION_ASSOC]
+      >> irule $ cj 2 SUBMAP_FUNION_ID
+      >> rw[FDOM_alist_to_fmap, FDOM_FUNION, IN_DISJOINT, MEM_MAP, FORALL_PROD]
+      >> metis_tac[MEM_MAP, FST, PAIR])
+  >- (first_x_assum drule >> strip_tac
+      >> irule term_ok'_ctms_ctys_subset >> first_x_assum $ irule_at Any
+      >> simp[ctms_def, ctys_def, FUNION_ASSOC]
+      >> simp[FDOM_alist_to_fmap, FDOM_FUNION, IN_DISJOINT, MEM_MAP, FORALL_PROD]
+      >> REWRITE_TAC[GSYM FUNION_ASSOC]
+      >> irule $ cj 2 SUBMAP_FUNION_ID
+      >> rw[FDOM_alist_to_fmap, FDOM_FUNION, IN_DISJOINT, MEM_MAP, FORALL_PROD]
+      >> metis_tac[MEM_MAP, FST, PAIR])
+  >> irule is_std_sig_extend >> first_x_assum $ irule_at Any >> simp[]
+  >> irule $ cj 2 SUBMAP_FUNION_ID
+  >> simp[FDOM_alist_to_fmap, IN_DISJOINT, MEM_MAP, FORALL_PROD]
+  >> metis_tac[MEM_MAP, FST, PAIR]
+QED
+
+Resume updates'_theory_ok'[NewType]:
+  rw[] >> simp[FUNION_FUPDATE_1, type_ok_FUPDATE_fresh]
+  >- (irule term_ok'_ctms_ctys_subset
+      >> first_x_assum drule >> strip_tac >> first_x_assum $ irule_at Any
+      >> simp[ctys_def, ctms_def, SUBMAP_FUNION_mono])
+  >- (irule term_ok'_ctms_ctys_subset
+      >> first_x_assum drule >> strip_tac >> first_x_assum $ irule_at Any
+      >> simp[ctys_def, ctms_def, SUBMAP_FUNION_mono])
+  >> irule is_std_sig_extend >> first_x_assum $ irule_at Any >> simp[]
+QED
+
+Resume updates'_theory_ok'[TypeDefn]:
+  qabbrev_tac
+    ‘abs_type = Tyapp name (MAP Tyvar (MAP implode
+                            (STRING_SORT (MAP explode (tvars pred)))))’ >>
+  qabbrev_tac ‘rep_type = domain (typeof pred)’ >>
+  qabbrev_tac ‘abs_ty   = Fun rep_type abs_type’ >>
+  qabbrev_tac ‘rep_ty   = Fun abs_type rep_type’ >>
+  qabbrev_tac ‘thy_orig =
+     <|tms := tmsof' ctxt; tys := tysof' ctxt; axs := axsof' ctxt;
+       etms := etmsof ctxt; etys := etysof ctxt; eaxs := eaxsof ctxt|>’
+  >> drule proves'_theory_ok' >> strip_tac
+  >> drule_then (drule_then drule) typedefn_eq1_well_formed
+  >> disch_then $ qspecl_then [‘name’, ‘abs’, ‘rep’] mp_tac >> impl_tac
+  >- (unabbrev_all_tac >> simp[FDOM_alist_to_fmap, MEM_MAP, FORALL_PROD])
+  >> drule_then (drule_then drule) typedefn_eq2_well_formed
+  >> disch_then $ qspecl_then [‘name’, ‘abs’, ‘rep’] mp_tac >> impl_tac
+  >- (unabbrev_all_tac >> fs[FDOM_alist_to_fmap, MEM_MAP, FORALL_PROD])
+  >> rw[LET_THM]
+  >- (simp[Abbr ‘abs_ty’, type_ok_def] >> conj_tac
+      >- (‘is_std_sig ((tysof' ctxt)⟨name ↦ LENGTH (tvars pred)⟩, tmsof' ctxt)’
+            suffices_by simp[is_std_sig_def]
+          >> irule is_std_sig_extend >> first_x_assum $ irule_at Any >> simp[])
+      >> conj_tac
+      >- (‘typeof witness = domain (typeof pred)’ by (
+           drule proves'_imp_proves >> simp[] >> strip_tac
+           >> drule proves_term_ok >> simp[term_ok_def, term_ok_clauses]
+           >> rw[]
+           >> imp_res_tac WELLTYPED_LEMMA >> fs[])
+          >> simp[Abbr ‘rep_type’]
+          >> ‘type_ok (tysof' ctxt) (domain (typeof pred))’ by metis_tac[]
+          >> irule type_ok_FUPDATE_fresh >> simp[])
+      >- simp[Abbr ‘abs_type’, type_ok_def, FLOOKUP_UPDATE,
+              EVERY_MAP, LENGTH_MAP, STRING_SORT_def])
+  >- (fs[IN_FRANGE_FLOOKUP, DOMSUB_FLOOKUP_THM, FLOOKUP_UPDATE]
+      >> Cases_on `k = rep` >> gvs[]
+      >- (simp[Abbr `rep_ty`, type_ok_def] >> rpt conj_tac
+          >- (`is_std_sig ((tysof' ctxt)⟨name ↦ LENGTH (tvars pred)⟩, tmsof' ctxt)`
+                suffices_by simp[is_std_sig_def]
+              >> irule is_std_sig_extend >> first_x_assum $ irule_at Any >> simp[])
+          >- simp[Abbr `abs_type`, type_ok_def, FLOOKUP_UPDATE,
+                  EVERY_MAP, LENGTH_MAP, STRING_SORT_def]
+          >> `typeof witness = domain (typeof pred)` by (
+            drule proves'_imp_proves >> simp[] >> strip_tac
+            >> drule proves_term_ok >> simp[term_ok_def, term_ok_clauses]
+            >> rw[] >> imp_res_tac WELLTYPED_LEMMA >> fs[])
+          >> simp[Abbr `rep_type`]
+          >- (`type_ok (tysof' ctxt) (domain (typeof pred))` by metis_tac[]
+              >> irule type_ok_FUPDATE_fresh >> simp[] >> metis_tac[])
+          >> irule type_ok_FUPDATE_fresh >> simp[] >> metis_tac[])
+      >- (irule type_ok_FUPDATE_fresh >> simp[] >> metis_tac[IN_FRANGE_FLOOKUP]))
+  >- (first_x_assum drule >> strip_tac >> simp[FUNION_FUPDATE_1]
+      >> irule type_ok_FUPDATE_fresh >> simp[FDOM_FUNION])
+  >- (irule $ iffRL term_ok'_eq >> first_x_assum $ irule_at Any >> simp[ctms_def, ctys_def]
+      >> unabbrev_all_tac >> simp[FUPDATE_COMMUTES])
+  >- (irule $ iffRL EQUATION_HAS_TYPE_BOOL >> simp[welltyped_comb]
+      >> unabbrev_all_tac >> simp[])
+  >- (irule $ iffRL term_ok'_eq >> first_x_assum $ irule_at Any >> simp[ctms_def, ctys_def]
+      >> unabbrev_all_tac >> simp[FUPDATE_COMMUTES])
+  >- (irule $ iffRL EQUATION_HAS_TYPE_BOOL >> simp[welltyped_comb]
+      >> unabbrev_all_tac >> imp_res_tac $ iffLR EQUATION_HAS_TYPE_BOOL
+      >> fs[welltyped_comb, typeof_def] >> metis_tac[])
+  >- (first_x_assum drule >> strip_tac
+      >> irule term_ok'_ctms_ctys_subset >> first_x_assum $ irule_at Any
+      >> unabbrev_all_tac >> simp[ctms_def, ctys_def, FUNION_FUPDATE_1]
+      >> simp[SUBMAP_DEF, FDOM_FUPDATE, FAPPLY_FUPDATE_THM] >> rw[] >> simp[])
+  >- (first_x_assum drule >> simp[])
+  >- (first_x_assum drule >> strip_tac
+      >> irule term_ok'_ctms_ctys_subset >> first_x_assum $ irule_at Any
+      >> unabbrev_all_tac >> simp[ctms_def, ctys_def, FUNION_FUPDATE_1]
+      >> simp[SUBMAP_DEF, FDOM_FUPDATE, FAPPLY_FUPDATE_THM] >> rw[] >> simp[])
+  >> irule is_std_sig_extend >> first_x_assum $ irule_at Any
+  >> rw[SUBMAP_DEF, FAPPLY_FUPDATE_THM, AllCaseEqs(), FDOM_alist_to_fmap, MEM_MAP]
+  >> disj2_tac >> metis_tac[MEM_MAP]
+QED
+
+Resume updates'_theory_ok'[NewEliminableType]:
+  rw[] >> simp[FUNION_FUPDATE_1, FUNION_FUPDATE_2, type_ok_FUPDATE_fresh]
+  >- (irule term_ok'_ctms_ctys_subset
+      >> first_x_assum drule >> strip_tac >> first_x_assum $ irule_at Any
+      >> simp[ctys_def, ctms_def, SUBMAP_FUNION_mono_r])
+  >- (irule term_ok'_ctms_ctys_subset
+      >> first_x_assum drule >> strip_tac >> first_x_assum $ irule_at Any
+      >> simp[ctys_def, ctms_def, SUBMAP_FUNION_mono_r])
+  >> metis_tac[FRANGE_DOMSUB_SUBSET, SUBSET_TRANS]
+QED
+
+Resume updates'_theory_ok'[NewEliminableConst]:
+  rw[] >> simp[FUNION_FUPDATE_1, FUNION_FUPDATE_2, type_ok_FUPDATE_fresh]
+  >- (first_x_assum irule >> metis_tac[FRANGE_DOMSUB_SUBSET, SUBSET_DEF])
+  >> irule term_ok'_ctms_ctys_subset
+  >> first_x_assum drule >> strip_tac >> first_x_assum $ irule_at Any
+  >> simp[ctys_def, ctms_def, SUBMAP_FUNION_mono_r]
+QED
+
+Resume updates'_theory_ok'[NewEliminableAxiom]:
+  rw[] >> simp[FUNION_FUPDATE_1, FUNION_FUPDATE_2, type_ok_FUPDATE_fresh]
+  >> irule term_ok'_ctms_ctys_subset >> res_tac >> first_x_assum $ irule_at Any
+  >> simp[ctys_def, ctms_def, SUBMAP_FUNION_mono_r]
+QED
+
+Finalise updates'_theory_ok'
 
 Theorem extends'_theory_ok':
   ∀ctxt1 ctxt2. ctxt2 extends' ctxt1 ⇒ theory_ok' (ethyof ctxt1) ⇒ theory_ok' (ethyof ctxt2)
@@ -803,36 +1312,12 @@ Proof
   simp[lift_thy_def]
 QED
 
-fun cj_pat q thm =
-    let
-      val ctxt = free_varsl (concl thm :: hyp thm)
-      val pat = Parse.parse_in_context ctxt q
-
-      fun body t =
-        let val (_, t') = strip_forall t in
-          case Lib.total dest_eq t' of
-              SOME (_, r) => r
-            | NONE =>
-              case Lib.total dest_imp_only t' of
-                  SOME (_, r) => r
-                | NONE => t'
-        end
-
-      val cjs = strip_conj (body (concl thm))
-
-      fun find_index n [] = raise ERR "cj_pat" "no matching conjunct"
-        | find_index n (c :: rest) =
-            if can (match_term pat) c then n else find_index (n + 1) rest
-    in
-      cj (find_index 1 cjs) thm
-    end
-
 Theorem tysof_drop_ctxt[simp]:
   theory_ok' (ethyof ctxt) ⇒
   tysof (drop_ctxt ctxt) = (ethyof ctxt).ctys
 Proof
   strip_tac
-  >> dxrule_then (mp_tac o cj_pat ‘DISJOINT (FDOM thy.tys) _’) $ iffLR theory_ok'_def
+  >> dxrule_then (mp_tac o pat_conj ‘DISJOINT (FDOM thy.tys) _’) $ iffLR theory_ok'_def
   >> Induct_on ‘ctxt’ >- simp[ctys_def]
   >> Cases >> fs[listTheory.mapPartial_def, drop_upd_def, ctys_def, ctms_def]
   >> rw[FUNION_FUPDATE_1, FUNION_FUPDATE_2]
@@ -843,7 +1328,7 @@ Theorem tmsof_drop_ctxt[simp]:
   tmsof (drop_ctxt ctxt) = (ethyof ctxt).ctms
 Proof
   strip_tac
-  >> dxrule_then (mp_tac o cj_pat ‘DISJOINT (FDOM thy.tms) _’) $ iffLR theory_ok'_def
+  >> dxrule_then (mp_tac o pat_conj ‘DISJOINT (FDOM thy.tms) _’) $ iffLR theory_ok'_def
   >> Induct_on ‘ctxt’ >- simp[ctms_def]
   >> Cases >> fs[listTheory.mapPartial_def, drop_upd_def, ctys_def, ctms_def]
   >> rw[FUNION_FUPDATE_1, FUNION_FUPDATE_2, FUNION_ASSOC]
@@ -924,22 +1409,81 @@ QED
 Theorem lift_ctxt_extends_init_ectxt:
   ∀ctxt. ctxt extends init_ctxt ⇒ lift_ctxt ctxt extends' init_ectxt
 Proof
-  cheat
+  rw[extends_def, extends'_def]
+  >> qsuff_tac ‘∀c1 c2.
+                  RTC (λc2 c1. ∃upd. c2 = upd::c1 ∧ upd updates c1) c1 c2 ⇒
+                  RTC (λc2 c1. ∃upd. c2 = upd::c1 ∧ upd updates' c1)
+                      (lift_ctxt c1) (lift_ctxt c2)’
+  >- (gvs[init_ctxt_def, init_ectxt_def, lift_upd_def] >> disch_then drule >> simp[lift_upd_def])
+  >> ho_match_mp_tac RTC_INDUCT >> rw[]
+  >> irule (CONJUNCT2 (SPEC_ALL RTC_RULES))
+  >> qexists_tac ‘lift_ctxt c1'’ >> simp[]
+  >> irule $ iffLR lift_update_updates >> simp[]
+QED
+
+Theorem MEM_const_list_drop_ctxt:
+  MEM x (MAP FST (const_list (drop_ctxt ctxt))) ⇔
+  MEM x (MAP FST (const_list' ctxt)) ∨ MEM x (MAP FST (econst_list ctxt))
+Proof
+  Induct_on ‘ctxt’ >> simp[] >> Cases >> rw[drop_upd_def] >> gvs[EQ_IMP_THM, DISJ_IMP_THM]
+QED
+
+Theorem MEM_type_list_drop_ctxt:
+  MEM x (MAP FST (type_list (drop_ctxt ctxt))) ⇔
+  MEM x (MAP FST (type_list' ctxt)) ∨ MEM x (MAP FST (etype_list ctxt))
+Proof
+  Induct_on ‘ctxt’ >> simp[] >> Cases >> rw[drop_upd_def] >> gvs[EQ_IMP_THM, DISJ_IMP_THM]
+QED
+
+Theorem drop_upd_updates:
+  upd updates' ctxt ∧
+    theory_ok' (ethyof ctxt) ∧
+    drop_upd upd = SOME x ⇒
+    x updates (drop_ctxt ctxt)
+Proof
+  strip_tac >> Cases_on ‘upd’ >> gvs[drop_upd_def]
+  >> gvs[Once updates'_cases]
+  >- (irule $ pat_conj ‘ConstSpec _ _ updates _’ updates_rules >> drule proves'_imp_proves
+      >> simp[] >> gvs[MEM_const_list_drop_ctxt])
+  >- (irule $ pat_conj ‘TypeDefn _ _ _ _ updates _’ updates_rules >> drule proves'_imp_proves
+      >> simp[drop_thy, ctms_def, ctys_def] >> disch_then $ irule_at Any
+      >> assume_tac $ GEN_ALL $ CONTRAPOS $ iffLR $ MEM_type_list_drop_ctxt
+      >> gvs[MEM_const_list_drop_ctxt])
+  >- (irule $ pat_conj ‘NewType _ _ updates _’ updates_rules >> gvs[MEM_type_list_drop_ctxt])
+  >- (irule $ pat_conj ‘NewType _ _ updates _’ updates_rules >> gvs[MEM_type_list_drop_ctxt])
+  >- (irule $ pat_conj ‘NewConst _ _ updates _’ updates_rules
+      >> simp[ctys_def, ctms_def, type_ok_weakening]
+      >> gvs[MEM_const_list_drop_ctxt])
+  >- (irule $ pat_conj ‘NewConst _ _ updates _’ updates_rules
+      >> simp[ctys_def, ctms_def, type_ok_weakening]
+      >> gvs[MEM_const_list_drop_ctxt])
+  >> irule $ pat_conj ‘NewAxiom _ updates _’ updates_rules >> simp[ctms_def, ctys_def]
+  >> irule term_ok_weakening >> simp[]
 QED
 
 Theorem drop_thy_extends_init_ctxt:
-  ctxt' extends' init_ectxt ⇒ drop_ctxt ctxt' extends init_ctxt
+  ∀ctxt'. ctxt' extends' init_ectxt ⇒ drop_ctxt ctxt' extends init_ctxt
 Proof
-  cheat
+  rw[extends_def, extends'_def]
+  >> qsuff_tac
+`∀c1 c2.
+   RTC (λc2 c1. ∃upd. c2 = upd::c1 ∧ upd updates' c1) c1 c2 ⇒
+   theory_ok' (ethyof c2) ⇒
+   theory_ok' (ethyof c1) ∧
+   RTC (λc2 c1. ∃upd. c2 = upd::c1 ∧ upd updates c1)
+       (drop_ctxt c1) (drop_ctxt c2)`
+  >- (disch_then drule >> simp[init_theory_ok']
+      >> rw[init_ectxt_def, init_ctxt_def, listTheory.mapPartial_def, drop_upd_def])
+  >> ho_match_mp_tac RTC_INDUCT >> rw[]
+  >> rpt $ first_x_assum drule >> strip_tac
+  >- (drule updates'_theory_ok' >> simp[])
+  >> Cases_on `drop_upd upd` >> gvs[listTheory.mapPartial_def]
+  >> irule (CONJUNCT2 (SPEC_ALL RTC_RULES))
+  >> qexists_tac `drop_ctxt c1'` >> simp[]
+  >> irule drop_upd_updates >> first_x_assum $ irule_at Any >> simp[]
 QED
 
-Theorem init_theory_ok':
-  theory_ok' (ethyof init_ectxt)
-Proof
-  rw[theory_ok'_def,init_ectxt_def,type_ok_def,FLOOKUP_UPDATE,conexts_of_upd'_def]
-  >> rw[is_std_sig_def,FLOOKUP_UPDATE,sigof'_def]
-QED
-
+(* main theorem: the two systems are equivalent *)
 Theorem extends_extends'_derivations:
   ∀h c.
     (∃ctxt. ctxt extends init_ctxt ∧ (thyof ctxt, h) |- c) ⇔
@@ -953,4 +1497,150 @@ Proof
   >> simp[drop_thy_extends_init_ctxt, thyof_drop_ctxt]
   >> drule extends'_theory_ok' >> simp[init_theory_ok']
   >> fs[ctms_def, ctys_def]
+QED
+
+(* the rest of these theorems are to show that the elim_inst preconditions
+   are actually satisfied by normal use *)
+Theorem init_axioms_ok:
+  axioms_ok (ethyof init_ectxt) (axsof' init_ectxt) ∧
+  axioms_ok (ethyof init_ectxt) (eaxsof init_ectxt)
+Proof
+  rw[axioms_ok_def, init_ectxt_def, conexts_of_upd'_def]
+QED
+
+Theorem type_ok_basic_types:
+  ∀ty.
+    type_ok thy.tys ty ∧ esubsts_ok' thy σ ∧ theory_ok' thy ⇒
+    ty_esubst σ ty = ty
+Proof
+  Induct using type_ind >> simp[type_ok_def, ty_esubst_def] >> fs[EVERY_MEM, theory_ok'_def]
+  >> rw[] >> Cases_on ‘l’ >> rw[ty_esubst_def] >> every_case_tac >> fs[]
+  >- (Cases_on ‘σ’ >> fs[esubsts_ok'_def] >> rpt $ dxrule DISJOINT_FLOOKUP
+      >> disch_then drule >> simp[] >> pop_assum mp_tac >> simp[FLOOKUP_DEF])
+  >> irule $ iffRL MAP_EQ_ID >> rw[]
+QED
+
+Theorem term_ok_no_var_collapse:
+  ∀thy σ p.
+    term_ok (thy.tys, thy.tms) p ∧
+    theory_ok' thy ∧
+    esubsts_ok' thy σ ⇒
+    no_var_collapse σ p
+Proof
+  rw[no_var_collapse] >> imp_res_tac term_ok_VFREE_IN
+  >> gvs[term_ok_def] >> imp_res_tac type_ok_basic_types >> gvs[]
+QED
+
+(* no_dup_vars: no two free variables share a name with different types.
+   This is a structural property that makes no_var_collapse vacuously true. *)
+Definition no_dup_vars_def:
+  no_dup_vars p ⇔
+    ∀x ty1 ty2.
+      VFREE_IN (Var x ty1) p ∧ VFREE_IN (Var x ty2) p ⇒ ty1 = ty2
+End
+
+Theorem no_dup_vars_no_var_collapse:
+  no_dup_vars p ⇒ no_var_collapse σ p
+Proof
+  rw[no_dup_vars_def, no_var_collapse] >> metis_tac[]
+QED
+
+Theorem REV_ASSOCD_VSUBST_const_no_free_vars:
+  ∀l y ty u uty.
+    MEM (y,ty) (MAP (λ(s,t). (s,typeof t)) l) ⇒
+    ¬VFREE_IN (Var u uty)
+      (REV_ASSOCD (Var y ty)
+        (MAP (λ(s,t). (Const s (typeof t),Var s (typeof t))) l)
+        (Var y ty))
+Proof
+  Induct >> simp[FORALL_PROD, REV_ASSOCD]
+  >> rw[] >> gvs[VFREE_IN_def]
+QED
+
+(* The main induction: track WHY axioms satisfy no_var_collapse.
+   - axs axioms: either no_dup_vars (ConstSpec/TypeDefn) or term_ok in basic sig (NewAxiom)
+   - eaxs axioms: always no_dup_vars (NewEliminableAxiom precondition) *)
+Theorem updates'_axioms_wf:
+  ∀upd ctxt.
+    upd updates' ctxt ⇒
+    theory_ok' (ethyof ctxt) ∧
+    (∀p. p ∈ (ethyof ctxt).axs ⇒
+         no_dup_vars p ∨ term_ok ((ethyof ctxt).tys, (ethyof ctxt).tms) p) ∧
+    (∀p. p ∈ (ethyof ctxt).eaxs ⇒ no_dup_vars p) ⇒
+    (∀p. p ∈ (ethyof (upd::ctxt)).axs ⇒
+         no_dup_vars p ∨ term_ok ((ethyof (upd::ctxt)).tys, (ethyof (upd::ctxt)).tms) p) ∧
+    (∀p. p ∈ (ethyof (upd::ctxt)).eaxs ⇒ no_dup_vars p)
+Proof
+  Induct_on ‘$updates'’ >> rw[]
+  >> fs[conexts_of_upd'_def, eaxexts_of_upd'_def, axexts_of_upd'_def, conexts_of_upd'_def]
+  >- (first_x_assum drule >> rw[] >> simp[] >> disj2_tac >> irule term_ok_extend
+      >> first_x_assum $ irule_at Any >> simp[])
+  >- (gvs[no_dup_vars_def] >> imp_res_tac proves'_term_ok' >> imp_res_tac term_ok'_welltyped
+      >> gvs[VFREE_IN_VSUBST] >> res_tac >> metis_tac[REV_ASSOCD_VSUBST_const_no_free_vars])
+  >- (first_x_assum drule >> rw[] >> simp[] >> disj2_tac >> irule term_ok_extend
+      >> first_x_assum $ irule_at Any >> simp[] >> irule $ cj 2 SUBMAP_FUNION_ID
+      >> fs[DISJOINT_DEF, EXTENSION, MAP_MAP_o, o_DEF, LAMBDA_PROD]
+      >> metis_tac[])
+  >- (first_x_assum drule >> rw[] >> simp[] >> disj2_tac >> irule term_ok_extend
+      >> first_x_assum $ irule_at Any >> simp[])
+  >- (disj1_tac >> rw[no_dup_vars_def, equation_def, VFREE_IN_def]
+      >> gvs[CLOSED_def, VFREE_IN_def])
+  >- (disj1_tac >> rw[no_dup_vars_def, equation_def, VFREE_IN_def]
+      >> gvs[CLOSED_def, VFREE_IN_def])
+  >- (first_x_assum drule >> rw[] >> simp[] >> disj2_tac >> irule term_ok_extend
+      >> first_x_assum $ irule_at Any >> rw[SUBMAP_DEF, FLOOKUP_UPDATE]
+      >> metis_tac[FAPPLY_FUPDATE_THM])
+  >> simp[no_dup_vars_def] >> gvs[]
+QED
+
+Theorem extends'_axioms_wf:
+  ∀ctxt1 ctxt2.
+    ctxt2 extends' ctxt1 ⇒
+    theory_ok' (ethyof ctxt1) ∧
+    (∀p. p ∈ (ethyof ctxt1).axs ⇒
+       no_dup_vars p ∨ term_ok ((ethyof ctxt1).tys, (ethyof ctxt1).tms) p) ∧
+    (∀p. p ∈ (ethyof ctxt1).eaxs ⇒ no_dup_vars p) ⇒
+    theory_ok' (ethyof ctxt2) ∧
+    (∀p. p ∈ (ethyof ctxt2).axs ⇒
+       no_dup_vars p ∨ term_ok ((ethyof ctxt2).tys, (ethyof ctxt2).tms) p) ∧
+    (∀p. p ∈ (ethyof ctxt2).eaxs ⇒ no_dup_vars p)
+Proof
+  ho_match_mp_tac extends'_ind
+  >> metis_tac[updates'_axioms_wf, updates'_theory_ok']
+QED
+
+Theorem eaxsof_init_ectxt[simp]:
+  eaxsof init_ectxt = ∅
+Proof
+  simp[eaxexts_of_upd'_def, init_ectxt_def]
+QED
+
+Theorem axsof_init_ectxt[simp]:
+  axsof' init_ectxt = ∅
+Proof
+  simp[conexts_of_upd'_def, init_ectxt_def]
+QED
+
+Theorem axioms_ok_nil[simp]:
+  axioms_ok thy ∅
+Proof
+  rw[axioms_ok_def]
+QED
+
+Theorem extends'_init_axioms_ok:
+  ∀ctxt. ctxt extends' init_ectxt ⇒
+    axioms_ok (ethyof ctxt) (ethyof ctxt).axs ∧
+    axioms_ok (ethyof ctxt) (ethyof ctxt).eaxs
+Proof
+  rw[]
+  >> imp_res_tac extends'_axioms_wf
+  >> imp_res_tac extends'_theory_ok'
+  >> gvs[init_theory_ok', init_ectxt_def, conexts_of_upd'_def, eaxexts_of_upd'_def]
+  >> rw[axioms_ok_def] >> rpt strip_tac >> res_tac
+  >- metis_tac[no_dup_vars_no_var_collapse]
+  >- (first_x_assum drule >> strip_tac
+      >- metis_tac[no_dup_vars_no_var_collapse]
+      >> irule term_ok_no_var_collapse >> rpt $ first_x_assum $ irule_at Any
+      >> simp[])
+  >> metis_tac[no_dup_vars_no_var_collapse]
 QED
