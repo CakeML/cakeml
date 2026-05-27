@@ -30,7 +30,7 @@ It is now possible to use `__add_with_carry__(left, right, carry_in)`
 in user code, which is compiled to wordLang's `AddCarry`.
 Syntax example:
 
-    fun {1,1} main() {
+    fun {1,1} f() {
       var a = 1;
       var b = 2;
       var c = 0;

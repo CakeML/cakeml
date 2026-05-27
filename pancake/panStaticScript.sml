@@ -1160,30 +1160,6 @@ Definition static_check_prog_def:
         ; var_delta  := empty mlstring$compare
         ; curr_loc   := ctxt.loc |>
     od ∧
-  static_check_prog ctxt (Primitive vname pop es) =
-    do
-      (* check destination is in scope (Primitive always targets Local) *)
-      vinf <- check_local_var ctxt vname;
-      (* check arg exps *)
-      esret <- static_check_exps ctxt es;
-      (* per-primop arity/operand checks; returns result shaped basedness *)
-      res_sb <- check_primitive_args ctxt pop esret.sh_bds;
-      (* check declared destination shape matches result shape *)
-      if ~(sh_bd_eq_shapes vinf.vsh_bd res_sb)
-        then error (ShapeErr $ get_shape_mismatch_msg (concat [
-            «result of primitive »; primop_to_str pop;
-            « assigned to local variable »; vname
-          ]) (sh_bd_to_str res_sb) (sh_bd_to_str vinf.vsh_bd)
-          ctxt.loc ctxt.scope)
-      else return ();
-      (* return prog info with updated var *)
-      return <| exits_fun  := F
-              ; exits_loop := F
-              ; last       := OtherLast
-              ; var_delta  := singleton mlstring$compare vname
-                                (vinf with <| vsh_bd := res_sb |>)
-              ; curr_loc   := ctxt.loc |>
-    od ∧
       static_check_prog ctxt (AssignCall (Local, vname) hdl fname args) =
     do
       (* check for out of scope assignment *)
@@ -1261,6 +1237,30 @@ Definition static_check_prog_def:
         ; last       := OtherLast
         ; var_delta  := empty mlstring$compare
         ; curr_loc   := ctxt.loc |>
+    od ∧
+  static_check_prog ctxt (Primitive vname pop es) =
+    do
+      (* check destination is in scope (Primitive always targets Local) *)
+      vinf <- check_local_var ctxt vname;
+      (* check arg exps *)
+      esret <- static_check_exps ctxt es;
+      (* per-primop arity/operand checks; returns result shaped basedness *)
+      res_sb <- check_primitive_args ctxt pop esret.sh_bds;
+      (* check declared destination shape matches result shape *)
+      if ~(sh_bd_eq_shapes vinf.vsh_bd res_sb)
+        then error (ShapeErr $ get_shape_mismatch_msg (concat [
+            «result of primitive »; primop_to_str pop;
+            « assigned to local variable »; vname
+          ]) (sh_bd_to_str res_sb) (sh_bd_to_str vinf.vsh_bd)
+          ctxt.loc ctxt.scope)
+      else return ();
+      (* return prog info with updated var *)
+      return <| exits_fun  := F
+              ; exits_loop := F
+              ; last       := OtherLast
+              ; var_delta  := singleton mlstring$compare vname
+                                (vinf with <| vsh_bd := res_sb |>)
+              ; curr_loc   := ctxt.loc |>
     od ∧
   static_check_prog ctxt (Return exp) =
     do

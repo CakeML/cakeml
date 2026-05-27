@@ -5795,3 +5795,26 @@ val static_addcarry_middle_rstruct_operand =
 
 val warns_addcarry_middle_rstruct_operand =
   check_static_no_warnings $ static_check_pancake parse_addcarry_middle_rstruct_operand;
+
+
+val ex_addcarry_nstruct_operand = `
+  struct my_struct {
+    1 value
+  }
+
+  fun {1,1} f () {
+    var 1 b = 2;
+    var 1 c = 0;
+    var {1,1} r = __add_with_carry__(my_struct <value = 1>, b, c);
+    return r;
+  }
+`;
+
+val parse_addcarry_nstruct_operand =
+  check_parse_success $ parse_pancake ex_addcarry_nstruct_operand;
+
+val static_addcarry_nstruct_operand =
+  check_static_failure $ static_check_pancake parse_addcarry_nstruct_operand;
+
+val warns_addcarry_nstruct_operand =
+  check_static_no_warnings $ static_check_pancake parse_addcarry_nstruct_operand;
