@@ -44,6 +44,7 @@ Proof
   simp [eval_def]
 QED
 
+
 Theorem eval_Op_And_SOME:
   eval s x₁ = SOME (ValWord v₁) ∧
   eval s x₂ = SOME (ValWord v₂)
@@ -258,7 +259,7 @@ Quote meld_pan = parse_pancake:
     var v1 = lds 1 a1;
     var v2 = lds 1 a2;
 
-    if v1 <= v2 {
+    if v1 <=+ v2 {
         return a1;
     } else {
         return a2;
@@ -425,9 +426,43 @@ Proof
 QED
 
 
+Theorem eval_Load_One_SOME_Const:
+  FLOOKUP s.locals n = SOME (ValWord v) ∧
+  (v + c) ∈ s.memaddrs
+  ⇒
+  eval s (Load One (Op Add [Var Local n;Const (c:'a word)])) =
+  SOME (Val (s.memory (v + c)))
+Proof
+  simp[eval_def] >>
+  simp[wordLangTheory.word_op_def,mem_load_def]
+QED
+
+
+Theorem eval_Load_One_SOME_Const_fupdate:
+  FLOOKUP s.locals n = SOME (ValWord v) ∧
+  (v + c) ∈ s.memaddrs
+  ⇒
+  eval (s with locals := (s.locals |+ (x,Val y)))
+       (Load One (Op Add [Var Local n;Const (c:'a word)])) =
+  SOME (Val (s.memory (v + c)))
+Proof
+  simp[eval_def] >>
+  simp[FLOOKUP_SIMP] >>
+  IF_CASES_TAC >> simp[] >> strip_tac
+  >- (
+    simp[wordLangTheory.word_op_def,mem_load_def] >>
+    CASE_TAC
+    simp[word_
+  CASE_TAC
+  simp[wordLangTheory.word_op_def,mem_load_def]
+QED
+
+
+
+
 
 Theorem meld_pan_thm:
-  ∀(a1:'a word) a2 dm m frame s.
+  ∀(a1:'a word) a2 dm m s a' m'.
     fib_heap_meld (a1,a2,m,dm) = (a',m',T) /\
     FLOOKUP s.locals (strlit "a1") = SOME (Val (Word a1)) ∧
     FLOOKUP s.locals (strlit "a2") = SOME (Val (Word a2)) ∧
@@ -469,35 +504,28 @@ Proof
   simp[evaluate_if_Equal_0w_false] >>
   simp[evaluate_skip] >>
 (**)
-  simp[Once evaluate_def,eval_def] >>
-  simp[wordLangTheory.word_op_def,mem_load_def] >>
+  simp[Once evaluate_def] >>
   `a1 + 4w ∈ s.memaddrs` by (
     qpat_x_assum `fib_heap_meld_def (a1,a2,s.memory,s.memaddrs) = (a',m',T)`
       mp_tac >> fs[fib_heap_meld_def,read_mem_def,write_mem_def] >>
     rw[before_off_def,next_off_def,bytes_in_word_def]) >>
-  eval_Load_One_Local_SOME
-
-
-  simp[] >>
-(**)
-  simp[Once evaluate_def,eval_def] >>
-  simp[FLOOKUP_SIMP] >>
+  simp[eval_def,FLOOKUP_SIMP] >>
   simp[wordLangTheory.word_op_def,mem_load_def] >>
+  pairarg_tac >> simp[] >> pop_assum mp_tac >>
+(**)
+  simp[Once evaluate_def] >>
   `a2 + 4w ∈ s.memaddrs` by (
     qpat_x_assum `fib_heap_meld_def (a1,a2,s.memory,s.memaddrs) = (a',m',T)`
       mp_tac >> fs[fib_heap_meld_def,read_mem_def,write_mem_def] >>
     rw[before_off_def,next_off_def,bytes_in_word_def]) >>
-  simp[] >>
-(* Clean up... *)
+  simp[eval_def,FLOOKUP_SIMP] >>
+  simp[wordLangTheory.word_op_def,mem_load_def] >>
   pairarg_tac >> simp[] >>
-  pop_assum mp_tac >>
-  pairarg_tac >> simp[] >>
-  pop_assum mp_tac >>
-  pairarg_tac >> simp[] >>
-  pop_assum mp_tac >>
+  strip_tac >> gvs[] >> pop_assum mp_tac >>
 (**)
-  simp[Once evaluate_def,eval_def] >>
-  simp[FLOOKUP_SIMP] >>
+  simp[Once evaluate_def] >>
+  pairarg_tac >> simp[] >> pop_assum mp_tac >>
+  simp[Once evaluate_def,eval_def,FLOOKUP_SIMP] >>
   `is_Word(s.memory (a1 + 4w))` by
     (qpat_x_assum `fib_heap_meld_def (a1,a2,s.memory,s.memaddrs) = (a',m',T)`
       mp_tac >> fs[fib_heap_meld_def,read_mem_def,write_mem_def] >>
@@ -521,7 +549,6 @@ Proof
   pairarg_tac >> simp[] >> pop_assum mp_tac >>
   simp[Once evaluate_def,eval_def,FLOOKUP_SIMP] >>
   simp[wordLangTheory.word_op_def,mem_store_def,mem_stores_def,flatten_def] >>
-  strip_tac >> gvs[] >>
   `is_Word(s.memory (a2 + 4w))` by
     (qpat_x_assum `fib_heap_meld_def (a1,a2,s.memory,s.memaddrs) = (a',m',T)`
       mp_tac >> fs[fib_heap_meld_def,read_mem_def,write_mem_def] >>
@@ -548,7 +575,6 @@ Proof
     rw[before_off_def,next_off_def,bytes_in_word_def]) >>
   simp[] >>
   pairarg_tac >> simp[] >>
-  strip_tac >> gvs[] >>
   strip_tac >> gvs[] >> pop_assum mp_tac >>
 (**)
   simp[Once evaluate_def,eval_def,FLOOKUP_SIMP] >>
@@ -570,153 +596,60 @@ Proof
   simp[wordLangTheory.word_op_def,mem_store_def,mem_stores_def,flatten_def] >>
   simp[evaluate_def,eval_def,asmTheory.word_cmp_def] >>
 (**)
-  Cases_on `w'' < w'''` >> simp[]
+  Cases_on `w''' <=+ w''` >> simp[WORD_NOT_LOWER]
   >- (
     simp[Once evaluate_def,FLOOKUP_SIMP] >>
     simp[shape_of_def,size_of_shape_def] >>
     strip_tac >> gvs[] >>
-    qexists `s.locals⟨
-      «v2» ↦ ValWord w''; «v1» ↦ ValWord w'³';
-      «l_a2» ↦ ValWord w'; «l_a1» ↦ ValWord w⟩` >>
     simp[empty_locals_def,state_component_equality,res_var_def] >>
-    simp[fmap_EQ_THM]
-
-
-
-    imp_res_tac eval_Load_One_Local_SOME
-    simp[FUPDATE_LIST,FLOOKUP_UPDATE]
-    simp[res_var_def]
-
-print_find "res_var"
-
-
-
-
-    simp[FLOOKUP_DEF]
-    fs[fib_heap_meld_def]
-
-
-  simp[
-
-  simp[]
-
-
-
-           of
-             Word w2 =>
-               case
-                 s.memory⦇
-                   a1 + 4w ↦ Word w'; w' + 5w ↦ Word a1; a2 + 4w ↦ Word w;
-                   w + 5w ↦ Word a2
-                 ⦈ a2
-
-
-
-
-
-  pairarg_tac >> simp[] >> pop_assum mp_tac >>
-
-    fs[is_Word_def]
-
- print_find "is_Word"
-
-
-
-  simp[wordLangTheory.word_op_def,mem_stores_def,flatten_def] >>
-  pairarg_tac >> simp[] >> pop_assum mp_tac >>
-
-  simp[evaluate_Store_Local_NONE]
-  simp[FLOOKUP_SIMP] >>
-
-
-res_var_def
-
-  gvs[]
-
-print_find "bytes_in_word_def"
-bytes_in_word_def
-
-  pairarg_tac
-
-print_find "word_op"
-
- eval_def]
-
-    irule_at (Pos hd) evaluate_if_Equal_0w_true
-
-print_find "evaluate_skip"
-print_find "Seq_def"
-  qpat_x_assum `fib_heap_meld (a1,a2,m,dm) = (a',m',T)` mp_tac >>
-(**)
-  simp[fib_heap_meld_def] >>
-  pairarg_tac >> simp[] >>
-  IF_CASES_TAC
-  >- (
-    simp[Once evaluate_def,meld_body_def] >>
-    pairarg_tac >> simp[] >> pop_assum mp_tac >>
-    simp[Once evaluate_def,eval_def,asmTheory.word_cmp_def] >>
-    simp[Once evaluate_def,shape_of_def,size_of_shape_def] >>
-    strip_tac >> gvs[] >> strip_tac >> gvs[] >>
-    qexists `FEMPTY` >> simp[empty_locals_def,state_component_equality]
+    qpat_x_assum `fib_heap_meld (a1,a2,s.memory,s.memaddrs) = (a',m',T)` mp_tac >>
+    simp[fib_heap_meld_def,read_mem_def,write_mem_def,
+         before_off_def,next_off_def,bytes_in_word_def]
     ) >>
-  rw[read_mem_def] >>
-  simp[meld_body_def,Once evaluate_def] >>
-  irule_at (Pos hd) evaluate_if_Equal_SOME_0w
-
-
-
-  pairarg_tac >> simp[] >> pop_assum mp_tac >>
-  simp[Once read_mem_def,before_off_def] >> strip_tac >>
-(**)
-  simp[Once evaluate_def,meld_body_def]
-  IF_CASES_TAC
-  >- (
-    simp[Once evaluate_def,meld_body_def] >>
-    pairarg_tac >> simp[] >> pop_assum mp_tac >>
-    simp[Once evaluate_def,eval_def,asmTheory.word_cmp_def] >>
-    simp[Once evaluate_def,shape_of_def,size_of_shape_def] >>
-    strip_tac >> gvs[] >> strip_tac >> gvs[] >>
-    qexists `FEMPTY` >> simp[empty_locals_def,state_component_equality]
-    ) >>
-  rw[fib_heap_meld_def] >>
-  simp[meld_body_def] >>
-  simp[Once evaluate_def] >>
-(**)
-  pairarg_tac >> simp[] >> pop_assum mp_tac >>
-  simp[Once evaluate_def,eval_def,asmTheory.word_cmp_def] >>
-  CASE_TAC >> simp[]
-  >- (
-    simp[Once evaluate_def] >>
-    simp[shape_of_def,size_of_shape_def] >>
-    strip_tac >> gvs[] >>
-    fs[fib_heap_meld_def] >>
-    qexists `FEMPTY` >> simp[empty_locals_def,state_component_equality]
-    ) >>
-  simp[Once evaluate_def] >> strip_tac >> gvs[] >>
-(**)
-  simp[Once evaluate_def] >>
-  pairarg_tac >> simp[] >> pop_assum mp_tac >>
-  simp[Once evaluate_def,eval_def,asmTheory.word_cmp_def] >>
-  CASE_TAC >> simp[]
-  >- (
-    simp[Once evaluate_def] >>
-    simp[eval_def,shape_of_def,size_of_shape_def,asmTheory.word_cmp_def] >>
-    strip_tac >> gvs[] >>
-    fs[fib_heap_meld_def] >>
-    qexists `FEMPTY` >> simp[empty_locals_def,state_component_equality]
-    ) >>
-  simp[Once evaluate_def] >> strip_tac >> gvs[] >>
-(**)
-  simp[evaluate_def] >>
-  simp[eval_def] >>
-  fs[fib_heap_meld_def,read_mem_def,write_mem_def,before_off_def,next_off_def,
-  irule_at (Pos hd) eval_Load_One_Local_Add_SOME
-  simp[eval_Op_Add_SOME_Const]
-
-        ∃l. evaluate
-              (Dec «l_a1» One (Load One (Op Add [Var Local «a1»; Const 4w]))
-        ∃l. (case eval s (Load One (Op Add [Var Local «a1»; Const 4w])) of
-
-  cheat
+  simp[Once evaluate_def,FLOOKUP_SIMP] >>
+  simp[shape_of_def,size_of_shape_def] >>
+  strip_tac >> gvs[] >>
+  simp[empty_locals_def,state_component_equality,res_var_def] >>
+  qpat_x_assum `fib_heap_meld (a1,a2,s.memory,s.memaddrs) = (a',m',T)` mp_tac >>
+  simp[fib_heap_meld_def,read_mem_def,write_mem_def,
+       before_off_def,next_off_def,bytes_in_word_def]
 QED
+
+
+(*--------------------------------------------------------------
+End to End Proof
+---------------------------------------------------------------*)
+Theorem end_to_end_meld:
+  (fts_mem (ann_fts 0w fts1) * fts_mem (ann_fts 0w fts2) * frame)
+    (fun2set(m,dm)) /\
+  fib_heap_inv fh1 fts1 /\
+  fib_heap_inv fh2 fts2 /\
+  DISJOINT (FDOM fh1) (FDOM fh2) /\
+  FLOOKUP s.locals «a1» = SOME (ValWord ((head_key fts1):'a word)) ∧
+  FLOOKUP s.locals «a2» = SOME (ValWord (head_key fts2)) ∧ dimindex (:α) = 8 ∧
+  m = s.memory ∧ dm = s.memaddrs
+  ⇒
+  ∃fts' l m'. evaluate (meld_body,s) =
+    (SOME (Return (ValWord (head_key fts'))),
+     s with <|memory := m'; locals := l|>) /\
+  (fts_mem (ann_fts 0w fts') * frame) (fun2set(m',dm)) /\
+  fib_heap_inv (FUNION fh1 fh2) fts'
+Proof
+  rpt strip_tac >>
+  qexists `fts_meld fts1 fts2` >>
+  qabbrev_tac `fts' = fts_meld fts1 fts2` >>
+  `fts_meld fts1 fts2 = fts'` by simp[] >>
+  drule_all fts_meld >> strip_tac >> simp[] >>
+  drule_all fib_heap_meld_mem_thm >> strip_tac >> simp[] >>
+  drule_all meld_pan_thm >> strip_tac >> simp[] >>
+  qexistsl [`l`,`m'`] >>
+  gvs[]
+QED
+
+
+
+
+
+
+
 
