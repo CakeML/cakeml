@@ -844,6 +844,30 @@ Definition encode_is_witness_base_def:
     encode_imply circ «base» lhss rhss
 End
 
+Definition encode_is_witness_step_def:
+  encode_is_witness_step
+    (wcirc: ('a, 'i, 'l) circuit)
+    (wnext: 'l -> ('a, 'i, 'l) lit)
+    (wcnstrs: ('a, 'i, 'l) lit list)
+    (wpreds: ('a, 'i, 'l) lit list)
+    (wlatches: 'l list)
+  ⇔
+    let
+      circ = iext_circuit wcirc;
+      circ = encode_preds_hold circ «wcnstrs» (MAP iext_lit wcnstrs);
+      circ = encode_preds_hold circ «wpreds» (MAP iext_lit wpreds);
+      circ = iext_circuit (pair_circuits circ circ);
+      circ = encode_is_next circ «wnext» (iext_lit ∘ wnext) wlatches;
+      lhss =
+        [iext_lit (left_lit (Name (Named (Ext «wpreds»)), F));
+         (Name (Named (Ext «wnext»)), F);
+         iext_lit (right_lit (Name (Named (Ext «wcnstrs»)), F));
+         iext_lit (left_lit (Name (Named (Ext «wcnstrs»)), F))];
+      rhss = [iext_lit (right_lit (Name (Named (Ext «wpreds»)), F))]
+    in
+      encode_imply circ «step» lhss rhss
+End
+
 (* Proving correctness of the encodings ***************************************)
 
 (* A bunch of trivial helper lemmas, which keep the proof state readable
@@ -1051,4 +1075,26 @@ Proof
       eval_lit_encode_is_reset_Named,
       is_witness_base_def
     ]
+QED
+
+Theorem eval_circuit_encode_is_witness_step:
+  (∀ss.
+     (eval_circuit ss
+       (encode_is_witness_step
+          wcirc wnext wcnstrs wpreds wlatches)
+       (Named (Ext «step»)))) =
+  is_witness_step wcirc wreset wnext (set wpreds) (set wcnstrs) (set wlatches)
+Proof
+  simp [
+      encode_is_witness_step_def,
+      eval_circuit_encode_imply,
+      eval_lit_encode_preds_hold_Named,
+      eval_lit_encode_equiv_Named,
+      encode_is_next_def,
+      eval_lit_base,
+      is_witness_step_def, is_next_def,
+      FORALL_PAIR_STATE,
+      EVERY_MEM, MEM_MAP, PULL_EXISTS
+    ]
+  >> metis_tac []
 QED
