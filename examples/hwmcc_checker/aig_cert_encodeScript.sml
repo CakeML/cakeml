@@ -779,25 +779,22 @@ Definition encode_is_witness_transition_def:
     (wlatches: 'l list)
   =
   let
-    circ₀ = imerge_circuits mcirc wcirc;
-    circ₀ = encode_preds_hold circ₀ «mcnstrs0» (ileft_name_lits mcnstrs);
-    circ₀ = encode_preds_hold circ₀ «wcnstrs0» (iright_name_lits wcnstrs);
-    circ₁ = imerge_circuits mcirc wcirc;
-    circ₁ = encode_preds_hold circ₁ «mcnstrs1» (ileft_name_lits mcnstrs);
-    circ₁ = encode_preds_hold circ₁ «wcnstrs1» (iright_name_lits wcnstrs);
-    circ  = iext_circuit (pair_circuits circ₀ circ₁);
+    circ  = imerge_circuits mcirc wcirc;
+    circ = encode_preds_hold circ «mcnstrs» (ileft_name_lits mcnstrs);
+    circ = encode_preds_hold circ «wcnstrs» (iright_name_lits wcnstrs);
+    circ  = iext_circuit (pair_circuits circ circ);
     circ  = encode_is_next circ «mnext» (iext_lit ∘ left_name_lit ∘ mnext) mlatches;
     klatches = list_inter mlatches wlatches;
     circ  = encode_is_next circ «wnext» (iext_lit ∘ right_name_lit ∘ wnext) klatches;
     lhss  =
       [(Name (Named (Ext «mnext»)), F);
-       iext_lit (left_lit (Name (Named (Ext «mcnstrs0»)), F));
-       iext_lit (right_lit (Name (Named (Ext «mcnstrs1»)), F));
-       iext_lit (left_lit (Name (Named (Ext «wcnstrs0»)), F));
+       iext_lit (left_lit (Name (Named (Ext «mcnstrs»)), F));
+       iext_lit (right_lit (Name (Named (Ext «mcnstrs»)), F));
+       iext_lit (left_lit (Name (Named (Ext «wcnstrs»)), F));
       ];
     rhss  =
       [(Name (Named (Ext «wnext»)), F);
-       iext_lit (right_lit (Name (Named (Ext «wcnstrs1»)), F))];
+       iext_lit (right_lit (Name (Named (Ext «wcnstrs»)), F))];
   in
     encode_imply circ «transition» lhss rhss
 End
