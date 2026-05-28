@@ -82,6 +82,8 @@ Definition parse_header_def:
     (justice,rest) <- parse_opt_number rest;
     (fairness,rest) <- parse_opt_number rest;
     rest <- expect_char #"\n" rest;
+    assert («invalid maximal variable index», rest)
+      (maxvar = inputs + latches + ands);
     return
       (<| maxvar := maxvar ; inputs := inputs ; latches := latches;
           outputs := outputs ; ands := ands ; bad := bad;
