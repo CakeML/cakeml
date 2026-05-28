@@ -836,10 +836,10 @@ Definition encode_is_witness_base_def:
       circ = encode_is_reset circ «wreset» (iext_reset wreset) wlatches;
       circ = encode_preds_hold circ «wcnstrs» (MAP iext_lit wcnstrs);
       circ = encode_preds_hold circ «wpreds» (MAP iext_lit wpreds);
-    lhss =
-      [(Name (Named (Ext «wreset»)),F);
-       (Name (Named (Ext «wcnstrs»)),F)];
-    rhss = [(Name (Named (Ext «wpreds»)), F);]
+      lhss =
+        [(Name (Named (Ext «wreset»)),F);
+         (Name (Named (Ext «wcnstrs»)),F)];
+      rhss = [(Name (Named (Ext «wpreds»)), F)]
   in
     encode_imply circ «base» lhss rhss
 End
