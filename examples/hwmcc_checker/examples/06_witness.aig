@@ -1,0 +1,35 @@
+aig 32 1 4 1 27
+1
+4
+20
+28
+65
+	 #!)*25
+i0 = 2
+l0 = 4
+l1 = 6
+l2 = 8
+l3 = 10
+c
+WITNESS o0 01_model.aig shasum 9f1747da5a7dd981c9dac13f4077c8e31c9ce50d
+To construct the final witness circuit, we backward the forward witness
+to undo the two forwarding steps. For the full construction see our
+FMCAD23 paper. We already have two latches 4 and 6 (the b's) that keep
+track of the current initialization. Since no additional latches where
+added by any of the model preprocessing or witness postprocessing the
+reset does not need to be modified. The only thing left is to strengthen
+the original property (31) by adding three things:
+- 53: If the circuit is uninitialized (5) then all latches are in their
+      reset (44).
+- 57: If the circuit is partially initialized (54) then the current state
+      is reachable in one step from reset (there is only one such state
+      in the original model).
+- 59: If the circuit is fully initialized (6) then the property of the
+      forward witness holds.
+The final witness circuit certifies both the BMC of depth 2 part (required
+for the forwarding) and the unbound proof produced by IC3.
+Note that this circuit is not fully reencoded for reasons of readability,
+however inputs and latches are.
+../build/check 01_model.aag 06_witness.aag
+This final check is the only one needed to certify the entire model
+checking process. The others are included merely for illustation.

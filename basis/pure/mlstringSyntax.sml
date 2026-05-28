@@ -41,4 +41,15 @@ fun mk_mlstring str = stringSyntax.fromMLstring str
 fun dest_mlstring term = dest_strlit term
                        |> stringSyntax.fromHOLstring
 
+fun mlstring_from_file filename =
+  let
+    val stream = TextIO.openIn filename
+    val contents =
+      TextIO.inputAll stream
+      handle e => (TextIO.closeIn stream; raise e)
+    val () = TextIO.closeIn stream
+  in
+    mk_mlstring contents
+  end
+
 end

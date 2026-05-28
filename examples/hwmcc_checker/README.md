@@ -9,5 +9,11 @@ Formalization of HWMCC certificates
 [aig_cert_encodeScript.sml](aig_cert_encodeScript.sml):
 Encodes the certificate conditions as an AIG.
 
+[aig_parseScript.sml](aig_parseScript.sml):
+Parser for the AIGER format.
+
 [aig_to_cnfScript.sml](aig_to_cnfScript.sml):
 Mapping And-Inverter Graphs into CNF
+
+[examples](examples):
+Examples to test the AIGER infrastructure.
