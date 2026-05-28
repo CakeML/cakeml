@@ -71,6 +71,17 @@ Proof
   simp [eval_def, wordLangTheory.word_op_def]
 QED
 
+
+Theorem eval_Op_Add_SOME_Const:
+  eval s x₁ = SOME (ValWord v₁)
+  ⇒
+  eval s (Op Add [x₁; Const c]) = SOME (ValWord (v₁ + c))
+Proof
+  simp [eval_def, wordLangTheory.word_op_def]
+QED
+
+
+
 Theorem eval_Cmp_NotEqual_SOME:
   eval s e₁ = SOME (ValWord v₁) ∧
   eval s e₂ = SOME (ValWord v₂)
@@ -80,6 +91,22 @@ Proof
   simp [eval_def, asmTheory.word_cmp_def]
 QED
 
+
+Theorem eval_Cmp_Equal_SOME:
+  eval s e₁ = SOME (Val v₁) ∧
+  eval s e₂ = SOME (Val v₂)
+  ⇒
+  eval s (Cmp Equal e₁ e₂) = SOME (ValWord (if v₁ = v₂ then 1w else 0w))
+Proof
+  simp[eval_def,asmTheory.word_cmp_def] >>
+  CASE_TAC >> simp[] >>
+  CASE_TAC >> simp[]
+QED
+
+
+
+
+
 Theorem eval_Load_One_Local_SOME:
   FLOOKUP s.locals n = SOME (ValWord v) ∧
   v ∈ s.memaddrs
@@ -88,6 +115,37 @@ Theorem eval_Load_One_Local_SOME:
 Proof
   simp [eval_def, mem_load_def]
 QED
+
+
+Theorem eval_Load_One_Local_Add_SOME:
+  FLOOKUP s.locals n = SOME (ValWord v) ∧
+  v + off ∈ s.memaddrs
+  ⇒
+  eval s (Load One (Op Add [Var Local n;Const off])) =
+    SOME (Val (s.memory (v + off)))
+Proof
+  simp [eval_def] >>
+  simp [wordLangTheory.word_op_def] >>
+  simp [mem_load_def]
+QED
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 (** evaluate ******************************************************************)
 
@@ -127,12 +185,12 @@ QED
 
 
 
-Theorem evaluate_Dec_NONE:
+Theorem evaluate_Dec:
   eval s e = SOME value ∧
-  evaluate (prog,s with locals := s.locals |+ (v,value)) = (NONE,s₁)
+  evaluate (prog,s with locals := s.locals |+ (v,value)) = (x,s₁)
   ⇒
   evaluate (Dec v shape e prog, s) =
-    (NONE, s₁ with locals := res_var s₁.locals (v, FLOOKUP s.locals v))
+    (x, s₁ with locals := res_var s₁.locals (v, FLOOKUP s.locals v))
 Proof
   rw [] >> simp [Once evaluate_def]
 QED
@@ -156,6 +214,7 @@ Theorem evaluate_Store_Local_NONE:
 Proof
   simp [evaluate_def, flatten_def, mem_stores_def, mem_store_def]
 QED
+
 
 Theorem evaluate_Assign_Local:
   eval s src = SOME value ∧
@@ -313,6 +372,25 @@ QED
   SEP_F_TAC
 *)
 
+Theorem evaluate_if_Equal_SOME_Const:
+  FLOOKUP s l = SOME (ValWord v) /\
+  v <> c
+  ==>
+  evaluate ((If (Cmp Equal (Var Local v) (Const c)) stm1 stm2), s) =
+    evaluate (stm2,s)
+Proof
+  strip_tac >>
+  `eval s (Cmp Equal exp1 exp2) = SOME (ValWord (if v1 = v2 then 1w else 0w))` by
+    imp_res_tac eval_Cmp_Equal_SOME >>
+  simp[evaluate_def] >>
+  IF_CASES_TAC >> fs[] >>
+  IF_CASES_TAC >> fs[]
+QED
+
+
+
+
+
 
 Theorem meld_pan_thm:
   ∀a1 a2 dm m frame s.
@@ -328,6 +406,32 @@ Theorem meld_pan_thm:
 Proof
   rpt strip_tac >>
   rw[fib_heap_meld_def] >>
+  qpat_x_assum `fib_heap_meld (a1,a2,m,dm) = (a',m',T)` mp_tac >>
+(**)
+  pairarg_tac >> simp[] >>
+  IF_CASES_TAC
+  >- (
+    simp[Once evaluate_def,meld_body_def] >>
+    pairarg_tac >> simp[] >> pop_assum mp_tac >>
+    simp[Once evaluate_def,eval_def,asmTheory.word_cmp_def] >>
+    simp[Once evaluate_def,shape_of_def,size_of_shape_def] >>
+    strip_tac >> gvs[] >> strip_tac >> gvs[] >>
+    qexists `FEMPTY` >> simp[empty_locals_def,state_component_equality]
+    ) >>
+  pairarg_tac >> simp[] >> pop_assum mp_tac >>
+  simp[Once read_mem_def,before_off_def] >> strip_tac >>
+(**)
+  simp[Once evaluate_def,meld_body_def]
+  IF_CASES_TAC
+  >- (
+    simp[Once evaluate_def,meld_body_def] >>
+    pairarg_tac >> simp[] >> pop_assum mp_tac >>
+    simp[Once evaluate_def,eval_def,asmTheory.word_cmp_def] >>
+    simp[Once evaluate_def,shape_of_def,size_of_shape_def] >>
+    strip_tac >> gvs[] >> strip_tac >> gvs[] >>
+    qexists `FEMPTY` >> simp[empty_locals_def,state_component_equality]
+    ) >>
+  rw[fib_heap_meld_def] >>
   simp[meld_body_def] >>
   simp[Once evaluate_def] >>
 (**)
@@ -342,6 +446,30 @@ Proof
     qexists `FEMPTY` >> simp[empty_locals_def,state_component_equality]
     ) >>
   simp[Once evaluate_def] >> strip_tac >> gvs[] >>
+(**)
+  simp[Once evaluate_def] >>
+  pairarg_tac >> simp[] >> pop_assum mp_tac >>
+  simp[Once evaluate_def,eval_def,asmTheory.word_cmp_def] >>
+  CASE_TAC >> simp[]
+  >- (
+    simp[Once evaluate_def] >>
+    simp[eval_def,shape_of_def,size_of_shape_def,asmTheory.word_cmp_def] >>
+    strip_tac >> gvs[] >>
+    fs[fib_heap_meld_def] >>
+    qexists `FEMPTY` >> simp[empty_locals_def,state_component_equality]
+    ) >>
+  simp[Once evaluate_def] >> strip_tac >> gvs[] >>
+(**)
+  simp[evaluate_def] >>
+  simp[eval_def] >>
+  fs[fib_heap_meld_def,read_mem_def,write_mem_def,before_off_def,next_off_def,
+  irule_at (Pos hd) eval_Load_One_Local_Add_SOME
+  simp[eval_Op_Add_SOME_Const]
+
+        ∃l. evaluate
+              (Dec «l_a1» One (Load One (Op Add [Var Local «a1»; Const 4w]))
+        ∃l. (case eval s (Load One (Op Add [Var Local «a1»; Const 4w])) of
+
   cheat
 QED
 
