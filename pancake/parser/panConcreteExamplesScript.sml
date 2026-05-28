@@ -577,7 +577,7 @@ val opt_shape_dec_parse = check_success $ parse_pancake opt_shape_dec;
     as 1. Permitted positions are declaration RHS and assignment RHS;
     standalone, handler-attached, and tail-return calls are not supported. *)
 val add_with_carry_ex = ‘
-  fun {1,1} main() {
+  fun {1,1} f() {
     var a = 1;
     var b = 2;
     var c = 0;
