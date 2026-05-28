@@ -196,26 +196,6 @@ Definition is_live_def:
              preds_hold (pair_state (tr i) (tr (i + 1))) qcirc {signal})
 End
 
-Definition signal_imply_def:
-  signal_imply ss circ ss' circ' signals signals' =
-  LIST_REL (λq q'. preds_hold ss circ {q} ⇒ preds_hold ss' circ' {q'})
-    signals signals'
-End
-
-Definition lives_imply_def:
-  lives_imply ss₀ ss₁ wqcirc mqcirc wlive mlive =
-  LIST_REL (λQ Q'. signal_imply ss₀ wqcirc ss₁ mqcirc Q Q') wlive mlive
-End
-
-Definition some_signal_holds_def:
-  some_signal_holds ss circ signals =
-  EXISTS (λp. preds_hold ss circ {p}) signals
-End
-
-Definition lives_hold_def:
-  lives_hold ss circ live = EVERY (some_signal_holds ss circ) live
-End
-
 (* Circuit Dependencies *******************************************************)
 
 (* While state and input are defined over the entirety of (potentially infinite)
@@ -725,34 +705,6 @@ Theorem agree_on_refl[simp]:
   agree_on inputs latches ss ss
 Proof
   Cases_on ‘ss’ >> simp [agree_on_def]
-QED
-
-Theorem lives_hold_dep_circuit:
-  lives_hold ss circ ns ∧
-  dep_circuit inputs latches circ ∧
-  dep_lits inputs latches (set (FLAT ns)) ∧
-  agree_on inputs latches ss ss'
-  ⇒
-  lives_hold ss' circ ns
-Proof
-  rw [lives_hold_def, EVERY_MEM, dep_lits_def, some_signal_holds_def,
-          EXISTS_MEM, MEM_FLAT, preds_hold_def]
-  >> metis_tac [dep_eval_lit_eq]
-QED
-
-Theorem lives_hold_matching_transition:
-  lives_hold (pair_state (tr (i + 2)) (tr (i + 1))) qcirc live ∧
-  matching_transition inputs latches tr i (i + 2) ∧
-  dep_circuit (pair_set inputs) (pair_set latches) qcirc ∧
-  dep_lits (pair_set inputs) (pair_set latches) (set (FLAT live))
-  ⇒
-  lives_hold (pair_state (tr i) (tr (i + 1))) qcirc live
-Proof
-  rw []
-  >> irule lives_hold_dep_circuit
-  >> qpat_x_assum ‘lives_hold _ _ _’ $ irule_at Any
-  >> first_assum $ irule_at (Pos hd) >> simp []
-  >> fs [agree_on_pair, matching_transition_def]
 QED
 
 Theorem dep_latch_lit_next:

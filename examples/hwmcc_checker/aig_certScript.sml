@@ -15,6 +15,26 @@ Proof
   metis_tac [QSORT_PERM, PERM_LIST_TO_SET]
 QED
 
+Definition signal_imply_def:
+  signal_imply ss circ ss' circ' signals signals' =
+  LIST_REL (λq q'. preds_hold ss circ {q} ⇒ preds_hold ss' circ' {q'})
+    signals signals'
+End
+
+Definition lives_imply_def:
+  lives_imply ss₀ ss₁ wqcirc mqcirc wlive mlive =
+  LIST_REL (λQ Q'. signal_imply ss₀ wqcirc ss₁ mqcirc Q Q') wlive mlive
+End
+
+Definition some_signal_holds_def:
+  some_signal_holds ss circ signals =
+  EXISTS (λp. preds_hold ss circ {p}) signals
+End
+
+Definition lives_hold_def:
+  lives_hold ss circ live = EVERY (some_signal_holds ss circ) live
+End
+
 (* NOTE We use R{L} and F{L} on the left-hand side of implications
    instead of R{K} and F{K}, allowing us to prove soundness a bit easier. *)
 
@@ -448,6 +468,34 @@ Proof
   >> qexists ‘tr (i + k)’ >> fs [ADD1]
   >> rewrite_tac [ADD_ASSOC] >> simp[ADD_ASSOC]
   >> first_x_assum $ qspec_then ‘i + k’ mp_tac >> simp []
+QED
+
+Theorem lives_hold_dep_circuit:
+  lives_hold ss circ ns ∧
+  dep_circuit inputs latches circ ∧
+  dep_lits inputs latches (set (FLAT ns)) ∧
+  agree_on inputs latches ss ss'
+  ⇒
+  lives_hold ss' circ ns
+Proof
+  rw [lives_hold_def, EVERY_MEM, dep_lits_def, some_signal_holds_def,
+          EXISTS_MEM, MEM_FLAT, preds_hold_def]
+  >> metis_tac [dep_eval_lit_eq]
+QED
+
+Theorem lives_hold_matching_transition:
+  lives_hold (pair_state (tr (i + 2)) (tr (i + 1))) qcirc live ∧
+  matching_transition inputs latches tr i (i + 2) ∧
+  dep_circuit (pair_set inputs) (pair_set latches) qcirc ∧
+  dep_lits (pair_set inputs) (pair_set latches) (set (FLAT live))
+  ⇒
+  lives_hold (pair_state (tr i) (tr (i + 1))) qcirc live
+Proof
+  rw []
+  >> irule lives_hold_dep_circuit
+  >> qpat_x_assum ‘lives_hold _ _ _’ $ irule_at Any
+  >> first_assum $ irule_at (Pos hd) >> simp []
+  >> fs [agree_on_pair, matching_transition_def]
 QED
 
 Theorem matching_transition_live:
