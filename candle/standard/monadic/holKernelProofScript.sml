@@ -886,6 +886,34 @@ Proof
        Once rev_assocd_def]) \\ SRW_TAC [] [] \\ METIS_TAC []
 QED
 
+Theorem safe_mk_eq_thm:
+  (safe_mk_eq x y s = (res, s')) ⇒
+  (TERM defs x ∧ TERM defs y ∧ STATE defs s) ⇒
+  (typeof x = typeof y) ⇒
+  (s' = s) ∧
+  ∀t. (res = M_success t) ⇒
+      (t = Comb (Comb (Equal (term_type x)) x) y) ∧ TERM defs t
+Proof
+  ntac 3 strip_tac
+  >> qhdtm_x_assum ‘safe_mk_eq’ mp_tac
+  >> simp [safe_mk_eq_def, try_def, otherwise_def, st_ex_bind_def,
+           st_ex_return_def]
+  >> qspec_then ‘x’ mp_tac type_of_thm
+  >> impl_tac >- simp []
+  >> strip_tac >> simp []
+  >> TOP_CASE_TAC
+  >> drule mk_type_thm >> disch_then drule >> simp []
+  >> strip_tac >> TOP_CASE_TAC >> strip_tac >> gvs []
+  >> ‘CONTEXT defs’ by fs [STATE_def]
+  >> imp_res_tac term_type
+  >> imp_res_tac CONTEXT_std_sig
+  >> gvs [TERM_def, is_std_sig_def, TYPE_def, type_ok_def]
+  >> imp_res_tac term_ok_welltyped
+  >> simp [term_ok_def, type_ok_def]
+  >> qexists ‘[(typeof y, aty)]’
+  >> simp[REV_ASSOCD]
+QED
+
 Theorem mk_eq_thm:
   (mk_eq(x,y)s = (res,s')) ==>
   TERM defs x /\ TERM defs y /\ STATE defs s ==>
@@ -1745,18 +1773,17 @@ Theorem REFL_thm:
    TERM defs tm /\ STATE defs s /\ (REFL tm s = (res, s')) ==>
     (s' = s) /\ !th. (res = M_success th) ==> THM defs th
 Proof
-  cheat
-  (* SIMP_TAC std_ss [REFL_def,st_ex_bind_def] \\ Cases_on `mk_eq(tm,tm) s` *)
-  (* \\ REPEAT STRIP_TAC \\ IMP_RES_TAC mk_eq_thm *)
-  (* \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) [st_ex_return_def] *)
-  (* \\ Q.PAT_X_ASSUM `xxx = th` (ASSUME_TAC o GSYM) *)
-  (* \\ FULL_SIMP_TAC (srw_ss()) [THM_def,domain_def] >> *)
-  (* rw[] >> *)
-  (* fs[STATE_def] >> rw[] >> imp_res_tac term_type *)
-  (* \\ simp[GSYM equation_def] *)
-  (* \\ MATCH_MP_TAC(List.nth(CONJUNCTS proves_rules,8)) >> *)
-  (* fs[CONTEXT_def,TERM_def] >> *)
-  (* METIS_TAC[extends_theory_ok,init_theory_ok] *)
+  SIMP_TAC std_ss [REFL_def,st_ex_bind_def] \\ Cases_on `safe_mk_eq tm tm s`
+  \\ REPEAT STRIP_TAC \\ IMP_RES_TAC safe_mk_eq_thm
+  \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) [st_ex_return_def]
+  \\ Q.PAT_X_ASSUM `xxx = th` (ASSUME_TAC o GSYM)
+  \\ FULL_SIMP_TAC (srw_ss()) [THM_def,domain_def] >>
+  rw[] >>
+  fs[STATE_def] >> rw[] >> imp_res_tac term_type
+  \\ simp[GSYM equation_def]
+  \\ MATCH_MP_TAC(List.nth(CONJUNCTS proves_rules,8)) >>
+  fs[CONTEXT_def,TERM_def] >>
+  METIS_TAC[extends_theory_ok,init_theory_ok]
 QED
 
 Theorem TRANS_thm:
@@ -3147,6 +3174,13 @@ Proof
   \\ fs [case_eq_thms, bool_case_eq, COND_RATOR]
 QED
 
+Theorem safe_mk_eq_not_clash[simp]:
+   safe_mk_eq x y s ≠ (M_failure(Clash tm),refs)
+Proof
+  simp [safe_mk_eq_def, st_ex_bind_def, st_ex_return_def]
+  >> every_case_tac >> CCONTR_TAC >> gvs []
+QED
+
 Theorem ASSUME_not_clash[simp]:
    !a b. ASSUME a b <> (M_failure (Clash tm), refs)
 Proof
@@ -3226,8 +3260,7 @@ QED
 Theorem REFL_not_clash[simp]:
    REFL a b <> (M_failure (Clash tm),refs)
 Proof
-  cheat
-  (* rw [REFL_def, st_ex_bind_def, st_ex_return_def, case_eq_thms] *)
+  simp [REFL_def, st_ex_bind_def, st_ex_return_def, AllCaseEqs()]
 QED
 
 Theorem TRANS_not_clash[simp]:
