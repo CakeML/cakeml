@@ -692,14 +692,16 @@ Definition right_reset_def:
   λl. OPTION_MAP right_name_lit (mreset l)
 End
 
+Definition iext_reset_def:
+  iext_reset reset = λl. OPTION_MAP iext_lit (reset l)
+End
+
 Definition ileft_reset_def:
-  ileft_reset mreset =
-  λl. OPTION_MAP iext_lit (left_reset mreset l)
+  ileft_reset = iext_reset ∘ left_reset
 End
 
 Definition iright_reset_def:
-  iright_reset mreset =
-  λl. OPTION_MAP iext_lit (right_reset mreset l)
+  iright_reset = iext_reset ∘ right_reset
 End
 
 Definition ileft_name_lits_def:
@@ -824,17 +826,45 @@ Definition encode_is_witness_property_def:
     encode_imply circ «property» lhss rhss
 End
 
+Definition encode_is_witness_base_def:
+  encode_is_witness_base
+    (wcirc: ('a, 'i, 'l) circuit)
+    (wreset: 'l -> ('a, 'i, 'l) lit option)
+    (wcnstrs: ('a, 'i, 'l) lit list)
+    (wpreds: ('a, 'i, 'l) lit list)
+    (wlatches: 'l list)
+  ⇔
+    let
+      circ = iext_circuit wcirc;
+      circ = encode_is_reset circ «wreset» (iext_reset wreset) wlatches;
+      circ = encode_preds_hold circ «wcnstrs» (MAP iext_lit wcnstrs);
+      circ = encode_preds_hold circ «wpreds» (MAP iext_lit wpreds);
+    lhss =
+      [(Name (Named (Ext «wreset»)),F);
+       (Name (Named (Ext «wcnstrs»)),F)];
+    rhss = [(Name (Named (Ext «wpreds»)), F);]
+  in
+    encode_imply circ «base» lhss rhss
+End
+
 (* Proving correctness of the encodings ***************************************)
 
 (* A bunch of trivial helper lemmas, which keep the proof state readable
    when an encoding function uses many other encoding functions. *)
+
+Theorem is_reset_iext[local,simp]:
+  is_reset ss (iext_circuit circ) (iext_reset reset) latches ⇔
+    is_reset ss circ reset latches
+Proof
+  simp [is_reset_def, iext_reset_def, PULL_EXISTS]
+QED
 
 Theorem is_reset_ileft[local,simp]:
   is_reset ss (imerge_circuits lcirc rcirc) (ileft_reset lreset) latches ⇔
     is_reset ss lcirc lreset latches
 Proof
   simp [is_reset_def, imerge_circuits_def, ileft_reset_def, left_reset_def,
-        eval_circuit_def, PULL_EXISTS]
+        eval_circuit_def, iext_reset_def, PULL_EXISTS]
 QED
 
 Theorem is_reset_iright[local,simp]:
@@ -842,7 +872,7 @@ Theorem is_reset_iright[local,simp]:
     is_reset ss rcirc rreset latches
 Proof
   simp [is_reset_def, imerge_circuits_def, iright_reset_def, right_reset_def,
-        eval_circuit_def, PULL_EXISTS]
+        eval_circuit_def, iext_reset_def, PULL_EXISTS]
 QED
 
 Theorem is_reset_encode_preds_hold_iright[local,simp]:
@@ -851,7 +881,7 @@ Theorem is_reset_encode_preds_hold_iright[local,simp]:
   is_reset ss circ (iright_reset reset) latches
 Proof
   simp [is_reset_def, encode_preds_hold_def, iright_reset_def, right_reset_def,
-        eval_circuit_def, PULL_EXISTS]
+        eval_circuit_def, iext_reset_def, PULL_EXISTS]
 QED
 
 Theorem is_reset_encode_is_reset_iright[local,simp]:
@@ -860,7 +890,14 @@ Theorem is_reset_encode_is_reset_iright[local,simp]:
   is_reset ss circ (iright_reset reset) latches
 Proof
   simp [is_reset_def, encode_is_reset_def, iright_reset_def, eval_circuit_def,
-        PULL_EXISTS]
+        iext_reset_def, PULL_EXISTS]
+QED
+
+Theorem preds_hold_iext[local,simp]:
+  preds_hold ss (iext_circuit circ) (set (MAP iext_lit preds)) ⇔
+    preds_hold ss circ (set preds)
+Proof
+  simp [preds_hold_def, MEM_MAP, PULL_EXISTS]
 QED
 
 Theorem preds_hold_ileft[local,simp]:
@@ -895,6 +932,29 @@ Theorem preds_hold_encode_is_reset_iright[local,simp]:
 Proof
   simp [preds_hold_def, encode_is_reset_def, iright_name_lits_def,
         GSYM MAP_MAP_o, MEM_MAP, PULL_EXISTS]
+QED
+
+Theorem preds_hold_encode_is_reset_iext[local,simp]:
+  preds_hold ss
+    (encode_is_reset circ name reset latches) (set (MAP iext_lit preds)) ⇔
+  preds_hold ss circ (set (MAP iext_lit preds))
+Proof
+  simp [preds_hold_def, encode_is_reset_def, MEM_MAP, PULL_EXISTS]
+QED
+
+Theorem preds_hold_encode_preds_hold_iright[local,simp]:
+  preds_hold ss (encode_preds_hold circ name preds') (set (iright_name_lits preds)) ⇔
+    preds_hold ss circ (set (iright_name_lits preds))
+Proof
+  simp [preds_hold_def, encode_preds_hold_def, iright_name_lits_def,
+        GSYM MAP_MAP_o, MEM_MAP, PULL_EXISTS]
+QED
+
+Theorem preds_hold_encode_preds_hold_iext_lit[local,simp]:
+  preds_hold ss (encode_preds_hold circ name preds') (set (MAP iext_lit preds)) ⇔
+    preds_hold ss circ (set (MAP iext_lit preds))
+Proof
+  simp [preds_hold_def, encode_preds_hold_def, MEM_MAP, PULL_EXISTS]
 QED
 
 Theorem preds_hold_encode_preds_hold_iright[local,simp]:
@@ -976,4 +1036,22 @@ Proof
       is_witness_property_def
     ]
   >> metis_tac []
+QED
+
+Theorem eval_circuit_encode_is_witness_base:
+  (∀ss.
+     (eval_circuit ss
+       (encode_is_witness_base
+          wcirc wreset wcnstrs wpreds wlatches)
+       (Named (Ext «base»)))) =
+  is_witness_base
+    wcirc wreset wnext (set wpreds) (set wcnstrs) (set wlatches)
+Proof
+  simp [
+      encode_is_witness_base_def,
+      eval_circuit_encode_imply,
+      eval_lit_encode_preds_hold_Named,
+      eval_lit_encode_is_reset_Named,
+      is_witness_base_def
+    ]
 QED
