@@ -62,6 +62,56 @@ Datatype:
 End
 
 (*-------------------------------------------------------------------*
+   Constants
+ *-------------------------------------------------------------------*)
+
+
+
+Definition edges_off_def:
+  edges_off = 1w * bytes_in_word
+End
+
+Definition flag_off_def:
+  flag_off = 2w * bytes_in_word
+End
+
+Definition mark_off_def:
+  mark_off = 3w * bytes_in_word
+End
+
+Definition before_off_def:
+  before_off = 4w * bytes_in_word
+End
+
+Definition next_off_def:
+  next_off = 5w * bytes_in_word
+End
+
+Definition parent_off_def:
+  parent_off = 6w * bytes_in_word
+End
+
+Definition child_off_def:
+  child_off = 7w * bytes_in_word
+End
+
+Definition rank_off_def:
+  rank_off = 8w * bytes_in_word
+End
+
+Definition max_rank_def[simp]:
+  max_rank = (185: num)
+End
+
+Definition emp_rl_def:
+  emp_rl = REPLICATE max_rank NONE
+End
+
+
+
+
+
+(*-------------------------------------------------------------------*
    Node Annotation
  *-------------------------------------------------------------------*)
 
@@ -445,7 +495,7 @@ Definition ft_mem_def:
             n.child_ptr;
             n2w n.rank] *
     edges_ones (FST n.data.edges) (SND n.data.edges) *
-    cond(k <> 0w /\ (n.rank < 196))
+    cond(k <> 0w /\ (n.rank < max_rank))
 End
 
 
@@ -605,37 +655,6 @@ val test =
    FibHeap assertion
  *-------------------------------------------------------------------*)
 
-Definition edges_off_def:
-  edges_off = 1w * bytes_in_word
-End
-
-Definition flag_off_def:
-  flag_off = 2w * bytes_in_word
-End
-
-Definition mark_off_def:
-  mark_off = 3w * bytes_in_word
-End
-
-Definition before_off_def:
-  before_off = 4w * bytes_in_word
-End
-
-Definition next_off_def:
-  next_off = 5w * bytes_in_word
-End
-
-Definition parent_off_def:
-  parent_off = 6w * bytes_in_word
-End
-
-Definition child_off_def:
-  child_off = 7w * bytes_in_word
-End
-
-Definition rank_off_def:
-  rank_off = 8w * bytes_in_word
-End
 
 
 
@@ -5230,12 +5249,12 @@ QED
 Definition fts_link_trees_def:
   fts_link_trees (n: num) rl (FibTree k v l) =
     if n = 0 then (rl,F) else
-    if 196 <= (LENGTH l) then (rl,F) else
+    if max_rank <= (LENGTH l) then (rl,F) else
     case EL (LENGTH l) rl of
      |NONE =>
         (LUPDATE (SOME(FibTree k v l)) (LENGTH l) rl,T)
      |SOME(FibTree k' v' l') =>
-        if 195 <= (LENGTH l) then (rl,F) else
+        if (max_rank - 1) <= (LENGTH l) then (rl,F) else
         fts_link_trees (n - 1) (LUPDATE NONE (LENGTH l) rl)
           (fts_merge_trees (FibTree k v l) (FibTree k' v' l'))
 End
@@ -5270,7 +5289,7 @@ QED
 
 Definition fts_link_trees2_def:
   fts_link_trees2 rl (FibTree k v l) =
-    if 196 <= (LENGTH l) then (rl,F) else
+    if max_rank <= (LENGTH l) then (rl,F) else
     case EL (LENGTH l) rl of
      |SOME(FibTree k' v' l') =>
         if LENGTH l <> LENGTH l' then (rl,F) else
@@ -5279,7 +5298,7 @@ Definition fts_link_trees2_def:
      |NONE =>
         (LUPDATE (SOME(FibTree k v l)) (LENGTH l) rl,T)
 Termination
-  WF_REL_TAC `measure $ \(rl,ft). case ft of FibTree k v l => 196 - LENGTH l` >>
+  WF_REL_TAC `measure $ \(rl,ft). case ft of FibTree k v l => max_rank - LENGTH l` >>
   rw[] >>
   CASE_TAC >> gvs[] >>
   fs[fts_merge_trees_def,AllCaseEqs()] >> gvs[] >>
@@ -5583,8 +5602,8 @@ Theorem lemma_fts_link_list_upd_all_disjoint:
   fib_heap_inv fh1 [FibTree k v l] /\
   fib_heap_inv_union fh2 rl /\
   DISJOINT (FDOM fh1) (FDOM fh2) /\
-  LENGTH rl = 196 /\
-  ¬(196 ≤ LENGTH l) /\
+  LENGTH rl = max_rank /\
+  ¬(max_rank ≤ LENGTH l) /\
   (fhts_to_ts rl)❲LENGTH l❳ = NONE ==>
   all_disjoint
     (ts_to_fhts (fhts_to_ts rl)❲LENGTH l ↦ SOME (FibTree k v l)❳)
@@ -5650,8 +5669,8 @@ Theorem lemma_fts_link_list_upd_inv:
   fib_heap_inv fh1 [FibTree k v l] /\
   fib_heap_inv_union fh2 rl /\
   DISJOINT (FDOM fh1) (FDOM fh2) /\
-  LENGTH rl = 196 /\
-  ¬(196 ≤ LENGTH l) /\
+  LENGTH rl = max_rank /\
+  ¬(max_rank ≤ LENGTH l) /\
   (fhts_to_ts rl)❲LENGTH l❳ = NONE ==>
   EVERY
     (λ(fh,O_ft).
@@ -5772,8 +5791,8 @@ Theorem lemma_fts_link_list_upd_fh_union:
   fib_heap_inv fh1 [FibTree k v l] /\
   fib_heap_inv_union fh2 rl /\
   DISJOINT (FDOM fh1) (FDOM fh2) /\
-  LENGTH rl = 196 /\
-  ¬(196 ≤ LENGTH l) /\
+  LENGTH rl = max_rank /\
+  ¬(max_rank ≤ LENGTH l) /\
   (fhts_to_ts rl)❲LENGTH l❳ = NONE ==>
   fh1 ⊌ fh2 =
   fh_union (ts_to_fhts (fhts_to_ts rl)❲LENGTH l ↦ SOME (FibTree k v l)❳)
@@ -5848,8 +5867,8 @@ Theorem lemma_fts_link_list_upd_array_inv:
   fib_heap_inv fh1 [FibTree k v l] /\
   fib_heap_inv_union fh2 rl /\
   DISJOINT (FDOM fh1) (FDOM fh2) /\
-  LENGTH rl = 196 /\
-  ¬(196 ≤ LENGTH l) /\
+  LENGTH rl = max_rank /\
+  ¬(max_rank ≤ LENGTH l) /\
   (fhts_to_ts rl)❲LENGTH l❳ = NONE ==>
   (∀n map k' v' l'.
     (n < LENGTH (ts_to_fhts (fhts_to_ts rl)❲LENGTH l ↦ SOME (FibTree k v l)❳)) /\
@@ -5881,8 +5900,8 @@ Theorem lemma_fts_link_list_upd:
   fib_heap_inv fh1 [FibTree k v l] /\
   fib_heap_inv_union fh2 rl /\
   DISJOINT (FDOM fh1) (FDOM fh2) /\
-  LENGTH rl = 196 /\
-  ¬(196 ≤ LENGTH l) /\
+  LENGTH rl = max_rank /\
+  ¬(max_rank ≤ LENGTH l) /\
   (fhts_to_ts rl)❲LENGTH l❳ = NONE ==>
   fib_heap_inv_union (fh1 ⊌ fh2)
     (ts_to_fhts (fhts_to_ts rl)❲LENGTH l ↦ SOME (FibTree k v l)❳)
@@ -5903,8 +5922,8 @@ Theorem lemma_fts_link_list_upd_inv2:
   fib_heap_inv fh1 [FibTree k v l] /\
   fib_heap_inv_union fh2 (ts_to_fhts rl) /\
   DISJOINT (FDOM fh1) (FDOM fh2) /\
-  LENGTH rl = 196 /\
-  ¬(196 ≤ LENGTH l) /\
+  LENGTH rl = max_rank /\
+  ¬(max_rank ≤ LENGTH l) /\
   rl❲LENGTH l❳ = NONE ==>
   EVERY
     (λ(fh,O_ft).
@@ -5974,8 +5993,8 @@ Theorem lemma_fts_link_list_upd_all_disjoint2:
   fib_heap_inv fh1 [FibTree k v l] /\
   fib_heap_inv_union fh2 (ts_to_fhts rl) /\
   DISJOINT (FDOM fh1) (FDOM fh2) /\
-  LENGTH rl = 196 /\
-  ¬(196 ≤ LENGTH l) /\
+  LENGTH rl = max_rank /\
+  ¬(max_rank ≤ LENGTH l) /\
   rl❲LENGTH l❳ = NONE ==>
   all_disjoint
     (ts_to_fhts (rl❲LENGTH l ↦ SOME (FibTree k v l)❳))
@@ -6013,8 +6032,8 @@ Theorem lemma_fts_link_list_upd_fh_union2:
   fib_heap_inv fh1 [FibTree k v l] /\
   fib_heap_inv_union fh2 (ts_to_fhts rl) /\
   DISJOINT (FDOM fh1) (FDOM fh2) /\
-  LENGTH rl = 196 /\
-  ¬(196 ≤ LENGTH l) /\
+  LENGTH rl = max_rank /\
+  ¬(max_rank ≤ LENGTH l) /\
   rl❲LENGTH l❳ = NONE ==>
   fh1 ⊌ fh2 =
   fh_union (ts_to_fhts (rl❲LENGTH l ↦ SOME (FibTree k v l)❳))
@@ -6058,8 +6077,8 @@ Theorem lemma_fts_link_list_upd_array_inv2:
   fib_heap_inv fh1 [FibTree k v l] /\
   fib_heap_inv_union fh2 (ts_to_fhts rl) /\
   DISJOINT (FDOM fh1) (FDOM fh2) /\
-  LENGTH rl = 196 /\
-  ¬(196 ≤ LENGTH l) /\
+  LENGTH rl = max_rank /\
+  ¬(max_rank ≤ LENGTH l) /\
   rl❲LENGTH l❳ = NONE ==>
   (∀n map k' v' l'.
     (n < LENGTH (ts_to_fhts (rl❲LENGTH l ↦ SOME (FibTree k v l)❳))) /\
@@ -6084,8 +6103,8 @@ Theorem lemma_fts_link_list_upd2:
   fib_heap_inv fh1 [FibTree k v l] /\
   fib_heap_inv_union fh2 (ts_to_fhts rl) /\
   DISJOINT (FDOM fh1) (FDOM fh2) /\
-  LENGTH rl = 196 /\
-  ¬(196 ≤ LENGTH l) /\
+  LENGTH rl = max_rank /\
+  ¬(max_rank ≤ LENGTH l) /\
   rl❲LENGTH l❳ = NONE ==>
   fib_heap_inv_union (fh1 ⊌ fh2)
     (ts_to_fhts (rl❲LENGTH l ↦ SOME (FibTree k v l)❳))
@@ -6378,7 +6397,7 @@ Theorem fts_link_trees:
     fib_heap_inv fh1 [FibTree k v l] /\
     fib_heap_inv_union fh2 rl /\
     DISJOINT (FDOM fh1) (FDOM fh2) /\
-    LENGTH rl = 196 /\
+    LENGTH rl = max_rank /\
     fts_link_trees c (fhts_to_ts rl)
       (FibTree k v l) =
       (rl',T)
@@ -6401,7 +6420,7 @@ Proof
   CASE_TAC >> strip_tac >>
   Cases_on `fts_merge_trees (FibTree k v l) (FibTree k' v' l')` >>
   `LENGTH l < LENGTH rl` by gvs[] >>
-  `∀n map k3 v3 l3. n < 196 ∧ rl❲n❳ = (map,SOME (FibTree k3 v3 l3)) ⇒
+  `∀n map k3 v3 l3. n < max_rank ∧ rl❲n❳ = (map,SOME (FibTree k3 v3 l3)) ⇒
     LENGTH l3 = n` by fs[fib_heap_inv_union_def] >>
   drule_all lemma_fhts_to_ts_el >> strip_tac >>
   first_x_assum(qspecl_then [`LENGTH l`,`m`,`k'`,`v'`,`l'`] assume_tac) >>
@@ -6433,12 +6452,12 @@ QED
 *)
 
 Theorem fts_link_trees2:
-  !rl' c rl fh1 fh2 k v l.
+  !rl' n rl fh1 fh2 k v l.
     fib_heap_inv fh1 [FibTree k v l] /\
     fib_heap_inv_union fh2 (ts_to_fhts rl) /\
     DISJOINT (FDOM fh1) (FDOM fh2) /\
-    LENGTH rl = 196 /\
-    fts_link_trees c rl
+    LENGTH rl = max_rank /\
+    fts_link_trees n rl
       (FibTree k v l) =
       (rl',T)
     ==>
@@ -6496,7 +6515,7 @@ Definition fts_link_root_list_def:
   (fts_link_root_list (n:num) rl [] = (rl,T)) /\
   (fts_link_root_list n rl (FibTree k v l::fts) =
     if n = 0 then (rl,F) else
-    let (n_rl,flag) = (fts_link_trees 196 rl (FibTree k v l)) in
+    let (n_rl,flag) = (fts_link_trees max_rank rl (FibTree k v l)) in
       if flag = F then (n_rl,F) else
       fts_link_root_list (n - 1) n_rl fts)
 End
@@ -6513,13 +6532,13 @@ Proof
   pairarg_tac >> simp[] >>
   IF_CASES_TAC
   >- (
-    qspecl_then [`196`,`rl`,`(FibTree k rl' l)`]
+    qspecl_then [`max_rank`,`rl`,`(FibTree k rl' l)`]
       mp_tac lemma_fts_link_trees_length_rl >>
     simp[]
     ) >>
   Cases_on `fts_link_root_list (n-1) n_rl list` >> simp[] >>
   IF_CASES_TAC >> gvs[] >>
-  qspecl_then [`196`,`rl`,`(FibTree k n' l)`]
+  qspecl_then [`max_rank`,`rl`,`(FibTree k n' l)`]
      mp_tac lemma_fts_link_trees_length_rl >>
   simp[]
 QED
@@ -6543,7 +6562,7 @@ QED
 
 Theorem fts_link_root_list:
   !n rl fts rl' fh1 fh2.
-  LENGTH rl = 196 /\
+  LENGTH rl = max_rank /\
   fib_heap_inv_weak fh1 fts /\
   fib_heap_inv_union fh2 (ts_to_fhts rl) /\
   DISJOINT (FDOM fh1) (FDOM fh2) /\
@@ -6572,7 +6591,7 @@ Proof
   disch_tac >>
   imp_res_tac lemma_fib_heap_inv_weak_split >>
   drule_all lemma_inv_weak_imp_inv >> strip_tac >>
-  qspecl_then [`n_rl`,`196`,`rl`,`fh1'`, `fh2`, `k`, `v`,`l`]
+  qspecl_then [`n_rl`,`max_rank`,`rl`,`fh1'`, `fh2`, `k`, `v`,`l`]
     mp_tac fts_link_trees2 >>
   `DISJOINT (FDOM fh1') (FDOM fh2)` by gvs[] >> simp[] >>
   strip_tac >>
@@ -6617,7 +6636,7 @@ QED
 
 
 Theorem lemma_hd_ts_to_fhts:
-  LENGTH rl = 196 /\
+  LENGTH rl = max_rank /\
   HD rl = SOME (FibTree k v l) /\
   fib_heap_inv_union fh1 (ts_to_fhts rl)
   ==>
@@ -6636,7 +6655,7 @@ QED
 
 
 Theorem lemma_suc_ts_to_fhts:
-  LENGTH rl = 196 /\
+  LENGTH rl = max_rank /\
   SUC r < LENGTH rl /\
   EL (SUC r) rl = SOME (FibTree k v l) /\
   fib_heap_inv_union fh1 (ts_to_fhts rl)
@@ -6689,10 +6708,10 @@ QED
 
 
 Theorem lemma_rl_ind_lupdate_none:
-  (!x. x < 196 /\ SUC r < x ==> EL x rl = NONE) /\
+  (!x. x < max_rank /\ SUC r < x ==> EL x rl = NONE) /\
   EL (SUC r) rl = NONE
   ==>
-  !x. x < 196 /\ r < x ==> EL x rl = NONE
+  !x. x < max_rank /\ r < x ==> EL x rl = NONE
 Proof
   rpt strip_tac >>
   res_tac >>
@@ -6718,11 +6737,11 @@ QED
 
 
 Theorem lemma_rl_ind_lupdate_some:
-  LENGTH rl = 196 /\
-  (!x. x < 196 /\ SUC r < x ==> EL x rl = NONE) /\
+  LENGTH rl = max_rank /\
+  (!x. x < max_rank /\ SUC r < x ==> EL x rl = NONE) /\
   EL (SUC r) rl = SOME t
   ==>
-  !x. x < 196 /\ r < x ==> EL x (LUPDATE NONE (SUC r) rl) = NONE
+  !x. x < max_rank /\ r < x ==> EL x (LUPDATE NONE (SUC r) rl) = NONE
 Proof
   rpt strip_tac >>
   res_tac >>
@@ -6737,8 +6756,8 @@ QED
 
 
 Theorem lemma_rl_all_none_0:
-  LENGTH rl = 196 /\
-  (!x. x < 196 /\ 0 < x ==> EL x rl = NONE) /\
+  LENGTH rl = max_rank /\
+  (!x. x < max_rank /\ 0 < x ==> EL x rl = NONE) /\
   HD rl = NONE
   ==>
   !x. x < LENGTH rl ==> EL x rl = NONE
@@ -6750,14 +6769,14 @@ QED
 
 
 Theorem lemma_rl_all_none_lupdate_0:
-  LENGTH rl = 196 /\
-  (!x. x < 196 /\ 0 < x ==> EL x rl = NONE) /\
+  LENGTH rl = max_rank /\
+  (!x. x < max_rank /\ 0 < x ==> EL x rl = NONE) /\
   HD rl = SOME x
   ==>
   !x. x < LENGTH rl ==> EL x (LUPDATE NONE 0 rl) = NONE
 Proof
   rpt strip_tac >>
-  simp[EL_LUPDATE]
+  fs[EL_LUPDATE]
 QED
 
 
@@ -6836,7 +6855,7 @@ QED
 
 
 Theorem lemma_rl_none_except_hd_eq_fh:
-  LENGTH rl = 196 /\
+  LENGTH rl = max_rank /\
   (!x. x < LENGTH rl /\ 0 < x ==> EL x rl = NONE) /\
   HD rl = SOME t /\
   fib_heap_inv_union fh1 (ts_to_fhts rl)
@@ -6909,7 +6928,7 @@ QED
 
 
 Theorem lemma_ts_to_fhts_rm:
-  LENGTH rl = 196 /\
+  LENGTH rl = max_rank /\
   (!x. x < LENGTH rl /\ r < x ==> EL x rl = NONE) /\
   r < LENGTH rl /\
   EL r rl = SOME (FibTree k v l) /\
@@ -6966,7 +6985,7 @@ QED
 
 
 Theorem lemma_fib_heap_inv_union_imp_hd_fib_heap_inv:
-  LENGTH rl = 196 /\
+  LENGTH rl = max_rank /\
   HD (ts_to_fhts rl) = (fh1, SOME (FibTree k v l)) /\
   fib_heap_inv_union fh2 (ts_to_fhts rl)
   ==>
@@ -6989,7 +7008,7 @@ Theorem fts_collect_array:
     fib_heap_inv fh1 acc /\
     fib_heap_inv_union fh2 (ts_to_fhts rl) /\
     DISJOINT (FDOM fh1) (FDOM fh2) /\
-    LENGTH rl = 196 /\
+    LENGTH rl = max_rank /\
     r < LENGTH rl /\
     (!x. x < LENGTH rl /\ r < x ==> EL x rl = NONE) /\
     fts_collect_array r rl acc = (fts,rl')
@@ -7006,16 +7025,19 @@ Proof
     CASE_TAC
     >- (
       strip_tac >> gvs[] >>
-      imp_res_tac lemma_rl_all_none_0 >>
+      imp_res_tac lemma_rl_all_none_0 >> rfs[] >>
+      `∀x. x < LENGTH rl ⇒ rl❲x❳ = NONE` by simp[] >>
       imp_res_tac lemma_rl_all_none_imp_ts_to_fhts_fempty >>
       drule_all fh_union_empty_thm >> strip_tac >>
       fs[fib_heap_inv_union_def]
       ) >>
     CASE_TAC >> strip_tac >>
+    fs[GSYM max_rank_def,Excl "max_rank_def"] >>
     drule_all lemma_rl_none_except_hd_eq_fh >> strip_tac >>
     qspecl_then [`fh2`,`[FibTree k v l]`,`fh1`,`acc`,`fts`]
       assume_tac fts_meld >> gvs[] >>
     rfs[DISJOINT_SYM] >>
+    fs[GSYM max_rank_def,Excl "max_rank_def"] >>
     drule_all lemma_fib_heap_inv_union_imp_hd_fib_heap_inv >> strip_tac >>
     fs[] >>
     qspecl_then [`fh2`,`fh1`,`(fts_meld [FibTree k v l] acc)`]
@@ -7034,9 +7056,10 @@ Proof
     `r < LENGTH rl` by fs[] >>
     first_x_assum(qspecl_then [`rl`,`fh2`,`fh1`,`acc`] assume_tac) >> rfs[] >>
     first_x_assum irule >>
-    drule lemma_rl_ind_lupdate_none >> strip_tac >> fs[]
+    metis_tac[lemma_rl_ind_lupdate_none,max_rank_def]
     ) >>
   CASE_TAC >> strip_tac >>
+  fs[GSYM max_rank_def,Excl "max_rank_def"] >>
   drule_all lemma_ts_to_fhts_rm >> strip_tac >>
   qspecl_then [`fh1'`,`[FibTree k v l]`,`fh1`,`acc`,
     `fts_meld [FibTree k v l] acc`] assume_tac fts_meld >>
@@ -7050,9 +7073,6 @@ Proof
 QED
 
 
-Definition alg_rl_def:
-  alg_rl = REPLICATE 196 NONE
-End
 
 
 
@@ -7069,11 +7089,11 @@ End
 
 
 Theorem lemma_fib_heap_inv_union_replicate_imp_fempty:
-  fib_heap_inv_union fh2 (ts_to_fhts alg_rl)
+  fib_heap_inv_union fh2 (ts_to_fhts emp_rl)
   ==>
   fh2 = FEMPTY
 Proof
-  simp[alg_rl_def,lemma_ts_to_fhts_to_map] >>
+  simp[emp_rl_def,lemma_ts_to_fhts_to_map] >>
   strip_tac >>
   fs[fib_heap_inv_union_def] >>
   simp[fh_union_replicate_empty_thm]
@@ -7114,9 +7134,9 @@ QED
 Theorem fts_reb:
   !fh1 fts fts' e_rl.
     fib_heap_inv_weak fh1 fts /\
-    fts_reb alg_rl fts = (fts',e_rl,T)
+    fts_reb emp_rl fts = (fts',e_rl,T)
     ==>
-    fib_heap_inv fh1 fts' /\ e_rl = alg_rl
+    fib_heap_inv fh1 fts' /\ e_rl = emp_rl
 Proof
   rpt gen_tac >> disch_tac >> fs[] >>
   pop_assum mp_tac >>
@@ -7124,18 +7144,18 @@ Proof
   pairarg_tac >> simp[] >>
   pairarg_tac >> simp[] >>
   strip_tac >> gvs[] >>
-  qspecl_then [`LENGTH fts`,`alg_rl`,`fts`,`l_rl`,`fh1`,`FEMPTY`]
+  qspecl_then [`LENGTH fts`,`emp_rl`,`fts`,`l_rl`,`fh1`,`FEMPTY`]
     mp_tac fts_link_root_list >> simp[] >>
-  `fib_heap_inv_union FEMPTY (ts_to_fhts alg_rl)` by
-    simp[alg_rl_def,lemma_ts_to_fhts_to_map,fib_heap_inv_union_empty_thm] >>
-  simp[Once alg_rl_def,LENGTH_REPLICATE] >>
+  `fib_heap_inv_union FEMPTY (ts_to_fhts emp_rl)` by
+    simp[emp_rl_def,lemma_ts_to_fhts_to_map,fib_heap_inv_union_empty_thm] >>
+  simp[Once emp_rl_def,LENGTH_REPLICATE] >>
   strip_tac >>
   qspecl_then [`fts'`,`e_rl`,`(LENGTH l_rl - 1)`,`l_rl`,`fh1`,`FEMPTY`,`[]`]
     mp_tac fts_collect_array >>
   simp[fib_heap_inv_empty_thm] >>
   strip_tac >>
   imp_res_tac lemma_e_rl_eq_replicate >>
-  gvs[alg_rl_def]
+  gvs[emp_rl_def]
 QED
 
 
@@ -7150,17 +7170,17 @@ QED
 Definition fts_extract_min_def:
   fts_extract_min fts =
     let (min,fts) = fts_rm_min fts in
-    let (fts',e_rl,flag) = fts_reb alg_rl fts in
+    let (fts',e_rl,flag) = fts_reb emp_rl fts in
       (min,fts',e_rl,flag)
 End
 
 
 
 
-Theorem lemma_fib_heap_inv_union_alg_rl:
-  fib_heap_inv_union FEMPTY (ts_to_fhts alg_rl)
+Theorem lemma_fib_heap_inv_union_emp_rl:
+  fib_heap_inv_union FEMPTY (ts_to_fhts emp_rl)
 Proof
-  simp[lemma_ts_to_fhts_to_map,alg_rl_def] >>
+  simp[lemma_ts_to_fhts_to_map,emp_rl_def] >>
   simp[fib_heap_inv_union_empty_thm]
 QED
 
@@ -7168,7 +7188,7 @@ QED
 Theorem fts_extract_min:
   !fh fts min fts'.
   fib_heap_inv fh fts /\
-  fts_extract_min fts = (min,fts',alg_rl,T)
+  fts_extract_min fts = (min,fts',emp_rl,T)
   ==>
   fib_heap_inv (fh \\ min) fts' /\
   min = head_key fts
@@ -7179,7 +7199,7 @@ Proof
   pairarg_tac >> fs[] >>
   strip_tac >> gvs[] >>
   drule_all fts_rm_min >> strip_tac >>
-  assume_tac lemma_fib_heap_inv_union_alg_rl >>
+  assume_tac lemma_fib_heap_inv_union_emp_rl >>
   drule_all fts_reb >> fs[]
 QED
 
@@ -8211,7 +8231,7 @@ Theorem fib_heap_rm_min_mem:
   !frame fts fts' m dm min.
   fts_rm_min fts = (min,fts') /\
   (fts_mem (ann_fts 0w fts) * frame) (fun2set(m,dm)) /\
-  196 < dimword (:'a) ==>
+  max_rank < dimword (:'a) ==>
   ?a' m' v e.
   fib_heap_rm_min (head_key fts,m,dm) = (min,(a':'a word),m',T) /\
   (fts_mem (ann_fts 0w fts') * empty_node min (v,e) * frame)
@@ -8309,7 +8329,7 @@ Theorem fib_heap_rm_min:
   !frame.
   (fts_mem (ann_fts 0w fts) * frame) (fun2set(m,dm)) /\
   fib_heap_inv fh1 fts /\
-  196 < dimword (:'a) /\
+  max_rank < dimword (:'a) /\
   fts_rm_min fts = (a_min,fts') /\
   fib_heap_rm_min (head_key fts,m,dm) = (min,(a':'a word),m',T)
   ==>
@@ -8361,8 +8381,8 @@ Theorem fib_heap_merge_trees_mem_thm:
   (fts_mem (ann_fts 0w [FibTree k v l]) * fts_mem (ann_fts 0w [FibTree k' v' l'])
     * frame) (fun2set(m,dm)) /\
   LENGTH l = LENGTH l' /\
-  LENGTH l < 195 /\
-  LENGTH l' < 195
+  LENGTH l < (max_rank - 1) /\
+  LENGTH l' < (max_rank - 1)
   ==>
   ?m'.
   fib_heap_merge_trees ((k:'a word),k',m,dm) = (head_key [t],m',T) /\
@@ -8394,8 +8414,7 @@ Proof
     fs[GSYM head_key_def,GSYM last_key_def] >>
     fs[GSYM lemma_ann_fts_arb_list] >>
     fs[AC STAR_ASSOC STAR_COMM] >>
-    strip_tac >> fs[STAR_ASSOC] >>
-    gvs[STAR_ASSOC] >>
+    strip_tac >> gvs[STAR_ASSOC] >>
     simp[head_key_def,head_key_t_def] >>
     SEP_W_TAC >> simp[] >>
     fs[ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def,
@@ -8445,7 +8464,7 @@ Theorem fib_heap_merge_trees:
   !frame k v l k' v' l' fh1 fh2 m dm a m' c.
   (fts_mem (ann_fts 0w [FibTree k v l]) * fts_mem (ann_fts 0w [FibTree k' v' l']) *
     frame) (fun2set(m,dm)) /\
-  LENGTH l < 195 ∧ LENGTH l' < 195 ∧
+  LENGTH l < (max_rank - 1) ∧ LENGTH l' < (max_rank - 1) ∧
   LENGTH l = LENGTH l' /\
   fib_heap_inv fh1 [FibTree k v l] /\
   fib_heap_inv fh2 [FibTree k' v' l'] /\
@@ -8474,13 +8493,13 @@ Definition fib_heap_link_trees_def:
     if n = 0 then (m,F) else
     if a = 0w then (m,c) else
     let (rank,c) = read_mem (a + rank_off) m dm T in
-    if 196 <= (w2n rank) then (m,F) else
+    if max_rank <= (w2n rank) then (m,F) else
     let (arr_t,c) = read_mem (arr + rank) m dm c in
     if arr_t = 0w then
        let (m,c) = write_mem (arr + rank) a m dm c in
         (m,c)
     else
-       if 195 <= (w2n rank) then (m,F) else
+       if (max_rank - 1) <= (w2n rank) then (m,F) else
        let (new_t,m,c') = fib_heap_merge_trees (a,arr_t,m,dm) in
        let c = (c /\ c') in
        let (m,c) = write_mem (arr + rank) 0w m dm c in
@@ -8530,13 +8549,13 @@ QED
 
 Theorem lemma_fib_heap_link_trees_inv_ih:
   (∀x k v l.
-    x < 196 ∧
+    x < max_rank ∧
     (ys1 ++ [SOME (FibTree k' v' l')] ++ ys2)❲x❳ = SOME (FibTree k v l)
     ⇒
     LENGTH l = x)
   ==>
   (!x k v l.
-    x < 196 /\
+    x < max_rank /\
     EL x (ys1 ++ [NONE] ++ ys2) = SOME (FibTree k v l)
     ==>
     LENGTH l = x)
@@ -8563,8 +8582,8 @@ Theorem fib_heap_link_trees_mem_thm:
   (fts_mem (ann_fts 0w [FibTree k v l]) *
    reb_array_mem arr 0w rl *
    frame) (fun2set(m,dm)) /\
-  LENGTH rl = 196 /\
-  196 < dimword (:'a) /\
+  LENGTH rl = max_rank /\
+  max_rank < dimword (:'a) /\
   (!x k v l. x < LENGTH rl /\ EL x rl = SOME(FibTree k v l) ==> LENGTH l = x)
   ==>
   ?m'.
@@ -8676,7 +8695,7 @@ Proof
   SEP_W_TAC >> simp[] >>
   fs[AC STAR_ASSOC STAR_COMM] >>
   fs[STAR_ASSOC] >>
-  imp_res_tac lemma_fib_heap_link_trees_inv_ih >> simp[]
+  metis_tac[lemma_fib_heap_link_trees_inv_ih,max_rank_def]
 QED
 
 (*
@@ -8686,8 +8705,8 @@ Theorem fib_heap_link_trees_mem_thm:
   (fts_mem (ann_fts 0w [FibTree k v l]) *
    reb_array_mem arr 0w rl *
    frame) (fun2set(m,dm)) /\
-  LENGTH rl = 196 /\
-  196 < dimword (:'a) /\
+  LENGTH rl = max_rank /\
+  max_rank < dimword (:'a) /\
   (!x k v l. x < LENGTH rl /\ EL x rl = SOME(FibTree k v l) ==> LENGTH l = x) /\
   fib_heap_link_trees n (arr,(k:'a word),m,dm,c) = (m',T) ==>
   (reb_array_mem arr 0w (FST (fts_link_trees n rl (FibTree k v l)))
@@ -8739,7 +8758,7 @@ Proof
   rewrite_tac[EL_APPEND] >>
   simp[] >>
   strip_tac >>
-  `LENGTH l < 195 /\ LENGTH l' < 195` by simp[] >>
+  `LENGTH l < (max_rank - 1) /\ LENGTH l' < (max_rank - 1)` by simp[] >>
   qspecl_then [`reb_array_mem arr 0w ys1 * one (arr + n2w (LENGTH l),Word k') *
     reb_array_mem arr (n2w (LENGTH l + 1)) ys2 * frame`,
     `k`,`v`,`l`,`k'`,`v'`,`l'`,`m`,`dm`,`new_t`,`m''`,`c'''`]
@@ -8779,7 +8798,7 @@ Theorem fib_heap_link_trees:
     fib_heap_inv fh1 [FibTree k v l] /\
     fib_heap_inv_union fh2 (ts_to_fhts rl) /\
     DISJOINT (FDOM fh1) (FDOM fh2) /\
-    LENGTH rl = 196 ∧ 196 < dimword (:'a) ∧
+    LENGTH rl = max_rank ∧ max_rank < dimword (:'a) ∧
     (∀x k v l. x < LENGTH rl ∧ rl❲x❳ = SOME (FibTree k v l) ⇒ LENGTH l = x) ∧
     fib_heap_link_trees n (arr,k,m,dm,c) = (m',T) ⇒
     ?rl'.
@@ -8804,7 +8823,7 @@ Definition fib_heap_link_root_list_def:
   if a = 0w then (m,T) else
   if n = 0 then (m,F) else
   let (top,a',m,c) = fib_heap_pop (a,m,dm) in
-  let (m,c) = fib_heap_link_trees 196 (arr,top,m,dm,c) in
+  let (m,c) = fib_heap_link_trees max_rank (arr,top,m,dm,c) in
     fib_heap_link_root_list (n - 1) (arr,a',m,dm,c)
 End
 
@@ -8812,10 +8831,10 @@ End
 Theorem lemma_rl_rm_imp_length_inv:
   !rl l.
   (∀x k' v' l'.
-    x < 196 ∧ rl❲x❳ = SOME (FibTree k' v' l') ⇒ LENGTH l' = x)
+    x < max_rank ∧ rl❲x❳ = SOME (FibTree k' v' l') ⇒ LENGTH l' = x)
   ==>
   (∀x k' v' l'.
-    x < 196 ∧ rl❲LENGTH l ↦ NONE❳❲x❳ = SOME (FibTree k' v' l') ⇒
+    x < max_rank ∧ rl❲LENGTH l ↦ NONE❳❲x❳ = SOME (FibTree k' v' l') ⇒
     LENGTH l' = x)
 Proof
   rpt strip_tac >>
@@ -8825,12 +8844,12 @@ QED
 
 Theorem lemma_fib_heap_link_root_list_inv_ih:
   !n rl k v l.
-    LENGTH rl = 196 /\
-    (∀x k' v' l'. x < 196 ∧ rl❲x❳ = SOME (FibTree k' v' l')
+    LENGTH rl = max_rank /\
+    (∀x k' v' l'. x < max_rank ∧ rl❲x❳ = SOME (FibTree k' v' l')
       ⇒ LENGTH l' = x)
   ==>
     (∀x k' v' l'.
-      x < 196 ∧
+      x < max_rank ∧
       (FST (fts_link_trees n rl (FibTree k v l)))❲x❳ =
         SOME (FibTree k' v' l')
         ⇒ LENGTH l' = x)
@@ -8865,8 +8884,8 @@ Theorem fib_heap_link_root_list_mem_thm:
   fts_link_root_list n rl fts = (rl',T) /\
   (fts_mem (ann_fts 0w fts) * reb_array_mem (arr:'a word) 0w rl *
     frame) (fun2set (m,dm)) ∧
-  LENGTH rl = 196 /\
-  196 < dimword (:'a) ∧
+  LENGTH rl = max_rank /\
+  max_rank < dimword (:'a) ∧
   (∀x k v l. x < LENGTH rl ∧ rl❲x❳ = SOME (FibTree k v l) ⇒ LENGTH l = x) /\
   LENGTH fts <= n
   ==>
@@ -8910,7 +8929,7 @@ Proof
   simp[Once fts_link_root_list_def] >>
   pairarg_tac >> simp[] >>
   IF_CASES_TAC >> simp[] >>
-  qspecl_then [`196`,`fts_mem (ann_fts 0w t) * frame`,`k`,`v`,`l`,
+  qspecl_then [`max_rank`,`fts_mem (ann_fts 0w t) * frame`,`k`,`v`,`l`,
    `arr`,`rl`,`n_rl`,`m'`,`dm`] mp_tac fib_heap_link_trees_mem_thm >>
   simp[] >>
   rfs[ann_fts_def, ann_fts_seg_def, last_key_def, last_key_t_def,
@@ -8921,9 +8940,9 @@ Proof
   strip_tac >>  strip_tac >>
   first_x_assum (qspecl_then [`n_rl`,`t`,`rl'`,`frame`,`arr`,`m''`,`dm`] mp_tac) >>
   simp[] >>
-  qspecl_then [`196`,`rl`,`(FibTree k v l)`]
+  qspecl_then [`max_rank`,`rl`,`(FibTree k v l)`]
     assume_tac  lemma_fts_link_trees_length_rl >> rfs[] >>
-  qspecl_then [`196`,`rl`,`k`,`v`,`l`]
+  qspecl_then [`max_rank`,`rl`,`k`,`v`,`l`]
     assume_tac lemma_fib_heap_link_root_list_inv_ih >> gvs[]
 QED
 
@@ -8952,8 +8971,8 @@ Theorem fib_heap_collect_array_mem_thm:
   fts_collect_array n rl acc = (fts',rl') /\
   (fts_mem (ann_fts 0w acc) * reb_array_mem (arr:'a word) 0w rl * frame)
     (fun2set(m,dm)) /\
-  LENGTH rl = 196 /\
-  196 < dimword (:'a) ∧
+  LENGTH rl = max_rank /\
+  max_rank < dimword (:'a) ∧
   n < LENGTH rl
   ==>
   ?m'.
@@ -9053,8 +9072,8 @@ Theorem fib_heap_collect_array:
   !n frame fh1 arr rl fh2 acc m dm c acc' m'.
   (fts_mem (ann_fts 0w acc) * reb_array_mem (arr:'a word) 0w rl * frame)
     (fun2set(m,dm)) /\
-  LENGTH rl = 196 /\
-  196 < dimword (:'a) ∧
+  LENGTH rl = max_rank /\
+  max_rank < dimword (:'a) ∧
   n < LENGTH rl /\
   fib_heap_inv fh1 acc /\
   fib_heap_inv_union fh2 (ts_to_fhts rl) /\
@@ -9083,17 +9102,17 @@ Definition fib_heap_reb_def:
   fib_heap_reb n (arr,a,m,dm)
   =
   let (m,c) = fib_heap_link_root_list n (arr,a,m,dm,T) in
-    fib_heap_collect_array 195 (arr,0w,m,dm,c)
+    fib_heap_collect_array (max_rank - 1) (arr,0w,m,dm,c)
 End
 
-Theorem lemma_alg_rl_imp_reb_inv:
+Theorem lemma_emp_rl_imp_reb_inv:
   (∀x k v l.
-    x < LENGTH alg_rl ∧ alg_rl❲x❳ = SOME (FibTree k v l) ⇒
+    x < LENGTH emp_rl ∧ emp_rl❲x❳ = SOME (FibTree k v l) ⇒
    LENGTH l = x) <=> T
 Proof
   iff_tac >> simp[] >>
   rpt strip_tac >>
-  fs[alg_rl_def] >>
+  fs[emp_rl_def] >>
   pop_assum mp_tac >>
   simp[EL_REPLICATE]
 QED
@@ -9144,7 +9163,7 @@ QED
 
 
 Theorem lemma_fts_reb_empty_array:
-  fts_reb alg_rl fts = (fts',rl,flag) ==> alg_rl = rl
+  fts_reb emp_rl fts = (fts',rl,flag) ==> emp_rl = rl
 Proof
   simp[fts_reb_def] >>
   pairarg_tac >> simp[] >>
@@ -9158,10 +9177,10 @@ Proof
   imp_res_tac lemma_e_rl_eq_replicate >>
   qspecl_then [`(LENGTH l_rl - 1)`,`l_rl`,`[]`]
     assume_tac lemma_fts_collect_array_length_rl >> rfs[] >>
-  qspecl_then [`LENGTH fts`,`alg_rl`,`fts`]
+  qspecl_then [`LENGTH fts`,`emp_rl`,`fts`]
     assume_tac lemma_fts_link_root_list_length_rl >>
   gvs[] >>
-  simp[alg_rl_def,LENGTH_REPLICATE]
+  simp[emp_rl_def,LENGTH_REPLICATE]
 QED
 
 
@@ -9169,10 +9188,10 @@ QED
 
 Theorem fib_heap_reb_mem_thm:
   !frame n fts fts' rl' arr m dm.
-  fts_reb alg_rl fts = (fts',rl',T) /\
-  (fts_mem (ann_fts 0w fts) * reb_array_mem (arr:'a word) 0w alg_rl * frame)
+  fts_reb emp_rl fts = (fts',rl',T) /\
+  (fts_mem (ann_fts 0w fts) * reb_array_mem (arr:'a word) 0w emp_rl * frame)
     (fun2set(m,dm)) /\
-  196 < dimword (:'a) /\
+  max_rank < dimword (:'a) /\
   LENGTH fts <= n
   ==>
   ?m'.
@@ -9180,24 +9199,24 @@ Theorem fib_heap_reb_mem_thm:
   (fts_mem (ann_fts 0w fts') * reb_array_mem arr 0w rl' * frame) (fun2set(m',dm))
 Proof
   rpt gen_tac >> disch_tac >> fs[] >>
-  qpat_x_assum `fts_reb alg_rl fts = (fts',rl',T)` mp_tac >>
+  qpat_x_assum `fts_reb emp_rl fts = (fts',rl',T)` mp_tac >>
   simp[Once fib_heap_reb_def,Once fts_reb_def] >>
   pairarg_tac >> simp[] >>
   Cases_on `flag`
   >- (
-    qspecl_then [`n`,`alg_rl`,`fts`,`l_rl`,`frame`,`arr`,`m`,`dm`]
+    qspecl_then [`n`,`emp_rl`,`fts`,`l_rl`,`frame`,`arr`,`m`,`dm`]
       mp_tac fib_heap_link_root_list_mem_thm >>
     simp[lemma_fts_link_root_list_clock_cap] >>
-    simp[] >> simp[Once alg_rl_def,LENGTH_REPLICATE] >>
-    simp[lemma_alg_rl_imp_reb_inv] >>
+    simp[] >> simp[Once emp_rl_def,LENGTH_REPLICATE] >>
+    simp[lemma_emp_rl_imp_reb_inv] >>
     strip_tac >> simp[] >>
     pairarg_tac >> simp[] >> strip_tac >> gvs[] >>
     qspecl_then [`LENGTH l_rl - 1`,`l_rl`,`[]`,`fts'`,`e_rl`,`arr`,`frame`,`m'`,
       `dm`,`T`] mp_tac fib_heap_collect_array_mem_thm >>
     simp[fts_mem_def,ann_fts_def,SEP_CLAUSES,STAR_ASSOC] >>
     qabbrev_tac `n' = LENGTH fts` >>
-    qspecl_then [`n'`,`alg_rl`,`fts`] mp_tac lemma_fts_link_root_list_length_rl >>
-    simp[] >> strip_tac >> simp[alg_rl_def,LENGTH_REPLICATE] >>
+    qspecl_then [`n'`,`emp_rl`,`fts`] mp_tac lemma_fts_link_root_list_length_rl >>
+    simp[] >> strip_tac >> simp[emp_rl_def,LENGTH_REPLICATE] >>
     simp[head_key_def,head_key_t_def] >>
     strip_tac
     ) >>
@@ -9211,15 +9230,15 @@ QED
 (*
 Theorem fib_heap_reb:
   !n frame fh1 fts arr m dm c a' m'.
-  (fts_mem (ann_fts 0w fts) * reb_array_mem arr 0w alg_rl * frame)
+  (fts_mem (ann_fts 0w fts) * reb_array_mem arr 0w emp_rl * frame)
     (fun2set (m,dm)) ∧
-  196 < dimword (:α) ∧
+  max_rank < dimword (:α) ∧
   fib_heap_inv_weak fh1 fts /\
   fib_heap_reb (n:num) ((arr:'a word),head_key fts,m,dm) = (a',m',T)
   ⇒
   ?fts'.
   (fts_mem (ann_fts 0w fts') *
-    reb_array_mem arr 0w alg_rl * frame)
+    reb_array_mem arr 0w emp_rl * frame)
       (fun2set (m',dm)) ∧
   fib_heap_inv fh1 fts' /\
   a' = head_key fts'
@@ -9227,12 +9246,12 @@ Proof
   rpt gen_tac >> disch_tac >> fs[] >>
   drule_all fib_heap_reb_mem_thm >>
   strip_tac >>
-  qexists `FST (fts_reb alg_rl fts)` >>
-  Cases_on `fts_reb alg_rl fts` >> Cases_on `r` >>
-  rename[`fts_reb alg_rl fts = (fts',rl',flag)`] >>
+  qexists `FST (fts_reb emp_rl fts)` >>
+  Cases_on `fts_reb emp_rl fts` >> Cases_on `r` >>
+  rename[`fts_reb emp_rl fts = (fts',rl',flag)`] >>
   gvs[] >>
   drule lemma_fts_reb_empty_array >> strip_tac >> gvs[] >>
-  metis_tac[fts_reb,lemma_fib_heap_inv_union_alg_rl]
+  metis_tac[fts_reb,lemma_fib_heap_inv_union_emp_rl]
 QED
 *)
 
@@ -9251,27 +9270,27 @@ End
 Theorem fib_heap_ext_min_mem:
   !frame n fts arr m dm fts' rl min.
   fts_extract_min fts = ((min:'a word),fts',rl,T) /\
-  (fts_mem (ann_fts 0w fts) * reb_array_mem arr 0w alg_rl * frame)
+  (fts_mem (ann_fts 0w fts) * reb_array_mem arr 0w emp_rl * frame)
     (fun2set (m,dm)) ∧
-  196 < dimword (:α) /\
+  max_rank < dimword (:α) /\
   fts_size fts <= n
   ==>
   ?a' m' v e.
   fib_heap_ext_min n (arr,head_key fts,m,dm) = (min,head_key fts',m',T) /\
-  (fts_mem (ann_fts 0w fts') * reb_array_mem arr 0w alg_rl * empty_node min (v,e) *
+  (fts_mem (ann_fts 0w fts') * reb_array_mem arr 0w emp_rl * empty_node min (v,e) *
     frame) (fun2set (m',dm))
 Proof
   rpt strip_tac >>
   qpat_x_assum `fts_extract_min fts = (min,fts',rl,T)` mp_tac >>
   simp[fts_extract_min_def,fib_heap_ext_min_def] >>
   pairarg_tac >> simp[] >>
-  qspecl_then [`frame * reb_array_mem arr 0w alg_rl`,`fts`,`fts''`,`m`,`dm`,`min'`]
+  qspecl_then [`frame * reb_array_mem arr 0w emp_rl`,`fts`,`fts''`,`m`,`dm`,`min'`]
     mp_tac fib_heap_rm_min_mem >>
   simp[STAR_ASSOC] >>
   fs[AC STAR_ASSOC STAR_COMM] >>
   strip_tac >> simp[] >>
   pairarg_tac >> simp[] >>
-  rename [`fts_reb alg_rl fts2 = (fts3,e_rl,flage)`] >>
+  rename [`fts_reb emp_rl fts2 = (fts3,e_rl,flage)`] >>
   strip_tac >> gvs[] >>
   qspecl_then [`frame * empty_node min (v,e)`,`n`,`fts2`,`fts'`,`e_rl`,`arr`,
     `m'`,`dm`] mp_tac fib_heap_reb_mem_thm >>
@@ -9286,23 +9305,23 @@ QED
 (*
 Theorem fib_heap_ext_min_mem:
   !frame fts arr m dm a_min fts' rl c n min a' m'.
-  (fts_mem (ann_fts 0w fts) * reb_array_mem arr 0w alg_rl * frame)
+  (fts_mem (ann_fts 0w fts) * reb_array_mem arr 0w emp_rl * frame)
     (fun2set (m,dm)) ∧
-  196 < dimword (:α) ∧
+  max_rank < dimword (:α) ∧
   fts_extract_min fts = (a_min,fts',rl,c) /\
   fib_heap_ext_min n (arr,head_key fts,m,dm) = (min,(a':'a word),m',T)
   ==>
   ?v e.
-  (fts_mem (ann_fts 0w fts') * reb_array_mem arr 0w alg_rl * empty_node min (v,e) *
+  (fts_mem (ann_fts 0w fts') * reb_array_mem arr 0w emp_rl * empty_node min (v,e) *
     frame) (fun2set (m',dm)) /\
   (min = a_min) /\
-  (rl = alg_rl) /\
+  (rl = emp_rl) /\
   c
 Proof
   rpt gen_tac >> disch_tac >> fs[] >>
   pop_assum mp_tac >> simp[fib_heap_ext_min_def] >>
   pairarg_tac >> gvs[] >>
-  qspecl_then [`reb_array_mem arr 0w alg_rl * frame`, `fts`,`m`,`dm`,`min'`,
+  qspecl_then [`reb_array_mem arr 0w emp_rl * frame`, `fts`,`m`,`dm`,`min'`,
     `a`,`m''`] mp_tac fib_heap_rm_min_mem >>
   simp[STAR_ASSOC] >>
   Cases_on `c'` >> simp[]
@@ -9328,14 +9347,14 @@ QED
 
 Theorem fib_heap_ext_min:
   !frame fh fts arr m dm n min a' m'.
-  (fts_mem (ann_fts 0w fts) * reb_array_mem arr 0w alg_rl * frame)
+  (fts_mem (ann_fts 0w fts) * reb_array_mem arr 0w emp_rl * frame)
     (fun2set (m,dm)) ∧
   fib_heap_inv fh fts /\
-  196 < dimword (:α) ∧
+  max_rank < dimword (:α) ∧
   fib_heap_ext_min n (arr,head_key fts,m,dm) = (min,(a':'a word),m',T)
   ==>
   ?fts' v e.
-  (fts_mem (ann_fts 0w fts') * reb_array_mem arr 0w alg_rl * empty_node min (v,e) *
+  (fts_mem (ann_fts 0w fts') * reb_array_mem arr 0w emp_rl * empty_node min (v,e) *
     frame) (fun2set (m',dm)) /\
   fib_heap_inv (fh \\ min) fts' /\
   min = head_key fts
