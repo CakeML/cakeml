@@ -110,15 +110,7 @@ Definition bvi_to_cb_aux_def:
   (bvi_to_cb_aux loc tag [Call t loc' args h] =
    case call_to_cb loc t loc' args h of
    | SOME (bs,cb) => SOME (bs,INR (CallBlock tag [] cb []))
-   | _ => NONE
-          (* Below has been extracted *)          
-   (*if loc' = SOME loc ∧ h = NONE then
-     (* Recursive call found - base case of CallBlock *)
-     case bind 0 args of
-     | (vs,_) => SOME (args,INR (CallBlock tag [] (RCall t vs) []))
-   else
-     (* Not a recursive call - effectful exps not allowed *)
-     NONE*)) ∧
+   | _ => NONE) ∧
   (bvi_to_cb_aux loc tag [Op op args] =
    case dest_Cons op of
    | SOME tag' =>
@@ -190,14 +182,6 @@ Proof
   >> rw [] >> gvs [bvi_to_cb_aux_def, bind_def, shift_cb_def, CaseEq "prod", CaseEq "option", CaseEq "sum", CaseEq "list"]
 QED
 
-(* Calls the above but throws away an unoptimisable BlockOp Cons. *)
-(*Definition bvi_to_cb_def:
-  bvi_to_cb loc tag args =
-  case bvi_to_cb_aux loc tag args of
-  | SOME (bs,INR cb) => SOME (bs,cb)
-  | _ => NONE
-End*)
-
 Definition bvi_to_cb_def:
   (bvi_to_cb loc (Call call_ts call_loc call_args call_h) =
    call_to_cb loc call_ts call_loc call_args call_h) ∧
@@ -211,20 +195,20 @@ Definition bvi_to_cb_def:
   (bvi_to_cb _ _ = NONE)
 End
 
-(*
 Theorem bvi_to_cb_wf:
-  ∀loc tag args bs cb.
-    bvi_to_cb loc tag args = SOME (bs,cb) ⇒
-    ∃l child r.
+  ∀loc op args bs cb.
+    bvi_to_cb loc (Op op args) = SOME (bs,cb) ⇒
+    ∃tag l child r.
+      op = BlockOp (Cons tag) ∧
       cb = CallBlock tag l child r
 Proof
   rw []
-  >> Cases_on ‘args’ >> gvs [bvi_to_cb_def, bvi_to_cb_aux_def]
-  >> gvs [CaseEq "option", CaseEq "prod", CaseEq "sum"]
+  >> gvs [bvi_to_cb_def, CaseEq "option", CaseEq "prod", CaseEq "sum"]
+  >> Cases_on ‘op’ >> gvs [dest_Cons_def]
+  >> Cases_on ‘b’ >> gvs [dest_Cons_def]
   >> imp_res_tac bvi_to_cb_aux_wf
   >> gvs []
 QED
-*)
 
 (*
 val ex1 = “[Op (IntOp (Const 1)) []; Call 0 (SOME 7) [] NONE; Call 0 (SOME 4) [] NONE; Op (IntOp (Const 3)) []]”
@@ -273,50 +257,43 @@ Definition cb_to_bvi_def:
        bvi$Call ts (SOME loc) args' NONE)
 End
 
-(*
-(* Let bind the result of the above for a semantically equivalent BVI expression. *)
-Definition bvi_to_cb_to_bvi_def:
-  bvi_to_cb_to_bvi loc tag args =
-    case bvi_to_cb loc tag args of
-    | SOME (bs,cb) =>
-        SOME $ Let bs $ cb_to_bvi loc cb
-    | NONE => NONE
-End
-*)
 
-(*
-(* I think this isn't true! And we don't need it. Just that the binders are smaller. *)
 Theorem bvi_to_cb_aux_size:
   ∀loc tag args bs sum.
     bvi_to_cb_aux loc tag args = SOME (bs,sum) ⇒
-    list_size exp_size bs < exp_size (Op (BlockOp (Cons tag)) args) ∧
-    (∀vs.
-       sum = INL vs ⇒
-       LENGTH vs < exp_size (Op (BlockOp (Cons tag)) args)) ∧
-    (∀cb.
-       sum = INR cb ⇒
-       exp_size (cb_to_bvi loc cb) < exp_size (Op (BlockOp (Cons tag)) args))
+    list_size exp_size bs < exp_size (Op (BlockOp (Cons tag)) args)
 Proof
   recInduct bvi_to_cb_aux_ind
-  >> rw [bvi_to_cb_aux_def]
+  >> rw [] >> gvs [bvi_to_cb_aux_def]
+  >- gvs [bvi_to_cb_aux_def, CaseEq "option", CaseEq "prod", call_to_cb_def]
+  >-
+   (gvs [bvi_to_cb_aux_def, CaseEq "option", CaseEq "prod", CaseEq "sum"]
+    >> Cases_on ‘op’ >> gvs [dest_Cons_def]
+    >> Cases_on ‘b’ >> gvs [dest_Cons_def, bvi_to_cb_aux_def])
+  >> gvs [CaseEq "option", CaseEq "prod", CaseEq "sum"]
+  >-
+   (gvs [list_size_append]
+    >> cheat)
   >> cheat
 QED
-
+        
 Theorem bvi_to_cb_size:
-  ∀loc tag args bs cb.
-    bvi_to_cb loc tag args = SOME (bs,cb) ⇒
-    list_size exp_size bs < exp_size (Op (BlockOp (Cons tag)) args) ∧
-    exp_size (cb_to_bvi loc cb) < exp_size (Op (BlockOp (Cons tag)) args)
-Proof
+  ∀loc x bs cb.
+    bvi_to_cb loc x = SOME (bs,cb) ⇒
+    list_size exp_size bs < exp_size x
+Proof        
   rpt gen_tac
   >> strip_tac
-  >> imp_res_tac bvi_to_cb_wf
-  >> gvs [CaseEq "option", bvi_to_cb_def, CaseEq "option", CaseEq "prod", CaseEq "sum"]
-  >> drule_all bvi_to_cb_aux_size
+  >> Cases_on ‘x’ >> gvs [bvi_to_cb_def]
+  >- (gvs [call_to_cb_def, CaseEq "prod"])
+  >> gvs [CaseEq "option", dest_Cons_def]
+  >> Cases_on ‘o'’ >> gvs [dest_Cons_def]
+  >> Cases_on ‘b’ >> gvs [dest_Cons_def]
+  >> gvs [CaseEq "prod", CaseEq "sum"]
+  >> drule bvi_to_cb_aux_size
   >> strip_tac
   >> gvs []
 QED
-*)
 
 (* Phase 2 - Transformations. *)
 
@@ -332,18 +309,6 @@ Definition mut_cons_def:
     let i = LENGTH r in
     Op (MemOp (MutCons t i)) (l' ++ [hole'] ++ r') 
 End
-
-(*
-Definition update_cons_def:
-  update_cons i_ptr exp_idx i_val = Op (MemOp UpdateCons) [Var i_val; exp_idx; Var i_ptr]
-End
-
-Definition optimise_call_def:
-  optimise_call call_ts loc_opt call_args i_ptr exp_idx =
-  let args = MAP (λn. Var n) call_args ++ [Var i_ptr; exp_idx] in
-    Call call_ts (SOME loc_opt) args NONE
-End
-*)
 
 Definition finalise_cons_def:
   finalise_cons i_top_ptr = Op (MemOp FinaliseCons) [Var i_top_ptr]
@@ -381,63 +346,6 @@ Definition cb_to_bvi_wrapper_def:
        finalise_cons 1)
 End
 
-(*
-(* Assumes a MutBlock allocated at i_ptr with hole at const_idx.
-   Fills that hole, either with a call to the optimised function (base case),
-   or with a mutcons follwed by a recursive call (inductive case).
- *)
-Definition hb_to_bvi_worker_def:
-  (hb_to_bvi_worker Hole call_ts call_args loc_opt exp_ptr exp_idx =
-   optimise_call call_ts loc_opt call_args exp_ptr exp_idx) ∧
-  (hb_to_bvi_worker (HoleBlock tag left hole right) call_ts call_args loc_opt exp_ptr exp_idx =
-   Let [mut_cons tag left right] $
-       Let [update_cons (shift_exp_vars 1 exp_ptr) (shift_exp_vars 1 exp_idx) (Var 0)] $
-       hb_to_bvi_worker hole call_ts call_args loc_opt (Var 1) (Op (IntOp (Const (&LENGTH right))) []))
-End
-*)
-
-(*
-Definition hb_to_bvi_wrapper_def:
-  (hb_to_bvi_wrapper tag left hole right call_ts call_args loc_opt =
-   Let [mut_cons tag left right] $ (* Problem, as above, is shifting of index 0 *)
-       Let [shift_exp_vars 1 $ hb_to_bvi_worker hole call_ts call_args loc_opt 0 (Op (IntOp (Const (&LENGTH right))) [])] $
-       finalise_cons 1)
-End
-*)
-
-(*
-Definition rewrite_wrapper_cons_def:
-  rewrite_wrapper_cons loc loc_opt tag args =
-    case bvi_to_cb loc tag args of
-    | SOME (bs,CallBlock tag left child right) =>
-        SOME $ Let bs $ cb_to_bvi_wrapper tag left child right loc_opt
-    | _ => NONE
-End
-*)
-
-(*
-(* Assumes that the function can and should be optimised - has been checked by rewrite_wrapper. *)
-Definition rewrite_worker_cons_def:
-  rewrite_worker_cons loc loc_opt i_ptr i_idx tag args =
-  case bvi_to_cb loc tag args of
-  | SOME (bs,cb) =>
-      (let offset = LENGTH bs in
-         Let bs $ cb_to_bvi_worker cb loc_opt (Var (offset + i_ptr)) (Var (offset + i_idx)))
-  | NONE =>
-      fill_hole i_ptr i_idx $ Op (BlockOp (Cons tag)) args
-End
-
-Definition rewrite_worker_call_def:
-  rewrite_worker_call loc loc_opt i_ptr i_idx ts call_loc args h =
-  case call_to_cb loc ts call_loc args h of
-  | SOME (bs,cb) =>
-      (let offset = LENGTH bs in
-         Let bs $ cb_to_bvi_worker cb loc_opt (Var (offset + i_ptr)) (Var (offset + i_idx)))
-  | NONE =>
-      fill_hole i_ptr i_idx $ Call ts call_loc args h
-End
-*)
-
 (* Expression rewriting *)
 Definition rewrite_wrapper_def:
   (rewrite_wrapper loc loc_opt (Var n) = NONE) ∧
@@ -461,11 +369,7 @@ Definition rewrite_wrapper_def:
     case bvi_to_cb loc (Op op op_args) of
     | SOME (bs,CallBlock tag left child right) =>
         SOME $ Let bs $ cb_to_bvi_wrapper tag left child right loc_opt
-    | _ => NONE
-    (* Below has been inlined *)
-    (*case dest_Cons op of
-    | SOME block_tag => rewrite_wrapper_cons loc loc_opt block_tag op_args
-    | NONE => NONE*)) ∧
+    | _ => NONE) ∧
   (rewrite_wrapper loc loc_opt _ = NONE)
 End
 
@@ -485,12 +389,7 @@ Definition rewrite_worker_def:
        (let offset = LENGTH bs in
           Let bs $ cb_to_bvi_worker cb loc_opt (Var (offset + i_old_ptr)) (Var (offset + i_old_idx)))
    | NONE =>
-       fill_hole i_old_ptr i_old_idx $ Op op op_args
-                 (* Below has been inlined*)
-    (*case dest_Cons op of
-    | SOME block_tag => rewrite_worker_cons loc loc_opt i_old_ptr i_old_idx block_tag op_args
-    | NONE =>
-        fill_hole i_old_ptr i_old_idx (Op op op_args)*)) ∧
+       fill_hole i_old_ptr i_old_idx $ Op op op_args) ∧
   (rewrite_worker loc loc_opt i_old_ptr i_old_idx (Tick x) =
     Tick $ rewrite_worker loc loc_opt i_old_ptr i_old_idx x) ∧
   (rewrite_worker loc loc_opt i_old_ptr i_old_idx (Call ts l args h) =
@@ -499,9 +398,7 @@ Definition rewrite_worker_def:
         (let offset = LENGTH bs in
            Let bs $ cb_to_bvi_worker cb loc_opt (Var (offset + i_old_ptr)) (Var (offset + i_old_idx)))
     | NONE =>
-        fill_hole i_old_ptr i_old_idx $ Call ts l args h)
-                 (* Below has been inlined *)
-   (*rewrite_worker_call loc loc_opt i_old_ptr i_old_idx ts l args h*)) ∧
+        fill_hole i_old_ptr i_old_idx $ Call ts l args h)) ∧
   (rewrite_worker loc loc_opt i_old_ptr i_old_idx expr =
    fill_hole i_old_ptr i_old_idx expr)
 End

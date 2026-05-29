@@ -345,7 +345,9 @@ Proof
   >~ [‘evaluate ([],_,_)’] >-
    (gvs [evaluate_def])
   >~ [‘evaluate (x::y::xs,_,_)’] >-
-   (simp [Once evaluate_CONS] >> cheat)
+   (simp [Once evaluate_CONS]
+    >> CASE_TAC
+    >> cheat)
   >> cheat
 QED
 
@@ -1951,7 +1953,9 @@ QED
 Resume evaluate_rewrite_tmc[op_opt]:
   
   imp_res_tac bvi_to_cb_wf >> gvs []
-  >> rename [‘bvi_to_cb loc tag args = SOME (bs,CallBlock tag left child right)’]
+(*  >> gvs [bvi_to_cb_def]
+  >> gvs [CaseEq "option", CaseEq "prod", CaseEq "sum"] *)
+  >> rename [‘bvi_to_cb _ _ = SOME (bs,CallBlock tag left child right)’]
   (* Phase 1 theorem in s *)
   >> drule_all evaluate_bvi_to_cb
   >> qpat_x_assum ‘evaluate(_,_,_) = (_,_)’ $ mk_asm "original"
@@ -1972,8 +1976,8 @@ Resume evaluate_rewrite_tmc[op_opt]:
   >> rename [‘evaluate (bs,env2,s') = (as',u')’]
   >> rename [‘f ⊑ f'’]
   (* Phase 1 theorem in s' *)
-  >> Cases_on ‘evaluate ([Op (BlockOp (Cons tag)) args],env2,s')’
-  >> rename [‘evaluate ([Op (BlockOp (Cons tag)) args],env2,s') = (r',t')’]
+  >> Cases_on ‘evaluate ([Op (BlockOp (Cons tag)) xs],env2,s')’
+  >> rename [‘evaluate ([Op (BlockOp (Cons tag)) xs],env2,s') = (r',t')’]
   >> drule_all evaluate_bvi_to_cb
   >> qpat_x_assum ‘evaluate (_,_,_) = (_,_)’ $ mk_asm "original'"
   >> simp [Once evaluate_def]
@@ -1998,18 +2002,41 @@ Resume evaluate_rewrite_tmc[op_opt]:
   >> rename [‘LIST_REL (v_rel f') vs vs'’]
   >> asm_x "original" kall_tac
   >> asm_x "original'" kall_tac
+  >> qpat_x_assum ‘env_rel _ _ _ _’ kall_tac
 
-  >> qexistsl [‘t'’, ‘f'’, ‘r'’]
+  >> induct
+                           
+  >> drule phase2
+  >> drule_all env_rel_submap
+  >> strip_tac
+  >> drule_all env_rel_append
+  >> strip_tac
+  >> disch_then drule
+  >> disch_then drule
+  >> impl_tac >- gvs []
+  >> strip_tac                        
+  >> gvs []
+  >> qexistsl [‘t'’, ‘f''’, ‘r'’]
   >> rpt $ gen_tac
   >> gvs []
-  >> reverse $ Induct_on ‘CallBlock tag left child right’
+  >> conj_tac
+  >- imp_res_tac SUBMAP_TRANS
+  >> conj_tac
   >-
-   (gvs []
-    >> 
-        )
-                       
-  >> gvs [bvi_to_cb_def, cb_to_bvi_def, CaseEq "option", CaseEq "prod", CaseEq "sum"]
+   (irule only_fresh_trans
+    >> rpt $ first_assum $ irule_at Any
+    >> imp_res_tac evaluate_refs_SUBSET)
+  >> conj_tac
+  >- imp_res_tac holes_unchanged_except_trans
+  >> strip_tac
   >> gvs []
+  >> first_x_assum $ qspec_then ‘loc_opt’ mp_tac
+  >> strip_tac
+  >> rw []
+  >-
+   (first_x_assum drule)
+  >> 
+  >> 
 QED
 
 (* I am not sure this is needed anymore *)
@@ -2134,77 +2161,6 @@ Proof
   >> strip_tac >> gvs []
 QED
 
-Definition hypothesis_def:
-  hypothesis xs' (s'' : (num # γ, 'ffi) bviSem$state) env1' loc' r' t' opt' f' s'³' env2' (s : (num # γ, 'ffi) bviSem$state) ⇔
-  s''.clock < s.clock ⇒
-  evaluate (xs',env1',s'') = (r',t') ∧ env_rel opt' f' env1' env2' ∧
-  state_rel f' s'' s'³' ∧ (opt' ⇒ LENGTH xs' = 1) ∧
-  r' ≠ Rerr (Rabort Rtype_error) ⇒
-  ∃t'' f'' r''.
-    ∀loc_opt wrap.
-      evaluate (xs',env2',s'³') = (r'',t'') ∧
-      result_rel (LIST_REL (v_rel f'')) (v_rel f'') r' r'' ∧
-      state_rel f'' t' t'' ∧ f' ⊑ f'' ∧ only_fresh f' f'' s'³'.refs ∧
-      holes_unchanged_except f' s'³'.refs t''.refs ∅ ∧
-      (opt' ⇒
-       (rewrite_wrapper loc' loc_opt (HD xs') = SOME wrap ⇒
-        ∃t1.
-          evaluate ([wrap],env2',s'³') = (r'',t1) ∧ state_rel f'' t' t1) ∧
-       ((∃c. hole_has_val f' env1' env2' s'³'.refs c) ⇒
-        ∃rrr t2.
-          ∀res_v.
-            evaluate
-            ([rewrite_worker loc' loc_opt (LENGTH env1') (LENGTH env1' + 1) (HD xs')],env2',s'³') = (rrr,t2) ∧
-            opt_res_rel r'' rrr ∧ state_rel f'' t' t2 ∧
-            holes_unchanged_except f' s'³'.refs t2.refs {env2'❲LENGTH env1'❳} ∧
-            (r'' = Rval [res_v] ⇒
-             hole_has_val f' env1' env2' t2.refs res_v)))
-End
-
-Definition hole_block_filled_def:
-  (hole_block_filled env refs tag left Hole right parents top_ptr hole_ptr hole_val ⇔
-     hole_ptr = top_ptr ∧
-     hole_ptr ∉ parents ∧
-     (*hole_ptr ∉ FRANGE f ∧*)
-     FLOOKUP refs top_ptr = SOME (MutBlock tag (REVERSE (MAP (λn. EL n env) right)) hole_val (REVERSE (MAP (λn. EL n env) left))) ∧
-     ∀tag' left' child right'.
-       FLOOKUP refs hole_ptr ≠ SOME (MutBlock tag' left' child right')) ∧
-  (hole_block_filled env refs tag left (HoleBlock tag' left' child right') right parents top_ptr hole_ptr hole_val ⇔
-     top_ptr ∉ parents ∧
-     (*top_ptr ∉ FRANGE f ∧*)
-     ∃child_ptr.
-       FLOOKUP refs top_ptr = SOME (MutBlock tag (REVERSE (MAP (λn. EL n env) right)) (RefPtr F child_ptr) (REVERSE (MAP (λn. EL n env) left))) ∧
-       hole_block_filled env refs tag' left' child right' (parents ∪ {top_ptr}) child_ptr hole_ptr hole_val)
-End
-
-Definition alloc_preconditions_def:
-  alloc_preconditions refs env2 env3 tag left hole right parents i_top_ptr i_hole_ptr hole_idx num_binders ⇔
-    ∃env_extras.
-      env3 = env_extras ++ env2 ∧
-      LENGTH env_extras = num_binders ∧
-      i_top_ptr < LENGTH env_extras ∧
-      i_hole_ptr < LENGTH env_extras ∧
-      ∃ref_top ref_hole.
-        EL i_top_ptr env_extras = RefPtr F ref_top ∧
-        EL i_hole_ptr env_extras = RefPtr F ref_hole ∧
-        hole_block_filled env2 refs tag left hole right parents ref_top ref_hole (Number 0)
-End
-
-(* Not sure which of these to use *)
-(* Probably neither. *)
-
-Definition worker_env_rel_def:
-  worker_env_rel env2 env3 num_binders ⇔
-    ∃env_extras i_top_ptr i_hole_ptr.
-      env3 = env_extras ++ env2 ∧
-      LENGTH env_extras = num_binders ∧
-      i_top_ptr < LENGTH env_extras ∧
-      i_hole_ptr < LENGTH env_extras ∧
-      ∃ref_top ref_hole.
-        EL i_top_ptr env_extras = RefPtr F ref_top ∧
-        EL i_hole_ptr env_extras = RefPtr F ref_hole
-End
-
 Theorem evaluate_vars:
   ∀ns opt f env1 env2 (s1 : (num # γ, 'ffi) state) (s2 : (γ, 'ffi) state) t1 r1.
     evaluate (MAP (λn. Var n) ns,env1,s1) = (r1,t1) ∧
@@ -2230,25 +2186,6 @@ Proof
 QED
 
 (*
-Theorem evaluate_vars_stateless:
-  ∀ns env (s : (γ, 'ffi) state) (u : (γ, 'ffi) state).
-    evaluate (MAP (λn. Var n) ns,env,s) = (Rval ((MAP λn. env❲n❳) ns),s) ⇒
-    evaluate (MAP (λn. Var n) ns,env,u) = (Rval ((MAP λn. env❲n❳) ns),u)
-Proof
-  cheat
-QED
-*)
-
-(* This will need additional constraints on call_args tbd *)
-(*
-Theorem env_rel_call_args:
-  ∀f env1 env2 call_args ptr idx.
-    env_rel T f env1 env2 ⇒
-    env_rel T f (MAP (λn. env1❲n❳) call_args) (MAP (λn. env2❲n❳) call_args ++ [RefPtr F ptr; Number idx])
-Proof
-  cheat
-QED*)
-
 Theorem env_rel_call_args:
   ∀f env1 env2 call_args s.
     evaluate (MAP (λn. Var n) call_args,env1,s) = (Rval (MAP (λn. env1❲n❳) call_args),s) ∧
@@ -2257,7 +2194,8 @@ Theorem env_rel_call_args:
 Proof
   cheat
 QED
-
+*)
+(*
 (* Might make this more generic but want something that gives me what I need quickly *)
 (* This can be proven with state_rel_dec and state_rel_filled, and maybe I just invoke them both in the proof *)
 Theorem state_rel_call_state:
@@ -2272,6 +2210,7 @@ Theorem state_rel_call_state:
 Proof
   cheat
 QED
+*)
 
 Theorem evaluate_shift_exp_vars:
   ∀bs x env s.
@@ -2331,10 +2270,11 @@ Definition hypothesis_def:
 End
 
 Theorem phase2:
-  ∀n cb ^s env1 loc r t f s' env2.
-    bvi_to_cb loc tag args = SOME (bs,CallBlock tag left child right) ∧
+  ∀cb opt ^s env1 loc r t f s' env2.
+    bvi_to_cb loc x = SOME (bs,cb) ∧
     evaluate ([cb_to_bvi loc cb], env1, s) = (r, t) ∧
-    env_rel T f env1 env2 ∧
+    evaluate ([bs],env2,s_old') = (Rval vs', )
+    env_rel opt f env1 env2 ∧
     state_rel f s s' ∧
     r ≠ Rerr (Rabort Rtype_error) ⇒
     ∃t' f' r'.
@@ -2346,9 +2286,10 @@ Theorem phase2:
       holes_unchanged_except f s'.refs t'.refs ∅ ∧
       (∀xs' s'' env1' loc' r' t' opt' f' s'³' env2'.
          hypothesis xs' s'' env1' loc' r' t' opt' f' s'³' env2' s) ∧
+      (opt ⇒
        (∀loc_opt.
           (∀wrap work.
-             rewrite_wrapper loc loc_opt (cb_to_bvi loc cb) = SOME wrap ⇒
+             rewrite_wrapper loc loc_opt x = SOME wrap ⇒
              ∃t1 f_wrap.
                evaluate ([wrap], env2, s') = (r',t1) ∧
                state_rel f_wrap t t1 ∧
@@ -2368,7 +2309,7 @@ Theorem phase2:
                holes_unchanged_except f s'.refs t2.refs {EL i env2} ∧
                ∀res_v.
                  r' = Rval [res_v] ⇒
-                 hole_has_val f env1 env2 t2.refs res_v))
+                 hole_has_val f env1 env2 t2.refs res_v)))
 Proof
   
   reverse $ Induct_on ‘cb’
@@ -2438,28 +2379,21 @@ Proof
     >> rpt $ irule_at Any LIST_REL_refl
     >> simp []
     >> cheat)
+  >> strip_tac
   >> gen_tac
+  >> gvs []
   >> first_x_assum $ qspec_then ‘loc_opt’ mp_tac
   >> strip_tac
   >> gvs []
   >> rw []
   >-
-   (gvs [rewrite_wrapper_def, CaseEq "option", rewrite_wrapper_cons_def, CaseEq "prod", CaseEq "call_block"]
+   (gvs [rewrite_wrapper_def, CaseEq "option", CaseEq "prod", CaseEq "call_block"]
     >> gvs [cb_to_bvi_wrapper_def, Once evaluate_def]
     >> gvs [bvi_to_cb_def]
     >> cheat)
-  >> simp [rewrite_worker_def, dest_Cons_def, rewrite_worker_cons_def, bvi_to_cb_def]
-
-    
-  >> qpat_x_assum ‘_ ⇒ _’ mp_tac
-  >> impl_tac
-  >- (first_assum $ irule_at Any >> gvs [])
-  >> strip_tac
-  >> 
-QED
-
-
-        
+  >> simp [rewrite_worker_def]
+  >> cheat
+QED        
 
 Theorem evaluate_cb_to_bvi_worker:
   ∀cb loc loc_opt arity body wrap work f1 env1 env2 s1 s2 t1 r1.
