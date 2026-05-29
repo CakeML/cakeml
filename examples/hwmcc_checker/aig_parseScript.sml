@@ -53,9 +53,14 @@ Definition parse_opt_number_def:
   parse_opt_number (#" "::rest) =
     do
       (n, rest) <- parse_number rest;
-      return (n, rest)
+      return (SOME n, rest)
     od ∧
-  parse_opt_number str = return (0n, str)
+  parse_opt_number str = return (NONE, str)
+End
+
+Definition get_num_def:
+  get_num NONE = 0n ∧
+  get_num (SOME n) = n
 End
 
 Definition parse_header_def:
@@ -86,9 +91,19 @@ Definition parse_header_def:
       (maxvar = inputs + latches + ands);
     return
       (<| maxvar := maxvar ; inputs := inputs ; latches := latches;
-          outputs := outputs ; ands := ands ; bad := bad;
-          constraints := constraints ; justice := justice;
-          fairness := fairness |>, rest)
+          outputs := outputs ; ands := ands ;
+          bad := get_num bad ; constraints := get_num constraints ;
+          justice := get_num justice; fairness := get_num fairness |>,
+       rest)
+  od
+End
+
+Definition parse_latch_def:
+  parse_latch str =
+  do
+    (next, rest) <- parse_number str;
+    (reset, rest) <- parse_opt_number rest;
+    return ((next, reset), rest)
   od
 End
 
