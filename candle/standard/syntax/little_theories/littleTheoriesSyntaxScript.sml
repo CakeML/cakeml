@@ -177,10 +177,9 @@ End
 
 Definition esubst_thy_def:
   esubst_thy σ thy =
-  thy with <| tms  := thy.tms ⊌ (ty_esubst σ o_f thy.etms);
-              axs  := IMAGE (esubst σ []) (thy.axs ∪ thy.eaxs);
-              etms := FEMPTY;
-              eaxs := {} |>
+  thy with <| axs  := IMAGE (esubst σ []) thy.axs;
+              etms := ty_esubst σ o_f thy.etms;
+              eaxs := IMAGE (esubst σ []) thy.eaxs |>
 End
 
 Definition vsubst_tys_ok_def:
@@ -289,7 +288,7 @@ Definition esubsts_ok'_def:
             ∃ty. FLOOKUP thy.etms tmnm = SOME ty ∧
                  is_monomorphic ty ∧
                  typeof (θ ' tmnm) = ty_esubst (σ, θ) ty) ∧
-    (FDOM σ = FDOM thy.etys) ∧
+    (FDOM σ ⊆ FDOM thy.etys) ∧
     (∀ty. ty ∈ FRANGE σ ⇒ type_ok thy.ctys ty ∧
                           is_monomorphic ty) ∧
     (∀tm. tm ∈ FRANGE θ ⇒ term_ok' (esubst_thy (σ,θ) thy) tm ∧

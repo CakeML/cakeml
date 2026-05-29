@@ -6051,21 +6051,13 @@ Resume proves_substitutable_aux[Abs]:
     by (dxrule proves_term_ok
         >> simp[EVERY_MEM, term_ok_equation, theory_ok_sig, SF SFY_ss] >> metis_tac[])
   >> simp[]
-  (* Get z from alpha lemma (pair version), avoiding hypothesis names *)
   >> rev_drule_then drule_all esubst_apply_steps_Abs_alpha
   >> disch_then $ qspecl_then [‘x’, ‘FLAT (MAP tm_names h)’,
        ‘FLAT (MAP tm_names (term_image (esubst σ []) (term_image (apply_steps stps) h)))’]
      strip_assume_tac
-  (* Use IH with VSUBST-last augmented steps stps ++ [VStep ...].
-     By apply_steps_append: apply_steps (stps ++ [VStep ilist]) t = apply_steps stps (VSUBST ilist t).
-     This matches the alpha theorem body, and crucially VSUBST acts directly on h elements
-     (where ¬VFREE_IN (Var x ty)), making it identity via VSUBST_NOT_FREE. *)
   >> first_x_assum $ qspecl_then [‘σ’, ‘stps ++ [VStep [(Var z ty, Var x ty)]]’] mp_tac
   >> simp[apply_steps_append, apply_steps_def, steps_ok_append, steps_ok_def]
-  (* Distribute === through esubst/VSUBST/apply_steps so proves_ABS can match *)
   >> eqn_dist_tac >> blast_term_validation >> rw[]
-  (* VSUBST is identity on h elements (¬VFREE_IN); rewrite term_image to eliminate VStep.
-     After this, IH hypothesis set matches the goal hypothesis set exactly. *)
   >> ‘term_image (apply_steps (stps ++ [VStep [(Var z ty, Var x ty)]])) h =
       term_image (apply_steps stps) h’
     by (irule term_image_cong >> rw[apply_steps_append, apply_steps_def]
@@ -6074,21 +6066,16 @@ Resume proves_substitutable_aux[Abs]:
   >> pop_assum (fn th =>
                   RULE_ASSUM_TAC (REWRITE_RULE[th]) >> REWRITE_TAC[th])
   >> blast_term_validation
-  (* Move IH proves from goal antecedent into assumptions so drule_at finds it
-     (not the original ((sig,axs),h) |- l === r which has the wrong hyp set) *)
-  (* Apply proves_ABS to the IH equation (hyps = term_image (esubst σ []) ...) *)
   >> drule_at (Pos last) proves_ABS
   >> disch_then $ qspecl_then [‘ty'’, ‘z’] mp_tac
   >> impl_tac
   >- (rw[]
-      (* ¬EXISTS (VFREE_IN (Var z ty’)): z avoids hypothesis names (now matches asm 12) *)
       >> rw[EVERY_MEM, EXISTS_MEM] >> rpt strip_tac
       >> spose_not_then strip_assume_tac
       >> imp_res_tac VFREE_IN_tm_names
       >> gvs[MEM_FLAT, MEM_MAP, PULL_EXISTS]
       >> metis_tac[])
   >> rw[]
-  (* Use proves_ACONV to connect to the goal *)
   >> irule proves_ACONV >> first_x_assum $ irule_at Any
   >> rw[] >> ntac 2 blast_term_validation
   >> rw[hypset_ok_term_image]
@@ -6103,9 +6090,6 @@ Resume proves_substitutable_aux[Abs]:
       >> blast_term_validation
       >> DEP_REWRITE_TAC[esubst_has_type_bool, apply_steps_has_type_Bool, apply_steps_term_ok]
       >> simp[term_ok_welltyped, SF SFY_ss])
-  (* ACONV of conclusion: chain via ACONV_SYM of alpha theorem + ACONV_esubst_avds.
-     irule ACONV_equation creates a single conjunction; rpt conj_tac splits it;
-     TRY handles welltyped goals; remaining ACONV goals use transitivity chain. *)
   >- (irule ACONV_equation >> rw[]
       >> blast_term_validation
       >> irule ACONV_TRANS
@@ -6114,7 +6098,6 @@ Resume proves_substitutable_aux[Abs]:
       >> irule ACONV_esubst_avds >> rw[]
       >> blast_term_validation
       >> (ntac 2 $ first_x_assum $ irule_at Any >> blast_term_validation))
-  (* Hypotheses: IH hyps = goal hyps after term_image_cong rewrite *)
   >> rw[EVERY_MEM, EXISTS_MEM] >> metis_tac[ACONV_REFL]
 QED
 
