@@ -1976,11 +1976,37 @@ Proof
       ‘THM _ (Sequent _ (Comb (Comb (Const «=» h1) f1) f2))’,
       ‘THM _ (Sequent _ (Comb (Comb (Const «=» h2) x1) x2))’,
     ]
-  \\ drule_then (qspec_then ‘defs’ mp_tac) safe_mk_eq_thm
-  \\ impl_tac >- cheat
-  \\ Cases_on ‘res'’ \\ gvs []
-  \\ rpt strip_tac \\ gvs []
-  \\ cheat
+  \\ `CONTEXT defs` by fs [STATE_def]
+  \\ imp_res_tac THM
+  (* both sides of each equation have equal type *)
+  \\ `TERM defs (Comb (Const «=» h1) f1) ∧ TERM defs (Comb (Const «=» h2) x1)`
+       by rfs [TERM_Comb]
+  \\ imp_res_tac TERM_Eq_x
+  \\ `welltyped (Comb (Comb (Const «=» h1) f1) f2) ∧
+      welltyped (Comb (Comb (Const «=» h2) x1) x2)`
+       by (fs [TERM_def] \\ imp_res_tac term_ok_welltyped \\ fs [])
+  \\ gvs [TERM_Comb]
+  \\ imp_res_tac type_of_thm
+  \\ imp_res_tac term_type
+  \\ gvs []
+  (* hence the new combinations Comb f1 x1 and Comb f2 x2 are well-formed *)
+  \\ `TERM defs (Comb f1 x1)` by gvs [TERM_Comb]
+  \\ `TERM defs (Comb f2 x2)` by gvs [TERM_Comb]
+  \\ `typeof (Comb f1 x1) = typeof (Comb f2 x2)` by simp []
+  \\ drule_all safe_mk_eq_thm
+  \\ strip_tac
+  \\ Cases_on ‘res'’ \\ fs []
+  (* close the remaining goal with the MK_COMB derivation rule *)
+  \\ fs [THM_def]
+  \\ qspecl_then [‘defs’,‘Comb f1 x1’] mp_tac term_type
+  \\ (impl_tac >- simp []) \\ strip_tac
+  \\ qpat_x_assum ‘term_type (Comb f1 x1) = _’ (fn th => rewrite_tac [th])
+  \\ PURE_ONCE_REWRITE_TAC [GSYM equation_def]
+  \\ match_mp_tac (List.nth (CONJUNCTS proves_rules, 7))
+  \\ rpt conj_tac
+  >- fs [equation_def]
+  >- fs [equation_def]
+  \\ fs []
 QED
 
 Theorem ABS_thm:
