@@ -10,7 +10,7 @@ Libs
 Definition x64_names_def:
   x64_names =
     (* 16 regs, must avoid 4 and 5, names:
-         r0=rax, r1=rcx, r2=rdx, r3=rbx, r4=rbp, r5=rsp, r6=rsi,
+         r0=rax, r1=rcx, r2=rdx, r3=rbx, r4=rsp, r5=rbp, r6=rsi,
          r7=rdi, r8=r8, r9, r10, r11, r12, r13, r14, r15
        The first six arguments are passed in registers. The first
        argument (1) is passed in rdi(r7), the second(2) in rsi(r6),
@@ -44,7 +44,9 @@ val word_to_word_conf = ``<| reg_alg:=2; col_oracle := [] |>``
 
 val x64_data_conf = ``<| tag_bits:=4; len_bits:=4; pad_bits:=2; len_size:=32; has_div:=F; has_longdiv:=T; has_fp_ops:=T; has_fp_tern:=F; be:=F; call_empty_ffi:=F; gc_kind:=Simple|>``
 val x64_word_conf = ``<| bitmaps_length := 0; stack_frame_size := LN |>``
-val x64_stack_conf = ``<|jump:=T;reg_names:=x64_names|>``
+(* perf_calls=T yields an unverified binary suitable for
+   `perf record --call-graph fp` profiling (x64 only). *)
+val x64_stack_conf = ``<|jump:=T;reg_names:=x64_names;perf_calls:=F|>``
 val x64_lab_conf = ``<|pos:=0;ffi_names:=NONE;labels:=LN;sec_pos_len:=[];init_clock:=5;hash_size:=104729n;shmem_extra:=[]|>``
 
 Definition x64_backend_config_def:
