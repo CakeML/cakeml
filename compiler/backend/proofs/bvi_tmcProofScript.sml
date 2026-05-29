@@ -131,6 +131,7 @@ Definition state_rel_def:
     (∀n. n ∈ domain t.code ∧ in_ns_2 n ⇒ n < FST(FST(s.compile_oracle 0)))
 End
 
+(* Copied - not used currently *)
 Theorem compile_prog_code_rel:
    compile_prog next prog = (next1, prog2) ∧
    ALL_DISTINCT (MAP FST prog) ∧
@@ -654,7 +655,7 @@ QED
 
 Theorem do_app_op_rel:
   ∀f op vs vs' s s' v.
-    do_app op vs s = Rval v ∧
+    do_app op vs s = r ∧
     LIST_REL (v_rel f) vs vs' ∧
     state_rel f s s' ⇒
     ∃v'.
@@ -1041,9 +1042,12 @@ Proof
   >~ [‘Let xs x2’] >- suspend "lett"
   >~ [‘Raise x’] >- suspend "raise"
   >~ [‘Op op xs’] >-
-   (Cases_on ‘∃tag bs cb. op = BlockOp (Cons tag) ∧ bvi_to_cb loc tag xs = SOME (bs,cb)’ >> gvs []
+   (Cases_on ‘bvi_to_cb loc (Op op xs) = SOME (bs,cb)’
     >- suspend "op_opt"
     >- suspend "op_non_opt")
+   (*Cases_on ‘∃tag bs cb. op = BlockOp (Cons tag) ∧ bvi_to_cb loc tag xs = SOME (bs,cb)’ >> gvs []
+    >- suspend "op_opt"
+    >- suspend "op_non_opt"*)
   >~ [‘Tick x’] >- suspend "tick"
   >~ [‘Force force_loc n’] >- suspend "force"
   >~ [‘Call ticks dest xs handler’] >- suspend "call"
@@ -1714,9 +1718,9 @@ Theorem evaluate_bvi_to_cb_aux_inl:
       evaluate (args,env,s) = (Rval v,s) ∧
       evaluate (MAP (λn. Var n) vs,v,s) = (Rval v,s)
 Proof
-  recInduct bvi_to_cb_aux_ind >> rw [bvi_to_cb_aux_def] >> gvs [evaluate_def]
-  >- (gvs [CaseEq "prod"])
-  >- (gvs [CaseEq "prod"])
+  recInduct bvi_to_cb_aux_ind >> rw [bvi_to_cb_aux_def, call_to_cb_def] >> gvs [evaluate_def]
+  >- (gvs [CaseEq "prod", CaseEq "option", CaseEq "prod"])
+  >- (gvs [CaseEq "prod", CaseEq "option", CaseEq "prod"])
   >- (gvs [CaseEq "option", CaseEq "prod", CaseEq "sum", evaluate_def])
   >-
    (imp_res_tac evaluate_pure_exps
@@ -1793,9 +1797,9 @@ Theorem evaluate_bvi_to_cb_aux_inr:
          (as,u) = (r,t))
 Proof
   recInduct bvi_to_cb_aux_ind
-  >> rw [bvi_to_cb_aux_def]
+  >> rw [bvi_to_cb_aux_def, call_to_cb_def]
   >-
-   (gvs [CaseEq "prod"]
+   (gvs [CaseEq "prod", CaseEq "option"]
     >> rename [‘bind 0 args = (vs,n')’]
     >> gvs [evaluate_def, cb_to_bvi_def, evaluate_def]
     >> gvs [CaseEq "prod"]
@@ -1914,13 +1918,28 @@ Proof
 QED
 
 Theorem evaluate_bvi_to_cb:
-  ∀cb loc tag args env s t r bs.
-    evaluate ([Op (BlockOp (Cons tag)) args],env,s) = (r,t) ∧
-    bvi_to_cb loc tag args = SOME (bs,cb) ⇒
+  ∀cb loc x env s t r bs.
+    evaluate ([x],env,s) = (r,t) ∧
+    bvi_to_cb loc x = SOME (bs,cb) ⇒
     evaluate ([Let bs (cb_to_bvi loc cb)],env,s) = (r,t)
 Proof
   rw []
-  >> gvs [bvi_to_cb_def, CaseEq "option", CaseEq "prod", CaseEq "sum"]
+  >> Cases_on ‘x’ >> gvs [bvi_to_cb_def, call_to_cb_def, CaseEq "option", CaseEq "prod", CaseEq "sum", CaseEq "exp"]
+  >-
+   (gvs [evaluate_def, bvi_to_cb_def, cb_to_bvi_def, CaseEq "prod"]
+    >> gvs [CaseEq "result"]
+    >> drule_then drule evaluate_binders
+    >> disch_then $ qspec_then ‘[]’ mp_tac
+    >> impl_tac >- gvs []
+    >> strip_tac
+    >> gvs []
+    >> drule evaluate_expand_env
+    >> disch_then $ qspec_then ‘env’ mp_tac
+    >> strip_tac
+    >> gvs [])
+  >> rename [‘Op op args’]
+  >> Cases_on ‘op’ >> gvs [dest_Cons_def]
+  >> Cases_on ‘b’ >> gvs [dest_Cons_def]
   >> drule_all evaluate_bvi_to_cb_aux_inr
   >> strip_tac
   >> simp [evaluate_def]
@@ -2210,6 +2229,7 @@ Proof
   >> gvs []
 QED
 
+(*
 Theorem evaluate_vars_stateless:
   ∀ns env (s : (γ, 'ffi) state) (u : (γ, 'ffi) state).
     evaluate (MAP (λn. Var n) ns,env,s) = (Rval ((MAP λn. env❲n❳) ns),s) ⇒
@@ -2217,6 +2237,7 @@ Theorem evaluate_vars_stateless:
 Proof
   cheat
 QED
+*)
 
 (* This will need additional constraints on call_args tbd *)
 (*
@@ -2311,6 +2332,7 @@ End
 
 Theorem phase2:
   ∀n cb ^s env1 loc r t f s' env2.
+    bvi_to_cb loc tag args = SOME (bs,CallBlock tag left child right) ∧
     evaluate ([cb_to_bvi loc cb], env1, s) = (r, t) ∧
     env_rel T f env1 env2 ∧
     state_rel f s s' ∧

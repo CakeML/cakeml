@@ -108,14 +108,17 @@ End
 Definition bvi_to_cb_aux_def:
   (bvi_to_cb_aux _ _ [] = SOME ([],INL [])) ∧
   (bvi_to_cb_aux loc tag [Call t loc' args h] =
-   (* TODO: call_to_cb *)
-   if loc' = SOME loc ∧ h = NONE then
+   case call_to_cb loc t loc' args h of
+   | SOME (bs,cb) => SOME (bs,INR (CallBlock tag [] cb []))
+   | _ => NONE
+          (* Below has been extracted *)          
+   (*if loc' = SOME loc ∧ h = NONE then
      (* Recursive call found - base case of CallBlock *)
      case bind 0 args of
      | (vs,_) => SOME (args,INR (CallBlock tag [] (RCall t vs) []))
    else
      (* Not a recursive call - effectful exps not allowed *)
-     NONE) ∧
+     NONE*)) ∧
   (bvi_to_cb_aux loc tag [Op op args] =
    case dest_Cons op of
    | SOME tag' =>
@@ -188,13 +191,27 @@ Proof
 QED
 
 (* Calls the above but throws away an unoptimisable BlockOp Cons. *)
-Definition bvi_to_cb_def:
+(*Definition bvi_to_cb_def:
   bvi_to_cb loc tag args =
   case bvi_to_cb_aux loc tag args of
   | SOME (bs,INR cb) => SOME (bs,cb)
   | _ => NONE
+End*)
+
+Definition bvi_to_cb_def:
+  (bvi_to_cb loc (Call call_ts call_loc call_args call_h) =
+   call_to_cb loc call_ts call_loc call_args call_h) ∧
+  (bvi_to_cb loc (Op op xs) =
+   case dest_Cons op of
+   | SOME tag =>
+       (case bvi_to_cb_aux loc tag xs of
+        | SOME (bs, INR cb) => SOME (bs,cb)
+        | _ => NONE)
+   | _ => NONE) ∧
+  (bvi_to_cb _ _ = NONE)
 End
 
+(*
 Theorem bvi_to_cb_wf:
   ∀loc tag args bs cb.
     bvi_to_cb loc tag args = SOME (bs,cb) ⇒
@@ -207,7 +224,9 @@ Proof
   >> imp_res_tac bvi_to_cb_aux_wf
   >> gvs []
 QED
+*)
 
+(*
 val ex1 = “[Op (IntOp (Const 1)) []; Call 0 (SOME 7) [] NONE; Call 0 (SOME 4) [] NONE; Op (IntOp (Const 3)) []]”
 val ex1_call = “bvi_to_cb 7 99 ^ex1”
 (* EVAL ex1_call *)
@@ -240,6 +259,7 @@ val ex4 = “[Op (IntOp (Const 0)) [];
             Op (IntOp (Const 6)) []]”
 val ex4_call = “bvi_to_cb 100 99 ^ex4”
 (* EVAL ex4_call *)
+*)
 
 (* Convert back to BlockOp Cons for comparing semantics *)
 Definition cb_to_bvi_def:
@@ -253,6 +273,7 @@ Definition cb_to_bvi_def:
        bvi$Call ts (SOME loc) args' NONE)
 End
 
+(*
 (* Let bind the result of the above for a semantically equivalent BVI expression. *)
 Definition bvi_to_cb_to_bvi_def:
   bvi_to_cb_to_bvi loc tag args =
@@ -261,7 +282,9 @@ Definition bvi_to_cb_to_bvi_def:
         SOME $ Let bs $ cb_to_bvi loc cb
     | NONE => NONE
 End
+*)
 
+(*
 (* I think this isn't true! And we don't need it. Just that the binders are smaller. *)
 Theorem bvi_to_cb_aux_size:
   ∀loc tag args bs sum.
@@ -293,25 +316,12 @@ Proof
   >> strip_tac
   >> gvs []
 QED
+*)
 
-(* Phase 2 - Convert call block into a hole block, where the hole is filled by the optimised version of recursive call. *)
-
-(* Like call_block, but base case is NONE instead of RCall *)
-Datatype:
-  hole_block = HoleBlock num (num list) hole_block (num list)
-             | Hole
-End
+(* Phase 2 - Transformations. *)
 
 Definition shift_exp_vars_def:
   shift_exp_vars n (Var i) = Var (i + n)
-End
-
-(* Convert a call_block to a hole_block, and return the RCall ingredients to be replaced with optimised version. *)
-Definition cb_to_hb_def:
-  (cb_to_hb (CallBlock tag l child r) =
-     case cb_to_hb child of
-     | (hb,ts,args) => (HoleBlock tag l hb r,ts,args)) ∧
-  (cb_to_hb (RCall ts args) = (Hole,ts,args))
 End
 
 Definition mut_cons_def:
@@ -395,6 +405,7 @@ Definition hb_to_bvi_wrapper_def:
 End
 *)
 
+(*
 Definition rewrite_wrapper_cons_def:
   rewrite_wrapper_cons loc loc_opt tag args =
     case bvi_to_cb loc tag args of
@@ -402,7 +413,9 @@ Definition rewrite_wrapper_cons_def:
         SOME $ Let bs $ cb_to_bvi_wrapper tag left child right loc_opt
     | _ => NONE
 End
+*)
 
+(*
 (* Assumes that the function can and should be optimised - has been checked by rewrite_wrapper. *)
 Definition rewrite_worker_cons_def:
   rewrite_worker_cons loc loc_opt i_ptr i_idx tag args =
@@ -423,6 +436,7 @@ Definition rewrite_worker_call_def:
   | NONE =>
       fill_hole i_ptr i_idx $ Call ts call_loc args h
 End
+*)
 
 (* Expression rewriting *)
 Definition rewrite_wrapper_def:
@@ -444,9 +458,14 @@ Definition rewrite_wrapper_def:
   (rewrite_wrapper loc loc_opt (Force _ n) = NONE) ∧
   (rewrite_wrapper loc loc_opt (Call t d args h) = NONE) ∧
   (rewrite_wrapper loc loc_opt (Op op op_args) =
-    case dest_Cons op of
+    case bvi_to_cb loc (Op op op_args) of
+    | SOME (bs,CallBlock tag left child right) =>
+        SOME $ Let bs $ cb_to_bvi_wrapper tag left child right loc_opt
+    | _ => NONE
+    (* Below has been inlined *)
+    (*case dest_Cons op of
     | SOME block_tag => rewrite_wrapper_cons loc loc_opt block_tag op_args
-    | NONE => NONE) ∧
+    | NONE => NONE*)) ∧
   (rewrite_wrapper loc loc_opt _ = NONE)
 End
 
@@ -461,15 +480,28 @@ Definition rewrite_worker_def:
       Let xs $ rewrite_worker loc loc_opt (i_old_ptr + offset) (i_old_idx + offset) x) ∧
   (rewrite_worker loc loc_opt i_old_ptr i_old_idx (Raise x) = Raise x) ∧
   (rewrite_worker loc loc_opt i_old_ptr i_old_idx (Op op op_args) =
-    case dest_Cons op of
+   case bvi_to_cb loc (Op op op_args) of
+   | SOME (bs,cb) =>
+       (let offset = LENGTH bs in
+          Let bs $ cb_to_bvi_worker cb loc_opt (Var (offset + i_old_ptr)) (Var (offset + i_old_idx)))
+   | NONE =>
+       fill_hole i_old_ptr i_old_idx $ Op op op_args
+                 (* Below has been inlined*)
+    (*case dest_Cons op of
     | SOME block_tag => rewrite_worker_cons loc loc_opt i_old_ptr i_old_idx block_tag op_args
     | NONE =>
-        fill_hole i_old_ptr i_old_idx (Op op op_args)) ∧
+        fill_hole i_old_ptr i_old_idx (Op op op_args)*)) ∧
   (rewrite_worker loc loc_opt i_old_ptr i_old_idx (Tick x) =
     Tick $ rewrite_worker loc loc_opt i_old_ptr i_old_idx x) ∧
   (rewrite_worker loc loc_opt i_old_ptr i_old_idx (Call ts l args h) =
-   (* This will check if it's a recursive call and fill the hole otherwise *)
-   rewrite_worker_call loc loc_opt i_old_ptr i_old_idx ts l args h) ∧
+   (case bvi_to_cb loc (Call ts l args h) of
+    | SOME (bs,cb) =>
+        (let offset = LENGTH bs in
+           Let bs $ cb_to_bvi_worker cb loc_opt (Var (offset + i_old_ptr)) (Var (offset + i_old_idx)))
+    | NONE =>
+        fill_hole i_old_ptr i_old_idx $ Call ts l args h)
+                 (* Below has been inlined *)
+   (*rewrite_worker_call loc loc_opt i_old_ptr i_old_idx ts l args h*)) ∧
   (rewrite_worker loc loc_opt i_old_ptr i_old_idx expr =
    fill_hole i_old_ptr i_old_idx expr)
 End
