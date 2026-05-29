@@ -1000,18 +1000,22 @@ Theorem evaluate_rewrite_tmc:
        (∀loc_opt.
           (∀wrap work.
              rewrite_wrapper loc loc_opt (HD xs) = SOME wrap ⇒
-             ∃t1.
+             ∃t1 f_wrap.
                evaluate ([wrap], env2, s') = (r',t1) ∧
-               state_rel f' t t1) ∧
+               state_rel f_wrap t t1 ∧
+               f SUBMAP f_wrap ∧
+               only_fresh f f_wrap s'.refs) ∧
           (∀i j wrap work.
              i = LENGTH env1 ∧
              j = LENGTH env1 + 1 ∧
              (∃c. hole_has_val f env1 env2 s'.refs c) ∧
              rewrite_worker loc loc_opt i j (HD xs) = work ⇒
-             ∃rrr t2.
+             ∃rrr t2 f_work.
                evaluate ([work], env2, s') = (rrr,t2) ∧
                opt_res_rel r' rrr ∧
-               state_rel f' t t2 ∧
+               state_rel f_work t t2 ∧
+               f SUBMAP f_work ∧
+               only_fresh f f_work s'.refs ∧
                holes_unchanged_except f s'.refs t2.refs {EL i env2} ∧
                ∀res_v.
                  r' = Rval [res_v] ⇒
@@ -1975,9 +1979,18 @@ Resume evaluate_rewrite_tmc[op_opt]:
   >> rename [‘LIST_REL (v_rel f') vs vs'’]
   >> asm_x "original" kall_tac
   >> asm_x "original'" kall_tac
-  (* At this point ready for the next theorem *)
-  (* However, there is a problem in the goal state - we have to pick f before loc_opt/wrap are in scope *)
-  >> cheat
+
+  >> qexistsl [‘t'’, ‘f'’, ‘r'’]
+  >> rpt $ gen_tac
+  >> gvs []
+  >> reverse $ Induct_on ‘CallBlock tag left child right’
+  >-
+   (gvs []
+    >> 
+        )
+                       
+  >> gvs [bvi_to_cb_def, cb_to_bvi_def, CaseEq "option", CaseEq "prod", CaseEq "sum"]
+  >> gvs []
 QED
 
 (* I am not sure this is needed anymore *)
@@ -2174,9 +2187,9 @@ Definition worker_env_rel_def:
 End
 
 Theorem evaluate_vars:
-  ∀ns f env1 env2 (s1 : (num # γ, 'ffi) state) (s2 : (γ, 'ffi) state) t1 r1.
+  ∀ns opt f env1 env2 (s1 : (num # γ, 'ffi) state) (s2 : (γ, 'ffi) state) t1 r1.
     evaluate (MAP (λn. Var n) ns,env1,s1) = (r1,t1) ∧
-    env_rel F f env1 env2 ∧
+    env_rel opt f env1 env2 ∧
     r1 ≠ Rerr (Rabort Rtype_error) ⇒
     (r1,t1) = (Rval (MAP (λn. env1❲n❳) ns),s1) ∧
     evaluate (MAP (λn. Var n) ns,env2,s2) = (Rval (MAP (λn. env2❲n❳) ns),s2)
@@ -2264,6 +2277,167 @@ Proof
   >> rw []
   >> gvs [shift_vars_def]
 QED
+
+(* Testing! *)
+Definition hypothesis_def:
+  hypothesis xs' (s'' : (num # γ, 'ffi) bviSem$state) env1' loc' r' t' opt' f' s'³' env2' (s : (num # γ, 'ffi) bviSem$state) ⇔
+          s''.clock < s.clock ⇒
+          evaluate (xs',env1',s'') = (r',t') ∧ env_rel opt' f' env1' env2' ∧
+          state_rel f' s'' s'³' ∧ (opt' ⇒ LENGTH xs' = 1) ∧
+          r' ≠ Rerr (Rabort Rtype_error) ⇒
+          ∃t'' f'' r''. ∀loc_opt wrap.
+            evaluate (xs',env2',s'³') = (r'',t'') ∧
+            result_rel (LIST_REL (v_rel f'')) (v_rel f'') r' r'' ∧
+            state_rel f'' t' t'' ∧ f' ⊑ f'' ∧ only_fresh f' f'' s'³'.refs ∧
+            holes_unchanged_except f' s'³'.refs t''.refs ∅ ∧
+            (opt' ⇒
+             (rewrite_wrapper loc' loc_opt (HD xs') = SOME wrap ⇒
+              ∃t1 f_wrap.
+                evaluate ([wrap],env2',s'³') = (r'',t1) ∧
+                state_rel f_wrap t' t1 ∧ f' ⊑ f_wrap ∧
+                only_fresh f' f_wrap s'³'.refs) ∧
+             ((∃c. hole_has_val f' env1' env2' s'³'.refs c) ⇒
+              ∃rrr t2 f_work. ∀res_v.
+                evaluate
+                  ([rewrite_worker loc' loc_opt (LENGTH env1')
+                      (LENGTH env1' + 1) (HD xs')],env2',s'³') = (rrr,t2) ∧
+                opt_res_rel r'' rrr ∧ state_rel f_work t' t2 ∧ f' ⊑ f_work ∧
+                only_fresh f' f_work s'³'.refs ∧
+                holes_unchanged_except f' s'³'.refs t2.refs
+                  {env2'❲LENGTH env1'❳} ∧
+                (r'' = Rval [res_v] ⇒
+                 hole_has_val f' env1' env2' t2.refs res_v)))
+End
+
+Theorem phase2:
+  ∀n cb ^s env1 loc r t f s' env2.
+    evaluate ([cb_to_bvi loc cb], env1, s) = (r, t) ∧
+    env_rel T f env1 env2 ∧
+    state_rel f s s' ∧
+    r ≠ Rerr (Rabort Rtype_error) ⇒
+    ∃t' f' r'.
+      evaluate ([cb_to_bvi loc cb], env2, s') = (r', t') ∧
+      result_rel (LIST_REL (v_rel f')) (v_rel f') r r' ∧
+      state_rel f' t t' ∧
+      f SUBMAP f' ∧
+      only_fresh f f' s'.refs ∧
+      holes_unchanged_except f s'.refs t'.refs ∅ ∧
+      (∀xs' s'' env1' loc' r' t' opt' f' s'³' env2'.
+         hypothesis xs' s'' env1' loc' r' t' opt' f' s'³' env2' s) ∧
+       (∀loc_opt.
+          (∀wrap work.
+             rewrite_wrapper loc loc_opt (cb_to_bvi loc cb) = SOME wrap ⇒
+             ∃t1 f_wrap.
+               evaluate ([wrap], env2, s') = (r',t1) ∧
+               state_rel f_wrap t t1 ∧
+               f SUBMAP f_wrap ∧
+               only_fresh f f_wrap s'.refs) ∧
+          (∀i j wrap work.
+             i = LENGTH env1 ∧
+             j = LENGTH env1 + 1 ∧
+             (∃c. hole_has_val f env1 env2 s'.refs c) ∧
+             rewrite_worker loc loc_opt i j (cb_to_bvi loc cb) = work ⇒
+             ∃rrr t2 f_work.
+               evaluate ([work], env2, s') = (rrr,t2) ∧
+               opt_res_rel r' rrr ∧
+               state_rel f_work t t2 ∧
+               f SUBMAP f_work ∧
+               only_fresh f f_work s'.refs ∧
+               holes_unchanged_except f s'.refs t2.refs {EL i env2} ∧
+               ∀res_v.
+                 r' = Rval [res_v] ⇒
+                 hole_has_val f env1 env2 t2.refs res_v))
+Proof
+  
+  reverse $ Induct_on ‘cb’
+  >- cheat
+   (*rw []
+    >> gvs [cb_to_bvi_def]
+    >> gvs [evaluate_def, CaseEq "prod"]
+    >> drule_then drule evaluate_vars
+    >> impl_tac >- gvs [CaseEq "result"]
+    >> disch_then $ qspec_then ‘s'’ mp_tac
+    >> strip_tac >> gvs []
+    >> gvs [CaseEq "option", CaseEq "prod"]
+    >> gvs [bvlSemTheory.find_code_def]
+    >> gvs [CaseEq "option", CaseEq "prod"]
+    >> Cases_on ‘lookup loc s'.code’
+    >-
+     (gvs [state_rel_def, code_rel_def]
+      >> first_x_assum $ qspecl_then [‘loc’, ‘LENGTH l’, ‘exp’] mp_tac
+      >> impl_tac >- gvs []
+      >> strip_tac
+      >> Cases_on ‘compile_exp loc n' (LENGTH l) exp’
+      >- gvs []
+      >> gvs []
+      >> Cases_on ‘x’
+      >> gvs [])
+    >> gvs []
+    >> Cases_on ‘x’
+    >> Cases_on ‘s.clock < n + 1’
+    >-
+     (gvs []
+      >> reverse $ Cases_on ‘s'.clock < n + 1’
+      >- gvs [state_rel_def]
+      >> gvs []
+      >> 
+    *)
+  >> rw []
+  >> rename [‘CallBlock tag left child right’]
+  >> gvs [cb_to_bvi_def, evaluate_def, evaluate_APPEND, CaseEq "prod"]
+  >> drule_then drule evaluate_vars
+  >> impl_tac >- gvs [CaseEq "prod", CaseEq "result"]
+  >> disch_then $ qspec_then ‘s'’ mp_tac
+  >> strip_tac >> gvs []
+  >> gvs [CaseEq "prod"]
+  >> first_x_assum drule
+  >> rpt $ disch_then drule
+  >> impl_tac
+  >- gvs [CaseEq "prod", CaseEq "result"]
+  >> strip_tac >> gvs []
+  >> reverse $ Cases_on ‘v2’
+  >- cheat
+  >> gvs [CaseEq "prod"]
+  >> drule_then drule evaluate_vars
+  >> impl_tac >- gvs [CaseEq "prod", CaseEq "result"]
+  >> disch_then $ qspec_then ‘t''’ mp_tac
+  >> strip_tac >> gvs []
+  >> gvs [do_app_def, do_app_aux_def, bvl_to_bvi_id]
+  >> first_assum $ irule_at Any
+  >> imp_res_tac evaluate_SING_IMP
+  >> gvs [REVERSE_APPEND]
+  (*>> gvs [LENGTH_MAP, REVERSE_APPEND, TAKE_APPEND, DROP_APPEND, GSYM MAP_REVERSE, GSYM MAP_TAKE, GSYM MAP_DROP, DROP_LENGTH_TOO_LONG]*)
+  >> conj_tac
+  >-
+   (simp [Once v_rel_cases]
+    >> irule LIST_REL_APPEND_suff
+    >> irule_at Any LIST_REL_APPEND_suff
+    >> simp [LIST_REL_MAP]
+    >> rpt $ irule_at Any LIST_REL_refl
+    >> simp []
+    >> cheat)
+  >> gen_tac
+  >> first_x_assum $ qspec_then ‘loc_opt’ mp_tac
+  >> strip_tac
+  >> gvs []
+  >> rw []
+  >-
+   (gvs [rewrite_wrapper_def, CaseEq "option", rewrite_wrapper_cons_def, CaseEq "prod", CaseEq "call_block"]
+    >> gvs [cb_to_bvi_wrapper_def, Once evaluate_def]
+    >> gvs [bvi_to_cb_def]
+    >> cheat)
+  >> simp [rewrite_worker_def, dest_Cons_def, rewrite_worker_cons_def, bvi_to_cb_def]
+
+    
+  >> qpat_x_assum ‘_ ⇒ _’ mp_tac
+  >> impl_tac
+  >- (first_assum $ irule_at Any >> gvs [])
+  >> strip_tac
+  >> 
+QED
+
+
+        
 
 Theorem evaluate_cb_to_bvi_worker:
   ∀cb loc loc_opt arity body wrap work f1 env1 env2 s1 s2 t1 r1.
@@ -3543,5 +3717,6 @@ Theorem compile_prog_semantics:
    semantics ffi (fromAList prog) co (state_cc compile_prog cc) start =
    semantics ffi (fromAList prog2) (state_co compile_prog co) cc start
 Proof
-  cheat
+  rw []
+  >> gvs [semantics_def]
 QED

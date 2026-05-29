@@ -400,7 +400,7 @@ Definition rewrite_wrapper_cons_def:
     case bvi_to_cb loc tag args of
     | SOME (bs,CallBlock tag left child right) =>
         SOME $ Let bs $ cb_to_bvi_wrapper tag left child right loc_opt
-    | NONE => NONE
+    | _ => NONE
 End
 
 (* Assumes that the function can and should be optimised - has been checked by rewrite_wrapper. *)
