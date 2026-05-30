@@ -201,6 +201,7 @@ Proof
   >~ [`panLang$Annot`] >- suspend "Annot"
   >~ [`panLang$Tick`] >- suspend "Tick"
   >~ [`panLang$Assign`] >- suspend "Assign"
+  >~ [`panLang$Primitive`] >- suspend "Primitive"
   >~ [`panLang$Dec`] >- suspend "Dec"
   >~ [`panLang$Store`] >- suspend "Store"
   >~ [`panLang$Store32`] >- suspend "Store32"
@@ -289,6 +290,10 @@ Resume ret_to_tail_correct[Skip]:
 QED
 
 Resume ret_to_tail_correct[Assign]:
+  rw [ret_to_tail_def]
+QED
+
+Resume ret_to_tail_correct[Primitive]:
   rw [ret_to_tail_def]
 QED
 
@@ -616,34 +621,7 @@ Proof
    fs [] >>
    imp_res_tac compile_eval_correct >>
    fs [])
-  >- (
-   rename [‘eval s (Panop op es)’] >>
-   rw[eval_def] \\
-   PURE_TOP_CASE_TAC
-   THEN1 (gvs[AllCaseEqs(),DefnBase.one_line_ify NONE pan_op_def,MAP_EQ_CONS,PULL_EXISTS,
-              SF DNF_ss] \\
-          imp_res_tac OPT_MMAP_NONE \\
-          gvs[] \\
-          res_tac \\
-          disj1_tac \\
-          metis_tac[OPT_MMAP_NONE']) \\
-   gvs[optionTheory.IF_NONE_EQUALS_OPTION] \\
-   strip_tac \\
-   fs[CaseEq "option", CaseEq "bool"]
-   THEN1 (imp_res_tac OPT_MMAP_NONE \\
-          fs[] \\
-          metis_tac[NOT_NONE_SOME,OPT_MMAP_NONE'])
-   THEN1 (imp_res_tac pan_commonPropsTheory.opt_mmap_length_eq \\
-          qhdtm_x_assum ‘pan_op’ $ assume_tac o REWRITE_RULE[oneline pan_op_def] \\
-          gvs[pan_op_def,AllCaseEqs(),
-              quantHeuristicsTheory.LIST_LENGTH_1,LENGTH_CONS,MAP_EQ_CONS,PULL_EXISTS,
-              EVERY_MEM] \\
-          simp[oneline pan_op_def]) \\
-   gvs[EXISTS_MEM,EVERY_MEM] \\
-   gvs[pan_commonPropsTheory.opt_mmap_eq_some,MAP_EQ_EVERY2,LIST_REL_EL_EQN,MEM_EL,PULL_EXISTS] \\
-   res_tac \\
-   drule_all_then strip_assume_tac compile_eval_correct \\
-   gvs[])
+  >~ [‘eval s (Panop op es)’] >- suspend "Panop"
   >- (
    rpt gen_tac >> strip_tac >>
    fs [panSemTheory.eval_def] >>
@@ -658,6 +636,23 @@ Proof
   imp_res_tac compile_eval_correct >>
   fs []
 QED
+
+Resume compile_eval_correct_none[Panop]:
+  rpt strip_tac
+  >> qpat_x_assum ‘eval s _ = _’ mp_tac
+  >> simp [eval_def]
+  >> TOP_CASE_TAC >> gvs []
+  >-
+   (‘OPT_MMAP (λa. eval t a) es = NONE’ suffices_by simp []
+    >> irule OPT_MMAP_NONE'
+    >> drule OPT_MMAP_NONE >> strip_tac
+    >> last_x_assum drule >> fs []
+    >> disch_then drule
+    >> disch_then $ irule_at Any >> simp [])
+  >> drule_all_then assume_tac OPT_MMAP_eval_some_eq >> simp []
+QED
+
+Finalise compile_eval_correct_none
 *)
 
 val goal =
@@ -683,6 +678,7 @@ Proof
   >~ [`panLang$Annot`] >- suspend "Annot"
   >~ [`panLang$Tick`] >- suspend "Tick"
   >~ [`panLang$Assign`] >- suspend "Assign"
+  >~ [`panLang$Primitive`] >- suspend "Primitive"
   >~ [`panLang$Dec`] >- suspend "Dec"
   >~ [`panLang$Store`] >- suspend "Store"
   >~ [`panLang$Store32`] >- suspend "Store32"
@@ -964,6 +960,23 @@ QED
 
 Resume compile_correct[Assign]:
   compile_Others_tac
+QED
+
+Resume compile_correct[Primitive]:
+  rw [] >>
+  fs [evaluate_seq_assoc, evaluate_skip_seq] >>
+  fs [evaluate_def] >>
+  cases_on ‘OPT_MMAP (eval s) es’ >> fs [] >>
+  ‘OPT_MMAP (eval t) es = OPT_MMAP (eval s) es’ by (
+    match_mp_tac IMP_OPT_MMAP_EQ >>
+    fs [pan_commonPropsTheory.opt_mmap_eq_some] >>
+    fs [MAP_EQ_EVERY2] >>
+    fs [LIST_REL_EL_EQN] >>
+    rw [] >>
+    metis_tac [compile_eval_correct]) >>
+  gvs [AllCaseEqs(), state_rel_def, state_component_equality] >>
+  qexists_tac ‘t with locals := t.locals |+ (v, value)’ >>
+  fs [kvar_defs, set_var_def]
 QED
 
 Resume compile_correct[Store]:

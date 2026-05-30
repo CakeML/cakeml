@@ -24,6 +24,26 @@ WordLang now supports Loop, Break, Continue (#1389).
 
 ## Pancake
 
+### __add_with_carry__ now available
+
+It is now possible to use `__add_with_carry__(left, right, carry_in)`
+in user code, which is compiled to wordLang's `AddCarry`.
+Syntax example:
+
+    fun {1,1} f() {
+      var a = 1;
+      var b = 2;
+      var c = 0;
+      var {1,1} r = __add_with_carry__(a, b, c);
+      r = __add_with_carry__(a, b, c);
+      return r;
+    }
+
+Permitted positions for `__add_with_carry__` are declaration RHS and assignment RHS;
+standalone, handler-attached, and tail-return calls are not supported.
+
+### LoopLang
+
 LoopLang now supports multi-arg returns (#1391).
 
 LoopLang now compiles to WordLang Loops instead of tail calls, i.e., the old loop_remove pass is removed (#1391).

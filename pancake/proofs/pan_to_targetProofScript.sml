@@ -503,6 +503,7 @@ Proof
   >- (rpt strip_tac>>
       gs[wordSemTheory.assign_def, wordSemTheory.set_var_def]>>
       rpt (CASE_TAC>>fs[])>>
+      rpt (pairarg_tac>>gs[])>>
       gs[]>>rpt (FULL_CASE_TAC>>gs[])>>gvs[]>>metis_tac[])
   >- (rpt strip_tac>>
       rpt (CASE_TAC>>gs[])>>

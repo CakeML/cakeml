@@ -77,9 +77,13 @@ val res = translate $ panStaticTheory.get_implementation_err_msg_def;
 val res = translate $ panStaticTheory.first_repeat_def;
 val res = translate $ panStaticTheory.binop_to_str_def;
 val res = translate $ panStaticTheory.panop_to_str_def;
+val res = translate $ panStaticTheory.primop_to_str_def;
 val res = translate $ panStaticTheory.sh_bd_to_str_def;
 
 val res = translate $ alistTheory.ADELKEY_def;
+
+val res = translate $ panStaticTheory.primitive_idents_def;
+val res = translate $ panStaticTheory.add_primitive_hint_def;
 
 val res = translate $ panStaticTheory.check_fun_name_def;
 val res = translate $ panStaticTheory.check_global_var_def;
@@ -87,6 +91,7 @@ val res = translate $ panStaticTheory.check_local_var_def;
 val res = translate $ panStaticTheory.check_redec_var_def;
 val res = translate $ panStaticTheory.check_export_params_def;
 val res = translate $ panStaticTheory.check_operands_def;
+val res = translate $ panStaticTheory.check_primitive_args_def;
 val res = translate $ panStaticTheory.check_func_args_def;
 val res = translate $ panStaticTheory.check_struct_fields_def;
 val res = translate $ panStaticTheory.check_shape_def;
@@ -199,6 +204,7 @@ Theorem lem[local]:
 Proof
   EVAL_TAC
 QED
+val r = pan_passesTheory.primop_to_display_def |> translate;
 val r = pan_passesTheory.pan_exp_to_display_def |> spec32 |> SIMP_RULE std_ss [byteTheory.bytes_in_word_def,lem] |> translate;
 val r = pan_passesTheory.crep_exp_to_display_def |> spec32 |> translate;
 val r = pan_passesTheory.loop_exp_to_display_def |> spec32 |> translate;

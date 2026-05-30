@@ -152,6 +152,11 @@ Definition compile_def:
        let (p,le,tmp, l) = compile_exp ctxt (ctxt.vmax + 1) l e in
         nested_seq (p ++ [Assign n le])
      | NONE => Skip) /\
+  (compile ctxt l (Primitive lhss pop rhss) =
+    case (OPT_MMAP (FLOOKUP ctxt.vars) lhss,
+          OPT_MMAP (FLOOKUP ctxt.vars) rhss) of
+     | (SOME nlhss, SOME nrhss) => Primitive nlhss pop nrhss
+     | _ => Skip) /\
   (compile ctxt l (Dec v e prog) =
     let (p,le,tmp,nl) = compile_exp ctxt (ctxt.vmax + 1) l e;
          nctxt = ctxt with <|vars := ctxt.vars |+ (v,tmp);

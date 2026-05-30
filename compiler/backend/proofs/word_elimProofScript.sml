@@ -669,7 +669,8 @@ Proof
    fs[word_state_rel_def] >> fs[inst_def] >>
    Cases_on `i` >> fs[]
    >-(
-     Cases_on `a` >> fs[] >> every_case_tac >> fs[]
+     Cases_on `a` >> fs[] >> every_case_tac >> fs[] >>
+     rpt (pairarg_tac >> gvs [])
      )
    >-(
      Cases_on `a` >> fs[] >> Cases_on `m` >> fs[]
@@ -753,6 +754,7 @@ Proof
     >- (first_x_assum MATCH_ACCEPT_TAC)
     (* 6 subgoals *)
     >>(rpt (TOP_CASE_TAC >> fs[]) >>
+       rpt (pairarg_tac >> gvs []) >>
        rw[] >> gvs[] >>
        rpt (irule word_state_rel_set_var_word) >>
        TRY $ first_x_assum MATCH_ACCEPT_TAC))
