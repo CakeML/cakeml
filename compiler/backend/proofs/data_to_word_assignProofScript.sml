@@ -2175,38 +2175,27 @@ QED
 
 Theorem state_rel_cut_state_opt_SOME:
   state_rel c l1 l2 s t [] locs ∧
-  get_vars args x.locals = SOME vals ∧
+  get_vars args s.locals = SOME vals ∧
   cut_state_opt (SOME kept_names) s = SOME x ⇒
   ∃y ws.
     cut_env (adjust_sets kept_names) t.locals = SOME y ∧
     get_vars (MAP adjust_var args) t = SOME ws ∧
-    get_vars (MAP adjust_var args) (t with locals := y) = SOME ws ∧
     LENGTH args = LENGTH vals ∧ LENGTH args = LENGTH ws ∧
     state_rel c l1 l2 x t [] locs ∧
     state_rel c l1 l2 x (t with locals := y) [] locs
 Proof
   rw []
-  \\ drule_all state_rel_cut_IMP \\ strip_tac
-  \\ drule cut_env_IMP_cut_env
-  \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
-  \\ gvs [cut_state_opt_def]
-  \\ pop_assum $ qspecl_then [‘x.locals’,‘kept_names’] mp_tac
-  \\ impl_keep_tac
-  >-
-   (gvs [cut_env_def,cut_state_def,AllCaseEqs()]
-    \\ gvs [lookup_inter_alt,domain_inter])
-  \\ strip_tac
+  \\ drule_all data_to_word_gcProofTheory.state_rel_cut_IMP \\ strip_tac
+  \\ drule_all data_to_word_gcProofTheory.state_rel_get_vars_IMP \\ strip_tac
+  \\ imp_res_tac data_to_word_gcProofTheory.get_vars_IMP_LENGTH
+  \\ ‘∃kenv. dataSem$cut_env kept_names s.locals = SOME kenv’ by
+       gvs [dataSemTheory.cut_state_opt_def, dataSemTheory.cut_state_def, AllCaseEqs()]
+  \\ drule_all data_to_word_gcProofTheory.cut_env_IMP_cut_env \\ strip_tac
   \\ gvs []
-  \\ drule state_rel_cut_env_cut_env
-  \\ disch_then $ drule_at $ Pos last
-  \\ disch_then $ drule_at $ Pos last
-  \\ strip_tac
-  \\ ‘(x with locals := x.locals) = x’ by gvs [dataSemTheory.state_component_equality]
+  \\ ‘x = s with locals := kenv’ by
+       gvs [dataSemTheory.cut_state_opt_def, dataSemTheory.cut_state_def, AllCaseEqs()]
   \\ gvs []
-  \\ imp_res_tac state_rel_get_vars_IMP
-  \\ gvs []
-  \\ drule_all cut_env_get_vars_get_vars
-  \\ simp_tac std_ss []
+  \\ metis_tac [data_to_word_gcProofTheory.state_rel_cut_env_cut_env]
 QED
 
 Theorem cut_state_opt_SOME_eq:
@@ -2506,10 +2495,9 @@ QED
 Theorem assign_Install:
   (op = Install) ==> ^assign_thm_goal
 Proof
-  cheat (*
   rpt strip_tac \\ drule (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
-  \\ ‘names_opt ≠ NONE’ by (first_x_assum irule \\ EVAL_TAC \\ simp [])
+  \\ ‘names_opt ≠ NONE’ by (qpat_x_assum ‘op_requires_names _ ⇎ _’ mp_tac \\ EVAL_TAC \\ simp [])
   \\ gvs [GSYM IS_SOME_EQ_NOT_NONE,IS_SOME_EXISTS]
   \\ rename [‘cut_state_opt (SOME kept_names) s’]
   \\ drule_all state_rel_cut_state_opt_SOME
@@ -2527,18 +2515,16 @@ Proof
         SOME [_;_; Number (&LENGTH q1); Number (&LENGTH q2)]`
   \\ fs [dataLangTheory.op_requires_names_def,
          dataLangTheory.op_space_reset_def,cut_state_opt_def]
-  \\ rename1 `state_rel c l1 l2 s1 t [] locs`
-  \\ fs [dataSemTheory.cut_state_def]
-  \\ Cases_on `dataSem$cut_env kept_names s.locals` \\ fs []
-  \\ clean_tac \\ fs []
-  \\ qabbrev_tac `s1 = s with locals := x`
-  \\ rename [`cut_env (adjust_sets kept_names) t.locals = SOME y`]
-  \\ qpat_assum `state_rel c l1 l2 s1 t [] locs` mp_tac
+  (* single-cut seam: args are NOT guaranteed in kept_names (dataSem reads get_vars
+     from full s.locals pre-cut), so the arg memory_rel comes from the FULL state_rel s t
+     hypothesis, NOT the cut state. s1 := x (the cut state) for the call setup + result. *)
+  \\ `x = s with locals := x.locals` by
+       (qpat_x_assum `cut_state kept_names s = SOME x` mp_tac
+        \\ simp [dataSemTheory.cut_state_def, AllCaseEqs()] \\ rw [] \\ fs [])
+  \\ qabbrev_tac `s1 = x`
+  \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` (fn th => NTAC 2 (mp_tac th)) \\ strip_tac
   \\ simp_tac std_ss [Once state_rel_thm] \\ strip_tac \\ fs []
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
-  \\ qpat_x_assum `get_vars _ x = _` mp_tac
-  \\ `x = s1.locals` by fs [Abbr`s1`]
-  \\ pop_assum (fn th => rewrite_tac [th]) \\ strip_tac
   \\ rpt_drule0 memory_rel_lookup_var_IMP \\ strip_tac
   \\ fs [code_oracle_rel_def]
   \\ once_rewrite_tac [list_Seq_def] \\ eval_tac
@@ -2695,8 +2681,9 @@ Proof
   \\ fs [wordSemTheory.set_store_def]
   (* Install *)
   \\ rewrite_tac [list_Seq_def] \\ eval_tac
-  \\ `s1.compile = s.compile` by fs [Abbr `s1`]
-  \\ `s1.compile_oracle = s.compile_oracle` by fs [Abbr `s1`]
+  \\ `s1.compile = s.compile ∧ s1.compile_oracle = s.compile_oracle` by
+       (qpat_x_assum `cut_state kept_names s = SOME s1` mp_tac
+        \\ simp [dataSemTheory.cut_state_def, AllCaseEqs()] \\ rw [] \\ fs [])
   \\ Cases_on `s.compile_oracle 0`
   \\ fs [lookup_insert,wordSemTheory.get_var_def,wordSemTheory.cut_env_def,
          wordSemTheory.buffer_flush_def,bytes_in_word_def]
@@ -2740,6 +2727,13 @@ Proof
   \\ simp [state_rel_thm]
   \\ strip_tac \\ gvs [FLOOKUP_SIMP,lookup_insert,adjust_var_11]
   \\ gvs [Abbr‘s1’]
+  (* single-cut: result state_rel is in terms of the cut state x; bridge each
+     non-locals field x.f = s.f (x = s with locals := x.locals) in both goal and
+     assumptions, so the code_rel asm and the cut memory_rel asm line up. *)
+  \\ `(x.code = s.code) /\ (x.refs = s.refs) /\ (x.space = s.space) /\
+      (x.tstamps = s.tstamps) /\ (x.global = s.global) /\ (x.stack = s.stack)` by
+       (qpat_x_assum `x = s with locals := x.locals` (fn th => once_rewrite_tac [th]) \\ simp [])
+  \\ pop_assum (fn th => full_simp_tac std_ss (CONJUNCTS th))
   \\ conj_tac
   THEN1 (* code_rel *)
    (qpat_x_assum `_ = (_,_)` (fn th => fs [GSYM th])
@@ -2792,7 +2786,6 @@ Proof
   \\ match_mp_tac memory_rel_insert \\ fs [inter_insert_ODD_adjust_set_alt]
   \\ match_mp_tac memory_rel_CodePtr
   \\ asm_rewrite_tac []
-*)
 QED
 
 Theorem LENGTH_EQ_5:
@@ -5900,6 +5893,43 @@ Proof
   >> first_assum ACCEPT_TAC
 QED
 
+(* Prepending values to the size_of root list never shrinks the heap count.
+   Basis for the args-aware do_space bridge (replaces the two-stage size_of
+   narrow/wide reconciliation helpers). *)
+Theorem size_of_LE_append:
+  !vs ys lims refs seen.
+    FST (size_of lims ys refs seen) <= FST (size_of lims (vs ++ ys) refs seen)
+Proof
+  Induct \\ rw []
+  \\ once_rewrite_tac [data_to_word_gcProofTheory.size_of_cons]
+  \\ Cases_on `size_of lims (vs ++ ys) refs seen`
+  \\ rename1 `_ = (n1,rr1)` \\ PairCases_on `rr1`
+  \\ Cases_on `size_of lims [h] rr10 rr11`
+  \\ rename1 `size_of lims [h] _ _ = (n2,rr2)` \\ PairCases_on `rr2`
+  \\ fs []
+  \\ last_x_assum (qspecl_then [`ys`,`lims`,`refs`,`seen`] assume_tac) \\ gvs []
+QED
+
+(* The args-aware heap view dominates the plain heap view: the op args are extra
+   GC roots. Used in every op_requires_names NES arm to lift alloc_lemma's
+   size_of_heap bound to do_space's size_of_heap_args condition. *)
+Theorem size_of_heap_LE_args:
+  !vs s. size_of_heap s <= size_of_heap_args vs s
+Proof
+  rw [dataSemTheory.size_of_heap_def, dataSemTheory.size_of_heap_args_def]
+  \\ qspecl_then [`vs`,`stack_to_vs s`,`s.limits`,`s.refs`,`LN`] mp_tac size_of_LE_append
+  \\ rpt (pairarg_tac \\ fs [])
+QED
+
+(* The single narrow cut state IS cut_locals of the original: alloc_lemma's
+   size_of_heap (cut_locals ns s) is exactly size_of_heap x. *)
+Theorem cut_state_opt_IMP_cut_locals:
+  cut_state_opt (SOME ns) s = SOME x ==> cut_locals ns s = x
+Proof
+  gvs [dataSemTheory.cut_state_opt_def, dataSemTheory.cut_state_def,
+       data_to_word_gcProofTheory.cut_locals_def, AllCaseEqs()]
+QED
+
 Theorem assign_ConfigGC:
    op = MemOp ConfigGC ==> ^assign_thm_goal
 Proof
@@ -5924,198 +5954,153 @@ Proof
          data_to_wordTheory.arg2_def,data_to_wordTheory.assign_ConfigGC_def]
   >> fs [data_to_wordTheory.list_Seq_def,data_to_word_bignumProofTheory.eq_eval]
   >> gvs [data_to_word_gcProofTheory.alloc_locals_insert_1]
-  (* Establish s2_cut <-> s2 (s1-record-with-updates) field equalities *)
-  >> drule cut_state_opt_IMP_stack_max >> strip_tac
-  >> drule cut_state_opt_IMP_safe_for_space >> strip_tac
-  >> fs []
-  (* Establish cut_env ns s.locals for narrow alloc_lemma application *)
+  (* Stabilise the two argument values. *)
+  >> qmatch_asmsub_rename_tac
+       ‘get_vars [k1; k2] s.locals = SOME [Number i1; Number i2]’
+  (* cut_env ns s.locals for narrow alloc_lemma application. *)
   >> ‘?env_narrow. dataSem$cut_env ns s.locals = SOME env_narrow’ by
        (fs [dataSemTheory.cut_env_def,dataSemTheory.cut_state_opt_def,
             dataSemTheory.cut_state_def,AllCaseEqs(),domain_lookup,SUBSET_DEF] >>
         metis_tac [sptreeTheory.lookup_insert,optionTheory.option_CLAUSES])
-  (* Establish x and s field equalities (cut_state_opt only changes locals) *)
+  (* x and s differ only in locals. *)
   >> ‘x.stack_max = s.stack_max ∧ x.limits = s.limits ∧ x.refs = s.refs ∧
       x.stack = s.stack ∧ x.global = s.global ∧ x.locals_size = s.locals_size ∧
-      x.safe_for_space = s.safe_for_space ∧
+      x.safe_for_space = s.safe_for_space ∧ x.peak_heap_length = s.peak_heap_length ∧
       x.stack_frame_sizes = s.stack_frame_sizes’ by
        (qpat_x_assum ‘cut_state_opt _ s = SOME x’ mp_tac >>
         simp [dataSemTheory.cut_state_opt_def,dataSemTheory.cut_state_def,AllCaseEqs()] >>
         rw [] >> fs [])
-  (* Establish s1 = x with do_space updates *)
+  (* s1 = x with the args-aware do_space updates (space_consumed ConfigGC = 0). *)
   >> ‘s1 = x with <|space := 0;
                     safe_for_space :=
-                      (x.safe_for_space ∧ size_of_heap x ≤ x.limits.heap_limit);
-                    peak_heap_length := MAX x.peak_heap_length (size_of_heap x)|>’ by
+                      (x.safe_for_space ∧
+                       size_of_heap_args [Number i1; Number i2] x ≤ x.limits.heap_limit);
+                    peak_heap_length :=
+                      MAX x.peak_heap_length (size_of_heap_args [Number i1; Number i2] x)|>’ by
        (qpat_x_assum ‘do_space _ _ _ = _’ mp_tac >>
         simp [dataSemTheory.do_space_def,dataLangTheory.op_space_reset_def,
               dataSemTheory.space_consumed_def] >>
         simp [dataSemTheory.state_component_equality])
+  >> drule cut_state_opt_IMP_cut_locals >> strip_tac
   >> reverse (Cases_on ‘c.call_empty_ffi’)
-  >- (
-    (* no_ffi: SilentFFI reduces to Skip via c.call_empty_ffi = F. *)
-    fs [data_to_wordTheory.SilentFFI_def, wordSemTheory.evaluate_def]
-    >> qpat_x_assum ‘state_rel c l1 l2 s t [] locs’ assume_tac
-    >> qpat_abbrev_tac ‘alll = alloc _ _ _’
-    >> ‘?x1 x2. alll = (x1,x2)’ by (Cases_on ‘alll’ >> fs [])
-    >> unabbrev_all_tac >> fs []
-    >> drule (data_to_word_gcProofTheory.alloc_lemma)
-    >> fs [data_to_wordTheory.get_names_def,EVAL ``alloc_size 0``]
-    >> disch_then (qspecl_then [‘env_narrow’,‘x2’,‘x1’,‘ns’] mp_tac) >> simp []
-    >> strip_tac
-    >> qexistsl_tac [‘if x1 = NONE then NONE else x1’,
-                     ‘if x1 = NONE then
-                        x2 with locals := insert (adjust_var dest) (Word 2w) x2.locals
-                      else x2’]
-    >> Cases_on ‘x1 = SOME NotEnoughSpace’ >> fs []
-    >- (* NES arm — bound size_of_heap via the configGC monotonicity helper *)
-       (qmatch_asmsub_rename_tac
-          ‘get_vars [k1; k2] x.locals = SOME [Number i1; Number i2]’
-        >> qpat_x_assum ‘∀k. alloc _ _ _ = _ ⇒ _’ (qspec_then ‘0’ mp_tac)
-        >> simp [EVAL “alloc_size 0:'a word”]
-        >> strip_tac
-        >> conj_tac >- simp [backendPropsTheory.option_le_max_right]
-        >> strip_tac >> disj1_tac >> disj2_tac
-        >> rewrite_tac [NOT_LESS_EQUAL]
-        >> irule LESS_LESS_EQ_TRANS
-        >> qexists_tac ‘size_of_heap (cut_locals ns s)’
-        >> conj_tac >- res_tac
-        >> ‘x = s with locals := x.locals’ by
-             (qpat_x_assum ‘cut_state_opt _ s = SOME x’ mp_tac
-              >> simp [dataSemTheory.cut_state_opt_def,dataSemTheory.cut_state_def,
-                       AllCaseEqs()]
-              >> rw [] >> fs [dataSemTheory.state_component_equality])
-        >> qpat_x_assum ‘x = _’ SUBST1_TAC
-        >> qspecl_then [‘ns’,‘s’,‘x’,‘k1’,‘k2’,‘i1’,‘i2’,‘s’] mp_tac
-             configGC_size_of_heap_LE
-        >> impl_tac
-        >- gvs [dataSemTheory.get_vars_def,AllCaseEqs(),dataSemTheory.get_var_def]
-        >> qpat_x_assum ‘cut_env ns s.locals = SOME _’ mp_tac
-        >> simp [dataSemTheory.cut_env_def,AllCaseEqs(),
-                 data_to_word_gcProofTheory.cut_locals_def]
-        >> strip_tac)
-    >- (* Success arm — s2_cut substitution + state_rel transfer *)
-       (qmatch_asmsub_rename_tac
-          ‘get_vars [k1; k2] x.locals = SOME [Number i1; Number i2]’
-        >> qpat_x_assum ‘∀k. alloc _ _ _ = _ ⇒ _’ (qspec_then ‘0’ mp_tac)
-        >> simp [EVAL “alloc_size 0:'a word”]
-        >> strip_tac
-        >> drule s2_cut_two_cuts_eq
-        >> disch_then drule
-        >> ‘domain ns ⊆ domain (insert k2 () (insert k1 () ns))’ by
-             (simp [sptreeTheory.domain_insert, pred_setTheory.SUBSET_DEF]
-              >> metis_tac [])
-        >> disch_then drule
-        >> strip_tac >> gvs []
-        >> qpat_x_assum ‘state_rel _ _ _ (s with <|locals := _; space := _|>) _ _ _’ mp_tac
-        >> simp [state_rel_thm, dataSemTheory.set_var_def,
-                 wordSemTheory.set_var_def, lookup_insert, adjust_var_11,
-                 backendPropsTheory.option_le_max_right]
-        >> strip_tac
-        >> rw [backendPropsTheory.option_le_max_right]
-        >> gvs []
-        >> full_simp_tac std_ss [GSYM APPEND_ASSOC]
-        >> match_mp_tac memory_rel_insert
-        >> fs []
-        >> match_mp_tac memory_rel_Unit
-        >> fs []))
-  >- (* c.call_empty_ffi case: pre-alloc SilentFFI + alloc + post-alloc *)
-     (qmatch_asmsub_rename_tac
-        ‘get_vars [k1; k2] x.locals = SOME [Number i1; Number i2]’
-      >> fs [data_to_wordTheory.get_names_def]
-  (* Word-level cut_env on t. *)
-  >> ‘∃y. wordSem$cut_env (adjust_sets ns) t.locals = SOME y’ by
-       metis_tac [data_to_word_gcProofTheory.cut_env_IMP_cut_env]
-  (* Evaluate the pre-alloc SilentFFI via the helper lemma. *)
-  >> ‘evaluate (SilentFFI c 3 (adjust_sets ns), t) =
-        (NONE, t with <|locals := y; memory := t.memory; ffi := t.ffi|>)’ by
-       (irule evaluate_SilentFFI_3 >> metis_tac [])
-  >> fs []
-  (* Step through the surrounding list_Seq. *)
-  >> fs [wordSemTheory.evaluate_def]
-  (* Lift state_rel through the word cut, replacing t.ffi = s.ffi. *)
-  >> ‘state_rel c l1 l2 (s with locals := env_narrow)
-        (t with <|locals := y; memory := t.memory; ffi := s.ffi|>) [] locs’ by
-       (‘t with <|locals := y; memory := t.memory; ffi := s.ffi|> =
-         t with locals := y’ by
-          (qpat_x_assum ‘t.ffi = s.ffi’ mp_tac
-           >> simp [wordSemTheory.state_component_equality])
-        >> pop_assum SUBST1_TAC
-        >> irule data_to_word_gcProofTheory.state_rel_cut_env_cut_env
-        >> metis_tac [])
-  (* Abbreviate alloc result and split. *)
-  >> qpat_abbrev_tac ‘alll = alloc _ _ _’
-  >> ‘∃x1 x2. alll = (x1, x2)’ by (Cases_on ‘alll’ >> fs [])
-  >> unabbrev_all_tac >> fs []
-  (* Rename wide-cut state x → s_wide. *)
-  >> qmatch_asmsub_rename_tac ‘state_rel c l1 l2 s_wide t [] locs’
-  (* cut_env ns env_narrow = SOME env_narrow (idempotence). *)
-  >> imp_res_tac cut_env_idempotent
-  (* Apply alloc_lemma. *)
-  >> drule (data_to_word_gcProofTheory.alloc_lemma |> Q.INST [‘k’|->‘0’])
-  >> disch_then (qspecl_then [‘env_narrow’,‘x2’,‘x1’,‘ns’] mp_tac)
-  >> simp [EVAL “alloc_size 0:'a word”]
-  >> strip_tac
-  >> Cases_on ‘x1 = SOME NotEnoughSpace’
-  >> gvs []
-  >- (* NES arm *)
-     (conj_tac
-      >- simp [backendPropsTheory.option_le_max_right]
-      >- (strip_tac
-          >> disj1_tac >> disj2_tac
-          >> rewrite_tac [arithmeticTheory.NOT_LESS_EQUAL]
-          >> irule arithmeticTheory.LESS_LESS_EQ_TRANS
-          >> qexists_tac
-               ‘size_of_heap (cut_locals ns (s with locals := env_narrow))’
-          >> conj_tac >- res_tac
-          >> irule configGC_size_of_heap_LE_narrow_wide
-          >- (conj_tac >- asm_rewrite_tac []
-              >> qexistsl_tac [‘i1’,‘i2’,‘k1’,‘k2’]
-              >> gvs [dataSemTheory.get_vars_def,AllCaseEqs(),
-                      dataSemTheory.get_var_def])))
-  >- (* Success arm *)
-     ((* Post-alloc word cut_env. *)
-      ‘∃y'. wordSem$cut_env (adjust_sets ns) x2.locals = SOME y'’ by
-        (qpat_x_assum
-           ‘state_rel c l1 l2 (s with <|locals := env_narrow; space := 0|>) x2 [] locs’
-           assume_tac
-         >> drule data_to_word_gcProofTheory.cut_env_IMP_cut_env
-         >> disch_then (qspecl_then [‘env_narrow’,‘ns’] mp_tac) >> simp [])
-      (* Evaluate the post-alloc SilentFFI via the helper lemma. *)
-      >> ‘evaluate (SilentFFI c 3 (adjust_sets ns), x2) =
-            (NONE, x2 with <|locals := y'; memory := x2.memory; ffi := x2.ffi|>)’ by
-           (irule evaluate_SilentFFI_3 >> metis_tac [])
-      >> fs []
-      >> fs [wordSemTheory.evaluate_def]
-      (* Lift state_rel through the post-alloc word cut. *)
-      >> qpat_x_assum
-           ‘state_rel c l1 l2 (s with <|locals := env_narrow; space := 0|>) x2 [] locs’
-           assume_tac
-      >> drule (DISCH_ALL data_to_word_gcProofTheory.state_rel_cut_env_cut_env)
-      >> disch_then (qspecl_then [‘y'’,‘env_narrow’,‘ns’] mp_tac)
-      >> simp [] >> strip_tac
-      (* Substitute s2_cut via the two-cuts equation lemma. *)
-      >> drule s2_cut_two_cuts_eq
-      >> disch_then drule
-      >> ‘domain ns ⊆ domain (insert k2 () (insert k1 () ns))’ by
-           (simp [sptreeTheory.domain_insert, pred_setTheory.SUBSET_DEF]
-            >> metis_tac [])
-      >> disch_then drule
-      >> strip_tac >> gvs []
-      (* Discharge via state_rel_thm + memory_rel_insert + memory_rel_Unit. *)
-      >> qpat_x_assum
-           ‘state_rel _ _ _ (s with <|locals := _; space := _|>) (x2 with locals := y') _ _’
-           mp_tac
-      >> simp [state_rel_thm, dataSemTheory.set_var_def,
+  >- (* no_ffi arm: SilentFFI reduces to Skip (¬c.call_empty_ffi). *)
+     (fs [data_to_wordTheory.SilentFFI_def, wordSemTheory.evaluate_def]
+  \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` assume_tac
+  \\ qpat_abbrev_tac `alll = alloc _ _ _`
+  \\ `?x1 x2. alll = (x1,x2)` by (Cases_on `alll` \\ fs [])
+  \\ unabbrev_all_tac \\ fs []
+  \\ drule (data_to_word_gcProofTheory.alloc_lemma)
+  \\ fs [data_to_wordTheory.get_names_def,EVAL ``alloc_size 0``]
+  \\ disch_then (qspecl_then [`env_narrow`,`x2`,`x1`,`ns`] mp_tac) \\ simp []
+  \\ strip_tac
+  \\ qexistsl_tac [`if x1 = NONE then NONE else x1`,
+       `if x1 = NONE then
+          x2 with locals := insert (adjust_var dest) (Word 2w) x2.locals
+        else x2`]
+  \\ Cases_on `x1 = SOME NotEnoughSpace` \\ fs []
+  >- (* NES arm: alloc fails; show ¬safe_for_space via args-aware heap bound. *)
+     (first_x_assum (qspec_then `0` mp_tac)
+      \\ fs [EVAL ``alloc_size 0``]
+      \\ strip_tac
+      \\ conj_tac
+      >- (irule backendPropsTheory.option_le_trans
+          \\ qexists_tac `s.stack_max` \\ asm_rewrite_tac []
+          \\ simp [backendPropsTheory.option_le_max_right])
+      \\ strip_tac \\ disj1_tac \\ disj2_tac
+      \\ simp [NOT_LESS_EQUAL]
+      \\ irule arithmeticTheory.LESS_LESS_EQ_TRANS
+      \\ qexists_tac `size_of_heap x`
+      \\ conj_tac \\ fs [size_of_heap_LE_args])
+  >- (* Success arm: alloc succeeds; rebuild state_rel on set_var dest Unit. *)
+     (qpat_x_assum `∀k. alloc _ _ _ = _ ⇒ _` (qspec_then `0` mp_tac)
+      \\ simp [EVAL ``alloc_size 0:'a word``]
+      \\ strip_tac
+      \\ gvs []
+      \\ `cut_locals ns s = s with locals := env_narrow` by
+           fs [data_to_word_gcProofTheory.cut_locals_def]
+      \\ pop_assum SUBST_ALL_TAC
+      \\ qpat_x_assum `state_rel _ _ _ (s with <|locals := _; space := _|>) _ _ _` mp_tac
+      \\ simp [state_rel_thm, dataSemTheory.set_var_def,
                wordSemTheory.set_var_def, lookup_insert, adjust_var_11,
                backendPropsTheory.option_le_max_right]
-      >> strip_tac
-      >> rw [backendPropsTheory.option_le_max_right]
-      >> gvs []
-      >> full_simp_tac std_ss [GSYM APPEND_ASSOC]
-      >> match_mp_tac data_to_word_gcProofTheory.memory_rel_insert
-      >> fs []
-      >> match_mp_tac data_to_word_memoryProofTheory.memory_rel_Unit
-      >> fs []))
+      \\ strip_tac
+      \\ rw [backendPropsTheory.option_le_max_right]
+      \\ gvs []
+      \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+      \\ match_mp_tac memory_rel_insert \\ fs []
+      \\ match_mp_tac memory_rel_Unit \\ fs []))
+  >- (* ffi arm: SilentFFI performs an empty FFI call. *)
+     (fs [data_to_wordTheory.get_names_def]
+  \\ `∃y. wordSem$cut_env (adjust_sets ns) t.locals = SOME y` by
+       metis_tac [data_to_word_gcProofTheory.cut_env_IMP_cut_env]
+  \\ `evaluate (SilentFFI c 3 (adjust_sets ns), t) =
+        (NONE, t with <|locals := y; memory := t.memory; ffi := t.ffi|>)` by
+       (irule evaluate_SilentFFI_3 \\ metis_tac [])
+  \\ fs []
+  \\ fs [wordSemTheory.evaluate_def]
+  \\ `t with <|locals := y; memory := t.memory; ffi := s.ffi|> = t with locals := y` by
+       (qpat_x_assum `t.ffi = s.ffi` mp_tac \\ simp [wordSemTheory.state_component_equality])
+  \\ fs []
+  \\ `state_rel c l1 l2 (s with locals := env_narrow) (t with locals := y) [] locs` by
+       (irule data_to_word_gcProofTheory.state_rel_cut_env_cut_env \\ metis_tac [])
+  \\ imp_res_tac cut_env_idempotent
+  (* Apply alloc_lemma directed at the narrow-cut state_rel (operand t with locals := y). *)
+  \\ qpat_abbrev_tac `alll = alloc _ _ (t with locals := y)`
+  \\ `?x1 x2. alll = (x1,x2)` by (Cases_on `alll` \\ fs [])
+  \\ unabbrev_all_tac \\ fs []
+  \\ qpat_x_assum `state_rel c l1 l2 (s with locals := env_narrow) (t with locals := y) [] locs`
+       (mp_then Any mp_tac data_to_word_gcProofTheory.alloc_lemma)
+  \\ disch_then (qspecl_then [`env_narrow`,`x2`,`x1`,`ns`] mp_tac)
+  \\ fs [EVAL ``alloc_size 0``]
+  \\ simp []
+  \\ strip_tac
+  \\ Cases_on `x1 = SOME NotEnoughSpace` \\ gvs []
+  >- (* NES arm: alloc fails; show ¬safe_for_space via args-aware heap bound. *)
+     (first_x_assum (qspec_then `0` mp_tac)
+      \\ fs [EVAL ``alloc_size 0``]
+      \\ strip_tac
+      \\ conj_tac
+      >- (irule backendPropsTheory.option_le_trans
+          \\ qexists_tac `s.stack_max` \\ asm_rewrite_tac []
+          \\ simp [backendPropsTheory.option_le_max_right])
+      \\ strip_tac \\ disj1_tac \\ disj2_tac
+      \\ simp [NOT_LESS_EQUAL]
+      \\ irule arithmeticTheory.LESS_LESS_EQ_TRANS
+      \\ qexists_tac `size_of_heap (cut_locals ns s)`
+      \\ conj_tac
+      \\ fs [size_of_heap_LE_args, data_to_word_gcProofTheory.cut_locals_def]
+      \\ gvs [])
+  >- (* Success arm: alloc succeeds; eval post-alloc SilentFFI, rebuild state_rel. *)
+     (qpat_x_assum `∀k. alloc _ _ _ = _ ⇒ _` (qspec_then `0` mp_tac)
+      \\ simp [EVAL ``alloc_size 0:'a word``]
+      \\ strip_tac
+      \\ gvs []
+      \\ `∃y'. wordSem$cut_env (adjust_sets ns) x2.locals = SOME y'` by
+           (qpat_x_assum `state_rel c l1 l2 (s with <|locals := env_narrow; space := 0|>) x2 [] locs` assume_tac
+            \\ drule data_to_word_gcProofTheory.cut_env_IMP_cut_env
+            \\ disch_then (qspecl_then [`env_narrow`,`ns`] mp_tac) \\ simp [])
+      \\ `evaluate (SilentFFI c 3 (adjust_sets ns), x2) =
+            (NONE, x2 with <|locals := y'; memory := x2.memory; ffi := x2.ffi|>)` by
+           (irule evaluate_SilentFFI_3 \\ metis_tac [])
+      \\ fs []
+      \\ fs [wordSemTheory.evaluate_def]
+      \\ qpat_x_assum `state_rel c l1 l2 (s with <|locals := env_narrow; space := 0|>) x2 [] locs` assume_tac
+      \\ drule (DISCH_ALL data_to_word_gcProofTheory.state_rel_cut_env_cut_env)
+      \\ disch_then (qspecl_then [`y'`,`env_narrow`,`ns`] mp_tac)
+      \\ simp [] \\ strip_tac
+      \\ `cut_locals ns s = s with locals := env_narrow` by
+           fs [data_to_word_gcProofTheory.cut_locals_def]
+      \\ pop_assum SUBST_ALL_TAC
+      \\ qpat_x_assum `state_rel _ _ _ (s with <|locals := _; space := _|>) (x2 with locals := y') _ _` mp_tac
+      \\ simp [state_rel_thm, dataSemTheory.set_var_def,
+               wordSemTheory.set_var_def, lookup_insert, adjust_var_11,
+               backendPropsTheory.option_le_max_right]
+      \\ strip_tac
+      \\ rw [backendPropsTheory.option_le_max_right]
+      \\ gvs []
+      \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+      \\ match_mp_tac memory_rel_insert \\ fs []
+      \\ match_mp_tac memory_rel_Unit \\ fs []))
 QED
 
 
@@ -6951,8 +6936,9 @@ Proof
   \\ metis_tac []
 QED
 
-(* Helper: do_app on RefByte gives a precise equation s' = s with <known-update>.
-   Used to bridge s2_inner field equalities in assign_RefByte's Closing_Success arm. *)
+(* Helper: do_app on RefByte gives a precise equation s' = s with <known-update>
+   (args-aware single-cut form). Used to bridge s2_inner field equalities in
+   assign_RefByte's Success arm. *)
 Theorem do_app_RefByte_eq[local]:
   do_app (MemOp (RefByte fl)) [Number i; Number (&w2n (w:word8))] (s:('c,'ffi) dataSem$state) = Rval (v, s') ⇒
   ∃ptr. v = RefPtr T ptr ∧ ptr = (LEAST p. p ∉ domain s.refs) ∧ 0 ≤ i ∧
@@ -6966,11 +6952,15 @@ Theorem do_app_RefByte_eq[local]:
                refs := insert ptr (ByteArray fl (REPLICATE (Num i) w)) s.refs;
                space := 0;
                safe_for_space :=
-                 ((lim_safe s.limits (MemOp (RefByte fl))
-                       [Number i; Number (&w2n w)] ∧
-                   add_space_safe
+                 (((Num i DIV (arch_size s.limits DIV 8) <
+                    2 ** arch_size s.limits DIV arch_size s.limits ∧
+                    Num i DIV (arch_size s.limits DIV 8) + 1 <
+                    2 ** s.limits.length_limit ∧
+                    small_num s.limits.arch_64_bit i) ∧
+                   add_space_safe_args
                      (space_consumed s (MemOp (RefByte fl))
-                        [Number i; Number (&w2n w)]) s) ∧
+                        [Number i; Number (&w2n w)])
+                     [Number i; Number (&w2n w)] s) ∧
                   the F
                     (OPTION_MAP ($> s.limits.stack_limit)
                        (OPTION_MAP2 $+
@@ -6979,9 +6969,10 @@ Theorem do_app_RefByte_eq[local]:
                           (OPTION_MAP2 $+ (size_of_stack s.stack)
                              s.locals_size))));
                peak_heap_length :=
-                 heap_peak
+                 heap_peak_args
                    (space_consumed s (MemOp (RefByte fl))
-                      [Number i; Number (&w2n w)]) s|>
+                      [Number i; Number (&w2n w)])
+                   [Number i; Number (&w2n w)] s|>
 Proof
   simp [dataSemTheory.do_app_def, dataSemTheory.do_app_aux_def,
         dataSemTheory.do_space_def, dataSemTheory.do_stack_def,
@@ -7072,82 +7063,57 @@ QED
 Theorem assign_RefByte:
   (?fl. op = MemOp (RefByte fl)) ==> ^assign_thm_goal
 Proof
+  (* PROLOGUE verified under single-cut (reaches the word Call to RefByte_location,
+     goal/NES-bound now expressed via x with args-aware size_of_heap_args). *)
   rpt strip_tac
-  >> drule0 (evaluate_GiveUp2 |> GEN_ALL) >> rw [] >> fs []
-  >> ‘t.termdep <> 0’ by fs []
-  >> ‘option_le x.stack_max s2.stack_max’ by metis_tac [do_app_stack_max]
-  >> rpt_drule0 data_to_word_gcProofTheory.state_rel_cut_IMP >> strip_tac
-  >> fs [data_to_wordTheory.assign_def] >> rveq
-  >> fs [dataLangTheory.op_requires_names_def,
+  \\ drule0 (evaluate_GiveUp2 |> GEN_ALL) \\ rw [] \\ fs []
+  \\ `t.termdep <> 0` by fs []
+  \\ `option_le x.stack_max s2.stack_max` by metis_tac [do_app_stack_max]
+  \\ rpt_drule0 data_to_word_gcProofTheory.state_rel_cut_IMP \\ strip_tac
+  \\ fs [data_to_wordTheory.assign_def] \\ rveq
+  \\ fs [dataLangTheory.op_requires_names_def,
          dataLangTheory.op_space_reset_def,dataSemTheory.cut_state_opt_def]
-  >> Cases_on ‘names_opt’ >> fs []
-  >> drule_all (state_rel_cut_state_opt_SOME
-                  |> SRULE [dataSemTheory.cut_state_opt_def])
-  >> strip_tac
-  >> qpat_x_assum ‘state_rel _ _ _ _ (t with locals := y) _ _’
-       $ ASSUME_NAMED_TAC "with_locals"
-  >> imp_res_tac data_to_word_gcProofTheory.get_vars_IMP_LENGTH
-  >> fs [] >> rw []
-  >> fs [do_app,dataSemTheory.allowed_op_def]
-  >> ‘?i b. vals = [Number i; Number b]’ by
-       (every_case_tac >> fs [] >> rw [] >> NO_TAC)
-  >> clean_tac
-  >> imp_res_tac data_to_word_gcProofTheory.state_rel_get_vars_IMP
-  >> fs [LENGTH_EQ_2] >> clean_tac
-  >> fs [LENGTH_EQ_2] >> clean_tac
-  >> fs [data_to_wordTheory.arg2_def,data_to_wordTheory.assign_RefByte_def]
-  >> qmatch_asmsub_rename_tac ‘get_vars [k1; k2] x.locals = SOME [Number i; Number b]’
-  \\ qmatch_asmsub_rename_tac
-       ‘get_vars [adjust_var k1; adjust_var k2] t = SOME [w1; w2]’
-  \\ qpat_x_assum ‘_ = Rval (v,s2)’ mp_tac
+  \\ Cases_on `names_opt` \\ fs []
+  \\ drule_all (state_rel_cut_state_opt_SOME |> SRULE [dataSemTheory.cut_state_opt_def])
+  \\ strip_tac
+  \\ qpat_x_assum `state_rel _ _ _ _ (t with locals := y) _ _` $ ASSUME_NAMED_TAC "with_locals"
+  \\ imp_res_tac data_to_word_gcProofTheory.get_vars_IMP_LENGTH \\ fs [] \\ rw []
+  \\ fs [do_app,dataSemTheory.allowed_op_def]
+  \\ `?i b. vals = [Number i; Number b]` by (every_case_tac \\ fs [] \\ rw [] \\ NO_TAC)
+  \\ clean_tac
+  \\ imp_res_tac data_to_word_gcProofTheory.state_rel_get_vars_IMP
+  \\ fs [LENGTH_EQ_2] \\ clean_tac
+  \\ fs [LENGTH_EQ_2] \\ clean_tac
+  \\ fs [data_to_wordTheory.arg2_def,data_to_wordTheory.assign_RefByte_def]
+  \\ qmatch_asmsub_rename_tac `get_vars [k1; k2] s.locals = SOME [Number i; Number b]`
+  \\ qmatch_asmsub_rename_tac `get_vars [adjust_var k1; adjust_var k2] t = SOME [w1; w2]`
+  \\ qpat_x_assum `_ = Rval (v,s2)` mp_tac
   \\ reverse IF_CASES_TAC >- fs []
   \\ strip_tac \\ gvs []
-  \\ fs [dataSemTheory.cut_state_def, dataSemTheory.cut_env_def]
-  \\ gvs [CaseEq"option"]
-  \\ qabbrev_tac ‘s1 = s with locals := inter s.locals (list_insert [k1; k2] x')’
-  \\ ‘state_rel c l1 l2 (s1 with clock := MustTerminate_limit(:'a))
-       (t with <|clock := MustTerminate_limit(:'a); termdep := t.termdep - 1|>)
-        [] locs’ by
-       (qpat_assum ‘state_rel c l1 l2 s1 t [] locs’
+  (* CALL SETUP (single-cut alignment): push x's env (cut by x'), apply RefByte_thm. *)
+  \\ `dataSem$cut_env x' s.locals = SOME x.locals` by
+       (qpat_x_assum `cut_state x' s = SOME x` mp_tac
+        \\ simp [dataSemTheory.cut_state_def, AllCaseEqs()] \\ rw [] \\ fs [])
+  \\ `state_rel c l1 l2 (s with clock := MustTerminate_limit(:'a))
+        (t with <|clock := MustTerminate_limit(:'a); termdep := t.termdep - 1|>) [] locs` by
+       (qpat_assum `state_rel c l1 l2 s t [] locs`
           (mp_tac o MATCH_MP (data_to_word_gcProofTheory.state_rel_with_clock
-                                |> Q.GEN ‘k’ |> Q.SPEC ‘MustTerminate_limit(:'a)’))
-        \\ unabbrev_all_tac
+                                |> Q.GEN `k` |> Q.SPEC `MustTerminate_limit(:'a)`))
         \\ fs [data_to_word_gcProofTheory.state_rel_def])
-  \\ ‘∃env. dataSem$cut_env x' s1.locals = SOME env’ by
-       (unabbrev_all_tac
-        \\ fs [dataSemTheory.cut_env_def,
-               sptreeTheory.domain_inter, sptreeTheory.domain_list_insert,
-               pred_setTheory.SUBSET_DEF])
-  \\ ‘∃yw. wordSem$cut_env (adjust_sets x') t.locals = SOME yw’ by
-       (‘dataSem$cut_env x' s.locals = SOME (inter s.locals x')’ by
-          (fs [dataSemTheory.cut_env_def, sptreeTheory.domain_inter,
-               sptreeTheory.domain_list_insert, pred_setTheory.SUBSET_DEF])
-        \\ drule_all data_to_word_gcProofTheory.cut_env_IMP_cut_env
-        \\ rw [])
   \\ drule0 data_to_word_gcProofTheory.cut_env_IMP_cut_envs \\ strip_tac
-  \\ fs [data_to_word_gcProofTheory.cut_envs_adjust_sets_ODD,
-         data_to_word_bignumProofTheory.domain_adjust_sets]
-  \\ ‘wordSem$get_vars [adjust_var k1; adjust_var k2] t = SOME [w1; w2]’ by
-       fs [wordSemTheory.get_vars_def, wordSemTheory.get_var_def]
-  \\ ‘dataSem$get_vars [k1; k2] s1.locals = SOME [Number i; Number (&w2n w)]’ by
-       (unabbrev_all_tac \\ fs [])
   \\ rpt_drule0 data_to_word_gcProofTheory.state_rel_call_env_push_env \\ fs []
   \\ disch_then drule0 \\ fs []
   \\ disch_then drule0 \\ fs []
-  \\ disch_then (qspecl_then [‘lookup RefByte_location t.stack_size’,
-                              ‘n’, ‘l’, ‘NONE’] mp_tac)
+  \\ disch_then (qspecl_then [`lookup RefByte_location t.stack_size`, `n`, `l`, `NONE`] mp_tac)
   \\ strip_tac
-  \\ ‘lookup RefByte_location t.code = SOME (4, RefByte_code c)’ by
-     (qpat_x_assum ‘state_rel c l1 l2 s t [] locs’ assume_tac
-      \\ drule0 data_to_word_gcProofTheory.lookup_RefByte_location
-      \\ rw [])
-  \\ ‘adjust_var k1 ≠ 1 ∧ adjust_var k2 ≠ 1’ by
+  \\ `lookup RefByte_location t.code = SOME (4, RefByte_code c)` by
+       (qpat_x_assum `state_rel c l1 l2 s t [] locs` assume_tac
+        \\ drule0 data_to_word_gcProofTheory.lookup_RefByte_location \\ rw [])
+  \\ `adjust_var k1 ≠ 1 ∧ adjust_var k2 ≠ 1` by
        (rw [data_to_wordTheory.adjust_var_def] \\ intLib.ARITH_TAC)
-  \\ ‘lookup (adjust_var k1) t.locals = SOME w1 ∧
-      lookup (adjust_var k2) t.locals = SOME w2’ by
-       (qpat_x_assum ‘get_vars [adjust_var k1; adjust_var k2] t = _’ mp_tac
-        \\ simp [wordSemTheory.get_vars_def, wordSemTheory.get_var_def,
-                 AllCaseEqs()] \\ rw [])
+  \\ `lookup (adjust_var k1) t.locals = SOME w1 ∧ lookup (adjust_var k2) t.locals = SOME w2` by
+       (qpat_x_assum `get_vars [adjust_var k1; adjust_var k2] t = _` mp_tac
+        \\ simp [wordSemTheory.get_vars_def, wordSemTheory.get_var_def, AllCaseEqs()] \\ rw [])
   \\ simp [wordSemTheory.evaluate_def, wordSemTheory.set_var_def,
            wordSemTheory.word_exp_def, wordSemTheory.get_var_def,
            wordSemTheory.get_vars_def, lookup_insert,
@@ -7156,62 +7122,50 @@ Proof
            data_to_wordTheory.get_names_def,
            data_to_word_gcProofTheory.cut_envs_adjust_sets_ODD,
            data_to_word_bignumProofTheory.domain_adjust_sets]
-  (* Add the Number(&tag) arg via state_rel_IMP_Number_arg *)
-  \\ ‘(if fl then 0n else 4) < dimword (:α) DIV 16’ by
+  \\ `(if fl then 0n else 4) < dimword (:α) DIV 16` by
        (fs [data_to_word_gcProofTheory.state_rel_def,
             miscTheory.good_dimindex_def, dimword_def] \\ rw [])
-  \\ qpat_x_assum
-       ‘state_rel c n l (call_env [Number i; Number (&w2n w)] _ _)
-          (call_env [Loc n l; w1; w2] _ _) [] _’ assume_tac
-  \\ drule0 (Q.SPEC ‘if fl then 0n else 4’
-       (Q.GEN ‘n’ data_to_word_gcProofTheory.state_rel_IMP_Number_arg))
+  \\ qpat_x_assum `state_rel c n l (call_env [Number i; Number (&w2n w)] _ _) (call_env [Loc n l; w1; w2] _ _) [] _` assume_tac
+  \\ drule0 (Q.SPEC `if fl then 0n else 4` (Q.GEN `n` data_to_word_gcProofTheory.state_rel_IMP_Number_arg))
   \\ impl_tac >- fs []
   \\ strip_tac
-  \\ fs []  (* simplify [a]++[b] *)
-  (* Apply RefByte_thm. Its `s` is the call_env-pushed state; `s1` = pop_env s
-     = our s1 with locals := env. *)
-  \\ qmatch_assum_abbrev_tac
-       ‘state_rel c n l (call_env _ _ st_inner_data)
-                       (call_env _ _ st_inner_word) [] _’
-  \\ qabbrev_tac ‘ts = call_env [Number i; Number (&w2n w); Number (&if fl then 0n else 4)]
-                       (lookup RefByte_location t.stack_size) st_inner_data’
-  \\ qabbrev_tac ‘twAbv = call_env [Loc n l; w1; w2; Word (n2w (4 * if fl then 0n else 4):α word)]
-                       (lookup RefByte_location t.stack_size) st_inner_word’
-  \\ ‘is_env (HD ts.stack)’ by
+  \\ fs []
+  \\ qmatch_assum_abbrev_tac `state_rel c n l (call_env _ _ st_inner_data) (call_env _ _ st_inner_word) [] _`
+  \\ qabbrev_tac `ts = call_env [Number i; Number (&w2n w); Number (&if fl then 0n else 4)]
+                       (lookup RefByte_location t.stack_size) st_inner_data`
+  \\ qabbrev_tac `twAbv = call_env [Loc n l; w1; w2; Word (n2w (4 * if fl then 0n else 4):α word)]
+                       (lookup RefByte_location t.stack_size) st_inner_word`
+  \\ `is_env (HD ts.stack)` by
        (unabbrev_all_tac
         \\ simp [dataSemTheory.call_env_def, dataSemTheory.push_env_def,
-                 dataSemTheory.dec_clock_def, is_env_def]
-        \\ metis_tac [])
-  \\ ‘twAbv.clock = MustTerminate_limit (:'a) - 1’ by
+                 dataSemTheory.dec_clock_def, is_env_def] \\ metis_tac [])
+  \\ `twAbv.clock = MustTerminate_limit (:'a) - 1` by
        (unabbrev_all_tac
         \\ simp [wordSemTheory.call_env_def, wordSemTheory.push_env_def,
-                 wordSemTheory.dec_clock_def]
-        \\ pairarg_tac \\ fs [])
-  \\ qabbrev_tac ‘s_pop : ('c,'ffi) dataSem$state =
-        s1 with <|locals := env; clock := MustTerminate_limit (:'a) - 1;
-                  stack_max := ts.stack_max;
-                  safe_for_space := ts.safe_for_space|>’
-  \\ ‘pop_env ts = SOME s_pop’ by
+                 wordSemTheory.dec_clock_def] \\ pairarg_tac \\ fs [])
+  \\ qabbrev_tac `s_pop : ('c,'ffi) dataSem$state =
+        s with <|locals := x.locals; clock := MustTerminate_limit (:'a) - 1;
+                 stack_max := ts.stack_max; safe_for_space := ts.safe_for_space|>`
+  \\ `pop_env ts = SOME s_pop` by
        (unabbrev_all_tac
         \\ simp [dataSemTheory.call_env_def, dataSemTheory.push_env_def,
                  dataSemTheory.pop_env_def, dataSemTheory.dec_clock_def,
                  dataSemTheory.state_component_equality])
-  \\ ‘ts.locals_size = lookup RefByte_location ts.stack_frame_sizes’ by
+  \\ `ts.locals_size = lookup RefByte_location ts.stack_frame_sizes` by
        (unabbrev_all_tac
         \\ simp [dataSemTheory.call_env_def, dataSemTheory.push_env_def,
                  dataSemTheory.dec_clock_def]
         \\ fs [data_to_word_gcProofTheory.state_rel_def])
-  \\ ‘get_vars [0;1;2] ts.locals =
-        SOME ([Number i; Number (&w2n w)] ++ [Number (&if fl then 0 else 4)])’ by
+  \\ `get_vars [0;1;2] ts.locals =
+        SOME ([Number i; Number (&w2n w)] ++ [Number (&if fl then 0 else 4)])` by
        (unabbrev_all_tac
         \\ simp [dataSemTheory.get_vars_def, dataSemTheory.call_env_def,
                  dataSemTheory.get_var_def, dataSemTheory.push_env_def,
-                 dataSemTheory.dec_clock_def,
-                 sptreeTheory.lookup_fromList])
-  \\ ‘?s2_inner.
+                 dataSemTheory.dec_clock_def, sptreeTheory.lookup_fromList])
+  \\ `?s2_inner.
         do_app (MemOp (RefByte fl)) [Number i; Number (&w2n w)] s_pop =
-          Rval (RefPtr T (LEAST ptr. ptr ∉ domain s.refs), s2_inner)’ by
-       (simp [Abbr ‘s_pop’, Abbr ‘s1’]
+          Rval (RefPtr T (LEAST ptr. ptr ∉ domain s.refs), s2_inner)` by
+       (simp [Abbr `s_pop`]
         \\ simp [dataSemTheory.do_app_def, dataSemTheory.do_app_aux_def,
                  dataSemTheory.do_space_def, dataSemTheory.do_stack_def,
                  dataSemTheory.space_consumed_def,
@@ -7219,34 +7173,29 @@ Proof
                  dataSemTheory.allowed_op_def, dataSemTheory.check_lim_def]
         \\ metis_tac [])
   \\ rpt_drule0 RefByte_thm
-  \\ disch_then (qspecl_then [‘l2’, ‘l1’] mp_tac)
+  \\ disch_then (qspecl_then [`l2`, `l1`] mp_tac)
   \\ strip_tac
-  \\ pop_assum strip_assume_tac  (* unpack ∃q r' new_c. ... *)
-  (* Bridge the goal's evaluate form to twAbv. *)
-  \\ qmatch_goalsub_abbrev_tac ‘evaluate (RefByte_code c, twC)’
-  \\ ‘twC = twAbv’ by
+  \\ pop_assum strip_assume_tac
+  \\ qmatch_goalsub_abbrev_tac `evaluate (RefByte_code c, twC)`
+  \\ `twC = twAbv` by
        (unabbrev_all_tac
         \\ rw [wordSemTheory.call_env_def, wordSemTheory.push_env_def,
-               wordSemTheory.dec_clock_def,
-               wordSemTheory.state_component_equality]
-        \\ pairarg_tac \\ fs []
-        \\ Cases_on ‘fl’ \\ fs [])
+               wordSemTheory.dec_clock_def, wordSemTheory.state_component_equality]
+        \\ pairarg_tac \\ fs [] \\ Cases_on `fl` \\ fs [])
   \\ fs []
-  \\ Cases_on ‘q = SOME NotEnoughSpace’ \\ fs []
-  >- ((* NES arm *)
-      conj_tac
-      >- ((* twAbv.ffi = s.ffi *)
-          qpat_x_assum ‘Abbrev (twAbv = _ _ (push_env _ NONE (dec_clock (t with <|locals := insert _ _ _; clock := _; termdep := _|>))))’
+  \\ Cases_on `q = SOME NotEnoughSpace` \\ fs []
+  >- (* NES arm: alloc/Replicate fails. conj1 ffi; conj2 stack bound; conj3 heap disjunction. *)
+     (conj_tac
+      >- (qpat_x_assum `Abbrev (twAbv = call_env [Loc n l; w1; w2; Word (if fl then 0w else 16w)] _ _)`
             (assume_tac o REWRITE_RULE [markerTheory.Abbrev_def])
           \\ simp [wordSemTheory.call_env_def, wordSemTheory.push_env_def,
                    wordSemTheory.dec_clock_def, UNCURRY_DEF]
-          \\ Cases_on ‘env_to_list y2 t.permute’ \\ fs [])
+          \\ Cases_on `env_to_list y2 t.permute` \\ fs [])
       \\ conj_tac
-      >- ((* NES stack bound *)
-          qpat_x_assum ‘state_rel c l1 l2 s t [] locs’ assume_tac
-          \\ ‘s.stack_frame_sizes = t.stack_size’ by fs[data_to_word_gcProofTheory.state_rel_def]
-          \\ ‘t.locals_size = s.locals_size’ by fs[data_to_word_gcProofTheory.state_rel_def]
-          \\ qpat_x_assum ‘do_app _ _ _ = _’ mp_tac
+      >- (qpat_x_assum `state_rel c l1 l2 s t [] locs` assume_tac
+          \\ `s.stack_frame_sizes = t.stack_size` by fs[data_to_word_gcProofTheory.state_rel_def]
+          \\ `t.locals_size = s.locals_size` by fs[data_to_word_gcProofTheory.state_rel_def]
+          \\ qpat_x_assum `do_app _ _ _ = _` mp_tac
           \\ simp [dataSemTheory.do_app_def, dataSemTheory.do_app_aux_def,
                    dataSemTheory.do_space_def, dataSemTheory.do_stack_def,
                    dataSemTheory.stack_consumed_def, dataSemTheory.consume_space_def,
@@ -7254,74 +7203,78 @@ Proof
                    dataLangTheory.op_space_reset_def, dataSemTheory.allowed_op_def]
           \\ strip_tac
           \\ pop_assum (assume_tac o GSYM)
-          \\ qpat_x_assum ‘option_le r'.stack_max s2_inner.stack_max’ assume_tac
-          \\ ‘∀z. option_le s2_inner.stack_max z ⇒ option_le r'.stack_max z’ by
+          \\ qpat_x_assum `option_le r'.stack_max s2_inner.stack_max` assume_tac
+          \\ `∀z. option_le s2_inner.stack_max z ⇒ option_le r'.stack_max z` by
                 metis_tac [backendPropsTheory.option_le_trans]
           \\ first_x_assum match_mp_tac
-          \\ qpat_x_assum ‘s2_inner = _’ (fn th => simp [th])
-          \\ qpat_x_assum ‘Abbrev (s_pop = _)’ (assume_tac o REWRITE_RULE [markerTheory.Abbrev_def])
-          \\ qpat_x_assum ‘Abbrev (ts = _)’ (assume_tac o REWRITE_RULE [markerTheory.Abbrev_def])
-          \\ qpat_x_assum ‘Abbrev (st_inner_data = _)’ (assume_tac o REWRITE_RULE [markerTheory.Abbrev_def])
-          \\ qpat_x_assum ‘Abbrev (s1 = _)’ (assume_tac o REWRITE_RULE [markerTheory.Abbrev_def])
+          \\ qpat_x_assum `s2_inner = _` (fn th => simp [th])
+          \\ qpat_x_assum `Abbrev (s_pop = _)` (assume_tac o REWRITE_RULE [markerTheory.Abbrev_def])
+          \\ qpat_x_assum `Abbrev (ts = _)` (assume_tac o REWRITE_RULE [markerTheory.Abbrev_def])
+          \\ qpat_x_assum `Abbrev (st_inner_data = _)` (assume_tac o REWRITE_RULE [markerTheory.Abbrev_def])
+          \\ `cut_state_opt (SOME x') s = SOME x` by fs [dataSemTheory.cut_state_opt_def]
+          \\ imp_res_tac cut_state_opt_SOME_eq
+          \\ gvs []
           \\ asm_simp_tac (srw_ss())[call_env_push_env_dec_clock_stack_max]
           \\ irule option_le_stackmax_bridge)
-      >- ((* NES disjunction: i<0 / smallNum / arch1 / arch2 / heapLim *)
-          strip_tac
-          \\ first_x_assum drule
-          \\ ‘ts.limits = s.limits ∧ s_pop.limits = s.limits’ by
-               (unabbrev_all_tac
-                \\ simp [dataSemTheory.call_env_def, dataSemTheory.push_env_def,
-                         dataSemTheory.dec_clock_def])
-          \\ fs []
-          \\ strip_tac
-          >- (‘F’ by (qpat_x_assum ‘i < 0’ mp_tac
-                      \\ qpat_x_assum ‘0 ≤ i’ mp_tac
-                      \\ rpt (pop_assum kall_tac) \\ intLib.COOPER_TAC)
-              \\ fs [])
-          >- (DISJ1_TAC \\ DISJ1_TAC \\ rpt DISJ2_TAC \\ asm_simp_tac (srw_ss())[])
-          >- (qpat_x_assum ‘state_rel c l1 l2 s t [] locs’ assume_tac
-              \\ fs [data_to_word_gcProofTheory.state_rel_def,
-                     miscTheory.good_dimindex_def, dimword_def,
-                     data_to_word_gcProofTheory.limits_inv_def, dataSemTheory.arch_size_def]
-              \\ qpat_x_assum ‘¬(Num i DIV _ < _)’ mp_tac \\ asm_simp_tac (srw_ss())[])
-          >- (qpat_x_assum ‘state_rel c l1 l2 s t [] locs’ assume_tac
-              \\ fs [data_to_word_gcProofTheory.state_rel_def,
-                     miscTheory.good_dimindex_def, dimword_def,
-                     data_to_word_gcProofTheory.limits_inv_def, dataSemTheory.arch_size_def]
-              \\ qpat_x_assum ‘¬(Num i DIV _ + 1 < _)’ mp_tac \\ asm_simp_tac (srw_ss())[])
-          >- (disj1_tac \\ disj2_tac \\ disj2_tac
-              \\ qspecl_then [‘s’,‘s1’,‘s_pop’,‘env’,‘x'’,‘k1’,‘k2’,‘i’,‘&w2n w’]
-                   mp_tac size_of_heap_NARROW_LE_WIDE_NumberArgs
-              \\ impl_tac
-              >- (qpat_x_assum ‘Abbrev (s_pop = _)’
-                    (assume_tac o REWRITE_RULE [markerTheory.Abbrev_def])
-                  \\ qpat_x_assum ‘Abbrev (s1 = _)’
-                       (assume_tac o REWRITE_RULE [markerTheory.Abbrev_def])
-                  \\ qpat_x_assum ‘get_vars [k1; k2] s1.locals = _’ mp_tac
-                  \\ simp [dataSemTheory.get_vars_def, dataSemTheory.get_var_def, AllCaseEqs()])
-              \\ strip_tac
-              \\ qpat_x_assum ‘Abbrev (s1 = _)’
-                   (assume_tac o REWRITE_RULE [markerTheory.Abbrev_def])
-              \\ fs [dataSemTheory.space_consumed_def]
-              \\ qpat_x_assum ‘s.limits.heap_limit < _’ mp_tac
-              \\ qpat_x_assum ‘size_of_heap s_pop ≤ _’ mp_tac
-              \\ rpt (pop_assum kall_tac)
-              \\ intLib.ARITH_TAC)))
-  >- ((* Success arm *)
-      imp_res_tac do_app_RefByte_eq
-      \\ fs []
-      \\ qpat_x_assum ‘state_rel c l1 l2 _ r' [(RefPtr T _, _)] _’ assume_tac
+      \\ strip_tac
+      \\ `cut_state_opt (SOME x') s = SOME x` by fs [dataSemTheory.cut_state_opt_def]
+      \\ drule cut_state_opt_SOME_eq \\ strip_tac
+      \\ `ts.limits = x.limits ∧ s_pop.limits = x.limits` by
+           (qpat_x_assum `Abbrev (ts = _)` (assume_tac o REWRITE_RULE [markerTheory.Abbrev_def])
+            \\ qpat_x_assum `Abbrev (st_inner_data = _)` (assume_tac o REWRITE_RULE [markerTheory.Abbrev_def])
+            \\ qpat_x_assum `Abbrev (s_pop = _)` (assume_tac o REWRITE_RULE [markerTheory.Abbrev_def])
+            \\ qpat_x_assum `x = _` (fn th => asm_rewrite_tac [th])
+            \\ simp [dataSemTheory.call_env_def, dataSemTheory.push_env_def, dataSemTheory.dec_clock_def])
+      \\ `size_of_heap s_pop = size_of_heap x` by
+           (qpat_x_assum `Abbrev (s_pop = _)` (assume_tac o REWRITE_RULE [markerTheory.Abbrev_def])
+            \\ qpat_x_assum `x = _` (fn th => asm_rewrite_tac [th])
+            \\ simp [dataSemTheory.size_of_heap_def, dataSemTheory.stack_to_vs_def])
+      \\ `i < 0 ∨ ¬small_num x.limits.arch_64_bit i ∨
+          ¬(Num i DIV (arch_size x.limits DIV 8) < dimword (:α) DIV arch_size x.limits) ∨
+          ¬(Num i DIV (arch_size x.limits DIV 8) + 1 < 2 ** c.len_size) ∨
+          x.limits.heap_limit < size_of_heap x + (Num i DIV (arch_size x.limits DIV 8) + 2)`
+            by metis_tac []
+      >- (mp_tac (intLib.COOPER_PROVE ``(i:int) < 0 ==> 0 <= i ==> F``) \\ fs [])
+      >- (disj1_tac \\ disj1_tac \\ rpt disj2_tac \\ asm_rewrite_tac [])
+      >- (disj1_tac \\ disj1_tac \\ disj1_tac
+          \\ `dimword (:α) = 2 ** arch_size x.limits` by
+               (qpat_x_assum `state_rel c l1 l2 s t [] locs` assume_tac
+                \\ `x.limits = s.limits` by (qpat_x_assum `x = _` (fn th => simp [th]))
+                \\ fs [data_to_word_gcProofTheory.state_rel_def, miscTheory.good_dimindex_def,
+                       data_to_word_gcProofTheory.limits_inv_def, dataSemTheory.arch_size_def, dimword_def])
+          \\ fs [])
+      >- (disj1_tac \\ disj1_tac \\ disj2_tac \\ disj1_tac
+          \\ `c.len_size = x.limits.length_limit` by
+               (qpat_x_assum `state_rel c l1 l2 s t [] locs` assume_tac
+                \\ `x.limits = s.limits` by (qpat_x_assum `x = _` (fn th => simp [th]))
+                \\ fs [data_to_word_gcProofTheory.state_rel_def, data_to_word_gcProofTheory.limits_inv_def])
+          \\ fs [])
+      >- (disj1_tac \\ disj2_tac \\ disj2_tac \\ simp [NOT_LESS_EQUAL]
+          \\ `x = s with locals := inter s.locals x'` by
+               (qpat_x_assum `x = s with locals := mk_wf _` mp_tac \\ simp [])
+          \\ gvs []
+          \\ `space_consumed (s with locals := inter s.locals x') (MemOp (RefByte fl))
+                [Number i; Number (&w2n w)] = Num i DIV (arch_size s.limits DIV 8) + 2` by
+               simp [dataSemTheory.space_consumed_def, dataSemTheory.arch_size_def]
+          \\ pop_assum (fn th => rewrite_tac [th])
+          \\ `size_of_heap (s with locals := inter s.locals x') ≤
+               size_of_heap_args [Number i; Number (&w2n w)] (s with locals := inter s.locals x')` by
+               simp [size_of_heap_LE_args]
+          \\ qpat_x_assum `_ < size_of_heap (s with locals := inter s.locals x') + _` mp_tac
+          \\ qpat_x_assum `size_of_heap _ ≤ _` mp_tac
+          \\ rpt (pop_assum kall_tac) \\ DECIDE_TAC))
+  >- (* Success arm: pop_env, rebuild state_rel via word_ml_inv_insert. *)
+     (qpat_x_assum `state_rel c l1 l2 _ r' [(RefPtr T _, _)] _` assume_tac
       \\ drule data_to_word_gcProofTheory.state_rel_pop_env_IMP
-      \\ qpat_x_assum ‘Abbrev (ts = _)’ (assume_tac o REWRITE_RULE [markerTheory.Abbrev_def])
-      \\ qpat_x_assum ‘Abbrev (st_inner_data = _)’ (assume_tac o REWRITE_RULE [markerTheory.Abbrev_def])
+      \\ qpat_x_assum `Abbrev (ts = _)` (assume_tac o REWRITE_RULE [markerTheory.Abbrev_def])
+      \\ qpat_x_assum `Abbrev (st_inner_data = _)` (assume_tac o REWRITE_RULE [markerTheory.Abbrev_def])
       \\ simp [dataSemTheory.push_env_def, dataSemTheory.call_env_def,
                dataSemTheory.pop_env_def, dataSemTheory.dec_clock_def]
       \\ strip_tac
-      \\ qpat_x_assum ‘Abbrev (twAbv = _)’ (assume_tac o REWRITE_RULE [markerTheory.Abbrev_def])
-      \\ qpat_x_assum ‘Abbrev (st_inner_word = _)’ (assume_tac o REWRITE_RULE [markerTheory.Abbrev_def])
-      \\ qpat_x_assum ‘state_rel c n l (call_env [Number i; Number (&w2n w)] _ st_inner_data) _ _ _’ assume_tac
+      \\ qpat_x_assum `Abbrev (twAbv = _)` (assume_tac o REWRITE_RULE [markerTheory.Abbrev_def])
+      \\ qpat_x_assum `Abbrev (st_inner_word = _)` (assume_tac o REWRITE_RULE [markerTheory.Abbrev_def])
       \\ fs []
-      \\ qpat_x_assum ‘state_rel c n l (call_env _ _ (push_env env F _)) (call_env _ _ (push_env (y1,y2) NONE _)) _ _’ assume_tac
+      \\ qpat_x_assum `state_rel c n l (call_env _ _ (push_env _ F _)) (call_env _ _ (push_env (y1,y2) NONE _)) _ _` assume_tac
       \\ drule state_rel_push_env_loc
       \\ disch_then assume_tac
       \\ fs [call_env_push_env_dec_clock_lift_locals]
@@ -7333,32 +7286,35 @@ Proof
       \\ fs []
       \\ simp [dataSemTheory.set_var_def, wordSemTheory.set_vars_def,
                wordSemTheory.set_var_def, sptreeTheory.alist_insert_def, lookup_insert]
+      \\ `x = s with locals := x.locals` by
+           (qpat_x_assum `cut_state x' s = SOME x` mp_tac
+            \\ simp [dataSemTheory.cut_state_def]
+            \\ qpat_x_assum `cut_env x' s.locals = SOME x.locals` (fn th => simp [th])
+            \\ strip_tac \\ gvs [])
+      \\ qpat_x_assum `do_app _ _ _ = Rval (_,s2_inner)`
+           (strip_assume_tac o MATCH_MP do_app_RefByte_eq)
+      \\ fs []
+      \\ `x.code = s.code ∧ x.stack = s.stack ∧ x.locals_size = s.locals_size ∧
+          x.stack_frame_sizes = s.stack_frame_sizes ∧ x.limits = s.limits ∧
+          x.tstamps = s.tstamps ∧ x.global = s.global ∧ x.refs = s.refs ∧
+          x.stack_max = s.stack_max ∧ x.ffi = s.ffi ∧ x.handler = s.handler ∧
+          x.compile = s.compile ∧ x.compile_oracle = s.compile_oracle` by
+           (qpat_x_assum `x = s with locals := x.locals` (fn th => once_rewrite_tac [th])
+            \\ simp [])
+      \\ fs []
       \\ conj_tac
-      >- (rpt strip_tac \\ pop_assum mp_tac
-          \\ rw [lookup_insert, data_to_word_gcProofTheory.adjust_var_11]
-          \\ qpat_x_assum ‘∀n'. IS_SOME (lookup n' env) ⇒ _’
-               (fn th => mp_tac (Q.SPEC ‘n'’ th))
-          \\ impl_keep_tac
-          \\ qpat_x_assum ‘cut_env x' (inter s.locals _) = SOME env’ mp_tac
-          \\ simp [dataSemTheory.cut_env_def, AllCaseEqs(), sptreeTheory.lookup_mk_wf]
-          \\ disch_then (assume_tac o GSYM)
-          \\ asm_rewrite_tac [])
+      >- (rw [lookup_insert, data_to_word_gcProofTheory.adjust_var_11]
+          \\ first_x_assum drule \\ simp [])
       \\ conj_tac
-      >- (qpat_x_assum ‘option_le t2.stack_max _’ mp_tac
-          \\ simp [call_env_push_env_dec_clock_stack_max,
-                   dataSemTheory.stack_consumed_def]
+      >- (qpat_x_assum `option_le t2.stack_max _` mp_tac
+          \\ simp [call_env_push_env_dec_clock_stack_max, dataSemTheory.stack_consumed_def]
           \\ strip_tac
           \\ irule backendPropsTheory.option_le_trans
           \\ goal_assum (drule_at Any)
           \\ irule option_le_stackmax_bridge)
-      >- (asm_exists_tac \\ fs []
-          \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
-          \\ match_mp_tac word_ml_inv_insert \\ fs [flat_def]
-          \\ qpat_x_assum ‘cut_env x' (inter s.locals (list_insert [k1; k2] x')) = SOME env’
-               (assume_tac o REWRITE_RULE [dataSemTheory.cut_env_def])
-          \\ fs [AllCaseEqs()]
-          \\ qpat_x_assum ‘_ = env’ (assume_tac o GSYM)
-          \\ asm_rewrite_tac []))
+      \\ asm_exists_tac \\ fs []
+      \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+      \\ match_mp_tac word_ml_inv_insert \\ fs [flat_def])
 QED
 
 Theorem lookup_set_var:
@@ -10762,7 +10718,7 @@ Proof
   cheat (*
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
-  \\ ‘names_opt ≠ NONE’ by (first_x_assum irule \\ EVAL_TAC \\ simp [])
+  \\ ‘names_opt ≠ NONE’ by (qpat_x_assum ‘op_requires_names _ ⇎ _’ mp_tac \\ EVAL_TAC \\ simp [])
   \\ gvs [GSYM IS_SOME_EQ_NOT_NONE,IS_SOME_EXISTS]
   \\ rename [‘cut_state_opt (SOME kept_names) s’]
   \\ drule_all state_rel_cut_state_opt_SOME \\ strip_tac
@@ -10898,7 +10854,7 @@ Proof
   cheat (*
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
-  \\ ‘names_opt ≠ NONE’ by (first_x_assum irule \\ EVAL_TAC \\ simp [])
+  \\ ‘names_opt ≠ NONE’ by (qpat_x_assum ‘op_requires_names _ ⇎ _’ mp_tac \\ EVAL_TAC \\ simp [])
   \\ gvs [GSYM IS_SOME_EQ_NOT_NONE,IS_SOME_EXISTS]
   \\ rename [‘cut_state_opt (SOME kept_names) s’]
   \\ drule_all state_rel_cut_state_opt_SOME \\ strip_tac
@@ -11673,7 +11629,7 @@ Proof
   cheat (*
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
-  \\ ‘names_opt ≠ NONE’ by (first_x_assum irule \\ EVAL_TAC \\ simp [])
+  \\ ‘names_opt ≠ NONE’ by (qpat_x_assum ‘op_requires_names _ ⇎ _’ mp_tac \\ EVAL_TAC \\ simp [])
   \\ gvs [GSYM IS_SOME_EQ_NOT_NONE,IS_SOME_EXISTS]
   \\ rename [‘cut_state_opt (SOME kept_names) s’]
   \\ drule_all state_rel_cut_state_opt_SOME \\ strip_tac
@@ -15674,12 +15630,6 @@ Proof[exclude_simps = EXP_LE_LOG_SIMP EXP_LT_LOG_SIMP LE_EXP_LOG_SIMP LT_EXP_LOG
   \\ `t.termdep <> 0` by fs[]
   \\ rpt_drule0 state_rel_cut_IMP
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
-  \\ `s2_cut = s2` by
-       (Cases_on `names_opt` \\
-        fs [dataLangTheory.op_requires_names_def,
-            dataLangTheory.op_space_reset_def,
-            dataSemTheory.cut_state_opt_def])
-  \\ pop_assum SUBST_ALL_TAC
   \\ Cases_on `FST (assign c n l dest (BlockOp (Build parts)) args names_opt) = GiveUp`
   THEN1
    (asm_rewrite_tac [] >> fs [] >>
