@@ -319,15 +319,13 @@ val res = fix MK_COMB_def "MK_COMB_def" MK_COMB_PMATCH
 
 Theorem ABS_PMATCH[local]:
    ^(rhs(concl(SPEC_ALL ABS_def))) =
-    pmatch c of
-      Comb (Comb (Const «=» _) l) r =>
+    pmatch (v,c) of
+      (Var _ _, Comb (Comb (Const «=» _) l) r) =>
         if EXISTS (vfree_in v) asl
         then failwith «ABS: variable is free in assumptions»
-        else do a1 <- mk_abs(v,l) ;
-                a2 <- mk_abs(v,r) ;
-                eq <- mk_eq(a1,a2) ;
+        else do eq <- safe_mk_eq (Abs v l) (Abs v r) ;
                 return (Sequent asl eq) od
-    | _ => failwith «ABS: not an equation»
+    | (_, _) => failwith «ABS: not an equation»
 Proof
   BasicProvers.CASE_TAC >> rpt tac
 QED
@@ -337,7 +335,7 @@ Theorem BETA_PMATCH[local]:
    ^(rhs(concl(SPEC_ALL BETA_def))) =
     pmatch tm of
       Comb (Abs v bod) arg =>
-        if arg = v then do eq <- mk_eq(tm,bod) ; return (Sequent [] eq) od
+        if arg = v then do eq <- safe_mk_eq tm bod ; return (Sequent [] eq) od
         else failwith «BETA: not a trivial beta-redex»
     | _ => failwith «BETA: not a trivial beta-redex»
 Proof
