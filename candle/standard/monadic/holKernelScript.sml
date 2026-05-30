@@ -982,23 +982,19 @@ val _ = PmatchHeuristics.with_classic_heuristic Define `
 
 (*
   let ABS v (Sequent(asl,c)) =
-    match c with
-      Comb(Comb(Const("=",_),l),r) ->
-        if exists (vfree_in v) asl
-        then failwith "ABS: variable is free in assumptions"
-        else Sequent(asl,mk_eq(mk_abs(v,l),mk_abs(v,r)))
-    | _ -> failwith "ABS: not an equation"
+    match (v,c) with
+      Var(_,_),Comb(Comb(Const("=",_),l),r) when not(exists (vfree_in v) asl)
+         -> Sequent(asl,safe_mk_eq (Abs(v,l)) (Abs(v,r)))
+    | _ -> failwith "ABS";;
 *)
 
 Definition ABS_def:
   ABS v (Sequent asl c) =
-    case c of
-      Comb (Comb (Const «=» _) l) r =>
+    case (v,c) of
+      (Var _ _, Comb (Comb (Const «=» _) l) r) =>
         if EXISTS (vfree_in v) asl
         then failwith «ABS: variable is free in assumptions»
-        else do a1 <- mk_abs(v,l) ;
-                a2 <- mk_abs(v,r) ;
-                eq <- mk_eq(a1,a2) ;
+        else do eq <- safe_mk_eq (Abs v l) (Abs v r) ;
                 return (Sequent asl eq) od
     | _ => failwith «ABS: not an equation»
 End
@@ -1006,7 +1002,8 @@ End
 (*
   let BETA tm =
     match tm with
-      Comb(Abs(v,bod),arg) when arg = v -> Sequent([],mk_eq(tm,bod))
+      Comb(Abs(v,bod),arg) when compare arg v = 0
+        -> Sequent([],safe_mk_eq tm bod)
     | _ -> failwith "BETA: not a trivial beta-redex"
 *)
 
@@ -1014,7 +1011,7 @@ Definition BETA_def:
   BETA tm =
     case tm of
       Comb (Abs v bod) arg =>
-        if arg = v then do eq <- mk_eq(tm,bod) ; return (Sequent [] eq) od
+        if arg = v then do eq <- safe_mk_eq tm bod ; return (Sequent [] eq) od
         else failwith «BETA: not a trivial beta-redex»
     | _ => failwith «BETA: not a trivial beta-redex»
 End
@@ -1053,14 +1050,14 @@ End
 (*
   let DEDUCT_ANTISYM_RULE (Sequent(asl1,c1)) (Sequent(asl2,c2)) =
     let asl1' = term_remove c2 asl1 and asl2' = term_remove c1 asl2 in
-    Sequent(term_union asl1' asl2',mk_eq(c1,c2))
+    Sequent(term_union asl1' asl2',safe_mk_eq c1 c2)
 *)
 
 Definition DEDUCT_ANTISYM_RULE_def:
   DEDUCT_ANTISYM_RULE (Sequent asl1 c1) (Sequent asl2 c2) =
     let asl1' = term_remove c2 asl1 in
     let asl2' = term_remove c1 asl2 in
-      do eq <- mk_eq(c1,c2) ;
+      do eq <- safe_mk_eq c1 c2 ;
          return (Sequent (term_union asl1' asl2') eq) od
 End
 
