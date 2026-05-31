@@ -10,6 +10,7 @@ Ancestors
   holSyntaxExtra
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
+val _ = augment_srw_ss [rewrites [aty_def, bool_ty_def]];
 
 val _ = ParseExtras.temp_loose_equality();
 val _ = hide"str";
@@ -498,13 +499,12 @@ Proof
 QED
 
 Theorem mk_fun_ty_thm:
-   !ty1 ty2 s z s'.
-      STATE defs s /\ EVERY (TYPE defs) [ty1;ty2] /\
-      (mk_fun_ty ty1 ty2 s = (z,s')) ==> (s' = s) /\
-      ?i. (z = M_success i) /\ (i = Tyapp «fun» [ty1;ty2]) /\ TYPE defs i
+  ∀ty1 ty2.
+    CONTEXT defs ∧ EVERY (TYPE defs) [ty1; ty2] ∧
+    (mk_fun_ty ty1 ty2 = i) ⇒
+    (i = Fun ty1 ty2) ∧ TYPE defs i
 Proof
-  SIMP_TAC std_ss [mk_fun_ty_def] \\ REPEAT STRIP_TAC
-  \\ IMP_RES_TAC mk_type_thm \\ FULL_SIMP_TAC (srw_ss()) []
+  rw [mk_fun_ty_def] >> irule TYPE_Fun >> simp []
 QED
 
 (* ------------------------------------------------------------------------- *)
@@ -619,12 +619,7 @@ Proof
   \\ FULL_SIMP_TAC (srw_ss()) [] \\ ONCE_REWRITE_TAC [EQ_SYM_EQ]
   \\ ASM_SIMP_TAC (srw_ss()) [Once term_type_def]
   \\ rw[st_ex_bind_def]
-  \\ Cases_on `mk_fun_ty ty (term_type t0) s`
-  \\ FULL_SIMP_TAC std_ss []
-  \\ sg `EVERY (TYPE defs) [ty; term_type t0]`
-  THEN1 FULL_SIMP_TAC std_ss [EVERY_DEF,term_type]
-  \\ IMP_RES_TAC mk_fun_ty_thm
-  \\ FULL_SIMP_TAC (srw_ss()) [st_ex_bind_def]
+  \\ simp [mk_fun_ty_def]
 QED
 
 Theorem alphavars_thm[local]:
@@ -919,10 +914,7 @@ Proof
   >> qspec_then ‘x’ mp_tac type_of_thm
   >> impl_tac >- simp []
   >> strip_tac >> simp []
-  >> TOP_CASE_TAC
-  >> drule mk_type_thm >> disch_then drule >> simp []
-  >> strip_tac >> reverse TOP_CASE_TAC >> strip_tac >> gvs []
-  >- (drule_then assume_tac mk_type_bool >> fs [])
+  >> strip_tac >> gvs []
   >> ‘CONTEXT defs’ by fs [STATE_def]
   >> imp_res_tac term_type
   >> imp_res_tac CONTEXT_std_sig
@@ -1926,9 +1918,6 @@ Proof
   IMP_RES_TAC map_type_of_state >> var_eq_tac >>
   every_case_tac >> fs[] >>
   rpt var_eq_tac >> simp[] >>
-  qspecl_then[`«bool»`,`[]`,`s`]mp_tac mk_type_thm >>
-  simp[] >> strip_tac >>
-  rpt var_eq_tac >> simp[] >>
   fs[THM_def] >>
   match_mp_tac proves_ACONV >>
   first_assum(match_exists_tac o concl) >>
@@ -2113,11 +2102,7 @@ Proof
   \\ STRIP_TAC \\ MP_TAC (type_of_thm |> Q.SPEC `tm`)
   \\ FULL_SIMP_TAC std_ss [] \\ STRIP_TAC \\ FULL_SIMP_TAC std_ss []
   \\ FULL_SIMP_TAC (srw_ss()) [st_ex_bind_def]
-  \\ MP_TAC (mk_type_thm |> Q.SPECL [`«bool»`,`[]`,`s`])
-  \\ Cases_on `mk_type («bool»,[]) s`
   \\ FULL_SIMP_TAC (srw_ss()) [EVERY_DEF]
-  \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ STRIP_TAC \\ FULL_SIMP_TAC std_ss []
   \\ Cases_on `term_type tm = Bool`
   \\ FULL_SIMP_TAC (srw_ss()) [raise_Failure_def,st_ex_return_def]
   \\ FULL_SIMP_TAC std_ss [THM_def]
@@ -3066,10 +3051,7 @@ Theorem new_axiom_thm:
 Proof
   rw[new_axiom_def,st_ex_bind_def] >>
   imp_res_tac type_of_thm >> rw[] >>
-  qspecl_then[`«bool»`,`[]`,`s`]mp_tac mk_type_thm >>
-  Cases_on`mk_type («bool»,[]) s`>>simp[] >>
-  Cases_on`q`>>simp[]>>strip_tac>>
-  BasicProvers.CASE_TAC >> simp[raise_Failure_def,st_ex_return_def] >>
+  simp[raise_Failure_def,st_ex_return_def] >>
   simp[get_the_axioms_def,set_the_axioms_def] >>
   simp[add_def_def,st_ex_bind_def,get_the_context_def,set_the_context_def] >>
   qexists_tac`NewAxiom p` >>
@@ -3136,15 +3118,6 @@ Theorem dest_type_not_clash[simp]:
    dest_type x y ≠ (M_failure (Clash tm),refs)
 Proof
   Cases_on`x` \\ EVAL_TAC
-QED
-
-Theorem mk_fun_ty_not_clash[simp]:
-   mk_fun_ty t a r ≠ (M_failure(Clash tm),refs)
-Proof
-  Cases_on`t`
-  \\ rw [mk_fun_ty_def, mk_type_def, st_ex_bind_def, st_ex_return_def,
-         raise_Failure_def, try_def, otherwise_def]
-  \\ fs [case_eq_thms, bool_case_eq, COND_RATOR]
 QED
 
 Theorem type_of_not_clash[simp]:

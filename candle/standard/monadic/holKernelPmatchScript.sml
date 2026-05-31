@@ -111,7 +111,7 @@ Theorem type_of_PMATCH[local]:
                         | _ => failwith «match»
            od
     | Abs (Var _ ty) t
-        => do x <- type_of t; mk_fun_ty ty x od
+        => do x <- type_of t; return (mk_fun_ty ty x) od
     | _ => failwith «match»
 Proof
   monadtac >> rpt tac

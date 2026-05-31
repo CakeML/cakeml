@@ -299,13 +299,21 @@ End
   let bty = mk_vartype "B";;
 *)
 
-Definition mk_fun_ty_def:
-  mk_fun_ty ty1 ty2 = mk_type(«fun»,[ty1; ty2])
+Definition bool_ty_def:
+  bool_ty = Tyapp «bool» []
 End
 
-Overload bool_ty[local] = ``mk_type(«bool»,[])``
-Overload aty[local] = ``mk_vartype «A»``
-Overload bty[local] = ``mk_vartype «B»``
+Definition mk_fun_ty_def:
+  mk_fun_ty ty1 ty2 = Tyapp «fun» [ty1; ty2]
+End
+
+Definition aty_def:
+  aty = Tyvar «A»
+End
+
+Definition bty_def:
+  bty = Tyvar «B»
+End
 
 (*
   let constants() = !the_term_constants
@@ -343,7 +351,7 @@ Definition type_of_def:
                      case x of (_,_::ty1::_) => return ty1
                              | _ => failwith «match»
                   od
-    | Abs (Var _ ty) t => do x <- type_of t; mk_fun_ty ty x od
+    | Abs (Var _ ty) t => do x <- type_of t; return (mk_fun_ty ty x) od
     | _ => failwith «match»
 End
 
@@ -810,8 +818,7 @@ Definition safe_mk_eq_def:
   safe_mk_eq l r =
   do
     ty <- type_of l;
-    bty <- bool_ty;
-    return (Comb (Comb (Const «=» (Tyapp «fun» [ty; Tyapp «fun» [ty;bty]])) l) r)
+    return (Comb (Comb (Const «=» (Tyapp «fun» [ty; Tyapp «fun» [ty;bool_ty]])) l) r)
   od
 End
 
@@ -936,9 +943,8 @@ Definition ALPHA_THM_def:
     let h' = list_to_hypset h' [] in
     if EVERY (λx. EXISTS (aconv x) h') h then
       do
-        bty <- bool_ty;
         tys <- map type_of h';
-        if EVERY (λty. ty = bty) tys then
+        if EVERY (λty. ty = bool_ty) tys then
           return (Sequent h' c')
         else failwith «ALPHA_THM»
       od
@@ -1025,8 +1031,7 @@ End
 Definition ASSUME_def:
   ASSUME tm =
     do ty <- type_of tm ;
-       bty <- bool_ty ;
-       if ty = bty then return (Sequent [tm] tm)
+       if ty = bool_ty then return (Sequent [tm] tm)
        else failwith «ASSUME: not a proposition» od
 End
 
@@ -1118,8 +1123,7 @@ End
 Definition new_axiom_def:
   new_axiom tm =
     do ty <- type_of tm ;
-       bty <- bool_ty ;
-       if ty = bty then
+       if ty = bool_ty then
          do th <- return (Sequent [] tm) ;
             ax <- get_the_axioms ;
             set_the_axioms (th :: ax) ;
@@ -1257,9 +1261,7 @@ Definition new_basic_type_definition_def:
     do rty <- type_of x ;
        add_type (tyname, LENGTH tyvars) ;
        aty <- mk_type(tyname,tyvars) ;
-       repty <- mk_fun_ty aty rty ;
-       absty <- mk_fun_ty rty aty ;
-       add_constants[(absname,absty);(repname,repty)] ;
+       add_constants[(absname,mk_fun_ty rty aty);(repname,mk_fun_ty aty rty)] ;
        add_def (TypeDefn tyname P absname repname) ;
        rep <- mk_const(repname,[]) ;
        abs <- mk_const(absname,[]) ;
