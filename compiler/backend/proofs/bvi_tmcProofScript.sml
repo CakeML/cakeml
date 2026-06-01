@@ -286,7 +286,7 @@ Proof
   >> conj_tac
   >- (qexistsl [‘xs’, ‘[]’] >> gvs [])
   >> gvs []
-  >> cheat (* this is easy but i'm not quite sure how to do it *)
+  >> gvs [LENGTH_EQ_NUM_compute]
 QED
 
 Theorem state_rel_dec:
@@ -335,6 +335,7 @@ Proof
   >> gvs []
 QED
 
+(* Can't be type error *)
 Theorem evaluate_expand_env:
   ∀xs env s t r extra.
     evaluate (xs, env, s) = (r, t) ⇒
@@ -375,6 +376,8 @@ Proof
   cheat
 QED
 
+(*
+(* Don't have reverses here *)
 Theorem do_app_rewrite_tmc:
   ∀f op vs vs' s s' r.
     bviSem$do_app op (REVERSE vs) s = r ∧
@@ -422,6 +425,7 @@ Proof
   >> gvs [case_eq_thms]
   >> cheat
 QED
+*)
 
 Definition hole_has_val_def:
   hole_has_val (f : num |-> num) (env1 : v list) (env2 : v list) (refs : num |-> v ref) c ⇔
@@ -699,6 +703,7 @@ Proof
   >> cheat
 QED
 
+(* Combine with the above *)
 Theorem do_app_holes_unchanged:
   ∀f s t u changed vs v t op.
     holes_unchanged_except f s.refs t.refs changed ∧
@@ -768,19 +773,13 @@ Definition is_block_op_cons_def:
       op = BlockOp (Cons block_tag)
 End
 
-(* This was copied from bvlPropsScript but I don't see it for bviPropsScript. Consider putting it there *)
+(*
+  This was copied from bvlPropsScript but I don't see it for bviPropsScript.
+  Consider putting it there.
+  Look for it elsewhere.
+*)
 Theorem evaluate_refs_SUBSET:
   (evaluate (xs,env,s) = (res,t)) ==> FDOM s.refs SUBSET FDOM t.refs
-Proof
-  cheat
-QED
-
-Theorem evaluate_err:
-  evaluate (xs,env,s) = (Rerr e,t) ⇒
-  ∃l x r v u.
-    xs = l ++ [x] ++ r ∧
-    evaluate (l, env,s) = (Rval v,u) ∧
-    evaluate ([x],env,u) = (Rerr e,t)
 Proof
   cheat
 QED
@@ -961,6 +960,7 @@ Proof
 QED
 
 (* BVI props? *)
+(* bviSem evaluate_clock *)
 Theorem evaluate_clock_non_increase:
   ∀xs env s r t.
     evaluate (xs,env,s) = (r,t) ⇒
@@ -1638,6 +1638,7 @@ Proof
   >> gvs [shift_vars_def, Once evaluate_CONS, evaluate_def, EL_APPEND_EQN]
 QED
 
+(* Use n+1 and n, subtracting nats is dangerous *)
 Theorem evaluate_shift_vars_cons:
   ∀vs env s b n.
     evaluate (MAP (λn. Var n) (shift_vars n vs),b::env,s) =
@@ -2004,8 +2005,7 @@ Resume evaluate_rewrite_tmc[op_opt]:
   >> asm_x "original'" kall_tac
   >> qpat_x_assum ‘env_rel _ _ _ _’ kall_tac
 
-  >> induct
-                           
+  (* Experiment below here *)
   >> drule phase2
   >> drule_all env_rel_submap
   >> strip_tac
@@ -2212,6 +2212,7 @@ Proof
 QED
 *)
 
+(* These shouldn't be needed *)
 Theorem evaluate_shift_exp_vars:
   ∀bs x env s.
     evaluate ([shift_exp_vars (LENGTH bs) x],bs ++ env,s) =
@@ -2220,6 +2221,7 @@ Proof
   cheat
 QED
 
+(* These shouldn't be needed *)
 Theorem evaluate_shift_exp_vars_sing:
   ∀b x env s.
     evaluate ([shift_exp_vars 1 x],b::env,s) =
@@ -2395,6 +2397,7 @@ Proof
   >> cheat
 QED        
 
+(*
 Theorem evaluate_cb_to_bvi_worker:
   ∀cb loc loc_opt arity body wrap work f1 env1 env2 s1 s2 t1 r1.
     evaluate ([cb_to_bvi loc cb],env1,s1) = (r1,t1) ∧
@@ -2820,6 +2823,7 @@ Proof
   >> strip_tac
   >> gvs [finalise_cons_def, CaseEq "option"]
 QED
+*)
 
 (* Move me *)
 Theorem length_shift_vars:
@@ -3327,8 +3331,6 @@ Resume evaluate_rewrite_tmc[force]:
 QED
 
 Resume evaluate_rewrite_tmc[call]:
-  cheat
-       (*
   gvs [evaluate_def]
   >> IF_CASES_TAC >> gvs []
   >> gvs [CaseEq "prod", PULL_EXISTS]
@@ -3597,7 +3599,6 @@ Resume evaluate_rewrite_tmc[call]:
     >> first_x_assum $ qspec_then ‘F’ mp_tac
     >> cheat)
   >> cheat
-*)
 QED
 
 Finalise evaluate_rewrite_tmc
