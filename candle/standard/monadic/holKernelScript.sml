@@ -380,8 +380,9 @@ Definition alphavars_def:
     case env of
       [] => (tm1 = tm2)
     | (t1,t2)::oenv =>
-         ((t1 = tm1) /\ (t2 = tm2)) \/
-         ((t1 <> tm1) /\ (t2 <> tm2) /\ alphavars oenv tm1 tm2)
+      if t1 = tm1 then t2 = tm2
+      else if t2 = tm2 then F
+      else alphavars oenv tm1 tm2
 End
 
 Definition raconv_def:
