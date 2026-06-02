@@ -39,7 +39,50 @@ Datatype:
   |>
 End
 
+(* Keeps track of maps from witness variables to model AIGER literals.
+
+   We use "AIGER literal" to differentiate the literal in AIGER from
+   the literal type defined in aigTheory.
+   To convert from the former to the latter, see convert_lit_def below.
+ *)
+Datatype:
+  maps = <|
+    shared_inputs        : num num_map;
+    shared_latches       : num num_map;
+    intervened_latches   : num num_map;
+  |>
+End
+
 (* General parsing functionality **********************************************)
+
+Definition consume_space_def:
+  consume_space [] = [] ∧
+  consume_space (c::rest) =
+  if c = #" " then consume_space rest else (c::rest)
+End
+
+Theorem consume_space_mono[local]:
+  ∀str. consume_space str = str' ⇒ LENGTH str' ≤ LENGTH str
+Proof
+  Induct >> rw [consume_space_def] >> simp []
+QED
+
+Definition consume_line_def:
+  consume_line [] = [] ∧
+  consume_line (c::rest) =
+  if c = #"\n" then rest else consume_line rest
+End
+
+Theorem consume_line_mono[local]:
+  ∀str. LENGTH (consume_line str) ≤ LENGTH str
+Proof
+  Induct >> rw [consume_line_def]
+QED
+
+Definition is_char_def:
+  is_char c [] = F ∧
+  is_char c (c'::rest) = (c' = c)
+End
 
 Definition expect_char_def:
   expect_char (c: char) [] =
@@ -63,6 +106,22 @@ Definition parse_number_def:
   if ¬isDigit c then error («expected digit», c::rest)
   else return (parse_number_aux rest (ORD c - ORD #"0"))
 End
+
+Theorem parse_number_aux_mono[local]:
+  ∀str acc.
+    parse_number_aux str acc = (res, rest) ⇒ LENGTH rest ≤ LENGTH str
+Proof
+  Induct >> rw [parse_number_aux_def] >> simp []
+  >> last_x_assum drule >> simp []
+QED
+
+Theorem parse_number_return_mono[local]:
+  parse_number str = return (res, rest) ⇒ LENGTH rest ≤ LENGTH str
+Proof
+  Cases_on ‘str’
+  >> rw [parse_number_def, AllCaseEqs()]
+  >> drule parse_number_aux_mono >> simp []
+QED
 
 Definition parse_numbers_aux_def:
   parse_numbers_aux 0 acc str = return (REVERSE acc, str) ∧
@@ -253,8 +312,115 @@ Definition parse_aiger_def:
   od
 End
 
+(* Parsing the maps *******************************************************)
+
+(*
+  The witness circuit can contain maps that determine the shared inputs and
+  latches, and the interventions.
+  These are stored either as comments (MAPPING or INTERVENTION), or as part of
+  the symbol table.
+  If the maps are not present in the file, a default mapping is chosen.
+
+  The priority order is as follows:
+  1. comment, 2. symbol table, 3. default mapping
+*)
+
+Definition insert_if_def:
+  insert_if b k v m = if b then insert k v m else m
+End
+
+Definition parse_entry_def:
+  parse_entry kind shared_is shared_ls interv rest =
+  do
+    (pos, rest) <- parse_number rest;
+    rest <<- consume_space rest;
+    case rest of
+    | (op::rest) =>
+        if op = #"=" ∨ op = #"<" then
+          do
+            (lit, rest) <- parse_number (consume_space rest);
+            return (
+              if is_char #"\n" rest then
+                let
+                  interv    = insert_if (op = #"<") pos lit interv;
+                  shared_is = insert_if (kind = #"i" ∧ op = #"=") pos lit
+                    shared_is;
+                  shared_ls = insert_if (kind = #"l" ∧ op = #"=") pos lit
+                    shared_ls;
+                in ((shared_is, shared_ls, interv), consume_line rest)
+              else ((shared_is, shared_ls, interv), consume_line rest))
+          od
+        else return ((shared_is, shared_ls, interv), consume_line rest)
+    | _ => error («unexpected EOF while parsing symbol table», rest)
+  od
+End
+
+Theorem parse_entry_mono[local]:
+  parse_entry kind shared_is shared_ls interv rest =
+  return ((shared_is', shared_ls', interv'), rest')
+  ⇒
+  LENGTH rest' ≤ LENGTH rest
+Proof
+  rw [parse_entry_def, oneline bind_def, AllCaseEqs(), PULL_EXISTS]
+  >> rpt (pairarg_tac >> gvs [AllCaseEqs()])
+  >> imp_res_tac parse_number_return_mono
+  >> imp_res_tac consume_space_mono
+  >> rename [‘consume_line rest₃’]
+  >> qspec_then ‘rest₃’ assume_tac consume_line_mono >> gvs []
+  >> rename1 ‘parse_number (consume_space rest₄)’
+  >> Cases_on ‘consume_space rest₄’
+  >> imp_res_tac consume_space_mono >> gvs []
+QED
+
+Definition parse_symbol_table_aux_def:
+  parse_symbol_table_aux shared_is shared_ls interv str =
+  case str of
+  | c::rest =>
+      if c = #"c" then
+        (* c\n marks the beginning of the comment section *)
+        (case rest of
+         | (#"\n"::_) => return ((shared_is, shared_ls, interv), str)
+         | _ => parse_symbol_table_aux shared_is shared_ls interv (consume_line rest))
+      else if c = #"i" ∨ c = #"l" then
+        case parse_entry c shared_is shared_ls interv rest of
+        | error err => error err
+        | return ((shared_is, shared_ls, interv), str') =>
+            parse_symbol_table_aux shared_is shared_ls interv str'
+      else
+        parse_symbol_table_aux shared_is shared_ls interv (consume_line rest)
+  | _ => return ((shared_is, shared_ls, interv), str)
+Termination
+  wf_rel_tac ‘measure (λ(sis,sls,iv,str). LENGTH str)’
+  >> rw [consume_line_def]
+  >> imp_res_tac parse_entry_mono >> gvs []
+  >> rename1 ‘consume_line rest’
+  >> qspec_then ‘rest’ assume_tac consume_line_mono >> gvs []
+End
+
+Definition parse_symbol_table_def:
+  parse_symbol_table str =
+  do
+    ((shared_is, shared_ls, interv), rest) <-
+      parse_symbol_table_aux LN LN LN str;
+    return
+      (<| shared_inputs := shared_is; shared_latches := shared_ls;
+          intervened_latches := interv |>, rest)
+  od
+End
+
+(* TODO Default mapping *)
+
+Definition parse_witness_def:
+  parse_witness str =
+  do
+    (aiger, rest) <- parse_aiger str;
+    (maps, rest) <- parse_symbol_table rest;
+    return (aiger, maps, rest)
+  od
+End
+
 val model = mlstringSyntax.mlstring_from_file "./examples/01_model.aig";
 val aig = EVAL “parse_aiger (explode ^model)” |> concl |> rhs;
 
 val model = mlstringSyntax.mlstring_from_file "./examples/06_witness.aig";
-val aig = EVAL “parse_aiger (explode ^model)” |> concl |> rhs;
+val aig = EVAL “parse_witness (explode ^model)” |> concl |> rhs;
