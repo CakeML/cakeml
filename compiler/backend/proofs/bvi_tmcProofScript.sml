@@ -1526,6 +1526,15 @@ Definition hypothesis_def:
                 hole_has_val f'' env1' env2' t2.refs res_v))
 End
 
+Definition hole_has_val2_def:
+  hole_has_val2 f refs ptr idx c ⇔
+    ∃p tag left right.
+      ptr = RefPtr F p ∧
+      idx = Number (&LENGTH left) ∧
+      p ∉ FRANGE f ∧
+      FLOOKUP refs p = SOME (MutBlock tag left c right)
+End
+
 Theorem evaluate_cb:
   ∀cb bs loc f opt env env2 ^s s' t t' r r'.
     evaluate ([cb_to_bvi loc cb],env,s) = (r,t) ∧
@@ -1542,23 +1551,27 @@ Theorem evaluate_cb:
       only_fresh f f' s'.refs ∧
       holes_unchanged_except f s'.refs t'.refs ∅ ∧
       (opt ⇒
-       ∀loc_opt.
-         (∀wrap.
+       ∀loc_opt exp_ptr exp_idx ptr idx.
+         (*(∀wrap.
             rewrite_wrapper loc loc_opt x = SOME wrap ⇒
             ∃t1 f_wrap.
               evaluate ([wrap],env2,s') = (r',t1) ∧
               state_rel f_wrap t t1 ∧ f ⊑ f_wrap ∧
-              only_fresh f f_wrap s'.refs) ∧
-         ((∃c. hole_has_val f env env2 s'.refs c) ⇒
-          ∃rrr t2 f_work.
-            evaluate ([rewrite_worker loc loc_opt (LENGTH env) (LENGTH env + 1) x],env2,s') = (rrr,t2) ∧
-            opt_res_rel r' rrr ∧
-            state_rel f_work t t2 ∧ f ⊑ f_work ∧
-            only_fresh f f_work s'.refs ∧
-            holes_unchanged_except f s'.refs t2.refs {env2❲LENGTH env❳} ∧
-            ∀res_v.
-              r' = Rval [res_v] ⇒ hole_has_val f env env2 t2.refs res_v))
+              only_fresh f f_wrap s'.refs) ∧*)
+         evaluate ([exp_ptr],env2,s') = (Rval [ptr],s') ∧
+         evaluate ([exp_idx],env2,s') = (Rval [idx],s') ∧
+         (∃c. hole_has_val2 f s'.refs ptr idx c) ⇒
+         ∃r_work t_work f_work.
+           evaluate ([cb_to_bvi_worker cb loc_opt exp_ptr exp_idx],env2,s') = (r_work,t_work) ∧
+           opt_res_rel r' r_work ∧
+           state_rel f_work t t_work ∧
+           f ⊑ f_work ∧
+           only_fresh f f_work s'.refs ∧
+           holes_unchanged_except f s'.refs t_work.refs {env2❲LENGTH env❳} ∧
+           ∀res_v.
+             r' = Rval [res_v] ⇒ hole_has_val f env env2 t2.refs res_v)
 Proof
+
   reverse $ Induct
   >- cheat
   >> rw []
@@ -1581,7 +1594,8 @@ Proof
   >> rename [‘state_rel f' u u'’]
   >> drule_then drule evaluate_vars
   >> impl_tac >- gvs [CaseEq "prod", CaseEq "result"]
-  >> disch_then $ qspec_then ‘u'’ mp_tac
+  >> strip_tac
+  >> first_assum $ qspec_then ‘u'’ mp_tac
   >> strip_tac >> gvs []
   >> rename [‘state_rel f' u u'’]
   >> gvs [do_app_def, do_app_aux_def, bvl_to_bvi_id]
@@ -1604,7 +1618,9 @@ Proof
   >> first_x_assum $ qspec_then ‘loc_opt’ mp_tac
   >> strip_tac
   >> rw []
-  >- cheat
+  >> gvs [cb_to_bvi_worker_def, evaluate_def]
+  >> gvs [mut_cons_def, evaluate_def, evaluate_APPEND]
+  >> gvs [do_app_def, do_app_aux_def, backend_commonTheory.small_enough_int_def]
   >>
 QED
 
