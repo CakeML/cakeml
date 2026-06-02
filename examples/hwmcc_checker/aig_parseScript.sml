@@ -3,7 +3,7 @@
 *)
 Theory aig_parse
 Ancestors
-  errorMonad mlstring aig
+  sptree errorMonad mlstring aig
 Libs
   preamble
 
@@ -28,8 +28,8 @@ End
 Datatype:
   aiger = <|
     counts      : counts;
-    next        : (num, (num, num, num) lit) alist;
-    reset       : (num, (num, num, num) lit) alist;
+    next        : (num, num, num) lit num_map;
+    reset       : (num, num, num) lit num_map;
     outputs     : (num, num, num) lit list;
     bad         : (num, num, num) lit list;
     constraints : (num, num, num) lit list;
@@ -202,10 +202,10 @@ Definition parse_latches_def:
     (next_lit, rest)  <- parse_lit max_input max_latch str;
     (reset_lit, rest) <- parse_opt_number rest;
     rest <- expect_char #"\n" rest;
-    next <<- (latch, next_lit)::next;
+    next <<- insert latch next_lit next;
     reset <<-
       if reset_lit = 2 * latch then reset
-      else (latch, convert_lit max_input max_latch reset_lit)::reset;
+      else insert latch (convert_lit max_input max_latch reset_lit) reset;
     parse_latches max_input max_latch n (latch + 1) next reset rest
   od
 End
@@ -233,7 +233,7 @@ Definition parse_aiger_def:
     max_latch <<- max_input + counts.latches;
     ((next, reset), rest) <-
       parse_latches max_input max_latch counts.latches (max_input + 1)
-        [] [] rest;
+        LN LN rest;
     (outputs, rest) <-
       parse_literals max_input max_latch counts.outputs [] rest;
     (bad, rest) <-
