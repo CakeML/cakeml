@@ -27,11 +27,27 @@ End
 (* TODO Are counts part of the circuit, or just an implementation detail? *)
 Datatype:
   aiger = <|
-    counts  : counts;
-    next    : (num, (num, num, num) lit) alist;
-    reset   : (num, (num, num, num) lit) alist;
-    outputs : (num, num, num) lit list
+    counts      : counts;
+    next        : (num, (num, num, num) lit) alist;
+    reset       : (num, (num, num, num) lit) alist;
+    outputs     : (num, num, num) lit list;
+    bad         : (num, num, num) lit list;
+    constraints : (num, num, num) lit list;
+    justice     : (num, num, num) lit list list;
+    fairness    : (num, num, num) lit list;
+    circuit     : (num, num, num) circuit;
   |>
+End
+
+(* General parsing functionality **********************************************)
+
+Definition expect_char_def:
+  expect_char (c: char) [] =
+  error (concat [«expected '»; toString c; «' got nothing»], []) ∧
+  expect_char c (c'::rest) =
+  if c' ≠ c then
+    error (concat [«expected '»; toString c; «' got '»; toString c'; «'»], rest)
+  else return rest
 End
 
 Definition parse_number_aux_def:
@@ -48,6 +64,22 @@ Definition parse_number_def:
   else return (parse_number_aux rest (ORD c - ORD #"0"))
 End
 
+Definition parse_numbers_aux_def:
+  parse_numbers_aux 0 acc str = return (REVERSE acc, str) ∧
+  parse_numbers_aux (SUC n) acc str =
+  do
+    (number, rest) <- parse_number str;
+    rest <- expect_char #"\n" rest;
+    parse_numbers_aux n (number::acc) rest
+  od
+End
+
+(* Parses newline-separated numbers. *)
+Definition parse_numbers_def:
+  parse_numbers j str = parse_numbers_aux j [] str
+End
+
+(* Parses an optional number (= has one leading space), defaulting to 0. *)
 Definition parse_opt_number_def:
   parse_opt_number (#" "::rest) =
     do
@@ -57,14 +89,20 @@ Definition parse_opt_number_def:
   parse_opt_number str = return (0n, str)
 End
 
-Definition expect_char_def:
-  expect_char (c: char) [] =
-  error (concat [«expected '»; toString c; «' got nothing»], []) ∧
-  expect_char c (c'::rest) =
-  if c' ≠ c then
-    error (concat [«expected '»; toString c; «' got '»; toString c'; «'»], rest)
-  else return rest
+Definition parse_leb_aux_def:
+  parse_leb_aux [] ex n = error («unexpected end of input», []) ∧
+  parse_leb_aux (c::rest) ex n =
+    if ORD c ≥ 128 then
+      parse_leb_aux rest (ex * 128) ((ORD c - 128) * ex + n)
+    else return (ORD c * ex + n, rest)
 End
+
+(* Parses a number encoded in ULEB128 *)
+Definition parse_leb_def:
+  parse_leb str = parse_leb_aux str 1 0
+End
+
+(* Parsing the AIGER format ***************************************************)
 
 Definition parse_counts_def:
   parse_counts str =
@@ -123,6 +161,7 @@ Definition parse_lit_def:
   od
 End
 
+(* Returns the parsed literals in reversed order. *)
 Definition parse_literals_def:
   parse_literals max_input max_latch 0 acc str = return (acc, str) ∧
   parse_literals max_input max_latch (SUC n) acc str =
@@ -130,6 +169,28 @@ Definition parse_literals_def:
     (lit, rest) <- parse_lit max_input max_latch str;
     rest <- expect_char #"\n" rest;
     parse_literals max_input max_latch n (lit::acc) rest
+  od
+End
+
+Definition parse_justices_aux_def:
+  parse_justices_aux max_input max_latch [] acc str = return (acc, str) ∧
+  parse_justices_aux max_input max_latch (s::ss) acc str =
+  do
+    (row, rest) <- parse_literals max_input max_latch s [] str;
+    parse_justices_aux max_input max_latch ss (row::acc) rest
+  od
+End
+
+(* Returns the parsed justice lists in reversed order.
+
+   Since a justice property consists of a list of literals, we first parse
+   the lengths of these lists for each of the j justice properties,
+   after which we can parse the literals. *)
+Definition parse_justices_def:
+  parse_justices max_input max_latch j str =
+  do
+    (sizes, rest) <- parse_numbers j str;
+    parse_justices_aux max_input max_latch sizes [] rest
   od
 End
 
@@ -149,6 +210,21 @@ Definition parse_latches_def:
   od
 End
 
+Definition parse_ands_def:
+  parse_ands max_input max_latch 0 lhs ands str = return (ands, str) ∧
+  parse_ands max_input max_latch (SUC n) lhs ands str =
+  do
+    (delta0, rest) <- parse_leb str;
+    (delta1, rest) <- parse_leb rest;
+    rhs0 <<- 2 * lhs  - delta0;
+    rhs1 <<- rhs0     - delta1;
+    rhs0 <<- convert_lit max_input max_latch rhs0;
+    rhs1 <<- convert_lit max_input max_latch rhs1;
+    ands <<- (lhs, [rhs0; rhs1])::ands;
+    parse_ands max_input max_latch n (lhs + 1) ands rest
+  od
+End
+
 Definition parse_aiger_def:
   parse_aiger str =
   do
@@ -160,11 +236,25 @@ Definition parse_aiger_def:
         [] [] rest;
     (outputs, rest) <-
       parse_literals max_input max_latch counts.outputs [] rest;
+    (bad, rest) <-
+      parse_literals max_input max_latch counts.bad [] rest;
+    (constraints, rest) <-
+      parse_literals max_input max_latch counts.constraints [] rest;
+    (justice, rest) <-
+      parse_justices max_input max_latch counts.justice rest;
+    (fairness, rest) <-
+      parse_literals max_input max_latch counts.fairness [] rest;
+    (circuit, rest) <-
+      parse_ands max_input max_latch counts.ands (max_latch + 1) [] rest;
     return
-      (<| counts := counts; next := next; reset := reset;
-          outputs := outputs |>, rest)
+      (<| counts := counts; next := next; reset := reset; outputs := outputs;
+          bad := bad; constraints := constraints; justice := justice;
+          fairness := fairness; circuit := circuit |>, rest)
   od
 End
 
 val model = mlstringSyntax.mlstring_from_file "./examples/01_model.aig";
+val aig = EVAL “parse_aiger (explode ^model)” |> concl |> rhs;
+
+val model = mlstringSyntax.mlstring_from_file "./examples/06_witness.aig";
 val aig = EVAL “parse_aiger (explode ^model)” |> concl |> rhs;
