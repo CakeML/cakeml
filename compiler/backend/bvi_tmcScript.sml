@@ -297,21 +297,30 @@ Definition update_cons_def:
   update_cons exp_ptr exp_idx exp_val = Op (MemOp UpdateCons) [exp_val; exp_idx; exp_ptr]
 End
 
-Definition cb_to_bvi_worker_def:
-  (cb_to_bvi_worker (RCall call_ts call_args) loc_opt exp_ptr exp_idx =
-   optimise_call call_ts loc_opt call_args exp_ptr exp_idx) ∧
-  (cb_to_bvi_worker (CallBlock tag left child right) loc_opt exp_ptr exp_idx =
+Definition cb_to_bvi_worker_aux_def:
+  (cb_to_bvi_worker_aux (RCall call_ts call_args) loc_opt ptr idx =
+   optimise_call call_ts loc_opt call_args (Var ptr) (Op (IntOp (Const &idx)) [])) ∧
+  (cb_to_bvi_worker_aux (CallBlock tag left child right) loc_opt ptr idx =
    Let [mut_cons tag left right] $
-       Let [update_cons (shallow_shift 1 exp_ptr) (shallow_shift 1 exp_idx) (Var 0)] $
-       cb_to_bvi_worker (shift_cb 2 child) loc_opt (Var 1) (Op (IntOp (Const (&LENGTH right))) []))
+       Let [update_cons (Var (ptr + 1)) (Op (IntOp (Const &idx)) []) (Var 0)] $
+       cb_to_bvi_worker_aux (shift_cb 2 child) loc_opt 1 (LENGTH right))
 Termination
   cheat
+End
+
+Definition cb_to_bvi_worker_def:
+  (cb_to_bvi_worker (RCall call_ts call_args) loc_opt ptr idx =
+   optimise_call call_ts loc_opt call_args (Var ptr) (Var idx)) ∧
+  (cb_to_bvi_worker (CallBlock tag left child right) loc_opt ptr idx =
+   Let [mut_cons tag left right] $
+       Let [update_cons (Var (ptr + 1)) (Var (idx + 1)) (Var 0)] $
+       cb_to_bvi_worker_aux (shift_cb 2 child) loc_opt 1 (LENGTH right))
 End
 
 Definition cb_to_bvi_wrapper_def:
   (cb_to_bvi_wrapper tag left child right loc_opt =
    Let [mut_cons tag left right] $
-       Let [cb_to_bvi_worker (shift_cb 1 child) loc_opt (Var 0) (Op (IntOp (Const (&LENGTH right))) [])] $
+       Let [cb_to_bvi_worker_aux (shift_cb 1 child) loc_opt 0 (LENGTH right)] $
        finalise_cons 1)
 End
 
@@ -356,7 +365,7 @@ Definition rewrite_worker_def:
    case bvi_to_cb loc (Op op op_args) of
    | SOME (bs,cb) =>
        (let offset = LENGTH bs in
-          Let bs $ cb_to_bvi_worker cb loc_opt (Var (offset + i_old_ptr)) (Var (offset + i_old_idx)))
+          Let bs $ cb_to_bvi_worker cb loc_opt (offset + i_old_ptr) (offset + i_old_idx))
    | NONE =>
        fill_hole i_old_ptr i_old_idx $ Op op op_args) ∧
   (rewrite_worker loc loc_opt i_old_ptr i_old_idx (Tick x) =
@@ -365,7 +374,7 @@ Definition rewrite_worker_def:
    (case bvi_to_cb loc (Call ts l args h) of
     | SOME (bs,cb) =>
         (let offset = LENGTH bs in
-           Let bs $ cb_to_bvi_worker cb loc_opt (Var (offset + i_old_ptr)) (Var (offset + i_old_idx)))
+           Let bs $ cb_to_bvi_worker cb loc_opt (offset + i_old_ptr) (offset + i_old_idx))
     | NONE =>
         fill_hole i_old_ptr i_old_idx $ Call ts l args h)) ∧
   (rewrite_worker loc loc_opt i_old_ptr i_old_idx expr =

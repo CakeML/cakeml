@@ -1527,13 +1527,34 @@ Definition hypothesis_def:
 End
 
 Definition hole_has_val2_def:
-  hole_has_val2 f refs ptr idx c ⇔
-    ∃p tag left right.
-      ptr = RefPtr F p ∧
-      idx = Number (&LENGTH left) ∧
-      p ∉ FRANGE f ∧
-      FLOOKUP refs p = SOME (MutBlock tag left c right)
+  hole_has_val2 f env refs i_ptr c_idx c ⇔
+    ∃hole_ptr tag left right.
+      env❲i_ptr❳ = RefPtr F hole_ptr ∧
+      c_idx = LENGTH left ∧
+      hole_ptr ∉ FRANGE f ∧
+      FLOOKUP refs hole_ptr = SOME (MutBlock tag left c right)
 End
+
+Definition alloc_preconditions_def:
+  alloc_preconditions f refs extras i_ptr c_idx ⇔
+    ∃hole_ptr tag left c right.
+      i_ptr < LENGTH extras ∧
+      extras❲i_ptr❳ = RefPtr F hole_ptr ∧
+      c_idx = LENGTH left ∧
+      hole_ptr ∉ FRANGE f ∧
+      FLOOKUP refs hole_ptr = SOME (MutBlock tag left c right)
+End
+
+(* Move me. This is duplicated somewhere... *)
+Theorem length_shift_vars:
+  ∀l n.
+     LENGTH (shift_vars n l) = LENGTH l
+Proof
+  Induct
+  >- gvs [shift_vars_def]
+  >> rw []
+  >> gvs [shift_vars_def]
+QED
 
 Theorem evaluate_cb:
   ∀cb bs loc f opt env env2 ^s s' t t' r r'.
@@ -1551,25 +1572,24 @@ Theorem evaluate_cb:
       only_fresh f f' s'.refs ∧
       holes_unchanged_except f s'.refs t'.refs ∅ ∧
       (opt ⇒
-       ∀loc_opt exp_ptr exp_idx ptr idx.
+       ∀loc_opt extras ptr idx.
          (*(∀wrap.
             rewrite_wrapper loc loc_opt x = SOME wrap ⇒
             ∃t1 f_wrap.
               evaluate ([wrap],env2,s') = (r',t1) ∧
               state_rel f_wrap t t1 ∧ f ⊑ f_wrap ∧
               only_fresh f f_wrap s'.refs) ∧*)
-         evaluate ([exp_ptr],env2,s') = (Rval [ptr],s') ∧
-         evaluate ([exp_idx],env2,s') = (Rval [idx],s') ∧
-         (∃c. hole_has_val2 f s'.refs ptr idx c) ⇒
+         alloc_preconditions f s'.refs extras ptr idx ⇒
+         (*(∃c. hole_has_val2 f env2 s'.refs ptr idx c) ⇒*)
          ∃r_work t_work f_work.
-           evaluate ([cb_to_bvi_worker cb loc_opt exp_ptr exp_idx],env2,s') = (r_work,t_work) ∧
+           evaluate ([cb_to_bvi_worker_aux (shift_cb (LENGTH extras) cb) loc_opt ptr idx],extras ++ env2,s') = (r_work,t_work) ∧
            opt_res_rel r' r_work ∧
            state_rel f_work t t_work ∧
            f ⊑ f_work ∧
            only_fresh f f_work s'.refs ∧
            holes_unchanged_except f s'.refs t_work.refs {env2❲LENGTH env❳} ∧
            ∀res_v.
-             r' = Rval [res_v] ⇒ hole_has_val f env env2 t2.refs res_v)
+             r' = Rval [res_v] ⇒ hole_has_val f env env2 t_work.refs res_v)
 Proof
 
   reverse $ Induct
@@ -1580,7 +1600,6 @@ Proof
   >> gvs [cb_to_bvi_def, evaluate_def, evaluate_APPEND, CaseEq "prod"]
   >> drule_then drule evaluate_vars
   >> impl_tac >- (spose_not_then assume_tac >> gvs [CaseEq "prod"])
-  >> disch_then $ qspec_then ‘s'’ mp_tac
   >> strip_tac
   >> gvs [CaseEq "prod"]
   >> last_x_assum drule
@@ -1618,11 +1637,29 @@ Proof
   >> first_x_assum $ qspec_then ‘loc_opt’ mp_tac
   >> strip_tac
   >> rw []
-  >> gvs [cb_to_bvi_worker_def, evaluate_def]
+  >> gvs [cb_to_bvi_worker_aux_def, evaluate_def, shift_cb_def]
   >> gvs [mut_cons_def, evaluate_def, evaluate_APPEND]
+  >> gvs [evaluate_shift_vars]
   >> gvs [do_app_def, do_app_aux_def, backend_commonTheory.small_enough_int_def]
-  >>
+  >> gvs [length_shift_vars]
+  >> gvs [LENGTH_MAP, REVERSE_APPEND, TAKE_APPEND, DROP_APPEND, GSYM MAP_REVERSE, GSYM MAP_TAKE, GSYM MAP_DROP, DROP_LENGTH_TOO_LONG]
+  >> gvs [update_cons_def, evaluate_def]
+  >> gvs [do_app_def, do_app_aux_def]
+  >> ‘backend_common$small_enough_int (&idx)’ by cheat
+  >> gvs []
+  >> Cases_on ‘ptr + 1’
+  >- gvs []
+  >> ‘n = ptr’ by gvs []
+  >> gvs [alloc_preconditions_def]
+  >> gvs [FLOOKUP_SIMP, EL_APPEND_EQN]
+  >> IF_CASES_TAC
+  >- cheat (* contradiction *)
+  >> gvs []
+  >> first_x_assum $ qspecl_then [‘Unit::RefPtr F (LEAST ptr. ptr ∉ FDOM s'.refs)::extras’, ‘1’, ‘LENGTH right’] mp_tac
+  >> gvs []
 QED
+
+print_match [] “(x::xs)❲n+1❳”
 
 Resume evaluate_rewrite_tmc[call_block]:
 
