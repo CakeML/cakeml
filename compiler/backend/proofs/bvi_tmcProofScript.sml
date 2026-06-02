@@ -1022,18 +1022,23 @@ Proof
    (gvs [evaluate_def] >> first_x_assum $ irule_at Any >> fs [only_fresh_def, holes_unchanged_except_def])
   >> reverse $ Cases_on ‘t'’
   >~ [‘evaluate (x::y::xs,_,_)’] >- suspend "list"
+  >> reverse $ Cases_on ‘bvi_to_cb loc h = NONE’
+  >-
+   (Cases_on ‘bvi_to_cb loc h’
+    >- gvs []
+    >> Cases_on ‘x’
+    >> gvs []
+    >> rename [‘bvi_to_cb _ x = SOME (bs,cb)’]
+    >> suspend "call_block")
   >> Cases_on ‘h’
   >~ [‘Var n’] >- suspend "var"
   >~ [‘If x1 x2 x3’] >- suspend "if"
   >~ [‘Let xs x2’] >- suspend "lett"
   >~ [‘Raise x’] >- suspend "raise"
-  >~ [‘Op op xs’] >-
-   (Cases_on ‘bvi_to_cb loc (Op op xs) = SOME (bs,cb)’
-    >- suspend "op_opt"
-    >- suspend "op_non_opt")
+  >~ [‘Op op xs’] >- suspend "op_non_opt"
   >~ [‘Tick x’] >- suspend "tick"
   >~ [‘Force force_loc n’] >- suspend "force"
-  >~ [‘Call ticks dest xs handler’] >- suspend "call"
+  >~ [‘Call ticks dest xs handler’] >- suspend "call_non_opt"
 QED
 
 Resume evaluate_rewrite_tmc[list]:
@@ -1523,24 +1528,10 @@ Resume evaluate_rewrite_tmc[op_non_opt]:
    (rename [‘evaluate (xs,env2,s') = (Rerr e',t')’]
     >> strip_tac >> gvs []
     >> rw []
-    >-
-     (gvs [rewrite_wrapper_def]
-      >> Cases_on ‘op’ >> gvs [dest_Cons_def]
-      >> Cases_on ‘b’ >> gvs [dest_Cons_def]
-      >> gvs [rewrite_wrapper_cons_def, CaseEq "option", CaseEq "prod"])
+    >- gvs [rewrite_wrapper_def]
     >> gvs [rewrite_worker_def]
-    >> reverse CASE_TAC >> gvs []
-    >-
-     (Cases_on ‘op’ >> gvs [dest_Cons_def]
-      >> Cases_on ‘b’ >> gvs [dest_Cons_def]
-      >> gvs [rewrite_worker_cons_def]
-      >> reverse CASE_TAC >> gvs []
-      >- (CASE_TAC >> gvs [])
-      >> gvs [evaluate_def, fill_hole_def, opt_res_rel_def]
-      >> irule holes_unchanged_except_subset
-      >> first_assum $ irule_at Any
-      >> gvs [])
     >> gvs [evaluate_def, fill_hole_def, opt_res_rel_def]
+    >> rpt $ first_assum $ irule_at Any
     >> irule holes_unchanged_except_subset
     >> first_assum $ irule_at Any
     >> gvs [])
@@ -1556,9 +1547,9 @@ Resume evaluate_rewrite_tmc[op_non_opt]:
     >> drule $ iffLR list_rel_reverse
     >> gvs []
     >> rw []
-    >- (gvs [rewrite_wrapper_def, dest_Cons_def])
-    >> gvs [rewrite_worker_def, dest_Cons_def]
-    >> gvs [evaluate_def, fill_hole_def, opt_res_rel_def]
+    >- gvs [rewrite_wrapper_def]
+    >> gvs [rewrite_worker_def, evaluate_def, fill_hole_def, opt_res_rel_def]
+    >> rpt $ first_assum $ irule_at Any
     >> irule holes_unchanged_except_subset
     >> first_assum $ irule_at Any
     >> gvs [])
@@ -1566,9 +1557,9 @@ Resume evaluate_rewrite_tmc[op_non_opt]:
   >> drule $ iffLR list_rel_reverse
   >> strip_tac
   >> drule_all do_app_op_rel
+  >> disch_then $ qspec_then ‘v’ mp_tac
   >> strip_tac
-  >> gvs []
-  >> Cases_on ‘v’ >> gvs []
+  >> gvs [CaseEq "prod"]
   >> Cases_on ‘v'’ >> gvs []
   >> rename [‘v_rel f' v v'’]
   >> rename [‘state_rel f' t t'’]
@@ -1577,24 +1568,9 @@ Resume evaluate_rewrite_tmc[op_non_opt]:
    (irule do_app_holes_unchanged
     >> first_assum $ irule_at Any
     >> gvs [])
-  >> strip_tac
-  >> gvs []
-  >> gvs [PULL_FORALL]
-  >> rpt gen_tac
-  >> gvs [rewrite_wrapper_def, rewrite_worker_def]
-  >> reverse CASE_TAC >> gvs []
-  >-
-   (Cases_on ‘op’ >> gvs [dest_Cons_def]
-    >> Cases_on ‘b’ >> gvs [dest_Cons_def]
-    >> rw []
-    >- (gvs [rewrite_wrapper_cons_def, CaseEq "option", CaseEq "prod"])
-    >> gvs [rewrite_worker_cons_def]
-    >> reverse CASE_TAC >> gvs []
-    >- (CASE_TAC >> gvs [])
-    >> ho_match_mp_tac evaluate_fill_hole
-    >> gvs [evaluate_def]
-    >> rpt $ first_assum $ irule_at Any)
-  >> strip_tac
+  >> rw []
+  >- gvs [rewrite_wrapper_def]
+  >> gvs [rewrite_worker_def]
   >> ho_match_mp_tac evaluate_fill_hole
   >> gvs [evaluate_def]
   >> rpt $ first_assum $ irule_at Any
