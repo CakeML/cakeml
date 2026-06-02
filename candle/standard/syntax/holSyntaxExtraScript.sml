@@ -726,9 +726,12 @@ Theorem orda_RACONV[local]:
   ∀env t1 t2. orda env t1 t2 = EQUAL ⇒ RACONV env (t1,t2)
 Proof
   ho_match_mp_tac orda_ind >> rw[] >>
+  reverse(Cases_on`t1 ≠ t2 ∨ env ≠ []`) >- (
+    fs[RACONV_REFL] ) >>
+  qmatch_assum_abbrev_tac`p` >> fs[] >>
   qhdtm_x_assum`orda`mp_tac >>
   simp[Once orda_def] >>
-  rw [] >>
+  rw[] >- fs[markerTheory.Abbrev_def] >>
   pop_assum mp_tac >>
   BasicProvers.CASE_TAC >>
   BasicProvers.CASE_TAC >>
@@ -764,21 +767,6 @@ Proof
   fs[TotOrd] >> rw[]
 QED
 
-Theorem ordav_equal[local]:
-  ∀env t. EVERY (λ(x,y). x = y) env ⇒ ordav env t t = EQUAL
-Proof
-  Induct >> rw [Once ordav_def]
-  >> rename1 ‘h::_’
-  >> PairCases_on ‘h’
-  >> gvs [Once ordav_def]
-QED
-
-Theorem orda_equal[local]:
-  ∀t env. EVERY (λ(x,y). x = y) env ⇒ orda env t t = EQUAL
-Proof
-  Induct >> rw [Once orda_def, ordav_equal]
-QED
-
 Theorem ordav_sym:
    ∀env v1 v2. flip_ord (ordav env v1 v2) = ordav (MAP (λ(x,y). (y,x)) env) v2 v1
 Proof
@@ -791,13 +779,14 @@ Theorem orda_sym:
    ∀env t1 t2. flip_ord (orda env t1 t2) = orda (MAP (λ(x,y). (y,x)) env) t2 t1
 Proof
   ho_match_mp_tac orda_ind >>
-  rpt strip_tac >>
+  rpt gen_tac >> rpt strip_tac >>
   ONCE_REWRITE_TAC[orda_def] >>
+  IF_CASES_TAC >- rw[] >>
+  qmatch_assum_abbrev_tac`¬p` >> fs[] >>
+  IF_CASES_TAC >- fs[Abbr`p`] >>
   BasicProvers.CASE_TAC >>
-  BasicProvers.CASE_TAC >>
-  gvs [] >>
-  BasicProvers.CASE_TAC >>
-  fs[ordav_sym] >>
+  BasicProvers.CASE_TAC >> simp[ordav_sym] >>
+  rw[] >> fs[] >>
   metis_tac[invert_comparison_def,TotOrd_type_cmp,TotOrd_term_cmp,
             TotOrd,cpn_nchotomy,cpn_distinct]
 QED
@@ -811,11 +800,13 @@ Proof
 QED
 
 Theorem orda_thm[local]:
-  ∀env t1 t2. orda env t1 t2 = ^(rhs(concl(SPEC_ALL orda_def)))
+  ∀env t1 t2. orda env t1 t2 = ^(#3(dest_cond(rhs(concl(SPEC_ALL orda_def)))))
 Proof
   rpt gen_tac >>
   CONV_TAC(LAND_CONV(REWR_CONV orda_def)) >>
-  simp []
+  reverse IF_CASES_TAC >- rw[] >> rw[] >>
+  BasicProvers.CASE_TAC >> rw[ordav_def] >>
+  fs[GSYM RACONV_eq_orda,RACONV_REFL]
 QED
 
 Theorem ordav_lx_trans[local]:
@@ -1054,9 +1045,8 @@ Theorem hypset_ok_el_less =
 Theorem term_union_idem[simp]:
    ∀ls. term_union ls ls = ls
 Proof
-  Induct >- simp [term_union_def]
-  >> rw [Once term_union_def]
-  >> fs [orda_equal]
+  Induct >- simp[term_union_def] >>
+  simp[Once term_union_def, Once orda_def]
 QED
 
 Theorem term_union_thm:
