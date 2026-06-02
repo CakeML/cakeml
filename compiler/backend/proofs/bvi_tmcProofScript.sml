@@ -1543,18 +1543,7 @@ Theorem evaluate_cb:
       holes_unchanged_except f s'.refs t'.refs ∅ ∧
       (opt ⇒
        ∀loc_opt.
-         (∃c. hole_has_val f env env2 s'.refs c) ⇒
-         ∃r_work t_work f_work.
-           evaluate([cb_to_bvi_worker cb loc_opt exp_ptr exp_idx],env2,s') = (r_work, t_work) ∧
-           opt_res_rel r' r_work ∧
-           state_rel f_work t t_work ∧
-           f SUBMAP f_work ∧
-           only_fresh f f_work s'.refs ∧
-           holes_unchanged_except f s'.refs t2.refs {env2❲LENGTH env❳} ∧
-           ∀res_v.
-             r' = Rval [res_v] ⇒ hole_has_val f env env2 t_work.refs res_v))
-
-                    (∀wrap.
+         (∀wrap.
             rewrite_wrapper loc loc_opt x = SOME wrap ⇒
             ∃t1 f_wrap.
               evaluate ([wrap],env2,s') = (r',t1) ∧
@@ -1574,30 +1563,27 @@ Proof
   >- cheat
   >> rw []
   >> reverse $ imp_res_tac bvi_to_cb_cases
-  >- gvs [bvi_to_cb_def, call_to_cb_def, CaseEq "prod"]
-  >> gvs [cb_to_bvi_def, evaluate_def, evaluate_APPEND, CaseEq "prod"]
   >> rename [‘CallBlock tag left child right’]
-  >> drule_all env_rel_submap
-  >> strip_tac
-  >> drule_all env_rel_append
-  >> strip_tac
+  >> gvs [cb_to_bvi_def, evaluate_def, evaluate_APPEND, CaseEq "prod"]
   >> drule_then drule evaluate_vars
   >> impl_tac >- (spose_not_then assume_tac >> gvs [CaseEq "prod"])
   >> disch_then $ qspec_then ‘s'’ mp_tac
+  >> strip_tac
+  >> gvs [CaseEq "prod"]
+  >> last_x_assum drule
+  >> rpt $ disch_then drule
+  >> impl_tac >- gvs [CaseEq "prod", CaseEq "result"]
   >> strip_tac >> gvs []
-  >> gvs [CaseEq "prod", do_app_def, do_app_aux_def, bvl_to_bvi_id]
-  >> last_x_assum $ drule
-  >> disch_then drule
-
-  >- gvs [CaseEq "prod", CaseEq "result"]
-  >> strip_tac >> gvs []
+  >> rename [‘state_rel f' u u'’]
   >> reverse $ Cases_on ‘v2’
   >- cheat
   >> gvs [CaseEq "prod"]
+  >> rename [‘state_rel f' u u'’]
   >> drule_then drule evaluate_vars
   >> impl_tac >- gvs [CaseEq "prod", CaseEq "result"]
-  >> disch_then $ qspec_then ‘t''’ mp_tac
+  >> disch_then $ qspec_then ‘u'’ mp_tac
   >> strip_tac >> gvs []
+  >> rename [‘state_rel f' u u'’]
   >> gvs [do_app_def, do_app_aux_def, bvl_to_bvi_id]
   >> first_assum $ irule_at Any
   >> imp_res_tac evaluate_SING_IMP
@@ -1611,21 +1597,15 @@ Proof
     >> simp [LIST_REL_MAP]
     >> rpt $ irule_at Any LIST_REL_refl
     >> simp []
+    (* Lemma? *)
     >> cheat)
-  >> strip_tac
+  >> strip_tac >> gvs []
   >> gen_tac
-  >> gvs []
   >> first_x_assum $ qspec_then ‘loc_opt’ mp_tac
   >> strip_tac
-  >> gvs []
   >> rw []
-  >-
-   (gvs [rewrite_wrapper_def, CaseEq "option", CaseEq "prod", CaseEq "call_block"]
-    >> gvs [cb_to_bvi_wrapper_def, Once evaluate_def]
-    >> gvs [bvi_to_cb_def]
-    >> cheat)
-  >> simp [rewrite_worker_def]
-  >> cheat
+  >- cheat
+  >>
 QED
 
 Resume evaluate_rewrite_tmc[call_block]:
