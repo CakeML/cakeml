@@ -142,16 +142,6 @@ Definition type_cmp_def:
   type_cmp = TO_of_LinearOrder type_lt
 End
 
-(*
-  let rec ordav env x1 x2 =
-    match env with
-      [] -> compare x1 x2
-    | (t1,t2)::oenv -> if compare x1 t1 = 0
-                       then if compare x2 t2 = 0
-                            then 0 else -1
-                       else if compare x2 t2 = 0 then 1
-                       else ordav oenv x1 x2
-*)
 Definition ordav_def:
   (ordav [] x1 x2 ⇔ term_cmp x1 x2) ∧
   (ordav ((t1,t2)::env) x1 x2 ⇔
@@ -164,41 +154,24 @@ Definition ordav_def:
     else ordav env x1 x2)
 End
 
-(*
-  let rec orda env tm1 tm2 =
-    if tm1 == tm2 && forall (fun (x,y) -> x = y) env then 0 else
-    match (tm1,tm2) with
-      Var(x1,ty1),Var(x2,ty2) -> ordav env tm1 tm2
-    | Const(x1,ty1),Const(x2,ty2) -> compare tm1 tm2
-    | Comb(s1,t1),Comb(s2,t2) ->
-          let c = orda env s1 s2 in if c <> 0 then c else orda env t1 t2
-    | Abs(Var(_,ty1) as x1,t1),Abs(Var(_,ty2) as x2,t2) ->
-          let c = compare ty1 ty2 in
-          if c <> 0 then c else orda ((x1,x2)::env) t1 t2
-    | Const(_,_),_ -> -1
-    | _,Const(_,_) -> 1
-    | Var(_,_),_ -> -1
-    | _,Var(_,_) -> 1
-    | Comb(_,_),_ -> -1
-    | _,Comb(_,_) -> 1
-*)
 Definition orda_def:
   orda env t1 t2 =
-    case (t1,t2) of
-    | (Var _ _, Var _ _) => ordav env t1 t2
-    | (Const _ _, Const _ _) => term_cmp t1 t2
-    | (Comb s1 t1, Comb s2 t2) =>
-      (let c = orda env s1 s2 in
-         if c ≠ EQUAL then c else orda env t1 t2)
-    | (Abs s1 t1, Abs s2 t2) =>
-      (let c = type_cmp (typeof s1) (typeof s2) in
-         if c ≠ EQUAL then c else orda ((s1,s2)::env) t1 t2)
-    | (Var _ _, _) => LESS
-    | (_, Var _ _) => GREATER
-    | (Const _ _, _) => LESS
-    | (_, Const _ _) => GREATER
-    | (Comb _ _, _) => LESS
-    | (_, Comb _ _) => GREATER
+    if t1 = t2 ∧ env = [] then EQUAL else
+      case (t1,t2) of
+      | (Var _ _, Var _ _) => ordav env t1 t2
+      | (Const _ _, Const _ _) => term_cmp t1 t2
+      | (Comb s1 t1, Comb s2 t2) =>
+        (let c = orda env s1 s2 in
+           if c ≠ EQUAL then c else orda env t1 t2)
+      | (Abs s1 t1, Abs s2 t2) =>
+        (let c = type_cmp (typeof s1) (typeof s2) in
+           if c ≠ EQUAL then c else orda ((s1,s2)::env) t1 t2)
+      | (Var _ _, _) => LESS
+      | (_, Var _ _) => GREATER
+      | (Const _ _, _) => LESS
+      | (_, Const _ _) => GREATER
+      | (Comb _ _, _) => LESS
+      | (_, Comb _ _) => GREATER
 End
 
 (*
