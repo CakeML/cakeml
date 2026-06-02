@@ -3350,31 +3350,39 @@ Resume evaluate_rewrite_tmc[force]:
   cheat
 QED
 
-Resume evaluate_rewrite_tmc[call]:
+Resume evaluate_rewrite_tmc[call_non_opt]:
+
   gvs [evaluate_def]
   >> IF_CASES_TAC >> gvs []
   >> gvs [CaseEq "prod", PULL_EXISTS]
   >> rename [‘evaluate (xs,env,s) = (v_xs,u)’]
   (* xs inductive hypothesis *)
-  >> first_x_assum $ qspec_then ‘F’ mp_tac
+  >> first_assum $ qspecl_then [‘xs’, ‘s’, ‘env’] mp_tac
+  >> impl_tac
+  >- gvs []
+  >> disch_then drule
   >> drule env_rel_relax_opt
   >> gvs []
   >> strip_tac
   >> rpt $ disch_then drule
   >> impl_tac
   >- (CCONTR_TAC >> gvs [])
+  >> disch_then $ qspec_then ‘loc’ mp_tac
   >> strip_tac
   >> gvs []
   >> reverse $ Cases_on ‘v_xs’ >> gvs []
   >- (* Error case *)
    (rename [‘evaluate (xs,env2,s') = (Rerr e',t')’]
-    >> first_assum $ irule_at $ Pos hd
+    >> qexistsl [‘t'’, ‘f''’, ‘Rerr e'’]
+    >> rpt gen_tac
     >> gvs []
-    >> rw [rewrite_wrapper_def]
-    >> qexistsl [‘Rerr e'’, ‘t'’]
+    >> strip_tac
+    >> gvs [rewrite_wrapper_def]
+    >> rw []
+    >> gvs [rewrite_worker_def, fill_hole_def, evaluate_def] >> IF_CASES_TAC >> gvs []
     >> gvs [opt_res_rel_def]
-    >> conj_tac
-    >- (gvs [rewrite_worker_def, fill_hole_def, evaluate_def] >> IF_CASES_TAC >> gvs [])
+    >> qexists ‘f''’
+    >> gvs []
     >> irule holes_unchanged_except_subset
     >> first_assum $ irule_at Any
     >> gvs [])
@@ -3395,37 +3403,39 @@ Resume evaluate_rewrite_tmc[call]:
    (drule_all state_rel_with_clock
     >> disch_then $ qspec_then ‘0’ mp_tac
     >> strip_tac
-    >> first_assum $irule_at $ Pos hd
+    >> qexistsl [‘u' with clock := 0’, ‘f''’, ‘Rerr (Rabort Rtimeout_error)’]
     >> gvs []
-    >> strip_tac
-    >> gvs [rewrite_wrapper_def]
     >> rw []
-    >> simp [rewrite_worker_def]
+    >- gvs [rewrite_wrapper_def]
+    >> gvs [rewrite_worker_def]
+    >> qrefinel [‘_’, ‘_’, ‘f''’]
+    >> gvs []
     >> ho_match_mp_tac evaluate_fill_hole_err
     >> first_assum $ irule_at Any
     >> gvs [evaluate_def]
     >> IF_CASES_TAC >> gvs []
     >> first_assum $ irule_at Any)
   (* Clock did not run out *)
-  >> Cases_on ‘evaluate ([exp],args,dec_clock (ticks + 1) u)’ >> gvs []
+  >> gvs [CaseEq "prod"]
   >> rename [‘evaluate ([exp],args,dec_clock (ticks + 1) u) = (v_exp, w)’]
   (* Call body inductive hypothesis *)
-  >> first_x_assum $ qspec_then ‘exp ≠ exp'’ mp_tac
-  >> gvs []
+  >> first_assum $ qspecl_then [‘[exp]’, ‘dec_clock (ticks + 1) u’, ‘args’] mp_tac
+  >> impl_tac
+  >- (imp_res_tac evaluate_clock >> gvs [dec_clock_def])
+  >> rpt $ disch_then drule
   >> drule state_rel_dec
   >> Cases_on ‘u.clock’ >> gvs []
   >> disch_then $ qspec_then ‘ticks + 1’ mp_tac
   >> gvs []
   >> strip_tac
-  >> disch_then $ drule_at $ Pos $ el 2
+  >> disch_then drule
+  >> impl_tac
+  >- (spose_not_then assume_tac >> gvs [])
+  >> strip_tac
+  >> gvs [GSYM PULL_FORALL, PULL_EXISTS]
   >> Cases_on ‘exp = exp'’ >> gvs []
   >-
-   (disch_then drule
-    >> gvs []
-    >> impl_tac
-    >- (spose_not_then assume_tac >> gvs [])
-    >> strip_tac
-    >> gvs []
+   (gvs []
     >> rename [‘evaluate ([exp],args',dec_clock (ticks + 1) u') = (v_exp',w')’]
     >> Cases_on ‘v_exp’ >> gvs []
     >-
@@ -3433,7 +3443,8 @@ Resume evaluate_rewrite_tmc[call]:
       >> gvs []
       >> rename [‘state_rel f3 t t'’]
       >> rename [‘v_rel f3 v_exp v_exp'’]
-      >> first_assum $ irule_at $ Pos hd
+      >> qexistsl [‘t'’, ‘f3’, ‘Rval [v_exp']’]
+      >> gen_tac
       >> gvs []
       >> conj_asm1_tac
       >- (irule SUBMAP_TRANS >> first_assum $ irule_at Any >> gvs [])
@@ -3446,21 +3457,22 @@ Resume evaluate_rewrite_tmc[call]:
       >- (irule_at Any holes_unchanged_except_trans
           >> first_assum $ irule_at $ Pos $ el 4
           >> gvs [])
-      >> strip_tac
-      >> gvs []
-      >> conj_tac
-      >- rw [rewrite_wrapper_def]
       >> rw []
+      >- gvs [rewrite_wrapper_def]
       >> gvs [rewrite_worker_def]
       >> ho_match_mp_tac evaluate_fill_hole
       >> gvs [evaluate_def]
       >> IF_CASES_TAC >> gvs []
       >> rpt $ first_assum $ irule_at Any)
+    >> rename [‘exc_rel (v_rel f3) _ _’]
     >> Cases_on ‘e’ >> gvs []
     >-
      (Cases_on ‘handler’ >> gvs []
       >-
-       (irule_at Any holes_unchanged_except_trans
+       (qexistsl [‘w'’, ‘f3’, ‘Rerr (Rraise v')’]
+        >> gen_tac
+        >> gvs []
+        >> irule_at Any holes_unchanged_except_trans
         >> first_assum $ irule_at Any
         >> first_assum $ irule_at Any
         >> gvs []
@@ -3475,9 +3487,17 @@ Resume evaluate_rewrite_tmc[call]:
         >> gvs []
         >> conj_tac
         >> rw [rewrite_wrapper_def]
-        >> rw []
         >> gvs [rewrite_worker_def, fill_hole_def, evaluate_def]
         >> gvs [opt_res_rel_def]
+        >> qexists ‘f3’
+        >> gvs []
+        >> conj_tac
+        >- imp_res_tac SUBMAP_TRANS
+        >> conj_tac
+        >-
+         (irule only_fresh_trans
+          >> rpt $ first_assum $ irule_at Any
+          >> imp_res_tac evaluate_refs_SUBSET)
         >> drule_all holes_unchanged_except_trans
         >> gvs []
         >> strip_tac
@@ -3485,23 +3505,30 @@ Resume evaluate_rewrite_tmc[call]:
         >> first_x_assum $ irule_at Any
         >> gvs [])
       >> rename [‘v_rel f3 v v'’]
-      >> first_x_assum $ qspec_then ‘F’ mp_tac
-      >> gvs []
-      >> disch_then $ drule_at $ Pos $ el 2
-      >> gvs []
-      >> disch_then $ qspec_then ‘v'::env2’ mp_tac
+      >> gvs [PULL_FORALL]
+      >> first_assum $ qspecl_then [‘[x]’, ‘w’, ‘v::env’] mp_tac
       >> impl_tac
       >-
-       (irule env_rel_cons
+       (imp_res_tac evaluate_clock
         >> gvs []
-        >> irule env_rel_submap
-        >> first_assum $ irule_at $ Pos $ el 2
-        >> imp_res_tac SUBMAP_TRANS)
+        >> spose_not_then assume_tac
+        >> gvs [state_rel_def, dec_clock_def])
+      >> disch_then drule
+      >> rev_drule_all env_rel_submap
       >> strip_tac
-      >> gvs []
+      >> drule_all env_rel_submap
+      >> strip_tac
+      >> drule_all env_rel_cons
+      >> strip_tac
+      >> rpt $ disch_then drule
+      >> disch_then $ qspec_then ‘loc’ mp_tac
+      >> impl_tac
+      >- gvs []
+      >> gvs [GSYM PULL_FORALL]
+      >> strip_tac
       >> rename [‘evaluate ([x],v'::env2,w') = (v_x',t')’]
       >> rename [‘result_rel (LIST_REL (v_rel f4)) (v_rel f4) v_x v_x'’]
-      >> first_assum $ irule_at Any
+      >> rpt $ first_assum $ irule_at Any
       >> gvs []
       >> conj_asm1_tac
       >- (imp_res_tac SUBMAP_TRANS >> gvs [])
@@ -3513,9 +3540,8 @@ Resume evaluate_rewrite_tmc[call]:
         >> gvs [])
       >> conj_asm1_tac
       >- imp_res_tac holes_unchanged_except_trans
-      >> strip_tac
-      >> gvs [rewrite_wrapper_def]
       >> rw []
+      >- gvs [rewrite_wrapper_def]
       >> gvs [rewrite_worker_def]
       >> Cases_on ‘v_x'’ >> gvs []
       >-
@@ -3524,9 +3550,13 @@ Resume evaluate_rewrite_tmc[call]:
         >> ho_match_mp_tac evaluate_fill_hole
         >> gvs [evaluate_def]
         >> rpt $ first_assum $ irule_at Any)
+      (* Probably should just update evaluate_fill_hole_err to return a map.... *)
+      >> qrefinel [‘_’, ‘_’, ‘f4’]
+      >> gvs []
       >> ho_match_mp_tac evaluate_fill_hole_err
       >> gvs [evaluate_def]
       >> rpt $ first_assum $ irule_at Any)
+    >> gvs [GSYM PULL_FORALL]
     >> first_assum $ irule_at Any
     >> conj_asm1_tac
     >- imp_res_tac SUBMAP_TRANS
@@ -3543,6 +3573,8 @@ Resume evaluate_rewrite_tmc[call]:
     >> gvs [rewrite_wrapper_def]
     >> rw []
     >> gvs [rewrite_worker_def]
+    >> qrefinel [‘_’, ‘_’, ‘f3’]
+    >> gvs []
     >> ho_match_mp_tac evaluate_fill_hole_err
     >> gvs [evaluate_def]
     >> IF_CASES_TAC >> gvs []
