@@ -1493,6 +1493,141 @@ Proof
   >> gvs []
 QED
 
+Definition hypothesis_def:
+  hypothesis xs' (s'' : (num # γ, 'ffi) bviSem$state) env1' loc' r' t' opt' f' s'³' env2' (s : (num # γ, 'ffi) bviSem$state) ⇔
+    s''.clock < s.clock ⇒
+    ∀env1' loc' r'' t' opt' f'' s'³' env2'.
+      evaluate (xs',env1',s'') = (r'',t') ∧
+      env_rel opt' f'' env1' env2' ∧ state_rel f'' s'' s'³' ∧
+      (opt' ⇒ LENGTH xs' = 1) ∧ r'' ≠ Rerr (Rabort Rtype_error) ⇒
+      ∃t'' f'³' r'³'.
+        evaluate (xs',env2',s'³') = (r'³',t'') ∧
+        result_rel (LIST_REL (v_rel f'³')) (v_rel f'³') r'' r'³' ∧
+        state_rel f'³' t' t'' ∧ f'' ⊑ f'³' ∧
+        only_fresh f'' f'³' s'³'.refs ∧
+        holes_unchanged_except f'' s'³'.refs t''.refs ∅ ∧
+        (opt' ⇒
+         ∀loc_opt.
+           (∀wrap.
+              rewrite_wrapper loc' loc_opt (HD xs') = SOME wrap ⇒
+              ∃t1 f_wrap.
+                evaluate ([wrap],env2',s'³') = (r'³',t1) ∧
+                state_rel f_wrap t' t1 ∧ f'' ⊑ f_wrap ∧
+                only_fresh f'' f_wrap s'³'.refs) ∧
+           ((∃c. hole_has_val f'' env1' env2' s'³'.refs c) ⇒
+            ∃rrr t2 f_work.
+              evaluate
+              ([rewrite_worker loc' loc_opt (LENGTH env1') (LENGTH env1' + 1) (HD xs')],env2',s'³') = (rrr,t2) ∧
+              opt_res_rel r'³' rrr ∧ state_rel f_work t' t2 ∧
+              f'' ⊑ f_work ∧ only_fresh f'' f_work s'³'.refs ∧
+              holes_unchanged_except f'' s'³'.refs t2.refs {env2'❲LENGTH env1'❳} ∧
+              ∀res_v.
+                r'³' = Rval [res_v] ⇒
+                hole_has_val f'' env1' env2' t2.refs res_v))
+End
+
+Theorem evaluate_cb:
+  ∀cb bs loc f opt env env2 ^s s' t t' r r'.
+    evaluate ([cb_to_bvi loc cb],env,s) = (r,t) ∧
+    evaluate ([cb_to_bvi loc cb],env2,s') = (r',t') ∧
+    env_rel opt f env env2 ∧
+    state_rel f s s' ∧
+    r ≠ Rerr (Rabort Rtype_error) ∧
+    (∀xs' s'' env1' loc' r' t' opt' f' s'³' env2'.
+       hypothesis xs' s'' env1' loc' r' t' opt' f' s'³' env2' s) ⇒
+    ∃f'.
+      result_rel (LIST_REL (v_rel f')) (v_rel f') r r' ∧
+      state_rel f' t t' ∧
+      f ⊑ f' ∧
+      only_fresh f f' s'.refs ∧
+      holes_unchanged_except f s'.refs t'.refs ∅ ∧
+      (opt ⇒
+       ∀loc_opt.
+         (∃c. hole_has_val f env env2 s'.refs c) ⇒
+         ∃r_work t_work f_work.
+           evaluate([cb_to_bvi_worker cb loc_opt exp_ptr exp_idx],env2,s') = (r_work, t_work) ∧
+           opt_res_rel r' r_work ∧
+           state_rel f_work t t_work ∧
+           f SUBMAP f_work ∧
+           only_fresh f f_work s'.refs ∧
+           holes_unchanged_except f s'.refs t2.refs {env2❲LENGTH env❳} ∧
+           ∀res_v.
+             r' = Rval [res_v] ⇒ hole_has_val f env env2 t_work.refs res_v))
+
+                    (∀wrap.
+            rewrite_wrapper loc loc_opt x = SOME wrap ⇒
+            ∃t1 f_wrap.
+              evaluate ([wrap],env2,s') = (r',t1) ∧
+              state_rel f_wrap t t1 ∧ f ⊑ f_wrap ∧
+              only_fresh f f_wrap s'.refs) ∧
+         ((∃c. hole_has_val f env env2 s'.refs c) ⇒
+          ∃rrr t2 f_work.
+            evaluate ([rewrite_worker loc loc_opt (LENGTH env) (LENGTH env + 1) x],env2,s') = (rrr,t2) ∧
+            opt_res_rel r' rrr ∧
+            state_rel f_work t t2 ∧ f ⊑ f_work ∧
+            only_fresh f f_work s'.refs ∧
+            holes_unchanged_except f s'.refs t2.refs {env2❲LENGTH env❳} ∧
+            ∀res_v.
+              r' = Rval [res_v] ⇒ hole_has_val f env env2 t2.refs res_v))
+Proof
+  reverse $ Induct
+  >- cheat
+  >> rw []
+  >> reverse $ imp_res_tac bvi_to_cb_cases
+  >- gvs [bvi_to_cb_def, call_to_cb_def, CaseEq "prod"]
+  >> gvs [cb_to_bvi_def, evaluate_def, evaluate_APPEND, CaseEq "prod"]
+  >> rename [‘CallBlock tag left child right’]
+  >> drule_all env_rel_submap
+  >> strip_tac
+  >> drule_all env_rel_append
+  >> strip_tac
+  >> drule_then drule evaluate_vars
+  >> impl_tac >- (spose_not_then assume_tac >> gvs [CaseEq "prod"])
+  >> disch_then $ qspec_then ‘s'’ mp_tac
+  >> strip_tac >> gvs []
+  >> gvs [CaseEq "prod", do_app_def, do_app_aux_def, bvl_to_bvi_id]
+  >> last_x_assum $ drule
+  >> disch_then drule
+
+  >- gvs [CaseEq "prod", CaseEq "result"]
+  >> strip_tac >> gvs []
+  >> reverse $ Cases_on ‘v2’
+  >- cheat
+  >> gvs [CaseEq "prod"]
+  >> drule_then drule evaluate_vars
+  >> impl_tac >- gvs [CaseEq "prod", CaseEq "result"]
+  >> disch_then $ qspec_then ‘t''’ mp_tac
+  >> strip_tac >> gvs []
+  >> gvs [do_app_def, do_app_aux_def, bvl_to_bvi_id]
+  >> first_assum $ irule_at Any
+  >> imp_res_tac evaluate_SING_IMP
+  >> gvs [REVERSE_APPEND]
+  (*>> gvs [LENGTH_MAP, REVERSE_APPEND, TAKE_APPEND, DROP_APPEND, GSYM MAP_REVERSE, GSYM MAP_TAKE, GSYM MAP_DROP, DROP_LENGTH_TOO_LONG]*)
+  >> conj_tac
+  >-
+   (simp [Once v_rel_cases]
+    >> irule LIST_REL_APPEND_suff
+    >> irule_at Any LIST_REL_APPEND_suff
+    >> simp [LIST_REL_MAP]
+    >> rpt $ irule_at Any LIST_REL_refl
+    >> simp []
+    >> cheat)
+  >> strip_tac
+  >> gen_tac
+  >> gvs []
+  >> first_x_assum $ qspec_then ‘loc_opt’ mp_tac
+  >> strip_tac
+  >> gvs []
+  >> rw []
+  >-
+   (gvs [rewrite_wrapper_def, CaseEq "option", CaseEq "prod", CaseEq "call_block"]
+    >> gvs [cb_to_bvi_wrapper_def, Once evaluate_def]
+    >> gvs [bvi_to_cb_def]
+    >> cheat)
+  >> simp [rewrite_worker_def]
+  >> cheat
+QED
+
 Resume evaluate_rewrite_tmc[call_block]:
 
   (* Phase 1 theorem in s *)
@@ -1544,37 +1679,11 @@ Resume evaluate_rewrite_tmc[call_block]:
     >> gvs [])
   >> rename [‘LIST_REL (v_rel f') vs vs'’]
   >> qpat_x_assum ‘env_rel _ _ _ _’ kall_tac
+  >> qrefinel [‘t'’, ‘_’, ‘r'’]
+  >> gvs [GSYM PULL_FORALL]
 
-  (* Experiment below here *)
-  >> drule phase2
-  >> drule_all env_rel_submap
-  >> strip_tac
-  >> drule_all env_rel_append
-  >> strip_tac
-  >> disch_then drule
-  >> disch_then drule
-  >> impl_tac >- gvs []
-  >> strip_tac
-  >> gvs []
-  >> qexistsl [‘t'’, ‘f''’, ‘r'’]
-  >> rpt $ gen_tac
-  >> gvs []
-  >> conj_tac
-  >- imp_res_tac SUBMAP_TRANS
-  >> conj_tac
-  >-
-   (irule only_fresh_trans
-    >> rpt $ first_assum $ irule_at Any
-    >> imp_res_tac evaluate_refs_SUBSET)
-  >> conj_tac
-  >- imp_res_tac holes_unchanged_except_trans
-  >> strip_tac
-  >> gvs []
-  >> first_x_assum $ qspec_then ‘loc_opt’ mp_tac
-  >> strip_tac
-  >> rw []
-  >-
-   (first_x_assum drule)
+  >>
+
   >> cheat
 QED
 
