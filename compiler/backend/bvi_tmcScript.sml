@@ -91,7 +91,6 @@ Definition shift_cb_def:
      CallBlock tag l' c' r')
 End
 
-(* TODO: update bvi_to_cb_aux to use this. *)
 Definition call_to_cb_def:
   call_to_cb loc call_ts call_loc call_args call_h =
   if call_loc = SOME loc ∧ call_h = NONE then
@@ -210,41 +209,6 @@ Proof
   >> gvs []
 QED
 
-(*
-val ex1 = “[Op (IntOp (Const 1)) []; Call 0 (SOME 7) [] NONE; Call 0 (SOME 4) [] NONE; Op (IntOp (Const 3)) []]”
-val ex1_call = “bvi_to_cb 7 99 ^ex1”
-(* EVAL ex1_call *)
-
-val ex2 = “[Op (IntOp (Const 1)) [];
-            Op (BlockOp (Cons 98)) [Call 0 (SOME 7) [] NONE];
-            Call 0 (SOME 4) [] NONE;
-            Op (IntOp (Const 3)) []]”
-val ex2_call = “bvi_to_cb 7 99 ^ex2”
-(* EVAL ex2_call *)
-
-val ex3 = “[Op (IntOp (Const 1)) [];
-            Op (BlockOp (Cons 98)) [
-                   Op (IntOp (Const 2)) [];
-                   Call 0 (SOME 7) [] NONE;
-                   Op (IntOp (Const 3)) []];
-            Call 0 (SOME 4) [] NONE;
-            Op (IntOp (Const 4)) []]”
-val ex3_call = “bvi_to_cb 7 99 ^ex3”
-(* EVAL ex3_call *)
-
-val ex4 = “[Op (IntOp (Const 0)) [];
-            Op (BlockOp (Cons 98)) [
-                   Op (IntOp (Const 1)) [];
-                   Call 0 (SOME 100) [
-                              Op (IntOp (Const 2)) [];
-                              Op (IntOp (Const 3)) []] NONE;
-                   Op (IntOp (Const 4)) []];
-            Call 0 (SOME 5) [] NONE;
-            Op (IntOp (Const 6)) []]”
-val ex4_call = “bvi_to_cb 100 99 ^ex4”
-(* EVAL ex4_call *)
-*)
-
 (* Convert back to BlockOp Cons for comparing semantics *)
 Definition cb_to_bvi_def:
   (cb_to_bvi loc (CallBlock tag l child r) =
@@ -256,7 +220,6 @@ Definition cb_to_bvi_def:
      let args' = MAP (λn. Var n) args in
        bvi$Call ts (SOME loc) args' NONE)
 End
-
 
 Theorem bvi_to_cb_aux_size:
   ∀loc tag args bs sum.
@@ -276,12 +239,12 @@ Proof
     >> cheat)
   >> cheat
 QED
-        
+
 Theorem bvi_to_cb_size:
   ∀loc x bs cb.
     bvi_to_cb loc x = SOME (bs,cb) ⇒
     list_size exp_size bs < exp_size x
-Proof        
+Proof
   rpt gen_tac
   >> strip_tac
   >> Cases_on ‘x’ >> gvs [bvi_to_cb_def]
@@ -297,8 +260,14 @@ QED
 
 (* Phase 2 - Transformations. *)
 
-Definition shift_exp_vars_def:
-  shift_exp_vars n (Var i) = Var (i + n)
+(*
+Shift an expression by n if it is a Var.
+Subexpressions are not shifted - this simplifies the proofs.
+This will only be applied to Vars and Consts.
+*)
+Definition shallow_shift_def:
+  (shallow_shift n (Var i) = Var (i + n)) ∧
+  (shallow_shift _ e = e)
 End
 
 Definition mut_cons_def:
@@ -307,7 +276,7 @@ Definition mut_cons_def:
     let hole' = Op (IntOp (Const 0)) [] in
     let r' = MAP (λn. Var n) r in
     let i = LENGTH r in
-    Op (MemOp (MutCons t i)) (l' ++ [hole'] ++ r') 
+    Op (MemOp (MutCons t i)) (l' ++ [hole'] ++ r')
 End
 
 Definition finalise_cons_def:
@@ -333,7 +302,7 @@ Definition cb_to_bvi_worker_def:
    optimise_call call_ts loc_opt call_args exp_ptr exp_idx) ∧
   (cb_to_bvi_worker (CallBlock tag left child right) loc_opt exp_ptr exp_idx =
    Let [mut_cons tag left right] $
-       Let [update_cons (shift_exp_vars 1 exp_ptr) (shift_exp_vars 1 exp_idx) (Var 0)] $
+       Let [update_cons (shallow_shift 1 exp_ptr) (shallow_shift 1 exp_idx) (Var 0)] $
        cb_to_bvi_worker (shift_cb 2 child) loc_opt (Var 1) (Op (IntOp (Const (&LENGTH right))) []))
 Termination
   cheat
