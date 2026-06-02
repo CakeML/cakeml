@@ -1467,39 +1467,37 @@ Resume evaluate_rewrite_tmc[lett]:
 QED
 
 Resume evaluate_rewrite_tmc[raise]:
-  cheat
-        (*
   gvs [evaluate_def]
   >> gvs [CaseEq "prod", PULL_EXISTS]
   >> rename [‘evaluate ([x],env,s) = (v,u)’]
-  >> Cases_on ‘opt’ >> gvs[]
-  >-
-   (first_x_assum $ qspec_then ‘T’ mp_tac
-    >> disch_then drule
-    >> disch_then drule
-    >> impl_tac >> gvs []
-    >- (Cases_on ‘v’ >> gvs [] >> qexists ‘c’ >> gvs [])
-    >> strip_tac
-    >> rename [‘evaluate ([x],env2,s') = (v',u')’]
-    >> goal_assum $ drule_at Any
-    >> goal_assum $ drule_at Any
-    >> Cases_on ‘v’
-    >> gvs [rewrite_wrapper_def, rewrite_worker_def, evaluate_def, opt_res_rel_def]
-    >> imp_res_tac evaluate_SING_IMP
-    >> gvs [holes_unchanged_except_def])
-  >> first_x_assum $ qspec_then ‘F’ mp_tac
-  >> gvs []
-  >> disch_then drule
-  >> disch_then drule
+  >> first_x_assum $ qspecl_then [‘[x]’, ‘s’, ‘env’] mp_tac
   >> impl_tac
-  >- (Cases_on ‘v’ >> gvs [])
-  >> strip_tac
-  >> rename [‘evaluate ([x],env2,s') = (v',u')’]
-  >> rpt $ goal_assum $ drule_at Any
-  >> Cases_on ‘v’ >> gvs []
-  >> imp_res_tac evaluate_SING_IMP
+  >- gvs []
+  >> rpt $ disch_then drule
+  >> disch_then $ qspec_then ‘loc’ mp_tac
   >> gvs []
-*)
+  >> impl_tac
+  >- (spose_not_then assume_tac >> gvs [])
+  >> gvs [GSYM PULL_FORALL]
+  >> strip_tac
+  >> gvs [PULL_EXISTS, GSYM PULL_FORALL]
+  >> rpt $ first_assum $ irule_at Any
+  >> gvs []
+  >> Cases_on ‘v’ >> gvs []
+  >-
+   (imp_res_tac evaluate_SING_IMP
+    >> gvs []
+    >> rw []
+    >-
+     (gvs [evaluate_def, rewrite_wrapper_def])
+    >> gvs [evaluate_def, rewrite_worker_def, opt_res_rel_def]
+    >> first_assum $ irule_at Any
+    >> gvs [holes_unchanged_except_def])
+  >> rw []
+  >- gvs [evaluate_def, rewrite_wrapper_def]
+  >> gvs [evaluate_def, rewrite_worker_def, opt_res_rel_def]
+  >> first_assum $ irule_at Any
+  >> gvs [holes_unchanged_except_def]
 QED
 
 Resume evaluate_rewrite_tmc[op_non_opt]:
