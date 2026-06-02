@@ -1470,6 +1470,114 @@ Proof
   >~ [‘Call ticks dest xs handler’] >- suspend "call_non_opt"
 QED
 
+(* I think this can replace the "wf" theorem *)
+Theorem bvi_to_cb_cases:
+  ∀loc x bs cb.
+    bvi_to_cb loc x = SOME (bs,cb) ⇒
+    (∃tag args l child r.
+       x = Op (BlockOp (Cons tag)) args ∧
+       cb = CallBlock tag l child r) ∨
+    (∃ts args.
+       x = Call ts (SOME loc) args NONE)
+Proof
+  rw []
+  >> Cases_on ‘cb’
+  >-
+   (Cases_on ‘x’ >> gvs [bvi_to_cb_def, call_to_cb_def, CaseEq "option", CaseEq "prod", CaseEq "sum"]
+    >> Cases_on ‘o'’ >> gvs [dest_Cons_def]
+    >> Cases_on ‘b’ >> gvs [dest_Cons_def]
+    >> imp_res_tac bvi_to_cb_aux_wf
+    >> gvs [])
+  >> Cases_on ‘x’ >> gvs [bvi_to_cb_def, call_to_cb_def, CaseEq "option", CaseEq "prod", CaseEq "sum"]
+  >> imp_res_tac bvi_to_cb_aux_wf
+  >> gvs []
+QED
+
+Resume evaluate_rewrite_tmc[call_block]:
+
+  (* Phase 1 theorem in s *)
+  drule_all evaluate_bvi_to_cb
+  >> simp [Once evaluate_def]
+  >> strip_tac
+  >> gvs [CaseEq "prod"]
+  >> rename [‘evaluate (bs,env,s) = (as,u)’]
+  (* Hypothesis on bs *)
+  >> first_assum $ qspecl_then [‘bs’, ‘s’] mp_tac
+  >> impl_tac
+  >- (imp_res_tac bvi_to_cb_size >> gvs [])
+  >> imp_res_tac env_rel_relax_opt
+  >> rpt $ disch_then drule
+  >> impl_tac
+  >- (gvs [] >> spose_not_then assume_tac >> gvs [])
+  >> disch_then $ qspec_then ‘loc’ assume_tac
+  >> gvs []
+  >> rename [‘evaluate (bs,env2,s') = (as',u')’]
+  >> rename [‘f ⊑ f'’]
+  (* Phase 1 theorem in s' *)
+  >> Cases_on ‘evaluate ([x],env2,s')’
+  >> rename [‘evaluate ([x],env2,s') = (r',t')’]
+  >> drule_all evaluate_bvi_to_cb
+  >> simp [Once evaluate_def]
+  >> strip_tac
+  >> reverse $ gvs [CaseEq "result"]
+  >- (* bs fails *)
+   (rename [‘exc_rel (v_rel f') e e'’]
+    >> qexistsl [‘t'’, ‘f'’, ‘Rerr e'’]
+    >> gvs []
+    >> rw []
+    >-
+     (reverse $ imp_res_tac bvi_to_cb_cases
+      >- gvs [rewrite_wrapper_def, bvi_to_cb_def]
+      >> gvs [rewrite_wrapper_def, evaluate_def]
+      >> rpt $ first_assum $ irule_at Any)
+    >> reverse $ imp_res_tac bvi_to_cb_cases
+    >-
+     (gvs [rewrite_worker_def, evaluate_def, opt_res_rel_def]
+      >> rpt $ first_assum $ irule_at Any
+      >> irule holes_unchanged_except_subset
+      >> first_assum $ irule_at Any
+      >> gvs [])
+    >> gvs [rewrite_worker_def, evaluate_def, opt_res_rel_def]
+    >> rpt $ first_assum $ irule_at Any
+    >> irule holes_unchanged_except_subset
+    >> first_assum $ irule_at Any
+    >> gvs [])
+  >> rename [‘LIST_REL (v_rel f') vs vs'’]
+  >> qpat_x_assum ‘env_rel _ _ _ _’ kall_tac
+
+  (* Experiment below here *)
+  >> drule phase2
+  >> drule_all env_rel_submap
+  >> strip_tac
+  >> drule_all env_rel_append
+  >> strip_tac
+  >> disch_then drule
+  >> disch_then drule
+  >> impl_tac >- gvs []
+  >> strip_tac
+  >> gvs []
+  >> qexistsl [‘t'’, ‘f''’, ‘r'’]
+  >> rpt $ gen_tac
+  >> gvs []
+  >> conj_tac
+  >- imp_res_tac SUBMAP_TRANS
+  >> conj_tac
+  >-
+   (irule only_fresh_trans
+    >> rpt $ first_assum $ irule_at Any
+    >> imp_res_tac evaluate_refs_SUBSET)
+  >> conj_tac
+  >- imp_res_tac holes_unchanged_except_trans
+  >> strip_tac
+  >> gvs []
+  >> first_x_assum $ qspec_then ‘loc_opt’ mp_tac
+  >> strip_tac
+  >> rw []
+  >-
+   (first_x_assum drule)
+  >> cheat
+QED
+
 Resume evaluate_rewrite_tmc[list]:
   gvs [evaluate_def]
   (* First inductive hypothesis *)
@@ -2003,93 +2111,6 @@ Resume evaluate_rewrite_tmc[op_non_opt]:
   >> ho_match_mp_tac evaluate_fill_hole
   >> gvs [evaluate_def]
   >> rpt $ first_assum $ irule_at Any
-QED
-
-Resume evaluate_rewrite_tmc[op_opt]:
-
-  imp_res_tac bvi_to_cb_wf >> gvs []
-(*  >> gvs [bvi_to_cb_def]
-  >> gvs [CaseEq "option", CaseEq "prod", CaseEq "sum"] *)
-  >> rename [‘bvi_to_cb _ _ = SOME (bs,CallBlock tag left child right)’]
-  (* Phase 1 theorem in s *)
-  >> drule_all evaluate_bvi_to_cb
-  >> qpat_x_assum ‘evaluate(_,_,_) = (_,_)’ $ mk_asm "original"
-  >> simp [Once evaluate_def]
-  >> strip_tac
-  >> gvs [CaseEq "prod"]
-  >> rename [‘evaluate (bs,env,s) = (as,u)’]
-  (* Hypothesis on bs *)
-  >> first_assum $ qspecl_then [‘bs’, ‘s’] mp_tac
-  >> impl_tac
-  >- (imp_res_tac bvi_to_cb_size >> gvs [])
-  >> imp_res_tac env_rel_relax_opt
-  >> rpt $ disch_then drule
-  >> impl_tac
-  >- (gvs [] >> spose_not_then assume_tac >> gvs [])
-  >> disch_then $ qspec_then ‘loc’ assume_tac
-  >> gvs []
-  >> rename [‘evaluate (bs,env2,s') = (as',u')’]
-  >> rename [‘f ⊑ f'’]
-  (* Phase 1 theorem in s' *)
-  >> Cases_on ‘evaluate ([Op (BlockOp (Cons tag)) xs],env2,s')’
-  >> rename [‘evaluate ([Op (BlockOp (Cons tag)) xs],env2,s') = (r',t')’]
-  >> drule_all evaluate_bvi_to_cb
-  >> qpat_x_assum ‘evaluate (_,_,_) = (_,_)’ $ mk_asm "original'"
-  >> simp [Once evaluate_def]
-  >> strip_tac
-  >> reverse $ gvs [CaseEq "result"]
-  >- (* bs fails *)
-   (cheat
-        (*
-        rename [‘exc_rel (v_rel f') e e'’]
-    >> qexistsl [‘t'’, ‘f'’, ‘Rerr e'’]
-    >> gvs []
-    >> rw []
-    >- (gvs [rewrite_wrapper_def, dest_Cons_def, rewrite_wrapper_cons_def, cb_to_hb_def, CaseEq "prod", evaluate_def])
-    >> gvs [rewrite_worker_def, dest_Cons_def, rewrite_worker_cons_def, cb_to_hb_def]
-    >> CASE_TAC >> gvs [CaseEq "prod"]
-    >> CASE_TAC >> gvs []
-    >> rename [‘cb_to_hb child = (hole,call_ts,call_args)’]
-    >> gvs [evaluate_def, opt_res_rel_def]
-    >> irule holes_unchanged_except_subset
-    >> qexists ‘EMPTY’
-    >> gvs []*))
-  >> rename [‘LIST_REL (v_rel f') vs vs'’]
-  >> asm_x "original" kall_tac
-  >> asm_x "original'" kall_tac
-  >> qpat_x_assum ‘env_rel _ _ _ _’ kall_tac
-
-  (* Experiment below here *)
-  >> drule phase2
-  >> drule_all env_rel_submap
-  >> strip_tac
-  >> drule_all env_rel_append
-  >> strip_tac
-  >> disch_then drule
-  >> disch_then drule
-  >> impl_tac >- gvs []
-  >> strip_tac
-  >> gvs []
-  >> qexistsl [‘t'’, ‘f''’, ‘r'’]
-  >> rpt $ gen_tac
-  >> gvs []
-  >> conj_tac
-  >- imp_res_tac SUBMAP_TRANS
-  >> conj_tac
-  >-
-   (irule only_fresh_trans
-    >> rpt $ first_assum $ irule_at Any
-    >> imp_res_tac evaluate_refs_SUBSET)
-  >> conj_tac
-  >- imp_res_tac holes_unchanged_except_trans
-  >> strip_tac
-  >> gvs []
-  >> first_x_assum $ qspec_then ‘loc_opt’ mp_tac
-  >> strip_tac
-  >> rw []
-  >-
-   (first_x_assum drule)
-  >> cheat
 QED
 
 (* Testing! *)
