@@ -122,8 +122,8 @@ Theorem ncompile_correct:
       (res1 =
        case res of
          NONE => NONE
-       | SOME Break => SOME Break
-       | SOME Continue => SOME Continue
+       | SOME Break => SOME (Break 0)
+       | SOME Continue => SOME (Continue 0)
        | SOME (Return v) => SOME (Result [wlab_wloc v])
        | SOME (Exception eid) => SOME (Exception (Word eid))
        | SOME TimeOut => SOME TimeOut
@@ -152,6 +152,7 @@ Proof
   >~ [`crepLang$StoreGlob`] >- suspend "StoreGlob"
   >~ [`crepLang$ShMem`] >- suspend "ShMem"
   >~ [`crepLang$Assign`] >- suspend "Assign"
+  >~ [`crepLang$Primitive`] >- suspend "Primitive"
   >~ [`crepLang$Dec`] >- suspend "Dec"
   >~ [`crepLang$If`] >- suspend "If"
   >~ [`crepLang$ExtCall`] >- suspend "ExtCall"
@@ -1498,6 +1499,17 @@ Theorem not_mem_context_assigned_mem_gt:
 Proof
   ho_match_mp_tac (name_ind_cases [] compile_ind)
   \\ rw []
+  >~ [‘Case (crepLang$Primitive _ _ _)’]
+  >- (
+    fs [assigned_vars_def, compile_def]
+    \\ rpt TOP_CASE_TAC \\ fs [loopLangTheory.assigned_vars_def]
+    \\ CCONTR_TAC \\ gvs [pan_commonPropsTheory.opt_mmap_eq_some]
+    \\ qmatch_asmsub_rename_tac
+         ‘MAP (FLOOKUP ctxt.vars) lhss = MAP SOME nlhss’
+    \\ ‘MEM (SOME n) (MAP SOME nlhss)’ by simp [MEM_MAP]
+    \\ ‘MEM (SOME n) (MAP (FLOOKUP ctxt.vars) lhss)’ by metis_tac []
+    \\ fs [MEM_MAP] \\ metis_tac []
+  )
   >~ [‘Case (crepLang$Dec _ _ _)’]
   >~ [‘Case (crepLang$Call _ _ _)’]
   >- (
@@ -2014,35 +2026,111 @@ Resume ncompile_correct[ShMem]:
      CaseEq"option",CaseEq"bool",CaseEq"ffi_result"]>>
   fs[wlab_wloc_def]>>
   rveq>>fs[crepSemTheory.set_var_def,set_var_def]>>
-  fs [state_rel_def]>>
-  gvs[] >>~- ([‘SharedMem MappedRead’],
-   fs[locals_rel_def]>>rw[]>-
-     (imp_res_tac compile_exp_out_rel >>
-      rveq >>
-      drule cut_sets_union_domain_subset >>strip_tac>>
-      match_mp_tac SUBSET_TRANS >>
-      qexists_tac ‘domain (cut_sets l (nested_seq p))’ >>
-      fs [] >>
-      metis_tac [SUBSET_INSERT_RIGHT]) >>
-    fs[lookup_insert,FLOOKUP_UPDATE]>>
-    FULL_CASE_TAC>-gvs[wlab_wloc_def]>>
-    first_x_assum $ qspecl_then [‘vname’, ‘v'’] assume_tac>>
-    first_x_assum $ qspecl_then [‘vname’, ‘v'’] assume_tac>>
-    rfs[]>>
-    ‘n <> n'’ by
-      (CCONTR_TAC>>fs[distinct_vars_def]>>
-       first_x_assum $ qspecl_then [‘v’, ‘vname’, ‘n'’] assume_tac>>
-       gvs[])>>fs[])>>
-  (*write*)
-  fs[CaseEq"word_lab",CaseEq"word_loc",CaseEq"bool",
-     CaseEq"ffi_result"]>>
-  rveq>>fs[]>>gvs[wlab_wloc_def]>>
-  ‘subspt l l'’ by (
-    imp_res_tac compile_exp_out_rel >> fs [] >>
-    imp_res_tac comp_syn_impl_cut_sets_subspt >> fs [] >>
-    rveq >> metis_tac [subspt_trans]) >>
-  match_mp_tac locals_rel_cutset_prop >>
-  metis_tac []
+  gvs[state_rel_def] >~
+   [‘call_FFI _ (SharedMem MappedRead) [0w] _ = FFI_return _ _’] >-
+    (fs [locals_rel_def] \\ rw []
+     >- (imp_res_tac compile_exp_out_rel \\ rveq
+         \\ drule cut_sets_union_domain_subset \\ strip_tac
+         \\ match_mp_tac SUBSET_TRANS
+         \\ qexists_tac ‘domain (cut_sets l (nested_seq p))’ \\ fs []
+         \\ metis_tac [SUBSET_INSERT_RIGHT])
+     \\ fs [lookup_insert, FLOOKUP_UPDATE]
+     \\ FULL_CASE_TAC >- gvs [wlab_wloc_def]
+     \\ first_x_assum $ qspecl_then [‘vname’, ‘v'’] assume_tac
+     \\ first_x_assum $ qspecl_then [‘vname’, ‘v'’] assume_tac
+     \\ rfs []
+     \\ ‘n <> n'’ by
+       (CCONTR_TAC \\ fs [distinct_vars_def]
+        \\ first_x_assum $ qspecl_then [‘v’, ‘vname’, ‘n'’] assume_tac
+        \\ gvs [])
+     \\ fs []) >~
+   [‘call_FFI _ (SharedMem MappedRead) [1w] _ = FFI_return _ _’] >-
+    (fs [locals_rel_def] \\ rw []
+     >- (imp_res_tac compile_exp_out_rel \\ rveq
+         \\ drule cut_sets_union_domain_subset \\ strip_tac
+         \\ match_mp_tac SUBSET_TRANS
+         \\ qexists_tac ‘domain (cut_sets l (nested_seq p))’ \\ fs []
+         \\ metis_tac [SUBSET_INSERT_RIGHT])
+     \\ fs [lookup_insert, FLOOKUP_UPDATE]
+     \\ FULL_CASE_TAC >- gvs [wlab_wloc_def]
+     \\ first_x_assum $ qspecl_then [‘vname’, ‘v'’] assume_tac
+     \\ first_x_assum $ qspecl_then [‘vname’, ‘v'’] assume_tac
+     \\ rfs []
+     \\ ‘n <> n'’ by
+       (CCONTR_TAC \\ fs [distinct_vars_def]
+        \\ first_x_assum $ qspecl_then [‘v’, ‘vname’, ‘n'’] assume_tac
+        \\ gvs [])
+     \\ fs []) >~
+   [‘call_FFI _ (SharedMem MappedRead) [2w] _ = FFI_return _ _’] >-
+    (fs [locals_rel_def] \\ rw []
+     >- (imp_res_tac compile_exp_out_rel \\ rveq
+         \\ drule cut_sets_union_domain_subset \\ strip_tac
+         \\ match_mp_tac SUBSET_TRANS
+         \\ qexists_tac ‘domain (cut_sets l (nested_seq p))’ \\ fs []
+         \\ metis_tac [SUBSET_INSERT_RIGHT])
+     \\ fs [lookup_insert, FLOOKUP_UPDATE]
+     \\ FULL_CASE_TAC >- gvs [wlab_wloc_def]
+     \\ first_x_assum $ qspecl_then [‘vname’, ‘v'’] assume_tac
+     \\ first_x_assum $ qspecl_then [‘vname’, ‘v'’] assume_tac
+     \\ rfs []
+     \\ ‘n <> n'’ by
+       (CCONTR_TAC \\ fs [distinct_vars_def]
+        \\ first_x_assum $ qspecl_then [‘v’, ‘vname’, ‘n'’] assume_tac
+        \\ gvs [])
+     \\ fs []) >~
+   [‘call_FFI _ (SharedMem MappedRead) [4w] _ = FFI_return _ _’] >-
+    (fs [locals_rel_def] \\ rw []
+     >- (imp_res_tac compile_exp_out_rel \\ rveq
+         \\ drule cut_sets_union_domain_subset \\ strip_tac
+         \\ match_mp_tac SUBSET_TRANS
+         \\ qexists_tac ‘domain (cut_sets l (nested_seq p))’ \\ fs []
+         \\ metis_tac [SUBSET_INSERT_RIGHT])
+     \\ fs [lookup_insert, FLOOKUP_UPDATE]
+     \\ FULL_CASE_TAC >- gvs [wlab_wloc_def]
+     \\ first_x_assum $ qspecl_then [‘vname’, ‘v'’] assume_tac
+     \\ first_x_assum $ qspecl_then [‘vname’, ‘v'’] assume_tac
+     \\ rfs []
+     \\ ‘n <> n'’ by
+       (CCONTR_TAC \\ fs [distinct_vars_def]
+        \\ first_x_assum $ qspecl_then [‘v’, ‘vname’, ‘n'’] assume_tac
+        \\ gvs [])
+     \\ fs [])
+   >- (fs[CaseEq"word_lab",CaseEq"word_loc",CaseEq"bool",
+          CaseEq"ffi_result"]>>
+       rveq>>fs[]>>gvs[wlab_wloc_def]>>
+       ‘subspt l l'’ by (
+         imp_res_tac compile_exp_out_rel >> fs [] >>
+         imp_res_tac comp_syn_impl_cut_sets_subspt >> fs [] >>
+         rveq >> metis_tac [subspt_trans]) >>
+       match_mp_tac locals_rel_cutset_prop >>
+       metis_tac [])
+   >- (fs[CaseEq"word_lab",CaseEq"word_loc",CaseEq"bool",
+          CaseEq"ffi_result"]>>
+       rveq>>fs[]>>gvs[wlab_wloc_def]>>
+       ‘subspt l l'’ by (
+         imp_res_tac compile_exp_out_rel >> fs [] >>
+         imp_res_tac comp_syn_impl_cut_sets_subspt >> fs [] >>
+         rveq >> metis_tac [subspt_trans]) >>
+       match_mp_tac locals_rel_cutset_prop >>
+       metis_tac [])
+   >- (fs[CaseEq"word_lab",CaseEq"word_loc",CaseEq"bool",
+          CaseEq"ffi_result"]>>
+       rveq>>fs[]>>gvs[wlab_wloc_def]>>
+       ‘subspt l l'’ by (
+         imp_res_tac compile_exp_out_rel >> fs [] >>
+         imp_res_tac comp_syn_impl_cut_sets_subspt >> fs [] >>
+         rveq >> metis_tac [subspt_trans]) >>
+       match_mp_tac locals_rel_cutset_prop >>
+       metis_tac [])
+   >- (fs[CaseEq"word_lab",CaseEq"word_loc",CaseEq"bool",
+          CaseEq"ffi_result"]>>
+       rveq>>fs[]>>gvs[wlab_wloc_def]>>
+       ‘subspt l l'’ by (
+         imp_res_tac compile_exp_out_rel >> fs [] >>
+         imp_res_tac comp_syn_impl_cut_sets_subspt >> fs [] >>
+         rveq >> metis_tac [subspt_trans]) >>
+       match_mp_tac locals_rel_cutset_prop >>
+       metis_tac [])
 QED
 
 Resume ncompile_correct[Assign]:
@@ -2084,6 +2172,132 @@ Resume ncompile_correct[Assign]:
   last_x_assum drule_all >>
   strip_tac >> rfs [] >> rveq >>
   rw []
+QED
+
+Theorem opt_mmap_rhss_locals_rel[local]:
+  ∀rhss ws (s:('a,'b) crepSem$state) (t:('a,'c) loopSem$state) ctxt l.
+    OPT_MMAP (FLOOKUP s.locals) rhss = SOME ws ∧
+    locals_rel ctxt l s.locals t.locals ⇒
+    ∃nrhss.
+      OPT_MMAP (FLOOKUP ctxt.vars) rhss = SOME nrhss ∧
+      LENGTH nrhss = LENGTH rhss ∧
+      EVERY (λn. n ∈ domain l) nrhss ∧
+      get_vars nrhss t = SOME (MAP wlab_wloc ws)
+Proof
+  Induct >> rw [OPT_MMAP_def, loopSemTheory.get_vars_def] >>
+  fs [locals_rel_def] >>
+  first_assum drule >> strip_tac >> simp [] >>
+  ‘locals_rel ctxt l s.locals t.locals’ by fs [locals_rel_def] >>
+  last_x_assum drule_all >> strip_tac >> simp [] >>
+  simp [loopSemTheory.get_vars_def]
+QED
+
+Theorem opt_mmap_lhss_locals_rel[local]:
+  ∀lhss (s:('a,'b) crepSem$state) (t:('a,'c) loopSem$state) ctxt l.
+    EVERY (λv. IS_SOME (FLOOKUP s.locals v)) lhss ∧ ALL_DISTINCT lhss ∧
+    locals_rel ctxt l s.locals t.locals ⇒
+    ∃nlhss.
+      OPT_MMAP (FLOOKUP ctxt.vars) lhss = SOME nlhss ∧
+      LENGTH nlhss = LENGTH lhss ∧ EVERY (λn. n ∈ domain l) nlhss ∧
+      ALL_DISTINCT nlhss
+Proof
+  Induct >> rw [OPT_MMAP_def] >>
+  rename1 ‘IS_SOME (FLOOKUP s.locals v0)’ >>
+  fs [locals_rel_def, IS_SOME_EXISTS] >>
+  first_assum drule >> strip_tac >> simp [] >>
+  ‘locals_rel ctxt l s.locals t.locals’ by fs [locals_rel_def] >>
+  last_x_assum drule_all >> strip_tac >> simp [] >>
+  CCONTR_TAC >>
+  gvs [pan_commonPropsTheory.opt_mmap_eq_some] >>
+  ‘MEM (SOME n) (MAP SOME nlhss)’ by simp [MEM_MAP] >>
+  ‘MEM (SOME n) (MAP (FLOOKUP ctxt.vars) lhss)’ by metis_tac [] >>
+  fs [MEM_MAP] >> metis_tac [distinct_vars_def]
+QED
+
+Theorem not_mem_nlhss_lemma[local]:
+  ∀ctxt vname lhss n nlhss.
+    distinct_vars ctxt.vars ∧
+    ¬MEM vname lhss ∧
+    FLOOKUP ctxt.vars vname = SOME n ∧
+    OPT_MMAP (FLOOKUP ctxt.vars) lhss = SOME nlhss ⇒
+    ¬MEM n nlhss
+Proof
+  rw [] >> CCONTR_TAC >>
+  gvs [pan_commonPropsTheory.opt_mmap_eq_some] >>
+  ‘MEM (SOME n) (MAP SOME nlhss)’ by simp [MEM_MAP] >>
+  ‘MEM (SOME n) (MAP (FLOOKUP ctxt.vars) lhss)’ by metis_tac [] >>
+  fs [MEM_MAP] >> metis_tac [distinct_vars_def]
+QED
+
+Theorem crep_primop_loop_primop[local]:
+  ∀pop ws (res_ws : 'a word_lab list).
+    crep_primop pop ws = SOME res_ws ⇒
+    loop_primop pop (MAP wlab_wloc ws) = SOME (MAP wlab_wloc res_ws)
+Proof
+  Cases >>
+  fs [crepSemTheory.crep_primop_def, loopSemTheory.loop_primop_def,
+      AllCaseEqs ()] >>
+  rw []
+  >- (gvs [EVERY_MAP, EVERY_MEM] >> Cases >>
+      simp [wlab_wloc_def, panSemTheory.isWord_def,
+            wordSemTheory.isWord_def]) >>
+  gvs [LENGTH_EQ_NUM_compute, PULL_EXISTS] >>
+  qmatch_asmsub_rename_tac
+    ‘word_add_carry (theWord l) (theWord r) (theWord ci)’ >>
+  Cases_on ‘l’ >> Cases_on ‘r’ >> Cases_on ‘ci’ >>
+  gvs [wlab_wloc_def, panSemTheory.theWord_def, wordSemTheory.theWord_def] >>
+  pairarg_tac >> gvs [wlab_wloc_def]
+QED
+
+Resume ncompile_correct[Primitive]:
+  rw [] >>
+  gvs [crepSemTheory.evaluate_def, evaluate_def, compile_def, AllCaseEqs ()] >>
+  ‘∃nrhss. OPT_MMAP (FLOOKUP ctxt.vars) rhss = SOME nrhss ∧
+           LENGTH nrhss = LENGTH rhss ∧ EVERY (λn. n ∈ domain l) nrhss ∧
+           get_vars nrhss t = SOME (MAP wlab_wloc ws)’
+    by metis_tac [opt_mmap_rhss_locals_rel] >>
+  simp [] >>
+  ‘∃nlhss. OPT_MMAP (FLOOKUP ctxt.vars) lhss = SOME nlhss ∧
+           LENGTH nlhss = LENGTH lhss ∧ EVERY (λn. n ∈ domain l) nlhss ∧
+           ALL_DISTINCT nlhss’
+    by metis_tac [opt_mmap_lhss_locals_rel] >>
+  simp [] >>
+  qexists ‘0’ >>
+  simp [Once evaluate_def, get_vars_clock_upd_eq] >>
+  drule crep_primop_loop_primop >> strip_tac >> simp [] >>
+  simp [set_vars_def] >>
+  conj_tac >- fs [state_rel_def] >>
+  fs [locals_rel_def] >>
+  conj_tac
+  >- (rw [domain_alist_insert] >> fs [SUBSET_DEF, EVERY_MEM]) >>
+  rw [] >>
+  Cases_on ‘MEM vname lhss’
+  >- (fs [MEM_EL] >>
+      qmatch_asmsub_rename_tac ‘k < LENGTH lhss’ >>
+      ‘FLOOKUP (s.locals |++ ZIP (lhss, res_ws)) (EL k lhss) = SOME (EL k res_ws)’
+        by simp [update_eq_zip_flookup] >>
+      gvs [] >>
+      qexists ‘EL k nlhss’ >>
+      ‘FLOOKUP ctxt.vars (EL k lhss) = SOME (EL k nlhss)’
+        by metis_tac [opt_mmap_el] >>
+      simp [] >>
+      conj_tac
+      >- (fs [EVERY_EL] >> first_x_assum (qspec_then ‘k’ mp_tac) >> simp []) >>
+      simp [lookup_alist_insert_any] >>
+      ‘ALOOKUP (ZIP (nlhss, MAP wlab_wloc res_ws)) (EL k nlhss) =
+       SOME (EL k (MAP wlab_wloc res_ws))’ suffices_by simp [EL_MAP] >>
+      qspecl_then [‘ZIP (nlhss, MAP wlab_wloc res_ws)’, ‘k’] mp_tac
+                  ALOOKUP_ALL_DISTINCT_EL >>
+      impl_tac >- simp [MAP_ZIP] >>
+      simp [EL_ZIP]) >>
+  ‘FLOOKUP s.locals vname = SOME v’ by
+    metis_tac [flookup_fupdate_zip_not_mem] >>
+  first_x_assum drule >> strip_tac >>
+  qexists ‘n’ >> simp [] >>
+  simp [lookup_alist_insert_any] >>
+  ‘¬MEM n nlhss’ by metis_tac [not_mem_nlhss_lemma] >>
+  ‘ALOOKUP (ZIP (nlhss, MAP wlab_wloc res_ws)) n = NONE’ suffices_by simp [] >>
+  simp [ALOOKUP_NONE, MAP_ZIP]
 QED
 
 Resume ncompile_correct[Dec]:
@@ -2557,13 +2771,13 @@ Resume ncompile_correct[While]:
    TOP_CASE_TAC >> fs [] >>
    strip_tac >> rveq >> fs [] >>
    TRY (
-   rename [‘evaluate _ = (SOME Break,_)’] >>
+   rename [‘evaluate _ = (SOME (Break _),_)’] >>
    qmatch_goalsub_abbrev_tac ‘nested_seq (_ ++ pp)’ >>
    qpat_x_assum ‘evaluate (nested_seq np, _) = _’ assume_tac >>
    drule evaluate_add_clock_eq >>
    fs [] >>
    disch_then (qspec_then ‘ck' + 1’ assume_tac) >>
-   qpat_x_assum ‘evaluate _ = (SOME Break,t1)’ assume_tac >>
+   qpat_x_assum ‘evaluate _ = (SOME (Break _),t1)’ assume_tac >>
    drule evaluate_add_clock_eq >>
    disch_then (qspec_then ‘1’ assume_tac) >>
    qexists_tac ‘ck + ck' + 1’ >>
@@ -2608,7 +2822,7 @@ Resume ncompile_correct[While]:
      fs [ctxt_max_def] >> res_tac >> rfs []) >>
    fs [lookup_inter, lookup_insert, domain_lookup]) >>
    TRY (
-   rename [‘evaluate _ = (SOME Continue,_)’] >>
+   rename [‘evaluate _ = (SOME (Continue _),_)’] >>
    (* instantiating IH *)
    first_x_assum (qspecl_then [‘t1’, ‘ctxt’ , ‘l’] mp_tac) >>
    impl_tac >- fs [] >>
@@ -2616,7 +2830,7 @@ Resume ncompile_correct[While]:
    fs [Once compile_def] >>
    pairarg_tac >> fs [] >>
    rveq >> rfs [] >>
-   qpat_x_assum ‘evaluate _ = (SOME Continue,t1)’ assume_tac >>
+   qpat_x_assum ‘evaluate _ = (SOME (Continue _),t1)’ assume_tac >>
    drule evaluate_add_clock_eq >>
    fs [] >>
    disch_then (qspec_then ‘ck''’ assume_tac) >>
@@ -3700,8 +3914,8 @@ code_rel2 nctxt s_code t_code ==>
   state_rel s' t' /\
   (res' = case res of
            NONE => NONE
-         | SOME Break => SOME Break
-         | SOME Continue => SOME Continue
+         | SOME Break => SOME (Break 0)
+         | SOME Continue => SOME (Continue 0)
          | SOME (Return v) => SOME (Result [wlab_wloc v])
          | SOME (Exception eid) => SOME (Exception (Word eid))
          | SOME TimeOut => SOME TimeOut

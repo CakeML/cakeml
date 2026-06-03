@@ -55,6 +55,9 @@ compiler pass
 [pan_simpScript.sml](pan_simpScript.sml):
 Simplification of panLang.
 
+[pan_structsScript.sml](pan_structsScript.sml):
+Convert named structs to raw structs
+
 [pan_to_crepScript.sml](pan_to_crepScript.sml):
 Compilation from panLang to crepLang.
 

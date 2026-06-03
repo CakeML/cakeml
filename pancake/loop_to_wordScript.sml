@@ -57,6 +57,27 @@ Definition comp_def:
   (comp ctxt Skip l = (wordLang$Skip,l)) /\
   (comp ctxt (Assign n e) l =
      (Assign (find_var ctxt n) (comp_exp ctxt e),l)) /\
+  (comp ctxt (Primitive lhss pop rhss) l =
+     case pop of
+     | AddCarry =>
+       if LENGTH lhss = 2 ∧ LENGTH rhss = 3 then
+         let
+           res         = EL 0 lhss;
+           co          = EL 1 lhss;
+           li          = EL 0 rhss;
+           ri          = EL 1 rhss;
+           ci          = EL 2 rhss;
+           scratch_ci  = 1;
+           scratch_res = 3
+         in
+           (Seq (Assign scratch_ci (Var (find_var ctxt ci)))
+           (Seq (Inst (Arith (AddCarry scratch_res
+                                       (find_var ctxt li)
+                                       (find_var ctxt ri)
+                                       scratch_ci)))
+           (Seq (Assign (find_var ctxt co) (Var scratch_ci))
+                (Assign (find_var ctxt res) (Var scratch_res)))), l)
+       else (Skip, l)) /\
   (comp ctxt (Arith arith) l =
      (case arith of
         LLongMul r1 r2 r3 r4 =>
@@ -96,8 +117,8 @@ Definition comp_def:
       (Seq Tick
          (Seq (wordLang$Loop (mk_new_cutset ctxt l1) wbody (mk_new_cutset ctxt l2))
               Tick),l)) /\
-  (comp ctxt Break l    = (Break 0,l)) /\
-  (comp ctxt Continue l = (Continue 0,l)) /\
+  (comp ctxt (Break n) l    = (Break n,l)) /\
+  (comp ctxt (Continue n) l = (Continue n,l)) /\
   (comp ctxt (Raise v) l = (Raise (find_var ctxt v),l)) /\
   (comp ctxt (Return vs) l = (Return 0 (MAP (find_var ctxt) vs),l)) /\
   (comp ctxt Tick l = (Tick,l)) /\

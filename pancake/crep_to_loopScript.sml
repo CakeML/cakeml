@@ -111,8 +111,8 @@ End
 
 Definition compile_def:
   (compile _ _ (Skip:'a crepLang$prog) = (Skip:'a loopLang$prog)) /\
-  (compile _ _ Break = Break) /\
-  (compile _ _ Continue = Continue) /\
+  (compile _ _ Break = Break 0) /\
+  (compile _ _ Continue = Continue 0) /\
   (compile _ _ Tick = Tick) /\
   (compile ctxt l (Return e) =
     let (p, le, ntmp, nl) = compile_exp ctxt (ctxt.vmax + 1) l e in
@@ -152,6 +152,11 @@ Definition compile_def:
        let (p,le,tmp, l) = compile_exp ctxt (ctxt.vmax + 1) l e in
         nested_seq (p ++ [Assign n le])
      | NONE => Skip) /\
+  (compile ctxt l (Primitive lhss pop rhss) =
+    case (OPT_MMAP (FLOOKUP ctxt.vars) lhss,
+          OPT_MMAP (FLOOKUP ctxt.vars) rhss) of
+     | (SOME nlhss, SOME nrhss) => Primitive nlhss pop nrhss
+     | _ => Skip) /\
   (compile ctxt l (Dec v e prog) =
     let (p,le,tmp,nl) = compile_exp ctxt (ctxt.vmax + 1) l e;
          nctxt = ctxt with <|vars := ctxt.vars |+ (v,tmp);
@@ -171,7 +176,7 @@ Definition compile_def:
      Loop l (nested_seq (np ++ [
                 Assign tmp le;
                 If NotEqual tmp (Imm 0w)
-                   (Seq lp Continue) Break l]))
+                   (Seq lp (Continue 0)) (Break 0) l]))
           l) /\
   (compile ctxt l (Call call_type e es) =
    let dest = find_lab ctxt e;

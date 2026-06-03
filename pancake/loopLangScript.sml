@@ -6,6 +6,7 @@ Ancestors
   sptree (* for num_set *)
   asm (* for importing binop and cmp *)
   backend_common (* for overloading shift operation  *)
+  panLang (* for primop *)
 Libs
   preamble
 
@@ -29,6 +30,7 @@ End
 Datatype:
   prog = Skip
        | Assign num ('a exp)           (* dest, source *)
+       | Primitive (num list) panLang$primop (num list)
        | Arith loop_arith
        | Store ('a exp) num            (* dest, source *)
        | SetGlobal (5 word) ('a exp)   (* dest, source *)
@@ -39,8 +41,8 @@ Datatype:
        | Seq prog prog
        | If cmp num ('a reg_imm) prog prog num_set
        | Loop num_set prog num_set     (* names in, body, names out *)
-       | Break
-       | Continue
+       | Break num
+       | Continue num
        | Raise num
        | Return (num list)
        | ShMem memop num ('a exp)
@@ -92,6 +94,7 @@ End
 Definition assigned_vars_def:
   (assigned_vars Skip = []) ∧
   (assigned_vars (Assign n e) = [n]) ∧
+  (assigned_vars (Primitive lhss pop rhss) = lhss) ∧
   (assigned_vars (Arith arith) =
    case arith of
      LLongMul v1 v2 v3 v4 => [v1;v2]
@@ -114,8 +117,8 @@ End
 
 Definition acc_vars_def:
   (acc_vars (Seq p1 p2) l = acc_vars p1 (acc_vars p2 l)) ∧
-  (acc_vars Break l = (l:num_set)) ∧
-  (acc_vars Continue l = l) ∧
+  (acc_vars (Break _) l = (l:num_set)) ∧
+  (acc_vars (Continue _) l = l) ∧
   (acc_vars (Loop l1 body l2) l = acc_vars body l) ∧
   (acc_vars (If x1 x2 x3 p1 p2 l1) l = acc_vars p1 (acc_vars p2 l)) ∧
   (acc_vars (Arith arith) l =
@@ -140,6 +143,7 @@ Definition acc_vars_def:
                acc_vars p1 (acc_vars p2 (insert n () l))) /\
   (acc_vars (LocValue n m) l = insert n () l) /\
   (acc_vars (Assign n exp) l = insert n () l) /\
+  (acc_vars (Primitive lhss pop rhss) l = list_insert lhss l) /\
   (acc_vars (ShMem op n exp) l = insert n () l) /\
   (acc_vars (Store exp n) l = l) /\
   (acc_vars (SetGlobal w exp) l = l) /\
