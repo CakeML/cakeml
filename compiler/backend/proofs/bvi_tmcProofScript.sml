@@ -1598,23 +1598,27 @@ Proof
 QED
 
 Theorem evaluate_cb:
-  ∀cb bs loc f opt env env2 ^s s' t t' r r'.
+  ∀cb bs loc loc_opt exp wrap work arity f opt env env2 ^s s' t t' r r'.
     evaluate ([cb_to_bvi loc cb],env,s) = (r,t) ∧
     env_rel opt f env env2 ∧
     state_rel f s s' ∧
     r ≠ Rerr (Rabort Rtype_error) ∧
+    lookup loc s.code = SOME (arity,exp) ∧
+    lookup loc s'.code = SOME (arity,wrap) ∧
+    rewrite_wrapper loc loc_opt exp = SOME wrap ∧
+    lookup loc_opt s'.code = SOME (arity + 2, work) ∧
+    rewrite_worker loc loc_opt arity (arity + 1) exp = work ∧
     (∀xs' s'' env1' loc' r' t' opt' f' s'³' env2'.
        hypothesis xs' s'' env1' loc' r' t' opt' f' s'³' env2' s) ⇒
-    ∃r' t'.
+    ∃r' t' f'.
       evaluate ([cb_to_bvi loc cb],env2,s') = (r',t') ∧
-      (∃f'.
-         result_rel (LIST_REL (v_rel f')) (v_rel f') r r' ∧
-         state_rel f' t t' ∧
-         f ⊑ f' ∧
-         only_fresh f f' s'.refs ∧
-         holes_unchanged_except f s'.refs t'.refs ∅) ∧
+      result_rel (LIST_REL (v_rel f')) (v_rel f') r r' ∧
+      state_rel f' t t' ∧
+      f ⊑ f' ∧
+      only_fresh f f' s'.refs ∧
+      holes_unchanged_except f s'.refs t'.refs ∅ ∧
       (opt ⇒
-       ∀loc_opt s_aux extras ptr idx.
+       ∀s_aux extras ptr idx.
          alloc_preconditions f s_aux.refs extras ptr idx ⇒
          ∃r_work t_work f_work.
            evaluate ([cb_to_bvi_worker_aux (shift_cb (LENGTH extras) cb) loc_opt ptr idx],extras ++ env2,s_aux) = (r_work,t_work) ∧
@@ -1636,9 +1640,6 @@ Proof
     >> impl_tac >- (spose_not_then assume_tac >> gvs [CaseEq "prod"])
     >> strip_tac
     >> gvs [bvlSemTheory.find_code_def, CaseEq "prod", CaseEq "option"]
-    >> drule_all code_rel_cases
-    >> strip_tac
-    >> gvs []
     >> ‘s.clock = s'.clock’ by gvs [state_rel_def]
     >> gvs []
     >> Cases_on ‘s'.clock < ts + 1’
@@ -1663,22 +1664,31 @@ Proof
     >> gvs [GSYM PULL_FORALL]
     >> disch_then $ qspec_then ‘loc’ mp_tac
     >> strip_tac
-    >> gvs []
+
     >> rename [‘state_rel f' t t_call’, ‘result_rel _ _ _ r_call'’]
-    >> Cases_on ‘evaluate ([exp'],MAP (λn. env2❲n❳) args,dec_clock (ts + 1) s')’
-    >> qexistsl [‘q’, ‘r'’]
-    >> conj_tac
+    >> first_x_assum drule
+    >> strip_tac
+    >> gvs []
+    >> rename [‘state_rel _ _ t_wrap’]
+
+    >> Cases_on ‘exp = exp'’
     >-
-     (Cases_on ‘exp = exp'’
+     (gvs []
+      >> qexistsl [‘r_call'’, ‘t_call’, ‘f'’]
+      >> conj_tac
       >-
        (gvs []
         >> CASE_TAC >> gvs []
         >> CASE_TAC >> gvs [])
-      >> gvs []
-      >> first_assum drule
-      >> strip_tac
-      >> CASE_TAC >> gvs []
-      >> CASE_TAC >> gvs [])
+      >> rpt $ first_assum $ irule_at Any
+      >> rw []
+      >> gvs [shift_cb_def, cb_to_bvi_worker_def, cb_to_bvi_worker_aux_def, optimise_call_def, evaluate_def, evaluate_APPEND]
+      >> gvs [evaluate_shift_vars, alloc_preconditions_def]
+      >> gvs [do_app_def, do_app_aux_def]
+      >> ‘backend_common$small_enough_int (&LENGTH left)’ by cheat
+      >> gvs [bvlSemTheory.find_code_def]
+      >>
+        )
 
         )
   >> rw []
