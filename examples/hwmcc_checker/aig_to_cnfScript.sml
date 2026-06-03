@@ -174,7 +174,7 @@ End
 
 Definition aig_rename_def:
   aig_rename ([]:('a,'i,'l) and list) =
-    ([]:(num,num,num) and list,0n,FEMPTY,FEMPTY,FEMPTY) ∧
+    ([]:(num,num,num) and list,1n,FEMPTY,FEMPTY,FEMPTY) ∧
   aig_rename ((m,ts)::xs) =
     let (res,next,im,lm,nm) = aig_rename xs in
     let (ts1,next,im,lm) = aig_rename_aux ts next im lm nm [] in
@@ -201,7 +201,7 @@ QED
 
 Theorem aig_rename_rev_thm:
   ∀xs res next.
-    aig_rename_rev (REVERSE xs) [] 0n FEMPTY FEMPTY FEMPTY = aig_rename xs
+    aig_rename_rev (REVERSE xs) [] 1n FEMPTY FEMPTY FEMPTY = aig_rename xs
 Proof
   Induct \\ fs [aig_rename_rev_def, aig_rename_def]
   \\ Cases \\ fs [aig_rename_rev_def, aig_rename_def]
@@ -1111,7 +1111,7 @@ QED
 Definition aig_to_cnf_def:
   aig_to_cnf ands name =
     let ands_1 = prune_for name ands in
-    let (ands_2, limit, x) = aig_rename_rev ands_1 [] 0n FEMPTY FEMPTY FEMPTY in
+    let (ands_2, limit, x) = aig_rename_rev ands_1 [] 1n FEMPTY FEMPTY FEMPTY in
       (direct_circuit_to_cnf ands_2, limit)
 End
 
