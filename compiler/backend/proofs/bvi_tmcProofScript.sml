@@ -1526,15 +1526,6 @@ Definition hypothesis_def:
                 hole_has_val f'' env1' env2' t2.refs res_v))
 End
 
-Definition hole_has_val2_def:
-  hole_has_val2 f env refs i_ptr c_idx c ⇔
-    ∃hole_ptr tag left right.
-      env❲i_ptr❳ = RefPtr F hole_ptr ∧
-      c_idx = LENGTH left ∧
-      hole_ptr ∉ FRANGE f ∧
-      FLOOKUP refs hole_ptr = SOME (MutBlock tag left c right)
-End
-
 Definition alloc_preconditions_def:
   alloc_preconditions f refs extras i_ptr c_idx ⇔
     ∃hole_ptr tag left c right.
@@ -1556,6 +1547,14 @@ Proof
   >> gvs [shift_vars_def]
 QED
 
+(* Move me *)
+Theorem shift_cb_dist:
+  shift_cb n1 (shift_cb n2 cb) =
+  shift_cb (n1 + n2) cb
+Proof
+  cheat
+QED
+
 Theorem evaluate_cb:
   ∀cb bs loc f opt env env2 ^s s' t t' r r'.
     evaluate ([cb_to_bvi loc cb],env,s) = (r,t) ∧
@@ -1572,17 +1571,10 @@ Theorem evaluate_cb:
       only_fresh f f' s'.refs ∧
       holes_unchanged_except f s'.refs t'.refs ∅ ∧
       (opt ⇒
-       ∀loc_opt extras ptr idx.
-         (*(∀wrap.
-            rewrite_wrapper loc loc_opt x = SOME wrap ⇒
-            ∃t1 f_wrap.
-              evaluate ([wrap],env2,s') = (r',t1) ∧
-              state_rel f_wrap t t1 ∧ f ⊑ f_wrap ∧
-              only_fresh f f_wrap s'.refs) ∧*)
-         alloc_preconditions f s'.refs extras ptr idx ⇒
-         (*(∃c. hole_has_val2 f env2 s'.refs ptr idx c) ⇒*)
+       ∀loc_opt refs extras ptr idx.
+         alloc_preconditions f refs extras ptr idx ⇒
          ∃r_work t_work f_work.
-           evaluate ([cb_to_bvi_worker_aux (shift_cb (LENGTH extras) cb) loc_opt ptr idx],extras ++ env2,s') = (r_work,t_work) ∧
+           evaluate ([cb_to_bvi_worker_aux (shift_cb (LENGTH extras) cb) loc_opt ptr idx],extras ++ env2,s' with refs := refs) = (r_work,t_work) ∧
            opt_res_rel r' r_work ∧
            state_rel f_work t t_work ∧
            f ⊑ f_work ∧
@@ -1655,8 +1647,46 @@ Proof
   >> IF_CASES_TAC
   >- cheat (* contradiction *)
   >> gvs []
-  >> first_x_assum $ qspecl_then [‘Unit::RefPtr F (LEAST ptr. ptr ∉ FDOM s'.refs)::extras’, ‘1’, ‘LENGTH right’] mp_tac
-  >> gvs []
+
+  >> first_x_assum $ qspecl_then [‘refs⟨hole_ptr ↦ MutBlock tag' left'
+                                   (RefPtr F (LEAST ptr'. ptr' ∉ FDOM refs)) right';
+                                   (LEAST ptr'. ptr' ∉ FDOM refs) ↦ MutBlock tag
+                                                                  (MAP (λn. env2❲n❳) (TAKE (LENGTH right) (REVERSE right)))
+                                                                  (Number 0)
+                                                                  (MAP (λn. env2❲n❳) (REVERSE left))⟩’,
+                                  ‘Unit::RefPtr F (LEAST ptr. ptr ∉ FDOM s'.refs)::extras’, ‘1’, ‘LENGTH right’] mp_tac
+
+  >> impl_tac
+  >-
+   (gvs []
+    >> qexistsl [‘tag’,
+                 ‘(MAP (λn. env2❲n❳) (TAKE (LENGTH right) (REVERSE right)))’,
+                 ‘Number 0’,
+                 ‘(MAP (λn. env2❲n❳) (REVERSE left))’]
+    >> conj_tac
+    >- gvs [LENGTH_MAP]
+    >> conj_tac
+    >-
+     (‘(LEAST ptr. ptr ∉ FDOM s'.refs) ∉ FDOM s'.refs’ by cheat
+      >> gvs [state_rel_def, state_ref_rel_def]
+      >> cheat)
+    >> gvs [FLOOKUP_SIMP]
+    >> IF_CASES_TAC
+    >- cheat (* contradiction *)
+    (* Something a bit wonky with how I'm handling refs *)
+    >> reverse $ IF_CASES_TAC
+    >- cheat
+    >> gvs [])
+  >> strip_tac
+  >> qexistsl [‘r_work’, ‘t_work’, ‘f_work’]
+  >> conj_tac
+  >-
+   (gvs [shift_cb_dist]
+    >> ‘SUC (SUC (LENGTH extras)) = LENGTH extras + 2’ by gvs []
+    >> gvs []
+        )
+
+  >>
 QED
 
 print_match [] “(x::xs)❲n+1❳”
