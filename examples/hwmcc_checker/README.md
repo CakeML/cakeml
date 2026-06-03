@@ -9,6 +9,9 @@ Formalization of HWMCC certificates
 [aig_cert_encodeScript.sml](aig_cert_encodeScript.sml):
 Encodes the certificate conditions as an AIG.
 
+[aig_cert_fullScript.sml](aig_cert_fullScript.sml):
+Verified certificate checker for the Hardware Model Checking Competition.
+
 [aig_parseScript.sml](aig_parseScript.sml):
 Parser for the AIGER format.
 
