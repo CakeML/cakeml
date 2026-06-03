@@ -1671,7 +1671,7 @@ Theorem evaluate_cb:
       only_fresh f f' s'.refs ∧
       holes_unchanged_except f s'.refs t'.refs ∅ ∧
       (opt ⇒
-       ∀refs extras ptr idx.
+       (∀refs extras ptr idx.
          state_ref_rel f s.refs refs ∧
          alloc_preconditions f refs extras ptr idx ⇒
          ∃r_work t_work f_work.
@@ -1683,6 +1683,9 @@ Theorem evaluate_cb:
            holes_unchanged_except f refs t_work.refs {extras❲ptr❳} ∧
            ∀res_v.
              r' = Rval [res_v] ⇒ alloc_postconditions t_work.refs extras ptr idx res_v)
+      (* And then there will be conclusions for cb_to_bvi_worker and cb_to_bvi_wrapper.
+         But these need something about cb_to_bvi_worker_aux in an inductive hypothesis.
+       *))
 Proof
 
   reverse $ Induct
