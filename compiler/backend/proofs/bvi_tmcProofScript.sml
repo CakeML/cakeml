@@ -1571,10 +1571,10 @@ Theorem evaluate_cb:
       only_fresh f f' s'.refs ∧
       holes_unchanged_except f s'.refs t'.refs ∅ ∧
       (opt ⇒
-       ∀loc_opt refs extras ptr idx.
-         alloc_preconditions f refs extras ptr idx ⇒
+       ∀loc_opt s_aux extras ptr idx.
+         alloc_preconditions f s_aux.refs extras ptr idx ⇒
          ∃r_work t_work f_work.
-           evaluate ([cb_to_bvi_worker_aux (shift_cb (LENGTH extras) cb) loc_opt ptr idx],extras ++ env2,s' with refs := refs) = (r_work,t_work) ∧
+           evaluate ([cb_to_bvi_worker_aux (shift_cb (LENGTH extras) cb) loc_opt ptr idx],extras ++ env2,s_aux) = (r_work,t_work) ∧
            opt_res_rel r' r_work ∧
            state_rel f_work t t_work ∧
            f ⊑ f_work ∧
@@ -1613,7 +1613,7 @@ Proof
   >> first_assum $ irule_at Any
   >> imp_res_tac evaluate_SING_IMP
   >> gvs [REVERSE_APPEND]
-  (*>> gvs [LENGTH_MAP, REVERSE_APPEND, TAKE_APPEND, DROP_APPEND, GSYM MAP_REVERSE, GSYM MAP_TAKE, GSYM MAP_DROP, DROP_LENGTH_TOO_LONG]*)
+  >> rename [‘v_rel _ w w'’]
   >> conj_tac
   >-
    (simp [Once v_rel_cases]
@@ -1648,13 +1648,13 @@ Proof
   >- cheat (* contradiction *)
   >> gvs []
 
-  >> first_x_assum $ qspecl_then [‘refs⟨hole_ptr ↦ MutBlock tag' left'
-                                   (RefPtr F (LEAST ptr'. ptr' ∉ FDOM refs)) right';
-                                   (LEAST ptr'. ptr' ∉ FDOM refs) ↦ MutBlock tag
-                                                                  (MAP (λn. env2❲n❳) (TAKE (LENGTH right) (REVERSE right)))
-                                                                  (Number 0)
-                                                                  (MAP (λn. env2❲n❳) (REVERSE left))⟩’,
-                                  ‘Unit::RefPtr F (LEAST ptr. ptr ∉ FDOM s'.refs)::extras’, ‘1’, ‘LENGTH right’] mp_tac
+  >> first_x_assum $ qspecl_then [‘s_aux with refs := s_aux.refs⟨
+                                                           hole_ptr ↦ MutBlock tag' left' (RefPtr F (LEAST ptr. ptr ∉ FDOM s_aux.refs)) right';
+                                   (LEAST ptr. ptr ∉ FDOM s_aux.refs) ↦ MutBlock tag
+                                                                      (MAP (λn. env2❲n❳) (TAKE (LENGTH right) (REVERSE right)))
+                                                                      (Number 0)
+                                                                      (MAP (λn. env2❲n❳) (REVERSE left))⟩’,
+                                  ‘Unit::RefPtr F (LEAST ptr. ptr ∉ FDOM s_aux.refs)::extras’, ‘1’, ‘LENGTH right’] mp_tac
 
   >> impl_tac
   >-
@@ -1666,26 +1666,18 @@ Proof
     >> conj_tac
     >- gvs [LENGTH_MAP]
     >> conj_tac
-    >-
-     (‘(LEAST ptr. ptr ∉ FDOM s'.refs) ∉ FDOM s'.refs’ by cheat
-      >> gvs [state_rel_def, state_ref_rel_def]
-      >> cheat)
-    >> gvs [FLOOKUP_SIMP]
-    >> IF_CASES_TAC
-    >- cheat (* contradiction *)
-    (* Something a bit wonky with how I'm handling refs *)
-    >> reverse $ IF_CASES_TAC
     >- cheat
-    >> gvs [])
+    >> gvs [FLOOKUP_SIMP])
   >> strip_tac
   >> qexistsl [‘r_work’, ‘t_work’, ‘f_work’]
   >> conj_tac
   >-
    (gvs [shift_cb_dist]
     >> ‘SUC (SUC (LENGTH extras)) = LENGTH extras + 2’ by gvs []
-    >> gvs []
-        )
-
+    >> gvs [])
+  >> conj_tac
+  >- gvs [opt_res_rel_def]
+  >> gvs [hole_has_val_def]
   >>
 QED
 
