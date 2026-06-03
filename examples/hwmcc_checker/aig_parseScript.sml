@@ -24,7 +24,6 @@ Datatype:
   |>
 End
 
-(* TODO Are counts part of the circuit, or just an implementation detail? *)
 Datatype:
   aiger = <|
     counts      : counts;
@@ -323,6 +322,9 @@ End
 
   The priority order is as follows:
   1. comment, 2. symbol table, 3. default mapping
+
+  For shared inputs/latches, the default encoding in Certifaiger should
+  correspond to what merge_circuit does already.
 *)
 
 Definition insert_if_def:
@@ -408,8 +410,6 @@ Definition parse_symbol_table_def:
   od
 End
 
-(* TODO Default mapping *)
-
 Definition parse_witness_def:
   parse_witness str =
   do
@@ -419,8 +419,49 @@ Definition parse_witness_def:
   od
 End
 
-val model = mlstringSyntax.mlstring_from_file "./examples/01_model.aig";
-val aig = EVAL “parse_aiger (explode ^model)” |> concl |> rhs;
+(* Applying the map for shared inputs/latched *********************************)
 
-val model = mlstringSyntax.mlstring_from_file "./examples/06_witness.aig";
-val aig = EVAL “parse_witness (explode ^model)” |> concl |> rhs;
+Definition replace_lits_def:
+  replace_lits wmax_input mmax_input mmax_latch in_map latch_map [] = [] ∧
+  replace_lits wmax_input mmax_input mmax_latch in_map latch_map (lit::rest) =
+  let
+    rest = replace_lits wmax_input mmax_input mmax_latch in_map latch_map rest;
+    (v,b) = lit;
+  in
+    case v of
+    | Name _ => lit::rest
+    | Base Ff => lit::rest
+    | Base (Input i) =>
+      (case lookup (i - 1) in_map of
+       | NONE => lit::rest
+       | SOME i => (convert_lit mmax_input mmax_latch i)::rest)
+    | Base (Latch l) =>
+      (case lookup (l - wmax_input - 1) latch_map of
+       | NONE => lit::rest
+       | SOME l => (convert_lit mmax_input mmax_latch l)::rest)
+End
+
+Definition replace_def:
+  replace wmax_input mmax_input mmax_latch in_map latch_map
+    (circuit: (num, num, num) circuit) =
+  MAP (I ## replace_lits wmax_input mmax_input mmax_latch in_map latch_map)
+    circuit
+End
+
+(* Testing ********************************************************************)
+
+val model = mlstringSyntax.mlstring_from_file "./examples/01_model.aig";
+val [maig, mrest] =
+  EVAL “parse_aiger (explode ^model)” |> concl |> rhs |> rand |> strip_pair;
+
+val witness = mlstringSyntax.mlstring_from_file "./examples/06_witness.aig";
+val [waig, wmaps, wrest] =
+  EVAL “parse_witness (explode ^witness)” |> concl |> rhs |> rand |> strip_pair;
+
+val witness' =
+  EVAL “replace
+        ^(waig).counts.inputs ^(maig).counts.inputs
+        (^(maig).counts.inputs + ^(maig).counts.latches)
+        ^(wmaps).shared_inputs ^(wmaps).shared_latches
+        ^waig.circuit”
+    |> concl |> rhs
