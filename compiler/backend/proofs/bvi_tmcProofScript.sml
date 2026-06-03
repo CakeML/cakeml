@@ -1751,7 +1751,6 @@ Proof
      (gvs []
       >> gvs [state_rel_def, dec_clock_def])
     >> strip_tac
-    >> rename [‘’]
     >> first_x_assum $ qspec_then ‘loc_opt’ mp_tac
     >> gvs []
     >> strip_tac
