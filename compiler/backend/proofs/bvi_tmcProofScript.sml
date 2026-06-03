@@ -1573,6 +1573,30 @@ Proof
   cheat
 QED
 
+Theorem code_rel_cases:
+  ∀arity exp loc s1 s2 f.
+    lookup loc s1.code = SOME (arity,exp) ∧
+    state_rel f s1 s2 ⇒
+    ∃exp'.
+      lookup loc s2.code = SOME (arity,exp') ∧
+      (exp ≠ exp' ⇒
+       ∃n.
+         rewrite_wrapper loc n exp = SOME exp')
+Proof
+  rw []
+  >> gvs [state_rel_def, code_rel_def]
+  >> first_x_assum drule
+  >> strip_tac
+  >> Cases_on ‘compile_exp loc n arity exp’
+  >- gvs []
+  >> gvs []
+  >> Cases_on ‘x’
+  >> gvs [compile_exp_def, CaseEq "option"]
+  >> rw []
+  >> qexists ‘n’
+  >> gvs []
+QED
+
 Theorem evaluate_cb:
   ∀cb bs loc f opt env env2 ^s s' t t' r r'.
     evaluate ([cb_to_bvi loc cb],env,s) = (r,t) ∧
@@ -1581,13 +1605,14 @@ Theorem evaluate_cb:
     r ≠ Rerr (Rabort Rtype_error) ∧
     (∀xs' s'' env1' loc' r' t' opt' f' s'³' env2'.
        hypothesis xs' s'' env1' loc' r' t' opt' f' s'³' env2' s) ⇒
-    ∃r' t' f'.
+    ∃r' t'.
       evaluate ([cb_to_bvi loc cb],env2,s') = (r',t') ∧
-      result_rel (LIST_REL (v_rel f')) (v_rel f') r r' ∧
-      state_rel f' t t' ∧
-      f ⊑ f' ∧
-      only_fresh f f' s'.refs ∧
-      holes_unchanged_except f s'.refs t'.refs ∅ ∧
+      (∃f'.
+         result_rel (LIST_REL (v_rel f')) (v_rel f') r r' ∧
+         state_rel f' t t' ∧
+         f ⊑ f' ∧
+         only_fresh f f' s'.refs ∧
+         holes_unchanged_except f s'.refs t'.refs ∅) ∧
       (opt ⇒
        ∀loc_opt s_aux extras ptr idx.
          alloc_preconditions f s_aux.refs extras ptr idx ⇒
@@ -1610,19 +1635,10 @@ Proof
     >> drule_then drule evaluate_vars
     >> impl_tac >- (spose_not_then assume_tac >> gvs [CaseEq "prod"])
     >> strip_tac
-    >> gvs [CaseEq "prod", CaseEq "option"]
-    >> cheat
-
-           (*
-    >> gvs [bvlSemTheory.find_code_def, CaseEq "option", CaseEq "prod"]
-    >> ‘code_rel s.code s'.code’ by gvs [state_rel_def]
-    >> gvs [code_rel_def]
-    >> first_x_assum drule
+    >> gvs [bvlSemTheory.find_code_def, CaseEq "prod", CaseEq "option"]
+    >> drule_all code_rel_cases
     >> strip_tac
-    >> Cases_on ‘compile_exp loc n (LENGTH args) exp’
-    >-
-
-    >- cheat
+    >> gvs []
     >> ‘s.clock = s'.clock’ by gvs [state_rel_def]
     >> gvs []
     >> Cases_on ‘s'.clock < ts + 1’
@@ -1630,16 +1646,14 @@ Proof
      (gvs []
       >> cheat)
     >> gvs [CaseEq "prod"]
-    >> gvs [bvlSemTheory.find_code_def, CaseEq "option", CaseEq "prod"]
+    >> ‘(v3,s'³') = (r,t)’ by gvs [CaseEq "result", CaseEq "error_result"]
+    >> gvs []
     >> gvs [hypothesis_def]
     >> first_x_assum $ qspecl_then [‘[exp]’, ‘dec_clock (ts + 1) s’] mp_tac
     >> impl_tac >- gvs [dec_clock_def]
-    >> disch_then drule
-    >> first_assum $ qspec_then ‘s'’ mp_tac
-    >> strip_tac
     >> drule_all env_rel_args
     >> strip_tac
-    >> disch_then drule
+    >> rpt $ disch_then drule
     >> ‘state_rel f (dec_clock (ts + 1) s) (dec_clock (ts + 1) s')’ by
       (irule state_rel_dec
        >> Cases_on ‘s'.clock’
@@ -1647,40 +1661,24 @@ Proof
        >> gvs [])
     >> disch_then drule
     >> gvs [GSYM PULL_FORALL]
-    >> impl_tac >- gvs [CaseEq "prod", CaseEq "result", CaseEq "error_result"]
     >> disch_then $ qspec_then ‘loc’ mp_tac
     >> strip_tac
     >> gvs []
-    >> rename [‘state_rel f' u u'’, ‘result_rel _ _ r_call r_call'’]
-    >> ‘(r,t) = (r_call,u)’ by gvs [CaseEq "result", CaseEq "error_result"]
-    >> gvs []
-    >> ‘(r',t') = (r_call',s'⁴')’ by
-      (Cases_on ‘exp = exp'’
-       >-
-        (gvs []
-         >> Cases_on ‘r_call'’
-         >- gvs []
-         >> gvs [CaseEq "error_result"])
-       >> qpat_x_assum ‘state_rel _ (dec_clock _ _) (dec_clock _ _)’ mp_tac
-       >> simp [state_rel_def, code_rel_def]
-       >> strip_tac
-       >> first_x_assum drule
-       >> strip_tac
-       >> Cases_on ‘compile_exp loc n (LENGTH args) exp’
-       >- gvs []
-       >> Cases_on ‘x’
-       >> gvs [compile_exp_def, CaseEq "option"]
-       >> first_x_assum $ drule
-       >> strip_tac
-       >> gvs []
-       >> Cases_on ‘r_call'’
-       >- gvs []
-       >> gvs [CaseEq "error_result"])
-    >> gvs []
-    >> first_assum $ irule_at Any
-    >> gvs []
-    >>
-    *)
+    >> rename [‘state_rel f' t t_call’, ‘result_rel _ _ _ r_call'’]
+    >> Cases_on ‘evaluate ([exp'],MAP (λn. env2❲n❳) args,dec_clock (ts + 1) s')’
+    >> qexistsl [‘q’, ‘r'’]
+    >> conj_tac
+    >-
+     (Cases_on ‘exp = exp'’
+      >-
+       (gvs []
+        >> CASE_TAC >> gvs []
+        >> CASE_TAC >> gvs [])
+      >> gvs []
+      >> first_assum drule
+      >> strip_tac
+      >> CASE_TAC >> gvs []
+      >> CASE_TAC >> gvs [])
 
         )
   >> rw []
