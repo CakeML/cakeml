@@ -1536,6 +1536,15 @@ Definition alloc_preconditions_def:
       FLOOKUP refs hole_ptr = SOME (MutBlock tag left c right)
 End
 
+Definition alloc_postconditions_def:
+  alloc_postconditions refs extras i_ptr c_idx v ⇔
+    ∃hole_ptr tag left right.
+      i_ptr < LENGTH extras ∧
+      extras❲i_ptr❳ = RefPtr F hole_ptr ∧
+      c_idx = LENGTH left ∧
+      FLOOKUP refs hole_ptr = SOME (MutBlock tag left v right)
+End
+
 (* Move me. This is duplicated somewhere... *)
 Theorem length_shift_vars:
   ∀l n.
@@ -1551,6 +1560,15 @@ QED
 Theorem shift_cb_dist:
   shift_cb n1 (shift_cb n2 cb) =
   shift_cb (n1 + n2) cb
+Proof
+  cheat
+QED
+
+Theorem env_rel_args:
+  env_rel opt f env1 env2 ∧
+  evaluate (MAP (λn. Var n) args,env1,s1) = (Rval (MAP (λn. env1❲n❳) args),s1) ∧
+  evaluate (MAP (λn. Var n) args,env2,s2) = (Rval (MAP (λn. env2❲n❳) args),s2) ⇒
+  env_rel F f (MAP (λn. env1❲n❳) (MAP (λn. env2❲n❳)
 Proof
   cheat
 QED
@@ -1581,11 +1599,33 @@ Theorem evaluate_cb:
            only_fresh f f_work s'.refs ∧
            holes_unchanged_except f s'.refs t_work.refs {env2❲LENGTH env❳} ∧
            ∀res_v.
-             r' = Rval [res_v] ⇒ hole_has_val f env env2 t_work.refs res_v)
+             r' = Rval [res_v] ⇒ alloc_postconditions t_work.refs extras ptr idx res_v)
 Proof
 
   reverse $ Induct
-  >- cheat
+  >-
+   (rw []
+    >> rename [‘RCall ts args’]
+    >> gvs [cb_to_bvi_def, evaluate_def, CaseEq "prod"]
+    >> drule_then drule evaluate_vars
+    >> impl_tac >- (spose_not_then assume_tac >> gvs [CaseEq "prod"])
+    >> strip_tac
+    >> gvs [CaseEq "prod", CaseEq "option"]
+    >- cheat
+    >> ‘s.clock = s'.clock’ by gvs [state_rel_def]
+    >> gvs []
+    >> Cases_on ‘s'.clock < ts + 1’
+    >-
+     (gvs []
+      >> cheat)
+    >> gvs [CaseEq "prod"]
+    >> gvs [bvlSemTheory.find_code_def, CaseEq "option", CaseEq "prod"]
+    >> gvs [hypothesis_def]
+    >> first_x_assum $ qspecl_then [‘[exp]’, ‘dec_clock (ts + 1) s’] mp_tac
+    >> impl_tac >- gvs [dec_clock_def]
+    >> disch_then drule
+    >>
+        )
   >> rw []
   >> reverse $ imp_res_tac bvi_to_cb_cases
   >> rename [‘CallBlock tag left child right’]
@@ -1677,8 +1717,8 @@ Proof
     >> gvs [])
   >> conj_tac
   >- gvs [opt_res_rel_def]
-  >> gvs [hole_has_val_def]
-  >>
+  >> gvs []
+  >> cheat
 QED
 
 print_match [] “(x::xs)❲n+1❳”
