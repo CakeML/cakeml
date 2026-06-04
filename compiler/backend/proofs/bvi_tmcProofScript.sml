@@ -1660,6 +1660,57 @@ Proof
   >> gvs []
 QED
 
+Definition mb_rel_def:
+  (mb_rel f refs (Block tag xs) (RefPtr b ptr) =
+   (b = F ∧
+    ptr ∉ FRANGE f ∧
+    ∃left child right.
+      LENGTH xs = LENGTH left + 1 + LENGTH right ∧
+      FLOOKUP refs ptr = SOME (MutBlock tag left child right) ∧
+      TAKE (LENGTH left) xs = left ∧
+      mb_rel f (refs \\ ptr) (EL (LENGTH left) xs) child ∧
+      DROP (LENGTH left + 1) xs = right)) ∧
+  (mb_rel f refs v1 v2 = (v1 = v2))
+Termination
+  (* There is something similar for definition of finalise_cons in bviSem *)
+  cheat
+End
+
+Theorem evaluate_finalise_cons:
+  ∀v2 refs f v1.
+    mb_rel f refs v1 v2 ⇒
+    ∃v2.
+      finalise_cons v2 refs = SOME v1
+Proof
+
+  recInduct finalise_cons_ind
+  >> rw []
+  >~ [‘RefPtr _ _’] >-
+   (reverse $ Cases_on ‘v1’ >> gvs [mb_rel_def]
+    >-
+     (qexists ‘RefPtr b n’
+      >> gvs [finalise_cons_def]
+      >> CASE_TAC >> gvs []
+        )
+        )
+  >~ [‘Number i’] >-
+   (Cases_on ‘v1’ >> gvs [mb_rel_def]
+    >> qexists ‘Number i’
+    >> gvs [finalise_cons_def])
+  >~ [‘Word64 w’] >-
+   (Cases_on ‘v1’ >> gvs [mb_rel_def]
+    >> qexists ‘Word64 c’
+    >> gvs [finalise_cons_def])
+  >~ [‘Block xs ys’] >-
+   (Cases_on ‘v1’ >> gvs [mb_rel_def]
+    >> qexists ‘Block n l’
+    >> gvs [finalise_cons_def])
+  >~ [‘CodePtr p’] >-
+   (Cases_on ‘v1’ >> gvs [mb_rel_def]
+    >> qexists ‘CodePtr n’
+    >> gvs [finalise_cons_def])
+QED
+
 Theorem evaluate_cb:
   ∀cb bs loc loc_opt exp wrap work arity f opt env env2 ^s s' t t' r r'.
     evaluate ([cb_to_bvi loc cb],env,s) = (r,t) ∧
@@ -1674,12 +1725,12 @@ Theorem evaluate_cb:
     (∀xs' s''.
        hypothesis xs' s'' s) ⇒
     (∃r' t' f'.
-      evaluate ([cb_to_bvi loc cb],env2,s') = (r',t') ∧
-      result_rel (LIST_REL (v_rel f')) (v_rel f') r r' ∧
-      state_rel f' t t' ∧
-      f ⊑ f' ∧
-      only_fresh f f' s'.refs ∧
-      holes_unchanged_except f s'.refs t'.refs ∅) ∧
+       evaluate ([cb_to_bvi loc cb],env2,s') = (r',t') ∧
+       result_rel (LIST_REL (v_rel f')) (v_rel f') r r' ∧
+       state_rel f' t t' ∧
+       f ⊑ f' ∧
+       only_fresh f f' s'.refs ∧
+       holes_unchanged_except f s'.refs t'.refs ∅) ∧
     (∀tag left child right.
        cb = CallBlock tag left child right ⇒
        ∃t_wrap f_wrap r_wrap.
@@ -1689,23 +1740,23 @@ Theorem evaluate_cb:
          f SUBMAP f_wrap ∧
          only_fresh f f_wrap s'.refs ∧
          holes_unchanged_except f s'.refs t_wrap.refs ∅) ∧
+    (∀refs extras ptr idx.
+       state_ref_rel f s.refs refs ∧
+       (∃c. alloc_hole_has_val f refs extras ptr idx c) ⇒
+       ∃r_aux t_aux f_aux.
+         evaluate ([cb_to_bvi_worker_aux (shift_cb (LENGTH extras) cb) loc_opt ptr idx],extras ++ env2,s' with refs := refs) = (r_aux,t_aux) ∧
+         opt_res_rel f_aux r r_aux ∧
+         state_rel f_aux t t_aux ∧
+         f ⊑ f_aux ∧
+         only_fresh f f_aux refs ∧
+         holes_unchanged_except f refs t_aux.refs {extras❲ptr❳} ∧
+         ∀res_v.
+           r = Rval [res_v] ⇒
+           ∃res_v'.
+             (* This will need to be mutblock relation, not v_rel *)
+             v_rel f_aux res_v res_v' ∧
+             alloc_hole_has_val f t_aux.refs extras ptr idx res_v') ∧
     (opt ⇒
-     (∀refs extras ptr idx.
-        state_ref_rel f s.refs refs ∧
-        (∃c. alloc_hole_has_val f refs extras ptr idx c) ⇒
-        ∃r_aux t_aux f_aux.
-          evaluate ([cb_to_bvi_worker_aux (shift_cb (LENGTH extras) cb) loc_opt ptr idx],extras ++ env2,s' with refs := refs) = (r_aux,t_aux) ∧
-          opt_res_rel f_aux r r_aux ∧
-          state_rel f_aux t t_aux ∧
-          f ⊑ f_aux ∧
-          only_fresh f f_aux refs ∧
-          holes_unchanged_except f refs t_aux.refs {extras❲ptr❳} ∧
-          ∀res_v.
-            r = Rval [res_v] ⇒
-            ∃res_v'.
-              (* This will need to be mutblock relation, not v_rel *)
-              v_rel f_aux res_v res_v' ∧
-              alloc_hole_has_val f t_aux.refs extras ptr idx res_v') ∧
      (∀ptr idx work.
         ptr = LENGTH env ∧
         idx = LENGTH env + 1 ∧
@@ -1905,6 +1956,32 @@ Proof
     >> gvs [LENGTH_MAP, REVERSE_APPEND, TAKE_APPEND, DROP_APPEND, GSYM MAP_REVERSE, GSYM MAP_TAKE, GSYM MAP_DROP, DROP_LENGTH_TOO_LONG]
     >> ‘TAKE (LENGTH right) (REVERSE right) = REVERSE right’ by gvs [LENGTH_REVERSE, TAKE_LENGTH_ID]
     >> simp []
+    >> gvs [EL_APPEND_EQN, LENGTH_MAP, LENGTH_REVERSE]
+    >> first_x_assum $ qspecl_then [‘s'.refs⟨
+                                     (LEAST ptr. ptr ∉ FDOM s'.refs) ↦
+                                     MutBlock tag (MAP (λn. env2❲n❳) (REVERSE right)) (Number 0) (MAP (λn. env2❲n❳) (REVERSE left))⟩’,
+                                    ‘[RefPtr F (LEAST ptr. ptr ∉ FDOM s'.refs)]’, ‘0’, ‘LENGTH right’] mp_tac
+
+    >> impl_tac
+    >-
+     (conj_tac
+      >-
+       (irule state_ref_rel_filled
+        >> cheat)
+      >> gvs [alloc_hole_has_val_def, FLOOKUP_SIMP]
+      >> cheat)
+    >> strip_tac
+    >> gvs []
+    >> imp_res_tac evaluate_SING_IMP
+    >> gvs []
+    >> reverse CASE_TAC
+    >- gvs [opt_res_rel_def]
+    >> imp_res_tac evaluate_SING_IMP
+    >> gvs []
+    >> rename [‘opt_res_rel _ (Rval [v]) (Rval [v'])’]
+    >> gvs [bvi_tmcTheory.finalise_cons_def, evaluate_def]
+    >> gvs [do_app_def, do_app_aux_def]
+
     >> cheat)
 
   (* Aux *)
