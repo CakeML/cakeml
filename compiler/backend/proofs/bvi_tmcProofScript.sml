@@ -1721,8 +1721,7 @@ Theorem evaluate_cb:
             r = Rval [res_v] ⇒
             ∃res_v'.
               v_rel f_work res_v res_v' ∧
-              hole_has_val f env env2 t_work.refs res_v')
-    (* And then there will be a conclusions for cb_to_bvi_wrapper as well. *))
+              hole_has_val f env env2 t_work.refs res_v'))
 Proof
 
   reverse $ Induct
