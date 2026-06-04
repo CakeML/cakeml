@@ -1677,22 +1677,36 @@ Theorem evaluate_cb:
      (∀refs extras ptr idx.
         state_ref_rel f s.refs refs ∧
         (∃c. alloc_hole_has_val f refs extras ptr idx c) ⇒
-        ∃r_work t_work f_work.
-          evaluate ([cb_to_bvi_worker_aux (shift_cb (LENGTH extras) cb) loc_opt ptr idx],extras ++ env2,s' with refs := refs) = (r_work,t_work) ∧
-          opt_res_rel f_work r r_work ∧
-          state_rel f_work t t_work ∧
-          f ⊑ f_work ∧
-          only_fresh f f_work refs ∧
-          holes_unchanged_except f refs t_work.refs {extras❲ptr❳} ∧
+        ∃r_aux t_aux f_aux.
+          evaluate ([cb_to_bvi_worker_aux (shift_cb (LENGTH extras) cb) loc_opt ptr idx],extras ++ env2,s' with refs := refs) = (r_aux,t_aux) ∧
+          opt_res_rel f_aux r r_aux ∧
+          state_rel f_aux t t_aux ∧
+          f ⊑ f_aux ∧
+          only_fresh f f_aux refs ∧
+          holes_unchanged_except f refs t_aux.refs {extras❲ptr❳} ∧
           ∀res_v.
             r = Rval [res_v] ⇒
             ∃res_v'.
               (* This will need to be mutblock relation, not v_rel *)
+              v_rel f_aux res_v res_v' ∧
+              alloc_hole_has_val f t_aux.refs extras ptr idx res_v') ∧
+     (∀ptr idx work.
+        ptr = LENGTH env ∧
+        idx = LENGTH env + 1 ∧
+        (∃c. hole_has_val f env env2 s'.refs c) ⇒
+        ∃r_work f_work t_work.
+          evaluate ([cb_to_bvi_worker cb loc_opt ptr idx], env2, s') = (r_work,t_work) ∧
+          opt_res_rel f_work r r_work ∧
+          state_rel f_work t t_work ∧
+          f SUBMAP f_work ∧
+          only_fresh f f_work s'.refs ∧
+          holes_unchanged_except f s'.refs t_work.refs {EL ptr env2} ∧
+          ∀res_v.
+            r = Rval [res_v] ⇒
+            ∃res_v'.
               v_rel f_work res_v res_v' ∧
-              alloc_hole_has_val f t_work.refs extras ptr idx res_v')
-    (* And then there will be conclusions for cb_to_bvi_worker and cb_to_bvi_wrapper.
-       But these need something about cb_to_bvi_worker_aux in an inductive hypothesis.
-     *))
+              hole_has_val f env env2 t_work.refs res_v')
+    (* And then there will be a conclusions for cb_to_bvi_wrapper as well. *))
 Proof
 
   reverse $ Induct
@@ -1743,18 +1757,63 @@ Proof
         >> CASE_TAC >> gvs [])
       >> rpt $ first_assum $ irule_at Any)
     (* Aux *)
-    >> gvs [shift_cb_def, cb_to_bvi_worker_def, cb_to_bvi_worker_aux_def, optimise_call_def, evaluate_def, evaluate_APPEND, evaluate_shift_vars]
-    >> gvs [alloc_hole_has_val_def, do_app_def, do_app_aux_def]
-    >> ‘backend_common$small_enough_int (&LENGTH left)’ by cheat
+    >-
+     (gvs [shift_cb_def, cb_to_bvi_worker_def, cb_to_bvi_worker_aux_def, optimise_call_def, evaluate_def, evaluate_APPEND, evaluate_shift_vars]
+      >> gvs [alloc_hole_has_val_def, do_app_def, do_app_aux_def]
+      >> ‘backend_common$small_enough_int (&LENGTH left)’ by cheat
+      >> gvs [bvlSemTheory.find_code_def, EL_APPEND_EQN]
+      >> gvs [hypothesis_def]
+      >> first_x_assum $ qspecl_then [‘[exp]’, ‘dec_clock (ts + 1) s’] mp_tac
+      >> impl_tac >- gvs [dec_clock_def]
+      >> disch_then drule
+      >> drule_then drule env_rel_opt_args
+      >> disch_then $ qspecl_then [‘hole_ptr’, ‘&LENGTH left’] assume_tac
+      >> disch_then drule
+      >> disch_then $ qspecl_then [‘loc’, ‘dec_clock (ts + 1) (s' with refs := refs)’] mp_tac
+      >> impl_tac
+      >-
+       (gvs []
+        >> gvs [state_rel_def, dec_clock_def])
+      >> strip_tac
+      >> rename [‘state_rel _ t _’]
+      >> first_x_assum $ qspec_then ‘loc_opt’ mp_tac
+      >> gvs []
+      >> strip_tac
+      >> pop_assum mp_tac
+      >> impl_tac
+      >-
+       (gvs [hole_has_val_def]
+        >> gvs [EL_APPEND_EQN, LENGTH_MAP])
+      >> strip_tac
+      >> gvs []
+      >> qexistsl [‘r_work’, ‘t_work’, ‘f_work’]
+      >> conj_tac
+      >-
+       (CASE_TAC >> gvs []
+        >> CASE_TAC >> gvs [])
+      >> conj_tac
+      >- gvs [opt_res_rel_def]
+      >> gvs []
+      >> conj_tac
+      >- gvs [EL_APPEND_EQN, LENGTH_MAP]
+      >> rw []
+      >> gvs []
+      >> first_assum $ irule_at Any
+      >> gvs [hole_has_val_def, EL_APPEND_EQN, LENGTH_MAP])
+    (* Work *)
+    >> gvs [cb_to_bvi_worker_def, evaluate_def]
+    >> gvs [optimise_call_def, evaluate_def, evaluate_APPEND]
+    >> imp_res_tac env_rel_length_opt
     >> gvs [bvlSemTheory.find_code_def, EL_APPEND_EQN]
     >> gvs [hypothesis_def]
     >> first_x_assum $ qspecl_then [‘[exp]’, ‘dec_clock (ts + 1) s’] mp_tac
     >> impl_tac >- gvs [dec_clock_def]
     >> disch_then drule
     >> drule_then drule env_rel_opt_args
-    >> disch_then $ qspecl_then [‘hole_ptr’, ‘&LENGTH left’] assume_tac
+    >> imp_res_tac env_rel_strip_extras
+    >> disch_then $ qspecl_then [‘hole_ptr’, ‘hole_idx’] assume_tac
     >> disch_then drule
-    >> disch_then $ qspecl_then [‘loc’, ‘dec_clock (ts + 1) (s' with refs := refs)’] mp_tac
+    >> disch_then $ qspecl_then [‘loc’, ‘dec_clock (ts + 1) s'’] mp_tac
     >> impl_tac
     >-
      (gvs []
@@ -1771,14 +1830,14 @@ Proof
       >> gvs [EL_APPEND_EQN, LENGTH_MAP])
     >> strip_tac
     >> gvs []
-    >> qexistsl [‘r_work’, ‘t_work’, ‘f_work’]
+    >> qexistsl [‘r_work’, ‘f_work’, ‘t_work’]
+    >> ‘(env2' ++ [RefPtr F hole_ptr; Number hole_idx])❲LENGTH env❳ = RefPtr F hole_ptr’ by gvs [EL_APPEND_EQN]
+    >> ‘(env2' ++ [RefPtr F hole_ptr; Number hole_idx])❲LENGTH env + 1❳ = Number hole_idx’ by gvs [EL_APPEND_EQN]
+    >> gvs []
     >> conj_tac
     >-
      (CASE_TAC >> gvs []
       >> CASE_TAC >> gvs [])
-    >> conj_tac
-    >- gvs [opt_res_rel_def]
-    >> gvs []
     >> conj_tac
     >- gvs [EL_APPEND_EQN, LENGTH_MAP]
     >> rw []
