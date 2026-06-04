@@ -1667,12 +1667,12 @@ Theorem evaluate_cb:
     evaluate ([cb_to_bvi loc cb],env,s) = (r,t) ∧
     env_rel opt f env env2 ∧
     state_rel f s s' ∧
-    r ≠ Rerr (Rabort Rtype_error) ∧
     lookup loc s.code = SOME (arity,exp) ∧
     lookup loc s'.code = SOME (arity,wrap) ∧
     rewrite_wrapper loc loc_opt exp = SOME wrap ∧
     lookup loc_opt s'.code = SOME (arity + 2, work) ∧
     rewrite_worker loc loc_opt arity (arity + 1) exp = work ∧
+    r ≠ Rerr (Rabort Rtype_error) ∧
     (∀xs' s''.
        hypothesis xs' s'' s) ⇒
     (∃r' t' f'.
@@ -1700,7 +1700,7 @@ Theorem evaluate_cb:
               v_rel f_work res_v res_v' ∧
               alloc_postconditions t_work.refs extras ptr idx res_v')
     (* And then there will be conclusions for cb_to_bvi_worker and cb_to_bvi_wrapper.
-         But these need something about cb_to_bvi_worker_aux in an inductive hypothesis.
+       But these need something about cb_to_bvi_worker_aux in an inductive hypothesis.
      *))
 Proof
 
@@ -1751,6 +1751,7 @@ Proof
         >> CASE_TAC >> gvs []
         >> CASE_TAC >> gvs [])
       >> rpt $ first_assum $ irule_at Any)
+    (* Aux *)
     >> gvs [shift_cb_def, cb_to_bvi_worker_def, cb_to_bvi_worker_aux_def, optimise_call_def, evaluate_def, evaluate_APPEND, evaluate_shift_vars]
     >> gvs [alloc_preconditions_def, do_app_def, do_app_aux_def]
     >> ‘backend_common$small_enough_int (&LENGTH left)’ by cheat
@@ -1794,9 +1795,9 @@ Proof
     >> first_assum $ irule_at Any
     >> gvs [alloc_postconditions_def, hole_has_val_def, EL_APPEND_EQN, LENGTH_MAP])
 
-  (*Below here is broken *)
-  >> rw []
-  >> reverse $ imp_res_tac bvi_to_cb_cases
+  >> rpt gen_tac
+  >> strip_tac
+  (*>> imp_res_tac bvi_to_cb_cases*)
   >> rename [‘CallBlock tag left child right’]
   >> gvs [cb_to_bvi_def, evaluate_def, evaluate_APPEND, CaseEq "prod"]
   >> drule_then drule evaluate_vars
@@ -1807,25 +1808,24 @@ Proof
   >> rpt $ disch_then drule
   >> impl_tac >- gvs [CaseEq "prod", CaseEq "result"]
   >> strip_tac >> gvs []
-  >> rename [‘state_rel f' u u'’]
-  >> reverse $ Cases_on ‘v2’
+  >> rename [‘state_rel f' u u'’, ‘result_rel _ _ r r'’]
+  >> reverse $ Cases_on ‘r’
   >- cheat
   >> gvs [CaseEq "prod"]
   >> rename [‘state_rel f' u u'’]
   >> drule_then drule evaluate_vars
   >> impl_tac >- gvs [CaseEq "prod", CaseEq "result"]
   >> strip_tac
-  >> first_assum $ qspec_then ‘u'’ mp_tac
-  >> strip_tac >> gvs []
+  >> gvs []
   >> rename [‘state_rel f' u u'’]
-  >> gvs [do_app_def, do_app_aux_def, bvl_to_bvi_id]
-  >> first_assum $ irule_at Any
-  >> imp_res_tac evaluate_SING_IMP
-  >> gvs [REVERSE_APPEND]
-  >> rename [‘v_rel _ w w'’]
-  >> conj_tac
+  >> rw []
+  (* Untransformed *)
   >-
-   (simp [Once v_rel_cases]
+   (gvs [do_app_def, do_app_aux_def, bvl_to_bvi_id]
+    >> first_assum $ irule_at Any
+    >> imp_res_tac evaluate_SING_IMP
+    >> gvs [REVERSE_APPEND]
+    >> simp [Once v_rel_cases]
     >> irule LIST_REL_APPEND_suff
     >> irule_at Any LIST_REL_APPEND_suff
     >> simp [LIST_REL_MAP]
@@ -1833,11 +1833,8 @@ Proof
     >> simp []
     (* Lemma? *)
     >> cheat)
-  >> strip_tac >> gvs []
-  >> gen_tac
-  >> first_x_assum $ qspec_then ‘loc_opt’ mp_tac
-  >> strip_tac
-  >> rw []
+
+  (* Aux *)
   >> gvs [cb_to_bvi_worker_aux_def, evaluate_def, shift_cb_def]
   >> gvs [mut_cons_def, evaluate_def, evaluate_APPEND]
   >> gvs [evaluate_shift_vars]
@@ -1857,21 +1854,34 @@ Proof
   >- cheat (* contradiction *)
   >> gvs []
 
-  >> first_x_assum $ qspecl_then [‘s_aux with refs := s_aux.refs⟨
-                                                           hole_ptr ↦ MutBlock tag' left' (RefPtr F (LEAST ptr. ptr ∉ FDOM s_aux.refs)) right';
-                                   (LEAST ptr. ptr ∉ FDOM s_aux.refs) ↦ MutBlock tag
-                                                                      (MAP (λn. env2❲n❳) (TAKE (LENGTH right) (REVERSE right)))
-                                                                      (Number 0)
-                                                                      (MAP (λn. env2❲n❳) (REVERSE left))⟩’,
-                                  ‘Unit::RefPtr F (LEAST ptr. ptr ∉ FDOM s_aux.refs)::extras’, ‘1’, ‘LENGTH right’] mp_tac
+  >> first_x_assum $ qspecl_then [‘refs⟨
+                                   hole_ptr ↦ MutBlock tag' left' (RefPtr F (LEAST ptr. ptr ∉ FDOM refs)) right';
+                                   (LEAST ptr. ptr ∉ FDOM refs) ↦ MutBlock tag
+                                                                (MAP (λn. env2❲n❳) (TAKE (LENGTH right) (REVERSE right)))
+                                                                (Number 0)
+                                                                (MAP (λn. env2❲n❳) (REVERSE left))⟩’,
+                                  ‘Unit::RefPtr F (LEAST ptr. ptr ∉ FDOM refs)::extras’, ‘1’, ‘LENGTH right’] mp_tac
 
   >> impl_tac
   >-
    (gvs []
-    >> qexistsl [‘tag’,
-                 ‘(MAP (λn. env2❲n❳) (TAKE (LENGTH right) (REVERSE right)))’,
-                 ‘Number 0’,
-                 ‘(MAP (λn. env2❲n❳) (REVERSE left))’]
+    >> conj_tac
+    >-
+     (gvs [state_ref_rel_def]
+      >> rw []
+      >> first_x_assum drule
+      >> strip_tac
+      >> gvs []
+      >> first_assum $ irule_at Any
+      >> gvs [FLOOKUP_SIMP]
+      >> IF_CASES_TAC
+      >- gvs [IN_FRANGE_FLOOKUP]
+      >> IF_CASES_TAC
+      >-
+       (gvs [IN_FRANGE_FLOOKUP]
+        >> cheat (* contradiction on FLOOKUP refs (LEAST ptr. ptr ∉ FDOM refs) = SOME w *))
+      >> gvs [])
+    >> qexistsl [‘tag’, ‘(MAP (λn. env2❲n❳) (TAKE (LENGTH right) (REVERSE right)))’, ‘Number 0’, ‘(MAP (λn. env2❲n❳) (REVERSE left))’]
     >> conj_tac
     >- gvs [LENGTH_MAP]
     >> conj_tac
@@ -1886,7 +1896,16 @@ Proof
     >> gvs [])
   >> conj_tac
   >- gvs [opt_res_rel_def]
+  >> conj_tac
+  >- gvs [bvl_to_bvi_id]
   >> gvs []
+  >> conj_tac
+  >- cheat
+  >> conj_tac
+  >- cheat
+  >> imp_res_tac evaluate_SING_IMP
+  >> gvs [alloc_postconditions_def]
+  (* This isn't going to work without the mutblock relation *)
   >> cheat
 QED
 
