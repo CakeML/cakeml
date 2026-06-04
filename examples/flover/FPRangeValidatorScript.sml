@@ -121,17 +121,25 @@ Proof
   \\ RealArith.REAL_ASM_ARITH_TAC
 QED
 
+Theorem validFloatValue_of_le_maxValue:
+  !v m. abs v <= maxValue m ==> validFloatValue v m
+Proof
+  Cases_on `m`
+  \\ fs[validFloatValue_def, normal_def, denormal_def]
+  \\ RealArith.REAL_ASM_ARITH_TAC
+QED
+
 val solve_tac =
   rpt (qpat_x_assum `!x. _` kall_tac)
-  \\ Cases_on `v = 0` \\ TRY(every_case_tac \\ fs[] \\ FAIL_TAC"")
-  \\ Cases_on `denormal v m` \\ TRY (every_case_tac \\ fs[] \\ FAIL_TAC "")
-  \\ Cases_on `normal v m` \\ TRY (every_case_tac \\ fs[] \\ FAIL_TAC"")
-  \\ fs[normal_def, denormal_def, validFloatValue_def, validValue_def] \\ rveq \\ fs[]
-  \\ every_case_tac  \\ fs[]
+  \\ PURE_ONCE_REWRITE_TAC [GSYM validFloatValue_def]
+  \\ Cases_on `m`
+  >- fs[validFloatValue_def]
+  \\ irule validFloatValue_of_le_maxValue
   \\ `abs v <= abs (FST (widenInterval iv_e err_e)) \/
         abs v <= abs (SND (widenInterval iv_e err_e))`
         by (fs[widenInterval_def, IVlo_def, IVhi_def] \\ RealArith.REAL_ASM_ARITH_TAC)
-  \\ TRY (every_case_tac \\ RealArith.REAL_ASM_ARITH_TAC);
+  \\ fs[validValue_def, widenInterval_def]
+  \\ RealArith.REAL_ASM_ARITH_TAC;
 
 Theorem FPRangeValidator_sound:
   ∀ e E1 E2 Gamma v m A fVars (dVars:num_set).
