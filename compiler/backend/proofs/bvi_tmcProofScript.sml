@@ -1793,6 +1793,8 @@ Proof
     >> gvs []
     >> first_assum $ irule_at Any
     >> gvs [alloc_postconditions_def, hole_has_val_def, EL_APPEND_EQN, LENGTH_MAP])
+
+  (*Below here is broken *)
   >> rw []
   >> reverse $ imp_res_tac bvi_to_cb_cases
   >> rename [‘CallBlock tag left child right’]
