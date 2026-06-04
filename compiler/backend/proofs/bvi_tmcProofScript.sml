@@ -1884,77 +1884,94 @@ Proof
     >> cheat)
 
   (* Aux *)
-  >> gvs [cb_to_bvi_worker_aux_def, evaluate_def, shift_cb_def]
-  >> gvs [mut_cons_def, evaluate_def, evaluate_APPEND]
-  >> gvs [evaluate_shift_vars]
-  >> gvs [do_app_def, do_app_aux_def, backend_commonTheory.small_enough_int_def]
-  >> gvs [length_shift_vars]
-  >> gvs [LENGTH_MAP, REVERSE_APPEND, TAKE_APPEND, DROP_APPEND, GSYM MAP_REVERSE, GSYM MAP_TAKE, GSYM MAP_DROP, DROP_LENGTH_TOO_LONG]
-  >> gvs [update_cons_def, evaluate_def]
-  >> gvs [do_app_def, do_app_aux_def]
-  >> ‘backend_common$small_enough_int (&idx)’ by cheat
-  >> gvs []
-  >> Cases_on ‘ptr + 1’
-  >- gvs []
-  >> ‘n = ptr’ by gvs []
-  >> gvs [alloc_hole_has_val_def]
-  >> gvs [FLOOKUP_SIMP, EL_APPEND_EQN]
-  >> IF_CASES_TAC
-  >- cheat (* contradiction *)
-  >> gvs []
-
-  >> first_x_assum $ qspecl_then [‘refs⟨
-                                   hole_ptr ↦ MutBlock tag' left' (RefPtr F (LEAST ptr. ptr ∉ FDOM refs)) right';
-                                   (LEAST ptr. ptr ∉ FDOM refs) ↦ MutBlock tag
-                                                                (MAP (λn. env2❲n❳) (TAKE (LENGTH right) (REVERSE right)))
-                                                                (Number 0)
-                                                                (MAP (λn. env2❲n❳) (REVERSE left))⟩’,
-                                  ‘Unit::RefPtr F (LEAST ptr. ptr ∉ FDOM refs)::extras’, ‘1’, ‘LENGTH right’] mp_tac
-
-  >> impl_tac
   >-
-   (gvs []
+   (gvs [cb_to_bvi_worker_aux_def, evaluate_def, shift_cb_def]
+    >> gvs [mut_cons_def, evaluate_def, evaluate_APPEND]
+    >> gvs [evaluate_shift_vars]
+    >> gvs [do_app_def, do_app_aux_def, backend_commonTheory.small_enough_int_def]
+    >> gvs [length_shift_vars]
+    >> gvs [LENGTH_MAP, REVERSE_APPEND, TAKE_APPEND, DROP_APPEND, GSYM MAP_REVERSE, GSYM MAP_TAKE, GSYM MAP_DROP, DROP_LENGTH_TOO_LONG]
+    >> gvs [update_cons_def, evaluate_def]
+    >> gvs [do_app_def, do_app_aux_def]
+    >> ‘backend_common$small_enough_int (&idx)’ by cheat
+    >> gvs []
+    >> Cases_on ‘ptr + 1’
+    >- gvs []
+    >> ‘n = ptr’ by gvs []
+    >> gvs [alloc_hole_has_val_def]
+    >> gvs [FLOOKUP_SIMP, EL_APPEND_EQN]
+    >> IF_CASES_TAC
+    >- cheat (* contradiction *)
+    >> gvs []
+
+    >> first_x_assum $ qspecl_then [‘refs⟨
+                                     hole_ptr ↦ MutBlock tag' left' (RefPtr F (LEAST ptr. ptr ∉ FDOM refs)) right';
+                                     (LEAST ptr. ptr ∉ FDOM refs) ↦ MutBlock tag
+                                                                  (MAP (λn. env2❲n❳) (TAKE (LENGTH right) (REVERSE right)))
+                                                                  (Number 0)
+                                                                  (MAP (λn. env2❲n❳) (REVERSE left))⟩’,
+                                    ‘Unit::RefPtr F (LEAST ptr. ptr ∉ FDOM refs)::extras’, ‘1’, ‘LENGTH right’] mp_tac
+
+    >> impl_tac
+    >-
+     (gvs []
+      >> conj_tac
+      >-
+       (gvs [state_ref_rel_def]
+        >> rw []
+        >> first_x_assum drule
+        >> strip_tac
+        >> gvs []
+        >> first_assum $ irule_at Any
+        >> gvs [FLOOKUP_SIMP]
+        >> IF_CASES_TAC
+        >- gvs [IN_FRANGE_FLOOKUP]
+        >> IF_CASES_TAC
+        >-
+         (gvs [IN_FRANGE_FLOOKUP]
+          >> cheat (* contradiction on FLOOKUP refs (LEAST ptr. ptr ∉ FDOM refs) = SOME w *))
+        >> gvs [])
+      >> qexistsl [‘Number 0’, ‘tag’, ‘(MAP (λn. env2❲n❳) (TAKE (LENGTH right) (REVERSE right)))’, ‘(MAP (λn. env2❲n❳) (REVERSE left))’]
+      >> conj_tac
+      >- gvs [LENGTH_MAP]
+      >> conj_tac
+      >- cheat
+      >> gvs [FLOOKUP_SIMP])
+    >> strip_tac
+    >> qexistsl [‘r_aux’, ‘t_aux’, ‘f_aux’]
     >> conj_tac
     >-
-     (gvs [state_ref_rel_def]
-      >> rw []
-      >> first_x_assum drule
-      >> strip_tac
-      >> gvs []
-      >> first_assum $ irule_at Any
-      >> gvs [FLOOKUP_SIMP]
-      >> IF_CASES_TAC
-      >- gvs [IN_FRANGE_FLOOKUP]
-      >> IF_CASES_TAC
-      >-
-       (gvs [IN_FRANGE_FLOOKUP]
-        >> cheat (* contradiction on FLOOKUP refs (LEAST ptr. ptr ∉ FDOM refs) = SOME w *))
+     (gvs [shift_cb_dist]
+      >> ‘SUC (SUC (LENGTH extras)) = LENGTH extras + 2’ by gvs []
       >> gvs [])
-    >> qexistsl [‘Number 0’, ‘tag’, ‘(MAP (λn. env2❲n❳) (TAKE (LENGTH right) (REVERSE right)))’, ‘(MAP (λn. env2❲n❳) (REVERSE left))’]
     >> conj_tac
-    >- gvs [LENGTH_MAP]
+    >- gvs [opt_res_rel_def]
+    >> conj_tac
+    >- gvs [bvl_to_bvi_id]
+    >> gvs []
     >> conj_tac
     >- cheat
-    >> gvs [FLOOKUP_SIMP])
-  >> strip_tac
-  >> qexistsl [‘r_work’, ‘t_work’, ‘f_work’]
-  >> conj_tac
-  >-
-   (gvs [shift_cb_dist]
-    >> ‘SUC (SUC (LENGTH extras)) = LENGTH extras + 2’ by gvs []
-    >> gvs [])
-  >> conj_tac
-  >- gvs [opt_res_rel_def]
-  >> conj_tac
-  >- gvs [bvl_to_bvi_id]
+    >> conj_tac
+    >- cheat
+    >> imp_res_tac evaluate_SING_IMP
+    >> gvs []
+    (* This isn't going to work without the mutblock relation *)
+    >> cheat)
+
+  (* Work *)
+  >> gvs [evaluate_def, cb_to_bvi_worker_def, mut_cons_def, evaluate_APPEND]
+  >> gvs [do_app_def, do_app_aux_def, backend_commonTheory.small_enough_int_def]
+  >> gvs [LENGTH_MAP, REVERSE_APPEND, TAKE_APPEND, DROP_APPEND, GSYM MAP_REVERSE, GSYM MAP_TAKE, GSYM MAP_DROP, DROP_LENGTH_TOO_LONG]
+  >> gvs [evaluate_def, update_cons_def]
+  >> imp_res_tac env_rel_length_opt
   >> gvs []
-  >> conj_tac
-  >- cheat
-  >> conj_tac
-  >- cheat
-  >> imp_res_tac evaluate_SING_IMP
+  >> gvs [do_app_def, do_app_aux_def]
+  >> imp_res_tac env_rel_strip_extras
+  >> ‘LENGTH env + 1 = SUC (LENGTH env)’ by gvs []
+  >> simp [EL_def, Once EL_APPEND_EQN]
   >> gvs []
-  (* This isn't going to work without the mutblock relation *)
+  >> ‘LENGTH env + 2 = SUC (LENGTH env + 1)’ by gvs []
+  >> simp [Once EL_def, Once EL_APPEND_EQN]
   >> cheat
 QED
 
