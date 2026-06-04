@@ -1979,6 +1979,55 @@ Proof
   >> gvs []
   >> ‘LENGTH env + 2 = SUC (LENGTH env + 1)’ by gvs []
   >> simp [Once EL_def, Once EL_APPEND_EQN]
+  >> gvs [FLOOKUP_SIMP]
+  >> IF_CASES_TAC
+  >- cheat
+  >> gvs [hole_has_val_def]
+  >> ‘hole_ptr = hole_ptr'’ by gvs [EL_APPEND_EQN]
+  >> ‘hole_idx = &LENGTH left'’ by gvs [EL_APPEND_EQN]
+  >> ‘TAKE (LENGTH right) (REVERSE right) = REVERSE right’ by gvs [LENGTH_REVERSE, TAKE_LENGTH_ID]
+  >> simp []
+  (* This should probably be simplified before we get here. *)
+
+  >> first_x_assum $ qspecl_then [‘s'.refs⟨
+                                   hole_ptr ↦ MutBlock tag' left' (RefPtr F (LEAST ptr. ptr ∉ FDOM s'.refs)) right';
+                                   (LEAST ptr. ptr ∉ FDOM s'.refs) ↦ MutBlock tag
+                                                                   (MAP (λn. (env2' ++ [RefPtr F hole_ptr; Number (&LENGTH left')])❲n❳) (REVERSE right))
+                                                                   (MAP (λn. (env2' ++ [RefPtr F hole_ptr; Number (&LENGTH left')])❲n❳) (REVERSE right) ++
+                                                                    Number 0::MAP (λn. (env2' ++ [RefPtr F hole_ptr; Number (&LENGTH left')])❲n❳) (REVERSE left))❲LENGTH right❳
+                                                                   (MAP (λn. (env2' ++ [RefPtr F hole_ptr; Number (&LENGTH left')])❲n❳) (REVERSE left))⟩’,
+                                  ‘[Unit; RefPtr F (LEAST ptr. ptr ∉ FDOM s'.refs)]’, ‘1’, ‘LENGTH right’] mp_tac
+
+  >> impl_tac
+  >-
+   (conj_tac
+    >- (* LEMMA *)
+     (gvs [state_rel_def, state_ref_rel_def]
+      >> rw []
+      >> first_x_assum drule
+      >> strip_tac
+      >> gvs []
+      >> first_assum $ irule_at Any
+      >> gvs [FLOOKUP_SIMP]
+      >> IF_CASES_TAC
+      >- gvs [IN_FRANGE_FLOOKUP]
+      >> IF_CASES_TAC
+      >-
+       (gvs [IN_FRANGE_FLOOKUP]
+        >> cheat (* contradiction on FLOOKUP refs (LEAST ptr. ptr ∉ FDOM refs) = SOME w *))
+      >> gvs [])
+    >> gvs [alloc_hole_has_val_def]
+    >> gvs [FLOOKUP_SIMP, LENGTH_MAP]
+    >> cheat)
+  >> strip_tac
+  >> gvs []
+  >> qexists ‘f_aux’
+  >> imp_res_tac evaluate_SING_IMP
+  >> gvs []
+  >> conj_tac
+  >- gvs [opt_res_rel_def]
+  >> conj_tac
+  >- gvs [bvl_to_bvi_id]
   >> cheat
 QED
 
