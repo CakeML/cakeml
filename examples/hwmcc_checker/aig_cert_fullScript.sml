@@ -70,9 +70,14 @@ Definition make_cert_cnf_def:
   od
 End
 
+Definition lit_to_string_def:
+  (lit_to_string (Pos (i: num)) = toString i) ∧
+  (lit_to_string (Neg (i: num)) = «-» ^ toString i)
+End
+
 Definition clause_to_string_def:
   clause_to_string (clause: num clause) =
-  concat (MAP (λn. (toString (var_lit n) ^ « »)) clause ++ [«0\n»])
+  concat (MAP (λn. (lit_to_string n) ^ « ») clause ++ [«0\n»])
 End
 
 Definition cnf_to_string_def:
