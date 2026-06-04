@@ -1664,51 +1664,79 @@ Definition mb_rel_def:
   (mb_rel f refs (Block tag xs) (RefPtr b ptr) =
    (b = F ∧
     ptr ∉ FRANGE f ∧
-    ∃left child right.
-      LENGTH xs = LENGTH left + 1 + LENGTH right ∧
-      FLOOKUP refs ptr = SOME (MutBlock tag left child right) ∧
-      TAKE (LENGTH left) xs = left ∧
-      mb_rel f (refs \\ ptr) (EL (LENGTH left) xs) child ∧
-      DROP (LENGTH left + 1) xs = right)) ∧
-  (mb_rel f refs v1 v2 = (v1 = v2))
+    ∃left child right left' child' right'.
+      xs = left ++ [child] ++ right ∧
+      FLOOKUP refs ptr = SOME (MutBlock tag left' child' right') ∧
+      LIST_REL (v_rel f) left left' ∧
+      mb_rel f (refs \\ ptr) child child' ∧
+      LIST_REL (v_rel f) right right')) ∧
+  (mb_rel f refs v1 v2 = v_rel f v1 v2)
 Termination
   (* There is something similar for definition of finalise_cons in bviSem *)
   cheat
 End
 
-Theorem evaluate_finalise_cons:
-  ∀v2 refs f v1.
-    mb_rel f refs v1 v2 ⇒
-    ∃v2.
-      finalise_cons v2 refs = SOME v1
+Theorem state_ref_rel_sub:
+  ∀ptr f s_refs t_refs.
+    ptr ∉ FRANGE f ∧
+    state_ref_rel f s_refs t_refs ⇒
+    state_ref_rel f s_refs (t_refs \\ ptr)
 Proof
+  rw []
+  >> gvs [state_ref_rel_def]
+  >> rw []
+  >> first_x_assum drule
+  >> strip_tac
+  >> gvs []
+  >> first_assum $ irule_at Any
+  >> gvs [DOMSUB_FLOOKUP_THM]
+  >> spose_not_then assume_tac
+  >> gvs []
+  >> ‘j ∈ FRANGE f’ by gvs [FRANGE_FLOOKUP]
+QED
 
+Theorem evaluate_finalise_cons:
+  ∀v2 t_refs f s_refs v1.
+    state_ref_rel f s_refs t_refs ∧
+    mb_rel f t_refs v1 v2 ⇒
+    ∃v3.
+      finalise_cons v2 t_refs = SOME v3 ∧
+      v_rel f v1 v3
+Proof
   recInduct finalise_cons_ind
   >> rw []
   >~ [‘RefPtr _ _’] >-
-   (reverse $ Cases_on ‘v1’ >> gvs [mb_rel_def]
+   (reverse $ Cases_on ‘v1’ >> gvs [mb_rel_def, v_rel_cases, finalise_cons_def]
     >-
-     (qexists ‘RefPtr b n’
-      >> gvs [finalise_cons_def]
-      >> CASE_TAC >> gvs []
-        )
-        )
+     (CASE_TAC
+      >-
+       (gvs [state_ref_rel_def]
+        >> ‘n ∈ FDOM s_refs’ by gvs [FLOOKUP_DEF]
+        >> Cases_on ‘FLOOKUP s_refs n’
+        >- gvs [FLOOKUP_DEF]
+        >> first_x_assum drule
+        >> strip_tac
+        >> gvs [])
+      >> cheat)
+    >> drule_all state_ref_rel_sub
+    >> strip_tac
+    >> CASE_TAC
+    >-
+     (first_x_assum drule_all
+      >> strip_tac
+      >> gvs [])
+    >> irule LIST_REL_APPEND_suff
+    >> gvs []
+    >> first_x_assum drule_all
+    >> strip_tac >> gvs [v_rel_cases])
   >~ [‘Number i’] >-
-   (Cases_on ‘v1’ >> gvs [mb_rel_def]
-    >> qexists ‘Number i’
-    >> gvs [finalise_cons_def])
+   (Cases_on ‘v1’ >> gvs [mb_rel_def, v_rel_cases, finalise_cons_def])
   >~ [‘Word64 w’] >-
-   (Cases_on ‘v1’ >> gvs [mb_rel_def]
-    >> qexists ‘Word64 c’
-    >> gvs [finalise_cons_def])
+   (Cases_on ‘v1’ >> gvs [mb_rel_def, v_rel_cases, finalise_cons_def])
   >~ [‘Block xs ys’] >-
-   (Cases_on ‘v1’ >> gvs [mb_rel_def]
-    >> qexists ‘Block n l’
-    >> gvs [finalise_cons_def])
+   (Cases_on ‘v1’ >> gvs [mb_rel_def, v_rel_cases, finalise_cons_def])
   >~ [‘CodePtr p’] >-
-   (Cases_on ‘v1’ >> gvs [mb_rel_def]
-    >> qexists ‘CodePtr n’
-    >> gvs [finalise_cons_def])
+   (Cases_on ‘v1’ >> gvs [mb_rel_def, v_rel_cases, finalise_cons_def])
 QED
 
 Theorem evaluate_cb:
