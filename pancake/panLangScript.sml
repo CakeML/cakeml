@@ -232,9 +232,7 @@ Definition exp_ids_def:
 End
 
 Definition size_of_eids_def:
-  size_of_eids prog =
-  let eids = FLAT (MAP (λp. case p of Function fi => exp_ids fi.body | _ => []) prog) in
-   LENGTH (nub eids)
+  size_of_eids prog = LENGTH(FILTER is_exn_decl prog)
 End
 
 (*
@@ -325,7 +323,7 @@ Definition functions_def:
   functions(Function fi::fs) =
   (fi.name,fi.params,fi.body)::functions fs ∧
   functions(Decl _ _ _::fs) = functions fs ∧
-  functions (ExnDecl _ _ :: fs) = functions fs
+  functions (ExnDecl _ _ :: fs) = functions fs ∧
   functions(Name _ _::fs) = functions fs
 End
 

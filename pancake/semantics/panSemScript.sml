@@ -823,19 +823,15 @@ Definition evaluate_decls_def:
             NONE)
     | NONE => NONE) ∧
   evaluate_decls s (Function fi::ds) =
-    if EVERY ((is_wf_shape s.structs) o SND) fi.params
-       /\ is_wf_shape s.structs fi.return then
+    (if EVERY ((is_wf_shape s.structs) o SND) fi.params
+       ∧ is_wf_shape s.structs fi.return then
       evaluate_decls (s with code := s.code |+ (fi.name,(fi.params,fi.body))) ds
-    else NONE ∧
+    else NONE) ∧
   evaluate_decls s (ExnDecl eid sh :: ds) =
     if FLOOKUP s.eshapes eid = NONE then
       evaluate_decls (s with eshapes := s.eshapes |+ (eid, sh)) ds
     else
       NONE
-    if EVERY ((is_wf_shape s.structs) o SND) fi.params
-       /\ is_wf_shape s.structs fi.return then
-      evaluate_decls (s with code := s.code |+ (fi.name,(fi.params,fi.body))) ds
-    else NONE
 End
 
 Definition decs_stcnames_def:
