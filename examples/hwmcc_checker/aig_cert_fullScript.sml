@@ -3,12 +3,13 @@
 *)
 Theory aig_cert_full
 Ancestors
+  mlint (* for num_to_str *)
   aig_parse aig_cert_encode aig_to_cnf
 Libs
   preamble
 
-Definition main_def:
-  main mstr wstr =
+Definition make_cert_cnf_def:
+  make_cert_cnf mstr wstr =
   do
     (* parse model and witness *)
     (maig, rest) <- parse_aiger mstr;
@@ -69,9 +70,52 @@ Definition main_def:
   od
 End
 
+Definition clause_to_string_def:
+  clause_to_string (clause: num clause) =
+  concat (MAP (λn. (toString (var_lit n) ^ « »)) clause ++ [«0\n»])
+End
+
+Definition cnf_to_string_def:
+  cnf_to_string (cnf: num clause list, limit: num) =
+  let
+    clauses   = LENGTH cnf;
+    header    =
+      concat [«p cnf »; toString limit; « »; toString clauses; «\n»];
+    clauses   = concat (MAP clause_to_string cnf)
+  in
+    header ^ clauses
+End
+
+Definition main_def:
+  main mstr wstr =
+  do
+    (reset, transition, property, base, step) <- make_cert_cnf mstr wstr;
+    return
+      (cnf_to_string reset, cnf_to_string transition,
+            cnf_to_string property, cnf_to_string base, cnf_to_string step)
+  od
+End
+
 (* Testing ********************************************************************)
 
 val model = mlstringSyntax.mlstring_from_file "./examples/01_model.aig";
 val witness = mlstringSyntax.mlstring_from_file "./examples/06_witness.aig";
 
-val cnf = EVAL “main (explode ^model) (explode ^witness)” |> concl |> rhs;
+val cnf =
+  EVAL “main (explode ^model) (explode ^witness)”
+    |> concl |> rhs |> rand |> strip_pair;;
+
+val coch_dir = "/home/daniel/code/coch-demo";
+val cnf_names = ["reset", "transition", "property", "base", "step"];
+
+fun write path s =
+  let val os = TextIO.openOut path
+  in TextIO.output (os, s); TextIO.closeOut os end;
+
+val () =
+  ListPair.app
+    (fn (name, t) =>
+       let val path = coch_dir ^ "/" ^ name ^ ".cnf"
+           val _ = write path (mlstringSyntax.dest_mlstring t)
+       in () end)
+    (cnf_names, cnf);
