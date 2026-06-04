@@ -224,7 +224,7 @@ End
 Theorem bvi_to_cb_aux_size:
   ∀loc tag args bs sum.
     bvi_to_cb_aux loc tag args = SOME (bs,sum) ⇒
-    list_size exp_size bs < exp_size (Op (BlockOp (Cons tag)) args)
+    list_size exp_size bs ≤ list_size exp_size args
 Proof
   recInduct bvi_to_cb_aux_ind
   >> rw [] >> gvs [bvi_to_cb_aux_def]
@@ -234,10 +234,7 @@ Proof
     >> Cases_on ‘op’ >> gvs [dest_Cons_def]
     >> Cases_on ‘b’ >> gvs [dest_Cons_def, bvi_to_cb_aux_def])
   >> gvs [CaseEq "option", CaseEq "prod", CaseEq "sum"]
-  >-
-   (gvs [list_size_append]
-    >> cheat)
-  >> cheat
+  >> gvs [list_size_append, AllCaseEqs()]
 QED
 
 Theorem bvi_to_cb_size:
@@ -297,15 +294,27 @@ Definition update_cons_def:
   update_cons exp_ptr exp_idx exp_val = Op (MemOp UpdateCons) [exp_val; exp_idx; exp_ptr]
 End
 
+Definition cb_size_def:
+  cb_size (CallBlock _ _ x _) = cb_size x + 1 ∧
+  cb_size _ = 0n
+End
+
+Theorem call_block_size_shift[local]:
+  ∀x n. cb_size (shift_cb n x) = cb_size x
+Proof
+  Induct \\ fs [cb_size_def, shift_cb_def]
+QED
+
 Definition cb_to_bvi_worker_aux_def:
   (cb_to_bvi_worker_aux (RCall call_ts call_args) loc_opt ptr idx =
    optimise_call call_ts loc_opt call_args (Var ptr) (Op (IntOp (Const &idx)) [])) ∧
   (cb_to_bvi_worker_aux (CallBlock tag left child right) loc_opt ptr idx =
    Let [mut_cons tag left right] $
-       Let [update_cons (Var (ptr + 1)) (Op (IntOp (Const &idx)) []) (Var 0)] $
-       cb_to_bvi_worker_aux (shift_cb 2 child) loc_opt 1 (LENGTH right))
+   Let [update_cons (Var (ptr + 1)) (Op (IntOp (Const &idx)) []) (Var 0)] $
+     cb_to_bvi_worker_aux (shift_cb 2 child) loc_opt 1 (LENGTH right))
 Termination
-  cheat
+  WF_REL_TAC ‘measure $ cb_size o FST’
+  \\ rw [call_block_size_shift, cb_size_def]
 End
 
 Definition cb_to_bvi_worker_def:
