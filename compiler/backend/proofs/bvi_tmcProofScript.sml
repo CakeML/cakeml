@@ -1493,6 +1493,7 @@ Proof
   >> gvs []
 QED
 
+(*
 Definition hypothesis_def:
   hypothesis xs' (s'' : (num # γ, 'ffi) bviSem$state) env1' loc' r' t' opt' f' s'³' env2' (s : (num # γ, 'ffi) bviSem$state) ⇔
     s''.clock < s.clock ⇒
@@ -1525,6 +1526,15 @@ Definition hypothesis_def:
                r'³' = Rval [res_v] ⇒
                hole_has_val f'' env1' env2' t2.refs res_v)
 End
+*)
+
+Definition opt_res_rel_def:
+  opt_res_rel f (r1 : (v list, v) result) (r2 : (v list, v) result) =
+  case (r1,r2) of
+  | (Rval v1,Rval [Block 0 []]) => T
+  | (Rerr e1,Rerr e2) => exc_rel (v_rel f) e1 e2
+  | _ => F
+End
 
 Definition hypothesis_def:
   hypothesis xs ^s (sc : (num # γ, 'ffi) bviSem$state) ⇔
@@ -1535,39 +1545,41 @@ Definition hypothesis_def:
       state_rel f s s' ∧
       (opt ⇒ LENGTH xs = 1) ∧
       r ≠ Rerr (Rabort Rtype_error) ⇒
-      ∃t' f' r'.
-        evaluate (xs, env2, s') = (r', t') ∧
-        result_rel (LIST_REL (v_rel f')) (v_rel f') r r' ∧
-        state_rel f' t t' ∧
-        f SUBMAP f' ∧
-        only_fresh f f' s'.refs ∧
-        holes_unchanged_except f s'.refs t'.refs ∅ ∧
-        (∀loc_opt.
-           (∀wrap.
-              rewrite_wrapper loc loc_opt (HD xs) = SOME wrap ⇒
-              ∃t_wrap f_wrap r_wrap.
-                evaluate ([wrap], env2, s') = (r_wrap,t_wrap) ∧
-                result_rel (LIST_REL (v_rel f_wrap)) (v_rel f_wrap) r r_wrap ∧
-                state_rel f_wrap t t_wrap ∧
-                f SUBMAP f_wrap ∧
-                only_fresh f f_wrap s'.refs ∧
-                holes_unchanged_except f s'.refs t_wrap.refs ∅) ∧
-           (opt ⇒
-            (∀i j work.
-               i = LENGTH env1 ∧
-               j = LENGTH env1 + 1 ∧
-               (∃c. hole_has_val f env1 env2 s'.refs c) ∧
-               rewrite_worker loc loc_opt i j (HD xs) = work ⇒
-               ∃rrr t2 f_work.
-                 evaluate ([work], env2, s') = (rrr,t2) ∧
-                 opt_res_rel r' rrr ∧
-                 state_rel f_work t t2 ∧
-                 f SUBMAP f_work ∧
-                 only_fresh f f_work s'.refs ∧
-                 holes_unchanged_except f s'.refs t2.refs {EL i env2} ∧
-                 ∀res_v.
-                   r' = Rval [res_v] ⇒
-                   hole_has_val f env1 env2 t2.refs res_v)))
+      (∃t' f' r'.
+         evaluate (xs, env2, s') = (r', t') ∧
+         result_rel (LIST_REL (v_rel f')) (v_rel f') r r' ∧
+         state_rel f' t t' ∧
+         f SUBMAP f' ∧
+         only_fresh f f' s'.refs ∧
+         holes_unchanged_except f s'.refs t'.refs ∅) ∧
+      (∀loc_opt.
+         (∀wrap.
+            rewrite_wrapper loc loc_opt (HD xs) = SOME wrap ⇒
+            ∃t_wrap f_wrap r_wrap.
+              evaluate ([wrap], env2, s') = (r_wrap,t_wrap) ∧
+              result_rel (LIST_REL (v_rel f_wrap)) (v_rel f_wrap) r r_wrap ∧
+              state_rel f_wrap t t_wrap ∧
+              f SUBMAP f_wrap ∧
+              only_fresh f f_wrap s'.refs ∧
+              holes_unchanged_except f s'.refs t_wrap.refs ∅) ∧
+         (opt ⇒
+          (∀i j work.
+             i = LENGTH env1 ∧
+             j = LENGTH env1 + 1 ∧
+             (∃c. hole_has_val f env1 env2 s'.refs c) ∧
+             rewrite_worker loc loc_opt i j (HD xs) = work ⇒
+             ∃r_work f_work t_work.
+               evaluate ([work], env2, s') = (r_work,t_work) ∧
+               opt_res_rel f_work r r_work ∧
+               state_rel f_work t t_work ∧
+               f SUBMAP f_work ∧
+               only_fresh f f_work s'.refs ∧
+               holes_unchanged_except f s'.refs t_work.refs {EL i env2} ∧
+               ∀res_v.
+                 r = Rval [res_v] ⇒
+                 ∃res_v'.
+                   v_rel f_work res_v res_v' ∧
+                   hole_has_val f env1 env2 t_work.refs res_v')))
 End
 
 Definition alloc_preconditions_def:
@@ -1663,40 +1675,45 @@ Theorem evaluate_cb:
     rewrite_worker loc loc_opt arity (arity + 1) exp = work ∧
     (∀xs' s''.
        hypothesis xs' s'' s) ⇒
-    ∃r' t' f'.
+    (∃r' t' f'.
       evaluate ([cb_to_bvi loc cb],env2,s') = (r',t') ∧
       result_rel (LIST_REL (v_rel f')) (v_rel f') r r' ∧
       state_rel f' t t' ∧
       f ⊑ f' ∧
       only_fresh f f' s'.refs ∧
-      holes_unchanged_except f s'.refs t'.refs ∅ ∧
-      (opt ⇒
-       (∀refs extras ptr idx.
-         state_ref_rel f s.refs refs ∧
-         alloc_preconditions f refs extras ptr idx ⇒
-         ∃r_work t_work f_work.
-           evaluate ([cb_to_bvi_worker_aux (shift_cb (LENGTH extras) cb) loc_opt ptr idx],extras ++ env2,s' with refs := refs) = (r_work,t_work) ∧
-           opt_res_rel r' r_work ∧
-           state_rel f_work t t_work ∧
-           f ⊑ f_work ∧
-           only_fresh f f_work refs ∧
-           holes_unchanged_except f refs t_work.refs {extras❲ptr❳} ∧
-           ∀res_v.
-             r' = Rval [res_v] ⇒ alloc_postconditions t_work.refs extras ptr idx res_v)
-      (* And then there will be conclusions for cb_to_bvi_worker and cb_to_bvi_wrapper.
+      holes_unchanged_except f s'.refs t'.refs ∅) ∧
+    (opt ⇒
+     (∀refs extras ptr idx.
+        state_ref_rel f s.refs refs ∧
+        alloc_preconditions f refs extras ptr idx ⇒
+        ∃r_work t_work f_work.
+          evaluate ([cb_to_bvi_worker_aux (shift_cb (LENGTH extras) cb) loc_opt ptr idx],extras ++ env2,s' with refs := refs) = (r_work,t_work) ∧
+          opt_res_rel f_work r r_work ∧
+          state_rel f_work t t_work ∧
+          f ⊑ f_work ∧
+          only_fresh f f_work refs ∧
+          holes_unchanged_except f refs t_work.refs {extras❲ptr❳} ∧
+          ∀res_v.
+            r = Rval [res_v] ⇒
+            ∃res_v'.
+              (* This will need to be mutblock relation, not v_rel *)
+              v_rel f_work res_v res_v' ∧
+              alloc_postconditions t_work.refs extras ptr idx res_v')
+    (* And then there will be conclusions for cb_to_bvi_worker and cb_to_bvi_wrapper.
          But these need something about cb_to_bvi_worker_aux in an inductive hypothesis.
-       *))
+     *))
 Proof
 
   reverse $ Induct
   >-
-   (rw []
+   (rpt gen_tac
+    >> strip_tac
     >> rename [‘RCall ts args’]
-    >> pop_assum $ mk_asm "hyp"
     >> gvs [cb_to_bvi_def, evaluate_def, CaseEq "prod"]
     >> drule_then drule evaluate_vars
     >> impl_tac >- (spose_not_then assume_tac >> gvs [CaseEq "prod"])
     >> strip_tac
+    >> gvs []
     >> gvs [bvlSemTheory.find_code_def, CaseEq "prod", CaseEq "option"]
     >> ‘s.clock = s'.clock’ by gvs [state_rel_def]
     >> gvs []
@@ -1706,43 +1723,40 @@ Proof
       >> cheat)
     >> gvs [CaseEq "prod"]
     >> ‘(v3,s'³') = (r,t)’ by gvs [CaseEq "result", CaseEq "error_result"]
-    >> gvs []
-    >> asm "hyp" mp_tac
-    >> gvs [hypothesis_def]
-    >> disch_then $ qspecl_then [‘[exp]’, ‘dec_clock (ts + 1) s’] mp_tac
-    >> impl_tac >- gvs [dec_clock_def]
-    >> drule_all env_rel_args
-    >> strip_tac
-    >> rpt $ disch_then drule
-    >> ‘state_rel f (dec_clock (ts + 1) s) (dec_clock (ts + 1) s')’ by
-      (irule state_rel_dec
-       >> Cases_on ‘s'.clock’
-       >- gvs []
-       >> gvs [])
-    >> disch_then drule
-    >> gvs [GSYM PULL_FORALL]
-    >> disch_then $ qspec_then ‘loc’ mp_tac
-    >> strip_tac
-    >> rename [‘state_rel f' t t'’, ‘result_rel _ _ r r'’]
-    >> first_x_assum drule
-    >> strip_tac
-    >> gvs []
-    >> qexistsl [‘r_wrap’, ‘t_wrap’, ‘f_wrap’]
-    >> conj_tac
-    >-
-     (gvs []
-      >> CASE_TAC >> gvs []
-      >> CASE_TAC >> gvs [])
-    >> rpt $ first_assum $ irule_at Any
     >> rw []
-    >> gvs [shift_cb_def, cb_to_bvi_worker_def, cb_to_bvi_worker_aux_def, optimise_call_def, evaluate_def, evaluate_APPEND]
-    >> gvs [evaluate_shift_vars, alloc_preconditions_def]
-    >> gvs [do_app_def, do_app_aux_def]
+    (* Untransformed *)
+    >-
+     (gvs [hypothesis_def]
+      >> first_x_assum $ qspecl_then [‘[exp]’, ‘dec_clock (ts + 1) s’] mp_tac
+      >> impl_tac >- gvs [dec_clock_def]
+      >> drule_all env_rel_args
+      >> strip_tac
+      >> rpt $ disch_then drule
+      >> ‘state_rel f (dec_clock (ts + 1) s) (dec_clock (ts + 1) s')’ by
+        (irule state_rel_dec
+         >> Cases_on ‘s'.clock’
+         >- gvs []
+         >> gvs [])
+      >> disch_then drule
+      >> gvs [GSYM PULL_FORALL]
+      >> strip_tac
+      >> rename [‘state_rel _ t _’]
+      >> first_x_assum drule
+      >> strip_tac
+      >> gvs []
+      >> qexistsl [‘r_wrap’, ‘t_wrap’, ‘f_wrap’]
+      >> conj_tac
+      >-
+       (gvs []
+        >> CASE_TAC >> gvs []
+        >> CASE_TAC >> gvs [])
+      >> rpt $ first_assum $ irule_at Any)
+    >> gvs [shift_cb_def, cb_to_bvi_worker_def, cb_to_bvi_worker_aux_def, optimise_call_def, evaluate_def, evaluate_APPEND, evaluate_shift_vars]
+    >> gvs [alloc_preconditions_def, do_app_def, do_app_aux_def]
     >> ‘backend_common$small_enough_int (&LENGTH left)’ by cheat
     >> gvs [bvlSemTheory.find_code_def, EL_APPEND_EQN]
-    >> asm "hyp" mp_tac
     >> gvs [hypothesis_def]
-    >> disch_then $ qspecl_then [‘[exp]’, ‘dec_clock (ts + 1) s’] mp_tac
+    >> first_x_assum $ qspecl_then [‘[exp]’, ‘dec_clock (ts + 1) s’] mp_tac
     >> impl_tac >- gvs [dec_clock_def]
     >> disch_then drule
     >> drule_then drule env_rel_opt_args
@@ -1754,6 +1768,7 @@ Proof
      (gvs []
       >> gvs [state_rel_def, dec_clock_def])
     >> strip_tac
+    >> rename [‘state_rel _ t _’]
     >> first_x_assum $ qspec_then ‘loc_opt’ mp_tac
     >> gvs []
     >> strip_tac
@@ -1764,25 +1779,20 @@ Proof
       >> gvs [EL_APPEND_EQN, LENGTH_MAP])
     >> strip_tac
     >> gvs []
-    >> qexistsl [‘rrr’, ‘t2’, ‘f_work’]
+    >> qexistsl [‘r_work’, ‘t_work’, ‘f_work’]
     >> conj_tac
     >-
      (CASE_TAC >> gvs []
       >> CASE_TAC >> gvs [])
     >> conj_tac
-    >-
-     (gvs [opt_res_rel_def]
-      >> CASE_TAC
-      >- (Cases_on ‘r'³'’ >> gvs [])
-      >> Cases_on ‘r'³'’ >> gvs []
-      >> cheat)
-    >> gvs [EL_APPEND_EQN, LENGTH_MAP]
+    >- gvs [opt_res_rel_def]
+    >> gvs []
+    >> conj_tac
+    >- gvs [EL_APPEND_EQN, LENGTH_MAP]
     >> rw []
-    >> gvs [alloc_postconditions_def]
-    >> rw []
-    >> cheat
-
-        )
+    >> gvs []
+    >> first_assum $ irule_at Any
+    >> gvs [alloc_postconditions_def, hole_has_val_def, EL_APPEND_EQN, LENGTH_MAP])
   >> rw []
   >> reverse $ imp_res_tac bvi_to_cb_cases
   >> rename [‘CallBlock tag left child right’]
