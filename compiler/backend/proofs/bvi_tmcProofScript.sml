@@ -1680,6 +1680,15 @@ Theorem evaluate_cb:
       f ⊑ f' ∧
       only_fresh f f' s'.refs ∧
       holes_unchanged_except f s'.refs t'.refs ∅) ∧
+    (∀tag left child right.
+       cb = CallBlock tag left child right ⇒
+       ∃t_wrap f_wrap r_wrap.
+         evaluate ([cb_to_bvi_wrapper tag left child right loc_opt], env2, s') = (r_wrap,t_wrap) ∧
+         result_rel (LIST_REL (v_rel f_wrap)) (v_rel f_wrap) r r_wrap ∧
+         state_rel f_wrap t t_wrap ∧
+         f SUBMAP f_wrap ∧
+         only_fresh f f_wrap s'.refs ∧
+         holes_unchanged_except f s'.refs t_wrap.refs ∅) ∧
     (opt ⇒
      (∀refs extras ptr idx.
         state_ref_rel f s.refs refs ∧
@@ -1888,6 +1897,15 @@ Proof
     >> rpt $ irule_at Any LIST_REL_refl
     >> simp []
     (* Lemma? *)
+    >> cheat)
+
+  (* Wrap *)
+  >-
+   (gvs [cb_to_bvi_wrapper_def, evaluate_def, mut_cons_def, evaluate_APPEND]
+    >> gvs [do_app_def, do_app_aux_def, backend_commonTheory.small_enough_int_def]
+    >> gvs [LENGTH_MAP, REVERSE_APPEND, TAKE_APPEND, DROP_APPEND, GSYM MAP_REVERSE, GSYM MAP_TAKE, GSYM MAP_DROP, DROP_LENGTH_TOO_LONG]
+    >> ‘TAKE (LENGTH right) (REVERSE right) = REVERSE right’ by gvs [LENGTH_REVERSE, TAKE_LENGTH_ID]
+    >> simp []
     >> cheat)
 
   (* Aux *)
