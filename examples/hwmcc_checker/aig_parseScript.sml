@@ -10,6 +10,8 @@ Libs
 val _ = monadsyntax.enable_monadsyntax();
 val _ = monadsyntax.enable_monad "error";
 
+(* todo rewrite parsing to be over mlstrings *)
+
 Datatype:
   counts = <|
     maxvar      : num;
@@ -314,18 +316,32 @@ End
 (* Parsing the maps *******************************************************)
 
 (*
-  The witness circuit can contain maps that determine the shared inputs and
-  latches, and the interventions.
-  These are stored either as comments (MAPPING or INTERVENTION), or as part of
-  the symbol table.
-  If the maps are not present in the file, a default mapping is chosen.
+  The witness circuit can contain maps that determine the inputs and
+  latches shared with the model, and the interventions required for checking
+  liveness.
+  These are stored either as comments or as part of the symbol table.
+  For now, we only support the symbol table, falling back to a default
+  if needed.
 
-  The priority order is as follows:
-  1. comment, 2. symbol table, 3. default mapping
+  For shared inputs/latches, the default mapping is an empty map, i.e., the
+  identity map.
 
-  For shared inputs/latches, the default encoding in Certifaiger should
-  correspond to what merge_circuit does already.
+  TODO Review how we deal with interventions in the symbol table
+  TODO Intervention default
 *)
+
+(* TODO fix shared maps
+   - probably want to have the shared maps to be simply from
+     var to var
+     - we should document our assumptions
+       (e.g., LHS cleanly divisible by 2)
+   - next/reset should probably be alists at first and converted to sptree's
+     later
+     - model should probably just do it directly
+     - for witness we should do the renaming properly
+   - take another look at replace-family of functions
+     - YK pointed out that maybe it is taking too many arguments
+ *)
 
 Definition insert_if_def:
   insert_if b k v m = if b then insert k v m else m
