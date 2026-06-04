@@ -1543,6 +1543,22 @@ Definition opt_res_rel_def:
   | _ => F
 End
 
+Definition mb_rel_def:
+  (mb_rel f refs (Block tag xs) (RefPtr b ptr) =
+   (b = F ∧
+    ptr ∉ FRANGE f ∧
+    ∃left child right left' child' right'.
+      xs = left ++ [child] ++ right ∧
+      FLOOKUP refs ptr = SOME (MutBlock tag left' child' right') ∧
+      LIST_REL (v_rel f) left left' ∧
+      mb_rel f (refs \\ ptr) child child' ∧
+      LIST_REL (v_rel f) right right')) ∧
+  (mb_rel f refs v1 v2 = v_rel f v1 v2)
+Termination
+  (* There is something similar for definition of finalise_cons in bviSem *)
+  cheat
+End
+
 Definition hypothesis_def:
   hypothesis xs ^s (sc : (num # γ, 'ffi) bviSem$state) ⇔
     s.clock < sc.clock ⇒
@@ -1585,7 +1601,7 @@ Definition hypothesis_def:
                ∀res_v.
                  r = Rval [res_v] ⇒
                  ∃res_v'.
-                   v_rel f_work res_v res_v' ∧
+                   mb_rel f_work t_work.refs res_v res_v' ∧
                    hole_has_val f env1 env2 t_work.refs res_v')))
 End
 
@@ -1660,22 +1676,6 @@ Proof
   >> gvs []
 QED
 
-Definition mb_rel_def:
-  (mb_rel f refs (Block tag xs) (RefPtr b ptr) =
-   (b = F ∧
-    ptr ∉ FRANGE f ∧
-    ∃left child right left' child' right'.
-      xs = left ++ [child] ++ right ∧
-      FLOOKUP refs ptr = SOME (MutBlock tag left' child' right') ∧
-      LIST_REL (v_rel f) left left' ∧
-      mb_rel f (refs \\ ptr) child child' ∧
-      LIST_REL (v_rel f) right right')) ∧
-  (mb_rel f refs v1 v2 = v_rel f v1 v2)
-Termination
-  (* There is something similar for definition of finalise_cons in bviSem *)
-  cheat
-End
-
 Theorem state_ref_rel_sub:
   ∀ptr f s_refs t_refs.
     ptr ∉ FRANGE f ∧
@@ -1717,6 +1717,7 @@ Proof
         >> first_x_assum drule
         >> strip_tac
         >> gvs [])
+      >> CASE_TAC
       >> cheat)
     >> drule_all state_ref_rel_sub
     >> strip_tac
@@ -1781,8 +1782,7 @@ Theorem evaluate_cb:
          ∀res_v.
            r = Rval [res_v] ⇒
            ∃res_v'.
-             (* This will need to be mutblock relation, not v_rel *)
-             v_rel f_aux res_v res_v' ∧
+             mb_rel f_aux t_aux.refs res_v res_v' ∧
              alloc_hole_has_val f t_aux.refs extras ptr idx res_v') ∧
     (opt ⇒
      (∀ptr idx work.
@@ -1799,7 +1799,7 @@ Theorem evaluate_cb:
           ∀res_v.
             r = Rval [res_v] ⇒
             ∃res_v'.
-              v_rel f_work res_v res_v' ∧
+              mb_rel f_work t_work.refs res_v res_v' ∧
               hole_has_val f env env2 t_work.refs res_v'))
 Proof
 
@@ -2009,7 +2009,7 @@ Proof
     >> rename [‘opt_res_rel _ (Rval [v]) (Rval [v'])’]
     >> gvs [bvi_tmcTheory.finalise_cons_def, evaluate_def]
     >> gvs [do_app_def, do_app_aux_def]
-
+    >> gvs [alloc_hole_has_val_def]
     >> cheat)
 
   (* Aux *)
