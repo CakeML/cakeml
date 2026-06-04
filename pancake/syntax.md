@@ -6,9 +6,17 @@ See the [Pancake how-to](/pancake/how-to.md) for a guide on how to use Pancake.
 
 | Feature | Syntax | Notes |
 | --- | --- | --- |
-| Function declaration | `fun RETSHAPE FNAME ( ARGS ) { BODY }` | `ARGS` may be empty. Each argument expects both a shape and an identifier, and are comma separated, eg `1 x, {1,2} y`. `BODY` must include a function return in all execution branches. All functions are callable (ie. in-scope) from all function bodies. Optionally, add `inline` keyword before `fun` for function inline feature (no effect on functions with recursion or returns within loops) and/or `export` keyword before `fun` for multiple entry points feature, in that order |
-| Global variable declaration | `var SHAPE VNAME = EXP;` | Globals cannot be initialised with a function call. Globals are usable from all function bodies and to any globals declared after them. Beware of shadowing |
-| Named struct declaration | `struct SNAME { FIELDS }` | `FIELDS` may NOT be empty. Each field expects both a shape and an identifier, and are comma separated, eg `1 x, {1,2} y`. Named structs are usable by all functions and globals, and to any named structs declared after them |
+| Function declaration | `MODIFIERS fun RETSHAPE FNAME ( ARGS ) { BODY }` | `MODIFIERS` and/or `ARGS` may be empty. See [Function modifiers](#function-modifiers) for possible modifiers. Each argument expects both a shape and an identifier, and are comma separated, eg `1 x, {1,2} y`. `BODY` must include a function return in all execution branches. All functions are callable (ie. in scope) from all function bodies |
+| Global variable declaration | `var SHAPE VNAME = EXP;` | Globals cannot be initialised with a function call. Globals are in scope for all function bodies and for any globals declared after them. Beware of shadowing |
+| Named struct declaration | `struct SNAME { FIELDS }` | `FIELDS` may NOT be empty. Each field expects both a shape and an identifier, and are comma separated, eg `1 x, {1,2} y`. Named structs are in scope for all functions and globals, and for any named structs declared after them |
+
+## Function modifiers
+
+| Feature | Syntax | Notes |
+| --- | --- | --- |
+| Inline function | `inline fun RETSHAPE FNAME ( ARGS ) { BODY }` | Enables function inlining. Has no effect on functions with recursion or returns within loops |
+| Exported function | `export fun RETSHAPE FNAME ( ARGS ) { BODY }` | Enables multiple entry points feature. Must use 4 arguments or less. Must not use non-`1` shapes for arguments or return value |
+| Multiple modifiers | eg. `inline export fun ...` | `inline` and `export` modifiers may be combined, in that order |
 
 ## Structures
 
