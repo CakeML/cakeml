@@ -2817,6 +2817,27 @@ Proof
   >> metis_tac[]
 QED
 
+Theorem esubsts_ok_FLOOKUP_tmsof:
+  esubsts_ok sig σ ∧ FLOOKUP (SND σ) m = SOME (repl, decl_ty) ⇒
+  CLOSED repl ∧
+  welltyped repl ∧
+  typeof repl = ty_esubst σ decl_ty ∧
+  set (tvars repl) ⊆ set (tyvars (typeof repl)) ∧
+  FLOOKUP (tmsof sig) m = SOME decl_ty
+Proof
+  rw[] >> namedCases_on ‘σ’ ["σ θ"] >> gvs[esubsts_ok_def]
+  >> first_x_assum $ qspec_then ‘m’ mp_tac >> rw[FDOM_FLOOKUP]
+  >> gvs[FLOOKUP_FAPPLY] >> simp[SF SFY_ss, term_ok_welltyped]
+QED
+
+Theorem ty_esubst_match_type:
+  esubsts_ok sig σ ∧ type_ok (tysof sig) ty ∧ is_instance ty0 ty ⇒
+  match_type (ty_esubst σ ty0) (ty_esubst σ ty) ≠ NONE
+Proof
+  rw[] >> Cases_on ‘sig’ >> gvs[] >> drule_all ty_esubst_TYPE_SUBST
+  >> metis_tac[match_type_complete, NOT_SOME_NONE]
+QED
+
 Theorem db_esubst_dbINST_comm:
   ∀dbtm tyin.
     EVERY (type_ok (tysof sig)) (MAP FST tyin) ∧
@@ -2841,89 +2862,44 @@ Proof
               >> rw[FDOM_FLOOKUP] >> gvs[FLOOKUP_FAPPLY] >> irule ty_esubst_type_ok_alt
               >> simp[] >> first_x_assum $ drule_then strip_assume_tac >> gvs[]
               >> irule type_ok_TYPE_SUBST_inv >> metis_tac[])
-      >> rw[] >> suspend "aargh")
-  >- suspend "aargh2"
-  >- suspend "aargh3"
+      >> rw[] >> drule_all esubsts_ok_FLOOKUP_tmsof >> rw[]
+      >> drule_all type_ok_TYPE_SUBST >> rw[]
+      >> drule_then drule ty_esubst_match_type
+      >> disch_then $ qspec_then ‘r’ mp_tac >> rw[]
+      >> metis_tac[TYPE_SUBST_compose])
+  >- (drule_all esubsts_ok_FLOOKUP_tmsof >> rw[]
+      >> drule_then drule ty_esubst_match_type
+      >> disch_then $ qspec_then ‘r’ mp_tac >> rw[]
+      >> metis_tac[TYPE_SUBST_compose])
+  >- (cheat
+      (*
+    0.  EVERY (type_ok (tysof sig)) (MAP FST tyin)
+    1.  esubsts_ok sig σ
+    2.  type_ok (tysof sig) t
+    3.  ∀d. FLOOKUP (tmsof sig) m = SOME d ⇒ is_instance d t
+    4.  FLOOKUP (SND σ) m = SOME (q,r)
+    5.  match_type (ty_esubst σ r) (ty_esubst σ (TYPE_SUBST tyin t)) = SOME x
+    6.  match_type (ty_esubst σ r) (ty_esubst σ t) = SOME x'
+   ------------------------------------
+        dbINST x (db q) =
+        dbINST (MAP (λ(ty,a). (ty_esubst σ ty,a)) tyin) (dbINST x' (db q))
+
+      *))
   >> first_x_assum drule >> rw[] >> irule ty_esubst_TYPE_SUBST_comm
   >> Cases_on ‘sig’ >> gvs[] >> first_x_assum $ irule_at Any
   >> irule type_ok_TYPE_SUBST >> simp[]
 QED
 
 Resume db_esubst_dbINST_comm[aargh]:
-  rw[] >> namedCases_on ‘σ’ ["σ θ"]
-  >> drule_then strip_assume_tac $ iffLR esubsts_ok_def
-  >> gvs[] >> first_x_assum $ qspec_then ‘m’ mp_tac
-  >> rw[FDOM_FLOOKUP] >> gvs[FLOOKUP_FAPPLY]
-  >> cheat
-     (*
-1. Incomplete goalstack:
-        Initial goal:
-         0.  EVERY (type_ok (tysof sig)) (MAP FST tyin)
-         1.  esubsts_ok sig σ
-         2.  type_ok (tysof sig) t
-         3.  ∀d. FLOOKUP (tmsof sig) m = SOME d ⇒ is_instance d t
-         4.  FLOOKUP (SND σ) m = SOME (q,r)
-         5.  match_type (ty_esubst σ r) (ty_esubst σ (TYPE_SUBST tyin t)) =
-             NONE
-         6.  match_type (ty_esubst σ r) (ty_esubst σ t) = SOME x
-         7.  TYPE_SUBST x (ty_esubst σ r) = ty_esubst σ t
-        ------------------------------------
-             dbConst m (ty_esubst σ (TYPE_SUBST tyin t)) =
-             dbINST (MAP (λ(ty,a). (ty_esubst σ ty,a)) tyin)
-               (dbINST x (db q))
-   : proofs
-
-
-
-     *)
+  
 QED
 
 Resume db_esubst_dbINST_comm[aargh2]:
-(*
-
- 1. Incomplete goalstack:
-        Initial goal:
-         0.  EVERY (type_ok (tysof sig)) (MAP FST tyin)
-         1.  esubsts_ok sig σ
-         2.  type_ok (tysof sig) t
-         3.  ∀d. FLOOKUP (tmsof sig) m = SOME d ⇒ is_instance d t
-         4.  FLOOKUP (SND σ) m = SOME (q,r)
-         5.  match_type (ty_esubst σ r) (ty_esubst σ (TYPE_SUBST tyin t)) =
-             SOME x
-         6.  match_type (ty_esubst σ r) (ty_esubst σ t) = NONE
-        ------------------------------------
-             dbINST x (db q) =
-             dbConst m
-               (TYPE_SUBST (MAP (λ(ty,a). (ty_esubst σ ty,a)) tyin)
-                  (ty_esubst σ t))
-   : proofs
-
-
-
-*)
+  
 QED
 
 Resume db_esubst_dbINST_comm[aargh3]:
-  cheat
-
-  (*
-        Initial goal:
-         0.  EVERY (type_ok (tysof sig)) (MAP FST tyin)
-         1.  esubsts_ok sig σ
-         2.  type_ok (tysof sig) t
-         3.  ∀d. FLOOKUP (tmsof sig) m = SOME d ⇒ is_instance d t
-         4.  FLOOKUP (SND σ) m = SOME (q,r)
-         5.  match_type (ty_esubst σ r) (ty_esubst σ (TYPE_SUBST tyin t)) =
-             SOME x
-         6.  match_type (ty_esubst σ r) (ty_esubst σ t) = SOME x'
-        ------------------------------------
-             dbINST x (db q) =
-             dbINST (MAP (λ(ty,a). (ty_esubst σ ty,a)) tyin)
-               (dbINST x' (db q))
-   : proofs
-
-
-  *)
+  
 QED
 
 Finalise db_esubst_dbINST_comm

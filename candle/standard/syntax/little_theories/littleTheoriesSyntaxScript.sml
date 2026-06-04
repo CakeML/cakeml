@@ -280,6 +280,7 @@ Definition esubsts_ok_def:
               θ ' tmnm = (repl, decl_ty) ∧
               decl_ty = ty ∧
               CLOSED repl ∧
+              set (tvars repl) ⊆ set (tyvars (typeof repl)) ∧
               term_ok (esubst_sig (σ,θ) sig) repl ∧
               typeof repl = ty_esubst (σ,θ) ty)
 End
@@ -302,6 +303,7 @@ Definition esubsts_ok'_def:
             ∃repl decl_ty. θ ' tmnm = (repl, decl_ty) ∧
               decl_ty = thy.etms ' tmnm ∧
               CLOSED repl ∧
+              set (tvars repl) ⊆ set (tyvars (typeof repl)) ∧
               typeof repl = ty_esubst (σ,θ) decl_ty)
 End
 
