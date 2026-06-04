@@ -119,10 +119,10 @@ Definition code_buffer_def:
 End
 
 Definition comm_strlit_def:
-  comm_strlit = strlit ","
+  comm_strlit = «,»
 End
 Definition newl_strlit_def:
-  newl_strlit = strlit "\n"
+  newl_strlit = «\n»
 End
 
 Definition comma_cat_def:

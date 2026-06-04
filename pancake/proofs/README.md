@@ -15,9 +15,6 @@ loop_call proof
 [loop_liveProofScript.sml](loop_liveProofScript.sml):
 Correctness proof for loop_live
 
-[loop_removeProofScript.sml](loop_removeProofScript.sml):
-Correctness proof for loop_remove
-
 [loop_to_wordProofScript.sml](loop_to_wordProofScript.sml):
 Correctness proof for loop_to_word
 
@@ -30,6 +27,9 @@ and itree semantics for Pancake.
 
 [pan_simpProofScript.sml](pan_simpProofScript.sml):
 Correctness proof for pan_simp
+
+[pan_structsProofScript.sml](pan_structsProofScript.sml):
+Correctness proof for pan_structs
 
 [pan_to_crepProofScript.sml](pan_to_crepProofScript.sml):
 Correctness proof for pan_to_crep

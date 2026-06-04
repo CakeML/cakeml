@@ -15,7 +15,7 @@ val _ = (use_long_names := false);
 val _ = ml_prog_update open_local_block;
 
 Definition thm_to_string_def:
-  thm_to_string (ctxt:update list) (th:thm) = strlit "thm here!"
+  thm_to_string (ctxt:update list) (th:thm) = «thm here!»
 End
 
 val _ = translate thm_to_string_def;

@@ -235,7 +235,7 @@ End
 Definition join_strings_def:
   join_strings (x:mlstring$mlstring) y =
     if mlstring$strlen x = 0 then y
-    else mlstring$concat [x; mlstring$strlit "_"; y]
+    else mlstring$concat [x; implode "_"; y]
 End
 
 Definition dest_nop_def:

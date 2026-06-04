@@ -1739,6 +1739,14 @@ QED
 
 (* FUPDATE_LIST stuff *)
 
+Theorem NOT_MEM_FLOOKUP_ZIP:
+  ∀ys xs zs. ¬MEM n ys ⇒ FLOOKUP (xs |++ ZIP (ys, zs)) n = FLOOKUP xs n
+Proof
+  Induct >- simp [ZIP_def, FUPDATE_LIST_THM]
+  >> Cases_on ‘zs’
+  >> simp [ZIP_def, FUPDATE_LIST_THM, FLOOKUP_SIMP]
+QED
+
 (* Misc. *)
 
 Theorem LESS_1[simp]:

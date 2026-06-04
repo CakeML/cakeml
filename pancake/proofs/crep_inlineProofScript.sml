@@ -215,8 +215,14 @@ Proof
     fs[flookup_thm] >>
     qpat_x_assum `_ = FDOM s'.locals` $ rw o single o GSYM >> fs[ABSORPTION_RWT]) >>
     Cases_on `eid = eid'` >> fs[]
-  ) >>
-  rpt strip_tac >>
+  )
+  >~ [‘evaluate (Primitive _ _ _, _) = _’] >-
+   (rpt strip_tac
+    >> gvs [evaluate_def, AllCaseEqs()]
+    >> gvs [FDOM_FUPDATE_LIST, MAP_ZIP, EVERY_MEM, FLOOKUP_DEF,
+            IS_SOME_EXISTS, EXTENSION]
+    >> metis_tac [])
+  >> rpt strip_tac >>
   gvs[evaluate_def, CaseEq "option", CaseEq "word_lab", state_component_equality,
     set_globals_def, CaseEq "ffi_result"
   ]
@@ -438,8 +444,46 @@ Proof
     qrefine `r` >> conj_tac
     >- gvs[state_rel_def, empty_locals_def] >>
     Cases_on `r` >> TRY (Cases_on `x`) >> fs[]
-  ) >>
-  fs[evaluate_def] >> rpt strip_tac
+  )
+  >~ [‘evaluate (Primitive _ _ _, _)’] >-
+   (rpt strip_tac
+    >> gvs [evaluate_def, PULL_EXISTS, AllCaseEqs()]
+    >> rename1 `OPT_MMAP _ rvs = SOME arg_vals`
+    >> rename1 `crep_primop _ arg_vals = SOME result_vals`
+    >> rename1 `EVERY _ lvs`
+    >> qexistsl_tac [`arg_vals`, `result_vals`]
+    >> simp[]
+    >> `set lvs ⊆ FDOM s.locals` by (
+         fs[EVERY_MEM, SUBSET_DEF, IS_SOME_EXISTS, FLOOKUP_DEF] >> metis_tac[])
+    >> `set lvs ⊆ FDOM t.locals` by (
+         fs[locals_rel_def, SUBMAP_DEF, SUBSET_DEF] >> metis_tac[])
+    >> rpt conj_tac
+    >- (`∀a. MEM a rvs ⇒ FLOOKUP s.locals a = FLOOKUP t.locals a` by (
+          rpt strip_tac >>
+          `∃y. FLOOKUP s.locals a = SOME y` by metis_tac[OPT_MMAP_SOME_ALL] >>
+          fs[locals_rel_def] >>
+          imp_res_tac (iffLR SUBMAP_FLOOKUP_EQN) >> simp[]) >>
+        drule OPT_MMAP_ALL_EQ >> disch_tac >> fs[])
+    >- (fs[EVERY_MEM, locals_rel_def] >> rpt strip_tac >>
+        first_x_assum drule >> simp[IS_SOME_EXISTS] >> strip_tac >>
+        imp_res_tac (iffLR SUBMAP_FLOOKUP_EQN) >> metis_tac[])
+    >- fs[state_rel_def]
+    >- (fs[locals_rel_def] >>
+        irule SUBMAP_mono_FUPDATE_LIST >>
+        simp[MAP_ZIP] >>
+        irule SUBMAP_DRESTRICT_MONOTONE >> simp[])
+    >> simp[locals_ext_rel_def, fmap_eq_flookup, FLOOKUP_FDIFF]
+    >> qx_gen_tac `k`
+    >> `k ∈ FDOM (s.locals |++ ZIP (lvs,result_vals)) ⇔ k ∈ FDOM s.locals` by (
+         simp[FDOM_FUPDATE_LIST, MAP_ZIP] >>
+         fs[SUBSET_DEF] >> metis_tac[])
+    >> simp[]
+    >> Cases_on `k ∈ FDOM s.locals` >> simp[]
+    >> `k ∉ set lvs` by (fs[SUBSET_DEF] >> metis_tac[])
+    >> `FLOOKUP (t.locals |++ ZIP (lvs, result_vals)) k = FLOOKUP t.locals k`
+         by (irule flookup_fupdate_zip_not_mem >> fs[])
+    >> simp[])
+  >> fs[evaluate_def] >> rpt strip_tac
   >- fs[locals_ext_rel_def] >>
   imp_res_tac eval_state_locals_rel >> fs[] >>
   gs[CaseEq "option", CaseEq "word_lab"] >>
@@ -817,6 +861,11 @@ Proof
     >>~ [`addr ∈  s.sh_memaddrs`] >>
     Cases_on `addr ∈ s.sh_memaddrs` >>
     gvs[CaseEq "option", CaseEq "ffi_result", CaseEq "result", FLOOKUP_UPDATE, CaseEq "word_lab"]
+  )
+  >~ [`evaluate (Primitive _ _ _, _)`]
+  >- (
+    rpt strip_tac >> gvs[evaluate_def, AllCaseEqs()] >>
+    irule flookup_fupdate_zip_not_mem >> fs[]
   ) >>
   rpt strip_tac >>
   gvs[evaluate_def, CaseEq "option", CaseEq "word_lab", CaseEq "ffi_result", set_globals_def, FLOOKUP_UPDATE] >>
@@ -963,6 +1012,28 @@ Proof
     disch_then assume_tac >> fs[] >>
     Cases_on `addr ∈ s.sh_memaddrs` >> gvs[AllCaseEqs(), state_rel_def, empty_locals_def, FLOOKUP_UPDATE] >>
     qabbrev_tac `z = Word (word_of_bytes F 0w new_bytes)` >> fs[]
+  )
+  >~ [‘evaluate (Primitive _ _ _, _)’]
+  >- (
+    rpt strip_tac >> gvs [evaluate_def, var_prog_def, PULL_EXISTS, AllCaseEqs()] >>
+    rename1 `OPT_MMAP _ rvs = SOME arg_vals` >>
+    rename1 `crep_primop _ arg_vals = SOME result_vals` >>
+    rename1 `EVERY _ lvs` >>
+    qexistsl_tac [`arg_vals`, `result_vals`] >> simp[] >>
+    `∀a. MEM a rvs ⇒
+          FLOOKUP (s.locals |+ (v,val)) a = FLOOKUP s.locals a` by (
+      rpt strip_tac >>
+      rename1 `MEM a0 rvs` >>
+      `a0 ≠ v` by (CCONTR_TAC >> fs[]) >>
+      simp[FLOOKUP_UPDATE]) >>
+    rpt conj_tac
+    >- (drule OPT_MMAP_ALL_EQ >> simp[])
+    >- (fs[EVERY_MEM] >> rpt strip_tac >>
+        rename1 `MEM v0 lvs` >>
+        `v0 ≠ v` by (CCONTR_TAC >> fs[]) >>
+        simp[FLOOKUP_UPDATE])
+    >- simp[state_rel_def]
+    >> irule FUPDATE_FUPDATE_LIST_COMMUTES >> simp[MAP_ZIP]
   ) >>
   gs[evaluate_def, var_prog_def, CaseEq "option", CaseEq "word_lab", FLOOKUP_UPDATE] >>
   rpt strip_tac >>
@@ -4661,4 +4732,3 @@ Proof
   disch_then $ qspecl_then [`crep_code`, `start`, `alist_to_fmap (FILTER (λ(x, y). MEM x inl_fname) crep_code)`, `ns`, `prog`] mp_tac >> gvs[] >> impl_tac >>
   fs[SUBMAP_FLOOKUP_EQN, ALOOKUP_EQ_FLOOKUP, ALOOKUP_FILTER]
 QED
-

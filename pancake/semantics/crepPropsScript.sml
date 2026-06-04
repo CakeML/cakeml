@@ -5,7 +5,7 @@ Theory crepProps
 Libs
   preamble
 Ancestors
-  panSem pan_common panProps crepLang crepSem pan_commonProps
+  panSem panLang pan_common panProps crepLang crepSem pan_commonProps
 
 
 Definition cexp_heads_simp_def:
@@ -58,83 +58,58 @@ Proof
   fs [GSYM word_add_n2w, WORD_LEFT_ADD_DISTRIB]
 QED
 
-Theorem mem_load_flat_rel:
-  ∀sh adr s v n.
-  mem_load sh adr s.memaddrs (s.memory: 'a word -> 'a word_lab) = SOME v ∧
-  n < LENGTH (flatten v) ==>
-  crepSem$mem_load (adr + bytes_in_word * n2w (LENGTH (TAKE n (flatten v)))) s =
-  SOME (EL n (flatten v))
-Proof
-  rw [] >>
-  qmatch_asmsub_abbrev_tac `mem_load _ adr dm m = _` >>
-  ntac 2 (pop_assum(mp_tac o REWRITE_RULE [markerTheory.Abbrev_def])) >>
-  pop_assum mp_tac >>
-  pop_assum mp_tac >>
-  MAP_EVERY qid_spec_tac [‘n’,‘s’, `v`,`m`,`dm`,`adr`, `sh`] >>
-  Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_FORALL] >>
-  qsuff_tac ‘(∀sh adr dm (m: 'a word -> 'a word_lab) v.
-       mem_load sh adr dm m = SOME v ⇒
+Theorem mem_loads_flat_rel:
+  (∀sh adr dm (m: 'a word -> 'a word_lab) stcs v.
+       mem_load sh adr dm m stcs = SOME v ∧ is_wf_shape_nil sh ⇒
        ∀(s :(α, β) state) n.
            n < LENGTH (flatten v) ⇒
            dm = s.memaddrs ⇒
            m = s.memory ⇒
-           mem_load (adr + bytes_in_word * n2w n) s = SOME (EL n (flatten v))) /\
-       (∀sh adr dm (m: 'a word -> 'a word_lab) v.
-       mem_loads sh adr dm m = SOME v ⇒
+           mem_load (adr + bytes_in_word * n2w n) s = SOME (EL n (flatten v))) ∧
+  (∀shs adr dm (m: 'a word -> 'a word_lab) stcs v.
+       mem_loads shs adr dm m stcs = SOME v ∧ EVERY is_wf_shape_nil shs ⇒
        ∀(s :(α, β) state) n.
            n < LENGTH (FLAT (MAP flatten v)) ⇒
            dm = s.memaddrs ⇒
            m = s.memory ⇒
-           mem_load (adr + bytes_in_word * n2w n) s = SOME (EL n (FLAT (MAP flatten v))))’
-  >- metis_tac [] >>
-  ho_match_mp_tac mem_load_ind >>
-  rpt strip_tac >> rveq
+           mem_load (adr + bytes_in_word * n2w n) s = SOME (EL n (FLAT (MAP flatten v)))) ∧
+  (∀flds adr dm (m: 'a word -> 'a word_lab) stcs vs.
+       mem_load_flds flds adr dm m stcs = SOME vs ⇒
+       T)
+Proof
+  ho_match_mp_tac panSemTheory.mem_load_ind >>
+  rw []
   >- (
-   fs [panSemTheory.mem_load_def] >>
-   cases_on ‘sh’ >> fs [option_case_eq] >>
-   rveq
-   >- (fs [flatten_def] >> rveq  >> fs [mem_load_def]) >>
-   first_x_assum drule >>
-   disch_then (qspec_then ‘s’ mp_tac) >>
-   fs [flatten_def, ETA_AX])
-  >-  (
-   fs [panSemTheory.mem_load_def] >>
-   rveq >> fs [flatten_def]) >>
-  fs [panSemTheory.mem_load_def] >>
-  cases_on ‘sh’ >> fs [option_case_eq] >> rveq
+    fs [panSemTheory.mem_load_def, AllCaseEqs ()]
+    \\ gvs [is_wf_shape_def, SF ETA_ss, flatten_def]
+    \\ simp [crepSemTheory.mem_load_def]
+  )
   >- (
-   fs [flatten_def] >>
-   cases_on ‘n’ >> fs [EL] >>
-   fs [panLangTheory.size_of_shape_def] >>
-   fs [n2w_SUC, WORD_LEFT_ADD_DISTRIB]) >>
-  first_x_assum drule >>
-  disch_then (qspec_then ‘s’ mp_tac) >>
-  fs [] >>
-  strip_tac >>
-  first_x_assum (qspec_then ‘s’ mp_tac) >>
-  strip_tac >> fs [] >>
-  fs [flatten_def, ETA_AX] >>
-  cases_on ‘0 <= n /\ n < LENGTH (FLAT (MAP flatten vs))’ >>
-  fs []
-  >- fs [EL_APPEND_EQN] >>
-  fs [NOT_LESS] >>
-  ‘n - LENGTH (FLAT (MAP flatten vs)) < LENGTH (FLAT (MAP flatten vs'))’ by
-    DECIDE_TAC >>
-  last_x_assum drule >>
-  strip_tac >> fs [] >>
-  fs [EL_APPEND_EQN] >>
-  ‘size_of_shape (Comb l) = LENGTH (FLAT (MAP flatten vs))’ by (
-    ‘mem_load (Comb l) adr s.memaddrs s.memory = SOME (Struct vs)’ by
-       rw [panSemTheory.mem_load_def] >>
-    drule mem_load_some_shape_eq >>
-    strip_tac >> pop_assum (assume_tac o GSYM) >>
-    fs [] >>
-    metis_tac [GSYM length_flatten_eq_size_of_shape, flatten_def]) >>
-  fs [] >>
-  drule n2w_sub >>
-  strip_tac >> fs [] >>
-  fs [WORD_LEFT_ADD_DISTRIB] >>
-  fs [GSYM WORD_NEG_RMUL]
+    gs [panSemTheory.mem_load_def]
+  )
+  >- (
+    fs [cj 3 panSemTheory.mem_load_def] >>
+    gvs [AllCaseEqs (), size_of_sh_with_ctxt_eq] >>
+    rw [EL_APPEND] >>
+    imp_res_tac mem_load_some_shape_eq >>
+    gs [panPropsTheory.length_flatten_eq_size_of_shape] >>
+    imp_res_tac (Q.prove (`~ (x < (y : num)) ==> ?z. x = y + z`,
+            rw [] \\ qexists_tac `x - y` \\ simp [])) >>
+    simp [GSYM word_add_n2w, WORD_LEFT_ADD_DISTRIB]
+  )
+QED
+
+Theorem mem_load_flat_rel:
+  ∀sh adr s v n.
+  panSem$mem_load sh adr s.memaddrs (s.memory: 'a word -> 'a word_lab) stcs = SOME v ∧
+  n < LENGTH (flatten v) /\
+  is_wf_shape_nil sh ==>
+  crepSem$mem_load (adr + bytes_in_word * n2w (LENGTH (TAKE n (flatten v)))) s =
+  SOME (EL n (flatten v))
+Proof
+  rw [] >>
+  drule_then irule (cj 1 mem_loads_flat_rel) >>
+  simp []
 QED
 
 Theorem update_locals_not_vars_eval_eq:
@@ -289,67 +264,78 @@ Proof
   Cases_on ‘v’ \\ rw[res_var_def,DOMSUB_FLOOKUP_THM,FLOOKUP_UPDATE]
 QED
 
-Theorem unassigned_free_vars_evaluate_same:
-  !p s res t n.
-   evaluate (p,s) = (res,t) /\
-   (res = NONE ∨ res = SOME Continue ∨ res = SOME Break) /\
-    ~MEM n (assigned_free_vars p) ==>
+Theorem FLOOKUP_set_globals[simp]:
+  FLOOKUP (set_globals gv w s).locals n = FLOOKUP s.locals n
+Proof
+  simp [set_globals_def]
+QED
+
+Theorem sh_mem_load_FLOOKUP_locals:
+  sh_mem_load v addr nb s = (res, t) ∧ n ≠ v ∧
+  (res = NONE ∨ res = SOME Continue ∨ res = SOME Break) ⇒
   FLOOKUP t.locals n = FLOOKUP s.locals n
 Proof
-  recInduct evaluate_ind >> rw [] >> fs [] >>
-  TRY(qpat_x_assum ‘evaluate (While _ _,_) = (_,_)’ mp_tac >>
-      once_rewrite_tac [evaluate_def] >>
-      ntac 4 (TOP_CASE_TAC >> fs []) >>
-      pairarg_tac >> fs [] >>
-      fs [] >>
-      TOP_CASE_TAC >> fs [] >>
-      strip_tac
-      >- (
-       first_x_assum drule >>
-       fs [] >>
-       disch_then drule >>
-       fs [assigned_free_vars_def] >>
-       first_x_assum drule >>
-       fs [dec_clock_def]) >>
-      FULL_CASE_TAC >> fs [] >>
-      fs [assigned_free_vars_def] >>
-      first_x_assum drule >>
-      fs [dec_clock_def]) >>
-  TRY
-  (fs [evaluate_def, assigned_free_vars_def, AllCaseEqs(),
-       set_globals_def, state_component_equality] >>
-   TRY (pairarg_tac) >> rveq >> fs [] >> rveq >>
-   FULL_CASE_TAC >> metis_tac [] >>
-   NO_TAC) >>
-  TRY
-  (fs [evaluate_def, assigned_free_vars_def,MEM_FILTER] >> fs [CaseEq "option"] >>
-   pairarg_tac >> fs [] >> rveq >> gvs[flookup_res_var_thm] >>
-   first_x_assum drule >>
-   fs [state_component_equality, FLOOKUP_UPDATE] >>
-   metis_tac[] >> NO_TAC) >>
-  TRY
-  (fs [evaluate_def, assigned_free_vars_def,MEM_FILTER] >> fs [CaseEq "option", CaseEq "word_lab"] >>
-   rveq >> fs [state_component_equality, FLOOKUP_UPDATE] >>
-   fs [panSemTheory.mem_store_def, state_component_equality] >> NO_TAC) >>
-  TRY
-  (cases_on ‘caltyp’ >>
-   fs [evaluate_def, assigned_free_vars_def, CaseEq "option",  CaseEq "word_lab"]  >>
-   rveq >> rename1 ‘lookup_code _ _ _ _ = SOME v6’ >> cases_on ‘v6’ >> fs[] >>
-   every_case_tac >> fs [set_var_def, state_component_equality, assigned_free_vars_def] >>
-   TRY (qpat_x_assum ‘s.locals |+ (_,_) = t.locals’ (mp_tac o GSYM) >>
-        fs [FLOOKUP_UPDATE] >> NO_TAC) >>
-   res_tac >> fs [FLOOKUP_UPDATE] >> NO_TAC) >>
-  TRY
-  (fs [evaluate_def, assigned_free_vars_def,MEM_FILTER] >> fs [CaseEq "option"] >>
-   pairarg_tac >> fs [] >> rveq >>
-   FULL_CASE_TAC >>
-   metis_tac [] >> NO_TAC) >>
-  fs [evaluate_def, assigned_free_vars_def, dec_clock_def, CaseEq "option",
-      CaseEq "word_lab", CaseEq "ffi_result"]  >>
-  rveq >> TRY (FULL_CASE_TAC) >>fs [state_component_equality]
->>
-(Cases_on ‘op’>>fs[sh_mem_op_def,sh_mem_load_def,sh_mem_store_def]>>
- every_case_tac>>fs[set_var_def,empty_locals_def]>>rveq>>fs[FLOOKUP_UPDATE])
+  rw [oneline sh_mem_load_def, AllCaseEqs()]
+  >> simp [set_var_def, empty_locals_def, FLOOKUP_SIMP]
+QED
+
+Theorem sh_mem_store_FLOOKUP_locals:
+  sh_mem_store v addr nb s = (res, t) ⇒
+  FLOOKUP t.locals n = FLOOKUP s.locals n
+Proof
+  rw [oneline sh_mem_store_def, AllCaseEqs()] >> simp []
+QED
+
+Theorem set_mem_op_FLOOKUP_locals:
+  sh_mem_op op r ad s = (res, t) ∧ r ≠ n ∧
+  (res = NONE ∨ res = SOME Continue ∨ res = SOME Break) ⇒
+  FLOOKUP t.locals n = FLOOKUP s.locals n
+Proof
+  rw [oneline sh_mem_op_def, AllCaseEqs()]
+  >> imp_res_tac sh_mem_load_FLOOKUP_locals
+  >> imp_res_tac sh_mem_store_FLOOKUP_locals
+  >> simp []
+QED
+
+Theorem unassigned_free_vars_evaluate_same:
+  ∀p s res t n.
+    evaluate (p,s) = (res,t) ∧
+    (res = NONE ∨ res = SOME Continue ∨ res = SOME Break) ∧
+    ¬MEM n (assigned_free_vars p) ⇒
+    FLOOKUP t.locals n = FLOOKUP s.locals n
+Proof
+  recInduct evaluate_ind >> rpt conj_tac
+  >> simp [assigned_free_vars_def]
+  >~ [‘evaluate (Dec _ _ _, _)’] >-
+   (rw [evaluate_def, AllCaseEqs()]
+    >> rpt (pairarg_tac >> gvs [])
+    >> simp [flookup_res_var_thm]
+    >> IF_CASES_TAC
+    >> gvs [MEM_FILTER, FLOOKUP_SIMP])
+  >~ [‘evaluate (ShMem _ _ _, _)’] >-
+   (rw [evaluate_def, AllCaseEqs()]
+    >> imp_res_tac set_mem_op_FLOOKUP_locals >> gvs [])
+  >~ [‘evaluate (Seq _ _, _)’] >-
+   (rw [evaluate_def, AllCaseEqs()]
+    >> rpt (pairarg_tac >> gvs [])
+    >> gvs [AllCaseEqs()])
+  >~ [‘evaluate (While _ _, _)’] >-
+   (rw []
+    >> qpat_x_assum ‘evaluate (While _ _,_) = _’ mp_tac
+    >> once_rewrite_tac [evaluate_def]
+    >> rw [AllCaseEqs()]
+    >> rpt (pairarg_tac >> gvs [])
+    >> gvs [AllCaseEqs(), dec_clock_def])
+  >~ [‘evaluate (Call _ _ _, _)’] >-
+   (rw [evaluate_def]
+    >> every_case_tac
+    >> fs [assigned_free_vars_def, FLOOKUP_SIMP])
+  >~ [‘evaluate (If _ _ _, _)’] >-
+   (rw [evaluate_def, AllCaseEqs()]
+    >> rename1 ‘if w ≠ 0w then _ else _’
+    >> Cases_on ‘w ≠ 0w’ >> gvs [])
+  >> rw [evaluate_def, AllCaseEqs()]
+  >> simp [FLOOKUP_SIMP, NOT_MEM_FLOOKUP_ZIP, dec_clock_def]
 QED
 
 Theorem assigned_free_vars_IMP_assigned_vars:

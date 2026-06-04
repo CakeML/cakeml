@@ -49,12 +49,12 @@ Definition diff_single_def:
   diff_single l n l' n' =
     diff_single_header l n l' n'::
     if l = [] then (* add *)
-      diff_add_prefix l' (strlit "> ")
+      diff_add_prefix l' «> »
     else if l' = [] then (* delete *)
-      diff_add_prefix l (strlit "< ")
+      diff_add_prefix l «< »
     else (* change *)
-      diff_add_prefix l (strlit "< ")
-      ++ (strlit "---\n")::diff_add_prefix l' (strlit "> ")
+      diff_add_prefix l «< »
+      ++ «---\n»::diff_add_prefix l' «> »
 End
 
 Definition diff_with_lcs_def:
@@ -187,7 +187,7 @@ End
 Definition depatch_line_def:
   depatch_line s =
   if strlen s > 1 then
-    if substring s 0 2 = strlit "> " then
+    if substring s 0 2 = «> » then
       SOME(substring s 2 (strlen s - 2))
     else
       NONE
@@ -268,14 +268,14 @@ End
 Theorem tokens_append_strlit:
   ∀P s1 x s2. P x ⇒ tokens P (s1 ^ strlit [x] ^ s2) = tokens P s1 ++ tokens P s2
 Proof
-  rw[] >> drule tokens_append >> rw[chr_to_str_def,implode_def]
+  rw[] >> drule tokens_append >> rw[chr_to_str_def]
 QED
 
 Theorem tokens_append_right_strlit:
   ∀NP s x. P x ⇒ tokens P (s ^ strlit [x]) = tokens P s
 Proof
   rw[] >> drule tokens_append_strlit >>
-  disch_then $ qspecl_then [`s`,`strlit ""`] mp_tac >>
+  disch_then $ qspecl_then [`s`,`«»`] mp_tac >>
   rw[tokens_def,tokens_aux_def]
 QED
 
@@ -350,7 +350,7 @@ Theorem tokens_strcat[local]:
   l ≠ [] ==>
   (tokens (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n")
           (toString (n:num) ^
-                    strlit (STRING (acd l r) "") ^ toString (m:num) ^ strlit "\n")
+                    strlit (STRING (acd l r) "") ^ toString (m:num) ^ «\n»)
    = [toString n; toString m])
 Proof
   Cases_on `l` >> Cases_on `r` >> fs[acd_def] >>
@@ -361,7 +361,7 @@ Theorem tokens_strcat'[local]:
   r ≠ [] ==>
   (tokens (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n")
           (toString (n:num) ^
-                    strlit (STRING (acd l r) "") ^ toString (m:num) ^ strlit "\n")
+                    strlit (STRING (acd l r) "") ^ toString (m:num) ^ «\n»)
    = [toString n; toString m])
 Proof
   Cases_on `l` >> Cases_on `r` >>
@@ -371,14 +371,14 @@ QED
 Theorem strsub_strcat[local]:
   ∀s s'. strsub(s ^ s') n = if n < strlen s then strsub s n else strsub s' (n - strlen s)
 Proof
-    Induct >> simp[strcat_thm,implode_def,strsub_def,EL_APPEND_EQN]
+    Induct >> simp[strcat_thm,strsub_def,EL_APPEND_EQN]
     \\ gen_tac \\ Cases \\ simp[]
 QED
 
 Theorem strsub_str[local]:
    strsub (toString c) 0 = c
 Proof
-  rw[chr_to_str_def,implode_def,strsub_def]
+  rw[chr_to_str_def,strsub_def]
 QED
 
 Theorem acd_simps[local]:
@@ -418,24 +418,24 @@ QED
 
 Theorem substring_adhoc_simps[local]:
   ∀h.
-   substring (strlit "> " ^ h) 0 2 = strlit "> " ∧
-   substring (strlit "> " ^ h) 2 (strlen h) = h ∧
-   substring (strlit "< " ^ h) 0 2 = strlit "< " ∧
-   substring (strlit "< " ^ h) 2 (strlen h) = h
+   substring («> » ^ h) 0 2 = «> » ∧
+   substring («> » ^ h) 2 (strlen h) = h ∧
+   substring («< » ^ h) 0 2 = «< » ∧
+   substring («< » ^ h) 2 (strlen h) = h
 Proof
-  Induct >> rpt strip_tac >> fs[strcat_thm,implode_def,substring_def,strlen_def]
+  Induct >> rpt strip_tac >> fs[strcat_thm,substring_def,strlen_def]
   >> fs[ADD1,MIN_DEF] >> fs[SEG_compute] >> simp_tac pure_ss [ONE,TWO,SEG_SUC_CONS]
   >> fs[SEG_LENGTH_ID]
 QED
 
 Theorem depatch_lines_strcat_cancel[local]:
-  ∀r. depatch_lines (MAP (strcat (strlit "> ")) r) = SOME r
+  ∀r. depatch_lines (MAP (strcat «> ») r) = SOME r
 Proof
   Induct >> fs[depatch_lines_def,depatch_line_def,strlen_strcat,substring_adhoc_simps]
 QED
 
 Theorem depatch_lines_diff_add_prefix_cancel[local]:
-   depatch_lines (diff_add_prefix l (strlit "> ")) = SOME l
+   depatch_lines (diff_add_prefix l «> ») = SOME l
 Proof
   fs[diff_add_prefix_def,depatch_lines_strcat_cancel]
 QED
@@ -447,19 +447,19 @@ Proof
 QED
 
 Theorem line_numbers_not_empty[local]:
-  ∀l n . line_numbers l n <> strlit ""
+  ∀l n . line_numbers l n <> «»
 Proof
-  fs[line_numbers_def, num_to_str_thm, implode_def]
+  fs[line_numbers_def, num_to_str_thm]
   \\ rw []
   \\ simp_tac std_ss [GSYM explode_11, explode_strcat]
   \\ simp []
 QED
 
 Theorem tokens_eq_sing:
-   ∀s f. EVERY ($¬ ∘ f) (explode s) ∧ s <> strlit "" ⇒ tokens f s = [s]
+   ∀s f. EVERY ($¬ ∘ f) (explode s) ∧ s <> «» ⇒ tokens f s = [s]
 Proof
   Cases
-  \\ fs[TOKENS_eq_tokens_sym,toString_thm,explode_implode,implode_def]
+  \\ fs[TOKENS_eq_tokens_sym,toString_thm,explode_implode]
   \\ Cases_on `s'` \\ fs [TOKENS_def] \\ rw []
   \\ fs [o_DEF,SPLITP_EVERY,TOKENS_def]
 QED
@@ -468,7 +468,7 @@ Theorem tokens_toString_comma[local]:
   tokens ($= #",") (toString (n:num)) = [toString n]
 Proof
   rw [] \\ match_mp_tac tokens_eq_sing
-  \\ fs [num_to_str_thm,implode_def]
+  \\ fs [num_to_str_thm]
   \\ irule EVERY_MONOTONIC
   \\ qexists_tac `isDigit`
   \\ fs [EVERY_isDigit_num_to_dec_string] \\ EVAL_TAC
@@ -489,7 +489,7 @@ Proof
    (irule EVERY_MONOTONIC
     \\ goal_assum (first_x_assum o mp_then Any mp_tac)
     \\ fs [] \\ CCONTR_TAC \\ fs [] \\ rveq \\ fs [isDigit_def])
-  \\ rw [line_numbers_def,num_to_str_thm,implode_def]
+  \\ rw [line_numbers_def,num_to_str_thm]
   \\ fs [strcat_def,concat_def]
 QED
 
@@ -510,14 +510,14 @@ Theorem parse_header_cancel[local]:
        else
          SOME(n'+LENGTH l'))
 Proof
-  rw[diff_single_header_def,parse_patch_header_def,
-     option_case_eq,list_case_eq,PULL_EXISTS,
-     strsub_strcat,tokens_append_right_strlit,GSYM chr_to_str_def,
-     tokens_append,acd_simps,tokens_comma_lemma,
-     tokens_comma_lemma]
-  \\ rw[line_numbers_def,tokens_toString_comma,
-        fromNatString_toString,
-        GSYM chr_to_str_def,tokens_append,strsub_str]
+  rw []
+  >> simp [diff_single_header_def, parse_patch_header_def,
+           CaseEqs ["list", "option"], PULL_EXISTS, acd_simps]
+  >> simp [strsub_strcat,tokens_append_right_strlit,GSYM chr_to_str_def,
+           tokens_append,
+           tokens_comma_lemma]
+  >> simp [line_numbers_def,tokens_toString_comma,
+           GSYM chr_to_str_def,tokens_append]
 QED
 
 Theorem patch_aux_cancel_base_case[local]:
@@ -805,7 +805,7 @@ Proof
 QED
 
 Theorem parse_nonheader_lemma[local]:
-  ∀f r. EVERY (OPTION_ALL f) (MAP parse_patch_header (diff_add_prefix r (strlit "> ")))
+  ∀f r. EVERY (OPTION_ALL f) (MAP parse_patch_header (diff_add_prefix r «> »))
 Proof
   strip_tac >> Induct
   >- fs[diff_add_prefix_def]
@@ -821,7 +821,7 @@ Proof
 QED
 
 Theorem parse_nonheader_lemma2[local]:
-  ∀f r. EVERY (OPTION_ALL f) (MAP parse_patch_header (diff_add_prefix r (strlit "< ")))
+  ∀f r. EVERY (OPTION_ALL f) (MAP parse_patch_header (diff_add_prefix r «< »))
 Proof
   strip_tac >> Induct
   >- fs[diff_add_prefix_def]
@@ -837,7 +837,7 @@ Proof
 QED
 
 Theorem parse_nonheader_lemma3[local]:
-  parse_patch_header (strlit "---\n") = NONE
+  parse_patch_header «---\n» = NONE
 Proof
   fs[parse_patch_header_def]
   >> every_case_tac
@@ -1223,27 +1223,27 @@ QED
 Definition is_patch_line_def:
   is_patch_line s =
   if strlen s > 1 then
-    if substring s 0 2 = strlit "> " then
+    if substring s 0 2 = «> » then
       T
-    else substring s 0 2 = strlit "< "
+    else substring s 0 2 = «< »
   else
       F
 End
 
 Theorem is_patch_line_simps[local]:
   ∀r.
-  FILTER is_patch_line (MAP (strcat (strlit "> ")) r) = (MAP (strcat (strlit "> ")) r) ∧
-  FILTER is_patch_line (MAP (strcat (strlit "< ")) r) = MAP (strcat (strlit "< ")) r
+  FILTER is_patch_line (MAP (strcat «> ») r) = (MAP (strcat «> ») r) ∧
+  FILTER is_patch_line (MAP (strcat «< ») r) = MAP (strcat «< ») r
 Proof
   Induct_on `r` >> fs[] >> Induct
-  >> fs[is_patch_line_def,strlen_def,strcat_thm,implode_def,substring_def,MIN_DEF]
+  >> fs[is_patch_line_def,strlen_def,strcat_thm,substring_def,MIN_DEF]
   >> simp_tac pure_ss [ONE,TWO,SEG] >> fs[]
 QED
 
 Theorem toString_obtain_digits[local]:
   ∀n. ∃f r. toString (n:num) = strlit(f::r) ∧ isDigit f ∧ EVERY isDigit r
 Proof
-  strip_tac >> fs[num_to_str_thm,implode_def]
+  strip_tac >> fs[num_to_str_thm]
   >> qspec_then `n` assume_tac toString_isDigit
   >> Cases_on `num_toString n` >> fs[]
 QED
@@ -1257,9 +1257,9 @@ Proof
   >> qspec_then `n` assume_tac toString_obtain_digits
   >> qspec_then `m` assume_tac toString_obtain_digits
   >> fs[] >> rw[]
-  >> fs[is_patch_line_simps,substring_def,strcat_thm,implode_def,explode_thm,MIN_DEF, isDigit_def]
+  >> fs[is_patch_line_simps,substring_def,strcat_thm,explode_thm,MIN_DEF, isDigit_def]
   >> rfs[] >> full_simp_tac pure_ss [ONE,TWO,SEG] >> fs[FILTER_APPEND,is_patch_line_simps]
-  >> fs[is_patch_line_def,substring_def,implode_def] >> full_simp_tac pure_ss [ONE,TWO,SEG]
+  >> fs[is_patch_line_def,substring_def] >> full_simp_tac pure_ss [ONE,TWO,SEG]
   >> fs[]
 QED
 

@@ -120,7 +120,7 @@ QED
 val res = translate dec_next_def;
 val res = translate chars_to_nums_def;
 val res = translate num_list_enc_decTheory.mlstring_dec_def;
-val res = translate (mlstring_dec'_def |> REWRITE_RULE [GSYM mlstringTheory.implode_def]);
+val res = translate mlstring_dec'_def;
 
 Theorem list_dec'_eq_MAP:
   ∀f t. list_dec' f t = MAP f (list_dec' I t)

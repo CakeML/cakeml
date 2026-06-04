@@ -9,6 +9,7 @@ Ancestors
   mlstring
   asm (* for binop and cmp *)
   backend_common (* for overloading the shift operation *)
+  panLang (* for primop *)
 Libs
   preamble
 
@@ -42,6 +43,9 @@ Datatype:
   prog = Skip
        | Dec varname ('a exp) prog
        | Assign    varname  ('a exp)   (* dest, source *)
+       | Primitive (varname list) panLang$primop (varname list)
+         (* Since pan_to_crep invents variable names already, we use variables
+            on the RHS (instead of expressions) to piggy-back off of that. *)
        | Store     ('a exp) ('a exp)   (* dest, source *)
        | Store32 ('a exp) ('a exp)   (* dest, source *)
        | StoreByte ('a exp) ('a exp)   (* dest, source *)
@@ -146,6 +150,7 @@ Definition assigned_free_vars_def:
   (assigned_free_vars Skip = ([]:num list)) ∧
   (assigned_free_vars (Dec n e p) = (FILTER ($≠ n) $ assigned_free_vars p)) ∧
   (assigned_free_vars (Assign n e) = [n]) ∧
+  (assigned_free_vars (Primitive lhss pop rhss) = lhss) ∧
   (assigned_free_vars (Seq p p') = assigned_free_vars p ++ assigned_free_vars p') ∧
   (assigned_free_vars (If e p p') = assigned_free_vars p ++ assigned_free_vars p') ∧
   (assigned_free_vars (While e p) = assigned_free_vars p) ∧
@@ -163,6 +168,7 @@ Definition assigned_vars_def:
   (assigned_vars Skip = ([]:num list)) ∧
   (assigned_vars (Dec n e p) = (n::assigned_vars p)) ∧
   (assigned_vars (Assign n e) = [n]) ∧
+  (assigned_vars (Primitive lhss pop rhss) = lhss) ∧
   (assigned_vars (Seq p p') = assigned_vars p ++ assigned_vars p') ∧
   (assigned_vars (If e p p') = assigned_vars p ++ assigned_vars p') ∧
   (assigned_vars (While e p) = assigned_vars p) ∧

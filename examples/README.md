@@ -9,6 +9,9 @@ An example based on searching an array.
 [catProgScript.sml](catProgScript.sml):
 cat program example: concatenate and print lines from files.
 
+[cnf](cnf):
+Base semantics/checker for CNF and supporting extensions
+
 [compilation](compilation):
 Compilation of the CakeML examples to different architectures.
 

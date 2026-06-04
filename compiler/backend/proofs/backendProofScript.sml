@@ -67,6 +67,7 @@ Definition backend_config_ok_def:
         asm_conf.ISA = ARMv7 ∧ 2 < asm_conf.fp_reg_count) ∧
     (c.data_conf.has_fp_ops ⇔ 1 < asm_conf.fp_reg_count) ∧
     max_stack_alloc ≤ 2 * max_heap_limit (:'a) c.data_conf − 1 ∧
+    c.stack_conf.perf_calls = F ∧
     addr_offset_ok asm_conf 0w ∧
     hw_offset_ok asm_conf 0w ∧
     (∀w. -8w ≤ w ∧ w ≤ 8w ⇒ byte_offset_ok asm_conf w) ∧
@@ -534,9 +535,9 @@ Theorem cake_orac_eqs:
   )
   /\
   (
-  compile asm_conf c prog = SOME (b, bm, c') ==>
+  compile asm_conf c prog = SOME (b, bm, c') ∧ c.stack_conf.perf_calls = F ==>
   (λ((bm0,cfg),prg). (λ(prg2,fs,bm). (cfg,prg2,append(FST bm)))
-    (compile_word_to_stack asm_conf (asm_conf.reg_count -
+    (compile_word_to_stack asm_conf F (asm_conf.reg_count -
       (LENGTH asm_conf.avoid_regs + 5)) prg (Nil, bm0))) ∘
   cake_orac asm_conf c' src (SND ∘ SND ∘ SND ∘ config_tuple2) (λps. ps.word_prog) =
   cake_orac asm_conf c' src (SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
@@ -562,7 +563,7 @@ Proof
   \\ rveq \\ fs []
   (* assumption-free goals need to be proven by now *)
   \\ drule_then assume_tac cake_orac_config_eqs
-  \\ fs []
+  \\ gvs []
   >- (
     fs [clos_to_bvlTheory.clos_to_bvl_compile_inc_def,
         config_tuple1_def]
@@ -1452,6 +1453,38 @@ Proof
     arithmeticTheory.GREATER_DEF]
 QED
 
+Theorem to_bvi_perf_calls:
+  ∀c c' prog p n.
+    (to_bvi c prog = (c',p,n))
+    ⇒ c.stack_conf.perf_calls = c'.stack_conf.perf_calls
+Proof
+  rw [to_bvi_def, to_bvl_def, to_clos_def, to_flat_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rveq \\ fs []
+QED
+
+Theorem to_data_perf_calls:
+  ∀c c' prog p n.
+    (to_data c prog = (c',p,n))
+    ⇒ c.stack_conf.perf_calls = c'.stack_conf.perf_calls
+Proof
+  rw [to_data_def]
+  \\ pairarg_tac \\ fs []
+  \\ rveq
+  \\ drule to_bvi_perf_calls \\ fs []
+QED
+
+Theorem to_word_perf_calls:
+  ∀c c' prog p n.
+    (to_word asm_conf c prog = (c',p,n))
+    ⇒ c.stack_conf.perf_calls = c'.stack_conf.perf_calls
+Proof
+  rw [to_word_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rveq \\ fs []
+  \\ drule to_data_perf_calls \\ fs []
+QED
+
 Theorem to_lab_labels_ok:
   compile asm_conf c prog = SOME (b, bm, c') /\ backend_config_ok asm_conf c
   ==>
@@ -1469,14 +1502,13 @@ Proof
   \\ simp []
   \\ rpt disch_tac
   \\ fs []
-  \\ EVAL_TAC
-  \\ fs [EVERY_MEM]
-  \\ CCONTR_TAC
-  \\ fs []
-  \\ RES_THEN mp_tac
-  \\ EVAL_TAC
-  \\ simp []
+  \\ imp_res_tac to_word_perf_calls
+  \\ fs [backend_config_ok_def]
   \\ gvs []
+  \\ EVAL_TAC
+  \\ fs [EVERY_MEM, GSYM IMP_DISJ_THM]
+  \\ rw [] \\ res_tac \\ fs [EVAL ``store_consts_stub_location``]
+  \\ rpt strip_tac \\ res_tac \\ fs []
 QED
 
 Theorem oracle_monotonic_slice:
@@ -1761,7 +1793,7 @@ Proof
     \\ disch_tac
     \\ rpt (pairarg_tac \\ fs [])
     \\ rveq \\ fs []
-    \\ rename [`compile asm_conf word_p = _`]
+    \\ rename [`compile asm_conf _ word_p = _`]
     \\ qspecl_then [`word_p`, `asm_conf`] mp_tac
         (GEN_ALL word_to_stack_compile_lab_pres)
     \\ simp [EVAL ``raise_stub_location < SUC data_num_stubs``]
@@ -1775,8 +1807,13 @@ Proof
     \\ rpt disch_tac
     \\ fs []
     \\ simp [SUBSET_DEF]
+    \\ imp_res_tac to_bvi_perf_calls
+    \\ fs [backend_config_ok_def]
+    \\ gvs []
     \\ metis_tac [MAP_FST_stubs_bound, prim_recTheory.LESS_THM,
-        EVAL ``gc_stub_location < data_num_stubs``, LESS_TRANS]
+        EVAL ``gc_stub_location < data_num_stubs``, LESS_TRANS,
+        EVAL ``raise_stub_location < data_num_stubs``,
+        EVAL ``store_consts_stub_location < data_num_stubs``]
   )
   \\ rw [cake_orac_def, compile_inc_progs_defs]
   \\ rpt (pairarg_tac \\ fs [])
@@ -2075,8 +2112,8 @@ Proof
     \\ ntac 2 strip_tac \\ fs[]
     \\ rfs []
     \\ first_x_assum match_mp_tac
-    \\ qmatch_asmsub_abbrev_tac`compile_word_to_stack ac kkk pp qq`
-    \\ Cases_on`compile_word_to_stack ac kkk pp qq`
+    \\ qmatch_asmsub_abbrev_tac`compile_word_to_stack ac F kkk pp qq`
+    \\ Cases_on`compile_word_to_stack ac F kkk pp qq`
     \\ fs[Abbr`ac`]
     \\ drule compile_word_to_stack_convs
     \\ impl_tac
@@ -2153,6 +2190,9 @@ Proof
        labPropsTheory.sec_get_code_labels_def, EXISTS_PROD, FORALL_PROD]
     \\ metis_tac []
   )
+  \\ ‘(cake_configs mc.target.config c' syntax i).stack_conf.perf_calls = F’
+     by (drule cake_orac_config_eqs \\ fs [backend_config_ok_def])
+  \\ gvs []
   \\ drule (word_to_stack_good_handler_labels_incr
     |> REWRITE_RULE [AND_IMP_INTRO, Once CONJ_COMM] |> GEN_ALL)
   \\ impl_tac >-
@@ -2194,7 +2234,10 @@ Proof
     \\ EVAL_TAC
     \\ simp []
   )
-  \\ qmatch_asmsub_abbrev_tac`compile_word_to_stack ac kkk pp`
+  \\ ‘(cake_configs mc.target.config c' syntax n).stack_conf.perf_calls = F’
+     by (drule cake_orac_config_eqs \\ fs [backend_config_ok_def])
+  \\ gvs []
+  \\ qmatch_asmsub_abbrev_tac`compile_word_to_stack ac F kkk pp`
   \\ drule (GEN_ALL compile_word_to_stack_convs)
   \\ simp[]
   \\ qmatch_asmsub_abbrev_tac`Abbrev (pp = MAP _ pp0)`
@@ -2305,7 +2348,7 @@ QED
 
 Theorem to_lab_good_code_lemma:
   compile c.stack_conf c.data_conf lim1 lim2 offs stack_prog = code /\
-  compile asm_conf3 word_prog = (bm, wc, fs, stack_prog) /\
+  compile asm_conf3 F word_prog = (bm, wc, fs, stack_prog) /\
   compile data_conf word_conf asm_conf2 data_prog = (col, word_prog) /\
   stack_to_labProof$labels_ok code /\
   all_enc_ok_pre conf code
@@ -2372,11 +2415,11 @@ Theorem compute_stack_frame_sizes_thm:
   compute_stack_frame_sizes c word_prog =
     let k = c.reg_count - LENGTH c.avoid_regs - 5 in
       mapi (λn (arg_count,prog).
-        FST (SND (compile_prog c prog arg_count k (Nil,0)))) (fromAList word_prog)
+        FST (SND (compile_prog c F prog arg_count k (Nil,0)))) (fromAList word_prog)
 Proof
   fs [compute_stack_frame_sizes_def]
   \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
-  \\ qmatch_goalsub_abbrev_tac `compile_prog _ _ _ k`
+  \\ qmatch_goalsub_abbrev_tac `compile_prog _ _ _ _ k`
   \\ fs [FUN_EQ_THM,FORALL_PROD]
   \\ rpt gen_tac
   \\ once_rewrite_tac [word_to_stackTheory.compile_prog_def]
@@ -2466,21 +2509,21 @@ Proof
 QED
 
 Theorem compile_word_to_stack_sfs_aux:
-∀ac k p bm progs' fs' bitmaps.
-  compile_word_to_stack ac k p bm = (progs',fs',bitmaps) ⇒
+∀ac perf k p bm progs' fs' bitmaps.
+  compile_word_to_stack ac perf k p bm = (progs',fs',bitmaps) ∧ perf = F ⇒
    fromAList
      (MAP
         (λkv.
              (FST kv,
               (λ(arg_count,prog).
-                   FST (SND (compile_prog ac prog arg_count k (Nil,0)))) (SND kv))) p)
+                   FST (SND (compile_prog ac perf prog arg_count k (Nil,0)))) (SND kv))) p)
    = fromAList (MAP (λ((i,_),n). (i,n)) (ZIP (progs',fs')))
 Proof
   ho_match_mp_tac compile_word_to_stack_ind
   \\ rw [fromAList_def,compile_word_to_stack_def] \\ fs [fromAList_def]
   \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
   \\ rw [fromAList_def] \\ rveq \\ rfs []
-  \\ Cases_on `compile_prog ac p n k (Nil,0)`
+  \\ Cases_on `compile_prog ac F p n k (Nil,0)`
   \\ PairCases_on `r` \\ rfs [] \\ rveq \\ fs []
   \\  `f = r0` suffices_by fs []
   \\ fs [compile_prog_def]
@@ -2533,15 +2576,17 @@ Proof
      \\ rw [])
   \\ rw [Abbr`f0`]
   \\ ntac 2 (pop_assum kall_tac)
-  \\ qpat_x_assum `compile_word_to_stack _ _ _ _ = _` mp_tac
-  \\ qmatch_goalsub_abbrev_tac `compile_word_to_stack _ k0`
-  \\ qmatch_goalsub_abbrev_tac `compile_prog _ _ _ k1 `
+  \\ qpat_x_assum `compile_word_to_stack _ _ _ _ _ = _` mp_tac
+  \\ qmatch_goalsub_abbrev_tac `compile_word_to_stack _ _ k0`
+  \\ qmatch_goalsub_abbrev_tac `compile_prog _ _ _ _ k1 `
   \\ drule to_word_lab_conf
+  \\ drule to_word_perf_calls
   \\ strip_tac
   \\ `k0 = k1` suffices_by
      (rw []
-     \\ ho_match_mp_tac compile_word_to_stack_sfs_aux
-     \\ asm_exists_tac \\ fs [])
+      \\ ho_match_mp_tac compile_word_to_stack_sfs_aux
+      \\ gvs [backend_config_ok_def]
+      \\ asm_exists_tac \\ fs [])
   \\ UNABBREV_ALL_TAC
   \\ rw []
 QED
@@ -2623,7 +2668,7 @@ Definition backend_from_data_tuple_cc_def:
                         asm_conf.addr_offset
                         (asm_conf.reg_count - (LENGTH asm_conf.avoid_regs + 3)))
                       (MAP prog_comp progs))))))
-           (compile_word_to_stack asm_conf
+           (compile_word_to_stack asm_conf F
             ((asm_conf.reg_count - (LENGTH asm_conf.avoid_regs + 3))-2) progs (Nil, bm0)))
               cfg (MAP (λp. full_compile_single asm_conf.two_reg_arith (asm_conf.reg_count - (LENGTH asm_conf.avoid_regs + 5))
               c.word_to_word_conf.reg_alg
@@ -2670,6 +2715,7 @@ QED
 Theorem backend_from_flat_tuple_cc_eq_compile_inc_progs:
   ((^cake_orac_config_inv_f) c') = ((^cake_orac_config_inv_f) c) /\
   src_cfg = c'.source_conf /\
+  c.stack_conf.perf_calls = F ∧
   c.source_conf.pattern_cfg = prim_src_config.pattern_cfg ==>
   backend_from_flat_tuple_cc asm_conf c (SND (config_tuple1 c'))
     (MAP (flat_pattern$compile_dec prim_src_config.pattern_cfg)
@@ -2883,6 +2929,7 @@ Theorem source_eval_to_flat_semantics:
   source_to_flat$compile prim_src_config (source_to_source$compile prog) = (src_c', p') /\
   THE (prim_sem_env (ffi:'ffi ffi_state)) = (s0, env) /\
   opt_eval_config_wf asm_conf c' ev /\
+  c.stack_conf.perf_calls = F ∧
   c.source_conf = prim_src_config ==>
   ? syntax_oracle.
   semantics_prog (add_eval_state ev s0) env prog (flatSem$semantics
@@ -3367,7 +3414,7 @@ Proof
         (SND ∘ SND ∘ SND ∘ config_tuple2) (λps. ps.data_prog)` \\
   qabbrev_tac `word_oracle = cake_orac mc.target.config c' orac_syntax
         (SND ∘ SND ∘ SND ∘ config_tuple2) (λps. ps.word_prog)` \\
-  qmatch_assum_rename_tac`compile _ p5 = (bm,c6,_,p6)` \\
+  qmatch_assum_rename_tac`compile _ _ p5 = (bm,c6,_,p6)` \\
   fs[from_stack_def,from_lab_def] \\
 
   qabbrev_tac `stack_oracle = cake_orac mc.target.config c' orac_syntax
@@ -3448,6 +3495,9 @@ Proof
     simp[]>>
     metis_tac[])>>
   strip_tac>>
+  qmatch_asmsub_abbrev_tac`word_to_stack$compile _ perf_flag _ = _`>>
+  `perf_flag = F` by simp[Abbr`perf_flag`, Abbr`c4`, backend_config_ok_def]>>
+  gvs[]>>
   old_drule (word_to_stack_stack_convs|> GEN_ALL)>>
   simp[]>>
   impl_tac>- (

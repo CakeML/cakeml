@@ -1498,7 +1498,7 @@ Definition decide_inline_alt_def:
           if app_lopt = NONE /\ app_arity = arity then
             (if body_size < c * (1 + app_arity) /\
                 ~contains_closures [body] /\
-                closed (Fn (strlit "") NONE NONE app_arity body)
+                closed (Fn «» NONE NONE app_arity body)
                 (* Consider moving these checks to the point where Clos approximations
                    are created, and bake them into the val_approx_val relation. *)
                then inlD_LetInline body

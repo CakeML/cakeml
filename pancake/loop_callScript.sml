@@ -65,6 +65,8 @@ Definition comp_def:
   (comp l Tick = (Tick, LN)) /\
   (comp l (Raise n) = (Raise n, LN)) /\
   (comp l (Return n) = (Return n, LN)) /\
+  (comp l (Primitive lhss pop rhss) =
+   (Primitive lhss pop rhss, list_delete lhss l)) ∧
   (comp l (Arith arith) =
    (Arith arith,
     case arith of

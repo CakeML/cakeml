@@ -392,7 +392,7 @@ Proof
   xcf' "strcat_foo" >>
   xlet_auto >- xsimpl >>
   xlet `POSTv sv'. &(STRING_TYPE (s ^ «foo») sv') * rv ~~> sv`
-  >- (xapp >> xsimpl >> simp[mlstringTheory.implode_def] >> metis_tac[]) >>
+  >- (xapp >> xsimpl >> simp[] >> metis_tac[]) >>
   rveq >> xapp >> xsimpl
 QED
 

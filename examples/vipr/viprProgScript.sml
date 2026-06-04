@@ -117,9 +117,9 @@ val print_outcome_v_thm = translate print_outcome_def;
 (* ---- *)
 
 Definition usage_message_def:
-  usage_message = concat [strlit "Usage:\n";
-                          strlit "to read from stdin:   cake_vipr\n";
-                          strlit "to read from a file:  cake_vipr FILE\n"]
+  usage_message = concat [«Usage:\n»;
+                          «to read from stdin:   cake_vipr\n»;
+                          «to read from a file:  cake_vipr FILE\n»]
 End
 
 val r = translate (usage_message_def |> CONV_RULE (RAND_CONV EVAL));

@@ -1,6 +1,7 @@
 INCLUDES = $(CAKEMLDIR)/misc\
                  $(CAKEMLDIR)/pancake\
 				 $(CAKEMLDIR)/misc/\
+                                 $(CAKEMLDIR)/compiler/backend\
                                  $(CAKEMLDIR)/compiler/backend/semantics\
 				 $(CAKEMLDIR)/compiler/encoders/asm\
                                  $(CAKEMLDIR)/semantics/ffi

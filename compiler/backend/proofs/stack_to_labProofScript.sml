@@ -3755,7 +3755,7 @@ Theorem IMP_init_state_ok:
    (λ((bm0,cfg),progs).
       (λ(progs,fs,bm). (cfg,progs,append (FST bm)))
         (compile_word_to_stack
-           ac kkk progs
+           ac F kkk progs
            (Nil, bm0))) (word_oracle n)) ∧
     (full_make_init scc dc max_heap stk stoff bitmaps p6 lab_st save_regs data_sp stack_oracle = (fmis,SOME xxx))
     ==>

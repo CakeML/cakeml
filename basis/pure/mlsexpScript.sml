@@ -249,7 +249,7 @@ Datatype:
 End
 
 Definition newlines_def:
-  newlines [] = String (strlit "") ∧
+  newlines [] = String «» ∧
   newlines [x] = x ∧
   newlines (x::xs) = Append x T (newlines xs)
 End
@@ -316,31 +316,31 @@ End
 Definition flatten_def:
   flatten indent (Size n p) s = flatten indent p s ∧
   flatten indent (Parenthesis p) s =
-    strlit "(" :: flatten (concat [indent; strlit "   "]) p (strlit ")" :: s) ∧
+    «(» :: flatten (concat [indent; «   »]) p («)» :: s) ∧
   flatten indent (String t) s = t :: s ∧
   flatten indent (Append p1 b p2) s =
-    flatten indent p1 ((if b then indent else strlit " ") :: flatten indent p2 s)
+    flatten indent p1 ((if b then indent else « ») :: flatten indent p2 s)
 End
 
 Definition str_tree_to_strs_def:
-  str_tree_to_strs end v = flatten (strlit "\n") (smart_remove 0 0 (annotate (v2pretty v))) [end]
+  str_tree_to_strs end v = flatten «\n» (smart_remove 0 0 (annotate (v2pretty v))) [end]
 End
 
 Theorem test1_str_tree_to_strs[local]:
-  concat (str_tree_to_strs (strlit "")
-                           (Trees [Str (strlit "hello");
-                                   Str (strlit "there")])) =
-  strlit "(hello there)"
+  concat (str_tree_to_strs «»
+                           (Trees [Str «hello»;
+                                   Str «there»])) =
+  «(hello there)»
 Proof
   EVAL_TAC
 QED
 
 Theorem test2_str_tree_to_strs[local]:
-  concat (str_tree_to_strs (strlit "")
-                           (Trees [Str (strlit "test");
-                                   GrabLine (Str (strlit "hi"));
-                                   GrabLine (Str (strlit "there"))])) =
-  strlit "(test\n   hi\n   there)"
+  concat (str_tree_to_strs «»
+                           (Trees [Str «test»;
+                                   GrabLine (Str «hi»);
+                                   GrabLine (Str «there»)])) =
+  «(test\n   hi\n   there)»
 Proof
   EVAL_TAC
 QED
@@ -361,7 +361,7 @@ End
 
 Definition make_str_safe_def:
   make_str_safe s =
-    if s = strlit "" then strlit "\"\"" else
+    if s = «» then strlit "\"\"" else
     if str_every is_safe_char (strlen s) s then s else escape_str s
 End
 
@@ -375,13 +375,13 @@ End
 Definition sexp_to_app_list_def:
   sexp_to_app_list (Atom s) = List [make_str_safe s] ∧
   sexp_to_app_list (Expr l) =
-    Append (List [strlit "("])
-           (Append (sexps_to_app_list l) (List [strlit ")"])) ∧
+    Append (List [«(»])
+           (Append (sexps_to_app_list l) (List [«)»])) ∧
   sexps_to_app_list [] = List [] ∧
   sexps_to_app_list (v::vs) =
     if NULL vs then sexp_to_app_list v
     else Append (sexp_to_app_list v)
-                (Append (List [strlit " "]) (sexps_to_app_list vs))
+                (Append (List [« »]) (sexps_to_app_list vs))
 End
 
 Definition sexp_to_string_def:
@@ -389,7 +389,7 @@ Definition sexp_to_string_def:
 End
 
 Definition sexp_to_pretty_string_def:
-  sexp_to_pretty_string s = concat (str_tree_to_strs (strlit "\n") (sexp2tree s))
+  sexp_to_pretty_string s = concat (str_tree_to_strs «\n» (sexp2tree s))
 End
 
 (*--------------------------------------------------------------*
@@ -479,7 +479,7 @@ Proof
   >-
    (simp [Once lex_aux_def, EVAL “isSpace #"\""”]
     \\ simp [Once read_string_def]
-    \\ simp [Once read_string_aux_def, implode_def])
+    \\ simp [Once read_string_aux_def])
   \\ IF_CASES_TAC \\ fs []
   >-
    (dxrule str_every_thm \\ simp []
@@ -491,8 +491,8 @@ Proof
     \\ Cases_on ‘input’ \\ gvs []
     \\ gvs [lex_aux_def,is_safe_char_def]
     \\ DEP_REWRITE_TAC [read_symbol_thm]
-    \\ simp [implode_def])
-  \\ simp [escape_str_def,implode_def]
+    \\ simp [])
+  \\ simp [escape_str_def]
   \\ simp [Once lex_aux_def, EVAL “isSpace #"\""”]
   \\ simp [read_string_def,read_string_aux_thm]
 QED
@@ -519,7 +519,7 @@ Theorem lex_aux_sexp2tree:
   (∀x s ts depth m n indent.
      (s ≠ "" ⇒ isSpace (HD s) ∨ HD s = #")") ∧
      (depth = 0 ⇒ ts = []) ∧
-     indent ≠ strlit "" ∧ EVERY isSpace (explode indent) ⇒
+     indent ≠ «» ∧ EVERY isSpace (explode indent) ⇒
      lex_aux depth
              (STRCAT
               (explode
@@ -540,7 +540,7 @@ Theorem lex_aux_sexp2tree:
       else lex_aux depth s (REVERSE (to_tokens x) ++ ts))) ∧
   (∀xs s ts depth indent m n.
      (s ≠ "" ⇒ isSpace (HD s) ∨ HD s = #")") ∧ depth ≠ 0 ∧
-     indent ≠ strlit "" ∧ EVERY isSpace (explode indent) ⇒
+     indent ≠ «» ∧ EVERY isSpace (explode indent) ⇒
      lex_aux depth
              (STRCAT
               (explode

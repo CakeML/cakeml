@@ -21,9 +21,13 @@ Definition compile_exp_def:
    case FLOOKUP ctxt.globals vname of
      NONE => Const 0w (* should never happen *)
    | SOME(sh,addr) => Load sh (Op Sub [TopAddr; Const addr])) ∧
-  (compile_exp ctxt (Struct es) = Struct (MAP (compile_exp ctxt) es)) ∧
-  (compile_exp ctxt (Field index e) =
-   Field index (compile_exp ctxt e)) ∧
+  (compile_exp ctxt (RStruct es) = RStruct (MAP (compile_exp ctxt) es)) ∧
+  (compile_exp ctxt (RField index e) =
+   RField index (compile_exp ctxt e)) ∧
+  (compile_exp ctxt (NStruct nm flds) =
+   Const 0w (* should never happen *)) ∧
+  (compile_exp ctxt (NField fld e) =
+   Const 0w (* should never happen *)) ∧
   (compile_exp ctxt (Load sh e) =
    Load sh (compile_exp ctxt e)) ∧
   (compile_exp ctxt (LoadByte e) =
@@ -62,13 +66,6 @@ Termination
   simp[]
 End
 
-Definition shape_val_def:
-  shape_val One = Const 0w ∧
-  shape_val (Comb shapes) = Struct (shape_vals shapes) ∧
-  shape_vals [] = [] ∧
-  shape_vals (sh::shs) = shape_val sh :: shape_vals shs
-End
-
 Definition compile_def:
   (compile ctxt (Dec v s e p) =
    Dec v s (compile_exp ctxt e) (compile ctxt p)) ∧
@@ -79,6 +76,8 @@ Definition compile_def:
           NONE => Skip (* shouldn't happen *)
          | SOME (sh, addr) => Store (Op Sub [TopAddr; Const addr]) (compile_exp ctxt e))
     | _ => Assign Local v (compile_exp ctxt e))) ∧
+  (compile ctxt (Primitive v pop es) =
+   Primitive v pop (MAP (compile_exp ctxt) es)) ∧
   (compile ctxt (Store ad v) =
    Store (compile_exp ctxt ad) (compile_exp ctxt v)) ∧
   (compile ctxt (Store32 ad v) =
@@ -170,7 +169,8 @@ Definition compile_decs_def:
         (Store (Op Sub [TopAddr; Const s]) (compile_exp ctxt e)::decs,funs,ctxt'')) ∧
     (compile_decs ctxt (Function fi::ds) =
      let (decs,funs,ctxt'') = compile_decs ctxt ds
-     in (decs,Function (fi with body := compile ctxt fi.body)::funs,ctxt''))
+     in (decs,Function (fi with body := compile ctxt fi.body)::funs,ctxt'')) ∧
+    (compile_decs ctxt (Name nm flds::ds) = compile_decs ctxt ds) (* should never happen *)
 End
 
 Definition resort_decls_def:
@@ -225,6 +225,7 @@ End
 Definition dec_shapes_def:
   dec_shapes(Function _::ds) = dec_shapes ds ∧
   dec_shapes(Decl sh _ _::ds) = sh::dec_shapes ds ∧
+  dec_shapes(Name _ _::ds) = dec_shapes ds ∧
   dec_shapes [] = []
 End
 
@@ -238,7 +239,7 @@ Definition compile_top_def:
           nds' = fperm_decs start start' nds;
           (decls,funs,ctxt) = compile_decs
                               <| globals := FEMPTY; globals_size := 0w;
-                                 max_globals_size := bytes_in_word*n2w(SUM(MAP size_of_shape(dec_shapes nds')))
+                                 max_globals_size := bytes_in_word*n2w(SUM(MAP size_of_shape (dec_shapes nds')))
                               |> nds';
           params = MAP (Var Local o FST) args;
           new_main = Function <| name   := start

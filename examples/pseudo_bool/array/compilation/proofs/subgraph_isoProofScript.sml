@@ -71,7 +71,7 @@ Theorem machine_code_sound:
   ∃out err.
     extract_fs fs (cake_pb_iso_io_events cl fs) =
       SOME (add_stdout (add_stderr fs err) out) ∧
-    (out ≠ strlit"" ⇒
+    (out ≠ «» ⇒
       ∃gp gt.
         get_graph_lad fs (EL 1 cl) = SOME gp ∧
         get_graph_lad fs (EL 2 cl) = SOME gt ∧
