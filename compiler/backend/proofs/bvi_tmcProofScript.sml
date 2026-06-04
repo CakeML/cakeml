@@ -338,7 +338,8 @@ QED
 (* Can't be type error *)
 Theorem evaluate_expand_env:
   ∀xs env s t r extra.
-    evaluate (xs, env, s) = (r, t) ⇒
+    evaluate (xs, env, s) = (r, t) ∧
+    r ≠ Rerr (Rabort Rtype_error) ⇒
     evaluate (xs, env ++ extra, s) = (r, t)
 Proof
   recInduct bviSemTheory.evaluate_ind
@@ -1229,7 +1230,8 @@ QED
 Theorem evaluate_bvi_to_cb_aux_inr:
   ∀loc tag args env s t r bs cb.
     bvi_to_cb_aux loc tag args = SOME (bs,INR cb) ∧
-    evaluate ([Op (BlockOp (Cons tag)) args],env,s) = (r,t) ⇒
+    evaluate ([Op (BlockOp (Cons tag)) args],env,s) = (r,t) ∧
+    r ≠ Rerr (Rabort Rtype_error) ⇒
     ∃as u.
       evaluate (bs,env,s) = (as,u) ∧
       (∀vs.
@@ -1258,6 +1260,7 @@ Proof
     >> gvs [CaseEq "prod", CaseEq "sum", PULL_EXISTS]
     >> first_x_assum drule
     >> gvs []
+    >> impl_tac >- gvs [CaseEq "prod", CaseEq "result"]
     >> strip_tac
     >> first_assum $ irule_at Any
     >> rw []
@@ -1269,6 +1272,7 @@ Proof
     >> gvs [CaseEq "prod", CaseEq "sum", PULL_EXISTS]
     >> first_x_assum drule
     >> gvs []
+    >> impl_tac >- gvs [CaseEq "prod", CaseEq "result"]
     >> strip_tac
     >> first_assum $ irule_at Any
     >> rw []
@@ -1292,6 +1296,7 @@ Proof
       >> Cases_on ‘evaluate ([cb_to_bvi loc child],a',u)’ >> gvs []
       >> drule evaluate_expand_env
       >> disch_then $ qspec_then ‘v’ mp_tac
+      >> impl_tac >- gvs [CaseEq "prod", CaseEq "result"]
       >> strip_tac
       >> gvs []
       >> Cases_on ‘q’ >> gvs []
@@ -1314,6 +1319,7 @@ Proof
     >> Cases_on ‘evaluate ([cb_to_bvi loc child],a,u)’ >> gvs []
     >> drule evaluate_expand_env
     >> disch_then $ qspec_then ‘v’ mp_tac
+    >> impl_tac >- gvs [CaseEq "prod", CaseEq "result"]
     >> strip_tac
     >> gvs []
     >> Cases_on ‘q’ >> gvs []
@@ -1363,6 +1369,7 @@ QED
 Theorem evaluate_bvi_to_cb:
   ∀cb loc x env s t r bs.
     evaluate ([x],env,s) = (r,t) ∧
+    r ≠ Rerr (Rabort Rtype_error) ∧
     bvi_to_cb loc x = SOME (bs,cb) ⇒
     evaluate ([Let bs (cb_to_bvi loc cb)],env,s) = (r,t)
 Proof
