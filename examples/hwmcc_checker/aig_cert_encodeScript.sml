@@ -446,32 +446,30 @@ QED
 
 (* Encoding implication *******************************************************)
 
+(* b ⇔ negated implication *)
 Definition encode_imply_def:
-  encode_imply (circ: ('a iext, 'i, 'l) circuit) name lhss rhss =
+  encode_imply (circ: ('a iext, 'i, 'l) circuit) name b lhss rhss =
   let n = MAX (maxn lhss) (maxn rhss) in
-    (* (lhss ⇒ rhss) ⇔ (¬lhss ∨ rhss) ⇔ ¬(lhss ∧ ¬rhss) *)
-    (Named (Ext name), [(Name (Anon (n+2)), T)]) (* ¬(lhss ∧ ¬rhss) *)
+    (* b = F: (lhss ⇒ rhss) ⇔ (¬lhss ∨ rhss) ⇔ ¬(lhss ∧ ¬rhss) *)
+    (Named (Ext name), [(Name (Anon (n+2)), ¬b)])
     ::(Anon (n+2), [(Name (Anon n), F); (Name (Anon (n+1)), T)]) (* lhss ∧ ¬rhss *)
     ::(Anon (n+1), rhss)::(Anon n, lhss)::circ
 End
 
 Theorem eval_circuit_encode_imply:
-  eval_circuit ss (encode_imply circ name lhss rhss) (Named n) =
+  eval_circuit ss (encode_imply circ name b lhss rhss) (Named n) =
   if n = Ext name then
-    (EVERY (eval_lit ss circ) lhss) ⇒ (EVERY (eval_lit ss circ) rhss)
+    (b ⇎ ((EVERY (eval_lit ss circ) lhss) ⇒ (EVERY (eval_lit ss circ) rhss)))
   else eval_circuit ss circ (Named n)
 Proof
   eq_tac
   >> rw [encode_imply_def, eval_circuit_def, EVERY_MEM, EXISTS_MEM]
   >> gvs []
   >- metis_tac [MEM_neq_iname_maxn, eval_lit_Anon_neq]
-  >> Cases_on ‘∃e. MEM e lhss ∧ ¬eval_lit ss circ e’ >> simp []
-  >> fs []
+  >> Cases_on ‘∃e. MEM e lhss ∧ ¬eval_lit ss circ e’ >> fs []
+  >- metis_tac []
   >> qpat_x_assum ‘∀e. ¬MEM e lhss ∨ _’ $
        assume_tac o PURE_REWRITE_RULE [GSYM IMP_DISJ_THM]
-  >> first_x_assum dxrule >> rw []
-  >> rename1 ‘eval_lit _ _ e’
-  >> Cases_on ‘¬MEM e rhss’ >> gvs []
   >> metis_tac [MEM_neq_iname_maxn, eval_lit_Anon_neq]
 QED
 
@@ -764,7 +762,7 @@ Definition encode_is_witness_reset_def:
       [(Name (Named (Ext «wreset»)), F);
        (Name (Named (Ext «wcnstrs»)), F)];
   in
-    encode_imply circ «reset» lhss rhss
+    encode_imply circ «reset» T lhss rhss
 End
 
 Definition encode_is_witness_transition_def:
@@ -796,7 +794,7 @@ Definition encode_is_witness_transition_def:
       [(Name (Named (Ext «wnext»)), F);
        iext_lit (right_lit (Name (Named (Ext «wcnstrs»)), F))];
   in
-    encode_imply circ «transition» lhss rhss
+    encode_imply circ «transition» T lhss rhss
 End
 
 Definition encode_is_witness_property_def:
@@ -820,7 +818,7 @@ Definition encode_is_witness_property_def:
        (Name (Named (Ext «wpreds»)),F)];
     rhss = [(Name (Named (Ext «mpreds»)), F);]
   in
-    encode_imply circ «property» lhss rhss
+    encode_imply circ «property» T lhss rhss
 End
 
 Definition encode_is_witness_base_def:
@@ -841,7 +839,7 @@ Definition encode_is_witness_base_def:
          (Name (Named (Ext «wcnstrs»)),F)];
       rhss = [(Name (Named (Ext «wpreds»)), F)]
   in
-    encode_imply circ «base» lhss rhss
+    encode_imply circ «base» T lhss rhss
 End
 
 Definition encode_is_witness_step_def:
@@ -865,7 +863,7 @@ Definition encode_is_witness_step_def:
          iext_lit (left_lit (Name (Named (Ext «wcnstrs»)), F))];
       rhss = [iext_lit (right_lit (Name (Named (Ext «wpreds»)), F))]
     in
-      encode_imply circ «step» lhss rhss
+      encode_imply circ «step» T lhss rhss
 End
 
 (* Proving correctness of the encodings ***************************************)
@@ -997,7 +995,7 @@ QED
 (* Main encoder theorems ******************************************************)
 
 Theorem eval_circuit_encode_is_witness_reset:
-  (∀ss.
+  (¬∃ss.
      (eval_circuit ss
        (encode_is_witness_reset
           mcirc mreset mcnstrs mlatches
@@ -1014,15 +1012,16 @@ Proof
       eval_lit_encode_is_reset_Named,
       list_inter_set
     ]
+  >> metis_tac []
 QED
 
 Theorem eval_circuit_encode_is_witness_transition:
-  (∀ss.
+  (¬∃ss.
      (eval_circuit ss
        (encode_is_witness_transition
           mcirc mnext mcnstrs mlatches
           wcirc wnext wcnstrs wlatches)
-       (Named (Ext «transition»)))) =
+       (Named (Ext «transition»)))) ⇔
   is_witness_transition
     mcirc mreset mnext mpreds (set mcnstrs) (set mlatches)
     wcirc wreset wnext wpreds (set wcnstrs) (set wlatches)
@@ -1035,12 +1034,28 @@ Proof
       eval_lit_encode_preds_hold_Named,
       FORALL_PAIR_STATE,
       is_witness_transition_def, list_inter_set, is_next_def, eval_lit_base,
-      EVERY_MEM, MEM_MAP, PULL_EXISTS
+      EVERY_MEM, MEM_MAP, PULL_EXISTS, PULL_FORALL
     ]
+  (* metis_tac is quite finicky here... *)
+  >> eq_tac >> rw []
+  >-
+   (rename1 ‘eval_lit ss₀ _ _ ⇔ _ ss₁ l’
+    >> first_x_assum $ qspecl_then [‘ss₀’, ‘ss₁’, ‘l’] assume_tac
+    >> metis_tac [])
+  >-
+   (rename1 ‘eval_lit ss₀ _ _ ⇔ _ ss₁ _’
+    >> first_x_assum $ qspecl_then [‘ss₀’, ‘ss₁’, ‘ARB’] assume_tac
+    >> metis_tac [])
+  >> rename1 ‘eval_lit ss₀ _ _ ⇔ _ ss₁ l’
+  (* metis_tac is *especially* finicky here... *)
+  >> CCONTR_TAC
+  >> first_x_assum $ qspecl_then [‘ss₀’, ‘ss₁’, ‘l’] mp_tac
+  >> gvs []
+  >> metis_tac []
 QED
 
 Theorem eval_circuit_encode_is_witness_property:
-  (∀ss.
+  (¬∃ss.
      (eval_circuit ss
        (encode_is_witness_property
           mcirc mcnstrs mpreds
@@ -1060,7 +1075,7 @@ Proof
 QED
 
 Theorem eval_circuit_encode_is_witness_base:
-  (∀ss.
+  (¬∃ss.
      (eval_circuit ss
        (encode_is_witness_base
           wcirc wreset wcnstrs wpreds wlatches)
@@ -1075,10 +1090,11 @@ Proof
       eval_lit_encode_is_reset_Named,
       is_witness_base_def
     ]
+  >> metis_tac []
 QED
 
 Theorem eval_circuit_encode_is_witness_step:
-  (∀ss.
+  (¬∃ss.
      (eval_circuit ss
        (encode_is_witness_step
           wcirc wnext wcnstrs wpreds wlatches)
