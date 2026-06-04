@@ -1560,7 +1560,7 @@ Definition hypothesis_def:
          only_fresh f f' s'.refs ∧
          holes_unchanged_except f s'.refs t'.refs ∅) ∧
       (∀loc_opt.
-         (∀wrap.
+         (∀wrap. (* I think we also need length xs = 1 *)
             rewrite_wrapper loc loc_opt (HD xs) = SOME wrap ⇒
             ∃t_wrap f_wrap r_wrap.
               evaluate ([wrap], env2, s') = (r_wrap,t_wrap) ∧
