@@ -1382,11 +1382,6 @@ Definition eid_shapes_def:
   eid_shapes (_ :: ds) = eid_shapes ds
 End
 
-Definition is_exn_decl_def:
-  is_exn_decl (ExnDecl _ _) = T ∧
-  is_exn_decl _ = F
-End
-
 Theorem evaluate_decls_eshapes:
   ∀s ds s'.
     evaluate_decls s ds = SOME s' ⇒

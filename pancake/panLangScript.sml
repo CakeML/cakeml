@@ -231,6 +231,11 @@ Definition exp_ids_def:
   (exp_ids _ = [])
 End
 
+Definition is_exn_decl_def:
+  is_exn_decl (ExnDecl _ _) = T ∧
+  is_exn_decl _ = F
+End
+        
 Definition size_of_eids_def:
   size_of_eids prog = LENGTH(FILTER is_exn_decl prog)
 End

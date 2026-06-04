@@ -4813,7 +4813,7 @@ Theorem alookup_compile_prog_code:
   ALOOKUP (compile_to_crep pan_code) start =
   SOME ([],
         comp_func (make_funcs(functions pan_code))
-                  (get_eids(functions pan_code)) [] prog)
+                  (get_eids_from_decls pan_code) [] prog)
 Proof
   rw[compile_to_crep_def, ctxt_fc_def,ELIM_UNCURRY,
      SIMP_RULE std_ss [ELIM_UNCURRY] ALOOKUP_MAP, crep_vars_def,
@@ -4840,7 +4840,7 @@ Theorem mk_ctxt_code_imp_code_rel:
   ∀pan_code. ALL_DISTINCT (MAP FST (functions pan_code)) ∧
    EVERY (localised_prog o SND o SND) (functions pan_code)
   ⇒
-  code_rel (mk_ctxt FEMPTY (make_funcs (functions pan_code)) 0 (get_eids (functions pan_code)))
+  code_rel (mk_ctxt FEMPTY (make_funcs (functions pan_code)) 0 (get_eids_from_decls pan_code))
            (alist_to_fmap (functions pan_code))
            (alist_to_fmap (pan_to_crep$compile_to_crep pan_code))
 Proof
@@ -4868,36 +4868,30 @@ Proof
   rw[FUN_EQ_THM,ELIM_UNCURRY]
 QED
 
-(* TODO: move *)
-Theorem size_of_eids_eq:
-  size_of_eids pc = LENGTH(nub (FLAT (MAP (exp_ids ∘ SND ∘ SND) (functions pc))))
-Proof
-  rw[panLangTheory.size_of_eids_def] >>
-  Induct_on ‘pc’ using panLangTheory.functions_ind >>
-  rw[panLangTheory.functions_def] >>
-  rw[nub_append] >>
-  ntac 2 AP_TERM_TAC >>
-  rw[FILTER_EQ,EQ_IMP_THM,MEM_FLAT,MEM_MAP,functions_eq_FILTER,PULL_EXISTS,MEM_FILTER] >>
-  PURE_FULL_CASE_TAC >> gvs[panLangTheory.is_function_def] >>
-  first_assum $ irule_at $ Pat ‘MEM _ _’ >>
-  gvs[panLangTheory.is_function_def]
-QED
-
 Theorem get_eids_imp_excp_rel:
   !seids (pc:'a decl list).
    panLang$size_of_eids pc < dimword (:'a) /\
-   FDOM seids =  FDOM (get_eids(functions pc)) ==>
-     excp_rel (get_eids(functions pc)) seids
+   FDOM seids =  FDOM (get_eids_from_decls pc) ==>
+     excp_rel (get_eids_from_decls pc) seids
 Proof
-  rw[excp_rel_def, get_eids_def] >>
+  rw[excp_rel_def,get_eids_from_decls_def] >>
   gvs[MAP2_MAP,pair_map_I] >>
   imp_res_tac ALOOKUP_MEM >>
-  gvs[MEM_ZIP,size_of_eids_eq]
+  gvs[MEM_ZIP,panLangTheory.size_of_eids_def,MAP_ZIP] >>
+  pop_assum mp_tac >>
+  DEP_REWRITE_TAC[LESS_MOD] >>
+  reverse conj_tac >- rw[] >>
+  conj_tac >>
+  irule LESS_TRANS >> first_assum $ irule_at $ Pos hd >>
+  irule LESS_EQ_LESS_TRANS >> first_assum $ irule_at $ Pos hd >>
+  rpt $ pop_assum kall_tac >>
+  Induct_on ‘pc’ >> simp[] >>
+  Cases >> gvs[panLangTheory.is_exn_decl_def]
 QED
 
 Theorem mk_ctxt_imp_locals_rel:
-  !pc lcl.
-    locals_rel (mk_ctxt FEMPTY (make_funcs pc) 0 (get_eids pc)) FEMPTY lcl
+  !pc lcl es.
+    locals_rel (mk_ctxt FEMPTY (make_funcs pc) 0 es) FEMPTY lcl
 Proof
   rw[locals_rel_def,no_overlap_def,mk_ctxt_def,ctxt_max_def]
 QED
@@ -4921,17 +4915,17 @@ Theorem state_rel_imp_semantics_to_crep:
     s.locals = FEMPTY ∧
     EVERY (localised_prog ∘ SND ∘ SND) (functions pan_code) ∧
     panLang$size_of_eids pan_code < dimword (:'a) /\
-    FDOM s.eshapes =  FDOM (get_eids(functions pan_code)) ∧
+    FDOM s.eshapes =  FDOM (get_eids_from_decls pan_code) ∧
     semantics s start <> Fail ==>
       semantics t start = semantics s start
 Proof
   rw [] >>
   drule mk_ctxt_code_imp_code_rel >>
   fs[] >> strip_tac >>
-  ‘excp_rel (get_eids(functions pan_code)) s.eshapes’ by (
+  ‘excp_rel (get_eids_from_decls pan_code) s.eshapes’ by (
     match_mp_tac get_eids_imp_excp_rel >> fs []) >>
   ‘locals_rel (mk_ctxt FEMPTY (make_funcs(functions pan_code)) 0
-               (get_eids(functions pan_code))) FEMPTY t.locals’ by (
+               (get_eids_from_decls pan_code)) FEMPTY t.locals’ by (
     fs [locals_rel_def] >>
     conj_tac
     >- rw [no_overlap_def, mk_ctxt_def] >>
@@ -5191,7 +5185,7 @@ Theorem state_rel_imp_semantics_decls_to_crep:
     EVERY (localised_prog ∘ SND ∘ SND) (functions pan_code) ∧
     EVERY is_function pan_code ∧
     panLang$size_of_eids pan_code < dimword (:'a) /\
-    FDOM s.eshapes = FDOM (get_eids(functions pan_code)) ∧
+    FDOM s.eshapes = FDOM (get_eids_from_decls pan_code) ∧
     semantics_decls s start pan_code <> Fail ==>
       semantics t start = semantics_decls s start pan_code
 Proof
@@ -5220,7 +5214,7 @@ Theorem state_rel_imp_semantics:
     s.locals = FEMPTY ∧
     EVERY (localised_prog ∘ SND ∘ SND) (functions pan_code) ∧
     panLang$size_of_eids pan_code < dimword (:'a) /\
-    FDOM s.eshapes =  FDOM (get_eids(functions pan_code)) ∧
+    FDOM s.eshapes =  FDOM (get_eids_from_decls pan_code) ∧
     semantics s start <> Fail ==>
       semantics t start = semantics s start
 Proof
@@ -5257,8 +5251,9 @@ Theorem state_rel_imp_semantics_decls:
     s.locals = FEMPTY ∧
     EVERY (localised_prog ∘ SND ∘ SND) (functions pan_code) ∧
     EVERY is_function pan_code ∧
-    panLang$size_of_eids pan_code < dimword (:'a) /\
-    FDOM s.eshapes =  FDOM (get_eids(functions pan_code)) ∧
+    panLang$size_of_eids pan_code < dimword (:'a) ∧
+    s.eshapes = FEMPTY ∧
+    FDOM s.eshapes =  FDOM (get_eids_from_decls pan_code) ∧
     semantics_decls s start pan_code <> Fail ==>
       semantics t start = semantics_decls s start pan_code
 Proof

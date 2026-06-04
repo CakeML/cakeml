@@ -367,7 +367,7 @@ End
 
 (* extract eids from exception declarations *)
 Definition get_eids_from_decls_def:
-  get_eids_from_decls decls =
+  get_eids_from_decls (decls:'a decl list) =
     let eids =
           FOLDR
             (λd acc.
@@ -375,7 +375,7 @@ Definition get_eids_from_decls_def:
                | ExnDecl eid sh => eid :: acc
                | _              => acc)
             [] decls;
-        eids = nub eids;
+        (*eids = nub eids;*)
         ns   = GENLIST (λx. (n2w x):'a word) (LENGTH eids);
         es   = MAP2 (λx y. (x,y)) eids ns
     in
