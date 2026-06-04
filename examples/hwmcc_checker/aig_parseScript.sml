@@ -434,11 +434,15 @@ Definition replace_lits_def:
     | Base (Input i) =>
       (case lookup (i - 1) in_map of
        | NONE => lit::rest
-       | SOME i => (convert_lit mmax_input mmax_latch i)::rest)
+       | SOME i =>
+         (let (mv, mb) = convert_lit mmax_input mmax_latch i in
+            (mv, b ≠ mb)::rest))  (* xor of model and witness polarities *)
     | Base (Latch l) =>
       (case lookup (l - wmax_input - 1) latch_map of
        | NONE => lit::rest
-       | SOME l => (convert_lit mmax_input mmax_latch l)::rest)
+       | SOME l =>
+         (let (mv, mb) = convert_lit mmax_input mmax_latch l in
+            (mv, b ≠ mb)::rest))
 End
 
 Definition replace_def:
