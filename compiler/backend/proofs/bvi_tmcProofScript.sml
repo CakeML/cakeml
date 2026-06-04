@@ -1582,24 +1582,14 @@ Definition hypothesis_def:
                    hole_has_val f env1 env2 t_work.refs res_v')))
 End
 
-(* Maybe these could be combined into a new version of hole has val... *)
-Definition alloc_preconditions_def:
-  alloc_preconditions f refs extras i_ptr c_idx ⇔
-    ∃hole_ptr tag left c right.
+Definition alloc_hole_has_val_def:
+  alloc_hole_has_val f refs extras i_ptr c_idx c ⇔
+    ∃hole_ptr tag left right.
       i_ptr < LENGTH extras ∧
       extras❲i_ptr❳ = RefPtr F hole_ptr ∧
       c_idx = LENGTH left ∧
       hole_ptr ∉ FRANGE f ∧
       FLOOKUP refs hole_ptr = SOME (MutBlock tag left c right)
-End
-
-Definition alloc_postconditions_def:
-  alloc_postconditions refs extras i_ptr c_idx v ⇔
-    ∃hole_ptr tag left right.
-      i_ptr < LENGTH extras ∧
-      extras❲i_ptr❳ = RefPtr F hole_ptr ∧
-      c_idx = LENGTH left ∧
-      FLOOKUP refs hole_ptr = SOME (MutBlock tag left v right)
 End
 
 (* Move me. This is duplicated somewhere... *)
@@ -1686,7 +1676,7 @@ Theorem evaluate_cb:
     (opt ⇒
      (∀refs extras ptr idx.
         state_ref_rel f s.refs refs ∧
-        alloc_preconditions f refs extras ptr idx ⇒
+        (∃c. alloc_hole_has_val f refs extras ptr idx c) ⇒
         ∃r_work t_work f_work.
           evaluate ([cb_to_bvi_worker_aux (shift_cb (LENGTH extras) cb) loc_opt ptr idx],extras ++ env2,s' with refs := refs) = (r_work,t_work) ∧
           opt_res_rel f_work r r_work ∧
@@ -1699,7 +1689,7 @@ Theorem evaluate_cb:
             ∃res_v'.
               (* This will need to be mutblock relation, not v_rel *)
               v_rel f_work res_v res_v' ∧
-              alloc_postconditions t_work.refs extras ptr idx res_v')
+              alloc_hole_has_val f t_work.refs extras ptr idx res_v')
     (* And then there will be conclusions for cb_to_bvi_worker and cb_to_bvi_wrapper.
        But these need something about cb_to_bvi_worker_aux in an inductive hypothesis.
      *))
@@ -1754,7 +1744,7 @@ Proof
       >> rpt $ first_assum $ irule_at Any)
     (* Aux *)
     >> gvs [shift_cb_def, cb_to_bvi_worker_def, cb_to_bvi_worker_aux_def, optimise_call_def, evaluate_def, evaluate_APPEND, evaluate_shift_vars]
-    >> gvs [alloc_preconditions_def, do_app_def, do_app_aux_def]
+    >> gvs [alloc_hole_has_val_def, do_app_def, do_app_aux_def]
     >> ‘backend_common$small_enough_int (&LENGTH left)’ by cheat
     >> gvs [bvlSemTheory.find_code_def, EL_APPEND_EQN]
     >> gvs [hypothesis_def]
@@ -1794,11 +1784,10 @@ Proof
     >> rw []
     >> gvs []
     >> first_assum $ irule_at Any
-    >> gvs [alloc_postconditions_def, hole_has_val_def, EL_APPEND_EQN, LENGTH_MAP])
+    >> gvs [hole_has_val_def, EL_APPEND_EQN, LENGTH_MAP])
 
   >> rpt gen_tac
   >> strip_tac
-  (*>> imp_res_tac bvi_to_cb_cases*)
   >> rename [‘CallBlock tag left child right’]
   >> gvs [cb_to_bvi_def, evaluate_def, evaluate_APPEND, CaseEq "prod"]
   >> drule_then drule evaluate_vars
@@ -1849,7 +1838,7 @@ Proof
   >> Cases_on ‘ptr + 1’
   >- gvs []
   >> ‘n = ptr’ by gvs []
-  >> gvs [alloc_preconditions_def]
+  >> gvs [alloc_hole_has_val_def]
   >> gvs [FLOOKUP_SIMP, EL_APPEND_EQN]
   >> IF_CASES_TAC
   >- cheat (* contradiction *)
@@ -1882,7 +1871,7 @@ Proof
        (gvs [IN_FRANGE_FLOOKUP]
         >> cheat (* contradiction on FLOOKUP refs (LEAST ptr. ptr ∉ FDOM refs) = SOME w *))
       >> gvs [])
-    >> qexistsl [‘tag’, ‘(MAP (λn. env2❲n❳) (TAKE (LENGTH right) (REVERSE right)))’, ‘Number 0’, ‘(MAP (λn. env2❲n❳) (REVERSE left))’]
+    >> qexistsl [‘Number 0’, ‘tag’, ‘(MAP (λn. env2❲n❳) (TAKE (LENGTH right) (REVERSE right)))’, ‘(MAP (λn. env2❲n❳) (REVERSE left))’]
     >> conj_tac
     >- gvs [LENGTH_MAP]
     >> conj_tac
@@ -1905,7 +1894,7 @@ Proof
   >> conj_tac
   >- cheat
   >> imp_res_tac evaluate_SING_IMP
-  >> gvs [alloc_postconditions_def]
+  >> gvs []
   (* This isn't going to work without the mutblock relation *)
   >> cheat
 QED
