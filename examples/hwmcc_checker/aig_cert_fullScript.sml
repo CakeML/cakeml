@@ -23,11 +23,12 @@ Definition make_cert_cnf_def:
     mnext  <<- (λl. case lookup l maig.next of
                     | SOME lit => lit
                     | NONE => (Base Ff, F));
-    mpreds <<- if mcounts.bad = 0 ∧ mcounts.justice = 0 then
-                 GENLIST (λk. (Name (mmax_latch + 1 + k), F)) mcounts.outputs
-               else maig.bad;
+    mpreds <<-
+      MAP not
+        (if mcounts.bad = 0 ∧ mcounts.justice = 0 then maig.outputs
+         else maig.bad);
     mcnstrs <<- maig.constraints;
-    mlatches <<- GENLIST (λk. 1 + k) mmax_input;
+    mlatches <<- GENLIST (λk. mmax_input + 1 + k) mcounts.latches;
     (* witness *)
     wcounts <<- waig.counts;
     wmax_input <<- wcounts.inputs;
@@ -37,15 +38,17 @@ Definition make_cert_cnf_def:
     latch_map <<- maps.shared_latches;
     wcirc <<- replace wmax_input mmax_input mmax_latch in_map latch_map
       waig.circuit;
+    (* TODO I think we also need to apply the map to everything else here... *)
     wreset <<- (λl. lookup l waig.reset);
     wnext  <<- (λl. case lookup l waig.next of
                     | SOME lit => lit
                     | NONE => (Base Ff, F) (* should not happen *));
-    wpreds <<- if wcounts.bad = 0 ∧ wcounts.justice = 0 then
-                 GENLIST (λk. (Name (wmax_latch + 1 + k), F)) wcounts.outputs
-               else waig.bad;
+    wpreds <<-
+      MAP not
+        (if wcounts.bad = 0 ∧ wcounts.justice = 0 then waig.outputs
+         else waig.bad);
     wcnstrs <<- waig.constraints;
-    wlatches <<- GENLIST (λk. 1 + k) wmax_input;
+    wlatches <<- GENLIST (λk. wmax_input + 1 + k) wcounts.latches;
     (* encode certificate conditions as circuits *)
     cert_reset_circ <<-
       encode_is_witness_reset mcirc mreset mcnstrs mlatches wcirc wreset
@@ -103,24 +106,47 @@ End
 
 (* Testing ********************************************************************)
 
-val model = mlstringSyntax.mlstring_from_file "./examples/01_model.aig";
-val witness = mlstringSyntax.mlstring_from_file "./examples/06_witness.aig";
-
-val cnf =
-  EVAL “main (explode ^model) (explode ^witness)”
-    |> concl |> rhs |> rand |> strip_pair;;
-
-val coch_dir = "/home/daniel/code/coch-demo";
+val coch_dir  = "/home/daniel/code/coch-demo";
 val cnf_names = ["reset", "transition", "property", "base", "step"];
 
-fun write path s =
+fun write_file path s =
   let val os = TextIO.openOut path
   in TextIO.output (os, s); TextIO.closeOut os end;
+
+fun read_file path =
+  let val is = TextIO.openIn path
+  in TextIO.inputAll is before TextIO.closeIn is end;
+
+(* Generate the five CNF obligations for the example pair and write them out. *)
+val model   = mlstringSyntax.mlstring_from_file "./examples/01_model.aig";
+val witness = mlstringSyntax.mlstring_from_file "./examples/06_witness.aig";
+
+val cnfs =
+  EVAL “main (explode ^model) (explode ^witness)”
+    |> concl |> rhs |> rand |> strip_pair;
 
 val () =
   ListPair.app
     (fn (name, t) =>
-       let val path = coch_dir ^ "/" ^ name ^ ".cnf"
-           val _ = write path (mlstringSyntax.dest_mlstring t)
-       in () end)
-    (cnf_names, cnf);
+       write_file (coch_dir ^ "/" ^ name ^ ".cnf") (mlstringSyntax.dest_mlstring t))
+    (cnf_names, cnfs);
+
+(* Check each obligation is UNSAT (LRAT-verified by cake_lpr). *)
+fun check_unsat name =
+  let
+    val out = coch_dir ^ "/" ^ name ^ ".out"
+    val cmd = "cd " ^ coch_dir ^ " && ./run-coch.sh " ^ name ^ ".cnf > " ^ out ^ " 2>&1"
+    val _   = OS.Process.system cmd
+  in
+    String.isSubstring "s VERIFIED UNSAT" (read_file out)
+  end;
+
+val results = map (fn name => (name, check_unsat name)) cnf_names;
+
+val () = app (fn (name, ok) =>
+    print (name ^ ": " ^ (if ok then "UNSAT (verified)" else "*** NOT UNSAT ***") ^ "\n"))
+  results;
+
+val () = print ("\nCertificate " ^
+  (if List.all #2 results then "ACCEPTED — all obligations UNSAT.\n"
+                          else "REJECTED — some obligation is satisfiable.\n"));
