@@ -1582,6 +1582,7 @@ Definition hypothesis_def:
                    hole_has_val f env1 env2 t_work.refs res_v')))
 End
 
+(* Maybe these could be combined into a new version of hole has val... *)
 Definition alloc_preconditions_def:
   alloc_preconditions f refs extras i_ptr c_idx ⇔
     ∃hole_ptr tag left c right.
