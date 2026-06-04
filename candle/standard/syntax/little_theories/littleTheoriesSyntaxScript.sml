@@ -5,7 +5,7 @@
 
 Theory littleTheoriesSyntax
 Ancestors
-  holSyntax holSyntaxLib mlstring toto holSyntax errorMonad
+  holSyntax holSyntaxExtra holSyntaxLib mlstring toto holSyntax errorMonad
 Libs
   preamble
 
@@ -69,13 +69,13 @@ val _ = Parse.add_infix("|-'",450,Parse.NONASSOC)
 
 Definition ty_esubst_def:
   (ty_esubst _ (Tyvar n) = Tyvar n) ∧
-  (ty_esubst σ (Tyapp n []) =
+  (ty_esubst σ (Tyapp n ts) =
    case FLOOKUP (FST σ) n of
-   | NONE => Tyapp n []
-   | SOME ty => ty) ∧
-  (ty_esubst σ (Tyapp n ts) = Tyapp n (MAP (ty_esubst σ) ts))
+   | NONE => Tyapp n (MAP (ty_esubst σ) ts)
+   | SOME (params, body) =>
+       TYPE_SUBST (MAP2 (λp t. (t, Tyvar p)) params (MAP (ty_esubst σ) ts)) body)
 Termination
-  WF_REL_TAC ‘measure (type_size o SND)’ >> rw[] >> simp[]
+  WF_REL_TAC ‘measure (type_size o SND)’ >> rw[]
   >> rename [‘MEM ty tys’] >> Induct_on ‘tys’ >> simp[] >> rw[]
   >> gvs[type_size_def]
 End
@@ -114,7 +114,7 @@ End
 
 (* analog of INST_CORE *)
 Definition esubst_ty0_def:
-  (esubst_ty0 env (σ:(mlstring |-> type) # (mlstring |-> term)) avds (Var n ty) =
+  (esubst_ty0 env (σ:(mlstring |-> (mlstring list # type)) # (mlstring |-> (term # type))) avds (Var n ty) =
    let
      tm = Var n ty;
      tm' = Var n (ty_esubst σ ty)
@@ -163,12 +163,16 @@ Definition esubst_ty_def:
 End
 
 Definition esubst_tm_def:
-  esubst_tm (σ:(mlstring |-> type) # (mlstring |-> term)) (Var n ty) = Var n ty ∧
+  esubst_tm σ (Var n ty) = Var n ty ∧
   esubst_tm σ (Abs v t) = Abs v (esubst_tm σ t) ∧
   esubst_tm σ (Comb t1 t2) = Comb (esubst_tm σ t1) (esubst_tm σ t2) ∧
-  esubst_tm σ (Const n ty) = case FLOOKUP (SND σ) n of
-                             | NONE => Const n ty
-                             | SOME tm => tm
+  esubst_tm σ (Const n ty) =
+    case FLOOKUP (SND σ) n of
+    | NONE => Const n ty
+    | SOME (repl, decl_ty) =>
+        case match_type (ty_esubst σ decl_ty) ty of
+        | NONE => ARB
+        | SOME tyin => INST tyin repl
 End
 
 Definition esubst_def:
@@ -251,49 +255,54 @@ End
 
 Overload is_monomorphic = “λty. tyvars ty = []”
 
-Type SIG = “:((mlstring |-> num) # (mlstring |-> type))”
-
-Definition nullary_ops_of_def:
-  nullary_ops_of (Tyvar v) = {} ∧
-  nullary_ops_of (Tyapp v []) = {v} ∧
-  nullary_ops_of (Tyapp v lst) =
-  BIGUNION (set (MAP nullary_ops_of lst))
-Termination
-  WF_REL_TAC ‘measure type_size’
-  >> GEN_TAC >> Induct >> rw[]
-  >> simp[type_size_def] >> gvs[DISJ_IMP_THM, FORALL_AND_THM]
-  >> first_x_assum $ drule_then (qspec_then ‘v4’ mp_tac) >> simp[]
+Definition tycons_def:
+  tycons (Tyvar _) = {} ∧
+  tycons (Tyapp n ts) = {n} ∪ BIGUNION (IMAGE tycons (set ts))
 End
 
+Type SIG = “:((mlstring |-> num) # (mlstring |-> type))”
+
 Definition esubsts_ok_def:
-  esubsts_ok (sig:SIG) (σ, θ) ⇔
+  esubsts_ok (sig:SIG) (σ:(mlstring |-> (mlstring list # type)),
+                         θ:(mlstring |-> (term # type))) ⇔
     strlit "=" ∉ FDOM θ ∧
     strlit "bool" ∉ FDOM σ ∧
+    strlit "fun" ∉ FDOM σ ∧
+    (∀tynm. tynm ∈ FDOM σ ⇒
+            ∃a params body. FLOOKUP (tysof sig) tynm = SOME a ∧
+              σ ' tynm = (params, body) ∧
+              LENGTH params = a ∧
+              set (tyvars body) ⊆ set params ∧
+              type_ok (tysof sig) body ∧
+              DISJOINT (tycons body) (FDOM σ)) ∧
     (∀tmnm. tmnm ∈ FDOM θ ⇒
-            ∃ty. FLOOKUP (tmsof sig) tmnm = SOME ty ∧
-                 is_monomorphic ty ∧
-                 typeof (θ ' tmnm) = ty_esubst (σ, θ) ty) ∧
-    (∀ty. ty ∈ FRANGE σ ⇒ type_ok (tysof sig) ty ∧
-                          is_monomorphic ty) ∧
-    (∀tm. tm ∈ FRANGE θ ⇒ term_ok (esubst_sig (σ,θ) sig) tm ∧
-                          ∃n ty. tm = Const n ty ∧ is_monomorphic ty) ∧
-    DISJOINT (FDOM σ) (BIGUNION (IMAGE nullary_ops_of (FRANGE σ)))
+            ∃ty repl decl_ty. FLOOKUP (tmsof sig) tmnm = SOME ty ∧
+              θ ' tmnm = (repl, decl_ty) ∧
+              decl_ty = ty ∧
+              CLOSED repl ∧
+              term_ok (esubst_sig (σ,θ) sig) repl ∧
+              typeof repl = ty_esubst (σ,θ) ty)
 End
 
 Definition esubsts_ok'_def:
-  esubsts_ok' (thy:ethy) (σ, θ) ⇔
+  esubsts_ok' (thy:ethy) (σ:(mlstring |-> (mlstring list # type)),
+                           θ:(mlstring |-> (term # type))) ⇔
     strlit "=" ∉ FDOM θ ∧
     strlit "bool" ∉ FDOM σ ∧
-    (∀tmnm. tmnm ∈ FDOM θ ⇒
-            ∃ty. FLOOKUP thy.etms tmnm = SOME ty ∧
-                 is_monomorphic ty ∧
-                 typeof (θ ' tmnm) = ty_esubst (σ, θ) ty) ∧
+    strlit "fun" ∉ FDOM σ ∧
     (FDOM σ ⊆ FDOM thy.etys) ∧
-    (∀ty. ty ∈ FRANGE σ ⇒ type_ok thy.ctys ty ∧
-                          is_monomorphic ty) ∧
-    (∀tm. tm ∈ FRANGE θ ⇒ term_ok' (esubst_thy (σ,θ) thy) tm ∧
-                          ∃n ty. tm = Const n ty ∧ is_monomorphic ty) ∧
-    DISJOINT (FDOM σ) (BIGUNION (IMAGE nullary_ops_of (FRANGE σ)))
+    (∀tynm. tynm ∈ FDOM σ ⇒
+            ∃params body. σ ' tynm = (params, body) ∧
+              LENGTH params = thy.etys ' tynm ∧
+              set (tyvars body) ⊆ set params ∧
+              type_ok thy.ctys body ∧
+              DISJOINT (tycons body) (FDOM σ)) ∧
+    (FDOM θ ⊆ FDOM thy.etms) ∧
+    (∀tmnm. tmnm ∈ FDOM θ ⇒
+            ∃repl decl_ty. θ ' tmnm = (repl, decl_ty) ∧
+              decl_ty = thy.etms ' tmnm ∧
+              CLOSED repl ∧
+              typeof repl = ty_esubst (σ,θ) decl_ty)
 End
 
 (* Standard signature includes the minimal type operators and constants *)
@@ -303,16 +312,9 @@ Proof
   Cases_on ‘σ’ >> rename [‘(σ, θ)’]
   >> Cases_on ‘sig’ >> rename [‘(tys, tms)’]
   >> rw[esubsts_ok_def, esubst_sig_def, is_std_sig_def]
-  >> rw[FLOOKUP_o_f, ty_esubst_def] >> CASE_TAC
-  >> metis_tac[FDOM_FLOOKUP]
+  >> rw[FLOOKUP_o_f, ty_esubst_def]
+  >> gvs[FLOOKUP_DEF]
 QED
-
-Definition nullary_ops_of_tm_def:
-  (nullary_ops_of_tm (Var x ty) = {nullary_ops_of ty}) ∧
-  (nullary_ops_of_tm (Const x ty) = {nullary_ops_of ty}) ∧
-  (nullary_ops_of_tm (Comb e1 e2) = nullary_ops_of_tm e1 ∪ nullary_ops_of_tm e2) ∧
-  (nullary_ops_of_tm (Abs v body) = nullary_ops_of_tm v ∪ nullary_ops_of_tm body)
-End
 
 Definition esubsts_total_def:
   esubsts_total (thy:ethy) (σ, θ) ⇔
@@ -321,7 +323,7 @@ Definition esubsts_total_def:
 End
 
 Definition no_var_collapse:
-  no_var_collapse (σ:(mlstring |-> type) # (mlstring |-> term)) tm ⇔
+  no_var_collapse (σ:(mlstring |-> (mlstring list # type)) # (mlstring |-> (term # type))) tm ⇔
     ∀x ty1 ty2.
       VFREE_IN (Var x ty1) tm ∧ VFREE_IN (Var x ty2) tm ∧ ty1 ≠ ty2 ⇒
       ty_esubst σ ty1 ≠ ty_esubst σ ty2
@@ -341,8 +343,7 @@ Definition theory_ok'_def:
     (∀p. p ∈ thy.axs ⇒ term_ok' thy p ∧ p has_type Bool) ∧
     (∀p. p ∈ thy.eaxs ⇒
          term_ok' thy p ∧ p has_type Bool) ∧
-    is_std_sig thy.sig ∧
-    FRANGE thy.etys ⊆ {0}
+    is_std_sig thy.sig
 End
 
 Inductive proves':
@@ -571,8 +572,8 @@ Datatype:
   | TypeDefn mlstring term mlstring mlstring
   (* NewType name arity *)
   | NewType mlstring num
-  (* NewEliminableType name *)
-  | NewEliminableType mlstring
+  (* NewEliminableType name arity *)
+  | NewEliminableType mlstring num
   (* NewConst name type *)
   | NewConst mlstring type
   (* NewEliminableConst name type *)
@@ -590,7 +591,7 @@ Definition types_of_upd'_def:
   (types_of_upd' (ConstSpec _ _) = []) ∧
   (types_of_upd' (TypeDefn name pred _ _) = [(name,LENGTH (tvars pred))]) ∧
   (types_of_upd' (NewType name arity) = [(name,arity)]) ∧
-  (types_of_upd' (NewEliminableType name) = []) (* not here *) ∧
+  (types_of_upd' (NewEliminableType name arity) = []) (* not here *) ∧
   (types_of_upd' _ = [])
 End
 
@@ -613,7 +614,7 @@ Overload tmsof' = “λctxt. alist_to_fmap (const_list' ctxt)”
 
 (* Eliminable types, constants, and axioms *)
 Definition etypes_of_upd'_def:
-  etypes_of_upd' (NewEliminableType name) = [(name, 0:num)] ∧
+  etypes_of_upd' (NewEliminableType name arity) = [(name, arity)] ∧
   etypes_of_upd' _ = []
 End
 
@@ -730,7 +731,7 @@ Inductive updates':
   (* new_eliminable_type *)
   (name ∉ FDOM (tysof' ctxt) ∧
    name ∉ FDOM (etysof ctxt)
-   ⇒ (NewEliminableType name) updates' ctxt) ∧
+   ⇒ (NewEliminableType name arity) updates' ctxt) ∧
 
   (* new_eliminable_constant *)
   (name ∉ FDOM (tmsof' ctxt) ∧
