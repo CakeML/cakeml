@@ -101,8 +101,8 @@ Definition cnf_to_string_def:
     header ^ clauses
 End
 
-Definition main_def:
-  main mstr wstr =
+Definition make_cert_strings_def:
+  make_cert_strings mstr wstr =
   do
     (reset, transition, property, base, step) <- make_cert_cnf mstr wstr;
     return
@@ -129,7 +129,7 @@ val model   = mlstringSyntax.mlstring_from_file "./examples/01_model.aig";
 val witness = mlstringSyntax.mlstring_from_file "./examples/06_witness.aig";
 
 val cnfs =
-  EVAL “main ^model ^witness”
+  EVAL “make_cert_strings ^model ^witness”
     |> concl |> rhs |> rand |> strip_pair;
 
 val () =
