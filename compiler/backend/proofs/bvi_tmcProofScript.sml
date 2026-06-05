@@ -37,7 +37,7 @@ Inductive ref_rel:
 [~Thunk:]
   v_rel f x y ⇒
   ref_rel f (Thunk tm x) (Thunk tm y)
-[~MutBlock:]
+[~MutBlock:] (* Remove *)
   LIST_REL (v_rel f) xs1 ys1 ∧
   v_rel f h1 h2 ∧
   LIST_REL (v_rel f) xs2 ys2 ⇒
@@ -60,6 +60,7 @@ Definition code_rel_def:
   code_rel c1 c2 ⇔
     ∀loc arity exp.
       lookup loc c1 = SOME (arity, exp) ⇒
+      (* No mutblock property *)
       ∃n.
         (compile_exp loc n arity exp = NONE ⇒
          lookup loc c2 = SOME (arity, exp)) ∧
@@ -98,6 +99,7 @@ Definition namespace_rel_def:
     (∀n. n ∈ domain c2 ∧ n < bvl_num_stubs ⇒ n ∈ domain c1)
 End
 
+(* This should say: expression in prog satisfies no-mutblock property *)
 Definition input_condition_def:
   input_condition next prog ⇔
     EVERY (free_names next o FST) prog ∧
