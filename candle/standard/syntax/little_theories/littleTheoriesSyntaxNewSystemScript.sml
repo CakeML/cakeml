@@ -1172,17 +1172,12 @@ QED
 (* main theorem: the two systems are equivalent *)
 Theorem extends_extends'_derivations:
   ∀h c.
-    (∃ctxt. ctxt extends init_ctxt ∧ (thyof ctxt, h) |- c) ⇔
-      (∃ctxt'. ctxt' extends' init_ectxt ∧ (ethyof ctxt', ∅, h) |-' c)
+    ctxt extends init_ctxt ⇒
+    ((thyof ctxt, h) |- c ⇔ (ethyof (lift_ctxt ctxt), ∅, h) |-' c)
 Proof
   rpt strip_tac >> iff_tac >> rw[]
-  >- (qexists ‘lift_ctxt ctxt’ >> drule proves_imp_proves'
-      >> simp[lift_ctxt_extends_init_ectxt, lift_thy_def])
+  >- (drule proves_imp_proves' >> simp[lift_ctxt_extends_init_ectxt, lift_thy_def])
   >> drule proves'_imp_proves >> simp[drop_thy, ctms_def, ctys_def]
-  >> strip_tac >> qexists ‘drop_ctxt ctxt'’
-  >> simp[drop_thy_extends_init_ctxt, thyof_drop_ctxt]
-  >> drule extends'_theory_ok' >> simp[init_theory_ok']
-  >> fs[ctms_def, ctys_def]
 QED
 
 (* the rest of these theorems are to show that the elim_inst preconditions
