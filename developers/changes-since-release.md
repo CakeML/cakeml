@@ -8,9 +8,45 @@ Changes since release v3304:
 
 ## Compiler backend and runtime
 
+### perf-record --call-graph support (x64-only)
+
+Passing `--perf_callgraph=T` to the CakeML compiler (x64-only) generates an unverified binary that can be profiled with `perf record --call-graph fp`.
+The in-logic compiler uses the default config in `x64_config`.
+Thus, to profile binaries such as checkers, the Dafny compiler, the Scheme compiler, etc., it is necessary to set `perf_calls:=T` in the configuration ultimately used by the compiler.
+
+### FlatLang
+
 FlatLang has been simplified slightly (#1380).
 
+word_copy pass now additionally correctly propagates store-reg equality (#1385).
+
+WordLang now supports Loop, Break, Continue (#1389).
+
 ## Pancake
+
+### __add_with_carry__ now available
+
+It is now possible to use `__add_with_carry__(left, right, carry_in)`
+in user code, which is compiled to wordLang's `AddCarry`.
+Syntax example:
+
+    fun {1,1} f() {
+      var a = 1;
+      var b = 2;
+      var c = 0;
+      var {1,1} r = __add_with_carry__(a, b, c);
+      r = __add_with_carry__(a, b, c);
+      return r;
+    }
+
+Permitted positions for `__add_with_carry__` are declaration RHS and assignment RHS;
+standalone, handler-attached, and tail-return calls are not supported.
+
+### LoopLang
+
+LoopLang now supports multi-arg returns (#1391).
+
+LoopLang now compiles to WordLang Loops instead of tail calls, i.e., the old loop_remove pass is removed (#1391).
 
 ### Garbage collector always disabled
 
@@ -19,6 +55,8 @@ The Pancake compiler now unconditionally compiles with GC set to `none`; any `--
 ## Candle
 
 ## Examples
+
+A new example for distributed SAT proof checking (#1384)
 
 ## Build infrastructure
 
