@@ -15,8 +15,8 @@ Definition make_cert_cnf_def:
   make_cert_cnf mstr wstr =
   do
     (* -- parse model and witness -- *)
-    (maig, rest) <- parse_aiger mstr;
-    (waig, maps, rest) <- parse_aiger_and_symbols wstr;
+    (maig, rest) <- parse_aiger mstr 0;
+    (waig, maps, rest) <- parse_aiger_and_symbols wstr 0;
     (* -- model -- *)
     mcounts <<- maig.counts;
     mlatch_start <<- mcounts.inputs + 1;
@@ -129,7 +129,7 @@ val model   = mlstringSyntax.mlstring_from_file "./examples/01_model.aig";
 val witness = mlstringSyntax.mlstring_from_file "./examples/06_witness.aig";
 
 val cnfs =
-  EVAL “main (explode ^model) (explode ^witness)”
+  EVAL “main ^model ^witness”
     |> concl |> rhs |> rand |> strip_pair;
 
 val () =
@@ -147,8 +147,6 @@ fun check_unsat name =
   in
     String.isSubstring "s VERIFIED UNSAT" (read_file out)
   end;
-
-val results = map (fn name => (name, check_unsat name)) cnf_names;
 
 val () = app (fn (name, ok) =>
     print (name ^ ": " ^ (if ok then "UNSAT (verified)" else "*** NOT UNSAT ***") ^ "\n"))
