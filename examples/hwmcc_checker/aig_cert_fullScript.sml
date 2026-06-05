@@ -8,47 +8,54 @@ Ancestors
 Libs
   preamble
 
+(* TODO wlatches might have duplicates after applying the shared latches map? *)
+(* TODO Do we need to apply the shared maps to the intervention map as well?  *)
+
 Definition make_cert_cnf_def:
   make_cert_cnf mstr wstr =
   do
-    (* parse model and witness *)
+    (* -- parse model and witness -- *)
     (maig, rest) <- parse_aiger mstr;
-    (waig, maps, rest) <- parse_witness wstr;
-    (* model *)
+    (waig, maps, rest) <- parse_aiger_and_symbols wstr;
+    (* -- model -- *)
     mcounts <<- maig.counts;
-    mmax_input <<- mcounts.inputs;
-    mmax_latch <<- mmax_input + mcounts.latches;
+    mlatch_start <<- mcounts.inputs + 1;
     mcirc <<- maig.circuit;
-    mreset <<- (λl. lookup l maig.reset);
-    mnext  <<- (λl. case lookup l maig.next of
+    mreset <<- fromAList maig.reset;
+    mreset <<- (λl. lookup l mreset);
+    mnext <<- fromAList maig.next;
+    mnext  <<- (λl. case lookup l mnext of
                     | SOME lit => lit
-                    | NONE => (Base Ff, F));
+                    | NONE => (Base Ff, F) (* should not happen *));
     mpreds <<-
       MAP not
         (if mcounts.bad = 0 ∧ mcounts.justice = 0 then maig.outputs
          else maig.bad);
     mcnstrs <<- maig.constraints;
-    mlatches <<- GENLIST (λk. mmax_input + 1 + k) mcounts.latches;
-    (* witness *)
+    mlatches <<- GENLIST (λk. mlatch_start + k) mcounts.latches;
+    (* -- witness -- *)
     wcounts <<- waig.counts;
-    wmax_input <<- wcounts.inputs;
-    wmax_latch <<- wmax_input + wcounts.latches;
-    (* apply sharing maps to witness *)
-    in_map <<- maps.shared_inputs;
-    latch_map <<- maps.shared_latches;
-    wcirc <<- replace wmax_input mmax_input mmax_latch in_map latch_map
-      waig.circuit;
-    (* TODO I think we also need to apply the map to everything else here... *)
-    wreset <<- (λl. lookup l waig.reset);
-    wnext  <<- (λl. case lookup l waig.next of
+    wlatch_start <<- wcounts.inputs + 1;
+    iren <<- maps.shared_inputs;
+    lren <<- maps.shared_latches;
+    wcirc <<- shared_circuit iren lren waig.circuit;
+    wreset <<- fromAList (shared_latches iren lren waig.reset);
+    wreset <<- (λl. lookup l wreset);
+    wnext <<- fromAList (shared_latches iren lren waig.next);
+    wnext  <<- (λl. case lookup l wnext of
                     | SOME lit => lit
-                    | NONE => (Base Ff, F) (* should not happen *));
+                    | NONE => (Base Ff, F));
     wpreds <<-
-      MAP not
+      MAP (not ∘ shared_lit iren lren)
         (if wcounts.bad = 0 ∧ wcounts.justice = 0 then waig.outputs
          else waig.bad);
-    wcnstrs <<- waig.constraints;
-    wlatches <<- GENLIST (λk. wmax_input + 1 + k) wcounts.latches;
+    wcnstrs <<- MAP (shared_lit iren lren) waig.constraints;
+    wlatches <<-
+      GENLIST (λk.
+        let l = wlatch_start + k in
+          (case lookup l lren of
+           | NONE => l
+           | SOME l => l)) wcounts.latches;
     (* encode certificate conditions as circuits *)
     cert_reset_circ <<-
       encode_is_witness_reset mcirc mreset mcnstrs mlatches wcirc wreset
@@ -145,8 +152,4 @@ val results = map (fn name => (name, check_unsat name)) cnf_names;
 
 val () = app (fn (name, ok) =>
     print (name ^ ": " ^ (if ok then "UNSAT (verified)" else "*** NOT UNSAT ***") ^ "\n"))
-  results;
-
-val () = print ("\nCertificate " ^
-  (if List.all #2 results then "ACCEPTED — all obligations UNSAT.\n"
-                          else "REJECTED — some obligation is satisfiable.\n"));
+  (map (fn name => (name, check_unsat name)) cnf_names);
