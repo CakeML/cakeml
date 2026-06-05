@@ -193,7 +193,6 @@ Proof
     \\ simp [stdin_fs_def, fsFFIPropsTheory.fastForwardFD_def,
             miscTheory.the_def, TextIOProofTheory.add_stdo_def,
             TextIOProofTheory.up_stdo_def, TextIOProofTheory.stdo_def,
-            mlstringTheory.implode_def,
             fsFFITheory.fsupdate_def, AFUPDKEY_ALOOKUP]
     \\ SELECT_ELIM_TAC
     \\ (conj_asm1_tac >- (qexists_tac ‘«»’ \\ simp []))
@@ -230,7 +229,6 @@ Proof
   \\ simp [stdin_fs_def, fsFFIPropsTheory.fastForwardFD_def,
           miscTheory.the_def, TextIOProofTheory.add_stdo_def,
           TextIOProofTheory.up_stdo_def, TextIOProofTheory.stdo_def,
-          mlstringTheory.implode_def,
           fsFFITheory.fsupdate_def, AFUPDKEY_ALOOKUP]
   \\ SELECT_ELIM_TAC
   \\ (conj_asm1_tac >- (qexists_tac ‘«»’ \\ simp []))

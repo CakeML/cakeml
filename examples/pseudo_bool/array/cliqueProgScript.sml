@@ -72,15 +72,15 @@ QED
 (* Pretty print conclusion *)
 Definition clique_eq_str_def:
   clique_eq_str (n:num) =
-  strlit "s VERIFIED MAX CLIQUE SIZE |CLIQUE| = " ^
-    toString n ^ strlit"\n"
+  «s VERIFIED MAX CLIQUE SIZE |CLIQUE| = » ^
+    toString n ^ «\n»
 End
 
 Definition clique_bound_str_def:
   clique_bound_str (l:num) (u:num) =
-  strlit "s VERIFIED MAX CLIQUE SIZE BOUND "^
-    toString l ^ strlit " <= |CLIQUE| <= " ^
-    toString u ^ strlit"\n"
+  «s VERIFIED MAX CLIQUE SIZE BOUND »^
+    toString l ^ « <= |CLIQUE| <= » ^
+    toString u ^ «\n»
 End
 
 Definition print_clique_str_def:
@@ -101,7 +101,7 @@ End
 
 Definition check_unsat_2_sem_def:
   check_unsat_2_sem fs f out ⇔
-  (out ≠ strlit"" ⇒
+  (out ≠ «» ⇒
   ∃g bounds.
     get_graph_dimacs fs f = SOME g ∧
     out = print_clique_str bounds ∧
@@ -113,7 +113,7 @@ Definition map_concl_to_string_def:
   (map_concl_to_string n (INR (out,bnd,c)) =
     case conv_concl n c of
       SOME bounds => INR (print_clique_str bounds)
-    | NONE => INL (strlit "c Unexpected conclusion type for max clique problem.\n"))
+    | NONE => INL «c Unexpected conclusion type for max clique problem.\n»)
 End
 
 val res = translate (conv_concl_def |> REWRITE_RULE [GSYM sub_check_def]) ;
@@ -216,7 +216,7 @@ Proof
     qexists_tac`emp`>>xsimpl>>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
-    qexists_tac`strlit ""`>>
+    qexists_tac`«»`>>
     rename1`add_stderr _ err`>>
     qexists_tac`err`>>xsimpl>>rw[]>>
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -229,7 +229,7 @@ Proof
     qexists_tac`emp`>>xsimpl>>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
-    qexists_tac`strlit ""`>>
+    qexists_tac`«»`>>
     rename1`add_stderr _ err`>>
     qexists_tac`err`>>xsimpl>>rw[]>>
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -240,7 +240,7 @@ Proof
     qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
     rw[]>>
     qexists_tac`print_clique_str x`>>simp[]>>
-    qexists_tac`strlit ""`>>
+    qexists_tac`«»`>>
     rw[]>>simp[STD_streams_stderr,add_stdo_nil]>>
     xsimpl>>
     qexists_tac`x`>>simp[]>>
@@ -265,7 +265,7 @@ QED
 (*
 Definition check_unsat_3_sem_def:
   check_unsat_3_sem fs f s out ⇔
-  (out ≠ strlit"" ⇒
+  (out ≠ «» ⇒
   ∃g mc.
     get_graph_dimacs fs f = SOME g ∧
     fromNatString s = SOME mc ∧
@@ -282,8 +282,8 @@ Definition check_concl_to_string_def:
       SOME (lbg,ubg) =>
         if lbg = SOME mc ∧ ubg = mc
         then INR (print_max_clique_size mc)
-        else INL (strlit "c Conclusion did not correspond to claimed max clique size.\n")
-    | NONE => INL (strlit "c Unexpected conclusion for max clique problem.\n"))
+        else INL «c Conclusion did not correspond to claimed max clique size.\n»
+    | NONE => INL «c Unexpected conclusion for max clique problem.\n»)
 End
 
 val res = translate check_concl_to_string_def;
@@ -365,7 +365,7 @@ Proof
     qexists_tac`emp`>>xsimpl>>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
-    qexists_tac`strlit ""`>>
+    qexists_tac`«»`>>
     rename1`add_stderr _ err`>>
     qexists_tac`err`>>xsimpl>>rw[]>>
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -378,7 +378,7 @@ Proof
     qexists_tac`emp`>>xsimpl>>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
-    qexists_tac`strlit ""`>>
+    qexists_tac`«»`>>
     rename1`add_stderr _ err`>>
     qexists_tac`err`>>xsimpl>>rw[]>>
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -398,7 +398,7 @@ Proof
       metis_tac[parse_dimacs_good_graph]) >>
     simp[]>>
     qexists_tac`print_max_clique_size r`>>simp[]>>
-    qexists_tac`strlit ""`>>
+    qexists_tac`«»`>>
     rw[]>>simp[STD_streams_stderr,add_stdo_nil]>>
     xsimpl)
   >- (
@@ -407,7 +407,7 @@ Proof
     qexists_tac`emp`>>xsimpl>>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
-    qexists_tac`strlit ""`>>
+    qexists_tac`«»`>>
     rename1`add_stderr _ err`>>
     qexists_tac`err`>>xsimpl>>rw[]>>
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -418,7 +418,7 @@ QED
 Definition check_unsat_1_sem_def:
   check_unsat_1_sem fs f1 out ⇔
   case get_graph_dimacs fs f1 of
-    NONE => out = strlit ""
+    NONE => out = «»
   | SOME g =>
     out = concat (print_annot_prob (mk_prob (full_encode g)))
 End
@@ -464,13 +464,13 @@ Proof
   asm_exists_tac>>xsimpl>>
   qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
   rw[]>>
-  qexists_tac`strlit ""`>>
+  qexists_tac`«»`>>
   simp[STD_streams_stderr,add_stdo_nil]>>
   xsimpl
 QED
 
 Definition usage_string_def:
-  usage_string = strlit "Usage: cake_pb_clique <DIMACS file> <optional: PB proof file>\n"
+  usage_string = «Usage: cake_pb_clique <DIMACS file> <optional: PB proof file>\n»
 End
 
 val r = translate usage_string_def;
@@ -489,7 +489,7 @@ Definition main_sem_def:
     check_unsat_1_sem fs (EL 1 cl) out
   else if LENGTH cl = 3 then
     check_unsat_2_sem fs (EL 1 cl) out
-  else out = strlit ""
+  else out = «»
 End
 
 Theorem STDIO_refl:

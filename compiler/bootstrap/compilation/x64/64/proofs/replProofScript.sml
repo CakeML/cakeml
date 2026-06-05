@@ -1079,7 +1079,7 @@ Proof
         fs [repl_rs_def]
   \\ drule_then drule repl_types_str_assign
   \\ fs [the_Loc_def,store_assign_def,store_v_same_type_def]
-  \\ fs [HOL_STRING_TYPE_def,STRING_TYPE_def,mlstringTheory.implode_def]
+  \\ fs [HOL_STRING_TYPE_def,STRING_TYPE_def]
   \\ disch_then (qspec_then ‘init_next_string cl’ mp_tac)
   \\ match_mp_tac (DECIDE “x = y ⇒ (x ⇒ y)”)
   \\ rpt AP_TERM_TAC

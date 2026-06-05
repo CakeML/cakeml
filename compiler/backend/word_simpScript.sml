@@ -33,6 +33,8 @@ Definition Seq_assoc_def:
           (case handler of
            | NONE => NONE
            | SOME (y1,q2,y2,y3) => SOME (y1,Seq_assoc Skip q2,y2,y3)))) /\
+  (Seq_assoc p1 (Loop names body exit_names) =
+     SmartSeq p1 (Loop names (Seq_assoc Skip body) exit_names)) /\
   (Seq_assoc p1 other = SmartSeq p1 other)
 End
 
@@ -54,6 +56,8 @@ Theorem Seq_assoc_pmatch:
           (case handler of
            | NONE => NONE
            | SOME (y1,q2,y2,y3) => SOME (y1,Seq_assoc Skip q2,y2,y3)))
+  | (Loop names body exit_names) =>
+     SmartSeq p1 (Loop names (Seq_assoc Skip body) exit_names)
   | other => SmartSeq p1 other
 Proof
   rpt strip_tac
@@ -330,6 +334,8 @@ Definition const_fp_loop_def:
     (ShareInst Store16 v (const_fp_exp e cs), cs)) /\
   (const_fp_loop (ShareInst Store32 v e) cs =
     (ShareInst Store32 v (const_fp_exp e cs), cs)) /\
+  (const_fp_loop (Loop names body exit_names) cs =
+    (Loop names (FST (const_fp_loop body LN)) exit_names, LN)) /\
   (const_fp_loop p cs = (p, cs))
 End
 
@@ -443,6 +449,8 @@ Definition simp_duplicate_if_def:
     | NONE => Seq p1x p2x
     | SOME p3 => Seq_assoc Skip p3
   )
+  | Loop names body exit_names =>
+    Loop names (simp_duplicate_if body) exit_names
   | _ => p
 End
 
@@ -469,6 +477,8 @@ Definition push_out_if_aux_def:
                    | (c1', F) =>
                       (case (push_out_if_aux c2) of
                       |  (c2',b) => (Seq c1' c2', b)))
+  | Loop names body exit_names =>
+    (Loop names (FST (push_out_if_aux body)) exit_names, F)
   | _ => (p,F)
 End
 

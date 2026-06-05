@@ -21,7 +21,8 @@ fun x64_type s = Type.mk_thy_type {Thy = "x64", Tyop = s, Args = []}
 
 val add_x64_datatypes =
   utilsLib.add_datatypes
-    ([``:asm$cmp``, ``:asm$binop``] @
+    ([mk_thy_type{Thy="asm",Tyop="cmp",Args=[]},
+      mk_thy_type{Thy="asm",Tyop="binop",Args=[]}] @
      List.map x64_type
        ["instruction", "Zcond", "Zdest_src", "Zrm", "Zsize", "Zbase",
         "Zreg", "Zbinop_name"])
@@ -47,7 +48,7 @@ in
 end
 
 val add_x64_encode_compset = computeLib.extend_compset
-  [computeLib.Convs [(``x64_target$x64_enc``, 1, x64_encode_conv)],
+  [computeLib.Convs [(prim_mk_const{Thy="x64_target",Name="x64_enc"}, 1, x64_encode_conv)],
    computeLib.Defs [x64_targetTheory.x64_config]]
 
 val x64_encode_conv = computeLib.compset_conv (wordsLib.words_compset)

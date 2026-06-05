@@ -246,7 +246,7 @@ QED
 Theorem ALOOKUP_add_stdout_inode_tbl:
    STD_streams fs ⇒ (
    ALOOKUP (add_stdout fs out).inode_tbl fnm =
-   if fnm = UStream(strlit"stdout") then
+   if fnm = UStream «stdout» then
      SOME (THE (ALOOKUP fs.inode_tbl fnm) ++ explode out)
    else ALOOKUP fs.inode_tbl fnm)
 Proof
@@ -263,13 +263,13 @@ Proof
   \\ simp[AFUPDKEY_ALOOKUP]
   \\ TOP_CASE_TAC
   \\ TOP_CASE_TAC
-  \\ fs[mlstringTheory.implode_def]
+  \\ fs[]
 QED
 
 Theorem ALOOKUP_add_stderr_inode_tbl:
    STD_streams fs ⇒ (
    ALOOKUP (add_stderr fs err).inode_tbl fnm =
-   if fnm = UStream(strlit"stderr") then
+   if fnm = UStream «stderr» then
      SOME (THE (ALOOKUP fs.inode_tbl fnm) ++ explode err)
    else ALOOKUP fs.inode_tbl fnm)
 Proof
@@ -286,7 +286,7 @@ Proof
   \\ simp[AFUPDKEY_ALOOKUP]
   \\ TOP_CASE_TAC
   \\ TOP_CASE_TAC
-  \\ fs[mlstringTheory.implode_def]
+  \\ fs[]
 QED
 
 Theorem ALOOKUP_add_stdout_infds:
@@ -363,6 +363,8 @@ Proof
   \\ simp[wfFS_stdin_fs, STD_streams_stdin_fs]
   \\ simp[compilerTheory.full_compile_32_def]
   \\ pairarg_tac \\ simp[]
+  \\ impl_tac
+  >- (gvs [TextIOProofTheory.stdin_content_def, stdin_fs_def])
   \\ ntac 2 (IF_CASES_TAC \\ fs[]
   >- (
     simp[TextIOProofTheory.add_stdo_def]
@@ -372,7 +374,7 @@ Proof
     >- (
       simp[stdin_fs_def]
       \\ qexists_tac`implode""`
-      \\ simp[mlstringTheory.implode_def] )
+      \\ simp[] )
     \\ simp[Once stdin_fs_def, AFUPDKEY_def]
     \\ Cases \\ simp[] \\ strip_tac \\ rveq
     \\ pop_assum mp_tac
@@ -385,7 +387,7 @@ Proof
       \\ simp[AFUPDKEY_ALOOKUP]
       \\ disch_then match_mp_tac
       \\ rw[fsFFIPropsTheory.inFS_fname_def]
-      \\ fs[mlstringTheory.implode_def]
+      \\ fs[]
       >- (
         fs[CaseEq"option",CaseEq"bool",FORALL_PROD]
         \\ rw[] \\ CCONTR_TAC \\ fs[]
@@ -394,7 +396,7 @@ Proof
         pop_assum mp_tac
         \\ rw[] \\ fs[] \\ rw[]
         \\ pop_assum mp_tac \\ rw[]
-        \\ fs[mlstringTheory.implode_def])
+        \\ fs[])
       >- ( rw[] \\ rw[OPTREL_def]))))>>
   IF_CASES_TAC>>fs[]
   \\ (simp[TextIOProofTheory.add_stdout_fastForwardFD, STD_streams_stdin_fs]
@@ -535,7 +537,9 @@ Proof
   \\ disch_then drule
   \\ disch_then drule
   \\ disch_then(qspec_then`stdin_fs inp`mp_tac)
-  \\ impl_tac >- fs[STD_streams_stdin_fs, wfFS_stdin_fs]
+  \\ impl_tac >-
+   (fs[STD_streams_stdin_fs, wfFS_stdin_fs]
+    \\ gvs [TextIOProofTheory.stdin_content_def, stdin_fs_def])
   \\ strip_tac
   \\ irule ag32_next
   \\ rpt (conj_tac >- (simp[ffi_names,extcalls_def, LENGTH_code, LENGTH_data] \\ EVAL_TAC))

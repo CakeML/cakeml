@@ -10,16 +10,6 @@ open astTheory gramTheory semanticPrimitivesTheory evaluateTheory
      lexer_funTheory tokenUtilsTheory cmlPtreeConversionTheory
 *)
 
-structure Parse =
-struct
-  open Parse
-  val (Type,Term) = parse_from_grammars
-                      (merge_grammars ["ast", "gram", "semanticPrimitives",
-                                       "lexer_fun"])
-end
-
-open Parse
-
 val add_namespace_compset = computeLib.extend_compset
   [computeLib.Defs
     [namespaceTheory.mk_id_def
@@ -46,8 +36,8 @@ val add_namespace_compset = computeLib.extend_compset
     ,namespaceTheory.nsMap_def
     ],
    computeLib.Tys
-    [``:('a,'b) namespace$id``
-    ,``:('a,'b,'c) namespace$namespace``
+    [mk_thy_type{Thy="namespace",Tyop="id",Args=[alpha,beta]}
+    ,mk_thy_type{Thy="namespace",Tyop="namespace",Args=[alpha,beta,gamma]}
     ]
   ]
 
@@ -86,21 +76,21 @@ val add_ast_compset = computeLib.extend_compset
     ,primTypesTheory.prim_types_program_def
     ],
    computeLib.Tys
-    [``:MMLnonT``
-    (*,``:ast$top``
-    ,``:ast$spec``*)
-    ,``:ast$dec``
-    ,``:ast$pat``
-    ,``:ast$exp``
-    ,``:stamp``
-    ,``:ast$op``
-    ,``:ast$lit``
-    ,``:opb``
-    ,``:ast$shift``
-    ,``:ast$word_size``
-    ,``:eq_result``
-    ,``:'a sem_env``
-    ,``:ast$ast_t``
+    [mk_thy_type{Thy="gram",Tyop="MMLnonT",Args=[]}
+    (*,ast top
+    ,ast spec*)
+    ,astSyntax.dec_ty
+    ,astSyntax.pat_ty
+    ,astSyntax.exp_ty
+    ,semanticPrimitivesSyntax.stamp_ty
+    ,astSyntax.op_ty
+    ,astSyntax.lit_ty
+    ,mk_thy_type{Thy="ast",Tyop="opb",Args=[]}
+    ,astSyntax.shift_ty
+    ,astSyntax.word_size_ty
+    ,semanticPrimitivesSyntax.eq_result_ty
+    ,semanticPrimitivesSyntax.sem_env_ty
+    ,astSyntax.ast_t_ty
     ]]
 
 val add_lexparse_compset = computeLib.extend_compset
@@ -146,8 +136,8 @@ val add_lexparse_compset = computeLib.extend_compset
       ]
     end,
    computeLib.Tys
-    [``:symbol``
-    ,``:token``
+    [mk_thy_type{Thy="lexer_fun",Tyop="symbol",Args=[]}
+    ,mk_thy_type{Thy="tokens",Tyop="token",Args=[]}
     ],
    computeLib.Defs
     let open cmlPtreeConversionTheory in

@@ -22,66 +22,66 @@ Note: this set up does NOT account for restoring clobbered registers
 Definition startup_def:
   startup ret pk =
     SmartAppend (List
-      [strlit"\n";
-       strlit"/* Start up code */\n";
-       strlit"\n";
-       strlit"     .text\n";
-       strlit"     .p2align 12\n";
-       strlit"     .globl  cdecl(cake_text_begin)\n";
-       strlit"cdecl(cake_text_begin):\n";
-       strlit"     .globl  cdecl(cml_main)\n";
-       strlit"     .globl  cdecl(cml_heap)\n";
-       strlit"     .globl  cdecl(cml_stack)\n";
-       strlit"     .globl  cdecl(cml_stackend)\n";
-       strlit"#if defined(__APPLE__)\n";
-       strlit"\n";
-       strlit"#elif defined(__WIN32)\n";
-       strlit"     .func   cml_main\n";
-       strlit"#else\n";
-       strlit"     .type   cml_main, function\n";
-       strlit"#endif\n";
-       strlit"cdecl(cml_main):\n";
-       strlit"     pushq   %rbp                            # push base pointer\n";
-       strlit"     movq    %rsp, %rbp                      # save stack pointer\n";
-       strlit"     leaq    cake_main(%rip), %rdi           # arg1: entry address\n";
-       strlit"     movq    cdecl(cml_heap)(%rip), %rsi     # arg2: first address of heap\n"])
+      [«\n»;
+       «/* Start up code */\n»;
+       «\n»;
+       «     .text\n»;
+       «     .p2align 12\n»;
+       «     .globl  cdecl(cake_text_begin)\n»;
+       «cdecl(cake_text_begin):\n»;
+       «     .globl  cdecl(cml_main)\n»;
+       «     .globl  cdecl(cml_heap)\n»;
+       «     .globl  cdecl(cml_stack)\n»;
+       «     .globl  cdecl(cml_stackend)\n»;
+       «#if defined(__APPLE__)\n»;
+       «\n»;
+       «#elif defined(__WIN32)\n»;
+       «     .func   cml_main\n»;
+       «#else\n»;
+       «     .type   cml_main, function\n»;
+       «#endif\n»;
+       «cdecl(cml_main):\n»;
+       «     pushq   %rbp                            # push base pointer\n»;
+       «     movq    %rsp, %rbp                      # save stack pointer\n»;
+       «     leaq    cake_main(%rip), %rdi           # arg1: entry address\n»;
+       «     movq    cdecl(cml_heap)(%rip), %rsi     # arg2: first address of heap\n»])
     (SmartAppend (List
       (if ~pk then
-        [strlit"     leaq    cake_bitmaps(%rip), %rax\n";
-         strlit"     movq    %rax, 0(%rsi)                   # store bitmap pointer\n";
-         strlit"     leaq    cdecl(cake_bitmaps_buffer_begin)(%rip), %rax\n";
-         strlit"     movq    %rax, 8(%rsi)                   # store bitmap mutable start pointer\n";
-         strlit"     leaq    cdecl(cake_bitmaps_buffer_end)(%rip), %rax\n";
-         strlit"     movq    %rax, 16(%rsi)                  # store bitmap mutable end pointer\n";
-         strlit"     leaq    cdecl(cake_codebuffer_begin)(%rip), %rax\n";
-         strlit"     movq    %rax, 24(%rsi)                  # store code mutable start pointer\n";
-         strlit"     leaq    cdecl(cake_codebuffer_end)(%rip), %rax\n";
-         strlit"     movq    %rax, 32(%rsi)                  # store code mutable end pointer\n"]
+        [«     leaq    cake_bitmaps(%rip), %rax\n»;
+         «     movq    %rax, 0(%rsi)                   # store bitmap pointer\n»;
+         «     leaq    cdecl(cake_bitmaps_buffer_begin)(%rip), %rax\n»;
+         «     movq    %rax, 8(%rsi)                   # store bitmap mutable start pointer\n»;
+         «     leaq    cdecl(cake_bitmaps_buffer_end)(%rip), %rax\n»;
+         «     movq    %rax, 16(%rsi)                  # store bitmap mutable end pointer\n»;
+         «     leaq    cdecl(cake_codebuffer_begin)(%rip), %rax\n»;
+         «     movq    %rax, 24(%rsi)                  # store code mutable start pointer\n»;
+         «     leaq    cdecl(cake_codebuffer_end)(%rip), %rax\n»;
+         «     movq    %rax, 32(%rsi)                  # store code mutable end pointer\n»]
       else []))
     (SmartAppend (List
-      [strlit"     movq    cdecl(cml_stack)(%rip), %rdx    # arg3: first address of stack\n";
-       strlit"     movq    cdecl(cml_stackend)(%rip), %rcx # arg4: first address past the stack\n"])
+      [«     movq    cdecl(cml_stack)(%rip), %rdx    # arg3: first address of stack\n»;
+       «     movq    cdecl(cml_stackend)(%rip), %rcx # arg4: first address past the stack\n»])
     (SmartAppend (List
       (if ret then
-        [strlit"     jmp     cml_enter\n"]
+        [«     jmp     cml_enter\n»]
       else
-        [strlit"     jmp     cake_main\n"]))
+        [«     jmp     cake_main\n»]))
     (List
-      [strlit"\n";
-       strlit"#if defined(__WIN32)\n";
-       strlit"     .endfunc\n";
-       strlit"#endif\n"]))))
+      [«\n»;
+       «#if defined(__WIN32)\n»;
+       «     .endfunc\n»;
+       «#endif\n»]))))
 End
 
 Definition ffi_asm_def:
   (ffi_asm [] = Nil) /\
   (ffi_asm (ffi::ffis) =
       SmartAppend (List [
-       strlit"cake_ffi"; ffi; strlit":\n";
-       strlit"     pushq   %rax\n";
-       strlit"     jmp     wcdecl(ffi"; ffi; strlit")\n";
-       strlit"     .p2align 4\n";
-       strlit"\n"]) (ffi_asm ffis))
+       «cake_ffi»; ffi; «:\n»;
+       «     pushq   %rax\n»;
+       «     jmp     wcdecl(ffi»; ffi; «)\n»;
+       «     .p2align 4\n»;
+       «\n»]) (ffi_asm ffis))
 End
 
 val ffi_code' =
@@ -125,19 +125,19 @@ Definition windows_ffi_asm_def:
   (windows_ffi_asm [] = Nil) /\
   (windows_ffi_asm (ffi::ffis) =
       SmartAppend (List [
-       strlit"windows_ffi"; ffi; strlit":\n";
-       strlit"     movq    %rcx, %r9\n";
-       strlit"     movq    %rdx, %r8\n";
-       strlit"     movq    %rsi, %rdx\n";
-       strlit"     movq    %rdi, %rcx\n";
-       strlit"     jmp     cdecl(ffi"; ffi; strlit")\n";
-       strlit"\n"]) (windows_ffi_asm ffis))
+       «windows_ffi»; ffi; «:\n»;
+       «     movq    %rcx, %r9\n»;
+       «     movq    %rdx, %r8\n»;
+       «     movq    %rsi, %rdx\n»;
+       «     movq    %rdi, %rcx\n»;
+       «     jmp     cdecl(ffi»; ffi; «)\n»;
+       «\n»]) (windows_ffi_asm ffis))
 End
 
 val windows_ffi_code' =
   ``λret. SmartAppend
     (
-     List [strlit "\n/* Windows Compatibility for CakeML FFI interface */\n\n"]
+     List [«\n/* Windows Compatibility for CakeML FFI interface */\n\n»]
     )
     (
     SmartAppend
@@ -237,22 +237,22 @@ val entry_point_code =
 Definition export_func_def:
   export_func appl (name,label,start,len) =
     SmartAppend appl (List
-    [strlit"\n    .globl cdecl("; name; strlit")\n";
-     strlit"#if defined(__APPLE__)\n";
-     strlit"\n";
-     strlit"#elif defined(__WIN32)\n";
-     strlit"     .func   cdecl("; name; strlit")\n";
-     strlit"#else\n";
-     strlit"     .type   cdecl("; name; strlit"), function\n";
-     strlit"#endif\n";
-     strlit"cdecl("; name; strlit"):\n";
-     strlit"     lea     "; name; strlit"_jmp(%rip), %r10\n";
-     strlit"     jmp     wcml(cake_enter)\n";
-            name; strlit"_jmp:\n";
-     strlit"     jmp     "; label; strlit"\n";
-     strlit"#if defined(__WIN32)\n";
-     strlit"     .endfunc\n";
-     strlit"#endif\n";
+    [«\n    .globl cdecl(»; name; «)\n»;
+     «#if defined(__APPLE__)\n»;
+     «\n»;
+     «#elif defined(__WIN32)\n»;
+     «     .func   cdecl(»; name; «)\n»;
+     «#else\n»;
+     «     .type   cdecl(»; name; «), function\n»;
+     «#endif\n»;
+     «cdecl(»; name; «):\n»;
+     «     lea     »; name; «_jmp(%rip), %r10\n»;
+     «     jmp     wcml(cake_enter)\n»;
+            name; «_jmp:\n»;
+     «     jmp     »; label; «\n»;
+     «#if defined(__WIN32)\n»;
+     «     .endfunc\n»;
+     «#endif\n»;
     ])
 End
 
@@ -268,10 +268,10 @@ Definition x64_export_def:
       (SmartAppend
       (SmartAppend (List preamble)
       (SmartAppend (List (data_section ".quad" ret))
-      (SmartAppend (split16 (words_line (strlit"\t.quad ") word_to_string) data)
+      (SmartAppend (split16 (words_line «\t.quad » word_to_string) data)
       (SmartAppend (List data_buffer)
       (SmartAppend (startup ret pk) (^ffi_code ret))))))
-      (SmartAppend (split16 (words_line (strlit"\t.byte ") byte_to_string) bytes)
+      (SmartAppend (split16 (words_line «\t.byte » byte_to_string) bytes)
       (SmartAppend (List code_buffer)
       (emit_symbols lsyms))))
       (SmartAppend (^windows_ffi_code ret)
@@ -281,7 +281,7 @@ Definition x64_export_def:
 End
 
 (*
-  EVAL``append(split16 (words_line (strlit"\t.quad ") word_to_string) [100w:word64;393w;392w])``
+  EVAL``append(split16 (words_line «\t.quad » word_to_string) [100w:word64;393w;392w])``
 
   EVAL ``append (x64_export ["getArgs";"putChar";"getChar"] 400 300
     [3w;4w;5w;9w;11w;12w;13w;14w;79w;12w;91w;21w;34w;32w;53w;255w;128w;122w;127w]

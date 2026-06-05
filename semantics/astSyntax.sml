@@ -70,7 +70,7 @@ structure astSyntax = struct
     val s2 = HolKernel.syntax_fns2 "namespace"
   in
     val (Short_tm,mk_Short,dest_Short,is_Short) = s1 "Short"
-    val mk_Short = (inst [``:'m`` |-> ``:tvarN``]) o mk_Short
+    val mk_Short = (inst [mk_vartype "'m" |-> mlstringSyntax.mlstring_ty]) o mk_Short
     val (Long_tm,mk_Long,dest_Long,is_Long) = s2 "Long"
   end
   local val s = HolKernel.syntax_fns1 "ast" in

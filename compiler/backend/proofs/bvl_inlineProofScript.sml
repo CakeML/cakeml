@@ -229,7 +229,7 @@ Proof
    (gvs [remove_ticks_def, evaluate_def, oneline dest_thunk_def,
          AllCaseEqs(), PULL_EXISTS, state_rel_def, find_code_def,
          lookup_map, dec_clock_def]
-    >- (qexistsl [‘0’, ‘t with clock := 0`] \\ gvs [])
+    >- (qexistsl [‘0’, ‘t with clock := 0’] \\ gvs [])
     \\ last_x_assum $ drule_at (Pat ‘evaluate _ = _’)
     \\ disch_then $ qspec_then ‘t with clock := t.clock - 1’ assume_tac
     \\ gvs [] \\ metis_tac [])

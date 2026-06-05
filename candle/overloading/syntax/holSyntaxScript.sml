@@ -15,8 +15,8 @@ Datatype:
   | Tyapp mlstring (type list)
 End
 
-Overload Fun = ``λs t. Tyapp (strlit "fun") [s;t]``
-Overload Bool = ``Tyapp (strlit "bool") []``
+Overload Fun = ``λs t. Tyapp «fun» [s;t]``
+Overload Bool = ``Tyapp «bool» []``
 
 Definition domain_raw:
   domain ty = case ty of Tyapp n (x::xs) => x | _ => ty
@@ -57,7 +57,7 @@ Datatype:
        | Abs term term
 End
 
-Overload Equal = ``λty. Const (strlit "=") (Fun ty (Fun ty Bool))``
+Overload Equal = ``λty. Const «=» (Fun ty (Fun ty Bool))``
 
 Definition dest_var_def[simp]:
   dest_var (Var x ty) = (x,ty)
@@ -92,7 +92,7 @@ Definition typeof_def[simp]:
 End
 
 Definition is_fun_def:
-  (is_fun (Tyapp name tys) = ((name = strlit "fun") /\ (LENGTH tys = 2)))
+  (is_fun (Tyapp name tys) = ((name = «fun») /\ (LENGTH tys = 2)))
   /\ (is_fun _ = F)
 End
 (* check if a term is well-formed *)
@@ -104,7 +104,7 @@ Definition wellformed_compute_def:
     /\ wellformed_compute t ∧
     (case typeof s of
        Tyapp n tys =>
-         (n = strlit "fun") ∧
+         (n = «fun») ∧
          (LENGTH tys = 2) ∧
          (HD tys = typeof t)
      | Tyvar _ => F))
@@ -502,9 +502,9 @@ Overload tmsof = ``tmsof o sigof``
 
 Definition is_std_sig_def:
   is_std_sig (sig:sig) ⇔
-    FLOOKUP (tysof sig) (strlit "fun") = SOME 2 ∧
-    FLOOKUP (tysof sig) (strlit "bool") = SOME 0 ∧
-    FLOOKUP (tmsof sig) (strlit "=") = SOME (Fun (Tyvar(strlit "A")) (Fun (Tyvar(strlit "A")) Bool))
+    FLOOKUP (tysof sig) «fun» = SOME 2 ∧
+    FLOOKUP (tysof sig) «bool» = SOME 0 ∧
+    FLOOKUP (tmsof sig) «=» = SOME (Fun (Tyvar «A») (Fun (Tyvar «A») Bool))
 End
 
 (* Note that this theory is not necessarily definitional *)
@@ -621,11 +621,11 @@ Overload const_list = ``λctxt. FLAT (MAP consts_of_upd ctxt)``
 Overload tmsof = ``λctxt. alist_to_fmap (const_list ctxt)``
 
 Definition is_builtin_name_def:
-  is_builtin_name m = (m = strlit "=")
+  is_builtin_name m = (m = «=»)
 End
 
 Definition is_reserved_name_def:
-  is_reserved_name m = (m = strlit "=" \/ m = strlit "@")
+  is_reserved_name m = (m = «=» \/ m = «@»)
 End
 
 
@@ -653,8 +653,8 @@ Definition conexts_of_upd_def:
     let rep_type = domain (typeof pred) in
     let abs = Const abs_name (Fun rep_type abs_type) in
     let rep = Const rep_name (Fun abs_type rep_type) in
-    let a = Var (strlit "a") abs_type in
-    let r = Var (strlit "r") rep_type in
+    let a = Var «a» abs_type in
+    let r = Var «r» rep_type in
       [Comb abs (Comb rep a) === a;
        Comb pred r === (Comb rep (Comb abs r) === r)]) ∧
   (conexts_of_upd _ = [])
@@ -690,9 +690,9 @@ Overload "#" = ``$orth_ci``
 (* Initial theory context *)
 
 Definition init_ctxt_def:
-  init_ctxt = [NewConst (strlit "=") (Fun (Tyvar(strlit "A")) (Fun (Tyvar(strlit "A")) Bool))
-              ;NewType (strlit "bool") 0
-              ;NewType (strlit "fun") 2]
+  init_ctxt = [NewConst «=» (Fun (Tyvar «A») (Fun (Tyvar «A») Bool))
+              ;NewType «bool» 0
+              ;NewType «fun» 2]
 End
 
 (* all built-in constants and types
@@ -712,8 +712,8 @@ End
 Definition is_builtin_type_def:
   (is_builtin_type (Tyvar _) = F)
   /\ (is_builtin_type (Tyapp m ty) =
-      ((m = strlit "fun" /\ LENGTH ty = 2) \/
-       (m = strlit "bool" /\ LENGTH ty = 0)))
+      ((m = «fun» /\ LENGTH ty = 2) \/
+       (m = «bool» /\ LENGTH ty = 0)))
 End
 
 Theorem type1_size_append[local]:
@@ -728,8 +728,8 @@ QED
  * 2019 paper by Kunčar and Popescu *)
 Definition allTypes'_defn:
   (allTypes' (Tyapp s tys) =
-    if s = strlit "fun" /\ LENGTH tys = 2 then FLAT (MAP allTypes' tys)
-    else if s = strlit "bool" /\ tys = [] then []
+    if s = «fun» /\ LENGTH tys = 2 then FLAT (MAP allTypes' tys)
+    else if s = «bool» /\ tys = [] then []
     else [(Tyapp s tys)]
   )
   /\ (allTypes' (Tyvar n) = [Tyvar n])
@@ -837,7 +837,7 @@ Definition dependency_compute_def:
            ++
           (case typeof t of
              Tyapp name [rep_type; _] =>
-               (if name = strlit "fun" then
+               (if name = «fun» then
                   MAP (λv. (INR(Const abs (Fun rep_type abs_type)), INL v)) (abs_type::allTypes' rep_type)
                   ++ MAP (λv. (INR(Const rep (Fun abs_type rep_type)), INL v)) (abs_type::allTypes' rep_type)
                 else [])

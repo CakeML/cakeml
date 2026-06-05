@@ -47,7 +47,7 @@ Proof
   asm_exists_tac>>xsimpl>>
   simp[check_unsat_0_sem_def]>>
   qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
-  rw[]>>qexists_tac`strlit ""`>>
+  rw[]>>qexists_tac`«»`>>
   simp[STD_streams_add_stdout,STD_streams_add_stderr, STD_streams_stdout,STD_streams_stderr,add_stdo_nil]>>
   xsimpl
 QED
@@ -90,10 +90,10 @@ End
 Definition check_unsat_1_sem_def:
   check_unsat_1_sem fs enc f out =
   let fml = enc () in
-    (out ≠ strlit"" ⇒
+    (out ≠ «» ⇒
       ∃lpr.
         EVERY wf_lpr lpr ∧
-        out = strlit "s VERIFIED UNSAT\n" ∧
+        out = «s VERIFIED UNSAT\n» ∧
         let fmlls = misc$enumerate 1 fml in
         let base = REPLICATE (2*LENGTH fmlls) NONE in
         let mv = max_lit_fml fml in
@@ -204,7 +204,7 @@ Proof
     qexists_tac`emp`>>xsimpl>>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
-    qexists_tac`strlit""`>>xsimpl>>
+    qexists_tac`«»`>>xsimpl>>
     rename1`add_stderr fs err`>>
     qexists_tac`err`>>xsimpl>>
     simp[STD_streams_add_stdout,STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -218,7 +218,7 @@ Proof
     \\ qexists_tac`emp`
     \\ qexists_tac`fs`>>xsimpl \\ rw[]>>
     qexists_tac`«s VERIFIED UNSAT\n»`>>
-    qexists_tac`strlit""`>>rw[]
+    qexists_tac`«»`>>rw[]
     >-
       (qexists_tac`lpr`>>simp[])
     >>
@@ -229,7 +229,7 @@ Proof
   qexists_tac`emp`>>xsimpl>>
   qexists_tac`fs`>>xsimpl>>
   rw[]>>
-  qexists_tac`strlit""`>>xsimpl>>
+  qexists_tac`«»`>>xsimpl>>
   rename1`add_stderr fs err`>>
   qexists_tac`err`>>xsimpl>>
   simp[STD_streams_add_stdout,STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -284,7 +284,7 @@ Definition check_unsat_sem_def:
   case TL cl of
     [] => check_unsat_0_sem enc out
   | [f] => check_unsat_1_sem fs enc f out
-  | _ => out = strlit ""
+  | _ => out = «»
 End
 
 Theorem check_unsat_spec:
