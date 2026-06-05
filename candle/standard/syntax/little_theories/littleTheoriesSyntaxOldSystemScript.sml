@@ -2832,10 +2832,65 @@ QED
 
 Theorem ty_esubst_match_type:
   esubsts_ok sig σ ∧ type_ok (tysof sig) ty ∧ is_instance ty0 ty ⇒
-  match_type (ty_esubst σ ty0) (ty_esubst σ ty) ≠ NONE
+  ∃s. match_type (ty_esubst σ ty0) (ty_esubst σ ty) = SOME s ∧
+      TYPE_SUBST s (ty_esubst σ ty0) = ty_esubst σ ty
 Proof
-  rw[] >> Cases_on ‘sig’ >> gvs[] >> drule_all ty_esubst_TYPE_SUBST
-  >> metis_tac[match_type_complete, NOT_SOME_NONE]
+  rpt strip_tac >> Cases_on ‘sig’
+  >> Cases_on ‘match_type (ty_esubst σ ty0) (ty_esubst σ ty)’
+  >- (gvs[] >> drule_all ty_esubst_TYPE_SUBST >> rw[]
+      >> metis_tac[match_type_complete, NOT_SOME_NONE])
+  >> simp[] >> irule match_type_SOME >> rw[]
+  >> irule type_ok_arities_match
+  >> imp_res_tac type_ok_TYPE_SUBST_inv
+  >> drule_all ty_esubst_type_ok_alt
+  >> rev_drule_all ty_esubst_type_ok_alt
+  >> simp[SF SFY_ss]
+QED
+
+Definition dbtyvars_def:
+  dbtyvars (dbVar n ty) = tyvars ty ∧
+  dbtyvars (dbConst n ty) = tyvars ty ∧
+  dbtyvars (dbBound k) = [] ∧
+  dbtyvars (dbComb t1 t2) = dbtyvars t1 ++ dbtyvars t2 ∧
+  dbtyvars (dbAbs ty t) = tyvars ty ++ dbtyvars t
+End
+
+Theorem dbINST_cong:
+  ∀dbtm s1 s2.
+    (∀v. MEM v (dbtyvars dbtm) ⇒
+         REV_ASSOCD (Tyvar v) s1 (Tyvar v) = REV_ASSOCD (Tyvar v) s2 (Tyvar v)) ⇒
+    dbINST s1 dbtm = dbINST s2 dbtm
+Proof
+  Induct >> rw[dbINST_def, dbtyvars_def, MEM_APPEND]
+  >> irule $ iffRL TYPE_SUBST_tyvars >> metis_tac[]
+QED
+
+Theorem dbtyvars_bind:
+  ∀dbtm v k. set (dbtyvars (bind v k dbtm)) ⊆ set (dbtyvars dbtm)
+Proof
+  Induct >> Cases_on ‘v’
+  >> simp[bind_def, dbtyvars_def, SUBSET_DEF, MEM_APPEND]
+  >> rw[] >> gvs[dbtyvars_def, SUBSET_DEF, MEM_APPEND] >> metis_tac[]
+QED
+
+Theorem dbtyvars_db:
+  ∀tm. welltyped tm ⇒ set (dbtyvars (db tm)) ⊆ set (tvars tm)
+Proof
+  Induct >> rw[db_def, dbtyvars_def, tvars_def, SUBSET_DEF, MEM_LIST_UNION]
+  >> gvs[dbtyvars_def, SUBSET_DEF, MEM_APPEND, tvars_def]
+  >> disj2_tac >> qspecl_then [‘db tm'’, ‘(n, ty)’, ‘0’] mp_tac dbtyvars_bind
+  >> rw[SUBSET_DEF]
+QED
+
+Theorem dbINST_compose:
+  ∀dbtm tyin1 tyin2.
+    dbINST tyin1 (dbINST tyin2 dbtm) =
+    dbINST (MAP (λ(ty,a). (TYPE_SUBST tyin1 ty, a)) tyin2 ++ tyin1) dbtm
+Proof
+  Induct >> rw[dbINST_def]
+  >> qspecl_then [‘tyin2’, ‘t’, ‘tyin1’] mp_tac TYPE_SUBST_compose
+  >> rw[FUN_EQ_THM, pairTheory.PAIR_MAP]
+  >> cong_tac NONE >> Cases_on ‘x’ >> simp[]
 QED
 
 Theorem db_esubst_dbINST_comm:
@@ -2871,38 +2926,31 @@ Proof
       >> drule_then drule ty_esubst_match_type
       >> disch_then $ qspec_then ‘r’ mp_tac >> rw[]
       >> metis_tac[TYPE_SUBST_compose])
-  >- (cheat
-      (*
-    0.  EVERY (type_ok (tysof sig)) (MAP FST tyin)
-    1.  esubsts_ok sig σ
-    2.  type_ok (tysof sig) t
-    3.  ∀d. FLOOKUP (tmsof sig) m = SOME d ⇒ is_instance d t
-    4.  FLOOKUP (SND σ) m = SOME (q,r)
-    5.  match_type (ty_esubst σ r) (ty_esubst σ (TYPE_SUBST tyin t)) = SOME x
-    6.  match_type (ty_esubst σ r) (ty_esubst σ t) = SOME x'
-   ------------------------------------
-        dbINST x (db q) =
-        dbINST (MAP (λ(ty,a). (ty_esubst σ ty,a)) tyin) (dbINST x' (db q))
-
-      *))
+  >- (drule_all esubsts_ok_FLOOKUP_tmsof >> rw[]
+      >> rw[dbINST_compose] >> irule dbINST_cong >> rw[]
+      >> drule_then drule ty_esubst_match_type
+      >> disch_then $ qspec_then ‘r’ mp_tac >> impl_tac
+      >- (first_x_assum irule >> gvs[])
+      >> rw[] >> first_x_assum drule >> drule type_ok_TYPE_SUBST
+      >> disch_then drule >> rpt strip_tac
+      >> drule_then drule ty_esubst_match_type
+      >> disch_then $ qspec_then ‘r’ mp_tac >> impl_tac
+      >- metis_tac[TYPE_SUBST_compose]
+      >> rw[] >> Cases_on ‘sig’ >> gvs[] >> drule_all ty_esubst_TYPE_SUBST_comm
+      >> strip_tac >> irule $ iffLR TYPE_SUBST_tyvars
+      >> qexists ‘ty_esubst σ r’ >> rw[]
+      >> qspecl_then [`x'`, `ty_esubst σ r`, `MAP (λ(ty,a). (ty_esubst σ ty,a)) tyin`]
+                     mp_tac TYPE_SUBST_compose >> rw[]
+      >- (pop_assum $ SUBST1_TAC o GSYM
+          >> qpat_x_assum ‘TYPE_SUBST x' _ = _’ (SUBST1_TAC o GSYM)
+          >> simp[TYPE_SUBST_compose, PAIR_MAP_THM]
+          >> cong_tac $ SOME 1 >> simp[MAP_EQ_f, FORALL_PROD, PAIR_MAP_THM])
+      >> rw[] >> gvs[SUBSET_DEF] >> first_x_assum irule
+      >> qspec_then ‘q’ mp_tac dbtyvars_db >> simp[SUBSET_DEF])
   >> first_x_assum drule >> rw[] >> irule ty_esubst_TYPE_SUBST_comm
   >> Cases_on ‘sig’ >> gvs[] >> first_x_assum $ irule_at Any
   >> irule type_ok_TYPE_SUBST >> simp[]
 QED
-
-Resume db_esubst_dbINST_comm[aargh]:
-  
-QED
-
-Resume db_esubst_dbINST_comm[aargh2]:
-  
-QED
-
-Resume db_esubst_dbINST_comm[aargh3]:
-  
-QED
-
-Finalise db_esubst_dbINST_comm
 
 Definition FVL_def:
   FVL (Var n ty) = [(n, ty)] ∧
@@ -3081,6 +3129,14 @@ Proof
   >- (first_x_assum irule >> rw[] >> metis_tac[no_combined_collapse_comb])
   >- (first_x_assum irule >> rw[] >> metis_tac[no_combined_collapse_comb])
   >> drule no_combined_collapse_abs >> strip_tac >> metis_tac[]
+QED
+
+Theorem dbVFREE_IN_dbINST:
+  ∀dbt z ty' tyin.
+    dbVFREE_IN (dbVar z ty') (dbINST tyin dbt) ⇔
+    ∃oty. dbVFREE_IN (dbVar z oty) dbt ∧ ty' = TYPE_SUBST tyin oty
+Proof
+  Induct >> rw[dbINST_def] >> metis_tac[]
 QED
 
 Theorem dbINST_CLOSED:
@@ -4271,17 +4327,6 @@ Proof
   >> rw[] >> metis_tac[]
 QED
 
-Theorem dbINST_compose:
-  ∀dbtm tyin1 tyin2.
-    dbINST tyin1 (dbINST tyin2 dbtm) =
-    dbINST (MAP (λ(ty,a). (TYPE_SUBST tyin1 ty, a)) tyin2 ++ tyin1) dbtm
-Proof
-  Induct >> rw[dbINST_def]
-  >> qspecl_then [‘tyin2’, ‘t’, ‘tyin1’] mp_tac TYPE_SUBST_compose
-  >> rw[FUN_EQ_THM, pairTheory.PAIR_MAP]
-  >> cong_tac NONE >> Cases_on ‘x’ >> simp[]
-QED
-
 Theorem INST_compose_ACONV:
   ∀c tyin1 tyin2.
     welltyped c ⇒
@@ -5172,7 +5217,7 @@ Theorem unbind_dbINST_dbtm:
 Proof
   metis_tac[unbind_db_ok, db_ok_dbINST, db_ok_db, DECIDE “k ≥ 0n”]
 QED
-        
+
 Theorem unbind_db_esubst_tm[local]:
   ∀dbt val k. unbind (db_esubst_tm σ val) k (db_esubst_tm σ dbt) =
               db_esubst_tm σ (unbind val k dbt)
@@ -5338,14 +5383,6 @@ Theorem dbINST_bind_commute:
 Proof
   Induct >> simp[bind_def, dbINST_def, dbVFREE_IN_def]
   >> rpt strip_tac >> Cases_on ‘z = m’ >> gvs[dbINST_def]
-QED
-
-Theorem dbVFREE_IN_dbINST:
-  ∀dbt z ty' tyin.
-    dbVFREE_IN (dbVar z ty') (dbINST tyin dbt) ⇔
-    ∃oty. dbVFREE_IN (dbVar z oty) dbt ∧ ty' = TYPE_SUBST tyin oty
-Proof
-  Induct >> rw[dbINST_def] >> metis_tac[]
 QED
 
 (* Alpha-equivalence for apply_steps on Abs:

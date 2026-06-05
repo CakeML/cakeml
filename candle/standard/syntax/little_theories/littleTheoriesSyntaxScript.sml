@@ -304,6 +304,7 @@ Definition esubsts_ok'_def:
               decl_ty = thy.etms ' tmnm ∧
               CLOSED repl ∧
               set (tvars repl) ⊆ set (tyvars (typeof repl)) ∧
+              term_ok' (esubst_thy (σ,θ) thy) repl ∧
               typeof repl = ty_esubst (σ,θ) decl_ty)
 End
 
