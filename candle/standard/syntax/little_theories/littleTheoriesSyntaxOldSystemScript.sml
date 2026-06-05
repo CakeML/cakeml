@@ -904,7 +904,7 @@ Proof
       >> last_x_assum $ qspec_then ‘body1’ assume_tac
       >> gvs[]
       >> metis_tac[FVs_VSUBST_CASES, NVARIANT_esubst_ty0_alt])
-  >-
+  >- (* this is the slow case *)
      (with_flag (Cond_rewr.stack_limit, 0)
                 (gvs[bind_EQ_error, bind_EQ_return, term_ok_def, try_eq_error, AllCaseEqs()])
       >> gvs[DISJ_IMP_THM, term_ok_vsubst_variant]

@@ -390,25 +390,42 @@ Proof
   >> drule $ iffLR FDOM_F_FEMPTY1 >> rw[] >> ASM_SET_TAC[FRANGE_FEMPTY]
 QED
 
+Theorem proves_imp_proves'_subset_axs:
+  ∀thy h c.
+    (thy, h) |- c ⇒
+    ∀thy'.
+      tysof thy = thy'.ctys ∧
+      tmsof thy = thy'.ctms ∧
+      axsof thy ⊆ thy'.axs ∧
+      theory_ok' thy' ⇒
+      (thy', ∅, h) |-' c
+Proof
+  Induct_on ‘$|-’ >> rw[] >> res_tac
+  >- (irule proves'_ABS >> gvs[])
+  >- (irule proves'_ASSUME >> simp[] >> irule term_ok_imp_term_ok' >> Cases_on ‘sigof thy’ >> gvs[])
+  >- (irule proves'_BETA >> Cases_on ‘sigof thy’ >> gvs[]
+      >> irule term_ok_imp_term_ok' >> simp[])
+  >- (drule_at_then Any rev_drule proves'_DEDUCT_ANTISYM >> simp[])
+  >- (metis_tac[proves'_EQ_MP, UNION_EMPTY])
+  >- (irule proves'_INST >> simp[] >> rw[]
+      >> Cases_on ‘sigof thy’ >> gvs[]
+      >> first_x_assum drule >> rw[]
+      >> rpt $ first_x_assum $ irule_at Any
+      >> simp[term_ok_imp_term_ok'])
+  >- (irule proves'_INST_TYPE >> gvs[])
+  >- (drule_at_then Any rev_drule proves'_MK_COMB >> simp[])
+  >- (irule proves'_REFL >> simp[] >> irule term_ok_imp_term_ok' >> Cases_on ‘sigof thy’ >> gvs[])
+  >> irule proves'_axioms >> gvs[SUBSET_DEF]
+QED
+
 Theorem proves_imp_proves':
   ∀thy' h c.
     (thy', h) |- c ⇒
     (lift_thy thy', {}, h) |-' c
 Proof
-  Induct_on ‘$|-’ >> rw[] >> res_tac
-  >- (irule proves'_ABS >> simp[])
-  >- (irule proves'_ASSUME >> simp[term_ok_imp_term_ok'])
-  >- (irule proves'_BETA >> simp[term_ok_imp_term_ok'])
-  >- (rev_drule proves'_DEDUCT_ANTISYM >> simp[])
-  >- (drule_all proves'_EQ_MP >> simp[])
-  >- (irule proves'_INST >> simp[]
-      >> first_x_assum $ irule_at Any >> rw[]
-      >> first_x_assum drule >> rw[]
-      >> irule term_ok_imp_term_ok' >> simp[])
-  >- (irule proves'_INST_TYPE >> simp[])
-  >- (rev_drule proves'_MK_COMB >> simp[])
-  >- (irule proves'_REFL >> simp[term_ok_imp_term_ok'])
-  >> irule proves'_axioms >> simp[]
+  rpt strip_tac >> irule proves_imp_proves'_subset_axs
+  >> first_assum $ irule_at Any >> simp[ctys_def, ctms_def]
+  >> drule proves_theory_ok >> simp[theory_ok'_lift_thy]
 QED
 
 Theorem proves'_imp_proves:
@@ -1169,8 +1186,8 @@ Proof
   >> irule drop_upd_updates >> first_x_assum $ irule_at Any >> simp[]
 QED
 
-(* main theorem: the two systems are equivalent *)
-Theorem extends_extends'_derivations:
+(* main two theorems: the two systems are equivalent *)
+Theorem lift_ctxt_extends_extends':
   ∀h c.
     ctxt extends init_ctxt ⇒
     ((thyof ctxt, h) |- c ⇔ (ethyof (lift_ctxt ctxt), ∅, h) |-' c)
@@ -1178,6 +1195,22 @@ Proof
   rpt strip_tac >> iff_tac >> rw[]
   >- (drule proves_imp_proves' >> simp[lift_ctxt_extends_init_ectxt, lift_thy_def])
   >> drule proves'_imp_proves >> simp[drop_thy, ctms_def, ctys_def]
+QED
+
+Theorem drop_ctxt_extends_extends':
+  ∀h c.
+    ctxt extends' init_ectxt ⇒
+    ((ethyof ctxt, ∅, h) |-' c ⇔ (thyof (drop_ctxt ctxt), h) |- c)
+Proof
+  rpt strip_tac >> iff_tac >> rw[]
+  >- (drule proves'_imp_proves >> simp[drop_thy, ctms_def, ctys_def]
+      >> drule extends'_theory_ok' >> simp[init_theory_ok']
+      >> fs[ctms_def, ctys_def])
+  >> irule proves_imp_proves'_subset_axs >> simp[]
+  >> simp[drop_thy_extends_init_ctxt]
+  >> first_x_assum $ irule_at Any
+  >> drule extends'_theory_ok'
+  >> rw[init_theory_ok', ctys_def, ctms_def]
 QED
 
 (* the rest of these theorems are to show that the elim_inst preconditions
