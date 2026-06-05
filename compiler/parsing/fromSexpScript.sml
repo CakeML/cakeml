@@ -334,9 +334,8 @@ Theorem explode_eq:
   (explode tag = s ⇔ tag = strlit s) ∧
   (s = explode tag ⇔ strlit s = tag)
 Proof
-  simp[mlstringTheory.implode_def, EQ_IMP_THM] >>
-  metis_tac[mlstringTheory.implode_explode, mlstringTheory.explode_implode,
-            mlstringTheory.implode_def]
+  simp[EQ_IMP_THM] >>
+  metis_tac[mlstringTheory.implode_explode, mlstringTheory.explode_implode]
 QED
 
 Theorem dstrip_sexp_SOME:
@@ -347,7 +346,7 @@ Proof
   Cases_on `l` >> simp[dstrip_sexp_def] >>
   Cases_on `h` >> simp[dstrip_sexp_def] >>
   rw[EQ_IMP_THM] >> gvs[explode_eq] >>
-  metis_tac[mlstringTheory.implode_explode, mlstringTheory.implode_def]
+  metis_tac[mlstringTheory.implode_explode]
 QED
 
 Theorem dstrip_sexp_listsexp[simp]:
@@ -1619,7 +1618,7 @@ QED
 Theorem sexplit_litsexp[simp]:
    sexplit (litsexp l) = SOME l
 Proof
-  Cases_on `l` >> simp[sexplit_def,litsexp_def,mlstringTheory.implode_def] >>
+  Cases_on `l` >> simp[sexplit_def,litsexp_def] >>
   ONCE_REWRITE_TAC[GSYM wordsTheory.dimword_8] >>
   ONCE_REWRITE_TAC[GSYM wordsTheory.dimword_64] >>
   simp[wordsTheory.w2n_lt]
@@ -1753,7 +1752,7 @@ Proof
   simp[dstrip_sexp_SOME, PULL_EXISTS, LENGTH_EQ_NUM_compute] >>
   rw[EQ_IMP_THM] >> gvs[] >>
   `tag = implode (explode tag)` by simp[mlstringTheory.implode_explode] >>
-  pop_assum SUBST1_TAC >> ASM_REWRITE_TAC[] >> simp[mlstringTheory.implode_def]
+  pop_assum SUBST1_TAC >> ASM_REWRITE_TAC[]
 QED
 
 Theorem sexplist_SOME:
@@ -1778,7 +1777,7 @@ Theorem OPTION_CHOICE_EQ_SOME = OPTION_CHOICE_EQUALS_OPTION
 
 val tag_tac =
   `tag = implode (explode tag)` by simp[mlstringTheory.implode_explode] >>
-  pop_assum SUBST1_TAC >> ASM_REWRITE_TAC[] >> simp[mlstringTheory.implode_def]
+  pop_assum SUBST1_TAC >> ASM_REWRITE_TAC[]
 
 Theorem litsexp_sexplit:
   (sexplit s = SOME l ⇔ litsexp l = s) ∧
@@ -1791,7 +1790,7 @@ Proof
   rpt gen_tac >> eq_tac >> rpt strip_tac >> gvs[litsexp_def]
   (* backward direction *)
   >- (Cases_on `l` >> simp[litsexp_def] >-
-      (qexists_tac `str c` >> simp[] >> EVAL_TAC) >>
+      (qexists_tac `implode [c]` >> simp[]) >>
       ONCE_REWRITE_TAC[GSYM wordsTheory.dimword_8] >>
       ONCE_REWRITE_TAC[GSYM wordsTheory.dimword_64] >>
       simp[wordsTheory.w2n_lt])
@@ -1888,7 +1887,7 @@ Proof
   >> gvs[sexpop_def, AllCaseEqs(), opsexp_def, encode_decode_control]
   >> gvs [encode_thunk_mode_def,decode_thunk_mode_def,AllCaseEqs(),
           decode_test_testsexp,decode_prim_type_prim_typesexp,
-          sexparith_arithsexp, explode_eq, mlstringTheory.implode_def]
+          sexparith_arithsexp, explode_eq]
 QED
 
 Theorem locnsexp_sexplocpt0:
