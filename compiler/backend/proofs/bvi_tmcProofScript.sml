@@ -1600,8 +1600,9 @@ Definition hypothesis_def:
                holes_unchanged_except f s'.refs t_work.refs {EL i env2} ∧
                ∀res_v.
                  r = Rval [res_v] ⇒
-                 ∃res_v'.
-                   mb_rel f_work t_work.refs res_v res_v' ∧
+                 ∃res_v' ptr.
+                   EL i env2 = RefPtr F ptr ∧
+                   mb_rel f_work (t_work.refs \\ ptr) res_v res_v' ∧
                    hole_has_val f env1 env2 t_work.refs res_v')))
 End
 
@@ -1740,6 +1741,21 @@ Proof
    (Cases_on ‘v1’ >> gvs [mb_rel_def, v_rel_cases, finalise_cons_def])
 QED
 
+Theorem mb_rel_cons:
+  ∀refs ptr f tag left left' v v' right right'.
+    mb_rel f (refs \\ ptr) v v' ∧
+    LIST_REL (v_rel f) left left' ∧
+    LIST_REL (v_rel f) right right' ∧
+    FLOOKUP refs ptr = SOME (MutBlock tag left' v' right') ∧
+    ptr ∉ FRANGE f ⇒
+    mb_rel f refs (Block tag (left ++ [v] ++ right)) (RefPtr F ptr)
+Proof
+  rw []
+  >> simp [mb_rel_def]
+  >> qexistsl [‘left’, ‘v’, ‘right’]
+  >> gvs []
+QED
+
 Theorem evaluate_cb:
   ∀cb bs loc loc_opt exp wrap work arity f opt env env2 ^s s' t t' r r'.
     evaluate ([cb_to_bvi loc cb],env,s) = (r,t) ∧
@@ -1781,8 +1797,9 @@ Theorem evaluate_cb:
          holes_unchanged_except f refs t_aux.refs {extras❲ptr❳} ∧
          ∀res_v.
            r = Rval [res_v] ⇒
-           ∃res_v'.
-             mb_rel f_aux t_aux.refs res_v res_v' ∧
+           ∃res_v' p.
+             EL ptr extras = RefPtr F p  ∧
+             mb_rel f_aux (t_aux.refs \\ p) res_v res_v' ∧
              alloc_hole_has_val f t_aux.refs extras ptr idx res_v') ∧
     (opt ⇒
      (∀ptr idx work.
@@ -1798,8 +1815,9 @@ Theorem evaluate_cb:
           holes_unchanged_except f s'.refs t_work.refs {EL ptr env2} ∧
           ∀res_v.
             r = Rval [res_v] ⇒
-            ∃res_v'.
-              mb_rel f_work t_work.refs res_v res_v' ∧
+            ∃res_v' p.
+              EL ptr env2 = RefPtr F p ∧
+              mb_rel f_work (t_work.refs \\ p) res_v res_v' ∧
               hole_has_val f env env2 t_work.refs res_v'))
 Proof
 
@@ -1891,6 +1909,7 @@ Proof
       >> conj_tac
       >- gvs [EL_APPEND_EQN, LENGTH_MAP]
       >> rw []
+      >> ‘hole_ptr = ptr'’ by gvs [EL_APPEND_EQN, LENGTH_MAP]
       >> gvs []
       >> first_assum $ irule_at Any
       >> gvs [hole_has_val_def, EL_APPEND_EQN, LENGTH_MAP])
@@ -1935,6 +1954,7 @@ Proof
     >> conj_tac
     >- gvs [EL_APPEND_EQN, LENGTH_MAP]
     >> rw []
+    >> ‘hole_ptr = ptr’ by gvs [EL_APPEND_EQN, LENGTH_MAP]
     >> gvs []
     >> first_assum $ irule_at Any
     >> gvs [hole_has_val_def, EL_APPEND_EQN, LENGTH_MAP])
@@ -2010,6 +2030,24 @@ Proof
     >> gvs [bvi_tmcTheory.finalise_cons_def, evaluate_def]
     >> gvs [do_app_def, do_app_aux_def]
     >> gvs [alloc_hole_has_val_def]
+    >> drule mb_rel_cons
+    >> rpt $ disch_then $ drule_at Any
+    (* At this point, what we need:
+       holes_unchanged_except should be stronger: for the "changed" holes, _only_ the hole should be changed.
+       ie. tag/left/right should be the same.
+       this will give us MAP (λn. env2)s instead of left'/right'.
+       Then we need a lemma to get LIST_REL for the MAP (λn. env1) to MAP (λn. env2).
+       Then we need lemmas for only_fresh/holes_unchanged_except removing a pointer from the refs which should be easy.
+     *)
+    >> disch_then $ qspecl_then [‘MAP (λn. env❲n❳) (REVERSE right)’, ‘MAP (λn. env❲n❳) (REVERSE left)’] mp_tac
+    >> impl_tac >- cheat
+    >> strip_tac
+    >> ‘state_ref_rel f_aux u.refs t_aux.refs’ by gvs [state_rel_def]
+    >> drule_all evaluate_finalise_cons
+    >> strip_tac
+    >> gvs []
+    >> qexists ‘f_aux’
+    >> gvs [bvl_to_bvi_id]
     >> cheat)
 
   (* Aux *)
