@@ -67,13 +67,19 @@ End
 
 val _ = Parse.add_infix("|-'",450,Parse.NONASSOC)
 
+(* ty_esubst maps a type to its subtituted counterpart.
+   eliminable names can only occur in Tyapps, so we recursively
+   map the substitution over types.
+   in the SOME case, we need to be "polymorphically aware",
+   i.e.,  *)
+(* FST σ ↦ (tyvars of subst_out * subst_in) *)
 Definition ty_esubst_def:
   (ty_esubst _ (Tyvar n) = Tyvar n) ∧
   (ty_esubst σ (Tyapp n ts) =
    case FLOOKUP (FST σ) n of
    | NONE => Tyapp n (MAP (ty_esubst σ) ts)
    | SOME (params, body) =>
-       TYPE_SUBST (MAP2 (λp t. (t, Tyvar p)) params (MAP (ty_esubst σ) ts)) body)
+       TYPE_SUBST (ZIP (MAP (ty_esubst σ) ts, MAP Tyvar params)) body)
 Termination
   WF_REL_TAC ‘measure (type_size o SND)’ >> rw[]
   >> rename [‘MEM ty tys’] >> Induct_on ‘tys’ >> simp[] >> rw[]
@@ -171,7 +177,7 @@ Definition esubst_tm_def:
     | NONE => Const n ty
     | SOME (repl, decl_ty) =>
         case match_type (ty_esubst σ decl_ty) ty of
-        | NONE => ARB
+        | NONE => ARB (* unreachable with esubsts_ok *)
         | SOME tyin => INST tyin repl
 End
 

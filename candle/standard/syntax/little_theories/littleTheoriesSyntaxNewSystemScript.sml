@@ -99,11 +99,11 @@ QED
 Theorem ty_esubst_o_f_thy_tms:
   ∀thy. theory_ok' thy ∧ esubsts_ok' thy σ ⇒ ty_esubst σ o_f thy.tms = thy.tms
 Proof
-  rw[theory_ok'_def] >> Cases_on `σ` >> gvs[esubsts_ok'_def]
+  rw[theory_ok'_def] >> Cases_on ‘σ’ >> gvs[esubsts_ok'_def]
   >> rw[fmap_eq_flookup, FLOOKUP_o_f]
   >> rw[] >> CASE_TAC >> simp[]
   >> irule ty_esubst_type_ok_id
-  >> qexists_tac `(thy:ethy).tys` >> simp[]
+  >> qexists_tac ‘(thy:ethy).tys’ >> simp[]
   >> conj_tac
   >- metis_tac[DISJOINT_SUBSET, DISJOINT_SYM]
   >> first_x_assum irule >> simp[IN_FRANGE_FLOOKUP] >> metis_tac[]
@@ -150,12 +150,12 @@ Proof
   >> rpt case_tac >> gvs[EVERY_MEM] >> Induct_on ‘l’
   >> rw[type_ok_def, EVERY_MEM] >- metis_tac[]
   >> gvs[MEM_MAP, FORALL_PROD]
-  >> Cases_on ‘σ’ >> rename1 ‘(σ,θ)’
+  >> namedCases_on ‘σ’ ["σ θ"]
   >> gvs[esubsts_ok'_def] >> last_x_assum $ qspec_then ‘m’ mp_tac
   >> rw[FDOM_FLOOKUP] >> gvs[FLOOKUP_FAPPLY]
   >> irule type_ok_TYPE_SUBST
   >> gvs[EVERY_MEM, MEM_MAP, FORALL_PROD, EXISTS_PROD, PULL_EXISTS]
-  >> rw[] >> drule MEM_MAP2_FST >> rw[] >> gvs[MEM_MAP] >> metis_tac[]
+  >> rw[] >> drule MEM_ZIP_FST >> rw[] >> gvs[MEM_MAP]
 QED
 
 Theorem ty_esubst_type_ok':
@@ -172,12 +172,12 @@ Theorem esubst_thy_ctms_preserved:
 Proof
   strip_tac
   >> simp[esubst_thy_def, ctms_def, FLOOKUP_FUNION, FLOOKUP_o_f, FLOOKUP_FDIFF]
-  >> Cases_on `FLOOKUP thy.tms n`
+  >> Cases_on ‘FLOOKUP thy.tms n’
   >- (gvs[ctms_def, FLOOKUP_FUNION])
-  >> `x = ty0` by gvs[ctms_def, FLOOKUP_FUNION]
+  >> ‘x = ty0’ by gvs[ctms_def, FLOOKUP_FUNION]
   >> gvs[]
-  >> `ty_esubst (σty,σtm) ty0 = ty0` by
-       (irule ty_esubst_type_ok_id >> qexists `thy.tys`
+  >> ‘ty_esubst (σty,σtm) ty0 = ty0’ by
+       (irule ty_esubst_type_ok_id >> qexists ‘thy.tys’
         >> gvs[theory_ok'_def, esubsts_ok'_def]
         >> conj_tac
         >- metis_tac[DISJOINT_SUBSET, DISJOINT_SYM]
@@ -203,11 +203,9 @@ Theorem esubst_ty0_tm_ok':
     term_ok' (esubst_thy σ thy) (esubst_tm σ subst_tm)
 Proof
   recInduct esubst_ty0_ind >> rw[]
-  (* Var *)
   >- (gvs[esubst_ty0_def, AllCaseEqs()]
       >> gvs[esubst_tm_def, term_ok'_def]
       >> irule type_ok_ctys_ty_esubst >> simp[])
-  (* Const *)
   >- (gvs[esubst_ty0_def, esubst_tm_def]
       >> Cases_on ‘σ’ >> rename1 ‘(σ_ty, σ_tm)’
       >> qpat_x_assum ‘term_ok' thy (Const n ty)’ mp_tac
@@ -224,12 +222,10 @@ Proof
           >> metis_tac[ty_esubst_TYPE_SUBST])
       >> Cases_on ‘x’
       >> rename1 ‘FLOOKUP σ_tm n = SOME (repl, decl_ty)’
-      (* Apply ty_esubst_match_type EARLY, while ty0 and ty are still in their original forms *)
       >> drule (GEN_ALL ty_esubst_match_type)
       >> disch_then (qspecl_then [‘ty0’, ‘ty’] mp_tac)
       >> impl_tac >- (simp[] >> metis_tac[])
       >> strip_tac
-      (* Now derive decl_ty = thy.etms⟨n⟩ = ty0 via disjointness *)
       >> drule_then strip_assume_tac $ iffLR esubsts_ok'_def
       >> first_x_assum (qspec_then ‘n’ mp_tac)
       >> impl_tac >- metis_tac[FDOM_FLOOKUP]
@@ -246,7 +242,6 @@ Proof
       >> qpat_x_assum ‘FLOOKUP thy.ctms n = SOME ty0’ mp_tac
       >> simp[ctms_def, FLOOKUP_FUNION, FLOOKUP_DEF] >> strip_tac
       >> gvs[FUNION_DEF]
-      (* Goal's match_type now matches the assumption — simp reduces case *)
       >> simp[]
       >> irule term_ok_imp_term_ok'
       >> irule term_ok_INST
@@ -255,7 +250,6 @@ Proof
           >> first_assum (irule_at Any)
           >> simp[] >> irule type_ok_ctys_ty_esubst >> simp[])
       >> irule term_ok'_imp_term_ok >> simp[])
-  (* Comb *)
   >- (gvs[esubst_ty0_def, bind_EQ_return, term_ok'_def]
       >> simp[esubst_tm_def, term_ok'_def]
       >> rpt conj_tac
@@ -270,14 +264,13 @@ Proof
           >> rpt strip_tac >> first_x_assum drule >> simp[DISJ_IMP_THM, FORALL_AND_THM, PULL_EXISTS])
       >> imp_res_tac esubsts_ok'_esubsts_ok
       >> imp_res_tac term_ok'_imp_term_ok
-      >> `typeof t1' = ty_esubst (σty,σtm) (typeof t1)` by (
+      >> ‘typeof t1' = ty_esubst (σty,σtm) (typeof t1)’ by (
         irule typeof_esubst_ty >> rpt $ first_x_assum $ irule_at Any
         >> rpt strip_tac >> first_x_assum drule >> simp[DISJ_IMP_THM, FORALL_AND_THM, PULL_EXISTS])
-      >> `typeof t2' = ty_esubst (σty,σtm) (typeof t2)` by (
+      >> ‘typeof t2' = ty_esubst (σty,σtm) (typeof t2)’ by (
         irule typeof_esubst_ty >> rpt $ first_x_assum $ irule_at Any
         >> rpt strip_tac >> first_x_assum drule >> simp[DISJ_IMP_THM, FORALL_AND_THM, PULL_EXISTS])
       >> simp[ty_esubst_fun, SF SFY_ss])
-  (* Abs *)
   >> gvs[term_ok'_def, esubst_ty0_def, bind_EQ_return, bind_EQ_error, try_eq_return]
   >- (simp[esubst_tm_def, term_ok'_def]
       >> rpt conj_tac
@@ -287,7 +280,7 @@ Proof
   >> simp[esubst_tm_def, term_ok'_def]
   >> rw[]
   >- (irule ty_esubst_type_ok' >> metis_tac[])
-  >> first_x_assum irule >> qexists `body1`
+  >> first_x_assum irule >> qexists ‘body1’
   >> rw[]
   >- metis_tac[]
   >> irule term_ok'_vsubst_variant
@@ -301,7 +294,7 @@ Proof
   strip_tac
   >> drule_all esubsts_ok'_esubsts_ok >> strip_tac
   >> simp[esubst_def, esubst_ty_def]
-  >> `∃tm1. esubst_ty0 [] σ avds tm = return tm1`
+  >> ‘∃tm1. esubst_ty0 [] σ avds tm = return tm1’
        by metis_tac[esubst_ty0_always_returns, term_ok'_imp_term_ok]
   >> simp[]
   >> irule esubst_ty0_tm_ok'
@@ -690,9 +683,9 @@ Proof
           ctms_def, ctys_def, FUNION_FUPDATE_1, FLOOKUP_FUPDATE, FLOOKUP_FUNION,
           type_ok_def, FDOM_FUPDATE, FDOM_FUNION, EVERY_MAP, EVERY_MEM]
   >> rpt (IF_CASES_TAC >> gvs[FDOM_FUNION, FLOOKUP_DEF])
-  >> qmatch_goalsub_abbrev_tac `Tyapp name tvs`
+  >> qmatch_goalsub_abbrev_tac ‘Tyapp name tvs’
   >> rw[type_ok_FUPDATE_fresh, FDOM_FUNION, type_ok_weakening]
-  >> qexists `[(Tyapp name tvs, Tyvar «A»)]` >> simp[REV_ASSOCD_def]
+  >> qexists ‘[(Tyapp name tvs, Tyvar «A»)]’ >> simp[REV_ASSOCD_def]
 QED
 
 Theorem typedefn_eq2_well_formed[local]:
@@ -730,8 +723,8 @@ Proof
           type_ok_def, FDOM_FUPDATE, FDOM_FUNION, EVERY_MAP, EVERY_MEM]
   >> rpt (IF_CASES_TAC >> gvs[FDOM_FUNION, FLOOKUP_DEF])
   >> rw[type_ok_FUPDATE_fresh, FDOM_FUNION, type_ok_weakening]
-  >> TRY (qexists `[(Bool, Tyvar «A»)]` >> simp[REV_ASSOCD_def] >> NO_TAC)
-  >> TRY (qexists `[(typeof witness, Tyvar «A»)]` >> simp[REV_ASSOCD_def] >> NO_TAC)
+  >> TRY (qexists ‘[(Bool, Tyvar «A»)]’ >> simp[REV_ASSOCD_def] >> NO_TAC)
+  >> TRY (qexists ‘[(typeof witness, Tyvar «A»)]’ >> simp[REV_ASSOCD_def] >> NO_TAC)
   >> irule term_ok'_ctms_ctys_subset >> first_x_assum $ irule_at Any
   >> rw[ctys_def, ctms_def, FUNION_FUPDATE_1]
   >> rw[SUBMAP_DEF, FDOM_FUPDATE, FAPPLY_FUPDATE_THM, FDOM_FUNION]
@@ -859,19 +852,19 @@ Resume updates'_theory_ok'[TypeDefn]:
       >- simp[Abbr ‘abs_type’, type_ok_def, FLOOKUP_UPDATE,
               EVERY_MAP, LENGTH_MAP, STRING_SORT_def])
   >- (fs[IN_FRANGE_FLOOKUP, DOMSUB_FLOOKUP_THM, FLOOKUP_UPDATE]
-      >> Cases_on `k = rep` >> gvs[]
-      >- (simp[Abbr `rep_ty`, type_ok_def] >> rpt conj_tac
-          >- (`is_std_sig ((tysof' ctxt)⟨name ↦ LENGTH (tvars pred)⟩, tmsof' ctxt)`
+      >> Cases_on ‘k = rep’ >> gvs[]
+      >- (simp[Abbr ‘rep_ty’, type_ok_def] >> rpt conj_tac
+          >- (‘is_std_sig ((tysof' ctxt)⟨name ↦ LENGTH (tvars pred)⟩, tmsof' ctxt)’
                 suffices_by simp[is_std_sig_def]
               >> irule is_std_sig_extend >> first_x_assum $ irule_at Any >> simp[])
-          >- simp[Abbr `abs_type`, type_ok_def, FLOOKUP_UPDATE,
+          >- simp[Abbr ‘abs_type’, type_ok_def, FLOOKUP_UPDATE,
                   EVERY_MAP, LENGTH_MAP, STRING_SORT_def]
-          >> `typeof witness = domain (typeof pred)` by (
+          >> ‘typeof witness = domain (typeof pred)’ by (
             drule proves'_imp_proves >> simp[] >> strip_tac
             >> drule proves_term_ok >> simp[term_ok_def, term_ok_clauses]
             >> rw[] >> imp_res_tac WELLTYPED_LEMMA >> fs[])
-          >> simp[Abbr `rep_type`]
-          >- (`type_ok (tysof' ctxt) (domain (typeof pred))` by metis_tac[]
+          >> simp[Abbr ‘rep_type’]
+          >- (‘type_ok (tysof' ctxt) (domain (typeof pred))’ by metis_tac[]
               >> irule type_ok_FUPDATE_fresh >> simp[] >> metis_tac[])
           >> irule type_ok_FUPDATE_fresh >> simp[] >> metis_tac[])
       >- (irule type_ok_FUPDATE_fresh >> simp[] >> metis_tac[IN_FRANGE_FLOOKUP]))
@@ -1159,20 +1152,20 @@ Theorem drop_thy_extends_init_ctxt:
 Proof
   rw[extends_def, extends'_def]
   >> qsuff_tac
-`∀c1 c2.
+‘∀c1 c2.
    RTC (λc2 c1. ∃upd. c2 = upd::c1 ∧ upd updates' c1) c1 c2 ⇒
    theory_ok' (ethyof c2) ⇒
    theory_ok' (ethyof c1) ∧
    RTC (λc2 c1. ∃upd. c2 = upd::c1 ∧ upd updates c1)
-       (drop_ctxt c1) (drop_ctxt c2)`
+       (drop_ctxt c1) (drop_ctxt c2)’
   >- (disch_then drule >> simp[init_theory_ok']
       >> rw[init_ectxt_def, init_ctxt_def, listTheory.mapPartial_def, drop_upd_def])
   >> ho_match_mp_tac RTC_INDUCT >> rw[]
   >> rpt $ first_x_assum drule >> strip_tac
   >- (drule updates'_theory_ok' >> simp[])
-  >> Cases_on `drop_upd upd` >> gvs[listTheory.mapPartial_def]
+  >> Cases_on ‘drop_upd upd’ >> gvs[listTheory.mapPartial_def]
   >> irule (CONJUNCT2 (SPEC_ALL RTC_RULES))
-  >> qexists_tac `drop_ctxt c1'` >> simp[]
+  >> qexists_tac ‘drop_ctxt c1'’ >> simp[]
   >> irule drop_upd_updates >> first_x_assum $ irule_at Any >> simp[]
 QED
 
@@ -1226,8 +1219,6 @@ Proof
   >> gvs[term_ok_def] >> imp_res_tac type_ok_basic_types >> gvs[]
 QED
 
-(* no_dup_vars: no two free variables share a name with different types.
-   This is a structural property that makes no_var_collapse vacuously true. *)
 Definition no_dup_vars_def:
   no_dup_vars p ⇔
     ∀x ty1 ty2.
@@ -1252,9 +1243,6 @@ Proof
   >> rw[] >> gvs[VFREE_IN_def]
 QED
 
-(* The main induction: track WHY axioms satisfy no_var_collapse.
-   - axs axioms: either no_dup_vars (ConstSpec/TypeDefn) or term_ok in basic sig (NewAxiom)
-   - eaxs axioms: always no_dup_vars (NewEliminableAxiom precondition) *)
 Theorem updates'_axioms_wf:
   ∀upd ctxt.
     upd updates' ctxt ⇒
