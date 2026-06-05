@@ -1336,8 +1336,7 @@ Theorem tymatch_complete:
 Proof
   ho_match_mp_tac tymatch_ind >> rw[tymatch_def]
   >> gvs[LAMBDA_PROD, EXISTS_PROD, PULL_EXISTS]
-  >> Cases_on ‘sids’ >> fs[] >> rpt IF_CASES_TAC
-  >> (TRY case_tac >> gvs[])
+  >> Cases_on ‘sids’ >> fs[] >> rpt IF_CASES_TAC >> gvs[]
   >- (last_x_assum $ qspec_then ‘i’ mp_tac >> simp[] >> metis_tac[])
   >- (last_x_assum $ qspec_then ‘i’ mp_tac >> simp[] >> disch_then irule
       >> simp[REV_ASSOCD] >> metis_tac[])
@@ -3687,7 +3686,7 @@ Proof
   >> rpt strip_tac
   >> Cases_on ‘x = y ∧ ty = ty'’ >> Cases_on ‘x = y' ∧ ty = ty''’
   >> gvs[]
-  >> TRY (imp_res_tac VFREE_IN_tm_names >> gvs[] >> NO_TAC)
+  >> imp_res_tac VFREE_IN_tm_names >> gvs[]
   >> ‘VFREE_IN (Var x' ty') (Abs (Var x ty) body)’ by simp[VFREE_IN_def]
   >> ‘VFREE_IN (Var x' ty'') (Abs (Var x ty) body)’ by simp[VFREE_IN_def]
   >> metis_tac[unique_varnames_def]
@@ -3953,10 +3952,10 @@ Proof
       >> simp[INST_nil]
       >> rw[MEM_MAP]
       >- (irule VSUBST_inverse_ACONV >> simp[] >> metis_tac[])
-      >> TRY (Cases_on ‘y’ >> gvs[SWAP_def]
-              >> first_assum drule >> strip_tac >> gvs[]
-              >> rpt $ first_x_assum drule >> rw[] >> gvs[term_ok_def]
-              >> irule VFREE_IN_VSUBST_UNIQUE_MEM >> rw[] >> metis_tac[])
+      >- (Cases_on ‘y’ >> gvs[SWAP_def]
+          >> first_assum drule >> strip_tac >> gvs[]
+          >> rpt $ first_x_assum drule >> rw[] >> gvs[term_ok_def]
+          >> irule VFREE_IN_VSUBST_UNIQUE_MEM >> rw[] >> metis_tac[])
       >> metis_tac[])
   >> Cases_on ‘h’ >> rw[apply_steps_def, steps_ok_def]
   >- suspend "VStep"
@@ -5716,10 +5715,10 @@ Resume proves_substitutable_aux[MK_COMB]:
           (irule apply_steps_welltyped_Comb >> metis_tac[])
       >> gvs[]
       >> rpt conj_tac
-      >> TRY (irule ACONV_esubst_avds >> metis_tac[apply_steps_term_ok])
-      >> TRY (irule esubst_welltyped >> metis_tac[apply_steps_term_ok])
       >> drw[typeof_esubst] >> simp[apply_steps_term_ok]
-      >> irule ty_esubst_Fun_ex >> metis_tac[])
+      >> drw[ty_esubst_Fun_ex, ACONV_esubst_avds, esubst_welltyped]
+      >> drw[typeof_esubst] >> simp[apply_steps_term_ok]
+      >> metis_tac[apply_steps_term_ok])
   >> dxrule MEM_term_union_imp >> rw[]
   >> ntac 2 (dxrule MEM_term_image_imp >> strip_tac >> gvs[])
   >> irule MEM_term_image_compose_ACONV
