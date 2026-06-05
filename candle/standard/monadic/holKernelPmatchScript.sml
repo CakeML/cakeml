@@ -119,7 +119,8 @@ QED
 val res = fix type_of_def "type_of_def" type_of_PMATCH
 
 Theorem raconv_PMATCH[local]:
-   ^(rhs(concl(SPEC_ALL raconv_def))) =
+  ^(rhs(concl(SPEC_ALL raconv_def))) =
+  if ptr_eq tm1 tm2 ∧ EVERY (λ(x,y). x = y) env then T else
     pmatch (tm1,tm2) of
     | (Var _ _, Var _ _) => alphavars env tm1 tm2
     | (Const _ _, Const _ _) => (tm1 = tm2)

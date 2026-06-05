@@ -1,4 +1,4 @@
-INCLUDES = $(CAKEMLDIR)/misc ../../syntax-lib
+INCLUDES = $(CAKEMLDIR)/misc ../../syntax-lib $(CAKEMLDIR)/translator
 
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all

@@ -168,6 +168,7 @@ val res = translate rev_assocd_def;
 Definition call_type_subst_def[simp]:
   call_type_subst i ty = holKernel$type_subst i ty
 End
+val res = translate holKernelTheory.qmap_def;
 val _ = (next_ml_names := ["type_subst_aux"]);
 val res = translate holKernelTheory.type_subst_def;
 val _ = (next_ml_names := ["type_subst"]);

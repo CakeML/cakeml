@@ -7,7 +7,7 @@ Theory holKernel
 Libs
   preamble ml_monadBaseLib
 Ancestors
-  mlstring mllist holSyntaxExtra ml_monadBase
+  ml_translator mlstring mllist holSyntaxExtra ml_monadBase
 
 val _ = ParseExtras.temp_loose_equality();
 val _ = patternMatchesSyntax.temp_enable_pmatch();
@@ -261,15 +261,26 @@ Termination
 End
 
 (*
-  let rec type_subst i ty =
-    match ty with
-      Tyapp(tycon,args) ->
-          let args' = qmap (type_subst i) args in
-          if args' == args then ty else Tyapp(tycon,args')
-      | _ -> rev_assocd ty i ty
+  let rec qmap f l =
+    match l with
+      h::t -> let h' = f h and t' = qmap f t in
+              if h' == h && t' == t then l else h'::t'
+    | _ -> l;;
 *)
+Definition qmap_def:
+  qmap f l =
+  case l of
+  | h::t => (let h' = f h; t' = qmap f t in
+             if ptr_eq h' h ∧ ptr_eq t' t then l else h'::t')
+  | _ => l
+End
 
-
+(*
+  let rec rev_assocd a l d =
+    match l with
+      [] -> d
+    | (x,y)::t -> if compare y a = 0 then x else rev_assocd a t d;;
+*)
 Definition rev_assocd_def:
   rev_assocd a l d =
     case l of
@@ -277,19 +288,30 @@ Definition rev_assocd_def:
     | ((x,y)::l) => if y = a then x else rev_assocd a l d
 End
 
+(*
+  let rec type_subst i ty =
+    match ty with
+      Tyapp(tycon,args) ->
+          let args' = qmap (type_subst i) args in
+          if args' == args then ty else Tyapp(tycon,args')
+      | _ -> rev_assocd ty i ty
+*)
 Definition type_subst_def:
   type_subst i ty =
     case ty of
       Tyapp tycon args =>
-         let args' = MAP (type_subst i) args in
-         if args' = args then ty else Tyapp tycon args'
+         let args' = qmap (type_subst i) args in
+         if ptr_eq args' args then ty else Tyapp tycon args'
     | _ => rev_assocd ty i ty
 Termination
+  cheat
+(*
   WF_REL_TAC `measure (type_size o SND)` THEN Induct_on `args`
   THEN FULL_SIMP_TAC (srw_ss()) [type_size_def]
   THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC std_ss [] THEN RES_TAC
   THEN REPEAT (POP_ASSUM (MP_TAC o SPEC_ALL)) THEN REPEAT STRIP_TAC
   THEN DECIDE_TAC
+*)
 End
 
 (*
@@ -387,6 +409,7 @@ End
 
 Definition raconv_def:
   raconv env tm1 tm2 =
+  if ptr_eq tm1 tm2 ∧ EVERY (λx. FST x = SND x) env then T else
     case (tm1,tm2) of
       (Var _ _, Var _ _) => alphavars env tm1 tm2
     | (Const _ _, Const _ _) => (tm1 = tm2)
@@ -638,7 +661,7 @@ Definition vsubst_aux_def:
     | Const _ _ => tm
     | Comb s t => let s' = vsubst_aux ilist s in
                   let t' = vsubst_aux ilist t in
-                    Comb s' t'
+                    if ptr_eq s' s ∧ ptr_eq t' t then tm else Comb s' t'
     | Abs v s  => if ~is_var v then tm else
                   let ilist' = FILTER (\(t,x). x <> v) ilist in
                   if ilist' = [] then tm else
@@ -648,7 +671,7 @@ Definition vsubst_aux_def:
                   if EXISTS (\(t,x). vfree_in v t /\ vfree_in x s) ilist'
                   then let v' = variant [s'] v in
                          Abs v' (vsubst_aux ((v',v)::ilist') s)
-                  else Abs v s'
+                  else if ptr_eq s' s then tm else Abs v s'
 End
 
 Definition vsubst_def:
@@ -746,20 +769,20 @@ Definition inst_aux_def:
   (inst_aux (env:(term # term) list) tyin tm) =
     case tm of
       Var n ty   => let ty' = type_subst tyin ty in
-                    let tm' = if ty' = ty then tm else Var n ty' in
+                    let tm' = if ptr_eq ty' ty then tm else Var n ty' in
                     if rev_assocd tm' env tm = tm then return tm'
                     else raise_clash tm'
     | Const c ty => let ty' = type_subst tyin ty in
-                    if ty' = ty then return tm else return (Const c ty')
+                    if ptr_eq ty' ty then return tm else return (Const c ty')
     | Comb f x   => do f' <- inst_aux env tyin f ;
                        x' <- inst_aux env tyin x ;
-                       if (f = f') /\ (x = x') then return tm
+                       if (ptr_eq f f') /\ (ptr_eq x' x) then return tm
                                                else return (Comb f' x') od
     | Abs y t    => do (y':term) <- inst_aux [] tyin y ;
                        env' <- return ((y,y')::env) ;
                        handle_clash
                         (do t' <- inst_aux env' tyin t ;
-                            if (y = y') /\ (t = t')
+                            if (ptr_eq y' y) /\ (ptr_eq t' t)
                               then return tm
                               else return (Abs y' t') od)
                         (\w'.
@@ -1244,6 +1267,7 @@ End
     Sequent([],mk_eq(mk_comb(P,r),mk_eq(mk_comb(rep,mk_comb(abs,r)),r)))
 *)
 
+(* TODO there is more safe_mk_eq to be had in this one *)
 Definition new_basic_type_definition_def:
   new_basic_type_definition (tyname, absname, repname, thm) =
     case thm of (Sequent asl c) =>

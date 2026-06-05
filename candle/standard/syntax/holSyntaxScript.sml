@@ -3,7 +3,7 @@
 *)
 Theory holSyntax
 Ancestors
-  holSyntaxLib mlstring toto
+  ml_translator holSyntaxLib mlstring toto
 Libs
   preamble
 
@@ -156,7 +156,7 @@ End
 
 Definition orda_def:
   orda env t1 t2 =
-    if t1 = t2 ∧ env = [] then EQUAL else
+    if ptr_eq t1 t2 ∧ EVERY (λx. FST x = SND x) env then EQUAL else
       case (t1,t2) of
       | (Var _ _, Var _ _) => ordav env t1 t2
       | (Const _ _, Const _ _) => term_cmp t1 t2
@@ -204,7 +204,7 @@ Definition term_remove_def:
     let c = orda [] t s in
     if c = GREATER then
       let ss' = term_remove t ss in
-      if ss' = ss then l else s::ss'
+      if ptr_eq ss' ss then l else s::ss'
     else if c = EQUAL then ss else l
 End
 
@@ -215,7 +215,7 @@ Definition term_image_def:
   | (h::t) =>
     let h' = f h in
     let t' = term_image f t in
-    if h' = h ∧ t' = t then l
+    if ptr_eq h' h ∧ ptr_eq t' t then l
     else term_union [h'] t'
 End
 
