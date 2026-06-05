@@ -286,7 +286,6 @@ Theorem NVARIANT_esubst_ty0:
 Proof
   rw[]
   >> qspecl_then [‘subst_tm’, ‘n’, ‘avds’] assume_tac NVARIANT_NAMES_THM
-  (*>> first_x_assum $ CONV_TAC CONTRAPOS_CONV*)
   >> ‘¬MEM (NVARIANT n avds subst_tm) (tm_names tm)’ by metis_tac[]
   >> ‘∀tm n ty. ¬MEM n (tm_names tm) ⇒ ¬VFREE_IN (Var n ty) tm’ suffices_by metis_tac[]
   >> rw[]
@@ -905,7 +904,7 @@ Proof
       >> last_x_assum $ qspec_then ‘body1’ assume_tac
       >> gvs[]
       >> metis_tac[FVs_VSUBST_CASES, NVARIANT_esubst_ty0_alt])
-  >- (* this is the slow case *)
+  >-
      (with_flag (Cond_rewr.stack_limit, 0)
                 (gvs[bind_EQ_error, bind_EQ_return, term_ok_def, try_eq_error, AllCaseEqs()])
       >> gvs[DISJ_IMP_THM, term_ok_vsubst_variant]
@@ -4210,9 +4209,6 @@ Proof
   >> (first_x_assum $ irule o iffRL >> first_x_assum $ irule_at Any >> simp[term_ok_VSUBST] >> metis_tac[])
 QED
 
-(* If Var x ty is not free in tm, and x has no other type oty in tm
-   such that ty_esubst σ maps oty to ty_esubst σ ty, then
-   Var x (ty_esubst σ ty) is not free in esubst σ [] tm. *)
 Theorem esubst_not_VFREE_IN:
   esubsts_ok sig σ ∧ term_ok sig tm ∧
   ¬VFREE_IN (Var x ty) tm ∧
@@ -4398,13 +4394,11 @@ Theorem apply_steps_Abs:
 Proof
   Induct >> rw[apply_steps_def]
   >> Cases_on ‘h’ >> rw[apply_steps_def] >> gvs[steps_ok_def]
-  (* VStep case *)
   >- (first_x_assum (qspecl_then [‘n0’, ‘ty0’, ‘abs_bd’] mp_tac) >> simp[]
       >> strip_tac >> gvs[]
       >> simp[VSUBST_def, LET_THM] >> rw[]
       >> irule VSUBST_WELLTYPED >> simp[MEM_FILTER, has_type_var]
       >> rpt strip_tac >> gvs[MEM_FILTER] >> res_tac >> simp[])
-  (* TStep case *)
   >> first_x_assum (qspecl_then [‘n0’, ‘ty0’, ‘abs_bd’] mp_tac) >> simp[]
   >> strip_tac >> gvs[]
   >> ‘welltyped (Abs (Var n2 ty2) bd2)’ by simp[WELLTYPED_CLAUSES]
@@ -4442,12 +4436,10 @@ Proof
        by (rw[Abbr‘l'’, MEM_FILTER] >> res_tac >> gvs[])
   >> ‘welltyped (VSUBST l' bd)’
        by (irule VSUBST_WELLTYPED >> metis_tac[])
-  (* Case split on VSUBST Abs capture condition *)
   >> qpat_x_assum ‘VSUBST l (Abs _ _) = _’ mp_tac
   >> simp[Once VSUBST_def, Abbr‘l'’]
   >> qabbrev_tac ‘l' = FILTER (λ(s',s). s ≠ Var n ty) l’
   >> reverse IF_CASES_TAC >> strip_tac >> gvs[]
-  (* ---- No capture case: n' = n, bd' = VSUBST l' bd ---- *)
   >- (
     ‘welltyped (VSUBST [(v, Var n ty)] bd)’ by (
       irule VSUBST_WELLTYPED >> rw[has_type_rules] >> metis_tac[WELLTYPED])
@@ -4496,7 +4488,6 @@ Proof
         >> ‘¬dbVFREE_IN (dbVar n ty)
                 (db (REV_ASSOCD (Var x'' ty'') l' (Var x'' ty'')))’ by (
              ONCE_REWRITE_TAC[GSYM db_def] >> simp[dbVFREE_IN_VFREE_IN])
-        (* dbVSUBST is identity since dbVar n ty not free *)
         >> ‘dbVSUBST [(dbVSUBST (MAP (λ(x,y). (db x,db y)) l) (db v), dbVar n ty)]
               (db (REV_ASSOCD (Var x'' ty'') l' (Var x'' ty'')))
             = db (REV_ASSOCD (Var x'' ty'') l' (Var x'' ty''))’ by (
@@ -4511,7 +4502,6 @@ Proof
     >- (gvs[MEM_MAP, FORALL_PROD, EXISTS_PROD] >> res_tac)
     >> simp[REV_ASSOCD_FILTER]
     >> gvs[MAP_db_FILTER_neq, REV_ASSOCD_FILTER, Abbr‘l'’])
-  (* ---- Capture case ---- *)
   >> qabbrev_tac ‘z = VARIANT (VSUBST l' bd) (explode n) ty’
   >> ‘¬VFREE_IN (Var z ty) (VSUBST l' bd)’ by simp[Abbr‘z’, VARIANT_THM]
   >> ‘∀k v'. MEM (v',k) ((Var z ty, Var n ty) :: l') ⇒
@@ -4978,12 +4968,9 @@ Resume apply_steps_Abs_alpha[vstep_case]:
   >> first_x_assum $ qspecl_then [‘x’, ‘ty’, ‘t’, ‘z’] mp_tac
   >> simp[] >> strip_tac
   >> qexists_tac ‘ty2’ >> rpt conj_tac
-  (* ACONV *)
   >- suspend "vstep_aconv"
-  (* welltyped *)
   >- (irule VSUBST_WELLTYPED >> simp[]
       >> metis_tac[welltyped_def, term_ok_welltyped])
-  (* unique type *)
   >> rpt strip_tac
   >> rename1 ‘VFREE_IN (Var z tty) (VSUBST ilist _)’
   >> drule_then (qspecl_then [‘z’, ‘tty’, ‘ilist’] mp_tac)
@@ -5034,7 +5021,6 @@ Resume apply_steps_Abs_alpha[tstep_case]:
   >> simp[] >> strip_tac
   >> qexists_tac ‘TYPE_SUBST tyin ty2’ >> rpt conj_tac
   >> qabbrev_tac ‘body = apply_steps stps (VSUBST [(Var z ty,Var x ty)] t)’
-  (* ACONV *)
   >- (
   irule ACONV_TRANS
   >> qexists_tac ‘INST tyin (Abs (Var z ty2) body)’
@@ -5055,9 +5041,7 @@ Resume apply_steps_Abs_alpha[tstep_case]:
   >> disch_then $ qspec_then ‘Var z tyy’ mp_tac
   >> simp[db_def] >> strip_tac
   >> metis_tac[])
-  (* welltyped *)
   >- simp[INST_WELLTYPED]
-  (* unique type *)
   >> rpt strip_tac
   >> ‘welltyped body’ by simp[]
   >> drule INST_dbINST >> disch_then $ qspec_then ‘tyin’ mp_tac
@@ -5144,7 +5128,6 @@ Proof
   >> ‘welltyped l ∧ welltyped r’ by metis_tac[term_ok_welltyped]
   >> ‘term_ok sig (Abs (Var x ty) l) ∧ term_ok sig (Abs (Var x ty) r)’ by
        (simp[term_ok_def] >> metis_tac[theory_ok_sig])
-  (* Pick fresh z avoiding nms and step substitution names *)
   >> qabbrev_tac ‘stpnms = FLAT (MAP (λstep. case step of
        VStep ilist => FLAT (MAP (λ(s',s). tm_names s' ++ tm_names s) ilist)
        | TStep _ => []) stps)’
@@ -5158,7 +5141,6 @@ Proof
        by (qspecl_then [‘Comb (Abs (Var x ty) l) (Abs (Var x ty) r)’,
                         ‘x’, ‘nms ++ stpnms’] mp_tac NVARIANT_MEM
            >> simp[Abbr ‘z’, MEM_APPEND])
-  (* Step freshness: z not in any VStep substitution names *)
   >> ‘EVERY (λstep. case step of
         VStep ilist => EVERY (λ(s',s). ¬MEM z (tm_names s' ++ tm_names s)) ilist
       | TStep _ => T) stps’ by (
@@ -5173,12 +5155,10 @@ Proof
         >> qexists_tac ‘FLAT (MAP (λ(s',s). tm_names s' ++ tm_names s) l')’
         >> simp[]
         >> qexists_tac ‘VStep l'’ >> simp[]))
-  (* apply_steps_Abs_alpha for l and r *)
   >> qspecl_then [‘stps’, ‘x’, ‘ty’, ‘l’, ‘z’] mp_tac apply_steps_Abs_alpha
   >> simp[] >> strip_tac
   >> qspecl_then [‘stps’, ‘x’, ‘ty’, ‘r’, ‘z’] mp_tac apply_steps_Abs_alpha
   >> simp[] >> strip_tac
-  (* Show ty2 = ty2': binder type depends only on stps and ty, not the body *)
   >> ‘ty2 = ty2'’ by (
     ‘∃n2l tyl bdl. apply_steps stps (Abs (Var x ty) l) = Abs (Var n2l tyl) bdl ∧
                     welltyped bdl’
@@ -5203,7 +5183,6 @@ Proof
   >> pop_assum (SUBST_ALL_TAC o GSYM)
   >> qexists_tac ‘ty_esubst σ ty2’
   >> rpt conj_tac
-  (* ACONV for l: ACONV_TRANS with esubst_ACONV + esubst_Abs_alpha *)
   >- (irule ACONV_TRANS
       >> qexists_tac ‘esubst σ avds (Abs (Var z ty2)
            (apply_steps stps (VSUBST [(Var z ty, Var x ty)] l)))’
@@ -5223,7 +5202,6 @@ Proof
           >> blast_term_validation)
       >> irule apply_steps_term_ok >> simp[]
       >> blast_term_validation)
-  (* ACONV for r *)
   >- (irule ACONV_TRANS
       >> qexists_tac ‘esubst σ avds (Abs (Var z ty2)
            (apply_steps stps (VSUBST [(Var z ty, Var x ty)] r)))’
