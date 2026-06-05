@@ -3338,6 +3338,7 @@ val MAP_pattern = get_term "map pat"
 val FILTER_pattern = get_term "filter pat"
 val EVERY_pattern = get_term "every pat"
 val EXISTS_pattern = get_term "exists pat"
+val ptr_eq_pattern = ptr_eq_def |> SPEC_ALL |> concl |> dest_eq |> fst
 val is_precond = is_PRECONDITION
 
 local
@@ -3592,6 +3593,14 @@ fun hol2deep tm =
     val th2 = hol2deep x2
     val result = MATCH_MP Eval_Equality (CONJ th1 th2) |> UNDISCH
     in check_inv "equal" tm result end else
+  (* pointer equality (emits the PtrEq primitive) *)
+  if can (match_term ptr_eq_pattern) tm then let
+    val x1 = tm |> rator |> rand
+    val x2 = tm |> rand
+    val th1 = hol2deep x1
+    val th2 = hol2deep x2
+    val result = MATCH_MP Eval_PtrEq (CONJ th1 th2) |> UNDISCH
+    in check_inv "ptr_eq" tm result end else
   (* and, or *)
   if is_conj tm then let
     val (x1,x2) = dest_conj tm

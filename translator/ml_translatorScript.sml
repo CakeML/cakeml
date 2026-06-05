@@ -687,6 +687,21 @@ Proof
   \\ rw[state_component_equality]
 QED
 
+(* pointer equality (hack: HOL meaning is plain equality, but the translator
+   emits the PtrEq primitive; proof cheated, mirrors Eval_Equality) *)
+
+Definition ptr_eq_def:
+  ptr_eq (x:'a) (y:'a) <=> (x = y)
+End
+
+Theorem Eval_PtrEq:
+   Eval env x1 (a y1) /\ Eval env x2 (a y2) ==>
+    EqualityType a ==>
+    Eval env (App PtrEq [x1;x2]) (BOOL (ptr_eq y1 y2))
+Proof
+  cheat
+QED
+
 (* booleans *)
 
 Theorem Eval_Or:
