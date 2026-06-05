@@ -138,7 +138,7 @@ Definition compile_decs_alt_def:
           | _ => (n, next, <| v := nsEmpty; c := nsEmpty |>, envs, []))
      | NONE =>
          let n' = n + 4 in
-         let xs = REVERSE (pat_bindings p []) in
+         let xs = REVERSE (pat_bindings p) in
          let e' = compile_exp (xs++t) env e in
          let l = LENGTH xs in
          let n'' = n' + l in
@@ -542,7 +542,7 @@ Definition compile_exp_alt_def:
   (compile_match_alt cfg [] = (0, F, [])) /\
   (compile_match_alt cfg ((p, x)::ps) =
     let (i, sgx, y) = compile_exp_alt cfg x in
-    let j = max_dec_name (pat_bindings p []) in
+    let j = max_dec_name (pat_bindings p) in
     let (k, sgp, ps2) = compile_match_alt cfg ps in
     (MAX i (MAX j k), sgx \/ sgp, ((p, y) :: ps2)))
 End

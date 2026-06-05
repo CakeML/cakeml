@@ -12,7 +12,6 @@ Ancestors
   flatSem mlstring
 
 val build_rec_env_merge = flatPropsTheory.build_rec_env_merge;
-val pat_bindings_accum = flatPropsTheory.pat_bindings_accum;
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
@@ -433,7 +432,7 @@ Theorem compile_pat_bindings_simulation:
   j < i /\
   ALOOKUP_rel ((\k. k < j) o dec_name_to_num) (=) env.v
     (pre_bindings ++ base_vs) /\
-  EVERY (\(p, k, _). EVERY (\nm. dec_name_to_num nm < j) (pat_bindings p []) /\
+  EVERY (\(p, k, _). EVERY (\nm. dec_name_to_num nm < j) (pat_bindings p) /\
         j < k /\ k < i) n_bindings
   ==>
   ?env2. evaluate env2 s [exp] = (s2, res) /\
@@ -569,9 +568,7 @@ Proof
     \\ fs [dec_enc]
   )
   >- (
-    gs [pat_bindings_def]
-    \\ qpat_x_assum ‘EVERY _ (pat_bindings _ [_])’ mp_tac
-    \\ rw [Once flatPropsTheory.pat_bindings_accum]
+    gs [pat_bindings_def, EVERY_APPEND]
     \\ gvs [CaseEq "match_result"]
     \\ rpt (pairarg_tac \\ gvs [])
     \\ qpat_x_assum `!env. _ ==> pure_eval_to _ _ x _` mp_tac
@@ -1436,7 +1433,7 @@ Theorem compile_match_EL:
   ?exp_i sg exp'.
   compile_exp cfg exp = (exp_i, sg, exp') /\
   EL i pats2 = (pat, exp') /\
-  exp_i <= k /\ max_dec_name (pat_bindings pat []) <= k
+  exp_i <= k /\ max_dec_name (pat_bindings pat) <= k
 Proof
   Induct
   \\ simp [FORALL_PROD, compile_exp_def]
@@ -1459,7 +1456,7 @@ Theorem evaluate_compile_pat_rhs:
   nv_rel M l_bindings bindings /\
   f env3.v = (enc_num_to_name N, v) :: env2.v /\
   N <= M /\
-  max_dec_name (pat_bindings p []) < N - 1
+  max_dec_name (pat_bindings p) < N - 1
   ==>
   ?ext_env.
   evaluate ext_env s [exp] = (t, res) /\

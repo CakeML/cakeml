@@ -3414,7 +3414,7 @@ End
 Definition good_cons_env_def:
   good_cons_env ps env <=>
     EVERY (\ (name,vars,x,t).
-      ALL_DISTINCT (pats_bindings (MAP Pvar vars) []) /\
+      ALL_DISTINCT (pats_bindings (MAP Pvar vars)) /\
       lookup_cons name env = SOME (LENGTH vars, t)) ps /\
     let (name,vars,x,t1) = HD ps in
       EVERY (\ (name,vars,x,t2). same_type t1 t2) ps
@@ -3476,7 +3476,7 @@ Theorem IMP_Eval_Mat_cases:
       Eval env exp (a r1) /\
       (case y of
        | INL (vars,exp) =>
-                   (ALL_DISTINCT (pats_bindings (MAP Pvar vars) []) /\
+                   (ALL_DISTINCT (pats_bindings (MAP Pvar vars)) /\
                     (!v. a r1 v ==>
                          ?name vals t.
                            v = Conv NONE vals /\

@@ -825,7 +825,7 @@ Definition evaluate_def:
         | Match_type_error => (s, Rerr (Rabort Rtype_error))
         | No_match => (s, Rerr (Rraise v))
         | Match (env', p', e') =>
-           if ALL_DISTINCT (pat_bindings p' [])
+           if ALL_DISTINCT (pat_bindings p')
            then evaluate (env with v := env' ++ env.v) s [e']
            else (s, Rerr (Rabort Rtype_error)))
    | res => res) ∧
@@ -895,7 +895,7 @@ Definition evaluate_def:
         | Match_type_error => (s, Rerr (Rabort Rtype_error))
         | No_match => (s, Rerr (Rraise bind_exn_v))
         | Match (env', p', e') =>
-           if ALL_DISTINCT (pat_bindings p' [])
+           if ALL_DISTINCT (pat_bindings p')
            then evaluate (env with v := env' ++ env.v) s [e']
            else (s, Rerr (Rabort Rtype_error)))
    | res => res) ∧

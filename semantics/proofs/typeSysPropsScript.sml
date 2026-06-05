@@ -114,7 +114,7 @@ Definition type_pes_def:
   type_pes tvs tvs' tenv tenvE pes t1 t2 ⇔
     (∀(p,e)::set pes.
       ∃bindings.
-        ALL_DISTINCT (pat_bindings p []) ∧
+        ALL_DISTINCT (pat_bindings p) ∧
         type_p tvs tenv p t1 bindings ∧
         type_e tenv (bind_var_list tvs' bindings tenvE) e t2)
 End
@@ -122,7 +122,7 @@ End
 Theorem type_pes_cons:
    !tvs tvs' tenv tenvE p e pes t1 t2.
     type_pes tvs tvs' tenv tenvE ((p,e)::pes) t1 t2 ⇔
-    (ALL_DISTINCT (pat_bindings p []) ∧
+    (ALL_DISTINCT (pat_bindings p) ∧
      (?bindings.
          type_p tvs tenv p t1 bindings ∧
          type_e tenv (bind_var_list tvs' bindings tenvE) e t2) ∧
@@ -3076,15 +3076,14 @@ QED
 Theorem type_p_closed[local]:
   (∀tvs tcenv p t tenv.
        type_p tvs tcenv p t tenv ⇒
-       pat_bindings p [] = MAP FST tenv) ∧
+       pat_bindings p = MAP FST tenv) ∧
     (∀tvs cenv ps ts tenv.
       type_ps tvs cenv ps ts tenv ⇒
-      pats_bindings ps [] = MAP FST tenv)
+      pats_bindings ps = MAP FST tenv)
 Proof
   ho_match_mp_tac type_p_ind >>
-  simp[astTheory.pat_bindings_def] >>
-  srw_tac[][] >> full_simp_tac(srw_ss())[SUBSET_DEF] >>
-  srw_tac[][Once pat_bindings_accum]
+  srw_tac[][astTheory.pat_bindings_def] >>
+  full_simp_tac(srw_ss())[]
 QED
 
 Theorem type_funs_dom[local]:

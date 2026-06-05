@@ -940,7 +940,6 @@ Proof
       (imp_res_tac infer_e_next_id_const>>
       imp_res_tac infer_p_next_id_const>>
       imp_res_tac infer_p_bindings>>
-      pop_assum(qspec_then`[]` mp_tac)>>
       fs[init_infer_state_def]>>metis_tac[]))
   >- ( (* Let mono *)
     rw [infer_d_def, success_eqns,init_state_def] >>
@@ -956,7 +955,6 @@ Proof
     simp[success_eqns]>>
     pairarg_tac >> fs[success_eqns]>>
     imp_res_tac infer_p_bindings>>
-    pop_assum(qspec_then`[]` assume_tac)>>
     fs[]>>
     imp_res_tac type_pe_determ_canon_infer_e>>
     qmatch_asmsub_abbrev_tac`generalise_list 0 0 FEMPTY ls`>>
