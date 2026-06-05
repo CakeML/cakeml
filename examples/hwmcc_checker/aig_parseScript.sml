@@ -10,7 +10,6 @@ Libs
 val _ = monadsyntax.enable_monadsyntax();
 val _ = monadsyntax.enable_monad "error";
 
-(* TODO Rewrite parsing to be over mlstrings *)
 (* TODO Add intervention default *)
 
 (* Types **********************************************************************)
