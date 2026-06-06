@@ -17,6 +17,8 @@ val _ = add_preferred_thy "-";
 
 val r = translate fromSexpTheory.listsexp_def;
 
+val r = translate fromSexpTheory.SXNUM_def;
+
 val r = translate (fromSexpTheory.locnsexp_def |> SIMP_RULE list_ss []);
 val r = translate fromSexpTheory.locssexp_def;
 
@@ -92,15 +94,6 @@ val r = translate fromSexpTheory.SEXSTR_def;
 
 val r = translate fromSexpTheory.litsexp_def;
 
-Theorem litsexp_side_thm[local]:
-  ∀v. litsexp_side v ⇔ T
-Proof
-  PURE_ONCE_REWRITE_TAC[fetch "-" "litsexp_side_def"] >> rw[]
-  >> intLib.COOPER_TAC
-QED
-
-val _ = litsexp_side_thm |> update_precondition;
-
 val r = translate fromSexpTheory.optsexp_def;
 val r = translate fromSexpTheory.idsexp_def;
 val r = translate fromSexpTheory.typesexp_def;
@@ -126,7 +119,7 @@ val r = translate dafny_compilerTheory.main_function_def;
 
 (* Sanity checks + Finalizing *)
 
-val _ = type_of "main_function" = ":mlsexp$sexp -> mlstring"
+val _ = type_of “main_function” = “:mlsexp$sexp -> mlstring”
         orelse failwith "The main_function has the wrong type.";
 
 val _ = r |> hyp |> null orelse
@@ -144,7 +137,7 @@ val prog =
   |> ml_progLib.get_thm
   |> REWRITE_RULE [ml_progTheory.ML_code_def]
   |> concl |> rator |> rator |> rand
-  |> (fn tm => "^tm ++ ^main")
+  |> (fn tm => “^tm ++ ^main”)
   |> EVAL |> concl |> rand;
 
 Definition dafny_compiler_prog_def:
