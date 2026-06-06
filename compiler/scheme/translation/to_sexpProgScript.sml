@@ -18,6 +18,7 @@ val r = translate ASCIInumbersTheory.n2s_def;
 val r = translate ASCIInumbersTheory.HEX_def;
 val r = translate ASCIInumbersTheory.num_to_dec_string_def;
 val r = translate fromSexpTheory.listsexp_def;
+val r = translate fromSexpTheory.SXNUM_def;
 val r = translate fromSexpTheory.locnsexp_def;
 val r = translate fromSexpTheory.locssexp_def;
 val r = translate stringTheory.isPrint_def;
