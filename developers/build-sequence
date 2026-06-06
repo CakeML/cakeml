@@ -91,6 +91,7 @@ candle/set-theory
 candle/syntax-lib
 candle/standard
 candle/standard/syntax
+candle/standard/syntax/little_theories
 candle/standard/semantics
 candle/standard/monadic
 candle/standard/ml_kernel

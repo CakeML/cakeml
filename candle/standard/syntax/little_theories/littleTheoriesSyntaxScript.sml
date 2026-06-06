@@ -12,6 +12,21 @@ Libs
 val _ = monadsyntax.enable_monadsyntax();
 val _ = monadsyntax.enable_monad("error");
 
+
+(*
+
+ In this theory we describe an extended Candle kernel that allows abstract theorems to be
+ written about parameterised types (e.g., a type M that obeys a certain set of axioms),
+ then interpreted under a concrete theory after showing it respects those axioms.
+
+ This file defines this extended theory type, and an extended Candle kernel through
+ the proves' relation (a copy of the proves relation + 3 new inference rules).
+ We also define the new substitution functions enabling the interpretation
+ of the abstract components of a theory under concrete terms/types.
+
+*)
+
+
 (* A theory is a signature together with a set of axioms. It is well-formed if
    the types of the constants are all ok, the axioms are all ok terms of type
    bool, and the signature is standard. *)
@@ -68,11 +83,10 @@ End
 val _ = Parse.add_infix("|-'",450,Parse.NONASSOC)
 
 (* ty_esubst maps a type to its subtituted counterpart.
-   eliminable names can only occur in Tyapps, so we recursively
-   map the substitution over types.
-   in the SOME case, we need to be "polymorphically aware",
-   i.e.,  *)
-(* FST σ ↦ (tyvars of subst_out * subst_in) *)
+   we recursively map the substitution over types.
+   in the SOME case, we ensure polymorphic substitutions are
+   applied correctly:
+   e.g., ty_esubst ('a M |-> 'a list) (num M) = num list *)
 Definition ty_esubst_def:
   (ty_esubst _ (Tyvar n) = Tyvar n) ∧
   (ty_esubst σ (Tyapp n ts) =
@@ -168,6 +182,8 @@ Definition esubst_ty_def:
   | error e => ARB (* see esubst_ty0_always_returns *)
 End
 
+(* substitute eliminable consts, correcting any type variables that appear
+   to fit where they appear in the same way as ty_esubst *)
 Definition esubst_tm_def:
   esubst_tm σ (Var n ty) = Var n ty ∧
   esubst_tm σ (Abs v t) = Abs v (esubst_tm σ t) ∧
