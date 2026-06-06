@@ -227,8 +227,8 @@ End
 
 Definition parse_sexp_input_def:
   parse_sexp_input input =
-      case mlsexp$fromString (implode input) of
     let err = «Parsing of sexp syntax failed» in
+      case mlsexp$fromString (implode input) of
       | NONE => INL err
       | SOME x => case sexplist sexpdec x of
                   | NONE => INL err
