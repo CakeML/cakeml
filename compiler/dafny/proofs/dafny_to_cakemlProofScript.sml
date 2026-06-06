@@ -2672,12 +2672,13 @@ Proof
 QED
 
 Theorem ALL_DISTINCT_pats_bindings[local]:
-  ∀xs ys.
-    ALL_DISTINCT (xs ++ ys) ⇒
-    ALL_DISTINCT (pats_bindings (MAP Pvar xs) ys)
+  ∀xs.
+    ALL_DISTINCT xs ⇒
+    ALL_DISTINCT (pats_bindings (MAP Pvar xs))
 Proof
-  Induct_on ‘xs’ \\ gvs [pat_bindings_def]
-  \\ rpt strip_tac \\ gvs [ALL_DISTINCT_APPEND]
+  ‘∀xs. pats_bindings (MAP Pvar xs) = REVERSE xs’ by
+    (Induct \\ gvs [pat_bindings_def])
+  \\ gvs [ALL_DISTINCT_REVERSE]
 QED
 
 Theorem state_rel_pop_env_while[local]:
