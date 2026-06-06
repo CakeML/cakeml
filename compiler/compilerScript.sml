@@ -269,8 +269,8 @@ Definition compile_def:
                                          inf_env_to_types_string ic ++
                                          [«\n»]))), Nil)
           else if c.only_print_sexp then
-            (Failure (TypeError (implode
-               ("\n" ++ print_sexp (listsexp (MAP decsexp full_prog))))),Nil)
+            (Failure (TypeError («\n» ^
+               mlsexp$sexp_to_string (listsexp (MAP decsexp full_prog)))),Nil)
           else
           case backend_passes$compile_tap c.asm_config c.backend_config full_prog of
           | (NONE, td) => (Failure AssembleError, td)
