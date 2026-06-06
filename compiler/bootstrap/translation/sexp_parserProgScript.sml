@@ -33,41 +33,6 @@ val r = fromSexpTheory.sexplist_def
 
 val r = translate fromSexpTheory.dstrip_sexp_def
 
-
-(* TODO: move (used?) *)
-Theorem isHexDigit_cases:
-   isHexDigit c ⇔
-   isDigit c ∨
-   c ∈ {#"a";#"b";#"c";#"d";#"e";#"f"} ∨
-   c ∈ {#"A";#"B";#"C";#"D";#"E";#"F"}
-Proof
-  rw[isHexDigit_def,isDigit_def]
-  \\ EQ_TAC \\ strip_tac \\ simp[]
-  >- (
-    `ORD c = 97 ∨
-     ORD c = 98 ∨
-     ORD c = 99 ∨
-     ORD c = 100 ∨
-     ORD c = 101 ∨
-     ORD c = 102` by decide_tac \\
-    pop_assum(assume_tac o Q.AP_TERM`CHR`) \\ fs[CHR_ORD] )
-  >- (
-    `ORD c = 65 ∨
-     ORD c = 66 ∨
-     ORD c = 67 ∨
-     ORD c = 68 ∨
-     ORD c = 69 ∨
-     ORD c = 70` by decide_tac \\
-    pop_assum(assume_tac o Q.AP_TERM`CHR`) \\ fs[CHR_ORD] )
-QED
-
-Theorem isHexDigit_UNHEX_LESS:
-   isHexDigit c ⇒ UNHEX c < 16
-Proof
-  rw[isHexDigit_cases] \\ EVAL_TAC \\
-  fs[isDigit_def, ASCIInumbersTheory.UNHEX_def]
-QED
-
 Theorem num_from_hex_string_alt_length_2:
    num_from_hex_string_alt [d1;d2] < 256
 Proof
@@ -110,6 +75,8 @@ Theorem lemma2[local]:
 Proof
   rw[num_from_hex_string_alt_intro]
 QED
+
+val r = translate stringTheory.isPrint_def;
 
 val _ = add_preferred_thy "-";
 
@@ -167,6 +134,7 @@ val r = translate (fromSexpTheory.odestSEXSTR_def
                    |> REWRITE_RULE [decode_control_eq]);
 val r = translate fromSexpTheory.odestSXSYM_def;
 val r = translate fromSexpTheory.odestSXNUM_def;
+val r = translate fromSexpTheory.odestSXINT_def;
 
 val r = fromSexpTheory.sexpid_def
         |> SIMP_RULE std_ss [OPTION_BIND_THM,monad_unitbind_assert]
@@ -231,6 +199,8 @@ val sexpdec_alt_side = Q.prove(
   |> update_precondition;
 
 val _ = translate fromSexpTheory.listsexp_def;
+
+val _ = translate fromSexpTheory.SXNUM_def;
 
 val _ = translate (locnsexp_def |> SIMP_RULE list_ss []);
 
@@ -302,10 +272,6 @@ val r = translate fromSexpTheory.encode_control_def
 val _ = translate SEXSTR_def;
 
 val _ = translate litsexp_def;
-
-val litsexp_side_thm = Q.prove(`!v. litsexp_side v <=> T`,
-  PURE_ONCE_REWRITE_TAC[fetch "-" "litsexp_side_def"] >> rw[] >>
-  intLib.COOPER_TAC) |> update_precondition
 
 val _ = translate optsexp_def;
 val _ = translate idsexp_def;
