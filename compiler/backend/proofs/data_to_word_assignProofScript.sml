@@ -2235,59 +2235,6 @@ Proof
   \\ disch_then imp_res_tac
 QED
 
-Theorem do_app_preserves_locals:
-  do_app op x s = Rval (q,r) ==> r.locals = s.locals
-Proof
-  strip_tac \\ drule do_app_locals
-  \\ disch_then (qspec_then `s.locals` mp_tac)
-  \\ `s with locals := s.locals = s` by
-       simp [dataSemTheory.state_component_equality]
-  \\ simp [] \\ strip_tac \\ gvs [dataSemTheory.state_component_equality]
-QED
-
-Theorem cut_state_opt_IMP_stack_max:
-  dataSem$cut_state_opt names_opt s = SOME x ==> x.stack_max = s.stack_max
-Proof
-  fs [dataSemTheory.cut_state_opt_def,dataSemTheory.cut_state_def]
-  \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
-QED
-
-Theorem cut_state_opt_IMP_safe_for_space:
-  dataSem$cut_state_opt names_opt s = SOME x ==> x.safe_for_space = s.safe_for_space
-Proof
-  fs [dataSemTheory.cut_state_opt_def,dataSemTheory.cut_state_def]
-  \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
-QED
-
-(* Two-stage cut + do_space updates compose into a single record-update equation
-   on s2_cut. Reusable for any op with `op_requires_names = T`: the resulting
-   s2_cut differs from s only in locals (set to env_narrow) and in the four
-   do_space-updated fields (space/safe_for_space/stack_max/peak_heap_length). *)
-Theorem s2_cut_two_cuts_eq:
-  !(s:('c,'ffi) dataSem$state) wide_names ns env_narrow s_wide s2_cut SM SF PH SP.
-    dataSem$cut_env ns s.locals = SOME env_narrow /\
-    cut_state_opt (SOME wide_names) s = SOME s_wide /\
-    cut_state_opt (SOME ns)
-      (s_wide with <|stack_max := SM; space := SP; safe_for_space := SF;
-                     peak_heap_length := PH|>) = SOME s2_cut /\
-    domain ns SUBSET domain wide_names ==>
-    s2_cut = s with <|locals := env_narrow; stack_max := SM; space := SP;
-                      safe_for_space := SF; peak_heap_length := PH|>
-Proof
-  rpt strip_tac
-  \\ imp_res_tac cut_state_opt_SOME_eq
-  \\ gvs []
-  \\ qpat_x_assum ‘cut_env ns s.locals = SOME env_narrow’ mp_tac
-  \\ simp [dataSemTheory.cut_env_def, AllCaseEqs()]
-  \\ rw []
-  \\ simp [dataSemTheory.state_component_equality]
-  \\ simp [spt_eq_thm, wf_inter, sptreeTheory.wf_mk_wf, lookup_inter,
-           sptreeTheory.lookup_mk_wf, sptreeTheory.lookup_insert]
-  \\ rw [] \\ rpt (CASE_TAC \\ rw [])
-  \\ fs [pred_setTheory.SUBSET_DEF, sptreeTheory.domain_lookup]
-  \\ metis_tac [optionTheory.option_CLAUSES]
-QED
-
 (* cut_env is idempotent: cutting the same names twice gives the same result. *)
 Theorem cut_env_idempotent:
   dataSem$cut_env ns s_locals = SOME env ==>
@@ -2371,29 +2318,6 @@ Proof
          EVAL ``read_bytearray (a:'a word) 0 m``, ffiTheory.call_FFI_def,
          EVAL ``write_bytearray (a:'a word) [] m dm b``,
          data_to_word_gcProofTheory.cut_env_adjust_sets_insert_ODD]
-QED
-
-(* Conversion from old-style assign_thm (with s2) to new-style (with s2_cut).
-   Used by all cheated proofs where op_requires_names op = T. *)
-Theorem assign_s2_to_s2_cut:
-  cut_state_opt (SOME kept) s2 = SOME s2_cut ==>
-  (q = SOME NotEnoughSpace ==>
-   rffi = tffi /\ option_le rsm s2.stack_max /\
-   (P ==> ~s2.safe_for_space)) ==>
-  (q <> SOME NotEnoughSpace ==>
-   state_rel c l1 l2 (set_var dest v s2) r [] locs /\ q = NONE) ==>
-  (q = SOME NotEnoughSpace ==>
-   rffi = tffi /\ option_le rsm s2_cut.stack_max /\
-   (P ==> ~s2_cut.safe_for_space)) /\
-  (q <> SOME NotEnoughSpace ==>
-   state_rel c l1 l2 (set_var dest v s2_cut) r [] locs /\ q = NONE)
-Proof
-  rpt strip_tac \\ gvs []
-  >- (imp_res_tac cut_state_opt_IMP_stack_max \\ gvs [])
-  >- (imp_res_tac cut_state_opt_IMP_safe_for_space \\ gvs [])
-  \\ irule state_rel_cut_state_opt_set_var
-  \\ qexists_tac `kept` \\ gvs []
-  \\ qexists_tac `s2` \\ gvs []
 QED
 
 (* size_of_heap monotonicity helpers (for two-stage-cut assign proofs).
@@ -6440,48 +6364,6 @@ Proof
   every_case_tac >> fs [] >> rveq >> fs []
 QED
 
-(* Bridge lemma: the wide-cut state s_wide dominates the narrow-cut state
-   (s with locals := env_narrow) in size_of_heap. Used by assign_ConfigGC's
-   CallFFI/NES discharge to lift the alloc_lemma bound from the narrow cut
-   to the wide-cut state. *)
-Theorem configGC_size_of_heap_LE_narrow_wide[local]:
-  ∀ns s s_wide env_narrow k1 k2 (i1:int) (i2:int).
-    dataSem$cut_env ns s.locals = SOME env_narrow ∧
-    dataSem$cut_state_opt
-        (SOME (sptree$insert k2 () (sptree$insert k1 () ns))) s = SOME s_wide ∧
-    sptree$lookup k1 s_wide.locals = SOME (Number i1) ∧
-    sptree$lookup k2 s_wide.locals = SOME (Number i2) ⇒
-    size_of_heap
-      (data_to_word_gcProof$cut_locals ns (s with locals := env_narrow)) ≤
-    size_of_heap s_wide
-Proof
-  rpt strip_tac
-  >> ‘s_wide = s with locals := s_wide.locals’ by
-       (qpat_x_assum ‘cut_state_opt _ s = SOME s_wide’ mp_tac
-        >> simp [dataSemTheory.cut_state_opt_def,
-                 dataSemTheory.cut_state_def, AllCaseEqs()]
-        >> rw [] >> fs [dataSemTheory.state_component_equality])
-  >> qpat_x_assum ‘s_wide = _’ SUBST1_TAC
-  >> qspecl_then [‘ns’,‘s’,‘s_wide’,‘k1’,‘k2’,‘i1’,‘i2’,‘s’] mp_tac
-       configGC_size_of_heap_LE
-  >> impl_tac >- asm_rewrite_tac []
-  >> qpat_x_assum ‘dataSem$cut_env ns s.locals = SOME _’ mp_tac
-  >> simp [dataSemTheory.cut_env_def, AllCaseEqs(),
-           data_to_word_gcProofTheory.cut_locals_def]
-  >> strip_tac >> strip_tac
-  >> gvs [data_to_word_gcProofTheory.cut_locals_def,
-          dataSemTheory.cut_env_def,
-          sptreeTheory.domain_inter,
-          sptreeTheory.domain_mk_wf,
-          pred_setTheory.SUBSET_INTER]
-  >> ‘inter (inter s.locals ns) ns = inter s.locals ns’ by
-       (simp [sptreeTheory.spt_eq_thm, sptreeTheory.wf_inter,
-              sptreeTheory.lookup_inter]
-        >> rw [] >> rpt (CASE_TAC >> rw []))
-  >> pop_assum (rewrite_tac o single)
-  >> first_assum ACCEPT_TAC
-QED
-
 (* Prepending values to the size_of root list never shrinks the heap count.
    Basis for the args-aware do_space bridge (replaces the two-stage size_of
    narrow/wide reconciliation helpers). *)
@@ -7788,55 +7670,6 @@ Proof
   Cases_on `m` >> rw[the_eqn]
 QED
 
-(* Bridge: for any Number-arg op whose helper Alloc cut envs preserve the two
-   args (immediates contributing 0 to size_of_heap), the NARROW state (post-pop
-   from the inner Call) has size_of_heap ≤ the WIDE state (pre-Call cut by
-   list_insert [k1;k2] x'). Used to discharge the NES_heapLim arm of every
-   Number-arg assign_<op>. Reuses configGC_size_of_heap_LE for the underlying
-   Number-deletion monotonicity. *)
-Theorem size_of_heap_NARROW_LE_WIDE_NumberArgs[local]:
-  ∀(s:('a,'b)dataSem$state) s1 s_pop env x' k1 k2 i1 i2.
-    s1 = s with locals := inter s.locals (sptree$list_insert [k1; k2] x') ∧
-    domain (sptree$list_insert [k1; k2] x') ⊆ domain s.locals ∧
-    sptree$lookup k1 s1.locals = SOME (Number i1) ∧
-    sptree$lookup k2 s1.locals = SOME (Number i2) ∧
-    dataSem$cut_env x' s1.locals = SOME env ∧
-    s_pop.locals = env ∧ s_pop.refs = s.refs ∧ s_pop.limits = s.limits ∧
-    s_pop.stack = s.stack ∧ s_pop.global = s.global ⇒
-    size_of_heap s_pop ≤ size_of_heap s1
-Proof
-  rpt strip_tac
-  \\ ‘cut_state_opt (SOME (insert k2 () (insert k1 () x'))) s = SOME s1’ by
-       (fs [sptreeTheory.list_insert_def]
-        \\ simp [dataSemTheory.cut_state_opt_def, dataSemTheory.cut_state_def,
-                 dataSemTheory.cut_env_def, sptreeTheory.wf_inter,
-                 sptreeTheory.wf_mk_id])
-  \\ qspecl_then [‘x'’,‘s’,‘s1’,‘k1’,‘k2’,‘i1’,‘i2’,‘s’] mp_tac
-       configGC_size_of_heap_LE
-  \\ impl_tac
-  >- (asm_rewrite_tac []
-      \\ qpat_x_assum ‘lookup k1 s1.locals = _’ mp_tac
-      \\ qpat_x_assum ‘lookup k2 s1.locals = _’ mp_tac
-      \\ simp [])
-  \\ strip_tac
-  \\ ‘env = mk_wf (inter s.locals x')’ by
-       (qpat_x_assum ‘cut_env x' s1.locals = SOME env’ mp_tac
-        \\ ‘s1.locals = inter s.locals (insert k2 () (insert k1 () x'))’ by
-             fs [sptreeTheory.list_insert_def]
-        \\ pop_assum (rewrite_tac o single)
-        \\ simp [dataSemTheory.cut_env_def, AllCaseEqs()]
-        \\ strip_tac \\ rveq
-        \\ simp [sptreeTheory.spt_eq_thm, sptreeTheory.wf_inter,
-                 sptreeTheory.lookup_inter, sptreeTheory.lookup_insert]
-        \\ rw [] \\ every_case_tac \\ fs [])
-  \\ ‘size_of_heap s_pop =
-        size_of_heap (s with locals := mk_wf (inter s.locals x'))’ by
-       simp [dataSemTheory.size_of_heap_def, dataSemTheory.stack_to_vs_def]
-  \\ ‘size_of_heap (s with locals := s1.locals) = size_of_heap s1’ by
-       simp [dataSemTheory.size_of_heap_def, dataSemTheory.stack_to_vs_def]
-  \\ metis_tac []
-QED
-
 (* Helper: do_app on RefByte gives a precise equation s' = s with <known-update>
    (args-aware single-cut form). Used to bridge s2_inner field equalities in
    assign_RefByte's Success arm. *)
@@ -7880,18 +7713,6 @@ Proof
         dataSemTheory.lim_safe_def, dataLangTheory.op_space_reset_def,
         dataSemTheory.allowed_op_def, dataSemTheory.consume_space_def,
         dataSemTheory.check_lim_def, AllCaseEqs()]
-QED
-
-(* Helper for option_le bound discharge in assign_RefByte (and similar ops):
-   adding more to the RHS preserves option_le, with the new term going inside
-   a nested OPTION_MAP2 $+. *)
-Theorem option_le_add_inner[local]:
-  !x:num option a b c. option_le x (OPTION_MAP2 $+ a b) ==>
-                       option_le x (OPTION_MAP2 $+ a (OPTION_MAP2 $+ b c))
-Proof
-  rpt strip_tac
-  \\ Cases_on `x` \\ Cases_on `a` \\ Cases_on `b` \\ Cases_on `c`
-  \\ fs [backendPropsTheory.option_le_def, OPTION_MAP2_DEF]
 QED
 
 (* Helper: lift inner-with on a dec_clock'd state to outer-with on call_env/push_env.
