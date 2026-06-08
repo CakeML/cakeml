@@ -750,13 +750,6 @@ QED
 
 fun note_tac s g = (print ("compile_correct: " ^ s ^ "\n"); ALL_TAC g);
 
-Theorem existsnot[simp]:
-  $? $~
-Proof
-  simp[boolTheory.EXISTS_DEF] >>
-  metis_tac[]
-QED
-
 Theorem compile_correct:
   ∀xs env s1 res s2 t1 n corr tail live.
      evaluate (xs,env,s1) = (res,s2) ∧

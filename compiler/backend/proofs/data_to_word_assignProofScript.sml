@@ -3572,8 +3572,7 @@ Proof
   \\ qpat_x_assum ‘lookup _ kept_names ≠ _’ mp_tac
   \\ rpt (pop_assum kall_tac)
   \\ simp [domain_lookup, EXTENSION, IN_INTER]
-  \\ metis_tac [oneTheory.one]
-       )
+  \\ metis_tac [oneTheory.one])
     >- (
   once_rewrite_tac [wordSemTheory.evaluate_def]
   \\ simp [wordSemTheory.get_var_def,wordSemTheory.get_var_imm_def,
@@ -3695,8 +3694,7 @@ Proof
   \\ qpat_x_assum ‘lookup _ kept_names ≠ _’ mp_tac
   \\ rpt (pop_assum kall_tac)
   \\ simp [domain_lookup, EXTENSION, IN_INTER]
-  \\ metis_tac [oneTheory.one]
-       ))
+  \\ metis_tac [oneTheory.one]))
   >-
    (‘memory_rel c t.be (THE s.tstamps) s.refs s.space t.store t.memory t.mdomain
        ((RefPtr src_b src,Word wa1)::(RefPtr dst_b dst,Word wa2)::
@@ -3827,8 +3825,7 @@ Proof
   \\ qpat_x_assum ‘lookup _ kept_names ≠ _’ mp_tac
   \\ rpt (pop_assum kall_tac)
   \\ simp [domain_lookup, EXTENSION, IN_INTER]
-  \\ metis_tac [oneTheory.one]
-       )
+  \\ metis_tac [oneTheory.one])
     >- (
   once_rewrite_tac [wordSemTheory.evaluate_def]
   \\ simp [wordSemTheory.get_var_def,wordSemTheory.get_var_imm_def,
@@ -3950,8 +3947,7 @@ Proof
   \\ qpat_x_assum ‘lookup _ kept_names ≠ _’ mp_tac
   \\ rpt (pop_assum kall_tac)
   \\ simp [domain_lookup, EXTENSION, IN_INTER]
-  \\ metis_tac [oneTheory.one]
-       ))
+  \\ metis_tac [oneTheory.one]))
 QED
 
 Theorem evaluate_StringCmpLoop:
@@ -16057,20 +16053,6 @@ Proof
   \\ fs [markerTheory.Abbrev_def]
   \\ imp_res_tac get_vars_IMP_LENGTH \\ gvs [])))
 QED
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 Theorem assign_Cons:
    (?tag. op = BlockOp (Cons tag)) ==> ^assign_thm_goal
