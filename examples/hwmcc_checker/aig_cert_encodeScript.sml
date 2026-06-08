@@ -735,6 +735,114 @@ Definition encode_is_next_def:
                iext_lit (right_lit (Base (Latch l), F)))) latches)
 End
 
+(* Encoding lives_imply *******************************************************)
+
+(* If the liveness properties are "well-formed", that is, we assume that
+   corresponding liveness properties in the model and the witness have the
+   same number of signals, lives_imply is the same as signal_imply on the
+   flattened liveness properties (i.e., all signals at once). *)
+
+Theorem LIST_REL_LENGTH_FLAT[local]:
+  ∀xss yss.
+    LIST_REL (λxs ys. LENGTH xs = LENGTH ys) xss yss ⇒
+      LENGTH (FLAT xss) = LENGTH (FLAT yss)
+Proof
+  Induct >> Cases_on ‘yss’
+  >> rpt strip_tac >> gvs []
+  >> first_x_assum drule >> simp []
+QED
+
+Theorem LIST_REL_FLAT[local]:
+  ∀xss yss.
+    LIST_REL (LIST_REL R) xss yss ⇔
+      LIST_REL R (FLAT xss) (FLAT yss) ∧
+      LIST_REL (λxs ys. LENGTH xs = LENGTH ys) xss yss
+Proof
+  Induct >> Cases_on ‘yss’ >> rw []
+  >> rename1 ‘LIST_REL _ (_ ++ FLAT xss) (_ ++ FLAT yss)’
+  >> eq_tac >> rw []
+  >- (rev_drule $ iffLR LIST_REL_APPEND >> disch_then drule >> gvs [])
+  >- imp_res_tac LIST_REL_LENGTH
+  >> drule $ iffRL LIST_REL_APPEND
+  >> drule LIST_REL_LENGTH_FLAT >> simp []
+QED
+
+Theorem lives_imply_signal_imply_FLAT:
+  ∀wlive mlive.
+    lives_imply ss₀ ss₁ wqcirc mqcirc wlive mlive =
+    (signal_imply ss₀ wqcirc ss₁ mqcirc (FLAT wlive) (FLAT mlive) ∧
+     LIST_REL (λQ Q'. LENGTH Q = LENGTH Q') wlive mlive)
+Proof
+  simp [lives_imply_def, signal_imply_def]
+  >> qmatch_goalsub_abbrev_tac ‘LIST_REL (λQ Q'. LIST_REL R Q Q')’
+  >> ‘(λQ Q'. LIST_REL R Q Q') = LIST_REL R’ by simp [FUN_EQ_THM]
+  >> simp [LIST_REL_FLAT]
+QED
+
+Definition encode_signal_imply_aux_def:
+  (encode_signal_imply_aux
+     (circ: (('a + 'b) iext, 'i + 'j, 'l + 'm) circuit)
+     (signal::rest : ('a, 'i, 'l) lit list)
+     (signal'::rest': ('b, 'j, 'm) lit list)
+     (outs: num list)
+     (next: num)
+   : ((('a + 'b) iext, 'i + 'j, 'l + 'm) circuit # num list)
+   =
+   let
+     circ =
+       (Anon (next + 1), [(Name (Anon next), T)])
+       ::(Anon next, [
+             iext_lit (left_lit signal);
+             iext_lit (right_lit (not signal'))
+           ])
+       ::circ;
+     outs = (next + 1)::outs;
+     next = next + 2;
+   in
+     encode_signal_imply_aux circ rest rest' outs next) ∧
+  (encode_signal_imply_aux circ _ _ outs _ = (circ, outs))
+End
+
+(* Implements pointwise implication across separate namespaces. *)
+Definition encode_signal_imply_def:
+  encode_signal_imply
+    (circ: (('a + 'b) iext, 'i + 'j, 'l + 'm) circuit)
+    (name: mlstring)
+    (signals : ('a, 'i, 'l) lit list)
+    (signals': ('b, 'j, 'm) lit list)
+  : ((('a + 'b) iext, 'i + 'j, 'l + 'm) circuit)
+  =
+  let
+    (circ, outs) = encode_signal_imply_aux circ signals signals' [] 0n;
+  in
+    ((Named (Ext name), MAP (λn. Name (Anon n), F) outs)::circ)
+End
+
+(*
+Theorem eval_circuit_encode_imply:
+  eval_circuit ss (encode_signal_imply circ name signals signals') (Named n) =
+  if n = Ext name then
+    signal_imply ss circ ss' circ' signals signals'
+  else eval_circuit ss circ (Named n)
+Proof
+QED
+*)
+
+(* Encoding lives_hold ********************************************************)
+
+Definition lives_hold_def:
+  lives_hold
+    (circ: ('a iext, 'i, 'l) circuit)
+    (name: mlstring)
+    (live: ('a, 'i, 'l) lit list list)
+  : ('a iext, 'i, 'l) circuit
+  =
+  let ns = GENLIST Anon (LENGTH live) in
+    (Named (Ext name), MAP (λn. (Name n, T)) ns)
+    :: ZIP (ns, MAP (MAP (iext_lit ∘ not)) live)
+    ++ circ
+End
+
 (* Encoding certificate conditions ********************************************)
 
 Definition encode_is_witness_reset_def:
@@ -866,6 +974,9 @@ Definition encode_is_witness_step_def:
       encode_imply circ «step» T lhss rhss
 End
 
+Definition encode_is_witness_liveness_def:
+  encode_is_witness_liveness = ARB
+End
 (* Proving correctness of the encodings ***************************************)
 
 (* A bunch of trivial helper lemmas, which keep the proof state readable
