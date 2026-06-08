@@ -3,14 +3,14 @@
 *)
 Theory scheme_compiler
 Ancestors
-  fromSexp simpleSexpParse scheme_ast scheme_parsing
+  fromSexp scheme_ast scheme_parsing
   scheme_to_cake
 Libs
   preamble
 
 Definition cake_prog_to_string_def:
   cake_prog_to_string ast =
-    print_sexp (listsexp (MAP decsexp ast))
+    sexp_to_string (listsexp (MAP decsexp ast))
 End
 
 Definition cake_for_err_def:
@@ -37,5 +37,5 @@ EVAL “compile "(print hi)"”
 *)
 
 Definition main_function_def:
-  main_function s = implode (compile (explode s))
+  main_function s = compile (explode s)
 End
