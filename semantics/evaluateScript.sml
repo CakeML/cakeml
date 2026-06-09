@@ -191,7 +191,7 @@ Definition evaluate_def[nocompute]:
   evaluate_match st env v [] err_v = (st,Rerr (Rraise err_v))
   ∧
   evaluate_match st env v ((p,e)::pes) err_v =
-    (if ALL_DISTINCT (pat_bindings p []) then
+    (if ALL_DISTINCT (pat_bindings p) then
        case pmatch env.c st.refs p v [] of
          No_match => evaluate_match st env v pes err_v
        | Match_type_error => (st,Rerr (Rabort Rtype_error))
@@ -209,7 +209,7 @@ Definition evaluate_def[nocompute]:
      | (st1,Rerr v7) => (st1,Rerr v7))
   ∧
   evaluate_decs st env [Dlet locs p e] =
-    (if ALL_DISTINCT (pat_bindings p []) ∧
+    (if ALL_DISTINCT (pat_bindings p) ∧
         every_exp (one_con_check env.c) e
      then
        case evaluate st env [e] of

@@ -2,6 +2,8 @@ Changes since release v3304:
 
 ## Source language and front‑end
 
+`pat_bindings` and `pats_bindings` no longer take an accumulator argument (progress on #662).
+
 ## Basis library
 
 `TextIO.inputAllFrom` has been added to the basis library. The CF theorem for `TextIO.inputAll` has been corrected (#1375, #1366).

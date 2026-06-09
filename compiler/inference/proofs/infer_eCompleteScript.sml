@@ -1506,7 +1506,7 @@ Theorem infer_pes_complete[local]:
   env_rel_complete s' ienv tenv tenvE ∧
   (∀x::set pes.
     ∃bindings.
-      ALL_DISTINCT (pat_bindings (FST x) []) ∧
+      ALL_DISTINCT (pat_bindings (FST x)) ∧
       type_p (num_tvs tenvE) tenv (FST x) t1 bindings ∧
       type_e tenv (bind_var_list 0 bindings tenvE) (SND x) t2 ∧
       ∀l s'' ienv' st'' constraints''.
@@ -1545,8 +1545,7 @@ Proof
     (fst (CONJ_PAIR infer_p_complete))>>rfs[]>>
   fs[ienv_ok_def,env_rel_complete_def]>>
   pop_assum(qspecl_then [`l`, `s'`,`ienv`,`st'`,`constraints'`] assume_tac)>>rfs[]>>
-  imp_res_tac infer_p_bindings>>
-  pop_assum(qspec_then `[]` assume_tac)>>fs[]>>
+  imp_res_tac infer_p_bindings>>fs[]>>
   qpat_abbrev_tac`ls = [(t1',t')]`>>
   `check_t (num_tvs tenvE) {} (t_walkstar s'' t')` by
     (`t_wfs s''` by metis_tac[sub_completion_wfs,infer_p_wfs]>>
