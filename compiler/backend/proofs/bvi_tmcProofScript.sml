@@ -586,8 +586,6 @@ Proof
   >> gvs []
 QED
 
-
-(* Keep this one *)
 Theorem do_app_op_rel:
   ∀f op vs vs' s s' t v.
     do_app op vs s = Rval (v,t) ∧
@@ -1754,6 +1752,35 @@ Proof
   >> gvs []
 QED
 
+Theorem fresh_ptr_fresh:
+  ∀refs.
+    (LEAST ptr. ptr ∉ FDOM refs) ∉ FDOM refs
+Proof
+  rw []
+  >> numLib.LEAST_ELIM_TAC
+  >> conj_tac
+  >-
+   (cheat (* qexists max FDOM refs? *))
+  >> rw []
+QED
+
+Theorem fresh_not_in_range_f:
+  ∀f s_refs t_refs.
+    state_ref_rel f s_refs t_refs ⇒
+    (LEAST ptr. ptr ∉ FDOM t_refs) ∉ FRANGE f
+Proof
+  rw []
+  >> spose_not_then assume_tac
+  >> qspec_then ‘t_refs’ mp_tac fresh_ptr_fresh
+  >> strip_tac
+  >> gvs [state_ref_rel_def, FRANGE_DEF]
+  >> Cases_on ‘FLOOKUP s_refs x’
+  >- gvs [FLOOKUP_DEF]
+  >> first_x_assum drule
+  >> strip_tac
+  >> gvs [FLOOKUP_DEF]
+QED
+
 Theorem evaluate_cb:
   ∀cb bs loc loc_opt exp wrap work arity f opt env env2 ^s s' t t' r r'.
     evaluate ([cb_to_bvi loc cb],env,s) = (r,t) ∧
@@ -2013,9 +2040,11 @@ Proof
      (conj_tac
       >-
        (irule state_ref_rel_filled
-        >> cheat)
+        >> gvs [state_rel_def]
+        >> imp_res_tac fresh_not_in_range_f)
       >> gvs [alloc_hole_has_val_def, FLOOKUP_SIMP]
-      >> cheat)
+      >> gvs [state_rel_def]
+      >> imp_res_tac fresh_not_in_range_f)
     >> strip_tac
     >> gvs []
     >> imp_res_tac evaluate_SING_IMP
