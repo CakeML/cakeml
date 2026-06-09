@@ -124,7 +124,7 @@ Definition canonicalMoveRegs_def:
     let ys = MAP (λ(a,b). (a, canonicalRegs data b)) xs in
     let to_c = map_insert ys data.to_canonical in
     let zs = MAP (λ(a,b). (b,a)) ys in
-    let to_l = map_insert ys data.to_latest in
+    let to_l = map_insert zs data.to_latest in
       data with <| to_canonical := to_c ; to_latest := to_l |>
   else empty_data
 End
@@ -132,8 +132,8 @@ End
 Definition canonicalArith_def:
   canonicalArith data (Binop op r1 r2 r3) =
     Binop op r1 (canonicalRegs' r1 data r2) (canonicalImmReg' r1 data r3) ∧
-  canonicalArith data (Shift s r1 r2 n) =
-    Shift s r1 (canonicalRegs' r1 data r2) n ∧
+  canonicalArith data (Shift s r1 r2 ri) =
+    Shift s r1 (canonicalRegs' r1 data r2) (canonicalImmReg' r1 data ri) ∧
   canonicalArith data (Div r1 r2 r3) =
     Div r1 (canonicalRegs data r2) (canonicalRegs data r3) ∧
   canonicalArith data (LongMul r1 r2 r3 r4) =
@@ -213,7 +213,7 @@ Definition arithToNumList_def:
   arithToNumList (Binop op r1 r2 ri) = [25; arithOpToNum op; r2+100] ++ regImmToNumList ri ∧
   arithToNumList (LongMul r1 r2 r3 r4) = [26; r3+100; r4+100] ∧
   arithToNumList (LongDiv r1 r2 r3 r4 r5) = [27; r3+100; r4+100; r5+100] ∧
-  arithToNumList (Shift s r1 r2 n) = [28; shiftToNum s; r2+100; n] ∧
+  arithToNumList (Shift s r1 r2 ri) = [28; shiftToNum s; r2+100] ++ regImmToNumList ri ∧
   arithToNumList (Div r1 r2 r3) = [29; r2+100; r3+100] ∧
   arithToNumList (AddCarry r1 r2 r3 r4) = [30; r2+100; r3+100] ∧
   arithToNumList (AddOverflow r1 r2 r3 r4) = [31; r2+100; r3+100] ∧
@@ -223,10 +223,12 @@ End
 Definition memOpToNum_def:
   memOpToNum Load = (21:num) ∧
   memOpToNum Load8 = 22 ∧
+  memOpToNum Load16 = 46 ∧
   memOpToNum Load32 = 44 ∧
   memOpToNum Store = 23 ∧
-  memOpToNum Store8 = 24 ∧
-  memOpToNum Store34 = 45
+  memOpToNum Store8 = 47 ∧
+  memOpToNum Store16 = 24 ∧
+  memOpToNum Store32 = 45
 End
 
 Definition fpToNumList_def:
@@ -324,7 +326,7 @@ Definition can_mem_arith_def:
   can_mem_arith (Binop _ _ r1 (Reg r2)) = (ODD r1 ∧ ODD r2) ∧
   can_mem_arith (Binop _ _ r1 (Imm _)) = ODD r1 ∧
   can_mem_arith (Div _ r1 r2) = (ODD r1 ∧ ODD r2) ∧
-  can_mem_arith (Shift _ _ r _) = ODD r ∧
+  can_mem_arith (Shift _ _ r (Imm _)) = ODD r ∧
   can_mem_arith _ = F
 End
 
@@ -400,7 +402,9 @@ Definition word_cse_def:
                                 to_canonical := insert r r data.to_canonical;
                                 to_latest := insert r r data.to_latest|>,
                    Get r x)
-      | SOME k => (data with <| to_latest := insert k r data.to_latest |>,
+      | SOME k => if EVEN r then (data, Move 1 [(r,lookup_any k data.to_latest k)]) else
+                  (data with <| to_canonical := insert r k data.to_canonical;
+                                to_latest := insert k r data.to_latest |>,
                    Move 1 [(r,lookup_any k data.to_latest k)])) ∧
   (word_cse data (Set x e) =
     if x = CurrHeap then
@@ -418,10 +422,7 @@ Definition word_cse_def:
             let (data', p') = word_cse data p in
                 (data', MustTerminate p')) ∧
   (word_cse data (Call ret dest args handler) =
-            case ret of
-            | NONE => (empty_data, Call ret dest args handler)
-            | SOME (ret_reg, cut_set, p, l1, k) =>
-                      (empty_data with all_names:=inter data.all_names cut_set, Call ret dest args handler)) ∧
+            (empty_data, Call ret dest args handler)) ∧
   (word_cse data (Seq p1 p2) =
     let (data1, p1') = word_cse data p1 in
     let (data2, p2') = word_cse data1 p2 in
@@ -443,7 +444,20 @@ Definition word_cse_def:
   (word_cse data (Raise r) = (data, Raise r)) ∧
   (word_cse data (Return r1 r2) = (data, Return r1 r2)) ∧
   (word_cse data (Tick) = (data, Tick)) ∧
-  (word_cse data other = (empty_data, other))
+  (word_cse data (Alloc r m) = (empty_data, Alloc r m)) ∧
+  (word_cse data (Install p l dp dl m) = (empty_data, Install p l dp dl m)) ∧
+  (word_cse data (CodeBufferWrite r1 r2) = (empty_data, CodeBufferWrite r1 r2)) ∧
+  (word_cse data (DataBufferWrite r1 r2) = (empty_data, DataBufferWrite r1 r2)) ∧
+  (word_cse data (FFI s p1 l1 p2 l2 m) = (empty_data, FFI s p1 l1 p2 l2 m)) ∧
+  (word_cse data (StoreConsts r1 r2 r3 r4 payload) =
+     (empty_data, StoreConsts r1 r2 r3 r4 payload)) ∧
+  (word_cse data (ShareInst op r exp) = (empty_data, ShareInst op r exp)) ∧
+  (* Conservative: optimise the loop body from empty state. *)
+  (word_cse data (Loop names c exit_names) =
+     let (_, c') = word_cse empty_data c in
+       (empty_data, Loop names c' exit_names)) ∧
+  (word_cse data (Break k) = (data, Break k)) ∧
+  (word_cse data (Continue k) = (data, Continue k))
 End
 
 Definition word_common_subexp_elim_def:
@@ -502,15 +516,15 @@ QED
 
 Triviality test_pattern_match_and_cons:
   word_common_subexp_elim $
-    Seqs [Inst (Arith (Shift Lsr 301 297 9));
+    Seqs [Inst (Arith (Shift Lsr 301 297 (Imm 9w)));
           OpCurrHeap Add 305 301;
           Inst (Mem Load 309 (Addr 305 8w));
           Move 0 [(313,297)];
-          Inst (Arith (Shift Lsr 317 313 9));
+          Inst (Arith (Shift Lsr 317 313 (Imm 9w)));
           OpCurrHeap Add 321 317;
           Inst (Mem Load 325 (Addr 321 16w));
           Move 0 [(329,313)];
-          Inst (Arith (Shift Lsr 333 329 9));
+          Inst (Arith (Shift Lsr 333 329 (Imm 9w)));
           OpCurrHeap Add 337 333;
           Inst (Mem Load 341 (Addr 337 24w));
           Get 345 NextFree;
@@ -523,7 +537,7 @@ Triviality test_pattern_match_and_cons:
           Inst (Mem Store 341 (Addr 361 16w));
           Move 0 [(365,361)];
           OpCurrHeap Sub 369 365;
-          Inst (Arith (Shift Lsl 373 369 9));
+          Inst (Arith (Shift Lsl 373 369 (Imm 9w)));
           Inst (Arith (Binop Or 377 373 (Imm 5w)));
           Move 0 [(381,365)];
           Inst (Arith (Binop Add 385 381 (Imm 24w)));
@@ -538,14 +552,14 @@ Triviality test_pattern_match_and_cons:
           Inst (Mem Store 377 (Addr 405 16w));
           Move 0 [(409,405)];
           OpCurrHeap Sub 413 409;
-          Inst (Arith (Shift Lsl 417 413 9));
+          Inst (Arith (Shift Lsl 417 413 (Imm 9w)));
           Inst (Arith (Binop Or 421 417 (Imm 5w)));
           Move 0 [(425,409)];
           Inst (Arith (Binop Add 429 425 (Imm 24w)));
           Set NextFree (Var 429);
-          Move 0 [(2,421)]; Return 273 2]
+          Move 0 [(2,421)]; Return 273 [2]]
   =
-    Seqs [Inst (Arith (Shift Lsr 301 297 9));
+    Seqs [Inst (Arith (Shift Lsr 301 297 (Imm 9w)));
           OpCurrHeap Add 305 301;
           Inst (Mem Load 309 (Addr 305 8w));
           Move 0 [(313,297)];
@@ -566,7 +580,7 @@ Triviality test_pattern_match_and_cons:
           Inst (Mem Store 341 (Addr 361 16w));
           Move 0 [(365,361)];
           OpCurrHeap Sub 369 365;
-          Inst (Arith (Shift Lsl 373 369 9));
+          Inst (Arith (Shift Lsl 373 369 (Imm 9w)));
           Inst (Arith (Binop Or 377 373 (Imm 5w)));
           Move 0 [(381,365)];
           Inst (Arith (Binop Add 385 381 (Imm 24w)));
@@ -581,13 +595,13 @@ Triviality test_pattern_match_and_cons:
           Inst (Mem Store 377 (Addr 405 16w));
           Move 0 [(409,405)];
           OpCurrHeap Sub 413 409;
-          Inst (Arith (Shift Lsl 417 413 9));
+          Inst (Arith (Shift Lsl 417 413 (Imm 9w)));
           Inst (Arith (Binop Or 421 417 (Imm 5w)));
           Move 0 [(425,409)];
           Inst (Arith (Binop Add 429 425 (Imm 24w)));
           Set NextFree (Var 429);
           Move 0 [(2,421)];
-          Return 273 2]
+          Return 273 [2]]
 Proof
   EVAL_TAC
 QED
