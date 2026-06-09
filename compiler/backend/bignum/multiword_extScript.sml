@@ -92,6 +92,12 @@ Proof
   Induct >> simp []
 QED
 
+Theorem MAP_OR_T:
+  ∀xs. MAP ($\/ T) xs = REPLICATE (LENGTH xs) T
+Proof
+  Induct >> simp []
+QED
+
 Theorem MAP_LAMBDA_F:
   MAP (λx. F) xs = REPLICATE (LENGTH xs) F
 Proof
@@ -291,19 +297,6 @@ Proof
   >- (metis_tac [K_DEF, MAP_K_REPLICATE, REPLICATE])
   >> rpt (pairarg_tac >> gvs [])
 QED
-
-(*
-Theorem bitwise_or_F_F:
-  ∀xs ys q x y.
-    bits_bitwise $\/ (xs,F) (ys,F) = (q,F) ⇒
-    q =
-    MAP2 $\/ xs ys ++
-    if LENGTH xs ≤ LENGTH ys then DROP (LENGTH xs) ys
-    else DROP (LENGTH ys) xs
-Proof
-  cheat
-QED
-*)
 
 Theorem bits_bitwise_TAKE_DROP:
   ∀f xs b₁ ys b₂ zs b₃ n.
@@ -694,6 +687,30 @@ Proof
   >> simp []
 QED
 
+Theorem bits_bitwise_or_and_not:
+  bits_bitwise $\/ (xs,xb) (MAP $¬ ys,yb) = (zs,zb) ⇔
+    bits_bitwise $/\ (MAP $¬ xs, ¬xb) (ys, ¬yb) = (MAP $¬ zs, ¬zb)
+Proof
+  simp [Once bits_bitwise_MAP_NOT, SimpLHS]
+  >> simp [MAP_NOT_NOT]
+  >> ‘(λa b. a ∧ b) = $/\’ by simp [FUN_EQ_THM]
+  >> simp []
+QED
+
+Theorem bits_bitwise_or_not_w2n:
+  ∀xs ys zs.
+    bits_bitwise $\/ (ys,F) (MAP $¬ xs,T) = (zs,T) ∧ LENGTH xs ≤ dimindex (:α)
+    ⇒
+    w2n (¬-n2w (SUC (num_of_bits xs)) :α word && -n2w (SUC (num_of_bits ys))) =
+    num_of_bits (MAP $¬ zs)
+Proof
+  rpt gen_tac
+  >> rewrite_tac [neg_n2w_SUC, WORD_NOT_NOT, n2w_and_not_BITWISE]
+  >> simp [bits_bitwise_or_and_not, dimword_def, BITWISE_LT_2EXP]
+  >> strip_tac
+  >> drule bits_bitwise_and_not_BITWISE >> simp []
+QED
+
 Theorem bits_bitwise_or_w2n:
   ∀xs ys zs.
     bits_bitwise $\/ (xs,F) (ys,F) = (zs,F) ∧
@@ -870,6 +887,12 @@ Proof
   >> gvs [single_add_def, b2w_def, b2n_def]
   >> ‘w2n y < dimword (:α)’ by simp [w2n_lt]
   >> last_x_assum $ drule_then assume_tac >> gvs[]
+QED
+
+Theorem mw2n_REPLICATE_0:
+  ∀n. mw2n (REPLICATE n 0w) = 0
+Proof
+  Induct >> simp [mw2n_def]
 QED
 
 (* mw_{bits_of_int,int_of_bits} ***********************************************)
@@ -1456,18 +1479,17 @@ Theorem mwi_and_neg_pos:
   (i < 0) ∧ ¬(j < 0) ⇒ mwi_and (i2mw i) (i2mw j) = i2mw (int_and i j)
 Proof
   rpt strip_tac
-  >> simp [i2mw_def, Once mwi_and_def, mw_and_flip_def, Req0 int_and_sign, INT_ABS]
+  >> simp [i2mw_def, Once mwi_and_def, Req0 int_and_sign, INT_ABS]
   >> rw []
   >> irule mw_fix_lemma
   >> simp [int_and_def, int_bitwise_def]
   >> simp [bits_of_int_def, int_not_def]
   >> Cases_on ‘i’ >> gvs []
   >> qmatch_goalsub_abbrev_tac ‘int_of_bits bs’
-  >> Cases_on ‘bs’ >> gvs [oneline int_of_bits_def, bits_of_int_def]
+  >> Cases_on ‘bs’ >> gvs [oneline int_of_bits_def]
   >> drule_then assume_tac bits_bitwise_rest >> gvs []
   >> rewrite_tac [n2mw_eq_b2mw]
-  >> simp [mw_bits_of_int_b2mw]
-  >> fs [mw_bits_of_int_b2mw] >> simp []
+  >> simp [Req0 mw_bits_of_int_b2mw]
   >-
    (irule mw2n_mw_and_keep_not >> simp []
     >> simp [GSYM n2mw_eq_b2mw]
@@ -1530,10 +1552,10 @@ Proof
   >> Cases_on ‘i’ >> gvs []
   >> Cases_on ‘j’ >> gvs []
   >> qmatch_goalsub_abbrev_tac ‘int_of_bits bs’
-  >> Cases_on ‘bs’ >> gvs [oneline int_of_bits_def, bits_of_int_def]
+  >> Cases_on ‘bs’ >> gvs [int_of_bits_def]
   >> drule_then assume_tac bits_bitwise_rest >> gvs []
   >> rewrite_tac [n2mw_eq_b2mw]
-  >> simp [mw_bits_of_int_b2mw,int_not_def,integerTheory.int_calculate,
+  >> simp [mw_bits_of_int_b2mw,int_not_def,int_calculate,
            mw2n_mw_int_of_bits]
   >> irule mw2n_mw_and_keep_not_not
   >> fs [GSYM n2mw_eq_b2mw, LENGTH_mw_bits_of_int, bits_bitwise_and_sym]
@@ -1622,13 +1644,21 @@ Proof
   >> TRY (EVAL_TAC >> NO_TAC)
 QED
 
-(* Proving mwi_or and int_or equivalence **************************************)
+(** mw_or helper lemmas ******************************************************)
 
 Theorem mw_or_keep_nil_left:
   mw_or_keep [] xs = xs
 Proof
   Induct_on ‘xs’ >> simp [mw_or_keep_def]
 QED
+
+Theorem mw_or_ones_nil_left:
+  mw_or_ones [] xs = REPLICATE (LENGTH xs) (-1w)
+Proof
+  Induct_on ‘xs’ >> simp [mw_or_ones_def]
+QED
+
+(* Proving mwi_or and int_or equivalence **************************************)
 
 Theorem mw2n_mw_or_keep:
   ∀xs ys zs.
@@ -1677,10 +1707,91 @@ Proof
   >> gvs [n2mw_eq_b2mw, bits_bitwise_or_sym]
 QED
 
+Theorem mw2n_mw_or_keep_not:
+  ∀l ys xs zs.
+    bits_bitwise $\/ (xs, F) (MAP $¬ ys, T) = (zs, T) ∧
+    LENGTH (b2mw xs: α word list) ≤ l ∧ LENGTH (b2mw ys: α word list) ≤ l
+    ⇒
+    mw2n (MAP $¬ (mw_or_keep (b2mw xs) (MAP $¬ ((b2mw' l ys): α word list)))) =
+    num_of_bits (MAP $¬ zs)
+Proof
+  recInduct b2mw'_ind >> rw []
+  >> Cases_on ‘k = 0’ >> gvs []
+  >- fs [b2mw_eq_nil, b2mw'_0, mw_or_keep_def, mw2n_def, num_of_bits_def]
+  >> once_rewrite_tac [b2mw_def, b2mw'_def] >> simp []
+  >> IF_CASES_TAC >> gvs []
+  >> simp [mw_or_keep_def, mw2n_def]
+  >-
+   (rewrite_tac [neg_n2w_SUC, WORD_NOT_NOT, mw2n_def] >> simp []
+    >> simp [mw_or_keep_nil_left, MAP_OR_F, MAP_NOT_NOT,
+             MAP_word1_comp_word1_comp]
+    >> DEP_REWRITE_TAC [mw2n_b2mw']
+    >> simp [num_of_bits_TAKE_dimindex_lt, num_of_bits_TAKE_DROP_dimindex]
+    >> fs [LENGTH_b2mw, SUB_CEILING_DIV])
+  >> drule $ iffLR bits_bitwise_TAKE_DROP
+  >> disch_then $ qspec_then ‘dimindex (:α)’ assume_tac
+  >> fs [GSYM MAP_DROP] >> first_x_assum drule
+  >> impl_tac >- fs [LENGTH_b2mw, SUB_CEILING_DIV]
+  >> strip_tac >> simp []
+  >> fs [GSYM MAP_TAKE]
+  >> qspec_then ‘TAKE (dimindex (:α)) xs’ mp_tac bits_bitwise_or_not_w2n
+  >> disch_then drule
+  >> impl_tac >- simp [LENGTH_TAKE_EQ]
+  >> strip_tac >> simp []
+  >> simp [MAP_TAKE, MAP_DROP, num_of_bits_TAKE_DROP_dimindex]
+QED
+
+Theorem mw2n_mw_or_ones_not:
+  ∀l xs ys zs.
+    bits_bitwise $\/ (MAP $¬ xs, T) (ys, F) = (zs, T) ∧
+    LENGTH (b2mw xs: α word list) ≤ l ∧ l ≤ LENGTH (b2mw ys: α word list)
+    ⇒
+    mw2n (MAP $¬ (mw_or_ones (MAP $¬ ((b2mw' l xs): α word list)) (b2mw ys))) =
+    num_of_bits (MAP $¬ zs)
+Proof
+  recInduct b2mw'_ind >> rw []
+  >> Cases_on ‘k = 0’ >> gvs []
+  >- gvs [b2mw_eq_nil, b2mw'_0, MAP_OR_T, mw_or_ones_nil_left,
+          num_of_bits_REPLICATE_F, mw2n_REPLICATE_0]
+  >> once_rewrite_tac [b2mw_def, b2mw'_def] >> simp []
+  >> IF_CASES_TAC >> gvs []
+  >> simp [mw2n_def, mw_or_ones_def]
+  >> drule $ iffLR bits_bitwise_TAKE_DROP
+  >> disch_then $ qspec_then ‘dimindex (:α)’ assume_tac
+  >> fs [GSYM MAP_DROP] >> first_x_assum drule
+  >> impl_tac >- fs [LENGTH_b2mw, SUB_CEILING_DIV]
+  >> strip_tac >> simp []
+  >> fs [bits_bitwise_or_sym, GSYM MAP_TAKE]
+  >> qspec_then ‘TAKE (dimindex (:α)) xs’ mp_tac bits_bitwise_or_not_w2n
+  >> disch_then drule
+  >> impl_tac >- simp [LENGTH_TAKE_EQ]
+  >> strip_tac >> simp []
+  >> simp [MAP_TAKE, MAP_DROP, num_of_bits_TAKE_DROP_dimindex]
+QED
+
 Theorem mwi_or_neg_pos:
   (i < 0) ∧ ¬(j < 0) ⇒ mwi_or (i2mw i) (i2mw j) = i2mw (int_or i j)
 Proof
-  cheat
+  rpt strip_tac
+  >> simp [i2mw_def, Once mwi_or_def, Req0 int_or_sign, INT_ABS]
+  >> rw []
+  >> irule mw_fix_lemma
+  >> simp [int_or_def, int_bitwise_def, bits_of_int_def, int_not_def]
+  >> Cases_on ‘i’ >> gvs []
+  >> qmatch_goalsub_abbrev_tac ‘int_of_bits bs’
+  >> Cases_on ‘bs’ >> gvs [int_of_bits_def]
+  >> drule_then assume_tac bits_bitwise_rest >> gvs []
+  >> rewrite_tac [n2mw_eq_b2mw]
+  >> simp [Req0 mw_bits_of_int_b2mw, int_not_def, int_calculate,
+           mw2n_mw_int_of_bits]
+  >> ‘Num (&n - 1) = n - 1’ by (DEP_REWRITE_TAC [INT_SUB] >> simp [])
+  >> pop_assum SUBST_ALL_TAC
+  >-
+   (irule mw2n_mw_or_ones_not
+    >> simp [GSYM n2mw_eq_b2mw, Req0 LENGTH_n2mw_LESS_LENGTH_n2mw])
+  >> irule mw2n_mw_or_keep_not
+  >> fs [bits_bitwise_or_sym, GSYM n2mw_eq_b2mw,
+         Req0 LENGTH_n2mw_LESS_LENGTH_n2mw]
 QED
 
 Theorem mwi_or_pos_neg:
