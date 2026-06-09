@@ -2205,11 +2205,14 @@ Proof
       >> IF_CASES_TAC
       >-
        (gvs [IN_FRANGE_FLOOKUP]
-        >> cheat (* contradiction on FLOOKUP refs (LEAST ptr. ptr ∉ FDOM refs) = SOME w *))
+        >> qspec_then ‘s'.refs’ assume_tac fresh_ptr_fresh
+        >> gvs [FLOOKUP_DEF])
       >> gvs [])
     >> gvs [alloc_hole_has_val_def]
     >> gvs [FLOOKUP_SIMP, LENGTH_MAP]
-    >> cheat)
+    >> irule fresh_not_in_range_f
+    >> qexists ‘s.refs’
+    >> gvs [state_rel_def])
   >> strip_tac
   >> gvs []
   >> qexists ‘f_aux’
