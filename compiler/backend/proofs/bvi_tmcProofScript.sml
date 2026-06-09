@@ -379,57 +379,6 @@ Proof
   cheat
 QED
 
-(*
-(* Don't have reverses here *)
-Theorem do_app_rewrite_tmc:
-  ∀f op vs vs' s s' r.
-    bviSem$do_app op (REVERSE vs) s = r ∧
-    LIST_REL (v_rel f) vs vs' ∧
-    state_rel f s s' ∧
-    r ≠ Rerr (Rabort Rtype_error) ⇒
-    ∃r' f'.
-      bviSem$do_app op (REVERSE vs') s' = r' ∧
-      result_rel (PAIR_REL (v_rel f') (state_rel f')) (v_rel f') r r' ∧
-      f SUBMAP f'
-Proof
-  rw [] >> cheat
-QED
-
-Theorem state_rel_do_app_aux:
-  ∀f op vs vs' s s' t r.
-    do_app_aux op vs s = r ∧
-    LIST_REL (v_rel f) vs vs' ∧
-    state_rel f s s' ∧
-    op ≠ Install ∧
-    (∀n. op ≠ Label n) ⇒
-    ∃r' f' t'.
-      do_app_aux op vs' s' = r' ∧
-      state_rel f' t t' ∧
-      f SUBMAP f'
-Proof
-  cheat
-QED
-
-Theorem state_rel_do_app:
-  ∀f op vs vs' s s' t r.
-    do_app op vs s = Rval (r,t) ∧
-    LIST_REL (v_rel f) vs vs' ∧
-    state_rel f s s' ∧
-    op ≠ Install ∧
-    (∀n. op ≠ Label n) ⇒
-    ∃r' f' t'.
-      do_app op vs' s' = Rval (r',t') ∧
-      state_rel f' t t' ∧
-      f SUBMAP f'
-Proof
-  rw [do_app_def]
-  >> imp_res_tac state_rel_do_app_aux
-  >> gvs []
-  >> gvs [case_eq_thms]
-  >> cheat
-QED
-*)
-
 Definition hole_has_val_def:
   hole_has_val (f : num |-> num) (env1 : v list) (env2 : v list) (refs : num |-> v ref) c ⇔
   LENGTH env2 = LENGTH env1 + 2 ∧
@@ -637,42 +586,25 @@ Proof
   >> gvs []
 QED
 
-Theorem do_app_aux_rel:
-  ∀f op vs vs' s s' v.
-    do_app_aux op vs s = v ∧
-    LIST_REL (v_rel f) vs vs' ∧
-    state_rel f s s' ⇒
-    ∃v'.
-      do_app_aux op vs' s' = v' ∧
-      OPTREL (OPTREL (PAIR_REL (v_rel f) (state_rel f))) v v'
-Proof
-  rw []
-  >> simp [Once do_app_aux_def]
-  >> Cases_on ‘do_app_aux op vs s’ >> gvs []
-  >-
-   (Cases_on ‘op’ >> gvs [do_app_aux_def]
-    >-
-     (Cases_on ‘vs’ >> gvs []
-      >> gvs [state_rel_def]
-      >> first_x_assum $ qspec_then ‘n’ mp_tac
-      >> strip_tac
-      >> spose_not_then assume_tac
-      >> cheat)
-    >> cheat)
-  >> cheat
-QED
 
+(* Keep this one *)
 Theorem do_app_op_rel:
-  ∀f op vs vs' s s' v.
-    do_app op vs s = r ∧
+  ∀f op vs vs' s s' t v.
+    do_app op vs s = Rval (v,t) ∧
     LIST_REL (v_rel f) vs vs' ∧
     state_rel f s s' ⇒
-    ∃v'.
-      do_app op vs' s' = Rval v' ∧
-      PAIR_REL (v_rel f) (state_rel f) v v'
+    ∃f' v' t'.
+      do_app op vs' s' = Rval (v',t') ∧
+      v_rel f' v v' ∧
+      state_rel f' t t' ∧
+      f SUBMAP f' ∧
+      only_fresh f f' s'.refs ∧
+      holes_unchanged_except f s'.refs t'.refs ∅
 Proof
   rw [do_app_def]
-  >- cheat
+  >-
+   (gvs [do_install_def, CaseEq "list", CaseEq "option"]
+    >> cheat)
   >> Cases_on ‘∃i. op = IntOp i’
   >-
    (gvs []
@@ -683,7 +615,6 @@ Proof
   >> cheat
 QED
 
-(* This could be unified with non err case using res_rel *)
 Theorem do_app_op_err_rel:
   do_app (FFI i) vs u = Rerr (Rabort (Rffi_error e)) ∧
   state_rel f u u' ∧
@@ -703,19 +634,6 @@ Proof
   >> Cases_on ‘bvlSem$do_app (FFI i) vs (bvi_to_bvl u)’ >> gvs []
   >- (Cases_on ‘a’ >> gvs [])
   >> Cases_on ‘bvlSem$do_app (FFI i) vs' (bvi_to_bvl u')’ >> gvs []
-  >> cheat
-QED
-
-(* Combine with the above *)
-Theorem do_app_holes_unchanged:
-  ∀f s t u changed vs v t op.
-    holes_unchanged_except f s.refs t.refs changed ∧
-    do_app op vs t = Rval (v,u) ⇒
-    holes_unchanged_except f s.refs u.refs changed
-Proof
-  rw [holes_unchanged_except_def]
-  >> gvs [do_app_def]
-  >> Cases_on ‘op’ >> gvs []
   >> cheat
 QED
 
@@ -1479,6 +1397,84 @@ Proof
   >~ [‘Call ticks dest xs handler’] >- suspend "call_non_opt"
 QED
 
+Resume evaluate_rewrite_tmc[op_non_opt]:
+  gvs [evaluate_def]
+  >> gvs [CaseEq "prod", PULL_EXISTS]
+  >> rename [‘evaluate (xs,env,s) = (rs,u)’]
+  >> first_assum $ qspecl_then [‘xs’, ‘s’, ‘env’, ‘loc’] mp_tac
+  >> gvs []
+  >> disch_then $ qspec_then ‘F’ mp_tac
+  >> drule_all env_rel_relax_opt
+  >> strip_tac
+  >> disch_then drule
+  >> disch_then drule
+  >> gvs []
+  >> impl_tac
+  >- (spose_not_then assume_tac >> gvs [])
+  >> strip_tac
+  >> gvs [GSYM PULL_FORALL]
+  >> rename [‘evaluate (xs,env2,s') = (rs',u')’]
+  >> reverse $ Cases_on ‘rs’ >> gvs []
+  >- (* Error evaluating args *)
+   (rename [‘evaluate (xs,env2,s') = (Rerr e',t')’]
+    >> qexists‘f''’
+    >> gvs []
+    >> strip_tac >> gvs []
+    >> rw []
+    >- gvs [rewrite_wrapper_def]
+    >> gvs [rewrite_worker_def]
+    >> gvs [evaluate_def, fill_hole_def, opt_res_rel_def]
+    >> rpt $ first_assum $ irule_at Any
+    >> irule holes_unchanged_except_subset
+    >> first_assum $ irule_at Any
+    >> gvs [])
+  >> rename [‘LIST_REL (v_rel f'') vs vs'’]
+  >> reverse $ Cases_on ‘do_app op (REVERSE vs) u’ >> gvs []
+  >- (* FFI *)
+   (qrefinel [‘_’, ‘f''’, ‘_’]
+    >> drule do_app_err
+    >> strip_tac >> gvs []
+    >> rename [‘do_app (FFI i) (REVERSE vs) u = Rerr (Rabort (Rffi_error e))’]
+    >> drule do_app_op_err_rel
+    >> disch_then $ qspecl_then [‘REVERSE vs'’, ‘u'’, ‘f''’] mp_tac
+    >> disch_then drule
+    >> drule $ iffLR list_rel_reverse
+    >> gvs []
+    >> rw []
+    >- gvs [rewrite_wrapper_def]
+    >> gvs [rewrite_worker_def, evaluate_def, fill_hole_def, opt_res_rel_def]
+    >> rpt $ first_assum $ irule_at Any
+    >> irule holes_unchanged_except_subset
+    >> first_assum $ irule_at Any
+    >> gvs [])
+  >> rename [‘do_app _ (REVERSE vs) u = Rval v’]
+  >> Cases_on ‘v’
+  >> rename [‘do_app op _ _ = Rval (v,r)’]
+  >> gvs [CaseEq "prod"]
+  >> drule $ iffLR list_rel_reverse
+  >> strip_tac
+  >> drule_all do_app_op_rel
+  >> strip_tac
+  >> gvs [CaseEq "prod"]
+  >> first_assum $ irule_at Any
+  >> gvs []
+  >> conj_asm1_tac
+  >- imp_res_tac SUBMAP_TRANS
+  >> conj_asm1_tac
+  >-
+   (irule only_fresh_trans
+    >> rpt $ first_assum $ irule_at Any
+    >> imp_res_tac evaluate_refs_SUBSET)
+  >> conj_asm1_tac
+  >- imp_res_tac holes_unchanged_except_trans
+  >> rw []
+  >- gvs [rewrite_wrapper_def]
+  >> gvs [rewrite_worker_def]
+  >> ho_match_mp_tac evaluate_fill_hole
+  >> gvs [evaluate_def]
+  >> rpt $ first_assum $ irule_at Any
+QED
+
 (* I think this can replace the "wf" theorem *)
 Theorem bvi_to_cb_cases:
   ∀loc x bs cb.
@@ -2194,8 +2190,8 @@ Proof
 QED
 
 Resume evaluate_rewrite_tmc[call_block]:
-
-  (* Phase 1 theorem in s *)
+  cheat
+(*  (* Phase 1 theorem in s *)
   drule_all evaluate_bvi_to_cb
   >> simp [Once evaluate_def]
   >> strip_tac
@@ -2216,7 +2212,9 @@ Resume evaluate_rewrite_tmc[call_block]:
   (* Phase 1 theorem in s' *)
   >> Cases_on ‘evaluate ([x],env2,s')’
   >> rename [‘evaluate ([x],env2,s') = (r',t')’]
-  >> drule_all evaluate_bvi_to_cb
+  >> drule evaluate_bvi_to_cb
+  >> disch_then $ drule_at Any
+  >> impl_tac >- cheat (* I think I broke something *)
   >> simp [Once evaluate_def]
   >> strip_tac
   >> reverse $ gvs [CaseEq "result"]
@@ -2246,7 +2244,7 @@ Resume evaluate_rewrite_tmc[call_block]:
   >> qpat_x_assum ‘env_rel _ _ _ _’ kall_tac
   >> qrefinel [‘t'’, ‘_’, ‘r'’]
   >> gvs [GSYM PULL_FORALL]
-  >> cheat
+  >> cheat *)
 QED
 
 Resume evaluate_rewrite_tmc[list]:
@@ -2711,77 +2709,6 @@ Resume evaluate_rewrite_tmc[raise]:
   >> gvs [evaluate_def, rewrite_worker_def, opt_res_rel_def]
   >> first_assum $ irule_at Any
   >> gvs [holes_unchanged_except_def]
-QED
-
-Resume evaluate_rewrite_tmc[op_non_opt]:
-  gvs [evaluate_def]
-  >> gvs [CaseEq "prod", PULL_EXISTS]
-  >> rename [‘evaluate (xs,env,s) = (rs,u)’]
-  >> first_assum $ qspecl_then [‘xs’, ‘s’, ‘env’, ‘loc’] mp_tac
-  >> gvs []
-  >> disch_then $ qspec_then ‘F’ mp_tac
-  >> drule_all env_rel_relax_opt
-  >> strip_tac
-  >> disch_then drule
-  >> disch_then drule
-  >> gvs []
-  >> impl_tac
-  >- (spose_not_then assume_tac >> gvs [])
-  >> strip_tac
-  >> gvs [GSYM PULL_FORALL]
-  >> rename [‘evaluate (xs,env2,s') = (rs',u')’]
-  >> qpat_assum ‘f ⊑ _’ $ irule_at Any
-  >> reverse $ Cases_on ‘rs’ >> gvs []
-  >- (* Error evaluating args *)
-   (rename [‘evaluate (xs,env2,s') = (Rerr e',t')’]
-    >> strip_tac >> gvs []
-    >> rw []
-    >- gvs [rewrite_wrapper_def]
-    >> gvs [rewrite_worker_def]
-    >> gvs [evaluate_def, fill_hole_def, opt_res_rel_def]
-    >> rpt $ first_assum $ irule_at Any
-    >> irule holes_unchanged_except_subset
-    >> first_assum $ irule_at Any
-    >> gvs [])
-  >> rename [‘LIST_REL (v_rel f'') vs vs'’]
-  >> reverse $ Cases_on ‘do_app op (REVERSE vs) u’ >> gvs []
-  >- (* FFI *)
-   (drule do_app_err
-    >> strip_tac >> gvs []
-    >> rename [‘do_app (FFI i) (REVERSE vs) u = Rerr (Rabort (Rffi_error e))’]
-    >> drule do_app_op_err_rel
-    >> disch_then $ qspecl_then [‘REVERSE vs'’, ‘u'’, ‘f''’] mp_tac
-    >> disch_then drule
-    >> drule $ iffLR list_rel_reverse
-    >> gvs []
-    >> rw []
-    >- gvs [rewrite_wrapper_def]
-    >> gvs [rewrite_worker_def, evaluate_def, fill_hole_def, opt_res_rel_def]
-    >> rpt $ first_assum $ irule_at Any
-    >> irule holes_unchanged_except_subset
-    >> first_assum $ irule_at Any
-    >> gvs [])
-  >> rename [‘do_app _ (REVERSE vs) u = Rval v’]
-  >> drule $ iffLR list_rel_reverse
-  >> strip_tac
-  >> drule_all do_app_op_rel
-  >> disch_then $ qspec_then ‘v’ mp_tac
-  >> strip_tac
-  >> gvs [CaseEq "prod"]
-  >> Cases_on ‘v'’ >> gvs []
-  >> rename [‘v_rel f' v v'’]
-  >> rename [‘state_rel f' t t'’]
-  >> conj_asm1_tac
-  >-
-   (irule do_app_holes_unchanged
-    >> first_assum $ irule_at Any
-    >> gvs [])
-  >> rw []
-  >- gvs [rewrite_wrapper_def]
-  >> gvs [rewrite_worker_def]
-  >> ho_match_mp_tac evaluate_fill_hole
-  >> gvs [evaluate_def]
-  >> rpt $ first_assum $ irule_at Any
 QED
 
 Resume evaluate_rewrite_tmc[tick]:
