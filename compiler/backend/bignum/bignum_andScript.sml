@@ -405,7 +405,7 @@ Proof
     >> simp [Once evaluate_def,eval_def,asmTheory.word_cmp_def]
     >> simp [state_component_equality])
   >> simp [and_pos_pos_loop_def]
-  (**)
+  >> rename1 ‘evaluate (While (Var Local «x_len») _, _)’
   >> irule_at (Pos hd) evaluate_While_True_NONE
   >> simp []
   >> ‘SUC (LENGTH xs) < dimword (:α)’ by
@@ -417,13 +417,13 @@ Proof
      >> first_assum $ irule_at (Pos last)
      >> simp [])
   >> simp []
-  (**)
+  >> rename1 ‘evaluate (Dec «t1» One (Load One (Var Local «x»)) _, _)’
   >> irule_at (Pos hd) evaluate_Dec_NONE
   >> irule_at (Pos hd) eval_Load_One_Local_SOME
   >> simp []
   >> fs [ones_def] >> SEP_R_TAC
   >> simp []
-  (**)
+  >> rename1 ‘evaluate (Dec «t2» One (Load One (Var Local «y»)) _, _)’
   >> irule_at (Pos hd) evaluate_Dec_NONE
   >> irule_at (Pos hd) eval_Load_One_Local_SOME
   >> simp [FLOOKUP_SIMP]
@@ -431,6 +431,7 @@ Proof
   >> fs [ones_def] >> SEP_R_TAC
   >> simp []
   (**)
+  >> rename1 ‘evaluate (Seq (Store (Var Local «z») _) _, _)’
   >> irule_at (Pos hd) evaluate_Seq_NONE
   >> irule_at (Pos hd) evaluate_Store_Local_NONE
   >> simp [FLOOKUP_SIMP]
@@ -442,28 +443,27 @@ Proof
   >> qabbrev_tac ‘memory = s.memory’
   >> SEP_W_TAC
   >> simp [Abbr ‘memory’]
-  (**)
+  >> rename1 ‘evaluate (Seq (Assign Local «x» _) _, _)’
   >> irule_at (Pos hd) evaluate_Seq_NONE
   >> irule_at (Pos hd) evaluate_Assign_Local
   >> irule_at (Pos hd) eval_Op_Add_SOME
   >> simp [FLOOKUP_SIMP]
-  (**)
+  >> rename1 ‘evaluate (Seq (Assign Local «y» _) _, _)’
   >> irule_at (Pos hd) evaluate_Seq_NONE
   >> irule_at (Pos hd) evaluate_Assign_Local
   >> irule_at (Pos hd) eval_Op_Add_SOME
   >> simp [FLOOKUP_SIMP]
-  (**)
+  >> rename1 ‘evaluate (Seq (Assign Local «z» _) _, _)’
   >> irule_at (Pos hd) evaluate_Seq_NONE
   >> irule_at (Pos hd) evaluate_Assign_Local
   >> irule_at (Pos hd) eval_Op_Add_SOME
   >> simp [FLOOKUP_SIMP]
-  (**)
+  >> rename1 ‘evaluate (Assign Local «x_len» _, _)’
   >> irule_at (Pos hd) evaluate_Assign_Local
   >> irule_at (Pos hd) eval_Op_Sub_SOME
   >> simp [FLOOKUP_SIMP]
-  (**)
-  >> simp [GSYM and_pos_pos_loop_def]
-  (**)
+  >> simp [Req0 $ GSYM and_pos_pos_loop_def]
+  >> rename1 ‘evaluate (and_pos_pos_loop, _)’
   >> last_x_assum drule
   >> disch_then drule
   >> qmatch_goalsub_abbrev_tac ‘evaluate (_, s')’
