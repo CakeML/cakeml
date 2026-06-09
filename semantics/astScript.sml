@@ -248,18 +248,17 @@ Datatype:
   | Denv tvarN
 End
 
-(* Accumulates the bindings of a pattern *)
+(* Computes the bindings of a pattern *)
 Definition pat_bindings_def:
-  pat_bindings Pany already_bound = already_bound ∧
-  pat_bindings (Pvar n) already_bound = n::already_bound ∧
-  pat_bindings (Plit l) already_bound = already_bound ∧
-  pat_bindings (Pcon v0 ps) already_bound = pats_bindings ps already_bound ∧
-  pat_bindings (Pref p) already_bound = pat_bindings p already_bound ∧
-  pat_bindings (Pas p i) already_bound = pat_bindings p (i::already_bound) ∧
-  pat_bindings (Ptannot p v1) already_bound = pat_bindings p already_bound ∧
-  pats_bindings [] already_bound = already_bound ∧
-  pats_bindings (p::ps) already_bound =
-  pats_bindings ps (pat_bindings p already_bound)
+  pat_bindings Pany = [] ∧
+  pat_bindings (Pvar n) = [n] ∧
+  pat_bindings (Plit l) = [] ∧
+  pat_bindings (Pcon v0 ps) = pats_bindings ps ∧
+  pat_bindings (Pref p) = pat_bindings p ∧
+  pat_bindings (Pas p i) = pat_bindings p ++ [i] ∧
+  pat_bindings (Ptannot p v1) = pat_bindings p ∧
+  pats_bindings [] = [] ∧
+  pats_bindings (p::ps) = pats_bindings ps ++ pat_bindings p
 End
 
 Definition every_exp_def[simp]:

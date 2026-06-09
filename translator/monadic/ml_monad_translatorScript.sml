@@ -813,7 +813,7 @@ Proof
   \\ Cases_on `e` \\ fs [] \\ rveq \\ fs []
   \\ imp_res_tac REFS_PRED_FRAME_imp
   \\ disch_then drule
-  \\ fs [EVAL ``ALL_DISTINCT (pat_bindings (Pvar n) [])``]
+  \\ fs [EVAL ``ALL_DISTINCT (pat_bindings (Pvar n))``]
   \\ rename1 `b b1 b_v`
   \\ disch_then (qspec_then `b_v` strip_assume_tac)
   \\ qpat_x_assum `evaluate _ _ _ = _` mp_tac
@@ -903,7 +903,7 @@ QED
 
 Theorem EvalM_PMATCH:
    !H b a x xv.
-      ALL_DISTINCT (pat_bindings pt []) ⇒
+      ALL_DISTINCT (pat_bindings pt) ⇒
       (∀v1 v2. pat v1 = pat v2 ⇒ v1 = v2) ⇒
       Eval env x (a xv) ⇒
       (pt1 xv ⇒ EvalM ro env st (Mat x ys) (b (PMATCH xv yrs)) H) ⇒
@@ -1010,22 +1010,18 @@ Definition write_list_def:
 End
 
 Theorem pats_bindings_MAP_Pvar[local]:
-  !bind_names already_bound.
-  pats_bindings (MAP (\x. Pvar x) bind_names) already_bound =
-  (REVERSE bind_names) ++ already_bound
+  !bind_names.
+  pats_bindings (MAP (\x. Pvar x) bind_names) =
+  (REVERSE bind_names)
 Proof
   Induct_on `bind_names` >> rw[pat_bindings_def]
 QED
 
 Theorem ALL_DISTINCT_pats_bindings[local]:
   !bind_names. ALL_DISTINCT bind_names ==>
-  ALL_DISTINCT (pats_bindings (MAP (λx. Pvar x) bind_names) [])
+  ALL_DISTINCT (pats_bindings (MAP (λx. Pvar x) bind_names))
 Proof
-  Induct_on `bind_names` >> rw[pat_bindings_def]
-  \\ rw[pats_bindings_MAP_Pvar]
-  \\ PURE_ONCE_REWRITE_TAC[GSYM ALL_DISTINCT_REVERSE]
-  \\ PURE_REWRITE_TAC[REVERSE_APPEND]
-  \\ rw[]
+  rw[pats_bindings_MAP_Pvar, ALL_DISTINCT_REVERSE]
 QED
 
 Theorem pmatch_list_MAP_Pvar[local]:
@@ -2795,7 +2791,7 @@ Theorem IMP_EvalM_Mat_cases:
       Eval env exp (a r1) /\
       (case y of
        | INL (vars,exp) =>
-                   (ALL_DISTINCT (pats_bindings (MAP Pvar vars) []) /\
+                   (ALL_DISTINCT (pats_bindings (MAP Pvar vars)) /\
                     (!v. a r1 v ==>
                          ?name vals t.
                            v = Conv NONE vals /\

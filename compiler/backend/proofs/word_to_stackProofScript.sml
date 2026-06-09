@@ -9,6 +9,7 @@ Ancestors
   semanticsProps (* for extend_with_resource_limit *)
   stackLang (* for list_Seq *)
   stackProps (* for extract_labels *)
+  backend_common (* for word_add_carry_def *)
   wordProps stackSem wordSem word_to_stack
 Ancestors[ignore_grammar]
   wordConvs parmove
@@ -4752,7 +4753,7 @@ Proof
         match_mp_tac evaluate_wStackStore_wReg1_0 >>
         simp[])
     >-( (*AddCarry*)
-        gvs[get_vars_def,AllCaseEqs()] >>
+        gvs[get_vars_def,word_add_carry_def,AllCaseEqs()] >>
         simp[wInst_def] >>
         ntac 2 (pairarg_tac >> fs[]) >>
         simp[wStackLoad_append] >>

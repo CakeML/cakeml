@@ -147,7 +147,7 @@ Definition continue_def:
     | (Cmat ()  [] err_v, env) :: c =>
         Estep (env, s, Exn err_v, c)
     | (Cmat ()  ((p,e)::pes) err_v, env) :: c =>
-        if ALL_DISTINCT (pat_bindings p []) then
+        if ALL_DISTINCT (pat_bindings p) then
           (case pmatch env.c (FST s) p v [] of
               Match_type_error => Eabort Rtype_error
             | No_match => Estep (env, s, Val v, ((Cmat ()  pes err_v,env)::c))
@@ -370,7 +370,7 @@ Definition decl_step_def:
     Decl d =>
       (case d of
         Dlet locs p e =>
-          if ALL_DISTINCT (pat_bindings p []) ∧
+          if ALL_DISTINCT (pat_bindings p) ∧
              every_exp (one_con_check (collapse_env benv c).c) e
           then
             Dstep (st, ExpVal (collapse_env benv c) (Exp e) [] locs p, c)
@@ -415,7 +415,7 @@ Definition decl_step_def:
   | ExpVal env ev ec locs p =>
       (case (ev, ec) of
         (Val v, []) =>
-          if ALL_DISTINCT (pat_bindings p []) then
+          if ALL_DISTINCT (pat_bindings p) then
             (case pmatch (collapse_env benv c).c st.refs p v [] of
               Match new_vals =>
                 Dstep (st, Env <| v := (alist_to_ns new_vals); c := nsEmpty |>, c)

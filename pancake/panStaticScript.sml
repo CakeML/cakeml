@@ -51,6 +51,14 @@
     - Invalid field index
     - Invalid field name
     - Returned shape size >32 words (TODO: raised shape size)
+
+  Primitive checks:
+  - Errors:
+    - Mismatched destination shape
+    - Incorrect number of arguments
+    - Unsupported position
+    - Assignment to global value
+    - Mismatched operands
 *)
 Theory panStatic
 Libs
@@ -443,6 +451,26 @@ Definition get_scope_msg_def:
 End
 
 (*
+  List of recognised Primitive identifiers for usage hints
+*)
+Definition primitive_idents_def:
+  primitive_idents = [«__add_with_carry__»]
+End
+
+(*
+  Adds hint when a primitive is used in an unsupported position
+*)
+Definition add_primitive_hint_def:
+  add_primitive_hint fname msg =
+    if MEM fname primitive_idents
+    then concat [msg;
+           «  note: »; fname;
+           « is a built-in primitive only available in »;
+           «declaration or assignment RHS positions\n»]
+    else msg
+End
+
+(*
   Get message for redefined identifiers
   id_type :scoped id
 *)
@@ -573,6 +601,13 @@ Definition panop_to_str_def:
     | Mul => «Mul»
 End
 
+(* Get string name for Pancake primitives *)
+Definition primop_to_str_def:
+  primop_to_str pop =
+    case pop of
+    | AddCarry => «AddCarry»
+End
+
 
 (* Static check helpers *)
 
@@ -580,7 +615,8 @@ End
 Definition check_fun_name_def:
   check_fun_name ctxt fname =
     case lookup ctxt.funcs fname of
-    | NONE => error (ScopeErr $ get_scope_msg Fun ctxt.loc fname ctxt.scope)
+    | NONE => error (ScopeErr $
+        add_primitive_hint fname (get_scope_msg Fun ctxt.loc fname ctxt.scope))
     | SOME f => return f
 End
 
@@ -632,6 +668,21 @@ Definition check_operands_def:
     | _ => error (ShapeErr $ get_non_word_msg (
         concat [strlit "operation "; op_str; strlit " operand"]
       ) (sh_bd_to_str sb) ctxt.loc ctxt.scope)
+End
+
+(* Check args for primitives and return result shaped basedness *)
+Definition check_primitive_args_def:
+  check_primitive_args ctxt AddCarry sh_bds =
+    do
+      op_str <<- primop_to_str AddCarry;
+      nargs <<- LENGTH sh_bds;
+      if ~(nargs = 3)
+        then error (GenErr $ get_oparg_msg T «3»
+          (num_to_str nargs) ctxt.loc op_str ctxt.scope)
+      else return ();
+      b <- check_operands ctxt op_str sh_bds;
+      return $ StructB [WordB b; WordB NotBased]
+    od
 End
 
 (* Check for arg number and shape *)
@@ -1186,6 +1237,30 @@ Definition static_check_prog_def:
         ; last       := OtherLast
         ; var_delta  := empty mlstring$compare
         ; curr_loc   := ctxt.loc |>
+    od ∧
+  static_check_prog ctxt (Primitive vname pop es) =
+    do
+      (* check destination is in scope (Primitive always targets Local) *)
+      vinf <- check_local_var ctxt vname;
+      (* check arg exps *)
+      esret <- static_check_exps ctxt es;
+      (* per-primop arity/operand checks; returns result shaped basedness *)
+      res_sb <- check_primitive_args ctxt pop esret.sh_bds;
+      (* check declared destination shape matches result shape *)
+      if ~(sh_bd_eq_shapes vinf.vsh_bd res_sb)
+        then error (ShapeErr $ get_shape_mismatch_msg (concat [
+            «result of primitive »; primop_to_str pop;
+            « assigned to local variable »; vname
+          ]) (sh_bd_to_str res_sb) (sh_bd_to_str vinf.vsh_bd)
+          ctxt.loc ctxt.scope)
+      else return ();
+      (* return prog info with updated var *)
+      return <| exits_fun  := F
+              ; exits_loop := F
+              ; last       := OtherLast
+              ; var_delta  := singleton mlstring$compare vname
+                                (vinf with <| vsh_bd := res_sb |>)
+              ; curr_loc   := ctxt.loc |>
     od ∧
   static_check_prog ctxt (Return exp) =
     do

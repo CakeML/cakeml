@@ -5,7 +5,7 @@ Theory loop_to_wordProof
 Libs
   preamble
 Ancestors
-  loopSem loopProps wordLang wordSem wordProps pan_common
+  backend_common loopSem loopProps wordLang wordSem wordProps pan_common
   pan_commonProps loop_to_word wordConvs
 
 
@@ -19,7 +19,7 @@ val _ = temp_delsimps ["fromAList_def", "domain_union",
 Definition locals_rel_def:
   locals_rel ctxt l1 l2 ⇔
     INJ (find_var ctxt) (domain ctxt) UNIV ∧
-    (∀n m. lookup n ctxt = SOME m ==> m ≠ 0) ∧
+    (∀n m. lookup n ctxt = SOME m ==> m ≠ 0 ∧ EVEN m) ∧
     ∀n v. lookup n l1 = SOME v ⇒
           ∃m. lookup n ctxt = SOME m ∧ lookup m l2 = SOME v
 End
@@ -110,6 +110,7 @@ Proof
   >~ [`loopLang$Seq`] >- suspend "Seq"
   >~ [`loopLang$Loop`] >- suspend "Loop"
   >~ [`loopLang$Assign`] >- suspend "Assign"
+  >~ [`loopLang$Primitive`] >- suspend "Primitive"
   >~ [`loopLang$SetGlobal`] >- suspend "SetGlobal"
   >~ [`loopLang$LocValue`] >- suspend "LocValue"
   >~ [`loopLang$If`] >- suspend "If"
@@ -127,7 +128,7 @@ QED
 Theorem locals_rel_intro:
   locals_rel ctxt l1 l2 ==>
     INJ (find_var ctxt) (domain ctxt) UNIV ∧
-    (∀n m. lookup n ctxt = SOME m ==> m ≠ 0) ∧
+    (∀n m. lookup n ctxt = SOME m ==> m ≠ 0 ∧ EVEN m) ∧
     ∀n v. lookup n l1 = SOME v ⇒
           ∃m. lookup n ctxt = SOME m ∧ lookup m l2 = SOME v
 Proof
@@ -175,12 +176,20 @@ Proof
 QED
 
 Theorem find_var_neq_0_ctxt:
-  (∀n m. lookup n ctxt = SOME m ⇒ m ≠ 0) ∧ v ∈ domain ctxt ⇒
+  (∀n m. lookup n ctxt = SOME m ⇒ m ≠ 0 ∧ EVEN m) ∧ v ∈ domain ctxt ⇒
   find_var ctxt v ≠ 0
 Proof
   rw [find_var_def] >>
   Cases_on ‘lookup v ctxt’ >> fs [domain_lookup] >>
   metis_tac []
+QED
+
+Theorem find_var_neq_odd:
+  (∀n m. lookup n ctxt = SOME m ⇒ m ≠ 0 ∧ EVEN m) ∧ ¬EVEN k ⇒
+  find_var ctxt v ≠ k
+Proof
+  rw [find_var_def] >> Cases_on ‘lookup v ctxt’ >> fs [] >>
+  CCONTR_TAC >> res_tac >> gvs []
 QED
 
 Theorem locals_rel_insert:
@@ -195,7 +204,19 @@ Proof
   disj2_tac >> CCONTR_TAC >> fs [] >> rveq >> fs [] >>
   fs [INJ_DEF,domain_lookup] >>
   first_x_assum (qspecl_then [‘v’,‘n’] mp_tac) >>
-  fs [] >> fs [find_var_def]
+  fs [] >> gvs [find_var_def]
+QED
+
+Theorem locals_rel_insert_unmapped:
+  locals_rel ctxt lcl lcl' ∧
+  (∀n. n ∈ domain ctxt ⇒ find_var ctxt n ≠ k) ⇒
+  locals_rel ctxt lcl (insert k x lcl')
+Proof
+  rw [locals_rel_def, lookup_insert] >>
+  res_tac >> gvs [] >>
+  IF_CASES_TAC >> gvs [] >>
+  first_x_assum (qspec_then ‘n’ mp_tac) >>
+  simp [find_var_def, domain_lookup]
 QED
 
 Theorem locals_rel_alist_insert:
@@ -225,7 +246,7 @@ Theorem locals_rel_alist_insert_toAList:
        (alist_insert (MAP (find_var ctxt) vs) ws (fromAList (toAList env)))
 Proof
   rw [] >> match_mp_tac locals_rel_alist_insert >>
-  fs [locals_rel_def, lookup_fromAList_toAList]
+  fs [locals_rel_def, lookup_fromAList_toAList] >> metis_tac []
 QED
 
 Theorem locals_rel_get_var:
@@ -317,6 +338,21 @@ Proof
   >> fs [lookup_insert] >> rw [] >> fs []
 QED
 
+Theorem lookup_make_ctxt_EVEN:
+  ∀xs m l n y.
+    EVEN m ∧ (∀k v. lookup k l = SOME v ⇒ EVEN v) ∧
+    lookup n (make_ctxt m xs l) = SOME y ⇒ EVEN y
+Proof
+  Induct >> fs [make_ctxt_def] >> rw []
+  >- (first_x_assum irule >> qexists `n` >> fs [])
+  >> last_x_assum irule
+  >> rename1 ‘make_ctxt (m + 2) _ (insert h m l)’
+  >> qexistsl [‘insert h m l’, ‘m + 2’, ‘n’]
+  >> fs [lookup_insert, EVEN_ADD]
+  >> rw [] >> gvs []
+  >> metis_tac []
+QED
+
 Theorem locals_rel_make_ctxt:
   ALL_DISTINCT params ∧ DISJOINT (set params) (set xs) ∧
   LENGTH params = LENGTH l ⇒
@@ -329,8 +365,11 @@ Proof
     >> rveq >> fs []
     >> imp_res_tac (MP_CANON make_ctxt_inj) >> fs [lookup_def])
   >-
-   (Cases_on ‘lookup n (make_ctxt 2 (params ++ xs) LN)’ >> simp []
+   (Cases_on ‘lookup n (make_ctxt 2 (params ++ xs) LN)’ >> gvs []
     >> drule lookup_make_ctxt_range >> fs [lookup_def])
+  >-
+   (irule lookup_make_ctxt_EVEN
+    >> qexistsl [`LN`, `2`, `n`, `params ++ xs`] >> fs [lookup_def])
   >> fs [lookup_fromAList]
   >> imp_res_tac ALOOKUP_MEM
   >> rfs [MEM_ZIP]  >> rveq >> fs [make_ctxt_APPEND]
@@ -365,7 +404,7 @@ Proof
   >> strip_tac >> fs [domain_lookup]
   >> rw [] >> res_tac >> fs [] >> rveq >> fs [find_var_def]
   >> rw [] >> res_tac >> fs [] >> rveq >> fs [find_var_def]
-  >> disj2_tac >> qexists_tac ‘n’ >> fs []
+  >> qexists_tac ‘n’ >> fs []
 QED
 
 Theorem env_to_list_IMP:
@@ -774,6 +813,45 @@ Resume compile_correct[Assign]:
   fs [loopLangTheory.acc_vars_def]
 QED
 
+Resume compile_correct[Primitive]:
+  rpt strip_tac >>
+  fs [loopSemTheory.evaluate_def, comp_def] >>
+  cases_on ‘get_vars rhss s’ >> fs [] >>
+  gvs [oneline loop_primop_def, AllCaseEqs()] >>
+  rpt (pairarg_tac >> gvs []) >>
+  drule_all_then assume_tac locals_rel_get_vars >> gvs [] >>
+  gvs [LENGTH_EQ_NUM_compute, get_vars_def, loopSemTheory.get_vars_def,
+       loopLangTheory.acc_vars_def, isWord_exists, domain_list_insert,
+       SUBSET_DEF, AllCaseEqs()] >>
+  simp [Ntimes evaluate_def 2, word_exp_def] >>
+  rename1 ‘set_vars [res_var; co_var] [Word res; _]’ >>
+  ‘find_var ctxt res_var ≠ 0 ∧ find_var ctxt co_var ≠ 0’ by
+    (drule_at (Pos last) find_var_neq_0 >> strip_tac
+     >> rpt conj_tac
+     >> first_assum irule >> simp []) >>
+  ‘∀n. find_var ctxt n ≠ 1 ∧ find_var ctxt n ≠ 3’ by
+    (rw [] >> irule find_var_neq_odd >> fs [locals_rel_def] >> metis_tac []) >>
+  simp [Ntimes evaluate_def 2, inst_def, get_vars_def, get_var_set_var,
+        word_add_carry_def] >>
+  qmatch_goalsub_abbrev_tac ‘set_var 1 (Word carry) (set_var 3 result _)’ >>
+  simp [Ntimes evaluate_def 2, word_exp_def, get_var_set_var] >>
+  simp [Ntimes evaluate_def 2, word_exp_def, get_var_set_var] >>
+  conj_tac >- fs [loopSemTheory.set_vars_def, state_rel_def] >>
+  conj_tac >- fs [loopSemTheory.set_vars_def, state_rel_def] >>
+  conj_tac  >- fs [set_var_def, lookup_insert] >>
+  fs [loopSemTheory.set_vars_def, set_var_def, alist_insert_def] >>
+  qpat_x_assum ‘word_add_carry _ _ _ = _’ mp_tac >>
+  simp [word_add_carry_def, theWord_def] >>
+  strip_tac >>
+  ‘result = Word res’ by simp [Abbr ‘result’] >>
+  gvs [] >>
+  irule locals_rel_insert >> simp [] >>
+  irule locals_rel_insert >> simp [] >>
+  irule locals_rel_insert_unmapped >> simp [] >>
+  irule locals_rel_insert_unmapped >> simp [] >>
+  irule locals_rel_insert_unmapped >> simp []
+QED
+
 Resume compile_correct[LocValue]:
   rpt strip_tac >>
   fs [loopSemTheory.evaluate_def,
@@ -932,7 +1010,8 @@ Resume compile_correct[If]:
       DefnBase.one_line_ify NONE loopSemTheory.cut_state_def,
       loopSemTheory.dec_clock_def,wordSemTheory.dec_clock_def
      ] >>
-  gvs[locals_rel_def,lookup_inter_alt]
+  gvs[locals_rel_def,lookup_inter_alt] >>
+  metis_tac []
 QED
 
 Resume compile_correct[Call]:
@@ -1121,12 +1200,12 @@ Resume compile_correct[Call_NOhandler]:
                    (fs [SUBSET_DEF] >> first_x_assum match_mp_tac
                     >> simp [MEM_EL] >> qexists_tac ‘n’ >> simp [])
               >> ‘find_var ctxt (EL n x0) ≠ 0’ by
-                   (irule find_var_neq_0_ctxt >> fs [locals_rel_def])
+                   (irule find_var_neq_0_ctxt >> fs [locals_rel_def] >> metis_tac [])
               >> qpat_x_assum ‘(MAP _ _)❲_❳ = _’ mp_tac
               >> simp [EL_MAP])
           >> (* Locals *)
              match_mp_tac locals_rel_alist_insert
-          >> fs [locals_rel_def, lookup_fromAList_toAList])
+          >> fs [locals_rel_def, lookup_fromAList_toAList] >> metis_tac [])
       >> (* NOhandler_Other: res2 ≠ Result *)
          qunabbrev_tac ‘tt’
       >> pop_assum mp_tac
@@ -1220,7 +1299,7 @@ Resume compile_correct[Call_SOMEh_Result]:
           >> ‘MEM (EL n x0) x0’ by (simp [MEM_EL] >> qexists_tac ‘n’ >> simp [])
           >> ‘EL n x0 ∈ domain ctxt’ by fs [SUBSET_DEF]
           >> ‘find_var ctxt (EL n x0) ≠ 0’ by
-               (irule find_var_neq_0_ctxt >> fs [locals_rel_def])
+               (irule find_var_neq_0_ctxt >> fs [locals_rel_def] >> metis_tac [])
           >> ‘n < LENGTH x0’ by simp []
           >> fs [EL_MAP])
       >> (* IH_after *)
@@ -1238,7 +1317,8 @@ Resume compile_correct[Call_SOMEh_Result]:
           >> fs [] >> rveq >> fs []
           >> simp [loopSemTheory.dec_clock_def]
           >> fs [state_rel_def, loopSemTheory.dec_clock_def, Abbr‘tt’,
-                 locals_rel_def, lookup_inter_alt])
+                 locals_rel_def, lookup_inter_alt]
+          >> metis_tac [])
       >> (* qSOME *)
          qpat_x_assum ‘comp ctxt x2 l1' = _’ (assume_tac o GSYM)
       >> fs []
@@ -1415,7 +1495,8 @@ Resume compile_correct[ShMem]:
   rw[] >>
   gvs[INJ_DEF,domain_lookup, SF DNF_ss, PULL_EXISTS,find_var_def,
       TAKE_1_word_to_bytes
-     ]
+     ] >>
+  metis_tac []
 QED
 
 Finalise compile_correct;
@@ -1429,7 +1510,7 @@ Proof
 QED
 
 Theorem locals_rel_mk_ctxt_ln:
-  0 < n ==>
+  0 < n ∧ EVEN n ==>
   locals_rel (make_ctxt n xs LN) LN lc
 Proof
   rw [locals_rel_def]
@@ -1442,7 +1523,11 @@ Proof
   >- (
    CCONTR_TAC >> fs [] >>
    drule lookup_make_ctxt_range >>
-   fs [lookup_def]) >>
+   fs [lookup_def])
+  >- (
+    irule lookup_make_ctxt_EVEN >>
+    qexistsl [`LN`, `n`, `n'`, `xs`] >> fs [lookup_def]
+  ) >>
   fs [lookup_def]
 QED
 
@@ -2219,7 +2304,7 @@ Theorem loop_to_word_comp_every_inst_ok_less:
     every_prog (loop_inst_ok c) prog ∧
     domain(acc_vars prog LN) ⊆ domain ctxt ∧
     INJ (find_var ctxt) (domain ctxt) 𝕌(:num) ∧
-    (∀n m. lookup n ctxt = SOME m ⇒ m ≠ 0)
+    (∀n m. lookup n ctxt = SOME m ⇒ m ≠ 0 ∧ EVEN m)
     ⇒
     every_inst (inst_ok_less c) (FST (comp ctxt prog l))
 Proof
@@ -2241,7 +2326,11 @@ Proof
     Cases_on ‘nm ∈ domain ctxt’ >- metis_tac[] >>
     fs[GSYM lookup_NONE_domain] >>
     fs[find_var_def,domain_lookup] >>
-    metis_tac[SOME_11]) >>
+    metis_tac[SOME_11])
+  >~ [‘find_var _ _ ≠ 3’] >-
+   (irule find_var_neq_odd >> simp [] >> first_assum ACCEPT_TAC)
+  >~ [‘find_var _ _ ≠ 3’] >-
+   (irule find_var_neq_odd >> simp [] >> first_assum ACCEPT_TAC) >>
   every_case_tac >>
   gs[every_inst_def] >>
   rpt (pairarg_tac>>gs[]) >>
@@ -2249,6 +2338,7 @@ Proof
      PURE_ONCE_REWRITE_CONV [acc_vars_acc] “domain(acc_vars (x:'a loopLang$prog) (acc_vars (y:'a loopLang$prog) z))”,
      PURE_ONCE_REWRITE_CONV [acc_vars_acc] “domain(acc_vars (x:'a loopLang$prog) (insert y () z))”
      ]
+  >> rpt conj_tac >> first_x_assum irule >> first_assum ACCEPT_TAC
 QED
 
 Theorem loop_to_word_comp_func_every_inst_ok_less:
@@ -2260,12 +2350,13 @@ Proof
   strip_tac>>gs[loop_to_wordTheory.comp_func_def]>>
   rveq>>
   drule_then irule loop_to_word_comp_every_inst_ok_less >>
-  assume_tac $ DECIDE “0 < 2:num” >>
-  dxrule locals_rel_mk_ctxt_ln >>
   qmatch_goalsub_abbrev_tac ‘make_ctxt _ lista’ >>
-  disch_then $ qspecl_then [‘lista’] mp_tac >>
-  rw[locals_rel_def,Abbr ‘lista’,domain_make_ctxt] >>
-  rw[SUBSET_DEF,set_fromNumSet,domain_difference,domain_toNumSet]
+  ‘locals_rel (make_ctxt 2 lista LN) LN (LN: 'a word_loc num_map)’ by
+    (irule locals_rel_mk_ctxt_ln >> EVAL_TAC) >>
+  drule locals_rel_intro >> strip_tac >>
+  rw[Abbr ‘lista’,domain_make_ctxt,
+     SUBSET_DEF,set_fromNumSet,domain_difference,domain_toNumSet] >>
+  res_tac
 QED
 
 Theorem loop_to_word_compile_prog_every_inst_ok_less:

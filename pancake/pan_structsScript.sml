@@ -162,6 +162,8 @@ Definition compile_def:
       (compile (ctxt with locals := (v,s)::ctxt.locals) p)) ∧
   (compile ctxt (Assign vk v e) =
     Assign vk v (compile_exp ctxt e)) ∧
+  (compile ctxt (Primitive v pop es) =
+    Primitive v pop (compile_exps ctxt es)) ∧
   (compile ctxt (Store ad v) =
     Store (compile_exp ctxt ad) (compile_exp ctxt v)) ∧
   (compile ctxt (Store32 ad v) =

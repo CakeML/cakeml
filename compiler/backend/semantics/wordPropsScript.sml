@@ -894,6 +894,7 @@ Theorem inst_with_const[simp]:
    inst i (s with stack := xs) = OPTION_MAP (λs. s with stack := xs) (inst i s)
 Proof
   rw[inst_def] >> every_case_tac >> fs[]
+  >> rpt (pairarg_tac >> fs [])
 QED
 
 Theorem inst_const_full:
@@ -914,6 +915,7 @@ Theorem inst_const_full:
 Proof
   rw[inst_def]>>
   every_case_tac >> full_simp_tac(srw_ss())[] >>
+  rpt (pairarg_tac >> fs []) >>
   imp_res_tac assign_const_full >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
   imp_res_tac mem_store_const >> full_simp_tac(srw_ss())[] >> srw_tac[][]
 QED
@@ -924,7 +926,10 @@ Theorem inst_code_gc_fun_const[local]:
      s.code = t.code /\ s.gc_fun = t.gc_fun /\ s.sh_mdomain = t.sh_mdomain /\ s.mdomain = t.mdomain /\ s.be = t.be
      ∧ s.compile = t.compile ∧ s.stack_size = t.stack_size ∧ s.stack_limit = t.stack_limit
 Proof
-  Cases_on`i`>>fs[inst_def,assign_def]>>EVERY_CASE_TAC>>fs[state_component_equality,mem_store_def]
+  Cases_on`i`>>fs[inst_def,assign_def]>>
+  EVERY_CASE_TAC>>
+  rpt (pairarg_tac >> fs []) >>
+  fs[state_component_equality,mem_store_def]
 QED
 
 Theorem inst_const:
@@ -3625,6 +3630,7 @@ Resume locals_rel_evaluate_thm[Inst]:
   fs[evaluate_def] >>
   gvs[inst_def,every_var_def,every_var_inst_def,
   assign_def,AllCaseEqs()] >>
+  rpt (pairarg_tac >> gvs []) >>
   TRY (DEP_REWRITE_TAC[locals_rel_word_exp_simp] >> fs[every_var_exp_def]) >>
   TRY (rename1 `every_var_imm _ R` >> Cases_on `R` >>
   fs[every_var_imm_def,every_var_exp_def]) >>
@@ -3633,7 +3639,6 @@ Resume locals_rel_evaluate_thm[Inst]:
   simp[set_var_def] >>
   rpt (irule locals_rel_set_var >> fs[])
   >-(drule_then assume_tac mem_store_const >> gvs[])
-  >-(pairarg_tac >> gvs[])
 QED
 
 Resume locals_rel_evaluate_thm[Store]:
@@ -4851,9 +4856,9 @@ Proof
   rw[] >> pairarg_tac >> rw[no_alloc_def,no_install_def]
   >~ [‘Inst’]
   >- (gvs[evaluate_def,inst_def,assign_def,word_exp_def,AllCaseEqs()] >>
+      rpt (pairarg_tac >> gvs []) >>
       simp[state_component_equality]
-      >-(drule mem_store_const >> fs[]) >>
-     pairarg_tac >> gvs[] )
+      >-(drule mem_store_const >> fs[]))
   >~ [‘MustTerminate’]
   >- (
       gvs[evaluate_def, AllCaseEqs()] >>

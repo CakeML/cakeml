@@ -764,14 +764,14 @@ Proof
 QED
 
 Theorem infer_p_bindings:
- (!l cenv p st t env st' x.
+ (!l cenv p st t env st'.
     (infer_p l cenv p st = (Success (t,env), st'))
     ⇒
-    (pat_bindings p x = MAP FST env ++ x)) ∧
- (!l cenv ps st ts env st' x.
+    (pat_bindings p = MAP FST env)) ∧
+ (!l cenv ps st ts env st'.
     (infer_ps l cenv ps st = (Success (ts,env), st'))
     ⇒
-    (pats_bindings ps x = MAP FST env ++ x))
+    (pats_bindings ps = MAP FST env))
 Proof
   ho_match_mp_tac infer_p_ind >>
   rw [pat_bindings_def, infer_p_def, success_eqns, remove_pair_lem]
