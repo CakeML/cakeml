@@ -91,18 +91,6 @@ fun int_to_string t =
 
 val const_name = #1 o dest_const
 
-(* fromSexp$opsexp: most nullary ops use their constructor name verbatim (note
-   Vsub_unsafe keeps its underscore), but these few are renamed. *)
-fun op_tag nm =
-  case nm of
-      "Aw8sub_unsafe"    => "Aw8subunsafe"
-    | "Aw8update_unsafe" => "Aw8updateunsafe"
-    | "XorAw8Str_unsafe" => "XorAw8Strunsafe"
-    | "Asub_unsafe"      => "Asubunsafe"
-    | "Aupdate_unsafe"   => "Aupdateunsafe"
-    | "Env_id"           => "Envid"
-    | _                  => nm
-
 fun width_digits w =
   case const_name w of
       "W8"  => "8"
@@ -164,7 +152,7 @@ fun opsexp t =
       | "Test"    => Expr [Atom "Test", testsexp (List.nth (args, 0)),
                            prim_typesexp (List.nth (args, 1))]
       | "ThunkOp" => thunkop (hd args)
-      | nm        => Atom (op_tag nm)
+      | nm        => Atom nm
   end
 
 (* fromSexp$litsexp *)
