@@ -6551,37 +6551,6 @@ Resume interpretation_models_axioms_lemma[axiom_of_choice]:
   SELECT_ELIM_TAC >> simp[] >> metis_tac[apply_abstract]
 QED
 
-fun writeFile (filename : string, contents : string) =
-    let
-        val outStream = TextIO.openOut filename
-        val () = TextIO.output (outStream, contents)
-        val () = TextIO.closeOut outStream
-    in
-        ()
-    end;
-
-fun appendFile (filename : string, contents : string) =
-    let
-        val outStream = TextIO.openAppend filename
-        val () = TextIO.output (outStream, contents)
-        val () = TextIO.closeOut outStream
-    in
-        ()
-    end;
-
-fun add_prefix prefix s = let
-  val s = String.translate (fn c => if c = #"\n" then str c ^ prefix else str c) s
-  in prefix ^ s end
-
-val filename = "broken.txt"
-
-fun reset_file_tac g = (writeFile (filename,""); ALL_TAC g);
-
-fun write_goal_tac prefix g = let
-  val s = add_prefix prefix (term_to_string (snd g))
-  val _ = appendFile (filename, s ^ "\n\n")
-  in ALL_TAC g end
-
 Resume interpretation_models_axioms_lemma[axiom_of_infinity]:
   `NewAxiom p = (^infinity_ax)` by
     (qpat_x_assum `NewAxiom _ :: _ = _` (mp_tac o REWRITE_RULE[mk_infinity_ctxt_def]) >>
@@ -6976,156 +6945,81 @@ Resume interpretation_models_axioms_lemma[axiom_of_infinity]:
   simp[boolean_eq_true,Once ext_term_frag_builtins_def] >>
   disch_then kall_tac >>
 
-  reset_file_tac >>
-
   qpat_assum `∀ty. _ => ext_term_frag_builtins _ _ («!»,_) = _`
     (fn thm => dep_rewrite.DEP_ONCE_REWRITE_TAC[thm]) >>
-  write_goal_tac "a1  " >>
   simp[ground_types_def] >>
-  write_goal_tac "a2  " >>
   conj_asm1_tac >- (simp[Abbr `ctxt`] >> fs[mk_infinity_ctxt_def] >> rveq >> fs[]) >>
-  write_goal_tac "a3  " >>
   rw[] >>
-  write_goal_tac "a4  " >>
   qpat_assum `∀ty. _ => ext_term_frag_builtins _ _ («?»,_) = _`
     (fn thm => dep_rewrite.DEP_ONCE_REWRITE_TAC[thm]) >>
-  write_goal_tac "a5  " >>
   simp[ground_types_def] >>
-  write_goal_tac "a6  " >>
   simp[ext_term_frag_builtins_def] >>
-  write_goal_tac "a7  " >>
   dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
-  write_goal_tac "a8  " >>
   simp[boolean_in_boolset,boolean_eq_true] >>
-  write_goal_tac "a9  " >>
   conj_asm1_tac >-
     (dep_rewrite.DEP_REWRITE_TAC[abstract_in_funspace] >>
-     write_goal_tac "b1  " >>
      rw[] >>
-     write_goal_tac "b2  " >>
      dep_rewrite.DEP_REWRITE_TAC[apply_boolrel_rw] >>
-     write_goal_tac "b3  " >>
      simp[boolean_in_boolset] >>
-     write_goal_tac "b4  " >>
-     cheat (* the next line does too much
      dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
-     write_goal_tac "b5  " >>
      simp[boolean_in_boolset] >>
-     write_goal_tac "b6  " >>
-     dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
-     write_goal_tac "b7  " >>
-     simp[boolean_in_boolset] >>
-     write_goal_tac "b8  " >>
-     dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
-     write_goal_tac "b9  " >>
-     simp[boolean_in_boolset] >>
-     write_goal_tac "c1  " >>
      dep_rewrite.DEP_REWRITE_TAC[abstract_in_funspace] >>
-     write_goal_tac "c2  " >>
      simp[boolean_in_boolset] >>
-     write_goal_tac "c3  " >>
      conj_tac >-
        (rw[] >>
-        write_goal_tac "d1  " >>
         dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
-        write_goal_tac "d2  " >>
         simp[boolean_in_boolset] >>
-        write_goal_tac "d3  " >>
         qpat_x_assum `m <: Funspace _ _` assume_tac >>
-        write_goal_tac "d4  " >>
         drule_then drule in_funspace_abstract >>
-        write_goal_tac "d5  " >>
         strip_tac >> simp[] >>
-        write_goal_tac "d6  " >>
-        dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
-        write_goal_tac "d7  " >>
-        simp[] >>
-        write_goal_tac "d8  " >>
         dep_rewrite.DEP_REWRITE_TAC[abstract_in_funspace] >>
-        write_goal_tac "d9  " >>
         simp[boolean_in_boolset] >>
-        write_goal_tac "d10 " >>
         rw[] >>
-        write_goal_tac "d11 " >>
         dep_rewrite.DEP_REWRITE_TAC[apply_boolrel_rw] >>
-        write_goal_tac "d12 " >>
-        simp[boolean_in_boolset] >>
-        write_goal_tac "d13 " >>
         dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
-        write_goal_tac "d14 " >>
-        simp[boolean_in_boolset] >>
-        write_goal_tac "d15 " >>
-        dep_rewrite.DEP_REWRITE_TAC[abstract_in_funspace] >>
-        write_goal_tac "d16 " >>
         simp[boolean_in_boolset]) >>
-     write_goal_tac "e1  " >>
-     dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
-     write_goal_tac "e2  " >>
-     simp[boolean_in_boolset] >>
-     write_goal_tac "e3  " >>
-     dep_rewrite.DEP_REWRITE_TAC[abstract_in_funspace] >>
-     write_goal_tac "e4  " >>
-     simp[boolean_in_boolset] >>
-     write_goal_tac "e5  " >>
      rw[] >>
-     write_goal_tac "e6  " >>
      dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
-     write_goal_tac "e7  " >>
      simp[boolean_in_boolset] >>
-     write_goal_tac "e8  " >>
      dep_rewrite.DEP_REWRITE_TAC[abstract_in_funspace] >>
-     write_goal_tac "e9  " >>
      simp[boolean_in_boolset] >>
-     write_goal_tac "e10 " >>
-     rw[] >>
-     write_goal_tac "e11 " >>
-     dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
-     write_goal_tac "e12 " >>
-     simp[boolean_in_boolset] >>
-     write_goal_tac "e13 " >>
+     conj_tac >-
+       (rw[] >>
+        dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
+        simp[boolean_in_boolset] >>
+        qpat_x_assum `m <: Funspace _ _` assume_tac >>
+        drule_then drule in_funspace_abstract >>
+        strip_tac >> simp[] >>
+        dep_rewrite.DEP_REWRITE_TAC[abstract_in_funspace] >>
+        simp[boolean_in_boolset] >>
+        rw[] >>
+        dep_rewrite.DEP_REWRITE_TAC[apply_boolrel_rw] >>
+        dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
+        simp[boolean_in_boolset])>>
      qpat_x_assum `m <: Funspace _ _` assume_tac >>
-     write_goal_tac "e14 " >>
      drule_then drule in_funspace_abstract >>
-     write_goal_tac "e15 " >>
      strip_tac >> simp[] >>
-     write_goal_tac "e16 " >>
      dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
-     write_goal_tac "e17 " >>
-     simp[] *)) >>
-  write_goal_tac "f1  " >>
+     simp[]) >>
   qpat_x_assum `is_infinite _ _` mp_tac >>
-  write_goal_tac "f2  " >>
   simp[is_infinite_def] >>
-  write_goal_tac "f3  " >>
   simp[INFINITE_INJ_NOT_SURJ] >>
-  write_goal_tac "f4  " >>
   strip_tac >>
-  write_goal_tac "f5  " >>
   rename1 `INJ f` >>
-  write_goal_tac "f6  " >>
   qexists_tac`Abstract (ext_type_frag_builtins δ Ind) (ext_type_frag_builtins δ Ind) f` >>
-  write_goal_tac "f7  " >>
   fs[] >>
-  write_goal_tac "f8  " >>
   conj_asm1_tac >-
     (dep_rewrite.DEP_REWRITE_TAC[abstract_in_funspace] >> simp[] >>
      ntac 2 (pop_assum mp_tac) >> simp[INJ_DEF]) >>
-  write_goal_tac "f9  " >>
   simp[holds_def] >>
-  write_goal_tac "fa  " >>
-  cheat (* the next line does too much
   dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
-  write_goal_tac "fb  " >>
   simp[boolean_in_boolset,boolean_eq_true] >>
-  write_goal_tac "fc  " >>
   conj_asm1_tac >-
     (dep_rewrite.DEP_REWRITE_TAC[abstract_in_funspace] >>
      simp[boolean_in_boolset] >>
      rw[] >>
      dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
      simp[boolean_in_boolset] >>
-     conj_asm1_tac >- (qhdtm_x_assum `INJ` mp_tac >> simp[INJ_DEF]) >>
-     simp[] >>
      dep_rewrite.DEP_REWRITE_TAC[abstract_in_funspace] >>
      simp[boolean_in_boolset] >>
      rw[] >>
@@ -7136,44 +7030,29 @@ Resume interpretation_models_axioms_lemma[axiom_of_infinity]:
      dep_rewrite.DEP_REWRITE_TAC[abstract_in_funspace] >>
      simp[boolean_in_boolset] >>
      qhdtm_x_assum `INJ` mp_tac >> simp[INJ_DEF]) >>
-  write_goal_tac "fd  " >>
+  simp[] >>
+  conj_asm1_tac >-
+    (dep_rewrite.DEP_REWRITE_TAC[abstract_in_funspace] >>
+     simp[boolean_in_boolset] >>
+     rw[] >>
+     dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
+     simp[boolean_in_boolset] >>
+     dep_rewrite.DEP_REWRITE_TAC[abstract_in_funspace] >>
+     simp[boolean_in_boolset] >>
+     rw[] >>
+     dep_rewrite.DEP_REWRITE_TAC[apply_boolrel_rw] >>
+     simp[boolean_in_boolset] >>
+     dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
+     simp[boolean_in_boolset] >>
+     dep_rewrite.DEP_REWRITE_TAC[abstract_in_funspace] >>
+     simp[boolean_in_boolset] >>
+     qhdtm_x_assum `INJ` mp_tac >> simp[INJ_DEF]) >>
   simp[] >>
   conj_asm1_tac >-
     (dep_rewrite.DEP_REWRITE_TAC[apply_boolrel_rw] >>
-     simp[boolean_in_boolset] >>
-     dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
-     simp[boolean_in_boolset] >>
-     dep_rewrite.DEP_REWRITE_TAC[abstract_in_funspace] >>
-     simp[boolean_in_boolset] >>
-     rw[] >>
-     dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
-     simp[boolean_in_boolset] >>
-     dep_rewrite.DEP_REWRITE_TAC[abstract_in_funspace] >>
-     simp[boolean_in_boolset] >>
-     rw[] >>
-     dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
-     simp[boolean_in_boolset] >>
-     qhdtm_x_assum `INJ` mp_tac >> simp[INJ_DEF]) >>
-  write_goal_tac "fe  " >>
+     simp[boolean_in_boolset]) >>
   dep_rewrite.DEP_REWRITE_TAC[apply_boolrel_rw] >>
-  write_goal_tac "ff  " >>
   simp[boolean_in_boolset,boolean_eq_true] >>
-  write_goal_tac "fg  " >>
-  conj_asm1_tac >-
-    (dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
-     simp[boolean_in_boolset] >>
-     dep_rewrite.DEP_REWRITE_TAC[abstract_in_funspace] >>
-     simp[boolean_in_boolset] >>
-     rw[] >>
-     dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
-     simp[boolean_in_boolset] >>
-     dep_rewrite.DEP_REWRITE_TAC[abstract_in_funspace] >>
-     simp[boolean_in_boolset] >>
-     rw[] >>
-     dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
-     simp[boolean_in_boolset] >>
-     qhdtm_x_assum `INJ` mp_tac >> simp[INJ_DEF]) >>
-  write_goal_tac "fh  " >>
   conj_tac >-
     (rw[] >>
      dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
@@ -7188,10 +7067,7 @@ Resume interpretation_models_axioms_lemma[axiom_of_infinity]:
         simp[boolean_in_boolset] >>
         dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
         simp[boolean_in_boolset] >>
-        conj_asm1_tac >- (qhdtm_x_assum `INJ` mp_tac >> simp[INJ_DEF]) >>
-        simp[] >>
-        dep_rewrite.DEP_REWRITE_TAC[abstract_in_funspace] >>
-        simp[boolean_in_boolset]) >>
+        qhdtm_x_assum `INJ` mp_tac >> simp[INJ_DEF]) >>
      rw[boolean_eq_true] >>
      dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
      simp[boolean_in_boolset] >>
@@ -7203,25 +7079,6 @@ Resume interpretation_models_axioms_lemma[axiom_of_infinity]:
      simp[boolean_in_boolset] >>
      simp[boolean_eq_true] >>
      qhdtm_x_assum `INJ` mp_tac >> simp[INJ_DEF]) >>
-  write_goal_tac "fi  " >>
-  dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
-  write_goal_tac "fj  " >>
-  simp[boolean_in_boolset,boolean_eq_true] >>
-  write_goal_tac "fk  " >>
-  conj_asm1_tac >-
-    (dep_rewrite.DEP_REWRITE_TAC[abstract_in_funspace] >>
-     simp[boolean_in_boolset,boolean_eq_true] >>
-     rw[] >>
-     dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
-     simp[boolean_in_boolset] >>
-     dep_rewrite.DEP_REWRITE_TAC[abstract_in_funspace] >>
-     simp[boolean_in_boolset,boolean_eq_true] >>
-     rw[] >>
-     dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
-     simp[boolean_in_boolset] >>
-     qhdtm_x_assum `INJ` mp_tac >> simp[INJ_DEF]) >>
-  write_goal_tac "fl  " >>
-  simp[] >>
   qpat_x_assum`¬(SURJ f X Y)`mp_tac >>
   simp[SURJ_DEF] >>
   strip_tac >-
@@ -7245,7 +7102,7 @@ Resume interpretation_models_axioms_lemma[axiom_of_infinity]:
   dep_rewrite.DEP_REWRITE_TAC[apply_abstract] >>
   simp[boolean_in_boolset] >>
   simp[boolean_def,true_neq_false] >>
-  qhdtm_x_assum `INJ` mp_tac >> simp[INJ_DEF] *)
+  qhdtm_x_assum `INJ` mp_tac >> simp[INJ_DEF]
 QED
 
 Resume interpretation_models_axioms_lemma[const_spec]:
