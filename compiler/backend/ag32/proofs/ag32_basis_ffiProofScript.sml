@@ -786,13 +786,13 @@ QED
 Definition stdin_fs_def:
   stdin_fs inp =
     <| inode_tbl :=
-       [(UStream (strlit "stdout"), "")
-       ;(UStream (strlit "stderr"), "")
-       ;(UStream (strlit "stdin"), inp)]
+       [(UStream «stdout», "")
+       ;(UStream «stderr», "")
+       ;(UStream «stdin», inp)]
      ; infds :=
-       [(0, UStream(strlit"stdin"), ReadMode, 0)
-       ;(1, UStream(strlit"stdout"), WriteMode, 0)
-       ;(2, UStream(strlit"stderr"), WriteMode, 0)]
+       [(0, UStream «stdin», ReadMode, 0)
+       ;(1, UStream «stdout», WriteMode, 0)
+       ;(2, UStream «stderr», WriteMode, 0)]
      ; files := []
      ; numchars := LGENLIST (K output_buffer_size) NONE
      ; maxFD := 2
@@ -841,8 +841,8 @@ End
 Definition ag32_stdin_implemented_def:
   ag32_stdin_implemented fs m ⇔
     ∃off inp.
-      (ALOOKUP fs.infds 0 = SOME (UStream(strlit"stdin"), ReadMode, off)) ∧
-      (ALOOKUP fs.inode_tbl (UStream(strlit"stdin")) = SOME inp) ∧
+      (ALOOKUP fs.infds 0 = SOME (UStream «stdin», ReadMode, off)) ∧
+      (ALOOKUP fs.inode_tbl (UStream «stdin») = SOME inp) ∧
       (get_mem_word m (n2w stdin_offset) = n2w off) ∧
       (get_mem_word m (n2w (stdin_offset + 4)) = n2w (LENGTH inp)) ∧
       off ≤ LENGTH inp ∧ LENGTH inp ≤ stdin_size ∧
@@ -7001,8 +7001,8 @@ Proof
     \\ simp_tac(srw_ss())[IS_SOME_EXISTS, EXISTS_PROD, PULL_EXISTS]
     \\ rw[ag32_stdin_implemented_def]
     \\ qmatch_goalsub_rename_tac`ino = UStream _`
-    \\ Cases_on`ino = UStream (strlit"stdin")` \\ simp[]
-    \\ Cases_on`ALOOKUP (SND x.ffi_state).inode_tbl (UStream(strlit"stdin"))` \\ simp[]
+    \\ Cases_on`ino = UStream «stdin»` \\ simp[]
+    \\ Cases_on`ALOOKUP (SND x.ffi_state).inode_tbl (UStream «stdin»)` \\ simp[]
     \\ qmatch_goalsub_rename_tac`off ≤ LENGTH input`
     \\ Cases_on`off ≤ LENGTH input ∧ LENGTH input ≤ stdin_size` \\ fs[] \\ rveq
     \\ `∀i. i < 8 + LENGTH cnt ⇒ ((Next ms1).MEM (n2w (stdin_offset + i)) = m (n2w (stdin_offset + i)))`

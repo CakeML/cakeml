@@ -244,14 +244,13 @@ Proof
     \\ simp [eval_rel_def,PULL_EXISTS]
     \\ fs [evaluate_def,pair_case_eq,result_case_eq,PULL_EXISTS]
     \\ fs [eval_rel_def,PULL_EXISTS]
+    \\ drule evaluate_add_to_clock \\ fs []  (* evaluate _ _ [Mat _ _] *)
+    \\ disch_then (qspec_then `ck1` assume_tac)
     \\ qpat_x_assum `_ env [x] = _` assume_tac
     \\ fs [evaluate_def,pair_case_eq,result_case_eq] \\ rveq \\ fs []
     \\ drule evaluate_add_to_clock \\ fs []
     \\ disch_then (qspec_then `ck1'` assume_tac)
     \\ asm_exists_tac \\ fs []
-    \\ qpat_x_assum `_ = (_,Rval v)` assume_tac
-    \\ drule evaluate_add_to_clock \\ fs []
-    \\ disch_then (qspec_then `ck1` assume_tac)
     \\ rfs [] \\ rveq \\ fs [] \\ rfs [CaseEq"bool"]
     \\ drule evaluate_match_add_to_clock \\ fs []
     \\ fs [state_component_equality]
@@ -311,4 +310,3 @@ Theorem PMATCH_SIMP:
 Proof
   fs [CONTAINER_def]
 QED
-

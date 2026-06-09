@@ -36,7 +36,7 @@ val _ = translate nocomment_line_def;
 
 Definition format_dimacs_failure_def:
   format_dimacs_failure (lno:num) s =
-  strlit "c DIMACS parse failed at line: " ^ toString lno ^ strlit ". Reason: " ^ s ^ strlit"\n"
+  «c DIMACS parse failed at line: » ^ toString lno ^ «. Reason: » ^ s ^ «\n»
 End
 
 val _ = translate format_dimacs_failure_def;
@@ -694,7 +694,7 @@ Definition check_unsat_2_sem_def:
           if check_xlrups_unsat_list xfml bfml xlrups cupd basex baseb tn
             0 (REPLICATE bnd w8z)
           then
-            add_stdout fs (strlit "s VERIFIED UNSAT\n")
+            add_stdout fs «s VERIFIED UNSAT\n»
           else
             add_stderr fs err
       | NONE => add_stderr fs err

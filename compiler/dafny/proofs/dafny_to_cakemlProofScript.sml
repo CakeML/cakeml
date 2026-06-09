@@ -93,7 +93,7 @@ Definition cml_dec_to_string_clos_def:
 End
 
 Definition dec_to_string_def:
-  dec_to_string n = str (CHR (48 + n))
+  dec_to_string n = toString (CHR (48 + n))
 End
 
 Definition has_list_cons_def:
@@ -122,8 +122,8 @@ Proof
            do_con_check_def, build_conv_def, do_app_def, do_arith_def, check_type_def]
   \\ ‘¬((48: int) + &n < 0 ∨ (48: int) + &n > 255)’ by (intLib.COOPER_TAC)
   \\ simp [v_to_char_list_def]
-  \\ gvs [dec_to_string_def, str_def]
-  \\ AP_TERM_TAC \\ AP_THM_TAC \\ ntac 2 AP_TERM_TAC
+  \\ gvs [dec_to_string_def, chr_to_str_def]
+  \\ AP_TERM_TAC
   \\ intLib.COOPER_TAC
 QED
 

@@ -23,8 +23,6 @@ Overload Tf = “λt. Lf (TOK t, unknown_loc)”;
 Overload vbinop = “λopn a1 a2. App Opapp [App Opapp [Var opn; a1]; a2]”;
 Overload V = “λvnm. Var (Short vnm)”;
 Overload Pv = “λvnm. Pvar vnm”;
-Overload false_id = “Long «Cake» (Long «Bool» (Short «false»))”;
-Overload true_id = “Long «Cake» (Long «Bool» (Short «true»))”;
 Overload Pc = “λcnm. Pcon (SOME (Short cnm))”;
 Overload C = “λcnm. Con (SOME (Short cnm))”
 
@@ -359,8 +357,7 @@ val _ = parsetest0 “nPattern” “ptree_Pattern”
 
 val _ = parsetest0 “nPattern” “ptree_Pattern”
   "false::[]"
-  (SOME $ eval “[mkpat $ Pc «::» [
-    Pcon (SOME false_id) []; Pc «[]» []]]”)
+  (SOME $ eval “[mkpat $ Pc «::» [Pc «False» []; Pc «[]» []]]”)
   ;
 
 val _ = parsetest0 “nPattern” “ptree_Pattern”
@@ -510,7 +507,7 @@ val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   "Foo { foo = 5; bar = true }"
   (SOME $ eval
     “App Opapp [App Opapp [V (mk_record_constr_name «Foo» [«bar»;«foo»]);
-                           (Con (SOME true_id) [])];
+                           (C «True» [])];
                     Lit (IntLit 5)]”)
   ;
 
@@ -586,12 +583,12 @@ val _ = parsetest0 “nStart” “ptree_Start”
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   "true || let y = z in y"
-  (SOME “Log Orelse (Con (SOME true_id) []) (Let (SOME «y») (V «z») (V «y»))”)
+  (SOME “Log Orelse (C «True» []) (Let (SOME «y») (V «z») (V «y»))”)
   ;
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   "let y = z in y || true"
-  (SOME “Let (SOME «y») (V «z») (Log Orelse (V «y») (Con (SOME true_id) []))”)
+  (SOME “Let (SOME «y») (V «z») (Log Orelse (V «y») (C «True» []))”)
   ;
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
@@ -1117,7 +1114,7 @@ val _ = parsetest0 “nExpr” “ptree_Expr nExpr”
   "3 < x = true"
   (SOME “vbinop (Short «=»)
                 (vbinop (Short «<») (Lit (IntLit 3)) (V «x»))
-                (Con (SOME true_id) [])”)
+                (C «True» [])”)
   ;
 
 val _ = parsetest0 “nExpr” “ptree_Expr nExpr”

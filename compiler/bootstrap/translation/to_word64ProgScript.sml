@@ -468,6 +468,9 @@ val _ = translate (spec64 inst_select_def(*pmatch*))
 val _ = translate (spec64 list_next_var_rename_move_def)
 val _ = translate force_rename_def
 
+val _ = translate (spec64 ssa_reconcile_def);
+val _ = translate (spec64 loop_setup_def);
+
 val _ = translate (conv64 ssa_cc_trans_inst_def)
 val _ = translate (spec64 full_ssa_cc_trans_def)
 

@@ -77,16 +77,16 @@ Proof
 QED
 
 Definition UNSAT_string_def:
-  UNSAT_string = strlit "s VERIFIED NOT SUBGRAPH ISOMORPHIC\n"
+  UNSAT_string = «s VERIFIED NOT SUBGRAPH ISOMORPHIC\n»
 End
 
 Definition SAT_string_def:
-  SAT_string = strlit "s VERIFIED SUBGRAPH ISOMORPHIC\n"
+  SAT_string = «s VERIFIED SUBGRAPH ISOMORPHIC\n»
 End
 
 Definition check_unsat_3_sem_def:
   check_unsat_3_sem fs f1 f2 out ⇔
-  (out ≠ strlit"" ⇒
+  (out ≠ «» ⇒
   ∃gp gt.
     get_graph_lad fs f1 = SOME gp ∧
     get_graph_lad fs f2 = SOME gt ∧
@@ -103,7 +103,7 @@ Definition res_to_string_def:
     case h of
       DUnsat => INR UNSAT_string
     | DSat => INR SAT_string
-    | _ => INL (strlit "c Unexpected conclusion for subgraph isomorphism problem.\n"))
+    | _ => INL «c Unexpected conclusion for subgraph isomorphism problem.\n»)
 End
 
 val res = translate (res_to_string_def |> SIMP_RULE std_ss [UNSAT_string_def,SAT_string_def]);
@@ -204,7 +204,7 @@ Proof
     qexists_tac`emp`>>xsimpl>>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
-    qexists_tac`strlit ""`>>
+    qexists_tac`«»`>>
     rename1`add_stderr _ err`>>
     qexists_tac`err`>>xsimpl>>rw[]>>
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -217,7 +217,7 @@ Proof
     qexists_tac`emp`>>xsimpl>>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
-    qexists_tac`strlit ""`>>
+    qexists_tac`«»`>>
     rename1`add_stderr _ err`>>
     qexists_tac`err`>>xsimpl>>rw[]>>
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -228,7 +228,7 @@ Proof
     qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
     rw[]>>
     qexists_tac`SAT_string`>>simp[]>>
-    qexists_tac`strlit ""`>>
+    qexists_tac`«»`>>
     simp[STD_streams_stderr,add_stdo_nil]>>
     xsimpl>>
     fs[pb_parseTheory.strip_annot_prob_def,pbcTheory.pres_set_list_def]>>
@@ -243,7 +243,7 @@ Proof
     qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
     rw[]>>
     qexists_tac`UNSAT_string`>>simp[]>>
-    qexists_tac`strlit ""`>>
+    qexists_tac`«»`>>
     simp[STD_streams_stderr,add_stdo_nil]>>
     xsimpl>>
     fs[pb_parseTheory.strip_annot_prob_def,pbcTheory.pres_set_list_def]>>
@@ -257,7 +257,7 @@ Proof
   qexists_tac`emp`>>xsimpl>>
   qexists_tac`fs`>>xsimpl>>
   rw[]>>
-  qexists_tac`strlit ""`>>
+  qexists_tac`«»`>>
   rename1`add_stderr _ err`>>
   qexists_tac`err`>>xsimpl>>rw[]>>
   fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -267,10 +267,10 @@ QED
 Definition check_unsat_2_sem_def:
   check_unsat_2_sem fs f1 f2 out ⇔
   case get_graph_lad fs f1 of
-    NONE => out = strlit ""
+    NONE => out = «»
   | SOME gpp =>
   case get_graph_lad fs f2 of
-    NONE => out = strlit ""
+    NONE => out = «»
   | SOME gtt =>
     out = concat (print_annot_prob (mk_prob (full_encode gpp gtt)))
 End
@@ -325,13 +325,13 @@ Proof
   asm_exists_tac>>xsimpl>>
   qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
   rw[]>>
-  qexists_tac`strlit ""`>>
+  qexists_tac`«»`>>
   simp[STD_streams_stderr,add_stdo_nil]>>
   xsimpl
 QED
 
 Definition usage_string_def:
-  usage_string = strlit "Usage: cake_pb_iso <LAD file (pattern)> <LAD file (target)> <optional: PB proof file>\n"
+  usage_string = «Usage: cake_pb_iso <LAD file (pattern)> <LAD file (target)> <optional: PB proof file>\n»
 End
 
 val r = translate usage_string_def;
@@ -350,7 +350,7 @@ Definition main_sem_def:
     check_unsat_2_sem fs (EL 1 cl) (EL 2 cl) out
   else if LENGTH cl = 4 then
     check_unsat_3_sem fs (EL 1 cl) (EL 2 cl) out
-  else out = strlit ""
+  else out = «»
 End
 
 Theorem STDIO_refl:

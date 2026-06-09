@@ -26,8 +26,8 @@ End
 
 Definition consistent_theory_def:
   consistent_theory thy ⇔
-        (thy,[]) |- (Var (strlit"x") Bool === Var (strlit"x") Bool) ∧
-      ¬((thy,[]) |- (Var (strlit"x") Bool === Var (strlit"y") Bool))
+        (thy,[]) |- (Var «x» Bool === Var «x» Bool) ∧
+      ¬((thy,[]) |- (Var «x» Bool === Var «y» Bool))
 End
 
 Theorem proves_consistent:
@@ -54,8 +54,8 @@ Proof
     rfs[typeof_equation] >>
     fs[ground_terms_uninst_def] >>
     qexists_tac `Bool` >> fs[ground_types_def,tyvars_def]) >>
-  qexists_tac`λ(x,ty). if (x,ty) = (strlit"x",Bool) then True else
-                       if (x,ty) = (strlit"y",Bool) then False else
+  qexists_tac`λ(x,ty). if (x,ty) = («x»,Bool) then True else
+                       if (x,ty) = («y»,Bool) then False else
                        @v. v <: ext_type_frag_builtins δ (TYPE_SUBSTf (K Bool) ty)` >>
   conj_asm1_tac >- (
     reverse conj_asm2_tac >-
@@ -83,7 +83,7 @@ Proof
   disch_then drule >>
   fs[valuates_frag_builtins] >>
   disch_then drule >>
-  disch_then(qspecl_then [`Var (strlit "x") Bool`,`Var (strlit "y") Bool`] mp_tac) >>
+  disch_then(qspecl_then [`Var «x» Bool`,`Var «y» Bool`] mp_tac) >>
   impl_tac >- (
     simp[] >>
     conj_tac >> match_mp_tac terms_of_frag_uninst_term_ok >>

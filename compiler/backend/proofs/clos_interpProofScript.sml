@@ -127,7 +127,7 @@ Theorem clos_interp_el_thm:
           ([clos_interp_el],
            list_to_v env :: Number (&n) ::
            Recclosure NONE [] cl_env
-             [(1,Fn (mlstring$strlit "") NONE NONE 1 clos_interp_el)] 0 :: rest,
+             [(1,Fn (implode "") NONE NONE 1 clos_interp_el)] 0 :: rest,
            t4 with clock := c + t4.clock) = (Rval [EL n env],t4)
 Proof
   Induct
@@ -153,7 +153,7 @@ Theorem clos_interp_rev_thm:
       ([clos_interp_rev],
         list_to_v env :: list_to_v a ::
            Recclosure NONE [] cl_env
-             [(1,Fn (mlstring$strlit "") NONE NONE 1 clos_interp_rev)] 0 :: rest,
+             [(1,Fn (implode "") NONE NONE 1 clos_interp_rev)] 0 :: rest,
            t4 with clock := 2 * LENGTH a + t4.clock) =
      (Rval [list_to_v (REVERSE a ++ env)],t4)
 Proof

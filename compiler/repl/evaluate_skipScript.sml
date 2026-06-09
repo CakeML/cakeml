@@ -411,28 +411,53 @@ local
                                            (extend_dec_env env1' env1)) *)
                     (v_rel fr1 ft1 fe1) res res1’]
     |> CONV_RULE (DEPTH_CONV BETA_CONV);
-  val ind_goals =
-    ind_thm |> concl |> dest_imp |> fst
-            |> helperLib.list_dest dest_conj
 in
-  fun get_goal s =
-    first (can (find_term (can (match_term (Term [QUOTE s]))))) ind_goals
-    |> helperLib.list_dest dest_forall
-    |> last
   fun evaluate_update () = ind_thm |> concl |> rand
   fun the_ind_thm () = ind_thm
 end
 
-Theorem evaluate_update_Nil:
-  ^(get_goal "[]")
+Theorem evaluate_update:
+  ^(evaluate_update ())
 Proof
+  match_mp_tac (the_ind_thm ())
+  \\ rpt conj_tac
+  >~ [`[] : exp list`] >- suspend "Nil"
+  >~ [`_::_::_ : exp list`] >- suspend "Cons"
+  >~ [`Lit`] >- suspend "Lit"
+  >~ [`Raise`] >- suspend "Raise"
+  >~ [`Handle`] >- suspend "Handle"
+  >~ [`Con`] >- suspend "Con"
+  >~ [`ast$Var`] >- suspend "Var"
+  >~ [`ast$Fun`] >- suspend "Fun"
+  >~ [`ast$App`] >- suspend "App"
+  >~ [`Log`] >- suspend "Log"
+  >~ [`ast$If`] >- suspend "If"
+  >~ [`Mat`] >- suspend "Mat"
+  >~ [`ast$Let`] >- suspend "Let"
+  >~ [`Letrec`] >- suspend "Letrec"
+  >~ [`Tannot`] >- suspend "Tannot"
+  >~ [`Lannot`] >- suspend "Lannot"
+  >~ [`[] : (pat # exp) list`] >- suspend "pmatch_Nil"
+  >~ [`_::_ : (pat # exp) list`] >- suspend "pmatch_Cons"
+  >~ [`[]:dec list`] >- suspend "decs_Nil"
+  >~ [`_::_::_:dec list`] >- suspend "decs_Cons"
+  >~ [`Dlet`] >- suspend "decs_Dlet"
+  >~ [`Dletrec`] >- suspend "decs_Dletrec"
+  >~ [`Dtype`] >- suspend "decs_Dtype"
+  >~ [`Dtabbrev`] >- suspend "decs_Dtabbrev"
+  >~ [`Denv`] >- suspend "decs_Denv"
+  >~ [`Dexn`] >- suspend "decs_Dexn"
+  >~ [`Dmod`] >- suspend "decs_Dmod"
+  >~ [`Dlocal`] >- suspend "decs_Dlocal"
+  \\ simp []
+QED
+
+Resume evaluate_update[Nil]:
   rw [evaluate_def]
   \\ first_assum (irule_at Any) \\ gs []
 QED
 
-Theorem evaluate_update_Cons:
-  ^(get_goal "_::_::_")
-Proof
+Resume evaluate_update[Cons]:
   rw [evaluate_def]
   \\ gvs [CaseEqs ["result", "prod"], PULL_EXISTS]
   >~ [‘evaluate _ _ [_] = (_, Rerr err)’] >- (
@@ -455,17 +480,13 @@ Proof
   \\ first_assum (irule_at (Pos last))
 QED
 
-Theorem evaluate_update_Lit:
-  ^(get_goal "Lit l")
-Proof
+Resume evaluate_update[Lit]:
   rw [evaluate_def] \\ gs []
   \\ first_assum (irule_at Any)
   \\ simp [v_rel_rules]
 QED
 
-Theorem evaluate_update_Raise:
-  ^(get_goal "Raise e")
-Proof
+Resume evaluate_update[Raise]:
   rw [evaluate_def] \\ gs []
   \\ gvs [CaseEqs ["result", "prod"], PULL_EXISTS]
   \\ first_x_assum (drule_all_then strip_assume_tac)
@@ -505,9 +526,7 @@ Proof
     \\ gs [])
 QED
 
-Theorem evaluate_update_Handle:
-  ^(get_goal "Handle e")
-Proof
+Resume evaluate_update[Handle]:
   rw [evaluate_def]
   \\ gvs [CaseEqs ["prod", "result", "error_result", "bool"], PULL_EXISTS]
   \\ first_x_assum (drule_all_then strip_assume_tac) \\ gs []
@@ -555,9 +574,7 @@ Proof
   \\ (PairCases_on ‘v1’ ORELSE PairCases_on ‘v2’) \\ gs []
 QED
 
-Theorem evaluate_update_Con:
-  ^(get_goal "Con cn es")
-Proof
+Resume evaluate_update[Con]:
   rw [evaluate_def]
   \\ gvs [CaseEqs ["prod", "result", "option"], PULL_EXISTS]
   \\ drule_then assume_tac do_con_check_update \\ gs []
@@ -581,9 +598,7 @@ Proof
   \\ gs [SF SFY_ss]
 QED
 
-Theorem evaluate_update_Var:
-  ^(get_goal "ast$Var n")
-Proof
+Resume evaluate_update[Var]:
   rw [evaluate_def]
   \\ gvs [CaseEqs ["option"]]
   \\ first_assum (irule_at Any) \\ gs [] \\ dsimp []
@@ -595,18 +610,23 @@ Proof
   \\ imp_res_tac nsAll2_nsLookup1 \\ gs[ ]
 QED
 
-Theorem evaluate_update_Fun:
-  ^(get_goal "ast$Fun n e")
-Proof
+Resume evaluate_update[Fun]:
   rw [evaluate_def]
   \\ gvs [CaseEqs ["option"]]
   \\ first_assum (irule_at Any) \\ gs []
   \\ simp [v_rel_def]
 QED
 
-Theorem evaluate_update_Eval:
-  op = Eval ⇒ ^(get_goal "App")
-Proof
+Resume evaluate_update[App]:
+  rpt gen_tac
+  \\ Cases_on `op = Eval`
+  >- suspend "App_Eval"
+  \\ Cases_on `op = Opapp`
+  >- suspend "App_Opapp"
+  >- suspend "App_Op"
+QED
+
+Resume evaluate_update[App_Eval]:
   rw [evaluate_def]
   \\ gvs [AllCaseEqs(), evaluateTheory.do_eval_res_def]
   \\ first_x_assum (drule_all_then strip_assume_tac) \\ gs []
@@ -1873,9 +1893,7 @@ Proof
   \\ drule_all state_rel_store_assign \\ rw [OPTREL_def] \\ gvs []
 QED
 
-Theorem evaluate_update_Op:
-  op ≠ Opapp ∧ op ≠ Eval ⇒ ^(get_goal "App")
-Proof
+Resume evaluate_update[App_Op]:
   rw [evaluate_def] \\ Cases_on ‘getOpClass op’
   >- (Cases_on ‘op’ \\ gs[] \\ Cases_on ‘t'’ \\ gs[])
   >- (Cases_on ‘op’ \\ gs[] \\ Cases_on ‘t'’ \\ gs[])
@@ -1999,9 +2017,7 @@ Proof
   \\ rw [LIST_REL_EL_EQN, ELIM_UNCURRY, env_rel_def]
 QED
 
-Theorem evaluate_update_Opapp:
-  op = Opapp ⇒ ^(get_goal "App")
-Proof
+Resume evaluate_update[App_Opapp]:
   rw [evaluate_def]
   \\ gvs [CaseEqs ["option", "prod", "result", "bool"], PULL_EXISTS]
   \\ first_x_assum (drule_all_then strip_assume_tac)
@@ -2030,14 +2046,6 @@ Proof
   \\ gs [state_rel_def]
 QED
 
-Theorem evaluate_update_App:
-  ^(get_goal "App")
-Proof
-  Cases_on ‘op = Opapp’ >- (match_mp_tac evaluate_update_Opapp \\ gs [])
-  \\ Cases_on ‘op = Eval’ >- (match_mp_tac evaluate_update_Eval \\ gs [])
-  \\ match_mp_tac evaluate_update_Op \\ gs []
-QED
-
 Theorem v_rel_Boolv:
   state_rel l fr ft fe s t ∧
   v_rel fr ft fe v1 v2 ⇒
@@ -2064,9 +2072,7 @@ Proof
   \\ rw [] \\ gs []
 QED
 
-Theorem evaluate_update_Log:
-  ^(get_goal "Log")
-Proof
+Resume evaluate_update[Log]:
   rw [evaluate_def]
   \\ gvs [CaseEqs ["option", "prod", "result", "bool", "exp_or_val"],
           PULL_EXISTS]
@@ -2085,9 +2091,7 @@ Proof
   \\ irule_at Any SUBMAP_TRANS \\ first_assum (irule_at Any) \\ gs []
 QED
 
-Theorem evaluate_update_If:
-  ^(get_goal "If")
-Proof
+Resume evaluate_update[If]:
   rw [evaluate_def]
   \\ gvs [CaseEqs ["option", "prod", "result", "bool", "exp_or_val"],
           PULL_EXISTS]
@@ -2107,9 +2111,7 @@ Proof
   \\ irule_at Any SUBMAP_TRANS \\ first_assum (irule_at Any) \\ gs []
 QED
 
-Theorem evaluate_update_Mat:
-  ^(get_goal "Mat")
-Proof
+Resume evaluate_update[Mat]:
   rw [evaluate_def]
   \\ gvs [CaseEqs ["option", "prod", "result", "bool"], PULL_EXISTS]
   \\ first_x_assum (drule_all_then strip_assume_tac) \\ gs []
@@ -2142,9 +2144,7 @@ Proof
   \\ disch_then (qspec_then ‘MAP FST pes’ assume_tac) \\ gs []
 QED
 
-Theorem evaluate_update_Let:
-  ^(get_goal "Let")
-Proof
+Resume evaluate_update[Let]:
   rw [evaluate_def]
   \\ gvs [CaseEqs ["option", "prod", "result", "bool"], PULL_EXISTS]
   \\ first_x_assum (drule_all_then strip_assume_tac) \\ gs []
@@ -2166,9 +2166,7 @@ Proof
   \\ irule_at Any SUBMAP_TRANS \\ first_assum (irule_at Any) \\ gs []
 QED
 
-Theorem evaluate_update_Letrec:
-  ^(get_goal "Letrec")
-Proof
+Resume evaluate_update[Letrec]:
   rw [evaluate_def]
   >~ [‘¬ALL_DISTINCT _’] >- (
     first_assum (irule_at Any) \\ gs [])
@@ -2186,28 +2184,20 @@ Proof
   \\ simp [ELIM_UNCURRY, v_rel_def, env_rel_def]
 QED
 
-Theorem evaluate_update_Tannot:
-  ^(get_goal "Tannot")
-Proof
+Resume evaluate_update[Tannot]:
   rw [evaluate_def]
 QED
 
-Theorem evaluate_update_Lannot:
-  ^(get_goal "Lannot")
-Proof
+Resume evaluate_update[Lannot]:
   rw [evaluate_def]
 QED
 
-Theorem evaluate_update_pmatch_Nil:
-  ^(get_goal "[]:(pat # exp) list")
-Proof
+Resume evaluate_update[pmatch_Nil]:
   rw [evaluate_def] \\ gs []
   \\ first_assum (irule_at Any) \\ gs []
 QED
 
-Theorem evaluate_update_pmatch_Cons:
-  ^(get_goal "_::_:(pat # exp) list")
-Proof
+Resume evaluate_update[pmatch_Cons]:
   rw [evaluate_def]
   \\ gs [CaseEqs ["match_result"]]
   >~ [‘¬ALL_DISTINCT _’] >- (
@@ -2242,17 +2232,13 @@ Proof
   \\ irule nsAll2_alist_to_ns \\ gs []
 QED
 
-Theorem evaluate_update_decs_Nil:
-  ^(get_goal "[]:dec list")
-Proof
+Resume evaluate_update[decs_Nil]:
   rw [evaluate_decs_def, extend_dec_env_def]
   \\ first_assum (irule_at Any) \\ gs [SF SFY_ss]
   \\ simp [env_rel_def, ctor_rel_def]
 QED
 
-Theorem evaluate_update_decs_Cons:
-  ^(get_goal "_::_::_:dec list")
-Proof
+Resume evaluate_update[decs_Cons]:
   rw [evaluate_decs_def]
   \\ gvs [CaseEqs ["prod", "result"], PULL_EXISTS]
   \\ first_x_assum (drule_all_then strip_assume_tac) \\ gs []
@@ -2299,9 +2285,7 @@ Proof
   \\ drule_all namespacePropsTheory.nsAll2_nsLookup2 \\ fs []
 QED
 
-Theorem evaluate_update_decs_Dlet:
-  ^(get_goal "Dlet")
-Proof
+Resume evaluate_update[decs_Dlet]:
   reverse $ rw [evaluate_decs_def]
   >- (first_assum (irule_at Any) \\ gs [SF SFY_ss]
       \\ imp_res_tac env_rel_one_con_check \\ fs [])
@@ -2328,9 +2312,7 @@ Proof
   \\ irule nsAll2_alist_to_ns \\ gs []
 QED
 
-Theorem evaluate_update_decs_Dletrec:
-  ^(get_goal "Dletrec")
-Proof
+Resume evaluate_update[decs_Dletrec]:
   reverse $ rw [evaluate_decs_def]
   >- (first_assum (irule_at Any) \\ gs [SF SFY_ss])
   >- (CCONTR_TAC \\ fs []
@@ -2403,9 +2385,7 @@ Proof
   \\ gs [SUBMAP_FUNION_ID]
 QED
 
-Theorem evaluate_update_decs_Dtype:
-  ^(get_goal "Dtype")
-Proof
+Resume evaluate_update[decs_Dtype]:
   rw [evaluate_decs_def]
   >~ [‘¬EVERY check_dup_ctors _’] >- (
     first_assum (irule_at (Pat ‘state_rel’))
@@ -2497,9 +2477,7 @@ Proof
   \\ gs [Abbr ‘f’]
 QED
 
-Theorem evaluate_update_decs_Dtabbrev:
-  ^(get_goal "Dtabbrev")
-Proof
+Resume evaluate_update[decs_Dtabbrev]:
   rw [evaluate_decs_def]
   \\ first_assum (irule_at Any) \\ gs []
   \\ simp [env_rel_def, ctor_rel_def]
@@ -2513,17 +2491,13 @@ Proof
   rw [state_rel_def, declare_env_def]
 QED
 
-Theorem evaluate_update_decs_Denv:
-  ^(get_goal "Denv")
-Proof
+Resume evaluate_update[decs_Denv]:
   rw [evaluate_decs_def]
   \\ drule_then assume_tac state_rel_declare_env \\ gs []
   \\ first_assum (irule_at Any) \\ gs []
 QED
 
-Theorem evaluate_update_decs_Dexn:
-  ^(get_goal "Dexn")
-Proof
+Resume evaluate_update[decs_Dexn]:
   rw [evaluate_decs_def]
   \\ gvs [CaseEqs ["option", "prod"]]
   \\ drule_then (qspec_then ‘1’ assume_tac)
@@ -2534,9 +2508,7 @@ Proof
          FUNION_DEF, state_rel_def, FUN_FMAP_DEF]
 QED
 
-Theorem evaluate_update_decs_Dmod:
-  ^(get_goal "Dmod")
-Proof
+Resume evaluate_update[decs_Dmod]:
   rw [evaluate_decs_def]
   \\ gvs [CaseEqs ["option", "prod", "result"]]
   \\ first_x_assum (drule_all_then strip_assume_tac)
@@ -2545,9 +2517,7 @@ Proof
   \\ gs [env_rel_def, ctor_rel_def]
 QED
 
-Theorem evaluate_update_decs_Dlocal:
-  ^(get_goal "Dlocal")
-Proof
+Resume evaluate_update[decs_Dlocal]:
   rw [evaluate_decs_def]
   \\ gvs [CaseEqs ["option", "prod", "result"]]
   \\ first_x_assum (drule_all_then strip_assume_tac)
@@ -2564,27 +2534,7 @@ Proof
   \\ irule_at Any SUBMAP_TRANS \\ first_assum (irule_at Any) \\ gs []
 QED
 
-Theorem evaluate_update:
-  ^(evaluate_update ())
-Proof
-  match_mp_tac (the_ind_thm ())
-  \\ rpt conj_tac \\ rpt gen_tac
-  \\ rewrite_tac [evaluate_update_Nil, evaluate_update_Cons,
-                  evaluate_update_Lit, evaluate_update_Raise,
-                  evaluate_update_Handle, evaluate_update_Con,
-                  evaluate_update_Var, evaluate_update_Fun,
-                  evaluate_update_App, evaluate_update_Log,
-                  evaluate_update_If, evaluate_update_Mat,
-                  evaluate_update_Let, evaluate_update_Letrec,
-                  evaluate_update_Tannot, evaluate_update_Lannot,
-                  evaluate_update_pmatch_Nil, evaluate_update_pmatch_Cons,
-                  evaluate_update_decs_Nil, evaluate_update_decs_Cons,
-                  evaluate_update_decs_Dlet, evaluate_update_decs_Dletrec,
-                  evaluate_update_decs_Dtype,
-                  evaluate_update_decs_Dtabbrev,
-                  evaluate_update_decs_Denv, evaluate_update_decs_Dexn,
-                  evaluate_update_decs_Dmod, evaluate_update_decs_Dlocal]
-QED
+Finalise evaluate_update;
 
 (* --------------------------------------------------------------------------
  *  top-level theorem

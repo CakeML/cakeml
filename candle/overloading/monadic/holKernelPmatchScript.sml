@@ -108,11 +108,11 @@ Theorem type_of_PMATCH[local]:
         => do ty <- type_of s ;
               x <- dest_type ty ;
               pmatch x of | (_,_::ty1::_) => return ty1
-                        | _ => failwith (strlit "match")
+                        | _ => failwith «match»
            od
     | Abs (Var _ ty) t
         => do x <- type_of t; mk_fun_ty ty x od
-    | _ => failwith (strlit "match")
+    | _ => failwith «match»
 Proof
   monadtac >> rpt tac
 QED
@@ -171,7 +171,7 @@ val res = fix is_comb_def "is_comb_def" is_comb_PMATCH
 Theorem mk_abs_PMATCH[local]:
    ^(rhs(concl(SPEC_ALL mk_abs_def))) =
     pmatch bvar of Var n ty => return (Abs bvar bod)
-    | _ => failwith (strlit "mk_abs: not a variable")
+    | _ => failwith «mk_abs: not a variable»
 Proof
   rpt tac
 QED
@@ -182,9 +182,9 @@ Theorem mk_comb_PMATCH[local]:
     do tyf <- type_of f ;
        tya <- type_of a ;
        pmatch tyf of
-         Tyapp (strlit "fun") [ty;_] => if tya = ty then return (Comb f a) else
-                                 failwith (strlit "mk_comb: types do not agree")
-       | _ => failwith (strlit "mk_comb: types do not agree")
+         Tyapp «fun» [ty;_] => if tya = ty then return (Comb f a) else
+                                 failwith «mk_comb: types do not agree»
+       | _ => failwith «mk_comb: types do not agree»
     od
 Proof
   monadtac >> rpt tac
@@ -194,7 +194,7 @@ val res = fix mk_comb_def "mk_comb_def" mk_comb_PMATCH
 Theorem dest_var_PMATCH[local]:
    ^(rhs(concl(SPEC_ALL dest_var_def))) =
     pmatch tm of Var s ty => return (s,ty)
-            | _ => failwith (strlit "dest_var: not a variable")
+            | _ => failwith «dest_var: not a variable»
 Proof
   rpt tac
 QED
@@ -203,7 +203,7 @@ val res = fix dest_var_def "dest_var_def" dest_var_PMATCH
 Theorem dest_const_PMATCH[local]:
    ^(rhs(concl(SPEC_ALL dest_const_def))) =
     pmatch tm of Const s ty => return (s,ty)
-            | _ => failwith (strlit "dest_const: not a constant")
+            | _ => failwith «dest_const: not a constant»
 Proof
   rpt tac
 QED
@@ -212,7 +212,7 @@ val res = fix dest_const_def "dest_const_def" dest_const_PMATCH
 Theorem dest_comb_PMATCH[local]:
    ^(rhs(concl(SPEC_ALL dest_comb_def))) =
     pmatch tm of Comb f x => return (f,x)
-            | _ => failwith (strlit "dest_comb: not a combination")
+            | _ => failwith «dest_comb: not a combination»
 Proof
   rpt tac
 QED
@@ -221,7 +221,7 @@ val res = fix dest_comb_def "dest_comb_def" dest_comb_PMATCH
 Theorem dest_abs_PMATCH[local]:
    ^(rhs(concl(SPEC_ALL dest_abs_def))) =
     pmatch tm of Abs v b => return (v,b)
-            | _ => failwith (strlit "dest_abs: not an abstraction")
+            | _ => failwith «dest_abs: not an abstraction»
 Proof
   rpt tac
 QED
@@ -242,7 +242,7 @@ Theorem rator_PMATCH[local]:
    ^(rhs(concl(SPEC_ALL rator_def))) =
     pmatch tm of
       Comb l r => return l
-    | _ => failwith (strlit "rator: Not a combination")
+    | _ => failwith «rator: Not a combination»
 Proof
   rpt tac
 QED
@@ -252,7 +252,7 @@ Theorem rand_PMATCH[local]:
    ^(rhs(concl(SPEC_ALL rand_def))) =
     pmatch tm of
       Comb l r => return r
-    | _ => failwith (strlit "rand: Not a combination")
+    | _ => failwith «rand: Not a combination»
 Proof
   rpt tac
 QED
@@ -261,8 +261,8 @@ val res = fix rand_def "rand_def" rand_PMATCH
 Theorem dest_eq_PMATCH[local]:
    ^(rhs(concl(SPEC_ALL dest_eq_def))) =
     pmatch tm of
-      Comb (Comb (Const (strlit "=") _) l) r => return (l,r)
-    | _ => failwith (strlit "dest_eq")
+      Comb (Comb (Const «=» _) l) r => return (l,r)
+    | _ => failwith «dest_eq»
 Proof
   rpt tac
 QED
@@ -271,7 +271,7 @@ val res = fix dest_eq_def "dest_eq_def" dest_eq_PMATCH
 Theorem is_eq_PMATCH[local]:
    ^(rhs(concl(SPEC_ALL is_eq_def))) =
     pmatch tm of
-      Comb (Comb (Const (strlit "=") _) l) r => T
+      Comb (Comb (Const «=» _) l) r => T
     | _ => F
 Proof
   rpt tac
@@ -281,11 +281,11 @@ val res = fix is_eq_def "is_eq_def" is_eq_PMATCH
 Theorem TRANS_PMATCH[local]:
    ^(rhs(concl(SPEC_ALL TRANS_def))) =
     pmatch (c1,c2) of
-      (Comb (Comb (Const (strlit "=") _) l) m1, Comb (Comb (Const (strlit "=") _) m2) r) =>
+      (Comb (Comb (Const «=» _) l) m1, Comb (Comb (Const «=» _) m2) r) =>
         if aconv m1 m2 then do eq <- mk_eq(l,r);
                                return (Sequent (term_union asl1 asl2) eq) od
-        else failwith (strlit "TRANS")
-    | _ => failwith (strlit "TRANS")
+        else failwith «TRANS»
+    | _ => failwith «TRANS»
 Proof
   rpt tac
 QED
@@ -294,12 +294,12 @@ val res = fix TRANS_def "TRANS_def" TRANS_PMATCH
 Theorem MK_COMB_PMATCH[local]:
    ^(rhs(concl(SPEC_ALL MK_COMB_def))) =
    pmatch (c1,c2) of
-     (Comb (Comb (Const (strlit "=") _) l1) r1, Comb (Comb (Const (strlit "=") _) l2) r2) =>
+     (Comb (Comb (Const «=» _) l1) r1, Comb (Comb (Const «=» _) l2) r2) =>
        do x1 <- mk_comb(l1,l2) ;
           x2 <- mk_comb(r1,r2) ;
           eq <- mk_eq(x1,x2) ;
           return (Sequent(term_union asl1 asl2) eq) od
-   | _ => failwith (strlit "MK_COMB")
+   | _ => failwith «MK_COMB»
 Proof
   rpt tac
 QED
@@ -308,14 +308,14 @@ val res = fix MK_COMB_def "MK_COMB_def" MK_COMB_PMATCH
 Theorem ABS_PMATCH[local]:
    ^(rhs(concl(SPEC_ALL ABS_def))) =
     pmatch c of
-      Comb (Comb (Const (strlit "=") _) l) r =>
+      Comb (Comb (Const «=» _) l) r =>
         if EXISTS (vfree_in v) asl
-        then failwith (strlit "ABS: variable is free in assumptions")
+        then failwith «ABS: variable is free in assumptions»
         else do a1 <- mk_abs(v,l) ;
                 a2 <- mk_abs(v,r) ;
                 eq <- mk_eq(a1,a2) ;
                 return (Sequent asl eq) od
-    | _ => failwith (strlit "ABS: not an equation")
+    | _ => failwith «ABS: not an equation»
 Proof
   BasicProvers.CASE_TAC >> rpt tac
 QED
@@ -326,8 +326,8 @@ Theorem BETA_PMATCH[local]:
     pmatch tm of
       Comb (Abs v bod) arg =>
         if arg = v then do eq <- mk_eq(tm,bod) ; return (Sequent [] eq) od
-        else failwith (strlit "BETA: not a trivial beta-redex")
-    | _ => failwith (strlit "BETA: not a trivial beta-redex")
+        else failwith «BETA: not a trivial beta-redex»
+    | _ => failwith «BETA: not a trivial beta-redex»
 Proof
   rpt tac
 QED
@@ -336,10 +336,10 @@ val res = fix BETA_def "BETA_def" BETA_PMATCH
 Theorem EQ_MP_PMATCH[local]:
    ^(rhs(concl(SPEC_ALL EQ_MP_def))) =
     pmatch eq of
-      Comb (Comb (Const (strlit "=") _) l) r =>
+      Comb (Comb (Const «=» _) l) r =>
         if aconv l c then return (Sequent (term_union asl1 asl2) r)
-                     else failwith (strlit "EQ_MP")
-    | _ => failwith (strlit "EQ_MP")
+                     else failwith «EQ_MP»
+    | _ => failwith «EQ_MP»
 Proof
   rpt tac
 QED
@@ -348,9 +348,9 @@ val res = fix EQ_MP_def "EQ_MP_def" EQ_MP_PMATCH
 Theorem SYM_PMATCH[local]:
    ^(rhs(concl(SPEC_ALL SYM_def))) =
     pmatch eq of
-      Comb (Comb (Const (strlit "=") t) l) r =>
-        return (Sequent asl (Comb (Comb (Const (strlit "=") t) r) l))
-    | _ => failwith (strlit "SYM")
+      Comb (Comb (Const «=» t) l) r =>
+        return (Sequent asl (Comb (Comb (Const «=» t) r) l))
+    | _ => failwith «SYM»
 Proof
   rpt tac
 QED

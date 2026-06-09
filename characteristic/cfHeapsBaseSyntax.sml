@@ -9,6 +9,12 @@ open cfHeapsBaseTheory
 
 val ERR = mk_HOL_ERR "cfHeapsBaseSyntax";
 
+val heap_part_ty =
+  mk_thy_type {Thy = "cfHeapsBase", Tyop = "heap_part", Args = []}
+val heap_ty = pred_setSyntax.mk_set_type heap_part_ty
+val hprop_ty = heap_ty --> bool
+
+(* ffi_proj is a complex type abbreviation; use the parser to expand it *)
 local
   structure Parse = struct
     open Parse
@@ -18,9 +24,7 @@ local
   open Parse
 in
 val ffi_proj_format = “:'ffi ffi_proj”
-val heap_ty = “:heap”
-val hprop_ty = “:hprop”
-end (* local *)
+end
 
 val ffi_varty = mk_vartype "'ffi"
 
@@ -33,8 +37,6 @@ fun dest_ffi_proj ty =
 
 fun is_ffi_proj ty = can dest_ffi_proj ty
 
-val heap_part_ty =
-  mk_thy_type {Thy = "cfHeapsBase", Tyop = "heap_part", Args = []}
 val res_ty =
   mk_thy_type {Thy = "cfHeapsBase", Tyop = "res", Args = []}
 

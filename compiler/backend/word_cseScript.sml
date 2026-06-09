@@ -473,7 +473,14 @@ Definition word_cse_def:
                 (empty_data with all_names:=data.all_names,
                  StoreConsts r1 r2 r3 r4 payload)) ∧
   (word_cse data (ShareInst op r exp) =
-                (empty_data with all_names:=data.all_names, ShareInst op r exp))
+                (empty_data with all_names:=data.all_names, ShareInst op r exp)) ∧
+  (* Conservative: optimizes body from empty state. Could be smarter by
+     tracking CSE knowledge across iterations via Break/Continue flow. *)
+  (word_cse data (Loop names c exit_names) =
+     let (_, c') = word_cse empty_data c in
+       (empty_data with all_names := data.all_names, Loop names c' exit_names)) ∧
+  (word_cse data (Break k) = (data, Break k)) ∧
+  (word_cse data (Continue k) = (data, Continue k))
 End
 
 Definition word_common_subexp_elim_def:

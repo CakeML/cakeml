@@ -68,7 +68,7 @@ struct
   (* bit-blasts away trivial if splits *)
   fun bconv_gen print avoidp = fn th => th |> SPEC_ALL |>
               RIGHT_CONV_RULE (Conv.DEPTH_CONV (
-                (fn t => if type_of t <> ``:bool``orelse avoidp t then NO_CONV t else ALL_CONV t)
+                (fn t => if type_of t <> bool orelse avoidp t then NO_CONV t else ALL_CONV t)
                 THENC blastLib.BBLAST_CONV
                 THENC (if print then PRINT_CONV else ALL_CONV)
                 THENC (fn t => if Teq t orelse Feq t then
@@ -79,11 +79,11 @@ struct
 
   val bconv = bconv_gen false (fn t => false)
 
-  val spec64 = INST_TYPE[alpha|->``:64``]
+  val spec64 = INST_TYPE[alpha |-> fcpSyntax.mk_int_numeric_type 64]
 
   val conv64_RHS = GEN_ALL o CONV_RULE (RHS_CONV wordsLib.WORD_CONV) o spec64 o SPEC_ALL
 
-  val spec32 = INST_TYPE[alpha|->``:32``]
+  val spec32 = INST_TYPE[alpha |-> fcpSyntax.mk_int_numeric_type 32]
 
   val conv32_RHS = GEN_ALL o CONV_RULE (RHS_CONV wordsLib.WORD_CONV) o spec32 o SPEC_ALL
 

@@ -121,8 +121,8 @@ End
 
 (* Map abstract variables into string names *)
 Definition enc_string_def:
-  (enc_string (INL n) = concat [strlit"x";toString n]) ∧
-  (enc_string (INR n) = concat [strlit"_b";toString n])
+  (enc_string (INL n) = concat [«x»;toString n]) ∧
+  (enc_string (INR n) = concat [«_b»;toString n])
 End
 
 (* The end-to-end encoder using string names *)
@@ -685,7 +685,7 @@ Definition parse_wclause_def:
     | SOME cl =>
       let cl = REVERSE cl in
       (case c of
-        INL s => if s = strlit"h" then SOME (0,cl) else NONE
+        INL s => if s = «h» then SOME (0,cl) else NONE
       | INR n => if n > 0 then SOME (Num n,cl) else NONE))
 End
 
@@ -713,12 +713,12 @@ End
 (*
   val wcnf =
   EVAL ``parse_wcnf
-  [strlit"c This is a comment";
-  strlit"cExample 1...another comment";
-  strlit"h 1 2 3 4 0";
-  strlit"1 -3 -5 6 7 0";
-  strlit"6 -1 -2 0";
-  strlit"4 1 6 -7 6 -7 0";]``
+  [«c This is a comment»;
+  «cExample 1...another comment»;
+  «h 1 2 3 4 0»;
+  «1 -3 -5 6 7 0»;
+  «6 -1 -2 0»;
+  «4 1 6 -7 6 -7 0»;]``
 
   val enc = EVAL`` full_encode (THE ^(rconc wcnf))``
 *)

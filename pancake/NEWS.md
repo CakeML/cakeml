@@ -4,6 +4,77 @@ Pancake Changelog
 User-facing changes to the Pancake language and compiler are
 documented here when they are merged into `master`.
 
+
+May 26th 2026
+-------------------
+
+### __add_with_carry__ now available
+
+It is now possible to use `__add_with_carry__(left, right, carry_in)`
+in user code, which is compiled to wordLang's `AddCarry`.
+Syntax example:
+
+    fun {1,1} f() {
+      var a = 1;
+      var b = 2;
+      var c = 0;
+      var {1,1} r = __add_with_carry__(a, b, c);
+      r = __add_with_carry__(a, b, c);
+      return r;
+    }
+
+Permitted positions for `__add_with_carry__` are declaration RHS and assignment RHS;
+standalone, handler-attached, and tail-return calls are not supported.
+
+
+May 21st 2026
+-------------------
+
+### Named structs
+
+Named (C-like) structs have now been added. Syntax examples:
+
+    struct my_struct { // Declare a named struct called "my_struct"
+      1 first, // Declare a named struct field with shape 1 called "first"
+      {1,1} second // Declare another field with shape {1,1} called "second"
+    }
+    var my_struct x = my_struct < first = 1, second = <2, 3> >; // Named struct values require explicit struct and field names
+    fun 1 foo(my_struct a) {
+      return a.second.0; // Named field access is similar to unnamed fields and nests appropriately
+    }
+
+Like global variables, struct name declaration order only matters to other struct names. That is, this is valid:
+
+    var outer os = outer < s = inner < x = 1 > >;
+    struct inner {
+      1 x
+    }
+    struct outer {
+      inner s
+    }
+
+But this is not:
+
+    var outer os = outer < s = inner < x = 1 > >;
+    struct outer {
+      inner s
+    }
+    struct inner {
+      1 x
+    }
+
+Named structs are treated as separate shapes to their unnamed counterparts during static checking.
+
+April 24th 2026
+-------------------
+
+### Garbage collector always disabled
+
+The Pancake compiler now unconditionally compiles with GC set to `none`; any
+`--gc=...` flag passed alongside `--pancake` is silently ignored. This removes
+the unused GC runtime that Zhewen Shen's BSc thesis (p. 35) noted was being
+linked into every Pancake binary.
+
 August 26th 2025
 -------------------
 
@@ -23,8 +94,8 @@ in addition to global variables and function arguments:
 
     var 1 x = 0;
     fun 1 foo(1 a) {
-        var 1 y = 0;
-        return y;
+      var 1 y = 0;
+      return y;
     }
 
 If a shape is not provided in any place it is expected, the compiler assumes a default shape of `1`.

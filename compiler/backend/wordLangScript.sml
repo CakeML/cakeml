@@ -169,6 +169,9 @@ Definition every_var_def:
   (every_var P Tick = T) ∧
   (every_var P (Set n exp) = every_var_exp P exp) ∧
   (every_var P (ShareInst op num exp) = (P num /\ every_var_exp P exp)) /\
+  (every_var P (wordLang$Loop names body exit_names) =
+    (EVERY P (MAP FST (toAList names)) ∧ every_var P body ∧
+     EVERY P (MAP FST (toAList exit_names)))) ∧
   (every_var P p = T)
 End
 
@@ -196,6 +199,8 @@ Definition every_stack_var_def:
     (every_stack_var P s1 ∧ every_stack_var P s2)) ∧
   (every_stack_var P (If cmp r1 ri e2 e3) =
     (every_stack_var P e2 ∧ every_stack_var P e3)) ∧
+  (every_stack_var P (wordLang$Loop names body exit_names) =
+    every_stack_var P body) ∧
   (every_stack_var P p = T)
 End
 
@@ -287,6 +292,10 @@ Definition max_var_def:
   (max_var (LocValue r l1) = r) ∧
   (max_var (Set n exp) = max_var_exp exp) ∧
   (max_var (ShareInst op num exp) = MAX num (max_var_exp exp)) /\
+  (max_var (Loop names body exit_names) =
+    max3 (MAX_LIST (MAP FST (toAList names)))
+         (max_var body)
+         (MAX_LIST (MAP FST (toAList exit_names)))) /\
   (max_var p = 0)
 End
 

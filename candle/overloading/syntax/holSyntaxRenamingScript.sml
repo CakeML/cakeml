@@ -103,7 +103,7 @@ Proof
   >> unabbrev_all_tac
   >> gs[MEM_ZIP,MAP_ZIP,all_distinct_nub]
   >> dep_rewrite.DEP_REWRITE_TAC[GSYM ALL_DISTINCT_MAP_inj]
-  >> fs[REPLICATE_inj1,all_distinct_count_list,implode_def]
+  >> fs[REPLICATE_inj1,all_distinct_count_list]
 QED
 
 Theorem SUC_MAX:
@@ -122,7 +122,7 @@ Proof
   >> unabbrev_all_tac
   >- (
     spose_not_then assume_tac
-    >> gs[MEM_ZIP,MEM_MAP,EL_MAP,EL_COUNT_LIST,implode_def]
+    >> gs[MEM_ZIP,MEM_MAP,EL_MAP,EL_COUNT_LIST]
     >> drule_then (qspec_then `strlen` assume_tac) MEM_MAP_f
     >> fs[STRLEN_DEF]
     >> dxrule_then assume_tac $ REWRITE_RULE[EVERY_MEM] MAX_LIST_max
@@ -389,6 +389,6 @@ Proof
   >> spose_not_then assume_tac
   >> imp_res_tac $ REWRITE_RULE[EVERY_MEM] rename_apart_by_strlen_FST
   >> imp_res_tac $ REWRITE_RULE[EVERY_MEM] rename_apart_by_chr_FST
-  >> gvs[implode_def, REPLICATE_inj]
+  >> gvs[REPLICATE_inj]
 QED
 

@@ -38,7 +38,7 @@ val _ = translate lpr_parsingTheory.nocomment_line_def;
 
 Definition format_dimacs_failure_def:
   format_dimacs_failure (lno:num) s =
-  strlit "c DIMACS parse failed at line: " ^ toString lno ^ strlit ". Reason: " ^ s ^ strlit"\n"
+  «c DIMACS parse failed at line: » ^ toString lno ^ «. Reason: » ^ s ^ «\n»
 End
 
 val _ = translate format_dimacs_failure_def;
@@ -540,15 +540,15 @@ val res = translate cnf_init_state_def;
 val res = translate plainLim_ns_def;
 
 Definition UNSAT_string_def:
-  UNSAT_string = strlit "s VERIFIED UNSAT\n"
+  UNSAT_string = «s VERIFIED UNSAT\n»
 End
 
 Definition SAT_string_def:
-  SAT_string = strlit "s VERIFIED SAT\n"
+  SAT_string = «s VERIFIED SAT\n»
 End
 
 Definition NO_CONCLUSION_string_def:
-  NO_CONCLUSION_string = strlit "s VERIFIED NO CONCLUSION\n"
+  NO_CONCLUSION_string = «s VERIFIED NO CONCLUSION\n»
 End
 
 (* And empty formula *)
@@ -562,13 +562,13 @@ val res = translate default_nobjf_def;
 Definition ores_to_string_def:
   (ores_to_string (INL s) = INL s) ∧
   (ores_to_string (INR (out,bnd,h)) =
-    if out ≠ NoOutput then INL (strlit "c Unexpected output section.\n")
+    if out ≠ NoOutput then INL «c Unexpected output section.\n»
     else
     case h of
       DUnsat => INR UNSAT_string
     | DSat => INR SAT_string
     | DNoConcl => INR NO_CONCLUSION_string
-    | _ => INL (strlit "c Unexpected conclusion for decision problem.\n"))
+    | _ => INL «c Unexpected conclusion for decision problem.\n»)
 End
 
 val res = translate (ores_to_string_def |> SIMP_RULE std_ss [UNSAT_string_def,SAT_string_def,NO_CONCLUSION_string_def]);
@@ -589,7 +589,7 @@ End
 
 Definition check_unsat_2_sem_def:
   check_unsat_2_sem fs f1 out ⇔
-  (out ≠ strlit"" ⇒
+  (out ≠ «» ⇒
   ∃fml.
     get_fml fs f1 = SOME fml ∧
     (
@@ -674,7 +674,7 @@ Proof
     qexists_tac`emp`>>xsimpl>>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
-    qexists_tac`strlit ""`>>
+    qexists_tac`«»`>>
     simp[]>>
     qexists_tac`x`>>
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -683,7 +683,7 @@ Proof
   qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
   rw[]>>
   qexists_tac`y`>>
-  qexists_tac`strlit ""`>>
+  qexists_tac`«»`>>
   simp[STD_streams_stderr,add_stdo_nil]>>
   reverse CONJ_TAC>- xsimpl>>
   rw[]>>
@@ -706,21 +706,21 @@ QED
 Definition num_lit_string_def:
   (num_lit_string (i,n:num) =
   if i ≥ 0 then
-   toString (Num (ABS i)) ^ strlit" x" ^ toString n
+   toString (Num (ABS i)) ^ « x» ^ toString n
   else
-   toString (Num (ABS i)) ^ strlit" ~x" ^ toString n)
+   toString (Num (ABS i)) ^ « ~x» ^ toString n)
 End
 
 Definition num_lhs_string_def:
   num_lhs_string xs =
-  concatWith (strlit" ") (MAP num_lit_string xs)
+  concatWith « » (MAP num_lit_string xs)
 End
 
 Definition npbc_string_def:
   (npbc_string (xs,n:int) =
     concat [
       num_lhs_string xs;
-      strlit" >= ";toString n; strlit ";\n"])
+      « >= »;toString n; «;\n»])
 End
 
 Definition print_npbf_def:
@@ -742,7 +742,7 @@ End
 
 Definition check_unsat_1_sem_def:
   check_unsat_1_sem fs f1 out ⇔
-  (out ≠ strlit"" ⇒
+  (out ≠ «» ⇒
   ∃fml.
     get_fml fs f1 = SOME fml ∧
     out = concat (print_npbf (fml_to_pbf fml)))
@@ -782,13 +782,13 @@ Proof
   qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
   rw[]>>
   qexists_tac`concat(print_npbf(fml_to_pbf fml))`>>
-  qexists_tac`strlit ""`>>
+  qexists_tac`«»`>>
   simp[STD_streams_stderr,add_stdo_nil]>>
   xsimpl
 QED
 
 Definition usage_string_def:
-  usage_string = strlit "Usage: cake_pb_cnf <DIMACS CNF file> <optional: PB proof file>\n"
+  usage_string = «Usage: cake_pb_cnf <DIMACS CNF file> <optional: PB proof file>\n»
 End
 
 val r = translate usage_string_def;
@@ -807,7 +807,7 @@ Definition main_sem_def:
     check_unsat_1_sem fs (EL 1 cl) out
   else if LENGTH cl = 3 then
     check_unsat_2_sem fs (EL 1 cl) out
-  else out = strlit ""
+  else out = «»
 End
 
 Theorem STDIO_refl:

@@ -39,7 +39,7 @@ val result = translate strcat_def;
 val _ = trans "^" mlstringSyntax.strcat_tm;
 val _ = trans "=" “((=):mlstring -> mlstring -> bool)”;
 
-val result = translate (extract_def |> REWRITE_RULE [implode_def]);
+val result = translate extract_def;
 
 val extract_side_def = definition"extract_side_def";
 val extract_side_thm = Q.prove(
@@ -47,13 +47,14 @@ val extract_side_thm = Q.prove(
   rw [extract_side_def, arithmeticTheory.MIN_DEF] ) |> update_precondition
 
 val _ = ml_prog_update open_local_block;
-val res = translate (concatWith_aux_def |> REWRITE_RULE [implode_def]);
+val res = translate concatWith_aux_def;
 val _ = ml_prog_update open_local_in_block;
 
 val _ = next_ml_names := ["concatWith"];
 val result = translate concatWith_def;
 
-val result = translate str_def;
+val _ = next_ml_names := ["str"];
+val result = translate chr_to_str_def;
 
 val _ = ml_prog_update open_local_block;
 val result = translate translate_aux_def;

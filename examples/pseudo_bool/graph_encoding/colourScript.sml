@@ -41,7 +41,7 @@ QED
 *)
 Definition parse_col_header_def:
   (parse_col_header [INL p; _; INR k] =
-    if p = strlit"p"
+    if p = «p»
     then SOME k
     else NONE) ∧
   parse_col_header _ = NONE
@@ -58,7 +58,7 @@ End
 Definition parse_col_line_def:
   parse_col_line ls =
     case ls of (INL s::rest) =>
-      if s = strlit"s"
+      if s = «s»
       then
         strip_num rest []
       else NONE
@@ -624,7 +624,7 @@ End
 Definition mk_key_ann_def:
   mk_key_ann ann =
     let ts = tokens (λc. ~ (#"0" ≤ c ∧ c ≤ #"9")) ann in
-      if isPrefix (strlit "e_") ann then
+      if isPrefix «e_» ann then
         (case MAP fromNatString ts of
          | [SOME n1; SOME n2; SOME n3] => SOME (Edge n1 n2 (n3-1))
          | _ => NONE)
@@ -632,10 +632,10 @@ Definition mk_key_ann_def:
         case fromNatString (HD ts) of
         | NONE => NONE
         | SOME n =>
-            if isPrefix (strlit "colgeq_") ann then SOME $ AtLeastOneColor n else
-            if isPrefix (strlit "colleq_") ann then SOME $ AtMostOneColor n else
-            if isPrefix (strlit "vc") ann then SOME $ VC_Imp_CU (n-1) else
-            if isPrefix (strlit "cu") ann then SOME $ CU_Imp_VC (n-1) else
+            if isPrefix «colgeq_» ann then SOME $ AtLeastOneColor n else
+            if isPrefix «colleq_» ann then SOME $ AtMostOneColor n else
+            if isPrefix «vc» ann then SOME $ VC_Imp_CU (n-1) else
+            if isPrefix «cu» ann then SOME $ CU_Imp_VC (n-1) else
               NONE
       else NONE
 End

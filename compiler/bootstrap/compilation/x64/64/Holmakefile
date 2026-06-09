@@ -21,6 +21,7 @@ cake-sexpr-64: *sexprBootstrap64Script.sml
 
 cake: cake.S
 	make cake
+	$(CP) cake $(CAKEMLDIR)/developers/bin/cake
 
 test-hello-cake: cake-$(ARCH)-$(WORD_SIZE).tar.gz cake
 	make test-hello.cake   # the following lines are a basic test

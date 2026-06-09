@@ -1052,14 +1052,13 @@ End
 
 Theorem concat_lines_of:
    !s. concat (lines_of s) = s ∨
-        concat (lines_of s) = s ^ str #"\n"
+        concat (lines_of s) = s ^ toString #"\n"
 Proof
   rw[lines_of_def] \\
   `s = implode (explode s)` by fs [explode_implode] \\
   qabbrev_tac `ls = explode s`
   \\ pop_assum kall_tac \\ rveq \\
-  Induct_on`splitlines ls` \\ rw[]
-  >- EVAL_TAC \\
+  Induct_on`splitlines ls` \\ rw[] \\
   pop_assum(assume_tac o SYM) \\
   fs[splitlines_eq_nil,concat_cons] \\
   imp_res_tac splitlines_next \\ rw[] \\
@@ -1068,15 +1067,13 @@ Proof
   >- (
     Cases_on`LENGTH h < LENGTH ls` \\ fs[] >- (
       disj1_tac \\
-      rw[strcat_thm] \\ AP_TERM_TAC \\
+      rw[strcat_thm] \\
       fs[IS_PREFIX_APPEND,DROP_APPEND,DROP_LENGTH_TOO_LONG,ADD1] ) \\
     fs[DROP_LENGTH_TOO_LONG] \\
-    fs[IS_PREFIX_APPEND,strcat_thm] \\ rw[] \\ fs[] \\
-    EVAL_TAC )
+    fs[IS_PREFIX_APPEND,strcat_thm] \\ rw[] \\ fs[])
   >- (
     disj2_tac \\
     rw[strcat_thm] \\
-    AP_TERM_TAC \\ rw[] \\
     Cases_on`LENGTH h < LENGTH ls` \\
     fs[IS_PREFIX_APPEND,DROP_APPEND,ADD1,DROP_LENGTH_TOO_LONG]  \\
     qpat_x_assum`strlit [] = _`mp_tac \\ EVAL_TAC )
@@ -1084,7 +1081,7 @@ QED
 
 Theorem concat_all_lines_file:
    concat (all_lines_file fs fname) = implode (THE (ALOOKUP fs.inode_tbl (File (THE (ALOOKUP fs.files fname))))) ∨
-   concat (all_lines_file fs fname) = implode (THE (ALOOKUP fs.inode_tbl (File (THE (ALOOKUP fs.files fname))))) ^ str #"\n"
+   concat (all_lines_file fs fname) = implode (THE (ALOOKUP fs.inode_tbl (File (THE (ALOOKUP fs.files fname))))) ^ toString #"\n"
 Proof
   fs [all_lines_file_def,concat_lines_of]
 QED
@@ -1270,19 +1267,19 @@ QED
 (* Property ensuring that standard streams are correctly opened *)
 Definition STD_streams_def:
   STD_streams fs = ?inp out err.
-    (ALOOKUP fs.inode_tbl (UStream(strlit "stdout")) = SOME out) ∧
-    (ALOOKUP fs.inode_tbl (UStream(strlit "stderr")) = SOME err) ∧
-    (∀fd md off. ALOOKUP fs.infds fd = SOME (UStream(strlit "stdin"),md,off) ⇔ fd = 0 ∧ md = ReadMode ∧ off = inp) ∧
-    (∀fd md off. ALOOKUP fs.infds fd = SOME (UStream(strlit "stdout"),md,off) ⇔ fd = 1 ∧ md = WriteMode ∧ off = LENGTH out) ∧
-    (∀fd md off. ALOOKUP fs.infds fd = SOME (UStream(strlit "stderr"),md,off) ⇔ fd = 2 ∧ md = WriteMode ∧ off = LENGTH err)
+    (ALOOKUP fs.inode_tbl (UStream «stdout») = SOME out) ∧
+    (ALOOKUP fs.inode_tbl (UStream «stderr») = SOME err) ∧
+    (∀fd md off. ALOOKUP fs.infds fd = SOME (UStream «stdin»,md,off) ⇔ fd = 0 ∧ md = ReadMode ∧ off = inp) ∧
+    (∀fd md off. ALOOKUP fs.infds fd = SOME (UStream «stdout»,md,off) ⇔ fd = 1 ∧ md = WriteMode ∧ off = LENGTH out) ∧
+    (∀fd md off. ALOOKUP fs.infds fd = SOME (UStream «stderr»,md,off) ⇔ fd = 2 ∧ md = WriteMode ∧ off = LENGTH err)
 End
 
 Theorem STD_streams_fsupdate:
    ! fs fd k pos c.
    ((fd = 1 \/ fd = 2) ==> LENGTH c = pos) /\
    (*
-   (fd >= 3 ==> (FST(THE (ALOOKUP fs.infds fd)) <> UStream(strlit "stdout") /\
-                 FST(THE (ALOOKUP fs.infds fd)) <> UStream(strlit "stderr"))) /\
+   (fd >= 3 ==> (FST(THE (ALOOKUP fs.infds fd)) <> UStream «stdout» /\
+                 FST(THE (ALOOKUP fs.infds fd)) <> UStream «stderr»)) /\
    *)
     STD_streams fs ==>
     STD_streams (fsupdate fs fd k pos c)
@@ -1292,7 +1289,7 @@ Proof
   \\ CASE_TAC \\ fs[AFUPDKEY_ALOOKUP]
   \\ qmatch_goalsub_abbrev_tac`out' = SOME _ ∧ (err' = SOME _ ∧ _)`
   \\ qmatch_assum_rename_tac`_ = SOME (fnm,_)`
-  \\ map_every qexists_tac[`if fnm = UStream(strlit"stdin") then pos else inp`,`THE out'`,`THE err'`]
+  \\ map_every qexists_tac[`if fnm = UStream «stdin» then pos else inp`,`THE out'`,`THE err'`]
   \\ conj_tac >- rw[Abbr`out'`]
   \\ conj_tac >- rw[Abbr`err'`]
   \\ unabbrev_all_tac
@@ -1319,9 +1316,9 @@ Proof
 QED
 
 Theorem lemma[local]:
-  UStream (strlit "stdin") ≠ UStream (strlit "stdout") ∧
-   UStream (strlit "stdin") ≠ UStream (strlit "stderr") ∧
-   UStream (strlit "stdout") ≠ UStream (strlit "stderr")
+  UStream «stdin» ≠ UStream «stdout» ∧
+   UStream «stdin» ≠ UStream «stderr» ∧
+   UStream «stdout» ≠ UStream «stderr»
 Proof
   rw[]
 QED
@@ -1341,7 +1338,7 @@ Proof
         Cases_on`fd = 0` \\ fs[]
         >- (
           last_x_assum(qspecl_then[`fd`,`ReadMode`,`inp`]mp_tac)
-          \\ rw[] \\ rw[] \\ PairCases_on`v` \\ fs[]
+          \\ rw[] \\ rw[] \\ rename1 ‘SND (SND v)’ \\ PairCases_on`v` \\ fs[]
           \\ metis_tac[])
         \\ last_x_assum(qspecl_then[`fd`,`md`,`off`]mp_tac)
         \\ rw[] )

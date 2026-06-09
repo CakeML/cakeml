@@ -56,16 +56,16 @@ val _ = ml_prog_update open_local_block;
 (* Initialize the translation *)
 
 Definition init_type_constants_def:
-  init_type_constants = [(strlit"bool",0); (strlit"fun",2:num)]
+  init_type_constants = [(«bool»,0); («fun»,2:num)]
 End
 
 Definition init_term_constants_def:
-  init_term_constants = [(strlit"=",
-    Tyapp (strlit"fun")
-      [Tyvar (strlit"A");
-       Tyapp (strlit"fun")
-         [Tyvar (strlit"A");
-          Tyapp (strlit"bool") []]])]
+  init_term_constants = [(«=»,
+    Tyapp «fun»
+      [Tyvar «A»;
+       Tyapp «fun»
+         [Tyvar «A»;
+          Tyapp «bool» []]])]
 End
 
 Definition init_axioms_def:
@@ -73,7 +73,7 @@ Definition init_axioms_def:
 End
 
 Theorem init_axioms_alt[local]:
-  init_axioms = case [Sequent [] (Var (strlit "") (Tyvar (strlit "")))] of
+  init_axioms = case [Sequent [] (Var «» (Tyvar «»))] of
                 | [] => []
                 | (_ :: xs) => xs
 Proof
@@ -447,7 +447,7 @@ val def = add_type_def |> m_translate
 Definition call_new_type_def[simp]:
   call_new_type (n:mlstring, arity:int) =
     if 0 ≤ arity then new_type (n, Num (ABS arity))
-    else raise_Failure (strlit "negative arity")
+    else raise_Failure «negative arity»
 End
 
 val _ = next_ml_names := ["new_type_num"];

@@ -71,7 +71,7 @@ Theorem machine_code_sound:
   ∃out err.
     extract_fs fs (cake_pb_mclique_io_events cl fs) =
       SOME (add_stdout (add_stderr fs err) out) ∧
-    (out ≠ strlit"" ⇒
+    (out ≠ «» ⇒
       ∃g.
         get_graph_dimacs fs (EL 1 cl) = SOME g ∧
         (

@@ -188,6 +188,8 @@ Definition flat_exp_conventions_def:
   (flat_exp_conventions (ShareInst op v _) ⇔ F) ∧
   (flat_exp_conventions (Seq p1 p2) ⇔
     flat_exp_conventions p1 ∧ flat_exp_conventions p2) ∧
+  (flat_exp_conventions (Loop names c exit_names) ⇔
+    flat_exp_conventions c) /\
   (flat_exp_conventions (If cmp r1 ri e2 e3) ⇔
     flat_exp_conventions e2 ∧ flat_exp_conventions e3) ∧
   (flat_exp_conventions (MustTerminate p) ⇔ flat_exp_conventions p) ∧
@@ -297,6 +299,8 @@ End
 Definition every_inst_def:
   (every_inst P (Inst i) ⇔ P i) ∧
   (every_inst P (Seq p1 p2) ⇔ (every_inst P p1 ∧ every_inst P p2)) ∧
+  (every_inst P (Loop names c exit_names) ⇔
+    every_inst P c) /\
   (every_inst P (If cmp r1 ri c1 c2) ⇔ every_inst P c1 ∧ every_inst P c2) ∧
   (every_inst P (OpCurrHeap bop r1 r2) ⇔ P (Arith (Binop bop r1 r2 (Reg r2)))) ∧
   (every_inst P (MustTerminate p) ⇔ every_inst P p) ∧
@@ -315,6 +319,8 @@ Definition full_inst_ok_less_def:
   (full_inst_ok_less c (Inst i) ⇔ inst_ok_less c i) ∧
   (full_inst_ok_less c (Seq p1 p2) ⇔
     (full_inst_ok_less c p1 ∧ full_inst_ok_less c p2)) ∧
+  (full_inst_ok_less c (Loop names p exit_names) ⇔
+    (full_inst_ok_less c p)) ∧
   (full_inst_ok_less c (If cmp r1 ri c1 c2) ⇔
     (full_inst_ok_less c c1 ∧ full_inst_ok_less c c2)) ∧
   (full_inst_ok_less c (MustTerminate p) ⇔ full_inst_ok_less c p) ∧
@@ -360,6 +366,8 @@ Definition wf_cutsets_def:
   (wf_cutsets (MustTerminate s) = wf_cutsets s) ∧
   (wf_cutsets (Seq s1 s2) =
     (wf_cutsets s1 ∧ wf_cutsets s2)) ∧
+  (wf_cutsets (Loop names p exit_names) ⇔
+    wf names ∧ wf exit_names ∧ wf_cutsets p) ∧
   (wf_cutsets (If cmp r1 ri e2 e3) =
     (wf_cutsets e2 ∧
      wf_cutsets e3)) ∧
@@ -405,6 +413,8 @@ Definition call_arg_convention_def:
     call_arg_convention s1) ∧
   (call_arg_convention (Seq s1 s2) =
     (call_arg_convention s1 ∧ call_arg_convention s2)) ∧
+  (call_arg_convention (Loop names p exit_names) ⇔
+    call_arg_convention p) ∧
   (call_arg_convention (If cmp r1 ri e2 e3) =
     (call_arg_convention e2 ∧
      call_arg_convention e3)) ∧
@@ -441,6 +451,8 @@ Definition extract_labels_def:
   (extract_labels (MustTerminate s1) = extract_labels s1) ∧
   (extract_labels (Seq s1 s2) =
     extract_labels s1 ++ extract_labels s2) ∧
+  (extract_labels (Loop names p exit_names) =
+    extract_labels p) ∧
   (extract_labels (If cmp r1 ri e2 e3) =
     (extract_labels e2 ++ extract_labels e3)) ∧
   (extract_labels _ = [])
@@ -487,6 +499,7 @@ Definition get_code_labels_def[simp]:
     (case r of SOME (_,_,x,_,_) => get_code_labels x | _ => {}) ∪
     (case h of SOME (_,x,l1,l2) => get_code_labels x | _ => {})) ∧
   (get_code_labels (Seq p1 p2) = get_code_labels p1 ∪ get_code_labels p2) ∧
+  (get_code_labels (Loop names p exit_names) = get_code_labels p) ∧
   (get_code_labels (If _ _ _ p1 p2) = get_code_labels p1 ∪ get_code_labels p2) ∧
   (get_code_labels (MustTerminate p) = get_code_labels p) ∧
   (get_code_labels (LocValue _ l1) = {l1}) ∧
@@ -503,6 +516,7 @@ Definition good_handlers_def[simp]:
     | SOME (_,_,x,_,_) => good_handlers n x ∧
     (case h of SOME (_,x,l1,_) => l1 = n ∧ good_handlers n x | _ => T)) ∧
   (good_handlers n (Seq p1 p2) <=> good_handlers n p1 ∧ good_handlers n p2) ∧
+  (good_handlers n (Loop names p exit_names) <=> good_handlers n p) ∧
   (good_handlers n (If _ _ _ p1 p2) <=> good_handlers n p1 ∧ good_handlers n p2) ∧
   (good_handlers n (MustTerminate p) <=> good_handlers n p) ∧
   (good_handlers n _ <=> T)
@@ -524,6 +538,8 @@ Definition not_created_subprogs_def:
     (P (MustTerminate (Skip : 'a prog)) /\ not_created_subprogs P p) /\
   not_created_subprogs P (Seq p1 p2) = (not_created_subprogs P p1 /\
     not_created_subprogs P p2) /\
+  not_created_subprogs P (Loop names c exit_names) =
+    (not_created_subprogs P c) /\
   not_created_subprogs P (If _ _ _ p1 p2) = (not_created_subprogs P p1 /\
     not_created_subprogs P p2) /\
   not_created_subprogs P (wordLang$Call r dest args h) =
