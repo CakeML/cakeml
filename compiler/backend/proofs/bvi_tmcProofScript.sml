@@ -1791,6 +1791,74 @@ Proof
   >> gvs [only_fresh_def]
 QED
 
+Theorem holes_unchanged_except_del:
+  ∀f refs_old refs_new changed ptr v.
+    holes_unchanged_except f refs_old⟨ptr ↦ v⟩ refs_new changed ∧
+    ptr ∉ FDOM refs_old ⇒
+    holes_unchanged_except f refs_old refs_new (changed DIFF {RefPtr F ptr})
+Proof
+  rw []
+  >> gvs [holes_unchanged_except_def]
+  >> rw []
+  >> first_x_assum irule
+  >> gvs [FLOOKUP_SIMP, FLOOKUP_DEF]
+  >> IF_CASES_TAC
+  >- gvs []
+  >> gvs []
+QED
+
+Theorem holes_unchanged_except_del_SING:
+  ∀f refs_old refs_new changed ptr v.
+    holes_unchanged_except f refs_old⟨ptr ↦ v⟩ refs_new {RefPtr F ptr} ∧
+    ptr ∉ FDOM refs_old ⇒
+    holes_unchanged_except f refs_old refs_new EMPTY
+Proof
+  rw []
+  >> drule_all holes_unchanged_except_del
+  >> strip_tac
+  >> gvs []
+QED
+
+Theorem holes_unchanged_except_rewind:
+  ∀f refs_old refs_new changed ptr v.
+    holes_unchanged_except f refs_old⟨ptr ↦ v⟩ refs_new changed ⇒
+    holes_unchanged_except f refs_old refs_new (changed ∪ {RefPtr F ptr})
+Proof
+  rw []
+  >> gvs [holes_unchanged_except_def]
+  >> rw []
+  >> first_x_assum irule
+  >> gvs [FLOOKUP_SIMP, FLOOKUP_DEF]
+  >> IF_CASES_TAC
+  >- metis_tac []
+  >> gvs []
+QED
+
+Theorem holes_unchanged_except_rewind_SING:
+  ∀f refs_old refs_new changed ptr v.
+    holes_unchanged_except f refs_old⟨ptr ↦ v⟩ refs_new EMPTY ⇒
+    holes_unchanged_except f refs_old refs_new {RefPtr F ptr}
+Proof
+  rw []
+  >> drule_all holes_unchanged_except_rewind
+  >> strip_tac
+  >> gvs []
+QED
+
+Theorem flookup_com_neq:
+  ∀m k1 v1 k2 v2.
+    k1 ≠ k2 ⇒
+    m⟨k1 ↦ v1; k2 ↦ v2⟩ = m⟨k2 ↦ v2; k1 ↦ v1⟩
+Proof
+  rw []
+  >> irule $ iffRL fmap_eq_flookup
+  >> rw []
+  >> gvs [FLOOKUP_SIMP, FLOOKUP_DEF]
+  >> IF_CASES_TAC
+  >- gvs []
+  >> gvs []
+QED
+
 Theorem evaluate_cb:
   ∀cb bs loc loc_opt exp wrap work arity f opt env env2 ^s s' t t' r r'.
     evaluate ([cb_to_bvi loc cb],env,s) = (r,t) ∧
@@ -2192,7 +2260,13 @@ Proof
       >> imp_res_tac fresh_not_in_range_f
       >> gvs [])
     >> conj_tac
-    >- cheat
+    >-
+     (irule holes_unchanged_except_rewind_SING
+      >> irule_at Any holes_unchanged_except_del_SING
+      >> gvs [flookup_com_neq]
+      >> first_assum $ irule_at Any
+      >> qspec_then ‘refs’ assume_tac fresh_ptr_fresh
+      >> gvs [])
     >> imp_res_tac evaluate_SING_IMP
     >> gvs []
     (* This isn't going to work without the mutblock relation *)
