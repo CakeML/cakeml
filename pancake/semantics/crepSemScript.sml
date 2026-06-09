@@ -336,7 +336,9 @@ Definition evaluate_def:
    case OPT_MMAP (eval s) argexps of
     | SOME args =>
        (case lookup_code s.code fname args (LENGTH args) of
-         | SOME (prog, newlocals) => if s.clock = 0 then (SOME TimeOut,empty_locals s) else
+         | SOME (prog, newlocals) =>
+           if (case caltyp of NONE => F | SOME (rts, _) => ¬ALL_DISTINCT rts) then (SOME Error, s) else
+           (if s.clock = 0 then (SOME TimeOut,empty_locals s) else
            let eval_prog = fix_clock ((dec_clock s) with locals:= newlocals)
                                      (evaluate (prog, (dec_clock s) with locals:= newlocals)) in
            (case eval_prog of
@@ -346,21 +348,20 @@ Definition evaluate_def:
               | (SOME (Return retvs),st) =>
                    (case caltyp of
                     | NONE    => (SOME (Return retvs),empty_locals st)
-                    | SOME ([], p, _) => evaluate (p, st with locals := s.locals)
-                    | SOME (rts, p, _) =>
-                      if ¬ALL_DISTINCT rts ∨ LENGTH retvs ≠ LENGTH rts then (SOME Error, st) else
+                    | SOME (rts, _) =>
+                      if LENGTH retvs ≠ LENGTH rts then (SOME Error, st) else
                        (case OPT_MMAP (FLOOKUP s.locals) rts of
-                         | SOME _ => evaluate (p, st with locals := s.locals |++ ZIP(rts,retvs))
+                         | SOME _ =>  (NONE, st with locals := s.locals |++ ZIP(rts,retvs))
                          | _ => (SOME Error, st)))
               | (SOME (Exception eid),st) =>
                    (case caltyp of
                     | NONE    => (SOME (Exception eid),empty_locals st)
-                    | SOME (_, _, NONE) => (SOME (Exception eid),empty_locals st)
-                    | SOME (_, _, SOME (eid', p)) =>
+                    | SOME (_, NONE) => (SOME (Exception eid),empty_locals st)
+                    | SOME (_, SOME (eid', p)) =>
                       if eid = eid' then
                         evaluate (p, st with locals := s.locals)
                       else (SOME (Exception eid), empty_locals st))
-              | (res,st) => (res,empty_locals st))
+              | (res,st) => (res,empty_locals st)))
          | _ => (SOME Error,s))
     | _ => (SOME Error,s)) /\
   (evaluate (ExtCall ffi_index ptr1 len1 ptr2 len2,s) =

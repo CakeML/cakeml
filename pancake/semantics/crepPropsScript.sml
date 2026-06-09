@@ -330,7 +330,7 @@ Proof
    (
     rw [evaluate_def]
     >> every_case_tac
-    >> fs [assigned_free_vars_def, FLOOKUP_SIMP]
+    >> gvs [assigned_free_vars_def, FLOOKUP_SIMP]
     >> metis_tac [flookup_fupdate_zip_not_mem, MEM, LENGTH])
   >~ [‘evaluate (If _ _ _, _)’] >-
    (rw [evaluate_def, AllCaseEqs()]
@@ -815,6 +815,16 @@ Proof
   gvs[MEM_EL]
 QED
 
+Theorem opt_mmap_eval_some_var_cexp_local_lookup:
+  ∀s es vs n.
+    OPT_MMAP (eval s) es = SOME vs ∧ MEM n (FLAT (MAP var_cexp es)) ⇒
+    ∃w. FLOOKUP s.locals n = SOME w
+Proof
+  rpt strip_tac >> fs[MEM_FLAT, MEM_MAP] >>
+  imp_res_tac opt_mmap_mem_func >> gvs[] >>
+  imp_res_tac eval_some_var_cexp_local_lookup >> fs[]
+QED
+
 
 Theorem eval_upd_clock_eq:
   !t e ck. eval (t with clock := ck) e =  eval t e
@@ -1072,131 +1082,7 @@ Proof
   >- (fs [evaluate_def, AllCaseEqs()] >> rveq >> fs [] >>
       every_case_tac >> fs [eval_upd_clock_eq])
   >~ [‘Call’]
-  >- (
-      once_rewrite_tac [evaluate_def, LET_THM] >>
-      fs [eval_upd_clock_eq, opt_mmap_eval_upd_clock_eq] >>
-      TOP_CASE_TAC >> fs [] >>
-      TOP_CASE_TAC >> fs [] >>
-      TOP_CASE_TAC >> fs [] >>
-      TOP_CASE_TAC >> fs [] >>
-      TOP_CASE_TAC >> fs [empty_locals_def]
-      >- (
-       every_case_tac >> fs [dec_clock_def, empty_locals_def] >>
-       rveq >> fs [] >>
-       imp_res_tac evaluate_io_events_mono >>
-       fs [] >>
-       TRY (rename1 ‘evaluate (p,s' with locals := s.locals)’>>
-            cases_on ‘evaluate (p,s' with locals := s.locals)’) >> fs [] >>
-       TRY (rename1 ‘evaluate (p,s' with locals := s.locals |++ ZIP(xs,ws))’>>
-            cases_on ‘evaluate (p,s' with locals := s.locals |++ ZIP(xs,ws))’) >> fs [] >>
-       imp_res_tac evaluate_io_events_mono >>
-       fs [] >> metis_tac [IS_PREFIX_TRANS]) >>
-      fs [dec_clock_def] >>
-      TOP_CASE_TAC >> gvs []
-      >- (
-       first_x_assum (qspec_then ‘extra’ mp_tac) >>
-       strip_tac >> fs [] >>
-       TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
-       TOP_CASE_TAC >> gvs[] >>
-       TOP_CASE_TAC >> gvs[]
-       >- (
-         TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
-         TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
-         TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
-         TOP_CASE_TAC >> fs [] >> rveq >> fs []
-         >- (
-           rename1 ‘evaluate (p,r'' with locals := s.locals)’ >>
-           cases_on ‘evaluate (p,r'' with locals := s.locals)’ >>
-           fs [] >>
-           imp_res_tac evaluate_io_events_mono >>
-           fs [] >> metis_tac [IS_PREFIX_TRANS]) >>
-         TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
-         TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
-         rename1 ‘evaluate (p,r'' with locals := s.locals |++ ZIP(xs,ws))’ >>
-         cases_on ‘evaluate (p,r'' with locals := s.locals |++ ZIP(xs,ws))’ >>
-         fs [] >>
-         imp_res_tac evaluate_io_events_mono >>
-         fs [] >> metis_tac [IS_PREFIX_TRANS]) >>
-       every_case_tac >> fs [] >> rveq >> fs [] >>
-       rename1 ‘evaluate (p,r'' with locals := s.locals)’ >>
-       cases_on ‘evaluate (p,r'' with locals := s.locals)’ >>
-       fs [] >>
-       imp_res_tac evaluate_io_events_mono >>
-       fs [] >> metis_tac [IS_PREFIX_TRANS]) >>
-      TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
-      TRY (drule evaluate_add_clock_eq >> fs [] >> NO_TAC)
-      >- (
-       TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
-       TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
-       TRY (cases_on ‘x'’) >> fs [] >> rveq >> fs [] >>
-       TRY (
-         first_x_assum (qspec_then ‘extra’ mp_tac) >>
-         strip_tac >> fs [] >>
-         cases_on ‘evaluate (q,s with <|locals := r;
-                                        clock := extra + s.clock - 1|>)’ >>
-         fs [] >> rveq >> fs [] >> NO_TAC)
-       >- (
-         every_case_tac >> fs [] >> rveq >> fs [] >>
-         first_x_assum (qspec_then ‘extra’ mp_tac) >>
-         strip_tac >> fs [] >> rfs []
-         >- (
-           rename1 ‘evaluate (p,r'' with locals := s.locals)’ >>
-           cases_on ‘evaluate (p,r'' with locals := s.locals)’ >>
-           imp_res_tac evaluate_io_events_mono >>
-           fs [] >> metis_tac [IS_PREFIX_TRANS]) >>
-         rename1 ‘evaluate (p,r'' with locals := s.locals |++ ZIP(xs,ws))’ >>
-         cases_on ‘evaluate (p,r'' with locals := s.locals |++ ZIP(xs,ws))’ >>
-         imp_res_tac evaluate_io_events_mono >>
-         fs [] >> metis_tac [IS_PREFIX_TRANS]) >>
-       every_case_tac >> fs [] >> rveq >> fs [] >>
-       first_x_assum (qspec_then ‘extra’ mp_tac) >>
-       strip_tac >> fs [] >> rfs [] >>
-       rename1 ‘evaluate (p,r'' with locals := s.locals)’ >>
-       cases_on ‘evaluate (p,r'' with locals := s.locals)’ >>
-       imp_res_tac evaluate_io_events_mono >>
-       fs [] >> metis_tac [IS_PREFIX_TRANS])
-      >- (
-       TOP_CASE_TAC >> fs [] >> rveq >> fs []
-       >- (
-         first_x_assum (qspec_then ‘extra’ mp_tac) >>
-         strip_tac >> fs [] >>
-         rename1 ‘evaluate (q,s with <|locals := r; clock := extra + s.clock - 1|>)’ >>
-         cases_on ‘evaluate (q,s with <|locals := r; clock := extra + s.clock - 1|>)’ >>
-         fs [] >>
-         TOP_CASE_TAC >> fs [] >>
-         TOP_CASE_TAC >> fs [] >> rveq >> fs [])
-       >- (
-         TOP_CASE_TAC >> fs [] >> rveq >> fs []>>
-         TOP_CASE_TAC >> fs [] >> rveq >> fs []>>
-         TOP_CASE_TAC >> fs [] >> rveq >> fs []
-         >- (drule evaluate_add_clock_eq >> fs []) >>
-         TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
-         drule evaluate_add_clock_eq >> fs [] >>
-         TOP_CASE_TAC >> fs[]) >>
-       drule evaluate_add_clock_eq >> fs []) >> (* ? *)
-      TOP_CASE_TAC >> fs [] >> rveq >> fs []
-      >- (
-       first_x_assum (qspec_then ‘extra’ mp_tac) >>
-       strip_tac >> fs [] >>
-       cases_on ‘evaluate (q,s with <|locals := r; clock := extra + s.clock - 1|>)’ >>
-       fs [] >>
-       TOP_CASE_TAC >> fs [] >>
-       TOP_CASE_TAC >> fs [] >> rveq >> fs []) >>
-      TOP_CASE_TAC >> fs [] >> rveq >> fs []>>
-      TOP_CASE_TAC >> fs [] >> rveq >> fs []>>
-      TOP_CASE_TAC >> fs [] >> rveq >> fs []
-      >- (
-       first_x_assum (qspec_then ‘extra’ mp_tac) >>
-       strip_tac >> fs [] >>
-       cases_on ‘evaluate (q,s with <|locals := r; clock := extra + s.clock - 1|>)’ >>
-       fs [] >>
-       TOP_CASE_TAC >> fs [] >>
-       TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
-       pop_assum mp_tac >>
-       drule evaluate_add_clock_eq >> fs []) >>
-      TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
-      TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
-      drule evaluate_add_clock_eq >> fs [])
+  >- suspend "Call"
   >~ [‘Dec’]
   >- (fs [evaluate_def] >>
       fs [eval_upd_clock_eq] >>
@@ -1220,6 +1106,119 @@ Proof
       dec_clock_def, empty_locals_def] >> rveq >>
   fs []
 QED
+
+Resume evaluate_add_clock_io_events_mono[Call]:
+  once_rewrite_tac [evaluate_def, LET_THM] >>
+  fs [eval_upd_clock_eq, opt_mmap_eval_upd_clock_eq] >>
+  TOP_CASE_TAC >> fs [] >>
+  TOP_CASE_TAC >> fs [] >>
+  TOP_CASE_TAC >> fs [] >>
+  TOP_CASE_TAC >> fs [] >>
+  TOP_CASE_TAC >> fs [empty_locals_def]
+  >- (
+   every_case_tac >> fs [dec_clock_def, empty_locals_def] >>
+   rveq >> fs [] >>
+   imp_res_tac evaluate_io_events_mono >>
+   fs [] >>
+   TRY (rename1 ‘evaluate (p,s' with locals := s.locals)’>>
+        cases_on ‘evaluate (p,s' with locals := s.locals)’) >> fs [] >>
+   TRY (rename1 ‘evaluate (p,s' with locals := s.locals |++ ZIP(xs,ws))’>>
+        cases_on ‘evaluate (p,s' with locals := s.locals |++ ZIP(xs,ws))’) >> fs [] >>
+   imp_res_tac evaluate_io_events_mono >>
+   fs [] >> metis_tac [IS_PREFIX_TRANS]) >>
+  fs [dec_clock_def] >>
+  TOP_CASE_TAC >> gvs [] >>
+  TOP_CASE_TAC >> gvs []
+  >- (
+   first_x_assum (qspec_then ‘extra’ mp_tac) >>
+   strip_tac >> fs [] >>
+   TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
+   TOP_CASE_TAC >> gvs[] >>
+   TOP_CASE_TAC >> gvs[]
+   >- (
+     TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
+     TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
+     TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
+     TOP_CASE_TAC >> fs [] >> rveq >> fs []) >>
+     every_case_tac >> fs[] >> rveq >> fs[] >>
+     rename1 ‘evaluate (p,r'' with locals := s.locals)’ >>
+     cases_on ‘evaluate (p,r'' with locals := s.locals)’ >>
+     fs [] >>
+     imp_res_tac evaluate_io_events_mono >>
+     fs [] >> metis_tac [IS_PREFIX_TRANS]) >>
+  TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
+  TRY (drule evaluate_add_clock_eq >> fs [] >> NO_TAC)
+  >- (
+   TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
+   TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
+   TRY (cases_on ‘x'’) >> fs [] >> rveq >> fs [] >>
+   TRY (
+     first_x_assum (qspec_then ‘extra’ mp_tac) >>
+     strip_tac >> fs [] >>
+     cases_on ‘evaluate (q,s with <|locals := r;
+                                    clock := extra + s.clock - 1|>)’ >>
+     fs [] >> rveq >> fs [] >> NO_TAC)
+   >- (
+     every_case_tac >> fs [] >> rveq >> fs [] >>
+     first_x_assum (qspec_then ‘extra’ mp_tac) >>
+     strip_tac >> fs [] >> rfs []) >>
+   every_case_tac >> fs [] >> rveq >> fs [] >>
+   first_x_assum (qspec_then ‘extra’ mp_tac) >>
+   strip_tac >> fs [] >> rfs [] >>
+   rename1 ‘evaluate (p,r'' with locals := s.locals)’ >>
+   cases_on ‘evaluate (p,r'' with locals := s.locals)’ >>
+   imp_res_tac evaluate_io_events_mono >>
+   fs [] >> metis_tac [IS_PREFIX_TRANS])
+  >- (
+   TOP_CASE_TAC >> fs [] >> rveq >> fs []
+   >- (
+     first_x_assum (qspec_then ‘extra’ mp_tac) >>
+     strip_tac >> fs [] >>
+     rename1 ‘evaluate (q,s with <|locals := r; clock := extra + s.clock - 1|>)’ >>
+     cases_on ‘evaluate (q,s with <|locals := r; clock := extra + s.clock - 1|>)’ >>
+     fs [] >>
+     TOP_CASE_TAC >> fs [] >>
+     TOP_CASE_TAC >> fs [] >> rveq >> fs []) >>
+   TOP_CASE_TAC >> fs [] >> rveq >> fs []>>
+   TOP_CASE_TAC >> fs [] >> rveq >> fs []>>
+   TOP_CASE_TAC >> fs [] >> rveq >> fs []>>
+   TOP_CASE_TAC >> fs [] >> rveq >> fs []
+   >- (
+      first_x_assum $ qspec_then `extra` assume_tac >> gvs[]
+    ) >>
+   TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
+   first_x_assum $ qspec_then `extra` assume_tac >> gvs[]
+   >> every_case_tac >> fs[] >>
+   rename1 `evaluate (p, r''' with locals := s.locals)` >>
+   Cases_on `evaluate (p, r''' with locals := s.locals)` >> fs[] >>
+   imp_res_tac evaluate_io_events_mono >> gvs[]
+   >> metis_tac[IS_PREFIX_TRANS]
+  ) >>
+  TOP_CASE_TAC >> fs [] >> rveq >> fs []
+  >- (
+   first_x_assum (qspec_then ‘extra’ mp_tac) >>
+   strip_tac >> fs [] >>
+   cases_on ‘evaluate (q,s with <|locals := r; clock := extra + s.clock - 1|>)’ >>
+   fs [] >>
+   TOP_CASE_TAC >> fs [] >>
+   TOP_CASE_TAC >> fs [] >> rveq >> fs []) >>
+  TOP_CASE_TAC >> fs [] >> rveq >> fs []>>
+  TOP_CASE_TAC >> fs [] >> rveq >> fs []>>
+  TOP_CASE_TAC >> fs [] >> rveq >> fs []
+  >- (
+   first_x_assum (qspec_then ‘extra’ mp_tac) >>
+   strip_tac >> fs [] >>
+   cases_on ‘evaluate (q,s with <|locals := r; clock := extra + s.clock - 1|>)’ >>
+   fs [] >>
+   TOP_CASE_TAC >> gvs [] >>
+   TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
+   TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
+   TOP_CASE_TAC >> fs [] >> rveq >> fs []) >>
+  drule evaluate_add_clock_eq >> fs[] >> disch_tac >>
+  TOP_CASE_TAC >> fs [] >> rveq >> fs []
+QED
+
+Finalise evaluate_add_clock_io_events_mono;
 
 Theorem evaluate_code_invariant:
   ∀p t res st.
@@ -1257,8 +1256,8 @@ Definition exps_of_def:
   (exps_of (If e p q) = e::exps_of p ++ exps_of q) ∧
   (exps_of (While e p) = e::exps_of p) ∧
   (exps_of (Call NONE e es) = es) ∧
-  (exps_of (Call (SOME (_,p,NONE)) e es) = es++exps_of p) ∧
-  (exps_of (Call (SOME (_,p,SOME(_,p'))) e es) = es++exps_of p++exps_of p') ∧
+  (exps_of (Call (SOME (_,NONE)) e es) = es) ∧
+  (exps_of (Call (SOME (_,SOME(_,p'))) e es) = es++exps_of p') ∧
   (exps_of (Store e1 e2) = [e1;e2]) ∧
   (exps_of (Store32 e1 e2) = [e1;e2]) ∧
   (exps_of (StoreByte e1 e2) = [e1;e2]) ∧
