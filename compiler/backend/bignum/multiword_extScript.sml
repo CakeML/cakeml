@@ -1688,7 +1688,7 @@ Theorem mwi_or_pos:
   ¬(i < 0) ∧ ¬(j < 0) ⇒ mwi_or (i2mw i) (i2mw j) = i2mw (int_or i j)
 Proof
   rpt strip_tac
-  >> simp [i2mw_def, INT_ABS, Req0 int_or_sign, Once mwi_or_def]
+  >> simp [i2mw_def, INT_ABS, int_or_sign, Once mwi_or_def]
   >> rw [mw_or_keep_flip_def]
   >> simp [int_or_def, int_bitwise_def, bits_of_int_def]
   >> qmatch_goalsub_abbrev_tac ‘int_of_bits bs’
@@ -1773,7 +1773,7 @@ Theorem mwi_or_neg_pos:
   (i < 0) ∧ ¬(j < 0) ⇒ mwi_or (i2mw i) (i2mw j) = i2mw (int_or i j)
 Proof
   rpt strip_tac
-  >> simp [i2mw_def, Once mwi_or_def, Req0 int_or_sign, INT_ABS]
+  >> simp [i2mw_def, Once mwi_or_def, int_or_sign, INT_ABS]
   >> rw []
   >> irule mw_fix_lemma
   >> simp [int_or_def, int_bitwise_def, bits_of_int_def, int_not_def]
@@ -1797,7 +1797,26 @@ QED
 Theorem mwi_or_pos_neg:
   ¬(i < 0) ∧ (j < 0) ⇒ mwi_or (i2mw i) (i2mw j) = i2mw (int_or i j)
 Proof
-  cheat
+  strip_tac
+  >> simp [i2mw_def, int_or_sign, Ntimes mwi_or_def 2, INT_ABS]
+  >> irule mw_fix_lemma
+  >> simp [int_or_def, int_bitwise_def, bits_of_int_def, int_not_def]
+  >> Cases_on ‘j’ >> gvs []
+  >> qmatch_goalsub_abbrev_tac ‘int_of_bits bs’
+  >> Cases_on ‘bs’ >> gvs [int_of_bits_def]
+  >> drule_then assume_tac bits_bitwise_rest >> gvs []
+  >> rewrite_tac [n2mw_eq_b2mw]
+  >> simp [Req0 mw_bits_of_int_b2mw, mw2n_mw_int_of_bits, int_not_def,
+           int_calculate]
+  >> ‘Num (&n - 1) = n - 1’ by (DEP_REWRITE_TAC [INT_SUB] >> simp [])
+  >> pop_assum SUBST_ALL_TAC
+  >> rw []
+  >-
+   (irule mw2n_mw_or_ones_not
+    >> fs [bits_bitwise_or_sym, GSYM n2mw_eq_b2mw,
+           Req0 LENGTH_n2mw_LESS_LENGTH_n2mw])
+  >> irule mw2n_mw_or_keep_not
+  >> fs [GSYM n2mw_eq_b2mw, Req0 LENGTH_n2mw_LESS_LENGTH_n2mw]
 QED
 
 Theorem mwi_or_neg:
