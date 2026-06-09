@@ -2095,7 +2095,10 @@ Proof
     >> gvs [alloc_hole_has_val_def]
     >> gvs [FLOOKUP_SIMP, EL_APPEND_EQN]
     >> IF_CASES_TAC
-    >- cheat (* contradiction *)
+    >-
+     (qspec_then ‘refs’ mp_tac fresh_ptr_fresh
+      >> strip_tac
+      >> gvs [FDOM_DEF, FLOOKUP_DEF])
     >> gvs []
 
     >> first_x_assum $ qspecl_then [‘refs⟨
@@ -2123,13 +2126,14 @@ Proof
         >> IF_CASES_TAC
         >-
          (gvs [IN_FRANGE_FLOOKUP]
-          >> cheat (* contradiction on FLOOKUP refs (LEAST ptr. ptr ∉ FDOM refs) = SOME w *))
+          >> qspec_then ‘refs’ assume_tac fresh_ptr_fresh
+          >> gvs [FLOOKUP_DEF])
         >> gvs [])
       >> qexistsl [‘Number 0’, ‘tag’, ‘(MAP (λn. env2❲n❳) (TAKE (LENGTH right) (REVERSE right)))’, ‘(MAP (λn. env2❲n❳) (REVERSE left))’]
       >> conj_tac
       >- gvs [LENGTH_MAP]
       >> conj_tac
-      >- cheat
+      >- imp_res_tac fresh_not_in_range_f
       >> gvs [FLOOKUP_SIMP])
     >> strip_tac
     >> qexistsl [‘r_aux’, ‘t_aux’, ‘f_aux’]
