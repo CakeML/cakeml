@@ -13,6 +13,8 @@ val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
 val () = wordsLib.guess_lengths ()
 
+val _ = numLib.prefer_num ();
+
 (* some lemmas ------------------------------------------------------------- *)
 
 fun cases_on_DecodeBitMasks (g as (asl, _)) =
@@ -427,18 +429,29 @@ Proof
               --------------*)
             print_tac "Shift"
             \\ next_tac `0`
-            \\ shift_cases_tac
-            \\ enc_rwts_tac
-            \\ fs []
-            \\ next_state_tac01
-            \\ state_tac [lsr, asr, ror]
-            >| [
-                imp_res_tac lsl,
-                imp_res_tac (lsl |> Q.SPEC `0w` |> SIMP_RULE (srw_ss()) []),
-                imp_res_tac asr2
-            ]
-            \\ simp []
+            \\ reverse (Cases_on`r`)
+            >- (
+              `∃n1. n1 = w2n c` by fs[]
+              \\ shift_cases_tac
+              \\ enc_rwts_tac
+              \\ fs []
+              \\ next_state_tac01
+              \\ state_tac [lsr, asr, ror]
+              >| [
+                  imp_res_tac lsl,
+                  imp_res_tac (lsl |> Q.SPEC `0w` |> SIMP_RULE (srw_ss()) []),
+                  imp_res_tac asr2
+              ]
+              \\ simp []
             )
+            >- (
+              Cases_on`s`
+              \\ enc_rwts_tac
+              \\ fs[]
+              \\ next_state_tac01
+              \\ state_tac[]
+              \\ rw [arm8Theory.ShiftValue_def, arm8Theory.DecodeShift_def,
+                arm8Theory.num2ShiftType_thm]))
          >- (
             (*--------------
                 Div
@@ -747,4 +760,3 @@ Proof
       \\ state_tac [alignmentTheory.aligned_extract]
       \\ blastLib.FULL_BBLAST_TAC)
 QED
-

@@ -7,6 +7,8 @@
 *.ui
 *.o
 .hol
+.HOLMK
+.hollogs
 
 # TacticToe
 *Script_ttt.sml
@@ -26,6 +28,8 @@ developers/bin
 semantics/addancs
 tutorial/solutions/make_ex
 examples/vipr/compilation/cake_vipr
+examples/template/compilation/example_funs_x64
+examples/template/compilation/example_funs_arm8
 
 # regression test logs
 regression.log

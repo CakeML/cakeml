@@ -9,7 +9,6 @@ Libs
   preamble ml_translatorLib ml_progLib basisFunctionsLib
 
 val _ = translation_extends "cfDiv";
-val cakeml = append_prog o process_topdecs;
 
 val _ = ml_prog_update (open_module "Runtime");
 
@@ -36,19 +35,19 @@ val result = translate debugMsg_def;
 
 val exit =
  ``[Dletrec (unknown_loc)
-     ["exit","i",
-      Let (SOME "y") (App (WordFromInt W8) [Var (Short "i")])
-        (Let (SOME "x") (App Aw8alloc [Lit(IntLit 1);
-                                       Var (Short "y")])
-             (App (FFI "exit") [Lit(StrLit ""); Var (Short "x")]))]]``
+     [«exit»,«i»,
+      Let (SOME «y») (App (FromTo IntT (WordT W8)) [Var (Short «i»)])
+        (Let (SOME «x») (App Aw8alloc [Lit(IntLit 1);
+                                       Var (Short «y»)])
+             (App (FFI «exit») [Lit(StrLit «»); Var (Short «x»)]))]]``
 
 val _ = append_prog exit
 
-Quote cakeml:
+Quote add_cakeml:
   fun abort u = case u of () => exit 1
 End
 
-Quote cakeml:
+Quote add_cakeml:
   fun assert cond msg =
     if cond
     then ()
@@ -56,5 +55,8 @@ Quote cakeml:
           abort());
 End
 
-val _ = ml_prog_update (close_module NONE);
+Quote add_cakeml:
+  fun customFFI str_arg arr_arg = #(custom) str_arg arr_arg;
+End
 
+val _ = ml_prog_update (close_module NONE);

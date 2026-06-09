@@ -7,7 +7,7 @@ Supported types are defined in `Infra/MachineTypesScript.sml`.
 This file contains some type abbreviations, to ease writing.
 
 [CommandsScript.sml](CommandsScript.sml):
-Formalization of the Abstract Syntax Tree of a subset used in the Flover
+Formalization of the Abstract Syntax Tree of a subset used in the FloVer
 framework
 
 [ExpressionAbbrevsScript.sml](ExpressionAbbrevsScript.sml):

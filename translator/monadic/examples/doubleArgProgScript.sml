@@ -10,7 +10,7 @@ Ancestors
 
 val _ = set_up_monadic_translator ();
 
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 (* Create the data type to handle the references and I/O. *)
 Datatype:
@@ -40,7 +40,7 @@ End
 
 (* TODO update this A basic monadic double function using references *)
 Definition double_ref_def:
-  double_ref x = dtcase x of 0n    => return 0n
+  double_ref x = case x of 0n    => return 0n
                            | SUC v => do
                                         result <- double_ref v;
                                         return (result + 2)

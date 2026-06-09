@@ -4,7 +4,7 @@
 Theory closSem
 Ancestors
   backend_common closLang flatLang
-  semanticPrimitivesProps (* for opw_lookup and others *)
+  semanticPrimitivesProps (* for opw_lookup_def and others *)
 Libs
   preamble
 
@@ -193,6 +193,14 @@ Definition do_int_app_def:
   do_int_app (op:closLang$int_op) (vs:closSem$v list) = NONE
 End
 
+Definition opw_lookup_def[simp]:
+  (opw_lookup Andw = word_and) ∧
+  (opw_lookup Orw = word_or) ∧
+  (opw_lookup Xor = word_xor) ∧
+  (opw_lookup Add = word_add) ∧
+  (opw_lookup Sub = word_sub)
+End
+
 Definition do_word_app_def:
   (do_word_app (WordOpw W8 opw) [Number n1; Number n2] =
        (case some (w1:word8,w2:word8). n1 = &(w2n w1) ∧ n2 = &(w2n w2) of
@@ -200,6 +208,13 @@ Definition do_word_app_def:
         | SOME (w1,w2) => SOME (Number &(w2n (opw_lookup opw w1 w2))))) /\
   do_word_app (WordOpw W64 opw) [Word64 w1; Word64 w2] =
         SOME (Word64 (opw_lookup opw w1 w2)) /\
+  do_word_app (WordTest W8 test) [Number n1; Number n2] =
+       (if 0 ≤ n1 ∧ n1 < 256 ∧ 0 ≤ n2 ∧ n2 < 256 then
+          (case test of
+           | Equal       => SOME (Boolv (n1 = n2))
+           | Compare cmp => SOME (Boolv (int_cmp cmp n1 n2))
+           | _           => NONE)
+        else NONE) /\
   do_word_app (WordShift W8 sh n) [Number i] =
        (case some (w:word8). i = &(w2n w) of
         | NONE => NONE
@@ -274,6 +289,13 @@ Definition do_app_def:
              then Rval (EL (Num i) xs, s)
              else Error)
          | _ => Error)
+    | (BlockOp (BoolTest test),[v1;v2]) =>
+        (if (v1 ≠ Boolv T ∧ v1 ≠ Boolv F) then Error else
+         if (v2 ≠ Boolv T ∧ v2 ≠ Boolv F) then Error else
+           Rval (Boolv (v1 = v2), s))
+    | (BlockOp BoolNot,[v1]) =>
+        (if v1 = Boolv T then Rval (Boolv F, s) else
+         if v1 = Boolv F then Rval (Boolv T, s) else Error)
     | (BlockOp (ElemAt n),[Block tag xs]) =>
         if n < LENGTH xs then Rval (EL n xs, s) else Error
     | (BlockOp ListAppend, [x1; x2]) =>
@@ -372,6 +394,10 @@ Definition do_app_def:
            | SOME ds1 => Rval (Unit, s with refs := s.refs |+ (dst, ByteArray ds1))
            | _ => Error)
         | _ => Error)
+    | (MemOp (StringCmp b cmp),[ByteVector b1; ByteVector b2]) =>
+       (let s1 = implode (MAP (CHR o w2n) b1) in
+        let s2 = implode (MAP (CHR o w2n) b2) in
+          Rval (Boolv (semanticPrimitives$str_cmp b cmp s1 s2), s))
     | (BlockOp (TagEq n),[Block tag xs]) =>
         Rval (Boolv (tag = n), s)
     | (BlockOp (LenEq l),[Block tag xs]) =>

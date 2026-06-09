@@ -3,13 +3,14 @@
 *)
 Theory wordSem
 Libs
-  preamble
+  preamble blastLib
 Ancestors
   mllist wordLang alignment[qualified] finite_map[qualified]
   misc[qualified] asm[qualified] fpSem[qualified]
   ffi[qualified] (* for call_FFI *)
   lprefix_lub[qualified] (* for build_lprefix_lub *)
   machine_ieee[qualified] (* for FP *)
+  backend_common (* for word_add_carry *)
 
 Datatype:
   buffer =
@@ -52,7 +53,52 @@ Proof
   Cases_on`x` \\ rw[isWord_def]
 QED
 
+Definition word_cmp_def:
+  (word_cmp Equal    (Word w1) (Word w2) = SOME (w1 = w2)) /\
+  (word_cmp Less     (Word w1) (Word w2) = SOME (w1 < w2)) /\
+  (word_cmp Lower    (Word w1) (Word w2) = SOME (w1 <+ w2)) /\
+  (word_cmp Test     (Word w1) (Word w2) = SOME ((w1 && w2) = 0w)) /\
+  (word_cmp Test     (Loc _ n) (Word w2) = if n ≠ 0 then NONE else if w2 = 1w then SOME T else NONE) /\
+  (word_cmp NotEqual (Word w1) (Word w2) = SOME (w1 <> w2)) /\
+  (word_cmp NotLess  (Word w1) (Word w2) = SOME (~(w1 < w2))) /\
+  (word_cmp NotLower (Word w1) (Word w2) = SOME (~(w1 <+ w2))) /\
+  (word_cmp NotTest  (Word w1) (Word w2) = SOME ((w1 && w2) <> 0w)) /\
+  (word_cmp NotTest  (Loc _ n) (Word w2) = if n ≠ 0 then NONE else if w2 = 1w then SOME F else NONE) /\
+  (word_cmp _ _ _ = NONE)
+End
+
 Definition mem_load_32_def:
+  mem_load_32 m dm be (w:'a word) =
+  if aligned 2 w
+  then case m (byte_align w) of
+       | Loc _ _ => NONE
+       | Word v =>
+           if byte_align w IN dm
+           then SOME (word_of_bytes be (0w:word32)
+             [get_byte w v be; get_byte (w + 1w) v be;
+              get_byte (w + 2w) v be; get_byte (w + 3w) v be])
+           else NONE
+  else NONE
+End
+
+Definition mem_store_32_def:
+  mem_store_32 m dm be (w:'a word) (hw: word32) =
+  if aligned 2 w
+  then case m (byte_align w) of
+       | Word v =>
+           if byte_align w IN dm
+           then
+             let v0 = set_byte w (get_byte (0w:word32) hw be) v be in
+             let v1 = set_byte (w + 1w) (get_byte 1w hw be) v0 be in
+             let v2 = set_byte (w + 2w) (get_byte 2w hw be) v1 be in
+             let v3 = set_byte (w + 3w) (get_byte 3w hw be) v2 be in
+               SOME ((byte_align w =+ Word v3) m)
+           else NONE
+       | _ => NONE
+  else NONE
+End
+
+Theorem mem_load_32_alt:
   mem_load_32 m dm be (w:'a word) =
   if aligned 2 w
   then case m (byte_align w) of
@@ -73,9 +119,15 @@ Definition mem_load_32_def:
              in SOME (v': word32)
            else NONE
   else NONE
-End
+Proof
+  rw[mem_load_32_def] >>
+  every_case_tac >> rw[] >>
+  simp[word_of_bytes_def] >>
+  EVAL_TAC >>
+  BBLAST_TAC
+QED
 
-Definition mem_store_32_def:
+Theorem mem_store_32_alt:
   mem_store_32 m dm be (w:'a word) (hw: word32) =
   if aligned 2 w
   then case m (byte_align w) of
@@ -98,7 +150,11 @@ Definition mem_store_32_def:
            else NONE
        | _ => NONE
   else NONE
-End
+Proof
+  rw[mem_store_32_def] >>
+  every_case_tac >> rw[] >>
+  EVAL_TAC
+QED
 
 Definition mem_load_byte_aux_def:
   mem_load_byte_aux m dm be w =
@@ -185,6 +241,8 @@ val state_component_equality = theorem"state_component_equality";
 Datatype:
   result = Result ('w word_loc) (('w word_loc) list)
          | Exception ('w word_loc) ('w word_loc)
+         | Break num
+         | Continue num
          | TimeOut
          | NotEnoughSpace
          | FinalFFI final_event
@@ -212,16 +270,15 @@ Definition fix_clock_def:
          termdep := old_s.termdep |>)
 End
 
-Definition is_word_def:
+Definition is_word_def[simp]:
   (is_word (Word w) = T) /\
   (is_word _ = F)
 End
 
-Definition get_word_def:
+Definition get_word_def[simp]:
   get_word (Word w) = w
 End
 
-val _ = export_rewrites["is_word_def","get_word_def"];
 
 Definition mem_store_def:
   mem_store (addr:'a word) (w:'a word_loc) ^s =
@@ -293,9 +350,9 @@ Definition word_exp_def:
      case the_words (MAP (word_exp s) wexps) of
      | SOME ws => (OPTION_MAP Word (word_op op ws))
      | _ => NONE) /\
-  (word_exp s (Shift sh wexp n) =
-     case word_exp s wexp of
-     | SOME (Word w) => OPTION_MAP Word (word_sh sh w n)
+  (word_exp s (Shift sh wexp wexp1) =
+     case (word_exp s wexp, word_exp s wexp1) of
+     | (SOME (Word w), SOME (Word w1)) => OPTION_MAP Word (word_sh sh w (w2n w1))
      | _ => NONE)
 Termination
   WF_REL_TAC `measure (exp_size ARB o SND)`
@@ -665,9 +722,10 @@ Definition inst_def:
         assign r1
           (Op bop [Var r2; case ri of Reg r3 => Var r3
                                     | Imm w => Const w]) s
-    | Arith (Shift sh r1 r2 n) =>
+    | Arith (Shift sh r1 r2 ri) =>
         assign r1
-          (Shift sh (Var r2) n) s
+          (Shift sh (Var r2) (case ri of Reg r3 => Var r3
+                                       | Imm w => Const w)) s
     | Arith (Div r1 r2 r3) =>
        (let vs = get_vars[r3;r2] s in
        case vs of
@@ -680,9 +738,8 @@ Definition inst_def:
         (let vs = get_vars [r2;r3;r4] s in
         case vs of
         SOME [Word l;Word r;Word c] =>
-          let res = w2n l + w2n r + if c = (0w:'a word) then 0 else 1 in
-            SOME (set_var r4 (Word (if dimword(:'a) ≤ res then (1w:'a word) else 0w))
-                 (set_var r1 (Word (n2w res)) s))
+          let (res, co) = word_add_carry l r c in
+            SOME (set_var r4 (Word co) (set_var r1 (Word res) s))
         | _ => NONE)
     | Arith (AddOverflow r1 r2 r3 r4) =>
         (let vs = get_vars [r2;r3] s in
@@ -933,6 +990,29 @@ Definition const_writes_def:
       ((a =+ Word (if b then x + off else x)) m)
 End
 
+Definition STOP_def:
+  STOP x = x
+End
+
+Definition bad_fun_return_def[simp]:
+  bad_fun_return NONE = T ∧
+  bad_fun_return (SOME (Break _)) = T ∧
+  bad_fun_return (SOME (Continue _)) = T ∧
+  bad_fun_return _ = F
+End
+
+Definition cont_loop_def[simp]:
+  cont_loop NONE = T ∧
+  cont_loop (SOME (Continue n)) = (n = 0) ∧
+  cont_loop _ = F
+End
+
+Definition exit_loop_def[simp]:
+  exit_loop (SOME (Break n)) = SOME (Break (n - 1)) ∧
+  exit_loop (SOME (Continue n)) = SOME (Continue (n - 1)) ∧
+  exit_loop res = res
+End
+
 Definition evaluate_def:
   (evaluate (Skip:'a wordLang$prog,^s) = (NONE,s)) /\
   (evaluate (Alloc n names,s) =
@@ -1008,12 +1088,29 @@ Definition evaluate_def:
        (case jump_exc s of
         | NONE => (SOME Error,s)
         | SOME (s,l1,l2) => (SOME (Exception (Loc l1 l2) w)),s)) /\
+  (evaluate (Break k,s) = (SOME (Break k),s)) /\
+  (evaluate (Continue k,s) = (SOME (Continue k),s)) /\
   (evaluate (If cmp r1 ri c1 c2,s) =
-    (case (get_var r1 s,get_var_imm ri s)of
-    | SOME (Word x),SOME (Word y) =>
-      if word_cmp cmp x y then evaluate (c1,s)
-                          else evaluate (c2,s)
+    (case (get_var r1 s,get_var_imm ri s) of
+    | SOME x,SOME y =>
+     (case word_cmp cmp x y of
+      | SOME T => evaluate (c1,s)
+      | SOME F => evaluate (c2,s)
+      | NONE => (SOME Error,s))
     | _ => (SOME Error,s))) /\
+  (evaluate (Loop names c exit_names,s) =
+     case cut_state (names,LN) s of
+     | NONE => (SOME Error,s)
+     | SOME s =>
+         let (res,s1) = fix_clock s (evaluate (c,s)) in
+           if cont_loop res then
+             (if s1.clock = 0 then (SOME TimeOut, flush_state T s1) else
+                evaluate (STOP (Loop names c exit_names), dec_clock s1))
+           else if res = SOME (Break 0) then
+             case cut_state (exit_names,LN) s1 of
+             | NONE => (SOME Error,s1)
+             | SOME s2 => (NONE,s2)
+           else (exit_loop res,s1)) /\
   (evaluate (LocValue r l1,s) =
      if l1 ∈ domain s.code then
        (NONE,set_var r (Loc l1 0) s)
@@ -1104,8 +1201,7 @@ Definition evaluate_def:
                  if handler = NONE then
                    if s.clock = 0 then (SOME TimeOut,flush_state T s)
                    else (case evaluate (prog, call_env args1 ss (dec_clock s)) of
-                         | (NONE,s) => (SOME Error,s)
-                         | (SOME res,s) => (SOME res,s))
+                         | (res,s) => if bad_fun_return res then (SOME Error,s) else (res,s))
                  else (SOME Error,s)
              | SOME (n,names,ret_handler,l1,l2) (* returning call, returns into var n *) =>
                  if domain (FST names) = {} ∨ ¬ALL_DISTINCT n then (SOME Error,s)
@@ -1143,17 +1239,21 @@ Definition evaluate_def:
                                        then evaluate (h, set_var n y s2)
                                        else (SOME Error,s2)))
                            | (NONE,s) => (SOME Error,s)
+                           | (SOME (Break _),s) => (SOME Error,s)
+                           | (SOME (Continue _),s) => (SOME Error,s)
                            | res => res)))
 Termination
   WF_REL_TAC `(inv_image (measure I LEX measure I LEX measure (prog_size (K 0)))
                (\(xs,^s). (s.termdep,s.clock,xs)))`
   \\ REPEAT STRIP_TAC \\ TRY (full_simp_tac(srw_ss())[] \\ DECIDE_TAC)
-  \\ full_simp_tac(srw_ss())[termdep_rw] \\ imp_res_tac fix_clock_IMP_LESS_EQ \\ full_simp_tac(srw_ss())[]
+  \\ full_simp_tac(srw_ss())[termdep_rw,STOP_def]
+  \\ imp_res_tac fix_clock_IMP_LESS_EQ \\ full_simp_tac(srw_ss())[]
   \\ imp_res_tac (GSYM fix_clock_IMP_LESS_EQ)
   \\ TRY (Cases_on `handler`) \\ TRY (PairCases_on `x`)
   \\ full_simp_tac(srw_ss())[set_var_def,set_vars_def,push_env_def,call_env_def,dec_clock_def,LET_THM]
   \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
   \\ full_simp_tac(srw_ss())[pop_env_def] \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
+  \\ gvs [cut_state_def,CaseEq"option"]
   \\ decide_tac
 End
 
@@ -1212,7 +1312,7 @@ QED
 Theorem inst_clock[local]:
   inst i s = SOME s2 ==> s2.clock <= s.clock /\ s2.termdep = s.termdep
 Proof
-  Cases_on `i` \\ full_simp_tac(srw_ss())[inst_def,assign_def,get_vars_def,LET_THM]
+  Cases_on `i` \\ fs[inst_def,assign_def,get_vars_def,word_add_carry_def]
   \\ every_case_tac
   \\ SRW_TAC [] [set_var_def] \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[mem_store_def] \\ SRW_TAC [] []
@@ -1248,6 +1348,7 @@ Proof
   \\ TRY (PairCases_on `x''`)
   \\ full_simp_tac(srw_ss())[push_env_def,LET_THM]
   \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
+  \\ gvs [cut_state_def,CaseEq"option"]
   \\ decide_tac
 QED
 

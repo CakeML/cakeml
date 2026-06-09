@@ -55,6 +55,13 @@ Definition cmp_cond_def:
    (cmp_cond NotTest  = 0b0001w)
 End
 
+Definition arm8_shv_def:
+   (arm8_shv Lsl = ShiftType_LSL) /\
+   (arm8_shv Lsr = ShiftType_LSR) /\
+   (arm8_shv Asr = ShiftType_ASR) /\
+   (arm8_shv Ror = ShiftType_ROR)
+End
+
 Definition arm8_enc_mov_imm_def:
    arm8_enc_mov_imm (i: word64) =
    if (i && 0xFFFFFFFFFFFF0000w) = 0w then
@@ -174,7 +181,8 @@ Definition arm8_ast_def:
                      LogicalImmediate@64
                        (1w, LogicalOp_EOR, F, i, n2w r2, n2w r1)
           | x => LogicalImmediate@64 (1w, bop_enc x, F, i, n2w r2, n2w r1))]) /\
-   (arm8_ast (Inst (Arith (Shift sh r1 r2 n))) =
+   (arm8_ast (Inst (Arith (Shift sh r1 r2 (Imm i)))) =
+      let n = w2n i in
       case sh of
          Lsl => (let i = n2w n : word6 in
                  let r = -i and s = 63w - i in
@@ -192,6 +200,8 @@ Definition arm8_ast_def:
                        (BitfieldMove@64
                          (1w, T, x = Asr, wmask, tmask, n, 63, n2w r2, n2w r1))]
                 | NONE => arm8_encode_fail)) /\
+   (arm8_ast (Inst (Arith (Shift sh r1 r2 (Reg r)))) =
+      [Data (Shift@64 (1w, arm8_shv sh, n2w r, n2w r2, n2w r1))]) /\
    (arm8_ast (Inst (Arith (Div r1 r2 r3))) =
       [Data (Division@64 (1w, F, n2w r3, n2w r2, n2w r1))]) /\
    (arm8_ast (Inst (Arith (LongMul r1 r2 r3 r4))) =

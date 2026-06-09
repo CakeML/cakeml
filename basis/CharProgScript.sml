@@ -16,10 +16,11 @@ val _ = ml_prog_update (open_module "Char");
 val () = generate_sigs := true;
 
 val _ = ml_prog_update (add_dec
-  ``Dtabbrev unknown_loc [] "char" (Atapp [] (Short "char"))`` I);
+  ``Dtabbrev unknown_loc [] «char» (Atapp [] (Short «char»))`` I);
 
 val _ = trans "ord" stringSyntax.ord_tm;
 val _ = trans "chr" stringSyntax.chr_tm;
+val _ = trans "=" “(=):char->char->bool”;
 val _ = trans "<" stringSyntax.char_lt_tm;
 val _ = trans ">" stringSyntax.char_gt_tm;
 val _ = trans "<=" stringSyntax.char_le_tm;
@@ -28,22 +29,7 @@ val _ = trans ">=" stringSyntax.char_ge_tm;
 val _ = next_ml_names := ["isSpace"];
 val res = translate stringTheory.isSpace_def;
 
-Definition fromByte_def:
-  fromByte (w:word8) = CHR (w2n w)
-End
-
-val _ = next_ml_names := ["fromByte"];
-val res = translate fromByte_def;
-
-Theorem frombyte_side_thm[local]:
-  frombyte_side v = T
-Proof
-  fs [fetch "-" "frombyte_side_def"]
-  \\ qspec_then ‘v’ assume_tac w2n_lt
-  \\ fs [dimword_def]
-QED
-
-val _ = update_precondition frombyte_side_thm;
+val _ = trans "fromByte" “mlstring$word8_to_char”;
 
 Definition some_chars_vector_def:
   some_chars_vector = Vector (GENLIST (λn. SOME (CHR n)) 256)
@@ -83,4 +69,3 @@ val _ = update_precondition some_char_side_thm;
 val _ = ml_prog_update close_local_blocks;
 
 val _ = ml_prog_update (close_module NONE);
-

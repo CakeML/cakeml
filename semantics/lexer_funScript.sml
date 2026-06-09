@@ -403,9 +403,9 @@ Definition processIdent_def:
        | "" => LexErrorT
        | c::s =>
            if isAlpha c then
-             AlphaT (c::s)
+             AlphaT (implode (c::s))
            else
-             SymbolT (c::s)
+             SymbolT (implode (c::s))
 End
 
 Definition get_token_def[nocompute]:
@@ -462,7 +462,7 @@ Definition get_token_def[nocompute]:
     if s = "where" then WhereT else
     if s = "with" then WithT else
     if s = "withtype" then WithtypeT else
-    if s <> "" /\ HD s = #"'" then TyvarT s else
+    if s <> "" /\ HD s = #"'" then TyvarT (implode s) else
     processIdent s
 End
 
@@ -475,12 +475,12 @@ Definition token_of_sym_def:
   token_of_sym s =
     case s of
     | ErrorS    => LexErrorT
-    | StringS s => StringT s
+    | StringS s => StringT (implode s)
     | CharS c => CharT c
     | NumberS i => IntT i
     | WordS n => WordT n
-    | LongS xs s => LongidT (to_path xs) s
-    | FFIS s => FFIT s
+    | LongS xs s => LongidT (to_path (MAP implode xs)) (implode s)
+    | FFIS s => FFIT (implode s)
     | OtherS s  => get_token s
 End
 
@@ -576,4 +576,3 @@ Termination
   fs [] >>
   metis_tac [toplevel_semi_dex_non0, DECIDE ``0 < 1:num``, DECIDE ``∀x:num. 0 < x + 1``]
 End
-

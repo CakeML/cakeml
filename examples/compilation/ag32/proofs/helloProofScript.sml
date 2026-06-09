@@ -5,7 +5,7 @@
 *)
 Theory helloProof
 Ancestors
-  semanticsProps backendProof ag32_configProof ag32_memory
+  mlstring semanticsProps backendProof ag32_configProof ag32_memory
   ag32_memoryProof ag32_ffi_codeProof ag32_machine_config
   ag32_basis_ffiProof helloProg helloCompile
 Libs
@@ -210,4 +210,3 @@ Proof
   \\ goal_assum(first_assum o mp_then Any mp_tac)
   \\ metis_tac[]
 QED
-

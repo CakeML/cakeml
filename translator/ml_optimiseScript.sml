@@ -354,7 +354,7 @@ QED
 (* rewrite optimisations: x - n + n --> x and x + n - n --> x *)
 
 Definition dest_binop_def:
-  (dest_binop (App (Opn op) [x;y]) = SOME (op,x,y)) /\
+  (dest_binop (App (Arith op IntT) [x;y]) = SOME (op,x,y)) /\
   (dest_binop rest = NONE)
 End
 
@@ -366,22 +366,22 @@ Definition opt_sub_add_def:
         case dest_binop y of
          | (SOME (op2,x1,Lit y1)) =>
             if z = Lit y1 then
-              if (op1 = Plus) /\ (op2 = Minus) then x1 else
-              if (op2 = Plus) /\ (op1 = Minus) then x1 else x
+              if (op1 = Add) /\ (op2 = Sub) then x1 else
+              if (op2 = Add) /\ (op1 = Sub) then x1 else x
             else x
          | _ => x
 End
 
 Theorem dest_binop_thm[local]:
-  !x. (dest_binop x = SOME (x1,x2,x3)) <=> (x = App (Opn x1) [x2; x3])
+  !x. (dest_binop x = SOME (x1,x2,x3)) <=> (x = App (Arith x1 IntT) [x2; x3])
 Proof
   HO_MATCH_MP_TAC (fetch "-" "dest_binop_ind")
-  \\ FULL_SIMP_TAC (srw_ss()) [dest_binop_def]
+  \\ fs [dest_binop_def]
 QED
 
 Theorem opt_sub_add_thm[local]:
-  !env s exp t res. eval_rel s env exp t res ==>
-                     eval_rel s env (opt_sub_add exp) t res
+  ∀env s exp t res. eval_rel s env exp t res ==>
+                    eval_rel s env (opt_sub_add exp) t res
 Proof
   rpt strip_tac
   \\ Cases_on `opt_sub_add exp = exp` \\ fs []
@@ -403,11 +403,11 @@ Proof
   \\ fs [state_component_equality]
   \\ imp_res_tac evaluate_sing \\ fs []
   \\ rveq \\ fs [] \\ rveq \\ fs []
-  \\ fs [do_app_def,option_case_eq,v_case_eq,lit_case_eq]
-  \\ rveq \\ fs [] \\ rveq \\ fs []
-  \\ fs [opn_lookup_def, dest_binop_def,
-       intLib.COOPER_PROVE ``i + i2 - i2 = i:int``,
-       intLib.COOPER_PROVE ``i - i2 + i2 = i:int``]
+  \\ fs [do_app_def,option_case_eq,v_case_eq,lit_case_eq,do_arith_def]
+  \\ gvs [check_type_def |> oneline]
+  \\ fs [dest_binop_def,
+         intLib.COOPER_PROVE ``i + i2 - i2 = i:int``,
+         intLib.COOPER_PROVE ``i - i2 + i2 = i:int``]
 QED
 
 (* top-level optimiser *)
@@ -427,4 +427,3 @@ Proof
   \\ match_mp_tac (MP_CANON BOTTOM_UP_OPT_THM) \\ fs []
   \\ metis_tac [BOTTOM_UP_OPT_THM,opt_sub_add_thm,let_id_thm,abs2let_thm]
 QED
-

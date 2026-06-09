@@ -24,7 +24,7 @@ val names_tac =
   \\ rpt strip_tac \\ rveq \\ EVAL_TAC
 
 Theorem ag32_backend_config_ok:
-    backend_config_ok ag32_backend_config
+    backend_config_ok ag32_config ag32_backend_config
 Proof
   simp[backend_config_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
   \\ fs[ag32_backend_config_def,asmTheory.offset_ok_def,
@@ -69,7 +69,7 @@ QED
 
 Theorem ag32_init_ok:
    is_ag32_machine_config mc ⇒
-    mc_init_ok ag32_backend_config mc
+    mc_init_ok ag32_config ag32_backend_config mc
 Proof
   rw[mc_init_ok_def]
   \\ fs[is_ag32_machine_config_def]
@@ -80,8 +80,8 @@ val is_ag32_machine_config_mc = ag32_init_ok |> concl |> dest_imp |> #1
 
 Theorem ag32_compile_correct =
   compile_correct
-  |> Q.GENL[`c`,`mc`]
-  |> Q.ISPECL[`ag32_backend_config`, `^(rand is_ag32_machine_config_mc)`]
+  |> Q.GENL[`asm_conf`,`c`,`mc`]
+  |> Q.ISPECL[`ag32_config`, `ag32_backend_config`, `^(rand is_ag32_machine_config_mc)`]
   |> ADD_ASSUM is_ag32_machine_config_mc
   |> SIMP_RULE (srw_ss()) [ag32_backend_config_ok,UNDISCH ag32_machine_config_ok,UNDISCH ag32_init_ok]
   |> CONV_RULE (ONCE_DEPTH_CONV(EVAL o (assert(same_const``heap_regs``o fst o strip_comb))))
@@ -124,7 +124,7 @@ Proof
 QED
 
 Theorem compile_imp_ffi_names:
-  backend$compile c p = SOME (b,d,c1) ∧
+  backend$compile asm_conf c p = SOME (b,d,c1) ∧
   c1.lab_conf.shmem_extra = [] ∧ f ≠ [] ∧
   c.lab_conf.ffi_names = NONE ∧
   ffinames_to_string_list (the [] c1.lab_conf.ffi_names) = f ⇒

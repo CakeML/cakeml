@@ -69,8 +69,8 @@ Try to put largest terms at the end of the list!
 Definition hash_arith_def:
   (hash_arith m (Binop bop r1 r2 ri) =
     roll_hash [hash_binop bop; r1; r2; hash_reg_imm m ri] 21n) ∧
-  (hash_arith m (Shift sh r1 r2 n) =
-    roll_hash [hash_shift sh; r1; r2; n] 22n) ∧
+  (hash_arith m (Shift sh r1 r2 ri) =
+    roll_hash [hash_shift sh; r1; r2; hash_reg_imm m ri] 22n) ∧
   (hash_arith m (Div r1 r2 r3) =
     roll_hash [r1;r2;r3] 23n) ∧
   (hash_arith m (LongMul r1 r2 r3 r4) =

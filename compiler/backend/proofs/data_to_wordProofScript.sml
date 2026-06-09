@@ -161,6 +161,12 @@ Theorem state_rel_cut_env_IMP_cut_env =
   |> SRULE [get_vars_def,cut_state_opt_def,cut_state_def,
             CaseEq"option",PULL_EXISTS,wordSemTheory.get_vars_def];
 
+Theorem cut_state_opt_ffi[local]:
+  dataSem$cut_state_opt names_opt r = SOME v1 ==> v1.ffi = r.ffi
+Proof
+  rw [] \\ gvs [cut_state_def,cut_env_def,cut_state_opt_def,AllCaseEqs()]
+QED
+
 Theorem data_compile_correct:
    !prog s c n l l1 l2 res s1 (t:('a,'c,'ffi)wordSem$state) locs.
       (dataSem$evaluate (prog,s) = (res,s1)) /\
@@ -207,35 +213,27 @@ Proof
     \\ imp_res_tac word_ml_inv_get_var_IMP
     \\ match_mp_tac word_ml_inv_insert \\ fs [])
   >~ [‘evaluate (Assign _ _ _ _,s)’] >-
-   (full_simp_tac std_ss []
-    \\ fs [comp_def,dataSemTheory.evaluate_def,wordSemTheory.evaluate_def]
-    \\ imp_res_tac (METIS_PROVE [] ``(if b1 /\ b2 then x1 else x2) = y ==>
-                                     b1 /\ b2 /\ x1 = y \/
-                                     (b1 ==> ~b2) /\ x2 = y``)
-    \\ fs [] \\ srw_tac[][]
-    \\ Cases_on `cut_state_opt names_opt s` \\ fs []
-    \\ Cases_on `get_vars args x.locals` \\ fs []
-    \\ reverse (Cases_on `do_app op x' x`) \\ fs []
+   (fs [comp_def,dataSemTheory.evaluate_def,wordSemTheory.evaluate_def]
+    \\ gvs [CaseEq"bool"]
+    \\ gvs [CaseEq"option"]
+    \\ reverse (Cases_on `do_app op xs v`) \\ fs []
     THEN1 (imp_res_tac do_app_Rerr \\ rveq \\ fs []
-           \\ drule_all_then assume_tac assign_FFI_final
-           \\ first_x_assum(qspecl_then [`n`,`l`,`dest`] strip_assume_tac)
-           \\ asm_exists_tac >> fs[] >> rpt strip_tac \\ fs[]
+           \\ drule_all assign_FFI_final
+           \\ disch_then $ qspecl_then [`n`,`l`,`dest`] strip_assume_tac
+           \\ asm_exists_tac >> fs[] >> rpt strip_tac \\ fs[flush_state_def]
+           \\ imp_res_tac cut_state_opt_ffi \\ fs []
            \\ imp_res_tac cut_state_opt_const \\ fs[state_rel_def,flush_state_def]
            \\ fs [cut_state_opt_def,CaseEq"option",cut_state_def] \\ rveq \\ fs [])
-    \\ Cases_on `a`
-    \\ drule assign_thm \\ fs []
-    \\ rpt (disch_then old_drule)
+    \\ Cases_on `a` \\ gvs [CaseEq"option"]
+    \\ drule_all assign_thm \\ fs []
     \\ disch_then (qspecl_then [`n`,`l`,`dest`] strip_assume_tac)
     \\ `option_le r'.stack_max r.stack_max` by
         (Cases_on `q' = SOME NotEnoughSpace` \\ fs [state_rel_def,set_var_def])
-    \\ fs [] \\ srw_tac[][] \\ fs []
+    \\ fs [set_var_def]
     \\ imp_res_tac do_app_io_events_mono \\ rfs []
-    \\ `s.ffi = t.ffi` by fs [state_rel_def] \\ fs []
-    \\ sg `x.ffi = s.ffi`
-    \\ imp_res_tac do_app_io_events_mono \\ rfs []
-    \\ Cases_on `names_opt` \\ fs [cut_state_opt_def] \\ srw_tac[][] \\ fs []
-    \\ fs [cut_state_def,cut_env_def] \\ every_case_tac
-    \\ fs [] \\ rw [] \\ fs [set_var_def])
+    \\ `s.ffi = t.ffi` by fs [state_rel_def]
+    \\ strip_tac \\ gvs []
+    \\ imp_res_tac cut_state_opt_ffi \\ fs [])
   >~ [‘evaluate (Force _ _ _,s)’] >-
    (simp [comp_def, force_thunk_def]
     \\ TOP_CASE_TAC \\ gvs []
@@ -368,6 +366,9 @@ Proof
         \\ simp [SF DNF_ss])
       \\ strip_tac \\ fs []
       \\ Cases_on ‘res1’ \\ gvs []
+      \\ IF_CASES_TAC
+      >- (rename [‘bad_fun_return (SOME tt)’] \\ Cases_on ‘tt’ \\ fs [])
+      \\ simp []
       \\ strip_tac \\ gvs []
       \\ CASE_TAC \\ gvs []
       \\ CASE_TAC \\ gvs []
@@ -641,18 +642,19 @@ Proof
     \\ fs [dataSemTheory.evaluate_def,wordSemTheory.evaluate_def]
     \\ Cases_on `get_var n s.locals` \\ fs []
     \\ fs [] \\ imp_res_tac state_rel_get_var_IMP
-    \\ fs [wordSemTheory.get_var_imm_def,
-          asmTheory.word_cmp_def]
+    \\ fs [wordSemTheory.get_var_imm_def]
     \\ imp_res_tac get_var_isT_OR_isF
     \\ fs[GSYM AND_IMP_INTRO]
     \\ Cases_on `isBool T x` \\ fs [] THEN1
-     (qpat_x_assum `state_rel c l1 l2 s t [] locs` (fn th =>
-               first_x_assum (fn th1 => mp_tac (MATCH_MP th1 th)))
+     (simp [asmTheory.word_cmp_def]
+      \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` (fn th =>
+                 first_x_assum (fn th1 => mp_tac (MATCH_MP th1 th)))
       \\ strip_tac \\ pop_assum (qspecl_then [`n4`,`l`] mp_tac)
       \\ rpt strip_tac \\ rfs [])
     \\ Cases_on `isBool F x` \\ fs [] THEN1
-     (qpat_x_assum `state_rel c l1 l2 s t [] locs` (fn th =>
-               first_x_assum (fn th1 => mp_tac (MATCH_MP th1 th)))
+     (simp [asmTheory.word_cmp_def]
+      \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` (fn th =>
+                 first_x_assum (fn th1 => mp_tac (MATCH_MP th1 th)))
       \\ strip_tac \\ pop_assum (qspecl_then [`n4`,`l4`] mp_tac)
       \\ rpt strip_tac \\ rfs []))
   \\ rename [‘evaluate (Call ret dest args handler,s)’]
@@ -685,6 +687,7 @@ Proof
     \\ disch_then (qspecl_then [`n1`,`n2`] strip_assume_tac) \\ fs[]
     \\ `t.clock <> 0` by fs [state_rel_def]
     \\ Cases_on `res1` \\ fs [] \\ srw_tac[][] \\ fs[]
+    >- (rename [‘bad_fun_return (SOME tt)’] \\ Cases_on ‘tt’ \\ fs [])
     \\ every_case_tac \\ fs [mk_loc_def]
     \\ fs [wordSemTheory.jump_exc_def,wordSemTheory.call_env_def,
            wordSemTheory.dec_clock_def]
@@ -1704,7 +1707,7 @@ QED
 
 fun cases_on_op q = Cases_on q >|
   map (MAP_EVERY Cases_on)
-      [[`n`], [`s`], [`i`], [`w`], [`b`], [`g`], [`m`], [], [`t`]];
+      [[`n`], [`m`], [`i`], [`w`], [`b`], [`g`], [`m`], [], [`t`]];
 
 Theorem data_to_word_lab_pres_lem:
   ∀c n l p.
@@ -1733,7 +1736,8 @@ Proof
       rename1`WordOp (WordShift _ _ _)`>>
       pairarg_tac>>old_drule extract_labels_assignWordShift>>
       simp[])>>
-    fs[extract_labels_def,GiveUp_def,assign_def,assign_def_extras]>>
+    fs[extract_labels_def,GiveUp_def,assign_def,assign_def_extras,
+       oneline AssignCmp_def, SetBool_def]>>
     BasicProvers.EVERY_CASE_TAC>>
     fs[extract_labels_def,list_Seq_def,extract_labels_StoreEach,
        extract_labels_StoreAnyConsts,Maxout_bits_code_def])
@@ -1850,7 +1854,7 @@ Proof
   >- ( (* Assign *)
     gvs[comp_def,AllCaseEqs(),assign_def,all_assign_defs,
       arg1_def,arg2_def,arg3_def,arg4_def] >>
-    simp[no_share_inst_def,
+    simp[no_share_inst_def,oneline AssignCmp_def, SetBool_def,
       GiveUp_def,BignumHalt_def,AllocVar_def,SilentFFI_def,
       list_Seq_no_share_inst,StoreEach_no_share_inst,
       Make_ptr_bits_code_def,StoreAnyConsts_no_share_inst,
@@ -2010,7 +2014,7 @@ QED
 
 fun cases_on_op q = Cases_on q >|
   map (MAP_EVERY Cases_on)
-      [[`n`], [`s`], [`i`], [`w`], [`b`], [`g`], [`m`], [], [`t`]];
+      [[`n`], [`m`], [`i`], [`w`], [`b`], [`g`], [`m`], [], [`t`]];
 
 Theorem assign_no_inst[local]:
   ((a.has_longdiv ⇒ (ac.ISA = x86_64)) ∧
@@ -2029,8 +2033,8 @@ Proof
     Maxout_bits_code_def,GiveUp_def,StoreAnyConsts_no_inst,
     inst_ok_less_def,assign_def_extras,MemEqList_no_inst,
     asmTheory.fp_reg_ok_def,fp_uop_inst_def,fp_cmp_inst_def,
-    fp_bop_inst_def, fp_top_inst_def]>>
-  IF_CASES_TAC>>fs[every_inst_def,list_Seq_def,StoreEach_no_inst,
+    fp_bop_inst_def, fp_top_inst_def, oneline AssignCmp_def, SetBool_def]>>
+  (IF_CASES_TAC ORELSE TOP_CASE_TAC)>>fs[every_inst_def,list_Seq_def,StoreEach_no_inst,
     Maxout_bits_code_def,GiveUp_def,
     inst_ok_less_def,assign_def_extras,MemEqList_no_inst] \\ FAIL_TAC ""
 QED
@@ -2147,7 +2151,6 @@ Proof
    fs[good_dimindex_def]>>
    metis_tac[bounds_lem])
  >>
-
    first_x_assum irule >>
    fs[WORD_LE,miscTheory.good_dimindex_def,word_2comp_n2w,
      dimword_def,word_msb_n2w])
@@ -2295,22 +2298,31 @@ Proof
   rw [] \\ drule word_get_code_labels_StoreAnyConsts \\ fs []
 QED
 
-(* slow... *)
+(* semi-slow... *)
 Theorem word_get_code_labels_assign[local]:
   ∀x.
-    word_get_code_labels (FST (assign c secn v w x y z)) SUBSET
+    assign c secn v w x y z = (res1,res2) ⇒
+    word_get_code_labels res1 SUBSET
     closLang$assign_get_code_label x ∪ (set(MAP FST (stubs (:α) c)))
 Proof
-  ho_match_mp_tac (closLangTheory.assign_get_code_label_ind)>>
+  ho_match_mp_tac closLangTheory.assign_get_code_label_ind>>
   rw[assign_def,all_assign_defs,arg1_def,arg2_def,arg3_def,arg4_def,
-     closLangTheory.assign_get_code_label_def]>>
+     closLangTheory.assign_get_code_label_def, oneline AssignCmp_def, SetBool_def]>>
   fs[list_Seq_def,word_get_code_labels_StoreEach,word_get_code_labels_MemEqList]>>
-  ntac 3 (every_case_tac>>fs[] >>
-  TRY (irule SUBSET_TRANS >>
-       drule_then (irule_at Any) const_parts_to_words_labels) >>
-  fs[list_Seq_def,word_get_code_labels_StoreEach,word_get_code_labels_MemEqList,
-     closLangTheory.assign_get_code_label_def]>>
-  EVAL_TAC)
+  gvs[AllCaseEqs()]>>
+  rw[]>>
+  simp[stubs_def,list_Seq_def,wordConvsTheory.get_code_labels_def,
+    word_get_code_labels_StoreEach,word_get_code_labels_MemEqList,
+    closLangTheory.assign_get_code_label_def,GiveUp_def]>>
+  EVAL_TAC>>
+  rw[]>>simp[list_Seq_def]>>
+  every_case_tac>>fs[list_Seq_def]>>
+  drule const_parts_to_words_labels>>
+  simp[adjust_var_def]>>
+  strip_tac>>
+  irule SUBSET_TRANS >>
+  pop_assum (irule_at Any)>>
+  EVAL_TAC
 QED
 
 Theorem data_to_word_comp_code_labels[local]:
@@ -2327,8 +2339,10 @@ Proof
     rpt(pairarg_tac>>fs[])>>
     fs[SUBSET_DEF]>>fs[]>>
     metis_tac[])
-  >-
-    fs[word_get_code_labels_assign]
+  >- (
+    simp[Once (GSYM FST_pair)]>> pairarg_tac>>
+    drule word_get_code_labels_assign>>
+    simp[])
   >-
     (fs[SUBSET_DEF]>>metis_tac[])
   >-
@@ -2365,14 +2379,21 @@ QED
 (* slow... *)
 Theorem word_good_handlers_assign[local]:
   ∀x.
-    word_good_handlers secn (FST (assign c secn v w x y z))
+    assign c secn v w x y z = (res1,res2) ⇒
+    word_good_handlers secn res1
 Proof
-  ho_match_mp_tac (closLangTheory.assign_get_code_label_ind)>>
-  rw[assign_def,all_assign_defs,arg1_def,arg2_def,arg3_def,arg4_def]>>
-  rpt(
-  every_case_tac>>fs[list_Seq_def,word_good_handlers_StoreEach,
-                     word_good_handlers_StoreAnyConsts,word_good_handlers_MemEqList]>>
-  rw[]>>EVAL_TAC)
+  ho_match_mp_tac closLangTheory.assign_get_code_label_ind>>
+  rw[assign_def,all_assign_defs,arg1_def,arg2_def,arg3_def,arg4_def,
+     closLangTheory.assign_get_code_label_def, oneline AssignCmp_def, SetBool_def]>>
+  fs[list_Seq_def,word_good_handlers_StoreEach,word_good_handlers_MemEqList]>>
+  gvs[AllCaseEqs()]>>
+  rw[]>>
+  simp[stubs_def,list_Seq_def,wordConvsTheory.good_handlers_def,
+    word_good_handlers_StoreEach,word_good_handlers_MemEqList,
+    closLangTheory.assign_get_code_label_def,GiveUp_def,word_good_handlers_StoreAnyConsts]>>
+  EVAL_TAC>>
+  rw[]>>simp[list_Seq_def]>>
+  every_case_tac>>fs[list_Seq_def]
 QED
 
 Theorem data_to_word_comp_good_handlers[local]:
@@ -2388,8 +2409,10 @@ Proof
     rpt(pairarg_tac>>fs[])>>
     fs[SUBSET_DEF]>>fs[]>>
     metis_tac[])
-  >-
-    fs[word_good_handlers_assign]
+  >- (
+    simp[Once (GSYM FST_pair)]>> pairarg_tac>>
+    drule word_good_handlers_assign>>
+    simp[])
   >~ [‘force_thunk’] >- (
     gvs [force_thunk_def]
     \\ every_case_tac \\ gvs [GiveUp_def]

@@ -512,11 +512,8 @@ Proof
   \\ disch_then drule
   \\ disch_then (qspec_then `op` mp_tac) \\ fs []
   \\ rw [] \\ fs []
-  \\ Cases_on `err` \\ fs []
-  \\ qpat_x_assum `_ = Rerr (Rraise _)` mp_tac
-  \\ simp [do_app_cases_err]
-  \\ strip_tac \\ fs []
-  \\ every_case_tac \\ fs[]
+  \\ Cases_on `err` \\ gvs []
+  \\ gvs [oneline do_app_def, AllCaseEqs()]
 QED
 
 Theorem v_to_bytes[local]:
@@ -1378,4 +1375,3 @@ Proof
   \\ Cases_on `res1` \\ fs []
   \\ Cases_on `e` \\ fs []
 QED
-

@@ -21,7 +21,7 @@ val _ = numLib.temp_prefer_num();
 val _ = temp_tight_equality ();
 
 Datatype:
-  var_name = Glob tra num | Local tra string
+  var_name = Glob tra num | Local tra mlstring
 End
 
 Datatype:
@@ -81,60 +81,8 @@ End
 Definition astOp_to_flatOp_def:
   astOp_to_flatOp (op : ast$op) : flatLang$op =
   case op of
-    Opn opn => flatLang$Opn opn
-  | Opb opb => flatLang$Opb opb
-  | Opw word_size opw => flatLang$Opw word_size opw
-  | Shift word_size shift num => flatLang$Shift word_size shift num
-  | FP_cmp cmp => flatLang$FP_cmp cmp
-  | FP_uop uop => flatLang$FP_uop uop
-  | FP_bop bop => flatLang$FP_bop bop
-  | FP_top t_op => flatLang$FP_top t_op
-  | FpFromWord => flatLang$FpFromWord
-  | FpToWord => flatLang$FpToWord
-  | Equality => flatLang$Equality
-  | Opapp => flatLang$Opapp
-  | Opassign => flatLang$Opassign
-  | Opref => flatLang$Opref
   | Opderef => flatLang$El 0
-  | Aw8alloc => flatLang$Aw8alloc
-  | Aw8sub => flatLang$Aw8sub
-  | Aw8length => flatLang$Aw8length
-  | Aw8update => flatLang$Aw8update
-  | WordFromInt word_size => flatLang$WordFromInt word_size
-  | WordToInt word_size => flatLang$WordToInt word_size
-  | CopyStrStr => flatLang$CopyStrStr
-  | CopyStrAw8 => flatLang$CopyStrAw8
-  | CopyAw8Str => flatLang$CopyAw8Str
-  | CopyAw8Aw8 => flatLang$CopyAw8Aw8
-  | XorAw8Str_unsafe => flatLang$Aw8xor_unsafe
-  | Ord => flatLang$Ord
-  | Chr => flatLang$Chr
-  | Chopb opb => flatLang$Chopb opb
-  | Implode => flatLang$Implode
-  | Explode => flatLang$Explode
-  | Strsub => flatLang$Strsub
-  | Strlen => flatLang$Strlen
-  | Strcat => flatLang$Strcat
-  | VfromList => flatLang$VfromList
-  | Vsub => flatLang$Vsub
-  | Vsub_unsafe => flatLang$Vsub_unsafe
-  | Vlength => flatLang$Vlength
-  | Aalloc => flatLang$Aalloc
-  | AallocFixed => flatLang$AallocFixed
-  | Asub => flatLang$Asub
-  | Alength => flatLang$Alength
-  | Aupdate => flatLang$Aupdate
-  | Asub_unsafe => flatLang$Asub_unsafe
-  | Aupdate_unsafe => flatLang$Aupdate_unsafe
-  | Aw8sub_unsafe => flatLang$Aw8sub_unsafe
-  | Aw8update_unsafe => flatLang$Aw8update_unsafe
-  | ListAppend => flatLang$ListAppend
-  | ConfigGC => flatLang$ConfigGC
-  | FFI string => flatLang$FFI string
-  | Eval => Eval
-  | ThunkOp t => ThunkOp t
-  (* default element *)
-  | _ => flatLang$ConfigGC
+  | _ => flatLang$Src op
 End
 
 Definition type_group_id_type_def:
@@ -152,7 +100,7 @@ Proof
 QED
 
 Definition str_sep_def:
-  str_sep = "_"
+  str_sep = «_»
 End
 
 Definition join_all_names_aux_def:
@@ -166,11 +114,11 @@ Definition join_all_names_def:
   join_all_names xs =
     case xs of
     | [x] => x
-    | _ => FLAT (join_all_names_aux xs [])
+    | _ => concat (join_all_names_aux xs [])
 End
 
 Definition compile_exp_def:
-  (compile_exp (t:string list) (env:environment) (Raise e) =
+  (compile_exp (t:mlstring list) (env:environment) (Raise e) =
     Raise None (compile_exp t env e)) ∧
   (compile_exp t env (Handle e pes) =
     Handle None (compile_exp t env e) (compile_pes t env pes)) ∧
@@ -180,29 +128,29 @@ Definition compile_exp_def:
           (compile_exps t env es)) ∧
   (compile_exp t env (Var x) =
     case nsLookup env.v x of
-    | NONE => Var_local None "" (* Can't happen *)
+    | NONE => Var_local None «» (* Can't happen *)
     | SOME x => compile_var None x) ∧
   (compile_exp t env (Fun x e) =
     Fun (join_all_names t) x
       (compile_exp t (env with v := nsBind x (Local None x) env.v) e)) ∧
   (compile_exp t env (ast$App op es) =
     if op = AallocEmpty then
-      FOLDR (Let None NONE) (flatLang$App None Aalloc [Lit None (IntLit (&0));
+      FOLDR (Let None NONE) (flatLang$App None (Src Aalloc) [Lit None (IntLit (&0));
                                                        Lit None (IntLit (&0))])
         (REVERSE (compile_exps t env es))
     else
     if op = Eval then
       flatLang$Mat None (Con None NONE (compile_exps t env es))
-        [(Pcon NONE [Pany; Pany; Pany; Pany; Pvar "bytes"; Pvar "words"],
-            flatLang$Let None NONE (flatLang$App None Eval
-                    (MAP (Var_local None) ["bytes"; "words"]))
-                (Let None (SOME "r") (App None (GlobalVarLookup 0) [])
-                    (flatLang$App None (El 0) [Var_local None "r"])))]
+        [(Pcon NONE [Pany; Pany; Pany; Pany; Pvar «bytes»; Pvar «words»],
+            flatLang$Let None NONE (flatLang$App None (Src Eval)
+                    (MAP (Var_local None) [«bytes»; «words»]))
+                (Let None (SOME «r») (App None (GlobalVarLookup 0) [])
+                    (flatLang$App None (El 0) [Var_local None «r»])))]
     else
     if op = Env_id then (case es of
       | [_] => (case compile_exps t env es of
                 | x::xs => x
-                | _ => Var_local None "" (* Can't happen *))
+                | _ => Var_local None «» (* Can't happen *))
       (* possible only if one of es raises an exception *)
       | _ => App None (El 0) (compile_exps t env es)
       )
@@ -210,12 +158,12 @@ Definition compile_exp_def:
       flatLang$App None (astOp_to_flatOp op) (compile_exps t env es)) ∧
   (compile_exp t env (Log lop e1 e2) =
       case lop of
-      | And =>
+      | Andalso =>
         If None
            (compile_exp t env e1)
            (compile_exp t env e2)
            (Bool None F)
-      | Or =>
+      | Orelse =>
         If None
            (compile_exp t env e1)
            (Bool None T)
@@ -259,8 +207,8 @@ Termination
    | INR (INR (INL (t,x,pes))) =>
        list_size (pair_size pat_size exp_size) pes
    | INR (INR (INR (t,x,funs))) =>
-       list_size (pair_size (list_size char_size)
-                  (pair_size (list_size char_size) exp_size)) funs)`
+       list_size (pair_size mlstring_size
+                  (pair_size mlstring_size exp_size)) funs)`
 End
 
 Theorem compile_exps_append:
@@ -384,18 +332,32 @@ Definition env_id_tuple_def:
     [Lit None (IntLit (& gen)); Lit None (IntLit (& id))]
 End
 
+Definition simple_dlet_def:
+  simple_dlet p e =
+    case p of
+    | ast$Pvar pv => (case e of ast$Var v => SOME (pv,v) | _ => NONE)
+    | _ => NONE
+End
+
 Definition compile_decs_def:
-  (compile_decs (t:string list) n next env envs [ast$Dlet locs p e] =
-     let n' = n + 4 in
-     let xs = REVERSE (pat_bindings p []) in
-     let e' = compile_exp (xs++t) env e in
-     let l = LENGTH xs in
-     let n'' = n' + l in
-       (n'', (next with vidx := next.vidx + l),
-        <| v := alist_to_ns (alloc_defs n' next.vidx xs); c := nsEmpty |>,
-        envs,
-        [flatLang$Dlet (Mat None e'
-          [(compile_pat env p, make_varls 0 None next.vidx xs)])])) ∧
+  (compile_decs (t:mlstring list) n next env envs [ast$Dlet locs p e] =
+     case simple_dlet p e of
+     | SOME (pv,v) =>
+         (case nsLookup env.v v of
+          | SOME (Glob t i) =>
+                 (n, next, <| v := alist_to_ns [(pv, Glob t i)]; c := nsEmpty |>, envs, [])
+          | _ => (n, next, <| v := nsEmpty; c := nsEmpty |>, envs, []))
+     | NONE =>
+         let n' = n + 4 in
+         let xs = REVERSE (pat_bindings p []) in
+         let e' = compile_exp (xs++t) env e in
+         let l = LENGTH xs in
+         let n'' = n' + l in
+           (n'', (next with vidx := next.vidx + l),
+            <| v := alist_to_ns (alloc_defs n' next.vidx xs); c := nsEmpty |>,
+            envs,
+            [Mat None e'
+               [(compile_pat env p, make_varls 0 None next.vidx xs)]])) ∧
   (compile_decs t n next env envs [ast$Dletrec locs funs] =
      let fun_names = MAP FST funs in
      let new_env = nsBindList (MAP (\x. (x, Local None x)) fun_names) env.v in
@@ -405,7 +367,7 @@ Definition compile_decs_def:
                    c := nsEmpty |> in
        (n' + LENGTH funs, (next with vidx := next.vidx + LENGTH funs),
         env', envs,
-        [flatLang$Dlet (flatLang$Letrec (join_all_names t) flat_funs
+        [(flatLang$Letrec (join_all_names t) flat_funs
            (make_varls 0 None next.vidx (REVERSE fun_names)))])) /\
   (compile_decs t n next env envs [Dtype locs type_def] =
     let new_env = MAPi (\tid (_,_,constrs). alloc_tags (next.tidx + tid) constrs) type_def in
@@ -413,14 +375,14 @@ Definition compile_decs_def:
       <| v := nsEmpty;
          c := FOLDL (\ns (l,cids). nsAppend l ns) nsEmpty new_env |>,
       envs,
-      MAPi (λi (ns,cids). flatLang$Dtype (next.tidx + i) cids) new_env)) ∧
+      [])) ∧
   (compile_decs _ n next env envs [Dtabbrev locs tvs tn t] =
      (n, next, empty_env, envs, [])) ∧
   (compile_decs t n next env envs [Dexn locs cn ts] =
      (n, (next with eidx := next.eidx + 1),
       <| v := nsEmpty; c := nsSing cn (next.eidx, NONE) |>,
       envs,
-      [Dexn next.eidx (LENGTH ts)])) ∧
+      [])) ∧
   (compile_decs t n next env envs [Dmod mn ds] =
      let (n', next', new_env, envs', ds') = compile_decs (mn::t) n next env envs ds in
        (n', next', (lift_env mn new_env), envs', ds')) ∧
@@ -434,7 +396,7 @@ Definition compile_decs_def:
         <| v := nsBind nenv (Glob None next.vidx) nsEmpty; c := nsEmpty |>,
         envs with <| next := envs.next + 1;
             envs := insert envs.next env envs.envs |>,
-        [flatLang$Dlet (App None (GlobalVarInit next.vidx)
+        [(App None (GlobalVarInit next.vidx)
             [env_id_tuple envs.generation envs.next])])) ∧
   (compile_decs t n next env envs [] =
     (n, next, empty_env, envs, [])) ∧
@@ -472,7 +434,6 @@ End
 
 Definition glob_alloc_def:
   glob_alloc next c =
-    Dlet
       (Let om_tra NONE
         (App om_tra
           (GlobalVarAlloc (next.vidx - c.next.vidx)) [])
@@ -480,8 +441,8 @@ Definition glob_alloc_def:
 End
 
 Definition alloc_env_ref_def:
-  alloc_env_ref = Dlet (App None (GlobalVarInit 0)
-    [App None Opref [Con None NONE []]])
+  alloc_env_ref = (App None (GlobalVarInit 0)
+    [App None (Src Opref) [Con None NONE []]])
 End
 
 Definition compile_prog_def:
@@ -506,8 +467,8 @@ End
 
 Definition store_env_id_def:
   store_env_id gen id =
-    Dlet (Let None (SOME "r") (flatLang$App None (GlobalVarLookup 0) [])
-        (App None Opassign [Var_local None "r"; env_id_tuple gen id]))
+    Let None (SOME «r») (flatLang$App None (GlobalVarLookup 0) [])
+      (App None (Src Opassign) [Var_local None «r»; env_id_tuple gen id])
 End
 
 Definition inc_compile_prog_def:
@@ -526,7 +487,7 @@ Definition compile_def:
   compile c p =
     let (c', p') = compile_prog c p in
     let p' = compile_flat c'.pattern_cfg p' in
-    (c', p')
+      (c', p')
 End
 
 (* note that flat_elim is always disabled in the eval/incremental case *)
@@ -534,5 +495,5 @@ Definition inc_compile_def:
   inc_compile env_id c p =
     let (c', p') = inc_compile_prog env_id c p in
     let p' = MAP (flat_pattern$compile_dec c'.pattern_cfg) p' in
-    (c', p')
+      (c', p')
 End

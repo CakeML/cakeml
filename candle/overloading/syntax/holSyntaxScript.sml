@@ -15,8 +15,8 @@ Datatype:
   | Tyapp mlstring (type list)
 End
 
-Overload Fun = ``λs t. Tyapp (strlit "fun") [s;t]``
-Overload Bool = ``Tyapp (strlit "bool") []``
+Overload Fun = ``λs t. Tyapp «fun» [s;t]``
+Overload Bool = ``Tyapp «bool» []``
 
 Definition domain_raw:
   domain ty = case ty of Tyapp n (x::xs) => x | _ => ty
@@ -57,12 +57,11 @@ Datatype:
        | Abs term term
 End
 
-Overload Equal = ``λty. Const (strlit "=") (Fun ty (Fun ty Bool))``
+Overload Equal = ``λty. Const «=» (Fun ty (Fun ty Bool))``
 
-Definition dest_var_def:
+Definition dest_var_def[simp]:
   dest_var (Var x ty) = (x,ty)
 End
-val _ = export_rewrites["dest_var_def"]
 
 (* Assignment of types to terms (where possible) *)
 
@@ -85,16 +84,15 @@ Definition welltyped_def:
   welltyped tm = ∃ty. tm has_type ty
 End
 
-Definition typeof_def:
+Definition typeof_def[simp]:
   (typeof (Var n   ty) = ty) ∧
   (typeof (Const n ty) = ty) ∧
   (typeof (Comb s t)   = codomain (typeof s)) ∧
   (typeof (Abs v t) = Fun (typeof v) (typeof t))
 End
-val _ = export_rewrites["typeof_def"]
 
 Definition is_fun_def:
-  (is_fun (Tyapp name tys) = ((name = strlit "fun") /\ (LENGTH tys = 2)))
+  (is_fun (Tyapp name tys) = ((name = «fun») /\ (LENGTH tys = 2)))
   /\ (is_fun _ = F)
 End
 (* check if a term is well-formed *)
@@ -106,7 +104,7 @@ Definition wellformed_compute_def:
     /\ wellformed_compute t ∧
     (case typeof s of
        Tyapp n tys =>
-         (n = strlit "fun") ∧
+         (n = «fun») ∧
          (LENGTH tys = 2) ∧
          (HD tys = typeof t)
      | Tyvar _ => F))
@@ -241,13 +239,12 @@ End
 
 (* Whether a variables (or constant) occurs free in a term. *)
 
-Definition VFREE_IN_def:
+Definition VFREE_IN_def[simp]:
   (VFREE_IN v (Var x ty) ⇔ (Var x ty = v)) ∧
   (VFREE_IN v (Const x ty) ⇔ (Const x ty = v)) ∧
   (VFREE_IN v (Comb s t) ⇔ VFREE_IN v s ∨ VFREE_IN v t) ∧
   (VFREE_IN v (Abs w t) ⇔ (w ≠ v) ∧ VFREE_IN v t)
 End
-val _ = export_rewrites["VFREE_IN_def"]
 
 (* Closed terms: those with no free variables. *)
 
@@ -321,14 +318,13 @@ QED
 
 (* Substitution for type variables in a type. *)
 
-Definition TYPE_SUBST_def:
+Definition TYPE_SUBST_def[simp]:
   (TYPE_SUBST i (Tyvar v) = REV_ASSOCD (Tyvar v) i (Tyvar v)) ∧
   (TYPE_SUBST i (Tyapp v tys) = Tyapp v (MAP (TYPE_SUBST i) tys)) ∧
   (TYPE_SUBST i (Fun ty1 ty2) = Fun (TYPE_SUBST i ty1) (TYPE_SUBST i ty2))
 Termination
   type_rec_tac "SND"
 End
-val _ = export_rewrites["TYPE_SUBST_def"]
 Overload is_instance = ``λty0 ty. ∃i. ty = TYPE_SUBST i ty0``
 
 (* Substitution for term variables in a term. *)
@@ -351,13 +347,12 @@ End
 (* A measure on terms, used in proving
    termination of type instantiation. *)
 
-Definition sizeof_def:
+Definition sizeof_def[simp]:
   (sizeof (Var x ty) = 1n) ∧
   (sizeof (Const x ty) = 1) ∧
   (sizeof (Comb s t) = 1 + sizeof s + sizeof t) ∧
   (sizeof (Abs v t) = 2 + sizeof t)
 End
-val _ = export_rewrites["sizeof_def"]
 
 Theorem SIZEOF_VSUBST:
    ∀t ilist. (∀s' s. MEM (s',s) ilist ⇒ ∃x ty. s' = Var x ty)
@@ -507,9 +502,9 @@ Overload tmsof = ``tmsof o sigof``
 
 Definition is_std_sig_def:
   is_std_sig (sig:sig) ⇔
-    FLOOKUP (tysof sig) (strlit "fun") = SOME 2 ∧
-    FLOOKUP (tysof sig) (strlit "bool") = SOME 0 ∧
-    FLOOKUP (tmsof sig) (strlit "=") = SOME (Fun (Tyvar(strlit "A")) (Fun (Tyvar(strlit "A")) Bool))
+    FLOOKUP (tysof sig) «fun» = SOME 2 ∧
+    FLOOKUP (tysof sig) «bool» = SOME 0 ∧
+    FLOOKUP (tmsof sig) «=» = SOME (Fun (Tyvar «A») (Fun (Tyvar «A») Bool))
 End
 
 (* Note that this theory is not necessarily definitional *)
@@ -600,7 +595,7 @@ End
 (* Projecting out pieces of the context *)
 
   (* Types and constants introduced by an update *)
-Definition types_of_upd_def:
+Definition types_of_upd_def[simp]:
   (types_of_upd (ConstSpec _ _ _) = []) ∧
   (types_of_upd (TypeDefn name pred _ _) = [(name,LENGTH (tvars pred))]) ∧
   (types_of_upd (NewType name arity) = [(name,arity)]) ∧
@@ -608,7 +603,7 @@ Definition types_of_upd_def:
   (types_of_upd (NewAxiom _) = [])
 End
 
-Definition consts_of_upd_def:
+Definition consts_of_upd_def[simp]:
   (consts_of_upd (ConstSpec overload eqs prop) = if overload then [] else MAP (λ(s,t). (s, typeof t)) eqs) ∧
   (consts_of_upd (TypeDefn name pred abs rep) =
      let rep_type = domain (typeof pred) in
@@ -626,11 +621,11 @@ Overload const_list = ``λctxt. FLAT (MAP consts_of_upd ctxt)``
 Overload tmsof = ``λctxt. alist_to_fmap (const_list ctxt)``
 
 Definition is_builtin_name_def:
-  is_builtin_name m = (m = strlit "=")
+  is_builtin_name m = (m = «=»)
 End
 
 Definition is_reserved_name_def:
-  is_reserved_name m = (m = strlit "=" \/ m = strlit "@")
+  is_reserved_name m = (m = «=» \/ m = «@»)
 End
 
 
@@ -644,7 +639,7 @@ Overload sigof = ``λctxt:update list. (tysof ctxt, tmsof ctxt)``
 
   (* Axioms: we divide them into axiomatic extensions and conservative
      extensions, we will prove that the latter preserve consistency *)
-Definition axexts_of_upd_def:
+Definition axexts_of_upd_def[simp]:
   axexts_of_upd (NewAxiom prop) = [prop] ∧
   axexts_of_upd _ = []
 End
@@ -658,8 +653,8 @@ Definition conexts_of_upd_def:
     let rep_type = domain (typeof pred) in
     let abs = Const abs_name (Fun rep_type abs_type) in
     let rep = Const rep_name (Fun abs_type rep_type) in
-    let a = Var (strlit "a") abs_type in
-    let r = Var (strlit "r") rep_type in
+    let a = Var «a» abs_type in
+    let r = Var «r» rep_type in
       [Comb abs (Comb rep a) === a;
        Comb pred r === (Comb rep (Comb abs r) === r)]) ∧
   (conexts_of_upd _ = [])
@@ -672,9 +667,8 @@ Overload axioms_of_upd = ``λupd. axexts_of_upd upd ++ conexts_of_upd upd``
 Overload axiom_list = ``λctxt. FLAT (MAP axioms_of_upd ctxt)``
 Overload axsof = ``λctxt. set (axiom_list ctxt)``
 
-val _ = export_rewrites["types_of_upd_def","consts_of_upd_def","axexts_of_upd_def"]
 
-  (* Now we can recover the theory associated with a context *)
+(* Now we can recover the theory associated with a context *)
 Overload thyof = ``λctxt:update list. (sigof ctxt, axsof ctxt)``
 
 
@@ -696,9 +690,9 @@ Overload "#" = ``$orth_ci``
 (* Initial theory context *)
 
 Definition init_ctxt_def:
-  init_ctxt = [NewConst (strlit "=") (Fun (Tyvar(strlit "A")) (Fun (Tyvar(strlit "A")) Bool))
-              ;NewType (strlit "bool") 0
-              ;NewType (strlit "fun") 2]
+  init_ctxt = [NewConst «=» (Fun (Tyvar «A») (Fun (Tyvar «A») Bool))
+              ;NewType «bool» 0
+              ;NewType «fun» 2]
 End
 
 (* all built-in constants and types
@@ -718,8 +712,8 @@ End
 Definition is_builtin_type_def:
   (is_builtin_type (Tyvar _) = F)
   /\ (is_builtin_type (Tyapp m ty) =
-      ((m = strlit "fun" /\ LENGTH ty = 2) \/
-       (m = strlit "bool" /\ LENGTH ty = 0)))
+      ((m = «fun» /\ LENGTH ty = 2) \/
+       (m = «bool» /\ LENGTH ty = 0)))
 End
 
 Theorem type1_size_append[local]:
@@ -734,8 +728,8 @@ QED
  * 2019 paper by Kunčar and Popescu *)
 Definition allTypes'_defn:
   (allTypes' (Tyapp s tys) =
-    if s = strlit "fun" /\ LENGTH tys = 2 then FLAT (MAP allTypes' tys)
-    else if s = strlit "bool" /\ tys = [] then []
+    if s = «fun» /\ LENGTH tys = 2 then FLAT (MAP allTypes' tys)
+    else if s = «bool» /\ tys = [] then []
     else [(Tyapp s tys)]
   )
   /\ (allTypes' (Tyvar n) = [Tyvar n])
@@ -843,7 +837,7 @@ Definition dependency_compute_def:
            ++
           (case typeof t of
              Tyapp name [rep_type; _] =>
-               (if name = strlit "fun" then
+               (if name = «fun» then
                   MAP (λv. (INR(Const abs (Fun rep_type abs_type)), INL v)) (abs_type::allTypes' rep_type)
                   ++ MAP (λv. (INR(Const rep (Fun abs_type rep_type)), INL v)) (abs_type::allTypes' rep_type)
                 else [])
@@ -1055,4 +1049,3 @@ End
 Definition definitional_def:
   definitional ctxt = ?l. (set l = set ctxt) /\ definitional_dec l
 End
-

@@ -23,7 +23,7 @@ Correctness proof for bvl_const
 Correctness proof for bvl_handle
 
 [bvl_inlineProofScript.sml](bvl_inlineProofScript.sml):
-Correctness proof for bvi_inline
+Correctness proof for bvl_inline
 
 [bvl_jumpProofScript.sml](bvl_jumpProofScript.sml):
 Correctness proof for bvl_jump
@@ -146,7 +146,7 @@ Correctness proof for stack_remove
 Correctness proof for stack_to_lab
 
 [wordConvsProofScript.sml](wordConvsProofScript.sml):
-Syntactic properties proofs for word_to_word.
+Syntactic properties proofs for wordConvs.
 
 [word_allocProofScript.sml](word_allocProofScript.sml):
 Correctness proof for word_alloc

@@ -120,7 +120,7 @@ Theorem case_elim_thms =
 
 Theorem case_eq_thms =
   CONJ
-  (prove_case_eq_thm {nchotomy = bviTheory.exp_nchotomy, case_def = bviTheory.exp_case_def})
+  (TypeBase.case_eq_of ``:bvi$exp``)
   bvlPropsTheory.case_eq_thms
 
 val evaluate_LENGTH = Q.prove(
@@ -760,4 +760,3 @@ Definition good_code_labels_def:
   good_code_labels p elabs ⇔
     BIGUNION (set (MAP (get_code_labels o SND o SND) p)) ⊆ set (MAP FST p) ∪ elabs
 End
-

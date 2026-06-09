@@ -54,12 +54,11 @@ Proof
   rw[windmill_def]
 QED
 
-Definition path_def:
+Definition path_def[simp]:
   (path [] ⇔ T) ∧ (path [_] ⇔ T) ∧
   (path ((c,b')::(b,a)::p) ⇔
      (b = b') ∧ path ((b,a)::p))
 End
-val _ = export_rewrites["path_def"];
 
 Theorem path_change_start:
    ∀y z x. path (SNOC x y) ∧ FST x = FST z ⇒ path (SNOC z y)
@@ -829,13 +828,12 @@ QED
 
 (* the compiler does not use uninitialised temporaries *)
 
-Definition not_use_temp_before_assign_def:
+Definition not_use_temp_before_assign_def[simp]:
    (not_use_temp_before_assign [] = T) ∧
    (not_use_temp_before_assign ((d,NONE)::ls) = F) ∧
    (not_use_temp_before_assign ((NONE,s)::ls) = T) ∧
    (not_use_temp_before_assign ((d,s)::ls) = not_use_temp_before_assign ls)
 End
-val _ = export_rewrites["not_use_temp_before_assign_def"];
 
 val not_use_temp_before_assign_ind = theorem"not_use_temp_before_assign_ind";
 

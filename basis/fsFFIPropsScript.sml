@@ -39,6 +39,14 @@ Proof
   fs[]
 QED
 
+Theorem nextFD_maxFD:
+  hasFreeFD fs ⇒ nextFD fs ≤ fs.maxFD
+Proof
+  strip_tac
+  \\ drule_then assume_tac nextFD_ltX
+  \\ gvs [nextFD_def]
+QED
+
 Theorem nextFD_leX:
    CARD (set (MAP FST fs.infds)) ≤ x ⇒ nextFD fs ≤ x
 Proof
@@ -418,7 +426,7 @@ Theorem ffi_read_length:
    ffi_read conf bytes fs = SOME (FFIreturn bytes' fs') ==> LENGTH bytes' = LENGTH bytes
 Proof
   rw[ffi_read_def]
-  \\ fs[option_case_eq,prove_case_eq_thm{nchotomy=list_nchotomy,case_def=list_case_def}]
+  \\ fs[option_case_eq,TypeBase.case_eq_of ``:'a list``]
   \\ fs[option_eq_some]
   \\ TRY(pairarg_tac) \\ rveq \\ fs[] \\ rveq \\ fs[n2w2_def]
   \\ imp_res_tac read_length \\ fs[]
@@ -1026,23 +1034,31 @@ End
 Overload all_lines_inode =
   ``λfs ino. lines_of (implode (THE (ALOOKUP fs.inode_tbl ino)))``
 
-(* all_lines: get all the lines based on filename *)
+(* all_lines_file: get all the lines based on filename *)
 
-Definition all_lines_def:
-  all_lines fs fname =
+Definition all_lines_file_def:
+  all_lines_file fs fname =
     all_lines_inode fs (File (THE(ALOOKUP fs.files fname)))
+End
+
+Definition all_lines_stdin_def:
+  all_lines_stdin fs = all_lines_inode fs (UStream «stdin»)
+End
+
+Definition all_lines_from_def:
+  all_lines_from fs NONE = all_lines_stdin fs ∧
+  all_lines_from fs (SOME fname) = all_lines_file fs fname
 End
 
 Theorem concat_lines_of:
    !s. concat (lines_of s) = s ∨
-        concat (lines_of s) = s ^ str #"\n"
+        concat (lines_of s) = s ^ toString #"\n"
 Proof
   rw[lines_of_def] \\
   `s = implode (explode s)` by fs [explode_implode] \\
   qabbrev_tac `ls = explode s`
   \\ pop_assum kall_tac \\ rveq \\
-  Induct_on`splitlines ls` \\ rw[]
-  >- EVAL_TAC \\
+  Induct_on`splitlines ls` \\ rw[] \\
   pop_assum(assume_tac o SYM) \\
   fs[splitlines_eq_nil,concat_cons] \\
   imp_res_tac splitlines_next \\ rw[] \\
@@ -1051,39 +1067,37 @@ Proof
   >- (
     Cases_on`LENGTH h < LENGTH ls` \\ fs[] >- (
       disj1_tac \\
-      rw[strcat_thm] \\ AP_TERM_TAC \\
+      rw[strcat_thm] \\
       fs[IS_PREFIX_APPEND,DROP_APPEND,DROP_LENGTH_TOO_LONG,ADD1] ) \\
     fs[DROP_LENGTH_TOO_LONG] \\
-    fs[IS_PREFIX_APPEND,strcat_thm] \\ rw[] \\ fs[] \\
-    EVAL_TAC )
+    fs[IS_PREFIX_APPEND,strcat_thm] \\ rw[] \\ fs[])
   >- (
     disj2_tac \\
     rw[strcat_thm] \\
-    AP_TERM_TAC \\ rw[] \\
     Cases_on`LENGTH h < LENGTH ls` \\
     fs[IS_PREFIX_APPEND,DROP_APPEND,ADD1,DROP_LENGTH_TOO_LONG]  \\
     qpat_x_assum`strlit [] = _`mp_tac \\ EVAL_TAC )
 QED
 
-Theorem concat_all_lines:
-   concat (all_lines fs fname) = implode (THE (ALOOKUP fs.inode_tbl (File (THE (ALOOKUP fs.files fname))))) ∨
-   concat (all_lines fs fname) = implode (THE (ALOOKUP fs.inode_tbl (File (THE (ALOOKUP fs.files fname))))) ^ str #"\n"
+Theorem concat_all_lines_file:
+   concat (all_lines_file fs fname) = implode (THE (ALOOKUP fs.inode_tbl (File (THE (ALOOKUP fs.files fname))))) ∨
+   concat (all_lines_file fs fname) = implode (THE (ALOOKUP fs.inode_tbl (File (THE (ALOOKUP fs.files fname))))) ^ toString #"\n"
 Proof
-  fs [all_lines_def,concat_lines_of]
+  fs [all_lines_file_def,concat_lines_of]
 QED
 
-Theorem all_lines_with_numchars:
-   all_lines (fs with numchars := ns) = all_lines fs
+Theorem all_lines_file_with_numchars:
+   all_lines_file (fs with numchars := ns) = all_lines_file fs
 Proof
-  rw[FUN_EQ_THM,all_lines_def]
+  rw[FUN_EQ_THM,all_lines_file_def]
 QED
 
 Theorem linesFD_openFileFS_nextFD:
    consistentFS fs ∧ inFS_fname fs f ∧ nextFD fs ≤ fs.maxFD ⇒
-   linesFD (openFileFS f fs md 0) (nextFD fs) = MAP explode (all_lines fs f)
+   linesFD (openFileFS f fs md 0) (nextFD fs) = MAP explode (all_lines_file fs f)
 Proof
   rw[linesFD_def,get_file_content_def,ALOOKUP_inFS_fname_openFileFS_nextFD]
-  \\ rw[all_lines_def,lines_of_def]
+  \\ rw[all_lines_file_def,lines_of_def]
   \\ imp_res_tac inFS_fname_ALOOKUP_EXISTS
   \\ imp_res_tac ALOOKUP_inFS_fname_openFileFS_nextFD
   \\ fs[MAP_MAP_o,o_DEF,GSYM mlstringTheory.implode_STRCAT]
@@ -1253,19 +1267,19 @@ QED
 (* Property ensuring that standard streams are correctly opened *)
 Definition STD_streams_def:
   STD_streams fs = ?inp out err.
-    (ALOOKUP fs.inode_tbl (UStream(strlit "stdout")) = SOME out) ∧
-    (ALOOKUP fs.inode_tbl (UStream(strlit "stderr")) = SOME err) ∧
-    (∀fd md off. ALOOKUP fs.infds fd = SOME (UStream(strlit "stdin"),md,off) ⇔ fd = 0 ∧ md = ReadMode ∧ off = inp) ∧
-    (∀fd md off. ALOOKUP fs.infds fd = SOME (UStream(strlit "stdout"),md,off) ⇔ fd = 1 ∧ md = WriteMode ∧ off = LENGTH out) ∧
-    (∀fd md off. ALOOKUP fs.infds fd = SOME (UStream(strlit "stderr"),md,off) ⇔ fd = 2 ∧ md = WriteMode ∧ off = LENGTH err)
+    (ALOOKUP fs.inode_tbl (UStream «stdout») = SOME out) ∧
+    (ALOOKUP fs.inode_tbl (UStream «stderr») = SOME err) ∧
+    (∀fd md off. ALOOKUP fs.infds fd = SOME (UStream «stdin»,md,off) ⇔ fd = 0 ∧ md = ReadMode ∧ off = inp) ∧
+    (∀fd md off. ALOOKUP fs.infds fd = SOME (UStream «stdout»,md,off) ⇔ fd = 1 ∧ md = WriteMode ∧ off = LENGTH out) ∧
+    (∀fd md off. ALOOKUP fs.infds fd = SOME (UStream «stderr»,md,off) ⇔ fd = 2 ∧ md = WriteMode ∧ off = LENGTH err)
 End
 
 Theorem STD_streams_fsupdate:
    ! fs fd k pos c.
    ((fd = 1 \/ fd = 2) ==> LENGTH c = pos) /\
    (*
-   (fd >= 3 ==> (FST(THE (ALOOKUP fs.infds fd)) <> UStream(strlit "stdout") /\
-                 FST(THE (ALOOKUP fs.infds fd)) <> UStream(strlit "stderr"))) /\
+   (fd >= 3 ==> (FST(THE (ALOOKUP fs.infds fd)) <> UStream «stdout» /\
+                 FST(THE (ALOOKUP fs.infds fd)) <> UStream «stderr»)) /\
    *)
     STD_streams fs ==>
     STD_streams (fsupdate fs fd k pos c)
@@ -1275,7 +1289,7 @@ Proof
   \\ CASE_TAC \\ fs[AFUPDKEY_ALOOKUP]
   \\ qmatch_goalsub_abbrev_tac`out' = SOME _ ∧ (err' = SOME _ ∧ _)`
   \\ qmatch_assum_rename_tac`_ = SOME (fnm,_)`
-  \\ map_every qexists_tac[`if fnm = UStream(strlit"stdin") then pos else inp`,`THE out'`,`THE err'`]
+  \\ map_every qexists_tac[`if fnm = UStream «stdin» then pos else inp`,`THE out'`,`THE err'`]
   \\ conj_tac >- rw[Abbr`out'`]
   \\ conj_tac >- rw[Abbr`err'`]
   \\ unabbrev_all_tac
@@ -1302,9 +1316,9 @@ Proof
 QED
 
 Theorem lemma[local]:
-  UStream (strlit "stdin") ≠ UStream (strlit "stdout") ∧
-   UStream (strlit "stdin") ≠ UStream (strlit "stderr") ∧
-   UStream (strlit "stdout") ≠ UStream (strlit "stderr")
+  UStream «stdin» ≠ UStream «stdout» ∧
+   UStream «stdin» ≠ UStream «stderr» ∧
+   UStream «stdout» ≠ UStream «stderr»
 Proof
   rw[]
 QED
@@ -1324,7 +1338,7 @@ Proof
         Cases_on`fd = 0` \\ fs[]
         >- (
           last_x_assum(qspecl_then[`fd`,`ReadMode`,`inp`]mp_tac)
-          \\ rw[] \\ rw[] \\ PairCases_on`v` \\ fs[]
+          \\ rw[] \\ rw[] \\ rename1 ‘SND (SND v)’ \\ PairCases_on`v` \\ fs[]
           \\ metis_tac[])
         \\ last_x_assum(qspecl_then[`fd`,`md`,`off`]mp_tac)
         \\ rw[] )
@@ -1391,6 +1405,28 @@ Proof
   qmatch_assum_rename_tac`ALOOKUP _ ino = SOME r` \\
   qexists_tac`if fd = 0 then MAX (LENGTH r) off else inp` \\ rw[EXISTS_PROD] \\
   metis_tac[SOME_11,PAIR,FST,SND,lemma]
+QED
+
+Theorem get_file_content_stdout:
+  STD_streams fs ⇒
+  ∃content pos. get_file_content fs 1 = SOME (content, pos)
+Proof
+  simp [STD_streams_def, get_file_content_def]
+  \\ rpt strip_tac
+  \\ rename [‘ALOOKUP fs.inode_tbl (UStream «stdout») = SOME out’]
+  \\ qexistsl [‘out’, ‘STRLEN out’, ‘(UStream «stdout», WriteMode, STRLEN out)’]
+  \\ simp []
+QED
+
+Theorem get_file_content_stderr:
+  STD_streams fs ⇒
+  ∃content pos. get_file_content fs 2 = SOME (content, pos)
+Proof
+  simp [STD_streams_def, get_file_content_def]
+  \\ rpt strip_tac
+  \\ rename [‘ALOOKUP fs.inode_tbl (UStream «stderr») = SOME err’]
+  \\ qexistsl [‘err’, ‘STRLEN err’, ‘(UStream «stderr», WriteMode, STRLEN err)’]
+  \\ simp []
 QED
 
 Definition get_mode_def:
@@ -1461,4 +1497,3 @@ Proof
   \\ fs [openFileFS_def,inFS_fname_def,openFile_def]
   \\ rw [] \\ fs [validFileFD_def]
 QED
-

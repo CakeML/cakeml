@@ -103,9 +103,11 @@ Definition copy_prop_inst_def:
     let ri'' = if ri'=Reg r1 then ri else ri' in
     (Inst (Arith (Binop bop r1 r2' ri'')), cs')) ∧
   (copy_prop_inst (Arith (Shift shift r1 r2 n)) cs =
+    let cs' = remove_eq cs r1 in
     let r2' = lookup_eq cs r2 in
-      (Inst (Arith (Shift shift r1 r2' n)),
-        remove_eq cs r1)) ∧
+    let n' = lookup_eq_imm cs n in
+    let n'' = if n'=Reg r1 then n else n' in
+    (Inst (Arith (Shift shift r1 r2' n'')), cs')) ∧
   (copy_prop_inst (Arith (Div r1 r2 r3)) cs =
     let r2' = lookup_eq cs r2 in
     let r3' = lookup_eq cs r3 in
@@ -225,7 +227,8 @@ End
 (* Handle Store <- y
   If y has no equivalence class,
     create a singleton equivalence class for y
-  Otherwise
+  Otherwise, reuse the existing class for y.
+  Note: SSA ensures y is always an alloc_var, so the else branch is dead code.
 *)
 Definition set_store_eq_def:
   set_store_eq cs s y =
@@ -261,7 +264,9 @@ Definition merge_eqs_def:
   merge_eqs cs ds =
   <|  to_eq := inter_eq cs.to_eq ds.to_eq;
       from_eq := inter_eq cs.from_eq ds.from_eq;
-      store_to_eq := [];
+      store_to_eq :=
+        FILTER (\(s,c). ALOOKUP cs.store_to_eq s = SOME c /\
+                        ALOOKUP ds.store_to_eq s = SOME c) cs.store_to_eq;
       next  := MAX cs.next ds.next |>
 End
 
@@ -333,12 +338,12 @@ Definition copy_prop_prog_def:
   (copy_prop_prog (Get n name) cs =
     case lookup_store_eq cs name of
       NONE =>
-        (Get n name, remove_eq cs n)
+        (Get n name, set_store_eq (remove_eq cs n) name n)
     | SOME v =>
       if v ≠ n then
       let (xs',cs') = copy_prop_move [(n,v)] cs in
         (Move 0 xs', cs')
-      else (Get n name, remove_eq cs n)
+      else (Skip, cs)
   ) ∧
   (copy_prop_prog (Call ret dest args handler) cs =
     (Call ret dest args handler, empty_eq)) ∧
@@ -367,6 +372,13 @@ Definition copy_prop_prog_def:
     let exp' = copy_prop_share exp cs in
     (ShareInst op v exp',
       remove_eq cs v)) ∧
+  (* Conservative: optimizes body from empty state. Could be smarter by
+     tracking copy facts across iterations via Break/Continue flow. *)
+  (copy_prop_prog (Loop names c exit_names) cs =
+     let (c', _) = copy_prop_prog c empty_eq in
+       (Loop names c' exit_names, empty_eq)) ∧
+  (copy_prop_prog (Break k) cs = (Break k, cs)) ∧
+  (copy_prop_prog (Continue k) cs = (Continue k, cs)) ∧
   (copy_prop_prog prog cs = (prog, empty_eq))
   (* impossible? *)
 End

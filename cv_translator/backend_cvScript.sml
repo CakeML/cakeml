@@ -83,16 +83,16 @@ Proof
 QED
 
 Theorem collect_conses_acc_lemma[local]:
-  (∀(p:((string, string) id # num) list) v q p.
+  (∀(p:((mlstring, mlstring) id # num) list) v q p.
      collect_conses p v = q ⇒
      set p ∪ set (collect_conses [] v) = set q) ∧
-  (∀(p:((string, string) id # num) list) v q p.
+  (∀(p:((mlstring, mlstring) id # num) list) v q p.
      collect_conses_list p v = q ⇒
      set p ∪ set (collect_conses_list [] v) = set q) ∧
-  (∀(p:((string, string) id # num) list) v q p.
+  (∀(p:((mlstring, mlstring) id # num) list) v q p.
      collect_conses_list2 p v = q ⇒
      set p ∪ set (collect_conses_list2 [] v) = set q) ∧
-  (∀(p:((string, string) id # num) list) v q p.
+  (∀(p:((mlstring, mlstring) id # num) list) v q p.
      collect_conses_list3 p v = q ⇒
      set p ∪ set (collect_conses_list3 [] v) = set q)
 Proof
@@ -127,16 +127,16 @@ Proof
 QED
 
 Theorem do_con_checks_collect_conses_thm:
-  (∀(p:((string, string) id # num) list) v.
+  (∀(p:((mlstring, mlstring) id # num) list) v.
      do_con_checks env_c (collect_conses [] v) =
      every_exp (one_con_check env_c) v) ∧
-  (∀(p:((string, string) id # num) list) v.
+  (∀(p:((mlstring, mlstring) id # num) list) v.
      do_con_checks env_c (collect_conses_list [] v) =
      EVERY (every_exp (one_con_check env_c)) v) ∧
-  (∀(p:((string, string) id # num) list) v.
+  (∀(p:((mlstring, mlstring) id # num) list) v.
      do_con_checks env_c (collect_conses_list2 [] v) =
      EVERY (λ(x,e). every_exp (one_con_check env_c) e) v) ∧
-  (∀(p:((string, string) id # num) list) v.
+  (∀(p:((mlstring, mlstring) id # num) list) v.
      do_con_checks env_c (collect_conses_list3 [] v) =
      EVERY (λ(x,y,e). every_exp (one_con_check env_c) e) v)
 Proof
@@ -200,7 +200,7 @@ val _ = cv_auto_trans lab_filterTheory.filter_skip_def;
 val _ = cv_auto_trans lab_to_targetTheory.prog_to_bytes_def;
 val _ = cv_auto_trans lab_to_targetTheory.zero_labs_acc_exist_def;
 val _ = cv_auto_trans lab_to_targetTheory.find_ffi_names_def;
-val _ = TypeBase.accessors_of “:lab_to_target$inc_config” |> map cv_trans;
+val _ = TypeBase.accessors_of “:lab_to_target$config” |> map cv_trans;
 val _ = TypeBase.accessors_of “:environment” |> map cv_trans;
 val _ = cv_trans (lab_to_targetTheory.get_memop_info_def
                     |> INST_TYPE [alpha|->“:8”]);
@@ -231,7 +231,7 @@ val _ = cv_auto_trans backend_enc_decTheory.data_to_word_config_enc_def;
 val _ = cv_auto_trans backend_enc_decTheory.word_to_word_config_enc_def;
 val _ = cv_auto_trans backend_enc_decTheory.word_to_stack_config_enc_def;
 val _ = cv_auto_trans backend_enc_decTheory.stack_to_lab_config_enc_def;
-val _ = cv_auto_trans backend_enc_decTheory.lab_to_target_inc_config_enc_def;
+val _ = cv_auto_trans backend_enc_decTheory.lab_to_target_config_enc_def;
 val _ = cv_auto_trans backend_enc_decTheory.presLang_tap_config_enc_def;
 
 (* environment encoding *)
@@ -409,12 +409,13 @@ QED
 
 val _ = cv_auto_trans backend_enc_decTheory.clos_to_bvl_config_enc_def;
 
-val _ = cv_auto_trans backend_enc_decTheory.backend_inc_config_enc_def;
+val _ = cv_auto_trans backend_enc_decTheory.backend_config_enc_def;
 val _ = cv_trans backend_enc_decTheory.encode_backend_config_def;
 val _ = cv_auto_trans backend_asmTheory.attach_bitmaps_def;
 
 (* ------------------------------------------------------------------------ *)
 
+val _ = cv_trans stack_to_labTheory.find_lab_def;
 val _ = cv_trans stack_to_labTheory.negate_def;
 val _ = cv_trans stack_to_labTheory.is_gen_gc_def;
 val _ = stack_namesTheory.dest_find_name_def |> cv_trans;
@@ -471,7 +472,7 @@ Theorem max_var_exp_list_thm[local]:
   ∀e es:'a wordLang$exp list.
     max_var_exp_list (e::es) = MAX (max_var_exp e) (max_var_exp_list es)
 Proof
-  gvs [max_var_exp_list_def,list_max_def,MAX_DEF] \\ rw []
+  gvs [max_var_exp_list_def,MAX_LIST_def,MAX_DEF] \\ rw []
 QED
 
 Theorem max_var_exp_eq =
@@ -498,6 +499,10 @@ Definition apply_nummap_key'_def:
   apply_nummap_key' f = apply_nummap_key (total_colour f)
 End
 
+Definition apply_nummaps_key'_def:
+  apply_nummaps_key' f = apply_nummaps_key (total_colour f)
+End
+
 Definition apply_colour_imm'_def:
   apply_colour_imm' f = apply_colour_imm (total_colour f)
 End
@@ -522,6 +527,7 @@ val defs = [GSYM check_partial_col'_def,
             GSYM check_col'_def,
             GSYM check_clash_tree'_def,
             GSYM apply_nummap_key'_def,
+            GSYM apply_nummaps_key'_def,
             GSYM apply_colour_imm'_def,
             GSYM apply_colour_exp'_def,
             GSYM apply_colour_exp'_list_def,
@@ -542,6 +548,7 @@ Theorem apply_colour'_eq = word_allocTheory.apply_colour_def |> set_f
 Theorem apply_colour_inst'_eq = word_allocTheory.apply_colour_inst_def |> set_f
 Theorem apply_colour_imm'_eq = word_allocTheory.apply_colour_imm_def |> set_f
 Theorem apply_colour_nummap_key'_eq = word_allocTheory.apply_nummap_key_def |> set_f
+Theorem apply_colour_nummaps_key'_eq = word_allocTheory.apply_nummaps_key_def |> set_f
 Theorem apply_colour_exp'_eq =
   (CONJUNCTS word_allocTheory.apply_colour_exp_def @
    map (Q.ISPEC ‘apply_colour_exp' f’) (CONJUNCTS MAP))
@@ -590,6 +597,7 @@ Proof
 QED
 
 val _ = cv_auto_trans apply_colour_nummap_key'_eq;
+val _ = cv_auto_trans apply_colour_nummaps_key'_eq;
 
 Definition get_reads_exp_list_def:
   get_reads_exp_list xs = FLAT (MAP (λa. get_reads_exp a) xs)
@@ -929,12 +937,12 @@ val pre = cv_auto_trans (sort_canonize_def |> SRULE [sort_def,mergesort_tail_def
 
 val res = word_allocTheory.canonize_moves_def |> SRULE[GSYM sort_canonize_def] |> cv_auto_trans
 
-val _ = cv_trans backendTheory.inc_set_oracle_def;
+val _ = cv_trans backendTheory.set_oracle_def;
 
 val _ = cv_trans (exportTheory.escape_sym_char_def |> SRULE [GREATER_EQ]);
 val _ = cv_auto_trans exportTheory.emit_symbol_def;
 val _ = cv_auto_trans exportTheory.emit_symbols_def;
-val _ = cv_auto_trans (exportTheory.data_section_def |> SRULE [GSYM mlstringTheory.implode_def]);
+val _ = cv_auto_trans exportTheory.data_section_def;
 val _ = cv_trans (exportTheory.data_buffer_def |> SRULE []);
 val _ = cv_trans (exportTheory.code_buffer_def |> SRULE []);
 
@@ -1082,4 +1090,3 @@ Proof
 QED
 
 val _ = cv_trans word_copyTheory.copy_prop_def;
-

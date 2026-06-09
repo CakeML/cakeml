@@ -1,4 +1,4 @@
-Encoders for various CNF-based problems
+Encoders for various CNF-based problems.
 
 [cnf_to_pbScript.sml](cnf_to_pbScript.sml):
 Parsing CNFs and convert into npbc

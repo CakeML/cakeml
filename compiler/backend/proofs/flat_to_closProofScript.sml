@@ -4,7 +4,7 @@
 Theory flat_to_closProof
 Ancestors
   misc[qualified] ffi[qualified] flatProps closProps flat_to_clos
-  backendProps backend_common[qualified] semanticPrimitives
+  backendProps backend_common[qualified] semanticPrimitives ast
   semanticPrimitivesProps flatLang flatSem closLang closSem
   clos_interpProof
 Libs
@@ -26,7 +26,7 @@ Inductive v_rel:
   (!n b. v_rel (Loc b n) (RefPtr b n)) /\
   (!i. v_rel (Litv (IntLit i)) (Number i)) /\
   (!c. v_rel (Litv (Char c)) (Number (& (ORD c)))) /\
-  (!s. v_rel (Litv (StrLit s)) (ByteVector (MAP (n2w o ORD) s))) /\
+  (!s. v_rel (Litv (StrLit s)) (ByteVector (MAP (n2w o ORD) (explode s)))) /\
   (!b. v_rel (Litv (Word8 b)) (Number (& (w2n b)))) /\
   (!w. v_rel (Litv (Word64 w)) (Word64 w)) /\
   (!f. v_rel (Litv (Float64 f)) (Word64 f)) /\
@@ -37,7 +37,7 @@ Inductive v_rel:
     (!n x. ALOOKUP env.v n = SOME x ==>
            findi (SOME n) m < LENGTH db /\
            v_rel x (EL (findi (SOME n) m) db)) ==>
-     env_rel env (m:string option list) (db:closSem$v list)) /\
+     env_rel env (m:mlstring option list) (db:closSem$v list)) /\
   (!env m db n e.
      env_rel env m db /\ no_Mat e ==>
      v_rel (Closure env n e)
@@ -69,12 +69,6 @@ Theorem v_rel_def =
 
 Theorem env_rel_def = ``env_rel env m db`` |> ONCE_REWRITE_CONV [v_rel_cases];
 
-Definition opt_rel_def[simp]:
-  opt_rel f NONE NONE = T /\
-  opt_rel f (SOME x) (SOME y) = f x y /\
-  opt_rel f _ _ = F
-End
-
 Definition store_rel_def:
   store_rel refs t_refs =
     !i. if LENGTH refs <= i then FLOOKUP t_refs i = NONE else
@@ -88,7 +82,7 @@ End
 
 Definition inc_compile_decs'_def:
   inc_compile_decs' decs = (compile_decs decs ++
-    compile_decs [Dlet (Con None NONE [])], [])
+    compile_decs [Con None NONE []], [])
 End
 
 Definition install_config_rel'_def:
@@ -107,7 +101,7 @@ Definition state_rel_def:
     store_rel s.refs t.refs ∧
     LENGTH t.globals ≠ 0 ∧
  (* HD t.globals = SOME (Closure NONE [] [] 1 clos_interpreter) ∧ *)
-    LIST_REL (opt_rel v_rel) s.globals (TL t.globals) ∧
+    LIST_REL (OPTREL v_rel) s.globals (TL t.globals) ∧
     install_config_rel' s.eval_config t.compile_oracle t.compile
 End
 
@@ -261,42 +255,53 @@ Theorem evaluate_decs_sing:
   evaluate_decs s [d] = evaluate_dec s d
 Proof
   simp [flatSemTheory.evaluate_def]
-  \\ every_case_tac \\ simp []
+  \\ every_case_tac
 QED
 
-val decs_goal =
-  ``\^s ds. !res1 s1 ^t.
-    evaluate_decs s ds = (s1,res1) ∧ state_rel s t ∧
-    no_Mat_decs ds /\ res1 ≠ SOME (Rabort Rtype_error) ⇒
+Theorem compile_correct:
+  (∀env ^s es m db res1 s1 t.
+     evaluate env s es = (s1,res1) ∧ state_rel s t ∧ env_rel env m db ∧
+     EVERY no_Mat es ∧ res1 ≠ Rerr (Rabort Rtype_error) ⇒
+     ∃res2 t1.
+       evaluate (compile m es,db,t) = (res2,t1) ∧ state_rel s1 t1 ∧
+       result_rel (LIST_REL v_rel) v_rel res1 res2) ∧
+  ∀^s ds res1 s1 t.
+    evaluate_decs s ds = (s1,res1) ∧ state_rel s t ∧ no_Mat_decs ds ∧
+    res1 ≠ SOME (Rabort Rtype_error) ⇒
     ∃res2 t1.
-      evaluate (compile_decs ds,[],t) = (res2,t1) ∧ state_rel s1 t1 /\
-      ?v.
-        let res1' = (case res1 of NONE => Rval v | SOME e => Rerr e) in
-          result_rel (LIST_REL (\x y. T)) v_rel res1' res2``
-
-local
-  val ind_thm = flatSemTheory.evaluate_ind
-    |> induct_tweakLib.list_single_induct
-    |> ISPEC exps_goal
-    |> ISPEC decs_goal
-    |> CONV_RULE (DEPTH_CONV BETA_CONV)
-    |> REWRITE_RULE [evaluate_decs_sing];
-  val ind_goals = ind_thm |> concl |> dest_imp |> fst |> helperLib.list_dest dest_conj
-in
-  fun get_goal s = first (can (find_term (can (match_term (Term [QUOTE s]))))) ind_goals
-  fun compile_correct_tm () = ind_thm |> concl |> rand
-  fun the_ind_thm () = ind_thm
-end
-
-Theorem compile_nil:
-  ^(get_goal "[]")
+      evaluate (compile_decs ds,[],t) = (res2,t1) ∧ state_rel s1 t1 ∧
+      ∃v. (let
+             res1' = case res1 of NONE => Rval v | SOME e => Rerr e
+           in
+             result_rel (LIST_REL (λx y. T)) v_rel res1' res2)
 Proof
+  ho_match_mp_tac (flatSemTheory.evaluate_ind |> induct_tweakLib.list_single_induct)
+  \\ rewrite_tac [evaluate_decs_sing]
+  \\ rpt conj_tac
+  >~ [`[] : flatLang$exp list`] >- suspend "nil"
+  >~ [`_::_::_`] >- suspend "cons"
+  >~ [`flatLang$Lit`] >- suspend "Lit"
+  >~ [`flatLang$Raise`] >- suspend "Raise"
+  >~ [`flatLang$Handle`] >- suspend "Handle"
+  >~ [`flatLang$Con _ NONE`] >- suspend "Con_NONE"
+  >~ [`flatLang$Con _ (SOME _)`] >- suspend "Con_SOME"
+  >~ [`flatLang$Var_local`] >- suspend "Var_local"
+  >~ [`flatLang$Fun`] >- suspend "Fun"
+  >~ [`flatLang$App`] >- suspend "App"
+  >~ [`flatLang$If`] >- suspend "If"
+  >~ [`flatLang$Mat`] >- suspend "Mat"
+  >~ [`flatLang$Let`] >- suspend "Let"
+  >~ [`flatLang$Letrec`] >- suspend "Letrec"
+  >~ [`evaluate_dec _ _`] >- suspend "dec"
+  >~ [`evaluate_decs _ []`] >- suspend "decs_nil"
+  >~ [`evaluate_decs _ (_ :: _)`] >- suspend "decs_cons"
+QED
+
+Resume compile_correct[nil]:
   fs [evaluate_def,flatSemTheory.evaluate_def,compile_def]
 QED
 
-Theorem compile_cons:
-  ^(get_goal "_::_::_")
-Proof
+Resume compile_correct[cons]:
   rpt strip_tac
   \\ fs [evaluate_def,compile_def,flatSemTheory.evaluate_def]
   \\ fs [pair_case_eq] \\ fs []
@@ -314,21 +319,17 @@ Proof
   \\ qpat_x_assum `_ = (s1,res1)` mp_tac
   \\ TOP_CASE_TAC \\ fs []
   \\ strip_tac \\ rveq \\ fs []
-  \\ imp_res_tac evaluate_sing \\ fs [] \\ rveq \\ fs []
+  \\ imp_res_tac evaluate_sing \\ fs []
 QED
 
-Theorem compile_Lit:
-  ^(get_goal "flatLang$Lit")
-Proof
+Resume compile_correct[Lit]:
   fs [flatSemTheory.evaluate_def,compile_def]
   \\ Cases_on `l` \\ fs [PULL_EXISTS]
   \\ once_rewrite_tac [CONJUNCT2 v_rel_cases] \\ fs []
   \\ fs [compile_lit_def,evaluate_def,do_app_def,do_int_app_def,make_const_def]
 QED
 
-Theorem compile_Raise:
-  ^(get_goal "flatLang$Raise")
-Proof
+Resume compile_correct[Raise]:
   fs [evaluate_def,flatSemTheory.evaluate_def,compile_def] \\ rw []
   \\ reverse (fs [pair_case_eq,result_case_eq]) \\ rveq \\ fs []
   \\ first_x_assum drule
@@ -343,9 +344,7 @@ Proof
   EVERY_CASE_TAC \\ simp [dest_pat_def]
 QED
 
-Theorem compile_Handle:
-  ^(get_goal "flatLang$Handle")
-Proof
+Resume compile_correct[Handle]:
   rpt strip_tac
   \\ fs [evaluate_def,compile_def,flatSemTheory.evaluate_def]
   \\ fs [pair_case_eq] \\ fs []
@@ -371,9 +370,7 @@ Proof
   \\ strip_tac \\ fs []
 QED
 
-Theorem compile_Let:
-  ^(get_goal "flatLang$Let")
-Proof
+Resume compile_correct[Let]:
   rpt strip_tac
   \\ fs [evaluate_def,compile_def,flatSemTheory.evaluate_def]
   \\ fs [pair_case_eq] \\ fs []
@@ -408,9 +405,7 @@ Proof
   \\ fs [SNOC_APPEND,EL_LENGTH_APPEND]
 QED
 
-Theorem compile_Letrec:
-  ^(get_goal "flatLang$Letrec")
-Proof
+Resume compile_correct[Letrec]:
   rpt strip_tac
   \\ fs [evaluate_def,compile_def,flatSemTheory.evaluate_def]
   \\ fs [EVERY_MAP]
@@ -432,9 +427,7 @@ Proof
   \\ simp [EVERY_MAP]
 QED
 
-Theorem compile_Fun:
-  ^(get_goal "flatLang$Fun")
-Proof
+Resume compile_correct[Fun]:
   fs [evaluate_def,flatSemTheory.evaluate_def,PULL_EXISTS,compile_def]
   \\ rpt strip_tac \\ `1 <= t.max_app` by fs [state_rel_def] \\ fs []
   \\ once_rewrite_tac [v_rel_cases] \\ fs []
@@ -461,7 +454,6 @@ Theorem dest_Constants_IMP:
 Proof
   Induct \\ fs [dest_Constants_def]
   \\ rw [] \\ gvs [AllCaseEqs()]
-  \\ imp_res_tac dest_Constant_IMP \\ fs []
 QED
 
 Theorem dest_Constant_evaluate:
@@ -492,10 +484,20 @@ Proof
   \\ fs [SF ETA_ss,MAP_REVERSE]
 QED
 
-Theorem compile_Con:
-  ^(get_goal "flatLang$Con _ NONE") /\
-  ^(get_goal "flatLang$Con _ (SOME _)")
-Proof
+Resume compile_correct[Con_NONE]:
+  rpt strip_tac
+  \\ fs [evaluate_def,compile_def,flatSemTheory.evaluate_def,evaluate_SmartCons]
+  \\ fs [pair_case_eq,CaseEq"bool"] \\ fs []
+  \\ first_x_assum drule
+  \\ fs [EVERY_REVERSE, Q.ISPEC `no_Mat` ETA_THM]
+  \\ (disch_then drule \\ impl_tac THEN1 (CCONTR_TAC \\ fs []))
+  \\ strip_tac \\ fs []
+  \\ fs [result_case_eq] \\ rveq \\ fs []
+  \\ rveq \\ fs [] \\ fs [do_app_def]
+  \\ once_rewrite_tac [v_rel_cases] \\ fs []
+QED
+
+Resume compile_correct[Con_SOME]:
   rpt strip_tac
   \\ fs [evaluate_def,compile_def,flatSemTheory.evaluate_def,evaluate_SmartCons]
   \\ fs [pair_case_eq,CaseEq"bool"] \\ fs []
@@ -509,9 +511,7 @@ Proof
   \\ PairCases_on `cn` \\ fs []
 QED
 
-Theorem compile_Var_local:
-  ^(get_goal "flatLang$Var_local")
-Proof
+Resume compile_correct[Var_local]:
   fs [evaluate_def,flatSemTheory.evaluate_def,compile_def] \\ rpt strip_tac
   \\ pop_assum mp_tac \\ TOP_CASE_TAC \\ fs [env_rel_def]
 QED
@@ -533,9 +533,7 @@ Proof
   Cases_on `z` \\ fs []
 QED
 
-Theorem compile_If:
-  ^(get_goal "flatLang$If")
-Proof
+Resume compile_correct[If]:
   rpt strip_tac
   \\ fs [evaluate_def,compile_def,flatSemTheory.evaluate_def]
   \\ fs [pair_case_eq] \\ fs []
@@ -555,12 +553,8 @@ Proof
   \\ once_rewrite_tac [v_rel_cases] \\ fs [Boolv_def]
 QED
 
-Theorem compile_Mat:
-  ^(get_goal "flatLang$Mat")
-Proof
-  fs [no_Mat_def,dest_pat_thm] \\ rw []
-  \\ fs [EVAL ``pmatch e s (Pvar p') v []``]
-  \\ fs [EVAL ``ALL_DISTINCT (pat_bindings (Pvar p') [])``]
+Resume compile_correct[Mat]:
+  fs [no_Mat_def,dest_pat_thm]
 QED
 
 Theorem state_rel_LEAST:
@@ -584,13 +578,40 @@ Proof
   \\ res_tac \\ fs []
 QED
 
+Theorem evaluate_Let_error:
+  evaluate (es,env,s) = (Rerr err,s') ==>
+  evaluate ([Let t es e],env,s) = (Rerr err,s')
+Proof
+  rw [evaluate_def]
+QED
+
+Theorem evaluate_Op_error:
+  evaluate (es,env,s) = (Rerr err,s') ==>
+  evaluate ([Op t op es],env,s) = (Rerr err,s')
+Proof
+  rw [evaluate_def]
+QED
+
 Theorem compile_op_evaluates_args:
   evaluate (xs,db,t) = (Rerr err,t1) /\
-  op <> Opapp /\ op <> Eval /\ op <> ThunkOp ForceThunk
+  op <> Src Opapp /\ op <> Src Eval /\ op <> Src (ThunkOp ForceThunk)
   ==>
   evaluate ([compile_op tra op xs],db,t) = (Rerr err,t1)
 Proof
   Cases_on `op`
+  >- ( (* Src case: split on inner ast$op *)
+    Cases_on `o'`
+    >~ [`Src (Arith _ _)`]
+    >- (rename [`Src (Arith a ty)`] \\ rw [compile_op_def]
+        \\ Cases_on `ty` \\ Cases_on `a`
+        \\ simp [compile_arith_def]
+        \\ TRY (irule evaluate_Op_error \\ simp [])
+        \\ TRY (irule evaluate_Let_error \\ simp []))
+    \\ fs [compile_op_def,evaluate_def,evaluate_APPEND,arg1_def,arg2_def]
+    \\ every_case_tac \\ fs [evaluate_def]
+    \\ fs [pair_case_eq,result_case_eq]
+    \\ rw [] \\ fs [PULL_EXISTS,do_app_def,do_int_app_def])
+  (* FlatLang-specific ops *)
   \\ fs [compile_op_def,evaluate_def,evaluate_APPEND,arg1_def,arg2_def]
   \\ every_case_tac \\ fs [evaluate_def]
   \\ fs [pair_case_eq,result_case_eq]
@@ -615,19 +636,19 @@ val op_goal =
     state_rel s1 (t1:('c,'ffi) closSem$state) /\
     evaluate (xs,db,t) = (Rval ws,t1) /\
     LIST_REL v_rel vs (REVERSE ws) /\
-    LENGTH xs = LENGTH vs /\ op <> Opapp /\ op <> ThunkOp ForceThunk ==>
+    LENGTH xs = LENGTH vs /\ op <> Src Opapp /\ op <> Src (ThunkOp ForceThunk) ==>
     ∃res2' t1.
       evaluate ([compile_op tt op xs],db,t) = (res2',t1) ∧
       state_rel s2 t1 ∧
       result_rel (LIST_REL v_rel) v_rel (evaluate$list_result res2) res2'``;
 
 Theorem op_refs:
-  (op = Opref) \/
+  (op = Src Opref) \/
   (?n. op = El n) \/
-  (op = Opassign) ==>
+  (op = Src Opassign) ==>
   ^op_goal
 Proof
-  Cases_on `op = Opref` THEN1
+  Cases_on `op = Src Opref` THEN1
    (fs [flatSemTheory.do_app_def,list_case_eq,CaseEq "flatSem$v",PULL_EXISTS,
            CaseEq "ast$lit",store_assign_def,option_case_eq]
     \\ rw [] \\ fs [] \\ rveq \\ fs [LENGTH_EQ_NUM_compute] \\ rveq \\ fs []
@@ -664,7 +685,7 @@ Proof
     \\ Cases_on `EL i s1.refs` \\ fs [store_v_same_type_def]
     \\ rpt strip_tac \\ fs []
     \\ fs [GSYM NOT_LESS,FLOOKUP_UPDATE,EL_LUPDATE])
-  \\ Cases_on `op = Opassign` THEN1
+  \\ Cases_on `op = Src Opassign` THEN1
    (fs [flatSemTheory.do_app_def,list_case_eq,CaseEq "flatSem$v",PULL_EXISTS,
            CaseEq "ast$lit",store_assign_def,option_case_eq]
     \\ rw [] \\ fs [] \\ rveq \\ fs [LENGTH_EQ_NUM_compute] \\ rveq \\ fs []
@@ -689,81 +710,8 @@ Proof
   \\ fs []
 QED
 
-Theorem op_chars:
-  (?chop. op = Chopb chop) \/
-  (op = Ord) \/
-  (op = Chr) ==>
-  ^op_goal
-Proof
-  Cases_on `?chop. op = Chopb chop` THEN1
-   (fs [] \\ Cases_on `chop`
-    \\ fs [flatSemTheory.do_app_def,list_case_eq,CaseEq "flatSem$v",PULL_EXISTS,
-           CaseEq "ast$lit"]
-    \\ rw [] \\ fs [] \\ rveq \\ fs [LENGTH_EQ_NUM_compute] \\ rveq \\ fs []
-    \\ qpat_x_assum `v_rel _ _` mp_tac
-    \\ simp [Once v_rel_cases]
-    \\ qpat_x_assum `v_rel _ _` mp_tac
-    \\ simp [Once v_rel_cases]
-    \\ fs [SWAP_REVERSE_SYM] \\ rw []
-    \\ fs [compile_op_def,evaluate_def,do_app_def,do_int_app_def,opb_lookup_def])
-  \\ Cases_on `op = Ord \/ op = Chr` THEN1
-   (fs [flatSemTheory.do_app_def,list_case_eq,CaseEq "flatSem$v",PULL_EXISTS,
-        CaseEq "ast$lit"]
-    \\ rw [] \\ fs [] \\ rveq \\ fs [LENGTH_EQ_NUM_compute]
-    \\ qpat_x_assum `v_rel _ _` mp_tac
-    \\ simp [Once v_rel_cases] \\ rw []
-    \\ fs [compile_op_def,evaluate_def,evaluate_APPEND,
-           do_app_def,do_int_app_def,evaluate_def,arg1_def]
-    \\ simp [Once v_rel_cases] \\ rw [ORD_CHR,chr_exn_v_def]
-    \\ TRY (rename1 `~(ii < 0i)` \\ Cases_on `ii` \\ fs [])
-    \\ TRY (rename1 `(0i <= ii)` \\ Cases_on `ii` \\ fs [])
-    \\ `F` by intLib.COOPER_TAC)
-  \\ rw [] \\ fs []
-QED
-
-Theorem op_ints:
-  (?b. op = Opb b) \/
-  (?b. op = Opn b) ==>
-  ^op_goal
-Proof
-  rpt strip_tac \\ Cases_on `b` \\ rveq
-  \\ fs [flatSemTheory.do_app_def,list_case_eq,CaseEq "flatSem$v",PULL_EXISTS,
-         CaseEq "ast$lit",store_assign_def,option_case_eq,CaseEq "store_v"]
-  \\ rw [] \\ fs [] \\ rveq \\ fs [LENGTH_EQ_NUM_compute] \\ rveq \\ fs []
-  \\ rpt (qpat_x_assum `v_rel _ _` mp_tac)
-  \\ once_rewrite_tac [v_rel_cases] \\ fs []
-  \\ rpt strip_tac \\ rveq \\ fs [do_word_op_def]
-  \\ rveq \\ fs [compile_op_def,arg1_def]
-  \\ fs [] \\ rveq \\ fs [PULL_EXISTS,SWAP_REVERSE_SYM,v_rel_def] \\ rveq \\ fs []
-  \\ simp [evaluate_def,do_app_def,do_int_app_def,
-     opb_lookup_def,opn_lookup_def,do_eq_def]
-  \\ IF_CASES_TAC \\ fs [] \\ rveq \\ fs [div_exn_v_def,v_rel_def,opn_lookup_def]
-QED
-
-Theorem op_words:
-  (?w w1. op = Opw w w1) \/
-  (?w. op = WordFromInt w) \/
-  (?w. op = WordToInt w) ==>
-  ^op_goal
-Proof
-  rw [] \\ Cases_on `w` \\ rveq \\ fs [] \\ TRY (Cases_on `w1`)
-  \\ fs [flatSemTheory.do_app_def,list_case_eq,CaseEq "flatSem$v",PULL_EXISTS,
-         CaseEq "ast$lit",store_assign_def,option_case_eq,CaseEq "store_v"]
-  \\ rw [] \\ fs [] \\ rveq \\ fs [LENGTH_EQ_NUM_compute] \\ rveq \\ fs []
-  \\ rpt (qpat_x_assum `v_rel _ _` mp_tac)
-  \\ once_rewrite_tac [v_rel_cases] \\ fs []
-  \\ rpt strip_tac \\ rveq \\ fs [do_word_op_def]
-  \\ rveq \\ fs [compile_op_def,arg1_def]
-  \\ fs [] \\ rveq \\ fs [PULL_EXISTS,SWAP_REVERSE_SYM,v_rel_def] \\ rveq \\ fs []
-  \\ simp [evaluate_def,do_app_def,do_word_app_def,do_int_app_def]
-  \\ fs [some_def,EXISTS_PROD]
-  \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
-  \\ `!x. b = FST x ∧ b' = SND x <=> x = (b,b')` by (fs [FORALL_PROD] \\ metis_tac [])
-  \\ simp [integer_wordTheory.w2n_i2w]
-QED
-
 Theorem op_shifts:
-  (?w s n. op = Shift w s n) ==>
+  (?w s n. op = Src (Shift w s n)) ==>
   ^op_goal
 Proof
   rw [] \\ Cases_on `w` \\ Cases_on `s` \\ rveq \\ fs []
@@ -776,39 +724,13 @@ Proof
   \\ fs [compile_op_def,evaluate_def,do_app_def,do_word_app_def,v_rel_def]
 QED
 
-Theorem op_floats:
-  (?f. op = FP_cmp f) \/
-  (?f. op = FP_uop f) \/
-  (?f. op = FP_bop f) \/
-  (?f. op = FP_top f) \/
-  op = FpToWord \/
-  op = FpFromWord ==>
-  ^op_goal
-Proof
-  rw [] >~
-  [‘FpFromWord’]
-  >- (gvs[flatSemTheory.do_app_def, AllCaseEqs(), LENGTH_EQ_NUM_compute,
-          v_rel_def] >>
-      simp[compile_op_def, evaluate_def]) >~
-  [‘FpToWord’]
-  >- (gvs[flatSemTheory.do_app_def, AllCaseEqs(), LENGTH_EQ_NUM_compute,
-          v_rel_def] >>
-      simp[compile_op_def, evaluate_def]) >> (* 4 *)
-  Cases_on `f` \\ rveq \\ fs []
-  \\ fs [flatSemTheory.do_app_def,list_case_eq,CaseEq "flatSem$v",PULL_EXISTS,
-         CaseEq "ast$lit",store_assign_def,option_case_eq,CaseEq "store_v"]
-  \\ rw [] \\ fs [] \\ rveq \\ fs [LENGTH_EQ_NUM_compute] \\ rveq \\ fs []
-  \\ fs [] \\ rveq \\ fs [PULL_EXISTS,SWAP_REVERSE_SYM,v_rel_def] \\ rveq \\ fs []
-  \\ simp [compile_op_def,evaluate_def,do_app_def,do_word_app_def]
-QED
-
 Theorem op_byte_arrays:
-  op = Aw8length \/
-  op = Aw8alloc \/
-  op = Aw8sub_unsafe \/
-  op = Aw8sub \/
-  op = Aw8update_unsafe \/
-  op = Aw8update ==>
+  op = Src Aw8length \/
+  op = Src Aw8alloc \/
+  op = Src Aw8sub_unsafe \/
+  op = Src Aw8sub \/
+  op = Src Aw8update_unsafe \/
+  op = Src Aw8update ==>
   ^op_goal
 Proof
   rpt strip_tac \\ rveq \\ fs []
@@ -880,11 +802,11 @@ Proof
 QED
 
 Theorem op_byte_copy:
-  op = CopyStrAw8 \/
-  op = CopyAw8Str \/
-  op = CopyAw8Aw8 \/
-  op = CopyStrStr \/
-  op = Aw8xor_unsafe ==>
+  op = Src CopyStrAw8 \/
+  op = Src CopyAw8Str \/
+  op = Src CopyAw8Aw8 \/
+  op = Src CopyStrStr \/
+  op = Src XorAw8Str_unsafe ==>
   ^op_goal
 Proof
   rpt strip_tac \\ rveq \\ fs []
@@ -954,9 +876,15 @@ Proof
     \\ IF_CASES_TAC \\ fs [])
 QED
 
+Theorem MAP_n2w_o_ORD_11[local]:
+  ∀l1 l2. MAP ((n2w: num -> word8) ∘ ORD) l1 = MAP (n2w ∘ ORD) l2 ⇔ l1 = l2
+Proof
+  Induct \\ Cases_on ‘l2’ \\ fs [ORD_BOUND,ORD_11]
+QED
+
 Theorem op_eq_gc:
-  op = ConfigGC \/
-  op = Equality ==>
+  op = Src ConfigGC \/
+  op = Src Equality ==>
   ^op_goal
 Proof
   rpt strip_tac \\ rveq \\ fs []
@@ -985,15 +913,11 @@ Proof
    (rename [`lit_same_type l1 l2`]
     \\ Cases_on `l1` \\ Cases_on `l2` \\ fs [lit_same_type_def,v_rel_def]
     \\ fs [do_eq_def] \\ rveq \\ fs [ORD_11]
-    \\ rename [`MAP _ l1 = MAP _ l2`]
-    \\ qid_spec_tac `l2` \\ qid_spec_tac `l1`
-    \\ Induct \\ Cases_on `l2` \\ fs [ORD_BOUND,ORD_11])
+    \\ simp [MAP_n2w_o_ORD_11])
   \\ TRY (fs [do_eq_def] \\ rveq \\ fs [v_rel_def] \\ NO_TAC)
   \\ rveq \\ fs [ctor_same_type_def]
   \\ fs [CaseEq"eq_result",bool_case_eq] \\ rveq \\ fs []
   \\ fs [do_eq_def]
-  \\ qpat_x_assum `Eq_val b = _` (assume_tac o GSYM)
-  \\ res_tac \\ fs []
 QED
 
 Theorem v_rel_v_to_char_list:
@@ -1007,11 +931,11 @@ Proof
 QED
 
 Theorem op_str:
-  op = Explode \/
-  op = Implode \/
-  op = Strlen \/
-  op = Strsub \/
-  op = Strcat ==>
+  op = Src Explode \/
+  op = Src Implode \/
+  op = Src Strlen \/
+  op = Src Strsub \/
+  op = Src Strcat ==>
   ^op_goal
 Proof
   rpt strip_tac \\ rveq \\ fs []
@@ -1040,19 +964,22 @@ Proof
   THEN1
    (fs [integerTheory.int_le] \\ rename [`~(i4 < 0)`]
     \\ Cases_on `i4 < 0` \\ fs [] \\ rveq \\ fs [subscript_exn_v_def,v_rel_def]
-    \\ rename [`i4 < &LENGTH s₁`] \\ fs [GREATER_EQ,GSYM NOT_LESS]
-    \\ `Num (ABS i4) < STRLEN s₁ <=> i4 < &STRLEN s₁` by intLib.COOPER_TAC \\ fs []
+    \\ rename [`i4 < &strlen s₁`] \\ fs [GREATER_EQ,GSYM NOT_LESS]
+    \\ `Num (ABS i4) < strlen s₁ <=> i4 < &strlen s₁` by intLib.COOPER_TAC \\ fs []
     \\ IF_CASES_TAC \\ fs [] \\ rveq \\ fs [v_rel_def]
     \\ Cases_on `i4` \\ fs []
-    \\ fs [EL_MAP,ORD_BOUND] \\ Cases_on `s₁` \\ fs [EL_MAP,ORD_BOUND])
+    \\ namedCases_on ‘s₁’ ["s"] \\ Cases_on ‘s’
+    \\ fs [EL_MAP,ORD_BOUND])
   \\ qsuff_tac `!x vs s₁ y.
         v_to_list x = SOME vs /\ vs_to_string vs = SOME s₁ /\ v_rel x y ==>
         ?wss. v_to_list y = SOME (MAP ByteVector wss) /\
-              MAP (CHR o w2n) (FLAT wss) = s₁`
+              MAP (CHR o w2n) (FLAT wss) = explode s₁`
+  \\ rename1 ‘vs_to_string _ = SOME str’
+  \\ Cases_on ‘str’
   THEN1
    (rpt (disch_then drule \\ fs []) \\ strip_tac \\ fs []
     \\ `!xs ys. MAP ByteVector xs = MAP ByteVector ys <=> xs = ys` by
-           (Induct \\ Cases_on `ys` \\ fs []) \\ fs [] \\ rveq
+      (Induct \\ Cases_on `ys` \\ fs []) \\ fs [] \\ rveq
     \\ fs [MAP_MAP_o,o_DEF])
   \\ rpt (pop_assum kall_tac)
   \\ recInduct flatSemTheory.v_to_list_ind \\ rw [] \\ fs [v_rel_def]
@@ -1063,7 +990,8 @@ Proof
   \\ Cases_on `l` \\ fs [flatSemTheory.v_to_list_def,vs_to_string_def,option_case_eq]
   \\ rveq \\ fs [v_rel_def,v_to_list_def,option_case_eq,PULL_EXISTS]
   \\ res_tac \\ fs [] \\ rveq \\ fs []
-  \\ qexists_tac `(MAP (n2w ∘ ORD) s) :: wss`
+  \\ rename1 ‘MAP (n2w ∘ ORD) (explode s)’
+  \\ qexists_tac `(MAP (n2w ∘ ORD) (explode s)) :: wss`
   \\ fs [MAP_MAP_o,o_DEF,ORD_BOUND,CHR_ORD]
 QED
 
@@ -1095,7 +1023,7 @@ Proof
     \\ fs [GSYM ADD1,EL]
     \\ fs [LIST_REL_EL] \\ res_tac \\ fs []
     \\ qpat_x_assum `_ = NONE` assume_tac
-    \\ rename [‘opt_rel _ _ (EL _ tt)’]
+    \\ rename [‘OPTREL _ _ (EL _ tt)’]
     \\ Cases_on `EL n tt` \\ fs []
     \\ simp [Once v_rel_cases,Unit_def,LUPDATE_def]
     \\ fs [EL_LUPDATE]
@@ -1109,10 +1037,10 @@ Proof
 QED
 
 Theorem op_vectors:
-  op = Vlength \/
-  op = Vsub \/
-  op = Vsub_unsafe \/
-  op = VfromList ==>
+  op = Src Vlength \/
+  op = Src Vsub \/
+  op = Src Vsub_unsafe \/
+  op = Src VfromList ==>
   ^op_goal
 Proof
   rpt strip_tac \\ rveq \\ fs []
@@ -1141,13 +1069,13 @@ Proof
 QED
 
 Theorem op_arrays:
-  op = Aalloc \/
-  op = AallocFixed \/
-  op = Asub_unsafe \/
-  op = Asub \/
-  op = Alength \/
-  op = Aupdate_unsafe \/
-  op = Aupdate ==>
+  op = Src Aalloc \/
+  op = Src AallocFixed \/
+  op = Src Asub_unsafe \/
+  op = Src Asub \/
+  op = Src Alength \/
+  op = Src Aupdate_unsafe \/
+  op = Src Aupdate ==>
   ^op_goal
 Proof
   rpt strip_tac \\ rveq \\ fs []
@@ -1242,7 +1170,7 @@ QED
 Theorem op_blocks:
   (?n0 n1. op = TagLenEq n0 n1) \/
   (?l. op = LenEq l) \/
-  op = ListAppend ==>
+  op = Src ListAppend ==>
   ^op_goal
 Proof
   rpt strip_tac \\ rveq \\ fs []
@@ -1259,8 +1187,354 @@ Proof
   \\ match_mp_tac EVERY2_APPEND_suff \\ fs []
 QED
 
+Theorem MAP_n2w_ORD_eq[local]:
+  ∀s s'. (MAP (n2w ∘ ORD) s = MAP (n2w ∘ ORD) s' :word8 list) ⇔ s = s'
+Proof
+  Induct \\ Cases_on ‘s'’ \\ gvs [ORD_BOUND,ORD_11]
+QED
+
+Theorem imp_cmp_eq_num_cmp:
+  ∀cmp. int_cmp cmp (&m) (&n) ⇔ num_cmp cmp m n
+Proof
+  Cases \\ gvs [int_cmp_def] \\ intLib.COOPER_TAC
+QED
+
+Theorem check_type_IntT_flat_to_v[local]:
+  check_type IntT (flat_to_v (v:flatSem$v)) ==> ?i. v = Litv (IntLit i)
+Proof
+  Cases_on `v`
+  \\ simp [flat_to_v_def, semanticPrimitivesTheory.check_type_def,
+           Boolv_def, semanticPrimitivesTheory.Boolv_def]
+  \\ rw []
+QED
+
+Theorem check_type_Float64T_flat_to_v[local]:
+  check_type Float64T (flat_to_v (v:flatSem$v)) ==> ?w. v = Litv (Float64 w)
+Proof
+  Cases_on `v`
+  \\ simp [flat_to_v_def, semanticPrimitivesTheory.check_type_def,
+           Boolv_def, semanticPrimitivesTheory.Boolv_def]
+  \\ rw []
+QED
+
+Theorem check_type_WordT_W8_flat_to_v[local]:
+  check_type (WordT W8) (flat_to_v (v:flatSem$v)) ==> ?w. v = Litv (Word8 w)
+Proof
+  Cases_on `v`
+  \\ simp [flat_to_v_def, semanticPrimitivesTheory.check_type_def,
+           Boolv_def, semanticPrimitivesTheory.Boolv_def]
+  \\ rw []
+QED
+
+Theorem check_type_WordT_W64_flat_to_v[local]:
+  check_type (WordT W64) (flat_to_v (v:flatSem$v)) ==> ?w. v = Litv (Word64 w)
+Proof
+  Cases_on `v`
+  \\ simp [flat_to_v_def, semanticPrimitivesTheory.check_type_def,
+           Boolv_def, semanticPrimitivesTheory.Boolv_def]
+  \\ rw []
+QED
+
+Theorem check_type_CharT_flat_to_v[local]:
+  check_type CharT (flat_to_v (v:flatSem$v)) ==> ?c. v = Litv (Char c)
+Proof
+  Cases_on `v`
+  \\ simp [flat_to_v_def, semanticPrimitivesTheory.check_type_def,
+           Boolv_def, semanticPrimitivesTheory.Boolv_def]
+  \\ rw []
+QED
+
+Theorem check_type_BoolT_flat_to_v[local]:
+  check_type BoolT (flat_to_v (v:flatSem$v)) ==> v = Boolv F ∨ v = Boolv T
+Proof
+  Cases_on `v`
+  \\ simp [flat_to_v_def, semanticPrimitivesTheory.check_type_def,
+           Boolv_def, semanticPrimitivesTheory.Boolv_def, Boolv_def,
+           flatSemTheory.Boolv_def]
+  \\ rw []
+QED
+
+Theorem op_arith:
+  (∃a ty. op = Src (Arith a ty)) ==>
+  ^op_goal
+Proof
+  rpt strip_tac \\ rveq \\ fs []
+  \\ fs [flatSemTheory.do_app_def,list_case_eq,CaseEq "flatSem$v",PULL_EXISTS,
+         CaseEq "ast$lit",store_assign_def,option_case_eq]
+  \\ gvs [AllCaseEqs()]
+  \\ Cases_on ‘ty’ using prim_type_cases
+  (* Eliminate impossible types: BoolT, CharT, StrT all make do_arith return NONE *)
+  \\ gvs [semanticPrimitivesTheory.do_arith_def]
+  (* Now only IntT, Float64T, WordT W8, WordT W64 remain. Destruct the value list. *)
+  \\ gvs [AllCaseEqs(), LENGTH_EQ_NUM_compute]
+  \\ gvs [MAP_EQ_CONS, PULL_EXISTS]
+  (* Derive concrete flatLang values from check_type *)
+  \\ rpt (first_x_assum (strip_assume_tac o MATCH_MP check_type_IntT_flat_to_v)
+          ORELSE first_x_assum (strip_assume_tac o MATCH_MP check_type_BoolT_flat_to_v)
+          ORELSE first_x_assum (strip_assume_tac o MATCH_MP check_type_Float64T_flat_to_v)
+          ORELSE first_x_assum (strip_assume_tac o MATCH_MP check_type_WordT_W8_flat_to_v)
+          ORELSE first_x_assum (strip_assume_tac o MATCH_MP check_type_WordT_W64_flat_to_v))
+  \\ gvs [Boolv_def, semanticPrimitivesTheory.Boolv_def, Boolv_def,
+          flatSemTheory.Boolv_def]
+  (* Now expand the_Litv functions with concrete Litv values *)
+  \\ gvs [flatSemTheory.flat_to_v_def,
+          semanticPrimitivesTheory.the_Litv_IntLit_def,
+          semanticPrimitivesTheory.the_Litv_Float64_def,
+          semanticPrimitivesTheory.the_Litv_Word8_def,
+          semanticPrimitivesTheory.the_Litv_Word64_def,
+          semanticPrimitivesTheory.do_arith_def, AllCaseEqs()]
+  \\ gvs []
+  (* Derive closLang value forms from v_rel *)
+  \\ gvs [v_rel_def, SWAP_REVERSE_SYM]
+  \\ fs [compile_op_def, compile_arith_def]
+  \\ simp [closSemTheory.evaluate_def, closSemTheory.do_app_def,
+           do_int_app_def, do_eq_def, do_word_app_def,
+           fpSemTheory.fp_bop_comp_def, fpSemTheory.fp_uop_comp_def,
+           fpSemTheory.fp_top_comp_def, fpSemTheory.fpfma_def]
+  (* Handle IntT/Float64T/W64 cases *)
+  \\ TRY (IF_CASES_TAC \\ gvs [])
+  \\ rewrite_tac [Boolv_def, semanticPrimitivesTheory.Boolv_def,
+                  flatSemTheory.Boolv_def]
+  \\ gvs [v_rel_def, div_exn_v_def, flatSemTheory.v_to_flat_def]
+  \\ rewrite_tac [Boolv_def, semanticPrimitivesTheory.Boolv_def,
+                  flatSemTheory.Boolv_def]
+  \\ gvs [v_rel_def, div_exn_v_def, flatSemTheory.v_to_flat_def,
+          backend_commonTheory.true_tag_def,
+          backend_commonTheory.false_tag_def]
+  \\ rewrite_tac [Boolv_def, semanticPrimitivesTheory.Boolv_def,
+                  flatSemTheory.Boolv_def]
+  \\ gvs [v_rel_def, div_exn_v_def, flatSemTheory.v_to_flat_def,
+          Boolv_def, semanticPrimitivesTheory.Boolv_def,
+          flatSemTheory.Boolv_def,
+          backend_commonTheory.true_tag_def,
+          backend_commonTheory.false_tag_def]
+  (* Handle W8 cases: eliminate the 'some' pattern *)
+  \\ fs [some_def, EXISTS_PROD]
+  \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
+  \\ `(@x. w' = FST x ∧ w = SND x) = (w', w)` by
+       (irule SELECT_UNIQUE \\ simp [FORALL_PROD] \\ metis_tac [])
+  \\ simp []
+QED
+
+Theorem op_from_to:
+  (∃ty1 ty2. op = Src (FromTo ty1 ty2)) ==>
+  ^op_goal
+Proof
+  rpt strip_tac \\ rveq \\ fs []
+  \\ fs [flatSemTheory.do_app_def,list_case_eq,CaseEq "flatSem$v",PULL_EXISTS,
+         CaseEq "ast$lit",store_assign_def,option_case_eq,CaseEq "sum"]
+  \\ gvs [AllCaseEqs()]
+  \\ Cases_on ‘ty1’ using prim_type_cases
+  \\ Cases_on ‘ty2’ using prim_type_cases
+  (* Only a few cases are handled; others make do_conversion return NONE *)
+  \\ gvs [semanticPrimitivesTheory.do_conversion_def, AllCaseEqs()]
+  >~ [‘FromTo (WordT W8) IntT’] >-
+   (gvs [AllCaseEqs(), LENGTH_EQ_NUM_compute]
+    \\ gvs [MAP_EQ_CONS, PULL_EXISTS]
+    (* Derive concrete flatLang value from check_type *)
+    \\ first_x_assum (strip_assume_tac o MATCH_MP check_type_WordT_W8_flat_to_v)
+    \\ gvs [flatSemTheory.flat_to_v_def,
+            semanticPrimitivesTheory.the_Litv_Word8_def]
+    (* Derive closLang value form from v_rel *)
+    \\ gvs [v_rel_def, SWAP_REVERSE_SYM]
+    \\ fs [compile_op_def, arg1_def]
+    \\ simp [closSemTheory.evaluate_def]
+    \\ gvs [v_rel_def, flatSemTheory.v_to_flat_def])
+  >~ [‘FromTo (WordT W8) CharT’] >-
+   (gvs [AllCaseEqs(), LENGTH_EQ_NUM_compute]
+    \\ gvs [MAP_EQ_CONS, PULL_EXISTS]
+    \\ first_x_assum (strip_assume_tac o MATCH_MP check_type_WordT_W8_flat_to_v)
+    \\ gvs [flatSemTheory.flat_to_v_def,
+            semanticPrimitivesTheory.the_Litv_Word8_def]
+    (* Derive closLang value form from v_rel *)
+    \\ gvs [v_rel_def, SWAP_REVERSE_SYM]
+    \\ fs [compile_op_def, arg1_def, evaluate_def]
+    \\ gvs [v_rel_def, flatSemTheory.v_to_flat_def, GSYM ORD_CHR]
+    \\ irule LESS_LESS_EQ_TRANS
+    \\ irule_at Any w2n_lt \\ EVAL_TAC)
+  >~ [‘FromTo CharT (WordT W8)’] >-
+   (gvs [AllCaseEqs(), LENGTH_EQ_NUM_compute]
+    \\ gvs [MAP_EQ_CONS, PULL_EXISTS]
+    \\ first_x_assum (strip_assume_tac o MATCH_MP check_type_CharT_flat_to_v)
+    \\ gvs [flatSemTheory.flat_to_v_def,
+            semanticPrimitivesTheory.the_Litv_Word8_def]
+    \\ gvs [v_rel_def, SWAP_REVERSE_SYM]
+    \\ fs [compile_op_def, arg1_def, evaluate_def]
+    \\ gvs [v_rel_def, flatSemTheory.v_to_flat_def, GSYM ORD_CHR, ORD_BOUND])
+  >~ [‘FromTo (WordT W64) Float64T’] >-
+   (gvs [AllCaseEqs(), LENGTH_EQ_NUM_compute]
+    \\ gvs [MAP_EQ_CONS, PULL_EXISTS]
+    (* Derive concrete flatLang value from check_type *)
+    \\ drule check_type_WordT_W64_flat_to_v \\ strip_tac
+    \\ gvs [flatSemTheory.flat_to_v_def,
+            semanticPrimitivesTheory.the_Litv_Word64_def]
+    (* Derive closLang value form from v_rel *)
+    \\ gvs [v_rel_def, SWAP_REVERSE_SYM]
+    \\ fs [compile_op_def, arg1_def]
+    \\ simp [closSemTheory.evaluate_def]
+    \\ gvs [v_rel_def, flatSemTheory.v_to_flat_def])
+  >~ [‘FromTo Float64T (WordT W64)’] >-
+   (gvs [AllCaseEqs(), LENGTH_EQ_NUM_compute]
+    \\ gvs [MAP_EQ_CONS, PULL_EXISTS]
+    (* Derive concrete flatLang value from check_type *)
+    \\ drule check_type_Float64T_flat_to_v \\ strip_tac
+    \\ gvs [flatSemTheory.flat_to_v_def,
+            semanticPrimitivesTheory.the_Litv_Word64_def]
+    (* Derive closLang value form from v_rel *)
+    \\ gvs [v_rel_def, SWAP_REVERSE_SYM]
+    \\ fs [compile_op_def, arg1_def]
+    \\ simp [closSemTheory.evaluate_def]
+    \\ gvs [v_rel_def, flatSemTheory.v_to_flat_def])
+  >~ [‘FromTo (WordT W64) IntT’] >-
+   (gvs [AllCaseEqs(), LENGTH_EQ_NUM_compute]
+    \\ gvs [MAP_EQ_CONS, PULL_EXISTS]
+    \\ drule check_type_WordT_W64_flat_to_v \\ strip_tac
+    \\ gvs [flatSemTheory.flat_to_v_def,
+            semanticPrimitivesTheory.the_Litv_Word64_def]
+    \\ gvs [v_rel_def, SWAP_REVERSE_SYM]
+    \\ fs [compile_op_def]
+    \\ simp [closSemTheory.evaluate_def, closSemTheory.do_app_def,
+             closSemTheory.do_word_app_def]
+    \\ gvs [v_rel_def, flatSemTheory.v_to_flat_def])
+  >~ [‘FromTo IntT (WordT W8)’] >-
+   (gvs [AllCaseEqs(), LENGTH_EQ_NUM_compute]
+    \\ gvs [MAP_EQ_CONS, PULL_EXISTS]
+    \\ drule check_type_IntT_flat_to_v \\ strip_tac
+    \\ gvs [flatSemTheory.flat_to_v_def,
+            semanticPrimitivesTheory.the_Litv_IntLit_def]
+    \\ gvs [v_rel_def, SWAP_REVERSE_SYM]
+    \\ fs [compile_op_def, arg1_def]
+    \\ simp [closSemTheory.evaluate_def, closSemTheory.do_app_def,
+             closSemTheory.do_int_app_def]
+    \\ gvs [v_rel_def, flatSemTheory.v_to_flat_def, integer_wordTheory.w2n_i2w])
+  >~ [‘FromTo IntT (WordT W64)’] >-
+   (gvs [AllCaseEqs(), LENGTH_EQ_NUM_compute]
+    \\ gvs [MAP_EQ_CONS, PULL_EXISTS]
+    \\ drule check_type_IntT_flat_to_v \\ strip_tac
+    \\ gvs [flatSemTheory.flat_to_v_def,
+            semanticPrimitivesTheory.the_Litv_IntLit_def]
+    \\ gvs [v_rel_def, SWAP_REVERSE_SYM]
+    \\ fs [compile_op_def]
+    \\ simp [closSemTheory.evaluate_def, closSemTheory.do_app_def,
+             closSemTheory.do_word_app_def]
+    \\ gvs [v_rel_def, flatSemTheory.v_to_flat_def])
+  >~ [‘FromTo CharT IntT’] >-
+   (gvs [AllCaseEqs(), LENGTH_EQ_NUM_compute]
+    \\ gvs [MAP_EQ_CONS, PULL_EXISTS]
+    \\ drule check_type_CharT_flat_to_v \\ strip_tac
+    \\ gvs [flatSemTheory.flat_to_v_def,
+            semanticPrimitivesTheory.the_Litv_Char_def]
+    \\ gvs [v_rel_def, SWAP_REVERSE_SYM]
+    \\ fs [compile_op_def, arg1_def]
+    \\ simp [closSemTheory.evaluate_def]
+    \\ gvs [v_rel_def, flatSemTheory.v_to_flat_def])
+  (* IntT CharT case - handle both exception and success paths *)
+  (* Exception case: i < 0 *)
+  >- (drule check_type_IntT_flat_to_v \\ strip_tac
+      \\ gvs [flatSemTheory.flat_to_v_def,
+              semanticPrimitivesTheory.the_Litv_IntLit_def]
+      \\ gvs [v_rel_def]
+      \\ fs [compile_op_def]
+      \\ simp [closSemTheory.evaluate_def, closSemTheory.do_app_def,
+               closSemTheory.do_int_app_def]
+      \\ simp [chr_exn_v_def, v_rel_def])
+  (* Exception case: i > 255 *)
+  >- (drule check_type_IntT_flat_to_v \\ strip_tac
+      \\ gvs [flatSemTheory.flat_to_v_def,
+              semanticPrimitivesTheory.the_Litv_IntLit_def]
+      \\ gvs [v_rel_def]
+      \\ fs [compile_op_def]
+      \\ simp [closSemTheory.evaluate_def, closSemTheory.do_app_def,
+               closSemTheory.do_int_app_def]
+      \\ IF_CASES_TAC \\ gvs [chr_exn_v_def, v_rel_def]
+      \\ ‘255 < i’ by intLib.COOPER_TAC \\ simp [])
+  (* Success case: 0 <= i <= 255 *)
+  \\ drule check_type_IntT_flat_to_v \\ strip_tac
+  \\ gvs [flatSemTheory.flat_to_v_def,
+          semanticPrimitivesTheory.the_Litv_IntLit_def]
+  \\ gvs [v_rel_def]
+  \\ fs [compile_op_def]
+  \\ simp [closSemTheory.evaluate_def, closSemTheory.do_app_def,
+           closSemTheory.do_int_app_def]
+  \\ ‘~(255 < i)’ by intLib.COOPER_TAC \\ simp []
+  \\ simp [flatSemTheory.v_to_flat_def, v_rel_def,
+           integerTheory.INT_ABS, integerTheory.INT_OF_NUM]
+  \\ ‘Num i < 256’ by (Cases_on ‘i’ \\ gvs [])
+  \\ gvs [GSYM ORD_CHR, integerTheory.INT_OF_NUM]
+  \\ intLib.COOPER_TAC
+QED
+
+Theorem op_test:
+  (∃test ty. op = Src (Test test ty)) ==>
+  ^op_goal
+Proof
+  rpt strip_tac \\ rveq \\ fs []
+  \\ fs [flatSemTheory.do_app_def,list_case_eq,CaseEq "flatSem$v",PULL_EXISTS,
+         CaseEq "ast$lit",store_assign_def,option_case_eq]
+  \\ rw [] \\ fs [] \\ rveq \\ fs [LENGTH_EQ_NUM_compute] \\ rveq \\ fs []
+  \\ gvs [listTheory.SWAP_REVERSE_SYM,CaseEq"eq_result"]
+  \\ gvs [compile_op_def]
+  \\ reverse $ gvs [oneline do_test_def,AllCaseEqs()]
+  >-
+   (gvs [oneline dest_Litv_def, AllCaseEqs()]
+    \\ fs [Once v_rel_cases] \\ gvs []
+    \\ simp [Once evaluate_def, do_app_def]
+    \\ simp [MAP_MAP_o,o_DEF,ORD_BOUND])
+  >-
+   (gvs [oneline dest_Litv_def, AllCaseEqs()]
+    \\ fs [Once v_rel_cases] \\ gvs []
+    \\ Cases_on ‘cmp’
+    \\ gvs [closSemTheory.evaluate_def,closSemTheory.do_app_def,
+            fpSemTheory.fp_cmp_def,
+            closSemTheory.do_word_app_def,fpSemTheory.fp_cmp_comp_def])
+  >-
+   (gvs [oneline dest_Litv_def, AllCaseEqs()]
+    \\ fs [Once v_rel_cases] \\ gvs []
+    \\ gvs [closSemTheory.evaluate_def,
+            closSemTheory.do_app_def,imp_cmp_eq_num_cmp,
+            w2n_lt |> INST_TYPE [alpha|->“:8”] |> SRULE [],
+            closSemTheory.do_word_app_def])
+  >-
+   (gvs [oneline dest_Litv_def, AllCaseEqs()]
+    \\ fs [Once v_rel_cases] \\ gvs []
+    \\ simp [Once evaluate_def, do_app_def]
+    \\ simp [MAP_MAP_o,o_DEF,ORD_BOUND])
+  >-
+   (gvs [oneline dest_Litv_def, AllCaseEqs()]
+    \\ fs [Once v_rel_cases] \\ gvs []
+    \\ gvs [closSemTheory.evaluate_def,char_lt_def,char_le_def,
+            closSemTheory.do_app_def,imp_cmp_eq_num_cmp,ORD_BOUND,
+            closSemTheory.do_word_app_def])
+  >-
+   (gvs [oneline dest_Litv_def, AllCaseEqs()]
+    \\ fs [Once v_rel_cases] \\ gvs []
+    \\ rename [‘int_cmp cmp’]
+    \\ Cases_on ‘cmp’ \\ gvs []
+    \\ gvs [closSemTheory.evaluate_def,do_int_app_def,
+            closSemTheory.do_app_def,imp_cmp_eq_num_cmp,
+            w2n_lt |> INST_TYPE [alpha|->“:8”] |> SRULE [],
+            closSemTheory.do_word_app_def])
+  >-
+   (Cases_on ‘ty’ using prim_type_cases
+    \\ gvs [flatSemTheory.check_type_def,
+            flatSemTheory.do_eq_def,flatSemTheory.Boolv_def,AllCaseEqs()]
+    \\ gvs [closSemTheory.evaluate_def,
+            closSemTheory.do_app_def,
+            closSemTheory.Boolv_def]
+    \\ fs [Once v_rel_cases]
+    \\ gvs [closSemTheory.do_eq_def,ORD_BOUND,MAP_n2w_ORD_eq,
+            w2n_lt |> INST_TYPE [alpha|->“:8”] |> SRULE [],
+            closSemTheory.do_word_app_def,closSemTheory.Boolv_def,ORD_11])
+  \\ gvs [flatSemTheory.check_type_def]
+  \\ fs [Once v_rel_cases] \\ gvs [the_Litv_Float64_def]
+  \\ gvs [closSemTheory.evaluate_def,closSemTheory.do_word_app_def,
+          closSemTheory.do_app_def,AllCaseEqs(),
+          closSemTheory.Boolv_def,fpSemTheory.fp_cmp_comp_def]
+  \\ CCONTR_TAC \\ gvs []
+QED
+
 Theorem op_ffi:
-  (?n. op = FFI n) ==>
+  (?n. op = Src (FFI n)) ==>
   ^op_goal
 Proof
   rpt strip_tac \\ rveq \\ fs []
@@ -1279,7 +1553,6 @@ Proof
   \\ first_x_assum (qspec_then `i` mp_tac)
   \\ IF_CASES_TAC \\ fs [FLOOKUP_UPDATE]
   \\ IF_CASES_TAC \\ fs []
-  \\ CASE_TAC \\ fs []
 QED
 
 Theorem op_id:
@@ -1290,18 +1563,18 @@ Proof
   \\ fs[flatSemTheory.do_app_def] \\ Cases_on ‘vs’ \\ fs[]
   \\ Cases_on ‘t'’ \\ fs[]
   \\ rveq \\ fs[compile_op_def]
-  \\ fs[evaluate_def]
+  \\ gvs[LENGTH_EQ_NUM_compute,arg1_def]
 QED
 
 Theorem op_eval:
-  op = Eval ==>
+  op = Src Eval ==>
   ^op_goal
 Proof
   simp [compile_op_def, flatSemTheory.do_app_def]
 QED
 
 Theorem op_thunk:
-  ∀th_op. op = ThunkOp th_op ==> ^op_goal
+  ∀th_op. op = Src (ThunkOp th_op) ==> ^op_goal
 Proof
   rpt strip_tac \\ rveq
   \\ gvs [flatSemTheory.do_app_def, compile_op_def, evaluate_def, do_app_def]
@@ -1344,11 +1617,13 @@ Theorem compile_op_correct:
   ^op_goal
 Proof
   EVERY (map assume_tac
-    [op_refs, op_chars, op_ints, op_words, op_str, op_shifts, op_thunk,
-     op_floats, op_eq_gc, op_byte_arrays, op_vectors, op_arrays,
-     op_globals, op_blocks, op_ffi, op_byte_copy, op_eval, op_id])
+    [op_refs, op_str, op_shifts, op_thunk, op_eq_gc, op_byte_arrays,
+     op_arrays, op_test, op_arith, op_from_to, op_globals, op_blocks,
+     op_ffi, op_byte_copy, op_eval, op_vectors, op_id])
   \\ `?this_is_case. this_is_case op` by (qexists_tac `K T` \\ fs [])
-  \\ rpt strip_tac \\ fs [] \\ Cases_on `op` \\ fs []
+  \\ rpt strip_tac \\ fs [] \\ Cases_on `op`
+  >- (Cases_on `o'` \\ fs [] \\ gvs [flatSemTheory.do_app_def])
+  \\ fs []
 QED
 
 Theorem v_rel_to_words:
@@ -1445,14 +1720,6 @@ Proof
   \\ simp [state_component_equality]
 QED
 
-Theorem dest_nop_thm:
-  dest_nop op es = SOME x ⇔
-    (∃t. op = WordFromInt W8 ∧ es = [App t Ord [x]]) ∨
-    (∃t. op = Chr ∧ es = [App t (WordToInt W8) [x]])
-Proof
-  Cases_on ‘op’ \\ fs [dest_nop_def] \\ every_case_tac \\ fs []
-QED
-
 Theorem compile_single_DEEP_INTRO:
   !P. (!exp'. flat_to_clos$compile m [exp] = [exp'] ==> P [exp']) ==>
   P (flat_to_clos$compile m [exp])
@@ -1494,9 +1761,7 @@ Proof
       \\ last_x_assum $ qspec_then `idx` assume_tac \\ gvs []))
 QED
 
-Theorem compile_App:
-  ^(get_goal "flatLang$App")
-Proof
+Resume compile_correct[App]:
   rpt strip_tac
   \\ fs [evaluate_def,compile_def,flatSemTheory.evaluate_def]
   \\ rfs [pair_case_eq]
@@ -1505,7 +1770,7 @@ Proof
   \\ disch_then drule
   \\ impl_tac THEN1 (CCONTR_TAC \\ fs [])
   \\ strip_tac
-  \\ Cases_on `op = ThunkOp ForceThunk` >- (
+  \\ Cases_on `op = Src (ThunkOp ForceThunk)` >- (
     gvs [dest_nop_def, compile_op_def, evaluate_def, AllCaseEqs(), PULL_EXISTS]
     \\ gvs [oneline flatSemTheory.dest_thunk_def, oneline dest_thunk_def,
             AllCaseEqs(), PULL_EXISTS]
@@ -1513,7 +1778,7 @@ Proof
     \\ drule_all lookup_thunk \\ rw [] \\ gvs []
     \\ imp_res_tac state_rel_IMP_clock \\ gvs [PULL_EXISTS]
     \\ imp_res_tac state_rel_dec_clock
-    \\ last_x_assum $ drule_then $ qspecl_then [`[SOME "f"]`, `[w]`] mp_tac
+    \\ last_x_assum $ drule_then $ qspecl_then [`[SOME «f»]`, `[w]`] mp_tac
     \\ (
       impl_tac
       >- gvs [env_rel_def, findi_def, flatSemTheory.AppUnit_def]
@@ -1521,7 +1786,7 @@ Proof
              arg2_def, findi_def, SmartCons_def, compile_def]
       \\ goal_assum drule \\ gvs []
       \\ drule_all rel_update_thunk \\ rw []))
-  \\ Cases_on `op = Opapp` \\ fs []
+  \\ Cases_on `op = Src Opapp` \\ fs []
   THEN1
    (fs [compile_op_def,dest_nop_def] \\ rveq
     \\ reverse (fs [result_case_eq] \\ rveq \\ fs [] \\ rveq \\ fs [])
@@ -1608,7 +1873,7 @@ Proof
     \\ rename [`env_rel env3 m3 db3`]
     \\ qexists_tac `m3` \\ fs []
     \\ fs [o_DEF])
-  \\ Cases_on `op = Eval`
+  \\ Cases_on `op = Src Eval`
   THEN1 (
     simp [compile_op_def, evaluate_def, dest_nop_def]
     \\ fs [case_eq_thms, pair_case_eq] \\ rveq \\ fs []
@@ -1645,7 +1910,7 @@ Proof
     \\ rpt (asm_exists_tac \\ fs [])
     \\ imp_res_tac evaluate_IMP_LENGTH
     \\ imp_res_tac LIST_REL_LENGTH \\ fs [])
-  \\ gvs [dest_nop_thm] \\ gvs [AllCaseEqs(),PULL_EXISTS]
+  \\ gvs [dest_nop_thm,AllCaseEqs(),PULL_EXISTS]
   \\ qpat_x_assum ‘_ = (_,_)’ mp_tac
   \\ simp [Once compile_def,dest_nop_def,compile_op_def]
   \\ fs [arg1_def]
@@ -1653,23 +1918,23 @@ Proof
   \\ last_x_assum mp_tac
   \\ last_x_assum mp_tac
   \\ fs [flatSemTheory.evaluate_def,AllCaseEqs(),PULL_EXISTS]
-  \\ fs [flatSemTheory.do_app_def,AllCaseEqs(),PULL_EXISTS]
-  THEN1
-   (rw [] \\ fs [] \\ gvs []
-    \\ qpat_x_assum ‘v_rel _ _’ mp_tac
-    \\ once_rewrite_tac [v_rel_cases] \\ fs []
-    \\ rw [] \\ gvs [integer_wordTheory.i2w_pos,ORD_BOUND])
-  \\ Cases \\ fs [do_word_to_int_def] \\ strip_tac \\ gvs []
-  \\ ‘w2n c < dimword (:8)’ by fs [w2n_lt] \\ fs []
-  \\ ‘¬(&w2n c > 255i)’ by intLib.COOPER_TAC \\ fs[]
-  \\ rw [] \\ fs [] \\ gvs []
+  \\ fs [flatSemTheory.do_app_def,AllCaseEqs(),PULL_EXISTS,check_type_def,
+         do_conversion_def,v_to_flat_def,flat_to_v_def]
+  \\ fs [evaluate_def,AllCaseEqs(),PULL_EXISTS] \\ rw []
+  \\ imp_res_tac closPropsTheory.evaluate_IMP_LENGTH
+  \\ gvs [LENGTH_EQ_NUM_compute]
+  \\ fs [check_type_def]
+  \\ gvs [semanticPrimitivesTheory.check_type_def]
   \\ qpat_x_assum ‘v_rel _ _’ mp_tac
-  \\ once_rewrite_tac [v_rel_cases] \\ fs []
+  \\ once_rewrite_tac [v_rel_cases] \\ fs [evaluate_def,AllCaseEqs()]
+  \\ rw [] \\ gvs [integer_wordTheory.i2w_pos,ORD_BOUND,evaluate_def]
+  \\ fs [v_to_flat_def]
+  \\ ‘w2n w < dimword (:8)’ by fs [w2n_lt] \\ fs []
+  \\ ‘¬(&w2n w > 255i)’ by intLib.COOPER_TAC \\ fs[]
+  \\ rw [] \\ fs [] \\ gvs []
 QED
 
-Theorem compile_Dlet:
-  ^(get_goal "Dlet")
-Proof
+Resume compile_correct[dec]:
   rw []
   \\ fs [flatSemTheory.evaluate_def, pair_case_eq]
   \\ fs [compile_decs_def]
@@ -1682,27 +1947,13 @@ Proof
   \\ rveq \\ fs []
 QED
 
-Theorem compile_Dtype_Dexn:
-  ^(get_goal "Dtype") /\ ^(get_goal "Dexn")
-Proof
-  rw []
-  \\ fs [compile_decs_def, flatSemTheory.evaluate_def, evaluate_def]
-  \\ fs [case_eq_thms, bool_case_eq]
-  \\ rveq \\ fs []
-  \\ fs [state_rel_def]
-QED
-
-Theorem compile_decs_nil:
-  ^(get_goal "evaluate_decs _ []")
-Proof
+Resume compile_correct[decs_nil]:
   rw []
   \\ fs [compile_decs_def, flatSemTheory.evaluate_def, evaluate_def]
   \\ rveq \\ fs []
 QED
 
-Theorem compile_decs_cons:
-  ^(get_goal "evaluate_decs _ (_ :: ds)")
-Proof
+Resume compile_correct[decs_cons]:
   rw []
   \\ fs [compile_decs_def, flatSemTheory.evaluate_def, evaluate_def]
   \\ fs [pair_case_eq]
@@ -1727,17 +1978,7 @@ Proof
   \\ metis_tac [LIST_REL_APPEND_suff]
 QED
 
-Theorem compile_correct:
-  ^(compile_correct_tm())
-Proof
-  match_mp_tac (the_ind_thm())
-  \\ EVERY (map strip_assume_tac [compile_nil, compile_cons,
-       compile_Lit, compile_Handle, compile_Raise, compile_Let,
-       compile_Letrec, compile_Fun, compile_Con, compile_App,
-       compile_If, compile_Mat, compile_Var_local, compile_Dlet,
-       compile_Dtype_Dexn, compile_decs_nil, compile_decs_cons])
-  \\ asm_rewrite_tac []
-QED
+Finalise compile_correct;
 
 Theorem compile_decs_correct = last (CONJUNCTS compile_correct)
 
@@ -2003,17 +2244,15 @@ Proof
   \\ Cases \\ fs [flatPropsTheory.op_gbag_def]
 QED
 
-val cases_op = Cases >|
-  map (MAP_EVERY Cases_on)
-      [[`n`], [`s`], [`i`], [`w`], [`b`], [`g`], [`m`], [], [`t`]];
-
 Theorem clos_FINITE_BAG_set_globals[simp]:
   (∀e. FINITE_BAG (closProps$set_globals e)) ∧
   (∀e. FINITE_BAG (closProps$elist_globals e))
 Proof
   ho_match_mp_tac closPropsTheory.set_globals_ind
   \\ fs [closPropsTheory.set_globals_def]
-  \\ cases_op \\ fs [closPropsTheory.op_gbag_def]
+  \\ Cases \\ fs [closPropsTheory.op_gbag_def]
+  \\ rename1 ‘GlobOp g’ \\ Cases_on ‘g’
+  \\ fs [closPropsTheory.op_gbag_def]
 QED
 
 Theorem BAG_IMAGE_FOLDR_lemma[local]:
@@ -2034,14 +2273,26 @@ Proof
   \\ rw []
   \\ fs [EVERY_REVERSE, Q.ISPEC `no_Mat` ETA_THM]
   \\ gvs [dest_nop_thm]
-  \\ TRY
-    (rename [‘dest_nop op es’] \\ reverse (Cases_on ‘dest_nop op es’) \\ fs []
-     THEN1 (gvs [dest_nop_thm] \\ fs [flatPropsTheory.op_gbag_def])
-     \\ last_x_assum kall_tac)
+  >~ [‘dest_nop op es’] >-
+   (qmatch_goalsub_abbrev_tac `compile_op _ op` \\ Cases_on `op`
+    \\ simp ([compile_op_def, compile_arith_def] @ props_defs)
+    \\ rpt (CASE_TAC \\ simp props_defs)
+    \\ simp [compile_def, closPropsTheory.op_gbag_def,set_globals_SmartCons,
+             flatPropsTheory.op_gbag_def, closPropsTheory.elist_globals_append]
+    \\ ntac 2
+            (fs [dest_nop_def]
+             \\ simp ([CopyByteAw8_def, CopyByteStr_def] @ props_defs)
+             \\ simp [arg1_def, arg2_def]
+             \\ gvs [AllCaseEqs()]
+             \\ EVERY_CASE_TAC
+             \\ simp [flatPropsTheory.op_gbag_def, closPropsTheory.op_gbag_def]
+             \\ fs [Q.ISPEC `{||}` EQ_SYM_EQ, COMM_BAG_UNION, dest_pat_def]
+             \\ rpt (DEEP_INTRO_TAC compile_single_DEEP_INTRO
+                     \\ rw [] \\ fs [])))
   \\ TRY (qmatch_goalsub_abbrev_tac `compile_lit _ lit` \\ Cases_on `lit`
     \\ simp [compile_lit_def,op_gbag_def])
   \\ TRY (qmatch_goalsub_abbrev_tac `compile_op _ op` \\ Cases_on `op`
-    \\ simp ([compile_op_def] @ props_defs)
+    \\ simp ([compile_op_def, compile_arith_def] @ props_defs)
     \\ rpt (CASE_TAC \\ simp props_defs))
   \\ simp [compile_def, closPropsTheory.op_gbag_def,set_globals_SmartCons,
     flatPropsTheory.op_gbag_def, closPropsTheory.elist_globals_append]
@@ -2087,7 +2338,7 @@ QED
 Theorem compile_decs_set_globals:
   ∀decs. no_Mat_decs decs ==>
   closProps$elist_globals (compile_decs decs) =
-  BAG_IMAGE SUC (flatProps$elist_globals (MAP dest_Dlet (FILTER is_Dlet decs)))
+  BAG_IMAGE SUC (flatProps$elist_globals decs)
 Proof
   Induct
   \\ simp [compile_decs_def]
@@ -2099,7 +2350,7 @@ QED
 Theorem compile_prog_set_globals:
   ∀decs. no_Mat_decs decs ==>
   closProps$elist_globals (compile_prog decs) =
-  {|0|} ⊎ BAG_IMAGE SUC (flatProps$elist_globals (MAP dest_Dlet (FILTER is_Dlet decs)))
+  {|0|} ⊎ BAG_IMAGE SUC (flatProps$elist_globals decs)
 Proof
   fs [compile_prog_def,clos_interpTheory.attach_interpreter_def,
       op_gbag_def,compile_decs_set_globals,clos_interpTheory.compile_init_def]
@@ -2122,7 +2373,7 @@ Proof
   \\ TRY (qmatch_goalsub_abbrev_tac `compile_lit _ lit` \\ Cases_on `lit`
     \\ simp [compile_lit_def])
   \\ TRY (qmatch_goalsub_abbrev_tac `compile_op _ op` \\ Cases_on `op`
-    \\ simp ([compile_op_def] @ props_defs)
+    \\ simp ([compile_op_def, compile_arith_def] @ props_defs)
     \\ rpt (CASE_TAC \\ simp props_defs))
   \\ simp [compile_def, closPropsTheory.op_gbag_def,esgc_free_SmartCons,
     flatPropsTheory.op_gbag_def, closPropsTheory.elist_globals_append]
@@ -2155,7 +2406,7 @@ Proof
 QED
 
 Theorem compile_decs_esgc_free:
-  !decs. EVERY (flatProps$esgc_free o dest_Dlet) (FILTER is_Dlet decs) /\
+  !decs. EVERY (flatProps$esgc_free) decs /\
   no_Mat_decs decs ==>
   EVERY closProps$esgc_free (compile_decs decs)
 Proof
@@ -2167,7 +2418,7 @@ Proof
 QED
 
 Theorem compile_prog_esgc_free:
-  !decs. EVERY (flatProps$esgc_free o dest_Dlet) (FILTER is_Dlet decs) /\
+  !decs. EVERY (flatProps$esgc_free) decs /\
   no_Mat_decs decs ==>
   EVERY closProps$esgc_free (compile_prog decs)
 Proof
@@ -2231,7 +2482,7 @@ Proof
   \\ TRY (qmatch_goalsub_abbrev_tac `compile_lit _ lit` \\ Cases_on `lit`
     \\ simp [compile_lit_def])
   \\ TRY (qmatch_goalsub_abbrev_tac `compile_op _ op` \\ Cases_on `op`
-    \\ simp ([compile_op_def] @ props_defs)
+    \\ simp ([compile_op_def, compile_arith_def] @ props_defs)
     \\ rpt (CASE_TAC \\ simp props_defs))
   \\ fs [dest_nop_def]
   \\ simp ([CopyByteAw8_def, CopyByteStr_def] @ props_defs)
@@ -2319,15 +2570,15 @@ QED
 Theorem FST_inc_compile_set_globals:
   ∀decs. no_Mat_decs decs ==>
   closProps$elist_globals (FST (inc_compile_decs decs)) =
-  BAG_IMAGE SUC
-    (flatProps$elist_globals (MAP flatProps$dest_Dlet (FILTER flatProps$is_Dlet decs)))
+  BAG_IMAGE SUC (flatProps$elist_globals decs)
 Proof
-  simp [inc_compile_decs_def, closPropsTheory.elist_globals_append,elist_globals_insert_interp]
+  simp [inc_compile_decs_def, closPropsTheory.elist_globals_append,
+        elist_globals_insert_interp]
   \\ simp [compile_decs_set_globals]
 QED
 
 Theorem FST_inc_compile_esgc_free:
-  EVERY (flatProps$esgc_free o flatProps$dest_Dlet) (FILTER flatProps$is_Dlet decs) /\
+  EVERY (flatProps$esgc_free) decs /\
   no_Mat_decs decs ==>
   EVERY closProps$esgc_free (FST (inc_compile_decs decs))
 Proof

@@ -459,7 +459,7 @@ Proof
    (rw[] \\ Cases_on `l` \\ fs []
     \\ Cases_on `h` \\ Cases_on `f`
     \\ fs [ffi_has_index_in_def]
-    >- (first_x_assum $ qspec_then `s` assume_tac \\ fs[])
+    >- (first_x_assum $ qspec_then `m` assume_tac \\ fs[])
     \\ last_x_assum mp_tac \\ gvs[]
     \\ irule_at (Pos hd) OR_INTRO_THM1
     \\ simp[])

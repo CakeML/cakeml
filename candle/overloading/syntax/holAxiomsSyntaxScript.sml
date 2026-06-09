@@ -13,10 +13,10 @@ val _ = Parse.hide "mem"
 
 val mem = ``mem:'U->'U->bool``
 
-Overload A[local] = ``Tyvar (strlit "A")``
-Overload B[local] = ``Tyvar (strlit "B")``
-Overload x[local] = ``Var (strlit "x") A``
-Overload g[local] = ``Var (strlit "f") (Fun A B)``
+Overload A[local] = ``Tyvar «A»``
+Overload B[local] = ``Tyvar «B»``
+Overload x[local] = ``Var «x» A``
+Overload g[local] = ``Var «f» (Fun A B)``
 
 (* ETA_AX *)
 Definition mk_eta_ctxt_def:
@@ -33,21 +33,21 @@ Proof
   rw[term_ok_def,type_ok_def] >> fs[is_std_sig_def]
 QED
 
-Overload Select = ``λty. Const (strlit "@") (Fun (Fun ty Bool) ty)``
-Overload P[local] = ``Var (strlit "P") (Fun A Bool)``
+Overload Select = ``λty. Const «@» (Fun (Fun ty Bool) ty)``
+Overload P[local] = ``Var «P» (Fun A Bool)``
 
 (* SELECT_AX *)
 Definition mk_select_ctxt_def:
   mk_select_ctxt ctxt =
     NewAxiom (Implies (Comb P x) (Comb P (Comb (Select A) P))) ::
-    NewConst (strlit "@") (Fun (Fun A Bool) A) ::
+    NewConst «@» (Fun (Fun A Bool) A) ::
     ctxt
 End
 
 Theorem select_extends:
    ∀ctxt. is_std_sig (sigof ctxt) ∧
-           (strlit "@") ∉ FDOM (tmsof ctxt) ∧
-           (FLOOKUP (tmsof ctxt) (strlit "==>") = SOME (Fun Bool (Fun Bool Bool)))
+           «@» ∉ FDOM (tmsof ctxt) ∧
+           (FLOOKUP (tmsof ctxt) «==>» = SOME (Fun Bool (Fun Bool Bool)))
     ⇒ mk_select_ctxt ctxt extends ctxt
 Proof
   rw[extends_def] >>
@@ -59,28 +59,28 @@ Proof
   fs[is_std_sig_def,FLOOKUP_UPDATE]
 QED
 
-Overload B[local] = ``Tyvar (strlit "B")``
-Overload One_One = ``λf. Comb (Const (strlit "ONE_ONE") (Fun (typeof f) Bool)) f``
-Overload Onto = ``λf. Comb (Const (strlit "ONTO") (Fun (typeof f) Bool)) f``
-Overload Ind = ``Tyapp (strlit "ind") []``
+Overload B[local] = ``Tyvar «B»``
+Overload One_One = ``λf. Comb (Const «ONE_ONE» (Fun (typeof f) Bool)) f``
+Overload Onto = ``λf. Comb (Const «ONTO» (Fun (typeof f) Bool)) f``
+Overload Ind = ``Tyapp «ind» []``
 
-Overload EXx[local] = ``Exists (strlit "x") A``
-Overload x1[local] = ``Var (strlit "x1") A``
-Overload FAx1[local] = ``Forall (strlit "x1") A``
-Overload x2[local] = ``Var (strlit "x2") A``
-Overload FAx2[local] = ``Forall (strlit "x2") A``
-Overload y[local] = ``Var (strlit "y") B``
-Overload FAy[local] = ``Forall (strlit "y") B``
-Overload h[local] = ``Var (strlit "f") (Fun Ind Ind)``
-Overload Exh[local] = ``Exists (strlit "f") (Fun Ind Ind)``
+Overload EXx[local] = ``Exists «x» A``
+Overload x1[local] = ``Var «x1» A``
+Overload FAx1[local] = ``Forall «x1» A``
+Overload x2[local] = ``Var «x2» A``
+Overload FAx2[local] = ``Forall «x2» A``
+Overload y[local] = ``Var «y» B``
+Overload FAy[local] = ``Forall «y» B``
+Overload h[local] = ``Var «f» (Fun Ind Ind)``
+Overload Exh[local] = ``Exists «f» (Fun Ind Ind)``
 
  (* INFINITY_AX *)
 Definition mk_infinity_ctxt_def:
   mk_infinity_ctxt ctxt =
     NewAxiom (Exh (And (One_One h) (Not (Onto h)))) ::
-    NewType (strlit "ind") 0 ::
-    ConstDef (strlit "ONTO") (Abs g (FAy (EXx (y === Comb g x)))) ::
-    ConstDef (strlit "ONE_ONE")
+    NewType «ind» 0 ::
+    ConstDef «ONTO» (Abs g (FAy (EXx (y === Comb g x)))) ::
+    ConstDef «ONE_ONE»
       (Abs g (FAx1 (FAx2 (Implies (Comb g x1 === Comb g x2) (x1 === x2))))) ::
     ctxt
 End
@@ -95,18 +95,18 @@ QED
 Theorem infinity_extends:
    ∀ctxt. theory_ok (thyof ctxt) ∧
            DISJOINT (FDOM (tmsof ctxt)) (IMAGE strlit {"ONE_ONE";"ONTO"}) ∧
-           (strlit "ind") ∉ FDOM (tysof ctxt) ∧
-           (FLOOKUP (tmsof ctxt) (strlit "==>") = SOME (Fun Bool (Fun Bool Bool))) ∧
-           (FLOOKUP (tmsof ctxt) (strlit "/\\") = SOME (Fun Bool (Fun Bool Bool))) ∧
-           (FLOOKUP (tmsof ctxt) (strlit "!") = SOME (Fun (Fun A Bool) Bool)) ∧
-           (FLOOKUP (tmsof ctxt) (strlit "?") = SOME (Fun (Fun A Bool) Bool)) ∧
-           (FLOOKUP (tmsof ctxt) (strlit "~") = SOME (Fun Bool Bool))
+           «ind» ∉ FDOM (tysof ctxt) ∧
+           (FLOOKUP (tmsof ctxt) «==>» = SOME (Fun Bool (Fun Bool Bool))) ∧
+           (FLOOKUP (tmsof ctxt) «/\\» = SOME (Fun Bool (Fun Bool Bool))) ∧
+           (FLOOKUP (tmsof ctxt) «!» = SOME (Fun (Fun A Bool) Bool)) ∧
+           (FLOOKUP (tmsof ctxt) «?» = SOME (Fun (Fun A Bool) Bool)) ∧
+           (FLOOKUP (tmsof ctxt) «~» = SOME (Fun Bool Bool))
        ⇒ mk_infinity_ctxt ctxt extends ctxt
 Proof
   rw[extends_def] >>
   imp_res_tac theory_ok_sig >>
-  `ALOOKUP (type_list ctxt) (strlit "fun") = SOME 2` by fs[is_std_sig_def] >>
-  `ALOOKUP (type_list ctxt) (strlit "bool") = SOME 0` by fs[is_std_sig_def] >>
+  `ALOOKUP (type_list ctxt) «fun» = SOME 2` by fs[is_std_sig_def] >>
+  `ALOOKUP (type_list ctxt) «bool» = SOME 0` by fs[is_std_sig_def] >>
   rw[Once RTC_CASES1] >> disj2_tac >>
   simp_tac std_ss [mk_infinity_ctxt_def] >>
   Q.PAT_ABBREV_TAC`cd1 = ConstDef X Y` >>

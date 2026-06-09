@@ -83,20 +83,16 @@ Proof
   \\ EVAL_TAC
 QED
 
-Theorem SUC_SUC_LENGTH[local]:
-    SUC (SUC (LENGTH (TL (TL (REPLICATE (MAX 2 n) x))))) = (MAX 2 n)
+Theorem SUC_SUC_MAX2[local]:
+    SUC (SUC (MAX 2 n - 2)) = (MAX 2 n)
 Proof
-  Cases_on `n` \\ fs [] THEN1 EVAL_TAC
-  \\ Cases_on `n'` \\ fs [] THEN1 EVAL_TAC
-  \\ fs [ADD1] \\ rw [MAX_DEF]
-  \\ fs [EVAL ``REPLICATE 2 x``]
-  \\ once_rewrite_tac [ADD_COMM]
-  \\ rewrite_tac [GSYM REPLICATE_APPEND]
-  \\ fs [EVAL ``REPLICATE 2 x``]
+  Cases_on `n` \\ fs []
+  \\ Cases_on `n'` \\ fs [ADD1]
+  \\ simp[MAX_DEF]
 QED
 
 Theorem two_byte_sum[local]:
-    k < 65536 ==> k MOD 256 + 256 * (k DIV 256) MOD 256 = k
+    k < 65536 ==> k MOD 256 + 256 * ((k DIV 256) MOD 256) = k
 Proof
   rw []
   \\ `(k DIV 256) MOD 256 = k DIV 256` by
@@ -157,7 +153,7 @@ Proof
     \\ fs[cfHeapsBaseTheory.IOx_def,cl_ffi_part_def,COMMANDLINE_def,IO_def]
     \\ xsimpl
     \\ qmatch_goalsub_abbrev_tac `FFI_part s u ns`
-    \\ map_every qexists_tac [`emp`, `s`, `u`, `ns`, `events`]
+    \\ qexistsl [`emp`, `s`, `u`, `ns`, `events`]
     \\ xsimpl
     \\ unabbrev_all_tac \\ fs []
     \\ fs[cfHeapsBaseTheory.mk_ffi_next_def,ffi_get_arg_length_def,
@@ -168,7 +164,7 @@ Proof
   \\ rpt (xlet_auto THEN1 xsimpl)
   \\ qmatch_goalsub_abbrev_tac`W8ARRAY av1 bytes`
   \\ `strlen x < 65536` by
-       (fs [wfcl_def,SUC_SUC_LENGTH,Abbr`x`] \\ `n < LENGTH cl` by fs []
+       (fs [wfcl_def,Abbr`x`] \\ `n < LENGTH cl` by fs []
         \\ fs [EVERY_EL] \\ first_x_assum drule \\ fs [validArg_def])
   \\ xlet `POSTv v. W8ARRAY av1 (MAP (n2w o ORD) (explode x) ++ DROP (strlen x) bytes) *
        W8ARRAY av [n2w (strlen x); n2w (strlen x DIV 256)] * COMMANDLINE cl`
@@ -181,16 +177,17 @@ Proof
     \\ qabbrev_tac `extra = W8ARRAY av [n2w (strlen x); n2w (strlen x DIV 256)]`
     \\ xsimpl
     \\ qmatch_goalsub_abbrev_tac `FFI_part s u ns`
-    \\ map_every qexists_tac [`extra`, `s`, `u`, `ns`, `events`]
+    \\ qexistsl [`extra`, `s`, `u`, `ns`, `events`]
     \\ xsimpl
     \\ unabbrev_all_tac \\ fs []
     \\ fs[cfHeapsBaseTheory.mk_ffi_next_def,ffi_get_arg_def,
            GSYM cfHeapsBaseTheory.encode_list_def,LENGTH_EQ_NUM_compute]
-    \\ fs [wfcl_def,SUC_SUC_LENGTH,two_byte_sum] \\ xsimpl
+    \\ fs [wfcl_def,SUC_SUC_MAX2,two_byte_sum] \\ xsimpl
+    \\ xsimpl
     \\ qpat_abbrev_tac `new_events = events ++ _`
     \\ qexists_tac `new_events` \\ xsimpl)
   \\ xlet_auto
-  THEN1 (xsimpl \\ fs [SUC_SUC_LENGTH,two_byte_sum,mlstringTheory.LENGTH_explode])
+  THEN1 (xsimpl \\ fs [two_byte_sum,mlstringTheory.LENGTH_explode])
   \\ xlet_auto THEN1 (xcon \\ xsimpl)
   \\ qpat_abbrev_tac `Q = $POSTv _`
   \\ simp [COMMANDLINE_def,cl_ffi_part_def,IOx_def,IO_def]
@@ -211,7 +208,7 @@ Proof
   \\ `strlen x = LENGTH (MAP ((n2w:num->word8) ∘ ORD) (explode x))` by fs [mlstringTheory.LENGTH_explode]
   \\ asm_rewrite_tac [TAKE_LENGTH_APPEND]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND,EL_LENGTH_APPEND,NULL,HD]
-  \\ fs [MAP_MAP_o, CHR_w2n_n2w_ORD, GSYM mlstringTheory.implode_def]
+  \\ fs [MAP_MAP_o, CHR_w2n_n2w_ORD]
   \\ fs[DROP_APPEND,DROP_LENGTH_TOO_LONG]
 QED
 
@@ -239,7 +236,7 @@ Proof
     \\ fs[cfHeapsBaseTheory.IOx_def,cl_ffi_part_def,IO_def]
     \\ xsimpl
     \\ qmatch_goalsub_abbrev_tac `FFI_part s u ns`
-    \\ map_every qexists_tac [`emp`, `s`, `u`, `ns`, `events`]
+    \\ qexistsl [`emp`, `s`, `u`, `ns`, `events`]
     \\ xsimpl
     \\ unabbrev_all_tac \\ fs []
     \\ fs[cfHeapsBaseTheory.mk_ffi_next_def,ffi_get_arg_count_def,
@@ -292,9 +289,9 @@ End
 
 Theorem EvalM_name:
    Eval env exp (UNIT_TYPE u) /\
-    (nsLookup env.v (Long "CommandLine" (Short "name")) =
+    (nsLookup env.v (Long «CommandLine» (Short «name»)) =
       SOME CommandLine_name_v) ==>
-    EvalM F env st (App Opapp [Var (Long "CommandLine" (Short "name")); exp])
+    EvalM F env st (App Opapp [Var (Long «CommandLine» (Short «name»)); exp])
       (MONAD STRING_TYPE exc_ty (name u))
       (COMMANDLINE,p:'ffi ffi_proj)
 Proof
@@ -324,9 +321,9 @@ End
 
 Theorem EvalM_arguments:
    Eval env exp (UNIT_TYPE u) /\
-    (nsLookup env.v (Long "CommandLine" (Short "arguments")) =
+    (nsLookup env.v (Long «CommandLine» (Short «arguments»)) =
        SOME CommandLine_arguments_v) ==>
-    EvalM F env st (App Opapp [Var (Long "CommandLine" (Short "arguments")); exp])
+    EvalM F env st (App Opapp [Var (Long «CommandLine» (Short «arguments»)); exp])
       (MONAD (LIST_TYPE STRING_TYPE) exc_ty (arguments u))
       (COMMANDLINE,p:'ffi ffi_proj)
 Proof

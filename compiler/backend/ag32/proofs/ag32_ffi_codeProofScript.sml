@@ -3143,9 +3143,9 @@ Theorem ag32_ffi_get_arg_length_code_thm:
         n2w (ffi_code_start_offset + ag32_ffi_get_arg_length_entrypoint + j)
         ∉ md) ∧
    w2n l0 + 256 * w2n l1 ≤ cline_size ∧
-   LENGTH (SND (get_mem_arg ((n2w(ffi_code_start_offset - 1) =+ n2w(THE(ALOOKUP FFI_codes "get_arg_length"))) s.MEM)
+   LENGTH (SND (get_mem_arg ((n2w(ffi_code_start_offset - 1) =+ n2w(THE(ALOOKUP FFI_codes «get_arg_length»))) s.MEM)
      (n2w (startup_code_size + 4)) (w2n l0 + 256 * w2n l1))) < dimword(:32) ∧
-   has_n_args ((n2w(ffi_code_start_offset - 1) =+ n2w(THE(ALOOKUP FFI_codes "get_arg_length"))) s.MEM)
+   has_n_args ((n2w(ffi_code_start_offset - 1) =+ n2w(THE(ALOOKUP FFI_codes «get_arg_length»))) s.MEM)
      (n2w (startup_code_size + 4)) (w2n l0 + (256 * w2n l1) + 1)
    ⇒
    ∃k. (FUNPOW Next k s = ag32_ffi_get_arg_length s)
@@ -3606,7 +3606,7 @@ val ag32_ffi_get_arg_setup_decomp_pre' =
                              ag32_progTheory.mem_unchanged_def] THENC
        SIMP_CONV (bool_ss ++ COND_elim_ss) [
          CONV_RULE EVAL
-          (ASSUME “n2w (THE (ALOOKUP FFI_codes "get_arg") +
+          (ASSUME “n2w (THE (ALOOKUP FFI_codes «get_arg») +
                         ffi_code_start_offset - 4) ∈ md : word32 set”)])
         “ag32_ffi_get_arg_setup_decomp_pre(s,md)” |> EQT_ELIM |> DISCH_ALL
     end
@@ -3662,7 +3662,7 @@ Theorem ag32_ffi_get_arg_code_thm:
    bytes_in_memory (s.R 3w) [l0; l1] s.MEM md ∧
    n2w (ffi_code_start_offset - 1) ∉ md ∧
    256 * w2n l1 + w2n l0 ≤ cline_size ∧
-   (let m1 = ((n2w (ffi_code_start_offset - 1) =+ (n2w (THE (ALOOKUP FFI_codes "get_arg")))) s.MEM) in
+   (let m1 = ((n2w (ffi_code_start_offset - 1) =+ (n2w (THE (ALOOKUP FFI_codes «get_arg»)))) s.MEM) in
     let a = (n2w (startup_code_size + 4)) in
     let index = (256 * w2n l1 + w2n l0) in
     let start = if 0 < index then FST (get_mem_arg m1 a (index-1)) + 1w else a in
@@ -3774,7 +3774,7 @@ QED
 (* ag32_ffi_open_in *)
 
 Definition ag32_ffi_open_in_fail_code_def:
-  ag32_ffi_open_in_fail_code = ag32_ffi_fail_code "open_in"
+  ag32_ffi_open_in_fail_code = ag32_ffi_fail_code «open_in»
 End
 val ag32_ffi_open_in_fail_code_def = ag32_ffi_open_in_fail_code_def
                                        |> REWRITE_RULE [ag32_ffi_fail_code_def];
@@ -3833,7 +3833,7 @@ QED
 (* ag32_ffi_open_out *)
 
 Definition ag32_ffi_open_out_fail_code_def:
-  ag32_ffi_open_out_fail_code = ag32_ffi_fail_code "open_out"
+  ag32_ffi_open_out_fail_code = ag32_ffi_fail_code «open_out»
 End
 val ag32_ffi_open_out_fail_code_def = ag32_ffi_open_out_fail_code_def
                                         |> REWRITE_RULE [ag32_ffi_fail_code_def];
@@ -3889,7 +3889,7 @@ QED
 (* ag32_ffi_close *)
 
 Definition ag32_ffi_close_fail_code_def:
-  ag32_ffi_close_fail_code = ag32_ffi_fail_code "close"
+  ag32_ffi_close_fail_code = ag32_ffi_fail_code «close»
 End
 val ag32_ffi_close_fail_code_def = ag32_ffi_close_fail_code_def
                                      |> REWRITE_RULE [ag32_ffi_fail_code_def];
@@ -3935,7 +3935,7 @@ Proof
          ag32Theory.incPC_def,
          ag32Theory.ri2word_def,
          combinTheory.UPDATE_def,
-         EVAL ``THE (ALOOKUP FFI_codes "close")``,
+         EVAL ``THE (ALOOKUP FFI_codes «close»)``,
          EVAL ``ffi_code_start_offset``,
          EVAL ``ag32_ffi_close_entrypoint``,
          EVAL ``LENGTH ag32_ffi_close_code``]
@@ -4090,4 +4090,3 @@ Proof
   \\ EVAL_TAC
   \\ rpt(IF_CASES_TAC \\ simp[])
 QED
-

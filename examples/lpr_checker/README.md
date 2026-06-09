@@ -1,7 +1,7 @@
-An LPR checker built on CakeML
+An LPR checker built on CakeML.
 
 [array](array):
-Improving the LRAT checker with arrays (manually)
+Improving the LPR checker with arrays (manually).
 
 [lprScript.sml](lprScript.sml):
 Basic specification of an LPR checker (minimal optimization)

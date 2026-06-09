@@ -198,6 +198,7 @@ Proof
   \\ TRY(rename1`Inst (Mem m _ ri) ` \\ Cases_on`m` \\ Cases_on`ri`)
   \\ TRY(rename1`Inst (Arith a) ` \\ Cases_on`a`)
   \\ TRY(rename1`Inst (Arith (Binop _ _ _ ri)) ` \\ Cases_on`ri`)
+  \\ TRY(rename1`Inst (Arith (Shift _ _ _ ri)) ` \\ Cases_on`ri`)
   \\  rw[ag32_targetTheory.ag32_enc_def,
          ag32_targetTheory.ag32_constant_def,
          ag32_targetTheory.ag32_jump_constant_def,
@@ -811,8 +812,7 @@ Proof
     \\ conj_tac
     >- (
       simp[bytes_in_word_def]
-      \\ DEP_ONCE_REWRITE_TAC[GSYM MOD_PLUS]
-      \\ conj_tac >- rw[]
+      \\ PURE_REWRITE_TAC[Once (GSYM MOD_PLUS)]
       \\ rewrite_tac[LENGTH_FLAT, MAP_MAP_o]
       \\ DEP_ONCE_REWRITE_TAC[SUM_MOD]
       \\ conj_tac >- rw[]
@@ -898,7 +898,7 @@ val (asm_ok_tm, mk_asm_ok, dest_asm_ok, is_asm_ok) = HolKernel.syntax_fns2 "asm"
 val (ag32_enc_tm, mk_ag32_enc, dest_ag32_enc, is_ag32_enc) = HolKernel.syntax_fns1 "ag32_target" "ag32_enc"
 
 val bare_asm_conv =
- (computeLib.compset_conv (wordsLib.words_compset())
+ (computeLib.compset_conv (wordsLib.words_compset)
    [computeLib.Extenders[
      asmLib.add_asm_compset,
      combinLib.add_combin_compset],
@@ -1310,4 +1310,3 @@ Proof
   \\ fs[ag32_targetTheory.ag32_target_def]
   \\ rfs[]
 QED
-

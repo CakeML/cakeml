@@ -51,7 +51,7 @@ fun SEP_IMP_conv convl convr t =
   end
 
 fun rearrange_star_conv tm rest =
-  let val rearranged = list_mk_star (rest @ [tm]) ``:hprop`` in
+  let val rearranged = list_mk_star (rest @ [tm]) cfHeapsBaseSyntax.hprop_ty in
     fn t => ml_translatorLib.auto_prove "rearrange_star_conv"
               (mk_eq (t, rearranged), rew_heap_AC)
   end

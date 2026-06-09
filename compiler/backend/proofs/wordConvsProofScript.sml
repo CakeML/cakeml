@@ -1,5 +1,5 @@
 (*
-  Syntactic properties proofs for word_to_word.
+  Syntactic properties proofs for wordConvs.
 *)
 Theory wordConvsProof
 Ancestors
@@ -215,6 +215,11 @@ Proof
     \\ match_mp_tac labels_rel_APPEND \\ fs []))
   \\ reverse (rpt conj_tac)
   \\ TRY (fs [const_fp_loop_def] \\ rw [] \\ fs [extract_labels_def] \\ NO_TAC)
+  THEN1 (* Loop *)
+   (rw [] \\ fs [const_fp_loop_def]
+    \\ Cases_on `const_fp_loop p LN` \\ fs []
+    \\ rveq \\ fs [extract_labels_def]
+    \\ res_tac)
   THEN1 (* Call *)
    (rw [] \\ fs [const_fp_loop_def]
     \\ gvs[AllCaseEqs()]
@@ -437,6 +442,10 @@ Proof
   \\ qspec_tac (`cs1`,`cs1`) \\ qspec_tac (`p1`,`p1`)
   \\ qspec_tac (`cs`,`cs`) \\ qspec_tac (`p`,`p`)
   \\ ho_match_mp_tac const_fp_loop_ind \\ rw []
+  >~ [`Loop names p exit_names`]
+  >- (fs [const_fp_loop_def] \\ rw [] \\ fs [every_inst_def]
+      \\ Cases_on `const_fp_loop p LN` \\ fs []
+      \\ first_x_assum drule \\ fs [])
   \\ fs [const_fp_loop_def] \\ rw [] \\ fs [every_inst_def]
   \\ every_case_tac \\ rw [] \\ fs [every_inst_def]
   \\ pairarg_tac \\ fs [] \\ rw [] \\ fs [every_inst_def]
@@ -489,6 +498,7 @@ Proof
      [``:'a prog``, ``:'a # 'b``,``:'a option``,``:bool``]
   \\ rpt (PURE_TOP_CASE_TAC \\ asm_simp_tac(srw_ss())[])
   \\ fs[every_inst_def]
+  \\ res_tac \\ fs []
 QED
 
 Theorem compile_exp_no_inst:
@@ -546,6 +556,8 @@ Proof
   \\ gvs [CaseEq "exp", CaseEq "option", CaseEq "bool", CaseEq "prod", not_created_subprogs_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ gvs [not_created_subprogs_def]
+  \\ Cases_on `const_fp_loop p LN` \\ fs []
+  \\ res_tac \\ fs []
 QED
 
 Theorem not_created_subprogs_const_fp[local]:
@@ -972,6 +984,121 @@ Proof
   metis_tac[]
 QED
 
+Theorem fake_seq_no_labs[local]:
+  ∀ls. extract_labels (FOLDR Seq Skip (MAP (λr. fake_move r) ls)) = []
+Proof
+  Induct>>fs[extract_labels_def,fake_move_def]
+QED
+
+Theorem fake_seq_get_code_labels[local]:
+  ∀ls. word_get_code_labels (FOLDR Seq Skip (MAP (λr. fake_move r) ls)) = {}
+Proof
+  Induct>>fs[fake_move_def]
+QED
+
+Theorem fake_seq_good_handlers[local]:
+  ∀ls. word_good_handlers n (FOLDR Seq Skip (MAP (λr. fake_move r) ls))
+Proof
+  Induct>>fs[fake_move_def]
+QED
+
+Theorem fake_seq_flat_exp_conventions[local]:
+  ∀ls. flat_exp_conventions (FOLDR Seq Skip (MAP (λr. fake_move r) ls))
+Proof
+  Induct>>fs[flat_exp_conventions_def,fake_move_def]
+QED
+
+Theorem fake_seq_wf_cutsets[local]:
+  ∀ls. wf_cutsets (FOLDR Seq Skip (MAP (λr. fake_move r) ls))
+Proof
+  Induct>>fs[wf_cutsets_def,fake_move_def]
+QED
+
+Theorem ssa_reconcile_no_labs[local]:
+  extract_labels (ssa_reconcile cur_ssa tgt_ssa ns) = []
+Proof
+  rw[ssa_reconcile_def,extract_labels_def]
+QED
+
+Theorem ssa_reconcile_get_code_labels[local]:
+  word_get_code_labels (ssa_reconcile cur_ssa tgt_ssa ns) = {}
+Proof
+  rw[ssa_reconcile_def]
+QED
+
+Theorem ssa_reconcile_good_handlers[local]:
+  word_good_handlers n (ssa_reconcile cur_ssa tgt_ssa ns)
+Proof
+  rw[ssa_reconcile_def]
+QED
+
+Theorem ssa_reconcile_flat_exp_conventions[local]:
+  flat_exp_conventions (ssa_reconcile cur_ssa tgt_ssa ns)
+Proof
+  rw[ssa_reconcile_def,flat_exp_conventions_def]
+QED
+
+Theorem ssa_reconcile_wf_cutsets[local]:
+  wf_cutsets (ssa_reconcile cur_ssa tgt_ssa ns)
+Proof
+  rw[ssa_reconcile_def,wf_cutsets_def]
+QED
+
+Theorem loop_setup_no_labs[local]:
+  loop_setup names exit_names ssa na = (setup_prog,ssa',na') ⇒
+  extract_labels setup_prog = []
+Proof
+  rw[loop_setup_def]>>
+  rpt(pairarg_tac>>fs[])>>rveq>>
+  fs[extract_labels_def,list_next_var_rename_move_def]>>
+  rpt(pairarg_tac>>fs[])>>rveq>>
+  fs[extract_labels_def,fake_seq_no_labs]
+QED
+
+Theorem loop_setup_get_code_labels[local]:
+  loop_setup names exit_names ssa na = (setup_prog,ssa',na') ⇒
+  word_get_code_labels setup_prog = {}
+Proof
+  rw[loop_setup_def]>>
+  rpt(pairarg_tac>>fs[])>>rveq>>
+  fs[list_next_var_rename_move_def]>>
+  rpt(pairarg_tac>>fs[])>>rveq>>
+  fs[fake_seq_get_code_labels]
+QED
+
+Theorem loop_setup_good_handlers[local]:
+  loop_setup names exit_names ssa na = (setup_prog,ssa',na') ⇒
+  word_good_handlers n setup_prog
+Proof
+  rw[loop_setup_def]>>
+  rpt(pairarg_tac>>fs[])>>rveq>>
+  fs[list_next_var_rename_move_def]>>
+  rpt(pairarg_tac>>fs[])>>rveq>>
+  fs[fake_seq_good_handlers]
+QED
+
+Theorem loop_setup_flat_exp_conventions[local]:
+  loop_setup names exit_names ssa na = (setup_prog,ssa',na') ⇒
+  flat_exp_conventions setup_prog
+Proof
+  rw[loop_setup_def]>>
+  rpt(pairarg_tac>>fs[])>>rveq>>
+  fs[flat_exp_conventions_def,list_next_var_rename_move_def]>>
+  rpt(pairarg_tac>>fs[])>>rveq>>
+  fs[flat_exp_conventions_def,fake_seq_flat_exp_conventions]
+QED
+
+Theorem loop_setup_wf_cutsets[local]:
+  loop_setup names exit_names ssa na = (setup_prog,ssa',na') ⇒
+  wf_cutsets setup_prog
+Proof
+  rw[loop_setup_def]>>
+  rpt(pairarg_tac>>fs[])>>rveq>>
+  fs[wf_cutsets_def,list_next_var_rename_move_def]>>
+  rpt(pairarg_tac>>fs[])>>rveq>>
+  fs[wf_cutsets_def,fake_seq_wf_cutsets]
+QED
+
 Theorem full_ssa_cc_trans_lab_pres:
   ∀prog n.
   extract_labels prog =
@@ -980,7 +1107,9 @@ Proof
   rw[full_ssa_cc_trans_def,setup_ssa_def,list_next_var_rename_move_def]>>
   ntac 3 (pairarg_tac>>fs[])>>rveq>>fs[extract_labels_def]>>
   pop_assum kall_tac >> pop_assum mp_tac>>
-  map_every qid_spec_tac (rev[`prog`,`ssa`,`n'`,`prog'`,`ssa'`,`na'`])>>
+  qspec_tac(`[]:(num sptree$num_map # sptree$num_set # sptree$num_set) list`,`lt`)>>
+  gen_tac>>
+  map_every qid_spec_tac (rev[`prog`,`ssa`,`n'`,`lt`,`prog'`,`ssa'`,`na'`])>>
   ho_match_mp_tac ssa_cc_trans_ind>>rw[extract_labels_def,ssa_cc_trans_def,list_next_var_rename_move_def,fix_inconsistencies_def]>>
   rveq>>fs[extract_labels_def]>>EVERY_CASE_TAC>>
   rpt(pairarg_tac>>fs[]>>rveq>>fs[extract_labels_def])
@@ -991,8 +1120,9 @@ Proof
     every_case_tac>>rw[]>>
     fs[extract_labels_def])
   >>
-  imp_res_tac fake_moves_no_labs>>
-  fs[]
+  imp_res_tac fake_moves_no_labs >>
+  imp_res_tac loop_setup_no_labs >>
+  rw[] >> gvs[extract_labels_def, ssa_reconcile_no_labs]
 QED
 
 Theorem ssa_cc_trans_inst_not_created_subprogs[local]:
@@ -1026,27 +1156,50 @@ Proof
            word_allocTheory.fake_move_def]>>metis_tac[]
 QED
 
+Theorem fake_seq_not_created_subprogs[local]:
+  ∀ls. not_created_subprogs P (FOLDR Seq Skip (MAP (λr. fake_move r) ls))
+Proof
+  Induct>>fs[not_created_subprogs_def,word_allocTheory.fake_move_def]
+QED
+
+Theorem loop_setup_not_created_subprogs[local]:
+  loop_setup names exit_names ssa na = (setup_prog,ssa',na') ⇒
+  not_created_subprogs P setup_prog
+Proof
+  rw[word_allocTheory.loop_setup_def]>>
+  rpt(pairarg_tac>>fs[])>>rveq>>
+  fs[not_created_subprogs_def,word_allocTheory.list_next_var_rename_move_def]>>
+  rpt(pairarg_tac>>fs[])>>rveq>>
+  fs[not_created_subprogs_def,fake_seq_not_created_subprogs]
+QED
+
 Theorem ssa_cc_trans_not_created_subprogs[local]:
   not_created_subprogs P prog ∧
-  ssa_cc_trans prog ssa n = (prog', ssa', na)⇒
+  ssa_cc_trans prog ssa n lt = (prog', ssa', na)⇒
   not_created_subprogs P prog'
 Proof
-  MAP_EVERY qid_spec_tac [‘prog'’, ‘ssa'’, ‘na’, ‘n’, ‘ssa’, ‘prog’]>>
+  MAP_EVERY qid_spec_tac [‘prog'’, ‘ssa'’, ‘na’, ‘lt’, ‘n’, ‘ssa’, ‘prog’]>>
   recInduct word_allocTheory.ssa_cc_trans_ind>>
   rw[word_allocTheory.ssa_cc_trans_def,
      word_allocTheory.fix_inconsistencies_def,
      word_allocTheory.list_next_var_rename_move_def,
+     word_allocTheory.ssa_reconcile_def,
      not_created_subprogs_def]>>gs[]>>
   rpt (pairarg_tac>>gs[])>>rveq>>
   gs[word_allocTheory.ssa_cc_trans_def,
      word_allocTheory.fix_inconsistencies_def,
      word_allocTheory.list_next_var_rename_move_def,
+     word_allocTheory.ssa_reconcile_def,
      not_created_subprogs_def]
   >- (drule ssa_cc_trans_inst_not_created_subprogs>>rw[])
   >- (drule fake_moves_not_created_subprogs>>rw[])
   >- (EVERY_CASE_TAC>>gs[]>>rveq>>gs[not_created_subprogs_def]>>
     rpt (pairarg_tac>>gs[])>>rveq>>gs[not_created_subprogs_def]>>
     drule fake_moves_not_created_subprogs>>rw[])
+  >- (drule loop_setup_not_created_subprogs>>rw[]>>
+      every_case_tac>>fs[not_created_subprogs_def])
+  >> gvs[CaseEq"option",CaseEq"prod"]>>rw[]>>simp[not_created_subprogs_def]
+  >> every_case_tac>>simp[not_created_subprogs_def]
 QED
 
 Theorem setup_ssa_not_created_subprogs[local]:
@@ -1088,8 +1241,8 @@ Proof
 QED
 
 Theorem word_get_code_labels_ssa_cc_trans[local]:
-   ∀x y z a b c.
-   ssa_cc_trans x y z = (a,b,c) ⇒
+   ∀x y z lt a b c.
+   ssa_cc_trans x y z lt = (a,b,c) ⇒
    word_get_code_labels a = word_get_code_labels x
 Proof
   recInduct ssa_cc_trans_ind
@@ -1132,6 +1285,10 @@ Proof
     \\ rveq \\ fs[]
     \\ imp_res_tac word_get_code_labels_fake_moves
     \\ fs[])
+  >- (drule loop_setup_get_code_labels \\ rw[]
+      \\ rw[] \\ fs[ssa_reconcile_get_code_labels])
+  >- (every_case_tac \\ fs[ssa_reconcile_def] \\ rw[] \\ fs[])
+  >- (every_case_tac \\ fs[ssa_reconcile_def] \\ rw[] \\ fs[])
 QED
 
 Theorem word_get_code_labels_full_ssa_cc_trans[local]:
@@ -1164,8 +1321,8 @@ Proof
 QED
 
 Theorem word_good_handlers_ssa_cc_trans[local]:
-   ∀x y z a b c.
-   ssa_cc_trans x y z = (a,b,c) ⇒
+   ∀x y z lt a b c.
+   ssa_cc_trans x y z lt = (a,b,c) ⇒
    word_good_handlers n a = word_good_handlers n x
 Proof
   recInduct ssa_cc_trans_ind
@@ -1208,6 +1365,10 @@ Proof
     \\ rveq \\ fs[]
     \\ imp_res_tac word_good_handlers_fake_moves
     \\ fs[])
+  >- (drule loop_setup_good_handlers \\ rw[]
+      \\ rw[] \\ fs[ssa_reconcile_good_handlers])
+  >- (every_case_tac \\ fs[ssa_reconcile_def] \\ rw[] \\ fs[])
+  >- (every_case_tac \\ fs[ssa_reconcile_def] \\ rw[] \\ fs[])
 QED
 
 Theorem word_good_handlers_full_ssa_cc_trans[local]:
@@ -1254,9 +1415,9 @@ Proof
 QED
 
 Theorem ssa_cc_trans_flat_exp_conventions[local]:
-  ∀prog ssa na.
+  ∀prog ssa na lt.
   flat_exp_conventions prog ⇒
-  flat_exp_conventions (FST (ssa_cc_trans prog ssa na))
+  flat_exp_conventions (FST (ssa_cc_trans prog ssa na lt))
 Proof
   ho_match_mp_tac ssa_cc_trans_ind>>full_simp_tac(srw_ss())[ssa_cc_trans_def]>>srw_tac[][]>>
   unabbrev_all_tac>>
@@ -1293,10 +1454,14 @@ Proof
       full_simp_tac(srw_ss())[fix_inconsistencies_def]>>
       rpt (pop_assum mp_tac)>> LET_ELIM_TAC>>full_simp_tac(srw_ss())[]>>
       metis_tac[flat_exp_conventions_fake_moves,flat_exp_conventions_def])
-  >> (*ShareInst*)
+  >- (*ShareInst*) (
     IF_CASES_TAC >>
     fs[flat_exp_conventions_ShareInst] >>
-    simp[ssa_cc_trans_exp_def]
+    simp[ssa_cc_trans_exp_def])
+  >> (*Loop/Break/Continue*)
+    imp_res_tac loop_setup_flat_exp_conventions >>
+    every_case_tac >>
+    rw[flat_exp_conventions_def, ssa_reconcile_flat_exp_conventions]
 QED
 
 Theorem full_ssa_cc_trans_flat_exp_conventions:
@@ -1320,8 +1485,8 @@ Proof
   metis_tac[]
 QED
 Theorem ssa_cc_trans_wf_cutsets[local]:
-  ∀prog ssa na.
-  let (prog',ssa',na') = ssa_cc_trans prog ssa na in
+  ∀prog ssa na lt.
+  let (prog',ssa',na') = ssa_cc_trans prog ssa na lt in
   wf_cutsets prog'
 Proof
   ho_match_mp_tac ssa_cc_trans_ind>>
@@ -1331,7 +1496,10 @@ Proof
   gvs[AllCaseEqs(),wf_cutsets_def,oneline ssa_cc_trans_inst_def, wf_fromAList] >>
   rpt(pairarg_tac >> gvs[]) >>
   gvs[wf_cutsets_def,wf_names_def,apply_nummaps_key_def,wf_fromAList]
-  >>metis_tac[fake_moves_wf_cutsets]
+  >> imp_res_tac fake_moves_wf_cutsets
+  >> imp_res_tac loop_setup_wf_cutsets
+  >> every_case_tac
+  >> rw[wf_cutsets_def, ssa_reconcile_wf_cutsets]
 QED
 
 Theorem full_ssa_cc_trans_wf_cutsets:
@@ -1343,7 +1511,7 @@ Proof
   pairarg_tac>>fs[]>>
   pairarg_tac>>fs[]>>
   rveq>>fs[wf_cutsets_def]>>
-  Q.ISPECL_THEN [`prog`,`ssa`,`n'`] assume_tac ssa_cc_trans_wf_cutsets>>
+  Q.ISPECL_THEN [`prog`,`ssa`,`n'`,`[]:(num sptree$num_map # sptree$num_set # sptree$num_set) list`] assume_tac ssa_cc_trans_wf_cutsets>>
   rfs[]
 QED
 
@@ -1351,9 +1519,9 @@ QED
 val convs = [flat_exp_conventions_def,full_inst_ok_less_def,every_inst_def,pre_alloc_conventions_def,call_arg_convention_def,every_stack_var_def,every_var_def,extract_labels_def,wf_cutsets_def];
 
 Theorem remove_dead_not_created_subprogs[local]:
-  ∀prog q r.
+  ∀prog q r lt.
   not_created_subprogs P prog ⇒
-  not_created_subprogs P (FST (remove_dead prog q r))
+  not_created_subprogs P (FST (remove_dead prog q r lt))
 Proof
   recInduct word_allocTheory.remove_dead_ind>>
   rw[word_allocTheory.remove_dead_def,
@@ -1375,8 +1543,8 @@ Proof
 QED
 
 Theorem remove_dead_conventions[local]:
-  ∀p live nlive c k.
-    let comp = FST (remove_dead p live nlive) in
+  ∀p live nlive lt c k.
+    let comp = FST (remove_dead p live nlive lt) in
     (flat_exp_conventions p ⇒ flat_exp_conventions comp) ∧
     (full_inst_ok_less c p ⇒ full_inst_ok_less c comp) ∧
     (pre_alloc_conventions p ⇒ pre_alloc_conventions comp) ∧
@@ -1393,12 +1561,12 @@ Proof
 QED
 
 Theorem remove_dead_prog_conventions =
-  (remove_dead_conventions |> Q.SPEC`p` |> Q.SPEC`LN` |> Q.SPEC`[]` |> SPEC_ALL |>
+  (remove_dead_conventions |> Q.SPEC`p` |> Q.SPEC`LN` |> Q.SPEC`[]` |> Q.SPEC`[]` |> SPEC_ALL |>
     SIMP_RULE std_ss [LET_THM,FORALL_AND_THM,GSYM remove_dead_prog_def]);
 
 Theorem word_get_code_labels_remove_dead[local]:
-  ∀ps live nlive.
-  word_get_code_labels (FST (remove_dead ps live nlive)) ⊆
+  ∀ps live nlive lt.
+  word_get_code_labels (FST (remove_dead ps live nlive lt)) ⊆
   word_get_code_labels ps
 Proof
   ho_match_mp_tac remove_dead_ind>>rw[]>>
@@ -1416,8 +1584,8 @@ Proof
 QED
 
 Theorem word_good_handlers_remove_dead[local]:
-  ∀ps live nlive.
-  word_good_handlers n (FST (remove_dead ps live nlive)) ⇔
+  ∀ps live nlive lt.
+  word_good_handlers n (FST (remove_dead ps live nlive lt)) ⇔
   word_good_handlers n ps
 Proof
   ho_match_mp_tac remove_dead_ind>>rw[]>>
@@ -1565,6 +1733,7 @@ Proof
  last_x_assum (qspec_then `data` assume_tac) >>
  last_x_assum (qspec_then `data` assume_tac)
  \\ gvs[])
+  >- (first_x_assum (qspec_then `empty_data` assume_tac) \\ gvs[])
 QED
 
 Theorem flat_exp_conventions_word_common_subexp_elim:
@@ -1581,41 +1750,26 @@ Theorem word_cse_wf_cutsets[local]:
     let p' = SND (word_cse data p) in
       wf_cutsets p ⇒ wf_cutsets p'
 Proof
-  Induct \\ gvs [wf_cutsets_def, word_cse_def, AllCaseEqs()]
-  \\ rpt gen_tac
-  >- (pairarg_tac \\ gvs [wf_cutsets_def])
-  >- (pairarg_tac \\ gvs []
-      \\ Cases_on ‘i’
-      \\ gvs [word_cseInst_def, add_to_data_def, add_to_data_aux_def,
-              wf_cutsets_def, AllCaseEqs()]
-      \\ Cases_on ‘a’
-      \\ gvs [word_cseInst_def, add_to_data_def, add_to_data_aux_def,
-              wf_cutsets_def, AllCaseEqs()])
-  >- (Cases_on ‘is_seen n data’ \\ gvs [wf_cutsets_def])
-  >- (Cases_on ‘s’ \\ gvs [wf_cutsets_def])
-  >- (
-    pairarg_tac \\ strip_tac \\ gvs []
-    \\ simp[wf_cutsets_def]
-    \\ metis_tac[SND])
-  >- (Cases_on ‘o'’ \\ gvs [wf_cutsets_def]
-      \\ Cases_on ‘x’ \\ gvs [wf_cutsets_def]
-      \\ Cases_on ‘r’ \\ gvs [wf_cutsets_def])
-  >- (pairarg_tac \\ gvs [] \\ strip_tac
-      \\ last_x_assum drule_all \\ strip_tac
-      \\ last_x_assum drule_all \\ strip_tac
-      \\ pairarg_tac \\ gvs [wf_cutsets_def]
-      \\ metis_tac[SND])
-  >- (strip_tac
-      \\ rpt (pairarg_tac \\ gvs [])
-      \\ rpt (last_x_assum drule \\ strip_tac)
-      \\ gvs [wf_cutsets_def]
-      \\ metis_tac[SND])
-  >- (Cases_on ‘is_seen n data’ \\ gvs [wf_cutsets_def]
-      \\ Cases_on ‘¬is_seen n0 data’ \\ gvs [wf_cutsets_def]
-      \\ gvs [add_to_data_aux_def]
-      \\ Cases_on ‘lookup listCmp (OpCurrHeapToNumList b (canonicalRegs' n data n0)) data.instrs’ \\ gvs []
-      \\ Cases_on ‘EVEN n’ \\ gvs [wf_cutsets_def])
-  \\ Cases_on ‘is_seen n data’ \\ gvs [wf_cutsets_def]
+  Induct \\ rw[] \\
+  rpt (pairarg_tac \\ gvs[]) \\
+  gvs [flat_exp_conventions_def, word_cse_def,
+   oneline word_cseInst_def,add_to_data_def,
+   add_to_data_aux_def,
+  oneline canonicalExp_def,wf_cutsets_def, AllCaseEqs()] \\
+  rpt (pairarg_tac \\ gvs[]) \\
+  gvs [wf_cutsets_def, word_cse_def, AllCaseEqs()] \\
+  every_case_tac \\ gvs[wf_cutsets_def]
+  >-(
+ first_x_assum (qspec_then `data` assume_tac) \\ gvs[])
+  >-(
+ last_x_assum (qspec_then `data` assume_tac) >>
+ last_x_assum (qspec_then `data1` assume_tac)
+ \\ gvs[])
+  >-(
+ last_x_assum (qspec_then `data` assume_tac) >>
+ last_x_assum (qspec_then `data` assume_tac)
+ \\ gvs[])
+  >- (first_x_assum (qspec_then `empty_data` assume_tac) \\ gvs[])
 QED
 
 Theorem wf_cutsets_word_common_subexp_elim:
@@ -1800,10 +1954,13 @@ Proof
     >- metis_tac[]
   )
   >- (
-    gvs[remove_eq_def]>>every_case_tac>>simp[empty_eq_def]>>
+    gvs[remove_eq_def, set_store_eq_def]>>every_case_tac>>gvs[empty_eq_def, lookup_insert]
+    >>~- ([`lookup_store_eq _ _ = SOME _`],
     pairarg_tac>>gvs[copy_prop_move_def,set_eq_def,remove_eq_def]>>
     every_case_tac>>rw[lookup_insert,empty_eq_def]>>
     metis_tac[])
+    >> metis_tac[]
+  )
 QED
 
 Theorem pre_alloc_conventions_copy_prop_aux[local]:
@@ -1825,6 +1982,7 @@ Proof
     >> rpt conj_tac >> rpt (gen_tac ORELSE disch_tac)
     >> fs[copy_prop_inst_def,wordLangTheory.every_stack_var_def,
        inst_arg_convention_def, call_arg_convention_def]
+    >- (Cases_on`n`>>fs[inst_arg_convention_def,lookup_eq_imm_def,lookup_eq_def,reg_allocTheory.is_alloc_var_def])
     >- fs[reg_allocTheory.is_alloc_var_def,lookup_eq_def]
     >> rpt(pairarg_tac>>fs[]) >> rw[]
     >> fs[copy_prop_inst_def,wordLangTheory.every_stack_var_def,
@@ -1849,6 +2007,10 @@ Proof
     every_case_tac>>
     TRY(pairarg_tac)>>
     simp[every_stack_var_def,call_arg_convention_def])
+  >- (
+    `(∀x. ¬is_alloc_var x ⇒ lookup x empty_eq.to_eq = NONE)` by
+      simp[empty_eq_def,lookup_def]>>
+    fs[wordLangTheory.every_stack_var_def,call_arg_convention_def])
 QED
 
 Theorem pre_alloc_conventions_copy_prop:
@@ -1882,6 +2044,10 @@ Proof
       Cases_on‘ri’
       >>fs[inst_ok_less_def,lookup_eq_imm_def]
     )
+    >- (Cases_on`n`>>
+       fs[inst_ok_less_def,lookup_eq_imm_def])
+    >- (Cases_on`n`>>
+       fs[inst_ok_less_def,lookup_eq_imm_def])
     >>metis_tac[]
   )
   >- (TOP_CASE_TAC>>rw[full_inst_ok_less_def])
@@ -2009,7 +2175,7 @@ Proof
   simp[three_to_two_reg_prog_def]>>
   ho_match_mp_tac three_to_two_reg_ind>>
   rw[]>>
-  fs[every_stack_var_def,pre_alloc_conventions_def,every_inst_def,three_to_two_reg_def,call_arg_convention_def,inst_arg_convention_def,two_reg_inst_def]>>
+  fs[every_stack_var_def,pre_alloc_conventions_def,every_inst_def,three_to_two_reg_def,call_arg_convention_def,oneline inst_arg_convention_def,two_reg_inst_def]>>
   FULL_CASE_TAC>>fs[]>>
   PairCases_on`x`>>fs[]>>
   FULL_CASE_TAC>>fs[]>>
@@ -2263,7 +2429,17 @@ Theorem ALL_DISTINCT_extract_labels_Seq_assoc_right_lemma[local]:
 Proof
   HO_MATCH_MP_TAC Seq_assoc_right_ind \\ fs [] \\ rw []
   \\ fs [Seq_assoc_right_def,extract_labels_def,SimpSeq_def] >>
-  TRY (CASE_TAC >> fs[extract_labels_def] >> NO_TAC)
+  TRY (rw[extract_labels_def] >> NO_TAC) >>
+  TRY (CASE_TAC >> fs[extract_labels_def] >> NO_TAC) >>
+  TRY (rename1 `Loop names _ exit_names` >>
+       IF_CASES_TAC >>
+       gvs [extract_labels_def, ALL_DISTINCT_APPEND'] >>
+       rpt conj_tac >>
+       TRY (first_x_assum irule >> fs [ALL_DISTINCT_APPEND'] >> NO_TAC) >>
+       irule_at Any SUBSET_DISJOINT >>
+       irule_at Any extract_labels_Seq_assoc_right_lemma >>
+       irule_at Any SUBSET_REFL >>
+       gvs [extract_labels_def] >> NO_TAC)
   >- (first_x_assum irule >>
       fs[ALL_DISTINCT_APPEND'] >>
       irule_at Any SUBSET_DISJOINT >>

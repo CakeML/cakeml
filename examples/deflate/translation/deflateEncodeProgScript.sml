@@ -174,8 +174,9 @@ val _ = type_of “main_function” = “:mlstring -> mlstring app_list”
 val _ = res |> DISCH_ALL |> concl |> can $ find_term $ can $ match_term “PRECONDITION” |> not
         orelse failwith "The main_function has an unproved pre/side-condition.\n";
 
-val main = process_topdecs
-  `print_app_list (main_function (TextIO.inputAll TextIO.stdIn));`;
+Quote main = cakeml:
+  print_app_list (main_function (TextIO.inputAll (TextIO.openStdIn ())));
+End
 
 val prog =
   get_ml_prog_state ()

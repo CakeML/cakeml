@@ -15,14 +15,13 @@ val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val _ = translation_extends"lpr_arrayParsingProg";
 
-val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
-
 (* This function is not specific to Ramsey, can take any encoder  *)
 
 (* 0 arg *)
-val check_unsat_0 = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun check_unsat_0 enc =
-    TextIO.print_list (print_dimacs (enc ()))`
+    TextIO.print_list (print_dimacs (enc ()))
+End
 
 Definition check_unsat_0_sem_def:
   check_unsat_0_sem enc out =
@@ -48,7 +47,7 @@ Proof
   asm_exists_tac>>xsimpl>>
   simp[check_unsat_0_sem_def]>>
   qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
-  rw[]>>qexists_tac`strlit ""`>>
+  rw[]>>qexists_tac`«»`>>
   simp[STD_streams_add_stdout,STD_streams_add_stderr, STD_streams_stdout,STD_streams_stderr,add_stdo_nil]>>
   xsimpl
 QED
@@ -69,7 +68,7 @@ val max_lit_fml_side = Q.prove(
   simp[])
   |> update_precondition;
 
-val check_unsat_1 = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun check_unsat_1 enc f =
   let val fml = enc ()
       val one = 1
@@ -85,15 +84,16 @@ val check_unsat_1 = (append_prog o process_topdecs) `
       Inl err => TextIO.output TextIO.stdErr err
     | Inr None => TextIO.print "s VERIFIED UNSAT\n"
     | Inr (Some l) => TextIO.output TextIO.stdErr "c empty clause not derived at end of proof\n"
-  end`
+  end
+End
 
 Definition check_unsat_1_sem_def:
   check_unsat_1_sem fs enc f out =
   let fml = enc () in
-    (out ≠ strlit"" ⇒
+    (out ≠ «» ⇒
       ∃lpr.
         EVERY wf_lpr lpr ∧
-        out = strlit "s VERIFIED UNSAT\n" ∧
+        out = «s VERIFIED UNSAT\n» ∧
         let fmlls = misc$enumerate 1 fml in
         let base = REPLICATE (2*LENGTH fmlls) NONE in
         let mv = max_lit_fml fml in
@@ -134,7 +134,7 @@ Proof
   (* help instantiate fill_arr_spec *)
   qmatch_asmsub_abbrev_tac`NUM (LENGTH fmlls) nv`>>
   `LIST_REL (OPTION_TYPE (LIST_TYPE INT)) (REPLICATE (2*(LENGTH fmlls)) NONE)
-        (REPLICATE (2 * (LENGTH fmlls)) (Conv (SOME (TypeStamp "None" 2)) []))` by
+        (REPLICATE (2 * (LENGTH fmlls)) (Conv (SOME (TypeStamp «None» 2)) []))` by
     simp[LIST_REL_REPLICATE_same,OPTION_TYPE_def]>>
   first_x_assum drule>>
   rpt (disch_then drule)>>
@@ -143,7 +143,7 @@ Proof
   (* help instantiate fill_earliest_spec *)
   qmatch_asmsub_abbrev_tac`NUM (2 * mv) _`>>
   `LIST_REL (OPTION_TYPE NUM) (REPLICATE (2 * mv + 3) NONE)
-          (REPLICATE (2 * mv + 3) (Conv (SOME (TypeStamp "None" 2)) []))` by
+          (REPLICATE (2 * mv + 3) (Conv (SOME (TypeStamp «None» 2)) []))` by
     simp[LIST_REL_REPLICATE_same,OPTION_TYPE_def]>>
   first_x_assum drule>>
   disch_then drule>>
@@ -204,7 +204,7 @@ Proof
     qexists_tac`emp`>>xsimpl>>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
-    qexists_tac`strlit""`>>xsimpl>>
+    qexists_tac`«»`>>xsimpl>>
     rename1`add_stderr fs err`>>
     qexists_tac`err`>>xsimpl>>
     simp[STD_streams_add_stdout,STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -218,7 +218,7 @@ Proof
     \\ qexists_tac`emp`
     \\ qexists_tac`fs`>>xsimpl \\ rw[]>>
     qexists_tac`«s VERIFIED UNSAT\n»`>>
-    qexists_tac`strlit""`>>rw[]
+    qexists_tac`«»`>>rw[]
     >-
       (qexists_tac`lpr`>>simp[])
     >>
@@ -229,7 +229,7 @@ Proof
   qexists_tac`emp`>>xsimpl>>
   qexists_tac`fs`>>xsimpl>>
   rw[]>>
-  qexists_tac`strlit""`>>xsimpl>>
+  qexists_tac`«»`>>xsimpl>>
   rename1`add_stderr fs err`>>
   qexists_tac`err`>>xsimpl>>
   simp[STD_streams_add_stdout,STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -271,19 +271,20 @@ End
 
 val r = translate usage_string_def;
 
-val check_unsat = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun check_unsat u =
   case CommandLine.arguments () of
     [] => check_unsat_0 enc
   | [f] => check_unsat_1 enc f
-  | _ => TextIO.output TextIO.stdErr usage_string`
+  | _ => TextIO.output TextIO.stdErr usage_string
+End
 
 Definition check_unsat_sem_def:
   check_unsat_sem cl fs out =
   case TL cl of
     [] => check_unsat_0_sem enc out
   | [f] => check_unsat_1_sem fs enc f out
-  | _ => out = strlit ""
+  | _ => out = «»
 End
 
 Theorem check_unsat_spec:

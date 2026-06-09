@@ -319,13 +319,12 @@ Proof
   fs[NTpropertiesTheory.nullable_def]
 QED
 
-Theorem derives_singleTOK:
+Theorem derives_singleTOK[simp]:
    derives G [TOK t] l ⇔ (l = [TOK t])
 Proof
   simp[Once relationTheory.RTC_CASES1, grammarTheory.derive_def] >>
   metis_tac[]
 QED
-val _ = export_rewrites ["derives_singleTOK"]
 
 Theorem fringe_lengths_V:
    fringe_lengths cmlG [NT (mkNT nV)] = {1}
@@ -334,7 +333,7 @@ Proof
   simp[Once relationTheory.RTC_CASES1, MAP_EQ_SING, cmlG_FDOM] >>
   dsimp[MAP_EQ_SING,cmlG_applied] >>
   simp[EXTENSION, EQ_IMP_THM] >> qx_gen_tac `t` >> rpt strip_tac >>
-  fs[] >> qexists_tac `[AlphaT "foo"]` >>
+  fs[] >> qexists_tac `[AlphaT «foo»]` >>
   simp[stringTheory.isUpper_def]
 QED
 
@@ -349,4 +348,3 @@ Theorem parsing_ind =
     |> SIMP_RULE (srw_ss()) [pairTheory.WF_LEX, relationTheory.WF_inv_image]
     |> SIMP_RULE (srw_ss()) [relationTheory.inv_image_def,
                              pairTheory.LEX_DEF]
-

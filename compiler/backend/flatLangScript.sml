@@ -21,93 +21,25 @@ Ancestors
 Libs
   preamble
 
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
-(* Copied from the semantics, but with AallocEmpty missing. GlobalVar ops have
- * been added, also TagLenEq and El for pattern match compilation. *)
+(* Most ops are inherited from ast$op via the Src wrapper.
+ * GlobalVar ops, TagLenEq, LenEq, El, and Id are flatLang-specific. *)
 Datatype:
  op =
-  (* Operations on integers *)
-    Opn opn
-  | Opb opb
-  (* Operations on words *)
-  | Opw word_size opw
-  | Shift word_size shift num
-  | Equality
-  (* FP operations *)
-  | FP_cmp fp_cmp
-  | FP_uop fp_uop
-  | FP_bop fp_bop
-  | FP_top fp_top
-  | FpFromWord
-  | FpToWord
-  (* Function application *)
-  | Opapp
-  (* Reference operations *)
-  | Opassign
-  | Opref
- (* Opderef -- replaced by El, later in this list *)
-  (* Word8Array operations *)
-  | Aw8alloc
-  | Aw8sub
-  | Aw8length
-  | Aw8update
-  (* Word/integer conversions *)
-  | WordFromInt word_size
-  | WordToInt word_size
-  (* string/bytearray conversions *)
-  | CopyStrStr
-  | CopyStrAw8
-  | CopyAw8Str
-  | CopyAw8Aw8
-  (* Char operations *)
-  | Ord
-  | Chr
-  | Chopb opb
-  (* String operations *)
-  | Implode
-  | Explode
-  | Strsub
-  | Strlen
-  | Strcat
-  (* Vector operations *)
-  | VfromList
-  | Vsub
-  | Vsub_unsafe
-  | Vlength
-  (* Array operations *)
-  | Aalloc
-  | AallocFixed
-  | Asub
-  | Alength
-  | Aupdate
-  (* Unsafe array operations *)
-  | Asub_unsafe
-  | Aupdate_unsafe
-  | Aw8sub_unsafe
-  | Aw8update_unsafe
-  | Aw8xor_unsafe
-  (* List operations *)
-  | ListAppend
-  (* Configure the GC *)
-  | ConfigGC
-  (* Call a given foreign function *)
-  | FFI string
+    Src ast$op
   (* Allocate the given number of new global variables *)
   | GlobalVarAlloc num
   (* Initialise given global variable *)
   | GlobalVarInit num
   (* Get the value of the given global variable *)
   | GlobalVarLookup num
-  (* Evaluate some declarations *)
-  | Eval
   (* for pattern match compilation *)
   | TagLenEq num num
   | LenEq num
   | El num
   (* No-op step for a single value *)
   | Id
-  (* Thunk *)
-  | ThunkOp ast$thunk_op
 End
 
 Type ctor_id = ``:num``
@@ -216,17 +148,6 @@ Proof
   \\ decide_tac
 QED
 
-Datatype:
- dec =
-    Dlet exp
-  (* The first number is the identity for the type. The sptree maps arities to
-   * how many constructors have that arity *)
-  | Dtype num (num spt)
-  (* The first number is the identity of the exception. The second number is the
-   * constructor's arity *)
-  | Dexn num num
-End
-
 Definition bool_id_def:
   bool_id = 0n
 End
@@ -247,12 +168,10 @@ Definition SmartIf_def:
     | _ => If t e p q
 End
 
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
-
 Theorem SmartIf_PMATCH:
   !t e p q.
     SmartIf t e p q =
-      case e of
+      pmatch e of
         Con _ (SOME (tag, SOME id)) [] =>
           if id = bool_id then
             if tag = backend_common$true_tag then p

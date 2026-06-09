@@ -47,8 +47,8 @@ End
 
 Datatype:
   install_config =
-   <| compile : 'c -> flatLang$dec list -> (word8 list # word64 list # 'c) option
-    ; compile_oracle : num -> 'c # flatLang$dec list
+   <| compile : 'c -> flatLang$exp list -> (word8 list # word64 list # 'c) option
+    ; compile_oracle : num -> 'c # flatLang$exp list
     |>
 End
 
@@ -58,8 +58,6 @@ Datatype:
     refs    : v store;
     ffi     : 'ffi ffi_state;
     globals : (v option) list;
-    (* The set of constructors that exist, according to their id, type and arity *)
-    c : ((ctor_id # type_id) # num) set;
     (* eval or install mode *)
     eval_config : 'c install_config
   |>
@@ -208,10 +206,10 @@ Definition v_to_char_list_def:
 End
 
 Definition vs_to_string_def:
-  (vs_to_string [] = SOME "") ∧
+  (vs_to_string [] = SOME «») ∧
   (vs_to_string (Litv(StrLit s1)::vs) =
    case vs_to_string vs of
-   | SOME s2 => SOME (s1++s2)
+   | SOME s2 => SOME (s1 ^ s2)
    | _ => NONE) ∧
   (vs_to_string _ = NONE)
 End
@@ -224,46 +222,101 @@ Definition v_to_words_def:
   v_to_words lv = some ns. v_to_list lv = SOME (MAP (Litv o Word64) ns)
 End
 
+Definition check_type_def:
+  check_type BoolT v = (v = Boolv T ∨ v = Boolv F) ∧
+  check_type IntT v = (∃i. v = Litv (IntLit i)) ∧
+  check_type CharT v = (∃c. v = Litv (Char c)) ∧
+  check_type StrT v = (∃s. v = Litv (StrLit s)) ∧
+  check_type (WordT W8) v = (∃w. v = Litv (Word8 w)) ∧
+  check_type (WordT W64) v = (∃w. v = Litv (Word64 w)) ∧
+  check_type Float64T v = (∃w. v = Litv (Float64 w))
+End
+
+Definition dest_Litv_def:
+  dest_Litv (Litv v) = SOME v ∧
+  dest_Litv _ = NONE
+End
+
+Definition the_Litv_Float64_def:
+  the_Litv_Float64 (Litv (Float64 w)) = w
+End
+
+Definition do_test_def:
+  do_test Equal ty v1 v2 =
+    (if check_type ty v1 ∧ check_type ty v2 then
+       (if ty = Float64T
+        then Eq_val (fp64_equal (the_Litv_Float64 v1) (the_Litv_Float64 v2))
+        else do_eq v1 v2)
+     else Eq_type_error) ∧
+  do_test (Compare cmp) ty v1 v2 =
+    (case (ty, dest_Litv v1, dest_Litv v2) of
+     | (IntT,     SOME (IntLit i),  SOME (IntLit j))  => Eq_val (int_cmp cmp i j)
+     | (CharT,    SOME (Char c),    SOME (Char d))    => Eq_val (num_cmp cmp (ORD c) (ORD d))
+     | (WordT W8, SOME (Word8 w),   SOME (Word8 v))   => Eq_val (num_cmp cmp (w2n w) (w2n v))
+     | (Float64T, SOME (Float64 w), SOME (Float64 v)) => Eq_val (fp_cmp cmp w v)
+     | (StrT,     SOME (StrLit s),  SOME (StrLit t))  => Eq_val (str_cmp F cmp s t)
+     | _ => Eq_type_error) ∧
+  do_test (AltCompare cmp) ty v1 v2 =
+    (case (ty, dest_Litv v1, dest_Litv v2) of
+     | (StrT,     SOME (StrLit s),  SOME (StrLit t))  => Eq_val (str_cmp T cmp s t)
+     | _ => Eq_type_error)
+End
+
+Definition v_to_flat_def:
+  v_to_flat (semanticPrimitives$Litv v) = flatSem$Litv v ∧
+  v_to_flat (Conv x y) =
+    (if Conv x y = Boolv T then Boolv T else
+     if Conv x y = Boolv F then Boolv F else Vectorv []) ∧
+  v_to_flat _ = Vectorv []
+End
+
+Definition flat_to_v_def:
+  flat_to_v (flatSem$Litv v) = semanticPrimitives$Litv v ∧
+  flat_to_v (Conv x y) =
+    (if Conv x y = Boolv T then Boolv T else
+     if Conv x y = Boolv F then Boolv F else Vectorv []) ∧
+  flat_to_v _ = Vectorv []
+End
+
 Definition do_app_def:
   do_app s op (vs:flatSem$v list) =
   case (op, vs) of
-  | (Opn op, [Litv (IntLit n1); Litv (IntLit n2)]) =>
-    if ((op = Divide) ∨ (op = Modulo)) ∧ (n2 = 0) then
-      SOME (s, Rerr (Rraise div_exn_v))
-    else
-      SOME (s, Rval (Litv (IntLit (opn_lookup op n1 n2))))
-  | (Opb op, [Litv (IntLit n1); Litv (IntLit n2)]) =>
-    SOME (s, Rval (Boolv (opb_lookup op n1 n2)))
-  | (FP_top t_op, [Litv (Float64 w1); Litv (Float64 w2); Litv (Float64 w3)] =>
-      SOME (s,Rval (Litv (Float64 (fp_top_comp t_op w1 w2 w3)))))
-  | (FP_bop bop, [Litv (Float64 w1); Litv (Float64 w2)]) =>
-      SOME (s,Rval (Litv (Float64 (fp_bop_comp bop w1 w2))))
-  | (FP_uop uop, [Litv (Float64 w)]) =>
-      SOME (s,Rval (Litv (Float64 (fp_uop_comp uop w))))
-  | (FP_cmp cmp, [Litv (Float64 w1); Litv (Float64 w2)]) =>
-      SOME (s,Rval (Boolv (fp_cmp_comp cmp w1 w2)))
-  | (FpFromWord, [Litv (Word64 w)]) => SOME (s,Rval (Litv (Float64 w)))
-  | (FpToWord, [Litv (Float64 w)]) => SOME (s,Rval (Litv (Word64 w)))
-  | (Opw wz op, [Litv w1; Litv w2]) =>
-     (case do_word_op op wz w1 w2 of
-          | NONE => NONE
-          | SOME w => SOME (s, Rval (Litv w)))
-  | (Shift wz sh n, [Litv w]) =>
+  | (Src (Shift wz sh n), [Litv w]) =>
       (case do_shift sh n wz w of
          | NONE => NONE
          | SOME w => SOME (s, Rval (Litv w)))
-  | (Equality, [v1; v2]) =>
+  | (Src Equality, [v1; v2]) =>
     (case do_eq v1 v2 of
      | Eq_type_error => NONE
      | Eq_val b => SOME (s, Rval (Boolv b)))
-  | (Opassign, [Loc _ lnum; v]) =>
+  | (Src (Test test test_ty), [v1; v2]) =>
+    (case do_test test test_ty v1 v2 of
+     | Eq_type_error => NONE
+     | Eq_val b => SOME (s, Rval (Boolv b)))
+  | (Src (Arith a ty), vs) =>
+    (let vs = MAP flat_to_v vs in
+       if EVERY (check_type ty) vs then
+         (case do_arith a ty vs of
+          | SOME (INR res) => SOME (s, Rval (v_to_flat res))
+          | SOME (INL exn) => SOME (s, Rerr (Rraise div_exn_v))
+          | NONE           => NONE)
+       else NONE)
+  | (Src (FromTo ty1 ty2), [v]) =>
+    (let v = flat_to_v v in
+       if check_type ty1 v then
+         (case do_conversion v ty1 ty2 of
+          | SOME (INR res) => SOME (s, Rval (v_to_flat res))
+          | SOME (INL exn) => SOME (s, Rerr (Rraise chr_exn_v))
+          | NONE           => NONE)
+       else NONE)
+  | (Src Opassign, [Loc _ lnum; v]) =>
     (case store_assign lnum (Refv v) s.refs of
      | SOME s' => SOME (s with refs := s', Rval Unitv)
      | NONE => NONE)
-  | (Opref, [v]) =>
+  | (Src Opref, [v]) =>
     let (s',n) = (store_alloc (Refv v) s.refs) in
       SOME (s with refs := s', Rval (Loc T n))
-  | (Aw8alloc, [Litv (IntLit n); Litv (Word8 w)]) =>
+  | (Src Aw8alloc, [Litv (IntLit n); Litv (Word8 w)]) =>
     if n < 0 then
       SOME (s, Rerr (Rraise subscript_exn_v))
     else
@@ -271,7 +324,7 @@ Definition do_app_def:
         store_alloc (W8array (REPLICATE (Num (ABS n)) w)) s.refs
       in
         SOME (s with refs := s', Rval (Loc T lnum))
-  | (Aw8sub, [Loc _ lnum; Litv (IntLit i)]) =>
+  | (Src Aw8sub, [Loc _ lnum; Litv (IntLit i)]) =>
     (case store_lookup lnum s.refs of
      | SOME (W8array ws) =>
        if i < 0 then
@@ -283,7 +336,7 @@ Definition do_app_def:
            else
              SOME (s, Rval (Litv (Word8 (EL n ws))))
      | _ => NONE)
-  | (Aw8sub_unsafe, [Loc _ lnum; Litv (IntLit i)]) =>
+  | (Src Aw8sub_unsafe, [Loc _ lnum; Litv (IntLit i)]) =>
     (case store_lookup lnum s.refs of
      | SOME (W8array ws) =>
        if i < 0 then
@@ -295,12 +348,12 @@ Definition do_app_def:
            else
              SOME (s, Rval (Litv (Word8 (EL n ws))))
      | _ => NONE)
-  | (Aw8length, [Loc _ n]) =>
+  | (Src Aw8length, [Loc _ n]) =>
     (case store_lookup n s.refs of
      | SOME (W8array ws) =>
        SOME (s,Rval (Litv(IntLit(int_of_num(LENGTH ws)))))
      | _ => NONE)
-  | (Aw8update, [Loc _ lnum; Litv(IntLit i); Litv(Word8 w)]) =>
+  | (Src Aw8update, [Loc _ lnum; Litv(IntLit i); Litv(Word8 w)]) =>
     (case store_lookup lnum s.refs of
      | SOME (W8array ws) =>
        if i < 0 then
@@ -314,7 +367,7 @@ Definition do_app_def:
               | NONE => NONE
               | SOME s' => SOME (s with refs := s', Rval Unitv))
      | _ => NONE)
-  | (Aw8update_unsafe, [Loc _ lnum; Litv(IntLit i); Litv(Word8 w)]) =>
+  | (Src Aw8update_unsafe, [Loc _ lnum; Litv(IntLit i); Litv(Word8 w)]) =>
     (case store_lookup lnum s.refs of
      | SOME (W8array ws) =>
        if i < 0 then
@@ -328,37 +381,31 @@ Definition do_app_def:
               | NONE => NONE
               | SOME s' => SOME (s with refs := s', Rval Unitv))
      | _ => NONE)
-  | (WordFromInt wz, [Litv (IntLit i)]) =>
-    SOME (s, Rval (Litv (do_word_from_int wz i)))
-  | (WordToInt wz, [Litv w]) =>
-    (case do_word_to_int wz w of
-      | NONE => NONE
-      | SOME i => SOME (s, Rval (Litv (IntLit i))))
-  | (CopyStrStr, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len)]) =>
+  | (Src CopyStrStr, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len)]) =>
       SOME (s,
-      (case copy_array (str,off) len NONE of
+      (case copy_array (explode str,off) len NONE of
         NONE => Rerr (Rraise subscript_exn_v)
-      | SOME cs => Rval (Litv(StrLit(cs)))))
-  | (CopyStrAw8, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len);
+      | SOME cs => Rval (Litv(StrLit(implode cs)))))
+  | (Src CopyStrAw8, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len);
                   Loc _ dst;Litv(IntLit dstoff)]) =>
       (case store_lookup dst s.refs of
         SOME (W8array ws) =>
-          (case copy_array (str,off) len (SOME(ws_to_chars ws,dstoff)) of
+          (case copy_array (explode str,off) len (SOME(ws_to_chars ws,dstoff)) of
             NONE => SOME (s, Rerr (Rraise subscript_exn_v))
           | SOME cs =>
             (case store_assign dst (W8array (chars_to_ws cs)) s.refs of
               SOME s' =>  SOME (s with refs := s', Rval Unitv)
             | _ => NONE))
       | _ => NONE)
-  | (CopyAw8Str, [Loc _ src;Litv(IntLit off);Litv(IntLit len)]) =>
+  | (Src CopyAw8Str, [Loc _ src;Litv(IntLit off);Litv(IntLit len)]) =>
     (case store_lookup src s.refs of
       SOME (W8array ws) =>
       SOME (s,
         (case copy_array (ws,off) len NONE of
           NONE => Rerr (Rraise subscript_exn_v)
-        | SOME ws => Rval (Litv(StrLit(ws_to_chars ws)))))
+        | SOME ws => Rval (Litv(StrLit(implode (ws_to_chars ws))))))
     | _ => NONE)
-  | (CopyAw8Aw8, [Loc _ src;Litv(IntLit off);Litv(IntLit len);
+  | (Src CopyAw8Aw8, [Loc _ src;Litv(IntLit off);Litv(IntLit len);
                   Loc _ dst;Litv(IntLit dstoff)]) =>
     (case (store_lookup src s.refs, store_lookup dst s.refs) of
       (SOME (W8array ws), SOME (W8array ds)) =>
@@ -369,45 +416,35 @@ Definition do_app_def:
               SOME s' => SOME (s with refs := s', Rval Unitv)
             | _ => NONE))
     | _ => NONE)
-  | (Aw8xor_unsafe, [Loc _ dst; Litv (StrLit str_arg)]) =>
+  | (Src XorAw8Str_unsafe, [Loc _ dst; Litv (StrLit str_arg)]) =>
     (case store_lookup dst s.refs of
      | SOME (W8array ds) =>
-         (case xor_bytes (MAP (n2w o ORD) str_arg) ds of
+         (case xor_bytes (MAP (n2w o ORD) (explode str_arg)) ds of
           | NONE => NONE
           | SOME new_bs =>
               (case store_assign dst (W8array new_bs) s.refs of
                | NONE => NONE
                | SOME s' => SOME (s with refs := s', Rval Unitv)))
      | _ => NONE)
-  | (Ord, [Litv (Char c)]) =>
-    SOME (s, Rval (Litv(IntLit(int_of_num(ORD c)))))
-  | (Chr, [Litv (IntLit i)]) =>
-    SOME (s,
-          if (i < 0) ∨ (i > 255) then
-            Rerr (Rraise chr_exn_v)
-          else
-            Rval (Litv(Char(CHR(Num(ABS i))))))
-  | (Chopb op, [Litv (Char c1); Litv (Char c2)]) =>
-    SOME (s, Rval (Boolv (opb_lookup op (int_of_num(ORD c1)) (int_of_num(ORD c2)))))
-  | (Implode, [v]) =>
+  | (Src Implode, [v]) =>
     (case v_to_char_list v of
      | SOME ls =>
-       SOME (s, Rval (Litv (StrLit (IMPLODE ls))))
+       SOME (s, Rval (Litv (StrLit (implode ls))))
      | NONE => NONE)
-  | (Explode, [Litv (StrLit str)]) =>
-    (SOME (s, Rval (list_to_v (MAP (\c. Litv (Char c)) str))))
-  | (Strsub, [Litv (StrLit str); Litv (IntLit i)]) =>
+  | (Src Explode, [Litv (StrLit str)]) =>
+    (SOME (s, Rval (list_to_v (MAP (\c. Litv (Char c)) (explode str)))))
+  | (Src Strsub, [Litv (StrLit str); Litv (IntLit i)]) =>
     if i < 0 then
       SOME (s, Rerr (Rraise subscript_exn_v))
     else
       let n = (Num (ABS i)) in
-        if n >= LENGTH str then
+        if n >= strlen str then
           SOME (s, Rerr (Rraise subscript_exn_v))
         else
-          SOME (s, Rval (Litv (Char (EL n str))))
-  | (Strlen, [Litv (StrLit str)]) =>
-    SOME (s, Rval (Litv(IntLit(int_of_num(STRLEN str)))))
-  | (Strcat, [v]) =>
+          SOME (s, Rval (Litv (Char (strsub str n))))
+  | (Src Strlen, [Litv (StrLit str)]) =>
+    SOME (s, Rval (Litv(IntLit(int_of_num(strlen str)))))
+  | (Src Strcat, [v]) =>
       (case v_to_list v of
         SOME vs =>
           (case vs_to_string vs of
@@ -415,12 +452,12 @@ Definition do_app_def:
               SOME (s, Rval (Litv(StrLit str)))
           | _ => NONE)
       | _ => NONE)
-  | (VfromList, [v]) =>
+  | (Src VfromList, [v]) =>
     (case v_to_list v of
      | SOME vs =>
        SOME (s, Rval (Vectorv vs))
      | NONE => NONE)
-  | (Vsub, [Vectorv vs; Litv (IntLit i)]) =>
+  | (Src Vsub, [Vectorv vs; Litv (IntLit i)]) =>
     if i < 0 then
       SOME (s, Rerr (Rraise subscript_exn_v))
     else
@@ -429,14 +466,14 @@ Definition do_app_def:
           SOME (s, Rerr (Rraise subscript_exn_v))
         else
           SOME (s, Rval (EL n vs))
-  | (Vsub_unsafe, [Vectorv vs; Litv (IntLit i)]) =>
+  | (Src Vsub_unsafe, [Vectorv vs; Litv (IntLit i)]) =>
     if 0 ≤ i ∧ Num i < LENGTH vs then
       SOME (s, Rval (EL (Num i) vs))
     else
       NONE
-  | (Vlength, [Vectorv vs]) =>
+  | (Src Vlength, [Vectorv vs]) =>
     SOME (s, Rval (Litv (IntLit (int_of_num (LENGTH vs)))))
-  | (Aalloc, [Litv (IntLit n); v]) =>
+  | (Src Aalloc, [Litv (IntLit n); v]) =>
     if n < 0 then
       SOME (s, Rerr (Rraise subscript_exn_v))
     else
@@ -444,12 +481,12 @@ Definition do_app_def:
         store_alloc (Varray (REPLICATE (Num (ABS n)) v)) s.refs
       in
         SOME (s with refs := s', Rval (Loc T lnum))
-  | (AallocFixed, vs) =>
+  | (Src AallocFixed, vs) =>
     let (s',lnum) =
       store_alloc (Varray vs) s.refs
     in
       SOME (s with refs := s', Rval (Loc T lnum))
-  | (Asub, [Loc _ lnum; Litv (IntLit i)]) =>
+  | (Src Asub, [Loc _ lnum; Litv (IntLit i)]) =>
     (case store_lookup lnum s.refs of
      | SOME (Varray vs) =>
      if i < 0 then
@@ -461,7 +498,7 @@ Definition do_app_def:
          else
            SOME (s, Rval (EL n vs))
      | _ => NONE)
-  | (Asub_unsafe, [Loc _ lnum; Litv (IntLit i)]) =>
+  | (Src Asub_unsafe, [Loc _ lnum; Litv (IntLit i)]) =>
     (case store_lookup lnum s.refs of
      | SOME (Varray vs) =>
      if i < 0 then
@@ -473,12 +510,12 @@ Definition do_app_def:
          else
            SOME (s, Rval (EL n vs))
      | _ => NONE)
-  | (Alength, [Loc _ n]) =>
+  | (Src Alength, [Loc _ n]) =>
       (case store_lookup n s.refs of
        | SOME (Varray ws) =>
          SOME (s,Rval (Litv (IntLit(int_of_num(LENGTH ws)))))
        | _ => NONE)
-  | (Aupdate, [Loc _ lnum; Litv (IntLit i); v]) =>
+  | (Src Aupdate, [Loc _ lnum; Litv (IntLit i); v]) =>
     (case store_lookup lnum s.refs of
      | SOME (Varray vs) =>
      if i < 0 then
@@ -492,7 +529,7 @@ Definition do_app_def:
             | NONE => NONE
             | SOME s' => SOME (s with refs := s', Rval Unitv))
      | _ => NONE)
-  | (Aupdate_unsafe, [Loc _ lnum; Litv (IntLit i); v]) =>
+  | (Src Aupdate_unsafe, [Loc _ lnum; Litv (IntLit i); v]) =>
     (case store_lookup lnum s.refs of
      | SOME (Varray vs) =>
      if i < 0 then
@@ -506,22 +543,35 @@ Definition do_app_def:
             | NONE => NONE
             | SOME s' => SOME (s with refs := s', Rval Unitv))
      | _ => NONE)
-  | (ListAppend, [x1; x2]) =>
+  | (Src ListAppend, [x1; x2]) =>
     (case (v_to_list x1, v_to_list x2) of
      | (SOME xs, SOME ys) => SOME (s, Rval (list_to_v (xs ++ ys)))
      | _ => NONE)
-  | (ConfigGC, [Litv (IntLit n1); Litv (IntLit n2)]) =>
+  | (Src ConfigGC, [Litv (IntLit n1); Litv (IntLit n2)]) =>
        SOME (s, Rval Unitv)
-  | (FFI n, [Litv(StrLit conf); Loc _ lnum]) =>
+  | (Src (FFI n), [Litv(StrLit conf); Loc _ lnum]) =>
     (case store_lookup lnum s.refs of
      | SOME (W8array ws) =>
-       (case call_FFI s.ffi (ExtCall n) (MAP (λc. n2w(ORD c)) conf) ws of
+       (case call_FFI s.ffi (ExtCall n) (MAP (λc. n2w(ORD c)) (explode conf)) ws of
         | FFI_final outcome => SOME(s, Rerr (Rabort (Rffi_error outcome)))
         | FFI_return t' ws' =>
           (case store_assign lnum (W8array ws') s.refs of
            | SOME s' => SOME (s with <| refs := s'; ffi := t'|>, Rval Unitv)
            | NONE => NONE))
      | _ => NONE)
+  | (Src Opapp, _) => NONE (* handled specially in evaluate *)
+  | (Src Eval, _) => NONE (* handled specially in evaluate *)
+  | (Src (ThunkOp th_op), vs) =>
+     (case (th_op,vs) of
+      | (AllocThunk m, [v]) =>
+          (let (r,n) = store_alloc (Thunk m v) s.refs in
+             SOME (s with refs := r, Rval (Loc F n)))
+      | (UpdateThunk m, [Loc _ lnum; v]) =>
+          (case store_assign lnum (Thunk m v) s.refs of
+           | SOME r => SOME (s with refs := r, Rval (Conv NONE []))
+           | NONE => NONE)
+      | _ => NONE)
+  | (Src _, _) => NONE (* remaining ast ops have no semantics in flatLang *)
   | (GlobalVarAlloc n, []) =>
     SOME (s with globals := s.globals ++ REPLICATE n NONE, Rval Unitv)
   | (GlobalVarInit n, [v]) =>
@@ -547,16 +597,6 @@ Definition do_app_def:
        | _ => NONE)
   | (Id, [v1]) =>
     SOME (s, Rval v1)
-  | (ThunkOp th_op, vs) =>
-     (case (th_op,vs) of
-      | (AllocThunk m, [v]) =>
-          (let (r,n) = store_alloc (Thunk m v) s.refs in
-             SOME (s with refs := r, Rval (Loc F n)))
-      | (UpdateThunk m, [Loc _ lnum; v]) =>
-          (case store_assign lnum (Thunk m v) s.refs of
-           | SOME r => SOME (s with refs := r, Rval (Conv NONE []))
-           | NONE => NONE)
-      | _ => NONE)
   | _ => NONE
 End
 
@@ -581,16 +621,14 @@ QED
 
 Inductive pmatch_stamps_ok:
   ( (* exception constructors *)
-    ((cn, NONE), n_ps) ∈ c
-  ==> pmatch_stamps_ok c (SOME (cn, NONE)) (SOME (cn', NONE)) n_ps n_vs) ∧
+    pmatch_stamps_ok (SOME (cn, NONE)) (SOME (cn', NONE)) n_ps n_vs) ∧
   ( (* constructors *)
-    ((cn, SOME ty_id), n_ps) ∈ c ∧
         ty_id = ty_id' ∧ MEM (cn, n_ps) ctor_set ∧ MEM (cn', n_vs) ctor_set
-  ==> pmatch_stamps_ok c (SOME (cn, (SOME (ty_id, ctor_set))))
+  ==> pmatch_stamps_ok (SOME (cn, (SOME (ty_id, ctor_set))))
     (SOME (cn', SOME ty_id')) n_ps n_vs) ∧
   ( (* tuples *)
     n_ps = n_vs
-  ==> pmatch_stamps_ok c NONE NONE n_ps n_vs)
+  ==> pmatch_stamps_ok NONE NONE n_ps n_vs)
 End
 
 Definition pmatch_def:
@@ -605,10 +643,10 @@ Definition pmatch_def:
     else
       Match_type_error) ∧
   (pmatch s (Pcon stmp ps) (Conv stmp' vs) bindings =
-    if ~ pmatch_stamps_ok s.c stmp stmp' (LENGTH ps) (LENGTH vs) then
+    if ~ pmatch_stamps_ok stmp stmp' (LENGTH ps) (LENGTH vs) then
       Match_type_error
     else if OPTION_MAP FST stmp = OPTION_MAP FST stmp' ∧
-            LENGTH ps = LENGTH vs then
+       LENGTH ps = LENGTH vs then
       pmatch_list s ps vs bindings
     else
       No_match) ∧
@@ -661,15 +699,6 @@ Proof
   Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []
 QED
 
-Definition is_fresh_type_def:
-  is_fresh_type type_id ctors ⇔
-    !ctor. ctor ∈ ctors ⇒ !arity id. ctor ≠ ((id, SOME type_id), arity)
-End
-
-Definition is_fresh_exn_def:
-  is_fresh_exn exn_id ctors ⇔
-    !ctor. ctor ∈ ctors ⇒ !arity. ctor ≠ ((exn_id, NONE), arity)
-End
 
 Definition do_eval_def:
   do_eval (vs :v list) eval_config =
@@ -716,7 +745,7 @@ Definition update_thunk_def:
 End
 
 Definition AppUnit_def:
-  AppUnit x = flatLang$App None Opapp [x; Con None NONE []]
+  AppUnit x = flatLang$App None (Src Opapp) [x; Con None NONE []]
 End
 
 Definition exp_alt_size_def[simp]:
@@ -729,12 +758,12 @@ Definition exp_alt_size_def[simp]:
   (tra_size a0 +
    (option_size (pair_size (λx. x) (option_size (λx. x))) a1 +
     exp6_alt_size a2)) ∧
-  exp_alt_size (Var_local a0 a1) = 1 + (tra_size a0 + list_size char_size a1) ∧
+  exp_alt_size (Var_local a0 a1) = 1 + (tra_size a0 + mlstring_size a1) ∧
   exp_alt_size (Fun a0 a1 a2) =
-  1 + (list_size char_size a0 + (list_size char_size a1 + exp_alt_size a2)) ∧
+  1 + (mlstring_size a0 + (mlstring_size a1 + exp_alt_size a2)) ∧
   exp_alt_size (App a0 a1 a2) =
   1 + (tra_size a0 + (op_size a1 + exp6_alt_size a2))
-    + (if a1 = ThunkOp ForceThunk then 100 else 0) ∧
+    + (if a1 = Src (ThunkOp ForceThunk) then 100 else 0) ∧
   exp_alt_size (If a0 a1 a2 a3) =
   1 + (tra_size a0 + (exp_alt_size a1 + (exp_alt_size a2 + exp_alt_size a3))) ∧
   exp_alt_size (Mat a0 a1 a2) =
@@ -742,15 +771,15 @@ Definition exp_alt_size_def[simp]:
   exp_alt_size (Let a0 a1 a2 a3) =
   1 +
   (tra_size a0 +
-   (option_size (list_size char_size) a1 + (exp_alt_size a2 + exp_alt_size a3))) ∧
+   (option_size mlstring_size a1 + (exp_alt_size a2 + exp_alt_size a3))) ∧
   exp_alt_size (Letrec a0 a1 a2) =
-  1 + (list_size char_size a0 + (exp1_alt_size a1 + exp_alt_size a2)) ∧
+  1 + (mlstring_size a0 + (exp1_alt_size a1 + exp_alt_size a2)) ∧
   exp1_alt_size [] = 0 ∧
   exp1_alt_size (a0::a1) = 1 + (exp2_alt_size a0 + exp1_alt_size a1) ∧
-  exp2_alt_size (a0,a1) = 1 + (list_size char_size a0 + exp4_alt_size a1) ∧
+  exp2_alt_size (a0,a1) = 1 + (mlstring_size a0 + exp4_alt_size a1) ∧
   exp3_alt_size [] = 0 ∧
   exp3_alt_size (a0::a1) = 1 + (exp5_alt_size a0 + exp3_alt_size a1) ∧
-  exp4_alt_size (a0,a1) = 1 + (list_size char_size a0 + exp_alt_size a1) ∧
+  exp4_alt_size (a0,a1) = 1 + (mlstring_size a0 + exp_alt_size a1) ∧
   exp5_alt_size (a0,a1) = 1 + (pat_size a0 + exp_alt_size a1) ∧ exp6_alt_size [] = 0 ∧
   exp6_alt_size (a0::a1) = 1 + (exp_alt_size a0 + exp6_alt_size a1)
 End
@@ -771,9 +800,7 @@ Proof
 QED
 
 Definition dec_alt_size_def[simp]:
-  dec_alt_size (Dlet a) = 1 + exp_alt_size a ∧
-  dec_alt_size (Dtype a0 a1) = 1 + (a0 + spt_size (λx. x) a1) ∧
-  dec_alt_size (Dexn a0 a1) = 1 + (a0 + a1)
+  dec_alt_size a = 1 + exp_alt_size a
 End
 
 Definition evaluate_def:
@@ -807,13 +834,9 @@ Definition evaluate_def:
       | (s, Rval vs) => (s,Rval [Conv NONE (REVERSE vs)])
       | res => res) ∧
   (evaluate env s [Con _ (SOME cn) es] =
-    if (cn, LENGTH es) ∈ s.c
-    then
-      (case evaluate env s (REVERSE es) of
+    case evaluate env s (REVERSE es) of
       | (s, Rval vs) => (s, Rval [Conv (SOME cn) (REVERSE vs)])
-      | res => res)
-    else
-      (s, Rerr (Rabort Rtype_error))) ∧
+      | res => res) ∧
   (evaluate env s [Var_local _ n] = (s,
    case ALOOKUP env.v n of
    | SOME v => Rval [v]
@@ -822,7 +845,7 @@ Definition evaluate_def:
   (evaluate env s [App _ op es] =
    case fix_clock s (evaluate env s (REVERSE es)) of
    | (s, Rval vs) =>
-       if op = flatLang$Opapp then
+       if op = Src Opapp then
          (case flatSem$do_opapp (REVERSE vs) of
           | SOME (env', e) =>
             if s.clock = 0 then
@@ -830,7 +853,7 @@ Definition evaluate_def:
             else
               evaluate env' (dec_clock s) [e]
           | NONE => (s, Rerr (Rabort Rtype_error)))
-       else if op = flatLang$Eval then
+       else if op = Src Eval then
          (case do_eval (REVERSE vs) s.eval_config of
             | SOME (decs, eval_config, retv) =>
               let s = s with <| eval_config := eval_config |> in
@@ -840,14 +863,14 @@ Definition evaluate_def:
                | (s, NONE) => (s, Rval [retv])
                | (s, SOME e) => (s, Rerr e))
           | NONE => (s, Rerr (Rabort Rtype_error)))
-       else if op = ThunkOp ForceThunk then
+       else if op = Src (ThunkOp ForceThunk) then
          (case dest_thunk vs s.refs of
           | BadRef => (s, Rerr (Rabort Rtype_error))
           | NotThunk => (s, Rerr (Rabort Rtype_error))
           | IsThunk Evaluated v => (s, Rval [v])
           | IsThunk NotEvaluated f =>
-             (case evaluate <| v := [("f",f)] |> s
-                    [AppUnit (Var_local None "f")] of
+             (case evaluate <| v := [(«f»,f)] |> s
+                    [AppUnit (Var_local None «f»)] of
               | (s, Rval vs2) =>
                   (case update_thunk vs s.refs vs2 of
                    | NONE => (s, Rerr (Rabort Rtype_error))
@@ -884,7 +907,7 @@ Definition evaluate_def:
    if ALL_DISTINCT (MAP FST funs)
    then evaluate (env with v := build_rec_env funs env env.v) s [e]
    else (s, Rerr(Rabort Rtype_error))) ∧
-  (evaluate_dec s (Dlet e) =
+  (evaluate_dec s e =
    case evaluate <| v := [] |> s [e] of
    | (s, Rval x) =>
      if x = [Unitv] then
@@ -892,18 +915,6 @@ Definition evaluate_def:
      else
        (s, SOME (Rabort Rtype_error))
    | (s, Rerr e) => (s, SOME e)) ∧
-  (evaluate_dec s (Dtype id ctors) =
-    if is_fresh_type id s.c then
-      let new_c = { ((idx, SOME id), arity) |
-          ?max. lookup arity ctors = SOME max ∧ idx < max } in
-      (s with c updated_by $UNION new_c, NONE)
-    else
-      (s, SOME (Rabort Rtype_error))) ∧
-  (evaluate_dec s (Dexn id arity) =
-    if is_fresh_exn id s.c then
-      (s with c updated_by $UNION {((id, NONE), arity)}, NONE)
-    else
-      (s, SOME (Rabort Rtype_error))) ∧
   (evaluate_decs s [] = (s, NONE)) ∧
   (evaluate_decs s (d::ds) =
    case fix_clock s (evaluate_dec s d) of
@@ -924,51 +935,21 @@ Termination
   \\ simp [MAP_REVERSE, SUM_REVERSE, exp6_alt_size, AppUnit_def, char_size_def]
 End
 
-val op_thms = { nchotomy = op_nchotomy, case_def = op_case_def};
-val list_thms = { nchotomy = list_nchotomy, case_def = list_case_def};
-val option_thms = { nchotomy = option_nchotomy, case_def = option_case_def};
-val v_thms = { nchotomy = theorem "v_nchotomy", case_def = fetch "-" "v_case_def"};
-
-val store_v_thms = { nchotomy = semanticPrimitivesTheory.store_v_nchotomy, case_def = semanticPrimitivesTheory.store_v_case_def};
-val lit_thms = { nchotomy = astTheory.lit_nchotomy, case_def = astTheory.lit_case_def};
-val eq_v_thms = { nchotomy = semanticPrimitivesTheory.eq_result_nchotomy, case_def = semanticPrimitivesTheory.eq_result_case_def};
-val wz_thms = { nchotomy = astTheory.word_size_nchotomy, case_def = astTheory.word_size_case_def};
-
-val result_thms = { nchotomy = semanticPrimitivesTheory.result_nchotomy, case_def = semanticPrimitivesTheory.result_case_def };
-val ffi_result_thms = { nchotomy = ffiTheory.ffi_result_nchotomy, case_def = ffiTheory.ffi_result_case_def };
-val err_thms = { nchotomy = semanticPrimitivesTheory.error_result_nchotomy, case_def = semanticPrimitivesTheory.error_result_case_def }
-
-val eqs = LIST_CONJ (map prove_case_eq_thm
-  [op_thms, list_thms, option_thms, v_thms, store_v_thms, lit_thms,
-   eq_v_thms, wz_thms, result_thms, ffi_result_thms, err_thms])
+val eqs = LIST_CONJ (map TypeBase.case_eq_of
+  [``:op``, ``:'a list``, ``:'a option``, ``:v``, ``:'a store_v``, ``:lit``,
+   ``:eq_result``, ``:word_size``, ``:('a,'b) result``, ``:'a ffi_result``,
+   ``:'a error_result``])
 
 Theorem case_eq_thms =
   eqs
 
-Theorem pair_case_eq[local]:
-  pair_CASE x f = v ⇔ ?x1 x2. x = (x1,x2) ∧ f x1 x2 = v
-Proof
-  Cases_on `x` >>
- srw_tac[][]
-QED
-
-Theorem pair_lam_lem[local]:
-  !f v z. (let (x,y) = z in f x y) = v ⇔ ∃x1 x2. z = (x1,x2) ∧ (f x1 x2 = v)
-Proof
-  srw_tac[][]
-QED
-
-Theorem do_app_cases =
-  ``do_app st op vs = SOME (st',v)`` |>
-  (SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, eqs, pair_case_eq, pair_lam_lem, CaseEq "thunk_op"] THENC
-   SIMP_CONV (srw_ss()++COND_elim_ss) [LET_THM, eqs])
-
 Theorem do_app_const:
-   do_app s op vs = SOME (s',r) ⇒ s.clock = s'.clock ∧ s.c = s'.c
+  do_app s op vs = SOME (s',r) ⇒ s.clock = s'.clock
 Proof
-  rw [do_app_cases] >>
-  rw [] >>
-  rfs []
+  Cases_on `op` \\ rw [do_app_def,AllCaseEqs()]
+  \\ rpt (pairarg_tac \\ gvs []) \\ gvs []
+  \\ Cases_on `a` \\ gvs [do_app_def,AllCaseEqs()]
+  \\ rpt (pairarg_tac \\ gvs []) \\ gvs []
 QED
 
 Theorem evaluate_clock:
@@ -999,39 +980,12 @@ Theorem evaluate_def[compute,allow_rebind] =
 Theorem evaluate_ind[allow_rebind] =
   REWRITE_RULE [fix_clock_evaluate] evaluate_ind;
 
-Definition bool_ctors_def:
-  bool_ctors =
-    { ((true_tag, SOME bool_id), 0n)
-    ; ((false_tag, SOME bool_id), 0n) }
-End
-
-Definition list_ctors_def:
-  list_ctors =
-    { ((cons_tag, SOME list_id), 2n)
-    ; ((nil_tag, SOME list_id), 0n) }
-End
-
-Definition exn_ctors_def:
-  exn_ctors =
-    { ((div_tag, NONE), 0n)
-    ; ((chr_tag, NONE), 0n)
-    ; ((subscript_tag, NONE), 0n)
-    ; ((bind_tag, NONE), 0n) }
-End
-
-val _ = export_rewrites ["bool_ctors_def", "list_ctors_def", "exn_ctors_def"];
-
-Definition initial_ctors_def:
-   initial_ctors = bool_ctors UNION list_ctors UNION exn_ctors
-End
-
 Definition initial_state_def:
   initial_state ffi k ec =
     <| clock       := k
      ; refs        := []
      ; ffi         := ffi
      ; globals     := []
-     ; c           := initial_ctors
      ; eval_config := ec
      |> :('c,'ffi) flatSem$state
 End

@@ -39,7 +39,7 @@ Theorem check_unsat_compiled_thm =
 (* Prettifying the standard parts of all the theorems *)
 Definition installed_x64_def:
   installed_x64 ((code, data, cfg) :
-      (word8 list # word64 list # 64 backend$config))
+      (word8 list # word64 list # backend$config))
     mc ms
   <=>
     ?cbspace data_sp.
@@ -78,11 +78,11 @@ Theorem machine_code_sound:
   ∃out err.
     extract_fs fs (check_unsat_io_events cl fs) =
       SOME (add_stdout (add_stderr fs err) out) ∧
-  (out ≠ strlit "" ⇒
+  (out ≠ «» ⇒
     if LENGTH cl = 1 then
       out = concat (print_dimacs (enc ()))
     else if LENGTH cl = 2 then
-      out = strlit "s VERIFIED UNSAT\n" ∧
+      out = «s VERIFIED UNSAT\n» ∧
       ramsey_number 4 = 18
     else F)
 Proof

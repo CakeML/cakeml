@@ -18,13 +18,11 @@ Libs
   preamble ml_translatorLib cfTacticsBaseLib cfTacticsLib
   basisFunctionsLib ml_progLib[qualified]
 
-val cakeml = append_prog o process_topdecs;
-
 val _ = translation_extends "basisProg"
 
 (* We use basisFunctionsLib for managing the state resulting from
-   the evaluation of several toplevel declarations, and the append_prog
-   function to add program definitions to the stored state
+   the evaluation of several toplevel declarations, and use the
+   Quote add_cakeml functionality to add program definitions to the stored state
 *)
 (* Then, write the code for the programs we want to specify.
 
@@ -32,7 +30,7 @@ val _ = translation_extends "basisProg"
    function we want to specify (it takes a list of bytes, and returns
    a new bytearray containing those bytes).
 *)
-Quote cakeml:
+Quote add_cakeml:
    fun length l =
      case l of
          [] => 0

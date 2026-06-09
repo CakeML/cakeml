@@ -9,8 +9,6 @@ Libs
 
 val _ = translation_extends "graphProg";
 
-val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
-
 (* The encoder *)
 
 (* Translate the string converter *)
@@ -20,7 +18,7 @@ val res = translate FOLDN_def;
 val res = translate full_encode_eq;
 
 (* parse input from f1 f2 and run encoder *)
-val parse_and_enc = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun parse_and_enc f1 f2 =
   case parse_lad f1 of
     Inl err => Inl err
@@ -28,7 +26,8 @@ val parse_and_enc = (append_prog o process_topdecs) `
   (case parse_lad f2 of
     Inl err => Inl err
   | Inr target =>
-    Inr (full_encode pattern target))`
+    Inr (full_encode pattern target))
+End
 
 Theorem parse_and_enc_spec:
   STRING_TYPE f1 f1v ∧
@@ -45,8 +44,10 @@ Theorem parse_and_enc_spec:
     & ∃res.
      SUM_TYPE STRING_TYPE
        (LIST_TYPE
-       (PAIR_TYPE PBC_PBOP_TYPE
-          (PAIR_TYPE (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE))) INT))) res v ∧
+        (PAIR_TYPE
+        (OPTION_TYPE STRING_TYPE)
+         (PAIR_TYPE PBC_PBOP_TYPE
+            (PAIR_TYPE (LIST_TYPE (PAIR_TYPE INT (PBC_LIT_TYPE STRING_TYPE))) INT)))) res v ∧
       case res of
         INL err =>
         get_graph_lad fs f1 = NONE ∨ get_graph_lad fs f2 = NONE
@@ -76,16 +77,16 @@ Proof
 QED
 
 Definition UNSAT_string_def:
-  UNSAT_string = strlit "s VERIFIED NOT SUBGRAPH ISOMORPHIC\n"
+  UNSAT_string = «s VERIFIED NOT SUBGRAPH ISOMORPHIC\n»
 End
 
 Definition SAT_string_def:
-  SAT_string = strlit "s VERIFIED SUBGRAPH ISOMORPHIC\n"
+  SAT_string = «s VERIFIED SUBGRAPH ISOMORPHIC\n»
 End
 
 Definition check_unsat_3_sem_def:
   check_unsat_3_sem fs f1 f2 out ⇔
-  (out ≠ strlit"" ⇒
+  (out ≠ «» ⇒
   ∃gp gt.
     get_graph_lad fs f1 = SOME gp ∧
     get_graph_lad fs f2 = SOME gt ∧
@@ -102,7 +103,7 @@ Definition res_to_string_def:
     case h of
       DUnsat => INR UNSAT_string
     | DSat => INR SAT_string
-    | _ => INL (strlit "c Unexpected conclusion for subgraph isomorphism problem.\n"))
+    | _ => INL «c Unexpected conclusion for subgraph isomorphism problem.\n»)
 End
 
 val res = translate (res_to_string_def |> SIMP_RULE std_ss [UNSAT_string_def,SAT_string_def]);
@@ -110,22 +111,26 @@ val res = translate (res_to_string_def |> SIMP_RULE std_ss [UNSAT_string_def,SAT
 Definition mk_prob_def:
   mk_prob fml = (NONE,NONE,fml):mlstring list option #
     ((int # mlstring pbc$lit) list # int) option #
-    (pbop # (int # mlstring pbc$lit) list # int) list
+    (mlstring option #
+      (pbop # (int # mlstring pbc$lit) list # int)) list
 End
 
 val res = translate mk_prob_def;
 
-val check_unsat_3 = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun check_unsat_3 f1 f2 f3 =
   case parse_and_enc f1 f2 of
     Inl err => TextIO.output TextIO.stdErr err
   | Inr fml =>
-    let val probt = default_prob in
+    let val probt = default_prob
+        val prob = mk_prob fml
+        val prob = strip_annot_prob prob in
     (case
-      res_to_string (check_unsat_top_norm False (mk_prob fml) probt f3) of
+      res_to_string (check_unsat_top_norm False prob probt f3) of
       Inl err => TextIO.output TextIO.stdErr err
     | Inr s => TextIO.print s)
-    end`
+    end
+End
 
 Theorem check_unsat_3_spec:
   STRING_TYPE f1 f1v ∧ validArg f1 ∧
@@ -174,6 +179,7 @@ Proof
   >-
     (xvar>>xsimpl)>>
   xlet_autop>>
+  xlet_autop>>
   xlet`POSTv v. STDIO fs * &BOOL F v`
   >-
     (xcon>>xsimpl)>>
@@ -198,7 +204,7 @@ Proof
     qexists_tac`emp`>>xsimpl>>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
-    qexists_tac`strlit ""`>>
+    qexists_tac`«»`>>
     rename1`add_stderr _ err`>>
     qexists_tac`err`>>xsimpl>>rw[]>>
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -211,7 +217,7 @@ Proof
     qexists_tac`emp`>>xsimpl>>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
-    qexists_tac`strlit ""`>>
+    qexists_tac`«»`>>
     rename1`add_stderr _ err`>>
     qexists_tac`err`>>xsimpl>>rw[]>>
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -222,9 +228,10 @@ Proof
     qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
     rw[]>>
     qexists_tac`SAT_string`>>simp[]>>
-    qexists_tac`strlit ""`>>
+    qexists_tac`«»`>>
     simp[STD_streams_stderr,add_stdo_nil]>>
     xsimpl>>
+    fs[pb_parseTheory.strip_annot_prob_def,pbcTheory.pres_set_list_def]>>
     (drule_at Any) full_encode_sem_concl>>
     fs[]>>
     impl_tac >-
@@ -236,9 +243,10 @@ Proof
     qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
     rw[]>>
     qexists_tac`UNSAT_string`>>simp[]>>
-    qexists_tac`strlit ""`>>
+    qexists_tac`«»`>>
     simp[STD_streams_stderr,add_stdo_nil]>>
     xsimpl>>
+    fs[pb_parseTheory.strip_annot_prob_def,pbcTheory.pres_set_list_def]>>
     (drule_at Any) full_encode_sem_concl>>
     fs[]>>
     impl_tac >-
@@ -249,7 +257,7 @@ Proof
   qexists_tac`emp`>>xsimpl>>
   qexists_tac`fs`>>xsimpl>>
   rw[]>>
-  qexists_tac`strlit ""`>>
+  qexists_tac`«»`>>
   rename1`add_stderr _ err`>>
   qexists_tac`err`>>xsimpl>>rw[]>>
   fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -259,20 +267,21 @@ QED
 Definition check_unsat_2_sem_def:
   check_unsat_2_sem fs f1 f2 out ⇔
   case get_graph_lad fs f1 of
-    NONE => out = strlit ""
+    NONE => out = «»
   | SOME gpp =>
   case get_graph_lad fs f2 of
-    NONE => out = strlit ""
+    NONE => out = «»
   | SOME gtt =>
-    out = concat (print_prob (mk_prob (full_encode gpp gtt)))
+    out = concat (print_annot_prob (mk_prob (full_encode gpp gtt)))
 End
 
-val check_unsat_2 = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun check_unsat_2 f1 f2 =
   case parse_and_enc f1 f2 of
     Inl err => TextIO.output TextIO.stdErr err
   | Inr fml =>
-    TextIO.print_list (print_prob (mk_prob fml))`
+    TextIO.print_list (print_annot_prob (mk_prob fml))
+End
 
 Theorem check_unsat_2_spec:
   STRING_TYPE f1 f1v ∧ validArg f1 ∧
@@ -316,23 +325,24 @@ Proof
   asm_exists_tac>>xsimpl>>
   qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
   rw[]>>
-  qexists_tac`strlit ""`>>
+  qexists_tac`«»`>>
   simp[STD_streams_stderr,add_stdo_nil]>>
   xsimpl
 QED
 
 Definition usage_string_def:
-  usage_string = strlit "Usage: cake_pb_iso <LAD file (pattern)> <LAD file (target)> <optional: PB proof file>\n"
+  usage_string = «Usage: cake_pb_iso <LAD file (pattern)> <LAD file (target)> <optional: PB proof file>\n»
 End
 
 val r = translate usage_string_def;
 
-val main = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun main u =
   case CommandLine.arguments () of
     [f1,f2] => check_unsat_2 f1 f2
   | [f1,f2,f3] => check_unsat_3 f1 f2 f3
-  | _ => TextIO.output TextIO.stdErr usage_string`
+  | _ => TextIO.output TextIO.stdErr (mk_usage_string usage_string)
+End
 
 Definition main_sem_def:
   main_sem fs cl out =
@@ -340,7 +350,7 @@ Definition main_sem_def:
     check_unsat_2_sem fs (EL 1 cl) (EL 2 cl) out
   else if LENGTH cl = 4 then
     check_unsat_3_sem fs (EL 1 cl) (EL 2 cl) out
-  else out = strlit ""
+  else out = «»
 End
 
 Theorem STDIO_refl:
@@ -371,11 +381,13 @@ Proof
   Cases_on`t`>>fs[LIST_TYPE_def]
   >- (
     xmatch>>
+    assume_tac (theorem "usage_string_v_thm")>>
+    xlet_autop>>
     xapp_spec output_stderr_spec \\ xsimpl>>
     rename1`COMMANDLINE cl`>>
     qexists_tac`COMMANDLINE cl`>>xsimpl>>
-    qexists_tac `usage_string` >>
-    simp [theorem "usage_string_v_thm"] >>
+    qexists_tac `mk_usage_string usage_string` >>
+    simp [] >>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -383,11 +395,13 @@ Proof
   Cases_on`t'`>>fs[LIST_TYPE_def]
   >- (
     xmatch>>
+    assume_tac (theorem "usage_string_v_thm")>>
+    xlet_autop>>
     xapp_spec output_stderr_spec \\ xsimpl>>
     rename1`COMMANDLINE cl`>>
     qexists_tac`COMMANDLINE cl`>>xsimpl>>
-    qexists_tac `usage_string` >>
-    simp [theorem "usage_string_v_thm"] >>
+    qexists_tac `mk_usage_string usage_string` >>
+    simp [] >>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -407,11 +421,13 @@ Proof
     fs[wfcl_def]>>
     rw[]>>metis_tac[STDIO_refl])>>
   xmatch>>
+  assume_tac (theorem "usage_string_v_thm")>>
+  xlet_autop>>
   xapp_spec output_stderr_spec \\ xsimpl>>
   rename1`COMMANDLINE cl`>>
   qexists_tac`COMMANDLINE cl`>>xsimpl>>
-  qexists_tac `usage_string` >>
-  simp [theorem "usage_string_v_thm"] >>
+  qexists_tac `mk_usage_string usage_string` >>
+  simp [] >>
   qexists_tac`fs`>>xsimpl>>
   rw[]>>
   fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>

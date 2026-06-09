@@ -9,7 +9,7 @@ Libs
   preamble
 
 
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 Overload find_name = ``tlookup``
 
@@ -20,13 +20,13 @@ End
 
 Definition inst_find_name_def:
   inst_find_name f i =
-    dtcase i of
+    case i of
     | Skip => Skip
     | Const r w => Const (find_name f r) w
     | Arith (Binop bop d r ri) =>
         Arith (Binop bop (find_name f d) (find_name f r) (ri_find_name f ri))
-    | Arith (Shift sop d r i) =>
-        Arith (Shift sop (find_name f d) (find_name f r) i)
+    | Arith (Shift sop d r ri) =>
+        Arith (Shift sop (find_name f d) (find_name f r) (ri_find_name f ri))
     | Arith (Div r1 r2 r3) =>
         Arith (Div (find_name f r1) (find_name f r2) (find_name f r3))
     | Arith (AddCarry r1 r2 r3 r4) =>
@@ -55,23 +55,24 @@ End
 
 local val comp_quotation = `
   comp f p =
-    dtcase p of
+    case p of
     | Halt r => Halt (find_name f r)
     | Raise r => Raise (find_name f r)
+    | Break n => Break n
+    | Continue n => Continue n
     | Return r => Return (find_name f r)
     | Inst i => Inst (inst_find_name f i)
     | LocValue i l1 l2 => LocValue (find_name f i) l1 l2
     | Seq p1 p2 => Seq (comp f p1) (comp f p2)
     | If c r ri p1 p2 =>
         If c (find_name f r) (ri_find_name f ri) (comp f p1) (comp f p2)
-    | While c r ri p1 =>
-        While c (find_name f r) (ri_find_name f ri) (comp f p1)
+    | Loop p1 => Loop (comp f p1)
     | Call ret dest exc =>
-        Call (dtcase ret of
+        Call (case ret of
               | NONE => NONE
               | SOME (p1,lr,l1,l2) => SOME (comp f p1,find_name f lr,l1,l2))
              (dest_find_name f dest)
-             (dtcase exc of
+             (case exc of
               | NONE => NONE
               | SOME (p2,l1,l2) => SOME (comp f p2,l1,l2))
     | Install r1 r2 r3 r4 r5 => Install (find_name f r1) (find_name f r2)
@@ -88,7 +89,7 @@ val comp_def = Define comp_quotation
 Theorem comp_pmatch = Q.prove(
   `∀f p.` @
     (comp_quotation |>
-     map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
+     map (fn QUOTE s => Portable.replace_string {from="case",to="pmatch"} s |> QUOTE
          | aq => aq)),
    rpt(
     rpt strip_tac
@@ -113,4 +114,3 @@ Definition names_ok_def:
       ALL_DISTINCT xs /\
       EVERY (\x. x < reg_count /\ ~(MEM x avoid_regs)) xs
 End
-

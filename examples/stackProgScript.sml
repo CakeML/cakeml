@@ -16,8 +16,8 @@ Datatype:
 End
 val _ = register_exn_type ``:exn_type``;
 
-val stack_decls = process_topdecs
-   ‘fun empty_stack u = Ref (Array.arrayEmpty (), 0)
+Quote add_cakeml:
+   fun empty_stack u = Ref (Array.arrayEmpty (), 0)
 
     fun push q e =
         case !q of (a,i) =>
@@ -35,9 +35,8 @@ val stack_decls = process_topdecs
     fun pop q =
       case !q of
         (a,i) => if i = 0 then raise Emptystack
-                 else let val x = Array.sub a (i-1) in (q := (a, i-1); x) end’;
-
-val _ = append_prog stack_decls;
+                 else let val x = Array.sub a (i-1) in (q := (a, i-1); x) end
+End
 
 Definition EmptyStack_exn_def:
   EmptyStack_exn v = STACKPROG_EXN_TYPE_TYPE EmptyStack v

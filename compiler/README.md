@@ -21,7 +21,7 @@ pair of output strings for standard error and standard output (the latter
 containing the generated machine code if successful).
 
 [dafny](dafny):
-A verified VCG and verified compiler for Dafny
+A verified VCG and verified compiler for Dafny.
 
 [encoders](encoders):
 Encoders for CakeML's ASM abstract assembly language into each of the concrete
@@ -44,4 +44,4 @@ Some definitions and proofs used in the proof of the CakeML
 and Candle read-eval-print loop (REPL).
 
 [scheme](scheme):
-A compiler from Scheme to CakeML
+A compiler from Scheme to CakeML.

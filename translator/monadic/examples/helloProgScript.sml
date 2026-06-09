@@ -17,10 +17,10 @@ val _ = set_up_monadic_translator ();
 val _ = translation_extends "basisProg";
 
 (* Pattern matching
- * Note that `dtcase` has to be used from now on in the
+ * Note that `case` has to be used from now on in the
  * function definitions (and not `case`)
  *)
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+val _ = patternMatchesSyntax.temp_enable_pmatch();
 
 (* Create the data type to handle the references and I/O. *)
 Datatype:
@@ -43,7 +43,7 @@ End
 
 (* A recursive monadic function *)
 Definition rec_fun_def:
-  rec_fun l = dtcase l of []    => return (0 : num)
+  rec_fun l = case l of []    => return (0 : num)
                         | x::l' => do x <- rec_fun l'; return (1+x) od
 End
 
@@ -78,7 +78,7 @@ val store_fun_v_thm = store_fun_def |> m_translate;
 val if_fun_v_thm = if_fun_def |> m_translate;
 
 Definition hello_def:
-  hello (u:unit) = stdio (print (strlit "Hello")) : (state_refs, unit, unit) M
+  hello (u:unit) = stdio (print «Hello») : (state_refs, unit, unit) M
 End
 
 val res = m_translate hello_def;

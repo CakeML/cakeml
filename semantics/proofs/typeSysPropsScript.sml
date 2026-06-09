@@ -3,7 +3,7 @@
 *)
 Theory typeSysProps
 Ancestors
-  ast namespace typeSystem typeSoundInvariants astProps
+  ast namespace typeSystem typeSoundInvariants
   namespaceProps semanticPrimitivesProps[qualified]
 Libs
   preamble
@@ -912,7 +912,8 @@ val t_thms = { nchotomy = t_nchotomy, case_def = t_case_def };
 val word_size_thms = { nchotomy = word_size_nchotomy, case_def = word_size_case_def };
 val id_thms = { nchotomy = id_nchotomy, case_def = id_case_def };
 val thms = [ op_thms, list_thms, t_thms, word_size_thms, id_thms ];
-val eqs = ([pair_case_eq,bool_case_eq]@(List.map prove_case_eq_thm thms));
+val eqs = ([pair_case_eq,bool_case_eq]@(List.map TypeBase.case_eq_of
+  [``:op``, ``:'a list``, ``:t``, ``:word_size``, ``:('a,'b) id``]));
 val elims = List.map prove_case_elim_thm thms;
 
 Theorem type_op_cases =
@@ -1325,7 +1326,21 @@ Proof
      srw_tac[][] >>
      TRY(cases_on`wz`\\CHANGED_TAC(fs[])) >>
      TRY (Cases_on ‘v31’ >> fs[]) >>
-     full_simp_tac(srw_ss())[deBruijn_subst_def] >>
+     full_simp_tac(srw_ss())[deBruijn_subst_def]
+     >~ [‘supported_arith’] >-
+      (qexists_tac ‘REPLICATE (LENGTH ts) (t_of ty)’
+       \\ Cases_on ‘ty’ using semanticPrimitivesPropsTheory.prim_type_cases
+       >> gvs [t_of_def, deBruijn_subst_def, EVERY_REPLICATE,
+               LENGTH_EQ_NUM_compute, REPLICATE_compute]
+       >> TRY (Cases_on ‘a’)
+       >> gvs [t_of_def, deBruijn_subst_def, EVERY_REPLICATE,
+               LENGTH_EQ_NUM_compute, REPLICATE_compute])
+     >~ [‘supported_conversion ty1 ty2’] >-
+      (Cases_on ‘ty1’ using semanticPrimitivesPropsTheory.prim_type_cases >> gvs [t_of_def,deBruijn_subst_def])
+     >~ [‘supported_conversion ty1 ty2’] >-
+      (Cases_on ‘ty2’ using semanticPrimitivesPropsTheory.prim_type_cases >> gvs [t_of_def,deBruijn_subst_def])
+     >~ [‘t_of ty’] >-
+      (Cases_on ‘ty’ using semanticPrimitivesPropsTheory.prim_type_cases >> gvs [t_of_def,deBruijn_subst_def]) >>
      metis_tac [])
    >- metis_tac [SIMP_RULE (srw_ss()) [PULL_FORALL] type_e_subst_lem3, ADD_COMM])
  >- (full_simp_tac(srw_ss())[RES_FORALL] >>
@@ -3031,12 +3046,11 @@ Overload tmenv_dom =
 
 open boolSimps semanticPrimitivesPropsTheory
 
-Definition tenv_names_def:
+Definition tenv_names_def[simp]:
   (tenv_names Empty = {}) ∧
   (tenv_names (Bind_tvar _ e) = tenv_names e) ∧
   (tenv_names (Bind_name n _ _ e) = n INSERT tenv_names e)
 End
-val _ = export_rewrites["tenv_names_def"]
 
 Theorem lookup_tenv_names:
    ∀tenv n inc x. lookup_tenv_val n inc tenv = SOME x ⇒ n ∈ tenv_names tenv

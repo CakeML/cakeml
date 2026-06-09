@@ -1,5 +1,5 @@
 (*
-  Compilation from crepLang to panLang.
+  Compilation from crepLang to loopLang.
 *)
 Theory crep_to_loop
 Ancestors
@@ -111,12 +111,12 @@ End
 
 Definition compile_def:
   (compile _ _ (Skip:'a crepLang$prog) = (Skip:'a loopLang$prog)) /\
-  (compile _ _ Break = Break) /\
-  (compile _ _ Continue = Continue) /\
+  (compile _ _ Break = Break 0) /\
+  (compile _ _ Continue = Continue 0) /\
   (compile _ _ Tick = Tick) /\
   (compile ctxt l (Return e) =
     let (p, le, ntmp, nl) = compile_exp ctxt (ctxt.vmax + 1) l e in
-      nested_seq (p ++ [Assign ntmp le; Return ntmp])) /\
+      nested_seq (p ++ [Assign ntmp le; Return [ntmp]])) /\
   (compile ctxt l (Raise eid) =
     Seq (Assign (ctxt.vmax + 1) (Const eid)) (Raise (ctxt.vmax + 1))) /\
   (compile ctxt l (ShMem op r ad) =
@@ -152,6 +152,11 @@ Definition compile_def:
        let (p,le,tmp, l) = compile_exp ctxt (ctxt.vmax + 1) l e in
         nested_seq (p ++ [Assign n le])
      | NONE => Skip) /\
+  (compile ctxt l (Primitive lhss pop rhss) =
+    case (OPT_MMAP (FLOOKUP ctxt.vars) lhss,
+          OPT_MMAP (FLOOKUP ctxt.vars) rhss) of
+     | (SOME nlhss, SOME nrhss) => Primitive nlhss pop nrhss
+     | _ => Skip) /\
   (compile ctxt l (Dec v e prog) =
     let (p,le,tmp,nl) = compile_exp ctxt (ctxt.vmax + 1) l e;
          nctxt = ctxt with <|vars := ctxt.vars |+ (v,tmp);
@@ -171,7 +176,7 @@ Definition compile_def:
      Loop l (nested_seq (np ++ [
                 Assign tmp le;
                 If NotEqual tmp (Imm 0w)
-                   (Seq lp Continue) Break l]))
+                   (Seq lp (Continue 0)) (Break 0) l]))
           l) /\
   (compile ctxt l (Call call_type e es) =
    let dest = find_lab ctxt e;
@@ -188,14 +193,14 @@ Definition compile_def:
                   | SOME (eid, ep) =>
                     let cpe = compile ctxt l ep in
                       (If NotEqual en (Imm eid) (Raise en) (Seq Tick cpe) l)
-           in (SOME (rn, l), SOME (en, pe, pr, l))
+           in (SOME ([rn], l), SOME (en, pe, pr, l))
    in
       nested_seq (p ++ MAP2 Assign nargs les ++ [Call rt1 (SOME dest) nargs rt2])) /\
   (compile ctxt l (ExtCall f ptr1 len1 ptr2 len2) =
     case (FLOOKUP ctxt.vars ptr1, FLOOKUP ctxt.vars len1,
           FLOOKUP ctxt.vars ptr2, FLOOKUP ctxt.vars len2) of
      | (SOME pc, SOME lc, SOME pc', SOME lc') =>
-         FFI (explode f) pc lc pc' lc' l
+         FFI f pc lc pc' lc' l
      | _ => Skip)
 End
 
@@ -228,7 +233,7 @@ Definition comp_func_def:
 End
 
 Definition first_name_def:
-  first_name = 62:num
+  first_name = 64:num
 End
 
 Definition make_funcs_def:
@@ -251,5 +256,3 @@ Definition compile_prog_def:
           loop_live$optimise (comp params (crep_arith$simp_prog body))))
    fnums prog
 End
-
-

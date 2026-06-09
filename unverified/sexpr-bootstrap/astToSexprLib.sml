@@ -1,6 +1,6 @@
 structure astToSexprLib = struct
 
-open preamble fromSexpTheory
+open preamble mlstringSyntax fromSexpTheory
 
 datatype exp = exp_tuple of exp list | exp_list of exp list | exp_str of string;
 
@@ -18,7 +18,7 @@ fun escape_char c =
 val fromHOLchar =
   escape_wrap o escape_char o stringSyntax.fromHOLchar;
 val fromHOLstring =
-  escape_wrap o (String.translate escape_char) o stringSyntax.fromHOLstring;
+  escape_wrap o (String.translate escape_char) o mlstringSyntax.dest_mlstring;
 val fromHOLnum = Arbnumcore.toString o numSyntax.dest_numeral;
 
 fun char_to_exp c = exp_list [exp_str "char", exp_str (fromHOLchar c)]
@@ -56,11 +56,11 @@ fun loc_to_exp xs =
     exp_list [exp_str (join (map loc_to_str xs))]
   end
 
-val int_lit = ``ast$IntLit``;
-val char_lit = ``ast$Char``;
-val word8_lit = ``ast$Word8``;
-val word64_lit = ``ast$Word64``;
-val float64_lit = prim_mk_const{Thy = "ast", Name = "Float64"}
+val int_lit = astSyntax.IntLit_tm;
+val char_lit = astSyntax.Char_tm;
+val word8_lit = astSyntax.Word8_tm;
+val word64_lit = astSyntax.Word64_tm;
+val float64_lit = prim_mk_const{Thy = "ast", Name = "Float64"};
 fun lit_to_exp t =
   let
     val (x, xs) = strip_comb t
@@ -74,10 +74,25 @@ fun lit_to_exp t =
     else string_to_exp h
   end
 
-val shift_op = ``ast$Shift``;
-val to_int_op = ``ast$WordToInt``;
-val from_int_op = ``ast$WordFromInt``;
-val ffi_op = ``ast$FFI``;
+val shift_op = astSyntax.Shift_tm;
+val test_op = prim_mk_const{Thy="ast",Name="Test"};
+val arith_op = prim_mk_const{Thy="ast",Name="Arith"};
+val from_to_op = prim_mk_const{Thy="ast",Name="FromTo"};
+val ffi_op = astSyntax.FFI_tm;
+val Compare_tm = prim_mk_const{Thy="ast",Name="Compare"};
+val AltCompare_tm = prim_mk_const{Thy="ast",Name="AltCompare"};
+val WordT_tm = prim_mk_const{Thy="ast",Name="WordT"};
+val wordT_W8 = mk_comb(WordT_tm, astSyntax.W8);
+val wordT_W64 = mk_comb(WordT_tm, astSyntax.W64);
+val test_eq = prim_mk_const{Thy="ast",Name="Equal"};
+val test_lt = mk_comb(Compare_tm, astSyntax.Lt)
+val test_leq = mk_comb(Compare_tm, astSyntax.Leq)
+val test_gt = mk_comb(Compare_tm, astSyntax.Gt)
+val test_geq = mk_comb(Compare_tm, astSyntax.Geq)
+val test_alt_lt = mk_comb(AltCompare_tm, astSyntax.Lt)
+val test_alt_leq = mk_comb(AltCompare_tm, astSyntax.Leq)
+val test_alt_gt = mk_comb(AltCompare_tm, astSyntax.Gt)
+val test_alt_geq = mk_comb(AltCompare_tm, astSyntax.Geq)
 fun op_to_exp arg =
   let
     val underscore_filter =
@@ -89,6 +104,30 @@ fun op_to_exp arg =
                         | s => underscore_filter s
     fun wordInt xs s = exp_str ((hd (map to_string xs)) ^ s)
     fun ffi xs = exp_tuple [exp_str "FFI", string_to_exp (hd xs)]
+    fun test_ty x =
+      if aconv x wordT_W8 then exp_str "Word8T" else
+      if aconv x wordT_W64 then exp_str "Word64T" else
+        exp_str (to_string x)
+    fun test_name x =
+      if aconv x test_eq      then exp_str "Equal" else
+      if aconv x test_lt      then exp_str "Less" else
+      if aconv x test_leq     then exp_str "LessEq" else
+      if aconv x test_gt      then exp_str "Greater" else
+      if aconv x test_geq     then exp_str "GreaterEq" else
+      if aconv x test_alt_lt  then exp_str "AltLess" else
+      if aconv x test_alt_leq then exp_str "AltLessEq" else
+      if aconv x test_alt_gt  then exp_str "AltGreater" else
+      if aconv x test_alt_geq then exp_str "AltGreaterEq" else
+        failwith ("test_name failed for: " ^ term_to_string x)
+    fun test xs = exp_tuple [exp_str "Test",
+                             test_name (hd xs),
+                             test_ty (hd (tl xs))]
+    fun from_to xs = exp_tuple [exp_str "FromTo",
+                                test_ty (hd xs),
+                                test_ty (hd (tl xs))]
+    fun arith xs = exp_tuple [exp_str "Arith",
+                              exp_str (hd xs |> dest_const |> fst),
+                              test_ty (hd (tl xs))]
     fun shift xs =
       let
         val consts = List.take (xs, 2)
@@ -99,22 +138,22 @@ fun op_to_exp arg =
     val (x, xs) = strip_comb arg
   in
     if same_const x shift_op then shift xs
-    else if same_const x to_int_op then wordInt xs "toInt"
-    else if same_const x from_int_op then wordInt xs "fromInt"
     else if same_const x ffi_op then ffi xs
+    else if same_const x test_op then test xs
+    else if same_const x arith_op then arith xs
+    else if same_const x from_to_op then from_to xs
     else exp_str (String.concat (map filtered_string (x::xs)))
   end
 
-val cons = ``CONS : 'a -> 'a list -> 'a list``;
-val comma = ``$, : 'a -> 'b -> 'a # 'b``;
-val pvar = ``ast$Pvar``;
-val pany = ``ast$Pany``;
-val locs = ``Locs``;
-val nil_l = ``[] : 'a list``;
-val string_ty = ``:string``;
-val app = ``ast$App``;
-val lit = ``ast$Lit``;
-val plit = ``ast$Plit``;
+val cons = listSyntax.cons_tm;
+val comma = pairSyntax.comma_tm;
+val pvar = astSyntax.Pvar_tm;
+val pany = astSyntax.Pany;
+val locs = prim_mk_const{Thy="location",Name="Locs"};
+val nil_l = listSyntax.nil_tm;
+val app = astSyntax.App_tm;
+val lit = astSyntax.Lit_tm;
+val plit = astSyntax.Plit_tm;
 fun ast_to_exp term =
   let
     val list_to_exp = map ast_to_exp
@@ -135,9 +174,7 @@ fun ast_to_exp term =
                    | _ => exp_list (exp::args_exp)
       end
     fun cons_to_exp term =
-      if stringSyntax.is_string_literal term
-        then string_to_exp term
-        else (exp_list o list_to_exp o #1 o listSyntax.dest_list) term
+      (exp_list o list_to_exp o #1 o listSyntax.dest_list) term
     val tuple_to_exp =
       exp_tuple o list_to_exp o pairSyntax.spine_pair
     val (x, xs) = strip_comb term
@@ -149,11 +186,11 @@ fun ast_to_exp term =
     else if same_const x plit then
       exp_list [exp_str "Plit", lit_to_exp (hd xs)]
     else if same_const x locs then loc_to_exp xs
-    else if same_const x nil_l andalso type_of x = string_ty then exp_str "\"\""
     else if same_const x nil_l then exp_list []
     else if same_const x cons then cons_to_exp term
     else if same_const x comma then tuple_to_exp term
     else if same_const x app then app_to_exp x xs
+    else if mlstringSyntax.is_mlstring_literal term then string_to_exp term
     else generic_to_exp x xs
   end
 

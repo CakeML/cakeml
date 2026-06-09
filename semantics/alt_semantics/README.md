@@ -10,7 +10,7 @@ is no longer used in the CakeML development.
 An itree-based semantics for CakeML
 
 [proofs](proofs):
-The direcory contains proofs about the old relational semantics for
+This directory contains proofs about the old relational semantics for
 CakeML. This directory might be deleted in the future.
 
 [smallStepScript.sml](smallStepScript.sml):

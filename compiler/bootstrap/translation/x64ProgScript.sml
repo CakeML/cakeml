@@ -17,7 +17,6 @@ open inliningLib;
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
 val _ = translation_extends "from_pancake64Prog";
-val _ = ml_translatorLib.use_string_type true;
 val _ = ml_translatorLib.use_sub_check true;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "x64Prog");
@@ -126,6 +125,14 @@ Proof
   Cases_on`n'`>>EVAL_TAC>>fs[])
 QED
 
+Theorem eq_rcx_thm[local]:
+  total_num2Zreg n = RCX <=> n = 1
+Proof
+  EVAL_TAC>>rw[]>>
+  rpt(Cases_on`n`>>EVAL_TAC>>fs[]>>
+  Cases_on`n'`>>EVAL_TAC>>fs[])
+QED
+
 (* commute list case, option case and if *)
 Theorem case_ifs[local]:
   ((case
@@ -166,7 +173,7 @@ val defaults = [x64_ast_def, x64_encode_def, encode_def,
   e_opsize_imm_def, e_imm8_def, e_rm_imm8_def, not_byte_def,
   e_imm16_def, e_imm64_def, Zsize_width_def, x64_bop_def,
   zreg2num_totalnum2zerg, e_imm_8_32_def, Zbinop_name2num_x64_sh,
-  x64_sh_notZtest, exh_if_collapse, is_rax_zr_thm]
+  x64_sh_notZtest, exh_if_collapse, is_rax_zr_thm, eq_rcx_thm]
 
 val x64_enc_thms =
   x64_enc_def
@@ -191,50 +198,83 @@ Proof
   blastLib.FULL_BBLAST_TAC
 QED
 
-val x64_enc1_2 = el 2 x64_enc1s |> wc_simp |> we_simp |> gconv |>
- bconv |> SIMP_RULE std_ss [SHIFT_ZERO,Q.ISPEC`Zsize_CASE`
- COND_RAND,COND_RATOR,Zsize_case_def] |> fconv |> SIMP_RULE
- std_ss[Once COND_RAND,simp_rw] |> csethm 2
+Theorem LIST_BIND_rw[local]:
+  list_CASE (LIST_BIND (if P then A else B) f) C D =
+  if P then
+    list_CASE (LIST_BIND A f) C D
+  else
+    list_CASE (LIST_BIND B f) C D
+Proof
+  rw[]
+QED
+
+Theorem COND_RAND_pair[local]:
+  (λ(a,b). f a b) (if P then A else B) =
+  (if P then (λ(a,b). f a b) A else (λ(a,b). f a b) B)
+Proof
+  rw[]
+QED
+
+val x64_enc1_2 = el 2 x64_enc1s
+  |> REWRITE_RULE [LIST_BIND_rw]
+  |> SIMP_RULE (srw_ss()) defaults
+  |> wc_simp |> we_simp |> gconv
+  |> bconv |> SIMP_RULE std_ss [SHIFT_ZERO,Q.ISPEC`Zsize_CASE`
+ COND_RAND,COND_RATOR,Zsize_case_def,COND_RAND_pair] |> fconv |> SIMP_RULE
+ std_ss[simp_rw] |> csethm 2;
 
 val (binop::shift::rest) = el 3 x64_enc1s |> SIMP_RULE (srw_ss() ++
-DatatypeSimps.expand_type_quants_ss [``:64 arith``]) [] |> CONJUNCTS
+DatatypeSimps.expand_type_quants_ss [``:64 arith``]) [] |> CONJUNCTS;
 
 val (binopreg_aux::binopimm_aux::_) = binop |> SIMP_RULE (srw_ss() ++
 DatatypeSimps.expand_type_quants_ss [``:64 reg_imm``])
 [FORALL_AND_THM] |> CONJUNCTS |> map (SIMP_RULE (srw_ss() ++ LET_ss ++
-DatatypeSimps.expand_type_quants_ss [``:asm$binop``]) [])
+DatatypeSimps.expand_type_quants_ss [``:asm$binop``]) []);
 
 (* TODO: simplify further? *) val binopreg = binopreg_aux |> CONJUNCTS
 |> map(fn th => th |> SIMP_RULE (srw_ss()++LET_ss) ((Q.ISPEC
 `x64_encode` COND_RAND) ::defaults) |> wc_simp |> we_simp |> gconv |>
-bconv |> fconv)
+bconv |> fconv);
 
 val binopregth = reconstruct_case ``x64_enc (Inst (Arith (Binop b n n0
 (Reg n'))))`` (rand o rator o rator o rator o rand o rand o rand) (map
-(csethm 2) binopreg)
+(csethm 2) binopreg);
 
 val binopimm = binopimm_aux |> CONJUNCTS |> map(fn th => th |>
 SIMP_RULE (srw_ss()++LET_ss) ((Q.ISPEC `x64_encode` COND_RAND)
-::defaults) |> wc_simp |> we_simp |> gconv |> bconv |> fconv)
+::defaults) |> wc_simp |> we_simp |> gconv |> bconv |> fconv);
 
 val binopimmth = reconstruct_case ``x64_enc (Inst (Arith (Binop b n n0
 (Imm c))))`` (rand o rator o rator o rator o rand o rand o rand) (map
-(csethm 3) binopimm)
+(csethm 3) binopimm);
 
 val binopth = reconstruct_case ``x64_enc(Inst (Arith (Binop b n n0
-r)))`` (rand o rand o rand o rand) [binopregth,binopimmth]
+r)))`` (rand o rand o rand o rand) [binopregth,binopimmth];
 
-val shiftths =
-  shift
-  |> SIMP_RULE(srw_ss()++LET_ss++DatatypeSimps.expand_type_quants_ss[``:shift``])
-      (x64_sh_def ::
-      defaults)
-  |> CONJUNCTS
-  |> map (fn th => th |> wc_simp |> we_simp |> gconv
-  |> bconv |> fconv |> csethm 3)
+val (shiftreg_aux::shiftimm_aux::_) = shift |> SIMP_RULE (srw_ss() ++
+DatatypeSimps.expand_type_quants_ss [``:64 reg_imm``])
+[FORALL_AND_THM] |> CONJUNCTS |> map (SIMP_RULE (srw_ss() ++ LET_ss ++
+DatatypeSimps.expand_type_quants_ss [``:shift``]) []);
 
-val shiftth = reconstruct_case ``x64_enc(Inst (Arith (Shift s n n0 n1)))``
-  (rand o funpow 3 rator o funpow 3 rand) shiftths
+val shiftreg = shiftreg_aux |> CONJUNCTS
+|> map(fn th => th |> SIMP_RULE (srw_ss()++LET_ss) ((Q.ISPEC
+`x64_encode` COND_RAND) ::defaults) |> wc_simp |> we_simp |> gconv |>
+bconv |> fconv);
+
+val shiftregth = reconstruct_case ``x64_enc (Inst (Arith (Shift b n n0
+(Reg n'))))`` (rand o rator o rator o rator o rand o rand o rand) (map
+(csethm 2) shiftreg);
+
+val shiftimm = shiftimm_aux |> CONJUNCTS |> map(fn th => th |>
+SIMP_RULE (srw_ss()++LET_ss) ((Q.ISPEC `x64_encode` COND_RAND)
+::defaults) |> wc_simp |> we_simp |> gconv |> bconv |> fconv);
+
+val shiftimmth = reconstruct_case ``x64_enc (Inst (Arith (Shift b n n0
+(Imm c))))`` (rand o rator o rator o rator o rand o rand o rand) (map
+(csethm 3) shiftimm);
+
+val shiftth = reconstruct_case ``x64_enc(Inst (Arith (Shift b n n0
+r)))`` (rand o rand o rand o rand) [shiftregth,shiftimmth];
 
 val x64_enc1_3_aux = binopth :: shiftth:: map (fn th => th |>
 SIMP_RULE (srw_ss()) defaults |> wc_simp |> we_simp |> gconv |> bconv
@@ -419,11 +459,23 @@ val d1 = CONJ d1 $ Define ‘x64_enc_Mem_Store a b c =
 val d1 = CONJ d1 $ Define ‘x64_enc_Mem_Store8 a b c =
                     x64_enc (Inst (Mem Store8 a (Addr b c)))’
   |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_Mem_Store16 a b c =
+                    x64_enc (Inst (Mem Store16 a (Addr b c)))’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_Mem_Store32 a b c =
+                    x64_enc (Inst (Mem Store32 a (Addr b c)))’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
 val d1 = CONJ d1 $ Define ‘x64_enc_Mem_Load a b c =
                     x64_enc (Inst (Mem Load a (Addr b c)))’
   |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
 val d1 = CONJ d1 $ Define ‘x64_enc_Mem_Load8 a b c =
                     x64_enc (Inst (Mem Load8 a (Addr b c)))’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_Mem_Load16 a b c =
+                    x64_enc (Inst (Mem Load16 a (Addr b c)))’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_Mem_Load32 a b c =
+                    x64_enc (Inst (Mem Load32 a (Addr b c)))’
   |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
 val d1 = CONJ d1 $ Define ‘x64_enc_Arith_SubOverflow a c d =
                     x64_enc (Inst (Arith (SubOverflow a a c d)))’
@@ -443,18 +495,33 @@ val d1 = CONJ d1 $ Define ‘x64_enc_Arith_LongDiv a =
 val d1 = CONJ d1 $ Define ‘x64_enc_Arith_Div a b c =
                     x64_enc (Inst (Arith (Div a b c)))’
   |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
-val d1 = CONJ d1 $ Define ‘x64_enc_Arith_Shift_Ror a c =
-                    x64_enc (Inst (Arith (Shift Ror a a c)))’
+
+val d1 = CONJ d1 $ Define ‘x64_enc_Arith_Ror_Imm a c =
+                    x64_enc (Inst (Arith (Shift Ror a a (Imm c))))’
   |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
-val d1 = CONJ d1 $ Define ‘x64_enc_Arith_Shift_Asr a c =
-                    x64_enc (Inst (Arith (Shift Asr a a c)))’
+val d1 = CONJ d1 $ Define ‘x64_enc_Arith_Asr_Imm a c =
+                    x64_enc (Inst (Arith (Shift Asr a a (Imm c))))’
   |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
-val d1 = CONJ d1 $ Define ‘x64_enc_Arith_Shift_Lsr a c =
-                    x64_enc (Inst (Arith (Shift Lsr a a c)))’
+val d1 = CONJ d1 $ Define ‘x64_enc_Arith_Lsr_Imm a c =
+                    x64_enc (Inst (Arith (Shift Lsr a a (Imm c))))’
   |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
-val d1 = CONJ d1 $ Define ‘x64_enc_Arith_Shift_Lsl a c =
-                    x64_enc (Inst (Arith (Shift Lsl a a c)))’
+val d1 = CONJ d1 $ Define ‘x64_enc_Arith_Lsl_Imm a c =
+                    x64_enc (Inst (Arith (Shift Lsl a a (Imm c))))’
   |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+
+val d1 = CONJ d1 $ Define ‘x64_enc_Arith_Ror_Reg a c =
+                    x64_enc (Inst (Arith (Shift Ror a a (Reg c))))’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_Arith_Asr_Reg a c =
+                    x64_enc (Inst (Arith (Shift Asr a a (Reg c))))’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_Arith_Lsr_Reg a c =
+                    x64_enc (Inst (Arith (Shift Lsr a a (Reg c))))’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘x64_enc_Arith_Lsl_Reg a c =
+                    x64_enc (Inst (Arith (Shift Lsl a a (Reg c))))’
+  |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+
 val d1 = CONJ d1 $ Define ‘x64_enc_Arith_Add_Imm a c =
                     x64_enc (Inst (Arith (Binop Add a a (Imm c))))’
   |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
@@ -470,6 +537,7 @@ val d1 = CONJ d1 $ Define ‘x64_enc_Arith_Or_Imm a c =
 val d1 = CONJ d1 $ Define ‘x64_enc_Arith_Xor_Imm a c =
                     x64_enc (Inst (Arith (Binop Xor a a (Imm c))))’
   |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
+
 val d1 = CONJ d1 $ Define ‘x64_enc_Arith_Add_Reg a c =
                     x64_enc (Inst (Arith (Binop Add a a (Reg c))))’
   |> SIMP_RULE std_ss [x64_enc_thm,cases_defs,APPEND]
@@ -539,7 +607,6 @@ val res = CONJUNCTS d1 |> map SPEC_ALL |> map translate;
 val res = translate def;
 
 Theorem x64_config_v_thm[allow_rebind] = translate (x64_config_def |> gconv);
-
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 

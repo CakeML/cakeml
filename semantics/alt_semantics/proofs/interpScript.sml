@@ -1,5 +1,5 @@
 (*
-  Deriviation of a functional big-step semantics from the relational one.
+  Derivation of a functional big-step semantics from the relational one.
 *)
 Theory interp
 Ancestors

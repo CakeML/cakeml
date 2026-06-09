@@ -1,5 +1,5 @@
 (*
-  Module about the built-in list tyoe.
+  Module about the built-in list type.
 *)
 Theory ListProg
 Ancestors
@@ -9,14 +9,12 @@ Libs
 
 val _ = translation_extends "OptionProg"
 
-val cakeml = append_prog o process_topdecs;
-
 val _ = ml_prog_update (open_module "List");
 
 val () = generate_sigs := true;
 
 val _ = ml_prog_update (add_dec
-  ``Dtabbrev unknown_loc ["'a"] "list" (Atapp [Atvar "'a"] (Short "list"))`` I);
+  ``Dtabbrev unknown_loc [«'a»] «list» (Atapp [Atvar «'a»] (Short «list»))`` I);
 
 val r = translate NULL;
 
@@ -118,7 +116,7 @@ val result = next_ml_names := ["mapi","mapPartial"];
 val result = translate MAPI_thm;
 val result = translate mapPartial_def;
 
-Quote cakeml:
+Quote add_cakeml:
   fun app f ls = case ls of [] => ()
     | (x::xs) => (f x; app f xs)
 End
@@ -183,17 +181,17 @@ Proof
   \\ Induct_on`m-n`
   >- (
     rw[]
-    \\ xcf "tabulate" st
+    \\ xcf "tabulate" st \\ simp []
     \\ xlet `POSTv boolv. &BOOL (n >= m) boolv * heap_inv`
-      >-(xopb \\ xsimpl \\ fs[NUM_def, INT_def] \\ intLib.COOPER_TAC)
+    >- (xint_cmp \\ xsimpl \\ fs[NUM_def, INT_def] \\ intLib.COOPER_TAC)
     \\ xif \\ gvs[]
     \\ xapp
     \\ instantiate \\ xsimpl
     \\ `m - n = 0` by simp[] \\ simp[])
   \\ rw[]
-  \\ xcf "tabulate" st
+  \\ xcf "tabulate" st \\ simp []
   \\ xlet `POSTv boolv. &BOOL (n >= m) boolv * heap_inv`
-    >-(xopb \\ xsimpl \\ fs[NUM_def, INT_def] \\ intLib.COOPER_TAC)
+  >- (xint_cmp \\ xsimpl \\ fs[NUM_def, INT_def] \\ intLib.COOPER_TAC)
   \\ xif \\ gvs []
   \\ Cases_on`m` \\ fs[]
   \\ rename1`SUC v = SUC m - n`
@@ -203,7 +201,7 @@ Proof
   \\ xlet `POSTv v. &(A (f n) v) * heap_inv`
   >- ( xapp \\ xsimpl )
   \\ xlet `POSTv nv. &NUM (n+1) nv * heap_inv`
-  >-( xopn \\  xsimpl \\ fs[NUM_def,INT_def] \\ intLib.COOPER_TAC)
+  >-( xarith \\  xsimpl \\ fs[NUM_def,INT_def] \\ intLib.COOPER_TAC)
   \\ xlet `POSTv av. &LIST_TYPE A (f n::acc) av * heap_inv`
   >-( xcon \\ xsimpl \\ fs[LIST_TYPE_def] )
   \\ xapp
@@ -308,12 +306,6 @@ QED
 val _ = next_ml_names := ["split"];
 val result = translate SPLITP_alt
 
-val front_side_def = Q.prove(
-  `!xs. front_side xs = ~(xs = [])`,
-  Induct THEN ONCE_REWRITE_TAC [fetch "-" "front_side_def"]
-  THEN FULL_SIMP_TAC (srw_ss()) [CONTAINER_def])
-  |> update_precondition;
-
 val last_side_def = Q.prove(
   `!xs. last_side xs = ~(xs = [])`,
   Induct THEN ONCE_REWRITE_TAC [fetch "-" "last_side_def"]
@@ -377,6 +369,7 @@ Theorem mergesortn_tail_side[local]:
 Proof
   completeInduct_on `y`
   \\ once_rewrite_tac[(fetch "-" "mergesortn_tail_side_def")]
+  \\ rpt gen_tac \\ rename1 `SUC x1`
   \\ rw[DIV2_def]
      >- (
         first_x_assum match_mp_tac

@@ -5,7 +5,7 @@ Theory patchProg
 Ancestors
   charset diff cfApp basis_ffi
 Libs
-  preamble basis
+  preamble basis basisFunctionsLib
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
@@ -35,7 +35,7 @@ Proof
   >> PURE_ONCE_REWRITE_TAC[TOKENS_eq_tokens_sym]
   >> recInduct TOKENS_ind >> rpt strip_tac
   >> fs[TOKENS_def] >> pairarg_tac >> reverse(Cases_on `l`) >> rw[]
-  >- (drule SPLITP_JOIN >> fs[implode_def,strlen_def])
+  >- (drule SPLITP_JOIN >> fs[strlen_def])
   >> fs[SPLITP_NIL_FST,SPLITP] >> every_case_tac >> fs[]
   >- (`!x. (λx. strlen x <= STRLEN r) x ==> (λx. strlen x <= SUC (STRLEN t)) x`
        by(rpt strip_tac >> PURE_ONCE_REWRITE_TAC[GSYM SPLITP_LENGTH] >> fs[])
@@ -57,13 +57,13 @@ Proof
 QED
 
 Theorem tokens_not_nil[local]:
-  !s f. EVERY (\x. x <> strlit "") (tokens f s)
+  !s f. EVERY (\x. x <> «») (tokens f s)
 Proof
   Induct >> Ho_Rewrite.PURE_ONCE_REWRITE_TAC[SWAP_FORALL_THM]
   >> PURE_REWRITE_TAC[TOKENS_eq_tokens_sym,explode_thm]
   >> recInduct TOKENS_ind >> rpt strip_tac
   >> rw[TOKENS_def] >> pairarg_tac >> fs[] >> reverse(Cases_on `l`)
-  >> fs[implode_def]
+  >> fs[]
 QED
 
 Theorem tokens_two_less[local]:
@@ -98,34 +98,35 @@ val _ = translate(patch_aux_def |> REWRITE_RULE (map GSYM [mllistTheory.take_def
 val _ = translate patch_alg_def;
 
 Definition notfound_string_def:
-  notfound_string f = concat[strlit"cake_patch: ";f;strlit": No such file or directory\n"]
+  notfound_string f = concat[«cake_patch: »;f;«: No such file or directory\n»]
 End
 
 val r = translate notfound_string_def;
 
 Definition usage_string_def:
-  usage_string = strlit"Usage: patch <file> <patch>\n"
+  usage_string = «Usage: patch <file> <patch>\n»
 End
 
 val r = translate usage_string_def;
 
 Definition rejected_patch_string_def:
-  rejected_patch_string = strlit"cake_patch: Patch rejected\n"
+  rejected_patch_string = «cake_patch: Patch rejected\n»
 End
 
 val r = translate rejected_patch_string_def;
 
-val _ = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun patch' fname1 fname2 =
-    case TextIO.inputLinesFrom fname1 of
+    case TextIO.inputLinesFile #"\n" fname1 of
         None => TextIO.output TextIO.stdErr (notfound_string fname1)
       | Some lines1 =>
-        case TextIO.inputLinesFrom fname2 of
+        case TextIO.inputLinesFile #"\n" fname2 of
             None => TextIO.output TextIO.stdErr (notfound_string fname2)
           | Some lines2 =>
             case patch_alg lines2 lines1 of
                 None => TextIO.output TextIO.stdErr (rejected_patch_string)
-              | Some s => TextIO.print_list s`
+              | Some s => TextIO.print_list s
+End
 
 Theorem patch'_spec:
    FILENAME f1 fv1 ∧ FILENAME f2 fv2 /\ hasFreeFD fs
@@ -137,7 +138,7 @@ Theorem patch'_spec:
        STDIO
        (if inFS_fname fs f1 then
         if inFS_fname fs f2 then
-        case patch_alg (all_lines fs f2) (all_lines fs f1) of
+        case patch_alg (all_lines_file fs f2) (all_lines_file fs f1) of
         | NONE => add_stderr fs rejected_patch_string
         | SOME s => add_stdout fs (concat s)
         else add_stderr fs (notfound_string f2)
@@ -161,19 +162,20 @@ Proof
   \\ xapp \\ rw[]
 QED
 
-val _ = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun patch u =
     case CommandLine.arguments () of
         (f1::f2::[]) => patch' f1 f2
-      | _ => TextIO.output TextIO.stdErr usage_string`
+      | _ => TextIO.output TextIO.stdErr usage_string
+End
 
 Definition patch_sem_def:
   patch_sem cl fs =
     if (LENGTH cl = 3) then
     if inFS_fname fs (EL 1 cl) then
     if inFS_fname fs (EL 2 cl) then
-     case patch_alg (all_lines fs (EL 2 cl))
-                    (all_lines fs (EL 1 cl)) of
+     case patch_alg (all_lines_file fs (EL 2 cl))
+                    (all_lines_file fs (EL 1 cl)) of
        NONE => add_stderr fs (rejected_patch_string)
      | SOME s => add_stdout fs (concat s)
     else add_stderr fs (notfound_string (EL 2 cl))

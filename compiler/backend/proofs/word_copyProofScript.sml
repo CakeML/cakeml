@@ -93,6 +93,12 @@ Proof
     simp[domain_lookup,lookup_inter_eq,AllCaseEqs()]>>
     rw[]>>metis_tac[CPstate_inv_def]
   )>>
+  CONJ_TAC >- (
+    rw[]>>
+    drule ALOOKUP_MEM>>rw[MEM_FILTER]>>
+    fs[merge_eqs_def,CPstate_inv_def]>>
+    metis_tac[]
+  )>>
   rw[lookup_inter_eq,AllCaseEqs()]>>
   metis_tac[CPstate_inv_def]
 QED
@@ -413,14 +419,18 @@ Theorem merge_eqs_model1:
   CPstate_models cs1 st ⇒
   CPstate_models (merge_eqs cs1 cs2) st
 Proof
-  gvs[merge_eqs_def,CPstate_models_def,lookup_inter_eq,AllCaseEqs()]
+  gvs[merge_eqs_def,CPstate_models_def,lookup_inter_eq,AllCaseEqs()]>>
+  rw[]>>drule ALOOKUP_MEM>>
+  fs[MEM_FILTER]>>rw[]
 QED
 
 Theorem merge_eqs_model2:
   CPstate_models cs2 st ⇒
   CPstate_models (merge_eqs cs1 cs2) st
 Proof
-  gvs[merge_eqs_def,CPstate_models_def,lookup_inter_eq,AllCaseEqs()]
+  gvs[merge_eqs_def,CPstate_models_def,lookup_inter_eq,AllCaseEqs()]>>
+  rw[]>>drule ALOOKUP_MEM>>
+  fs[MEM_FILTER]>>rw[]
 QED
 
 Theorem set_eq_store_to_eq[simp]:
@@ -722,7 +732,7 @@ Proof
     gvs[AllCaseEqs(),empty_eq_inv,set_store_eq_inv]
   )
   >- (
-    gvs[AllCaseEqs(),UNCURRY_EQ,remove_eq_inv]>>
+    gvs[AllCaseEqs(),UNCURRY_EQ,remove_eq_inv,set_store_eq_inv]>>
     metis_tac[copy_prop_move_inv])
 QED
 
@@ -853,7 +863,8 @@ QED
 
 Theorem word_exp_cong_Shift:
   word_exp st e' = word_exp st e ⇒
-  word_exp st (Shift sh e' n) = word_exp st (Shift sh e n)
+  word_exp st e2' = word_exp st e2 ⇒
+  word_exp st (Shift sh e' e2') = word_exp st (Shift sh e e2)
 Proof
   rw[word_exp_def]
 QED
@@ -1057,11 +1068,99 @@ Proof
   metis_tac[lookup_store_eq_set_store_eq_2,CPstate_modelsD]
 QED
 
+Theorem lookup_eq_remove_t_same:
+  lookup_eq (remove_eq cs t) t = t
+Proof
+  fs[lookup_eq_def, remove_eq_def]
+QED
+
+Theorem lookup_store_eq_set_store_eq_same:
+  lookup x cs.to_eq = NONE ∧
+  is_alloc_var x ⇒
+  lookup_store_eq (set_store_eq cs s x) s = SOME x
+Proof
+  fs[lookup_store_eq_def, set_store_eq_def]
+QED
+
+Theorem set_store_eq_model_set_var:
+  CPstate_inv cs ∧
+  CPstate_models cs st ∧
+  lookup_store_eq cs s = NONE ∧
+  get_store s st = SOME w ⇒
+  CPstate_models (set_store_eq (remove_eq cs n) s n) (set_var n w st)
+Proof
+  rw[] >>
+  reverse (Cases_on `is_alloc_var n`)
+  >- simp[set_store_eq_def, empty_eq_model]
+  >> irule CPstate_modelsI
+  >> simp[Once CONJ_ASSOC]
+  >> reverse CONJ_ASM2_TAC
+  >- simp[set_store_eq_inv, remove_eq_inv]
+  >> gvs[lookup_eq_set_store_eq]
+  >> `CPstate_inv (remove_eq cs n)` by simp[remove_eq_inv]
+  >> drule_all remove_eq_model_set_var
+  >> disch_then $ qspecl_then [`w`, `n`] assume_tac >> fs[]
+  >> drule lookup_eq_set_store_eq
+  >> disch_then imp_res_tac
+  >> simp[]
+  >> conj_tac
+  >- (
+    drule CPstate_modelsD >> disch_then imp_res_tac >> fs[]
+  )
+  >> rw[]
+  >> rev_drule CPstate_modelsD
+  >> disch_then imp_res_tac
+  >> Cases_on `s = x` >> gvs[]
+  >- (
+    simp[set_var_def, lookup_insert]
+    >> Cases_on `y = n` >> fs[lookup_eq_remove_t_same]
+    >- fs[get_store_def, lookup_insert1, set_var_def]
+    >> drule_at (Pos $ el 2) lookup_store_eq_set_store_eq_same
+    >> disch_then $ qspecl_then [`s`, `remove_eq cs n`] assume_tac >> gvs[]
+    >> metis_tac[lookup_eq_remove_eq_t]
+  )
+  >> drule CPstate_modelsD >> disch_then imp_res_tac >> fs[]
+  >> pop_assum irule
+  >> metis_tac[lookup_store_eq_set_store_eq_2]
+QED
+
+(* Conditional body congruence for Loop: if the body transformation
+   preserves semantics when the body doesn't error, then the Loop
+   transformation preserves semantics when the Loop doesn't error. *)
+Theorem evaluate_Loop_body_cong_err:
+  ∀(s:('a,'c,'ffi) wordSem$state) names c c' exit_names res s'.
+    (∀(v:('a,'c,'ffi) wordSem$state) res s'.
+       evaluate (c, v) = (res, s') ∧ res ≠ SOME Error ⇒
+       evaluate (c', v) = (res, s')) ∧
+    evaluate (Loop names c exit_names, s) = (res, s') ∧ res ≠ SOME Error ⇒
+    evaluate (Loop names c' exit_names, s) = (res, s')
+Proof
+  gen_tac \\ completeInduct_on `s.clock` \\ rw []
+  \\ qpat_x_assum `evaluate (Loop _ _ _, _) = _` mp_tac
+  \\ once_rewrite_tac [evaluate_def]
+  \\ simp [cut_state_def, UNCURRY, STOP_def]
+  \\ TOP_CASE_TAC \\ simp []
+  \\ Cases_on `evaluate (c, x)` \\ simp []
+  \\ strip_tac
+  \\ `q <> SOME Error` by
+    (CCONTR_TAC \\ gvs [cont_loop_def, exit_loop_def, AllCaseEqs()])
+  \\ `evaluate (c', x) = (q, r)` by res_tac
+  \\ qpat_x_assum `(if _ then _ else _) = _` mp_tac
+  \\ fs [] \\ strip_tac \\ gvs []
+  \\ IF_CASES_TAC \\ gvs []
+  \\ IF_CASES_TAC \\ gvs []
+  \\ first_x_assum irule
+  \\ imp_res_tac evaluate_clock
+  \\ gvs [dec_clock_def, AllCaseEqs()]
+  \\ qexists_tac `c` \\ fs []
+QED
+
 Theorem copy_prop_correct:
   ∀prog cs st prog' cs' err st'.
   CPstate_inv cs ∧
   CPstate_models cs st ∧
   copy_prop_prog prog cs = (prog', cs') ∧
+  err ≠ SOME Error ∧
   evaluate (prog, st) = (err, st') ⇒
   evaluate (prog', st) = (err, st') ∧
   (err = NONE ⇒ CPstate_models cs' st')
@@ -1088,19 +1187,32 @@ Proof
     gvs[copy_prop_prog_def,CaseEq "option"]
     >- (
       gvs[evaluate_def,AllCaseEqs()]>>
-      metis_tac[remove_eq_model_set_var])>>
+      metis_tac[set_store_eq_model_set_var]
+    )>>
     reverse (gvs[AllCaseEqs(),UNCURRY_EQ])
-    >- (
-      gvs[evaluate_def,AllCaseEqs()]>>
-      metis_tac[remove_eq_model_set_var])>>
-    (* the interesting case *)
+    >- ( (* v = n, Skip case *)
+      drule_all lookup_store_eq_SOME>>
+      gvs[evaluate_def,get_store_def,AllCaseEqs(),set_var_def]>>
+      strip_tac>>
+      `lookup n st.locals = SOME x` by gvs[]>>
+      drule insert_unchanged>>
+      simp[state_component_equality]>>
+      rw[]>>
+      `st with locals := st.locals = st` by simp[state_component_equality]>>
+      simp[])>>
+    (* v ≠ n, Move case *)
     drule_all lookup_store_eq_SOME>>
-    gvs[get_store_def,AllCaseEqs(),copy_prop_move_def,evaluate_def]
-    >- simp[get_vars_def,get_var_def,CPstate_model]>>
-    disch_then (assume_tac o SYM)>>
-    simp[get_vars_def,get_var_def,CPstate_model,set_vars_def,alist_insert_def,set_var_def]>>
-    match_mp_tac set_eq_remove_eq_models>>
-    fs[])
+    gvs[get_store_def,AllCaseEqs(),copy_prop_move_def,evaluate_def]>>
+    strip_tac>>
+    CONJ_TAC
+    >- (
+      qexists_tac `[x]`>>
+      Cases_on `lookup v st.locals`>>fs[]>>
+      imp_res_tac CPstate_model>>gvs[get_vars_def,get_var_def,set_vars_def,alist_insert_def,set_var_def])>>
+    `set_var n x st = st with locals := insert n x st.locals` by rw[set_var_def]>>
+    pop_assum SUBST_ALL_TAC>>
+    irule set_eq_remove_eq_models>>
+    gvs[get_var_def]>>Cases_on `lookup v st.locals`>>fs[])
   >~[`Set`]
   >- (
     rw[copy_prop_prog_def,evaluate_def]
@@ -1120,19 +1232,20 @@ Proof
     >> rw[evaluate_def]
     >> drule_all copy_prop_prog_inv >> strip_tac
     >-(
-      ‘CPstate_models cs (st with <|clock := MustTerminate_limit (:α); termdep := st.termdep − 1|>)’ by (
-        qpat_x_assum‘CPstate_models cs st’mp_tac>>
-        rw[state_component_equality,CPstate_models_def])
-      >> ‘evaluate (p1', st with <|clock := MustTerminate_limit (:α); termdep := st.termdep − 1|>) = (res,s1)’ by metis_tac[]
-      >> rw[]
+      Cases_on `res = SOME TimeOut` >> gvs[]>>
+      `CPstate_models cs (st with <|clock := MustTerminate_limit (:α); termdep := st.termdep − 1|>)` by (
+        qpat_x_assum`CPstate_models cs st`mp_tac>>
+        rw[state_component_equality,CPstate_models_def])>>
+      first_x_assum (qspecl_then [`cs`,`st with <|clock := MustTerminate_limit (:α); termdep := st.termdep - 1|>`,`p1'`,`cs'`,`err`,`s1`] mp_tac)>>
+      simp[]>>strip_tac>>simp[]
     )
     >-(
-      full_case_tac>>fs[]
-      >> ‘CPstate_models cs (st with <|clock := MustTerminate_limit (:α); termdep := st.termdep − 1|>)’ by (
-         qpat_x_assum‘CPstate_models cs st’mp_tac>>
-         rw[state_component_equality,CPstate_models_def])
-      >> ‘CPstate_models cs' s1’ by metis_tac[]
-      >> pop_assum mp_tac>>rw[state_component_equality,CPstate_models_def]
+      `res <> SOME TimeOut` by (CCONTR_TAC >> gvs[])>> gvs[]>>
+      `CPstate_models cs (st with <|clock := MustTerminate_limit (:α); termdep := st.termdep − 1|>)` by (
+        qpat_x_assum `CPstate_models cs st` mp_tac>>
+        rw[state_component_equality,CPstate_models_def])>>
+      first_x_assum (qspecl_then [`cs`,`st with <|clock := MustTerminate_limit (:α); termdep := st.termdep - 1|>`,`p1'`,`cs'`,`NONE`,`s1`] mp_tac)>>
+      simp[]
     )
   )
   >~[`Call`]
@@ -1142,68 +1255,39 @@ Proof
   )
   >~[‘Seq’]
   >-(
-    cheat
-    (* try to reprove from scratch
-    old proof below broken due to changed thm setup
-    *)
-    (*
     rpt GEN_TAC
-    >> rename[‘evaluate (Seq p1 p2, st) = (err,st')’]
-    >> pop_assum (fn IH2 => pop_assum (fn IH1 =>
-      simp[evaluate_def,copy_prop_prog_def]
-      >> rpt(pairarg_tac>>fs[])
-      >> Cases_on‘res’
-      >> simp[evaluate_def]
-      >> pairarg_tac>>fs[]
-      >> rpt DISCH_TAC
-      >-(
-        ‘evaluate (q1,st) = (NONE,s1) ∧ CPstate_inv cs'' ∧ CPstate_models cs'' s1’ by metis_tac[IH1]
-        >>gvs[]
-        >>metis_tac[IH1,IH2]
+    >> rename1 `evaluate (Seq p1 p2, st) = (err,st')`
+    >> simp[evaluate_def,copy_prop_prog_def]
+    >> rpt(pairarg_tac>>fs[])
+    >> Cases_on `res`
+    >> simp[evaluate_def, copy_prop_prog_def]
+    >> strip_tac
+    >- (
+      qpat_x_assum `!cs st prog' cs' err st'. _ /\ _ /\ copy_prop_prog p1 _ = _ /\ _ ==> _`
+        (qspecl_then [`cs`,`st`,`q1`,`cs''`,`NONE`,`s1`] mp_tac)>>simp[]>>strip_tac>>
+      `CPstate_inv cs''` by metis_tac[copy_prop_prog_inv]>>
+      qpat_x_assum `!cs st prog' cs' err st'. _ /\ _ /\ copy_prop_prog p2 _ = _ /\ _ ==> _`
+        (qspecl_then [`cs''`,`s1`,`q2`,`cs'`,`err`,`st'`] mp_tac)>>
+      gvs[evaluate_def]
       )
-      >-(
-        ‘evaluate (q1,st) = (SOME x,s1) ∧ CPstate_inv cs''’ by metis_tac[IH1]
-        >>gvs[]
-        >>metis_tac[copy_prop_prog_inv]
+    >- (
+      qpat_x_assum `!cs st prog' cs' err st'. _ /\ _ /\ copy_prop_prog p1 _ = _ /\ _ ==> _`
+        (qspecl_then [`cs`,`st`,`q1`,`cs''`,`SOME x`,`s1`] mp_tac)>>
+      gvs[evaluate_def]
       )
-    )) *)
-  )
+    )
   >~[‘If’]
   >-(
-    cheat
-    (*
     rpt GEN_TAC
-    >>rename[‘evaluate (If c n r p1 p2, st) = (err,st')’]
-    >>pop_assum(fn IH2=> pop_assum(fn IH1=>
-      Cases_on‘err’
-      >-(
-        simp[evaluate_def,copy_prop_prog_def]
-        >>rpt(pairarg_tac>>fs[])
-        >>every_case_tac(*2*)
-        >>(
-          rw[evaluate_def](*3*)
-          >>‘get_var (lookup_eq cs n) st = get_var n st’ by metis_tac[CPstate_modelsD_get_var]
-          >>‘get_var_imm (lookup_eq_imm cs r) st = get_var_imm r st’ by metis_tac[CPstate_modelsD_get_var_imm]
-          >>simp[]
-          >-metis_tac[IH1,IH2]
-          >-metis_tac[merge_eqs_inv,copy_prop_prog_inv]
-          >-metis_tac[merge_eqs_model1,merge_eqs_model2,IH1,IH2]
-        )
-      )
-      >-(
-        simp[evaluate_def,copy_prop_prog_def]
-        >>rpt(pairarg_tac>>fs[])
-        >>simp[evaluate_def]
-        >>rpt DISCH_TAC
-        >>‘get_var (lookup_eq cs n) st = get_var n st’ by metis_tac[CPstate_modelsD_get_var]
-        >>‘get_var_imm (lookup_eq_imm cs r) st = get_var_imm r st’ by metis_tac[CPstate_modelsD_get_var_imm]
-        >>‘evaluate (q1,st) = evaluate (p1,st)’ by metis_tac[IH1,PAIR]
-        >>‘evaluate (q2,st) = evaluate (p2,st)’ by metis_tac[IH2,PAIR]
-        >>rw[]
-        >>metis_tac[merge_eqs_inv,copy_prop_prog_inv,PAIR]
-      )
-    ))
-  *))
+    >> rename1 `evaluate (If c n r p1 p2, st) = (err,st')`
+    >> strip_tac
+    >> `get_var (lookup_eq cs n) st = get_var n st` by metis_tac[CPstate_modelsD_get_var]
+    >> `get_var_imm (lookup_eq_imm cs r) st = get_var_imm r st` by metis_tac[CPstate_modelsD_get_var_imm]
+    >> gvs[evaluate_def,copy_prop_prog_def]
+    >> rpt(pairarg_tac >> fs[])
+    >> gvs[AllCaseEqs(),evaluate_def]
+    >> metis_tac[merge_eqs_model1,merge_eqs_model2]
+    )
   >~[`Alloc`]
   >-(
     rw[copy_prop_prog_def]>>fs[evaluate_def]
@@ -1294,12 +1378,30 @@ Proof
     >> gvs[oneline share_inst_def,AllCaseEqs(),oneline sh_mem_set_var_def,
       sh_mem_store_def,sh_mem_store_byte_def,sh_mem_store16_def,sh_mem_store32_def]
     >> simp[remove_eq_model_set_var,remove_eq_model])
+  >~ [`Break`] >- (gvs[copy_prop_prog_def, evaluate_def])
+  >~ [`Continue`] >- (gvs[copy_prop_prog_def, evaluate_def])
+  >~ [`Loop`] >- suspend "Loop"
 QED
+
+Resume copy_prop_correct[Loop]:
+  rpt gen_tac >> strip_tac >>
+  gvs[copy_prop_prog_def] >> rpt (pairarg_tac >> gvs[]) >>
+  conj_tac
+  >- (irule evaluate_Loop_body_cong_err >> fs [] >>
+      qexists_tac `prog` >> fs [] >> rw [] >>
+      first_x_assum (qspecl_then [`empty_eq`,`v`,`c'`,`_0`,`res`,`s'`] mp_tac) >>
+      simp [empty_eq_inv, empty_eq_model])
+  >- simp[empty_eq_model]
+QED
+
+Finalise copy_prop_correct;
 
 (* Main semantics result *)
 Theorem evaluate_copy_prop:
+  FST (evaluate (e, s)) ≠ SOME Error ⇒
   evaluate (copy_prop e, s) = evaluate (e, s)
 Proof
   rw[copy_prop_def]
+  >>Cases_on `evaluate (e,s)` >> Cases_on `copy_prop_prog e empty_eq` >> fs[]
   >>metis_tac[copy_prop_correct,empty_eq_inv,empty_eq_model,PAIR]
 QED

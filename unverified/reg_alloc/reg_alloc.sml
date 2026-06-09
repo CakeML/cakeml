@@ -1,4 +1,5 @@
 structure reg_alloc = struct
+  val verbose = ref false;
   datatype reg_alloc_tag =  Stemp
   |  Atemp
   |  Fixed of  int;
@@ -234,7 +235,7 @@ structure reg_alloc = struct
       case  (lookup_1 v2 v3)
       of  NONE =>  (if  (is_phy_var v2)
       then  (v2 div 2)
-      else  v2)
+      else  0)
       |   SOME(v1) =>  v1);
   fun  extract_tag v2 =
     case  v2
@@ -614,7 +615,7 @@ structure reg_alloc = struct
                   (fn  v2 =>
                     let val  v1 = Array.sub ( coalesced, v2)
                     in
-                      v2 <= v1
+                      v2 = v1
                      end)
                     val  split_degree =
                   (fn  v3 =>
@@ -633,12 +634,11 @@ structure reg_alloc = struct
                       st_ex_map (fn  v1 => (Array.sub ( adj_ls, v1))) v16
                         val  v14 = !( unavail_moves_wl)
                         val  v13 = !( avail_moves_wl)
-                        val  v12 = concat v15
                         val  v6 =
                       partition_2 (fn  v11 =>
                         (case  v11
                         of  (v10,v9) =>  (case  v9
-                        of  (v8,v7) =>  ((sorted_mem v8 v12) orelse  (sorted_mem v7 v12))))) v14
+                        of  (v8,v7) =>  ((List.exists (fn ls => sorted_mem v8 ls) v15) orelse  (List.exists (fn ls => sorted_mem v7 ls) v15))))) v14
                      in
                       case  v6
                     of  (v5,v4) =>  (let val  v3 = smerge (sort_moves v5) v13
@@ -848,6 +848,16 @@ structure reg_alloc = struct
                   v2
                  end))
                 end
+                    fun  coalesce_root v5 =
+                let val  v4 = Array.sub ( coalesced, v5)
+                    val  v3 = is_fixed v4
+                 in
+                  if  v3
+                 then  v4
+                 else  (if  (v5 <= v4)
+                then  v5
+                 else  coalesce_root v4)
+                end
                     val  canonize_move =
                   (fn  v3 =>
                     (fn  v4 =>
@@ -1031,7 +1041,7 @@ structure reg_alloc = struct
                         |   SOME(v1) =>  (st_ex_list_min_cost v1 v10 v12 v11 (safe_div (lookup_any v11 v1 0) v9) [] )
                       in
                         case  v8
-                      of  (v7,v6) =>  (let val  v5 = dec_deg v7
+                      of  (v7,v6) =>  (let val  v5 = dec_degree v7
                           val  v4 = push_stack v7
                           val  v3 = spill_wl := v6
                           val  v2 = unspill v14
@@ -1181,7 +1191,7 @@ structure reg_alloc = struct
                         let val  v4 = !( dim)
                         in
                           if  (v7 < v4)
-                        then  (let val  v3 = Array.sub ( coalesced, v7)
+                        then  (let val  v3 = coalesce_root v7
                             val  v1 =
                           case  (lookup_1 v7 v6)
                           of  NONE =>  []
@@ -1440,7 +1450,7 @@ structure reg_alloc = struct
                                     val  () = assign_stemps v24 (neg_biased_pref v24 mvs)
                                     val  v6 = extract_color v16
                                     val  cols = apply_col (fn x => lookup_1 x v6) v30
-                                    val _ = print ("moves: "^Int.toString (length v30)^"\tcoalesceable: "^Int.toString (length v10) ^"\tcoalesced: "^Int.toString (length cols)^"\n")
+                                    val _ = if !verbose then print ("moves: "^Int.toString (length v30)^"\tcoalesceable: "^Int.toString (length v10) ^"\tcoalesced: "^Int.toString (length cols)^"\n") else ()
                                  in
                                   v6
                                  end)))))))))))))))

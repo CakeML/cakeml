@@ -78,6 +78,13 @@ Definition mips_sh32_def:
    (mips_sh32 _   = DSRA32)
 End
 
+Definition mips_shv_def:
+   (mips_shv Lsl = DSLLV) /\
+   (mips_shv Lsr = DSRLV) /\
+   (mips_shv Asr = DSRAV) /\
+   (mips_shv _   = DSRAV)
+End
+
 Definition mips_memop_def:
    (mips_memop Load    = INL LD) /\
    (mips_memop Load32  = INL LWU) /\
@@ -149,7 +156,8 @@ Definition mips_ast_def:
          [ArithR (NOR (n2w r2, 0w, n2w r1))]
        else
          [ArithI (mips_bop_i bop (n2w r2, n2w r1, w2w i))]) /\
-   (mips_ast (Inst (Arith (Shift sh r1 r2 n))) =
+   (mips_ast (Inst (Arith (Shift sh r1 r2 (Imm i)))) =
+       let n = w2n i in
        if sh = Ror then
          if n < 32 then
            [Shift (DSRL (n2w r2, temp_reg, n2w n));
@@ -166,6 +174,15 @@ Definition mips_ast_def:
        else
          let (f, n) = if n < 32 then (mips_sh, n) else (mips_sh32, n - 32) in
            [Shift (f sh (n2w r2, n2w r1, n2w n))]) /\
+   (mips_ast (Inst (Arith (Shift sh r1 r2 (Reg r)))) =
+       if sh = Ror then
+           [ArithI (ORI (0w, temp_reg2, 64w));
+            ArithR (DSUBU (temp_reg2, n2w r, temp_reg2));
+            Shift (DSRLV (n2w r, n2w r2, temp_reg));
+            Shift (DSLLV (temp_reg2, n2w r2, n2w r1));
+            ArithR (OR (n2w r1, temp_reg, n2w r1))]
+       else
+           [Shift (mips_shv sh (n2w r, n2w r2, n2w r1))]) /\
    (mips_ast (Inst (Arith (Div r1 r2 r3))) =
        [MultDiv (DDIV (n2w r2, n2w r3));
         MultDiv (MFLO (n2w r1))]) /\

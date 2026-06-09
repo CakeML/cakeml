@@ -15,5 +15,5 @@ ifdef POLY
 all: cakeml-heap
 
 cakeml-heap: preamble.uo
-	$(HOLDIR)/bin/buildheap -o $@ $<
+	$(HOLDIR)/bin/hol buildheap -o $@ $<
 endif

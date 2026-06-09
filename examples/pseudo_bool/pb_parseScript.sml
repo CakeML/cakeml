@@ -16,20 +16,20 @@ val _ = numLib.temp_prefer_num();
 (* Printing mlstring pbc *)
 Definition lit_string_def:
   (lit_string (Pos v) = v) ∧
-  (lit_string (Neg v) = strlit "~" ^ v)
+  (lit_string (Neg v) = «~» ^ v)
 End
 
 Definition lhs_string_def:
   lhs_string xs =
-  concatWith (strlit" ") (MAP(λ(c,l). concat [int_to_string #"-" c; strlit " " ; lit_string l]) xs)
+  concatWith « » (MAP(λ(c,l). concat [int_to_string #"-" c; « » ; lit_string l]) xs)
 End
 
 Definition op_string_def:
-  (op_string Equal = strlit" = ") ∧
-  (op_string GreaterEqual = strlit" >= ") ∧
-  (op_string Greater = strlit" > ") ∧
-  (op_string LessEqual = strlit" <= ") ∧
-  (op_string Less = strlit" < ")
+  (op_string Equal = « = ») ∧
+  (op_string GreaterEqual = « >= ») ∧
+  (op_string Greater = « > ») ∧
+  (op_string LessEqual = « <= ») ∧
+  (op_string Less = « < »)
 End
 
 Definition pbc_string_def:
@@ -37,7 +37,7 @@ Definition pbc_string_def:
     concat [
       lhs_string xs;
       op_string pbop;
-      int_to_string #"-" i; strlit " ;\n"])
+      int_to_string #"-" i; « ;\n»])
 End
 
 Definition annot_pbc_string_def:
@@ -45,24 +45,24 @@ Definition annot_pbc_string_def:
     let s = pbc_string str in
       case annot of NONE => s
       | SOME l =>
-      concat [ strlit"@";l; strlit" ";s]
+      concat [ «@»;l; « »;s]
 End
 
 (* printing a string pbf, possibly with string annotation *)
 Definition obj_string_def:
   obj_string (f,c:int) =
   let c_string =
-    if c = 0 then strlit"" else
-    strlit " " ^
+    if c = 0 then «» else
+    « » ^
       int_to_string #"-" c in
-  strlit"min: " ^ lhs_string f ^ c_string ^ strlit" ;\n"
+  «min: » ^ lhs_string f ^ c_string ^ « ;\n»
 End
 
 Definition pres_string_def:
   pres_string pres =
   let c_string =
-    concatWith (strlit" ") pres in
-  strlit"preserve_init " ^ c_string ^ strlit" \n"
+    concatWith « » pres in
+  «preserved: » ^ c_string ^ « ;\n»
 End
 
 (* Problem without annotation *)
@@ -73,7 +73,7 @@ Definition print_prob_def:
     obstr ++ presstr ++ MAP pbc_string fml
 End
 
-(* Problem without annotation *)
+(* Problem with annotation *)
 Definition print_annot_prob_def:
   print_annot_prob (pres,obj,fml) =
   let obstr = case obj of NONE => [] | SOME fc => [obj_string fc] in
@@ -126,9 +126,9 @@ Definition parse_lit_def:
 End
 
 (*
-  EVAL ``parse_lit (strlit "xaAa_-1")``
-  EVAL ``parse_lit (strlit "~x1234")``
-  EVAL ``parse_lit (strlit "fancy_{1}^[-42]")``
+  EVAL ``parse_lit «xaAa_-1»``
+  EVAL ``parse_lit «~x1234»``
+  EVAL ``parse_lit «fancy_{1}^[-42]»``
 *)
 
 (* Parse the LHS of a constraint and returns the remainder of the line *)
@@ -157,7 +157,7 @@ Definition strip_term_line_aux_def:
   (strip_term_line_aux [x] acc =
     case x of INR n => NONE
     | INL s =>
-    if s = strlit ";"
+    if s = «;»
     then SOME (REVERSE acc)
     else
         case strip_term s of
@@ -173,19 +173,19 @@ Definition strip_term_line_def:
 End
 
 (*
-  EVAL ``strip_term_line (toks (strlit "foo bar aaa;"))``
-  EVAL ``strip_term_line (toks (strlit "foo bar bbb ;"))``
-  EVAL ``strip_term_line (toks (strlit "foo bar ~1;"))``
-  EVAL ``strip_term_line (toks (strlit "foo bar 1 ;"))``
+  EVAL ``strip_term_line (toks «foo bar aaa;»)``
+  EVAL ``strip_term_line (toks «foo bar bbb ;»)``
+  EVAL ``strip_term_line (toks «foo bar ~1;»)``
+  EVAL ``strip_term_line (toks «foo bar 1 ;»)``
 *)
 
 Definition parse_op_def:
   parse_op cmp =
-  if cmp = strlit ">=" then SOME GreaterEqual
-  else if cmp = strlit "=" then SOME Equal
-  else if cmp = strlit ">" then SOME Greater
-  else if cmp = strlit "<=" then SOME LessEqual
-  else if cmp = strlit "<" then SOME Less
+  if cmp = «>=» then SOME GreaterEqual
+  else if cmp = «=» then SOME Equal
+  else if cmp = «>» then SOME Greater
+  else if cmp = «<=» then SOME LessEqual
+  else if cmp = «<» then SOME Less
   else NONE
 End
 
@@ -221,9 +221,9 @@ Definition parse_annot_constraint_def:
 End
 
 (*
-  EVAL ``parse_annot (toks (strlit "2 ~x1 1 ~x3 >= 1;"))``;
-  EVAL ``parse_constraint (toks (strlit "2 ~x1 1 ~x3 >= 1 ;"))``;
-  EVAL ``parse_annot_constraint (toks (strlit "@aaa 2 ~x1 1 ~x3 >= 1;"))``;
+  EVAL ``parse_annot (toks «2 ~x1 1 ~x3 >= 1;»)``;
+  EVAL ``parse_constraint (toks «2 ~x1 1 ~x3 >= 1 ;»)``;
+  EVAL ``parse_annot_constraint (toks «@aaa 2 ~x1 1 ~x3 >= 1;»)``;
 *)
 
 Definition parse_constraints_def:
@@ -259,18 +259,18 @@ End
 Definition parse_obj_def:
   (parse_obj [] = NONE) ∧
   (parse_obj (x::xs) =
-    if x = INL (strlit "min:") then
+    if x = INL «min:» then
       OPTION_BIND (strip_term_line xs) parse_obj_term
     else NONE
   )
 End
 
 (*
-  EVAL``parse_obj (toks (strlit"min: 1 ~x199 1 x2 ~5 ;"))``
-  EVAL``parse_obj (toks (strlit"min: 1 ~x199 1 x2 ~5;"))``
-  EVAL``parse_obj (toks (strlit"min: 1 ~x199 1 x2 ;"))``
-  EVAL``parse_obj (toks (strlit"min: 1 ~x199 1 x2;"))``
-  EVAL``parse_obj (toks (strlit"min: 1 ~x199 1 x2 5;"))``
+  EVAL``parse_obj (toks «min: 1 ~x199 1 x2 ~5 ;»)``
+  EVAL``parse_obj (toks «min: 1 ~x199 1 x2 ~5;»)``
+  EVAL``parse_obj (toks «min: 1 ~x199 1 x2 ;»)``
+  EVAL``parse_obj (toks «min: 1 ~x199 1 x2;»)``
+  EVAL``parse_obj (toks «min: 1 ~x199 1 x2 5;»)``
 *)
 
 (* raw string but must be a valid var name *)
@@ -291,14 +291,14 @@ End
 Definition parse_pres_def:
   (parse_pres [] = NONE) ∧
   (parse_pres (x::xs) =
-    if x = INL (strlit "preserve_init") then
+    if x = INL «preserved:» then
       OPTION_BIND (strip_term_line xs) parse_vars_raw
     else NONE)
 End
 
 (*
-  EVAL``parse_pres (toks (strlit"preserve_init x1 x2 x2 a b c ;"))``
-  EVAL``parse_pres (toks (strlit"preserve_init x1 x2 x2 a b c;"))``
+  EVAL``parse_pres (toks «preserved: x1 x2 x2 a b c ;»)``
+  EVAL``parse_pres (toks «preserved: x1 x2 x2 a b c;»)``
 *)
 
 (* parse optional objective line *)
@@ -433,6 +433,13 @@ Definition parse_lit_num_def:
     | SOME l => apply_lit f_ns l
 End
 
+Definition binopc_def:
+  binopc stack =
+  case stack of
+    Id a::b::rest => SOME (a,b,rest)
+  | _ => NONE
+End
+
 (* Parsing cutting planes in polish notation (header "pol", ";" stripped) *)
 Definition parse_cutting_aux_def:
   (parse_cutting_aux f_ns (x::xs) stack =
@@ -441,26 +448,43 @@ Definition parse_cutting_aux_def:
       parse_cutting_aux f_ns xs (Id (Num n) :: stack)
     else NONE
   | INL s =>
-  if s = str #"+" then
-    (case stack of
-      a::b::rest => parse_cutting_aux f_ns xs (Add b a::rest)
-    | _ => NONE)
-  else if s = str #"*" then
-    (case stack of
-      Id a::b::rest => parse_cutting_aux f_ns xs (Mul b a::rest)
-    | _ => NONE)
-  else if s = str #"d" then
-    (case stack of
-      Id a::b::rest => parse_cutting_aux f_ns xs (Div b a::rest)
-    | _ => NONE)
-  else if s = str #"s" then
-    (case stack of
-      a::rest => parse_cutting_aux f_ns xs (Sat a::rest)
-    | _ => NONE)
-  else if s = str #"w" then
-    (case stack of
-      Lit (Pos v)::a::rest => parse_cutting_aux f_ns xs (Weak a [v]::rest)
-    | _ => NONE)
+  if strlen s = 1
+  then
+    let c = strsub s 0 in
+      if c = #"+" then
+        (case stack of
+          a::b::rest => parse_cutting_aux f_ns xs (Add b a::rest)
+        | _ => NONE)
+      else if c = #"*" then
+        (case binopc stack of NONE => NONE
+        | SOME (a,b,rest) => parse_cutting_aux f_ns xs (Mul b a::rest))
+      else if c = #"w" then
+        (case stack of
+          Lit (Pos v)::a::rest => parse_cutting_aux f_ns xs (Weak a [v]::rest)
+        | _ => NONE)
+      else if c = #"s" then
+        (case stack of
+          a::rest => parse_cutting_aux f_ns xs (Sat a::rest)
+        | _ => NONE)
+     else if c = #"c" then
+      (case binopc stack of NONE => NONE
+      | SOME (a,b,rest) => parse_cutting_aux f_ns xs (Div Cd b a::rest))
+     else if c = #"d" then
+      (case binopc stack of NONE => NONE
+      | SOME (a,b,rest) => parse_cutting_aux f_ns xs (Div Dd b a::rest))
+     else if c = #"m" then
+      (case binopc stack of NONE => NONE
+      | SOME (a,b,rest) => parse_cutting_aux f_ns xs (Div Md b a::rest))
+     else if c = #"n" then
+      (case binopc stack of NONE => NONE
+      | SOME (a,b,rest) => parse_cutting_aux f_ns xs (Div Nd b a::rest))
+     else if c = #"-" then
+      (case binopc stack of NONE => NONE
+      | SOME (a,b,rest) => parse_cutting_aux f_ns xs (Minus b a::rest))
+     else
+      (case parse_lit_num f_ns s of
+      | SOME (l,f_ns1)=> parse_cutting_aux f_ns1 xs (Lit l::stack)
+      | NONE => NONE)
   else
     case parse_lit_num f_ns s of
     | SOME (l,f_ns1)=> parse_cutting_aux f_ns1 xs (Lit l::stack)
@@ -474,7 +498,7 @@ Definition parse_cutting_def:
 End
 
 (*
-  EVAL ``parse_cutting (plainVar_nf,()) (toks_fast (strlit "8 2 + 3 + 1 s + 9 2 d + x5 2 * +"))``;
+  EVAL ``parse_cutting (plainVar_nf,()) (toks_fast «8 2 + 3 + 1 s + 9 2 n + x5 2 * + 5 -»)``;
 *)
 
 (* Parse a pseudo-Boolean constraint *)
@@ -493,7 +517,7 @@ Definition parse_constraint_npbc_def:
   parse_constraint_npbc f_ns line =
   case parse_constraint_LHS line of (rest,lhs) =>
   (case rest of (INL cmp :: INR deg :: rest) =>
-    if cmp = strlit">=" then
+    if cmp = «>=» then
       case map_f_ns f_ns lhs of NONE => NONE
       | SOME (lhs',f_ns') =>
         SOME (
@@ -514,7 +538,7 @@ Definition strip_rup_hint_aux_def:
       strip_rup_hint_aux xs (Num n::acc)
     else NONE
   | INL s =>
-    if s = strlit"~" then
+    if s = «~» then
       strip_rup_hint_aux xs (0::acc)
     else NONE)
 End
@@ -528,7 +552,7 @@ Definition parse_rup_hint_def:
   (parse_rup_hint (x::xs) =
     case x of
       INL s =>
-      if s = strlit ":" then strip_rup_hint xs else NONE
+      if s = «:» then strip_rup_hint xs else NONE
     | _ => NONE)
 End
 
@@ -543,19 +567,19 @@ Definition parse_rup_def:
 End
 
 (*
-  EVAL ``parse_rup (plainVar_nf,()) (toks_fast (strlit "1 ~x5 1 x26 +1 x27 1 x28 1 x29 >= 1 : 6 11 ~"))``
+  EVAL ``parse_rup (plainVar_nf,()) (toks_fast «1 ~x5 1 x26 +1 x27 1 x28 1 x29 >= 1 : 6 11 ~»)``
 *)
 
 Definition start_subproof_def:
   start_subproof rest ⇔
-  rest = [INL (strlit ":"); INL (strlit"subproof")]
+  rest = [INL «:»; INL «subproof»]
 End
 
 Definition colon_id_opt_def:
   colon_id_opt rest =
   case rest of
     [INL term; INR id] =>
-    if term = strlit":" ∧ id ≥ 0 then SOME (SOME (Num id))
+    if term = «:» ∧ id ≥ 0 then SOME (SOME (Num id))
     else NONE
   | [] => SOME NONE
   | _ => NONE
@@ -572,7 +596,7 @@ Definition parse_pbc_header_def:
 End
 
 (*
-  EVAL ``parse_pbc_header (plainVar_nf,()) (toks_fast (strlit "3 x1 -3 x2 2 x3 >= 5 : subproof"))``
+  EVAL ``parse_pbc_header (plainVar_nf,()) (toks_fast «3 x1 -3 x2 2 x3 >= 5 : subproof»)``
 *)
 
 Definition strip_numbers_aux_def:
@@ -598,23 +622,23 @@ Definition parse_lstep_aux_def:
   (parse_lstep_aux f_ns s =
     case s of [] => NONE
     | (r::rs) =>
-      if r = INL (strlit "pbc") then
+      if r = INL «pbc» then
         case parse_pbc_header f_ns rs of NONE => NONE
         | SOME (c,f_ns') =>
           SOME (INR c,f_ns')
       else
       case strip_term_line rs of NONE => NONE
       | SOME rs =>
-      if r = INL (strlit "deld") then
+      if r = INL «deld» then
         (case strip_numbers rs of NONE => NONE
         | SOME n => SOME (INL (Delete n),f_ns))
-      else if r = INL (strlit "pol") then
+      else if r = INL «pol» then
         (case parse_cutting f_ns rs of NONE => NONE
         | SOME (p,f_ns') => SOME (INL (Cutting p),f_ns'))
-      else if r = INL (strlit "rup") then
+      else if r = INL «rup» then
         (case parse_rup f_ns rs of NONE => NONE
         | SOME (c,ns,f_ns') => SOME (INL (Rup c ns),f_ns'))
-      else if r = INL (strlit "e") then
+      else if r = INL «e» then
         (case parse_constraint_npbc f_ns rs of
           NONE => NONE
         | SOME (c,rest,f_ns') =>
@@ -622,7 +646,23 @@ Definition parse_lstep_aux_def:
           | SOME (SOME res) =>
             SOME (INL (Check res c), f_ns')
           | _ => NONE)
-      else if r = INL (strlit "*") then SOME (INL NoOp,f_ns)
+      else if r = INL «ia» then
+        (case parse_constraint_npbc f_ns rs of
+          NONE => NONE
+        | SOME (c,rest,f_ns') =>
+          case colon_id_opt rest of
+          | SOME (SOME res) =>
+            SOME (INL (ImplyAdd res c), f_ns')
+          | _ => NONE)
+      else if r = INL «e» then
+        (case parse_constraint_npbc f_ns rs of
+          NONE => NONE
+        | SOME (c,rest,f_ns') =>
+          case colon_id_opt rest of
+          | SOME (SOME res) =>
+            SOME (INL (Check res c), f_ns')
+          | _ => NONE)
+      else if r = INL «*» then SOME (INL NoOp,f_ns)
       else NONE)
 End
 
@@ -633,7 +673,7 @@ Definition check_mark_qed_id_opt_def:
   | SOME rs =>
   case rs of
     INL q :: rest =>
-    if q = strlit"qed" then
+    if q = «qed» then
       case rest of
         s :: rest' =>
         if s = mark
@@ -653,11 +693,11 @@ Definition check_mark_qed_id_def:
 End
 
 (*
-EVAL `` check_mark_qed_id (INL (strlit"pbc")) (toks_fast (strlit"qed pbc : 4 ;"))``
+EVAL `` check_mark_qed_id (INL «pbc») (toks_fast «qed pbc : 4 ;»)``
 
-EVAL `` check_mark_qed_id_opt (INL (strlit"pbc")) (toks_fast (strlit"qed pbc;"))``
+EVAL `` check_mark_qed_id_opt (INL «pbc») (toks_fast «qed pbc;»)``
 
-EVAL `` check_mark_qed_id_opt (INL (strlit"pbc")) (toks_fast (strlit"qed;"))``
+EVAL `` check_mark_qed_id_opt (INL «pbc») (toks_fast «qed;»)``
 *)
 
 (* Parsing lsteps in a subproof until parsing
@@ -679,7 +719,7 @@ Definition parse_lsteps_aux_def:
         NONE => NONE
       | SOME (pf,f_ns'',s,rest) =>
       if LENGTH rest < LENGTH ss then
-        case check_mark_qed_id (INL (strlit"pbc")) s of
+        case check_mark_qed_id (INL «pbc») s of
           NONE => NONE
         | SOME id =>
           parse_lsteps_aux f_ns'' rest (Con c pf id::acc)
@@ -715,7 +755,7 @@ Theorem parse_lsteps_aux_thm:
         case parse_lsteps_aux f_ns' ss [] of
           NONE => NONE
         | SOME (pf,f_ns'',s,rest) =>
-          case check_mark_qed_id (INL (strlit"pbc")) s of
+          case check_mark_qed_id (INL «pbc») s of
             NONE => NONE
           | SOME id =>
             parse_lsteps_aux f_ns'' rest (Con c pf id::acc))
@@ -736,13 +776,13 @@ End
 (*
   EVAL`` parse_lsteps (plainVar_nf,())
   (MAP toks_fast [
-  strlit "pbc +3 x1 +3 x2 +2 x3 >= 5 : subproof";
-  strlit "pbc +3 x1 +3 x2 +2 x3 >= 5 : subproof";
-  strlit"pol 1 2 +;";
-  strlit"rup >= 1 : 1234;";
-  strlit"qed pbc : 4;";
-  strlit"qed pbc : 4;";
-  strlit"qed pbc : 4;";
+  «pbc +3 x1 +3 x2 +2 x3 >= 5 : subproof»;
+  «pbc +3 x1 +3 x2 +2 x3 >= 5 : subproof»;
+  «pol 1 2 +;»;
+  «rup >= 1 : 1234;»;
+  «qed pbc : 4;»;
+  «qed pbc : 4;»;
+  «qed pbc : 4;»;
   ])``
 *)
 
@@ -756,7 +796,7 @@ End
 (* Parse a substitution {var -> lit} *)
 Definition parse_subst_aux_def:
   (parse_subst_aux f_ns (INL v :: INL arr :: r ::rest) acc =
-  if arr = strlit "->" then
+  if arr = «->» then
     case parse_var f_ns v of
       NONE => ([],[],f_ns)
     | SOME (v,f_ns) =>
@@ -777,7 +817,7 @@ Definition parse_subst_def:
   (parse_subst f_ns (x::xs) =
     case x of
       INL s =>
-      if s = strlit ":" then
+      if s = «:» then
       SOME (parse_subst_aux f_ns xs [])
       else NONE
     | _ => NONE)
@@ -828,7 +868,7 @@ Definition parse_proofgoal_def:
   parse_proofgoal (h:(mlstring + int) list ) =
   case h of
     INL e::rs =>
-    (if e = (strlit"proofgoal") then
+    (if e = «proofgoal» then
       parse_subgoal_num rs
     else NONE)
   | _ => NONE
@@ -838,7 +878,7 @@ Definition mk_proofgoal_mark_def:
   mk_proofgoal_mark (ind : num + num) =
   case ind of
     INL n => INR (&n:int)
-  | INR n => INL (strlit"#" ^ toString (n+1))
+  | INR n => INL («#» ^ toString (n+1))
 End
 
 Definition parse_subproof_aux_def:
@@ -874,28 +914,28 @@ End
 (*
   EVAL`` parse_subproof (plainVar_nf,())
   (MAP toks_fast [
-  strlit"pol 12 11 + 5 + 6 +;";
-  strlit"proofgoal #1";
-  strlit"pol 12 11 + 5 + 6 +;";
-  strlit "pbc +3 x1 +3 x2 +2 x3 >= 5 : subproof";
-  strlit"pol 1 2 +;";
-  strlit "pbc +3 x1 +3 x2 +2 x3 >= 5 : subproof";
-  strlit"pol 1 2 +;";
-  strlit"rup >= 1 : 1234;";
-  strlit"qed pbc : 4;";
-  strlit"rup >= 1 : 1234;";
-  strlit"qed pbc : 4;";
-  strlit"pol 14 x6 +;";
-  strlit"qed #1 : 15;";
-  strlit"pol 12 11 + 5 + 6 +;";
-  strlit "pbc +3 x1 +3 x2 +2 x3 >= 5 : subproof";
-  strlit"pol 1 2 +;";
-  strlit"rup >= 1 : 1234;";
-  strlit"qed pbc : 4;";
-  strlit"proofgoal 1";
-  strlit"pol 16 2 +;";
-  strlit"qed 1 : 17;";
-  strlit"qed;";
+  «pol 12 11 + 5 + 6 +;»;
+  «proofgoal #1»;
+  «pol 12 11 + 5 + 6 +;»;
+  «pbc +3 x1 +3 x2 +2 x3 >= 5 : subproof»;
+  «pol 1 2 +;»;
+  «pbc +3 x1 +3 x2 +2 x3 >= 5 : subproof»;
+  «pol 1 2 +;»;
+  «rup >= 1 : 1234;»;
+  «qed pbc : 4;»;
+  «rup >= 1 : 1234;»;
+  «qed pbc : 4;»;
+  «pol 14 x6 +;»;
+  «qed #1 : 15;»;
+  «pol 12 11 + 5 + 6 +;»;
+  «pbc +3 x1 +3 x2 +2 x3 >= 5 : subproof»;
+  «pol 1 2 +;»;
+  «rup >= 1 : 1234;»;
+  «qed pbc : 4;»;
+  «proofgoal 1»;
+  «pol 16 2 +;»;
+  «qed 1 : 17;»;
+  «qed;»;
   ])``
 *)
 
@@ -904,8 +944,8 @@ Definition parse_scopetext_def:
   parse_scopetext line =
   case line of
     [INL s] =>
-    if s = strlit"leq" then SOME 0
-    else if s = strlit"geq" then SOME 1
+    if s = «leq» then SOME 0
+    else if s = «geq» then SOME 1
     else NONE
   | _ => NONE
 End
@@ -914,7 +954,7 @@ Definition parse_scopehead_def:
   parse_scopehead (h:(mlstring + int) list ) =
   case h of
     INL e::rs =>
-    (if e = (strlit"scope") then
+    (if e = «scope» then
       parse_scopetext rs
     else NONE)
   | _ => NONE
@@ -922,8 +962,8 @@ End
 
 Definition mk_scope_mark_def:
   mk_scope_mark sc =
-  if sc = 0n then [INL (strlit"scope"); INL (strlit "leq")]
-  else [INL (strlit"scope"); INL (strlit "geq")]
+  if sc = 0n then [INL «scope»; INL «leq»]
+  else [INL «scope»; INL «geq»]
 End
 
 Definition check_end_def:
@@ -932,7 +972,7 @@ Definition check_end_def:
   | SOME rs =>
   case rs of
     INL q :: rest =>
-    q = strlit"end" ∧
+    q = «end» ∧
       (rest = [] ∨
       rest = marks)
   | _ => F
@@ -989,7 +1029,7 @@ Definition parse_red_header_red_def:
   parse_red_header_red f_ns line =
   case line of [] => NONE
   | x::line =>
-  if x = INL (strlit "red")
+  if x = INL «red»
   then parse_red_header f_ns line
   else NONE
 End
@@ -1006,7 +1046,7 @@ Definition parse_sstep_def:
         case parse_scope f_ns' ss of
           NONE => NONE
         | SOME (pf, f_ns'', h, rest) =>
-          case check_mark_qed_id_opt (INL (strlit"red")) h of
+          case check_mark_qed_id_opt (INL «red») h of
             NONE => NONE
           | SOME idopt =>
             SOME (INR (Red c s pf idopt),f_ns'',rest)
@@ -1017,7 +1057,7 @@ Definition parse_sstep_def:
       (case parse_lsteps f_ns' ss of
         NONE => NONE
       | SOME (pf,f_ns'',s,rest) =>
-        case check_mark_qed_id (INL (strlit"pbc")) s of
+        case check_mark_qed_id (INL «pbc») s of
           NONE => NONE
         | SOME id =>
         SOME (INR (Lstep (Con c pf id)),f_ns'',rest)))
@@ -1026,16 +1066,16 @@ End
 (*
   EVAL`` parse_sstep (plainVar_nf,())
   (MAP toks_fast
-  [strlit"red 1 x1 >= 1 : x1 -> x3 x3 -> x5 x5 -> x1 x2 -> x4 x4 -> x6 x6 -> x2 : subproof";
-  strlit"proofgoal #1";
-  strlit"pol 12 11 + 5 + 6 +;";
-  strlit"pol 13 4 +;";
-  strlit"pol 14 x6 +;";
-  strlit"qed : 15;";
-  strlit"proofgoal 1";
-  strlit"pol 16 2 +;";
-  strlit"qed : 17;";
-  strlit"qed;";])``
+  [«red 1 x1 >= 1 : x1 -> x3 x3 -> x5 x5 -> x1 x2 -> x4 x4 -> x6 x6 -> x2 : subproof»;
+  «proofgoal #1»;
+  «pol 12 11 + 5 + 6 +;»;
+  «pol 13 4 +;»;
+  «pol 14 x6 +;»;
+  «qed : 15;»;
+  «proofgoal 1»;
+  «pol 16 2 +;»;
+  «qed : 17;»;
+  «qed;»;])``
 *)
 
 (* def_order parsing. We parse the sections in order.
@@ -1045,7 +1085,7 @@ Definition parse_def_order_head_def:
   parse_preorder_head s =
   case s of
     [x;INL name] =>
-      if x = INL (strlit"def_order") then
+      if x = INL «def_order» then
         SOME name
       else NONE
   | _ => NONE
@@ -1076,14 +1116,14 @@ End
 
 Definition parse_vars_aux_def:
   parse_vars_aux f_ns v l r a =
-    if v = [INL (strlit"vars")] then
-      case parse_vars_line f_ns (strlit "left") l of NONE => NONE
+    if v = [INL «vars»] then
+      case parse_vars_line f_ns «left» l of NONE => NONE
       | SOME (us,f_ns) =>
-      case parse_vars_line f_ns (strlit "right") r of NONE => NONE
+      case parse_vars_line f_ns «right» r of NONE => NONE
       | SOME (vs,f_ns) =>
       case a of NONE => SOME ((us,vs,[]),f_ns)
       | SOME a =>
-      case parse_vars_line f_ns (strlit "aux") a of NONE => NONE
+      case parse_vars_line f_ns «aux» a of NONE => NONE
       | SOME (as,f_ns) => SOME ((us,vs,as),f_ns)
   else NONE
 End
@@ -1092,14 +1132,14 @@ Definition parse_vars_block_def:
   parse_vars_block f_ns ss =
   case ss of
     v::l::r::ae::rest =>
-    if check_end [INL (strlit"vars")] ae
+    if check_end [INL «vars»] ae
     then
       OPTION_MAP (λ(res,f_ns). (res,f_ns,rest))
         (parse_vars_aux f_ns v l r NONE)
     else
       (case rest of [] => NONE
       | e::rest =>
-      if check_end [INL (strlit"vars")] e
+      if check_end [INL «vars»] e
       then
         OPTION_MAP (λ(res,f_ns). (res,f_ns,rest))
           (parse_vars_aux f_ns v l r (SOME ae))
@@ -1114,18 +1154,18 @@ End
 
 EVAL ``parse_vars_block (hashString_nf,0)
   (MAP toks_fast
-  [strlit"vars";
-  strlit"  left u1 u2 u3 u4 u5 u6 u7 u8 u9 u10;";
-  strlit"  right v1 v2 v3 v4 v5 v6 v7 v8 v9 v10;";
-  strlit"  aux $a1 $a2 $a3 $a4 $a5 $a6 $a7 $a8 $a9 $d1 $d2 $d3 $d4 $d5 $d6 $d7 $d8 $d9 $d10 ;";
-  strlit"end;";])``
+  [«vars»;
+  «  left u1 u2 u3 u4 u5 u6 u7 u8 u9 u10;»;
+  «  right v1 v2 v3 v4 v5 v6 v7 v8 v9 v10;»;
+  «  aux $a1 $a2 $a3 $a4 $a5 $a6 $a7 $a8 $a9 $d1 $d2 $d3 $d4 $d5 $d6 $d7 $d8 $d9 $d10 ;»;
+  «end;»;])``
 
 EVAL ``parse_vars_block (hashString_nf,0)
   (MAP toks_fast
-  [strlit"vars";
-  strlit"  left u1 u2 u3 u4 u5 u6 u7 u8 u9 u10;";
-  strlit"  right v1 v2 v3 v4 v5 v6 v7 v8 v9 v10;";
-  strlit"end;";])``
+  [«vars»;
+  «  left u1 u2 u3 u4 u5 u6 u7 u8 u9 u10;»;
+  «  right v1 v2 v3 v4 v5 v6 v7 v8 v9 v10;»;
+  «end;»;])``
 *)
 
 Theorem parse_scope_aux_LENGTH:
@@ -1164,7 +1204,7 @@ Definition parse_spec_aux_def:
     | SOME (INR (Red c s pf idopt),f_ns',ss) =>
       parse_spec_aux f_ns' ss ((c,s,pf,idopt)::acc)
     | SOME (INL s,f_ns',ss) =>
-      if check_end [INL (strlit"spec")] s then
+      if check_end [INL «spec»] s then
         SOME(REVERSE acc,f_ns',ss)
       else NONE
     | _ => NONE)
@@ -1180,7 +1220,7 @@ Definition parse_spec_block_def:
   parse_spec_block f_ns ss =
   case ss of
     h::rest =>
-    if h = [INL (strlit"spec")] then
+    if h = [INL «spec»] then
       case parse_spec_aux f_ns rest [] of
         NONE => NONE
       | SOME (spec,f_ns',ss) =>
@@ -1193,18 +1233,18 @@ End
 (*
   -- handle spec parsing if it exists
   EVAL``parse_spec_block (hashString_nf,0)
-  (MAP toks_fast ([strlit"spec";
-  strlit"red 1 u1 1 ~v1 1 ~$a1 >= 1 : $a1 -> 0 : subproof";
-  strlit"qed;";
-  strlit"red 1 u1 1 ~v1 1 ~$a1 >= 1 : $a1 -> 0 : subproof";
-  strlit"qed;";
-  strlit"end;";
+  (MAP toks_fast ([«spec»;
+  «red 1 u1 1 ~v1 1 ~$a1 >= 1 : $a1 -> 0 : subproof»;
+  «qed;»;
+  «red 1 u1 1 ~v1 1 ~$a1 >= 1 : $a1 -> 0 : subproof»;
+  «qed;»;
+  «end;»;
   ]))``
 
   -- if no spec block, then the next block is the definition block
   EVAL``parse_spec_block (hashString_nf,0)
-  (MAP toks_fast ([strlit"def";
-  strlit"FOO";
+  (MAP toks_fast ([«def»;
+  «FOO»;
   ]))``
 *)
 
@@ -1212,7 +1252,7 @@ End
 Definition parse_def_aux_def:
   (parse_def_aux f_ns [] acc = NONE) ∧
   (parse_def_aux f_ns (s::ss) acc =
-    if check_end [INL (strlit"def")] s then
+    if check_end [INL «def»] s then
       SOME(REVERSE acc,f_ns,ss)
     else
       case strip_term_line s of NONE => NONE
@@ -1228,12 +1268,12 @@ Definition parse_def_block_def:
   (case s of NONE =>
     (case ss of
       h::rest =>
-      if h = [INL (strlit"def")] then
+      if h = [INL «def»] then
         parse_def_aux f_ns rest []
       else NONE
     | _ => NONE)
   | SOME h =>
-    if h = [INL (strlit"def")] then
+    if h = [INL «def»] then
       parse_def_aux f_ns ss []
     else NONE)
 End
@@ -1242,15 +1282,15 @@ End
   EVAL``parse_def_block (hashString_nf,0)
   NONE
   (MAP toks_fast ([
-    strlit"def";
-    strlit"1 $d10 >= 1;";
-    strlit"end;";]))``
+    «def»;
+    «1 $d10 >= 1;»;
+    «end;»;]))``
 
   EVAL``parse_def_block (hashString_nf,0)
-  (SOME ([INL (strlit"def")]))
+  (SOME ([INL «def»]))
   (MAP toks_fast ([
-    strlit"1 $d10 >= 1;";
-    strlit"end;";]))``
+    «1 $d10 >= 1;»;
+    «end;»;]))``
 *)
 
 Definition check_qed_def:
@@ -1259,7 +1299,7 @@ Definition check_qed_def:
   | SOME rs =>
   case rs of
     INL q :: rest =>
-    q = strlit"qed" ∧
+    q = «qed» ∧
       (rest = [] ∨
       rest = marks)
   | _ => F
@@ -1272,10 +1312,10 @@ Definition parse_proof_block_def:
   parse_proof_block f_ns end ss =
   case ss of [] => NONE
   | h::ss =>
-  if h = [INL(strlit"proof")] then
+  if h = [INL «proof»] then
     case parse_subproof f_ns ss of
     | SOME (pf,f_ns',s,rest) =>
-      if check_qed [INL(strlit"proof")] s
+      if check_qed [INL «proof»] s
       then
         case rest of [] => NONE
         | (s::rest) =>
@@ -1291,19 +1331,19 @@ End
 Definition parse_trans_aux_def:
   parse_trans_aux f_ns h v f a12 =
     if
-       h = [INL (strlit"transitivity")] ∧
-       v = [INL (strlit"vars")]
+       h = [INL «transitivity»] ∧
+       v = [INL «vars»]
     then
-      case parse_vars_line f_ns (strlit "fresh_right") f of
+      case parse_vars_line f_ns «fresh_right» f of
         NONE => NONE
       | SOME (ws,f_ns) =>
       case a12 of NONE =>
         SOME ((ws,[],[]),f_ns)
       | SOME (a1,a2) =>
-        case parse_vars_line f_ns (strlit "fresh_aux_1") a1 of
+        case parse_vars_line f_ns «fresh_aux_1» a1 of
           NONE => NONE
         | SOME (bs,f_ns) =>
-        case parse_vars_line f_ns (strlit "fresh_aux_2") a2 of
+        case parse_vars_line f_ns «fresh_aux_2» a2 of
           NONE => NONE
         | SOME (cs,f_ns) =>
           SOME ((ws,bs,cs),f_ns)
@@ -1314,7 +1354,7 @@ Definition parse_trans_block_aux_def:
   parse_trans_block_aux f_ns ss =
   case ss of
     h::v::f::ae::rest =>
-    if check_end [INL (strlit"vars")] ae
+    if check_end [INL «vars»] ae
     then
       case parse_trans_aux f_ns h v f NONE of
         NONE => NONE
@@ -1322,7 +1362,7 @@ Definition parse_trans_block_aux_def:
     else
       (case rest of
       | a2::e::rest =>
-        if check_end [INL (strlit"vars")] e
+        if check_end [INL «vars»] e
         then
           case parse_trans_aux f_ns h v f (SOME (ae,a2)) of
             NONE => NONE
@@ -1338,7 +1378,7 @@ Definition parse_trans_block_def:
     NONE => NONE
   | SOME ((ws,bs,cs),f_ns,rest) =>
   case parse_proof_block f_ns
-    [INL (strlit"transitivity")] rest of
+    [INL «transitivity»] rest of
     NONE => NONE
   | SOME (pf,f_ns',ss) =>
     SOME((ws,bs,cs,pf),f_ns',ss)
@@ -1347,43 +1387,43 @@ End
 (*
 EVAL``parse_trans_block (hashString_nf,0)
   (MAP toks_fast ([
-  strlit"transitivity";
-  strlit"vars";
-  strlit"fresh_right w1 w2 w3;";
-  strlit"fresh_aux_1 $b1 $b2 ;";
-  strlit"fresh_aux_2 $c1 $c2 ;";
-  strlit"end;";
-  strlit"proof";
-  strlit"pol 120 148 + 222 + 223 + s 241 3 * +;";
-  strlit"pol 242 114 + s;";
-  strlit"proofgoal #1";
-  strlit"pol ~x5 243 117 + +;";
-  strlit"qed : 244;";
-  strlit"qed;";
-  strlit"end;";]))``
+  «transitivity»;
+  «vars»;
+  «fresh_right w1 w2 w3;»;
+  «fresh_aux_1 $b1 $b2 ;»;
+  «fresh_aux_2 $c1 $c2 ;»;
+  «end;»;
+  «proof»;
+  «pol 120 148 + 222 + 223 + s 241 3 * +;»;
+  «pol 242 114 + s;»;
+  «proofgoal #1»;
+  «pol ~x5 243 117 + +;»;
+  «qed : 244;»;
+  «qed;»;
+  «end;»;]))``
 
 EVAL``parse_trans_block (hashString_nf,0)
   (MAP toks_fast ([
-  strlit"transitivity";
-  strlit"vars";
-  strlit"fresh_right w1 w2 w3;";
-  strlit"end vars;";
-  strlit"proof";
-  strlit"pol 120 148 + 222 + 223 + s 241 3 * +;";
-  strlit"pol 242 114 + s;";
-  strlit"proofgoal #1";
-  strlit"pol 243 117 +;";
-  strlit"qed #1 : 244;";
-  strlit"qed proof;";
-  strlit"end transitivity;";]))``
+  «transitivity»;
+  «vars»;
+  «fresh_right w1 w2 w3;»;
+  «end vars;»;
+  «proof»;
+  «pol 120 148 + 222 + 223 + s 241 3 * +;»;
+  «pol 242 114 + s;»;
+  «proofgoal #1»;
+  «pol 243 117 +;»;
+  «qed #1 : 244;»;
+  «qed proof;»;
+  «end transitivity;»;]))``
 *)
 
 Definition parse_refl_block_def:
   parse_refl_block f_ns ss =
   case ss of
     h::ss =>
-    if h = [INL (strlit"reflexivity")] then
-      parse_proof_block f_ns [INL (strlit"reflexivity")] ss
+    if h = [INL «reflexivity»] then
+      parse_proof_block f_ns [INL «reflexivity»] ss
     else NONE
   | _ => NONE
 End
@@ -1447,7 +1487,7 @@ End
 
 Definition pre_order_symbols_def:
   pre_order_symbols =
-  [ INL (strlit "reflexivity"); INR (strlit "reflexivity"); INR (strlit "def_order")]
+  [ INL «reflexivity»; INR «reflexivity»; INR «def_order»]
 End
 
 Definition parse_pre_order_pure_def:
@@ -1460,7 +1500,7 @@ Definition parse_pre_order_pure_def:
   | SOME (pfr, pft,f_ns, ss) =>
   case ss of
     [h] =>
-    if check_end [INL (strlit"def_order")] h then
+    if check_end [INL «def_order»] h then
       SOME (vars,gspec,f,pfr,pft,f_ns)
     else NONE
   | _ => NONE
@@ -1478,33 +1518,33 @@ End
 (*
   EVAL``parse_pre_order (hashString_nf,0)
   (MAP toks_fast ([
-  strlit"vars";
-  strlit"left u1;";
-  strlit"right v1;";
-  strlit"aux $a1;";
-  strlit"end;";
-  strlit"spec";
-  strlit"red 1 u1 1 ~v1 1 ~$a1 >= 1 : $a1 -> 0 : subproof";
-  strlit"qed;";
-  strlit"end;";
-  strlit"def";
-  strlit"1 $d10 >= 1;";
-  strlit"end;";
-  strlit"transitivity";
-  strlit"vars";
-  strlit"fresh_right w1;";
-  strlit"fresh_aux_1 $b1;";
-  strlit"fresh_aux_2 $c1;";
-  strlit"end;";
-  strlit"proof";
-  strlit"qed proof;";
-  strlit"end transitivity;";
-  strlit"reflexivity";
-  strlit"proof";
-  strlit"qed proof;";
-  strlit"end reflexivity;";
-  strlit"end;";
-  strlit"AFTER END;";
+  «vars»;
+  «left u1;»;
+  «right v1;»;
+  «aux $a1;»;
+  «end;»;
+  «spec»;
+  «red 1 u1 1 ~v1 1 ~$a1 >= 1 : $a1 -> 0 : subproof»;
+  «qed;»;
+  «end;»;
+  «def»;
+  «1 $d10 >= 1;»;
+  «end;»;
+  «transitivity»;
+  «vars»;
+  «fresh_right w1;»;
+  «fresh_aux_1 $b1;»;
+  «fresh_aux_2 $c1;»;
+  «end;»;
+  «proof»;
+  «qed proof;»;
+  «end transitivity;»;
+  «reflexivity»;
+  «proof»;
+  «qed proof;»;
+  «end reflexivity;»;
+  «end;»;
+  «AFTER END;»;
   ]))``
 *)
 
@@ -1549,15 +1589,15 @@ End
 
 Definition parse_strengthen_def:
   (parse_strengthen f_ns [INL b] =
-    if b = strlit"on" then SOME (Done (StrengthenToCore T), f_ns)
-    else if b = strlit "off" then SOME (Done (StrengthenToCore F), f_ns)
+    if b = «on» then SOME (Done (StrengthenToCore T), f_ns)
+    else if b = «off» then SOME (Done (StrengthenToCore F), f_ns)
     else NONE) ∧
   (parse_strengthen f_ns _ = NONE)
 End
 
 Definition parse_to_core_def:
   (parse_to_core f_ns (INL r::rs) =
-    if r = strlit "id"
+    if r = «id»
     then
       case strip_numbers rs of NONE => NONE
       | SOME n => SOME (Done (Transfer n), f_ns)
@@ -1570,7 +1610,7 @@ Definition parse_assg_def:
   (parse_assg f_ns (INL s::ss) acc =
     case parse_lit_num f_ns s of
       NONE =>
-        if s = strlit":" then
+        if s = «:» then
           (case ss of [INR i] => SOME (acc,SOME i,f_ns)
           | _ => NONE)
         else NONE
@@ -1582,14 +1622,26 @@ Definition parse_sol_def:
   (parse_sol f_ns r rs =
   case parse_assg f_ns rs [] of NONE => NONE
   | SOME (assg,ov,f_ns') =>
-    let b = (r = INL( strlit "soli")) in
+    let b = (r = INL «soli») in
       SOME (Done (Obj assg b ov),f_ns'))
 End
 
 (*
-EVAL ``parse_sol (plainVar_nf,()) (INL (strlit "soli")) (toks_fast (strlit "x1 ~x2 ~x3 : -2"))``
-EVAL ``parse_sol (plainVar_nf,()) (INL (strlit "sol")) (toks_fast (strlit "x1 ~x2 ~x3 : -2"))``
-EVAL ``parse_sol (plainVar_nf,()) (INL (strlit "soli")) (toks_fast (strlit "x1 ~x2 ~x3"))``
+EVAL ``parse_sol (plainVar_nf,()) (INL «soli») (toks_fast «x1 ~x2 ~x3 : -2»)``
+EVAL ``parse_sol (plainVar_nf,()) (INL «sol») (toks_fast «x1 ~x2 ~x3 : -2»)``
+EVAL ``parse_sol (plainVar_nf,()) (INL «soli») (toks_fast «x1 ~x2 ~x3»)``
+*)
+
+Definition parse_solx_def:
+  (parse_solx f_ns rs =
+  case parse_assg f_ns rs [] of
+  | SOME (assg,NONE,f_ns') =>
+      SOME (Done (Sol assg),f_ns')
+  | _ => NONE)
+End
+
+(*
+EVAL ``parse_solx (plainVar_nf,()) (toks_fast «x1 ~x2 ~x3»)``
 *)
 
 Definition parse_obj_term_npbc_def:
@@ -1631,7 +1683,7 @@ Definition parse_delc_header_def:
 End
 
 (*
-EVAL``parse_delc_header (plainVar_nf,()) (toks_fast (strlit "2 : x1 -> ~x2 : subproof"))``
+EVAL``parse_delc_header (plainVar_nf,()) (toks_fast «2 : x1 -> ~x2 : subproof»)``
 *)
 
 (* Take off : subproof at the end *)
@@ -1656,32 +1708,45 @@ Definition parse_b_obj_term_npbc_def:
   | SOME (r::rs) =>
   case parse_obj_term_npbc f_ns rs of NONE => NONE
   | SOME res =>
-    if r = INL (strlit "new") then SOME (T,res)
-    else if r = INL (strlit"diff") then SOME (F,res)
+    if r = INL «new» then SOME (T,res)
+    else if r = INL «diff» then SOME (F,res)
     else NONE)
 End
 
 (*
-EVAL``parse_b_obj_term_npbc (plainVar_nf,()) (toks_fast (strlit "new 1 x1 2 : subproof"))``
+EVAL``parse_b_obj_term_npbc (plainVar_nf,()) (toks_fast «new 1 x1 2 : subproof»)``
 *)
 
-(* TODO: preserve *)
+(* preserve_add and remove steps *)
 Definition parse_preserve_def:
-  (parse_preserve f_ns (INL c::cs) =
-    case parse_var f_ns c of
+  (parse_preserve f_ns rest =
+   case strip_obju_end rest of
+   | SOME (INL c::cs) =>
+    (case parse_var f_ns c of
       NONE => NONE
     | SOME (x,f_ns') =>
     (case parse_constraint_npbc f_ns' cs of
-      SOME (constr,rest,f_ns'') =>
-        (case rest of
-          [INL beg] =>
-            if beg = strlit"subproof" then
-              SOME (x,constr,f_ns'')
-            else NONE
-        | _ => NONE)
-      | NONE => NONE)) ∧
-  (parse_preserve f_ns _ = NONE)
+      SOME (constr,[],f_ns'') =>
+        SOME (x,constr,f_ns'')
+      | _ => NONE))
+  | _ => NONE)
 End
+
+(*
+  EVAL``parse_preserve (plainVar_nf,()) (toks_fast «x1 1 x1 2 x2 >= 5 : subproof»)``
+*)
+
+Definition parse_epres_def:
+  parse_epres f_ns rs =
+  case parse_vars_line_aux f_ns rs of
+    SOME (vs,f_ns') =>
+      SOME (Done (CheckPres (list_to_num_set vs)), f_ns')
+  | _ => NONE
+End
+
+(*
+  EVAL``parse_epres (plainVar_nf,()) (toks_fast «x4 x2 x3»)``
+*)
 
 (* Parse the first line of a cstep, sstep supported differently later
   Here we first parse the multi-line, then the single line steps *)
@@ -1689,84 +1754,95 @@ Definition parse_cstep_head_def:
   parse_cstep_head f_ns s =
   case s of [] => NONE
   | (r::rs) =>
-    if r = INL (strlit"dom") then
+    if r = INL «dom» then
       case parse_red_header f_ns rs of
         SOME (c,s,f_ns') => SOME (Dompar c s,f_ns')
       | _ => NONE
-    else if r = INL (strlit "delc") then
+    else if r = INL «delc» then
       case parse_delc_header f_ns rs of
       | SOME (n,s,f_ns') =>
         SOME (CheckedDeletepar n s,f_ns')
       | NONE =>
         (case OPTION_BIND (strip_term_line rs) strip_numbers of NONE => NONE
         | SOME n => SOME (Done (UncheckedDelete n),f_ns))
-    else if r = INL (strlit "def_order") then
+    else if r = INL «def_order» then
       case rs of [INL n] => SOME (StoreOrderpar n, f_ns)
       | _ => NONE
-    else if r = INL (strlit"obju") then
+    else if r = INL «obju» then
       (case parse_b_obj_term_npbc f_ns rs of NONE => NONE
       | SOME (b,f',f_ns') =>
         SOME (ChangeObjpar b f', f_ns'))
-    else if r = INL (strlit "preserve_add") ∨
-            r = INL (strlit "preserve_remove") then
+    else if r = INL «preserved_add» ∨
+            r = INL «preserved_rm» then
       case parse_preserve f_ns rs of NONE => NONE
       | SOME (x, c, f_ns') =>
-        let b = (r = INL(strlit "preserve_add")) in
+        let b = (r = INL «preserved_add») in
           SOME (ChangePrespar b x c,f_ns')
     else
     case strip_term_line rs of NONE => NONE
     | SOME rs =>
-    if r = INL (strlit"core") then
+    if r = INL «core» then
       parse_to_core f_ns rs
-    else if r = INL (strlit "strengthening_to_core") then
+    else if r = INL «strengthening_to_core» then
       parse_strengthen f_ns rs
-    else if r = INL (strlit "load_order") then
+    else if r = INL «load_order» then
       parse_load_order f_ns rs
-    else if r = INL (strlit "soli") ∨ r = INL (strlit "sol") then
+    else if r = INL «soli» ∨ r = INL «sol» then
       parse_sol f_ns r rs
-    else if r = INL (strlit "obji") then
+    else if r = INL «solx» then
+      parse_solx f_ns rs
+    else if r = INL «obji» then
       parse_obji f_ns rs
-    else if r = INL (strlit "eobj") then
+    else if r = INL «eobj» then
       parse_eobj f_ns rs
+    else if
+      r = INL «epreserved» then
+      parse_epres f_ns rs
     else NONE
 End
 
 (*
 EVAL
-``parse_cstep_head (plainVar_nf,()) (toks_fast (strlit"dom 1 ~x1 1 x2 >= 1 : x1 -> x2 x2 -> x1 : subproof"))``;
+``parse_cstep_head (plainVar_nf,()) (toks_fast «dom 1 ~x1 1 x2 >= 1 : x1 -> x2 x2 -> x1 : subproof»)``;
 
 EVAL
-``parse_cstep_head (plainVar_nf,()) (toks_fast (strlit"delc 2 : : subproof"))``;
+``parse_cstep_head (plainVar_nf,()) (toks_fast «delc 2 : : subproof»)``;
 
 EVAL
-``parse_cstep_head (plainVar_nf,()) (toks_fast (strlit"delc 1 2 3 4 5;"))``;
+``parse_cstep_head (plainVar_nf,()) (toks_fast «delc 1 2 3 4 5;»)``;
 
 EVAL
-``parse_cstep_head (plainVar_nf,()) (toks_fast (strlit"load_order lex10 x1 ~x4 x9 ~x10 ;"))``;
+``parse_cstep_head (plainVar_nf,()) (toks_fast «load_order lex10 x1 ~x4 x9 ~x10 ;»)``;
 
 EVAL
-``parse_cstep_head (plainVar_nf,()) (toks_fast (strlit"strengthening_to_core off;"))``;
+``parse_cstep_head (plainVar_nf,()) (toks_fast «strengthening_to_core off;»)``;
 
 EVAL
-``parse_cstep_head (plainVar_nf,()) (toks_fast (strlit"core id 1 2 3 4 5;"))``;
+``parse_cstep_head (plainVar_nf,()) (toks_fast «core id 1 2 3 4 5;»)``;
 
 EVAL
-``parse_cstep_head (plainVar_nf,()) (toks_fast (strlit"soli ~x1 ~x2 ~x3 ~x4 ~x5 ~x6 x7 ~x8 x9 ~x10 ~x11 x12 : 50;"))``;
+``parse_cstep_head (plainVar_nf,()) (toks_fast «soli ~x1 ~x2 ~x3 ~x4 ~x5 ~x6 x7 ~x8 x9 ~x10 ~x11 x12 : 50;»)``;
 
 EVAL
-``parse_cstep_head (plainVar_nf,()) (toks_fast (strlit"obji -100 ;"))``;
+``parse_cstep_head (plainVar_nf,()) (toks_fast «solx ~x1 ~x2 ~x3 ~x4 ~x5 ~x6 x7 ~x8 x9 ~x10 ~x11 x12 ;»)``;
 
 EVAL
-``parse_cstep_head (plainVar_nf,()) (toks_fast (strlit"eobj 1 x1 -100 ;"))``;
+``parse_cstep_head (plainVar_nf,()) (toks_fast «obji -100 ;»)``;
 
 EVAL
-``parse_cstep_head (plainVar_nf,()) (toks_fast (strlit"obju new 1 x1 2 : subproof"))``;
+``parse_cstep_head (plainVar_nf,()) (toks_fast «eobj 1 x1 -100 ;»)``;
 
 EVAL
-``parse_cstep_head (plainVar_nf,()) (toks_fast (strlit"soli x1 ~x2 ~x3 : -2;"))``
+``parse_cstep_head (plainVar_nf,()) (toks_fast «epreserved x3 x2 x5;»)``;
 
 EVAL
-``parse_cstep_head (plainVar_nf,()) (toks_fast (strlit"delc 2 : : subproof"))``;
+``parse_cstep_head (plainVar_nf,()) (toks_fast «obju new 1 x1 2 : subproof»)``;
+
+EVAL
+``parse_cstep_head (plainVar_nf,()) (toks_fast «soli x1 ~x2 ~x3 : -2;»)``
+
+EVAL
+``parse_cstep_head (plainVar_nf,()) (toks_fast «delc 2 : : subproof»)``;
 
 *)
 
@@ -1784,7 +1860,7 @@ Definition parse_cstep_def:
         (case parse_scope f_ns'' rest of
           NONE => NONE
         | SOME (pf, f_ns''', h, rest) =>
-          case check_mark_qed_id_opt (INL (strlit"dom")) h of
+          case check_mark_qed_id_opt (INL «dom») h of
             NONE => NONE
           | SOME idopt =>
             SOME (INR (Dom c s pf idopt),f_ns''',rest))
@@ -1792,7 +1868,7 @@ Definition parse_cstep_def:
         (case parse_scope f_ns'' rest of
           NONE => NONE
         | SOME (pf,f_ns''',h,rest) =>
-          case check_mark_qed_id_opt (INL (strlit"delc")) h of
+          case check_mark_qed_id_opt (INL «delc») h of
             NONE => NONE
           | SOME idopt =>
             SOME (INR (CheckedDelete n s pf idopt), f_ns''', rest))
@@ -1804,18 +1880,17 @@ Definition parse_cstep_def:
         (case parse_subproof f_ns'' rest of
           NONE => NONE
         | SOME (pf,f_ns''',s,rest) =>
-        (case check_mark_qed_id_opt (INL (strlit"obju")) s of
+        (case check_mark_qed_id_opt (INL «obju») s of
             SOME NONE => SOME (INR (ChangeObj b f pf), f_ns''', rest)
         | _ => NONE))
-      | SOME (ChangePrespar b x c, f_ns'') => NONE
-        (* TODO
-        (case parse_red_aux f_ns'' rest [] of
+      | SOME (ChangePrespar b x c, f_ns'') =>
+        (case parse_subproof f_ns'' rest of
           NONE => NONE
-        | SOME (res,pf,f_ns'',rest) =>
-          case res of NONE =>
-            SOME (INR (ChangePres b x c pf), f_ns'', rest)
-          | _ => NONE
-        ) *)
+        | SOME (pf,f_ns''',s,rest) =>
+        (case check_mark_qed_id_opt
+          (if b then INL «preserved_add» else INL «preserved_rm») s of
+            SOME NONE => SOME (INR (ChangePres b x c pf), f_ns''', rest)
+        | _ => NONE))
   )
 End
 
@@ -1824,7 +1899,7 @@ Definition parse_unsat_def:
   parse_unsat rest =
   case rest of
     [INL s; INR n] =>
-    if s = strlit":" ∧ n ≥ 0 then SOME (Num n) else NONE
+    if s = «:» ∧ n ≥ 0 then SOME (Num n) else NONE
   | _ => NONE
 End
 
@@ -1832,7 +1907,7 @@ Definition parse_sat_def:
   parse_sat f_ns rest =
   case rest of
     INL s::rest =>
-    if s = strlit":" then
+    if s = «:» then
       OPTION_MAP (SOME o FST) (parse_assg f_ns rest [])
     else NONE
   | [] => SOME NONE
@@ -1843,7 +1918,7 @@ End
 Definition parse_int_inf_def:
   parse_int_inf l =
   case l of INR n => SOME (SOME n)
-  | INL s => if s = strlit "INF" then SOME NONE else NONE
+  | INL s => if s = «INF» then SOME NONE else NONE
 End
 
 (* lb : id ub [: optional assignment] *)
@@ -1851,7 +1926,7 @@ Definition parse_lb_def:
   parse_lb s =
   case s of
     lb :: INL s :: INR n :: rest =>
-    if s = strlit":" ∧ n ≥ 0 then
+    if s = «:» ∧ n ≥ 0 then
       case parse_int_inf lb of NONE => NONE
       | SOME lb => SOME ((lb,Num n), rest)
     else NONE
@@ -1866,7 +1941,7 @@ Definition parse_ub_def:
       | SOME ub =>
         (case rest of [] => SOME(ub, NONE)
         | INL s::rest =>
-          if s = strlit":" then
+          if s = «:» then
             (case parse_assg f_ns rest [] of NONE => NONE
             | SOME (a,f_ns') => SOME(ub,SOME a))
           else NONE
@@ -1883,21 +1958,42 @@ Definition parse_bounds_def:
     | SOME (ub,a) => SOME (lb,ub,n,a))
 End
 
+Definition parse_enum_def:
+  parse_enum s =
+  case s of
+    INR n :: rest =>
+      if n < 0 then NONE
+      else
+        (case rest of [] => SOME(Num n, NONE)
+        | INL s::INR i :: rest =>
+          if s = «:» ∧ i ≥ 0 then
+              SOME (Num n, SOME (Num i))
+          else NONE
+        | _ => NONE)
+    | _ => NONE
+End
+
 Definition parse_concl_def:
   parse_concl f_ns s =
   case strip_term_line s of NONE => NONE
   | SOME s =>
   case s of
   x::y::rest =>
-  if x = INL (strlit "conclusion") then
-    if y = INL (strlit "NONE") ∧ rest = [] then SOME HNoConcl
-    else if y = INL (strlit "UNSAT") then
+  if x = INL «conclusion» then
+    if y = INL «NONE» ∧ rest = [] then SOME HNoConcl
+    else if y = INL «UNSAT» then
       OPTION_MAP HDUnsat (parse_unsat rest)
-    else if y = INL (strlit "SAT") then
+    else if y = INL «SAT» then
       OPTION_MAP HDSat (parse_sat f_ns rest)
-    else if y = INL (strlit"BOUNDS") then
+    else if y = INL «BOUNDS» then
       case parse_bounds f_ns rest of NONE => NONE
       | SOME (lb,ub,n,a) => SOME (HOBounds lb ub n a)
+    else if y = INL «ENUMERATION_COMPLETE» then
+      (case parse_enum rest of NONE => NONE
+      | SOME (n, hint) => SOME (HEEnum n T hint))
+    else if y = INL «ENUMERATION_PARTIAL» then
+      (case parse_enum rest of NONE => NONE
+      | SOME (n, hint) => SOME (HEEnum n F hint))
     else NONE
   else NONE
   | _ => NONE
@@ -1906,30 +2002,37 @@ End
 (*
 
 EVAL
-``parse_concl (plainVar_nf,()) (toks_fast (strlit"conclusion NONE ;"))``;
+``parse_concl (plainVar_nf,()) (toks_fast «conclusion NONE ;»)``;
 
 EVAL
-``parse_concl (plainVar_nf,()) (toks_fast (strlit"conclusion UNSAT : 1234 ;"))``;
+``parse_concl (plainVar_nf,()) (toks_fast «conclusion UNSAT : 1234 ;»)``;
 
+EVAL
+``parse_concl (plainVar_nf,()) (toks_fast «conclusion ENUMERATION_PARTIAL 5 ;»)``;
+
+EVAL
+``parse_concl (plainVar_nf,()) (toks_fast «conclusion ENUMERATION_COMPLETE 5 ;»)``;
 *)
 
-(* Parse a PBC output line *)
+(* Parse a PBC output line.
+  TODO: equienumerable currently aliases equisolvable *)
 Definition parse_output_def:
   parse_output s =
   case strip_term_line s of NONE => NONE
   | SOME s =>
   case s of
     [x;y] =>
-    if x = INL(strlit"output") ∧ y = INL (strlit "NONE")
+    if x = INL «output» ∧ y = INL «NONE»
     then SOME NoOutput
     else NONE
   | [x;y;z] =>
-    if x = INL(strlit"output") ∧ z = INL (strlit "FILE")
+    if x = INL «output» ∧ z = INL «FILE»
     then (
-      if y = INL(strlit"DERIVABLE") then SOME Derivable
-      else if y = INL(strlit"EQUISATISFIABLE") then SOME Equisatisfiable
-      else if y = INL(strlit"EQUIOPTIMAL") then SOME Equioptimal
-      else if y = INL(strlit"EQUISOLVABLE") then SOME Equisolvable
+      if y = INL «DERIVABLE» then SOME Derivable
+      else if y = INL «EQUISATISFIABLE» then SOME Equisatisfiable
+      else if y = INL «EQUIOPTIMAL» then SOME Equioptimal
+      else if y = INL «EQUIENUMERABLE» then SOME Equisolvable
+      else if y = INL «EQUISOLVABLE» then SOME Equisolvable
       else NONE)
     else NONE
   | _ => NONE

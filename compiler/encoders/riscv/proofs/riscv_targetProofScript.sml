@@ -174,9 +174,9 @@ val encode_rwts =
       open riscvTheory
    in
       [riscv_enc_def, riscv_ast_def, riscv_encode_def, riscv_const32_def,
-       riscv_bop_r_def, riscv_bop_i_def, riscv_sh_def, riscv_memop_def,
-       Encode_def, opc_def, Itype_def, Rtype_def, Stype_def, SBtype_def,
-       Utype_def, UJtype_def]
+       riscv_bop_r_def, riscv_bop_i_def, riscv_sh_def, riscv_shv_def,
+       riscv_memop_def, Encode_def, opc_def, Itype_def, Rtype_def, Stype_def,
+       SBtype_def, Utype_def, UJtype_def]
    end
 
 Theorem word_bit_0_add4[local]:
@@ -502,6 +502,13 @@ QED
 
 val print_tac = asmLib.print_tac "correct"
 
+Theorem word_extract_6:
+  w <+ 64w ⇒
+  ((5 >< 0) (w:word64)):word6 = (w2w w)
+Proof
+  blastLib.FULL_BBLAST_TAC
+QED
+
 Theorem riscv_encoder_correct:
     encoder_correct riscv_target
 Proof
@@ -556,8 +563,60 @@ Proof
                 Shift
               --------------*)
             print_tac "Shift"
-            \\ Cases_on `s`
-            \\ next_tac
+            \\ reverse(Cases_on`r`)
+            >- (
+              Cases_on `s`
+              \\ next_tac)
+            >- (
+              Cases_on`s = Ror`
+              >- (
+                rename1`Reg r`
+                \\ `w2n (s1.regs r) < 64` by fs enc_rwts
+                \\ `s1.regs r <+ 64w ∧ s1.regs r <=+ 64w` by (
+                    Cases_on`s1.regs r`
+                    \\ fs[wordsTheory.WORD_LO,wordsTheory.WORD_LS])
+                \\ `w2n (((5 >< 0) (s1.regs r)):word6) =
+                    w2n (s1.regs r)` by
+                      fs[word_extract_6,wordsTheory.w2w_def,wordsTheory.WORD_LO]
+                \\ `s1.regs n0 ⇄ w2n (s1.regs r) =
+                  s1.regs n0 <<~
+                  w2w ((5 >< 0) (-1w * s1.regs r + 64w)) ‖
+                  s1.regs n0 >>>~ w2w ((5 >< 0) (s1.regs r))` by (
+                  Cases_on`s1.regs r = 0w`
+                  >- simp[wordsTheory.w2w_def,bitstringTheory.word_ror_alt]>>
+                  simp[bitstringTheory.word_ror_alt,wordsTheory.w2w_def]>>
+                  qmatch_goalsub_abbrev_tac`_ << A || B = _ << C || D`>>
+                  qsuff_tac`A = C ∧ B = D` >- simp[]>>
+                  unabbrev_all_tac>>rw[]
+                  >- (
+                    dep_rewrite.DEP_REWRITE_TAC[word_extract_6]>>
+                    fs[wordsTheory.w2w_def,wordsTheory.WORD_LO]>>
+                    `-1w * (s1.regs r) + 64w =
+                      64w - s1.regs r` by blastLib.FULL_BBLAST_TAC>>
+                    pop_assum SUBST_ALL_TAC>>
+                    dep_rewrite.DEP_REWRITE_TAC[wordsTheory.word_sub_w2n]>>
+                    simp[]>>
+                    Cases_on`s1.regs r`>>gvs[])>>
+                  Cases_on`s1.regs r`>>gvs[])
+                \\ next_tac)
+              >- (
+                rename1`Reg r`
+                \\ `w2n (s1.regs r) < 64` by fs enc_rwts
+                \\ `w2n (s1.regs r) < dimword (:64)` by fs[]
+                \\ `(n2w (w2n (s1.regs r)) :word64) = s1.regs r` by
+                  fs[wordsTheory.n2w_w2n]
+                \\ imp_res_tac wordsTheory.word_shift_bv
+                \\ rpt (pop_assum (qspec_then `s1.regs n0` mp_tac))
+                \\ pop_assum SUBST_ALL_TAC
+                \\ rw[]
+                \\ `s1.regs r <+ 64w` by (
+                    Cases_on`s1.regs r`
+                    \\ fs[wordsTheory.WORD_LO])
+                \\ `(w2w ((5 >< 0) (s1.regs r):word6)):word64 =
+                    n2w (w2n (s1.regs r))` by
+                    simp[word_extract_6,wordsTheory.w2w_def,wordsTheory.WORD_LO]
+                \\ Cases_on `s`
+                \\ next_tac))
             )
          >- (
             (*--------------

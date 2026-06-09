@@ -7,7 +7,7 @@ val lines =
   let
     val arg = List.hd (CommandLine.arguments())
   in
-    Option.valOf (TextIO.inputLinesFrom arg)
+    Option.valOf (TextIO.inputLinesFile #"\n" arg)
   end
   handle _ =>
     (TextIO.print_err ("usage: " ^ CommandLine.name() ^ " <filename>\n");

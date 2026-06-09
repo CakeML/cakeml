@@ -42,11 +42,18 @@ type_of ``Add``;
   This shows how to define recursive functions in HOL.
 *)
 
-Definition sem_def:
+Definition sem_def[simp]:
   sem (Num n) = n ∧
   sem (Add e1 e2) = sem e1 + sem e2 ∧
   sem (Sub e1 e2) = sem e1 - sem e2
 End
+
+(*
+  Note the use of the tag [simp]. This makes the definition an
+  "automatic" rewrite, so the simplifier expands it by default.
+  This will be useful in proofs.
+*)
+
 
 (*
   We can "run" such definitions in the logic, producing a theorem as the result.
@@ -56,12 +63,6 @@ End
 
 val example = EVAL``sem (Add (Num 3) (Sub (Num 4) (Num 2)))``;
 
-(*
-  We can also make this definition an "automatic" rewrite, so the simplifier
-  expands it by default. This will be useful in proofs.
-*)
-
-val _ = export_rewrites["sem_def"];
 
 (*
   Another function on expressions, this time it takes an expression and creates
@@ -104,4 +105,3 @@ QED
     rewrite_tac[TIMES2] )
   >- ...
 *)
-

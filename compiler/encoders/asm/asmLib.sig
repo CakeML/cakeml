@@ -1,7 +1,7 @@
 signature asmLib =
 sig
    val add_asm_ok_thm: Thm.thm -> unit
-   val add_asm_compset: computeLib.compset -> unit
+   val add_asm_compset: computeLib.compset -> computeLib.compset
    val asm_cases_tac: Term.term Abbrev.quotation -> Tactic.tactic
    val asm_ok_rwts: Thm.thm list
    val asm_rwts: Thm.thm list

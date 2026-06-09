@@ -11,7 +11,6 @@ open to_data_cvTheory;
 
 type arch_thms =
   { default_config_def       : thm
-  , default_config_simp      : thm
   , to_livesets_def          : thm
   , compile_cake_def         : thm
   , compile_cake_imp         : thm
@@ -23,6 +22,7 @@ type comp_input =
   , conf_def             : thm
   , prog_def             : thm
   , run_as_explorer      : bool
+  , main_return          : bool
   , output_filename      : string
   , output_conf_filename : string option }
 
@@ -52,16 +52,15 @@ fun eval_cake_compile_general (arch : arch_thms) (input : comp_input) = let
   val _ = (cv_memLib.verbosity_level := cv_memLib.Verbose)
   fun report s = print (String.concat ["eval_cake: ", s, " --- ",
                     Date.toString (Date.fromTimeLocal (Time.now())),"\n"])
-  val { prefix, conf_def, prog_def, run_as_explorer
+  val { prefix, conf_def, prog_def, run_as_explorer, main_return
       , output_filename , output_conf_filename } = input
-  val { default_config_def, default_config_simp, to_livesets_def, compile_cake_explore_def
+  val { default_config_def, to_livesets_def, compile_cake_explore_def
       , compile_cake_def, compile_cake_imp, cv_export_def } = arch
   fun define_abbrev name tm =
     Feedback.trace ("Theory.allow_rebinds", 1)
       (mk_abbrev (prefix ^ name)) tm
   val conf = conf_def |> concl |> lhs
-  val c = backendTheory.config_to_inc_config_def
-            |> ISPEC conf |> CONV_RULE (RAND_CONV EVAL)
+  val c = conf_def |> CONV_RULE (RAND_CONV EVAL)
   val _ = report "config EVAL-ed"
   val _ = allowing_rebind (cv_trans_deep_embedding EVAL) prog_def
   val _ = report "cv_trans_deep_embedding prog_def finished"
@@ -82,8 +81,7 @@ fun eval_cake_compile_general (arch : arch_thms) (input : comp_input) = let
   val _ = allowing_rebind (cv_trans_deep_embedding EVAL) oracle_def
   val _ = report "cv_trans_deep_embedding oracle_def finished"
   val oracle_tm = oracle_def |> concl |> lhs
-  val c_tm = c |> concl |> lhs
-  val c_oracle_tm = backendTheory.inc_set_oracle_def
+  val c_oracle_tm = backendTheory.set_oracle_def
                       |> SPEC (c |> concl |> rhs)
                       |> SPEC oracle_tm |> concl |> lhs
   val def = if run_as_explorer then compile_cake_explore_def else compile_cake_def
@@ -129,9 +127,7 @@ fun eval_cake_compile_general (arch : arch_thms) (input : comp_input) = let
     new_specification(prefix ^ "compiled",
                       [prefix ^ "oracle", prefix ^ "info"], th)
   val result_th = MATCH_MP compile_cake_imp th
-    |> REWRITE_RULE [backendTheory.inc_set_oracle_pull,
-                     backendTheory.inc_config_to_config_config_to_inc_config]
-    |> REWRITE_RULE [default_config_simp,LENGTH_NIL]
+    |> REWRITE_RULE [LENGTH_NIL]
     |> CONV_RULE (UNBETA_CONV oracle_tm)
     |> MATCH_MP backend_asmTheory.exists_oracle
     |> CONV_RULE (PATH_CONV "b" BETA_CONV)
@@ -150,10 +146,10 @@ fun eval_cake_compile_general (arch : arch_thms) (input : comp_input) = let
      get_one_subst "cv_data" data_def,
      get_one_subst "cv_bytes" code_def,
      get_one_subst "cv_syms" syms_def,
-     (* TODO: exp/ret/pk need to be passed as arguments for in-logic
-        Pancake compiler evaluation *)
      mk_var("cv_exp",cvSyntax.cv) |-> cvSyntax.mk_cv_num numSyntax.zero_tm,
-     mk_var("cv_ret",cvSyntax.cv) |-> cvSyntax.mk_cv_num numSyntax.zero_tm,
+     mk_var("cv_ret",cvSyntax.cv) |-> cvSyntax.mk_cv_num
+       (if main_return then (numSyntax.mk_numeral (Arbnum.fromInt 1))
+        else numSyntax.zero_tm),
      mk_var("cv_pk",cvSyntax.cv)  |-> cvSyntax.mk_cv_num numSyntax.zero_tm]
   val _ = null (free_vars export_tm) orelse failwith "failed to eval export"
   (*
@@ -182,6 +178,7 @@ fun eval_cake_compile_with_conf arch prefix conf_def prog_def filename =
     , conf_def             = conf_def
     , prog_def             = prog_def
     , run_as_explorer      = false
+    , main_return          = false
     , output_filename      = filename
     , output_conf_filename = NONE };
 
@@ -194,13 +191,14 @@ fun eval_cake_compile_explore_with_conf arch prefix conf_def prog_def filename =
     , conf_def             = conf_def
     , prog_def             = prog_def
     , run_as_explorer      = true
+    , main_return          = false
     , output_filename      = filename
     , output_conf_filename = NONE };
 
 fun eval_cake_compile_explore arch prefix =
   eval_cake_compile_explore_with_conf arch prefix (#default_config_def arch);
 
-val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
+val _ = Feedback.set_trace "TheoryPP.include_html_docs" 0;
 
 (* --- for debugging ---
    val _ = (max_print_depth := 15);
@@ -210,6 +208,7 @@ val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
        , conf_def             = #default_config_def x64_arch_thms
        , prog_def             = Define `prog = [] : ast$dec list`
        , run_as_explorer      = true
+       , main_return          = false
        , output_filename      = "test.S"
        , output_conf_filename = SOME "test_conf.txt" } : comp_input;
 *)

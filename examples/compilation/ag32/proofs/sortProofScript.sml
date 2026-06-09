@@ -5,7 +5,7 @@
 *)
 Theory sortProof
 Ancestors
-  semanticsProps backendProof ag32_configProof ag32_memory
+  mlstring semanticsProps backendProof ag32_configProof ag32_memory
   ag32_memoryProof ag32_ffi_codeProof ag32_machine_config
   ag32_basis_ffiProof sortProg sortCompile
 Libs
@@ -13,20 +13,23 @@ Libs
 
 Theorem sort_stdin_semantics:
   ∃io_events.
-    semantics_prog (init_state (basis_ffi [strlit"sort"] (stdin_fs input))) init_env
+    semantics_prog (init_state (basis_ffi [«sort»] (stdin_fs input))) init_env
       sort_prog (Terminate Success io_events) ∧
     (∃output. PERM output (lines_of (implode input)) ∧ SORTED mlstring_le output ∧
      (extract_fs (stdin_fs input) io_events =
       SOME (add_stdout (fastForwardFD (stdin_fs input) 0) (concat output))))
 Proof
-  qspecl_then[`stdin_fs input`,`[strlit"sort"]`]mp_tac (GEN_ALL sort_semantics)
+  qspecl_then[`stdin_fs input`,`[«sort»]`]mp_tac (GEN_ALL sort_semantics)
   \\ simp [sort_compiled,ml_progTheory.prog_syntax_ok_semantics]
   \\ `stdin (stdin_fs input) input 0` by EVAL_TAC
   \\ drule TextIOProofTheory.stdin_get_file_content
   \\ rw[wfFS_stdin_fs, STD_streams_stdin_fs, CommandLineProofTheory.wfcl_def, clFFITheory.validArg_def]
+  \\ ‘stdin_content (stdin_fs input) = SOME input’ by
+    (simp [TextIOProofTheory.stdin_content_def, stdin_fs_def])
+  \\ fs []
   \\ asm_exists_tac \\ rw[]
-  \\ fs[valid_sort_result_def, fsFFIPropsTheory.all_lines_def]
-  \\ rfs[TextIOProofTheory.stdin_def]
+  \\ fs[valid_sort_result_def]
+  \\ rfs[TextIOProofTheory.stdin_def, good_args_def]
   \\ asm_exists_tac \\ simp[]
 QED
 
@@ -137,6 +140,7 @@ Proof
   \\ disch_then drule
   \\ strip_tac
   \\ simp[]
+  \\ conj_tac >- (EVAL_TAC)
   \\ conj_tac >- (simp[LENGTH_code] \\ EVAL_TAC)
   \\ conj_tac >- (simp[LENGTH_code, LENGTH_data] \\ EVAL_TAC)
   \\ conj_tac >- (EVAL_TAC)
@@ -149,7 +153,7 @@ Theorem sort_machine_sem =
   |> C MATCH_MP (
       sort_installed
        |> Q.GEN `cl`
-       |> Q.SPEC `[strlit"sort"]`
+       |> Q.SPEC `[«sort»]`
        |> SIMP_RULE(srw_ss())[cline_size_def]
        |> UNDISCH)
   |> DISCH_ALL
@@ -198,7 +202,7 @@ QED
 
 Theorem sort_ag32_next:
    LENGTH inp ≤ stdin_size ∧
-   is_ag32_init_state (init_memory code data (extcalls info.lab_conf.ffi_names) ([strlit"sort"],inp)) ms0
+   is_ag32_init_state (init_memory code data (extcalls info.lab_conf.ffi_names) ([«sort»],inp)) ms0
   ⇒
    ∃k1. ∀k. k1 ≤ k ⇒
      let ms = FUNPOW Next k ms0 in
@@ -214,7 +218,7 @@ Proof
   \\ disch_then drule
   \\ strip_tac
   \\ irule ag32_next
-  \\ conj_tac >- simp[ffi_names,extcalls_def]
+  \\ conj_tac >- (simp[ffi_names,extcalls_def] \\ EVAL_TAC)
   \\ conj_tac >- (simp[ffi_names,extcalls_def, LENGTH_code, LENGTH_data] \\ EVAL_TAC)
   \\ conj_tac >- (simp[ffi_names,extcalls_def] \\ EVAL_TAC)
   \\ rpt $ goal_assum $ drule_at Any
@@ -227,4 +231,3 @@ Proof
   \\ qexists_tac`clk` \\ simp[]
   \\ EVAL_TAC
 QED
-

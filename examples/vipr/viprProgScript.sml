@@ -117,21 +117,22 @@ val print_outcome_v_thm = translate print_outcome_def;
 (* ---- *)
 
 Definition usage_message_def:
-  usage_message = concat [strlit "Usage:\n";
-                          strlit "to read from stdin:   cake_vipr\n";
-                          strlit "to read from a file:  cake_vipr FILE\n"]
+  usage_message = concat [«Usage:\n»;
+                          «to read from stdin:   cake_vipr\n»;
+                          «to read from a file:  cake_vipr FILE\n»]
 End
 
 val r = translate (usage_message_def |> CONV_RULE (RAND_CONV EVAL));
 val r = translate oHD_def;
 
-val _ = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun main u =
     let
       val cl = CommandLine.arguments ()
       val r = TextIO.foldLines #"\n" checker_step init_state (ohd cl)
     in print (print_outcome (Option.valOf r)) end
-    handle e => TextIO.output TextIO.stdErr usage_message`;
+    handle e => TextIO.output TextIO.stdErr usage_message
+End
 
 val main_v_def = fetch "-" "main_v_def";
 
@@ -139,7 +140,7 @@ Theorem lines_of_gen_lines_of:
   lines_of_gen #"\n" xs =
   lines_of xs
 Proof
-  rw[lines_of_def,lines_of_gen_def,splitlines_at_def,splitlines_def,str_def]
+  rw[lines_of_def,lines_of_gen_def,splitlines_at_def,splitlines_def,chr_to_str_def]
 QED
 
 Theorem main_spec_stdin:

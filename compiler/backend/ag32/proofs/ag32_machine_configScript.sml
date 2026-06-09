@@ -43,7 +43,7 @@ End
 
 Definition ag32_ffi_mem_update_def:
   ag32_ffi_mem_update name conf bytes new_bytes mem =
-    if (name = "write") then
+    if (name = «write») then
       if (HD new_bytes = 0w) then
         case bytes of
         | (n1 :: n0 :: off1 :: off0 :: tll) =>
@@ -53,7 +53,7 @@ Definition ag32_ffi_mem_update_def:
             asm_write_bytearray (n2w output_offset) (conf ++ [0w;0w;n1;n0] ++ written) mem
         | _ => mem
       else ((n2w output_offset) =+ 1w) mem
-    else if (name = "read") then
+    else if (name = «read») then
       case new_bytes of
       | (zz :: k1 :: k0 :: _) =>
         if (zz = 0w) then
@@ -68,7 +68,7 @@ Definition ag32_ffi_interfer_def:
   ag32_ffi_interfer ffi_names md (index,new_bytes,ms) =
     let name = EL index ffi_names in
     let exitpc = THE (ALOOKUP ffi_exitpcs name) in
-    if name = "" then
+    if name = «» then
       ms with <| PC := (ms.R 0w) ;
                  R := ((0w =+ n2w exitpc) ((5w =+ 0w) (ms.R)));
                  CarryFlag := F;
@@ -149,4 +149,3 @@ Proof
   \\ fs[word_lo_n2w, word_ls_n2w, word_add_n2w]
   \\ rfs[]
 QED
-

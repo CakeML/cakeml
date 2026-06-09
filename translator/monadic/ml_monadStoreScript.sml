@@ -1,5 +1,5 @@
 (*
-  This file defines theorems and lemma used in the ml_monadStoreLib
+  This file defines theorems and lemmas used in the ml_monadStoreLib
 *)
 Theory ml_monadStore
 Ancestors

@@ -16,17 +16,17 @@ val _ = Parse.hide "mem";
 
 val mem = ``mem:'U->'U->bool``
 
-Overload p[local] = ``Var (strlit "p") Bool``
-Overload FAp[local] = ``Forall (strlit "p") Bool``
-Overload q[local] = ``Var (strlit "q") Bool``
-Overload FAq[local] = ``Forall (strlit "q") Bool``
-Overload r[local] = ``Var (strlit "r") Bool``
-Overload FAr[local] = ``Forall (strlit "r") Bool``
-Overload f[local] = ``Var (strlit "f") (Fun Bool (Fun Bool Bool))``
-Overload A[local] = ``Tyvar (strlit "A")``
-Overload P[local] = ``Var (strlit "P") (Fun A Bool)``
-Overload x[local] = ``Var (strlit "x") A``
-Overload FAx[local] = ``Forall (strlit "x") A``
+Overload p[local] = ``Var «p» Bool``
+Overload FAp[local] = ``Forall «p» Bool``
+Overload q[local] = ``Var «q» Bool``
+Overload FAq[local] = ``Forall «q» Bool``
+Overload r[local] = ``Var «r» Bool``
+Overload FAr[local] = ``Forall «r» Bool``
+Overload f[local] = ``Var «f» (Fun Bool (Fun Bool Bool))``
+Overload A[local] = ``Tyvar «A»``
+Overload P[local] = ``Var «P» (Fun A Bool)``
+Overload x[local] = ``Var «x» A``
+Overload FAx[local] = ``Forall «x» A``
 
 val sigs = [is_true_sig_def, is_false_sig_def, is_implies_sig_def, is_and_sig_def,
             is_or_sig_def, is_not_sig_def, is_forall_sig_def, is_exists_sig_def]
@@ -51,26 +51,26 @@ End
 Overload Boolrel = ``Boolrel0 ^mem``
 
 Definition is_true_interpretation_def:
-  is_true_interpretation0 ^mem γ ⇔ γ(strlit "T",Bool) = True:'U
+  is_true_interpretation0 ^mem γ ⇔ γ(«T»,Bool) = True:'U
 End
 
 Overload is_true_interpretation = ``is_true_interpretation0 ^mem``
 
 Definition is_and_interpretation_def:
-  is_and_interpretation0 ^mem γ ⇔ γ(strlit "/\\", Fun Bool (Fun Bool Bool)) = Boolrel $/\
+  is_and_interpretation0 ^mem γ ⇔ γ(«/\\», Fun Bool (Fun Bool Bool)) = Boolrel $/\
 End
 
 Overload is_and_interpretation = ``is_and_interpretation0 ^mem``
 
 Definition is_implies_interpretation_def:
-  is_implies_interpretation0 ^mem γ ⇔ γ(strlit "==>",Fun Bool (Fun Bool Bool)) = Boolrel $==>
+  is_implies_interpretation0 ^mem γ ⇔ γ(«==>»,Fun Bool (Fun Bool Bool)) = Boolrel $==>
 End
 
 Overload is_implies_interpretation = ``is_implies_interpretation0 ^mem``
 
 Definition is_forall_interpretation_def:
   is_forall_interpretation0 ^mem γ δ ty ⇔
-    γ(strlit "!",Fun (Fun ty Bool) Bool) = Abstract (Funspace (δ ty) boolset) boolset
+    γ(«!»,Fun (Fun ty Bool) Bool) = Abstract (Funspace (δ ty) boolset) boolset
               (λP. Boolean (∀x. x <: δ ty ⇒ Holds P x))
 End
 
@@ -78,7 +78,7 @@ Overload is_forall_interpretation = ``is_forall_interpretation0 ^mem``
 
 Definition is_exists_interpretation_def:
   is_exists_interpretation0 ^mem γ δ ty ⇔
-    γ(strlit "?",Fun (Fun ty Bool) Bool) =
+    γ(«?»,Fun (Fun ty Bool) Bool) =
        Abstract (Funspace (δ ty) boolset) boolset
               (λP. Boolean (∃x. x <: (δ ty) ∧ Holds P x))
 End
@@ -86,19 +86,19 @@ End
 Overload is_exists_interpretation = ``is_exists_interpretation0 ^mem``
 
 Definition is_or_interpretation_def:
-  is_or_interpretation0 ^mem γ ⇔ γ(strlit "\\/",Fun Bool (Fun Bool Bool)) = Boolrel $\/
+  is_or_interpretation0 ^mem γ ⇔ γ(«\\/»,Fun Bool (Fun Bool Bool)) = Boolrel $\/
 End
 
 Overload is_or_interpretation = ``is_or_interpretation0 ^mem``
 
 Definition is_false_interpretation_def:
-  is_false_interpretation0 ^mem γ ⇔ γ(strlit "F",Bool) = False:'U
+  is_false_interpretation0 ^mem γ ⇔ γ(«F»,Bool) = False:'U
 End
 
 Overload is_false_interpretation = ``is_false_interpretation0 ^mem``
 
 Definition is_not_interpretation_def:
-  is_not_interpretation0 ^mem γ ⇔ γ(strlit "~",Fun Bool Bool) = Abstract boolset boolset (λp. Boolean (p ≠ True))
+  is_not_interpretation0 ^mem γ ⇔ γ(«~»,Fun Bool Bool) = Abstract boolset boolset (λp. Boolean (p ≠ True))
 End
 
 Overload is_not_interpretation = ``is_not_interpretation0 ^mem``
@@ -131,25 +131,24 @@ End
 
 Overload is_bool_interpretation_ext = ``is_bool_interpretation_ext0 ^mem``
 
-Theorem boolrel_in_funspace:
+Theorem boolrel_in_funspace[simp]:
   is_set_theory ^mem ⇒ Boolrel R <: Funspace boolset (Funspace boolset boolset)
 Proof
   rw[Boolrel_def] >> match_mp_tac (UNDISCH abstract_in_funspace) >> rw[] >>
   match_mp_tac (UNDISCH abstract_in_funspace) >> rw[boolean_in_boolset]
 QED
 
-val _ = export_rewrites["boolrel_in_funspace"]
 
 val Defs = [TrueDef_def, AndDef_def, ImpliesDef_def, ForallDef_def, ExistsDef_def, OrDef_def, FalseDef_def, NotDef_def]
 
 Theorem bool_term_ok_rator:
    is_bool_sig sig ==>
-   (term_ok sig (Const (strlit "/\\") (Fun Bool (Fun Bool Bool))) /\
-    term_ok sig (Const (strlit "\\/") (Fun Bool (Fun Bool Bool))) /\
-    term_ok sig (Const (strlit "~") (Fun Bool Bool)) /\
-    term_ok sig (Const (strlit "==>") (Fun Bool (Fun Bool Bool))) /\
-    term_ok sig (Const (strlit "!") (Fun (Fun A Bool) Bool)) /\
-    term_ok sig (Const (strlit "?") (Fun (Fun A Bool) Bool)))
+   (term_ok sig (Const «/\\» (Fun Bool (Fun Bool Bool))) /\
+    term_ok sig (Const «\\/» (Fun Bool (Fun Bool Bool))) /\
+    term_ok sig (Const «~» (Fun Bool Bool)) /\
+    term_ok sig (Const «==>» (Fun Bool (Fun Bool Bool))) /\
+    term_ok sig (Const «!» (Fun (Fun A Bool) Bool)) /\
+    term_ok sig (Const «?» (Fun (Fun A Bool) Bool)))
 Proof
   rw[is_bool_sig_def,is_std_sig_def,is_and_sig_def,is_or_sig_def,is_not_sig_def,
      is_implies_sig_def,is_forall_sig_def,is_exists_sig_def,term_ok_def,type_ok_def]
@@ -337,15 +336,15 @@ Proof
     unabbrev_all_tac >>
     match_mp_tac bool_has_bool_sig >>
     pop_assum mp_tac >> EVAL_TAC ) >>
-  `FLOOKUP (tysof sig) (strlit "bool") = SOME 0` by (
+  `FLOOKUP (tysof sig) «bool» = SOME 0` by (
     qpat_x_assum`is_std_sig _` mp_tac >>
     simp[is_std_sig_def,Abbr`sig`,Abbr`ctx`]) >>
-  `FLOOKUP (tysof sig) (strlit "fun") = SOME 2` by (
+  `FLOOKUP (tysof sig) «fun» = SOME 2` by (
     qpat_x_assum`is_std_sig _` mp_tac >>
     simp[is_std_sig_def,Abbr`sig`,Abbr`ctx`]) >>
   simp ints >>
   conj_asm1_tac >- (
-    init_tac ``Const (strlit "T") Bool`` ``TrueDef`` ``Bool`` exists_valuation_bool >>
+    init_tac ``Const «T» Bool`` ``TrueDef`` ``Bool`` exists_valuation_bool >>
     fs[TrueDef_def] >>
     drule((PURE_ONCE_REWRITE_RULE [termsem_ext_def] o GEN_ALL o MP_CANON) termsem_ext_equation) >>
     rpt(disch_then drule) >>
@@ -356,7 +355,7 @@ Proof
        simp[type_ok_def,tyvars_def,term_ok_def]) >>
     simp[boolean_eq_true]) >>
   conj_asm1_tac >- (
-    init_tac ``Const (strlit "/\\") (Fun Bool (Fun Bool Bool))`` ``AndDef`` ``Bool`` exists_valuation_bool >>
+    init_tac ``Const «/\\» (Fun Bool (Fun Bool Bool))`` ``AndDef`` ``Bool`` exists_valuation_bool >>
     fs[AndDef_def] >>
     simp[termsem_def] >>
     imp_res_tac term_ok_welltyped >>
@@ -427,7 +426,7 @@ Proof
       simp[boolean_def,mem_boolset] ) >>
     metis_tac[]) >>
   conj_asm1_tac >- (
-    init_tac ``Const (strlit "==>") (Fun Bool (Fun Bool Bool))`` ``ImpliesDef`` ``Bool`` exists_valuation_bool >>
+    init_tac ``Const «==>» (Fun Bool (Fun Bool Bool))`` ``ImpliesDef`` ``Bool`` exists_valuation_bool >>
     fs[ImpliesDef_def] >>
     simp[termsem_def] >>
     imp_res_tac term_ok_welltyped >>
@@ -472,7 +471,7 @@ Proof
     unabbrev_all_tac >> fs[boolean_def] >> every_case_tac >> fs[] >>
     rfs[mem_boolset] >> fs[]) >>
   conj_asm1_tac >- (
-    init_tac ``Const (strlit "!") (Fun (Fun A Bool) Bool)`` ``ForallDef`` ``ty:type`` exists_valuation >>
+    init_tac ``Const «!» (Fun (Fun A Bool) Bool)`` ``ForallDef`` ``ty:type`` exists_valuation >>
     fs[ForallDef_def,termsem_def] >> simp[Once ext_type_frag_builtins_def] >>
     imp_res_tac term_ok_welltyped >> fs[] >>
     simp[typeof_equation] >>
@@ -511,7 +510,7 @@ Proof
    drule abstract_eq >> disch_then match_mp_tac >>
    rw[mem_boolset] >> metis_tac[apply_abstract]) >>
   conj_asm1_tac >- (
-    init_tac ``Const (strlit "?") (Fun (Fun A Bool) Bool)`` ``ExistsDef`` ``ty:type`` exists_valuation >>
+    init_tac ``Const «?» (Fun (Fun A Bool) Bool)`` ``ExistsDef`` ``ty:type`` exists_valuation >>
     fs[ExistsDef_def,termsem_def] >> simp[Once ext_type_frag_builtins_def] >>
     imp_res_tac term_ok_welltyped >> fs[] >>
     simp[typeof_equation] >>
@@ -668,7 +667,7 @@ Proof
       ntac 7 (pop_assum kall_tac) >>
       metis_tac[mem_boolset,true_neq_false])) >>
   conj_asm1_tac >-
-    (init_tac ``Const (strlit "\\/") (Fun Bool (Fun Bool Bool))`` ``OrDef`` ``Bool`` exists_valuation_bool >>
+    (init_tac ``Const «\\/» (Fun Bool (Fun Bool Bool))`` ``OrDef`` ``Bool`` exists_valuation_bool >>
      fs[OrDef_def] >> simp[termsem_def,combinTheory.UPDATE_def] >>
      PURE_ONCE_REWRITE_TAC[ext_type_frag_builtins_def] >> simp[] >>
      PURE_ONCE_REWRITE_TAC[ext_type_frag_builtins_def] >> simp[] >>
@@ -714,7 +713,7 @@ Proof
      simp[apply_boolrel_rw,boolean_in_boolset] >>
      simp[boolean_eq_true] >> metis_tac[mem_boolset]) >>
   conj_asm1_tac >- (
-    init_tac ``Const (strlit "F") Bool`` ``FalseDef`` ``Bool`` exists_valuation_bool >>
+    init_tac ``Const «F» Bool`` ``FalseDef`` ``Bool`` exists_valuation_bool >>
     fs[FalseDef_def] >>
     simp[termsem_def] >>
     `Bool ∈ ground_types sig` by(simp[ground_types_def,tyvars_def,type_ok_def]) >>
@@ -730,7 +729,7 @@ Proof
     pop_assum(qspec_then `False` mp_tac) >>
     simp[mem_boolset,holds_def,apply_abstract,true_neq_false])
   >- (
-    init_tac ``Const (strlit "~") (Fun Bool Bool)`` ``NotDef`` ``Bool`` exists_valuation_bool >>
+    init_tac ``Const «~» (Fun Bool Bool)`` ``NotDef`` ``Bool`` exists_valuation_bool >>
     simp[NotDef_def,termsem_def,combinTheory.UPDATE_def] >>
     PURE_ONCE_REWRITE_TAC [ext_type_frag_builtins_def] >> simp[] >>
     match_mp_tac(MP_CANON abstract_eq) >>
@@ -819,10 +818,10 @@ Proof
   simp ints >>
   rpt(disch_then strip_assume_tac) >>
   simp[ext_term_frag_builtins_def] >>
-  `FLOOKUP (tyenv) (strlit "bool") = SOME 0` by (
+  `FLOOKUP (tyenv) «bool» = SOME 0` by (
     drule_then match_mp_tac FLOOKUP_SUBMAP >>
     fs[theory_ok_def,is_std_sig_def]) >>
-  `FLOOKUP (tyenv) (strlit "fun") = SOME 2` by (
+  `FLOOKUP (tyenv) «fun» = SOME 2` by (
     drule_then match_mp_tac FLOOKUP_SUBMAP >>
     fs[theory_ok_def,is_std_sig_def]) >>
   ntac 2 (qpat_x_assum `!x. _` kall_tac) >>
@@ -836,7 +835,7 @@ Proof
        rw[mk_bool_ctxt_def] >> EVAL_TAC) >>
   conj_asm1_tac
   >-
-   (init_tac2 ``Const (strlit "!") (Fun (Fun A Bool) Bool)`` ``ForallDef`` ``ty:type`` exists_valuation >>
+   (init_tac2 ``Const «!» (Fun (Fun A Bool) Bool)`` ``ForallDef`` ``ty:type`` exists_valuation >>
     fs[ForallDef_def,termsem_def] >> simp[Once ext_type_frag_builtins_def] >>
     imp_res_tac term_ok_welltyped >> fs[] >>
     simp[typeof_equation] >>
@@ -875,7 +874,7 @@ Proof
    drule abstract_eq >> disch_then match_mp_tac >>
    rw[mem_boolset] >> metis_tac[apply_abstract])
   >-
-   (init_tac2``Const (strlit "?") (Fun (Fun A Bool) Bool)`` ``ExistsDef`` ``ty:type`` exists_valuation >>
+   (init_tac2``Const «?» (Fun (Fun A Bool) Bool)`` ``ExistsDef`` ``ty:type`` exists_valuation >>
     fs[ExistsDef_def,termsem_def] >> simp[Once ext_type_frag_builtins_def] >>
     imp_res_tac term_ok_welltyped >> fs[] >>
     simp[typeof_equation] >>

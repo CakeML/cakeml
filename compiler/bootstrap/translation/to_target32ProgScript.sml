@@ -17,10 +17,9 @@ open to_word32ProgTheory std_preludeTheory;
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
 val _ = translation_extends "to_word32Prog";
-val _ = ml_translatorLib.use_string_type true;
 val _ = ml_translatorLib.use_sub_check true;
 
-val () = computeLib.set_skip computeLib.the_compset “COND” (SOME 1);
+val _ = (computeLib.the_compset := computeLib.set_skip (!computeLib.the_compset) “COND” (SOME 1));
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "to_target32Prog");
 
@@ -107,6 +106,10 @@ val _ = translate (spec32 word_to_stackTheory.wMove_def)
 val _ = translate (spec32 call_dest_def)
 
 val _ = translate (wInst_def |> conv32)
+
+val _ = translate (perf_call_prefix_def |> conv32)
+val _ = translate (perf_call_suffix_def |> conv32)
+
 val _ = translate (spec32 comp_def)
 
 val _ = translate (compile_word_to_stack_def |> INST_TYPE [beta |-> ``:32``])
@@ -352,8 +355,8 @@ Definition remove_labels_hash_def:
 End
 
 Theorem remove_labels_hash_correct[local]:
-  remove_labels_hash c.init_clock c.asm_conf c.pos c.labels ffis c.hash_size sec_list =
-  remove_labels c.init_clock c.asm_conf c.pos c.labels ffis sec_list
+  remove_labels_hash c.init_clock ac c.pos c.labels ffis c.hash_size sec_list =
+  remove_labels c.init_clock ac c.pos c.labels ffis sec_list
 Proof
   simp [FUN_EQ_THM, remove_labels_hash_def, remove_labels_def,
         enc_secs_32_correct]
@@ -362,26 +365,7 @@ QED
 val res = translate (remove_labels_hash_def |> spec32);
 
 val res = translate $ INST_TYPE[alpha|->``:8``] $ get_memop_info_def;
-val res = translate_no_ind $ spec32 $ get_shmem_info_def;
-
-Theorem get_shmem_info_ind:
-  lab_to_target_get_shmem_info_ind
-Proof
-  PURE_REWRITE_TAC [fetch "-" "lab_to_target_get_shmem_info_ind_def"]
-  \\ rpt gen_tac
-  \\ rpt (disch_then strip_assume_tac)
-  \\ match_mp_tac (spec32 $ latest_ind ())
-  \\ rpt strip_tac >>
-  TRY (last_x_assum match_mp_tac>>
-       rpt strip_tac>>fs[])>>
-  gvs[]>>
-  qmatch_asmsub_abbrev_tac ‘shmem_info ++ X’>>
-  qpat_abbrev_tac ‘RH = shmem_info ++ _’>>
-  ‘RH = shmem_info ++ X’ by simp[Abbr ‘RH’, Abbr ‘X’,shmem_rec_component_equality]>>
-  fs[Abbr ‘X’]
-QED
-
-val _ = get_shmem_info_ind |> update_precondition;
+val res = translate $ spec32 $ get_shmem_info_def;
 
 val compile_lab_thm = compile_lab_def
   |> spec32 |> REWRITE_RULE [GSYM remove_labels_hash_correct];

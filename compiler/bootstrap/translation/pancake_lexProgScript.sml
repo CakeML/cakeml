@@ -59,10 +59,7 @@ fun def_of_const tm = let
 
 val _ = (find_def_for_const := def_of_const);
 
-val _ = ml_translatorLib.use_string_type true;
 val _ = register_type “:panLexer$token”;
-
-val _ = ml_translatorLib.use_string_type false;
 
 val _ = translate (next_atom_def |> REWRITE_RULE [GSYM sub_check_def]);
 

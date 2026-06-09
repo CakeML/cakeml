@@ -224,12 +224,11 @@ Proof
   \\ once_rewrite_tac [append_aux_thm] \\ fs []
 QED
 
-Definition SmartAppend_def:
+Definition SmartAppend_def[simp]:
   (SmartAppend Nil l2 = l2) ∧
   (SmartAppend l1 Nil = l1) ∧
   (SmartAppend l1 l2 = Append l1 l2)
 End
-val _ = export_rewrites["SmartAppend_def"];
 
 Theorem SmartAppend_thm:
    ∀l1 l2.
@@ -270,11 +269,10 @@ Proof
 QED
 
 (* MAP3 never used *)
-Definition MAP3_def:
+Definition MAP3_def[simp]:
   (MAP3 f [] [] [] = []) /\
   (MAP3 f (h1::t1) (h2::t2) (h3::t3) = f h1 h2 h3::MAP3 f t1 t2 t3)
 End
-val _ = export_rewrites["MAP3_def"];
 
 val MAP3_ind = theorem"MAP3_ind";
 
@@ -645,33 +643,16 @@ Proof
   full_simp_tac(srw_ss())[MAX_DEF,COND_RAND]
 QED
 
-(*TODO replace with MAX_LIST*)
-Definition list_max_def:
-  (list_max [] = 0:num) /\
-  (list_max (x::xs) =
-     let m = list_max xs in
-       if m < x then x else m)
-End
-
-Theorem list_max_max:
-   ∀ls.  EVERY (λx. x ≤ list_max ls) ls
+Theorem MAX_LIST_max:
+  ∀ls. EVERY (λx. x ≤ MAX_LIST ls) ls
 Proof
-  Induct>>full_simp_tac(srw_ss())[list_max_def,LET_THM]>>srw_tac[][]>>full_simp_tac(srw_ss())[EVERY_MEM]>>srw_tac[][]>>
-  res_tac >> decide_tac
+  rw[EVERY_MEM] >> irule MAX_LIST_PROPERTY >> fs[]
 QED
 
-Theorem list_max_intro:
-    ∀ls.
-  P 0 ∧ EVERY P ls ⇒ P (list_max ls)
+Theorem FOLDR_MAX_0_MAX_LIST:
+  ∀ls. FOLDR MAX 0 ls = MAX_LIST ls
 Proof
-  Induct>>full_simp_tac(srw_ss())[list_max_def]>>srw_tac[][]>>
-  IF_CASES_TAC>>full_simp_tac(srw_ss())[]
-QED
-
-Theorem FOLDR_MAX_0_list_max:
-   ∀ls. FOLDR MAX 0 ls = list_max ls
-Proof
-  Induct \\ rw[list_max_def] \\ rw[MAX_DEF]
+  Induct \\ rw[MAX_DEF]
 QED
 
 (* never used *)
@@ -679,11 +660,10 @@ Definition list_inter_def:
   list_inter xs ys = FILTER (\y. MEM y xs) ys
 End
 
-Definition max3_def:
+Definition max3_def[simp]:
   max3 (x:num) y z = if x > y then (if z > x then z else x)
                      else (if z > y then z else y)
 End
-val _ = export_rewrites["max3_def"];
 
 Theorem ALOOKUP_SNOC:
    ∀ls p k. ALOOKUP (SNOC p ls) k =
@@ -835,13 +815,12 @@ Proof
   full_simp_tac(srw_ss())[EXISTS_PROD,MEM_MAP,MEM_toAList,domain_lookup]
 QED
 
-Theorem domain_nat_set_from_list:
+Theorem domain_nat_set_from_list[simp]:
    ∀ls ns. domain (FOLDL (λs n. insert n () s) ns ls) = domain ns ∪ set ls
 Proof
   Induct >> simp[sptreeTheory.domain_insert] >>
   srw_tac[][EXTENSION] >> metis_tac[]
 QED
-val _ = export_rewrites["domain_nat_set_from_list"]
 
 Theorem wf_nat_set_from_list:
    ∀ls ns. wf ns ⇒ wf (FOLDL (λs n. insert n z s) ns ls)
@@ -1197,7 +1176,7 @@ Proof
   imp_res_tac find_index_LESS_LENGTH >> full_simp_tac(srw_ss())[EL_MAP]
 QED
 
-Theorem find_index_ALL_DISTINCT_EL:
+Theorem find_index_ALL_DISTINCT_EL[simp]:
  ∀ls n m. ALL_DISTINCT ls ∧ n < LENGTH ls ⇒ (find_index (EL n ls) ls m = SOME (m + n))
 Proof
 Induct >- srw_tac[][] >>
@@ -1205,7 +1184,6 @@ gen_tac >> Cases >>
 srw_tac[ARITH_ss][find_index_def] >>
 metis_tac[MEM_EL]
 QED
-val _ = export_rewrites["find_index_ALL_DISTINCT_EL"]
 
 Theorem find_index_ALL_DISTINCT_EL_eq:
    ∀ls. ALL_DISTINCT ls ⇒ ∀x m i. (find_index x ls m = SOME i) =
@@ -1506,12 +1484,11 @@ Proof
    FIRST_X_ASSUM(Q.SPEC_THEN`SUC n`MP_TAC)THEN SRW_TAC[][] )
 QED
 
-Theorem EVERY2_RC_same:
+Theorem EVERY2_RC_same[simp]:
    EVERY2 (RC R) l l
 Proof
   srw_tac[DNF_ss][EVERY2_EVERY,EVERY_MEM,MEM_ZIP,relationTheory.RC_DEF]
 QED
-val _ = export_rewrites["EVERY2_RC_same"]
 
 (* used twice, and only in source_to_flatProof *)
 Theorem FOLDL_invariant:
@@ -1753,24 +1730,30 @@ QED
 
 (* Specialisations to FEMPTY *)
 
-Theorem FUN_FMAP_FAPPLY_FEMPTY_FAPPLY:
+Theorem FUN_FMAP_FAPPLY_FEMPTY_FAPPLY[simp]:
  FINITE s ==> (FUN_FMAP ($FAPPLY FEMPTY) s ' x = FEMPTY ' x)
 Proof
 Cases_on `x IN s` >>
 srw_tac[][FUN_FMAP_DEF,NOT_FDOM_FAPPLY_FEMPTY]
 QED
-val _ = export_rewrites["FUN_FMAP_FAPPLY_FEMPTY_FAPPLY"]
 
 (* FUPDATE_LIST stuff *)
 
+Theorem NOT_MEM_FLOOKUP_ZIP:
+  ∀ys xs zs. ¬MEM n ys ⇒ FLOOKUP (xs |++ ZIP (ys, zs)) n = FLOOKUP xs n
+Proof
+  Induct >- simp [ZIP_def, FUPDATE_LIST_THM]
+  >> Cases_on ‘zs’
+  >> simp [ZIP_def, FUPDATE_LIST_THM, FLOOKUP_SIMP]
+QED
+
 (* Misc. *)
 
-Theorem LESS_1:
+Theorem LESS_1[simp]:
  x < 1 ⇔ (x = 0:num)
 Proof
 DECIDE_TAC
 QED
-val _ = export_rewrites["LESS_1"]
 
 
 
@@ -2152,8 +2135,8 @@ Proof
   Cases_on `m <= n` \\ fs []
   \\ imp_res_tac LESS_EQ_EXISTS \\ rw []
   \\ qpat_x_assum `(m + _) MOD k = 0` mp_tac
-  \\ drule MOD_PLUS
-  \\ disch_then (fn th => once_rewrite_tac [GSYM th]) \\ fs []
+  \\ once_rewrite_tac[GSYM MOD_PLUS]
+  \\ fs[]
 QED
 
 Theorem FLAT_REPLICATE_NIL:

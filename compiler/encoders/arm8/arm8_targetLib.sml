@@ -30,7 +30,7 @@ in
   val arm8_encode_conv =
    Conv.memoize dst (Redblackmap.mkDict Term.compare) listSyntax.is_list
      (ERR "arm8_encode_conv" "")
-     (computeLib.compset_conv (wordsLib.words_compset())
+     (computeLib.compset_conv (wordsLib.words_compset)
       [computeLib.Defs
        [arm8_enc, arm8_ast, arm8_load_store_ast_def, arm8_encode_def,
         bop_enc_def, cmp_cond_def, arm8_enc_mov_imm_def, CountTrailing_def,
@@ -44,7 +44,7 @@ in
        computeLib.Convs
        [(bitstringSyntax.v2w_tm, 1, bitstringLib.v2w_n2w_CONV)],
        computeLib.Tys
-       (``:('a, 'b) sum`` ::
+       (sumSyntax.mk_sum(alpha,beta) ::
          List.map arm_type
           ["instruction", "Data", "Branch", "LoadStore", "SystemHintOp",
            "MoveWideOp", "LogicalOp", "MemOp", "BranchType", "ShiftType",
@@ -60,22 +60,22 @@ in
     Conv.memoize dst (Redblackmap.mkDict Term.compare)
       (fn tm => Teq tm orelse Feq tm)
       (ERR "valid_immediate_conv" "")
-      (computeLib.compset_conv (wordsLib.words_compset())
+      (computeLib.compset_conv (wordsLib.words_compset)
         [computeLib.Defs
            [valid_immediate_def, EncodeBitMask_def, EncodeBitMaskAux_def,
             CountTrailing_def, DecodeBitMasks_def, HighestSetBit_def, Ones_def,
             Replicate_def,
             pred_setTheory.IN_INSERT, pred_setTheory.NOT_IN_EMPTY],
-         computeLib.Tys [``:('a, 'b) sum``], es])
+         computeLib.Tys [sumSyntax.mk_sum(alpha,beta)], es])
 end
 
 val add_arm8_encode_compset = computeLib.extend_compset
   [computeLib.Convs
-     [(``arm8_target$arm8_enc``, 1, arm8_encode_conv),
-      (``arm8_target$valid_immediate``, 2, valid_immediate_conv)],
+     [(prim_mk_const{Thy="arm8_target",Name="arm8_enc"}, 1, arm8_encode_conv),
+      (prim_mk_const{Thy="arm8_target",Name="valid_immediate"}, 2, valid_immediate_conv)],
    computeLib.Defs [arm8_targetTheory.arm8_config]]
 
-val arm8_encode_decode_conv = computeLib.compset_conv (wordsLib.words_compset())
+val arm8_encode_decode_conv = computeLib.compset_conv (wordsLib.words_compset)
   [computeLib.Extenders
      [utilsLib.add_base_datatypes, asmLib.add_asm_compset,
       add_arm8_encode_compset]]

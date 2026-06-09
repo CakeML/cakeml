@@ -713,12 +713,14 @@ Proof
   \\ fs [LetLet_def,EVERY_MEM,MEM_MAP,PULL_EXISTS,isVar_def]
   \\ imp_res_tac compile_IMP_LENGTH \\ fs []
   \\ TRY (match_mp_tac handle_ok_OptionalLetLet)
+  \\ imp_res_tac compile_IMP_bVarBound
   \\ fs [handle_ok_def]
-  \\ TRY ( conj_tac >- ( strip_tac \\ fs[LENGTH_NIL] ) )
-  \\ TRY (imp_res_tac compile_IMP_bVarBound \\ fs [] \\ NO_TAC)
-  \\ conj_tac THEN1
-   (conj_tac THEN1
-     (once_rewrite_tac [bVarBound_MEM]
+  >- (rw[] \\ fs[])
+  \\ conj_tac
+  >- (
+    conj_tac
+    >- (
+      once_rewrite_tac [bVarBound_MEM]
       \\ fs [MEM_GENLIST,PULL_EXISTS] \\ rw []
       \\ every_case_tac \\ fs []
       \\ imp_res_tac ALOOKUP_MAPi \\ fs [])
@@ -728,6 +730,7 @@ Proof
     \\ match_mp_tac bVarBound_compile \\ fs [])
   \\ rw [SmartLet_def] \\ fs [handle_ok_def]
   \\ IF_CASES_TAC \\ fs[]
+  >- fs[GENLIST_EQ_NIL]
   \\ rpt (pop_assum kall_tac)
   \\ match_mp_tac handle_ok_Var_Const_list
   \\ fs [EVERY_GENLIST]

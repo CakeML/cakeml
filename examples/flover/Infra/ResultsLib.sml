@@ -1,5 +1,5 @@
 (**
-  A monad for results used by FlOVer
+  A monad for results used by FloVer
 **)
 structure ResultsLib =
 struct
@@ -8,9 +8,9 @@ open monadsyntax;
 open ResultsTheory;
 
 val res_monad = declare_monad ("Results",
-    {bind = ``result_bind``,
-     ignorebind = SOME ``result_ignore_bind``,
-     unit = ``result_return``,
+    {bind = Term.prim_mk_const{Thy="Results",Name="result_bind"},
+     ignorebind = SOME (Term.prim_mk_const{Thy="Results",Name="result_ignore_bind"}),
+     unit = Term.prim_mk_const{Thy="Results",Name="result_return"},
      fail = NONE, choice = NONE, guard = NONE});
 
 val _ = monadsyntax.enable_monadsyntax();

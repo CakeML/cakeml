@@ -17,8 +17,9 @@ Libs
 
 Datatype:
   keyword = SkipK | StK | StwK | St8K | St16K | St32K | IfK | ElseK | WhileK
-  | BrK | ContK | RaiseK | RetK | TicK | VarK | WithK | HandleK | BiwK
+  | BrK | ContK | RaiseK | RetK | TicK | VarK | WithK | HandleK | BiwK | NamedK
   | LdsK | Ld8K | LdwK | Ld16K | Ld32K | BaseK | TopK | InK | FunK | ExportK | TrueK | FalseK
+  | InlineK
 End
 
 Datatype:
@@ -31,6 +32,7 @@ Datatype:
   | LBrakT | RBrakT | LCurT | RCurT
   | AssignT
   | StaticT
+  | NoinlineT
   | DefaultShT
   | KeywordT keyword
   | AnnotCommentT string
@@ -142,6 +144,8 @@ Definition get_keyword_def:
   if s = "false" then (KeywordT FalseK) else
   if s = "fun" then (KeywordT FunK) else
   if s = "export" then (KeywordT ExportK) else
+  if s = "inline" then (KeywordT InlineK) else
+  if s = "struct" then (KeywordT NamedK) else
   if s = "" then LexErrorT $ «Expected keyword, found empty string» else
   if 2 <= LENGTH s ∧ EL 0 s = #"@" then ForeignIdent (DROP 1 s)
   else
@@ -252,11 +256,11 @@ Definition next_atom_def:
     else if isAtom_begin_group c then
       let (n, rest) = read_while isAtom_in_group cs [c] in
       SOME (SymA n, Locs loc (next_loc (LENGTH n - 1) loc), rest)
-    else if isAlpha c ∨ c = #"@" then (* read identifier *)
+    else if isAlpha c ∨ c = #"@" ∨ c = #"_" then (* read identifier *)
       let (n, rest) = read_while isAlphaNumOrWild cs [c] in
       SOME (WordA n, Locs loc (next_loc (LENGTH n) loc), rest)
     else (* input not recognised *)
-      SOME (ErrA $ concat [«Unrecognised symbol: »; str c], Locs loc loc, cs)
+      SOME (ErrA $ concat [«Unrecognised symbol: »; toString c], Locs loc loc, cs)
 Termination
   WF_REL_TAC `measure (LENGTH o FST)`
   \\ simp []
@@ -321,4 +325,3 @@ End
 (* Tests :
    EVAL ``pancake_lex "x + 1 --Then check y\n && y - 2 <= -3 || !z"``;
 *)
-

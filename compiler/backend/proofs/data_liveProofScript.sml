@@ -197,16 +197,18 @@ Proof
      \\ fs [set_var_def,lookup_insert])
   THEN1 (* Assign *)
     (Cases_on `names_opt` THEN1
-      (fs [compile_def]
-       \\ Cases_on `lookup dest l2 = NONE ∧ is_pure op` \\ fs []
+      (qpat_x_assum ‘(d,l1) = _’ mp_tac
+       \\ fs [compile_def]
+       \\ IF_CASES_TAC
        THEN1
-        (rpt var_eq_tac \\ fs [evaluate_def,cut_state_opt_def]
+        (strip_tac \\ fs []
+         \\ rpt var_eq_tac \\ fs [evaluate_def,cut_state_opt_def]
          \\ every_case_tac \\ fs [] \\ rpt var_eq_tac
          \\ imp_res_tac is_pure_do_app_Rerr_IMP \\ fs []
          \\ imp_res_tac is_pure_do_app_Rval_IMP \\ fs [] \\ rpt var_eq_tac
          \\ fs [state_rel_def,set_var_def,lookup_insert,domain_lookup] \\ rw [])
-       \\ fs [] \\ pop_assum kall_tac \\ rpt var_eq_tac
-       \\ fs [evaluate_def,get_var_def,LET_DEF]
+       \\ pop_assum kall_tac \\ fs [] \\ strip_tac \\ rpt var_eq_tac
+       \\ fs [evaluate_def,get_var_def,LET_DEF,cut_state_opt_def]
        \\ every_case_tac >> fs[] \\ SRW_TAC [] []
        \\ fs [compile_def,LET_DEF,evaluate_def,cut_state_opt_def] \\ rw[]
        \\ qmatch_assum_rename_tac`get_vars args _ = SOME xx`
@@ -220,35 +222,46 @@ Proof
      \\ every_case_tac >> fs[] \\ SRW_TAC [] []
      \\ fs [compile_def,LET_DEF,evaluate_def,cut_state_opt_def]
      \\ Q.MATCH_ASSUM_RENAME_TAC `do_app op vs t = _`
-     \\ Cases_on `domain x SUBSET domain s.locals` \\ fs []
+     \\ Cases_on `domain (list_insert args x) SUBSET domain s.locals` \\ fs []
      \\ fs [cut_state_def,cut_env_def]
-     \\ (`domain (inter x (list_insert args (delete dest l2))) SUBSET
-         domain t1.locals` by
-      (fs [domain_inter,domain_list_insert,SUBSET_DEF,state_rel_def]
-       \\ RES_TAC \\ fs [domain_lookup]
-       \\ fs [PULL_EXISTS,oneTheory.one] \\ RES_TAC \\ METIS_TAC []))
-     \\ fs [] \\ SRW_TAC [] []
-     \\ Q.ABBREV_TAC `t4 = mk_wf (inter t1.locals
-                (inter x (list_insert args (delete dest l2))))`
-     \\ `state_rel (s with locals := mk_wf (inter s.locals x))
-        (t1 with locals := t4) LN` by (fs [state_rel_def] \\ NO_TAC)
-     \\ `get_vars args t4 = SOME vs` by
-      (UNABBREV_ALL_TAC
-       \\ Q.PAT_X_ASSUM `xx = SOME vs` (fn th => ONCE_REWRITE_TAC [GSYM th])
-       \\ MATCH_MP_TAC EVERY_get_vars
-       \\ fs [EVERY_MEM,lookup_inter_alt,domain_inter,domain_list_insert]
-       \\ SRW_TAC [] [] \\ fs [state_rel_def]
-       \\ FIRST_X_ASSUM (MATCH_MP_TAC o GSYM)
-       \\ fs [domain_inter,domain_list_insert] \\ NO_TAC)
-     \\ fs [] \\ IMP_RES_TAC state_rel_IMP_do_app
-     \\ fs [] \\ IMP_RES_TAC state_rel_IMP_do_app_err
-     \\ fs [state_rel_def,set_var_def,lookup_insert]
-     \\ REPEAT STRIP_TAC \\ SRW_TAC [] [call_env_def,flush_state_def]
-     \\ fs [domain_inter,domain_list_insert,domain_delete]
-     \\ UNABBREV_ALL_TAC
-     \\ IMP_RES_TAC do_app_const
+     \\ Cases_on ‘domain x ⊆ domain r.locals’ \\ gvs []
+     \\ (`domain (list_insert args (inter x (delete dest l2))) ⊆
+                 domain t1.locals` by
+      (`domain (list_insert args x) ⊆ domain s.locals` by
+         (Cases_on `domain x ⊆ domain s.locals` \\ gvs []
+          \\ gvs [sptreeTheory.domain_list_insert,SUBSET_DEF]
+          \\ rw [] \\ drule_all get_vars_IMP_domain \\ simp [])
+       \\ simp [SUBSET_DEF] \\ qx_gen_tac `v` \\ strip_tac
+       \\ `v ∈ domain s.locals` by gvs [SUBSET_DEF,domain_list_insert,domain_inter]
+       \\ fs [state_rel_def] \\ res_tac \\ gvs [domain_lookup]))
+     \\ `domain (list_insert args x) ⊆ domain s.locals` by
+          (Cases_on `domain x ⊆ domain s.locals` \\ gvs []
+           \\ gvs [sptreeTheory.domain_list_insert,SUBSET_DEF]
+           \\ rw [] \\ drule_all get_vars_IMP_domain \\ simp [])
      \\ fs []
-     \\ fs [lookup_inter_alt,domain_inter,domain_list_insert,domain_delete])
+     \\ `domain x ⊆ domain s.locals` by
+          gvs [sptreeTheory.domain_list_insert,SUBSET_DEF]
+     \\ `get_vars args t1.locals = SOME vs` by
+          (irule state_rel_IMP_get_vars \\ metis_tac [])
+     \\ fs [cut_state_def,cut_env_def]
+     \\ `domain x ∩ (domain l2 DELETE dest) ⊆ domain t1.locals` by
+          (qpat_x_assum `domain (list_insert args (inter x (delete dest l2))) ⊆ _` mp_tac
+           \\ rewrite_tac [sptreeTheory.domain_list_insert,sptreeTheory.domain_inter,
+                           sptreeTheory.domain_delete,SUBSET_DEF]
+           \\ rw [] \\ metis_tac [])
+     \\ simp []
+     \\ `state_rel t (t1 with locals := inter t1.locals (inter x (delete dest l2))) LN` by
+          gvs [state_rel_def]
+     \\ IMP_RES_TAC state_rel_IMP_do_app
+     \\ IMP_RES_TAC state_rel_IMP_do_app_err
+     \\ gvs []
+     \\ imp_res_tac do_app_const
+     \\ qpat_x_assum `state_rel s t1 _` (strip_assume_tac o REWRITE_RULE [state_rel_def])
+     \\ rewrite_tac [state_rel_def, set_var_def, flush_state_def]
+     \\ rpt conj_tac
+     \\ rpt strip_tac
+     \\ gvs [lookup_insert, lookup_inter_alt, domain_inter, domain_delete,
+             sptreeTheory.domain_list_insert])
   THEN1 (* Tick *)
     (fs [evaluate_def,compile_def,state_rel_def] \\ SRW_TAC [] []
      \\ fs [call_env_def,dec_clock_def,flush_state_def]

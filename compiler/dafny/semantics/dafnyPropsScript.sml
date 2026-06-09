@@ -36,6 +36,39 @@ QED
 
 (* misc *)
 
+Theorem get_member_aux_some_mem:
+  get_member_aux name members = SOME member ⇒
+  MEM member members
+Proof
+  Induct_on ‘members’ >- (simp [get_member_aux_def])
+  \\ gen_tac \\ simp [get_member_aux_def]
+  \\ TOP_CASE_TAC \\ IF_CASES_TAC \\ gvs []
+QED
+
+(* TODO Similar to _some_fun_name: Is there a better way than writing them
+   separately? *)
+Theorem get_member_some_met_name:
+  get_member n p = SOME (Method n' ins reqs ens rds decrs outs mods body) ⇒
+  n' = n
+Proof
+  namedCases_on ‘p’ ["members"] \\ Induct_on ‘members’
+  \\ gvs [get_member_def, get_member_aux_def]
+  \\ qx_gen_tac ‘member’ \\ rpt strip_tac
+  \\ namedCases_on ‘member’ ["mem_n _ _ _ _ _ _ _ _", "mem_n _ _ _ _ _ _"]
+  \\ Cases_on ‘mem_n = n’ \\ gvs []
+QED
+
+Theorem get_member_some_fun_name:
+  get_member n p = SOME (Function n' ins res_t reqs rds decrs body) ⇒
+  n' = n
+Proof
+  namedCases_on ‘p’ ["members"] \\ Induct_on ‘members’
+  \\ gvs [get_member_def, get_member_aux_def]
+  \\ qx_gen_tac ‘member’ \\ rpt strip_tac
+  \\ namedCases_on ‘member’ ["mem_n _ _ _ _ _ _ _ _", "mem_n _ _ _ _ _ _"]
+  \\ Cases_on ‘mem_n = n’ \\ gvs []
+QED
+
 (* Used often when trying to prove statements about Forall *)
 Theorem snd_tuple:
   SND x = z ⇔ ∃y. x = (y, z)

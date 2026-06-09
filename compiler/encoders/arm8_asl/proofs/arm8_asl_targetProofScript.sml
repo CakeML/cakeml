@@ -531,6 +531,11 @@ Proof
           )
         )
       >- ( (* Shift *)
+        rename [‘Shift s n1 n2 r’] >>
+        Cases_on `r`
+        >-
+         (gvs[arm8_ast_def, arm8_shv_def] >>
+          irule l3_models_asl_Shift) >>
         Cases_on `s` >> gvs[arm8_ast_def]
         >- ( (* Lsl *)
           every_case_tac >> gvs[] >>
@@ -870,8 +875,8 @@ val shift_cases_tac =
   , all_tac
   ]
 
-val print_tac = asmLib.print_tac "encoder_correct"
-val ext12 = ``(11 >< 0) : word64 -> word12``
+val print_tac = asmLib.print_tac "encoder_correct";
+val ext12 = ``(11 >< 0) : word64 -> word12``;
 
 Theorem arm8_asl_encoder_correct:
   encoder_correct arm8_asl_target
@@ -1022,6 +1027,19 @@ Proof
         )
       >- ( (* Shift *)
         print_tac "Inst - Arith - Shift" >>
+        rename [‘Shift s n1 n2 r’] >> Cases_on ‘r’
+        >-
+         (Cases_on ‘s’ >> gvs [] >> encode >> asserts >>
+          next_l3_tac `l3` >> strip_tac >>
+          irule_at Any $ iffLR l3_asl_target_state_rel >>
+          drule_all l3_asl_interference_ok >> strip_tac >>
+          pop_assum $ qspec_then `0` assume_tac >> gvs[] >> goal_assum drule >>
+          (conj_tac >- gvs[interference_ok_def, arm8_asl_proj_def]) >>
+          imp_res_tac l3_asl_target >> simp[] >> l3_state_tac[lsr, asr, ror] >>
+          simp_tac (srw_ss()) [ShiftValue_def, DecodeShift_def] >>
+          rw [asr]) >>
+        rename [‘Shift s n1 n2 (Imm c)’] >> Cases_on ‘c’ >>
+        rename [‘Shift s n n' (Imm (n2w n1))’] >>
         shift_cases_tac >> encode >> asserts >>
         qspec_then `r` assume_tac w2n_lt >> qspec_then `q` assume_tac w2n_lt >> gvs[] >>
         unabbrev_all_tac >> gvs[]
@@ -3708,4 +3726,3 @@ Proof
     blastLib.BBLAST_TAC
     )
 QED
-

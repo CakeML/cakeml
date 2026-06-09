@@ -11,6 +11,13 @@ val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
 
+Theorem OPTION_CASE_OPTION_MAP[local]:
+  (option_CASE (OPTION_MAP f a) e g) = option_CASE a e (g o f)
+Proof
+  Cases_on `a`
+  >> fs[]
+QED
+
 Definition approx_of_def:
   (approx_of lims [] refs = 0) /\
   (approx_of lims (x::y::ys) refs =
@@ -227,6 +234,7 @@ Theorem consume_space_with_locals[local]:
 Proof
   EVAL_TAC >> srw_tac[][]
 QED
+
 (*fs[] is slower than full_simp_tac(srw_ss())[]*)
 fun cases_on_op_fs q = Cases_on q \\ full_simp_tac(srw_ss()) []
   >>> SELECT_LT_THEN (Q.RENAME_TAC [‘BlockOp b_’]) (Cases_on `b_`)
@@ -235,13 +243,14 @@ fun cases_on_op_fs q = Cases_on q \\ full_simp_tac(srw_ss()) []
   >>> SELECT_LT_THEN (Q.RENAME_TAC [‘ThunkOp t_’]) (Cases_on `t_`);
 
 (*fs[] is slower than full_simp_tac(srw_ss())[]*)
-val do_app_with_stack = time Q.prove(
-  `do_app op vs (s with stack := z) =
+Theorem do_app_with_stack[local]:
+  do_app op vs (s with stack := z) =
    map_result (λ(x,y). (x,y with <| stack := z
                                   ; safe_for_space   := do_app_safe op vs (s with stack := z)
                                   ; stack_max := (do_stack op vs (s with stack := z)).stack_max
                                   ; peak_heap_length := do_app_peak op vs (s with stack := z) |>))
-              I (do_app op vs s)`,
+              I (do_app op vs s)
+Proof
   Cases_on `do_app op vs (s with stack := z)`
   \\ cases_on_op_fs `op`
   \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’)
@@ -256,17 +265,19 @@ val do_app_with_stack = time Q.prove(
   \\ TRY (rename [‘lookup _ _ = SOME (Thunk m_ _)’] \\ Cases_on `m_`)
   \\ full_simp_tac(srw_ss())[allowed_op_def]
   \\ rw [state_component_equality] \\ simp [Once CONJ_COMM]
-  \\ rw [EQ_IMP_THM] \\ fs[stack_consumed_def,allowed_op_def,PULL_EXISTS]);
+  \\ rw [EQ_IMP_THM] \\ fs[stack_consumed_def,allowed_op_def,PULL_EXISTS]
+QED
 
 (*fs[] is slower than full_simp_tac(srw_ss())[]*)
-val do_app_with_stack_and_locals = time Q.prove(
-  `do_app op vs (s with <|locals_size := lsz; stack := z|>) =
-   map_result (λ(x,y). (x,y with <| stack := z
+Theorem do_app_with_stack_and_locals[local]:
+  do_app op vs (s with <|locals_size := lsz; stack := z|>) =
+  map_result (λ(x,y). (x,y with <| stack := z
                                   ; locals_size := lsz
                                   ; safe_for_space   := do_app_safe op vs (s with <|locals_size := lsz; stack := z|>)
                                   ; stack_max := (do_stack op vs (s with <|locals_size := lsz; stack := z|>)).stack_max
                                   ; peak_heap_length := do_app_peak op vs (s with <|locals_size := lsz; stack := z|>) |>))
-              I (do_app op vs s)`,
+              I (do_app op vs s)
+Proof
   Cases_on `do_app op vs (s with <|locals_size := lsz; stack := z|>)`
   \\ cases_on_op_fs `op`
   \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’)
@@ -282,7 +293,8 @@ val do_app_with_stack_and_locals = time Q.prove(
   \\ TRY (rename [‘lookup _ _ = SOME (Thunk m_ _)’] \\ Cases_on `m_`)
   \\ full_simp_tac(srw_ss())[allowed_op_def]
   \\ rw [state_component_equality] \\ simp [Once CONJ_COMM]
-  \\ rw[EQ_IMP_THM] \\ fs[stack_consumed_def,allowed_op_def]);
+  \\ rw[EQ_IMP_THM] \\ fs[stack_consumed_def,allowed_op_def]
+QED
 
 (*fs[] is slower than full_simp_tac(srw_ss())[]*)
 Theorem do_app_aux_with_space:
@@ -321,13 +333,14 @@ Proof
 QED
 
 (*fs[] is slower than full_simp_tac(srw_ss())[]*)
-val do_app_with_locals = time Q.prove(
-  `do_app op vs (s with locals := z) =
-   map_result (λ(x,y). (x,y with <| locals := z
+Theorem do_app_with_locals:
+  do_app op vs (s with locals := z) =
+  map_result (λ(x,y). (x,y with <| locals := z
                                   ; safe_for_space   := do_app_safe op vs (s with locals := z)
                                   ; stack_max := (do_stack op vs (s with locals := z)).stack_max
                                   ; peak_heap_length := do_app_peak op vs (s with locals := z)|>))
-                       I (do_app op vs s)`,
+                       I (do_app op vs s)
+Proof
   Cases_on `do_app op vs (s with locals := z)`
   \\ cases_on_op_fs `op`
   \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’)
@@ -343,7 +356,8 @@ val do_app_with_locals = time Q.prove(
   \\ TRY (rename [‘lookup _ _ = SOME (Thunk m_ _)’] \\ Cases_on `m_`) \\ gvs []
   \\ full_simp_tac(srw_ss()) [allowed_op_def]
   \\ rw [state_component_equality] \\ simp [Once CONJ_COMM]
-  \\ rw[EQ_IMP_THM] \\ fs[stack_consumed_def,allowed_op_def]);
+  \\ rw[EQ_IMP_THM] \\ fs[stack_consumed_def,allowed_op_def]
+QED
 
 Theorem do_app_aux_err:
    do_app_aux op vs s = Rerr e ⇒ (e = Rabort Rtype_error)
@@ -652,6 +666,40 @@ val basic_tac = fs [evaluate_def]
                       \\ fs [state_component_equality]);
 
 
+(* The field-swap (stack_max/safe_for_space/peak_heap_length) commutes through
+   the narrow cut in evaluate(Assign), since cut_state_opt only touches locals. *)
+Theorem cut_state_opt_with_swap[local]:
+  cut_state_opt names_opt
+    (s with <|stack_max := smx; safe_for_space := safe; peak_heap_length := peak|>) =
+  OPTION_MAP (λt. t with <|stack_max := smx; safe_for_space := safe;
+                           peak_heap_length := peak|>)
+             (cut_state_opt names_opt s)
+Proof
+  Cases_on `names_opt`
+  \\ rw[cut_state_opt_def, cut_state_def, cut_env_def]
+  \\ rw[state_component_equality]
+QED
+
+Theorem cut_state_opt_stack_max[local]:
+  cut_state_opt names_opt s = SOME s2 ⇒ s2.stack_max = s.stack_max
+Proof
+  Cases_on `names_opt` \\ rw[cut_state_opt_def, cut_state_def]
+  \\ every_case_tac \\ gvs[]
+QED
+
+(* When the swap leaves stack_max at its original value (the fl=F case),
+   the merged input update collapses to just safe_for_space/peak_heap_length. *)
+Theorem cut_state_opt_swap_input[local]:
+  cut_state_opt names_opt s = SOME s2 ⇒
+    s2 with <|stack_max := s.stack_max; safe_for_space := safe;
+              peak_heap_length := peak|> =
+    s2 with <|safe_for_space := safe; peak_heap_length := peak|>
+Proof
+  rw[] \\ imp_res_tac cut_state_opt_stack_max
+  \\ rw[dataSemTheory.state_component_equality]
+QED
+
+
 Theorem evaluate_fl_smx_safe_peak_swap_aux[local]:
   ∀c s r s' fl smx safe peak.
    evaluate (c,s) = (r,s') ⇒
@@ -673,25 +721,49 @@ Proof
   >- basic_tac
   (* Assign *)
   >- (
-     TOP_CASE_TAC \\ fs [evaluate_def]
-     \\ full_cases >> full_fs
-     \\ fs [] \\ rfs[]
-     \\ rveq \\ fs []
-     \\ every_case_tac \\ fs [] \\ rveq \\ fs []
-     \\ gvs [AllCaseEqs(), PULL_EXISTS]
-     \\ TRY (simp[state_component_equality] \\ NO_TAC)
-     \\ TRY (drule do_app_sm_safe_peak_swap
-     \\ disch_then (qspecl_then [`smx`, `safe`, `peak`] strip_assume_tac)
-     \\ fs[] \\ simp[state_component_equality] \\ NO_TAC)
-     \\ TRY (drule do_app_err_sm_safe_peak_swap
-     \\ disch_then (qspecl_then [`smx`, `safe`, `peak`] strip_assume_tac)
-     \\ fs[] \\ simp[state_component_equality] \\ NO_TAC)
-     \\ TRY (drule do_app_safe_peak_swap
-     \\ disch_then (qspecl_then [`safe`, `peak`] assume_tac)
-     \\ Cases_on `s` \\ Cases_on `r'` \\ fs [state_fn_updates] \\ NO_TAC)
-     \\ TRY (drule do_app_err_safe_peak_swap
-     \\ disch_then (qspecl_then [`safe`, `peak`] assume_tac)
-     \\ Cases_on `s` \\ fs [state_fn_updates] \\ NO_TAC))
+     qpat_x_assum `evaluate _ = _` mp_tac
+     \\ Cases_on `fl` \\ simp[evaluate_def, cut_state_opt_with_swap]
+     >- ( (* fl = T: input stack_max := smx, output stack_max existential *)
+       IF_CASES_TAC \\ simp[]
+       >- (strip_tac \\ rveq \\ simp[state_component_equality])
+       \\ Cases_on `get_vars args s.locals` \\ simp[]
+       >- (strip_tac \\ rveq \\ simp[state_component_equality])
+       \\ rename1 `get_vars args s.locals = SOME xs`
+       \\ Cases_on `cut_state_opt names_opt s` \\ simp[]
+       >- (strip_tac \\ rveq \\ simp[state_component_equality])
+       \\ rename1 `cut_state_opt names_opt s = SOME s2`
+       \\ Cases_on `do_app op xs s2` \\ simp[]
+       >- (
+         rename1 `do_app op xs s2 = Rval p` \\ Cases_on `p`
+         \\ drule do_app_sm_safe_peak_swap
+         \\ disch_then (qspecl_then [`smx`,`safe`,`peak`] strip_assume_tac)
+         \\ simp[] \\ strip_tac \\ rveq
+         \\ simp[set_var_def, state_component_equality] \\ metis_tac[])
+       \\ drule do_app_err_sm_safe_peak_swap
+       \\ disch_then (qspecl_then [`smx`,`safe`,`peak`] strip_assume_tac)
+       \\ simp[] \\ strip_tac \\ rveq
+       \\ simp[flush_state_def, state_component_equality] \\ metis_tac[])
+     (* fl = F: input stack_max := s.stack_max (unchanged), output stack_max fixed *)
+     \\ IF_CASES_TAC \\ simp[]
+     >- (strip_tac \\ rveq \\ simp[state_component_equality])
+     \\ Cases_on `get_vars args s.locals` \\ simp[]
+     >- (strip_tac \\ rveq \\ simp[state_component_equality])
+     \\ rename1 `get_vars args s.locals = SOME xs`
+     \\ Cases_on `cut_state_opt names_opt s` \\ simp[]
+     >- (strip_tac \\ rveq \\ simp[state_component_equality])
+     \\ rename1 `cut_state_opt names_opt s = SOME s2`
+     \\ drule cut_state_opt_swap_input \\ disch_then (fn th => simp[th])
+     \\ Cases_on `do_app op xs s2` \\ simp[]
+     >- (
+       rename1 `do_app op xs s2 = Rval p` \\ Cases_on `p`
+       \\ drule do_app_safe_peak_swap
+       \\ disch_then (qspecl_then [`safe`,`peak`] strip_assume_tac)
+       \\ simp[] \\ strip_tac \\ rveq
+       \\ simp[set_var_def, state_component_equality] \\ metis_tac[])
+     \\ drule do_app_err_safe_peak_swap
+     \\ disch_then (qspecl_then [`safe`,`peak`] strip_assume_tac)
+     \\ simp[] \\ strip_tac \\ rveq
+     \\ simp[flush_state_def, state_component_equality] \\ metis_tac[])
   (*  Tick *)
   >- (fs [evaluate_def]
      \\ full_cases >>  full_fs
@@ -1569,6 +1641,27 @@ Proof
   \\ IMP_RES_TAC locals_ok_get_var \\ full_simp_tac(srw_ss())[]
 QED
 
+Theorem locals_ok_insert[local]:
+  locals_ok a b ⇒ locals_ok (insert k v a) (insert k v b)
+Proof
+  rw[locals_ok_def, lookup_insert] \\ every_case_tac \\ gvs[]
+QED
+
+(* Under locals_ok, the narrow cut in evaluate(Assign) succeeds on the larger
+   locals and yields a state equal up to (and locals_ok on) its locals. *)
+Theorem cut_state_opt_locals_ok[local]:
+  locals_ok s.locals l ∧ cut_state_opt names_opt s = SOME s1 ⇒
+  ∃l'. cut_state_opt names_opt (s with locals := l) = SOME (s1 with locals := l') ∧
+       locals_ok s1.locals l'
+Proof
+  Cases_on `names_opt` \\ rw[cut_state_opt_def, cut_state_def]
+  >- (qexists_tac `l` \\ fs[state_component_equality])
+  \\ gvs[AllCaseEqs()]
+  \\ rename1 `cut_env nm s.locals = SOME env`
+  \\ drule_all locals_ok_cut_env \\ rw[]
+  \\ qexists_tac `env` \\ fs[state_component_equality, locals_ok_refl]
+QED
+
 Theorem evaluate_locals:
   !c s res s2 vars l.
       res <> SOME (Rerr(Rabort Rtype_error)) /\ (evaluate (c,s) = (res,s2)) /\
@@ -1596,26 +1689,24 @@ Proof
      \\ fs[lookup_insert,state_component_equality]
      \\ METIS_TAC [])
   (* Assign *)
-  >- (Cases_on `names_opt` \\ full_simp_tac(srw_ss())[]
-     \\ Cases_on `op_requires_names op` \\ fs [cut_state_opt_def]
-     >- (Cases_on `get_vars args s.locals` \\ fs []
-        \\ fs [cut_state_opt_def]
-        \\ IMP_RES_TAC locals_ok_get_vars \\ fs []
-        \\ fs [do_app_with_locals]
-        \\ fs [case_eq_thms,semanticPrimitivesTheory.result_case_eq,AllCaseEqs()]
-        \\ fs [call_env_def,set_var_def,flush_state_def, state_component_equality]
-        \\ fs [locals_ok_def,lookup_insert] \\ rw []
-        \\ rpt (qpat_x_assum `insert _ _ _ = _` (assume_tac o GSYM))
-        \\ rpt (qpat_x_assum `fromList [] = _` (assume_tac o GSYM))
-        \\ fs [lookup_insert] \\ rfs []
-        \\ imp_res_tac do_app_const \\ fs [fromList_def,lookup_def]
-        \\ fs[do_stack_def]
-        >> metis_tac [])
-     \\ fs [cut_state_def]
-     \\ Cases_on `cut_env x s.locals` \\ fs[]
-     \\ IMP_RES_TAC locals_ok_cut_env \\ fs[]
-     \\ TOP_CASE_TAC >> rw[state_component_equality,locals_ok_def]
-     \\ metis_tac[])
+  >- (
+     Cases_on `op_requires_names op ⇔ names_opt = NONE` \\ fs[]
+     \\ Cases_on `get_vars args s.locals` \\ fs[]
+     \\ rename1 `get_vars args s.locals = SOME xs`
+     \\ drule_all locals_ok_get_vars \\ disch_then assume_tac
+     \\ Cases_on `cut_state_opt names_opt s` \\ fs[]
+     \\ rename1 `cut_state_opt names_opt s = SOME s1`
+     \\ drule_all cut_state_opt_locals_ok \\ strip_tac
+     \\ simp[]
+     \\ Cases_on `do_app op xs s1` \\ simp[]
+     >- (
+       rename1 `do_app op xs s1 = Rval p` \\ Cases_on `p`
+       \\ simp[do_app_with_locals] \\ rveq \\ fs[]
+       \\ imp_res_tac do_app_const
+       \\ gvs[set_var_def, state_component_equality]
+       \\ metis_tac[locals_ok_insert])
+     \\ simp[do_app_with_locals] \\ gvs[flush_state_def]
+     \\ qexists_tac `LN` \\ simp[state_component_equality, locals_ok_refl])
    (* Tick *)
   >- (Cases_on `s.clock = 0` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
      \\ fs[locals_ok_def,call_env_def,EVAL ``fromList []``,lookup_def, dec_clock_def, flush_state_def]
@@ -1825,6 +1916,12 @@ Proof
   EVAL_TAC \\ rw []
 QED
 
+Theorem size_of_heap_args_with_clock:
+  ∀s z a. size_of_heap_args a (s with clock := z) = size_of_heap_args a s
+Proof
+  rw[dataSemTheory.size_of_heap_args_def, dataSemTheory.stack_to_vs_def]
+QED
+
 Theorem space_consumed_with_clock:
   !s op vs. space_consumed (s with clock := z) op vs = space_consumed s op vs
 Proof
@@ -1851,7 +1948,8 @@ Proof
       with_fresh_ts_def,bvlSemTheory.ref_case_eq,space_consumed_with_clock,
       ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
       semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
-      pair_case_eq,consume_space_def,size_of_heap_with_clock,check_lim_def]
+      pair_case_eq,consume_space_def,size_of_heap_with_clock,
+      size_of_heap_args_with_clock,check_lim_def]
     \\ rveq \\ fs [] \\ rw [])
   \\ TRY (rename [‘lookup _ _ = SOME (Thunk m_ _)’] \\ Cases_on `m_`) \\ gvs []
 QED
@@ -1878,6 +1976,69 @@ Proof
   srw_tac[][cut_state_def] >> every_case_tac >> full_simp_tac(srw_ss())[EQ_IMP_THM]
 QED
 
+Theorem set_var_const[simp]:
+   (set_var x y z).ffi = z.ffi ∧
+   (set_var x y z).clock = z.clock
+Proof
+  EVAL_TAC
+QED
+
+Theorem set_var_with_const:
+  (set_var x y (z with clock := k)) = set_var x y z with clock := k
+Proof
+  EVAL_TAC
+QED
+
+Theorem call_env_const[simp]:
+   (call_env x s y).ffi = y.ffi ∧
+   (call_env x s y).clock = y.clock
+Proof
+  EVAL_TAC
+QED
+
+Theorem call_env_with_const:
+   (call_env x s (y with clock := z)) = call_env x s y with clock := z
+Proof
+  EVAL_TAC
+QED
+
+Theorem push_env_const[simp]:
+   (push_env x y z).ffi = z.ffi ∧
+   (push_env x y z).clock = z.clock ∧
+   (push_env x y z).code = z.code ∧
+   (push_env x y z).compile_oracle = z.compile_oracle ∧
+   (push_env x y z).compile = z.compile ∧
+   (push_env x y z).refs = z.refs ∧
+   (push_env x y z).global = z.global
+Proof
+  Cases_on`y`>> EVAL_TAC
+QED
+
+Theorem push_env_with_const:
+   (push_env x y (z with clock := k)) = (push_env x y z) with clock := k
+Proof
+  Cases_on`y`>>EVAL_TAC
+QED
+
+Theorem pop_env_with_const:
+   (pop_env (z with clock := k)) = OPTION_MAP (\z. z with clock := k) (pop_env z)
+Proof
+  Cases_on `pop_env z` >>
+  fs[oneline pop_env_def,AllCaseEqs()] >>
+  rveq >> simp[]
+QED
+
+Theorem pop_env_const:
+   pop_env a = SOME b ⇒
+   b.ffi = a.ffi /\
+   b.clock = a.clock /\
+   b.stack_max = a.stack_max
+Proof
+   EVAL_TAC >>
+   every_case_tac >> EVAL_TAC >>
+   srw_tac[][] >> srw_tac[][]
+QED
+
 Theorem cut_state_eq_none:
   cut_state names s = NONE ⇔ cut_env names s.locals = NONE
 Proof
@@ -1901,32 +2062,16 @@ Proof
   >- (every_case_tac
      \\ fs[get_var_def,set_var_def]
      \\ srw_tac[][] >> fs[])
-  >- (fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,cut_state_opt_def,cut_state_def
-          , bool_case_eq,ffiTheory.call_FFI_def,semanticPrimitivesTheory.result_case_eq
-          , with_fresh_ts_def,bvlSemTheory.ref_case_eq
-          , ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq
-          , semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq
-          , pair_case_eq,consume_space_def]
-     \\ rveq \\ fs [call_env_def,flush_state_def,do_app_with_clock,do_app_with_locals]
-     \\ imp_res_tac do_app_const \\ fs [set_var_def,state_component_equality]
-     \\ PairCases_on `y` \\ fs []
-     \\ qpat_x_assum `v4 = _` (fn th => once_rewrite_tac [th]) \\ fs []
-     \\ imp_res_tac do_app_const
-     \\ fs[do_stack_def]
-     \\ fs [set_var_def,state_component_equality]
-     (* FIX: this is obnoxious *)
-     \\ qmatch_goalsub_abbrev_tac `size_of_heap f1`
-     \\ qpat_abbrev_tac `f2 = (s with locals := _)`
-     \\ `size_of_heap f1 = size_of_heap f2`
-         by(`f1 = f2 with clock := ck + s.clock`
-              by rw [Abbr `f1`,Abbr `f2`,state_component_equality]
-            \\ rw [size_of_heap_with_clock])
-     \\ `space_consumed f1 = space_consumed f2`
-         by(`f1 = f2 with clock := ck + s.clock`
-              by rw [Abbr `f1`,Abbr `f2`,state_component_equality]
-            \\ rw []
-            \\ metis_tac[space_consumed_with_clock])
-     \\ rw[])
+  >- (
+      full_simp_tac(srw_ss())[cut_state_def,cut_state_opt_def] >>
+      qpat_x_assum `_ = (res,s2)` (strip_assume_tac o SRULE[AllCaseEqs()]) >>
+      rveq >> full_simp_tac(srw_ss())[] >>
+      full_simp_tac(bool_ss)[GSYM state_fupdcanon] >>
+      full_simp_tac(srw_ss())[do_app_with_clock] >>
+      rveq >>
+      asm_simp_tac(srw_ss())[set_var_def,flush_state_def] >>
+      simp[state_component_equality] >>
+      drule do_app_const >> simp[])
   >- (EVAL_TAC >> simp[state_component_equality])
   >- (every_case_tac >> fs[] >> srw_tac[][]
      \\ fs [add_space_def,size_of_heap_def,stack_to_vs_def]
@@ -1955,19 +2100,6 @@ Proof
      \\ TRY(first_x_assum(qspec_then`ck`mp_tac) >> simp[]
                          \\ every_case_tac >> fs[] >> srw_tac[][] >> rfs[] >> fs[]
                          \\ spose_not_then strip_assume_tac >> fs[] \\ NO_TAC))
-QED
-
-Theorem set_var_const[simp]:
-   (set_var x y z).ffi = z.ffi ∧
-   (set_var x y z).clock = z.clock
-Proof
-  EVAL_TAC
-QED
-
-Theorem set_var_with_const:
-  (set_var x y (z with clock := k)) = set_var x y z with clock := k
-Proof
-  EVAL_TAC
 QED
 
 Theorem cut_state_opt_const:
@@ -2002,19 +2134,6 @@ Proof
   \\ TRY (rename [‘lookup _ _ = SOME (Thunk m_ _)’] \\ Cases_on `m_`) \\ gvs []
 QED
 
-Theorem call_env_const[simp]:
-   (call_env x s y).ffi = y.ffi ∧
-   (call_env x s y).clock = y.clock
-Proof
-  EVAL_TAC
-QED
-
-Theorem call_env_with_const:
-   (call_env x s (y with clock := z)) = call_env x s y with clock := z
-Proof
-  EVAL_TAC
-QED
-
 Theorem dec_clock_const[simp]:
    (dec_clock s).ffi = s.ffi ∧
    (dec_clock s).code = s.code ∧
@@ -2030,34 +2149,6 @@ Theorem add_space_const[simp]:
    (add_space s k).ffi = s.ffi
 Proof
   EVAL_TAC
-QED
-
-Theorem push_env_const[simp]:
-   (push_env x y z).ffi = z.ffi ∧
-   (push_env x y z).clock = z.clock ∧
-   (push_env x y z).code = z.code ∧
-   (push_env x y z).compile_oracle = z.compile_oracle ∧
-   (push_env x y z).compile = z.compile ∧
-   (push_env x y z).refs = z.refs ∧
-   (push_env x y z).global = z.global
-Proof
-  Cases_on`y`>> EVAL_TAC
-QED
-
-Theorem push_env_with_const:
-   (push_env x y (z with clock := k)) = (push_env x y z) with clock := k
-Proof
-  Cases_on`y`>>EVAL_TAC
-QED
-
-Theorem pop_env_const:
-   pop_env a = SOME b ⇒
-   b.ffi = a.ffi /\
-   b.stack_max = a.stack_max
-Proof
-   EVAL_TAC >>
-   every_case_tac >> EVAL_TAC >>
-   srw_tac[][] >> srw_tac[][]
 QED
 
 Theorem evaluate_io_events_mono:
@@ -2083,6 +2174,14 @@ Proof
   EVAL_TAC
 QED
 
+Theorem jump_exc_with_const:
+   jump_exc (s with clock := k) = OPTION_MAP (\s. s with clock := k) (jump_exc s)
+Proof
+  Cases_on `jump_exc s` >>
+  fs[jump_exc_def,AllCaseEqs()] >>
+  rveq >> simp[]
+QED
+
 Theorem evaluate_add_clock_io_events_mono:
    ∀exps s extra.
     (SND(evaluate(exps,s))).ffi.io_events ≼
@@ -2090,6 +2189,8 @@ Theorem evaluate_add_clock_io_events_mono:
 Proof
   recInduct evaluate_ind
   \\ srw_tac[][evaluate_def,LET_THM]
+  \\ full_simp_tac(srw_ss())[cut_state_opt_with_const,set_var_with_const,jump_exc_with_const,
+   do_app_with_clock,OPTION_CASE_OPTION_MAP,o_ABS_L]
   \\ TRY (rename1`find_code`
          \\ every_case_tac >> fs[] >> srw_tac[][]
          \\ imp_res_tac evaluate_io_events_mono >> fs[]
@@ -2103,15 +2204,12 @@ Proof
                      ,set_var_const,set_var_with_const,with_clock_ffi])
   \\ rpt (pairarg_tac >> fs[])
   \\ every_case_tac >> fs[cut_state_opt_with_const] >> rfs[]
-  \\ rveq >> fs[] >> rveq >> fs[]
-  \\ fs [do_app_with_clock]
-  \\ TRY (PairCases_on `y`) >> fs []
-  \\ imp_res_tac jump_exc_IMP >> fs[jump_exc_NONE]
+  \\ rveq >> fs[cut_state_opt_with_const] >> rveq >> fs[]
+  \\ simp[flush_state_def]
   \\ rveq >> fs[state_component_equality]
   \\ imp_res_tac evaluate_add_clock >> fs[]
   \\ rveq >> fs[]
   \\ imp_res_tac evaluate_io_events_mono >> rfs[]
-  \\ fs [] >> imp_res_tac jump_exc_IMP >> rw[jump_exc_NONE,flush_state_def]
   \\ metis_tac[evaluate_io_events_mono,IS_PREFIX_TRANS,SND,PAIR]
 QED
 
@@ -2161,7 +2259,7 @@ Proof
   \\ imp_res_tac semantics_Term_IMP_PREFIX \\ fs []
 QED
 
-Definition get_code_labels_def:
+Definition get_code_labels_def[simp]:
   (get_code_labels (Call r d a h) =
     (case d of SOME x => {x} | _ => {}) ∪
     (case h of SOME (n,p) => get_code_labels p | _ => {})) ∧
@@ -2171,7 +2269,6 @@ Definition get_code_labels_def:
   (get_code_labels (Assign _ op _ _) = closLang$assign_get_code_label op) ∧
   (get_code_labels _ = {})
 End
-val _ = export_rewrites["get_code_labels_def"];
 
 Definition good_code_labels_def:
   good_code_labels p elabs ⇔
@@ -2265,6 +2362,15 @@ val trivial_tac = qpat_x_assum `evaluate _ = (_,_)` (strip_assume_tac o
                   rveq >> simp[evaluate_def] >>
                   simp[state_component_equality];
 
+(* The limits-swap commutes through the narrow cut in evaluate(Assign). *)
+Theorem cut_state_opt_with_lim[local]:
+  cut_state_opt names_opt (s with limits := lim) =
+  OPTION_MAP (λt. t with limits := lim) (cut_state_opt names_opt s)
+Proof
+  Cases_on `names_opt` \\ rw[cut_state_opt_def, cut_state_def, cut_env_def]
+  \\ rw[dataSemTheory.state_component_equality]
+QED
+
 Theorem evaluate_swap_limits:
   ∀c s r s' limits.
    evaluate (c,s) = (r,s') ⇒
@@ -2278,18 +2384,28 @@ Proof
   >- trivial_tac
   >- (trivial_tac >> EVAL_TAC)
   (* Assign *)
-  >- (fs [evaluate_def]
-     \\ full_cases >> full_fs
-     \\ fs [] \\ rfs[]
-     \\ rveq \\ fs []
-     \\ every_case_tac \\ fs [] \\ rveq \\ fs []
-     \\ TRY (fs [state_component_equality] >> metis_tac [] \\ NO_TAC)
-     \\ TRY (drule do_app_lim_swap
-     \\ disch_then (qspecl_then [`limits'`] assume_tac)
-     \\ fs [] \\ metis_tac [] \\ NO_TAC)
-     \\ TRY (drule do_app_err_lim_swap
-     \\ disch_then (qspecl_then [`limits'`] assume_tac)
-     \\ fs [state_component_equality] \\ metis_tac [] \\ NO_TAC))
+  >- (
+     qpat_x_assum `evaluate _ = _` mp_tac
+     \\ simp[evaluate_def, cut_state_opt_with_lim]
+     \\ IF_CASES_TAC \\ simp[]
+     >- (strip_tac \\ rveq \\ simp[state_component_equality])
+     \\ Cases_on `get_vars args s.locals` \\ simp[]
+     >- (strip_tac \\ rveq \\ simp[state_component_equality])
+     \\ rename1 `get_vars args s.locals = SOME xs`
+     \\ Cases_on `cut_state_opt names_opt s` \\ simp[]
+     >- (strip_tac \\ rveq \\ simp[state_component_equality])
+     \\ rename1 `cut_state_opt names_opt s = SOME s1`
+     \\ Cases_on `do_app op xs s1` \\ simp[]
+     >- (
+       rename1 `do_app op xs s1 = Rval p` \\ Cases_on `p`
+       \\ drule do_app_lim_swap
+       \\ disch_then (qspec_then `limits'` strip_assume_tac)
+       \\ simp[] \\ strip_tac \\ rveq
+       \\ simp[set_var_def, state_component_equality] \\ metis_tac[])
+     \\ drule do_app_err_lim_swap
+     \\ disch_then (qspec_then `limits'` assume_tac)
+     \\ simp[] \\ strip_tac \\ rveq
+     \\ simp[flush_state_def, state_component_equality] \\ metis_tac[])
   (*  Tick *)
   >- (trivial_tac >> EVAL_TAC)
   >- (trivial_tac >> EVAL_TAC)
@@ -2474,6 +2590,25 @@ val basics_tac = fs [evaluate_def]
                  \\ fs [state_component_equality]
                  \\ rfs[];
 
+(* The locals_size/stack/stack_frame_sizes-swap commutes through the narrow
+   cut in evaluate(Assign), and the cut preserves the stack. *)
+Theorem cut_state_opt_with_sfs[local]:
+  cut_state_opt names_opt
+    (s with <|locals_size := lsz; stack := xs; stack_frame_sizes := sfs|>) =
+  OPTION_MAP (λt. t with <|locals_size := lsz; stack := xs; stack_frame_sizes := sfs|>)
+             (cut_state_opt names_opt s)
+Proof
+  Cases_on `names_opt` \\ rw[cut_state_opt_def, cut_state_def, cut_env_def]
+  \\ rw[dataSemTheory.state_component_equality]
+QED
+
+Theorem cut_state_opt_stack[local]:
+  cut_state_opt names_opt s = SOME s1 ⇒ s1.stack = s.stack
+Proof
+  Cases_on `names_opt` \\ rw[cut_state_opt_def, cut_state_def]
+  \\ every_case_tac \\ gvs[]
+QED
+
 Theorem evaluate_swap_stack_frame_sizes_aux[local]:
   ∀c s r s' xs lsz sfs.
    evaluate (c,s) = (r,s') /\ LIST_REL stack_frame_size_rel s.stack xs
@@ -2495,19 +2630,30 @@ Proof
   >- trivial_tac
   >- (trivial_tac >> EVAL_TAC >> simp[])
   (* Assign *)
-  >- (fs [evaluate_def]
-     \\ full_cases >> full_fs
-     \\ fs [] \\ rfs[]
-     \\ rveq \\ fs []
-     \\ every_case_tac \\ fs [] \\ rveq \\ fs []
-     \\ TRY (fs [state_component_equality] \\ metis_tac [] \\ NO_TAC)
-     \\ TRY (drule do_app_lss_stk_stfrm_swap
+  >- (
+     qpat_x_assum `evaluate _ = _` mp_tac
+     \\ simp[evaluate_def, cut_state_opt_with_sfs]
+     \\ IF_CASES_TAC \\ simp[]
+     >- (strip_tac \\ rveq \\ simp[state_component_equality] \\ metis_tac[])
+     \\ Cases_on `get_vars args s.locals` \\ simp[]
+     >- (strip_tac \\ rveq \\ simp[state_component_equality] \\ metis_tac[])
+     \\ rename1 `get_vars args s.locals = SOME ys`
+     \\ Cases_on `cut_state_opt names_opt s` \\ simp[]
+     >- (strip_tac \\ rveq \\ simp[state_component_equality] \\ metis_tac[])
+     \\ rename1 `cut_state_opt names_opt s = SOME s1`
+     \\ imp_res_tac cut_state_opt_stack
+     \\ Cases_on `do_app op ys s1` \\ simp[]
+     >- (
+       rename1 `do_app op ys s1 = Rval p` \\ Cases_on `p`
+       \\ drule do_app_lss_stk_stfrm_swap
+       \\ disch_then (qspecl_then [`lsz`, `xs`, `sfs`] strip_assume_tac)
+       \\ simp[] \\ strip_tac \\ rveq
+       \\ imp_res_tac do_app_const
+       \\ simp[set_var_def, state_component_equality])
+     \\ drule do_app_err_lss_stk_stfrm_swap
      \\ disch_then (qspecl_then [`lsz`, `xs`, `sfs`] assume_tac)
-     \\ fs [state_component_equality]
-     \\ match_mp_tac do_app_stack_frame_size_rel \\ asm_exists_tac \\ fs [] \\ NO_TAC)
-     \\ TRY (drule do_app_err_lss_stk_stfrm_swap
-     \\ disch_then (qspecl_then [`lsz`, `xs`, `sfs`] assume_tac)
-     \\ fs [state_component_equality] \\ NO_TAC))
+     \\ simp[] \\ strip_tac \\ rveq
+     \\ simp[flush_state_def, state_component_equality])
   (*  Tick *)
   >- (trivial_tac >> EVAL_TAC >> simp[])
   >- (trivial_tac >> EVAL_TAC >> simp[])
@@ -2900,7 +3046,7 @@ Proof
    fs[do_stack_def,do_space_def,do_app_def,consume_space_def,
    op_space_reset_def,data_spaceTheory.op_space_req_def,
    space_consumed_def,stack_consumed_def,size_of_heap_def,
-   stack_to_vs_def] >>
+   size_of_heap_args_def,stack_to_vs_def] >>
    rveq >>
    simp[do_app_aux_def,do_int_app_def] >>
    fs[cc_co_only_diff_def] >>
@@ -2912,7 +3058,8 @@ Proof
      ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,space_consumed_def,
      semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
      pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def,
-     CaseEq"closLang$op",ELIM_UNCURRY,size_of_heap_def,stack_to_vs_def] >>
+     CaseEq"closLang$op",ELIM_UNCURRY,size_of_heap_def,size_of_heap_args_def,
+     stack_to_vs_def] >>
     rveq >> fs[])
   >> TRY (rename [‘lookup _ _ = SOME (Thunk m_ _)’] \\ Cases_on `m_`)
   >> gvs []
@@ -2935,7 +3082,8 @@ Proof
   `?y. do_space op vs s = SOME y /\ cc_co_only_diff y (THE(do_space op vs t))`
     by (fs[do_space_def,CaseEq"bool",consume_space_def] >>
         rveq >> fs[cc_co_only_diff_def] >>
-        rw[EQ_IMP_THM,size_of_heap_def,ELIM_UNCURRY,stack_to_vs_def]) >>
+        rw[EQ_IMP_THM,size_of_heap_def,size_of_heap_args_def,ELIM_UNCURRY,
+           stack_to_vs_def]) >>
   fs[] >>
   qpat_x_assum `cc_co_only_diff s t` kall_tac >>
   rfs[] >>
@@ -2953,7 +3101,8 @@ Proof
      ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
      semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
      pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def,
-     CaseEq"closLang$op",ELIM_UNCURRY,size_of_heap_def,stack_to_vs_def] >>
+     CaseEq"closLang$op",ELIM_UNCURRY,size_of_heap_def,size_of_heap_args_def,
+     stack_to_vs_def] >>
   rveq >> fs[] >>
   TRY (rename [‘lookup _ _ = SOME (Thunk m_ _)’] \\ Cases_on `m_`) >> gvs []
 QED
@@ -2980,6 +3129,29 @@ Proof
   Cases_on `b` >> rw[cc_co_only_diff_def,call_env_def,push_env_def,dec_clock_def]
 QED
 
+(* The narrow cut in evaluate(Assign) only depends on locals (equal under
+   cc_co_only_diff), so the t-side cut is determined by the s-side cut and
+   preserves cc_co_only_diff. *)
+Theorem cut_state_opt_cc_co_full[local]:
+  (t:('b,'ffi)dataSem$state).locals = (s:('a,'ffi)dataSem$state).locals ⇒
+  cut_state_opt names_opt t =
+  OPTION_MAP (λu. t with locals := u.locals) (cut_state_opt names_opt s)
+Proof
+  strip_tac \\ Cases_on `names_opt`
+  \\ rw[cut_state_opt_def, cut_state_def, cut_env_def]
+  \\ gvs[dataSemTheory.state_component_equality]
+QED
+
+Theorem cut_cc_co[local]:
+  cc_co_only_diff (s:('a,'ffi)dataSem$state) (t:('b,'ffi)dataSem$state) ∧
+  cut_state_opt names_opt s = SOME s1 ⇒
+  ∃t1. cut_state_opt names_opt t = SOME t1 ∧ cc_co_only_diff s1 t1
+Proof
+  strip_tac \\ Cases_on `names_opt`
+  \\ gvs[cut_state_opt_def, cut_state_def, AllCaseEqs(), cut_env_def]
+  \\ gvs[cc_co_only_diff_def]
+QED
+
 Theorem evaluate_cc_co_only_diff:
   ∀prog (s:('a,'ffi)dataSem$state) res s1 (t:('b,'ffi)dataSem$state).
     evaluate (prog, s) = (res,s1) ∧
@@ -2994,42 +3166,33 @@ Proof
       fs[evaluate_def,CaseEq "option",set_var_def] >> rveq >>
       fs[get_var_def,cc_co_only_diff_def])
   >- ((* Assign *)
-      fs[evaluate_def] >>
-      IF_CASES_TAC >-
-        (fs[] >> rveq >> fs[]) >>
-      TOP_CASE_TAC >-
-        (fs[] >> rveq >>
-         fs[cut_state_opt_def,cut_state_def,cut_env_def,
-            CaseEq "option",CaseEq "bool"] >>
-         rveq >> fs[] >>
-         fs[cc_co_only_diff_def] >>rfs[]) >>
-      TOP_CASE_TAC >-
-        (fs[] >> rveq >>
-         fs[cut_state_opt_def,cut_state_def,cut_env_def,
-            CaseEq "option",CaseEq "bool"] >>
-         rveq >> fs[] >>
-         fs[cc_co_only_diff_def] >>rfs[]) >>
-      rename1 `cut_state_opt _ _ = SOME t'` >>
-      `?s'. cut_state_opt names_opt s = SOME s' /\
-           cc_co_only_diff s' t'`
-       by(fs[] >> rveq >>
-          fs[cut_state_opt_def,cut_state_def,cut_env_def,get_vars_def,
-             CaseEq "option",CaseEq "bool"] >>
-          rveq >> fs[] >> rveq >> fs[] >>
-          fs[cc_co_only_diff_def] >>rfs[]) >>
-      qmatch_asmsub_abbrev_tac `~ a1` >>
-      fs[] >>
-      `s'.locals = t'.locals` by fs[cc_co_only_diff_def] >>
-      fs[] >>
-      fs[CaseEq "result",CaseEq "prod"] >>
-      rveq >> fs[set_var_def] >>
-      TRY(drule_all_then strip_assume_tac do_app_cc_co_only_diff_rval >>
-          fs[] >>
-          fs[cc_co_only_diff_def]
-         ) >>
-      Cases_on `op = Install` >- fs [flush_state_def] >>
-      reverse conj_tac >- fs[cc_co_only_diff_def,flush_state_def] >>
-      imp_res_tac do_app_cc_co_only_diff_rerr)
+      `t.locals = s.locals` by fs[cc_co_only_diff_def]
+      \\ `get_vars args t.locals = get_vars args s.locals` by simp[]
+      \\ drule cut_state_opt_cc_co_full \\ disch_then (qspec_then `names_opt` assume_tac)
+      \\ qpat_x_assum `evaluate (Assign _ _ _ _,s) = _` mp_tac
+      \\ simp[evaluate_def]
+      \\ IF_CASES_TAC \\ simp[]
+      >- (strip_tac \\ rveq \\ fs[])
+      \\ Cases_on `get_vars args s.locals` \\ simp[]
+      >- (strip_tac \\ rveq \\ fs[])
+      \\ rename1 `get_vars args s.locals = SOME ys`
+      \\ Cases_on `cut_state_opt names_opt s` \\ simp[]
+      >- (strip_tac \\ rveq \\ fs[])
+      \\ rename1 `cut_state_opt names_opt s = SOME s2`
+      \\ Cases_on `do_app op ys s2` \\ simp[]
+      >- (
+        rename1 `do_app op ys s2 = Rval p` \\ Cases_on `p`
+        \\ strip_tac \\ rveq
+        \\ drule_all cut_cc_co \\ strip_tac \\ gvs[]
+        \\ `r.safe_for_space` by fs[set_var_def]
+        \\ drule_all do_app_cc_co_only_diff_rval \\ strip_tac
+        \\ simp[]
+        \\ gvs[cc_co_only_diff_def, set_var_def])
+      \\ strip_tac \\ rveq
+      \\ drule_all cut_cc_co \\ strip_tac \\ gvs[]
+      \\ `op ≠ Install` by fs[flush_state_def]
+      \\ drule_all do_app_cc_co_only_diff_rerr \\ simp[]
+      \\ gvs[flush_state_def, cc_co_only_diff_def])
   >- ((* Tick *)
       fs[evaluate_def,CaseEq "bool",flush_state_def,cc_co_only_diff_def,dec_clock_def] >>
       rveq >> fs[])

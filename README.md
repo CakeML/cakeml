@@ -49,7 +49,7 @@ A verified compiler for CakeML, including:
  - code generation to x86, ARM, and more.
 
 [cv_translator](cv_translator):
-Translator to cv type used by cv_compute
+Translator to the cv type used by cv_compute.
 
 [developers](developers):
 This directory contains scripts for automating routine tasks, e.g., for

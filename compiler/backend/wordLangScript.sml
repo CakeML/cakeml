@@ -1,6 +1,6 @@
 (*
   The wordLang intermediate language consists of structured programs
-  that overate over machine words, a list-like stack and a flat memory.
+  that operate over machine words, a list-like stack and a flat memory.
   This is the language where register allocation is performed.
 *)
 Theory wordLang
@@ -17,8 +17,10 @@ Datatype:
       | Lookup store_name
       | Load exp
       | Op binop (exp list)
-      | Shift shift exp num
+      | Shift shift exp exp
 End
+
+Overload ShiftN = “λsh e n. Shift sh e (Const (n2w n))”;
 
 Theorem MEM_IMP_exp_size:
    !xs a. MEM a xs ==> (exp_size l a < exp1_size l xs)
@@ -47,10 +49,13 @@ Datatype:
               (* handler: varname, exception-handler code, labels l1,l2*)
        | Seq wordLang$prog wordLang$prog
        | If cmp num ('a reg_imm) wordLang$prog wordLang$prog
+       | Loop num_set wordLang$prog num_set
        | Alloc num cutsets
        | StoreConsts num num num num ((bool # 'a word) list)
        | Raise num
        | Return num (num list) (* return lab, return values *)
+       | Break num
+       | Continue num
        | Tick
        | OpCurrHeap binop num num (* special case compiled well in stackLang *)
        | LocValue num num        (* assign v1 := Loc v2 0 *)
@@ -58,7 +63,7 @@ Datatype:
                                       data buffer start, length of new data, cut-set *)
        | CodeBufferWrite num num (* code buffer address, byte to write *)
        | DataBufferWrite num num (* data buffer address, word to write *)
-       | FFI string num num num num cutsets (* FFI name, conf_ptr, conf_len, array_ptr, array_len, cut-set *)
+       | FFI mlstring num num num num cutsets (* FFI name, conf_ptr, conf_len, array_ptr, array_len, cut-set *)
        | ShareInst memop num ('a exp) (* memory operation, varname, expression for memory address *)
 End
 
@@ -81,7 +86,7 @@ Definition every_var_exp_def:
   (every_var_exp P (Var num) = P num) ∧
   (every_var_exp P (Load exp) = every_var_exp P exp) ∧
   (every_var_exp P (Op wop ls) = EVERY (every_var_exp P) ls) ∧
-  (every_var_exp P (Shift sh exp n) = every_var_exp P exp) ∧
+  (every_var_exp P (Shift sh e1 e2) = (every_var_exp P e1 ∧ every_var_exp P e2)) ∧
   (every_var_exp P expr = T)
 End
 
@@ -94,7 +99,7 @@ Definition every_var_inst_def:
   (every_var_inst P (Const reg w) = P reg) ∧
   (every_var_inst P (Arith (Binop bop r1 r2 ri)) =
     (P r1 ∧ P r2 ∧ every_var_imm P ri)) ∧
-  (every_var_inst P (Arith (Shift shift r1 r2 n)) = (P r1 ∧ P r2)) ∧
+  (every_var_inst P (Arith (Shift shift r1 r2 ri)) = (P r1 ∧ P r2 ∧ every_var_imm P ri)) ∧
   (every_var_inst P (Arith (Div r1 r2 r3)) = (P r1 ∧ P r2 ∧ P r3)) ∧
   (every_var_inst P (Arith (AddCarry r1 r2 r3 r4)) = (P r1 ∧ P r2 ∧ P r3 ∧ P r4)) ∧
   (every_var_inst P (Arith (AddOverflow r1 r2 r3 r4)) = (P r1 ∧ P r2 ∧ P r3 ∧ P r4)) ∧
@@ -164,6 +169,9 @@ Definition every_var_def:
   (every_var P Tick = T) ∧
   (every_var P (Set n exp) = every_var_exp P exp) ∧
   (every_var P (ShareInst op num exp) = (P num /\ every_var_exp P exp)) /\
+  (every_var P (wordLang$Loop names body exit_names) =
+    (EVERY P (MAP FST (toAList names)) ∧ every_var P body ∧
+     EVERY P (MAP FST (toAList exit_names)))) ∧
   (every_var P p = T)
 End
 
@@ -191,6 +199,8 @@ Definition every_stack_var_def:
     (every_stack_var P s1 ∧ every_stack_var P s2)) ∧
   (every_stack_var P (If cmp r1 ri e2 e3) =
     (every_stack_var P e2 ∧ every_stack_var P e3)) ∧
+  (every_stack_var P (wordLang$Loop names body exit_names) =
+    every_stack_var P body) ∧
   (every_stack_var P p = T)
 End
 
@@ -199,7 +209,7 @@ Definition max_var_exp_def:
   (max_var_exp (Var num) = num) ∧
   (max_var_exp (Load exp) = max_var_exp exp) ∧
   (max_var_exp (Op wop ls) = MAX_LIST (MAP (max_var_exp) ls))∧
-  (max_var_exp (Shift sh exp n) = max_var_exp exp) ∧
+  (max_var_exp (Shift sh exp1 exp2) = MAX (max_var_exp exp1) (max_var_exp exp2)) ∧
   (max_var_exp exp = 0:num)
 End
 
@@ -208,7 +218,8 @@ Definition max_var_inst_def:
   (max_var_inst (Const reg w) = reg) ∧
   (max_var_inst (Arith (Binop bop r1 r2 ri)) =
     case ri of Reg r => max3 r1 r2 r | _ => MAX r1 r2) ∧
-  (max_var_inst (Arith (Shift shift r1 r2 n)) = MAX r1 r2) ∧
+  (max_var_inst (Arith (Shift shift r1 r2 n)) =
+    case n  of Reg r => max3 r1 r2 r | _ => MAX r1 r2) ∧
   (max_var_inst (Arith (Div r1 r2 r3)) = max3 r1 r2 r3) ∧
   (max_var_inst (Arith (AddCarry r1 r2 r3 r4)) = MAX (MAX r1 r2) (MAX r3 r4)) ∧
   (max_var_inst (Arith (AddOverflow r1 r2 r3 r4)) = MAX (MAX r1 r2) (MAX r3 r4)) ∧
@@ -281,6 +292,10 @@ Definition max_var_def:
   (max_var (LocValue r l1) = r) ∧
   (max_var (Set n exp) = max_var_exp exp) ∧
   (max_var (ShareInst op num exp) = MAX num (max_var_exp exp)) /\
+  (max_var (Loop names body exit_names) =
+    max3 (MAX_LIST (MAP FST (toAList names)))
+         (max_var body)
+         (MAX_LIST (MAP FST (toAList exit_names)))) /\
   (max_var p = 0)
 End
 
@@ -316,4 +331,3 @@ Overload shift = “backend_common$word_shift”
 Datatype:
   word_loc = Word ('a word) | Loc num num
 End
-

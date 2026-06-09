@@ -4,7 +4,7 @@
 Theory envRel
 Ancestors
   namespaceProps typeSystem ast semanticPrimitives infer infer_t
-  unify inferProps astProps typeSysProps
+  unify inferProps typeSysProps
 Libs
   preamble
 
@@ -946,4 +946,3 @@ Theorem tenv_to_ienv_lift:
 Proof
   rw [tenv_to_ienv_def, lift_ienv_def, tenvLift_def, namespacePropsTheory.nsLift_nsMap]
 QED
-

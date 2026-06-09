@@ -45,7 +45,7 @@ Theorem reader_compiled_thm =
 
 Definition installed_x64_def:
   installed_x64 ((code, data, cfg) :
-      (word8 list # word64 list # 64 backend$config))
+      (word8 list # word64 list # backend$config))
     mc ms ⇔
     ∃cbspace data_sp.
       is_x64_machine_config mc ∧
@@ -79,8 +79,8 @@ Theorem machine_code_sound:
           reader_main fs init_refs (TL cl) = (fs_out, hol_refs, SOME s) ∧
           hol_refs.the_context extends init_ctxt ∧
           fs_out =
-            add_stdout (flush_stdin (TL cl) fs)
-                       (concat (append (msg_success s hol_refs.the_context))) ∧
+            flush_stdin_cl (TL cl)
+              (add_stdout fs (concat (append (msg_success s hol_refs.the_context)))) ∧
        ∀asl c.
          MEM (Sequent asl c) s.thms ∧
          is_set_theory ^mem ⇒
@@ -90,4 +90,3 @@ Proof
               FST, SND, reader_success_stderr, input_exists_def,
               reader_sound]
 QED
-

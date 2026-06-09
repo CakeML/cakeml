@@ -16,7 +16,6 @@ val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 val _ = translation_extends "basis_defProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "to_word32Prog");
-val _ = ml_translatorLib.use_string_type true;
 val _ = ml_translatorLib.use_sub_check true;
 
 val RW = REWRITE_RULE
@@ -242,9 +241,7 @@ Definition bytes_of_string_def:
   bytes_of_string cs = MAP (λc. n2w (ORD c) :word8) (explode cs)
 End
 
-val _ = ml_translatorLib.use_string_type false;
 val _ = translate bytes_of_string_def;
-val _ = ml_translatorLib.use_string_type true;
 
 val r = int_to_words_def
      |> REWRITE_RULE [data_to_wordTheory.small_int_def,
@@ -278,6 +275,9 @@ val r = part_to_words_def |> conv32 |> translate;
 val r = data_to_wordTheory.parts_to_words_def |> inline_simp
         |> REWRITE_RULE [word_mul_n2w] |> conv32 |> translate;
 val r = data_to_wordTheory.const_parts_to_words_def |> conv32 |> translate;
+
+val r = data_to_wordTheory.SetBool_def |> conv32 |> translate;
+val r = data_to_wordTheory.AssignCmp_def |> conv32 |> translate;
 
 val _ = translate arg1_def;
 val _ = translate arg2_pmatch;
@@ -474,6 +474,9 @@ val _ = translate (spec32 inst_select_def(*pmatch*))
 
 val _ = translate (spec32 list_next_var_rename_move_def)
 val _ = translate force_rename_def
+
+val _ = translate (spec32 ssa_reconcile_def);
+val _ = translate (spec32 loop_setup_def);
 
 val _ = translate (conv32 ssa_cc_trans_inst_def)
 val _ = translate (spec32 full_ssa_cc_trans_def)
@@ -673,6 +676,7 @@ val _ = translate(Append_code_def|> inline_simp |> conv32 |> we_simp |> econv |>
 val _ = translate(AppendMainLoop_code_def|> inline_simp |> conv32)
 val _ = translate(AppendLenLoop_code_def|> inline_simp |> conv32)
 val _ = translate(XorLoop_code_def|> inline_simp |> conv32)
+val _ = translate(StringCmpLoop_code_def|> inline_simp |> conv32)
 
 val _ = translate(Compare1_code_def|> inline_simp |> conv32)
 val _ = translate(Compare_code_def|> inline_simp |> conv32)
@@ -694,7 +698,6 @@ val res = translate (data_to_wordTheory.compile_def
 
 (* explorer specific functions *)
 
-val _ = ml_translatorLib.use_string_type false;
 val r = presLangTheory.num_to_hex_def |> translate;
 val r = presLangTheory.word_to_display_def |> conv32 |> translate;
 val r = presLangTheory.item_with_word_def |> conv32 |> translate;
@@ -709,7 +712,6 @@ val r = presLangTheory.asm_inst_to_display_def |> conv32 |> translate;
 val r = presLangTheory.ws_to_display_def |> conv32 |> translate
 val r = presLangTheory.word_seqs_def |> conv32 |> translate
 
-val _ = ml_translatorLib.use_string_type true;
 val r = presLangTheory.word_prog_to_display_def
           |> conv32
           |> REWRITE_RULE [presLangTheory.string_imp_def]

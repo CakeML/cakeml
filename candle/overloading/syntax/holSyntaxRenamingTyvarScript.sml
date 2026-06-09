@@ -1866,7 +1866,7 @@ Proof
 QED
 
 Theorem ren_strlen_FST:
-  !r c. EVERY (λa. ?x. a = Tyvar x /\ list_max (MAP strlen (r++c)) < strlen x) (MAP FST (ren r c))
+  !r c. EVERY (λa. ?x. a = Tyvar x /\ MAX_LIST (MAP strlen (r++c)) < strlen x) (MAP FST (ren r c))
 Proof
   rw[EVERY_MEM,MEM_MAP]
   >> imp_res_tac (REWRITE_RULE[EVERY_MEM] ren_Tyvars)

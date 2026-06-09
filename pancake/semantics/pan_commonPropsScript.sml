@@ -606,10 +606,10 @@ Proof
 QED
 
 
-Theorem max_set_list_max:
-  !xs. MAX_SET (set xs) = list_max xs
+Theorem max_set_MAX_LIST:
+  !xs. MAX_SET (set xs) = MAX_LIST xs
 Proof
-  Induct >> rw [] >> fs [list_max_def] >>
+  Induct >> rw [] >> fs [MAX_LIST_def] >>
   ‘FINITE (set xs)’ by fs [] >>
   drule (MAX_SET_THM |> CONJUNCT2) >>
   disch_then (qspec_then ‘h’ assume_tac) >>
@@ -617,15 +617,15 @@ Proof
   TOP_CASE_TAC >>fs [MAX_DEF]
 QED
 
-Theorem list_max_add_not_mem:
-  !xs. ~MEM (list_max xs + 1) xs
+Theorem MAX_LIST_add_not_mem:
+  !xs. ~MEM (MAX_LIST xs + 1) xs
 Proof
-  Induct >> rw [] >> fs [list_max_def] >>
+  Induct >> rw [] >> fs [MAX_LIST_def,MAX_DEF] >>
   CCONTR_TAC >> fs [] >>
-  every_case_tac >> fs [list_max_def] >>
+  every_case_tac >> fs [MAX_LIST_def] >>
   ntac 2 (pop_assum mp_tac) >> pop_assum kall_tac >>
   qid_spec_tac ‘xs’ >>
-  Induct >> rw [] >> fs [list_max_def]
+  Induct >> rw [] >> fs [MAX_LIST_def]
 QED
 
 Theorem subspt_same_insert_subspt:
@@ -687,12 +687,12 @@ Proof
 QED
 
 
-Theorem list_max_i_genlist:
-  !n. list_max (GENLIST I n) = n − 1
+Theorem MAX_LIST_i_genlist:
+  !n. MAX_LIST (GENLIST I n) = n − 1
 Proof
   rw [] >>
   fs [GSYM COUNT_LIST_GENLIST] >>
-  fs [GSYM max_set_list_max] >>
+  fs [GSYM max_set_MAX_LIST] >>
   fs [COUNT_LIST_COUNT] >>
   metis_tac [max_set_count_length]
 QED

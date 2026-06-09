@@ -315,7 +315,7 @@ local
       val th1 = env_ok_conv sg1
       val th2 = env_ok_conv sg2
     in
-      INST [“mn:string”|->mn] (MATCH_MP (MATCH_MP write_mod_th th1) th2)
+      INST [“mn:mlstring”|->mn] (MATCH_MP (MATCH_MP write_mod_th th1) th2)
     end
   and prove_write tm = (* write nm v env *)
     let
@@ -326,7 +326,7 @@ local
       val th1 = env_ok_conv sg1
       val th2 = prove_v_ok v
     in
-      INST [“nm:string”|->n] (MATCH_MP (MATCH_MP write_th th1) th2)
+      INST [“nm:mlstring”|->n] (MATCH_MP (MATCH_MP write_th th1) th2)
     end
   and prove_write_cons tm = (* write_cons n (TypeStamp s t) env *)
     let
@@ -345,7 +345,7 @@ local
                 pred_setSyntax.mk_in (nm, kernel_ctors_term))
       val th2 = SIMP_CONV list_ss [kernel_types_def, kernel_ctors_def] goal
       val th3 =
-        INST [“n:num”|->m, “s:string”|->nm, “t:num”|->t, “nm:string”|->n]
+        INST [“n:num”|->m, “s:mlstring”|->nm, “t:num”|->t, “nm:mlstring”|->n]
              (MATCH_MP write_cons_th th1)
     in
       MATCH_MP th3 (EQT_ELIM th2)
@@ -363,7 +363,7 @@ local
       val m = s |> dest_pair |> #2 |> rand
       val k = s |> dest_pair |> #1
     in
-      INST [“n:num”|->k, “m:num”|->m, “nm:string”|->n]
+      INST [“n:num”|->k, “m:num”|->m, “nm:mlstring”|->n]
            (MATCH_MP write_exn_th th1)
     end
   and env_ok_conv tm =
@@ -569,4 +569,3 @@ Proof
   \\ fs [every_LNTH,LSET_def,EVERY_MEM,IN_DEF] \\ rw []
   \\ res_tac
 QED
-

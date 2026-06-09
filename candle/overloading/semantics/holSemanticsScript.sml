@@ -49,7 +49,7 @@ Definition nonbuiltin_types_def:
 End
 
 Definition builtin_consts_def:
-  builtin_consts = {(s,ty) | s = strlit "=" /\ ?ty'. ty = Fun ty' (Fun ty' Bool)}
+  builtin_consts = {(s,ty) | s = «=» /\ ?ty'. ty = Fun ty' (Fun ty' Bool)}
 End
 
 Definition nonbuiltin_constinsts_def:
@@ -77,7 +77,7 @@ Definition terms_of_frag_def:
         /\ set(allTypes t) ⊆ tys /\ welltyped t}
 End
 
-Definition TYPE_SUBSTf_def:
+Definition TYPE_SUBSTf_def[simp]:
   (TYPE_SUBSTf i (Tyvar v) = i v) ∧
   (TYPE_SUBSTf i (Tyapp v tys) =
     Tyapp v (MAP (λa. TYPE_SUBSTf i a) tys))
@@ -87,7 +87,6 @@ Termination
    simp[] >> res_tac >> simp[]
 End
 
-val _ = export_rewrites["TYPE_SUBSTf_def"]
 
 Definition terms_of_frag_uninst_def:
   terms_of_frag_uninst (tys,consts) sigma =
@@ -698,7 +697,7 @@ Overload is_frag_interpretation = ``is_frag_interpretation0 ^mem``
 (* TODO: grotesque patterns *)
 Definition ext_term_frag_builtins_def:
   ext_term_frag_builtins0 ^mem (δ: type -> 'U) (γ: mlstring # type -> 'U) tm =
-  if ?ty. tm = (strlit "=",Fun ty (Fun ty Bool)) then
+  if ?ty. tm = («=»,Fun ty (Fun ty Bool)) then
     case tm of (_, Fun ty _) =>
       Abstract (δ ty) (Funspace (δ ty) boolset)
         (λx. Abstract (δ ty) boolset (λy. Boolean (x = y)))
@@ -837,7 +836,7 @@ Definition is_std_interpretation_def:
     is_std_type_assignment δ ∧
     builtin_closure tyfrag = tyfrag ∧
     (!ty1 ty2. Fun ty1 ty2 ∈ tyfrag ==> ty1 ∈ tyfrag /\ ty2 ∈ tyfrag) ∧
-    !ty. ty ∈ tyfrag ==> γ(strlit "=", Fun ty (Fun ty Bool)) = Abstract (δ ty) (Funspace (δ ty) boolset)
+    !ty. ty ∈ tyfrag ==> γ(«=», Fun ty (Fun ty Bool)) = Abstract (δ ty) (Funspace (δ ty) boolset)
           (λx. Abstract (δ ty) boolset (λy. Boolean (x = y)))
 End
 

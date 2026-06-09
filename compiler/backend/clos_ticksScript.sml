@@ -1,7 +1,7 @@
 (*
   This simple compiler phase removes all Tick operations. Tick
   operations appear as a side effect of function inlining, and can be
-  removed because they have no observable behaviour. It is good idea
+  removed because they have no observable behaviour. It is a good idea
   to remove them because they get in the way of pattern matching done
   by several optimisations.
 *)

@@ -4,7 +4,7 @@
 *)
 Theory inferSound
 Ancestors
-  typeSystem ast semanticPrimitives infer unify infer_t astProps
+  typeSystem ast semanticPrimitives infer unify infer_t
   inferProps typeSysProps infer_eSound envRel type_eDeterm
   infer_eComplete namespaceProps
 Libs

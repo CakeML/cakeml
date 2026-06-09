@@ -4,7 +4,7 @@
 Theory decProg
 Ancestors
   ast ml_translator ml_pmatch[qualified] semanticPrimitives
-  repl_init_envProg
+  repl_init_envProg ast_extras
 Libs
   preamble ml_translatorLib ml_progLib
 
@@ -13,8 +13,6 @@ open ml_translatorLib ml_translatorTheory ml_progLib;
 open repl_init_envProgTheory;
 
 val _ = translation_extends "repl_init_envProg";
-
-val _ = use_string_type true;
 
 (* this is a hack to make the translator avoid these names *)
 Datatype:
@@ -28,15 +26,10 @@ val _ = register_type ``:('a,'b) id``;
 val _ = register_type ``:ast_t``;
 val _ = register_type ``:pat``;
 val _ = register_type ``:lop``;
-val _ = register_type ``:opn``;
-val _ = register_type ``:opb``;
-val _ = register_type ``:opw``;
 val _ = register_type ``:shift``;
 val _ = register_type ``:word_size``;
-val _ = register_type ``:fp_uop``;
-val _ = register_type ``:fp_bop``;
-val _ = register_type ``:fp_top``;
-val _ = register_type ``:fp_cmp``;
+val _ = register_type ``:prim_type``;
+val _ = register_type ``:arith``;
 val _ = register_type ``:op``;
 val _ = register_type ``:locn``;
 val _ = register_type ``:locs``;
@@ -58,6 +51,7 @@ Proof
   \\ rpt (irule_at Any (fetch_v_fun “:word8” |> snd |> hd))
   \\ rpt (irule_at Any (fetch_v_fun “:word64” |> snd |> hd))
   \\ rpt (irule_at Any (fetch_v_fun “:string” |> snd |> hd))
+  \\ rpt (irule_at Any (fetch_v_fun “:mlstring” |> snd |> hd))
   \\ fs []
 QED
 
@@ -73,4 +67,3 @@ val r = translate namespaceTheory.id_to_n_def;
 val r = translate repl_decs_allowedTheory.safe_exp_pmatch;
 val r = translate candle_prover_invTheory.safe_dec_def;
 val r = translate repl_decs_allowedTheory.decs_allowed_def;
-

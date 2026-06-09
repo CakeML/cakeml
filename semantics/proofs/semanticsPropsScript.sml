@@ -151,6 +151,17 @@ Proof
   \\ metis_tac[semantics_prog_deterministic]
 QED
 
+Theorem semantics_prog_Diverge_not_Fail:
+   semantics_prog s e p (Diverge y) ⇒
+    ¬semantics_prog s e p Fail ∧
+    semantics_prog s e p = {Diverge y}
+Proof
+  rpt strip_tac
+  \\ simp[FUN_EQ_THM]
+  \\ imp_res_tac semantics_prog_deterministic \\ fs[]
+  \\ metis_tac[semantics_prog_deterministic]
+QED
+
 Definition state_invariant_def:
   state_invariant st ⇔
   ?ctMap tenvS.
@@ -305,4 +316,3 @@ Proof
   Cases_on `b`
   \\ fs [extend_with_resource_limit'_def,extend_with_resource_limit_def,SUBSET_DEF]
 QED
-

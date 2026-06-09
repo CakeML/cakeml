@@ -71,7 +71,8 @@ Theorem lem5[local]:
   !s state.
      target_state_rel mips_target s state ==>
      !n. n < 32 /\ mips_reg_ok n ==>
-         (s.regs n = state.gpr (n2w n)) /\ n <> 0 /\ n2w n <> 1w : word5
+         (s.regs n = state.gpr (n2w n)) /\ n <> 0 /\
+          n2w n <> 1w : word5 ∧ n2w n <> 30w :word5
 Proof
   lrw [asmPropsTheory.target_state_rel_def, mips_target_def, mips_config_def,
         mips_reg_ok_def]
@@ -259,9 +260,9 @@ val encode_rwts =
       open mipsTheory
    in
       [mips_enc_def, mips_ast_def, mips_encode_def, mips_bop_r_def,
-       mips_bop_i_def, mips_sh_def, mips_sh32_def, mips_memop_def, mips_cmp_def,
-       mips_fp_cmp_def, Encode_def, COP1Encode_def, form1_def, form2_def,
-       form3_def, form4_def, form5_def]
+       mips_bop_i_def, mips_sh_def, mips_sh32_def, mips_shv_def, mips_memop_def,
+       mips_cmp_def, mips_fp_cmp_def, Encode_def, COP1Encode_def, form1_def,
+       form2_def, form3_def, form4_def, form5_def]
    end
 
 val enc_rwts =
@@ -393,7 +394,7 @@ fun state_tac asm =
                    (srw_ss()++wordsLib.WORD_EXTRACT_ss++wordsLib.WORD_CANCEL_ss)
                    []
              else
-              NO_STRIP_FULL_SIMP_TAC std_ss
+              NO_STRIP_FULL_SIMP_TAC (srw_ss())
                  [gt_not_leq, alignmentTheory.aligned_extract,
                   EVAL ``mips_reg_ok 30``]
               \\ blastLib.FULL_BBLAST_TAC
@@ -504,6 +505,13 @@ QED
 
 val print_tac = asmLib.print_tac "correct"
 
+Theorem word_extract_6:
+  w <+ 64w ⇒
+  ((5 >< 0) (w:word64)):word6 = (w2w w)
+Proof
+  blastLib.FULL_BBLAST_TAC
+QED
+
 Theorem mips_encoder_correct:
     encoder_correct mips_target
 Proof
@@ -564,10 +572,68 @@ Proof
                 Shift
               --------------*)
             print_tac "Shift"
-            \\ Cases_on `s`
-            \\ Cases_on `n1 < 32`
-            THEN_LT LASTGOAL (Cases_on `n1 = 32`)
-            \\ next_tac
+            \\ reverse(Cases_on`r`)
+            >- (
+              Cases_on`c`
+              \\ rename1`Imm (n2w c)`
+              \\ Cases_on `s = Ror`
+              >- (
+                Cases_on `c < 32`
+                THEN_LT LASTGOAL (Cases_on `c = 32`)
+                \\ next_tac)
+              >- (
+                Cases_on `s`
+                \\ Cases_on `c < 32`
+                \\ next_tac))
+            >- (
+              Cases_on`s = Ror`
+              >- (
+                rename1`Reg r`
+                \\ `w2n (s1.regs r) < 64` by fs enc_rwts
+                \\ `s1.regs r <+ 64w ∧ s1.regs r <=+ 64w` by (
+                    Cases_on`s1.regs r`
+                    \\ fs[wordsTheory.WORD_LO,wordsTheory.WORD_LS])
+                \\ `-1w * (s1.regs r) + 64w =
+                  64w - s1.regs r` by blastLib.FULL_BBLAST_TAC
+
+                \\ `w2n (64w - s1.regs r) =
+                  64 - w2n (s1.regs r)` by
+                    (dep_rewrite.DEP_REWRITE_TAC[wordsTheory.word_sub_w2n]>>
+                    simp[])
+
+                 \\ `w2n (((5 >< 0) (s1.regs r)):word6) =
+                    w2n (s1.regs r)` by
+                      fs[word_extract_6,wordsTheory.w2w_def,wordsTheory.WORD_LO]
+
+                \\ `ms.gpr (n2w n0) ≪ (64 - w2n (s1.regs r)) ‖
+                    ms.gpr (n2w n0) ⋙ w2n (s1.regs r) =
+                    ms.gpr (n2w n0) ⇄ w2n (s1.regs r)` by
+                    simp[bitstringTheory.word_ror_alt]
+
+                \\ Cases_on`s1.regs r = 0w`
+                >- (
+                  `w2n ((5 >< 0) (64w - s1.regs r):word6) = 0` by simp[]
+                  \\ next_tac)
+                \\ `w2n ((5 >< 0) (64w - s1.regs r):word6) =
+                  w2n (64w - s1.regs r) ` by
+                    (dep_rewrite.DEP_REWRITE_TAC[word_extract_6]>>
+                    fs[wordsTheory.w2w_def,wordsTheory.WORD_LO]>>
+                    Cases_on`s1.regs r`>>fs[])
+                \\ next_tac
+              )
+              >- (
+                rename1`Reg r`
+                \\ `w2n ((5 >< 0) (s1.regs r):word6) =
+                    w2n (s1.regs r)` by (
+                  fs enc_rwts
+                  \\ `s1.regs r <+ 64w` by (
+                    Cases_on`s1.regs r`
+                    \\ fs[wordsTheory.WORD_LO])
+                  \\ simp[word_extract_6,wordsTheory.w2w_def])
+                \\ Cases_on `s`
+                \\ next_tac
+              )
+            )
             )
          >- (
             (*--------------

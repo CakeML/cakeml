@@ -10,12 +10,12 @@ Libs
   preamble
 
 Theorem with_clos_conf_simp[local]:
-    (mc_init_ok (ag32_backend_config with <| clos_conf := z ; bvl_conf updated_by
+    (mc_init_ok ag32_config (ag32_backend_config with <| clos_conf := z ; bvl_conf updated_by
                     (λc. c with <|inline_size_limit := t1; exp_cut := t2|>) |>) =
-     mc_init_ok ag32_backend_config) /\
+     mc_init_ok ag32_config ag32_backend_config) /\
     (x.max_app <> 0 /\ (case x.known_conf of NONE => T | SOME k => k.val_approx_spt = LN) ==>
-     (backend_config_ok (ag32_backend_config with clos_conf := x) =
-      backend_config_ok ag32_backend_config))
+     (backend_config_ok ag32_config (ag32_backend_config with clos_conf := x) =
+      backend_config_ok ag32_config ag32_backend_config))
 Proof
   fs [mc_init_ok_def,FUN_EQ_THM,backend_config_ok_def]
   \\ rw [] \\ eq_tac \\ rw [] \\ EVAL_TAC
@@ -25,30 +25,21 @@ Overload cake_config = “ag32Bootstrap$info”;
 
 Definition compiler_instance_def:
   compiler_instance =
-    <| init_state := config_to_inc_config cake_config ;
-       compiler_fun := compile_inc_progs_for_eval cake_config.lab_conf.asm_conf ;
+    <| init_state := cake_config ;
+       compiler_fun := compile_inc_progs_for_eval ag32_config ;
        config_dom := UNIV ;
-       config_v := BACKEND_INC_CONFIG_v ;
+       config_v := BACKEND_CONFIG_v ;
        decs_dom := decs_allowed ;
        decs_v := LIST_v AST_DEC_v |>
 End
 
 Theorem compiler_instance_lemma[local]:
-  INJ compiler_instance.config_v 𝕌(:inc_config) 𝕌(:semanticPrimitives$v) ∧
-  compiler_instance.init_state = config_to_inc_config cake_config ∧
+  INJ compiler_instance.config_v 𝕌(:backend$config) 𝕌(:semanticPrimitives$v) ∧
+  compiler_instance.init_state = cake_config ∧
   compiler_instance.compiler_fun =
-    compile_inc_progs_for_eval cake_config.lab_conf.asm_conf
+    compile_inc_progs_for_eval ag32_config
 Proof
   fs [compiler_instance_def]
-QED
-
-Theorem cake_config_lab_conf_asm_conf:
-  cake_config.lab_conf.asm_conf = ag32_config
-Proof
-  assume_tac $ cj 1 compiler32_compiled
-  \\ drule compile_asm_config_eq
-  \\ gvs [backendTheory.set_oracle_def]
-  \\ strip_tac \\ EVAL_TAC
 QED
 
 val cake_io_events_def = new_specification("cake_io_events_def",["cake_io_events"],
@@ -174,8 +165,7 @@ Proof
   \\ disch_then drule
   \\ strip_tac
   \\ simp[ag32_memoryTheory.ffi_exitpcs_def]
-  \\ conj_tac >- (simp[LENGTH_code] \\ EVAL_TAC)
-  \\ conj_tac >- (simp[LENGTH_code, LENGTH_data] \\ EVAL_TAC)
+  \\ rpt (conj_tac >- (simp[LENGTH_code, LENGTH_data] \\ EVAL_TAC))
   \\ asm_exists_tac \\ simp[]
   \\ last_x_assum $ irule_at Any \\ fs []
 QED
@@ -256,7 +246,7 @@ QED
 Theorem ALOOKUP_add_stdout_inode_tbl:
    STD_streams fs ⇒ (
    ALOOKUP (add_stdout fs out).inode_tbl fnm =
-   if fnm = UStream(strlit"stdout") then
+   if fnm = UStream «stdout» then
      SOME (THE (ALOOKUP fs.inode_tbl fnm) ++ explode out)
    else ALOOKUP fs.inode_tbl fnm)
 Proof
@@ -279,7 +269,7 @@ QED
 Theorem ALOOKUP_add_stderr_inode_tbl:
    STD_streams fs ⇒ (
    ALOOKUP (add_stderr fs err).inode_tbl fnm =
-   if fnm = UStream(strlit"stderr") then
+   if fnm = UStream «stderr» then
      SOME (THE (ALOOKUP fs.inode_tbl fnm) ++ explode err)
    else ALOOKUP fs.inode_tbl fnm)
 Proof
@@ -373,6 +363,8 @@ Proof
   \\ simp[wfFS_stdin_fs, STD_streams_stdin_fs]
   \\ simp[compilerTheory.full_compile_32_def]
   \\ pairarg_tac \\ simp[]
+  \\ impl_tac
+  >- (gvs [TextIOProofTheory.stdin_content_def, stdin_fs_def])
   \\ ntac 2 (IF_CASES_TAC \\ fs[]
   >- (
     simp[TextIOProofTheory.add_stdo_def]
@@ -395,6 +387,7 @@ Proof
       \\ simp[AFUPDKEY_ALOOKUP]
       \\ disch_then match_mp_tac
       \\ rw[fsFFIPropsTheory.inFS_fname_def]
+      \\ fs[]
       >- (
         fs[CaseEq"option",CaseEq"bool",FORALL_PROD]
         \\ rw[] \\ CCONTR_TAC \\ fs[]
@@ -402,7 +395,8 @@ Proof
       >- (
         pop_assum mp_tac
         \\ rw[] \\ fs[] \\ rw[]
-        \\ pop_assum mp_tac \\ rw[])
+        \\ pop_assum mp_tac \\ rw[]
+        \\ fs[])
       >- ( rw[] \\ rw[OPTREL_def]))))>>
   IF_CASES_TAC>>fs[]
   \\ (simp[TextIOProofTheory.add_stdout_fastForwardFD, STD_streams_stdin_fs]
@@ -543,12 +537,12 @@ Proof
   \\ disch_then drule
   \\ disch_then drule
   \\ disch_then(qspec_then`stdin_fs inp`mp_tac)
-  \\ impl_tac >- fs[STD_streams_stdin_fs, wfFS_stdin_fs]
+  \\ impl_tac >-
+   (fs[STD_streams_stdin_fs, wfFS_stdin_fs]
+    \\ gvs [TextIOProofTheory.stdin_content_def, stdin_fs_def])
   \\ strip_tac
   \\ irule ag32_next
-  \\ conj_tac >- simp[ffi_names,extcalls_def]
-  \\ conj_tac >- (simp[ffi_names,extcalls_def, LENGTH_code, LENGTH_data] \\ EVAL_TAC)
-  \\ conj_tac >- (simp[ffi_names,extcalls_def] \\ EVAL_TAC)
+  \\ rpt (conj_tac >- (simp[ffi_names,extcalls_def, LENGTH_code, LENGTH_data] \\ EVAL_TAC))
   \\ goal_assum(first_assum o mp_then Any mp_tac)
   \\ goal_assum(first_assum o mp_then Any mp_tac)
   \\ goal_assum(first_assum o mp_then Any mp_tac)

@@ -64,17 +64,15 @@ val _ = (find_def_for_const := def_of_const);
 
 (* --- *)
 
-val _ = ml_translatorLib.use_string_type true;
 val _ = register_type “:lab_to_target$shmem_info_num”
-val _ = register_type “:lab_to_target$inc_config”
-val _ = ml_translatorLib.use_string_type false;
+val _ = register_type “:lab_to_target$config”
 
-val _ = register_type “:backend$inc_config”
+val _ = register_type “:backend$config”
 
-Theorem IsTypeRep_BACKEND_INC_CONFIG_v:
-  IsTypeRep BACKEND_INC_CONFIG_v BACKEND_INC_CONFIG_TYPE
+Theorem IsTypeRep_BACKEND_CONFIG_v:
+  IsTypeRep BACKEND_CONFIG_v BACKEND_CONFIG_TYPE
 Proof
-  irule_at Any (fetch_v_fun “:backend$inc_config” |> snd |> hd) \\ fs []
+  irule_at Any (fetch_v_fun “:backend$config” |> snd |> hd) \\ fs []
   \\ irule_at Any (fetch_v_fun “:bvl_to_bvi$config” |> snd |> hd) \\ fs []
   \\ irule_at Any (fetch_v_fun “:clos_to_bvl$config” |> snd |> hd) \\ fs []
   \\ rpt $ irule_at Any (fetch_v_fun “:'a num_map” |> snd |> hd) \\ fs []
@@ -100,21 +98,21 @@ Proof
   \\ rpt $ irule_at Any (fetch_v_fun “:closLang$const_part” |> snd |> hd) \\ fs []
   \\ rpt $ irule_at Any (fetch_v_fun “:closLang$const” |> snd |> hd) \\ fs []
   \\ rpt $ irule_at Any (fetch_v_fun “:word64” |> snd |> hd) \\ fs []
-  \\ irule (fetch_v_fun “:lab_to_target$inc_config” |> snd |> hd) \\ fs []
+  \\ irule (fetch_v_fun “:lab_to_target$config” |> snd |> hd) \\ fs []
   \\ irule (fetch_v_fun “:'a list” |> snd |> hd) \\ fs []
   \\ irule (fetch_v_fun “:lab_to_target$shmem_info_num” |> snd |> hd) \\ fs []
   \\ irule (fetch_v_fun “:word8” |> snd |> hd) \\ fs []
 QED
 
-Theorem EqualityType_BACKEND_INC_CONFIG_TYPE =
-  EqualityType_rule [] “:backend$inc_config”;
+Theorem EqualityType_BACKEND_CONFIG_TYPE =
+  EqualityType_rule [] “:backend$config”;
 
-Theorem INJ_BACKEND_INC_CONFIG_v[simp]:
-  INJ BACKEND_INC_CONFIG_v UNIV UNIV
+Theorem INJ_BACKEND_CONFIG_v[simp]:
+  INJ BACKEND_CONFIG_v UNIV UNIV
 Proof
   irule ml_translatorTheory.IsTypeRep_EqualityType_INJ
-  \\ irule_at Any IsTypeRep_BACKEND_INC_CONFIG_v
-  \\ fs [EqualityType_BACKEND_INC_CONFIG_TYPE]
+  \\ irule_at Any IsTypeRep_BACKEND_CONFIG_v
+  \\ fs [EqualityType_BACKEND_CONFIG_TYPE]
 QED
 
 (* --- *)
@@ -122,7 +120,7 @@ QED
 val res = translate dec_next_def;
 val res = translate chars_to_nums_def;
 val res = translate num_list_enc_decTheory.mlstring_dec_def;
-val res = translate (mlstring_dec'_def |> REWRITE_RULE [GSYM mlstringTheory.implode_def]);
+val res = translate mlstring_dec'_def;
 
 Theorem list_dec'_eq_MAP:
   ∀f t. list_dec' f t = MAP f (list_dec' I t)
@@ -168,11 +166,9 @@ val res = translate option_dec'_def;
 
 (* --- *)
 
-val _ = ml_translatorLib.use_string_type false;
 val res = translate (backend_common_tra_dec'_def |> DefnBase.one_line_ify NONE);
 val res = translate safe_chr_list_def;
 val res = translate list_chr_dec'_def;
-val _ = ml_translatorLib.use_string_type true;
 val res = translate string_dec_def;
 val res = translate source_to_flat_next_indices_dec_def;
 val res = translate flat_pattern_config_dec_def;
@@ -183,7 +179,6 @@ val res = translate source_to_flat_var_name_dec_def;
 val res = translate source_to_flat_environment_dec_def;
 val res = translate source_to_flat_environment_store_dec_def;
 val res = translate source_to_flat_config_dec_def;
-val _ = ml_translatorLib.use_string_type false;
 
 val res = translate data_to_word_config_dec_def;
 val res = translate word_to_word_config_dec_def;
@@ -227,6 +222,7 @@ Proof
   \\ rpt gen_tac \\ strip_tac
   \\ rpt var_eq_tac
   \\ gen_tac \\ disch_then (assume_tac o SYM)
+  \\ rename1 ‘SUC x6’
   \\ Cases_on ‘x6 = 0’ \\ asm_rewrite_tac [] THEN1 (gvs [ADD1])
   \\ ‘n ≠ 1 ∧ n ≠ 0’ by decide_tac
   \\ Cases_on ‘x6 = 1’ \\ asm_rewrite_tac [] THEN1 (gvs [ADD1])
@@ -250,13 +246,10 @@ val res = translate def;
 val def = clos_to_bvl_config_dec_def
 val res = translate def;
 
-val _ = ml_translatorLib.use_string_type true;
-val def = lab_to_target_inc_config_dec_def
+val def = lab_to_target_config_dec_def
           |> REWRITE_RULE [GSYM string_dec_thm]
 val res = translate def;
-val _ = ml_translatorLib.use_string_type false;
-
-val res = translate backend_inc_config_dec_def;
+val res = translate backend_config_dec_def;
 
 val res = translate decode_backend_config_def;
 

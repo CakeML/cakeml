@@ -29,53 +29,53 @@ Theorem get_token_eqn:
              if c ≤ #")" then
                if c ≤ #"'" then
                  if c = #"#" then HashT else
-                 if c = #"'" then TyvarT s else
-                 SymbolT s
+                 if c = #"'" then TyvarT (implode s) else
+                 SymbolT (implode s)
                else
                  if c = #"(" then LparT else
                  if c = #")" then RparT else
-                 SymbolT s
+                 SymbolT (implode s)
              else
                if c ≤ #"," then
                  if c = #"*" then StarT else
                  if c = #"," then CommaT else
-                 SymbolT s
+                 SymbolT (implode s)
                else
                  if c = #":" then ColonT else
                  if c = #";" then SemicolonT else
-                 SymbolT s
+                 SymbolT (implode s)
            else
              if c ≤ #"]" then
                if c ≤ #"Z" then
-                 if #"A" ≤ c ∧ c ≤ #"Z" then AlphaT s else
+                 if #"A" ≤ c ∧ c ≤ #"Z" then AlphaT (implode s) else
                  if c = #"=" then EqualsT else
-                 SymbolT s
+                 SymbolT (implode s)
                else
                  if c = #"[" then LbrackT else
                  if c = #"]" then RbrackT else
-                 SymbolT s
+                 SymbolT (implode s)
              else
                if c ≤ #"{" then
                  if c = #"_" then UnderbarT else
-                 if #"a" ≤ c ∧ c ≤ #"z" then AlphaT s else
+                 if #"a" ≤ c ∧ c ≤ #"z" then AlphaT (implode s) else
                  if c = #"{" then LbraceT else
-                 SymbolT s
+                 SymbolT (implode s)
                else
                  if c = #"|" then BarT else
                  if c = #"}" then RbraceT else
-                 SymbolT s
+                 SymbolT (implode s)
        | c::s' =>
            if c < #"a" then
              if c ≤ #"." then
-               if c = #"'" then TyvarT s else
+               if c = #"'" then TyvarT (implode s) else
                if s = "->" then ArrowT else
                if s = "..." then DotsT else
-               SymbolT s
+               SymbolT (implode s)
              else
                if s = ":>" then SealT else
                if s = "=>" then DarrowT else
-               if #"A" ≤ c ∧ c ≤ #"Z" then AlphaT s else
-               SymbolT s
+               if #"A" ≤ c ∧ c ≤ #"Z" then AlphaT (implode s) else
+               SymbolT (implode s)
            else if c ≤ #"z" then
              if c ≤ #"i" then
                if c ≤ #"e" then
@@ -85,40 +85,40 @@ Theorem get_token_eqn:
                    if s = "as" then AsT else
                    if s = "case" then CaseT else
                    if s = "datatype" then DatatypeT else
-                   AlphaT s
+                   AlphaT (implode s)
                  else
                    if s = "else" then ElseT else
                    if s = "end" then EndT else
                    if s = "eqtype" then EqtypeT else
                    if s = "exception" then ExceptionT else
-                   AlphaT s
+                   AlphaT (implode s)
                else
                  if c ≤ #"h" then
                    if s = "fn" then FnT else
                    if s = "fun" then FunT else
                    if s = "handle" then HandleT else
-                   AlphaT s
+                   AlphaT (implode s)
                  else
                    if s = "if" then IfT else
                    if s = "in" then InT else
                    if s = "include" then IncludeT else
-                   AlphaT s
+                   AlphaT (implode s)
              else
                if c ≤ #"r" then
                  if c = #"l" then
                    if s = "let" then LetT else
                    if s = "local" then LocalT else
-                   AlphaT s
+                   AlphaT (implode s)
                  else if c = #"o" then
                    if s = "of" then OfT else
                    if s = "op" then OpT else
                    if s = "open" then OpenT else
                    if s = "orelse" then OrelseT else
-                   AlphaT s
+                   AlphaT (implode s)
                  else
                    if s = "raise" then RaiseT else
                    if s = "rec" then RecT else
-                   AlphaT s
+                   AlphaT (implode s)
                else
                  if c = #"s" then
                    if s = "sharing" then SharingT else
@@ -126,19 +126,19 @@ Theorem get_token_eqn:
                    if s = "signature" then SignatureT else
                    if s = "struct" then StructT else
                    if s = "structure" then StructureT else
-                   AlphaT s
+                   AlphaT (implode s)
                  else if c < #"w" then
                    if s = "then" then ThenT else
                    if s = "type" then TypeT else
                    if s = "val" then ValT else
-                   AlphaT s
+                   AlphaT (implode s)
                  else
                    if s = "where" then WhereT else
                    if s = "with" then WithT else
                    if s = "withtype" then WithtypeT else
-                   AlphaT s
+                   AlphaT (implode s)
            else
-             SymbolT s
+             SymbolT (implode s)
 Proof
  strip_tac >>
  Cases_on `s` >>
@@ -633,4 +633,3 @@ Theorem lexer_correct:
 Proof
   SIMP_TAC std_ss [lex_impl_all_tokens_thm,split_top_level_semi_thm]
 QED
-

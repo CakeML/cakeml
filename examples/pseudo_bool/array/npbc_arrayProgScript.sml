@@ -7,19 +7,18 @@ Libs
 Ancestors
   UnsafeProg UnsafeProof npbc npbc_list
 
+val _ = hide_environments true;
 val _ = translation_extends"UnsafeProg";
 
-val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
-
-val _ = process_topdecs `
+Quote add_cakeml:
   exception Fail string;
-` |> append_prog
+End
 
 fun get_exn_conv name =
   EVAL ``lookup_cons (Short ^name) ^(get_env (get_ml_prog_state ()))``
   |> concl |> rand |> rand |> rand
 
-val fail = get_exn_conv ``"Fail"``
+val fail = get_exn_conv ``«Fail»``
 
 Definition Fail_exn_def:
   Fail_exn v = (∃s sv. v = Conv (SOME ^fail) [sv] ∧ STRING_TYPE s sv)
@@ -31,7 +30,7 @@ val _ = register_type ``:sstep ``
 
 Definition format_failure_def:
   format_failure (lno:num) s =
-  strlit "c Checking failed for top-level proof step starting at line: " ^ toString lno ^ strlit " (error may be in subproofs). Reason: " ^ s ^ strlit"\n"
+  «c Checking failed for top-level proof step starting at line: » ^ toString lno ^ « (error may be in subproofs). Reason: » ^ s ^ «\n»
 End
 
 val r = translate format_failure_def;
@@ -66,11 +65,41 @@ val r = translate add_listsLR_thm;
 val r = translate (add_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def]);
 
 val r = translate multiply_def;
+val r = translate minus_def;
 
 val r = translate IQ_def;
 val r = translate div_ceiling_def;
 val r = translate div_ceiling_up_def;
 val r = translate divide_def;
+
+val r = translate strip_zero_def;
+
+val r = translate cg_offset_def;
+
+val cg_offset_side_def = fetch "-" "cg_offset_side_def";
+
+val cg_offset_side = Q.prove(
+  `∀x y. y ≠ 0 ⇒ cg_offset_side x y`,
+  ho_match_mp_tac cg_offset_ind>>
+  rw[]>>
+  simp[Once cg_offset_side_def]) |> update_precondition;
+
+val r = translate var_divide_def;
+
+val r = translate mir_coeff_def;
+
+val r = translate mir_def;
+
+val r = translate var_form_offset_def;
+val r = translate integerTheory.INT_MIN;
+val r = translate var_mir_coeff_def;
+
+val var_mir_coeff_side = Q.prove(
+  `∀x y z. y ≠ 0 ⇒ var_mir_coeff_side x y z`,
+  EVAL_TAC>>rw[]>>
+  intLib.ARITH_TAC) |> update_precondition;
+
+val r = translate var_mir_def;
 
 val divide_side = Q.prove(
   `∀x y. divide_side x y ⇔ y ≠ 0`,
@@ -80,8 +109,106 @@ val divide_side = Q.prove(
   intLib.ARITH_TAC
   ) |> update_precondition
 
-val r = translate abs_min_def;
-val r = translate saturate_def;
+val var_divide_side = Q.prove(
+  `∀x y. var_divide_side x y ⇔ y ≠ 0`,
+  Cases>>
+  EVAL_TAC>>
+  rw[EQ_IMP_THM]>>
+  rw[]>>gvs[]
+  >- (irule cg_offset_side>>fs[])
+  >- intLib.ARITH_TAC
+  >- intLib.ARITH_TAC
+  >- (irule cg_offset_side>>fs[])
+  >- intLib.ARITH_TAC) |> update_precondition;
+
+val mir_side = Q.prove(
+  `∀x y. mir_side x y ⇔ y ≠ 0`,
+  Cases>>
+  EVAL_TAC>>
+  rw[EQ_IMP_THM]>>
+  rw[]>>gvs[]
+  >- (irule INT_MOD_nat_nn>>fs[])
+  >- intLib.ARITH_TAC
+  >- (irule INT_MOD_nat_nn>>fs[])) |> update_precondition;
+
+val var_mir_side = Q.prove(
+  `∀x y. var_mir_side x y ⇔ y ≠ 0`,
+  Cases>>
+  EVAL_TAC>>
+  rw[EQ_IMP_THM]>>
+  rw[]>>gvs[]
+  >- intLib.ARITH_TAC
+  >- (irule INT_MOD_nat_nn>>fs[])) |> update_precondition;
+
+val r = translate npbc_checkTheory.do_divide_def;
+
+val do_divide_side = Q.prove(
+  `do_divide_side dty x y ⇔ y ≠ 0`,
+  EVAL_TAC>>
+  Cases_on`dty`>>rw[]) |> update_precondition;
+
+Definition sat_map_def:
+  (sat_map (nn:int) [] = []) ∧
+  (sat_map nn (cv::rest) =
+    let
+      rest' = sat_map nn rest;
+      (c,v) = cv
+    in
+      if c < 0 then
+        let nnn = -nn in
+          if nnn <= c then
+            if rest' = []
+            then rest' else cv::rest'
+          else
+            (nnn,v)::
+              if rest' = [] then rest else rest'
+      else
+        if c <= nn then
+          if rest' = []
+          then rest'
+          else cv::rest'
+        else
+          (nn,v)::
+            if rest' = [] then rest else rest')
+End
+
+Theorem sat_map_eq_MAP:
+  ∀l l'.
+  0 < nn ∧
+  sat_map nn l = l' ⇒
+  if sat_map nn l = []
+  then
+    MAP (λ(c,v). (abs_min c (Num (ABS nn)),v)) l = l
+  else
+    MAP (λ(c,v). (abs_min c (Num (ABS nn)),v)) l = l'
+Proof
+  Induct
+  >- rw[sat_map_def]>>
+  rpt gen_tac>> strip_tac>>
+  Cases_on`h`>>
+  rename1`(c,v)`>>
+  gvs[sat_map_def,abs_min_def]>>
+  every_case_tac>>gvs[]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem saturate_eq:
+  saturate(l,n) =
+  if n ≤ 0 then ([],n)
+  else
+    let l' = sat_map n l in
+    if l' = [] then (l,n)
+    else (l',n)
+Proof
+  rw[saturate_def]>>
+  gvs[integerTheory.INT_NOT_LE]>>
+  drule sat_map_eq_MAP>>
+  disch_then (qspecl_then[`l`,`sat_map n l`] mp_tac)>>
+  rw[]
+QED
+
+val r = translate sat_map_def;
+val r = translate saturate_eq;
 
 val r = translate integerTheory.INT_ABS;
 
@@ -102,8 +229,8 @@ val r = translate npbc_checkTheory.clean_triv_def;
 Definition lookup_err_string_def:
   lookup_err_string b =
     if b then
-      strlit"invalid core constraint id: "
-    else strlit"invalid constraint id: "
+      «invalid core constraint id: »
+    else «invalid constraint id: »
 End
 
 val r = translate lookup_err_string_def;
@@ -116,7 +243,7 @@ val NPBC_CHECK_CONSTR_TYPE_def = fetch "-" "NPBC_CHECK_CONSTR_TYPE_def";
 val PBC_LIT_TYPE_def = fetch "-" "PBC_LIT_TYPE_def"
 
 (* option version *)
-val lookup_core_only_arr = process_topdecs`
+Quote add_cakeml:
   fun lookup_core_only_arr b fml n =
   case Array.lookup fml None n of
     None => None
@@ -124,7 +251,8 @@ val lookup_core_only_arr = process_topdecs`
     if b then
       (if b' then Some c
        else None)
-    else Some c` |> append_prog;
+    else Some c
+End
 
 Theorem lookup_core_only_arr_spec:
   NUM n nv ∧
@@ -167,7 +295,7 @@ Proof
   simp[OPTION_TYPE_def]
 QED
 
-val lookup_core_only_err_arr = process_topdecs`
+Quote add_cakeml:
   fun lookup_core_only_err_arr lno b fml n =
   case Array.lookup fml None n of
     None =>
@@ -177,7 +305,8 @@ val lookup_core_only_err_arr = process_topdecs`
       (if b' then c
        else
         raise Fail (format_failure lno (lookup_err_string b ^ Int.toString n)))
-    else c` |> append_prog;
+    else c
+End
 
 Theorem lookup_core_only_err_arr_spec:
   NUM lno lnov ∧
@@ -229,7 +358,7 @@ Proof
 QED
 
 (* Throws an error *)
-val check_cutting_arr = process_topdecs`
+Quote add_cakeml:
   fun check_cutting_arr lno b fml constr =
   case constr of
     Id n =>
@@ -239,10 +368,12 @@ val check_cutting_arr = process_topdecs`
       (check_cutting_arr lno b fml c2)
   | Mul c k =>
     multiply (check_cutting_arr lno b fml c) k
-  | Div_1 c k =>
+  | Div_1 dty c k =>
     if k <> 0 then
-      divide (check_cutting_arr lno b fml c) k
+      do_divide dty (check_cutting_arr lno b fml c) k
     else raise Fail (format_failure lno ("divide by zero"))
+  | Minus c k =>
+    minus (check_cutting_arr lno b fml c) k
   | Sat c =>
     saturate (check_cutting_arr lno b fml c)
   | Lit l =>
@@ -251,7 +382,8 @@ val check_cutting_arr = process_topdecs`
     | Neg v => ([(~1,v)], 0))
   | Weak c vs =>
     weaken_sorted (check_cutting_arr lno b fml c) vs
-  | Triv ls => (clean_triv ls)` |> append_prog
+  | Triv ls => (clean_triv ls)
+End
 
 Theorem check_cutting_arr_spec:
   ∀constr constrv lno lnov b bv fmlls fmllsv fmlv.
@@ -276,30 +408,30 @@ Theorem check_cutting_arr_spec:
 Proof
   Induct_on`constr` >> rw[]>>
   xcf "check_cutting_arr" (get_ml_prog_state ())
-  >- ( (* Id *)
+  >~[`Id`] >- (
     fs[check_cutting_list_def,NPBC_CHECK_CONSTR_TYPE_def]>>
     xmatch>>
     xapp>>xsimpl>>
     metis_tac[])
-  >- ( (* Add *)
+  >~[`Add`] >- (
     fs[check_cutting_list_def,NPBC_CHECK_CONSTR_TYPE_def]>>
     xmatch>>
     xlet_autop >- xsimpl>>
     xlet_autop >- xsimpl>>
     last_x_assum kall_tac>>
-    last_x_assum kall_tac>>
-    every_case_tac>>fs[]>>
-    xapp>>xsimpl>>
-    metis_tac[])
-  >- ( (* Mul *)
-    fs[check_cutting_list_def,NPBC_CHECK_CONSTR_TYPE_def]>>
-    xmatch>>
-    xlet_autop >- xsimpl>>
     last_x_assum kall_tac>>
     every_case_tac>>fs[]>>
     xapp>>xsimpl>>
     metis_tac[])
-  >- ( (* Div *)
+  >~[`Mul`] >- (
+    fs[check_cutting_list_def,NPBC_CHECK_CONSTR_TYPE_def]>>
+    xmatch>>
+    xlet_autop >- xsimpl>>
+    last_x_assum kall_tac>>
+    every_case_tac>>fs[]>>
+    xapp>>xsimpl>>
+    metis_tac[])
+  >~[`Div`] >- (
     fs[check_cutting_list_def,NPBC_CHECK_CONSTR_TYPE_def]>>
     xmatch>>
     xlet_autop>>
@@ -314,17 +446,27 @@ Proof
     pop_assum mp_tac>>
     TOP_CASE_TAC>>rw[]>>
     metis_tac[])
-  >- ( (* Sat *)
+   >~[`Minus`] >- (
     fs[check_cutting_list_def,NPBC_CHECK_CONSTR_TYPE_def]>>
     xmatch>>
-    xlet_autop>- xsimpl>>
+    xlet_autop >- xsimpl>>
+    last_x_assum kall_tac>>
+    every_case_tac>>fs[]>>
+    xapp>>xsimpl>>
+    metis_tac[])
+  >~[`Sat`] >- ( (* Sat *)
+    fs[check_cutting_list_def,NPBC_CHECK_CONSTR_TYPE_def]>>
+    xmatch>>
+    xlet_autop
+    >- xsimpl>>
     xapp_spec
     (fetch "-" "saturate_v_thm" |> INST_TYPE [alpha|->``:num``])>>
     xsimpl>>
-    pop_assum mp_tac>>
-    TOP_CASE_TAC>>rw[]>>
-    metis_tac[])
-  >- ( (* Lit *)
+    gvs[AllCasePreds()]>>
+    qexists_tac`x`>>qexists_tac`NUM`>>
+    xsimpl>>
+    simp (eq_lemmas()))
+  >~[`Lit`] >- ( (* Lit *)
     fs[check_cutting_list_def,NPBC_CHECK_CONSTR_TYPE_def]>>
     xmatch>>
     Cases_on`l`>>
@@ -332,7 +474,7 @@ Proof
     rpt xlet_autop>>
     xcon>>xsimpl>>
     simp[LIST_TYPE_def,PAIR_TYPE_def])
-  >- ( (* Weak *)
+  >~[`Weak`]>- ( (* Weak *)
     fs[check_cutting_list_def,NPBC_CHECK_CONSTR_TYPE_def]>>
     xmatch>>
     xlet_autop>- xsimpl>>
@@ -343,7 +485,7 @@ Proof
     TOP_CASE_TAC>>rw[]>>
     first_x_assum (irule_at Any)>>
     metis_tac[EqualityType_NUM_BOOL])
-  >- ( (* Triv *)
+  >~[`Triv`]>- ( (* Triv *)
     fs[check_cutting_list_def,NPBC_CHECK_CONSTR_TYPE_def]>>
     xmatch>>
     xapp>>xsimpl>>
@@ -373,7 +515,7 @@ val res = translate npbcTheory.saturate_spt_def;
 val res = translate npbcTheory.weaken_spt_def;
 val res = translate npbc_checkTheory.spt_of_lit_def
 
-val check_cutting_spt_arr = process_topdecs`
+Quote add_cakeml:
   fun check_cutting_spt_arr lno fml constr =
   case constr of
     Id n =>
@@ -396,25 +538,27 @@ val check_cutting_spt_arr = process_topdecs`
   | Weak c var =>
     weaken_spt (check_cutting_spt_arr lno fml c) var
   | Lit l => spt_of_lit l
-    ` |> append_prog
+End
 
 val res = translate npbc_checkTheory.constraint_of_spt_def;
 
-val check_cutting_alt_arr = process_topdecs`
+Quote add_cakeml:
   fun check_cutting_alt_arr lno fml constr =
-  constraint_of_spt (check_cutting_spt_arr lno fml constr)` |> append_prog;
+  constraint_of_spt (check_cutting_spt_arr lno fml constr)
+End
 *)
 
 (* Translation for pb checking *)
 
-val r = translate (lslack_def |> SIMP_RULE std_ss [MEMBER_INTRO, o_DEF]);
-val r = translate (check_contradiction_def |> SIMP_RULE std_ss[LET_DEF]);
+val r = translate check_lslack_def;
+val r = translate check_contradiction_def;
 
-val delete_arr = process_topdecs`
+Quote add_cakeml:
   fun delete_arr i fml =
     if Array.length fml <= i then ()
     else
-      (Unsafe.update fml i None)` |> append_prog
+      (Unsafe.update fml i None)
+End
 
 Theorem delete_arr_spec:
   NUM i iv ∧
@@ -446,12 +590,13 @@ Proof
   match_mp_tac EVERY2_LUPDATE_same>> simp[OPTION_TYPE_def]
 QED
 
-val list_delete_arr = process_topdecs`
+Quote add_cakeml:
   fun list_delete_arr ls fml =
     case ls of
       [] => ()
     | (i::is) =>
-      (delete_arr i fml; list_delete_arr is fml)` |> append_prog
+      (delete_arr i fml; list_delete_arr is fml)
+End
 
 Theorem list_delete_arr_spec:
   ∀ls lsv fmlls fmllsv.
@@ -490,9 +635,10 @@ End
 
 val _ = translate mk_ids_def;
 
-val rollback_arr = process_topdecs`
+Quote add_cakeml:
   fun rollback_arr fml id_start id_end =
-  list_delete_arr (mk_ids id_start id_end) fml` |> append_prog
+  list_delete_arr (mk_ids id_start id_end) fml
+End
 
 Theorem mk_ids_MAP_COUNT_LIST:
   ∀start end.
@@ -535,12 +681,13 @@ val res = translate (not_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check
 val res = translate sorted_insert_def;
 
 (* Possibly raise error here directly *)
-val check_contradiction_fml_arr = process_topdecs`
+Quote add_cakeml:
   fun check_contradiction_fml_arr b fml n =
   case lookup_core_only_arr b fml n of
     None => False
   | Some c =>
-    check_contradiction c` |> append_prog
+    check_contradiction c
+End
 
 Theorem check_contradiction_fml_arr_spec:
   NUM n nv ∧
@@ -590,13 +737,13 @@ QED
 Definition coeff_lit_string_def:
   coeff_lit_string (c,v:var) =
     if c < 0
-    then toString (Num ~c) ^ strlit" ~x"^ toString v
-    else toString (Num c) ^ strlit" x"^ toString v
+    then toString (Num ~c) ^ « ~x»^ toString v
+    else toString (Num c) ^ « x»^ toString v
 End
 
 Definition npbc_lhs_string_def:
   npbc_lhs_string (xs: ((int # var) list)) =
-  concatWith (strlit" ")
+  concatWith « »
     (MAP coeff_lit_string xs)
 End
 
@@ -604,16 +751,25 @@ Definition npbc_string_def:
   (npbc_string (xs,i:int) =
     concat [
       npbc_lhs_string xs;
-      strlit" >= ";
-      toString  i; strlit ";"])
+      « >= »;
+      toString  i; «;»])
 End
 
 Definition err_check_string_def:
   err_check_string c c' =
   concat[
-    strlit"constraint id check failed. expect: ";
+    «constraint id check failed. expect: »;
     npbc_string c;
-    strlit" got: ";
+    « got (in checker): »;
+    npbc_string c']
+End
+
+Definition err_imp_string_def:
+  err_imp_string c c' =
+  concat[
+    «imply-add for constraint id. expect: »;
+    npbc_string c;
+    « from: »;
     npbc_string c']
 End
 
@@ -628,8 +784,9 @@ val coeff_lit_string_side = Q.prove(
 val res = translate npbc_lhs_string_def;
 val res = translate npbc_string_def;
 val res = translate err_check_string_def;
+val res = translate err_imp_string_def;
 
-val every_less = process_topdecs`
+Quote add_cakeml:
   fun every_less mindel fml ls =
   (case ls of [] => True
   | (i::is) =>
@@ -638,7 +795,8 @@ val every_less = process_topdecs`
         mindel <= i andalso
         every_less mindel fml is
     | Some c => False
-  )` |> append_prog;
+  )
+End
 
 Theorem every_less_spec:
   ∀fmlls ls mindel lsv fmlv fmllsv mindelv.
@@ -685,13 +843,13 @@ Proof
   xsimpl
 QED
 
-val opt_update_arr = process_topdecs`
+Quote add_cakeml:
   fun opt_update_arr fml c id =
     case c of
       None => (fml,id)
     | Some cc =>
-    (Array.updateResize fml None id (Some cc), id+1)`
-    |> append_prog;
+    (Array.updateResize fml None id (Some cc), id+1)
+End
 
 Theorem ARRAY_refl:
   (ARRAY fml fmllsv ==>> ARRAY fml fmllsv) ∧
@@ -794,7 +952,7 @@ End
 
 val res = translate add_to_acc_def;
 
-val rup_pass1_arr = process_topdecs`
+Quote add_cakeml:
   fun rup_pass1_arr assg ls acc ys m =
     case ls of [] => (acc,ys,m)
   | inn::xs =>
@@ -811,7 +969,8 @@ val rup_pass1_arr = process_topdecs`
         end
       else
         rup_pass1_arr assg xs (acc + k) ((k,inn)::ys) (max m n)
-    end` |> append_prog;
+    end
+End
 
 Theorem rup_pass1_arr_spec:
   ∀ls lsv acc ys m accv ysv mv.
@@ -872,7 +1031,7 @@ End
 
 val res = translate mk_flag_def;
 
-val rup_pass2_arr = process_topdecs`
+Quote add_cakeml:
   fun rup_pass2_arr assg max ls l changes =
     case ls of [] => changes
   | (k,(i,n))::ys =>
@@ -880,7 +1039,8 @@ val rup_pass2_arr = process_topdecs`
       (Unsafe.w8update assg n (mk_flag i);
         rup_pass2_arr assg max ys l (n::changes))
     else
-      rup_pass2_arr assg max ys l changes` |> append_prog;
+      rup_pass2_arr assg max ys l changes
+End
 
 Theorem rup_pass2_arr_spec:
   ∀ls lsv changes changesv assg.
@@ -934,7 +1094,7 @@ End
 val w8z_v_thm = translate w8z_def;
 val w8o_v_thm = translate w8o_def;
 
-val resize_to_fit = process_topdecs`
+Quote add_cakeml:
   fun resize_to_fit n assg =
     if n < Word8Array.length assg
       then assg
@@ -943,7 +1103,8 @@ val resize_to_fit = process_topdecs`
       (3* Word8Array.length assg + n + 1) w8z
         val u = Word8Array.copy assg 0 (Word8Array.length assg) arr 0 in
         arr
-      end` |> append_prog;
+      end
+End
 
 Theorem resize_to_fit_spec:
   NUM n nv ⇒
@@ -971,33 +1132,40 @@ Proof
   simp[w8z_def]
 QED
 
-val update_assg_arr = process_topdecs`
+Quote add_cakeml:
   fun update_assg_arr assg lsn =
   case lsn of (ls,n) =>
   if n <= 0
   then
-    ([],assg)
+    (False,[],assg)
   else
   case rup_pass1_arr assg ls 0 [] 0 of (max,ls1,m) =>
-    let val n1 = nabs n
-        val assg1 = resize_to_fit m assg
-        val changes2 = rup_pass2_arr assg1 max ls1 n1 [] in
-        (changes2,assg1)
-    end` |> append_prog;
+    let val n1 = nabs n in
+        if max < n1 then
+          (True,[],assg)
+        else
+        let
+          val assg1 = resize_to_fit m assg
+          val changes2 = rup_pass2_arr assg1 max ls1 n1 [] in
+          (False,changes2,assg1)
+        end
+    end
+End
 
 Theorem update_assg_arr_spec:
   constraint_TYPE lsn lsnv ∧
-  update_assg_list assg lsn = (new_changes,assg2,T) ⇒
+  update_assg_list assg lsn = (done,new_changes,assg2,T) ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "update_assg_arr" (get_ml_prog_state()))
     [assgv; lsnv]
     (W8ARRAY assgv assg)
     (POSTv v.
-      SEP_EXISTS v1 v2.
-      W8ARRAY v2 assg2 *
+      SEP_EXISTS v1 v2 v3.
+      W8ARRAY v3 assg2 *
       &(
-        v = Conv NONE [v1; v2] ∧
-        LIST_TYPE NUM new_changes v1
+        v = Conv NONE [v1; v2; v3] ∧
+        BOOL done v1 ∧
+        LIST_TYPE NUM new_changes v2
       )
     )
 Proof
@@ -1009,9 +1177,9 @@ Proof
   xif>>
   gvs[update_assg_list_def]
   >- (
-    xlet_autop>>
+    rpt xlet_autop>>
     xcon>>xsimpl>>
-    simp[LIST_TYPE_def])>>
+    EVAL_TAC)>>
   rpt(pairarg_tac>>gvs[])>>
   xlet_autop>>
   xlet_auto
@@ -1020,21 +1188,28 @@ Proof
     simp[LIST_TYPE_def])>>
   xmatch>>
   rpt xlet_autop>>
+  xif>>gvs[nabs_def]
+  >- (
+    rpt xlet_autop>>
+    xcon>>xsimpl>>
+    EVAL_TAC)>>
   xlet_auto>>
-  xlet_autop>>
-  gvs[nabs_def]>>
+  xlet_autop>>gvs[]>>
   xlet_auto
   >- (
     xsimpl>>
     EVAL_TAC)>>
-  xcon>>xsimpl
+  xlet_autop>>
+  xcon>>xsimpl>>
+  EVAL_TAC
 QED
 
-val get_rup_constraint_arr = process_topdecs`
+Quote add_cakeml:
   fun get_rup_constraint_arr lno b fml n nc =
   if n = 0 then nc
   else
-    lookup_core_only_err_arr lno b fml n` |> append_prog;
+    lookup_core_only_err_arr lno b fml n
+End
 
 Theorem get_rup_constraint_arr_spec:
   NUM lno lnov ∧
@@ -1075,25 +1250,21 @@ Proof
 QED
 
 (* no hints case *)
-val check_rup_loop_arr = process_topdecs`
+Quote add_cakeml:
   fun check_rup_loop_arr lno b nc fml assg all_changes ls =
   case ls of
     [] =>
-      raise Fail (format_failure lno ("invalid RUP step (missing hints)"))
+      raise Fail (format_failure lno ("contradiction not derived at end of hints"))
   | (n::ns) =>
     let val c = get_rup_constraint_arr lno b fml n nc in
-      if List.null ns then
-        if snd c <= 0 then
-            raise Fail (format_failure lno ("contradiction not derived at end of hints"))
-        else
-        case rup_pass1_arr assg (fst c) 0 [] 0 of (max,ls1,m) =>
-          if max < nabs (snd c) then (assg,all_changes)
-          else
-            raise Fail (format_failure lno ("contradiction not derived at end of hints"))
+      case update_assg_arr assg c of (done,new_changes,assg) =>
+      if done
+      then
+        (assg,all_changes)
       else
-      case update_assg_arr assg c of (new_changes,assg) =>
-      check_rup_loop_arr lno b nc fml assg (new_changes @ all_changes) ns
-    end` |> append_prog;
+        check_rup_loop_arr lno b nc fml assg (new_changes @ all_changes) ns
+    end
+End
 
 Theorem check_rup_loop_arr_spec:
   ∀ns nsv ac acv assg assgv.
@@ -1142,53 +1313,31 @@ Proof
     rw[]>>gvs[]>>
     metis_tac[W8ARRAY_refl])>>
   gvs[AllCasePreds()]>>
-  xlet_autop>>
-  xif>>gvs[]
-  >- (
-    rpt xlet_autop>>
-    xif>>gvs[]
-    >- (
-      rpt xlet_autop>>
-      xraise>>xsimpl>>
-      simp[Fail_exn_def]>>
-      metis_tac[W8ARRAY_refl])
-    >- (
-      rpt(pairarg_tac>>gvs[])>>
-      rpt xlet_autop>>
-      gvs[]>>
-      xlet_auto
-      >-
-        (xsimpl>> EVAL_TAC)>>
-      xmatch>>
-      rpt xlet_autop>>
-      gvs[nabs_def]>>
-      xif
-      >-
-        (xcon>>xsimpl)>>
-      rpt xlet_autop>>
-      xraise>>xsimpl>>
-      simp[Fail_exn_def]>>
-      metis_tac[W8ARRAY_refl]))>>
-  (* ¬NULL ns *)
-  gvs[NULL_EQ_NIL]>>
   rpt(pairarg_tac>>gvs[])>>
   xlet_auto
   >- (
     xsimpl>>
-    gvs[AllCaseEqs()])>>
+    gvs[AllCaseEqs()]
+  )>>
   xmatch>>
+  xif
+  >- (
+    xcon>>xsimpl>>
+    gvs[])>>
   xlet_autop>>
   xapp>>xsimpl>>
+  gvs[]>>
   goal_assum drule>>
   xsimpl
 QED
 
-val delete_each = process_topdecs`
+Quote add_cakeml:
   fun delete_each ns assg =
   case ns of [] => ()
   | (n::ns) =>
     (Unsafe.w8update assg n w8z;
-    delete_each ns assg)` |> append_prog;
+    delete_each ns assg)
+End
 
 Theorem delete_each_spec:
   ∀ns nsv assg.
@@ -1215,11 +1364,12 @@ Proof
   simp[w8z_def]
 QED
 
-val check_rup_arr = process_topdecs`
+Quote add_cakeml:
   fun check_rup_arr lno b nc fml zeros ls =
     case check_rup_loop_arr lno b nc fml zeros [] ls of
      (assg1,all_changes1) =>
-      (delete_each all_changes1 assg1; assg1)` |> append_prog;
+      (delete_each all_changes1 assg1; assg1)
+End
 
 Theorem check_rup_arr_spec:
   NUM lno lnov ∧
@@ -1267,13 +1417,25 @@ val res = translate npbc_checkTheory.mul_triv_def;
 val res = translate SmartAppend_def;
 val res = translate npbc_checkTheory.to_triv_def;
 
-val check_lstep_arr = process_topdecs`
+val res = translate check_trivial_def;
+val res = translate match_sign_def;
+val res = translate imp_terms_def;
+val res = translate check_imp_lists_def;
+val res = translate check_imp_def;
+val res = translate imp_def;
+
+Quote add_cakeml:
   fun check_lstep_arr lno step b fml mindel id zeros =
   case step of
     Check n c =>
       let val c' = lookup_core_only_err_arr lno b fml n in
         if c = c' then (fml, (None, (id, zeros)))
         else raise Fail (format_failure lno (err_check_string c c'))
+      end
+  | Implyadd n c =>
+      let val c' = lookup_core_only_err_arr lno b fml n in
+        if imp c' c then (fml, (Some(c,b), (id, zeros)))
+        else raise Fail (format_failure lno (err_imp_string c c'))
       end
   | Noop => (fml, (None, (id, zeros)))
   | Delete ls =>
@@ -1309,7 +1471,7 @@ val check_lstep_arr = process_topdecs`
       (fml', (c , (id', zeros))) =>
         (case opt_update_arr fml' c id' of (fml'',id'') =>
         check_lsteps_arr lno ss b fml'' mindel id'' zeros))
-` |> append_prog
+End
 
 val NPBC_CHECK_LSTEP_TYPE_def = fetch "-" "NPBC_CHECK_LSTEP_TYPE_def";
 
@@ -1486,6 +1648,24 @@ Proof
       rpt xlet_autop>>
       xraise>>xsimpl>>
       metis_tac[Fail_exn_def,ARRAY_W8ARRAY_refl])
+    >- ( (* Implyadd *)
+      fs[NPBC_CHECK_LSTEP_TYPE_def,check_lstep_list_def]>>
+      xmatch>>
+      xlet_autop >- (
+        xsimpl>>
+        metis_tac[ARRAY_W8ARRAY_refl])>>
+      fs[AllCasePreds()]>>
+      xlet_autop>>
+      xif >> xsimpl
+      >- (
+        rpt xlet_autop>>
+        xcon>>xsimpl>>
+        simp[PAIR_TYPE_def,OPTION_TYPE_def]>>
+        metis_tac[ARRAY_W8ARRAY_refl])>>
+      rpt xlet_autop>>
+      xraise>>
+      xsimpl>>
+      metis_tac[Fail_exn_def,ARRAY_W8ARRAY_refl])
     >- ( (* Check *)
       fs[NPBC_CHECK_LSTEP_TYPE_def,check_lstep_list_def]>>
       xmatch>>
@@ -1562,7 +1742,7 @@ QED
 Theorem check_lstep_arr_spec = CONJUNCT1 check_lstep_arr_spec_aux
 Theorem check_lsteps_arr_spec = CONJUNCT2 check_lstep_arr_spec_aux
 
-val reindex_aux_arr = process_topdecs `
+Quote add_cakeml:
   fun reindex_aux_arr fml ls iacc =
   case ls of
     [] => (List.rev iacc)
@@ -1570,12 +1750,13 @@ val reindex_aux_arr = process_topdecs `
   case Array.lookup fml None i of
     None => reindex_aux_arr fml is iacc
   | Some vb =>
-      reindex_aux_arr fml is (i::iacc)` |> append_prog;
+      reindex_aux_arr fml is (i::iacc)
+End
 
-val reindex_arr = process_topdecs `
+Quote add_cakeml:
   fun reindex_arr fml is =
-    reindex_aux_arr fml is []`
-  |> append_prog;
+    reindex_aux_arr fml is []
+End
 
 Theorem reindex_aux_arr_spec:
   ∀inds indsv fmlls fmlv iacc iaccv.
@@ -1651,7 +1832,7 @@ End
 
 val r = translate mk_vacc_def;
 
-val revalue_aux_arr = process_topdecs `
+Quote add_cakeml:
   fun revalue_aux_arr b fml ls vacc =
   case ls of
     [] => vacc
@@ -1660,12 +1841,13 @@ val revalue_aux_arr = process_topdecs `
     None => revalue_aux_arr b fml is vacc
   | Some (v,b') =>
       revalue_aux_arr b fml is
-        (mk_vacc b b' v vacc)` |> append_prog;
+        (mk_vacc b b' v vacc)
+End
 
-val revalue_arr = process_topdecs `
+Quote add_cakeml:
   fun revalue_arr b fml is =
-    revalue_aux_arr b fml is []`
-  |> append_prog;
+    revalue_aux_arr b fml is []
+End
 
 Theorem revalue_aux_arr_spec:
   ∀inds indsv fmlls fmlv vacc vaccv.
@@ -1736,7 +1918,7 @@ Proof
 QED
 
 (*
-val reindex_partial_aux_arr = process_topdecs `
+Quote add_cakeml:
   fun reindex_partial_aux_arr b fml mini ls iacc vacc =
   case ls of
     [] => (List.rev iacc, (vacc, []))
@@ -1747,14 +1929,15 @@ val reindex_partial_aux_arr = process_topdecs `
     None => reindex_partial_aux_arr b fml mini is iacc vacc
   | Some (v,b') =>
       reindex_partial_aux_arr b fml mini is (i::iacc)
-        (mk_vacc b b' v vacc)` |> append_prog;
+        (mk_vacc b b' v vacc)
+End
 
-val reindex_partial_arr = process_topdecs `
+Quote add_cakeml:
   fun reindex_partial_arr b fml mini is =
   case mini of None => ([], ([], is))
   | Some mini =>
-    reindex_partial_aux_arr b fml mini is [] []`
-  |> append_prog;
+    reindex_partial_aux_arr b fml mini is [] []
+End
 
 Theorem reindex_partial_aux_arr_spec:
   ∀inds indsv b bv fmlls fmlv iacc iaccv vacc vaccv.
@@ -1869,7 +2052,7 @@ QED
 val res = translate subst_fun_alt;
 val res = translate subst_subst_fun_def;
 
-val extract_clauses_arr = process_topdecs`
+Quote add_cakeml:
   fun extract_clauses_arr lno s b fml rsubs pfs acc =
   case pfs of [] => List.rev acc
   | cpf::pfs =>
@@ -1884,7 +2067,7 @@ val extract_clauses_arr = process_topdecs`
       if u < List.length rsubs then
         extract_clauses_arr lno s b fml rsubs pfs ((Some (List.nth rsubs u,i),pf)::acc)
       else raise Fail (format_failure lno ("invalid #proofgoal id: " ^ Int.toString u))
-` |> append_prog;
+End
 
 Overload "subst_TYPE" = ``SUM_TYPE (PAIR_TYPE NUM (SUM_TYPE BOOL (PBC_LIT_TYPE NUM))) (VECTOR_TYPE (OPTION_TYPE (SUM_TYPE BOOL (PBC_LIT_TYPE NUM))))``
 
@@ -2009,7 +2192,7 @@ Proof
 QED
 val _ = mk_scope_side |> update_precondition;
 
-val extract_scopes_arr = process_topdecs`
+Quote add_cakeml:
   fun extract_scopes_arr lno scopes s b fml rsubs pfs =
   case pfs of [] => []
   | (sc,pfs)::rest =>
@@ -2020,7 +2203,8 @@ val extract_scopes_arr = process_topdecs`
     let
     val cpfs = extract_clauses_arr lno s b fml rsubs pfs [] in
       (scs,cpfs)::extract_scopes_arr lno scopes s b fml rsubs rest
-    end` |> append_prog;
+    end
+End
 
 Theorem extract_scopes_arr_spec:
   ∀pfs pfsv s sv b bv fmlls fmlv fmllsv
@@ -2094,11 +2278,10 @@ Proof
 QED
 
 val res = translate subst_opt_aux_acc_def;
-val res = translate imp_def;
 val res = translate (subst_opt_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def])
 val res = translate subst_opt_subst_fun_def;
 
-val subst_indexes_arr = process_topdecs`
+Quote add_cakeml:
   fun subst_indexes_arr s b fml is =
   case is of [] => []
   | (i::is) =>
@@ -2107,8 +2290,8 @@ val subst_indexes_arr = process_topdecs`
     | Some res =>
       (case subst_opt_subst_fun s res of
         None => subst_indexes_arr s b fml is
-      | Some c => (i,c)::subst_indexes_arr s b fml is)`
-    |> append_prog;
+      | Some c => (i,c)::subst_indexes_arr s b fml is)
+End
 
 Theorem subst_indexes_arr_spec:
   ∀is isv s sv b bv fmlls fmllsv fmlv.
@@ -2152,14 +2335,15 @@ Proof
   simp[LIST_TYPE_def,PAIR_TYPE_def]
 QED
 
-val list_insert_fml_arr = process_topdecs`
+Quote add_cakeml:
   fun list_insert_fml_arr ls b id fml =
     case ls of
       [] => (id,fml)
     | (c::cs) =>
       list_insert_fml_arr cs b
       (id+1)
-      (Array.updateResize fml None id (Some (c,b)))` |> append_prog
+      (Array.updateResize fml None id (Some (c,b)))
+End
 
 Theorem list_insert_fml_arr_spec:
   ∀ls lsv b bv fmlv fmlls fmllsv id idv.
@@ -2200,7 +2384,7 @@ Proof
   simp[OPTION_TYPE_def,PAIR_TYPE_def]
 QED
 
-val check_subproofs_arr = process_topdecs`
+Quote add_cakeml:
   fun check_subproofs_arr lno pfs b fml mindel id zeros =
   case pfs of
     [] => (fml,(id,zeros))
@@ -2220,7 +2404,8 @@ val check_subproofs_arr = process_topdecs`
             check_subproofs_arr lno pfs b fml' mindel id' zeros'
           end
           else
-            raise Fail (format_failure lno ("subproof did not derive contradiction from index: " ^ Int.toString n))))` |> append_prog
+            raise Fail (format_failure lno ("subproof did not derive contradiction from index: " ^ Int.toString n))))
+End
 
 Theorem check_subproofs_arr_spec:
   ∀pfs fmlls mindel id pfsv zeros lno lnov idv fmlv fmllsv mindelv b bv zerosv.
@@ -2320,7 +2505,7 @@ Proof
   metis_tac[]
 QED
 
-val check_scopes_arr = process_topdecs`
+Quote add_cakeml:
   fun check_scopes_arr lno pfs b fml mindel id zeros =
   case pfs of
     [] => (fml,(id,zeros))
@@ -2337,7 +2522,8 @@ val check_scopes_arr = process_topdecs`
           (fml', (id', zeros')) =>
           let val u = rollback_arr fml' id id' in
             check_scopes_arr lno pfs b fml' mindel id' zeros'
-          end))` |> append_prog
+          end))
+End
 
 Theorem check_scopes_arr_spec:
   ∀pfs fmlls mindel id pfsv zeros lno lnov idv fmlv fmllsv mindelv b bv zerosv.
@@ -2465,14 +2651,15 @@ val _ = hash_pair_side |> update_precondition
 val res = translate (hash_list_def |> REWRITE_RULE hash_simps);
 val res = translate (hash_constraint_def |> REWRITE_RULE hash_simps);
 
-val mk_hashset_arr = process_topdecs`
+Quote add_cakeml:
   fun mk_hashset_arr ps acc =
   case ps of [] => ()
   | p::ps =>
   let val h = hash_constraint p in
     Unsafe.update acc h (p::(Array.sub acc h));
     mk_hashset_arr ps acc
-  end` |> append_prog;
+  end
+End
 
 Theorem hash_constraint_splim:
   hash_constraint h < splim
@@ -2525,12 +2712,13 @@ QED
 
 (* val u = print (Int.toString (List.length r) ^ " " ^ Int.toString h ^ "\n") in *)
 
-val in_hashset_arr = process_topdecs`
+Quote add_cakeml:
   fun in_hashset_arr p hs =
   let val h = hash_constraint p
     val r = Unsafe.sub hs h in
     mem_constraint p r
-  end` |> append_prog;
+  end
+End
 
 Theorem in_hashset_arr_spec:
   constraint_TYPE c cv ∧
@@ -2562,13 +2750,14 @@ QED
 
 val r = translate splim_def;
 
-val every_hs = process_topdecs`
+Quote add_cakeml:
   fun every_hs hs ls =
   case ls of [] => None
   | l::ls =>
     if in_hashset_arr l hs then
       every_hs hs ls
-    else Some (npbc_string l)` |> append_prog
+    else Some (npbc_string l)
+End
 
 Theorem every_hs_spec:
   ∀ls lsv.
@@ -2602,7 +2791,7 @@ Proof
   metis_tac[]
 QED
 
-val hash_check = process_topdecs`
+Quote add_cakeml:
   fun hash_check fmlls proved lf =
   let
     val hs = Array.array splim []
@@ -2610,7 +2799,8 @@ val hash_check = process_topdecs`
     val u = mk_hashset_arr fmlls hs
   in
     every_hs hs lf
-  end` |> append_prog
+  end
+End
 
 Theorem LENGTH_mk_hashset[simp]:
   ∀x ls.
@@ -2663,100 +2853,94 @@ Proof
 QED
 
 Definition red_cond_check_def:
-  red_cond_check bortcb fml inds extra
+  red_cond_check bortcb fml inds c extra
     pfs (rsubs:((int # num) list # int) list list) goals skipped =
   let (l,r) = extract_scoped_pids pfs LN LN in
   let fmlls = revalue bortcb fml inds in
   split_goals_hash fmlls extra l goals ∧
-  EVERY (λ(id,cs).
-    lookup id r ≠ NONE ∨
-    check_hash_triv extra cs ∨
-    MEM id skipped
-    )
-  (enumerate 0 rsubs)
+  check_hash_goals c skipped r rsubs
 End
 
-Definition lookup_hash_triv_def:
-  lookup_hash_triv r extra skipped (id,cs) =
+Definition lookup_hash_imp_def:
+  lookup_hash_imp r c skipped (id,cs) =
   case sptree$lookup id r of
-    NONE => check_hash_triv extra cs ∨ MEM id skipped
+    NONE => check_hash_imp c cs ∨ MEM id skipped
   | SOME _ => T
 End
 
-Definition every_check_hash_triv_def:
-  every_check_hash_triv r extra skipped rsubs =
-  EVERY (lookup_hash_triv r extra skipped)
+Theorem check_hash_goals_eq:
+  check_hash_goals c skipped r rsubs =
+  EVERY (lookup_hash_imp r c skipped)
     (enumerate 0 rsubs)
-End
+Proof
+  rw[npbc_checkTheory.check_hash_goals_def]>>
+  irule EVERY_CONG >>rw[]>>
+  rw[FUN_EQ_THM]>>
+  pairarg_tac>>fs[lookup_hash_imp_def]>>
+  every_case_tac>>gvs[]
+QED
+
+val res = translate npbc_checkTheory.check_hash_imp_def;
+val res = translate miscTheory.enumerate_def;
+val res = translate (lookup_hash_imp_def |> REWRITE_RULE [MEMBER_INTRO]);
+val res = translate check_hash_goals_eq;
 
 Definition red_cond_check_pure_def:
-  red_cond_check_pure extra
+  red_cond_check_pure c extra
   pfs
   (rsubs:((int # num) list # int) list list)
   (goals:(num # (int # num) list # int) list)
   skipped =
   let (l,r) = extract_scoped_pids pfs LN LN in
   if
-     every_check_hash_triv r extra skipped rsubs
+    check_hash_goals c skipped r rsubs
   then
     let (lp,lf) =
       PARTITION (λ(i,c). lookup i l ≠ NONE) goals in
-    let lf = FILTER (λc. ¬check_triv extra (not c)) (MAP SND lf) in
+    let lf = FILTER (λc. ¬imp extra c) (MAP SND lf) in
     let proved = MAP SND lp in
     SOME (proved,lf)
   else NONE
 End
 
-Theorem lookup_hash_triv_fun_eq:
-  lookup_hash_triv r extra skipped =
-  (λ(id,cs). lookup id r = NONE ⇒ check_hash_triv extra cs ∨ MEM id skipped)
-Proof
-  rw[FUN_EQ_THM]>>
-  pairarg_tac>>fs[lookup_hash_triv_def]>>
-  every_case_tac>>gvs[]
-QED
-
 Theorem red_cond_check_eq:
-  red_cond_check bortcb fml inds extra pfs rsubs goals skipped =
-  case red_cond_check_pure extra pfs rsubs goals skipped of
+  red_cond_check bortcb fml inds c extra pfs rsubs goals skipped =
+  case red_cond_check_pure c extra pfs rsubs goals skipped of
     NONE => F
   | SOME (x,ls) =>
     let fmlls = revalue bortcb fml inds in
     let hs = mk_hashset fmlls (mk_hashset x (REPLICATE splim [])) in
     EVERY (λc. in_hashset c hs) ls
 Proof
-  rw[red_cond_check_def,red_cond_check_pure_def,every_check_hash_triv_def]>>
+  rw[red_cond_check_def,red_cond_check_pure_def]>>
   pairarg_tac>>fs[split_goals_hash_def]>>
   rpt (pairarg_tac>>fs[])>>
-  rw[lookup_hash_triv_fun_eq]
+  rw[]
 QED
 
-val res = translate npbc_checkTheory.check_triv_def;
-val res = translate npbc_checkTheory.check_hash_triv_def;
-val res = translate miscTheory.enumerate_def;
 val res = translate PART_DEF;
 val res = translate PARTITION_DEF;
-val res = translate (lookup_hash_triv_def |> REWRITE_RULE [MEMBER_INTRO]);
-val res = translate every_check_hash_triv_def;
 val res = translate npbc_checkTheory.extract_scope_val_def;
 val res = translate npbc_checkTheory.extract_scoped_pids_def;
 val res = translate red_cond_check_pure_def;
 
-val red_cond_check = process_topdecs`
-  fun red_cond_check bortcb fml inds extra pfs rsubs goals skipped =
-  case red_cond_check_pure extra pfs rsubs goals skipped of
+Quote add_cakeml:
+  fun red_cond_check bortcb fml inds c extra pfs rsubs goals skipped =
+  case red_cond_check_pure c extra pfs rsubs goals skipped of
     None => Some "not all # subgoals present"
   | Some (x,ls) =>
     case ls of [] => None
     | _ =>
     let val fmlls = revalue_arr bortcb fml inds in
       hash_check fmlls x ls
-    end` |> append_prog
+    end
+End
 
 Theorem red_cond_check_spec:
   BOOL bt btv ∧
   LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv ∧
   LIST_TYPE NUM inds indsv ∧
+  constraint_TYPE caa caav ∧
   constraint_TYPE aa aav ∧
   scpfs_TYPE b bv ∧
   LIST_TYPE (LIST_TYPE constraint_TYPE) c cv ∧
@@ -2765,13 +2949,13 @@ Theorem red_cond_check_spec:
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "red_cond_check" (get_ml_prog_state()))
-    [btv; fmlv; indsv; aav; bv; cv; dv; ev]
+    [btv; fmlv; indsv; caav; aav; bv; cv; dv; ev]
     (ARRAY fmlv fmllsv)
     (POSTv resv.
       ARRAY fmlv fmllsv *
       & ∃err.
       OPTION_TYPE STRING_TYPE
-        (if red_cond_check bt fmlls inds aa b c d e then NONE
+        (if red_cond_check bt fmlls inds caa aa b c d e then NONE
         else SOME err) resv)
 Proof
   rw[]>>
@@ -2779,7 +2963,7 @@ Proof
   fs[]>>
   xlet_autop>>
   simp[red_cond_check_eq]>>
-  Cases_on`red_cond_check_pure aa b c d e`>>
+  Cases_on`red_cond_check_pure caa aa b c d e`>>
   fs[OPTION_TYPE_def]
   >- (
     xmatch>>
@@ -2805,27 +2989,27 @@ QED
 
 (* Definition print_subgoal_def:
   (print_subgoal (INL n) = (toString (n:num))) ∧
-  (print_subgoal (INR n) = (strlit"#" ^ toString (n:num)))
+  (print_subgoal (INR n) = («#» ^ toString (n:num)))
 End
 
 Definition print_subproofs_def:
   (print_subproofs ls =
-    concatWith (strlit " ") (MAP print_subgoal ls))
+    concatWith « » (MAP print_subgoal ls))
 End *)
 
 Definition print_expected_subproofs_def:
   (print_expected_subproofs rsubs (si: (num # 'a) list) =
-    strlit ("#[1-") ^
-    toString (LENGTH rsubs) ^ strlit "] and " ^
-    concatWith (strlit" ") (MAP (toString o FST) si))
+    «#[1-» ^
+    toString (LENGTH rsubs) ^ «] and » ^
+    concatWith « » (MAP (toString o FST) si))
 End
 
 Definition print_subproofs_err_def:
   print_subproofs_err rsubs si =
-  strlit"Expected (including autoproved): " ^
+  «Expected (including autoproved): » ^
   print_expected_subproofs rsubs si
   (* ^
-  strlit " Got: " ^
+  « Got: » ^
   print_subproofs pfs *)
 End
 
@@ -2836,8 +3020,8 @@ val res = translate print_subproofs_err_def;
 
 Definition format_failure_2_def:
   format_failure_2 (lno:num) s s2 =
-  strlit "c Checking failed for top-level proof step starting at line: " ^ toString lno ^ strlit " Reason: " ^ s
-  ^ strlit " Info: " ^ s2 ^ strlit"\n"
+  «c Checking failed for top-level proof step starting at line: » ^ toString lno ^ « Reason: » ^ s
+  ^ « Info: » ^ s2 ^ «\n»
 End
 
 val r = translate format_failure_2_def;
@@ -2855,7 +3039,7 @@ QED
 
 val r = translate red_fast_def; (*|> SIMP_RULE std_ss [vec_eq_nil_thm]); *)
 
-val check_red_arr_fast = process_topdecs`
+Quote add_cakeml:
   fun check_red_arr_fast lno b fml inds id c pf cid vimap zeros =
   let
     val nc = not_1 c
@@ -2867,7 +3051,8 @@ val check_red_arr_fast = process_topdecs`
           (fml', (inds, (vimap, (id',zeros'))))
         end
       else raise Fail (format_failure lno ("did not derive contradiction from index: " ^ Int.toString cid))
-    end` |> append_prog;
+    end
+End
 
 Overload "vimapn_TYPE" = ``
   SUM_TYPE (PAIR_TYPE (OPTION_TYPE NUM) (PAIR_TYPE (LIST_TYPE NUM) (LIST_TYPE NUM))) NUM``
@@ -2925,8 +3110,8 @@ Proof
   rpt xlet_autop>>
   `LIST_REL (OPTION_TYPE bconstraint_TYPE)
    (update_resize fmlls NONE (SOME (not c,b)) id)
-   (update_resize fmllsv (Conv (SOME (TypeStamp "None" 2)) [])
-           (Conv (SOME (TypeStamp "Some" 2)) [Conv NONE [v; bv]]) id)` by (
+   (update_resize fmllsv (Conv (SOME (TypeStamp «None» 2)) [])
+           (Conv (SOME (TypeStamp «Some» 2)) [Conv NONE [v; bv]]) id)` by (
     match_mp_tac LIST_REL_update_resize>>fs[OPTION_TYPE_def,PAIR_TYPE_def])>>
   xlet_auto
   >- (
@@ -2957,7 +3142,7 @@ val res = translate cond_neg_def;
 val res = translate cond_pos_acc_def;
 val res = translate cond_neg_acc_def;
 
-val restore_aux_arr = process_topdecs `
+Quote add_cakeml:
   fun restore_aux_arr x fml ls lacc racc =
   case ls of
     [] => (List.rev lacc, List.rev racc)
@@ -2969,12 +3154,13 @@ val restore_aux_arr = process_topdecs `
     restore_aux_arr x fml is
       (cond_pos_acc x cc i lacc)
       (cond_neg_acc x cc i racc)
-    end` |> append_prog;
+    end
+End
 
-val restore_arr = process_topdecs `
+Quote add_cakeml:
   fun restore_arr x fml is =
-    restore_aux_arr x fml is [] []`
-  |> append_prog;
+    restore_aux_arr x fml is [] []
+End
 
 Theorem restore_aux_arr_spec:
   ∀inds indsv fmlls fmlv lacc laccv racc raccv.
@@ -3048,39 +3234,212 @@ Proof
   metis_tac[LIST_TYPE_def]
 QED
 
+val res = translate sorted_merge_def;
 val res = translate get_inds_rhs_def;
 
-val get_set_indices_arr = process_topdecs`
+Quote add_cakeml:
+  fun do_reindex_rhs_arr fml rhs pinds ninds =
+  case rhs of
+    Inl b =>
+    if b
+    then (pinds, reindex_arr fml ninds)
+    else (reindex_arr fml pinds, ninds)
+  | Inr _ =>
+    (reindex_arr fml pinds, reindex_arr fml ninds)
+End
+
+Theorem do_reindex_rhs_arr_spec:
+  LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv ∧
+  SUM_TYPE BOOL a rhs rhsv ∧
+  LIST_TYPE NUM pinds pindsv ∧
+  LIST_TYPE NUM ninds nindsv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "do_reindex_rhs_arr" (get_ml_prog_state()))
+    [fmlv; rhsv; pindsv; nindsv]
+    (ARRAY fmlv fmllsv)
+    (POSTv v.
+      ARRAY fmlv fmllsv *
+      &(PAIR_TYPE (LIST_TYPE NUM) (LIST_TYPE NUM)
+        (do_reindex_rhs fmlls rhs pinds ninds) v))
+Proof
+  rw[]>>
+  xcf "do_reindex_rhs_arr" (get_ml_prog_state ())>>
+  rpt xlet_autop>>
+  Cases_on `rhs` >> gvs[SUM_TYPE_def,do_reindex_rhs_def]>>
+  xmatch
+  >- (
+    xif
+    >- (
+      rpt xlet_autop>>
+      xcon>>xsimpl>>
+      simp[PAIR_TYPE_def])
+    >- (
+      rpt xlet_autop>>
+      xcon>>xsimpl>>
+      simp[PAIR_TYPE_def]))
+  >- (
+    rpt xlet_autop>>
+    xcon>>xsimpl>>
+    simp[PAIR_TYPE_def])
+QED
+
+Quote add_cakeml:
+  fun check_get_inds_rhs_arr vimap ls =
+  case ls of
+    [] => True
+  | ((n,rhs)::xs) =>
+    case Array.lookup vimap None n of
+      Some (Inr _) => False
+    | _ => check_get_inds_rhs_arr vimap xs
+End
+
+Overload "subst_raw_TYPE" = ``LIST_TYPE (PAIR_TYPE NUM (SUM_TYPE BOOL (PBC_LIT_TYPE NUM)))``
+
+Theorem check_get_inds_rhs_arr_spec:
+  ∀ls lsv vimap vimaplsv vimapv.
+  subst_raw_TYPE ls lsv ∧
+  LIST_REL (OPTION_TYPE vimapn_TYPE) vimap vimaplsv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "check_get_inds_rhs_arr" (get_ml_prog_state()))
+    [vimapv; lsv]
+    (ARRAY vimapv vimaplsv)
+    (POSTv v.
+      ARRAY vimapv vimaplsv *
+      &(BOOL (check_get_inds_rhs vimap ls) v))
+Proof
+  Induct>>
+  rw[]>>
+  xcf "check_get_inds_rhs_arr" (get_ml_prog_state ())>>
+  fs[LIST_TYPE_def,check_get_inds_rhs_def]
+  >- (
+    xmatch>>
+    xcon>>xsimpl)>>
+  Cases_on`h`>>
+  fs[PAIR_TYPE_def,check_get_inds_rhs_def]>>
+  xmatch>>
+  rpt xlet_autop>>
+  xlet_auto>>
+  `OPTION_TYPE vimapn_TYPE (any_el q vimap NONE) v'` by (
+    rw[any_el_ALT]>>
+    fs[LIST_REL_EL_EQN,OPTION_TYPE_def])>>
+  every_case_tac>>
+  gvs[OPTION_TYPE_def,SUM_TYPE_def,PAIR_TYPE_def]>>
+  xmatch
+  >- (
+    xapp>>
+    simp[])
+  >- (
+    xapp>>
+    simp[])>>
+  xcon>>xsimpl
+QED
+
+Quote add_cakeml:
+  fun fold_get_inds_rhs_arr fml ls acc vimap =
+  case ls of
+    [] => (acc, vimap)
+  | ((n,rhs)::xs) =>
+    case Array.lookup vimap None n of
+      None => fold_get_inds_rhs_arr fml xs acc vimap
+    | Some (Inl (_,(pinds,ninds))) =>
+      (case do_reindex_rhs_arr fml rhs pinds ninds of
+        (pinds',ninds') =>
+      let
+        val rinds = get_inds_rhs rhs pinds' ninds' in
+      fold_get_inds_rhs_arr fml xs
+        (sorted_merge rinds acc)
+        (Array.updateResize vimap None n (Some (Inl (None,(pinds',ninds')))))
+      end)
+    | Some (Inr earliest) => (acc, vimap)
+End
+
+Theorem fold_get_inds_rhs_arr_spec:
+  ∀fmlls ls acc vimap fmllsv accv lsv vimaplsv
+    fmlv vimapv.
+  LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv ∧
+  subst_raw_TYPE ls lsv ∧
+  (LIST_TYPE NUM) acc accv ∧
+  LIST_REL (OPTION_TYPE vimapn_TYPE) vimap vimaplsv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "fold_get_inds_rhs_arr" (get_ml_prog_state()))
+    [fmlv; lsv; accv; vimapv]
+    (ARRAY fmlv fmllsv * ARRAY vimapv vimaplsv)
+    (POSTv v.
+        SEP_EXISTS vimapv' vimaplsv'.
+        ARRAY fmlv fmllsv * ARRAY vimapv' vimaplsv' *
+        &(
+          (PAIR_TYPE
+            (LIST_TYPE NUM)
+            (λl v.
+              LIST_REL (OPTION_TYPE vimapn_TYPE) l vimaplsv' ∧
+              v = vimapv'))
+            (fold_get_inds_rhs fmlls ls acc vimap) v))
+Proof
+  ho_match_mp_tac fold_get_inds_rhs_ind>>
+  rw[]>>
+  xcf "fold_get_inds_rhs_arr" (get_ml_prog_state ())>>
+  fs[LIST_TYPE_def,PAIR_TYPE_def,fold_get_inds_rhs_def]>>
+  xmatch
+  >- (xcon>>xsimpl)>>
+  xlet_autop>>
+  xlet_autop>>
+  `OPTION_TYPE vimapn_TYPE (any_el n vimap NONE) v'` by (
+    rw[any_el_ALT]>>
+    fs[LIST_REL_EL_EQN,OPTION_TYPE_def])>>
+  every_case_tac>>
+  gvs[OPTION_TYPE_def,SUM_TYPE_def,PAIR_TYPE_def]>>
+  xmatch
+  >- (
+    xapp>>xsimpl>>
+    metis_tac[])
+  >- (
+    rpt xlet_autop>>
+    pairarg_tac>>gvs[PAIR_TYPE_def]>>
+    xmatch>>
+    rpt xlet_autop>>
+    xapp>>xsimpl>>
+    irule LIST_REL_update_resize>>
+    fs[OPTION_TYPE_def,PAIR_TYPE_def,SUM_TYPE_def])
+  >-
+    (xcon>>xsimpl)
+QED
+
+Quote add_cakeml:
   fun get_set_indices_arr fml inds s vimap =
   case s of
-    Inr v =>
-    if Vector.length v = 0 then ([], (inds, vimap))
+    [] => ([], (inds, vimap))
+  | [(n,rhs)] =>
+    (case Array.lookup vimap None n of
+      None => ([], (inds, vimap))
+    | Some (Inl (nn,(pinds,ninds))) =>
+      (case do_reindex_rhs_arr fml rhs pinds ninds of (pinds,ninds) =>
+      let
+        val rinds = get_inds_rhs rhs pinds ninds in
+      (rinds, (inds, Array.updateResize vimap None n (Some (Inl (None,(pinds,ninds))))))
+      end)
+    | Some (Inr (earliest)) =>
+      (case restore_arr n fml inds of (pinds,ninds) =>
+      let
+        val rinds = get_inds_rhs rhs pinds ninds in
+        (rinds, (inds, Array.updateResize vimap None n (Some (Inl (None,(pinds,ninds))))))
+      end))
+  | _ =>
+    if check_get_inds_rhs_arr vimap s then
+      case fold_get_inds_rhs_arr fml s [] vimap of (rinds, vimap') =>
+        (rinds, (inds, vimap'))
     else
       let val rinds = reindex_arr fml inds in
         (rinds, (rinds, vimap))
       end
-  | Inl (n,rhs) =>
-    case Array.lookup vimap None n of
-      None => ([], (inds, vimap))
-    | Some (Inl (nn,(pinds,ninds))) =>
-      let
-        val pinds = reindex_arr fml pinds
-        val ninds = reindex_arr fml ninds
-        val rinds = get_inds_rhs rhs pinds ninds in
-      (rinds, (inds, Array.updateResize vimap None n (Some (Inl (None,(pinds,ninds))))))
-      end
-    | Some (Inr (earliest)) =>
-      case restore_arr n fml inds of (pinds,ninds) =>
-      let
-        val rinds = get_inds_rhs rhs pinds ninds in
-        (rinds, (inds, Array.updateResize vimap None n (Some (Inl (None,(pinds,ninds))))))
-      end
-      ` |> append_prog;
+End
 
 Theorem get_set_indices_arr_spec:
   LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv ∧
   (LIST_TYPE NUM) inds indsv ∧
-  subst_TYPE s sv ∧
+  subst_raw_TYPE s sv ∧
   LIST_REL (OPTION_TYPE vimapn_TYPE) vimap vimaplsv
   ⇒
   app (p : 'ffi ffi_proj)
@@ -3101,48 +3460,75 @@ Theorem get_set_indices_arr_spec:
 Proof
   rw[]>>
   xcf "get_set_indices_arr" (get_ml_prog_state ())>>
-  reverse (Cases_on`s`)>>fs[SUM_TYPE_def]
+  simp[get_set_indices_def]>>
+  Cases_on`s`>>fs[LIST_TYPE_def]
   >- (
     xmatch>>
-    simp[get_set_indices_def]>>
     rpt xlet_autop>>
-    xif
-    >-(
+    xcon>>xsimpl>>
+    simp[PAIR_TYPE_def,LIST_TYPE_def]>>
+    metis_tac[ARRAY_refl])>>
+  rename1`subst_raw_TYPE t _`>>
+  Cases_on`t`>>
+  rename1`PAIR_TYPE _ _ h _`>>
+  Cases_on`h`>>fs[PAIR_TYPE_def,LIST_TYPE_def]
+  >- (
+    xmatch>>
+    rpt xlet_autop>>
+    `OPTION_TYPE vimapn_TYPE (any_el q vimap NONE) v'` by (
+      rw[any_el_ALT]>>
+      fs[LIST_REL_EL_EQN,OPTION_TYPE_def])>>
+    every_case_tac>>
+    gvs[OPTION_TYPE_def,SUM_TYPE_def,PAIR_TYPE_def]>>
+    xmatch
+    >- (
       rpt xlet_autop>>
       xcon>>xsimpl>>
-      simp[LIST_TYPE_def,PAIR_TYPE_def]>>
-      metis_tac[ARRAY_refl])>>
-    rpt xlet_autop>>
-    xcon>>xsimpl>>
-    simp[PAIR_TYPE_def]>>
-    metis_tac[ARRAY_refl])>>
-  Cases_on`x`>>gvs[PAIR_TYPE_def]>>
+      simp[LIST_TYPE_def])
+    >> ( (* two subgoals *)
+      pairarg_tac>>fs[]>>
+      xlet_autop>>
+      fs[PAIR_TYPE_def]>>
+      xmatch>>
+      rpt xlet_autop>>
+      xcon>>xsimpl>>
+      irule LIST_REL_update_resize>>
+      fs[OPTION_TYPE_def,PAIR_TYPE_def,SUM_TYPE_def]))>>
   xmatch>>
-  rpt xlet_autop>>
-  simp[get_set_indices_def]>>
-  `OPTION_TYPE vimapn_TYPE (any_el q vimap NONE) v'` by (
-    rw[any_el_ALT]>>
-    fs[LIST_REL_EL_EQN,OPTION_TYPE_def])>>
-  every_case_tac>>
-  gvs[OPTION_TYPE_def,SUM_TYPE_def,PAIR_TYPE_def]>>
-  xmatch
+  qmatch_goalsub_abbrev_tac`fold_get_inds_rhs _ ls`>>
+  xlet`POSTv v.
+      ARRAY fmlv fmllsv * ARRAY vimapv vimaplsv *
+      &(BOOL (check_get_inds_rhs vimap ls) v)`
   >- (
-    rpt xlet_autop>>
-    xcon>>xsimpl>>
-    EVAL_TAC)
+    xapp>>xsimpl>>
+    first_x_assum (irule_at Any)>>
+    qexists_tac`ls`>>
+    simp[Abbr`ls`,LIST_TYPE_def,PAIR_TYPE_def])>>
+  xif
   >- (
-    rpt xlet_autop>>
-    xcon>>xsimpl>>
-    irule LIST_REL_update_resize>>
-    fs[OPTION_TYPE_def,PAIR_TYPE_def,SUM_TYPE_def])
-  >- (
-    rpt xlet_autop>>
-    pairarg_tac>>gvs[PAIR_TYPE_def]>>
+    xlet_autop>>
+    pairarg_tac>>gvs[]>>
+    xlet `POSTv v.
+        SEP_EXISTS vimapv' vimaplsv'.
+        ARRAY fmlv fmllsv * ARRAY vimapv' vimaplsv' *
+        &(
+          (PAIR_TYPE
+            (LIST_TYPE NUM)
+            (λl v.
+              LIST_REL (OPTION_TYPE vimapn_TYPE) l vimaplsv' ∧
+              v = vimapv'))
+            (fold_get_inds_rhs fmlls ls [] vimap) v)`
+    >- (
+      xapp>>xsimpl>>
+      simp[LIST_TYPE_def,Abbr`ls`,PAIR_TYPE_def])>>
+    gvs[PAIR_TYPE_def]>>
     xmatch>>
-    rpt xlet_autop>>
-    xcon>>xsimpl>>
-    irule LIST_REL_update_resize>>
-    fs[OPTION_TYPE_def,PAIR_TYPE_def,SUM_TYPE_def])
+    xlet_autop>>
+    xcon>>xsimpl)>>
+  rpt xlet_autop>>
+  xcon>>xsimpl>>
+  simp[PAIR_TYPE_def]>>
+  metis_tac[ARRAY_refl]
 QED
 
 Overload "vomap_TYPE" = ``STRING_TYPE``
@@ -3172,8 +3558,8 @@ val res = translate npbc_checkTheory.mk_subst_def;
 (*
 Definition print_lno_mini_def:
   print_lno_mini (lno:num) mini =
-  case mini of NONE => toString lno ^ strlit " INF\n"
-  | SOME (i:num) => toString lno ^ strlit"  " ^ toString i ^ strlit "\n"
+  case mini of NONE => toString lno ^ « INF\n»
+  | SOME (i:num) => toString lno ^ «  » ^ toString i ^ «\n»
 End
 
 val res = translate print_lno_mini_def; *)
@@ -3188,14 +3574,15 @@ val res = translate (npbc_checkTheory.check_fresh_aux_constr_def);
 val res = translate npbc_checkTheory.filter_map_inr_def;
 val res = translate (npbc_checkTheory.check_fresh_aux_subst_def);
 
-val check_fresh_aux_fml_vimap_arr = process_topdecs`
+Quote add_cakeml:
   fun check_fresh_aux_fml_vimap_arr xs vimap =
   case xs of
     [] => True
   | (x::xs) =>
     case Array.lookup vimap None x of
       None => check_fresh_aux_fml_vimap_arr xs vimap
-    | Some _ => False` |> append_prog;
+    | Some _ => False
+End
 
 Theorem check_fresh_aux_fml_vimap_arr_spec:
   ∀xs xsv.
@@ -3242,21 +3629,23 @@ End
 
 val res = translate mk_get_ord_def;
 
-val check_fresh_aspo_arr = process_topdecs`
+Quote add_cakeml:
   fun check_fresh_aspo_arr c s ord vimap vomap =
   case mk_get_ord c s ord vomap of
     None => False
   | Some res =>
     case res of
       Inl u => True
-    | Inr xs => check_fresh_aux_fml_vimap_arr xs vimap` |> append_prog;
+    | Inr xs => check_fresh_aux_fml_vimap_arr xs vimap
+End
 
-val cond_check_fresh_aspo_arr = process_topdecs`
+Quote add_cakeml:
   fun cond_check_fresh_aspo_arr hs untouched
     c s ord vimap vomap =
     if hs orelse not untouched then
       check_fresh_aspo_arr c s ord vimap vomap
-    else True` |> append_prog;
+    else True
+End
 
 (* Overloads all the _TYPEs that we will reuse *)
 Overload "aspo_TYPE" = ``
@@ -3280,12 +3669,10 @@ Overload "obj_TYPE" = ``
 
 Overload "pres_TYPE" = ``OPTION_TYPE (SPTREE_SPT_TYPE UNIT_TYPE)``
 
-Overload "subst_raw_TYPE" = ``LIST_TYPE (PAIR_TYPE NUM (SUM_TYPE BOOL (PBC_LIT_TYPE NUM)))``
-
 Theorem OPTION_TYPE_SPLIT:
   OPTION_TYPE a x v ⇔
-  (x = NONE ∧ v = Conv (SOME (TypeStamp "None" 2)) []) ∨
-  (∃y vv. x = SOME y ∧ v = Conv (SOME (TypeStamp "Some" 2)) [vv] ∧ a y vv)
+  (x = NONE ∧ v = Conv (SOME (TypeStamp «None» 2)) []) ∨
+  (∃y vv. x = SOME y ∧ v = Conv (SOME (TypeStamp «Some» 2)) [vv] ∧ a y vv)
 Proof
   Cases_on`x`>>rw[OPTION_TYPE_def]
 QED
@@ -3361,7 +3748,7 @@ QED
 
 val res = translate npbc_checkTheory.has_scope_def;
 
-val check_red_arr = process_topdecs`
+Quote add_cakeml:
   fun check_red_arr lno pres ord obj b tcb fml inds id
     c s pfs idopt vimap vomap zeros =
   if check_pres pres s then
@@ -3372,7 +3759,7 @@ val check_red_arr = process_topdecs`
   let
     val bortcb = b orelse tcb
     val hs = has_scope pfs in
-    case get_set_indices_arr fml inds ss vimap of (rinds, (inds',vimap')) =>
+    case get_set_indices_arr fml inds s vimap of (rinds, (inds',vimap')) =>
     case fast_red_subgoals ord ss c obj vomap hs of (rsubs,rscopes) =>
   let
     val nc = not_1 c
@@ -3387,7 +3774,7 @@ val check_red_arr = process_topdecs`
            case skip_ord_subgoal s ord of (untouched,skipped) =>
            if cond_check_fresh_aspo_arr hs untouched c s ord vimap' vomap
            then
-             case red_cond_check bortcb fml' inds' nc pfs rsubs goals skipped
+             case red_cond_check bortcb fml' inds' c nc pfs rsubs goals skipped
                of None =>
                (fml', (inds', (vimap', (id', zeros'))))
              | Some err =>
@@ -3407,7 +3794,7 @@ val check_red_arr = process_topdecs`
     check_red_arr_fast lno b fml inds id c pf cid vimap zeros
   end
   else raise Fail (format_failure lno ("domain of substitution must not mention projection set."))
-  ` |> append_prog;
+End
 
 Theorem check_red_arr_spec:
   NUM lno lnov ∧
@@ -3513,8 +3900,8 @@ Proof
   rename1`_ (not n) vvv`>>
   `LIST_REL (OPTION_TYPE bconstraint_TYPE)
     (update_resize fmlls NONE (SOME (not n,b)) id)
-    (update_resize fmllsv (Conv (SOME (TypeStamp "None" 2)) [])
-            (Conv (SOME (TypeStamp "Some" 2)) [Conv NONE [vvv; bv]]) id)` by (
+    (update_resize fmllsv (Conv (SOME (TypeStamp «None» 2)) [])
+            (Conv (SOME (TypeStamp «Some» 2)) [Conv NONE [vvv; bv]]) id)` by (
     match_mp_tac LIST_REL_update_resize>>fs[OPTION_TYPE_def,PAIR_TYPE_def])>>
   xlet_auto
   >- (
@@ -3588,31 +3975,33 @@ QED
 val res = translate opt_cons_aux_def;
 val res = translate (opt_cons_def |> REWRITE_RULE [ind_lim_def]);
 
-val update_vimap_arr = process_topdecs`
-  fun update_vimap_arr vimap v ls =
+Quote add_cakeml:
+  fun update_vimap_arr fresh vimap v ls =
   case ls of [] => vimap
   | ((i,n)::ns) =>
-    update_vimap_arr
+    update_vimap_arr fresh
     (Array.updateResize vimap None n
-      (Some (opt_cons i v (Array.lookup vimap None n))))
+      (Some (opt_cons fresh i v (Array.lookup vimap None n))))
     v
-    ns` |> append_prog;
+    ns
+End
 
 Theorem update_vimap_arr_spec:
   ∀ls lsv vimap vimaplsv vimapv.
+  BOOL fresh freshv ∧
   LIST_TYPE (PAIR_TYPE INT NUM) ls lsv ∧
   NUM v vv ∧
   LIST_REL (OPTION_TYPE vimapn_TYPE) vimap vimaplsv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "update_vimap_arr" (get_ml_prog_state()))
-    [vimapv; vv; lsv]
+    [freshv; vimapv; vv; lsv]
     (ARRAY vimapv vimaplsv)
     (POSTv vimapv'.
         SEP_EXISTS vimaplsv'.
         ARRAY vimapv' vimaplsv' *
         &(
-        LIST_REL (OPTION_TYPE vimapn_TYPE) (update_vimap vimap v ls) vimaplsv'))
+        LIST_REL (OPTION_TYPE vimapn_TYPE) (update_vimap fresh vimap v ls) vimaplsv'))
 Proof
   Induct>>
   rw[]>>
@@ -3631,7 +4020,7 @@ Proof
     fs[LIST_REL_EL_EQN,OPTION_TYPE_def])>>
   xlet`POSTv res.
     ARRAY vimapv vimaplsv *
-    &vimapn_TYPE (opt_cons q v (any_el r vimap NONE)) res`
+    &vimapn_TYPE (opt_cons fresh q v (any_el r vimap NONE)) res`
   >- (
     xapp>>xsimpl  >>
     metis_tac[])>>
@@ -3642,7 +4031,7 @@ Proof
   fs[OPTION_TYPE_def,PAIR_TYPE_def]
 QED
 
-val check_sstep_arr = process_topdecs`
+Quote add_cakeml:
   fun check_sstep_arr lno step pres ord obj tcb fml inds id
     vimap vomap zeros =
   case step of
@@ -3654,7 +4043,7 @@ val check_sstep_arr = process_topdecs`
       | Some cc =>
         (Array.updateResize rfml None id' (Some cc),
           (sorted_insert id' inds,
-          (update_vimap_arr vimap id' (fst (fst cc)),
+          (update_vimap_arr True vimap id' (fst (fst cc)),
           (id'+1,
           zeros)))) ))
   | Red c s pfs idopt =>
@@ -3664,10 +4053,10 @@ val check_sstep_arr = process_topdecs`
        (Array.updateResize fml' None id'
           (Some (c,tcb)),
         (sorted_insert id' rinds,
-        (update_vimap_arr vimap' id' (fst c),
+        (update_vimap_arr True vimap' id' (fst c),
         (id'+1,
         zeros)))))
-  ` |> append_prog
+End
 
 val NPBC_CHECK_SSTEP_TYPE_def = theorem "NPBC_CHECK_SSTEP_TYPE_def";
 
@@ -3768,6 +4157,10 @@ Proof
       simp[PAIR_TYPE_def,PULL_EXISTS]>>
       metis_tac[ARRAY_W8ARRAY_refl])>>
     rpt xlet_autop>>
+    rename1`bv = Conv _ []`>>
+    `BOOL T bv` by
+      (fs[]>>EVAL_TAC)>>
+    rpt xlet_autop>>
     xcon>>xsimpl>>
     simp[PAIR_TYPE_def]>>
     qmatch_goalsub_abbrev_tac`ARRAY _ A`>>
@@ -3816,6 +4209,10 @@ Proof
     every_case_tac>>fs[PAIR_TYPE_def]>>
     xmatch>>
     rpt xlet_autop>>
+    rename1`bv = Conv _ []`>>
+    `BOOL T bv` by
+      (fs[]>>EVAL_TAC)>>
+    rpt xlet_autop>>
     xcon>>xsimpl>>
     match_mp_tac LIST_REL_update_resize>>
     simp[OPTION_TYPE_def,PAIR_TYPE_def]>>
@@ -3862,7 +4259,7 @@ val res = translate npbc_checkTheory.check_reflexivity_def;
 
 val res = translate npbc_checkTheory.check_support_def;
 
-val check_spec_aux_arr = process_topdecs`
+Quote add_cakeml:
   fun check_spec_aux_arr lno aa fml inds id gs vimap zeros =
     case gs of [] => True
   | (c,(s,(pfs,idopt)))::gs =>
@@ -3876,10 +4273,11 @@ val check_spec_aux_arr = process_topdecs`
         (sorted_insert id' inds')
         (id' + 1)
         gs
-        (update_vimap_arr vimap' id' (fst c))
+        (update_vimap_arr True vimap' id' (fst c))
         zeros'
     else
-      raise Fail (format_failure lno ("specification proof in order definition failed."))` |> append_prog;
+      raise Fail (format_failure lno ("specification proof in order definition failed."))
+End
 
 Theorem check_spec_aux_arr_spec:
   ∀gs gsv fmlls fmllsv id idv vimap vimaplsv zeros fmlv indsv vimapv zerosv inds.
@@ -3937,7 +4335,7 @@ Proof
         ARRAY vimapv' vimaplsv' *
         &(
           case check_red_list A B C F F fmlls inds id
-              c s pfs idopt vimap (strlit "") zeros of
+              c s pfs idopt vimap «» zeros of
             NONE => F
           | SOME res =>
             PAIR_TYPE (λl v.
@@ -3957,7 +4355,7 @@ Proof
         ARRAY vimapv' vimaplsv' *
         & (Fail_exn e ∧
           check_red_list A B C F F fmlls inds id
-              c s pfs idopt vimap (strlit "") zeros = NONE)))`
+              c s pfs idopt vimap «» zeros = NONE)))`
   >- (
     xapp>>xsimpl>>
     first_x_assum (irule_at Any)>>
@@ -3970,6 +4368,10 @@ Proof
   PairCases_on`res`>>
   gvs[PAIR_TYPE_def]>>
   xmatch>>
+  rpt xlet_autop>>
+  rename1`bvv = Conv _ []`>>
+  `BOOL T bvv` by
+    (fs[]>>EVAL_TAC)>>
   rpt xlet_autop>>
   xapp>>xsimpl>>
   rpt (first_x_assum (irule_at Any))>>
@@ -3989,7 +4391,7 @@ End
 
 val res = translate mk_as_vec_def;
 
-val check_spec_arr = process_topdecs`
+Quote add_cakeml:
   fun check_spec_arr lno vvs gs =
   (case vvs of (us,(vs,aa)) =>
   let
@@ -3999,7 +4401,8 @@ val check_spec_arr = process_topdecs`
     val zeros = Word8Array.array 0 w8z
   in
     (check_spec_aux_arr lno aa fml [] 1 gs vimap zeros; aa)
-  end)` |> append_prog;
+  end)
+End
 
 Theorem check_spec_arr_spec:
   NUM lno lnov ∧
@@ -4045,7 +4448,7 @@ val res = translate npbc_checkTheory.mk_aord_def;
 val res = translate check_good_aord_fast_def;
 val res = translate check_good_aord_eq;
 
-val check_storeorder_arr = process_topdecs`
+Quote add_cakeml:
   fun check_storeorder_arr lno vvs gs f pfst pfsr =
   let
     val asv = check_spec_arr lno vvs gs
@@ -4060,7 +4463,8 @@ val check_storeorder_arr = process_topdecs`
         else raise Fail (format_failure lno ("reflexivity proof in order definition failed."))
     else
       raise Fail (format_failure lno ("illegal variable usage in order definition."))
-  end` |> append_prog;
+  end
+End
 
 Theorem check_storeorder_arr_spec:
   NUM lno lnov ∧
@@ -4213,7 +4617,7 @@ val res = translate npbc_checkTheory.neg_dom_subst_def;
 val res = translate npbc_checkTheory.dom_subgoals_def;
 val res = translate do_dso_def;
 
-val core_fmlls_arr = process_topdecs`
+Quote add_cakeml:
   fun core_fmlls_arr fml is =
   case is of [] => []
   | (i::is) =>
@@ -4221,7 +4625,8 @@ val core_fmlls_arr = process_topdecs`
       None => core_fmlls_arr fml is
     | Some (v,b) =>
       if b then (i,v)::core_fmlls_arr fml is
-      else core_fmlls_arr fml is)` |> append_prog;
+      else core_fmlls_arr fml is)
+End
 
 Theorem core_fmlls_arr_spec:
   ∀inds indsv fmlv fmlls fmllsv.
@@ -4280,7 +4685,7 @@ Definition check_dom_list_def:
     | SOME (fml',(id',zeros')) =>
       let rfml = rollback fml' id id' in
       if do_dom_check idopt fml' rfml w
-        corels rinds nc pfs dsubs dindex then
+        corels rinds c nc pfs dsubs dindex then
         SOME (rfml,rinds,id',zeros')
       else NONE)
 End
@@ -4302,7 +4707,7 @@ val res = translate map_snd_def;
 val res = translate npbc_checkTheory.find_scope_1_def;
 
 (* TODO: we can defer corels until the split *)
-val check_dom_arr = process_topdecs`
+Quote add_cakeml:
   fun check_dom_arr lno spo obj fml inds
     id c s pfs idopt zeros =
     case do_dso spo s c obj of (dsubs,(dscopes,dindex)) =>
@@ -4320,7 +4725,7 @@ val check_dom_arr = process_topdecs`
          let val u = rollback_arr fml' id id'
              val goals = core_subgoals s corels in
              if find_scope_1 dindex pfs then
-               case red_cond_check False fml' rinds nc pfs dsubs goals [dindex] of
+               case red_cond_check False fml' rinds c nc pfs dsubs goals [dindex] of
                  None => (fml',(rinds,(id',zeros')))
                | Some err =>
                 raise Fail (format_failure_2 lno ("dominance subproofs did not cover all subgoals. Info: " ^ err ^ ".") (print_subproofs_err dsubs goals))
@@ -4333,7 +4738,8 @@ val check_dom_arr = process_topdecs`
              (fml', (rinds, (id', zeros')))
            end
          else raise Fail (format_failure lno ("did not derive contradiction from index: " ^ Int.toString cid)))
-    end` |> append_prog;
+    end
+End
 
 Theorem check_dom_arr_spec:
   NUM lno lnov ∧
@@ -4409,8 +4815,8 @@ Proof
   qmatch_asmsub_abbrev_tac`Conv NONE [vvv;bbb]`>>
   `LIST_REL (OPTION_TYPE bconstraint_TYPE)
     (update_resize fmlls NONE (SOME (not n,F)) id)
-    (update_resize fmllsv (Conv (SOME (TypeStamp "None" 2)) [])
-            (Conv (SOME (TypeStamp "Some" 2)) [Conv NONE [vvv;bbb]]) id)` by (
+    (update_resize fmllsv (Conv (SOME (TypeStamp «None» 2)) [])
+            (Conv (SOME (TypeStamp «Some» 2)) [Conv NONE [vvv;bbb]]) id)` by (
     match_mp_tac LIST_REL_update_resize>>
     unabbrev_all_tac>>
     fs[OPTION_TYPE_def,PAIR_TYPE_def]>>
@@ -4470,7 +4876,7 @@ Proof
          & ∃err.
            OPTION_TYPE STRING_TYPE
            (if
-                red_cond_check F fmlls'' (reindex fmlls inds) (not n) pfs
+                red_cond_check F fmlls'' (reindex fmlls inds) n (not n) pfs
                   dsubs
                   (core_subgoals s (core_fmlls fmlls (reindex fmlls inds)))
                   [dindex]
@@ -4525,7 +4931,7 @@ QED
 val res = translate npbc_checkTheory.update_bound_def;
 val res = translate npbc_checkTheory.update_dbound_def;
 
-val core_from_inds_arr = process_topdecs`
+Quote add_cakeml:
   fun core_from_inds_arr lno fml is =
   case is of [] => fml
   | (i::is) =>
@@ -4533,7 +4939,8 @@ val core_from_inds_arr = process_topdecs`
       None => raise Fail (format_failure lno
         "core transfer given invalid ids")
     | Some (c,b) =>
-      core_from_inds_arr lno (Array.updateResize fml None i (Some (c,True))) is)` |> append_prog;
+      core_from_inds_arr lno (Array.updateResize fml None i (Some (c,True))) is)
+End
 
 Theorem core_from_inds_arr_spec:
   ∀inds indsv fmlv fmlls fmllsv.
@@ -4597,7 +5004,7 @@ Proof
 QED
 
 (* TODO: Can be improved with lookup_core_only *)
-val all_core_arr = process_topdecs `
+Quote add_cakeml:
   fun all_core_arr fml ls iacc =
   case ls of
     [] => Some (List.rev iacc)
@@ -4606,7 +5013,8 @@ val all_core_arr = process_topdecs `
     None => all_core_arr fml is iacc
   | Some (v,b') =>
       if b' then all_core_arr fml is (i::iacc)
-      else None` |> append_prog;
+      else None
+End
 
 Theorem all_core_arr_spec:
   ∀inds indsv b bv fmlls fmlv iacc iaccv vacc vaccv.
@@ -4663,7 +5071,7 @@ val res = translate npbc_checkTheory.add_obj_def;
 val res = translate npbc_checkTheory.mk_diff_obj_def;
 val res = translate npbc_checkTheory.mk_tar_obj_def;
 
-val check_change_obj_arr = process_topdecs `
+Quote add_cakeml:
   fun check_change_obj_arr lno b fml id obj fc' pfs zeros =
   case obj of None =>
     raise Fail (format_failure lno ("no objective to change"))
@@ -4680,7 +5088,8 @@ val check_change_obj_arr = process_topdecs `
           (fml',(mk_diff_obj b fc fc', (id', zeros')))
        else raise Fail (format_failure lno ("objective change subproofs did not cover all subgoals. Expected: #[1-2]"))
        end
-    end` |> append_prog
+    end
+End
 
 Theorem check_change_obj_arr_spec:
   NUM lno lnov ∧
@@ -4797,12 +5206,13 @@ Proof
   metis_tac[ARRAY_W8ARRAY_refl,Fail_exn_def]
 QED
 
+val res = translate npbc_checkTheory.add_lit_def;
 val res = translate npbc_checkTheory.v_iff_npbc_def;
 val res = translate npbc_checkTheory.change_pres_subgoals_def;
 val res = translate npbc_checkTheory.pres_only_def;
 val res = translate npbc_checkTheory.update_pres_def;
 
-val check_change_pres_arr = process_topdecs `
+Quote add_cakeml:
   fun check_change_pres_arr lno b fml id pres v c pfs zeros =
   case pres of None =>
     raise Fail (format_failure lno ("no projection set to change"))
@@ -4821,7 +5231,8 @@ val check_change_pres_arr = process_topdecs `
        else raise Fail (format_failure lno ("projection set change subproofs did not cover all subgoals. Expected: #[1-2]"))
        end
     end
-    else raise Fail (format_failure lno ("defining constraint must mention only variables in the projection set (less variable itself)"))` |> append_prog
+    else raise Fail (format_failure lno ("defining constraint must mention only variables in the projection set (less variable itself)"))
+End
 
 Theorem check_change_pres_arr_spec:
   NUM lno lnov ∧
@@ -5078,22 +5489,33 @@ End
 
 val res = translate change_pres_update_def;
 
+Definition sol_update_def:
+  sol_update pc id' bound' dbound' =
+    pc with
+          <| id := id';
+             bound := bound';
+             dbound := dbound';
+             enum := pc.enum + 1 |>
+End
+
+val res = translate sol_update_def;
+
 Definition npbc_obj_string_def:
   (npbc_obj_string (xs,i:int) =
     concat [
       npbc_lhs_string xs;
-      strlit" ";
+      « »;
       toString  i])
 End
 
 Definition err_obj_check_string_def:
   err_obj_check_string fc fc' =
-  case fc of NONE => strlit"objective check failed, no objective available"
+  case fc of NONE => «objective check failed, no objective available»
   | SOME fc =>
     concat[
-    strlit"objective check failed, expect: ";
+    «objective check failed, expect: »;
     npbc_obj_string fc';
-    strlit" got: ";
+    « got (in checker): »;
     npbc_obj_string fc]
 End
 
@@ -5102,7 +5524,7 @@ val res = translate err_obj_check_string_def;
 val res = translate npbc_checkTheory.eq_obj_def;
 val res = translate npbc_checkTheory.check_eq_obj_def;
 
-val fold_update_resize_bitset = process_topdecs`
+Quote add_cakeml:
   fun fold_update_resize_bitset ls acc =
     case ls of
       [] => acc
@@ -5119,7 +5541,7 @@ val fold_update_resize_bitset = process_topdecs`
           (Word8Array.update arr x w8o;
           fold_update_resize_bitset xs arr)
         end
-        ` |> append_prog;
+End
 
 Theorem fold_update_resize_bitset_spec:
   ∀ls lsv accv accls.
@@ -5153,13 +5575,14 @@ Proof
   simp[update_resize_def]
 QED
 
-val mk_vomap_arr = process_topdecs`
+Quote add_cakeml:
   fun mk_vomap_arr n fc =
   let
   val acc = Word8Array.array n w8z
   val acc = fold_update_resize_bitset (fst fc) acc in
     Word8Array.substring acc 0 (Word8Array.length acc)
-  end` |> append_prog;
+  end
+End
 
 Theorem map_foldl_rel:
   ∀ls accA accB.
@@ -5208,7 +5631,35 @@ val res = translate (npbc_checkTheory.guard_ord_t_def |> SIMP_RULE std_ss[MEMBER
 
 val res = translate (npbc_checkTheory.mk_ordsub_def);
 
-val check_cstep_arr = process_topdecs`
+Definition err_pres_check_string_def:
+  err_pres_check_string (fc:num_set option) (fc':num_set) =
+  case fc of NONE => «preserved set check failed, no preserved set available»
+  | SOME fc =>
+    concat[
+    «preserved set check failed, expect: »;
+    concatWith « » (MAP (toString o FST) (toSortedAList fc'));
+    « got (in checker): »;
+    concatWith « » (MAP (toString o FST) (toSortedAList fc))]
+End
+
+val res = translate err_pres_check_string_def;
+val res = translate npbc_checkTheory.check_eq_pres_def;
+
+Definition obj_check_def:
+  obj_check on ⇔ on = NONE
+End
+
+val res = translate obj_check_def;
+
+Definition obj_chk_check_def:
+  obj_chk_check on chk ⇔ on = NONE ∧ chk
+End
+
+val res = translate obj_chk_check_def;
+
+val res = translate npbc_checkTheory.model_banning_def;
+
+Quote add_cakeml:
   fun check_cstep_arr lno cstep fml zeros inds vimap vomap pc =
   case cstep of
     Dom c s pfs idopt => (
@@ -5223,7 +5674,7 @@ val check_cstep_arr = process_topdecs`
         (Array.updateResize fml' None id' (Some (c,get_tcb pc)),
          (zeros',
          (sorted_insert id' rinds,
-         (update_vimap_arr vimap id' (fst c),
+         (update_vimap_arr True vimap id' (fst c),
           (vomap, set_id pc (id'+1))))))
       else raise Fail (format_failure lno ("freshness check failed on auxiliary variables"))
       else raise Fail (format_failure lno ("domain of substitution must not mention projection set"))
@@ -5303,20 +5754,26 @@ val check_cstep_arr = process_topdecs`
       None =>
        raise Fail (format_failure lno
         ("supplied assignment did not satisfy constraints or did not improve objective"))
-      | Some new =>
+      | Some neww =>
       let
+        val new = fst neww
         val bound' = update_bound (get_chk pc) (get_bound pc) new
         val dbound' = update_dbound (get_dbound pc) new
       in
       if mi
       then
+        if obj_check obj
+        then
+          raise Fail (format_failure lno
+            ("model improving not allowed with no objective"))
+        else
         let
           val id = get_id pc
           val c = model_improving obj new in
           (Array.updateResize fml None id (Some (c,True)),
            (zeros,
            (sorted_insert id inds,
-           (update_vimap_arr vimap id (fst c),
+           (update_vimap_arr True vimap id (fst c),
            (vomap,
             obj_update pc (id+1) bound' dbound')))))
         end
@@ -5338,24 +5795,67 @@ val check_cstep_arr = process_topdecs`
         (err_obj_check_string (get_obj pc) fc'))
   | Assertobj i =>
     let
-      val id = get_id pc
       val obj = get_obj pc
-      val c = model_improving obj i
-      val dbound' = update_dbound (get_dbound pc) i in
-      (Array.updateResize fml None id (Some (c,True)),
-       (zeros,
-       (sorted_insert id inds,
-       (update_vimap_arr vimap id (fst c),
-       (vomap,
-        assert_obj_update pc (id+1) dbound')))))
+    in
+    if obj_check obj
+    then
+      raise Fail (format_failure lno
+        ("model improving not allowed with no objective"))
+    else
+      let
+        val id = get_id pc
+        val c = model_improving obj i
+        val dbound' = update_dbound (get_dbound pc) i in
+        (Array.updateResize fml None id (Some (c,True)),
+         (zeros,
+         (sorted_insert id inds,
+         (update_vimap_arr True vimap id (fst c),
+         (vomap,
+          assert_obj_update pc (id+1) dbound')))))
+      end
     end
   | Changepres b v c pfs =>
     (case check_change_pres_arr lno b fml
       (get_id pc) (get_pres pc) v c pfs zeros of
       (fml',(pres',(id',zeros'))) =>
         (fml', (zeros', (inds, (vimap, (vomap, change_pres_update pc id' pres'))))))
-  `
-  |> append_prog;
+  | Sol w => (
+    let
+      val obj = get_obj pc
+      val chk = get_chk pc
+    in
+      if obj_chk_check obj chk then
+        (case check_obj obj w
+          (map_snd (core_fmlls_arr fml inds)) None of
+        None =>
+         raise Fail (format_failure lno
+          ("supplied assignment did not satisfy constraints or did not improve objective"))
+        | Some neww =>
+        let
+          val new = fst neww
+          val bound' = update_bound chk (get_bound pc) new
+          val dbound' = update_dbound (get_dbound pc) new
+          val id = get_id pc
+          val pres = get_pres pc
+          val c = model_banning pres (snd neww) in
+          (Array.updateResize fml None id (Some (c,True)),
+           (zeros,
+           (sorted_insert id inds,
+           (update_vimap_arr True vimap id (fst c),
+           (vomap,
+            sol_update pc (id+1) bound' dbound')))))
+        end)
+      else
+        raise Fail (format_failure lno
+          ("solution exclusion not allowed after unchecked del (and no objective allowed)"))
+    end)
+  | Checkpres ls' =>
+    if check_eq_pres (get_pres pc) ls'
+    then (fml, (zeros, (inds, (vimap, (vomap, pc)))))
+    else
+      raise Fail (format_failure lno
+        (err_pres_check_string (get_pres pc) ls'))
+End
 
 val NPBC_CHECK_CSTEP_TYPE_def = theorem "NPBC_CHECK_CSTEP_TYPE_def";
 
@@ -5468,6 +5968,10 @@ Proof
     qmatch_asmsub_rename_tac`PAIR_TYPE _ _ xxx _`>>
     PairCases_on`xxx`>>fs[PAIR_TYPE_def]>>
     xmatch>>
+    rpt xlet_autop>>
+    rename1`bvv = Conv _ []`>>
+    `BOOL T bvv` by
+      (fs[]>>EVAL_TAC)>>
     rpt xlet_autop>>
     pairarg_tac>>gvs[check_dom_list_def,AllCaseEqs()]>>
     xcon>>xsimpl>>
@@ -5750,12 +6254,30 @@ Proof
     >- (
       rpt xlet_autop>>
       xcon>>xsimpl>>
-      fs[PAIR_TYPE_def,get_id_def,obj_update_def]>>
+      Cases_on`x`>>
+      gvs[PAIR_TYPE_def,get_id_def,obj_update_def]>>
       `∀b db. pc with <|id := pc.id; bound := b; dbound := db|>
         = pc with <|bound := b; dbound := db|>` by
        fs[npbc_checkTheory.proof_conf_component_equality]>>
       metis_tac[ARRAY_W8ARRAY_refl])
     >- ( (* model improving *)
+      xlet_auto>- (
+        xsimpl>>
+        simp (eq_lemmas()))>>
+      fs[obj_check_def]>>
+      xif
+      >- (
+        xsimpl>>
+        rpt xlet_autop>>
+        xraise>>
+        xsimpl>>
+        TOP_CASE_TAC>>simp[]>>
+        metis_tac[Fail_exn_def,ARRAY_W8ARRAY_refl])>>
+      Cases_on`x`>>simp[]>>
+      rpt xlet_autop>>
+      rename1`bvv = Conv _ []`>>
+      `BOOL T bvv` by
+        (fs[]>>EVAL_TAC)>>
       rpt xlet_autop>>
       xcon>>xsimpl>>
       simp[PAIR_TYPE_def,OPTION_TYPE_def]>>
@@ -5802,7 +6324,23 @@ Proof
   >- ( (* AssertObj *)
     xmatch>>
     rpt xlet_autop>>
+    xlet_auto>- (
+      xsimpl>>
+      simp (eq_lemmas()))>>
+    fs[obj_check_def]>>
+    xif
+    >- (
+      rpt xlet_autop>>
+      xraise>>xsimpl>>
+      fs[get_obj_def]>>
+      metis_tac[Fail_exn_def,ARRAY_W8ARRAY_refl])>>
+    rpt xlet_autop>>
+    rename1`bvv = Conv _ []`>>
+    `BOOL T bvv` by
+      (fs[]>>EVAL_TAC)>>
+    rpt xlet_autop>>
     xcon>> xsimpl>>
+    fs[get_obj_def]>>
     simp[PAIR_TYPE_def]>>
     qmatch_goalsub_abbrev_tac`ARRAY _ A`>>
     qexists_tac`A`>>xsimpl>>
@@ -5831,16 +6369,71 @@ Proof
     xcon>>
     xsimpl>>
     fs[change_pres_update_def])
+  >- ( (* CheckPres *)
+    xmatch>>
+    xlet_autop>>
+    xlet_auto
+    >-
+      (xsimpl>>simp (eq_lemmas()))>>
+    xif>>fs[get_pres_def]
+    >- (
+      rpt xlet_autop>>
+      xcon>>xsimpl>>
+      simp[PAIR_TYPE_def]>>
+      metis_tac[ARRAY_W8ARRAY_refl])>>
+    rpt xlet_autop>>
+    xraise>>xsimpl>>
+    metis_tac[Fail_exn_def,ARRAY_W8ARRAY_refl])
+  >- ( (* Sol *)
+    xmatch>>
+    rpt xlet_autop>>
+    xlet_auto >-
+      (xsimpl>>simp (eq_lemmas()))>>
+    xif>>fs[obj_chk_check_def,get_chk_def,get_obj_def]
+    >- (
+      rpt xlet_autop>>
+      xlet`POSTv v. ARRAY fmlv fmllsv * W8ARRAY zerosv zeros * ARRAY vimapv vimaplsv *
+        &( OPTION_TYPE (PAIR_TYPE INT (NUM --> BOOL))
+          (check_obj NONE l (MAP SND (core_fmlls fmlls inds)) NONE) v)`
+      >- (
+        xapp>>xsimpl>>
+        rpt(first_x_assum (irule_at Any))>>
+        qexists_tac`NONE`>>simp[OPTION_TYPE_def]>>
+        rw[map_snd_def])>>
+      Cases_on`check_obj NONE l (MAP SND (core_fmlls fmlls inds)) NONE`>>
+      fs[map_snd_def,OPTION_TYPE_def]>>
+      xmatch
+      >- (
+        rpt xlet_autop>>
+        xraise>>xsimpl>>
+        metis_tac[Fail_exn_def,ARRAY_W8ARRAY_refl])>>
+      Cases_on`x`>>gvs[]>>
+      rpt xlet_autop>>
+      rename1`bvv = Conv _ []`>>
+      `BOOL T bvv` by
+        (fs[]>>EVAL_TAC)>>
+      rpt xlet_autop>>
+      xcon>>xsimpl>>
+      simp[PAIR_TYPE_def,OPTION_TYPE_def]>>
+      qmatch_goalsub_abbrev_tac`ARRAY _ A`>>
+      qexists_tac`A`>>xsimpl>>
+      fs[get_id_def,sol_update_def,get_bound_def,get_dbound_def,get_pres_def]>>
+      unabbrev_all_tac>>
+      match_mp_tac LIST_REL_update_resize>>
+      fs[OPTION_TYPE_def,PAIR_TYPE_def]>>
+      EVAL_TAC)
+    >- (
+      rpt xlet_autop>>
+      xraise>>xsimpl>>
+      metis_tac[Fail_exn_def,ARRAY_W8ARRAY_refl]))
 QED
 
-val res = translate npbc_checkTheory.check_triv2_def;
-
-val check_implies_fml_arr = process_topdecs`
+Quote add_cakeml:
   fun check_implies_fml_arr fml n c =
   case Array.lookup fml None n of
     None => False
-  | Some (ci,b) => check_triv2 ci c
-` |> append_prog
+  | Some (ci,b) => imp ci c
+End
 
 Theorem check_implies_fml_arr_spec:
   NUM n nv ∧
@@ -5876,7 +6469,8 @@ Definition check_sat_def:
   case wopt of
     NONE => bound' ≠ NONE
   | SOME wm =>
-    check_obj obj wm fml NONE ≠ NONE
+    case check_obj obj wm fml NONE of NONE => F
+    | _ => T
 End
 
 Definition check_ub_def:
@@ -5884,7 +6478,7 @@ Definition check_ub_def:
     case wopt of
       NONE => opt_le bound' ubi
     | SOME wm =>
-      opt_le (check_obj obj wm fml NONE) ubi
+      opt_le (OPTION_MAP FST (check_obj obj wm fml NONE)) ubi
 End
 
 val res = translate check_sat_def;
@@ -5898,23 +6492,23 @@ val res = translate npbc_checkTheory.lower_bound_def;
 Definition hdsat_res_def:
   hdsat_res b =
   if b then NONE
-  else SOME (strlit "conclusion SATISFIABLE check failed: [assignment check] T")
+  else SOME «conclusion SATISFIABLE check failed: [assignment check] T»
 End
 
 val res = translate hdsat_res_def;
 
 Definition bool_to_string_def:
   bool_to_string b =
-  if b then strlit"T" else strlit"F"
+  if b then «T» else «F»
 End
 
 Definition hdunsat_res_def:
   hdunsat_res b1 b2 =
   if b1 ∧ b2 then NONE
   else SOME (
-      strlit "conclusion UNSATISFIABLE check failed:" ^
-      strlit " [dbound check] " ^ bool_to_string b1 ^
-      strlit " [contradiction check] " ^ bool_to_string b2
+      «conclusion UNSATISFIABLE check failed:» ^
+      « [dbound check] » ^ bool_to_string b1 ^
+      « [contradiction check] » ^ bool_to_string b2
   )
 End
 
@@ -5925,17 +6519,35 @@ Definition hobounds_res_def:
   hobounds_res b1 b2 b3 =
   if b1 ∧ b2 ∧ b3 then NONE
   else SOME (
-      strlit "conclusion BOUNDS check failed:" ^
-      strlit " [lb <= dbound] " ^ bool_to_string b1 ^
-      strlit " [upper bound check] " ^ bool_to_string b2 ^
-      strlit " [lower bound check] " ^ bool_to_string b3
+      «conclusion BOUNDS check failed:» ^
+      « [lb <= dbound] » ^ bool_to_string b1 ^
+      « [upper bound check] » ^ bool_to_string b2 ^
+      « [lower bound check] » ^ bool_to_string b3
   )
 End
 
 val res = translate hobounds_res_def;
 
-val check_hconcl_arr = process_topdecs`
-  fun check_hconcl_arr fml obj fml' obj' bound' dbound' hconcl =
+Definition heenum_res_def:
+  heenum_res (obj:((int # num) list # int) option) (n:num) enum b3 b4 =
+  let
+    b1 = (obj = NONE);
+    b2 = (n = enum)
+  in
+  if b1 ∧ b2 ∧ b3 ∧ b4 then NONE
+  else SOME (
+      «conclusion ENUMERATION check failed:» ^
+      « [no objective] » ^ bool_to_string b1 ^
+      « [enumeration claim] » ^ bool_to_string b2 ^
+      « [complete hint present] » ^ bool_to_string b3 ^
+      « [complete hint correct] » ^ bool_to_string b4
+  )
+End
+
+val res = translate heenum_res_def;
+
+Quote add_cakeml:
+  fun check_hconcl_arr fml obj fml' obj' bound' dbound' enum hconcl =
   case hconcl of
     Hnoconcl => None
   | Hdsat wopt => hdsat_res (check_sat fml obj bound' wopt)
@@ -5954,7 +6566,16 @@ val check_hconcl_arr = process_topdecs`
       hobounds_res b1 b2
         (check_implies_fml_arr fml' n (lower_bound obj' lb))
     end
-    ` |> append_prog
+  | Heenum n complete hint =>
+    if complete
+    then
+      case hint of
+        None => heenum_res obj n enum False True
+      | Some i =>
+        heenum_res obj n enum True (check_contradiction_fml_arr False fml' i)
+    else
+      heenum_res obj n enum True True
+End
 
 val NPBC_CHECK_HCONCL_TYPE_def = theorem"NPBC_CHECK_HCONCL_TYPE_def";
 
@@ -5964,12 +6585,13 @@ Theorem check_hconcl_arr_spec:
   obj_TYPE obj1 obj1v ∧
   OPTION_TYPE INT bound1 bound1v ∧
   OPTION_TYPE INT dbound1 dbound1v ∧
+  NUM enum enumv ∧
   NPBC_CHECK_HCONCL_TYPE hconcl hconclv ∧
   LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "check_hconcl_arr" (get_ml_prog_state()))
-    [fmlv; objv; fml1v; obj1v; bound1v; dbound1v; hconclv]
+    [fmlv; objv; fml1v; obj1v; bound1v; dbound1v; enumv; hconclv]
     (ARRAY fml1v fmllsv)
     (POSTv v.
         ARRAY fml1v fmllsv *
@@ -5977,7 +6599,7 @@ Theorem check_hconcl_arr_spec:
         ∃s.
         OPTION_TYPE STRING_TYPE
         (if check_hconcl_list fml obj fmlls obj1
-          bound1 dbound1 hconcl then NONE else SOME s) v))
+          bound1 dbound1 enum hconcl then NONE else SOME s) v))
 Proof
   rw[]>>
   xcf"check_hconcl_arr"(get_ml_prog_state ())>>
@@ -5993,7 +6615,10 @@ Proof
       (xsimpl>>simp[EqualityType_NUM_BOOL])>>
     xapp>>xsimpl>>
     first_x_assum (irule_at Any)>>
-    simp[hdsat_res_def]>>rw[]>>fs[OPTION_TYPE_def,check_sat_def]>>
+    every_case_tac>>
+    gvs[OPTION_TYPE_def,hdsat_res_def,check_sat_def]>>
+    every_case_tac>>
+    gvs[OPTION_TYPE_def,hdsat_res_def,check_sat_def]>>
     metis_tac[])
   >- (
     (* Hdunsat *)
@@ -6015,37 +6640,89 @@ Proof
     xapp>>xsimpl>>
     rpt(first_x_assum (irule_at Any))>>
     simp[hdunsat_res_def]>>rw[]>>
-    metis_tac[])>>
-  rpt xlet_autop>>
-  rename1`opt_le lb dbound1`>>
-  Cases_on`lb`>>fs[OPTION_TYPE_def]>>xmatch
-  >- (
+    metis_tac[])
+  >- ( (*Hobounds *)
     rpt xlet_autop>>
-    xlet`POSTv v. ARRAY fml1v fmllsv *
-         &(
-         BOOL (check_contradiction_fml_list F fmlls n) v)`
-    >-
-      (xapp>>xsimpl)>>
+    rename1`opt_le lb dbound1`>>
+    Cases_on`lb`>>fs[OPTION_TYPE_def]>>xmatch
+    >- (
+      rpt xlet_autop>>
+      xlet`POSTv v. ARRAY fml1v fmllsv *
+           &(
+           BOOL (check_contradiction_fml_list F fmlls n) v)`
+      >-
+        (xapp>>xsimpl)>>
+      xapp>>xsimpl>>
+      rpt(first_x_assum (irule_at Any))>>
+      simp[hobounds_res_def,check_ub_def]>>rw[]>>every_case_tac>>
+      fs[OPTION_TYPE_def]>>
+      metis_tac[]) >>
+    rpt xlet_autop>>
     xapp>>xsimpl>>
     rpt(first_x_assum (irule_at Any))>>
     simp[hobounds_res_def,check_ub_def]>>rw[]>>every_case_tac>>
     fs[OPTION_TYPE_def]>>
-    metis_tac[]) >>
-  rpt xlet_autop>>
-  xapp>>xsimpl>>
-  rpt(first_x_assum (irule_at Any))>>
-  simp[hobounds_res_def,check_ub_def]>>rw[]>>every_case_tac>>
-  fs[OPTION_TYPE_def]>>
-  metis_tac[]
+    metis_tac[])
+  >- ( (* Heenum *)
+    xif>>
+    rpt xlet_autop
+    >- (
+      rename1`OPTION_TYPE NUM hint _`>>
+      Cases_on`hint`>>fs[OPTION_TYPE_def]>>
+      xmatch
+      >- (
+        rpt xlet_autop>>
+        xapp>>xsimpl>>
+        qexists_tac`T`>>
+        qexists_tac`F`>>
+        rpt(first_x_assum (irule_at Any))>>
+        gvs[heenum_res_def]>>
+        every_case_tac>>
+        gvs[OPTION_TYPE_def]>>
+        rw[]
+        >- EVAL_TAC
+        >- EVAL_TAC>>
+        metis_tac[])>>
+      rpt xlet_autop>>
+      rename1`NUM x _`>>
+      xlet`POSTv v. ARRAY fml1v fmllsv *
+       &(
+         BOOL (check_contradiction_fml_list F fmlls x) v)`
+      >-
+        (xapp>>xsimpl)>>
+      xlet_autop>>
+      xapp>>xsimpl>>
+      rpt(first_x_assum (irule_at Any))>>
+      qexists_tac`T`>>
+      gvs[heenum_res_def]>>
+      every_case_tac>>
+      gvs[OPTION_TYPE_def]>>
+      rw[]
+      >- EVAL_TAC
+      >- EVAL_TAC>>
+      metis_tac[])>>
+    xapp>>
+    xsimpl>>
+    qexists_tac`T`>>
+    qexists_tac`T`>>
+    rpt(first_x_assum (irule_at Any))>>
+    gvs[heenum_res_def]>>
+    every_case_tac>>
+    gvs[OPTION_TYPE_def]>>
+    rw[]
+    >- EVAL_TAC
+    >- EVAL_TAC>>
+    metis_tac[])
 QED
 
-val fml_include_arr = process_topdecs`
+Quote add_cakeml:
   fun fml_include_arr fml fml' =
   let
     val hs = Array.array splim []
     val u = mk_hashset_arr fml hs in
     every_hs hs fml'
-  end` |> append_prog;
+  end
+End
 
 Theorem fml_include_arr_spec:
   (LIST_TYPE constraint_TYPE) ls lsv ∧
@@ -6080,7 +6757,7 @@ QED
 val _ = register_type ``:output``
 
 Definition print_opt_string_def:
-  (print_opt_string NONE = strlit"T") ∧
+  (print_opt_string NONE = «T») ∧
   (print_opt_string (SOME s) = s)
 End
 
@@ -6092,9 +6769,9 @@ Definition derivable_res_def:
   let b2 = (b2opt = NONE) in
   if b1 ∧ b2 then NONE
   else SOME (
-      strlit "output DERIVABLE check failed:" ^
-      strlit " [dbound = NONE] " ^ bool_to_string b1 ^
-      strlit " [core in output] " ^ print_opt_string b2opt)
+      «output DERIVABLE check failed:» ^
+      « [dbound = NONE] » ^ bool_to_string b1 ^
+      « [core in output] » ^ print_opt_string b2opt)
 End
 
 val res = translate derivable_res_def;
@@ -6109,12 +6786,12 @@ Definition equisatisfiable_res_def:
   if b11 ∧ b12 ∧ chk ∧ b2 ∧ b3
   then NONE
     else SOME (
-      strlit "output EQUISATISFIABLE check failed:" ^
-      strlit " [bound = NONE] " ^ bool_to_string b11 ^
-      strlit " [dbound = NONE] " ^ bool_to_string b12 ^
-      strlit " [checked deletion] " ^ bool_to_string chk ^
-      strlit " [core in output] " ^ print_opt_string b2opt ^
-      strlit " [output in core] " ^ print_opt_string b3opt
+      «output EQUISATISFIABLE check failed:» ^
+      « [bound = NONE] » ^ bool_to_string b11 ^
+      « [dbound = NONE] » ^ bool_to_string b12 ^
+      « [checked deletion] » ^ bool_to_string chk ^
+      « [core in output] » ^ print_opt_string b2opt ^
+      « [output in core] » ^ print_opt_string b3opt
   )
 End
 
@@ -6125,7 +6802,7 @@ val res = translate npbc_checkTheory.opt_eq_obj_def;
 Definition opt_err_obj_check_string_def:
   (opt_err_obj_check_string (SOME fc) (SOME fc') =
     err_obj_check_string (SOME fc) fc') ∧
-  (opt_err_obj_check_string _ _ = strlit "missing objective")
+  (opt_err_obj_check_string _ _ = «missing objective»)
 End
 
 val res = translate opt_err_obj_check_string_def;
@@ -6137,18 +6814,18 @@ Definition equioptimal_res_def:
   let b11 = opt_le bound dbound in
   let b12 = opt_eq_obj obj obj' in
   let b12s =
-    if b12 then strlit"T" else opt_err_obj_check_string obj obj' in
+    if b12 then «T» else opt_err_obj_check_string obj obj' in
   let b2 = (b2opt = NONE) in
   let b3 = (b3opt = NONE) in
   if b11 ∧ b12 ∧ chk ∧ b2 ∧ b3
   then NONE
     else SOME (
-      strlit "output EQUIOPTIMAL check failed:" ^
-      strlit " [bound <= dbound]: " ^ bool_to_string b11 ^
-      strlit " [obj = output obj]: " ^ b12s ^
-      strlit " [checked deletion]: " ^ bool_to_string chk ^
-      strlit " [core in output] " ^ print_opt_string b2opt ^
-      strlit " [output in core] " ^ print_opt_string b3opt
+      «output EQUIOPTIMAL check failed:» ^
+      « [bound <= dbound]: » ^ bool_to_string b11 ^
+      « [obj = output obj]: » ^ b12s ^
+      « [checked deletion]: » ^ bool_to_string chk ^
+      « [core in output] » ^ print_opt_string b2opt ^
+      « [output in core] » ^ print_opt_string b3opt
   )
 End
 
@@ -6156,25 +6833,25 @@ val res = translate equioptimal_res_def;
 
 Definition pres_string_def:
   (pres_string (xs:num_set) =
-    concatWith (strlit" ") (MAP (toString o FST) (toAList xs)))
+    concatWith « » (MAP (toString o FST) (toAList xs)))
 End
 
 (* Add a checking command? *)
 Definition err_pres_string_def:
   err_pres_string pres pres' =
-  case pres of NONE => strlit"projection set check failed, no projection set available"
+  case pres of NONE => «projection set check failed, no projection set available»
   | SOME pres =>
     concat[
-    strlit"projection set check failed, expect: ";
+    «projection set check failed, expect: »;
     pres_string pres';
-    strlit" got: ";
+    « got: »;
     pres_string pres]
 End
 
 Definition opt_err_pres_string_def:
   (opt_err_pres_string (SOME pres) (SOME pres') =
     err_pres_string (SOME pres) pres') ∧
-  (opt_err_pres_string _ _ = strlit "missing projection set")
+  (opt_err_pres_string _ _ = «missing projection set»)
 End
 
 val res = translate pres_string_def;
@@ -6191,28 +6868,28 @@ Definition equisolvable_res_def:
   let b11 = opt_le bound dbound in
   let b12 = opt_eq_obj_opt obj obj' in
   let b12s =
-    if b12 then strlit"T" else opt_err_obj_check_string obj obj' in
+    if b12 then «T» else opt_err_obj_check_string obj obj' in
   let b2 = (b2opt = NONE) in
   let b3 = (b3opt = NONE) in
   let b4 = opt_eq_pres pres pres' in
   let b4s =
-    if b4 then strlit"T" else opt_err_pres_string pres pres' in
+    if b4 then «T» else opt_err_pres_string pres pres' in
   if b11 ∧ b12 ∧ chk ∧ b2 ∧ b3 ∧ b4
   then NONE
     else SOME (
-      strlit "output EQUISOLVABLE check failed:" ^
-      strlit " [bound <= dbound]: " ^ bool_to_string b11 ^
-      strlit " [obj = output obj (if present)]: " ^ b12s ^
-      strlit " [pres = output pres]: " ^ b4s ^
-      strlit " [checked deletion]: " ^ bool_to_string chk ^
-      strlit " [core in output] " ^ print_opt_string b2opt ^
-      strlit " [output in core] " ^ print_opt_string b3opt
+      «output EQUISOLVABLE check failed:» ^
+      « [bound <= dbound]: » ^ bool_to_string b11 ^
+      « [obj = output obj (if present)]: » ^ b12s ^
+      « [pres = output pres]: » ^ b4s ^
+      « [checked deletion]: » ^ bool_to_string chk ^
+      « [core in output] » ^ print_opt_string b2opt ^
+      « [output in core] » ^ print_opt_string b3opt
   )
 End
 
 val res = translate equisolvable_res_def;
 
-val check_output_arr = process_topdecs`
+Quote add_cakeml:
   fun check_output_arr fml inds
     pres obj bound dbound chk fml' pres' obj' output =
   case output of
@@ -6242,7 +6919,7 @@ val check_output_arr = process_topdecs`
       (fml_include_arr cls fml')
       (fml_include_arr fml' cls)
     end
-  ` |> append_prog;
+End
 
 val PBC_OUTPUT_TYPE_def = theorem"PBC_OUTPUT_TYPE_def";
 

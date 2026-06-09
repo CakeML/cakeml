@@ -90,6 +90,7 @@ Datatype:
   | Dec (mlstring # type) statement
   | Assign ((lhs_exp # rhs_exp) list)
   (* While guard invariants decreases mod body *)
+  (* TODO put specs into a record? *)
   | While exp (exp list) (exp list) (exp list) statement
   | Print exp type
   (* MetCall lhss name args
@@ -102,10 +103,12 @@ Datatype:
   member_decl =
   (* Method name ins req ens reads
             decreases outs mod body *)
+  (* TODO put specs into a record? *)
   | Method mlstring ((mlstring # type) list) (exp list) (exp list) (exp list)
            (exp list) ((mlstring # type) list) (exp list) statement
   (* Function name ins result_type req reads
               decreases body *)
+  (* TODO put specs into a record? *)
   | Function mlstring ((mlstring # type) list) type (exp list) (exp list)
              (exp list) exp
 End

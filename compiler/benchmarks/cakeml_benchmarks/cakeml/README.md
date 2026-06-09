@@ -1,4 +1,4 @@
-This diretory contains CakeML programs used for benchmarking.
+This directory contains CakeML programs used for benchmarking.
 
 [array_contain.cml](array_contain.cml):
 Benchmarking program that tests array support
