@@ -2287,8 +2287,10 @@ Proof
   >> ‘LENGTH env + 2 = SUC (LENGTH env + 1)’ by gvs []
   >> simp [Once EL_def, Once EL_APPEND_EQN]
   >> gvs [FLOOKUP_SIMP]
+  >> qspec_then ‘s'.refs’ mp_tac fresh_ptr_fresh
+  >> strip_tac
   >> IF_CASES_TAC
-  >- cheat
+  >- gvs [FDOM_DEF, FLOOKUP_DEF, hole_has_val_def, EL_APPEND_EQN]
   >> gvs [hole_has_val_def]
   >> ‘hole_ptr = hole_ptr'’ by gvs [EL_APPEND_EQN]
   >> ‘hole_idx = &LENGTH left'’ by gvs [EL_APPEND_EQN]
@@ -2338,6 +2340,23 @@ Proof
   >- gvs [opt_res_rel_def]
   >> conj_tac
   >- gvs [bvl_to_bvi_id]
+  >> conj_tac
+  >-
+   (irule only_fresh_del
+    >> irule_at Any only_fresh_del
+    >> first_assum $ irule_at $ Pos hd
+    >> gvs [state_rel_def]
+    >> imp_res_tac fresh_not_in_range_f)
+  >> conj_tac
+  >-
+   (irule holes_unchanged_except_rewind_SING
+    >> irule_at Any holes_unchanged_except_del_SING
+    >> gvs [flookup_com_neq]
+    >> first_assum $ irule_at Any
+    >> qspec_then ‘s'.refs’ assume_tac fresh_ptr_fresh
+    >> gvs [])
+  >> imp_res_tac evaluate_SING_IMP
+  >> gvs []
   >> cheat
 QED
 
