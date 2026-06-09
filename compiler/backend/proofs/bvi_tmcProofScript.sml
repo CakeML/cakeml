@@ -1862,7 +1862,23 @@ Proof
     >> Cases_on ‘s'.clock < ts + 1’
     >-
      (gvs []
-      >> cheat)
+      >> conj_tac
+      >-
+       (qexists ‘f’
+        >> gvs [state_rel_def, only_fresh_refl, holes_unchanged_except_refl])
+      >> rw []
+      >-
+       (gvs [cb_to_bvi_worker_aux_def, shift_cb_def, optimise_call_def, evaluate_def, evaluate_APPEND, evaluate_shift_vars]
+        >> gvs [alloc_hole_has_val_def, do_app_def, do_app_aux_def]
+        >> ‘backend_common$small_enough_int (&LENGTH left)’ by cheat
+        >> gvs [bvlSemTheory.find_code_def, EL_APPEND_EQN]
+        >> qexists ‘f’
+        >> gvs [state_rel_def, only_fresh_refl, holes_unchanged_except_refl, opt_res_rel_def])
+      >> gvs [cb_to_bvi_worker_def, optimise_call_def, evaluate_def, evaluate_APPEND]
+      >> imp_res_tac env_rel_length_opt
+      >> gvs [bvlSemTheory.find_code_def, EL_APPEND_EQN]
+      >> qexists ‘f’
+      >> gvs [state_rel_def, only_fresh_refl, holes_unchanged_except_refl, opt_res_rel_def])
     >> gvs [CaseEq "prod"]
     >> ‘(v3,s'³') = (r,t)’ by gvs [CaseEq "result", CaseEq "error_result"]
     >> rw []
@@ -2192,7 +2208,7 @@ Proof
   >> impl_tac
   >-
    (conj_tac
-    >- (* LEMMA *)
+    >-
      (gvs [state_rel_def, state_ref_rel_def]
       >> rw []
       >> first_x_assum drule
