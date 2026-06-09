@@ -1781,6 +1781,16 @@ Proof
   >> gvs [FLOOKUP_DEF]
 QED
 
+Theorem only_fresh_del:
+  ∀f f' refs ptr v.
+    only_fresh f f' refs⟨ptr ↦ v⟩ ∧
+    ptr ∉ FRANGE f ⇒
+    only_fresh f f' refs
+Proof
+  rw []
+  >> gvs [only_fresh_def]
+QED
+
 Theorem evaluate_cb:
   ∀cb bs loc loc_opt exp wrap work arity f opt env env2 ^s s' t t' r r'.
     evaluate ([cb_to_bvi loc cb],env,s) = (r,t) ∧
@@ -2014,7 +2024,18 @@ Proof
   >> strip_tac >> gvs []
   >> rename [‘state_rel f' u u'’, ‘result_rel _ _ r r'’]
   >> reverse $ Cases_on ‘r’
-  >- cheat
+  >-
+   (gvs [CaseEq "prod"]
+    >> rename [‘state_rel f' u u'’]
+    >> conj_tac
+    >-
+     (qexists ‘f'’
+      >> gvs [only_fresh_refl])
+    >> conj_tac
+    >-
+     (gvs [cb_to_bvi_wrapper_def, evaluate_def, mut_cons_def, evaluate_APPEND, do_app_def, do_app_aux_def, backend_commonTheory.small_enough_int_def]
+      >> cheat)
+    >> cheat)
   >> gvs [CaseEq "prod"]
   >> rename [‘state_rel f' u u'’]
   >> drule_then drule evaluate_vars
@@ -2164,7 +2185,12 @@ Proof
     >- gvs [bvl_to_bvi_id]
     >> gvs []
     >> conj_tac
-    >- cheat
+    >-
+     (irule only_fresh_del
+      >> irule_at Any only_fresh_del
+      >> first_assum $ irule_at $ Pos hd
+      >> imp_res_tac fresh_not_in_range_f
+      >> gvs [])
     >> conj_tac
     >- cheat
     >> imp_res_tac evaluate_SING_IMP
