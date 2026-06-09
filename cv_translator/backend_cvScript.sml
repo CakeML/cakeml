@@ -745,13 +745,7 @@ val _ = cv_trans word_cseTheory.is_store_def;
 val _ = cv_auto_trans word_cseTheory.word_cseInst_def;
 val _ = cv_trans word_cseTheory.dest_Var_def;
 
-val pre = cv_auto_trans_pre word_cseTheory.word_cse_def;
-Theorem word_cse_word_cse_pre[cv_pre,local]:
-  ∀data v. word_cse_word_cse_pre data v
-Proof
-  ho_match_mp_tac word_cseTheory.word_cse_ind
-  \\ rpt strip_tac \\ simp [Once pre]
-QED
+val _ = cv_auto_trans word_cseTheory.word_cse_def;
 
 val _ = cv_trans word_cseTheory.word_common_subexp_elim_def;
 
