@@ -16,22 +16,6 @@ Ancestors
         Xs[i - offx] = j ⇔ Ys[j - offy] = i
 *)
 
-Definition mk_bounds_def:
-  mk_bounds X a b =
-  [
-    mk_constraint_one_ge 1 X a;
-    mk_constraint_one_ge (-1) X (-b)
-  ]
-End
-
-Theorem mk_bounds_sem[simp]:
-  EVERY (λx. iconstraint_sem x (wi,wb)) (mk_bounds X a b) ⇔
-  varc wi X ≥ a ∧ varc wi X ≤ b
-Proof
-  simp[mk_bounds_def]>>
-  intLib.ARITH_TAC
-QED
-
 Definition encode_inverse_aux_def:
   encode_inverse_aux Xsi Ysi =
   let (Xs,offx) = Xsi in

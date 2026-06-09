@@ -556,6 +556,23 @@ Definition mk_lt_def[simp]:
   mk_lt X Y = mk_gt Y X
 End
 
+(* Bounds constraint: lb ≤ varc wi X ≤ ub *)
+Definition mk_bounds_def:
+  mk_bounds X a b =
+  [
+    mk_constraint_one_ge 1 X a;
+    mk_constraint_one_ge (-1) X (-b)
+  ]
+End
+
+Theorem mk_bounds_sem[simp]:
+  EVERY (λx. iconstraint_sem x (wi,wb)) (mk_bounds X a b) ⇔
+  varc wi X ≥ a ∧ varc wi X ≤ b
+Proof
+  simp[mk_bounds_def]>>
+  intLib.ARITH_TAC
+QED
+
 Definition split_iclin_term_def:
   (split_iclin_term ([]:'a iclin_term)
     (acc:'a ilin_term) rhs = (acc,rhs)) ∧
