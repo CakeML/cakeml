@@ -109,6 +109,8 @@ Optimisations can be configured using the following advanced options.
   --len_size=N  size of length field in heap object header cells
   --emit_empty_ffi=B  true emits debugging FFI calls for use with DEBUG_FFI
   --hash_size=N  size of the memoization table used by instruction encoder
+  --perf_callgraph=B  unverified: emit C-stack shadowing so `perf record
+                --call-graph fp` produces correct call graphs (x64 only)
 
 ’ (* end of --help string *)
 
@@ -554,9 +556,11 @@ End
 Definition parse_stack_conf_def:
   parse_stack_conf ls stack =
   let jump = find_bool «--jump=» ls stack.jump in
-  case jump of
-    INL j => INL (stack with jump:=j)
-  | INR s => INR s
+  let perf = find_bool «--perf_callgraph=» ls stack.perf_calls in
+  case (jump, perf) of
+    (INL j, INL p) => INL (stack with <| jump := j; perf_calls := p |>)
+  | (INR s, _) => INR s
+  | (_, INR s) => INR s
 End
 
 (* tap *)
