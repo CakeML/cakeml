@@ -1760,7 +1760,15 @@ Proof
   >> numLib.LEAST_ELIM_TAC
   >> conj_tac
   >-
-   (cheat (* qexists max FDOM refs? *))
+   (qexists ‘SUC (MAX_SET (FDOM refs))’
+    >> spose_not_then assume_tac
+    >> imp_res_tac X_LE_MAX_SET
+    >> qspec_then ‘FDOM refs’ mp_tac X_LE_MAX_SET
+    >> impl_tac
+    >- gvs []
+    >> disch_then drule
+    >> strip_tac
+    >> gvs [])
   >> rw []
 QED
 
