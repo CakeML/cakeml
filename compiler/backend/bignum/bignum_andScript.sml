@@ -3,7 +3,7 @@
 *)
 Theory bignum_and
 Ancestors
-  errorLogMonad panPtreeConversion panStatic multiword multiword_ext
+  errorLogMonad panPtreeConversion panLang panStatic multiword multiword_ext
   set_sep address panSem
 Libs
   stringLib numLib intLib preamble helperLib
@@ -173,7 +173,8 @@ Theorem set_var_record[simp]:
   (set_var v value s).be = s.be ∧
   (set_var v value s).ffi = s.ffi ∧
   (set_var v value s).base_addr = s.base_addr ∧
-  (set_var v value s).top_addr = s.top_addr
+  (set_var v value s).top_addr = s.top_addr ∧
+  (set_var v value s).structs = s.structs
 Proof
   simp [set_var_def]
 QED
@@ -248,7 +249,7 @@ Theorem eval_Load_One_Local_SOME:
   ⇒
   eval s (Load One (Var Local n)) = SOME (Val (s.memory v))
 Proof
-  simp [eval_def, mem_load_def]
+  simp [eval_def, mem_load_def, is_wf_shape_def]
 QED
 
 (** evaluate ******************************************************************)
@@ -289,6 +290,7 @@ QED
 
 Theorem evaluate_Dec_NONE:
   eval s e = SOME value ∧
+  shape = shape_of value ∧
   evaluate (prog,s with locals := s.locals |+ (v,value)) = (NONE,s₁)
   ⇒
   evaluate (Dec v shape e prog, s) =
