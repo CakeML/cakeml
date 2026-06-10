@@ -2343,7 +2343,6 @@ Proof
       >> imp_res_tac fresh_not_in_range_f
       >> gvs [])
     >> conj_tac
-
     >-
      (irule holes_unchanged_except_filled
       >> first_assum $ irule_at Any
@@ -2354,7 +2353,8 @@ Proof
       >> gvs [])
     >> imp_res_tac evaluate_SING_IMP
     >> gvs []
-    (* This isn't going to work without the mutblock relation *)
+    >> irule_at Any mb_rel_cons
+    (* mb_rel ref delete trickiness *)
     >> cheat)
 
   (* Work *)
@@ -2392,6 +2392,7 @@ Proof
                                                                    (MAP (λn. (env2' ++ [RefPtr F hole_ptr; Number (&LENGTH left')])❲n❳) (REVERSE left))⟩’,
                                   ‘[Unit; RefPtr F (LEAST ptr. ptr ∉ FDOM s'.refs)]’, ‘1’, ‘LENGTH right’] mp_tac
 
+  >> disch_then $ qspec_then ‘LEAST ptr. ptr ∉ FDOM s'.refs’ mp_tac
   >> impl_tac
   >-
    (conj_tac
@@ -2434,11 +2435,12 @@ Proof
     >> imp_res_tac fresh_not_in_range_f)
   >> conj_tac
   >-
-   (irule holes_unchanged_except_rewind_SING
+   (irule holes_unchanged_except_filled
+    >> first_assum $ irule_at Any
     >> irule_at Any holes_unchanged_except_del_SING
     >> gvs [flookup_com_neq]
     >> first_assum $ irule_at Any
-    >> qspec_then ‘s'.refs’ assume_tac fresh_ptr_fresh
+    >> qspec_then ‘refs’ assume_tac fresh_ptr_fresh
     >> gvs [])
   >> imp_res_tac evaluate_SING_IMP
   >> gvs []
@@ -2460,8 +2462,10 @@ Proof
     >> conj_tac
     >- cheat
     >> gvs [mb_rel_def]
-        )
-
+    >> cheat)
+  >> gvs [holes_unchanged_except_def]
+  >> first_x_assum $ irule_at Any
+  >> gvs [FLOOKUP_SIMP]
 QED
 
 Resume evaluate_rewrite_tmc[call_block]:
