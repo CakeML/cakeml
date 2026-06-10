@@ -99,7 +99,38 @@ Proof
       )>>
     ‘∀i. i < n ⇒ ∃j. j < n ∧ step j = i’ by cheat
       (* step injectivity implies surjectivity *)>>
-    ‘∀i j. i < n ∧ j < n ⇒ (suc i = suc j ⇔ i = j)’ by cheat>>
+    ‘∀i j. i < n ∧ j < n ⇒ (suc i = suc j ⇔ i = j)’ by (
+      rw[]>>
+      iff_tac>>
+      simp[]>>
+      rw[Once MONO_NOT_EQ]>>
+      rename1‘suc i ≠ suc j’>>
+      first_assum $ rev_drule_then assume_tac>>
+      first_assum $ drule_then assume_tac>>
+      fs[]>>
+      rename1‘step h = i’>>
+      rename1‘step k = j’>>
+      ‘h ≠ k’ by metis_tac[]>>
+      wlog_tac‘h < k’ [‘h’,‘k’,‘i’,‘j’]
+      >-(
+        ‘k < h’ by metis_tac[LESS_CASES_IMP]>>
+        first_x_assum $ drule_then assume_tac>>
+        metis_tac[])
+      >-(
+        (* the following will be revised.. *)
+        ‘0 < n’ by cheat>>
+        ‘FUNPOW suc (h + 1) 0 < n’ by simp[]>>
+        ‘h + 1 ≤ k’ by cheat>>
+        ‘h + 1 < n’ by cheat>>
+        ‘0 < k - h ∧ k - h < n’ by cheat>>
+        ‘FUNPOW suc (k - h) $ FUNPOW suc (h + 1) 0 ≠ FUNPOW suc (h + 1) 0’ by simp[]>>
+        fs[GSYM FUNPOW_ADD]>>
+        fs[Abbr‘step’]>>
+        ‘suc (FUNPOW suc h 0) ≠ suc (FUNPOW suc k 0)’ suffices_by simp[]>>
+        simp[GSYM FUNPOW_SUC,ADD1]>>
+        ‘k - h + (h + 1) = k + 1’ suffices_by metis_tac[]>>
+        simp[ADD_ASSOC])
+      )>>
     CONJ_ASM1_TAC
     >-(
       pop_assum mp_tac>>
@@ -128,7 +159,16 @@ Proof
         metis_tac[])
       >-(
         rw[]>>
-        cheat(* to prove: step ((pos i + 1) MOD n) = suc i *)
+        Cases_on‘pos i + 1 < n’
+        >-(
+          simp[LESS_MOD,Abbr‘step’,GSYM ADD1,FUNPOW_SUC,Abbr‘pos’]>>
+          SELECT_ELIM_TAC>>
+          metis_tac[]
+        )
+        >-(
+          cheat
+          (* need to prove: step n = 0 *)
+        )
       )))
   >-(
     strip_tac>>
