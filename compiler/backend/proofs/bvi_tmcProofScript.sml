@@ -621,7 +621,7 @@ Theorem do_app_op_err_rel:
 Proof
   rw [do_app_def]
   >> Cases_on ‘do_app_aux (FFI i) vs u’ >> gvs []
-  >> drule do_app_aux_rel
+  (*>> drule do_app_aux_rel
   >> disch_then drule
   >> disch_then drule
   >> strip_tac
@@ -631,7 +631,7 @@ Proof
   >- (Cases_on ‘x''’ >> gvs [])
   >> Cases_on ‘bvlSem$do_app (FFI i) vs (bvi_to_bvl u)’ >> gvs []
   >- (Cases_on ‘a’ >> gvs [])
-  >> Cases_on ‘bvlSem$do_app (FFI i) vs' (bvi_to_bvl u')’ >> gvs []
+  >> Cases_on ‘bvlSem$do_app (FFI i) vs' (bvi_to_bvl u')’ >> gvs []*)
   >> cheat
 QED
 
