@@ -490,6 +490,7 @@ Proof
   >> gvs []
 QED
 
+(* NOTE: I think this is wrong and should be replaced with the version way below *)
 Theorem holes_unchanged_except_filled:
   ∀f refs refs' k tag left child right.
     holes_unchanged_except f refs refs' ∅ ∧
@@ -1900,10 +1901,10 @@ Proof
 QED
 *)
 
-Theorem holes_unchanged_except_rewind:
+Theorem holes_unchanged_except_filled:
   ∀f refs_old refs_new changed ptr tag l c r.
     holes_unchanged_except f refs_old⟨ptr ↦ MutBlock tag l c r⟩ refs_new EMPTY ∧
-    ptr ∉ FDOM refs_old ⇒
+    FLOOKUP refs_old ptr = SOME (MutBlock tag l c' r) ⇒
     holes_unchanged_except f refs_old refs_new {ptr}
 Proof
   rw [holes_unchanged_except_def]
@@ -1912,7 +1913,8 @@ Proof
     >> rw []
     >> first_x_assum irule
     >> gvs [FLOOKUP_SIMP, FLOOKUP_DEF])
-  >> gvs [FLOOKUP_DEF]
+  >> first_x_assum $ irule_at Any
+  >> gvs [FLOOKUP_SIMP, FLOOKUP_DEF]
 QED
 
 Theorem flookup_com_neq:
@@ -2294,6 +2296,7 @@ Proof
                                                                   (MAP (λn. env2❲n❳) (REVERSE left))⟩’,
                                     ‘Unit::RefPtr F (LEAST ptr. ptr ∉ FDOM refs)::extras’, ‘1’, ‘LENGTH right’] mp_tac
 
+    >> disch_then $ qspec_then ‘LEAST ptr. ptr ∉ FDOM refs’ mp_tac
     >> impl_tac
     >-
      (gvs []
@@ -2340,8 +2343,10 @@ Proof
       >> imp_res_tac fresh_not_in_range_f
       >> gvs [])
     >> conj_tac
+
     >-
-     (irule holes_unchanged_except_rewind_SING
+     (irule holes_unchanged_except_filled
+      >> first_assum $ irule_at Any
       >> irule_at Any holes_unchanged_except_del_SING
       >> gvs [flookup_com_neq]
       >> first_assum $ irule_at Any
