@@ -2365,7 +2365,26 @@ Proof
     >> gvs [])
   >> imp_res_tac evaluate_SING_IMP
   >> gvs []
-  >> cheat
+  >> gvs [alloc_hole_has_val_def]
+  >> qexists ‘RefPtr F (LEAST ptr. ptr ∉ FDOM s'.refs)’
+  >> conj_tac
+  >-
+   (irule mb_rel_cons
+    >> conj_tac
+    >-
+     (irule non_fresh_not_in_frange
+      >> rpt $ first_assum $ irule_at Any
+      >> gvs [FLOOKUP_SIMP, FDOM_DEF])
+    >> gvs [FLOOKUP_SIMP, DOMSUB_FLOOKUP_THM]
+    >> conj_tac
+    >- cheat
+    >> conj_tac
+    >- cheat
+    >> conj_tac
+    >- cheat
+    >> gvs [mb_rel_def]
+        )
+
 QED
 
 Resume evaluate_rewrite_tmc[call_block]:
