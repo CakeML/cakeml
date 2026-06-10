@@ -391,11 +391,17 @@ End
 
 Definition holes_unchanged_except_def:
   holes_unchanged_except f refs refs' changed ⇔
-    ∀ptr val.
-      ptr ∉ FRANGE f ∧
-      (∀b. RefPtr b ptr ∉ changed) ∧
-      FLOOKUP refs ptr = SOME val ⇒
-      FLOOKUP refs' ptr = SOME val
+    (∀ptr val.
+       ptr ∉ FRANGE f ∧
+       (∀b. RefPtr b ptr ∉ changed) ∧
+       FLOOKUP refs ptr = SOME val ⇒
+       FLOOKUP refs' ptr = SOME val) ∧
+    (∀ptr b tag left child right.
+       ptr ∉ FRANGE f ∧
+       RefPtr b ptr ∈ changed ∧
+       FLOOKUP refs ptr = SOME (MutBlock tag left child right) ⇒
+       ∃child'.
+         FLOOKUP refs' ptr = SOME (MutBlock tag left child' right))
 End
 
 Definition only_fresh_def:
@@ -416,10 +422,18 @@ Theorem holes_unchanged_except_submap:
     holes_unchanged_except f' refs refs' changed
 Proof
   rw [holes_unchanged_except_def]
-  >> first_x_assum $ qspecl_then [‘ptr’, ‘val’] mp_tac
-  >> strip_tac
+  >-
+   (first_x_assum $ qspecl_then [‘ptr’, ‘val’] mp_tac
+    >> strip_tac
+    >> gvs []
+    >> pop_assum irule
+    >> spose_not_then assume_tac
+    >> drule SUBMAP_FRANGE
+    >> strip_tac
+    >> gvs [SUBSET_DEF])
+  >> first_x_assum irule
   >> gvs []
-  >> pop_assum irule
+  >> first_assum $ irule_at Any
   >> spose_not_then assume_tac
   >> drule SUBMAP_FRANGE
   >> strip_tac
@@ -435,10 +449,20 @@ Theorem holes_unchanged_except_trans:
     holes_unchanged_except f refs refs'' changed
 Proof
   rw [holes_unchanged_except_def]
-  >> rpt $ first_x_assum $ qspecl_then [‘ptr’, ‘val’] mp_tac
-  >> rpt strip_tac
-  >> gvs []
+  >-
+   (rpt $ first_x_assum $ qspecl_then [‘ptr’, ‘val’] mp_tac
+    >> rpt strip_tac
+    >> gvs []
+    >> first_x_assum irule
+    >> spose_not_then assume_tac
+    >> gvs [only_fresh_def]
+    >> first_x_assum drule_all
+    >> strip_tac
+    >> gvs [FLOOKUP_DEF])
   >> first_x_assum irule
+  >> first_x_assum drule_all
+  >> strip_tac
+  >> rpt $ first_assum $ irule_at Any
   >> spose_not_then assume_tac
   >> gvs [only_fresh_def]
   >> first_x_assum drule_all
@@ -453,23 +477,37 @@ Theorem holes_unchanged_except_subset:
     holes_unchanged_except f refs refs' changed'
 Proof
   rw [holes_unchanged_except_def]
-  >> first_x_assum irule
-  >> gvs []
-  >> gen_tac
-  >> first_x_assum $ qspec_then ‘b’ mp_tac
-  >> strip_tac
-  >> gvs [SUBSET_DEF]
-  >> first_x_assum $ qspec_then ‘RefPtr b ptr’ mp_tac
-  >> strip_tac
+  >-
+   (first_x_assum irule
+    >> gvs []
+    >> gen_tac
+    >> first_x_assum $ qspec_then ‘b’ mp_tac
+    >> strip_tac
+    >> gvs [SUBSET_DEF]
+    >> first_x_assum $ qspec_then ‘RefPtr b ptr’ mp_tac
+    >> strip_tac
+    >> gvs [])
+  >> Cases_on ‘∃b. RefPtr b ptr ∈ changed’
+  >-
+   (first_x_assum $ irule_at Any
+    >> gvs []
+    >> first_assum $ irule_at Any)
+  >> last_x_assum drule
   >> gvs []
 QED
 
 Theorem holes_unchanged_except_filled:
-  ∀f refs refs' k v b.
-    holes_unchanged_except f refs refs' ∅ ⇒
-    holes_unchanged_except f refs refs'⟨k ↦ v⟩ {RefPtr b k}
+  ∀f refs refs' k tag left child right b.
+    holes_unchanged_except f refs refs' ∅ ∧
+    k ∉ FDOM refs' ⇒
+    holes_unchanged_except f refs refs'⟨k ↦ MutBlock tag left child right⟩ {RefPtr b k}
 Proof
-  rw [holes_unchanged_except_def] >> gvs [FLOOKUP_SIMP]
+  rw [holes_unchanged_except_def]
+  >- gvs [FLOOKUP_SIMP]
+  >> gvs [FLOOKUP_SIMP]
+  >> first_x_assum drule_all
+  >> strip_tac
+  >> gvs [FLOOKUP_DEF]
 QED
 
 Theorem unchanged_hole_has_val:
@@ -477,7 +515,6 @@ Theorem unchanged_hole_has_val:
     hole_has_val f env (env' ++ [RefPtr F hole_ptr; Number hole_idx]) refs c ∧
     only_fresh f f' refs ∧
     holes_unchanged_except f refs refs' changed ∧
-    (*env_rel T f env (env' ++ [RefPtr F hole_ptr; Number hole_idx]) ∧*)
     (∀b. RefPtr b hole_ptr ∉ changed) ⇒
     hole_has_val f' env (env' ++ [RefPtr F hole_ptr; Number hole_idx]) refs' c
 Proof
@@ -879,6 +916,7 @@ Proof
   >> gvs [fill_hole_def, evaluate_def]
   >> gvs [evaluate_def, fill_hole_def, do_app_def, do_app_aux_def, hole_has_val_def, holes_unchanged_except_def,
           case_eq_thms, PULL_EXISTS, FLOOKUP_SIMP, bvlSemTheory.Unit_def, backend_commonTheory.tuple_tag_def, opt_res_rel_def]
+  >> rpt $ first_x_assum $ irule_at Any
 QED
 
 Theorem evaluate_vars:
@@ -1805,14 +1843,17 @@ Theorem holes_unchanged_except_del:
     ptr ∉ FDOM refs_old ⇒
     holes_unchanged_except f refs_old refs_new (changed DIFF {RefPtr F ptr})
 Proof
-  rw []
-  >> gvs [holes_unchanged_except_def]
-  >> rw []
-  >> first_x_assum irule
+  rw [holes_unchanged_except_def]
+  >-
+   (first_x_assum irule
+    >> gvs [FLOOKUP_SIMP, FLOOKUP_DEF]
+    >> IF_CASES_TAC
+    >- gvs []
+    >> gvs [])
+  >> rpt $ first_x_assum $ irule_at Any
+  >> Cases_on ‘ptr = ptr'’
+  >- gvs [FLOOKUP_SIMP, FLOOKUP_DEF]
   >> gvs [FLOOKUP_SIMP, FLOOKUP_DEF]
-  >> IF_CASES_TAC
-  >- gvs []
-  >> gvs []
 QED
 
 Theorem holes_unchanged_except_del_SING:
@@ -1832,14 +1873,32 @@ Theorem holes_unchanged_except_rewind:
     holes_unchanged_except f refs_old⟨ptr ↦ v⟩ refs_new changed ⇒
     holes_unchanged_except f refs_old refs_new (changed ∪ {RefPtr F ptr})
 Proof
-  rw []
-  >> gvs [holes_unchanged_except_def]
-  >> rw []
-  >> first_x_assum irule
-  >> gvs [FLOOKUP_SIMP, FLOOKUP_DEF]
-  >> IF_CASES_TAC
-  >- metis_tac []
-  >> gvs []
+  rw [holes_unchanged_except_def]
+  >-
+  (gvs []
+   >> rw []
+   >> first_x_assum irule
+   >> gvs [FLOOKUP_SIMP, FLOOKUP_DEF]
+   >> IF_CASES_TAC
+   >- metis_tac []
+   >> gvs [])
+  >-
+   (Cases_on ‘ptr = ptr'’
+    >-
+     (
+        )
+    >> gvs []
+    >> first_x_assum $ irule_at Any
+    >> rpt $ first_assum $ irule_at Any
+    >> gvs [FLOOKUP_SIMP, FLOOKUP_DEF])
+  >> Cases_on ‘∃b. RefPtr b ptr ∈ changed’
+  >-
+   (gvs []
+    >> first_x_assum irule
+    >> gvs [FLOOKUP_SIMP]
+    >> rpt
+        )
+        )
 QED
 
 Theorem holes_unchanged_except_rewind_SING:
@@ -2180,7 +2239,11 @@ Proof
        Then we need lemmas for only_fresh/holes_unchanged_except removing a pointer from the refs which should be easy.
      *)
     >> disch_then $ qspecl_then [‘MAP (λn. env❲n❳) (REVERSE right)’, ‘MAP (λn. env❲n❳) (REVERSE left)’] mp_tac
-    >> impl_tac >- cheat
+    >> impl_tac
+    >-
+     (gvs [holes_unchanged_except_def]
+      >>
+        )
     >> strip_tac
     >> ‘state_ref_rel f_aux u.refs t_aux.refs’ by gvs [state_rel_def]
     >> drule_all evaluate_finalise_cons
