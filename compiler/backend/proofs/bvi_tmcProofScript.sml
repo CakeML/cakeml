@@ -393,12 +393,12 @@ Definition holes_unchanged_except_def:
   holes_unchanged_except f refs refs' changed ⇔
     (∀ptr val.
        ptr ∉ FRANGE f ∧
-       (∀b. RefPtr b ptr ∉ changed) ∧
+       ptr ∉ changed ∧
        FLOOKUP refs ptr = SOME val ⇒
        FLOOKUP refs' ptr = SOME val) ∧
-    (∀ptr b tag left child right.
+    (∀ptr tag left child right.
        ptr ∉ FRANGE f ∧
-       RefPtr b ptr ∈ changed ∧
+       ptr ∈ changed ∧
        FLOOKUP refs ptr = SOME (MutBlock tag left child right) ⇒
        ∃child'.
          FLOOKUP refs' ptr = SOME (MutBlock tag left child' right))
@@ -433,7 +433,6 @@ Proof
     >> gvs [SUBSET_DEF])
   >> first_x_assum irule
   >> gvs []
-  >> first_assum $ irule_at Any
   >> spose_not_then assume_tac
   >> drule SUBMAP_FRANGE
   >> strip_tac
@@ -479,15 +478,10 @@ Proof
   rw [holes_unchanged_except_def]
   >-
    (first_x_assum irule
-    >> gvs []
-    >> gen_tac
-    >> first_x_assum $ qspec_then ‘b’ mp_tac
-    >> strip_tac
     >> gvs [SUBSET_DEF]
-    >> first_x_assum $ qspec_then ‘RefPtr b ptr’ mp_tac
-    >> strip_tac
+    >> first_x_assum $ drule_at Concl
     >> gvs [])
-  >> Cases_on ‘∃b. RefPtr b ptr ∈ changed’
+  >> Cases_on ‘ptr ∈ changed’
   >-
    (first_x_assum $ irule_at Any
     >> gvs []
@@ -497,10 +491,10 @@ Proof
 QED
 
 Theorem holes_unchanged_except_filled:
-  ∀f refs refs' k tag left child right b.
+  ∀f refs refs' k tag left child right.
     holes_unchanged_except f refs refs' ∅ ∧
     k ∉ FDOM refs' ⇒
-    holes_unchanged_except f refs refs'⟨k ↦ MutBlock tag left child right⟩ {RefPtr b k}
+    holes_unchanged_except f refs refs'⟨k ↦ MutBlock tag left child right⟩ {k}
 Proof
   rw [holes_unchanged_except_def]
   >- gvs [FLOOKUP_SIMP]
@@ -515,7 +509,7 @@ Theorem unchanged_hole_has_val:
     hole_has_val f env (env' ++ [RefPtr F hole_ptr; Number hole_idx]) refs c ∧
     only_fresh f f' refs ∧
     holes_unchanged_except f refs refs' changed ∧
-    (∀b. RefPtr b hole_ptr ∉ changed) ⇒
+    hole_ptr ∉ changed ⇒
     hole_has_val f' env (env' ++ [RefPtr F hole_ptr; Number hole_idx]) refs' c
 Proof
   rw [hole_has_val_def]
@@ -861,14 +855,15 @@ Theorem evaluate_fill_hole:
     hole_has_val f env1 env2 s'.refs c ∧
     holes_unchanged_except f s'.refs t'.refs ∅ ∧
     only_fresh f f' s'.refs ∧
-    state_rel f' t t' ⇒
+    state_rel f' t t' ∧
+    env2❲LENGTH env1❳ = RefPtr F hole_ptr ⇒
     ∃r t'' f_work.
       evaluate ([fill_hole (LENGTH env1) (LENGTH env1 + 1) exp],env2,s') = (r,t'') ∧
       opt_res_rel (Rval [v]) r ∧
       state_rel f_work t t'' ∧
       f ⊑ f_work ∧
       only_fresh f f_work s'.refs ∧
-      holes_unchanged_except f s'.refs t''.refs {env2❲LENGTH env1❳} ∧
+      holes_unchanged_except f s'.refs t''.refs {hole_ptr} ∧
       hole_has_val f env1 env2 t''.refs v
 Proof
   rw []
@@ -901,12 +896,13 @@ Theorem evaluate_fill_hole_err:
     hole_has_val f env1 env2 s'.refs c ∧
     holes_unchanged_except f s'.refs t'.refs ∅ ∧
     only_fresh f f' s'.refs ∧
-    state_rel f' t t' ⇒
+    state_rel f' t t' ∧
+    env2❲LENGTH env1❳ = RefPtr F hole_ptr ⇒
     ∃r t''.
       evaluate ([fill_hole (LENGTH env1) (LENGTH env1 + 1) exp],env2,s') = (r,t'') ∧
       opt_res_rel (Rerr e) r ∧
       state_rel f' t t'' ∧
-      holes_unchanged_except f s'.refs t''.refs {env2❲LENGTH env1❳}
+      holes_unchanged_except f s'.refs t''.refs {hole_ptr}
 Proof
   rw []
   >> drule env_rel_length_opt
@@ -1388,14 +1384,15 @@ Theorem evaluate_rewrite_tmc:
              i = LENGTH env1 ∧
              j = LENGTH env1 + 1 ∧
              (∃c. hole_has_val f env1 env2 s'.refs c) ∧
-             rewrite_worker loc loc_opt i j (HD xs) = work ⇒
+             rewrite_worker loc loc_opt i j (HD xs) = work ∧
+             env2❲i❳ = RefPtr F hole_ptr ⇒
              ∃rrr t2 f_work.
                evaluate ([work], env2, s') = (rrr,t2) ∧
                opt_res_rel r' rrr ∧
                state_rel f_work t t2 ∧
                f SUBMAP f_work ∧
                only_fresh f f_work s'.refs ∧
-               holes_unchanged_except f s'.refs t2.refs {EL i env2} ∧
+               holes_unchanged_except f s'.refs t2.refs {hole_ptr} ∧
                ∀res_v.
                  r' = Rval [res_v] ⇒
                  hole_has_val f env1 env2 t2.refs res_v)))
@@ -1620,23 +1617,23 @@ Definition hypothesis_def:
               only_fresh f f_wrap s'.refs ∧
               holes_unchanged_except f s'.refs t_wrap.refs ∅) ∧
          (opt ⇒
-          (∀i j work.
+          (∀i j hole_ptr work.
              i = LENGTH env1 ∧
              j = LENGTH env1 + 1 ∧
              (∃c. hole_has_val f env1 env2 s'.refs c) ∧
-             rewrite_worker loc loc_opt i j (HD xs) = work ⇒
+             rewrite_worker loc loc_opt i j (HD xs) = work ∧
+             env2❲i❳ = RefPtr F hole_ptr ⇒
              ∃r_work f_work t_work.
                evaluate ([work], env2, s') = (r_work,t_work) ∧
                opt_res_rel f_work r r_work ∧
                state_rel f_work t t_work ∧
                f SUBMAP f_work ∧
                only_fresh f f_work s'.refs ∧
-               holes_unchanged_except f s'.refs t_work.refs {EL i env2} ∧
+               holes_unchanged_except f s'.refs t_work.refs {hole_ptr} ∧
                ∀res_v.
                  r = Rval [res_v] ⇒
-                 ∃res_v' ptr.
-                   EL i env2 = RefPtr F ptr ∧
-                   mb_rel f_work (t_work.refs \\ ptr) res_v res_v' ∧
+                 ∃res_v'.
+                   mb_rel f_work (t_work.refs \\ hole_ptr) res_v res_v' ∧
                    hole_has_val f env1 env2 t_work.refs res_v')))
 End
 
@@ -1841,7 +1838,7 @@ Theorem holes_unchanged_except_del:
   ∀f refs_old refs_new changed ptr v.
     holes_unchanged_except f refs_old⟨ptr ↦ v⟩ refs_new changed ∧
     ptr ∉ FDOM refs_old ⇒
-    holes_unchanged_except f refs_old refs_new (changed DIFF {RefPtr F ptr})
+    holes_unchanged_except f refs_old refs_new (changed DIFF {ptr})
 Proof
   rw [holes_unchanged_except_def]
   >-
@@ -1858,7 +1855,7 @@ QED
 
 Theorem holes_unchanged_except_del_SING:
   ∀f refs_old refs_new changed ptr v.
-    holes_unchanged_except f refs_old⟨ptr ↦ v⟩ refs_new {RefPtr F ptr} ∧
+    holes_unchanged_except f refs_old⟨ptr ↦ v⟩ refs_new {ptr} ∧
     ptr ∉ FDOM refs_old ⇒
     holes_unchanged_except f refs_old refs_new EMPTY
 Proof
@@ -1868,25 +1865,26 @@ Proof
   >> gvs []
 QED
 
+(*
 Theorem holes_unchanged_except_rewind:
-  ∀f refs_old refs_new changed ptr v.
-    holes_unchanged_except f refs_old⟨ptr ↦ v⟩ refs_new changed ⇒
-    holes_unchanged_except f refs_old refs_new (changed ∪ {RefPtr F ptr})
+  ∀f refs_old refs_new changed ptr tag l c r.
+    holes_unchanged_except f refs_old⟨ptr ↦ MutBlock tag l c r⟩ refs_new changed ∧
+    ptr ∉ FDOM refs_old ⇒
+    holes_unchanged_except f refs_old refs_new (changed ∪ {ptr})
 Proof
   rw [holes_unchanged_except_def]
   >-
-  (gvs []
-   >> rw []
-   >> first_x_assum irule
-   >> gvs [FLOOKUP_SIMP, FLOOKUP_DEF]
-   >> IF_CASES_TAC
-   >- metis_tac []
-   >> gvs [])
+   (gvs []
+    >> rw []
+    >> first_x_assum irule
+    >> gvs [FLOOKUP_SIMP, FLOOKUP_DEF])
   >-
    (Cases_on ‘ptr = ptr'’
     >-
-     (
-        )
+     (gvs []
+      >> first_x_assum $ irule_at Any
+      >> rpt $ first_assum $ irule_at Any
+      >> gvs [FLOOKUP_SIMP, FLOOKUP_DEF])
     >> gvs []
     >> first_x_assum $ irule_at Any
     >> rpt $ first_assum $ irule_at Any
@@ -1900,16 +1898,21 @@ Proof
         )
         )
 QED
+*)
 
-Theorem holes_unchanged_except_rewind_SING:
-  ∀f refs_old refs_new changed ptr v.
-    holes_unchanged_except f refs_old⟨ptr ↦ v⟩ refs_new EMPTY ⇒
-    holes_unchanged_except f refs_old refs_new {RefPtr F ptr}
+Theorem holes_unchanged_except_rewind:
+  ∀f refs_old refs_new changed ptr tag l c r.
+    holes_unchanged_except f refs_old⟨ptr ↦ MutBlock tag l c r⟩ refs_new EMPTY ∧
+    ptr ∉ FDOM refs_old ⇒
+    holes_unchanged_except f refs_old refs_new {ptr}
 Proof
-  rw []
-  >> drule_all holes_unchanged_except_rewind
-  >> strip_tac
-  >> gvs []
+  rw [holes_unchanged_except_def]
+  >-
+   (gvs []
+    >> rw []
+    >> first_x_assum irule
+    >> gvs [FLOOKUP_SIMP, FLOOKUP_DEF])
+  >> gvs [FLOOKUP_DEF]
 QED
 
 Theorem flookup_com_neq:
@@ -1955,39 +1958,39 @@ Theorem evaluate_cb:
          f SUBMAP f_wrap ∧
          only_fresh f f_wrap s'.refs ∧
          holes_unchanged_except f s'.refs t_wrap.refs ∅) ∧
-    (∀refs extras ptr idx.
+    (∀refs extras ptr idx hole_ptr.
        state_ref_rel f s.refs refs ∧
-       (∃c. alloc_hole_has_val f refs extras ptr idx c) ⇒
+       (∃c. alloc_hole_has_val f refs extras ptr idx c) ∧
+       EL ptr extras = RefPtr F hole_ptr ⇒
        ∃r_aux t_aux f_aux.
          evaluate ([cb_to_bvi_worker_aux (shift_cb (LENGTH extras) cb) loc_opt ptr idx],extras ++ env2,s' with refs := refs) = (r_aux,t_aux) ∧
          opt_res_rel f_aux r r_aux ∧
          state_rel f_aux t t_aux ∧
          f ⊑ f_aux ∧
          only_fresh f f_aux refs ∧
-         holes_unchanged_except f refs t_aux.refs {extras❲ptr❳} ∧
+         holes_unchanged_except f refs t_aux.refs {hole_ptr} ∧
          ∀res_v.
            r = Rval [res_v] ⇒
-           ∃res_v' p.
-             EL ptr extras = RefPtr F p  ∧
-             mb_rel f_aux (t_aux.refs \\ p) res_v res_v' ∧
+           ∃res_v'.
+             mb_rel f_aux (t_aux.refs \\ hole_ptr) res_v res_v' ∧
              alloc_hole_has_val f t_aux.refs extras ptr idx res_v') ∧
     (opt ⇒
-     (∀ptr idx work.
+     (∀ptr idx work hole_ptr.
         ptr = LENGTH env ∧
         idx = LENGTH env + 1 ∧
-        (∃c. hole_has_val f env env2 s'.refs c) ⇒
+        (∃c. hole_has_val f env env2 s'.refs c) ∧
+        EL ptr env2 = RefPtr F hole_ptr ⇒
         ∃r_work f_work t_work.
           evaluate ([cb_to_bvi_worker cb loc_opt ptr idx], env2, s') = (r_work,t_work) ∧
           opt_res_rel f_work r r_work ∧
           state_rel f_work t t_work ∧
           f SUBMAP f_work ∧
           only_fresh f f_work s'.refs ∧
-          holes_unchanged_except f s'.refs t_work.refs {EL ptr env2} ∧
+          holes_unchanged_except f s'.refs t_work.refs {hole_ptr} ∧
           ∀res_v.
             r = Rval [res_v] ⇒
-            ∃res_v' p.
-              EL ptr env2 = RefPtr F p ∧
-              mb_rel f_work (t_work.refs \\ p) res_v res_v' ∧
+            ∃res_v'.
+              mb_rel f_work (t_work.refs \\ hole_ptr) res_v res_v' ∧
               hole_has_val f env env2 t_work.refs res_v'))
 Proof
 
@@ -2077,7 +2080,7 @@ Proof
       >> first_x_assum $ qspec_then ‘loc_opt’ mp_tac
       >> gvs []
       >> strip_tac
-      >> pop_assum mp_tac
+      >> pop_assum $ qspec_then ‘hole_ptr’ mp_tac
       >> impl_tac
       >-
        (gvs [hole_has_val_def]
@@ -2092,10 +2095,7 @@ Proof
       >> conj_tac
       >- gvs [opt_res_rel_def]
       >> gvs []
-      >> conj_tac
-      >- gvs [EL_APPEND_EQN, LENGTH_MAP]
       >> rw []
-      >> ‘hole_ptr = ptr'’ by gvs [EL_APPEND_EQN, LENGTH_MAP]
       >> gvs []
       >> first_assum $ irule_at Any
       >> gvs [hole_has_val_def, EL_APPEND_EQN, LENGTH_MAP])
@@ -2110,6 +2110,8 @@ Proof
     >> disch_then drule
     >> drule_then drule env_rel_opt_args
     >> imp_res_tac env_rel_strip_extras
+    >> imp_res_tac env_rel_length_opt
+    >> ‘hole_ptr = hole_ptr'’ by gvs [EL_APPEND_EQN]
     >> disch_then $ qspecl_then [‘hole_ptr’, ‘hole_idx’] assume_tac
     >> disch_then drule
     >> disch_then $ qspecl_then [‘loc’, ‘dec_clock (ts + 1) s'’] mp_tac
@@ -2122,7 +2124,7 @@ Proof
     >> first_x_assum $ qspec_then ‘loc_opt’ mp_tac
     >> gvs []
     >> strip_tac
-    >> pop_assum mp_tac
+    >> pop_assum $ qspec_then ‘hole_ptr’ mp_tac
     >> impl_tac
     >-
      (gvs [hole_has_val_def]
@@ -2137,10 +2139,7 @@ Proof
     >-
      (CASE_TAC >> gvs []
       >> CASE_TAC >> gvs [])
-    >> conj_tac
-    >- gvs [EL_APPEND_EQN, LENGTH_MAP]
     >> rw []
-    >> ‘hole_ptr = ptr’ by gvs [EL_APPEND_EQN, LENGTH_MAP]
     >> gvs []
     >> first_assum $ irule_at Any
     >> gvs [hole_has_val_def, EL_APPEND_EQN, LENGTH_MAP])
@@ -2207,6 +2206,7 @@ Proof
                                      MutBlock tag (MAP (λn. env2❲n❳) (REVERSE right)) (Number 0) (MAP (λn. env2❲n❳) (REVERSE left))⟩’,
                                     ‘[RefPtr F (LEAST ptr. ptr ∉ FDOM s'.refs)]’, ‘0’, ‘LENGTH right’] mp_tac
 
+    >> disch_then $ qspec_then ‘LEAST ptr. ptr ∉ FDOM s'.refs’ mp_tac
     >> impl_tac
     >-
      (conj_tac
@@ -2231,19 +2231,17 @@ Proof
     >> gvs [alloc_hole_has_val_def]
     >> drule mb_rel_cons
     >> rpt $ disch_then $ drule_at Any
-    (* At this point, what we need:
-       holes_unchanged_except should be stronger: for the "changed" holes, _only_ the hole should be changed.
-       ie. tag/left/right should be the same.
-       this will give us MAP (λn. env2)s instead of left'/right'.
-       Then we need a lemma to get LIST_REL for the MAP (λn. env1) to MAP (λn. env2).
-       Then we need lemmas for only_fresh/holes_unchanged_except removing a pointer from the refs which should be easy.
-     *)
     >> disch_then $ qspecl_then [‘MAP (λn. env❲n❳) (REVERSE right)’, ‘MAP (λn. env❲n❳) (REVERSE left)’] mp_tac
     >> impl_tac
     >-
-     (gvs [holes_unchanged_except_def]
-      >>
-        )
+     (gvs [holes_unchanged_except_def, FLOOKUP_SIMP]
+      >> conj_tac
+      >- cheat
+      >> conj_tac
+      >- cheat
+      >> irule non_fresh_not_in_frange
+      >> rpt $ first_assum $ irule_at Any
+      >> gvs [FDOM_DEF])
     >> strip_tac
     >> ‘state_ref_rel f_aux u.refs t_aux.refs’ by gvs [state_rel_def]
     >> drule_all evaluate_finalise_cons
@@ -2251,7 +2249,18 @@ Proof
     >> gvs []
     >> qexists ‘f_aux’
     >> gvs [bvl_to_bvi_id]
-    >> cheat)
+    >> conj_tac
+    >- gvs [holes_unchanged_except_def, FLOOKUP_SIMP]
+    >> conj_tac
+    >-
+     (irule only_fresh_del
+      >> first_assum $ irule_at $ Pos $ el 2
+      >> irule fresh_not_in_range_f
+      >> gvs [state_rel_def]
+      >> first_assum $ irule_at Any)
+    >> irule holes_unchanged_except_del_SING
+    >> first_assum $ irule_at $ Pos $ el 2
+    >> irule_at Any fresh_ptr_fresh)
 
   (* Aux *)
   >-
