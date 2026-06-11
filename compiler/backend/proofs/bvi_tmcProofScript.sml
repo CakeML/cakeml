@@ -2460,7 +2460,7 @@ Proof
     >> conj_tac
     >-
      (‘TAKE (LENGTH left'') (REVERSE right) = REVERSE right’ by gvs [LENGTH_REVERSE, TAKE_LENGTH_ID]
-      >> simp [MAP_REVERSE]
+      >> gvs [MAP_REVERSE]
       >> irule list_rel_env_perm
       >> rpt $ first_assum $ irule_at Any)
     >> conj_tac
@@ -2569,13 +2569,21 @@ Proof
      (irule non_fresh_not_in_frange
       >> rpt $ first_assum $ irule_at Any
       >> gvs [FLOOKUP_SIMP, FDOM_DEF])
-    >> gvs [FLOOKUP_SIMP, DOMSUB_FLOOKUP_THM]
+    >> gvs [FLOOKUP_SIMP, DOMSUB_FLOOKUP_THM, holes_unchanged_except_def]
     >> conj_tac
-    >- cheat
+    >-
+     (simp [MAP_REVERSE]
+      >> irule list_rel_env_perm
+      >> first_assum $ irule_at Any
+      >> qexists ‘T’
+      >> imp_res_tac env_rel_submap)
     >> conj_tac
-    >- cheat
-    >> conj_tac
-    >- cheat
+    >-
+     (simp [MAP_REVERSE]
+      >> irule list_rel_env_perm
+      >> first_assum $ irule_at Any
+      >> qexists ‘T’
+      >> imp_res_tac env_rel_submap)
     >> gvs [mb_rel_def]
     >> cheat)
   >> gvs [holes_unchanged_except_def]
