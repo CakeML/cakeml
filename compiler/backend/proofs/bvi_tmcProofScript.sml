@@ -1654,12 +1654,29 @@ Proof
   >> gvs [shift_vars_def]
 QED
 
+Theorem shift_vars_dist:
+  ∀l n1 n2.
+    shift_vars n1 (shift_vars n2 l) = shift_vars (n1 + n2) l
+Proof
+  Induct
+  >- rw [shift_vars_def]
+  >> rw [shift_vars_def]
+QED
+
 (* Move me *)
 Theorem shift_cb_dist:
-  shift_cb n1 (shift_cb n2 cb) =
-  shift_cb (n1 + n2) cb
+  ∀cb n1 n2.
+    shift_cb n1 (shift_cb n2 cb) =
+    shift_cb (n1 + n2) cb
 Proof
-  cheat
+  reverse Induct
+  >-
+   (rw []
+    >> gvs [shift_cb_def]
+    >> irule shift_vars_dist)
+  >> rw []
+  >> gvs [shift_cb_def]
+  >> rpt $ irule_at Any shift_vars_dist
 QED
 
 Theorem list_rel_env_perm:
