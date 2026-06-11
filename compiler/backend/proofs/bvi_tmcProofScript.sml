@@ -1788,6 +1788,19 @@ Proof
   >> gvs []
 QED
 
+Theorem mb_rel_del:
+  ∀f refs v1 v2 ptr tag left ptr' right.
+    mb_rel f refs v1 v2 ∧
+    FLOOKUP refs ptr = SOME (MutBlock tag left (RefPtr F ptr') right) ∧
+    ptr' ∉ FDOM refs ⇒
+    mb_rel f (refs \\ ptr) v1 v2
+Proof
+  recInduct mb_rel_ind
+  >> rw [mb_rel_def]
+  >> first_x_assum drule
+  >> cheat
+QED
+
 Theorem fresh_ptr_fresh:
   ∀refs.
     (LEAST ptr. ptr ∉ FDOM refs) ∉ FDOM refs
@@ -2354,8 +2367,30 @@ Proof
     >> imp_res_tac evaluate_SING_IMP
     >> gvs []
     >> irule_at Any mb_rel_cons
-    (* mb_rel ref delete trickiness *)
-    >> cheat)
+    >> drule mb_rel_del
+    >> disch_then $ qspecl_then [‘hole_ptr’, ‘tag'’, ‘left'’, ‘LEAST ptr. ptr ∉ FDOM refs’, ‘right'’] mp_tac
+    >> impl_tac
+    >-
+     (conj_tac
+      >-
+       (gvs [DOMSUB_FLOOKUP_THM]
+        >> gvs [holes_unchanged_except_def]
+        >> first_x_assum irule
+        >> gvs [FLOOKUP_SIMP])
+      >> gvs [])
+    >> strip_tac
+    >> gvs [DOMSUB_COMMUTES]
+    >> pop_assum $ irule_at Any
+    >> gvs [DOMSUB_FLOOKUP_THM, holes_unchanged_except_def, FLOOKUP_SIMP]
+    >> first_assum $ irule_at Any
+    >> gvs []
+    >> conj_tac
+    >- cheat
+    >> conj_tac
+    >- cheat
+    >> irule non_fresh_not_in_frange
+    >> rpt $ first_assum $ irule_at Any
+    >> gvs [])
 
   (* Work *)
   >> gvs [evaluate_def, cb_to_bvi_worker_def, mut_cons_def, evaluate_APPEND]
