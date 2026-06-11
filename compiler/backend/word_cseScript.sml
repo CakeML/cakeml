@@ -38,6 +38,11 @@ Libs
    - All names in the domain and range of to_canonical must be ODD, so
      that pre-register-allocated registers aren't touched.
 
+   - Every register mentioned by a stored fact — including registers an
+     instruction only reads — must be in the domain of to_canonical, so
+     that a later write to it resets the data. Reads are entered as
+     self-mappings (registered) when a fact is stored.
+
 *)
 
 Datatype:
@@ -83,6 +88,28 @@ Definition invalidate_data_def:
   else empty_data
 End
 
+(* Invalidate after writing each register in a list (e.g. multi-output
+  instructions); empties the data if any of them is tracked. *)
+Definition invalidate_regs_def:
+  invalidate_regs data [] = data ∧
+  invalidate_regs data (r::rs) = invalidate_regs (invalidate_data data r) rs
+End
+
+(* Enter an odd register that a stored fact reads into the tracked set as a
+  self-mapping, so that a later write to it resets the data. Registers
+  already tracked, and pre-allocated (EVEN) registers, are left alone. *)
+Definition register_read_def:
+  register_read data (r:num) =
+    if ¬EVEN r ∧ keep_data data.to_canonical r
+    then data with to_canonical := insert r r data.to_canonical
+    else data
+End
+
+Definition register_reads_def:
+  register_reads data [] = data ∧
+  register_reads data (r::rs) = register_reads (register_read data r) rs
+End
+
 (* REGISTER TRANSFORMATIONS *)
 
 Definition canonicalRegs_def:
@@ -118,6 +145,10 @@ End
 
 Definition canonicalMoveRegs_def:
   canonicalMoveRegs data moves =
+  (* Register the sources first: a register that is both a source and a
+     destination is then tracked and fails the keep_data check below, so
+     no equivalence is recorded across a self-interfering parallel move. *)
+  let data = register_reads data (MAP SND moves) in
   if EVERY (keep_data data.to_canonical) (MAP FST moves)
   then
     let xs = FILTER (λ(a,b). ¬EVEN a ∧ ¬EVEN b) moves in
@@ -280,23 +311,42 @@ Definition firstRegOfArith_def:
   firstRegOfArith (SubOverflow r _ _ _) = r
 End
 
-Definition firstRegOfFp_def:
-  firstRegOfFp (FPLess r _ _) = r ∧
-  firstRegOfFp (FPLessEqual r _ _) = r ∧
-  firstRegOfFp (FPEqual r _ _) = r ∧
-  firstRegOfFp (FPAbs r _) = r ∧
-  firstRegOfFp (FPNeg r _) = r ∧
-  firstRegOfFp (FPSqrt r _) = r ∧
-  firstRegOfFp (FPAdd r _ _) = r ∧
-  firstRegOfFp (FPSub r _ _) = r ∧
-  firstRegOfFp (FPMul r _ _) = r ∧
-  firstRegOfFp (FPDiv r _ _) = r ∧
-  firstRegOfFp (FPFma r _ _) = r ∧
-  firstRegOfFp (FPMov r _) = r ∧
-  firstRegOfFp (FPMovToReg r _ _) = r ∧
-  firstRegOfFp (FPMovFromReg r _ _) = r ∧
-  firstRegOfFp (FPToInt r _) = r ∧
-  firstRegOfFp (FPFromInt r _) = r
+(* All registers an arith instruction writes (multi-output ops write two), so
+  that every written register is invalidated. *)
+Definition arithWrites_def:
+  arithWrites (Binop _ r _ _) = [r] ∧
+  arithWrites (Shift _ r _ _) = [r] ∧
+  arithWrites (Div r _ _) = [r] ∧
+  arithWrites (LongMul r1 r2 _ _) = [r1; r2] ∧
+  arithWrites (LongDiv r1 r2 _ _ _) = [r1; r2] ∧
+  arithWrites (AddCarry r1 _ _ r4) = [r1; r4] ∧
+  arithWrites (AddOverflow r1 _ _ r4) = [r1; r4] ∧
+  arithWrites (SubOverflow r1 _ _ r4) = [r1; r4]
+End
+
+(* All registers an arith instruction reads (AddCarry also reads the
+  carry-flag register r4). *)
+Definition arithReads_def:
+  arithReads (Binop _ _ r2 (Reg r3)) = [r2; r3] ∧
+  arithReads (Binop _ _ r2 (Imm _)) = [r2] ∧
+  arithReads (Shift _ _ r2 (Reg r3)) = [r2; r3] ∧
+  arithReads (Shift _ _ r2 (Imm _)) = [r2] ∧
+  arithReads (Div _ r2 r3) = [r2; r3] ∧
+  arithReads (LongMul _ _ r3 r4) = [r3; r4] ∧
+  arithReads (LongDiv _ _ r3 r4 r5) = [r3; r4; r5] ∧
+  arithReads (AddCarry _ r2 r3 r4) = [r2; r3; r4] ∧
+  arithReads (AddOverflow _ r2 r3 _) = [r2; r3] ∧
+  arithReads (SubOverflow _ r2 r3 _) = [r2; r3]
+End
+
+(* The general-purpose registers an fp instruction writes. Most write only
+  fp-registers (disjoint from the tracked state), hence []. *)
+Definition fpWrites_def:
+  fpWrites (FPLess r _ _) = [r] ∧
+  fpWrites (FPLessEqual r _ _) = [r] ∧
+  fpWrites (FPEqual r _ _) = [r] ∧
+  fpWrites (FPMovToReg r1 r2 _) = [r1; r2] ∧
+  fpWrites _ = []
 End
 
 Definition add_to_data_aux_def:
@@ -349,22 +399,56 @@ Definition word_cseInst_def:
          add_to_data data r (Const r w) (Const r w)) ∧
   (word_cseInst data (Arith a) =
      let r = firstRegOfArith a in
-     let data = invalidate_data data r in
+     let data = invalidate_regs data (arithWrites a) in
      let a' = canonicalArith data a in
-       if can_mem_arith a' then
-         add_to_data data r (Arith a') (Arith a)
+     let rds = arithReads a' in
+       (* A fact whose reads include the written register would not describe
+          the post-state, so it is not stored. *)
+       if can_mem_arith a' ∧ ¬MEM r rds then
+         add_to_data (register_reads data rds) r (Arith a') (Arith a)
        else
          (data, Inst (Arith a))) ∧
   (word_cseInst data (Mem op r ad) =
      let data = (if is_store op then data else invalidate_data data r) in
        (data, Inst (Mem op r ad))) ∧
   (word_cseInst data (FP fp :'a inst) =
-     (invalidate_data data (firstRegOfFp fp), Inst (FP fp)))
+     (invalidate_regs data (fpWrites fp), Inst (FP fp)))
 End
 
 Definition dest_Var_def:
   dest_Var (Var v :'a wordLang$exp) = SOME v ∧
   dest_Var _ = NONE
+End
+
+(* IF-JOIN MERGE
+
+  Knowledge valid after an If is the set of facts that hold after either
+  branch: exactly the entries present with equal value on both sides. *)
+
+(* First-order equality-intersection for the instruction map (written
+  without higher-order functions so it can be translated by cv_trans). *)
+Definition bm_inter_eq_acc_def:
+  bm_inter_eq_acc m2 Tip acc = acc ∧
+  bm_inter_eq_acc m2 (Bin n k v l r) acc =
+    bm_inter_eq_acc m2 l
+      (bm_inter_eq_acc m2 r
+        (if balanced_map$lookup listCmp k m2 = SOME v
+         then balanced_map$insert listCmp k v acc
+         else acc))
+End
+
+Definition bm_inter_eq_def:
+  bm_inter_eq m1 m2 = bm_inter_eq_acc m2 m1 empty
+End
+
+(* to_latest is reset: its entries must stay within the domain of the merged
+  to_canonical, and they regenerate as soon as new facts are stored. *)
+Definition merge_data_def:
+  merge_data d1 d2 =
+    <| to_canonical := inter_eq d1.to_canonical d2.to_canonical ;
+       to_latest    := LN ;
+       gets_mem     := FILTER (λ(x,v). ALOOKUP d2.gets_mem x = SOME v) d1.gets_mem ;
+       instrs_mem   := bm_inter_eq d1.instrs_mem d2.instrs_mem |>
 End
 
 (*
@@ -413,11 +497,16 @@ Definition word_cse_def:
       let new_gets_mem = FILTER (λ(m,n). m ≠ x) data.gets_mem in
         case dest_Var e of
         | NONE => (data with gets_mem := new_gets_mem, Set x e)
-        | SOME v => (data with
-                          <| gets_mem := (x,v)::new_gets_mem ;
+        (* Only ODD source registers are tracked; storing a fact about a
+           pre-allocated (EVEN) register would later reset all knowledge on
+           any write to it, for a fact of little value. *)
+        | SOME v => if EVEN v then (data with gets_mem := new_gets_mem, Set x e)
+                    else
+                      (data with
+                          <| gets_mem := (x, canonicalRegs data v)::new_gets_mem ;
                              to_canonical := insert v (lookup_any v data.to_canonical v)
                                                     data.to_canonical |>,
-                     Set x e)) ∧
+                       Set x e)) ∧
   (word_cse data (MustTerminate p) =
             let (data', p') = word_cse data p in
                 (data', MustTerminate p')) ∧
@@ -430,14 +519,20 @@ Definition word_cse_def:
   (word_cse data (If c r1 r2 p1 p2) =
     let (data1, p1') = word_cse data p1 in
     let (data2, p2') = word_cse data p2 in
-      (empty_data, If c r1 r2 p1' p2')) ∧
+      (merge_data data1 data2, If c r1 r2 p1' p2')) ∧
   (word_cse data ((OpCurrHeap b r1 r2):'a prog) =
     let data = invalidate_data data r1 in
-      if EVEN r2 then (data,OpCurrHeap b r1 r2) else
+      (* r2 = r1 reads the register the instruction overwrites; such a fact
+         would not describe the post-state, so it is not stored. *)
+      if EVEN r2 ∨ r2 = r1 then (data,OpCurrHeap b r1 r2) else
         let r2' = canonicalRegs' r1 data r2 in
         let pL = OpCurrHeapToNumList b r2' in
-          add_to_data_aux data r1 pL (OpCurrHeap b r1 r2)) ∧
-  (word_cse data (LocValue r l) = (invalidate_data data r, LocValue r l)) ∧
+          add_to_data_aux (register_read data r2') r1 pL (OpCurrHeap b r1 r2)) ∧
+  (word_cse data (LocValue r l) =
+    (* Loc l 0 is a constant determined by l, so CSE it like an immediate.
+       Tag 48 is distinct from every other stored hash head (0, 2, 3). *)
+    let data = invalidate_data data r in
+      add_to_data_aux data r [48; l] (LocValue r l)) ∧
   (word_cse data (Skip) = (data, Skip)) ∧
   (word_cse data (Store e r) = (data, Store e r)) ∧
   (word_cse data (Assign r e) = (data, Assign r e)) ∧
@@ -446,12 +541,18 @@ Definition word_cse_def:
   (word_cse data (Tick) = (data, Tick)) ∧
   (word_cse data (Alloc r m) = (empty_data, Alloc r m)) ∧
   (word_cse data (Install p l dp dl m) = (empty_data, Install p l dp dl m)) ∧
-  (word_cse data (CodeBufferWrite r1 r2) = (empty_data, CodeBufferWrite r1 r2)) ∧
-  (word_cse data (DataBufferWrite r1 r2) = (empty_data, DataBufferWrite r1 r2)) ∧
+  (* Buffer writes touch only the code/data buffers, nothing we track. *)
+  (word_cse data (CodeBufferWrite r1 r2) = (data, CodeBufferWrite r1 r2)) ∧
+  (word_cse data (DataBufferWrite r1 r2) = (data, DataBufferWrite r1 r2)) ∧
+  (* FFI cuts the local environment, so all knowledge is stale. *)
   (word_cse data (FFI s p1 l1 p2 l2 m) = (empty_data, FFI s p1 l1 p2 l2 m)) ∧
+  (* StoreConsts writes (or unsets) only its four register args and memory. *)
   (word_cse data (StoreConsts r1 r2 r3 r4 payload) =
-     (empty_data, StoreConsts r1 r2 r3 r4 payload)) ∧
-  (word_cse data (ShareInst op r exp) = (empty_data, ShareInst op r exp)) ∧
+     (invalidate_regs data [r1; r2; r3; r4], StoreConsts r1 r2 r3 r4 payload)) ∧
+  (* Shared-memory op: a load writes its var; a store writes no register. *)
+  (word_cse data (ShareInst op r exp) =
+     let data = (if is_store op then data else invalidate_data data r) in
+       (data, ShareInst op r exp)) ∧
   (* Conservative: optimise the loop body from empty state. *)
   (word_cse data (Loop names c exit_names) =
      let (_, c') = word_cse empty_data c in
@@ -602,6 +703,104 @@ Triviality test_pattern_match_and_cons:
           Set NextFree (Var 429);
           Move 0 [(2,421)];
           Return 273 [2]]
+Proof
+  EVAL_TAC
+QED
+
+(* Set CurrHeap conservatively resets all knowledge (it is not emitted by
+   data_to_word, so a finer treatment is not worth its proof cost): nothing
+   after it is CSE'd. *)
+Triviality test_set_currheap:
+  word_common_subexp_elim $
+    Seqs [Inst (Const 1 0w);
+          Inst (Arith (Binop Add 7 1 (Reg 1)));
+          OpCurrHeap Add 3 1;
+          Set CurrHeap (Var 7);
+          Inst (Arith (Binop Add 9 1 (Reg 1)));
+          OpCurrHeap Add 5 1]
+  =
+    Seqs [Inst (Const 1 0w);
+          Inst (Arith (Binop Add 7 1 (Reg 1)));
+          OpCurrHeap Add 3 1;
+          Set CurrHeap (Var 7);
+          Inst (Arith (Binop Add 9 1 (Reg 1)));
+          OpCurrHeap Add 5 1]
+Proof
+  EVAL_TAC
+QED
+
+(* A repeated LocValue of the same label is CSE'd to a Move. *)
+Triviality test_locvalue:
+  word_common_subexp_elim $
+    Seqs [LocValue 7 100; LocValue 9 100]
+  =
+    Seqs [LocValue 7 100; Move 0 [(9,7)]]
+Proof
+  EVAL_TAC
+QED
+
+(* LongMul clobbers both outputs (7 and 9), so the value previously stored in
+   9 is invalidated and the later Add is NOT replaced by a Move from 9. *)
+Triviality test_multi_output_invalidation:
+  word_common_subexp_elim $
+    Seqs [Inst (Arith (Binop Add 9 1 (Reg 1)));
+          Inst (Arith (LongMul 7 9 3 5));
+          Inst (Arith (Binop Add 11 1 (Reg 1)))]
+  =
+    Seqs [Inst (Arith (Binop Add 9 1 (Reg 1)));
+          Inst (Arith (LongMul 7 9 3 5));
+          Inst (Arith (Binop Add 11 1 (Reg 1)))]
+Proof
+  EVAL_TAC
+QED
+
+(* An instruction that reads the register it writes is not stored as a fact,
+   so the second Add (reading the NEW 7) is not replaced by a Move. *)
+Triviality test_self_read_not_cse:
+  word_common_subexp_elim $
+    Seqs [Inst (Arith (Binop Add 7 7 (Imm 1w)));
+          Inst (Arith (Binop Add 9 7 (Imm 1w)))]
+  =
+    Seqs [Inst (Arith (Binop Add 7 7 (Imm 1w)));
+          Inst (Arith (Binop Add 9 7 (Imm 1w)))]
+Proof
+  EVAL_TAC
+QED
+
+(* Facts valid after both arms of an If survive the join: the Add fact
+   (holder 7) is used both inside the first arm and after the join. *)
+Triviality test_if_merge:
+  word_common_subexp_elim $
+    Seqs [Inst (Const 1 0w);
+          Inst (Arith (Binop Add 7 1 (Reg 1)));
+          If Equal 1 (Imm 0w)
+             (Inst (Arith (Binop Add 9 1 (Reg 1))))
+             (Move 0 [(11,7)]);
+          Inst (Arith (Binop Add 13 1 (Reg 1)))]
+  =
+    Seqs [Inst (Const 1 0w);
+          Inst (Arith (Binop Add 7 1 (Reg 1)));
+          If Equal 1 (Imm 0w) (Move 0 [(9,7)]) (Move 0 [(11,7)]);
+          Move 0 [(13,7)]]
+Proof
+  EVAL_TAC
+QED
+
+(* An arm that clobbers a tracked register resets its branch knowledge, so
+   nothing survives the join and the trailing Add is not CSE'd. *)
+Triviality test_if_merge_clobber:
+  word_common_subexp_elim $
+    Seqs [Inst (Const 1 0w);
+          Inst (Arith (Binop Add 7 1 (Reg 1)));
+          If Equal 1 (Imm 0w)
+             (Move 0 [(7,3)])
+             Skip;
+          Inst (Arith (Binop Add 9 1 (Reg 1)))]
+  =
+    Seqs [Inst (Const 1 0w);
+          Inst (Arith (Binop Add 7 1 (Reg 1)));
+          If Equal 1 (Imm 0w) (Move 0 [(7,3)]) Skip;
+          Inst (Arith (Binop Add 9 1 (Reg 1)))]
 Proof
   EVAL_TAC
 QED
