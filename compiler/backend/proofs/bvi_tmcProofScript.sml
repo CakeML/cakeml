@@ -2454,11 +2454,20 @@ Proof
     >> pop_assum $ irule_at Any
     >> gvs [DOMSUB_FLOOKUP_THM, holes_unchanged_except_def, FLOOKUP_SIMP]
     >> first_assum $ irule_at Any
+    >> drule_all env_rel_submap
+    >> strip_tac
     >> gvs []
     >> conj_tac
-    >- cheat
+    >-
+     (‘TAKE (LENGTH left'') (REVERSE right) = REVERSE right’ by gvs [LENGTH_REVERSE, TAKE_LENGTH_ID]
+      >> simp [MAP_REVERSE]
+      >> irule list_rel_env_perm
+      >> rpt $ first_assum $ irule_at Any)
     >> conj_tac
-    >- cheat
+    >-
+     (simp [MAP_REVERSE]
+      >> irule list_rel_env_perm
+      >> rpt $ first_assum $ irule_at Any)
     >> irule non_fresh_not_in_frange
     >> rpt $ first_assum $ irule_at Any
     >> gvs [])
