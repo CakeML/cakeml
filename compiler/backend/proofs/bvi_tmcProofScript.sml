@@ -2247,8 +2247,16 @@ Proof
     >> simp [LIST_REL_MAP]
     >> rpt $ irule_at Any LIST_REL_refl
     >> simp []
-    (* Lemma? *)
-    >> cheat)
+
+    >> imp_res_tac env_rel_submap
+    >> gvs [env_rel_def]
+    >> imp_res_tac LIST_REL_LENGTH
+    >> gvs [EL_APPEND_EQN]
+    >> rw []
+    >- gvs [LIST_REL_EL_EQN]
+    >- cheat
+    >- gvs [LIST_REL_EL_EQN]
+    >- cheat)
   (* Wrap *)
   >-
    (gvs [cb_to_bvi_wrapper_def, evaluate_def, mut_cons_def, evaluate_APPEND]
