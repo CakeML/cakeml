@@ -139,11 +139,21 @@ Proof
 QED
 
 Definition opt_res_rel_def:
+  opt_res_rel f (r1 : (v list, v) result) (r2 : (v list, v) result) =
+  case (r1,r2) of
+  | (Rval v1,Rval [Block 0 []]) => T
+  | (Rerr e1,Rerr e2) => exc_rel (v_rel f) e1 e2
+  | _ => F
+End
+
+(*
+Definition opt_res_rel_def:
   opt_res_rel (r1 : (v list, v) result) (r2 : (v list, v) result) =
   case r1 of
   | Rval v1 => r2 = Rval [Block 0 []]
   | _ => r1 = r2
 End
+*)
 
 Theorem v_rel_submap:
   ∀f v1 v2 f'. v_rel f v1 v2 ∧ f SUBMAP f' ⇒ v_rel f' v1 v2
@@ -485,19 +495,69 @@ Proof
   >> gvs []
 QED
 
-(* NOTE: I think this is wrong and should be replaced with the version way below *)
-Theorem holes_unchanged_except_filled:
-  ∀f refs refs' k tag left child right.
-    holes_unchanged_except f refs refs' ∅ ∧
-    k ∉ FDOM refs' ⇒
-    holes_unchanged_except f refs refs'⟨k ↦ MutBlock tag left child right⟩ {k}
+Theorem holes_unchanged_except_del:
+  ∀f refs_old refs_new changed ptr v.
+    holes_unchanged_except f refs_old⟨ptr ↦ v⟩ refs_new changed ∧
+    ptr ∉ FDOM refs_old ⇒
+    holes_unchanged_except f refs_old refs_new (changed DIFF {ptr})
 Proof
   rw [holes_unchanged_except_def]
-  >- gvs [FLOOKUP_SIMP]
-  >> gvs [FLOOKUP_SIMP]
-  >> first_x_assum drule_all
+  >-
+   (first_x_assum irule
+    >> gvs [FLOOKUP_SIMP, FLOOKUP_DEF]
+    >> IF_CASES_TAC
+    >- gvs []
+    >> gvs [])
+  >> rpt $ first_x_assum $ irule_at Any
+  >> Cases_on ‘ptr = ptr'’
+  >- gvs [FLOOKUP_SIMP, FLOOKUP_DEF]
+  >> gvs [FLOOKUP_SIMP, FLOOKUP_DEF]
+QED
+
+Theorem holes_unchanged_except_del_SING:
+  ∀f refs_old refs_new changed ptr v.
+    holes_unchanged_except f refs_old⟨ptr ↦ v⟩ refs_new {ptr} ∧
+    ptr ∉ FDOM refs_old ⇒
+    holes_unchanged_except f refs_old refs_new EMPTY
+Proof
+  rw []
+  >> drule_all holes_unchanged_except_del
   >> strip_tac
-  >> gvs [FLOOKUP_DEF]
+  >> gvs []
+QED
+
+Theorem holes_unchanged_except_changed:
+  ∀f refs_old refs_new changed ptr tag l c r.
+    holes_unchanged_except f refs_old⟨ptr ↦ MutBlock tag l c r⟩ refs_new EMPTY ∧
+    FLOOKUP refs_old ptr = SOME (MutBlock tag l c' r) ⇒
+    holes_unchanged_except f refs_old refs_new {ptr}
+Proof
+  rw [holes_unchanged_except_def]
+  >-
+   (gvs []
+    >> rw []
+    >> first_x_assum irule
+    >> gvs [FLOOKUP_SIMP, FLOOKUP_DEF])
+  >> first_x_assum $ irule_at Any
+  >> gvs [FLOOKUP_SIMP, FLOOKUP_DEF]
+QED
+
+Theorem holes_unchanged_except_filled:
+  ∀f refs_old refs_new changed ptr tag l c r.
+    holes_unchanged_except f refs_old refs_new EMPTY ∧
+    FLOOKUP refs_old ptr = SOME (MutBlock tag l c' r) ⇒
+    holes_unchanged_except f refs_old refs_new⟨ptr ↦ MutBlock tag l c r⟩ {ptr}
+Proof
+  rw []
+  >> irule holes_unchanged_except_changed
+  >> first_assum $ irule_at Any
+  >> qexists ‘c’
+  >> gvs [holes_unchanged_except_def]
+  >> rw []
+  >> gvs [FLOOKUP_SIMP]
+  >> IF_CASES_TAC
+  >- gvs []
+  >> gvs []
 QED
 
 Theorem unchanged_hole_has_val:
@@ -855,7 +915,7 @@ Theorem evaluate_fill_hole:
     env2❲LENGTH env1❳ = RefPtr F hole_ptr ⇒
     ∃r t'' f_work.
       evaluate ([fill_hole (LENGTH env1) (LENGTH env1 + 1) exp],env2,s') = (r,t'') ∧
-      opt_res_rel (Rval [v]) r ∧
+      opt_res_rel f_work (Rval [v]) r ∧
       state_rel f_work t t'' ∧
       f ⊑ f_work ∧
       only_fresh f f_work s'.refs ∧
@@ -867,20 +927,32 @@ Proof
   >> strip_tac
   >> drule env_rel_extras_opt
   >> strip_tac
-  >> gvs [evaluate_def, fill_hole_def, do_app_def, do_app_aux_def, hole_has_val_def, holes_unchanged_except_def,
-          case_eq_thms, PULL_EXISTS, FLOOKUP_SIMP, bvlSemTheory.Unit_def, backend_commonTheory.tuple_tag_def, opt_res_rel_def]
+  >> imp_res_tac hole_has_val_def
+  >> imp_res_tac holes_unchanged_except_def
+  >> simp [evaluate_def, fill_hole_def, do_app_def, do_app_aux_def,
+           case_eq_thms, PULL_EXISTS, FLOOKUP_SIMP, bvlSemTheory.Unit_def, backend_commonTheory.tuple_tag_def, opt_res_rel_def]
+  >> gvs []
   >> first_x_assum $ drule_all
   >> strip_tac
-  >> gvs []
+  >> first_x_assum drule
+  >> disch_then drule
+  >> impl_tac
+  >- gvs []
+  >> strip_tac
   >> first_assum $ irule_at Any
+  >> gvs []
   >> conj_tac
   >-
    (irule state_rel_filled
     >> gvs []
     >> irule non_fresh_not_in_frange
-    >> first_assum $ irule_at Any
+    >> rpt $ first_assum $ irule_at Any
     >> gvs [FLOOKUP_DEF])
-  >> metis_tac []
+  >> conj_tac
+  >-
+   (irule holes_unchanged_except_filled
+    >> rpt $ first_assum $ irule_at Any)
+  >> gvs [hole_has_val_def, FLOOKUP_SIMP]
 QED
 
 Theorem evaluate_fill_hole_err:
@@ -1590,14 +1662,6 @@ Definition hypothesis_def:
 End
 *)
 
-Definition opt_res_rel_def:
-  opt_res_rel f (r1 : (v list, v) result) (r2 : (v list, v) result) =
-  case (r1,r2) of
-  | (Rval v1,Rval [Block 0 []]) => T
-  | (Rerr e1,Rerr e2) => exc_rel (v_rel f) e1 e2
-  | _ => F
-End
-
 Definition mb_rel_def:
   (mb_rel f refs (Block tag xs) (RefPtr b ptr) =
    (b = F ∧
@@ -1962,53 +2026,6 @@ Theorem only_fresh_del:
 Proof
   rw []
   >> gvs [only_fresh_def]
-QED
-
-Theorem holes_unchanged_except_del:
-  ∀f refs_old refs_new changed ptr v.
-    holes_unchanged_except f refs_old⟨ptr ↦ v⟩ refs_new changed ∧
-    ptr ∉ FDOM refs_old ⇒
-    holes_unchanged_except f refs_old refs_new (changed DIFF {ptr})
-Proof
-  rw [holes_unchanged_except_def]
-  >-
-   (first_x_assum irule
-    >> gvs [FLOOKUP_SIMP, FLOOKUP_DEF]
-    >> IF_CASES_TAC
-    >- gvs []
-    >> gvs [])
-  >> rpt $ first_x_assum $ irule_at Any
-  >> Cases_on ‘ptr = ptr'’
-  >- gvs [FLOOKUP_SIMP, FLOOKUP_DEF]
-  >> gvs [FLOOKUP_SIMP, FLOOKUP_DEF]
-QED
-
-Theorem holes_unchanged_except_del_SING:
-  ∀f refs_old refs_new changed ptr v.
-    holes_unchanged_except f refs_old⟨ptr ↦ v⟩ refs_new {ptr} ∧
-    ptr ∉ FDOM refs_old ⇒
-    holes_unchanged_except f refs_old refs_new EMPTY
-Proof
-  rw []
-  >> drule_all holes_unchanged_except_del
-  >> strip_tac
-  >> gvs []
-QED
-
-Theorem holes_unchanged_except_filled:
-  ∀f refs_old refs_new changed ptr tag l c r.
-    holes_unchanged_except f refs_old⟨ptr ↦ MutBlock tag l c r⟩ refs_new EMPTY ∧
-    FLOOKUP refs_old ptr = SOME (MutBlock tag l c' r) ⇒
-    holes_unchanged_except f refs_old refs_new {ptr}
-Proof
-  rw [holes_unchanged_except_def]
-  >-
-   (gvs []
-    >> rw []
-    >> first_x_assum irule
-    >> gvs [FLOOKUP_SIMP, FLOOKUP_DEF])
-  >> first_x_assum $ irule_at Any
-  >> gvs [FLOOKUP_SIMP, FLOOKUP_DEF]
 QED
 
 Theorem flookup_com_neq:
@@ -2441,7 +2458,7 @@ Proof
       >> gvs [])
     >> conj_tac
     >-
-     (irule holes_unchanged_except_filled
+     (irule holes_unchanged_except_changed
       >> first_assum $ irule_at Any
       >> irule_at Any holes_unchanged_except_del_SING
       >> gvs [flookup_com_neq]
@@ -2562,7 +2579,7 @@ Proof
     >> imp_res_tac fresh_not_in_range_f)
   >> conj_tac
   >-
-   (irule holes_unchanged_except_filled
+   (irule holes_unchanged_except_changed
     >> first_assum $ irule_at Any
     >> irule_at Any holes_unchanged_except_del_SING
     >> gvs [flookup_com_neq]
