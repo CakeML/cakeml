@@ -2218,7 +2218,6 @@ Proof
     >> gvs []
     >> first_assum $ irule_at Any
     >> gvs [hole_has_val_def, EL_APPEND_EQN, LENGTH_MAP])
-
   >> rpt gen_tac
   >> strip_tac
   >> rename [‘CallBlock tag left child right’]
@@ -2267,7 +2266,6 @@ Proof
     >> simp []
     (* Lemma? *)
     >> cheat)
-
   (* Wrap *)
   >-
    (gvs [cb_to_bvi_wrapper_def, evaluate_def, mut_cons_def, evaluate_APPEND]
@@ -2280,7 +2278,6 @@ Proof
                                      (LEAST ptr. ptr ∉ FDOM s'.refs) ↦
                                      MutBlock tag (MAP (λn. env2❲n❳) (REVERSE right)) (Number 0) (MAP (λn. env2❲n❳) (REVERSE left))⟩’,
                                     ‘[RefPtr F (LEAST ptr. ptr ∉ FDOM s'.refs)]’, ‘0’, ‘LENGTH right’] mp_tac
-
     >> disch_then $ qspec_then ‘LEAST ptr. ptr ∉ FDOM s'.refs’ mp_tac
     >> impl_tac
     >-
@@ -2344,7 +2341,6 @@ Proof
     >> irule holes_unchanged_except_del_SING
     >> first_assum $ irule_at $ Pos $ el 2
     >> irule_at Any fresh_ptr_fresh)
-
   (* Aux *)
   >-
    (gvs [cb_to_bvi_worker_aux_def, evaluate_def, shift_cb_def]
@@ -2368,7 +2364,6 @@ Proof
       >> strip_tac
       >> gvs [FDOM_DEF, FLOOKUP_DEF])
     >> gvs []
-
     >> first_x_assum $ qspecl_then [‘refs⟨
                                      hole_ptr ↦ MutBlock tag' left' (RefPtr F (LEAST ptr. ptr ∉ FDOM refs)) right';
                                      (LEAST ptr. ptr ∉ FDOM refs) ↦ MutBlock tag
@@ -2376,7 +2371,6 @@ Proof
                                                                   (Number 0)
                                                                   (MAP (λn. env2❲n❳) (REVERSE left))⟩’,
                                     ‘Unit::RefPtr F (LEAST ptr. ptr ∉ FDOM refs)::extras’, ‘1’, ‘LENGTH right’] mp_tac
-
     >> disch_then $ qspec_then ‘LEAST ptr. ptr ∉ FDOM refs’ mp_tac
     >> impl_tac
     >-
@@ -2471,7 +2465,6 @@ Proof
     >> irule non_fresh_not_in_frange
     >> rpt $ first_assum $ irule_at Any
     >> gvs [])
-
   (* Work *)
   >> gvs [evaluate_def, cb_to_bvi_worker_def, mut_cons_def, evaluate_APPEND]
   >> gvs [do_app_def, do_app_aux_def, backend_commonTheory.small_enough_int_def]
@@ -2496,8 +2489,6 @@ Proof
   >> ‘hole_idx = &LENGTH left'’ by gvs [EL_APPEND_EQN]
   >> ‘TAKE (LENGTH right) (REVERSE right) = REVERSE right’ by gvs [LENGTH_REVERSE, TAKE_LENGTH_ID]
   >> simp []
-  (* This should probably be simplified before we get here. *)
-
   >> first_x_assum $ qspecl_then [‘s'.refs⟨
                                    hole_ptr ↦ MutBlock tag' left' (RefPtr F (LEAST ptr. ptr ∉ FDOM s'.refs)) right';
                                    (LEAST ptr. ptr ∉ FDOM s'.refs) ↦ MutBlock tag
@@ -2506,7 +2497,6 @@ Proof
                                                                     Number 0::MAP (λn. (env2' ++ [RefPtr F hole_ptr; Number (&LENGTH left')])❲n❳) (REVERSE left))❲LENGTH right❳
                                                                    (MAP (λn. (env2' ++ [RefPtr F hole_ptr; Number (&LENGTH left')])❲n❳) (REVERSE left))⟩’,
                                   ‘[Unit; RefPtr F (LEAST ptr. ptr ∉ FDOM s'.refs)]’, ‘1’, ‘LENGTH right’] mp_tac
-
   >> disch_then $ qspec_then ‘LEAST ptr. ptr ∉ FDOM s'.refs’ mp_tac
   >> impl_tac
   >-
@@ -2584,8 +2574,22 @@ Proof
       >> first_assum $ irule_at Any
       >> qexists ‘T’
       >> imp_res_tac env_rel_submap)
-    >> gvs [mb_rel_def]
-    >> cheat)
+    >> drule mb_rel_del
+    >> disch_then $ qspecl_then [‘hole_ptr’, ‘tag'’, ‘left'’, ‘LEAST ptr. ptr ∉ FDOM s'.refs’, ‘right'’] mp_tac
+    >> impl_tac
+    >-
+     (conj_tac
+      >-
+       (gvs [DOMSUB_FLOOKUP_THM]
+        >> gvs [holes_unchanged_except_def]
+        >> first_x_assum irule
+        >> gvs [FLOOKUP_SIMP])
+      >> gvs []
+      >> irule non_fresh_not_in_frange
+      >> rpt $ first_assum $ irule_at Any
+      >> gvs [FLOOKUP_SIMP])
+    >> strip_tac
+    >> gvs [DOMSUB_COMMUTES])
   >> gvs [holes_unchanged_except_def]
   >> first_x_assum $ irule_at Any
   >> gvs [FLOOKUP_SIMP]
