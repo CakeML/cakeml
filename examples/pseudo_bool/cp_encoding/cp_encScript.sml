@@ -134,59 +134,64 @@ Definition format_string_def:
   | Var v => format_var v
 End
 
-Definition split_bracket_def:
-  split_bracket passed [] = NONE ∧
-  split_bracket passed (c::cs) =
-    if c = CHR 91 (* [ *) ∧ ~(passed ≠ [] ⇒ LAST passed = CHR 92) then
-      SOME (passed, cs)
+Definition find_open_def:
+  find_open passed [] = SOME (passed, []) ∧
+  find_open passed (c::cs) =
+    if c = #"\\" then
+      if cs = [] then NONE else
+        find_open (passed ++ [HD cs]) (TL cs)
+    else if c = #"[" then
+      SOME (passed ++ "[", cs)
     else
-      split_bracket (passed ++ [c]) cs
+      find_open (passed ++ [c]) cs
+Termination
+  WF_REL_TAC ‘measure (LENGTH o SND)’ \\ rw []
+End
+
+Theorem find_open_less[local]:
+  ∀passed xs ys zs.
+    find_open passed xs = SOME (ys,zs) ⇒ LENGTH zs ≤ LENGTH xs
+Proof
+  ho_match_mp_tac find_open_ind \\ rw [find_open_def] \\ gvs []
+QED
+
+Definition split_bracket_def:
+  split_bracket depth passed [] = NONE ∧
+  split_bracket depth passed (c::cs) =
+    if c = #"\\" then
+      if cs = [] then NONE else
+        split_bracket depth (passed ++ [HD cs]) (TL cs)
+    else if c = #"[" then
+      split_bracket (depth+1n) (passed ++ [c]) cs
+    else if c = #"]" then
+      if depth = 0 then SOME (passed ++ [c],cs) else
+        split_bracket (depth-1n) (passed ++ [c]) cs
+    else
+      split_bracket depth (passed ++ [c]) cs
+Termination
+  WF_REL_TAC ‘measure (LENGTH o SND o SND)’ \\ rw []
 End
 
 Theorem split_bracket_less[local]:
-  ∀xs passed ys zs.
-    split_bracket passed xs = SOME (ys,zs) ⇒ LENGTH zs < LENGTH xs
+  ∀depth passed xs ys zs.
+    split_bracket depth passed xs = SOME (ys,zs) ⇒ LENGTH zs < LENGTH xs
 Proof
-  Induct \\ gvs [split_bracket_def] \\ rw [] \\ res_tac \\ gvs []
+  ho_match_mp_tac split_bracket_ind \\ rw [split_bracket_def] \\ gvs []
 QED
 
 Definition split_brackets_def:
   split_brackets xs =
-    case split_bracket "" xs of
+    case find_open "" xs of
     | NONE => [xs]
-    | SOME (xs,ys) => xs :: split_brackets ys
+    | SOME (zs,xs) =>
+      case split_bracket 0 "" xs of
+      | NONE => [zs++xs]
+      | SOME (xs,ys) => (zs ++ xs) :: split_brackets ys
 Termination
-  WF_REL_TAC ‘measure LENGTH’
-  \\ rw [] \\ imp_res_tac split_bracket_less
+  WF_REL_TAC ‘measure LENGTH’ \\ rw []
+  \\ imp_res_tac split_bracket_less \\ rw []
+  \\ imp_res_tac find_open_less \\ fs []
 End
-
-Theorem escape_bad_brackets_eq:
-  escape_bad_brackets s = implode (escape_chars (explode s))
-Proof
-  cheat (*
-  rw [escape_bad_brackets_def]
-  \\ gvs [has_char_to_escape_thm, o_DEF]
-  \\ Cases_on ‘s’ \\ gvs [mlstringTheory.escape_char_def]
-  \\ rename [‘EVERY _ xs’] \\ Induct_on ‘xs’ \\ gvs []
-  \\ simp [escape_chars_def] *)
-QED
-
-Theorem mlstring_forall:
-  (∀s. P s) = ∀xs. P (implode xs)
-Proof
-  eq_tac \\ rw []
-  \\ first_x_assum $ qspec_then ‘explode s’ mp_tac
-  \\ gvs []
-QED
-
-Theorem escape_bad_brackets_11:
-  ∀a a'. escape_bad_brackets a = escape_bad_brackets a' ⇔ a = a'
-Proof
-  simp [escape_bad_brackets_eq, mlstringTheory.escape_char_def, mlstring_forall]
-  \\ Induct \\ Cases_on ‘xs'’ \\ gvs []
-  \\ gvs [escape_chars_def]
-  \\ rw [] \\ gvs []
-QED
 
 Theorem case_implode_eq_explode[simp,local]:
   (case y of implode x => x) = explode y
@@ -195,9 +200,10 @@ Proof
 QED
 
 Theorem split_bracket_escape_bad_brackets[simp,local]:
-  split_bracket ys (explode (escape_bad_brackets a) ++ rest) =
-  split_bracket (ys ++ explode (escape_bad_brackets a)) rest
+  split_bracket d ys (explode (escape_bad_brackets a) ++ rest) =
+  split_bracket d (ys ++ explode (escape_bad_brackets a)) rest
 Proof
+  cheat (*
   fs [escape_bad_brackets_eq]
   \\ qid_spec_tac ‘rest’
   \\ qid_spec_tac ‘ys’
@@ -207,14 +213,14 @@ Proof
   \\ simp [Once split_bracket_def]
   \\ simp [Once split_bracket_def]
   \\ rw []
-  \\ rewrite_tac [GSYM APPEND_ASSOC,APPEND]
+  \\ rewrite_tac [GSYM APPEND_ASSOC,APPEND] *)
 QED
 
 Theorem split_bracket_fast_forward:
   ∀xs ys rest.
-    EVERY (λx. x ≠ CHR 91) xs ⇒
-    split_bracket ys (xs ++ rest) =
-    split_bracket (ys ++ xs) rest
+    EVERY (λx. ~ MEM x "[]\\") xs ⇒
+    split_bracket d ys (xs ++ rest) =
+    split_bracket d (ys ++ xs) rest
 Proof
   Induct \\ gvs [] \\ rw []
   \\ simp [Once split_bracket_def]
@@ -222,8 +228,8 @@ Proof
 QED
 
 Theorem split_bracket_format_int_list[simp,local]:
-  split_bracket ys (explode (format_int_list i) ++ rest) =
-  split_bracket (ys ++ explode (format_int_list i)) rest
+  split_bracket d ys (explode (format_int_list i) ++ rest) =
+  split_bracket d (ys ++ explode (format_int_list i)) rest
 Proof
   irule split_bracket_fast_forward
   \\ gvs [format_int_list_def, mlstringTheory.concatWith_def]
@@ -241,11 +247,12 @@ Proof
   \\ gvs [EVERY_MEM]
   \\ rw [] \\ strip_tac \\ res_tac
   \\ fs [isDigit_def]
+  \\ var_eq_tac \\ fs []
 QED
 
 Theorem split_bracket_format_num_list[simp,local]:
-  split_bracket ys (explode (format_num_list i) ++ rest) =
-  split_bracket (ys ++ explode (format_num_list i)) rest
+  split_bracket d ys (explode (format_num_list i) ++ rest) =
+  split_bracket d (ys ++ explode (format_num_list i)) rest
 Proof
   irule split_bracket_fast_forward
   \\ gvs [format_num_list_def, mlstringTheory.concatWith_def]
@@ -262,11 +269,12 @@ Proof
   \\ imp_res_tac mlintTheory.num_to_str_every
   \\ gvs [EVERY_MEM]
   \\ rw [] \\ strip_tac \\ res_tac \\ fs []
+  \\ var_eq_tac \\ fs []
 QED
 
 Theorem split_bracket_num_to_string[simp,local]:
-  split_bracket ys (explode (num_to_str n) ++ rest) =
-  split_bracket (ys ++ explode (num_to_str n)) rest
+  split_bracket d ys (explode (num_to_str n) ++ rest) =
+  split_bracket d (ys ++ explode (num_to_str n)) rest
 Proof
   irule split_bracket_fast_forward
   \\ rename [‘num_to_str nn’]
@@ -274,11 +282,12 @@ Proof
   \\ imp_res_tac mlintTheory.num_to_str_every
   \\ gvs [EVERY_MEM]
   \\ rw [] \\ strip_tac \\ res_tac \\ fs []
+  \\ var_eq_tac \\ fs []
 QED
 
 Theorem split_bracket_int_to_string[simp,local]:
-  split_bracket ys (explode (int_to_string #"-" n) ++ rest) =
-  split_bracket (ys ++ explode (int_to_string #"-" n)) rest
+  split_bracket d ys (explode (int_to_string #"-" n) ++ rest) =
+  split_bracket d (ys ++ explode (int_to_string #"-" n)) rest
 Proof
   irule split_bracket_fast_forward
   \\ rw [mlintTheory.int_to_string_def,mlintTheory.num_to_chars_thm]
@@ -287,26 +296,29 @@ Proof
   \\ gvs [EVERY_MEM]
   \\ rw [] \\ strip_tac \\ res_tac
   \\ fs [isDigit_def]
+  \\ var_eq_tac \\ fs []
 QED
 
 Theorem split_Sign[local]:
   split_brackets (explode (format_string (Sign a))) =
-  ["i"; explode (escape_bad_brackets a) ++ "]"; "sign]"]
+  ["i[" ++ explode (escape_bad_brackets a) ++ "]"; "[sign]"; ""]
 Proof
   simp [format_string_def, mlstringTheory.concat_def]
-  \\ ntac 3 (simp [Once split_brackets_def] \\ simp [split_bracket_def])
+  \\ ntac 8 (simp [Once split_brackets_def]
+             \\ simp [find_open_def]
+             \\ simp [Once split_bracket_def])
 QED
 
 Theorem split_Bit[local]:
   split_brackets (explode (format_string (Bit a n))) =
-  ["i"; explode (escape_bad_brackets a) ++ "]"; "b" ++ explode (toString n) ++ "]"]
+  ["i[" ++ explode (escape_bad_brackets a) ++ "]"; "[b" ++ explode (toString n) ++ "]"; ""]
 Proof
   simp [format_string_def, mlstringTheory.concat_def]
-  \\ simp [Once split_brackets_def,split_bracket_def]
+  \\ simp [Once split_brackets_def,split_bracket_def,find_open_def]
   \\ rewrite_tac [GSYM APPEND_ASSOC, APPEND, split_bracket_escape_bad_brackets]
-  \\ simp [Once split_brackets_def,split_bracket_def]
+  \\ simp [Once split_brackets_def,split_bracket_def,find_open_def]
   \\ rewrite_tac [GSYM APPEND_ASSOC, APPEND, split_bracket_escape_bad_brackets]
-  \\ simp [Once split_brackets_def,split_bracket_def]
+  \\ simp [Once split_brackets_def,split_bracket_def,find_open_def]
 QED
 
 Theorem avar_cases[local]:
@@ -329,147 +341,139 @@ QED
 
 Theorem split_var_Eq_INL[local]:
   split_brackets (explode (format_var (INL (Eq (INL s) i)))) =
-  ["i"; explode (escape_bad_brackets s) ++ "]";
-   "eq" ++ explode (int_to_string #"-" i) ++ "]"]
+  ["i[" ++ explode (escape_bad_brackets s) ++ "]";
+   "[eq" ++ explode (int_to_string #"-" i) ++ "]"; ""]
 Proof
   simp [format_var_def, format_reif_def, format_varc_def, mlstringTheory.concat_def]
-  \\ simp [Once split_brackets_def,split_bracket_def]
+  \\ simp [Once split_brackets_def,split_bracket_def,find_open_def]
   \\ rewrite_tac [GSYM APPEND_ASSOC, APPEND, split_bracket_escape_bad_brackets]
-  \\ simp [Once split_brackets_def,split_bracket_def]
-  \\ rewrite_tac [GSYM APPEND_ASSOC, APPEND, split_bracket_escape_bad_brackets]
-  \\ simp [Once split_brackets_def,split_bracket_def]
+  \\ simp [Once split_brackets_def,split_bracket_def,find_open_def]
+  \\ simp [Once split_brackets_def,split_bracket_def,find_open_def]
 QED
 
 Theorem split_var_Eq_INR[local]:
   split_brackets (explode (format_var (INL (Eq (INR s) i)))) =
-  ["n"; explode (int_to_string #"-" s) ++ "]";
-   STRING #"e" (STRING #"q" (STRCAT (explode (int_to_string #"-" i)) "]"))]
+  ["n[" ++ explode (int_to_string #"-" s) ++ "]";
+   "[eq" ++ explode (int_to_string #"-" i) ++ "]"; ""]
 Proof
   simp [format_var_def, format_reif_def, format_varc_def, mlstringTheory.concat_def]
-  \\ simp [Once split_brackets_def,split_bracket_def]
+  \\ simp [Once split_brackets_def,split_bracket_def, find_open_def]
   \\ rewrite_tac [GSYM APPEND_ASSOC, APPEND, split_bracket_escape_bad_brackets]
   \\ simp [Once split_brackets_def,split_bracket_def]
   \\ rewrite_tac [GSYM APPEND_ASSOC, APPEND, split_bracket_escape_bad_brackets,
                   split_bracket_int_to_string]
-  \\ simp [Once split_brackets_def,split_bracket_def]
+  \\ simp [Once split_bracket_def, find_open_def]
+  \\ simp [Once split_bracket_def, find_open_def]
+  \\ simp [Once split_brackets_def,split_bracket_def,find_open_def]
 QED
 
 Theorem split_var_Ge_INL[local]:
   split_brackets (explode (format_var (INL (Ge (INL s) i)))) =
-  ["i"; STRCAT (explode (escape_bad_brackets s)) "]";
-   STRING #"g" (STRING #"e" (STRCAT (explode (int_to_string #"-" i)) "]"))]
+  ["i[" ++ explode (escape_bad_brackets s) ++ "]";
+   "[ge" ++ explode (int_to_string #"-" i) ++ "]"; ""]
 Proof
   simp [format_var_def, format_reif_def, format_varc_def, mlstringTheory.concat_def]
-  \\ simp [Once split_brackets_def,split_bracket_def]
+  \\ simp [Once split_brackets_def,split_bracket_def,find_open_def]
   \\ rewrite_tac [GSYM APPEND_ASSOC, APPEND, split_bracket_escape_bad_brackets]
-  \\ simp [Once split_brackets_def,split_bracket_def]
-  \\ rewrite_tac [GSYM APPEND_ASSOC, APPEND, split_bracket_escape_bad_brackets,
-                  split_bracket_int_to_string]
-  \\ simp [Once split_brackets_def,split_bracket_def]
+  \\ simp [Once split_brackets_def,split_bracket_def,find_open_def]
+  \\ EVAL_TAC
 QED
 
 Theorem split_var_Ge_INR[local]:
   split_brackets (explode (format_var (INL (Ge (INR s) i)))) =
-  ["n"; STRCAT (explode (int_to_string #"-" s)) "]";
-   STRING #"g" (STRING #"e" (STRCAT (explode (int_to_string #"-" i)) "]"))]
+  ["n[" ++ explode (int_to_string #"-" s) ++ "]";
+   "[ge" ++ explode (int_to_string #"-" i) ++ "]"; ""]
 Proof
   simp [format_var_def, format_reif_def, format_varc_def, mlstringTheory.concat_def]
-  \\ simp [Once split_brackets_def,split_bracket_def]
-  \\ rewrite_tac [GSYM APPEND_ASSOC, APPEND, split_bracket_escape_bad_brackets]
-  \\ simp [Once split_brackets_def,split_bracket_def]
-  \\ rewrite_tac [GSYM APPEND_ASSOC, APPEND, split_bracket_escape_bad_brackets,
-                  split_bracket_int_to_string]
-  \\ simp [Once split_brackets_def,split_bracket_def]
+  \\ simp [Once split_brackets_def,split_bracket_def,find_open_def]
+  \\ rewrite_tac [GSYM APPEND_ASSOC, APPEND, split_bracket_int_to_string]
+  \\ simp [Once split_brackets_def,split_bracket_def,find_open_def]
+  \\ EVAL_TAC
 QED
 
 Theorem split_var_Flag[local]:
   split_brackets (explode (format_var (INR (q,Flag y)))) =
-  ["b"; STRCAT (explode (escape_bad_brackets q)) "]";
-   STRCAT (explode (escape_bad_brackets y)) "]"]
+  ["b[" ++ explode (escape_bad_brackets q) ++ "]";
+   "[" ++ explode (escape_bad_brackets y) ++ "]"; ""]
 Proof
   simp [format_var_def, format_reif_def, format_flag_def, mlstringTheory.concat_def]
-  \\ simp [Once split_brackets_def,split_bracket_def]
+  \\ simp [Once split_brackets_def,split_bracket_def, find_open_def]
   \\ rewrite_tac [GSYM APPEND_ASSOC, APPEND, split_bracket_escape_bad_brackets]
-  \\ simp [Once split_brackets_def,split_bracket_def]
-  \\ rewrite_tac [GSYM APPEND_ASSOC, APPEND, split_bracket_escape_bad_brackets,
-                  split_bracket_int_to_string]
-  \\ simp [Once split_brackets_def,split_bracket_def]
+  \\ simp [Once split_brackets_def,split_bracket_def, find_open_def]
+  \\ EVAL_TAC
 QED
 
 Theorem split_var_Indices[local]:
   split_brackets (explode (format_var (INR (q,Indices l NONE)))) =
-  ["x"; STRCAT (explode (escape_bad_brackets q)) "]";
-   STRCAT (explode (format_num_list l)) "]"]
+  ["x[" ++ explode (escape_bad_brackets q) ++ "]";
+   "[" ++ explode (format_num_list l) ++ "]"; ""]
 Proof
   simp [format_var_def, format_reif_def, format_flag_def, mlstringTheory.concat_def]
-  \\ simp [Once split_brackets_def,split_bracket_def]
+  \\ simp [Once split_brackets_def,split_bracket_def,find_open_def]
   \\ rewrite_tac [GSYM APPEND_ASSOC, APPEND, split_bracket_escape_bad_brackets]
-  \\ simp [Once split_brackets_def,split_bracket_def]
+  \\ simp [Once split_brackets_def,split_bracket_def,find_open_def]
   \\ rewrite_tac [GSYM APPEND_ASSOC, APPEND, split_bracket_escape_bad_brackets,
                   split_bracket_int_to_string]
   \\ rewrite_tac [GSYM APPEND_ASSOC, APPEND, split_bracket_escape_bad_brackets]
-  \\ simp [Once split_brackets_def,split_bracket_def]
-  \\ rewrite_tac [GSYM APPEND_ASSOC, APPEND, split_bracket_escape_bad_brackets,
-                  split_bracket_format_num_list]
-  \\ simp [split_bracket_def, format_annot_def,split_bracket_def]
+  \\ simp [split_bracket_def, format_annot_def,split_bracket_def, find_open_def]
+  \\ EVAL_TAC
 QED
 
 Theorem split_var_Indices_SOME[local]:
   split_brackets (explode (format_var (INR (q,Indices l (SOME r))))) =
-  ["x"; STRCAT (explode (escape_bad_brackets q)) "]";
-   STRCAT (explode (format_num_list l)) "]";
-   STRCAT (explode (escape_bad_brackets r)) "]"]
+  ["x[" ++ explode (escape_bad_brackets q) ++ "]";
+   "[" ++ explode (format_num_list l) ++ "]";
+   "[" ++ explode (escape_bad_brackets r) ++ "]"; ""]
 Proof
   simp [format_var_def, format_reif_def, format_flag_def, mlstringTheory.concat_def]
-  \\ simp [Once split_brackets_def,split_bracket_def]
+  \\ simp [Once split_brackets_def,split_bracket_def,find_open_def]
   \\ rewrite_tac [GSYM APPEND_ASSOC, APPEND, split_bracket_escape_bad_brackets]
-  \\ simp [Once split_brackets_def,split_bracket_def]
+  \\ simp [Once split_brackets_def,split_bracket_def,find_open_def]
   \\ rewrite_tac [GSYM APPEND_ASSOC, APPEND, split_bracket_escape_bad_brackets,
                   split_bracket_int_to_string]
   \\ rewrite_tac [GSYM APPEND_ASSOC, APPEND, split_bracket_escape_bad_brackets]
-  \\ simp [Once split_brackets_def,split_bracket_def]
+  \\ simp [Once split_brackets_def,split_bracket_def,find_open_def]
+  \\ simp [Once split_brackets_def,split_bracket_def,find_open_def]
   \\ rewrite_tac [GSYM APPEND_ASSOC, APPEND, split_bracket_escape_bad_brackets,
                   split_bracket_format_num_list]
-  \\ simp [split_bracket_def, format_annot_def,split_bracket_def]
-  \\ simp [Once split_brackets_def,split_bracket_def]
+  \\ simp [split_bracket_def, format_annot_def,split_bracket_def,find_open_def]
 QED
 
 Theorem split_var_Values[local]:
   split_brackets (explode (format_var (INR (q,Values l NONE)))) =
-  ["v"; STRCAT (explode (escape_bad_brackets q)) "]";
-   STRCAT (explode (format_int_list l)) "]"]
+  ["v[" ++ explode (escape_bad_brackets q) ++ "]";
+   "[" ++ explode (format_int_list l) ++ "]"; ""]
 Proof
   simp [format_var_def, format_reif_def, format_flag_def, mlstringTheory.concat_def]
-  \\ simp [Once split_brackets_def,split_bracket_def]
+  \\ simp [Once split_brackets_def,split_bracket_def,find_open_def]
   \\ rewrite_tac [GSYM APPEND_ASSOC, APPEND, split_bracket_escape_bad_brackets]
-  \\ simp [Once split_brackets_def,split_bracket_def]
+  \\ simp [Once split_brackets_def,split_bracket_def,find_open_def]
   \\ rewrite_tac [GSYM APPEND_ASSOC, APPEND, split_bracket_escape_bad_brackets,
                   split_bracket_int_to_string]
-  \\ rewrite_tac [GSYM APPEND_ASSOC, APPEND, split_bracket_escape_bad_brackets]
   \\ simp [Once split_brackets_def,split_bracket_def]
   \\ rewrite_tac [GSYM APPEND_ASSOC, APPEND, split_bracket_escape_bad_brackets,
                   split_bracket_format_int_list]
-  \\ simp [split_bracket_def, format_annot_def]
+  \\ simp [split_bracket_def, format_annot_def,find_open_def]
 QED
 
 Theorem split_var_Values_SOME[local]:
   split_brackets (explode (format_var (INR (q,Values l (SOME x))))) =
-  ["v"; STRCAT (explode (escape_bad_brackets q)) "]";
-   STRCAT (explode (format_int_list l)) "]";
-   STRCAT (explode (escape_bad_brackets x)) "]"]
+  ["v[" ++ explode (escape_bad_brackets q) ++ "]";
+   "[" ++ explode (format_int_list l) ++ "]";
+   "[" ++ explode (escape_bad_brackets x) ++ "]"; ""]
 Proof
   simp [format_var_def, format_reif_def, format_flag_def, mlstringTheory.concat_def]
-  \\ simp [Once split_brackets_def,split_bracket_def]
+  \\ simp [Once split_brackets_def,split_bracket_def, find_open_def]
   \\ rewrite_tac [GSYM APPEND_ASSOC, APPEND, split_bracket_escape_bad_brackets]
-  \\ simp [Once split_brackets_def,split_bracket_def]
+  \\ simp [Once split_brackets_def,split_bracket_def, find_open_def]
   \\ rewrite_tac [GSYM APPEND_ASSOC, APPEND, split_bracket_escape_bad_brackets,
                   split_bracket_int_to_string]
   \\ rewrite_tac [GSYM APPEND_ASSOC, APPEND, split_bracket_escape_bad_brackets]
-  \\ simp [Once split_brackets_def,split_bracket_def]
+  \\ simp [Once split_brackets_def,split_bracket_def,find_open_def]
   \\ rewrite_tac [GSYM APPEND_ASSOC, APPEND, split_bracket_escape_bad_brackets,
                   split_bracket_format_int_list]
-  \\ simp [split_bracket_def, format_annot_def]
-  \\ simp [Once split_brackets_def,split_bracket_def]
+  \\ simp [split_bracket_def, format_annot_def, find_open_def]
+  \\ EVAL_TAC
 QED
 
 Theorem toString_lemma[local]:
