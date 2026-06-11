@@ -673,6 +673,123 @@ Proof
   >> gvs []
 QED
 
+Theorem fresh_ptr_fresh:
+  ∀refs.
+    (LEAST ptr. ptr ∉ FDOM refs) ∉ FDOM refs
+Proof
+  rw []
+  >> numLib.LEAST_ELIM_TAC
+  >> conj_tac
+  >-
+   (qexists ‘SUC (MAX_SET (FDOM refs))’
+    >> spose_not_then assume_tac
+    >> imp_res_tac X_LE_MAX_SET
+    >> qspec_then ‘FDOM refs’ mp_tac X_LE_MAX_SET
+    >> impl_tac
+    >- gvs []
+    >> disch_then drule
+    >> strip_tac
+    >> gvs [])
+  >> rw []
+QED
+
+Theorem fresh_not_in_range_f:
+  ∀f s_refs t_refs.
+    state_ref_rel f s_refs t_refs ⇒
+    (LEAST ptr. ptr ∉ FDOM t_refs) ∉ FRANGE f
+Proof
+  rw []
+  >> spose_not_then assume_tac
+  >> qspec_then ‘t_refs’ mp_tac fresh_ptr_fresh
+  >> strip_tac
+  >> gvs [state_ref_rel_def, FRANGE_DEF]
+  >> Cases_on ‘FLOOKUP s_refs x’
+  >- gvs [FLOOKUP_DEF]
+  >> first_x_assum drule
+  >> strip_tac
+  >> gvs [FLOOKUP_DEF]
+QED
+
+Theorem only_fresh_del:
+  ∀f f' refs ptr v.
+    only_fresh f f' refs⟨ptr ↦ v⟩ ∧
+    ptr ∉ FRANGE f ⇒
+    only_fresh f f' refs
+Proof
+  rw []
+  >> gvs [only_fresh_def]
+QED
+
+Theorem flookup_com_neq:
+  ∀m k1 v1 k2 v2.
+    k1 ≠ k2 ⇒
+    m⟨k1 ↦ v1; k2 ↦ v2⟩ = m⟨k2 ↦ v2; k1 ↦ v1⟩
+Proof
+  rw []
+  >> irule $ iffRL fmap_eq_flookup
+  >> rw []
+  >> gvs [FLOOKUP_SIMP, FLOOKUP_DEF]
+  >> IF_CASES_TAC
+  >- gvs []
+  >> gvs []
+QED
+
+Definition mb_rel_def:
+  (mb_rel f refs (Block tag xs) (RefPtr b ptr) =
+   (b = F ∧
+    ptr ∉ FRANGE f ∧
+    ∃left child right left' child' right'.
+      xs = left ++ [child] ++ right ∧
+      FLOOKUP refs ptr = SOME (MutBlock tag left' child' right') ∧
+      LIST_REL (v_rel f) left left' ∧
+      mb_rel f (refs \\ ptr) child child' ∧
+      LIST_REL (v_rel f) right right')) ∧
+  (mb_rel f refs v1 v2 = v_rel f v1 v2)
+Termination
+  (* There is something similar for definition of finalise_cons in bviSem *)
+  cheat
+End
+
+Theorem mb_rel_cons:
+  ∀refs ptr f tag left left' v v' right right'.
+    mb_rel f (refs \\ ptr) v v' ∧
+    LIST_REL (v_rel f) left left' ∧
+    LIST_REL (v_rel f) right right' ∧
+    FLOOKUP refs ptr = SOME (MutBlock tag left' v' right') ∧
+    ptr ∉ FRANGE f ⇒
+    mb_rel f refs (Block tag (left ++ [v] ++ right)) (RefPtr F ptr)
+Proof
+  rw []
+  >> simp [mb_rel_def]
+  >> qexistsl [‘left’, ‘v’, ‘right’]
+  >> gvs []
+QED
+
+Theorem mb_rel_del:
+  ∀f refs v1 v2 ptr tag left ptr' right.
+    mb_rel f refs v1 v2 ∧
+    FLOOKUP refs ptr = SOME (MutBlock tag left (RefPtr F ptr') right) ∧
+    ptr' ∉ FDOM refs ∧
+    ptr' ∉ FRANGE f ⇒
+    mb_rel f (refs \\ ptr) v1 v2
+Proof
+  recInduct mb_rel_ind
+  >> rw [mb_rel_def]
+  >> Cases_on ‘ptr = ptr'’
+  >-
+   (gvs []
+    >> Cases_on ‘child’ >> gvs [mb_rel_def, v_rel_cases]
+    >- gvs [DOMSUB_FLOOKUP_THM, FLOOKUP_DEF]
+    >> gvs [FRANGE_DEF, FLOOKUP_DEF])
+  >> first_x_assum drule
+  >> disch_then $ qspec_then ‘ptr'’ mp_tac
+  >> gvs [DOMSUB_FLOOKUP_THM]
+  >> strip_tac
+  >> simp [DOMSUB_COMMUTES]
+  >> rpt $ first_assum $ irule_at Any
+  >> gvs []
+QED
+
 Theorem do_app_op_rel:
   ∀f op vs vs' s s' t v.
     do_app op vs s = Rval (v,t) ∧
@@ -1621,57 +1738,6 @@ Proof
   >> gvs []
 QED
 
-(*
-Definition hypothesis_def:
-  hypothesis xs' (s'' : (num # γ, 'ffi) bviSem$state) env1' loc' r' t' opt' f' s'³' env2' (s : (num # γ, 'ffi) bviSem$state) ⇔
-    s''.clock < s.clock ⇒
-    ∀env1' loc' r'' t' opt' f'' s'³' env2'.
-      evaluate (xs',env1',s'') = (r'',t') ∧
-      env_rel opt' f'' env1' env2' ∧ state_rel f'' s'' s'³' ∧
-      (opt' ⇒ LENGTH xs' = 1) ∧ r'' ≠ Rerr (Rabort Rtype_error) ⇒
-      ∃t'' f'³' r'³'.
-        evaluate (xs',env2',s'³') = (r'³',t'') ∧
-        result_rel (LIST_REL (v_rel f'³')) (v_rel f'³') r'' r'³' ∧
-        state_rel f'³' t' t'' ∧ f'' ⊑ f'³' ∧
-        only_fresh f'' f'³' s'³'.refs ∧
-        holes_unchanged_except f'' s'³'.refs t''.refs ∅ ∧
-        ∀loc_opt.
-          (∀wrap.
-             LENGTH xs' = 1 ∧
-             rewrite_wrapper loc' loc_opt (HD xs') = SOME wrap ⇒
-             ∃t1 f_wrap.
-               evaluate ([wrap],env2',s'³') = (r'³',t1) ∧
-               state_rel f_wrap t' t1 ∧ f'' ⊑ f_wrap ∧
-               only_fresh f'' f_wrap s'³'.refs) ∧
-          (opt' ∧ (∃c. hole_has_val f'' env1' env2' s'³'.refs c) ⇒
-           ∃rrr t2 f_work.
-             evaluate
-             ([rewrite_worker loc' loc_opt (LENGTH env1') (LENGTH env1' + 1) (HD xs')],env2',s'³') = (rrr,t2) ∧
-             opt_res_rel r'³' rrr ∧ state_rel f_work t' t2 ∧
-             f'' ⊑ f_work ∧ only_fresh f'' f_work s'³'.refs ∧
-             holes_unchanged_except f'' s'³'.refs t2.refs {env2'❲LENGTH env1'❳} ∧
-             ∀res_v.
-               r'³' = Rval [res_v] ⇒
-               hole_has_val f'' env1' env2' t2.refs res_v)
-End
-*)
-
-Definition mb_rel_def:
-  (mb_rel f refs (Block tag xs) (RefPtr b ptr) =
-   (b = F ∧
-    ptr ∉ FRANGE f ∧
-    ∃left child right left' child' right'.
-      xs = left ++ [child] ++ right ∧
-      FLOOKUP refs ptr = SOME (MutBlock tag left' child' right') ∧
-      LIST_REL (v_rel f) left left' ∧
-      mb_rel f (refs \\ ptr) child child' ∧
-      LIST_REL (v_rel f) right right')) ∧
-  (mb_rel f refs v1 v2 = v_rel f v1 v2)
-Termination
-  (* There is something similar for definition of finalise_cons in bviSem *)
-  cheat
-End
-
 Definition hypothesis_def:
   hypothesis xs ^s (sc : (num # γ, 'ffi) bviSem$state) ⇔
     s.clock < sc.clock ⇒
@@ -1933,107 +1999,6 @@ Proof
    (Cases_on ‘v1’ >> gvs [mb_rel_def, v_rel_cases, finalise_cons_def])
   >~ [‘CodePtr p’] >-
    (Cases_on ‘v1’ >> gvs [mb_rel_def, v_rel_cases, finalise_cons_def])
-QED
-
-Theorem mb_rel_cons:
-  ∀refs ptr f tag left left' v v' right right'.
-    mb_rel f (refs \\ ptr) v v' ∧
-    LIST_REL (v_rel f) left left' ∧
-    LIST_REL (v_rel f) right right' ∧
-    FLOOKUP refs ptr = SOME (MutBlock tag left' v' right') ∧
-    ptr ∉ FRANGE f ⇒
-    mb_rel f refs (Block tag (left ++ [v] ++ right)) (RefPtr F ptr)
-Proof
-  rw []
-  >> simp [mb_rel_def]
-  >> qexistsl [‘left’, ‘v’, ‘right’]
-  >> gvs []
-QED
-
-Theorem mb_rel_del:
-  ∀f refs v1 v2 ptr tag left ptr' right.
-    mb_rel f refs v1 v2 ∧
-    FLOOKUP refs ptr = SOME (MutBlock tag left (RefPtr F ptr') right) ∧
-    ptr' ∉ FDOM refs ∧
-    ptr' ∉ FRANGE f ⇒
-    mb_rel f (refs \\ ptr) v1 v2
-Proof
-  recInduct mb_rel_ind
-  >> rw [mb_rel_def]
-  >> Cases_on ‘ptr = ptr'’
-  >-
-   (gvs []
-    >> Cases_on ‘child’ >> gvs [mb_rel_def, v_rel_cases]
-    >- gvs [DOMSUB_FLOOKUP_THM, FLOOKUP_DEF]
-    >> gvs [FRANGE_DEF, FLOOKUP_DEF])
-  >> first_x_assum drule
-  >> disch_then $ qspec_then ‘ptr'’ mp_tac
-  >> gvs [DOMSUB_FLOOKUP_THM]
-  >> strip_tac
-  >> simp [DOMSUB_COMMUTES]
-  >> rpt $ first_assum $ irule_at Any
-  >> gvs []
-QED
-
-Theorem fresh_ptr_fresh:
-  ∀refs.
-    (LEAST ptr. ptr ∉ FDOM refs) ∉ FDOM refs
-Proof
-  rw []
-  >> numLib.LEAST_ELIM_TAC
-  >> conj_tac
-  >-
-   (qexists ‘SUC (MAX_SET (FDOM refs))’
-    >> spose_not_then assume_tac
-    >> imp_res_tac X_LE_MAX_SET
-    >> qspec_then ‘FDOM refs’ mp_tac X_LE_MAX_SET
-    >> impl_tac
-    >- gvs []
-    >> disch_then drule
-    >> strip_tac
-    >> gvs [])
-  >> rw []
-QED
-
-Theorem fresh_not_in_range_f:
-  ∀f s_refs t_refs.
-    state_ref_rel f s_refs t_refs ⇒
-    (LEAST ptr. ptr ∉ FDOM t_refs) ∉ FRANGE f
-Proof
-  rw []
-  >> spose_not_then assume_tac
-  >> qspec_then ‘t_refs’ mp_tac fresh_ptr_fresh
-  >> strip_tac
-  >> gvs [state_ref_rel_def, FRANGE_DEF]
-  >> Cases_on ‘FLOOKUP s_refs x’
-  >- gvs [FLOOKUP_DEF]
-  >> first_x_assum drule
-  >> strip_tac
-  >> gvs [FLOOKUP_DEF]
-QED
-
-Theorem only_fresh_del:
-  ∀f f' refs ptr v.
-    only_fresh f f' refs⟨ptr ↦ v⟩ ∧
-    ptr ∉ FRANGE f ⇒
-    only_fresh f f' refs
-Proof
-  rw []
-  >> gvs [only_fresh_def]
-QED
-
-Theorem flookup_com_neq:
-  ∀m k1 v1 k2 v2.
-    k1 ≠ k2 ⇒
-    m⟨k1 ↦ v1; k2 ↦ v2⟩ = m⟨k2 ↦ v2; k1 ↦ v1⟩
-Proof
-  rw []
-  >> irule $ iffRL fmap_eq_flookup
-  >> rw []
-  >> gvs [FLOOKUP_SIMP, FLOOKUP_DEF]
-  >> IF_CASES_TAC
-  >- gvs []
-  >> gvs []
 QED
 
 Theorem evaluate_cb:
