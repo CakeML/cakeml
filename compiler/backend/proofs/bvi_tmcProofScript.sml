@@ -37,11 +37,6 @@ Inductive ref_rel:
 [~Thunk:]
   v_rel f x y ⇒
   ref_rel f (Thunk tm x) (Thunk tm y)
-[~MutBlock:] (* Remove *)
-  LIST_REL (v_rel f) xs1 ys1 ∧
-  v_rel f h1 h2 ∧
-  LIST_REL (v_rel f) xs2 ys2 ⇒
-  ref_rel f (MutBlock n xs1 h1 ys1) (MutBlock n xs2 h2 ys2)
 End
 
 Definition env_rel_def:
@@ -1751,7 +1746,12 @@ Proof
         >> strip_tac
         >> gvs [])
       >> CASE_TAC
-      >> cheat)
+      >> gvs [state_ref_rel_def]
+      >> Cases_on ‘FLOOKUP s_refs n’
+      >- gvs [FLOOKUP_DEF]
+      >> last_x_assum drule
+      >> strip_tac
+      >> gvs [ref_rel_cases, v_rel_cases])
     >> drule_all state_ref_rel_sub
     >> strip_tac
     >> CASE_TAC
@@ -1792,13 +1792,25 @@ Theorem mb_rel_del:
   ∀f refs v1 v2 ptr tag left ptr' right.
     mb_rel f refs v1 v2 ∧
     FLOOKUP refs ptr = SOME (MutBlock tag left (RefPtr F ptr') right) ∧
-    ptr' ∉ FDOM refs ⇒
+    ptr' ∉ FDOM refs ∧
+    ptr' ∉ FRANGE f ⇒
     mb_rel f (refs \\ ptr) v1 v2
 Proof
   recInduct mb_rel_ind
   >> rw [mb_rel_def]
+  >> Cases_on ‘ptr = ptr'’
+  >-
+   (gvs []
+    >> Cases_on ‘child’ >> gvs [mb_rel_def, v_rel_cases]
+    >- gvs [DOMSUB_FLOOKUP_THM, FLOOKUP_DEF]
+    >> gvs [FRANGE_DEF, FLOOKUP_DEF])
   >> first_x_assum drule
-  >> cheat
+  >> disch_then $ qspec_then ‘ptr'’ mp_tac
+  >> gvs [DOMSUB_FLOOKUP_THM]
+  >> strip_tac
+  >> simp [DOMSUB_COMMUTES]
+  >> rpt $ first_assum $ irule_at Any
+  >> gvs []
 QED
 
 Theorem fresh_ptr_fresh:
@@ -2377,7 +2389,10 @@ Proof
         >> gvs [holes_unchanged_except_def]
         >> first_x_assum irule
         >> gvs [FLOOKUP_SIMP])
-      >> gvs [])
+      >> gvs []
+      >> irule non_fresh_not_in_frange
+      >> rpt $ first_assum $ irule_at Any
+      >> gvs [FLOOKUP_SIMP])
     >> strip_tac
     >> gvs [DOMSUB_COMMUTES]
     >> pop_assum $ irule_at Any
