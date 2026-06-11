@@ -1801,6 +1801,49 @@ Definition hypothesis_def:
                    hole_has_val f env1 env2 t_work.refs res_v')))
 End
 
+Definition hypothesis_def:
+  hypothesis xs' (s'' : (num # γ, 'ffi) bviSem$state) clock ⇔
+  s''.clock < clock ⇒
+  ∀env1' r' t' opt' f' s'³' env2'.
+    evaluate (xs',env1',s'') = (r',t') ∧
+    env_rel opt' f' env1' env2' ∧ state_rel f' s'' s'³' ∧
+    (opt' ⇒ LENGTH xs' = 1) ∧ r' ≠ Rerr (Rabort Rtype_error) ⇒
+    ∀loc'. ∃t'' f'' r''.
+             evaluate (xs',env2',s'³') = (r'',t'') ∧
+             result_rel (LIST_REL (v_rel f'')) (v_rel f'') r' r'' ∧
+             state_rel f'' t' t'' ∧ f' ⊑ f'' ∧ only_fresh f' f'' s'³'.refs ∧
+             holes_unchanged_except f' s'³'.refs t''.refs ∅ ∧
+             ∀loc_opt.
+               optimised_code loc' loc_opt s''.code s'³'.code ⇒
+               (∀wrap.
+                  LENGTH xs' = 1 ∧
+                  rewrite_wrapper loc' loc_opt (HD xs') = SOME wrap ⇒
+                  ∃t_wrap f_wrap r_wrap.
+                    evaluate ([wrap],env2',s'³') = (r_wrap,t_wrap) ∧
+                    result_rel (LIST_REL (v_rel f_wrap)) (v_rel f_wrap) r'
+                               r_wrap ∧ state_rel f_wrap t' t_wrap ∧ f' ⊑ f_wrap ∧
+                    only_fresh f' f_wrap s'³'.refs ∧
+                    holes_unchanged_except f' s'³'.refs t_wrap.refs ∅) ∧
+               (opt' ⇒
+                ∀hole_ptr.
+                  (∃c. hole_has_val f' env1' env2' s'³'.refs c) ∧
+                  env2'❲LENGTH env1'❳ = RefPtr F hole_ptr ⇒
+                  ∃r_work f_work t_work.
+                    evaluate
+                    ([rewrite_worker loc' loc_opt (LENGTH env1')
+                                     (LENGTH env1' + 1) (HD xs')],env2',s'³') =
+                    (r_work,t_work) ∧ opt_res_rel f_work r' r_work ∧
+                    state_rel f_work t' t_work ∧ f' ⊑ f_work ∧
+                    only_fresh f' f_work s'³'.refs ∧
+                    holes_unchanged_except f' s'³'.refs t_work.refs
+                                           {hole_ptr} ∧
+                    ∀res_v.
+                      r' = Rval [res_v] ⇒
+                      ∃res_v'.
+                        mb_rel f_work (t_work.refs \\ hole_ptr) res_v res_v' ∧
+                        hole_has_val f' env1' env2' t_work.refs res_v')
+End
+
 Definition alloc_hole_has_val_def:
   alloc_hole_has_val f refs extras i_ptr c_idx c ⇔
     ∃hole_ptr tag left right.
@@ -2078,7 +2121,6 @@ Theorem evaluate_cb:
               mb_rel f_work (t_work.refs \\ hole_ptr) res_v res_v' ∧
               hole_has_val f env env2 t_work.refs res_v'))
 Proof
-
   reverse $ Induct
   >-
    (rpt gen_tac
@@ -2130,6 +2172,7 @@ Proof
          >> gvs [])
       >> disch_then drule
       >> gvs [GSYM PULL_FORALL]
+      >> disch_then $ qspec_then ‘loc’ mp_tac
       >> strip_tac
       >> rename [‘state_rel _ t _’]
       >> asm "optimised" assume_tac
@@ -2163,6 +2206,7 @@ Proof
        (gvs []
         >> gvs [state_rel_def, dec_clock_def])
       >> gvs [GSYM PULL_FORALL]
+      >> disch_then $ qspec_then ‘loc’ mp_tac
       >> strip_tac
       >> rename [‘state_rel _ t _’]
       >> asm "optimised" assume_tac
@@ -2209,6 +2253,7 @@ Proof
      (gvs []
       >> gvs [state_rel_def, dec_clock_def])
     >> gvs [GSYM PULL_FORALL]
+    >> disch_then $ qspec_then ‘loc’ mp_tac
     >> strip_tac
     >> rename [‘state_rel _ t _’]
     >> asm "optimised" assume_tac
@@ -2613,7 +2658,6 @@ Proof
 QED
 
 Resume evaluate_rewrite_tmc[call_block]:
-
   (* Phase 1 theorem in s *)
   drule_all evaluate_bvi_to_cb
   >> simp [Once evaluate_def]
@@ -2666,6 +2710,7 @@ Resume evaluate_rewrite_tmc[call_block]:
     >> irule holes_unchanged_except_subset
     >> first_assum $ irule_at Any
     >> gvs [])
+  (* Phase 2 theorem *)
   >> rename [‘LIST_REL (v_rel f') vs vs'’]
   >> qpat_x_assum ‘env_rel _ _ _ _’ kall_tac
   >> drule evaluate_cb
@@ -2681,9 +2726,119 @@ Resume evaluate_rewrite_tmc[call_block]:
   >> impl_tac
   >-
    (imp_res_tac evaluate_clock
-    >> gvs [hypothesis_def]
-    >> rw []
+    >> gvs [hypothesis_def])
+  >> strip_tac
+  >> gvs []
+  >> rpt $ first_assum $ irule_at Any
+  >> conj_tac
+  >- imp_res_tac SUBMAP_TRANS
+  >> conj_tac
+  >-
+   (irule only_fresh_trans
+    >> rpt $ first_assum $ irule_at Any
+    >> imp_res_tac evaluate_refs_SUBSET)
+  >> conj_tac
+  >- imp_res_tac holes_unchanged_except_trans
+  >> gen_tac
+  >> strip_tac
+  (* Not sure if this is provable or will require reworking. *)
+  >> ‘loc_opt = loc_opt'’ by cheat
+  >> gvs []
+  >> rw []
+  >-
+   (reverse $ imp_res_tac bvi_to_cb_cases
+    >- gvs [rewrite_wrapper_def]
+    >> rename [‘CallBlock _ left _ right’]
+    >> gvs [rewrite_wrapper_def, evaluate_def]
+    >> rpt $ first_assum $ irule_at Any
+    >> conj_tac
+    >- imp_res_tac SUBMAP_TRANS
+  >> conj_tac
+  >-
+   (irule only_fresh_trans
+    >> rpt $ first_assum $ irule_at Any
+    >> imp_res_tac evaluate_refs_SUBSET)
+    >> imp_res_tac holes_unchanged_except_trans)
+  >> reverse $ imp_res_tac bvi_to_cb_cases
+  >-
+   (gvs [rewrite_worker_def, evaluate_def]
+    >> imp_res_tac evaluate_IMP_LENGTH
+    >> gvs []
+    >> first_x_assum $ qspec_then ‘hole_ptr’ mp_tac
+    >> impl_tac
     >-
+     (conj_tac
+      >-
+       (irule_at Any hole_has_val_append
+        >> imp_res_tac env_rel_strip_extras
+        >> gvs []
+        >> irule_at Any unchanged_hole_has_val
+        >> rpt $ first_assum $ irule_at Any
+        >> gvs [])
+      >> gvs [EL_APPEND_EQN])
+    >> strip_tac
+    >> gvs []
+    >> rpt $ first_assum $ irule_at Any
+    >> conj_tac
+    >- imp_res_tac SUBMAP_TRANS
+    >> conj_tac
+    >-
+     (irule only_fresh_trans
+      >> rpt $ first_assum $ irule_at Any
+      >> imp_res_tac evaluate_refs_SUBSET)
+    >> conj_tac
+    >-
+     (irule holes_unchanged_except_trans
+      >> rpt $ first_assum $ irule_at Any
+      >> irule holes_unchanged_except_subset
+      >> first_assum $ irule_at Any
+      >> gvs [])
+    >> rw []
+    >> first_assum $ irule_at Any
+    >> irule hole_has_val_submap
+    >> drule_all hole_has_val_unappend
+    >> strip_tac
+    >> first_assum $ irule_at Any
+    >> gvs [])
+  >> gvs [rewrite_worker_def, evaluate_def]
+  >> imp_res_tac evaluate_IMP_LENGTH
+  >> gvs []
+  >> first_x_assum $ qspec_then ‘hole_ptr’ mp_tac
+  >> impl_tac
+  >-
+   (conj_tac
+    >-
+     (irule_at Any hole_has_val_append
+      >> imp_res_tac env_rel_strip_extras
+      >> gvs []
+      >> irule_at Any unchanged_hole_has_val
+      >> rpt $ first_assum $ irule_at Any
+      >> gvs [])
+    >> gvs [EL_APPEND_EQN])
+  >> strip_tac
+  >> gvs []
+  >> rpt $ first_assum $ irule_at Any
+  >> conj_tac
+  >- imp_res_tac SUBMAP_TRANS
+  >> conj_tac
+  >-
+   (irule only_fresh_trans
+    >> rpt $ first_assum $ irule_at Any
+    >> imp_res_tac evaluate_refs_SUBSET)
+  >> conj_tac
+  >-
+   (irule holes_unchanged_except_trans
+    >> rpt $ first_assum $ irule_at Any
+    >> irule holes_unchanged_except_subset
+    >> first_assum $ irule_at Any
+    >> gvs [])
+  >> rw []
+  >> first_assum $ irule_at Any
+  >> irule hole_has_val_submap
+  >> drule_all hole_has_val_unappend
+  >> strip_tac
+  >> first_assum $ irule_at Any
+  >> gvs []
 QED
 
 Resume evaluate_rewrite_tmc[list]:
