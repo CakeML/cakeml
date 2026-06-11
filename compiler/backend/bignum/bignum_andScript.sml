@@ -4,7 +4,7 @@
 Theory bignum_and
 Ancestors
   errorLogMonad panPtreeConversion panLang panStatic multiword multiword_ext
-  set_sep address panSem
+  set_sep address backend_common wordLang panSem
 Libs
   stringLib numLib intLib preamble helperLib
 
@@ -162,6 +162,12 @@ Proof
   simp [shape_of_def]
 QED
 
+Theorem shape_of_RStruct_One_One[simp]:
+  shape_of (RStruct [ValWord x; ValWord y]) = Comb [One; One]
+Proof
+  simp [shape_of_def]
+QED
+
 Theorem set_var_record[simp]:
   (set_var v value s).clock = s.clock ∧
   (set_var v value s).memaddrs = s.memaddrs ∧
@@ -195,10 +201,28 @@ Proof
   simp [eval_def]
 QED
 
+Theorem eval_RStruct_One_One:
+  eval s x = SOME xv ∧
+  eval s y = SOME yv
+  ⇒
+  eval s (RStruct [x; y]) = SOME (RStruct [xv; yv])
+Proof
+  simp [eval_def]
+QED
+
 Theorem eval_Var_Local[simp]:
   eval s (Var Local n) = FLOOKUP s.locals n
 Proof
   simp [eval_def]
+QED
+
+Theorem eval_RField_Var_Local_SOME_ValWord:
+  FLOOKUP s.locals n = SOME (RStruct vs) ∧
+  LLOOKUP vs i = SOME (ValWord res)
+  ⇒
+  eval s (RField i (Var Local n)) = SOME (ValWord res)
+Proof
+  simp [eval_def, LLOOKUP_THM]
 QED
 
 Theorem eval_BytesInWord[simp]:
@@ -231,7 +255,15 @@ Theorem eval_Op_Add_SOME:
   ⇒
   eval s (Op Add [x₁; x₂]) = SOME (ValWord (v₁ + v₂))
 Proof
-  simp [eval_def, wordLangTheory.word_op_def]
+  simp [eval_def, word_op_def]
+QED
+
+Theorem eval_Op_BitwiseNot_SOME:
+  eval s x₁ = SOME (ValWord (v₁: α word))
+  ⇒
+  eval s (Op Xor [x₁; Const (n2w (dimword (:α) − 1))]) = SOME (ValWord ¬v₁)
+Proof
+  simp [eval_def, word_op_def, GSYM word_T_def, GSYM UINT_MAX_def]
 QED
 
 Theorem eval_Cmp_NotEqual_SOME:
@@ -329,6 +361,25 @@ Proof
   simp [evaluate_def, is_valid_value_def]
 QED
 
+Theorem evaluate_Primitive_AddCarry:
+  eval s l = SOME (ValWord lv) ∧
+  eval s r = SOME (ValWord rv) ∧
+  eval s ci = SOME (ValWord civ) ∧
+  FLOOKUP s.locals dst = SOME old_value ∧
+  shape_of old_value = Comb [One; One] ∧
+  res = w2n lv + w2n rv + (if civ = 0w then 0 else 1)
+  ⇒
+  evaluate (Primitive dst AddCarry [l; r; ci], s) =
+  (NONE,
+     set_var dst
+       (RStruct
+          [ValWord (n2w res : α word);
+           ValWord (if dimword (:α) ≤ res then 1w else 0w)]) s)
+Proof
+  simp [evaluate_def, pan_primop_def, isValWord_def, theValWord_def,
+        is_valid_value_def, word_add_carry_def]
+QED
+
 (** Pancake implementation ****************************************************)
 
 (* Following copied from panConcreteExamples*)
@@ -372,7 +423,34 @@ Definition and_pos_pos_loop_def:
     ^(find_term (can $ match_term “panLang$While _ _”) and_pos_pos)
 End
 
+(* Implements mwi_and_neg_pos_geq_def *)
+Quote and_neg_pos_geq = parse_pancake:
+  fun and_neg_pos_geq(y_len, c, xs, ys, zs) {
+    while y_len {
+      var x = lds 1 xs;
+      var y = lds 1 ys;
+      var {1,1} y1c1 = __add_with_carry__(y, -1, c);
+      var y2 = y1c1.0 ^ -1;
+      st zs, x & y2;
+      c = y1c1.1;
+      xs = xs + @biw;
+      ys = ys + @biw;
+      zs = zs + @biw;
+      y_len = y_len - 1;
+    }
+    return 0;
+  }
+End
+
+Definition and_neg_pos_geq_loop_def:
+  and_neg_pos_geq_loop =
+    ^(find_term (can $ match_term “panLang$While _ _”) and_neg_pos_geq
+        |> SIMP_CONV (srw_ss()) [] |> concl |> rhs)
+End
+
 (** Correctness ***************************************************************)
+
+val _ = max_print_depth := ~1;
 
 Theorem and_pos_pos_thm:
   ∀(xs: α word list) ys zs rs s x y z frame.
@@ -477,4 +555,139 @@ Proof
   >> qexistsl [‘m’, ‘l’]
   >> fs [state_component_equality, ones_def, ADD1]
   >> fs [AC STAR_ASSOC STAR_COMM]
+QED
+
+Theorem single_sub_0w_co[local]:
+  single_sub (x: α word) 0w ci = (r,co)
+  ⇒
+  r = (n2w (w2n x + (dimword (:α) − 1 + if b2w ci = 0w :α word then 0 else 1))) ∧
+  co = (dimword (:α) ≤ w2n x + (dimword (:α) − 1 + if b2w ci = 0w :α word then 0 else 1))
+Proof
+  strip_tac >> gvs [single_sub_def, single_add_def, w2n_minus1]
+  >> Cases_on ‘ci’
+  >> simp [b2n_def, b2w_def, GSYM word_add_n2w, GSYM UINT_MAX_def,
+           GSYM word_T_def]
+QED
+
+Theorem and_neg_pos_geq_thm:
+  ∀(ys: α word list) xs zs rs s c x y z frame.
+    mwi_and_neg_pos_geq c xs ys = zs ∧ LENGTH ys ≤ LENGTH xs ∧
+    LENGTH rs = LENGTH ys ∧ LENGTH ys ≤ s.clock ∧
+    FLOOKUP s.locals «y_len» = SOME (Val (Word (n2w (LENGTH ys)))) ∧
+    FLOOKUP s.locals «c» = SOME (Val (Word (b2w c))) ∧
+    FLOOKUP s.locals «xs» = SOME (Val (Word x)) ∧
+    FLOOKUP s.locals «ys» = SOME (Val (Word y)) ∧
+    FLOOKUP s.locals «zs» = SOME (Val (Word z)) ∧
+    (ones x (MAP Word xs) *
+     ones y (MAP Word ys) *
+     ones z rs *
+     frame) (fun2set (s.memory, s.memaddrs)) ∧
+    byte_dimindex (:α) ∧ 8 < dimindex (:α)
+    ⇒
+    ∃m l.
+      evaluate (and_neg_pos_geq_loop,s) = (NONE,
+        s with <| memory := m;
+                  locals := l;
+                  clock := s.clock - LENGTH ys |>) ∧
+      (ones x (MAP Word xs) *
+       ones y (MAP Word ys) *
+       ones z (MAP Word zs) *
+       frame) (fun2set (m, s.memaddrs))
+Proof
+  simp [] >> Induct >> rw [and_neg_pos_geq_loop_def]
+  >- (simp [Once evaluate_def, state_component_equality])
+  >> rename1 ‘ones _ (Word h::MAP Word _)’
+  >> rename1 ‘evaluate (While (Var Local «y_len») _, _)’
+  >> irule_at (Pos hd) evaluate_While_True_NONE
+  >> simp []
+  >> ‘SUC (LENGTH ys) < dimword (:α)’ by
+    (drule_then mp_tac $
+       INST_TYPE [“:β” |-> “:α word_lab”] ones_leq_dimword
+     >> disch_then $ qspec_then ‘Word h::MAP Word ys’ assume_tac
+     >> SEP_F_TAC >> simp [] >> strip_tac
+     >> drule_all_then assume_tac one_lt_w2n_bytes_in_word
+     >> irule_at (Pos hd) LESS_LESS_EQ_TRANS
+     >> first_assum $ irule_at (Pos last)
+     >> simp [])
+  >> simp []
+  >> rename1 ‘evaluate (Dec «x» _ _ _, _)’
+  >> irule_at (Pos hd) evaluate_Dec_NONE
+  >> irule_at (Pos hd) eval_Load_One_Local_SOME
+  >> simp []
+  >> Cases_on ‘xs’ >> fs []
+  >> fs [ones_def] >> SEP_R_TAC
+  >> simp []
+  >> rename1 ‘evaluate (Dec «y» _ _ _, _)’
+  >> irule_at (Pos hd) evaluate_Dec_NONE
+  >> irule_at (Pos hd) eval_Load_One_Local_SOME
+  >> simp [FLOOKUP_SIMP]
+  >> SEP_R_TAC
+  >> simp []
+  >> rename1 ‘evaluate (Dec «y1c1» _ _ _, _)’
+  >> irule_at (Pos hd) evaluate_Dec_NONE
+  >> irule_at (Pos hd) eval_RStruct_One_One
+  >> simp []
+  >> rename1 ‘evaluate (Seq (Primitive «y1c1» AddCarry _) _, _)’
+  >> irule_at (Pos hd) evaluate_Seq_NONE
+  >> irule_at (Pos hd) evaluate_Primitive_AddCarry
+  >> simp [FLOOKUP_SIMP]
+  >> rename1 ‘evaluate (Dec «y2» _ _ _, _)’
+  >> irule_at (Pos hd) evaluate_Dec_NONE
+  >> irule_at (Pos hd) eval_Op_BitwiseNot_SOME
+  >> irule_at (Pos hd) eval_RField_Var_Local_SOME_ValWord
+  >> simp [FLOOKUP_SIMP, LLOOKUP_def]
+  >> rename1 ‘evaluate (Seq (Store (Var Local «zs») _) _, _)’
+  >> irule_at (Pos hd) evaluate_Seq_NONE
+  >> irule_at (Pos hd) evaluate_Store_Local_NONE
+  >> simp [FLOOKUP_SIMP]
+  >> Cases_on ‘rs’ >> gvs []
+  >> fs [ones_def] >> SEP_R_TAC >> simp []
+  >> irule_at (Pos hd) eval_Op_And_SOME
+  >> simp [FLOOKUP_SIMP]
+  >> qabbrev_tac ‘memory = s.memory’
+  >> SEP_W_TAC
+  >> simp [Abbr ‘memory’]
+  >> rename1 ‘evaluate (Seq (Assign Local «c» _) _, _)’
+  >> irule_at (Pos hd) evaluate_Seq_NONE
+  >> irule_at (Pos hd) evaluate_Assign_Local
+  >> irule_at (Pos hd) eval_RField_Var_Local_SOME_ValWord
+  >> simp [FLOOKUP_SIMP, LLOOKUP_def]
+  >> rename1 ‘evaluate (Seq (Assign Local «xs» _) _, _)’
+  >> irule_at (Pos hd) evaluate_Seq_NONE
+  >> irule_at (Pos hd) evaluate_Assign_Local
+  >> irule_at (Pos hd) eval_Op_Add_SOME
+  >> simp [FLOOKUP_SIMP]
+  >> rename1 ‘evaluate (Seq (Assign Local «ys» _) _, _)’
+  >> irule_at (Pos hd) evaluate_Seq_NONE
+  >> irule_at (Pos hd) evaluate_Assign_Local
+  >> irule_at (Pos hd) eval_Op_Add_SOME
+  >> simp [FLOOKUP_SIMP]
+  >> rename1 ‘evaluate (Seq (Assign Local «zs» _) _, _)’
+  >> irule_at (Pos hd) evaluate_Seq_NONE
+  >> irule_at (Pos hd) evaluate_Assign_Local
+  >> irule_at (Pos hd) eval_Op_Add_SOME
+  >> simp [FLOOKUP_SIMP]
+  >> rename1 ‘evaluate (Assign Local «y_len» _, _)’
+  >> irule_at (Pos hd) evaluate_Assign_Local
+  >> irule_at (Pos hd) eval_Op_Sub_SOME
+  >> simp [FLOOKUP_SIMP]
+  >> simp [Req0 $ GSYM and_neg_pos_geq_loop_def]
+  >> rename1 ‘evaluate (and_neg_pos_geq_loop, _)’
+  >> last_x_assum drule
+  >> disch_then drule
+  >> qmatch_goalsub_abbrev_tac ‘evaluate (_, s')’
+  >> disch_then $ qspec_then ‘s'’ mp_tac
+  >> simp [Abbr ‘s'’]
+  >> fs [GSYM b2w_ite, n2w_SUC, dec_clock_def]
+  >> disch_then $ qspec_then
+       ‘dimword (:α) ≤ w2n h + (dimword (:α) − 1 + if b2w c = 0w :α word then 0 else 1)’
+       mp_tac
+  >> simp []
+  >> strip_tac >> SEP_F_TAC
+  >> disch_then $ qx_choosel_then [‘m’, ‘l’] assume_tac
+  >> qexistsl [‘m’, ‘l’]
+  >> simp [mwi_and_neg_pos_geq_def]
+  >> rpt (pairarg_tac >> gvs [])
+  >> drule_then assume_tac single_sub_0w_co
+  >> fs [ones_def, AC STAR_ASSOC STAR_COMM, n2w_SUC, state_component_equality]
 QED

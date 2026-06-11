@@ -787,6 +787,12 @@ QED
 
 (** multiword extensions ******************************************************)
 
+Theorem b2w_ite:
+  b2w b = if b then 1w else 0w
+Proof
+  Cases_on ‘b’ >> simp [b2w_def, b2n_def]
+QED
+
 (* mw2n_mw_fix uses prove() in HOL; should be replaced by this *)
 Theorem mw2n_mw_fix:
   ∀xs. mw2n (mw_fix xs) = mw2n xs
@@ -1326,7 +1332,7 @@ Definition mwi_and_fused_def:
                 else mwi_and_neg_neg F F T ys xs))
 End
 
-(** mw_and helper lemmas ******************************************************)
+(** helper lemmas *************************************************************)
 
 Theorem mw_and_keep_nil_left:
   ∀xs. mw_and_keep [] xs = xs
@@ -1344,6 +1350,12 @@ Theorem LENGTH_mw_and_keep:
   ∀xs ys. LENGTH (mw_and_keep xs ys) = LENGTH ys
 Proof
   recInduct mw_and_keep_ind >> rw [mw_and_keep_def]
+QED
+
+Theorem mwi_and_neg_pos_geq_nil_right[simp]:
+  mwi_and_neg_pos_geq c xs [] = []
+Proof
+  Induct_on ‘xs’ >> simp [mwi_and_neg_pos_geq_def]
 QED
 
 (** equivalence of fused version of mwi_and ***********************************)
