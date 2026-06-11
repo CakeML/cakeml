@@ -913,12 +913,9 @@ Theorem evaluate_fill_hole:
     only_fresh f f' s'.refs ∧
     state_rel f' t t' ∧
     env2❲LENGTH env1❳ = RefPtr F hole_ptr ⇒
-    ∃r t'' f_work.
-      evaluate ([fill_hole (LENGTH env1) (LENGTH env1 + 1) exp],env2,s') = (r,t'') ∧
-      opt_res_rel f_work (Rval [v]) r ∧
-      state_rel f_work t t'' ∧
-      f ⊑ f_work ∧
-      only_fresh f f_work s'.refs ∧
+    ∃r t''.
+      evaluate ([fill_hole (LENGTH env1) (LENGTH env1 + 1) exp],env2,s') = (Rval [Block 0 []],t'') ∧
+      state_rel f' t t'' ∧
       holes_unchanged_except f s'.refs t''.refs {hole_ptr} ∧
       hole_has_val f env1 env2 t''.refs v
 Proof
@@ -930,7 +927,7 @@ Proof
   >> imp_res_tac hole_has_val_def
   >> imp_res_tac holes_unchanged_except_def
   >> simp [evaluate_def, fill_hole_def, do_app_def, do_app_aux_def,
-           case_eq_thms, PULL_EXISTS, FLOOKUP_SIMP, bvlSemTheory.Unit_def, backend_commonTheory.tuple_tag_def, opt_res_rel_def]
+           case_eq_thms, PULL_EXISTS, FLOOKUP_SIMP, bvlSemTheory.Unit_def, backend_commonTheory.tuple_tag_def]
   >> gvs []
   >> first_x_assum $ drule_all
   >> strip_tac
@@ -939,8 +936,6 @@ Proof
   >> impl_tac
   >- gvs []
   >> strip_tac
-  >> first_assum $ irule_at Any
-  >> gvs []
   >> conj_tac
   >-
    (irule state_rel_filled
@@ -967,8 +962,7 @@ Theorem evaluate_fill_hole_err:
     state_rel f' t t' ∧
     env2❲LENGTH env1❳ = RefPtr F hole_ptr ⇒
     ∃r t''.
-      evaluate ([fill_hole (LENGTH env1) (LENGTH env1 + 1) exp],env2,s') = (r,t'') ∧
-      opt_res_rel (Rerr e) r ∧
+      evaluate ([fill_hole (LENGTH env1) (LENGTH env1 + 1) exp],env2,s') = (Rerr e,t'') ∧
       state_rel f' t t'' ∧
       holes_unchanged_except f s'.refs t''.refs {hole_ptr}
 Proof
@@ -979,7 +973,7 @@ Proof
   >> strip_tac
   >> gvs [fill_hole_def, evaluate_def]
   >> gvs [evaluate_def, fill_hole_def, do_app_def, do_app_aux_def, hole_has_val_def, holes_unchanged_except_def,
-          case_eq_thms, PULL_EXISTS, FLOOKUP_SIMP, bvlSemTheory.Unit_def, backend_commonTheory.tuple_tag_def, opt_res_rel_def]
+          case_eq_thms, PULL_EXISTS, FLOOKUP_SIMP, bvlSemTheory.Unit_def, backend_commonTheory.tuple_tag_def]
   >> rpt $ first_x_assum $ irule_at Any
 QED
 
