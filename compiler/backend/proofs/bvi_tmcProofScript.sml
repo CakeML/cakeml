@@ -1662,23 +1662,6 @@ Proof
   cheat
 QED
 
-(* NEEDED? *)
-(*
-Theorem list_rel_env_perm:
-  ∀l opt f env1 env2.
-    env_rel opt f env1 env2 ∧
-    EVERY (λn. n < LENGTH env1) l ⇒
-    LIST_REL (v_rel f) (MAP (λn. EL n env1) l) (MAP (λn. EL n env2) l)
-Proof
-  Induct
-  >- rw []
-  >> rw []
-  >- gvs [env_rel_def, EL_APPEND_EQN, LIST_REL_EL_EQN]
-  >> first_x_assum $ irule
-  >> rpt $ first_assum $ irule_at Any
-QED
-*)
-
 Theorem list_rel_env_perm:
   ∀l opt f env1 env2 (s : (num # γ, 'ffi) bviSem$state).
     env_rel opt f env1 env2 ∧
