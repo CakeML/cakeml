@@ -1662,6 +1662,46 @@ Proof
   cheat
 QED
 
+(* NEEDED? *)
+(*
+Theorem list_rel_env_perm:
+  ∀l opt f env1 env2.
+    env_rel opt f env1 env2 ∧
+    EVERY (λn. n < LENGTH env1) l ⇒
+    LIST_REL (v_rel f) (MAP (λn. EL n env1) l) (MAP (λn. EL n env2) l)
+Proof
+  Induct
+  >- rw []
+  >> rw []
+  >- gvs [env_rel_def, EL_APPEND_EQN, LIST_REL_EL_EQN]
+  >> first_x_assum $ irule
+  >> rpt $ first_assum $ irule_at Any
+QED
+*)
+
+Theorem list_rel_env_perm:
+  ∀l opt f env1 env2 (s : (num # γ, 'ffi) bviSem$state).
+    env_rel opt f env1 env2 ∧
+    evaluate (MAP (λn. Var n) l,env1,s) = (Rval (MAP (λn. env1❲n❳) l),s) ⇒
+    LIST_REL (v_rel f) (MAP (λn. EL n env1) l) (MAP (λn. EL n env2) l)
+Proof
+  Induct
+  >- rw []
+  >> rw []
+  >-
+   (gvs [env_rel_def, EL_APPEND_EQN, LIST_REL_EL_EQN, evaluate_CONS, evaluate_def]
+    >> IF_CASES_TAC
+    >- gvs [CaseEq "prod", CaseEq "result"]
+    >> gvs [])
+  >> first_x_assum $ irule
+  >> first_assum $ irule_at Any
+  >> gvs [evaluate_CONS, evaluate_def]
+  >> reverse $ Cases_on ‘h < LENGTH env1’
+  >- gvs [CaseEq "prod", CaseEq "result"]
+  >> gvs [CaseEq "prod", CaseEq "result"]
+  >> first_assum $ irule_at Any
+QED
+
 Theorem list_rel_vars:
   ∀args opt f env1 env2 (s1 : (num # γ, 'ffi) bviSem$state).
     env_rel opt f env1 env2 ∧
@@ -1691,7 +1731,13 @@ Theorem env_rel_args:
     evaluate (MAP (λn. Var n) args,env1,s1) = (Rval (MAP (λn. env1❲n❳) args),s1) ⇒
     env_rel F f (MAP (λn. env1❲n❳) args) (MAP (λn. env2❲n❳) args)
 Proof
-  cheat
+  rw []
+  >> drule_all list_rel_vars
+  >> strip_tac
+  >> gvs [env_rel_def]
+  >> first_assum $ irule_at Any
+  >> imp_res_tac LIST_REL_LENGTH
+  >> gvs [EL_APPEND_EQN]
 QED
 
 Theorem env_rel_opt_args:
@@ -1700,7 +1746,21 @@ Theorem env_rel_opt_args:
     evaluate (MAP (λn. Var n) args,env1,s1) = (Rval (MAP (λn. env1❲n❳) args),s1) ⇒
     env_rel T f (MAP (λn. env1❲n❳) args) (MAP (λn. env2❲n❳) args ++ [RefPtr F ptr; Number idx])
 Proof
-  cheat
+  rw []
+  >> drule_all env_rel_args
+  >> strip_tac
+  >> gvs [env_rel_def]
+  >> first_assum $ irule_at Any
+  >> gvs []
+  >> qexistsl [‘ptr’, ‘idx’]
+  >> conj_asm1_tac
+  >-
+   (imp_res_tac LIST_REL_LENGTH
+    >> qspecl_then [‘args’, ‘λn. (xs ++ ys)❲n❳’] mp_tac LENGTH_MAP
+    >> strip_tac
+    >> gvs []
+    >> cheat)
+  >> gvs []
 QED
 
 Theorem code_rel_cases:
@@ -2250,10 +2310,18 @@ Proof
     >> impl_tac
     >-
      (gvs [holes_unchanged_except_def, FLOOKUP_SIMP]
+      >> drule_all env_rel_submap
+      >> strip_tac
       >> conj_tac
-      >- cheat
+      >-
+       (simp [MAP_REVERSE]
+        >> irule list_rel_env_perm
+        >> rpt $ first_assum $ irule_at Any)
       >> conj_tac
-      >- cheat
+      >-
+       (simp [MAP_REVERSE]
+        >> irule list_rel_env_perm
+        >> rpt $ first_assum $ irule_at Any)
       >> irule non_fresh_not_in_frange
       >> rpt $ first_assum $ irule_at Any
       >> gvs [FDOM_DEF])
