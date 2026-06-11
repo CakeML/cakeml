@@ -1749,18 +1749,11 @@ Proof
   rw []
   >> drule_all env_rel_args
   >> strip_tac
-  >> gvs [env_rel_def]
-  >> first_assum $ irule_at Any
+  >> simp [env_rel_def]
+  >> qexistsl [‘MAP (λn. env2❲n❳) args’, ‘[RefPtr F ptr; Number idx]’]
   >> gvs []
-  >> qexistsl [‘ptr’, ‘idx’]
-  >> conj_asm1_tac
-  >-
-   (imp_res_tac LIST_REL_LENGTH
-    >> qspecl_then [‘args’, ‘λn. (xs ++ ys)❲n❳’] mp_tac LENGTH_MAP
-    >> strip_tac
-    >> gvs []
-    >> cheat)
-  >> gvs []
+  >> irule list_rel_env_perm
+  >> rpt $ first_assum $ irule_at Any
 QED
 
 Theorem code_rel_cases:
