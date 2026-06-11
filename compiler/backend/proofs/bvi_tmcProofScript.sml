@@ -1662,6 +1662,29 @@ Proof
   cheat
 QED
 
+Theorem list_rel_vars:
+  ∀args opt f env1 env2 (s1 : (num # γ, 'ffi) bviSem$state).
+    env_rel opt f env1 env2 ∧
+    evaluate (MAP (λn. Var n) args,env1,s1) = (Rval (MAP (λn. env1❲n❳) args),s1) ⇒
+    LIST_REL (v_rel f) (MAP (λn. env1❲n❳) args) (MAP (λn. env2❲n❳) args)
+Proof
+  Induct
+  >- rw []
+  >> rw []
+  >-
+   (gvs [evaluate_def, evaluate_CONS]
+    >> reverse $ Cases_on ‘h < LENGTH env1’
+    >- gvs [CaseEq "prod", CaseEq "result"]
+    >> gvs [CaseEq "prod", CaseEq "result", env_rel_def, EL_APPEND_EQN, LIST_REL_LENGTH, LIST_REL_EL_EQN])
+  >> first_x_assum $ irule
+  >> rpt $ first_assum $ irule_at Any
+  >> gvs [evaluate_def, evaluate_CONS]
+  >> reverse $ Cases_on ‘h < LENGTH env1’
+  >- gvs [CaseEq "prod", CaseEq "result"]
+  >> gvs [CaseEq "prod", CaseEq "result"]
+  >> first_assum $ irule_at Any
+QED
+
 Theorem env_rel_args:
   ∀args opt f env1 env2 (s1 : (num # γ, 'ffi) bviSem$state).
     env_rel opt f env1 env2 ∧
@@ -1890,41 +1913,6 @@ Proof
   >> strip_tac
   >> gvs []
 QED
-
-(*
-Theorem holes_unchanged_except_rewind:
-  ∀f refs_old refs_new changed ptr tag l c r.
-    holes_unchanged_except f refs_old⟨ptr ↦ MutBlock tag l c r⟩ refs_new changed ∧
-    ptr ∉ FDOM refs_old ⇒
-    holes_unchanged_except f refs_old refs_new (changed ∪ {ptr})
-Proof
-  rw [holes_unchanged_except_def]
-  >-
-   (gvs []
-    >> rw []
-    >> first_x_assum irule
-    >> gvs [FLOOKUP_SIMP, FLOOKUP_DEF])
-  >-
-   (Cases_on ‘ptr = ptr'’
-    >-
-     (gvs []
-      >> first_x_assum $ irule_at Any
-      >> rpt $ first_assum $ irule_at Any
-      >> gvs [FLOOKUP_SIMP, FLOOKUP_DEF])
-    >> gvs []
-    >> first_x_assum $ irule_at Any
-    >> rpt $ first_assum $ irule_at Any
-    >> gvs [FLOOKUP_SIMP, FLOOKUP_DEF])
-  >> Cases_on ‘∃b. RefPtr b ptr ∈ changed’
-  >-
-   (gvs []
-    >> first_x_assum irule
-    >> gvs [FLOOKUP_SIMP]
-    >> rpt
-        )
-        )
-QED
-*)
 
 Theorem holes_unchanged_except_filled:
   ∀f refs_old refs_new changed ptr tag l c r.
