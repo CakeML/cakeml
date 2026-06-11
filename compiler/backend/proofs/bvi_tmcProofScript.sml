@@ -2244,19 +2244,12 @@ Proof
     >> simp [Once v_rel_cases]
     >> irule LIST_REL_APPEND_suff
     >> irule_at Any LIST_REL_APPEND_suff
-    >> simp [LIST_REL_MAP]
-    >> rpt $ irule_at Any LIST_REL_refl
-    >> simp []
-
+    >> simp [LIST_REL_REVERSE]
     >> imp_res_tac env_rel_submap
-    >> gvs [env_rel_def]
-    >> imp_res_tac LIST_REL_LENGTH
-    >> gvs [EL_APPEND_EQN]
-    >> rw []
-    >- gvs [LIST_REL_EL_EQN]
-    >- cheat
-    >- gvs [LIST_REL_EL_EQN]
-    >- cheat)
+    >> conj_tac
+    >- (irule list_rel_env_perm >> rpt $ first_assum $ irule_at Any)
+    >> irule list_rel_env_perm
+    >> rpt $ first_assum $ irule_at Any)
   (* Wrap *)
   >-
    (gvs [cb_to_bvi_wrapper_def, evaluate_def, mut_cons_def, evaluate_APPEND]
