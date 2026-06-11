@@ -1027,15 +1027,6 @@ Proof
   >> gvs [shift_vars_def, Once evaluate_CONS, evaluate_def, EL_APPEND_EQN]
 QED
 
-(* Use n+1 and n, subtracting nats is dangerous *)
-Theorem evaluate_shift_vars_cons:
-  ∀vs env s b n.
-    evaluate (MAP (λn. Var n) (shift_vars n vs),b::env,s) =
-    evaluate (MAP (λn. Var n) (shift_vars (n - 1) vs),env,s)
-Proof
-  cheat
-QED
-
 Theorem evaluate_shift_vars_sing:
   ∀vs env s b.
     evaluate (MAP (λn. Var n) (shift_vars 1 vs),b::env,s) =
@@ -1047,9 +1038,8 @@ Proof
 QED
 
 Theorem evaluate_shift_cb:
-  ∀cb loc env s bs r t.
-    evaluate ([cb_to_bvi loc cb],env,s) = (r,t) ⇒
-    evaluate ([cb_to_bvi loc (shift_cb (LENGTH bs) cb)],bs ++ env,s) = (r,t)
+  ∀cb loc env s bs.
+    evaluate ([cb_to_bvi loc (shift_cb (LENGTH bs) cb)],bs ++ env,s) = evaluate ([cb_to_bvi loc cb],env,s)
 Proof
   reverse Induct
   >-
@@ -1071,13 +1061,12 @@ Proof
 QED
 
 Theorem evaluate_shift_cb_sing:
-  ∀cb loc env s b r t.
-    evaluate ([cb_to_bvi loc cb],env,s) = (r,t) ⇒
-    evaluate ([cb_to_bvi loc (shift_cb 1 cb)],b::env,s) = (r,t)
+  ∀cb loc env s b.
+    evaluate ([cb_to_bvi loc (shift_cb 1 cb)],b::env,s) = evaluate ([cb_to_bvi loc cb],env,s)
 Proof
   rw []
-  >> drule evaluate_shift_cb
-  >> disch_then $ qspec_then ‘[b]’ mp_tac
+  >> qspecl_then [‘cb’, ‘loc’, ‘env’, ‘s’, ‘[b]’] mp_tac evaluate_shift_cb
+  >> strip_tac
   >> gvs []
 QED
 
@@ -1175,16 +1164,32 @@ Proof
   >> gvs [evaluate_shift_vars_sing, APPEND]
 QED
 
+Theorem evaluate_vars_expand_env:
+  ∀vs env s v extras.
+    evaluate (MAP (λn. Var n) vs,env,s) = (Rval v,s) ⇒
+    evaluate (MAP (λn. Var n) vs,env ++ extras,s) = (Rval v,s)
+Proof
+  Induct
+  >- rw [evaluate_def]
+  >> rw []
+  >> gvs [Once evaluate_CONS, evaluate_def]
+  >> simp [Once evaluate_CONS, evaluate_def]
+  >> reverse $ Cases_on ‘h < LENGTH env’
+  >- gvs [CaseEq "prod", CaseEq "result"]
+  >> gvs [CaseEq "prod", CaseEq "result", EL_APPEND_EQN]
+QED
+
 Theorem evaluate_bvi_to_cb_aux_inr:
   ∀loc tag args env s t r bs cb.
     bvi_to_cb_aux loc tag args = SOME (bs,INR cb) ∧
-    evaluate ([Op (BlockOp (Cons tag)) args],env,s) = (r,t) ∧
-    r ≠ Rerr (Rabort Rtype_error) ⇒
+    evaluate ([Op (BlockOp (Cons tag)) args],env,s) = (r,t) ⇒
     ∃as u.
       evaluate (bs,env,s) = (as,u) ∧
       (∀vs.
          as = Rval vs ⇒
-         evaluate ([cb_to_bvi loc cb],vs,u) = (r,t)) ∧
+         evaluate ([cb_to_bvi loc cb],vs,u) = (r,t) ∧
+         ∀extras.
+           evaluate ([cb_to_bvi loc cb],vs ++ extras,u) = (r,t)) ∧
       (∀e.
          as = Rerr e ⇒
          (as,u) = (r,t))
@@ -1200,6 +1205,13 @@ Proof
     >> drule evaluate_binders
     >> disch_then drule
     >> disch_then $ qspec_then ‘[]’ mp_tac
+    >> strip_tac
+    >> gvs []
+    >> rw []
+    >> drule evaluate_expand_env
+    >> disch_then $ qspec_then ‘extras’ mp_tac
+    >> impl_tac >- gvs []
+    >> strip_tac
     >> gvs [])
   >-
    (gvs [evaluate_def, cb_to_bvi_def, CaseEq "option"]
@@ -1208,11 +1220,15 @@ Proof
     >> gvs [CaseEq "prod", CaseEq "sum", PULL_EXISTS]
     >> first_x_assum drule
     >> gvs []
-    >> impl_tac >- gvs [CaseEq "prod", CaseEq "result"]
     >> strip_tac
     >> first_assum $ irule_at Any
+    >> conj_tac
+    >-
+     (rw []
+      >> gvs [cb_to_bvi_def, evaluate_def])
     >> rw []
-    >> gvs [cb_to_bvi_def, evaluate_def])
+    >- gvs [CaseEq "result", CaseEq "error_result"]
+    >> gvs [CaseEq "result", CaseEq "error_result"])
   >-
    (gvs [evaluate_def, cb_to_bvi_def, CaseEq "option"]
     >> Cases_on ‘op’ >> gvs [dest_Cons_def]
@@ -1220,7 +1236,6 @@ Proof
     >> gvs [CaseEq "prod", CaseEq "sum", PULL_EXISTS]
     >> first_x_assum drule
     >> gvs []
-    >> impl_tac >- gvs [CaseEq "prod", CaseEq "result"]
     >> strip_tac
     >> first_assum $ irule_at Any
     >> rw []
@@ -1241,21 +1256,31 @@ Proof
       >> imp_res_tac evaluate_bvi_to_cb_aux_inl
       >> gvs [cb_to_bvi_def, evaluate_def]
       >> simp [Once evaluate_CONS, evaluate_def]
-      >> Cases_on ‘evaluate ([cb_to_bvi loc child],a',u)’ >> gvs []
-      >> drule evaluate_expand_env
-      >> disch_then $ qspec_then ‘v’ mp_tac
-      >> impl_tac >- gvs [CaseEq "prod", CaseEq "result"]
+      >> first_assum $ qspec_then ‘v’ mp_tac
       >> strip_tac
-      >> gvs []
-      >> Cases_on ‘q’ >> gvs []
-      >> gvs [CaseEq "result", CaseEq "prod"]
-      >> gvs [do_app_def, do_app_aux_def, bvl_to_bvi_id]
+      >> gvs [CaseEq "prod", CaseEq "result", do_app_def, do_app_aux_def, bvl_to_bvi_id]
       >> gvs [PULL_EXISTS]
       >> gvs [GSYM PULL_FORALL]
-      >> first_assum $ qspec_then ‘r’ mp_tac
+      >> first_assum $ qspec_then ‘s'’ mp_tac
       >> strip_tac
       >> imp_res_tac evaluate_IMP_LENGTH
-      >> gvs [evaluate_shift_vars])
+      >> gvs [evaluate_shift_vars]
+      >> gen_tac
+      >> imp_res_tac evaluate_SING_IMP
+      >> gvs []
+      >> simp [Once evaluate_CONS]
+      >> first_x_assum $ qspec_then ‘v ++ extras’ mp_tac
+      >> strip_tac
+      >> gvs []
+      >> qspecl_then [‘vs2’, ‘v ++ extras’, ‘s'’, ‘a'’] mp_tac evaluate_shift_vars
+      >> strip_tac
+      >> gvs []
+      >> first_x_assum $ qspec_then ‘s'’ mp_tac
+      >> strip_tac
+      >> drule evaluate_vars_expand_env
+      >> disch_then $ qspec_then ‘extras’ mp_tac
+      >> strip_tac
+      >> gvs [])
     >> strip_tac
     >> gvs [CaseEq "call_block", CaseEq "list"]
     >> gvs [evaluate_APPEND]
@@ -1264,14 +1289,15 @@ Proof
     >> gvs []
     >> gvs [cb_to_bvi_def, evaluate_def]
     >> simp [Once evaluate_CONS, evaluate_def]
-    >> Cases_on ‘evaluate ([cb_to_bvi loc child],a,u)’ >> gvs []
-    >> drule evaluate_expand_env
-    >> disch_then $ qspec_then ‘v’ mp_tac
-    >> impl_tac >- gvs [CaseEq "prod", CaseEq "result"]
+    >> gvs [CaseEq "prod"]
+    >> first_assum $ qspec_then ‘v’ mp_tac
     >> strip_tac
-    >> gvs []
-    >> Cases_on ‘q’ >> gvs []
-    >> gvs [do_app_def, do_app_aux_def])
+    >> gvs [CaseEq "prod", CaseEq "result", do_app_def, do_app_aux_def, bvl_to_bvi_id]
+    >> rw []
+    >> simp [Once evaluate_CONS]
+    >> first_assum $ qspec_then ‘v ++ extras’ mp_tac
+    >> strip_tac
+    >> fs [])
   >> gvs [evaluate_def]
   >> gvs [CaseEq "prod"]
   >> reverse $ Cases_on ‘cb'’ >> gvs [shift_cb_def]
@@ -1293,12 +1319,15 @@ Proof
     >> gvs [evaluate_APPEND]
     >> gvs [evaluate_shift_vars_sing]
     >> CASE_TAC
-    >> gvs [CaseEq "prod", CaseEq "result"]
-    >> Cases_on ‘evaluate ([cb_to_bvi loc cb'],a'',r)’ >> gvs []
-    >> drule evaluate_shift_cb_sing
-    >> disch_then $ qspec_then ‘HD a’ mp_tac
+    >> gvs [CaseEq "prod", CaseEq "result", evaluate_shift_cb_sing]
+    >> gvs [do_app_def, do_app_aux_def]
+    >> rw []
+    >> simp [Once evaluate_CONS, evaluate_def, evaluate_APPEND]
+    >> imp_res_tac evaluate_SING_IMP
+    >> gvs [bvl_to_bvi_id, evaluate_shift_vars_sing]
+    >> first_assum $ qspec_then ‘extras’ mp_tac
     >> strip_tac
-    >> gvs [do_app_def, do_app_aux_def])
+    >> gvs [evaluate_shift_cb_sing])
   >> strip_tac
   >> gvs []
   >> reverse CASE_TAC >> gvs []
@@ -1306,18 +1335,19 @@ Proof
   >> simp [Once evaluate_CONS, evaluate_def]
   >> gvs [evaluate_APPEND, evaluate_def]
   >> gvs [evaluate_shift_vars_sing]
-  >> gvs [CaseEq "prod"]
-  >> Cases_on ‘evaluate ([cb_to_bvi loc cb'],a',s2')’ >> gvs []
-  >> drule evaluate_shift_cb_sing
-  >> disch_then $ qspec_then ‘HD a’ mp_tac
+  >> gvs [CaseEq "prod", evaluate_shift_cb_sing]
+  >> conj_tac
+  >- gvs [CaseEq "prod", CaseEq "result", do_app_def, do_app_aux_def]
+  >> rw []
+  >> simp [Once evaluate_CONS, evaluate_def, evaluate_APPEND, evaluate_shift_vars_sing]
+  >> first_assum $ qspec_then ‘extras’ mp_tac
   >> strip_tac
-  >> gvs [CaseEq "prod", CaseEq "result", do_app_def, do_app_aux_def]
+  >> gvs [CaseEq "prod", CaseEq "result", do_app_def, do_app_aux_def, evaluate_shift_cb_sing]
 QED
 
 Theorem evaluate_bvi_to_cb:
   ∀cb loc x env s t r bs.
     evaluate ([x],env,s) = (r,t) ∧
-    r ≠ Rerr (Rabort Rtype_error) ∧
     bvi_to_cb loc x = SOME (bs,cb) ⇒
     evaluate ([Let bs (cb_to_bvi loc cb)],env,s) = (r,t)
 Proof
@@ -1331,7 +1361,7 @@ Proof
     >> impl_tac >- gvs []
     >> strip_tac
     >> gvs []
-    >> drule evaluate_expand_env
+    >> drule evaluate_vars_expand_env
     >> disch_then $ qspec_then ‘env’ mp_tac
     >> strip_tac
     >> gvs [])
@@ -1342,8 +1372,6 @@ Proof
   >> strip_tac
   >> simp [evaluate_def]
   >> CASE_TAC >> gvs []
-  >> irule evaluate_expand_env
-  >> gvs []
 QED
 
 Theorem WF_I_I[local]:
@@ -2590,8 +2618,7 @@ Proof
 QED
 
 Resume evaluate_rewrite_tmc[call_block]:
-  cheat
-(*  (* Phase 1 theorem in s *)
+  (* Phase 1 theorem in s *)
   drule_all evaluate_bvi_to_cb
   >> simp [Once evaluate_def]
   >> strip_tac
@@ -2614,7 +2641,6 @@ Resume evaluate_rewrite_tmc[call_block]:
   >> rename [‘evaluate ([x],env2,s') = (r',t')’]
   >> drule evaluate_bvi_to_cb
   >> disch_then $ drule_at Any
-  >> impl_tac >- cheat (* I think I broke something *)
   >> simp [Once evaluate_def]
   >> strip_tac
   >> reverse $ gvs [CaseEq "result"]
@@ -2644,7 +2670,7 @@ Resume evaluate_rewrite_tmc[call_block]:
   >> qpat_x_assum ‘env_rel _ _ _ _’ kall_tac
   >> qrefinel [‘t'’, ‘_’, ‘r'’]
   >> gvs [GSYM PULL_FORALL]
-  >> cheat *)
+  >> cheat
 QED
 
 Resume evaluate_rewrite_tmc[list]:
