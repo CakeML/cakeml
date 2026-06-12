@@ -828,7 +828,7 @@ Definition evaluate_decls_def:
       evaluate_decls (s with code := s.code |+ (fi.name,(fi.params,fi.body))) ds
     else NONE) ∧
   evaluate_decls s (ExnDecl eid sh :: ds) =
-    if FLOOKUP s.eshapes eid = NONE then
+    if FLOOKUP s.eshapes eid = NONE ∧ is_wf_shape s.structs sh then
       evaluate_decls (s with eshapes := s.eshapes |+ (eid, sh)) ds
     else
       NONE
@@ -851,6 +851,8 @@ Definition decs_stcnames_def:
   decs_stcnames st_ctxt (Decl sh v e::ds) =
     (decs_stcnames st_ctxt ds) ∧
   decs_stcnames st_ctxt (Function fi::ds) =
+    (decs_stcnames st_ctxt ds) ∧
+  decs_stcnames st_ctxt (ExnDecl eid sh::ds) =
     (decs_stcnames st_ctxt ds)
 End
 

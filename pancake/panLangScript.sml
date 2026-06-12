@@ -231,11 +231,21 @@ Definition exp_ids_def:
   (exp_ids _ = [])
 End
 
+Definition is_decl_def:
+  is_decl (Decl sh v e) = T /\
+  is_decl _ = F
+End
+
 Definition is_exn_decl_def:
-  is_exn_decl (ExnDecl _ _) = T ∧
+  is_exn_decl (ExnDecl eid sh) = T /\
   is_exn_decl _ = F
 End
-        
+
+Definition is_name_def:
+  is_name (Name _ _) = T ∧
+  is_name _ = F
+End
+
 Definition size_of_eids_def:
   size_of_eids prog = LENGTH(FILTER is_exn_decl prog)
 End
@@ -330,6 +340,14 @@ Definition functions_def:
   functions(Decl _ _ _::fs) = functions fs ∧
   functions (ExnDecl _ _ :: fs) = functions fs ∧
   functions(Name _ _::fs) = functions fs
+End
+
+Definition exceptions_def:
+  exceptions [] = [] ∧
+  exceptions(Function fi::fs) = exceptions fs ∧
+  exceptions(Decl _ _ _::fs) = exceptions fs ∧
+  exceptions (ExnDecl eid sh :: fs) = (eid,sh)::exceptions fs ∧
+  exceptions(Name _ _::fs) = exceptions fs
 End
 
 Definition fun_ids_def:

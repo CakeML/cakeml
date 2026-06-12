@@ -5175,6 +5175,8 @@ Proof
    fs [state_rel_def, IS_PREFIX_THM]
 QED
 
+
+        
 Theorem state_rel_imp_semantics_decls_to_crep:
   !(s:('a,'b) panSem$state) (t:('a,'b) crepSem$state) pan_code start.
     state_rel (s with structs := []) t ∧
@@ -5183,7 +5185,7 @@ Theorem state_rel_imp_semantics_decls_to_crep:
     t.code = alist_to_fmap (pan_to_crep$compile_to_crep pan_code) ∧
     s.locals = FEMPTY ∧
     EVERY (localised_prog ∘ SND ∘ SND) (functions pan_code) ∧
-    EVERY is_function pan_code ∧
+    EVERY (λx. is_function x ∨ is_exn_decl x) pan_code ∧
     panLang$size_of_eids pan_code < dimword (:'a) /\
     FDOM s.eshapes = FDOM (get_eids_from_decls pan_code) ∧
     semantics_decls s start pan_code <> Fail ==>
