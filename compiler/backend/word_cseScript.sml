@@ -26,6 +26,13 @@ Libs
   the value of that this instruction produces. Note that instructions
   are stored with canonical names only.
 
+  The loads_mem field maps load instructions (keyed by width, canonical
+  address register and offset) to the canonical register holding the
+  value last loaded from that address. It is kept separate from
+  instrs_mem because memory writes must invalidate exactly the load
+  facts: a store clears loads_mem and leaves all register-only facts
+  intact.
+
   Conventions:
 
    - The domain of to_canonical include all names that are mentioned
@@ -51,7 +58,8 @@ Datatype:
     to_canonical : num num_map ;
     to_latest    : num num_map ;
     gets_mem     : (store_name, num) alist ;
-    instrs_mem   : (num list, num) balanced_map
+    instrs_mem   : (num list, num) balanced_map ;
+    loads_mem    : (num list, num) balanced_map
   |>
 End
 
@@ -71,7 +79,8 @@ Definition empty_data_def:
   empty_data = <| to_canonical := LN ;
                   to_latest    := LN ;
                   gets_mem     := [] ;
-                  instrs_mem   := empty |>
+                  instrs_mem   := empty ;
+                  loads_mem    := empty |>
 End
 
 (* Whether we're allowed to keep the data
@@ -262,6 +271,13 @@ Definition memOpToNum_def:
   memOpToNum Store32 = 45
 End
 
+(* Key for a load fact (kept in the separate loads_mem map): the memop head
+   distinguishes the load widths; the address register is stored
+   canonically. *)
+Definition loadToNumList_def:
+  loadToNumList op (a:num) ofs = [memOpToNum op; a+100; wordToNum ofs]
+End
+
 Definition fpToNumList_def:
   fpToNumList (FPLess r1 r2 r3) = [5; r2+100; r3+100] ∧
   fpToNumList (FPLessEqual r1 r2 r3) = [6; r2+100; r3+100] ∧
@@ -372,6 +388,24 @@ Definition add_to_data_def:
       add_to_data_aux data r i (Inst x)
 End
 
+(* As add_to_data_aux, but for the load-fact map. *)
+Definition add_to_load_aux_def:
+  add_to_load_aux data r i x =
+    case balanced_map$lookup listCmp i data.loads_mem of
+    | SOME r' => let k = lookup_any r' data.to_latest r' in
+                   if EVEN r then
+                     (data, Move 0 [(r,k)])
+                   else
+                     (data with <| to_canonical := insert r r' data.to_canonical;
+                                   to_latest := insert r' r data.to_latest |>, Move 0 [(r,k)])
+    | NONE    => if EVEN r then
+                   (data, x)
+                 else
+                   (data with <| loads_mem := insert listCmp i r data.loads_mem;
+                                 to_canonical := insert r r data.to_canonical;
+                                 to_latest := insert r r data.to_latest |>, x)
+End
+
 Definition can_mem_arith_def:
   can_mem_arith (Binop _ _ r1 (Reg r2)) = (ODD r1 ∧ ODD r2) ∧
   can_mem_arith (Binop _ _ r1 (Imm _)) = ODD r1 ∧
@@ -408,9 +442,20 @@ Definition word_cseInst_def:
          add_to_data (register_reads data rds) r (Arith a') (Arith a)
        else
          (data, Inst (Arith a))) ∧
-  (word_cseInst data (Mem op r ad) =
-     let data = (if is_store op then data else invalidate_data data r) in
-       (data, Inst (Mem op r ad))) ∧
+  (word_cseInst data (Mem op r (Addr a ofs)) =
+     if is_store op then
+       (* A store writes no register, but it writes memory: all load facts
+          are invalidated. Register-only facts survive. *)
+       (data with loads_mem := empty, Inst (Mem op r (Addr a ofs)))
+     else
+       let data = invalidate_data data r in
+         (* A load fact whose address is the written register (a = r) would
+            not describe the post-state; EVEN names are never tracked. *)
+         if EVEN r ∨ EVEN a ∨ a = r then (data, Inst (Mem op r (Addr a ofs)))
+         else
+           let a' = canonicalRegs' r data a in
+             add_to_load_aux (register_read data a') r (loadToNumList op a' ofs)
+                             (Inst (Mem op r (Addr a ofs)))) ∧
   (word_cseInst data (FP fp :'a inst) =
      (invalidate_regs data (fpWrites fp), Inst (FP fp)))
 End
@@ -448,7 +493,8 @@ Definition merge_data_def:
     <| to_canonical := inter_eq d1.to_canonical d2.to_canonical ;
        to_latest    := LN ;
        gets_mem     := FILTER (λ(x,v). ALOOKUP d2.gets_mem x = SOME v) d1.gets_mem ;
-       instrs_mem   := bm_inter_eq d1.instrs_mem d2.instrs_mem |>
+       instrs_mem   := bm_inter_eq d1.instrs_mem d2.instrs_mem ;
+       loads_mem    := bm_inter_eq d1.loads_mem d2.loads_mem |>
 End
 
 (*
@@ -534,7 +580,9 @@ Definition word_cse_def:
     let data = invalidate_data data r in
       add_to_data_aux data r [48; l] (LocValue r l)) ∧
   (word_cse data (Skip) = (data, Skip)) ∧
-  (word_cse data (Store e r) = (data, Store e r)) ∧
+  (* Store cannot occur in flat code, but it writes memory, so be sound:
+     drop the load facts, keep the register-only facts. *)
+  (word_cse data (Store e r) = (data with loads_mem := empty, Store e r)) ∧
   (word_cse data (Assign r e) = (data, Assign r e)) ∧
   (word_cse data (Raise r) = (data, Raise r)) ∧
   (word_cse data (Return r1 r2) = (data, Return r1 r2)) ∧
@@ -546,10 +594,14 @@ Definition word_cse_def:
   (word_cse data (DataBufferWrite r1 r2) = (data, DataBufferWrite r1 r2)) ∧
   (* FFI cuts the local environment, so all knowledge is stale. *)
   (word_cse data (FFI s p1 l1 p2 l2 m) = (empty_data, FFI s p1 l1 p2 l2 m)) ∧
-  (* StoreConsts writes (or unsets) only its four register args and memory. *)
+  (* StoreConsts writes (or unsets) only its four register args and memory;
+     the memory writes invalidate the load facts. *)
   (word_cse data (StoreConsts r1 r2 r3 r4 payload) =
-     (invalidate_regs data [r1; r2; r3; r4], StoreConsts r1 r2 r3 r4 payload)) ∧
-  (* Shared-memory op: a load writes its var; a store writes no register. *)
+     (let data = invalidate_regs data [r1; r2; r3; r4] in
+        (data with loads_mem := empty, StoreConsts r1 r2 r3 r4 payload))) ∧
+  (* Shared-memory op: a load writes its var; a store writes no register.
+     Shared memory (sh_mdomain) is disjoint from the heap memory that load
+     facts describe, so loads_mem survives both. *)
   (word_cse data (ShareInst op r exp) =
      let data = (if is_store op then data else invalidate_data data r) in
        (data, ShareInst op r exp)) ∧
@@ -615,9 +667,11 @@ Proof
   EVAL_TAC
 QED
 
+(* Concrete word type: the load-fact keys compare distinct offsets, which is
+   only decidable at a fixed word width. *)
 Triviality test_pattern_match_and_cons:
   word_common_subexp_elim $
-    Seqs [Inst (Arith (Shift Lsr 301 297 (Imm 9w)));
+    Seqs [Inst (Arith (Shift Lsr 301 297 (Imm (9w:word64))));
           OpCurrHeap Add 305 301;
           Inst (Mem Load 309 (Addr 305 8w));
           Move 0 [(313,297)];
@@ -703,6 +757,31 @@ Triviality test_pattern_match_and_cons:
           Set NextFree (Var 429);
           Move 0 [(2,421)];
           Return 273 [2]]
+Proof
+  EVAL_TAC
+QED
+
+(* Loads from the same canonical address at the same width are CSE'd (and a
+   chain hanging off the loaded value then CSEs too); a different width is a
+   different fact; any store invalidates all load facts but no register
+   facts. *)
+Triviality test_load_cse:
+  word_common_subexp_elim $
+    Seqs [Inst (Mem Load 9 (Addr 7 (0w:word64)));
+          Inst (Arith (Shift Lsr 11 9 (Imm 29w)));
+          Inst (Mem Load 13 (Addr 7 0w));
+          Inst (Arith (Shift Lsr 15 13 (Imm 29w)));
+          Inst (Mem Load8 17 (Addr 7 0w));
+          Inst (Mem Store 15 (Addr 7 0w));
+          Inst (Mem Load 19 (Addr 7 0w))]
+  =
+    Seqs [Inst (Mem Load 9 (Addr 7 0w));
+          Inst (Arith (Shift Lsr 11 9 (Imm 29w)));
+          Move 0 [(13,9)];
+          Move 0 [(15,11)];
+          Inst (Mem Load8 17 (Addr 7 0w));
+          Inst (Mem Store 15 (Addr 7 0w));
+          Inst (Mem Load 19 (Addr 7 0w))]
 Proof
   EVAL_TAC
 QED
