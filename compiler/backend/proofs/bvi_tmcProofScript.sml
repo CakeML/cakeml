@@ -1019,6 +1019,7 @@ Proof
   >> gvs []
 QED
 
+(*
 Theorem evaluate_fill_hole:
   ∀exp f f' env1 env2 v s t s' t' c.
     evaluate ([exp],env2,s') = (Rval [v],t') ∧
@@ -1030,7 +1031,7 @@ Theorem evaluate_fill_hole:
     only_fresh f f' s'.refs ∧
     state_rel f' t t' ∧
     env2❲LENGTH env1❳ = RefPtr F hole_ptr ⇒
-    ∃r t''.
+    ∃t''.
       evaluate ([fill_hole (LENGTH env1) (LENGTH env1 + 1) exp],env2,s') = (Rval [Block 0 []],t'') ∧
       state_rel f' t t'' ∧
       holes_unchanged_except f s'.refs t''.refs {hole_ptr} ∧
@@ -1065,6 +1066,66 @@ Proof
    (irule holes_unchanged_except_filled
     >> rpt $ first_assum $ irule_at Any)
   >> gvs [hole_has_val_def, FLOOKUP_SIMP]
+QED
+*)
+
+Theorem evaluate_fill_hole_val:
+  ∀exp f f' env1 env2 s t s' t' v v' c.
+    evaluate ([exp],env1,s) = (Rval [v],t) ∧
+    evaluate ([exp],env2,s') = (Rval [v'],t') ∧
+    env_rel T f env1 env2 ∧
+    state_rel f s s' ∧
+    f ⊑ f' ∧
+    v_rel f' v v' ∧
+    hole_has_val f env1 env2 s'.refs c ∧
+    holes_unchanged_except f s'.refs t'.refs ∅ ∧
+    only_fresh f f' s'.refs ∧
+    state_rel f' t t' ∧
+    env2❲LENGTH env1❳ = RefPtr F hole_ptr ⇒
+    ∃r_fill f_fill t_fill.
+      evaluate ([fill_hole (LENGTH env1) (LENGTH env1 + 1) exp],env2,s') = (r_fill,t_fill) ∧
+      opt_res_rel f_fill (Rval [v]) r_fill ∧
+      state_rel f_fill t t_fill ∧
+      f SUBMAP f_fill ∧
+      only_fresh f f_fill s'.refs ∧
+      holes_unchanged_except f s'.refs t_fill.refs {hole_ptr} ∧
+      ∃v_fill.
+        mb_rel f_fill (t_fill.refs \\ hole_ptr) v v_fill ∧
+        hole_has_val f env1 env2 t_fill.refs v_fill
+Proof
+  rw []
+  >> drule env_rel_length_opt
+  >> strip_tac
+  >> drule env_rel_extras_opt
+  >> strip_tac
+  >> imp_res_tac hole_has_val_def
+  >> imp_res_tac holes_unchanged_except_def
+  >> simp [evaluate_def, fill_hole_def, do_app_def, do_app_aux_def,
+           case_eq_thms, PULL_EXISTS, FLOOKUP_SIMP, bvlSemTheory.Unit_def, backend_commonTheory.tuple_tag_def]
+  >> gvs []
+  >> first_x_assum $ drule_all
+  >> strip_tac
+  >> first_x_assum drule
+  >> disch_then drule
+  >> impl_tac
+  >- gvs []
+  >> strip_tac
+  >> qexists ‘f'’
+  >> gvs [opt_res_rel_def, GSYM PULL_EXISTS]
+  >> conj_tac
+  >-
+   (irule state_rel_filled
+    >> gvs []
+    >> irule non_fresh_not_in_frange
+    >> rpt $ first_assum $ irule_at Any
+    >> gvs [FLOOKUP_DEF])
+  >> conj_tac
+  >-
+   (irule holes_unchanged_except_filled
+    >> rpt $ first_assum $ irule_at Any)
+  >> gvs [hole_has_val_def, FLOOKUP_SIMP]
+  >> Cases_on ‘v’ >> gvs [mb_rel_def]
+  >> Cases_on ‘v'’ >> gvs [mb_rel_def, v_rel_cases]
 QED
 
 Theorem evaluate_fill_hole_err:
@@ -1655,16 +1716,14 @@ Resume evaluate_rewrite_tmc[op_non_opt]:
   gvs [evaluate_def]
   >> gvs [CaseEq "prod", PULL_EXISTS]
   >> rename [‘evaluate (xs,env,s) = (rs,u)’]
-  >> first_assum $ qspecl_then [‘xs’, ‘s’, ‘env’, ‘loc’] mp_tac
-  >> gvs []
-  >> disch_then $ qspec_then ‘F’ mp_tac
+  >> first_assum $ qspecl_then [‘xs’, ‘s’, ‘env’] mp_tac
+  >> impl_tac >- gvs []
+  >> disch_then drule
   >> drule_all env_rel_relax_opt
   >> strip_tac
-  >> disch_then drule
-  >> disch_then drule
-  >> gvs []
-  >> impl_tac
-  >- (spose_not_then assume_tac >> gvs [])
+  >> rpt $ disch_then drule
+  >> impl_tac >- gvs [CaseEq "prod", CaseEq "result"]
+  >> disch_then $ qspec_then ‘loc’ mp_tac
   >> strip_tac
   >> gvs [GSYM PULL_FORALL]
   >> rename [‘evaluate (xs,env2,s') = (rs',u')’]
@@ -1702,14 +1761,13 @@ Resume evaluate_rewrite_tmc[op_non_opt]:
     >> first_assum $ irule_at Any
     >> gvs [])
   >> rename [‘do_app _ (REVERSE vs) u = Rval v’]
-  >> Cases_on ‘v’
-  >> rename [‘do_app op _ _ = Rval (v,r)’]
   >> gvs [CaseEq "prod"]
+  >> rename [‘do_app op _ _ = Rval (v,r)’]
   >> drule $ iffLR list_rel_reverse
   >> strip_tac
   >> drule_all do_app_op_rel
   >> strip_tac
-  >> gvs [CaseEq "prod"]
+  >> gvs []
   >> first_assum $ irule_at Any
   >> gvs []
   >> conj_asm1_tac
@@ -1724,9 +1782,9 @@ Resume evaluate_rewrite_tmc[op_non_opt]:
   >> rw []
   >- gvs [rewrite_wrapper_def]
   >> gvs [rewrite_worker_def]
-  >> ho_match_mp_tac evaluate_fill_hole
-  >> gvs [evaluate_def]
+  >> ho_match_mp_tac evaluate_fill_hole_val
   >> rpt $ first_assum $ irule_at Any
+  >> gvs [evaluate_def]
 QED
 
 (* I think this can replace the "wf" theorem *)
@@ -2898,6 +2956,20 @@ Resume evaluate_rewrite_tmc[call_block]:
   >> first_assum $ irule_at Any
   >> gvs []
 QED
+
+
+
+
+
+
+
+
+
+
+
+
+
+(* Below here is failing due to changing hypothesis *)
 
 Resume evaluate_rewrite_tmc[list]:
   gvs [evaluate_def]
