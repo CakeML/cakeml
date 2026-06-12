@@ -2689,6 +2689,34 @@ Proof
   >> gvs [FLOOKUP_SIMP]
 QED
 
+Theorem evaluate_pres_opt_code:
+  ∀loc loc_opt s1 s2 xs env1 env2 r1 u1 r2 u2.
+    optimised_code loc loc_opt s1.code s2.code ∧
+    evaluate(xs,env1,s1) = (r1,u1) ∧
+    evaluate(xs,env2,s2) = (r2,u2) ⇒
+    optimised_code loc loc_opt u1.code u2.code
+Proof
+  rw []
+  >> imp_res_tac evaluate_code_mono
+  >> gvs [optimised_code_def]
+  >> gvs [subspt_def]
+  >> first_x_assum $ qspec_then ‘loc’ mp_tac
+  >> impl_tac
+  >- gvs [domain_lookup]
+  >> strip_tac
+  >> gvs []
+  >> first_assum $ qspec_then ‘loc’ mp_tac
+  >> impl_tac
+  >- gvs [domain_lookup]
+  >> strip_tac
+  >> gvs []
+  >> first_x_assum $ qspec_then ‘loc_opt’ mp_tac
+  >> impl_tac
+  >- gvs [domain_lookup]
+  >> strip_tac
+  >> gvs []
+QED
+
 Resume evaluate_rewrite_tmc[call_block]:
   (* Phase 1 theorem in s *)
   drule_all evaluate_bvi_to_cb
@@ -2770,7 +2798,8 @@ Resume evaluate_rewrite_tmc[call_block]:
   >- imp_res_tac holes_unchanged_except_trans
   >> gen_tac
   >> strip_tac
-  >> ‘optimised_code loc loc_opt u.code u'.code’ by cheat
+  >> drule_all evaluate_pres_opt_code
+  >> strip_tac
   >> first_x_assum $ drule
   >> gvs []
   >> rw []
