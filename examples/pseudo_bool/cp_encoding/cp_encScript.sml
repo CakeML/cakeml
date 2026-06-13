@@ -160,7 +160,7 @@ Definition split_bracket_def:
   split_bracket depth passed (c::cs) =
     if c = #"\\" then
       if cs = [] then NONE else
-        split_bracket depth (passed ++ [HD cs]) (TL cs)
+        split_bracket depth (passed ++ [#"\\"; HD cs]) (TL cs)
     else if c = #"[" then
       split_bracket (depth+1n) (passed ++ [c]) cs
     else if c = #"]" then
@@ -199,21 +199,43 @@ Proof
   Cases_on ‘y’ \\ gvs []
 QED
 
-Theorem split_bracket_escape_bad_brackets[simp,local]:
-  split_bracket d ys (explode (escape_bad_brackets a) ++ rest) =
-  split_bracket d (ys ++ explode (escape_bad_brackets a)) rest
+Theorem split_bracket_escape_chars:
+  ∀s ys xs d.
+    split_bracket d ys (escape_chars s ++ xs) =
+    split_bracket d (ys ++ escape_chars s) xs
 Proof
-  cheat (*
-  fs [escape_bad_brackets_eq]
-  \\ qid_spec_tac ‘rest’
-  \\ qid_spec_tac ‘ys’
-  \\ qspec_tac (‘explode a’,‘xs’)
-  \\ Induct
-  \\ rw [escape_chars_def]
-  \\ simp [Once split_bracket_def]
-  \\ simp [Once split_bracket_def]
-  \\ rw []
-  \\ rewrite_tac [GSYM APPEND_ASSOC,APPEND] *)
+  Induct \\ simp [escape_chars_def]
+  \\ simp [split_bracket_def]
+  \\ rewrite_tac [GSYM APPEND_ASSOC, APPEND] \\ rw []
+  \\ simp [split_bracket_def]
+  \\ rewrite_tac [GSYM APPEND_ASSOC, APPEND] \\ fs []
+QED
+
+Theorem split_bracket_not:
+  ∀n ys s rest d.
+    ¬naive_needs_escaping n s ⇒
+    split_bracket n ys (s ++ rest) =
+    split_bracket 0 (ys ++ s) rest
+Proof
+  ho_match_mp_tac split_bracket_ind \\ rw []
+  \\ simp [split_bracket_def]
+  \\ Cases_on ‘c = #"\\"’ \\ gvs [naive_needs_escaping_def]
+  \\ Cases_on ‘c = #"["’ \\ gvs [naive_needs_escaping_def]
+  \\ rewrite_tac [GSYM APPEND_ASSOC, APPEND] \\ fs []
+  \\ IF_CASES_TAC \\ fs []
+  \\ rewrite_tac [GSYM APPEND_ASSOC, APPEND] \\ fs []
+QED
+
+Theorem split_bracket_escape_bad_brackets[simp,local]:
+  split_bracket 0 ys (explode (escape_bad_brackets a) ++ rest) =
+  split_bracket 0 (ys ++ explode (escape_bad_brackets a)) rest
+Proof
+  Cases_on ‘a’
+  \\ rw [escape_bad_brackets_def,needs_escaping_eq]
+  >-
+   (simp [split_bracket_def,split_bracket_escape_chars]
+    \\ rewrite_tac [GSYM APPEND_ASSOC, APPEND])
+  \\ drule split_bracket_not \\ fs []
 QED
 
 Theorem split_bracket_fast_forward:

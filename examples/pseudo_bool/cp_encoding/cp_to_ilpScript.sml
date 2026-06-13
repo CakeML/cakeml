@@ -116,7 +116,8 @@ Definition naive_needs_escaping_def:
     if c = CHR 92 ∨ c = CHR 255 then T else
     if c = CHR 91 then naive_needs_escaping (depth+1) cs else
     if c = CHR 93 then
-      (if depth = 0 then F else naive_needs_escaping (depth-1) cs)
+      (if depth = 0 then T
+       else naive_needs_escaping (depth-1) cs)
     else naive_needs_escaping depth cs
 End
 
@@ -127,7 +128,7 @@ Definition needs_escaping_def:
         if c = CHR 92 ∨ c = CHR 255 then T else
         if c = CHR 91 then needs_escaping (depth+1) s (n+1) l else
         if c = CHR 93 then
-          (if depth = 0 then F else needs_escaping (depth-1) s (n+1) l)
+          (if depth = 0 then T else needs_escaping (depth-1) s (n+1) l)
         else needs_escaping depth s (n+1) l
 Termination
   WF_REL_TAC ‘measure (λ(d,s,n,l). l - n)’
