@@ -48,7 +48,8 @@ Definition env_rel_def:
       LENGTH ys = 2 ∧
       ∃hole_ptr hole_idx.
         EL 0 ys = RefPtr F hole_ptr ∧
-        EL 1 ys = Number hole_idx)
+        EL 1 ys = Number hole_idx ∧
+        backend_common$small_enough_int hole_idx)
 End
 
 Definition code_rel_def:
@@ -284,7 +285,8 @@ Theorem env_rel_strip_extras:
     env_rel T f env1 env2 ⇒
     ∃env2' hole_ptr hole_idx.
       env_rel F f env1 env2' ∧
-      env2 = env2' ++ [RefPtr F hole_ptr; Number hole_idx]
+      env2 = env2' ++ [RefPtr F hole_ptr; Number hole_idx] ∧
+      backend_common$small_enough_int hole_idx
 Proof
   rw []
   >> gvs [env_rel_def]
@@ -390,6 +392,7 @@ Definition hole_has_val_def:
   ∃hole_ptr tag left right.
     env2❲LENGTH env1❳ = RefPtr F hole_ptr ∧
     env2❲LENGTH env1 + 1❳ = Number (&LENGTH left) ∧
+    backend_common$small_enough_int (&LENGTH left) ∧
     hole_ptr ∉ FRANGE f ∧
     FLOOKUP refs hole_ptr = SOME (MutBlock tag left c right)
 End
@@ -1819,6 +1822,7 @@ Definition alloc_hole_has_val_def:
       i_ptr < LENGTH extras ∧
       extras❲i_ptr❳ = RefPtr F hole_ptr ∧
       c_idx = LENGTH left ∧
+      backend_common$small_enough_int (&LENGTH left) ∧
       hole_ptr ∉ FRANGE f ∧
       FLOOKUP refs hole_ptr = SOME (MutBlock tag left c right)
 End
@@ -1887,7 +1891,8 @@ QED
 Theorem env_rel_opt_args:
   ∀args opt f env1 env2 (s1 : (num # γ, 'ffi) bviSem$state) ptr idx.
     env_rel opt f env1 env2 ∧
-    evaluate (MAP (λn. Var n) args,env1,s1) = (Rval (MAP (λn. env1❲n❳) args),s1) ⇒
+    evaluate (MAP (λn. Var n) args,env1,s1) = (Rval (MAP (λn. env1❲n❳) args),s1) ∧
+    backend_common$small_enough_int idx⇒
     env_rel T f (MAP (λn. env1❲n❳) args) (MAP (λn. env2❲n❳) args ++ [RefPtr F ptr; Number idx])
 Proof
   rw []
@@ -1994,9 +1999,18 @@ Proof
   >> gvs [optimised_code_def, compile_exp_def, CaseEq "option"]
 QED
 
+Definition wf_cb_def:
+  (wf_cb n (CallBlock tag left child right) =
+   (wf_vars n left ∧
+    wf_cb n child ∧
+    wf_vars n right ∧
+    backend_common$small_enough_int (&LENGTH right)))
+End
+
 Theorem evaluate_cb:
   ∀cb loc f opt env env2 ^s s' t r clock.
     evaluate ([cb_to_bvi loc cb],env,s) = (r,t) ∧
+    wf_cb (LENGTH env) cb ∧
     env_rel opt f env env2 ∧
     state_rel f s s' ∧
     s.clock ≤ clock ∧
@@ -2056,7 +2070,6 @@ Theorem evaluate_cb:
                 mb_rel f_work (t_work.refs \\ hole_ptr) res_v res_v' ∧
                 hole_has_val f env env2 t_work.refs res_v'))
 Proof
-
   reverse $ Induct
   >-
    (rpt gen_tac
@@ -2084,7 +2097,6 @@ Proof
       >-
        (gvs [cb_to_bvi_worker_aux_def, shift_cb_def, optimise_call_def, evaluate_def, evaluate_APPEND, evaluate_shift_vars]
         >> gvs [alloc_hole_has_val_def, do_app_def, do_app_aux_def]
-        >> ‘backend_common$small_enough_int (&LENGTH left)’ by cheat
         >> gvs [bvlSemTheory.find_code_def, EL_APPEND_EQN]
         >> qexists ‘f’
         >> gvs [state_rel_def, only_fresh_refl, holes_unchanged_except_refl, opt_res_rel_def])
@@ -2145,14 +2157,15 @@ Proof
       >> rename [‘optimised_code _ loc_opt _ _’]
       >> gvs [shift_cb_def, cb_to_bvi_worker_def, cb_to_bvi_worker_aux_def, optimise_call_def, evaluate_def, evaluate_APPEND, evaluate_shift_vars]
       >> gvs [alloc_hole_has_val_def, do_app_def, do_app_aux_def]
-      >> ‘backend_common$small_enough_int (&LENGTH left)’ by cheat
       >> gvs [bvlSemTheory.find_code_def, EL_APPEND_EQN]
       >> gvs [hypothesis_def]
       >> first_x_assum $ qspecl_then [‘[exp]’, ‘dec_clock (ts + 1) s’] mp_tac
       >> impl_tac >- gvs [dec_clock_def]
       >> disch_then drule
       >> drule_then drule env_rel_opt_args
-      >> disch_then $ qspecl_then [‘hole_ptr’, ‘&LENGTH left’] assume_tac
+      >> disch_then $ qspecl_then [‘hole_ptr’, ‘&LENGTH left’] mp_tac
+      >> impl_tac >- gvs []
+      >> strip_tac
       >> disch_then drule
       >> disch_then $ qspecl_then [‘dec_clock (ts + 1) (s' with refs := refs)’, ‘loc’, ‘LENGTH args’] mp_tac
       >> impl_tac
@@ -2202,7 +2215,9 @@ Proof
     >> imp_res_tac env_rel_strip_extras
     >> imp_res_tac env_rel_length_opt
     >> ‘hole_ptr = hole_ptr'’ by gvs [EL_APPEND_EQN]
-    >> disch_then $ qspecl_then [‘hole_ptr’, ‘hole_idx’] assume_tac
+    >> disch_then $ qspecl_then [‘hole_ptr’, ‘hole_idx’] mp_tac
+    >> impl_tac >- gvs []
+    >> strip_tac
     >> disch_then drule
     >> disch_then $ qspecl_then [‘dec_clock (ts + 1) s'’, ‘loc’, ‘LENGTH args’] mp_tac
     >> impl_tac
@@ -2237,7 +2252,7 @@ Proof
   >> rpt gen_tac
   >> strip_tac
   >> rename [‘CallBlock tag left child right’]
-  >> gvs [cb_to_bvi_def, evaluate_def, evaluate_APPEND, CaseEq "prod"]
+  >> gvs [wf_cb_def, cb_to_bvi_def, evaluate_def, evaluate_APPEND, CaseEq "prod"]
   >> drule_then drule evaluate_vars
   >> impl_tac >- (spose_not_then assume_tac >> gvs [CaseEq "prod"])
   >> strip_tac
@@ -2247,6 +2262,7 @@ Proof
   >> impl_tac >- gvs [CaseEq "prod", CaseEq "result"]
   >> strip_tac >> gvs []
   >> rename [‘state_rel f' u u'’, ‘result_rel _ _ r r'’]
+
   >> reverse $ Cases_on ‘r’
   >-
    (gvs [CaseEq "prod"]
@@ -2307,8 +2323,7 @@ Proof
        (irule state_ref_rel_filled
         >> gvs [state_rel_def]
         >> imp_res_tac fresh_not_in_range_f)
-      >> gvs [alloc_hole_has_val_def, FLOOKUP_SIMP]
-      >> gvs [state_rel_def]
+      >> gvs [alloc_hole_has_val_def, FLOOKUP_SIMP, backend_commonTheory.small_enough_int_def, state_rel_def]
       >> imp_res_tac fresh_not_in_range_f)
     >> strip_tac
     >> gvs []
@@ -2374,12 +2389,10 @@ Proof
     >> gvs [LENGTH_MAP, REVERSE_APPEND, TAKE_APPEND, DROP_APPEND, GSYM MAP_REVERSE, GSYM MAP_TAKE, GSYM MAP_DROP, DROP_LENGTH_TOO_LONG]
     >> gvs [update_cons_def, evaluate_def]
     >> gvs [do_app_def, do_app_aux_def]
-    >> ‘backend_common$small_enough_int (&idx)’ by cheat
-    >> gvs []
+    >> gvs [alloc_hole_has_val_def]
     >> Cases_on ‘ptr + 1’
     >- gvs []
     >> ‘n = ptr’ by gvs []
-    >> gvs [alloc_hole_has_val_def]
     >> gvs [FLOOKUP_SIMP, EL_APPEND_EQN]
     >> IF_CASES_TAC
     >-
@@ -2416,8 +2429,7 @@ Proof
           >> gvs [FLOOKUP_DEF])
         >> gvs [])
       >> qexistsl [‘Number 0’, ‘tag’, ‘(MAP (λn. env2❲n❳) (TAKE (LENGTH right) (REVERSE right)))’, ‘(MAP (λn. env2❲n❳) (REVERSE left))’]
-      >> conj_tac
-      >- gvs [LENGTH_MAP]
+      >> gvs [LENGTH_MAP, backend_commonTheory.small_enough_int_def]
       >> conj_tac
       >- imp_res_tac fresh_not_in_range_f
       >> gvs [FLOOKUP_SIMP])
@@ -2470,7 +2482,7 @@ Proof
     >> gvs [DOMSUB_COMMUTES]
     >> pop_assum $ irule_at Any
     >> gvs [DOMSUB_FLOOKUP_THM, holes_unchanged_except_def, FLOOKUP_SIMP]
-    >> first_assum $ irule_at Any
+    >> first_assum $ irule_at $ Pos last
     >> drule_all env_rel_submap
     >> strip_tac
     >> gvs []
@@ -2542,7 +2554,7 @@ Proof
         >> qspec_then ‘s'.refs’ assume_tac fresh_ptr_fresh
         >> gvs [FLOOKUP_DEF])
       >> gvs [])
-    >> gvs [alloc_hole_has_val_def]
+    >> gvs [alloc_hole_has_val_def, backend_commonTheory.small_enough_int_def]
     >> gvs [FLOOKUP_SIMP, LENGTH_MAP]
     >> irule fresh_not_in_range_f
     >> qexists ‘s.refs’
@@ -2615,7 +2627,7 @@ Proof
       >> gvs [FLOOKUP_SIMP])
     >> strip_tac
     >> gvs [DOMSUB_COMMUTES])
-  >> gvs [holes_unchanged_except_def]
+  >> gvs [holes_unchanged_except_def, backend_commonTheory.small_enough_int_def]
   >> first_x_assum $ irule_at Any
   >> gvs [FLOOKUP_SIMP]
 QED

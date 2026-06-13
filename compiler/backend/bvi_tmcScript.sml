@@ -208,8 +208,10 @@ Definition bvi_to_cb_aux_def:
         | NONE => NONE
         | SOME (bs1,INL vs1) =>
             (* No recursive call, keep building binders. *)
-            let vs2' = shift_vars (LENGTH bs1) vs2 in
-            SOME (bs1 ++ bs2,INL (vs1 ++ vs2'))
+            if small_enough_int &(LENGTH vs1 + LENGTH vs2) then
+              let vs2' = shift_vars (LENGTH bs1) vs2 in
+                SOME (bs1 ++ bs2,INL (vs1 ++ vs2'))
+            else NONE
         | SOME (bs1,INR (CallBlock _ [] child [])) =>
             (* We've constructed a CallBlock at this level with just h, pad the other args *)
             (* l and r are always empty if args is a singleton *)
@@ -220,11 +222,8 @@ Definition bvi_to_cb_aux_def:
        (* Recursive call found, first is let bound and added to the left *)
        case shift_cb 1 cb of
        | CallBlock tag l child r =>
-           if small_enough_int &(LENGTH l + 1) then
-             let cb' = CallBlock tag (0::l) child r in
-               SOME (h::bs2,INR cb')
-           else
-             NONE
+           let cb' = CallBlock tag (0::l) child r in
+             SOME (h::bs2,INR cb')
        | _ => NONE)
 End
 
@@ -309,10 +308,11 @@ Theorem bvi_to_cb_aux_wf_inl:
   ∀n loc tag args bs vs.
     bvi_to_cb_aux n loc tag args = SOME (bs,INL vs) ⇒
     pure_exps n bs ∧
-    wf_vars (LENGTH bs) vs
+    wf_vars (LENGTH bs) vs ∧
+    small_enough_int (&LENGTH vs)
 Proof
   recInduct bvi_to_cb_aux_ind
-  >> rw [] >> gvs [bvi_to_cb_aux_def, pure_exps_def, CaseEq "call_block", CaseEq "prod", CaseEq "option", CaseEq "sum", CaseEq "list"]
+  >> rw [] >> gvs [bvi_to_cb_aux_def, pure_exps_def, CaseEq "call_block", CaseEq "prod", CaseEq "option", CaseEq "sum", CaseEq "list", small_enough_int_def, length_shift_vars]
   >- gvs [wf_vars_def]
   >- gvs [wf_vars_def]
   >- gvs [wf_vars_def]
@@ -347,14 +347,15 @@ Theorem bvi_to_cb_aux_wf_inr:
     ∃l child r.
       cb = CallBlock tag l child r ∧
       wf_vars (LENGTH bs) l ∧
-      small_enough_int (&LENGTH l) ∧
+      small_enough_int (&LENGTH r) ∧
       wf_vars (LENGTH bs) r
 Proof
   recInduct bvi_to_cb_aux_ind
   >> rw [] >> gvs [bvi_to_cb_aux_def, bind_def, shift_cb_def, CaseEq "prod", CaseEq "option", CaseEq "sum", CaseEq "list", wf_vars_empty, wf_vars_shift_sing, small_enough_int_def, length_shift_vars, GSYM INT]
   >-
-   (irule wf_vars_shift
-    >> imp_res_tac bvi_to_cb_aux_wf_inl)
+   (irule_at Any wf_vars_shift
+    >> imp_res_tac bvi_to_cb_aux_wf_inl
+    >> gvs [small_enough_int_def])
   >> irule wf_vars_cons
   >> gvs []
   >> irule wf_vars_shift_sing
@@ -381,7 +382,7 @@ Theorem bvi_to_cb_cases:
        x = Op (BlockOp (Cons tag)) args ∧
        cb = CallBlock tag l child r ∧
        wf_vars (LENGTH bs) l ∧
-       small_enough_int (&LENGTH l) ∧
+       small_enough_int (&LENGTH r) ∧
        wf_vars (LENGTH bs) r) ∨
     (∃ts args vs.
        x = Call ts (SOME loc) args NONE ∧
