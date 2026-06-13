@@ -1622,6 +1622,7 @@ Proof
   \\ Cases_on ‘a’
   \\ gvs [word_cseInst_def,extract_labels_def,AllCaseEqs(),add_to_data_def,
          add_to_data_aux_def]
+  \\ gvs [add_to_load_aux_def,AllCaseEqs(),extract_labels_def]
 QED
 
 Theorem extract_labels_word_common_subexp_elim:
@@ -1640,6 +1641,9 @@ Proof
   \\ fs [word_cseTheory.add_to_data_def, word_cseTheory.add_to_data_aux_def]
   \\ every_case_tac
   \\ fs [not_created_subprogs_def]
+  \\ gvs [word_cseTheory.add_to_load_aux_def, AllCaseEqs(),
+          not_created_subprogs_def]
+  \\ CASE_TAC \\ fs [not_created_subprogs_def]
 QED
 
 Theorem word_cse_not_created_subprogs[local]:
@@ -1684,100 +1688,163 @@ Proof
   \\ gvs [add_to_data_aux_def,AllCaseEqs()]
   \\ gvs [word_cseInst_def |> DefnBase.one_line_ify NONE,AllCaseEqs()]
   \\ gvs [add_to_data_def,add_to_data_aux_def,AllCaseEqs()]
-  \\ rename1`xx = (_,_)`
-  \\ Cases_on`xx` \\ simp[]
+  \\ gvs [add_to_load_aux_def,AllCaseEqs()]
+QED
+
+(* word_cse can only drop code-label references (LocValue-CSE replaces a
+   second LocValue for the same label by a Move), so this is a ⊆, not an
+   equality. *)
+Theorem word_cse_get_code_labels[local]:
+  ∀p data data' (q:'a prog).
+    word_cse data p = (data',q) ⇒
+    word_get_code_labels q ⊆ word_get_code_labels p
+Proof
+  Induct
+  \\ simp []
+  \\ rpt gen_tac \\ strip_tac
+  >~ [`Inst`] >- (
+    gvs [word_cse_def]
+    \\ pairarg_tac \\ gvs []
+    \\ namedCases_on ‘i’ ["", "r w", "a", "m r ad", "fp"]
+    >- gvs [word_cseInst_def]
+    >- gvs [word_cseInst_def, add_to_data_def, add_to_data_aux_def,
+            AllCaseEqs()]
+    >- gvs [word_cseInst_def, add_to_data_def, add_to_data_aux_def,
+            AllCaseEqs()]
+    >- (namedCases_on ‘ad’ ["ar ofs"]
+        \\ gvs [word_cseInst_def, add_to_load_aux_def, AllCaseEqs()])
+    \\ gvs [word_cseInst_def])
+  >~ [`MustTerminate`] >- (
+    gvs [word_cse_def]
+    \\ pairarg_tac \\ gvs []
+    \\ first_x_assum drule_all \\ simp [])
+  >~ [`wordLang$Seq`] >- (
+    gvs [word_cse_def]
+    \\ pairarg_tac \\ gvs []
+    \\ pairarg_tac \\ gvs []
+    \\ res_tac \\ gvs [SUBSET_DEF] \\ metis_tac [])
+  >~ [`wordLang$If`] >- (
+    gvs [word_cse_def]
+    \\ pairarg_tac \\ gvs []
+    \\ pairarg_tac \\ gvs []
+    \\ res_tac \\ gvs [SUBSET_DEF] \\ metis_tac [])
+  >~ [`Loop`] >- (
+    gvs [word_cse_def]
+    \\ pairarg_tac \\ gvs []
+    \\ first_x_assum drule_all \\ simp [])
+  >> gvs [word_cse_def, add_to_data_aux_def, AllCaseEqs()]
+  \\ metis_tac [SUBSET_UNION, SUBSET_TRANS]
 QED
 
 Theorem word_get_code_labels_word_common_subexp_elim[local]:
-  word_get_code_labels (word_common_subexp_elim p) =
+  word_get_code_labels (word_common_subexp_elim p) ⊆
   word_get_code_labels p
 Proof
   fs [word_common_subexp_elim_def]
-  \\ pairarg_tac \\ fs []
-  \\ rename [‘_ k _ = (a,np)’]
-  \\ pop_assum mp_tac
-  \\ qid_spec_tac ‘k’
-  \\ qid_spec_tac ‘a’
-  \\ qid_spec_tac ‘np’
-  \\ qid_spec_tac ‘q’
-  \\ qid_spec_tac ‘p’
-  \\ Induct \\ fs [word_cse_def]
-  \\ rw [] \\ rpt (pairarg_tac \\ gvs [])
-  \\ gvs [AllCaseEqs()]
-  \\ res_tac \\ fs []
-  \\ gvs [add_to_data_aux_def,AllCaseEqs()]
-  \\ gvs [word_cseInst_def |> DefnBase.one_line_ify NONE,AllCaseEqs()]
-  \\ gvs [add_to_data_def,add_to_data_aux_def,AllCaseEqs()]
+  \\ pairarg_tac \\ gvs []
+  \\ drule word_cse_get_code_labels \\ fs []
 QED
 
 Theorem word_cse_flat_exp_conventions[local]:
-  ∀p data.
-    let p' = SND (word_cse data p) in
-      flat_exp_conventions p ⇒ flat_exp_conventions p'
+  ∀p data data' (q:'a prog).
+    flat_exp_conventions p ∧ word_cse data p = (data',q) ⇒
+    flat_exp_conventions q
 Proof
-  Induct \\ rw[]
-  \\ gvs [flat_exp_conventions_def, word_cse_def, AllCaseEqs()]
-  \\ rpt (pairarg_tac >> gvs[])
-  \\ gvs [flat_exp_conventions_def, word_cse_def,
-   oneline word_cseInst_def,add_to_data_def,
-   add_to_data_aux_def,
-  oneline canonicalExp_def, AllCaseEqs()]
-  \\ EVERY_CASE_TAC \\ gvs[flat_exp_conventions_def]
-  >-(
- first_x_assum (qspec_then `data` assume_tac) \\ gvs[])
-  >-(
- last_x_assum (qspec_then `data` assume_tac) >>
- last_x_assum (qspec_then `data1` assume_tac)
- \\ gvs[])
-  >-(
- last_x_assum (qspec_then `data` assume_tac) >>
- last_x_assum (qspec_then `data` assume_tac)
- \\ gvs[])
-  >- (first_x_assum (qspec_then `empty_data` assume_tac) \\ gvs[])
+  Induct
+  \\ simp []
+  \\ rpt gen_tac \\ strip_tac
+  >~ [`Inst`] >- (
+    gvs [word_cse_def]
+    \\ pairarg_tac \\ gvs []
+    \\ namedCases_on ‘i’ ["", "r w", "a", "m r ad", "fp"]
+    >- gvs [word_cseInst_def, flat_exp_conventions_def]
+    >- gvs [word_cseInst_def, add_to_data_def, add_to_data_aux_def,
+            AllCaseEqs(), flat_exp_conventions_def]
+    >- gvs [word_cseInst_def, add_to_data_def, add_to_data_aux_def,
+            AllCaseEqs(), flat_exp_conventions_def]
+    >- (namedCases_on ‘ad’ ["ar ofs"]
+        \\ gvs [word_cseInst_def, add_to_load_aux_def, AllCaseEqs(),
+                flat_exp_conventions_def])
+    \\ gvs [word_cseInst_def, flat_exp_conventions_def])
+  >~ [`MustTerminate`] >- (
+    gvs [word_cse_def, flat_exp_conventions_def]
+    \\ pairarg_tac \\ gvs [flat_exp_conventions_def]
+    \\ first_x_assum drule_all \\ simp [])
+  >~ [`wordLang$Seq`] >- (
+    gvs [word_cse_def, flat_exp_conventions_def]
+    \\ pairarg_tac \\ gvs []
+    \\ pairarg_tac \\ gvs [flat_exp_conventions_def]
+    \\ res_tac \\ simp [])
+  >~ [`wordLang$If`] >- (
+    gvs [word_cse_def, flat_exp_conventions_def]
+    \\ pairarg_tac \\ gvs []
+    \\ pairarg_tac \\ gvs [flat_exp_conventions_def]
+    \\ res_tac \\ simp [])
+  >~ [`Loop`] >- (
+    gvs [word_cse_def, flat_exp_conventions_def]
+    \\ pairarg_tac \\ gvs [flat_exp_conventions_def]
+    \\ first_x_assum drule_all \\ simp [])
+  >> gvs [word_cse_def, add_to_data_aux_def, flat_exp_conventions_def,
+          AllCaseEqs()]
 QED
 
 Theorem flat_exp_conventions_word_common_subexp_elim:
   flat_exp_conventions p ⇒
   flat_exp_conventions (word_common_subexp_elim p)
 Proof
-  fs [word_common_subexp_elim_def] \\ pairarg_tac \\ gvs []
-  \\ qspecl_then [‘p’,‘empty_data’] mp_tac word_cse_flat_exp_conventions
-  \\ fs []
+  strip_tac
+  \\ fs [word_common_subexp_elim_def] \\ pairarg_tac \\ gvs []
+  \\ drule_all word_cse_flat_exp_conventions \\ simp []
 QED
 
 Theorem word_cse_wf_cutsets[local]:
-  ∀p data.
-    let p' = SND (word_cse data p) in
-      wf_cutsets p ⇒ wf_cutsets p'
+  ∀p data data' (q:'a prog).
+    wf_cutsets p ∧ word_cse data p = (data',q) ⇒
+    wf_cutsets q
 Proof
-  Induct \\ rw[] \\
-  rpt (pairarg_tac \\ gvs[]) \\
-  gvs [flat_exp_conventions_def, word_cse_def,
-   oneline word_cseInst_def,add_to_data_def,
-   add_to_data_aux_def,
-  oneline canonicalExp_def,wf_cutsets_def, AllCaseEqs()] \\
-  rpt (pairarg_tac \\ gvs[]) \\
-  gvs [wf_cutsets_def, word_cse_def, AllCaseEqs()] \\
-  every_case_tac \\ gvs[wf_cutsets_def]
-  >-(
- first_x_assum (qspec_then `data` assume_tac) \\ gvs[])
-  >-(
- last_x_assum (qspec_then `data` assume_tac) >>
- last_x_assum (qspec_then `data1` assume_tac)
- \\ gvs[])
-  >-(
- last_x_assum (qspec_then `data` assume_tac) >>
- last_x_assum (qspec_then `data` assume_tac)
- \\ gvs[])
-  >- (first_x_assum (qspec_then `empty_data` assume_tac) \\ gvs[])
+  Induct
+  \\ simp []
+  \\ rpt gen_tac \\ strip_tac
+  >~ [`Inst`] >- (
+    gvs [word_cse_def]
+    \\ pairarg_tac \\ gvs []
+    \\ namedCases_on ‘i’ ["", "r w", "a", "m r ad", "fp"]
+    >- gvs [word_cseInst_def, wf_cutsets_def]
+    >- gvs [word_cseInst_def, add_to_data_def, add_to_data_aux_def,
+            AllCaseEqs(), wf_cutsets_def]
+    >- gvs [word_cseInst_def, add_to_data_def, add_to_data_aux_def,
+            AllCaseEqs(), wf_cutsets_def]
+    >- (namedCases_on ‘ad’ ["ar ofs"]
+        \\ gvs [word_cseInst_def, add_to_load_aux_def, AllCaseEqs(),
+                wf_cutsets_def])
+    \\ gvs [word_cseInst_def, wf_cutsets_def])
+  >~ [`MustTerminate`] >- (
+    gvs [word_cse_def, wf_cutsets_def]
+    \\ pairarg_tac \\ gvs [wf_cutsets_def]
+    \\ first_x_assum drule_all \\ simp [])
+  >~ [`wordLang$Seq`] >- (
+    gvs [word_cse_def, wf_cutsets_def]
+    \\ pairarg_tac \\ gvs []
+    \\ pairarg_tac \\ gvs [wf_cutsets_def]
+    \\ res_tac \\ simp [])
+  >~ [`wordLang$If`] >- (
+    gvs [word_cse_def, wf_cutsets_def]
+    \\ pairarg_tac \\ gvs []
+    \\ pairarg_tac \\ gvs [wf_cutsets_def]
+    \\ res_tac \\ simp [])
+  >~ [`Loop`] >- (
+    gvs [word_cse_def, wf_cutsets_def]
+    \\ pairarg_tac \\ gvs [wf_cutsets_def]
+    \\ first_x_assum drule_all \\ simp [])
+  >> gvs [word_cse_def, add_to_data_aux_def, wf_cutsets_def, AllCaseEqs()]
 QED
 
 Theorem wf_cutsets_word_common_subexp_elim:
   wf_cutsets p ⇒ wf_cutsets (word_common_subexp_elim p)
 Proof
-  fs [word_common_subexp_elim_def] \\ pairarg_tac \\ gvs []
-  \\ qspecl_then [‘p’,‘empty_data’] mp_tac word_cse_wf_cutsets
-  \\ fs []
+  strip_tac
+  \\ fs [word_common_subexp_elim_def] \\ pairarg_tac \\ gvs []
+  \\ drule_all word_cse_wf_cutsets \\ simp []
 QED
 
 
@@ -2990,8 +3057,9 @@ Proof
     dxrule (word_get_code_labels_remove_unreach|>SIMP_RULE std_ss [SUBSET_DEF])>>
     simp[
       word_get_code_labels_three_to_two_reg_prog,
-      word_get_code_labels_copy_prop,
-      word_get_code_labels_word_common_subexp_elim]>>
+      word_get_code_labels_copy_prop]>>
+    strip_tac>>
+    dxrule (word_get_code_labels_word_common_subexp_elim|>SIMP_RULE std_ss [SUBSET_DEF])>>
     strip_tac>>
     dxrule (word_get_code_labels_remove_dead_prog|>SIMP_RULE std_ss [SUBSET_DEF])>>
     simp[word_get_code_labels_full_ssa_cc_trans,word_get_code_labels_inst_select]>>

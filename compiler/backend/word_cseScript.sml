@@ -627,7 +627,7 @@ Definition Seqs_def:
   (Seqs (x::y::xs) = Seq x (Seqs (y::xs)))
 End
 
-Triviality test_latest_name_used:
+Theorem test_latest_name_used[local]:
   word_common_subexp_elim $
     Seqs [Inst (Const 1 0w);
           Inst (Arith (Binop Add 7 1 (Reg 1)));
@@ -644,7 +644,7 @@ Proof
   EVAL_TAC
 QED
 
-Triviality test_get_set:
+Theorem test_get_set[local]:
   word_common_subexp_elim $
     Seqs [Get 1 NextFree;
           Inst (Arith (Binop Add 7 1 (Reg 1)));
@@ -669,7 +669,7 @@ QED
 
 (* Concrete word type: the load-fact keys compare distinct offsets, which is
    only decidable at a fixed word width. *)
-Triviality test_pattern_match_and_cons:
+Theorem test_pattern_match_and_cons[local]:
   word_common_subexp_elim $
     Seqs [Inst (Arith (Shift Lsr 301 297 (Imm (9w:word64))));
           OpCurrHeap Add 305 301;
@@ -765,7 +765,7 @@ QED
    chain hanging off the loaded value then CSEs too); a different width is a
    different fact; any store invalidates all load facts but no register
    facts. *)
-Triviality test_load_cse:
+Theorem test_load_cse[local]:
   word_common_subexp_elim $
     Seqs [Inst (Mem Load 9 (Addr 7 (0w:word64)));
           Inst (Arith (Shift Lsr 11 9 (Imm 29w)));
@@ -789,7 +789,7 @@ QED
 (* Set CurrHeap conservatively resets all knowledge (it is not emitted by
    data_to_word, so a finer treatment is not worth its proof cost): nothing
    after it is CSE'd. *)
-Triviality test_set_currheap:
+Theorem test_set_currheap[local]:
   word_common_subexp_elim $
     Seqs [Inst (Const 1 0w);
           Inst (Arith (Binop Add 7 1 (Reg 1)));
@@ -809,7 +809,7 @@ Proof
 QED
 
 (* A repeated LocValue of the same label is CSE'd to a Move. *)
-Triviality test_locvalue:
+Theorem test_locvalue[local]:
   word_common_subexp_elim $
     Seqs [LocValue 7 100; LocValue 9 100]
   =
@@ -820,7 +820,7 @@ QED
 
 (* LongMul clobbers both outputs (7 and 9), so the value previously stored in
    9 is invalidated and the later Add is NOT replaced by a Move from 9. *)
-Triviality test_multi_output_invalidation:
+Theorem test_multi_output_invalidation[local]:
   word_common_subexp_elim $
     Seqs [Inst (Arith (Binop Add 9 1 (Reg 1)));
           Inst (Arith (LongMul 7 9 3 5));
@@ -835,7 +835,7 @@ QED
 
 (* An instruction that reads the register it writes is not stored as a fact,
    so the second Add (reading the NEW 7) is not replaced by a Move. *)
-Triviality test_self_read_not_cse:
+Theorem test_self_read_not_cse[local]:
   word_common_subexp_elim $
     Seqs [Inst (Arith (Binop Add 7 7 (Imm 1w)));
           Inst (Arith (Binop Add 9 7 (Imm 1w)))]
@@ -848,7 +848,7 @@ QED
 
 (* Facts valid after both arms of an If survive the join: the Add fact
    (holder 7) is used both inside the first arm and after the join. *)
-Triviality test_if_merge:
+Theorem test_if_merge[local]:
   word_common_subexp_elim $
     Seqs [Inst (Const 1 0w);
           Inst (Arith (Binop Add 7 1 (Reg 1)));
@@ -867,7 +867,7 @@ QED
 
 (* An arm that clobbers a tracked register resets its branch knowledge, so
    nothing survives the join and the trailing Add is not CSE'd. *)
-Triviality test_if_merge_clobber:
+Theorem test_if_merge_clobber[local]:
   word_common_subexp_elim $
     Seqs [Inst (Const 1 0w);
           Inst (Arith (Binop Add 7 1 (Reg 1)));
