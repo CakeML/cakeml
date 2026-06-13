@@ -3,7 +3,7 @@
 *)
 Theory bvi_tmc
 Ancestors
-  bvi backend_common
+  bvi backend_common integer
 Libs
   preamble
 
@@ -14,30 +14,50 @@ Definition pure_op_def:
   (pure_op (IntOp _) _ = F) ∧
   (pure_op (WordOp _) _ = F) ∧
   (pure_op (BlockOp (Cons _)) _ = T) ∧
-  (pure_op (BlockOp LengthBlock) _ = T) ∧
-  (pure_op (BlockOp (TagEq _)) _ = T) ∧
-  (pure_op (BlockOp (LenEq _)) _ = T) ∧
-  (pure_op (BlockOp (TagLenEq _ _)) _ = T) ∧
   (pure_op (BlockOp _) _ = F) ∧
   (pure_op (GlobOp _) _ = F) ∧
-  (pure_op (MemOp ConfigGC) _ = T) ∧
   (pure_op (MemOp _) _ = F) ∧
   (pure_op Install _ = F) ∧
   (pure_op (ThunkOp _) _ = F)
 End
 
 Definition pure_exps_def:
-  (pure_exps [] = T) ∧
-  (pure_exps [Var _] = F) ∧
-  (pure_exps [If e1 e2 e3] = F) ∧
-  (pure_exps [Let es e] = (pure_exps [e] ∧ pure_exps es)) ∧
-  (pure_exps [Raise _] = F) ∧
-  (pure_exps [Tick e] = F) ∧
-  (pure_exps [Call _ _ _ _] = F) ∧
-  (pure_exps [Force _ _] = F) ∧
-  (pure_exps [Op op args] = (pure_op op args ∧ pure_exps args)) ∧
-  (pure_exps (h::t) = (pure_exps [h] ∧ pure_exps t))
+  (pure_exps n [] = T) ∧
+  (pure_exps n [Var v] = (v < n)) ∧
+  (pure_exps n [If e1 e2 e3] = F) ∧
+  (pure_exps n [Let es e] = (pure_exps n [e] ∧ pure_exps n es)) ∧
+  (pure_exps n [Raise _] = F) ∧
+  (pure_exps n [Tick e] = F) ∧
+  (pure_exps n [Call _ _ _ _] = F) ∧
+  (pure_exps n [Force _ _] = F) ∧
+  (pure_exps n [Op op args] = (pure_op op args ∧ pure_exps n args)) ∧
+  (pure_exps n (h1::h2::t) = (pure_exps n [h1] ∧ pure_exps n (h2::t)))
 End
+
+Theorem pure_exps_cons:
+  ∀n h t.
+    pure_exps n [h] ∧
+    pure_exps n t ⇔
+    pure_exps n (h::t)
+Proof
+  Induct_on ‘t’ >> rw [pure_exps_def]
+QED
+
+Theorem pure_exps_append:
+  ∀n es1 es2.
+    pure_exps n es1 ∧
+    pure_exps n es2 ⇒
+    pure_exps n (es1 ++ es2)
+Proof
+  Induct_on ‘es1’
+  >- gvs [pure_exps_def]
+  >> rw []
+  >> irule $ iffLR pure_exps_cons
+  >> imp_res_tac pure_exps_cons
+  >> last_x_assum drule
+  >> disch_then $ qspec_then ‘es2’ assume_tac
+  >> gvs []
+QED
 
 Definition dest_Cons_def:
   dest_Cons (BlockOp (Cons block_tag)) = SOME block_tag ∧
@@ -99,26 +119,70 @@ Definition call_to_cb_def:
   else NONE
 End
 
+Theorem shift_vars_zero:
+  ∀ns.
+    shift_vars 0 ns = ns
+Proof
+  Induct
+  >- gvs [shift_vars_def]
+  >> rw []
+  >> gvs [shift_vars_def]
+QED
+
+Theorem length_shift_vars:
+  ∀l n.
+     LENGTH (shift_vars n l) = LENGTH l
+Proof
+  Induct
+  >- gvs [shift_vars_def]
+  >> rw []
+  >> gvs [shift_vars_def]
+QED
+
+Theorem shift_vars_dist:
+  ∀l n1 n2.
+    shift_vars n1 (shift_vars n2 l) = shift_vars (n1 + n2) l
+Proof
+  Induct
+  >- rw [shift_vars_def]
+  >> rw [shift_vars_def]
+QED
+
+Theorem shift_cb_dist:
+  ∀cb n1 n2.
+    shift_cb n1 (shift_cb n2 cb) =
+    shift_cb (n1 + n2) cb
+Proof
+  reverse Induct
+  >-
+   (rw []
+    >> gvs [shift_cb_def]
+    >> irule shift_vars_dist)
+  >> rw []
+  >> gvs [shift_cb_def]
+  >> rpt $ irule_at Any shift_vars_dist
+QED
+
 (* Attempts to build a CallBlock from the tag and args of a BlockOp Cons.
    If no recursive call found, returns each op arg expression in a list and (INL) a list of corresponding de Bruijn indeces.
    If a recursive call is found, returns all extracted/let-bound expressions and (INR) the call block.
    If an effectful operation appears right of the recursive call, the expression is not eligible for transformation and NONE is returned.
    If multiple recursive calls are found, all but the last are let bound. *)
 Definition bvi_to_cb_aux_def:
-  (bvi_to_cb_aux _ _ [] = SOME ([],INL [])) ∧
-  (bvi_to_cb_aux loc tag [Call t loc' args h] =
+  (bvi_to_cb_aux _ _ _ [] = SOME ([],INL [])) ∧
+  (bvi_to_cb_aux _ loc tag [Call t loc' args h] =
    case call_to_cb loc t loc' args h of
    | SOME (bs,cb) => SOME (bs,INR (CallBlock tag [] cb []))
    | _ => NONE) ∧
-  (bvi_to_cb_aux loc tag [Op op args] =
+  (bvi_to_cb_aux n loc tag [Op op args] =
    case dest_Cons op of
    | SOME tag' =>
        (* BlockOp Cons - try to recurse *)
-       (case bvi_to_cb_aux loc tag' args of
+       (case bvi_to_cb_aux n loc tag' args of
         | NONE => NONE
         | SOME (bs,INL vs) =>
             (* No recursive call - whole thing gets let-bound *)
-            if pure_exps [Op op args] then
+            if pure_exps n [Op op args] then
               SOME ([Op op args],INL [0])
             else NONE
         | SOME (bs,INR cb) =>
@@ -126,21 +190,21 @@ Definition bvi_to_cb_aux_def:
             SOME (bs, INR (CallBlock tag [] cb [])))
    | NONE =>
        (* Not a BlockOp Cons - whole thing gets let-bound *)
-       if pure_exps [Op op args] then
+       if pure_exps n [Op op args] then
          SOME ([Op op args],INL [0])
        else NONE) ∧
-  (bvi_to_cb_aux _ _ [exp] =
+  (bvi_to_cb_aux n _ _ [exp] =
    (* Some other expression - whole thing gets let-bound *)
-   if pure_exps [exp] then
+   if pure_exps n [exp] then
      SOME ([exp],INL [0])
     else NONE) ∧
-  (bvi_to_cb_aux loc tag (h::t) =
+  (bvi_to_cb_aux n loc tag (h::t) =
    (* Recurse right to left to find last occurence of recursive call *)
-   case bvi_to_cb_aux loc tag t of
+   case bvi_to_cb_aux n loc tag t of
    | NONE => NONE
    | SOME (bs2,INL vs2) =>
        (* No recursive call to the right. See if the first has one. *)
-       (case bvi_to_cb_aux loc tag [h] of
+       (case bvi_to_cb_aux n loc tag [h] of
         | NONE => NONE
         | SOME (bs1,INL vs1) =>
             (* No recursive call, keep building binders. *)
@@ -156,14 +220,120 @@ Definition bvi_to_cb_aux_def:
        (* Recursive call found, first is let bound and added to the left *)
        case shift_cb 1 cb of
        | CallBlock tag l child r =>
-           let cb' = CallBlock tag (0::l) child r in
-             SOME (h::bs2,INR cb')
+           if small_enough_int &(LENGTH l + 1) then
+             let cb' = CallBlock tag (0::l) child r in
+               SOME (h::bs2,INR cb')
+           else
+             NONE
        | _ => NONE)
 End
 
+Definition wf_vars_def:
+  wf_vars n (vs : num list) ⇔ EVERY (λv. v < n) vs
+End
+
+Theorem wf_vars_empty:
+  ∀n.
+    wf_vars n []
+Proof
+  rw [wf_vars_def]
+QED
+
+Theorem wf_vars_shift:
+  ∀n1 n2 vs.
+    wf_vars n1 vs ⇒
+    wf_vars (n2 + n1) (shift_vars n2 vs)
+Proof
+  Induct_on ‘vs’
+  >> rw []
+  >- gvs [wf_vars_def, shift_vars_def]
+  >> gvs [wf_vars_def, shift_vars_def]
+QED
+
+Theorem wf_vars_shift_sing:
+  ∀n vs.
+    wf_vars n vs ⇒
+    wf_vars (SUC n) (shift_vars 1 vs)
+Proof
+  rw []
+  >> drule wf_vars_shift
+  >> disch_then $ qspec_then ‘1’ assume_tac
+  >> gvs []
+  >> ‘SUC n = n + 1’ by gvs []
+  >> simp []
+QED
+
+Theorem wf_vars_append:
+  ∀n vs1 vs2.
+    wf_vars n vs1 ∧
+    wf_vars n vs2 ⇒
+    wf_vars n (vs1 ++ vs2)
+Proof
+  Induct_on ‘vs1’
+  >- rw []
+  >> rw []
+  >> gvs [wf_vars_def]
+QED
+
+Theorem wf_vars_cons:
+  ∀n v vs.
+    v < n ∧
+    wf_vars n vs ⇒
+    wf_vars n (v::vs)
+Proof
+  rw []
+  >> ‘wf_vars n [v]’ by gvs [wf_vars_def]
+  >> drule_then rev_drule wf_vars_append
+  >> strip_tac
+  >> gvs []
+QED
+
+Theorem wf_vars_bind:
+  ∀bs vs n n'.
+    bind n bs = (vs,n') ⇒
+    wf_vars (n + LENGTH bs) vs
+Proof
+  Induct
+  >- rw [bind_def, wf_vars_def]
+  >> rw []
+  >> gvs [bind_def, CaseEq "prod"]
+  >> first_x_assum drule
+  >> strip_tac
+  >> irule wf_vars_cons
+  >> gvs []
+  >> ‘SUC (LENGTH bs) = LENGTH bs + 1’ by gvs []
+  >> simp []
+QED
+
+Theorem bvi_to_cb_aux_wf_inl:
+  ∀n loc tag args bs vs.
+    bvi_to_cb_aux n loc tag args = SOME (bs,INL vs) ⇒
+    pure_exps n bs ∧
+    wf_vars (LENGTH bs) vs
+Proof
+  recInduct bvi_to_cb_aux_ind
+  >> rw [] >> gvs [bvi_to_cb_aux_def, pure_exps_def, CaseEq "call_block", CaseEq "prod", CaseEq "option", CaseEq "sum", CaseEq "list"]
+  >- gvs [wf_vars_def]
+  >- gvs [wf_vars_def]
+  >- gvs [wf_vars_def]
+  >- gvs [wf_vars_def]
+  >- gvs [wf_vars_def]
+  >- (irule pure_exps_append >> gvs [])
+  >> irule wf_vars_append
+  >> conj_tac
+  >-
+   (gvs [wf_vars_def]
+    >> gvs [EVERY_EL]
+    >> rw []
+    >> rpt (first_x_assum drule >> strip_tac)
+    >> gvs [])
+  >> irule wf_vars_shift
+  >> gvs []
+QED
+
 Theorem bvi_to_cb_aux_sing:
-  ∀loc tag arg bs cb.
-    bvi_to_cb_aux loc tag [arg] = SOME (bs,INR cb) ⇒
+  ∀n loc tag arg bs cb.
+    bvi_to_cb_aux n loc tag [arg] = SOME (bs,INR cb) ⇒
     ∃child.
       cb = CallBlock tag [] child []
 Proof
@@ -171,41 +341,66 @@ Proof
   >> Cases_on ‘arg’ >> gvs [bvi_to_cb_aux_def, bind_def, CaseEq "prod", CaseEq "sum", CaseEq "option"]
 QED
 
-Theorem bvi_to_cb_aux_wf:
-  ∀loc tag args bs cb.
-    bvi_to_cb_aux loc tag args = SOME (bs,INR cb) ⇒
+Theorem bvi_to_cb_aux_wf_inr:
+  ∀n loc tag args bs cb.
+    bvi_to_cb_aux n loc tag args = SOME (bs,INR cb) ⇒
     ∃l child r.
-      cb = CallBlock tag l child r
+      cb = CallBlock tag l child r ∧
+      wf_vars (LENGTH bs) l ∧
+      small_enough_int (&LENGTH l) ∧
+      wf_vars (LENGTH bs) r
 Proof
   recInduct bvi_to_cb_aux_ind
-  >> rw [] >> gvs [bvi_to_cb_aux_def, bind_def, shift_cb_def, CaseEq "prod", CaseEq "option", CaseEq "sum", CaseEq "list"]
+  >> rw [] >> gvs [bvi_to_cb_aux_def, bind_def, shift_cb_def, CaseEq "prod", CaseEq "option", CaseEq "sum", CaseEq "list", wf_vars_empty, wf_vars_shift_sing, small_enough_int_def, length_shift_vars, GSYM INT]
+  >-
+   (irule wf_vars_shift
+    >> imp_res_tac bvi_to_cb_aux_wf_inl)
+  >> irule wf_vars_cons
+  >> gvs []
+  >> irule wf_vars_shift_sing
+  >> gvs []
 QED
 
 Definition bvi_to_cb_def:
-  (bvi_to_cb loc (Call call_ts call_loc call_args call_h) =
+  (bvi_to_cb n loc (Call call_ts call_loc call_args call_h) =
    call_to_cb loc call_ts call_loc call_args call_h) ∧
-  (bvi_to_cb loc (Op op xs) =
+  (bvi_to_cb n loc (Op op xs) =
    case dest_Cons op of
    | SOME tag =>
-       (case bvi_to_cb_aux loc tag xs of
+       (case bvi_to_cb_aux n loc tag xs of
         | SOME (bs, INR cb) => SOME (bs,cb)
         | _ => NONE)
    | _ => NONE) ∧
-  (bvi_to_cb _ _ = NONE)
+  (bvi_to_cb _ _ _ = NONE)
 End
 
-Theorem bvi_to_cb_wf:
-  ∀loc op args bs cb.
-    bvi_to_cb loc (Op op args) = SOME (bs,cb) ⇒
-    ∃tag l child r.
-      op = BlockOp (Cons tag) ∧
-      cb = CallBlock tag l child r
+Theorem bvi_to_cb_cases:
+  ∀n loc x bs cb.
+    bvi_to_cb n loc x = SOME (bs,cb) ⇒
+    (∃tag args l child r.
+       x = Op (BlockOp (Cons tag)) args ∧
+       cb = CallBlock tag l child r ∧
+       wf_vars (LENGTH bs) l ∧
+       small_enough_int (&LENGTH l) ∧
+       wf_vars (LENGTH bs) r) ∨
+    (∃ts args vs.
+       x = Call ts (SOME loc) args NONE ∧
+       cb = RCall ts vs ∧
+       wf_vars (LENGTH bs) vs)
 Proof
   rw []
-  >> gvs [bvi_to_cb_def, CaseEq "option", CaseEq "prod", CaseEq "sum"]
-  >> Cases_on ‘op’ >> gvs [dest_Cons_def]
-  >> Cases_on ‘b’ >> gvs [dest_Cons_def]
-  >> imp_res_tac bvi_to_cb_aux_wf
+  >> Cases_on ‘cb’
+  >-
+   (Cases_on ‘x’ >> gvs [bvi_to_cb_def, call_to_cb_def, CaseEq "option", CaseEq "prod", CaseEq "sum"]
+    >> Cases_on ‘o'’ >> gvs [dest_Cons_def]
+    >> Cases_on ‘b’ >> gvs [dest_Cons_def]
+    >> imp_res_tac bvi_to_cb_aux_wf_inr
+    >> gvs [])
+  >> Cases_on ‘x’ >> gvs [bvi_to_cb_def, call_to_cb_def, CaseEq "option", CaseEq "prod", CaseEq "sum"]
+  >> imp_res_tac bvi_to_cb_aux_wf_inr
+  >> gvs []
+  >> drule wf_vars_bind
+  >> strip_tac
   >> gvs []
 QED
 
@@ -222,8 +417,8 @@ Definition cb_to_bvi_def:
 End
 
 Theorem bvi_to_cb_aux_size:
-  ∀loc tag args bs sum.
-    bvi_to_cb_aux loc tag args = SOME (bs,sum) ⇒
+  ∀n loc tag args bs sum.
+    bvi_to_cb_aux n loc tag args = SOME (bs,sum) ⇒
     list_size exp_size bs ≤ list_size exp_size args
 Proof
   recInduct bvi_to_cb_aux_ind
@@ -238,8 +433,8 @@ Proof
 QED
 
 Theorem bvi_to_cb_size:
-  ∀loc x bs cb.
-    bvi_to_cb loc x = SOME (bs,cb) ⇒
+  ∀n loc x bs cb.
+    bvi_to_cb n loc x = SOME (bs,cb) ⇒
     list_size exp_size bs < exp_size x
 Proof
   rpt gen_tac
@@ -256,16 +451,6 @@ Proof
 QED
 
 (* Phase 2 - Transformations. *)
-
-(*
-Shift an expression by n if it is a Var.
-Subexpressions are not shifted - this simplifies the proofs.
-This will only be applied to Vars and Consts.
-*)
-Definition shallow_shift_def:
-  (shallow_shift n (Var i) = Var (i + n)) ∧
-  (shallow_shift _ e = e)
-End
 
 Definition mut_cons_def:
   mut_cons t l r =
@@ -335,67 +520,67 @@ End
 
 (* Expression rewriting *)
 Definition rewrite_wrapper_def:
-  (rewrite_wrapper loc loc_opt (Var n) = NONE) ∧
-  (rewrite_wrapper loc loc_opt (If xi xt xe) =
-    let opt_t = rewrite_wrapper loc loc_opt xt in
-    let opt_e = rewrite_wrapper loc loc_opt xe in
+  (rewrite_wrapper loc loc_opt _ (Var n) = NONE) ∧
+  (rewrite_wrapper loc loc_opt n (If xi xt xe) =
+    let opt_t = rewrite_wrapper loc loc_opt n xt in
+    let opt_e = rewrite_wrapper loc loc_opt n xe in
     case (opt_t, opt_e) of
     | (NONE, NONE) => NONE
     | (SOME yt, NONE) => SOME $ If xi yt xe
     | (NONE, SOME ye) => SOME $ If xi xt ye
     | (SOME yt, SOME ye) => SOME $ If xi yt ye) ∧
-  (rewrite_wrapper loc loc_opt (Let xs x) =
-    case rewrite_wrapper loc loc_opt x of
+  (rewrite_wrapper loc loc_opt n (Let xs x) =
+    case rewrite_wrapper loc loc_opt (n + LENGTH xs) x of
     | NONE => NONE
     | SOME y => SOME $ Let xs y) ∧
-  (rewrite_wrapper loc loc_opt (Raise x) = NONE) ∧
-  (rewrite_wrapper loc loc_opt (Tick x) = OPTION_MAP Tick $ rewrite_wrapper loc loc_opt x) ∧
-  (rewrite_wrapper loc loc_opt (Force _ n) = NONE) ∧
-  (rewrite_wrapper loc loc_opt (Call t d args h) = NONE) ∧
-  (rewrite_wrapper loc loc_opt (Op op op_args) =
-    case bvi_to_cb loc (Op op op_args) of
+  (rewrite_wrapper loc loc_opt _ (Raise x) = NONE) ∧
+  (rewrite_wrapper loc loc_opt n (Tick x) = OPTION_MAP Tick $ rewrite_wrapper loc loc_opt n x) ∧
+  (rewrite_wrapper loc loc_opt _ (Force _ n) = NONE) ∧
+  (rewrite_wrapper loc loc_opt _ (Call t d args h) = NONE) ∧
+  (rewrite_wrapper loc loc_opt n (Op op op_args) =
+    case bvi_to_cb n loc (Op op op_args) of
     | SOME (bs,CallBlock tag left child right) =>
         SOME $ Let bs $ cb_to_bvi_wrapper tag left child right loc_opt
     | _ => NONE) ∧
-  (rewrite_wrapper loc loc_opt _ = NONE)
+  (rewrite_wrapper loc loc_opt _ _ = NONE)
 End
 
 (* Assumes that the function can and should be optimised - has been checked by rewrite_wrapper. *)
 Definition rewrite_worker_def:
-  (rewrite_worker loc loc_opt i_old_ptr i_old_idx (If xi xt xe) =
-    let yt = rewrite_worker loc loc_opt i_old_ptr i_old_idx xt in
-    let ye = rewrite_worker loc loc_opt i_old_ptr i_old_idx xe in
+  (rewrite_worker loc loc_opt i_old_ptr i_old_idx n (If xi xt xe) =
+    let yt = rewrite_worker loc loc_opt i_old_ptr i_old_idx n xt in
+    let ye = rewrite_worker loc loc_opt i_old_ptr i_old_idx n xe in
     If xi yt ye) ∧
-  (rewrite_worker loc loc_opt i_old_ptr i_old_idx (Let xs x) =
+  (rewrite_worker loc loc_opt i_old_ptr i_old_idx n (Let xs x) =
     let offset = LENGTH xs in
-      Let xs $ rewrite_worker loc loc_opt (i_old_ptr + offset) (i_old_idx + offset) x) ∧
-  (rewrite_worker loc loc_opt i_old_ptr i_old_idx (Raise x) = Raise x) ∧
-  (rewrite_worker loc loc_opt i_old_ptr i_old_idx (Op op op_args) =
-   case bvi_to_cb loc (Op op op_args) of
+      Let xs $ rewrite_worker loc loc_opt (i_old_ptr + offset) (i_old_idx + offset) (n + offset) x) ∧
+  (rewrite_worker loc loc_opt i_old_ptr i_old_idx _ (Raise x) = Raise x) ∧
+  (rewrite_worker loc loc_opt i_old_ptr i_old_idx n (Op op op_args) =
+   case bvi_to_cb n loc (Op op op_args) of
    | SOME (bs,cb) =>
        (let offset = LENGTH bs in
           Let bs $ cb_to_bvi_worker cb loc_opt (offset + i_old_ptr) (offset + i_old_idx))
    | NONE =>
        fill_hole i_old_ptr i_old_idx $ Op op op_args) ∧
-  (rewrite_worker loc loc_opt i_old_ptr i_old_idx (Tick x) =
-    Tick $ rewrite_worker loc loc_opt i_old_ptr i_old_idx x) ∧
-  (rewrite_worker loc loc_opt i_old_ptr i_old_idx (Call ts l args h) =
-   (case bvi_to_cb loc (Call ts l args h) of
+  (rewrite_worker loc loc_opt i_old_ptr i_old_idx n (Tick x) =
+    Tick $ rewrite_worker loc loc_opt i_old_ptr i_old_idx n x) ∧
+  (rewrite_worker loc loc_opt i_old_ptr i_old_idx n (Call ts l args h) =
+   (case bvi_to_cb n loc (Call ts l args h) of
     | SOME (bs,cb) =>
         (let offset = LENGTH bs in
            Let bs $ cb_to_bvi_worker cb loc_opt (offset + i_old_ptr) (offset + i_old_idx))
     | NONE =>
         fill_hole i_old_ptr i_old_idx $ Call ts l args h)) ∧
-  (rewrite_worker loc loc_opt i_old_ptr i_old_idx expr =
+  (rewrite_worker loc loc_opt i_old_ptr i_old_idx _ expr =
    fill_hole i_old_ptr i_old_idx expr)
 End
 
 Definition compile_exp_def:
   compile_exp (loc:num) (next:num) (arity:num) (exp:bvi$exp) =
-    case rewrite_wrapper loc next exp of
+    case rewrite_wrapper loc next arity exp of
     | NONE => NONE
     | SOME exp_wrapper =>
-      let exp_worker = rewrite_worker loc next arity (arity + 1) exp in
+      let exp_worker = rewrite_worker loc next arity (arity + 1) arity exp in
       SOME (exp_wrapper, exp_worker)
 End
 
