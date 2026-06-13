@@ -1109,30 +1109,6 @@ Proof
   >> rpt $ first_x_assum $ irule_at Any
 QED
 
-Theorem evaluate_vars:
-  ∀ns opt f env1 env2 (s1 : (num # γ, 'ffi) state) (s2 : (γ, 'ffi) state) t1 r1.
-    evaluate (MAP (λn. Var n) ns,env1,s1) = (r1,t1) ∧
-    env_rel opt f env1 env2 ∧
-    r1 ≠ Rerr (Rabort Rtype_error) ⇒
-    (r1,t1) = (Rval (MAP (λn. env1❲n❳) ns),s1) ∧
-    evaluate (MAP (λn. Var n) ns,env2,s2) = (Rval (MAP (λn. env2❲n❳) ns),s2)
-Proof
-  Induct
-  >- gvs [evaluate_def]
-  >> rpt gen_tac
-  >> strip_tac
-  >> gvs [evaluate_def, evaluate_CONS]
-  >> reverse $ Cases_on ‘h < LENGTH env1’
-  >- gvs []
-  >> imp_res_tac env_rel_length
-  >> gvs [CaseEq "prod"]
-  >> first_x_assum drule
-  >> disch_then drule
-  >> impl_tac >- gvs [CaseEq "result"]
-  >> disch_then $ qspec_then ‘s2’ assume_tac
-  >> gvs []
-QED
-
 Theorem evaluate_vars_source:
   ∀vs env (s : (num # γ, 'ffi) state).
     wf_vars (LENGTH env) vs ⇒
@@ -1831,81 +1807,48 @@ Definition alloc_hole_has_val_def:
       FLOOKUP refs hole_ptr = SOME (MutBlock tag left c right)
 End
 
-Theorem list_rel_env_perm:
-  ∀l opt f env1 env2 (s : (num # γ, 'ffi) bviSem$state).
+Theorem wf_vars_list_rel:
+  ∀vars opt f env1 env2.
     env_rel opt f env1 env2 ∧
-    evaluate (MAP (λn. Var n) l,env1,s) = (Rval (MAP (λn. env1❲n❳) l),s) ⇒
-    LIST_REL (v_rel f) (MAP (λn. EL n env1) l) (MAP (λn. EL n env2) l)
+    wf_vars (LENGTH env1) vars ⇒
+    LIST_REL (v_rel f) (MAP (λn. EL n env1) vars) (MAP (λn. EL n env2) vars)
 Proof
   Induct
   >- rw []
   >> rw []
-  >-
-   (gvs [env_rel_def, EL_APPEND_EQN, LIST_REL_EL_EQN, evaluate_CONS, evaluate_def]
-    >> IF_CASES_TAC
-    >- gvs [CaseEq "prod", CaseEq "result"]
-    >> gvs [])
+  >- gvs [wf_vars_def, env_rel_def, EL_APPEND_EQN, LIST_REL_EL_EQN]
   >> first_x_assum $ irule
   >> first_assum $ irule_at Any
-  >> gvs [evaluate_CONS, evaluate_def]
-  >> reverse $ Cases_on ‘h < LENGTH env1’
-  >- gvs [CaseEq "prod", CaseEq "result"]
-  >> gvs [CaseEq "prod", CaseEq "result"]
-  >> first_assum $ irule_at Any
+  >> gvs [wf_vars_def]
 QED
 
-Theorem list_rel_vars:
-  ∀args opt f env1 env2 (s1 : (num # γ, 'ffi) bviSem$state).
+Theorem wf_vars_env_rel:
+  ∀vars opt f env1 env2.
     env_rel opt f env1 env2 ∧
-    evaluate (MAP (λn. Var n) args,env1,s1) = (Rval (MAP (λn. env1❲n❳) args),s1) ⇒
-    LIST_REL (v_rel f) (MAP (λn. env1❲n❳) args) (MAP (λn. env2❲n❳) args)
-Proof
-  Induct
-  >- rw []
-  >> rw []
-  >-
-   (gvs [evaluate_def, evaluate_CONS]
-    >> reverse $ Cases_on ‘h < LENGTH env1’
-    >- gvs [CaseEq "prod", CaseEq "result"]
-    >> gvs [CaseEq "prod", CaseEq "result", env_rel_def, EL_APPEND_EQN, LIST_REL_LENGTH, LIST_REL_EL_EQN])
-  >> first_x_assum $ irule
-  >> rpt $ first_assum $ irule_at Any
-  >> gvs [evaluate_def, evaluate_CONS]
-  >> reverse $ Cases_on ‘h < LENGTH env1’
-  >- gvs [CaseEq "prod", CaseEq "result"]
-  >> gvs [CaseEq "prod", CaseEq "result"]
-  >> first_assum $ irule_at Any
-QED
-
-Theorem env_rel_args:
-  ∀args opt f env1 env2 (s1 : (num # γ, 'ffi) bviSem$state).
-    env_rel opt f env1 env2 ∧
-    evaluate (MAP (λn. Var n) args,env1,s1) = (Rval (MAP (λn. env1❲n❳) args),s1) ⇒
-    env_rel F f (MAP (λn. env1❲n❳) args) (MAP (λn. env2❲n❳) args)
+    wf_vars (LENGTH env1) vars ⇒
+    env_rel F f (MAP (λn. env1❲n❳) vars) (MAP (λn. env2❲n❳) vars)
 Proof
   rw []
-  >> drule_all list_rel_vars
-  >> strip_tac
+  >> imp_res_tac wf_vars_list_rel
   >> gvs [env_rel_def]
   >> first_assum $ irule_at Any
   >> imp_res_tac LIST_REL_LENGTH
   >> gvs [EL_APPEND_EQN]
 QED
 
-Theorem env_rel_opt_args:
-  ∀args opt f env1 env2 (s1 : (num # γ, 'ffi) bviSem$state) ptr idx.
+Theorem wf_vars_env_rel_opt:
+  ∀vars opt f env1 env2 ptr idx.
     env_rel opt f env1 env2 ∧
-    evaluate (MAP (λn. Var n) args,env1,s1) = (Rval (MAP (λn. env1❲n❳) args),s1) ∧
-    backend_common$small_enough_int idx⇒
-    env_rel T f (MAP (λn. env1❲n❳) args) (MAP (λn. env2❲n❳) args ++ [RefPtr F ptr; Number idx])
+    wf_vars (LENGTH env1) vars ∧
+    backend_common$small_enough_int idx ⇒
+    env_rel T f (MAP (λn. env1❲n❳) vars) (MAP (λn. env2❲n❳) vars ++ [RefPtr F ptr; Number idx])
 Proof
   rw []
-  >> drule_all env_rel_args
-  >> strip_tac
+  >> imp_res_tac wf_vars_env_rel
   >> simp [env_rel_def]
-  >> qexistsl [‘MAP (λn. env2❲n❳) args’, ‘[RefPtr F ptr; Number idx]’]
+  >> qexistsl [‘MAP (λn. env2❲n❳) vars’, ‘[RefPtr F ptr; Number idx]’]
   >> gvs []
-  >> irule list_rel_env_perm
+  >> irule wf_vars_list_rel
   >> rpt $ first_assum $ irule_at Any
 QED
 
@@ -2004,6 +1947,8 @@ Proof
 QED
 
 Definition wf_cb_def:
+  (wf_cb n (RCall ts args) =
+   wf_vars n args) ∧
   (wf_cb n (CallBlock tag left child right) =
    (wf_vars n left ∧
     wf_cb n child ∧
@@ -2103,10 +2048,11 @@ Proof
    (rpt gen_tac
     >> strip_tac
     >> rename [‘RCall ts args’]
-    >> gvs [cb_to_bvi_def, evaluate_def, CaseEq "prod"]
-    >> drule_then drule evaluate_vars
-    >> impl_tac >- (spose_not_then assume_tac >> gvs [CaseEq "prod"])
-    >> strip_tac
+    >> gvs [wf_cb_def, cb_to_bvi_def, evaluate_def, CaseEq "prod"]
+    >> imp_res_tac evaluate_vars_source
+    >> gvs []
+    >> imp_res_tac env_rel_length
+    >> imp_res_tac evaluate_vars_target
     >> gvs [bvlSemTheory.find_code_def, CaseEq "prod", CaseEq "option"]
     >> drule code_rel_cases
     >> ‘code_rel s.code s'.code’ by gvs [state_rel_def]
@@ -2134,15 +2080,14 @@ Proof
       >> qexists ‘f’
       >> gvs [state_rel_def, only_fresh_refl, holes_unchanged_except_refl, opt_res_rel_def])
     >> gvs [CaseEq "prod"]
-    >> ‘(v3,s'³') = (r,t)’ by gvs [CaseEq "result", CaseEq "error_result"]
+    >> ‘(v3,s'') = (r,t)’ by gvs [CaseEq "result", CaseEq "error_result"]
     >> rw []
     (* Untransformed *)
     >-
      (gvs [hypothesis_def]
       >> first_x_assum $ qspecl_then [‘[exp]’, ‘dec_clock (ts + 1) s’] mp_tac
       >> impl_tac >- gvs [dec_clock_def]
-      >> drule_all env_rel_args
-      >> strip_tac
+      >> imp_res_tac wf_vars_env_rel
       >> rpt $ disch_then drule
       >> ‘state_rel f (dec_clock (ts + 1) s) (dec_clock (ts + 1) s')’ by
         (irule state_rel_dec
@@ -2190,7 +2135,7 @@ Proof
       >> first_x_assum $ qspecl_then [‘[exp]’, ‘dec_clock (ts + 1) s’] mp_tac
       >> impl_tac >- gvs [dec_clock_def]
       >> disch_then drule
-      >> drule_then drule env_rel_opt_args
+      >> drule_then drule wf_vars_env_rel_opt
       >> disch_then $ qspecl_then [‘hole_ptr’, ‘&LENGTH left’] mp_tac
       >> impl_tac >- gvs []
       >> strip_tac
@@ -2239,7 +2184,7 @@ Proof
     >> first_x_assum $ qspecl_then [‘[exp]’, ‘dec_clock (ts + 1) s’] mp_tac
     >> impl_tac >- gvs [dec_clock_def]
     >> disch_then drule
-    >> drule_then drule env_rel_opt_args
+    >> drule_then drule wf_vars_env_rel_opt
     >> imp_res_tac env_rel_strip_extras
     >> imp_res_tac env_rel_length_opt
     >> ‘hole_ptr = hole_ptr'’ by gvs [EL_APPEND_EQN]
@@ -2281,9 +2226,9 @@ Proof
   >> strip_tac
   >> rename [‘CallBlock tag left child right’]
   >> gvs [wf_cb_def, cb_to_bvi_def, evaluate_def, evaluate_APPEND, CaseEq "prod"]
-  >> drule_then drule evaluate_vars
-  >> impl_tac >- (spose_not_then assume_tac >> gvs [CaseEq "prod"])
-  >> strip_tac
+  >> imp_res_tac evaluate_vars_source
+  >> imp_res_tac env_rel_length
+  >> imp_res_tac evaluate_vars_target
   >> gvs [CaseEq "prod"]
   >> last_x_assum drule
   >> rpt $ disch_then drule
@@ -2300,11 +2245,6 @@ Proof
       >> gvs [only_fresh_refl])
     >> gvs [CaseEq "prod"]
     >> rename [‘state_rel f' u u'’]
-    >> drule_then drule evaluate_vars
-    >> impl_tac >- gvs [CaseEq "prod", CaseEq "result"]
-    >> strip_tac
-    >> gvs []
-    >> rename [‘state_rel f' u u'’]
     >> gvs [do_app_def, do_app_aux_def, bvl_to_bvi_id]
     >> first_assum $ irule_at Any
     >> imp_res_tac evaluate_SING_IMP
@@ -2314,10 +2254,8 @@ Proof
     >> irule_at Any LIST_REL_APPEND_suff
     >> simp [LIST_REL_REVERSE]
     >> imp_res_tac env_rel_submap
-    >> conj_tac
-    >- (irule list_rel_env_perm >> rpt $ first_assum $ irule_at Any)
-    >> irule list_rel_env_perm
-    >> rpt $ first_assum $ irule_at Any)
+    >> imp_res_tac wf_vars_list_rel
+    >> gvs [])
   >> rw []
   (* Wrap *)
   >-
@@ -2385,16 +2323,8 @@ Proof
      (gvs [holes_unchanged_except_def, FLOOKUP_SIMP]
       >> drule_all env_rel_submap
       >> strip_tac
-      >> conj_tac
-      >-
-       (simp [MAP_REVERSE]
-        >> irule list_rel_env_perm
-        >> rpt $ first_assum $ irule_at Any)
-      >> conj_tac
-      >-
-       (simp [MAP_REVERSE]
-        >> irule list_rel_env_perm
-        >> rpt $ first_assum $ irule_at Any)
+      >> imp_res_tac wf_vars_list_rel
+      >> gvs [MAP_REVERSE]
       >> irule non_fresh_not_in_frange
       >> rpt $ first_assum $ irule_at Any
       >> gvs [FDOM_DEF])
@@ -2551,17 +2481,9 @@ Proof
     >> drule_all env_rel_submap
     >> strip_tac
     >> gvs []
-    >> conj_tac
-    >-
-     (‘TAKE (LENGTH left'') (REVERSE right) = REVERSE right’ by gvs [LENGTH_REVERSE, TAKE_LENGTH_ID]
-      >> gvs [MAP_REVERSE]
-      >> irule list_rel_env_perm
-      >> rpt $ first_assum $ irule_at Any)
-    >> conj_tac
-    >-
-     (simp [MAP_REVERSE]
-      >> irule list_rel_env_perm
-      >> rpt $ first_assum $ irule_at Any)
+    >> imp_res_tac wf_vars_list_rel
+    >> ‘TAKE (LENGTH left'') (REVERSE right) = REVERSE right’ by gvs [LENGTH_REVERSE, TAKE_LENGTH_ID]
+    >> gvs [MAP_REVERSE]
     >> irule non_fresh_not_in_frange
     >> rpt $ first_assum $ irule_at Any
     >> gvs [])
@@ -2686,20 +2608,9 @@ Proof
       >> rpt $ first_assum $ irule_at Any
       >> gvs [FLOOKUP_SIMP, FDOM_DEF])
     >> gvs [FLOOKUP_SIMP, DOMSUB_FLOOKUP_THM, holes_unchanged_except_def]
-    >> conj_tac
-    >-
-     (simp [MAP_REVERSE]
-      >> irule list_rel_env_perm
-      >> first_assum $ irule_at Any
-      >> qexists ‘T’
-      >> imp_res_tac env_rel_submap)
-    >> conj_tac
-    >-
-     (simp [MAP_REVERSE]
-      >> irule list_rel_env_perm
-      >> first_assum $ irule_at Any
-      >> qexists ‘T’
-      >> imp_res_tac env_rel_submap)
+    >> imp_res_tac env_rel_submap
+    >> imp_res_tac wf_vars_list_rel
+    >> gvs [MAP_REVERSE]
     >> drule mb_rel_del
     >> disch_then $ qspecl_then [‘hole_ptr’, ‘tag'’, ‘left'’, ‘LEAST ptr. ptr ∉ FDOM s'.refs’, ‘right'’] mp_tac
     >> impl_tac
