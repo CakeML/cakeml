@@ -1618,7 +1618,7 @@ Proof
   \\ rename [‘word_cseInst d i = (d1,p)’]
   \\ Cases_on ‘i’
   \\ gvs [word_cseInst_def,extract_labels_def,AllCaseEqs(),add_to_data_def,
-         add_to_data_aux_def]
+         add_to_data_aux_def,add_to_data_const_def]
   \\ Cases_on ‘a’
   \\ gvs [word_cseInst_def,extract_labels_def,AllCaseEqs(),add_to_data_def,
          add_to_data_aux_def]
@@ -1638,7 +1638,8 @@ Proof
   ho_match_mp_tac word_cseTheory.word_cseInst_ind
   \\ rw [word_cseTheory.word_cseInst_def]
   \\ fs [not_created_subprogs_def]
-  \\ fs [word_cseTheory.add_to_data_def, word_cseTheory.add_to_data_aux_def]
+  \\ fs [word_cseTheory.add_to_data_def, word_cseTheory.add_to_data_aux_def,
+         word_cseTheory.add_to_data_const_def]
   \\ every_case_tac
   \\ fs [not_created_subprogs_def]
   \\ gvs [word_cseTheory.add_to_load_aux_def, AllCaseEqs(),
@@ -1687,7 +1688,7 @@ Proof
   \\ res_tac \\ fs []
   \\ gvs [add_to_data_aux_def,AllCaseEqs()]
   \\ gvs [word_cseInst_def |> DefnBase.one_line_ify NONE,AllCaseEqs()]
-  \\ gvs [add_to_data_def,add_to_data_aux_def,AllCaseEqs()]
+  \\ gvs [add_to_data_def,add_to_data_aux_def,add_to_data_const_def,AllCaseEqs()]
   \\ gvs [add_to_load_aux_def,AllCaseEqs()]
 QED
 
@@ -1707,7 +1708,7 @@ Proof
     \\ pairarg_tac \\ gvs []
     \\ namedCases_on ‘i’ ["", "r w", "a", "m r ad", "fp"]
     >- gvs [word_cseInst_def]
-    >- gvs [word_cseInst_def, add_to_data_def, add_to_data_aux_def,
+    >- gvs [word_cseInst_def, add_to_data_const_def,
             AllCaseEqs()]
     >- gvs [word_cseInst_def, add_to_data_def, add_to_data_aux_def,
             AllCaseEqs()]
@@ -1758,7 +1759,7 @@ Proof
     \\ pairarg_tac \\ gvs []
     \\ namedCases_on ‘i’ ["", "r w", "a", "m r ad", "fp"]
     >- gvs [word_cseInst_def, flat_exp_conventions_def]
-    >- gvs [word_cseInst_def, add_to_data_def, add_to_data_aux_def,
+    >- gvs [word_cseInst_def, add_to_data_const_def,
             AllCaseEqs(), flat_exp_conventions_def]
     >- gvs [word_cseInst_def, add_to_data_def, add_to_data_aux_def,
             AllCaseEqs(), flat_exp_conventions_def]
@@ -1810,7 +1811,7 @@ Proof
     \\ pairarg_tac \\ gvs []
     \\ namedCases_on ‘i’ ["", "r w", "a", "m r ad", "fp"]
     >- gvs [word_cseInst_def, wf_cutsets_def]
-    >- gvs [word_cseInst_def, add_to_data_def, add_to_data_aux_def,
+    >- gvs [word_cseInst_def, add_to_data_const_def,
             AllCaseEqs(), wf_cutsets_def]
     >- gvs [word_cseInst_def, add_to_data_def, add_to_data_aux_def,
             AllCaseEqs(), wf_cutsets_def]

@@ -1515,41 +1515,77 @@ Proof
   \\ Cases_on ‘r’ \\ gvs [can_mem_arith_def, arithReads_def]
 QED
 
-(* The four instantiations of add_to_data_aux_correct, one per call site. *)
-Theorem add_to_data_Const_correct:
+(* Correctness of add_to_data_const: a repeated constant keeps its register
+   equivalence (to_canonical/to_latest) but is rematerialised — both arms emit
+   Inst (Const r w), so the destination ends up holding Word w either way and
+   the data invariant is maintained. The destination is freshly invalidated at
+   the call site (ODD r, untracked). *)
+Theorem add_to_data_const_correct:
   ∀data (s:('a,'c,'ffi) wordSem$state) r (w:'a word) data' p'.
     data_inv data s ∧
-    sptree$lookup r data.to_canonical = NONE ∧
-    add_to_data data r (Const r w) (Const r w) = (data', p') ⇒
+    sptree$lookup r data.to_canonical = NONE ∧ ¬EVEN r ∧
+    add_to_data_const data r w = (data', p') ⇒
     evaluate (p', s) = (NONE, set_var r (Word w) s) ∧
     data_inv data' (set_var r (Word w) s)
 Proof
   rpt gen_tac \\ strip_tac
-  \\ gvs [add_to_data_def]
-  \\ qspecl_then [‘data’, ‘s’, ‘r’, ‘instToNumList (Const r w)’,
-                  ‘Inst (Const r w)’, ‘Word w’, ‘data'’, ‘p'’]
-       mp_tac add_to_data_aux_correct
-  \\ impl_tac
-  >- (gvs [] \\ rpt conj_tac
-      >- simp [evaluate_def, inst_def, assign_def, word_exp_def]
-      >- (rpt strip_tac
-          \\ qpat_x_assum ‘data_inv data _’ mp_tac
-          \\ rw [data_inv_def, sem_inv_def]
-          \\ res_tac \\ gvs [get_var_def])
-      \\ strip_tac
-      \\ qmatch_goalsub_abbrev_tac ‘data_inv DD _’
-      \\ ‘DD = (data with to_canonical := insert r r data.to_canonical)
+  \\ gvs [add_to_data_const_def, AllCaseEqs()]
+  \\ (conj_tac >- simp [evaluate_def, inst_def, assign_def, word_exp_def])
+  >- ((* miss: record a fresh constant fact *)
+      qmatch_goalsub_abbrev_tac ‘data_inv DD _’
+      \\ ‘DD = ((data with to_canonical := insert r r data.to_canonical)
                 with instrs_mem :=
                   insert listCmp (instToNumList (Const r w)) r
-                    ((data with to_canonical :=
-                        insert r r data.to_canonical).instrs_mem)’ by
+                    (data with to_canonical :=
+                       insert r r data.to_canonical).instrs_mem)
+               with to_latest :=
+                 insert r r
+                   (((data with to_canonical := insert r r data.to_canonical)
+                     with instrs_mem :=
+                       insert listCmp (instToNumList (Const r w)) r
+                         (data with to_canonical :=
+                            insert r r data.to_canonical).instrs_mem).
+                      to_latest)’ by (unabbrev_all_tac \\ simp [])
+      \\ pop_assum SUBST1_TAC
+      \\ irule data_inv_insert_to_latest
+      \\ simp [domain_lookup, lookup_insert]
+      \\ qmatch_goalsub_abbrev_tac ‘data_inv EE _’
+      \\ ‘EE = (data with to_canonical := insert r r data.to_canonical)
+                with instrs_mem :=
+                  insert listCmp (instToNumList (Const r w)) r
+                    (data with to_canonical :=
+                       insert r r data.to_canonical).instrs_mem’ by
            (unabbrev_all_tac \\ simp [])
       \\ pop_assum SUBST1_TAC
       \\ irule data_inv_insert_instrs_Const
       \\ simp [lookup_insert, set_var_def]
       \\ irule data_inv_insert_to_canonical
       \\ gvs [lookup_insert, ODD_EVEN])
-  \\ simp []
+  \\ (* hit: the holder r' already carries the constant *)
+     qmatch_asmsub_rename_tac
+       ‘lookup listCmp (instToNumList (Const r w)) data.instrs_mem = SOME r'’
+  \\ ‘get_var r' s = SOME (Word w)’ by
+       (qpat_x_assum ‘data_inv data _’ mp_tac
+        \\ rw [data_inv_def, sem_inv_def]
+        \\ res_tac \\ gvs [get_var_def])
+  \\ ‘lookup r' data.to_canonical = SOME r' ∧ ODD r'’ by
+       (qpat_x_assum ‘data_inv data _’ mp_tac \\ rw [data_inv_def, wf_data_def]
+        \\ res_tac \\ gvs [])
+  \\ ‘r' ≠ r’ by (strip_tac \\ gvs [])
+  \\ ‘data_inv (data with to_canonical := insert r r' data.to_canonical)
+               (set_var r (Word w) s)’ by
+       (irule data_inv_insert_to_canonical
+        \\ gvs [data_inv_set_var, lookup_insert, ODD_EVEN, get_var_set_var])
+  \\ qmatch_goalsub_abbrev_tac ‘data_inv DD _’
+  \\ ‘DD = (data with to_canonical := insert r r' data.to_canonical)
+            with to_latest :=
+              insert r' r ((data with to_canonical :=
+                              insert r r' data.to_canonical).to_latest)’ by
+       (unabbrev_all_tac \\ simp [])
+  \\ pop_assum SUBST1_TAC
+  \\ irule data_inv_insert_to_latest
+  \\ simp [domain_lookup, lookup_insert]
+  \\ gvs [get_var_set_var, lookup_any_def] \\ gvs [AllCaseEqs(), get_var_def]
 QED
 
 Theorem add_to_data_LocValue_correct:
@@ -2499,6 +2535,68 @@ Proof
   \\ simp [domain_lookup, lookup_insert]
 QED
 
+(* wf mirror of add_to_data_const_correct: both arms keep the data well-formed
+   — the hit re-points the destination at the (self-mapped) holder, the miss
+   records a fresh self-mapped constant fact. *)
+Theorem wf_add_to_data_const:
+  ∀data r (w:'a word) data' p'.
+    wf_data (:'a) data ∧
+    sptree$lookup r data.to_canonical = NONE ∧ ¬EVEN r ∧
+    add_to_data_const data r w = (data', p') ⇒
+    wf_data (:'a) data'
+Proof
+  rpt gen_tac \\ strip_tac
+  \\ gvs [add_to_data_const_def, AllCaseEqs()]
+  >- ((* miss: record a fresh constant fact *)
+      qmatch_goalsub_abbrev_tac ‘wf_data _ DD’
+      \\ ‘DD = ((data with to_canonical := insert r r data.to_canonical)
+                with instrs_mem :=
+                  insert listCmp (instToNumList (Const r w)) r
+                    (data with to_canonical :=
+                       insert r r data.to_canonical).instrs_mem)
+               with to_latest :=
+                 insert r r
+                   (((data with to_canonical := insert r r data.to_canonical)
+                     with instrs_mem :=
+                       insert listCmp (instToNumList (Const r w)) r
+                         (data with to_canonical :=
+                            insert r r data.to_canonical).instrs_mem).
+                      to_latest)’ by (unabbrev_all_tac \\ simp [])
+      \\ pop_assum SUBST1_TAC
+      \\ irule wf_data_insert_to_latest
+      \\ simp [domain_lookup, lookup_insert]
+      \\ qmatch_goalsub_abbrev_tac ‘wf_data _ EE’
+      \\ ‘EE = (data with to_canonical := insert r r data.to_canonical)
+                with instrs_mem :=
+                  insert listCmp (instToNumList (Const r w)) r
+                    (data with to_canonical :=
+                       insert r r data.to_canonical).instrs_mem’ by
+           (unabbrev_all_tac \\ simp [])
+      \\ pop_assum SUBST1_TAC
+      \\ irule wf_data_insert_instrs_Const
+      \\ simp [lookup_insert]
+      \\ irule wf_data_insert_to_canonical
+      \\ gvs [lookup_insert, ODD_EVEN])
+  \\ (* hit: the holder r' already carries the constant *)
+     qmatch_asmsub_rename_tac
+       ‘lookup listCmp (instToNumList (Const r w)) data.instrs_mem = SOME r'’
+  \\ ‘lookup r' data.to_canonical = SOME r' ∧ ODD r'’ by
+       (qpat_x_assum ‘wf_data _ data’ mp_tac \\ rw [wf_data_def]
+        \\ res_tac \\ gvs [])
+  \\ ‘r' ≠ r’ by (strip_tac \\ gvs [])
+  \\ ‘wf_data (:'a) (data with to_canonical := insert r r' data.to_canonical)’
+       by (irule wf_data_insert_to_canonical \\ gvs [lookup_insert, ODD_EVEN])
+  \\ qmatch_goalsub_abbrev_tac ‘wf_data _ DD’
+  \\ ‘DD = (data with to_canonical := insert r r' data.to_canonical)
+            with to_latest :=
+              insert r' r ((data with to_canonical :=
+                              insert r r' data.to_canonical).to_latest)’ by
+       (unabbrev_all_tac \\ simp [])
+  \\ pop_assum SUBST1_TAC
+  \\ irule wf_data_insert_to_latest
+  \\ simp [domain_lookup, lookup_insert]
+QED
+
 Theorem wf_add_to_load_aux:
   ∀data r i (p:'a prog) data' p'.
     wf_data (:'a) data ∧
@@ -2845,33 +2943,12 @@ Resume word_cse_wf_data[Inst]:
   >- ((* Skip *)
       gvs [word_cseInst_def])
   >- ((* Const *)
-      gvs [word_cseInst_def, add_to_data_def, AllCaseEqs(),
-           wf_data_invalidate]
+      gvs [word_cseInst_def]
       \\ ‘wf_data (:'a) (invalidate_data data n) ∧
           lookup n (invalidate_data data n).to_canonical = NONE’ by
            (rw [invalidate_data_def, keep_data_def] \\ gvs [empty_data_def])
-      \\ qpat_x_assum ‘wf_data _ (invalidate_data data n)’
-           (mp_then (Pos hd) mp_tac wf_add_to_data_aux)
-      \\ disch_then drule
-      \\ disch_then drule
-      \\ impl_tac
-      >- (strip_tac
-          \\ qmatch_goalsub_abbrev_tac ‘wf_data _ DD’
-          \\ ‘DD = (invalidate_data data n with
-                      to_canonical :=
-                        insert n n (invalidate_data data n).to_canonical)
-                   with instrs_mem :=
-                     insert listCmp (instToNumList (Const n c)) n
-                       ((invalidate_data data n with
-                           to_canonical :=
-                             insert n n (invalidate_data data n).to_canonical).
-                          instrs_mem)’ by (unabbrev_all_tac \\ simp [])
-          \\ pop_assum SUBST1_TAC
-          \\ irule wf_data_insert_instrs_Const
-          \\ gvs [lookup_insert]
-          \\ irule wf_data_insert_to_canonical
-          \\ gvs [lookup_insert, ODD_EVEN, wf_data_invalidate])
-      \\ simp [])
+      \\ Cases_on ‘EVEN n’ \\ gvs []
+      \\ drule_all wf_add_to_data_const \\ gvs [])
   >- ((* Arith *)
       gvs [word_cseInst_def]
       \\ ‘wf_data (:'a) (invalidate_regs data (arithWrites a))’ by
@@ -3292,10 +3369,9 @@ Resume comp_correct[Inst]:
       \\ Cases_on ‘EVEN n’
       \\ gvs [evaluate_def, inst_def, assign_def, word_exp_def,
               data_inv_set_var]
-      \\ Cases_on ‘add_to_data (invalidate_data data n) n (Const n c)
-                     (Const n c)’
+      \\ Cases_on ‘add_to_data_const (invalidate_data data n) n c’
       \\ gvs []
-      \\ drule_all add_to_data_Const_correct \\ gvs [])
+      \\ drule_all add_to_data_const_correct \\ gvs [])
   >- ((* Arith *)
       gvs [word_cse_def, word_cseInst_def]
       \\ ‘data_inv (invalidate_regs data (arithWrites a)) s’ by
@@ -3748,7 +3824,7 @@ Proof
     \\ pairarg_tac \\ gvs []
     \\ namedCases_on ‘i’ ["", "r w", "a", "m r ad", "fp"]
     >- gvs [word_cseInst_def, full_inst_ok_less_def]
-    >- gvs [word_cseInst_def, add_to_data_def, add_to_data_aux_def,
+    >- gvs [word_cseInst_def, add_to_data_const_def,
             AllCaseEqs(), full_inst_ok_less_def]
     >- gvs [word_cseInst_def, add_to_data_def, add_to_data_aux_def,
             AllCaseEqs(), full_inst_ok_less_def]
@@ -3792,7 +3868,7 @@ Proof
     \\ namedCases_on ‘i’ ["", "r w", "a", "m r ad", "fp"]
     >- gvs [word_cseInst_def, pre_alloc_conventions_def,
             every_stack_var_def, call_arg_convention_def]
-    >- gvs [word_cseInst_def, add_to_data_def, add_to_data_aux_def,
+    >- gvs [word_cseInst_def, add_to_data_const_def,
             AllCaseEqs(), pre_alloc_conventions_def, every_stack_var_def,
             call_arg_convention_def]
     >- gvs [word_cseInst_def, add_to_data_def, add_to_data_aux_def,
@@ -3863,7 +3939,7 @@ Proof
     \\ pairarg_tac \\ gvs []
     \\ namedCases_on ‘i’ ["", "r w", "a", "m r ad", "fp"]
     >- gvs [word_cseInst_def, every_inst_def]
-    >- gvs [word_cseInst_def, add_to_data_def, add_to_data_aux_def,
+    >- gvs [word_cseInst_def, add_to_data_const_def,
             AllCaseEqs(), every_inst_def]
     >- gvs [word_cseInst_def, add_to_data_def, add_to_data_aux_def,
             AllCaseEqs(), every_inst_def]
@@ -3905,7 +3981,7 @@ Proof
     \\ pairarg_tac \\ gvs []
     \\ namedCases_on ‘i’ ["", "r w", "a", "m r ad", "fp"]
     >- gvs [word_cseInst_def, every_inst_def]
-    >- gvs [word_cseInst_def, add_to_data_def, add_to_data_aux_def,
+    >- gvs [word_cseInst_def, add_to_data_const_def,
             AllCaseEqs(), every_inst_def]
     >- gvs [word_cseInst_def, add_to_data_def, add_to_data_aux_def,
             AllCaseEqs(), every_inst_def]

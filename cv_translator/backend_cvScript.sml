@@ -745,6 +745,8 @@ val _ = cv_trans word_cseTheory.fpWrites_def;
 val _ = cv_auto_trans (word_cseTheory.add_to_data_aux_def
                          |> SRULE [GSYM insert_listCmp_def,GSYM lookup_listCmp_def]);
 val _ = cv_trans word_cseTheory.add_to_data_def;
+val _ = cv_auto_trans (word_cseTheory.add_to_data_const_def
+                         |> SRULE [GSYM insert_listCmp_def,GSYM lookup_listCmp_def]);
 val _ = cv_trans word_cseTheory.memOpToNum_def;
 val _ = cv_trans word_cseTheory.loadToNumList_def;
 val _ = cv_auto_trans (word_cseTheory.add_to_load_aux_def

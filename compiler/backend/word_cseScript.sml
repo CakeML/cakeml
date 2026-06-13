@@ -388,6 +388,24 @@ Definition add_to_data_def:
       add_to_data_aux data r i (Inst x)
 End
 
+(* As add_to_data, but for constants: a constant is rematerialisable for free,
+   so a repeated Const is NOT replaced by a Move (which would only extend the
+   holder's live range). The register equivalence is still recorded, so later
+   instructions reading r are still canonicalised and can be CSE'd. Caller
+   guards ODD r. *)
+Definition add_to_data_const_def:
+  add_to_data_const data r w =
+    let i = instToNumList (Const r w) in
+      case balanced_map$lookup listCmp i data.instrs_mem of
+      | SOME r' => (data with <| to_canonical := insert r r' data.to_canonical;
+                                 to_latest    := insert r' r data.to_latest |>,
+                    Inst (Const r w))
+      | NONE    => (data with <| instrs_mem   := insert listCmp i r data.instrs_mem;
+                                 to_canonical := insert r r data.to_canonical;
+                                 to_latest    := insert r r data.to_latest |>,
+                    Inst (Const r w))
+End
+
 (* As add_to_data_aux, but for the load-fact map. *)
 Definition add_to_load_aux_def:
   add_to_load_aux data r i x =
@@ -430,7 +448,7 @@ Definition word_cseInst_def:
   (word_cseInst data (Const r w) =
      let data = invalidate_data data r in
        if EVEN r then (data,Inst (Const r w)) else
-         add_to_data data r (Const r w) (Const r w)) ∧
+         add_to_data_const data r w) ∧
   (word_cseInst data (Arith a) =
      let r = firstRegOfArith a in
      let data = invalidate_regs data (arithWrites a) in
@@ -741,7 +759,7 @@ Theorem test_pattern_match_and_cons[local]:
           Inst (Arith (Binop Add 385 381 (Imm 24w)));
           Set NextFree (Var 385);
           Move 1 [(389,385)];
-          Move 0 [(393,349)];
+          Inst (Const 393 0x200000003w);
           Move 0 [(397,389)];
           Inst (Mem Store 393 (Addr 397 0w));
           Move 0 [(401,397)];
