@@ -1145,14 +1145,18 @@ Proof
 QED
 
 Theorem evaluate_vars_target:
-  ∀vs env (s : (γ, 'ffi) state).
-    wf_vars (LENGTH env) vs ⇒
+  ∀vs n env (s : (γ, 'ffi) state).
+    wf_vars n vs ∧
+    LENGTH env >= n ⇒
     evaluate (MAP (λn. Var n) vs,env,s) = (Rval (MAP (λn. env❲n❳) vs),s)
 Proof
   Induct
   >- gvs [evaluate_def]
   >> rw []
   >> gvs [wf_vars_def, evaluate_def, Once evaluate_CONS]
+  >> first_x_assum drule_all
+  >> strip_tac
+  >> gvs []
 QED
 
 Theorem evaluate_vars_expand_env:
@@ -2007,6 +2011,30 @@ Definition wf_cb_def:
     backend_common$small_enough_int (&LENGTH right)))
 End
 
+Theorem cons_append:
+  ∀v l.
+    v::l = [v] ++ l
+Proof
+  rw []
+QED
+
+Theorem rw_block_args:
+  ∀left child right f.
+    REVERSE (MAP f left ++ [child] ++ MAP f right) = MAP f (REVERSE right) ++ [child] ++ MAP f (REVERSE left)
+Proof
+  rw []
+  >> gvs [GSYM MAP_REVERSE, REVERSE_APPEND]
+QED
+
+Theorem shift_cb_suc:
+  ∀n cb.
+    shift_cb (SUC (SUC n)) cb = shift_cb (n + 2) cb
+Proof
+  rw []
+  >> ‘SUC (SUC n) = n + 2’ by gvs []
+  >> simp []
+QED
+
 Theorem evaluate_cb:
   ∀cb loc f opt env env2 ^s s' t r clock.
     evaluate ([cb_to_bvi loc cb],env,s) = (r,t) ∧
@@ -2262,33 +2290,22 @@ Proof
   >> impl_tac >- gvs [CaseEq "prod", CaseEq "result"]
   >> strip_tac >> gvs []
   >> rename [‘state_rel f' u u'’, ‘result_rel _ _ r r'’]
-
-  >> reverse $ Cases_on ‘r’
+  >> conj_tac
   >-
-   (gvs [CaseEq "prod"]
-    >> rename [‘state_rel f' u u'’]
-    >> conj_tac
+   (reverse $ Cases_on ‘r’
     >-
-     (qexists ‘f'’
+     (gvs [CaseEq "prod"]
+      >> rename [‘state_rel f' u u'’]
+      >> qexists ‘f'’
       >> gvs [only_fresh_refl])
-    >> gen_tac
+    >> gvs [CaseEq "prod"]
+    >> rename [‘state_rel f' u u'’]
+    >> drule_then drule evaluate_vars
+    >> impl_tac >- gvs [CaseEq "prod", CaseEq "result"]
     >> strip_tac
-    >> conj_tac
-    >-
-     (gvs [cb_to_bvi_wrapper_def, evaluate_def, mut_cons_def, evaluate_APPEND, do_app_def, do_app_aux_def, backend_commonTheory.small_enough_int_def]
-      >> cheat)
-    >> cheat)
-  >> gvs [CaseEq "prod"]
-  >> rename [‘state_rel f' u u'’]
-  >> drule_then drule evaluate_vars
-  >> impl_tac >- gvs [CaseEq "prod", CaseEq "result"]
-  >> strip_tac
-  >> gvs []
-  >> rename [‘state_rel f' u u'’]
-  >> rw []
-  (* Untransformed *)
-  >-
-   (gvs [do_app_def, do_app_aux_def, bvl_to_bvi_id]
+    >> gvs []
+    >> rename [‘state_rel f' u u'’]
+    >> gvs [do_app_def, do_app_aux_def, bvl_to_bvi_id]
     >> first_assum $ irule_at Any
     >> imp_res_tac evaluate_SING_IMP
     >> gvs [REVERSE_APPEND]
@@ -2301,12 +2318,18 @@ Proof
     >- (irule list_rel_env_perm >> rpt $ first_assum $ irule_at Any)
     >> irule list_rel_env_perm
     >> rpt $ first_assum $ irule_at Any)
+  >> rw []
   (* Wrap *)
   >-
    (first_x_assum drule
     >> strip_tac
     >> gvs [cb_to_bvi_wrapper_def, evaluate_def, mut_cons_def, evaluate_APPEND]
     >> gvs [do_app_def, do_app_aux_def, backend_commonTheory.small_enough_int_def]
+    >> imp_res_tac env_rel_length
+    >> drule_all evaluate_vars_source
+    >> disch_then $ qspec_then ‘s2’ assume_tac
+    >> drule_all evaluate_vars_target
+    >> disch_then $ qspec_then ‘s'’ assume_tac
     >> gvs [LENGTH_MAP, REVERSE_APPEND, TAKE_APPEND, DROP_APPEND, GSYM MAP_REVERSE, GSYM MAP_TAKE, GSYM MAP_DROP, DROP_LENGTH_TOO_LONG]
     >> ‘TAKE (LENGTH right) (REVERSE right) = REVERSE right’ by gvs [LENGTH_REVERSE, TAKE_LENGTH_ID]
     >> simp []
@@ -2329,8 +2352,25 @@ Proof
     >> gvs []
     >> imp_res_tac evaluate_SING_IMP
     >> gvs []
-    >> reverse CASE_TAC
-    >- gvs [opt_res_rel_def]
+    >> reverse $ Cases_on ‘r’
+    >-
+     (CASE_TAC >- gvs [opt_res_rel_def]
+      >> gvs []
+      >> rpt $ first_assum $ irule_at Any
+      >> conj_tac
+      >- gvs [opt_res_rel_def]
+      >> conj_tac
+      >-
+       (irule only_fresh_del
+        >> first_assum $ irule_at $ Pos $ el 2
+        >> irule fresh_not_in_range_f
+        >> gvs [state_rel_def]
+        >> first_assum $ irule_at Any)
+      >> irule holes_unchanged_except_del_SING
+      >> first_assum $ irule_at $ Pos $ el 2
+      >> irule_at Any fresh_ptr_fresh)
+    >> reverse CASE_TAC >- gvs [opt_res_rel_def]
+    >> gvs []
     >> imp_res_tac evaluate_SING_IMP
     >> gvs []
     >> rename [‘opt_res_rel _ (Rval [v]) (Rval [v'])’]
@@ -2359,6 +2399,7 @@ Proof
       >> rpt $ first_assum $ irule_at Any
       >> gvs [FDOM_DEF])
     >> strip_tac
+    >> rename [‘state_rel _ u t_aux’]
     >> ‘state_ref_rel f_aux u.refs t_aux.refs’ by gvs [state_rel_def]
     >> drule_all evaluate_finalise_cons
     >> strip_tac
@@ -2366,7 +2407,7 @@ Proof
     >> qexists ‘f_aux’
     >> gvs [bvl_to_bvi_id]
     >> conj_tac
-    >- gvs [holes_unchanged_except_def, FLOOKUP_SIMP]
+    >- gvs [holes_unchanged_except_def, FLOOKUP_SIMP, REVERSE_APPEND, GSYM MAP_REVERSE, rw_block_args]
     >> conj_tac
     >-
      (irule only_fresh_del
@@ -2385,6 +2426,11 @@ Proof
     >> gvs [mut_cons_def, evaluate_def, evaluate_APPEND]
     >> gvs [evaluate_shift_vars]
     >> gvs [do_app_def, do_app_aux_def, backend_commonTheory.small_enough_int_def]
+    >> imp_res_tac env_rel_length
+    >> drule_all evaluate_vars_source
+    >> disch_then $ qspec_then ‘s2’ assume_tac
+    >> drule_all evaluate_vars_target
+    >> disch_then $ qspec_then ‘s' with refs := refs’ assume_tac
     >> gvs [length_shift_vars]
     >> gvs [LENGTH_MAP, REVERSE_APPEND, TAKE_APPEND, DROP_APPEND, GSYM MAP_REVERSE, GSYM MAP_TAKE, GSYM MAP_DROP, DROP_LENGTH_TOO_LONG]
     >> gvs [update_cons_def, evaluate_def]
@@ -2434,6 +2480,25 @@ Proof
       >- imp_res_tac fresh_not_in_range_f
       >> gvs [FLOOKUP_SIMP])
     >> strip_tac
+    >> reverse $ Cases_on ‘r’
+    >-
+     (gvs [shift_cb_dist, shift_cb_suc]
+      >> rpt $ first_assum $ irule_at Any
+    >> conj_tac
+    >-
+     (irule only_fresh_del
+      >> irule_at Any only_fresh_del
+      >> first_assum $ irule_at $ Pos hd
+      >> imp_res_tac fresh_not_in_range_f
+      >> gvs [])
+      >> irule holes_unchanged_except_changed
+      >> first_assum $ irule_at Any
+      >> irule_at Any holes_unchanged_except_del_SING
+      >> gvs [flookup_com_neq]
+      >> first_assum $ irule_at Any
+      >> qspec_then ‘refs’ assume_tac fresh_ptr_fresh
+      >> gvs [])
+    >> gvs []
     >> qexistsl [‘r_aux’, ‘t_aux’, ‘f_aux’]
     >> conj_tac
     >-
@@ -2462,7 +2527,7 @@ Proof
       >> qspec_then ‘refs’ assume_tac fresh_ptr_fresh
       >> gvs [])
     >> imp_res_tac evaluate_SING_IMP
-    >> gvs []
+    >> gvs [rw_block_args]
     >> irule_at Any mb_rel_cons
     >> drule mb_rel_del
     >> disch_then $ qspecl_then [‘hole_ptr’, ‘tag'’, ‘left'’, ‘LEAST ptr. ptr ∉ FDOM refs’, ‘right'’] mp_tac
@@ -2505,6 +2570,11 @@ Proof
   >> strip_tac
   >> gvs [evaluate_def, cb_to_bvi_worker_def, mut_cons_def, evaluate_APPEND]
   >> gvs [do_app_def, do_app_aux_def, backend_commonTheory.small_enough_int_def]
+  >> imp_res_tac env_rel_length
+  >> drule_all evaluate_vars_source
+  >> disch_then $ qspec_then ‘s2’ assume_tac
+  >> drule_all evaluate_vars_target
+  >> disch_then $ qspec_then ‘s'’ assume_tac
   >> gvs [LENGTH_MAP, REVERSE_APPEND, TAKE_APPEND, DROP_APPEND, GSYM MAP_REVERSE, GSYM MAP_TAKE, GSYM MAP_DROP, DROP_LENGTH_TOO_LONG]
   >> gvs [evaluate_def, update_cons_def]
   >> imp_res_tac env_rel_length_opt
@@ -2561,6 +2631,24 @@ Proof
     >> gvs [state_rel_def])
   >> strip_tac
   >> gvs []
+  >> reverse $ Cases_on ‘r’
+  >-
+   (gvs []
+    >> rpt $ first_assum $ irule_at Any
+    >> conj_tac
+    >-
+     (irule only_fresh_del
+      >> irule_at Any only_fresh_del
+      >> first_assum $ irule_at $ Pos hd
+      >> gvs [state_rel_def]
+      >> imp_res_tac fresh_not_in_range_f)
+    >> irule holes_unchanged_except_changed
+    >> first_assum $ irule_at Any
+    >> irule_at Any holes_unchanged_except_del_SING
+    >> gvs [flookup_com_neq]
+    >> first_assum $ irule_at Any
+    >> qspec_then ‘refs’ assume_tac fresh_ptr_fresh
+    >> gvs [])
   >> qexists ‘f_aux’
   >> imp_res_tac evaluate_SING_IMP
   >> gvs []
@@ -2590,7 +2678,8 @@ Proof
   >> qexists ‘RefPtr F (LEAST ptr. ptr ∉ FDOM s'.refs)’
   >> conj_tac
   >-
-   (irule mb_rel_cons
+   (gvs [rw_block_args]
+    >> irule mb_rel_cons
     >> conj_tac
     >-
      (irule non_fresh_not_in_frange
