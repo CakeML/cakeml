@@ -2932,33 +2932,22 @@ Resume evaluate_rewrite_tmc[call_block]:
   >> gvs []
 QED
 
-
-
-
-
-
-
-
-
-
-
-
-
-(* Below here is failing due to changing hypothesis *)
-
 Resume evaluate_rewrite_tmc[list]:
   gvs [evaluate_def]
   (* First inductive hypothesis *)
   >> gvs [CaseEq "prod", PULL_EXISTS]
   >> rename[‘evaluate ([x],env,s) = (rx,u)’]
   >> first_assum $ qspecl_then [‘[x]’, ‘s’, ‘env’] mp_tac
-  >> gvs []
-  >> disch_then drule
-  >> disch_then drule
+  >> impl_tac
+  >- gvs []
+  >> rpt $ disch_then drule
   >> impl_tac
   >- (spose_not_then assume_tac >> fs [])
+  >> disch_then $ qspec_then ‘loc’ mp_tac
+  >> gvs [GSYM PULL_FORALL]
   >> strip_tac
   >> gvs []
+  >> pop_assum kall_tac
   >> rename [‘evaluate ([x],env2,s') = (rx',u')’]
   >> reverse $ Cases_on ‘rx’ >> gvs []
   >- (first_x_assum $ irule_at Any >> fs [])
@@ -2968,17 +2957,14 @@ Resume evaluate_rewrite_tmc[list]:
   >> rename [‘evaluate (y::xs,env,u) = (ry,w)’]
   >> strip_tac
   >> rename [‘LIST_REL (v_rel f'') vx vx'’]
-  >> first_x_assum $ qspecl_then [‘y::xs’, ‘u’, ‘env’] mp_tac
-  >> gvs []
-  >> imp_res_tac evaluate_clock
-  >> gvs []
-  >> drule_all env_rel_submap
-  >> strip_tac
-  >> disch_then drule
-  >> disch_then drule
-  >> gvs []
+  >> first_x_assum $ qspecl_then [‘y::xs’, ‘u’] mp_tac
   >> impl_tac
-  >- (spose_not_then assume_tac >> fs [])
+  >- (imp_res_tac evaluate_clock >> gvs [])
+  >> imp_res_tac env_rel_submap
+  >> rpt $ disch_then drule
+  >> impl_tac
+  >- gvs [CaseEq "result"]
+  >> disch_then $ qspec_then ‘loc’ mp_tac
   >> strip_tac >> fs []
   >> rename [‘evaluate (y::xs,env2,u') = (ry',w')’]
   >> Cases_on ‘ry’ >> gvs []
@@ -3009,6 +2995,20 @@ Resume evaluate_rewrite_tmc[list]:
   >> irule holes_unchanged_except_trans
   >> rpt $ goal_assum $ drule_at Any
 QED
+
+
+
+
+
+
+
+
+
+
+
+
+
+(* Below here is failing due to changing hypothesis *)
 
 Resume evaluate_rewrite_tmc[var]:
   gvs [evaluate_def]
