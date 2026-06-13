@@ -115,7 +115,8 @@ Definition call_to_cb_def:
   call_to_cb loc call_ts call_loc call_args call_h =
   if call_loc = SOME loc ∧ call_h = NONE then
     case bind 0 call_args of
-    | (vs,_) => SOME (call_args, RCall call_ts vs)
+    | (vs,_) =>
+        SOME (call_args, RCall call_ts vs)
   else NONE
 End
 
@@ -170,7 +171,7 @@ QED
    If multiple recursive calls are found, all but the last are let bound. *)
 Definition bvi_to_cb_aux_def:
   (bvi_to_cb_aux _ _ _ [] = SOME ([],INL [])) ∧
-  (bvi_to_cb_aux _ loc tag [Call t loc' args h] =
+  (bvi_to_cb_aux n loc tag [Call t loc' args h] =
    case call_to_cb loc t loc' args h of
    | SOME (bs,cb) => SOME (bs,INR (CallBlock tag [] cb []))
    | _ => NONE) ∧
@@ -236,6 +237,20 @@ Theorem wf_vars_empty:
     wf_vars n []
 Proof
   rw [wf_vars_def]
+QED
+
+Theorem wf_vars_expand:
+  ∀n1 n2 vs.
+    wf_vars n1 vs ∧
+    n1 ≤ n2 ⇒
+    wf_vars n2 vs
+Proof
+  rw []
+  >> gvs [wf_vars_def]
+  >> irule $ iffRL EVERY_EL
+  >> rw []
+  >> imp_res_tac $ iffLR EVERY_EL
+  >> gvs []
 QED
 
 Theorem wf_vars_shift:
@@ -304,6 +319,52 @@ Proof
   >> simp []
 QED
 
+Definition wf_cb_def:
+  (wf_cb n (RCall ts args) =
+   wf_vars n args) ∧
+  (wf_cb n (CallBlock tag left child right) =
+   (wf_vars n left ∧
+    wf_cb n child ∧
+    wf_vars n right ∧
+    backend_common$small_enough_int (&LENGTH right)))
+End
+
+Theorem wf_cb_expand:
+  ∀n1 n2 cb.
+    wf_cb n1 cb ∧
+    n1 ≤ n2 ⇒
+    wf_cb n2 cb
+Proof
+  reverse $ Induct_on ‘cb’
+  >-
+   (rw []
+    >> gvs [wf_cb_def]
+    >> imp_res_tac wf_vars_expand)
+  >> rw []
+  >> gvs [wf_cb_def]
+  >> first_assum drule_all
+  >> strip_tac
+  >> imp_res_tac wf_vars_expand
+  >> gvs []
+QED
+
+Theorem wf_cb_shift_sing:
+  ∀n cb.
+    wf_cb n cb ⇒
+    wf_cb (SUC n) (shift_cb 1 cb)
+Proof
+  reverse $ Induct_on ‘cb’
+  >> rw []
+  >-
+   (gvs [wf_cb_def, shift_cb_def]
+    >> irule wf_vars_shift_sing
+    >> gvs [])
+  >> rw []
+  >> gvs [wf_cb_def, shift_cb_def]
+  >> imp_res_tac wf_vars_shift_sing
+  >> gvs [length_shift_vars]
+QED
+
 Theorem bvi_to_cb_aux_wf_inl:
   ∀n loc tag args bs vs.
     bvi_to_cb_aux n loc tag args = SOME (bs,INL vs) ⇒
@@ -344,22 +405,29 @@ QED
 Theorem bvi_to_cb_aux_wf_inr:
   ∀n loc tag args bs cb.
     bvi_to_cb_aux n loc tag args = SOME (bs,INR cb) ⇒
+    wf_cb (LENGTH bs) cb ∧
     ∃l child r.
-      cb = CallBlock tag l child r ∧
-      wf_vars (LENGTH bs) l ∧
-      small_enough_int (&LENGTH r) ∧
-      wf_vars (LENGTH bs) r
+      cb = CallBlock tag l child r
 Proof
   recInduct bvi_to_cb_aux_ind
-  >> rw [] >> gvs [bvi_to_cb_aux_def, bind_def, shift_cb_def, CaseEq "prod", CaseEq "option", CaseEq "sum", CaseEq "list", wf_vars_empty, wf_vars_shift_sing, small_enough_int_def, length_shift_vars, GSYM INT]
+  >> rw [] >> gvs [bvi_to_cb_aux_def, call_to_cb_def, wf_cb_def, bind_def, shift_cb_def, CaseEq "prod", CaseEq "option", CaseEq "sum", CaseEq "list", wf_vars_empty, wf_vars_shift_sing, small_enough_int_def, length_shift_vars, GSYM INT]
+  >-
+   (imp_res_tac wf_vars_bind
+    >> gvs [])
   >-
    (irule_at Any wf_vars_shift
     >> imp_res_tac bvi_to_cb_aux_wf_inl
-    >> gvs [small_enough_int_def])
-  >> irule wf_vars_cons
-  >> gvs []
-  >> irule wf_vars_shift_sing
-  >> gvs []
+    >> gvs [small_enough_int_def]
+    >> irule wf_cb_expand
+    >> first_assum $ irule_at Any
+    >> gvs [])
+  >> rw []
+  >-
+   (irule wf_vars_cons
+    >> gvs []
+    >> irule wf_vars_shift_sing
+    >> gvs [])
+  >> imp_res_tac wf_cb_shift_sing
 QED
 
 Definition bvi_to_cb_def:
@@ -375,19 +443,33 @@ Definition bvi_to_cb_def:
   (bvi_to_cb _ _ _ = NONE)
 End
 
+Theorem bvi_to_cb_wf:
+  ∀n loc x bs cb.
+    bvi_to_cb n loc x = SOME (bs,cb) ⇒
+    wf_cb (LENGTH bs) cb
+Proof
+  rw []
+  >> Cases_on ‘cb’
+  >-
+   (Cases_on ‘x’ >> gvs [bvi_to_cb_def, call_to_cb_def, CaseEq "option", CaseEq "prod", CaseEq "sum"]
+    >> Cases_on ‘o'’ >> gvs [dest_Cons_def]
+    >> Cases_on ‘b’ >> gvs [dest_Cons_def]
+    >> imp_res_tac bvi_to_cb_aux_wf_inr)
+  >> Cases_on ‘x’ >> gvs [bvi_to_cb_def, call_to_cb_def, wf_cb_def, CaseEq "option", CaseEq "prod", CaseEq "sum"]
+  >- (imp_res_tac wf_vars_bind >> gvs [])
+  >> imp_res_tac bvi_to_cb_aux_wf_inr
+  >> gvs []
+QED
+
 Theorem bvi_to_cb_cases:
   ∀n loc x bs cb.
     bvi_to_cb n loc x = SOME (bs,cb) ⇒
     (∃tag args l child r.
        x = Op (BlockOp (Cons tag)) args ∧
-       cb = CallBlock tag l child r ∧
-       wf_vars (LENGTH bs) l ∧
-       small_enough_int (&LENGTH r) ∧
-       wf_vars (LENGTH bs) r) ∨
+       cb = CallBlock tag l child r) ∨
     (∃ts args vs.
        x = Call ts (SOME loc) args NONE ∧
-       cb = RCall ts vs ∧
-       wf_vars (LENGTH bs) vs)
+       cb = RCall ts vs)
 Proof
   rw []
   >> Cases_on ‘cb’
@@ -399,9 +481,6 @@ Proof
     >> gvs [])
   >> Cases_on ‘x’ >> gvs [bvi_to_cb_def, call_to_cb_def, CaseEq "option", CaseEq "prod", CaseEq "sum"]
   >> imp_res_tac bvi_to_cb_aux_wf_inr
-  >> gvs []
-  >> drule wf_vars_bind
-  >> strip_tac
   >> gvs []
 QED
 

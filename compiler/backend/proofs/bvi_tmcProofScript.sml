@@ -1946,16 +1946,6 @@ Proof
   >> gvs [optimised_code_def, compile_exp_def, CaseEq "option"]
 QED
 
-Definition wf_cb_def:
-  (wf_cb n (RCall ts args) =
-   wf_vars n args) ∧
-  (wf_cb n (CallBlock tag left child right) =
-   (wf_vars n left ∧
-    wf_cb n child ∧
-    wf_vars n right ∧
-    backend_common$small_enough_int (&LENGTH right)))
-End
-
 Theorem cons_append:
   ∀v l.
     v::l = [v] ++ l
@@ -2722,12 +2712,16 @@ Resume evaluate_rewrite_tmc[call_block]:
   >> strip_tac
   >> drule_all env_rel_append
   >> strip_tac
-  >> rpt $ disch_then drule
+  >> ntac 2 $ disch_then $ drule_at Any
   >> disch_then $ qspec_then ‘s.clock’ mp_tac
   >> impl_tac
   >-
-   (imp_res_tac evaluate_clock
-    >> gvs [hypothesis_def])
+   (irule_at Any wf_cb_expand
+    >> imp_res_tac bvi_to_cb_wf
+    >> first_assum $ irule_at Any
+    >> imp_res_tac evaluate_IMP_LENGTH
+    >> imp_res_tac evaluate_clock
+    >> gvs [hypothesis_def, LENGTH_APPEND])
   >> strip_tac
   >> gvs []
   >> rpt $ first_assum $ irule_at Any
