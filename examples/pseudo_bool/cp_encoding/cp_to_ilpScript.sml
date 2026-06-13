@@ -109,52 +109,104 @@ Definition reify_flag_def:
       MEM (HD vs) $ MAP (varc wi) Xs)
 End
 
-(* char 91 is [, char 92 is backslash *)
-Definition has_char_to_escape_def:
-  has_char_to_escape s n =
-    if n = 0:num then F else
-      let n = n - 1 in
-      let c = strsub s n in
-        (c = CHR 91) ∨ (c = CHR 92) ∨ has_char_to_escape s n
+(* char 91 is [, char 92 is backslash, char 93 is ] *)
+Definition naive_needs_escaping_def:
+  naive_needs_escaping depth [] = (depth ≠ 0n) ∧
+  naive_needs_escaping depth (c::cs) =
+    if c = CHR 92 ∨ c = CHR 255 then T else
+    if c = CHR 91 then naive_needs_escaping (depth+1) cs else
+    if c = CHR 93 then
+      (if depth = 0 then T
+       else naive_needs_escaping (depth-1) cs)
+    else naive_needs_escaping depth cs
 End
 
-Theorem has_char_to_escape_thm:
-  has_char_to_escape s (strlen s) =
-  EXISTS (λc. (c = CHR 91) ∨ (c = CHR 92)) (explode s)
-Proof
-  qsuff_tac ‘
-    ∀xs ys.
-      has_char_to_escape (strlit (xs ++ ys)) (LENGTH xs) =
-      EXISTS (λc. (c = CHR 91) ∨ (c = CHR 92)) xs’
-  >-
-   (Cases_on ‘s’ \\ simp [] \\ rename [‘strlit xs’]
-    \\ disch_then $ qspecl_then [‘xs’,‘[]’] mp_tac \\ fs [])
-  \\ Induct using SNOC_INDUCT \\ gvs []
-  \\ simp [Once has_char_to_escape_def]
-  \\ rewrite_tac [SNOC_APPEND, GSYM APPEND_ASSOC]
-  \\ simp [EL_APPEND2]
-  \\ simp [AC DISJ_COMM DISJ_ASSOC]
-QED
+Definition needs_escaping_def:
+  needs_escaping depth s n (l:num) =
+    if l ≤ n then depth ≠ 0i else
+      let c = strsub s n in
+        if c = CHR 92 ∨ c = CHR 255 then T else
+        if c = CHR 91 then needs_escaping (depth+1) s (n+1) l else
+        if c = CHR 93 then
+          (if depth = 0 then T else needs_escaping (depth-1) s (n+1) l)
+        else needs_escaping depth s (n+1) l
+Termination
+  WF_REL_TAC ‘measure (λ(d,s,n,l). l - n)’
+End
 
 Definition escape_chars_def:
   escape_chars [] = [] ∧
   escape_chars (c::cs) =
-    if (c = CHR 91) ∨ (c = CHR 92) then
+    if (c = CHR 91) ∨ (c = CHR 92) ∨ (c = CHR 93) ∨ (c = CHR 255) then
       CHR 92 :: c :: escape_chars cs
     else c :: escape_chars cs
 End
 
-Definition escape_open_bracket_def:
-  escape_open_bracket (s:mlstring) =
-    if has_char_to_escape s (strlen s) then
-      implode (escape_chars (explode s))
-    else s
+Definition escape_bad_brackets_def:
+  escape_bad_brackets (s:mlstring) =
+    if needs_escaping 0 s 0 (strlen s) then
+      (* slow path -- rare *)
+      implode (CHR 255 :: escape_chars (explode s))
+    else
+      (* fast path -- common *)
+      s
 End
+
+Theorem needs_escaping_eq:
+  needs_escaping 0 (implode xs) 0 (STRLEN xs) = naive_needs_escaping 0 xs
+Proof
+  qsuff_tac ‘∀ys xs d.
+    needs_escaping (& d) (implode (xs ++ ys)) (LENGTH xs) (LENGTH xs + LENGTH ys) =
+    naive_needs_escaping d ys’
+  >- (disch_then $ qspecl_then [‘xs’,‘[]’,‘0’] mp_tac \\ simp [])
+  \\ Induct
+  \\ simp [naive_needs_escaping_def, Once needs_escaping_def]
+  \\ simp [EL_APPEND2]
+  \\ rpt gen_tac
+  \\ Cases_on ‘h = #"\\"’ \\ fs []
+  \\ Cases_on ‘h = CHR 255’ \\ fs []
+  \\ Cases_on ‘h = #"["’ \\ fs []
+  >-
+   (last_x_assum $ qspecl_then [‘xs ++ [h]’,‘d+1’] mp_tac \\ fs [ADD1]
+    \\ rewrite_tac [GSYM APPEND_ASSOC, APPEND]
+    \\ simp [integerTheory.INT_ADD])
+  \\ Cases_on ‘h = #"]"’ \\ fs []
+  >-
+   (Cases_on ‘d’ \\ fs [ADD1, GSYM integerTheory.INT_ADD]
+    \\ last_x_assum $ qspecl_then [‘xs ++ [h]’,‘n’] mp_tac \\ fs [ADD1]
+    \\ rewrite_tac [int_arithTheory.elim_minus_ones]
+    \\ rewrite_tac [GSYM APPEND_ASSOC, APPEND])
+  \\ last_x_assum $ qspecl_then [‘xs ++ [h]’,‘d’] mp_tac \\ fs [ADD1]
+  \\ rewrite_tac [GSYM APPEND_ASSOC, APPEND]
+QED
+
+Theorem escape_chars_11[local]:
+  ∀xs ys. escape_chars xs = escape_chars ys ⇔ xs = ys
+Proof
+  Induct \\ Cases_on ‘ys’ \\ fs [escape_chars_def] \\ rw [] \\ fs []
+QED
+
+Theorem mlstring_forall:
+  (∀s. P s) = ∀xs. P (implode xs)
+Proof
+  eq_tac \\ rw []
+  \\ first_x_assum $ qspec_then ‘explode s’ mp_tac
+  \\ gvs []
+QED
+
+Theorem escape_bad_brackets_11:
+  ∀a a'. escape_bad_brackets a = escape_bad_brackets a' ⇔ a = a'
+Proof
+  simp [mlstringTheory.escape_char_def, mlstring_forall,
+        escape_bad_brackets_def, needs_escaping_eq]
+  \\ rw [] \\ Cases_on ‘xs = xs'’ \\ gvs [escape_chars_11]
+  \\ strip_tac \\ gvs [naive_needs_escaping_def]
+QED
 
 Definition format_varc_def:
   format_varc X =
   case X of
-    INL s => strlit"i[" ^ escape_open_bracket s ^ strlit "]"
+    INL s => strlit"i[" ^ escape_bad_brackets s ^ strlit "]"
   | INR i => strlit"n[" ^ int_to_string #"-" i ^ strlit"]"
 End
 
@@ -171,7 +223,7 @@ End
 
 Definition format_annot_def:
   (format_annot NONE = strlit"") ∧
-  (format_annot (SOME s) = strlit"[" ^ escape_open_bracket s ^ strlit"]")
+  (format_annot (SOME s) = strlit"[" ^ escape_bad_brackets s ^ strlit"]")
 End
 
 Definition format_num_list_def:
@@ -186,13 +238,13 @@ Definition format_flag_def:
   format_flag (name,flag) =
   case flag of
     Flag ann =>
-      strlit"b[" ^ escape_open_bracket name ^ strlit"][" ^
-                   escape_open_bracket ann ^ strlit "]"
+      strlit"b[" ^ escape_bad_brackets name ^ strlit"][" ^
+                   escape_bad_brackets ann ^ strlit "]"
   | Indices ns annot =>
-      strlit"x[" ^ escape_open_bracket name ^ strlit"][" ^
+      strlit"x[" ^ escape_bad_brackets name ^ strlit"][" ^
                    format_num_list ns ^ strlit"]" ^ format_annot annot
   | Values ns annot =>
-      strlit"v[" ^ escape_open_bracket name ^ strlit"][" ^
+      strlit"v[" ^ escape_bad_brackets name ^ strlit"][" ^
                    format_int_list ns ^ strlit"]" ^ format_annot annot
 End
 
