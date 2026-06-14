@@ -1875,7 +1875,6 @@ Proof
    (Cases_on ‘v1’ >> gvs [mb_rel_def, v_rel_cases, finalise_cons_def])
 QED
 
-(* This should replace find_code_rel *)
 Theorem code_rel_cases:
   ∀loc arity body1 c1 c2.
     lookup loc c1 = SOME (arity,body1) ∧
@@ -3340,7 +3339,7 @@ Resume evaluate_rewrite_tmc[tick]:
   >> gvs []
 QED
 
-Theorem find_code_cases:
+Theorem find_code_rel:
   ∀f vs vs' s s' dest args body.
     find_code dest vs s.code = SOME (args,body) ∧
     LIST_REL (v_rel f) vs vs' ∧
@@ -3436,7 +3435,7 @@ Resume evaluate_rewrite_tmc[call_non_opt]:
     >> first_assum $ irule_at Any
     >> gvs [])
   >> gvs [GSYM PULL_FORALL, CaseEq "option", CaseEq "prod"]
-  >> drule_all find_code_cases
+  >> drule_all find_code_rel
   >> strip_tac
   >> gvs []
   >> ‘u.clock = u'.clock’ by gvs [state_rel_def]
@@ -3706,22 +3705,131 @@ Resume evaluate_rewrite_tmc[call_non_opt]:
   >> gvs []
 QED
 
+Definition dest_thunk_ret_rel_def:
+  dest_thunk_ret_rel f t1 t2 ⇔
+    ((t1 = BadRef ∧ t2 = BadRef) ∨
+     (t1 = NotThunk ∧ t2 = NotThunk) ∨
+     ∃tm1 tm2 v1 v2.
+       t1 = IsThunk tm1 v1 ∧ t2 = IsThunk tm2 v2 ∧
+       tm1 = tm2 ∧
+       v_rel f v1 v2)
+End
 
+Theorem env_rel_el:
+  ∀opt f env1 env2 n.
+    env_rel opt f env1 env2 ∧
+    n < LENGTH env1 ⇒
+    v_rel f (EL n env1) (EL n env2)
+Proof
+  rw []
+  >> gvs [env_rel_def]
+  >> imp_res_tac LIST_REL_EL_EQN
+  >> gvs [EL_APPEND_EQN]
+QED
 
-
-
-
-
-
-
-
-
-
-
-(* Below here is failing due to changing hypothesis *)
+Theorem dest_thunk_rel:
+  ∀opt f env1 env2 s1 s2 n.
+    env_rel opt f env1 env2 ∧
+    state_rel f s1 s2 ∧
+    n < LENGTH env1 ⇒
+    dest_thunk_ret_rel f (dest_thunk (EL n env1) s1.refs) (dest_thunk (EL n env2) s2.refs)
+Proof
+  rw []
+  >> imp_res_tac env_rel_el
+  >> gvs [v_rel_cases, dest_thunk_def, dest_thunk_ret_rel_def, CaseEq "option", state_rel_def, state_ref_rel_def]
+  >> Cases_on ‘FLOOKUP s1.refs n'’
+  >- gvs [FLOOKUP_DEF]
+  >> gvs []
+  >> first_x_assum drule
+  >> strip_tac
+  >> gvs [CaseEq "ref", CaseEq "thunk_mode", ref_rel_cases]
+  >> qexistsl [‘tm’, ‘x'’, ‘y’]
+  >> gvs []
+  >> conj_tac
+  >- (Cases_on ‘tm’ >> gvs [])
+  >> conj_tac
+  >- (Cases_on ‘tm’ >> gvs [])
+  >> Cases_on ‘x'’ >> gvs [v_rel_cases]
+QED
 
 Resume evaluate_rewrite_tmc[force]:
-  cheat
+  gvs [evaluate_def]
+  >> imp_res_tac env_rel_length
+  >> Cases_on ‘¬(n < LENGTH env1)’
+  >- gvs []
+  >> gvs [GSYM PULL_FORALL]
+  >> imp_res_tac dest_thunk_rel
+  >> gvs [dest_thunk_ret_rel_def, CaseEq "thunk_mode"]
+  >-
+   (first_assum $ irule_at Any
+    >> gvs [only_fresh_refl, holes_unchanged_except_refl]
+    >> rw []
+    >- gvs [rewrite_wrapper_def]
+    >> gvs [rewrite_worker_def]
+    >> ho_match_mp_tac evaluate_fill_hole_val
+    >> rpt $ first_assum $ irule_at Any
+    >> gvs [evaluate_def, holes_unchanged_except_refl, only_fresh_refl])
+  >> gvs [CaseEq "option", CaseEq "prod"]
+  >> drule find_code_rel
+  >> ‘LIST_REL (v_rel f) [EL n env1; v1] [EL n env2; v2]’ by
+    (irule $ iffRL LIST_REL_EL_EQN
+     >> gvs []
+     >> rw []
+     >> Cases_on ‘n'’
+     >- (imp_res_tac env_rel_el >> gvs [])
+     >> Cases_on ‘n''’
+     >- gvs []
+     >> gvs [])
+  >> rpt $ disch_then drule
+  >> strip_tac
+  >> gvs []
+  >> ‘s.clock = s'.clock’ by gvs [state_rel_def]
+  >> IF_CASES_TAC
+  >-
+   (gvs []
+    >> qexists ‘f’
+    >> conj_tac
+    >- gvs [state_rel_def]
+    >> gvs [only_fresh_refl, holes_unchanged_except_refl]
+    >> rw []
+    >- gvs [rewrite_wrapper_def]
+    >> gvs [rewrite_worker_def]
+    >> gvs [evaluate_def, fill_hole_def]
+    >> qexists ‘f’
+    >> gvs [opt_res_rel_def, state_rel_def, holes_unchanged_except_refl, only_fresh_refl])
+  >> gvs []
+  >> first_x_assum $ qspecl_then [‘[exp]’, ‘dec_clock 1 s’] mp_tac
+  >> impl_tac >- gvs [dec_clock_def]
+  >> rpt $ disch_then drule
+  >> disch_then $ qspec_then ‘dec_clock 1 s'’ mp_tac
+  >> impl_tac >- gvs [dec_clock_def, state_rel_def]
+  >> disch_then $ qspec_then ‘loc'’ mp_tac
+  >> strip_tac
+  >> rename [‘state_rel f' t t'’, ‘result_rel _ _ _ r'’]
+  >> Cases_on ‘exp = body'’
+  >-
+   (gvs []
+    >> first_assum $ irule_at Any
+    >> gvs []
+    >> rw []
+    >- gvs [rewrite_wrapper_def]
+    >> gvs [rewrite_worker_def]
+    >> ho_match_mp_tac evaluate_fill_hole
+    >> rpt $ first_assum $ irule_at Any
+    >> gvs [evaluate_def])
+  >> gvs []
+  >> first_x_assum drule
+  >> disch_then drule
+  >> strip_tac
+  >> gvs []
+  >> first_assum $ irule_at Any
+  >> gvs []
+  >> rw []
+  >- gvs [rewrite_wrapper_def]
+  >> gvs [rewrite_worker_def]
+  >> ho_match_mp_tac evaluate_fill_hole
+  >> rpt $ first_assum $ irule_at Any
+  >> gvs [evaluate_def]
 QED
 
 Finalise evaluate_rewrite_tmc
