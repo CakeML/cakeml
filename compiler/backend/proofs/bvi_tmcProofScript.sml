@@ -947,6 +947,77 @@ Proof
   >> gvs []
 QED
 
+Theorem evaluate_fill_hole:
+  ∀exp f f' env1 env2 s t s' t' r r' c.
+    evaluate ([exp],env1,s) = (r,t) ∧
+    evaluate ([exp],env2,s') = (r',t') ∧
+    env_rel T f env1 env2 ∧
+    state_rel f s s' ∧
+    f ⊑ f' ∧
+    result_rel (LIST_REL (v_rel f')) (v_rel f') r r' ∧
+    hole_has_val f env1 env2 s'.refs c ∧
+    holes_unchanged_except f s'.refs t'.refs ∅ ∧
+    only_fresh f f' s'.refs ∧
+    state_rel f' t t' ∧
+    env2❲LENGTH env1❳ = RefPtr F hole_ptr ⇒
+    ∃r_fill f_fill t_fill.
+      evaluate ([fill_hole (LENGTH env1) (LENGTH env1 + 1) exp],env2,s') = (r_fill,t_fill) ∧
+      opt_res_rel f_fill r r_fill ∧
+      state_rel f_fill t t_fill ∧
+      f SUBMAP f_fill ∧
+      only_fresh f f_fill s'.refs ∧
+      holes_unchanged_except f s'.refs t_fill.refs {hole_ptr} ∧
+      ∀v.
+        r = Rval [v] ⇒
+        ∃v_fill.
+          mb_rel f_fill (t_fill.refs \\ hole_ptr) v v_fill ∧
+          hole_has_val f env1 env2 t_fill.refs v_fill
+Proof
+  rw []
+  >> imp_res_tac env_rel_length_opt
+  >> imp_res_tac env_rel_extras_opt
+  >> imp_res_tac hole_has_val_def
+  >> imp_res_tac holes_unchanged_except_def
+  >> simp [evaluate_def, fill_hole_def, do_app_def, do_app_aux_def,
+           case_eq_thms, PULL_EXISTS, FLOOKUP_SIMP, bvlSemTheory.Unit_def, backend_commonTheory.tuple_tag_def]
+  >> gvs []
+  >> reverse $ Cases_on ‘r’
+  >-
+   (gvs []
+    >> first_assum $ irule_at Any
+    >> gvs [opt_res_rel_def]
+    >> irule holes_unchanged_except_subset
+    >> first_assum $ irule_at Any
+    >> gvs [])
+  >> gvs []
+  >> imp_res_tac evaluate_SING_IMP
+  >> gvs []
+  >> first_x_assum $ drule_all
+  >> strip_tac
+  >> first_x_assum drule
+  >> disch_then drule
+  >> impl_tac
+  >- gvs []
+  >> strip_tac
+  >> gvs []
+  >> qexists ‘f'’
+  >> gvs [opt_res_rel_def, GSYM PULL_EXISTS]
+  >> conj_tac
+  >-
+   (irule state_rel_filled
+    >> gvs []
+    >> irule non_fresh_not_in_frange
+    >> rpt $ first_assum $ irule_at Any
+    >> gvs [FLOOKUP_DEF])
+  >> conj_tac
+  >-
+   (irule holes_unchanged_except_filled
+    >> rpt $ first_assum $ irule_at Any)
+  >> gvs [hole_has_val_def, FLOOKUP_SIMP]
+  >> Cases_on ‘w'’ >> gvs [mb_rel_def]
+  >> Cases_on ‘w’ >> gvs [mb_rel_def, v_rel_cases]
+QED
+
 Theorem evaluate_fill_hole_val:
   ∀exp f f' env1 env2 s t s' t' v v' c.
     evaluate ([exp],env1,s) = (Rval [v],t) ∧
