@@ -770,7 +770,19 @@ Proof
     >> gvs []
     >> Cases_on ‘x’
     >> gvs [])
-  >~ [‘FFI m’] >- cheat
+  >~ [‘FFI m’] >-
+
+   (
+
+   gvs [AllCaseEqs (), v_rel_cases, do_app_def, do_app_aux_def, bvlSemTheory.do_app_def]
+   >> ‘state_ref_rel f s.refs s'.refs’ by gvs [state_rel_def]
+   >> imp_res_tac state_ref_rel_def
+   >> gvs [ref_rel_cases]
+   >> ‘s.ffi = s'.ffi’ by gvs [state_rel_def]
+   >> gvs [bvlSemTheory.Unit_def]
+   >> cheat
+
+   )
   >~ [‘IntOp i’] >-
    (Cases_on ‘i’
     >> TRY
