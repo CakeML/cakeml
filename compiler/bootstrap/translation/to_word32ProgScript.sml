@@ -327,6 +327,11 @@ open word_simpTheory word_allocTheory word_instTheory
 val _ = matches:= [``foo:'a wordLang$prog``,``foo:'a wordLang$exp``,``foo:'a word``,``foo: 'a reg_imm``,``foo:'a arith``,``foo: 'a addr``]
 
 val res = word_cseTheory.map_insert_def |> DefnBase.one_line_ify NONE |> translate;
+
+val res = translate word_cseTheory.bm_inter_eq_def;
+val res = translate sptreeTheory.inter_eq_def;
+val res = translate word_cseTheory.merge_data_def;
+
 val res = translate (word_cseTheory.word_cseInst_def |> spec32);
 val res = translate_no_ind (word_cseTheory.word_cse_def |> spec32);
 

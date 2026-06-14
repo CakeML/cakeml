@@ -352,6 +352,8 @@ val _ = word_cseTheory.regImmToNumList_def |> arch_spec |> cv_trans;
 val _ = word_cseTheory.arithToNumList_def |> arch_spec |> cv_trans;
 val _ = word_cseTheory.instToNumList_def |> arch_spec |> cv_trans;
 val _ = word_cseTheory.add_to_data_def |> arch_spec |> cv_trans;
+val _ = word_cseTheory.add_to_data_const_def |> arch_spec
+         |> SRULE [GSYM lookup_listCmp_def, GSYM insert_listCmp_def] |> cv_auto_trans;
 val _ = word_cseTheory.word_cseInst_def |> arch_spec |> cv_trans;
 val _ = word_cseTheory.word_cse_def |> arch_spec |> cv_trans;
 val _ = word_cseTheory.word_common_subexp_elim_def |> arch_spec |> cv_trans;
