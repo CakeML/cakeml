@@ -775,20 +775,23 @@ Theorem do_app_op_err_rel:
   LIST_REL (v_rel f) vs vs' ⇒
   do_app (FFI i) vs' u' = Rerr (Rabort (Rffi_error e))
 Proof
-  rw [do_app_def]
-  >> Cases_on ‘do_app_aux (FFI i) vs u’ >> gvs []
-  (*>> drule do_app_aux_rel
-  >> disch_then drule
-  >> disch_then drule
-  >> strip_tac
+  rw []
+  >> gvs [do_app_def, do_app_aux_def, bvlSemTheory.do_app_def, v_rel_cases,
+          CaseEq "option", CaseEq "prod", CaseEq "result", CaseEq "list", CaseEq "v", CaseEq "ref"]
+  >> ‘state_ref_rel f u.refs u'.refs’ by gvs [state_rel_def]
+  >> imp_res_tac state_ref_rel_def
+  >> gvs [ref_rel_cases]
+  >> IF_CASES_TAC
+  >- gvs []
   >> gvs []
-  >> Cases_on ‘do_app_aux (FFI i) vs' u'’ >> gvs []
-  >> reverse $ Cases_on ‘x’ >> gvs []
-  >- (Cases_on ‘x''’ >> gvs [])
-  >> Cases_on ‘bvlSem$do_app (FFI i) vs (bvi_to_bvl u)’ >> gvs []
-  >- (Cases_on ‘a’ >> gvs [])
-  >> Cases_on ‘bvlSem$do_app (FFI i) vs' (bvi_to_bvl u')’ >> gvs []*)
-  >> cheat
+  >> reverse IF_CASES_TAC
+  >- gvs []
+  >> gvs [CaseEq "ffi_result", ffiTheory.call_FFI_def]
+  >> reverse IF_CASES_TAC
+  >- gvs []
+  >> gvs []
+  >> ‘u.ffi = u'.ffi’ by gvs [state_rel_def]
+  >> gvs [CaseEq "oracle_result"]
 QED
 
 Theorem wrapper_strip_if_then:
@@ -3787,8 +3790,6 @@ Theorem evaluate_compile_prog:
      result_rel (LIST_REL (v_rel f)) (v_rel f) r r2 ∧
      state_rel f s s2
 Proof
-  cheat
-  (*
   rw []
   >> qmatch_asmsub_abbrev_tac `(es,env,st1)`
   >> ‘env_rel F FEMPTY env env’ by gvs [env_rel_def, Abbr ‘env’]
@@ -3821,14 +3822,11 @@ Proof
     >> res_tac
     >> gvs [])
   >> drule evaluate_rewrite_tmc
-  >> disch_then (qspec_then `F` drule)
-  >> rpt (disch_then drule)
-  >> fs []
+  >> rpt $ disch_then $ drule_at Any
+  >> disch_then $ qspecl_then [‘(st1.clock,list_size exp_size es)’, ‘start’] mp_tac
+  >> impl_tac >- gvs []
   >> strip_tac
-  >> gvs []
-  >> qexists ‘f'’
-  >> gvs []
-                *)
+  >> rpt $ first_assum $ irule_at Any
 QED
 
 Theorem compile_prog_semantics:
