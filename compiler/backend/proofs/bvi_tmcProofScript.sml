@@ -758,7 +758,18 @@ Proof
 
   rw []
   >> Cases_on ‘op’
-  >~ [‘Label n’] >- cheat
+  >~ [‘Label n’] >-
+   (gvs [AllCaseEqs (), v_rel_cases, do_app_def, do_app_aux_def]
+    >> first_assum $ irule_at Any
+    >> gvs [only_fresh_refl, holes_unchanged_except_refl, state_rel_def, code_rel_def, domain_lookup]
+    >> Cases_on ‘v’
+    >> last_x_assum $ drule
+    >> strip_tac
+    >> Cases_on ‘compile_exp n n' q r’
+    >- gvs []
+    >> gvs []
+    >> Cases_on ‘x’
+    >> gvs [])
   >~ [‘FFI m’] >- cheat
   >~ [‘IntOp i’] >-
    (Cases_on ‘i’
