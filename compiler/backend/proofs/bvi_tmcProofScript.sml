@@ -1599,12 +1599,11 @@ Definition optimised_code_def:
 End
 
 Theorem evaluate_rewrite_tmc:
-  ∀n xs ^s env1 r t opt f s' env2 loc binders.
+  ∀n xs ^s env1 r t opt f s' env2 loc.
     evaluate (xs,env1,s) = (r,t) ∧
     n = (s.clock, list_size exp_size xs) ∧
     env_rel opt f env1 env2 ∧
     state_rel f s s' ∧
-    binders ≤ LENGTH env1 ∧
     (opt ⇒ LENGTH xs = 1) ∧
     r ≠ Rerr (Rabort Rtype_error) ⇒
     ∃t' f' r'.
@@ -1618,7 +1617,7 @@ Theorem evaluate_rewrite_tmc:
          optimised_code loc loc_opt s.code s'.code ⇒
          (∀wrap.
             LENGTH xs = 1 ∧
-            rewrite_wrapper loc loc_opt binders (HD xs) = SOME wrap ⇒
+            rewrite_wrapper loc loc_opt (LENGTH env1) (HD xs) = SOME wrap ⇒
             ∃t_wrap f_wrap r_wrap.
               evaluate ([wrap], env2, s') = (r_wrap,t_wrap) ∧
               result_rel (LIST_REL (v_rel f_wrap)) (v_rel f_wrap) r r_wrap ∧
@@ -1631,7 +1630,7 @@ Theorem evaluate_rewrite_tmc:
              i = LENGTH env1 ∧
              j = LENGTH env1 + 1 ∧
              (∃c. hole_has_val f env1 env2 s'.refs c) ∧
-             rewrite_worker loc loc_opt i j binders (HD xs) = work ∧
+             rewrite_worker loc loc_opt i j (LENGTH env1) (HD xs) = work ∧
              env2❲i❳ = RefPtr F hole_ptr ⇒
              ∃r_work f_work t_work.
                evaluate ([work], env2, s') = (r_work,t_work) ∧
@@ -1660,7 +1659,7 @@ Proof
    (gvs [evaluate_def] >> first_x_assum $ irule_at Any >> fs [only_fresh_def, holes_unchanged_except_def])
   >> reverse $ Cases_on ‘t'’
   >~ [‘evaluate (x::y::xs,_,_)’] >- suspend "list"
-  >> reverse $ Cases_on ‘bvi_to_cb binders loc h’
+  >> reverse $ Cases_on ‘bvi_to_cb (LENGTH env1) loc h’
   >-
    (Cases_on ‘x’
     >> gvs []
@@ -1755,10 +1754,10 @@ QED
 Definition hypothesis_def:
   hypothesis xs' (s'' : (num # γ, 'ffi) bviSem$state) clock ⇔
   s''.clock < clock ⇒
-  ∀env1' r' t' opt' f' s'³' env2' loc' binders'.
+  ∀env1' r' t' opt' f' s'³' env2' loc'.
             evaluate (xs',env1',s'') = (r',t') ∧
             env_rel opt' f' env1' env2' ∧ state_rel f' s'' s'³' ∧
-            binders' ≤ LENGTH env1' ∧ (opt' ⇒ LENGTH xs' = 1) ∧
+            (opt' ⇒ LENGTH xs' = 1) ∧
             r' ≠ Rerr (Rabort Rtype_error) ⇒
             ∃t'' f'' r''.
               evaluate (xs',env2',s'³') = (r'',t'') ∧
@@ -1769,7 +1768,7 @@ Definition hypothesis_def:
                 optimised_code loc' loc_opt s''.code s'³'.code ⇒
                 (∀wrap.
                    LENGTH xs' = 1 ∧
-                   rewrite_wrapper loc' loc_opt binders' (HD xs') = SOME wrap ⇒
+                   rewrite_wrapper loc' loc_opt (LENGTH env1') (HD xs') = SOME wrap ⇒
                    ∃t_wrap f_wrap r_wrap.
                      evaluate ([wrap],env2',s'³') = (r_wrap,t_wrap) ∧
                      result_rel (LIST_REL (v_rel f_wrap)) (v_rel f_wrap) r'
@@ -1783,7 +1782,7 @@ Definition hypothesis_def:
                    ∃r_work f_work t_work.
                      evaluate
                        ([rewrite_worker loc' loc_opt (LENGTH env1')
-                           (LENGTH env1' + 1) binders' (HD xs')],env2',s'³') =
+                           (LENGTH env1' + 1) (LENGTH env1') (HD xs')],env2',s'³') =
                      (r_work,t_work) ∧ opt_res_rel f_work r' r_work ∧
                      state_rel f_work t' t_work ∧ f' ⊑ f_work ∧
                      only_fresh f' f_work s'³'.refs ∧
@@ -2086,8 +2085,7 @@ Proof
          >> gvs [])
       >> disch_then drule
       >> gvs [GSYM PULL_FORALL]
-      >> disch_then $ qspecl_then [‘loc’, ‘LENGTH args’] mp_tac
-      >> impl_tac >- gvs []
+      >> disch_then $ qspec_then ‘loc’ mp_tac
       >> strip_tac
       >> rename [‘state_rel _ t _’]
       >> Cases_on ‘exp = body2’
@@ -2130,11 +2128,9 @@ Proof
       >> impl_tac >- gvs []
       >> strip_tac
       >> disch_then drule
-      >> disch_then $ qspecl_then [‘dec_clock (ts + 1) (s' with refs := refs)’, ‘loc’, ‘LENGTH args’] mp_tac
+      >> disch_then $ qspecl_then [‘dec_clock (ts + 1) (s' with refs := refs)’, ‘loc’] mp_tac
       >> impl_tac
-      >-
-       (gvs []
-        >> gvs [state_rel_def, dec_clock_def])
+      >- gvs [state_rel_def, dec_clock_def]
       >> gvs [GSYM PULL_FORALL]
       >> strip_tac
       >> rename [‘state_rel f' t t'’, ‘result_rel _ _ _ r'’]
@@ -2182,7 +2178,7 @@ Proof
     >> impl_tac >- gvs []
     >> strip_tac
     >> disch_then drule
-    >> disch_then $ qspecl_then [‘dec_clock (ts + 1) s'’, ‘loc’, ‘LENGTH args’] mp_tac
+    >> disch_then $ qspecl_then [‘dec_clock (ts + 1) s'’, ‘loc’] mp_tac
     >> impl_tac
     >-
      (gvs []
@@ -2652,7 +2648,8 @@ QED
 
 Resume evaluate_rewrite_tmc[call_block]:
   (* Phase 1 theorem in s *)
-  drule_all evaluate_bvi_to_cb
+  drule_then drule evaluate_bvi_to_cb
+  >> impl_tac >- gvs []
   >> simp [Once evaluate_def]
   >> strip_tac
   >> gvs [CaseEq "prod"]
@@ -2674,11 +2671,10 @@ Resume evaluate_rewrite_tmc[call_block]:
   (* Phase 1 theorem in s' *)
   >> Cases_on ‘evaluate ([x],env2,s')’
   >> rename [‘evaluate ([x],env2,s') = (r',t')’]
-  >> drule evaluate_bvi_to_cb
-  >> disch_then $ drule_at Any
+  >> drule_then drule evaluate_bvi_to_cb
+  >> impl_tac >- (imp_res_tac env_rel_length >> gvs [])
   >> simp [Once evaluate_def]
   >> strip_tac
-  >> ‘binders ≤ LENGTH env2’ by (imp_res_tac env_rel_length >> gvs [])
   >> reverse $ gvs [CaseEq "result"]
   >- (* bs fails *)
    (rename [‘exc_rel (v_rel f') e e'’]
@@ -3212,7 +3208,7 @@ Resume evaluate_rewrite_tmc[lett]:
   >> imp_res_tac env_rel_submap
   >> imp_res_tac env_rel_append
   >> rpt $ disch_then drule
-  >> disch_then $ qspecl_then [‘loc’,‘LENGTH vs + binders’] mp_tac
+  >> disch_then $ qspec_then ‘loc’ mp_tac
   >> impl_tac
   >- gvs [LENGTH_APPEND]
   >> strip_tac
