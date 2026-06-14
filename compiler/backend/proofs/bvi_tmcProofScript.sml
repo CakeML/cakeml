@@ -947,82 +947,6 @@ Proof
   >> gvs []
 QED
 
-(*
-(* Delete this I think, there is a better version: code_rel_cases *)
-Theorem find_code_rel:
-  ∀f vs vs' s s' dest args exp.
-    find_code dest vs s.code = SOME (args,exp) ∧
-    LIST_REL (v_rel f) vs vs' ∧
-    state_rel f s s' ⇒
-    ∃args' exp' opt.
-      opt = (exp ≠ exp') ∧
-      find_code dest vs' s'.code = SOME (args',exp') ∧
-      env_rel F f args args' ∧
-      LENGTH args = LENGTH args' ∧
-      (opt ⇒
-       ∃loc loc_opt extras.
-         rewrite_wrapper loc loc_opt exp = SOME exp' ∧
-         env_rel T f args (args' ++ extras))
-Proof
-  rw []
-  >> drule LIST_REL_LENGTH
-  >> strip_tac
-  >> gvs []
-  >> Cases_on ‘dest’ >> gvs [bvlSemTheory.find_code_def]
-  >-
-   (Cases_on ‘vs' = []’ >> gvs []
-    >> Cases_on ‘LAST vs’ >> gvs []
-    >> Cases_on ‘LAST vs'’ >> gvs []
-    >> drule_all list_rel_last
-    >> strip_tac
-    >> gvs [v_rel_cases]
-    >> Cases_on ‘lookup n s.code’ >> gvs []
-    >> Cases_on ‘x’ >> gvs []
-    >> rename [‘lookup n s.code = SOME (arity,exp)’]
-    >> drule list_rel_front
-    >> strip_tac
-    >> drule list_rel_env_rel
-    >> disch_then $ irule_at Any
-    >> drule LIST_REL_LENGTH
-    >> strip_tac
-    >> gvs []
-    >> gvs [state_rel_def, code_rel_def]
-    >> last_x_assum drule
-    >> strip_tac
-    >> Cases_on ‘compile_exp n n' arity exp’ >> gvs []
-    >> Cases_on ‘x’ >> gvs []
-    >> rename [‘compile_exp n n' arity exp = SOME (exp_wrap, exp_work)’]
-    >> strip_tac
-    >> gvs [compile_exp_def]
-    >> Cases_on ‘rewrite_wrapper n n' exp’ >> gvs []
-    >> pop_assum $ irule_at Any
-    >> gvs [env_rel_def]
-    >> first_assum $ irule_at $ Pos $ el 2
-    >> gvs []
-    >> qexists ‘[RefPtr F hole_ptr; Number hole_idx]’
-    >> gvs [])
-  >> Cases_on ‘lookup x s.code’ >> gvs []
-  >> Cases_on ‘x'’ >> gvs [state_rel_def, code_rel_def]
-  >> rename [‘lookup n s.code = SOME (LENGTH args, exp)’]
-  >> irule_at Any list_rel_env_rel
-  >> gvs []
-  >> last_x_assum drule
-  >> strip_tac
-  >> Cases_on ‘compile_exp n n' (LENGTH args) exp’ >> gvs []
-  >> Cases_on ‘x’ >> gvs []
-  >> rename [‘compile_exp n n' arity exp = SOME (exp_wrap,exp_work)’]
-  >> strip_tac
-  >> gvs [compile_exp_def]
-  >> Cases_on ‘rewrite_wrapper n n' exp’ >> gvs []
-  >> pop_assum $ irule_at Any
-  >> gvs [env_rel_def]
-  >> first_assum $ irule_at $ Pos $ el 2
-  >> gvs []
-  >> qexists ‘[RefPtr F hole_ptr; Number hole_idx]’
-  >> gvs []
-QED
-*)
-
 Theorem evaluate_fill_hole_val:
   ∀exp f f' env1 env2 s t s' t' v v' c.
     evaluate ([exp],env1,s) = (Rval [v],t) ∧
@@ -3385,22 +3309,57 @@ Resume evaluate_rewrite_tmc[tick]:
   >> gvs []
 QED
 
-
-
-
-
-
-
-
-
-
-
-
-
-(* Below here is failing due to changing hypothesis *)
-
-Resume evaluate_rewrite_tmc[force]:
-  cheat
+Theorem find_code_cases:
+  ∀f vs vs' s s' dest args body.
+    find_code dest vs s.code = SOME (args,body) ∧
+    LIST_REL (v_rel f) vs vs' ∧
+    state_rel f s s' ⇒
+    ∃args' body' loc.
+      find_code dest vs' s'.code = SOME (args',body') ∧
+      env_rel F f args args' ∧
+      LENGTH args = LENGTH args' ∧
+      (body ≠ body' ⇒
+       ∃loc_opt arity.
+         optimised_code loc loc_opt s.code s'.code ∧
+         rewrite_wrapper loc loc_opt arity body = SOME body')
+Proof
+  rw []
+  >> ‘code_rel s.code s'.code’ by gvs [state_rel_def]
+  >> imp_res_tac code_rel_cases
+  >> imp_res_tac LIST_REL_LENGTH
+  >> Cases_on ‘dest’ >> gvs [bvlSemTheory.find_code_def]
+  >-
+   (gvs [CaseEq "v", CaseEq "option", CaseEq "prod"]
+    >> Cases_on ‘LAST vs’ >> gvs []
+    >> imp_res_tac list_rel_last
+    >> Cases_on ‘LAST vs'’ >> gvs [v_rel_cases]
+    >> first_x_assum drule
+    >> strip_tac
+    >> first_assum $ irule_at Any
+    >> qexists ‘loc’
+    >> conj_tac
+    >- (Cases_on ‘vs'’ >> gvs [])
+    >> imp_res_tac list_rel_front
+    >> conj_tac
+    >- imp_res_tac list_rel_env_rel
+    >> conj_tac
+    >- imp_res_tac LIST_REL_LENGTH
+    >> strip_tac
+    >> gvs []
+    >> first_assum $ irule_at Any
+    >> gvs [])
+  >> gvs [CaseEq "option", CaseEq "prod"]
+  >> rename [‘lookup loc _ = _’]
+  >> first_x_assum drule
+  >> strip_tac
+  >> first_assum $ irule_at Any
+  >> qexists ‘loc’
+  >> conj_tac
+  >- imp_res_tac list_rel_env_rel
+  >> strip_tac
+  >> gvs []
+  >> first_assum $ irule_at Any
+  >> gvs []
 QED
 
 Resume evaluate_rewrite_tmc[call_non_opt]:
@@ -3410,35 +3369,149 @@ Resume evaluate_rewrite_tmc[call_non_opt]:
   >> gvs [CaseEq "prod", PULL_EXISTS]
   >> rename [‘evaluate (xs,env,s) = (v_xs,u)’]
   (* xs inductive hypothesis *)
-  >> first_assum $ qspecl_then [‘xs’, ‘s’, ‘env’] mp_tac
+  >> first_assum $ qspecl_then [‘xs’, ‘s’] mp_tac
   >> impl_tac
   >- gvs []
-  >> disch_then drule
-  >> drule env_rel_relax_opt
-  >> gvs []
-  >> strip_tac
+  >> imp_res_tac env_rel_relax_opt
   >> rpt $ disch_then drule
+  >> pop_assum kall_tac
   >> impl_tac
   >- (CCONTR_TAC >> gvs [])
   >> disch_then $ qspec_then ‘loc’ mp_tac
+  >> gvs [GSYM PULL_FORALL]
   >> strip_tac
-  >> gvs []
-  >> reverse $ Cases_on ‘v_xs’ >> gvs []
+  >> pop_assum kall_tac
+  >> rename [‘state_rel f' u u'’, ‘result_rel _ _ _ v_xs'’]
+  >> reverse $ gvs [CaseEq "result"]
   >- (* Error case *)
-   (rename [‘evaluate (xs,env2,s') = (Rerr e',t')’]
-    >> qexistsl [‘t'’, ‘f''’, ‘Rerr e'’]
-    >> rpt gen_tac
-    >> gvs []
+   (rename [‘evaluate (xs,env2,s') = (Rerr e',t')’, ‘exc_rel (v_rel f') e _’]
+    >> gvs [GSYM PULL_FORALL]
+    >> rpt $ first_assum $ irule_at Any
+    >> gen_tac
     >> strip_tac
-    >> gvs [rewrite_wrapper_def]
     >> rw []
-    >> gvs [rewrite_worker_def, fill_hole_def, evaluate_def] >> IF_CASES_TAC >> gvs []
-    >> gvs [opt_res_rel_def]
-    >> qexists ‘f''’
+    >- gvs [evaluate_def, rewrite_wrapper_def]
+    >> gvs [evaluate_def, rewrite_worker_def, fill_hole_def]
+    >> IF_CASES_TAC
+    >- gvs []
     >> gvs []
+    >> rpt $ first_assum $ irule_at Any
+    >> conj_tac
+    >- gvs [opt_res_rel_def]
     >> irule holes_unchanged_except_subset
     >> first_assum $ irule_at Any
     >> gvs [])
+  >> gvs [GSYM PULL_FORALL, CaseEq "option", CaseEq "prod"]
+  >> drule_all find_code_cases
+  >> strip_tac
+  >> gvs []
+  >> ‘u.clock = u'.clock’ by gvs [state_rel_def]
+  >> IF_CASES_TAC
+  >-
+   (qexistsl [‘u' with clock := 0’, ‘f'’, ‘Rerr (Rabort Rtimeout_error)’]
+    >> gvs [state_rel_with_clock]
+    >> rw []
+    >- gvs [rewrite_wrapper_def]
+    >> gvs [rewrite_worker_def]
+    >> gvs [evaluate_def, fill_hole_def]
+    >> IF_CASES_TAC
+    >- gvs []
+    >> gvs []
+    >> first_assum $ irule_at Any
+    >> gvs [opt_res_rel_def, state_rel_with_clock]
+    >> irule holes_unchanged_except_subset
+    >> first_assum $ irule_at Any
+    >> gvs [])
+  >> gvs [CaseEq "prod"]
+  >> first_x_assum $ qspecl_then [‘[exp]’, ‘dec_clock (ticks + 1) u’] mp_tac
+  >> impl_tac
+  >- (imp_res_tac evaluate_clock >> gvs [dec_clock_def])
+  >> rpt $ disch_then drule
+  >> drule state_rel_dec
+  >> Cases_on ‘u.clock’
+  >- gvs []
+  >> gvs []
+  >> disch_then $ qspec_then ‘ticks + 1’ mp_tac
+  >> impl_tac
+  >- gvs []
+  >> strip_tac
+  >> disch_then drule
+  >> disch_then $ qspec_then ‘loc'’ mp_tac
+  >> impl_tac
+  >- gvs [CaseEq "result", CaseEq "error_result"]
+  >> strip_tac
+  >> Cases_on ‘exp = body'’
+  >-
+   (gvs []
+    >> reverse $ Cases_on ‘∃v_raise h. v3 = Rerr (Rraise v_raise) ∧ handler = SOME h’
+    >-
+     (gvs []
+      >> qexistsl [‘t''’, ‘f''’, ‘r''’]
+      >> conj_tac
+      >- gvs [CaseEq "result", CaseEq "error_result", CaseEq "option"]
+      >> ‘(v3,s'') = (r,t)’ by gvs [CaseEq "result", CaseEq "error_result", CaseEq "option"]
+      >> gvs []
+      >> conj_tac
+      >- imp_res_tac SUBMAP_TRANS
+      >> conj_tac
+      >-
+       (irule only_fresh_trans
+        >> rpt $ first_assum $ irule_at Any
+        >> imp_res_tac evaluate_refs_SUBSET)
+      >> conj_tac
+      >-
+       (irule holes_unchanged_except_trans
+        >> first_assum $ irule_at Any
+        >> gvs []
+        >> irule holes_unchanged_except_subset
+        >> first_assum $ irule_at Any
+        >> gvs [])
+      >> rw []
+      >- gvs [rewrite_wrapper_def]
+      >> gvs [rewrite_worker_def]
+      >> Cases_on ‘r’
+      >-
+       (gvs []
+        >> imp_res_tac evaluate_SING_IMP
+        >> gvs []
+        >> ho_match_mp_tac evaluate_fill_hole_val
+        >> rpt $ first_assum $ irule_at Any
+        >> gvs [evaluate_def]
+        >> IF_CASES_TAC
+        >- gvs []
+        >> gvs []
+        >> conj_tac
+        >- imp_res_tac SUBMAP_TRANS
+        >> conj_tac
+        >-
+         (irule holes_unchanged_except_trans
+          >> first_assum $ irule_at Any
+          >> gvs []
+          >> irule holes_unchanged_except_subset
+          >> first_assum $ irule_at Any
+          >> gvs [])
+        >> irule only_fresh_trans
+        >> rpt $ first_assum $ irule_at Any
+        >> imp_res_tac evaluate_refs_SUBSET)
+      >>
+
+
+
+      >> gvs [evaluate_def, fill_hole_def]
+      >> IF_CASES_TAC
+      >- gvs []
+      >> ‘∀v_raise' h'. e' ≠ Rraise v_raise' ∧ handler ≠ SOME h'’ by
+        (rw []
+
+        spose_not_then assume_tac
+         >> Cases_on ‘e'’ >> gvs [CaseEq "option"])
+      >> qexistsl [‘Rerr e'’, ‘f''’, ‘t''’]
+      >> first_assum $ irule_at Any
+      >> gvs []
+
+        )
+        )
+
   >> qpat_x_assum ‘evaluate (_,env2,_) = (Rval _, _)’ $ mk_asm "eval_xs'"
   >> rename [‘evaluate (xs,env,s) = (Rval v_xs,u)’]
   >> Cases_on ‘find_code dest v_xs u.code’ >> gvs []
@@ -3633,6 +3706,24 @@ Resume evaluate_rewrite_tmc[call_non_opt]:
     >> IF_CASES_TAC >> gvs []
     >> rpt $ first_assum $ irule_at Any)
   >> cheat
+QED
+
+
+
+
+
+
+
+
+
+
+
+
+
+(* Below here is failing due to changing hypothesis *)
+
+Resume evaluate_rewrite_tmc[force]:
+  cheat
 QED
 
 Finalise evaluate_rewrite_tmc
