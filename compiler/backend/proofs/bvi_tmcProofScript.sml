@@ -3296,20 +3296,6 @@ Resume evaluate_rewrite_tmc[lett]:
   >> gvs []
 QED
 
-
-
-
-
-
-
-
-
-
-
-
-
-(* Below here is failing due to changing hypothesis *)
-
 Resume evaluate_rewrite_tmc[raise]:
   gvs [evaluate_def]
   >> gvs [CaseEq "prod", PULL_EXISTS]
@@ -3326,23 +3312,41 @@ Resume evaluate_rewrite_tmc[raise]:
   >> strip_tac
   >> gvs [PULL_EXISTS, GSYM PULL_FORALL]
   >> rpt $ first_assum $ irule_at Any
-  >> gvs []
-  >> Cases_on ‘v’ >> gvs []
+  >> reverse $ gvs [CaseEq "result"]
   >-
-   (imp_res_tac evaluate_SING_IMP
-    >> gvs []
-    >> rw []
-    >-
-     (gvs [evaluate_def, rewrite_wrapper_def])
+   (rw []
+    >- gvs [evaluate_def, rewrite_wrapper_def]
     >> gvs [evaluate_def, rewrite_worker_def, opt_res_rel_def]
     >> first_assum $ irule_at Any
-    >> gvs [holes_unchanged_except_def])
+    >> gvs []
+    >> irule holes_unchanged_except_subset
+    >> first_assum $ irule_at Any
+    >> gvs [])
+  >> imp_res_tac evaluate_SING_IMP
+  >> gvs []
   >> rw []
   >- gvs [evaluate_def, rewrite_wrapper_def]
   >> gvs [evaluate_def, rewrite_worker_def, opt_res_rel_def]
   >> first_assum $ irule_at Any
-  >> gvs [holes_unchanged_except_def]
+  >> gvs []
+  >> irule holes_unchanged_except_subset
+  >> first_assum $ irule_at Any
+  >> gvs []
 QED
+
+
+
+
+
+
+
+
+
+
+
+
+
+(* Below here is failing due to changing hypothesis *)
 
 Resume evaluate_rewrite_tmc[tick]:
   cheat
