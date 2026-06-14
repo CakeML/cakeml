@@ -755,18 +755,39 @@ Theorem do_app_op_rel:
       only_fresh f f' s'.refs ∧
       holes_unchanged_except f s'.refs t'.refs ∅
 Proof
-  rw [do_app_def]
-  >-
-   (gvs [do_install_def, CaseEq "list", CaseEq "option"]
-    >> cheat)
-  >> Cases_on ‘∃i. op = IntOp i’
-  >-
-   (gvs []
-    >> Cases_on ‘i’ >> gvs []
-    >> gvs [do_app_aux_def, bvlSemTheory.do_app_def, AllCaseEqs ()]
-    >> imp_res_tac LIST_REL_LENGTH
-    >> cheat)
-  >> cheat
+
+  rw []
+  >> Cases_on ‘op’
+  >~ [‘Label n’] >- cheat
+  >~ [‘FFI m’] >- cheat
+  >~ [‘IntOp i’] >-
+   (Cases_on ‘i’
+    >> TRY
+       (gvs [AllCaseEqs (), v_rel_cases, do_app_def, do_app_aux_def, bvlSemTheory.do_app_def]
+        >> reverse $ Cases_on ‘vs’ >> gvs [v_rel_cases, bvlSemTheory.do_int_app_def]
+        >> Cases_on ‘t’ >> gvs [v_rel_cases, bvlSemTheory.do_int_app_def]
+        >> Cases_on ‘t'’ >> gvs [v_rel_cases, bvlSemTheory.do_int_app_def, bvl_to_bvi_id, bvlSemTheory.Boolv_def]
+        >> first_assum $ irule_at Any
+        >> gvs [only_fresh_refl, holes_unchanged_except_refl])
+    >~ [‘Const i’] >-
+     (gvs [do_app_def, do_app_aux_def, CaseEq "option"]
+      >> imp_res_tac LIST_REL_LENGTH
+      >> first_assum $ irule_at Any
+      >> gvs [v_rel_cases, only_fresh_refl, holes_unchanged_except_refl, NULL_LENGTH])
+    >~ [‘LessConstSmall n’] >-
+     (gvs [AllCaseEqs (), v_rel_cases, do_app_def, do_app_aux_def, bvlSemTheory.do_app_def]
+      >> Cases_on ‘vs’ >> gvs [v_rel_cases, bvlSemTheory.do_int_app_def]
+      >> reverse $ Cases_on ‘t’ >> gvs [v_rel_cases, bvlSemTheory.do_int_app_def]
+      >- (Cases_on ‘t'’ >> gvs [v_rel_cases, bvlSemTheory.do_int_app_def, bvl_to_bvi_id, bvlSemTheory.Boolv_def])
+      >> gvs [bvlSemTheory.Boolv_def, bvl_to_bvi_id]
+      >> first_assum $ irule_at Any
+      >> gvs [only_fresh_refl, holes_unchanged_except_refl]))
+  >~ [‘WordOp w’] >- cheat
+  >~ [‘BlockOp b’] >- cheat
+  >~ [‘GlobOp g’] >- cheat
+  >~ [‘MemOp m’] >- cheat
+  >~ [‘Install’] >- cheat
+  >~ [‘ThunkOp t’] >- cheat
 QED
 
 Theorem do_app_op_err_rel:
