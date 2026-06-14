@@ -3334,6 +3334,57 @@ Resume evaluate_rewrite_tmc[raise]:
   >> gvs []
 QED
 
+Resume evaluate_rewrite_tmc[tick]:
+  gvs [evaluate_def]
+  >> ‘s'.clock = s.clock’ by gvs [state_rel_def]
+  >> gvs []
+  >> Cases_on ‘s.clock’
+  >-
+   (gvs [GSYM PULL_FORALL]
+    >> rpt $ first_assum $ irule_at Any
+    >> gvs []
+    >> gvs [only_fresh_refl, holes_unchanged_except_refl]
+    >> rw []
+    >-
+     (gvs [rewrite_wrapper_def, evaluate_def]
+      >> rpt $ first_assum $ irule_at Any
+      >> conj_tac
+      >> gvs [only_fresh_refl, holes_unchanged_except_refl])
+    >> first_assum $ irule_at Any
+    >> gvs [rewrite_worker_def, evaluate_def, opt_res_rel_def, holes_unchanged_except_refl, only_fresh_refl])
+  >> gvs [GSYM PULL_FORALL]
+  >> first_x_assum $ qspecl_then [‘[x]’, ‘dec_clock 1 s’] mp_tac
+  >> impl_tac >- gvs [dec_clock_def]
+  >> rpt $ disch_then drule
+  >> drule state_rel_dec
+  >> rpt $ disch_then drule
+  >> disch_then $ qspec_then ‘1’ mp_tac
+  >> impl_tac >- gvs []
+  >> strip_tac
+  >> disch_then drule
+  >> disch_then $ qspec_then ‘loc’ mp_tac
+  >> impl_tac >- gvs []
+  >> strip_tac
+  >> rename [‘evaluate ([x],env2,dec_clock 1 s') = (r',t')’]
+  >> rpt $ first_assum $ irule_at Any
+  >> gvs []
+  >> gen_tac
+  >> strip_tac
+  >> first_x_assum drule
+  >> strip_tac
+  >> rw []
+  >-
+   (gvs [rewrite_wrapper_def, evaluate_def]
+    >> first_assum $ irule_at Any
+    >> gvs [])
+  >> gvs [rewrite_worker_def, evaluate_def, PULL_EXISTS]
+  >> first_x_assum drule
+  >> strip_tac
+  >> gvs []
+  >> first_assum $ irule_at Any
+  >> gvs []
+QED
+
 
 
 
@@ -3347,56 +3398,6 @@ QED
 
 
 (* Below here is failing due to changing hypothesis *)
-
-Resume evaluate_rewrite_tmc[tick]:
-  cheat
-       (*
-  gvs [evaluate_def]
-  >> ‘s'.clock = s.clock’ by gvs [state_rel_def]
-  >> gvs []
-  >> Cases_on ‘s.clock’
-  >> gvs []
-  >-
-   (goal_assum $ drule_at Any
-    >> gvs []
-    >> rw []
-    >- gvs [only_fresh_refl]
-    >- irule holes_unchanged_except_refl
-    >-
-     (goal_assum $ drule_at Any
-      >> drule wrapper_strip_tick
-      >> strip_tac
-      >> gvs [evaluate_def])
-    >> goal_assum $ drule_at Any
-    >> gvs [rewrite_worker_def, evaluate_def, opt_res_rel_def, holes_unchanged_except_refl])
-  >> first_x_assum $ qspec_then ‘opt’ mp_tac
-  >> simp []
-  >> disch_then drule
-  >> drule state_rel_dec
-  >> gvs []
-  >> disch_then $ qspec_then ‘1’ mp_tac
-  >> strip_tac
-  >> gvs []
-  >> disch_then drule
-  >> strip_tac
-  >> gvs []
-  >> rename [‘evaluate ([x],env2,dec_clock 1 s') = (r',t')’]
-  >> first_assum $ irule_at Any
-  >> gvs []
-  >> strip_tac
-  >> gvs []
-  >> conj_tac
-  >-
-   (rw []
-    >> drule wrapper_strip_tick
-    >> strip_tac
-    >> gvs [evaluate_def]
-    >> first_x_assum $ irule_at Any
-    >> qexistsl [‘arity’, ‘loc’, ‘loc_opt’]
-    >> gvs [])
-  >> rw [rewrite_worker_def, evaluate_def]
-*)
-QED
 
 Resume evaluate_rewrite_tmc[force]:
   cheat
