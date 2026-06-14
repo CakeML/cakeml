@@ -344,48 +344,6 @@ Proof
   >> gvs []
 QED
 
-(* Can't be type error *)
-Theorem evaluate_expand_env:
-  ∀xs env s t r extra.
-    evaluate (xs, env, s) = (r, t) ∧
-    r ≠ Rerr (Rabort Rtype_error) ⇒
-    evaluate (xs, env ++ extra, s) = (r, t)
-Proof
-  recInduct bviSemTheory.evaluate_ind
-  >> rpt strip_tac
-  >~ [‘evaluate ([],_,_)’] >-
-   (gvs [evaluate_def])
-  >~ [‘evaluate (x::y::xs,_,_)’] >-
-   (simp [Once evaluate_CONS]
-    >> CASE_TAC
-    >> cheat)
-  >> cheat
-QED
-
-Theorem evaluate_pad_env_val:
-  ∀xs env s t vs extra.
-    evaluate (xs, env, s) = (Rval vs, t) ⇒
-    evaluate (xs, env ++ extra, s) = (Rval vs, t)
-Proof
-  recInduct bviSemTheory.evaluate_ind
-  >> rpt strip_tac
-  >~ [‘evaluate ([],_,_)’] >-
-   (gvs [evaluate_def])
-  >~ [‘evaluate (x::y::xs,_,_)’] >-
-   (cheat)
-  >> cheat
-QED
-
-(* This could probably be combined with the above *)
-Theorem evaluate_pad_env_err:
-  ∀xs env s t e extra.
-    evaluate (xs, env, s) = (Rerr e, t) ∧
-    e ≠ Rabort Rtype_error ⇒
-    evaluate (xs, env ++ extra, s) = (Rerr e, t)
-Proof
-  cheat
-QED
-
 Definition hole_has_val_def:
   hole_has_val (f : num |-> num) (env1 : v list) (env2 : v list) (refs : num |-> v ref) c ⇔
   LENGTH env2 = LENGTH env1 + 2 ∧
