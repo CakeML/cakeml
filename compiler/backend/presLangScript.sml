@@ -922,13 +922,15 @@ Definition data_prog_to_display_def:
         [num_to_display x; String «:=»; num_to_display y]
     | Call rets target args NONE => Item NONE «call»
         [option_to_display (\(x, y). Tuple
-                [num_to_display x; num_set_to_display y]) rets;
+                [list_to_display num_to_display x;
+                 num_set_to_display y]) rets;
             String (attach_name ns target);
             list_to_display num_to_display args;
             empty_item «none»]
      | Call rets target args (SOME (v, handler)) => Item NONE «call»
         [option_to_display (\(x, y). Tuple
-                [num_to_display x; num_set_to_display y]) rets;
+                [list_to_display num_to_display x;
+                 num_set_to_display y]) rets;
             String (attach_name ns target);
             list_to_display num_to_display args;
             Item NONE «some» [Tuple [num_to_display v;
@@ -952,7 +954,7 @@ Definition data_prog_to_display_def:
     | MakeSpace n ns => Item NONE «make_space»
         [num_to_display n; num_set_to_display ns]
     | Raise n => Item NONE «raise» [num_to_display n]
-    | Return n => Item NONE «return» [num_to_display n]
+    | Return ns => Item NONE «return» [list_to_display num_to_display ns]
     | Tick => empty_item «tick»
   )  ∧
   (data_prog_to_display_list k ns [] = []) ∧
@@ -1536,7 +1538,7 @@ val data_test =
      (insert 50 «foo» (insert 60 «bar» LN))
      [(50,2,Seq (Move 5 1) $
             Seq (Assign 3 (IntOp Add) [0;1] NONE) $
-            Seq (Assign 6 (IntOp Sub) [5;3] NONE) $ Return 6);
+            Seq (Assign 6 (IntOp Sub) [5;3] NONE) $ Return [6]);
       (60,2,Skip)]”
   |> EVAL |> concl |> rand |> rand |> stringSyntax.fromHOLstring
   |> (fn t => (print "\n\n"; print t; print "\n"));
