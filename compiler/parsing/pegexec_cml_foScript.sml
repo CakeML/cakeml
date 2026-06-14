@@ -11,7 +11,7 @@
 Theory pegexec_cml_fo
 
 Ancestors
-  peg gram location rich_list arithmetic While list tokenUtils lexer_impl cmlPEG
+  peg gram location rich_list arithmetic While list tokenUtils lexer_impl
 Libs
   boolSimps cv_transLib
 
@@ -1670,6 +1670,8 @@ Proof
   Cases_on ‘l’ >> simp[DB.fetch "-" "HD_pre_cases"]
 QED
 
+
+
 val _ = cv_trans_pre "epcrf_pre" eval_papp_ctor_rpt_fo_def;
 Theorem epcrf_pre[cv_pre]:
   ∀pts. epcrf_pre pts
@@ -1781,14 +1783,12 @@ val _ = cv_trans run_peg_fo_def;
 val _ = cv_trans peg_exec_fuel_fo_def;
 val _ = cv_trans peg_exec_core_fuel_def;
 
-val bench_src_short = "val x = 10";
+
+(* val bench_src_short = "val x = 10";
 val bench_src_fun = "fun f x y = x + y";
 val bench_src_expr = "fn (x,y) => x + y";
 val bench_src_long =
   "val x = 10; fun f x y = x + y; datatype t = A | B of int";
-val bench_src_repeat_unit = "val x = 10; fun f x y = x + y";
-val bench_src_repeat50 =
-  String.concat (List.tabulate (50, fn _ => bench_src_repeat_unit ^ "; "));
 
 fun bench_tokens src =
   let
@@ -1797,68 +1797,22 @@ fun bench_tokens src =
     rhs (concl (EVAL ``lexer_fun ^src_t``))
   end;
 
-fun bench_timed_result name eval_fn tm =
+fun bench_eval_result toks =
+  rhs (concl (EVAL ``peg_exec_core_fuel 200000 ^toks``));
+
+fun bench_cv_eval_result toks =
+  time cv_eval ``peg_exec_core_fuel 200000 ^toks``;
+
+fun bench_compare src =
   let
-    val _ = print ("\n" ^ name ^ "\n")
-    val cpu_timer = Timer.startCPUTimer ()
-    val real_timer = Timer.startRealTimer ()
-    val _ = eval_fn tm
-    val {usr, sys} = Timer.checkCPUTimer cpu_timer
-    val gc = Timer.checkGCTime cpu_timer
-    val real = Timer.checkRealTimer real_timer
-    val _ = print ("  real: " ^ Time.toString real ^ "s\n")
-    val _ = print ("  user: " ^ Time.toString usr ^ "s\n")
-    val _ = print ("  sys:  " ^ Time.toString sys ^ "s\n")
-    val _ = print ("  gc:   " ^ Time.toString gc ^ "s\n")
-  in
-    ()
-  end;
-
-fun bench_hol_peg_eval_result toks =
-  bench_timed_result "HOL PEG EVAL"
-    EVAL
-    ``peg_exec cmlPEG (pnt nTopLevelDecs) ^toks [] NONE [] done failed``;
-
-fun bench_fo_eval_result toks =
-  bench_timed_result "first-order PEG EVAL"
-    EVAL
-    ``peg_exec_core_fuel 200000 ^toks``;
-
-fun bench_fo_cv_eval_result toks =
-  bench_timed_result "first-order PEG cv_eval"
-    cv_eval
-    ``peg_exec_core_fuel 200000 ^toks``;
-
-fun bench_repeat50 () =
-  let
-    val _ = print ("\n========== repeat50 ==========\n")
-    val _ = print ("source chars: " ^ Int.toString (String.size bench_src_repeat50) ^ "\n")
-    val toks = bench_tokens bench_src_repeat50
-  in
-    bench_timed_result "HOL PEG EVAL summary"
-      EVAL
-      ``peg_exec cmlPEG (pnt nTopLevelDecs) ^toks [] NONE [] done failed``;
-    bench_timed_result "first-order PEG EVAL summary"
-      EVAL
-      ``peg_exec_core_fuel 10000000 ^toks``;
-    bench_timed_result "first-order PEG cv_eval summary"
-      cv_eval
-      ``peg_exec_core_fuel 10000000 ^toks``
-  end;
-
-fun bench_all name src =
-  let
-    val _ = print ("\n========== " ^ name ^ " ==========\n")
     val toks = bench_tokens src
-    val _ = bench_hol_peg_eval_result toks
-    val _ = bench_fo_eval_result toks
-    val _ = bench_fo_cv_eval_result toks
   in
-    ()
+    bench_eval_result toks = bench_cv_eval_result toks
   end;
 
-val _ = bench_all "short" bench_src_short;
-val _ = bench_all "fun" bench_src_fun;
-val _ = bench_all "expr" bench_src_expr;
-val _ = bench_all "long" bench_src_long;
-val _ = bench_repeat50 ();
+val (_,_) = (bench_compare bench_src_short, bench_compare bench_src_short)
+val (_,_) = (bench_compare bench_src_fun, bench_compare bench_src_fun)
+val (_,_) = (bench_compare bench_src_expr, bench_compare bench_src_expr)
+val (_,_) = (bench_compare bench_src_long, bench_compare bench_src_long) *)
+
+
