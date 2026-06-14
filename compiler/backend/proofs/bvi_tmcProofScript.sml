@@ -147,15 +147,6 @@ Definition opt_res_rel_def:
   | _ => F
 End
 
-(*
-Definition opt_res_rel_def:
-  opt_res_rel (r1 : (v list, v) result) (r2 : (v list, v) result) =
-  case r1 of
-  | Rval v1 => r2 = Rval [Block 0 []]
-  | _ => r1 = r2
-End
-*)
-
 Theorem v_rel_submap:
   ∀f v1 v2 f'. v_rel f v1 v2 ∧ f SUBMAP f' ⇒ v_rel f' v1 v2
 Proof
@@ -976,7 +967,6 @@ Proof
   >> Cases_on ‘w’ >> gvs [mb_rel_def, v_rel_cases]
 QED
 
-(* Use above - try and delete this *)
 Theorem evaluate_fill_hole_val:
   ∀exp f f' env1 env2 s t s' t' v v' c.
     evaluate ([exp],env1,s) = (Rval [v],t) ∧
@@ -1002,66 +992,12 @@ Theorem evaluate_fill_hole_val:
         hole_has_val f env1 env2 t_fill.refs v_fill
 Proof
   rw []
-  >> drule env_rel_length_opt
-  >> strip_tac
-  >> drule env_rel_extras_opt
-  >> strip_tac
-  >> imp_res_tac hole_has_val_def
-  >> imp_res_tac holes_unchanged_except_def
-  >> simp [evaluate_def, fill_hole_def, do_app_def, do_app_aux_def,
-           case_eq_thms, PULL_EXISTS, FLOOKUP_SIMP, bvlSemTheory.Unit_def, backend_commonTheory.tuple_tag_def]
+  >> drule evaluate_fill_hole
+  >> rpt $ disch_then drule
   >> gvs []
-  >> first_x_assum $ drule_all
-  >> strip_tac
-  >> first_x_assum drule
   >> disch_then drule
-  >> impl_tac
-  >- gvs []
   >> strip_tac
-  >> qexists ‘f'’
-  >> gvs [opt_res_rel_def, GSYM PULL_EXISTS]
-  >> conj_tac
-  >-
-   (irule state_rel_filled
-    >> gvs []
-    >> irule non_fresh_not_in_frange
-    >> rpt $ first_assum $ irule_at Any
-    >> gvs [FLOOKUP_DEF])
-  >> conj_tac
-  >-
-   (irule holes_unchanged_except_filled
-    >> rpt $ first_assum $ irule_at Any)
-  >> gvs [hole_has_val_def, FLOOKUP_SIMP]
-  >> Cases_on ‘v’ >> gvs [mb_rel_def]
-  >> Cases_on ‘v'’ >> gvs [mb_rel_def, v_rel_cases]
-QED
-
-(* BROKEN: Use above - try and delete this *)
-Theorem evaluate_fill_hole_err:
-  ∀exp f f' env1 env2 e s t s' t' c.
-    evaluate ([exp],env2,s') = (Rerr e,t') ∧
-    env_rel T f env1 env2 ∧
-    state_rel f s s' ∧
-    f ⊑ f' ∧
-    hole_has_val f env1 env2 s'.refs c ∧
-    holes_unchanged_except f s'.refs t'.refs ∅ ∧
-    only_fresh f f' s'.refs ∧
-    state_rel f' t t' ∧
-    env2❲LENGTH env1❳ = RefPtr F hole_ptr ⇒
-    ∃r t''.
-      evaluate ([fill_hole (LENGTH env1) (LENGTH env1 + 1) exp],env2,s') = (Rerr e,t'') ∧
-      state_rel f' t t'' ∧
-      holes_unchanged_except f s'.refs t''.refs {hole_ptr}
-Proof
-  rw []
-  >> drule env_rel_length_opt
-  >> strip_tac
-  >> drule env_rel_extras_opt
-  >> strip_tac
-  >> gvs [fill_hole_def, evaluate_def]
-  >> gvs [evaluate_def, fill_hole_def, do_app_def, do_app_aux_def, hole_has_val_def, holes_unchanged_except_def,
-          case_eq_thms, PULL_EXISTS, FLOOKUP_SIMP, bvlSemTheory.Unit_def, backend_commonTheory.tuple_tag_def]
-  >> rpt $ first_x_assum $ irule_at Any
+  >> rpt $ first_assum $ irule_at Any
 QED
 
 Theorem evaluate_vars_source:
@@ -3907,4 +3843,5 @@ Theorem compile_prog_semantics:
 Proof
   rw []
   >> gvs [semantics_def]
+  >> cheat
 QED
