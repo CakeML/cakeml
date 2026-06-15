@@ -171,13 +171,291 @@ Definition state_rel_def:
     fmap_inj f
 End
 
-Theorem compile_prog_code_rel:
-   compile_prog next prog = (next1, prog2) ∧
-   ALL_DISTINCT (MAP FST prog) ∧
-   EVERY (free_names next o FST) prog ⇒
-     code_rel (fromAList prog) (fromAList prog2)
+(* Structural facts about compile_prog and the namespace allocation.
+   These follow bvi_tailrecProof; they only depend on the recursion shape of
+   compile_prog (NONE keeps an entry, SOME emits wrapper + worker). *)
+
+Theorem more_free_names[local]:
+  free_names n name ⇒ free_names (n + bvl_to_bvi_namespaces) name
 Proof
-  cheat
+  fs [free_names_def] >> rpt strip_tac
+  >> first_x_assum (qspec_then `k + 1` mp_tac) >> strip_tac >> rw []
+QED
+
+Theorem is_free_name[local]:
+  free_names n name ⇒ n ≠ name
+Proof
+  fs [free_names_def] >> strip_tac
+  >> first_x_assum (qspec_then `0` mp_tac) >> strip_tac >> rw []
+QED
+
+Theorem EVERY_free_names_SUCSUC[local]:
+  ∀xs. EVERY (free_names n o FST) xs ⇒
+       EVERY (free_names (n + bvl_to_bvi_namespaces) o FST) xs
+Proof
+  Induct >> strip_tac >> fs [] >> strip_tac >> imp_res_tac more_free_names
+QED
+
+Theorem EVERY_free_names_thm[local]:
+  EVERY (free_names next o FST) prog ∧ lookup loc (fromAList prog) = SOME x ⇒
+  free_names next loc
+Proof
+  rw [lookup_fromAList, EVERY_MEM] >> imp_res_tac ALOOKUP_MEM
+  >> first_x_assum (qspec_then `(loc, x)` mp_tac) >> rw []
+QED
+
+Theorem free_names_mult_F[local,simp]:
+  free_names n (n + k * bvl_to_bvi_namespaces) ⇔ F
+Proof
+  simp [free_names_def] >> qexists_tac `k` >> simp []
+QED
+
+Theorem free_names_refl_F[local,simp]:
+  free_names n n ⇔ F
+Proof
+  simp [free_names_def] >> qexists_tac `0` >> simp []
+QED
+
+Theorem free_names_succ_F[local,simp]:
+  free_names n (n + (bvl_to_bvi_namespaces + k * bvl_to_bvi_namespaces)) ⇔ F
+Proof
+  simp [free_names_def] >> qexists_tac `k + 1` >> simp []
+QED
+
+Theorem rewrite_wrapper_NONE_irrel[local]:
+  ∀loc lo1 n exp lo2.
+    rewrite_wrapper loc lo1 n exp = NONE ⇒ rewrite_wrapper loc lo2 n exp = NONE
+Proof
+  recInduct bvi_tmcTheory.rewrite_wrapper_ind
+  >> rw [bvi_tmcTheory.rewrite_wrapper_def]
+  >> gvs [AllCaseEqs ()] >> every_case_tac >> gvs []
+  >> metis_tac [option_CASES, NOT_SOME_NONE, optionTheory.option_nchotomy]
+QED
+
+Theorem compile_exp_next_addr[local]:
+  compile_exp loc next args exp = NONE ⇒
+  compile_exp loc (next + bvl_to_bvi_namespaces) args exp = NONE
+Proof
+  fs [bvi_tmcTheory.compile_exp_def] >> every_case_tac >> gvs []
+  >> metis_tac [rewrite_wrapper_NONE_irrel, NOT_SOME_NONE]
+QED
+
+Theorem compile_exp_SOME_irrel[local]:
+  compile_exp loc next args exp = SOME w ⇒
+  ∃w'. compile_exp loc next2 args exp = SOME w'
+Proof
+  fs [bvi_tmcTheory.compile_exp_def] >> every_case_tac >> gvs []
+  >> metis_tac [rewrite_wrapper_NONE_irrel, NOT_SOME_NONE, optionTheory.option_CASES]
+QED
+
+Theorem compile_prog_LENGTH:
+  ∀n prog. LENGTH (SND (compile_prog n prog)) ≥ LENGTH prog
+Proof
+  recInduct bvi_tmcTheory.compile_prog_ind >> conj_tac
+  >- fs [bvi_tmcTheory.compile_prog_def]
+  >> rw [] >> Cases_on `compile_exp loc next arity exp` >> fs []
+  >- (fs [bvi_tmcTheory.compile_prog_def] >> pairarg_tac >> fs [])
+  >> PairCases_on `x` >> fs [bvi_tmcTheory.compile_prog_def] >> pairarg_tac >> fs []
+QED
+
+Theorem compile_prog_next_mono:
+  ∀n xs n1 ys. compile_prog n xs = (n1,ys) ⇒ ∃k. n1 = n + bvl_to_bvi_namespaces * k
+Proof
+  recInduct bvi_tmcTheory.compile_prog_ind >> rw [bvi_tmcTheory.compile_prog_def]
+  >> rpt (pairarg_tac >> fs [bvlPropsTheory.case_eq_thms]) >> rveq >> fs []
+  >> TRY (qexists_tac `0` >> simp [] >> NO_TAC)
+  >> TRY (qexists_tac `k` >> simp [] >> NO_TAC)
+  >> TRY (qexists_tac `k+1` >> simp [] >> NO_TAC)
+QED
+
+Theorem compile_prog_MEM:
+  compile_prog n xs = (n1,ys) /\ MEM e (MAP FST ys) ==>
+  MEM e (MAP FST xs) \/ (n <= e /\ e < n1 /\ (∃k. e = n + k * bvl_to_bvi_namespaces))
+Proof
+  qspec_tac (`e`,`e`) >> qspec_tac (`n1`,`n1`) >> qspec_tac (`ys`,`ys`)
+  >> qspec_tac (`n`,`n`) >> qspec_tac (`xs`,`xs`) >> Induct
+  >- fs [bvi_tmcTheory.compile_prog_def]
+  >> gen_tac >> PairCases_on `h` >> rename1 `(name, arity, exp)`
+  >> simp [bvi_tmcTheory.compile_prog_def] >> rpt gen_tac
+  >> rpt (pairarg_tac >> fs []) >> PURE_CASE_TAC >> fs []
+  >> TRY (PURE_CASE_TAC >> fs []) >> fs [MEM_MAP, PULL_EXISTS, FORALL_PROD]
+  >> rpt strip_tac >> rveq >> fs [] >> TRY (metis_tac []) >> rveq
+  >> imp_res_tac compile_prog_next_mono >> fs []
+  >> first_x_assum drule
+  >> TRY (simp [backend_commonTheory.bvl_to_bvi_namespaces_def] >> rw []
+          >> rpt disj2_tac >> qexists_tac `0` >> simp [] >> NO_TAC)
+  >> disch_then drule >> strip_tac >- metis_tac []
+  >> fs [] >> rpt disj2_tac >> qexists_tac `k'' + 1` >> simp []
+QED
+
+Theorem compile_prog_intro[local]:
+  ∀xs n ys n1 name.
+    ¬MEM name (MAP FST xs) ∧ free_names n name ∧
+    compile_prog n xs = (n1, ys) ⇒
+      ¬MEM name (MAP FST ys) ∧ free_names n1 name
+Proof
+  Induct >- fs [bvi_tmcTheory.compile_prog_def]
+  >> gen_tac >> PairCases_on `h` >> rpt gen_tac >> simp [bvi_tmcTheory.compile_prog_def]
+  >> rpt (pairarg_tac >> fs []) >> PURE_TOP_CASE_TAC >> fs []
+  >- (rpt strip_tac >> rveq >> fs [] >> metis_tac [])
+  >> PURE_CASE_TAC >> fs [] >> rpt strip_tac >> rveq >> fs []
+  >> metis_tac [is_free_name, more_free_names]
+QED
+
+Theorem compile_prog_ALL_DISTINCT:
+  compile_prog n xs = (n1,ys) /\ ALL_DISTINCT (MAP FST xs) /\
+  EVERY (free_names n o FST) xs ==>
+  ALL_DISTINCT (MAP FST ys) /\ EVERY (free_names n1 o FST) ys
+Proof
+  qspec_tac (`n1`,`n1`) >> qspec_tac (`ys`,`ys`) >> qspec_tac (`n`,`n`)
+  >> qspec_tac (`xs`,`xs`) >> Induct >- fs [bvi_tmcTheory.compile_prog_def]
+  >> gen_tac >> PairCases_on `h` >> rename1 `(name, arity, exp)`
+  >> simp [bvi_tmcTheory.compile_prog_def] >> rpt gen_tac
+  >> rpt (pairarg_tac >> fs []) >> PURE_CASE_TAC >> fs []
+  >- (rpt strip_tac >> fs [] >> rveq >> qpat_x_assum `_ = (_, ys'')` kall_tac
+      >> res_tac >> simp [MAP] >> metis_tac [more_free_names, compile_prog_intro])
+  >> PURE_CASE_TAC >> fs [] >> reverse (rpt strip_tac) >> rveq
+  >> fs [is_free_name] >> imp_res_tac EVERY_free_names_SUCSUC >> res_tac >> simp []
+  >- (fs [free_names_def] >> imp_res_tac compile_prog_next_mono >> rveq >> fs []
+      >> `bvl_to_bvi_namespaces ≠ 0` by EVAL_TAC >> CCONTR_TAC >> fs [] >> rveq >> fs []
+      >> first_x_assum (qspec_then `k+k''+1` mp_tac) >> simp [])
+  >> reverse conj_tac
+  >- (CCONTR_TAC >> fs [] >> drule (GEN_ALL compile_prog_MEM) >> disch_then drule
+      >> simp [MEM_MAP] >> fs [EVERY_MEM] >> `0 < bvl_to_bvi_namespaces` by EVAL_TAC >> fs []
+      >> gen_tac >> Cases_on `MEM y xs` >> fs [] >> res_tac >> fs [is_free_name])
+  >> CCONTR_TAC >> fs [] >> drule (GEN_ALL compile_prog_MEM) >> disch_then drule
+  >> simp [MEM_MAP] >> metis_tac [compile_prog_intro, more_free_names]
+QED
+
+Theorem compile_prog_namespace_rel:
+  compile_prog next prog = (next1,prog2) ∧ in_ns_2 next ∧ bvl_num_stubs ≤ next ∧
+  EVERY ($~ o in_ns_2 o FST) (FILTER ((<=) bvl_num_stubs o FST) prog) ⇒
+  namespace_rel (fromAList prog) (fromAList prog2)
+Proof
+  rw [namespace_rel_def,EVERY_MEM,domain_fromAList,MEM_MAP,PULL_EXISTS,MEM_FILTER]
+  >> imp_res_tac compile_prog_MEM >> fs [MEM_MAP,PULL_EXISTS]
+  >> res_tac >> fs [] >> fs [backend_commonTheory.bvl_to_bvi_namespaces_def]
+  >> CCONTR_TAC >> fs []
+  >> (metis_tac []
+      ORELSE (qpat_x_assum `FST _ = _` (assume_tac o SYM) >> fs []
+              >> last_x_assum drule
+              >> rpt (qpat_x_assum `_ + _ = FST _` (assume_tac o SYM) >> fs [])))
+QED
+
+Theorem namespace_rel_union:
+  namespace_rel x y ∧ namespace_rel t s ∧ DISJOINT (domain s) (domain y) ⇒
+  namespace_rel (union x t) (union y s)
+Proof
+  rw [namespace_rel_def,domain_union,IN_DISJOINT] >> metis_tac []
+QED
+
+Theorem code_rel_union:
+  code_rel x y ∧ code_rel t s ∧ DISJOINT (domain s) (domain y) ⇒
+  code_rel (union x t) (union y s)
+Proof
+  rw [code_rel_def,lookup_union] >> fs [bvlPropsTheory.case_eq_thms]
+  >> res_tac >> fs [] >> TRY (qexists_tac `n` >> simp [])
+  >> fs [IN_DISJOINT,IN_DIFF,domain_lookup]
+  >> metis_tac [option_nchotomy, NOT_SOME_NONE]
+QED
+
+Theorem state_rel_code_rel:
+  state_rel f s t ⇒ code_rel s.code t.code
+Proof
+  rw [state_rel_def]
+QED
+
+Theorem compile_prog_untouched[local]:
+  ∀next prog prog2 loc exp arity.
+    free_names next loc ∧ lookup loc (fromAList prog) = SOME (arity, exp) ∧
+    compile_exp loc next arity exp = NONE ∧
+    compile_prog next prog = (next1, prog2) ⇒
+      lookup loc (fromAList prog2) = SOME (arity, exp)
+Proof
+  ho_match_mp_tac bvi_tmcTheory.compile_prog_ind >> rw []
+  >> fs [fromAList_def, lookup_def]
+  >> Cases_on `loc' = loc` >> rw []
+  >- (Cases_on `lookup loc (fromAList xs)` >> fs [bvi_tmcTheory.compile_prog_def]
+      >> rpt (pairarg_tac >> fs []) >> rfs [] >> rw [] >> simp [fromAList_def])
+  >> fs [lookup_insert]
+  >> Cases_on `compile_exp loc next arity exp` >> fs []
+  >- (fs [bvi_tmcTheory.compile_prog_def] >> pairarg_tac >> fs [] >> rw []
+      >> fs [fromAList_def, lookup_insert])
+  >> PairCases_on `x` >> imp_res_tac more_free_names >> imp_res_tac compile_exp_next_addr
+  >> fs [bvi_tmcTheory.compile_prog_def] >> pairarg_tac >> fs [] >> rw []
+  >> fs [fromAList_def, lookup_insert]
+  >> first_x_assum drule >> disch_then drule
+  >> rw [fromAList_def, lookup_insert, is_free_name]
+QED
+
+Theorem compile_prog_touched[local]:
+  ∀next prog prog2 loc exp arity.
+    ALL_DISTINCT (MAP FST prog) ∧ EVERY (free_names next o FST) prog ∧
+    free_names next loc ∧ lookup loc (fromAList prog) = SOME (arity, exp) ∧
+    (∃w. compile_exp loc next arity exp = SOME w) ∧
+    compile_prog next prog = (next1, prog2) ⇒
+      ∃k. ∀wrap work.
+        compile_exp loc (next + bvl_to_bvi_namespaces * k) arity exp = SOME (wrap, work) ⇒
+          lookup loc (fromAList prog2) = SOME (arity, wrap) ∧
+          lookup (next + bvl_to_bvi_namespaces * k) (fromAList prog2) = SOME (arity + 2, work)
+Proof
+  ho_match_mp_tac bvi_tmcTheory.compile_prog_ind >> rw []
+  >> fs [fromAList_def, lookup_def]
+  >> pop_assum mp_tac >> simp [bvi_tmcTheory.compile_prog_def]
+  >> rpt (pairarg_tac >> fs []) >> PURE_TOP_CASE_TAC >> fs []
+  >- (strip_tac >> rveq
+      >> `loc' ≠ loc` by (CCONTR_TAC >> gvs [lookup_insert])
+      >> gvs [lookup_insert]
+      >> first_x_assum drule >> rpt (disch_then drule) >> impl_tac >- metis_tac []
+      >> strip_tac >> qexists_tac `k` >> rw []
+      >> `next + k * bvl_to_bvi_namespaces ≠ loc` by (fs [free_names_def] >> metis_tac [MULT_COMM])
+      >> gvs [fromAList_def, lookup_insert])
+  >> PairCases_on `x` >> strip_tac >> rveq >> Cases_on `loc' = loc`
+  >- (rveq >> gvs [lookup_insert] >> qexists_tac `0` >> rw []
+      >> gvs [fromAList_def, lookup_insert])
+  >> gvs [lookup_insert]
+  >> `∃w2. compile_exp loc' (next + bvl_to_bvi_namespaces) arity' exp' = SOME w2`
+       by metis_tac [compile_exp_SOME_irrel]
+  >> `free_names (next + bvl_to_bvi_namespaces) loc'` by imp_res_tac more_free_names
+  >> `EVERY (free_names (next + bvl_to_bvi_namespaces) o FST) prog`
+       by imp_res_tac EVERY_free_names_SUCSUC
+  >> qpat_x_assum `∀a b c. _` (qspecl_then [`loc'`,`exp'`,`arity'`] mp_tac)
+  >> impl_tac >- gvs []
+  >> strip_tac >> qexists_tac `k + 1`
+  >> `loc' ≠ next` by metis_tac [is_free_name]
+  >> `next + bvl_to_bvi_namespaces * (k + 1) ≠ loc`
+       by (qpat_x_assum `free_names next loc` mp_tac >> simp [free_names_def]
+           >> disch_then (qspec_then `k + 1` mp_tac) >> simp [])
+  >> `bvl_to_bvi_namespaces ≠ 0` by EVAL_TAC
+  >> gvs []
+  >> rw []
+  >> qpat_x_assum `∀wrap work. _ ⇒ _` (qspecl_then [`wrap`,`work`] mp_tac)
+  >> gvs [arithmeticTheory.MULT_CLAUSES, arithmeticTheory.LEFT_ADD_DISTRIB]
+  >> rw [] >> gvs [arithmeticTheory.MULT_CLAUSES, arithmeticTheory.LEFT_ADD_DISTRIB]
+QED
+
+Theorem compile_prog_code_rel:
+  compile_prog next prog = (next1, prog2) ∧ ALL_DISTINCT (MAP FST prog) ∧
+  EVERY (free_names next o FST) prog ∧ EVERY (no_mutcons o SND o SND) prog ⇒
+  code_rel (fromAList prog) (fromAList prog2)
+Proof
+  rw [code_rel_def]
+  >- (gvs [lookup_fromAList] >> imp_res_tac ALOOKUP_MEM
+      >> fs [EVERY_MEM] >> res_tac >> fs [])
+  >> `free_names next loc` by (drule EVERY_free_names_thm >> disch_then drule >> simp [])
+  >> Cases_on `compile_exp loc next arity exp`
+  >- (qexists_tac `next` >> rw []
+      >- (drule compile_prog_untouched >> rpt (disch_then drule) >> simp [])
+      >> gvs [])
+  >> PairCases_on `x`
+  >> `∃w. compile_exp loc next arity exp = SOME w` by metis_tac []
+  >> drule compile_prog_touched >> rpt (disch_then drule)
+  >> strip_tac
+  >> first_x_assum (qspecl_then [`next1`,`prog2`] mp_tac) >> impl_tac >- gvs []
+  >> strip_tac >> qexists_tac `next + bvl_to_bvi_namespaces * k` >> rw []
+  >- (`∃w'. compile_exp loc (next + bvl_to_bvi_namespaces * k) arity exp = SOME w'`
+        by metis_tac [compile_exp_SOME_irrel] >> gvs [])
+  >> first_x_assum drule >> simp []
 QED
 
 Definition opt_res_rel_def:
@@ -967,6 +1245,51 @@ Theorem no_mutblock:
 Proof
   rw [] >> fs [state_ref_rel_def] >> rw []
   >> qexistsl [‘ptr’, ‘MutBlock tag l c r’] >> gvs [ref_rel_cases]
+QED
+
+(* Install reads byte/word vectors out of values; these are lists of Numbers
+   resp. Word64s, which v_rel relates exactly. *)
+
+Theorem list_rel_v_rel_number[local]:
+  ∀g ns ys f. LIST_REL (v_rel f) (MAP (Number o g) ns) ys ⇒ ys = MAP (Number o g) ns
+Proof
+  Induct_on `ns` >> rw [] >> gvs [] >> qpat_x_assum `v_rel _ _ _` mp_tac
+  >> simp [Once v_rel_cases] >> rw [] >> res_tac >> gvs []
+QED
+
+Theorem list_rel_v_rel_word[local]:
+  ∀ns ys f. LIST_REL (v_rel f) (MAP Word64 ns) ys ⇒ ys = MAP Word64 ns
+Proof
+  Induct_on `ns` >> rw [] >> gvs [] >> qpat_x_assum `v_rel _ _ _` mp_tac
+  >> simp [Once v_rel_cases] >> rw [] >> res_tac >> gvs []
+QED
+
+Theorem v_to_bytes_eq[local]:
+  (v_to_bytes lv = SOME bytes) ⇔ (v_to_list lv = SOME (MAP (Number o $& o w2n) bytes))
+Proof
+  simp [bvlSemTheory.v_to_bytes_def] >> DEEP_INTRO_TAC some_intro >> rw []
+  >> eq_tac >> rw [] >> gvs [LIST_EQ_REWRITE, EL_MAP]
+QED
+
+Theorem v_to_words_eq[local]:
+  (v_to_words lv = SOME ws) ⇔ (v_to_list lv = SOME (MAP Word64 ws))
+Proof
+  simp [bvlSemTheory.v_to_words_def] >> DEEP_INTRO_TAC some_intro >> rw []
+  >> eq_tac >> rw [] >> gvs [LIST_EQ_REWRITE, EL_MAP]
+QED
+
+Theorem v_to_bytes_v_rel:
+  v_to_bytes lv = SOME bytes ∧ v_rel f lv lw ⇒ v_to_bytes lw = SOME bytes
+Proof
+  rw [v_to_bytes_eq] >> drule_all v_to_list_v_rel >> strip_tac
+  >> imp_res_tac list_rel_v_rel_number >> gvs []
+QED
+
+Theorem v_to_words_v_rel:
+  v_to_words lv = SOME ws ∧ v_rel f lv lw ⇒ v_to_words lw = SOME ws
+Proof
+  rw [v_to_words_eq] >> drule_all v_to_list_v_rel >> strip_tac
+  >> imp_res_tac list_rel_v_rel_word >> gvs []
 QED
 
 Theorem do_build_v_rel:
@@ -4546,70 +4869,6 @@ Resume evaluate_rewrite_tmc[force]:
 QED
 
 Finalise evaluate_rewrite_tmc;
-
-
-Theorem compile_prog_next_mono:
-   ∀n xs n1 ys. compile_prog n xs = (n1,ys) ⇒ ∃k. n1 = n + bvl_to_bvi_namespaces * k
-Proof
-  recInduct compile_prog_ind
-  \\ rw[compile_prog_def]
-  \\ rpt(pairarg_tac \\ fs[bvlPropsTheory.case_eq_thms])
-  \\ rveq \\ fs[]
-  \\ TRY(qexists_tac`0` \\ simp[] \\ NO_TAC)
-  \\ TRY(qexists_tac`k` \\ simp[] \\ NO_TAC)
-  \\ TRY(qexists_tac`k+1` \\ simp[] \\ NO_TAC)
-QED
-
-Theorem compile_prog_MEM:
-   compile_prog n xs = (n1,ys) /\ MEM e (MAP FST ys) ==>
-   MEM e (MAP FST xs) \/ (n <= e /\ e < n1 /\ (∃k. e = n + k * bvl_to_bvi_namespaces))
-Proof
-  qspec_tac (`e`,`e`)
-  \\ qspec_tac (`n1`,`n1`)
-  \\ qspec_tac (`ys`,`ys`)
-  \\ qspec_tac (`n`,`n`)
-  \\ qspec_tac (`xs`,`xs`)
-  \\ Induct
-  >- fs [compile_prog_def]
-  \\ gen_tac
-  \\ PairCases_on `h`
-  \\ rename1 `(name, arity, exp)`
-  \\ simp [compile_prog_def]
-  \\ rpt gen_tac
-  \\ rpt (pairarg_tac \\ fs [])
-  \\ PURE_CASE_TAC \\ fs []
-  \\ TRY (PURE_CASE_TAC \\ fs [])
-  \\ fs [MEM_MAP, PULL_EXISTS, FORALL_PROD]
-  \\ rpt strip_tac \\ rveq \\ fs []
-  \\ TRY (metis_tac [])
-  \\ rveq
-  \\ imp_res_tac compile_prog_next_mono \\ fs[]
-  \\ first_x_assum drule
-  \\ TRY (simp[backend_commonTheory.bvl_to_bvi_namespaces_def] \\
-    rw[] \\ rpt disj2_tac \\ qexists_tac`0` \\ simp[] \\ NO_TAC)
-  \\ disch_then drule
-  \\ strip_tac
-  >- metis_tac []
-  \\ fs []
-  \\ rpt disj2_tac
-  \\ qexists_tac`k'' + 1` \\ simp[]
-QED
-
-Theorem compile_prog_namespace_rel:
-   compile_prog next prog = (next1,prog2) ∧ in_ns_2 next ∧ bvl_num_stubs ≤ next ∧
-   EVERY ($~ o in_ns_2 o FST) (FILTER ((<=) bvl_num_stubs o FST) prog) ⇒
-   namespace_rel (fromAList prog) (fromAList prog2)
-Proof
-  rw[namespace_rel_def,EVERY_MEM,domain_fromAList,MEM_MAP,PULL_EXISTS,MEM_FILTER] \\
-  imp_res_tac compile_prog_MEM \\
-  fs[MEM_MAP,PULL_EXISTS]
-  \\ res_tac \\ fs[]
-  \\ fs[backend_commonTheory.bvl_to_bvi_namespaces_def]
-  \\ CCONTR_TAC \\ fs[]
-  \\ qpat_x_assum`FST _ = _`(assume_tac o SYM) \\ fs[]
-  \\ last_x_assum drule
-  \\ rpt(qpat_x_assum`_ + _ = FST _`(assume_tac o SYM) \\ fs[])
-QED
 
 Theorem evaluate_compile_prog:
    input_condition next prog ∧
