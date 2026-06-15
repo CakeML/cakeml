@@ -114,11 +114,32 @@ Definition state_ref_rel_def:
              FLOOKUP t_refs j = SOME w
 End
 
+Definition fmap_inj_def:
+  fmap_inj (f : num |-> num) ⇔
+    ∀p1 p2 q. FLOOKUP f p1 = SOME q ∧ FLOOKUP f p2 = SOME q ⇒ p1 = p2
+End
+
+Theorem fmap_inj_FEMPTY[simp]:
+  fmap_inj FEMPTY
+Proof
+  rw [fmap_inj_def]
+QED
+
+Theorem fmap_inj_update:
+  ∀f k v.
+    fmap_inj f ∧ v ∉ FRANGE f ⇒
+    fmap_inj (f⟨k ↦ v⟩)
+Proof
+  rw [fmap_inj_def, FLOOKUP_SIMP]
+  >> gvs [AllCaseEqs ()]
+  >> gvs [FRANGE_FLOOKUP]
+QED
+
 Definition state_rel_def:
   state_rel f s (t:('a,'ffi) bviSem$state) ⇔
     state_ref_rel f s.refs t.refs ∧
     t.clock = s.clock ∧
-    t.global = s.global ∧
+    OPTREL (λp p'. FLOOKUP f p = SOME p') s.global t.global ∧
     t.ffi = s.ffi ∧
     t.compile_oracle = state_co compile_prog s.compile_oracle ∧
     s.compile = state_cc compile_prog t.compile ∧
@@ -126,7 +147,8 @@ Definition state_rel_def:
     namespace_rel s.code t.code ∧
     (∀n. let ((next,cfg),prog) = s.compile_oracle n in
             input_condition next prog) ∧
-    (∀n. n ∈ domain t.code ∧ in_ns_2 n ⇒ n < FST(FST(s.compile_oracle 0)))
+    (∀n. n ∈ domain t.code ∧ in_ns_2 n ⇒ n < FST(FST(s.compile_oracle 0))) ∧
+    fmap_inj f
 End
 
 (* Copied - not used currently *)
@@ -742,6 +764,112 @@ Proof
   >> gvs []
 QED
 
+Theorem state_ref_rel_update:
+  ∀f s_refs t_refs ptr ptr' v w.
+    state_ref_rel f s_refs t_refs ∧ fmap_inj f ∧
+    FLOOKUP f ptr = SOME ptr' ∧ ref_rel f v w ⇒
+    state_ref_rel f (s_refs⟨ptr ↦ v⟩) (t_refs⟨ptr' ↦ w⟩)
+Proof
+  rw [state_ref_rel_def]
+  >- (gvs [FLOOKUP_DEF, EXTENSION] >> metis_tac [])
+  >> Cases_on ‘i = ptr’ >> gvs [FLOOKUP_SIMP]
+  >> first_x_assum drule >> strip_tac
+  >> first_assum $ irule_at Any >> first_assum $ irule_at Any
+  >> ‘ptr' ≠ j’ by (gvs [fmap_inj_def] >> metis_tac [])
+  >> gvs []
+QED
+
+Theorem bvl_to_bvi_refs:
+  bvl_to_bvi (bvi_to_bvl s with refs := r) s = s with refs := r
+Proof
+  simp [bvl_to_bvi_def, bvi_to_bvl_def, bviSemTheory.state_component_equality]
+QED
+
+Theorem holes_unchanged_except_frange_update:
+  ∀f p k v refs.
+    FLOOKUP f p = SOME k ⇒
+    holes_unchanged_except f refs (refs⟨k ↦ v⟩) ∅
+Proof
+  rw [holes_unchanged_except_def, FLOOKUP_SIMP]
+  >> ‘k ≠ ptr’ by (CCONTR_TAC >> gvs [IN_FRANGE_FLOOKUP] >> metis_tac [])
+  >> gvs []
+QED
+
+Theorem ref_rel_submap:
+  ∀f f' v w. ref_rel f v w ∧ f ⊑ f' ⇒ ref_rel f' v w
+Proof
+  rw [ref_rel_cases]
+  >> gvs [LIST_REL_EL_EQN]
+  >> rw []
+  >> metis_tac [v_rel_submap, list_rel_submap]
+QED
+
+Theorem state_ref_rel_alloc:
+  ∀f s_refs t_refs src tgt rv rw.
+    state_ref_rel f s_refs t_refs ∧
+    src ∉ FDOM s_refs ∧ tgt ∉ FDOM t_refs ∧ tgt ∉ FRANGE f ∧
+    ref_rel (f⟨src ↦ tgt⟩) rv rw ⇒
+    state_ref_rel (f⟨src ↦ tgt⟩) (s_refs⟨src ↦ rv⟩) (t_refs⟨tgt ↦ rw⟩)
+Proof
+  rw [state_ref_rel_def]
+  >> ‘f ⊑ f⟨src ↦ tgt⟩’ by gvs [SUBMAP_FUPDATE_FLOOKUP, FLOOKUP_DEF]
+  >> gvs [FLOOKUP_SIMP]
+  >> Cases_on ‘i = src’ >> gvs []
+  >> first_x_assum drule >> strip_tac
+  >> qexistsl [‘j’, ‘w’] >> gvs []
+  >> conj_tac
+  >- (irule ref_rel_submap >> first_assum $ irule_at Any
+      >> gvs [SUBMAP_FUPDATE_FLOOKUP, FLOOKUP_DEF])
+  >> ‘j ≠ tgt’ by (gvs [IN_FRANGE_FLOOKUP] >> metis_tac [])
+  >> gvs []
+QED
+
+Theorem state_rel_alloc:
+  ∀f s s' src tgt rv rw.
+    state_rel f s s' ∧
+    src ∉ FDOM s.refs ∧ tgt ∉ FDOM s'.refs ∧ tgt ∉ FRANGE f ∧
+    ref_rel (f⟨src ↦ tgt⟩) rv rw ⇒
+    FLOOKUP (f⟨src ↦ tgt⟩) src = SOME tgt ∧
+    state_rel (f⟨src ↦ tgt⟩)
+      (s with refs := s.refs⟨src ↦ rv⟩) (s' with refs := s'.refs⟨tgt ↦ rw⟩) ∧
+    f ⊑ f⟨src ↦ tgt⟩ ∧
+    only_fresh f (f⟨src ↦ tgt⟩) s'.refs ∧
+    holes_unchanged_except f s'.refs (s'.refs⟨tgt ↦ rw⟩) ∅
+Proof
+  rpt gen_tac >> strip_tac
+  >> ‘src ∉ FDOM f’ by gvs [state_rel_def, state_ref_rel_def]
+  >> ‘f ⊑ f⟨src ↦ tgt⟩’ by gvs [SUBMAP_FUPDATE_FLOOKUP, FLOOKUP_DEF]
+  >> simp [FLOOKUP_SIMP]
+  >> rpt conj_tac
+  >- (gvs [state_rel_def]
+      >> rpt conj_tac
+      >- (irule state_ref_rel_alloc >> gvs [])
+      >- (Cases_on ‘s.global’ >> gvs [OPTREL_def]
+          >> irule FLOOKUP_SUBMAP >> first_assum $ irule_at Any >> gvs [])
+      >> irule fmap_inj_update >> gvs [])
+  >- (gvs [only_fresh_def] >> rw [] >> gvs [FRANGE_FUPDATE, DOMSUB_NOT_IN_DOM])
+  >> gvs [holes_unchanged_except_def, FLOOKUP_SIMP] >> rw [] >> gvs [FLOOKUP_DEF]
+QED
+
+Theorem do_word_app_v_rel:
+  ∀w vs res vs' f.
+    bvlSem$do_word_app w vs = SOME res ∧ LIST_REL (v_rel f) vs vs' ⇒
+    vs' = vs
+Proof
+  recInduct bvlSemTheory.do_word_app_ind
+  >> rw [bvlSemTheory.do_word_app_def]
+  >> gvs [AllCaseEqs (), v_rel_cases]
+QED
+
+Theorem do_word_app_v_rel_refl:
+  ∀w vs res f.
+    bvlSem$do_word_app w vs = SOME res ⇒ v_rel f res res
+Proof
+  recInduct bvlSemTheory.do_word_app_ind
+  >> rw [bvlSemTheory.do_word_app_def]
+  >> gvs [AllCaseEqs (), v_rel_cases, bvlSemTheory.Boolv_def]
+QED
+
 Theorem do_app_op_rel:
   ∀f op vs vs' s s' t v.
     do_app op vs s = Rval (v,t) ∧
@@ -792,7 +920,11 @@ Resume do_app_op_rel[IntOp]:
 QED
 
 Resume do_app_op_rel[WordOp]:
-  cheat
+  gvs [do_app_def, do_app_aux_def, AllCaseEqs (), bvlSemTheory.do_app_def]
+  >> drule_all do_word_app_v_rel >> strip_tac >> gvs []
+  >> qexists ‘f’
+  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl]
+  >> drule do_word_app_v_rel_refl >> simp []
 QED
 
 Resume do_app_op_rel[Label]:
@@ -810,7 +942,54 @@ Resume do_app_op_rel[Label]:
 QED
 
 Resume do_app_op_rel[GlobOp]:
-  cheat
+  Cases_on ‘g’
+  >~ [‘do_app (GlobOp AllocGlobal)’] >-
+   gvs [do_app_def, do_app_aux_def, AllCaseEqs ()]
+  >~ [‘do_app (GlobOp GlobalsPtr)’] >-
+   (gvs [do_app_def, do_app_aux_def, AllCaseEqs (), v_rel_cases]
+    >> ‘OPTREL (λp p'. FLOOKUP f p = SOME p') s.global s'.global’ by gvs [state_rel_def]
+    >> gvs [OPTREL_def]
+    >> qexists ‘f’ >> gvs [only_fresh_refl, holes_unchanged_except_refl])
+  >~ [‘do_app (GlobOp SetGlobalsPtr)’] >-
+   (gvs [do_app_def, do_app_aux_def, AllCaseEqs (), v_rel_cases]
+    >> qexists ‘f’
+    >> simp [only_fresh_refl, holes_unchanged_except_refl]
+    >> rpt conj_tac
+    >- simp [bvlSemTheory.Unit_def]
+    >> gvs [state_rel_def, OPTREL_def])
+  >~ [‘do_app (GlobOp (Global _))’] >-
+   (gvs [do_app_def, do_app_aux_def, AllCaseEqs (), v_rel_cases]
+    >> ‘OPTREL (λp p'. FLOOKUP f p = SOME p') s.global s'.global’ by gvs [state_rel_def]
+    >> ‘state_ref_rel f s.refs s'.refs’ by gvs [state_rel_def]
+    >> gvs [OPTREL_def]
+    >> qpat_assum ‘state_ref_rel f s.refs s'.refs’
+         (strip_assume_tac o REWRITE_RULE [state_ref_rel_def])
+    >> first_x_assum drule >> strip_tac >> gvs [ref_rel_cases]
+    >> ‘n < LENGTH ys’ by (imp_res_tac LIST_REL_LENGTH >> gvs [])
+    >> ‘v_rel f (EL n xs) (EL n ys)’ by gvs [LIST_REL_EL_EQN]
+    >> qexists ‘f’ >> simp [only_fresh_refl, holes_unchanged_except_refl]
+    >> qpat_x_assum ‘v_rel f (EL n xs) _’ mp_tac
+    >> simp [Once v_rel_cases])
+  (* SetGlobal *)
+  >> gvs [do_app_def, do_app_aux_def, AllCaseEqs (), v_rel_cases]
+  >> ‘OPTREL (λp p'. FLOOKUP f p = SOME p') s.global s'.global’ by gvs [state_rel_def]
+  >> ‘state_ref_rel f s.refs s'.refs’ by gvs [state_rel_def]
+  >> ‘fmap_inj f’ by gvs [state_rel_def]
+  >> gvs [OPTREL_def]
+  >> qpat_assum ‘state_ref_rel f s.refs s'.refs’
+       (strip_assume_tac o REWRITE_RULE [state_ref_rel_def])
+  >> first_x_assum drule >> strip_tac >> gvs [ref_rel_cases]
+  >> rename1 ‘LIST_REL (v_rel f) xs ws’
+  >> ‘n < LENGTH ws’ by (imp_res_tac LIST_REL_LENGTH >> gvs [])
+  >> qexists ‘f’ >> simp [only_fresh_refl]
+  >> rpt conj_tac
+  >> (
+    (gvs [state_rel_def] >> irule state_ref_rel_update >> simp [ref_rel_cases]
+     >> irule EVERY2_LUPDATE_same >> simp [Once v_rel_cases] >> gvs [])
+    ORELSE
+    (irule holes_unchanged_except_frange_update >> first_assum $ irule_at Any)
+    ORELSE
+    simp [bvlSemTheory.Unit_def])
 QED
 
 Resume do_app_op_rel[MemOp]:
@@ -818,11 +997,63 @@ Resume do_app_op_rel[MemOp]:
 QED
 
 Resume do_app_op_rel[ThunkOp]:
-  cheat
+  Cases_on ‘t’
+  >> gvs [do_app_def, do_app_aux_def, bvlSemTheory.do_app_def, AllCaseEqs ()]
+  >~ [‘Thunk NotEvaluated’] >-
+   (* UpdateThunk *)
+   (qpat_x_assum ‘v_rel f (RefPtr _ _) _’ mp_tac
+    >> simp [Once v_rel_cases] >> strip_tac
+    >> ‘state_ref_rel f s.refs s'.refs’ by gvs [state_rel_def]
+    >> ‘fmap_inj f’ by gvs [state_rel_def]
+    >> qpat_assum ‘state_ref_rel f s.refs s'.refs’
+         (strip_assume_tac o REWRITE_RULE [state_ref_rel_def])
+    >> first_x_assum drule >> strip_tac
+    >> gvs [ref_rel_cases]
+    >> simp [bvl_to_bvi_refs] >> qexists ‘f’
+    >> simp [only_fresh_refl, bvlSemTheory.Unit_def]
+    >> rpt conj_tac
+    >- simp [Once v_rel_cases]
+    >- (gvs [state_rel_def] >> irule state_ref_rel_update >> simp [ref_rel_cases])
+    >> gvs [holes_unchanged_except_def, FLOOKUP_SIMP]
+    >> rw [] >> gvs [IN_FRANGE_FLOOKUP] >> metis_tac [])
+  (* AllocThunk *)
+  >> qmatch_goalsub_rename_tac ‘Thunk mode v'’
+  >> simp [bvl_to_bvi_refs]
+  >> qexists ‘f⟨(LEAST ptr. ptr ∉ FDOM s.refs) ↦ (LEAST ptr. ptr ∉ FDOM s'.refs)⟩’
+  >> ‘state_ref_rel f s.refs s'.refs’ by gvs [state_rel_def]
+  >> ‘(LEAST ptr. ptr ∉ FDOM s'.refs) ∉ FRANGE f’
+       by (irule fresh_not_in_range_f >> first_assum $ irule_at Any)
+  >> drule state_rel_alloc
+  >> disch_then $ qspecl_then
+       [‘LEAST ptr. ptr ∉ FDOM s.refs’, ‘LEAST ptr. ptr ∉ FDOM s'.refs’,
+        ‘Thunk mode v'’, ‘Thunk mode y’] mp_tac
+  >> impl_tac
+  >- (simp [fresh_ptr_fresh, ref_rel_cases]
+      >> irule v_rel_submap >> first_assum $ irule_at Any
+      >> simp [SUBMAP_FUPDATE_FLOOKUP, FLOOKUP_DEF]
+      >> gvs [state_ref_rel_def, fresh_ptr_fresh])
+  >> strip_tac >> simp [Once v_rel_cases]
 QED
 
 Resume do_app_op_rel[FFI]:
-  cheat
+  gvs [do_app_def, do_app_aux_def, bvlSemTheory.do_app_def, AllCaseEqs (), v_rel_cases]
+  >> ‘state_ref_rel f s.refs s'.refs’ by gvs [state_rel_def]
+  >> ‘s'.ffi = s.ffi’ by gvs [state_rel_def]
+  >> fs [state_ref_rel_def]
+  >> res_tac
+  >> gvs [ref_rel_cases]
+  >> qexists ‘f’
+  >> ‘fmap_inj f’ by gvs [state_rel_def]
+  >> simp [bvl_to_bvi_def, bvi_to_bvl_def, only_fresh_refl, bvlSemTheory.Unit_def]
+  >> conj_tac
+  >- (‘state_ref_rel f s.refs s'.refs’ by gvs [state_rel_def]
+      >> gvs [state_rel_def]
+      >> irule state_ref_rel_update
+      >> simp [ref_rel_cases]
+      >> first_assum $ irule_at Any)
+  >> gvs [holes_unchanged_except_def, FLOOKUP_SIMP]
+  >> rw [] >> gvs [IN_FRANGE_FLOOKUP]
+  >> metis_tac []
 QED
 
 Resume do_app_op_rel[BlockOp]:
