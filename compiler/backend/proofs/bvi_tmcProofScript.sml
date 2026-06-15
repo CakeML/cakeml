@@ -851,6 +851,78 @@ Proof
   >> gvs [holes_unchanged_except_def, FLOOKUP_SIMP] >> rw [] >> gvs [FLOOKUP_DEF]
 QED
 
+Theorem state_ref_rel_lookup:
+  ∀f n m refs t_refs.
+    FLOOKUP f n = SOME m ∧ state_ref_rel f refs t_refs ⇒
+    ∃v w. FLOOKUP refs n = SOME v ∧ FLOOKUP t_refs m = SOME w ∧ ref_rel f v w
+Proof
+  rw []
+  >> ‘n ∈ FDOM refs’ by (gvs [state_ref_rel_def] >> gvs [FLOOKUP_DEF])
+  >> Cases_on ‘FLOOKUP refs n’ >- gvs [FLOOKUP_DEF]
+  >> gvs [state_ref_rel_def] >> first_x_assum drule >> rw [] >> gvs []
+QED
+
+Theorem fmap_inj_flookup_eq:
+  ∀f n m n' m'.
+    fmap_inj f ∧ FLOOKUP f n = SOME m ∧ FLOOKUP f n' = SOME m' ⇒
+    ((m = m') ⇔ (n = n'))
+Proof
+  rw [] >> eq_tac >> rw [] >> gvs [fmap_inj_def] >> metis_tac []
+QED
+
+Theorem v_to_list_v_rel:
+  ∀lv xs lw f.
+    bvlSem$v_to_list lv = SOME xs ∧ v_rel f lv lw ⇒
+    ∃ys. bvlSem$v_to_list lw = SOME ys ∧ LIST_REL (v_rel f) xs ys
+Proof
+  recInduct bvlSemTheory.v_to_list_ind
+  >> rw [bvlSemTheory.v_to_list_def]
+  >> qpat_x_assum ‘v_rel f _ _’ mp_tac
+  >> simp [Once v_rel_cases] >> strip_tac >> gvs []
+  >> gvs [bvlSemTheory.v_to_list_def, AllCaseEqs ()]
+  >> first_x_assum drule >> strip_tac >> gvs []
+QED
+
+Theorem list_to_v_v_rel:
+  ∀xs ys f.
+    LIST_REL (v_rel f) xs ys ⇒
+    v_rel f (list_to_v xs) (list_to_v ys)
+Proof
+  Induct >> Cases_on ‘ys’ >> rw [bvlSemTheory.list_to_v_def]
+  >> simp [Once v_rel_cases]
+QED
+
+Theorem do_eq_v_rel:
+  (∀refs x1 x2 t_refs y1 y2.
+     v_rel f x1 y1 ∧ v_rel f x2 y2 ∧ state_ref_rel f refs t_refs ∧ fmap_inj f ⇒
+     do_eq refs x1 x2 = do_eq t_refs y1 y2) ∧
+  (∀refs x1s x2s t_refs y1s y2s.
+     LIST_REL (v_rel f) x1s y1s ∧ LIST_REL (v_rel f) x2s y2s ∧
+     state_ref_rel f refs t_refs ∧ fmap_inj f ⇒
+     do_eq_list refs x1s x2s = do_eq_list t_refs y1s y2s)
+Proof
+  ho_match_mp_tac bvlSemTheory.do_eq_ind >> rw []
+  >> gvs [v_rel_cases, bvlSemTheory.isClos_def]
+  >> imp_res_tac LIST_REL_LENGTH >> gvs []
+  >> imp_res_tac state_ref_rel_lookup >> gvs [ref_rel_cases]
+  >> rw [] >> gvs []
+  >> TRY (qspecl_then [‘f’,‘n1’,‘m’,‘n2’,‘m'’] mp_tac fmap_inj_flookup_eq
+          >> impl_tac >- gvs [] >> strip_tac >> gvs [])
+  >> TRY (qspecl_then [‘f’,‘n’,‘m’,‘n'’,‘m'’] mp_tac fmap_inj_flookup_eq
+          >> impl_tac >- gvs [] >> strip_tac >> gvs [])
+  >> rw [] >> gvs []
+  >> TRY (first_x_assum irule >> gvs [])
+  >> qmatch_goalsub_abbrev_tac ‘do_eq_list t_refs aa bb’
+  >> ‘do_eq_list refs xs xs' = do_eq_list t_refs aa bb’ by
+       (last_x_assum (qspecl_then [‘t_refs’, ‘Block n aa’, ‘Block n bb’] mp_tac)
+        >> impl_tac >- gvs [Abbr ‘aa’, Abbr ‘bb’]
+        >> simp [bvlSemTheory.do_eq_def, bvlSemTheory.isClos_def])
+  >> gvs []
+  >> Cases_on ‘do_eq_list t_refs aa bb’ >> gvs []
+  >> Cases_on ‘b’ >> gvs []
+  >> first_x_assum irule >> gvs []
+QED
+
 Theorem do_word_app_v_rel:
   ∀w vs res vs' f.
     bvlSem$do_word_app w vs = SOME res ∧ LIST_REL (v_rel f) vs vs' ⇒
