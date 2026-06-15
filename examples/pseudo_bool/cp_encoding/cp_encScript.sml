@@ -630,6 +630,115 @@ Proof
           format_num_list_11, format_int_list_11]
 QED
 
+Theorem int_bit_unreify_epb[local]:
+  bit_width bnd X = (comp,h) ⇒
+  int_bit n (unreify_epb bnd w X) =
+    if n < h then w (Bit X n) else (comp ∧ w (Sign X))
+Proof
+  rw [unreify_epb_def] >> simp [int_bitwiseTheory.int_bit_int_of_bits, EL_GENLIST]
+QED
+
+Theorem unreify_reify[local]:
+  valid_assignment bnd wi ⇒
+  unreify_epb bnd (reify_epb (wi,wb)) X = wi X
+Proof
+  metis_tac [encode_ivar_sem_1, encode_ivar_sem_2]
+QED
+
+Theorem MEM_proj_ivar_Bit[local]:
+  bit_width bnd X = (comp,h) ⇒ (MEM (Bit X i) (proj_ivar bnd X) ⇔ i < h)
+Proof
+  rw [proj_ivar_def, MEM_GENLIST]
+QED
+
+Theorem MEM_proj_ivar_Sign[local]:
+  bit_width bnd X = (comp,h) ∧ comp ⇒ MEM (Sign X) (proj_ivar bnd X)
+Proof
+  rw [proj_ivar_def]
+QED
+
+Theorem unreify_epb_cong[local]:
+  (∀e. MEM e (proj_ivar bnd X) ⇒ (w1 e ⇔ w2 e)) ⇒
+  unreify_epb bnd w1 X = unreify_epb bnd w2 X
+Proof
+  strip_tac >>
+  rw [unreify_epb_def] >> pairarg_tac >> gvs [] >>
+  `GENLIST (λi. w1 (Bit X i)) h = GENLIST (λi. w2 (Bit X i)) h` by
+    (simp [GENLIST_FUN_EQ] >> rw [] >> first_x_assum irule >>
+     metis_tac [MEM_proj_ivar_Bit]) >>
+  simp [] >>
+  Cases_on`comp` >> gvs [] >>
+  `w1 (Sign X) = w2 (Sign X)` by (first_x_assum irule >> metis_tac [MEM_proj_ivar_Sign]) >>
+  simp []
+QED
+
+Theorem unreify_INTER[local]:
+  MAP (unreify_epb bnd (set (FLAT (MAP (proj_ivar bnd) vs)) ∩ w)) vs =
+  MAP (unreify_epb bnd w) vs
+Proof
+  irule MAP_CONG >> simp [] >> rw [] >>
+  irule unreify_epb_cong >> rw [] >>
+  `MEM e (FLAT (MAP (proj_ivar bnd) vs))` by
+    (simp [MEM_FLAT, MEM_MAP, PULL_EXISTS] >> metis_tac []) >>
+  simp [IN_INTER, IN_APP]
+QED
+
+Theorem proj_ivar_bit[local]:
+  MEM x (proj_ivar bnd y) ⇒
+  ∃p. ∀ww. ww x ⇔ int_bit p (unreify_epb bnd ww y)
+Proof
+  strip_tac >>
+  `∃comp h. bit_width bnd y = (comp,h)` by metis_tac [PAIR] >>
+  Cases_on`comp` >> gvs [proj_ivar_def, MEM_GENLIST]
+  >- (qexists_tac`h` >> rw [] >> drule int_bit_unreify_epb >> simp [])
+  >- (qexists_tac`i` >> rw [] >> drule int_bit_unreify_epb >> simp [])
+  >- (qexists_tac`i` >> rw [] >> drule int_bit_unreify_epb >> simp [])
+QED
+
+Theorem mem_proj_unreify_eq[local]:
+  MEM x (proj_ivar bnd y) ∧ unreify_epb bnd w y = unreify_epb bnd w' y ⇒
+  (w x ⇔ w' x)
+Proof
+  rw [] >> drule proj_ivar_bit >> rw [] >> metis_tac []
+QED
+
+Theorem proj_INJ[local]:
+  MAP (unreify_epb bnd w) vs = MAP (unreify_epb bnd w') vs ⇒
+  set (FLAT (MAP (proj_ivar bnd) vs)) ∩ w =
+  set (FLAT (MAP (proj_ivar bnd) vs)) ∩ w'
+Proof
+  strip_tac >>
+  `∀X. MEM X vs ⇒ unreify_epb bnd w X = unreify_epb bnd w' X` by fs [MAP_EQ_f] >>
+  simp [EXTENSION, IN_INTER, MEM_FLAT, MEM_MAP, PULL_EXISTS] >>
+  rw [] >> eq_tac >> rw [] >> qexists_tac`y` >> simp [] >>
+  `w x ⇔ w' x` by
+    (irule mem_proj_unreify_eq >> first_assum (irule_at Any) >>
+     first_x_assum irule >> simp []) >>
+  fs [IN_APP]
+QED
+
+Theorem encode_EEnum_BIJ[local]:
+  ALL_DISTINCT (MAP FST cs) ⇒
+  ∃f. BIJ f
+    (proj_pres (set (FLAT (MAP (proj_ivar (bnd_lookup bnd)) vs)))
+               {w | satisfies w (set (MAP SND (encode bnd cs)))})
+    (cp_proj vs {w | cp_sat (bnd_lookup bnd) (set (MAP SND cs)) w})
+Proof
+  strip_tac >>
+  qexists_tac`λt. MAP (unreify_epb (bnd_lookup bnd) t) vs` >>
+  simp [proj_pres_def, cp_proj_def, BIJ_DEF, INJ_DEF, SURJ_DEF, PULL_EXISTS] >>
+  rpt conj_tac
+  >- (rw [] >> qexists_tac`unreify_epb (bnd_lookup bnd) w` >>
+      simp [unreify_INTER] >> irule encode_sem_2 >> simp [])
+  >- (rw [] >> irule proj_INJ >> fs [unreify_INTER])
+  >- (rw [] >> qexists_tac`unreify_epb (bnd_lookup bnd) w` >>
+      simp [unreify_INTER] >> irule encode_sem_2 >> simp [])
+  >- (rw [] >> drule_all encode_sem_1 >> rw [] >>
+      qexists_tac`reify_epb (w,wb)` >> simp [unreify_INTER] >>
+      irule MAP_CONG >> simp [] >> rw [] >>
+      irule unreify_reify >> fs [cp_sat_def])
+QED
+
 Definition full_encode_def:
   full_encode (bnd,cs,pty) =
   let (pres,obj) = encode_prob_type bnd pty in
@@ -743,7 +852,9 @@ Proof
       sem_concl_def,encode_prob_type_def]>>
     qmatch_goalsub_abbrev_tac`CARD proj_pb_sols`>>
     qmatch_goalsub_abbrev_tac`_ ⇒ n ≤ CARD proj_cp_sols ∧ _`>>
-    `?f. BIJ f proj_pb_sols proj_cp_sols` by cheat>>
+    `?f. BIJ f proj_pb_sols proj_cp_sols` by
+      (unabbrev_all_tac >> simp [pres_set_list_def] >>
+       irule encode_EEnum_BIJ >> simp []) >>
     drule_at Any FINITE_BIJ_CARD>>
     impl_tac >- (
       fs[Abbr`proj_pb_sols`]>>
