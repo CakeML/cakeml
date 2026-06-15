@@ -1007,22 +1007,6 @@ QED
 
 Definition mb_rel_def:
   (mb_rel f refs (Block tag xs) (RefPtr b ptr) =
-   (b = F ∧
-    ptr ∉ FRANGE f ∧
-    ∃left child right left' child' right'.
-      xs = left ++ [child] ++ right ∧
-      FLOOKUP refs ptr = SOME (MutBlock tag left' child' right') ∧
-      LIST_REL (v_rel f) left left' ∧
-      mb_rel f (refs \\ ptr) child child' ∧
-      LIST_REL (v_rel f) right right')) ∧
-  (mb_rel f refs v1 v2 = v_rel f v1 v2)
-Termination
-  wf_rel_tac ‘measure $ CARD o FDOM o FST o SND’
-  >> cheat
-End
-
-Definition mb_rel_def:
-  (mb_rel f refs (Block tag xs) (RefPtr b ptr) =
    if b ∨ ptr ∈ FRANGE f then F else
      case FLOOKUP refs ptr of
      | SOME (MutBlock tag' left' child' right') =>
