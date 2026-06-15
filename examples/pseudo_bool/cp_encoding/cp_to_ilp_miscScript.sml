@@ -68,7 +68,9 @@ Proof
   fs[NOT_ZERO]>>
   qmatch_goalsub_abbrev_tac‘FUNPOW suc _ _’>>
   qabbrev_tac‘dom = (λi. i < n)’>>
-  ‘FINITE dom’ by cheat>>
+  ‘FINITE dom’ by (
+    ‘dom = count n’ by simp[Abbr‘dom’,EXTENSION,IN_COUNT]>>
+    simp[])>>
   fs[FINITE_INJ_IMP_SURJ]>>
   qmatch_goalsub_abbrev_tac‘P ∧ Q ⇔ P ∧ R’>>
   ‘P ⇒ (Q ⇔ R)’ suffices_by metis_tac[]>>
