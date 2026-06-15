@@ -59,7 +59,7 @@ Proof
   qmatch_goalsub_abbrev_tac‘_ MOD n’>>
   simp[circuit_sem_def]>>
   Cases_on‘n = 0’
-  >-(
+  >-( (* trivial case: n = 0 *)
     simp[EL_ALL_DISTINCT_EL_EQ,EL_MAP]>>
     iff_tac>>
     rw[]>>
@@ -69,7 +69,7 @@ Proof
   qmatch_goalsub_abbrev_tac‘FUNPOW suc _ _’>>
   qabbrev_tac‘dom = (λi. i < n)’>>
   ‘FINITE dom’ by cheat>>
-  fs[]>>
+  fs[FINITE_INJ_IMP_SURJ]>>
   qmatch_goalsub_abbrev_tac‘P ∧ Q ⇔ P ∧ R’>>
   ‘P ⇒ (Q ⇔ R)’ suffices_by metis_tac[]>>
   simp[Abbr‘P’,EVERY_MEM,MEM_EL,SF DNF_ss]>>
@@ -80,7 +80,12 @@ Proof
   iff_tac
   >-( (* forward direction *)
     qabbrev_tac‘step = (λn. FUNPOW suc n 0)’>>
+    ‘∀m. suc (step m) = step (m + 1)’ by (
+      rw[Abbr‘step’,GSYM FUNPOW_SUC,ADD1])>>
     strip_tac>>
+    ‘∀m k. 0 < k ∧ dom k ⇒ step (m + k) ≠ step m’ by (
+      simp[Once ADD_COMM]>>
+      simp[Abbr‘step’,FUNPOW_ADD])>>
     ‘INJ step dom dom’ by (
       simp[INJ_DEF,IN_APP]>>
       CONJ_TAC
@@ -97,31 +102,53 @@ Proof
           metis_tac[])
         >-(
           ‘0 < j - i ∧ dom (j - i)’ by (CONJ_TAC>>fs[Abbr‘dom’])>>
-          ‘dom (FUNPOW suc i 0)’ by simp[]>>
-          first_x_assum $ drule_all_then assume_tac>>
-          fs[Abbr‘step’,GSYM FUNPOW_ADD]>>
-          ‘j - i + i = j’ suffices_by metis_tac[]>>
-          intLib.ARITH_TAC)))>>
-    fs[FINITE_INJ_IMP_SURJ]>>
+          first_x_assum $ drule_all_then (qspec_then ‘i’ mp_tac)>>
+          ‘i + (j - i) = j’ suffices_by metis_tac[]>>
+          simp[intLib.ARITH_PROVE“0n < j - i ⇒ i + (j - i) = j”]
+          )))>>
     last_x_assum $ drule_then assume_tac>>
+    fs[INJ_DEF,SURJ_DEF,IN_APP]>>
+    ‘step n = step 0’ by (
+      ‘dom (step n)’ by simp[Abbr‘step’]>>
+      first_assum $ drule_then assume_tac>>
+      fs[Abbr‘dom’]>>
+      ‘step (n - y + y) = step y ⇒ y = 0’ suffices_by
+        metis_tac[intLib.ARITH_PROVE“(y:num) < n ⇒ n - y + y = n”]>>
+      simp[Once MONO_NOT_EQ])>>
     CONJ_ASM1_TAC
     >-(
       rw[EL_ALL_DISTINCT_EL_EQ,EL_MAP]>>
       iff_tac>>
       simp[]>>
-      qmatch_goalsub_abbrev_tac‘v1 = v2 ⇒ _’>>
+      pop_assum mp_tac>>
+      first_assum $ drule_then assume_tac>>
       strip_tac>>
-      ‘Num v1 = Num v2’ by simp[]>>
-      pop_assum mp_tac>>
-      simp[Abbr‘v1’,Abbr‘v2’]>>
-      ‘INJ suc dom dom’ by cheat>>
-      pop_assum mp_tac>>
-      simp[INJ_DEF,IN_APP])>>
+      first_assum $ drule_then assume_tac>>
+      rw[Once MONO_NOT_EQ]>>
+      rename1‘step i ≠ step j’>>
+      ‘step (i + 1) ≠ step (j + 1)’ suffices_by metis_tac[]>>
+      ‘i ≠ j’ by metis_tac[]>>
+      wlog_tac‘i < j’ [‘i’,‘j’]
+      >-(
+        ‘j < i’ by metis_tac[LESS_CASES_IMP]>>
+        first_x_assum $ drule_then assume_tac>>
+        metis_tac[])
+      >-(
+        Cases_on‘j + 1 < n’
+        >-(
+          ‘dom (i + 1) ∧ dom (j + 1)’ by simp[Abbr‘dom’]>>
+          qmatch_goalsub_abbrev_tac‘step a ≠ step b’>>
+          ‘a ≠ b’ suffices_by metis_tac[]>>
+          simp[Abbr‘a’,Abbr‘b’])
+        >-(
+          ‘j + 1 = n ∧ 0 < i + 1 ∧ dom (i + 1)’ by fs[NOT_LESS,Abbr‘dom’]>>
+          simp[]>>
+          ‘(i + 1) + 0 = (i + 1)’ suffices_by metis_tac[]>>
+          simp[ADD_0])))>>
     qabbrev_tac‘pos = (λk. if dom k then @m. dom m ∧ step m = k else k)’>>
     ‘∀i j. dom i ∧ dom j ⇒ (pos i = j ⇔ step j = i)’ by (
       rw[Abbr‘pos’]>>
       SELECT_ELIM_TAC>>
-      fs[INJ_DEF,SURJ_DEF,IN_APP]>>
       metis_tac[])>>
     qexists‘pos’>>
     CONJ_TAC
@@ -154,11 +181,7 @@ Proof
       >-(
         fs[NOT_LESS]>>
         ‘x + 1 = n’ by fs[Abbr‘dom’]>>
-        simp[]>>
-        ‘step n = 0’ suffices_by fs[Abbr‘step’,GSYM FUNPOW_SUC,ADD1]>>
-        (* to prove: step n = 0 *)
-        cheat
-      )))
+        simp[])))
   >-( (* backward direction *)
     ‘∀i j. dom i ⇒ dom (FUNPOW suc j i)’ by (
       Induct_on‘j’>>
@@ -177,7 +200,6 @@ Proof
       rfs[INJ_DEF,IN_APP]>>
       rw[Abbr‘suc’]>>
       metis_tac[integerTheory.INT_OF_NUM])>>
-    fs[FINITE_INJ_IMP_SURJ]>>
     last_x_assum $ drule_then assume_tac>>
     fs[SURJ_DEF,IN_APP]>>
     first_x_assum $ drule_then assume_tac>>
