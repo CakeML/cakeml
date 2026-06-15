@@ -2142,28 +2142,27 @@ Theorem DEDUCT_ANTISYM_RULE_thm:
     (DEDUCT_ANTISYM_RULE th1 th2 s = (res, s')) ==>
     (s' = s) /\ !th. (res = M_success th) ==> THM defs th
 Proof
-  cheat
-  (* Cases_on `th1` \\ Cases_on `th2` \\ ONCE_REWRITE_TAC [EQ_SYM_EQ] *)
-  (* \\ SIMP_TAC std_ss [DEDUCT_ANTISYM_RULE_def,LET_DEF,st_ex_bind_def] *)
-  (* \\ Cases_on `mk_eq (t,t') s` \\ STRIP_TAC *)
-  (* \\ IMP_RES_TAC THM *)
-  (* \\ MP_TAC (mk_eq_thm |> Q.INST [`x`|->`t`, *)
-  (*        `y`|->`t'`,`res`|->`q`,`s'`|->`r`]) *)
-  (* \\ FULL_SIMP_TAC std_ss [] \\ STRIP_TAC *)
-  (* \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) [st_ex_return_def] *)
-  (* \\ FULL_SIMP_TAC std_ss [THM_def] *)
-  (* >> simp[] >> *)
-  (* rpt (BasicProvers.VAR_EQ_TAC) >> *)
-  (* `EVERY (TERM defs) (term_remove t' l) ∧ *)
-  (*  EVERY (TERM defs) (term_remove t l')` by ( *)
-  (*   conj_tac >> *)
-  (*   MATCH_MP_TAC EVERY_term_remove >> *)
-  (*   simp[]) >> *)
-  (* `CONTEXT defs` by fs[STATE_def] >> *)
-  (* imp_res_tac term_type >> *)
-  (* simp[GSYM equation_def] >> *)
-  (* MATCH_MP_TAC(List.nth(CONJUNCTS proves_rules,3)) >> *)
-  (* simp[] *)
+  Cases_on `th1` \\ Cases_on `th2` \\ ONCE_REWRITE_TAC [EQ_SYM_EQ]
+  \\ SIMP_TAC std_ss [DEDUCT_ANTISYM_RULE_def,LET_DEF,st_ex_bind_def]
+  \\ Cases_on `safe_mk_eq t t' s` \\ STRIP_TAC
+  \\ IMP_RES_TAC THM
+  \\ drule safe_mk_eq_thm \\ disch_then drule
+  \\ impl_tac >- (imp_res_tac THM_term_ok_bool >> gvs [])
+  \\ FULL_SIMP_TAC std_ss [] \\ STRIP_TAC
+  \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) [st_ex_return_def]
+  \\ FULL_SIMP_TAC std_ss [THM_def]
+  >> simp[] >>
+  rpt (BasicProvers.VAR_EQ_TAC) >>
+  `EVERY (TERM defs) (term_remove t' l) ∧
+   EVERY (TERM defs) (term_remove t l')` by (
+    conj_tac >>
+    MATCH_MP_TAC EVERY_term_remove >>
+    simp[]) >>
+  `CONTEXT defs` by fs[STATE_def] >>
+  imp_res_tac term_type >>
+  simp[GSYM equation_def] >>
+  MATCH_MP_TAC(List.nth(CONJUNCTS proves_rules,3)) >>
+  simp[]
 QED
 
 Theorem image_lemma[local]:
