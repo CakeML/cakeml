@@ -1021,6 +1021,29 @@ Termination
   >> cheat
 End
 
+Definition mb_rel_def:
+  (mb_rel f refs (Block tag xs) (RefPtr b ptr) =
+   if b ∨ ptr ∈ FRANGE f then F else
+     case FLOOKUP refs ptr of
+     | SOME (MutBlock tag' left' child' right') =>
+         (tag = tag' ∧
+          ∃left child right.
+            xs = left ++ [child] ++ right ∧
+            LIST_REL (v_rel f) left left' ∧
+            mb_rel f (refs \\ ptr) child child' ∧
+            LIST_REL (v_rel f) right right')
+     | _ => F) ∧
+  (mb_rel f refs v1 v2 = v_rel f v1 v2)
+Termination
+  wf_rel_tac ‘measure $ CARD o FDOM o FST o SND’
+  >> rpt gen_tac
+  >> strip_tac
+  >> gvs [finite_mapTheory.FDOM_DOMSUB, FLOOKUP_DEF]
+  >> Cases_on ‘CARD (FDOM refs)’
+  >- fs[finite_setTheory.fCARD_EQ0]
+  >> gvs []
+End
+
 Theorem mb_rel_cons:
   ∀refs ptr f tag left left' v v' right right'.
     mb_rel f (refs \\ ptr) v v' ∧
@@ -1046,6 +1069,8 @@ Theorem mb_rel_del:
 Proof
   recInduct mb_rel_ind
   >> rw [mb_rel_def]
+  >> Cases_on ‘FLOOKUP refs ptr’ >> gvs []
+  >> Cases_on ‘x’ >> gvs []
   >> Cases_on ‘ptr = ptr'’
   >-
    (gvs []
@@ -2830,6 +2855,8 @@ Proof
       >> last_x_assum drule
       >> strip_tac
       >> gvs [ref_rel_cases, v_rel_cases])
+    >> Cases_on ‘FLOOKUP refs ptr’ >> gvs []
+    >> Cases_on ‘x’ >> gvs []
     >> drule_all state_ref_rel_sub
     >> strip_tac
     >> CASE_TAC
