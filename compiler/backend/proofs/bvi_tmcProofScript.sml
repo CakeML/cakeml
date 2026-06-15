@@ -969,6 +969,87 @@ Proof
   >> qexistsl [‘ptr’, ‘MutBlock tag l c r’] >> gvs [ref_rel_cases]
 QED
 
+Theorem do_build_v_rel:
+  ∀parts m i refs1 v refs1' f m' refs2.
+    do_build m i parts refs1 = (v, refs1') ∧ state_ref_rel f refs1 refs2 ∧
+    fmap_inj f ∧ (∀j. v_rel f (m j) (m' j)) ⇒
+    ∃f' v' refs2'.
+      do_build m' i parts refs2 = (v', refs2') ∧ v_rel f' v v' ∧
+      state_ref_rel f' refs1' refs2' ∧ fmap_inj f' ∧ f ⊑ f' ∧
+      only_fresh f f' refs2 ∧ holes_unchanged_except f refs2 refs2' ∅
+Proof
+  Induct_on ‘parts’ >> rw [bvlSemTheory.do_build_def]
+  >- (qexists ‘f’ >> gvs [only_fresh_refl, holes_unchanged_except_refl])
+  >> Cases_on ‘h’ >> gvs [bvlSemTheory.do_part_def]
+  >- (last_x_assum (qspecl_then [‘m⦇i↦Block n (MAP m l)⦈’,‘i+1’,‘refs1’,‘v’,
+        ‘refs1'’,‘f’,‘m'⦇i↦Block n (MAP m' l)⦈’,‘refs2’] mp_tac)
+      >> impl_tac
+      >- (rw [combinTheory.APPLY_UPDATE_THM] >> gvs []
+          >> simp [Once v_rel_cases] >> gvs [LIST_REL_EL_EQN, EL_MAP])
+      >> strip_tac >> qexists ‘f'’ >> gvs [])
+  >- (last_x_assum (qspecl_then [‘m⦇i↦Number i'⦈’,‘i+1’,‘refs1’,‘v’,
+        ‘refs1'’,‘f’,‘m'⦇i↦Number i'⦈’,‘refs2’] mp_tac)
+      >> impl_tac
+      >- (rw [combinTheory.APPLY_UPDATE_THM] >> gvs [] >> simp [Once v_rel_cases])
+      >> strip_tac >> qexists ‘f'’ >> gvs [])
+  >- (qabbrev_tac ‘src = LEAST ptr. ptr ∉ FDOM refs1’
+      >> qabbrev_tac ‘tgt = LEAST ptr. ptr ∉ FDOM refs2’
+      >> ‘src ∉ FDOM refs1’ by (unabbrev_all_tac >> simp [fresh_ptr_fresh])
+      >> ‘tgt ∉ FDOM refs2’ by (unabbrev_all_tac >> simp [fresh_ptr_fresh])
+      >> ‘tgt ∉ FRANGE f’ by
+           (unabbrev_all_tac >> irule fresh_not_in_range_f >> first_assum $ irule_at Any)
+      >> ‘FLOOKUP f src = NONE’ by gvs [FLOOKUP_DEF, state_ref_rel_def]
+      >> ‘f ⊑ f⟨src↦tgt⟩’ by simp [SUBMAP_FUPDATE_FLOOKUP]
+      >> last_x_assum (qspecl_then [‘m⦇i↦RefPtr T src⦈’,‘i+1’,
+           ‘refs1⟨src↦ByteArray T (MAP (n2w ∘ ORD) (explode m''))⟩’,‘v’,‘refs1'’,
+           ‘f⟨src↦tgt⟩’,‘m'⦇i↦RefPtr T tgt⦈’,
+           ‘refs2⟨tgt↦ByteArray T (MAP (n2w ∘ ORD) (explode m''))⟩’] mp_tac)
+      >> impl_tac
+      >- (rpt conj_tac >- gvs []
+          >- (irule state_ref_rel_alloc >> simp [ref_rel_cases] >> gvs [])
+          >- (irule fmap_inj_update >> gvs [])
+          >> rw [combinTheory.APPLY_UPDATE_THM]
+          >- simp [Once v_rel_cases, FLOOKUP_UPDATE]
+          >> irule v_rel_submap >> first_assum $ irule_at Any >> simp [])
+      >> strip_tac >> qexists ‘f'’
+      >> ‘only_fresh f f⟨src↦tgt⟩ refs2’ by
+           (rw [only_fresh_def]
+            >> gvs [FRANGE_FUPDATE, DOMSUB_NOT_IN_DOM, GSYM FLOOKUP_DEF,
+                    IN_FRANGE_FLOOKUP, DOMSUB_FLOOKUP_THM])
+      >> ‘holes_unchanged_except f refs2
+            (refs2⟨tgt↦ByteArray T (MAP (n2w ∘ ORD) (explode m''))⟩) ∅’ by
+           (rw [holes_unchanged_except_def, FLOOKUP_UPDATE] >> gvs []
+            >> rw [] >> gvs [FLOOKUP_DEF])
+      >> qexistsl [‘v'’,‘refs2'’] >> rpt conj_tac
+      >- gvs [] >- gvs [] >- gvs [] >- gvs []
+      >- (irule SUBMAP_TRANS >> first_assum $ irule_at Any >> gvs [])
+      >- (irule only_fresh_trans >> first_assum $ irule_at Any
+          >> first_assum $ irule_at Any >> gvs [SUBSET_DEF])
+      >> irule holes_unchanged_except_trans >> first_assum $ irule_at Any
+      >> first_assum $ irule_at Any >> gvs [])
+  >> (last_x_assum (qspecl_then [‘m⦇i↦Word64 c⦈’,‘i+1’,‘refs1’,‘v’,
+        ‘refs1'’,‘f’,‘m'⦇i↦Word64 c⦈’,‘refs2’] mp_tac)
+      >> impl_tac
+      >- (rw [combinTheory.APPLY_UPDATE_THM] >> gvs [] >> simp [Once v_rel_cases])
+      >> strip_tac >> qexists ‘f'’ >> gvs [])
+QED
+
+Theorem do_build_const_v_rel:
+  ∀l refs1 v refs1' f refs2.
+    do_build_const l refs1 = (v, refs1') ∧ state_ref_rel f refs1 refs2 ∧
+    fmap_inj f ⇒
+    ∃f' v' refs2'.
+      do_build_const l refs2 = (v', refs2') ∧ v_rel f' v v' ∧
+      state_ref_rel f' refs1' refs2' ∧ fmap_inj f' ∧ f ⊑ f' ∧
+      only_fresh f f' refs2 ∧ holes_unchanged_except f refs2 refs2' ∅
+Proof
+  rw [bvlSemTheory.do_build_const_def]
+  >> drule do_build_v_rel >> rpt (disch_then drule)
+  >> disch_then (qspec_then ‘λx. Number 0’ mp_tac)
+  >> impl_tac >- simp [Once v_rel_cases]
+  >> strip_tac >> rpt (first_assum $ irule_at Any)
+QED
+
 Theorem do_app_op_rel:
   ∀f op vs vs' s s' t v.
     do_app op vs s = Rval (v,t) ∧
@@ -1270,8 +1351,108 @@ Resume do_app_op_rel[FFI]:
   >> metis_tac []
 QED
 
+(* Structural block operations with a fresh, state-preserving result
+   (Cons, TagLenEq, LenEq, TagEq, LengthBlock, BoolTest, BoundsCheckBlock,
+   EqualConst on a Number/Word64). *)
+val block_simple_tac =
+  qexists ‘f’
+  >> rpt (qpat_x_assum ‘v_rel f _ _’ (strip_assume_tac o ONCE_REWRITE_RULE [v_rel_cases]))
+  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl]
+  >> imp_res_tac LIST_REL_LENGTH
+  >> gvs [bvlSemTheory.Boolv_def]
+  >> simp [Once v_rel_cases, bvlSemTheory.Boolv_def];
+
+(* ElemAt reading an element out of a Block value. *)
+val block_el_block_tac =
+  qexists ‘f’
+  >> qpat_x_assum ‘v_rel f (Block _ _) _’ (strip_assume_tac o ONCE_REWRITE_RULE [v_rel_cases])
+  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl]
+  >> qmatch_asmsub_rename_tac ‘LIST_REL (v_rel f) aa bb’
+  >> imp_res_tac LIST_REL_LENGTH >> gvs []
+  >> ‘v_rel f (EL n aa) (EL n bb)’ by gvs [LIST_REL_EL_EQN]
+  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl];
+
+(* ElemAt reading an element out of a ValueArray reference. *)
+val block_el_ref_tac =
+  qexists ‘f’
+  >> ‘state_ref_rel f s.refs s'.refs’ by gvs [state_rel_def]
+  >> qpat_x_assum ‘v_rel f (RefPtr _ _) _’ (strip_assume_tac o ONCE_REWRITE_RULE [v_rel_cases])
+  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl]
+  >> drule_all state_ref_rel_lookup >> strip_tac >> gvs [ref_rel_cases]
+  >> qmatch_asmsub_rename_tac ‘LIST_REL (v_rel f) aa bb’
+  >> imp_res_tac LIST_REL_LENGTH >> gvs []
+  >> ‘v_rel f (EL n aa) (EL n bb)’ by gvs [LIST_REL_EL_EQN]
+  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl];
+
+(* ConsExtend: result is an append of (a prefix of) two related blocks. *)
+val block_consextend_tac =
+  qexists ‘f’
+  >> qpat_x_assum ‘v_rel f (Block _ _) _’ (strip_assume_tac o ONCE_REWRITE_RULE [v_rel_cases])
+  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl]
+  >> rpt (qpat_x_assum ‘v_rel f (Number _) _’ (strip_assume_tac o ONCE_REWRITE_RULE [v_rel_cases]))
+  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl]
+  >> imp_res_tac LIST_REL_LENGTH >> gvs []
+  >> simp [Once v_rel_cases]
+  >> irule EVERY2_APPEND_suff >> conj_tac
+  >> ((irule EVERY2_TAKE >> irule EVERY2_DROP >> gvs []) ORELSE gvs []);
+
+(* FromList: convert a list value to a packed Block. *)
+val block_fromlist_tac =
+  qexists ‘f’
+  >> qpat_x_assum ‘v_rel f (Number _) _’ (strip_assume_tac o ONCE_REWRITE_RULE [v_rel_cases])
+  >> drule_all v_to_list_v_rel >> strip_tac
+  >> imp_res_tac LIST_REL_LENGTH
+  >> gvs [only_fresh_refl, holes_unchanged_except_refl]
+  >> simp [Once v_rel_cases];
+
+(* ListAppend: append two lists. *)
+val block_listappend_tac =
+  qexists ‘f’
+  >> imp_res_tac v_to_list_v_rel
+  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl]
+  >> irule list_to_v_v_rel >> irule EVERY2_APPEND_suff >> gvs [];
+
+(* Equal: structural equality preserved by the renaming (uses do_eq_v_rel). *)
+val block_equal_tac =
+  qexists ‘f’
+  >> ‘state_ref_rel f s.refs s'.refs’ by gvs [state_rel_def]
+  >> ‘fmap_inj f’ by gvs [state_rel_def]
+  >> qspecl_then [‘s.refs’,‘x1'’,‘x2'’,‘s'.refs’,‘y’,‘y'’] mp_tac (cj 1 do_eq_v_rel)
+  >> impl_tac >- gvs []
+  >> strip_tac
+  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl]
+  >> simp [Once v_rel_cases, bvlSemTheory.Boolv_def];
+
+(* EqualConst on a string constant (a compare-by-contents byte array). *)
+val block_equalconst_ba_tac =
+  qexists ‘f’
+  >> ‘state_ref_rel f s.refs s'.refs’ by gvs [state_rel_def]
+  >> qpat_x_assum ‘v_rel f (RefPtr _ _) _’ (strip_assume_tac o ONCE_REWRITE_RULE [v_rel_cases])
+  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl]
+  >> drule_all state_ref_rel_lookup >> strip_tac >> gvs [ref_rel_cases]
+  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl]
+  >> simp [Once v_rel_cases, bvlSemTheory.Boolv_def];
+
+(* Build: evaluate a constant, possibly allocating byte arrays for strings. *)
+val block_build_tac =
+  ‘state_ref_rel f s.refs s'.refs’ by gvs [state_rel_def]
+  >> ‘fmap_inj f’ by gvs [state_rel_def]
+  >> Cases_on ‘do_build_const l s.refs’ >> gvs []
+  >> drule_all do_build_const_v_rel >> strip_tac
+  >> simp [bvl_to_bvi_refs]
+  >> qexists ‘f'’ >> simp [bvl_to_bvi_refs]
+  >> gvs [state_rel_def]
+  >> gvs [OPTREL_def] >> imp_res_tac FLOOKUP_SUBMAP >> gvs [];
+
 Resume do_app_op_rel[BlockOp]:
-  cheat
+  Cases_on ‘b’
+  >> gvs [do_app_def, do_app_aux_def, AllCaseEqs (), bvlSemTheory.do_app_def,
+          no_mutcons_op_def]
+  >> FIRST [block_simple_tac >> NO_TAC, block_el_block_tac >> NO_TAC,
+            block_el_ref_tac >> NO_TAC, block_consextend_tac >> NO_TAC,
+            block_fromlist_tac >> NO_TAC, block_listappend_tac >> NO_TAC,
+            block_equal_tac >> NO_TAC, block_equalconst_ba_tac >> NO_TAC,
+            block_build_tac >> NO_TAC]
 QED
 
 Resume do_app_op_rel[Install]:
