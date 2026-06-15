@@ -57,13 +57,13 @@ End
 Definition finalise_cons_def:
   (finalise_cons (RefPtr b ptr) refs =
     case FLOOKUP refs ptr of
-    | SOME (MutBlock tag l c r) =>
+    | SOME (MutBlock tag finalised l c r) =>
         (case finalise_cons c (refs \\ ptr) of
-         | SOME c' => SOME (Block tag (l ++ [c'] ++ r))
+         | SOME (c',refs') => SOME (Block tag (l ++ [c'] ++ r),refs'⟨ptr ↦ MutBlock tag T l c r⟩)
          | NONE => NONE)
-    | SOME res => SOME (RefPtr b ptr)
+    | SOME res => SOME (RefPtr b ptr,refs)
     | NONE => NONE) ∧
-  (finalise_cons v refs = SOME v)
+  (finalise_cons v refs = SOME (v,refs))
 Termination
   wf_rel_tac ‘measure $ CARD o FDOM o SND’
   >> simp [finite_mapTheory.FDOM_DOMSUB, FLOOKUP_DEF]
@@ -147,17 +147,17 @@ Definition do_app_aux_def:
              let l = TAKE i xs in
              let c = EL i xs in
              let r = DROP (i+1) xs in
-             let b = MutBlock tag l c r in
+             let b = MutBlock tag F l c r in
                SOME (SOME (RefPtr F ptr, (s with refs := s.refs |+ (ptr,b)))))
     | (MemOp UpdateCons,[RefPtr _ ptr; Number i; x]) =>
         (case FLOOKUP s.refs ptr of
-         | SOME (MutBlock tag l c r) =>
-             if i ≠ & LENGTH l then NONE else
-               SOME (SOME (Unit, s with refs := s.refs |+ (ptr,MutBlock tag l x r)))
+         | SOME (MutBlock tag finalised l c r) =>
+             if i ≠ & LENGTH l ∨ finalised then NONE else
+               SOME (SOME (Unit, s with refs := s.refs |+ (ptr,MutBlock tag F l x r)))
          | _ => NONE)
     | (MemOp FinaliseCons,[x]) =>
         (case finalise_cons x s.refs of
-         | SOME v => SOME (SOME (v, s))
+         | SOME (v,refs') => SOME (SOME (v,s with refs := refs'))
          | NONE => NONE)
     | (GlobOp AllocGlobal, _) => NONE
     | (MemOp FromListByte, _) => NONE
