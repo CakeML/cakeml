@@ -1092,7 +1092,7 @@ Resume do_app_op_rel[GlobOp]:
     simp [bvlSemTheory.Unit_def])
 QED
 
-(*
+(* Allocating a fresh reference (Ref, RefByte, RefArray). *)
 val memop_create_tac =
   simp [bvl_to_bvi_refs]
   >> ‘state_ref_rel f s.refs s'.refs’ by gvs [state_rel_def]
@@ -1110,12 +1110,14 @@ val memop_create_tac =
                >> gvs [state_ref_rel_def, fresh_ptr_fresh])
       >> irule ref_rel_submap
       >> first_assum $ irule_at Any
-      >> unabbrev_all_tac >> simp [ref_rel_cases]
-      >> TRY (simp [LIST_REL_REPLICATE_same] >> rw [] >> simp [Once v_rel_cases]))
+      >> unabbrev_all_tac >> gvs [ref_rel_cases, LIST_REL_REPLICATE_same]
+      >> rw [] >> gvs [Once v_rel_cases])
   >> strip_tac
   >> qexists ‘f⟨(LEAST ptr. ptr ∉ FDOM s.refs) ↦ (LEAST ptr. ptr ∉ FDOM s'.refs)⟩’
   >> gvs [];
 
+(* Reading a reference without changing the state, returning a fresh value
+   (Length, LengthByte, DerefByte, BoundsCheckArray, BoundsCheckByte). *)
 val memop_read_tac =
   qexists ‘f’
   >> ‘state_ref_rel f s.refs s'.refs’ by gvs [state_rel_def]
@@ -1124,32 +1126,58 @@ val memop_read_tac =
   >> imp_res_tac LIST_REL_LENGTH >> gvs []
   >> simp [Once v_rel_cases, bvlSemTheory.Boolv_def];
 
-val memop_el_tac =
+(* Reading an element out of a ValueArray reference (El on a RefPtr). *)
+val memop_el_ref_tac =
   qexists ‘f’
   >> ‘state_ref_rel f s.refs s'.refs’ by gvs [state_rel_def]
-  >> TRY (drule_all state_ref_rel_lookup >> strip_tac >> gvs [ref_rel_cases])
-  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl, LIST_REL_EL_EQN]
-  >> qpat_x_assum ‘∀n. n < _ ⇒ v_rel _ _ _’ (qspec_then ‘Num i''’ mp_tac)
-  >> (impl_tac >- (gvs [] >> intLib.ARITH_TAC))
-  >> simp [Once v_rel_cases];
+  >> drule_all state_ref_rel_lookup >> strip_tac >> gvs [ref_rel_cases]
+  >> qmatch_asmsub_rename_tac ‘LIST_REL (v_rel f) xs ws’
+  >> imp_res_tac LIST_REL_LENGTH
+  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl]
+  >> ‘Num i'' < LENGTH xs’ by intLib.ARITH_TAC
+  >> ‘v_rel f (EL (Num i'') xs) (EL (Num i'') ws)’ by gvs [LIST_REL_EL_EQN]
+  >> pop_assum mp_tac >> simp [Once v_rel_cases];
 
-val memop_update_tac =
+(* Reading an element out of a Block (El on a Block). *)
+val memop_el_block_tac =
+  qexists ‘f’
+  >> imp_res_tac LIST_REL_LENGTH
+  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl]
+  >> ‘v_rel f (EL (Num i'') xs'') (EL (Num i'') ys)’ by gvs [LIST_REL_EL_EQN]
+  >> pop_assum mp_tac >> simp [Once v_rel_cases];
+
+(* Updating a ValueArray reference in place (Update). *)
+val memop_update_val_tac =
   qexists ‘f’
   >> ‘state_ref_rel f s.refs s'.refs’ by gvs [state_rel_def]
   >> ‘fmap_inj f’ by gvs [state_rel_def]
-  >> imp_res_tac state_ref_rel_lookup
-  >> gvs [ref_rel_cases]
+  >> qpat_assum ‘state_ref_rel f s.refs s'.refs’
+       (strip_assume_tac o REWRITE_RULE [state_ref_rel_def])
+  >> qpat_x_assum ‘FLOOKUP s.refs _ = SOME (ValueArray _)’ assume_tac
+  >> first_x_assum drule >> strip_tac >> gvs [ref_rel_cases]
   >> imp_res_tac LIST_REL_LENGTH
   >> simp [bvl_to_bvi_refs, only_fresh_refl, bvlSemTheory.Unit_def]
   >> rpt conj_tac
-  >> TRY (irule holes_unchanged_except_frange_update >> first_assum $ irule_at Any >> NO_TAC)
-  >> TRY intLib.ARITH_TAC
-  >> gvs [state_rel_def]
-  >> TRY (irule state_ref_rel_update >> simp [ref_rel_cases])
-  >> TRY (irule EVERY2_LUPDATE_same)
-  >> simp [Once v_rel_cases]
-  >> gvs [];
+  >> (intLib.ARITH_TAC
+      ORELSE (irule holes_unchanged_except_frange_update >> first_assum $ irule_at Any)
+      ORELSE (gvs [state_rel_def] >> irule state_ref_rel_update
+              >> simp [ref_rel_cases] >> irule EVERY2_LUPDATE_same
+              >> simp [Once v_rel_cases] >> gvs []));
 
+(* Updating a ByteArray reference in place (UpdateByte, CopyByte, XorByte).
+   The byte arrays are equal on both sides, so the operations agree. *)
+val memop_update_byte_tac =
+  qexists ‘f’
+  >> ‘state_ref_rel f s.refs s'.refs’ by gvs [state_rel_def]
+  >> ‘fmap_inj f’ by gvs [state_rel_def]
+  >> imp_res_tac state_ref_rel_lookup >> gvs [ref_rel_cases]
+  >> simp [bvl_to_bvi_refs, only_fresh_refl, bvlSemTheory.Unit_def]
+  >> rpt conj_tac
+  >> (intLib.ARITH_TAC
+      ORELSE (irule holes_unchanged_except_frange_update >> first_assum $ irule_at Any)
+      ORELSE (gvs [state_rel_def] >> irule state_ref_rel_update >> simp [ref_rel_cases]));
+
+(* Turning a stack of mutable conses into a Block (FinaliseCons). *)
 val memop_finalise_tac =
   qexists ‘f’
   >> simp [only_fresh_refl, holes_unchanged_except_refl]
@@ -1159,21 +1187,27 @@ val memop_finalise_tac =
   >> gvs [ref_rel_cases, bviSemTheory.finalise_cons_def]
   >> simp [Once v_rel_cases];
 
+(* Mutating the hole of a MutBlock (UpdateCons) cannot happen: state_ref_rel
+   never relates a MutBlock. *)
 val memop_mutblock_tac =
   ‘state_ref_rel f s.refs s'.refs’ by gvs [state_rel_def]
   >> drule_all no_mutblock >> simp [];
 
+(* ConfigGC returns Unit and leaves the state unchanged. *)
 val memop_configgc_tac =
   qexists ‘f’
   >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl,
           bvlSemTheory.Unit_def];
-*)
 
 Resume do_app_op_rel[MemOp]:
   Cases_on ‘m’
   >> gvs [do_app_def, do_app_aux_def, AllCaseEqs (), bvlSemTheory.do_app_def,
           no_mutcons_op_def, v_rel_cases]
-  >> cheat
+  >> FIRST [memop_mutblock_tac >> NO_TAC, memop_finalise_tac >> NO_TAC,
+            memop_create_tac >> NO_TAC, memop_update_val_tac >> NO_TAC,
+            memop_update_byte_tac >> NO_TAC, memop_el_ref_tac >> NO_TAC,
+            memop_el_block_tac >> NO_TAC, memop_read_tac >> NO_TAC,
+            memop_configgc_tac >> NO_TAC]
 QED
 
 Resume do_app_op_rel[ThunkOp]:
