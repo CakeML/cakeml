@@ -2812,14 +2812,13 @@ Proof
   simp[mk_var_def,Once term_type_def] >>
   strip_tac >> Cases_on`q`>>fs[] >>
   simp[Once st_ex_bind_def] >>
-  simp[Once mk_comb_def,type_of_def,st_ex_return_def,Once st_ex_bind_def] >>
   simp[Once st_ex_bind_def] >>
   simp[Once st_ex_bind_def] >>
   simp[Once st_ex_bind_def] >>
   simp[dest_type_def,st_ex_return_def] >>
   simp[Abbr`absty`] >>
   simp[Once st_ex_bind_def] >>
-  simp[Once mk_eq_def,try_def,otherwise_def,type_of_def,st_ex_return_def,Once st_ex_bind_def] >>
+  simp[Once safe_mk_eq_def,try_def,otherwise_def,type_of_def,st_ex_return_def,Once st_ex_bind_def] >>
   simp[Once st_ex_bind_def] >>
   simp[dest_type_def,st_ex_return_def] >>
   simp[Once st_ex_bind_def] >>
@@ -2884,7 +2883,7 @@ Proof
     rfs[] >> fs[] >>
     Cases_on`q`>>fs[] ) >>
   simp[Once st_ex_bind_def] >>
-  simp[Once mk_eq_def,try_def,otherwise_def,type_of_def,st_ex_return_def,Once st_ex_bind_def] >>
+  simp[Once safe_mk_eq_def,try_def,otherwise_def,type_of_def,st_ex_return_def,Once st_ex_bind_def] >>
   simp[Once st_ex_bind_def] >>
   simp[dest_type_def,st_ex_return_def] >>
   simp[Once st_ex_bind_def] >>
@@ -2903,7 +2902,7 @@ Proof
   simp[dest_type_def,st_ex_return_def] >>
   simp[Once st_ex_bind_def] >>
   simp[Once st_ex_bind_def] >>
-  simp[mk_eq_def,try_def,otherwise_def,Once type_of_def,Once st_ex_bind_def] >>
+  simp[safe_mk_eq_def,try_def,otherwise_def,Once type_of_def,Once st_ex_bind_def] >>
   simp[Once st_ex_bind_def] >>
   simp[Once st_ex_bind_def] >>
   `CONTEXT s2.the_context` by fs[STATE_def] >>
