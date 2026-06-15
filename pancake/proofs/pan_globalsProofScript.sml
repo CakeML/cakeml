@@ -194,6 +194,7 @@ Proof
   >~ [`panLang$Annot`] >- suspend "Annot"
   >~ [`panLang$Tick`] >- suspend "Tick"
   >~ [`panLang$Assign`] >- suspend "Assign"
+  >~ [`panLang$Primitive`] >- suspend "Primitive"
   >~ [`panLang$Dec`] >- suspend "Dec"
   >~ [`panLang$Store`] >- suspend "Store"
   >~ [`panLang$Store32`] >- suspend "Store32"
@@ -586,6 +587,28 @@ Resume compile_correct[Assign]:
   rw[] >>
   res_tac >>
   fs[]
+QED
+
+Resume compile_correct[Primitive]:
+  rpt strip_tac >>
+  gvs[evaluate_def,compile_def,AllCaseEqs(),kvar_defs] >>
+  rename1 ‘OPT_MMAP _ _ = SOME arg_vals’ >>
+  rename1 ‘pan_primop _ _ = SOME result_val’ >>
+  rename1 ‘FLOOKUP _ _ = SOME orig_val’ >>
+  simp[PULL_EXISTS] >>
+  qexistsl [`arg_vals`, `result_val`, `orig_val`] >>
+  `s.locals = t.locals` by gvs[state_rel_def] >>
+  conj_asm1_tac
+  >- (simp[OPT_MMAP_MAP_o] >>
+      irule EQ_TRANS >>
+      qpat_assum `OPT_MMAP _ _ = _` $ irule_at $ Pos last >>
+      irule OPT_MMAP_CONG >>
+      rw[] >>
+      drule_all pan_commonPropsTheory.opt_mmap_mem_func >>
+      strip_tac >>
+      drule compile_exp_correct >>
+      simp[state_rel_def]) >>
+  simp[] >> gvs[state_rel_def,good_res_def] >> rw[] >> res_tac >> fs[]
 QED
 
 Theorem state_rel_res_var[local]:
@@ -1760,7 +1783,12 @@ Proof
       PURE_TOP_CASE_TAC >> simp[] >>
       PURE_TOP_CASE_TAC >>
       rw[] >> gvs[empty_locals_def,UNCURRY_eq_pair] >>
-      gvs[set_var_def]) >>
+      gvs[set_var_def])
+  >~ [‘Primitive’]
+  >- (rw[evaluate_def,fperm_def,AllCaseEqs(),UNCURRY_eq_pair,
+         eval_upd_code_eq] >>
+      gvs[eval_upd_code_eta] >>
+      simp[set_var_def]) >>
   rw[evaluate_def,fperm_def,AllCaseEqs(),UNCURRY_eq_pair,
      eval_upd_code_eq] >>
   res_tac >>

@@ -6,7 +6,7 @@ Libs
   preamble helperLib
 Ancestors
   mllist ast wordLang wordSem wordProps tailrec mc_multiword
-  set_sep word_bignum
+  backend_common set_sep word_bignum
 
 val good_dimindex_def = miscTheory.good_dimindex_def;
 val env_to_list_lookup_equiv = wordPropsTheory.env_to_list_lookup_equiv;
@@ -874,7 +874,7 @@ Proof
     \\ Cases_on `n5` \\ fs []
     \\ fs [eval_ri_pre_def,eval_exp_pre_def]
     \\ imp_res_tac state_rel_IN_FDOM
-    \\ fs [lookup_insert]
+    \\ fs [lookup_insert, word_add_carry_def]
     \\ Q.MATCH_GOALSUB_ABBREV_TAC `(p9,t5)`
     \\ qexists_tac `t5` \\ unabbrev_all_tac \\ fs []
     \\ fs [lookup_insert]
@@ -913,7 +913,7 @@ Proof
     \\ Cases_on `n5` \\ fs []
     \\ fs [eval_ri_pre_def,eval_exp_pre_def]
     \\ imp_res_tac state_rel_IN_FDOM
-    \\ fs [lookup_insert]
+    \\ fs [lookup_insert, word_add_carry_def]
     \\ Q.MATCH_GOALSUB_ABBREV_TAC `(p9,t5)`
     \\ qexists_tac `t5` \\ unabbrev_all_tac \\ fs []
     \\ fs [lookup_insert]

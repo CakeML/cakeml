@@ -352,7 +352,7 @@ Resume compile_correct[Handle]:
   \\ fs []
   \\ fs [dest_pat_thm] \\ rveq \\ fs []
   \\ fs [flatSemTheory.evaluate_def,evaluate_def,
-         EVAL ``ALL_DISTINCT (pat_bindings (Pvar x) [])``,
+         EVAL ``ALL_DISTINCT (pat_bindings (Pvar x))``,
          EVAL ``pmatch e s' (Pvar x) v []``,pmatch_rows_def]
   \\ fs [pmatch_def, pat_bindings_def]
   \\ first_x_assum drule

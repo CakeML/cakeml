@@ -109,13 +109,13 @@ End
 
 Definition assign_def:
   assign dest (op, args, names_opt) s =
-    if op_requires_names op /\ IS_NONE names_opt then fail s else
-      case cut_state_opt names_opt s of
+    if op_requires_names op = IS_NONE names_opt then fail s else
+      case get_vars args s.locals of
       | NONE => fail s
-      | SOME s =>
-        case get_vars args s.locals of
+      | SOME xs =>
+        case cut_state_opt names_opt s of
         | NONE => fail s
-        | SOME xs =>
+        | SOME s =>
           case do_app op xs s of
           | Rerr e => (SOME (Rerr e), flush_state T (install_sfs op s))
           | Rval (v,s) => (NONE, set_var dest v (install_sfs op s))

@@ -193,6 +193,23 @@ Definition add_space_def:
             ; peak_heap_length := heap_peak k s |>
 End
 
+(* Args-aware variant: cost reflects op_args + non-arg locals as the
+   GC-root set, matching wordSem's view at the op's inner Alloc.
+   stack_to_vs already covers s.locals (which, when the dataLang
+   evaluator hands the state to do_app, is the NARROW cut without args). *)
+Definition size_of_heap_args_def:
+  size_of_heap_args op_args ^s =
+    let (n,_,_) = size_of s.limits (op_args ++ stack_to_vs ^s) ^s.refs LN in
+      n
+End
+
+Overload add_space_safe_args =
+  ``λk op_args ^s. s.safe_for_space
+                  ∧ size_of_heap_args op_args s + k <= s.limits.heap_limit``
+
+Overload heap_peak_args =
+  ``λk op_args ^s. MAX (s.peak_heap_length) (size_of_heap_args op_args s + k)``
+
 Definition consume_space_def:
   consume_space k ^s =
     if s.space < k then NONE else SOME (s with space := s.space - k)
@@ -380,12 +397,14 @@ End
 Overload do_space_safe =
   ``λop vs ^s. if op_space_reset op
               then s.safe_for_space
-                   ∧ size_of_heap s + space_consumed s op vs <= s.limits.heap_limit
+                   ∧ size_of_heap_args vs s
+                       + space_consumed s op vs
+                     <= s.limits.heap_limit
               else s.safe_for_space``;
 
 Overload do_space_peak =
   ``λop vs ^s. if op_space_reset op
-              then heap_peak (space_consumed s op vs) s
+              then heap_peak_args (space_consumed s op vs) vs s
               else s.peak_heap_length``;
 
 Definition do_space_def:
@@ -1265,16 +1284,19 @@ Definition evaluate_def:
      | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
      | SOME v => (NONE, set_var dest v s)) /\
   (evaluate (Assign dest op args names_opt,s) =
-     if op_requires_names op /\ IS_NONE names_opt then (SOME (Rerr(Rabort Rtype_error)),s) else
-     case cut_state_opt names_opt s of
-     | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
-     | SOME s =>
-       (case get_vars args s.locals of
-        | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
-        | SOME xs => (case do_app op xs s of
-                      | Rerr e => (SOME (Rerr e),flush_state T (install_sfs op s))
-                      | Rval (v,s) =>
-                        (NONE, set_var dest v (install_sfs op s))))) /\
+     if op_requires_names op = IS_NONE names_opt then
+       (SOME (Rerr(Rabort Rtype_error)),s)
+     else
+       case get_vars args s.locals of
+       | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
+       | SOME xs =>
+           case cut_state_opt names_opt s of
+           | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
+           | SOME s =>
+               case do_app op xs s of
+               | Rerr e => (SOME (Rerr e),flush_state T (install_sfs op s))
+               | Rval (v,s) =>
+                   (NONE, set_var dest v (install_sfs op s))) /\
   (evaluate (Tick,s) =
      if s.clock = 0 then (SOME (Rerr(Rabort Rtimeout_error)),flush_state T s)
                     else (NONE,dec_clock s)) /\

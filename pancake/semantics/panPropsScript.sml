@@ -164,6 +164,15 @@ Proof
   \\ fs []
 QED
 
+Theorem pan_primop_is_wf_shape_v:
+  !sctxt pop args value.
+    pan_primop pop args = SOME value ==> is_wf_shape_v sctxt value
+Proof
+  gen_tac \\ Cases
+  \\ rw [pan_primop_def, AllCaseEqs(), UNCURRY_EQ]
+  \\ simp [is_wf_shape_v_def]
+QED
+
 Theorem length_flatten_eq_size_of_shape:
   !v. is_wf_shape_nil (shape_of v) ==>
    LENGTH (flatten v) = size_of_shape (shape_of v)
@@ -1263,7 +1272,10 @@ Proof
         >> every_case_tac)
   >> imp_res_tac evaluate_structs_invariant
   >> imp_res_tac eval_is_wf_shape_v
-  >> gs [is_wf_shape_v_def, markerTheory.label_def, fevery_to_drestrict, FEVERY_FUPDATE, FEVERY_res_var_FLOOKUP]
+  >> imp_res_tac pan_primop_is_wf_shape_v
+  >> gs [is_wf_shape_v_def, markerTheory.label_def, set_var_def,
+       fevery_to_drestrict, FEVERY_FUPDATE, FEVERY_res_var_FLOOKUP]
+  >> metis_tac [pan_primop_is_wf_shape_v]
 QED
 
 Definition every_exp_def:
@@ -1307,6 +1319,7 @@ Definition exps_of_def:
   (exps_of (Return e) = [e]) ∧
   (exps_of (ExtCall _ e1 e2 e3 e4) = [e1;e2;e3;e4]) ∧
   (exps_of (Assign _ _ e) = [e]) ∧
+  (exps_of (Primitive _ _ es) = es) ∧
   (exps_of (ShMemLoad _ _ _ e) = [e]) ∧
   (exps_of (ShMemStore _ e1 e2) = [e1;e2]) ∧
   (exps_of _ = [])
@@ -1359,6 +1372,7 @@ Definition localised_prog_def:
    EVERY localised_exp args ∧ localised_prog p) ∧
   (localised_prog(Assign Local _ e) ⇔ localised_exp e) ∧
   (localised_prog(Assign Global _ _) ⇔ F) ∧
+  (localised_prog (Primitive _ _ es) ⇔ EVERY localised_exp es) ∧
   (localised_prog _ ⇔ T)
 End
 

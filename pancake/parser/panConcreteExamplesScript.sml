@@ -571,6 +571,23 @@ val opt_shape_dec =
 
 val opt_shape_dec_parse = check_success $ parse_pancake opt_shape_dec;
 
+(** __add_with_carry__ becomes AddCarry at the wordLang level.
+    It takes three word operands (left, right, carry-in) and produces a struct
+    of two words: (sum, carry-out). Non-zero values for carry-in are interpreted
+    as 1. Permitted positions are declaration RHS and assignment RHS;
+    standalone, handler-attached, and tail-return calls are not supported. *)
+val add_with_carry_ex = ‘
+  fun {1,1} f() {
+    var a = 1;
+    var b = 2;
+    var c = 0;
+    var {1,1} r = __add_with_carry__(a, b, c);
+    r = __add_with_carry__(a, b, c);
+    return r;
+  }’;
+
+val add_with_carry_parse = check_success $ parse_pancake add_with_carry_ex;
+
 (* Named struct *)
 val named_structs =
  ‘

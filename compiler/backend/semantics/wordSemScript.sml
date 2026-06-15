@@ -10,6 +10,7 @@ Ancestors
   ffi[qualified] (* for call_FFI *)
   lprefix_lub[qualified] (* for build_lprefix_lub *)
   machine_ieee[qualified] (* for FP *)
+  backend_common (* for word_add_carry *)
 
 Datatype:
   buffer =
@@ -737,9 +738,8 @@ Definition inst_def:
         (let vs = get_vars [r2;r3;r4] s in
         case vs of
         SOME [Word l;Word r;Word c] =>
-          let res = w2n l + w2n r + if c = (0w:'a word) then 0 else 1 in
-            SOME (set_var r4 (Word (if dimword(:'a) ≤ res then (1w:'a word) else 0w))
-                 (set_var r1 (Word (n2w res)) s))
+          let (res, co) = word_add_carry l r c in
+            SOME (set_var r4 (Word co) (set_var r1 (Word res) s))
         | _ => NONE)
     | Arith (AddOverflow r1 r2 r3 r4) =>
         (let vs = get_vars [r2;r3] s in
@@ -1312,7 +1312,7 @@ QED
 Theorem inst_clock[local]:
   inst i s = SOME s2 ==> s2.clock <= s.clock /\ s2.termdep = s.termdep
 Proof
-  Cases_on `i` \\ full_simp_tac(srw_ss())[inst_def,assign_def,get_vars_def,LET_THM]
+  Cases_on `i` \\ fs[inst_def,assign_def,get_vars_def,word_add_carry_def]
   \\ every_case_tac
   \\ SRW_TAC [] [set_var_def] \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[mem_store_def] \\ SRW_TAC [] []

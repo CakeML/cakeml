@@ -454,7 +454,7 @@ Definition continue_def:
   continue s v ((Cmat [] err_v, env) :: c) =
     Estep (env, s, Exn err_v, c) ∧
   continue s v ((Cmat ((p,e)::pes) err_v, env) :: c) = (
-    if ALL_DISTINCT (pat_bindings p []) then (
+    if ALL_DISTINCT (pat_bindings p) then (
       case pmatch env.c s p v [] of
         Match_type_error => Etype_error
       | No_match => Estep (env, s, Val v, (Cmat pes err_v, env)::c)
@@ -578,7 +578,7 @@ End
 
 Definition dstep_def:
   dstep benv st (Decl $ Dlet locs p e) c = (
-    if ALL_DISTINCT (pat_bindings p []) ∧
+    if ALL_DISTINCT (pat_bindings p) ∧
        every_exp (one_con_check (collapse_env benv c).c) e then
       dreturn st c (ExpVal (collapse_env benv c) (Exp e) [] locs p)
     else Dtype_error ) ∧
@@ -611,7 +611,7 @@ Definition dstep_def:
   dstep benv st (Env env) c = dcontinue env st c ∧
 
   dstep benv st (ExpVal env (Val v) [] locs p) c = (
-    if ALL_DISTINCT (pat_bindings p []) then
+    if ALL_DISTINCT (pat_bindings p) then
       case pmatch (collapse_env benv c).c st.refs p v [] of
       | Match new_vals =>
           dreturn st c (Env <| v := alist_to_ns new_vals; c := nsEmpty |>)

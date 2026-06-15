@@ -292,7 +292,7 @@ Definition compile_exp_def:
   (compile_match cfg [] = (0, F, [])) /\
   (compile_match cfg ((p, x)::ps) =
     let (i, sgx, y) = compile_exp cfg x in
-    let j = max_dec_name (pat_bindings p []) in
+    let j = max_dec_name (pat_bindings p) in
     let (k, sgp, ps2) = compile_match cfg ps in
     (MAX i (MAX j k), sgx \/ sgp, ((p, y) :: ps2)))
 End

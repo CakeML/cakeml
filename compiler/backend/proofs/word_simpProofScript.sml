@@ -955,6 +955,7 @@ Proof
     >- (* Arith *)
     (Cases_on `a` \\ fs [const_fp_inst_cs_def, inst_def, assign_def] \\
     every_case_tac \\ fs [] \\ rveq \\
+    rpt (pairarg_tac \\ gvs []) \\
     fs [get_var_def,set_var_def,lookup_insert,lookup_delete] \\
     metis_tac [cs_delete_if_set, cs_delete_if_set_x2])
     >- (* Mem *)

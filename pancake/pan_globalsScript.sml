@@ -66,14 +66,6 @@ Termination
   simp[]
 End
 
-Definition shape_val_def:
-  shape_val One = Const 0w ∧
-  shape_val (Comb shapes) = RStruct (shape_vals shapes) ∧
-  shape_val (Named nm) = Const 0w (* should never happen *) ∧
-  shape_vals [] = [] ∧
-  shape_vals (sh::shs) = shape_val sh :: shape_vals shs
-End
-
 Definition compile_def:
   (compile ctxt (Dec v s e p) =
    Dec v s (compile_exp ctxt e) (compile ctxt p)) ∧
@@ -84,6 +76,8 @@ Definition compile_def:
           NONE => Skip (* shouldn't happen *)
          | SOME (sh, addr) => Store (Op Sub [TopAddr; Const addr]) (compile_exp ctxt e))
     | _ => Assign Local v (compile_exp ctxt e))) ∧
+  (compile ctxt (Primitive v pop es) =
+   Primitive v pop (MAP (compile_exp ctxt) es)) ∧
   (compile ctxt (Store ad v) =
    Store (compile_exp ctxt ad) (compile_exp ctxt v)) ∧
   (compile ctxt (Store32 ad v) =

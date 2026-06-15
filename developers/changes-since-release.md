@@ -2,6 +2,8 @@ Changes since release v3304:
 
 ## Source language and front‑end
 
+`pat_bindings` and `pats_bindings` no longer take an accumulator argument (progress on #662).
+
 ## Basis library
 
 `TextIO.inputAllFrom` has been added to the basis library. The CF theorem for `TextIO.inputAll` has been corrected (#1375, #1366).
@@ -23,6 +25,26 @@ word_copy pass now additionally correctly propagates store-reg equality (#1385).
 WordLang now supports Loop, Break, Continue (#1389).
 
 ## Pancake
+
+### __add_with_carry__ now available
+
+It is now possible to use `__add_with_carry__(left, right, carry_in)`
+in user code, which is compiled to wordLang's `AddCarry`.
+Syntax example:
+
+    fun {1,1} f() {
+      var a = 1;
+      var b = 2;
+      var c = 0;
+      var {1,1} r = __add_with_carry__(a, b, c);
+      r = __add_with_carry__(a, b, c);
+      return r;
+    }
+
+Permitted positions for `__add_with_carry__` are declaration RHS and assignment RHS;
+standalone, handler-attached, and tail-return calls are not supported.
+
+### LoopLang
 
 LoopLang now supports multi-arg returns (#1391).
 

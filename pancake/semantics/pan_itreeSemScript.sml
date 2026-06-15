@@ -261,6 +261,19 @@ Definition h_prog_assign_def:
              | NONE => (SOME Error,s)))
 End
 
+Definition h_prog_primitive_def:
+  h_prog_primitive vname pop es ^s =
+   Ret (INR (case OPT_MMAP (eval s) es of
+             | SOME vs =>
+                 (case pan_primop pop vs of
+                  | SOME value =>
+                      if is_valid_value s Local vname value
+                      then (NONE, set_var vname value s)
+                      else (SOME Error, s)
+                  | NONE => (SOME Error, s))
+             | _ => (SOME Error, s)))
+End
+
 Definition h_prog_store_def:
   h_prog_store dst src ^s =
   Ret (INR (case (eval s dst,eval s src) of
@@ -543,6 +556,7 @@ Definition h_prog_def:
   (h_prog (Annot _ _,s) = Ret (INR (NONE,s))) ∧
   (h_prog (Dec vname sh e p,s) = h_prog_dec vname sh e p s) ∧
   (h_prog (Assign vk vname e,s) = h_prog_assign vk vname e s) ∧
+  (h_prog (Primitive vname pop es,s) = h_prog_primitive vname pop es s) ∧
   (h_prog (Store dst src,s) = h_prog_store dst src s) ∧
   (h_prog (Store32 dst src,s) = h_prog_store_32 dst src s) ∧
   (h_prog (StoreByte dst src,s) = h_prog_store_byte dst src s) ∧
@@ -580,6 +594,7 @@ End
 Theorem h_prog_simple_defs = LIST_CONJ [
     h_prog_def,
     h_prog_assign_def,
+    h_prog_primitive_def,
     h_prog_store_def,
     h_prog_store_32_def,
     h_prog_store_byte_def,
@@ -1126,6 +1141,21 @@ Proof
   rpt (CASE_TAC>>fs[])
 QED
 
+Theorem mrec_Primitive:
+  (mrec h_prog (h_prog (Primitive vname pop es, s)):'a ptree) =
+  Ret (INR (case OPT_MMAP (eval s) es of
+              SOME vs =>
+                (case pan_primop pop vs of
+                   SOME value =>
+                     if is_valid_value s Local vname value
+                     then (NONE, set_var vname value s)
+                     else (SOME Error, s)
+                 | NONE => (SOME Error, s))
+            | _ => (SOME Error, s)))
+Proof
+  simp[h_prog_primitive_def,h_prog_def]
+QED
+
 Theorem mrec_If:
   (mrec h_prog (h_prog (If e p q, s)):'a ptree) =
   case eval s e of
@@ -1354,7 +1384,7 @@ QED
 
 Theorem mrec_prog_simps =
   LIST_CONJ [mrec_prog_triv,mrec_Return,mrec_Raise,mrec_Dec,mrec_Assign,
-             mrec_Store,mrec_Store32,mrec_StoreByte];
+             mrec_Primitive,mrec_Store,mrec_Store32,mrec_StoreByte];
 
 Theorem mrec_Call:
  (mrec h_prog (h_prog (Call typ fname aexps,s)):'a ptree) =

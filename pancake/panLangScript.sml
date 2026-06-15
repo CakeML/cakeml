@@ -70,9 +70,15 @@ Datatype:
 End
 
 Datatype:
+  primop = AddCarry
+End
+
+Datatype:
   prog = Skip
        | Dec varname shape ('a exp) prog
        | Assign varkind varname ('a exp)  (* dest, source *)
+       | Primitive varname primop ('a exp list)
+         (* Primitives directly target constructs in wordLang. *)
        | Store     ('a exp) ('a exp) (* dest, source *)
        | Store32   ('a exp) ('a exp) (* dest, source *)
        | StoreByte ('a exp) ('a exp) (* dest, source *)
@@ -178,6 +184,14 @@ Definition shape_to_str_def:
             MAP (λx. strlit "," ^ x) (MAP shape_to_str xs) ++
             [strlit "}"]) ∧
   shape_to_str (Named nm) = nm
+End
+
+Definition shape_val_def:
+  shape_val One = Const 0w ∧
+  shape_val (Comb shapes) = RStruct (shape_vals shapes) ∧
+  shape_val (Named nm) = Const 0w (* should never happen *) ∧
+  shape_vals [] = [] ∧
+  shape_vals (sh::shs) = shape_val sh :: shape_vals shs
 End
 
 Theorem MEM_IMP_exp_size:
@@ -335,6 +349,8 @@ Definition free_var_ids_def:
    else
      var_exp e
   ) ∧
+  (free_var_ids (Primitive v pop es) =
+   v::FLAT (MAP var_exp es)) ∧
   (free_var_ids (Store e1 e2) = var_exp e1 ++ var_exp e2) ∧
   (free_var_ids (Store32 e1 e2) = var_exp e1 ++ var_exp e2) ∧
   (free_var_ids (StoreByte e1 e2) = var_exp e1 ++ var_exp e2) ∧

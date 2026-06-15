@@ -244,9 +244,9 @@ Proof
         old_drule (GEN_ALL env_rel_complete_bind) >>
         disch_then (qspec_then `tvs'` assume_tac) >>
         old_drule (GEN_ALL infer_pe_complete) >>
-        `ALL_DISTINCT (pat_bindings p [])` by
+        `ALL_DISTINCT (pat_bindings p)` by
           (imp_res_tac type_p_pat_bindings>>
-          `MAP FST bindings = pat_bindings p []` by
+          `MAP FST bindings = pat_bindings p` by
             (pop_assum sym_sub_tac>>
             simp[convert_env_def,MAP_MAP_o,MAP_EQ_f,FORALL_PROD])>>
           fs[])>>

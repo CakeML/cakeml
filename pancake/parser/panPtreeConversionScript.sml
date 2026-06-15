@@ -65,6 +65,10 @@ Definition argsNT_def:
     if FST nodeNT = INL ntm then SOME args else NONE
 End
 
+Definition is_add_with_carry_def:
+ is_add_with_carry s ⇔ s = «__add_with_carry__»
+End
+
 Definition conv_int_def:
   conv_int tree =
     case destTOK ' (destLf tree) of
@@ -647,7 +651,12 @@ Definition conv_Prog_def:
          [dec; p] =>
            do (s',i',e',args') <- conv_DecCall dec;
                p' <- conv_Prog p;
-               SOME $ add_locs_annot nd $ DecCall i' s' e' args' p'
+               if is_add_with_carry e'
+               then SOME $ add_locs_annot nd $
+                         Dec i' s' (shape_val s')
+                           (Seq (Primitive i' AddCarry args') p')
+               else SOME $ add_locs_annot nd $
+                         DecCall i' s' e' args' p'
            od
        | _ => NONE
      else if isNT nodeNT CallNT then
@@ -688,7 +697,15 @@ Definition conv_Prog_def:
                      do e' <- conv_ident e;
                         args' <- (case xs of [] => SOME []
                                           | args::_ => conv_ArgList args);
-                        SOME $ add_locs_annot nd $ panLang$Call (SOME r') e' args'
+                        if is_add_with_carry e' then
+                          (case r' of
+                           | (SOME (_, vn), NONE) =>
+                               SOME $ add_locs_annot nd $
+                                 Primitive vn AddCarry args'
+                           | _ => NONE)
+                        else
+                          SOME $ add_locs_annot nd $
+                            panLang$Call (SOME r') e' args'
                      od))
      else if isNT nodeNT ProgNT then
        case args of
@@ -845,6 +862,8 @@ Definition localise_prog_def:
   localise_prog ls (Assign varkind varname exp) =
   Assign (case lookup ls varname of NONE => varkind | SOME _ => Local)
          varname (localise_exp ls exp) ∧
+  localise_prog ls (Primitive varname pop exps) =
+  Primitive varname pop (MAP (localise_exp ls) exps) ∧
   localise_prog ls (Store exp1 exp2) =
   Store (localise_exp ls exp1)
         (localise_exp ls exp2) ∧
@@ -915,4 +934,3 @@ Definition parse_topdecs_to_ast_def:
            | INR err => INR err)
      | INR err => INR err)
 End
-

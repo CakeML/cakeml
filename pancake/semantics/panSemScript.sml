@@ -25,6 +25,24 @@ End
 
 Overload ValWord  = “\w. Val (Word w)”
 
+Definition isWord_def:
+  isWord (Word _) = T ∧
+  isWord _        = F
+End
+
+Definition theWord_def:
+  theWord (Word w) = w
+End
+
+Definition isValWord_def:
+  isValWord (ValWord _) = T ∧
+  isValWord _           = F
+End
+
+Definition theValWord_def:
+  theValWord (ValWord w) = w
+End
+
 Datatype:
   state =
     <| locals      : varname |-> 'a v
@@ -173,6 +191,19 @@ End
 Definition pan_op_def:
   pan_op Mul [w1:'a word;w2] = SOME(w1 * w2) ∧
   pan_op _ _ = NONE
+End
+
+Definition pan_primop_def:
+  pan_primop AddCarry args =
+  if LENGTH args = 3 ∧ EVERY isValWord args then
+    let
+      l  = theValWord (EL 0 args);
+      r  = theValWord (EL 1 args);
+      ci = theValWord (EL 2 args);
+      (res, co) = word_add_carry l r ci
+    in
+      SOME (RStruct [ValWord res; ValWord co])
+  else NONE
 End
 
 Definition eval_def:
@@ -539,6 +570,16 @@ Definition evaluate_def:
           (NONE, set_kvar vk v value s)
         else (SOME Error, s)
      | NONE => (SOME Error, s)) /\
+  (evaluate (Primitive v pop es,s) =
+    case (OPT_MMAP (eval s) es) of
+    | SOME vs =>
+      (case pan_primop pop vs of
+       | SOME value =>
+           if is_valid_value s Local v value
+           then (NONE, set_var v value s)
+           else (SOME Error, s)
+       | NONE => (SOME Error, s))
+    | _ => (SOME Error, s)) /\
   (evaluate (Store dst src,s) =
     case (eval s dst, eval s src) of
      | (SOME (ValWord addr), SOME value) =>
