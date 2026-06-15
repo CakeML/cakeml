@@ -3872,16 +3872,27 @@ Proof
     >> conj_tac
     >- gvs [state_ref_rel_def]
     >> conj_tac
-    >- (gvs [namespace_rel_def]
-        >> conj_tac
-        >- (strip_tac
-            >> strip_tac
-            >> gvs []
-            >> CASE_TAC
-            >- (cheat)
-            >> cheat
-           )
+    >-
+     (gvs [namespace_rel_def]
+      >> conj_tac
+      >-
+       (gen_tac
+        >> strip_tac
+        >> CASE_TAC
+        >-
+         (spose_not_then assume_tac
+          >> gvs [domain_lookup, lookup_fromAList, EVERY_FILTER]
+          >> imp_res_tac ALOOKUP_MEM
+          >> imp_res_tac EVERY_MEM
+          >> gvs [])
+        >> cheat
+       )
+      >> conj_tac
+      >-
+       (rw []
         >> cheat)
+      >> cheat
+      )
     >> rpt strip_tac
     >> pairarg_tac
     >> gvs []
@@ -3907,5 +3918,21 @@ Theorem compile_prog_semantics:
 Proof
   rw []
   >> gvs [semantics_def]
+  >> IF_CASES_TAC
+  >- gvs []
+  >> gvs []
+  >> DEEP_INTRO_TAC some_intro >> gvs []
+  >> conj_tac
+  >-
+   (gen_tac
+    >> strip_tac
+    >> gvs []
+    >> drule evaluate_compile_prog
+    >> rpt $ disch_then drule
+    >> impl_tac >- (spose_not_then assume_tac >> gvs [])
+    >> strip_tac >> gvs []
+    >> cheat)
+  >> strip_tac
+  >> gvs []
   >> cheat
 QED
