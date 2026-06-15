@@ -3020,6 +3020,42 @@ Proof
   >> gvs []
 QED
 
+Theorem bvi_to_cb_aux_no_mutcons:
+  ∀n loc tag args cb bs.
+    bvi_to_cb_aux n loc tag args = SOME (bs,cb) ∧
+    no_mutcons (Op (BlockOp (Cons tag)) args) ⇒
+    EVERY (λx. no_mutcons x) bs
+Proof
+  recInduct bvi_to_cb_aux_ind
+  >> rw []
+  >- gvs [bvi_to_cb_aux_def]
+  >- gvs [bvi_to_cb_aux_def, call_to_cb_def, AllCaseEqs ()]
+  >-
+   (Cases_on ‘op’ >> gvs [bvi_to_cb_aux_def, dest_Cons_def, AllCaseEqs ()]
+    >> Cases_on ‘b’ >> gvs [bvi_to_cb_aux_def, dest_Cons_def, AllCaseEqs ()])
+  >- gvs [bvi_to_cb_aux_def]
+  >- gvs [bvi_to_cb_aux_def]
+  >- gvs [bvi_to_cb_aux_def]
+  >- gvs [bvi_to_cb_aux_def]
+  >- gvs [bvi_to_cb_aux_def]
+  >- gvs [bvi_to_cb_aux_def]
+  >> gvs [bvi_to_cb_aux_def, AllCaseEqs ()]
+QED
+
+Theorem bvi_to_cb_no_mutcons:
+  ∀cb bs n loc x.
+    bvi_to_cb n loc x = SOME (bs,cb) ∧
+    no_mutcons x ⇒
+    EVERY (λx. no_mutcons x) bs
+Proof
+  rw []
+  >> reverse $ imp_res_tac bvi_to_cb_cases
+  >- gvs [bvi_to_cb_def, call_to_cb_def, CaseEq "prod"]
+  >> gvs [bvi_to_cb_def, dest_Cons_def, AllCaseEqs ()]
+  >> imp_res_tac bvi_to_cb_aux_no_mutcons
+  >> gvs []
+QED
+
 Resume evaluate_rewrite_tmc[call_block]:
   (* Phase 1 theorem in s *)
   drule_then drule evaluate_bvi_to_cb
@@ -3033,7 +3069,7 @@ Resume evaluate_rewrite_tmc[call_block]:
   >> impl_tac
   >- (imp_res_tac bvi_to_cb_size >> gvs [])
   >> imp_res_tac env_rel_relax_opt
-  >> ‘EVERY (λx. no_mutcons x) bs’ by cheat
+  >> imp_res_tac bvi_to_cb_no_mutcons
   >> rpt $ disch_then drule
   >> impl_tac
   >- (gvs [] >> spose_not_then assume_tac >> gvs [])
@@ -3086,7 +3122,6 @@ Resume evaluate_rewrite_tmc[call_block]:
   >> ntac 2 $ disch_then $ drule_at Any
   >> disch_then $ qspec_then ‘s.clock’ mp_tac
   >> impl_tac
-
   >-
    (irule_at Any wf_cb_expand
     >> imp_res_tac bvi_to_cb_wf
