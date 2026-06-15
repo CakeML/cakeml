@@ -1327,15 +1327,36 @@ Definition is_block_op_cons_def:
       op = BlockOp (Cons block_tag)
 End
 
-(*
-  This was copied from bvlPropsScript but I don't see it for bviPropsScript.
-  Consider putting it there.
-  Look for it elsewhere.
-*)
-Theorem evaluate_refs_SUBSET:
-  (evaluate (xs,env,s) = (res,t)) ==> FDOM s.refs SUBSET FDOM t.refs
+Theorem bvi_to_bvl_refs:
+   (bvl_to_bvi s t).refs = s.refs
 Proof
-  cheat
+  EVAL_TAC
+QED
+
+Theorem do_app_refs_SUBSET:
+  (do_app op a r = Rval (q,t)) ⇒ FDOM r.refs SUBSET FDOM t.refs
+Proof
+  strip_tac >> Cases_on ‘op’ >> gvs [do_app_def,do_app_aux_def,AllCaseEqs()]
+  >> imp_res_tac bvlPropsTheory.do_app_refs_SUBSET
+  >> gvs [bvi_to_bvl_refs]
+  >> gvs [SUBSET_INSERT_RIGHT]
+  >> Cases_on ‘a’ >> gvs [do_install_def, AllCaseEqs ()]
+  >> Cases_on ‘r.compile_oracle 0’
+  >> gvs [AllCaseEqs ()]
+QED
+
+Theorem evaluate_refs_SUBSET:
+  ∀xs env s r t.
+    (evaluate (xs,env,s) = (r,t)) ⇒ FDOM s.refs SUBSET FDOM t.refs
+Proof
+  recInduct evaluate_ind \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[evaluate_def]
+  \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[]
+  \\ REV_FULL_SIMP_TAC std_ss []
+  \\ IMP_RES_TAC SUBSET_TRANS
+  \\ full_simp_tac(srw_ss())[dec_clock_def] \\ full_simp_tac(srw_ss())[]
+  \\ IMP_RES_TAC do_app_refs_SUBSET \\ full_simp_tac(srw_ss())[SUBSET_DEF]
+  \\ rw [] \\ rpt (CASE_TAC \\ rw [])
+  \\ gvs [AllCaseEqs ()]
 QED
 
 Theorem list_rel_reverse:
