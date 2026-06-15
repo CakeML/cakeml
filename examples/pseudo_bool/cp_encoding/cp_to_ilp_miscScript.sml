@@ -112,8 +112,9 @@ Proof
       ‘dom (step n)’ by simp[Abbr‘step’]>>
       first_assum $ drule_then assume_tac>>
       fs[Abbr‘dom’]>>
-      ‘step (n - y + y) = step y ⇒ y = 0’ suffices_by
-        metis_tac[intLib.ARITH_PROVE“(y:num) < n ⇒ n - y + y = n”]>>
+      rename1‘step m = step n’>>
+      ‘step (n - m + m) = step m ⇒ m = 0’ suffices_by
+        metis_tac[intLib.ARITH_PROVE“(m:num) < n ⇒ n - m + m = n”]>>
       simp[Once MONO_NOT_EQ])>>
     CONJ_ASM1_TAC
     >-(
