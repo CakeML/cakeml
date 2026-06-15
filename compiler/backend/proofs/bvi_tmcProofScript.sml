@@ -2297,6 +2297,7 @@ Theorem code_rel_cases:
   ∀loc arity body1 c1 c2.
     lookup loc c1 = SOME (arity,body1) ∧
     code_rel c1 c2 ⇒
+    no_mutcons body1 ∧
     ∃loc_opt body2.
       lookup loc c2 = SOME (arity,body2) ∧
       (body1 ≠ body2 ⇒
@@ -2442,7 +2443,6 @@ Proof
       >> gvs [state_rel_def, only_fresh_refl, holes_unchanged_except_refl, opt_res_rel_def])
     >> gvs [CaseEq "prod"]
     >> ‘(v3,s'') = (r,t)’ by gvs [CaseEq "result", CaseEq "error_result"]
-    >> ‘no_mutcons exp’ by cheat
     >> rw []
     (* Untransformed *)
     >-
@@ -3776,6 +3776,7 @@ Theorem find_code_rel:
     find_code dest vs s.code = SOME (args,body) ∧
     LIST_REL (v_rel f) vs vs' ∧
     state_rel f s s' ⇒
+    no_mutcons body ∧
     ∃args' body' loc.
       find_code dest vs' s'.code = SOME (args',body') ∧
       env_rel F f args args' ∧
@@ -3785,13 +3786,16 @@ Theorem find_code_rel:
          optimised_code loc loc_opt s.code s'.code ∧
          rewrite_wrapper loc loc_opt (LENGTH args) body = SOME body')
 Proof
-  rw []
+  rpt gen_tac
+  >> strip_tac
   >> ‘code_rel s.code s'.code’ by gvs [state_rel_def]
   >> imp_res_tac code_rel_cases
   >> imp_res_tac LIST_REL_LENGTH
   >> Cases_on ‘dest’ >> gvs [bvlSemTheory.find_code_def]
   >-
    (gvs [CaseEq "v", CaseEq "option", CaseEq "prod"]
+    >> conj_tac
+    >- rpt $ first_x_assum $ irule_at Any
     >> Cases_on ‘LAST vs’ >> gvs []
     >> imp_res_tac list_rel_last
     >> Cases_on ‘LAST vs'’ >> gvs [v_rel_cases]
@@ -3816,6 +3820,8 @@ Proof
     >> gvs [])
   >> gvs [CaseEq "option", CaseEq "prod"]
   >> rename [‘lookup loc _ = _’]
+  >> conj_tac
+  >- rpt $ first_x_assum $ irule_at Any
   >> first_x_assum drule
   >> strip_tac
   >> first_assum $ irule_at Any
@@ -3896,7 +3902,6 @@ Resume evaluate_rewrite_tmc[call_non_opt]:
   >> drule state_rel_dec
   >> Cases_on ‘u.clock’
   >- gvs []
-  >> ‘no_mutcons exp’ by cheat
   >> gvs []
   >> disch_then $ qspec_then ‘ticks + 1’ mp_tac
   >> impl_tac
@@ -4237,7 +4242,6 @@ Resume evaluate_rewrite_tmc[force]:
   >> gvs []
   >> first_x_assum $ qspecl_then [‘[exp]’, ‘dec_clock 1 s’] mp_tac
   >> impl_tac >- gvs [dec_clock_def]
-  >> ‘no_mutcons exp’ by cheat
   >> asm_simp_tac std_ss [EVERY_DEF]
   >> rpt $ disch_then drule
   >> disch_then $ qspec_then ‘dec_clock 1 s'’ mp_tac
