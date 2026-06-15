@@ -52,11 +52,29 @@ Definition env_rel_def:
         backend_common$small_enough_int hole_idx)
 End
 
+Definition no_mutcons_op_def:
+  no_mutcons_op op ⇔ ∀tag i. op ≠ MemOp (MutCons tag i)
+End
+
+Definition no_mutcons_def[simp]:
+  (no_mutcons (Var n) ⇔ T) ∧
+  (no_mutcons (If x1 x2 x3) ⇔ no_mutcons x1 ∧ no_mutcons x2 ∧ no_mutcons x3) ∧
+  (no_mutcons (Let xs x) ⇔ EVERY no_mutcons xs ∧ no_mutcons x) ∧
+  (no_mutcons (Raise x) ⇔ no_mutcons x) ∧
+  (no_mutcons (Tick x) ⇔ no_mutcons x) ∧
+  (no_mutcons (Call ticks dest xs handler) ⇔
+     EVERY no_mutcons xs ∧ (case handler of NONE => T | SOME x => no_mutcons x)) ∧
+  (no_mutcons (Force loc n) ⇔ T) ∧
+  (no_mutcons (Op op xs) ⇔ no_mutcons_op op ∧ EVERY no_mutcons xs)
+Termination
+  WF_REL_TAC ‘measure exp_size’
+End
+
 Definition code_rel_def:
   code_rel c1 c2 ⇔
     ∀loc arity exp.
       lookup loc c1 = SOME (arity, exp) ⇒
-      (* No mutblock property *)
+      no_mutcons exp ∧
       ∃n.
         (compile_exp loc n arity exp = NONE ⇒
          lookup loc c2 = SOME (arity, exp)) ∧
@@ -70,7 +88,7 @@ Theorem code_rel_domain:
    ∀c1 c2.
      code_rel c1 c2 ⇒ domain c1 ⊆ domain c2
 Proof
-  simp [code_rel_def, SUBSET_DEF]
+  rw [code_rel_def, SUBSET_DEF]
   >> CCONTR_TAC >> fs []
   >> Cases_on `lookup x c1`
   >- fs [lookup_NONE_domain]
@@ -79,9 +97,10 @@ Proof
   >> PairCases_on `z`
   >> rename [‘lookup x c1 = SOME (arity,exp)’]
   >> first_x_assum drule
+  >> strip_tac >> pop_assum mp_tac
   >> fs [compile_exp_def]
-  >> strip_tac
-  >> CASE_TAC
+  >> rpt strip_tac
+  >> CASE_TAC >> fs []
 QED
 
 Definition free_names_def:
@@ -99,6 +118,7 @@ End
 Definition input_condition_def:
   input_condition next prog ⇔
     EVERY (free_names next o FST) prog ∧
+    EVERY (no_mutcons o SND o SND) prog ∧
     ALL_DISTINCT (MAP FST prog) ∧
     EVERY ($~ o in_ns_2 o FST) (FILTER ((<=) bvl_num_stubs o FST) prog) ∧
     bvl_num_stubs ≤ next ∧ in_ns_2 next
@@ -942,9 +962,18 @@ Proof
   >> gvs [AllCaseEqs (), v_rel_cases, bvlSemTheory.Boolv_def]
 QED
 
+Theorem no_mutblock:
+  ∀f refs t_refs ptr tag l c r.
+    state_ref_rel f refs t_refs ∧ FLOOKUP refs ptr = SOME (MutBlock tag l c r) ⇒ F
+Proof
+  rw [] >> fs [state_ref_rel_def] >> rw []
+  >> qexistsl [‘ptr’, ‘MutBlock tag l c r’] >> gvs [ref_rel_cases]
+QED
+
 Theorem do_app_op_rel:
   ∀f op vs vs' s s' t v.
     do_app op vs s = Rval (v,t) ∧
+    no_mutcons_op op ∧
     LIST_REL (v_rel f) vs vs' ∧
     state_rel f s s' ⇒
     ∃f' v' t'.
@@ -1064,8 +1093,88 @@ Resume do_app_op_rel[GlobOp]:
     simp [bvlSemTheory.Unit_def])
 QED
 
+(*
+val memop_create_tac =
+  simp [bvl_to_bvi_refs]
+  >> ‘state_ref_rel f s.refs s'.refs’ by gvs [state_rel_def]
+  >> qmatch_goalsub_abbrev_tac ‘s.refs⟨_ ↦ rv⟩’
+  >> qmatch_goalsub_abbrev_tac ‘s'.refs⟨_ ↦ rw⟩’
+  >> drule state_rel_alloc
+  >> disch_then $ qspecl_then
+       [‘LEAST ptr. ptr ∉ FDOM s.refs’, ‘LEAST ptr. ptr ∉ FDOM s'.refs’,
+        ‘rv’, ‘rw’] mp_tac
+  >> impl_tac
+  >- (simp [fresh_ptr_fresh]
+      >> conj_tac >- (irule fresh_not_in_range_f >> first_assum $ irule_at Any)
+      >> ‘f ⊑ f⟨(LEAST ptr. ptr ∉ FDOM s.refs) ↦ (LEAST ptr. ptr ∉ FDOM s'.refs)⟩’
+           by (simp [SUBMAP_FUPDATE_FLOOKUP, FLOOKUP_DEF]
+               >> gvs [state_ref_rel_def, fresh_ptr_fresh])
+      >> irule ref_rel_submap
+      >> first_assum $ irule_at Any
+      >> unabbrev_all_tac >> simp [ref_rel_cases]
+      >> TRY (simp [LIST_REL_REPLICATE_same] >> rw [] >> simp [Once v_rel_cases]))
+  >> strip_tac
+  >> qexists ‘f⟨(LEAST ptr. ptr ∉ FDOM s.refs) ↦ (LEAST ptr. ptr ∉ FDOM s'.refs)⟩’
+  >> gvs [];
+
+val memop_read_tac =
+  qexists ‘f’
+  >> ‘state_ref_rel f s.refs s'.refs’ by gvs [state_rel_def]
+  >> drule_all state_ref_rel_lookup >> strip_tac
+  >> gvs [ref_rel_cases, bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl]
+  >> imp_res_tac LIST_REL_LENGTH >> gvs []
+  >> simp [Once v_rel_cases, bvlSemTheory.Boolv_def];
+
+val memop_el_tac =
+  qexists ‘f’
+  >> ‘state_ref_rel f s.refs s'.refs’ by gvs [state_rel_def]
+  >> TRY (drule_all state_ref_rel_lookup >> strip_tac >> gvs [ref_rel_cases])
+  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl, LIST_REL_EL_EQN]
+  >> qpat_x_assum ‘∀n. n < _ ⇒ v_rel _ _ _’ (qspec_then ‘Num i''’ mp_tac)
+  >> (impl_tac >- (gvs [] >> intLib.ARITH_TAC))
+  >> simp [Once v_rel_cases];
+
+val memop_update_tac =
+  qexists ‘f’
+  >> ‘state_ref_rel f s.refs s'.refs’ by gvs [state_rel_def]
+  >> ‘fmap_inj f’ by gvs [state_rel_def]
+  >> imp_res_tac state_ref_rel_lookup
+  >> gvs [ref_rel_cases]
+  >> imp_res_tac LIST_REL_LENGTH
+  >> simp [bvl_to_bvi_refs, only_fresh_refl, bvlSemTheory.Unit_def]
+  >> rpt conj_tac
+  >> TRY (irule holes_unchanged_except_frange_update >> first_assum $ irule_at Any >> NO_TAC)
+  >> TRY intLib.ARITH_TAC
+  >> gvs [state_rel_def]
+  >> TRY (irule state_ref_rel_update >> simp [ref_rel_cases])
+  >> TRY (irule EVERY2_LUPDATE_same)
+  >> simp [Once v_rel_cases]
+  >> gvs [];
+
+val memop_finalise_tac =
+  qexists ‘f’
+  >> simp [only_fresh_refl, holes_unchanged_except_refl]
+  >> ‘state_ref_rel f s.refs s'.refs’ by gvs [state_rel_def]
+  >> gvs [bviSemTheory.finalise_cons_def, AllCaseEqs ()]
+  >> imp_res_tac state_ref_rel_lookup
+  >> gvs [ref_rel_cases, bviSemTheory.finalise_cons_def]
+  >> simp [Once v_rel_cases];
+
+val memop_mutblock_tac =
+  ‘state_ref_rel f s.refs s'.refs’ by gvs [state_rel_def]
+  >> drule_all no_mutblock >> simp [];
+
+val memop_configgc_tac =
+  qexists ‘f’
+  >> gvs [bvl_to_bvi_id, only_fresh_refl, holes_unchanged_except_refl,
+          bvlSemTheory.Unit_def];
+*)
+
 Resume do_app_op_rel[MemOp]:
-  cheat
+  Cases_on ‘m’
+  >> gvs [do_app_def, do_app_aux_def, AllCaseEqs (), bvlSemTheory.do_app_def,
+          no_mutcons_op_def, v_rel_cases]
+  >> cheat
 QED
 
 Resume do_app_op_rel[ThunkOp]:
@@ -1865,7 +1974,7 @@ Theorem evaluate_rewrite_tmc:
   ∀n xs ^s env1 r t opt f s' env2 loc.
     evaluate (xs,env1,s) = (r,t) ∧
     n = (s.clock, list_size exp_size xs) ∧
-    env_rel opt f env1 env2 ∧
+    env_rel opt f env1 env2 ∧ EVERY (λx. no_mutcons x) xs ∧
     state_rel f s s' ∧
     (opt ⇒ LENGTH xs = 1) ∧
     r ≠ Rerr (Rabort Rtype_error) ⇒
@@ -2019,7 +2128,8 @@ Definition hypothesis_def:
   s''.clock < clock ⇒
   ∀env1' r' t' opt' f' s'³' env2' loc'.
             evaluate (xs',env1',s'') = (r',t') ∧
-            env_rel opt' f' env1' env2' ∧ state_rel f' s'' s'³' ∧
+            env_rel opt' f' env1' env2' ∧ EVERY (λx. no_mutcons x) xs' ∧
+            state_rel f' s'' s'³' ∧
             (opt' ⇒ LENGTH xs' = 1) ∧
             r' ≠ Rerr (Rabort Rtype_error) ⇒
             ∃t'' f'' r''.
@@ -2332,6 +2442,7 @@ Proof
       >> gvs [state_rel_def, only_fresh_refl, holes_unchanged_except_refl, opt_res_rel_def])
     >> gvs [CaseEq "prod"]
     >> ‘(v3,s'') = (r,t)’ by gvs [CaseEq "result", CaseEq "error_result"]
+    >> ‘no_mutcons exp’ by cheat
     >> rw []
     (* Untransformed *)
     >-
@@ -2339,6 +2450,7 @@ Proof
       >> first_x_assum $ qspecl_then [‘[exp]’, ‘dec_clock (ts + 1) s’] mp_tac
       >> impl_tac >- gvs [dec_clock_def]
       >> imp_res_tac wf_vars_env_rel
+      >> simp []
       >> rpt $ disch_then drule
       >> ‘state_rel f (dec_clock (ts + 1) s) (dec_clock (ts + 1) s')’ by
         (irule state_rel_dec
@@ -2921,6 +3033,7 @@ Resume evaluate_rewrite_tmc[call_block]:
   >> impl_tac
   >- (imp_res_tac bvi_to_cb_size >> gvs [])
   >> imp_res_tac env_rel_relax_opt
+  >> ‘EVERY (λx. no_mutcons x) bs’ by cheat
   >> rpt $ disch_then drule
   >> impl_tac
   >- (gvs [] >> spose_not_then assume_tac >> gvs [])
@@ -2973,12 +3086,14 @@ Resume evaluate_rewrite_tmc[call_block]:
   >> ntac 2 $ disch_then $ drule_at Any
   >> disch_then $ qspec_then ‘s.clock’ mp_tac
   >> impl_tac
+
   >-
    (irule_at Any wf_cb_expand
     >> imp_res_tac bvi_to_cb_wf
     >> first_assum $ irule_at Any
     >> imp_res_tac evaluate_IMP_LENGTH
     >> imp_res_tac evaluate_clock
+    >> gvs [LENGTH_APPEND]
     >> gvs [hypothesis_def, LENGTH_APPEND])
   >> strip_tac
   >> gvs []
@@ -3103,6 +3218,7 @@ Resume evaluate_rewrite_tmc[list]:
   >> first_assum $ qspecl_then [‘[x]’, ‘s’, ‘env’] mp_tac
   >> impl_tac
   >- gvs []
+  >> asm_simp_tac std_ss [EVERY_DEF]
   >> rpt $ disch_then drule
   >> impl_tac
   >- (spose_not_then assume_tac >> fs [])
@@ -3124,6 +3240,7 @@ Resume evaluate_rewrite_tmc[list]:
   >> impl_tac
   >- (imp_res_tac evaluate_clock >> gvs [])
   >> imp_res_tac env_rel_submap
+  >> asm_simp_tac std_ss [EVERY_DEF]
   >> rpt $ disch_then drule
   >> impl_tac
   >- gvs [CaseEq "result"]
@@ -3190,6 +3307,7 @@ Resume evaluate_rewrite_tmc[if]:
   >> first_assum $ qspecl_then [‘[x1]’, ‘s’] mp_tac
   >> impl_tac >- gvs []
   >> imp_res_tac env_rel_relax_opt
+  >> asm_simp_tac std_ss [EVERY_DEF]
   >> rpt $ disch_then drule
   >> impl_tac >- gvs [CaseEq "result"]
   >> disch_then $ qspec_then ‘loc’ mp_tac
@@ -3211,6 +3329,7 @@ Resume evaluate_rewrite_tmc[if]:
       >> impl_tac >- (imp_res_tac evaluate_clock >> gvs [])
       >> qpat_x_assum ‘env_rel F _ _ _’ kall_tac
       >> imp_res_tac env_rel_submap
+      >> asm_simp_tac std_ss [EVERY_DEF]
       >> rpt $ disch_then drule
       >> disch_then $ qspec_then ‘loc’ mp_tac
       >> impl_tac >- gvs []
@@ -3311,6 +3430,7 @@ Resume evaluate_rewrite_tmc[if]:
     >> impl_tac >- (imp_res_tac evaluate_clock >> gvs [])
     >> qpat_x_assum ‘env_rel F _ _ _’ kall_tac
     >> imp_res_tac env_rel_submap
+    >> asm_simp_tac std_ss [EVERY_DEF]
     >> rpt $ disch_then drule
     >> disch_then $ qspec_then ‘loc’ mp_tac
     >> impl_tac >- gvs []
@@ -3437,6 +3557,7 @@ Resume evaluate_rewrite_tmc[lett]:
   >> impl_tac
   >- (imp_res_tac evaluate_clock >> gvs [])
   >> imp_res_tac env_rel_relax_opt
+  >> asm_simp_tac std_ss [EVERY_DEF]
   >> rpt $ disch_then drule
   >> disch_then $ qspec_then ‘loc’ mp_tac
   >> impl_tac
@@ -3469,6 +3590,7 @@ Resume evaluate_rewrite_tmc[lett]:
   >- (imp_res_tac evaluate_clock >> gvs [])
   >> imp_res_tac env_rel_submap
   >> imp_res_tac env_rel_append
+  >> asm_simp_tac std_ss [EVERY_DEF]
   >> rpt $ disch_then drule
   >> disch_then $ qspec_then ‘loc’ mp_tac
   >> impl_tac
@@ -3565,6 +3687,7 @@ Resume evaluate_rewrite_tmc[raise]:
   >> first_x_assum $ qspecl_then [‘[x]’, ‘s’, ‘env’] mp_tac
   >> impl_tac
   >- gvs []
+  >> asm_simp_tac std_ss [EVERY_DEF]
   >> rpt $ disch_then drule
   >> disch_then $ qspec_then ‘loc’ mp_tac
   >> gvs []
@@ -3617,6 +3740,7 @@ Resume evaluate_rewrite_tmc[tick]:
   >> gvs [GSYM PULL_FORALL]
   >> first_x_assum $ qspecl_then [‘[x]’, ‘dec_clock 1 s’] mp_tac
   >> impl_tac >- gvs [dec_clock_def]
+  >> asm_simp_tac std_ss [EVERY_DEF]
   >> rpt $ disch_then drule
   >> drule state_rel_dec
   >> rpt $ disch_then drule
@@ -3714,6 +3838,7 @@ Resume evaluate_rewrite_tmc[call_non_opt]:
   >> impl_tac
   >- gvs []
   >> imp_res_tac env_rel_relax_opt
+  >> asm_simp_tac std_ss [EVERY_DEF]
   >> rpt $ disch_then drule
   >> pop_assum kall_tac
   >> impl_tac
@@ -3771,6 +3896,7 @@ Resume evaluate_rewrite_tmc[call_non_opt]:
   >> drule state_rel_dec
   >> Cases_on ‘u.clock’
   >- gvs []
+  >> ‘no_mutcons exp’ by cheat
   >> gvs []
   >> disch_then $ qspec_then ‘ticks + 1’ mp_tac
   >> impl_tac
@@ -3846,6 +3972,7 @@ Resume evaluate_rewrite_tmc[call_non_opt]:
     >> ‘env_rel opt f'' (v_raise::env) (v_raise'::env2)’ by
       (imp_res_tac env_rel_submap
        >> imp_res_tac env_rel_cons)
+    >> asm_simp_tac std_ss [EVERY_DEF]
     >> rpt $ disch_then drule
     >> impl_tac
     >- gvs [CaseEq "prod"]
@@ -3960,6 +4087,7 @@ Resume evaluate_rewrite_tmc[call_non_opt]:
   >> ‘env_rel opt f_wrap (v_raise::env) (v_raise'::env2)’ by
     (imp_res_tac env_rel_submap
      >> imp_res_tac env_rel_cons)
+  >> asm_simp_tac std_ss [EVERY_DEF]
   >> rpt $ disch_then drule
   >> impl_tac
   >- gvs [CaseEq "prod"]
@@ -4088,6 +4216,7 @@ Resume evaluate_rewrite_tmc[force]:
      >> Cases_on ‘n''’
      >- gvs []
      >> gvs [])
+  >> asm_simp_tac std_ss [EVERY_DEF]
   >> rpt $ disch_then drule
   >> strip_tac
   >> gvs []
@@ -4108,6 +4237,8 @@ Resume evaluate_rewrite_tmc[force]:
   >> gvs []
   >> first_x_assum $ qspecl_then [‘[exp]’, ‘dec_clock 1 s’] mp_tac
   >> impl_tac >- gvs [dec_clock_def]
+  >> ‘no_mutcons exp’ by cheat
+  >> asm_simp_tac std_ss [EVERY_DEF]
   >> rpt $ disch_then drule
   >> disch_then $ qspec_then ‘dec_clock 1 s'’ mp_tac
   >> impl_tac >- gvs [dec_clock_def, state_rel_def]
@@ -4140,7 +4271,7 @@ Resume evaluate_rewrite_tmc[force]:
   >> gvs [evaluate_def]
 QED
 
-Finalise evaluate_rewrite_tmc
+Finalise evaluate_rewrite_tmc;
 
 Theorem evaluate_compile_prog:
    input_condition next prog ∧
@@ -4204,7 +4335,7 @@ Proof
   >> drule evaluate_rewrite_tmc
   >> rpt $ disch_then $ drule_at Any
   >> disch_then $ qspecl_then [‘(st1.clock,list_size exp_size es)’, ‘start’] mp_tac
-  >> impl_tac >- gvs []
+  >> impl_tac >- gvs [Abbr‘es’]
   >> strip_tac
   >> rpt $ first_assum $ irule_at Any
 QED
