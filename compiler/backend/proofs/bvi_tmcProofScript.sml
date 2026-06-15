@@ -171,7 +171,6 @@ Definition state_rel_def:
     fmap_inj f
 End
 
-(* Copied - not used currently *)
 Theorem compile_prog_code_rel:
    compile_prog next prog = (next1, prog2) ∧
    ALL_DISTINCT (MAP FST prog) ∧
@@ -4333,6 +4332,70 @@ QED
 
 Finalise evaluate_rewrite_tmc;
 
+
+Theorem compile_prog_next_mono:
+   ∀n xs n1 ys. compile_prog n xs = (n1,ys) ⇒ ∃k. n1 = n + bvl_to_bvi_namespaces * k
+Proof
+  recInduct compile_prog_ind
+  \\ rw[compile_prog_def]
+  \\ rpt(pairarg_tac \\ fs[bvlPropsTheory.case_eq_thms])
+  \\ rveq \\ fs[]
+  \\ TRY(qexists_tac`0` \\ simp[] \\ NO_TAC)
+  \\ TRY(qexists_tac`k` \\ simp[] \\ NO_TAC)
+  \\ TRY(qexists_tac`k+1` \\ simp[] \\ NO_TAC)
+QED
+
+Theorem compile_prog_MEM:
+   compile_prog n xs = (n1,ys) /\ MEM e (MAP FST ys) ==>
+   MEM e (MAP FST xs) \/ (n <= e /\ e < n1 /\ (∃k. e = n + k * bvl_to_bvi_namespaces))
+Proof
+  qspec_tac (`e`,`e`)
+  \\ qspec_tac (`n1`,`n1`)
+  \\ qspec_tac (`ys`,`ys`)
+  \\ qspec_tac (`n`,`n`)
+  \\ qspec_tac (`xs`,`xs`)
+  \\ Induct
+  >- fs [compile_prog_def]
+  \\ gen_tac
+  \\ PairCases_on `h`
+  \\ rename1 `(name, arity, exp)`
+  \\ simp [compile_prog_def]
+  \\ rpt gen_tac
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ PURE_CASE_TAC \\ fs []
+  \\ TRY (PURE_CASE_TAC \\ fs [])
+  \\ fs [MEM_MAP, PULL_EXISTS, FORALL_PROD]
+  \\ rpt strip_tac \\ rveq \\ fs []
+  \\ TRY (metis_tac [])
+  \\ rveq
+  \\ imp_res_tac compile_prog_next_mono \\ fs[]
+  \\ first_x_assum drule
+  \\ TRY (simp[backend_commonTheory.bvl_to_bvi_namespaces_def] \\
+    rw[] \\ rpt disj2_tac \\ qexists_tac`0` \\ simp[] \\ NO_TAC)
+  \\ disch_then drule
+  \\ strip_tac
+  >- metis_tac []
+  \\ fs []
+  \\ rpt disj2_tac
+  \\ qexists_tac`k'' + 1` \\ simp[]
+QED
+
+Theorem compile_prog_namespace_rel:
+   compile_prog next prog = (next1,prog2) ∧ in_ns_2 next ∧ bvl_num_stubs ≤ next ∧
+   EVERY ($~ o in_ns_2 o FST) (FILTER ((<=) bvl_num_stubs o FST) prog) ⇒
+   namespace_rel (fromAList prog) (fromAList prog2)
+Proof
+  rw[namespace_rel_def,EVERY_MEM,domain_fromAList,MEM_MAP,PULL_EXISTS,MEM_FILTER] \\
+  imp_res_tac compile_prog_MEM \\
+  fs[MEM_MAP,PULL_EXISTS]
+  \\ res_tac \\ fs[]
+  \\ fs[backend_commonTheory.bvl_to_bvi_namespaces_def]
+  \\ CCONTR_TAC \\ fs[]
+  \\ qpat_x_assum`FST _ = _`(assume_tac o SYM) \\ fs[]
+  \\ last_x_assum drule
+  \\ rpt(qpat_x_assum`_ + _ = FST _`(assume_tac o SYM) \\ fs[])
+QED
+
 Theorem evaluate_compile_prog:
    input_condition next prog ∧
    (∀n next cfg prog. co n = ((next,cfg),prog) ⇒ input_condition next prog) ∧
@@ -4367,26 +4430,9 @@ Proof
     >- gvs [state_ref_rel_def]
     >> conj_tac
     >-
-     (gvs [namespace_rel_def]
-      >> conj_tac
-      >-
-       (gen_tac
-        >> strip_tac
-        >> CASE_TAC
-        >-
-         (spose_not_then assume_tac
-          >> gvs [domain_lookup, lookup_fromAList, EVERY_FILTER]
-          >> imp_res_tac ALOOKUP_MEM
-          >> imp_res_tac EVERY_MEM
-          >> gvs [])
-        >> cheat
-       )
-      >> conj_tac
-      >-
-       (rw []
-        >> cheat)
-      >> cheat
-      )
+     (irule compile_prog_namespace_rel
+      >> first_assum $ irule_at Any
+      >> gvs [])
     >> rpt strip_tac
     >> pairarg_tac
     >> gvs []
