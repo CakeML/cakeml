@@ -1269,13 +1269,11 @@ Definition new_basic_type_definition_def:
        a <- return (mk_var(«a»,aty)) ;
        r <- return (mk_var(«r»,rty)) ;
        x1 <- mk_comb(rep,a) ;
-       x2 <- mk_comb(abs,x1) ;
-       eq1 <- mk_eq(x2,a) ;
+       eq1 <- safe_mk_eq (Comb abs x1) a ;
        y1 <- mk_comb(abs,r) ;
        y2 <- mk_comb(rep,y1) ;
-       y3 <- mk_comb(P,r) ;
-       eq2 <- mk_eq(y2,r) ;
-       eq3 <- mk_eq(y3,eq2) ;
+       eq2 <- safe_mk_eq y2 r ;
+       eq3 <- safe_mk_eq (Comb P r) eq2 ;
        return (Sequent [] eq1, Sequent [] eq3) od od od
 End
 

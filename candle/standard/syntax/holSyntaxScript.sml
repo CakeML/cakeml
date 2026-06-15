@@ -145,12 +145,10 @@ End
 Definition ordav_def:
   (ordav [] x1 x2 ⇔ term_cmp x1 x2) ∧
   (ordav ((t1,t2)::env) x1 x2 ⇔
-    if term_cmp x1 t1 = EQUAL then
-      if term_cmp x2 t2 = EQUAL then
-        EQUAL
+    if x1 = t1 then
+      if x2 = t2 then EQUAL
       else LESS
-    else if term_cmp x2 t2 = EQUAL then
-      GREATER
+    else if x2 = t2 then GREATER
     else ordav env x1 x2)
 End
 
