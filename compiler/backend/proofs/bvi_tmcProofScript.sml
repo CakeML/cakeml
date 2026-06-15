@@ -739,8 +739,8 @@ Definition mb_rel_def:
       LIST_REL (v_rel f) right right')) ∧
   (mb_rel f refs v1 v2 = v_rel f v1 v2)
 Termination
-  (* There is something similar for definition of finalise_cons in bviSem *)
-  cheat
+  wf_rel_tac ‘measure $ CARD o FDOM o FST o SND’
+  >> cheat
 End
 
 Theorem mb_rel_cons:
