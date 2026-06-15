@@ -1,0 +1,27 @@
+[holbuild]
+schema = 2
+required_version = "0.6.2"
+
+[project]
+name = "cakeml-compiler"
+version = "0.1.0"
+
+[build]
+roots = ["compiler/proofs/compilerProofScript.sml"]
+exclude = ["candle/*",
+           "compiler/benchmarks/*",
+           "compiler/bootstrap/*",
+           "translator/other-examples/*",
+           "unverified/*",
+           "tutorial/*",
+           "examples/*"]
+tactic_timeout = 90
+
+[dependencies.hol]
+git = "https://github.com/HOL-Theorem-Prover/HOL.git"
+rev = "9d7499d9bd45579524e6a8bb982571208b67a905"
+
+[dependencies.holextra]
+from = "hol"
+path = "."
+manifest = "holextra.manifest.toml"

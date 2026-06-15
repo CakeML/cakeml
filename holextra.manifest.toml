@@ -1,0 +1,22 @@
+[holbuild]
+schema = 2
+
+[project]
+name = "holextra"
+version = "0.1.0"
+
+[build]
+members = [
+  "src/transfer/examples",
+  "examples/formal-languages",
+  "examples/algorithms",
+  "examples/data-structures",
+  "examples/pl-semantics/lprefix_lub",
+  "examples/machine-code/multiword",
+  "examples/machine-code/hoare-triple",
+  "examples/l3-machine-code"
+]
+exclude = [
+  "examples/l3-machine-code/monadic-arm/*",
+  "*/selftest.sml"
+]
