@@ -76,6 +76,8 @@ Datatype:
     (* Among Xs iS Y : Y is how many times the values in iS (as set)
        appear in Xs *)
   | Among ('a varc list) (int list) ('a varc)
+    (* In Xs Y: Y is in Xs *)
+  | In ('a varc list) ('a varc)
   (* AtMostOne TODO: future work, not yet in solver *)
 End
 
@@ -107,8 +109,6 @@ Datatype:
   | ArrayArgMax ('a varc list) ('a array_ind)
     (* ArrayArgMin Xs Y : Xs[Y] = max(Xs), and Y is leftmost such element *)
   | ArrayArgMin ('a varc list) ('a array_ind)
-    (* In Y Xs: Y is in Xs *)
-  | In ('a varc) ('a varc list)
   *)
 End
 
@@ -291,6 +291,15 @@ Definition among_sem_def:
       ) Xs)
 End
 
+Definition in_sem_def:
+  in_sem Xs Y w =
+  let
+    y = varc w Y;
+    xs = MAP (varc w) Xs
+  in
+    MEM y xs
+End
+
 Definition counting_constr_sem_def:
   counting_constr_sem c w =
   case c of
@@ -298,6 +307,7 @@ Definition counting_constr_sem_def:
   | NValue Xs Y => n_value_sem Xs Y w
   | Count Xs Y Z => count_sem Xs Y Z w
   | Among Xs iS Y => among_sem Xs iS Y w
+  | In Y Xs => in_sem Y Xs w
 End
 
 (***
@@ -433,15 +443,6 @@ Definition array_arg_min_sem_def:
     0 ≤ y ∧ Num y < LENGTH xs ∧
     EVERY (λx. EL (Num y) xs ≤ x) xs
 End
-
-Definition in_sem_def:
-  in_sem Y Xs w =
-  let
-    y = varc w Y;
-    xs = MAP (varc w) Xs
-  in
-    MEM y xs
-End
 *)
 
 Definition array_constr_sem_def:
@@ -457,7 +458,6 @@ Definition array_constr_sem_def:
       array_arg_max_sem Xs Yi w
   | ArrayArgMin Xs Yi =>
       array_arg_min_sem Xs Yi w
-  | In Y Xs => in_sem Y Xs w
   *)
 End
 

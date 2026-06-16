@@ -303,29 +303,73 @@ Definition eqi_def[simp]:
     INR (name, Indices [i] (SOME ann))
 End
 
+Definition cencode_count_aux_def:
+  cencode_count_aux bnd Xs Y name =
+  flat_app
+    (MAPi
+      (λi X.
+        let
+          ge = eqi name i (strlit"ge");
+          le = eqi name i (strlit"le");
+          eq = eqi name i (strlit"eq")
+        in
+          Append (cbimply_var bnd (ge) (mk_ge X Y))
+            (Append (cbimply_var bnd (le) (mk_le X Y))
+              (cbimply_var bnd (eq) ([],[(1i,Pos ge);(1i,Pos le)],2i)))
+      ) Xs
+    )
+End
+
+Definition cencode_in_def:
+  cencode_in bnd Xs Y name =
+  Append
+    (cencode_count_aux bnd Xs Y name)
+    (cat_least_one name (GENLIST (λi. Pos $ eqi name i (strlit"eq")) (LENGTH Xs)))
+End
+
+Definition encode_in_def:
+  encode_in bnd Xs Y name = abstr $ cencode_in bnd Xs Y name
+End
+
 Definition cencode_count_def:
   cencode_count bnd Xs Y Z name =
   Append
-    (flat_app
-      (MAPi
-        (λi X.
-          let
-            ge = eqi name i (strlit"ge");
-            le = eqi name i (strlit"le");
-            eq = eqi name i (strlit"eq")
-          in
-            Append (cbimply_var bnd (ge) (mk_ge X Y))
-              (Append (cbimply_var bnd (le) (mk_le X Y))
-                (cbimply_var bnd (eq) ([],[(1i,Pos ge);(1i,Pos le)],2i)))
-        ) Xs
-      )
-    )
+    (cencode_count_aux bnd Xs Y name)
     (cencode_bitsum (GENLIST (λi. eqi name i (strlit"eq")) (LENGTH Xs)) Z name)
 End
 
 Definition encode_count_def:
   encode_count bnd Xs Y Z name = abstr $ cencode_count bnd Xs Y Z name
 End
+
+Theorem encode_count_aux_sem_1:
+  valid_assignment bnd wi ∧
+  (ALOOKUP cs name = SOME (Counting (Count Xs Y Z)) ∨
+  ALOOKUP cs name = SOME (Counting (In Xs Y)))
+  ⇒
+  EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
+    (abstr $ cencode_count_aux bnd Xs Y name)
+Proof
+  rw[cencode_count_aux_def]>>
+  rw[EVERY_FLAT,Once EVERY_MEM,MEM_MAPi,EVERY_APPEND]>>
+  simp[iconstraint_sem_def,reify_avar_def,reify_flag_def]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem encode_in_sem_1:
+  valid_assignment bnd wi ∧
+  ALOOKUP cs name = SOME (Counting (In Xs Y)) ∧
+  in_sem Xs Y wi ⇒
+  EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
+    (encode_in bnd Xs Y name)
+Proof
+  rw[cencode_in_def,encode_in_def,in_sem_def]
+  >-
+    metis_tac[encode_count_aux_sem_1]>>
+  drule_then (fn thm => simp[thm]) encode_bitsum_sem>>
+  gvs[MEM_MAP,MEM_GENLIST,PULL_EXISTS,reify_avar_def,reify_flag_def]>>
+  metis_tac[MEM_EL]
+QED
 
 Theorem encode_count_sem_1:
   valid_assignment bnd wi ∧
@@ -335,29 +379,22 @@ Theorem encode_count_sem_1:
     (encode_count bnd Xs Y Z name)
 Proof
   rw[cencode_count_def,encode_count_def,count_sem_def]
-  >-(
-    rw[EVERY_FLAT,Once EVERY_MEM,MEM_MAPi,EVERY_APPEND]>>
-    simp[iconstraint_sem_def,reify_avar_def,reify_flag_def]>>
-    intLib.ARITH_TAC)>>
+  >-
+    metis_tac[encode_count_aux_sem_1]>>
   drule_then (fn thm => simp[thm]) encode_bitsum_sem>>
   cong_tac NONE>>
   simp[MAP_GENLIST,o_ABS_R,reify_avar_def,reify_flag_def,GENLIST_EL_MAP]
 QED
 
-Theorem encode_count_sem_2:
+Theorem encode_count_aux_sem_2:
   valid_assignment bnd wi ∧
   EVERY (λx. iconstraint_sem x (wi,wb))
-    (encode_count bnd Xs Y Z name) ⇒
-  count_sem Xs Y Z wi
+    (abstr $ cencode_count_aux bnd Xs Y name) ∧
+  i < LENGTH Xs ⇒
+  (wb (INR (name,Indices [i] (SOME «eq»))) ⇔ varc wi Xs❲i❳ = varc wi Y)
 Proof
-  rw[cencode_count_def,encode_count_def,EVERY_FLAT]>>
+  rw[cencode_count_aux_def, EVERY_FLAT]>>
   gs[Once EVERY_MEM,MEM_MAPi,SF DNF_ss,iconstraint_sem_def]>>
-  drule_then (fn thm => gs[thm]) encode_bitsum_sem>>
-  gs[MAP_GENLIST,o_ABS_R,count_sem_def]>>
-  pop_assum (SUBST_ALL_TAC o SYM)>>
-  cong_tac NONE>>
-  rw[GENLIST_eq_MAP]>>
-  cong_tac NONE>>
   last_x_assum kall_tac>>
   last_x_assum $ drule_then (fn thm => assume_tac $ GSYM thm)>>
   last_x_assum $ drule_then (fn thm => assume_tac $ GSYM thm)>>
@@ -366,6 +403,35 @@ Proof
   pop_assum SUBST_ALL_TAC>>
   pop_assum SUBST_ALL_TAC>>
   intLib.ARITH_TAC
+QED
+
+Theorem encode_in_sem_2:
+  valid_assignment bnd wi ∧
+  EVERY (λx. iconstraint_sem x (wi,wb))
+    (encode_in bnd Xs Y name) ⇒
+  in_sem Xs Y wi
+Proof
+  rw[cencode_in_def,encode_in_def,EVERY_FLAT]>>
+  gs[MEM_GENLIST,in_sem_def]>>
+  drule_all encode_count_aux_sem_2>>
+  rw[MEM_MAP]>>
+  metis_tac[MEM_EL]
+QED
+
+Theorem encode_count_sem_2:
+  valid_assignment bnd wi ∧
+  EVERY (λx. iconstraint_sem x (wi,wb))
+    (encode_count bnd Xs Y Z name) ⇒
+  count_sem Xs Y Z wi
+Proof
+  rw[cencode_count_def,encode_count_def]>>
+  drule_then (fn thm => gs[thm]) encode_bitsum_sem>>
+  gs[MAP_GENLIST,o_ABS_R,count_sem_def]>>
+  pop_assum (SUBST_ALL_TAC o SYM)>>
+  cong_tac NONE>>
+  rw[GENLIST_eq_MAP]>>
+  cong_tac NONE>>
+  metis_tac[encode_count_aux_sem_2]
 QED
 
 (* Among: Y equals the number of times values from iS appear in Xs
@@ -505,6 +571,7 @@ Definition encode_counting_constr_def:
   case c of
     AllDifferent Xs => encode_all_different bnd Xs name
   | NValue Xs Y => encode_n_value bnd Xs Y name
+  | In Xs Y => encode_in bnd Xs Y name
   | Count Xs Y Z => encode_count bnd Xs Y Z name
   | Among Xs iS Y => encode_among bnd Xs iS Y name
 End
@@ -522,6 +589,7 @@ Proof
   >- metis_tac[encode_n_value_sem_1]
   >- metis_tac[encode_count_sem_1]
   >- metis_tac[encode_among_sem_1]
+  >- metis_tac[encode_in_sem_1]
 QED
 
 Theorem encode_counting_constr_sem_2:
@@ -536,6 +604,7 @@ Proof
   >- metis_tac[encode_n_value_sem_2]
   >- metis_tac[encode_count_sem_2]
   >- metis_tac[encode_among_sem_2]
+  >- metis_tac[encode_in_sem_2]
 QED
 
 Definition cencode_counting_constr_def:
@@ -545,6 +614,7 @@ Definition cencode_counting_constr_def:
   | NValue Xs Y => cencode_n_value bnd Xs Y name ec
   | Count Xs Y Z => (cencode_count bnd Xs Y Z name, ec)
   | Among Xs iS Y => cencode_among bnd Xs iS Y name ec
+  | In Xs Y => (cencode_in bnd Xs Y name, ec)
 End
 
 Theorem cencode_counting_constr_sem:
@@ -558,4 +628,5 @@ Proof
   >-simp[cencode_n_value_sem]
   >-simp[cencode_count_def,encode_count_def]
   >-simp[cencode_among_sem]
+  >-simp[cencode_in_def,encode_in_def]
 QED

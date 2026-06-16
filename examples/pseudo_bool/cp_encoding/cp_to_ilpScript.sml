@@ -69,6 +69,12 @@ Definition reify_flag_def:
       else if ann = SOME (strlit"le")
       then varc wi (EL (HD ids) Xs) ≤ varc wi Y
       else varc wi (EL (HD ids) Xs) = varc wi Y
+    | SOME (Counting (In Xs Y)) =>
+      if ann = SOME (strlit"ge")
+      then varc wi (EL (HD ids) Xs) ≥ varc wi Y
+      else if ann = SOME (strlit"le")
+      then varc wi (EL (HD ids) Xs) ≤ varc wi Y
+      else varc wi (EL (HD ids) Xs) = varc wi Y
     | SOME (Counting (Among Xs iS _)) =>
       if ann = SOME (strlit"ge")
       then varc wi (EL (EL 0 ids) Xs) ≥ EL (EL 1 ids) iS
@@ -1112,7 +1118,7 @@ Definition false_constr_def:
 End
 
 Definition cfalse_constr_def:
-  cfalse_constr = (List [(SOME (strlit"BAD INPUT"), false_constr)])
+  cfalse_constr = (List [(SOME (strlit"BAD_INPUT"), false_constr)])
 End
 
 Theorem iconstraint_sem_false_constr[simp]:

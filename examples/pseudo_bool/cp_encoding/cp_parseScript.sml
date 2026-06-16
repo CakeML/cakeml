@@ -532,6 +532,19 @@ Definition sexp_among_body_def:
     | _ => fail (strlit "among expects 3 args: (X1 ... Xn) (i1 ... im) Y\n")
 End
 
+(* in: (X1 ... Xn) Y -- Y is in Xs *)
+Definition sexp_in_body_def:
+  sexp_in_body rest =
+    case rest of
+      [Xs_e; Ye] =>
+      (do
+         Xs <- sexp_varc_list Xs_e;
+         Y <- sexp_varc Ye;
+         return (Counting (In Xs Y))
+       od)
+    | _ => fail (strlit "in expects 2 args: (X1 ... Xn) Y\n")
+End
+
 (* Counting: returns NONE when ctype isn't a counting constraint so the
    top-level dispatcher can fall through. *)
 Definition sexp_counting_dispatch_def:
@@ -540,6 +553,7 @@ Definition sexp_counting_dispatch_def:
     else if ctype = strlit "nvalue"        then SOME (sexp_nvalue_body rest)
     else if ctype = strlit "count"         then SOME (sexp_count_body rest)
     else if ctype = strlit "among"         then SOME (sexp_among_body rest)
+    else if ctype = strlit "in"            then SOME (sexp_in_body rest)
     else NONE
 End
 
@@ -859,6 +873,10 @@ Theorem test_counting:
   sexp_constraint_dispatch (strlit"among")
     (fromStringL (strlit "((A B C) (1 2 3) Y)")) =
     INR (Counting (Among [INL «A»; INL «B»; INL «C»] [1; 2; 3] (INL «Y»))) ∧
+  (* in *)
+  sexp_constraint_dispatch (strlit"in")
+    (fromStringL (strlit "((A B C) X)")) =
+    INR (Counting (In [INL «A»; INL «B»; INL «C»] (INL «X»))) ∧
   (* all_different wrong arity *)
   sexp_constraint_dispatch (strlit"all_different")
     (fromStringL (strlit "((A B C) Y)")) =
