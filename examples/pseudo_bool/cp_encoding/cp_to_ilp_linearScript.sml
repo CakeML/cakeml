@@ -43,9 +43,9 @@ Definition cencode_lin_equal_2_def[simp]:
   Append
     (cencode_lin_equal_1 bnd Zc cXs Y name) $
     Append
-      (cbimply_var bnd (gtv name) (mk_lin_gt cXs Y)) $
+      (cvar_imply bnd (gtv name) (mk_lin_gt cXs Y)) $
     Append
-      (cbimply_var bnd (ltv name) (mk_lin_lt cXs Y)) $
+      (cvar_imply bnd (ltv name) (mk_lin_lt cXs Y)) $
     (cat_least_one name
       [Pos (ltv name); Pos (gtv name); reif_gen Zc])
 End
