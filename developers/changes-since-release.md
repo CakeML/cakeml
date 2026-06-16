@@ -20,6 +20,16 @@ Thus, to profile binaries such as checkers, the Dafny compiler, the Scheme compi
 
 FlatLang has been simplified slightly (#1380).
 
+### DataLang
+
+dataLang now supports multi-arg returns (#1416)
+
+dataLang now avoid storing args in the cutsets unnecessarily (#1403)
+
+### WordLang
+
+word_cse has been reworked to match more aggresively (#1410)
+
 word_copy pass now additionally correctly propagates store-reg equality (#1385).
 
 WordLang now supports Loop, Break, Continue (#1389).
@@ -46,7 +56,7 @@ standalone, handler-attached, and tail-return calls are not supported.
 
 ### LoopLang
 
-LoopLang now supports multi-arg returns (#1391).
+LoopLang now supports multi-arg returns (#1391) and arbitrary depth Break/Continue (#1395).
 
 LoopLang now compiles to WordLang Loops instead of tail calls, i.e., the old loop_remove pass is removed (#1391).
 
