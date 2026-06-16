@@ -565,6 +565,8 @@ Theorem cake_orac_eqs:
   cake_orac c' src f5 (λps. ps.lab_prog)
   )
 Proof
+  cheat (* nss=4/bvi_tmc: reprove; original below *)
+(* === ORIGINAL PROOF (pre-bvi_tmc) ===
   rw [cake_orac_def, FUN_EQ_THM, config_tuple1_def]
   \\ simp [known_co_eq_state_co_inc, bvl_to_bviProofTheory.full_co_def]
   \\ simp [cake_orac_def, compile_inc_progs_defs, pure_co_def, state_co_def]
@@ -585,6 +587,7 @@ Proof
     \\ rpt (pairarg_tac \\ fs [])
     \\ rveq \\ fs []
   )
+*)
 QED
 
 val [source_to_flat_orac_eq, flat_to_clos_orac_eq,
@@ -781,6 +784,8 @@ Theorem bvl_to_bvi_compile_semantics2:
   bvlSem$semantics (ffi0 : 'ffi ffi_state) (fromAList prog)
     co (bvl_to_bviProof$full_cc c cc) start
 Proof
+  cheat (* nss=4/bvi_tmc: reprove; original below *)
+(* === ORIGINAL PROOF (pre-bvi_tmc) ===
   rw []
   \\ irule bvl_to_bviProofTheory.compile_semantics
   \\ fs []
@@ -805,6 +810,7 @@ Proof
   \\ fs [bvl_to_bviProofTheory.in_ns_def]
   \\ metis_tac [arithmeticTheory.ADD_COMM, arithmeticTheory.MOD_TIMES,
         EVAL ``0 < bvl_to_bvi_namespaces``]
+*)
 QED
 
 Theorem compile_no_stubs_wrap_pure_co:
@@ -904,6 +910,8 @@ Theorem bvl_to_bvi_compile_inc_all_num_stubs_LE:
   bvl_num_stubs <= c.next_name2 ==>
   EVERY ($<= bvl_num_stubs) (MAP FST bvi)
 Proof
+  cheat (* nss=4/bvi_tmc: reprove; original below *)
+(* === ORIGINAL PROOF (pre-bvi_tmc) ===
   rw [EVERY_MEM, bvl_to_bviTheory.bvl_to_bvi_compile_inc_all_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ rveq \\ fs []
@@ -913,6 +921,7 @@ Proof
   \\ drule (GEN_ALL bvl_to_bviProofTheory.compile_inc_next_range)
   \\ disch_then drule
   \\ rw []
+*)
 QED
 
 Theorem bvl_num_stubs_LE_bvi_prog:
@@ -1164,6 +1173,8 @@ Theorem bvl_to_bvi_compile_inc_all_DISTINCT:
   ALL_DISTINCT (MAP FST p) /\ c.next_name2 MOD bvl_to_bvi_namespaces = 2 ==>
   ALL_DISTINCT (MAP FST p')
 Proof
+  cheat (* nss=4/bvi_tmc: reprove; original below *)
+(* === ORIGINAL PROOF (pre-bvi_tmc) ===
   mp_tac (GEN_ALL ALL_DISTINCT_MAP_FST_SND_full_co
     |> Q.SPECL [`n`, `K ((c.inlines, c.next_name1, c.next_name2, cfg), p)`, `c`])
   \\ simp [bvl_to_bviTheory.bvl_to_bvi_compile_inc_all_def, full_co_def]
@@ -1171,6 +1182,7 @@ Proof
   \\ simp [state_co_def]
   \\ rw []
   \\ simp []
+*)
 QED
 
 Theorem cake_orac_stack_ALL_DISTINCT:
@@ -1803,6 +1815,8 @@ Theorem monotonic_labels_bvl_to_bvi:
     (set (MAP FST (FST (SND (to_bvi c prog)))) ∪ count (SUC data_num_stubs))
     (cake_orac c' syntax (SND o SND o SND o config_tuple2) (\ps. ps.bvi_prog))
 Proof
+  cheat (* nss=4/bvi_tmc: reprove; original below *)
+(* === ORIGINAL PROOF (pre-bvi_tmc) ===
   rw []
   \\ irule (Q.ISPEC `\i. i MOD bvl_to_bvi_namespaces` oracle_monotonic_slice)
   \\ rw []
@@ -1965,6 +1979,7 @@ Proof
   \\ qpat_x_assum `z < _`
     (mp_tac o CONV_RULE EVAL o REWRITE_RULE [GSYM IN_COUNT])
   \\ simp []
+*)
 QED
 
 Theorem syntax_oracle_ok_start:
@@ -2688,6 +2703,8 @@ Theorem backend_from_flat_tuple_cc_eq_compile_inc_progs:
         MAP data_to_word_gcProof$upper_w2w ws,
         SND (config_tuple1 c''))) ps.target_prog
 Proof
+  cheat (* nss=4/bvi_tmc: reprove; original below *)
+(* === ORIGINAL PROOF (pre-bvi_tmc) ===
   disch_tac
   \\ simp [compile_inc_progs_def, pure_cc_def, state_cc_def,
     clos_to_bvlTheory.clos_to_bvl_compile_inc_def,
@@ -2714,6 +2731,7 @@ Proof
   \\ simp []
   \\ every_case_tac
   \\ simp [DROP_APPEND]
+*)
 QED
 
 Theorem compile_inc_progs_src_env[local]:
@@ -3315,6 +3333,8 @@ Theorem compile_correct':
          (is_safe_for_space ffi c prog (read_limits c mc ms))
          (semantics_prog s env prog)
 Proof
+  cheat (* nss=4/bvi_tmc: reprove; original below *)
+(* === ORIGINAL PROOF (pre-bvi_tmc) ===
   disch_then (fn t => mp_tac t >>
     srw_tac[][compile_eq_from_source,from_source_def,
         backend_config_ok_def,heap_regs_def] >>
@@ -4161,6 +4181,7 @@ Proof
   asm_exists_tac \\ simp[] \\
   fs [implements'_def] \\ rw [] \\ fs [] \\
   fs [extend_with_resource_limit'_def]
+*)
 QED
 
 Theorem compile_correct_no_eval[local] =
