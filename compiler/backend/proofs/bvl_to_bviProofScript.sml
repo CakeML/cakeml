@@ -7,6 +7,7 @@ Ancestors
   bvl_handleProof[qualified] backendProps bvlProps
   bvl_constProof[qualified] bvi_letProof[qualified]
   bvl_inlineProof[qualified] bvi_tailrecProof[qualified]
+  bvi_tmcProof[qualified]
   bvl_to_bvi
 Libs
   preamble helperLib[qualified]
@@ -4180,7 +4181,8 @@ Theorem compile_list_distinct_locs:
      FILTER (λn. in_ns 0 (n - num_stubs)) (MAP FST code) =
        MAP (λn. num_stubs + nss * n) (MAP FST prog) ∧
      (*  redundant, but useful *) EVERY ($<= num_stubs) (MAP FST code) ∧
-     EVERY (λn. ¬ in_ns 2 (n - num_stubs)) (MAP FST code) ∧
+     EVERY (λn. ¬ in_ns 2 (n - num_stubs) ∧ ¬ in_ns 3 (n - num_stubs))
+       (MAP FST code) ∧
      n ≤ n'
 Proof
   Induct_on`prog`>>simp[compile_list_def]>>
@@ -4596,7 +4598,8 @@ Theorem compile_prog_distinct_locs:
     ALL_DISTINCT (MAP FST prog1) /\
     EVERY (between (nss * n + num_stubs) (nss * n1 + num_stubs))
       (FILTER (λn. in_ns 1 (n − num_stubs)) (MAP FST prog1)) /\
-    EVERY (λn. ¬in_ns 2 (n - num_stubs)) (MAP FST prog1)
+    EVERY (λn. ¬in_ns 2 (n - num_stubs) ∧ ¬in_ns 3 (n - num_stubs))
+      (MAP FST prog1)
 Proof
   fs [compile_prog_def] \\ pairarg_tac \\ fs [] \\ strip_tac \\ rveq
   \\ old_drule (compile_list_distinct_locs |> SIMP_RULE std_ss [])
@@ -4653,6 +4656,27 @@ Proof
   \\ simp_tac std_ss [Once LESS_EQ_EXISTS]
   \\ strip_tac \\ fs []
   \\ qpat_x_assum `(p + num_stubs) MOD nss = 2` mp_tac
+  \\ `(p MOD nss + num_stubs MOD nss) MOD nss = (p + num_stubs) MOD nss` by
+       fs[MOD_PLUS]
+  \\ fs [EVAL ``num_stubs MOD nss``]
+QED
+
+Theorem compile_prog_avoids_nss_3:
+   compile_prog start f prog = (loc,code,new_state) /\
+    ALL_DISTINCT (MAP FST prog) /\
+    k MOD nss = 3 /\ MEM k (MAP FST code) ==>
+    k ≤ num_stubs
+Proof
+  fs [compile_prog_def] \\ pairarg_tac \\ fs []
+  \\ rw [] \\ fs []
+  THEN1 (pop_assum mp_tac \\ EVAL_TAC \\ rw [])
+  \\ imp_res_tac (compile_list_distinct_locs |> SIMP_RULE std_ss [])
+  \\ fs [EVERY_MEM,MEM_MAP,PULL_EXISTS] \\ rveq
+  \\ res_tac \\ fs [in_ns_def]
+  \\ pop_assum mp_tac
+  \\ simp_tac std_ss [Once LESS_EQ_EXISTS]
+  \\ strip_tac \\ fs []
+  \\ qpat_x_assum `(p + num_stubs) MOD nss = 3` mp_tac
   \\ `(p MOD nss + num_stubs MOD nss) MOD nss = (p + num_stubs) MOD nss` by
        fs[MOD_PLUS]
   \\ fs [EVAL ``num_stubs MOD nss``]
