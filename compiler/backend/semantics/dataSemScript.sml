@@ -1394,6 +1394,7 @@ Definition evaluate_def:
                   | (SOME res,s) => (SOME res,s))
                else (SOME (Rerr(Rabort Rtype_error)),s)
            | SOME (ns,names) (* returning call, returns into var n *) =>
+             if ¬ALL_DISTINCT ns then (SOME (Rerr(Rabort Rtype_error)),s) else
              (case cut_env names s.locals of
               | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
               | SOME env =>
@@ -1404,7 +1405,7 @@ Definition evaluate_def:
                         s1 with <| stack := [] ; locals := LN |>)
                    else (case fix_clock s1 (evaluate (prog, s1)) of
                          | (SOME (Rval xs),s2) =>
-                           (if LENGTH xs = LENGTH ns ∧ ALL_DISTINCT ns then
+                           (if LENGTH xs = LENGTH ns then
                               (case pop_env s2 of
                                | NONE => (SOME (Rerr(Rabort Rtype_error)),s2)
                                | SOME s1 => (NONE, set_vars ns xs s1))

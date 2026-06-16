@@ -466,7 +466,7 @@ Resume evaluate_compile[Force_SOME]:
     \\ Cases_on ‘dest_thunk x s.refs’ \\ gvs []
     \\ Cases_on ‘t’ \\ gvs []
     >- suspend "FS_1"
-  
+
     \\ ‘t1.code = s.code ∧ t1.stack_frame_sizes = s.stack_frame_sizes ∧
         t1.clock = s.clock’
       by gvs [state_rel_def] \\ gvs []
@@ -477,10 +477,10 @@ Resume evaluate_compile[Force_SOME]:
     \\ Cases_on ‘cut_env names s.locals’ \\ fs []
     \\ fs [cut_env_def] \\ reverse (srw_tac [] [])
     >- suspend "FS_2"
-  
+
     \\ Cases_on ‘s.clock = 0’ \\ gvs []
     >- suspend "FS_3"
-  
+
     \\ qabbrev_tac `t5 = call_env q r' (push_env
              ((inter t1.locals (inter names (delete v l2)))) F (dec_clock t1))`
     \\ `?sfsp smax lss. (call_env q r' (push_env ((inter s.locals names)) F
@@ -502,10 +502,10 @@ Resume evaluate_compile[Force_SOME]:
     \\ Cases_on ‘evaluate (q',t4)’ \\ fs []
     \\ Cases_on ‘q''’ \\ fs [] \\ Cases_on ‘x'’ \\ fs []
     >- suspend "FS_4"
-  
+
     \\ Cases_on ‘e’ \\ fs []
     >- suspend "FS_5"
-  
+
     \\ Cases_on ‘a’ \\ fs []
     \\ (
       rpt strip_tac

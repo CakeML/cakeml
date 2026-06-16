@@ -108,8 +108,8 @@ Proof
 QED
 
 Theorem state_rel_Number_small_int:
-   state_rel c r1 r2 s t [x] locs /\ small_int (:'a) i ==>
-    state_rel c r1 r2 s t [(Number i,Word (Smallnum i:'a word))] locs
+   state_rel c r1 r2 s t (SOME [x]) locs /\ small_int (:'a) i ==>
+    state_rel c r1 r2 s t (SOME [(Number i,Word (Smallnum i:'a word))]) locs
 Proof
   fs [state_rel_thm] \\ rw[]
   \\ match_mp_tac IMP_memory_rel_Number \\ fs []
@@ -515,7 +515,7 @@ QED
 
 Theorem evaluate_AddNumSize:
    !src c l1 l2 s t locs i w.
-      state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs /\
+      state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) NONE locs /\
       get_var src s.locals = SOME (Number i) ==>
       evaluate (AddNumSize c src,set_var 1 (Word w) t) =
         (NONE,set_var 1 (Word (w +
@@ -578,7 +578,7 @@ QED
 
 Theorem AnyHeader_thm:
    !t1 t2 t3 r.
-      state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs /\
+      state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) NONE locs /\
       get_var r s.locals = SOME (Number i) /\
       ALL_DISTINCT [t1;t2;t3] ==>
       ?a2 a3 temp.
@@ -742,7 +742,7 @@ Proof
 QED
 
 Theorem state_rel_IMP_num_size_limit:
-   state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs /\
+   state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) NONE locs /\
     get_var k s.locals = SOME (Number i) ==>
     LENGTH (SND (i2mw i):'a word list) < dimword (:'a) DIV 16
 Proof
@@ -915,7 +915,7 @@ Proof
 QED
 
 Theorem div_code_assum_thm:
-   state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) [] locs ==>
+   state_rel c l1 l2 s (t:('a,'c,'ffi) wordSem$state) NONE locs ==>
     div_code_assum (:'ffi) (:'c) t.code
 Proof
   fs [DivCode_def,div_code_assum_def,eq_eval] \\ rpt strip_tac
@@ -955,7 +955,7 @@ QED
 Theorem IMP_bignum_code_rel:
    compile Bignum_location 2 1 (Bignum_location + 1,[])
              mc_iop_code = (xx1,xx2,xx3,xx4,xx5) /\
-    state_rel c l1 l2 s t [] locs ==>
+    state_rel c l1 l2 s t NONE locs ==>
     code_rel (xx4,xx5) t.code
 Proof
   fs [word_bignumProofTheory.code_rel_def,state_rel_def,code_rel_def,stubs_def]
@@ -999,7 +999,7 @@ Definition Arith_code_def:
 End
 
 Theorem lookup_Arith_location:
-   state_rel c l1 l2 x t [] locs /\ int_op index i1 i2 = SOME r ==>
+   state_rel c l1 l2 x t NONE locs /\ int_op index i1 i2 = SOME r ==>
     lookup (Arith_location index) t.code = SOME (3,Arith_code index)
 Proof
   rw [] \\ drule lookup_RefByte_location
@@ -1153,7 +1153,7 @@ fun print_tac s goal = let
 
 Theorem AnyArith_thm:
    ∀op_index i j v t s r2 r1 locs l2 l1 c.
-     state_rel c l1 l2 ^s (t:('a,'c,'ffi) wordSem$state) [] locs /\
+     state_rel c l1 l2 ^s (t:('a,'c,'ffi) wordSem$state) NONE locs /\
      get_vars [0;1;2] s.locals = SOME [Number i; Number j; Number (& op_index)] /\
      t.clock = MustTerminate_limit (:'a) - 2 /\ t.termdep <> 0 /\
      lookup 6 t.locals = SOME (Word (n2w (4 * op_index))) /\
@@ -1173,7 +1173,7 @@ Theorem AnyArith_thm:
               state_rel c r1 r2
                 (s with <| locals := LN; locals_size := SOME 0;
                            clock := new_c; space := 0; stack_max := NONE |>) r
-                [(Number v,rv)] locs
+                (SOME [(Number v,rv)]) locs
 Proof
   rpt strip_tac \\ fs [AnyArith_code_def]
   \\ once_rewrite_tac [list_Seq_def]
@@ -1197,7 +1197,7 @@ Proof
   \\ full_simp_tac bool_ss [GSYM set_store_with_const, GSYM wordSemTheory.set_var_def]
   \\ Q.MATCH_GOALSUB_ABBREV_TAC `set_var 1 (Word w1)` \\ rveq
   \\ Q.MATCH_GOALSUB_ABBREV_TAC `evaluate (AllocVar _ _ _,t4)` \\ rveq
-  \\ `state_rel c l1 l2 s t4 [] locs` by
+  \\ `state_rel c l1 l2 s t4 NONE locs` by
    (unabbrev_all_tac
     \\ fs [wordSemTheory.set_var_def,state_rel_insert_1,state_rel_set_store_Temp]
     \\ NO_TAC)
@@ -1255,7 +1255,7 @@ Proof
   \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
   \\ full_simp_tac bool_ss [GSYM set_store_with_const, GSYM wordSemTheory.set_var_def]
   \\ qpat_abbrev_tac `s8 = set_store _ _ _`
-  \\ `state_rel c l1 l2 s0 s8 [] locs` by
+  \\ `state_rel c l1 l2 s0 s8 NONE locs` by
     (unabbrev_all_tac \\ fs [state_rel_set_store_Temp,state_rel_insert_7,
                              wordSemTheory.set_var_def] \\ NO_TAC)
   \\ rpt_drule AnyHeader_thm
@@ -1265,7 +1265,7 @@ Proof
     \\ fs [fromList_def,get_var_def,lookup_insert])
   \\ fs [adjust_var_def] \\ strip_tac \\ fs []
   \\ qpat_abbrev_tac `s9 = set_store _ _ _`
-  \\ `state_rel c l1 l2 s0 s9 [] locs` by
+  \\ `state_rel c l1 l2 s0 s9 NONE locs` by
       (qunabbrev_tac `s9` \\ fs [state_rel_set_store_Temp,
          wordSemTheory.set_var_def,state_rel_insert_7] \\ NO_TAC)
   \\ qunabbrev_tac `s8`
@@ -1334,7 +1334,7 @@ Proof
      (qunabbrev_tac `s9` \\ fs [lookup_insert,wordSemTheory.set_store_def])
     \\ asm_rewrite_tac []
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
-    \\ qpat_x_assum `state_rel c l1 l2 s0 s1 [] locs` mp_tac
+    \\ qpat_x_assum `state_rel c l1 l2 s0 s1 NONE locs` mp_tac
     \\ rewrite_tac [state_rel_thm] \\ fs [] \\ strip_tac
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ rpt_drule memory_rel_get_vars_IMP
@@ -1781,7 +1781,7 @@ Proof
           (s with <|locals := LN; locals_size := SOME 0; stack_max := NONE;
                     clock := new_c; space := il + jl + 2|>)
           (t2 with <|locals := LN; locals_size := SOME 0; stack := t9.stack|>)
-             [(Number 0,Word 0w)] locs` by
+             (SOME [(Number 0,Word 0w)]) locs` by
    (qmatch_asmsub_abbrev_tac `clock_write new_clock_val`
     \\ qexists_tac `new_clock_val`
     \\ fs [Abbr `s9`,wordSemTheory.set_store_def]
@@ -2180,7 +2180,7 @@ QED
 
 Theorem eval_Call_Arith_max_stack_NONE:
    !index r.
-      state_rel c l1 l2 ^s (t:('a,'c,'ffi) wordSem$state) [] locs /\
+      state_rel c l1 l2 ^s (t:('a,'c,'ffi) wordSem$state) NONE locs /\
       names_opt ≠ NONE /\ 1 < t.termdep /\
       get_vars [a1; a2] s.locals = SOME [Number i1; Number i2] /\
       cut_state_opt names_opt s = SOME x /\
@@ -2207,7 +2207,7 @@ Theorem eval_Call_Arith_max_stack_NONE:
            (x with
             <|locals := insert dest (Number r) x.locals; space := 0;
               stack_max := NONE|>)
-           r' [] locs ∧ q = NONE)
+           r' NONE locs ∧ q = NONE)
 Proof
   rpt strip_tac \\ drule (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ imp_res_tac state_rel_cut_IMP
@@ -2230,7 +2230,7 @@ Proof
          wordSemTheory.get_var_def,lookup_insert,domain_adjust_sets]
   \\ disch_then kall_tac
   \\ fs [cut_state_opt_def,cut_state_def]
-  \\ rename1 `state_rel c l1 l2 s1 t [] locs`
+  \\ rename1 `state_rel c l1 l2 s1 t NONE locs`
   \\ Cases_on `dataSem$cut_env x' s.locals` \\ fs []
   \\ clean_tac \\ fs []
   \\ qabbrev_tac `s1 = s with locals := x`
@@ -2276,10 +2276,10 @@ Proof
   (* removing abbreviated t4 here *)
   \\ qpat_x_assum `Abbrev _` kall_tac
   \\ `state_rel c l1 l2 (s with clock := MustTerminate_limit(:'a)-1)
-        (t with <| clock := MustTerminate_limit(:'a)-1; termdep := t.termdep - 1 |>) [] locs` by
-     (qpat_x_assum `state_rel c l1 l2 s t [] locs` mp_tac
+        (t with <| clock := MustTerminate_limit(:'a)-1; termdep := t.termdep - 1 |>) NONE locs` by
+     (qpat_x_assum `state_rel c l1 l2 s t NONE locs` mp_tac
       \\ simp [state_rel_def] \\ strip_tac \\ fs [])
-  \\ qpat_x_assum `state_rel c l1 l2 (s with clock := _) _ [] locs` assume_tac
+  \\ qpat_x_assum `state_rel c l1 l2 (s with clock := _) _ NONE locs` assume_tac
   \\ rpt_drule state_rel_call_env_push_env \\ fs []
   \\ disch_then (qspecl_then [`(y1,y2)`,`[Number i1; Number i2]`,`x`,`[x1;x2]`,
        `lookup AnyArith_location t.stack_size`,`x'`,`n`,`l`,`[a1;a2]`,`NONE`] mp_tac)
@@ -2297,7 +2297,7 @@ Proof
         ((call_env [Number i1; Number i2; Number (&index)]
           (lookup AnyArith_location t.stack_size)
           (push_env x F (dec_clock (s with clock := MustTerminate_limit (:α) - 1)))) with stack_max := NONE)
-       t4 [] ((l1,l2)::locs)` by (
+       t4 NONE ((l1,l2)::locs)` by (
     rveq
     \\ fs [wordSemTheory.call_env_def, wordSemTheory.push_env_def, wordSemTheory.dec_clock_def]
     \\ pairarg_tac \\ fs [] \\ rveq
@@ -2454,7 +2454,7 @@ Theorem evaluate_Assign_Const =
 
 Theorem eval_Call_Arith:
    !index r.
-      state_rel c l1 l2 ^s (t:('a,'c,'ffi) wordSem$state) [] locs /\
+      state_rel c l1 l2 ^s (t:('a,'c,'ffi) wordSem$state) NONE locs /\
       names_opt ≠ NONE /\ 1 < t.termdep /\
       get_vars [a1; a2] s.locals = SOME [Number i1; Number i2] /\
       cut_state_opt names_opt s = SOME x /\
@@ -2488,7 +2488,7 @@ Theorem eval_Call_Arith:
            (x with
             <|locals := insert dest (Number r) x.locals; space := 0;
               stack_max := max|>)
-           r' [] locs ∧ q = NONE)
+           r' NONE locs ∧ q = NONE)
 Proof
   simp [] \\ rw []
   \\ mp_tac (SPEC_ALL eval_Call_Arith_max_stack_NONE)

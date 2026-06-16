@@ -1179,6 +1179,8 @@ Proof
         )
      (* returning calls *)
      \\ Cases_on `x'` \\ fs[]
+     \\ IF_CASES_TAC >- fs[] (* ¬ALL_DISTINCT ns: Rtype_error, outer case = T *)
+     \\ fs[]
      \\ Cases_on `cut_env r s.locals` \\ fs[]
      \\ IF_CASES_TAC \\ fs[] (* timeout *)
      >- (Cases_on `handler` >>
@@ -1720,6 +1722,7 @@ Proof
          \\ full_simp_tac(srw_ss())[locals_ok_refl]
          \\ SRW_TAC [] [state_component_equality])
      \\ Cases_on `x'` \\ fs []
+     \\ IF_CASES_TAC >- fs []
      \\ Cases_on `cut_env r s.locals` \\ full_simp_tac(srw_ss())[]
      \\ IMP_RES_TAC locals_ok_cut_env \\ full_simp_tac(srw_ss())[]
      \\ `call_env q r' (push_env x' (IS_SOME handler)
@@ -2423,6 +2426,8 @@ Proof
       >> rw[state_component_equality])
   (* returning call *)
    >> Cases_on `x'` >> fs []
+   >> IF_CASES_TAC >> fs []
+   >- rw[state_component_equality]
    >> Cases_on `cut_env r' s.locals` >> fs []
    >- rw[state_component_equality]
    >> Cases_on `s.clock = 0` >> fs []
@@ -2695,6 +2700,8 @@ Proof
       >> rw[state_component_equality])
   (* returning call *)
    >> Cases_on `x'` >> fs []
+   >> IF_CASES_TAC >> fs []
+   >- rw[state_component_equality]
    >> Cases_on `cut_env r' s.locals` >> fs []
    >- rw[state_component_equality]
    >> Cases_on `s.clock = 0` >> fs []
@@ -2707,62 +2714,60 @@ Proof
       stack_frame_sizes swap with the new multiret set_vars/LENGTH guard.
       Split on the handler; both arms share the body-IH + dual-swap prefix. *)
    >- (Cases_on `handler`
-  >- ((* NONE: no handler *)
-      fs [push_env_def, call_env_def, dec_clock_def]
-      >> fs[CaseEq "option", CaseEq "prod", CaseEq"result", CaseEq "error_result",
-            CaseEq "bool", PULL_EXISTS]
-      >> rveq
-      >> qmatch_goalsub_abbrev_tac `stack_max_fupd(K smnew)`
-      >> qmatch_goalsub_abbrev_tac `safe_for_space_fupd(K ssnew)`
-      >> qmatch_goalsub_abbrev_tac `stack_fupd(K(topstack::_))`
-      >> first_x_assum drule
-      >> disch_then(mp_tac o CONV_RULE(RESORT_FORALL_CONV rev))
-      >> disch_then(qspecl_then [`xs`,`topstack`] mp_tac)
-      >> simp[Abbr `topstack`,stack_frame_size_rel_def]
-      >> disch_then(qspecl_then [`sfs`,`other_size`] strip_assume_tac)
-      >> drule_then(qspecl_then [`smnew`,`ssnew`,`s.peak_heap_length`] strip_assume_tac) evaluate_smx_safe_peak_swap
-      >> fs[]
-      >> simp[set_var_def, set_vars_def] >> rw[state_component_equality]
-      >> imp_res_tac LIST_REL_LENGTH >> fs[]
-      >> fs[pop_env_def,CaseEq"list",CaseEq"stack"] >> rveq >> fs[]
-      >> gvs[LENGTH_NIL]
-      >> rfs[LIST_REL_CONS1] >> rveq
-      >> fs[oneline stack_frame_size_rel_def, AllCasePreds()]
-      >> metis_tac[])
-  >- ((* SOME: handler present *)
-      fs [push_env_def, call_env_def, dec_clock_def]
-      >> fs[CaseEq "option", CaseEq "prod", CaseEq"result", CaseEq "error_result",
-            CaseEq "bool", PULL_EXISTS]
-      >> rveq
-      >> qmatch_goalsub_abbrev_tac `stack_max_fupd(K smnew)`
-      >> qmatch_goalsub_abbrev_tac `safe_for_space_fupd(K ssnew)`
-      >> qmatch_goalsub_abbrev_tac `stack_fupd(K(topstack::_))`
-      >> first_x_assum drule
-      >> disch_then(mp_tac o CONV_RULE(RESORT_FORALL_CONV rev))
-      >> disch_then(qspecl_then [`xs`,`topstack`] mp_tac)
-      >> simp[Abbr `topstack`,stack_frame_size_rel_def]
-      >> disch_then(qspecl_then [`sfs`,`other_size`] strip_assume_tac)
-      >> drule_then(qspecl_then [`smnew`,`ssnew`,`s.peak_heap_length`] strip_assume_tac) evaluate_smx_safe_peak_swap
-      >> fs[]
-      >> simp[set_var_def, set_vars_def] >> rw[state_component_equality]
-      >> imp_res_tac LIST_REL_LENGTH >> fs[]
-      >> fs[pop_env_def,CaseEq"list",CaseEq"stack"] >> rveq >> fs[]
-      >> gvs[LENGTH_NIL]
-      >> rfs[LIST_REL_CONS1] >> rveq
-      >> fs[oneline stack_frame_size_rel_def, AllCasePreds()]
-      (* goal 1 = guard-false disjunction (closes by metis); goal 2 = Rraise/handler residual *)
-      >- metis_tac[]
-      (* handler residual: discharge by the handler-IH + smx/safe/peak swap *)
-      >> fs[set_var_def]
-      >> qmatch_goalsub_abbrev_tac
-           `evaluate (h, s2 with <|locals := _; locals_size := hlsz; stack := _;
-              stack_max := hsmx; stack_frame_sizes := hsfs;
-              safe_for_space := hsafe; peak_heap_length := hpeak|>)`
-      >> first_x_assum drule
-      >> disch_then(qspecl_then [`hlsz`,`hsfs`] strip_assume_tac)
-      >> drule_then(qspecl_then [`hsmx`,`hsafe`,`hpeak`] strip_assume_tac) evaluate_smx_safe_peak_swap
-      >> fs[Abbr`hlsz`,Abbr`hsmx`,Abbr`hsfs`,Abbr`hsafe`,Abbr`hpeak`]
-      >> simp[set_var_def] >> rw[state_component_equality]))
+       >- ((* NONE: no handler *)
+           fs [push_env_def, call_env_def, dec_clock_def]
+           >> fs[CaseEq "option", CaseEq "prod", CaseEq"result", CaseEq "error_result",
+                 CaseEq "bool", PULL_EXISTS]
+           >> rveq
+           >> qmatch_goalsub_abbrev_tac `stack_max_fupd(K smnew)`
+           >> qmatch_goalsub_abbrev_tac `safe_for_space_fupd(K ssnew)`
+           >> qmatch_goalsub_abbrev_tac `stack_fupd(K(topstack::_))`
+           >> first_x_assum drule
+           >> disch_then(mp_tac o CONV_RULE(RESORT_FORALL_CONV rev))
+           >> disch_then(qspecl_then [`xs`,`topstack`] mp_tac)
+           >> simp[Abbr `topstack`,stack_frame_size_rel_def]
+           >> disch_then(qspecl_then [`sfs`,`other_size`] strip_assume_tac)
+           >> drule_then(qspecl_then [`smnew`,`ssnew`,`s.peak_heap_length`] strip_assume_tac) evaluate_smx_safe_peak_swap
+           >> fs[]
+           >> simp[set_var_def, set_vars_def] >> rw[state_component_equality]
+           >> imp_res_tac LIST_REL_LENGTH >> fs[]
+           >> fs[pop_env_def,CaseEq"list",CaseEq"stack"] >> rveq >> fs[]
+           >> gvs[LENGTH_NIL]
+           >> rfs[LIST_REL_CONS1] >> rveq
+           >> fs[oneline stack_frame_size_rel_def, AllCasePreds()])
+       >- ((* SOME: handler present *)
+           fs [push_env_def, call_env_def, dec_clock_def]
+           >> fs[CaseEq "option", CaseEq "prod", CaseEq"result", CaseEq "error_result",
+                 CaseEq "bool", PULL_EXISTS]
+           >> rveq
+           >> qmatch_goalsub_abbrev_tac `stack_max_fupd(K smnew)`
+           >> qmatch_goalsub_abbrev_tac `safe_for_space_fupd(K ssnew)`
+           >> qmatch_goalsub_abbrev_tac `stack_fupd(K(topstack::_))`
+           >> first_x_assum drule
+           >> disch_then(mp_tac o CONV_RULE(RESORT_FORALL_CONV rev))
+           >> disch_then(qspecl_then [`xs`,`topstack`] mp_tac)
+           >> simp[Abbr `topstack`,stack_frame_size_rel_def]
+           >> disch_then(qspecl_then [`sfs`,`other_size`] strip_assume_tac)
+           >> drule_then(qspecl_then [`smnew`,`ssnew`,`s.peak_heap_length`] strip_assume_tac) evaluate_smx_safe_peak_swap
+           >> fs[]
+           >> simp[set_var_def, set_vars_def] >> rw[state_component_equality]
+           >> imp_res_tac LIST_REL_LENGTH >> fs[]
+           >> fs[pop_env_def,CaseEq"list",CaseEq"stack"] >> rveq >> fs[]
+           >> gvs[LENGTH_NIL]
+           >> rfs[LIST_REL_CONS1] >> rveq
+           >> fs[oneline stack_frame_size_rel_def, AllCasePreds()]
+           (* single remaining goal: the Rraise/handler residual; the new LENGTH-only
+              guard no longer leaves a separate disjunction goal here *)
+           >> fs[set_var_def]
+           >> qmatch_goalsub_abbrev_tac
+                `evaluate (h, s2 with <|locals := _; locals_size := hlsz; stack := _;
+                   stack_max := hsmx; stack_frame_sizes := hsfs;
+                   safe_for_space := hsafe; peak_heap_length := hpeak|>)`
+           >> first_x_assum drule
+           >> disch_then(qspecl_then [`hlsz`,`hsfs`] strip_assume_tac)
+           >> drule_then(qspecl_then [`hsmx`,`hsafe`,`hpeak`] strip_assume_tac) evaluate_smx_safe_peak_swap
+           >> fs[Abbr`hlsz`,Abbr`hsmx`,Abbr`hsfs`,Abbr`hsafe`,Abbr`hpeak`]
+           >> simp[set_var_def] >> rw[state_component_equality]))
 QED
 
 Theorem evaluate_swap_local_sizes:
@@ -3214,6 +3219,8 @@ Proof
      fs[cc_co_only_diff_def,call_env_def,dec_clock_def] >>
      strip_tac >> fs []) >>
   fs[CaseEq "prod"] >>
+  IF_CASES_TAC >- fs[cc_co_only_diff_def] >>
+  fs[] >>
   TOP_CASE_TAC >> fs[] >>
   TOP_CASE_TAC >-
     (Cases_on `handler` >>
