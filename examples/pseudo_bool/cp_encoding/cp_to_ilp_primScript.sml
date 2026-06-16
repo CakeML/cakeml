@@ -27,9 +27,9 @@ Definition cencode_equal_2_def[simp]:
   Append
     (cencode_equal_1 bnd Zc X Y name) $
     Append
-      (cbimply_var bnd (gtv name) (mk_gt X Y)) $
+      (cvar_imply bnd (gtv name) (mk_gt X Y)) $
     Append
-      (cbimply_var bnd (ltv name) (mk_lt X Y)) $
+      (cvar_imply bnd (ltv name) (mk_lt X Y)) $
     (cat_least_one name
       [Pos (ltv name); Pos (gtv name); reif_gen Zc])
 End
