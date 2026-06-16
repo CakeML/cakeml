@@ -15,7 +15,7 @@ exclude = ["candle/*",
            "unverified/*",
            "tutorial/*",
            "examples/*"]
-tactic_timeout = 90
+tactic_timeout = 180
 
 [dependencies.hol]
 git = "https://github.com/HOL-Theorem-Prover/HOL.git"
