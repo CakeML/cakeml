@@ -4617,19 +4617,14 @@ Proof
   fs [ODD_ADD] \\ simp [ODD_EVEN,EVEN_DOUBLE]
 QED
 
-(* TODO(bvi_tmc): to model the bvi_tmc pass in the incremental oracle, a
-   state_cc/state_co bvi_tmc$compile_prog layer should wrap these (innermost
-   for cc, outermost for co).  That requires extending the oracle config shape
-   (config_tuple2 / cake_orac in backendProof) with a next_name3 slot, which is
-   not yet done; for now full_cc/full_co keep the original 3-pass shape and the
-   bvi_tmc semantics step is left as a cheat in compile_semantics. *)
 Definition full_cc_def:
   full_cc c cc =
     let limit = c.inline_size_limit in
     let split = c.split_main_at_seq in
     let cut = c.exp_cut in
       state_cc (compile_inc limit split cut) (state_cc compile_inc
-        (state_cc bvi_tailrec$compile_prog cc))
+        (state_cc bvi_tailrec$compile_prog
+          (state_cc bvi_tmc$compile_prog cc)))
 End
 
 Definition full_co_def:
@@ -4637,8 +4632,9 @@ Definition full_co_def:
     let limit = c.inline_size_limit in
     let split = c.split_main_at_seq in
     let cut = c.exp_cut in
-      state_co bvi_tailrec$compile_prog (state_co compile_inc
-        (state_co (compile_inc limit split cut) co))
+      state_co bvi_tmc$compile_prog (state_co bvi_tailrec$compile_prog
+        (state_co compile_inc
+          (state_co (compile_inc limit split cut) co)))
 End
 
 Theorem compile_prog_avoids_nss_2:
