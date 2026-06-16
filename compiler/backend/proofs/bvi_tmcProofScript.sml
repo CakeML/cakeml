@@ -1788,7 +1788,128 @@ Resume do_app_op_rel[BlockOp]:
 QED
 
 Resume do_app_op_rel[Install]:
-  cheat
+  gvs [do_app_def, do_install_def, AllCaseEqs (), PULL_EXISTS]
+  >> qpat_x_assum `v_rel f (Number (&LENGTH bytes)) _`
+       (strip_assume_tac o ONCE_REWRITE_RULE [v_rel_cases])
+  >> qpat_x_assum `v_rel f (Number (&LENGTH data)) _`
+       (strip_assume_tac o ONCE_REWRITE_RULE [v_rel_cases])
+  >> gvs []
+  >> drule_all v_to_bytes_v_rel >> strip_tac
+  >> drule_all v_to_words_v_rel >> strip_tac
+  >> gvs []
+  >> `s'.compile_oracle = state_co compile_prog s.compile_oracle ∧
+      s.compile = state_cc compile_prog s'.compile ∧
+      state_ref_rel f s.refs s'.refs ∧ s'.clock = s.clock ∧
+      OPTREL (λp p'. FLOOKUP f p = SOME p') s.global s'.global ∧
+      s'.ffi = s.ffi ∧ code_rel s.code s'.code ∧
+      namespace_rel s.code s'.code ∧ fmap_inj f ∧
+      (∀n. let ((next,cfg),prog) = s.compile_oracle n in
+              input_condition next prog) ∧
+      (∀n. n ∈ domain s'.code ∧ in_ns_2 n ⇒ n < FST (FST (s.compile_oracle 0)))`
+       by fs [state_rel_def]
+  >> Cases_on `s.compile_oracle 0` >> PairCases_on `q`
+  >> rename1 `s.compile_oracle 0 = ((state0,cfg),progs0)`
+  >> gvs [backendPropsTheory.state_co_def, backendPropsTheory.state_cc_def,
+          miscTheory.shift_seq_def]
+  >> Cases_on `compile_prog state0 progs0`
+  >> rename1 `compile_prog state0 progs0 = (state1,progs1)`
+  >> gvs [AllCaseEqs ()]
+  >> `∃w rest. progs1 = (k,w)::rest` by
+       (qpat_x_assum `compile_prog state0 ((k,prog)::v7) = _` mp_tac
+        >> PairCases_on `prog` >> simp [bvi_tmcTheory.compile_prog_def]
+        >> rpt (pairarg_tac >> simp []) >> CASE_TAC >> simp [] >> rw []
+        >> Cases_on `x` >> gvs [])
+  >> gvs []
+  >> qexists `f` >> gvs []
+  >> `input_condition state0 ((k,prog)::v7)` by
+       (qpat_x_assum `∀n. (λ((next,cfg),prog). input_condition next prog) _`
+          (qspec_then `0` mp_tac) >> simp [])
+  >> `in_ns_2 state0 ∧ bvl_num_stubs ≤ state0` by gvs [input_condition_def]
+  >> `ALL_DISTINCT (MAP FST ((k,w)::rest))` by
+       (irule (cj 1 compile_prog_ALL_DISTINCT)
+        >> first_x_assum (irule_at Any) >> gvs [input_condition_def])
+  >> `code_rel (fromAList ((k,prog)::v7)) (fromAList ((k,w)::rest))` by
+       (irule compile_prog_code_rel
+        >> first_x_assum (irule_at Any) >> gvs [input_condition_def])
+  >> `namespace_rel (fromAList ((k,prog)::v7)) (fromAList ((k,w)::rest))` by
+       (irule compile_prog_namespace_rel
+        >> first_x_assum (irule_at Any) >> gvs [input_condition_def])
+  >> `DISJOINT (domain s.code) (set (MAP FST ((k,prog)::v7)))` by
+       (simp [] >> gvs [pred_setTheory.IN_DISJOINT] >> metis_tac [])
+  >> `∀nm. in_ns_2 nm ∧ bvl_num_stubs ≤ nm ⇒
+            ¬MEM nm (MAP FST ((k,prog)::v7))` by
+       (rw [] >> CCONTR_TAC >> gvs [MEM_MAP]
+        >> gvs [input_condition_def, EVERY_MEM, MEM_FILTER]
+        >> qpat_x_assum `∀e. bvl_num_stubs ≤ FST e ∧ _ ⇒ _ MOD _ ≠ 2`
+             (qspec_then `(k,prog)` mp_tac) >> gvs [])
+  >> `DISJOINT (domain s'.code) (set (MAP FST ((k,w)::rest)))` by
+       (qabbrev_tac `qq = (k,prog)::v7` >> qabbrev_tac `pp = (k,w)::rest`
+        >> fs [pred_setTheory.IN_DISJOINT]
+        >> qx_gen_tac `nn` >> spose_not_then strip_assume_tac
+        >> Cases_on `in_ns_2 nn ∧ bvl_num_stubs ≤ nn`
+        >- (`¬MEM nn (MAP FST qq)` by metis_tac []
+            >> drule (GEN_ALL compile_prog_MEM) >> disch_then drule >> simp []
+            >> CCONTR_TAC >> fs [] >> res_tac >> fs [])
+        >> qpat_x_assum `namespace_rel s.code s'.code` mp_tac
+        >> simp [namespace_rel_def] >> spose_not_then strip_assume_tac
+        >> `nn ∈ domain s.code` by metis_tac [NOT_LESS]
+        >> drule (GEN_ALL compile_prog_MEM) >> disch_then drule
+        >> strip_tac >- metis_tac []
+        >> fs [backend_commonTheory.bvl_to_bvi_namespaces_def]
+        >> res_tac >> fs [])
+  >> rpt conj_tac
+  >- (qpat_x_assum `DISJOINT (domain s'.code) (set (MAP FST ((k,w)::rest)))`
+        mp_tac >> simp [] >> rw [])
+  >- (qpat_x_assum `DISJOINT (domain s'.code) (set (MAP FST ((k,w)::rest)))`
+        mp_tac >> simp [] >> rw [])
+  >- (qpat_x_assum `ALL_DISTINCT (MAP FST ((k,w)::rest))` mp_tac >> simp [] >> rw [])
+  >- (qpat_x_assum `ALL_DISTINCT (MAP FST ((k,w)::rest))` mp_tac >> simp [])
+  >- (Cases_on `s.compile_oracle 1` >> PairCases_on `q`
+      >> gvs [] >> pairarg_tac >> gvs [])
+  >- simp [Once v_rel_cases]
+  >- (simp [state_rel_def]
+      >> rpt conj_tac
+      >- simp [FUN_EQ_THM, backendPropsTheory.state_co_def]
+      >- (simp [FUN_EQ_THM, backendPropsTheory.state_cc_def, FORALL_PROD]
+          >> rpt (pairarg_tac >> gvs []) >> rw []
+          >> rpt (pairarg_tac >> gvs []) >> rw [])
+      >- (rewrite_tac [GSYM (cj 2 sptreeTheory.fromAList_def)]
+          >> irule code_rel_union >> simp [domain_fromAList]
+          >> qpat_x_assum
+               `DISJOINT (domain s'.code) (set (MAP FST ((k,w)::rest)))` mp_tac
+          >> qpat_x_assum `code_rel (fromAList ((k,prog)::v7)) _` mp_tac
+          >> qpat_x_assum `code_rel s.code s'.code` mp_tac
+          >> simp [pred_setTheory.DISJOINT_SYM])
+      >- (rewrite_tac [GSYM (cj 2 sptreeTheory.fromAList_def)]
+          >> irule namespace_rel_union >> simp [domain_fromAList]
+          >> qpat_x_assum
+               `DISJOINT (domain s'.code) (set (MAP FST ((k,w)::rest)))` mp_tac
+          >> qpat_x_assum `namespace_rel (fromAList ((k,prog)::v7)) _` mp_tac
+          >> qpat_x_assum `namespace_rel s.code s'.code` mp_tac
+          >> simp [pred_setTheory.DISJOINT_SYM])
+      >> qpat_x_assum `(state1,cfg1) = FST (s.compile_oracle 1)`
+           (assume_tac o SYM)
+      >> simp [domain_fromAList]
+      >> imp_res_tac compile_prog_next_mono
+      >> rw []
+      >- (res_tac >> simp [])
+      >- (`k < bvl_num_stubs` by
+            (CCONTR_TAC >> fs [NOT_LESS]
+             >> qpat_x_assum
+                  `∀nm. in_ns_2 nm ∧ bvl_num_stubs ≤ nm ⇒ nm ≠ k ∧ _`
+                  (qspec_then `k` mp_tac) >> simp [])
+          >> decide_tac)
+      >> `MEM n (MAP FST ((k,w)::rest))` by simp []
+      >> drule (GEN_ALL compile_prog_MEM) >> disch_then drule >> strip_tac
+      >- (Cases_on `bvl_num_stubs ≤ n`
+          >- (qpat_x_assum `∀nm. in_ns_2 nm ∧ bvl_num_stubs ≤ nm ⇒ ¬MEM _ _`
+                (qspec_then `n` mp_tac) >> simp [])
+          >> fs [NOT_LESS_EQUAL] >> decide_tac)
+      >> qpat_x_assum `n < state0 + bvl_to_bvi_namespaces * k'`
+           (mp_tac o ONCE_REWRITE_RULE [arithmeticTheory.MULT_COMM])
+      >> simp [])
+  >- simp [only_fresh_refl]
+  >> simp [holes_unchanged_except_refl]
 QED
 
 Finalise do_app_op_rel;
