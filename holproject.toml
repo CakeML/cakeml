@@ -1,0 +1,23 @@
+name = "cakeml"
+
+holpath = "CAKEMLDIR"
+
+exclude = [
+  "examples",
+  "candle/overloading",
+  "compiler/benchmarks",
+  "compiler/bootstrap/compilation/x64/32",
+  "translator/other-examples",
+  "tutorial",
+  "unverified/sexpr-bootstrap/x64/32"
+]
+
+external_includes = [
+  "$(HOLDIR)/examples/formal-languages/context-free",
+  "$(HOLDIR)/examples/algorithms",    # for spt_closure
+  "$(HOLDIR)/examples/machine-code/multiword",
+  "$(HOLDIR)/examples/machine-code/hoare-triple",
+  "$(HOLDIR)/examples/data-structures/balanced_bst",
+]
+
+
