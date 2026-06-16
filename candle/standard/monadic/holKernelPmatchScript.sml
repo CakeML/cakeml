@@ -111,7 +111,7 @@ Theorem type_of_PMATCH[local]:
                         | _ => failwith «match»
            od
     | Abs (Var _ ty) t
-        => do x <- type_of t; mk_fun_ty ty x od
+        => do x <- type_of t; return (mk_fun_ty ty x) od
     | _ => failwith «match»
 Proof
   monadtac >> rpt tac
@@ -281,10 +281,12 @@ val res = fix is_eq_def "is_eq_def" is_eq_PMATCH
 Theorem TRANS_PMATCH[local]:
    ^(rhs(concl(SPEC_ALL TRANS_def))) =
     pmatch (c1,c2) of
-      (Comb (Comb (Const «=» _) l) m1, Comb (Comb (Const «=» _) m2) r) =>
-        if aconv m1 m2 then do eq <- mk_eq(l,r);
-                               return (Sequent (term_union asl1 asl2) eq) od
-        else failwith «TRANS»
+      (Comb eql m1, Comb (Comb (Const «=» _) m2) r) =>
+        (pmatch eql of
+           (Comb (Const «=» _) l) =>
+            if aconv m1 m2 then return (Sequent (term_union asl1 asl2) (Comb eql r))
+            else failwith «TRANS»
+         | _ => failwith «TRANS»)
     | _ => failwith «TRANS»
 Proof
   rpt tac
@@ -295,27 +297,35 @@ Theorem MK_COMB_PMATCH[local]:
    ^(rhs(concl(SPEC_ALL MK_COMB_def))) =
    pmatch (c1,c2) of
      (Comb (Comb (Const «=» _) l1) r1, Comb (Comb (Const «=» _) l2) r2) =>
-       do x1 <- mk_comb(l1,l2) ;
-          x2 <- mk_comb(r1,r2) ;
-          eq <- mk_eq(x1,x2) ;
-          return (Sequent(term_union asl1 asl2) eq) od
-   | _ => failwith «MK_COMB»
+       do r1_ty <- type_of r1;
+          (pmatch r1_ty of
+             Tyapp «fun» [ty;_] =>
+               do
+                 r2_ty <- type_of r2;
+                 if r2_ty = ty then
+                   do
+                     eq <- safe_mk_eq (Comb l1 l2) (Comb r1 r2);
+                     return (Sequent (term_union asl1 asl2) eq)
+                   od
+                 else failwith «MK_COMB: types do not agree»
+               od
+           | _ => failwith «MK_COMB: types do not agree»)
+       od
+   | _ => failwith «MK_COMB: not both equations»
 Proof
-  rpt tac
+  monadtac >> rpt tac
 QED
 val res = fix MK_COMB_def "MK_COMB_def" MK_COMB_PMATCH
 
 Theorem ABS_PMATCH[local]:
    ^(rhs(concl(SPEC_ALL ABS_def))) =
-    pmatch c of
-      Comb (Comb (Const «=» _) l) r =>
+    pmatch (v,c) of
+      (Var _ _, Comb (Comb (Const «=» _) l) r) =>
         if EXISTS (vfree_in v) asl
         then failwith «ABS: variable is free in assumptions»
-        else do a1 <- mk_abs(v,l) ;
-                a2 <- mk_abs(v,r) ;
-                eq <- mk_eq(a1,a2) ;
+        else do eq <- safe_mk_eq (Abs v l) (Abs v r) ;
                 return (Sequent asl eq) od
-    | _ => failwith «ABS: not an equation»
+    | (_, _) => failwith «ABS: not an equation»
 Proof
   BasicProvers.CASE_TAC >> rpt tac
 QED
@@ -325,7 +335,7 @@ Theorem BETA_PMATCH[local]:
    ^(rhs(concl(SPEC_ALL BETA_def))) =
     pmatch tm of
       Comb (Abs v bod) arg =>
-        if arg = v then do eq <- mk_eq(tm,bod) ; return (Sequent [] eq) od
+        if arg = v then do eq <- safe_mk_eq tm bod ; return (Sequent [] eq) od
         else failwith «BETA: not a trivial beta-redex»
     | _ => failwith «BETA: not a trivial beta-redex»
 Proof
@@ -355,4 +365,3 @@ Proof
   rpt tac
 QED
 val res = fix SYM_def "SYM_def" SYM_PMATCH
-

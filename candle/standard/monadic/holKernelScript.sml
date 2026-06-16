@@ -299,13 +299,21 @@ End
   let bty = mk_vartype "B";;
 *)
 
-Definition mk_fun_ty_def:
-  mk_fun_ty ty1 ty2 = mk_type(«fun»,[ty1; ty2])
+Definition bool_ty_def:
+  bool_ty = Tyapp «bool» []
 End
 
-Overload bool_ty[local] = ``mk_type(«bool»,[])``
-Overload aty[local] = ``mk_vartype «A»``
-Overload bty[local] = ``mk_vartype «B»``
+Definition mk_fun_ty_def:
+  mk_fun_ty ty1 ty2 = Tyapp «fun» [ty1; ty2]
+End
+
+Definition aty_def:
+  aty = Tyvar «A»
+End
+
+Definition bty_def:
+  bty = Tyvar «B»
+End
 
 (*
   let constants() = !the_term_constants
@@ -343,7 +351,7 @@ Definition type_of_def:
                      case x of (_,_::ty1::_) => return ty1
                              | _ => failwith «match»
                   od
-    | Abs (Var _ ty) t => do x <- type_of t; mk_fun_ty ty x od
+    | Abs (Var _ ty) t => do x <- type_of t; return (mk_fun_ty ty x) od
     | _ => failwith «match»
 End
 
@@ -372,8 +380,9 @@ Definition alphavars_def:
     case env of
       [] => (tm1 = tm2)
     | (t1,t2)::oenv =>
-         ((t1 = tm1) /\ (t2 = tm2)) \/
-         ((t1 <> tm1) /\ (t2 <> tm2) /\ alphavars oenv tm1 tm2)
+      if t1 = tm1 then t2 = tm2
+      else if t2 = tm2 then F
+      else alphavars oenv tm1 tm2
 End
 
 Definition raconv_def:
@@ -802,6 +811,19 @@ Definition rand_def:
 End
 
 (*
+  let safe_mk_eq l r =
+    let ty = type_of l in
+    Comb(Comb(Const("=",Tyapp("fun",[ty;Tyapp("fun",[ty;bool_ty])])),l),r)
+*)
+Definition safe_mk_eq_def:
+  safe_mk_eq l r =
+  do
+    ty <- type_of l;
+    return (Comb (Comb (Const «=» (Tyapp «fun» [ty; Tyapp «fun» [ty;bool_ty]])) l) r)
+  od
+End
+
+(*
   let mk_eq =
     let eq = mk_const("=",[]) in
     fun (l,r) ->
@@ -869,28 +891,30 @@ End
 
 (*
   let REFL tm =
-    Sequent([],mk_eq(tm,tm))
+    Sequent([],safe_mk_eq tm tm)
 *)
 
 Definition REFL_def:
-  REFL tm = do eq <- mk_eq(tm,tm); return (Sequent [] eq) od
+  REFL tm = do eq <- safe_mk_eq tm tm; return (Sequent [] eq) od
 End
 
 (*
   let TRANS (Sequent(asl1,c1)) (Sequent(asl2,c2)) =
     match (c1,c2) with
-      Comb(Comb(Const("=",_),l),m1),Comb(Comb(Const("=",_),m2),r)
-        when aconv m1 m2 -> Sequent(term_union asl1 asl2,mk_eq(l,r))
+      Comb((Comb(Const("=",_),_) as eql),m1),Comb(Comb(Const("=",_),m2),r)
+        when alphaorder m1 m2 = 0 -> Sequent(term_union asl1 asl2,Comb(eql,r))
     | _ -> failwith "TRANS"
 *)
 
 val _ = PmatchHeuristics.with_classic_heuristic Define `
   TRANS (Sequent asl1 c1) (Sequent asl2 c2) =
     case (c1,c2) of
-      (Comb (Comb (Const «=» _) l) m1, Comb (Comb (Const «=» _) m2) r) =>
-        if aconv m1 m2 then do eq <- mk_eq(l,r);
-                               return (Sequent (term_union asl1 asl2) eq) od
-        else failwith «TRANS»
+      (Comb eql m1, Comb (Comb (Const «=» _) m2) r) =>
+        (case eql of
+           (Comb (Const «=» _) l) =>
+            if aconv m1 m2 then return (Sequent (term_union asl1 asl2) (Comb eql r))
+            else failwith «TRANS»
+         | _ => failwith «TRANS»)
     | _ => failwith «TRANS»`
 
 (* some in-kernel but derivable rules (TRANS is also in this category) *)
@@ -920,9 +944,8 @@ Definition ALPHA_THM_def:
     let h' = list_to_hypset h' [] in
     if EVERY (λx. EXISTS (aconv x) h') h then
       do
-        bty <- bool_ty;
         tys <- map type_of h';
-        if EVERY (λty. ty = bty) tys then
+        if EVERY (λty. ty = bool_ty) tys then
           return (Sequent h' c')
         else failwith «ALPHA_THM»
       od
@@ -933,42 +956,52 @@ End
 (* -- *)
 
 (*
-  let MK_COMB (Sequent(asl1,c1),Sequent(asl2,c2)) =
+  let MK_COMB(Sequent(asl1,c1),Sequent(asl2,c2)) =
      match (c1,c2) with
-       Comb(Comb(Const("=",_),l1),r1),Comb(Comb(Const("=",_),l2),r2)
-        -> Sequent(term_union asl1 asl2,mk_eq(mk_comb(l1,l2),mk_comb(r1,r2)))
-     | _ -> failwith "MK_COMB"
+       Comb(Comb(Const("=",_),l1),r1),Comb(Comb(Const("=",_),l2),r2) ->
+        (match type_of r1 with
+           Tyapp("fun",[ty;_]) when compare ty (type_of r2) = 0
+             -> Sequent(term_union asl1 asl2,
+                        safe_mk_eq (Comb(l1,l2)) (Comb(r1,r2)))
+         | _ -> failwith "MK_COMB: types do not agree")
+     | _ -> failwith "MK_COMB: not both equations"
 *)
 
 val _ = PmatchHeuristics.with_classic_heuristic Define `
   MK_COMB (Sequent asl1 c1,Sequent asl2 c2) =
    case (c1,c2) of
      (Comb (Comb (Const «=» _) l1) r1, Comb (Comb (Const «=» _) l2) r2) =>
-       do x1 <- mk_comb(l1,l2) ;
-          x2 <- mk_comb(r1,r2) ;
-          eq <- mk_eq(x1,x2) ;
-          return (Sequent(term_union asl1 asl2) eq) od
-   | _ => failwith «MK_COMB»`
+       do r1_ty <- type_of r1;
+          (case r1_ty of
+             Tyapp «fun» [ty;_] =>
+               do
+                 r2_ty <- type_of r2;
+                 if r2_ty = ty then
+                   do
+                     eq <- safe_mk_eq (Comb l1 l2) (Comb r1 r2);
+                     return (Sequent (term_union asl1 asl2) eq)
+                   od
+                 else failwith «MK_COMB: types do not agree»
+               od
+           | _ => failwith «MK_COMB: types do not agree»)
+       od
+   | _ => failwith «MK_COMB: not both equations»`
 
 (*
   let ABS v (Sequent(asl,c)) =
-    match c with
-      Comb(Comb(Const("=",_),l),r) ->
-        if exists (vfree_in v) asl
-        then failwith "ABS: variable is free in assumptions"
-        else Sequent(asl,mk_eq(mk_abs(v,l),mk_abs(v,r)))
-    | _ -> failwith "ABS: not an equation"
+    match (v,c) with
+      Var(_,_),Comb(Comb(Const("=",_),l),r) when not(exists (vfree_in v) asl)
+         -> Sequent(asl,safe_mk_eq (Abs(v,l)) (Abs(v,r)))
+    | _ -> failwith "ABS";;
 *)
 
 Definition ABS_def:
   ABS v (Sequent asl c) =
-    case c of
-      Comb (Comb (Const «=» _) l) r =>
+    case (v,c) of
+      (Var _ _, Comb (Comb (Const «=» _) l) r) =>
         if EXISTS (vfree_in v) asl
         then failwith «ABS: variable is free in assumptions»
-        else do a1 <- mk_abs(v,l) ;
-                a2 <- mk_abs(v,r) ;
-                eq <- mk_eq(a1,a2) ;
+        else do eq <- safe_mk_eq (Abs v l) (Abs v r) ;
                 return (Sequent asl eq) od
     | _ => failwith «ABS: not an equation»
 End
@@ -976,7 +1009,8 @@ End
 (*
   let BETA tm =
     match tm with
-      Comb(Abs(v,bod),arg) when arg = v -> Sequent([],mk_eq(tm,bod))
+      Comb(Abs(v,bod),arg) when compare arg v = 0
+        -> Sequent([],safe_mk_eq tm bod)
     | _ -> failwith "BETA: not a trivial beta-redex"
 *)
 
@@ -984,7 +1018,7 @@ Definition BETA_def:
   BETA tm =
     case tm of
       Comb (Abs v bod) arg =>
-        if arg = v then do eq <- mk_eq(tm,bod) ; return (Sequent [] eq) od
+        if arg = v then do eq <- safe_mk_eq tm bod ; return (Sequent [] eq) od
         else failwith «BETA: not a trivial beta-redex»
     | _ => failwith «BETA: not a trivial beta-redex»
 End
@@ -998,8 +1032,7 @@ End
 Definition ASSUME_def:
   ASSUME tm =
     do ty <- type_of tm ;
-       bty <- bool_ty ;
-       if ty = bty then return (Sequent [tm] tm)
+       if ty = bool_ty then return (Sequent [tm] tm)
        else failwith «ASSUME: not a proposition» od
 End
 
@@ -1023,14 +1056,14 @@ End
 (*
   let DEDUCT_ANTISYM_RULE (Sequent(asl1,c1)) (Sequent(asl2,c2)) =
     let asl1' = term_remove c2 asl1 and asl2' = term_remove c1 asl2 in
-    Sequent(term_union asl1' asl2',mk_eq(c1,c2))
+    Sequent(term_union asl1' asl2',safe_mk_eq c1 c2)
 *)
 
 Definition DEDUCT_ANTISYM_RULE_def:
   DEDUCT_ANTISYM_RULE (Sequent asl1 c1) (Sequent asl2 c2) =
     let asl1' = term_remove c2 asl1 in
     let asl2' = term_remove c1 asl2 in
-      do eq <- mk_eq(c1,c2) ;
+      do eq <- safe_mk_eq c1 c2 ;
          return (Sequent (term_union asl1' asl2') eq) od
 End
 
@@ -1091,8 +1124,7 @@ End
 Definition new_axiom_def:
   new_axiom tm =
     do ty <- type_of tm ;
-       bty <- bool_ty ;
-       if ty = bty then
+       if ty = bool_ty then
          do th <- return (Sequent [] tm) ;
             ax <- get_the_axioms ;
             set_the_axioms (th :: ax) ;
@@ -1230,22 +1262,18 @@ Definition new_basic_type_definition_def:
     do rty <- type_of x ;
        add_type (tyname, LENGTH tyvars) ;
        aty <- mk_type(tyname,tyvars) ;
-       repty <- mk_fun_ty aty rty ;
-       absty <- mk_fun_ty rty aty ;
-       add_constants[(absname,absty);(repname,repty)] ;
+       add_constants[(absname,mk_fun_ty rty aty);(repname,mk_fun_ty aty rty)] ;
        add_def (TypeDefn tyname P absname repname) ;
        rep <- mk_const(repname,[]) ;
        abs <- mk_const(absname,[]) ;
        a <- return (mk_var(«a»,aty)) ;
        r <- return (mk_var(«r»,rty)) ;
        x1 <- mk_comb(rep,a) ;
-       x2 <- mk_comb(abs,x1) ;
-       eq1 <- mk_eq(x2,a) ;
+       eq1 <- safe_mk_eq (Comb abs x1) a ;
        y1 <- mk_comb(abs,r) ;
        y2 <- mk_comb(rep,y1) ;
-       y3 <- mk_comb(P,r) ;
-       eq2 <- mk_eq(y2,r) ;
-       eq3 <- mk_eq(y3,eq2) ;
+       eq2 <- safe_mk_eq y2 r ;
+       eq3 <- safe_mk_eq (Comb P r) eq2 ;
        return (Sequent [] eq1, Sequent [] eq3) od od od
 End
 
