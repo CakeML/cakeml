@@ -40,14 +40,14 @@ End
 Definition to_bvi_def:
   to_bvi c p =
     let (c,p,names) = to_bvl c p in
-    let (s,p,l,n1,n2,names) =
+    let (s,p,l,n1,n2,n3,names) =
       bvl_to_bvi$compile c.inc_clos_conf.start c.inc_bvl_conf names p in
     let names = sptree$union (sptree$fromAList $ (data_to_word$stub_names () ++
       word_to_stack$stub_names () ++ stack_alloc$stub_names () ++
       stack_remove$stub_names ())) names in
     let c = c with inc_clos_conf updated_by (λc. c with start := s) in
     let c = c with inc_bvl_conf updated_by (λc. c with
-                  <| inlines := l; next_name1 := n1; next_name2 := n2 |>) in
+                  <| inlines := l; next_name1 := n1; next_name2 := n2; next_name3 := n3 |>) in
       (c,p,names)
 End
 
@@ -605,16 +605,18 @@ Definition to_bvi_all_def:
                        bvl_handle$compile_any split_seq cut_size arity exp)) prog in
     let ps = ps ++ [(strlit "after bvl_handle",Bvl prog names)] in
     let (loc,code,n1) = bvl_to_bvi$compile_prog start 0 prog in
-    let (n2,code') = bvi_tailrec$compile_prog (bvl_num_stubs + 2) code in
-    let (s,p,l,n1,n2,names) = (loc,code',inlines,n1,n2,get_names (MAP FST code') names) in
+    let (n2,code2) = bvi_tailrec$compile_prog (bvl_num_stubs + 2) code in
+    let (n3,code') = bvi_tmc$compile_prog (bvl_num_stubs + 3) code2 in
+    let (s,p,l,n1,n2,n3,names) = (loc,code',inlines,n1,n2,n3,get_names (MAP FST code') names) in
     let names = sptree$union (sptree$fromAList $ (data_to_word$stub_names () ++
       word_to_stack$stub_names () ++ stack_alloc$stub_names () ++
       stack_remove$stub_names ())) names in
     let ps = ps ++ [(strlit "after bvl_to_bvi",Bvi code names)] in
-    let ps = ps ++ [(strlit "after bvi_tailrec",Bvi code' names)] in
+    let ps = ps ++ [(strlit "after bvi_tailrec",Bvi code2 names)] in
+    let ps = ps ++ [(strlit "after bvi_tmc",Bvi code' names)] in
     let c = c with inc_clos_conf updated_by (λc. c with start := s) in
     let c = c with inc_bvl_conf updated_by
-      (λc. c with <| inlines := l; next_name1 := n1; next_name2 := n2 |>) in
+      (λc. c with <| inlines := l; next_name1 := n1; next_name2 := n2; next_name3 := n3 |>) in
      ((ps: (mlstring # 'a any_prog) list),c,p,names)
 End
 

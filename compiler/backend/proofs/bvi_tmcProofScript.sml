@@ -9,7 +9,7 @@ Libs
 
 val s = “s : (num # γ, 'ffi) bviSem$state”;
 
-Overload in_ns_2[local] = “λn. n MOD bvl_to_bvi_namespaces = 2”
+Overload in_ns_3[local] = “λn. n MOD bvl_to_bvi_namespaces = 3”
 
 Inductive v_rel:
 [~Number:]
@@ -109,8 +109,8 @@ End
 
 Definition namespace_rel_def:
   namespace_rel (c1:'a spt) (c2:'a spt) ⇔
-    (∀n. n ∈ domain c2 ∧ bvl_num_stubs ≤ n ⇒ if in_ns_2 n then n ∉ domain c1 else n ∈ domain c1) ∧
-    (∀n. n ∈ domain c1 ∧ bvl_num_stubs ≤ n ⇒ ¬(in_ns_2 n)) ∧
+    (∀n. n ∈ domain c2 ∧ bvl_num_stubs ≤ n ⇒ if in_ns_3 n then n ∉ domain c1 else n ∈ domain c1) ∧
+    (∀n. n ∈ domain c1 ∧ bvl_num_stubs ≤ n ⇒ ¬(in_ns_3 n)) ∧
     (∀n. n ∈ domain c2 ∧ n < bvl_num_stubs ⇒ n ∈ domain c1)
 End
 
@@ -120,8 +120,8 @@ Definition input_condition_def:
     EVERY (free_names next o FST) prog ∧
     EVERY (no_mutcons o SND o SND) prog ∧
     ALL_DISTINCT (MAP FST prog) ∧
-    EVERY ($~ o in_ns_2 o FST) (FILTER ((<=) bvl_num_stubs o FST) prog) ∧
-    bvl_num_stubs ≤ next ∧ in_ns_2 next
+    EVERY ($~ o in_ns_3 o FST) (FILTER ((<=) bvl_num_stubs o FST) prog) ∧
+    bvl_num_stubs ≤ next ∧ in_ns_3 next
 End
 
 Definition state_ref_rel_def:
@@ -167,7 +167,7 @@ Definition state_rel_def:
     namespace_rel s.code t.code ∧
     (∀n. let ((next,cfg),prog) = s.compile_oracle n in
             input_condition next prog) ∧
-    (∀n. n ∈ domain t.code ∧ in_ns_2 n ⇒ n < FST(FST(s.compile_oracle 0))) ∧
+    (∀n. n ∈ domain t.code ∧ in_ns_3 n ⇒ n < FST(FST(s.compile_oracle 0))) ∧
     fmap_inj f
 End
 
@@ -328,8 +328,8 @@ Proof
 QED
 
 Theorem compile_prog_namespace_rel:
-  compile_prog next prog = (next1,prog2) ∧ in_ns_2 next ∧ bvl_num_stubs ≤ next ∧
-  EVERY ($~ o in_ns_2 o FST) (FILTER ((<=) bvl_num_stubs o FST) prog) ⇒
+  compile_prog next prog = (next1,prog2) ∧ in_ns_3 next ∧ bvl_num_stubs ≤ next ∧
+  EVERY ($~ o in_ns_3 o FST) (FILTER ((<=) bvl_num_stubs o FST) prog) ⇒
   namespace_rel (fromAList prog) (fromAList prog2)
 Proof
   rw [namespace_rel_def,EVERY_MEM,domain_fromAList,MEM_MAP,PULL_EXISTS,MEM_FILTER]
@@ -1805,7 +1805,7 @@ Resume do_app_op_rel[Install]:
       namespace_rel s.code s'.code ∧ fmap_inj f ∧
       (∀n. let ((next,cfg),prog) = s.compile_oracle n in
               input_condition next prog) ∧
-      (∀n. n ∈ domain s'.code ∧ in_ns_2 n ⇒ n < FST (FST (s.compile_oracle 0)))`
+      (∀n. n ∈ domain s'.code ∧ in_ns_3 n ⇒ n < FST (FST (s.compile_oracle 0)))`
        by fs [state_rel_def]
   >> Cases_on `s.compile_oracle 0` >> PairCases_on `q`
   >> rename1 `s.compile_oracle 0 = ((state0,cfg),progs0)`
@@ -1824,7 +1824,7 @@ Resume do_app_op_rel[Install]:
   >> `input_condition state0 ((k,prog)::v7)` by
        (qpat_x_assum `∀n. (λ((next,cfg),prog). input_condition next prog) _`
           (qspec_then `0` mp_tac) >> simp [])
-  >> `in_ns_2 state0 ∧ bvl_num_stubs ≤ state0` by gvs [input_condition_def]
+  >> `in_ns_3 state0 ∧ bvl_num_stubs ≤ state0` by gvs [input_condition_def]
   >> `ALL_DISTINCT (MAP FST ((k,w)::rest))` by
        (irule (cj 1 compile_prog_ALL_DISTINCT)
         >> first_x_assum (irule_at Any) >> gvs [input_condition_def])
@@ -1836,17 +1836,17 @@ Resume do_app_op_rel[Install]:
         >> first_x_assum (irule_at Any) >> gvs [input_condition_def])
   >> `DISJOINT (domain s.code) (set (MAP FST ((k,prog)::v7)))` by
        (simp [] >> gvs [pred_setTheory.IN_DISJOINT] >> metis_tac [])
-  >> `∀nm. in_ns_2 nm ∧ bvl_num_stubs ≤ nm ⇒
+  >> `∀nm. in_ns_3 nm ∧ bvl_num_stubs ≤ nm ⇒
             ¬MEM nm (MAP FST ((k,prog)::v7))` by
        (rw [] >> CCONTR_TAC >> gvs [MEM_MAP]
         >> gvs [input_condition_def, EVERY_MEM, MEM_FILTER]
-        >> qpat_x_assum `∀e. bvl_num_stubs ≤ FST e ∧ _ ⇒ _ MOD _ ≠ 2`
+        >> qpat_x_assum `∀e. bvl_num_stubs ≤ FST e ∧ _ ⇒ _ MOD _ ≠ 3`
              (qspec_then `(k,prog)` mp_tac) >> gvs [])
   >> `DISJOINT (domain s'.code) (set (MAP FST ((k,w)::rest)))` by
        (qabbrev_tac `qq = (k,prog)::v7` >> qabbrev_tac `pp = (k,w)::rest`
         >> fs [pred_setTheory.IN_DISJOINT]
         >> qx_gen_tac `nn` >> spose_not_then strip_assume_tac
-        >> Cases_on `in_ns_2 nn ∧ bvl_num_stubs ≤ nn`
+        >> Cases_on `in_ns_3 nn ∧ bvl_num_stubs ≤ nn`
         >- (`¬MEM nn (MAP FST qq)` by metis_tac []
             >> drule (GEN_ALL compile_prog_MEM) >> disch_then drule >> simp []
             >> CCONTR_TAC >> fs [] >> res_tac >> fs [])
@@ -1896,13 +1896,13 @@ Resume do_app_op_rel[Install]:
       >- (`k < bvl_num_stubs` by
             (CCONTR_TAC >> fs [NOT_LESS]
              >> qpat_x_assum
-                  `∀nm. in_ns_2 nm ∧ bvl_num_stubs ≤ nm ⇒ nm ≠ k ∧ _`
+                  `∀nm. in_ns_3 nm ∧ bvl_num_stubs ≤ nm ⇒ nm ≠ k ∧ _`
                   (qspec_then `k` mp_tac) >> simp [])
           >> decide_tac)
       >> `MEM n (MAP FST ((k,w)::rest))` by simp []
       >> drule (GEN_ALL compile_prog_MEM) >> disch_then drule >> strip_tac
       >- (Cases_on `bvl_num_stubs ≤ n`
-          >- (qpat_x_assum `∀nm. in_ns_2 nm ∧ bvl_num_stubs ≤ nm ⇒ ¬MEM _ _`
+          >- (qpat_x_assum `∀nm. in_ns_3 nm ∧ bvl_num_stubs ≤ nm ⇒ ¬MEM _ _`
                 (qspec_then `n` mp_tac) >> simp [])
           >> fs [NOT_LESS_EQUAL] >> decide_tac)
       >> qpat_x_assum `n < state0 + bvl_to_bvi_namespaces * k'`
@@ -5005,7 +5005,7 @@ Finalise evaluate_rewrite_tmc;
 Theorem evaluate_compile_prog:
    input_condition next prog ∧
    (∀n next cfg prog. co n = ((next,cfg),prog) ⇒ input_condition next prog) ∧
-   (∀n. MEM n (MAP FST (SND (compile_prog next prog))) ∧ in_ns_2 n ⇒ n < FST (FST (co 0))) ∧
+   (∀n. MEM n (MAP FST (SND (compile_prog next prog))) ∧ in_ns_3 n ⇒ n < FST (FST (co 0))) ∧
    evaluate ([Call 0 (SOME start) [] NONE], [],
              initial_state ffi0 (fromAList prog) co
                  (state_cc compile_prog cc) k) = (r, s) ∧
@@ -5066,7 +5066,7 @@ QED
 Theorem compile_prog_semantics:
   input_condition n prog ∧
   (∀k n cfg prog. co k = ((n,cfg),prog) ⇒ input_condition n prog) ∧
-  (∀k. MEM k (MAP FST prog2) ∧ in_ns_2 k ⇒ k < FST(FST (co 0))) ∧
+  (∀k. MEM k (MAP FST prog2) ∧ in_ns_3 k ⇒ k < FST(FST (co 0))) ∧
   SND (compile_prog n prog) = prog2 ∧
   semantics ffi (fromAList prog) co (state_cc compile_prog cc) start ≠ ffi$Fail ⇒
   semantics ffi (fromAList prog) co (state_cc compile_prog cc) start =

@@ -129,11 +129,11 @@ Definition data_num_stubs_def:
 End
 
 Definition bvl_num_stubs_def:
-  bvl_num_stubs = data_num_stubs + 9 + (* dummy to make it a multiple of 3 *) 0
+  bvl_num_stubs = data_num_stubs + 9 + (* dummy to make it a multiple of 4 *) 3
 End
 
 Definition bvl_to_bvi_namespaces_def:
-  bvl_to_bvi_namespaces = 3n
+  bvl_to_bvi_namespaces = 4n
 End
 
 Theorem data_num_stubs_EVEN:
