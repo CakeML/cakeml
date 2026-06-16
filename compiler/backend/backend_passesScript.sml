@@ -476,7 +476,7 @@ Proof
 QED
 
 Theorem number_of_passes:
-  LENGTH (FST (to_target_all c p)) = 39
+  LENGTH (FST (to_target_all c p)) = 40
 Proof
   fs [to_target_all_def] \\ rpt (pairarg_tac \\ gvs [])
   \\ fs [to_lab_all_def] \\ rpt (pairarg_tac \\ gvs [])

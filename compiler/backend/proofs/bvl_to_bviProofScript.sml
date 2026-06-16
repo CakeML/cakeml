@@ -4258,6 +4258,138 @@ Theorem compile_prog_evaluate:
 Proof
   (* nss 3->4 broke the residue case-analysis; bvi_tmc adds ns 3 *)
   cheat
+(* === ORIGINAL PROOF of compile_prog_evaluate (pre-cheat); the nss=4/bvi_tmc fix should be close to this ===
+(*
+  theorems to compose:
+    bvi_stubs_evaluate
+    compile_single_evaluate
+*)
+  srw_tac[][compile_prog_def,LET_THM] >>
+  pairarg_tac >> full_simp_tac(srw_ss())[] >> rveq >>
+  old_drule (GEN_ALL compile_single_evaluate) >>
+  simp[state_ok_def] >>
+  qpat_abbrev_tac `kk = alloc_glob_count (MAP (λ(_,_,p). p) prog)` >>
+  (Q.ISPECL_THEN[`state_co compile_inc co`,`cc`,`kk`,
+       `num_stubs + nss * start`,`ffi0`,`append code`,`k`] mp_tac)
+    (Q.GENL[`co`,`cc`] bvi_stubs_evaluate) >>
+  simp[] >>
+  qmatch_goalsub_abbrev_tac`_ = _ (evaluate (_,[],t1))` >>
+  strip_tac \\ pairarg_tac \\ fs[] \\
+  simp [Once state_rel_def,FLOOKUP_UPDATE] >>
+  disch_then(qspec_then`t1`mp_tac) >>
+  simp[Abbr`t1`] >>
+  impl_tac >- (
+    conj_tac >- (qexists_tac `MIN (MAX kk 1) InitGlobals_max`
+                 \\ fs [] \\ EVAL_TAC) >>
+    rpt var_eq_tac >>
+    simp[lookup_fromAList,ALOOKUP_APPEND] >>
+    simp[stubs_def] >>
+    IF_CASES_TAC >> simp[] >- (
+      `F` suffices_by srw_tac[][] >> pop_assum mp_tac >> EVAL_TAC ) >>
+    rpt gen_tac \\
+    rpt (
+      IF_CASES_TAC >- (
+        `F` suffices_by srw_tac[][] >>
+        pop_assum mp_tac >> EVAL_TAC >> decide_tac)) >>
+    simp_tac std_ss [] >>
+    conj_tac >- (
+      simp_tac(srw_ss()++LET_ss)[names_ok_def,domain_fromAList]
+      \\ conj_tac
+      >- (
+        qx_gen_tac`m`
+        \\ rpt strip_tac
+        \\ first_x_assum(qspec_then`m`mp_tac)
+        \\ simp[EVERY_MEM,UNCURRY] )
+      \\ rpt strip_tac \\ rveq
+      \\ TRY (pop_assum mp_tac \\ EVAL_TAC \\ NO_TAC)
+      \\ rpt(qpat_x_assum`_ ≠ _`kall_tac)
+      \\ old_drule compile_list_distinct_locs
+      \\ disch_then old_drule \\ simp[]
+      \\ simp[EVERY_MEM,MEM_FILTER,between_def]
+      \\ strip_tac
+      \\ qmatch_assum_rename_tac`MEM m (MAP FST _)`
+      \\ IF_CASES_TAC
+      >- (
+        last_x_assum(qspec_then`m`mp_tac) \\
+        last_x_assum(qspec_then`m`mp_tac) \\
+        impl_tac >- (
+          simp[] \\
+          ONCE_REWRITE_TAC[GSYM in_ns_add_num_stubs] \\
+          asm_simp_tac(std_ss++ARITH_ss)[] \\
+          simp[in_ns_def] )
+        \\ rw[]
+        \\ qmatch_assum_rename_tac`m < num_stubs + x * nss`
+        \\ qmatch_assum_rename_tac`x <= y`
+        \\ `x * nss <= y * nss` by simp[]
+        \\ decide_tac )
+      \\ conj_asm1_tac
+      >- (
+        assume_tac(EVAL``nss``)
+        \\ `m MOD nss < nss` by simp[]
+        \\ CCONTR_TAC
+        \\ `m MOD nss = 2` by decide_tac
+        \\ first_x_assum old_drule
+        \\ simp_tac std_ss []
+        \\ ONCE_REWRITE_TAC[GSYM in_ns_add_num_stubs]
+        \\ asm_simp_tac(std_ss++ARITH_ss)[]
+        \\ simp[in_ns_def] )
+      \\ qpat_x_assum`FILTER _ _ = _`(mp_tac o Q.AP_TERM`LIST_TO_SET`)
+      \\ simp[EXTENSION,MEM_FILTER]
+      \\ qpat_x_assum`num_stubs ≤ _`mp_tac
+      \\ simp_tac std_ss [Once LESS_EQ_EXISTS]
+      \\ disch_then(qx_choose_then`x`strip_assume_tac)
+      \\ `0 < nss` by EVAL_TAC
+      \\ `∃y. x = y * nss` by METIS_TAC[MOD_EQ_0_DIVISOR,in_ns_def,in_ns_add_num_stubs,ADD_COMM]
+      \\ rveq
+      \\ disch_then(qspec_then`num_stubs + y * nss`mp_tac)
+      \\ simp[in_ns_def,MEM_MAP,MULT_DIV]) \\
+    rpt gen_tac \\ strip_tac \\
+    rpt (
+      IF_CASES_TAC >- (
+        `F` suffices_by srw_tac[][] >>
+        pop_assum mp_tac >> EVAL_TAC >>
+        rpt(pop_assum kall_tac) >>
+        decide_tac)) >>
+    simp_tac std_ss [] >>
+    imp_res_tac compile_list_imp >>
+    asm_simp_tac std_ss [] >>
+    qmatch_assum_rename_tac`bvl_to_bvi$compile_exps nn _ = _` >>
+    qexists_tac`nn` >>
+    asm_simp_tac std_ss [] >>
+    rewrite_tac [CONJ_ASSOC] >>
+    reverse conj_tac >- (
+      qpat_x_assum `handle_ok (MAP (SND ∘ SND) prog)` mp_tac
+      \\ qpat_x_assum `ALOOKUP prog name = SOME (arity,exp)` mp_tac
+      \\ rpt (pop_assum kall_tac)
+      \\ Induct_on `prog` \\ fs [] \\ Cases \\ fs [] \\ rw [] \\ fs []
+      \\ Cases_on `MAP (SND ∘ SND) prog` \\ fs [handle_ok_def]) >>
+    conj_tac THEN1
+      (simp_tac (std_ss)[Once ADD_COMM,Once MULT_COMM,HD] \\
+       first_x_assum MATCH_ACCEPT_TAC ) >>
+    match_mp_tac aux_code_installed_sublist >>
+    conj_tac >- (
+      full_simp_tac(srw_ss())[IS_SUBLIST_APPEND] >>
+      METIS_TAC[CONS_APPEND,APPEND_ASSOC] ) >>
+    rpt(qpat_x_assum`_ ≠ _`kall_tac) >>
+    imp_res_tac compile_list_distinct_locs >>
+    simp[] >> srw_tac[][] >> (TRY (EVAL_TAC >> NO_TAC)) >>
+    spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[EVERY_MEM] >>
+    res_tac >> pop_assum mp_tac >> EVAL_TAC) >>
+  strip_tac >>
+  qexists_tac`ck+1` >>
+  `0 < ck + k` by simp[] >>
+  old_drule (GEN_ALL bvi_stubs_evaluate) >>
+  disch_then (qspecl_then [`state_co compile_inc co`,`cc`,`kk`] mp_tac) >>
+  `num_stubs ≤ num_stubs + nss * start` by fs[] >>
+  disch_then old_drule >>
+  disch_then(qspecl_then[`ffi0`,`append code`]mp_tac) >>
+  simp[] >>
+  rpt var_eq_tac >>
+  fsrw_tac[ARITH_ss][inc_clock_def] >>
+  Cases_on`r`>>full_simp_tac(srw_ss())[]>>
+  TRY(Cases_on`e`)>>full_simp_tac(srw_ss())[] >>
+  PROVE_TAC[ADD_ASSOC,ADD_COMM]
+*)
 QED
 
 Theorem compile_prog_semantics:
@@ -4485,14 +4617,19 @@ Proof
   fs [ODD_ADD] \\ simp [ODD_EVEN,EVEN_DOUBLE]
 QED
 
+(* TODO(bvi_tmc): to model the bvi_tmc pass in the incremental oracle, a
+   state_cc/state_co bvi_tmc$compile_prog layer should wrap these (innermost
+   for cc, outermost for co).  That requires extending the oracle config shape
+   (config_tuple2 / cake_orac in backendProof) with a next_name3 slot, which is
+   not yet done; for now full_cc/full_co keep the original 3-pass shape and the
+   bvi_tmc semantics step is left as a cheat in compile_semantics. *)
 Definition full_cc_def:
   full_cc c cc =
     let limit = c.inline_size_limit in
     let split = c.split_main_at_seq in
     let cut = c.exp_cut in
       state_cc (compile_inc limit split cut) (state_cc compile_inc
-        (state_cc bvi_tailrec$compile_prog
-          (state_cc bvi_tmc$compile_prog cc)))
+        (state_cc bvi_tailrec$compile_prog cc))
 End
 
 Definition full_co_def:
@@ -4500,9 +4637,8 @@ Definition full_co_def:
     let limit = c.inline_size_limit in
     let split = c.split_main_at_seq in
     let cut = c.exp_cut in
-      state_co bvi_tmc$compile_prog (state_co bvi_tailrec$compile_prog
-        (state_co compile_inc
-          (state_co (compile_inc limit split cut) co)))
+      state_co bvi_tailrec$compile_prog (state_co compile_inc
+        (state_co (compile_inc limit split cut) co))
 End
 
 Theorem compile_prog_avoids_nss_2:
@@ -4541,6 +4677,94 @@ Theorem compile_semantics:
 Proof
   (* TODO: bvi_tmc pass composition not yet threaded through this proof *)
   cheat
+(* === ORIGINAL PROOF of compile_semantics (pre-cheat); the nss=4/bvi_tmc fix should be close to this ===
+  rw [full_cc_def,full_co_def]
+  \\ old_drule (bvl_inlineProofTheory.compile_prog_semantics
+          |> ONCE_REWRITE_RULE [bvi_letProofTheory.IMP_COMM] |> GEN_ALL)
+  \\ fs [] \\ fs [compile_def]
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq
+  \\ disch_then (assume_tac o GSYM) \\ fs []
+  \\ old_drule (compile_prog_semantics |> REWRITE_RULE [CONJ_ASSOC]
+            |> ONCE_REWRITE_RULE [CONJ_COMM] |> Q.GENL [`n`,`n'`,`start'`,`prog'`])
+  \\ disch_then (qspec_then `0` mp_tac) \\ fs []
+  \\ impl_tac
+  THEN1
+   (fs [state_co_def,UNCURRY]
+    \\ imp_res_tac bvl_inlineProofTheory.compile_prog_handle_ok \\ fs []
+    \\ imp_res_tac bvl_inlineProofTheory.compile_prog_names \\ fs []
+    \\ fs [bvl_inlineTheory.compile_inc_def,UNCURRY,EVERY_MEM,MEM_MAP,EXISTS_PROD]
+    \\ rw [] \\ fs [bvl_inlineTheory.optimise_def]
+    \\ fs [bvl_handleProofTheory.compile_any_handle_ok])
+  \\ disch_then (assume_tac o GSYM) \\ fs []
+  \\ old_drule (bvi_tailrecProofTheory.compile_prog_semantics
+            |> REWRITE_RULE [CONJ_ASSOC]
+            |> ONCE_REWRITE_RULE [CONJ_COMM] |> Q.GENL [`n`,`prog2`])
+  \\ disch_then (qspec_then `num_stubs + 2` mp_tac) \\ fs []
+  \\ reverse impl_tac
+  THEN1 (disch_then (assume_tac o GSYM) \\ fs [])
+  \\ simp [state_co_def,UNCURRY]
+  \\ reverse conj_asm2_tac
+  THEN1
+   (rw [] \\ old_drule (GEN_ALL bvi_tailrecProofTheory.compile_prog_MEM)
+    \\ disch_then old_drule \\ strip_tac \\ fs []
+    \\ match_mp_tac LESS_EQ_LESS_TRANS
+    \\ qexists_tac `num_stubs`
+    \\ imp_res_tac compile_prog_avoids_nss_2 \\ fs[]
+    \\ imp_res_tac bvl_inlineProofTheory.compile_prog_names
+    \\ old_drule bvi_tailrecProofTheory.compile_prog_next_mono
+    \\ strip_tac \\ fs [])
+  \\ fs [bvi_tailrecProofTheory.input_condition_def,GSYM ALL_EL_MAP]
+  \\ fs [GSYM in_ns_def,EVAL ``in_ns 2 2``]
+  \\ conj_asm1_tac
+  >- (
+    old_drule bvl_inlineProofTheory.compile_prog_names
+    \\ strip_tac
+    \\ old_drule compile_prog_distinct_locs
+    \\ impl_tac >- fs[]
+    \\ strip_tac
+    \\ conj_tac >- (
+      fs[EVERY_MEM,bvi_tailrecProofTheory.free_names_def]
+      \\ rw[] \\ res_tac
+      \\ strip_tac \\ rveq
+      \\ pop_assum mp_tac
+      \\ simp_tac(srw_ss())[] )
+    \\ conj_tac >- fs[]
+    \\ fs[EVERY_MAP] \\ fs[EVERY_MEM,MEM_FILTER]
+    \\ rw[] \\ strip_tac \\ first_x_assum old_drule
+    \\ simp_tac std_ss []
+    \\ once_rewrite_tac[GSYM in_ns_add_num_stubs]
+    \\ asm_simp_tac(std_ss++ARITH_ss)[])
+  \\ rpt gen_tac \\ strip_tac
+  \\ qmatch_goalsub_abbrev_tac`compile_inc next1 prog1`
+  \\ Cases_on`compile_inc next1 prog1`
+  \\ old_drule compile_inc_lemma
+  \\ `ALL_DISTINCT (MAP FST prog1)`
+  by (
+    simp[Abbr`prog1`,bvl_inlineTheory.compile_inc_def]
+    \\ pairarg_tac \\ fs[]
+    \\ fs[bvl_inlineTheory.tick_compile_prog_def]
+    \\ imp_res_tac bvl_inlineProofTheory.tick_inline_all_names \\ fs[]
+    \\ metis_tac[] )
+  \\ fs[] \\ strip_tac
+  \\ last_x_assum(qspec_then`k`mp_tac) \\ simp[]
+  \\ strip_tac
+  \\ fs[EVERY_MEM,EVERY_MAP,MEM_MAP,PULL_EXISTS,MEM_FILTER]
+  \\ reverse conj_tac
+  >- (
+    rw[]
+    \\ `in_ns 0 (FST x) ∨ in_ns 1 (FST x)` by metis_tac[]
+    \\ pop_assum mp_tac \\ EVAL_TAC \\ rw[] )
+  \\ simp[bvi_tailrecProofTheory.free_names_def]
+  \\ rw[] \\ strip_tac
+  \\ first_x_assum old_drule
+  \\ pop_assum(assume_tac o SYM)
+  \\ `in_ns 2 (FST x)`
+  by ( fs[in_ns_def,backend_commonTheory.bvl_to_bvi_namespaces_def] )
+  \\ IF_CASES_TAC
+  >- ( ntac 2 (pop_assum mp_tac) \\ EVAL_TAC \\ rw[] )
+  \\ strip_tac
+  \\ rpt(qpat_x_assum`in_ns _ _`mp_tac) \\ EVAL_TAC \\ rw[]
+*)
 QED
 
 (* -- old version of the above proof --
@@ -4602,6 +4826,58 @@ Theorem compile_distinct_names:
 Proof
   (* TODO: account for the bvi_tmc pass output names *)
   cheat
+(* === ORIGINAL PROOF of compile_distinct_names (pre-cheat); the nss=4/bvi_tmc fix should be close to this ===
+  fs[bvl_to_bviTheory.compile_def]>>
+  strip_tac>>
+  rpt (pairarg_tac>>fs[]>>rveq>>fs[])>>
+  old_drule (GEN_ALL compile_prog_distinct_locs) >>
+  fs [bvl_to_bviTheory.compile_prog_def] >>
+  rpt (pairarg_tac>>fs[]>>rveq>>fs[])>>
+  strip_tac>>
+  EVAL_TAC>>
+  REWRITE_TAC[GSYM append_def] >>
+  fs[EVERY_MEM]>>
+  `ALL_DISTINCT (MAP FST prog)` by
+    metis_tac [bvl_inlineProofTheory.compile_prog_names,PAIR,FST,SND] >>
+  imp_res_tac (SIMP_RULE std_ss [] compile_list_distinct_locs)>>
+  rfs[backend_commonTheory.bvl_num_stubs_def,
+      bvl_inlineProofTheory.compile_prog_names]>>
+  fs[EVERY_MEM]
+  \\ simp[PULL_FORALL] \\ strip_tac
+  \\ reverse conj_tac >- (
+    match_mp_tac (
+      bvi_tailrecProofTheory.compile_prog_ALL_DISTINCT
+      |> UNDISCH_ALL
+      |> CONJUNCT1
+      |> DISCH_ALL
+      |> GEN_ALL)
+    \\ asm_exists_tac \\ simp[]
+    \\ EVAL_TAC \\ fs [GSYM append_def]
+    \\ CCONTR_TAC \\ fs []
+    \\ res_tac \\ fs [EXISTS_MEM]
+    \\ qpat_x_assum `!e. _ ==> between _ _ e` mp_tac
+    \\ qpat_x_assum `!e. _ ==> between _ _ e` mp_tac
+    \\ EVAL_TAC
+    \\ strip_tac \\ fs [MEM_FILTER,bvi_tailrecProofTheory.free_names_def]
+    \\ PairCases_on `e` \\ fs [GSYM append_def]
+    \\ qexists_tac `e0` \\ fs []
+    \\ rveq \\ fs [MEM_MAP,EXISTS_PROD,ODD_ADD]
+    \\ res_tac \\ fs[]
+    \\ qpat_x_assum`¬in_ns 2 _`mp_tac
+    \\ EVAL_TAC \\ strip_tac
+    \\ `(3 * (n02+k) + 2) MOD 3 ≠ 2` by fs[]
+    \\ `¬in_ns 2 (nss * (n02+k) + 2)` by (EVAL_TAC \\ fs[])
+    \\ fs[])
+  \\ strip_tac
+  \\ old_drule bvi_tailrecProofTheory.compile_prog_MEM
+  \\ simp[]
+  \\ EVAL_TAC
+  \\ rw[] \\ simp[]
+  \\ fs[GSYM append_def]
+  \\ res_tac
+  \\ pop_assum mp_tac
+  \\ EVAL_TAC \\ rw[]
+*)
 QED
 
 Theorem ALL_DISTINCT_MAP_FST_SND_full_co:
@@ -4612,6 +4888,37 @@ Theorem ALL_DISTINCT_MAP_FST_SND_full_co:
 Proof
   (* TODO: account for the outer bvi_tmc state_co layer *)
   cheat
+(* === ORIGINAL PROOF of ALL_DISTINCT_MAP_FST_SND_full_co (pre-cheat); the nss=4/bvi_tmc fix should be close to this ===
+  rw[full_co_def, UNCURRY, backendPropsTheory.FST_state_co,
+        backendPropsTheory.SND_state_co]
+  \\ qmatch_goalsub_abbrev_tac`bvi_tailrec$compile_prog m xs`
+  \\ Cases_on`bvi_tailrec$compile_prog m xs`
+  \\ old_drule bvi_tailrecProofTheory.compile_prog_ALL_DISTINCT
+  \\ impl_tac
+  >- (
+    simp[Abbr`xs`]
+    \\ simp[backendPropsTheory.SND_state_co, backendPropsTheory.FST_state_co]
+    \\ qmatch_goalsub_abbrev_tac`bvl_to_bvi$compile_inc v p`
+    \\ Cases_on`bvl_to_bvi$compile_inc v p`
+    \\ old_drule compile_inc_DISTINCT
+    \\ impl_tac
+    >- (
+      simp[Abbr`p`]
+      \\ simp[bvl_inlineTheory.compile_inc_def, UNCURRY]
+      \\ simp[bvl_inlineTheory.tick_compile_prog_def]
+      \\ simp[bvl_inlineProofTheory.MAP_FST_tick_inline_all] )
+    \\ rw[]
+    \\ old_drule (GEN_ALL compile_inc_next_range)
+    \\ simp[MEM_MAP, PULL_EXISTS, GSYM ALL_EL_MAP, EVERY_MEM, EXISTS_PROD]
+    \\ rpt strip_tac
+    \\ first_x_assum old_drule
+    \\ simp[bvi_tailrecProofTheory.free_names_def]
+    \\ rw[] \\ strip_tac \\ rw[]
+    \\ qpat_x_assum`_ MOD _ = _`mp_tac
+    \\ qpat_x_assum`_ MOD _ = _`mp_tac
+    \\ EVAL_TAC \\ simp[] )
+  \\ simp[]
+*)
 QED
 
 Theorem destLet_code_labels:
