@@ -1200,16 +1200,14 @@ Theorem bvl_to_bvi_compile_inc_all_DISTINCT:
   ALL_DISTINCT (MAP FST p) /\ c.next_name2 MOD bvl_to_bvi_namespaces = 2 ==>
   ALL_DISTINCT (MAP FST p')
 Proof
-  cheat (* nss=4/bvi_tmc: reprove; original below *)
-(* === ORIGINAL PROOF (pre-bvi_tmc) ===
   mp_tac (GEN_ALL ALL_DISTINCT_MAP_FST_SND_full_co
-    |> Q.SPECL [`n`, `K ((c.inlines, c.next_name1, c.next_name2, cfg), p)`, `c`])
+    |> Q.SPECL [`n`,
+         `K ((c.inlines, c.next_name1, c.next_name2, c.next_name3, cfg), p)`, `c`])
   \\ simp [bvl_to_bviTheory.bvl_to_bvi_compile_inc_all_def, full_co_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ simp [state_co_def]
   \\ rw []
   \\ simp []
-*)
 QED
 
 Theorem cake_orac_stack_ALL_DISTINCT:
@@ -2730,8 +2728,6 @@ Theorem backend_from_flat_tuple_cc_eq_compile_inc_progs:
         MAP data_to_word_gcProof$upper_w2w ws,
         SND (config_tuple1 c''))) ps.target_prog
 Proof
-  cheat (* nss=4/bvi_tmc: reprove; original below *)
-(* === ORIGINAL PROOF (pre-bvi_tmc) ===
   disch_tac
   \\ simp [compile_inc_progs_def, pure_cc_def, state_cc_def,
     clos_to_bvlTheory.clos_to_bvl_compile_inc_def,
@@ -2758,7 +2754,6 @@ Proof
   \\ simp []
   \\ every_case_tac
   \\ simp [DROP_APPEND]
-*)
 QED
 
 Theorem compile_inc_progs_src_env[local]:
