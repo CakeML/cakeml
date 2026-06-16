@@ -64,25 +64,25 @@ Definition reify_flag_def:
     | SOME (Counting (AllDifferent Xs)) =>
       varc wi (EL (EL 0 ids) Xs) > varc wi (EL (EL 1 ids) Xs)
     | SOME (Counting (Count Xs Y _)) =>
-      if ann = SOME (strlit"ge")
+      if ann = SOME («ge»)
       then varc wi (EL (HD ids) Xs) ≥ varc wi Y
-      else if ann = SOME (strlit"le")
+      else if ann = SOME («le»)
       then varc wi (EL (HD ids) Xs) ≤ varc wi Y
       else varc wi (EL (HD ids) Xs) = varc wi Y
     | SOME (Counting (In Xs Y)) =>
-      if ann = SOME (strlit"ge")
+      if ann = SOME («ge»)
       then varc wi (EL (HD ids) Xs) ≥ varc wi Y
-      else if ann = SOME (strlit"le")
+      else if ann = SOME («le»)
       then varc wi (EL (HD ids) Xs) ≤ varc wi Y
       else varc wi (EL (HD ids) Xs) = varc wi Y
     | SOME (Counting (Among Xs iS _)) =>
-      if ann = SOME (strlit"ge")
+      if ann = SOME («ge»)
       then varc wi (EL (EL 0 ids) Xs) ≥ EL (EL 1 ids) iS
-      else if ann = SOME (strlit"le")
+      else if ann = SOME («le»)
       then varc wi (EL (EL 0 ids) Xs) ≤ EL (EL 1 ids) iS
-      else if ann = SOME (strlit"eq")
+      else if ann = SOME («eq»)
       then varc wi (EL (EL 0 ids) Xs) = EL (EL 1 ids) iS
-      else MEM (varc wi (EL (HD ids) Xs)) iS (* ann = SOME (strlit"fnd") *)
+      else MEM (varc wi (EL (HD ids) Xs)) iS (* ann = SOME («fnd») *)
     | SOME (Array (ArrayMax Xs Y)) =>
       varc wi (EL (HD ids) Xs) ≥ varc wi Y
     | SOME (Array (ArrayMin Xs Y)) =>
@@ -94,19 +94,19 @@ Definition reify_flag_def:
   | Flag ann =>
     (case ALOOKUP cs name of
     | SOME (Prim (Cmpop _ _ X Y)) =>
-      if ann = strlit"lt"
+      if ann = «lt»
       then varc wi X < varc wi Y
       else varc wi X > varc wi Y
     | SOME (Prim (Binop _ X Y Z)) =>
-      if ann = strlit"lle"
+      if ann = «lle»
       then varc wi X ≤ varc wi Z
-      else if ann = strlit"rle"
+      else if ann = «rle»
       then varc wi Y ≤ varc wi Z
-      else if ann = strlit"lge"
+      else if ann = «lge»
       then varc wi X ≥ varc wi Z
       else varc wi Y ≥ varc wi Z
     | SOME (Linear (Lin _ _ cXs Y)) =>
-      if ann = strlit"lt"
+      if ann = «lt»
       then eval_iclin_term wi cXs < varc wi Y
       else eval_iclin_term wi cXs > varc wi Y)
   | Values vs ann =>
@@ -212,46 +212,46 @@ QED
 Definition format_varc_def:
   format_varc X =
   case X of
-    INL s => strlit"i[" ^ escape_bad_brackets s ^ strlit "]"
-  | INR i => strlit"n[" ^ int_to_string #"-" i ^ strlit"]"
+    INL s => «i[» ^ escape_bad_brackets s ^ «]»
+  | INR i => «n[» ^ int_to_string #"-" i ^ «]»
 End
 
 Definition format_reif_def:
   format_reif reif =
   case reif of
     Ge X i =>
-    concat[format_varc X;strlit"[ge";
-      int_to_string #"-" i;strlit"]"]
+    concat[format_varc X;«[ge»;
+      int_to_string #"-" i;«]»]
   | Eq X i =>
-    concat[format_varc X;strlit"[eq";
-      int_to_string #"-" i;strlit"]"]
+    concat[format_varc X;«[eq»;
+      int_to_string #"-" i;«]»]
 End
 
 Definition format_annot_def:
-  (format_annot NONE = strlit"") ∧
-  (format_annot (SOME s) = strlit"[" ^ escape_bad_brackets s ^ strlit"]")
+  (format_annot NONE = «») ∧
+  (format_annot (SOME s) = «[» ^ escape_bad_brackets s ^ «]»)
 End
 
 Definition format_num_list_def:
-  format_num_list (ls:num list) = concatWith (strlit"_") (MAP toString ls)
+  format_num_list (ls:num list) = concatWith («_») (MAP toString ls)
 End
 
 Definition format_int_list_def:
-  format_int_list (ls:int list) = concatWith (strlit"_") (MAP (int_to_string #"-") ls)
+  format_int_list (ls:int list) = concatWith («_») (MAP (int_to_string #"-") ls)
 End
 
 Definition format_flag_def:
   format_flag (name,flag) =
   case flag of
     Flag ann =>
-      strlit"b[" ^ escape_bad_brackets name ^ strlit"][" ^
-                   escape_bad_brackets ann ^ strlit "]"
+      «b[» ^ escape_bad_brackets name ^ «][» ^
+                   escape_bad_brackets ann ^ «]»
   | Indices ns annot =>
-      strlit"x[" ^ escape_bad_brackets name ^ strlit"][" ^
-                   format_num_list ns ^ strlit"]" ^ format_annot annot
+      «x[» ^ escape_bad_brackets name ^ «][» ^
+                   format_num_list ns ^ «]» ^ format_annot annot
   | Values ns annot =>
-      strlit"v[" ^ escape_bad_brackets name ^ strlit"][" ^
-                   format_int_list ns ^ strlit"]" ^ format_annot annot
+      «v[» ^ escape_bad_brackets name ^ «][» ^
+                   format_int_list ns ^ «]» ^ format_annot annot
 End
 
 Definition format_var_def:
@@ -267,17 +267,17 @@ End
 *)
 Definition ltv_def[simp]:
   ltv name =
-    INR (name, Flag (strlit "lt"))
+    INR (name, Flag («lt»))
 End
 
 Definition gtv_def[simp]:
   gtv name =
-    INR (name, Flag (strlit "gt"))
+    INR (name, Flag («gt»))
 End
 
 Definition nev_def[simp]:
   nev name =
-    INR (name, Flag (strlit "ne"))
+    INR (name, Flag («ne»))
 End
 
 Definition arri_def[simp]:
@@ -665,21 +665,21 @@ QED
 Definition cimply_var_def:
   cimply_var bnd x cc =
   List
-  [(SOME (format_var x ^ strlit "[f]"),
+  [(SOME (format_var x ^ «[f]»),
     (imply_bit bnd (Pos x) cc))]
 End
 
 Definition cvar_imply_def:
   cvar_imply bnd x cc =
   List
-  [(SOME (format_var x ^ strlit "[r]"),
+  [(SOME (format_var x ^ «[r]»),
     (bits_imply bnd [Pos x] cc))]
 End
 
 Definition cnvar_imply_def:
   cnvar_imply bnd x cc =
   List
-  [(SOME (format_var x ^ strlit "[nr]"),
+  [(SOME (format_var x ^ «[nr]»),
     (bits_imply bnd [Neg x] cc))]
 End
 
@@ -687,9 +687,9 @@ Definition cbimply_var_def:
   cbimply_var bnd x cc =
   let fmt = format_var x in
   List
-  [(SOME (fmt ^ strlit "[f]"),
+  [(SOME (fmt ^ «[f]»),
     (imply_bit bnd (Pos x) cc));
-   (SOME (fmt ^ strlit "[r]"),
+   (SOME (fmt ^ «[r]»),
     (bits_imply bnd [Pos x] cc))]
 End
 
@@ -1118,7 +1118,7 @@ Definition false_constr_def:
 End
 
 Definition cfalse_constr_def:
-  cfalse_constr = (List [(SOME (strlit"BAD_INPUT"), false_constr)])
+  cfalse_constr = (List [(SOME («BAD_INPUT»), false_constr)])
 End
 
 Theorem iconstraint_sem_false_constr[simp]:
@@ -1161,7 +1161,7 @@ Overload abstrl = ``\ls. MAP SND ls``;
 Definition cimply_var_n_def:
   cimply_var_n bnd x cc n =
   List
-  [(SOME (format_var x ^ strlit "[f][" ^ n ^ strlit"]"),
+  [(SOME (format_var x ^ «[f][» ^ n ^ «]»),
     (imply_bit bnd (Pos x) cc))]
 End
 
@@ -1270,7 +1270,7 @@ QED
 
 Definition mk_name_def:
   mk_name name tag =
-  strlit"c[" ^ name ^ strlit "][" ^ tag ^ strlit"]"
+  «c[» ^ name ^ «][» ^ tag ^ «]»
 End
 
 Theorem enc_rel_List_refl_mul:
@@ -1300,7 +1300,7 @@ End
 Definition cat_least_one_def:
   cat_least_one name ls =
     List [
-      (SOME (mk_name name (strlit "al1")),
+      (SOME (mk_name name («al1»)),
         at_least_one ls)]
 End
 
@@ -1348,7 +1348,7 @@ Definition cencode_bitsum_def:
   cencode_bitsum Bs Y name =
   List
     (mk_annotate
-      [mk_name name (strlit"ge"); mk_name name (strlit"le")]
+      [mk_name name («ge»); mk_name name («le»)]
       (encode_bitsum Bs Y)
     )
 End

@@ -585,34 +585,34 @@ Proof
 QED
 
 Definition cp_no_concl_str_def:
-  cp_no_concl_str = strlit "s NO CONCLUSION\n"
+  cp_no_concl_str = «s NO CONCLUSION\n»
 End
 
 Definition cp_sat_str_def:
-  cp_sat_str = strlit "s VERIFIED SATISFIABLE\n"
+  cp_sat_str = «s VERIFIED SATISFIABLE\n»
 End
 
 Definition cp_unsat_str_def:
-  cp_unsat_str = strlit "s VERIFIED UNSATISFIABLE\n"
+  cp_unsat_str = «s VERIFIED UNSATISFIABLE\n»
 End
 
 Definition cp_bound_str_def:
   cp_bound_str lbi ubi =
   concat [
-    strlit "s VERIFIED BOUNDS ";
-    (case lbi of NONE => strlit "-INF" | SOME l => mlint$toString (l:int));
-    strlit " <= OBJ <= ";
-    (case ubi of NONE => strlit "+INF" | SOME u => mlint$toString (u:int));
-    strlit "\n"]
+    «s VERIFIED BOUNDS »;
+    (case lbi of NONE => «-INF» | SOME l => mlint$toString (l:int));
+    « <= OBJ <= »;
+    (case ubi of NONE => «+INF» | SOME u => mlint$toString (u:int));
+    «\n»]
 End
 
 Definition cp_enum_str_def:
   cp_enum_str (n:num) b =
     if b
     then
-      strlit "s VERIFIED COMPLETE ENUMERATION OF " ^ toString n ^ strlit " SOLUTIONS\n"
+      «s VERIFIED COMPLETE ENUMERATION OF » ^ toString n ^ « SOLUTIONS\n»
     else
-      strlit "s VERIFIED PARTIAL ENUMERATION OF " ^ toString n ^ strlit " SOLUTIONS\n"
+      «s VERIFIED PARTIAL ENUMERATION OF » ^ toString n ^ « SOLUTIONS\n»
 End
 
 Definition print_cp_concl_str_def:
@@ -634,7 +634,7 @@ Definition map_concl_to_string_def:
   (map_concl_to_string cpobj (INL s) = (INL s)) ∧
   (map_concl_to_string cpobj (INR (out,bnd,c)) =
     case conv_concl cpobj c of
-      NONE => INL (strlit "invalid conclusion type for CP problem\n")
+      NONE => INL («invalid conclusion type for CP problem\n»)
     | SOME concl => INR (print_cp_concl_str concl))
 End
 
@@ -642,7 +642,7 @@ val res = translate map_concl_to_string_def;
 
 Definition check_unsat_2_sem_def:
   check_unsat_2_sem fs f out ⇔
-  (out ≠ strlit"" ⇒
+  (out ≠ «» ⇒
   ∃inst c.
     get_cp_inst fs f = SOME inst ∧
     out = print_cp_concl_str c ∧
@@ -726,7 +726,7 @@ Proof
     qexists_tac`emp`>>xsimpl>>
     qexists_tac`fs`>>xsimpl>>
     rw[]>>
-    qexists_tac`strlit ""`>>
+    qexists_tac`«»`>>
     rename1`add_stderr _ err`>>
     qexists_tac`err`>>xsimpl>>rw[]>>
     fs[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]>>
@@ -745,7 +745,7 @@ QED
 Definition check_unsat_1_sem_def:
   check_unsat_1_sem fs f1 out ⇔
   case get_cp_inst fs f1 of
-    NONE => out = strlit ""
+    NONE => out = «»
   | SOME inst =>
     out = concat (print_annot_prob (full_encode inst))
 End
@@ -790,14 +790,13 @@ Proof
   asm_exists_tac>>xsimpl>>
   qexists_tac`emp`>>qexists_tac`fs`>>xsimpl>>
   rw[]>>
-  qexists_tac`strlit ""`>>
+  qexists_tac`«»`>>
   simp[STD_streams_stderr,add_stdo_nil]>>
   xsimpl
 QED
 
 Definition usage_string_def:
-  usage_string = strlit
-    "Usage: cake_pb_cp <CP file> <optional: PB proof file>\n"
+  usage_string = «Usage: cake_pb_cp <CP file> <optional: PB proof file>\n»
 End
 
 val r = translate usage_string_def;
@@ -816,7 +815,7 @@ Definition main_sem_def:
     check_unsat_1_sem fs (EL 1 cl) out
   else if LENGTH cl = 3 then
     check_unsat_2_sem fs (EL 1 cl) out
-  else out = strlit ""
+  else out = «»
 End
 
 Theorem STDIO_refl:

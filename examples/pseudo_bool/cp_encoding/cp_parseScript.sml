@@ -38,8 +38,8 @@ Definition sexp_bnd_def:
       Expr [Atom v; Atom lb; Atom ub] =>
         (case (mlint$fromString lb, mlint$fromString ub) of
           (SOME lb, SOME ub) => return (v,lb,ub)
-        | _ => fail (strlit "unable to parse integer bounds\n"))
-    | _ => fail (strlit "invalid bound sexpression\n")
+        | _ => fail («unable to parse integer bounds\n»))
+    | _ => fail («invalid bound sexpression\n»)
 End
 
 Definition sexp_bnds_def:
@@ -63,7 +63,7 @@ Definition sexp_varc_def:
     NONE => return (INL v)
   | SOME i => return ((INR i):mlstring varc)) ∧
   (sexp_varc _ =
-    fail (strlit "invalid sexpression at var/const position\n"))
+    fail («invalid sexpression at var/const position\n»))
 End
 
 Definition sexp_varcs_def:
@@ -80,7 +80,7 @@ Definition sexp_varc_list_def:
   sexp_varc_list e =
   case e of
     Expr es => sexp_varcs es
-  | _ => fail (strlit "expected s-expression list of vars/ints\n")
+  | _ => fail («expected s-expression list of vars/ints\n»)
 End
 
 Definition sexp_int_def:
@@ -89,8 +89,8 @@ Definition sexp_int_def:
     Atom s =>
     (case mlint$fromString s of
        SOME (i:int) => return i
-     | NONE => fail (strlit "expected integer, got: " ^ s ^ strlit "\n"))
-  | _ => fail (strlit "expected integer atom\n")
+     | NONE => fail («expected integer, got: » ^ s ^ «\n»))
+  | _ => fail («expected integer atom\n»)
 End
 
 Definition sexp_ints_def:
@@ -107,29 +107,29 @@ Definition sexp_int_list_def:
   sexp_int_list e =
   case e of
     Expr es => sexp_ints es
-  | _ => fail (strlit "expected s-expression list of integers\n")
+  | _ => fail («expected s-expression list of integers\n»)
 End
 
 Definition sexp_cmpop_kw_def:
   sexp_cmpop_kw s =
-       if s = strlit "equals"        then SOME Equal
-  else if s = strlit "not_equals"    then SOME NotEqual
-  else if s = strlit "greater_equal" then SOME GreaterEqual
-  else if s = strlit "greater_than"  then SOME GreaterThan
-  else if s = strlit "less_equal"    then SOME LessEqual
-  else if s = strlit "less_than"     then SOME LessThan
+       if s = «equals»        then SOME Equal
+  else if s = «not_equals»    then SOME NotEqual
+  else if s = «greater_equal» then SOME GreaterEqual
+  else if s = «greater_than»  then SOME GreaterThan
+  else if s = «less_equal»    then SOME LessEqual
+  else if s = «less_than»     then SOME LessThan
   else NONE
 End
 
 Definition sexp_cmpop_sym_def:
   sexp_cmpop_sym s =
-       if s = strlit "="  then return Equal
-  else if s = strlit "!=" then return NotEqual
-  else if s = strlit ">=" then return GreaterEqual
-  else if s = strlit ">"  then return GreaterThan
-  else if s = strlit "<=" then return LessEqual
-  else if s = strlit "<"  then return LessThan
-  else fail (strlit "unknown comparison symbol: " ^ s ^ strlit "\n")
+       if s = «=»  then return Equal
+  else if s = «!=» then return NotEqual
+  else if s = «>=» then return GreaterEqual
+  else if s = «>»  then return GreaterThan
+  else if s = «<=» then return LessEqual
+  else if s = «<»  then return LessThan
+  else fail («unknown comparison symbol: » ^ s ^ «\n»)
 End
 
 Definition sexp_reify_cmp_def:
@@ -142,7 +142,7 @@ Definition sexp_reify_cmp_def:
       v <- sexp_int ve;
       return ((Z,c,v) : mlstring reify_cmp)
     od
-  | _ => fail (strlit "invalid reify tuple; expected (Z cmp v)\n")
+  | _ => fail («invalid reify tuple; expected (Z cmp v)\n»)
 End
 
 (* Returns (stem, reif_flag) where reif_flag is
@@ -151,10 +151,10 @@ End
      SOME T  → full (_iff) *)
 Definition strip_reif_suffix_def:
   strip_reif_suffix (ms:mlstring) =
-    if isSuffix (strlit "_iff") ms
-    then (substring ms 0 (strlen ms - strlen (strlit "_iff")), SOME T)
-    else if isSuffix (strlit "_if") ms
-    then (substring ms 0 (strlen ms - strlen (strlit "_if")), SOME F)
+    if isSuffix («_iff») ms
+    then (substring ms 0 (strlen ms - strlen («_iff»)), SOME T)
+    else if isSuffix («_if») ms
+    then (substring ms 0 (strlen ms - strlen («_if»)), SOME F)
     else (ms, NONE)
 End
 
@@ -171,7 +171,7 @@ Definition peel_reif_def:
             zc <- sexp_reify_cmp zc_e;
             return (SOME (if b then INR zc else INL zc), rest')
           od)
-       | [] => fail (strlit "reified constraint missing reify tuple\n"))
+       | [] => fail («reified constraint missing reify tuple\n»))
 End
 
 
@@ -182,17 +182,17 @@ End
 (* Atom → prim_unop / prim_binop constructor, NONE if unrecognised. *)
 Definition sexp_prim_unop_def:
   sexp_prim_unop s =
-       if s = strlit "neg" then SOME Negative
-  else if s = strlit "abs" then SOME Abs
+       if s = «neg» then SOME Negative
+  else if s = «abs» then SOME Abs
   else NONE
 End
 
 Definition sexp_prim_binop_def:
   sexp_prim_binop s =
-       if s = strlit "plus"  then SOME Plus
-  else if s = strlit "minus" then SOME Minus
-  else if s = strlit "max"   then SOME Max
-  else if s = strlit "min"   then SOME Min
+       if s = «plus»  then SOME Plus
+  else if s = «minus» then SOME Minus
+  else if s = «max»   then SOME Max
+  else if s = «min»   then SOME Min
   else NONE
 End
 
@@ -206,7 +206,7 @@ Definition sexp_unop_body_def:
          Y <- sexp_varc Ye;
          return (Prim (Unop uop X Y))
        od)
-    | _ => fail (strlit "unary op expects 2 args: op X = Y\n")
+    | _ => fail («unary op expects 2 args: op X = Y\n»)
 End
 
 (* Binary prim: X op Y = Z *)
@@ -220,7 +220,7 @@ Definition sexp_binop_body_def:
          Z <- sexp_varc Ze;
          return (Prim (Binop bop X Y Z))
        od)
-    | _ => fail (strlit "binary op expects 3 args: X op Y = Z\n")
+    | _ => fail («binary op expects 3 args: X op Y = Z\n»)
 End
 
 (* Comparison prim with optional reification: strip _if/_iff, parse stem as
@@ -230,7 +230,7 @@ Definition sexp_cmpop_body_def:
   sexp_cmpop_body ctype rest =
     case strip_reif_suffix ctype of (stem, reif_flag) =>
     case sexp_cmpop_kw stem of
-      NONE => fail (strlit "unsupported constraint: " ^ ctype ^ strlit "\n")
+      NONE => fail («unsupported constraint: » ^ ctype ^ «\n»)
     | SOME cmp =>
       do
         pr <- peel_reif reif_flag rest;
@@ -242,7 +242,7 @@ Definition sexp_cmpop_body_def:
                Y <- sexp_varc Ye;
                return (Prim (Cmpop zr cmp X Y))
              od)
-          | _ => fail (strlit "comparison expects 2 args: X Y\n")
+          | _ => fail («comparison expects 2 args: X Y\n»)
       od
 End
 
@@ -262,7 +262,7 @@ End
 Definition sexp_iclin_pairs_def:
   (sexp_iclin_pairs [] = return []) ∧
   (sexp_iclin_pairs [_] =
-    fail (strlit "linear term has odd number of entries\n")) ∧
+    fail («linear term has odd number of entries\n»)) ∧
   (sexp_iclin_pairs (c::x::es) =
     do
       ci <- sexp_int c;
@@ -276,14 +276,14 @@ Definition sexp_iclin_term_def:
   sexp_iclin_term e =
     case e of
       Expr es => sexp_iclin_pairs es
-    | _ => fail (strlit "expected linear term as s-expression list\n")
+    | _ => fail («expected linear term as s-expression list\n»)
 End
 
 Definition sexp_linear_dispatch_def:
   sexp_linear_dispatch cmp_kw rest =
   case strip_reif_suffix cmp_kw of (stem, reif_flag) =>
   case sexp_cmpop_kw stem of
-    NONE => fail (strlit "unknown linear comparison: " ^ stem ^ strlit "\n")
+    NONE => fail («unknown linear comparison: » ^ stem ^ «\n»)
   | SOME cmp =>
     do
       pr <- peel_reif reif_flag rest;
@@ -295,7 +295,7 @@ Definition sexp_linear_dispatch_def:
              Y <- sexp_varc Ye;
              return (Linear (Lin zr cmp cXs Y))
            od)
-        | _ => fail (strlit "linear constraint expects (c1 X1 ... cn Xn) Y after optional reif\n")
+        | _ => fail («linear constraint expects (c1 X1 ... cn Xn) Y after optional reif\n»)
     od
 End
 
@@ -304,7 +304,7 @@ End
 Definition sexp_lex_dispatch_def:
   sexp_lex_dispatch cmp_kw rest =
     case sexp_cmpop_kw cmp_kw of
-      NONE => fail (strlit "unknown lex comparison: " ^ cmp_kw ^ strlit "\n")
+      NONE => fail («unknown lex comparison: » ^ cmp_kw ^ «\n»)
     | SOME cmp =>
       (case rest of
          [Xs_e; Ys_e] =>
@@ -313,7 +313,7 @@ Definition sexp_lex_dispatch_def:
             Ys <- sexp_varc_list Ys_e;
             return (Lexicographical (Lex cmp Xs Ys))
           od)
-       | _ => fail (strlit "lex_<cmp> expects 2 args: (X1 ... Xn) (Y1 ... Ym)\n"))
+       | _ => fail («lex_<cmp> expects 2 args: (X1 ... Xn) (Y1 ... Ym)\n»))
 End
 
 (* Extensional: table — rows and wildcard-aware entries. *)
@@ -321,11 +321,11 @@ Definition sexp_table_entry_def:
   sexp_table_entry e =
   case e of
     Atom s =>
-    (if s = strlit "*" then return NONE
+    (if s = «*» then return NONE
      else case mlint$fromString s of
             SOME (i:int) => return (SOME i)
-          | NONE => fail (strlit "expected integer or * in table, got: " ^ s ^ strlit "\n"))
-  | _ => fail (strlit "expected integer atom or * in table row\n")
+          | NONE => fail («expected integer or * in table, got: » ^ s ^ «\n»))
+  | _ => fail («expected integer atom or * in table row\n»)
 End
 
 Definition sexp_table_row_entries_def:
@@ -342,7 +342,7 @@ Definition sexp_table_row_def:
   sexp_table_row e =
     case e of
       Expr es => sexp_table_row_entries es
-    | _ => fail (strlit "expected table row as s-expression list\n")
+    | _ => fail («expected table row as s-expression list\n»)
 End
 
 Definition sexp_table_rows_aux_def:
@@ -359,7 +359,7 @@ Definition sexp_table_rows_def:
   sexp_table_rows e =
     case e of
       Expr es => sexp_table_rows_aux es
-    | _ => fail (strlit "expected table body as s-expression list of rows\n")
+    | _ => fail («expected table body as s-expression list of rows\n»)
 End
 
 (* Table body: rows (X1 ... Xn) *)
@@ -372,14 +372,14 @@ Definition sexp_table_body_def:
          Xs <- sexp_varc_list Xs_e;
          return (Extensional (Table rows Xs))
        od)
-    | _ => fail (strlit "table expects 2 args: rows (X1 ... Xn)\n")
+    | _ => fail («table expects 2 args: rows (X1 ... Xn)\n»)
 End
 
 (* Extensional: table (for now). Returns NONE when ctype is not an
    extensional constraint, so the top-level dispatcher can fall through. *)
 Definition sexp_extensional_dispatch_def:
   sexp_extensional_dispatch ctype rest =
-    if ctype = strlit "table" then SOME (sexp_table_body rest)
+    if ctype = «table» then SOME (sexp_table_body rest)
     else NONE
 End
 
@@ -395,7 +395,7 @@ Definition sexp_array_ind_def:
       off <- sexp_int offe;
       return ((Y,off) : mlstring array_ind)
     od
-  | _ => fail (strlit "invalid array index; expected (Y offset)\n")
+  | _ => fail («invalid array index; expected (Y offset)\n»)
 End
 
 (* List of rows, each a list of varcs (for element_2d). *)
@@ -413,14 +413,14 @@ Definition sexp_varc_rows_def:
   sexp_varc_rows e =
     case e of
       Expr es => sexp_varc_rows_aux es
-    | _ => fail (strlit "expected 2D body as s-expression list of rows\n")
+    | _ => fail («expected 2D body as s-expression list of rows\n»)
 End
 
 (* Atom → ArrayMax / ArrayMin constructor (both share (Xs Y) shape), NONE otherwise. *)
 Definition sexp_array_aggr_def:
   sexp_array_aggr s =
-       if s = strlit "array_max" then SOME ArrayMax
-  else if s = strlit "array_min" then SOME ArrayMin
+       if s = «array_max» then SOME ArrayMax
+  else if s = «array_min» then SOME ArrayMin
   else NONE
 End
 
@@ -435,7 +435,7 @@ Definition sexp_element_body_def:
          Z <- sexp_varc Ze;
          return (Array (Element Xs Yi Z))
        od)
-    | _ => fail (strlit "element expects 3 args: (X0 ... Xn-1) (Y off) Z\n")
+    | _ => fail («element expects 3 args: (X0 ... Xn-1) (Y off) Z\n»)
 End
 
 (* element_2d: ((row1)(row2)...) (Y1 off1) (Y2 off2) Z *)
@@ -450,7 +450,7 @@ Definition sexp_element_2d_body_def:
          Z <- sexp_varc Ze;
          return (Array (Element2D Xss Y1i Y2i Z))
        od)
-    | _ => fail (strlit "element_2d expects 4 args: ((row1)(row2)...) (Y1 off1) (Y2 off2) Z\n")
+    | _ => fail («element_2d expects 4 args: ((row1)(row2)...) (Y1 off1) (Y2 off2) Z\n»)
 End
 
 (* array_max / array_min: (X1 ... Xn) Y, with the chosen constructor passed in. *)
@@ -463,15 +463,15 @@ Definition sexp_array_aggr_body_def:
          Y <- sexp_varc Ye;
          return (Array (cons Xs Y))
        od)
-    | _ => fail (strlit "array aggregate expects 2 args: (X1 ... Xn) Y\n")
+    | _ => fail («array aggregate expects 2 args: (X1 ... Xn) Y\n»)
 End
 
 (* Array: returns NONE when ctype isn't an array constraint so the top-level
    dispatcher can fall through. *)
 Definition sexp_array_dispatch_def:
   sexp_array_dispatch ctype rest =
-    if ctype = strlit "element" then SOME (sexp_element_body rest)
-    else if ctype = strlit "element_2d" then SOME (sexp_element_2d_body rest)
+    if ctype = «element» then SOME (sexp_element_body rest)
+    else if ctype = «element_2d» then SOME (sexp_element_2d_body rest)
     else case sexp_array_aggr ctype of
            SOME cons => SOME (sexp_array_aggr_body cons rest)
          | NONE => NONE
@@ -488,7 +488,7 @@ Definition sexp_all_different_body_def:
          Xs <- sexp_varc_list Xs_e;
          return (Counting (AllDifferent Xs))
        od)
-    | _ => fail (strlit "all_different expects 1 arg: (X1 ... Xn)\n")
+    | _ => fail («all_different expects 1 arg: (X1 ... Xn)\n»)
 End
 
 (* nvalue: (X1 ... Xn) Y *)
@@ -501,7 +501,7 @@ Definition sexp_nvalue_body_def:
          Y <- sexp_varc Ye;
          return (Counting (NValue Xs Y))
        od)
-    | _ => fail (strlit "nvalue expects 2 args: (X1 ... Xn) Y\n")
+    | _ => fail («nvalue expects 2 args: (X1 ... Xn) Y\n»)
 End
 
 (* count: (X1 ... Xn) Y Z *)
@@ -515,7 +515,7 @@ Definition sexp_count_body_def:
          Z <- sexp_varc Ze;
          return (Counting (Count Xs Y Z))
        od)
-    | _ => fail (strlit "count expects 3 args: (X1 ... Xn) Y Z\n")
+    | _ => fail («count expects 3 args: (X1 ... Xn) Y Z\n»)
 End
 
 (* among: (X1 ... Xn) (i1 ... im) Y *)
@@ -529,7 +529,7 @@ Definition sexp_among_body_def:
          Y <- sexp_varc Ye;
          return (Counting (Among Xs iSs Y))
        od)
-    | _ => fail (strlit "among expects 3 args: (X1 ... Xn) (i1 ... im) Y\n")
+    | _ => fail («among expects 3 args: (X1 ... Xn) (i1 ... im) Y\n»)
 End
 
 (* in: (X1 ... Xn) Y -- Y is in Xs *)
@@ -542,18 +542,18 @@ Definition sexp_in_body_def:
          Y <- sexp_varc Ye;
          return (Counting (In Xs Y))
        od)
-    | _ => fail (strlit "in expects 2 args: (X1 ... Xn) Y\n")
+    | _ => fail («in expects 2 args: (X1 ... Xn) Y\n»)
 End
 
 (* Counting: returns NONE when ctype isn't a counting constraint so the
    top-level dispatcher can fall through. *)
 Definition sexp_counting_dispatch_def:
   sexp_counting_dispatch ctype rest =
-         if ctype = strlit "all_different" then SOME (sexp_all_different_body rest)
-    else if ctype = strlit "nvalue"        then SOME (sexp_nvalue_body rest)
-    else if ctype = strlit "count"         then SOME (sexp_count_body rest)
-    else if ctype = strlit "among"         then SOME (sexp_among_body rest)
-    else if ctype = strlit "in"            then SOME (sexp_in_body rest)
+         if ctype = «all_different» then SOME (sexp_all_different_body rest)
+    else if ctype = «nvalue»        then SOME (sexp_nvalue_body rest)
+    else if ctype = «count»         then SOME (sexp_count_body rest)
+    else if ctype = «among»         then SOME (sexp_among_body rest)
+    else if ctype = «in»            then SOME (sexp_in_body rest)
     else NONE
 End
 
@@ -562,9 +562,9 @@ End
 (* Atom → And / Or / Parity constructor, NONE otherwise. *)
 Definition sexp_logical_cons_def:
   sexp_logical_cons s =
-       if s = strlit "and"    then SOME And
-  else if s = strlit "or"     then SOME Or
-  else if s = strlit "parity" then SOME Parity
+       if s = «and»    then SOME And
+  else if s = «or»     then SOME Or
+  else if s = «parity» then SOME Parity
   else NONE
 End
 
@@ -577,7 +577,7 @@ Definition sexp_logical_body_def:
          Y <- sexp_varc Ye;
          return (Logical (cons Xs Y))
        od)
-    | _ => fail (strlit "logical expects 2 args: (X1 ... Xn) Y\n")
+    | _ => fail («logical expects 2 args: (X1 ... Xn) Y\n»)
 End
 
 Definition sexp_logical_dispatch_def:
@@ -599,7 +599,7 @@ Definition sexp_off_list_def:
       off <- sexp_int offe;
       return ((Xs,off) : mlstring varc list # int)
     od
-  | _ => fail (strlit "expected (list offset)\n")
+  | _ => fail («expected (list offset)\n»)
 End
 
 Definition sexp_inverse_body_def:
@@ -611,12 +611,12 @@ Definition sexp_inverse_body_def:
          b <- sexp_off_list B_e;
          return (Channeling (Inverse a b))
        od)
-    | _ => fail (strlit "inverse expects 2 grouped args: ((X1 ... Xn) offx) ((Y1 ... Ym) offy)\n")
+    | _ => fail («inverse expects 2 grouped args: ((X1 ... Xn) offx) ((Y1 ... Ym) offy)\n»)
 End
 
 Definition sexp_channeling_dispatch_def:
   sexp_channeling_dispatch ctype rest =
-    if ctype = strlit "inverse" then SOME (sexp_inverse_body rest)
+    if ctype = «inverse» then SOME (sexp_inverse_body rest)
     else NONE
 End
 
@@ -629,12 +629,12 @@ Definition sexp_circuit_body_def:
          Xs <- sexp_varc_list Xs_e;
          return (Misc (Circuit Xs))
        od)
-    | _ => fail (strlit "circuit expects 1 arg: (X1 ... Xn)\n")
+    | _ => fail («circuit expects 1 arg: (X1 ... Xn)\n»)
 End
 
 Definition sexp_misc_dispatch_def:
   sexp_misc_dispatch ctype rest =
-    if ctype = strlit "circuit" then SOME (sexp_circuit_body rest)
+    if ctype = «circuit» then SOME (sexp_circuit_body rest)
     else NONE
 End
 
@@ -648,7 +648,7 @@ End
 
 Definition sexp_constraint_dispatch_def:
   sexp_constraint_dispatch ctype rest =
-    case strip_prefix (strlit "lin_") ctype of
+    case strip_prefix («lin_») ctype of
       SOME cmp_kw => sexp_linear_dispatch cmp_kw rest
     | NONE =>
     case sexp_extensional_dispatch ctype rest of
@@ -661,7 +661,7 @@ Definition sexp_constraint_dispatch_def:
       SOME res => res
     | NONE =>
     (*
-    case strip_prefix (strlit "lex_") ctype of
+    case strip_prefix («lex_») ctype of
       SOME cmp_kw => sexp_lex_dispatch cmp_kw rest
     | NONE =>
     *)
@@ -687,7 +687,7 @@ Definition sexp_constraint_def:
        c <- sexp_constraint_dispatch ctype rest;
        return ((name,c) : mlstring # mlstring constraint)
      od)
-  | _ => fail (strlit "invalid constraint sexpression; expected (name ctype args...)\n")
+  | _ => fail («invalid constraint sexpression; expected (name ctype args...)\n»)
 End
 
 Definition sexp_constraints_def:
@@ -703,17 +703,17 @@ End
 Definition sexp_prob_type_def:
   (sexp_prob_type vs [] = return Decision) ∧
   (sexp_prob_type vs [Expr [Atom x]] =
-      if x = strlit "enumerate"
+      if x = «enumerate»
       then return (Enumerate vs)
-      else fail (strlit "invalid problem type sexpression\n")) ∧
+      else fail («invalid problem type sexpression\n»)) ∧
   (sexp_prob_type vs [Expr [Atom x; Atom y]] =
-    if x = strlit "minimize"
+    if x = «minimize»
     then return (Minimize y)
     else
-    if x = strlit "maximize"
+    if x = «maximize»
     then return (Maximize y)
-    else fail (strlit "invalid problem type sexpression\n")) ∧
-  (sexp_prob_type _ _ = fail (strlit "invalid problem type sexpression\n"))
+    else fail («invalid problem type sexpression\n»)) ∧
+  (sexp_prob_type _ _ = fail («invalid problem type sexpression\n»))
 End
 
 Definition sexp_cp_inst_def:
@@ -726,13 +726,13 @@ Definition sexp_cp_inst_def:
       (pty:mlstring prob_type) <- sexp_prob_type (MAP FST bb) mopt;
       return ((bb,cs,pty ):cp_inst)
     od
-  | _ => fail (strlit "invalid sexpression for top-level CP instance\n")
+  | _ => fail («invalid sexpression for top-level CP instance\n»)
 End
 
 Definition parse_cp_inst_def:
   parse_cp_inst s =
     case fromString s of
-      NONE => fail (strlit "sexp parse failure\n")
+      NONE => fail («sexp parse failure\n»)
     | SOME se => sexp_cp_inst se
 End
 
@@ -750,38 +750,38 @@ End
 
 Theorem test_bnds:
   (* multi-var happy path *)
-  sexp_bnds (fromStringL (strlit "((A 0 10) (B 0 10) (C 0 10))")) =
+  sexp_bnds (fromStringL («((A 0 10) (B 0 10) (C 0 10))»)) =
     INR [(«A»,0,10); («B»,0,10); («C»,0,10)] ∧
   (* negative bounds *)
-  sexp_bnds (fromStringL (strlit "((X -5 5) (Y -100 -1))")) =
+  sexp_bnds (fromStringL («((X -5 5) (Y -100 -1))»)) =
     INR [(«X»,-5,5); («Y»,-100,-1)] ∧
   (* empty list is fine *)
-  sexp_bnds (fromStringL (strlit "()")) = INR [] ∧
+  sexp_bnds (fromStringL («()»)) = INR [] ∧
   (* wrong arity on a single bound sexpression *)
-  sexp_bnds (fromStringL (strlit "((X 0))")) =
-    INL (strlit "invalid bound sexpression\n") ∧
+  sexp_bnds (fromStringL («((X 0))»)) =
+    INL («invalid bound sexpression\n») ∧
   (* non-integer bound atom *)
-  sexp_bnds (fromStringL (strlit "((X zero 10))")) =
-    INL (strlit "unable to parse integer bounds\n") ∧
+  sexp_bnds (fromStringL («((X zero 10))»)) =
+    INL («unable to parse integer bounds\n») ∧
   (* nested Expr in a bound position is invalid *)
-  sexp_bnds (fromStringL (strlit "((X (0) 10))")) =
-    INL (strlit "invalid bound sexpression\n")
+  sexp_bnds (fromStringL («((X (0) 10))»)) =
+    INL («invalid bound sexpression\n»)
 Proof
   EVAL_TAC
 QED
 
 Theorem test_linear:
-  sexp_constraint_dispatch (strlit"lin_equals")
-    (fromStringL (strlit "((1 A 2 B) I)")) =
+  sexp_constraint_dispatch («lin_equals»)
+    (fromStringL («((1 A 2 B) I)»)) =
     INR (Linear (Lin NONE Equal [(1,INL «A»); (2,INL «B»)] (INL «I»))) ∧
-  sexp_constraint_dispatch (strlit"lin_not_equals_if")
-    (fromStringL (strlit "((zz >= 5) (1 A 2 B) I)")) =
+  sexp_constraint_dispatch («lin_not_equals_if»)
+    (fromStringL («((zz >= 5) (1 A 2 B) I)»)) =
     (INR
      (Linear
         (Lin (SOME (INL (INL «zz»,GreaterEqual,5))) NotEqual
            [(1,INL «A»); (2,INL «B»)] (INL «I»)))) ∧
-  sexp_constraint_dispatch (strlit"lin_greater_equal_iff")
-    (fromStringL (strlit "((zz = 5) (1 A 2 B) 5)")) =
+  sexp_constraint_dispatch («lin_greater_equal_iff»)
+    (fromStringL («((zz = 5) (1 A 2 B) 5)»)) =
     (INR
      (Linear
         (Lin (SOME (INR (INL «zz»,Equal,5))) GreaterEqual
@@ -791,255 +791,252 @@ Proof
 QED
 
 Theorem test_table:
-  sexp_constraint_dispatch (strlit"table")
-    (fromStringL (strlit "(((1 2) (3 4) (5 6)) (A B))")) =
+  sexp_constraint_dispatch («table»)
+    (fromStringL («(((1 2) (3 4) (5 6)) (A B))»)) =
     INR (Extensional
            (Table [[SOME 1; SOME 2]; [SOME 3; SOME 4]; [SOME 5; SOME 6]]
                   [INL «A»; INL «B»])) ∧
-  sexp_constraint_dispatch (strlit"table")
-    (fromStringL (strlit "(((1 *) (* 2)) (A B))")) =
+  sexp_constraint_dispatch («table»)
+    (fromStringL («(((1 *) (* 2)) (A B))»)) =
     INR (Extensional
            (Table [[SOME 1; NONE]; [NONE; SOME 2]]
                   [INL «A»; INL «B»])) ∧
   (* mixed var/const in the value list *)
-  sexp_constraint_dispatch (strlit"table")
-    (fromStringL (strlit "(((7)) (3))")) =
+  sexp_constraint_dispatch («table»)
+    (fromStringL («(((7)) (3))»)) =
     INR (Extensional (Table [[SOME 7]] [INR 3])) ∧
   (* empty body (no rows) is still well-formed *)
-  sexp_constraint_dispatch (strlit"table")
-    (fromStringL (strlit "(() (A))")) =
+  sexp_constraint_dispatch («table»)
+    (fromStringL («(() (A))»)) =
     INR (Extensional (Table [] [INL «A»])) ∧
   (* wrong arity *)
-  sexp_constraint_dispatch (strlit"table")
-    (fromStringL (strlit "(((1 2)))")) =
-    INL (strlit "table expects 2 args: rows (X1 ... Xn)\n")
+  sexp_constraint_dispatch («table»)
+    (fromStringL («(((1 2)))»)) =
+    INL («table expects 2 args: rows (X1 ... Xn)\n»)
 Proof
   EVAL_TAC
 QED
 
 Theorem test_array:
   (* element: Xs is the array, (Y off) the indexed variable + offset, Z the result *)
-  sexp_constraint_dispatch (strlit"element")
-    (fromStringL (strlit "((A B C) (I 0) Z)")) =
+  sexp_constraint_dispatch («element»)
+    (fromStringL («((A B C) (I 0) Z)»)) =
     INR (Array (Element [INL «A»; INL «B»; INL «C»] (INL «I», 0) (INL «Z»))) ∧
   (* element with non-zero offset and mixed consts *)
-  sexp_constraint_dispatch (strlit"element")
-    (fromStringL (strlit "((10 20 30) (I 1) Z)")) =
+  sexp_constraint_dispatch («element»)
+    (fromStringL («((10 20 30) (I 1) Z)»)) =
     INR (Array (Element [INR 10; INR 20; INR 30] (INL «I», 1) (INL «Z»))) ∧
   (* element_2d: 2-row grid *)
-  sexp_constraint_dispatch (strlit"element_2d")
-    (fromStringL (strlit "(((1 2 3) (4 5 6)) (I 0) (J 0) Z)")) =
+  sexp_constraint_dispatch («element_2d»)
+    (fromStringL («(((1 2 3) (4 5 6)) (I 0) (J 0) Z)»)) =
     INR (Array (Element2D
                   [[INR 1; INR 2; INR 3]; [INR 4; INR 5; INR 6]]
                   (INL «I», 0) (INL «J», 0) (INL «Z»))) ∧
   (* array_max aggregate *)
-  sexp_constraint_dispatch (strlit"array_max")
-    (fromStringL (strlit "((A B C) Y)")) =
+  sexp_constraint_dispatch («array_max»)
+    (fromStringL («((A B C) Y)»)) =
     INR (Array (ArrayMax [INL «A»; INL «B»; INL «C»] (INL «Y»))) ∧
   (* array_min aggregate *)
-  sexp_constraint_dispatch (strlit"array_min")
-    (fromStringL (strlit "((A B C) Y)")) =
+  sexp_constraint_dispatch («array_min»)
+    (fromStringL («((A B C) Y)»)) =
     INR (Array (ArrayMin [INL «A»; INL «B»; INL «C»] (INL «Y»))) ∧
   (* element wrong arity *)
-  sexp_constraint_dispatch (strlit"element")
-    (fromStringL (strlit "((A B C) (I 0))")) =
-    INL (strlit "element expects 3 args: (X0 ... Xn-1) (Y off) Z\n") ∧
+  sexp_constraint_dispatch («element»)
+    (fromStringL («((A B C) (I 0))»)) =
+    INL («element expects 3 args: (X0 ... Xn-1) (Y off) Z\n») ∧
   (* array_max wrong arity *)
-  sexp_constraint_dispatch (strlit"array_max")
-    (fromStringL (strlit "((A B C))")) =
-    INL (strlit "array aggregate expects 2 args: (X1 ... Xn) Y\n") ∧
+  sexp_constraint_dispatch («array_max»)
+    (fromStringL («((A B C))»)) =
+    INL («array aggregate expects 2 args: (X1 ... Xn) Y\n») ∧
   (* bad array index shape (missing offset) *)
-  sexp_constraint_dispatch (strlit"element")
-    (fromStringL (strlit "((A B C) (I) Z)")) =
-    INL (strlit "invalid array index; expected (Y offset)\n")
+  sexp_constraint_dispatch («element»)
+    (fromStringL («((A B C) (I) Z)»)) =
+    INL («invalid array index; expected (Y offset)\n»)
 Proof
   EVAL_TAC
 QED
 
 Theorem test_counting:
   (* all_different *)
-  sexp_constraint_dispatch (strlit"all_different")
-    (fromStringL (strlit "((A B C))")) =
+  sexp_constraint_dispatch («all_different»)
+    (fromStringL («((A B C))»)) =
     INR (Counting (AllDifferent [INL «A»; INL «B»; INL «C»])) ∧
   (* nvalue with a constant entry in the list *)
-  sexp_constraint_dispatch (strlit"nvalue")
-    (fromStringL (strlit "((A 3 C) Y)")) =
+  sexp_constraint_dispatch («nvalue»)
+    (fromStringL («((A 3 C) Y)»)) =
     INR (Counting (NValue [INL «A»; INR 3; INL «C»] (INL «Y»))) ∧
   (* count *)
-  sexp_constraint_dispatch (strlit"count")
-    (fromStringL (strlit "((A B C) 7 Z)")) =
+  sexp_constraint_dispatch («count»)
+    (fromStringL («((A B C) 7 Z)»)) =
     INR (Counting (Count [INL «A»; INL «B»; INL «C»] (INR 7) (INL «Z»))) ∧
   (* among with a literal integer set *)
-  sexp_constraint_dispatch (strlit"among")
-    (fromStringL (strlit "((A B C) (1 2 3) Y)")) =
+  sexp_constraint_dispatch («among»)
+    (fromStringL («((A B C) (1 2 3) Y)»)) =
     INR (Counting (Among [INL «A»; INL «B»; INL «C»] [1; 2; 3] (INL «Y»))) ∧
   (* in *)
-  sexp_constraint_dispatch (strlit"in")
-    (fromStringL (strlit "((A B C) X)")) =
+  sexp_constraint_dispatch («in»)
+    (fromStringL («((A B C) X)»)) =
     INR (Counting (In [INL «A»; INL «B»; INL «C»] (INL «X»))) ∧
   (* all_different wrong arity *)
-  sexp_constraint_dispatch (strlit"all_different")
-    (fromStringL (strlit "((A B C) Y)")) =
-    INL (strlit "all_different expects 1 arg: (X1 ... Xn)\n") ∧
+  sexp_constraint_dispatch («all_different»)
+    (fromStringL («((A B C) Y)»)) =
+    INL («all_different expects 1 arg: (X1 ... Xn)\n») ∧
   (* among wrong arity *)
-  sexp_constraint_dispatch (strlit"among")
-    (fromStringL (strlit "((A B) (1 2))")) =
-    INL (strlit "among expects 3 args: (X1 ... Xn) (i1 ... im) Y\n") ∧
+  sexp_constraint_dispatch («among»)
+    (fromStringL («((A B) (1 2))»)) =
+    INL («among expects 3 args: (X1 ... Xn) (i1 ... im) Y\n») ∧
   (* among with a non-integer in the value set *)
-  sexp_constraint_dispatch (strlit"among")
-    (fromStringL (strlit "((A B) (1 foo 3) Y)")) =
-    INL (strlit "expected integer, got: foo\n")
+  sexp_constraint_dispatch («among»)
+    (fromStringL («((A B) (1 foo 3) Y)»)) =
+    INL («expected integer, got: foo\n»)
 Proof
   EVAL_TAC
 QED
 
 Theorem test_prim:
   (* unary *)
-  sexp_constraint_dispatch (strlit"neg")
-    (fromStringL (strlit "(X Y)")) =
+  sexp_constraint_dispatch («neg»)
+    (fromStringL («(X Y)»)) =
     INR (Prim (Unop Negative (INL «X») (INL «Y»))) ∧
-  sexp_constraint_dispatch (strlit"abs")
-    (fromStringL (strlit "(X Y)")) =
+  sexp_constraint_dispatch («abs»)
+    (fromStringL («(X Y)»)) =
     INR (Prim (Unop Abs (INL «X») (INL «Y»))) ∧
   (* binary (incl. a mixed var/const arg) *)
-  sexp_constraint_dispatch (strlit"plus")
-    (fromStringL (strlit "(A B C)")) =
+  sexp_constraint_dispatch («plus»)
+    (fromStringL («(A B C)»)) =
     INR (Prim (Binop Plus (INL «A») (INL «B») (INL «C»))) ∧
-  sexp_constraint_dispatch (strlit"minus")
-    (fromStringL (strlit "(A 3 C)")) =
+  sexp_constraint_dispatch («minus»)
+    (fromStringL («(A 3 C)»)) =
     INR (Prim (Binop Minus (INL «A») (INR 3) (INL «C»))) ∧
-  sexp_constraint_dispatch (strlit"max")
-    (fromStringL (strlit "(A B C)")) =
+  sexp_constraint_dispatch («max»)
+    (fromStringL («(A B C)»)) =
     INR (Prim (Binop Max (INL «A») (INL «B») (INL «C»))) ∧
-  sexp_constraint_dispatch (strlit"min")
-    (fromStringL (strlit "(A B C)")) =
+  sexp_constraint_dispatch («min»)
+    (fromStringL («(A B C)»)) =
     INR (Prim (Binop Min (INL «A») (INL «B») (INL «C»))) ∧
   (* bare comparison *)
-  sexp_constraint_dispatch (strlit"equals")
-    (fromStringL (strlit "(X Y)")) =
+  sexp_constraint_dispatch («equals»)
+    (fromStringL («(X Y)»)) =
     INR (Prim (Cmpop NONE Equal (INL «X») (INL «Y»))) ∧
-  sexp_constraint_dispatch (strlit"not_equals")
-    (fromStringL (strlit "(X 7)")) =
+  sexp_constraint_dispatch («not_equals»)
+    (fromStringL («(X 7)»)) =
     INR (Prim (Cmpop NONE NotEqual (INL «X») (INR 7))) ∧
   (* one-sided reified (_if) *)
-  sexp_constraint_dispatch (strlit"greater_than_if")
-    (fromStringL (strlit "((zz >= 5) X Y)")) =
+  sexp_constraint_dispatch («greater_than_if»)
+    (fromStringL («((zz >= 5) X Y)»)) =
     INR (Prim (Cmpop (SOME (INL (INL «zz»,GreaterEqual,5)))
                      GreaterThan (INL «X») (INL «Y»))) ∧
   (* full reified (_iff) *)
-  sexp_constraint_dispatch (strlit"less_equal_iff")
-    (fromStringL (strlit "((zz = 5) X Y)")) =
+  sexp_constraint_dispatch («less_equal_iff»)
+    (fromStringL («((zz = 5) X Y)»)) =
     INR (Prim (Cmpop (SOME (INR (INL «zz»,Equal,5)))
                      LessEqual (INL «X») (INL «Y»))) ∧
   (* fallback: unrecognised ctype *)
-  sexp_constraint_dispatch (strlit"weird")
-    (fromStringL (strlit "(X Y)")) =
-    INL (strlit "unsupported constraint: weird\n") ∧
+  sexp_constraint_dispatch («weird»)
+    (fromStringL («(X Y)»)) =
+    INL («unsupported constraint: weird\n») ∧
   (* fallback keeps the full original name, including any _if/_iff suffix *)
-  sexp_constraint_dispatch (strlit"weird_if")
-    (fromStringL (strlit "((zz = 1) X Y)")) =
-    INL (strlit "unsupported constraint: weird_if\n")
+  sexp_constraint_dispatch («weird_if»)
+    (fromStringL («((zz = 1) X Y)»)) =
+    INL («unsupported constraint: weird_if\n»)
 Proof
   EVAL_TAC
 QED
 
 Theorem test_logical:
   (* and: three-variable list *)
-  sexp_constraint_dispatch (strlit"and")
-    (fromStringL (strlit "((A B C) D)")) =
+  sexp_constraint_dispatch («and»)
+    (fromStringL («((A B C) D)»)) =
     INR (Logical (And [INL «A»; INL «B»; INL «C»] (INL «D»))) ∧
   (* and: empty Xs list is well-formed *)
-  sexp_constraint_dispatch (strlit"and")
-    (fromStringL (strlit "(() D)")) =
+  sexp_constraint_dispatch («and»)
+    (fromStringL («(() D)»)) =
     INR (Logical (And [] (INL «D»))) ∧
   (* or: mixed var/const in Xs, const result *)
-  sexp_constraint_dispatch (strlit"or")
-    (fromStringL (strlit "((A 3) C)")) =
+  sexp_constraint_dispatch («or»)
+    (fromStringL («((A 3) C)»)) =
     INR (Logical (Or [INL «A»; INR 3] (INL «C»))) ∧
   (* parity: four-variable list *)
-  sexp_constraint_dispatch (strlit"parity")
-    (fromStringL (strlit "((A B C D) Y)")) =
+  sexp_constraint_dispatch («parity»)
+    (fromStringL («((A B C D) Y)»)) =
     INR (Logical (Parity [INL «A»; INL «B»; INL «C»; INL «D»] (INL «Y»))) ∧
   (* and: wrong arity — missing Y *)
-  sexp_constraint_dispatch (strlit"and")
-    (fromStringL (strlit "((A B C))")) =
-    INL (strlit "logical expects 2 args: (X1 ... Xn) Y\n") ∧
+  sexp_constraint_dispatch («and»)
+    (fromStringL («((A B C))»)) =
+    INL («logical expects 2 args: (X1 ... Xn) Y\n») ∧
   (* or: wrong arity — extra arg *)
-  sexp_constraint_dispatch (strlit"or")
-    (fromStringL (strlit "((A B) C D)")) =
-    INL (strlit "logical expects 2 args: (X1 ... Xn) Y\n")
+  sexp_constraint_dispatch («or»)
+    (fromStringL («((A B) C D)»)) =
+    INL («logical expects 2 args: (X1 ... Xn) Y\n»)
 Proof
   EVAL_TAC
 QED
 
 Theorem test_channeling:
   (* basic inverse: zero offsets, length-3 lists *)
-  sexp_constraint_dispatch (strlit"inverse")
-    (fromStringL (strlit "(((A B C) 0) ((P Q R) 0))")) =
+  sexp_constraint_dispatch («inverse»)
+    (fromStringL («(((A B C) 0) ((P Q R) 0))»)) =
     INR (Channeling (Inverse ([INL «A»; INL «B»; INL «C»],0)
                               ([INL «P»; INL «Q»; INL «R»],0))) ∧
   (* non-zero matching offsets *)
-  sexp_constraint_dispatch (strlit"inverse")
-    (fromStringL (strlit "(((A B) 1) ((P Q) 1))")) =
+  sexp_constraint_dispatch («inverse»)
+    (fromStringL («(((A B) 1) ((P Q) 1))»)) =
     INR (Channeling (Inverse ([INL «A»; INL «B»],1)
                               ([INL «P»; INL «Q»],1))) ∧
   (* asymmetric offsets (offx ≠ offy) *)
-  sexp_constraint_dispatch (strlit"inverse")
-    (fromStringL (strlit "(((X Y Z) 0) ((U V W) 1))")) =
+  sexp_constraint_dispatch («inverse»)
+    (fromStringL («(((X Y Z) 0) ((U V W) 1))»)) =
     INR (Channeling (Inverse ([INL «X»; INL «Y»; INL «Z»],0)
                               ([INL «U»; INL «V»; INL «W»],1))) ∧
   (* wrong arity — only one grouped arg *)
-  sexp_constraint_dispatch (strlit"inverse")
-    (fromStringL (strlit "(((A B C) 0))")) =
-    INL (strlit "inverse expects 2 grouped args: ((X1 ... Xn) offx) ((Y1 ... Ym) offy)\n") ∧
+  sexp_constraint_dispatch («inverse»)
+    (fromStringL («(((A B C) 0))»)) =
+    INL («inverse expects 2 grouped args: ((X1 ... Xn) offx) ((Y1 ... Ym) offy)\n») ∧
   (* malformed first group — three atoms instead of (list offset) *)
-  sexp_constraint_dispatch (strlit"inverse")
-    (fromStringL (strlit "((A B C) ((P Q R) 0))")) =
-    INL (strlit "expected (list offset)\n") ∧
+  sexp_constraint_dispatch («inverse»)
+    (fromStringL («((A B C) ((P Q R) 0))»)) =
+    INL («expected (list offset)\n») ∧
   (* non-integer offset *)
-  sexp_constraint_dispatch (strlit"inverse")
-    (fromStringL (strlit "(((A B C) foo) ((P Q R) 0))")) =
-    INL (strlit "expected integer, got: foo\n")
+  sexp_constraint_dispatch («inverse»)
+    (fromStringL («(((A B C) foo) ((P Q R) 0))»)) =
+    INL («expected integer, got: foo\n»)
 Proof
   EVAL_TAC
 QED
 
 Theorem test_cp_inst:
   (* full instance: bounds + constraints + minimize objective *)
-  parse_cp_inst (strlit
-    "(((X 0 10) (Y 0 10)) ((c1 plus X Y X) (c2 equals X 3)) (minimize X))") =
+  parse_cp_inst («(((X 0 10) (Y 0 10)) ((c1 plus X Y X) (c2 equals X 3)) (minimize X))») =
     INR ([(«X»,0,10); («Y»,0,10)],
          [(«c1», Prim (Binop Plus (INL «X») (INL «Y») (INL «X»)));
           («c2», Prim (Cmpop NONE Equal (INL «X») (INR 3)))],
          Minimize «X») ∧
   (* enumeration *)
-  parse_cp_inst (strlit
-    "(((X 0 10) (Y 0 10)) ((c1 plus X Y X) (c2 equals X 3)) (enumerate))") =
+  parse_cp_inst («(((X 0 10) (Y 0 10)) ((c1 plus X Y X) (c2 equals X 3)) (enumerate))») =
     INR ([(«X»,0,10); («Y»,0,10)],
          [(«c1», Prim (Binop Plus (INL «X») (INL «Y») (INL «X»)));
           («c2», Prim (Cmpop NONE Equal (INL «X») (INR 3)))],
          Enumerate [«X»;«Y»]) ∧
   (* no objective (only 2 top-level entries) *)
-  parse_cp_inst (strlit "(() ())") =
+  parse_cp_inst («(() ())») =
     INR ([], [], Decision) ∧
   (* maximize *)
-  parse_cp_inst (strlit
-    "(((A 0 5)) ((c all_different (A))) (maximize A))") =
+  parse_cp_inst («(((A 0 5)) ((c all_different (A))) (maximize A))») =
     INR ([(«A»,0,5)],
          [(«c», Counting (AllDifferent [INL «A»]))],
          Maximize «A») ∧
   (* constraint-level error propagates through cp_inst *)
-  parse_cp_inst (strlit "(() ((c unknown X Y)))") =
-    INL (strlit "unsupported constraint: unknown\n") ∧
+  parse_cp_inst («(() ((c unknown X Y)))») =
+    INL («unsupported constraint: unknown\n») ∧
   (* malformed objective wrapper *)
-  parse_cp_inst (strlit "(() () minimize X)") =
-    INL (strlit "invalid problem type sexpression\n") ∧
+  parse_cp_inst («(() () minimize X)») =
+    INL («invalid problem type sexpression\n») ∧
   (* top-level sexpression must be an Expr of bounds/constraints/obj *)
-  parse_cp_inst (strlit "foo") =
-    INL (strlit "invalid sexpression for top-level CP instance\n") ∧
+  parse_cp_inst («foo») =
+    INL («invalid sexpression for top-level CP instance\n») ∧
   (* malformed s-expression (unbalanced parens) → parse failure *)
-  parse_cp_inst (strlit "(()") =
-    INL (strlit "sexp parse failure\n")
+  parse_cp_inst («(()») =
+    INL («sexp parse failure\n»)
 Proof
   EVAL_TAC
 QED

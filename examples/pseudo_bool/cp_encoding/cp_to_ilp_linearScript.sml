@@ -26,8 +26,8 @@ End
 Definition cmk_lin_eq_def[simp]:
   cmk_lin_eq name cXs Y =
   [
-    (SOME (mk_name name (strlit"ge")), mk_lin_ge cXs Y);
-    (SOME (mk_name name (strlit"le")), mk_lin_le cXs Y)
+    (SOME (mk_name name («ge»)), mk_lin_ge cXs Y);
+    (SOME (mk_name name («le»)), mk_lin_le cXs Y)
   ]
 End
 
@@ -109,9 +109,9 @@ QED
 Definition cencode_lin_not_equal_1_def[simp]:
   cencode_lin_not_equal_1 bnd cXs Y name =
   List [
-    (SOME (mk_name name (strlit"gt")),
+    (SOME (mk_name name («gt»)),
       bits_imply bnd [Pos (nev name)] (mk_lin_gt cXs Y));
-    (SOME (mk_name name (strlit"lt")),
+    (SOME (mk_name name («lt»)),
       bits_imply bnd [Neg (nev name)] (mk_lin_lt cXs Y))
   ]
 End
@@ -422,14 +422,14 @@ Definition cencode_lin_order_cmpops_def:
     case Zr of
       NONE =>
       (List [
-        (SOME (strlit"c[" ^ name ^ strlit"]"), constr)], ec)
+        (SOME («c[» ^ name ^ «]»), constr)], ec)
     | SOME (INL Zc) =>
       let
         (e,ec') = cencode_reif_gen bnd Zc ec
       in
       (Append e $
         List [
-        (SOME (strlit"c[" ^ name ^ strlit"]"),
+        (SOME («c[» ^ name ^ «]»),
           (bits_imply bnd [reif_gen Zc] constr))], ec')
     | SOME (INR Zc) =>
       let
@@ -437,8 +437,8 @@ Definition cencode_lin_order_cmpops_def:
       in
       (Append e $
         List (mk_annotate
-        [strlit"c[" ^ name ^ strlit"][r]";
-          strlit"c[" ^ name ^ strlit"][f]"]
+        [«c[» ^ name ^ «][r]»;
+          «c[» ^ name ^ «][f]»]
         (bimply_bits bnd [reif_gen Zc] constr)), ec')
 End
 

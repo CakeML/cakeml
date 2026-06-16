@@ -76,7 +76,7 @@ QED
 Definition cencode_and_aux_def:
   cencode_and_aux bnd Xs Y name =
   List $ mk_annotate
-    [mk_name name $ strlit"pos"; mk_name name $ strlit"neg"]
+    [mk_name name $ «pos»; mk_name name $ «neg»]
     (encode_and_aux bnd Xs Y)
 End
 
@@ -186,7 +186,7 @@ QED
 Definition cencode_or_aux_def:
   cencode_or_aux bnd Xs Y name =
   List $ mk_annotate
-    [mk_name name $ strlit"pos"; mk_name name $ strlit"neg"]
+    [mk_name name $ «pos»; mk_name name $ «neg»]
     (encode_or_aux bnd Xs Y)
 End
 
@@ -258,22 +258,22 @@ Definition cencode_parity_aux_def:
   cencode_parity_aux bnd Y Xs name =
   Append
     (Append
-      (List [(SOME $ mk_name name $ strlit"acc",
+      (List [(SOME $ mk_name name $ «acc»,
         [], [(-1,Pos (arri name $ LENGTH Xs))], 0)])
       (List $ mk_annotate
         [
-          mk_name name (int_to_string #"-" 0 ^ strlit"ge");
-          mk_name name (int_to_string #"-" 0 ^ strlit"le")
+          mk_name name (int_to_string #"-" 0 ^ «ge»);
+          mk_name name (int_to_string #"-" 0 ^ «le»)
         ]
         (encode_bvar_eq (INL (Ge Y 1)) (arri name 0))))
     (flat_app $ MAPi
       (λi X. List $
         mk_annotate
           [
-            mk_name name (int_to_string #"-" (&i+1) ^ strlit",(0,0)");
-            mk_name name (int_to_string #"-" (&i+1) ^ strlit",(1,1)");
-            mk_name name (int_to_string #"-" (&i+1) ^ strlit",(1,0)");
-            mk_name name (int_to_string #"-" (&i+1) ^ strlit",(0,1)")
+            mk_name name (int_to_string #"-" (&i+1) ^ «_0_0»);
+            mk_name name (int_to_string #"-" (&i+1) ^ «_1_1»);
+            mk_name name (int_to_string #"-" (&i+1) ^ «_1_0»);
+            mk_name name (int_to_string #"-" (&i+1) ^ «_0_1»)
           ]
           (encode_xor (arri name i) (INL (Ge X 1)) (arri name (i+1)))
       )

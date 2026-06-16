@@ -22,10 +22,10 @@ Definition cencode_all_different_def:
       then
         List [
           (SOME $ mk_name name
-            (int_to_string #"-" (&i) ^ strlit"gt" ^ int_to_string #"-" (&j)),
+            (int_to_string #"-" (&i) ^ «gt» ^ int_to_string #"-" (&j)),
             bits_imply bnd [Pos (neiv name i j)] (mk_gt X Y));
           (SOME $ mk_name name
-            (int_to_string #"-" (&i) ^ strlit"lt" ^ int_to_string #"-" (&j)),
+            (int_to_string #"-" (&i) ^ «lt» ^ int_to_string #"-" (&j)),
             bits_imply bnd [Neg (neiv name i j)] (mk_gt Y X))]
       else
         Nil) Xs)) Xs)
@@ -309,9 +309,9 @@ Definition cencode_count_aux_def:
     (MAPi
       (λi X.
         let
-          ge = eqi name i (strlit"ge");
-          le = eqi name i (strlit"le");
-          eq = eqi name i (strlit"eq")
+          ge = eqi name i («ge»);
+          le = eqi name i («le»);
+          eq = eqi name i («eq»)
         in
           Append (cbimply_var bnd (ge) (mk_ge X Y))
             (Append (cbimply_var bnd (le) (mk_le X Y))
@@ -324,7 +324,7 @@ Definition cencode_in_def:
   cencode_in bnd Xs Y name =
   Append
     (cencode_count_aux bnd Xs Y name)
-    (cat_least_one name (GENLIST (λi. Pos $ eqi name i (strlit"eq")) (LENGTH Xs)))
+    (cat_least_one name (GENLIST (λi. Pos $ eqi name i («eq»)) (LENGTH Xs)))
 End
 
 Definition encode_in_def:
@@ -335,7 +335,7 @@ Definition cencode_count_def:
   cencode_count bnd Xs Y Z name =
   Append
     (cencode_count_aux bnd Xs Y name)
-    (cencode_bitsum (GENLIST (λi. eqi name i (strlit"eq")) (LENGTH Xs)) Z name)
+    (cencode_bitsum (GENLIST (λi. eqi name i («eq»)) (LENGTH Xs)) Z name)
 End
 
 Definition encode_count_def:
@@ -442,10 +442,10 @@ Definition cencode_among_aux_def:
       (flat_app
         (MAPi
           (λi X.
-            cbimply_var bnd (eqi name i (strlit"al1"))
+            cbimply_var bnd (eqi name i («al1»))
               (at_least_one (MAP (λv. Pos (INL (Eq X v))) iS)))
           Xs))
-      (cencode_bitsum (GENLIST (λi. eqi name i (strlit"al1")) (LENGTH Xs)) Y name)
+      (cencode_bitsum (GENLIST (λi. eqi name i («al1»)) (LENGTH Xs)) Y name)
 End
 
 Definition encode_among_def:

@@ -311,7 +311,7 @@ QED
 (*
 EVAL``append o FST $ cencode_extensional_constr
   (\x. (-5,5))
-  (Table [[SOME 1i;SOME 2i];[NONE;NONE];[SOME 1i;NONE];] [INL (strlit "x");INL (strlit "y")]) (strlit"t1") init_ec``
+  (Table [[SOME 1i;SOME 2i];[NONE;NONE];[SOME 1i;NONE];] [INL («x»);INL («y»)]) («t1») init_ec``
 *)
 
 

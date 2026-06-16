@@ -10,8 +10,8 @@ Ancestors
 Definition cmk_eq_def[simp]:
   cmk_eq name X Y =
   [
-    (SOME (mk_name name (strlit"ge")), mk_ge X Y);
-    (SOME (mk_name name (strlit"le")), mk_le X Y)
+    (SOME (mk_name name («ge»)), mk_ge X Y);
+    (SOME (mk_name name («le»)), mk_le X Y)
   ]
 End
 
@@ -93,9 +93,9 @@ QED
 Definition cencode_not_equal_1_def[simp]:
   cencode_not_equal_1 bnd X Y name =
   List [
-    (SOME (mk_name name (strlit"gt")),
+    (SOME (mk_name name («gt»)),
       bits_imply bnd [Pos (nev name)] (mk_gt X Y));
-    (SOME (mk_name name (strlit"lt")),
+    (SOME (mk_name name («lt»)),
       bits_imply bnd [Neg (nev name)] (mk_lt X Y))
   ]
 End
@@ -380,7 +380,7 @@ Definition cencode_plus_def:
   cencode_plus bnd X Y Z name =
   List
     (mk_annotate
-      [mk_name name (strlit"ge"); mk_name name (strlit"le")]
+      [mk_name name («ge»); mk_name name («le»)]
       (encode_plus X Y Z)
     )
 End
@@ -428,7 +428,7 @@ Definition cencode_minus_def:
   cencode_minus bnd X Y Z name =
   List
     (mk_annotate
-      [mk_name name (strlit"ge"); mk_name name (strlit"le")]
+      [mk_name name («ge»); mk_name name («le»)]
       (encode_minus X Y Z)
     )
 End
@@ -437,15 +437,15 @@ End
 Definition cencode_min_def:
   cencode_min bnd X Y Z name =
   let
-    lle = INR (name, Flag (strlit "lle"));
-    rle = INR (name, Flag (strlit "rle"));
+    lle = INR (name, Flag («lle»));
+    rle = INR (name, Flag («rle»));
   in
   Append (cvar_imply bnd lle (mk_le X Z)) $
   Append (cvar_imply bnd rle (mk_le Y Z)) $
   Append
     (List
       (mk_annotate
-      [mk_name name (strlit"lge"); mk_name name (strlit"rge")]
+      [mk_name name («lge»); mk_name name («rge»)]
       [mk_ge X Z; mk_ge Y Z])) $
   cat_least_one name [Pos lle; Pos rle]
 End
@@ -481,15 +481,15 @@ QED
 Definition cencode_max_def:
   cencode_max bnd X Y Z name =
   let
-    lge = INR (name, Flag (strlit "lge"));
-    rge = INR (name, Flag (strlit "rge"));
+    lge = INR (name, Flag («lge»));
+    rge = INR (name, Flag («rge»));
   in
   Append (cvar_imply bnd lge (mk_ge X Z)) $
   Append (cvar_imply bnd rge (mk_ge Y Z)) $
   Append
     (List
       (mk_annotate
-      [mk_name name (strlit"lle"); mk_name name (strlit"rle")]
+      [mk_name name («lle»); mk_name name («rle»)]
       [mk_le X Z; mk_le Y Z])) $
   cat_least_one name [Pos lge; Pos rge]
 End
@@ -665,14 +665,14 @@ Definition cencode_order_cmpops_def:
     case Zr of
       NONE =>
       (List [
-        (SOME (strlit"c[" ^ name ^ strlit"]"), constr)], ec)
+        (SOME («c[» ^ name ^ «]»), constr)], ec)
     | SOME (INL Zc) =>
       let
         (e,ec') = cencode_reif_gen bnd Zc ec
       in
       (Append e $
         List [
-        (SOME (strlit"c[" ^ name ^ strlit"]"),
+        (SOME («c[» ^ name ^ «]»),
           (bits_imply bnd [reif_gen Zc] constr))], ec')
     | SOME (INR Zc) =>
       let
@@ -680,8 +680,8 @@ Definition cencode_order_cmpops_def:
       in
       (Append e $
         List (mk_annotate
-        [strlit"c[" ^ name ^ strlit"][r]";
-          strlit"c[" ^ name ^ strlit"][f]"]
+        [«c[» ^ name ^ «][r]»;
+          «c[» ^ name ^ «][f]»]
         (bimply_bits bnd [reif_gen Zc] constr)), ec')
 End
 
@@ -710,7 +710,7 @@ QED
 
 Definition cencode_negative_def:
   cencode_negative X Y name =
-    List (mk_annotate [mk_name name (strlit"le"); mk_name name (strlit"ge")]
+    List (mk_annotate [mk_name name («le»); mk_name name («ge»)]
       (encode_negative X Y))
 End
 
@@ -720,10 +720,10 @@ Definition cencode_abs_def:
     (e,ec') = cencode_ge bnd X 0 ec;
     ls =
       mk_annotate [
-        mk_name name (strlit"posge");
-        mk_name name (strlit"posle");
-        mk_name name (strlit"negle");
-        mk_name name (strlit"negge");]
+        mk_name name («posge»);
+        mk_name name («posle»);
+        mk_name name («negle»);
+        mk_name name («negge»);]
         (encode_abs_body bnd X Y)
   in
     (Append e (List ls) , ec')
@@ -779,8 +779,8 @@ QED
 
 EVAL``append o FST $ cencode_prim_constr
   (\x. (-5,5))
-  (Binop Min (INL (strlit "X")) (INL (strlit "Y")) (INL (strlit "Z")))
-  (strlit "foo")
+  (Binop Min (INL («X»)) (INL («Y»)) (INL («Z»)))
+  («foo»)
   init_ec``
 
 *)

@@ -52,11 +52,11 @@ Definition cencode_proper_index_def:
       | INR cY => (cY,cY);
     lbann =
       if lb < offset
-      then [mk_name name $ strlit"lb"]
+      then [mk_name name $ «lb»]
       else [];
     ubann =
       if ub > offset + n - 1
-      then [mk_name name $ strlit"ub"]
+      then [mk_name name $ «ub»]
       else []
   in
     List $ mk_annotate
@@ -84,8 +84,8 @@ Definition cencode_element_aux_def:
     (FLAT $ MAPi
       (λi X.
         [
-          mk_name name (int_to_string #"-" (&i) ^ strlit"ge");
-          mk_name name (int_to_string #"-" (&i) ^ strlit"le")
+          mk_name name (int_to_string #"-" (&i) ^ «ge»);
+          mk_name name (int_to_string #"-" (&i) ^ «le»)
         ])
       Xs)
     (encode_element_aux bnd Xs Yi Z)
@@ -265,12 +265,12 @@ Definition cencode_element2d_aux_def:
             [
               mk_name
                 name
-                (int_to_string #"-" (&i) ^ strlit"," ^
-                  int_to_string #"-" (&j) ^ strlit"ge");
+                (int_to_string #"-" (&i) ^ «_» ^
+                  int_to_string #"-" (&j) ^ «ge»);
               mk_name
                 name
-                (int_to_string #"-" (&i) ^ strlit"," ^
-                  int_to_string #"-" (&j) ^ strlit"le")
+                (int_to_string #"-" (&i) ^ «_» ^
+                  int_to_string #"-" (&j) ^ «le»)
             ])
           Xs)
         Xss)
@@ -461,7 +461,7 @@ Definition cencode_array_max_def:
       Append
         (flat_app (MAPi (λi X. List $
           mk_annotate
-            [mk_name name $ int_to_string #"-" (&i) ^ strlit"le"]
+            [mk_name name $ int_to_string #"-" (&i) ^ «le»]
             [mk_le X Y]) Xs)) $
         cat_least_one name $ GENLIST (λi. Pos $ arri name i) (LENGTH Xs)
 End
@@ -542,7 +542,7 @@ Definition cencode_array_min_def:
       Append
         (flat_app (MAPi (λi X. List $
           mk_annotate
-            [mk_name name $ int_to_string #"-" (&i) ^ strlit"ge"]
+            [mk_name name $ int_to_string #"-" (&i) ^ «ge»]
             [mk_ge X Y]) Xs)) $
         cat_least_one name $ GENLIST (λi. Pos $ arri name i) (LENGTH Xs)
 End

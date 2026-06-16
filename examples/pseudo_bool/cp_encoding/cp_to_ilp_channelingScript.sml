@@ -152,18 +152,18 @@ Definition cencode_inverse_def:
               (λi.
                 [
                   mk_name name
-                    (strlit"X," ^ int_to_string #"-" (&i+1) ^ strlit",lb");
+                    («X_» ^ int_to_string #"-" (&i+1) ^ «_lb»);
                   mk_name name
-                    (strlit"X," ^ int_to_string #"-" (&i+1) ^ strlit",ub");
+                    («X_» ^ int_to_string #"-" (&i+1) ^ «_ub»);
                 ])
               n ++
             GENLIST
               (λi.
                 [
                   mk_name name
-                    (strlit"Y," ^ int_to_string #"-" (&i+1) ^ strlit",lb");
+                    («Y_» ^ int_to_string #"-" (&i+1) ^ «_lb»);
                   mk_name name
-                    (strlit"Y," ^ int_to_string #"-" (&i+1) ^ strlit",ub");
+                    («Y_» ^ int_to_string #"-" (&i+1) ^ «_ub»);
                 ])
               n ++
             FLAT (GENLIST
@@ -171,11 +171,11 @@ Definition cencode_inverse_def:
                 (λj.
                   [
                     mk_name name
-                      (int_to_string #"-" (&i+1) ^ strlit"," ^
-                        int_to_string #"-" (&j+1) ^ strlit"ge");
+                      (int_to_string #"-" (&i+1) ^ «_» ^
+                        int_to_string #"-" (&j+1) ^ «ge»);
                     mk_name name
-                      (int_to_string #"-" (&i+1) ^ strlit"," ^
-                        int_to_string #"-" (&j+1) ^ strlit"le")
+                      (int_to_string #"-" (&i+1) ^ «_» ^
+                        int_to_string #"-" (&j+1) ^ «le»)
                   ])
                 n)
               n)))
