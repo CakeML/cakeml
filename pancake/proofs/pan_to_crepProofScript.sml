@@ -4885,8 +4885,8 @@ Proof
   irule LESS_TRANS >> first_assum $ irule_at $ Pos hd >>
   irule LESS_EQ_LESS_TRANS >> first_assum $ irule_at $ Pos hd >>
   rpt $ pop_assum kall_tac >>
-  Induct_on ‘pc’ >> simp[] >>
-  Cases >> gvs[panLangTheory.is_exn_decl_def]
+  Induct_on ‘pc’ >> simp[panLangTheory.exceptions_def] >>
+  Cases >> gvs[panLangTheory.exceptions_def,panLangTheory.is_exn_decl_def]
 QED
 
 Theorem mk_ctxt_imp_locals_rel:
@@ -5175,8 +5175,13 @@ Proof
    fs [state_rel_def, IS_PREFIX_THM]
 QED
 
+Theorem decs_stcnames_lemma[local]:
+  EVERY (λd. is_function d ∨ is_exn_decl d) code ⇒
+  decs_stcnames ctxt code = SOME ctxt
+Proof
+  cheat
+QED
 
-        
 Theorem state_rel_imp_semantics_decls_to_crep:
   !(s:('a,'b) panSem$state) (t:('a,'b) crepSem$state) pan_code start.
     state_rel (s with structs := []) t ∧
@@ -5184,18 +5189,18 @@ Theorem state_rel_imp_semantics_decls_to_crep:
     s.code = FEMPTY ∧
     t.code = alist_to_fmap (pan_to_crep$compile_to_crep pan_code) ∧
     s.locals = FEMPTY ∧
+    s.eshapes = FEMPTY ∧
     EVERY (localised_prog ∘ SND ∘ SND) (functions pan_code) ∧
     EVERY (λx. is_function x ∨ is_exn_decl x) pan_code ∧
-    panLang$size_of_eids pan_code < dimword (:'a) /\
-    FDOM s.eshapes = FDOM (get_eids_from_decls pan_code) ∧
+    panLang$size_of_eids pan_code < dimword (:'a) ∧
     semantics_decls s start pan_code <> Fail ==>
       semantics t start = semantics_decls s start pan_code
 Proof
   rw [semantics_decls_def] >>
   gvs[AllCaseEqs(), GSYM IS_SOME_EQ_NOT_NONE, IS_SOME_EXISTS] >>
   gvs [] >>
-  drule_all_then (gvs o single) evaluate_decls_only_functions >>
-  gs [decs_stcnames_only_functions2] >>
+  drule_all_then (gvs o single) evaluate_decls_only_funs_and_exn_decls >>
+  gs [decs_stcnames_lemma] >>
   irule EQ_SYM >>
   irule state_rel_imp_semantics_to_crep >>
   simp[PULL_EXISTS] >>
@@ -5204,6 +5209,8 @@ Proof
   conj_tac
   >- (rw[fmap_eq_flookup,FLOOKUP_FUPDATE_LIST,alookup_distinct_reverse] >>
       TOP_CASE_TAC >> simp[]) >>
+  conj_tac
+  >- simp[get_eids_from_decls_def,MAP2_MAP,pair_map_I,FDOM_FUPDATE_LIST,MAP_ZIP] >>
   gvs[state_rel_def]
 QED
 
@@ -5251,19 +5258,18 @@ Theorem state_rel_imp_semantics_decls:
     s.code = FEMPTY ∧
     t.code = alist_to_fmap (pan_to_crep$compile_prog pan_code) ∧
     s.locals = FEMPTY ∧
-    EVERY (localised_prog ∘ SND ∘ SND) (functions pan_code) ∧
-    EVERY is_function pan_code ∧
-    panLang$size_of_eids pan_code < dimword (:'a) ∧
     s.eshapes = FEMPTY ∧
-    FDOM s.eshapes =  FDOM (get_eids_from_decls pan_code) ∧
+    EVERY (localised_prog ∘ SND ∘ SND) (functions pan_code) ∧
+    EVERY (λx. is_function x ∨ is_exn_decl x) pan_code ∧
+    panLang$size_of_eids pan_code < dimword (:'a) ∧
     semantics_decls s start pan_code <> Fail ==>
       semantics t start = semantics_decls s start pan_code
 Proof
   rw [semantics_decls_def] >>
   gvs[AllCaseEqs(), GSYM IS_SOME_EQ_NOT_NONE, IS_SOME_EXISTS] >>
   gvs [] >>
-  drule_all_then (gvs o single) evaluate_decls_only_functions >>
-  gs [decs_stcnames_only_functions2] >>
+  drule_all_then (gvs o single) evaluate_decls_only_funs_and_exn_decls >>
+  gs [decs_stcnames_lemma] >>
   irule EQ_SYM >>
   irule state_rel_imp_semantics >>
   simp[PULL_EXISTS] >>
@@ -5272,5 +5278,7 @@ Proof
   conj_tac
   >- (rw[fmap_eq_flookup,FLOOKUP_FUPDATE_LIST,alookup_distinct_reverse] >>
       TOP_CASE_TAC >> simp[]) >>
+  conj_tac
+  >- simp[get_eids_from_decls_def,MAP2_MAP,pair_map_I,FDOM_FUPDATE_LIST,MAP_ZIP] >>
   gvs[state_rel_def]
 QED
