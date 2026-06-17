@@ -346,6 +346,68 @@ Proof
   >> simp [right_bvar_def, eval_bvar_def]
 QED
 
+(* Liveness circuits (qcirc) **************************************************)
+
+(* Liveness circuits (qcirc) have access to two different states.
+   For model circuits this is not needed; inputs and outputs (not gates) are
+   lifted to INL.
+   In contrast, witness circuits need to make use of this. For this, the
+   intervention function maps literals to latches in the other state.
+   Thus, we go through the circuit and for each literal present as a key in the
+   intervention map, we replace it by INR x, where x is the value in the
+   intervention map.
+   If the literal is not present, we lift inputs/outputs to INL. *)
+
+Definition qleft_bvar_def:
+  (qleft_bvar : ('i, 'l) bvar -> ('i + 'i, 'l + 'l) bvar
+     (Input i) = Input (INL i)) ∧
+  (qleft_bvar (Latch l) = Latch (INL l)) ∧
+  (qleft_bvar Ff        = Ff)
+End
+
+Definition qleft_var_def:
+  (qleft_var (Name a)  = Name a) ∧
+  (qleft_var (Base bv) = Base (qleft_bvar bv))
+End
+
+Definition qleft_lit_def:
+  qleft_lit (v, b) = (qleft_var v, b)
+End
+
+Definition qleft_and_def:
+  qleft_and (n, ins) = (n, MAP qleft_lit ins)
+End
+
+Definition qleft_live_def:
+  qleft_live (live: ('a, 'i, 'l) lit list list) = MAP (MAP qleft_lit) live
+End
+
+Definition qleft_def:
+  qleft (circ: ('a, 'i, 'l) circuit) = MAP qleft_and circ
+End
+
+Definition qinterv_lit_def:
+  qinterv_lit (interv: ('a, 'i, 'l) lit -> 'l option) lit =
+  case interv lit of
+  | NONE => qleft_lit lit
+  | SOME l =>
+    let (v, b) = lit in (Base (Latch (INR l)), b)
+End
+
+Definition qinterv_and_def:
+  qinterv_and interv ((n, ins): ('a, 'i, 'l) and) =
+    (n, MAP (qinterv_lit interv) ins)
+End
+
+Definition qinterv_live_def:
+  qinterv_live interv (live: ('a, 'i, 'l) lit list list) =
+    MAP (MAP (qinterv_lit interv)) live
+End
+
+Definition qinterv_def:
+  qinterv interv (circ: ('a, 'i, 'l) circuit) = MAP (qinterv_and interv) circ
+End
+
 (* Extending a circuit ********************************************************)
 
 (* Named extensions *)
@@ -975,8 +1037,45 @@ Definition encode_is_witness_step_def:
 End
 
 Definition encode_is_witness_liveness_def:
-  encode_is_witness_liveness = ARB
+  encode_is_witness_liveness
+    (mcirc: ('a, 'i, 'l) circuit)
+    (mcnstrs: ('a, 'i, 'l) lit list)
+    (mlive: ('a, 'i, 'l) lit list list)
+    (wcirc: ('b, 'i, 'l) circuit)
+    (wnext: 'l -> ('b, 'i, 'l) lit)
+    (wcnstrs: ('b, 'i, 'l) lit list)
+    (wpreds: ('b, 'i, 'l) lit list)
+    (wlive: ('b, 'i, 'l) lit list list)
+    (wlatches: 'l list)
+    (interv: ('b, 'i, 'l) lit -> 'l option)
+  =
+  let
+    mqcirc = qleft mcirc;
+    mlive  = qleft_live mlive;
+    wqcirc = qinterv interv wcirc;
+    wlive  = qinterv_live interv wlive;
+    circ = imerge_circuits mcirc wcirc;
+    circ = encode_preds_hold circ «mcnstrs» (ileft_name_lits mcnstrs);
+    circ = encode_preds_hold circ «wcnstrs» (iright_name_lits wcnstrs);
+    circ = encode_preds_hold circ «wpreds» (iright_name_lits wpreds);
+    circ = iext_circuit (pair_circuits circ circ);
+    circ =
+      encode_is_next circ «wnext» (iext_lit ∘ right_name_lit ∘ wnext) wlatches;
+    (* todo lives_imply *)
+    lhss = [
+       iext_lit (left_lit (Name (Named (Ext «mcnstrs»)), F));
+       iext_lit (left_lit (Name (Named (Ext «wcnstrs»)), F));
+       iext_lit (left_lit (Name (Named (Ext «wpreds»)), F));
+       iext_lit (right_lit (Name (Named (Ext «mcnstrs»)), F));
+       iext_lit (right_lit (Name (Named (Ext «wcnstrs»)), F));
+       iext_lit (right_lit (Name (Named (Ext «wpreds»)), F));
+       (Name (Named (Ext «wnext»)), F);
+    ];
+    rhss = [(Name (Named (Ext «lives_imply»)), F)]
+  in
+    encode_imply circ «reset» F lhss rhss
 End
+
 (* Proving correctness of the encodings ***************************************)
 
 (* A bunch of trivial helper lemmas, which keep the proof state readable
@@ -1224,4 +1323,20 @@ Proof
       EVERY_MEM, MEM_MAP, PULL_EXISTS
     ]
   >> metis_tac []
+QED
+
+Theorem eval_circuit_encode_is_witness_liveness:
+  (∀ss.
+     (eval_circuit ss
+       (encode_is_witness_liveness
+          mcirc mcnstrs mlive
+          wcirc wnext wcnstrs wpreds wlive wlatches interv)
+       (Named (Ext «liveness»)))) =
+  is_witness_liveness
+    mcirc mreset mnext (set mpreds) (set mcnstrs)
+    (qleft mcirc) (qleft_live mlive) (set mlatches)
+    wcirc wreset wnext (set wpreds) (set wcnstrs)
+    (qinterv interv wcirc) (qinterv_live interv wlive) (set wlatches)
+Proof
+  cheat
 QED
