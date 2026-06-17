@@ -5179,7 +5179,10 @@ Theorem decs_stcnames_lemma[local]:
   EVERY (λd. is_function d ∨ is_exn_decl d) code ⇒
   decs_stcnames ctxt code = SOME ctxt
 Proof
-  cheat
+  strip_tac >>
+  irule decs_stcnames_only_functions >>
+  dxrule_at_then (Pos last) irule EVERY_MONOTONIC >>
+  rw[] >> rw[]
 QED
 
 Theorem state_rel_imp_semantics_decls_to_crep:
