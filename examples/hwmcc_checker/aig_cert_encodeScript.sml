@@ -843,20 +843,17 @@ QED
 
 Definition encode_signal_imply_aux_def:
   (encode_signal_imply_aux
-     (circ: (('a + 'b) iext, 'i + 'j, 'l + 'm) circuit)
-     (signal::rest : ('a, 'i, 'l) lit list)
-     (signal'::rest': ('b, 'j, 'm) lit list)
+     (circ: ('a iext, 'i, 'l) circuit)
+     (signal::rest : ('a iext, 'i, 'l) lit list)
+     (signal'::rest': ('a iext, 'i, 'l) lit list)
      (outs: num list)
      (next: num)
-   : ((('a + 'b) iext, 'i + 'j, 'l + 'm) circuit # num list)
+   : (('a iext, 'i, 'l) circuit # num list)
    =
    let
      circ =
        (Anon (next + 1), [(Name (Anon next), T)])
-       ::(Anon next, [
-             iext_lit (left_lit signal);
-             iext_lit (right_lit (not signal'))
-           ])
+       ::(Anon next, [signal; not signal'])
        ::circ;
      outs = (next + 1)::outs;
      next = next + 2;
@@ -865,14 +862,14 @@ Definition encode_signal_imply_aux_def:
   (encode_signal_imply_aux circ _ _ outs _ = (circ, outs))
 End
 
-(* Implements pointwise implication across separate namespaces. *)
+(* Implements pointwise implication. *)
 Definition encode_signal_imply_def:
   encode_signal_imply
-    (circ: (('a + 'b) iext, 'i + 'j, 'l + 'm) circuit)
+    (circ: ('a iext, 'i, 'l) circuit)
     (name: mlstring)
-    (signals : ('a, 'i, 'l) lit list)
-    (signals': ('b, 'j, 'm) lit list)
-  : ((('a + 'b) iext, 'i + 'j, 'l + 'm) circuit)
+    (signals : ('a iext, 'i, 'l) lit list)
+    (signals': ('a iext, 'i, 'l) lit list)
+  : (('a iext, 'i, 'l) circuit)
   =
   let
     (circ, outs) = encode_signal_imply_aux circ signals signals' [] 0n;
@@ -880,15 +877,14 @@ Definition encode_signal_imply_def:
     ((Named (Ext name), MAP (λn. Name (Anon n), F) outs)::circ)
 End
 
-(*
-Theorem eval_circuit_encode_imply:
+Theorem eval_circuit_encode_signal_imply:
   eval_circuit ss (encode_signal_imply circ name signals signals') (Named n) =
   if n = Ext name then
-    signal_imply ss circ ss' circ' signals signals'
+    signal_imply ss circ ss circ signals signals'
   else eval_circuit ss circ (Named n)
 Proof
+  cheat
 QED
-*)
 
 (* Encoding lives_hold ********************************************************)
 
@@ -1050,10 +1046,12 @@ Definition encode_is_witness_liveness_def:
     (interv: ('b, 'i, 'l) lit -> 'l option)
   =
   let
+    msignals  = ileft_name_lits (FLAT (qleft_live mlive));
+    wsignals  = iright_name_lits (FLAT (qinterv_live interv wlive));
     mqcirc = qleft mcirc;
-    mlive  = qleft_live mlive;
     wqcirc = qinterv interv wcirc;
-    wlive  = qinterv_live interv wlive;
+    qcirc = imerge_circuits mqcirc wqcirc;
+    qcirc = encode_signal_imply qcirc «lives_imply» msignals wsignals;
     circ = imerge_circuits mcirc wcirc;
     circ = encode_preds_hold circ «mcnstrs» (ileft_name_lits mcnstrs);
     circ = encode_preds_hold circ «wcnstrs» (iright_name_lits wcnstrs);
@@ -1061,19 +1059,26 @@ Definition encode_is_witness_liveness_def:
     circ = iext_circuit (pair_circuits circ circ);
     circ =
       encode_is_next circ «wnext» (iext_lit ∘ right_name_lit ∘ wnext) wlatches;
-    (* todo lives_imply *)
+    circ = imerge_circuits circ qcirc;
     lhss = [
-       iext_lit (left_lit (Name (Named (Ext «mcnstrs»)), F));
-       iext_lit (left_lit (Name (Named (Ext «wcnstrs»)), F));
-       iext_lit (left_lit (Name (Named (Ext «wpreds»)), F));
-       iext_lit (right_lit (Name (Named (Ext «mcnstrs»)), F));
-       iext_lit (right_lit (Name (Named (Ext «wcnstrs»)), F));
-       iext_lit (right_lit (Name (Named (Ext «wpreds»)), F));
-       (Name (Named (Ext «wnext»)), F);
+      iext_lit
+        (left_name_lit (iext_lit (left_lit (Name (Named (Ext «mcnstrs»)), F))));
+      iext_lit
+        (left_name_lit (iext_lit (left_lit (Name (Named (Ext «wcnstrs»)), F))));
+      iext_lit
+        (left_name_lit (iext_lit (left_lit (Name (Named (Ext «wpreds»)), F))));
+      iext_lit
+        (left_name_lit (iext_lit (right_lit (Name (Named (Ext «mcnstrs»)), F))));
+      iext_lit
+        (left_name_lit (iext_lit (right_lit (Name (Named (Ext «wcnstrs»)), F))));
+      iext_lit
+        (left_name_lit (iext_lit (right_lit (Name (Named (Ext «wpreds»)), F))));
+      iext_lit
+        (left_name_lit ((Name (Named (Ext «wnext»)), F)));
     ];
-    rhss = [(Name (Named (Ext «lives_imply»)), F)]
+    rhss = [iext_lit (right_name_lit (Name (Named (Ext «lives_imply»)), F))]
   in
-    encode_imply circ «reset» F lhss rhss
+    encode_imply circ «liveness» F lhss rhss
 End
 
 (* Proving correctness of the encodings ***************************************)
