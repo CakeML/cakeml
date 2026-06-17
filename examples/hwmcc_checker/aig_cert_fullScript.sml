@@ -19,7 +19,9 @@ Definition make_cert_cnf_def:
     (waig, maps, rest) <- parse_aiger_and_symbols wstr 0;
     (* -- model -- *)
     mcounts <<- maig.counts;
-    mlatch_start <<- mcounts.inputs + 1;
+    micnt <<- mcounts.inputs;
+    mlcnt <<- mcounts.latches;
+    mlatch_start <<- micnt + 1;
     mcirc <<- maig.circuit;
     mreset <<- fromAList maig.reset;
     mreset <<- (λl. lookup l mreset);
@@ -38,24 +40,21 @@ Definition make_cert_cnf_def:
     wlatch_start <<- wcounts.inputs + 1;
     iren <<- maps.shared_inputs;
     lren <<- maps.shared_latches;
-    wcirc <<- shared_circuit iren lren waig.circuit;
-    wreset <<- fromAList (shared_latches iren lren waig.reset);
+    wcirc <<- shared_circuit micnt mlcnt iren lren waig.circuit;
+    wreset <<- fromAList (shared_latches micnt mlcnt iren lren waig.reset);
     wreset <<- (λl. lookup l wreset);
-    wnext <<- fromAList (shared_latches iren lren waig.next);
+    wnext <<- fromAList (shared_latches micnt mlcnt iren lren waig.next);
     wnext  <<- (λl. case lookup l wnext of
                     | SOME lit => lit
                     | NONE => (Base Ff, F));
     wpreds <<-
-      MAP (not ∘ shared_lit iren lren)
+      MAP (not ∘ shared_lit micnt mlcnt iren lren)
         (if wcounts.bad = 0 ∧ wcounts.justice = 0 then waig.outputs
          else waig.bad);
-    wcnstrs <<- MAP (shared_lit iren lren) waig.constraints;
+    wcnstrs <<- MAP (shared_lit micnt mlcnt iren lren) waig.constraints;
     wlatches <<-
-      GENLIST (λk.
-        let l = wlatch_start + k in
-          (case lookup l lren of
-           | NONE => l
-           | SOME l => l)) wcounts.latches;
+      GENLIST (λk. shared_latch_key micnt mlcnt iren lren (wlatch_start + k))
+        wcounts.latches;
     (* encode certificate conditions as circuits *)
     cert_reset_circ <<-
       encode_is_witness_reset mcirc mreset mcnstrs mlatches wcirc wreset

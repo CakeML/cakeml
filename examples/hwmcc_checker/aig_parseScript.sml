@@ -386,9 +386,9 @@ Definition parse_entry_def:
                   interv    = insert_if (op = #"<")
                     (latch_start + pos) lit interv;
                   shared_is = insert_if (kind = #"i" ∧ op = #"=")
-                    (1 + pos) (lit DIV 2) shared_is;
+                    (1 + pos) lit shared_is;
                   shared_ls = insert_if (kind = #"l" ∧ op = #"=")
-                    (latch_start + pos) (lit DIV 2) shared_ls;
+                    (latch_start + pos) lit shared_ls;
                 in ((shared_is, shared_ls, interv), consume_line s i)
               else ((shared_is, shared_ls, interv), consume_line s i))
           od
@@ -489,33 +489,76 @@ End
 
 (* Applying the map for shared inputs/latched *********************************)
 
-(* {i,l}ren is short for {input,latch}renaming *)
+(* Abbreviations:
+   - {i,l}ren = {input,latch}renaming
+   - m{i,l}cnt = model{input,latch}count *)
 
 Definition shared_lit_def:
-  shared_lit iren lren (v, b) =
+  shared_lit micnt mlcnt iren lren (v, b) =
+  (* If no explicit mapping is given, the intersection of model and witness
+     should be shared. Since inputs, latches and gates live in different
+     namespaces, we don't need adjust the literals. *)
+  if isEmpty iren ∧ isEmpty lren then (v, b) else
+  let max_latch = micnt + mlcnt in
+    case v of
+    | Base (Input i) =>
+      (case lookup i iren of
+       | NONE =>
+         (* Not shared ⇒ shift by #model inputs to guarantee disjointness *)
+         (Base (Input (micnt + i)), b)
+       | SOME lit =>
+         (* NOTE If convert_lit can return a gate in practice, then this is
+              most likely wrong: it will convert a raw literal into what would
+              be a gate in the model, but downstream will understand it as a
+              gate in the witness, as we assume the gate namespaces of model
+              and witnes to be separate. *)
+         (* b ≠ b': negate iff original or replacement is negated *)
+         let (v, b') = convert_lit micnt max_latch lit in (v, b ≠ b'))
+    | Base (Latch l) =>
+      (case lookup l lren of
+       | NONE => (Base (Latch (mlcnt + l)), b)
+       | SOME lit =>
+         let (v, b') = convert_lit micnt max_latch lit in (v, b ≠ b'))
+    | _ => (v, b)
+End
+
+(* Also used in make_cert_cnf, thus it is factored into its own function. *)
+Definition shared_latch_key_def:
+  shared_latch_key micnt mlcnt iren lren l =
+  if isEmpty iren ∧ isEmpty lren then l else
+  let max_latch = micnt + mlcnt in
+    case lookup l lren of
+    | NONE => mlcnt + l
+    | SOME llit =>
+      (case convert_lit micnt max_latch llit of
+       | (Base (Latch l'), _) => l'
+       (* ASSUME: latches are only mapped to (possibly negated) latches. *)
+       | _ => l)
+End
+
+Definition shared_latch_map_def:
+  shared_latch_map micnt mlcnt iren lren (l, lit) =
+  if isEmpty iren ∧ isEmpty lren then (l, lit) else
   let
-    v =
-      case v of
-      | Base (Input i) =>
-        (case lookup i iren of NONE => v | SOME i => Base (Input i))
-      | Base (Latch l) =>
-        (case lookup l lren of NONE => v | SOME l => Base (Latch l))
-      | _ => v
+    max_latch = micnt + mlcnt;
+    l'       = shared_latch_key micnt mlcnt iren lren l;
+    (v,  b)  = shared_lit micnt mlcnt iren lren lit;
   in
-    (v, b)
+    case lookup l lren of
+    | NONE => (l', (v, b))
+    | SOME llit =>
+        let (_, lb) = convert_lit micnt max_latch llit in (l', (v, b ≠ lb))
 End
 
 (* Applies the shared map for input and latches to next and reset. *)
 Definition shared_latches_def:
-  shared_latches iren lren (lm: (num, (num, num, num) lit) alist) =
-  MAP
-    ((λl. case lookup l lren of NONE => l | SOME l => l) ##
-     shared_lit iren lren) lm
+  shared_latches micnt mlcnt iren lren (lm: (num, (num, num, num) lit) alist) =
+  MAP (shared_latch_map micnt mlcnt iren lren) lm
 End
 
 Definition shared_circuit_def:
-  shared_circuit iren lren (circuit: (num, num, num) circuit) =
-    MAP (I ## MAP (shared_lit iren lren)) circuit
+  shared_circuit micnt mlcnt iren lren (circuit: (num, num, num) circuit) =
+    MAP (I ## MAP (shared_lit micnt mlcnt iren lren)) circuit
 End
 
 (* Testing ********************************************************************)
@@ -531,6 +574,7 @@ val [waig, wmaps, midx] =
 
 val witness' =
   EVAL “shared_circuit
+        ^(maig).counts.inputs ^(maig).counts.latches
         ^(wmaps).shared_inputs ^(wmaps).shared_latches
         ^waig.circuit”
     |> concl |> rhs
