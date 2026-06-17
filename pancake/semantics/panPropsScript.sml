@@ -1390,7 +1390,7 @@ Proof
   rw[evaluate_decls_def, exceptions_def, FUPDATE_LIST_THM] >>
   gvs[AllCaseEqs()]
 QED
-        
+
 Theorem evaluate_decls_exns_wf:
   ∀s ds s'.
     evaluate_decls s ds = SOME s' ⇒
