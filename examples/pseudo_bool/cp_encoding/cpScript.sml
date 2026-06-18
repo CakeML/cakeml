@@ -146,12 +146,8 @@ Datatype:
   misc_constr =
     (* List is a successor encoding, 0 indexed *)
     Circuit ('a varc list)
-    (* Two equation version:
-      weights, profits, variables
-      total weight, total profit
-      dot product of weights & variables = total weight
-      dot product of profit & variables = total profit
-    TODO Knapsack (int list) (int list) ('a varc list) ('a varc) ('a varc)  *)
+    (* General Knapsack *)
+  | Knapsack (int list list) ('a varc list) ('a varc list)
 End
 
 Datatype:
@@ -608,10 +604,17 @@ Definition circuit_sem_def:
     FUNPOW (λi. Num $ varc w (EL i Xs)) n i ≠ i)
 End
 
+Definition knapsack_sem_def:
+  knapsack_sem css Xs ts w ⇔
+  EVERY (λcs. LENGTH cs = LENGTH Xs) css ∧
+  LIST_REL (λcs t. eval_iclin_term w (ZIP (cs,Xs)) = t) css (MAP (varc w) ts)
+End
+
 Definition misc_constr_sem_def:
   misc_constr_sem c w ⇔
-  case c of Circuit Xs =>
-    circuit_sem Xs w
+  case c of
+    Circuit Xs => circuit_sem Xs w
+  | Knapsack css Xs ts => knapsack_sem css Xs ts w
 End
 
 Definition constraint_sem_def:
