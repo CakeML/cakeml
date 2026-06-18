@@ -449,6 +449,15 @@ Proof
   >> simp [iext_lit_def, iext_var_def, eval_circuit_def]
 QED
 
+Theorem eval_lit_Anon_iext_lit[simp]:
+  eval_lit ss ((Anon n,lits)::circ) (iext_lit x) ⇔
+   eval_lit ss circ (iext_lit x)
+Proof
+  namedCases_on ‘x’ ["v b"]
+  >> Cases_on ‘v’
+  >> simp [iext_lit_def, iext_var_def, eval_circuit_def]
+QED
+
 Theorem eval_circuit_iext_circuit[simp]:
   (∀n.
      eval_circuit ss (iext_circuit circ) (Named (Orig n)) =
@@ -846,20 +855,19 @@ Definition encode_signal_imply_aux_def:
      (circ: ('a iext, 'i, 'l) circuit)
      (signal::rest : ('a iext, 'i, 'l) lit list)
      (signal'::rest': ('a iext, 'i, 'l) lit list)
-     (outs: num list)
      (next: num)
    : (('a iext, 'i, 'l) circuit # num list)
    =
    let
+     (circ, outs) = encode_signal_imply_aux circ rest rest' (next + 2);
      circ =
        (Anon (next + 1), [(Name (Anon next), T)])
        ::(Anon next, [signal; not signal'])
        ::circ;
      outs = (next + 1)::outs;
-     next = next + 2;
    in
-     encode_signal_imply_aux circ rest rest' outs next) ∧
-  (encode_signal_imply_aux circ _ _ outs _ = (circ, outs))
+     (circ, outs)) ∧
+  (encode_signal_imply_aux circ _ _ _ = (circ, []))
 End
 
 (* Implements pointwise implication. *)
@@ -872,18 +880,122 @@ Definition encode_signal_imply_def:
   : (('a iext, 'i, 'l) circuit)
   =
   let
-    (circ, outs) = encode_signal_imply_aux circ signals signals' [] 0n;
+    (* 1n instead of 0n, since 0n is iname's default value for non-anonymous
+       literals*)
+    (circ, outs) = encode_signal_imply_aux circ signals signals' 1n;
   in
     ((Named (Ext name), MAP (λn. Name (Anon n), F) outs)::circ)
 End
 
-Theorem eval_circuit_encode_signal_imply:
-  eval_circuit ss (encode_signal_imply circ name signals signals') (Named n) =
-  if n = Ext name then
-    signal_imply ss circ ss circ signals signals'
-  else eval_circuit ss circ (Named n)
+Theorem encode_signal_imply_eval_circuit_Named[local]:
+  ∀circ signals signals' next circ' outs'.
+    encode_signal_imply_aux circ signals signals' next = (circ',outs') ⇒
+    (eval_circuit ss circ' (Named n) ⇔ eval_circuit ss circ (Named n))
 Proof
-  cheat
+  recInduct encode_signal_imply_aux_ind
+  >> rw [encode_signal_imply_aux_def]
+  >> rpt (pairarg_tac >> gvs [])
+  >> simp [eval_circuit_def]
+QED
+
+Theorem encode_signal_imply_aux_eval_lit_iname_lt[local]:
+  ∀circ signals signals' next circ' outs.
+    encode_signal_imply_aux circ signals signals' next = (circ', outs) ∧
+    iname x < next
+    ⇒
+    (eval_lit ss circ' x ⇔ eval_lit ss circ x)
+Proof
+  recInduct encode_signal_imply_aux_ind
+  >> rw [encode_signal_imply_aux_def]
+  >> rpt (pairarg_tac >> gvs [])
+  >> simp [eval_lit_Anon_neq]
+QED
+
+Theorem encode_signal_imply_aux_LENGTH[local]:
+  ∀circ signals signals' next circ' outs'.
+    encode_signal_imply_aux circ signals signals' next = (circ',outs')
+    ⇒
+    LENGTH outs' = MIN (LENGTH signals) (LENGTH signals')
+Proof
+  recInduct encode_signal_imply_aux_ind
+  >> rw [encode_signal_imply_aux_def, MIN_DEF]
+  >> rpt (pairarg_tac >> gvs [])
+QED
+
+Theorem encode_signal_imply_aux_EVERY_leq_outs[local]:
+  ∀circ signals signals' next circ' outs.
+    encode_signal_imply_aux circ signals signals' next = (circ',outs) ⇒
+    EVERY (λout. next ≤ out) outs
+Proof
+  recInduct encode_signal_imply_aux_ind
+  >> rw [encode_signal_imply_aux_def]
+  >> rpt (pairarg_tac >> gvs [])
+  >> fs [EVERY_MEM]
+  >> rpt strip_tac
+  >> last_x_assum drule >> simp []
+QED
+
+Theorem encode_signal_imply_aux_eval_lit[local]:
+  ∀circ signals signals' next circ' outs'.
+    encode_signal_imply_aux circ signals signals' next = (circ',outs') ∧
+    EVERY (λx. iname x < next) signals ∧
+    EVERY (λx. iname x < next) signals' ∧
+    LENGTH signals' = LENGTH signals ⇒
+    ∀n. n < LENGTH signals ⇒
+        (eval_lit ss circ' (Name (Anon outs'❲n❳),F) ⇔
+           preds_hold ss circ {signals❲n❳} ⇒
+           preds_hold ss circ {signals'❲n❳})
+Proof
+  recInduct encode_signal_imply_aux_ind >> rw []
+  >> Cases_on ‘n’ >> gvs [encode_signal_imply_aux_def]
+  >> rpt (pairarg_tac >> gvs [])
+  >> fs [preds_hold_def]
+  >-
+   (simp [eval_circuit_def, eval_lit_not]
+    >> rename1 ‘eval_lit _ _ signal ⇒ eval_lit _ _ signal'’
+    >> ‘iname signal < next + 2 ∧ iname signal' < next + 2’ by simp []
+    >> drule_all encode_signal_imply_aux_eval_lit_iname_lt
+    >> rev_drule_all encode_signal_imply_aux_eval_lit_iname_lt
+    >> simp []
+    >> metis_tac [])
+  >> rename1 ‘Anon outs❲n❳’
+  >> ‘outs❲n❳ ≠ next ∧ outs❲n❳ ≠ next + 1’ by
+    (drule_then assume_tac encode_signal_imply_aux_LENGTH
+     >> drule_then assume_tac encode_signal_imply_aux_EVERY_leq_outs
+     >> gvs [EVERY_EL]
+     >> first_x_assum drule >> simp [])
+  >> DEP_REWRITE_TAC [eval_lit_Anon_neq]
+  >> conj_tac
+  >-
+   (simp [iname_def]
+    >> gvs [EVERY_EL]
+    >> first_x_assum drule >> simp []
+    >> first_x_assum drule >> simp [])
+  >> last_assum irule >> simp []
+  (* EVERY (λx. iname x < next + 2) _ *)
+  >> fs [EVERY_MEM] >> rw [] >> res_tac >> simp []
+QED
+
+Theorem eval_circuit_encode_signal_imply:
+  LENGTH signals' = LENGTH signals ∧
+  EVERY (λx. iname x < 1) signals  ∧
+  EVERY (λx. iname x < 1) signals'
+  ⇒
+  (eval_circuit ss (encode_signal_imply circ name signals signals') (Named n) =
+   if n = Ext name then
+     signal_imply ss circ ss circ signals signals'
+   else eval_circuit ss circ (Named n))
+Proof
+  strip_tac
+  >> simp [encode_signal_imply_def]
+  >> rpt (pairarg_tac >> gvs [])
+  >> simp [eval_circuit_def]
+  >> reverse IF_CASES_TAC >> gvs []
+  >- (drule encode_signal_imply_eval_circuit_Named >> simp [])
+  >> simp [signal_imply_def, LIST_REL_EL_EQN, EVERY_EL, EL_MAP]
+  >> drule_then assume_tac encode_signal_imply_aux_LENGTH >> gvs [MIN_DEF]
+  >> drule encode_signal_imply_aux_eval_lit
+  >> simp []
 QED
 
 (* Encoding lives_hold ********************************************************)
