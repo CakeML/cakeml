@@ -1214,7 +1214,7 @@ Definition encode_is_witness_liveness_def:
     ];
     rhss = [iext_lit (right_name_lit (Name (Named (Ext «lives_imply»)), F))]
   in
-    encode_imply circ «liveness» F lhss rhss
+    encode_imply circ «liveness» T lhss rhss
 End
 
 (* Proving correctness of the encodings ***************************************)
@@ -1480,7 +1480,7 @@ QED
 Theorem eval_circuit_encode_is_witness_liveness:
   LIST_REL (λms ws. LENGTH ms = LENGTH ws) mlive wlive
   ⇒
-  (∀ss.
+  (¬∃ss.
      (eval_circuit ss
        (encode_is_witness_liveness
           mcirc mcnstrs mlive
