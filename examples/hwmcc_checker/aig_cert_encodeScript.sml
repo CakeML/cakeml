@@ -1024,18 +1024,147 @@ QED
 
 (* Encoding lives_hold ********************************************************)
 
-Definition lives_hold_def:
-  lives_hold
+(* Computes the disjunction of each list.
+   MAPi and GENLIST were annoying to deal with here, so a separate function
+   it is. *)
+Definition encode_lives_hold_aux_def:
+  (encode_lives_hold_aux
+     (circ: ('a iext, 'i, 'l) circuit)
+     (signals::rest : ('a iext, 'i, 'l) lit list list)
+     (next: num)
+   : (('a iext, 'i, 'l) circuit # num list)
+   =
+   let
+     (circ', outs) = encode_lives_hold_aux circ rest (next + 1);
+     circ = (Anon next, MAP not signals)::circ';
+     outs = next::outs
+   in
+     (circ, outs)) ∧
+  (encode_lives_hold_aux circ _ _ = (circ, []))
+End
+
+Definition encode_lives_hold_def:
+  encode_lives_hold
     (circ: ('a iext, 'i, 'l) circuit)
     (name: mlstring)
-    (live: ('a, 'i, 'l) lit list list)
+    (live: ('a iext, 'i, 'l) lit list list)
   : ('a iext, 'i, 'l) circuit
   =
-  let ns = GENLIST Anon (LENGTH live) in
-    (Named (Ext name), MAP (λn. (Name n, T)) ns)
-    :: ZIP (ns, MAP (MAP (iext_lit ∘ not)) live)
-    ++ circ
+  let
+    (circ, outs) = encode_lives_hold_aux circ live 1;
+  in
+    (Named (Ext name),MAP (λn. (Name (Anon n),T)) outs)::circ
 End
+
+Theorem eval_circuit_encode_lives_hold_aux_Name[local]:
+  ∀live circ next circ' outs.
+    (encode_lives_hold_aux circ live next = (circ', outs)
+    ⇒
+    (eval_circuit ss circ' (Named n) ⇔ eval_circuit ss circ (Named n)))
+Proof
+  Induct >> rw [encode_lives_hold_aux_def]
+  >> rpt (pairarg_tac >> gvs [])
+  >> last_x_assum drule
+  >> simp [eval_circuit_def]
+QED
+
+Theorem encode_lives_hold_aux_LENGTH[local]:
+  ∀live circ next circ' outs.
+    encode_lives_hold_aux circ live next = (circ',outs) ⇒
+    LENGTH outs = LENGTH live
+Proof
+  Induct >> rw [encode_lives_hold_aux_def]
+  >> rpt (pairarg_tac >> gvs [])
+  >> first_assum drule
+  >> simp []
+QED
+
+Theorem encode_lives_hold_aux_EVERY_leq_outs[local]:
+  ∀live circ next circ' outs.
+     encode_lives_hold_aux circ live next = (circ',outs) ⇒
+     EVERY (λout. next ≤ out) outs
+Proof
+  Induct >> rw [encode_lives_hold_aux_def]
+  >> rpt (pairarg_tac >> gvs [])
+  >> fs [EVERY_MEM]
+  >> last_x_assum drule
+  >> rpt strip_tac
+  >> last_x_assum drule >> simp []
+QED
+
+Theorem encode_lives_hold_aux_EXISTS_eq[local]:
+  ∀live circ next circ' outs.
+    encode_lives_hold_aux circ live next = (circ',outs) ∧
+    EVERY (λx. iname x < next) xs
+    ⇒
+    (EXISTS (λx. eval_lit ss circ' x) xs ⇔ EXISTS (λx. eval_lit ss circ x) xs)
+Proof
+  Induct >> rw [encode_lives_hold_aux_def]
+  >> rpt (pairarg_tac >> gvs [])
+  >> fs [EXISTS_MEM, EVERY_MEM]
+  >> last_x_assum drule
+  >> impl_tac >- (rpt strip_tac >> res_tac >> simp [])
+  >> strip_tac
+  >> eq_tac >> rw []
+  >> metis_tac [prim_recTheory.LESS_NOT_EQ, eval_lit_Anon_neq]
+QED
+
+Theorem encode_lives_hold_aux_eval_lit[local]:
+  ∀live circ next circ' outs.
+    encode_lives_hold_aux circ live next = (circ',outs) ∧
+    EVERY (EVERY (λx. iname x < next)) live
+    ⇒
+    ∀n. n < LENGTH live ⇒
+       ((eval_lit ss circ' (MAP (λn. (Name (Anon n),T)) outs)❲n❳) ⇔
+        EXISTS (λp. preds_hold ss circ {p}) live❲n❳)
+Proof
+  Induct >> rw [encode_lives_hold_aux_def]
+  >> rpt (pairarg_tac >> gvs [])
+  >> Cases_on ‘n’ >> gvs []
+  >-
+   (simp [eval_circuit_def, preds_hold_def]
+    >> simp [EXISTS_MAP, eval_lit_not]
+    >> drule encode_lives_hold_aux_EXISTS_eq
+    >> rename1 ‘EXISTS _ xs’
+    >> disch_then $ qspec_then ‘xs’ mp_tac
+    >> impl_tac >- (fs [EVERY_MEM] >> rpt strip_tac >> res_tac >> simp [])
+    >> simp [])
+  >> last_x_assum drule
+  >> rename1 ‘EXISTS _ live❲n❳’
+  >> disch_then $ qspec_then ‘n’ mp_tac
+  >> impl_tac >- (fs [EVERY_MEM] >> rpt strip_tac >> res_tac >> simp [])
+  >> strip_tac
+  >> drule_then assume_tac encode_lives_hold_aux_LENGTH
+  >> gvs [Req0 EL_MAP]
+  >> drule encode_lives_hold_aux_EVERY_leq_outs
+  >> simp [EVERY_EL]
+  >> disch_then $ drule_then assume_tac
+  >> DEP_REWRITE_TAC [eval_lit_Anon_neq]
+  >> simp [iname_def]
+QED
+
+Theorem eval_circuit_encode_lives_hold:
+  EVERY (EVERY (λx. iname x = 0)) live
+  ⇒
+  eval_circuit ss (encode_lives_hold circ name live) (Named n) =
+  if n = Ext name then
+    lives_hold ss circ live
+  else eval_circuit ss circ (Named n)
+Proof
+  strip_tac
+  >> simp [encode_lives_hold_def]
+  >> rpt (pairarg_tac >> gvs [])
+  >> simp [eval_circuit_def]
+  >> IF_CASES_TAC >> gvs []
+  >-
+   (simp [lives_hold_def, some_signal_holds_def, EVERY_EL]
+    >> drule_then assume_tac encode_lives_hold_aux_LENGTH
+    >> rewrite_tac [EXISTS_NOT_EVERY]
+    >> drule_then assume_tac encode_lives_hold_aux_eval_lit
+    >> simp [o_DEF])
+  >> drule eval_circuit_encode_lives_hold_aux_Name
+  >> simp []
+QED
 
 (* Encoding certificate conditions ********************************************)
 
