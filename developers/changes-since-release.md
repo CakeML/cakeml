@@ -4,6 +4,8 @@ Changes since release v3304:
 
 `pat_bindings` and `pats_bindings` no longer take an accumulator argument (progress on #662).
 
+A first-order version of CakeML's PEG parser now exists (#1407).
+
 ## Basis library
 
 `TextIO.inputAllFrom` has been added to the basis library. The CF theorem for `TextIO.inputAll` has been corrected (#1375, #1366).
@@ -69,6 +71,8 @@ The Pancake compiler now unconditionally compiles with GC set to `none`; any `--
 ## Examples
 
 A new example for distributed SAT proof checking (#1384)
+
+The FloVer example -- a Certificate Checker for Roundoff Error Bounds -- has been repaired and added back into the build-sequence (#1297, #1404).
 
 ## Build infrastructure
 
