@@ -100,6 +100,9 @@ Definition compile_def:
      [Call t dest (compile env d xs)
          (case h of NONE => NONE
                   | SOME e => SOME (HD (compile (0::env) d [e])))]) /\
+  (* Return/LetCall are pass-through (only nested Lets are optimised). TODO(multiret):
+     no optimisation specific to them yet -- e.g. the Let tail-position move could
+     extend to `Let xs (Return (GENLIST Var n))`. *)
   (compile env d [Return xs] = [Return (compile env d xs)]) /\
   (compile env d [LetCall rets t dest xs y] =
      [LetCall rets t dest (compile env d xs)
