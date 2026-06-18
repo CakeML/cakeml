@@ -176,6 +176,7 @@ End
 
 Overload bvl_inline_compile_prog[local] = ``bvl_inline$compile_prog``
 Overload bvi_tailrec_compile_prog[local] = ``bvi_tailrec$compile_prog``
+Overload bvi_tmc_compile_prog[local] = ``bvi_tmc$compile_prog``
 Overload bvi_to_data_compile_prog[local] = ``bvi_to_data$compile_prog``
 Overload bvl_to_bvi_compile_prog[local] = ``bvl_to_bvi$compile_prog``
 Overload bvl_to_bvi_compile_inc[local] = ``bvl_to_bvi$compile_inc``
@@ -766,14 +767,19 @@ fun qsubpat_x_assum tac = let
   in Tactical.Q_TAC (fn t => first_x_assum (ttac t)) end
 
 Theorem bvl_to_bvi_compile_semantics2:
-  bvl_to_bvi_compile start c names prog = (start',prog',inlines,n1,n2,names1) ∧
-  (?v. FST (co 0) = (inlines, n1, n2, v)) ∧
+  bvl_to_bvi_compile start c names prog = (start',prog',inlines,n1,n2,n3,names1) ∧
+  (?v. FST (co 0) = (inlines, n1, n2, n3, v)) ∧
   (∀n. ALL_DISTINCT (MAP FST (SND (co n)))) ∧
   ALL_DISTINCT (MAP FST prog) ∧
   is_state_oracle bvi_tailrec_compile_prog
     (state_co bvl_to_bvi_compile_inc
       (state_co (bvl_inline_compile_inc c.inline_size_limit
-          c.split_main_at_seq c.exp_cut) co))
+          c.split_main_at_seq c.exp_cut) co)) ∧
+  is_state_oracle bvi_tmc_compile_prog
+    (state_co bvi_tailrec_compile_prog
+      (state_co bvl_to_bvi_compile_inc
+        (state_co (bvl_inline_compile_inc c.inline_size_limit
+            c.split_main_at_seq c.exp_cut) co)))
   ⇒
   bvlSem$semantics ffi0 (fromAList prog) co (bvl_to_bviProof$full_cc c cc)
     start ≠ Fail ⇒
@@ -782,33 +788,43 @@ Theorem bvl_to_bvi_compile_semantics2:
   bvlSem$semantics (ffi0 : 'ffi ffi_state) (fromAList prog)
     co (bvl_to_bviProof$full_cc c cc) start
 Proof
-  cheat (* nss=4/bvi_tmc: reprove; original below *)
-(* === ORIGINAL PROOF (pre-bvi_tmc) ===
   rw []
   \\ irule bvl_to_bviProofTheory.compile_semantics
   \\ fs []
   \\ reverse conj_tac THEN1 metis_tac []
   \\ Induct
   >- (
-    simp []
+    fs []
     \\ fs [bvl_to_bviTheory.compile_def]
     \\ rpt (pairarg_tac \\ fs [])
     \\ rveq \\ fs []
     \\ imp_res_tac bvi_tailrecProofTheory.compile_prog_next_mono
+    \\ imp_res_tac bvi_tmcProofTheory.compile_prog_next_mono
+    \\ rveq \\ fs []
     \\ simp [bvl_to_bviProofTheory.mult_nss_in_ns_2]
+    \\ simp [bvl_to_bviProofTheory.in_ns_def,
+             backend_commonTheory.bvl_to_bvi_namespaces_def]
   )
+  (* step: ns-2 next-name evolves by bvi_tailrec, ns-3 by bvi_tmc *)
+  \\ qpat_x_assum `is_state_oracle bvi_tailrec_compile_prog _` assume_tac
   \\ drule is_state_oracle_k
   \\ disch_then (qspecl_then [`n`] assume_tac)
   \\ fs [backendPropsTheory.FST_state_co]
-  \\ qmatch_goalsub_abbrev_tac `bvi_tailrec_compile_prog st_n prog_n`
-  \\ Cases_on `bvi_tailrec_compile_prog st_n prog_n`
+  \\ qpat_x_assum `is_state_oracle bvi_tmc_compile_prog _` assume_tac
+  \\ drule is_state_oracle_k
+  \\ disch_then (qspecl_then [`n`] assume_tac)
+  \\ fs [backendPropsTheory.FST_state_co]
+  \\ qmatch_goalsub_abbrev_tac `bvi_tailrec_compile_prog tst tpr`
+  \\ Cases_on `bvi_tailrec_compile_prog tst tpr`
+  \\ qmatch_goalsub_abbrev_tac `bvi_tmc_compile_prog cst cpr`
+  \\ Cases_on `bvi_tmc_compile_prog cst cpr`
   \\ imp_res_tac bvi_tailrecProofTheory.compile_prog_next_mono
+  \\ imp_res_tac bvi_tmcProofTheory.compile_prog_next_mono
   \\ fs [PAIR_FST_SND_EQ, backendPropsTheory.FST_state_co]
   \\ rveq \\ fs []
   \\ fs [bvl_to_bviProofTheory.in_ns_def]
   \\ metis_tac [arithmeticTheory.ADD_COMM, arithmeticTheory.MOD_TIMES,
         EVAL ``0 < bvl_to_bvi_namespaces``]
-*)
 QED
 
 Theorem compile_no_stubs_wrap_pure_co:
@@ -1647,6 +1663,30 @@ Proof
   \\ drule_then (fn t => fs (CONJUNCTS t)) cake_orac_config_eqs
   \\ rveq \\ fs []
   \\ rveq \\ fs []
+QED
+
+Theorem is_state_oracle_tmc_cake_orac:
+  compile c prog = SOME (b,bm,c') ==>
+  is_state_oracle bvi_tmc_compile_prog
+    (state_co bvi_tailrec_compile_prog (state_co bvl_to_bvi_compile_inc (state_co
+      (bvl_inline_compile_inc c.bvl_conf.inline_size_limit
+        c.bvl_conf.split_main_at_seq c.bvl_conf.exp_cut)
+      (cake_orac c' syntax config_tuple2 (λps. ps.bvl_prog)))))
+Proof
+  rw []
+  \\ REWRITE_TAC [state_co_eq_comp, o_ASSOC]
+  \\ irule is_state_oracle_cake_orac_comp
+  \\ rw []
+  \\ simp [compile_inc_progs_defs, state_co_fun_def,
+           bvl_to_bviTheory.bvl_to_bvi_compile_inc_all_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rveq \\ fs []
+  \\ fs [config_tuple2_def]
+  \\ rveq \\ fs []
+  \\ drule_then (fn t => fs (CONJUNCTS t)) cake_orac_config_eqs
+  \\ rveq \\ fs []
+  \\ rveq \\ fs []
+  \\ rfs [] \\ fs []
 QED
 
 Theorem inline_compile_inc_names:
