@@ -76,7 +76,7 @@ A new example for distributed SAT proof checking (#1384)
 
 ## Build infrastructure
 
-`examples/compilation/{ag32,x64}` now make use of HOL's `LOCAL_PARALLELISM_LIMIT` instead of `CLINE_OPTIONS = -j1` (#1414), limiting parallelism only in that directory and not others (#1414). 
+`examples/compilation/{ag32,x64}` now make use of HOL's `LOCAL_PARALLELISM_LIMIT` instead of `CLINE_OPTIONS = -j1`, limiting parallelism only in that directory and not others (#1414). 
 
 ## Proof engineering and tooling
 
