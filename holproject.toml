@@ -3,10 +3,10 @@ name = "cakeml"
 holpath = "CAKEMLDIR"
 
 exclude = [
-  "examples",
   "candle/overloading",
   "compiler/benchmarks",
   "compiler/bootstrap/compilation/x64/32",
+  "translator/monadic/examples",
   "translator/other-examples",
   "tutorial",
   "unverified/sexpr-bootstrap/x64/32"
