@@ -545,6 +545,19 @@ Definition sexp_in_body_def:
     | _ => fail («in expects 2 args: (X1 ... Xn) Y\n»)
 End
 
+(* at_most_one: (X1 ... Xn) val -- at most one Xi equals val *)
+Definition sexp_at_most_one_body_def:
+  sexp_at_most_one_body rest =
+    case rest of
+      [Xs_e; Ye] =>
+      (do
+         Xs <- sexp_varc_list Xs_e;
+         Y <- sexp_varc Ye;
+         return (Counting (AtMostOne Xs Y))
+       od)
+    | _ => fail («at_most_one expects 2 args: (X1 ... Xn) val\n»)
+End
+
 (* Counting: returns NONE when ctype isn't a counting constraint so the
    top-level dispatcher can fall through. *)
 Definition sexp_counting_dispatch_def:
@@ -554,6 +567,7 @@ Definition sexp_counting_dispatch_def:
     else if ctype = «count»         then SOME (sexp_count_body rest)
     else if ctype = «among»         then SOME (sexp_among_body rest)
     else if ctype = «in»            then SOME (sexp_in_body rest)
+    else if ctype = «at_most_one»   then SOME (sexp_at_most_one_body rest)
     else NONE
 End
 
@@ -910,6 +924,10 @@ Theorem test_counting:
   sexp_constraint_dispatch («in»)
     (fromStringL («((A B C) X)»)) =
     INR (Counting (In [INL «A»; INL «B»; INL «C»] (INL «X»))) ∧
+  (* at_most_one *)
+  sexp_constraint_dispatch («at_most_one»)
+    (fromStringL («((A B C) V)»)) =
+    INR (Counting (AtMostOne [INL «A»; INL «B»; INL «C»] (INL «V»))) ∧
   (* all_different wrong arity *)
   sexp_constraint_dispatch («all_different»)
     (fromStringL («((A B C) Y)»)) =

@@ -121,6 +121,7 @@ val res = translate sexp_nvalue_body_def;
 val res = translate sexp_count_body_def;
 val res = translate sexp_among_body_def;
 val res = translate sexp_in_body_def;
+val res = translate sexp_at_most_one_body_def;
 val res = translate sexp_counting_dispatch_def;
 
 (* logical *)
@@ -238,6 +239,8 @@ val res = translate cvar_imply_def;
 val res = translate mk_name_def;
 val res = translate at_least_one_def;
 val res = translate cat_least_one_def;
+val res = translate at_most_one_def;
+val res = translate cat_most_one_def;
 
 val res = translate intnum_def;
 
@@ -376,6 +379,7 @@ val res = translate cp_to_ilp_countingTheory.cencode_full_eq_ilist_def;
 val res = translate cp_to_ilp_countingTheory.cencode_among_def;
 
 val res = translate cp_to_ilp_countingTheory.cencode_in_def;
+val res = translate cp_to_ilp_countingTheory.cencode_at_most_one_def;
 val res = translate cp_to_ilp_countingTheory.cencode_counting_constr_def;
 
 (* cp_to_ilp_linear *)
