@@ -943,6 +943,20 @@ Proof
   \\ EVAL_TAC
 QED
 
+Theorem configs_nn3_MOD_namespaces_ok:
+  compile c prog = SOME (b, bm, c') /\ backend_config_ok c ==>
+  c'.bvl_conf.next_name3 MOD bvl_to_bvi_namespaces = 3
+Proof
+  fs [backendTheory.compile_def, compile_tap_def, bvl_to_bviTheory.compile_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rw []
+  \\ drule_then assume_tac attach_bitmaps_SOME
+  \\ rveq \\ fs []
+  \\ drule bvi_tmcProofTheory.compile_prog_next_mono
+  \\ rw [] \\ simp [EVAL ``0 < bvl_to_bvi_namespaces``]
+  \\ EVAL_TAC
+QED
+
 Theorem bvl_to_bvi_compile_inc_all_num_stubs_LE:
   bvl_to_bvi_compile_inc_all c bvl = (c', bvi) ==>
   bvl_num_stubs <= c.next_name2 /\ bvl_num_stubs <= c.next_name3 ==>
@@ -1640,6 +1654,18 @@ Theorem tailrec_compile_prog_MEM_not_nss_2:
 Proof
   rw []
   \\ drule_then drule (GEN_ALL bvi_tailrecProofTheory.compile_prog_MEM)
+  \\ rw []
+  \\ fs [EVAL ``0 < bvl_to_bvi_namespaces``]
+QED
+
+Theorem tmc_compile_prog_MEM_not_nss_3:
+  ∀ys xs n1 n e.
+  bvi_tmc_compile_prog n xs = (n1,ys) ∧ MEM e (MAP FST ys) ∧
+  n MOD bvl_to_bvi_namespaces = 3 /\ e MOD bvl_to_bvi_namespaces ≠ 3 ⇒
+  MEM e (MAP FST xs)
+Proof
+  rw []
+  \\ drule_then drule (GEN_ALL bvi_tmcProofTheory.compile_prog_MEM)
   \\ rw []
   \\ fs [EVAL ``0 < bvl_to_bvi_namespaces``]
 QED
