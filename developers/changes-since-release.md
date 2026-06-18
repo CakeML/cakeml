@@ -66,11 +66,17 @@ The Pancake compiler now unconditionally compiles with GC set to `none`; any `--
 
 ## Candle
 
+By optimizing the kernel Candle, we were able to achieve a 1.88x speedup on `make_complex.ml` (previously 56m49.502s, now 30m10.587s) (#1415).
+
+A model of [Little Theories](https://web.cs.wpi.edu/~guttman/pubs/cade_little-theories.pdf) (Farmer et al., 1992) has been added to Candle (#1405). 
+
 ## Examples
 
 A new example for distributed SAT proof checking (#1384)
 
 ## Build infrastructure
+
+`examples/compilation/{ag32,x64}` now make use of HOL's `LOCAL_PARALLELISM_LIMIT` instead of `CLINE_OPTIONS = -j1` (#1414), limiting parallelism only in that directory and not others (#1414). 
 
 ## Proof engineering and tooling
 
@@ -86,3 +92,5 @@ A new example for distributed SAT proof checking (#1384)
     - `strlit_tm`, `mk_strlit`, `dest_strlit` and `is_strlit` are still available but may be removed in the future. It is recommended to use `implode_tm`, `mk_implode`, `dest_implode` and `is_implode` instead.
 
 ## Miscellaneous
+
+Initial work on improving the in-logic performance of the CakeML parser has begun (#1407).
