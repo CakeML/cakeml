@@ -492,6 +492,14 @@ Proof
   Cases_on ‘x’ >> simp [not_def, iname_def]
 QED
 
+Theorem iname_iext_lit[simp]:
+  iname (iext_lit x) = 0
+Proof
+  namedCases_on ‘x’ ["v b"]
+  >> Cases_on ‘v’
+  >> simp [iext_lit_def, iext_var_def, iname_def]
+QED
+
 Theorem eval_lit_Anon_neq:
   iname m ≠ n ⇒
   (eval_lit ss ((Anon n, xs)::circ) m ⇔ eval_lit ss circ m)
@@ -978,8 +986,8 @@ QED
 
 Theorem eval_circuit_encode_signal_imply:
   LENGTH signals' = LENGTH signals ∧
-  EVERY (λx. iname x < 1) signals  ∧
-  EVERY (λx. iname x < 1) signals'
+  EVERY (λx. iname x = 0) signals  ∧
+  EVERY (λx. iname x = 0) signals'
   ⇒
   (eval_circuit ss (encode_signal_imply circ name signals signals') (Named n) =
    if n = Ext name then
@@ -996,6 +1004,22 @@ Proof
   >> drule_then assume_tac encode_signal_imply_aux_LENGTH >> gvs [MIN_DEF]
   >> drule encode_signal_imply_aux_eval_lit
   >> simp []
+QED
+
+Theorem eval_lit_encode_signal_imply_Name:
+  LENGTH signals' = LENGTH signals ∧
+  EVERY (λx. iname x = 0) signals  ∧
+  EVERY (λx. iname x = 0) signals'
+  ⇒
+  (eval_lit ss (encode_signal_imply circ name signals signals')
+     (Name (Named n), b) ⇔
+   if n = Ext name then
+     (b ⇎ signal_imply ss circ ss circ signals signals')
+   else eval_lit ss circ (Name (Named n), b))
+Proof
+  strip_tac >> simp [eval_circuit_def]
+  >> drule_all eval_circuit_encode_signal_imply
+  >> rw []
 QED
 
 (* Encoding lives_hold ********************************************************)
@@ -1163,7 +1187,7 @@ Definition encode_is_witness_liveness_def:
     mqcirc = qleft mcirc;
     wqcirc = qinterv interv wcirc;
     qcirc = imerge_circuits mqcirc wqcirc;
-    qcirc = encode_signal_imply qcirc «lives_imply» msignals wsignals;
+    qcirc = encode_signal_imply qcirc «lives_imply» wsignals msignals;
     circ = imerge_circuits mcirc wcirc;
     circ = encode_preds_hold circ «mcnstrs» (ileft_name_lits mcnstrs);
     circ = encode_preds_hold circ «wcnstrs» (iright_name_lits wcnstrs);
@@ -1319,6 +1343,17 @@ Proof
         GSYM MAP_MAP_o, MEM_MAP, PULL_EXISTS]
 QED
 
+Theorem signal_imply_iright_ileft[local,simp]:
+  signal_imply ss₀ (imerge_circuits circ₁ circ₂)
+    ss₁ (imerge_circuits circ₃ circ₄) (iright_name_lits signals')
+    (ileft_name_lits signals)
+  ⇔
+  signal_imply ss₀ circ₂ ss₁ circ₃ signals' signals
+Proof
+  simp [signal_imply_def, ileft_name_lits_def, iright_name_lits_def,
+        preds_hold_def, LIST_REL_MAP]
+QED
+
 (* Main encoder theorems ******************************************************)
 
 Theorem eval_circuit_encode_is_witness_reset:
@@ -1443,6 +1478,8 @@ Proof
 QED
 
 Theorem eval_circuit_encode_is_witness_liveness:
+  LIST_REL (λms ws. LENGTH ms = LENGTH ws) mlive wlive
+  ⇒
   (∀ss.
      (eval_circuit ss
        (encode_is_witness_liveness
@@ -1455,5 +1492,42 @@ Theorem eval_circuit_encode_is_witness_liveness:
     wcirc wreset wnext (set wpreds) (set wcnstrs)
     (qinterv interv wcirc) (qinterv_live interv wlive) (set wlatches)
 Proof
-  cheat
+  strip_tac
+  >> simp [
+      encode_is_witness_liveness_def,
+      eval_circuit_encode_imply,
+      encode_is_next_def, is_next_def,
+      is_witness_liveness_def, lives_imply_signal_imply_FLAT,
+      eval_lit_encode_preds_hold_Named,
+      eval_lit_encode_equiv_Named,
+      eval_lit_base,
+      FORALL_PAIR_STATE,
+      EXISTS_MEM, MEM_MAP, PULL_EXISTS
+    ]
+  >> qabbrev_tac ‘mlive' = qleft_live mlive’
+  >> qabbrev_tac ‘wlive' = qinterv_live interv wlive’
+  >> sg ‘LIST_REL (λms ws. LENGTH ms = LENGTH ws) mlive' wlive'’
+  >-
+   (fs [Abbr ‘mlive'’, Abbr ‘wlive'’, LIST_REL_EL_EQN, qinterv_live_def,
+        qleft_live_def, EL_MAP])
+  >> qmatch_goalsub_abbrev_tac ‘encode_signal_imply _ _ signals signals'’
+  >> sg ‘LENGTH signals' = LENGTH signals’
+  >-
+   (simp [Abbr ‘signals'’, Abbr ‘signals’, iright_name_lits_def,
+          ileft_name_lits_def]
+    >> drule LIST_REL_LENGTH_FLAT >> simp [])
+  >> sg ‘EVERY (λx. iname x = 0) signals ∧ EVERY (λx. iname x = 0) signals'’
+  >-
+   (unabbrev_all_tac
+    >> simp [EVERY_MEM, ileft_name_lits_def, iright_name_lits_def,
+             GSYM MAP_MAP_o, MEM_MAP, PULL_EXISTS])
+  >> drule_all_then assume_tac eval_lit_encode_signal_imply_Name
+  >> simp [is_witness_liveness_def, lives_imply_signal_imply_FLAT]
+  >> sg ‘LIST_REL (λws ms. LENGTH ws = LENGTH ms) wlive' mlive'’
+  >-
+   (irule LIST_REL_sym
+    >> qpat_x_assum ‘LIST_REL _ mlive' wlive'’ $ irule_at Any
+    >> simp [])
+  >> simp [Abbr ‘signals’, Abbr ‘signals'’]
+  >> metis_tac []
 QED
