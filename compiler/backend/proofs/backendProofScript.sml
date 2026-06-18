@@ -1213,7 +1213,8 @@ QED
 
 Theorem bvl_to_bvi_compile_inc_all_DISTINCT:
   bvl_to_bvi_compile_inc_all c p = (c', p') /\
-  ALL_DISTINCT (MAP FST p) /\ c.next_name2 MOD bvl_to_bvi_namespaces = 2 ==>
+  ALL_DISTINCT (MAP FST p) /\ c.next_name2 MOD bvl_to_bvi_namespaces = 2 /\
+  c.next_name3 MOD bvl_to_bvi_namespaces = 3 ==>
   ALL_DISTINCT (MAP FST p')
 Proof
   mp_tac (GEN_ALL ALL_DISTINCT_MAP_FST_SND_full_co
@@ -1243,11 +1244,12 @@ Proof
   \\ simp[word_to_wordTheory.full_compile_single_def, UNCURRY]
   \\ simp [ETA_THM]
   \\ drule_then irule bvl_to_bvi_compile_inc_all_DISTINCT
-  \\ simp [configs_nn2_MOD_namespaces]
+  \\ simp [configs_nn2_MOD_namespaces, configs_nn3_MOD_namespaces]
   \\ fs [backendTheory.compile_def, compile_tap_def, bvl_to_bviTheory.compile_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ drule attach_bitmaps_SOME
   \\ drule bvi_tailrecProofTheory.compile_prog_next_mono
+  \\ imp_res_tac bvi_tmcProofTheory.compile_prog_next_mono
   \\ rw []
   \\ simp []
   \\ EVAL_TAC
