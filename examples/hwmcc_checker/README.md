@@ -20,3 +20,6 @@ Mapping And-Inverter Graphs into CNF
 
 [examples](examples):
 Examples to test the AIGER infrastructure.
+
+[translation](translation):
+Translation scripts.
