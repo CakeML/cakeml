@@ -2559,7 +2559,7 @@ Definition comp_def:
     | Skip => (Skip:'a wordLang$prog,l)
     | Tick => (Tick,l)
     | Raise n => (Raise (adjust_var n),l)
-    | Return n => (Return 0 [adjust_var n],l)
+    | Return ns => (Return 0 (MAP adjust_var ns),l)
     | Move n1 n2 => (Move 0 [(adjust_var n1 ,adjust_var n2)],l)
     | Seq p1 p2 =>
         let (q1,l1) = comp c secn l p1 in
@@ -2585,8 +2585,8 @@ Definition comp_def:
     | Call ret target args handler =>
         case ret of
         | NONE => (Call NONE target (0::MAP adjust_var args) NONE,l)
-        | SOME (n,names) =>
-            let ret = SOME ([adjust_var n], adjust_sets names, Skip, secn, l) in
+        | SOME (ns,names) =>
+            let ret = SOME (MAP adjust_var ns, adjust_sets names, Skip, secn, l) in
               case handler of
               | NONE => (Call ret target (MAP adjust_var args) NONE, l+1)
               | SOME (n,p) =>
