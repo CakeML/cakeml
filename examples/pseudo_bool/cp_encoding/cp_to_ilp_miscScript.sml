@@ -5,7 +5,7 @@ Theory cp_to_ilp_misc
 Libs
   preamble
 Ancestors
-  pbc cp ilp cp_to_ilp
+  pbc cp ilp cp_to_ilp cp_to_ilp_linear
 
 (* equivalent definition to circuit_sem *)
 
@@ -215,13 +215,61 @@ Proof
     metis_tac[])
 QED
 
-(* Misc constraints are not yet implemented in the CP semantics
-   (misc_constr_sem always returns T)
-   These are placeholders for future work *)
+Definition cencode_knapsack1_def:
+  cencode_knapsack1 name (n:num) Xs cs t =
+  List (cmk_lin_eq (name ^ toString n) (ZIP(cs,Xs)) t)
+End
+
+Definition cencode_knapsack_def:
+  cencode_knapsack css Xs ts name =
+  let lxs = LENGTH Xs in
+  if
+    EVERY (λcs. LENGTH cs = lxs) css ∧
+    LENGTH ts = LENGTH css
+  then
+    flat_app (MAPi (λn (cs,t). cencode_knapsack1 name n Xs cs t) (ZIP (css,ts)))
+  else
+    cfalse_constr
+End
+
+Definition encode_knapsack_def[simp]:
+  encode_knapsack css Xs ts name =
+  abstr $ cencode_knapsack css Xs ts name
+End
+
+Theorem encode_knapsack_sem_1:
+  knapsack_sem css Xs ts wi ⇒
+  EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
+    (encode_knapsack css Xs ts name)
+Proof
+  rw[cencode_knapsack_def,knapsack_sem_def]>>
+  gvs[LIST_REL_EL_EQN,EVERY_FLAT,EVERY_MEM,MEM_MAPi,
+    PULL_EXISTS,cencode_knapsack1_def]>>
+  rw[]>>
+  pairarg_tac>>gvs[eval_iclin_term_CONS,EL_ZIP,EL_MAP]>>
+  first_x_assum drule_all>>
+  intLib.ARITH_TAC
+QED
+
+Theorem encode_knapsack_sem_2:
+  EVERY (λx. iconstraint_sem x (wi,wb))
+    (encode_knapsack css Xs ts name) ⇒
+  knapsack_sem css Xs ts wi
+Proof
+  rw[cencode_knapsack_def,knapsack_sem_def]>>
+  gvs[LIST_REL_EL_EQN,EVERY_FLAT,EVERY_MEM,MEM_MAPi,
+    PULL_EXISTS,cencode_knapsack1_def,cfalse_constr_def]>>
+  rw[]>>first_x_assum drule>>
+  pairarg_tac>>rw[]>>gvs[SF DNF_ss,eval_iclin_term_CONS,EL_ZIP,EL_MAP]>>
+  intLib.ARITH_TAC
+QED
 
 Definition encode_misc_constr_def:
   encode_misc_constr bnd c name =
-  []
+  case c of
+    Knapsack css Xs ts =>
+    encode_knapsack css Xs ts name
+  | _ => [] (* TODO *)
 End
 
 Theorem encode_misc_constr_sem_1:
@@ -231,8 +279,10 @@ Theorem encode_misc_constr_sem_1:
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
     (encode_misc_constr bnd c name)
 Proof
-  rw[encode_misc_constr_def]>>
-  cheat
+  Cases_on`c`>>
+  rw[encode_misc_constr_def,misc_constr_sem_def]
+  >-
+    (drule encode_knapsack_sem_1>>rw[])
 QED
 
 Theorem encode_misc_constr_sem_2:
@@ -241,14 +291,21 @@ Theorem encode_misc_constr_sem_2:
     (encode_misc_constr bnd c name) ⇒
   misc_constr_sem c wi
 Proof
-  rw[encode_misc_constr_def,misc_constr_sem_def]>>
-  cheat
+  Cases_on`c`>>
+  rw[encode_misc_constr_def,misc_constr_sem_def]
+  >-  cheat
+  >- (
+    irule encode_knapsack_sem_2>>
+    gvs[]>>metis_tac[])
 QED
 
 (* Concrete encodings *)
 Definition cencode_misc_constr_def:
   cencode_misc_constr bnd c name ec =
-  (List [], ec)
+  case c of
+    Knapsack css Xs ts =>
+    (cencode_knapsack css Xs ts name, ec)
+  | _ => (Nil,ec) (* TODO *)
 End
 
 Theorem cencode_misc_constr_sem:
@@ -256,6 +313,6 @@ Theorem cencode_misc_constr_sem:
   cencode_misc_constr bnd c name ec = (es, ec') ⇒
   enc_rel wi es (encode_misc_constr bnd c name) ec ec'
 Proof
-  rw[cencode_misc_constr_def,encode_misc_constr_def]>>
-  simp[enc_rel_def]
+  Cases_on`c`>>
+  rw[cencode_misc_constr_def,encode_misc_constr_def]
 QED

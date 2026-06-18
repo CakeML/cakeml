@@ -133,8 +133,12 @@ val res = translate sexp_off_list_def;
 val res = translate sexp_inverse_body_def;
 val res = translate sexp_channeling_dispatch_def;
 
-(* TODO: lex, misc — add once hooked into the
-   top-level dispatcher in cp_parseScript.sml. *)
+(* misc: knapsack (circuit disabled until its encoding is done; TODO: lex) *)
+(* val res = translate sexp_circuit_body_def; *)
+val res = translate sexp_int_rows_aux_def;
+val res = translate sexp_int_rows_def;
+val res = translate sexp_knapsack_body_def;
+val res = translate sexp_misc_dispatch_def;
 
 val res = translate strip_prefix_def;
 
@@ -470,6 +474,8 @@ val res = translate cp_to_ilp_channelingTheory.cencode_channeling_constr_def;
 
 (* cp_to_ilp_misc *)
 
+val res = translate cp_to_ilp_miscTheory.cencode_knapsack1_def;
+val res = translate cp_to_ilp_miscTheory.cencode_knapsack_def;
 val res = translate cp_to_ilp_miscTheory.cencode_misc_constr_def;
 
 (* cp_to_ilp_all *)

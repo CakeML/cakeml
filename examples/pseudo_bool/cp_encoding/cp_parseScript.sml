@@ -632,9 +632,44 @@ Definition sexp_circuit_body_def:
     | _ => fail («circuit expects 1 arg: (X1 ... Xn)\n»)
 End
 
+(* a list of integer rows: ((c11 ... c1n) (c21 ... c2n) ...) *)
+Definition sexp_int_rows_aux_def:
+  (sexp_int_rows_aux [] = return []) ∧
+  (sexp_int_rows_aux (e::es) =
+    do
+      r <- sexp_int_list e;
+      rs <- sexp_int_rows_aux es;
+      return (r::rs)
+    od)
+End
+
+Definition sexp_int_rows_def:
+  sexp_int_rows e =
+  case e of
+    Expr es => sexp_int_rows_aux es
+  | _ => fail («expected s-expression list of integer rows\n»)
+End
+
+(* knapsack: ((c11 ... c1n) ...) (X1 ... Xn) (t1 ... tm) -- each row cs with
+   target t asserts the linear equation sum(cs_i * Xs_i) = t *)
+Definition sexp_knapsack_body_def:
+  sexp_knapsack_body rest =
+    case rest of
+      [css_e; Xs_e; ts_e] =>
+      (do
+         css <- sexp_int_rows css_e;
+         Xs <- sexp_varc_list Xs_e;
+         ts <- sexp_varc_list ts_e;
+         return (Misc (Knapsack css Xs ts))
+       od)
+    | _ => fail («knapsack expects 3 args: ((c11 ...) ...) (X1 ... Xn) (t1 ... tm)\n»)
+End
+
 Definition sexp_misc_dispatch_def:
   sexp_misc_dispatch ctype rest =
-    if ctype = «circuit» then SOME (sexp_circuit_body rest)
+    (* circuit disabled until its encoding is finished:
+            if ctype = «circuit» then SOME (sexp_circuit_body rest) else *)
+    if ctype = «knapsack» then SOME (sexp_knapsack_body rest)
     else NONE
 End
 
@@ -671,11 +706,9 @@ Definition sexp_constraint_dispatch_def:
     case sexp_channeling_dispatch ctype rest of
       SOME res => res
     | NONE =>
-    (*
     case sexp_misc_dispatch ctype rest of
       SOME res => res
     | NONE =>
-    *)
     sexp_prim_dispatch ctype rest
 End
 
