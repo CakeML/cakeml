@@ -165,7 +165,8 @@ Definition do_app_def:
     | SOME (SOME (v,t)) => Rval (v,t)
     | SOME NONE => (case bvlSem$do_app op vs (bvi_to_bvl s) of
                     | Rval (v,t) => Rval (v, bvl_to_bvi t s)
-                    | Rerr _ => Rerr(Rabort Rtype_error))
+                    | Rerr (Rabort a) => Rerr (Rabort a)
+                    | Rerr (Rraise v) => Rerr (Rraise (Exn v)))
 End
 
 Datatype:
@@ -283,7 +284,9 @@ Definition evaluate_def:
               if (s.clock < ticks + 1) then (Rerr(Rabort Rtimeout_error),s with clock := 0) else
                 case fix_clock (dec_clock (ticks+1) s) (evaluate ([exp],args,dec_clock (ticks+1) s)) of
                 | (Rval _,s) => (Rerr(Rabort Rtype_error),s)
-                | (Rerr(Rraise (Ret ret_vs)),s) => evaluate ([y],ret_vs ++ env,s)
+                | (Rerr(Rraise (Ret ret_vs)),s) =>
+                    if LENGTH ret_vs = rets then evaluate ([y],ret_vs ++ env,s)
+                    else (Rerr(Rabort Rtype_error),s)
                 | res => res)
      | res => res)
 Termination
@@ -309,11 +312,9 @@ Proof
   THEN1 (ntac 2 (every_case_tac \\ fs [UNCURRY]) \\ rw [] \\ fs [])
   \\ Cases_on `do_app_aux op args s1` \\ fs []
   \\ Cases_on `x` \\ fs [] THEN1
-   (Cases_on `do_app op args (bvi_to_bvl s1)` \\ fs []
-    \\ Cases_on `a` \\ fs []
+   (every_case_tac \\ fs []
     \\ IMP_RES_TAC bvlSemTheory.do_app_const
-    \\ SRW_TAC [] [bvl_to_bvi_def,bvi_to_bvl_def]
-    \\ SRW_TAC [] [bvl_to_bvi_def,bvi_to_bvl_def])
+    \\ SRW_TAC [] [bvl_to_bvi_def,bvi_to_bvl_def] \\ fs [])
   \\ Cases_on `x'` \\ fs []
   \\ fs [do_app_aux_def]
   \\ BasicProvers.EVERY_CASE_TAC

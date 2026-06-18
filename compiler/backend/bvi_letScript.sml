@@ -99,7 +99,11 @@ Definition compile_def:
   (compile env d [Call t dest xs h] =
      [Call t dest (compile env d xs)
          (case h of NONE => NONE
-                  | SOME e => SOME (HD (compile (0::env) d [e])))])
+                  | SOME e => SOME (HD (compile (0::env) d [e])))]) /\
+  (compile env d [Return xs] = [Return (compile env d xs)]) /\
+  (compile env d [LetCall rets t dest xs y] =
+     [LetCall rets t dest (compile env d xs)
+        (HD (compile (REPLICATE rets 0 ++ env) d [y]))])
 Termination
   WF_REL_TAC `measure (bvi$exp2_size o SND o SND)`
   \\ rw [] \\ fs [LENGTH_NIL]
@@ -141,6 +145,10 @@ Definition compile_sing_def:
      (Call t dest (compile_list env d xs)
          (case h of NONE => NONE
                   | SOME e => SOME ((compile_sing (0::env) d e))))) /\
+  (compile_sing env d (Return xs) = Return (compile_list env d xs)) /\
+  (compile_sing env d (LetCall rets t dest xs y) =
+     LetCall rets t dest (compile_list env d xs)
+        (compile_sing (REPLICATE rets 0 ++ env) d y)) /\
   (compile_list env d [] = []) /\
   (compile_list env d (x::xs) =
     compile_sing env d x :: compile_list env d xs)
