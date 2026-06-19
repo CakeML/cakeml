@@ -9,6 +9,9 @@ Translates aig_cert_encode.
 [aig_cert_fullProgScript.sml](aig_cert_fullProgScript.sml):
 Translates aig_cert_full.
 
+[aig_fmapsProgScript.sml](aig_fmapsProgScript.sml):
+Setting up translator for the fmap instances that are used in aig_to_cnf.
+
 [aig_parseProgScript.sml](aig_parseProgScript.sml):
 Translates aig_parse.
 

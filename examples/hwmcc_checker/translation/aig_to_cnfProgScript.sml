@@ -4,11 +4,11 @@
 Theory aig_to_cnfProg
 Ancestors
   ml_translator  (* MEMBER_INTRO *)
-  aig_cert_encodeProg aig_to_cnf
+  aig_fmapsProg aig_to_cnf
 Libs
   preamble ml_translatorLib
 
-val _ = translation_extends "aig_cert_encodeProg";
+val _ = translation_extends "aig_fmapsProg";
 
 val r = translate aig_to_cnfTheory.negate_def;
 val r = translate aig_to_cnfTheory.eq_every_to_cnf_def;

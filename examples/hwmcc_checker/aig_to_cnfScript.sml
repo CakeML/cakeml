@@ -7,6 +7,12 @@ Ancestors
 Libs
   preamble
 
+Definition fmap_update_def:
+  fmap_update f k v = f |+ (k,v)
+End
+
+Theorem fmap_update_simp[local,simp] = fmap_update_def;
+
 (*----------------------------------------------------------------------*
    pruning
  *----------------------------------------------------------------------*)
@@ -15,7 +21,7 @@ Definition new_live_def:
   new_live ([] : (('a,'i,'l) var # bool) list) l = (l:'a |-> unit) ∧
   new_live ((x,b) :: xs) l =
     case x of
-    | Name n => new_live xs l |+ (n,())
+    | Name n => fmap_update (new_live xs l) n ()
     | Base _ => new_live xs l
 End
 
@@ -40,7 +46,7 @@ Definition prune_rev_def:
 End
 
 Definition prune_for_def:
-  prune_for name ands = prune_rev ands (FEMPTY |+ (name,())) []
+  prune_for name ands = prune_rev ands (fmap_update FEMPTY name ()) []
 End
 
 Theorem prune_rev_thm:
@@ -162,12 +168,12 @@ Definition aig_rename_aux_def:
     | Base (Input i) =>
         (case FLOOKUP im i of
          | NONE   => aig_rename_aux rest (next+1)
-                       (im |+ (i,next)) lm nm ((Base (Input next),b)::acc)
+                       (fmap_update im i next) lm nm ((Base (Input next),b)::acc)
          | SOME t => aig_rename_aux rest next im lm nm ((Base (Input t),b)::acc))
     | Base (Latch l) =>
         (case FLOOKUP lm l of
          | NONE   => aig_rename_aux rest (next+1) im
-                       (lm |+ (l,next)) nm ((Base (Latch next),b)::acc)
+                       (fmap_update lm l next) nm ((Base (Latch next),b)::acc)
          | SOME t => aig_rename_aux rest next im lm nm ((Base (Latch t),b)::acc))
     | Base Ff => aig_rename_aux rest next im lm nm ((Base Ff,b)::acc)
 End
@@ -178,14 +184,14 @@ Definition aig_rename_def:
   aig_rename ((m,ts)::xs) =
     let (res,next,im,lm,nm) = aig_rename xs in
     let (ts1,next,im,lm) = aig_rename_aux ts next im lm nm [] in
-      ((next,ts1)::res, next+1, im, lm, nm |+ (m, next))
+      ((next,ts1)::res, next+1, im, lm, fmap_update nm m next)
 End
 
 Definition aig_rename_rev_def:
   aig_rename_rev ([]:('a,'b,'c) and list) acc next im lm nm = (acc,next,im,lm,nm) ∧
   aig_rename_rev ((m,ts)::xs) acc next im lm nm =
     let (ts1,next,im,lm) = aig_rename_aux ts next im lm nm [] in
-      aig_rename_rev xs ((next,ts1)::acc) (next+1) im lm (nm |+ (m, next))
+      aig_rename_rev xs ((next,ts1)::acc) (next+1) im lm (fmap_update nm m next)
 End
 
 Theorem aig_rename_rev_append:
